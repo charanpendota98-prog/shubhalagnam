@@ -144,8 +144,11 @@ body {
 }
 
 /* ---------- Ticker ---------- */
-.ticker-track { display: inline-flex; white-space: nowrap; animation: tickerScroll 28s linear infinite; }
+.ticker-track { display: inline-flex; white-space: nowrap; animation: tickerScroll 28s linear infinite; will-change: transform; }
 .ticker-mask { mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent); }
+/* Give users control over motion without making the premium ticker feel static. */
+.ticker-mask:hover .ticker-track, .ticker-mask:focus-within .ticker-track { animation-play-state: paused; }
+@media (max-width: 640px) { .ticker-track { animation-duration: 36s; } }
 
 @keyframes tickerScroll {
   0% { transform: translateX(0); }
