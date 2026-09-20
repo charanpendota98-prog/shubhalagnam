@@ -21,6 +21,8 @@ const nextConfig = {
     // 🛡️ R11: production lo SAMEORIGIN (clickjacking block — matrimony site ki must).
     // Dev/preview lo ALLOWALL (sandbox iframe preview kavali).
     const isProd = process.env.NODE_ENV === 'production';
+    // Do not emit the non-standard `X-Frame-Options: ALLOWALL` in preview.
+    // Omitting it lets Arena's preview iframe render while production remains protected.
     const base = isProd
       ? [
           { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
@@ -28,7 +30,7 @@ const nextConfig = {
           { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
           { key: 'Permissions-Policy', value: 'camera=(self), microphone=(self), geolocation=()' },
         ]
-      : [{ key: 'X-Frame-Options', value: 'ALLOWALL' }];
+      : [];
     return [
       { source: '/(.*)', headers: base },
     ];
