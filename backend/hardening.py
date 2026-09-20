@@ -68,11 +68,17 @@ else:
     SECRET_IS_DEV = False
 
 ADMIN_KEY = os.getenv("ADMIN_KEY", "").strip()
+PRODUCTION = _flag("APP_ENV") in ("production", "prod", "live")
 if not ADMIN_KEY:
+    if PRODUCTION:
+        raise RuntimeError("ADMIN_KEY must be configured in production; refusing derived admin credentials")
     ADMIN_KEY = "tsap-admin-" + hmac.new(SECRET.encode(), b"admin", hashlib.sha256).hexdigest()[:10]
     ADMIN_KEY_IS_DERIVED = True
 else:
     ADMIN_KEY_IS_DERIVED = False
+
+if PRODUCTION and SECRET_IS_DEV:
+    raise RuntimeError("TSAP_AUTH_SECRET/JWT_SECRET must be configured in production")
 
 # 👤 WAVE 41 — STAFF ROLE: owner mathrame full admin; staff ki limited access
 # (matchsend + daily matches + showcase + profiles + photos). Money/data/exports → owner only.

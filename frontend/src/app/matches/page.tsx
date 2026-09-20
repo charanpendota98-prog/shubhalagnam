@@ -21,7 +21,6 @@ import TrustBadge from "@/components/TrustBadge";
 import AuthGate from "@/components/AuthGate";
 import { apiGet, apiPost, getToken } from "@/lib/api";
 import { firstName } from "@/lib/names";
-import AdSlot from "@/components/AdSlot";
 import TopPicks from "@/components/TopPicks";
 import { Duo, duo } from "@/lib/duo";
 import { useLang } from "@/lib/lang";
@@ -802,7 +801,7 @@ export default function MatchesAdvanced() {
           <button onClick={() => setSheet(true)} className="mt-3 w-full py-2.5 rounded-xl gold-gradient text-maroon text-[12px] font-bold">
             {te ? "➕ ఇంకా ఎక్కువ filters (caste 43, edu, salary…)" : "➕ More filters (43 castes, edu, salary…)"}
           </button>
-          <div className="mt-3"><AdSlot slot="matches_sidebar" district={filters.district || ""} state={filters.state || ""} /></div>
+          {/* Matrimony search stays distraction-free: sponsored promotions are not shown inside match results. */}
         </aside>
 
         <TopPicks />
@@ -817,7 +816,7 @@ export default function MatchesAdvanced() {
           )}
 
           <div className="mb-3"><QuickLead source="matches_page" /></div>
-          <div className="mb-3 md:hidden"><AdSlot slot="matches_sidebar" district={filters.district || ""} state={filters.state || ""} /></div>
+          {/* Mobile match results also remain ad-free. */}
 
           <div className="maroon-gradient text-white rounded-[1.5rem] p-4">
             <div className="font-bold text-[14px] telugu">{te ? "🚫 Chatting లేదు — 💌 Interest పంపు, accept అయితే WhatsApp లో numbers exchange" : "🚫 No chatting — 💌 send Interest, numbers exchange on WhatsApp after accept"}</div>

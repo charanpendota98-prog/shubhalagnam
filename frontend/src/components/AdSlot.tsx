@@ -19,7 +19,12 @@ export default function AdSlot({ slot, district = "", state = "", className = ""
   const te = lang === "te";
   const [ad, setAd] = useState<Ad | null>(null);
 
+  // Trust rule: never place paid promotions inside matching, profile, or search flows.
+  // Keep the component defensive so a future page cannot accidentally violate it.
+  const isProtectedFlow = slot === "matches_sidebar" || slot === "profile_banner" || slot === "search_top";
+
   useEffect(() => {
+    if (isProtectedFlow) return;
     let live = true;
     const q = new URLSearchParams({ slot, district, state });
     fetch(`/api/ads?${q.toString()}`)
@@ -28,6 +33,8 @@ export default function AdSlot({ slot, district = "", state = "", className = ""
       .catch(() => { });
     return () => { live = false; };
   }, [slot, district, state]);
+
+  if (isProtectedFlow) return null;
 
   const onClick = () => {
     if (!ad) return;
