@@ -12,7 +12,7 @@ import { FinalCta, ReligionsStrip, StoriesStrip, TeaserStrip } from "@/component
 import DailyStrip from "@/components/DailyStrip";
 import ShowcaseStrip from "@/components/ShowcaseStrip";
 import { SITE_CONFIG } from "@/lib/site-config";
-import { apiGet } from "@/lib/api";
+import { apiGet, apiFetch } from "@/lib/api";
 import { useLang, type Lang } from "@/lib/lang";
 import WeddingStoryHero from "@/components/WeddingStoryHero";
 
@@ -1195,12 +1195,20 @@ function VendorStrip({ chTotal }: { chTotal: number }) {
   const L = TEXT[lang as Lang];
   const [ads, setAds] = useState<any[]>([]);
   const [cats, setCats] = useState<any[]>([]);
+  const [vendorError, setVendorError] = useState("");
 
   useEffect(() => {
-    fetch("/api/vendors/ads?slot=home_mid_strip&limit=4")
-      .then((r) => r.json()).then((d) => setAds(d.ads || [])).catch(() => { });
-    fetch("/api/vendors/categories")
-      .then((r) => r.json()).then((d) => setCats((d.categories || []).slice(0, 10))).catch(() => { });
+    let alive = true;
+    Promise.all([
+      apiFetch<{ ads?: any[] }>("/api/vendors/ads?slot=home_mid_strip&limit=4", { timeoutMs: 10000, retries: 2 }),
+      apiFetch<{ categories?: any[] }>("/api/vendors/categories", { timeoutMs: 10000, retries: 2 }),
+    ]).then(([adsResult, categoriesResult]) => {
+      if (!alive) return;
+      if (adsResult.ok) setAds(adsResult.data?.ads || []);
+      if (categoriesResult.ok) setCats((categoriesResult.data?.categories || []).slice(0, 10));
+      if (!adsResult.ok && !categoriesResult.ok) setVendorError("Vendor service temporarily unavailable");
+    });
+    return () => { alive = false; };
   }, []);
 
   return (
@@ -1226,6 +1234,12 @@ function VendorStrip({ chTotal }: { chTotal: number }) {
           {L.vendorAll}
         </Link>
       </div>
+
+      {vendorError && (
+        <div className="mt-4 rounded-2xl border border-gold/30 bg-white px-4 py-3 text-center text-[11px] text-gray-600" role="status">
+          {lang === "te" ? "వెండర్ listings ప్రస్తుతం అందుబాటులో లేవు — మళ్లీ త్వరలో ప్రయత్నించండి." : "Vendor listings are temporarily unavailable — please try again shortly."}
+        </div>
+      )}
 
       {ads.length > 0 && (
         <div className="mt-5 grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
