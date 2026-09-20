@@ -88,7 +88,7 @@ export default async function Page({ params }: { params: { id: string } }) {
             name: "మన వివాహ verified profile",
             description: "Telugu matrimony profile — మన వివాహ (TS + AP)",
             isPartOf: { "@type": "WebSite", name: "మన వివాహ", url: base },
-          }),
+          }).replace(/</g, "\\u003c").replace(/>/g, "\\u003e").replace(/\u2028/g, "\\u2028").replace(/\u2029/g, "\\u2029"),
         }}
       />
       <ProfileView />

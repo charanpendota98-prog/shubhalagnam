@@ -451,7 +451,7 @@ export default function Home() {
 
   return (
     <div className="bg-cream">
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c").replace(/>/g, "\\u003e").replace(/\u2028/g, "\\u2028").replace(/\u2029/g, "\\u2029") }} />
       {/* ================= HERO ================= */}
       <section className="relative overflow-hidden">
         <div className="absolute inset-0 dotted-bg opacity-60 pointer-events-none" />
