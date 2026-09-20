@@ -224,7 +224,7 @@ export default function ProfileView() {
             {voiceUrl ? (
               <div className="mt-3 flex items-center gap-2 rounded-2xl bg-rose-50 p-2">
                 <span className="text-[12px] font-bold">🎙️</span>
-                {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+                { }
                 <audio controls src={voiceUrl} className="h-8 flex-1" />
               </div>
             ) : null}
