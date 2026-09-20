@@ -167,6 +167,28 @@ def control_summary(request: Request):
     return result
 
 
+@app.post("/api/control/profile-action")
+def control_profile_action(payload: dict, request: Request):
+    """Authenticated moderation action for the private control workspace."""
+    item = CONTROL_AUTH.require(request)
+    if item.get("role") not in {"owner", "moderator", "editor"}:
+        raise HTTPException(403, "Role cannot moderate profiles")
+    if not CONTROL_AUTH.csrf_valid(request, item):
+        raise HTTPException(403, "CSRF validation failed")
+    d = payload or {}
+    tsap_id = str(d.get("tsap_id", "")).strip().upper()
+    action = str(d.get("action", "")).strip().lower()
+    if action not in {"approve", "reject"} or not tsap_id:
+        raise HTTPException(400, "Invalid moderation action")
+    user = next((u for u in DB_USERS if str(u.get("tsap_id", "")).upper() == tsap_id), None)
+    if not user:
+        raise HTTPException(404, "Profile not found")
+    user["status"] = "approved" if action == "approve" else "rejected"
+    user["is_approved"] = action == "approve"
+    CONTROL_AUTH.audit("profile_moderation", item["username"], request, tsap_id=tsap_id, action=action)
+    return {"success": True, "tsap_id": tsap_id, "status": user["status"], "message": "Profile updated"}
+
+
 @app.get("/api/control/profile-queue")
 def control_profile_queue(request: Request, status: str = "pending", limit: int = 50):
     """Safe operations queue. This endpoint deliberately has no phone/email/payment fields."""
