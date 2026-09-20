@@ -370,3 +370,8 @@ button:not(:disabled):active { transform: scale(0.97); }
 /* 🌐 WAVE 15 — DUO bilingual (English • తెలుగు) — oka neat form */
 .duo { white-space: normal; }
 .duo-te { font-weight: 600; opacity: 0.72; font-size: 0.86em; }
+
+/* Lightweight cinematic hero motion: no autoplay video or WebGL cost on low-end phones. */
+@keyframes kenburns { from { transform: scale(1.02) translate3d(0,0,0); } to { transform: scale(1.10) translate3d(-1.5%, -1%, 0); } }
+@keyframes petals { from { transform: translate3d(0,-3%,0); opacity:.25; } 50% { opacity:.65; } to { transform: translate3d(2%,4%,0); opacity:.25; } }
+@media (prefers-reduced-motion: reduce) { .motion-safe\:animate-\[kenburns_18s_ease-in-out_infinite_alternate\], .motion-safe\:animate-\[petals_12s_linear_infinite\] { animation: none !important; } }
