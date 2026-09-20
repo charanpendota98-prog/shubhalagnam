@@ -341,7 +341,12 @@ function Wizard() {
   const topRef = useRef<HTMLDivElement>(null);
   const voiceRef = useRef<any>(null);
 
-    // 🌊 WAVE 14 — religion → castes (A–Z) backend nunchi (fallback: static CASTES)
+    const set = (k: string, v: any) => {
+    setF((prev) => ({ ...prev, [k]: v }));
+    setErrs([]);
+  };
+
+  // 🌊 WAVE 14 — religion → castes (A–Z) backend nunchi (fallback: static CASTES)
   const [casteOpts, setCasteOpts] = useState<string[]>(CASTES);
   useEffect(() => {
     let live = true;
@@ -355,11 +360,6 @@ function Wizard() {
     return () => { live = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [f.religion]);
-
-const set = (k: string, v: any) => {
-    setF((prev) => ({ ...prev, [k]: v }));
-    setErrs([]);
-  };
 
   /* ---------- 🆓 FREE vs PAID clarity (numbers rule) — /api/free-plan ---------- */
   useEffect(() => {

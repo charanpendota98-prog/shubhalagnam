@@ -40,7 +40,7 @@ export default function SupportWidget() {
     if (timer.current) clearTimeout(timer.current);
     timer.current = setTimeout(() => load(q), q ? 350 : 0);
     return () => { if (timer.current) clearTimeout(timer.current); };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [open, q]);
 
 

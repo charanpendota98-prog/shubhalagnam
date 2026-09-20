@@ -244,7 +244,7 @@ function VoicePanel({ myId }: { myId: string }) {
       <p className="text-sm font-bold text-[#7A0C2E]">{te ? "🎙️ Voice intro (30 sec) — voice ఉన్న profiles కి 3x response" : "🎙️ Voice intro (30 sec) — 3x response for voice profiles"}</p>
       {v?.has_voice ? (
         <div className="mt-3 rounded-2xl bg-slate-50 p-3">
-          {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+          { }
           <audio controls src={v.voice_url} className="w-full" />
           <p className="mt-1 text-[11px] text-slate-500">{te ? "పైన మీ voice — matches లో ఇదే వినిపిస్తుంది" : "Your voice above — matches hear this"}</p>
         </div>

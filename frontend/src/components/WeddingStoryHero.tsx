@@ -30,7 +30,7 @@ export default function WeddingStoryHero() {
   const sceneStyle = { transform: `perspective(1200px) rotateY(${rotation}deg) scale(${1.04 + progress * .04})` };
   return <section ref={ref} className="wedding-story" aria-label="The wedding comes to life">
     <div className="wedding-story__sticky">
-      <div className="wedding-story__scene" style={sceneStyle} onPointerDown={e => { setDragging(true); lastX.current = e.clientX; (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); }} onPointerMove={e => { if (!dragging) return; const delta = e.clientX - lastX.current; lastX.current = e.clientX; setRotation(r => Math.max(-16, Math.min(16, r + delta * .16))); }} onPointerUp={() => setDragging(false)} onPointerCancel={() => setDragging(false)}>
+      <div className="wedding-story__scene" role="img" aria-label="Animated wedding mandapam scene" style={sceneStyle} onPointerDown={e => { setDragging(true); lastX.current = e.clientX; (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); }} onPointerMove={e => { if (!dragging) return; const delta = e.clientX - lastX.current; lastX.current = e.clientX; setRotation(r => Math.max(-16, Math.min(16, r + delta * .16))); }} onPointerUp={() => setDragging(false)} onPointerCancel={() => setDragging(false)}>
         <div className="wedding-story__image" />
         <div className="wedding-story__shade" />
         <div className="wedding-story__glow wedding-story__glow--one" />

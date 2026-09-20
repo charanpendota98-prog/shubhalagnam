@@ -49,6 +49,14 @@ body {
   padding-bottom: env(safe-area-inset-bottom);
 }
 
+/* Mobile overflow guard: long Telugu/English labels, IDs and URLs must wrap
+   instead of pushing cards and headings outside the viewport. */
+*, *::before, *::after { box-sizing: border-box; }
+img, video, canvas, svg { max-width: 100%; }
+button, a, p, h1, h2, h3, h4, label, span { overflow-wrap: anywhere; }
+button, a { -webkit-tap-highlight-color: transparent; }
+.min-w-0 { min-width: 0; }
+
 .telugu {
   font-family: 'Noto Sans Telugu', system-ui, sans-serif;
 }
@@ -125,7 +133,24 @@ body {
 @keyframes weddingGlow { 50% { transform: translate(16px, 12px) scale(1.12); opacity: .35; } }
 @keyframes fireFlicker { to { transform: scale(1.12) rotate(3deg); opacity: .8; } }
 @keyframes petalsFloat { 0% { transform: translateY(-10px); opacity: 0; } 20%,80% { opacity: .7; } 100% { transform: translateY(150px) translateX(-50px); opacity: 0; } }
-@media (max-width: 700px) { .wedding-story { height: 165vh; }.wedding-story__copy { left: 1.25rem; right: 1.25rem; top: 12%; width: auto; transform: none; }.wedding-story__copy h2 { font-size: 2.15rem; }.wedding-story__scene { inset: -2%; }.wedding-story__mandapam { right: 8%; top: 38%; width: 62%; height: 36%; }.wedding-story__couple { right: 17%; top: 57%; font-size: 4.5rem; gap: 1.3rem; }.wedding-story__hint { bottom: 1rem; left: 1.25rem; right: auto; } }
+@media (max-width: 700px) {
+  .wedding-story { height: 165vh; }
+  .wedding-story__copy { left: 1rem; right: 1rem; top: 12%; width: auto; max-width: calc(100% - 2rem); transform: none; }
+  .wedding-story__copy h2 { font-size: 2.15rem; line-height: 1.12; }
+  .wedding-story__copy p { max-width: 100%; }
+  .wedding-story__scene { inset: -2%; }
+  .wedding-story__mandapam { right: 8%; top: 38%; width: 62%; height: 36%; }
+  .wedding-story__couple { right: 17%; top: 57%; font-size: 4.5rem; gap: 1.3rem; }
+  .wedding-story__hint { bottom: 1rem; left: 1.25rem; right: 1rem; }
+  .ticker-mask { width: 100%; overflow: hidden; }
+  input, select, textarea { max-width: 100%; }
+}
+
+/* Keep the fixed mobile navigation from covering the last CTA/content line. */
+@media (max-width: 1023px) {
+  main { min-width: 0; }
+  main > * { min-width: 0; }
+}
 @media (prefers-reduced-motion: reduce) { .wedding-story { height: auto; min-height: 34rem; }.wedding-story__sticky { position: relative; min-height: 34rem; }.wedding-story__scene { transform: none !important; }.wedding-story__glow,.wedding-story__petals,.wedding-story__mandapam .fire { animation: none; }.wedding-story__copy { top: 50%; transform: translateY(-50%); } }
 
 /* ---------- Scroll reveal ---------- */
@@ -144,8 +169,11 @@ body {
 }
 
 /* ---------- Ticker ---------- */
-.ticker-track { display: inline-flex; white-space: nowrap; animation: tickerScroll 28s linear infinite; }
+.ticker-track { display: inline-flex; white-space: nowrap; animation: tickerScroll 28s linear infinite; will-change: transform; }
 .ticker-mask { mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent); }
+/* Give users control over motion without making the premium ticker feel static. */
+.ticker-mask:hover .ticker-track, .ticker-mask:focus-within .ticker-track { animation-play-state: paused; }
+@media (max-width: 640px) { .ticker-track { animation-duration: 36s; } }
 
 @keyframes tickerScroll {
   0% { transform: translateX(0); }
@@ -375,3 +403,29 @@ button:not(:disabled):active { transform: scale(0.97); }
 @keyframes kenburns { from { transform: scale(1.02) translate3d(0,0,0); } to { transform: scale(1.10) translate3d(-1.5%, -1%, 0); } }
 @keyframes petals { from { transform: translate3d(0,-3%,0); opacity:.25; } 50% { opacity:.65; } to { transform: translate3d(2%,4%,0); opacity:.25; } }
 @media (prefers-reduced-motion: reduce) { .motion-safe\:animate-\[kenburns_18s_ease-in-out_infinite_alternate\], .motion-safe\:animate-\[petals_12s_linear_infinite\] { animation: none !important; } }
+
+/* ============================================================
+   PREMIUM HERO MOTION — cinematic, lightweight, mobile safe
+   ============================================================ */
+.premium-hero { isolation: isolate; background: #fff8e7; }
+.premium-hero__media { z-index: -1; overflow: hidden; opacity: .26; }
+.premium-hero__image { position: absolute; right: -7%; top: -9%; width: min(58rem, 72vw); height: 125%; object-fit: cover; object-position: center; filter: saturate(.78) contrast(1.05); animation: premiumHeroKenBurns 18s ease-in-out infinite alternate; }
+.premium-hero__veil { position: absolute; inset: 0; background: linear-gradient(90deg, #fff8e7 0%, rgba(255,248,231,.95) 28%, rgba(255,248,231,.58) 62%, rgba(255,248,231,.82) 100%); }
+.premium-hero__orb { position: absolute; display: block; border-radius: 999px; border: 1px solid rgba(212,175,55,.55); box-shadow: 0 0 40px rgba(212,175,55,.28); animation: premiumOrbFloat 7s ease-in-out infinite; }
+.premium-hero__orb--one { width: 14rem; height: 14rem; right: 9%; top: 9%; }
+.premium-hero__orb--two { width: 6rem; height: 6rem; right: 31%; bottom: 8%; animation-delay: -2.5s; }
+.premium-hero__sparkles { position: absolute; right: 14%; top: 22%; color: rgba(122,12,46,.52); font-size: .9rem; letter-spacing: .5rem; animation: premiumSparkle 5s linear infinite; }
+@keyframes premiumHeroKenBurns { from { transform: scale(1.03) translate3d(0,0,0); } to { transform: scale(1.12) translate3d(-1.2%,-.8%,0); } }
+@keyframes premiumOrbFloat { 0%,100% { transform: translate3d(0,0,0) rotate(0deg); } 50% { transform: translate3d(-12px,10px,0) rotate(7deg); } }
+@keyframes premiumSparkle { 0%,100% { opacity: .2; transform: translateY(0); } 50% { opacity: .85; transform: translateY(16px); } }
+@media (max-width: 700px) {
+  .premium-hero__media { opacity: .2; }
+  .premium-hero__image { right: -42%; top: 5%; width: 150%; height: 96%; object-position: center; }
+  .premium-hero__veil { background: linear-gradient(180deg, rgba(255,248,231,.96) 0%, rgba(255,248,231,.84) 48%, rgba(255,248,231,.94) 100%); }
+  .premium-hero__orb--one { width: 9rem; height: 9rem; right: -1rem; top: 17%; }
+  .premium-hero__orb--two { width: 4rem; height: 4rem; right: 18%; bottom: 16%; }
+  .premium-hero__sparkles { right: 10%; top: 33%; font-size: .65rem; letter-spacing: .2rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .premium-hero__image, .premium-hero__orb, .premium-hero__sparkles { animation: none; }
+}

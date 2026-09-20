@@ -12,7 +12,7 @@ import { FinalCta, ReligionsStrip, StoriesStrip, TeaserStrip } from "@/component
 import DailyStrip from "@/components/DailyStrip";
 import ShowcaseStrip from "@/components/ShowcaseStrip";
 import { SITE_CONFIG } from "@/lib/site-config";
-import { apiGet } from "@/lib/api";
+import { apiGet, apiFetch } from "@/lib/api";
 import { useLang, type Lang } from "@/lib/lang";
 import WeddingStoryHero from "@/components/WeddingStoryHero";
 
@@ -451,14 +451,23 @@ export default function Home() {
 
   return (
     <div className="bg-cream">
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c").replace(/>/g, "\\u003e").replace(/\u2028/g, "\\u2028").replace(/\u2029/g, "\\u2029") }} />
       {/* ================= HERO ================= */}
-      <section className="relative overflow-hidden">
+      <section className="premium-hero relative overflow-hidden">
+        {/* Lightweight video-like motion layer: Ken Burns, depth glow and floating particles
+            keep the cinematic feel fast on mobile without forcing a heavy autoplay video. */}
+        <div className="premium-hero__media absolute inset-0 pointer-events-none" aria-hidden="true">
+          <img src="/promo/hero-wedding-cinematic.png" alt="" className="premium-hero__image" />
+          <div className="premium-hero__veil" />
+          <span className="premium-hero__orb premium-hero__orb--one" />
+          <span className="premium-hero__orb premium-hero__orb--two" />
+          <span className="premium-hero__sparkles">✦　·　✧　·　✦　·　✧</span>
+        </div>
         <div className="absolute inset-0 dotted-bg opacity-60 pointer-events-none" />
         <div className="absolute -top-24 -right-24 w-80 h-80 rounded-full bg-gold/20 blur-3xl pointer-events-none" />
         <div className="absolute -bottom-24 -left-24 w-80 h-80 rounded-full bg-maroon/10 blur-3xl pointer-events-none" />
 
-        <div className="relative max-w-7xl mx-auto px-4 pt-8 pb-10 grid lg:grid-cols-[1.15fr_0.85fr] gap-10 items-center">
+        <div className="relative z-10 max-w-7xl mx-auto px-4 pt-8 pb-10 grid lg:grid-cols-[1.15fr_0.85fr] gap-10 items-center">
           <div>
             <div className="anim-hero inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-gold/40 shadow-soft text-[11px] font-bold text-maroon">
               <span className="w-2 h-2 rounded-full bg-green-500 pulse-live" />
@@ -1195,12 +1204,20 @@ function VendorStrip({ chTotal }: { chTotal: number }) {
   const L = TEXT[lang as Lang];
   const [ads, setAds] = useState<any[]>([]);
   const [cats, setCats] = useState<any[]>([]);
+  const [vendorError, setVendorError] = useState("");
 
   useEffect(() => {
-    fetch("/api/vendors/ads?slot=home_mid_strip&limit=4")
-      .then((r) => r.json()).then((d) => setAds(d.ads || [])).catch(() => { });
-    fetch("/api/vendors/categories")
-      .then((r) => r.json()).then((d) => setCats((d.categories || []).slice(0, 10))).catch(() => { });
+    let alive = true;
+    Promise.all([
+      apiFetch<{ ads?: any[] }>("/api/vendors/ads?slot=home_mid_strip&limit=4", { timeoutMs: 10000, retries: 2 }),
+      apiFetch<{ categories?: any[] }>("/api/vendors/categories", { timeoutMs: 10000, retries: 2 }),
+    ]).then(([adsResult, categoriesResult]) => {
+      if (!alive) return;
+      if (adsResult.ok) setAds(adsResult.data?.ads || []);
+      if (categoriesResult.ok) setCats((categoriesResult.data?.categories || []).slice(0, 10));
+      if (!adsResult.ok && !categoriesResult.ok) setVendorError("Vendor service temporarily unavailable");
+    });
+    return () => { alive = false; };
   }, []);
 
   return (
@@ -1226,6 +1243,12 @@ function VendorStrip({ chTotal }: { chTotal: number }) {
           {L.vendorAll}
         </Link>
       </div>
+
+      {vendorError && (
+        <div className="mt-4 rounded-2xl border border-gold/30 bg-white px-4 py-3 text-center text-[11px] text-gray-600" role="status">
+          {lang === "te" ? "వెండర్ listings ప్రస్తుతం అందుబాటులో లేవు — మళ్లీ త్వరలో ప్రయత్నించండి." : "Vendor listings are temporarily unavailable — please try again shortly."}
+        </div>
+      )}
 
       {ads.length > 0 && (
         <div className="mt-5 grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
