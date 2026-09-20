@@ -453,12 +453,21 @@ export default function Home() {
     <div className="bg-cream">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c").replace(/>/g, "\\u003e").replace(/\u2028/g, "\\u2028").replace(/\u2029/g, "\\u2029") }} />
       {/* ================= HERO ================= */}
-      <section className="relative overflow-hidden">
+      <section className="premium-hero relative overflow-hidden">
+        {/* Lightweight video-like motion layer: Ken Burns, depth glow and floating particles
+            keep the cinematic feel fast on mobile without forcing a heavy autoplay video. */}
+        <div className="premium-hero__media absolute inset-0 pointer-events-none" aria-hidden="true">
+          <img src="/promo/hero-wedding-cinematic.png" alt="" className="premium-hero__image" />
+          <div className="premium-hero__veil" />
+          <span className="premium-hero__orb premium-hero__orb--one" />
+          <span className="premium-hero__orb premium-hero__orb--two" />
+          <span className="premium-hero__sparkles">✦　·　✧　·　✦　·　✧</span>
+        </div>
         <div className="absolute inset-0 dotted-bg opacity-60 pointer-events-none" />
         <div className="absolute -top-24 -right-24 w-80 h-80 rounded-full bg-gold/20 blur-3xl pointer-events-none" />
         <div className="absolute -bottom-24 -left-24 w-80 h-80 rounded-full bg-maroon/10 blur-3xl pointer-events-none" />
 
-        <div className="relative max-w-7xl mx-auto px-4 pt-8 pb-10 grid lg:grid-cols-[1.15fr_0.85fr] gap-10 items-center">
+        <div className="relative z-10 max-w-7xl mx-auto px-4 pt-8 pb-10 grid lg:grid-cols-[1.15fr_0.85fr] gap-10 items-center">
           <div>
             <div className="anim-hero inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-gold/40 shadow-soft text-[11px] font-bold text-maroon">
               <span className="w-2 h-2 rounded-full bg-green-500 pulse-live" />
