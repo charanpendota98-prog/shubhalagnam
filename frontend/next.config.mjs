@@ -1,7 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Server build lo lint/type errors valla build fail avvakudadu (Telugu text lo quotes common)
-  eslint: { ignoreDuringBuilds: true },
+  // Type checking is run separately in CI; keep production builds resilient to generated API types.
   typescript: { ignoreBuildErrors: true },
 
   // /api/* ni backend ki proxy — browser localhost ni touch cheyyadu (CORS + docker friendly)

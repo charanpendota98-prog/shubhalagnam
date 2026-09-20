@@ -13,16 +13,17 @@ import ProfileView from "./ProfileView";
  * Backend fail aithe safe fallback (site eppudu kanipistundi).
  */
 const SITE = (process.env.SITE_URL || "https://manavivaha.in").replace(/\/$/, "");
-const BACKEND = process.env.BACKEND_URL || "http://localhost:8000";
+// Server-only metadata fetch. Never ship localhost into browser-facing production URLs.
+const BACKEND = process.env.BACKEND_URL || process.env.INTERNAL_API_URL || (process.env.NODE_ENV === "production" ? "https://manavivaha.in" : "http://localhost:8000");
 
 /**
  * 🌐 Request host ni batti absolute URL (staging / preview / prod — anni chotla OG pani cheyyali).
  * SITE_URL set unte adi ne vadutham (production lo manavivaha.in).
  */
-function siteBase(): string {
+async function siteBase(): Promise<string> {
   if (process.env.SITE_URL) return SITE;
   try {
-    const h = headers();
+    const h = await headers();
     const host = h.get("x-forwarded-host") || h.get("host");
     const proto = h.get("x-forwarded-proto") || "https";
     if (host) return `${proto}://${host}`;
@@ -50,7 +51,7 @@ export async function generateMetadata({ params }: { params: { id: string } }): 
   const description = p
     ? `${bits}. Porutham, family, horoscope details + interest పంపండి. మన వివాహ — Telugu matrimony (TS + AP), ${CHANNEL_STATS.total} channels, 3 FREE requests.`
     : `మన వివాహ — Telugu matrimony. TS + AP, 43 castes, ${CHANNEL_STATS.total} channels, 3 FREE requests. Register FREE.`;
-  const base = siteBase();
+  const base = await siteBase();
   const ogImage = `${base}/api/og/profile/${encodeURIComponent(id)}.png`;
   return {
     title: { absolute: title },
@@ -70,8 +71,8 @@ export async function generateMetadata({ params }: { params: { id: string } }): 
   };
 }
 
-export default function Page({ params }: { params: { id: string } }) {
-  const base = siteBase();
+export default async function Page({ params }: { params: { id: string } }) {
+  const base = await siteBase();
   // 🌊 WAVE 23 — SECURITY: JSON-LD script-breakout fix (</script> in URL id)
   const safeId = String(params?.id || "").replace(/[<>"']/g, "").slice(0, 40);
   return (
