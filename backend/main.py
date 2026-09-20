@@ -1307,6 +1307,13 @@ async def payment_webhook(user_id: str = "", amount: int = 0, razorpay_payment_i
     if isinstance(body, dict):
         entity = (((body.get("payload") or {}).get("payment") or {}).get("entity") or {}) or {}
     if entity:
+        # A valid HMAC alone is not enough: only successful payment events may fulfill.
+        event_name = str(body.get("event", "")).lower()
+        entity_status = str(entity.get("status", "")).lower()
+        if event_name and event_name not in {"payment.captured", "payment.authorized"}:
+            return JSONResponse(status_code=202, content={"success": True, "ignored": True, "reason": "non_payment_success_event"})
+        if entity_status and entity_status not in {"captured", "authorized"}:
+            return JSONResponse(status_code=202, content={"success": True, "ignored": True, "reason": "payment_not_successful"})
         _notes = entity.get("notes") or {}
         user_id = user_id or str(_notes.get("user_id") or _notes.get("tsap_id") or "")
         if not amount:
@@ -3253,16 +3260,36 @@ def _otp_digest(code: str) -> str:
     return hmac.new(secret, str(code).encode("utf-8"), hashlib.sha256).hexdigest()
 
 
+# In-memory burst limiter complements the per-phone OTP cooldown. In production this
+# should be backed by Redis across workers; the hard per-phone limit remains enforced below.
+OTP_IP_EVENTS: Dict[str, list] = defaultdict(list)
+OTP_ALLOWED_PURPOSES = {"login", "register", "reset", "verify"}
+
+
 @app.post("/api/otp/send")
-def otp_send(payload: dict):
+def otp_send(payload: dict, request: Request):
     """
     Phone OTP — 4 digit. Dev mode (OTP_DEV_MODE=true) lo code response lo vasthundi (SMS provider ledu).
     Production: SMS provider (MSG91 / Fast2SMS) configure chesi, code ni akkada pampali.
     """
     d = payload or {}
     phone = "".join(ch for ch in str(d.get("phone", "")) if ch.isdigit())
-    if len(phone) != 10:
-        raise HTTPException(400, "10 digit mobile number ఇవ్వండి")
+    if phone.startswith("91") and len(phone) == 12:
+        phone = phone[2:]
+    if len(phone) != 10 or not phone.startswith(("6", "7", "8", "9")):
+        raise HTTPException(400, "Valid 10 digit mobile number ఇవ్వండి")
+    purpose = str(d.get("purpose", "login")).strip().lower()[:16] or "login"
+    if purpose not in OTP_ALLOWED_PURPOSES:
+        raise HTTPException(400, "Invalid OTP purpose")
+    # Burst limit by client IP. Never trust forwarded IP headers unless the deployment
+    # proxy is explicitly trusted; this uses the socket peer as the safe baseline.
+    ip = (request.client.host if request.client else "unknown")[:64]
+    now = datetime.utcnow()
+    events = [t for t in OTP_IP_EVENTS[ip] if (now - t).total_seconds() < 3600]
+    if len(events) >= 30:
+        abuse_log("otp_ip_hour_limit", ip)
+        raise HTTPException(429, "Too many OTP requests — try again later")
+    events.append(now); OTP_IP_EVENTS[ip] = events
     # 🛡️ WAVE 9 — OTP abuse fix: 60s cooldown + 5/hour per phone (SMS cost + brute force)
     _prev = DB_OTPS.get(phone) or {}
     if _prev.get("sent_at"):
@@ -3280,7 +3307,6 @@ def otp_send(payload: dict):
         return JSONResponse(status_code=429, content={
             "success": False, "message_telugu": "⚠️ Ganta లో 5 OTP limit — 1 hour తర్వాత try చెయ్యండి (abuse protection)"})
     code = f"{random.randint(1000, 9999)}"
-    purpose = str(d.get("purpose", "login")).strip()[:16] or "login"
     DB_OTPS[phone] = {"code_hash": _otp_digest(code), "expires": (datetime.utcnow() + timedelta(minutes=10)).isoformat(),
                       "tries": 0, "sent_at": datetime.utcnow().isoformat(), "purpose": purpose,
                       "history": (_hour + [datetime.utcnow().isoformat()])[-10:]}
@@ -3308,7 +3334,11 @@ def otp_send(payload: dict):
 def otp_verify(payload: dict):
     d = payload or {}
     phone = "".join(ch for ch in str(d.get("phone", "")) if ch.isdigit())
+    if phone.startswith("91") and len(phone) == 12:
+        phone = phone[2:]
     code = str(d.get("code", "")).strip()
+    if len(phone) != 10 or not phone.startswith(("6", "7", "8", "9")) or not re.fullmatch(r"\d{4,8}", code):
+        raise HTTPException(400, "Phone number లేదా OTP format తప్పుగా ఉంది")
     rec = DB_OTPS.get(phone)
     if not rec:
         raise HTTPException(400, "ముందు OTP పంపండి")
