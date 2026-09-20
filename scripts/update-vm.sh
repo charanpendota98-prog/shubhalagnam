@@ -101,7 +101,7 @@ say "🩺 5/5 Health check (30s wait)..."
 sleep 30
 OK=0
 for i in 1 2 3 4 5 6; do
-    if curl -sf --max-time 10 http://localhost:8000/api/health >/dev/null 2>&1; then OK=1; break; fi
+    if docker compose -f docker-compose.yml -f docker-compose.prod.yml exec -T backend python -c 'import urllib.request; urllib.request.urlopen("http://127.0.0.1:8000/api/health", timeout=10)' >/dev/null 2>&1; then OK=1; break; fi
     say "   wait... ($i)"
     sleep 15
 done
