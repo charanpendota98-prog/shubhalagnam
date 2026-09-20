@@ -12,6 +12,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Duo, duo } from "@/lib/duo";
 import { useLang } from "@/lib/lang";
+import { apiFetch } from "@/lib/api";
 
 type Cat = { key: string; en: string; te: string; icon: string; count?: number };
 type Vendor = any;
@@ -26,24 +27,40 @@ export default function VendorsPage() {
   const [district, setDistrict] = useState("");
   const [q, setQ] = useState("");
   const [loading, setLoading] = useState(true);
+  const [apiError, setApiError] = useState("");
   const [copied, setCopied] = useState("");
 
   useEffect(() => {
-    fetch("/api/vendors/categories").then((r) => r.json()).then((d) => setCats(d.categories || [])).catch(() => { });
-    fetch("/api/vendors/packages").then((r) => r.json()).then(setPkgs).catch(() => { });
+    let alive = true;
+    Promise.all([
+      apiFetch<{ categories?: Cat[] }>("/api/vendors/categories"),
+      apiFetch<any>("/api/vendors/packages"),
+    ]).then(([categories, packages]) => {
+      if (!alive) return;
+      if (categories.ok) setCats(categories.data?.categories || []);
+      if (packages.ok) setPkgs(packages.data);
+      if (!categories.ok && !packages.ok) setApiError(categories.errorTelugu || "Vendor service unavailable");
+    });
+    return () => { alive = false; };
   }, []);
 
   useEffect(() => {
-    setLoading(true);
-    const params = new URLSearchParams();
-    if (cat) params.set("category", cat);
-    if (district) params.set("district", district);
-    if (q) params.set("q", q);
-    fetch(`/api/vendors?${params.toString()}`)
-      .then((r) => r.json())
-      .then(setData)
-      .catch(() => { })
-      .finally(() => setLoading(false));
+    let alive = true;
+    const load = async () => {
+      setLoading(true);
+      setApiError("");
+      const params = new URLSearchParams();
+      if (cat) params.set("category", cat);
+      if (district) params.set("district", district);
+      if (q) params.set("q", q);
+      const result = await apiFetch<any>(`/api/vendors?${params.toString()}`, { timeoutMs: 10000, retries: 2 });
+      if (!alive) return;
+      if (result.ok) setData(result.data);
+      else setApiError(result.errorTelugu || "Vendor service unavailable");
+      setLoading(false);
+    };
+    void load();
+    return () => { alive = false; };
   }, [cat, district, q]);
 
   const vendors: Vendor[] = data?.vendors || [];
@@ -136,7 +153,14 @@ export default function VendorsPage() {
             {loading && <span className="text-[11px] text-gray-500 shrink-0">⏳ {duo("loading…", "లోడ్ అవుతోంది…")}</span>}
           </div>
 
-          {!loading && vendors.length === 0 && (
+          {apiError && (
+            <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-center text-[12px] text-rose-800" role="alert">
+              <div className="font-bold">⚠️ {te ? "Vendor data ఇప్పుడే లోడ్ కాలేదు" : "Vendor data is temporarily unavailable"}</div>
+              <div className="mt-1">{apiError}</div>
+              <button onClick={() => { setApiError(""); setQ((value) => value + " "); setTimeout(() => setQ((value) => value.trim()), 0); }} className="mt-3 rounded-full bg-rose-700 px-4 py-2 font-bold text-white">{te ? "మళ్లీ ప్రయత్నించండి" : "Try again"}</button>
+            </div>
+          )}
+          {!loading && !apiError && vendors.length === 0 && (
             <div className="mt-4 bg-white rounded-3xl border border-gold/30 p-6 text-center">
               <div className="text-4xl">🔍</div>
               <div className="mt-2 font-bold text-maroon">{te ? "ఈ filter కి vendors దొరకలేదు" : "No vendors for this filter"}</div>
