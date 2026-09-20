@@ -49,6 +49,14 @@ body {
   padding-bottom: env(safe-area-inset-bottom);
 }
 
+/* Mobile overflow guard: long Telugu/English labels, IDs and URLs must wrap
+   instead of pushing cards and headings outside the viewport. */
+*, *::before, *::after { box-sizing: border-box; }
+img, video, canvas, svg { max-width: 100%; }
+button, a, p, h1, h2, h3, h4, label, span { overflow-wrap: anywhere; }
+button, a { -webkit-tap-highlight-color: transparent; }
+.min-w-0 { min-width: 0; }
+
 .telugu {
   font-family: 'Noto Sans Telugu', system-ui, sans-serif;
 }
@@ -125,7 +133,24 @@ body {
 @keyframes weddingGlow { 50% { transform: translate(16px, 12px) scale(1.12); opacity: .35; } }
 @keyframes fireFlicker { to { transform: scale(1.12) rotate(3deg); opacity: .8; } }
 @keyframes petalsFloat { 0% { transform: translateY(-10px); opacity: 0; } 20%,80% { opacity: .7; } 100% { transform: translateY(150px) translateX(-50px); opacity: 0; } }
-@media (max-width: 700px) { .wedding-story { height: 165vh; }.wedding-story__copy { left: 1.25rem; right: 1.25rem; top: 12%; width: auto; transform: none; }.wedding-story__copy h2 { font-size: 2.15rem; }.wedding-story__scene { inset: -2%; }.wedding-story__mandapam { right: 8%; top: 38%; width: 62%; height: 36%; }.wedding-story__couple { right: 17%; top: 57%; font-size: 4.5rem; gap: 1.3rem; }.wedding-story__hint { bottom: 1rem; left: 1.25rem; right: auto; } }
+@media (max-width: 700px) {
+  .wedding-story { height: 165vh; }
+  .wedding-story__copy { left: 1rem; right: 1rem; top: 12%; width: auto; max-width: calc(100% - 2rem); transform: none; }
+  .wedding-story__copy h2 { font-size: 2.15rem; line-height: 1.12; }
+  .wedding-story__copy p { max-width: 100%; }
+  .wedding-story__scene { inset: -2%; }
+  .wedding-story__mandapam { right: 8%; top: 38%; width: 62%; height: 36%; }
+  .wedding-story__couple { right: 17%; top: 57%; font-size: 4.5rem; gap: 1.3rem; }
+  .wedding-story__hint { bottom: 1rem; left: 1.25rem; right: 1rem; }
+  .ticker-mask { width: 100%; overflow: hidden; }
+  input, select, textarea { max-width: 100%; }
+}
+
+/* Keep the fixed mobile navigation from covering the last CTA/content line. */
+@media (max-width: 1023px) {
+  main { min-width: 0; }
+  main > * { min-width: 0; }
+}
 @media (prefers-reduced-motion: reduce) { .wedding-story { height: auto; min-height: 34rem; }.wedding-story__sticky { position: relative; min-height: 34rem; }.wedding-story__scene { transform: none !important; }.wedding-story__glow,.wedding-story__petals,.wedding-story__mandapam .fire { animation: none; }.wedding-story__copy { top: 50%; transform: translateY(-50%); } }
 
 /* ---------- Scroll reveal ---------- */
