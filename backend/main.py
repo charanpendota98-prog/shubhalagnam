@@ -193,6 +193,180 @@ def control_profile_queue(request: Request, status: str = "pending", limit: int 
     return {"success": True, "items": rows, "role": item["role"]}
 
 
+# ---------------------------------------------------------------------------
+# 🎛️ ADVANCED CONTROL PORTAL — analytics + safe actions (session-authed, RBAC)
+# All endpoints below authenticate via the control SESSION cookie (require()),
+# enforce CSRF on writes, and audit every action. Workers get moderation-only
+# powers; owners get finance + analytics. No phone/email/payment PII is ever
+# serialized to a worker session.
+# ---------------------------------------------------------------------------
+_CONTROL_WRITE_ROLES = {"owner", "worker", "moderator", "support"}
+_CONTROL_FINANCE_ROLES = {"owner", "finance"}
+
+
+def _control_write_guard(request: Request, roles: Optional[set] = None) -> dict:
+    """Require a valid control session + valid CSRF header for any mutating action."""
+    item = CONTROL_AUTH.require(request, roles=roles)
+    if not CONTROL_AUTH.csrf_valid(request, item):
+        raise HTTPException(403, "CSRF validation failed")
+    return item
+
+
+@app.get("/api/control/analytics")
+def control_analytics(request: Request):
+    """Rich, privacy-safe operations analytics for the advanced dashboard."""
+    item = CONTROL_AUTH.require(request)
+    owner = item["role"] == "owner"
+    now = datetime.utcnow()
+
+    def _parse(dt):
+        try:
+            return datetime.fromisoformat(str(dt).replace("Z", ""))
+        except Exception:
+            return None
+
+    total = len(DB_USERS)
+    pending = sum(1 for u in DB_USERS if str(u.get("status", "pending")) == "pending")
+    approved = sum(1 for u in DB_USERS if u.get("is_approved") or str(u.get("status")) == "approved")
+    rejected = sum(1 for u in DB_USERS if str(u.get("status")) == "rejected")
+    with_photo = sum(1 for u in DB_USERS if str(u.get("photo_status", "none")) not in {"none", ""})
+    verified = sum(1 for u in DB_USERS if u.get("is_verified"))
+
+    # gender split
+    males = sum(1 for u in DB_USERS if str(u.get("gender", "")).lower().startswith("m"))
+    females = sum(1 for u in DB_USERS if str(u.get("gender", "")).lower().startswith("f"))
+
+    # signups last 14 days (sparkline)
+    days = []
+    for i in range(13, -1, -1):
+        day = (now - timedelta(days=i)).date()
+        c = 0
+        for u in DB_USERS:
+            d = _parse(u.get("created_at"))
+            if d and d.date() == day:
+                c += 1
+        days.append({"date": day.isoformat(), "count": c})
+    signups_today = days[-1]["count"] if days else 0
+    signups_7d = sum(d["count"] for d in days[-7:])
+
+    # top castes / states / districts
+    def _top(field, n=8):
+        counts: dict = {}
+        for u in DB_USERS:
+            key = str(u.get(field, "") or "—").strip() or "—"
+            counts[key] = counts.get(key, 0) + 1
+        return sorted(({"label": k, "count": v} for k, v in counts.items()),
+                      key=lambda x: -x["count"])[:n]
+
+    open_reports = sum(1 for r in DB_REPORTS if str(r.get("status", "open")) == "open")
+    photos_pending = sum(1 for u in DB_USERS if str(u.get("photo_status", "none")) == "pending")
+
+    result = {
+        "success": True, "role": item["role"], "generated_at": now.isoformat(),
+        "totals": {
+            "profiles": total, "pending": pending, "approved": approved, "rejected": rejected,
+            "with_photo": with_photo, "verified": verified, "males": males, "females": females,
+            "open_reports": open_reports, "photos_pending": photos_pending,
+            "interests": len(DB_INTERESTS), "posts": len(DB_POSTS),
+        },
+        "signups": {"today": signups_today, "last_7d": signups_7d, "series": days},
+        "top_castes": _top("caste"),
+        "top_states": _top("state", 6),
+        "top_districts": _top("district"),
+        "queue_health": {
+            "pending": pending, "photos_pending": photos_pending, "open_reports": open_reports,
+        },
+    }
+    if owner:
+        # revenue snapshot (owner only) — never expose per-user payment PII
+        paid = [p for p in DB_PAYMENTS if str(p.get("status", "")).lower() in {"paid", "success", "captured", "completed"}]
+        revenue = sum(float(p.get("amount", 0) or 0) for p in paid)
+        plan_split: dict = {}
+        for u in DB_USERS:
+            pl = str(u.get("plan", "FREE") or "FREE")
+            plan_split[pl] = plan_split.get(pl, 0) + 1
+        result["revenue"] = {
+            "total": round(revenue, 2), "payments": len(paid), "attempts": len(DB_PAYMENTS),
+            "plan_split": [{"label": k, "count": v} for k, v in sorted(plan_split.items(), key=lambda x: -x[1])],
+        }
+        result["audit"] = CONTROL_AUTH.audit_recent(30)
+    return result
+
+
+@app.post("/api/control/profile/{tsap_id}/action")
+def control_profile_action(tsap_id: str, payload: dict, request: Request):
+    """Worker/owner: approve (auto-post) or reject a profile. Session + CSRF authed."""
+    item = _control_write_guard(request, roles=_CONTROL_WRITE_ROLES)
+    action = str((payload or {}).get("action", "")).strip().lower()
+    note = str((payload or {}).get("note", ""))[:200]
+    if action not in {"approve", "reject", "pending"}:
+        raise HTTPException(400, "Invalid action — approve / reject / pending")
+    user = next((u for u in DB_USERS if str(u.get("tsap_id")) == str(tsap_id)), None)
+    if not user:
+        raise HTTPException(404, "⚠️ Profile దొరకలేదు — ID check చెయ్యండి")
+
+    posted: list = []
+    if action == "approve":
+        user["is_approved"] = True
+        user["is_verified"] = True
+        user["status"] = "approved"
+        try:
+            route = route_profile(user)
+            posted = route.get("usernames", [])
+            user["posted_channels"] = posted
+            user["post_hashtags"] = route.get("hashtags", [])
+            for ch in posted:
+                DB_POSTS.append({"user_id": tsap_id, "channel": ch,
+                                 "hashtags": route.get("hashtags", []),
+                                 "posted_at": datetime.utcnow().isoformat()})
+        except Exception as _e:
+            posted = []
+    elif action == "reject":
+        user["is_approved"] = False
+        user["status"] = "rejected"
+        user["reject_note"] = note
+    else:
+        user["status"] = "pending"
+
+    CONTROL_AUTH.audit("control_profile_" + action, item["username"], request,
+                       tsap_id=tsap_id, channels=len(posted), note=note)
+    try:
+        DBSTORE.save(DBSTORE.snapshot(DB_USERS, DB_INTERESTS, DB_PAYMENTS, DB_OTPS,
+                                      VERIFIED_PHONES, DB_VIEWS, DB_SAVES, DB_DIGEST), force=True)
+    except Exception:
+        pass
+    return {"success": True, "tsap_id": tsap_id, "status": user.get("status"),
+            "posted_to": posted, "count": len(posted),
+            "message": {"approve": f"✅ Approved — {len(posted)} channels లో post అయింది",
+                        "reject": "❌ Rejected", "pending": "↩️ Pending కి మార్చాం"}[action]}
+
+
+@app.get("/api/control/reports")
+def control_reports(request: Request, limit: int = 50):
+    """Moderation queue for the control portal (session-authed)."""
+    CONTROL_AUTH.require(request)
+    limit = max(1, min(int(limit), 100))
+    try:
+        return {"success": True, **safety.moderation_queue(DB_REPORTS, DB_USERS, limit)}
+    except Exception:
+        return {"success": True, "items": [], "count": 0}
+
+
+@app.post("/api/control/reports/{report_id}/resolve")
+def control_report_resolve(report_id: str, payload: dict, request: Request):
+    """Resolve a report from the control portal (session + CSRF authed)."""
+    item = _control_write_guard(request, roles=_CONTROL_WRITE_ROLES)
+    d = payload or {}
+    ok, msg, rec = safety.resolve_report(report_id, str(d.get("action", "")),
+                                         str(d.get("note", ""))[:200],
+                                         reports=DB_REPORTS, users=DB_USERS)
+    if not ok:
+        raise HTTPException(400, msg)
+    CONTROL_AUTH.audit("control_report_resolve", item["username"], request,
+                       report_id=report_id, action=str(d.get("action", "")))
+    return {"success": True, "action": msg, "report": rec}
+
+
 # 🌊 WAVE 26 — GLOBAL SAFETY NET: ekkada crash aina Telugu JSON (raw 500 never).
 #    User ki easy message + ref code (support ki chepthe admin log lo chusthadu).
 @app.exception_handler(Exception)
