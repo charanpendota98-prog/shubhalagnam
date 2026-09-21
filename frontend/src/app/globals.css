@@ -107,6 +107,7 @@ body {
 .wedding-story__scene { position: absolute; inset: -5%; transform-origin: center; transition: transform .08s linear; touch-action: pan-y; cursor: grab; }
 .wedding-story__scene:active { cursor: grabbing; }
 .wedding-story__image { position: absolute; inset: 0; background: url('/promo/hero-wedding.jpg') center/cover; filter: saturate(.82) contrast(1.06); }
+.wedding-story__film { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; filter: saturate(.92) contrast(1.05); user-select: none; -webkit-user-drag: none; pointer-events: none; }
 .wedding-story__shade { position: absolute; inset: 0; background: linear-gradient(90deg, rgba(19,5,17,.9) 0%, rgba(39,9,28,.55) 45%, rgba(15,5,15,.18) 100%), linear-gradient(0deg, rgba(16,3,13,.8), transparent 60%); }
 .wedding-story__glow { position: absolute; border-radius: 999px; filter: blur(30px); background: #f4c969; opacity: .24; animation: weddingGlow 5s ease-in-out infinite; }
 .wedding-story__glow--one { width: 18rem; height: 18rem; right: 12%; top: 8%; }

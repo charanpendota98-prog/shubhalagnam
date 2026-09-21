@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
-const CHAPTERS = ["The mandapam", "A meeting begins", "Two families", "Garland exchange", "Together" ];
+const CHAPTERS = ["The mandapam", "The sacred thali", "Talambralu joy", "Garland exchange", "Together forever" ];
 
 export default function WeddingStoryHero() {
   const ref = useRef<HTMLElement>(null);
@@ -31,12 +31,12 @@ export default function WeddingStoryHero() {
   return <section ref={ref} className="wedding-story" aria-label="The wedding comes to life">
     <div className="wedding-story__sticky">
       <div className="wedding-story__scene" style={sceneStyle} onPointerDown={e => { setDragging(true); lastX.current = e.clientX; (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); }} onPointerMove={e => { if (!dragging) return; const delta = e.clientX - lastX.current; lastX.current = e.clientX; setRotation(r => Math.max(-16, Math.min(16, r + delta * .16))); }} onPointerUp={() => setDragging(false)} onPointerCancel={() => setDragging(false)}>
-        <div className="wedding-story__image" />
+        {/* real cinematic wedding film — autoplays + loops (mandapam → thali → talambralu → together) */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img className="wedding-story__film" src="/promo/wedding-story-film.webp" alt="Telugu wedding ceremony film" aria-hidden="true" draggable={false} />
         <div className="wedding-story__shade" />
         <div className="wedding-story__glow wedding-story__glow--one" />
         <div className="wedding-story__glow wedding-story__glow--two" />
-        <div className="wedding-story__mandapam" aria-hidden="true"><span className="pillar pillar--left" /><span className="pillar pillar--right" /><span className="roof" /><span className="fire">✦</span></div>
-        <div className={`wedding-story__couple wedding-story__couple--${chapter}`} aria-hidden="true"><span className="bride">👰🏽</span><span className="groom">🤵🏽</span><span className="garland">✿</span></div>
         <div className="wedding-story__petals" aria-hidden="true">✦　✿　✦　✿　✦</div>
       </div>
       <div className="wedding-story__copy">
