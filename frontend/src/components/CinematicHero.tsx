@@ -81,12 +81,23 @@ export default function CinematicHero() {
 
   return (
     <section className="cine-hero" aria-label="Telugu matrimony — your wedding story">
-      {/* ---- Film reel: crossfading wedding stills ---- */}
+      {/* ---- Film reel: crossfading wedding stills (instant-load base layer) ---- */}
       <div className="absolute inset-0" aria-hidden>
         {FRAMES.map((src) => (
           <div key={src} className="cine-frame" style={{ backgroundImage: `url('${src}')` }} />
         ))}
       </div>
+
+      {/* ---- 🎬 Real animated wedding FILM (Ken-Burns + crossfade), autoplays & loops ---- */}
+      {mounted && (
+        <img
+          src="/promo/wedding-film.webp"
+          alt=""
+          aria-hidden
+          className="cine-film absolute inset-0 h-full w-full object-cover"
+        />
+      )}
+
       <div className="cine-grade" aria-hidden />
       <div className="cine-vignette" aria-hidden />
       <div className="cine-grain" aria-hidden />
