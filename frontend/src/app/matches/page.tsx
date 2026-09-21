@@ -154,9 +154,9 @@ function FilterSheet({
             </div>
             <div className="mt-2 grid grid-cols-2 gap-2">
               <input type="range" min={18} max={60} value={filters.age_min}
-                onChange={(e) => setF("age_min", Math.min(parseInt(e.target.value), filters.age_max))} className="accent-[#7A0C2E]" aria-label="Text input" />
+                onChange={(e) => setF("age_min", Math.min(parseInt(e.target.value), filters.age_max))} className="accent-[#7A0C2E]" aria-label="Minimum age" />
               <input type="range" min={18} max={60} value={filters.age_max}
-                onChange={(e) => setF("age_max", Math.max(parseInt(e.target.value), filters.age_min))} className="accent-[#7A0C2E]" aria-label="Text input" />
+                onChange={(e) => setF("age_max", Math.max(parseInt(e.target.value), filters.age_min))} className="accent-[#7A0C2E]" aria-label="Maximum age" />
             </div>
           </div>
 
@@ -722,7 +722,7 @@ export default function MatchesAdvanced() {
             </button>
             <div className="hidden md:flex items-center gap-2 shrink-0">
               <input value={myTsapId} onChange={(e) => { const v = e.target.value.toUpperCase(); setMyTsapId(v); localStorage.setItem("tsap_id", v); }}
-                className="text-[11px] font-mono bg-white border border-gold/40 rounded-full px-3 py-2 w-44" title={te ? "మీ Profile ID" : "Your Profile ID"} aria-label="Text input" />
+                className="text-[11px] font-mono bg-white border border-gold/40 rounded-full px-3 py-2 w-44" title={te ? "మీ Profile ID" : "Your Profile ID"} aria-label="Your Profile ID" />
               <span className="text-[11px] bg-white border border-gold/40 rounded-full px-3 py-2">credits <b>{credits}</b></span>
             </div>
           </div>
@@ -757,8 +757,8 @@ export default function MatchesAdvanced() {
           </div>
           <div className="mt-3">
             <div className="text-[11px] font-bold text-ink">Age: <span className="text-maroon">{filters.age_min}–{filters.age_max}</span></div>
-            <input type="range" min={18} max={60} value={filters.age_min} onChange={(e) => setF("age_min", Math.min(parseInt(e.target.value), filters.age_max))} className="w-full accent-[#7A0C2E]" aria-label="Text input" />
-            <input type="range" min={18} max={60} value={filters.age_max} onChange={(e) => setF("age_max", Math.max(parseInt(e.target.value), filters.age_min))} className="w-full accent-[#7A0C2E]" aria-label="Text input" />
+            <input type="range" min={18} max={60} value={filters.age_min} onChange={(e) => setF("age_min", Math.min(parseInt(e.target.value), filters.age_max))} className="w-full accent-[#7A0C2E]" aria-label="Minimum age" />
+            <input type="range" min={18} max={60} value={filters.age_max} onChange={(e) => setF("age_max", Math.max(parseInt(e.target.value), filters.age_min))} className="w-full accent-[#7A0C2E]" aria-label="Maximum age" />
           </div>
           <div className="mt-3">
             <div className="text-[11px] font-bold text-ink">State</div>
