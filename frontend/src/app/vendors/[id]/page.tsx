@@ -7,12 +7,14 @@
  */
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { useParams } from "next/navigation";
 import { useLang } from "@/lib/lang";
 
-export default function VendorDetailPage({ params }: { params: { id: string } }) {
+export default function VendorDetailPage() {
+  const routeParams = useParams();
   const { lang } = useLang();
   const te = lang === "te";
-  const id = params?.id || "";
+  const id = String(routeParams?.id || "");
   const [data, setData] = useState<any>(null);
   const [dash, setDash] = useState<any>(null);
   const [promo, setPromo] = useState<any>(null);

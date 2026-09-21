@@ -6,8 +6,9 @@ import { BLOG_ARTICLES, articleBySlug } from "@/lib/blog";
 const SITE = (process.env.SITE_URL || "https://manavivaha.in").replace(/\/$/, "");
 export const generateStaticParams = () => BLOG_ARTICLES.map(({ slug }) => ({ slug }));
 
-export function generateMetadata({ params }: { params: { slug: string } }): Metadata {
-  const article = articleBySlug(params.slug);
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const { slug } = await params;
+  const article = articleBySlug(slug);
   if (!article) return {};
   return {
     title: article.title,
@@ -20,8 +21,9 @@ export function generateMetadata({ params }: { params: { slug: string } }): Meta
   };
 }
 
-export default function ArticlePage({ params }: { params: { slug: string } }) {
-  const article = articleBySlug(params.slug);
+export default async function ArticlePage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
+  const article = articleBySlug(slug);
   if (!article) notFound();
   const schema = {
     "@context": "https://schema.org", "@type": "Article", headline: article.title,
