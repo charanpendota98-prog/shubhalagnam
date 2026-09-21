@@ -15,6 +15,8 @@ import { SITE_CONFIG } from "@/lib/site-config";
 import { apiGet } from "@/lib/api";
 import { useLang, type Lang } from "@/lib/lang";
 import WeddingStoryHero from "@/components/WeddingStoryHero";
+import CinematicHero from "@/components/CinematicHero";
+import RealWeddingsFilm from "@/components/RealWeddingsFilm";
 
 const BOT = SITE_CONFIG.officialChannelUrl;
 
@@ -452,6 +454,10 @@ export default function Home() {
   return (
     <div className="bg-cream">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+
+      {/* ================= 🎬 CINEMATIC VIDEO HERO (top-matrimony feel) ================= */}
+      <CinematicHero />
+
       {/* ================= HERO ================= */}
       <section className="relative overflow-hidden">
         <div className="absolute inset-0 dotted-bg opacity-60 pointer-events-none" />
@@ -604,26 +610,8 @@ export default function Home() {
       {/* ================= CINEMATIC WEDDING STORY ================= */}
       <WeddingStoryHero />
 
-      {/* ================= WEDDING VIBE BANNER (AI promo) ================= */}
-      <section className="group relative isolate min-h-[26rem] overflow-hidden bg-[#230812] md:min-h-[34rem]" aria-label="A wedding comes to life">
-        {/* Cinematic still + motion layers: intentional lightweight video-like experience for fast mobile loading. */}
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/promo/hero-wedding-cinematic.png" alt="Bride and groom at an elegant Telugu wedding mandapam" className="absolute inset-0 h-full w-full object-cover object-center motion-safe:animate-[kenburns_18s_ease-in-out_infinite_alternate]" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_42%,rgba(255,205,102,.18),transparent_30%),linear-gradient(90deg,rgba(35,8,18,.96)_0%,rgba(35,8,18,.62)_32%,rgba(35,8,18,.08)_75%,rgba(35,8,18,.45)_100%)]" />
-        <div className="pointer-events-none absolute inset-0 opacity-70 motion-safe:animate-[petals_12s_linear_infinite] bg-[radial-gradient(circle,rgba(255,221,143,.8)_0_2px,transparent_3px)] [background-size:96px_96px]" />
-        <div className="relative mx-auto flex min-h-[26rem] max-w-7xl items-end px-5 pb-10 md:min-h-[34rem] md:items-center md:pb-0">
-          <div className="max-w-xl text-white">
-            <p className="mb-3 text-[10px] font-extrabold uppercase tracking-[.32em] text-[#f5d58a]">The wedding comes to life</p>
-            <h2 className="text-3xl font-black leading-tight drop-shadow md:text-6xl">{L.vibeTitle}</h2>
-            <p className="mt-3 max-w-md text-sm leading-6 text-white/85 md:text-base">Find a meaningful connection, meet with trust, and begin your forever story.</p>
-            <div className="mt-6 flex flex-wrap gap-3">
-              <Link href="/register" className="rounded-full bg-[#f5d58a] px-6 py-3 text-sm font-bold text-[#5c0821] shadow-2xl transition hover:scale-105">💍 {L.registerCta}</Link>
-              <Link href="/matches" className="rounded-full border border-white/60 bg-white/10 px-6 py-3 text-sm font-bold text-white backdrop-blur transition hover:bg-white/20">Explore profiles →</Link>
-            </div>
-          </div>
-        </div>
-        <div className="absolute bottom-4 right-5 hidden items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-white/70 md:flex"><span className="h-2 w-2 animate-pulse rounded-full bg-[#f5d58a]" /> A new beginning</div>
-      </section>
+      {/* ================= 💐 REAL WEDDINGS FILM REEL ================= */}
+      <RealWeddingsFilm />
 
       {/* ================= SPONSORED (targeted ads) ================= */}
       <section className="max-w-7xl mx-auto px-4 pt-4">

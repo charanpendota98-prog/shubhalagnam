@@ -375,3 +375,122 @@ button:not(:disabled):active { transform: scale(0.97); }
 @keyframes kenburns { from { transform: scale(1.02) translate3d(0,0,0); } to { transform: scale(1.10) translate3d(-1.5%, -1%, 0); } }
 @keyframes petals { from { transform: translate3d(0,-3%,0); opacity:.25; } 50% { opacity:.65; } to { transform: translate3d(2%,4%,0); opacity:.25; } }
 @media (prefers-reduced-motion: reduce) { .motion-safe\:animate-\[kenburns_18s_ease-in-out_infinite_alternate\], .motion-safe\:animate-\[petals_12s_linear_infinite\] { animation: none !important; } }
+
+/* ============================================================
+   🎬 CINEMATIC VIDEO HERO — top-matrimony feel (crossfade film)
+   ============================================================ */
+.cine-hero {
+  position: relative;
+  min-height: 100svh;
+  overflow: hidden;
+  isolation: isolate;
+  background: #150410;
+  color: #fff;
+}
+@media (max-width: 767px) { .cine-hero { min-height: 92svh; } }
+
+/* Each frame = one wedding still; they crossfade + Ken-Burns like a wedding film reel */
+.cine-frame {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  opacity: 0;
+  animation: cineReel 32s linear infinite;
+  will-change: opacity, transform;
+}
+.cine-frame:nth-child(1) { animation-delay: 0s; }
+.cine-frame:nth-child(2) { animation-delay: 8s; }
+.cine-frame:nth-child(3) { animation-delay: 16s; }
+.cine-frame:nth-child(4) { animation-delay: 24s; }
+
+/* 4 frames × 8s each = 32s loop. Fade in/hold/fade out + slow zoom+pan (Ken Burns). */
+@keyframes cineReel {
+  0%    { opacity: 0; transform: scale(1.12) translate3d(2%, 1%, 0); }
+  3%    { opacity: 1; }
+  22%   { opacity: 1; }
+  25%   { opacity: 0; }
+  100%  { opacity: 0; transform: scale(1.02) translate3d(-2%, -1%, 0); }
+}
+
+/* Cinematic color grade + vignette + readable copy gradient */
+.cine-grade {
+  position: absolute; inset: 0; z-index: 1; pointer-events: none;
+  background:
+    radial-gradient(circle at 72% 40%, rgba(255,200,110,.16), transparent 34%),
+    linear-gradient(90deg, rgba(21,4,16,.92) 0%, rgba(21,4,16,.62) 40%, rgba(21,4,16,.12) 74%, rgba(21,4,16,.5) 100%),
+    linear-gradient(0deg, rgba(15,3,12,.9) 2%, transparent 46%);
+}
+.cine-vignette {
+  position: absolute; inset: 0; z-index: 1; pointer-events: none;
+  box-shadow: inset 0 0 220px 60px rgba(10,2,8,.7);
+}
+/* subtle film grain flicker */
+.cine-grain {
+  position: absolute; inset: -50%; z-index: 1; pointer-events: none; opacity: .06;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  animation: cineGrain .7s steps(3) infinite;
+}
+@keyframes cineGrain {
+  0% { transform: translate(0,0); } 33% { transform: translate(-4%,3%); } 66% { transform: translate(3%,-2%); } 100% { transform: translate(0,0); }
+}
+
+/* Floating flower petals drifting across the film */
+.cine-petal {
+  position: absolute; z-index: 2; top: -6%; pointer-events: none;
+  font-size: 1.1rem; opacity: 0; filter: drop-shadow(0 4px 6px rgba(0,0,0,.3));
+  animation: cinePetalFall linear infinite;
+}
+@keyframes cinePetalFall {
+  0%   { opacity: 0; transform: translateY(-10%) translateX(0) rotate(0deg); }
+  10%  { opacity: .9; }
+  90%  { opacity: .9; }
+  100% { opacity: 0; transform: translateY(115vh) translateX(60px) rotate(320deg); }
+}
+
+/* Animated shining gold headline for hero */
+.cine-title-gold {
+  background: linear-gradient(100deg, #f6d98a 0%, #fff7d6 20%, #ffffff 26%, #f6d98a 40%, #e7b84f 60%, #fff2b8 80%, #f6d98a 100%);
+  background-size: 240% 100%;
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent; color: transparent;
+  animation: cineTitleSheen 6s ease-in-out infinite;
+}
+@keyframes cineTitleSheen { 0%,100% { background-position: 0% 0; } 50% { background-position: 120% 0; } }
+
+/* Ring-glow "Register" primary CTA */
+.cine-cta-glow { position: relative; }
+.cine-cta-glow::after {
+  content: ""; position: absolute; inset: -3px; border-radius: 999px; z-index: -1;
+  background: linear-gradient(135deg, #ffd45e, #ff8a5b, #ffd45e); filter: blur(8px);
+  opacity: .55; animation: ctaPulse 2.6s ease-in-out infinite;
+}
+@keyframes ctaPulse { 0%,100% { opacity: .4; transform: scale(1); } 50% { opacity: .8; transform: scale(1.04); } }
+
+/* Floating live "match" chips over the film */
+.cine-float-card {
+  animation: cineFloatCard 5.5s ease-in-out infinite;
+}
+.cine-float-card--slow { animation-duration: 7s; animation-delay: -2s; }
+@keyframes cineFloatCard { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-12px); } }
+
+/* Scroll cue */
+.cine-scroll-cue { animation: cineScrollCue 1.8s ease-in-out infinite; }
+@keyframes cineScrollCue { 0%,100% { transform: translateY(0); opacity: .5; } 50% { transform: translateY(7px); opacity: 1; } }
+
+/* Frame counter bars (film-reel style progress) */
+.cine-bar { position: relative; height: 3px; border-radius: 999px; background: rgba(255,255,255,.22); overflow: hidden; }
+.cine-bar > i { position: absolute; inset: 0; display: block; background: linear-gradient(90deg,#f6d98a,#fff); transform-origin: left; transform: scaleX(0); animation: cineBarFill 8s linear infinite; }
+.cine-bar:nth-child(1) > i { animation-delay: 0s; }
+.cine-bar:nth-child(2) > i { animation-delay: 8s; }
+.cine-bar:nth-child(3) > i { animation-delay: 16s; }
+.cine-bar:nth-child(4) > i { animation-delay: 24s; }
+@keyframes cineBarFill { 0% { transform: scaleX(0); } 3% { transform: scaleX(.05);} 25% { transform: scaleX(1); } 100% { transform: scaleX(1); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .cine-frame { animation: none; opacity: 0; }
+  .cine-frame:nth-child(1) { opacity: 1; }
+  .cine-grain, .cine-petal, .cine-float-card, .cine-scroll-cue, .cine-cta-glow::after, .cine-bar > i { animation: none !important; }
+  .cine-title-gold { animation: none; background-position: 0 0; }
+  .cine-bar:nth-child(1) > i { transform: scaleX(1); }
+}
