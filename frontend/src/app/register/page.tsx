@@ -171,7 +171,7 @@ function SearchSelect({
         <div className="absolute z-20 mt-1 w-full bg-white border border-gold/40 rounded-2xl shadow-lg overflow-hidden">
           <input
             autoFocus value={q} onChange={(e) => setQ(e.target.value)}
-            placeholder="🔍 Type చేసి వెతకండి…"
+            placeholder={duo("🔍 Type to search…", "🔍 Type చేసి వెతకండి…")}
             className="w-full px-4 py-3 border-b border-gold/20 outline-none text-[14px]"
           />
           <div className="max-h-64 overflow-y-auto">
@@ -1142,7 +1142,7 @@ const set = (k: string, v: any) => {
               <div>
                 <label className="text-[13px] font-bold text-ink">{T("ఎవరు register చేస్తున్నారు?", "Who is registering?")} <span className="req-star">*</span></label>
                 <div className="mt-2 grid grid-cols-2 gap-3">
-                  {[{ v: "Bride", l: "👰 పెళ్లి కూతురు", s: "Bride" }, { v: "Groom", l: "🤵 పెళ్లి కొడుకు", s: "Groom" }].map((g) => (
+                  {[{ v: "Bride", l: T("👰 పెళ్లి కూతురు", "👰 Bride"), s: "Bride" }, { v: "Groom", l: T("🤵 పెళ్లి కొడుకు", "🤵 Groom"), s: "Groom" }].map((g) => (
                     <button key={g.v} type="button" onClick={() => set("gender", g.v)}
                       className={`rounded-2xl border-2 p-4 text-center transition-all active:scale-[0.98] ${f.gender === g.v ? "border-maroon bg-maroon-soft shadow-soft" : "border-gold/30 bg-white hover:border-maroon/40"}`}>
                       <div className="text-2xl">{g.v === "Bride" ? "👰" : "🤵"}</div>
@@ -1500,7 +1500,7 @@ export default function RegisterPage() {
     <Suspense
       fallback={
         <div className="min-h-[60vh] flex items-center justify-center text-gray-500 text-sm">
-          Register form load అవుతుంది…
+          {duo("Loading register form…", "Register form load అవుతుంది…")}
         </div>
       }
     >
