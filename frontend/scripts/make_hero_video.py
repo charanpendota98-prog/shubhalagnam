@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-🎬 Build a cinematic wedding "film" from the 4 AI stills.
+🎬 Build a cinematic wedding "film" from the 4 real wedding stills.
 Ken-Burns (slow zoom + pan) per scene, smooth crossfades between scenes.
 Output = animated WebP (autoplays + loops natively in browsers, like a bg video).
 """
