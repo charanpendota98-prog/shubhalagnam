@@ -17,6 +17,7 @@ import { useLang, type Lang } from "@/lib/lang";
 import WeddingStoryHero from "@/components/WeddingStoryHero";
 import CinematicHero from "@/components/CinematicHero";
 import RealWeddingsFilm from "@/components/RealWeddingsFilm";
+import WhyChooseUs from "@/components/WhyChooseUs";
 
 const BOT = SITE_CONFIG.officialChannelUrl;
 
@@ -653,6 +654,9 @@ export default function Home() {
           ))}
         </div>
       </section>
+
+      {/* ================= 💎 WHY CHOOSE US (premium trust band) ================= */}
+      <WhyChooseUs />
 
       {/* ================= WAVE 18 GROWTH: TEASERS + STORIES + RELIGIONS ================= */}
       <TeaserStrip />
