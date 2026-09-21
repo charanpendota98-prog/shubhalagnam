@@ -422,9 +422,9 @@ button:not(:disabled):active { transform: scale(0.97); }
 .cine-grade {
   position: absolute; inset: 0; z-index: 1; pointer-events: none;
   background:
-    radial-gradient(circle at 72% 40%, rgba(255,200,110,.16), transparent 34%),
-    linear-gradient(90deg, rgba(21,4,16,.92) 0%, rgba(21,4,16,.62) 40%, rgba(21,4,16,.12) 74%, rgba(21,4,16,.5) 100%),
-    linear-gradient(0deg, rgba(15,3,12,.9) 2%, transparent 46%);
+    radial-gradient(120% 90% at 78% 38%, rgba(255,205,120,.12), transparent 42%),
+    linear-gradient(90deg, rgba(14,3,11,.94) 0%, rgba(16,4,13,.78) 34%, rgba(18,5,14,.34) 66%, rgba(14,3,11,.55) 100%),
+    linear-gradient(0deg, rgba(10,2,9,.92) 0%, rgba(10,2,9,.2) 42%, transparent 68%);
 }
 .cine-vignette {
   position: absolute; inset: 0; z-index: 1; pointer-events: none;

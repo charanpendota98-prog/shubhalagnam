@@ -26,40 +26,44 @@ const PETALS = ["✿", "❀", "✽", "❁", "✾", "❀", "✿", "❁", "✽", "
 
 const COPY = {
   te: {
-    live: "ఇప్పుడు LIVE — వేల మంది తెలుగు వధూవరులు",
-    kicker: "తెలంగాణ + ఆంధ్రప్రదేశ్ · నం.1 తెలుగు మ్యాట్రిమోనీ",
-    titleA: "మీ జీవిత భాగస్వామి",
-    titleB: "ఇక్కడే మొదలవుతుంది",
-    sub: "ఒక్క రిజిస్టర్‌తో మీ ప్రొఫైల్ సరిపోయే అన్ని ఛానళ్లకూ ఆటోమేటిక్‌గా. ₹99 కే సంబంధం — మొదటి 3 ప్రొఫైళ్లు FREE.",
-    ctaReg: "ఉచిత నమోదు — FREE",
-    ctaBrowse: "ప్రొఫైల్స్ చూడండి →",
-    ctaBot: "Telegram లో చేరండి",
-    trust: ["OTP వెరిఫైడ్", "ఫోటో-ప్రైవేట్", "చాటింగ్ లేదు"],
-    scroll: "కథ చూడటానికి స్క్రోల్ చేయండి",
+    live: "10,000+ ధృవీకరించిన ప్రొఫైల్స్ · ఇప్పుడు LIVE",
+    kicker: "తెలంగాణ & ఆంధ్రప్రదేశ్ · తెలుగు మ్యాట్రిమోని",
+    titleA: "నమ్మకమైన సంబంధం",
+    titleB: "ఇక్కడ మొదలవుతుంది",
+    sub: "ధృవీకరించిన ప్రొఫైల్స్, పూర్తి గోప్యత, గౌరవప్రదమైన విధానం — మీ కుటుంబానికి తగిన జీవిత భాగస్వామిని కనుగొనండి.",
+    pricePill: "₹99 నుంచి · మొదటి 3 ప్రొఫైల్స్ ఉచితం",
+    ctaReg: "ఉచితంగా నమోదు చేసుకోండి",
+    ctaBrowse: "ప్రొఫైల్స్ చూడండి",
+    ctaBot: "టెలిగ్రామ్‌లో చేరండి",
+    trust: ["OTP ధృవీకరణ", "ఫోటో గోప్యత", "నేరుగా పరిచయం"],
+    scroll: "మరింత తెలుసుకోండి",
     matchTitle: "కొత్త మ్యాచ్",
-    matchName: "RED001 · 25y · Reddy",
-    matchDesc: "Software @ Hyderabad · 97% మ్యాచ్",
-    joined: "ఈ వారం చేరినవారు",
-    stories: "పెళ్లిళ్లు కుదిరాయి",
-    channels: "ఛానళ్లు",
+    matchName: "RED001 · 25 సం. · Reddy",
+    matchDesc: "Software · హైదరాబాద్ · 97% సరిపోలిక",
+    accepted: "ఇంట్రెస్ట్ ఆమోదించబడింది",
+    joined: "ధృవీకరించిన ప్రొఫైల్స్",
+    stories: "విజయవంతమైన పెళ్లిళ్లు",
+    channels: "కమ్యూనిటీ ఛానళ్లు",
   },
   en: {
-    live: "LIVE now — thousands of Telugu brides & grooms",
-    kicker: "Telangana + Andhra Pradesh · No.1 Telugu Matrimony",
-    titleA: "Your life partner",
-    titleB: "story begins here",
-    sub: "One registration puts your profile in every channel it fits — automatically. ₹99 Sambandham, first 3 profiles FREE.",
-    ctaReg: "Register free — FREE",
-    ctaBrowse: "Browse profiles →",
+    live: "10,000+ verified profiles · LIVE now",
+    kicker: "Telangana & Andhra Pradesh · Telugu Matrimony",
+    titleA: "Trusted matches,",
+    titleB: "begin here.",
+    sub: "Verified profiles, complete privacy and a respectful process — find the right life partner for your family.",
+    pricePill: "From ₹99 · first 3 profiles free",
+    ctaReg: "Register for free",
+    ctaBrowse: "Browse profiles",
     ctaBot: "Join on Telegram",
-    trust: ["OTP verified", "Photo-private", "No chatting"],
-    scroll: "Scroll to see the story",
+    trust: ["OTP verified", "Photo privacy", "Direct introduction"],
+    scroll: "Learn more",
     matchTitle: "New match",
-    matchName: "RED001 · 25y · Reddy",
-    matchDesc: "Software @ Hyderabad · 97% match",
-    joined: "Joined this week",
-    stories: "Weddings fixed",
-    channels: "Channels",
+    matchName: "RED001 · 25 yrs · Reddy",
+    matchDesc: "Software · Hyderabad · 97% match",
+    accepted: "Interest accepted",
+    joined: "Verified profiles",
+    stories: "Successful weddings",
+    channels: "Community channels",
   },
 };
 
@@ -123,73 +127,75 @@ export default function CinematicHero() {
       )}
 
       {/* ---- Content ---- */}
-      <div className="relative z-[3] mx-auto flex min-h-[100svh] max-w-7xl flex-col justify-center px-5 py-24 md:py-0">
+      <div className="relative z-[3] mx-auto flex min-h-[100svh] max-w-7xl flex-col justify-center px-5 py-28 md:py-0">
         <div className="max-w-2xl">
-          {/* live badge */}
-          <div className="anim-hero inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/10 px-3.5 py-1.5 text-[11px] font-bold text-white backdrop-blur-md telugu">
-            <span className="relative flex h-2.5 w-2.5">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-70" />
-              <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-green-400" />
+          {/* eyebrow / live */}
+          <div className="anim-hero flex flex-wrap items-center gap-3">
+            <span className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3.5 py-1.5 text-[11px] font-semibold tracking-wide text-white backdrop-blur-md telugu">
+              <span className="relative flex h-2 w-2">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-70" />
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400" />
+              </span>
+              {L.live}
             </span>
-            {L.live}
           </div>
 
-          <p className="anim-hero-1 mt-5 text-[11px] font-extrabold uppercase tracking-[.28em] text-[#f6d98a] telugu">
+          <p className="anim-hero-1 mt-6 text-[12px] font-semibold uppercase tracking-[.3em] text-[#f0d9a3] telugu">
             {L.kicker}
           </p>
 
-          <h1 className="anim-hero-2 mt-3 text-[38px] font-black leading-[1.08] text-white drop-shadow-[0_4px_20px_rgba(0,0,0,.5)] md:text-[68px] telugu">
+          <h1 className="anim-hero-2 mt-4 text-[40px] font-bold leading-[1.06] tracking-tight text-white drop-shadow-[0_4px_24px_rgba(0,0,0,.55)] md:text-[72px] telugu">
             {L.titleA}
             <br />
             <span className="cine-title-gold">{L.titleB}</span>
           </h1>
 
-          <p className="anim-hero-3 mt-5 max-w-xl text-[15px] leading-relaxed text-white/90 md:text-[17px] telugu">
+          <p className="anim-hero-3 mt-6 max-w-xl text-[15.5px] font-light leading-relaxed text-white/85 md:text-[18px] telugu">
             {L.sub}
           </p>
 
           {/* CTAs */}
-          <div className="anim-hero-3 mt-7 flex flex-wrap items-center gap-3">
+          <div className="anim-hero-3 mt-8 flex flex-wrap items-center gap-3">
             <span className="cine-cta-glow">
               <Link
                 href="/register"
-                className="inline-flex items-center gap-2 rounded-full gold-gradient px-7 py-4 text-[15px] font-black text-[#5c0821] shadow-2xl transition hover:brightness-105"
+                className="inline-flex items-center gap-2 rounded-full gold-gradient px-8 py-4 text-[15px] font-bold text-[#5c0821] shadow-xl transition hover:brightness-105"
               >
-                💍 {L.ctaReg}
+                {L.ctaReg}
+                <span aria-hidden>→</span>
               </Link>
             </span>
             <Link
               href="/matches"
-              className="rounded-full border border-white/50 bg-white/10 px-6 py-4 text-[15px] font-bold text-white backdrop-blur-md transition hover:bg-white/20"
+              className="rounded-full border border-white/40 bg-white/5 px-7 py-4 text-[15px] font-semibold text-white backdrop-blur-md transition hover:bg-white/15"
             >
               {L.ctaBrowse}
             </Link>
-            <a
-              href={SITE_CONFIG.officialChannelUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="hidden rounded-full border border-white/20 px-5 py-4 text-[14px] font-bold text-white/90 transition hover:bg-white/10 sm:inline-flex"
-            >
-              ✈️ {L.ctaBot}
-            </a>
           </div>
 
-          {/* trust chips */}
-          <div className="anim-hero-3 mt-6 flex flex-wrap gap-4 text-[12.5px] font-semibold text-white/85 telugu">
+          {/* price pill — subtle, premium */}
+          <div className="anim-hero-3 mt-5">
+            <span className="inline-flex items-center gap-2 rounded-full border border-[#f0d9a3]/40 bg-[#f0d9a3]/10 px-4 py-2 text-[12.5px] font-medium text-[#f7e6bf] telugu">
+              <span aria-hidden>◆</span> {L.pricePill}
+            </span>
+          </div>
+
+          {/* trust row */}
+          <div className="anim-hero-3 mt-7 flex flex-wrap items-center gap-x-6 gap-y-2 text-[12.5px] font-medium text-white/75 telugu">
             {L.trust.map((t) => (
               <span key={t} className="inline-flex items-center gap-1.5">
-                <span className="text-green-400">✓</span>
+                <span className="text-emerald-400">✓</span>
                 {t}
               </span>
             ))}
           </div>
 
-          {/* live mini stats */}
-          <div className="anim-hero-3 mt-8 flex max-w-md items-center gap-6">
-            <Stat value="12,400+" label={L.joined} lang={lang as Lang} />
-            <span className="h-8 w-px bg-white/20" />
+          {/* stats */}
+          <div className="anim-hero-3 mt-9 flex max-w-lg items-center gap-7 border-t border-white/15 pt-6">
+            <Stat value="10,000+" label={L.joined} lang={lang as Lang} />
+            <span className="h-9 w-px bg-white/15" />
             <Stat value="3,900+" label={L.stories} lang={lang as Lang} />
-            <span className="h-8 w-px bg-white/20" />
+            <span className="h-9 w-px bg-white/15" />
             <Stat value="51" label={L.channels} lang={lang as Lang} />
           </div>
         </div>
@@ -220,7 +226,7 @@ export default function CinematicHero() {
         <div className="cine-float-card cine-float-card--slow pointer-events-auto mt-4 ml-10 w-[210px] rounded-2xl border border-white/25 bg-white/12 p-3 text-white shadow-2xl backdrop-blur-xl">
           <div className="flex items-center gap-2 text-[12px] font-semibold telugu">
             <span className="text-lg">💌</span>
-            {lang === "en" ? "Interest accepted" : "ఇంట్రెస్ట్ యాక్సెప్ట్ అయింది"}
+            {L.accepted}
           </div>
         </div>
       </div>
@@ -246,8 +252,8 @@ export default function CinematicHero() {
 function Stat({ value, label, lang }: { value: string; label: string; lang: Lang }) {
   return (
     <div>
-      <div className="text-xl font-black text-white md:text-2xl">{value}</div>
-      <div className={`text-[10.5px] font-semibold text-white/70 ${lang === "te" ? "telugu" : ""}`}>{label}</div>
+      <div className="text-2xl font-bold tracking-tight text-white md:text-[28px]">{value}</div>
+      <div className={`mt-0.5 text-[11px] font-medium text-white/60 ${lang === "te" ? "telugu" : ""}`}>{label}</div>
     </div>
   );
 }
