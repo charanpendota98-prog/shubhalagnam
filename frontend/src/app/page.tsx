@@ -18,6 +18,7 @@ import { useLang, type Lang } from "@/lib/lang";
 import WeddingStoryHero from "@/components/WeddingStoryHero";
 import CinematicHero from "@/components/CinematicHero";
 import RealWeddingsFilm from "@/components/RealWeddingsFilm";
+import HomeVendorsShowcase from "@/components/HomeVendorsShowcase";
 import WhyChooseUs from "@/components/WhyChooseUs";
 import { waLink } from "@/lib/wa";
 import { TelegramIcon, WhatsAppIcon } from "@/components/BrandIcons";
@@ -621,11 +622,14 @@ export default function Home() {
       <ProfilesOfTheDay />
 
       {/* ================= SPONSORED PROMO & FESTIVAL OFFERS ================= */}
-      <section className="max-w-7xl mx-auto px-4 py-3 space-y-2.5">
+      <section className="max-w-7xl mx-auto px-4 py-2.5 space-y-2">
         <AdSlot slot="home_hero" />
         <OffersBanner />
         <BannerSlot page="home" />
       </section>
+
+      {/* ================= 🏪 WEDDING SERVICES & VERIFIED VENDORS ================= */}
+      <HomeVendorsShowcase />
 
       {/* ================= WEEKLY CASTE SHOWCASE (W41) ================= */}
       <ShowcaseStrip />
