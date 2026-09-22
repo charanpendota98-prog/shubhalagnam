@@ -11,6 +11,7 @@ import SectionHeading from "@/components/SectionHeading";
 import { FinalCta, ReligionsStrip, StoriesStrip, TeaserStrip } from "@/components/HomeGrowth";
 import DailyStrip from "@/components/DailyStrip";
 import ShowcaseStrip from "@/components/ShowcaseStrip";
+import ProfilesOfTheDay from "@/components/ProfilesOfTheDay";
 import { SITE_CONFIG } from "@/lib/site-config";
 import { apiGet } from "@/lib/api";
 import { useLang, type Lang } from "@/lib/lang";
@@ -623,6 +624,9 @@ export default function Home() {
       <section className="max-w-7xl mx-auto px-4 pt-3">
         <OffersBanner />
       </section>
+
+      {/* ================= 🌟 PROFILES OF THE DAY (SPOTLIGHT) ================= */}
+      <ProfilesOfTheDay />
 
       {/* ================= WEEKLY CASTE SHOWCASE (W41) ================= */}
       <ShowcaseStrip />

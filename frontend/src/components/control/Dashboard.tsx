@@ -3,7 +3,7 @@
 /**
  * 🎛️ ADVANCED CONTROL DASHBOARD — owner + worker (RBAC).
  * Real backend data via session cookie: /api/control/analytics, profile-queue,
- * reports. Actions (approve/reject/resolve) send CSRF header. Fully bilingual.
+ * spotlight-queue, reports. Actions (approve/reject/resolve) send CSRF header. Fully bilingual.
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -34,12 +34,19 @@ type ReportItem = {
   report_id?: string; id?: string; target_id?: string; reporter_id?: string;
   category?: string; detail?: string; status?: string; severity?: string; count?: number;
 };
+type SpotlightItem = {
+  promo_id: string; tsap_id: string; full_name: string; gender: string; age?: number;
+  caste: string; district: string; plan_code: string; amount_paid: number;
+  headline: string; pitch_text: string; photo_url?: string; video_url?: string;
+  media_type: string; payment_mode: string; payment_ref: string; status: string;
+  submitted_at: string; moderator_notes?: string;
+};
 
 const T = {
   te: {
     ops: "ప్రైవేట్ ఆపరేషన్స్", dash: "డాష్‌బోర్డ్", signedAs: "సైన్ ఇన్",
     signout: "సైన్ అవుట్", refresh: "రిఫ్రెష్", loading: "లోడ్ అవుతోంది…",
-    tabOverview: "📊 అవలోకనం", tabQueue: "👥 ప్రొఫైల్ క్యూ", tabReports: "🚩 రిపోర్ట్‌లు",
+    tabOverview: "📊 అవలోకనం", tabQueue: "👥 ప్రొఫైల్ క్యూ", tabSpotlight: "🌟 స్పాట్‌లైట్ / Profiles of Day", tabReports: "🚩 రిపోర్ట్‌లు",
     tabRevenue: "💰 రెవెన్యూ", tabAudit: "📜 ఆడిట్ లాగ్",
     kProfiles: "మొత్తం ప్రొఫైళ్లు", kPending: "పెండింగ్ రివ్యూ", kApproved: "అప్రూవ్డ్",
     kReports: "ఓపెన్ రిపోర్ట్‌లు", kPhotos: "ఫోటో రివ్యూ", kVerified: "వెరిఫైడ్",
@@ -60,7 +67,7 @@ const T = {
   en: {
     ops: "Private operations", dash: "Dashboard", signedAs: "Signed in as",
     signout: "Sign out", refresh: "Refresh", loading: "Loading…",
-    tabOverview: "📊 Overview", tabQueue: "👥 Profile queue", tabReports: "🚩 Reports",
+    tabOverview: "📊 Overview", tabQueue: "👥 Profile queue", tabSpotlight: "🌟 Spotlight / Profiles of Day", tabReports: "🚩 Reports",
     tabRevenue: "💰 Revenue", tabAudit: "📜 Audit log",
     kProfiles: "Total profiles", kPending: "Pending review", kApproved: "Approved",
     kReports: "Open reports", kPhotos: "Photo review", kVerified: "Verified",
@@ -92,9 +99,11 @@ export default function Dashboard() {
   const L = T[(lang as "te" | "en") in T ? (lang as "te" | "en") : "te"];
   const [me, setMe] = useState<Me | null>(null);
   const [an, setAn] = useState<Analytics | null>(null);
-  const [tab, setTab] = useState<"overview" | "queue" | "reports" | "revenue" | "audit">("overview");
+  const [tab, setTab] = useState<"overview" | "queue" | "spotlight" | "reports" | "revenue" | "audit">("overview");
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const [qStatus, setQStatus] = useState<"pending" | "approved" | "rejected" | "all">("pending");
+  const [spotlights, setSpotlights] = useState<SpotlightItem[]>([]);
+  const [spStatus, setSpStatus] = useState<string>("all");
   const [reports, setReports] = useState<ReportItem[]>([]);
   const [toast, setToast] = useState("");
   const [busyId, setBusyId] = useState("");
@@ -132,9 +141,17 @@ export default function Dashboard() {
     } catch { setReports([]); }
   }, []);
 
+  const loadSpotlights = useCallback(async (status: string) => {
+    try {
+      const d = await jget(`/api/control/spotlight/queue?status=${status}&limit=50`);
+      setSpotlights(d.items || []);
+    } catch { setSpotlights([]); }
+  }, []);
+
   useEffect(() => { loadCore(); }, [loadCore]);
   useEffect(() => { if (tab === "queue") loadQueue(qStatus); }, [tab, qStatus, loadQueue]);
   useEffect(() => { if (tab === "reports") loadReports(); }, [tab, loadReports]);
+  useEffect(() => { if (tab === "spotlight") loadSpotlights(spStatus); }, [tab, spStatus, loadSpotlights]);
 
   const flash = (m: string) => { setToast(m); setTimeout(() => setToast(""), 2600); };
 
@@ -156,6 +173,24 @@ export default function Dashboard() {
     finally { setBusyId(""); }
   }
 
+  async function spotlightAction(promoId: string, action: "approve" | "reject" | "close", days?: number) {
+    if (!me) return;
+    setBusyId(promoId);
+    try {
+      const r = await fetch(`/api/control/spotlight/${encodeURIComponent(promoId)}/action`, {
+        method: "POST", credentials: "include",
+        headers: { "Content-Type": "application/json", "X-Control-CSRF": me.csrf },
+        body: JSON.stringify({ action, days }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.detail || "fail");
+      flash(d.message || L.done);
+      loadSpotlights(spStatus);
+      loadCore();
+    } catch (e: any) { flash(e?.message || L.failed); }
+    finally { setBusyId(""); }
+  }
+
   async function resolveReport(id: string, action: string) {
     if (!me) return;
     setBusyId(id);
@@ -165,8 +200,9 @@ export default function Dashboard() {
         headers: { "Content-Type": "application/json", "X-Control-CSRF": me.csrf },
         body: JSON.stringify({ action }),
       });
-      if (!r.ok) throw new Error();
-      flash(L.done);
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.detail || "fail");
+      flash(d.action || L.done);
       setReports((rs) => rs.filter((x) => (x.report_id || x.id) !== id));
       loadCore();
     } catch { flash(L.failed); }
@@ -196,6 +232,7 @@ export default function Dashboard() {
   const tabs: { k: typeof tab; label: string; ownerOnly?: boolean }[] = [
     { k: "overview", label: L.tabOverview },
     { k: "queue", label: L.tabQueue },
+    { k: "spotlight", label: L.tabSpotlight },
     { k: "reports", label: L.tabReports },
     { k: "revenue", label: L.tabRevenue, ownerOnly: true },
     { k: "audit", label: L.tabAudit, ownerOnly: true },
@@ -268,10 +305,11 @@ export default function Dashboard() {
               </Card>
               <Card>
                 <h3 className="text-sm font-black text-navy">{L.genderSplit}</h3>
-                <div className="mt-3">
+                <div className="mt-3 flex items-center justify-center">
                   <Donut
+                    size={110}
                     segments={[
-                      { label: L.female, value: t.females, color: "#A0143A" },
+                      { label: L.female, value: t.females, color: "#7A0C2E" },
                       { label: L.male, value: t.males, color: "#0F1F3C" },
                     ]}
                   />
@@ -325,6 +363,123 @@ export default function Dashboard() {
                 </div>
               ))}
               {!queue.length && <p className="py-8 text-center text-sm text-slate-400">{L.noPending}</p>}
+            </div>
+          </Card>
+        )}
+
+        {/* ---------------- SPOTLIGHT / PROFILES OF THE DAY ---------------- */}
+        {tab === "spotlight" && (
+          <Card>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-black text-navy">🌟 {lang === "te" ? "స్పాట్‌లైట్ / నేటి ప్రత్యేక ప్రొఫైళ్లు క్యూ" : "Spotlight & Profiles of the Day Queue"}</h3>
+                <p className="mt-0.5 text-[11.5px] text-slate-500">
+                  {lang === "te" ? "వినియోగదారులు చెల్లించిన ప్రమోషన్లను ఇక్కడ ఫోటో/వీడియో పరిశీలించి అప్రూవ్ చేయండి." : "Review user paid profile promotions, check photo/video quality, and approve to go live."}
+                </p>
+              </div>
+              <div className="flex gap-1.5">
+                {[
+                  ["all", lang === "te" ? "అన్నీ" : "All"],
+                  ["pending_review", lang === "te" ? "పెండింగ్" : "Pending"],
+                  ["active", lang === "te" ? "లైవ్" : "Live"],
+                  ["rejected", lang === "te" ? "రిజెక్ట్" : "Rejected"],
+                  ["closed", lang === "te" ? "క్లోజ్డ్" : "Closed"],
+                ].map(([k, lab]) => (
+                  <button key={k} onClick={() => setSpStatus(k)}
+                    className={`rounded-full px-3 py-1.5 text-[11.5px] font-bold ${spStatus === k ? "maroon-gradient text-white" : "border border-gold/40 text-maroon hover:bg-cream"}`}>
+                    {lab}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-4 space-y-4">
+              {spotlights.map((sp) => (
+                <div key={sp.promo_id} className="rounded-2xl border border-gold/30 bg-white p-4 shadow-sm hover:shadow-md transition space-y-3">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className="relative h-14 w-14 shrink-0 rounded-2xl overflow-hidden bg-slate-900 border border-gold/40">
+                        <img src={sp.photo_url || "/promo/cine-1.jpg"} alt="Candidate" className="h-full w-full object-cover" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-extrabold text-navy">{sp.full_name}</p>
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300">
+                            {sp.plan_code} (₹{sp.amount_paid})
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-500">
+                          {sp.tsap_id} · {sp.gender} · {sp.caste} · 🏡 {sp.district}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full uppercase ${
+                        sp.status === "active" ? "bg-emerald-100 text-emerald-800" :
+                        sp.status === "pending_review" ? "bg-amber-100 text-amber-800 animate-pulse" :
+                        sp.status === "rejected" ? "bg-rose-100 text-rose-800" : "bg-slate-100 text-slate-600"
+                      }`}>
+                        {sp.status}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Headline & Pitch */}
+                  <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 text-xs text-slate-700 space-y-1">
+                    <p className="font-bold text-maroon">📌 {sp.headline}</p>
+                    <p className="italic">&ldquo;{sp.pitch_text}&rdquo;</p>
+                  </div>
+
+                  {/* Media & Payment reference check */}
+                  <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-600 pt-1 border-t border-slate-100">
+                    <div className="flex items-center gap-3">
+                      <span>💳 <b>Ref:</b> {sp.payment_ref} ({sp.payment_mode})</span>
+                      {sp.video_url && (
+                        <a href={sp.video_url} target="_blank" rel="noreferrer" className="text-blue-600 font-bold hover:underline flex items-center gap-1">
+                          🎥 <span>వీడియో లింక్ చూడండి</span>
+                        </a>
+                      )}
+                    </div>
+
+                    {/* Action buttons */}
+                    <div className="flex items-center gap-1.5">
+                      {sp.status !== "active" && (
+                        <button
+                          disabled={busyId === sp.promo_id}
+                          onClick={() => spotlightAction(sp.promo_id, "approve")}
+                          className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-700 disabled:opacity-50"
+                        >
+                          ✅ {lang === "te" ? "లైవ్ చేయండి (Approve)" : "Approve & Live"}
+                        </button>
+                      )}
+                      {sp.status === "active" && (
+                        <button
+                          disabled={busyId === sp.promo_id}
+                          onClick={() => spotlightAction(sp.promo_id, "close")}
+                          className="rounded-lg bg-slate-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-slate-700 disabled:opacity-50"
+                        >
+                          ⏹️ {lang === "te" ? "క్లోజ్ చేయండి" : "Close Promo"}
+                        </button>
+                      )}
+                      {sp.status !== "rejected" && (
+                        <button
+                          disabled={busyId === sp.promo_id}
+                          onClick={() => spotlightAction(sp.promo_id, "reject")}
+                          className="rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-rose-700 disabled:opacity-50"
+                        >
+                          ❌ {lang === "te" ? "రిజెక్ట్ (Refund)" : "Reject & Refund"}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {!spotlights.length && (
+                <p className="py-8 text-center text-sm text-slate-400">
+                  {lang === "te" ? "స్పాట్‌లైట్ ప్రమోషన్లు ఏవీ లేవు" : "No spotlight promotions in this tab"}
+                </p>
+              )}
             </div>
           </Card>
         )}
@@ -419,5 +574,9 @@ function StatusPill({ status }: { status: string }) {
     pending: "bg-amber-100 text-amber-800", approved: "bg-emerald-100 text-emerald-800",
     rejected: "bg-rose-100 text-rose-800",
   };
-  return <span className={`rounded-full px-2.5 py-1 text-[10.5px] font-bold ${map[status] || "bg-slate-100 text-slate-600"}`}>{status}</span>;
+  return (
+    <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold capitalize ${map[status] || "bg-slate-100 text-slate-700"}`}>
+      {status}
+    </span>
+  );
 }

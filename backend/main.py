@@ -32,6 +32,7 @@ from referral import (
     FIRST_PAY_COMMISSION,
 )  # noqa: E402
 import refpartners as RP19  # noqa: E402  # 🌊 WAVE 19 — referral partners
+import spotlight  # 🌟 WAVE 42 — Profiles of the Day & Spotlight Engine
 from vendors import (                                                        # 🏪 vendor ads + promotions
     register_vendor, activate_vendor, reject_vendor, expire_due_vendors, vendors_directory,
     ad_rotation, track_vendor_click, vendor_lead, promo_post, vendor_dashboard,
@@ -365,6 +366,43 @@ def control_report_resolve(report_id: str, payload: dict, request: Request):
     CONTROL_AUTH.audit("control_report_resolve", item["username"], request,
                        report_id=report_id, action=str(d.get("action", "")))
     return {"success": True, "action": msg, "report": rec}
+
+
+@app.get("/api/control/spotlight/queue")
+def control_spotlight_queue(request: Request, status: str = "all", limit: int = 50):
+    """Control Portal: Queue of paid 'Profiles of the Day' promotions for review & moderation."""
+    item = CONTROL_AUTH.require(request)
+    limit = max(1, min(int(limit), 100))
+    all_promos = spotlight._load_spotlights()
+    if status != "all":
+        filtered = [p for p in all_promos if p.get("status") == status]
+    else:
+        filtered = all_promos
+    filtered.sort(key=lambda x: str(x.get("submitted_at", "")), reverse=True)
+    CONTROL_AUTH.audit("control_spotlight_queue", item["username"], request, status=status, count=len(filtered[:limit]))
+    return {"success": True, "items": filtered[:limit], "total": len(filtered), "role": item["role"]}
+
+
+@app.post("/api/control/spotlight/{promo_id}/action")
+def control_spotlight_action(promo_id: str, payload: dict, request: Request):
+    """Control Portal: Approve, reject, or close a paid spotlight promotion (CSRF authed)."""
+    item = _control_write_guard(request, roles=_CONTROL_WRITE_ROLES)
+    d = payload or {}
+    action = str(d.get("action", "")).strip().lower()
+    notes = str(d.get("notes", "")).strip()
+    override_days = int(d.get("days", 0)) or None
+    try:
+        updated = spotlight.moderate_spotlight(
+            promo_id=promo_id,
+            action=action,
+            moderator=item["username"],
+            notes=notes,
+            override_days=override_days
+        )
+        CONTROL_AUTH.audit("control_spotlight_action", item["username"], request, promo_id=promo_id, action=action)
+        return {"success": True, "item": updated, "message": f"Spotlight promotion {action}d successfully"}
+    except Exception as e:
+        raise HTTPException(400, str(e))
 
 
 # 🌊 WAVE 26 — GLOBAL SAFETY NET: ekkada crash aina Telugu JSON (raw 500 never).
@@ -2004,6 +2042,106 @@ async def showcase_set(payload: dict, request: Request):
     return {"success": True, "week": wk, "caste": caste, "selected": ids,
             "posted": posted, "failed": failed, "next_caste": data[wk]["next_caste"],
             "message_telugu": f"🎊 ఈ వారం {caste} showcase — {len(ids)} profiles ({len(posted)} caste channels lo post)"}
+
+
+# ============================================================================
+# 🌟 WAVE 42 — PROFILES OF THE DAY & PAID SPOTLIGHT PROMOTION API
+# ============================================================================
+@app.get("/api/spotlight/rates")
+def spotlight_rates():
+    """Public — Spotlight / Profiles of the Day tier rates & perks."""
+    return {"success": True, "tiers": spotlight.SPOTLIGHT_TIERS,
+            "headline_te": "🌟 ఈ రోజు ప్రత్యేక ప్రొఫైళ్లు (Spotlight) — మీ ప్రొఫైల్ ని ప్రమోట్ చేసుకోండి",
+            "headline_en": "Profiles of the Day & Spotlight — Promote your profile for 10x visibility"}
+
+
+@app.get("/api/spotlight/active")
+def spotlight_active(limit: int = 12):
+    """Public — Live & approved Profiles of the Day for Homepage & Matches."""
+    limit = max(1, min(int(limit), 30))
+    active = spotlight.get_active_spotlights(limit=limit)
+    return {"success": True, "count": len(active), "items": active,
+            "message_telugu": f"🌟 ఈ రోజు {len(active)} ప్రత్యేక ప్రొఫైళ్లు ప్రత్యక్షంగా ఉన్నాయి"}
+
+
+@app.post("/api/spotlight/apply")
+def spotlight_apply(payload: dict):
+    """Registered user applies for paid spotlight promotion."""
+    d = payload or {}
+    tsap_id = str(d.get("tsap_id") or "").strip().upper()
+    user = _find_user(tsap_id)
+    if not user:
+        raise HTTPException(404, f"User ID {tsap_id} దొరకలేదు. దయచేసి రిజిస్టర్ చేసుకోండి.")
+    
+    plan_code = str(d.get("plan_code") or "SPOT_3").strip().upper()
+    headline = str(d.get("headline") or "").strip()[:140]
+    pitch_text = str(d.get("pitch_text") or "").strip()[:600]
+    photo_url = str(d.get("photo_url") or "").strip()
+    video_url = str(d.get("video_url") or "").strip()
+    payment_mode = str(d.get("payment_mode") or "upi").strip()
+    payment_ref = str(d.get("payment_ref") or "").strip()
+    contact_opt = str(d.get("contact_opt") or "send_interest").strip()
+
+    try:
+        entry = spotlight.create_spotlight_submission(
+            user=user,
+            plan_code=plan_code,
+            headline=headline,
+            pitch_text=pitch_text,
+            photo_url=photo_url,
+            video_url=video_url,
+            payment_mode=payment_mode,
+            payment_ref=payment_ref,
+            contact_opt=contact_opt,
+            auto_approve=False
+        )
+        return {"success": True, "item": entry,
+                "message_telugu": "✅ మీ ప్రమోషన్ దరఖాస్తు అందింది! అడ్మిన్ టీమ్ ఫోటో/వీడియో పరిశీలించి 2 గంటల్లో లైవ్ చేస్తుంది."}
+    except Exception as e:
+        raise HTTPException(400, str(e))
+
+
+@app.post("/api/spotlight/track/{promo_id}")
+def spotlight_track(promo_id: str, kind: str = "click"):
+    """Track view/click/interest for analytics."""
+    spotlight.record_spotlight_interaction(promo_id, kind=kind)
+    return {"success": True}
+
+
+@app.get("/api/admin/spotlight/queue")
+def admin_spotlight_queue(request: Request, status: str = "all", limit: int = 50):
+    """Admin / Staff — Review queue of paid spotlight submissions."""
+    require_admin(request, staff_ok=True)
+    limit = clamp_int(limit, "limit", 1, 100, 50)
+    all_promos = spotlight._load_spotlights()
+    if status != "all":
+        filtered = [p for p in all_promos if p.get("status") == status]
+    else:
+        filtered = all_promos
+    filtered.sort(key=lambda x: str(x.get("submitted_at", "")), reverse=True)
+    return {"success": True, "items": filtered[:limit], "total": len(filtered)}
+
+
+@app.post("/api/admin/spotlight/{promo_id}/action")
+def admin_spotlight_action(promo_id: str, payload: dict, request: Request):
+    """Admin / Staff — Approve, reject, or close a spotlight promotion."""
+    moderator = require_admin(request, staff_ok=True)
+    d = payload or {}
+    action = str(d.get("action", "")).strip().lower()
+    notes = str(d.get("notes", "")).strip()
+    override_days = int(d.get("days", 0)) or None
+    try:
+        updated = spotlight.moderate_spotlight(
+            promo_id=promo_id,
+            action=action,
+            moderator=f"admin ({moderator})",
+            notes=notes,
+            override_days=override_days
+        )
+        return {"success": True, "item": updated,
+                "message_telugu": f"✅ ప్రమోషన్ {action} పూర్తయింది"}
+    except Exception as e:
+        raise HTTPException(400, str(e))
 
 
 @app.get("/api/admin/retention/preview")
