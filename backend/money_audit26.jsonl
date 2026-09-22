@@ -139,3 +139,9 @@
 {"at": "2026-09-19T08:12:10.797419", "event": "profile_unban", "actor": "admin", "details": {"tsap_id": "TSAP-F-2025-9001"}}
 {"at": "2026-09-19T08:12:10.800217", "event": "profile_unban", "actor": "admin", "details": {"tsap_id": "TSAP-F-2025-9001"}}
 {"at": "2026-09-22T18:34:41.112392", "event": "payout_paid", "actor": "admin", "details": {"request_id": "PAY-2609221834-0003", "amount": 100, "utr": "UTRSBI9876543210", "tsap_id": "TSAP-F-2025-5000", "partner_id": ""}}
+{"at": "2026-09-22T19:07:58.236492", "event": "payout_paid", "actor": "admin", "details": {"request_id": "PAY-2609221907-0022", "amount": 200, "utr": "UTRAPI1", "tsap_id": "TSAP-M-2025-1042", "partner_id": ""}}
+{"at": "2026-09-22T19:07:58.244297", "event": "payout_rejected", "actor": "admin", "details": {"request_id": "PAY-2609221907-0025", "amount": 100, "utr": "", "tsap_id": "TSAP-M-2025-1042", "partner_id": ""}}
+{"at": "2026-09-22T19:07:58.247463", "event": "refunded", "actor": "admin", "details": {"tsap_id": "RED002", "amount": 0, "reversed": 50, "reason": "api_test"}}
+{"at": "2026-09-22T19:08:24.306252", "event": "payout_paid", "actor": "admin", "details": {"request_id": "PAY-2609221908-0022", "amount": 200, "utr": "UTRAPI1", "tsap_id": "TSAP-M-2025-1042", "partner_id": ""}}
+{"at": "2026-09-22T19:08:24.314100", "event": "payout_rejected", "actor": "admin", "details": {"request_id": "PAY-2609221908-0025", "amount": 100, "utr": "", "tsap_id": "TSAP-M-2025-1042", "partner_id": ""}}
+{"at": "2026-09-22T19:08:24.317386", "event": "refunded", "actor": "admin", "details": {"tsap_id": "RED003", "amount": 0, "reversed": 50, "reason": "api_test"}}

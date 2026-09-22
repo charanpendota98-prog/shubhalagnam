@@ -1732,6 +1732,24 @@ def referral_terms():
 
 
 @app.get("/api/referral/{tsap_id}")
+def referral_home(tsap_id: str, request: Request = None):
+    """
+    📊 Mee referral dashboard — code, link, clicks, registrations, payments, wallet,
+    tier, next milestone, ledger, payouts. (Tenant-safe: mee ID matrame chudochu.)
+    """
+    user = _user_or_404(tsap_id)
+    require_owner(request, tsap_id)
+    d = referral_dashboard(user, DB_USERS)
+    d["share_kit"] = referral_share_kit(user)
+    return d
+
+
+@app.get("/api/referral/{tsap_id}/share-kit")
+def referral_share(tsap_id: str):
+    """📲 5 ready WhatsApp messages + Telegram + SMS + poster text (Telugu)."""
+    user = _user_or_404(tsap_id)
+    kit = referral_share_kit(user)
+    return {"success": True, **kit}
 
 
 @app.get("/api/referral/{tsap_id}/earnings-card.png")
@@ -1739,9 +1757,9 @@ def referral_earnings_card_user(tsap_id: str, format: str = "story"):
     """🖼️ User tsap_id referral earnings proof card (live wallet/stats నుండి auto-generate)."""
     user = _user_or_404(tsap_id)
     ensure_referrer_profile(user, DB_USERS)
-    st = stats_of(user)
+    st = referral_stats_of(user)
     name = user.get("full_name") or user.get("name") or "Partner"
-    code = _code_of(user)
+    code = referral_code_of(user)
     amount = int(st.get("lifetime_earned") or st.get("wallet") or 50)
     paid_count = int(st.get("paid_count") or 1)
     tier_title = f"{st.get('tier', 'BRONZE')} PARTNER"
