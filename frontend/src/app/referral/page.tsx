@@ -197,16 +197,16 @@ export default function ReferralPage() {
 
             <div className="flex flex-wrap gap-2.5 self-start md:self-auto">
               <Link
-                href="/register"
+                href="/referral/register"
                 className="px-5 py-2.5 rounded-full bg-gold text-maroon font-extrabold text-xs shadow-gold hover:brightness-105 active:scale-95 transition"
               >
-                🎁 {te ? "ఉచితంగా చేరండి (1 నిమిషం)" : "Join FREE (1 Min)"}
+                🎁 {te ? "భాగస్వామిగా చేరండి (10 సెకన్లు)" : "Become Partner (10s)"}
               </Link>
               <Link
-                href="/pricing"
-                className="px-4 py-2.5 rounded-full bg-white/15 border border-white/30 text-white font-bold text-xs hover:bg-white/25 transition"
+                href="/register"
+                className="px-4 py-2.5 rounded-full bg-white/20 border border-white/30 text-white font-bold text-xs hover:bg-white/30 transition"
               >
-                💰 {te ? "ప్లాన్లు చూడండి" : "Pricing Plans"}
+                👰 {te ? "ఉచిత ప్రొఫైల్ నమోదు" : "Register Profile FREE"}
               </Link>
             </div>
           </div>

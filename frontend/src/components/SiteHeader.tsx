@@ -10,11 +10,11 @@ import { LangToggle, useLang } from "@/lib/lang";
 
 type NavItem = { href: string; en: string; te: string; icon: string; xl?: boolean };
 
-/* Desktop pills — neat 7 (menu card lo migatha anni) */
+/* Desktop pills — neat 8 (menu card lo migatha anni) */
 const NAV_MAIN: NavItem[] = [
   { href: "/", en: "Home", te: "హోమ్", icon: "🏠" },
   { href: "/matches", en: "Matches", te: "సంబంధాలు", icon: "💘" },
-  { href: "/requests", en: "Requests", te: "రిక్వెస్టులు", icon: "💌" },
+  { href: "/spotlight", en: "Spotlight", te: "స్పాట్‌లైట్", icon: "🌟" },
   { href: "/channels", en: "Channels", te: "ఛానళ్లు", icon: "📢" },
   { href: "/castes", en: "Castes", te: "కులాలు", icon: "🪔" },
   { href: "/pricing", en: "Pricing", te: "ధరలు", icon: "💰" },
@@ -22,6 +22,7 @@ const NAV_MAIN: NavItem[] = [
 ];
 
 const NAV_EARN: NavItem[] = [
+  { href: "/spotlight", en: "Promote Profile (Spotlight)", te: "ప్రొఫైల్ ప్రమోట్ (స్పాట్‌లైట్)", icon: "🌟" },
   { href: "/referral", en: "Referral dashboard", te: "రెఫరల్ డాష్‌బోర్డ్", icon: "🤝" },
   { href: "/referral/register", en: "Become a referrer", te: "రెఫరర్‌గా చేరండి", icon: "🎁" },
   { href: "/bureau", en: "Bureau (B2B)", te: "బ్యూరో (B2B)", icon: "🏛️" },

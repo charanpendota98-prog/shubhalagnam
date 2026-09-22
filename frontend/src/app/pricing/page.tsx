@@ -122,8 +122,8 @@ export default function PricingPage() {
         </div>
       </section>
 
-      {/* ADD-ONS + RENEWAL + REFERRAL — compact row */}
-      <section className="mt-10 grid md:grid-cols-3 gap-4">
+      {/* ADD-ONS + RENEWAL + REFERRAL + SPOTLIGHT — compact row */}
+      <section className="mt-10 grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="rounded-2xl border border-gray-200 bg-white p-5">
           <div className="font-bold text-[#7A0C2E] telugu">{te ? "🎁 Add-ons" : "🎁 Add-ons"}</div>
           <ul className="mt-3 space-y-2 text-xs">
@@ -139,6 +139,13 @@ export default function PricingPage() {
           <div className="font-bold text-[#7A0C2E] telugu">{te ? "🔁 Renewal (పాత customers)" : "🔁 Renewal"}</div>
           <div className="mt-3 text-sm telugu">₹{SITE_CONFIG.pricing.renewal.price} → <b>{SITE_CONFIG.pricing.renewal.profiles} requests</b></div>
           <Link href="/requests#renew" className="mt-3 inline-block text-xs font-bold text-[#7A0C2E] underline">{te ? "Renewal తీసుకోండి →" : "Get renewal →"}</Link>
+        </div>
+        <div className="rounded-2xl border border-gold/40 bg-white p-5">
+          <div className="font-bold text-[#7A0C2E] telugu">🌟 {te ? "స్పాట్‌లైట్ ప్రమోషన్" : "Spotlight Boost"}</div>
+          <div className="mt-3 text-xs telugu text-gray-700">
+            {te ? <>హోమ్‌పేజీ టాప్‌లో ఫోటో & వీడియోతో మీ ప్రొఫైల్ ప్రమోట్ చేసుకోండి — <b>₹99 నుండి</b>.</> : <>Promote your profile with photo & video at top of home — <b>from ₹99</b>.</>}
+          </div>
+          <Link href="/spotlight" className="mt-3 inline-block text-xs font-bold text-[#7A0C2E] underline">{te ? "ప్రమోట్ చేసుకోండి →" : "Promote profile →"}</Link>
         </div>
         <div className="rounded-2xl border border-gray-200 bg-white p-5">
           <div className="font-bold text-[#7A0C2E] telugu">🤝 Referral — ₹{SITE_CONFIG.pricing.referralPerPay}</div>
