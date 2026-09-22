@@ -1696,6 +1696,35 @@ def _user_or_404(tsap_id: str) -> Dict:
     return u
 
 
+@app.get("/api/referral/earnings-card")
+def referral_earnings_card_public(
+    code: str = "PARTNER",
+    name: str = "Mana Vivaha Partner",
+    amount: int = 50,
+    paid_count: int = 1,
+    tier: str = "BRONZE PARTNER",
+    format: str = "story",
+):
+    """🖼️ Dynamic WhatsApp Status (1080x1920) or Social Banner (1200x630) referral earnings proof card."""
+    try:
+        from referral_card import generate_earnings_status_card
+        card_bytes = generate_earnings_status_card(
+            name=name,
+            code=code,
+            amount=max(1, amount),
+            paid_count=max(1, paid_count),
+            tier_title=tier or "VERIFIED PARTNER",
+            format_type=format or "story",
+        )
+        return Response(
+            content=card_bytes,
+            media_type="image/png",
+            headers={"Content-Disposition": f'inline; filename="manavivaha-earnings-{code}-{format}.png"'},
+        )
+    except Exception as e:
+        raise HTTPException(500, f"Earnings card generate avvaledu: {str(e)[:120]}")
+
+
 @app.get("/api/referral/terms")
 def referral_terms():
     """📜 Referral rules (Telugu) — అందరికీ ₹50, tiers, payout, fraud rules."""
@@ -1703,24 +1732,36 @@ def referral_terms():
 
 
 @app.get("/api/referral/{tsap_id}")
-def referral_home(tsap_id: str, request: Request = None):
-    """
-    📊 Mee referral dashboard — code, link, clicks, registrations, payments, wallet,
-    tier, next milestone, ledger, payouts. (Tenant-safe: mee ID matrame chudochu.)
-    """
-    user = _user_or_404(tsap_id)                 # 🐞 FIX: tappu ID ki 401 కాదు — 404 (correct)
-    require_owner(request, tsap_id)              # 🛡️ WAVE 9: IDOR fix — own data matrame
-    d = referral_dashboard(user, DB_USERS)
-    d["share_kit"] = referral_share_kit(user)
-    return d
 
 
-@app.get("/api/referral/{tsap_id}/share-kit")
-def referral_share(tsap_id: str):
-    """📲 5 ready WhatsApp messages + Telegram + SMS + poster text (Telugu)."""
+@app.get("/api/referral/{tsap_id}/earnings-card.png")
+def referral_earnings_card_user(tsap_id: str, format: str = "story"):
+    """🖼️ User tsap_id referral earnings proof card (live wallet/stats నుండి auto-generate)."""
     user = _user_or_404(tsap_id)
-    kit = referral_share_kit(user)
-    return {"success": True, **kit}
+    ensure_referrer_profile(user, DB_USERS)
+    st = stats_of(user)
+    name = user.get("full_name") or user.get("name") or "Partner"
+    code = _code_of(user)
+    amount = int(st.get("lifetime_earned") or st.get("wallet") or 50)
+    paid_count = int(st.get("paid_count") or 1)
+    tier_title = f"{st.get('tier', 'BRONZE')} PARTNER"
+    try:
+        from referral_card import generate_earnings_status_card
+        card_bytes = generate_earnings_status_card(
+            name=name,
+            code=code,
+            amount=max(50, amount),
+            paid_count=max(1, paid_count),
+            tier_title=tier_title,
+            format_type=format,
+        )
+        return Response(
+            content=card_bytes,
+            media_type="image/png",
+            headers={"Content-Disposition": f'inline; filename="manavivaha-earnings-{code}-{format}.png"'},
+        )
+    except Exception as e:
+        raise HTTPException(500, f"Earnings card generate avvaledu: {str(e)[:120]}")
 
 
 @app.get("/api/referral/{tsap_id}/poster.png")

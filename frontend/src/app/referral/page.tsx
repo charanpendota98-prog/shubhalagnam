@@ -34,12 +34,17 @@ export default function ReferralPage() {
   const [board, setBoard] = useState<any[]>([]);
   const [you, setYou] = useState<any>(null);
   const [terms, setTerms] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState<"overview" | "friends" | "share" | "payouts" | "calculator" | "leaderboard" | "terms">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "status_poster" | "friends" | "share" | "payouts" | "calculator" | "leaderboard" | "terms">("overview");
   const [msgIdx, setMsgIdx] = useState(0);
   const [err, setErr] = useState("");
   const [searchErr, setSearchErr] = useState("");
   const [searching, setSearching] = useState(false);
   
+  // Status Poster generator state
+  const [posterFormat, setPosterFormat] = useState<"story" | "banner">("story");
+  const [posterAmount, setPosterAmount] = useState<number>(50);
+  const [posterCustomName, setPosterCustomName] = useState<string>("");
+
   // Quick Partner Form inside page
   const [quickName, setQuickName] = useState("");
   const [quickPhone, setQuickPhone] = useState("");
@@ -231,6 +236,12 @@ export default function ReferralPage() {
     if (calcCount >= 3) return { name: "🥈 SILVER PARTNER", bonus: "+ Fast Payouts", icon: "🥈" };
     return { name: "🥉 BRONZE STARTER", bonus: "₹50 per paid referral", icon: "🥉" };
   }, [calcCount]);
+
+  const statusCaption = useMemo(() => {
+    const code = dash?.code || quickSuccess?.partner_id || "MV";
+    const refLink = link || `https://manavivaha.in/r/${code}`;
+    return `నాకు మన వివాహ ద్వారా ₹${posterAmount} రెఫరల్ క్యాష్ వచ్చింది! మీరు కూడా సంబంధం చూస్తున్నారా? ఈ లింక్‌తో ఉచితంగా రిజిస్టర్ అవ్వండి: ${refLink}`;
+  }, [posterAmount, dash?.code, quickSuccess?.partner_id, link]);
 
   return (
     <main className="min-h-screen bg-[#FFF8E7] pb-20">
@@ -530,6 +541,7 @@ export default function ReferralPage() {
         <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-hide">
           {[
             { id: "overview", label: te ? "📊 అవలోకనం" : "📊 Overview" },
+            { id: "status_poster", label: te ? "🖼️ వాట్సాప్ స్టేటస్ పోస్టర్" : "🖼️ Status Poster" },
             { id: "calculator", label: te ? "🧮 సంపాదన కాలిక్యులేటర్" : "🧮 Calculator" },
             { id: "friends", label: te ? `👥 నా రెఫరల్స్ (${friendsList.length})` : `👥 Referred Friends (${friendsList.length})` },
             { id: "share", label: te ? "📲 వాట్సాప్ షేర్ కిట్" : "📲 Share Kit" },
@@ -550,6 +562,168 @@ export default function ReferralPage() {
             </button>
           ))}
         </div>
+
+        {/* ================= TAB: WHATSAPP STATUS & EARNINGS POSTER GENERATOR ================= */}
+        {activeTab === "status_poster" && (
+          <div className="bg-white rounded-3xl p-6 sm:p-8 border border-gold/40 shadow-sm space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h3 className="text-xl font-extrabold text-maroon flex items-center gap-2">
+                  <span>🖼️</span>
+                  <span>{te ? "వాట్సాప్ స్టేటస్ & ఎర్నింగ్స్ ప్రూఫ్ పోస్టర్" : "WhatsApp Status & Earnings Proof Poster"}</span>
+                </h3>
+                <p className="text-xs text-gray-500 mt-1">
+                  {te
+                    ? "మీ సంపాదన మరియు రెఫరల్ కోడ్‌తో కూడిన హై-రిజల్యూషన్ కార్డ్ ఆటోమేటిక్‌గా తయారవుతుంది. దీన్ని వాట్సాప్ స్టేటస్‌లో పెట్టి సులభంగా మరిన్ని రెఫరల్స్ పొందండి!"
+                    : "Automatically generated high-resolution card with your earnings and referral QR code to share on WhatsApp Status."}
+                </p>
+              </div>
+
+              {/* Format Switcher */}
+              <div className="flex items-center gap-1.5 p-1 bg-amber-50 rounded-2xl border border-gold/40 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setPosterFormat("story")}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition ${
+                    posterFormat === "story" ? "maroon-gradient text-white shadow-xs" : "text-gray-600 hover:text-maroon"
+                  }`}
+                >
+                  📱 {te ? "స్టేటస్ (Story)" : "Status (Story)"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPosterFormat("banner")}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition ${
+                    posterFormat === "banner" ? "maroon-gradient text-white shadow-xs" : "text-gray-600 hover:text-maroon"
+                  }`}
+                >
+                  💻 {te ? "సోషల్ బ్యానర్" : "Social Banner"}
+                </button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+              
+              {/* Controls Column (5 cols) */}
+              <div className="lg:col-span-5 space-y-5 bg-amber-50/50 p-5 rounded-3xl border border-amber-200/80">
+                
+                {/* Amount presets */}
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1.5">
+                    💰 {te ? "పోస్టర్‌పై చూపించాల్సిన మొత్తం (Amount):" : "Amount to display on poster:"}
+                  </label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[50, 100, 250, 500, 1000, 2500].map((amt) => (
+                      <button
+                        key={amt}
+                        type="button"
+                        onClick={() => setPosterAmount(amt)}
+                        className={`py-2 rounded-xl text-xs font-black transition border ${
+                          posterAmount === amt
+                            ? "bg-[#7A0C2E] text-white border-[#7A0C2E] shadow-sm"
+                            : "bg-white text-gray-700 border-gold/40 hover:bg-amber-100/50"
+                        }`}
+                      >
+                        ₹{amt}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Custom Name */}
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">
+                    ✍️ {te ? "మీ పేరు (Partner Name):" : "Your Name:"}
+                  </label>
+                  <input
+                    type="text"
+                    value={posterCustomName}
+                    onChange={(e) => setPosterCustomName(e.target.value)}
+                    placeholder={dash?.name || quickName || "మీ పేరు"}
+                    className="w-full px-4 py-2.5 rounded-xl border border-gold/40 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-maroon font-bold text-navy"
+                  />
+                </div>
+
+                {/* Status Captions Kit */}
+                <div className="space-y-2 pt-2 border-t border-amber-200">
+                  <span className="text-xs font-bold text-maroon block">
+                    💬 {te ? "స్టేటస్ కింద పెట్టే తెలుగు క్యాప్షన్:" : "WhatsApp Status Caption:"}
+                  </span>
+                  <div className="p-3 bg-white rounded-2xl border border-gold/30 text-xs text-gray-700 space-y-2">
+                    <p className="font-semibold text-gray-800">
+                      “{statusCaption}”
+                    </p>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          navigator.clipboard?.writeText(statusCaption);
+                          setCopied("caption");
+                          setTimeout(() => setCopied(""), 2000);
+                        }}
+                        className="px-3 py-1.5 rounded-lg bg-amber-100 hover:bg-amber-200 text-maroon font-bold text-[11px] transition"
+                      >
+                        {copied === "caption" ? "✅ కాపీ అయింది!" : "📋 కాపీ క్యాప్షన్"}
+                      </button>
+                      <a
+                        href={`https://api.whatsapp.com/send?text=${encodeURIComponent(statusCaption)}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] transition flex items-center gap-1"
+                      >
+                        <WhatsAppIcon className="w-3.5 h-3.5 fill-current" />
+                        <span>వాట్సాప్‌లో షేర్</span>
+                      </a>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Instant Download Button */}
+                <div className="space-y-2 pt-2">
+                  <a
+                    href={`/api/referral/earnings-card?code=${encodeURIComponent(dash?.code || quickSuccess?.partner_id || "PARTNER")}&name=${encodeURIComponent(posterCustomName || dash?.name || quickName || "Partner")}&amount=${posterAmount}&paid_count=${s.paid_count || 1}&tier=${encodeURIComponent(tier?.key || "BRONZE")}&format=${posterFormat}`}
+                    download={`manavivaha-earnings-${dash?.code || "mv"}-${posterFormat}.png`}
+                    className="w-full py-3 rounded-2xl maroon-gradient text-white text-xs font-black shadow-md hover:shadow-lg transition flex items-center justify-center gap-2 text-center"
+                  >
+                    <span>📥</span>
+                    <span>{te ? "HD పోస్టర్ డౌన్‌లోడ్ చేయండి (PNG)" : "Download HD Poster (PNG)"}</span>
+                  </a>
+                  <p className="text-[10px] text-gray-500 text-center">
+                    {te ? "గ్యాలరీలో సేవ్ చేసుకొని మీ వాట్సాప్ / ఇన్‌స్టాగ్రామ్ స్టేటస్‌లో పెట్టండి 📲" : "Save to gallery & share to WhatsApp / Instagram story"}
+                  </p>
+                </div>
+
+              </div>
+
+              {/* Live Preview Column (7 cols) */}
+              <div className="lg:col-span-7 flex flex-col items-center">
+                <div className="text-xs font-bold text-gray-500 mb-2 flex items-center gap-2">
+                  <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                  <span>{te ? "లైవ్ పోస్టర్ ప్రివ్యూ (Live Generated Card)" : "Live Generated Card Preview"}</span>
+                </div>
+
+                <div className="relative rounded-3xl overflow-hidden shadow-2xl border-4 border-amber-300 max-w-sm w-full bg-slate-900 group">
+                  <img
+                    src={`/api/referral/earnings-card?code=${encodeURIComponent(dash?.code || quickSuccess?.partner_id || "PARTNER")}&name=${encodeURIComponent(posterCustomName || dash?.name || quickName || "Partner")}&amount=${posterAmount}&paid_count=${s.paid_count || 1}&tier=${encodeURIComponent(tier?.key || "BRONZE")}&format=${posterFormat}&t=${posterAmount}`}
+                    alt="Referral Earnings Proof Card"
+                    className="w-full h-auto object-contain block"
+                    loading="lazy"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-4">
+                    <a
+                      href={`/api/referral/earnings-card?code=${encodeURIComponent(dash?.code || quickSuccess?.partner_id || "PARTNER")}&name=${encodeURIComponent(posterCustomName || dash?.name || quickName || "Partner")}&amount=${posterAmount}&paid_count=${s.paid_count || 1}&tier=${encodeURIComponent(tier?.key || "BRONZE")}&format=${posterFormat}`}
+                      target="_blank"
+                      className="w-full py-2 bg-amber-400 text-maroon rounded-xl font-bold text-xs text-center shadow"
+                    >
+                      🔍 {te ? "పూర్తి పరిమాణంలో చూడండి" : "View Full Size"}
+                    </a>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        )}
 
         {/* ================= TAB 1: OVERVIEW ================= */}
         {activeTab === "overview" && (

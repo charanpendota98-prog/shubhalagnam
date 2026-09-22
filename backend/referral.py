@@ -1058,14 +1058,19 @@ def referrer_join_text(referrer, referee):
 
 
 def referrer_commission_text(referrer, referee, result):
-    """Payment vachhi commission credit ayyinappudu referrer కి pampE message."""
+    """Payment vachhi commission credit ayyinappudu referrer కి pampE message (Status image link తో)."""
     amt = result.get("commission", 0)
     st = stats_of(referrer)
     tier = result.get("tier") or st.get("tier", "BRONZE")
     milestone = result.get("milestone")
+    ref_code = _code_of(referrer)
+    ref_name = _name_of(referrer, "Partner")
+    site = SITE_URL
+    card_url = f"{site}/api/referral/earnings-card?code={ref_code}&amount={amt}&name={ref_name}&format=story"
+
     lines = [
         "💰 *₹%d వచ్చింది!*" % amt,
-        "మీ friend %s ₹%s pay చేశారు — commission మీ referral wallet లో credit అయ్యింది." % (
+        "మీ friend %s ₹%s pay చేశారు — commission మీ referral wallet లో credit అయ్యింది ✅." % (
             _name_of(referee), result.get("plan_amount", "")),
         "",
         "👛 Wallet balance: ₹%s" % st.get("wallet", 0),
@@ -1082,8 +1087,12 @@ def referrer_commission_text(referrer, referee, result):
     if nxt:
         lines.append("➡️ ఇంకా %d paying referrals → %s" % (nxt["need"], nxt["title"]))
     lines.append("")
-    lines.append("Payout ₹100 నుంచి (3 days లో) — /referral లో request పెట్టండి 🏦")
-    lines.append("— మన వివాహ")
+    lines.append("🖼️ *మీ WhatsApp Status Earnings Card (1-Click Download/Share):*")
+    lines.append(card_url)
+    lines.append("✨ దీన్ని మీ WhatsApp Status లో పెడితే మీ స్నేహితులు చూసి చేరతారు — ప్రతి ఒక్కరికీ ₹50 గ్యారెంటీ! 🚀")
+    lines.append("")
+    lines.append("🏦 Payout ₹100 నుంచి (UPI లో తక్షణమే) — %s/referral లో request పెట్టండి" % site)
+    lines.append("— మన వివాహ TS-AP Matrimony")
     return "\n".join(lines)
 
 
