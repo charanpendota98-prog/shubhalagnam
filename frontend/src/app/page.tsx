@@ -617,29 +617,21 @@ export default function Home() {
       {/* ================= 💐 REAL WEDDINGS FILM REEL ================= */}
       <RealWeddingsFilm />
 
-      {/* ================= SPONSORED (targeted ads) ================= */}
-      <section className="max-w-7xl mx-auto px-4 pt-4">
-        <AdSlot slot="home_hero" />
-      </section>
-
-      {/* ================= FESTIVAL OFFERS ================= */}
-      <section className="max-w-7xl mx-auto px-4 pt-3">
-        <OffersBanner />
-      </section>
-
       {/* ================= 🌟 PROFILES OF THE DAY (SPOTLIGHT) ================= */}
       <ProfilesOfTheDay />
+
+      {/* ================= SPONSORED PROMO & FESTIVAL OFFERS ================= */}
+      <section className="max-w-7xl mx-auto px-4 py-3 space-y-2.5">
+        <AdSlot slot="home_hero" />
+        <OffersBanner />
+        <BannerSlot page="home" />
+      </section>
 
       {/* ================= WEEKLY CASTE SHOWCASE (W41) ================= */}
       <ShowcaseStrip />
 
       {/* ================= DAILY MATCHES (admin select — W40) ================= */}
       <DailyStrip />
-
-      {/* ================= ANNOUNCEMENTS (CMS) ================= */}
-      <section className="max-w-7xl mx-auto px-4 pt-3">
-        <BannerSlot page="home" />
-      </section>
 
       {/* ================= STATS (LIVE) ================= */}
       <section className="max-w-7xl mx-auto px-4 py-8">

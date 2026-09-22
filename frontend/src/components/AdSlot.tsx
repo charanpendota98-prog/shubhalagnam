@@ -43,11 +43,24 @@ export default function AdSlot({ slot, district = "", state = "", className = ""
   };
 
   if (!ad) {
-    // 🏠 house promo (default)
+    // 🏠 house promo (compact & sleek)
     return (
-      <div className={`rounded-2xl border border-dashed border-[#D4AF37] bg-[#FFF8E7] p-4 text-center ${className}`}>
-        <p className="text-[12px] font-bold text-[#7A0C2E]">{te ? "🏪 మీ business కి wedding-season customers కావాలా?" : "🏪 Want wedding-season customers for your business?"}</p>
-        <p className="mt-0.5 text-[11px] text-gray-600">📢 {te ? <>Ads — district నుంచి (₹49/day) · <a href="/vendors/campaign" className="font-bold text-[#7A0C2E] underline">Campaign start చెయ్యండి →</a></> : <>Ads — from district level (₹49/day) · <a href="/vendors/campaign" className="font-bold text-[#7A0C2E] underline">Start campaign →</a></>}</p>
+      <div className={`rounded-2xl border border-amber-200/80 bg-gradient-to-r from-amber-50/90 via-orange-50/80 to-amber-50/90 px-4 py-2.5 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-2 text-center sm:text-left ${className}`}>
+        <div className="flex items-center gap-2">
+          <span className="text-base">🏪</span>
+          <p className="text-xs font-bold text-[#7A0C2E]">
+            {te ? "మీ Business కి Wedding-Season Customers కావాలా?" : "Want wedding-season customers for your business?"}
+            <span className="hidden md:inline font-normal text-gray-600 text-[11px] ml-2">
+              {te ? "జిల్లా స్థాయిలో ప్రకటనలు (₹49/రోజు నుండి)" : "District-level ads from ₹49/day"}
+            </span>
+          </p>
+        </div>
+        <a
+          href="/vendors/campaign"
+          className="shrink-0 px-3.5 py-1 rounded-xl bg-[#7A0C2E] hover:bg-[#5C0822] text-white font-bold text-[11px] transition shadow-xs"
+        >
+          {te ? "ప్రకటన వేయండి →" : "Start Campaign →"}
+        </a>
       </div>
     );
   }
