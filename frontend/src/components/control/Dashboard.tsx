@@ -41,12 +41,17 @@ type SpotlightItem = {
   media_type: string; payment_mode: string; payment_ref: string; status: string;
   submitted_at: string; moderator_notes?: string;
 };
+type PayoutItem = {
+  id: string; tsap_id: string; name?: string; amount: number;
+  method: string; upi_id?: string; account?: string; ifsc?: string;
+  status: string; requested_at: string; utr?: string;
+};
 
 const T = {
   te: {
     ops: "ప్రైవేట్ ఆపరేషన్స్", dash: "డాష్‌బోర్డ్", signedAs: "సైన్ ఇన్",
     signout: "సైన్ అవుట్", refresh: "రిఫ్రెష్", loading: "లోడ్ అవుతోంది…",
-    tabOverview: "📊 అవలోకనం", tabQueue: "👥 ప్రొఫైల్ క్యూ", tabSpotlight: "🌟 స్పాట్‌లైట్ / Profiles of Day", tabReports: "🚩 రిపోర్ట్‌లు",
+    tabOverview: "📊 అవలోకనం", tabQueue: "👥 ప్రొఫైల్ క్యూ", tabSpotlight: "🌟 స్పాట్‌లైట్ / Profiles of Day", tabReferrals: "🤝 రెఫరల్స్ & పేఅవుట్స్", tabReports: "🚩 రిపోర్ట్‌లు",
     tabRevenue: "💰 రెవెన్యూ", tabAudit: "📜 ఆడిట్ లాగ్",
     kProfiles: "మొత్తం ప్రొఫైళ్లు", kPending: "పెండింగ్ రివ్యూ", kApproved: "అప్రూవ్డ్",
     kReports: "ఓపెన్ రిపోర్ట్‌లు", kPhotos: "ఫోటో రివ్యూ", kVerified: "వెరిఫైడ్",
@@ -67,7 +72,7 @@ const T = {
   en: {
     ops: "Private operations", dash: "Dashboard", signedAs: "Signed in as",
     signout: "Sign out", refresh: "Refresh", loading: "Loading…",
-    tabOverview: "📊 Overview", tabQueue: "👥 Profile queue", tabSpotlight: "🌟 Spotlight / Profiles of Day", tabReports: "🚩 Reports",
+    tabOverview: "📊 Overview", tabQueue: "👥 Profile queue", tabSpotlight: "🌟 Spotlight / Profiles of Day", tabReferrals: "🤝 Referrals & Payouts", tabReports: "🚩 Reports",
     tabRevenue: "💰 Revenue", tabAudit: "📜 Audit log",
     kProfiles: "Total profiles", kPending: "Pending review", kApproved: "Approved",
     kReports: "Open reports", kPhotos: "Photo review", kVerified: "Verified",
@@ -99,11 +104,13 @@ export default function Dashboard() {
   const L = T[(lang as "te" | "en") in T ? (lang as "te" | "en") : "te"];
   const [me, setMe] = useState<Me | null>(null);
   const [an, setAn] = useState<Analytics | null>(null);
-  const [tab, setTab] = useState<"overview" | "queue" | "spotlight" | "reports" | "revenue" | "audit">("overview");
+  const [tab, setTab] = useState<"overview" | "queue" | "spotlight" | "referrals" | "reports" | "revenue" | "audit">("overview");
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const [qStatus, setQStatus] = useState<"pending" | "approved" | "rejected" | "all">("pending");
   const [spotlights, setSpotlights] = useState<SpotlightItem[]>([]);
   const [spStatus, setSpStatus] = useState<string>("all");
+  const [payouts, setPayouts] = useState<PayoutItem[]>([]);
+  const [pStatus, setPStatus] = useState<string>("all");
   const [reports, setReports] = useState<ReportItem[]>([]);
   const [toast, setToast] = useState("");
   const [busyId, setBusyId] = useState("");
@@ -148,12 +155,38 @@ export default function Dashboard() {
     } catch { setSpotlights([]); }
   }, []);
 
+  const loadPayouts = useCallback(async (status: string) => {
+    try {
+      const d = await jget(`/api/control/payouts/queue?status=${status}`);
+      setPayouts(d.items || []);
+    } catch { setPayouts([]); }
+  }, []);
+
   useEffect(() => { loadCore(); }, [loadCore]);
   useEffect(() => { if (tab === "queue") loadQueue(qStatus); }, [tab, qStatus, loadQueue]);
   useEffect(() => { if (tab === "reports") loadReports(); }, [tab, loadReports]);
   useEffect(() => { if (tab === "spotlight") loadSpotlights(spStatus); }, [tab, spStatus, loadSpotlights]);
+  useEffect(() => { if (tab === "referrals") loadPayouts(pStatus); }, [tab, pStatus, loadPayouts]);
 
   const flash = (m: string) => { setToast(m); setTimeout(() => setToast(""), 2600); };
+
+  async function payoutAction(reqId: string, action: "approve" | "reject", utr?: string) {
+    if (!me) return;
+    setBusyId(reqId);
+    try {
+      const r = await fetch(`/api/control/payouts/${encodeURIComponent(reqId)}/action`, {
+        method: "POST", credentials: "include",
+        headers: { "Content-Type": "application/json", "X-Control-CSRF": me.csrf },
+        body: JSON.stringify({ action, utr: utr || `UTR-${Date.now().toString().slice(-8)}` }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.detail || d.reason || "fail");
+      flash(d.message_telugu || L.done);
+      loadPayouts(pStatus);
+      loadCore();
+    } catch (e: any) { flash(e?.message || L.failed); }
+    finally { setBusyId(""); }
+  }
 
   async function profileAction(id: string, action: "approve" | "reject" | "pending") {
     if (!me) return;
@@ -233,6 +266,7 @@ export default function Dashboard() {
     { k: "overview", label: L.tabOverview },
     { k: "queue", label: L.tabQueue },
     { k: "spotlight", label: L.tabSpotlight },
+    { k: "referrals", label: L.tabReferrals },
     { k: "reports", label: L.tabReports },
     { k: "revenue", label: L.tabRevenue, ownerOnly: true },
     { k: "audit", label: L.tabAudit, ownerOnly: true },
@@ -478,6 +512,95 @@ export default function Dashboard() {
               {!spotlights.length && (
                 <p className="py-8 text-center text-sm text-slate-400">
                   {lang === "te" ? "స్పాట్‌లైట్ ప్రమోషన్లు ఏవీ లేవు" : "No spotlight promotions in this tab"}
+                </p>
+              )}
+            </div>
+          </Card>
+        )}
+
+        {/* ---------------- REFERRALS & PAYOUTS ---------------- */}
+        {tab === "referrals" && (
+          <Card>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-black text-navy">🤝 {lang === "te" ? "రెఫరల్ కమీషన్లు & UPI విత్‌డ్రా క్యూ" : "Referral Commissions & UPI Payouts Queue"}</h3>
+                <p className="mt-0.5 text-[11.5px] text-slate-500">
+                  {lang === "te" ? "యూజర్లు అభ్యర్థించిన UPI విత్‌డ్రాలను UTR నంబర్‌తో ఆమోదించండి లేదా తిరస్కరించండి." : "Review user referral withdrawal requests, approve with official bank UTR or reject."}
+                </p>
+              </div>
+              <div className="flex gap-1.5">
+                {[
+                  ["requested", lang === "te" ? "పెండింగ్" : "Pending"],
+                  ["paid", lang === "te" ? "చెల్లించినవి" : "Paid"],
+                  ["rejected", lang === "te" ? "రిజెక్ట్" : "Rejected"],
+                  ["all", lang === "te" ? "అన్నీ" : "All"],
+                ].map(([k, lab]) => (
+                  <button key={k} onClick={() => setPStatus(k)}
+                    className={`rounded-full px-3 py-1.5 text-[11.5px] font-bold ${pStatus === k ? "maroon-gradient text-white" : "border border-gold/40 text-maroon hover:bg-cream"}`}>
+                    {lab}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-4 space-y-3">
+              {payouts.map((po) => (
+                <div key={po.id} className="rounded-2xl border border-gold/30 bg-white p-4 shadow-sm hover:shadow-md transition flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-extrabold text-sm text-navy">ID: {po.tsap_id}</span>
+                      <span className="text-xs font-mono bg-slate-100 px-2 py-0.5 rounded text-slate-600">{po.id}</span>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${
+                        po.status === "paid" ? "bg-emerald-100 text-emerald-800" :
+                        po.status === "requested" ? "bg-amber-100 text-amber-800 animate-pulse" : "bg-rose-100 text-rose-800"
+                      }`}>
+                        {po.status}
+                      </span>
+                    </div>
+
+                    <div className="text-xs text-slate-600">
+                      💳 <b>{po.method?.toUpperCase()}:</b> <span className="font-mono text-maroon font-bold">{po.upi_id || po.account || "—"}</span>
+                      {po.utr ? <span className="text-emerald-700 font-bold ml-2">✓ UTR: {po.utr}</span> : null}
+                    </div>
+
+                    <div className="text-[11px] text-slate-400">
+                      📅 {String(po.requested_at || "").slice(0, 19).replace("T", " ")}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between sm:justify-end gap-3 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100">
+                    <div className="text-right sm:mr-3">
+                      <span className="text-xs text-slate-400 block font-semibold">{lang === "te" ? "విత్‌డ్రా మొత్తం" : "Amount"}</span>
+                      <span className="text-xl font-black text-maroon">₹{po.amount}</span>
+                    </div>
+
+                    {po.status === "requested" && (
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          disabled={busyId === po.id}
+                          onClick={() => {
+                            const utr = prompt(lang === "te" ? "బ్యాంక్ / UPI UTR నంబర్ నమోదు చేయండి:" : "Enter Bank / UPI UTR reference number:");
+                            if (utr && utr.trim()) payoutAction(po.id, "approve", utr.trim());
+                          }}
+                          className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white hover:bg-emerald-700 disabled:opacity-50 shadow-sm"
+                        >
+                          ✅ {lang === "te" ? "పే చేయండి (UTR)" : "Mark Paid (UTR)"}
+                        </button>
+                        <button
+                          disabled={busyId === po.id}
+                          onClick={() => payoutAction(po.id, "reject")}
+                          className="rounded-lg bg-rose-600 px-3 py-2 text-xs font-bold text-white hover:bg-rose-700 disabled:opacity-50"
+                        >
+                          ❌ {lang === "te" ? "రిజెక్ట్" : "Reject"}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+              {!payouts.length && (
+                <p className="py-8 text-center text-sm text-slate-400">
+                  {lang === "te" ? "పేఅవుట్ అభ్యర్థనలు ఏవీ లేవు 🎉" : "No payout requests in this queue 🎉"}
                 </p>
               )}
             </div>

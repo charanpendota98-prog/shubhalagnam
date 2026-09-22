@@ -1,532 +1,786 @@
 "use client";
 /**
- * 🤝 REFERRAL DASHBOARD — మన వివాహ 2.0
- * ======================================
- * "₹99 kabatti first time vallu pay chestharu — kabatti manam ₹50 istham referal vallaki."
- * Ee page live API nunchi: code, link, clicks, registrations, payments, wallet,
- * tier, milestones, ledger, payouts, share kit (5 Telugu messages), poster (QR tho).
+ * 🤝 ADVANCED REFERRAL HUB & EARNINGS CONSOLE — మన వివాహ 2.0
+ * ==============================================================
+ * "₹50 flat per paying referral — ఎవ్వరైనా ఎంత మందినైనా refer చేయవచ్చు."
+ * Real-time data: Live Wallet, Detailed Referred Friends list, Instant UPI Payout,
+ * WhatsApp 1-tap share kit, QR posters, Leaderboard & Milestones.
  */
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
-import { SITE_CONFIG } from "@/lib/site-config";
-import { Duo, duo } from "@/lib/duo";
 import { useLang } from "@/lib/lang";
+import { Duo, duo } from "@/lib/duo";
 import { authHeaders } from "@/lib/api";
-import AuthGate from "@/components/AuthGate";
+import { WhatsAppIcon, TelegramIcon } from "@/components/BrandIcons";
 
 type Dash = any;
 
 export default function ReferralPage() {
   const { lang } = useLang();
   const te = lang === "te";
+
   const [tsapId, setTsapId] = useState("");
+  const [phoneSearch, setPhoneSearch] = useState("");
   const [dash, setDash] = useState<Dash | null>(null);
   const [board, setBoard] = useState<any[]>([]);
+  const [you, setYou] = useState<any>(null);
   const [terms, setTerms] = useState<any>(null);
+  const [activeTab, setActiveTab] = useState<"overview" | "friends" | "share" | "payouts" | "leaderboard" | "terms">("overview");
   const [msgIdx, setMsgIdx] = useState(0);
   const [err, setErr] = useState("");
+  const [searchErr, setSearchErr] = useState("");
+  const [searching, setSearching] = useState(false);
+  
   const [pay, setPay] = useState({ open: false, amount: "", upi: "", method: "upi" });
   const [payRes, setPayRes] = useState<any>(null);
+  const [payLoading, setPayLoading] = useState(false);
   const [copied, setCopied] = useState("");
-  const [needsLogin, setNeedsLogin] = useState(false);   // 🐞 FIX: referral dashboard owner-only — token lekapote 401
-  const [lbPeriod, setLbPeriod] = useState("all");        // 💎 R12 — leaderboard period tab
-  const [you, setYou] = useState<any>(null);              // 💎 R12 — మీ rank (board lo lekapoyina)
+  const [lbPeriod, setLbPeriod] = useState("all");
 
-  /* ---------- load ---------- */
+  /* ---------- Initial User Load ---------- */
   useEffect(() => {
-    // ?id=TSAP-... (register success nunchi vaste) → adi mundu chudu, tarvata localStorage
     const q = new URLSearchParams(window.location.search);
     const fromUrl = (q.get("id") || q.get("tsap_id") || "").toUpperCase().trim();
-    const profiles = JSON.parse(localStorage.getItem("tsap_profiles") || "[]");
-    const id = (fromUrl || profiles[0]?.id || profiles[0]?.tsap_id || localStorage.getItem("tsap_last_id") || "") as string;
-    if (fromUrl) localStorage.setItem("tsap_last_id", fromUrl);
-    if (!id) { setNeedsLogin(true); return; }
-    setTsapId(id);
+    let id = fromUrl;
+
+    if (!id) {
+      try {
+        const saved = localStorage.getItem("tsap_last_id") || "";
+        const profiles = JSON.parse(localStorage.getItem("tsap_profiles") || "[]");
+        id = (saved || profiles[0]?.id || profiles[0]?.tsap_id || "") as string;
+      } catch {}
+    }
+
+    if (id) {
+      setTsapId(id);
+      localStorage.setItem("tsap_last_id", id);
+    }
   }, []);
 
   const load = useCallback((id: string) => {
     if (!id) return;
-    // 🐞 FIX: private dashboard — X-Tsap-Token pampali (lekapote 401 → mee account lo login cheyyali)
-    fetch(`/api/referral/${id}`, { headers: authHeaders() })
-      .then((r) => { if (r.status === 401) { setNeedsLogin(true); return { detail: te ? "🔒 మీ account లో login చెయ్యండి (OTP) — అప్పుడే మీ referral dashboard కనిపిస్తుంది" : "🔒 Login to your account (OTP) — only then your referral dashboard shows" }; } return r.json(); })
-      .then((d) => { if (d.ok) setDash(d); else setErr(d.detail || (te ? "Dashboard load అవ్వలేదు" : "Dashboard failed to load")); })
-      .catch(() => setErr(te ? "డేటా రాలేదు — కొంచెం సేపు తర్వాత మళ్లీ try చెయ్యండి" : "Could not load data — please try again shortly"));
-    fetch(`/api/referral/${id}/payouts`, { headers: authHeaders() }).then((r) => r.json()).then((d) => d.success && setDash((prev: Dash) => prev ? { ...prev, payouts_live: d.payouts, payout_meta: d } : prev)).catch(() => { });
+    setErr("");
+    fetch(`/api/referral/${encodeURIComponent(id)}`, { headers: authHeaders() })
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.ok) setDash(d);
+        else setErr(d.detail || (te ? "డేటా లోడ్ అవ్వలేదు — మీ ID సరైనదో కాదో సరిచూసుకోండి" : "Failed to load dashboard"));
+      })
+      .catch(() => setErr(te ? "కనెక్షన్ సమస్య — కొద్దిసేపటి తర్వాత మళ్లీ ప్రయత్నించండి" : "Network error — please retry"));
+
+    fetch(`/api/referral/${encodeURIComponent(id)}/payouts`, { headers: authHeaders() })
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.success) setDash((prev: Dash) => (prev ? { ...prev, payouts_live: d.payouts, payout_meta: d } : prev));
+      })
+      .catch(() => {});
+  }, [te]);
+
+  useEffect(() => {
+    if (tsapId) load(tsapId);
+  }, [tsapId, load]);
+
+  useEffect(() => {
+    fetch("/api/referral/terms")
+      .then((r) => r.json())
+      .then(setTerms)
+      .catch(() => {});
   }, []);
 
-  useEffect(() => { if (tsapId) load(tsapId); }, [tsapId, load]);
-  useEffect(() => {
-    fetch("/api/referral/terms").then((r) => r.json()).then(setTerms).catch(() => { });
-  }, []);
-  /* 💎 R12 — LIVE leaderboard: period tabs + 30s auto-refresh + మీ rank */
   const loadBoard = useCallback((period: string) => {
     const meQ = tsapId ? `&me=${encodeURIComponent(tsapId)}` : "";
     fetch(`/api/referral/leaderboard?period=${period}&limit=10${meQ}`)
       .then((r) => r.json())
-      .then((d) => { setBoard(d.leaderboard || []); setYou(d.you || null); })
-      .catch(() => { });
+      .then((d) => {
+        setBoard(d.leaderboard || []);
+        setYou(d.you || null);
+      })
+      .catch(() => {});
   }, [tsapId]);
-  useEffect(() => { loadBoard(lbPeriod); }, [lbPeriod, loadBoard]);
+
   useEffect(() => {
-    const t = setInterval(() => loadBoard(lbPeriod), 30000);          // live refresh — 30s
-    const onVis = () => { if (document.visibilityState === "visible") loadBoard(lbPeriod); };
-    document.addEventListener("visibilitychange", onVis);
-    return () => { clearInterval(t); document.removeEventListener("visibilitychange", onVis); };
+    loadBoard(lbPeriod);
   }, [lbPeriod, loadBoard]);
 
-  const s = dash?.stats || {};
-  const tier = dash?.tier || { key: "BRONZE", icon: "🥉", perks: [] };
-  const next = dash?.next_milestone;
-  const link = dash?.link || "";
-  const kit = dash?.share_kit || {};
-  const msgs: string[] = kit.whatsapp_messages || [];
+  const handleLookup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!phoneSearch.trim()) return;
+    setSearching(true);
+    setSearchErr("");
+    try {
+      const res = await fetch(`/api/referral/lookup?q=${encodeURIComponent(phoneSearch.trim())}`);
+      const data = await res.json();
+      if (res.ok && data.success && data.tsap_id) {
+        setTsapId(data.tsap_id);
+        localStorage.setItem("tsap_last_id", data.tsap_id);
+      } else {
+        setSearchErr(data.detail || (te ? "ఈ నంబర్‌తో ప్రొఫైల్ దొరకలేదు" : "Profile not found with this number"));
+      }
+    } catch {
+      setSearchErr(te ? "వెతకడం విఫలమైంది" : "Lookup failed");
+    } finally {
+      setSearching(false);
+    }
+  };
 
   const copy = (text: string, label: string) => {
     navigator.clipboard?.writeText(text);
     setCopied(label);
-    setTimeout(() => setCopied(""), 1800);
+    setTimeout(() => setCopied(""), 2000);
   };
 
   const submitPayout = async () => {
     const amount = parseInt(pay.amount || "0", 10);
-    const url = `/api/referral/payout?tsap_id=${encodeURIComponent(tsapId)}&amount=${amount}&method=${pay.method}&upi_id=${encodeURIComponent(pay.upi)}`;
-    const r = await fetch(url, { method: "POST" });
-    const d = await r.json();
-    setPayRes(d);
-    if (d.success) { setPay({ ...pay, open: false, amount: "" }); load(tsapId); }
+    if (!amount || amount < 100) {
+      setPayRes({ success: false, reason: te ? "కనీస విత్‌డ్రా మొత్తం ₹100" : "Minimum withdrawal is ₹100" });
+      return;
+    }
+    if (!pay.upi.trim()) {
+      setPayRes({ success: false, reason: te ? "దయచేసి సరైన UPI ID ని ఇవ్వండి" : "Please enter a valid UPI ID" });
+      return;
+    }
+
+    setPayLoading(true);
+    try {
+      const url = `/api/referral/payout?tsap_id=${encodeURIComponent(tsapId)}&amount=${amount}&method=${pay.method}&upi_id=${encodeURIComponent(pay.upi)}`;
+      const r = await fetch(url, { method: "POST", headers: authHeaders() });
+      const d = await r.json();
+      setPayRes(d);
+      if (d.success) {
+        setPay({ ...pay, open: false, amount: "", upi: "" });
+        load(tsapId);
+      }
+    } catch {
+      setPayRes({ success: false, reason: te ? "విత్‌డ్రా అభ్యర్థన విఫలమైంది" : "Payout request failed" });
+    } finally {
+      setPayLoading(false);
+    }
   };
 
-  const progress = next
-    ? Math.min(100, Math.round(((s.paid_count || 0) / (s.paid_count + next.need)) * 100))
-    : 100;
+  const s = dash?.stats || {};
+  const tier = dash?.tier || { key: "BRONZE", icon: "🥉", perks: [] };
+  const next = dash?.next_milestone;
+  const link = dash?.link || (dash?.code ? `https://manavivaha.in/r/${dash.code}` : "");
+  const kit = dash?.share_kit || {};
+  const msgs: string[] = kit.whatsapp_messages || [
+    `నమస్కారం! మన తెలుగు వారి కోసం ప్రత్యేకంగా రూపొందించిన వివాహ వేదిక "మన వివాహ".\nనా లింక్ ద్వారా రిజిస్టర్ అయితే ఉచితంగా ప్రొఫైల్స్ మరియు +1 బోనస్ క్రెడిట్ వస్తుంది: ${link}\nకచ్చితంగా ప్రయత్నించండి! 🙏`,
+    `శుభలగ్నం & మన వివాహ — ₹99 సంబంధం!\nనా రిఫరల్ కోడ్ [${dash?.code || "..."}] తో రిజిస్టర్ చేసుకోండి.\nలింక్: ${link}\nధన్యవాదాలు! 💍`,
+    `మీ కుటుంబంలో పెళ్లి సంబంధాలు చూస్తున్నారా? మన వివాహ వేదికలో రిజిస్టర్ చేసుకోండి: ${link}\nఫోటో భద్రత మరియు ప్రత్యక్ష టెలిగ్రామ్/వాట్సాప్ ఛానల్స్ కలవు! 🌺`
+  ];
+
+  const friendsList = dash?.recent_registrations || [];
 
   return (
-    <main className="min-h-screen bg-[#FFF8E7] pb-16">
-      {/* HERO */}
-      <section className="maroon-gradient text-white">
-        <div className="max-w-6xl mx-auto px-4 py-8">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h1 className="text-2xl md:text-3xl font-extrabold telugu">🤝 <Duo en="Referral Program" te="రెఫరల్ ప్రోగ్రామ్" /> — <span className="text-[#D4AF37]">{duo("₹50 per paying referral", "చెల్లించిన ప్రతి రెఫరల్‌కు ₹50")}</span></h1>
-              <p className="text-xs md:text-sm opacity-90 telugu mt-1">
-                {te ? <b className="text-[#D4AF37]">మీకు పెళ్లి సంబంధం వెతకాల్సిన అవసరం లేకపోయినా — ఎవరైనా ఈ program లో join అయ్యి సంపాదించుకోవచ్చు.</b>
-                  : <b className="text-[#D4AF37]">You don&apos;t need to be looking for a match yourself — anyone can join this program and earn.</b>}
-              </p>
-              <p className="text-xs md:text-sm opacity-90 telugu mt-2">
-{te ? <>మీ link ద్వారా ఎవరైనా join అయ్యి ₹99 (లేదా ఏదైనా plan) pay చేస్తే — మీకు <b>₹50 flat</b> · వాళ్లకి <b>+1 credit FREE</b>.
-                {" "}<span className="font-bold">ఎంత మందినైనా refer చెయ్యొచ్చు — limit లేదు.</span></> : <>When anyone joins with your link and pays ₹99 (or any plan) — you get <b>₹50 flat</b> · they get <b>+1 credit FREE</b>.
-                {" "}<span className="font-bold">Refer as many people as you like — no limit.</span></>}
+    <main className="min-h-screen bg-[#FFF8E7] pb-20">
+      {/* ================= HERO SECTION ================= */}
+      <section className="maroon-gradient text-white relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-96 h-96 bg-gold/15 rounded-full blur-3xl pointer-events-none" />
+        <div className="max-w-6xl mx-auto px-4 py-8 relative">
+          
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="space-y-2 max-w-2xl">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black uppercase bg-gold text-maroon shadow-md">
+                <span>💰</span>
+                <span>{te ? "చెల్లించిన ప్రతి రెఫరల్‌కు ₹50" : "Flat ₹50 per paying referral"}</span>
+              </div>
+
+              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black tracking-tight">
+                <Duo en="Referral Partner & Earnings Program" te="రెఫరల్ భాగస్వామ్యం & సంపాదన వేదిక" />
+              </h1>
+
+              <p className="text-xs sm:text-sm text-amber-100 leading-relaxed">
+                {te
+                  ? "మీరు పెళ్లి సంబంధం వెతకకపోయినా పర్వాలేదు — విద్యార్థులు, గృహిణులు, బ్రోకర్లు లేదా ఎవరైనా తమ లింక్‌ని షేర్ చేసి అపరిమితంగా సంపాదించవచ్చు. మీ స్నేహితుడు ₹99 చెల్లించగానే మీకు ₹50 వాలెట్‌కు జమవుతుంది!"
+                  : "You don't need to look for a match yourself — students, homemakers, matchmakers, or anyone can share their referral link and earn unlimited rewards. Get ₹50 straight into your wallet on every ₹99 paid referral!"}
               </p>
             </div>
-            <div className="flex flex-wrap gap-2">
-              <Link href="/referral/register" className="rounded-full bg-[#D4AF37] text-[#7A0C2E] px-4 py-2 text-xs font-bold shadow-soft">{te ? "🎁 రెఫరర్‌గా చేరండి →" : "🎁 Become a referrer →"}</Link>
-              <Link href="/pricing" className="rounded-full bg-white/15 border border-white/25 px-4 py-2 text-xs font-bold">Pricing 💰</Link>
+
+            <div className="flex flex-wrap gap-2.5 self-start md:self-auto">
+              <Link
+                href="/register"
+                className="px-5 py-2.5 rounded-full bg-gold text-maroon font-extrabold text-xs shadow-gold hover:brightness-105 active:scale-95 transition"
+              >
+                🎁 {te ? "ఉచితంగా చేరండి (1 నిమిషం)" : "Join FREE (1 Min)"}
+              </Link>
+              <Link
+                href="/pricing"
+                className="px-4 py-2.5 rounded-full bg-white/15 border border-white/30 text-white font-bold text-xs hover:bg-white/25 transition"
+              >
+                💰 {te ? "ప్లాన్లు చూడండి" : "Pricing Plans"}
+              </Link>
             </div>
           </div>
 
-          <div className="mt-4 flex flex-wrap items-center gap-2 text-xs">
-            <span className="px-3 py-1 rounded-full bg-white/10">ID: <b>{tsapId || "…"}</b></span>
-            <input value={tsapId} onChange={(e) => setTsapId(e.target.value.toUpperCase())}
-              className="px-3 py-1.5 rounded-full bg-white/10 border border-white/25 text-white placeholder-white/60 text-xs w-full max-w-[224px] sm:w-56"
-              placeholder={te ? "మీ Profile ID (RED001)" : "Your Profile ID (RED001)"} aria-label={te ? "మీ Profile ID" : "Your Profile ID"} />
-            <span className="px-3 py-1 rounded-full bg-[#D4AF37] text-[#7A0C2E] font-bold">{tier.icon} {tier.key}</span>
-            {s.paid_count > 0 && <span className="px-3 py-1 rounded-full bg-white/10">{s.paid_count} paying referrals</span>}
+          {/* Quick Find Box */}
+          <div className="mt-6 pt-5 border-t border-white/20 flex flex-wrap items-center justify-between gap-3">
+            <form onSubmit={handleLookup} className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+              <span className="text-xs font-bold text-amber-200">🔍 {te ? "మీ లింక్ వెతకండి:" : "Find Your Code:"}</span>
+              <input
+                type="text"
+                placeholder={te ? "10 అంకెల మొబైల్ లేదా TSAP ID" : "10-digit Phone or TSAP ID"}
+                value={phoneSearch}
+                onChange={(e) => setPhoneSearch(e.target.value)}
+                className="px-3.5 py-1.5 rounded-xl bg-white/15 border border-white/30 text-white placeholder-white/60 text-xs outline-none focus:bg-white/25 w-52"
+              />
+              <button
+                type="submit"
+                disabled={searching}
+                className="px-4 py-1.5 rounded-xl bg-gold text-maroon font-bold text-xs hover:brightness-105 disabled:opacity-50"
+              >
+                {searching ? "..." : (te ? "వెతకండి" : "Search")}
+              </button>
+            </form>
+
+            {tsapId && (
+              <div className="flex items-center gap-2 text-xs">
+                <span className="bg-white/20 px-3 py-1 rounded-full font-mono font-bold">ID: {tsapId}</span>
+                <span className="bg-amber-300 text-maroon font-bold px-3 py-1 rounded-full">{tier.icon} {tier.key}</span>
+              </div>
+            )}
           </div>
+
+          {searchErr && <div className="mt-2 text-xs text-rose-300 font-semibold">{searchErr}</div>}
         </div>
       </section>
 
-      <div className="max-w-6xl mx-auto px-4">
-        {err && <div className="mt-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs p-3">⚠️ {err}</div>}
-
-        {/* 🌟 ANYONE CAN EARN — who + how (neat, attractive) */}
-        <section className="mt-5 grid md:grid-cols-[1.2fr_1fr] gap-4">
-          <div className="bg-white rounded-3xl p-5 border border-[#D4AF37]/40 shadow-sm">
-            <h2 className="font-extrabold text-[#7A0C2E] text-[15px] telugu">
-              {te ? "🌟 ఎవరైనా join అయ్యి సంపాదించొచ్చు — అవసరాలు ఏమీ లేవు" : "🌟 Anyone can join and earn — no conditions"}
-            </h2>
-            <p className="text-[12px] text-gray-600 mt-1 telugu">
-              {te ? "పెళ్లి సంబంధం వెతకడం అవసరం లేదు — మీకు మీ స్నేహితులు, బంధువులు, పరిచయస్తులు ఉన్నా చాలు:" :
-                    "You don't need to be looking for a match — friends, family and contacts are enough:"}
-            </p>
-            <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 gap-2">
-              {[
-                { i: "🎓", te: "విద్యార్థులు", en: "Students", d: { te: "pocket money కోసం", en: "for pocket money" } },
-                { i: "🏡", te: "గృహిణులు", en: "Homemakers", d: { te: "ఖాళీ సమయంలో", en: "in free time" } },
-                { i: "👨‍💼", te: "ఉద్యోగస్థులు", en: "Working people", d: { te: "side income గా", en: "as side income" } },
-                { i: "🏪", te: "షాపు / వ్యాపారస్తులు", en: "Shop owners", d: { te: "customers తో share", en: "share with customers" } },
-                { i: "🤝", te: "పెళ్లి బ్యూరోలు", en: "Marriage bureaus", d: { te: "B2B plans కూడా", en: "B2B plans too" } },
-                { i: "📱", te: "సోషల్ మీడియా లో", en: "On social media", d: { te: "status/groups లో", en: "status & groups" } },
-              ].map((x) => (
-                <div key={x.en} className="rounded-2xl bg-[#FFF8E7] border border-[#D4AF37]/30 p-2.5 text-center">
-                  <div className="text-xl">{x.i}</div>
-                  <div className="text-[11px] font-bold text-[#7A0C2E] mt-0.5">{te ? x.te : x.en}</div>
-                  <div className="text-[10px] text-gray-500">{te ? x.d.te : x.d.en}</div>
-                </div>
-              ))}
-            </div>
-            <div className="mt-3 rounded-2xl bg-[#7A0C2E] text-white p-3 text-[12px] font-bold telugu text-center">
-              {te ? <>💡 10 మంది మీ link తో join అయ్యి pay చేస్తే = <span className="text-[#D4AF37]">₹500 మీ దగ్గర</span> — UPI లో</> : <>💡 10 people join & pay with your link = <span className="text-[#D4AF37]">₹500 yours</span> — via UPI</>}
-            </div>
+      {/* ================= MAIN CONTAINER ================= */}
+      <div className="max-w-6xl mx-auto px-4 mt-6 space-y-6">
+        
+        {err && (
+          <div className="bg-red-50 border border-red-300 text-red-700 p-4 rounded-2xl text-xs font-semibold">
+            ⚠️ {err}
           </div>
-          <div className="bg-white rounded-3xl p-5 border border-gray-200 shadow-sm">
-            <h2 className="font-extrabold text-[#7A0C2E] text-[15px] telugu">
-              {te ? "⚡ 3 steps లో మొదలుపెట్టండి" : "⚡ Start in 3 steps"}
-            </h2>
-            <ol className="mt-3 space-y-3">
-              {[
-                { n: "1", te: "మీ referral link copy చెయ్యండి (క్రింద ఉంది)", en: "Copy your referral link (below)" },
-                { n: "2", te: "WhatsApp / groups / status లో share చెయ్యండి — ready messages క్రింద ఉన్నాయి", en: "Share on WhatsApp / groups / status — ready messages below" },
-                { n: "3", te: "ఎవరైనా register చేసి pay చేస్తే — మీకు ₹50 wallet లో. ₹100 అయ్యాక UPI కి payout", en: "Anyone registers & pays — ₹50 hits your wallet. Payout to UPI at ₹100" },
-              ].map((x) => (
-                <li key={x.n} className="flex items-start gap-2.5">
-                  <span className="shrink-0 w-6 h-6 rounded-full bg-[#D4AF37] text-[#7A0C2E] font-extrabold grid place-items-center text-[12px]">{x.n}</span>
-                  <span className="text-[12px] text-gray-700 telugu">{te ? x.te : x.en}</span>
-                </li>
-              ))}
-            </ol>
-            <Link href="/referral/register" className="mt-4 block text-center rounded-full bg-[#D4AF37] text-[#7A0C2E] px-4 py-2.5 text-[13px] font-extrabold shadow-soft">
-              {te ? "🎁 ఫ్రీ గా చేరండి — 1 నిమిషం" : "🎁 Join FREE — 1 minute"}
-            </Link>
-          </div>
-        </section>
+        )}
 
-        {/* CODE CARD */}
-        <section className="mt-6 grid md:grid-cols-3 gap-4">
-          <div className="md:col-span-2 bg-white rounded-3xl p-5 border border-[#D4AF37]/40 shadow-sm">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <div className="text-xs text-gray-500">{te ? "మీ referral code" : "Your referral code"}</div>
-                <div className="text-3xl font-extrabold text-[#7A0C2E] tracking-wide">{dash?.code || "…"}</div>
+        {/* TOP SUMMARY METRICS & WALLET BANNER */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          
+          {/* Wallet Card */}
+          <div className="bg-white rounded-3xl p-5 border-2 border-amber-300/80 shadow-md flex flex-col justify-between space-y-3">
+            <div>
+              <div className="flex items-center justify-between text-xs text-gray-500 font-bold">
+                <span>👛 {te ? "అందుబాటులో ఉన్న వాలెట్" : "Available Wallet"}</span>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold">Live</span>
               </div>
-              <div className="flex flex-col gap-2 text-xs">
-                <button onClick={() => copy(link, "link")} className="rounded-full bg-[#7A0C2E] text-white px-4 py-2 font-bold">{te ? "🔗 Link copy" : "🔗 Copy link"}</button>
-                <button onClick={() => copy(dash?.code || "", "code")} className="rounded-full bg-gray-100 px-4 py-2 font-bold">{te ? "#️⃣ Code copy" : "#️⃣ Copy code"}</button>
+              <div className="text-3xl sm:text-4xl font-black text-maroon mt-1">
+                ₹{s.wallet ?? 0}
               </div>
             </div>
 
-            <div className="mt-3 rounded-2xl bg-[#FFF8E7] border border-[#D4AF37]/40 p-3 text-xs font-mono break-all">{link || "https://manavivaha.in/r/…"}</div>
-            {copied && <div className="text-[11px] text-green-700 mt-1">{te ? <>✅ {copied} copy అయ్యింది</> : <>✅ {copied} copied</>}</div>}
-
-            {/* STATS */}
-            <div className="mt-4 grid grid-cols-3 md:grid-cols-6 gap-2 text-center">
-              {[
-                { l: "Clicks", v: s.clicks ?? 0, c: "" },
-                { l: "Registers", v: s.registrations ?? 0, c: "" },
-                { l: "Paid", v: s.paid_count ?? 0, c: "text-green-600" },
-                { l: "Wallet", v: `₹${s.wallet ?? 0}`, c: "text-[#7A0C2E]" },
-                { l: "Lifetime", v: `₹${s.lifetime_earned ?? 0}`, c: "" },
-                { l: "Conv %", v: `${s.conversion_pct ?? 0}%`, c: "" },
-              ].map((x) => (
-                <div key={x.l} className="rounded-xl bg-gray-50 p-2">
-                  <div className={`font-bold text-lg ${x.c}`}>{x.v}</div>
-                  <div className="text-[10px] text-gray-500">{x.l}</div>
-                </div>
-              ))}
-            </div>
-
-            {/* FUNNEL */}
-            <div className="mt-4">
-              <div className="text-xs font-bold text-[#7A0C2E]">📊 Funnel — link → register → pay</div>
-              <div className="mt-2 flex h-3 rounded-full overflow-hidden bg-gray-100">
-                <div className="bg-[#7A0C2E]" style={{ width: `${Math.min(100, (s.registrations || 0) / Math.max(1, s.clicks || 1) * 100)}%` }} />
-                <div className="bg-green-500" style={{ width: `${Math.min(100, (s.paid_count || 0) / Math.max(1, s.clicks || 1) * 100)}%` }} />
-              </div>
-              <div className="flex gap-4 text-[10px] text-gray-500 mt-1">
-                <span>■ {s.clicks || 0} clicks</span><span className="text-[#7A0C2E]">■ {s.registrations || 0} registers</span><span className="text-green-600">■ {s.paid_count || 0} paid</span>
-              </div>
-            </div>
-          </div>
-
-          {/* WALLET + PAYOUT */}
-          <div className="bg-white rounded-3xl p-5 border border-gray-200 shadow-sm">
-            <div className="text-xs text-gray-500">{te ? "👍 మీ Wallet" : "Your Wallet"}</div>
-            <div className="text-3xl font-extrabold text-[#7A0C2E]">₹{s.wallet ?? 0}</div>
-            <div className="mt-2 grid grid-cols-3 gap-2 text-center">
-              <div className="rounded-xl bg-[#FFF8E7] p-2">
-                <div className="text-sm font-extrabold text-[#7A0C2E]">₹{s.lifetime_earned ?? 0}</div>
-                <div className="telugu text-[10px] text-gray-600">{te ? "మొత్తం సంపాదన" : "Total earned"}</div>
-              </div>
-              <div className="rounded-xl bg-green-50 p-2">
-                <div className="text-sm font-extrabold text-green-700">₹{s.paid_out ?? 0}</div>
-                <div className="telugu text-[10px] text-gray-600">{te ? "చెల్లించబడింది" : "Total settled"}</div>
-              </div>
-              <div className="rounded-xl bg-amber-50 p-2">
-                <div className="text-sm font-extrabold text-amber-700">₹{s.pending_payout ?? 0}</div>
-                <div className="telugu text-[10px] text-gray-600">{te ? "ప్రాసెస్‌లో" : "In process"}</div>
-              </div>
-            </div>
-            <div className="text-[11px] text-gray-500 mt-1">
-              {te ? <>Payout అయ్యాక balance ₹0 అవుతుంది — సంపాదన history ఎప్పుడూ పైన కనిపిస్తుంది · min payout ₹{dash?.commission_rules?.min_payout ?? 100}</> : <>After payout balance resets to ₹0 — earnings history stays above · min payout ₹{dash?.commission_rules?.min_payout ?? 100}</>}
-            </div>
-            {(s.pending_friends ?? 0) > 0 && (
-              <div className="mt-3 rounded-xl border border-[#D4AF37]/50 bg-[#FFF8E7] p-3 text-[11px] text-[#7A0C2E] telugu">
-                <div className="font-bold">⏳ {te ? "వస్తున్న డబ్బు (pipeline): ₹" + (s.pending_value ?? 0) : "Pipeline: ₹" + (s.pending_value ?? 0)}</div>
-                <div className="mt-0.5 text-gray-600">
-                  {te
-                    ? `${s.pending_friends} friend${s.pending_friends > 1 ? "s" : ""} register అయ్యారు, ఇంకా pay చేలేదు — ఎప్పుడైనా (రేపు లేదా వారం తర్వాత) pay చేస్తే కూడా మీకు ₹50 × ${s.pending_friends} wallet లో వస్తుంది ✅`
-                    : `${s.pending_friends} friend${s.pending_friends > 1 ? "s" : ""} registered but not paid yet — whenever they pay (even weeks later), ₹50 × ${s.pending_friends} still lands in your wallet ✅`}
-                </div>
-              </div>
-            )}
             <button
+              type="button"
               onClick={() => setPay({ ...pay, open: !pay.open, amount: String(Math.floor(s.wallet || 0)) })}
               disabled={!dash?.wallet_can_withdraw}
-              className={`mt-3 w-full rounded-xl py-2.5 font-bold text-sm ${dash?.wallet_can_withdraw ? "gold-gradient text-[#7A0C2E]" : "bg-gray-100 text-gray-400"}`}>
-              {dash?.wallet_can_withdraw ? (te ? "💸 Payout అడగండి (UPI)" : "💸 Request payout (UPI)") : te ? `₹${Math.max(0, 100 - (s.wallet || 0))} ఇంకా కావాలి` : `₹${Math.max(0, 100 - (s.wallet || 0))} more needed`}
+              className={`w-full py-2.5 rounded-xl text-xs font-extrabold shadow-sm transition ${
+                dash?.wallet_can_withdraw
+                  ? "gold-gradient text-maroon hover:brightness-105 active:scale-95"
+                  : "bg-gray-100 text-gray-400 cursor-not-allowed"
+              }`}
+            >
+              {dash?.wallet_can_withdraw
+                ? (te ? "💸 విత్‌డ్రా అభ్యర్థన (UPI)" : "💸 Withdraw Payout (UPI)")
+                : (te ? `ఇంకా ₹${Math.max(0, 100 - (s.wallet || 0))} కావాలి` : `₹${Math.max(0, 100 - (s.wallet || 0))} more needed`)}
             </button>
-            <div className="mt-2 text-[11px] text-gray-500 telugu">{dash?.message_telugu}</div>
+          </div>
 
-            {pay.open && (
-              <div className="mt-3 rounded-xl border border-[#D4AF37]/40 bg-[#FFF8E7] p-3 text-xs">
-                <div className="font-bold text-[#7A0C2E]">💸 Payout request</div>
-                <input value={pay.amount} onChange={(e) => setPay({ ...pay, amount: e.target.value.replace(/\D/g, "") })}
-                  className="mt-2 w-full rounded-lg border px-3 py-2" placeholder="Amount (min ₹100)" aria-label="Amount (min ₹100)" />
-                <input value={pay.upi} onChange={(e) => setPay({ ...pay, upi: e.target.value })}
-                  className="mt-2 w-full rounded-lg border px-3 py-2" placeholder={te ? "UPI ID — ఉదాహరణ: name@okhdfcbank" : "UPI ID — e.g. name@okhdfcbank"} aria-label="UPI ID" />
-                <button onClick={submitPayout} className="mt-2 w-full rounded-lg bg-[#7A0C2E] text-white py-2 font-bold">{te ? "Request పంపు" : "Send request"}</button>
-                <div className="text-[10px] text-gray-500 mt-1">{te ? "3 working days లో మీ UPI కి — UTR తో confirm అవుతుంది." : "To your UPI in 3 working days — confirmed with UTR."}</div>
+          {/* Lifetime Earned */}
+          <div className="bg-white rounded-3xl p-5 border border-gold/30 shadow-sm flex flex-col justify-between">
+            <span className="text-xs text-gray-500 font-bold">💰 {te ? "మొత్తం సంపాదన" : "Lifetime Earned"}</span>
+            <div className="text-2xl sm:text-3xl font-black text-emerald-700 mt-2">
+              ₹{s.lifetime_earned ?? 0}
+            </div>
+            <span className="text-[11px] text-gray-500 mt-1">
+              {te ? `మొత్తం చెల్లించబడింది: ₹${s.paid_out ?? 0}` : `Total Settled: ₹${s.paid_out ?? 0}`}
+            </span>
+          </div>
+
+          {/* Paid Referrals */}
+          <div className="bg-white rounded-3xl p-5 border border-gold/30 shadow-sm flex flex-col justify-between">
+            <span className="text-xs text-gray-500 font-bold">🎉 {te ? "చెల్లించిన రెఫరల్స్ (₹50)" : "Paid Referrals (₹50)"}</span>
+            <div className="text-2xl sm:text-3xl font-black text-navy mt-2">
+              {s.paid_count ?? 0}
+            </div>
+            <span className="text-[11px] text-gray-500 mt-1">
+              {te ? `మొత్తం రిజిస్ట్రేషన్లు: ${s.registrations ?? 0}` : `Total Signups: ${s.registrations ?? 0}`}
+            </span>
+          </div>
+
+          {/* Pipeline */}
+          <div className="bg-white rounded-3xl p-5 border border-gold/30 shadow-sm flex flex-col justify-between">
+            <span className="text-xs text-gray-500 font-bold">⏳ {te ? "పైప్‌లైన్ (వస్తున్న డబ్బు)" : "Pipeline (Expected)"}</span>
+            <div className="text-2xl sm:text-3xl font-black text-amber-600 mt-2">
+              ₹{s.pending_value ?? 0}
+            </div>
+            <span className="text-[11px] text-gray-500 mt-1">
+              {te ? `${s.pending_friends ?? 0} మంది పేమెంట్ పెండింగ్` : `${s.pending_friends ?? 0} friends awaiting payment`}
+            </span>
+          </div>
+
+        </div>
+
+        {/* Payout Form Drawer */}
+        {pay.open && (
+          <div className="bg-white rounded-3xl p-6 border-2 border-maroon/40 shadow-xl space-y-4 animate-in fade-in">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-extrabold text-maroon">
+                💸 {te ? "UPI / బ్యాంక్ విత్‌డ్రా అభ్యర్థన" : "Request Payout via UPI"}
+              </h3>
+              <button
+                type="button"
+                onClick={() => setPay({ ...pay, open: false })}
+                className="text-gray-400 hover:text-gray-700 text-sm font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-[11px] font-bold text-gray-700 mb-1">
+                  {te ? "విత్‌డ్రా మొత్తం (కనీసం ₹100)" : "Withdrawal Amount (Min ₹100)"}
+                </label>
+                <input
+                  type="number"
+                  min="100"
+                  max={s.wallet || 100}
+                  value={pay.amount}
+                  onChange={(e) => setPay({ ...pay, amount: e.target.value })}
+                  className="w-full px-4 py-2 rounded-xl border border-gray-300 text-xs focus:border-maroon outline-none"
+                  placeholder="Amount (e.g. 150)"
+                />
               </div>
-            )}
+
+              <div>
+                <label className="block text-[11px] font-bold text-gray-700 mb-1">
+                  {te ? "మీ Google Pay / PhonePe / Paytm UPI ID" : "Your UPI ID (e.g. name@okhdfcbank)"}
+                </label>
+                <input
+                  type="text"
+                  value={pay.upi}
+                  onChange={(e) => setPay({ ...pay, upi: e.target.value })}
+                  className="w-full px-4 py-2 rounded-xl border border-gray-300 text-xs focus:border-maroon outline-none"
+                  placeholder="yourname@okicici"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between pt-2">
+              <span className="text-[11px] text-gray-500">
+                {te ? "⏱️ అడ్మిన్ ఆమోదించిన 24-48 గంటల్లో UTR నంబర్‌తో జమ చేయబడుతుంది." : "⏱️ Settled within 24-48 hours with official UTR."}
+              </span>
+
+              <button
+                type="button"
+                onClick={submitPayout}
+                disabled={payLoading}
+                className="px-6 py-2 rounded-xl maroon-gradient text-white text-xs font-bold shadow-md hover:brightness-110 disabled:opacity-50"
+              >
+                {payLoading ? (te ? "పంపుతున్నాం…" : "Submitting…") : (te ? "అభ్యర్థన పంపండి" : "Submit Request")}
+              </button>
+            </div>
+
             {payRes && (
-              <div className={`mt-2 rounded-xl p-2 text-[11px] ${payRes.success ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"}`}>
-                {payRes.message_telugu || payRes.reason}
+              <div className={`p-3 rounded-xl text-xs font-semibold ${payRes.success ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"}`}>
+                {payRes.message_telugu || payRes.reason || payRes.detail}
               </div>
             )}
-
-            {/* PAYOUT HISTORY */}
-            {(dash?.payouts?.length || dash?.payouts_live?.length) ? (
-              <div className="mt-4">
-                <div className="text-xs font-bold text-[#7A0C2E]">Payout history</div>
-                <div className="mt-1 space-y-1 text-[11px]">
-                  {(dash.payouts_live || dash.payouts).slice(0, 5).map((p: any) => (
-                    <div key={p.id} className="flex justify-between bg-gray-50 rounded-lg px-2 py-1.5">
-                      <span>{p.id}</span>
-                      <span className="font-bold">₹{p.amount}</span>
-                      <span className={p.status === "paid" ? "text-green-600" : p.status === "rejected" ? "text-red-600" : "text-orange-600"}>
-                        {p.status}{p.utr ? ` · ${p.utr}` : ""}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ) : null}
           </div>
-        </section>
+        )}
 
-        {/* SHARE KIT */}
-        <section className="mt-6 bg-white rounded-3xl p-5 border border-gray-200 shadow-sm">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="font-bold text-[#7A0C2E] telugu">📲 <Duo en="Share kit — ready messages for WhatsApp/Status" te="వాట్సాప్/స్టేటస్‌కు రెడీ మెసేజ్‌లు" /></h2>
-            {tsapId ? (
-              <>
-              <div className="flex gap-2 text-xs">
-                <a href={`/api/referral/${tsapId}/poster.png?style=square`} className="rounded-full bg-[#7A0C2E] text-white px-3 py-1.5 font-bold">🖼️ Poster (square)</a>
-                <a href={`/api/referral/${tsapId}/poster.png?style=status`} className="rounded-full bg-[#0F1F3C] text-white px-3 py-1.5 font-bold">📱 Status poster</a>
+        {/* SHARE LINK BOX */}
+        <div className="bg-white rounded-3xl p-6 border border-gold/40 shadow-sm space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <span className="text-xs text-gray-500 font-bold block">{te ? "మీ వ్యక్తిగత రెఫరల్ కోడ్ & లింక్" : "Your Referral Code & Link"}</span>
+              <div className="text-2xl sm:text-3xl font-black text-maroon tracking-wider mt-0.5">
+                {dash?.code || "REGISTER TO GET CODE"}
               </div>
-              {/* 🎬 W40 — VIDEO KIT */}
-              <div className="mt-3 rounded-2xl border border-[#7A0C2E]/15 bg-[#FFF8E7]/60 p-3">
-                <div className="telugu text-xs font-bold text-[#7A0C2E]">🎬 {te ? "వీడియో చేసి ప్రమోట్ చెయ్యండి (ready scripts)" : "Promo video scripts"}</div>
-                <div className="telugu mt-1 text-[10px] text-gray-600">{te ? "ఈ scripts చదివి ఫోన్‌లో record చేసి, status/reels లో పెట్టండి — మీ code తో ఎక్కువ మంది register అవుతారు." : "Record these on your phone, post as status/reels — more people register with your code."}</div>
-                <div className="mt-2 space-y-2">
-                  {((dash?.share_kit?.video_kit || []) as { style: string; script: string }[]).map((v, i) => (
-                    <details key={i} className="rounded-xl bg-white p-2">
-                      <summary className="telugu cursor-pointer text-[11px] font-bold text-[#7A0C2E]">🎬 {v.style}</summary>
-                      <pre className="telugu mt-1 whitespace-pre-wrap text-[11px] text-gray-700">{v.script}</pre>
-                    </details>
-                  ))}
-                </div>
-              </div>
-              </>
-            ) : null}
+            </div>
+
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => copy(link, "link")}
+                className="px-4 py-2 rounded-xl maroon-gradient text-white font-extrabold text-xs shadow-soft hover:brightness-110 active:scale-95 transition"
+              >
+                🔗 {copied === "link" ? (te ? "కాపీ అయింది! ✅" : "Copied! ✅") : (te ? "లింక్ కాపీ చేయండి" : "Copy Link")}
+              </button>
+              <button
+                type="button"
+                onClick={() => copy(dash?.code || "", "code")}
+                className="px-4 py-2 rounded-xl border border-gold text-maroon font-bold text-xs hover:bg-gold-soft transition"
+              >
+                #️⃣ {copied === "code" ? "✅" : (te ? "కోడ్ కాపీ" : "Copy Code")}
+              </button>
+            </div>
           </div>
 
-          {msgs.length > 0 && (
-            <>
-              <div className="mt-3 flex flex-wrap gap-2 text-[11px]">
-                {msgs.map((_, i) => (
-                  <button key={i} onClick={() => setMsgIdx(i)}
-                    className={`px-3 py-1 rounded-full font-bold ${msgIdx === i ? "bg-[#D4AF37] text-[#7A0C2E]" : "bg-gray-100"}`}>
-                    Message {i + 1}
-                  </button>
+          <div className="p-3 bg-amber-50/70 rounded-2xl border border-amber-200/80 font-mono text-xs text-maroon break-all select-all">
+            {link || "https://manavivaha.in/r/..."}
+          </div>
+        </div>
+
+        {/* NAVIGATION TABS */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-hide">
+          {[
+            { id: "overview", label: te ? "📊 అవలోకనం" : "📊 Overview" },
+            { id: "friends", label: te ? `👥 నా రెఫరల్స్ (${friendsList.length})` : `👥 Referred Friends (${friendsList.length})` },
+            { id: "share", label: te ? "📲 వాట్సాప్ షేర్ కిట్" : "📲 Share Kit" },
+            { id: "payouts", label: te ? "🧾 విత్‌డ్రా హిస్టరీ" : "🧾 Payout History" },
+            { id: "leaderboard", label: te ? "🏆 లీడర్‌బోర్డ్" : "🏆 Leaderboard" },
+            { id: "terms", label: te ? "📜 నిబంధనలు" : "📜 Terms & Rules" },
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id as any)}
+              className={`px-4 py-2.5 rounded-full text-xs font-extrabold whitespace-nowrap transition-all ${
+                activeTab === tab.id
+                  ? "maroon-gradient text-white shadow-soft"
+                  : "bg-white text-gray-700 hover:bg-amber-50 border border-gold/30"
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {/* ================= TAB 1: OVERVIEW ================= */}
+        {activeTab === "overview" && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            
+            {/* How It Works Card */}
+            <div className="bg-white rounded-3xl p-6 border border-gold/30 shadow-sm space-y-4">
+              <h3 className="font-extrabold text-maroon text-base">
+                ⚡ {te ? "ఎలా పని చేస్తుంది? (3 సులభ దశలు)" : "How It Works (3 Easy Steps)"}
+              </h3>
+              <div className="space-y-3 text-xs text-gray-700 leading-relaxed">
+                <div className="flex items-start gap-3 p-3 bg-amber-50/60 rounded-2xl border border-amber-100">
+                  <span className="w-6 h-6 rounded-full bg-maroon text-white font-bold flex items-center justify-center shrink-0 text-xs">1</span>
+                  <div>
+                    <b className="text-maroon block mb-0.5">{te ? "మీ లింక్ షేర్ చేయండి" : "Share Your Link"}</b>
+                    {te ? "మీ వాట్సాప్ గ్రూపులు, స్టేటస్ లేదా స్నేహితులకు మీ రెఫరల్ లింక్ పంపండి." : "Share your link on WhatsApp groups, status, or with friends looking for match."}
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3 p-3 bg-amber-50/60 rounded-2xl border border-amber-100">
+                  <span className="w-6 h-6 rounded-full bg-maroon text-white font-bold flex items-center justify-center shrink-0 text-xs">2</span>
+                  <div>
+                    <b className="text-maroon block mb-0.5">{te ? "స్నేహితుడు రిజిస్టర్ అవుతాడు" : "Friend Registers (FREE)"}</b>
+                    {te ? "వారు ఉచితంగా రిజిస్టర్ అయి 3 మ్యాచెస్ పొందుతారు (+1 బోనస్ క్రెడిట్)." : "They register free, get 3 free profiles (+1 referee bonus credit)."}
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3 p-3 bg-amber-50/60 rounded-2xl border border-amber-100">
+                  <span className="w-6 h-6 rounded-full bg-maroon text-white font-bold flex items-center justify-center shrink-0 text-xs">3</span>
+                  <div>
+                    <b className="text-maroon block mb-0.5">{te ? "మొదటి పేమెంట్ = ₹50 మీ వాలెట్‌కు" : "First Payment = ₹50 to Your Wallet"}</b>
+                    {te ? "వారు ఎప్పుడైనా ₹99 (లేదా ఏదైనా ప్లాన్) చెల్లించగానే, తక్షణమే మీ వాలెట్‌కు ₹50 జమ అవుతుంది." : "Whenever they pay ₹99 (or any plan), ₹50 lands straight into your wallet!"}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Who Can Earn Card */}
+            <div className="bg-white rounded-3xl p-6 border border-gold/30 shadow-sm space-y-4">
+              <h3 className="font-extrabold text-maroon text-base">
+                🌟 {te ? "ఎవరెవరు సంపాదించవచ్చు?" : "Who Can Earn?"}
+              </h3>
+              <div className="grid grid-cols-2 gap-2.5 text-center">
+                {[
+                  { icon: "🎓", role: te ? "విద్యార్థులు" : "Students", desc: te ? "పాకెట్ మనీ కోసం" : "For pocket money" },
+                  { icon: "🏡", role: te ? "గృహిణులు" : "Homemakers", desc: te ? "ఇంట్లోనే కూర్చుని" : "From home" },
+                  { icon: "💼", role: te ? "ఉద్యోగస్తులు" : "Professionals", desc: te ? "సైడ్ ఇన్‌కమ్‌గా" : "As side income" },
+                  { icon: "🤝", role: te ? "వివాహ బ్యూరోలు" : "Matchmakers", desc: te ? "అదనపు ఆదాయం" : "Extra commission" },
+                ].map((item) => (
+                  <div key={item.role} className="p-3 bg-slate-50 rounded-2xl border border-slate-100">
+                    <div className="text-2xl">{item.icon}</div>
+                    <div className="font-bold text-xs text-maroon mt-1">{item.role}</div>
+                    <div className="text-[10px] text-gray-500">{item.desc}</div>
+                  </div>
                 ))}
               </div>
-              <div className="mt-2 rounded-2xl bg-[#FFF8E7] border border-[#D4AF37]/40 p-3 text-xs whitespace-pre-wrap">{msgs[msgIdx]}</div>
-              <div className="mt-3 flex flex-wrap gap-2 text-xs">
-                <a href={kit.whatsapp_share_variants?.[msgIdx] || kit.whatsapp_share} target="_blank" rel="noreferrer"
-                  className="rounded-full bg-[#25D366] text-white px-4 py-2 font-bold">{te ? "💬 WhatsApp కి పంపు" : "💬 Send to WhatsApp"}</a>
-                <a href={kit.telegram_share} target="_blank" rel="noreferrer"
-                  className="rounded-full bg-[#0088cc] text-white px-4 py-2 font-bold">✈️ Telegram share</a>
-                <button onClick={() => copy(msgs[msgIdx], "message")} className="rounded-full bg-gray-100 px-4 py-2 font-bold">📋 Copy</button>
-                <a href={`sms:?&body=${encodeURIComponent(kit.sms_text || "")}`} className="rounded-full bg-gray-100 px-4 py-2 font-bold">✉️ SMS</a>
-              </div>
-            </>
-          )}
-
-          <div className="mt-4 grid md:grid-cols-3 gap-3 text-xs">
-            {(dash?.commission_rules) && Object.entries(dash.commission_rules).map(([k, v]) => (
-              <div key={k} className="rounded-xl bg-gray-50 p-3">
-                <div className="font-bold text-[#7A0C2E] capitalize">{k.replace(/_/g, " ")}</div>
-                <div className="text-gray-600 mt-0.5">{String(v)}</div>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* TIERS + MILESTONES */}
-        <section className="mt-6 grid md:grid-cols-2 gap-4">
-          <div className="bg-white rounded-3xl p-5 border border-gray-200 shadow-sm">
-            <h2 className="font-bold text-[#7A0C2E] telugu">🏆 <Duo en="Tiers — refer more, earn more %" te="ఎక్కువ రెఫర్ చేస్తే ఎక్కువ %" /></h2>
-            <div className="mt-3 space-y-2 text-xs">
-              {(dash?.tiers || []).map((t: any) => (
-                <div key={t.key} className={`flex items-center justify-between rounded-xl p-3 ${t.key === tier.key ? "bg-[#D4AF37]/20 border border-[#D4AF37]" : "bg-gray-50"}`}>
-                  <div>
-                    <div className="font-bold">{t.icon} {t.key} <span className="text-gray-500 font-normal">({t.min}+ pays)</span></div>
-                    <div className="text-[11px] text-gray-500">{(t.perks || []).join(" • ")}</div>
-                  </div>
-                  <div className="font-bold text-[#7A0C2E]">{t.key === tier.key ? (te ? "← మీ tier" : "← your tier") : t.icon}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="bg-white rounded-3xl p-5 border border-gray-200 shadow-sm">
-            <h2 className="font-bold text-[#7A0C2E] telugu">🎯 <Duo en="Milestones — badges + recognition" te="మైలురాళ్లు — బ్యాడ్జ్‌లు" /></h2>
-            <div className="mt-3">
-              <div className="h-3 rounded-full bg-gray-100 overflow-hidden">
-                <div className="h-3 bg-[#7A0C2E]" style={{ width: `${progress}%` }} />
-              </div>
-              <div className="text-[11px] text-gray-500 mt-1">
-                {next ? (te ? `${next.need} more paying referrals → ${next.title} (badge)` : `${next.need} more paying referrals → ${next.title} (badge)`) : (te ? "👑 అన్ని milestones complete!" : "👑 All milestones complete!")}
+              <div className="p-3 bg-emerald-50 rounded-2xl border border-emerald-200 text-xs text-emerald-800 text-center font-bold">
+                {te ? "💡 10 మంది పే చేస్తే = ₹500 నేరుగా మీ UPI బ్యాంక్ ఖాతాకు!" : "💡 10 Paid Referrals = ₹500 direct to your UPI account!"}
               </div>
             </div>
-            <div className="mt-3 space-y-2 text-xs">
-              {(dash?.milestones || []).map((m: any) => {
-                const hit = (dash?.milestones_hit || []).includes(m.paid);
-                return (
-                  <div key={m.paid} className={`rounded-xl p-3 ${hit ? "bg-green-50 border border-green-200" : "bg-gray-50"}`}>
-                    <div className="font-bold">{hit ? "✅" : "⬜"} {m.title} <span className="text-gray-500 font-normal">({m.paid} pays)</span></div>
-                    <div className="text-[11px] text-gray-600 telugu">{m.telugu}</div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </section>
 
-        {/* RECENT + LEDGER */}
-        <section className="mt-6 grid md:grid-cols-2 gap-4">
-          <div className="bg-white rounded-3xl p-5 border border-gray-200 shadow-sm">
-            <h2 className="font-bold text-[#7A0C2E] telugu">{te ? "👥 మీ referrals (recent)" : "👥 Your referrals (recent)"}</h2>
-            {(dash?.recent_registrations || []).length === 0 && <div className="mt-2 text-xs text-gray-500">{te ? "ఇంకా ఎవరూ register అవ్వలేదు — మీ link share చెయ్యండి 🙂" : "Nobody registered yet — share your link 🙂"}</div>}
-            <div className="mt-2 space-y-1 text-xs">
-              {(dash?.recent_registrations || []).map((r: any) => (
-                <div key={r.tsap_id} className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2 gap-2">
-                  <div className="min-w-0">
-                    <div className="font-bold text-[13px] truncate">{r.name || r.tsap_id}</div>
-                    <div className="font-mono text-[10px] text-gray-500">{r.tsap_id} · {String(r.joined || "").slice(0, 10)}</div>
-                  </div>
-                  <span className={`shrink-0 text-[11px] ${r.paid ? "text-green-600 font-bold" : "text-amber-600"}`}>
-                    {r.paid ? `💰 ₹${r.commission ?? 50} ✅` : "⏳ pay pending"}
-                  </span>
-                </div>
-              ))}
-            </div>
           </div>
+        )}
 
-          <div className="bg-white rounded-3xl p-5 border border-gray-200 shadow-sm">
-            <h2 className="font-bold text-[#7A0C2E] telugu">🧾 {te ? "వాలెట్ చరిత్ర" : "Wallet history"}</h2>
-            {(dash?.ledger || []).length === 0 && <div className="mt-2 text-xs text-gray-500">{te ? "ఇంకా ఏమీ లేదు — మొదటి referral తో start అవుతుంది" : "Nothing yet — starts with your first referral"}</div>}
-            <div className="mt-2 space-y-1 text-[11px] max-h-72 overflow-y-auto">
-              {(dash?.ledger || []).map((l: any) => (
-                <div key={l.id} className="flex items-center justify-between border-b border-gray-100 py-1.5">
-                  <div>
-                    <div className="font-bold">
-                      {l.type === "payout_paid" ? <span className="text-green-700">✅ PAID</span> : l.type}{l.first_payment ? " (first)" : ""}
-                    </div>
-                    <div className="text-gray-500">{l.from || l.note}{l.utr ? ` · UTR ${l.utr}` : ""}</div>
-                  </div>
-                  <span className={Number(l.amount) >= 0 ? "text-green-600 font-bold" : "text-red-600 font-bold"}>
-                    {l.type === "payout_paid" ? "done" : `₹${l.amount}`}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* LEADERBOARD — LIVE */}
-        <section className="mt-6 bg-white rounded-3xl p-5 border border-gray-200 shadow-sm">
-          <div className="flex items-center justify-between gap-2 flex-wrap">
-            <h2 className="font-bold text-[#7A0C2E] telugu flex items-center gap-2">
-              🏅 Top referrers
-              <span className="flex items-center gap-1 text-[10px] font-bold text-green-700 bg-green-50 border border-green-200 rounded-full px-2 py-0.5">
-                <span className="relative flex h-2 w-2"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span><span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span></span>
-                LIVE
+        {/* ================= TAB 2: DETAILED REFERRED FRIENDS ================= */}
+        {activeTab === "friends" && (
+          <div className="bg-white rounded-3xl p-6 border border-gold/30 shadow-sm space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-extrabold text-maroon text-base">
+                  👥 {te ? "మీ రిఫరల్ ద్వారా చేరిన సభ్యుల జాబితా" : "Your Referred Friends List"}
+                </h3>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  {te ? "మీ లింక్ ద్వారా నమోదైన ప్రతి వ్యక్తి స్టేటస్ మరియు కమీషన్ వివరాలు క్రింద చూడండి." : "Real-time details of members who joined with your code."}
+                </p>
+              </div>
+              <span className="text-xs font-bold bg-amber-100 text-amber-800 px-3 py-1 rounded-full">
+                {friendsList.length} {te ? "సభ్యులు" : "Members"}
               </span>
-            </h2>
-            <div className="flex gap-1 text-[11px]">
-              {([["week", "ఈ వారం"], ["month", "ఈ నెల"], ["all", "All-time"]] as const).map(([k, label]) => (
-                <button key={k} onClick={() => setLbPeriod(k)}
-                  className={`px-2.5 py-1 rounded-full font-bold ${lbPeriod === k ? "bg-[#7A0C2E] text-white" : "bg-gray-100 text-gray-600"}`}>
-                  {label}
+            </div>
+
+            {friendsList.length === 0 ? (
+              <div className="text-center py-12 space-y-3">
+                <div className="text-4xl">🎁</div>
+                <div className="text-sm font-bold text-gray-700">
+                  {te ? "ఇంకా ఎవరూ మీ లింక్‌తో నమోదు కాలేదు" : "No referrals registered yet"}
+                </div>
+                <p className="text-xs text-gray-500 max-w-sm mx-auto">
+                  {te ? "మీ వాట్సాప్ స్టేటస్ లేదా గ్రూపులలో లింక్ షేర్ చేయండి. మొదటి రిఫరల్‌తో సంపాదన ప్రారంభించండి!" : "Share your link on WhatsApp to start getting referrals!"}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("share")}
+                  className="px-5 py-2 rounded-full maroon-gradient text-white text-xs font-bold"
+                >
+                  📲 {te ? "వాట్సాప్ మెసేజ్ షేర్ చేయండి" : "Share WhatsApp Message"}
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {friendsList.map((f: any, idx: number) => (
+                  <div
+                    key={f.tsap_id || idx}
+                    className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-2xl border border-gray-100 bg-slate-50/70 hover:bg-amber-50/40 transition gap-3"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-maroon-soft text-maroon font-bold flex items-center justify-center text-sm shrink-0">
+                        {f.gender === "Bride" ? "👰" : "🤵"}
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-extrabold text-sm text-navy">{f.name || f.tsap_id}</span>
+                          <span className="font-mono text-[10px] text-gray-400 bg-white px-2 py-0.5 rounded border">ID: {f.tsap_id}</span>
+                        </div>
+                        <div className="text-[11px] text-gray-500 mt-0.5">
+                          {f.caste} · 🏡 {f.district} · 📅 {String(f.joined || "").slice(0, 10)}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between sm:justify-end gap-3 pt-2 sm:pt-0 border-t sm:border-t-0 border-gray-200/60">
+                      <span className={`text-xs font-bold px-3 py-1 rounded-full ${
+                        f.paid
+                          ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
+                          : "bg-amber-100 text-amber-800 border border-amber-300"
+                      }`}>
+                        {f.paid ? (te ? "💰 ₹50 జమయింది ✅" : "💰 ₹50 Credited ✅") : (te ? "⏳ పేమెంట్ పెండింగ్" : "⏳ Pay Pending")}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ================= TAB 3: SHARE KIT ================= */}
+        {activeTab === "share" && (
+          <div className="bg-white rounded-3xl p-6 border border-gold/30 shadow-sm space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h3 className="font-extrabold text-maroon text-base">
+                  📲 {te ? "వాట్సాప్ & సోషల్ మీడియా షేరింగ్ కిట్" : "WhatsApp & Social Share Kit"}
+                </h3>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  {te ? "ఈ మెసేజ్ ఎంచుకుని 1-క్లిక్‌తో వాట్సాప్‌లో షేర్ చేయండి:" : "Choose a message and share directly on WhatsApp:"}
+                </p>
+              </div>
+
+              {tsapId && (
+                <div className="flex gap-2 text-xs">
+                  <a
+                    href={`/api/referral/${tsapId}/poster.png?style=square`}
+                    target="_blank"
+                    className="px-3 py-1.5 rounded-xl border border-gold text-maroon font-bold hover:bg-gold-soft"
+                  >
+                    🖼️ {te ? "QR పోస్టర్" : "QR Poster"}
+                  </a>
+                  <a
+                    href={`/api/referral/${tsapId}/poster.png?style=status`}
+                    target="_blank"
+                    className="px-3 py-1.5 rounded-xl bg-navy text-white font-bold hover:bg-navy/90"
+                  >
+                    📱 {te ? "స్టేటస్ పోస్టర్" : "Status Poster"}
+                  </a>
+                </div>
+              )}
+            </div>
+
+            {/* Message Template Switcher */}
+            <div className="flex gap-2">
+              {msgs.map((_, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => setMsgIdx(i)}
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition ${
+                    msgIdx === i ? "maroon-gradient text-white shadow-soft" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                  }`}
+                >
+                  {te ? `టెంప్లేట్ ${i + 1}` : `Template ${i + 1}`}
                 </button>
               ))}
             </div>
-          </div>
-          <div className="text-[11px] text-gray-500">{te ? "Weekly top-1 కి ₹1000 + Elite badge" : "Weekly top-1 gets ₹1000 + Elite badge"}</div>
 
-          {you && (
-            <div className="mt-3 flex items-center gap-2 rounded-xl bg-[#FFF8E7] border border-[#D4AF37]/50 px-3 py-2 text-xs font-bold text-[#7A0C2E]">
-              🎯 {te ? "మీ rank" : "Your rank"}: #{you.rank}
-              <span className="font-normal text-gray-600">· {you.refers} {te ? "refers" : "refers"} · ₹{you.earned} {te ? "సంపాదించారు" : "earned"}</span>
-              {you.rank > 10 && <span className="font-normal text-gray-500">({te ? "top-10 లో లేరు — ఇంకొంచెం push చెయ్యండి! 💪" : "not in top-10 yet — keep pushing! 💪"})</span>}
+            {/* Selected Message Box */}
+            <div className="p-4 bg-amber-50/70 rounded-2xl border border-amber-200 text-xs text-gray-800 whitespace-pre-wrap leading-relaxed">
+              {msgs[msgIdx]}
             </div>
-          )}
 
-          <div className="mt-3 space-y-2 text-xs">
-            {board.length === 0 && <div className="text-gray-500">{te ? "ఈ period లో ఇంకా ఎవరూ లేరు — మొదటి place మీదే అవ్వచ్చు! 🥇" : "Nobody yet this period — first place could be yours! 🥇"}</div>}
-            {board.map((b: any) => (
-              <div key={b.code} className={`flex items-center gap-3 rounded-xl p-3 ${b.code === dash?.code ? "bg-[#D4AF37]/20 border border-[#D4AF37]" : "bg-gray-50"}`}>
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${b.rank <= 3 ? "gold-gradient" : "bg-white"}`}>{b.rank === 1 ? "🥇" : b.rank === 2 ? "🥈" : b.rank === 3 ? "🥉" : b.rank}</div>
-                <div className="flex-1 min-w-0">
-                  <div className="font-bold truncate">{b.name} {b.code === dash?.code && <span className="text-[10px] bg-[#7A0C2E] text-white px-2 py-0.5 rounded-full ml-1">YOU</span>}</div>
-                  <div className="text-[11px] text-gray-500">{b.icon} {b.tier} • {b.refers} {te ? "refers" : "refers"} • {b.paid} paid</div>
-                </div>
-                <div className="font-extrabold text-green-600 text-sm">₹{b.earned}</div>
+            {/* 1-Tap Action Buttons */}
+            <div className="flex flex-wrap gap-3">
+              <a
+                href={kit.whatsapp_share_variants?.[msgIdx] || `https://api.whatsapp.com/send?text=${encodeURIComponent(msgs[msgIdx])}`}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-[#25D366] text-white font-extrabold text-xs shadow-md hover:brightness-105 active:scale-95 transition"
+              >
+                <WhatsAppIcon className="w-4 h-4" mono />
+                <span>{te ? "వాట్సాప్‌లో షేర్ చేయండి" : "Share on WhatsApp"}</span>
+              </a>
+
+              <a
+                href={kit.telegram_share || `https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(msgs[msgIdx])}`}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-[#229ED9] text-white font-extrabold text-xs shadow-md hover:brightness-105 active:scale-95 transition"
+              >
+                <TelegramIcon className="w-4 h-4" mono />
+                <span>Telegram</span>
+              </a>
+
+              <button
+                type="button"
+                onClick={() => copy(msgs[msgIdx], "msg")}
+                className="px-5 py-3 rounded-2xl border border-gray-300 text-gray-700 font-bold text-xs hover:bg-gray-50 active:scale-95 transition"
+              >
+                📋 {copied === "msg" ? "కాపీ అయింది! ✅" : "టెక్స్ట్ కాపీ"}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ================= TAB 4: PAYOUT HISTORY ================= */}
+        {activeTab === "payouts" && (
+          <div className="bg-white rounded-3xl p-6 border border-gold/30 shadow-sm space-y-4">
+            <h3 className="font-extrabold text-maroon text-base">
+              🧾 {te ? "విత్‌డ్రా చరిత్ర & UTR రసీదులు" : "Withdrawal History & UTR Receipts"}
+            </h3>
+
+            {(!dash?.payouts?.length && !dash?.payouts_live?.length) ? (
+              <div className="text-center py-10 text-xs text-gray-500">
+                {te ? "ఇంకా ఎలాంటి విత్‌డ్రా అభ్యర్థనలు లేవు. మీ వాలెట్ ₹100 చేరుకోగానే విత్‌డ్రా చేసుకోవచ్చు." : "No withdrawal requests yet. You can withdraw as soon as your wallet reaches ₹100."}
               </div>
-            ))}
+            ) : (
+              <div className="space-y-2.5">
+                {(dash.payouts_live || dash.payouts).map((p: any, idx: number) => (
+                  <div key={p.id || idx} className="flex items-center justify-between p-3.5 bg-slate-50 rounded-2xl border border-slate-100 text-xs">
+                    <div>
+                      <div className="font-bold text-navy">{p.id}</div>
+                      <div className="text-[11px] text-gray-500">
+                        {p.method?.toUpperCase()} · {p.upi_id || p.account || ""}
+                        {p.utr ? <b className="text-emerald-700 block">UTR: {p.utr}</b> : null}
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="font-black text-sm text-maroon">₹{p.amount}</div>
+                      <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase ${
+                        p.status === "paid" ? "bg-emerald-100 text-emerald-800" :
+                        p.status === "rejected" ? "bg-rose-100 text-rose-800" : "bg-amber-100 text-amber-800"
+                      }`}>
+                        {p.status}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
-          <div className="mt-3 text-[10px] text-gray-400 telugu">
-            {te ? "₹ మొత్తం సంపాదనలు (payouts తో సహా) — 30 సెకన్లకోసారి auto-update అవుతుంది" : "₹ = total earnings — auto-refreshes every 30s"}
-          </div>
-        </section>
+        )}
 
-        {/* RULES */}
-        <section className="mt-6 grid md:grid-cols-2 gap-4">
-          <div className="bg-white rounded-3xl p-5 border border-gray-200 shadow-sm">
-            <h2 className="font-bold text-[#7A0C2E] telugu">📜 Rules ({terms?.version || "2.0"})</h2>
-            <ul className="mt-2 space-y-1 text-xs text-gray-700">
-              {(terms?.rules_telugu || []).map((r: string, i: number) => <li key={i}>{r.replace(/\*\*/g, "")}</li>)}
-            </ul>
-          </div>
-          <div className="bg-white rounded-3xl p-5 border border-gray-200 shadow-sm">
-            <h2 className="font-bold text-[#7A0C2E] telugu">{te ? "🚫 చెయ్యకూడదు (ban అవుతుంది)" : "🚫 Don\u2019t do this (leads to ban)"}</h2>
-            <ul className="mt-2 space-y-1 text-xs text-gray-700">
-              {(terms?.not_allowed || ["Self-referral", "Fake registrations", "Spam/bots"]).map((r: string) => <li key={r}>⛔ {r}</li>)}
-            </ul>
-            <div className="mt-3 rounded-xl bg-[#FFF8E7] border border-[#D4AF37]/40 p-3 text-[11px] text-[#7A0C2E]">
-              {te ? "💡 Tip: మీ caste/district WhatsApp group లో poster + message పెట్టండి — weekend లో ఎక్కువ registrations వస్తాయి." : "💡 Tip: post the poster + message in your caste/district WhatsApp group — more registrations on weekends."}
+        {/* ================= TAB 5: LEADERBOARD ================= */}
+        {activeTab === "leaderboard" && (
+          <div className="bg-white rounded-3xl p-6 border border-gold/30 shadow-sm space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h3 className="font-extrabold text-maroon text-base">
+                  🏆 {te ? "టాప్ రెఫరర్స్ లీడర్‌బోర్డ్" : "Top Referrers Leaderboard"}
+                </h3>
+                <p className="text-xs text-emerald-700 font-bold mt-0.5">
+                  🎁 {te ? "వారపు టాప్-1 విజేతకు ₹1000 అదనపు నగదు బహుమతి!" : "Weekly Top-1 Referrer gets ₹1000 Extra Cash Prize!"}
+                </p>
+              </div>
+
+              <div className="flex gap-1.5 bg-gray-100 p-1 rounded-xl text-xs">
+                {["all", "week", "month"].map((p) => (
+                  <button
+                    key={p}
+                    onClick={() => setLbPeriod(p)}
+                    className={`px-3 py-1 rounded-lg font-bold capitalize transition ${
+                      lbPeriod === p ? "bg-white text-maroon shadow-sm" : "text-gray-600"
+                    }`}
+                  >
+                    {p}
+                  </button>
+                ))}
+              </div>
             </div>
-            <div className="mt-3 flex flex-wrap gap-2 text-xs">
-              <Link href="/pricing" className="underline font-bold text-[#7A0C2E]">Pricing</Link>
-              <Link href="/channels" className="underline font-bold text-[#7A0C2E]">Channels</Link>
-              <a href={SITE_CONFIG.supportLink} className="underline font-bold text-[#7A0C2E]">Support WhatsApp</a>
+
+            <div className="space-y-2 mt-2">
+              {board.map((item, idx) => (
+                <div
+                  key={idx}
+                  className={`flex items-center justify-between p-3 rounded-2xl text-xs ${
+                    idx === 0 ? "bg-amber-50 border-2 border-gold/60 font-bold" : "bg-slate-50 border border-slate-100"
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="w-6 text-center font-extrabold text-sm text-maroon">
+                      {idx === 0 ? "🥇" : idx === 1 ? "🥈" : idx === 2 ? "🥉" : `#${idx + 1}`}
+                    </span>
+                    <div>
+                      <span className="font-bold text-navy">{item.name || "Referral Partner"}</span>
+                      <span className="text-[10px] text-gray-400 block font-mono">{item.code}</span>
+                    </div>
+                  </div>
+
+                  <div className="text-right">
+                    <span className="font-extrabold text-maroon block">{item.paid_count || 0} Paid Referrals</span>
+                    <span className="text-[10px] text-emerald-600 font-bold">₹{(item.paid_count || 0) * 50} Earned</span>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
-        </section>
-        {needsLogin && <AuthGate
-          title={te ? "🔒 మీ referral dashboard కి OTP login కావాలి" : "🔒 OTP login needed for your referral dashboard"}
-          note={te ? "మీ referral code, clicks, wallet, payouts — ఇవి మీ account data. OTP తో login చెయ్యండి, అప్పుడే కనిపిస్తుంది (వేరే వాళ్లకి కనిపించదు)." : "Your referral code, clicks, wallet, payouts — this is your account data. Login with OTP to see it (others can\u2019t)."} />}
+        )}
+
+        {/* ================= TAB 6: TERMS & RULES ================= */}
+        {activeTab === "terms" && (
+          <div className="bg-white rounded-3xl p-6 border border-gold/30 shadow-sm space-y-4">
+            <h3 className="font-extrabold text-maroon text-base">
+              📜 {te ? "రెఫరల్ నియమ నిబంధనలు (100% పారదర్శకత)" : "Referral Program Rules & Policy"}
+            </h3>
+            <div className="space-y-2.5 text-xs text-gray-700 leading-relaxed">
+              {(terms?.rules_telugu || [
+                "1. ఉచిత నమోదు — ఎవరైనా రిజిస్టర్ అవ్వగానే మొదటి 3 ప్రొఫైల్స్ ఉచితంగా చూడవచ్చు.",
+                "2. మీ స్నేహితుడు ₹99 లేదా ఏదైనా ప్లాన్ మొదటిసారి చెల్లించిన వెంటనే మీ వాలెట్‌కు ₹50 జమ అవుతుంది.",
+                "3. ఎంత మందినైనా రిఫర్ చేయవచ్చు — పరిమితులు లేవు.",
+                "4. వాలెట్ బ్యాలెన్స్ ₹100 దాటగానే తక్షణమే UPI ద్వారా విత్‌డ్రా అభ్యర్థన సమర్పించవచ్చు.",
+                "5. ఫేక్ ప్రొఫైల్స్ మరియు బాట్ అకౌంట్లు అనుమతించబడవు; నిజమైన వినియోగదారుల పేమెంట్లపై మాత్రమే కమీషన్ లభిస్తుంది."
+              ]).map((rule: string, i: number) => (
+                <div key={i} className="p-3 bg-slate-50 rounded-2xl border border-slate-100">
+                  {rule}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
       </div>
     </main>

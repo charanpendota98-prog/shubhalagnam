@@ -405,6 +405,30 @@ def control_spotlight_action(promo_id: str, payload: dict, request: Request):
         raise HTTPException(400, str(e))
 
 
+@app.get("/api/control/payouts/queue")
+def control_payouts_queue(request: Request, status: str = "requested"):
+    """Control Portal: Queue of referral payout withdrawal requests."""
+    item = CONTROL_AUTH.require(request)
+    res = payout_queue(status if status != "all" else "")
+    CONTROL_AUTH.audit("control_payouts_queue", item["username"], request, status=status, count=res.get("count", 0))
+    return {"success": True, **res, "role": item["role"]}
+
+
+@app.post("/api/control/payouts/{request_id}/action")
+def control_payout_action(request_id: str, payload: dict, request: Request):
+    """Control Portal: Approve (with UTR) or reject a referral payout request (CSRF authed)."""
+    item = _control_write_guard(request, roles=_CONTROL_WRITE_ROLES)
+    d = payload or {}
+    action = str(d.get("action", "")).strip().lower()
+    utr = str(d.get("utr", "")).strip()
+    reason = str(d.get("reason", "")).strip()
+    res = payout_action(request_id, action, DB_USERS, utr=utr, reason=reason)
+    if not res.get("ok"):
+        raise HTTPException(400, res.get("reason") or res.get("message_telugu") or "Payout action failed")
+    CONTROL_AUTH.audit("control_payout_action", item["username"], request, request_id=request_id, action=action)
+    return {"success": True, **res}
+
+
 # 🌊 WAVE 26 — GLOBAL SAFETY NET: ekkada crash aina Telugu JSON (raw 500 never).
 #    User ki easy message + ref code (support ki chepthe admin log lo chusthadu).
 @app.exception_handler(Exception)
@@ -1628,6 +1652,42 @@ def leaderboard(period: str = "all", limit: int = 10, me: str = ""):
 
 
 # ═══════════════════ 🤝 REFERRAL 2.0 — DASHBOARD / SHARE / PAYOUT ═══════════════════
+
+@app.get("/api/referral/lookup")
+def referral_lookup(q: str = ""):
+    """Quick lookup by mobile phone number, TSAP ID, or referral code."""
+    query = str(q or "").strip()
+    if not query:
+        raise HTTPException(400, "Phone or TSAP ID query required")
+    raw_upper = query.upper()
+    digits_only = re.sub(r"[^0-9]", "", query)
+    clean_alpha = re.sub(r"[^a-zA-Z0-9]", "", query).upper()
+    
+    # 1. Match by phone (digits)
+    target = None
+    if len(digits_only) >= 7:
+        target = next((u for u in DB_USERS if digits_only in re.sub(r"[^0-9]", "", str(u.get("phone", "")))), None)
+    # 2. Match by TSAP ID (exact or stripped)
+    if not target:
+        target = next((u for u in DB_USERS if str(u.get("tsap_id", "")).upper() == raw_upper or
+                       re.sub(r"[^a-zA-Z0-9]", "", str(u.get("tsap_id", ""))).upper() == clean_alpha), None)
+    # 3. Match by Referral Code
+    if not target:
+        target = next((u for u in DB_USERS if str(u.get("referral_code", "")).upper() == raw_upper or
+                       re.sub(r"[^a-zA-Z0-9]", "", str(u.get("referral_code", ""))).upper() == clean_alpha), None)
+        
+    if not target:
+        raise HTTPException(404, f"'{query}' నంబర్ లేదా ID తో ఏ ప్రొఫైల్ దొరకలేదు. దయచేసి రిజిస్టర్ అవ్వండి.")
+        
+    ensure_referrer_profile(target, DB_USERS)
+    return {
+        "success": True,
+        "tsap_id": target.get("tsap_id"),
+        "full_name": target.get("full_name") or target.get("name", ""),
+        "referral_code": target.get("referral_code"),
+        "referral_link": target.get("referral_link") or f"https://manavivaha.in/r/{target.get('referral_code')}",
+    }
+
 
 def _user_or_404(tsap_id: str) -> Dict:
     u = next((x for x in DB_USERS if x["tsap_id"] == tsap_id), None)
