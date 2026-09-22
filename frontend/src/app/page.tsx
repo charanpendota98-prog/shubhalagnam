@@ -19,6 +19,8 @@ import WeddingStoryHero from "@/components/WeddingStoryHero";
 import CinematicHero from "@/components/CinematicHero";
 import RealWeddingsFilm from "@/components/RealWeddingsFilm";
 import WhyChooseUs from "@/components/WhyChooseUs";
+import { waLink } from "@/lib/wa";
+import { TelegramIcon, WhatsAppIcon } from "@/components/BrandIcons";
 
 const BOT = SITE_CONFIG.officialChannelUrl;
 
@@ -801,24 +803,41 @@ export default function Home() {
         <div className="mt-5 grid grid-cols-2 md:grid-cols-5 gap-3">
           {[...regionChannels, ...religionChannels].slice(0, 10).map((ch, i) => (
             <Reveal key={ch.key} delay={i * 50}>
-              <a
-                href={ch.live ? ch.link : "/channels"}
-                target={ch.live ? "_blank" : undefined}
-                rel="noreferrer"
-                className={`block rounded-2xl p-3.5 text-white card-shadow h-full hover-lift ${
+              <div
+                className={`flex flex-col justify-between rounded-2xl p-3.5 text-white card-shadow h-full ${
                   ch.key.startsWith("ts") ? "maroon-gradient" : ch.tier === "L2_RELIGION" ? "navy-gradient" : "maroon-gradient"
                 }`}
               >
-                <div className="text-[13px] font-bold leading-tight">{ch.name}</div>
-                <div className="text-[11px] opacity-85 mt-1">
-                  {ch.live ? (lang === "te" ? "🟢 LIVE — join చెయ్యండి" : "🟢 LIVE — join now") : (lang === "te" ? "త్వరలో ప్రారంభం" : "Coming soon")}
+                <div>
+                  <div className="text-[13px] font-bold leading-tight">{ch.name}</div>
+                  <div className="text-[11px] opacity-85 mt-1">
+                    🟢 {lang === "te" ? "LIVE ఛానల్" : "LIVE Channel"}
+                  </div>
                 </div>
-                <div className="mt-2 flex gap-1 flex-wrap">
-                  <span className="text-[10px] bg-gold text-maroon px-2 py-1 rounded-full font-bold">
-                    {ch.live ? (lang === "te" ? "Join చెయ్యండి" : "Join") : (lang === "te" ? "త్వరలో" : "Soon")}
-                  </span>
+
+                <div className="mt-3 flex items-center gap-1.5 pt-2 border-t border-white/20">
+                  <a
+                    href={ch.link || `https://t.me/TSAP_${ch.key.toUpperCase()}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex-1 inline-flex items-center justify-center gap-1 bg-[#229ED9] text-white py-1.5 px-2 rounded-xl text-[10px] font-bold shadow-soft hover:brightness-110 active:scale-95 transition"
+                    title="Join on Telegram"
+                  >
+                    <TelegramIcon className="w-3 h-3" mono />
+                    <span>Telegram</span>
+                  </a>
+                  <a
+                    href={waLink(ch.key)}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex-1 inline-flex items-center justify-center gap-1 bg-[#25D366] text-white py-1.5 px-2 rounded-xl text-[10px] font-bold shadow-soft hover:brightness-110 active:scale-95 transition"
+                    title="Join on WhatsApp"
+                  >
+                    <WhatsAppIcon className="w-3 h-3" mono />
+                    <span>WhatsApp</span>
+                  </a>
                 </div>
-              </a>
+              </div>
             </Reveal>
           ))}
         </div>

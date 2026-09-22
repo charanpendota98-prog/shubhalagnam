@@ -579,8 +579,12 @@ export default function Dashboard() {
                         <button
                           disabled={busyId === po.id}
                           onClick={() => {
-                            const utr = prompt(lang === "te" ? "బ్యాంక్ / UPI UTR నంబర్ నమోదు చేయండి:" : "Enter Bank / UPI UTR reference number:");
-                            if (utr && utr.trim()) payoutAction(po.id, "approve", utr.trim());
+                            const raw = prompt(lang === "te" ? "బ్యాంక్ / UPI UTR నంబర్ నమోదు చేయండి (6-30 అక్షరాలు/అంకెలు):" : "Enter Bank / UPI UTR reference number (6-30 alphanumeric):");
+                            if (raw && raw.trim()) {
+                              const cleanUtr = raw.trim().replace(/[^A-Za-z0-9]/g, "");
+                              if (cleanUtr.length >= 6) payoutAction(po.id, "approve", cleanUtr);
+                              else alert(lang === "te" ? "⚠️ UTR కనీసం 6 అక్షరాలు/అంకెలు ఉండాలి" : "⚠️ UTR must be at least 6 alphanumeric characters");
+                            }
                           }}
                           className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white hover:bg-emerald-700 disabled:opacity-50 shadow-sm"
                         >

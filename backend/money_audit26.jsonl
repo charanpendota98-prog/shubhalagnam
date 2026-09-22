@@ -138,3 +138,4 @@
 {"at": "2026-09-19T08:12:10.794229", "event": "profile_ban", "actor": "admin", "details": {"tsap_id": "TSAP-F-2025-9001", "reason": ""}}
 {"at": "2026-09-19T08:12:10.797419", "event": "profile_unban", "actor": "admin", "details": {"tsap_id": "TSAP-F-2025-9001"}}
 {"at": "2026-09-19T08:12:10.800217", "event": "profile_unban", "actor": "admin", "details": {"tsap_id": "TSAP-F-2025-9001"}}
+{"at": "2026-09-22T18:34:41.112392", "event": "payout_paid", "actor": "admin", "details": {"request_id": "PAY-2609221834-0003", "amount": 100, "utr": "UTRSBI9876543210", "tsap_id": "TSAP-F-2025-5000", "partner_id": ""}}
