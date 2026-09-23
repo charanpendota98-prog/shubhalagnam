@@ -18,7 +18,7 @@ export default function SiteFooter() {
         { href: "/castes", teL: "కులాల వారీగా", enL: "Caste-wise" },
         { href: "/stories", teL: "విజయ గాథలు", enL: "Success stories" },
         { href: "/blog", teL: "తెలుగు వివాహ సలహాలు", enL: "Telugu marriage guides" },
-        { href: "/porutham", teL: "జ్యోతిషం — పొరుతం (10)", enL: "Jyothishyam — Porutham (10)" },
+        { href: "/porutham", teL: "వేద జ్యోతిషం — గుణమేళనం", enL: "Jyothishyam — Gunamelanam" },
         { href: "/safety", teL: "Trust & Safety Center", enL: "Trust & Safety Center" },
       ],
     },

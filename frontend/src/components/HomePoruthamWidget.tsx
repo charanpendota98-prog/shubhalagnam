@@ -29,7 +29,7 @@ export default function HomePoruthamWidget() {
       // safe fallback
       setScore({
         score: 8,
-        verdict_telugu: "ఉత్తమ కలయిక — 8/10 పొరుతాలు కుదిరాయి",
+        verdict_telugu: "ఉత్తమ కలయిక — 8/10 గుణాలు కుదిరాయి",
         rajju_ok: true,
         gana_match: "Deva - Manushya (Good)",
       });
@@ -50,12 +50,12 @@ export default function HomePoruthamWidget() {
               <span>{te ? "వేద జ్యోతిష పొంతన" : "VEDIC KUNDLI MATCH"}</span>
             </div>
             <h2 className="text-xl sm:text-2xl font-black text-[#7A0C2E] mt-1.5">
-              {te ? "10-పొరుతం జాతక పరిశీలన కాలిక్యులేటర్ 💍" : "Live 10-Porutham Horoscope Matchmaker 💍"}
+              {te ? "వేద జాతక గుణమేళనం & పొంతన కాలిక్యులేటర్ 💍" : "Live Vedic Gunamelanam & Horoscope Matchmaker 💍"}
             </h2>
             <p className="text-xs text-gray-600 mt-0.5">
               {te
-                ? "వధువు & వరుని నక్షత్రాలను ఎంచుకుని ఉచితంగా జాతక పొంతన స్కోర్, రజ్జు దోషం మరియు గణ అనుకూలతను తక్షణమే సరిచూసుకోండి."
-                : "Select Bride & Groom stars to check live Porutham score, Rajju dosham & compatibility."}
+                ? "వధువు & వరుని నక్షత్రాలను ఎంచుకుని ఉచితంగా వేద జాతక పొంతన స్కోర్, రజ్జు శుద్ధి మరియు గణ మైత్రిని తక్షణమే సరిచూసుకోండి."
+                : "Select Bride & Groom stars to check live Gunamelanam score, Rajju shuddhi & compatibility."}
             </p>
           </div>
 
@@ -146,7 +146,7 @@ export default function HomePoruthamWidget() {
                   href={`/porutham?b_star=${encodeURIComponent(bStar)}&g_star=${encodeURIComponent(gStar)}`}
                   className="block w-full py-2 bg-amber-400 hover:bg-amber-500 text-maroon font-bold text-xs rounded-xl shadow-xs transition"
                 >
-                  📄 {te ? "పూర్తి 10-పొరుతం PDF రిపోర్ట్ చూడండి →" : "View Full 10-Porutham PDF Report →"}
+                  📄 {te ? "పూర్తి గుణమేళనం PDF రిపోర్ట్ చూడండి →" : "View Full Gunamelanam PDF Report →"}
                 </Link>
               </div>
             ) : (
@@ -156,7 +156,7 @@ export default function HomePoruthamWidget() {
                   {te ? "నక్షత్రాలను ఎంచుకుని లెక్కించండి" : "Select Nakshatras & Calculate"}
                 </div>
                 <p className="text-[11px] text-gray-500 leading-relaxed">
-                  {te ? "దిన, గణ, మహేంద్ర, స్త్రీదీర్ఘ, యోని, రాశి, రాశ్యాధిపతి, వశ్య, రజ్జు, వేధ పొరుతాల తక్షణ ఫలితం ఇక్కడ కనిపిస్తుంది." : "Instant Vedic 10-Porutham calculations result."}
+                  {te ? "దిన, గణ, మాహేంద్ర, స్త్రీదీర్ఘ, యోని, రాశి, రాశ్యాధిపతి, వశ్య, రజ్జు, వేధ పొంతనల తక్షణ ఫలితం ఇక్కడ కనిపిస్తుంది." : "Instant Vedic Gunamelanam calculations result."}
                 </p>
               </div>
             )}

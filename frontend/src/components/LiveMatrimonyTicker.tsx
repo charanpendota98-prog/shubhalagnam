@@ -58,7 +58,7 @@ const EVENTS: LiveEvent[] = [
     location: "విజయవాడ • కమ్మ",
     timeTe: "11 నిమిషాల క్రితం",
     timeEn: "11 mins ago",
-    badge: "10/10 Porutham",
+    badge: "10/10 గుణమేళనం",
   },
   {
     id: "5",

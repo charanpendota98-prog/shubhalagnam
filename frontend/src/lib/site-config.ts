@@ -67,7 +67,7 @@ export const SITE_CONFIG = {
     addons: [
       { price: 49, label: "Profile Boost (7 days)" },
       { price: 49, label: "Who viewed me (30 days)" },
-      { price: 99, label: "10-Porutham report" },
+      { price: 99, label: "వేద గుణమేళనం రిపోర్ట్" },
       { price: 199, label: "Photo verification badge" },
     ],
     renewal: { price: 99, profiles: 8, label: "Renewal bonus" },

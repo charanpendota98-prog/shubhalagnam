@@ -78,7 +78,7 @@ export const ALL_CHANNELS: Channel[] = [
     "username": "@TSBRIDE",
     "link": "https://t.me/TSBRIDE",
     "deepLink": "https://t.me/telugumatrimony1_bot?start=ch_tsbride",
-    "desc": "👰 TS Brides — తెలంగాణ వధువులు. అన్ని కులాలు, అన్ని జిల్లాలు, రోజూ కొత్త profiles + పొరుత్తం వివరాలు. 3 FREE requests, ₹99లో 5.",
+    "desc": "👰 TS Brides — తెలంగాణ వధువులు. అన్ని కులాలు, అన్ని జిల్లాలు, రోజూ కొత్త profiles + గుణమేళనం వివరాలు. 3 FREE requests, ₹99లో 5.",
     "hashtags": [
       "#TSBride",
       "#Telangana",
@@ -94,7 +94,7 @@ export const ALL_CHANNELS: Channel[] = [
     "username": "@TSGROOM1",
     "link": "https://t.me/TSGROOM1",
     "deepLink": "https://t.me/telugumatrimony1_bot?start=ch_tsgroom1",
-    "desc": "🤵 TS Grooms — తెలంగాణ వరులు. అన్ని కులాలు, అన్ని జిల్లాలు, రోజూ కొత్త profiles + పొరుత్తం వివరాలు. 3 FREE requests, ₹99లో 5.",
+    "desc": "🤵 TS Grooms — తెలంగాణ వరులు. అన్ని కులాలు, అన్ని జిల్లాలు, రోజూ కొత్త profiles + గుణమేళనం వివరాలు. 3 FREE requests, ₹99లో 5.",
     "hashtags": [
       "#TSGroom",
       "#Telangana",
@@ -110,7 +110,7 @@ export const ALL_CHANNELS: Channel[] = [
     "username": "@APBRIDE",
     "link": "https://t.me/APBRIDE",
     "deepLink": "https://t.me/telugumatrimony1_bot?start=ch_apbride",
-    "desc": "👰 AP Brides — ఆంధ్రా వధువులు. అన్ని కులాలు, అన్ని జిల్లాలు, రోజూ కొత్త profiles + పొరుత్తం వివరాలు. 3 FREE requests, ₹99లో 5.",
+    "desc": "👰 AP Brides — ఆంధ్రా వధువులు. అన్ని కులాలు, అన్ని జిల్లాలు, రోజూ కొత్త profiles + గుణమేళనం వివరాలు. 3 FREE requests, ₹99లో 5.",
     "hashtags": [
       "#APBride",
       "#AndhraPradesh"
@@ -125,7 +125,7 @@ export const ALL_CHANNELS: Channel[] = [
     "username": "@APGROOM1",
     "link": "https://t.me/APGROOM1",
     "deepLink": "https://t.me/telugumatrimony1_bot?start=ch_apgroom1",
-    "desc": "🤵 AP Grooms — ఆంధ్రా వరులు. అన్ని కులాలు, అన్ని జిల్లాలు, రోజూ కొత్త profiles + పొరుత్తం వివరాలు. 3 FREE requests, ₹99లో 5.",
+    "desc": "🤵 AP Grooms — ఆంధ్రా వరులు. అన్ని కులాలు, అన్ని జిల్లాలు, రోజూ కొత్త profiles + గుణమేళనం వివరాలు. 3 FREE requests, ₹99లో 5.",
     "hashtags": [
       "#APGroom",
       "#AndhraPradesh"
@@ -140,7 +140,7 @@ export const ALL_CHANNELS: Channel[] = [
     "username": "@manavivaha_nri",
     "link": "https://t.me/manavivaha_nri",
     "deepLink": "https://t.me/telugumatrimony1_bot?start=ch_manavivaha_nri",
-    "desc": "🌍 NRI Telugu Matrimony — విదేశీ సంబంధాలు. అన్ని కులాలు, అన్ని జిల్లాలు, రోజూ కొత్త profiles + పొరుత్తం వివరాలు. 3 FREE requests, ₹99లో 5.",
+    "desc": "🌍 NRI Telugu Matrimony — విదేశీ సంబంధాలు. అన్ని కులాలు, అన్ని జిల్లాలు, రోజూ కొత్త profiles + గుణమేళనం వివరాలు. 3 FREE requests, ₹99లో 5.",
     "hashtags": [
       "#NRI",
       "#TeluguAbroad",

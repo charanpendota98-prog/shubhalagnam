@@ -57,7 +57,7 @@ TIERS: List[Dict] = [
 
 MILESTONES: List[Dict] = [
     {"paid": 3,  "cash": 0,    "credits": 0,  "title": "🥈 SILVER Referrer", "telugu": "3 paying referrals — 🥈 badge + priority support"},
-    {"paid": 10, "cash": 0,  "credits": 0,  "title": "🥇 GOLD Referrer", "telugu": "10 paying referrals — 🥇 badge + free పొరుతం report"},
+    {"paid": 10, "cash": 0,  "credits": 0,  "title": "🥇 GOLD Referrer", "telugu": "10 paying referrals — 🥇 badge + free వేద గుణమేళనం report"},
     {"paid": 25, "cash": 0,  "credits": 0, "title": "💎 PLATINUM Referrer", "telugu": "25 paying referrals — 💎 verified badge + homepage"},
     {"paid": 50, "cash": 0, "credits": 0, "title": "👑 ELITE Referrer", "telugu": "50 paying referrals — 👑 elite badge + VIP support"},
 ]

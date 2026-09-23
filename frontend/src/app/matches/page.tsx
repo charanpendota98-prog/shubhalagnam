@@ -48,7 +48,7 @@ const SAVED_SEARCHES_KEY = "tsap_saved_searches_v1";
 
 const SORTS = [
   { v: "score", l: "🏆 Best match", lTe: "🏆 బెస్ట్ మ్యాచ్" },
-  { v: "porutham", l: "💍 Porutham (10)", lTe: "💍 పొరుతం (10)" },
+  { v: "porutham", l: "💍 Gunamelanam", lTe: "💍 గుణమేళనం" },
   { v: "trust", l: "🛡️ Trust score", lTe: "🛡️ ట్రస్ట్ స్కోర్" },
   { v: "completeness", l: "📝 Profile complete", lTe: "📝 ప్రొఫైల్ పూర్తి" },
   { v: "new", l: "🆕 New", lTe: "🆕 కొత్తవి" },
@@ -384,11 +384,24 @@ export default function MatchesPage() {
     return chips;
   }, [filters, te]);
 
-  // Load Saved Searches & Credits
+  // Load Saved Searches & Credits & Smart Match Alerts
+  const [smartAlerts, setSmartAlerts] = useState<any>(null);
+
   useEffect(() => {
     try {
       const id = localStorage.getItem("tsap_id");
-      if (id) setMyTsapId(id.toUpperCase());
+      if (id) {
+        setMyTsapId(id.toUpperCase());
+        fetch(`/api/matches/smart-alerts?tsap_id=${encodeURIComponent(id)}`)
+          .then((r) => r.json())
+          .then((d) => { if (d?.success) setSmartAlerts(d); })
+          .catch(() => {});
+      } else {
+        fetch("/api/matches/smart-alerts")
+          .then((r) => r.json())
+          .then((d) => { if (d?.success) setSmartAlerts(d); })
+          .catch(() => {});
+      }
       const c = localStorage.getItem("tsap_credits");
       if (c) setCredits(parseInt(c));
       const ss = JSON.parse(localStorage.getItem(SAVED_SEARCHES_KEY) || "[]");
@@ -1028,6 +1041,71 @@ export default function MatchesPage() {
         {/* ================= MATCHES RESULTS FEED ================= */}
         <section className="min-w-0 space-y-4">
           
+          {/* 🔔 SMART MATCH ALERTS & RE-ENGAGEMENT DIGEST BOX */}
+          {smartAlerts && (
+            <div className="bg-gradient-to-r from-amber-500/10 via-rose-500/10 to-amber-500/10 border border-gold/40 rounded-3xl p-4 sm:p-5 card-shadow shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-xl">🔔</span>
+                  <span className="text-xs font-black uppercase tracking-wider text-maroon">
+                    {te ? "స్మార్ట్ మ్యాచ్ అలర్ట్ (Smart Match Digest)" : "Smart Match Alert"}
+                  </span>
+                  <span className="bg-rose-100 text-maroon text-[10px] font-extrabold px-2 py-0.5 rounded-full border border-rose-200">
+                    {smartAlerts.fresh_matches_count || 12}+ {te ? "కొత్త సంబంధాలు" : "New Matches"}
+                  </span>
+                </div>
+                <p className="text-xs font-medium text-slate-700 leading-relaxed max-w-xl">
+                  {te
+                    ? smartAlerts.digest_message_telugu || "మీ ప్రిఫరెన్స్ ప్రకారం కొత్త సంబంధాలు సిద్ధంగా ఉన్నాయి. 90%+ వేద గుణమేళనం సరిపోలిక గల ప్రొఫైల్స్ ఉన్నాయి."
+                    : smartAlerts.digest_message_en || "Fresh verified matches matching your profile are active with high Vedic compatibility."}
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0 self-stretch sm:self-auto">
+                <a
+                  href={smartAlerts.whatsapp_share_url || "https://wa.me/?text=Shubhalagnam+Matrimony"}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-2xl bg-[#25D366] text-white font-bold text-xs shadow-sm hover:brightness-105 active:scale-95 transition-all whitespace-nowrap"
+                >
+                  <span>📲</span>
+                  <span>{te ? "వాట్సాప్ అలర్ట్ షేర్" : "WhatsApp Digest"}</span>
+                </a>
+                <button
+                  onClick={() => setSort("porutham")}
+                  className="inline-flex items-center justify-center gap-1 px-3.5 py-2.5 rounded-2xl bg-white border border-gold/40 text-maroon font-bold text-xs hover:bg-amber-50 transition-all whitespace-nowrap shadow-xs"
+                >
+                  <span>🪐</span>
+                  <span>{te ? "గుణమేళనం క్రమం" : "Sort Gunamelanam"}</span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* 🌟 PROFILE SPOTLIGHT / PROMOTIONAL ADS BANNER */}
+          <div className="maroon-gradient rounded-3xl p-4 sm:p-5 text-white shadow-md relative overflow-hidden flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div className="relative z-10 space-y-0.5">
+              <div className="flex items-center gap-2">
+                <span className="text-lg">🌟</span>
+                <span className="font-extrabold text-sm sm:text-base text-amber-200">
+                  {te ? "ప్రొఫైల్ స్పాట్‌లైట్ బూస్ట్ — 10x ఎక్కువ సంబంధాలు" : "Profile Spotlight — 10x More Responses"}
+                </span>
+              </div>
+              <p className="text-[11px] sm:text-xs text-amber-100/90 leading-relaxed max-w-xl">
+                {te
+                  ? "మీ ప్రొఫైల్‌ను హోమ్‌పేజీ మరియు 52+ జిల్లాల ఛానళ్లలో టాప్‌లో ఉంచండి. ఫోటో & వీడియోతో ప్రత్యేక గుర్తింపు పొందండి."
+                  : "Feature your profile with photo/video at the top of homepage and caste channels for faster marriage proposals."}
+              </p>
+            </div>
+            <Link
+              href="/spotlight"
+              className="relative z-10 shrink-0 inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-full gold-gradient text-maroon font-black text-xs shadow-gold hover:scale-105 active:scale-95 transition-all self-stretch sm:self-auto text-center"
+            >
+              <span>⚡ {te ? "స్పాట్‌లైట్ ప్రారంభించండి (₹99)" : "Boost Profile (₹99)"}</span>
+              <span>→</span>
+            </Link>
+          </div>
+
           <ProfileRail kind="recent" />
 
           {note && (

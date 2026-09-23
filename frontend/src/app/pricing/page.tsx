@@ -33,7 +33,7 @@ function te0(te: string, en: string) { return en; }  // fallback labels English 
 const FALLBACK_ADDONS: Addon[] = [
   { code: "BOOST_49", price: 49, label: "Profile Boost (7 days)", telugu: "Channel top లో మీ card — 3× views" },
   { code: "WHOVIEWED_49", price: 49, label: "Who viewed me (30 days)", telugu: "ఎవరు చూశారు — names తో" },
-  { code: "PORUTHAM_99", price: 99, label: "జ్యోతిషం పొరుతం report", telugu: "Full kundli match report (Telugu)" },
+  { code: "PORUTHAM_99", price: 99, label: "వేద గుణమేళనం రిపోర్ట్", telugu: "Full Vedic kundli match report (Telugu)" },
   { code: "VERIFY_199", price: 199, label: "Photo verification", telugu: "✅ Verified badge" },
 ];
 

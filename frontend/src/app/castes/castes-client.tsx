@@ -322,7 +322,7 @@ export default function CastesClient() {
               {te ? (
                 <>మీ కులాన్ని ఎంచుకోండి — ఆ సమాజపు వధువులు & వరుల సంబంధాలు, ప్రత్యేక టెలిగ్రామ్ & వాట్సాప్ ఛానల్స్, వేద జాతక సరిపోలిక మరియు నేరుగా సంబంధాల అన్వేషణ అంతా ఒక్క చోటే. OC, BC, SC, ST — అన్ని వర్గాల సంబంధాలు అందుబాటులో ఉన్నాయి.</>
               ) : (
-                <>Select your community — explore verified brides and grooms, dedicated Telegram & WhatsApp matrimonial channels, Vedic 10-Porutham horoscope matchmaker, and direct match search.</>
+                <>Select your community — explore verified brides and grooms, dedicated Telegram & WhatsApp matrimonial channels, Vedic Gunamelanam horoscope matchmaker, and direct match search.</>
               )}
             </p>
 

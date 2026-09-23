@@ -240,11 +240,11 @@ export default function CasteClient({ caste, role, district, chan, otherChan }: 
             </div>
             <div>
               <div className="font-bold text-ink">
-                {te ? <>{caste.name} porutham check ఉందా?</> : <>Is there {caste.name} porutham check?</>}
+                {te ? <>{caste.name} వేద గుణమేళనం / జాతక పొంతన ఉందా?</> : <>Is there {caste.name} Vedic Gunamelanam check?</>}
               </div>
               <div className="text-gray-600">
-                {te ? "అవును — 10 porutham (rasi, nakshatra, gana, yoni, rajju, vedha…) report free గా /requests లో చూడొచ్చు."
-                    : "Yes — the 10-porutham (rasi, nakshatra, gana, yoni, rajju, vedha…) report is free to view in /requests."}
+                {te ? "అవును — వేద గుణమేళనం (రాశి, నక్షత్ర, గణ, యోని, రజ్జు, వేధ…) రిపోర్ట్ ఉచితంగా /porutham లో చూడొచ్చు."
+                    : "Yes — the Vedic Gunamelanam (rasi, nakshatra, gana, yoni, rajju, vedha…) report is free to view in /porutham."}
               </div>
             </div>
           </div>

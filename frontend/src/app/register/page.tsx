@@ -947,17 +947,17 @@ function Wizard() {
               <div className="pt-2 pb-1 flex items-center gap-2">
                 <span className="text-[13px] font-extrabold text-maroon">🕉️ వేద జ్యోతిష వివరాలు (Vedic Kundli Details)</span>
                 <span className="h-px flex-1 bg-gold/40" />
-                <span className="text-[10px] text-gray-500">10-పొరుతం కి అవసరం</span>
+                <span className="text-[10px] text-gray-500">వేద గుణమేళనం కి అవసరం</span>
               </div>
 
               <TextField label="గోత్రం / Gothram" optional value={f.gothram} onChange={(v) => set("gothram", v)}
-                placeholder="Ex: Kasyapa / Bharadwaja / Shiva / Janakula…" hint="గోత్ర పొరుతం & వివాహ సరిపోలిక కొరకు" />
+                placeholder="Ex: Kasyapa / Bharadwaja / Shiva / Janakula…" hint="గోత్ర మైత్రి & వివాహ సరిపోలిక కొరకు" />
 
               <SearchSelect label="నక్షత్రం / Nakshatram (27 Stars)" options={NAKSHATRAS.map((n) => n.en)} value={f.star}
                 teMap={Object.fromEntries(NAKSHATRAS.map((n) => [n.en, n.te]))}
                 onChange={(v) => set("star", v)}
                 placeholder="నక్షత్రం ఎంచుకోండి (27 Nakshatras)"
-                hint="నక్షత్రం ఎంచుకోగానే రాశి ఆటోమేటిక్‌గా సూచించబడుతుంది (10/10 పొరుతం)" />
+                hint="నక్షత్రం ఎంచుకోగానే రాశి ఆటోమేటిక్‌గా సూచించబడుతుంది (వేద గుణమేళనం)" />
 
               <SearchSelect label="రాశి / Rasi (12 Vedic Moon Signs)" options={RASIS.map((r) => r.en)} value={f.rasi}
                 teMap={Object.fromEntries(RASIS.map((r) => [r.en, r.te]))}
@@ -1429,7 +1429,7 @@ function Wizard() {
         <div className="mt-6 grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px] text-gray-700 text-center font-medium">
           <div className="bg-white border border-gold/25 rounded-xl px-3 py-2 shadow-sm">🔒 నంబర్ పూర్తి గోప్యత</div>
           <div className="bg-white border border-gold/25 rounded-xl px-3 py-2 shadow-sm">🛡️ వాటర్‌మార్క్ రక్షణ</div>
-          <div className="bg-white border border-gold/25 rounded-xl px-3 py-2 shadow-sm">🕉️ వేద జ్యోతిష పొరుతం</div>
+          <div className="bg-white border border-gold/25 rounded-xl px-3 py-2 shadow-sm">🕉️ వేద గుణమేళనం</div>
           <div className="bg-white border border-gold/25 rounded-xl px-3 py-2 shadow-sm">🚫 స్పామ్ లేని సేవలు</div>
         </div>
       </div>

@@ -238,7 +238,7 @@ export default function MuhurthamPage() {
               <span>వ్యక్తిగత జాతక ముహూర్త నిర్ణయం (Personal Horoscope Compatibility)</span>
             </div>
             <p className="text-xs text-slate-600 mt-1 telugu leading-relaxed max-w-2xl">
-              ఇవి పంచాంగ రీత్యా సాధారణ శుభ ముహూర్తాలు. వధూవరుల వ్యక్తిగత జన్మ నక్షత్రాలు, రాశులు మరియు నామ నక్షత్రాల ప్రకారం లగ్న శుద్ధి చూసుకోవడానికి మన వేద పొరుతం టూల్ ఉపయోగించండి.
+              ఇవి పంచాంగ రీత్యా సాధారణ శుభ ముహూర్తాలు. వధూవరుల వ్యక్తిగత జన్మ నక్షత్రాలు, రాశులు మరియు నామ నక్షత్రాల ప్రకారం లగ్న శుద్ధి చూసుకోవడానికి మన వేద గుణమేళనం టూల్ ఉపయోగించండి.
             </p>
           </div>
 
@@ -247,7 +247,7 @@ export default function MuhurthamPage() {
               href="/porutham"
               className="maroon-gradient text-white font-bold px-5 py-3 rounded-2xl text-xs hover-lift shadow-md"
             >
-              💍 10-పొరుతం సరిపోలిక
+              💍 వేద జాతక గుణమేళనం
             </Link>
           </div>
         </div>

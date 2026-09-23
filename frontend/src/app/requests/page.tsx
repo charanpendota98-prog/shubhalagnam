@@ -207,9 +207,9 @@ export default function RequestsPage() {
     try {
       const d = await fetch(`/api/porutham?bride=${porA.trim().toUpperCase()}&groom=${porB.trim().toUpperCase()}`).then((r) => r.json());
       setPor(d);
-      setToast({ kind: d.available ? "ok" : "info", text: d.available ? `🔮 Porutham ${d.score}/10 — ${d.verdict}` : d.reason });
+      setToast({ kind: d.available ? "ok" : "info", text: d.available ? `🔮 గుణమేళనం ${d.score}/10 — ${d.verdict}` : d.reason });
     } catch {
-      setToast({ kind: "err", text: te ? "Porutham check fail అయ్యింది" : "Porutham check failed" });
+      setToast({ kind: "err", text: te ? "గుణమేళనం లెక్కింపు విఫలమైంది" : "Porutham check failed" });
     }
     setBusy(false);
   };
@@ -284,7 +284,7 @@ export default function RequestsPage() {
             { k: "inbox", l: te ? `📥 వచ్చిన requests${inbox.pending ? ` (${inbox.pending})` : ""}` : `📥 Received${inbox.pending ? ` (${inbox.pending})` : ""}` },
             { k: "sent", l: te ? `📤 పంపిన requests${sent.sent?.length ? ` (${sent.sent.length})` : ""}` : `📤 Sent${sent.sent?.length ? ` (${sent.sent.length})` : ""}` },
             { k: "send", l: te ? "💌 Interest పంపు" : "💌 Send interest" },
-            { k: "porutham", l: "🔮 Porutham" },
+            { k: "porutham", l: te ? "🔮 గుణమేళనం" : "🔮 Gunamelanam" },
             { k: "saved", l: `❤️ Saved${saved.count ? ` (${saved.count})` : ""}` },
             { k: "viewers", l: `👀 Viewers${views?.total_views ? ` (${views.total_views})` : ""}` },
             { k: "plans", l: "💳 Plans & Credits" },
@@ -314,7 +314,7 @@ export default function RequestsPage() {
                     <span className="text-[11px] text-gray-500 font-mono">{it.request_id}</span>
                     {it.score > 0 && <span className="text-[11px] font-bold text-maroon">⭐ {it.score}% match</span>}
                     {(it as any).porutham_score ? (
-                      <span className="text-[11px] font-bold text-amber-700">🔮 Porutham {(it as any).porutham_score}/10</span>
+                      <span className="text-[11px] font-bold text-amber-700">🔮 గుణమేళనం {(it as any).porutham_score}/10</span>
                     ) : null}
                     <span className="ml-auto text-[11px] text-gray-500">{it.requester_phone}</span>
                   </div>
@@ -536,15 +536,15 @@ export default function RequestsPage() {
         {tab === "porutham" && (
           <div className="grid md:grid-cols-2 gap-5">
             <div className="bg-white rounded-2xl p-5 card-shadow border border-gold/20">
-              <SectionHeading eyebrow={duo("Traditional 10 poruthams", "సాంప్రదాయ 10 పొరుతాలు")} title={`🔮 ${duo("Kundli / Porutham check", "జాతక / పొరుతం చూడండి")}`}
-                subtitle={te ? "Bride + groom Profile ID ఇవ్వండి — 10 పొరుతాలు (rasi, nakshatra, gana, yoni, rajju, vedha, mahendra, stree deergha, vashya, adhipathi) calculate చేస్తాం." : "Enter bride + groom Profile IDs — we calculate 10 poruthams (rasi, nakshatra, gana, yoni, rajju, vedha, mahendra, stree deergha, vashya, adhipathi)."} telugu align="left" />
+              <SectionHeading eyebrow={duo("Traditional Vedic factors", "సాంప్రదాయ వేద గుణమేళనం")} title={`🔮 ${duo("Kundli / Gunamelanam check", "జాతక గుణమేళనం & పొంతన")}`}
+                subtitle={te ? "వధూవరుల ప్రొఫైల్ ID ఇవ్వండి — రాశి, నక్షత్ర, గణ, యోని, రజ్జు, వేధ, మాహేంద్ర, స్త్రీదీర్ఘ, వశ్య, రాశ్యాధిపతి గుణమేళనం లెక్కిస్తాం." : "Enter bride + groom Profile IDs — we calculate 10 Vedic Gunamelanam factors (rasi, nakshatra, gana, yoni, rajju, vedha, mahendra, stree deergha, vashya, adhipathi)."} telugu align="left" />
               <div className="mt-4 space-y-3">
                 <input value={porA} onChange={(e) => setPorA(e.target.value.toUpperCase())} placeholder="Bride Profile ID — RED001"
                   className="w-full px-3 py-2.5 rounded-xl border border-gold/40 font-mono text-sm outline-none focus-brand" aria-label="Bride Profile ID — RED001" />
                 <input value={porB} onChange={(e) => setPorB(e.target.value.toUpperCase())} placeholder="Groom Profile ID — KAM001"
                   className="w-full px-3 py-2.5 rounded-xl border border-gold/40 font-mono text-sm outline-none focus-brand" aria-label="Groom Profile ID — KAM001" />
                 <button onClick={checkPorutham} disabled={busy} className="w-full maroon-gradient text-white font-bold py-3 rounded-xl hover-lift disabled:opacity-60">
-                  {te ? "🔮 Porutham calculate చెయ్" : "🔮 Calculate porutham"}
+                  {te ? "🔮 గుణమేళనం లెక్కించు" : "🔮 Calculate Gunamelanam"}
                 </button>
                 <div className="text-[11px] text-gray-500">{te ? "ఇది traditional tables బట్టి software estimate — final గా purohit/panchangam తో confirm చెయ్యండి." : "Software estimate from traditional tables — confirm finally with purohit/panchangam."}</div>
               </div>
@@ -579,7 +579,7 @@ export default function RequestsPage() {
                 </div>
               ) : (
                 <div className="bg-cream border border-gold/30 rounded-2xl p-5">
-                  <div className="font-bold text-maroon">{te ? "10 poruthams ఏంటి?" : "What are 10 poruthams?"}</div>
+                  <div className="font-bold text-maroon">{te ? "వేద గుణమేళన అంశాలు ఏంటి?" : "What are Gunamelanam factors?"}</div>
                   <ol className="mt-2 text-[12px] text-gray-700 space-y-1 list-decimal list-inside">
                     <li>Rasi porutham (6/8 dosham check)</li>
                     <li>Nakshatra porutham</li>
@@ -615,7 +615,7 @@ export default function RequestsPage() {
                       🎓 {x.profile.education} • 💼 {x.profile.job} • 📍 {x.profile.district}, {x.profile.state} • 💍 {x.profile.caste}
                     </div>
                     {x.porutham ? (
-                      <div className="text-[12px] font-bold text-amber-700 mt-1">🔮 Porutham {x.porutham.score}/{x.porutham.max} — {x.porutham.verdict?.split("—")[0]}</div>
+                      <div className="text-[12px] font-bold text-amber-700 mt-1">🔮 గుణమేళనం {x.porutham.score}/{x.porutham.max} — {x.porutham.verdict?.split("—")[0]}</div>
                     ) : null}
                   </div>
                   <button onClick={() => { setToId(x.profile.tsap_id); setTab("send"); }} className="text-[12px] font-bold maroon-gradient text-white px-3 py-2 rounded-xl">

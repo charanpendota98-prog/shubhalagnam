@@ -49,7 +49,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   const bits = [p?.age ? `${p.age} yrs` : "", p?.caste, p?.education, p?.job, p?.district].filter(Boolean).join(" • ");
   const title = `${name} (${id}) — ${bits || "Profile"} | మన వివాహ`;
   const description = p
-    ? `${bits}. Porutham, family, horoscope details + interest పంపండి. మన వివాహ — Telugu matrimony (TS + AP), ${CHANNEL_STATS.total} channels, 3 FREE requests.`
+    ? `${bits}. వేద గుణమేళనం, family, horoscope details + interest పంపండి. మన వివాహ — Telugu matrimony (TS + AP), ${CHANNEL_STATS.total} channels, 3 FREE requests.`
     : `మన వివాహ — Telugu matrimony. TS + AP, 43 castes, ${CHANNEL_STATS.total} channels, 3 FREE requests. Register FREE.`;
   const base = await siteBase();
   const ogImage = `${base}/api/og/profile/${encodeURIComponent(id)}.png`;

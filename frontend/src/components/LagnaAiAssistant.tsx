@@ -20,7 +20,7 @@ type Message = {
 
 const ASTRO_KNOWLEDGE_BASE: Record<string, string> = {
   rohini: "రోహిణి నక్షత్రం (వృషభ రాశి - శుక్రుని అధిపత్యం): మృగశిర, పునర్వసు, హస్త, అనురాధ, ఉత్తరాభాద్ర నక్షత్రాలతో ఉత్తమ గణ మైత్రి మరియు రజ్జు శుద్ధి ఉంటుంది.",
-  ashwini: "అశ్విని నక్షత్రం (మేష రాశి - కేతు అధిపత్యం): భరణి, రోహిణి, మృగశిర, పుష్యమి, ఉత్తర, స్వాతి నక్షత్రాలతో మంచి పొరుతం (8+/10) లభిస్తుంది.",
+  ashwini: "అశ్విని నక్షత్రం (మేష రాశి - కేతు అధిపత్యం): భరణి, రోహిణి, మృగశిర, పుష్యమి, ఉత్తర, స్వాతి నక్షత్రాలతో మంచి గుణమేళనం & పొంతన (8+/10) లభిస్తుంది.",
   mriga: "మృగశిర నక్షత్రం: రోహిణి, ఆర్ద్ర, పునర్వసు, హస్త, చిత్త, శ్రవణం నక్షత్రాలతో అద్భుతమైన దాంపత్య మైత్రి ఉంటుంది.",
   kuja: "కుజ దోషం (మంగళ దోషం): లగ్నం, 2, 4, 7, 8, 12 స్థానాల్లో కుజుడు ఉన్నప్పుడు వస్తుంది. ఎదుటి ప్రొఫైల్ కు కూడా కుజ దోషం ఉంటే దోష నివారణ జరిగి శుభప్రదం అవుతుంది.",
 };
@@ -39,12 +39,12 @@ export default function LagnaAiAssistant() {
       id: "1",
       sender: "ai",
       text: te
-        ? "నమస్కారం! 🙏 నేను లగ్నAI (LagnaAI) మీ వ్యక్తిగత వివాహ సహాయకుడిని. మీకు తగిన సంబంధాలు వెతకడంలో, జాతక పొరుతం విశ్లేషణలో, లేదా సందేహాలు తీర్చడంలో సహాయపడతాను. ఏమి వెతకాలి?"
+        ? "నమస్కారం! 🙏 నేను లగ్నAI (LagnaAI) మీ వ్యక్తిగత వివాహ సహాయకుడిని. మీకు తగిన సంబంధాలు వెతకడంలో, వేద జాతక గుణమేళనం విశ్లేషణలో, లేదా సందేహాలు తీర్చడంలో సహాయపడతాను. ఏమి వెతకాలి?"
         : "Namaste! 🙏 I am LagnaAI, your personal Telugu matrimony & astrology concierge. I can help you discover verified matches, evaluate Vedic horoscopes, or assist with your search.",
       time: "Just now",
       actions: [
         { label: te ? "🔍 సాఫ్ట్‌వేర్ సంబంధాలు (హైదరాబాద్)" : "🔍 Software Matches (Hyd)", href: "/matches?job=Software&district=Hyderabad" },
-        { label: te ? "🪐 జాతక పొరుతం లెక్కింపు" : "🪐 Kundli Matcher", href: "/porutham" },
+        { label: te ? "🪐 వేద జాతక గుణమేళనం" : "🪐 Kundli Gunamelanam", href: "/porutham" },
         { label: te ? "💍 కులాల వారీగా ఛానల్స్" : "💍 Caste Hubs", href: "/castes" },
         { label: te ? "💰 ₹99 ప్యాకేజీ వివరాలు" : "💰 ₹99 Plan Info", href: "/pricing" },
       ],
@@ -86,12 +86,12 @@ export default function LagnaAiAssistant() {
           { label: te ? "🔍 హైదరాబాద్ సాఫ్ట్‌వేర్ సంబంధాలు →" : "View Hyderabad IT Matches →", href: "/matches?job=Software&district=Hyderabad" },
           { label: te ? "🌍 NRI సంబంధాలు చూడండి →" : "View NRI Matches →", href: "/matches?nri_only=true" },
         ];
-      } else if (lower.includes("రోహిణి") || lower.includes("rohini") || lower.includes("నక్షత్రం") || lower.includes("star") || lower.includes("జాతకం") || lower.includes("కుజ") || lower.includes("dosham") || lower.includes("porutham")) {
+      } else if (lower.includes("రోహిణి") || lower.includes("rohini") || lower.includes("నక్షత్రం") || lower.includes("star") || lower.includes("జాతకం") || lower.includes("కుజ") || lower.includes("dosham") || lower.includes("గుణమేళనం") || lower.includes("పొంతన")) {
         replyText = te
-          ? "వేద జ్యోతిషం ప్రకారం 10-పొరుతం (దిన, గణ, మాహేంద్ర, స్త్రీదీర్ఘ, యోని, రాశి, రజ్జు, వేధ...) పరిశీలన చాలా ముఖ్యం. ముఖ్యంగా రజ్జు దోషం లేకుండా చూసుకోవడం శ్రేయస్కరం. మా ఉచిత టూల్‌తో తక్షణమే స్కోర్ చూసుకోండి."
-          : "According to Vedic astrology, 10-Porutham Gunamilan (Rajju, Gana, Rasi, Yoni, Dina...) is essential for marital harmony. Check instant Vedic compatibility with our free tool.";
+          ? "వేద జ్యోతిషం ప్రకారం అష్టకూట గుణమేళనం (దిన, గణ, మాహేంద్ర, స్త్రీదీర్ఘ, యోని, రాశి, రజ్జు, వేధ...) పరిశీలన చాలా ముఖ్యం. ముఖ్యంగా రజ్జు దోషం లేకుండా చూసుకోవడం శ్రేయస్కరం. మా ఉచిత టూల్‌తో తక్షణమే స్కోర్ చూసుకోండి."
+          : "According to Vedic astrology, Gunamelanam (Rajju, Gana, Rasi, Yoni, Dina...) is essential for marital harmony. Check instant Vedic compatibility with our free tool.";
         actions = [
-          { label: te ? "🪐 10-పొరుతం కాలిక్యులేటర్ తెరవండి →" : "Open 10-Porutham Calculator →", href: "/porutham" },
+          { label: te ? "🪐 వేద గుణమేళనం కాలిక్యులేటర్ తెరవండి →" : "Open Vedic Gunamelanam Calculator →", href: "/porutham" },
           { label: te ? "🕉️ పురోహితుల సంప్రదింపులు →" : "Consult Vedic Pandits →", href: "/vendors?category=pandit" },
         ];
       } else if (lower.includes("రెడ్డి") || lower.includes("reddy")) {

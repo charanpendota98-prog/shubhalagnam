@@ -160,7 +160,7 @@ const TEXT = {
     planFeatures: [
       ["3 interest requests FREE", "WhatsApp లో మీ profile share", "channel network లో post", "ID search always open", "Photo-private mode"],
       ["5 interest requests", "⚡ 7-day profile boost (channel top)", "Accept అయితే number exchange", "Decline అయితే credit refund", "Referral తో ₹50 earn"],
-      ["12 interest requests", "✅ Photo-verified badge", "🔮 Free 10-porutham report (1)", "Daily fresh matches digest", "Family bureau assist"],
+      ["12 interest requests", "✅ Photo-verified badge", "🔮 Free వేద గుణమేళనం రిపోర్ట్ (1)", "Daily fresh matches digest", "Family bureau assist"],
       ["25 interest requests", "⚡ 30-day boost (top of channel)", "👀 Who-viewed-me 60 days", "✅ Verified badge", "Telugu dedicated support"],
       ["50 interest requests", "🎯 Matchmaker assist (మన team call)", "⚡ 90-day boost", "💍 Wedding vendor discounts", "Priority WhatsApp support"],
     ],
@@ -312,7 +312,7 @@ const TEXT = {
     planFeatures: [
       ["3 interest requests FREE", "Your profile shared on WhatsApp", "Profile posted in channels", "ID search always open", "Photo-private mode"],
       ["5 interest requests", "⚡ 7-day profile boost (channel top)", "Number exchange on accept", "Credit refund on decline", "Earn ₹50 via referral"],
-      ["12 interest requests", "✅ Photo-verified badge", "🔮 Free 10-porutham report (1)", "Daily fresh matches digest", "Family bureau assist"],
+      ["12 interest requests", "✅ Photo-verified badge", "🔮 Free వేద గుణమేళనం రిపోర్ట్ (1)", "Daily fresh matches digest", "Family bureau assist"],
       ["25 interest requests", "⚡ 30-day boost (top of channel)", "👀 Who-viewed-me 60 days", "✅ Verified badge", "Dedicated Telugu support"],
       ["50 interest requests", "🎯 Matchmaker assist (our team calls)", "⚡ 90-day boost", "💍 Wedding vendor discounts", "Priority WhatsApp support"],
     ],
@@ -999,7 +999,7 @@ export default function Home() {
               {[
                 { p: "₹49", t: lang === "te" ? "Profile Boost" : "Profile Boost", d: lang === "te" ? "7 days channel top లో" : "7 days at channel top" },
                 { p: "₹49", t: lang === "te" ? "Who viewed me" : "Who viewed me", d: lang === "te" ? "30 days — names తో" : "30 days — with names" },
-                { p: "₹99", t: lang === "te" ? "10-Porutham report" : "10-Porutham report", d: lang === "te" ? "Full kundli match (Telugu)" : "Full kundli match (Telugu)" },
+                { p: "₹99", t: lang === "te" ? "వేద గుణమేళనం రిపోర్ట్" : "వేద గుణమేళనం రిపోర్ట్", d: lang === "te" ? "Full kundli match (Telugu)" : "Full kundli match (Telugu)" },
                 { p: "₹199", t: lang === "te" ? "Photo verify badge" : "Photo verify badge", d: lang === "te" ? "3x ఎక్కువ acceptances" : "3x more acceptances" },
               ].map((a) => (
                 <div key={a.t} className="rounded-2xl bg-cream border border-gold/25 p-3">
