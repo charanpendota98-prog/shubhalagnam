@@ -86,15 +86,15 @@ def _accounts() -> Dict[str, Dict[str, str]]:
             return {
                 "owner": {
                     "username": "admin",
-                    "password_hash": "pbkdf2_sha256$210000$c8e19f2a0b3d4e5f6a7b8c9d0e1f2a3b$504fb5e0c471743635499eb4a9dee9252d65c4a08e0dc505725e23a40daee5ae",
+                    "password_hash": "pbkdf2_sha256$210000$c8e19f2a0b3d4e5f6a7b8c9d0e1f2a3b$7c628e12ee0dc88ca4cc253c8e8793dc8028068781e233641c36e0b56b60910a",
                 },
                 "owner_alias": {
                     "username": "owner",
-                    "password_hash": "pbkdf2_sha256$210000$c8e19f2a0b3d4e5f6a7b8c9d0e1f2a3b$e67262796d7b10b9e8973def584d528b99d9b6953f2524feb1029917888ec50d",
+                    "password_hash": "pbkdf2_sha256$210000$c8e19f2a0b3d4e5f6a7b8c9d0e1f2a3b$5cfd7df1ac5fc772cefe8580bcbe8c5072870a1c29184a4b872fdadd6acf6692",
                 },
                 "worker": {
                     "username": "worker",
-                    "password_hash": "pbkdf2_sha256$210000$c8e19f2a0b3d4e5f6a7b8c9d0e1f2a3b$a117a8cc2963e38b5925e757b26f3bb68b7363d6020d06ecf90998907c6c9608",
+                    "password_hash": "pbkdf2_sha256$210000$c8e19f2a0b3d4e5f6a7b8c9d0e1f2a3b$ca3b1be47a3abe867a43a747d878de309a4cb57ed38ba3e2ddf46f06df3ced6a",
                 },
             }
     out: Dict[str, Dict[str, str]] = {}

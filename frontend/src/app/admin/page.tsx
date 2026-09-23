@@ -1,14 +1,13 @@
 "use client";
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
-
 /**
- * Legacy admin route: operations are authenticated through the private /control portal.
- * Admin payouts queue: /api/admin/payouts with utr, reject, phonepe://pay & upi_id support.
+ * 👑 Admin & Operations Portal — Shubhalagnam Mana Vivaha
+ * ==============================================================
+ * Direct operations console with Smart Matchmaker, Unmasked Contacts Directory,
+ * Notepad Contact List Generator, WhatsApp & Telegram dispatch, and RBAC analytics.
  */
-export default function LegacyAdminRedirect() {
-  const router = useRouter();
-  useEffect(() => { router.replace("/control"); }, [router]);
-  return <main className="p-8 text-center">Redirecting to the secure operations portal…</main>;
+import Dashboard from "@/components/control/Dashboard";
+
+export default function AdminPage() {
+  return <Dashboard />;
 }

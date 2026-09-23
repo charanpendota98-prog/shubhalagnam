@@ -460,6 +460,247 @@ def control_castes_list(request: Request):
     return {"success": True, "castes": clusters_data, "total_castes": len(clusters_data)}
 
 
+@app.get("/api/control/matchmaker/{profile_id}")
+def control_matchmaker(
+    profile_id: str,
+    request: Request,
+    caste: str = "",
+    district: str = "",
+    state: str = "",
+    education: str = "",
+    job: str = "",
+    min_score: int = 0,
+    age_min: int = 0,
+    age_max: int = 0,
+    salary_min: int = 0,
+    photo_only: int = 0,
+    verified_only: int = 0,
+    limit: int = 50,
+):
+    """Admin Matchmaker: Given ANY single profile ID or search, returns candidate info + all suitable matching profiles with full contact details."""
+    item = CONTROL_AUTH.require(request)
+    pid = profile_id.strip().upper()
+    me = _find_user(pid)
+    if not me:
+        # Try finding by phone or name
+        me = next((u for u in DB_USERS if pid in str(u.get("phone", "")) or pid.lower() in str(u.get("full_name", "")).lower()), None)
+    if not me:
+        raise HTTPException(404, f"Profile ID/Phone/Name '{profile_id}' not found")
+
+    target_gender = "Groom" if str(me.get("gender", "")).lower() in ["bride", "female"] else "Bride"
+    pool = [
+        u for u in DB_USERS
+        if u.get("tsap_id") != me.get("tsap_id")
+        and not u.get("is_banned")
+        and (not u.get("gender") or str(u.get("gender", "")).lower() == target_gender.lower())
+        and not safety.is_blocked(me["tsap_id"], u.get("tsap_id", ""), DB_BLOCKS)
+    ]
+
+    # Gotram & Surname filters
+    gf = A11.filter_same_gothram(me, pool)
+    sf = S12.filter_same_surname(me, gf["kept"])
+    kept = sf["kept"]
+
+    # Filter conditions
+    _fcastes = [x.strip().lower() for x in (caste or "").split(",") if x.strip()]
+    _fdists = [x.strip().lower() for x in (district or "").split(",") if x.strip()]
+    _fedu = [x.strip().lower() for x in (education or "").split(",") if x.strip()]
+    _fjobs = [x.strip().lower() for x in (job or "").split(",") if x.strip()]
+
+    def _sal_val(v):
+        try:
+            return float(str(v).replace(",", "").strip().split()[0])
+        except Exception:
+            return 0.0
+
+    filtered = []
+    for c in kept:
+        try:
+            _age = int(c.get("age", 0) or 0)
+        except Exception:
+            _age = 0
+        if age_min and _age and _age < age_min:
+            continue
+        if age_max and _age and _age > age_max:
+            continue
+        if _fcastes and str(c.get("caste", "")).lower() not in _fcastes:
+            continue
+        if _fdists and str(c.get("district", "")).lower() not in _fdists:
+            continue
+        if state and str(c.get("state", "")) != state:
+            continue
+        if _fedu and str(c.get("education", "")).lower() not in _fedu:
+            continue
+        if _fjobs and str(c.get("job", "")).lower() not in _fjobs:
+            continue
+        if salary_min and _sal_val(c.get("salary", 0)) < salary_min:
+            continue
+        if photo_only and not (c.get("photo_url") or c.get("photo_urls")):
+            continue
+        if verified_only and not (c.get("phone_verified") or c.get("is_verified")):
+            continue
+        filtered.append(c)
+
+    # Compute matches
+    matches = topmatch.find_top_matches_v2(me, filtered, limit=min(limit, 100), min_score=min_score)
+    matches.sort(key=lambda r: (A11.boost_rank_key(r.get("profile", {})), r.get("score", 0)), reverse=True)
+    matches = MP.rerank_profession(me, matches)
+
+    results = []
+    for m in matches:
+        p = m.pop("profile", {})
+        # Gunamelanam score
+        guna_res = None
+        if compute_porutham and p.get("star") and me.get("star"):
+            b_cand, g_cand = (me, p) if str(me.get("gender", "")).lower() in ["bride", "female"] else (p, me)
+            try:
+                guna_res = compute_porutham(b_cand, g_cand)
+            except Exception:
+                guna_res = None
+
+        m.update({
+            "tsap_id": p.get("tsap_id"),
+            "full_name": p.get("full_name"),
+            "phone": p.get("phone", ""),
+            "gender": p.get("gender"),
+            "age": p.get("age"),
+            "height": p.get("height", ""),
+            "caste": p.get("caste"),
+            "sub_caste": p.get("sub_caste", ""),
+            "gothram": p.get("gothram", ""),
+            "star": p.get("star", ""),
+            "rasi": p.get("rasi", ""),
+            "district": p.get("district"),
+            "state": p.get("state"),
+            "education": p.get("education"),
+            "job": p.get("job"),
+            "salary": p.get("salary", ""),
+            "marital_status": p.get("marital_status", "Never Married"),
+            "photo_url": p.get("photo_url") or (p.get("photo_urls", [None])[0] if isinstance(p.get("photo_urls"), list) and p.get("photo_urls") else None),
+            "is_verified": bool(p.get("is_verified") or p.get("phone_verified")),
+            "gunamelanam": guna_res.get("score") if guna_res and guna_res.get("available") else None,
+            "gunamelanam_verdict": guna_res.get("verdict") if guna_res else None,
+            "gunamelanam_doshas": guna_res.get("doshas", []) if guna_res else [],
+        })
+        results.append(m)
+
+    # Build ready-to-copy Notepad lines
+    copy_notepad_lines = [
+        f"{r['full_name']} -- {r['phone']} ({r['tsap_id']} • {r['caste']} • {r['age']}y • {r['job']})"
+        for r in results
+    ]
+
+    CONTROL_AUTH.audit("control_matchmaker_view", item["username"], request, target_id=me.get("tsap_id"), matches_count=len(results))
+    return {
+        "success": True,
+        "candidate": {
+            "tsap_id": me.get("tsap_id"),
+            "full_name": me.get("full_name"),
+            "gender": me.get("gender"),
+            "age": me.get("age"),
+            "height": me.get("height", ""),
+            "caste": me.get("caste"),
+            "sub_caste": me.get("sub_caste", ""),
+            "gothram": me.get("gothram", ""),
+            "star": me.get("star", ""),
+            "rasi": me.get("rasi", ""),
+            "district": me.get("district"),
+            "state": me.get("state"),
+            "education": me.get("education"),
+            "job": me.get("job"),
+            "salary": me.get("salary", ""),
+            "phone": me.get("phone", ""),
+            "photo_url": me.get("photo_url") or (me.get("photo_urls", [None])[0] if isinstance(me.get("photo_urls"), list) and me.get("photo_urls") else None),
+            "is_verified": bool(me.get("is_verified") or me.get("phone_verified")),
+        },
+        "count": len(results),
+        "results": results,
+        "copy_notepad_text": "\n".join(copy_notepad_lines),
+        "message_telugu": f"🎯 {me.get('full_name')} ({me.get('tsap_id')}) కి {len(results)} అనుకూలమైన సంబంధాలు దొరికాయి",
+    }
+
+
+@app.get("/api/control/directory")
+def control_directory(
+    request: Request,
+    q: str = "",
+    gender: str = "",
+    caste: str = "",
+    district: str = "",
+    status: str = "all",
+    limit: int = 60,
+    offset: int = 0,
+):
+    """Control Portal: Full searchable directory of all registered profiles with unmasked phones."""
+    item = CONTROL_AUTH.require(request)
+    limit = max(1, min(int(limit), 200))
+    offset = max(0, int(offset))
+
+    items = list(DB_USERS)
+    if status and status != "all":
+        items = [u for u in items if str(u.get("status", "pending")) == status or (status == "approved" and u.get("is_approved"))]
+
+    if gender:
+        items = [u for u in items if str(u.get("gender", "")).lower() == gender.lower()]
+
+    if caste:
+        c_low = [x.strip().lower() for x in caste.split(",") if x.strip()]
+        items = [u for u in items if str(u.get("caste", "")).lower() in c_low]
+
+    if district:
+        d_low = [x.strip().lower() for x in district.split(",") if x.strip()]
+        items = [u for u in items if str(u.get("district", "")).lower() in d_low]
+
+    if q.strip():
+        ql = q.strip().lower()
+        items = [
+            u for u in items
+            if ql in str(u.get("tsap_id", "")).lower()
+            or ql in str(u.get("full_name", "")).lower()
+            or ql in str(u.get("phone", ""))
+            or ql in str(u.get("caste", "")).lower()
+            or ql in str(u.get("district", "")).lower()
+            or ql in str(u.get("gothram", "")).lower()
+            or ql in str(u.get("job", "")).lower()
+        ]
+
+    items.sort(key=lambda u: str(u.get("created_at", "")), reverse=True)
+    total = len(items)
+    rows = []
+    for u in items[offset:offset + limit]:
+        rows.append({
+            "tsap_id": u.get("tsap_id"),
+            "full_name": u.get("full_name"),
+            "gender": u.get("gender"),
+            "age": u.get("age"),
+            "caste": u.get("caste"),
+            "sub_caste": u.get("sub_caste", ""),
+            "gothram": u.get("gothram", ""),
+            "star": u.get("star", ""),
+            "rasi": u.get("rasi", ""),
+            "district": u.get("district"),
+            "state": u.get("state"),
+            "education": u.get("education"),
+            "job": u.get("job"),
+            "salary": u.get("salary", ""),
+            "phone": u.get("phone", ""),
+            "status": str(u.get("status", "pending")),
+            "is_verified": bool(u.get("is_verified") or u.get("phone_verified")),
+            "photo_url": u.get("photo_url") or (u.get("photo_urls", [None])[0] if isinstance(u.get("photo_urls"), list) and u.get("photo_urls") else None),
+            "created_at": u.get("created_at", ""),
+            "credits": u.get("credits", 0),
+        })
+
+    return {
+        "success": True,
+        "total": total,
+        "count": len(rows),
+        "offset": offset,
+        "limit": limit,
+        "profiles": rows,
+    }
+
+
 @app.post("/api/control/profiles/add")
 def control_add_profile(payload: dict, request: Request):
     """Control Portal: Admin instant profile creator for any caste."""
