@@ -51,6 +51,9 @@ body {
 
 .telugu {
   font-family: 'Noto Sans Telugu', system-ui, sans-serif;
+  line-height: 1.55;
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 /* ---------- Brand utilities ---------- */
