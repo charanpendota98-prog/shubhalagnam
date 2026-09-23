@@ -22,6 +22,7 @@ import HomeVendorsShowcase from "@/components/HomeVendorsShowcase";
 import HeroQuickSearch from "@/components/HeroQuickSearch";
 import HomePoruthamWidget from "@/components/HomePoruthamWidget";
 import WhyChooseUs from "@/components/WhyChooseUs";
+import DistrictAdBanner from "@/components/DistrictAdBanner";
 import { waLink } from "@/lib/wa";
 import { TelegramIcon, WhatsAppIcon } from "@/components/BrandIcons";
 
@@ -920,6 +921,11 @@ export default function Home() {
             </Reveal>
           ))}
         </div>
+      </section>
+
+      {/* ================= 🎯 DISTRICT & STATE WEDDING SERVICES AD BANNER ================= */}
+      <section className="max-w-7xl mx-auto px-4 py-3">
+        <DistrictAdBanner slot="home_hero" />
       </section>
 
       {/* ================= 🏪 WEDDING VENDORS (ads) ================= */}

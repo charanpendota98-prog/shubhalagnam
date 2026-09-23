@@ -3,7 +3,8 @@
 /**
  * 🎛️ ADVANCED CONTROL DASHBOARD — owner + worker (RBAC).
  * Real backend data via session cookie: /api/control/analytics, profile-queue,
- * spotlight-queue, reports, castes, and vendors. Actions send CSRF header. Fully bilingual.
+ * spotlight-queue, reports, castes, vendors, and targeted district/state ads.
+ * Actions send CSRF header. Fully bilingual.
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -58,13 +59,24 @@ type VendorItem = {
   phone?: string; district: string; state?: string; rating?: number;
   package_name?: string; verified?: boolean;
 };
+type AdCampaignItem = {
+  id: string; vendor_id?: string; title: string; offer?: string;
+  level: "district" | "state" | "all"; districts?: string[]; state?: string;
+  slots?: string[]; image_url?: string; banner_url?: string; video_url?: string;
+  link?: string; phone?: string; whatsapp?: string; category?: string;
+  days: number; per_day?: number; amount: number;
+  status: "active" | "pending" | "paused" | "expired" | "rejected";
+  utr?: string; start?: string; end?: string;
+  impressions: number; clicks: number; leads: number; created_at: string;
+};
 
 const T = {
   te: {
     ops: "ప్రైవేట్ ఆపరేషన్స్", dash: "డాష్‌బోర్డ్", signedAs: "సైన్ ఇన్",
     signout: "సైన్ అవుట్", refresh: "రిఫ్రెష్", loading: "లోడ్ అవుతోంది…",
     tabOverview: "📊 అవలోకనం", tabQueue: "👥 ప్రొఫైల్ క్యూ", tabCastes: "🏛️ కులాలు & కమ్యూనిటీలు",
-    tabAddProfile: "➕ ప్రొఫైల్ చేర్చండి", tabVendors: "🏪 పెళ్లి సేవలు & వెండర్లు",
+    tabAddProfile: "➕ ప్రొఫైల్ చేర్చండి", tabAds: "📢 జిల్లా & రాష్ట్ర ప్రకటనలు",
+    tabVendors: "🏪 పెళ్లి సేవలు & వెండర్లు",
     tabSpotlight: "🌟 స్పాట్‌లైట్ / Profiles of Day", tabReferrals: "🤝 రెఫరల్స్ & పేఅవుట్స్", tabReports: "🚩 రిపోర్ట్‌లు",
     tabRevenue: "💰 రెవెన్యూ", tabAudit: "📜 ఆడిట్ లాగ్",
     kProfiles: "మొత్తం ప్రొఫైళ్లు", kPending: "పెండింగ్ రివ్యూ", kApproved: "అప్రూవ్డ్",
@@ -87,7 +99,8 @@ const T = {
     ops: "Private operations", dash: "Dashboard", signedAs: "Signed in as",
     signout: "Sign out", refresh: "Refresh", loading: "Loading…",
     tabOverview: "📊 Overview", tabQueue: "👥 Profile queue", tabCastes: "🏛️ Castes & Hubs",
-    tabAddProfile: "➕ Add Profile", tabVendors: "🏪 Wedding Vendors",
+    tabAddProfile: "➕ Add Profile", tabAds: "📢 District & State Ads",
+    tabVendors: "🏪 Wedding Vendors",
     tabSpotlight: "🌟 Spotlight / Profiles of Day", tabReferrals: "🤝 Referrals & Payouts", tabReports: "🚩 Reports",
     tabRevenue: "💰 Revenue", tabAudit: "📜 Audit log",
     kProfiles: "Total profiles", kPending: "Pending review", kApproved: "Approved",
@@ -148,7 +161,7 @@ export default function Dashboard() {
   const L = T[(lang as "te" | "en") in T ? (lang as "te" | "en") : "te"];
   const [me, setMe] = useState<Me | null>(null);
   const [an, setAn] = useState<Analytics | null>(null);
-  const [tab, setTab] = useState<"overview" | "queue" | "castes" | "addProfile" | "vendors" | "spotlight" | "referrals" | "reports" | "revenue" | "audit">("overview");
+  const [tab, setTab] = useState<"overview" | "queue" | "castes" | "addProfile" | "ads" | "vendors" | "spotlight" | "referrals" | "reports" | "revenue" | "audit">("overview");
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const [qStatus, setQStatus] = useState<"pending" | "approved" | "rejected" | "all">("pending");
   const [spotlights, setSpotlights] = useState<SpotlightItem[]>([]);
@@ -158,6 +171,9 @@ export default function Dashboard() {
   const [reports, setReports] = useState<ReportItem[]>([]);
   const [castesData, setCastesData] = useState<CasteHubItem[]>([]);
   const [vendorsData, setVendorsData] = useState<VendorItem[]>([]);
+  const [adsData, setAdsData] = useState<AdCampaignItem[]>([]);
+  const [adStats, setAdStats] = useState<any>(null);
+  const [adFilterLevel, setAdFilterLevel] = useState<string>("all");
   const [toast, setToast] = useState("");
   const [busyId, setBusyId] = useState("");
   const [err, setErr] = useState("");
@@ -184,6 +200,23 @@ export default function Dashboard() {
   });
   const [createdProfile, setCreatedProfile] = useState<any>(null);
   const [profSubmitting, setProfSubmitting] = useState(false);
+
+  // New Ad Campaign Form State
+  const [newAd, setNewAd] = useState({
+    title: "",
+    offer: "",
+    level: "district",
+    state: "TS",
+    districts: ["Hyderabad"],
+    category: "photography",
+    image_url: "",
+    link: "",
+    phone: "",
+    whatsapp: "",
+    days: 30,
+    slots: ["home_hero", "matches_sidebar", "profile_banner", "search_top"],
+  });
+  const [adSubmitting, setAdSubmitting] = useState(false);
 
   // New Vendor Form State
   const [newVendor, setNewVendor] = useState({
@@ -259,6 +292,14 @@ export default function Dashboard() {
     } catch { setVendorsData([]); }
   }, []);
 
+  const loadAds = useCallback(async () => {
+    try {
+      const d = await jget(`/api/control/ads`);
+      setAdsData(d.campaigns || []);
+      setAdStats(d.stats || null);
+    } catch { setAdsData([]); }
+  }, []);
+
   useEffect(() => { loadCore(); }, [loadCore]);
   useEffect(() => { if (tab === "queue") loadQueue(qStatus); }, [tab, qStatus, loadQueue]);
   useEffect(() => { if (tab === "reports") loadReports(); }, [tab, loadReports]);
@@ -266,6 +307,7 @@ export default function Dashboard() {
   useEffect(() => { if (tab === "referrals") loadPayouts(pStatus); }, [tab, pStatus, loadPayouts]);
   useEffect(() => { if (tab === "castes") loadCastes(); }, [tab, loadCastes]);
   useEffect(() => { if (tab === "vendors") loadVendors(); }, [tab, loadVendors]);
+  useEffect(() => { if (tab === "ads") loadAds(); }, [tab, loadAds]);
 
   const flash = (m: string) => { setToast(m); setTimeout(() => setToast(""), 2800); };
 
@@ -323,6 +365,26 @@ export default function Dashboard() {
     finally { setBusyId(""); }
   }
 
+  async function handleAdAction(cid: string, action: string, extra?: any) {
+    if (!me) return;
+    setBusyId(cid);
+    try {
+      const r = await fetch(`/api/control/ads/${encodeURIComponent(cid)}/action`, {
+        method: "POST", credentials: "include",
+        headers: { "Content-Type": "application/json", "X-Control-CSRF": me.csrf },
+        body: JSON.stringify({ action, ...extra }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.detail || d.message_telugu || "Failed");
+      flash(d.message_telugu || "Action completed!");
+      loadAds();
+    } catch (e: any) {
+      flash(e?.message || "Failed to update ad");
+    } finally {
+      setBusyId("");
+    }
+  }
+
   async function resolveReport(id: string, action: string) {
     if (!me) return;
     setBusyId(id);
@@ -360,6 +422,34 @@ export default function Dashboard() {
       flash(err?.message || "Error adding profile");
     } finally {
       setProfSubmitting(false);
+    }
+  }
+
+  async function handleCreateAd(e: React.FormEvent) {
+    e.preventDefault();
+    if (!me) return;
+    if (!newAd.title.trim()) return flash("Ad title is required");
+    setAdSubmitting(true);
+    try {
+      const r = await fetch("/api/control/ads/create", {
+        method: "POST", credentials: "include",
+        headers: { "Content-Type": "application/json", "X-Control-CSRF": me.csrf },
+        body: JSON.stringify(newAd),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.detail || d.message_telugu || "Failed to create ad");
+      flash(lang === "te" ? `✅ ప్రకటన ${d.campaign?.id || ""} విజయవంతంగా లైవ్ చేయబడింది!` : `✅ Ad campaign created and active!`);
+      loadAds();
+      setNewAd({
+        title: "", offer: "", level: "district", state: "TS",
+        districts: ["Hyderabad"], category: "photography", image_url: "",
+        link: "", phone: "", whatsapp: "", days: 30,
+        slots: ["home_hero", "matches_sidebar", "profile_banner", "search_top"],
+      });
+    } catch (err: any) {
+      flash(err?.message || "Error creating ad campaign");
+    } finally {
+      setAdSubmitting(false);
     }
   }
 
@@ -432,6 +522,7 @@ export default function Dashboard() {
     { k: "queue" as const, label: `${L.tabQueue} (${t.pending})` },
     { k: "castes" as const, label: L.tabCastes },
     { k: "addProfile" as const, label: L.tabAddProfile },
+    { k: "ads" as const, label: L.tabAds },
     { k: "vendors" as const, label: L.tabVendors },
     { k: "spotlight" as const, label: L.tabSpotlight },
     { k: "referrals" as const, label: L.tabReferrals },
@@ -439,6 +530,14 @@ export default function Dashboard() {
     ...(owner ? [{ k: "revenue" as const, label: L.tabRevenue }] : []),
     ...(owner ? [{ k: "audit" as const, label: L.tabAudit }] : []),
   ];
+
+  const filteredAds = adsData.filter((a) => {
+    if (adFilterLevel === "all_scope") return true;
+    if (adFilterLevel === "district") return a.level === "district";
+    if (adFilterLevel === "state") return a.level === "state";
+    if (adFilterLevel === "all") return a.level === "all";
+    return true;
+  });
 
   return (
     <main className="min-h-screen bg-cream pb-16">
@@ -968,6 +1067,322 @@ export default function Dashboard() {
               </div>
             </form>
           </Card>
+        )}
+
+        {/* ---------------- 📢 DISTRICT & STATE TARGETED ADS ---------------- */}
+        {tab === "ads" && (
+          <div className="space-y-6">
+            <Card>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h3 className="text-base font-black text-navy">
+                    📢 {lang === "te" ? "జిల్లా & రాష్ట్ర స్థాయి టార్గెటెడ్ ప్రకటనల కంట్రోల్ హబ్" : "District & State Targeted Ads Engine"}
+                  </h3>
+                  <p className="mt-0.5 text-xs text-slate-500">
+                    {lang === "te" ? "యూజర్లు తమ జిల్లా/రాష్ట్రంలో సంబంధాలు చూస్తున్నప్పుడు మాత్రమే సంబంధిత లోకల్ వెండర్స్ ప్రకటనలు ఖచ్చితంగా చూపించండి." : "Deliver hyper-targeted vendor and matrimony ads strictly matching user's selected district or state."}
+                  </p>
+                </div>
+                <button
+                  onClick={loadAds}
+                  className="rounded-full border border-gold/40 px-3.5 py-1.5 text-xs font-bold text-maroon hover:bg-cream"
+                >
+                  🔄 {lang === "te" ? "రిఫ్రెష్" : "Refresh"}
+                </button>
+              </div>
+
+              {adStats && (
+                <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100">
+                    <span className="text-[11px] text-slate-500 block">మొత్తం క్యాంపెయిన్లు</span>
+                    <span className="text-xl font-black text-navy">{adStats.total}</span>
+                  </div>
+                  <div className="bg-emerald-50 p-3 rounded-2xl border border-emerald-200">
+                    <span className="text-[11px] text-emerald-700 block font-bold">లైవ్ యాక్టివ్ ప్రకటనలు</span>
+                    <span className="text-xl font-black text-emerald-800">{adStats.live}</span>
+                  </div>
+                  <div className="bg-amber-50 p-3 rounded-2xl border border-amber-200">
+                    <span className="text-[11px] text-amber-700 block">మొత్తం వీక్షణలు (Impressions)</span>
+                    <span className="text-xl font-black text-amber-800">{adStats.impressions}</span>
+                  </div>
+                  <div className="bg-rose-50 p-3 rounded-2xl border border-rose-200">
+                    <span className="text-[11px] text-rose-700 block">క్లిక్‌లు & విచారణలు</span>
+                    <span className="text-xl font-black text-rose-800">{adStats.clicks}</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Scope filter tabs */}
+              <div className="mt-5 flex flex-wrap gap-2 border-b border-slate-100 pb-3">
+                {[
+                  ["all_scope", lang === "te" ? "అన్నీ (All Ads)" : "All Ads"],
+                  ["district", lang === "te" ? "📍 జిల్లా స్థాయి (District Level)" : "District Level"],
+                  ["state", lang === "te" ? "🏛️ రాష్ట్ర స్థాయి (State Level TS/AP)" : "State Level"],
+                  ["all", lang === "te" ? "👑 ఉమ్మడి (All AP & TS)" : "All TS-AP"],
+                ].map(([k, lab]) => (
+                  <button
+                    key={k}
+                    onClick={() => setAdFilterLevel(k)}
+                    className={`rounded-full px-3 py-1.5 text-xs font-bold transition ${
+                      adFilterLevel === k ? "maroon-gradient text-white shadow-sm" : "border border-slate-200 text-slate-600 hover:bg-slate-50"
+                    }`}
+                  >
+                    {lab}
+                  </button>
+                ))}
+              </div>
+
+              <div className="mt-4 space-y-3">
+                {filteredAds.map((ad) => (
+                  <div key={ad.id} className="rounded-2xl border border-gold/30 bg-white p-4 shadow-sm hover:shadow-md transition flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
+                    <div className="flex items-start gap-3 min-w-0 flex-1">
+                      {ad.image_url ? (
+                        <img src={ad.image_url} alt={ad.title} className="w-16 h-16 rounded-xl object-cover border border-gold/20 shrink-0" />
+                      ) : (
+                        <div className="w-16 h-16 rounded-xl bg-gold/10 border border-gold/20 flex items-center justify-center text-2xl shrink-0">
+                          📢
+                        </div>
+                      )}
+                      <div className="min-w-0 flex-1 space-y-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="font-extrabold text-sm text-navy">{ad.title}</span>
+                          <span className="font-mono text-xs bg-slate-100 px-2 py-0.5 rounded text-slate-600 font-bold">{ad.id}</span>
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${
+                            ad.status === "active" ? "bg-emerald-100 text-emerald-800" :
+                            ad.status === "paused" ? "bg-amber-100 text-amber-800" : "bg-rose-100 text-rose-800"
+                          }`}>
+                            {ad.status}
+                          </span>
+                        </div>
+
+                        <p className="text-xs text-maroon font-semibold">{ad.offer}</p>
+
+                        <div className="flex flex-wrap items-center gap-3 text-[11px] text-slate-500 pt-1">
+                          <span className="font-bold text-navy">
+                            {ad.level === "district"
+                              ? `📍 జిల్లాలు: ${(ad.districts || []).join(", ") || "—"}`
+                              : ad.level === "state"
+                              ? `🏛️ రాష్ట్రం: ${ad.state || "TS/AP"}`
+                              : "👑 ఉమ్మడి (All TS & AP)"}
+                          </span>
+                          <span>👁️ <b>{ad.impressions}</b> views</span>
+                          <span>🖱️ <b>{ad.clicks}</b> clicks</span>
+                          {ad.end && <span>⏳ End: <b>{ad.end.slice(0, 10)}</b></span>}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-1.5 shrink-0 self-end sm:self-center">
+                      {ad.status === "active" && (
+                        <button
+                          disabled={busyId === ad.id}
+                          onClick={() => handleAdAction(ad.id, "pause")}
+                          className="rounded-lg bg-amber-500 px-2.5 py-1.5 text-xs font-bold text-white hover:bg-amber-600 disabled:opacity-50"
+                        >
+                          ⏸️ పాజ్ (Pause)
+                        </button>
+                      )}
+                      {ad.status === "paused" && (
+                        <button
+                          disabled={busyId === ad.id}
+                          onClick={() => handleAdAction(ad.id, "resume")}
+                          className="rounded-lg bg-emerald-600 px-2.5 py-1.5 text-xs font-bold text-white hover:bg-emerald-700 disabled:opacity-50"
+                        >
+                          ▶️ రెజ్యూమ్
+                        </button>
+                      )}
+                      <button
+                        disabled={busyId === ad.id}
+                        onClick={() => handleAdAction(ad.id, "update", { days: ad.days + 30 })}
+                        className="rounded-lg border border-maroon/30 text-maroon px-2.5 py-1.5 text-xs font-bold hover:bg-cream disabled:opacity-50"
+                      >
+                        ➕ 30 రోజులు పొడిగించు
+                      </button>
+                      {ad.status !== "rejected" && (
+                        <button
+                          disabled={busyId === ad.id}
+                          onClick={() => handleAdAction(ad.id, "reject")}
+                          className="rounded-lg bg-rose-600 px-2.5 py-1.5 text-xs font-bold text-white hover:bg-rose-700 disabled:opacity-50"
+                        >
+                          ❌ తొలగించు
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+                {!filteredAds.length && (
+                  <p className="py-8 text-center text-sm text-slate-400">
+                    {lang === "te" ? "ఈ కేటగిరీలో ప్రకటనలు లేవు" : "No ad campaigns in this scope"}
+                  </p>
+                )}
+              </div>
+            </Card>
+
+            {/* ➕ Create Targeted Ad Campaign Form */}
+            <Card>
+              <h3 className="text-base font-black text-navy mb-1">
+                ➕ {lang === "te" ? "కొత్త జిల్లా / రాష్ట్ర టార్గెటెడ్ ప్రకటన సృష్టించండి" : "Create Targeted Ad Campaign"}
+              </h3>
+              <p className="text-xs text-slate-500 mb-4">
+                {lang === "te" ? "నిర్దిష్ట జిల్లాలు, లేదా తెలంగాణ / ఆంధ్రా రాష్ట్రవ్యాప్తంగా ప్రకటనను ప్రచురించండి." : "Launch localized ads targeted strictly to user search districts or whole states."}
+              </p>
+
+              <form onSubmit={handleCreateAd} className="space-y-4 text-xs">
+                <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-3.5">
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">ప్రకటన శీర్షిక (Ad Title) *</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. శ్రీ వెంకటేశ్వర వివాహ ఫోటోగ్రఫీ"
+                      value={newAd.title}
+                      onChange={(e) => setNewAd({ ...newAd, title: e.target.value })}
+                      className="w-full rounded-xl border border-slate-300 px-3 py-2 focus:ring-2 focus:ring-maroon focus:outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">ప్రత్యేక ఆఫర్ (Offer Text) *</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. ✨ 4K డ్రోన్ కవరేజ్ — ₹5,000 తగ్గింపు"
+                      value={newAd.offer}
+                      onChange={(e) => setNewAd({ ...newAd, offer: e.target.value })}
+                      className="w-full rounded-xl border border-slate-300 px-3 py-2 focus:ring-2 focus:ring-maroon focus:outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">కేటగిరీ (Service Category)</label>
+                    <select
+                      value={newAd.category}
+                      onChange={(e) => setNewAd({ ...newAd, category: e.target.value })}
+                      className="w-full rounded-xl border border-slate-300 px-3 py-2 focus:ring-2 focus:ring-maroon focus:outline-none bg-white"
+                    >
+                      <option value="photography">📸 ఫోటోగ్రఫీ & సినిమాటోగ్రఫీ</option>
+                      <option value="catering">🍛 విందు భోజనం & క్యాటరింగ్</option>
+                      <option value="decorations">🌸 డెకరేషన్స్ & కల్యాణ మండపం</option>
+                      <option value="makeup">💄 బ్రైడల్ మేకప్ & బ్యూటీషియన్</option>
+                      <option value="pandit">🕉️ వేద పండితులు / పురోహితులు</option>
+                      <option value="jewellery">💍 వివాహ బంగారు నగలు</option>
+                      <option value="bridal_wear">👰 పెళ్లి పట్టుచీరలు & దుస్తులు</option>
+                      <option value="banquet_hall">🏛️ ఫంక్షన్ హాల్ / కన్వెన్షన్</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">టార్గెటింగ్ స్థాయి (Targeting Scope) *</label>
+                    <select
+                      value={newAd.level}
+                      onChange={(e) => setNewAd({ ...newAd, level: e.target.value as any })}
+                      className="w-full rounded-xl border border-slate-300 px-3 py-2 focus:ring-2 focus:ring-maroon focus:outline-none bg-white font-bold text-maroon"
+                    >
+                      <option value="district">📍 జిల్లా స్థాయి (Specific Districts)</option>
+                      <option value="state">🏛️ రాష్ట్ర స్థాయి (Entire State TS / AP)</option>
+                      <option value="all">👑 ఉమ్మడి (All TS & AP)</option>
+                    </select>
+                  </div>
+
+                  {newAd.level === "state" && (
+                    <div>
+                      <label className="block font-bold text-slate-700 mb-1">రాష్ట్రం (State)</label>
+                      <select
+                        value={newAd.state}
+                        onChange={(e) => setNewAd({ ...newAd, state: e.target.value })}
+                        className="w-full rounded-xl border border-slate-300 px-3 py-2 focus:ring-2 focus:ring-maroon focus:outline-none bg-white font-bold"
+                      >
+                        <option value="TS">తెలంగాణ (Telangana)</option>
+                        <option value="AP">ఆంధ్రప్రదేశ్ (Andhra Pradesh)</option>
+                      </select>
+                    </div>
+                  )}
+
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">వ్యవధి (Duration Days)</label>
+                    <select
+                      value={newAd.days}
+                      onChange={(e) => setNewAd({ ...newAd, days: parseInt(e.target.value) || 30 })}
+                      className="w-full rounded-xl border border-slate-300 px-3 py-2 focus:ring-2 focus:ring-maroon focus:outline-none bg-white"
+                    >
+                      <option value={7}>7 రోజులు</option>
+                      <option value={15}>15 రోజులు</option>
+                      <option value={30}>30 రోజులు (1 నెల)</option>
+                      <option value={60}>60 రోజులు (2 నెలలు)</option>
+                      <option value={90}>90 రోజులు (3 నెలలు)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">వాట్సాప్ నంబర్ (WhatsApp Contact)</label>
+                    <input
+                      type="tel"
+                      placeholder="9876543210"
+                      value={newAd.whatsapp}
+                      onChange={(e) => setNewAd({ ...newAd, whatsapp: e.target.value, phone: e.target.value })}
+                      className="w-full rounded-xl border border-slate-300 px-3 py-2 focus:ring-2 focus:ring-maroon focus:outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">ఫోటో / బ్యానర్ URL</label>
+                    <input
+                      type="url"
+                      placeholder="https://images.unsplash.com/..."
+                      value={newAd.image_url}
+                      onChange={(e) => setNewAd({ ...newAd, image_url: e.target.value })}
+                      className="w-full rounded-xl border border-slate-300 px-3 py-2 focus:ring-2 focus:ring-maroon focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                {/* District checkboxes when level == 'district' */}
+                {newAd.level === "district" && (
+                  <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200">
+                    <label className="block font-bold text-slate-800 mb-2">
+                      📍 టార్గెట్ చేయాల్సిన జిల్లాలు ఎంచుకోండి (Select Target Districts):
+                    </label>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                      {DISTRICTS_TS_AP.filter((d) => d !== "Other").map((dist) => {
+                        const checked = newAd.districts.includes(dist);
+                        return (
+                          <label
+                            key={dist}
+                            className={`flex items-center gap-2 p-2 rounded-xl border cursor-pointer transition ${
+                              checked ? "bg-maroon text-white font-bold border-maroon" : "bg-white text-slate-700 border-slate-200 hover:bg-slate-100"
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setNewAd({ ...newAd, districts: [...newAd.districts, dist] });
+                                } else {
+                                  setNewAd({ ...newAd, districts: newAd.districts.filter((d) => d !== dist) });
+                                }
+                              }}
+                              className="accent-gold rounded"
+                            />
+                            <span className="text-xs">{dist}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                <div className="pt-2 flex justify-end">
+                  <button
+                    type="submit"
+                    disabled={adSubmitting}
+                    className="rounded-xl maroon-gradient text-white px-6 py-3 font-black text-xs hover-lift shadow-md disabled:opacity-50 flex items-center gap-2"
+                  >
+                    {adSubmitting ? "ప్రచురించబడుతోంది…" : "✨ ప్రకటనను లైవ్ చేయండి (Publish & Activate Ad)"}
+                  </button>
+                </div>
+              </form>
+            </Card>
+          </div>
         )}
 
         {/* ---------------- 🏪 WEDDING VENDORS & PUROHITS ---------------- */}

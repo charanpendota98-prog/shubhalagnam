@@ -25,6 +25,7 @@ import TopPicks from "@/components/TopPicks";
 import { Duo, duo } from "@/lib/duo";
 import { useLang } from "@/lib/lang";
 import ProfileRail from "@/components/ProfileRail";
+import DistrictAdBanner from "@/components/DistrictAdBanner";
 
 type Row = Record<string, any>;
 const SAVED_SEARCHES_KEY = "tsap_saved_searches_v1";
@@ -801,7 +802,11 @@ export default function MatchesAdvanced() {
           <button onClick={() => setSheet(true)} className="mt-3 w-full py-2.5 rounded-xl gold-gradient text-maroon text-[12px] font-bold">
             {te ? "➕ ఇంకా ఎక్కువ filters (caste 43, edu, salary…)" : "➕ More filters (43 castes, edu, salary…)"}
           </button>
-          {/* Matrimony search stays distraction-free: sponsored promotions are not shown inside match results. */}
+          
+          {/* 📍 Targeted District & State Wedding Services */}
+          <div className="mt-4">
+            <DistrictAdBanner slot="matches_sidebar" district={filters.district} state={filters.state} />
+          </div>
         </aside>
 
         <TopPicks />
@@ -863,6 +868,15 @@ export default function MatchesAdvanced() {
               ₹99 → 5 profiles + boost
             </Link>
           </div>
+
+          {/* 📍 Targeted Local District Wedding Service Ad Banner */}
+          <DistrictAdBanner
+            slot="search_top"
+            district={filters.district}
+            state={filters.state}
+            className="mt-3"
+            compact
+          />
 
           {loading ? (
             <div className="mt-3 grid md:grid-cols-2 gap-4">

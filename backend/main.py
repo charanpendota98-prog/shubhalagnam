@@ -546,6 +546,103 @@ def control_add_profile(payload: dict, request: Request):
     return {"success": True, "tsap_id": tsap_id, "profile": user, "message": f"Profile {tsap_id} added successfully!"}
 
 
+@app.get("/api/control/ads")
+def control_ads_list(request: Request, status: str = "all"):
+    """Control Portal: All ad campaigns with district/state targeting & metrics."""
+    item = CONTROL_AUTH.require(request)
+    cands = list(reversed(ADS.CAMPAIGNS))
+    if status and status != "all":
+        cands = [c for c in cands if c.get("status") == status]
+    stats = ADS.ads_stats()
+    return {"success": True, "campaigns": cands, "stats": stats, "count": len(cands)}
+
+
+@app.post("/api/control/ads/create")
+def control_ads_create(payload: dict, request: Request):
+    """Control Portal: Admin instant targeted ad creation for district/state/all."""
+    item = _control_write_guard(request, roles=_CONTROL_WRITE_ROLES)
+    d = payload or {}
+    title = str(d.get("title", "")).strip()
+    if not title:
+        raise HTTPException(400, "Ad title is required")
+    level = str(d.get("level", "district")).lower()
+    days = int(d.get("days", 30) or 30)
+    districts = d.get("districts") or []
+    state = str(d.get("state", "")).upper()
+    slots = d.get("slots") or ["home_hero", "matches_sidebar", "profile_banner", "search_top"]
+    image_url = str(d.get("image_url", "")).strip()
+    link = str(d.get("link", "")).strip()
+    offer = str(d.get("offer", "")).strip()
+    phone = str(d.get("phone", "")).strip()
+    whatsapp = str(d.get("whatsapp", "")).strip()
+    category = str(d.get("category", "photography")).strip()
+    vendor_id = str(d.get("vendor_id") or f"V-ADMIN-{random.randint(100, 999)}")
+    
+    ADS._AD_SEQ += 1
+    cid = f"AD-{ADS._AD_SEQ:04d}"
+    now = datetime.utcnow()
+    c = {
+        "id": cid,
+        "vendor_id": vendor_id,
+        "title": title,
+        "offer": offer,
+        "level": level,
+        "districts": districts,
+        "state": state,
+        "slots": slots,
+        "image_url": image_url,
+        "banner_url": "",
+        "video_url": "",
+        "link": link or (f"https://wa.me/91{whatsapp}?text=Namaste+{title}" if whatsapp else ""),
+        "phone": phone,
+        "whatsapp": whatsapp,
+        "category": category,
+        "days": days,
+        "per_day": 87 if level == "district" else (299 if level == "state" else 499),
+        "amount": (87 if level == "district" else (299 if level == "state" else 499)) * days,
+        "status": "active",
+        "utr": str(d.get("utr") or f"ADMIN-GRANT-{now.strftime('%d%H%M')}"),
+        "start": ADS._iso(now),
+        "end": ADS._iso(now + timedelta(days=days)),
+        "impressions": 0,
+        "clicks": 0,
+        "leads": 0,
+        "created_at": ADS._iso(now)
+    }
+    ADS.CAMPAIGNS.append(c)
+    ADS._persist()
+    CONTROL_AUTH.audit("control_create_ad", item["username"], request, cid=cid, title=title, level=level)
+    return {"success": True, "campaign": c, "message": f"Ad {cid} published and active!"}
+
+
+@app.post("/api/control/ads/{cid}/action")
+def control_ads_action(cid: str, payload: dict, request: Request):
+    """Control Portal: Admin ad actions (approve/pause/resume/expire/extend)."""
+    item = _control_write_guard(request, roles=_CONTROL_WRITE_ROLES)
+    d = payload or {}
+    action = str(d.get("action", "")).strip().lower()
+    if action == "approve":
+        utr = str(d.get("utr") or "ADMIN-APPROVED")
+        res = ADS.approve_campaign(cid, utr, int(d.get("days", 0) or 0))
+    elif action in ["pause", "resume", "expire", "reject"]:
+        res = ADS.campaign_action(cid, action, str(d.get("reason", "")))
+    elif action == "update":
+        res = ADS.update_campaign(cid, d.get("patch") or d)
+    else:
+        raise HTTPException(400, "Invalid action")
+    if not res.get("success"):
+        raise HTTPException(400, res.get("message_telugu") or "Failed")
+    CONTROL_AUTH.audit("control_ad_action", item["username"], request, cid=cid, action=action)
+    return res
+
+
+@app.get("/api/ads/list")
+def api_ads_list(slot: str = "matches_sidebar", district: str = "", state: str = "", limit: int = 3):
+    """Targeted multiple ads for district/state/slot."""
+    return ADS.serve_list(slot, district, state, limit)
+
+
+
 
 # 🌊 WAVE 26 — GLOBAL SAFETY NET: ekkada crash aina Telugu JSON (raw 500 never).
 #    User ki easy message + ref code (support ki chepthe admin log lo chusthadu).
