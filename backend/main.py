@@ -4020,8 +4020,8 @@ def advanced_search(
         validation_error("sort", "⚠️ sort కి valid values: score | new | age | పొరుతం | boosted | trust | completeness")
     q = clean(q, 60, "q") if q else None
     for _f in (gender, caste, district, state, job, education, marital_status, religion):
-        if _f and len(str(_f)) > 60:
-            validation_error("filter", "⚠️ Filter value చాలా పెద్దది (60 chars max)")
+        if _f and len(str(_f)) > 500:
+            validation_error("filter", "⚠️ Filter value చాలా పెద్దది (500 chars max)")
     if min_completeness:
         min_completeness = req_int(min_completeness, "min_completeness", 0, 100, default=0)
 
@@ -4034,21 +4034,29 @@ def advanced_search(
         _g = {"male": "groom", "female": "bride"}.get(gender.lower(), gender.lower())  # WAVE 29: male/female alias
         items = [u for u in items if str(u.get("gender", "")).lower() == _g]
     if caste:
-        cl = caste.lower()
-        items = [u for u in items if cl in str(u.get("caste", "")).lower() or cl in str(u.get("sub_caste", "")).lower()]
+        c_list = [c.strip().lower() for c in str(caste).split(",") if c.strip()]
+        if c_list:
+            items = [u for u in items if any(c in str(u.get("caste", "")).lower() or c in str(u.get("sub_caste", "")).lower() for c in c_list)]
     if district:
-        dl = district.lower()
-        items = [u for u in items if dl in str(u.get("district", "")).lower() or dl in str(u.get("current_city", "")).lower()]
+        d_list = [d.strip().lower() for d in str(district).split(",") if d.strip()]
+        if d_list:
+            items = [u for u in items if any(d in str(u.get("district", "")).lower() or d in str(u.get("current_city", "")).lower() for d in d_list)]
     if state:
-        items = [u for u in items if str(u.get("state", "")).upper() == state.upper()]
+        s_list = [s.strip().upper() for s in str(state).split(",") if s.strip()]
+        if s_list:
+            items = [u for u in items if any(s == str(u.get("state", "")).upper() for s in s_list)]
     if job:
-        jl = job.lower()
-        items = [u for u in items if jl in str(u.get("job", "")).lower() or jl in str(u.get("work_type", "")).lower()]
+        j_list = [j.strip().lower() for j in str(job).split(",") if j.strip()]
+        if j_list:
+            items = [u for u in items if any(j in str(u.get("job", "")).lower() or j in str(u.get("work_type", "")).lower() for j in j_list)]
     if education:
-        el = education.lower()
-        items = [u for u in items if el in str(u.get("education", "")).lower()]
+        e_list = [e.strip().lower() for e in str(education).split(",") if e.strip()]
+        if e_list:
+            items = [u for u in items if any(e in str(u.get("education", "")).lower() for e in e_list)]
     if marital_status:
-        items = [u for u in items if str(u.get("marital_status", "")).lower() == marital_status.lower()]
+        m_list = [m.strip().lower() for m in str(marital_status).split(",") if m.strip()]
+        if m_list:
+            items = [u for u in items if any(m in str(u.get("marital_status", "")).lower() for m in m_list)]
     if children:
         items = [u for u in items if str(u.get("children", "None")) == children]
     if religion:
@@ -4073,7 +4081,9 @@ def advanced_search(
     if dosham:
         items = [u for u in items if str(u.get("dosham", "No")).lower() == dosham.lower()]
     if star:
-        items = [u for u in items if star.lower() in str(u.get("star", "")).lower()]
+        st_list = [st.strip().lower() for st in str(star).split(",") if st.strip()]
+        if st_list:
+            items = [u for u in items if any(st in str(u.get("star", "")).lower() for st in st_list)]
     if min_completeness:
         items = [u for u in items if profile_completeness(u)["percent"] >= min_completeness]
     if exclude_viewed and viewer_id:
