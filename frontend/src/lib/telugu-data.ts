@@ -1,12 +1,16 @@
 /**
  * MANA VIVAHA — COMPREHENSIVE TELUGU MATRIMONIAL TAXONOMY 💍
  * ==========================================================
- * All 33 Telangana Districts + All 26 Andhra Pradesh Districts + Global / NRI
- * All 48+ Telugu Castes + Authentic Sub-castes
+ * All 33 Telangana Districts + All 26 Andhra Pradesh Districts
+ * All Top NRI Countries (USA, UK, Australia, Canada, Germany, UAE, Singapore, etc.)
+ * All 50+ Telugu Castes + Authentic Sub-castes
  * 27 Vedic Nakshatras & 12 Rasis with Telugu + English Side-by-Side
+ * Categorized Educations, Work Types & Granular ₹1L - ₹1Cr+ Salary Brackets
  */
 
-// 27 Nakshatras — Telugu + English + Full Bilingual Display
+// =========================================================================
+// 🕉️ 27 VEDIC NAKSHATRAS — TELUGU + ENGLISH
+// =========================================================================
 export interface NakshatraItem {
   te: string;
   en: string;
@@ -53,7 +57,9 @@ export const NAK_TO_RASI: Record<string, string> = (() => {
   return map;
 })();
 
-// 12 Rasis (Vedic Moon Signs) — Telugu + English + Western
+// =========================================================================
+// 🌙 12 RASIS (VEDIC MOON SIGNS) — TELUGU + ENGLISH
+// =========================================================================
 export interface RasiItem {
   te: string;
   en: string;
@@ -158,14 +164,62 @@ export const AP_DISTRICTS_DETAILED: DistrictDetail[] = [
 
 export const AP_DISTRICTS: string[] = AP_DISTRICTS_DETAILED.map((d) => d.en);
 
-export const OTHER_LOCATIONS: DistrictDetail[] = [
-  { en: "USA / NRI", te: "అమెరికా / ఎన్ఆర్ఐ", display: "అమెరికా / NRI (USA / Canada / UK)", state: "Other" },
+// =========================================================================
+// ✈️ NRI COUNTRIES & OTHER REGIONS (ప్రధాన విదేశాలు & ఇతర రాష్ట్రాలు)
+// =========================================================================
+export interface CountryDetail {
+  code: string;
+  en: string;
+  te: string;
+  display: string;
+  flag: string;
+  popular?: boolean;
+}
+
+export const NRI_COUNTRIES: CountryDetail[] = [
+  { code: "USA", en: "USA / United States", te: "అమెరికా (USA)", display: "🇺🇸 USA / United States (అమెరికా)", flag: "🇺🇸", popular: true },
+  { code: "UK", en: "United Kingdom (UK)", te: "యునైటెడ్ కింగ్‌డమ్ (UK / బ్రిటన్)", display: "🇬🇧 UK / United Kingdom (బ్రిటన్)", flag: "🇬🇧", popular: true },
+  { code: "AUS", en: "Australia", te: "ఆస్ట్రేలియా (Australia)", display: "🇦🇺 Australia (ఆస్ట్రేలియా)", flag: "🇦🇺", popular: true },
+  { code: "CAN", en: "Canada", te: "కెనడా (Canada)", display: "🇨🇦 Canada (కెనడా)", flag: "🇨🇦", popular: true },
+  { code: "DEU", en: "Germany", te: "జర్మనీ (Germany)", display: "🇩🇪 Germany (జర్మనీ)", flag: "🇩🇪", popular: true },
+  { code: "UAE", en: "UAE / Dubai", te: "దుబాయ్ / యు.ఎ.ఇ (Dubai / UAE)", display: "🇦🇪 UAE / Dubai (దుబాయ్ / ఎమిరేట్స్)", flag: "🇦🇪", popular: true },
+  { code: "SGP", en: "Singapore", te: "సింగపూర్ (Singapore)", display: "🇸🇬 Singapore (సింగపూర్)", flag: "🇸🇬", popular: true },
+  { code: "SAU", en: "Saudi Arabia", te: "సౌదీ అరేబియా (Saudi Arabia)", display: "🇸🇦 Saudi Arabia (సౌదీ అరేబియా)", flag: "🇸🇦" },
+  { code: "QAT", en: "Qatar", te: "ఖతార్ (Qatar)", display: "🇶🇦 Qatar (ఖతార్)", flag: "🇶🇦" },
+  { code: "KWT", en: "Kuwait", te: "కువైట్ (Kuwait)", display: "🇰🇼 Kuwait (కువైట్)", flag: "🇰🇼" },
+  { code: "OMN", en: "Oman", te: "ఒమన్ (Oman)", display: "🇴🇲 Oman (ఒమన్)", flag: "🇴🇲" },
+  { code: "BHR", en: "Bahrain", te: "బహ్రెయిన్ (Bahrain)", display: "🇧🇭 Bahrain (బహ్రెయిన్)", flag: "🇧🇭" },
+  { code: "MYS", en: "Malaysia", te: "మలేషియా (Malaysia)", display: "🇲🇾 Malaysia (మలేషియా)", flag: "🇲🇾" },
+  { code: "IRL", en: "Ireland", te: "ఐర్లాండ్ (Ireland)", display: "🇮🇪 Ireland (ఐర్లాండ్)", flag: "🇮🇪" },
+  { code: "NZL", en: "New Zealand", te: "న్యూజిలాండ్ (New Zealand)", display: "🇳🇿 New Zealand (న్యూజిలాండ్)", flag: "🇳🇿" },
+  { code: "NLD", en: "Netherlands", te: "నెదర్లాండ్స్ (Netherlands)", display: "🇳🇱 Netherlands (నెదర్లాండ్స్)", flag: "🇳🇱" },
+  { code: "CHE", en: "Switzerland & Europe", te: "స్విట్జర్లాండ్ & యూరప్", display: "🇨🇭 Switzerland / Europe (స్విస్)", flag: "🇨🇭" },
+  { code: "JPN", en: "Japan", te: "జపాన్ (Japan)", display: "🇯🇵 Japan (జపాన్)", flag: "🇯🇵" },
+  { code: "FRA", en: "France", te: "ఫ్రాన్స్ (France)", display: "🇫🇷 France (ఫ్రాన్స్)", flag: "🇫🇷" },
+  { code: "SWE", en: "Sweden & Nordics", te: "స్వీడన్ & నార్డిక్స్", display: "🇸🇪 Sweden / Nordics (నార్డిక్స్)", flag: "🇸🇪" },
+  { code: "ZAF", en: "South Africa", te: "దక్షిణాఫ్రికా (South Africa)", display: "🇿🇦 South Africa (దక్షిణాఫ్రికా)", flag: "🇿🇦" },
+  { code: "OTH", en: "Other Country", te: "ఇతర విదేశాలు (Other International)", display: "🌐 Other International (ఇతర దేశాలు)", flag: "🌐" },
+];
+
+export const OTHER_INDIAN_STATES: DistrictDetail[] = [
   { en: "Bangalore / Karnataka", te: "బెంగళూరు / కర్ణాటక", display: "బెంగళూరు (Bangalore / Karnataka)", state: "Other" },
   { en: "Chennai / Tamil Nadu", te: "చెన్నై / తమిళనాడు", display: "చెన్నై (Chennai / Tamil Nadu)", state: "Other" },
-  { en: "Mumbai / Maharashtra", te: "ముంబై / మహారాష్ట్ర", display: "ముంబై (Mumbai / Maharashtra)", state: "Other" },
+  { en: "Mumbai / Maharashtra", te: "ముంబై / మహారాష్ట్ర", display: "ముంబై / పూణే (Mumbai / Pune)", state: "Other" },
   { en: "Delhi / NCR", te: "ఢిల్లీ / ఎన్‌సీఆర్", display: "ఢిల్లీ / NCR (Delhi)", state: "Other" },
-  { en: "Gulf / Middle East", te: "గల్ఫ్ / దుబాయ్", display: "గల్ఫ్ / UAE (Dubai / Saudi / Qatar)", state: "Other" },
-  { en: "Other Global / States", te: "ఇతర ప్రాంతాలు", display: "ఇతర రాష్ట్రాలు / గ్లోబల్ (Other Global)", state: "Other" },
+  { en: "Kerala", te: "కేరళ", display: "కేరళ (Kerala)", state: "Other" },
+  { en: "Gujarat", te: "గుజరాత్", display: "గుజరాత్ (Gujarat)", state: "Other" },
+  { en: "Odisha", te: "ఒడిశా", display: "ఒడిశా (Odisha)", state: "Other" },
+  { en: "Other Indian State", te: "ఇతర భారత రాష్ట్రాలు", display: "భారతదేశంలోని ఇతర రాష్ట్రాలు (Other States)", state: "Other" },
+];
+
+export const OTHER_LOCATIONS: DistrictDetail[] = [
+  ...NRI_COUNTRIES.map((c) => ({
+    en: c.en,
+    te: c.te,
+    display: c.display,
+    state: "Other" as const,
+  })),
+  ...OTHER_INDIAN_STATES,
 ];
 
 export const DISTRICTS_BY_STATE: Record<string, string[]> = {
@@ -192,6 +246,248 @@ export const DISTRICT_TELUGU: Record<string, string> = (() => {
 })();
 
 // =========================================================================
+// 💼 WORK TYPES & PROFESSION SECTORS (వృత్తి / ఉద్యోగ రకం)
+// =========================================================================
+export interface WorkTypeItem {
+  id: string;
+  en: string;
+  te: string;
+  display: string;
+  icon: string;
+  popular?: boolean;
+}
+
+export const WORK_TYPES_DETAILED: WorkTypeItem[] = [
+  { id: "Software", en: "Software / IT / Tech", te: "సాఫ్ట్‌వేర్ / ఐటీ రంగం", display: "💻 సాఫ్ట్‌వేర్ / IT (Software / Tech)", icon: "💻", popular: true },
+  { id: "Government", en: "Govt / Public Sector / PSU", te: "ప్రభుత్వ ఉద్యోగం (Govt Job)", display: "🏛️ ప్రభుత్వ ఉద్యోగం (Govt / PSU)", icon: "🏛️", popular: true },
+  { id: "Doctor", en: "Doctor / Healthcare / Medical", te: "డాక్టర్ / వైద్యరంగం (Healthcare)", display: "🩺 డాక్టర్ / వైద్యం (Doctor / Medical)", icon: "🩺", popular: true },
+  { id: "Business", en: "Business / Entrepreneur", te: "వ్యాపారం / బిజినెస్ / సొంత సంస్థ", display: "🏪 వ్యాపారం (Business / Owner)", icon: "🏪", popular: true },
+  { id: "Banking", en: "Banking / Financial Services", te: "బ్యాంకింగ్ / ఫైనాన్స్ రంగం", display: "🏦 బ్యాంకింగ్ / ఫైనాన్స్ (Banking)", icon: "🏦", popular: true },
+  { id: "NRI", en: "NRI / Working Abroad", te: "ఎన్ఆర్ఐ / విదేశీ ఉద్యోగం", display: "✈️ విదేశీ ఉద్యోగం (NRI / Abroad)", icon: "✈️", popular: true },
+  { id: "Teaching", en: "Teacher / Lecturer / Professor", te: "బోధన / ప్రొఫెసర్ / లెక్చరర్", display: "📚 బోధన / లెక్చరర్ (Teaching)", icon: "📚" },
+  { id: "Defence", en: "Civil Services / Defense / Police", te: "సివిల్స్ / రక్షణ దళాలు / పోలీస్", display: "🇮🇳 సివిల్స్ / పోలీస్ / రక్షణ", icon: "🇮🇳" },
+  { id: "Lawyer", en: "Legal / Lawyer / Advocate", te: "న్యాయవాది / లీగల్ ప్రాక్టీస్", display: "⚖️ లాయర్ / న్యాయవాది (Legal)", icon: "⚖️" },
+  { id: "Agriculture", en: "Agriculture / Farm Owner", te: "వ్యవసాయం / వ్యవసాయదారుడు", display: "🌾 వ్యవసాయం (Agriculture)", icon: "🌾" },
+  { id: "Private", en: "Private Corporate / MNC", te: "ప్రైవేట్ కంపెనీ / కార్పొరేట్", display: "🏢 ప్రైవేట్ జాబ్ (Private Sector)", icon: "🏢" },
+  { id: "Self Employed", en: "Self Employed / Consultant", te: "స్వయం ఉపాధి / కన్సల్టెంట్", display: "💼 స్వయం ఉపాధి (Self Employed)", icon: "💼" },
+  { id: "Student", en: "Student / Preparing for Exams", te: "చదువుకుంటున్నారు / పోటీ పరీక్షలు", display: "🎓 విద్యార్థి / స్టూడెంట్ (Student)", icon: "🎓" },
+  { id: "Not Working", en: "Homemaker / Not Working", te: "గృహిణి / ప్రస్తుతం చేయడం లేదు", display: "🏡 గృహిణి (Homemaker / None)", icon: "🏡" },
+];
+
+export const WORK_TYPES: string[] = WORK_TYPES_DETAILED.map((w) => w.en);
+
+export const WORK_TYPE_TELUGU: Record<string, string> = (() => {
+  const map: Record<string, string> = {};
+  WORK_TYPES_DETAILED.forEach((w) => {
+    map[w.en] = w.te;
+    map[w.id] = w.te;
+  });
+  return map;
+})();
+
+// =========================================================================
+// 💰 GRANULAR SALARY RANGES IN LAKHS & CRORES (లక్షలు & కోట్లలో వేతనం)
+// =========================================================================
+export interface SalaryItem {
+  id: string;
+  en: string;
+  te: string;
+  display: string;
+  minLakhs: number;
+}
+
+export const SALARIES_DETAILED: SalaryItem[] = [
+  { id: "1L - 2L", en: "₹1 - 2 Lakhs / year", te: "₹1 - 2 లక్షలు / సం॥", display: "₹1 - 2 Lakhs / yr (₹1 - 2 లక్షలు)", minLakhs: 1 },
+  { id: "2L - 3L", en: "₹2 - 3 Lakhs / year", te: "₹2 - 3 లక్షలు / సం॥", display: "₹2 - 3 Lakhs / yr (₹2 - 3 లక్షలు)", minLakhs: 2 },
+  { id: "3L - 4L", en: "₹3 - 4 Lakhs / year", te: "₹3 - 4 లక్షలు / సం॥", display: "₹3 - 4 Lakhs / yr (₹3 - 4 లక్షలు)", minLakhs: 3 },
+  { id: "4L - 5L", en: "₹4 - 5 Lakhs / year", te: "₹4 - 5 లక్షలు / సం॥", display: "₹4 - 5 Lakhs / yr (₹4 - 5 లక్షలు)", minLakhs: 4 },
+  { id: "5L - 6L", en: "₹5 - 6 Lakhs / year", te: "₹5 - 6 లక్షలు / సం॥", display: "₹5 - 6 Lakhs / yr (₹5 - 6 లక్షలు)", minLakhs: 5 },
+  { id: "6L - 7L", en: "₹6 - 7 Lakhs / year", te: "₹6 - 7 లక్షలు / సం॥", display: "₹6 - 7 Lakhs / yr (₹6 - 7 లక్షలు)", minLakhs: 6 },
+  { id: "7L - 8L", en: "₹7 - 8 Lakhs / year", te: "₹7 - 8 లక్షలు / సం॥", display: "₹7 - 8 Lakhs / yr (₹7 - 8 లక్షలు)", minLakhs: 7 },
+  { id: "8L - 10L", en: "₹8 - 10 Lakhs / year", te: "₹8 - 10 లక్షలు / సం॥", display: "₹8 - 10 Lakhs / yr (₹8 - 10 లక్షలు)", minLakhs: 8 },
+  { id: "10L - 12L", en: "₹10 - 12 Lakhs / year", te: "₹10 - 12 లక్షలు / సం॥", display: "₹10 - 12 Lakhs / yr (₹10 - 12 లక్షలు)", minLakhs: 10 },
+  { id: "12L - 15L", en: "₹12 - 15 Lakhs / year", te: "₹12 - 15 లక్షలు / సం॥", display: "₹12 - 15 Lakhs / yr (₹12 - 15 లక్షలు)", minLakhs: 12 },
+  { id: "15L - 20L", en: "₹15 - 20 Lakhs / year", te: "₹15 - 20 లక్షలు / సం॥", display: "₹15 - 20 Lakhs / yr (₹15 - 20 లక్షలు)", minLakhs: 15 },
+  { id: "20L - 25L", en: "₹20 - 25 Lakhs / year", te: "₹20 - 25 లక్షలు / సం॥", display: "₹20 - 25 Lakhs / yr (₹20 - 25 లక్షలు)", minLakhs: 20 },
+  { id: "25L - 30L", en: "₹25 - 30 Lakhs / year", te: "₹25 - 30 లక్షలు / సం॥", display: "₹25 - 30 Lakhs / yr (₹25 - 30 లక్షలు)", minLakhs: 25 },
+  { id: "30L - 40L", en: "₹30 - 40 Lakhs / year", te: "₹30 - 40 లక్షలు / సం॥", display: "₹30 - 40 Lakhs / yr (₹30 - 40 లక్షలు)", minLakhs: 30 },
+  { id: "40L - 50L", en: "₹40 - 50 Lakhs / year", te: "₹40 - 50 లక్షలు / సం॥", display: "₹40 - 50 Lakhs / yr (₹40 - 50 లక్షలు)", minLakhs: 40 },
+  { id: "50L - 75L", en: "₹50 - 75 Lakhs / year", te: "₹50 - 75 లక్షలు / సం॥", display: "₹50 - 75 Lakhs / yr (₹50 - 75 లక్షలు)", minLakhs: 50 },
+  { id: "75L - 1Cr", en: "₹75 Lakhs - ₹1 Crore / year", te: "₹75 లక్షలు - ₹1 కోటి / సం॥", display: "₹75 Lakhs - 1 Cr (₹75లక్షలు - 1కోటి)", minLakhs: 75 },
+  { id: "1Cr - 1.5Cr", en: "₹1 Crore - ₹1.5 Crore / year", te: "₹1 - 1.5 కోట్లు / సం॥", display: "₹1 - 1.5 Cr / yr (₹1 - 1.5 కోట్లు)", minLakhs: 100 },
+  { id: "1.5Cr - 2Cr", en: "₹1.5 Crore - ₹2 Crore / year", te: "₹1.5 - 2 కోట్లు / సం॥", display: "₹1.5 - 2 Cr / yr (₹1.5 - 2 కోట్లు)", minLakhs: 150 },
+  { id: "2Cr+", en: "₹2 Crore+ / year", te: "₹2 కోట్లకు పైగా / సం॥", display: "₹2 Crore+ / yr (₹2 కోట్లకు పైగా)", minLakhs: 200 },
+  { id: "Under 1L", en: "Under ₹1 Lakh / Not Disclosed", te: "రూ. 1 లక్ష లోపు / వర్తించదు", display: "రూ. 1 లక్ష లోపు / వర్తించదు (Under 1L)", minLakhs: 0 },
+];
+
+export const SALARIES: string[] = SALARIES_DETAILED.map((s) => s.en);
+
+export const SALARY_TELUGU: Record<string, string> = (() => {
+  const map: Record<string, string> = {
+    "Not specified": "వర్తించదు / పేర్కొనలేదు",
+    "1L - 2L": "₹1 - 2 లక్షలు / సం॥",
+    "2L - 4L": "₹2 - 4 లక్షలు / సం॥",
+    "4L - 6L": "₹4 - 6 లక్షలు / సం॥",
+    "6L - 8L": "₹6 - 8 లక్షలు / సం॥",
+    "8L - 10L": "₹8 - 10 లక్షలు / సం॥",
+    "10L - 15L": "₹10 - 15 లక్షలు / సం॥",
+    "15L - 20L": "₹15 - 20 లక్షలు / సం॥",
+    "20L - 30L": "₹20 - 30 లక్షలు / సం॥",
+    "30L+": "₹30 లక్షల పైగా",
+    "50L+": "₹50 లక్షల పైగా",
+    "1Cr+": "₹1 కోటి పైగా",
+  };
+  SALARIES_DETAILED.forEach((s) => {
+    map[s.en] = s.te;
+    map[s.id] = s.te;
+  });
+  return map;
+})();
+
+// =========================================================================
+// 🎓 CATEGORIZED & COMPREHENSIVE EDUCATIONS (సమగ్ర విద్యా వివరాలు)
+// =========================================================================
+export interface EducationCategory {
+  category: string;
+  categoryTe: string;
+  items: { code: string; en: string; te: string; display: string }[];
+}
+
+export const EDUCATION_CATEGORIES: EducationCategory[] = [
+  {
+    category: "Engineering & Technology",
+    categoryTe: "ఇంజనీరింగ్ & సాంకేతిక విద్య",
+    items: [
+      { code: "BTech", en: "B.Tech / B.E.", te: "బి.టెక్ / బి.ఇ", display: "B.Tech / B.E. (బి.టెక్)" },
+      { code: "MTech", en: "M.Tech / M.E.", te: "ఎం.టెక్ / ఎం.ఇ", display: "M.Tech / M.E. (ఎం.టెక్)" },
+      { code: "MS Abroad", en: "MS in USA / Abroad", te: "ఎం.ఎస్ (విదేశాల్లో చదువు)", display: "MS Abroad (ఎం.ఎస్ విదేశాలు)" },
+      { code: "MCA", en: "MCA", te: "ఎం.సి.ఎ", display: "MCA (ఎం.సి.ఎ)" },
+      { code: "BCA", en: "BCA / B.Sc Computer Science", te: "బి.సి.ఎ / కంప్యూటర్స్", display: "BCA / Computers (బి.సి.ఎ)" },
+      { code: "Diploma", en: "Polytechnic / Diploma", te: "పాలిటెక్నిక్ / డిప్లొమా", display: "Polytechnic / Diploma (డిప్లొమా)" },
+    ],
+  },
+  {
+    category: "Medicine & Healthcare",
+    categoryTe: "వైద్య & హెల్త్‌కేర్ విద్య",
+    items: [
+      { code: "MBBS", en: "MBBS", te: "ఎం.బి.బి.ఎస్ (డాక్టర్)", display: "MBBS (డాక్టర్)" },
+      { code: "MD/MS", en: "MD / MS (Medical Specialist)", te: "ఎం.డి / ఎం.ఎస్ (స్పెషలిస్ట్)", display: "MD / MS Specialist (స్పెషలిస్ట్ డాక్టర్)" },
+      { code: "DM/MCh", en: "DM / M.Ch (Super Specialist)", te: "సూపర్ స్పెషలిస్ట్ డాక్టర్", display: "DM / M.Ch Super Specialist" },
+      { code: "BDS", en: "BDS (Dental)", te: "బి.డి.ఎస్ (దంత వైద్యం)", display: "BDS (దంత వైద్యం)" },
+      { code: "MDS", en: "MDS (Dental Specialist)", te: "ఎం.డి.ఎస్ (డెంటల్ స్పెషలిస్ట్)", display: "MDS (డెంటల్ స్పెషలిస్ట్)" },
+      { code: "BPharm", en: "B.Pharm / M.Pharm / Pharm.D", te: "ఫార్మసీ / ఫార్మ్ డి", display: "B.Pharm / Pharm.D (ఫార్మసీ)" },
+      { code: "Nursing", en: "B.Sc Nursing / Allied Health", te: "నర్సింగ్ / హెల్త్‌కేర్", display: "B.Sc Nursing (నర్సింగ్)" },
+      { code: "Physio", en: "BPT / MPT (Physiotherapy)", te: "ఫిజియోథెరపీ", display: "BPT / MPT Physiotherapy" },
+      { code: "Ayush", en: "BAMS / BHMS (Ayurveda/Homeo)", te: "ఆయుర్వేద / హోమియోపతి", display: "BAMS / BHMS (ఆయుర్వేద/హోమియో)" },
+    ],
+  },
+  {
+    category: "Management, Finance & Commerce",
+    categoryTe: "మేనేజ్‌మెంట్ & కామర్స్ / ఫైనాన్స్",
+    items: [
+      { code: "MBA", en: "MBA / PGDM", te: "ఎం.బి.ఎ / పి.జి.డి.ఎం", display: "MBA / PGDM (మేనేజ్‌మెంట్)" },
+      { code: "CA", en: "CA (Chartered Accountant)", te: "సి.ఎ (చార్టర్డ్ అకౌంటెంట్)", display: "CA (చార్టర్డ్ అకౌంటెంట్)" },
+      { code: "CMA/ICWA", en: "CMA / ICWA", te: "సి.ఎం.ఎ / ఐ.సి.డబ్ల్యు.ఎ", display: "CMA / ICWA (కాస్ట్ అకౌంటెంట్)" },
+      { code: "CS", en: "CS (Company Secretary)", te: "కంపెనీ సెక్రటరీ (CS)", display: "CS (కంపెనీ సెక్రటరీ)" },
+      { code: "CFA/CPA", en: "CFA / CPA / US CMA", te: "సి.ఎఫ్.ఎ / సి.పి.ఎ", display: "CFA / CPA (గ్లోబల్ ఫైనాన్స్)" },
+      { code: "BCom", en: "B.Com / B.Com (Computers)", te: "బి.కాం / కంప్యూటర్స్", display: "B.Com (బి.కాం)" },
+      { code: "MCom", en: "M.Com", te: "ఎం.కాం", display: "M.Com (ఎం.కాం)" },
+      { code: "BBA", en: "BBA / BBM", te: "బి.బి.ఎ / బి.బి.ఎం", display: "BBA / BBM" },
+    ],
+  },
+  {
+    category: "Law, Civil Services & Professional",
+    categoryTe: "న్యాయ & వృత్తి విద్యా కోర్సులు",
+    items: [
+      { code: "LLB", en: "LLB / BL (Law)", te: "ఎల్.ఎల్.బి / న్యాయవాది", display: "LLB / Law (న్యాయవాది)" },
+      { code: "LLM", en: "LLM (Master of Law)", te: "ఎల్.ఎల్.ఎం (మాస్టర్స్ ఇన్ లా)", display: "LLM (మాస్టర్స్ ఇన్ లా)" },
+      { code: "CivilServices", en: "IAS / IPS / IFS / Group-1", te: "సివిల్ సర్వీసెస్ / గ్రూప్-1", display: "Civil Services / Group 1 (సివిల్స్)" },
+      { code: "BArch", en: "B.Arch / M.Arch (Architecture)", te: "ఆర్కిటెక్చర్", display: "B.Arch / Architecture" },
+      { code: "Design", en: "Design / Fashion (NIFT / NID)", te: "ఫ్యాషన్ & డిజైనింగ్", display: "NIFT / NID Fashion Design" },
+      { code: "Aviation", en: "Pilot / Aviation / Hotel Mgmt", te: "పైలట్ / హోటల్ మేనేజ్మెంట్", display: "Pilot / Aviation / Hotel Mgmt" },
+    ],
+  },
+  {
+    category: "Science, Arts, Teaching & Ph.D",
+    categoryTe: "సైన్స్, ఆర్ట్స్, టీచింగ్ & పరిశోధన",
+    items: [
+      { code: "PhD", en: "Ph.D / Doctorate", te: "పిహెచ్.డి (డాక్టరేట్)", display: "Ph.D / Doctorate (డాక్టరేట్)" },
+      { code: "PostDoc", en: "Post Doctorate", te: "పోస్ట్ డాక్టరేట్ రీసెర్చ్", display: "Post Doctorate (పరిశోధన)" },
+      { code: "BSc", en: "B.Sc (Sciences)", te: "బి.ఎస్సీ", display: "B.Sc (బి.ఎస్సీ)" },
+      { code: "MSc", en: "M.Sc (Sciences)", te: "ఎం.ఎస్సీ", display: "M.Sc (ఎం.ఎస్సీ)" },
+      { code: "BA", en: "B.A (Arts / Humanities)", te: "బి.ఎ", display: "B.A (బి.ఎ)" },
+      { code: "MA", en: "M.A (Master of Arts)", te: "ఎం.ఎ", display: "M.A (ఎం.ఎ)" },
+      { code: "BEd", en: "B.Ed / M.Ed", te: "బి.ఇడి / ఎం.ఇడి (టీచర్ విద్య)", display: "B.Ed / M.Ed (ఉపాధ్యాయ విద్య)" },
+    ],
+  },
+  {
+    category: "Schooling & Intermediate",
+    categoryTe: "పాఠశాల & ఇంటర్మీడియట్",
+    items: [
+      { code: "Intermediate", en: "Intermediate / 10+2", te: "ఇంటర్మీడియట్ (10+2)", display: "Intermediate / +2 (ఇంటర్)" },
+      { code: "SSC", en: "10th / SSC", te: "10వ తరగతి (ఎస్.ఎస్.సి)", display: "10th / SSC (10వ తరగతి)" },
+      { code: "Other", en: "Other Education", te: "ఇతర విద్యాభ్యాసం", display: "Other Education (ఇతర విద్య)" },
+    ],
+  },
+];
+
+export const EDUCATIONS: string[] = EDUCATION_CATEGORIES.flatMap((c) => c.items.map((i) => i.en));
+
+export const EDUCATION_TELUGU: Record<string, string> = (() => {
+  const map: Record<string, string> = {
+    "BTech": "బి.టెక్ / బి.ఇ",
+    "BE": "బి.ఇ",
+    "MTech": "ఎం.టెక్",
+    "MBBS": "డాక్టర్ (MBBS)",
+    "BCom": "బి.కాం",
+    "BSc": "బి.ఎస్సీ",
+    "BA": "బి.ఎ",
+    "BBA": "బి.బి.ఎ",
+    "BEd": "బి.ఇడి",
+    "BPharm": "ఫార్మసీ",
+    "BDS": "డెంటల్ (BDS)",
+    "LLB": "న్యాయవాది (LLB)",
+    "MCom": "ఎం.కాం",
+    "MSc": "ఎం.ఎస్సీ",
+    "MA": "ఎం.ఎ",
+    "MBA": "ఎం.బి.ఎ",
+    "MCA": "ఎం.సి.ఎ",
+    "MD": "స్పెషలిస్ట్ డాక్టర్ (MD)",
+    "MS": "స్పెషలిస్ట్ డాక్టర్ (MS)",
+    "MPharm": "ఎం.ఫార్మసీ",
+    "PhD": "డాక్టరేట్ (PhD)",
+    "CA": "చార్టర్డ్ అకౌంటెంట్ (CA)",
+    "ICWA": "ఐ.సి.డబ్ల్యు.ఎ",
+    "Diploma": "డిప్లొమా / పాలిటెక్నిక్",
+    "Intermediate": "ఇంటర్మీడియట్",
+    "SSC": "10వ తరగతి",
+    "Other": "ఇతర విద్యార్హత",
+  };
+  EDUCATION_CATEGORIES.forEach((cat) => {
+    cat.items.forEach((item) => {
+      map[item.en] = item.te;
+      map[item.code] = item.te;
+    });
+  });
+  return map;
+})();
+
+// =========================================================================
+// 💼 JOBS & OCCUPATIONS
+// =========================================================================
+export const JOBS = [
+  "Software Engineer", "Software Architect / Lead", "Data Scientist / AI Engineer", "Engineering Manager",
+  "Doctor / Physician", "Surgeon / Medical Specialist", "Dentist", "Pharmacist", "Staff Nurse / Healthcare",
+  "Govt Employee (Central / State)", "IAS / IPS / Group 1 Officer", "Bank Officer / PO / Manager",
+  "Teacher / School Faculty", "Lecturer / Assistant Professor", "Professor / Dean",
+  "Chartered Accountant (CA)", "Financial Analyst / Auditor", "Business Owner / Entrepreneur",
+  "Civil Engineer / Builder", "Mechanical / Electrical Engineer", "Lawyer / Legal Advisor",
+  "Police Officer / Defence / Army", "Architect / Interior Designer", "Graphic / UI/UX Designer",
+  "HR / Marketing / Sales Manager", "Customer Support / Operations", "Farmer / Farm Owner",
+  "Driver / Logistics", "Self Employed / Freelancer", "Not Working / Student", "Other Occupation"
+];
+
+// =========================================================================
 // 💍 COMPREHENSIVE CASTES & SUB-CASTES DIRECTORY (సమగ్ర కులాలు & ఉపకులాలు)
 // =========================================================================
 export interface CasteInfo {
@@ -204,7 +500,7 @@ export interface CasteInfo {
 export const CASTES_DETAILED: CasteInfo[] = [
   {
     en: "Reddy", te: "రెడ్డి", display: "రెడ్డి (Reddy)",
-    subcastes: ["Pakanati Reddy", "Motati Reddy", "Gudati Reddy", "Deshathi Reddy", "Pedakanti Reddy", "Ganjam Reddy", "Renati Reddy", "Neravati Reddy", "Chitteti Reddy", "Velnati Reddy", "Pokanati Reddy", "Ayodhyanagar Reddy", "Reddy (Any)"]
+    subcastes: ["Pakanati Reddy", "Motati Reddy", "Gudati Reddy", "Deshathi Reddy", "Pedakanti Reddy", "Ganjam Reddy", "Renati Reddy", "Neravati Reddy", "Chitteti Reddy", "Velnati Reddy", "Pokanati Reddy", "Konda Reddy", "Ayodhyanagar Reddy", "Reddy (Any)"]
   },
   {
     en: "Kamma", te: "కమ్మ", display: "కమ్మ (Kamma)",
@@ -220,7 +516,7 @@ export const CASTES_DETAILED: CasteInfo[] = [
   },
   {
     en: "Brahmin", te: "బ్రాహ్మణ", display: "బ్రాహ్మణ (Brahmin)",
-    subcastes: ["Vaidiki Brahmin", "Niyogi Brahmin", "Sistla", "Dravida Brahmin", "Smartha", "Madhwa", "Sri Vaishnava (Iyengar)", "Iyer", "Karnakammalu", "Prathamasaki", "Golconda Vyapari", "Brahmin (Any)"]
+    subcastes: ["Vaidiki Brahmin (Velanadu)", "Vaidiki Brahmin (Venginadu)", "Vaidiki Brahmin (Mulakanadu)", "Vaidiki Brahmin (Telaganya)", "Vaidiki Brahmin (Kasalanadu)", "Niyogi Brahmin (Aruvela)", "Niyogi Brahmin (Nandavarika)", "Niyogi Brahmin (Prathamasaki)", "Golconda Vyapari", "Sistla", "Dravida Brahmin", "Smartha", "Madhwa", "Sri Vaishnava (Iyengar)", "Iyer", "Karnakammalu", "Brahmin (Any)"]
   },
   {
     en: "Padmashali", te: "పద్మశాలి", display: "పద్మశాలి (Padmashali)",
@@ -312,7 +608,7 @@ export const CASTES_DETAILED: CasteInfo[] = [
   },
   {
     en: "Bestha", te: "బెస్త", display: "బెస్త (Bestha / Gangaputra)",
-    subcastes: ["Gangaputra", "Kabbili", "Gundla", "Bestha (Any)"]
+    subcastes: ["Gangaputra", "Kabbili", "Gundla", "Jalari", "Bestha (Any)"]
   },
   {
     en: "Gavara", te: "గవర", display: "గవర (Gavara)",
@@ -324,7 +620,7 @@ export const CASTES_DETAILED: CasteInfo[] = [
   },
   {
     en: "Perika", te: "పెరిక", display: "పెరిక (Perika / Puragiri Kshatriya)",
-    subcastes: ["Puragiri", "Perika (Any)"]
+    subcastes: ["Puragiri Kshatriya", "Perika (Any)"]
   },
   {
     en: "Togata", te: "తొగట", display: "తొగట (Togata / Togataveera)",
@@ -333,6 +629,26 @@ export const CASTES_DETAILED: CasteInfo[] = [
   {
     en: "Jangam", te: "జంగం", display: "జంగం (Jangam)",
     subcastes: ["Veerasaiva Jangam", "Silavanth", "Jangam (Any)"]
+  },
+  {
+    en: "Lingayat", te: "లింగాయత్", display: "లింగాయత్ (Lingayat / Veerasaiva)",
+    subcastes: ["Veerasaiva Lingayat", "Panchamasali", "Banajiga", "Sadar", "Lingayat (Any)"]
+  },
+  {
+    en: "Are Katika", te: "ఆరే కటిక", display: "ఆరే కటిక (Are Katika / Katika)",
+    subcastes: ["Suryavamsi Katika", "Are Katika", "Katika (Any)"]
+  },
+  {
+    en: "Meru", te: "మేరు", display: "మేరు (Meru / Darji / Tailor)",
+    subcastes: ["Meru Darji", "Shimpi", "Namdev Darji", "Meru (Any)"]
+  },
+  {
+    en: "Medari", te: "మేదరి", display: "మేదరి (Medari / Mahendra)",
+    subcastes: ["Medari", "Mahendra", "Medara (Any)"]
+  },
+  {
+    en: "Bondili", te: "బొందిలి", display: "బొందిలి (Bondili / Rajput)",
+    subcastes: ["Bondili Rajput", "Bondili (Any)"]
   },
   {
     en: "Mala", te: "మాల", display: "మాల (Mala)",
@@ -365,6 +681,10 @@ export const CASTES_DETAILED: CasteInfo[] = [
   {
     en: "ST Others", te: "ఎస్టీ ఇతర", display: "ఎస్టీ ఇతర తెగలు (ST Others)",
     subcastes: ["Chenchu", "Bagata", "Konda Reddi", "Savara", "Andh", "Yanadi", "Yerukula", "ST Others (Any)"]
+  },
+  {
+    en: "Intercaste", te: "కుల పట్టింపు లేదు", display: "కుల పట్టింపు లేదు (Caste No Bar / Intercaste)",
+    subcastes: ["Caste No Bar", "Intercaste", "Any"]
   },
 ];
 
@@ -403,19 +723,6 @@ export const HEIGHTS = [
 ];
 
 export const WEIGHTS = Array.from({ length: 61 }, (_, i) => `${40 + i}kg`);
-
-export const EDUCATIONS = ["SSC", "Intermediate", "Diploma", "BCom", "BSc", "BA", "BBA", "BTech", "BE",
-  "BPharm", "BEd", "MBBS", "BDS", "LLB", "MCom", "MSc", "MA", "MBA", "MTech", "MCA", "MD", "MS",
-  "MPharm", "PhD", "CA", "ICWA", "Other"];
-
-export const JOBS = ["Software Engineer", "Doctor", "Govt Job", "Business", "Teacher", "Lecturer",
-  "Bank Employee", "Private Job", "Engineer", "Accountant", "Nurse", "Pharmacist", "Lawyer",
-  "Agriculture", "Police/Defence", "Driver", "Tailor", "Not Working", "Other"];
-
-export const SALARIES = ["Not specified", "1L - 2L", "2L - 4L", "4L - 6L", "6L - 8L", "8L - 10L",
-  "10L - 15L", "15L - 20L", "20L - 30L", "30L+", "50L+", "1Cr+"];
-
-export const WORK_TYPES = ["Private", "Government", "Business", "Self Employed", "Not Working", "Retired"];
 
 export const MARITAL_STATUSES = ["Pelli Kaledu", "Widow", "Widower", "Divorced", "Awaiting Divorce", "Separated"];
 export const CHILDREN_OPTIONS = ["None", "1", "2", "3", "4+"];

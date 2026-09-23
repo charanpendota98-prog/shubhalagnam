@@ -206,12 +206,15 @@ def detect_nri(country: str = "", work_location: str = "", current_city: str = "
 # ---------------------------------------------------------------------------
 # 4. RELIGION → CASTES (alphabetical)
 # ---------------------------------------------------------------------------
-HINDU_CASTES = ["Adi Andhra", "Balija", "Bestha", "Bhatraju", "Boya", "Brahmin", "Dasari",
-                "Devanga", "Gandla", "Gavara", "Gond", "Goud", "Jalari", "Jangam", "Jogi",
-                "Kalinga", "Kamma", "Kapu", "Koppula Velama", "Koya", "Kummara", "Kuruba",
-                "Lambada", "Madiga", "Mala", "Mangali", "Mudiraj", "Munnuru Kapu", "Padmashali",
-                "Rajaka", "Raju", "Reddy", "SC Others", "Srisayana", "ST Others", "Telaga",
-                "Uppara", "Vadabalija", "Vaddera", "Velama", "Viswakarma", "Vysya", "Yadav"]
+HINDU_CASTES = [
+    "Adi Andhra", "Are Katika", "Arya Vysya", "Balija", "Bestha", "Bhatraju", "Bondili", "Boya",
+    "Brahmin", "Dasari", "Devanga", "Gandla", "Gavara", "Gond", "Goud", "Intercaste", "Jalari",
+    "Jangam", "Jogi", "Kalinga", "Kamma", "Kapu", "Koppula Velama", "Koya", "Kummara", "Kuruba",
+    "Lambada", "Lingayat", "Madiga", "Mala", "Mangali", "Medari", "Meru", "Mudiraj", "Munnuru Kapu",
+    "Nayee Brahmin", "Padmashali", "Perika", "Rajaka", "Raju", "Reddy", "SC Others", "Srisayana",
+    "ST Others", "Telaga", "Togata", "Uppara", "Vadabalija", "Vaddera", "Velama", "Viswabrahmin",
+    "Viswakarma", "Vysya", "Yadav", "Yadava"
+]
 MUSLIM_GROUPS = ["Ansari", "Bohra", "Dudekula", "Khoja", "Labab", "Mapila", "Memons",
                  "Mughal", "Pathan", "Qureshi", "Sheikh", "Syed", "Other Muslim"]
 CHRISTIAN_GROUPS = ["Baptist", "CSI", "Lutheran", "Marthoma", "Methodist", "Orthodox",
