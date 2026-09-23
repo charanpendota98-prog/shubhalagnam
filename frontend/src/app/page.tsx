@@ -19,6 +19,8 @@ import WeddingStoryHero from "@/components/WeddingStoryHero";
 import CinematicHero from "@/components/CinematicHero";
 import RealWeddingsFilm from "@/components/RealWeddingsFilm";
 import HomeVendorsShowcase from "@/components/HomeVendorsShowcase";
+import HeroQuickSearch from "@/components/HeroQuickSearch";
+import HomePoruthamWidget from "@/components/HomePoruthamWidget";
 import WhyChooseUs from "@/components/WhyChooseUs";
 import { waLink } from "@/lib/wa";
 import { TelegramIcon, WhatsAppIcon } from "@/components/BrandIcons";
@@ -515,23 +517,9 @@ export default function Home() {
               ))}
             </div>
 
-            {/* ID search */}
-            <div className="mt-6 bg-white rounded-2xl p-1.5 flex items-center gap-2 card-shadow max-w-xl border border-gold/25">
-              <span className="pl-3.5 text-gray-400" aria-hidden>🔍</span>
-              <input
-                value={searchId}
-                onChange={(e) => setSearchId(e.target.value)}
-                placeholder={L.idSearchPh}
-                className="flex-1 outline-none text-sm py-2.5 bg-transparent"
-                aria-label="Profile ID search"
-              />
-<Link
-                href={searchId.trim() ? `/search/${searchId.trim()}` : "/matches"}
-                className="px-5 py-2.5 maroon-gradient text-white rounded-xl text-sm font-bold whitespace-nowrap"
-              >
-                {L.idSearchBtn}
-              </Link>
-            </div>
+            {/* 🔍 Interactive 5-Second Matrimony Quick Match Finder */}
+            <HeroQuickSearch />
+
           </div>
 
           {/* Hero card mock */}
@@ -630,6 +618,9 @@ export default function Home() {
 
       {/* ================= 🏪 WEDDING SERVICES & VERIFIED VENDORS ================= */}
       <HomeVendorsShowcase />
+
+      {/* ================= 🪐 10-PORUTHAM LIVE ASTRO MATCHMAKER ================= */}
+      <HomePoruthamWidget />
 
       {/* ================= WEEKLY CASTE SHOWCASE (W41) ================= */}
       <ShowcaseStrip />
