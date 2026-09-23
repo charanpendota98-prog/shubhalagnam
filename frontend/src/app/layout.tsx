@@ -7,6 +7,8 @@ import { CHANNEL_STATS } from "@/lib/channels";
 import PWA from "@/components/PWA";
 import SupportWidget from "@/components/SupportWidget";
 import BackToTop from "@/components/BackToTop";
+import LagnaAiAssistant from "@/components/LagnaAiAssistant";
+import LiveMatrimonyTicker from "@/components/LiveMatrimonyTicker";
 import { LangProvider } from "@/lib/lang";
 
 const SITE = process.env.SITE_URL || "https://manavivaha.in";
@@ -75,8 +77,10 @@ export default function RootLayout({
           <SiteHeader />
           <main className="flex-1">{children}</main>
           <SiteFooter />
-<StickyCTA />
+          <StickyCTA />
           <PWA />
+          <LagnaAiAssistant />
+          <LiveMatrimonyTicker />
           <SupportWidget />
           <BackToTop />
         </LangProvider>
