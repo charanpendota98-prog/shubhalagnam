@@ -27,7 +27,8 @@ import PhotoFlow from "@/components/PhotoFlow";
 import { TelegramIcon, WhatsAppIcon } from "@/components/BrandIcons";
 import { waLink } from "@/lib/wa";
 import {
-  BLOOD_GROUPS, BODY_TYPES, CASTES, CASTE_SUBCASTES, CHILDREN_OPTIONS, COMPLEXIONS, DISTRICTS_BY_STATE, EDUCATIONS, FAMILY_STATUSES,
+  BLOOD_GROUPS, BODY_TYPES, CASTES, CASTE_SUBCASTES, CASTE_TELUGU, CHILDREN_OPTIONS, COMPLEXIONS, DISTRICTS_BY_STATE,
+  DISTRICT_TELUGU, EDUCATIONS, FAMILY_STATUSES,
   FAMILY_TYPES, FAMILY_VALUES, HEIGHTS, JOBS, MARITAL_STATUSES, MOTHER_TONGUES, NAKSHATRAS, NAK_TO_RASI,
   OCCUPATIONS, PHYSICAL_STATUS, RASIS, RELIGIONS, SALARIES, WORK_TYPES,
   ageFromDob, compressImage, heightLabel, maxDobFor18,
@@ -151,7 +152,7 @@ function SearchSelect({
   const list = useMemo(() => {
     const needle = q.trim().toLowerCase();
     if (!needle) return options;
-    return options.filter((o) => o.toLowerCase().includes(needle) || (teMap?.[o] || "").includes(q.trim()));
+    return options.filter((o) => o.toLowerCase().includes(needle) || (teMap?.[o] || "").toLowerCase().includes(needle));
   }, [q, options, teMap]);
 
   return (
@@ -163,7 +164,7 @@ function SearchSelect({
       <button type="button" onClick={() => setOpen((v) => !v)}
         className={`input-mobile mt-1 flex items-center justify-between text-left ${value ? "text-ink font-semibold" : "text-gray-400"}`}>
         <span className="truncate">
-          {value ? (teMap?.[value] ? <span>{value} <span className="telugu text-gray-500">({teMap[value]})</span></span> : value) : (placeholder || "Select…")}
+          {value ? (teMap?.[value] ? <span><b className="text-maroon telugu">{teMap[value]}</b> <span className="text-gray-600 font-normal text-xs ml-1">({value})</span></span> : value) : (placeholder || "Select…")}
         </span>
         <span className="text-maroon text-lg shrink-0 ml-2">{open ? "▲" : "⌄"}</span>
       </button>
@@ -184,7 +185,14 @@ function SearchSelect({
             {list.slice(0, 200).map((o) => (
               <button key={o} type="button" onClick={() => { onChange(o); setOpen(false); setQ(""); }}
                 className={`w-full text-left px-4 py-2.5 text-[14px] hover:bg-cream ${value === o ? "bg-maroon-soft font-bold text-maroon" : "text-ink"}`}>
-                {o} {teMap?.[o] ? <span className="telugu text-gray-500 text-[12px]">({teMap[o]})</span> : null}
+                {teMap?.[o] ? (
+                  <div className="flex items-center justify-between w-full">
+                    <span className="font-bold text-maroon telugu text-[14px]">{teMap[o]}</span>
+                    <span className="text-gray-500 text-[12px] font-semibold">({o})</span>
+                  </div>
+                ) : (
+                  <span>{o}</span>
+                )}
               </button>
             ))}
             {list.length === 0 && (
@@ -1203,36 +1211,37 @@ const set = (k: string, v: any) => {
           {/* ---------------- STEP 2 ---------------- */}
           {step === 2 && (
             <>
-              <SearchSelect label={`Caste — ${f.religion || "Hindu"}`} required
+              <SearchSelect label={`Caste / కులం — ${f.religion || "Hindu"}`} required
                 options={casteOpts} value={f.caste}
+                teMap={CASTE_TELUGU}
                 onChange={(v) => { set("caste", v); set("sub_caste", ""); }}
-                placeholder={T("Caste ఎంచుకోండి — search చెయ్యండి", "Select caste — type to search")}
+                placeholder={T("Caste ఎంచుకోండి — 48+ కులాలు", "Select caste — 48+ castes")}
                 hint={T(`${f.religion || "Hindu"} కులాలు A–Z — మీ caste channel లో profile post అవుతుంది`, `${f.religion || "Hindu"} castes A–Z — profile posts to your caste channel`)} />
               {f.caste && (CASTE_SUBCASTES[f.caste]?.length ? (
-                <SearchSelect label="Sub caste"
+                <SearchSelect label="Sub caste / ఉపకులం"
                   options={CASTE_SUBCASTES[f.caste]} value={f.sub_caste}
                   onChange={(v) => set("sub_caste", v)}
                   placeholder={T("Sub caste ఎంచుకోండి (ఉంటే)", "Select sub caste (if any)")}
                   hint={T("ఉంటే select చెయ్యండి — లేకపోతే వదిలేయండి", "Select if applicable — otherwise skip")} />
               ) : (
-                <TextField label="Sub caste" optional value={f.sub_caste} onChange={(v) => set("sub_caste", v)}
+                <TextField label="Sub caste / ఉపకులం" optional value={f.sub_caste} onChange={(v) => set("sub_caste", v)}
                   placeholder="Pakanati / Deshathi / Telaga…" />
               ))}
               <div className="pt-1 pb-0.5 flex items-center gap-2">
-                <span className="text-[12px] font-extrabold text-maroon">🕉️ {T("జ్యోతిషం (Astrology)", "Astrology (Jyothishyam)")}</span>
+                <span className="text-[12px] font-extrabold text-maroon">🕉️ {T("వేద జ్యోతిష వివరాలు (Vedic Astrology)", "Vedic Astrology (Jyothishyam)")}</span>
                 <span className="h-px flex-1 bg-gold/40" />
                 <span className="text-[10px] text-gray-500">{T("పొరుతం కి కావాలి", "needed for porutham")}</span>
               </div>
-              <TextField label="Gothram" optional value={f.gothram} onChange={(v) => set("gothram", v)}
-                placeholder="Bharadwaj" hint={T("Porutham report కి కావాలి", "Needed for porutham report")} />
-              <SearchSelect label="Star / Nakshatram" options={NAKSHATRAS.map((n) => n.en)} value={f.star}
+              <TextField label="Gothram / గోత్రం" optional value={f.gothram} onChange={(v) => set("gothram", v)}
+                placeholder="Bharadwaj / Kasyapa / Shiva…" hint={T("Porutham report కి కావాలి", "Needed for porutham report")} />
+              <SearchSelect label="Star / Nakshatram (నక్షత్రం)" options={NAKSHATRAS.map((n) => n.en)} value={f.star}
                 teMap={Object.fromEntries(NAKSHATRAS.map((n) => [n.en, n.te]))}
                 onChange={(v) => set("star", v)}
-                placeholder={T("Star ఎంచుకోండి", "Select star")}
+                placeholder={T("నక్షత్రం ఎంచుకోండి (27 Nakshatras)", "Select star (27 Nakshatras)")}
                 hint={T("Star select చేస్తే rasi automatic వస్తుంది (porutham 10/10)", "Select star — rasi auto-suggests (porutham 10/10)")} />
-              <SearchSelect label="Rasi" options={RASIS.map((r) => r.en)} value={f.rasi}
+              <SearchSelect label="Rasi / రాశి (Moon Sign)" options={RASIS.map((r) => r.en)} value={f.rasi}
                 teMap={Object.fromEntries(RASIS.map((r) => [r.en, r.te]))}
-                onChange={(v) => set("rasi", v)} placeholder={T("Rasi ఎంచుకోండి", "Select rasi")} />
+                onChange={(v) => set("rasi", v)} placeholder={T("రాశి ఎంచుకోండి (12 Rasis)", "Select rasi (12 Rasis)")} />
               <PillGroup label={T("మూలా నక్షత్రమా?", "Moola nakshatram?")} options={[{ v: "No", en: "No", te: "లేదు" }, { v: "Yes", en: "Yes", te: "ఉంది" }]} value={f.moola_nakshatram}
                 onChange={(v) => set("moola_nakshatram", v)} />
               <PillGroup label={T("దోషం ఉందా?", "Any dosham?")} options={[{ v: "No", en: "No", te: "లేదు" }, { v: "Yes", en: "Yes", te: "ఉంది" }, { v: "Not Sure", en: "Not sure", te: "తెలియదు" }]} value={f.dosham}
@@ -1268,13 +1277,32 @@ const set = (k: string, v: any) => {
           {/* ---------------- STEP 4 ---------------- */}
           {step === 4 && (
             <>
-              <div className="grid grid-cols-2 gap-3">
-                <ChipGroup label="State" required options={[{ v: "TS" }, { v: "AP" }, { v: "Other" }]} value={f.state}
-                  onChange={(v) => { set("state", v); set("district", ""); }} />
+              <div>
+                <label className="text-[13px] font-bold text-ink">
+                  State / రాష్ట్రం <span className="req-star">*</span>
+                </label>
+                <div className="mt-2 grid grid-cols-3 gap-2">
+                  <button type="button" onClick={() => { set("state", "TS"); set("district", ""); }}
+                    className={`p-3 rounded-2xl border text-center transition ${f.state === "TS" ? "maroon-gradient text-white font-bold shadow-brand" : "bg-white border-gray-300 text-gray-700 hover:border-maroon"}`}>
+                    <div className="text-sm font-extrabold">🏛️ TS</div>
+                    <div className="text-[11px] opacity-90 telugu font-medium">తెలంగాణ (33)</div>
+                  </button>
+                  <button type="button" onClick={() => { set("state", "AP"); set("district", ""); }}
+                    className={`p-3 rounded-2xl border text-center transition ${f.state === "AP" ? "maroon-gradient text-white font-bold shadow-brand" : "bg-white border-gray-300 text-gray-700 hover:border-maroon"}`}>
+                    <div className="text-sm font-extrabold">🌊 AP</div>
+                    <div className="text-[11px] opacity-90 telugu font-medium">ఆంధ్రప్రదేశ్ (26)</div>
+                  </button>
+                  <button type="button" onClick={() => { set("state", "Other"); set("district", ""); }}
+                    className={`p-3 rounded-2xl border text-center transition ${f.state === "Other" ? "maroon-gradient text-white font-bold shadow-brand" : "bg-white border-gray-300 text-gray-700 hover:border-maroon"}`}>
+                    <div className="text-sm font-extrabold">🌍 NRI / Other</div>
+                    <div className="text-[11px] opacity-90 telugu font-medium">ఇతర / NRI</div>
+                  </button>
+                </div>
               </div>
-              <SearchSelect label="District" required options={distList}
+              <SearchSelect label={f.state === "TS" ? "District / జిల్లా (33 Telangana Districts)" : f.state === "AP" ? "District / జిల్లా (26 AP Districts)" : "District / Location"} required options={distList}
+                teMap={DISTRICT_TELUGU}
                 value={f.district} onChange={(v) => set("district", v)}
-                placeholder={T("District ఎంచుకోండి", "Select district")}
+                placeholder={f.state === "TS" ? T("తెలంగాణ జిల్లా ఎంచుకోండి (33 జిల్లాలు)", "Select Telangana district (33)") : f.state === "AP" ? T("ఆంధ్రప్రదేశ్ జిల్లా ఎంచుకోండి (26 జిల్లాలు)", "Select AP district (26)") : T("ప్రాంతం ఎంచుకోండి", "Select location")}
                 hint={T("District channel + local matches కి కావాలి", "Needed for district channel + local matches")} />
               <div className="grid grid-cols-1 gap-3">
                 <TextField label="Mandal / Area" optional value={f.mandal} onChange={(v) => set("mandal", v)} placeholder="Miryalaguda" />

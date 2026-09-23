@@ -17,12 +17,15 @@ import Link from "next/link";
 import {
   CASTES,
   CASTE_SUBCASTES,
+  CASTE_TELUGU,
   DISTRICTS_BY_STATE,
+  DISTRICT_TELUGU,
   EDUCATIONS,
   HEIGHTS,
   JOBS,
   MARITAL_STATUSES,
   NAKSHATRAS,
+  RASIS,
   RELIGIONS,
   SALARIES,
   TS_DISTRICTS,
@@ -229,17 +232,29 @@ export default function MatchesPage() {
     return Array.from(new Set(subs));
   }, [filters.caste]);
 
-  // Filtered Castes & Districts in Search List
+  // Filtered Castes & Districts in Search List (support both English and Telugu search)
   const filteredCastesList = useMemo(() => {
     if (!casteSearch) return CASTES;
-    return CASTES.filter((c) => c.toLowerCase().includes(casteSearch.toLowerCase()));
+    const q = casteSearch.trim().toLowerCase();
+    return CASTES.filter((c) => c.toLowerCase().includes(q) || (CASTE_TELUGU[c] || "").toLowerCase().includes(q));
   }, [casteSearch]);
 
   const filteredDistrictsList = useMemo(() => {
     const base = filters.state ? DISTRICTS_BY_STATE[filters.state] || ALL_DISTRICTS_COMBINED : ALL_DISTRICTS_COMBINED;
     if (!districtSearch) return base;
-    return base.filter((d) => d.toLowerCase().includes(districtSearch.toLowerCase()));
+    const q = districtSearch.trim().toLowerCase();
+    return base.filter((d) => d.toLowerCase().includes(q) || (DISTRICT_TELUGU[d] || "").toLowerCase().includes(q));
   }, [filters.state, districtSearch]);
+
+  const selectAllTS = () => {
+    setF("state", "TS");
+    setF("district", TS_DISTRICTS.join(","));
+  };
+
+  const selectAllAP = () => {
+    setF("state", "AP");
+    setF("district", AP_DISTRICTS.join(","));
+  };
 
   // Active filter tags for the chip bar
   const activeChips = useMemo(() => {
@@ -749,17 +764,20 @@ export default function MatchesPage() {
                 return (
                   <label
                     key={c}
-                    className={`flex items-center gap-2 p-1.5 rounded-xl text-xs cursor-pointer transition ${
+                    className={`flex items-center justify-between gap-2 p-1.5 rounded-xl text-xs cursor-pointer transition ${
                       checked ? "bg-amber-50 text-maroon font-black" : "text-slate-700 hover:bg-slate-50"
                     }`}
                   >
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      onChange={() => toggleMulti("caste", c)}
-                      className="accent-[#7A0C2E] rounded"
-                    />
-                    <span>{c}</span>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => toggleMulti("caste", c)}
+                        className="accent-[#7A0C2E] rounded"
+                      />
+                      <span className="font-bold text-[#7A0C2E] telugu">{CASTE_TELUGU[c] || c}</span>
+                    </div>
+                    <span className="text-[11px] text-slate-500 font-medium">({c})</span>
                   </label>
                 );
               })}
@@ -807,15 +825,15 @@ export default function MatchesPage() {
             {/* State selector pills */}
             <div className="flex gap-1 mb-2">
               {[
-                { v: "", l: "All" },
-                { v: "TS", l: "Telangana" },
-                { v: "AP", l: "Andhra" },
+                { v: "", l: "All / అన్నీ" },
+                { v: "TS", l: "🏛️ TS (33)" },
+                { v: "AP", l: "🌊 AP (26)" },
               ].map((st) => (
                 <button
                   key={st.v}
                   onClick={() => setF("state", st.v)}
                   className={`flex-1 py-1 text-[10.5px] font-bold rounded-lg border text-center transition ${
-                    filters.state === st.v ? "bg-navy text-white border-navy" : "bg-slate-50 text-slate-700 border-slate-200"
+                    filters.state === st.v ? "bg-maroon text-white border-maroon" : "bg-slate-50 text-slate-700 border-slate-200"
                   }`}
                 >
                   {st.l}
@@ -823,9 +841,29 @@ export default function MatchesPage() {
               ))}
             </div>
 
+            {/* Quick State Select All button */}
+            <div className="flex items-center justify-between text-[11px] mb-2 px-0.5">
+              <button
+                type="button"
+                onClick={filters.state === "AP" ? selectAllAP : selectAllTS}
+                className="text-[#7A0C2E] font-bold hover:underline"
+              >
+                {filters.state === "AP" ? "✓ అన్ని 26 AP జిల్లాలు" : "✓ అన్ని 33 TS జిల్లాలు"}
+              </button>
+              {filters.district && (
+                <button
+                  type="button"
+                  onClick={() => setF("district", "")}
+                  className="text-slate-400 hover:text-rose-600"
+                >
+                  క్లియర్
+                </button>
+              )}
+            </div>
+
             <input
               type="text"
-              placeholder={te ? "🔍 జిల్లా వెతకండి..." : "🔍 Search district..."}
+              placeholder={te ? "🔍 జిల్లా వెతకండి (తెలుగు / Eng)..." : "🔍 Search district..."}
               value={districtSearch}
               onChange={(e) => setDistrictSearch(e.target.value)}
               className="w-full bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs mb-2 focus:outline-none focus:ring-1 focus:ring-maroon"
@@ -837,17 +875,20 @@ export default function MatchesPage() {
                 return (
                   <label
                     key={d}
-                    className={`flex items-center gap-2 p-1.5 rounded-xl text-xs cursor-pointer transition ${
+                    className={`flex items-center justify-between gap-2 p-1.5 rounded-xl text-xs cursor-pointer transition ${
                       checked ? "bg-amber-50 text-maroon font-black" : "text-slate-700 hover:bg-slate-50"
                     }`}
                   >
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      onChange={() => toggleMulti("district", d)}
-                      className="accent-[#7A0C2E] rounded"
-                    />
-                    <span>{d}</span>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => toggleMulti("district", d)}
+                        className="accent-[#7A0C2E] rounded"
+                      />
+                      <span className="font-bold text-slate-800 telugu">{DISTRICT_TELUGU[d] || d}</span>
+                    </div>
+                    <span className="text-[11px] text-slate-500 font-medium">({d})</span>
                   </label>
                 );
               })}
@@ -1153,21 +1194,24 @@ export default function MatchesPage() {
                   <div>
                     <input
                       type="text"
-                      placeholder="🔍 Search caste..."
+                      placeholder={te ? "🔍 కులం వెతకండి..." : "🔍 Search caste..."}
                       value={casteSearch}
                       onChange={(e) => setCasteSearch(e.target.value)}
                       className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs mb-3"
                     />
                     <div className="space-y-2">
                       {filteredCastesList.map((c) => (
-                        <label key={c} className="flex items-center gap-2 text-xs cursor-pointer text-slate-800">
-                          <input
-                            type="checkbox"
-                            checked={isMultiSelected("caste", c)}
-                            onChange={() => toggleMulti("caste", c)}
-                            className="accent-[#7A0C2E] rounded w-4 h-4"
-                          />
-                          <span>{c}</span>
+                        <label key={c} className="flex items-center justify-between text-xs cursor-pointer text-slate-800 py-1">
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              checked={isMultiSelected("caste", c)}
+                              onChange={() => toggleMulti("caste", c)}
+                              className="accent-[#7A0C2E] rounded w-4 h-4"
+                            />
+                            <span className="font-bold text-[#7A0C2E] telugu">{CASTE_TELUGU[c] || c}</span>
+                          </div>
+                          <span className="text-[11px] text-slate-500 font-medium">({c})</span>
                         </label>
                       ))}
                     </div>
@@ -1176,23 +1220,64 @@ export default function MatchesPage() {
 
                 {mobileFilterTab === "district" && (
                   <div>
+                    {/* Quick State selector pills in mobile drawer */}
+                    <div className="flex gap-1 mb-2.5">
+                      {[
+                        { v: "", l: "All / అన్నీ" },
+                        { v: "TS", l: "🏛️ TS (33)" },
+                        { v: "AP", l: "🌊 AP (26)" },
+                      ].map((st) => (
+                        <button
+                          key={st.v}
+                          onClick={() => setF("state", st.v)}
+                          className={`flex-1 py-1.5 text-[11px] font-bold rounded-lg border text-center transition ${
+                            filters.state === st.v ? "bg-maroon text-white border-maroon" : "bg-slate-50 text-slate-700 border-slate-200"
+                          }`}
+                        >
+                          {st.l}
+                        </button>
+                      ))}
+                    </div>
+
+                    <div className="flex items-center justify-between text-[11px] mb-2 px-0.5">
+                      <button
+                        type="button"
+                        onClick={filters.state === "AP" ? selectAllAP : selectAllTS}
+                        className="text-[#7A0C2E] font-bold underline"
+                      >
+                        {filters.state === "AP" ? "✓ అన్ని AP జిల్లాలు" : "✓ అన్ని TS జిల్లాలు"}
+                      </button>
+                      {filters.district && (
+                        <button
+                          type="button"
+                          onClick={() => setF("district", "")}
+                          className="text-rose-600 font-semibold"
+                        >
+                          క్లియర్
+                        </button>
+                      )}
+                    </div>
+
                     <input
                       type="text"
-                      placeholder="🔍 Search district..."
+                      placeholder={te ? "🔍 జిల్లా వెతకండి..." : "🔍 Search district..."}
                       value={districtSearch}
                       onChange={(e) => setDistrictSearch(e.target.value)}
                       className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs mb-3"
                     />
                     <div className="space-y-2">
                       {filteredDistrictsList.map((d) => (
-                        <label key={d} className="flex items-center gap-2 text-xs cursor-pointer text-slate-800">
-                          <input
-                            type="checkbox"
-                            checked={isMultiSelected("district", d)}
-                            onChange={() => toggleMulti("district", d)}
-                            className="accent-[#7A0C2E] rounded w-4 h-4"
-                          />
-                          <span>{d}</span>
+                        <label key={d} className="flex items-center justify-between text-xs cursor-pointer text-slate-800 py-1">
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              checked={isMultiSelected("district", d)}
+                              onChange={() => toggleMulti("district", d)}
+                              className="accent-[#7A0C2E] rounded w-4 h-4"
+                            />
+                            <span className="font-bold text-slate-800 telugu">{DISTRICT_TELUGU[d] || d}</span>
+                          </div>
+                          <span className="text-[11px] text-slate-500 font-medium">({d})</span>
                         </label>
                       ))}
                     </div>
@@ -1234,14 +1319,17 @@ export default function MatchesPage() {
                 {mobileFilterTab === "astro" && (
                   <div className="space-y-2">
                     {NAKSHATRAS.map((nak) => (
-                      <label key={nak.en} className="flex items-center gap-2 text-xs cursor-pointer text-slate-800">
-                        <input
-                          type="checkbox"
-                          checked={isMultiSelected("star", nak.en)}
-                          onChange={() => toggleMulti("star", nak.en)}
-                          className="accent-[#7A0C2E] rounded w-4 h-4"
-                        />
-                        <span>{nak.te} ({nak.en})</span>
+                      <label key={nak.en} className="flex items-center justify-between text-xs cursor-pointer text-slate-800 py-1">
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={isMultiSelected("star", nak.en)}
+                            onChange={() => toggleMulti("star", nak.en)}
+                            className="accent-[#7A0C2E] rounded w-4 h-4"
+                          />
+                          <span className="font-bold text-[#7A0C2E] telugu">{nak.te}</span>
+                        </div>
+                        <span className="text-[11px] text-slate-500 font-medium">({nak.en})</span>
                       </label>
                     ))}
                   </div>
