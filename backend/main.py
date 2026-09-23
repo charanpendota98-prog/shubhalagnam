@@ -429,6 +429,124 @@ def control_payout_action(request_id: str, payload: dict, request: Request):
     return {"success": True, **res}
 
 
+@app.get("/api/control/castes")
+def control_castes_list(request: Request):
+    """Control Portal: Castes & Community Hubs overview with counts and subcastes."""
+    item = CONTROL_AUTH.require(request)
+    from channels_config import CASTE_CLUSTERS, CHANNELS
+    clusters_data = []
+    for cl in CASTE_CLUSTERS:
+        key = cl["key"]
+        en = cl["en"]
+        te = cl["te"]
+        cat = cl.get("category", "OC")
+        members = list(cl.get("members", []))
+        males = sum(1 for u in DB_USERS if (str(u.get("caste", "")).lower() in [m.lower() for m in members] or key in str(u.get("caste", "")).lower()) and str(u.get("gender", "")).lower() in ["groom", "male"])
+        females = sum(1 for u in DB_USERS if (str(u.get("caste", "")).lower() in [m.lower() for m in members] or key in str(u.get("caste", "")).lower()) and str(u.get("gender", "")).lower() in ["bride", "female"])
+        clusters_data.append({
+            "key": key,
+            "en": en,
+            "te": te,
+            "category": cat,
+            "members": members,
+            "split": cl.get("split", False),
+            "males": males,
+            "females": females,
+            "total": males + females,
+            "live": True,
+            "channel_bride": CHANNELS.get(f"c_{key}_bride", {}).get("username") or CHANNELS.get(f"c_{key}", {}).get("username") or f"manavivaha_{key}_bride",
+            "channel_groom": CHANNELS.get(f"c_{key}_groom", {}).get("username") or CHANNELS.get(f"c_{key}", {}).get("username") or f"manavivaha_{key}_groom",
+        })
+    return {"success": True, "castes": clusters_data, "total_castes": len(clusters_data)}
+
+
+@app.post("/api/control/profiles/add")
+def control_add_profile(payload: dict, request: Request):
+    """Control Portal: Admin instant profile creator for any caste."""
+    item = _control_write_guard(request, roles=_CONTROL_WRITE_ROLES)
+    d = payload or {}
+    full_name = str(d.get("full_name", "")).strip()
+    if not full_name:
+        raise HTTPException(400, "Full name required")
+    raw_gender = str(d.get("gender", "Bride")).capitalize()
+    gender = "Groom" if raw_gender in ["Male", "Groom"] else "Bride"
+    
+    age = int(d.get("age") or (24 if gender == "Bride" else 27))
+    height = str(d.get("height", "5 ft 4 in")).strip()
+    caste = str(d.get("caste", "Reddy")).strip()
+    sub_caste = str(d.get("sub_caste", "")).strip()
+    gothram = str(d.get("gothram", "")).strip()
+    star = str(d.get("star", "Rohini")).strip()
+    rasi = str(d.get("rasi", "Vrishabha")).strip()
+    education = str(d.get("education", "B.Tech")).strip()
+    job = str(d.get("job", "Software Engineer")).strip()
+    salary = str(d.get("salary", "12 LPA")).strip()
+    state = str(d.get("state", "TS")).strip()
+    district = str(d.get("district", "Hyderabad")).strip()
+    about_myself = str(d.get("about_myself", f"{full_name} is looking for a suitable alliance from {caste} community."))
+    photo_url = str(d.get("photo_url", "")).strip()
+    phone = str(d.get("phone", "9876543210")).strip()
+    
+    seq = len(DB_USERS) + 1
+    tsap_id = generate_profile_id(caste, seq)
+    while any(str(u.get("tsap_id")) == str(tsap_id) for u in DB_USERS):
+        seq += 1
+        tsap_id = generate_profile_id(caste, seq)
+        
+    user = {
+        "tsap_id": tsap_id,
+        "full_name": full_name,
+        "gender": gender,
+        "age": age,
+        "height": height,
+        "marital_status": "Pelli Kaledu",
+        "children": "None",
+        "caste": caste,
+        "sub_caste": sub_caste,
+        "gothram": gothram,
+        "star": star,
+        "rasi": rasi,
+        "education": education,
+        "job": job,
+        "salary": salary,
+        "state": state,
+        "district": district,
+        "phone": phone,
+        "phone_masked": mask_phone(phone),
+        "phone_verified": True,
+        "about_myself": about_myself,
+        "photo_url": photo_url,
+        "is_approved": True,
+        "is_verified": True,
+        "status": "approved",
+        "plan": "FREE",
+        "credits": 3,
+        "created_at": datetime.utcnow().isoformat(),
+    }
+    
+    code = f"{caste[:3].upper()}{random.randint(1000, 9999)}"
+    user["my_referral_code"] = code
+    
+    try:
+        route = route_profile(user)
+        user["posted_channels"] = route.get("usernames", [])
+        user["post_hashtags"] = route.get("hashtags", [])
+    except Exception:
+        user["posted_channels"] = []
+        user["post_hashtags"] = []
+        
+    DB_USERS.append(user)
+    try:
+        DBSTORE.save(DBSTORE.snapshot(DB_USERS, DB_INTERESTS, DB_PAYMENTS, DB_OTPS,
+                                      VERIFIED_PHONES, DB_VIEWS, DB_SAVES, DB_DIGEST), force=True)
+    except Exception:
+        pass
+        
+    CONTROL_AUTH.audit("control_add_profile", item["username"], request, tsap_id=tsap_id, caste=caste, name=full_name)
+    return {"success": True, "tsap_id": tsap_id, "profile": user, "message": f"Profile {tsap_id} added successfully!"}
+
+
+
 # 🌊 WAVE 26 — GLOBAL SAFETY NET: ekkada crash aina Telugu JSON (raw 500 never).
 #    User ki easy message + ref code (support ki chepthe admin log lo chusthadu).
 @app.exception_handler(Exception)

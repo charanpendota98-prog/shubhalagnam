@@ -3,10 +3,11 @@
 /**
  * 🎛️ ADVANCED CONTROL DASHBOARD — owner + worker (RBAC).
  * Real backend data via session cookie: /api/control/analytics, profile-queue,
- * spotlight-queue, reports. Actions (approve/reject/resolve) send CSRF header. Fully bilingual.
+ * spotlight-queue, reports, castes, and vendors. Actions send CSRF header. Fully bilingual.
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useLang } from "@/lib/lang";
 import { BarList, Donut, Sparkline } from "./Charts";
 
@@ -46,12 +47,25 @@ type PayoutItem = {
   method: string; upi_id?: string; account?: string; ifsc?: string;
   status: string; requested_at: string; utr?: string;
 };
+type CasteHubItem = {
+  key: string; en: string; te: string; category: string; members: string[];
+  split: boolean; males: number; females: number; total: number; live: boolean;
+  channel_bride?: string; channel_groom?: string;
+};
+type VendorItem = {
+  id?: string; vendor_id?: string; name?: string; business_name?: string;
+  category: string; category_name?: string; phone_masked?: string;
+  phone?: string; district: string; state?: string; rating?: number;
+  package_name?: string; verified?: boolean;
+};
 
 const T = {
   te: {
     ops: "ప్రైవేట్ ఆపరేషన్స్", dash: "డాష్‌బోర్డ్", signedAs: "సైన్ ఇన్",
     signout: "సైన్ అవుట్", refresh: "రిఫ్రెష్", loading: "లోడ్ అవుతోంది…",
-    tabOverview: "📊 అవలోకనం", tabQueue: "👥 ప్రొఫైల్ క్యూ", tabSpotlight: "🌟 స్పాట్‌లైట్ / Profiles of Day", tabReferrals: "🤝 రెఫరల్స్ & పేఅవుట్స్", tabReports: "🚩 రిపోర్ట్‌లు",
+    tabOverview: "📊 అవలోకనం", tabQueue: "👥 ప్రొఫైల్ క్యూ", tabCastes: "🏛️ కులాలు & కమ్యూనిటీలు",
+    tabAddProfile: "➕ ప్రొఫైల్ చేర్చండి", tabVendors: "🏪 పెళ్లి సేవలు & వెండర్లు",
+    tabSpotlight: "🌟 స్పాట్‌లైట్ / Profiles of Day", tabReferrals: "🤝 రెఫరల్స్ & పేఅవుట్స్", tabReports: "🚩 రిపోర్ట్‌లు",
     tabRevenue: "💰 రెవెన్యూ", tabAudit: "📜 ఆడిట్ లాగ్",
     kProfiles: "మొత్తం ప్రొఫైళ్లు", kPending: "పెండింగ్ రివ్యూ", kApproved: "అప్రూవ్డ్",
     kReports: "ఓపెన్ రిపోర్ట్‌లు", kPhotos: "ఫోటో రివ్యూ", kVerified: "వెరిఫైడ్",
@@ -72,7 +86,9 @@ const T = {
   en: {
     ops: "Private operations", dash: "Dashboard", signedAs: "Signed in as",
     signout: "Sign out", refresh: "Refresh", loading: "Loading…",
-    tabOverview: "📊 Overview", tabQueue: "👥 Profile queue", tabSpotlight: "🌟 Spotlight / Profiles of Day", tabReferrals: "🤝 Referrals & Payouts", tabReports: "🚩 Reports",
+    tabOverview: "📊 Overview", tabQueue: "👥 Profile queue", tabCastes: "🏛️ Castes & Hubs",
+    tabAddProfile: "➕ Add Profile", tabVendors: "🏪 Wedding Vendors",
+    tabSpotlight: "🌟 Spotlight / Profiles of Day", tabReferrals: "🤝 Referrals & Payouts", tabReports: "🚩 Reports",
     tabRevenue: "💰 Revenue", tabAudit: "📜 Audit log",
     kProfiles: "Total profiles", kPending: "Pending review", kApproved: "Approved",
     kReports: "Open reports", kPhotos: "Photo review", kVerified: "Verified",
@@ -92,6 +108,34 @@ const T = {
   },
 };
 
+const TELUGU_CASTES_LIST = [
+  "Reddy", "Kamma", "Kapu", "Arya Vysya", "Brahmin", "Padmashali", "Yadava",
+  "Goud", "Munnuru Kapu", "Velama", "Mudiraj", "Viswabrahmin", "Raju / Kshatriya",
+  "Mala", "Madiga", "Lambada / Banjara", "Vaddera", "Rajaka", "Nayee Brahmin",
+  "Kummari", "Medari", "Boya / Valmiki", "Muslim", "Christian", "Inter-Caste", "Other"
+];
+
+const NAKSHATRAS_LIST = [
+  "Ashwini", "Bharani", "Krittika", "Rohini", "Mrigasira", "Ardra", "Punarvasu",
+  "Pushya", "Ashlesha", "Magha", "Purva Phalguni", "Uttara Phalguni", "Hasta",
+  "Chitra", "Swati", "Vishakha", "Anuradha", "Jyeshtha", "Moola", "Purvashadha",
+  "Uttarashadha", "Shravana", "Dhanishta", "Shatabhisha", "Purva Bhadrapada",
+  "Uttara Bhadrapada", "Revati"
+];
+
+const RASIS_LIST = [
+  "Mesha (Aries)", "Vrishabha (Taurus)", "Mithuna (Gemini)", "Karkataka (Cancer)",
+  "Simha (Leo)", "Kanya (Virgo)", "Thula (Libra)", "Vrischika (Scorpio)",
+  "Dhanussu (Sagittarius)", "Makara (Capricorn)", "Kumbha (Aquarius)", "Meena (Pisces)"
+];
+
+const DISTRICTS_TS_AP = [
+  "Hyderabad", "Rangareddy", "Medchal", "Warangal", "Karimnagar", "Nizamabad",
+  "Khammam", "Nalgonda", "Mahbubnagar", "Visakhapatnam", "Vijayawada (NTR)", "Guntur",
+  "Tirupati", "Nellore", "Kurnool", "Rajahmundry", "Kakinada", "Anantapur", "Kadapa",
+  "Chittoor", "Eluru", "Srikakulam", "Vizianagaram", "USA / NRI", "Other"
+];
+
 async function jget(url: string) {
   const r = await fetch(url, { credentials: "include" });
   if (r.status === 401) throw new Error("401");
@@ -104,7 +148,7 @@ export default function Dashboard() {
   const L = T[(lang as "te" | "en") in T ? (lang as "te" | "en") : "te"];
   const [me, setMe] = useState<Me | null>(null);
   const [an, setAn] = useState<Analytics | null>(null);
-  const [tab, setTab] = useState<"overview" | "queue" | "spotlight" | "referrals" | "reports" | "revenue" | "audit">("overview");
+  const [tab, setTab] = useState<"overview" | "queue" | "castes" | "addProfile" | "vendors" | "spotlight" | "referrals" | "reports" | "revenue" | "audit">("overview");
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const [qStatus, setQStatus] = useState<"pending" | "approved" | "rejected" | "all">("pending");
   const [spotlights, setSpotlights] = useState<SpotlightItem[]>([]);
@@ -112,9 +156,48 @@ export default function Dashboard() {
   const [payouts, setPayouts] = useState<PayoutItem[]>([]);
   const [pStatus, setPStatus] = useState<string>("all");
   const [reports, setReports] = useState<ReportItem[]>([]);
+  const [castesData, setCastesData] = useState<CasteHubItem[]>([]);
+  const [vendorsData, setVendorsData] = useState<VendorItem[]>([]);
   const [toast, setToast] = useState("");
   const [busyId, setBusyId] = useState("");
   const [err, setErr] = useState("");
+
+  // New Profile Form State
+  const [newProf, setNewProf] = useState({
+    full_name: "",
+    gender: "Bride",
+    age: 24,
+    height: "5 ft 4 in",
+    caste: "Reddy",
+    sub_caste: "",
+    gothram: "",
+    star: "Rohini",
+    rasi: "Vrishabha (Taurus)",
+    education: "B.Tech",
+    job: "Software Engineer",
+    salary: "12 LPA",
+    state: "TS",
+    district: "Hyderabad",
+    phone: "",
+    photo_url: "",
+    about_myself: "",
+  });
+  const [createdProfile, setCreatedProfile] = useState<any>(null);
+  const [profSubmitting, setProfSubmitting] = useState(false);
+
+  // New Vendor Form State
+  const [newVendor, setNewVendor] = useState({
+    business_name: "",
+    category: "photography",
+    contact_person: "",
+    phone: "",
+    district: "Hyderabad",
+    state: "TS",
+    price_starting: "₹15,000",
+    experience_years: 5,
+    about: "",
+  });
+  const [vendorSubmitting, setVendorSubmitting] = useState(false);
 
   const owner = me?.role === "owner";
 
@@ -162,13 +245,29 @@ export default function Dashboard() {
     } catch { setPayouts([]); }
   }, []);
 
+  const loadCastes = useCallback(async () => {
+    try {
+      const d = await jget(`/api/control/castes`);
+      setCastesData(d.castes || []);
+    } catch { setCastesData([]); }
+  }, []);
+
+  const loadVendors = useCallback(async () => {
+    try {
+      const d = await jget(`/api/vendors?limit=100`);
+      setVendorsData(d.items || d.vendors || []);
+    } catch { setVendorsData([]); }
+  }, []);
+
   useEffect(() => { loadCore(); }, [loadCore]);
   useEffect(() => { if (tab === "queue") loadQueue(qStatus); }, [tab, qStatus, loadQueue]);
   useEffect(() => { if (tab === "reports") loadReports(); }, [tab, loadReports]);
   useEffect(() => { if (tab === "spotlight") loadSpotlights(spStatus); }, [tab, spStatus, loadSpotlights]);
   useEffect(() => { if (tab === "referrals") loadPayouts(pStatus); }, [tab, pStatus, loadPayouts]);
+  useEffect(() => { if (tab === "castes") loadCastes(); }, [tab, loadCastes]);
+  useEffect(() => { if (tab === "vendors") loadVendors(); }, [tab, loadVendors]);
 
-  const flash = (m: string) => { setToast(m); setTimeout(() => setToast(""), 2600); };
+  const flash = (m: string) => { setToast(m); setTimeout(() => setToast(""), 2800); };
 
   async function payoutAction(reqId: string, action: "approve" | "reject", utr?: string) {
     if (!me) return;
@@ -233,69 +332,160 @@ export default function Dashboard() {
         headers: { "Content-Type": "application/json", "X-Control-CSRF": me.csrf },
         body: JSON.stringify({ action }),
       });
-      const d = await r.json();
-      if (!r.ok) throw new Error(d.detail || "fail");
-      flash(d.action || L.done);
-      setReports((rs) => rs.filter((x) => (x.report_id || x.id) !== id));
+      if (!r.ok) throw new Error("fail");
+      flash(L.done);
+      setReports((reps) => reps.filter((x) => (x.report_id || x.id) !== id));
       loadCore();
     } catch { flash(L.failed); }
     finally { setBusyId(""); }
   }
 
-  async function logout() {
-    if (me) {
-      await fetch("/api/control/logout", {
-        method: "POST", credentials: "include", headers: { "X-Control-CSRF": me.csrf },
-      }).catch(() => {});
+  async function handleAddProfile(e: React.FormEvent) {
+    e.preventDefault();
+    if (!me) return;
+    if (!newProf.full_name.trim()) return flash("Full name is required");
+    setProfSubmitting(true);
+    try {
+      const r = await fetch("/api/control/profiles/add", {
+        method: "POST", credentials: "include",
+        headers: { "Content-Type": "application/json", "X-Control-CSRF": me.csrf },
+        body: JSON.stringify(newProf),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.detail || "Failed to add profile");
+      setCreatedProfile(d.profile || d);
+      flash(lang === "te" ? `✅ ప్రొఫైల్ ${d.tsap_id} విజయవంతంగా జోడించబడింది!` : `✅ Profile ${d.tsap_id} added successfully!`);
+      loadCore();
+    } catch (err: any) {
+      flash(err?.message || "Error adding profile");
+    } finally {
+      setProfSubmitting(false);
     }
-    gotoLogin();
   }
 
-  if (err) return <main className="grid min-h-screen place-items-center p-8 text-slate-600">{err}</main>;
-  if (!me || !an) return (
-    <main className="grid min-h-screen place-items-center bg-[#fffaf7] p-8">
-      <div className="flex items-center gap-3 text-slate-500">
-        <span className="h-5 w-5 animate-spin rounded-full border-2 border-maroon border-t-transparent" />
+  async function handleAddVendor(e: React.FormEvent) {
+    e.preventDefault();
+    if (!newVendor.business_name.trim()) return flash("Business name required");
+    setVendorSubmitting(true);
+    try {
+      const r = await fetch("/api/vendors/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: newVendor.business_name,
+          category: newVendor.category,
+          contact_person: newVendor.contact_person,
+          phone: newVendor.phone || "9876543210",
+          district: newVendor.district,
+          state: newVendor.state,
+          about: newVendor.about,
+          package_code: "silver",
+        }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.detail || "Failed to register vendor");
+      flash(lang === "te" ? "✅ వెండర్ విజయవంతంగా నమోదు అయ్యారు!" : "✅ Vendor registered successfully!");
+      loadVendors();
+      setNewVendor({
+        business_name: "", category: "photography", contact_person: "",
+        phone: "", district: "Hyderabad", state: "TS", price_starting: "₹15,000",
+        experience_years: 5, about: "",
+      });
+    } catch (err: any) {
+      flash(err?.message || "Error registering vendor");
+    } finally {
+      setVendorSubmitting(false);
+    }
+  }
+
+  async function signout() {
+    if (!me) return;
+    try {
+      await fetch("/api/control/logout", {
+        method: "POST", credentials: "include",
+        headers: { "X-Control-CSRF": me.csrf },
+      });
+    } finally { gotoLogin(); }
+  }
+
+  if (err) {
+    return (
+      <main className="min-h-screen bg-cream p-8 text-center">
+        <p className="text-rose-700 font-bold">{err}</p>
+        <button onClick={loadCore} className="mt-4 rounded-xl maroon-gradient px-4 py-2 text-white font-bold">{L.refresh}</button>
+      </main>
+    );
+  }
+
+  if (!me || !an) {
+    return (
+      <main className="min-h-screen bg-cream p-12 text-center text-sm font-bold text-slate-500">
         {L.loading}
-      </div>
-    </main>
-  );
+      </main>
+    );
+  }
 
   const t = an.totals;
-  const tabs: { k: typeof tab; label: string; ownerOnly?: boolean }[] = [
-    { k: "overview", label: L.tabOverview },
-    { k: "queue", label: L.tabQueue },
-    { k: "spotlight", label: L.tabSpotlight },
-    { k: "referrals", label: L.tabReferrals },
-    { k: "reports", label: L.tabReports },
-    { k: "revenue", label: L.tabRevenue, ownerOnly: true },
-    { k: "audit", label: L.tabAudit, ownerOnly: true },
+
+  const tabs = [
+    { k: "overview" as const, label: L.tabOverview },
+    { k: "queue" as const, label: `${L.tabQueue} (${t.pending})` },
+    { k: "castes" as const, label: L.tabCastes },
+    { k: "addProfile" as const, label: L.tabAddProfile },
+    { k: "vendors" as const, label: L.tabVendors },
+    { k: "spotlight" as const, label: L.tabSpotlight },
+    { k: "referrals" as const, label: L.tabReferrals },
+    { k: "reports" as const, label: `${L.tabReports} (${t.open_reports})` },
+    ...(owner ? [{ k: "revenue" as const, label: L.tabRevenue }] : []),
+    ...(owner ? [{ k: "audit" as const, label: L.tabAudit }] : []),
   ];
 
   return (
-    <main className="min-h-screen bg-gradient-to-b from-[#fffaf7] to-[#fbeee7] pb-16">
-      {/* header */}
-      <header className="sticky top-0 z-30 border-b border-gold/25 bg-white/85 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-5 py-3">
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-[.24em] text-maroon">{L.ops}</p>
-            <h1 className="text-lg font-black text-navy md:text-xl">{L.dash}</h1>
+    <main className="min-h-screen bg-cream pb-16">
+      {/* top bar */}
+      <header className="sticky top-0 z-30 border-b border-gold/30 bg-white/95 backdrop-blur">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-2xl maroon-gradient text-white font-black shadow-soft">
+              👑
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-base font-black text-navy">{L.ops}</span>
+                <span className={`rounded-full px-2 py-0.5 text-[10.5px] font-bold uppercase tracking-wider ${
+                  owner ? "bg-amber-100 text-amber-900 border border-amber-300" : "bg-slate-100 text-slate-700"
+                }`}>
+                  {me.role}
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-500">
+                {L.signedAs} <b>{me.username}</b> • TSAP Matrimony Control Hub
+              </p>
+            </div>
           </div>
+
           <div className="flex items-center gap-2">
-            <span className="hidden rounded-full bg-maroon-soft px-3 py-1.5 text-[11px] font-bold text-maroon sm:inline">
-              {me.username} · {me.role}
-            </span>
-            <button onClick={loadCore} className="rounded-xl border border-gold/40 px-3 py-1.5 text-[12px] font-bold text-maroon hover:bg-cream">
-              ↻ {L.refresh}
+            <Link href="/" target="_blank" className="rounded-xl border border-maroon/20 px-3 py-1.5 text-xs font-bold text-maroon hover:bg-cream">
+              🌐 Live Site
+            </Link>
+            <button
+              onClick={loadCore}
+              className="rounded-xl border border-gold/40 px-3 py-1.5 text-xs font-bold text-maroon hover:bg-cream"
+            >
+              🔄 {L.refresh}
             </button>
-            <button onClick={logout} className="rounded-xl maroon-gradient px-3 py-1.5 text-[12px] font-bold text-white">
+            <button
+              onClick={signout}
+              className="rounded-xl bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-200"
+            >
               {L.signout}
             </button>
           </div>
         </div>
-        {/* tabs */}
-        <div className="mx-auto flex max-w-7xl gap-1 overflow-x-auto px-4 pb-2 scrollbar-hide">
-          {tabs.filter((x) => !x.ownerOnly || owner).map((x) => (
+
+        {/* tab strip */}
+        <div className="mx-auto flex max-w-7xl gap-1 overflow-x-auto px-4 pb-2 pt-1 scrollbar-none">
+          {tabs.map((x) => (
             <button
               key={x.k}
               onClick={() => setTab(x.k)}
@@ -378,21 +568,28 @@ export default function Dashboard() {
             </div>
             <div className="mt-4 space-y-2.5">
               {queue.map((it) => (
-                <div key={it.tsap_id} className="flex flex-wrap items-center gap-3 rounded-2xl border border-gold/20 bg-white p-3.5 transition hover:shadow-soft">
-                  <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-maroon-soft text-lg">
-                    {String(it.gender).toLowerCase().startsWith("f") ? "👰" : "🤵"}
+                <div key={it.tsap_id} className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-gold/20 bg-white p-3.5 shadow-sm">
+                  <div className="min-w-[180px]">
+                    <p className="text-[13px] font-black text-navy">{it.full_name} • {it.tsap_id}</p>
+                    <p className="text-[11.5px] text-slate-500">{it.gender} • {it.age ? `${it.age} yrs` : "—"} • {it.district}</p>
                   </div>
-                  <div className="min-w-[160px] flex-1">
-                    <p className="text-[13.5px] font-bold text-navy">{it.full_name || "—"}</p>
-                    <p className="text-[11px] text-slate-500">{it.tsap_id} · {it.age || "—"}y · {it.district || "—"}</p>
+                  <div className="flex items-center gap-2 text-xs">
+                    <StatusPill status={it.status} />
+                    <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[10.5px] font-bold text-slate-600">{it.photo_status}</span>
                   </div>
-                  <StatusPill status={it.status} />
-                  <span className="text-[11px] text-slate-400">{L.photo}: {it.photo_status}</span>
                   <div className="flex gap-1.5">
-                    <button disabled={busyId === it.tsap_id} onClick={() => profileAction(it.tsap_id, "approve")}
-                      className="rounded-lg bg-green-600 px-3 py-1.5 text-[11.5px] font-bold text-white disabled:opacity-50">{L.approve}</button>
-                    <button disabled={busyId === it.tsap_id} onClick={() => profileAction(it.tsap_id, "reject")}
-                      className="rounded-lg bg-rose-600 px-3 py-1.5 text-[11.5px] font-bold text-white disabled:opacity-50">{L.reject}</button>
+                    {it.status !== "approved" && (
+                      <button disabled={busyId === it.tsap_id} onClick={() => profileAction(it.tsap_id, "approve")}
+                        className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-700 disabled:opacity-50">
+                        {L.approve}
+                      </button>
+                    )}
+                    {it.status !== "rejected" && (
+                      <button disabled={busyId === it.tsap_id} onClick={() => profileAction(it.tsap_id, "reject")}
+                        className="rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-rose-700 disabled:opacity-50">
+                        {L.reject}
+                      </button>
+                    )}
                   </div>
                 </div>
               ))}
@@ -401,23 +598,520 @@ export default function Dashboard() {
           </Card>
         )}
 
+        {/* ---------------- 🏛️ CASTES & COMMUNITY HUBS ---------------- */}
+        {tab === "castes" && (
+          <Card>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-black text-navy">
+                  🏛️ {lang === "te" ? "కులాల మ్యాట్రిమోనీ హబ్స్ & ఛానల్స్" : "Castes Matrimony Hubs & Channels"}
+                </h3>
+                <p className="mt-0.5 text-[11.5px] text-slate-500">
+                  {lang === "te" ? "తెలంగాణ & ఆంధ్రప్రదేశ్ అన్ని కులాల లైవ్ ఛానల్స్, వధువులు/వరుల సంఖ్య మరియు కమ్యూనిటీ లింక్స్." : "All TS & AP community live channels, bride & groom counts, and direct community match links."}
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={loadCastes}
+                  className="rounded-full border border-gold/40 px-3 py-1.5 text-[11.5px] font-bold text-maroon hover:bg-cream"
+                >
+                  🔄 {lang === "te" ? "రిఫ్రెష్ డేటా" : "Refresh"}
+                </button>
+                <Link
+                  href="/castes"
+                  target="_blank"
+                  className="rounded-full maroon-gradient px-3 py-1.5 text-[11.5px] font-bold text-white hover-lift"
+                >
+                  🌐 {lang === "te" ? "వెబ్‌సైట్ కులాల పేజీ చూడండి" : "View Live Castes Hub"}
+                </Link>
+              </div>
+            </div>
+
+            <div className="mt-5 grid sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+              {castesData.map((c) => (
+                <div key={c.key} className="rounded-2xl border border-gold/25 bg-white p-4 shadow-sm hover:shadow-md transition">
+                  <div className="flex items-center justify-between gap-2">
+                    <div>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-navy/10 text-navy uppercase mr-2">
+                        {c.category}
+                      </span>
+                      <span className="font-extrabold text-base text-maroon">{c.en}</span>
+                    </div>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
+                      🟢 100% Live
+                    </span>
+                  </div>
+
+                  <p className="text-xs text-slate-600 mt-1 font-semibold">{c.te}</p>
+
+                  <div className="mt-3 grid grid-cols-2 gap-2 bg-slate-50 p-2.5 rounded-xl text-center">
+                    <div>
+                      <span className="text-[10.5px] text-slate-500 block">👰 వధువులు (Brides)</span>
+                      <span className="text-sm font-black text-maroon">{c.females}</span>
+                    </div>
+                    <div>
+                      <span className="text-[10.5px] text-slate-500 block">🤵 వరులు (Grooms)</span>
+                      <span className="text-sm font-black text-navy">{c.males}</span>
+                    </div>
+                  </div>
+
+                  {c.members && c.members.length > 0 && (
+                    <div className="mt-2 text-[10.5px] text-slate-500">
+                      <span className="font-bold">ఉపకులాలు (Sub-castes):</span> {c.members.slice(0, 4).join(", ")}
+                      {c.members.length > 4 ? ` +${c.members.length - 4}` : ""}
+                    </div>
+                  )}
+
+                  <div className="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between gap-2 text-xs">
+                    <Link
+                      href={`/matches?caste=${encodeURIComponent(c.en)}`}
+                      target="_blank"
+                      className="font-bold text-maroon hover:underline"
+                    >
+                      🔍 సంబంధాలు చూడండి →
+                    </Link>
+                    <Link
+                      href={`/castes/${c.key}-bride`}
+                      target="_blank"
+                      className="font-bold text-navy hover:underline"
+                    >
+                      📄 పేజీ →
+                    </Link>
+                  </div>
+                </div>
+              ))}
+              {!castesData.length && (
+                <p className="col-span-3 py-8 text-center text-sm text-slate-400">
+                  {lang === "te" ? "కులాల డేటా లోడ్ అవుతోంది…" : "Loading castes data…"}
+                </p>
+              )}
+            </div>
+          </Card>
+        )}
+
+        {/* ---------------- ➕ ADD MATRIMONY PROFILE ---------------- */}
+        {tab === "addProfile" && (
+          <Card>
+            <div>
+              <h3 className="text-base font-black text-navy">
+                ➕ {lang === "te" ? "కొత్త మ్యాట్రిమోనీ ప్రొఫైల్ తక్షణమే జోడించండి" : "Add Matrimony Profile (Instant Publish)"}
+              </h3>
+              <p className="mt-0.5 text-xs text-slate-500">
+                {lang === "te" ? "ఏ కులానికైనా నేరుగా అడ్మిన్ ద్వారా పూర్తి వివరాలతో ప్రొఫైల్ క్రియేట్ చేసి లైవ్ చేయవచ్చు." : "Create, approve and auto-route a verified profile for any community instantly."}
+              </p>
+            </div>
+
+            {createdProfile && (
+              <div className="mt-4 p-4 rounded-2xl bg-emerald-50 border border-emerald-300 text-emerald-900 flex flex-col sm:flex-row items-center justify-between gap-3">
+                <div>
+                  <p className="font-black text-sm">🎉 ప్రొఫైల్ విజయవంతంగా లైవ్ అయ్యింది!</p>
+                  <p className="text-xs mt-0.5">
+                    <b>TSAP ID:</b> <span className="font-mono font-bold">{createdProfile.tsap_id}</span> • <b>పేరు:</b> {createdProfile.full_name} • <b>కులం:</b> {createdProfile.caste}
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <Link
+                    href={`/search/${createdProfile.tsap_id}`}
+                    target="_blank"
+                    className="rounded-xl maroon-gradient text-white px-3 py-1.5 text-xs font-bold hover-lift"
+                  >
+                    👁️ ప్రొఫైల్ కార్డ్ చూడండి
+                  </Link>
+                  <button
+                    onClick={() => setCreatedProfile(null)}
+                    className="rounded-xl border border-emerald-600 px-3 py-1.5 text-xs font-bold text-emerald-800 hover:bg-emerald-100"
+                  >
+                    మరొకటి జోడించండి
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <form onSubmit={handleAddProfile} className="mt-5 space-y-4">
+              <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-3.5">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    పూర్తి పేరు (Full Name) *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Soumya Reddy / Rajesh Kamma"
+                    value={newProf.full_name}
+                    onChange={(e) => setNewProf({ ...newProf, full_name: e.target.value })}
+                    className="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs focus:ring-2 focus:ring-maroon focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    లింగం (Gender) *
+                  </label>
+                  <select
+                    value={newProf.gender}
+                    onChange={(e) => setNewProf({ ...newProf, gender: e.target.value })}
+                    className="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs focus:ring-2 focus:ring-maroon focus:outline-none bg-white"
+                  >
+                    <option value="Bride">👰 పెళ్లికూతురు (Bride / Female)</option>
+                    <option value="Groom">🤵 పెళ్లికొడుకు (Groom / Male)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    వయస్సు (Age) & ఎత్తు (Height) *
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      type="number"
+                      required
+                      min={18}
+                      max={70}
+                      value={newProf.age}
+                      onChange={(e) => setNewProf({ ...newProf, age: parseInt(e.target.value) || 24 })}
+                      className="w-20 rounded-xl border border-slate-300 px-3 py-2 text-xs focus:ring-2 focus:ring-maroon focus:outline-none"
+                    />
+                    <input
+                      type="text"
+                      value={newProf.height}
+                      onChange={(e) => setNewProf({ ...newProf, height: e.target.value })}
+                      placeholder="5 ft 4 in"
+                      className="flex-1 rounded-xl border border-slate-300 px-3 py-2 text-xs focus:ring-2 focus:ring-maroon focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    కులం (Caste) *
+                  </label>
+                  <select
+                    value={newProf.caste}
+                    onChange={(e) => setNewProf({ ...newProf, caste: e.target.value })}
+                    className="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs focus:ring-2 focus:ring-maroon focus:outline-none bg-white"
+                  >
+                    {TELUGU_CASTES_LIST.map((c) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    ఉపకులం (Sub-Caste)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Pakanati, Chowdary, Niyogi, Devanga"
+                    value={newProf.sub_caste}
+                    onChange={(e) => setNewProf({ ...newProf, sub_caste: e.target.value })}
+                    className="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs focus:ring-2 focus:ring-maroon focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    గోత్రం (Gothram)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Bharadwaja, Kashyapa, Janakula"
+                    value={newProf.gothram}
+                    onChange={(e) => setNewProf({ ...newProf, gothram: e.target.value })}
+                    className="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs focus:ring-2 focus:ring-maroon focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    నక్షత్రం (Nakshatra / Star)
+                  </label>
+                  <select
+                    value={newProf.star}
+                    onChange={(e) => setNewProf({ ...newProf, star: e.target.value })}
+                    className="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs focus:ring-2 focus:ring-maroon focus:outline-none bg-white"
+                  >
+                    {NAKSHATRAS_LIST.map((n) => (
+                      <option key={n} value={n}>{n}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    రాశి (Rasi)
+                  </label>
+                  <select
+                    value={newProf.rasi}
+                    onChange={(e) => setNewProf({ ...newProf, rasi: e.target.value })}
+                    className="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs focus:ring-2 focus:ring-maroon focus:outline-none bg-white"
+                  >
+                    {RASIS_LIST.map((r) => (
+                      <option key={r} value={r}>{r}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    చదువు (Education)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. B.Tech / MS in USA / MBBS / MBA"
+                    value={newProf.education}
+                    onChange={(e) => setNewProf({ ...newProf, education: e.target.value })}
+                    className="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs focus:ring-2 focus:ring-maroon focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    ఉద్యోగం / వృత్తి (Job / Occupation)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Software Engineer, Bank Manager, Doctor"
+                    value={newProf.job}
+                    onChange={(e) => setNewProf({ ...newProf, job: e.target.value })}
+                    className="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs focus:ring-2 focus:ring-maroon focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    వార్షిక ఆదాయం (Annual Salary)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. 15 LPA / $120k"
+                    value={newProf.salary}
+                    onChange={(e) => setNewProf({ ...newProf, salary: e.target.value })}
+                    className="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs focus:ring-2 focus:ring-maroon focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    రాష్ట్రం & జిల్లా (State & District)
+                  </label>
+                  <div className="flex gap-2">
+                    <select
+                      value={newProf.state}
+                      onChange={(e) => setNewProf({ ...newProf, state: e.target.value })}
+                      className="w-20 rounded-xl border border-slate-300 px-3 py-2 text-xs focus:ring-2 focus:ring-maroon focus:outline-none bg-white"
+                    >
+                      <option value="TS">TS</option>
+                      <option value="AP">AP</option>
+                      <option value="Other">Other</option>
+                    </select>
+                    <select
+                      value={newProf.district}
+                      onChange={(e) => setNewProf({ ...newProf, district: e.target.value })}
+                      className="flex-1 rounded-xl border border-slate-300 px-3 py-2 text-xs focus:ring-2 focus:ring-maroon focus:outline-none bg-white"
+                    >
+                      {DISTRICTS_TS_AP.map((d) => (
+                        <option key={d} value={d}>{d}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    ఫోన్ నంబర్ (Phone Number - Admin Reference)
+                  </label>
+                  <input
+                    type="tel"
+                    placeholder="9876543210"
+                    value={newProf.phone}
+                    onChange={(e) => setNewProf({ ...newProf, phone: e.target.value })}
+                    className="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs focus:ring-2 focus:ring-maroon focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    ఫోటో URL (Photo URL - Optional)
+                  </label>
+                  <input
+                    type="url"
+                    placeholder="https://..."
+                    value={newProf.photo_url}
+                    onChange={(e) => setNewProf({ ...newProf, photo_url: e.target.value })}
+                    className="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs focus:ring-2 focus:ring-maroon focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  కుటుంబ వివరాలు & పరిచయం (About & Family)
+                </label>
+                <textarea
+                  rows={3}
+                  placeholder="సాంప్రదాయ కుటుంబం, మంచి విలువలు గల వరుడు/వధువు కోసం చూస్తున్నాము..."
+                  value={newProf.about_myself}
+                  onChange={(e) => setNewProf({ ...newProf, about_myself: e.target.value })}
+                  className="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs focus:ring-2 focus:ring-maroon focus:outline-none"
+                />
+              </div>
+
+              <div className="pt-2 flex justify-end">
+                <button
+                  type="submit"
+                  disabled={profSubmitting}
+                  className="rounded-xl maroon-gradient text-white px-6 py-3 text-xs font-black hover-lift shadow-md disabled:opacity-50 flex items-center gap-2"
+                >
+                  {profSubmitting ? "సేవ్ అవుతోంది…" : "✨ ప్రొఫైల్ తక్షణమే లైవ్ చేయండి (Publish Live Profile)"}
+                </button>
+              </div>
+            </form>
+          </Card>
+        )}
+
+        {/* ---------------- 🏪 WEDDING VENDORS & PUROHITS ---------------- */}
+        {tab === "vendors" && (
+          <div className="space-y-6">
+            <Card>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h3 className="text-base font-black text-navy">
+                    🏪 {lang === "te" ? "వెరిఫైడ్ పెళ్లి సేవలు & పురోహితుల నెట్‌వర్క్" : "Wedding Services & Purohits Directory"}
+                  </h3>
+                  <p className="mt-0.5 text-xs text-slate-500">
+                    {lang === "te" ? "ఫోటోగ్రఫీ, క్యాటరింగ్, పురోహితులు, డెకరేషన్స్, ఫంక్షన్ హాల్స్ విచారణలు మరియు అడ్వర్టైజింగ్ నిర్వహణ." : "Manage wedding photographers, purohits, caters, banquet halls, and lead captures."}
+                  </p>
+                </div>
+                <Link
+                  href="/vendors"
+                  target="_blank"
+                  className="rounded-full maroon-gradient px-3.5 py-1.5 text-xs font-bold text-white hover-lift"
+                >
+                  🌐 {lang === "te" ? "లైవ్ వెండర్స్ డైరెక్టరీ" : "Live Directory"}
+                </Link>
+              </div>
+
+              <div className="mt-5 grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {vendorsData.map((v, i) => (
+                  <div key={v.id || v.vendor_id || i} className="rounded-2xl border border-gold/25 bg-white p-3.5 shadow-sm">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-extrabold text-sm text-navy">{v.name || v.business_name}</span>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
+                        ⭐ {v.rating || "4.8"}
+                      </span>
+                    </div>
+
+                    <div className="mt-1 text-xs text-slate-600">
+                      📂 <b>వర్గం:</b> {v.category_name || v.category}
+                    </div>
+
+                    <div className="text-xs text-slate-600">
+                      📍 <b>ప్రాంతం:</b> {v.district}, {v.state || "TS"}
+                    </div>
+
+                    <div className="mt-2 text-[11px] text-slate-500 flex items-center justify-between pt-2 border-t border-slate-100">
+                      <span>📞 {v.phone_masked || v.phone || "Verified Contact"}</span>
+                      <span className="font-bold text-maroon">✓ {v.package_name || "Verified Vendor"}</span>
+                    </div>
+                  </div>
+                ))}
+                {!vendorsData.length && (
+                  <p className="col-span-3 py-6 text-center text-xs text-slate-400">
+                    {lang === "te" ? "వెండర్స్ లోడ్ అవుతున్నారు…" : "Loading wedding vendors…"}
+                  </p>
+                )}
+              </div>
+            </Card>
+
+            {/* Quick Add Vendor */}
+            <Card>
+              <h3 className="text-sm font-black text-navy mb-3">
+                ➕ {lang === "te" ? "కొత్త వెండర్ / పురోహితుడిని జోడించండి" : "Add Wedding Vendor / Pandit"}
+              </h3>
+              <form onSubmit={handleAddVendor} className="grid sm:grid-cols-2 md:grid-cols-3 gap-3 text-xs">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">వ్యాపారం / సంస్థ పేరు *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. శ్రీ కళ్యాణ వేదిక / రాజేష్ ఫోటోగ్రఫీ"
+                    value={newVendor.business_name}
+                    onChange={(e) => setNewVendor({ ...newVendor, business_name: e.target.value })}
+                    className="w-full rounded-xl border border-slate-300 px-3 py-2 focus:ring-2 focus:ring-maroon focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">కేటగిరీ (Category) *</label>
+                  <select
+                    value={newVendor.category}
+                    onChange={(e) => setNewVendor({ ...newVendor, category: e.target.value })}
+                    className="w-full rounded-xl border border-slate-300 px-3 py-2 focus:ring-2 focus:ring-maroon focus:outline-none bg-white"
+                  >
+                    <option value="photography">📸 ఫోటోగ్రఫీ & సినిమాటోగ్రఫీ</option>
+                    <option value="pandit">🕉️ పండితులు / పురోహితులు</option>
+                    <option value="catering">🍛 విందు భోజనం & క్యాటరింగ్</option>
+                    <option value="decorations">🌸 డెకరేషన్స్ & మండపం</option>
+                    <option value="banquet_hall">🏛️ కళ్యాణ మండపం / ఫంక్షన్ హాల్</option>
+                    <option value="makeup">💄 బ్రైడల్ మేకప్ & బ్యూటీషియన్</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">సంప్రదించే వ్యక్తి / ఫోన్</label>
+                  <input
+                    type="text"
+                    placeholder="9876543210"
+                    value={newVendor.phone}
+                    onChange={(e) => setNewVendor({ ...newVendor, phone: e.target.value })}
+                    className="w-full rounded-xl border border-slate-300 px-3 py-2 focus:ring-2 focus:ring-maroon focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">జిల్లా (District)</label>
+                  <select
+                    value={newVendor.district}
+                    onChange={(e) => setNewVendor({ ...newVendor, district: e.target.value })}
+                    className="w-full rounded-xl border border-slate-300 px-3 py-2 focus:ring-2 focus:ring-maroon focus:outline-none bg-white"
+                  >
+                    {DISTRICTS_TS_AP.map((d) => (
+                      <option key={d} value={d}>{d}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="sm:col-span-2 flex items-end">
+                  <button
+                    type="submit"
+                    disabled={vendorSubmitting}
+                    className="w-full rounded-xl maroon-gradient text-white py-2.5 font-bold hover-lift shadow-sm disabled:opacity-50"
+                  >
+                    {vendorSubmitting ? "నమోదు అవుతోంది…" : "✨ వెండర్‌ను డైరెక్టరీలో చేర్చండి"}
+                  </button>
+                </div>
+              </form>
+            </Card>
+          </div>
+        )}
+
         {/* ---------------- SPOTLIGHT / PROFILES OF THE DAY ---------------- */}
         {tab === "spotlight" && (
           <Card>
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <h3 className="text-sm font-black text-navy">🌟 {lang === "te" ? "స్పాట్‌లైట్ / నేటి ప్రత్యేక ప్రొఫైళ్లు క్యూ" : "Spotlight & Profiles of the Day Queue"}</h3>
+                <h3 className="text-sm font-black text-navy">🌟 {lang === "te" ? "స్పాట్‌లైట్ ప్రమోషన్ల క్యూ" : "Spotlight & Profiles of the Day Queue"}</h3>
                 <p className="mt-0.5 text-[11.5px] text-slate-500">
-                  {lang === "te" ? "వినియోగదారులు చెల్లించిన ప్రమోషన్లను ఇక్కడ ఫోటో/వీడియో పరిశీలించి అప్రూవ్ చేయండి." : "Review user paid profile promotions, check photo/video quality, and approve to go live."}
+                  {lang === "te" ? "యూజర్లు కొనుగోలు చేసిన స్పాట్‌లైట్ ప్రమోషన్లను ఆమోదించండి లేదా తిరస్కరించండి." : "Approve paid spotlight promotions to feature profiles on homepage and community channels."}
                 </p>
               </div>
               <div className="flex gap-1.5">
                 {[
                   ["all", lang === "te" ? "అన్నీ" : "All"],
-                  ["pending_review", lang === "te" ? "పెండింగ్" : "Pending"],
-                  ["active", lang === "te" ? "లైవ్" : "Live"],
+                  ["submitted", lang === "te" ? "పెండింగ్" : "Pending"],
+                  ["active", lang === "te" ? "లైవ్" : "Active"],
                   ["rejected", lang === "te" ? "రిజెక్ట్" : "Rejected"],
-                  ["closed", lang === "te" ? "క్లోజ్డ్" : "Closed"],
                 ].map(([k, lab]) => (
                   <button key={k} onClick={() => setSpStatus(k)}
                     className={`rounded-full px-3 py-1.5 text-[11.5px] font-bold ${spStatus === k ? "maroon-gradient text-white" : "border border-gold/40 text-maroon hover:bg-cream"}`}>
@@ -427,56 +1121,38 @@ export default function Dashboard() {
               </div>
             </div>
 
-            <div className="mt-4 space-y-4">
+            <div className="mt-4 space-y-3">
               {spotlights.map((sp) => (
                 <div key={sp.promo_id} className="rounded-2xl border border-gold/30 bg-white p-4 shadow-sm hover:shadow-md transition space-y-3">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div className="flex items-center gap-3">
-                      <div className="relative h-14 w-14 shrink-0 rounded-2xl overflow-hidden bg-slate-900 border border-gold/40">
-                        <img src={sp.photo_url || "/promo/cine-1.jpg"} alt="Candidate" className="h-full w-full object-cover" />
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <p className="text-sm font-extrabold text-navy">{sp.full_name}</p>
-                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300">
-                            {sp.plan_code} (₹{sp.amount_paid})
-                          </span>
-                        </div>
-                        <p className="text-[11px] text-slate-500">
-                          {sp.tsap_id} · {sp.gender} · {sp.caste} · 🏡 {sp.district}
-                        </p>
-                      </div>
-                    </div>
-
+                  <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
-                      <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full uppercase ${
-                        sp.status === "active" ? "bg-emerald-100 text-emerald-800" :
-                        sp.status === "pending_review" ? "bg-amber-100 text-amber-800 animate-pulse" :
-                        sp.status === "rejected" ? "bg-rose-100 text-rose-800" : "bg-slate-100 text-slate-600"
-                      }`}>
-                        {sp.status}
-                      </span>
+                      <span className="font-extrabold text-sm text-navy">{sp.full_name} ({sp.tsap_id})</span>
+                      <span className="text-xs bg-gold/10 text-maroon font-bold px-2 py-0.5 rounded-full uppercase">{sp.plan_code}</span>
+                      <span className="text-xs font-black text-emerald-700">₹{sp.amount_paid}</span>
                     </div>
+                    <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase ${
+                      sp.status === "active" ? "bg-emerald-100 text-emerald-800" :
+                      sp.status === "submitted" ? "bg-amber-100 text-amber-800" : "bg-rose-100 text-rose-800"
+                    }`}>
+                      {sp.status}
+                    </span>
                   </div>
 
-                  {/* Headline & Pitch */}
                   <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 text-xs text-slate-700 space-y-1">
                     <p className="font-bold text-maroon">📌 {sp.headline}</p>
                     <p className="italic">&ldquo;{sp.pitch_text}&rdquo;</p>
                   </div>
 
-                  {/* Media & Payment reference check */}
                   <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-600 pt-1 border-t border-slate-100">
                     <div className="flex items-center gap-3">
                       <span>💳 <b>Ref:</b> {sp.payment_ref} ({sp.payment_mode})</span>
                       {sp.video_url && (
                         <a href={sp.video_url} target="_blank" rel="noreferrer" className="text-blue-600 font-bold hover:underline flex items-center gap-1">
-                          🎥 <span>వీడియో లింక్ చూడండి</span>
+                          🎥 <span>వీడియో చూడండి</span>
                         </a>
                       )}
                     </div>
 
-                    {/* Action buttons */}
                     <div className="flex items-center gap-1.5">
                       {sp.status !== "active" && (
                         <button
@@ -502,7 +1178,7 @@ export default function Dashboard() {
                           onClick={() => spotlightAction(sp.promo_id, "reject")}
                           className="rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-rose-700 disabled:opacity-50"
                         >
-                          ❌ {lang === "te" ? "రిజెక్ట్ (Refund)" : "Reject & Refund"}
+                          ❌ {lang === "te" ? "రిజెక్ట్" : "Reject"}
                         </button>
                       )}
                     </div>
@@ -670,7 +1346,7 @@ export default function Dashboard() {
 
       {/* toast */}
       {toast && (
-        <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-full bg-navy px-5 py-3 text-[13px] font-bold text-white shadow-2xl">
+        <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-full bg-navy px-5 py-3 text-[13px] font-bold text-white shadow-2xl animate-fade">
           {toast}
         </div>
       )}

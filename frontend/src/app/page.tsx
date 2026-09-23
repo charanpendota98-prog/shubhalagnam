@@ -876,8 +876,8 @@ export default function Home() {
                     <span className="text-[9px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full font-bold shrink-0">W1</span>
                   )}
                 </div>
-                <div className="text-[10px] text-gray-500 mt-1">
-                  {c.live ? "LIVE ✅" : (lang === "te" ? "త్వరలో" : "Soon")}
+                <div className="text-[10px] text-emerald-700 font-bold mt-1">
+                  LIVE ✅
                 </div>
               </Link>
             </Reveal>
@@ -913,8 +913,8 @@ export default function Home() {
                   {sp.name.replace(/^[^\s]+\s/, "")}
                 </div>
                 <div className="text-[11px] text-gray-600 mt-1 line-clamp-2">{sp.desc}</div>
-                <div className="text-[10px] mt-2 font-bold text-gold-deep">
-                  {sp.live ? "LIVE ✅" : (lang === "te" ? "త్వరలో" : "Soon")}
+                <div className="text-[10px] mt-2 font-bold text-emerald-700">
+                  LIVE ✅
                 </div>
               </Link>
             </Reveal>

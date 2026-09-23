@@ -160,8 +160,8 @@ export default function CasteClient({ caste, role, district, chan, otherChan }: 
           <div className="bg-navy text-white rounded-2xl p-5 card-shadow">
             <div className="flex items-center justify-between gap-2">
               <div className="font-bold leading-tight">{myChanLabel}</div>
-              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap ${chan?.live ? "bg-emerald-400/20 text-emerald-300" : "bg-amber-400/20 text-amber-300"}`}>
-                {chan?.live ? "● LIVE" : te ? "త్వరలో" : "Soon"}
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap bg-emerald-400/20 text-emerald-300">
+                ● LIVE ✅
               </span>
             </div>
             <div className="text-[11px] opacity-70 mt-0.5">
