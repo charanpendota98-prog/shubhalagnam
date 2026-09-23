@@ -86,20 +86,29 @@ export default function LiveMatrimonyTicker() {
   const { lang } = useLang();
   const te = lang === "te";
   const [index, setIndex] = useState(0);
-  const [visible, setVisible] = useState(true);
+  const [visible, setVisible] = useState(false);
   const [closed, setClosed] = useState(false);
 
   useEffect(() => {
     if (closed) return;
+    
+    // Initial delay before showing first notification
+    const startTimeout = setTimeout(() => {
+      setVisible(true);
+    }, 2500);
+
     const interval = setInterval(() => {
       setVisible(false);
       setTimeout(() => {
         setIndex((prev) => (prev + 1) % EVENTS.length);
         setVisible(true);
       }, 400);
-    }, 6000);
+    }, 7000);
 
-    return () => clearInterval(interval);
+    return () => {
+      clearTimeout(startTimeout);
+      clearInterval(interval);
+    };
   }, [closed]);
 
   if (closed) return null;
@@ -108,30 +117,30 @@ export default function LiveMatrimonyTicker() {
 
   return (
     <div
-      className={`fixed bottom-20 md:bottom-6 left-4 z-40 max-w-[340px] transition-all duration-500 transform ${
-        visible ? "opacity-100 translate-y-0 scale-100" : "opacity-0 translate-y-2 scale-95"
+      className={`fixed bottom-20 sm:bottom-6 left-3 sm:left-4 z-40 max-w-[320px] transition-all duration-500 transform ${
+        visible ? "opacity-100 translate-y-0 scale-100 pointer-events-auto" : "opacity-0 translate-y-3 scale-95 pointer-events-none"
       }`}
     >
-      <div className="bg-white/95 backdrop-blur-md border border-gold/40 rounded-2xl p-3 shadow-xl flex items-start gap-2.5 relative group">
-        <div className="w-9 h-9 rounded-xl bg-amber-50 border border-gold/30 flex items-center justify-center text-lg shrink-0 shadow-inner">
+      <div className="bg-white/95 backdrop-blur-md border border-gold/40 rounded-2xl p-2.5 shadow-xl flex items-start gap-2.5 relative group">
+        <div className="w-8 h-8 rounded-xl bg-amber-50 border border-gold/30 flex items-center justify-center text-base shrink-0 shadow-inner">
           {ev.icon}
         </div>
 
         <div className="min-w-0 flex-1 space-y-0.5">
-          <div className="flex items-center justify-between gap-1.5">
-            <span className="text-[9.5px] font-extrabold text-maroon uppercase tracking-wide bg-gold/15 px-1.5 py-0.2 rounded">
+          <div className="flex items-center justify-between gap-1">
+            <span className="text-[9px] font-black text-maroon uppercase tracking-wide bg-gold/15 px-1.5 py-0.2 rounded">
               {ev.badge}
             </span>
-            <span className="text-[9px] text-gray-400 font-medium">
+            <span className="text-[8.5px] text-gray-400 font-medium">
               {te ? ev.timeTe : ev.timeEn}
             </span>
           </div>
 
-          <p className="font-bold text-[11.5px] text-slate-800 leading-tight line-clamp-1">
+          <p className="font-bold text-[11px] text-slate-800 leading-snug line-clamp-1">
             {te ? ev.titleTe : ev.titleEn}
           </p>
 
-          <p className="text-[10px] text-slate-500 flex items-center gap-1 font-medium">
+          <p className="text-[9.5px] text-slate-500 flex items-center gap-1 font-medium">
             <span>📍</span>
             <span>{ev.location}</span>
           </p>
