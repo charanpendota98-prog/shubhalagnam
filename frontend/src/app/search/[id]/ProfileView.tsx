@@ -169,6 +169,61 @@ export default function ProfileView() {
     window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
   };
 
+  const printBiodata = () => {
+    if (!profile) return;
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) { window.print(); return; }
+    const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>వివాహ బయోడేటా — ${profile.full_name || profile.tsap_id}</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #fff; color: #1e293b; padding: 24px; }
+    .card { max-width: 650px; margin: 0 auto; border: 4px double #7A0C2E; border-radius: 16px; padding: 24px; background: #fffdfa; }
+    .header { text-align: center; border-bottom: 2px solid #D4AF37; padding-bottom: 16px; margin-bottom: 20px; }
+    .title { color: #7A0C2E; font-size: 24px; font-weight: bold; margin: 0; }
+    .sub { color: #8B6914; font-size: 13px; margin-top: 4px; font-weight: 600; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 16px; }
+    .item { background: #fff; padding: 10px 14px; border: 1px solid #fed7aa; border-radius: 8px; }
+    .label { font-size: 11px; color: #64748b; font-weight: bold; }
+    .val { font-size: 14px; color: #0f172a; font-weight: bold; margin-top: 2px; }
+    .about { margin-top: 16px; padding: 12px; background: #fff; border: 1px solid #fed7aa; border-radius: 8px; font-size: 13px; line-height: 1.5; }
+    .footer { text-align: center; margin-top: 24px; font-size: 11px; color: #64748b; border-top: 1px solid #e2e8f0; padding-top: 12px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="header">
+      <div class="title">💍 శుభలగ్నం — వివాహ పరిచయ పత్రం</div>
+      <div class="sub">MANA VIVAHA • TS & AP TELUGU MATRIMONY (ID: ${profile.tsap_id})</div>
+    </div>
+    <div class="grid">
+      <div class="item"><div class="label">పేరు (Name)</div><div class="val">${profile.full_name || profile.tsap_id}</div></div>
+      <div class="item"><div class="label">వయస్సు & ఎత్తు (Age & Height)</div><div class="val">${profile.age} సం॥ · ${profile.height || "—"}</div></div>
+      <div class="item"><div class="label">కులం & ఉపకులం (Caste)</div><div class="val">${profile.caste || "—"} ${profile.sub_caste ? `(${profile.sub_caste})` : ""}</div></div>
+      <div class="item"><div class="label">గోత్రం (Gothram)</div><div class="val">${profile.gothram || "—"}</div></div>
+      <div class="item"><div class="label">నక్షత్రం & రాశి (Star & Sign)</div><div class="val">${profile.star || "—"} / ${profile.rasi || "—"}</div></div>
+      <div class="item"><div class="label">చదువు (Education)</div><div class="val">${profile.education || "—"} ${profile.education_detail || ""}</div></div>
+      <div class="item"><div class="label">ఉద్యోగం / వ్యాపారం (Job)</div><div class="val">${profile.job || "—"} ${profile.company ? `@ ${profile.company}` : ""}</div></div>
+      <div class="item"><div class="label">వార్షిక ఆదాయం (Annual Salary)</div><div class="val">${profile.salary || "—"}</div></div>
+      <div class="item"><div class="label">ప్రాంతం / నివాసం (Location)</div><div class="val">${profile.district || "—"}, ${profile.state || "—"}</div></div>
+      <div class="item"><div class="label">వైవాహిక స్థితి (Marital Status)</div><div class="val">${profile.marital_status || "Never Married"}</div></div>
+      <div class="item"><div class="label">కుటుంబ నేపథ్యం (Family)</div><div class="val">${profile.family_type || "Joint/Nuclear"} · ${profile.family_status || "Middle/Upper"}</div></div>
+      <div class="item"><div class="label">దోషం (Dosham)</div><div class="val">${profile.dosham || "None"}</div></div>
+    </div>
+    ${profile.about_myself ? `<div class="about"><b>స్వవిషయం (About):</b> ${profile.about_myself}</div>` : ""}
+    <div class="footer">
+      🔒 100% Verified TS & AP Matrimony Profile · manavivaha.in/search/${profile.tsap_id}
+    </div>
+  </div>
+  <script>window.onload = function() { window.print(); };</script>
+</body>
+</html>`;
+    printWindow.document.write(html);
+    printWindow.document.close();
+  };
+
   return (
     <main className="mx-auto max-w-3xl px-4 py-6">
       <div className="flex items-center gap-2">
@@ -366,11 +421,16 @@ export default function ProfileView() {
 
           {/* actions */}
           <section className="mt-4 flex flex-wrap gap-2">
+            <button onClick={printBiodata} className="rounded-xl border border-amber-400 bg-amber-50 hover:bg-amber-100 px-4 py-2 text-sm font-bold text-[#7A0C2E] transition shadow-xs">
+              📄 {te ? "బయోడేటా డౌన్‌లోడ్ (Print)" : "Download Biodata (Print)"}
+            </button>
             <button onClick={() => void toggleSave()}
               className={`rounded-xl px-4 py-2 text-sm font-bold ${savedNow ? "bg-rose-100 text-rose-700" : "border border-slate-300 text-slate-700"}`}>
               {savedNow ? (te ? "❤️ Shortlist లో ఉంది" : "❤️ In shortlist") : "🤍 Shortlist"}
             </button>
-            <button onClick={shareWhatsApp} className="rounded-xl bg-green-600 px-4 py-2 text-sm font-bold text-white">WhatsApp share</button>
+            <button onClick={shareWhatsApp} className="rounded-xl bg-green-600 hover:bg-green-700 px-4 py-2 text-sm font-bold text-white transition">
+              💬 WhatsApp Share
+            </button>
             <button onClick={() => void doBlock()} disabled={blocked} className="rounded-xl border border-rose-300 px-4 py-2 text-sm font-bold text-rose-700 disabled:opacity-50">
               🚫 Block
             </button>
