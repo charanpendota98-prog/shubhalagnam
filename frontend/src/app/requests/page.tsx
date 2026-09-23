@@ -224,7 +224,7 @@ export default function RequestsPage() {
     `text-[10px] font-bold px-2 py-0.5 rounded-full border ${STATUS_STYLE[s] || "bg-gray-100 text-gray-600 border-gray-300"}`;
 
   return (
-    <main className="min-h-screen">
+    <main className="min-h-screen pb-36">
       {/* HERO */}
       <section className="maroon-gradient text-white">
         <div className="max-w-6xl mx-auto px-4 py-10">

@@ -244,7 +244,7 @@ export default function ReferralPage() {
   }, [posterAmount, dash?.code, quickSuccess?.partner_id, link]);
 
   return (
-    <main className="min-h-screen bg-[#FFF8E7] pb-20">
+    <main className="min-h-screen bg-[#FFF8E7] pb-36">
       
       {/* ================= HERO SECTION ================= */}
       <section className="maroon-gradient text-white relative overflow-hidden">

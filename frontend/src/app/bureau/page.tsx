@@ -57,7 +57,7 @@ export default function BureauPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#FFF8E7] p-4">
+    <div className="min-h-screen bg-[#FFF8E7] p-4 pb-36">
       <div className="max-w-6xl mx-auto">
         <div className="flex flex-wrap items-center justify-between gap-2 mb-6">
           <Link href="/" className="text-sm font-bold text-[#7A0C2E] shrink-0">← {te ? "హోమ్" : "Home"}</Link>

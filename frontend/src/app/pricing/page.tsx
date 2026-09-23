@@ -65,7 +65,7 @@ export default function PricingPage() {
   const free = plans.find((p) => p.price === 0) || FALLBACK_PLANS[0];
 
   return (
-    <main className="max-w-6xl mx-auto px-4 py-8">
+    <main className="max-w-6xl mx-auto px-4 py-8 pb-36">
       {/* HERO — okka line (R13 minimal) */}
       <div className="text-center">
         <h1 className="text-3xl md:text-4xl font-extrabold text-[#7A0C2E] telugu">

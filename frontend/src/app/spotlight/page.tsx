@@ -108,7 +108,7 @@ export default function SpotlightPromotionPage() {
   };
 
   return (
-    <main className="min-h-screen bg-[#FFF8E7] py-8 px-4 sm:px-6 lg:px-8">
+    <main className="min-h-screen bg-[#FFF8E7] py-8 px-4 sm:px-6 lg:px-8 pb-36">
       <div className="max-w-4xl mx-auto space-y-8">
         
         {/* Navigation Breadcrumb */}

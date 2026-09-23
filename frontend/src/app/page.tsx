@@ -859,35 +859,36 @@ export default function Home() {
             title={L.casteTitle(hs.channels_by_tier.L3_CASTE ?? 27)}
             subtitle={L.casteSub}
             telugu={lang === "te"}
-            action={{ href: "/channels?tier=L3_CASTE", label: L.casteAction }}
+            action={{ href: "/castes", label: L.casteAction }}
           />
         </Reveal>
-        <div className="mt-5 grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2.5">
-          {casteChannels.slice(0, 24).map((c, i) => (
-            <Reveal key={c.key} delay={i * 25}>
-              <Link
-                href="/channels"
-                className="block bg-white rounded-xl p-3 border border-gold/20 hover-lift h-full"
-              >
-                <div className="flex items-start justify-between gap-1">
-                  <div className="text-[13px] font-bold text-maroon leading-tight">
-                    {c.name.replace(/^💍 /, "").replace(" Matrimony", "").replace(" | TS-AP", "")}
+        <div className="mt-5 grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
+          {casteChannels.slice(0, 24).map((c, i) => {
+            const cleanName = c.name.replace(/^💍 /, "").replace(" Matrimony", "").replace(" | TS-AP", "").split("|")[0].trim();
+            return (
+              <Reveal key={c.key} delay={i * 20}>
+                <Link
+                  href={`/matches?caste=${encodeURIComponent(cleanName.split("•")[0].trim())}`}
+                  className="block bg-white rounded-2xl p-3.5 border border-gold/25 hover:border-gold hover-lift h-full shadow-sm transition"
+                >
+                  <div className="flex items-start justify-between gap-1">
+                    <div className="text-[13px] font-bold text-[#7A0C2E] leading-tight">
+                      {cleanName}
+                    </div>
                   </div>
-                  {c.wave === 1 && (
-                    <span className="text-[9px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full font-bold shrink-0">W1</span>
-                  )}
-                </div>
-                <div className="text-[10px] text-emerald-700 font-bold mt-1">
-                  LIVE ✅
-                </div>
-              </Link>
-            </Reveal>
-          ))}
+                  <div className="text-[10px] text-emerald-700 font-bold mt-2 flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                    100% LIVE
+                  </div>
+                </Link>
+              </Reveal>
+            );
+          })}
         </div>
-        <div className="mt-3 text-[12px] text-gray-600">
-          {L.casteMore(Math.max(0, casteChannels.length - 24))}{" "}
-          <Link href="/channels?tier=L3_CASTE" className="font-bold text-maroon underline">
-            {L.casteFull}
+        <div className="mt-4 text-[13px] text-gray-700 flex items-center justify-between flex-wrap gap-2">
+          <span>{L.casteMore(Math.max(0, casteChannels.length - 24))}</span>
+          <Link href="/castes" className="font-extrabold text-[#7A0C2E] underline underline-offset-4 hover:text-[#9B1138]">
+            {L.casteFull} →
           </Link>
         </div>
       </section>

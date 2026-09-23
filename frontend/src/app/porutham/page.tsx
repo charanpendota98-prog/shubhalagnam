@@ -15,7 +15,7 @@ import Link from "next/link";
 import { Duo, duo } from "@/lib/duo";
 import { useLang } from "@/lib/lang";
 import { useSearchParams } from "next/navigation";
-import { NAKSHATRAS, RASIS } from "@/lib/telugu-data";
+import { NAKSHATRAS, NAK_TO_RASI, RASIS } from "@/lib/telugu-data";
 import RasiChart from "@/components/RasiChart";
 
 type Res = Record<string, any>;
@@ -113,7 +113,7 @@ function PoruthamInner() {
   const items: Res[] = res?.items || [];
 
   return (
-    <main className="min-h-screen bg-cream pb-16">
+    <main className="min-h-screen bg-cream pb-36">
       <section className="maroon-gradient text-white print:!bg-white print:!text-maroon">
         <div className="max-w-4xl mx-auto px-4 py-8">
           <div className="text-[11px] font-bold bg-white/10 border border-white/20 rounded-full px-3 py-1 inline-block">
@@ -162,28 +162,44 @@ function PoruthamInner() {
           ) : (
             <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-3">
               <div>
-                <label className="text-[12px] font-bold">Bride star</label>
-                <select value={bStar} onChange={(e) => setBStar(e.target.value)} className="input-mobile">
+                <label className="text-[12px] font-bold">Bride star (వధువు నక్షత్రం)</label>
+                <select
+                  value={bStar}
+                  onChange={(e) => {
+                    const s = e.target.value;
+                    setBStar(s);
+                    if (s && NAK_TO_RASI[s]) setBRasi(NAK_TO_RASI[s]);
+                  }}
+                  className="input-mobile"
+                >
                   <option value="">— select —</option>
                   {NAKSHATRAS.map((n) => <option key={n.en} value={n.en}>{n.te} ({n.en})</option>)}
                 </select>
               </div>
               <div>
-                <label className="text-[12px] font-bold">Bride rasi</label>
+                <label className="text-[12px] font-bold">Bride rasi (రాశి)</label>
                 <select value={bRasi} onChange={(e) => setBRasi(e.target.value)} className="input-mobile">
                   <option value="">— auto —</option>
                   {RASIS.map((r) => <option key={r.en} value={r.en}>{r.te} ({r.en})</option>)}
                 </select>
               </div>
               <div>
-                <label className="text-[12px] font-bold">Groom star</label>
-                <select value={gStar} onChange={(e) => setGStar(e.target.value)} className="input-mobile">
+                <label className="text-[12px] font-bold">Groom star (వరుని నక్షత్రం)</label>
+                <select
+                  value={gStar}
+                  onChange={(e) => {
+                    const s = e.target.value;
+                    setGStar(s);
+                    if (s && NAK_TO_RASI[s]) setGRasi(NAK_TO_RASI[s]);
+                  }}
+                  className="input-mobile"
+                >
                   <option value="">— select —</option>
                   {NAKSHATRAS.map((n) => <option key={n.en} value={n.en}>{n.te} ({n.en})</option>)}
                 </select>
               </div>
               <div>
-                <label className="text-[12px] font-bold">Groom rasi</label>
+                <label className="text-[12px] font-bold">Groom rasi (రాశి)</label>
                 <select value={gRasi} onChange={(e) => setGRasi(e.target.value)} className="input-mobile">
                   <option value="">— auto —</option>
                   {RASIS.map((r) => <option key={r.en} value={r.en}>{r.te} ({r.en})</option>)}
