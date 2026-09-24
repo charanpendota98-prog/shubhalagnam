@@ -1,11 +1,12 @@
 "use client";
 
 /**
- * 🎬 ULTRA-ADVANCED CINEMATIC MATRIMONY HERO
- * ==========================================
+ * 🎬 ULTRA-ADVANCED CONTINUOUS CINEMATIC WEDDING VIDEO HERO
+ * =========================================================
  * World-class motion-first luxury experience:
  * - Real Animated Looping Telugu Wedding Films (wedding-film.webp & wedding-story-film.webp)
- * - 4-Frame Crossfading Wedding Reel + Continuous Video Stream Player
+ * - 4-Chapter Continuous Auto-Playing Video Timeline (01 నిశ్చితార్థం → 02 మంగళస్నానం → 03 జీలకర్ర బెల్లం & తాళికట్టు → 04 తలంబ్రాలు & సప్తపది)
+ * - Active Real-Time Video Scrubber with animated progress line (0-100%)
  * - Floating Auspicious Golden Petals & Sparkles
  * - Live Glassmorphic Match Radar & Interactive Match Simulation
  * - Real-time active family counter + authentic success toast (NO FAKE IDs)
@@ -57,6 +58,7 @@ const COPY = {
     stories: "విజయవంతమైన పెళ్లిళ్లు",
     channels: "కమ్యూనిటీ ఛానళ్లు",
     soundCue: "సన్నాయి శుభనాదం",
+    filmPlaying: "🎬 లైవ్ వెడ్డింగ్ ఫిల్మ్ ఆటో-ప్లే అవుతోంది",
   },
   en: {
     live: "10,000+ verified profiles · LIVE now",
@@ -81,6 +83,7 @@ const COPY = {
     stories: "Successful weddings",
     channels: "Community channels",
     soundCue: "Auspicious Shehnai Ambient",
+    filmPlaying: "🎬 Continuous Wedding Film Playing Live",
   },
 };
 
@@ -91,6 +94,7 @@ export default function CinematicHero() {
 
   const [mounted, setMounted] = useState(false);
   const [activeChapter, setActiveChapter] = useState(0);
+  const [chapterProgress, setChapterProgress] = useState(0);
   const [activityIdx, setActivityIdx] = useState(0);
   const [interestSent, setInterestSent] = useState(false);
   const [soundPlaying, setSoundPlaying] = useState(true);
@@ -105,19 +109,29 @@ export default function CinematicHero() {
     }))
   );
 
-  // Auto-cycle chapters continuously like a real video movie stream every 6 seconds
+  // Continuous Video Playback Timeline Tick (50ms interval = smooth 60fps scrubber)
   useEffect(() => {
     setMounted(true);
-    const chapterTimer = setInterval(() => {
-      setActiveChapter((prev) => (prev + 1) % CHAPTERS.length);
-    }, 6000);
+    const DURATION_MS = 5500; // 5.5s per wedding chapter
+    const TICK_MS = 50;
+
+    const progressTimer = setInterval(() => {
+      setChapterProgress((prev) => {
+        const next = prev + (TICK_MS / DURATION_MS) * 100;
+        if (next >= 100) {
+          setActiveChapter((curr) => (curr + 1) % CHAPTERS.length);
+          return 0;
+        }
+        return next;
+      });
+    }, TICK_MS);
 
     const activityTimer = setInterval(() => {
       setActivityIdx((prev) => (prev + 1) % LIVE_ACTIVITIES.length);
     }, 4500);
 
     return () => {
-      clearInterval(chapterTimer);
+      clearInterval(progressTimer);
       clearInterval(activityTimer);
     };
   }, []);
@@ -125,20 +139,20 @@ export default function CinematicHero() {
   const currentCh = CHAPTERS[activeChapter];
 
   return (
-    <section className="cine-hero relative overflow-hidden bg-[#10030c] text-white" aria-label="Telugu matrimony — cinematic experience">
+    <section className="cine-hero relative overflow-hidden bg-[#0e020a] text-white" aria-label="Telugu matrimony — cinematic experience">
       
       {/* ================= 1. VIBRANT ANIMATED WEDDING FILM BACKGROUND ================= */}
       <div className="absolute inset-0" aria-hidden>
-        {/* Animated Wedding Film WebP Video Layer (Vibrant, Clear, Continuous) */}
+        {/* Continuous Animated Wedding Film Video Layer */}
         {mounted && (
           <img
             src={currentCh.film || "/promo/wedding-film.webp"}
-            alt="Telugu wedding film motion"
-            className="absolute inset-0 h-full w-full object-cover opacity-85 transition-opacity duration-1000 scale-105"
+            alt="Telugu wedding ceremony film"
+            className="absolute inset-0 h-full w-full object-cover opacity-90 transition-all duration-1000 scale-105"
           />
         )}
 
-        {/* High-definition Still Layer per Chapter */}
+        {/* High-definition Still Layer per Chapter with subtle blend */}
         {CHAPTERS.map((ch, idx) => (
           <div
             key={ch.src}
@@ -153,17 +167,17 @@ export default function CinematicHero() {
         ))}
       </div>
 
-      {/* Readable Gradient Layer (Left side dark for crisp typography, Right side clear for video) */}
+      {/* Readable Gradient Overlay (Preserves video on right, ensures crisp text readability on left) */}
       <div
         className="absolute inset-0 z-[1] pointer-events-none"
         style={{
-          background: "linear-gradient(90deg, rgba(16,3,12,0.95) 0%, rgba(16,3,12,0.85) 35%, rgba(16,3,12,0.3) 70%, rgba(16,3,12,0.6) 100%)",
+          background: "linear-gradient(90deg, rgba(14,2,10,0.95) 0%, rgba(14,2,10,0.85) 38%, rgba(14,2,10,0.3) 72%, rgba(14,2,10,0.65) 100%)",
         }}
       />
       <div
         className="absolute inset-0 z-[1] pointer-events-none"
         style={{
-          background: "linear-gradient(0deg, rgba(16,3,12,0.95) 0%, rgba(16,3,12,0.2) 30%, transparent 70%)",
+          background: "linear-gradient(0deg, rgba(14,2,10,0.95) 0%, rgba(14,2,10,0.15) 30%, transparent 70%)",
         }}
       />
 
@@ -194,7 +208,7 @@ export default function CinematicHero() {
       {/* ================= 3. TOP AMBIENCE & SOUND BAR ================= */}
       <div className="relative z-[4] mx-auto max-w-7xl px-4 pt-6 flex items-center justify-between">
         {/* Live Activity Toast (NO FAKE IDs) */}
-        <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-black/50 px-3.5 py-1.5 text-[11px] font-bold tracking-wide backdrop-blur-xl shadow-lg transition-all duration-500">
+        <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-black/60 px-3.5 py-1.5 text-[11px] font-bold tracking-wide backdrop-blur-xl shadow-lg transition-all duration-500">
           <span className="relative flex h-2 w-2">
             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-80" />
             <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400" />
@@ -206,7 +220,7 @@ export default function CinematicHero() {
         <button
           type="button"
           onClick={() => setSoundPlaying(!soundPlaying)}
-          className="hidden sm:inline-flex items-center gap-2 rounded-full border border-gold/40 bg-white/10 px-3 py-1.5 text-[11px] font-semibold text-white/90 backdrop-blur-md hover:bg-white/20 transition cursor-pointer"
+          className="hidden sm:inline-flex items-center gap-2 rounded-full border border-gold/40 bg-white/10 px-3.5 py-1.5 text-[11px] font-semibold text-white/90 backdrop-blur-md hover:bg-white/20 transition cursor-pointer"
           title={L.soundCue}
         >
           <div className="flex items-end gap-0.5 h-3">
@@ -220,7 +234,7 @@ export default function CinematicHero() {
       </div>
 
       {/* ================= 4. MAIN HERO CONTENT ================= */}
-      <div className="relative z-[3] mx-auto flex min-h-[78svh] max-w-7xl items-center justify-between px-5 py-12 lg:py-6">
+      <div className="relative z-[3] mx-auto flex min-h-[76svh] max-w-7xl items-center justify-between px-5 py-10 lg:py-4">
         
         {/* LEFT COLUMN: Headlines, Badges, CTAs, Trust Metrics */}
         <div className="max-w-2xl">
@@ -238,19 +252,19 @@ export default function CinematicHero() {
           </div>
 
           {/* Majestic Headline */}
-          <h1 className="mt-5 text-[38px] font-black leading-[1.08] tracking-tight text-white drop-shadow-[0_4px_24px_rgba(0,0,0,.75)] sm:text-[54px] lg:text-[68px] telugu">
+          <h1 className="mt-4 text-[38px] font-black leading-[1.08] tracking-tight text-white drop-shadow-[0_4px_24px_rgba(0,0,0,.75)] sm:text-[54px] lg:text-[66px] telugu">
             {L.titleA}
             <br />
             <span className="cine-title-gold drop-shadow-md">{L.titleB}</span>
           </h1>
 
           {/* Subtitle */}
-          <p className="mt-5 max-w-xl text-[15px] font-normal leading-relaxed text-white/90 sm:text-[17px] telugu">
+          <p className="mt-4 max-w-xl text-[15px] font-normal leading-relaxed text-white/90 sm:text-[17px] telugu">
             {L.sub}
           </p>
 
           {/* CTAs */}
-          <div className="mt-8 flex flex-wrap items-center gap-3.5">
+          <div className="mt-7 flex flex-wrap items-center gap-3.5">
             <span className="cine-cta-glow">
               <Link
                 href="/register"
@@ -271,12 +285,12 @@ export default function CinematicHero() {
           </div>
 
           {/* Pricing pill */}
-          <div className="mt-5 inline-flex items-center gap-2 rounded-full border border-[#f0d9a3]/40 bg-black/40 px-4 py-1.5 text-[12px] font-bold text-[#f7e6bf] backdrop-blur-md telugu">
+          <div className="mt-4 inline-flex items-center gap-2 rounded-full border border-[#f0d9a3]/40 bg-black/40 px-4 py-1.5 text-[12px] font-bold text-[#f7e6bf] backdrop-blur-md telugu">
             <span className="text-gold">✦</span> {L.pricePill}
           </div>
 
           {/* Trust Guarantees Row */}
-          <div className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-2 text-[12px] font-semibold text-white/85 telugu">
+          <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-2 text-[12px] font-semibold text-white/85 telugu">
             {L.trust.map((t) => (
               <span key={t} className="inline-flex items-center gap-1.5">
                 <span className="text-emerald-400 font-bold">✓</span>
@@ -286,7 +300,7 @@ export default function CinematicHero() {
           </div>
 
           {/* Live Platform Stats */}
-          <div className="mt-8 flex max-w-lg items-center gap-6 border-t border-white/20 pt-6">
+          <div className="mt-7 flex max-w-lg items-center gap-6 border-t border-white/20 pt-5">
             <Stat value="10,000+" label={L.joined} lang={lang as Lang} />
             <span className="h-8 w-px bg-white/20" />
             <Stat value="3,900+" label={L.stories} lang={lang as Lang} />
@@ -302,7 +316,7 @@ export default function CinematicHero() {
           <div className="absolute -inset-1 rounded-[2.5rem] bg-gradient-to-r from-amber-400/30 to-rose-600/30 blur-xl opacity-75" />
 
           {/* Main Floating Match Preview Card */}
-          <div className="cine-float-card pointer-events-auto relative rounded-[2rem] border border-white/30 bg-black/50 p-5 text-white shadow-2xl backdrop-blur-2xl">
+          <div className="cine-float-card pointer-events-auto relative rounded-[2rem] border border-white/30 bg-black/55 p-5 text-white shadow-2xl backdrop-blur-2xl">
             
             {/* Header: Live Match Radar & Verified Pill */}
             <div className="flex items-center justify-between border-b border-white/15 pb-3">
@@ -368,7 +382,7 @@ export default function CinematicHero() {
           </div>
 
           {/* Secondary Floating Trust Badge */}
-          <div className="cine-float-card cine-float-card--slow pointer-events-auto mt-3 ml-6 rounded-2xl border border-white/25 bg-black/50 p-3 text-white shadow-2xl backdrop-blur-xl flex items-center gap-3">
+          <div className="cine-float-card cine-float-card--slow pointer-events-auto mt-3 ml-6 rounded-2xl border border-white/25 bg-black/60 p-3 text-white shadow-2xl backdrop-blur-xl flex items-center gap-3">
             <span className="text-2xl">🔒</span>
             <div>
               <div className="text-xs font-bold text-white telugu">{te ? "నంబర్ నేరుగా కుటుంబానికే" : "Number shared directly with family"}</div>
@@ -380,24 +394,49 @@ export default function CinematicHero() {
 
       </div>
 
-      {/* ================= 5. INTERACTIVE WEDDING CHAPTER NAVIGATOR & STREAM TIMELINE ================= */}
+      {/* ================= 5. AUTOMATIC CONTINUOUS WEDDING VIDEO TIMELINE SCRUBBER ================= */}
       <div className="relative z-[4] mx-auto max-w-7xl px-4 pb-8">
-        <div className="rounded-2xl border border-white/15 bg-black/60 p-3.5 backdrop-blur-xl shadow-2xl">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
+        <div className="rounded-2xl border border-white/20 bg-black/65 p-4 backdrop-blur-2xl shadow-2xl">
+          
+          {/* Header indicator */}
+          <div className="flex items-center justify-between pb-2 text-[11px] font-black text-[#f6d98a]">
+            <div className="flex items-center gap-2">
+              <span className="h-2 w-2 rounded-full bg-red-500 animate-ping" />
+              <span className="telugu">{L.filmPlaying}</span>
+            </div>
+            <span className="text-white/60 font-mono text-[10px]">
+              SCENE 0{activeChapter + 1} / 04
+            </span>
+          </div>
+
+          {/* 4 Chapter Scrubber Grid */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-1">
             {CHAPTERS.map((ch, idx) => (
               <button
                 key={ch.id}
                 type="button"
-                onClick={() => setActiveChapter(idx)}
-                className={`group relative rounded-xl p-3 text-left transition-all duration-500 cursor-pointer overflow-hidden ${
+                onClick={() => {
+                  setActiveChapter(idx);
+                  setChapterProgress(0);
+                }}
+                className={`group relative rounded-xl p-3 text-left transition-all duration-300 cursor-pointer overflow-hidden ${
                   activeChapter === idx
                     ? "bg-white/25 border-2 border-gold shadow-lg"
                     : "hover:bg-white/10 border border-white/10"
                 }`}
               >
-                {/* Continuous Video Stream Indicator */}
-                {activeChapter === idx && (
-                  <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-amber-300 via-gold to-white animate-pulse" />
+                {/* Real-time Smooth Progress Bar Line for active chapter */}
+                {activeChapter === idx ? (
+                  <div
+                    className="absolute top-0 left-0 h-1 bg-gradient-to-r from-[#f6d98a] via-amber-300 to-white shadow-gold transition-all duration-75"
+                    style={{ width: `${chapterProgress}%` }}
+                  />
+                ) : (
+                  <div
+                    className={`absolute top-0 left-0 right-0 h-0.5 ${
+                      idx < activeChapter ? "bg-[#f6d98a]/80" : "bg-white/10"
+                    }`}
+                  />
                 )}
                 
                 <div className={`text-xs font-black transition ${activeChapter === idx ? "text-[#f6d98a]" : "text-white/80 group-hover:text-white"} telugu`}>
