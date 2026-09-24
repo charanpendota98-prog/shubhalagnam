@@ -5,6 +5,7 @@
  * ==============================================================
  * Direct operations console with Smart Matchmaker, Unmasked Contacts Directory,
  * Notepad Contact List Generator, WhatsApp & Telegram dispatch, and RBAC analytics.
+ * Supported modules: Vendor Ads (live) • /api/admin/vendors • vRevenue • Profiles • Payouts.
  */
 import Dashboard from "@/components/control/Dashboard";
 

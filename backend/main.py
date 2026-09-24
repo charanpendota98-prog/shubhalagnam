@@ -1262,7 +1262,7 @@ DB_REFERRALS = []
 
 # Helper — unique Profile ID (MV1001, MV1002, MV1003...)
 def unique_tsap_id(caste: str = "") -> str:
-    """Super Easy & Clean Profile ID: MV1001, MV1002, MV1003... (Mana Vivaha prefix + 4-digit sequence starting at 1001)."""
+    # Super Easy & Clean Profile ID: MV1001, MV1002, MV1003... (MV prefix + 4-digit sequence starting at 1001).
     prefix = "MV"
     existing = {str(u.get("tsap_id") or "").upper() for u in DB_USERS}
     
@@ -2284,7 +2284,7 @@ def _user_or_404(tsap_id: str) -> Dict:
 @app.get("/api/referral/earnings-card")
 def referral_earnings_card_public(
     code: str = "PARTNER",
-    name: str = "Mana Vivaha Partner",
+    name: str = "మన వివాహ భాగస్వామి",
     amount: int = 50,
     paid_count: int = 1,
     tier: str = "BRONZE PARTNER",
