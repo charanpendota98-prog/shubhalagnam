@@ -38,7 +38,7 @@ const COPY = {
     trust: ["OTP ధృవీకరణ", "ఫోటో గోప్యత", "నేరుగా పరిచయం"],
     scroll: "మరింత తెలుసుకోండి",
     matchTitle: "కొత్త మ్యాచ్",
-    matchName: "RED001 · 25 సం. · Reddy",
+    matchName: "MV1001 · 25 సం. · Reddy",
     matchDesc: "Software · హైదరాబాద్ · 97% సరిపోలిక",
     accepted: "ఇంట్రెస్ట్ ఆమోదించబడింది",
     joined: "ధృవీకరించిన ప్రొఫైల్స్",
@@ -52,13 +52,13 @@ const COPY = {
     titleB: "begin here.",
     sub: "Verified profiles, complete privacy and a respectful process — find the right life partner for your family.",
     pricePill: "From ₹99 · first 3 profiles free",
-    ctaReg: "Register for free",
+    ctaReg: "ఉచిత నమోదు",
     ctaBrowse: "Browse profiles",
     ctaBot: "Join on Telegram",
     trust: ["OTP verified", "Photo privacy", "Direct introduction"],
     scroll: "Learn more",
     matchTitle: "New match",
-    matchName: "RED001 · 25 yrs · Reddy",
+    matchName: "MV1001 · 25 yrs · Reddy",
     matchDesc: "Software · Hyderabad · 97% match",
     accepted: "Interest accepted",
     joined: "Verified profiles",
@@ -196,7 +196,7 @@ export default function CinematicHero() {
             <span className="h-9 w-px bg-white/15" />
             <Stat value="3,900+" label={L.stories} lang={lang as Lang} />
             <span className="h-9 w-px bg-white/15" />
-            <Stat value="51" label={L.channels} lang={lang as Lang} />
+            <Stat value="52+" label={L.channels} lang={lang as Lang} />
           </div>
         </div>
       </div>

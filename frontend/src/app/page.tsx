@@ -15,7 +15,6 @@ import ProfilesOfTheDay from "@/components/ProfilesOfTheDay";
 import { SITE_CONFIG } from "@/lib/site-config";
 import { apiGet } from "@/lib/api";
 import { useLang, type Lang } from "@/lib/lang";
-import WeddingStoryHero from "@/components/WeddingStoryHero";
 import CinematicHero from "@/components/CinematicHero";
 import RealWeddingsFilm from "@/components/RealWeddingsFilm";
 import HomeVendorsShowcase from "@/components/HomeVendorsShowcase";
@@ -466,160 +465,22 @@ export default function Home() {
       {/* ================= 🎬 CINEMATIC VIDEO HERO (top-matrimony feel) ================= */}
       <CinematicHero />
 
-      {/* ================= HERO ================= */}
-      <section className="relative overflow-hidden">
-        <div className="absolute inset-0 dotted-bg opacity-60 pointer-events-none" />
-        <div className="absolute -top-24 -right-24 w-80 h-80 rounded-full bg-gold/20 blur-3xl pointer-events-none" />
-        <div className="absolute -bottom-24 -left-24 w-80 h-80 rounded-full bg-maroon/10 blur-3xl pointer-events-none" />
-
-        <div className="relative max-w-7xl mx-auto px-4 pt-8 pb-10 grid lg:grid-cols-[1.15fr_0.85fr] gap-10 items-center">
-          <div>
-            <div className="anim-hero inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-gold/40 shadow-soft text-[11px] font-bold text-maroon">
-              <span className="w-2 h-2 rounded-full bg-green-500 pulse-live" />
-              {L.liveBadge(hs.channels_live, hs.channels_total)}
-            </div>
-
-            <h1 className="anim-hero-1 mt-4 text-[32px] md:text-[46px] font-bold text-maroon leading-[1.12]">
-              {L.heroTitle}
-            </h1>
-
-            <p className="anim-hero-2 mt-3 text-sm md:text-base text-gray-700 telugu leading-relaxed max-w-xl">
-              {L.heroSubA}.{" "}
-              <b>{L.heroSubB(hs.castes_covered, hs.channels_total)}</b>{" "}
-              <b>{L.heroSubC(hs.free_first)}</b>
-            </p>
-
-            <div className="anim-hero-3 mt-5 flex flex-wrap gap-3">
-              <Link
-                href="/register"
-                className="px-6 py-3.5 rounded-full maroon-gradient text-white text-sm font-bold shadow-brand hover:shadow-brandLg transition"
-              >
-                🚀 {L.registerCta}
-              </Link>
-              <a
-                href={SITE_CONFIG.officialChannelUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="px-6 py-3.5 rounded-full gold-gradient text-maroon text-sm font-bold shadow-soft hover:brightness-105 transition"
-              >
-                ✈️ {L.botCta}
-              </a>
-              <button
-                onClick={() => window.dispatchEvent(new Event("tsap:install-show"))}
-                className="px-6 py-3.5 rounded-full bg-white border border-gold/50 text-maroon text-sm font-bold shadow-soft"
-              >
-                📲 {L.installApp}
-              </button>
-            </div>
-
-            <div className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-[12px] font-semibold text-gray-700">
-              {L.trust.map((t) => (
-                <span key={t}>✓ {t}</span>
-              ))}
-            </div>
-
-            {/* 🔍 Interactive 5-Second Matrimony Quick Match Finder */}
-            <HeroQuickSearch />
-
-          </div>
-
-          {/* Hero card mock */}
-          <Reveal delay={120}>
-            <div className="relative max-w-md mx-auto w-full">
-              <div className="absolute inset-0 maroon-gradient rounded-[2rem] rotate-3 opacity-15" />
-              <div className="relative bg-white rounded-[2rem] p-5 card-shadow-lg border border-gold/30">
-<div className="flex items-center flex-wrap gap-1.5">
-                  <div className="text-[10px] font-bold text-gold-deep uppercase tracking-widest">
-                    మన వివాహ
-                  </div>
-                  <div className="ml-auto flex items-center gap-1.5">
-                    <div className="text-[10px] px-2 py-1 rounded-full bg-slate-100 text-slate-500 font-bold whitespace-nowrap">
-                      {te ? "నమూనా" : "Sample"}
-                    </div>
-                    <div className="text-[10px] px-2 py-1 rounded-full bg-green-50 text-green-700 font-bold whitespace-nowrap">
-                      ✓ {te ? "వెరిఫైడ్" : "Verified"}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-3 flex gap-3">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src="/promo/bride-card.jpg" alt="Sample bride" className="w-20 h-24 rounded-xl object-cover border border-gold/40 shrink-0" />
-                  <div className="min-w-0">
-                    <div className="font-bold text-sm text-maroon">MV1001</div>
-                    <div className="text-[12px] text-gray-700 mt-0.5">25y • 5&prime;4&Prime; • Reddy</div>
-                    <div className="text-[12px] text-gray-700">BTech • Software @ Hyderabad</div>
-                    <div className="text-[12px] text-gray-700">Nalgonda, TS</div>
-                    <div className="mt-1.5 flex flex-wrap gap-1">
-                      {L.cardTags.map((c) => (
-                        <span key={c} className="text-[10px] px-2 py-0.5 rounded-full bg-gold-soft text-maroon font-bold">
-                          {c}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="ml-auto text-right shrink-0">
-                    <div className="text-[22px] font-bold text-gradient-gold leading-none">97%</div>
-                    <div className="text-[9px] font-bold text-gold-deep">BEST MATCH</div>
-                  </div>
-                </div>
-
-                <div className="mt-3 bg-cream rounded-2xl p-3 text-[11px] space-y-1">
-                  <div className="font-bold text-maroon">{L.cardWhy}</div>
-                  <div>{L.cardWhy1}</div>
-                  <div>{L.cardWhy2}</div>
-                  <div>{L.cardWhy3}</div>
-                </div>
-
-                <div className="mt-3 flex gap-2">
-                  <button className="flex-1 py-2.5 maroon-gradient text-white rounded-full text-[12px] font-bold">
-                    {L.cardInterest}
-                  </button>
-                  <button className="flex-1 py-2.5 border border-gold text-maroon rounded-full text-[12px] font-bold">
-                    {L.cardNumber}
-                  </button>
-                </div>
-
-                <div className="mt-2 text-[10px] text-center text-gray-400">
-                  #Reddy #TSBride #Software #Nalgonda
-                </div>
-              </div>
-            </div>
-          </Reveal>
-        </div>
-
-        {/* Ticker */}
-        <div className="relative bg-maroon text-white py-2.5 ticker-mask">
-          <div className="ticker-track text-[11px] font-semibold tracking-wide">
-            {[...tickerItems, ...tickerItems].map((t, i) => (
-              <span key={i} className="mx-6 inline-flex items-center gap-2">
-                <span className="text-gold">◆</span>
-                {t}
-              </span>
-            ))}
-          </div>
-        </div>
+      {/* ================= 🔍 QUICK MATCH FINDER + LIVE PULSE ================= */}
+      <section className="relative -mt-6 z-10 max-w-6xl mx-auto px-4">
+        <HeroQuickSearch />
       </section>
 
-      {/* ================= CINEMATIC WEDDING STORY ================= */}
-      <WeddingStoryHero />
-
-      {/* ================= WEDDING VIBE BANNER ================= */}
-      <section className="hidden md:block max-w-7xl mx-auto px-4 py-4" aria-label="Wedding vibe">
-        <div className="relative rounded-3xl overflow-hidden border border-gold/30 shadow-lg min-h-[16rem] flex items-center bg-maroon-900">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/promo/hero-wedding.jpg" alt="Auspicious Telugu Wedding" className="absolute inset-0 w-full h-full object-cover opacity-35" />
-          <div className="relative p-8 text-white max-w-xl">
-            <span className="text-xs font-black uppercase tracking-widest text-gold-light">Auspicious Matrimony</span>
-            <h2 className="text-2xl lg:text-3xl font-extrabold mt-1 leading-snug">{L.vibeTitle}</h2>
-            <div className="mt-4 flex gap-3">
-              <Link href="/register" className="px-5 py-2.5 rounded-xl bg-gold text-maroon font-bold text-xs shadow-md">
-                💍 {L.registerCta}
-              </Link>
-            </div>
-          </div>
+      {/* Auspicious Ticker */}
+      <div className="mt-8 relative bg-maroon text-white py-3 ticker-mask shadow-inner">
+        <div className="ticker-track text-[11px] font-semibold tracking-wide">
+          {[...tickerItems, ...tickerItems].map((t, i) => (
+            <span key={i} className="mx-6 inline-flex items-center gap-2">
+              <span className="text-gold font-black">◆</span>
+              {t}
+            </span>
+          ))}
         </div>
-      </section>
+      </div>
 
       {/* ================= 💐 REAL WEDDINGS FILM REEL ================= */}
       <RealWeddingsFilm />
@@ -634,11 +495,11 @@ export default function Home() {
         <BannerSlot page="home" />
       </section>
 
-      {/* ================= 🏪 WEDDING SERVICES & VERIFIED VENDORS ================= */}
-      <HomeVendorsShowcase />
-
       {/* ================= 🪐 VEDIC GUNAMELANAM LIVE ASTRO MATCHMAKER ================= */}
       <HomePoruthamWidget />
+
+      {/* ================= 💎 WHY CHOOSE US (premium trust band) ================= */}
+      <WhyChooseUs />
 
       {/* ================= WEEKLY CASTE SHOWCASE (W41) ================= */}
       <ShowcaseStrip />
@@ -665,9 +526,6 @@ export default function Home() {
           ))}
         </div>
       </section>
-
-      {/* ================= 💎 WHY CHOOSE US (premium trust band) ================= */}
-      <WhyChooseUs />
 
       {/* ================= WAVE 18 GROWTH: TEASERS + STORIES + RELIGIONS ================= */}
       <TeaserStrip />
@@ -946,8 +804,8 @@ export default function Home() {
         <DistrictAdBanner slot="home_hero" />
       </section>
 
-      {/* ================= 🏪 WEDDING VENDORS (ads) ================= */}
-      <VendorStrip chTotal={hs.channels_total} />
+      {/* ================= 🏪 WEDDING SERVICES & VERIFIED VENDORS ================= */}
+      <HomeVendorsShowcase />
 
       {/* ================= PRICING ================= */}
       {SITE_CONFIG.features.showPricing && (
@@ -1210,88 +1068,5 @@ export default function Home() {
     </section>
       <FinalCta />
     </div>
-  );
-}
-
-/* ---------------------------------------------------------------------------
-   🏪 VENDOR AD STRIP — paid-first rotation (/api/vendors/ads)
---------------------------------------------------------------------------- */
-function VendorStrip({ chTotal }: { chTotal: number }) {
-  const { lang } = useLang();
-  const L = TEXT[lang as Lang];
-  const [ads, setAds] = useState<any[]>([]);
-  const [cats, setCats] = useState<any[]>([]);
-
-  useEffect(() => {
-    fetch("/api/vendors/ads?slot=home_mid_strip&limit=4")
-      .then((r) => r.json()).then((d) => setAds(d.ads || [])).catch(() => { });
-    fetch("/api/vendors/categories")
-      .then((r) => r.json()).then((d) => setCats((d.categories || []).slice(0, 10))).catch(() => { });
-  }, []);
-
-  return (
-    <section className="max-w-7xl mx-auto px-4 py-8">
-      <Reveal>
-        <SectionHeading
-          eyebrow={L.vendorEyebrow}
-          title={L.vendorTitle}
-          subtitle={L.vendorSub}
-          telugu={lang === "te"}
-          align="center"
-        />
-      </Reveal>
-
-      <div className="mt-5 flex flex-wrap gap-2 justify-center">
-        {cats.map((c) => (
-          <Link key={c.key} href={`/vendors?category=${c.key}`}
-            className="px-3 py-1.5 rounded-full bg-white border border-gold/40 text-[12px] font-semibold text-maroon hover:bg-maroon-soft transition">
-            {c.icon} {c.en}
-          </Link>
-        ))}
-        <Link href="/vendors" className="px-3 py-1.5 rounded-full maroon-gradient text-white text-[12px] font-bold">
-          {L.vendorAll}
-        </Link>
-      </div>
-
-      {ads.length > 0 && (
-        <div className="mt-5 grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {ads.map((a) => (
-            <div key={a.vendor_id} className="bg-white rounded-3xl border border-gold/30 card-shadow p-4 flex flex-col">
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <div className="text-lg">{a.icon}</div>
-                  <div className="font-bold text-maroon text-[14px] truncate">{a.business_name}</div>
-                  <div className="text-[11px] text-gray-600">{a.category_te}</div>
-                  <div className="text-[11px] text-gray-500">📍 {a.city}</div>
-                </div>
-                {a.verified && <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-2 py-0.5">✅ Verified</span>}
-              </div>
-              {a.price_range && <div className="mt-2 text-[11px] font-semibold text-maroon">💰 {a.price_range}</div>}
-              <div className="mt-auto pt-3 flex gap-2">
-                {a.whatsapp_link && (
-                  <a href={a.whatsapp_link} target="_blank" rel="noreferrer"
-                    className="flex-1 text-center bg-green-600 text-white font-bold text-[11px] px-3 py-2 rounded-xl">💬 WhatsApp</a>
-                )}
-                <Link href={a.detail_url || "/vendors"} className="flex-1 text-center border border-maroon/25 text-maroon font-bold text-[11px] px-3 py-2 rounded-xl">
-                  Details
-                </Link>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      <div className="mt-5 bg-navy text-white rounded-3xl p-5 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <div className="font-bold">{L.vendorPromoT}</div>
-          <div className="text-[12px] opacity-90 mt-0.5">
-            {L.vendorPromoS(chTotal)}
-          </div>
-        </div>
-        <Link href="/vendors/register" className="gold-gradient text-maroon font-bold text-[13px] px-4 py-2.5 rounded-xl">
-          {L.vendorPromoC}
-        </Link>
-      </div>
-    </section>
   );
 }
