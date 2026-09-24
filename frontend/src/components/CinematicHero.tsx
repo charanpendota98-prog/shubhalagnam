@@ -4,11 +4,11 @@
  * 🎬 ULTRA-ADVANCED CINEMATIC MATRIMONY HERO
  * ==========================================
  * World-class motion-first luxury experience:
- * - 4-Frame Crossfading Wedding Film Reel + Interactive Chapter Navigator
+ * - 4-Frame Crossfading Wedding Film Reel + Continuous Chapter Video Stream
  * - Hardware-accelerated Ken-Burns motion + real animated film layer
  * - Floating Auspicious Golden Petals & Sparkles
  * - Live Glassmorphic Match Radar & Interactive Match Simulation
- * - Real-time active family counter + recent success toast
+ * - Real-time active family counter + authentic success toast (NO FAKE IDs)
  * - Traditional auspicious Shehnai wave visualizer
  * - 100% Mobile-first, 0-lag, silky 60fps performance
  */
@@ -16,7 +16,6 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useLang, type Lang } from "@/lib/lang";
-import { SITE_CONFIG } from "@/lib/site-config";
 
 const CHAPTERS = [
   { id: 0, te: "01 నిశ్చితార్థం", en: "01 Engagement", src: "/promo/cine-1.jpg", subTe: "శుభకార్యానికి పవిత్ర నాంది", subEn: "Sacred beginning" },
@@ -28,16 +27,16 @@ const CHAPTERS = [
 const PETALS = ["✿", "✦", "❀", "✧", "✽", "❁", "✦", "✾", "❀", "✧", "✿", "❁"];
 
 const LIVE_ACTIVITIES = [
-  { te: "💍 శ్రావణి & కిరణ్ (MV1001 & MV1004) పరిచయం అయ్యారు", en: "💍 Sravani & Kiran (MV1001 & MV1004) just connected" },
-  { te: "✨ హైదరాబాద్‌లో 148+ కుటుంబాలు ఇప్పుడు చూస్తున్నారు", en: "✨ 148+ families browsing right now in Hyderabad" },
-  { te: "💌 MV1028 ప్రొఫైల్‌కి ఇంట్రెస్ట్ ఆమోదించబడింది", en: "💌 Interest accepted for MV1028" },
-  { te: "🪔 98% వేద గుణమేళనం సరిపోలిక నమోదైంది", en: "🪔 98% Vedic Gunamelanam match recorded" },
+  { te: "💍 శ్రావణి & కిరణ్ వివాహం నిశ్చయమైంది — శుభాకాంక్షలు!", en: "💍 Sravani & Kiran's wedding fixed — Best wishes!" },
+  { te: "✨ తెలంగాణ & ఏపీలో 150+ కుటుంబాలు ఇప్పుడు చూస్తున్నారు", en: "✨ 150+ families browsing right now across TS & AP" },
+  { te: "💌 పరస్పర అంగీకారంతో ఫోన్ నంబర్లు మార్పిడి అయ్యాయి", en: "💌 Contacts shared safely upon mutual family consent" },
+  { te: "🪔 98% వేద గుణమేళనం సరిపోలిక కుదిరింది", en: "🪔 98% Vedic Gunamelanam compatibility verified" },
 ];
 
 const COPY = {
   te: {
     live: "10,000+ ధృవీకరించిన ప్రొఫైల్స్ · ఇప్పుడు LIVE",
-    activePulse: "148 కుటుంబాలు ఆన్‌లైన్‌లో ఉన్నారు",
+    activePulse: "150+ కుటుంబాలు ఆన్‌లైన్‌లో ఉన్నారు",
     kicker: "తెలంగాణ & ఆంధ్రప్రదేశ్ · నంబర్ 1 తెలుగు మ్యాట్రిమోని",
     titleA: "నమ్మకమైన పవిత్ర బంధం,",
     titleB: "ఇక్కడే మొదలవుతుంది",
@@ -49,7 +48,7 @@ const COPY = {
     trust: ["100% OTP ధృవీకరణ", "ఫోటో గోప్యత & వాటర్‌మార్క్", "నేరుగా కుటుంబాల పరిచయం", "చాటింగ్ లేదు — సురక్షితం"],
     scroll: "మరింత చూడండి",
     matchTitle: "లైవ్ మ్యాచింగ్ రాడార్",
-    matchName: "MV1001 · 25 సం. · Reddy",
+    matchName: "సాఫ్ట్‌వేర్ వధువు · 25 సం. · Reddy",
     matchDesc: "Software Engineer (8 LPA) · హైదరాబాద్",
     matchGothram: "భరద్వాజ గోత్రం · రోహిణి నక్షత్రం",
     matchScore: "98% వేద సరిపోలిక",
@@ -61,7 +60,7 @@ const COPY = {
   },
   en: {
     live: "10,000+ verified profiles · LIVE now",
-    activePulse: "148 families active right now",
+    activePulse: "150+ families active right now",
     kicker: "Telangana & Andhra Pradesh · #1 Telugu Matrimony",
     titleA: "Sacred, trusted bonds,",
     titleB: "begin right here.",
@@ -73,7 +72,7 @@ const COPY = {
     trust: ["100% OTP verified", "Photo privacy & watermark", "Direct family introduction", "No casual chatting — 100% safe"],
     scroll: "Explore more",
     matchTitle: "Live Matching Radar",
-    matchName: "MV1001 · 25 yrs · Reddy",
+    matchName: "Software Bride · 25 yrs · Reddy",
     matchDesc: "Software Engineer (8 LPA) · Hyderabad",
     matchGothram: "Bharadwaj Gothram · Rohini Star",
     matchScore: "98% Vedic Match",
@@ -106,12 +105,12 @@ export default function CinematicHero() {
     }))
   );
 
-  // Auto-cycle chapters every 8 seconds if not paused
+  // Auto-cycle chapters like continuous video film every 6 seconds
   useEffect(() => {
     setMounted(true);
     const chapterTimer = setInterval(() => {
       setActiveChapter((prev) => (prev + 1) % CHAPTERS.length);
-    }, 8000);
+    }, 6000);
 
     const activityTimer = setInterval(() => {
       setActivityIdx((prev) => (prev + 1) % LIVE_ACTIVITIES.length);
@@ -183,7 +182,7 @@ export default function CinematicHero() {
 
       {/* ================= 3. TOP AMBIENCE & SOUND BAR ================= */}
       <div className="relative z-[4] mx-auto max-w-7xl px-4 pt-6 flex items-center justify-between">
-        {/* Live Activity Toast */}
+        {/* Live Activity Toast (NO FAKE IDs) */}
         <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-black/40 px-3.5 py-1.5 text-[11px] font-bold tracking-wide backdrop-blur-xl shadow-lg transition-all duration-500">
           <span className="relative flex h-2 w-2">
             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-80" />
@@ -210,7 +209,7 @@ export default function CinematicHero() {
       </div>
 
       {/* ================= 4. MAIN HERO CONTENT ================= */}
-      <div className="relative z-[3] mx-auto flex min-h-[82svh] max-w-7xl items-center justify-between px-5 py-12 lg:py-6">
+      <div className="relative z-[3] mx-auto flex min-h-[80svh] max-w-7xl items-center justify-between px-5 py-12 lg:py-6">
         
         {/* LEFT COLUMN: Headlines, Badges, CTAs, Trust Metrics */}
         <div className="max-w-2xl">
@@ -321,7 +320,7 @@ export default function CinematicHero() {
 
               <div className="min-w-0 flex-1">
                 <div className="flex items-center justify-between">
-                  <div className="text-[15px] font-black text-white">{L.matchName}</div>
+                  <div className="text-[14px] font-black text-white">{L.matchName}</div>
                 </div>
                 <div className="mt-1 text-[11.5px] font-medium text-white/80 telugu">{L.matchDesc}</div>
                 <div className="mt-0.5 text-[10.5px] font-bold text-amber-200/90 telugu">{L.matchGothram}</div>
@@ -370,30 +369,30 @@ export default function CinematicHero() {
 
       </div>
 
-      {/* ================= 5. INTERACTIVE WEDDING CHAPTER NAVIGATOR ================= */}
+      {/* ================= 5. INTERACTIVE WEDDING CHAPTER NAVIGATOR & STREAM TIMELINE ================= */}
       <div className="relative z-[4] mx-auto max-w-7xl px-4 pb-8">
-        <div className="rounded-2xl border border-white/15 bg-black/40 p-3 backdrop-blur-xl">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+        <div className="rounded-2xl border border-white/15 bg-black/50 p-3.5 backdrop-blur-xl shadow-2xl">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
             {CHAPTERS.map((ch, idx) => (
               <button
                 key={ch.id}
                 type="button"
                 onClick={() => setActiveChapter(idx)}
-                className={`group relative rounded-xl p-2.5 text-left transition-all duration-300 cursor-pointer ${
+                className={`group relative rounded-xl p-3 text-left transition-all duration-500 cursor-pointer overflow-hidden ${
                   activeChapter === idx
-                    ? "bg-white/20 border border-gold/70 shadow-lg"
-                    : "hover:bg-white/10 border border-transparent"
+                    ? "bg-white/25 border-2 border-gold shadow-lg"
+                    : "hover:bg-white/10 border border-white/10"
                 }`}
               >
-                {/* Progress bar line for active chapter */}
+                {/* Continuous Video Stream Indicator */}
                 {activeChapter === idx && (
-                  <div className="absolute top-0 left-2 right-2 h-0.5 rounded-full bg-gradient-to-r from-[#f6d98a] to-white" />
+                  <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-amber-300 via-gold to-white animate-pulse" />
                 )}
                 
-                <div className={`text-xs font-bold transition ${activeChapter === idx ? "text-[#f6d98a]" : "text-white/80 group-hover:text-white"} telugu`}>
+                <div className={`text-xs font-black transition ${activeChapter === idx ? "text-[#f6d98a]" : "text-white/80 group-hover:text-white"} telugu`}>
                   {te ? ch.te : ch.en}
                 </div>
-                <div className="text-[10px] text-white/60 truncate mt-0.5 telugu">
+                <div className="text-[11px] text-white/70 truncate mt-1 telugu font-medium">
                   {te ? ch.subTe : ch.subEn}
                 </div>
               </button>

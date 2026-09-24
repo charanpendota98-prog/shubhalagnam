@@ -962,11 +962,14 @@ export default function MatchesPage() {
             <label className="block text-xs font-black text-slate-800 mb-2">
               🎓 {te ? "చదువు (Education):" : "Education:"}
             </label>
-            <div className="max-h-36 overflow-y-auto space-y-1 pr-1">
-              {["BTech", "MS", "MBBS", "MBA", "CA", "MTech", "BSc", "BCom", "MD", "PhD"].map((edu) => {
+            <div className="max-h-44 overflow-y-auto space-y-1 pr-1">
+              {[
+                "BTech", "MS", "MBBS", "MD", "MBA", "CA", "MTech", "BSc", "BCom", "BA",
+                "BPharm", "BDS", "LLB", "MCom", "MSc", "MCA", "PhD"
+              ].map((edu) => {
                 const checked = isMultiSelected("education", edu);
                 return (
-                  <label key={edu} className="flex items-center gap-2 p-1 rounded-lg text-xs cursor-pointer text-slate-700">
+                  <label key={edu} className="flex items-center gap-2 p-1 rounded-lg text-xs cursor-pointer text-slate-700 hover:bg-slate-50">
                     <input
                       type="checkbox"
                       checked={checked}
@@ -985,11 +988,15 @@ export default function MatchesPage() {
             <label className="block text-xs font-black text-slate-800 mb-2">
               💼 {te ? "ఉద్యోగం (Profession):" : "Occupation:"}
             </label>
-            <div className="max-h-36 overflow-y-auto space-y-1 pr-1">
-              {["Software Engineer", "Doctor", "Govt Job", "Business", "Bank Manager", "Teacher", "Civil Engineer"].map((j) => {
+            <div className="max-h-44 overflow-y-auto space-y-1 pr-1">
+              {[
+                "Software Engineer", "Doctor / Physician", "Govt Employee", "Bank Officer / Manager",
+                "Business Owner", "IAS / IPS / Civil Services", "Chartered Accountant (CA)",
+                "Teacher / Professor", "Civil Engineer", "Police / Defense", "Self Employed", "NRI Professional"
+              ].map((j) => {
                 const checked = isMultiSelected("job", j);
                 return (
-                  <label key={j} className="flex items-center gap-2 p-1 rounded-lg text-xs cursor-pointer text-slate-700">
+                  <label key={j} className="flex items-center gap-2 p-1 rounded-lg text-xs cursor-pointer text-slate-700 hover:bg-slate-50">
                     <input
                       type="checkbox"
                       checked={checked}
@@ -1397,7 +1404,10 @@ export default function MatchesPage() {
 
                 {mobileFilterTab === "education" && (
                   <div className="space-y-2">
-                    {["BTech", "MS", "MBBS", "MBA", "CA", "MTech", "BSc", "BCom", "MD", "PhD"].map((edu) => (
+                    {[
+                      "BTech", "MS", "MBBS", "MD", "MBA", "CA", "MTech", "BSc", "BCom", "BA",
+                      "BPharm", "BDS", "LLB", "MCom", "MSc", "MCA", "PhD"
+                    ].map((edu) => (
                       <label key={edu} className="flex items-center gap-2 text-xs cursor-pointer text-slate-800">
                         <input
                           type="checkbox"
@@ -1413,7 +1423,11 @@ export default function MatchesPage() {
 
                 {mobileFilterTab === "job" && (
                   <div className="space-y-2">
-                    {["Software Engineer", "Doctor", "Govt Job", "Business", "Bank Manager", "Teacher"].map((j) => (
+                    {[
+                      "Software Engineer", "Doctor / Physician", "Govt Employee", "Bank Officer / Manager",
+                      "Business Owner", "IAS / IPS / Civil Services", "Chartered Accountant (CA)",
+                      "Teacher / Professor", "Civil Engineer", "Police / Defense", "Self Employed", "NRI Professional"
+                    ].map((j) => (
                       <label key={j} className="flex items-center gap-2 text-xs cursor-pointer text-slate-800">
                         <input
                           type="checkbox"
