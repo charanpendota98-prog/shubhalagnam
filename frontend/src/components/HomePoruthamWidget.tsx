@@ -1,8 +1,8 @@
 "use client";
 /**
- * 💍 HOME PORUTHAM WIDGET — Live 10-Porutham Astro Matchmaker
- * ============================================================
- * Instant Vedic Gunamilan test on homepage:
+ * 💍 HOME ASTRO WIDGET — Live Vedic Gunamelanam & Kundli Matchmaker
+ * =================================================================
+ * Instant Vedic Gunamelanam test on homepage:
  * Select Bride Nakshatra + Groom Nakshatra → Instant Live Score out of 10.
  */
 import { useState } from "react";

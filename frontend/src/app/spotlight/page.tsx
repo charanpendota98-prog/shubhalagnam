@@ -67,7 +67,7 @@ export default function SpotlightPromotionPage() {
 
     const id = tsapId.trim().toUpperCase();
     if (!id) {
-      setError(te ? "⚠️ దయచేసి మీ TSAP ID ని ఇవ్వండి" : "⚠️ Please enter your TSAP ID");
+      setError(te ? "⚠️ దయచేసి మీ Profile ID ని ఇవ్వండి (ex: MV1001)" : "⚠️ Please enter your Profile ID (ex: MV1001)");
       return;
     }
 

@@ -581,16 +581,16 @@ export default function RequestsPage() {
                 <div className="bg-cream border border-gold/30 rounded-2xl p-5">
                   <div className="font-bold text-maroon">{te ? "వేద గుణమేళన అంశాలు ఏంటి?" : "What are Gunamelanam factors?"}</div>
                   <ol className="mt-2 text-[12px] text-gray-700 space-y-1 list-decimal list-inside">
-                    <li>Rasi porutham (6/8 dosham check)</li>
-                    <li>Nakshatra porutham</li>
-                    <li>Gana porutham (Deva/Manushya/Rakshasa)</li>
-                    <li>Yoni porutham (animal symbols)</li>
-                    <li>Rajju porutham ⚠️ critical</li>
-                    <li>Vedha porutham ⚠️ critical</li>
-                    <li>Mahendra porutham</li>
-                    <li>Stree deergha</li>
-                    <li>Vashya porutham</li>
-                    <li>Rasi adhipathi</li>
+                    <li>రాశి పొంతన (Rasi Pontana - 6/8 dosham check)</li>
+                    <li>నక్షత్ర పొంతన (Nakshatra Pontana)</li>
+                    <li>గణ మైత్రి (Gana Maitri - Deva/Manushya/Rakshasa)</li>
+                    <li>యోని పొంతన (Yoni Pontana - animal symbols)</li>
+                    <li>రజ్జు బలం (Rajju Balam ⚠️ critical)</li>
+                    <li>వేధ విశ్లేషణ (Vedha check ⚠️ critical)</li>
+                    <li>మాహేంద్ర పొంతన (Mahendra Pontana)</li>
+                    <li>స్త్రీదీర్ఘ బలం (Stree deergha)</li>
+                    <li>వశ్య పొంతన (Vashya Pontana)</li>
+                    <li>రాశ్యాధిపతి మైత్రి (Rasi adhipathi)</li>
                   </ol>
                   <div className="mt-3 text-[11px] text-gray-600">{te ? <>మీ profile లో <b>Star (Nakshatram)</b> + <b>Rasi</b> fill చేసి ఉంటే automatic గా వస్తుంది.</> : <>If <b>Star (Nakshatram)</b> + <b>Rasi</b> are filled in your profile, it comes automatically.</>}</div>
                 </div>

@@ -3,7 +3,7 @@
 /**
  * ✨ లగ్నAI (LagnaAI) — ULTRA ADVANCED MATRIMONIAL CONCIERGE & ASTRO ASSISTANT
  * Smart conversational assistant in Telugu & English that helps users find
- * perfect matches, understand Vedic 10-Porutham astrology, and navigate plans.
+ * perfect matches, understand Vedic Gunamelanam astrology, and navigate plans.
  */
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";

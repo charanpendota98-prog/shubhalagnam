@@ -1,10 +1,10 @@
 "use client";
 
 /**
- * /porutham — 10-PORUTHAM FULL REPORT (advanced, printable, shareable) 💍
- * ======================================================================
+ * /porutham — VEDIC GUNAMELANAM & HOROSCOPE MATCH FULL REPORT (advanced, printable, shareable) 💍
+ * ==============================================================================================
  * Top matrimony sites lo "kundli match" paid add-on (₹300+). Manam:
- *   • 10 porutham lu — prathi daaniki pass/fail + Telugu note
+ *   • 10 వేద గుణమేళన సూత్రాలు — ప్రతి అంశానికి pass/fail + వివరణాత్మక తెలుగు విశ్లేషణ
  *   • Score /10 + stars + Telugu verdict + dosha (రజ్జు/వేధ) alert
  *   • WhatsApp lo share cheyyadaniki ready-made report IMAGE (backend Pillow)
  *   • 🖨️ Print / Save as PDF (purohitulu/pedda vaallaki chupinchadaniki)
@@ -146,11 +146,11 @@ function PoruthamInner() {
             <div className="mt-3 grid md:grid-cols-3 gap-3">
               <div>
                 <label className="text-[12px] font-bold">👰 Bride Profile ID</label>
-                <input value={bride} onChange={(e) => setBride(e.target.value.toUpperCase())} placeholder="RED001" className="input-mobile font-mono" />
+                <input value={bride} onChange={(e) => setBride(e.target.value.toUpperCase())} placeholder="MV1001" className="input-mobile font-mono" />
               </div>
               <div>
                 <label className="text-[12px] font-bold">🤵 Groom Profile ID</label>
-                <input value={groom} onChange={(e) => setGroom(e.target.value.toUpperCase())} placeholder="RED001" className="input-mobile font-mono" />
+                <input value={groom} onChange={(e) => setGroom(e.target.value.toUpperCase())} placeholder="MV1002" className="input-mobile font-mono" />
               </div>
               <div className="flex items-end">
                 <button onClick={() => calcById(bride, groom)} disabled={busy}

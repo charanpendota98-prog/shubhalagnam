@@ -77,7 +77,7 @@ const TEXT = {
     installApp: "App లాగా install చేసుకోండి",
     vibeTitle: "మీ ఇంటి శుభకార్యానికి — సరైన సంబంధం ఇక్కడే",
     trust: ["OTP + DOB వెరిఫైడ్", "ఫోటో-ప్రైవేట్ మోడ్", "యాక్సెప్ట్ తర్వాతే నంబర్", "వాటర్‌మార్క్ + ఫ్రాడ్ అలర్ట్స్"],
-    idSearchPh: "Profile ID తో వెతకండి — RED001",
+    idSearchPh: "Profile ID తో వెతకండి — MV1001",
     idSearchBtn: "వెతకండి",
     cardWhy: "ఎందుకు సెట్ అవుతారు?",
     cardTags: ["O+", "Rohini", "Bharadwaj"],
@@ -229,7 +229,7 @@ const TEXT = {
     installApp: "Install as app",
     vibeTitle: "For your family wedding — the right match is here",
     trust: ["OTP + DOB verified", "Photo-private mode", "Number only after accept", "Watermark + fraud alerts"],
-    idSearchPh: "Search by Profile ID — RED001",
+    idSearchPh: "Search by Profile ID — MV1001",
     idSearchBtn: "Search",
     cardWhy: "Why they match?",
     cardTags: ["O+", "Rohini", "Bharadwaj"],
@@ -546,7 +546,7 @@ export default function Home() {
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src="/promo/bride-card.jpg" alt="Sample bride" className="w-20 h-24 rounded-xl object-cover border border-gold/40 shrink-0" />
                   <div className="min-w-0">
-                    <div className="font-bold text-sm text-maroon">RED001</div>
+                    <div className="font-bold text-sm text-maroon">MV1001</div>
                     <div className="text-[12px] text-gray-700 mt-0.5">25y • 5&prime;4&Prime; • Reddy</div>
                     <div className="text-[12px] text-gray-700">BTech • Software @ Hyderabad</div>
                     <div className="text-[12px] text-gray-700">Nalgonda, TS</div>
@@ -637,7 +637,7 @@ export default function Home() {
       {/* ================= 🏪 WEDDING SERVICES & VERIFIED VENDORS ================= */}
       <HomeVendorsShowcase />
 
-      {/* ================= 🪐 10-PORUTHAM LIVE ASTRO MATCHMAKER ================= */}
+      {/* ================= 🪐 VEDIC GUNAMELANAM LIVE ASTRO MATCHMAKER ================= */}
       <HomePoruthamWidget />
 
       {/* ================= WEEKLY CASTE SHOWCASE (W41) ================= */}

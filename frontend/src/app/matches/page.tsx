@@ -9,7 +9,7 @@
  *  • Dual Age & Height Range sliders, Salary quick chips
  *  • Mobile Flipkart/Myntra style bottom-sheet filter drawer
  *  • Active filter chips with instant [x] dismiss and Clear All
- *  • 10-Porutham Gunamilan breakdown on cards
+ *  • Vedic Gunamelanam breakdown on cards
  *  • District targeted localized wedding ads integration
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";

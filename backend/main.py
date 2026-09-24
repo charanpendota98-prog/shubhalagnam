@@ -1910,10 +1910,10 @@ def search_profile(tsap_id: str, viewer_id: Optional[str] = None):
     - Number needs credit
     - Reason generator
     """
-    user = next((u for u in DB_USERS if u["tsap_id"]==tsap_id), None)
+    user = _find_user(tsap_id)
     if not user:
         # 🐞 FIX: mundu tappu ID ki FAKE profile (phone tho) return ayyedi — ippudu honest 404
-        raise HTTPException(404, f"TSAP ID దొరకలేదు: {tsap_id} — ID correct గా unda check చెయ్యండి")
+        raise HTTPException(404, f"Profile ID దొరకలేదు: {tsap_id} — ID correct గా unda check చెయ్యండి")
 
     viewer = next((u for u in DB_USERS if u["tsap_id"]==viewer_id), {"credits":3, "plan":"FREE"}) if viewer_id else {"credits":3, "plan":"FREE"}
 
@@ -3058,11 +3058,104 @@ def admin_approve(tsap_id: str, request: Request):
 def admin_make_premium(tsap_id: str, gift_credits: int = 10, request: Request = None):
     """Manual premium — admin gift"""
     require_admin(request)   # 🛡️ WAVE 9: admin key lekunda 403 (PII/money/)
-    user = next((u for u in DB_USERS if u["tsap_id"]==tsap_id), None)
+    user = _find_user(tsap_id)
     if not user: raise HTTPException(404, "⚠️ Dorakaledu — ID check చెయ్యండి")
-    user["credits"] += gift_credits
+    user["credits"] = int(user.get("credits", 0) or 0) + gift_credits
     user["plan"] = "S_199"
-    return {"success": True, "tsap_id": tsap_id, "new_credits": user["credits"], "message_telugu": f"💎 Admin gift! {gift_credits} credits FREE + Premium!"}
+    user["is_premium"] = True
+    user["has_paid"] = True
+    return {"success": True, "tsap_id": user.get("tsap_id"), "new_credits": user["credits"], "message_telugu": f"💎 Admin gift! {gift_credits} credits FREE + Premium!"}
+
+
+@app.post("/api/admin/grant-plan")
+@app.post("/api/admin/upgrade-user")
+def api_admin_grant_plan(payload: dict, request: Request = None):
+    """
+    👑 1-Click Admin Plan Grant / Manual Upgrade
+    Allows Admin & Staff to convert any user into ₹99/₹199/₹299/₹499 paid status with credits,
+    verified badge, and audit history. Supports MV1001, TSAP-M-..., numeric 1001, or phone numbers.
+    """
+    role = require_admin(request, staff_ok=True)
+    d = payload or {}
+    ident = str(d.get("tsap_id") or d.get("id") or d.get("user_id") or d.get("phone") or "").strip()
+    if not ident:
+        raise HTTPException(400, "tsap_id / profile ID is required")
+    
+    user = _find_user(ident)
+    if not user:
+        raise HTTPException(404, f"Profile ID / User '{ident}' not found")
+
+    plan_code = str(d.get("plan", "S_99")).strip().upper()
+    default_credits = 50 if plan_code == "S_499" else 25 if plan_code == "S_299" else 12 if plan_code == "S_199" else 5
+    credits_to_add = int(d.get("credits") if d.get("credits") is not None else default_credits)
+    trigger_referral = bool(d.get("trigger_referral", True))
+    verified_badge = bool(d.get("verified_badge", True))
+    payment_method = str(d.get("method") or d.get("payment_method") or "admin_manual").strip()
+    notes = str(d.get("notes") or d.get("note") or f"Admin manual plan grant: {plan_code}").strip()
+
+    user["plan"] = plan_code
+    user["has_paid"] = True
+    user["is_premium"] = True
+    user["is_approved"] = True
+    user["status"] = "approved"
+    if verified_badge:
+        user["verified"] = True
+        user["id_verified"] = True
+        user["selfie_verified"] = True
+    user["credits"] = int(user.get("credits", 0) or 0) + credits_to_add
+    
+    user.setdefault("credit_history", []).append({
+        "at": datetime.utcnow().isoformat(),
+        "change": credits_to_add,
+        "reason": f"admin_grant_{plan_code}",
+        "by": role,
+        "note": notes
+    })
+
+    plan_price = 499 if plan_code == "S_499" else 299 if plan_code == "S_299" else 199 if plan_code == "S_199" else 99
+    order_id = f"ADM-GRANT-{int(time.time())}"
+    DB_PAYMENTS.append({
+        "order_id": order_id,
+        "user_id": user.get("tsap_id"),
+        "tsap_id": user.get("tsap_id"),
+        "amount": plan_price,
+        "plan": plan_code,
+        "status": "paid",
+        "method": payment_method,
+        "notes": notes,
+        "created_at": datetime.utcnow().isoformat(),
+        "paid_at": datetime.utcnow().isoformat(),
+        "fulfilled": True
+    })
+
+    ref_msg = ""
+    if trigger_referral and user.get("referred_by"):
+        try:
+            from referral import process_referral_payment
+            r_res = process_referral_payment(user, user["referred_by"], plan_price, DB_USERS, payment_id=order_id)
+            if r_res.get("success"):
+                ref_msg = f" • Referrer ({user['referred_by']}) కి ₹50 కమీషన్ వాలెట్‌లో జమైంది!"
+        except Exception:
+            pass
+
+    MAUD.audit("admin_grant_plan", role, {"tsap_id": user.get("tsap_id"), "plan": plan_code, "credits": credits_to_add})
+    try:
+        DBSTORE.save(DBSTORE.snapshot(DB_USERS, DB_INTERESTS, DB_PAYMENTS, DB_OTPS,
+                                      VERIFIED_PHONES, DB_VIEWS, DB_SAVES, DB_DIGEST), force=True)
+    except Exception:
+        pass
+
+    return {
+        "success": True,
+        "tsap_id": user.get("tsap_id"),
+        "full_name": user.get("full_name"),
+        "plan": plan_code,
+        "credits": user.get("credits"),
+        "credits_added": credits_to_add,
+        "verified": user.get("verified"),
+        "message_telugu": f"👑 {user.get('tsap_id')} ({user.get('full_name')}) విజయవంతంగా {plan_code} (+{credits_to_add} Credits) కి అప్‌గ్రేడ్ చేయబడింది!{ref_msg}",
+        "message": f"Successfully upgraded {user.get('tsap_id')} to {plan_code} (+{credits_to_add} credits)"
+    }
 
 def _channel_public(key: str, ch: dict) -> dict:
     """Registry channel → website-friendly JSON (join link, status, deep link, hashtags, DP)."""

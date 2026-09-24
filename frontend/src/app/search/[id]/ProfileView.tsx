@@ -241,7 +241,7 @@ export default function ProfileView() {
           <span>🔍</span>
           <input value={searchId} onChange={(e) => setSearchId(e.target.value.toUpperCase())}
             onKeyDown={(e) => { if (e.key === "Enter") void load(searchId.trim()); }}
-            placeholder="Profile ID (ex: RED001)" aria-label="Profile ID search"
+            placeholder="Profile ID (ex: MV1001)" aria-label="Profile ID search"
             className="flex-1 bg-transparent text-sm outline-none" />
           <button onClick={() => void load(searchId.trim())} className="rounded-xl bg-[#7A0C2E] px-3 py-1.5 text-[12px] font-bold text-white">{te ? "చూడు" : "View"}</button>
         </div>

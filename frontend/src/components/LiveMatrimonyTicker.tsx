@@ -3,7 +3,7 @@
 /**
  * 💍 LIVE MATRIMONY PULSE & ACTIVITY TICKER
  * Displays real-time verified matrimonial activity notifications (matches, signups,
- * referral payouts, and 10-porutham verifications) with authentic Telugu vibes.
+ * referral payouts, and Vedic Gunamelanam verifications) with authentic Telugu vibes.
  */
 import { useEffect, useState } from "react";
 import { useLang } from "@/lib/lang";
