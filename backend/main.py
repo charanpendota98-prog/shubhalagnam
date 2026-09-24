@@ -1535,13 +1535,44 @@ async def register(
     # 2. ID Gen
     # WAVE 27 — ID-gen + append atomic (double-submit → rendu veru IDs, duplicate ID never)
     with _REGISTER_LOCK:
-        # 🛡️ R9 — duplicate phone REJECT (mundu log matrame — rendu accounts same number tho login ambiguity)
-        #    seed/inventory profiles (seed_source) fake phones — real user ni block cheyyakudadu
+        # 🛡️ R9 — duplicate phone REJECT (same phone cannot create multiple accounts)
         _dup_phone = any(u.get("phone") == phone and not u.get("seed_source") for u in DB_USERS)
         if _dup_phone:
             abuse_log("duplicate_phone_register", phone[:3] + "****")
             abuse_count("duplicate_phone_registers")
-            raise HTTPException(409, "📱 ఈ phone number తో already account ఉంది — same number tho రెండు accounts ఉండవు. Login (OTP) చెయ్యండి లేదా వేరే number ఇవ్వండి.")
+            raise HTTPException(409, "📱 ఈ మొబైల్ నంబర్‌తో ప్రొఫైల్ ఇప్పటికే నమోదై ఉంది. ఒకే నంబర్‌తో రెండు అకౌంట్లు సృష్టించలేరు. దయచేసి లాగిన్ అవ్వండి లేదా పాస్‌వర్డ్ రీసెట్ చేసుకోండి.")
+
+        # 🛡️ SMART COMPOSITE DUPLICATE DETECTION — Prevent same person from registering again with different phone
+        def _clean_str(s: str) -> str:
+            return re.sub(r"[^a-z0-9]", "", str(s or "").lower())
+
+        _norm_name = _clean_str(full_name)
+        _norm_father = _clean_str(father_name)
+        _norm_dob = str(dob or "").strip()[:10]
+
+        _dup_person = False
+        if _norm_name and len(_norm_name) >= 3 and _norm_dob:
+            for u in DB_USERS:
+                if u.get("seed_source"):
+                    continue
+                u_name = _clean_str(u.get("full_name"))
+                u_dob = str(u.get("dob") or "").strip()[:10]
+                u_father = _clean_str(u.get("father_name"))
+                u_district = str(u.get("district") or "").strip().lower()
+                u_caste = str(u.get("caste") or "").strip().lower()
+
+                # Match if exact same Name + same DOB + (same father OR same district OR same caste)
+                if u_name == _norm_name and u_dob == _norm_dob and u_dob:
+                    if (_norm_father and u_father and _norm_father == u_father) or \
+                       (district and u_district and district.strip().lower() == u_district) or \
+                       (caste and u_caste and caste.strip().lower() == u_caste):
+                        _dup_person = True
+                        break
+
+        if _dup_person:
+            abuse_log("duplicate_identity_register", _norm_name)
+            raise HTTPException(409, "⚠️ ఈ వివరాలతో (పూర్తి పేరు, పుట్టిన తేదీ, తండ్రి పేరు/ప్రాంతం) ప్రొఫైల్ ఇప్పటికే నమోదై ఉంది. ఒక వ్యక్తి ఒక్కసారి మాత్రమే నమోదు చేసుకోవచ్చు. దయచేసి మీ పాత అకౌంట్‌తో లాగిన్ అవ్వండి.")
+
         tsap_id = unique_tsap_id(caste)
         # referral code — TSAP ID nunchi derive (unique, deterministic) [FIX: mundu undefined `seq` tho crash avutundi]
         my_ref_code = ""   # ensure_referrer_profile() — name nunchi short code (CHA0001 style)

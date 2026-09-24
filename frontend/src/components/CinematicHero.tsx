@@ -4,8 +4,8 @@
  * 🎬 ULTRA-ADVANCED CINEMATIC MATRIMONY HERO
  * ==========================================
  * World-class motion-first luxury experience:
- * - 4-Frame Crossfading Wedding Film Reel + Continuous Chapter Video Stream
- * - Hardware-accelerated Ken-Burns motion + real animated film layer
+ * - Real Animated Looping Telugu Wedding Films (wedding-film.webp & wedding-story-film.webp)
+ * - 4-Frame Crossfading Wedding Reel + Continuous Video Stream Player
  * - Floating Auspicious Golden Petals & Sparkles
  * - Live Glassmorphic Match Radar & Interactive Match Simulation
  * - Real-time active family counter + authentic success toast (NO FAKE IDs)
@@ -18,10 +18,10 @@ import { useEffect, useRef, useState } from "react";
 import { useLang, type Lang } from "@/lib/lang";
 
 const CHAPTERS = [
-  { id: 0, te: "01 నిశ్చితార్థం", en: "01 Engagement", src: "/promo/cine-1.jpg", subTe: "శుభకార్యానికి పవిత్ర నాంది", subEn: "Sacred beginning" },
-  { id: 1, te: "02 మంగళస్నానం", en: "02 Mangalasnanam", src: "/promo/cine-2.jpg", subTe: "పసుపు, సుగంధ సంప్రదాయం", subEn: "Haldi & blessings" },
-  { id: 2, te: "03 జీలకర్ర బెల్లం & తాళికట్టు", en: "03 Muhurtham & Thali", src: "/promo/cine-3.jpg", subTe: "ఏడడుగుల కలయిక — శుభ ముహూర్తం", subEn: "Sacred knot at auspicious muhurtham" },
-  { id: 3, te: "04 తలంబ్రాలు & సప్తపది", en: "04 Talambralu Forever", src: "/promo/cine-4.jpg", subTe: "చిరకాల బంధం — ఆనంద క్షణాలు", subEn: "Together for a lifetime" },
+  { id: 0, te: "01 నిశ్చితార్థం", en: "01 Engagement", src: "/promo/cine-1.jpg", film: "/promo/wedding-film.webp", subTe: "శుభకార్యానికి పవిత్ర నాంది", subEn: "Sacred beginning" },
+  { id: 1, te: "02 మంగళస్నానం", en: "02 Mangalasnanam", src: "/promo/cine-2.jpg", film: "/promo/wedding-film.webp", subTe: "పసుపు, సుగంధ సంప్రదాయం", subEn: "Haldi & blessings" },
+  { id: 2, te: "03 జీలకర్ర బెల్లం & తాళికట్టు", en: "03 Muhurtham & Thali", src: "/promo/cine-3.jpg", film: "/promo/wedding-film.webp", subTe: "ఏడడుగుల కలయిక — శుభ ముహూర్తం", subEn: "Sacred knot at auspicious muhurtham" },
+  { id: 3, te: "04 తలంబ్రాలు & సప్తపది", en: "04 Talambralu Forever", src: "/promo/cine-4.jpg", film: "/promo/wedding-story-film.webp", subTe: "చిరకాల బంధం — ఆనంద క్షణాలు", subEn: "Together for a lifetime" },
 ];
 
 const PETALS = ["✿", "✦", "❀", "✧", "✽", "❁", "✦", "✾", "❀", "✧", "✿", "❁"];
@@ -105,7 +105,7 @@ export default function CinematicHero() {
     }))
   );
 
-  // Auto-cycle chapters like continuous video film every 6 seconds
+  // Auto-cycle chapters continuously like a real video movie stream every 6 seconds
   useEffect(() => {
     setMounted(true);
     const chapterTimer = setInterval(() => {
@@ -122,43 +122,54 @@ export default function CinematicHero() {
     };
   }, []);
 
+  const currentCh = CHAPTERS[activeChapter];
+
   return (
-    <section className="cine-hero relative overflow-hidden bg-[#12040e] text-white" aria-label="Telugu matrimony — cinematic experience">
+    <section className="cine-hero relative overflow-hidden bg-[#10030c] text-white" aria-label="Telugu matrimony — cinematic experience">
       
-      {/* ================= 1. MULTI-LAYER WEDDING FILM BACKGROUND ================= */}
+      {/* ================= 1. VIBRANT ANIMATED WEDDING FILM BACKGROUND ================= */}
       <div className="absolute inset-0" aria-hidden>
+        {/* Animated Wedding Film WebP Video Layer (Vibrant, Clear, Continuous) */}
+        {mounted && (
+          <img
+            src={currentCh.film || "/promo/wedding-film.webp"}
+            alt="Telugu wedding film motion"
+            className="absolute inset-0 h-full w-full object-cover opacity-85 transition-opacity duration-1000 scale-105"
+          />
+        )}
+
+        {/* High-definition Still Layer per Chapter */}
         {CHAPTERS.map((ch, idx) => (
           <div
             key={ch.src}
             className={`absolute inset-0 bg-cover bg-center transition-all duration-1000 ease-out ${
-              activeChapter === idx ? "opacity-100 scale-105" : "opacity-0 scale-100"
+              activeChapter === idx ? "opacity-35 scale-105" : "opacity-0 scale-100"
             }`}
             style={{
               backgroundImage: `url('${ch.src}')`,
-              filter: "saturate(1.1) contrast(1.05)",
+              filter: "saturate(1.2) contrast(1.1)",
             }}
           />
         ))}
       </div>
 
-      {/* Looping WebP wedding motion layer for real film texture */}
-      {mounted && (
-        <img
-          src="/promo/wedding-film.webp"
-          alt=""
-          aria-hidden
-          className="cine-film absolute inset-0 h-full w-full object-cover mix-blend-screen opacity-40 pointer-events-none"
-        />
-      )}
-
-      {/* Luxury Royal Vignette, Color Grade & Film Grain */}
-      <div className="cine-grade" aria-hidden />
-      <div className="cine-vignette" aria-hidden />
-      <div className="cine-grain" aria-hidden />
+      {/* Readable Gradient Layer (Left side dark for crisp typography, Right side clear for video) */}
+      <div
+        className="absolute inset-0 z-[1] pointer-events-none"
+        style={{
+          background: "linear-gradient(90deg, rgba(16,3,12,0.95) 0%, rgba(16,3,12,0.85) 35%, rgba(16,3,12,0.3) 70%, rgba(16,3,12,0.6) 100%)",
+        }}
+      />
+      <div
+        className="absolute inset-0 z-[1] pointer-events-none"
+        style={{
+          background: "linear-gradient(0deg, rgba(16,3,12,0.95) 0%, rgba(16,3,12,0.2) 30%, transparent 70%)",
+        }}
+      />
 
       {/* Auspicious Ambient Gold Glow Orbs */}
-      <div className="pointer-events-none absolute -top-24 left-1/4 h-96 w-96 rounded-full bg-[#f6d98a]/15 blur-[100px]" />
-      <div className="pointer-events-none absolute bottom-12 right-1/4 h-96 w-96 rounded-full bg-[#a0143a]/30 blur-[120px]" />
+      <div className="pointer-events-none absolute -top-24 left-1/4 h-96 w-96 rounded-full bg-[#f6d98a]/20 blur-[100px]" />
+      <div className="pointer-events-none absolute bottom-12 right-1/4 h-96 w-96 rounded-full bg-[#a0143a]/35 blur-[120px]" />
 
       {/* ================= 2. FLOATING AUSPICIOUS GOLDEN PETALS ================= */}
       {mounted && (
@@ -183,7 +194,7 @@ export default function CinematicHero() {
       {/* ================= 3. TOP AMBIENCE & SOUND BAR ================= */}
       <div className="relative z-[4] mx-auto max-w-7xl px-4 pt-6 flex items-center justify-between">
         {/* Live Activity Toast (NO FAKE IDs) */}
-        <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-black/40 px-3.5 py-1.5 text-[11px] font-bold tracking-wide backdrop-blur-xl shadow-lg transition-all duration-500">
+        <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-black/50 px-3.5 py-1.5 text-[11px] font-bold tracking-wide backdrop-blur-xl shadow-lg transition-all duration-500">
           <span className="relative flex h-2 w-2">
             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-80" />
             <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400" />
@@ -209,7 +220,7 @@ export default function CinematicHero() {
       </div>
 
       {/* ================= 4. MAIN HERO CONTENT ================= */}
-      <div className="relative z-[3] mx-auto flex min-h-[80svh] max-w-7xl items-center justify-between px-5 py-12 lg:py-6">
+      <div className="relative z-[3] mx-auto flex min-h-[78svh] max-w-7xl items-center justify-between px-5 py-12 lg:py-6">
         
         {/* LEFT COLUMN: Headlines, Badges, CTAs, Trust Metrics */}
         <div className="max-w-2xl">
@@ -291,7 +302,7 @@ export default function CinematicHero() {
           <div className="absolute -inset-1 rounded-[2.5rem] bg-gradient-to-r from-amber-400/30 to-rose-600/30 blur-xl opacity-75" />
 
           {/* Main Floating Match Preview Card */}
-          <div className="cine-float-card pointer-events-auto relative rounded-[2rem] border border-white/30 bg-black/40 p-5 text-white shadow-2xl backdrop-blur-2xl">
+          <div className="cine-float-card pointer-events-auto relative rounded-[2rem] border border-white/30 bg-black/50 p-5 text-white shadow-2xl backdrop-blur-2xl">
             
             {/* Header: Live Match Radar & Verified Pill */}
             <div className="flex items-center justify-between border-b border-white/15 pb-3">
@@ -371,7 +382,7 @@ export default function CinematicHero() {
 
       {/* ================= 5. INTERACTIVE WEDDING CHAPTER NAVIGATOR & STREAM TIMELINE ================= */}
       <div className="relative z-[4] mx-auto max-w-7xl px-4 pb-8">
-        <div className="rounded-2xl border border-white/15 bg-black/50 p-3.5 backdrop-blur-xl shadow-2xl">
+        <div className="rounded-2xl border border-white/15 bg-black/60 p-3.5 backdrop-blur-xl shadow-2xl">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
             {CHAPTERS.map((ch, idx) => (
               <button
