@@ -49,8 +49,8 @@ export function TeaserStrip() {
                 {/* soft decorative pattern so a locked card never looks like an empty gap */}
                 <span aria-hidden className="pointer-events-none absolute inset-0 opacity-25"
                   style={{ backgroundImage: "radial-gradient(circle at 20% 25%, rgba(255,255,255,.35) 0, transparent 42%), radial-gradient(circle at 82% 75%, rgba(212,175,55,.5) 0, transparent 45%)" }} />
-                <span className="text-6xl blur-[7px] select-none opacity-80" aria-hidden>{t.gender === "Groom" ? "🤵" : "👰"}</span>
-                <span className="absolute inset-0 flex flex-col items-center justify-center gap-1.5">
+                <span className="text-6xl blur-[6px] select-none opacity-80" aria-hidden>{t.gender === "Groom" ? "🤵" : "👰"}</span>
+                <span className="absolute inset-0 flex flex-col items-center justify-center gap-1.5" title="Photo locked">
                   <span className="text-2xl">🔒</span>
                   <span className="bg-black/45 text-white text-[10px] font-bold px-3 py-1 rounded-full backdrop-blur-sm">{t.gender === "Groom" ? (t.district || "Groom") : (t.district || "Bride")}</span>
                 </span>

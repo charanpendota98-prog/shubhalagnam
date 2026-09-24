@@ -1,6 +1,6 @@
 # 🤵 AP Grooms | ఆంధ్రా వరులు
 
-- **Key:** `ap_groom`  •  **Tier:** L1_REGION  •  **Wave:** 1  •  **Status:** create ⬜
+- **Key:** `ap_groom`  •  **Tier:** L1_REGION  •  **Wave:** 1  •  **Status:** LIVE ✅
 - **Username:** `@APGROOM1` (already taken? → @manavivaha_ap_groom, @apgroom, @manavivaha_apgroom)
 - **Link:** https://t.me/APGROOM1
 - **Hashtags:** #APGroom #AndhraPradesh
@@ -15,7 +15,7 @@ Username: `APGROOM1`
 Description:
 
 ```
-🤵 AP Grooms — ఆంధ్రా వరులు. అన్ని కులాలు, అన్ని జిల్లాలు, రోజూ కొత్త profiles + గుణమేళనం వివరాలు. 3 FREE requests, ₹99లో 5. Register FREE: manavivaha.in | Telegram: @telugumatrimony1_bot
+🤵 AP Grooms — ఆంధ్రా వరులు. అన్ని కులాలు, అన్ని జిల్లాలు, రోజూ కొత్త profiles + వేద గుణమేళనం వివరాలు. 3 FREE requests, ₹99లో 5. Register FREE: manavivaha.in | Telegram: @telugumatrimony1_bot
 ```
 
 ## 2) Bot ni admin cheyyi
@@ -31,7 +31,7 @@ Telugu Matrimony — TS + AP
 ఇక్కడ ఏం దొరుకుతుంది:
 ✅ రోజూ కొత్త *నిజమైన profiles* (ఫోటో గోప్యం — చూడాలంటే site లో)
 ✅ విద్య • ఉద్యోగం • జీతం • జిల్లా • జాతకం వివరాలతో full details
-✅ *వేద గుణమేళనం* (కుండలి match) score + రజ్జు/వేధ దోషం హెచ్చరిక
+✅ *వేద గుణమేళనం* (కుండలి match) స్కోరు + రజ్జు/వేధ దోషం హెచ్చరిక
 ✅ ఫోన్ నంబర్ — రెండు వైపులా ఒప్పుకున్న తర్వాతే share అవుతుంది
 
 ఎలా use చేయాలి (3 steps):
@@ -78,7 +78,7 @@ TS + AP తెలుగు మ్యాట్రిమోని — రోజూ
 ✅ 3 requests FREE
 ✅ ఫోటో గోప్యం (privacy guaranteed)
 ✅ ఫోన్ నంబర్ — రెండు వైపులు ఒప్పుకున్న తర్వాతే
-✅ వేద గుణమేళనం score ప్రతి profile కి
+✅ వేద గుణమేళనం స్కోరు ప్రతి profile కి
 
 👉 Join: https://t.me/APGROOM1
 🌐 Register FREE: https://manavivaha.in

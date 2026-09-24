@@ -363,18 +363,22 @@ function Wizard() {
   useEffect(() => {
     let ref = (params?.get("ref") || "").trim().toUpperCase();
     try {
-      if (!ref) ref = (localStorage.getItem("shubhalagnam_ref_from_link") || "").trim().toUpperCase();
-      else localStorage.setItem("shubhalagnam_ref_from_link", ref);
+      if (!ref) ref = (localStorage.getItem("tsap_ref_from_link") || localStorage.getItem("shubhalagnam_ref_from_link") || "").trim().toUpperCase();
+      else {
+        localStorage.setItem("tsap_ref_from_link", ref);
+        localStorage.setItem("shubhalagnam_ref_from_link", ref);
+      }
     } catch { /* ignore */ }
     if (!ref) return;
     setRefLocked(ref);
     setF((prev) => ({ ...prev, referral_code: ref }));
     try {
-      if (sessionStorage.getItem("shubhalagnam_click_fired") === ref) {
+      if (sessionStorage.getItem("tsap_click_fired") === ref || sessionStorage.getItem("shubhalagnam_click_fired") === ref) {
         fetch(`/api/referral/validate/${encodeURIComponent(ref)}`).then((r) => r.json())
           .then((d) => { if (d?.ok) setRefInfo(d); }).catch(() => { });
         return;
       }
+      sessionStorage.setItem("tsap_click_fired", ref);
       sessionStorage.setItem("shubhalagnam_click_fired", ref);
     } catch { /* ignore */ }
     fetch(`/api/referral/click/${encodeURIComponent(ref)}?source=register_direct`, { method: "POST" })
@@ -390,7 +394,14 @@ function Wizard() {
     const t = setTimeout(() => {
       fetch(`/api/referral/validate/${encodeURIComponent(code)}`).then((r) => r.json())
         .then((d) => {
-          if (d?.ok) { setRefLocked(code); setRefInfo(d); try { localStorage.setItem("shubhalagnam_ref_from_link", code); } catch { /* ignore */ } }
+          if (d?.ok) {
+            setRefLocked(code);
+            setRefInfo(d);
+            try {
+              localStorage.setItem("tsap_ref_from_link", code);
+              localStorage.setItem("shubhalagnam_ref_from_link", code);
+            } catch { /* ignore */ }
+          }
           else setRefInfo({ ok: false, message_telugu: d?.message_telugu });
         }).catch(() => { });
     }, 600);
@@ -456,6 +467,9 @@ function Wizard() {
       else if (!ageFromDob(f.dob)) e.push(T("పుట్టిన తేదీ సరైనది కాదు — కనీసం 18 ఏళ్లు ఉండాలి", "DOB must be at least 18 years"));
       if (!f.height) e.push(T("ఎత్తు ఎంచుకోండి (Select height)", "Select height"));
       if (!f.marital_status) e.push(T("వైవాహిక స్థితి ఎంచుకోండి (Select marital status)", "Select marital status"));
+      if (f.marital_status && f.marital_status !== "Pelli Kaledu" && !f.children) {
+        e.push(T("పిల్లల సంఖ్య ఎంచుకోండి / Number of children select చెయ్యండి", "Number of children select చెయ్యండి"));
+      }
     }
     if (s === 2) {
       if (!f.caste) e.push(T("కులం ఎంచుకోండి (Select caste)", "Select caste"));
@@ -470,12 +484,12 @@ function Wizard() {
       if (!f.state) e.push(T("రాష్ట్రం / ప్రాంతం ఎంచుకోండి (Select state)", "Select state"));
       if (!f.district) e.push(T("జిల్లా / దేశం ఎంచుకోండి (Select district / location)", "Select district / location"));
       if (!/^\d{10}$/.test(String(f.phone))) e.push(T("10 అంకెల మొబైల్ నంబర్ ఇవ్వండి (Enter 10-digit mobile number)", "Enter a 10-digit mobile number"));
-      if (String(f.password || "").length < 6) e.push(T("🔑 పాస్‌వర్డ్ కనీసం 6 అక్షరాలు ఉండాలి", "🔑 Password must be at least 6 characters"));
+      if (String(f.password || "").length < 6) e.push(T("🔑 Password minimum 6 characters పెట్టండి (Password minimum 6 characters)", "Password minimum 6 characters"));
     }
     if (s === 5) {
       const _ab = String(f.about_myself || "").trim();
       if (_ab.length < 50) e.push(T("మీ గురించి కనీసం 50 అక్షరాలు రాయండి (About yourself — minimum 50 characters)", "About yourself — minimum 50 characters"));
-      else if (/[6-9]\d{9}|@\S+\.\S+/.test(_ab)) e.push(T("🔒 గోప్యత కోసం About లో ఫోన్ నంబర్ / ఈమెయిల్ ఇవ్వకండి", "🔒 Don't enter phone number or email in About section"));
+      else if (/[6-9]\d{9}|@\S+\.\S+/.test(_ab)) e.push(T("🔒 గోప్యత కోసం About లో ఫోన్ నంబర్ / ఈమెయిల్ పెట్టకండి", "🔒 Don't enter phone number or email in About section"));
       if (!f.consent) e.push(T("నిబంధనలను అంగీకరించండి (Accept Terms & Privacy below)", "Accept Terms & Privacy below"));
     }
     return e;
@@ -737,10 +751,10 @@ function Wizard() {
             <div className="font-bold text-maroon text-[15px]">{T("🎁 మీ ఉచిత ఖాతా వివరాలు", "🎁 Your Free Matrimony Benefits")}</div>
             <div className="mt-2 grid sm:grid-cols-3 gap-2 text-[12px]">
               <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-emerald-900">
-                <b>{result.credits ?? 3} Requests</b> {T("సిద్ధంగా ఉన్నాయి", "ready")}<br /><span className="text-[11px]">(3 ఉచితం {result.referral?.joined_with?.ok ? "+ 1 రెఫరల్ బోనస్" : ""})</span>
+                <b>{result.credits ?? 3} requests</b> ready<br /><span className="text-[11px]">(3 ఉచితం {result.referral?.joined_with?.ok ? "+ 1 రెఫరల్ బోనస్" : ""})</span>
               </div>
               <div className="bg-cream border border-gold/40 rounded-xl p-3 text-maroon">
-                <b>3 Profiles</b> {T("పూర్తిగా చూడవచ్చు", "viewable")}<br /><span className="text-[11px]">నంబర్లు 🔒 లాక్ చేయబడి ఉంటాయి</span>
+                <b>3 Profiles</b> viewable<br /><span className="text-[11px]">numbers 🔒 locked — అంగీకరించాకే అన్‌లాక్</span>
               </div>
               <div className="bg-navy text-white rounded-xl p-3">
                 <b>{T("ఫోన్ నంబర్లు ఎప్పుడు?", "Contact Numbers When?")}</b><br /><span className="text-[11px] opacity-90">{T("ఇంట్రెస్ట్ పంపి వాళ్లు అంగీకరించినప్పుడు", "When interest is sent and accepted")}</span>
@@ -754,10 +768,39 @@ function Wizard() {
                 💌 ఇంట్రెస్ట్‌లు పంపండి
               </Link>
               <Link href="/pricing" className="gold-gradient text-maroon font-bold text-[13px] px-4 py-2.5 rounded-xl">
-                💰 ₹99 ప్రీమియం ప్లాన్
+                💰 ₹99 Sambandham (ప్రీమియం ప్లాన్)
               </Link>
             </div>
           </div>
+
+          {/* 🤝 Referral Card & Earnings Link */}
+          {result?.referral && (
+            <div className="bg-gradient-to-r from-emerald-500/10 via-amber-500/10 to-emerald-500/10 rounded-2xl p-4 border-2 border-emerald-400 space-y-2">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="font-extrabold text-emerald-950 text-sm">
+                    🎁 మీ ప్రత్యేక రెఫరల్ కోడ్: <span className="font-mono text-base font-black text-emerald-700">{result.referral?.my_code}</span>
+                  </h4>
+                  <p className="text-xs text-emerald-800">
+                    మీ కోడ్‌తో స్నేహితులు చేరితే వారికి +1 ఉచిత క్రెడిట్, వాళ్లు ప్లాన్ తీసుకుంటే మీకు ₹50 క్యాష్ రివార్డ్ లభిస్తుంది!
+                  </p>
+                </div>
+                <Link
+                  href={`/referral?id=${tsap}`}
+                  className="px-3 py-2 rounded-xl bg-emerald-600 text-white font-bold text-xs shadow-xs hover:bg-emerald-700 shrink-0"
+                >
+                  Referral dashboard →
+                </Link>
+              </div>
+              {result.referral?.poster_url && (
+                <div className="pt-1 flex items-center gap-2">
+                  <a href={result.referral.poster_url} target="_blank" rel="noreferrer" className="text-xs font-bold text-emerald-800 underline">
+                    🖼️ మీ రెఫరల్ పోస్టర్ చూడండి
+                  </a>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* 🎴 Luxury Matrimonial Biodata Template Card */}
           <div className="bg-white rounded-3xl p-6 card-shadow border-2 border-gold/40 space-y-4">
@@ -1009,7 +1052,7 @@ function Wizard() {
               </div>
 
               <SelectField label={<Duo en="Height" te="ఎత్తు (Height)" />} required value={f.height}
-                onChange={(v) => set("height", v)} placeholder="మీ ఎత్తు ఎంచుకోండి / Select height">
+                onChange={(v) => set("height", v)} placeholder="మీ ఎత్తు ఎంచుకోండి / Select your height">
                 {HEIGHTS.map((h) => (<option key={h} value={h}>{heightLabel(h)}</option>))}
               </SelectField>
 
@@ -1035,7 +1078,7 @@ function Wizard() {
               ) : null}
 
               <SelectField label={<Duo en="Religion" te="మతం" />} value={f.religion}
-                onChange={(v) => set("religion", v)} placeholder="మతం ఎంచుకోండి">
+                onChange={(v) => set("religion", v)} placeholder="మతం ఎంచుకోండి / Select religion">
                 {RELIGIONS.map((r) => (<option key={r} value={r}>{r}</option>))}
               </SelectField>
 
@@ -1499,7 +1542,7 @@ function Wizard() {
                   value={f.physical_status} onChange={(v) => set("physical_status", v)}
                   options={[
                     { v: "Normal", en: "Normal", te: "సాధారణ" },
-                    { v: "Physically Challenged", en: "Physically Challenged", te: "దివ్యాంగులు" },
+                    { v: "Physically challenged", en: "Physically challenged", te: "దివ్యాంగులు" },
                   ]} />
               </div>
 
@@ -1521,9 +1564,15 @@ function Wizard() {
               </div>
 
               {/* Referral Code */}
-              <div className="bg-emerald-50/70 rounded-2xl border border-emerald-200 p-4">
+              <div className="bg-emerald-50/70 rounded-2xl border border-emerald-200 p-4 space-y-2">
                 <label className="text-[13px] font-bold text-emerald-900">🤝 రెఫరల్ కోడ్ (Referral Code - Optional)</label>
+                {refInfo?.referrer_name && (
+                  <div className="bg-emerald-100/80 border border-emerald-300 rounded-xl p-2.5 text-xs font-bold text-emerald-900">
+                    🎁 <b>{refInfo.referrer_name}</b> ద్వారా వచ్చారు (Referred by {refInfo.referrer_name}) — మీకు +1 ఉచిత రిక్వెస్ట్ బోనస్!
+                  </div>
+                )}
                 <input value={f.referral_code}
+                  aria-label="Referral code"
                   onChange={(e) => set("referral_code", e.target.value.toUpperCase().replace(/[^A-Z0-9-]/g, "").slice(0, 20))}
                   placeholder="Ex: CHA0001 (స్నేహితుడు ఇచ్చిన కోడ్ ఉంటే)"
                   className="input-mobile mt-2 font-mono tracking-wide" />
@@ -1531,6 +1580,14 @@ function Wizard() {
                   {refLocked
                     ? <>{T(<>✅ <b>{refLocked}</b> లాక్ అయ్యింది — మీకు +{refInfo?.bonus_credits || 1} ఉచిత అభ్యర్థన లభిస్తుంది 🎁</>, <>✅ <b>{refLocked}</b> locked — +{refInfo?.bonus_credits || 1} free request for you 🎁</>)}</>
                     : T("స్నేహితుని కోడ్ ఉంటే మీకు +1 ఉచిత రిక్వెస్ట్ మరియు వారికి ₹50 లభిస్తాయి.", "Enter friend's code to get +1 free request.")}
+                </div>
+              </div>
+
+              {/* Privacy & Free-vs-Paid Clarity Box */}
+              <div className="bg-slate-50 border border-gold/30 rounded-2xl p-4 text-xs space-y-2">
+                <div className="font-extrabold text-navy text-sm">🔒 ఉచిత నమోదు స్పష్టత (Free Plan Privacy):</div>
+                <div className="text-slate-700 leading-relaxed">
+                  <b>FREE లో ఇచ్చేది:</b> మొదటి 3 ప్రొఫైల్స్ పూర్తి వివరాలు + ఛానెల్ పోస్టింగ్. మీ అనుమతి లేకుండా మీ ఫోన్ నంబర్ <b>ఎవరికీ ఇవ్వము</b> (ఇరువైపులా ఇంట్రెస్ట్ అంగీకరించాకే అన్‌లాక్ అవుతుంది).
                 </div>
               </div>
 

@@ -34,7 +34,9 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
   };
   return (
     <main className="mx-auto max-w-3xl px-4 py-8 sm:py-12">
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(schema).replace(/</g, "\\u003c") }} />
+      <script type="application/ld+json">
+        {JSON.stringify(schema).replace(/</g, "\\u003c")}
+      </script>
       <nav className="text-xs text-slate-500" aria-label="Breadcrumb"><Link href="/">హోమ్</Link> / <Link href="/blog">సలహాలు</Link></nav>
       <article className="mt-4 rounded-[2rem] border border-gold/25 bg-white p-5 shadow-sm sm:p-9">
         <header className="border-b border-gold/25 pb-6">

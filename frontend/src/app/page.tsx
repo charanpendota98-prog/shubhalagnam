@@ -604,6 +604,23 @@ export default function Home() {
       {/* ================= CINEMATIC WEDDING STORY ================= */}
       <WeddingStoryHero />
 
+      {/* ================= WEDDING VIBE BANNER ================= */}
+      <section className="hidden md:block max-w-7xl mx-auto px-4 py-4" aria-label="Wedding vibe">
+        <div className="relative rounded-3xl overflow-hidden border border-gold/30 shadow-lg min-h-[16rem] flex items-center bg-maroon-900">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/promo/hero-wedding.jpg" alt="Auspicious Telugu Wedding" className="absolute inset-0 w-full h-full object-cover opacity-35" />
+          <div className="relative p-8 text-white max-w-xl">
+            <span className="text-xs font-black uppercase tracking-widest text-gold-light">Auspicious Matrimony</span>
+            <h2 className="text-2xl lg:text-3xl font-extrabold mt-1 leading-snug">{L.vibeTitle}</h2>
+            <div className="mt-4 flex gap-3">
+              <Link href="/register" className="px-5 py-2.5 rounded-xl bg-gold text-maroon font-bold text-xs shadow-md">
+                💍 {L.registerCta}
+              </Link>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* ================= 💐 REAL WEDDINGS FILM REEL ================= */}
       <RealWeddingsFilm />
 

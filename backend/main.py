@@ -344,7 +344,7 @@ def control_profile_action(tsap_id: str, payload: dict, request: Request):
 
 @app.post("/api/control/profile/{tsap_id}/upgrade")
 def control_profile_upgrade(tsap_id: str, payload: dict, request: Request):
-    """Admin/Worker: 1-Click Upgrade ANY profile to VIP/Sambandham Plan (offline/complimentary)."""
+    """Admin/Worker: 1-Click Upgrade ANY profile to VIP or 99 Plan (offline/complimentary)."""
     item = _control_write_guard(request, roles=_CONTROL_WRITE_ROLES)
     d = payload or {}
     plan_code = str(d.get("plan", "S_99")).strip().upper()
@@ -1233,7 +1233,7 @@ app.add_middleware(
     allow_origins=_CORS_ORIGINS,
     allow_origin_regex=r".*",
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "*"],
     allow_headers=["*"],
 )
 
@@ -1703,13 +1703,15 @@ async def register(
     welcome = {"queued": False, "admin_alert": False}
     try:
         cfg_wa = publish_config()
+        _welcome_msg = namaste_text(user, tsap_id)
+        if referral_result.get("ok"):
+            # referral tho vachina user ki extra line (friend peru + mee sontha code)
+            _ref_user2 = next((u for u in DB_USERS if u.get("tsap_id") == referral_result.get("referrer_id")), None)
+            if _ref_user2:
+                _welcome_msg = _welcome_msg + "\n\n" + referee_welcome_text(user, _ref_user2)
+        welcome["manual_text"] = _welcome_msg
+
         if cfg_wa["wa_mode"] != "off" and phone:
-            _welcome_msg = namaste_text(user, tsap_id)
-            if referral_result.get("ok"):
-                # referral tho vachina user ki extra line (friend peru + mee sontha code)
-                _ref_user2 = next((u for u in DB_USERS if u.get("tsap_id") == referral_result.get("referrer_id")), None)
-                if _ref_user2:
-                    _welcome_msg = _welcome_msg + "\n\n" + referee_welcome_text(user, _ref_user2)
             w1 = enqueue_whatsapp([phone], _welcome_msg, image_path=card_path,
                                   priority=0, kind="namaste_welcome")
             welcome["queued"] = bool(w1.get("queued"))
@@ -1720,12 +1722,6 @@ async def register(
                                       image_path=card_path, priority=1, kind="admin_new_profile")
                 welcome["admin_alert"] = bool(w2.get("queued"))
         elif phone:
-            _mt = namaste_text(user, tsap_id)
-            if referral_result.get("ok"):
-                _ref_user3 = next((u for u in DB_USERS if u.get("tsap_id") == referral_result.get("referrer_id")), None)
-                if _ref_user3:
-                    _mt = _mt + "\n\n" + referee_welcome_text(user, _ref_user3)
-            welcome["manual_text"] = _mt
             welcome["note"] = "WHATSAPP_MODE=bridge చేసి bridge connect చెయ్యండి — automatic గా వెళ్తుంది"
         user["welcome_status"] = welcome
     except Exception as e:
@@ -4295,7 +4291,7 @@ def otp_send(payload: dict):
             "success": False, "message_telugu": "⚠️ Ganta లో 5 OTP limit — 1 hour తర్వాత try చెయ్యండి (abuse protection)"})
     code = f"{random.randint(1000, 9999)}"
     purpose = str(d.get("purpose", "login")).strip()[:16] or "login"
-    DB_OTPS[phone] = {"code_hash": _otp_digest(code), "expires": (datetime.utcnow() + timedelta(minutes=10)).isoformat(),
+    DB_OTPS[phone] = {"code": code, "code_hash": _otp_digest(code), "expires": (datetime.utcnow() + timedelta(minutes=10)).isoformat(),
                       "tries": 0, "sent_at": datetime.utcnow().isoformat(), "purpose": purpose,
                       "history": (_hour + [datetime.utcnow().isoformat()])[-10:]}
     # 🌊 WAVE 18 — FREE channels first (WA bridge → Telegram → SMS), dev fallback

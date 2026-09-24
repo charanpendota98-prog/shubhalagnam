@@ -851,7 +851,7 @@ export default function ReferralPage() {
                   👥 {te ? "మీ రిఫరల్ ద్వారా చేరిన సభ్యుల జాబితా" : "Your Referred Friends List"}
                 </h3>
                 <p className="text-xs text-gray-500 mt-0.5">
-                  {te ? "మీ లింక్ ద్వారా నమోదైన ప్రతి వ్యక్తి స్టేటస్ మరియు కమీషన్ వివరాలు క్రింద చూడండి." : "Real-time details of members who joined with your code."}
+                  {te ? "మీ లింక్ ద్వారా నమోదైన ప్రతి వ్యక్తి స్టేటస్ మరియు ₹50 flat కమీషన్ వివరాలు క్రింద చూడండి." : "Real-time details of members who joined with your code with ₹50 flat reward."}
                 </p>
               </div>
               <span className="text-xs font-bold bg-amber-100 text-amber-800 px-3 py-1 rounded-full">
@@ -878,33 +878,33 @@ export default function ReferralPage() {
               </div>
             ) : (
               <div className="space-y-3">
-                {friendsList.map((f: any, idx: number) => (
+                {friendsList.map((r: any, idx: number) => (
                   <div
-                    key={f.tsap_id || idx}
+                    key={r.tsap_id || idx}
                     className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-2xl border border-gray-100 bg-slate-50/70 hover:bg-amber-50/40 transition gap-3"
                   >
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-full bg-maroon-soft text-maroon font-bold flex items-center justify-center text-sm shrink-0">
-                        {f.gender === "Bride" ? "👰" : "🤵"}
+                        {r.gender === "Bride" ? "👰" : "🤵"}
                       </div>
                       <div>
                         <div className="flex items-center gap-2">
-                          <span className="font-extrabold text-sm text-navy">{f.name || f.tsap_id}</span>
-                          <span className="font-mono text-[10px] text-gray-400 bg-white px-2 py-0.5 rounded border">ID: {f.tsap_id}</span>
+                          <span className="font-extrabold text-sm text-navy">{r.name || r.full_name || r.tsap_id}</span>
+                          <span className="font-mono text-[10px] text-gray-400 bg-white px-2 py-0.5 rounded border">ID: {r.tsap_id}</span>
                         </div>
                         <div className="text-[11px] text-gray-500 mt-0.5">
-                          {f.caste} · 🏡 {f.district} · 📅 {String(f.joined || "").slice(0, 10)}
+                          {r.caste} · 🏡 {r.district} · 📅 {String(r.joined || "").slice(0, 10)}
                         </div>
                       </div>
                     </div>
 
                     <div className="flex items-center justify-between sm:justify-end gap-3 pt-2 sm:pt-0 border-t sm:border-t-0 border-gray-200/60">
                       <span className={`text-xs font-bold px-3 py-1 rounded-full ${
-                        f.paid
+                        r.paid
                           ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
                           : "bg-amber-100 text-amber-800 border border-amber-300"
                       }`}>
-                        {f.paid ? (te ? "💰 ₹50 జమయింది ✅" : "💰 ₹50 Credited ✅") : (te ? "⏳ పేమెంట్ పెండింగ్" : "⏳ Pay Pending")}
+                        {r.paid ? `💰 ₹${r.commission || 50} జమయింది ✅` : (te ? "⏳ పేమెంట్ పెండింగ్ (⏳ pay pending)" : "⏳ pay pending")}
                       </span>
                     </div>
                   </div>
@@ -1014,26 +1014,29 @@ export default function ReferralPage() {
               </div>
             ) : (
               <div className="space-y-2.5">
-                {(dash.payouts_live || dash.payouts).map((p: any, idx: number) => (
-                  <div key={p.id || idx} className="flex items-center justify-between p-3.5 bg-slate-50 rounded-2xl border border-slate-100 text-xs">
-                    <div>
-                      <div className="font-bold text-navy">{p.id}</div>
-                      <div className="text-[11px] text-gray-500">
-                        {p.method?.toUpperCase()} · {p.upi_id || p.account || ""}
-                        {p.utr ? <b className="text-emerald-700 block">UTR: {p.utr}</b> : null}
+                {(dash.payouts_live || dash.payouts).map((p: any, idx: number) => {
+                  const isPaid = p.status === "paid" || p.payout_paid;
+                  return (
+                    <div key={p.id || idx} className="flex items-center justify-between p-3.5 bg-slate-50 rounded-2xl border border-slate-100 text-xs">
+                      <div>
+                        <div className="font-bold text-navy">{p.id}</div>
+                        <div className="text-[11px] text-gray-500">
+                          {p.method?.toUpperCase()} · {p.upi_id || p.account || ""}
+                          {p.utr ? <b className="text-emerald-700 block">UTR: {p.utr}</b> : null}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="font-black text-sm text-maroon">₹{p.amount}</div>
+                        <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase ${
+                          isPaid ? "bg-emerald-100 text-emerald-800 border border-emerald-300" :
+                          p.status === "rejected" ? "bg-rose-100 text-rose-800" : "bg-amber-100 text-amber-800"
+                        }`}>
+                          {isPaid ? "✅ PAID" : p.status}
+                        </span>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <div className="font-black text-sm text-maroon">₹{p.amount}</div>
-                      <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase ${
-                        p.status === "paid" ? "bg-emerald-100 text-emerald-800" :
-                        p.status === "rejected" ? "bg-rose-100 text-rose-800" : "bg-amber-100 text-amber-800"
-                      }`}>
-                        {p.status}
-                      </span>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>

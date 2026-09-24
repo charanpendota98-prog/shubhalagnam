@@ -1,6 +1,6 @@
 # ✝️ AP Christian Brides | ఆంధ్రా క్రైస్తవ వధువులు
 
-- **Key:** `christian_ap_bride`  •  **Tier:** L2_RELIGION  •  **Wave:** 1  •  **Status:** create ⬜
+- **Key:** `christian_ap_bride`  •  **Tier:** L2_RELIGION  •  **Wave:** 1  •  **Status:** LIVE ✅
 - **Username:** `@manavivaha_christian_ap_bride` (already taken? → @apchristianbride, @mv_christ_ap_brd, @manavivaha_christ_ap_brd)
 - **Link:** https://t.me/manavivaha_christian_ap_bride
 - **Hashtags:** #Christian #Bride #AndhraPradesh #Wedding
@@ -33,7 +33,7 @@ Telugu Matrimony — TS + AP
 ఇక్కడ ఏం దొరుకుతుంది:
 ✅ రోజూ కొత్త *నిజమైన profiles* (ఫోటో గోప్యం — చూడాలంటే site లో)
 ✅ విద్య • ఉద్యోగం • జీతం • జిల్లా • జాతకం వివరాలతో full details
-✅ *వేద గుణమేళనం* (కుండలి match) score + రజ్జు/వేధ దోషం హెచ్చరిక
+✅ *వేద గుణమేళనం* (కుండలి match) స్కోరు + రజ్జు/వేధ దోషం హెచ్చరిక
 ✅ ఫోన్ నంబర్ — రెండు వైపులా ఒప్పుకున్న తర్వాతే share అవుతుంది
 
 ఎలా use చేయాలి (3 steps):
@@ -80,7 +80,7 @@ TS + AP తెలుగు మ్యాట్రిమోని — రోజూ
 ✅ 3 requests FREE
 ✅ ఫోటో గోప్యం (privacy guaranteed)
 ✅ ఫోన్ నంబర్ — రెండు వైపులు ఒప్పుకున్న తర్వాతే
-✅ వేద గుణమేళనం score ప్రతి profile కి
+✅ వేద గుణమేళనం స్కోరు ప్రతి profile కి
 
 👉 Join: https://t.me/manavivaha_christian_ap_bride
 🌐 Register FREE: https://manavivaha.in

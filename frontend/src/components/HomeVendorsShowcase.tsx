@@ -56,7 +56,7 @@ const DEFAULT_VENDORS: Vendor[] = [
     district: "Warangal",
     service_areas: "Warangal, Hanamkonda, Kazipet",
     price_range: "₹250-450 per plate",
-    about: "Traditional Telugu vindu — 200 నుంచి 2000 members varaku. Veg + non-veg live counters.",
+    about: "Traditional Telugu vindu — 200 నుండి 2000 మంది సభ్యుల వరకు. Veg + non-veg live counters.",
     experience_years: "25",
     verified: true,
     package: "V_STANDARD",

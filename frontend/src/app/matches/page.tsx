@@ -569,6 +569,7 @@ export default function MatchesPage() {
                 <span className="text-slate-300">•</span>
                 <span>🎂 {row.age} yrs</span>
                 {row.height && <span>• {row.height}</span>}
+                {row.children && row.children !== "None" && <span>• 👶 {row.children}</span>}
               </p>
 
               <p className="text-xs text-slate-700 font-medium truncate">
@@ -578,6 +579,9 @@ export default function MatchesPage() {
               <p className="text-[11.5px] text-slate-500 truncate">
                 📍 {row.district || "Hyderabad"}, {row.state || "TS"} • 💰 {row.salary || "Best in Industry"}
               </p>
+              <div className="text-[11px] text-slate-500 font-mono pt-0.5">
+                📞 Number: {row.phone_masked || "🔒 98490••••• (లాక్ చేయబడింది)"}
+              </div>
             </div>
           </div>
 
@@ -607,10 +611,20 @@ export default function MatchesPage() {
         <div className="bg-slate-50 p-3 px-4 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
           <Link
             href={`/search/${row.tsap_id}`}
-            className="flex-1 min-w-[100px] text-center py-2.5 px-2.5 rounded-xl border border-maroon/30 text-maroon bg-white hover:bg-cream text-xs font-bold transition shadow-xs"
+            className="flex-1 min-w-[90px] text-center py-2.5 px-2.5 rounded-xl border border-maroon/30 text-maroon bg-white hover:bg-cream text-xs font-bold transition shadow-xs"
           >
             👁️ {te ? "వివరాలు" : "View"}
           </Link>
+
+          <a
+            href={SITE_CONFIG.unlockBot(row.tsap_id)}
+            target="_blank"
+            rel="noreferrer"
+            title="Full details + Number on Telegram bot"
+            className="flex-1 min-w-[120px] text-center py-2.5 px-2 rounded-xl gold-gradient text-maroon text-xs font-black shadow-xs hover-lift transition"
+          >
+            ⚡ Full details + Number
+          </a>
 
           <button
             onClick={() => setUnlockTarget(row)}
@@ -1159,6 +1173,16 @@ export default function MatchesPage() {
             <span className="text-slate-400">⚡ Real-time synced</span>
           </div>
 
+          {/* Numbers Policy Clarity Strip — Numbers ivvamu (consent lekunda) */}
+          <div className="bg-amber-50/70 border border-gold/30 rounded-2xl p-3 px-4 flex flex-wrap items-center justify-between gap-2 text-xs">
+            <div className="text-maroon font-bold">
+              🔒 నంబర్లు నేరుగా ఇవ్వము (సమ్మతి లేకుండా) — ఇంట్రెస్ట్ అంగీకరించాకే నంబర్లు అన్‌లాక్ అవుతాయి.
+            </div>
+            <Link href="/pricing" className="font-black text-maroon hover:underline">
+              ⚡ ₹99 → 5 profiles (ప్రీమియం ప్లాన్స్) →
+            </Link>
+          </div>
+
           {/* 📍 Targeted Local District Wedding Service Ad Banner */}
           <DistrictAdBanner
             slot="search_top"
@@ -1445,6 +1469,18 @@ export default function MatchesPage() {
                           className={`block w-full text-left p-2 rounded-xl text-xs mb-1 border ${filters.marital_status === m ? "bg-maroon text-white" : "bg-slate-50"}`}
                         >
                           {m === "Pelli Kaledu" ? "Never Married" : m}
+                        </button>
+                      ))}
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-800 mb-1">పిల్లలు (Children)</label>
+                      {["None", "1", "2", "3+"].map((c) => (
+                        <button
+                          key={c}
+                          onClick={() => setF("children", filters.children === c ? "" : c)}
+                          className={`block w-full text-left p-2 rounded-xl text-xs mb-1 border ${filters.children === c ? "bg-maroon text-white" : "bg-slate-50"}`}
+                        >
+                          {c === "None" ? "పిల్లలు లేరు (No children)" : `${c} పిల్లలు`}
                         </button>
                       ))}
                     </div>
