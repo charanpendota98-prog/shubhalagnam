@@ -1,11 +1,14 @@
 "use client";
 /**
- * 🔍 HERO QUICK SEARCH BAR WITH VOICE SEARCH — Top Matrimony Signature Component
- * ==============================================================================
- * Instant 5-second match finder directly from the hero section:
- * Gender + Caste + Age Range + Location + 🎙️ Voice Search in Telugu/English.
+ * 🔍 ULTRA-ADVANCED HERO QUICK SEARCH & VOICE MATCH FINDER
+ * ========================================================
+ * Instant 5-second match finder:
+ * - Gender toggle with luxury active gradient
+ * - Speech-to-text Web Speech API Voice Search in Telugu & English
+ * - 1-Touch Popular Community Quick Filter Chips
+ * - Instant direct redirect to filtered /matches
  */
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useLang } from "@/lib/lang";
 
@@ -52,6 +55,18 @@ const POPULAR_DISTRICTS = [
   "Kadapa",
   "Anantapur",
   "NRI (USA/UK/Gulf)",
+];
+
+const QUICK_CHIPS = [
+  { label: "Reddy", te: "రెడ్డి" },
+  { label: "Kamma", te: "కమ్మ" },
+  { label: "Kapu", te: "కాపు" },
+  { label: "Arya Vysya", te: "ఆర్య వైశ్య" },
+  { label: "Brahmin", te: "బ్రాహ్మణ" },
+  { label: "Yadava", te: "యాదవ" },
+  { label: "Padmashali", te: "పద్మశాలి" },
+  { label: "SC / ST", te: "SC / ST" },
+  { label: "NRI", te: "NRI సంబంధాలు" },
 ];
 
 const AGE_RANGES = [
@@ -169,83 +184,94 @@ export default function HeroQuickSearch() {
     router.push(`/matches?${params.toString()}`);
   };
 
+  const selectQuickChip = (casteName: string) => {
+    if (casteName === "NRI") {
+      setDistrict("NRI (USA/UK/Gulf)");
+      setCaste("All Castes");
+    } else if (casteName === "SC / ST") {
+      setCaste("SC (Scheduled Caste)");
+    } else {
+      setCaste(casteName);
+    }
+  };
+
   return (
-    <div className="w-full max-w-4xl mx-auto mt-6 bg-white/95 backdrop-blur-md rounded-3xl p-4 sm:p-5 border-2 border-gold/60 shadow-2xl">
-      <form onSubmit={handleSearch} className="space-y-3.5">
+    <div className="w-full max-w-5xl mx-auto bg-white/95 backdrop-blur-2xl rounded-[2rem] p-5 sm:p-7 border-2 border-gold/70 shadow-[0_20px_70px_rgba(122,12,46,0.18)]">
+      <form onSubmit={handleSearch} className="space-y-4">
         
-        {/* Top Toggle: Looking for Bride or Groom + Voice Search Button */}
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gold/20 pb-3">
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-black uppercase text-maroon tracking-wide">
-              {te ? "నేను వెతుకుతున్నది:" : "Looking for:"}
+        {/* Top Control Bar: Looking for Gender + Voice Search Button */}
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gold/30 pb-4">
+          <div className="flex items-center gap-3">
+            <span className="text-xs font-black uppercase text-[#7A0C2E] tracking-wider telugu">
+              {te ? "నేను వెతుకుతున్న సంబంధం:" : "I am looking for:"}
             </span>
-            <div className="inline-flex p-1 bg-amber-50 rounded-2xl border border-gold/40">
+            <div className="inline-flex p-1 bg-amber-50/80 rounded-2xl border border-gold/50 shadow-inner">
               <button
                 type="button"
                 onClick={() => setGender("Bride")}
-                className={`px-4 py-1.5 rounded-xl text-xs font-black transition ${
+                className={`px-4 py-2 rounded-xl text-xs font-black transition cursor-pointer ${
                   gender === "Bride"
-                    ? "maroon-gradient text-white shadow-xs"
+                    ? "maroon-gradient text-white shadow-md"
                     : "text-gray-700 hover:text-maroon"
                 }`}
               >
-                👰 {te ? "పెళ్లికూతురు (Bride)" : "Bride"}
+                👰 {te ? "వధువు (Bride)" : "Bride"}
               </button>
               <button
                 type="button"
                 onClick={() => setGender("Groom")}
-                className={`px-4 py-1.5 rounded-xl text-xs font-black transition ${
+                className={`px-4 py-2 rounded-xl text-xs font-black transition cursor-pointer ${
                   gender === "Groom"
-                    ? "maroon-gradient text-white shadow-xs"
+                    ? "maroon-gradient text-white shadow-md"
                     : "text-gray-700 hover:text-maroon"
                 }`}
               >
-                🤵 {te ? "పెళ్లికొడుకు (Groom)" : "Groom"}
+                🤵 {te ? "వరుడు (Groom)" : "Groom"}
               </button>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            {/* Voice Search Button */}
+          <div className="flex items-center gap-2.5">
+            {/* Voice Search Button with Aura Pulse */}
             <button
               type="button"
               onClick={handleVoiceSearch}
-              className={`flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-xl border transition ${
+              className={`flex items-center gap-2 text-xs font-black px-3.5 py-2 rounded-xl border transition-all cursor-pointer ${
                 isListening
-                  ? "bg-rose-600 text-white border-rose-700 animate-pulse"
-                  : "bg-white text-maroon border-gold/50 hover:bg-gold/10"
+                  ? "bg-rose-600 text-white border-rose-700 animate-pulse shadow-lg"
+                  : "bg-amber-50 text-maroon border-gold/60 hover:bg-gold/20 shadow-xs"
               }`}
-              title={te ? "వాయిస్ సెర్చ్ (మాట్లాడి వెతకండి)" : "Voice Search (Speak in Telugu/English)"}
+              title={te ? "వాయిస్ సెర్చ్ — మాట్లాడి వెతకండి" : "Voice Search (Speak in Telugu/English)"}
             >
               <span className="text-sm">🎙️</span>
-              <span>{isListening ? (te ? "వింటున్నాను..." : "Listening...") : (te ? "వాయిస్ సెర్చ్" : "Voice Search")}</span>
+              <span className="telugu">{isListening ? (te ? "వింటున్నాను..." : "Listening...") : (te ? "మాట్లాడి వెతకండి" : "Voice Search")}</span>
             </button>
 
-            <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full">
-              ⚡ {te ? "మొదటి 3 సంబంధాలు FREE" : "First 3 Profiles FREE"}
+            <span className="text-[11px] font-extrabold text-emerald-800 bg-emerald-50 border border-emerald-300 px-3 py-1.5 rounded-full shadow-xs">
+              ⚡ {te ? "మొదటి 3 నంబర్లు FREE" : "First 3 Profiles FREE"}
             </span>
           </div>
         </div>
 
         {voiceTranscript && (
-          <div className="text-xs bg-amber-50 border border-gold/30 px-3 py-1.5 rounded-xl text-maroon font-bold animate-fade flex items-center justify-between">
+          <div className="text-xs bg-amber-50 border border-gold/40 px-3.5 py-2 rounded-xl text-maroon font-bold animate-fade flex items-center justify-between">
             <span>🗣️ {voiceTranscript}</span>
             <button type="button" onClick={() => setVoiceTranscript("")} className="text-gray-400 hover:text-gray-600 text-xs font-bold">✕</button>
           </div>
         )}
 
         {/* 4 Form Inputs Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 items-end">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 items-end">
           
           {/* Caste Dropdown */}
           <div>
-            <label className="block text-[11px] font-bold text-gray-700 mb-1">
+            <label className="block text-[11px] font-extrabold text-gray-800 mb-1.5 telugu">
               🪔 {te ? "కులం (Caste):" : "Caste:"}
             </label>
             <select
               value={caste}
               onChange={(e) => setCaste(e.target.value)}
-              className="w-full px-3 py-2.5 bg-amber-50/60 border border-gold/40 rounded-xl text-xs font-bold text-navy focus:outline-none focus:ring-2 focus:ring-maroon"
+              className="w-full px-3.5 py-3 bg-amber-50/50 border border-gold/50 rounded-xl text-xs font-bold text-navy focus:outline-none focus:ring-2 focus:ring-maroon cursor-pointer shadow-xs"
             >
               {POPULAR_CASTES.map((c) => (
                 <option key={c} value={c}>{c}</option>
@@ -255,13 +281,13 @@ export default function HeroQuickSearch() {
 
           {/* Age Dropdown */}
           <div>
-            <label className="block text-[11px] font-bold text-gray-700 mb-1">
-              🎂 {te ? "వయస్సు (Age):" : "Age Range:"}
+            <label className="block text-[11px] font-extrabold text-gray-800 mb-1.5 telugu">
+              🎂 {te ? "వయస్సు (Age Range):" : "Age Range:"}
             </label>
             <select
               value={ageIdx}
               onChange={(e) => setAgeIdx(parseInt(e.target.value, 10))}
-              className="w-full px-3 py-2.5 bg-amber-50/60 border border-gold/40 rounded-xl text-xs font-bold text-navy focus:outline-none focus:ring-2 focus:ring-maroon"
+              className="w-full px-3.5 py-3 bg-amber-50/50 border border-gold/50 rounded-xl text-xs font-bold text-navy focus:outline-none focus:ring-2 focus:ring-maroon cursor-pointer shadow-xs"
             >
               {AGE_RANGES.map((a, i) => (
                 <option key={a.label} value={i}>{a.label}</option>
@@ -271,13 +297,13 @@ export default function HeroQuickSearch() {
 
           {/* District Dropdown */}
           <div>
-            <label className="block text-[11px] font-bold text-gray-700 mb-1">
-              📍 {te ? "ప్రాంతం (District):" : "District / City:"}
+            <label className="block text-[11px] font-extrabold text-gray-800 mb-1.5 telugu">
+              📍 {te ? "ప్రాంతం (District / NRI):" : "District / City:"}
             </label>
             <select
               value={district}
               onChange={(e) => setDistrict(e.target.value)}
-              className="w-full px-3 py-2.5 bg-amber-50/60 border border-gold/40 rounded-xl text-xs font-bold text-navy focus:outline-none focus:ring-2 focus:ring-maroon"
+              className="w-full px-3.5 py-3 bg-amber-50/50 border border-gold/50 rounded-xl text-xs font-bold text-navy focus:outline-none focus:ring-2 focus:ring-maroon cursor-pointer shadow-xs"
             >
               {POPULAR_DISTRICTS.map((d) => (
                 <option key={d} value={d}>{d}</option>
@@ -289,13 +315,32 @@ export default function HeroQuickSearch() {
           <div>
             <button
               type="submit"
-              className="w-full py-2.5 px-4 rounded-xl gold-gradient text-maroon font-black text-xs shadow-md hover:shadow-lg transition flex items-center justify-center gap-1.5 uppercase tracking-wide cursor-pointer"
+              className="w-full py-3 px-5 rounded-xl gold-gradient text-[#5c0821] font-black text-xs shadow-gold hover:brightness-110 active:scale-95 transition flex items-center justify-center gap-2 uppercase tracking-wide cursor-pointer"
             >
-              <span>🔍</span>
-              <span>{te ? "సంబంధాలు చూడండి" : "Find Matches"}</span>
+              <span className="text-sm">🔍</span>
+              <span className="telugu">{te ? "సంబంధాలు చూడండి" : "Find Matches"}</span>
             </button>
           </div>
 
+        </div>
+
+        {/* Quick Filter Caste Chips */}
+        <div className="pt-2 flex items-center gap-1.5 flex-wrap">
+          <span className="text-[11px] font-bold text-gray-500 telugu">{te ? "త్వరిత ఎంపిక:" : "Quick Filter:"}</span>
+          {QUICK_CHIPS.map((qc) => (
+            <button
+              key={qc.label}
+              type="button"
+              onClick={() => selectQuickChip(qc.label)}
+              className={`px-2.5 py-1 rounded-full text-[11px] font-bold border transition cursor-pointer ${
+                caste === qc.label || (qc.label === "NRI" && district.includes("NRI"))
+                  ? "bg-maroon text-white border-maroon shadow-xs"
+                  : "bg-white border-gold/40 text-maroon hover:bg-gold/10"
+              }`}
+            >
+              {te ? qc.te : qc.label}
+            </button>
+          ))}
         </div>
 
       </form>

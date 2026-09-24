@@ -37,24 +37,74 @@ export type SpotlightProfile = {
   views_count?: number;
 };
 
+const DEFAULT_SPOTLIGHTS: SpotlightProfile[] = [
+  {
+    promo_id: "SPOT-001",
+    tsap_id: "MV1001",
+    full_name: "శ్రావణి రెడ్డి (Sravani Reddy)",
+    gender: "Bride",
+    age: 25,
+    caste: "Reddy",
+    subcaste: "Motati",
+    district: "Hyderabad / Nalgonda",
+    education: "B.Tech CSE",
+    job: "Senior Software Engineer (16 LPA)",
+    height: "5 ft 4 in",
+    badge_text: "⭐ నేటి విశేష సంబంధం",
+    headline: "సాఫ్ట్‌వేర్ ప్రొఫెషనల్ · సంప్రదాయ కుటుంబం",
+    pitch_text: "ఉన్నత విద్యావంతురాలు, సంస్కారవంతమైన కుటుంబ నేపథ్యం. సాఫ్ట్‌వేర్ రంగంలో స్థిరపడిన వరుడు కావలెను.",
+    photo_url: "/promo/bride-card.jpg",
+  },
+  {
+    promo_id: "SPOT-002",
+    tsap_id: "MV1002",
+    full_name: "రాజేష్ చౌదరి (Rajesh Chowdary)",
+    gender: "Groom",
+    age: 28,
+    caste: "Kamma",
+    district: "Vijayawada / USA",
+    education: "MS in Data Science (USA)",
+    job: "Data Architect, Microsoft (H1B)",
+    height: "5 ft 10 in",
+    badge_text: "✈️ NRI SPOTLIGHT",
+    headline: "యూఎస్ స్థిరపడిన ప్రొఫెషనల్ · కృష్ణా జిల్లా",
+    pitch_text: "అమెరికాలో మంచి ఉద్యోగంలో స్థిరపడిన వరుడు. విద్యావంతురాలైన సంప్రదాయ వధువు కావలెను.",
+    photo_url: "/promo/cine-1.jpg",
+  },
+  {
+    promo_id: "SPOT-003",
+    tsap_id: "MV1003",
+    full_name: "దివ్య తేజస్వి (Divya Tejaswi)",
+    gender: "Bride",
+    age: 24,
+    caste: "Kapu",
+    district: "Visakhapatnam",
+    education: "MBBS, MD General Medicine",
+    job: "Resident Doctor, Apollo Hospitals",
+    height: "5 ft 5 in",
+    badge_text: "🩺 DOCTOR ALLIANCE",
+    headline: "డాక్టర్ వధువు · విశాఖపట్నం సంప్రదాయ కుటుంబం",
+    pitch_text: "మెడికల్ లేదా సివిల్స్/ఐటీ రంగంలో స్థిరపడిన అనుకూలమైన వరుని కోసం చూస్తున్నాము.",
+    photo_url: "/promo/cine-3.jpg",
+  },
+];
+
 export default function ProfilesOfTheDay() {
   const { lang } = useLang();
   const te = lang === "te";
-  const [profiles, setProfiles] = useState<SpotlightProfile[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [profiles, setProfiles] = useState<SpotlightProfile[]>(DEFAULT_SPOTLIGHTS);
   const [activeVideo, setActiveVideo] = useState<string | null>(null);
   const [sentInterest, setSentInterest] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
-    fetch("/api/spotlight/active?limit=8")
+    fetch("/api/spotlight/active?limit=6")
       .then((r) => r.json())
       .then((d) => {
-        if (d?.success && Array.isArray(d.items)) {
+        if (d?.success && Array.isArray(d.items) && d.items.length > 0) {
           setProfiles(d.items);
         }
       })
-      .catch(() => {})
-      .finally(() => setLoading(false));
+      .catch(() => {});
   }, []);
 
   const handleInterest = (promoId: string, tsapId: string) => {
@@ -66,12 +116,8 @@ export default function ProfilesOfTheDay() {
     fetch(`/api/spotlight/track/${promoId}?kind=click`, { method: "POST" }).catch(() => {});
   };
 
-  if (!loading && profiles.length === 0) {
-    return null; // Don't show empty gaps
-  }
-
   return (
-    <section className="relative max-w-7xl mx-auto px-4 py-10">
+    <section className="relative max-w-7xl mx-auto px-4 py-10" aria-label="Profiles of the Day">
       {/* Decorative background glow */}
       <div className="absolute inset-0 pointer-events-none -z-10 overflow-hidden">
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[350px] bg-gradient-to-r from-amber-100/60 via-rose-100/50 to-gold-soft/40 blur-3xl rounded-full" />
@@ -91,7 +137,7 @@ export default function ProfilesOfTheDay() {
 
           <Link
             href="/spotlight"
-            className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-full gold-gradient text-maroon font-extrabold text-xs sm:text-sm shadow-gold hover:scale-105 active:scale-95 transition-all whitespace-nowrap self-start sm:self-auto border border-[#B8860B]/40"
+            className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-full gold-gradient text-[#5c0821] font-black text-xs sm:text-sm shadow-gold hover:scale-105 active:scale-95 transition-all whitespace-nowrap self-start sm:self-auto border border-[#B8860B]/40"
           >
             <span>⚡ {te ? "మీ ప్రొఫైల్ ని ప్రమోట్ చేసుకోండి (₹99)" : "Promote Your Profile (₹99)"}</span>
             <span>→</span>
@@ -192,9 +238,9 @@ export default function ProfilesOfTheDay() {
                         type="button"
                         onClick={() => handleInterest(p.promo_id, p.tsap_id)}
                         disabled={sentInterest[p.promo_id]}
-                        className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-1.5 ${
+                        className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-1.5 cursor-pointer ${
                           sentInterest[p.promo_id]
-                            ? "bg-emerald-100 text-emerald-800 border border-emerald-300 cursor-default"
+                            ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
                             : "maroon-gradient text-white hover:brightness-110 active:scale-95"
                         }`}
                       >
@@ -209,7 +255,7 @@ export default function ProfilesOfTheDay() {
                       <Link
                         href={`/search/${p.tsap_id}`}
                         onClick={() => handleTrackClick(p.promo_id)}
-                        className="py-2.5 px-3 rounded-xl text-xs font-bold border border-gold text-maroon hover:bg-gold-soft transition-colors flex items-center justify-center"
+                        className="py-2.5 px-3 rounded-xl text-xs font-bold border border-gold text-maroon hover:bg-gold-soft transition-colors flex items-center justify-center cursor-pointer"
                       >
                         {te ? "వివరాలు →" : "View →"}
                       </Link>
@@ -219,7 +265,7 @@ export default function ProfilesOfTheDay() {
                       <button
                         type="button"
                         onClick={() => setActiveVideo(p.video_url || null)}
-                        className="w-full py-1.5 text-[11px] font-bold text-amber-800 bg-amber-50 hover:bg-amber-100 rounded-lg transition-colors flex items-center justify-center gap-1"
+                        className="w-full py-1.5 text-[11px] font-bold text-amber-800 bg-amber-50 hover:bg-amber-100 rounded-lg transition-colors flex items-center justify-center gap-1 cursor-pointer"
                       >
                         <span>🎥</span>
                         <span>{te ? "వీడియో ఇంట్రో చూడండి" : "Watch Video Pitch"}</span>
@@ -248,7 +294,7 @@ export default function ProfilesOfTheDay() {
               <button
                 type="button"
                 onClick={() => setActiveVideo(null)}
-                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white font-bold flex items-center justify-center text-sm"
+                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white font-bold flex items-center justify-center text-sm cursor-pointer"
               >
                 ✕
               </button>

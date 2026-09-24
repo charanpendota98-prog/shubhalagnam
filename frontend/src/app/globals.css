@@ -500,10 +500,39 @@ button:not(:disabled):active { transform: scale(0.97); }
 .cine-bar:nth-child(4) > i { animation-delay: 24s; }
 @keyframes cineBarFill { 0% { transform: scaleX(0); } 3% { transform: scaleX(.05);} 25% { transform: scaleX(1); } 100% { transform: scaleX(1); } }
 
+/* Luxury Gold Glow & Shimmer Utilities */
+.shadow-gold {
+  box-shadow: 0 10px 30px -5px rgba(212, 175, 55, 0.45);
+}
+
+.shadow-gold-lg {
+  box-shadow: 0 20px 50px -10px rgba(212, 175, 55, 0.6);
+}
+
+.shine-hover {
+  position: relative;
+  overflow: hidden;
+}
+.shine-hover::after {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -60%;
+  width: 20%;
+  height: 200%;
+  background: rgba(255, 255, 255, 0.35);
+  transform: rotate(30deg);
+  transition: none;
+}
+.shine-hover:hover::after {
+  left: 140%;
+  transition: all 0.75s ease-in-out;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .cine-frame { animation: none; opacity: 0; }
   .cine-frame:nth-child(1) { opacity: 1; }
-  .cine-grain, .cine-petal, .cine-float-card, .cine-scroll-cue, .cine-cta-glow::after, .cine-bar > i { animation: none !important; }
+  .cine-grain, .cine-petal, .cine-float-card, .cine-scroll-cue, .cine-cta-glow::after, .cine-bar > i, .shine-hover::after { animation: none !important; }
   .cine-title-gold { animation: none; background-position: 0 0; }
   .cine-bar:nth-child(1) > i { transform: scaleX(1); }
 }
