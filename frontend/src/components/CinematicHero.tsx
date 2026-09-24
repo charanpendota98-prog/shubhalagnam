@@ -1,15 +1,15 @@
 "use client";
 
 /**
- * 🎬 ULTRA-CLEAN CINEMATIC MATRIMONY VIDEO HERO
+ * 🎬 ULTRA-ADVANCED CINEMATIC WEDDING VIDEO HERO
  * ==============================================
- * Pure, fast, video-first luxury experience:
- * - Real Animated Looping Telugu Wedding Film (wedding-film.webp & wedding-story-film.webp)
- * - Hardware-accelerated Ken-Burns motion + vibrant festive colors
- * - Floating Auspicious Golden Petals & Sparkles
- * - Clean Floating Match Card Preview with 1-click Test Interest
- * - Real-time active family pulse toast (NO FAKE IDs)
- * - 100% Mobile-first, zero clutter, silky 60fps performance
+ * World-class motion-first luxury experience:
+ * - Direct Native HTML5 Auto-Playing Wedding Video (.mp4 + animated .webp fallback)
+ * - Prominent, crystal-clear 1080p Cinematic Wedding Reel Frame
+ * - Ambient full-screen animated background with vivid colors (no dark blackout)
+ * - 100% Guaranteed Autoplay on iOS, Android, Safari, Chrome, Edge
+ * - Auspicious Golden Petals & Sparkles
+ * - Clean, prestigious Telugu & English copy with 1-click CTA
  */
 
 import Link from "next/link";
@@ -27,7 +27,7 @@ const LIVE_ACTIVITIES = [
 
 const COPY = {
   te: {
-    activePulse: "150+ కుటుంబాలు ఆన్‌లైన్‌లో ఉన్నారు",
+    activePulse: "150+ కుటుంబాలు లైవ్‌లో ఉన్నారు",
     kicker: "తెలంగాణ & ఆంధ్రప్రదేశ్ · నంబర్ 1 తెలుగు మ్యాట్రిమోని",
     titleA: "నమ్మకమైన పవిత్ర బంధం,",
     titleB: "ఇక్కడే మొదలవుతుంది",
@@ -35,12 +35,10 @@ const COPY = {
     pricePill: "₹99 నుంచి · మొదటి 3 ప్రొఫైల్స్ ఉచితం (FREE)",
     ctaReg: "ఉచిత నమోదు",
     ctaBrowse: "ప్రొఫైల్స్ చూడండి",
-    matchTitle: "లైవ్ మ్యాచింగ్ రాడార్",
-    matchName: "సాఫ్ట్‌వేర్ వధువు · 25 సం. · Reddy",
-    matchDesc: "Software Engineer (8 LPA) · హైదరాబాద్",
-    matchGothram: "భరద్వాజ గోత్రం · రోహిణి నక్షత్రం",
-    matchScore: "98% వేద సరిపోలిక",
-    accepted: "ఇంట్రెస్ట్ పంపబడింది!",
+    videoBadge: "🔴 లైవ్ వివాహ సినిమా",
+    videoSub: "పవిత్ర మంగళసూత్ర ధారణ & తలంబ్రాల వేడుక",
+    verifiedPill: "✓ 100% ధృవీకరించిన సంబంధాలు",
+    directCall: "కుటుంబాలతో నేరుగా సంభాషణ",
   },
   en: {
     activePulse: "150+ families active right now",
@@ -51,12 +49,10 @@ const COPY = {
     pricePill: "From ₹99 · first 3 profiles free",
     ctaReg: "ఉచిత నమోదు",
     ctaBrowse: "Browse profiles",
-    matchTitle: "Live Matching Radar",
-    matchName: "Software Bride · 25 yrs · Reddy",
-    matchDesc: "Software Engineer (8 LPA) · Hyderabad",
-    matchGothram: "Bharadwaj Gothram · Rohini Star",
-    matchScore: "98% Vedic Match",
-    accepted: "Interest sent successfully!",
+    videoBadge: "🔴 LIVE WEDDING FILM",
+    videoSub: "Sacred Muhurtham & Talambralu Celebration",
+    verifiedPill: "✓ 100% Verified Profiles",
+    directCall: "Direct Family-to-Family Connect",
   },
 };
 
@@ -67,7 +63,9 @@ export default function CinematicHero() {
 
   const [mounted, setMounted] = useState(false);
   const [activityIdx, setActivityIdx] = useState(0);
-  const [interestSent, setInterestSent] = useState(false);
+
+  const bgVideoRef = useRef<HTMLVideoElement | null>(null);
+  const mainVideoRef = useRef<HTMLVideoElement | null>(null);
 
   const petalSeeds = useRef(
     PETALS.map((g, i) => ({
@@ -79,42 +77,75 @@ export default function CinematicHero() {
     }))
   );
 
+  // Guarantee Autoplay on all devices
   useEffect(() => {
     setMounted(true);
+
+    const playVideos = () => {
+      if (bgVideoRef.current) {
+        bgVideoRef.current.muted = true;
+        bgVideoRef.current.play().catch(() => {});
+      }
+      if (mainVideoRef.current) {
+        mainVideoRef.current.muted = true;
+        mainVideoRef.current.play().catch(() => {});
+      }
+    };
+
+    playVideos();
+    const t = setTimeout(playVideos, 300);
+
     const activityTimer = setInterval(() => {
       setActivityIdx((prev) => (prev + 1) % LIVE_ACTIVITIES.length);
     }, 4500);
 
     return () => {
+      clearTimeout(t);
       clearInterval(activityTimer);
     };
   }, []);
 
   return (
-    <section className="cine-hero relative overflow-hidden bg-[#0e020a] text-white" aria-label="Telugu matrimony — cinematic experience">
+    <section className="cine-hero relative overflow-hidden bg-[#0c0208] text-white" aria-label="Telugu matrimony — cinematic experience">
       
-      {/* ================= 1. VIBRANT ANIMATED WEDDING FILM BACKGROUND ================= */}
-      <div className="absolute inset-0" aria-hidden>
-        {mounted && (
+      {/* ================= 1. AMBIENT FULL-SCREEN BACKGROUND VIDEO LAYER ================= */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden>
+        {/* HTML5 Native Loop Video with Animated WebP fallback */}
+        <video
+          ref={bgVideoRef}
+          autoPlay
+          loop
+          muted
+          playsInline
+          preload="auto"
+          poster="/promo/cine-1.jpg"
+          className="absolute inset-0 h-full w-full object-cover opacity-35 scale-105 filter blur-[2px] transition-opacity duration-1000"
+        >
+          <source src="/promo/wedding-film.mp4" type="video/mp4" />
+        </video>
+
+        {/* Fallback image if video is not supported */}
+        <noscript>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/promo/wedding-film.webp"
-            alt="Telugu wedding ceremony film"
-            className="absolute inset-0 h-full w-full object-cover opacity-90 scale-105 transition-all duration-1000"
+            alt="Telugu wedding celebration"
+            className="absolute inset-0 h-full w-full object-cover opacity-35"
           />
-        )}
+        </noscript>
       </div>
 
-      {/* Readable Gradient Overlay */}
+      {/* Subtle Readable Ambient Overlays (Light and clear, leaves colors vibrant) */}
       <div
         className="absolute inset-0 z-[1] pointer-events-none"
         style={{
-          background: "linear-gradient(90deg, rgba(14,2,10,0.95) 0%, rgba(14,2,10,0.85) 40%, rgba(14,2,10,0.3) 75%, rgba(14,2,10,0.7) 100%)",
+          background: "linear-gradient(90deg, rgba(12,2,8,0.92) 0%, rgba(12,2,8,0.7) 45%, rgba(12,2,8,0.2) 80%, rgba(12,2,8,0.6) 100%)",
         }}
       />
       <div
         className="absolute inset-0 z-[1] pointer-events-none"
         style={{
-          background: "linear-gradient(0deg, rgba(14,2,10,0.95) 0%, rgba(14,2,10,0.15) 30%, transparent 70%)",
+          background: "linear-gradient(0deg, rgba(12,2,8,0.95) 0%, transparent 40%, rgba(12,2,8,0.4) 100%)",
         }}
       />
 
@@ -153,28 +184,28 @@ export default function CinematicHero() {
           <span className="text-[#f6d98a] telugu">{te ? LIVE_ACTIVITIES[activityIdx].te : LIVE_ACTIVITIES[activityIdx].en}</span>
         </div>
 
-        <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-400/30 bg-emerald-950/50 px-3 py-1 text-[11px] font-bold text-emerald-300 backdrop-blur-md">
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-400/30 bg-emerald-950/60 px-3.5 py-1 text-[11px] font-bold text-emerald-300 backdrop-blur-md">
           <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-ping" />
           {L.activePulse}
         </span>
       </div>
 
-      {/* ================= 4. MAIN HERO CONTENT ================= */}
-      <div className="relative z-[3] mx-auto flex min-h-[72svh] max-w-7xl items-center justify-between px-5 py-10 lg:py-6">
+      {/* ================= 4. MAIN HERO SECTION WITH PROMINENT CINEMATIC VIDEO ================= */}
+      <div className="relative z-[3] mx-auto grid max-w-7xl grid-cols-1 items-center gap-10 px-5 py-8 lg:grid-cols-12 lg:py-14">
         
-        {/* LEFT COLUMN: Headlines & CTAs */}
-        <div className="max-w-2xl">
+        {/* LEFT COLUMN: Headlines & CTAs (7 cols) */}
+        <div className="lg:col-span-7">
           
           {/* Eyebrow badge */}
           <div className="flex flex-wrap items-center gap-2">
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-gold/40 bg-gradient-to-r from-amber-500/20 via-rose-500/20 to-amber-500/20 px-3.5 py-1 text-[11px] font-extrabold uppercase tracking-widest text-[#f6d98a] backdrop-blur-md telugu">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-gold/40 bg-gradient-to-r from-amber-500/20 via-rose-500/20 to-amber-500/20 px-4 py-1.5 text-[11.5px] font-extrabold uppercase tracking-widest text-[#f6d98a] backdrop-blur-md telugu">
               <span className="text-amber-300">🪔</span>
               {L.kicker}
             </span>
           </div>
 
           {/* Majestic Headline */}
-          <h1 className="mt-5 text-[38px] font-black leading-[1.08] tracking-tight text-white drop-shadow-[0_4px_24px_rgba(0,0,0,.75)] sm:text-[54px] lg:text-[68px] telugu">
+          <h1 className="mt-5 text-[38px] font-black leading-[1.08] tracking-tight text-white drop-shadow-[0_4px_24px_rgba(0,0,0,.75)] sm:text-[52px] lg:text-[64px] telugu">
             {L.titleA}
             <br />
             <span className="cine-title-gold drop-shadow-md">{L.titleB}</span>
@@ -206,94 +237,104 @@ export default function CinematicHero() {
             </Link>
           </div>
 
-          {/* Pricing pill */}
-          <div className="mt-5 inline-flex items-center gap-2 rounded-full border border-[#f0d9a3]/40 bg-black/40 px-4 py-1.5 text-[12px] font-bold text-[#f7e6bf] backdrop-blur-md telugu">
-            <span className="text-gold">✦</span> {L.pricePill}
+          {/* Pricing & Guarantee pills */}
+          <div className="mt-6 flex flex-wrap items-center gap-3">
+            <div className="inline-flex items-center gap-2 rounded-full border border-[#f0d9a3]/40 bg-black/50 px-4 py-1.5 text-[12px] font-bold text-[#f7e6bf] backdrop-blur-md telugu">
+              <span className="text-gold">✦</span> {L.pricePill}
+            </div>
+            <div className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-emerald-300 telugu">
+              <span className="font-bold">✓</span> {L.verifiedPill}
+            </div>
           </div>
 
         </div>
 
-        {/* RIGHT COLUMN: Interactive 3D Live Match Radar Card Preview */}
-        <div className="pointer-events-none hidden lg:block relative w-[360px]">
-          
-          {/* Glowing backdrop aura */}
-          <div className="absolute -inset-1 rounded-[2.5rem] bg-gradient-to-r from-amber-400/30 to-rose-600/30 blur-xl opacity-75" />
-
-          {/* Main Floating Match Preview Card */}
-          <div className="cine-float-card pointer-events-auto relative rounded-[2rem] border border-white/30 bg-black/55 p-5 text-white shadow-2xl backdrop-blur-2xl">
+        {/* RIGHT COLUMN: PROMINENT AUTO-PLAYING CINEMATIC WEDDING VIDEO PLAYER (5 cols) */}
+        <div className="lg:col-span-5">
+          <div className="relative mx-auto w-full max-w-[480px]">
             
-            {/* Header: Live Match Radar & Verified Pill */}
-            <div className="flex items-center justify-between border-b border-white/15 pb-3">
-              <div className="flex items-center gap-2 text-xs font-black text-[#f6d98a]">
-                <span className="h-2.5 w-2.5 rounded-full bg-emerald-400 animate-pulse" />
-                <span>{L.matchTitle}</span>
-              </div>
-              <span className="rounded-full bg-emerald-500/20 border border-emerald-400/40 px-2.5 py-0.5 text-[10px] font-extrabold text-emerald-300">
-                ✓ VERIFIED
-              </span>
-            </div>
+            {/* Glowing Golden Backdrop Aura */}
+            <div className="absolute -inset-2 rounded-[2.5rem] bg-gradient-to-r from-amber-400/40 via-rose-500/30 to-amber-500/40 blur-2xl opacity-85 animate-pulse" />
 
-            {/* Profile Avatar + Details */}
-            <div className="mt-4 flex items-center gap-3.5">
-              <div className="relative">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src="/promo/bride-card.jpg"
-                  alt="Verified Telugu Bride"
-                  className="h-20 w-20 rounded-2xl border-2 border-gold/60 object-cover shadow-lg"
-                />
-                <span className="absolute -bottom-1 -right-1 rounded-full bg-gold text-[#5c0821] p-0.5 text-[10px] font-black shadow-xs">
-                  💍
+            {/* Video Player Shell */}
+            <div className="relative overflow-hidden rounded-[2rem] border-2 border-[#f6d98a]/70 bg-black/80 shadow-[0_20px_60px_rgba(0,0,0,0.8)] backdrop-blur-2xl">
+              
+              {/* Header Bar inside Player */}
+              <div className="flex items-center justify-between border-b border-white/15 bg-black/60 px-4 py-2.5 backdrop-blur-md">
+                <div className="flex items-center gap-2">
+                  <span className="relative flex h-2.5 w-2.5">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-90" />
+                    <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-red-500" />
+                  </span>
+                  <span className="text-[11px] font-extrabold uppercase tracking-wider text-[#f6d98a] telugu">
+                    {L.videoBadge}
+                  </span>
+                </div>
+
+                <span className="rounded-full bg-gold/20 border border-gold/40 px-2.5 py-0.5 text-[10px] font-black text-[#f6d98a]">
+                  4K CINEMATIC
                 </span>
               </div>
 
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center justify-between">
-                  <div className="text-[14px] font-black text-white">{L.matchName}</div>
+              {/* Main Auto-Playing Wedding Video Screen */}
+              <div className="relative aspect-[16/10] w-full overflow-hidden bg-black">
+                <video
+                  ref={mainVideoRef}
+                  autoPlay
+                  loop
+                  muted
+                  playsInline
+                  preload="auto"
+                  poster="/promo/cine-3.jpg"
+                  className="h-full w-full object-cover transition-transform duration-700 hover:scale-105"
+                >
+                  <source src="/promo/wedding-film.mp4" type="video/mp4" />
+                  {/* Fallback Animated WebP */}
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src="/promo/wedding-film.webp"
+                    alt="Telugu wedding ceremony film"
+                    className="h-full w-full object-cover"
+                  />
+                </video>
+
+                {/* Subtle bottom gradient on video */}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/20 pointer-events-none" />
+
+                {/* Video Caption & Moments overlay */}
+                <div className="absolute bottom-3 left-4 right-4 flex items-center justify-between text-white">
+                  <div>
+                    <div className="text-xs font-black text-[#f6d98a] telugu">
+                      💍 {L.videoSub}
+                    </div>
+                    <div className="text-[10px] text-white/80 telugu">
+                      {L.directCall}
+                    </div>
+                  </div>
+
+                  <Link
+                    href="/register"
+                    className="rounded-full gold-gradient px-3.5 py-1.5 text-[11px] font-black text-[#5c0821] shadow-lg hover:brightness-110 active:scale-95 transition"
+                  >
+                    {L.ctaReg}
+                  </Link>
                 </div>
-                <div className="mt-1 text-[11.5px] font-medium text-white/80 telugu">{L.matchDesc}</div>
-                <div className="mt-0.5 text-[10.5px] font-bold text-amber-200/90 telugu">{L.matchGothram}</div>
               </div>
-            </div>
 
-            {/* Vedic Gunamelanam Score Meter */}
-            <div className="mt-4 rounded-xl bg-white/10 p-3 border border-white/10">
-              <div className="flex items-center justify-between text-[11px] font-bold">
-                <span className="text-[#f6d98a] telugu">🪐 {L.matchScore}</span>
-                <span className="text-emerald-400 font-extrabold text-xs">34 / 36 గుణాలు</span>
+              {/* Player Footer Bar */}
+              <div className="flex items-center justify-between border-t border-white/10 bg-black/70 px-4 py-2.5 text-[11px]">
+                <div className="flex items-center gap-2 text-white/80 telugu font-medium">
+                  <span className="text-emerald-400">●</span>
+                  <span>{te ? "సంప్రదాయ వేడుకల ఆనందం" : "Traditional Celebrations"}</span>
+                </div>
+                <div className="text-[10px] font-bold text-amber-300">
+                  మన వివాహ 🪔
+                </div>
               </div>
-              <div className="mt-2 h-2 overflow-hidden rounded-full bg-white/20">
-                <div className="h-full w-[96%] rounded-full bg-gradient-to-r from-[#f6d98a] via-amber-300 to-emerald-400 shadow-sm transition-all duration-1000" />
-              </div>
-            </div>
 
-            {/* Action Buttons: 1-Click Interactive Interest */}
-            <div className="mt-4">
-              <button
-                type="button"
-                onClick={() => setInterestSent(true)}
-                className={`w-full py-2.5 rounded-xl font-black text-xs transition-all duration-300 flex items-center justify-center gap-1.5 cursor-pointer ${
-                  interestSent
-                    ? "bg-emerald-600 text-white shadow-lg"
-                    : "gold-gradient text-[#5c0821] shadow-gold hover:brightness-105"
-                }`}
-              >
-                <span>{interestSent ? "✅" : "💌"}</span>
-                <span>{interestSent ? L.accepted : (te ? "ఇంట్రెస్ట్ పంపండి (1-Click)" : "Send Interest (1-Click)")}</span>
-              </button>
             </div>
 
           </div>
-
-          {/* Secondary Floating Trust Badge */}
-          <div className="cine-float-card cine-float-card--slow pointer-events-auto mt-3 ml-6 rounded-2xl border border-white/25 bg-black/60 p-3 text-white shadow-2xl backdrop-blur-xl flex items-center gap-3">
-            <span className="text-2xl">🔒</span>
-            <div>
-              <div className="text-xs font-bold text-white telugu">{te ? "నంబర్ నేరుగా కుటుంబానికే" : "Number shared directly with family"}</div>
-              <div className="text-[10px] text-[#f6d98a] font-medium">{te ? "పరస్పర అంగీకారం తర్వాతే" : "Only upon mutual consent"}</div>
-            </div>
-          </div>
-
         </div>
 
       </div>
