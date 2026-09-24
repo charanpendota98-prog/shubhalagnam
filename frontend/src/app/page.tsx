@@ -19,8 +19,6 @@ import CinematicHero from "@/components/CinematicHero";
 import RealWeddingsFilm from "@/components/RealWeddingsFilm";
 import HomeVendorsShowcase from "@/components/HomeVendorsShowcase";
 import HeroQuickSearch from "@/components/HeroQuickSearch";
-import HomePoruthamWidget from "@/components/HomePoruthamWidget";
-import VivahaMuhurthamTeaser from "@/components/VivahaMuhurthamTeaser";
 import WhyChooseUs from "@/components/WhyChooseUs";
 import DistrictAdBanner from "@/components/DistrictAdBanner";
 import { waLink } from "@/lib/wa";
@@ -496,13 +494,8 @@ export default function Home() {
         <BannerSlot page="home" />
       </section>
 
-      {/* ================= 🪐 VEDIC GUNAMELANAM LIVE ASTRO MATCHMAKER ================= */}
-      <HomePoruthamWidget />
-
-      {/* ================= 🗓️ VIVAHA MUHURTHAMS 2026-2027 ================= */}
-      <VivahaMuhurthamTeaser />
-
       {/* ================= 💎 WHY CHOOSE US (premium trust band) ================= */}
+      <WhyChooseUs />
       <WhyChooseUs />
 
       {/* ================= WEEKLY CASTE SHOWCASE (W41) ================= */}

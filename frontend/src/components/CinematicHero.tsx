@@ -1,29 +1,20 @@
 "use client";
 
 /**
- * 🎬 ULTRA-ADVANCED CONTINUOUS CINEMATIC WEDDING VIDEO HERO
- * =========================================================
- * World-class motion-first luxury experience:
- * - Real Animated Looping Telugu Wedding Films (wedding-film.webp & wedding-story-film.webp)
- * - 4-Chapter Continuous Auto-Playing Video Timeline (01 నిశ్చితార్థం → 02 మంగళస్నానం → 03 జీలకర్ర బెల్లం & తాళికట్టు → 04 తలంబ్రాలు & సప్తపది)
- * - Active Real-Time Video Scrubber with animated progress line (0-100%)
+ * 🎬 ULTRA-CLEAN CINEMATIC MATRIMONY VIDEO HERO
+ * ==============================================
+ * Pure, fast, video-first luxury experience:
+ * - Real Animated Looping Telugu Wedding Film (wedding-film.webp & wedding-story-film.webp)
+ * - Hardware-accelerated Ken-Burns motion + vibrant festive colors
  * - Floating Auspicious Golden Petals & Sparkles
- * - Live Glassmorphic Match Radar & Interactive Match Simulation
- * - Real-time active family counter + authentic success toast (NO FAKE IDs)
- * - Traditional auspicious Shehnai wave visualizer
- * - 100% Mobile-first, 0-lag, silky 60fps performance
+ * - Clean Floating Match Card Preview with 1-click Test Interest
+ * - Real-time active family pulse toast (NO FAKE IDs)
+ * - 100% Mobile-first, zero clutter, silky 60fps performance
  */
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useLang, type Lang } from "@/lib/lang";
-
-const CHAPTERS = [
-  { id: 0, te: "01 నిశ్చితార్థం", en: "01 Engagement", src: "/promo/cine-1.jpg", film: "/promo/wedding-film.webp", subTe: "శుభకార్యానికి పవిత్ర నాంది", subEn: "Sacred beginning" },
-  { id: 1, te: "02 మంగళస్నానం", en: "02 Mangalasnanam", src: "/promo/cine-2.jpg", film: "/promo/wedding-film.webp", subTe: "పసుపు, సుగంధ సంప్రదాయం", subEn: "Haldi & blessings" },
-  { id: 2, te: "03 జీలకర్ర బెల్లం & తాళికట్టు", en: "03 Muhurtham & Thali", src: "/promo/cine-3.jpg", film: "/promo/wedding-film.webp", subTe: "ఏడడుగుల కలయిక — శుభ ముహూర్తం", subEn: "Sacred knot at auspicious muhurtham" },
-  { id: 3, te: "04 తలంబ్రాలు & సప్తపది", en: "04 Talambralu Forever", src: "/promo/cine-4.jpg", film: "/promo/wedding-story-film.webp", subTe: "చిరకాల బంధం — ఆనంద క్షణాలు", subEn: "Together for a lifetime" },
-];
 
 const PETALS = ["✿", "✦", "❀", "✧", "✽", "❁", "✦", "✾", "❀", "✧", "✿", "❁"];
 
@@ -31,12 +22,11 @@ const LIVE_ACTIVITIES = [
   { te: "💍 శ్రావణి & కిరణ్ వివాహం నిశ్చయమైంది — శుభాకాంక్షలు!", en: "💍 Sravani & Kiran's wedding fixed — Best wishes!" },
   { te: "✨ తెలంగాణ & ఏపీలో 150+ కుటుంబాలు ఇప్పుడు చూస్తున్నారు", en: "✨ 150+ families browsing right now across TS & AP" },
   { te: "💌 పరస్పర అంగీకారంతో ఫోన్ నంబర్లు మార్పిడి అయ్యాయి", en: "💌 Contacts shared safely upon mutual family consent" },
-  { te: "🪔 98% వేద గుణమేళనం సరిపోలిక కుదిరింది", en: "🪔 98% Vedic Gunamelanam compatibility verified" },
+  { te: "🪔 వేద జాతక గుణమేళనం సరిపోలిక కుదిరింది", en: "🪔 Vedic Gunamelanam compatibility verified" },
 ];
 
 const COPY = {
   te: {
-    live: "10,000+ ధృవీకరించిన ప్రొఫైల్స్ · ఇప్పుడు LIVE",
     activePulse: "150+ కుటుంబాలు ఆన్‌లైన్‌లో ఉన్నారు",
     kicker: "తెలంగాణ & ఆంధ్రప్రదేశ్ · నంబర్ 1 తెలుగు మ్యాట్రిమోని",
     titleA: "నమ్మకమైన పవిత్ర బంధం,",
@@ -45,23 +35,14 @@ const COPY = {
     pricePill: "₹99 నుంచి · మొదటి 3 ప్రొఫైల్స్ ఉచితం (FREE)",
     ctaReg: "ఉచిత నమోదు",
     ctaBrowse: "ప్రొఫైల్స్ చూడండి",
-    ctaBot: "టెలిగ్రామ్‌లో చేరండి",
-    trust: ["100% OTP ధృవీకరణ", "ఫోటో గోప్యత & వాటర్‌మార్క్", "నేరుగా కుటుంబాల పరిచయం", "చాటింగ్ లేదు — సురక్షితం"],
-    scroll: "మరింత చూడండి",
     matchTitle: "లైవ్ మ్యాచింగ్ రాడార్",
     matchName: "సాఫ్ట్‌వేర్ వధువు · 25 సం. · Reddy",
     matchDesc: "Software Engineer (8 LPA) · హైదరాబాద్",
     matchGothram: "భరద్వాజ గోత్రం · రోహిణి నక్షత్రం",
     matchScore: "98% వేద సరిపోలిక",
     accepted: "ఇంట్రెస్ట్ పంపబడింది!",
-    joined: "ధృవీకరించిన ప్రొఫైల్స్",
-    stories: "విజయవంతమైన పెళ్లిళ్లు",
-    channels: "కమ్యూనిటీ ఛానళ్లు",
-    soundCue: "సన్నాయి శుభనాదం",
-    filmPlaying: "🎬 లైవ్ వెడ్డింగ్ ఫిల్మ్ ఆటో-ప్లే అవుతోంది",
   },
   en: {
-    live: "10,000+ verified profiles · LIVE now",
     activePulse: "150+ families active right now",
     kicker: "Telangana & Andhra Pradesh · #1 Telugu Matrimony",
     titleA: "Sacred, trusted bonds,",
@@ -70,20 +51,12 @@ const COPY = {
     pricePill: "From ₹99 · first 3 profiles free",
     ctaReg: "ఉచిత నమోదు",
     ctaBrowse: "Browse profiles",
-    ctaBot: "Join on Telegram",
-    trust: ["100% OTP verified", "Photo privacy & watermark", "Direct family introduction", "No casual chatting — 100% safe"],
-    scroll: "Explore more",
     matchTitle: "Live Matching Radar",
     matchName: "Software Bride · 25 yrs · Reddy",
     matchDesc: "Software Engineer (8 LPA) · Hyderabad",
     matchGothram: "Bharadwaj Gothram · Rohini Star",
     matchScore: "98% Vedic Match",
     accepted: "Interest sent successfully!",
-    joined: "Verified profiles",
-    stories: "Successful weddings",
-    channels: "Community channels",
-    soundCue: "Auspicious Shehnai Ambient",
-    filmPlaying: "🎬 Continuous Wedding Film Playing Live",
   },
 };
 
@@ -93,11 +66,8 @@ export default function CinematicHero() {
   const L = COPY[(lang as Lang) in COPY ? (lang as Lang) : "te"];
 
   const [mounted, setMounted] = useState(false);
-  const [activeChapter, setActiveChapter] = useState(0);
-  const [chapterProgress, setChapterProgress] = useState(0);
   const [activityIdx, setActivityIdx] = useState(0);
   const [interestSent, setInterestSent] = useState(false);
-  const [soundPlaying, setSoundPlaying] = useState(true);
 
   const petalSeeds = useRef(
     PETALS.map((g, i) => ({
@@ -109,69 +79,36 @@ export default function CinematicHero() {
     }))
   );
 
-  // Continuous Video Playback Timeline Tick (50ms interval = smooth 60fps scrubber)
   useEffect(() => {
     setMounted(true);
-    const DURATION_MS = 5500; // 5.5s per wedding chapter
-    const TICK_MS = 50;
-
-    const progressTimer = setInterval(() => {
-      setChapterProgress((prev) => {
-        const next = prev + (TICK_MS / DURATION_MS) * 100;
-        if (next >= 100) {
-          setActiveChapter((curr) => (curr + 1) % CHAPTERS.length);
-          return 0;
-        }
-        return next;
-      });
-    }, TICK_MS);
-
     const activityTimer = setInterval(() => {
       setActivityIdx((prev) => (prev + 1) % LIVE_ACTIVITIES.length);
     }, 4500);
 
     return () => {
-      clearInterval(progressTimer);
       clearInterval(activityTimer);
     };
   }, []);
-
-  const currentCh = CHAPTERS[activeChapter];
 
   return (
     <section className="cine-hero relative overflow-hidden bg-[#0e020a] text-white" aria-label="Telugu matrimony — cinematic experience">
       
       {/* ================= 1. VIBRANT ANIMATED WEDDING FILM BACKGROUND ================= */}
       <div className="absolute inset-0" aria-hidden>
-        {/* Continuous Animated Wedding Film Video Layer */}
         {mounted && (
           <img
-            src={currentCh.film || "/promo/wedding-film.webp"}
+            src="/promo/wedding-film.webp"
             alt="Telugu wedding ceremony film"
-            className="absolute inset-0 h-full w-full object-cover opacity-90 transition-all duration-1000 scale-105"
+            className="absolute inset-0 h-full w-full object-cover opacity-90 scale-105 transition-all duration-1000"
           />
         )}
-
-        {/* High-definition Still Layer per Chapter with subtle blend */}
-        {CHAPTERS.map((ch, idx) => (
-          <div
-            key={ch.src}
-            className={`absolute inset-0 bg-cover bg-center transition-all duration-1000 ease-out ${
-              activeChapter === idx ? "opacity-35 scale-105" : "opacity-0 scale-100"
-            }`}
-            style={{
-              backgroundImage: `url('${ch.src}')`,
-              filter: "saturate(1.2) contrast(1.1)",
-            }}
-          />
-        ))}
       </div>
 
-      {/* Readable Gradient Overlay (Preserves video on right, ensures crisp text readability on left) */}
+      {/* Readable Gradient Overlay */}
       <div
         className="absolute inset-0 z-[1] pointer-events-none"
         style={{
-          background: "linear-gradient(90deg, rgba(14,2,10,0.95) 0%, rgba(14,2,10,0.85) 38%, rgba(14,2,10,0.3) 72%, rgba(14,2,10,0.65) 100%)",
+          background: "linear-gradient(90deg, rgba(14,2,10,0.95) 0%, rgba(14,2,10,0.85) 40%, rgba(14,2,10,0.3) 75%, rgba(14,2,10,0.7) 100%)",
         }}
       />
       <div
@@ -205,7 +142,7 @@ export default function CinematicHero() {
         </div>
       )}
 
-      {/* ================= 3. TOP AMBIENCE & SOUND BAR ================= */}
+      {/* ================= 3. TOP LIVE PULSE BAR ================= */}
       <div className="relative z-[4] mx-auto max-w-7xl px-4 pt-6 flex items-center justify-between">
         {/* Live Activity Toast (NO FAKE IDs) */}
         <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-black/60 px-3.5 py-1.5 text-[11px] font-bold tracking-wide backdrop-blur-xl shadow-lg transition-all duration-500">
@@ -216,27 +153,16 @@ export default function CinematicHero() {
           <span className="text-[#f6d98a] telugu">{te ? LIVE_ACTIVITIES[activityIdx].te : LIVE_ACTIVITIES[activityIdx].en}</span>
         </div>
 
-        {/* Ambient Shehnai Equalizer Visualizer */}
-        <button
-          type="button"
-          onClick={() => setSoundPlaying(!soundPlaying)}
-          className="hidden sm:inline-flex items-center gap-2 rounded-full border border-gold/40 bg-white/10 px-3.5 py-1.5 text-[11px] font-semibold text-white/90 backdrop-blur-md hover:bg-white/20 transition cursor-pointer"
-          title={L.soundCue}
-        >
-          <div className="flex items-end gap-0.5 h-3">
-            <span className={`w-0.5 bg-[#f6d98a] rounded-full transition-all ${soundPlaying ? "h-3 animate-pulse" : "h-1"}`} />
-            <span className={`w-0.5 bg-[#f6d98a] rounded-full transition-all ${soundPlaying ? "h-2 animate-pulse" : "h-1.5"}`} style={{ animationDelay: "150ms" }} />
-            <span className={`w-0.5 bg-[#f6d98a] rounded-full transition-all ${soundPlaying ? "h-3.5 animate-pulse" : "h-1"}`} style={{ animationDelay: "300ms" }} />
-            <span className={`w-0.5 bg-[#f6d98a] rounded-full transition-all ${soundPlaying ? "h-1.5 animate-pulse" : "h-2"}`} style={{ animationDelay: "450ms" }} />
-          </div>
-          <span className="text-[10.5px] text-[#f6d98a] telugu">{L.soundCue}</span>
-        </button>
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-400/30 bg-emerald-950/50 px-3 py-1 text-[11px] font-bold text-emerald-300 backdrop-blur-md">
+          <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-ping" />
+          {L.activePulse}
+        </span>
       </div>
 
       {/* ================= 4. MAIN HERO CONTENT ================= */}
-      <div className="relative z-[3] mx-auto flex min-h-[76svh] max-w-7xl items-center justify-between px-5 py-10 lg:py-4">
+      <div className="relative z-[3] mx-auto flex min-h-[72svh] max-w-7xl items-center justify-between px-5 py-10 lg:py-6">
         
-        {/* LEFT COLUMN: Headlines, Badges, CTAs, Trust Metrics */}
+        {/* LEFT COLUMN: Headlines & CTAs */}
         <div className="max-w-2xl">
           
           {/* Eyebrow badge */}
@@ -245,26 +171,22 @@ export default function CinematicHero() {
               <span className="text-amber-300">🪔</span>
               {L.kicker}
             </span>
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-400/30 bg-emerald-950/40 px-3 py-1 text-[11px] font-bold text-emerald-300 backdrop-blur-md">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-ping" />
-              {L.activePulse}
-            </span>
           </div>
 
           {/* Majestic Headline */}
-          <h1 className="mt-4 text-[38px] font-black leading-[1.08] tracking-tight text-white drop-shadow-[0_4px_24px_rgba(0,0,0,.75)] sm:text-[54px] lg:text-[66px] telugu">
+          <h1 className="mt-5 text-[38px] font-black leading-[1.08] tracking-tight text-white drop-shadow-[0_4px_24px_rgba(0,0,0,.75)] sm:text-[54px] lg:text-[68px] telugu">
             {L.titleA}
             <br />
             <span className="cine-title-gold drop-shadow-md">{L.titleB}</span>
           </h1>
 
           {/* Subtitle */}
-          <p className="mt-4 max-w-xl text-[15px] font-normal leading-relaxed text-white/90 sm:text-[17px] telugu">
+          <p className="mt-5 max-w-xl text-[15px] font-normal leading-relaxed text-white/90 sm:text-[17px] telugu">
             {L.sub}
           </p>
 
           {/* CTAs */}
-          <div className="mt-7 flex flex-wrap items-center gap-3.5">
+          <div className="mt-8 flex flex-wrap items-center gap-3.5">
             <span className="cine-cta-glow">
               <Link
                 href="/register"
@@ -285,31 +207,13 @@ export default function CinematicHero() {
           </div>
 
           {/* Pricing pill */}
-          <div className="mt-4 inline-flex items-center gap-2 rounded-full border border-[#f0d9a3]/40 bg-black/40 px-4 py-1.5 text-[12px] font-bold text-[#f7e6bf] backdrop-blur-md telugu">
+          <div className="mt-5 inline-flex items-center gap-2 rounded-full border border-[#f0d9a3]/40 bg-black/40 px-4 py-1.5 text-[12px] font-bold text-[#f7e6bf] backdrop-blur-md telugu">
             <span className="text-gold">✦</span> {L.pricePill}
           </div>
 
-          {/* Trust Guarantees Row */}
-          <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-2 text-[12px] font-semibold text-white/85 telugu">
-            {L.trust.map((t) => (
-              <span key={t} className="inline-flex items-center gap-1.5">
-                <span className="text-emerald-400 font-bold">✓</span>
-                {t}
-              </span>
-            ))}
-          </div>
-
-          {/* Live Platform Stats */}
-          <div className="mt-7 flex max-w-lg items-center gap-6 border-t border-white/20 pt-5">
-            <Stat value="10,000+" label={L.joined} lang={lang as Lang} />
-            <span className="h-8 w-px bg-white/20" />
-            <Stat value="3,900+" label={L.stories} lang={lang as Lang} />
-            <span className="h-8 w-px bg-white/20" />
-            <Stat value="52+" label={L.channels} lang={lang as Lang} />
-          </div>
         </div>
 
-        {/* RIGHT COLUMN: Interactive 3D Live Match Radar & Simulation Card */}
+        {/* RIGHT COLUMN: Interactive 3D Live Match Radar Card Preview */}
         <div className="pointer-events-none hidden lg:block relative w-[360px]">
           
           {/* Glowing backdrop aura */}
@@ -394,72 +298,6 @@ export default function CinematicHero() {
 
       </div>
 
-      {/* ================= 5. AUTOMATIC CONTINUOUS WEDDING VIDEO TIMELINE SCRUBBER ================= */}
-      <div className="relative z-[4] mx-auto max-w-7xl px-4 pb-8">
-        <div className="rounded-2xl border border-white/20 bg-black/65 p-4 backdrop-blur-2xl shadow-2xl">
-          
-          {/* Header indicator */}
-          <div className="flex items-center justify-between pb-2 text-[11px] font-black text-[#f6d98a]">
-            <div className="flex items-center gap-2">
-              <span className="h-2 w-2 rounded-full bg-red-500 animate-ping" />
-              <span className="telugu">{L.filmPlaying}</span>
-            </div>
-            <span className="text-white/60 font-mono text-[10px]">
-              SCENE 0{activeChapter + 1} / 04
-            </span>
-          </div>
-
-          {/* 4 Chapter Scrubber Grid */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-1">
-            {CHAPTERS.map((ch, idx) => (
-              <button
-                key={ch.id}
-                type="button"
-                onClick={() => {
-                  setActiveChapter(idx);
-                  setChapterProgress(0);
-                }}
-                className={`group relative rounded-xl p-3 text-left transition-all duration-300 cursor-pointer overflow-hidden ${
-                  activeChapter === idx
-                    ? "bg-white/25 border-2 border-gold shadow-lg"
-                    : "hover:bg-white/10 border border-white/10"
-                }`}
-              >
-                {/* Real-time Smooth Progress Bar Line for active chapter */}
-                {activeChapter === idx ? (
-                  <div
-                    className="absolute top-0 left-0 h-1 bg-gradient-to-r from-[#f6d98a] via-amber-300 to-white shadow-gold transition-all duration-75"
-                    style={{ width: `${chapterProgress}%` }}
-                  />
-                ) : (
-                  <div
-                    className={`absolute top-0 left-0 right-0 h-0.5 ${
-                      idx < activeChapter ? "bg-[#f6d98a]/80" : "bg-white/10"
-                    }`}
-                  />
-                )}
-                
-                <div className={`text-xs font-black transition ${activeChapter === idx ? "text-[#f6d98a]" : "text-white/80 group-hover:text-white"} telugu`}>
-                  {te ? ch.te : ch.en}
-                </div>
-                <div className="text-[11px] text-white/70 truncate mt-1 telugu font-medium">
-                  {te ? ch.subTe : ch.subEn}
-                </div>
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-
     </section>
-  );
-}
-
-function Stat({ value, label, lang }: { value: string; label: string; lang: Lang }) {
-  return (
-    <div>
-      <div className="text-2xl font-extrabold tracking-tight text-white sm:text-[28px]">{value}</div>
-      <div className={`mt-0.5 text-[11px] font-semibold text-white/70 ${lang === "te" ? "telugu" : ""}`}>{label}</div>
-    </div>
   );
 }
