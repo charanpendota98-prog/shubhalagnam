@@ -222,6 +222,17 @@ export default function Dashboard() {
   const [recipientPhone, setRecipientPhone] = useState("");
   const [isNotepadMinimized, setIsNotepadMinimized] = useState(false);
 
+  // VIP / Plan Grant Modal State
+  const [upgradeModal, setUpgradeModal] = useState<{
+    open: boolean;
+    tsapId: string;
+    name: string;
+    currentPlan?: string;
+  } | null>(null);
+  const [grantPlanCode, setGrantPlanCode] = useState<"S_99" | "S_199" | "S_299" | "S_499">("S_99");
+  const [grantCredits, setGrantCredits] = useState<number>(5);
+  const [grantTriggerRef, setGrantTriggerRef] = useState<boolean>(true);
+
   // New Profile Form State
   const [newProf, setNewProf] = useState({
     full_name: "",
@@ -564,6 +575,30 @@ export default function Dashboard() {
       loadCore();
     } catch { flash(L.failed); }
     finally { setBusyId(""); }
+  }
+
+  async function upgradeProfile(id: string, plan: "S_99" | "S_199" | "S_299" | "S_499" = "S_99", credits?: number, triggerRef: boolean = true) {
+    if (!me) return;
+    setBusyId(id);
+    try {
+      const r = await fetch(`/api/control/profile/${encodeURIComponent(id)}/upgrade`, {
+        method: "POST", credentials: "include",
+        headers: { "Content-Type": "application/json", "X-Control-CSRF": me.csrf },
+        body: JSON.stringify({ plan, credits, trigger_referral: triggerRef }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.detail || d.message_telugu || "Failed");
+      flash(d.message_telugu || `👑 ${id} విజయవంతంగా ${plan} కి అప్‌గ్రేడ్ చేయబడింది!`);
+      loadDirectory();
+      if (candidate?.tsap_id === id) {
+        setCandidate((c: any) => c ? { ...c, plan: d.plan, credits: d.credits, is_premium: true } : c);
+      }
+      setUpgradeModal(null);
+    } catch (e: any) {
+      flash(e?.message || "ప్లాన్ యాక్టివేషన్ విఫలమైంది");
+    } finally {
+      setBusyId("");
+    }
   }
 
   async function spotlightAction(promoId: string, action: "approve" | "reject" | "close", days?: number) {
@@ -978,7 +1013,29 @@ export default function Dashboard() {
                       </span>
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap justify-end">
+                      {/* Plan Badge & Fast Upgrade Button */}
+                      <div className="flex items-center gap-1.5">
+                        <span className={`px-2.5 py-1 rounded-xl text-[10px] font-black uppercase ${
+                          candidate.plan === "S_499" ? "bg-emerald-100 text-emerald-800 border border-emerald-300" :
+                          candidate.plan === "S_199" ? "bg-purple-100 text-purple-800 border border-purple-300" :
+                          candidate.plan === "S_99" ? "bg-amber-100 text-amber-900 border border-amber-300" :
+                          "bg-slate-100 text-slate-700 border border-slate-200"
+                        }`}>
+                          {candidate.plan === "S_499" ? "💎 VIP Elite" :
+                           candidate.plan === "S_199" ? "⭐ Family" :
+                           candidate.plan === "S_99" ? "⚡ Sambandham" :
+                           "🆓 Free"}
+                        </span>
+                        <button
+                          onClick={() => setUpgradeModal({ open: true, tsapId: candidate.tsap_id, name: candidate.full_name, currentPlan: candidate.plan })}
+                          className="px-2.5 py-1 rounded-xl bg-gradient-to-r from-amber-500 to-rose-600 text-white font-extrabold text-[11px] shadow-xs hover:brightness-110 active:scale-95 transition"
+                          title="1-Click VIP / ప్లాన్ మార్చు"
+                        >
+                          👑 ప్లాన్ ఇవ్వండి
+                        </button>
+                      </div>
+
                       {candidate.phone && (
                         <>
                           <a
@@ -1371,6 +1428,7 @@ export default function Dashboard() {
                     <tr>
                       <th className="p-3.5 text-center">ఎంపిక</th>
                       <th className="p-3.5">ID / పేరు</th>
+                      <th className="p-3.5">ప్లాన్ / క్రెడిట్స్</th>
                       <th className="p-3.5">లింగం / వయస్సు</th>
                       <th className="p-3.5">కులం & గోత్రం</th>
                       <th className="p-3.5">చదువు & ఉద్యోగం</th>
@@ -1382,13 +1440,13 @@ export default function Dashboard() {
                   <tbody className="divide-y divide-slate-100">
                     {dirLoading ? (
                       <tr>
-                        <td colSpan={8} className="p-8 text-center text-slate-400 font-bold">
+                        <td colSpan={9} className="p-8 text-center text-slate-400 font-bold">
                           లోడ్ అవుతోంది…
                         </td>
                       </tr>
                     ) : directoryProfiles.length === 0 ? (
                       <tr>
-                        <td colSpan={8} className="p-8 text-center text-slate-400 font-bold">
+                        <td colSpan={9} className="p-8 text-center text-slate-400 font-bold">
                           ప్రొఫైళ్లు ఏవీ లభించలేదు
                         </td>
                       </tr>
@@ -1408,6 +1466,24 @@ export default function Dashboard() {
                             <td className="p-3.5 font-bold">
                               <div className="text-navy">{p.full_name}</div>
                               <div className="font-mono text-[10px] text-maroon">{p.tsap_id}</div>
+                            </td>
+                            <td className="p-3.5 font-medium">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase ${
+                                  p.plan === "S_499" ? "bg-emerald-100 text-emerald-800" :
+                                  p.plan === "S_199" ? "bg-purple-100 text-purple-800" :
+                                  p.plan === "S_99" ? "bg-amber-100 text-amber-900" :
+                                  "bg-slate-100 text-slate-600"
+                                }`}>
+                                  {p.plan === "S_499" ? "💎 VIP" :
+                                   p.plan === "S_199" ? "⭐ Family" :
+                                   p.plan === "S_99" ? "⚡ ₹99" :
+                                   "Free"}
+                                </span>
+                                <span className="text-[10px] text-slate-500 font-mono">
+                                  🪙 {p.credits || 0}
+                                </span>
+                              </div>
                             </td>
                             <td className="p-3.5 font-medium">
                               <div>{p.gender === "Bride" ? "👰 వధువు" : "🤵 వరుడు"}</div>
@@ -1435,9 +1511,17 @@ export default function Dashboard() {
                                   runMatchmaker(p.tsap_id);
                                   setTab("matchmaker");
                                 }}
-                                className="px-2.5 py-1 rounded-lg bg-amber-100 text-maroon font-bold text-[11px] hover:bg-amber-200"
+                                className="px-2.5 py-1 rounded-lg bg-amber-100 text-maroon font-bold text-[11px] hover:bg-amber-200 transition"
+                                title="మ్యాచ్‌లు చూడు"
                               >
-                                ⚡ మ్యాచ్‌లు చూడు
+                                ⚡ మ్యాచ్‌లు
+                              </button>
+                              <button
+                                onClick={() => setUpgradeModal({ open: true, tsapId: p.tsap_id, name: p.full_name, currentPlan: p.plan })}
+                                className="px-2.5 py-1 rounded-lg bg-gradient-to-r from-amber-500 to-rose-600 text-white font-bold text-[11px] hover:brightness-110 active:scale-95 transition"
+                                title="1-Click VIP / ప్లాన్ ఇవ్వండి"
+                              >
+                                👑 ప్లాన్
                               </button>
                             </td>
                           </tr>
@@ -1989,6 +2073,125 @@ export default function Dashboard() {
               </div>
             )}
 
+          </div>
+        </div>
+      )}
+
+      {/* 👑 VIP & 1-CLICK PLAN GRANT MODAL */}
+      {upgradeModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border-2 border-amber-400 space-y-4 animate-in fade-in zoom-in duration-200">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2">
+                <span className="text-2xl">👑</span>
+                <div>
+                  <h3 className="font-black text-navy text-base">VIP / ప్రీమియం ప్లాన్ ఇవ్వండి</h3>
+                  <p className="text-xs text-slate-500 font-mono">{upgradeModal.name} ({upgradeModal.tsapId})</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setUpgradeModal(null)}
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-600 leading-relaxed">
+              యూజర్ ఆన్‌లైన్ పేమెంట్ చేయకపోయినా (ఆఫ్‌లైన్ నగదు లేదా ప్రత్యేక ప్రోత్సాహం), అడ్మిన్ ప్యానెల్ నుండి నేరుగా ₹99/₹199/₹499 ప్లాన్ యాక్టివేట్ చేయవచ్చు.
+            </p>
+
+            {/* Plan selection buttons */}
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-slate-700 block">యాక్టివేట్ చేయాల్సిన ప్లాన్ ఎంచుకోండి:</label>
+              
+              <button
+                type="button"
+                onClick={() => { setGrantPlanCode("S_99"); setGrantCredits(5); }}
+                className={`w-full p-3 rounded-2xl border text-left transition flex items-center justify-between ${
+                  grantPlanCode === "S_99" ? "bg-amber-50 border-amber-500 ring-2 ring-amber-400/50" : "border-slate-200 hover:bg-slate-50"
+                }`}
+              >
+                <div>
+                  <div className="font-black text-sm text-[#7A0C2E]">⚡ ₹99 Sambandham (సంబంధం ప్లాన్)</div>
+                  <div className="text-[11px] text-slate-500">5 డైరెక్ట్ నంబర్లు • 7 రోజుల బూస్ట్ • WhatsApp సపోర్ట్</div>
+                </div>
+                <span className="text-xs font-bold font-mono px-2 py-1 bg-amber-100 text-amber-800 rounded-lg">+5 Cr</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => { setGrantPlanCode("S_199"); setGrantCredits(12); }}
+                className={`w-full p-3 rounded-2xl border text-left transition flex items-center justify-between ${
+                  grantPlanCode === "S_199" ? "bg-purple-50 border-purple-500 ring-2 ring-purple-400/50" : "border-slate-200 hover:bg-slate-50"
+                }`}
+              >
+                <div>
+                  <div className="font-black text-sm text-purple-900">⭐ ₹199 Family (ఫ్యామిలీ ప్లాన్)</div>
+                  <div className="text-[11px] text-slate-500">12 డైరెక్ట్ నంబర్లు • జాతక పొంతన • 15 రోజుల బూస్ట్</div>
+                </div>
+                <span className="text-xs font-bold font-mono px-2 py-1 bg-purple-100 text-purple-800 rounded-lg">+12 Cr</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => { setGrantPlanCode("S_499"); setGrantCredits(50); }}
+                className={`w-full p-3 rounded-2xl border text-left transition flex items-center justify-between ${
+                  grantPlanCode === "S_499" ? "bg-emerald-50 border-emerald-500 ring-2 ring-emerald-400/50" : "border-slate-200 hover:bg-slate-50"
+                }`}
+              >
+                <div>
+                  <div className="font-black text-sm text-emerald-900">💎 ₹499 VIP Elite (వీఐపీ ప్లాన్)</div>
+                  <div className="text-[11px] text-slate-500">50 డైరెక్ట్ నంబర్లు • అసిస్టెడ్ మ్యాచ్‌మేకింగ్ • VIP బ్యాడ్జ్</div>
+                </div>
+                <span className="text-xs font-bold font-mono px-2 py-1 bg-emerald-100 text-emerald-800 rounded-lg">+50 Cr</span>
+              </button>
+            </div>
+
+            {/* Custom Credits override */}
+            <div className="flex items-center justify-between pt-1">
+              <label className="text-xs font-bold text-slate-600">అదనపు క్రెడిట్స్ (Credits to add):</label>
+              <input
+                type="number"
+                min="1"
+                max="500"
+                value={grantCredits}
+                onChange={(e) => setGrantCredits(Math.max(1, parseInt(e.target.value) || 1))}
+                className="w-20 px-2.5 py-1 border border-slate-300 rounded-xl text-center font-bold text-xs focus:border-maroon focus:outline-none"
+              />
+            </div>
+
+            {/* Referral commission trigger */}
+            <div className="flex items-center gap-2 pt-1">
+              <input
+                type="checkbox"
+                id="triggerRef"
+                checked={grantTriggerRef}
+                onChange={(e) => setGrantTriggerRef(e.target.checked)}
+                className="w-4 h-4 rounded accent-[#7A0C2E] cursor-pointer"
+              />
+              <label htmlFor="triggerRef" className="text-xs font-medium text-slate-700 cursor-pointer">
+                రిఫరల్ కమీషన్ విడుదల చేయి (Trigger ₹50 referral commission if applicable)
+              </label>
+            </div>
+
+            <div className="flex gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setUpgradeModal(null)}
+                className="flex-1 py-2.5 rounded-2xl border border-slate-300 font-bold text-xs text-slate-600 hover:bg-slate-100 transition"
+              >
+                రద్దు చేయి (Cancel)
+              </button>
+              <button
+                type="button"
+                disabled={busyId === upgradeModal.tsapId}
+                onClick={() => upgradeProfile(upgradeModal.tsapId, grantPlanCode, grantCredits, grantTriggerRef)}
+                className="flex-1 py-2.5 rounded-2xl bg-gradient-to-r from-amber-500 to-rose-600 text-white font-extrabold text-xs shadow-md hover:brightness-110 active:scale-98 transition disabled:opacity-50"
+              >
+                {busyId === upgradeModal.tsapId ? "యాక్టివేట్ అవుతోంది..." : `👑 ${grantPlanCode} ప్లాన్ ఇవ్వండి`}
+              </button>
+            </div>
           </div>
         </div>
       )}

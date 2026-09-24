@@ -28,19 +28,31 @@ def generate_id(gender: str, year: int = 2025, seq: int = 1042) -> str:
 # ⭐ CASTE-WISE PROFILE ID — RED001, KAM001, VIS001 (neat, short, caste-based)
 # ---------------------------------------------------------------------------
 CASTE_ID_CODES = {
-    "reddy": "RED", "kamma": "KAM", "kapu": "KAP", "velama": "VEL", "brahmin": "BRA",
-    "vysya": "VYS", "yadava_goud": "YAD", "mala": "MAL", "madiga": "MAD",
-    "viswabrahmana": "VIS", "munnuru_kapu": "MUN", "raju_kshatriya": "RAJ",
-    "padmashali_weavers": "PAD", "mudiraj": "MUD", "lambada_banjara": "LAM",
-    "others_bc": "OBC", "others_sc": "OSC", "others_st": "OST",
+    "reddy": "RED", "kamma": "KAM", "kapu": "KAP", "velama": "VEL", "brahmin": "BRM",
+    "vysya": "VYS", "arya_vysya": "VYS", "yadava": "YAD", "goud": "GOU", "yadava_goud": "YAD",
+    "mala": "MAL", "madiga": "MAD", "viswabrahmana": "VIS", "viswakarma": "VIS",
+    "munnuru_kapu": "MNK", "raju_kshatriya": "RAJ", "kshatriya": "RAJ", "raju": "RAJ",
+    "padmashali_weavers": "PAD", "padmashali": "PAD", "mudiraj": "MUD",
+    "lambada_banjara": "LAM", "lambada": "LAM", "banjara": "LAM",
+    "balija": "BAL", "settibalija": "SET", "turpu_kapu": "TKP", "vaddera": "VAD",
+    "boya": "BOY", "kuruba": "KUR", "are_katika": "KAT", "kummara": "KUM",
+    "rajaka": "RJK", "nayee_brahmin": "NAY", "perika": "PER", "devanga": "DEV",
+    "muslim": "MUS", "christian": "CHR", "others_bc": "OBC", "others_sc": "OSC", "others_st": "OST",
 }
 
 
 def caste_code(caste: str) -> str:
-    """'Reddy' → 'RED', 'Viswabrahmin' → 'VIS'; teliyani caste → first 3 letters (neat)."""
+    """'Reddy' → 'RED', 'Goud' → 'GOU', 'Kamma' → 'KAM'; fallback → first 3 letters."""
     raw = str(caste or "").strip()
+    _norm = raw.lower().replace(" ", "_").replace("-", "_")
+    if _norm in CASTE_ID_CODES:
+        return CASTE_ID_CODES[_norm]
     # grouped community names — explicit codes (OTH kakunda OSC/OBC/OST)
     _low = raw.lower().replace("_", " ")
+    if "goud" in _low:
+        return "GOU"
+    if "yadava" in _low:
+        return "YAD"
     if "sc" in _low and ("other" in _low or "ఇతర" in raw):
         return "OSC"
     if "bc" in _low and ("other" in _low or "ఇతర" in raw):
@@ -58,13 +70,14 @@ def caste_code(caste: str) -> str:
         letters = "".join(c for c in raw.upper() if c.isalpha())
         if letters:
             return letters[:3]
-    return "MVH"
+    return "TEL"
 
 
 def generate_profile_id(caste: str, seq: int = 1) -> str:
-    """'Reddy' + 1 → RED001 · 'Viswabrahmin' + 42 → VIS042 · 1042 → RED1042."""
+    """'Reddy' + 1 → RED1001 · 'Viswabrahmin' + 1 → VIS1001 · 1042 → RED1042."""
     code = caste_code(caste)
-    return f"{code}{seq:03d}" if seq < 1000 else f"{code}{seq}"
+    num = 1000 + seq if seq < 1000 else seq
+    return f"{code}{num:04d}"
 
 def create_profile_card(user: Dict, output_path: str) -> str:
     """

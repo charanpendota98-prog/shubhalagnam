@@ -759,17 +759,114 @@ function Wizard() {
             </div>
           </div>
 
-          <div className="bg-white rounded-2xl p-4 card-shadow border border-gold/25">
-            <div className="font-bold text-maroon text-[15px]">🎴 మీ ప్రొఫైల్ కార్డ్</div>
+          {/* 🎴 Luxury Matrimonial Biodata Template Card */}
+          <div className="bg-white rounded-3xl p-6 card-shadow border-2 border-gold/40 space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <span className="text-[10px] font-black uppercase tracking-widest text-maroon block">
+                  {T("అధికారిక వివాహ బయోడేటా టెంప్లేట్", "Official Wedding Biodata Template")}
+                </span>
+                <h3 className="font-black text-maroon text-lg">
+                  🎴 {T("మీ డిజిటల్ ప్రొఫైల్ కార్డ్ & వివరాలు", "Your Digital Profile Card & Template")}
+                </h3>
+              </div>
+              <span className="bg-amber-100 text-maroon border border-gold font-mono font-bold text-xs px-3 py-1 rounded-full">
+                ID: {tsap}
+              </span>
+            </div>
+
+            {/* Structured Biodata Template Preview */}
+            <div className="bg-[#FFFDF9] rounded-2xl p-5 border border-gold/30 space-y-4">
+              <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4">
+                {photoUrl ? (
+                  <img src={photoUrl} alt={f.full_name} className="w-24 h-28 rounded-2xl object-cover border-2 border-gold shadow-md shrink-0" />
+                ) : (
+                  <div className="w-24 h-28 rounded-2xl bg-amber-100/70 border-2 border-gold/40 flex flex-col items-center justify-center text-3xl shadow-inner shrink-0 text-maroon">
+                    <span>{f.gender === "Groom" ? "🤵" : "👰"}</span>
+                    <span className="text-[10px] font-bold text-slate-500 mt-1">Photo Locked</span>
+                  </div>
+                )}
+
+                <div className="min-w-0 flex-1 text-center sm:text-left space-y-1">
+                  <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
+                    <h4 className="font-black text-lg text-navy">{f.full_name}</h4>
+                    <span className="bg-emerald-100 text-emerald-800 text-[10px] font-extrabold px-2 py-0.5 rounded-full">
+                      ✓ 100% {T("ధృవీకరించబడింది", "Verified")}
+                    </span>
+                  </div>
+                  <p className="text-xs font-bold text-maroon">
+                    💍 {f.caste} {f.sub_caste ? `(${f.sub_caste})` : ""} • 🎂 {f.age || ageFromDob(f.dob)} yrs {f.height ? `• ${f.height}` : ""}
+                  </p>
+                  <p className="text-xs text-slate-700 font-medium">
+                    🎓 {f.education} {f.education_detail ? `(${f.education_detail})` : ""} • 💼 {f.job}
+                  </p>
+                  <p className="text-xs text-slate-600 font-medium">
+                    💰 {f.salary} • 📍 {f.district || f.native_place}, {f.state}
+                  </p>
+                </div>
+              </div>
+
+              {/* Astro & Family Highlights Grid */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 pt-3 border-t border-gold/20 text-xs">
+                <div className="bg-white p-2.5 rounded-xl border border-gold/20">
+                  <span className="text-[10px] text-slate-500 font-bold block">గోత్రం (Gothram)</span>
+                  <span className="font-extrabold text-navy">{f.gothram || "—"}</span>
+                </div>
+                <div className="bg-white p-2.5 rounded-xl border border-gold/20">
+                  <span className="text-[10px] text-slate-500 font-bold block">నక్షత్రం (Star)</span>
+                  <span className="font-extrabold text-navy">⭐ {f.star || "—"}</span>
+                </div>
+                <div className="bg-white p-2.5 rounded-xl border border-gold/20">
+                  <span className="text-[10px] text-slate-500 font-bold block">రాశి (Moon Sign)</span>
+                  <span className="font-extrabold text-navy">{f.rasi || "—"}</span>
+                </div>
+                <div className="bg-white p-2.5 rounded-xl border border-gold/20">
+                  <span className="text-[10px] text-slate-500 font-bold block">తండ్రి (Father)</span>
+                  <span className="font-extrabold text-navy truncate block">{f.father_name || "—"}</span>
+                </div>
+                <div className="bg-white p-2.5 rounded-xl border border-gold/20">
+                  <span className="text-[10px] text-slate-500 font-bold block">తల్లి (Mother)</span>
+                  <span className="font-extrabold text-navy truncate block">{f.mother_name || "—"}</span>
+                </div>
+                <div className="bg-white p-2.5 rounded-xl border border-gold/20">
+                  <span className="text-[10px] text-slate-500 font-bold block">కుటుంబ నేపథ్యం</span>
+                  <span className="font-extrabold text-navy">{f.family_type} • {f.family_status}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Generated Image Card */}
             {cardUrl ? (
-              <img src={cardUrl} alt={`${tsap} profile card`} className="mt-3 w-full rounded-2xl border border-gold/30" />
+              <div className="pt-2">
+                <span className="text-xs font-bold text-slate-600 mb-1.5 block">
+                  🖼️ {T("వాట్సాప్ స్టేటస్ కార్డ్ (HD Image):", "WhatsApp Status Card (HD Image):")}
+                </span>
+                <img src={cardUrl} alt={`${tsap} profile card`} className="w-full rounded-2xl border-2 border-gold/40 shadow-sm" />
+              </div>
             ) : null}
-            <div className="mt-3 flex flex-wrap gap-2">
-              <a href={cardUrl} download={`${tsap}-shubhalagnam-card.png`} className="maroon-gradient text-white font-bold text-[13px] px-4 py-2.5 rounded-xl">
-                ⬇️ కార్డ్ డౌన్‌లోడ్
+
+            {/* 1-Click Actions */}
+            <div className="flex flex-wrap gap-2.5 pt-2">
+              <a
+                href={`https://wa.me/?text=${encodeURIComponent(`🙏 *శుభలగ్నం తెలుగు మ్యాట్రిమోనీ ప్రొఫైల్*\n🆔 *${tsap}* (${f.gender === "Groom" ? "🤵 వరుడు" : "👰 వధువు"})\n👤 *${f.full_name}*\n💍 కులం: *${f.caste}* ${f.sub_caste ? `(${f.sub_caste})` : ""} | గోత్రం: *${f.gothram || "—"}*\n🎂 వయస్సు: *${f.age || ageFromDob(f.dob)} సం.* | ఎత్తు: *${f.height}*\n⭐ నక్షత్రం: *${f.star || "—"}* | రాశి: *${f.rasi || "—"}*\n🎓 చదువు: *${f.education}* | 💼 ఉద్యోగం: *${f.job}*\n💰 వార్షిక ఆదాయం: *${f.salary}*\n📍 నివాసం: *${f.district || f.native_place}, ${f.state}*\n━━━━━━━━━━━━━━━━━━━━\n🔍 పూర్తి వివరాలు & సరిపోలిక చూడండి:\n👉 https://manavivaha.in/search/${tsap}`)}`}
+                target="_blank"
+                rel="noreferrer"
+                className="flex-1 py-3 px-4 rounded-2xl bg-[#25D366] hover:brightness-105 active:scale-95 text-white font-black text-xs flex items-center justify-center gap-2 shadow-md transition"
+              >
+                <span>💬</span>
+                <span>{T("WhatsApp లో బయోడేటా పంపు", "Share Biodata on WhatsApp")}</span>
               </a>
-              <a href={`https://wa.me/?text=${encodeURIComponent(share)}`} target="_blank" rel="noreferrer"
-                className="bg-green-600 text-white font-bold text-[13px] px-4 py-2.5 rounded-xl">{T("WhatsApp లో పంపు", "Send on WhatsApp")}</a>
+
+              {cardUrl && (
+                <a
+                  href={cardUrl}
+                  download={`${tsap}-shubhalagnam-card.png`}
+                  className="py-3 px-5 rounded-2xl maroon-gradient text-white font-black text-xs flex items-center justify-center gap-1.5 shadow-md hover:brightness-105 transition"
+                >
+                  <span>⬇️</span>
+                  <span>{T("HD కార్డ్ డౌన్‌లోడ్", "Download HD Card")}</span>
+                </a>
+              )}
             </div>
           </div>
         </div>
@@ -833,6 +930,30 @@ function Wizard() {
       </div>
 
       <div className="max-w-3xl mx-auto px-4 py-5">
+        {/* Referral Invitation Welcome Banner */}
+        {refLocked && (
+          <div className="mb-4 bg-emerald-50 border-2 border-emerald-400 rounded-2xl p-4 flex items-center justify-between gap-3 shadow-sm animate-fade">
+            <div className="flex items-center gap-3">
+              <span className="text-2xl">🎁</span>
+              <div>
+                <div className="font-extrabold text-sm text-emerald-950">
+                  {refInfo?.referrer_name
+                    ? (te ? `🎉 మీ మిత్రులు ${refInfo.referrer_name} సిఫార్సుతో మీరు నమోదు చేసుకుంటున్నారు!` : `🎉 You are registering via ${refInfo.referrer_name}'s invitation!`)
+                    : (te ? `🎉 రెఫరల్ కోడ్ (${refLocked}) వర్తించబడింది!` : `🎉 Referral Code (${refLocked}) Applied!`)}
+                </div>
+                <div className="text-xs text-emerald-800 font-medium mt-0.5">
+                  {te
+                    ? `మీకు సాధారణ 3 రిక్వెస్ట్‌లతో పాటు +${refInfo?.bonus_credits || 1} అదనపు ఉచిత క్రెడిట్ బోనస్ లభిస్తుంది ✨`
+                    : `You get +${refInfo?.bonus_credits || 1} Extra Free Request bonus on registration ✨`}
+                </div>
+              </div>
+            </div>
+            <span className="bg-emerald-600 text-white font-mono font-black text-xs px-3 py-1 rounded-xl shrink-0 shadow-xs">
+              {refLocked}
+            </span>
+          </div>
+        )}
+
         {/* Draft resume banner */}
         {draftFound && (
           <div className="mb-4 bg-cream border border-gold/40 rounded-2xl p-4">

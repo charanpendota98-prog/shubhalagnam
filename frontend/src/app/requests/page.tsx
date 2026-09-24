@@ -234,11 +234,11 @@ export default function RequestsPage() {
             </div>
             <h1 className="mt-3 text-2xl md:text-4xl font-bold"><Duo en="Requests Dashboard" te="రిక్వెస్ట్‌ల డాష్‌బోర్డ్" /></h1>
             <p className="mt-2 text-[13px] md:text-sm opacity-90 telugu max-w-3xl">
-{te ? <>నచ్చిన profile కి <b>Interest పంపు</b> — వాళ్లకి WhatsApp లో మీ profile card వెళ్తుంది.
-              వాళ్లు <b>Accept</b> చేస్తే రెండు numbers automatic గా exchange అవుతాయి. <b>Decline</b> చేస్తే మీ credit refund.
-              Chatting, spam calls, fake ids — అన్నీ ఇక్కడే ఆగుతాయి.</> : <>Send <b>Interest</b> to profiles you like — they get your profile card on WhatsApp.
-              If they <b>Accept</b>, both numbers exchange automatically. On <b>Decline</b>, your credit refunds.
-              Chatting, spam calls, fake ids — all stop here.</>}
+{te ? <>నచ్చిన ప్రొఫైల్‌కు <b>Interest పంపండి</b> — వారి అధికారిక WhatsApp కు మీ బయోడేటా కార్డ్ వెళ్తుంది.
+              వారు <b>అంగీకరించిన వెంటనే</b> ఇరు కుటుంబాల నంబర్లు సురక్షితంగా మార్పిడి అవుతాయి. ఒకవేళ <b>తిరస్కరిస్తే</b> మీ క్రెడిట్ తిరిగి రీఫండ్ అవుతుంది.
+              అనవసరపు స్పామ్ కాల్స్ మరియు అవాంఛిత సందేశాలు లేకుండా సంపూర్ణ గోప్యత లభిస్తుంది.</> : <>Send <b>Interest</b> to profiles you like — your verified biodata card reaches them on WhatsApp.
+              When they <b>Accept</b>, verified contact numbers are securely exchanged. On <b>Decline</b>, your credit is immediately refunded.
+              100% spam-free, private, and dignified matchmaking.</>}
             </p>
           </Reveal>
 

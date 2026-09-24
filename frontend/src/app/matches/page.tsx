@@ -42,6 +42,7 @@ import { Duo, duo } from "@/lib/duo";
 import { useLang } from "@/lib/lang";
 import ProfileRail from "@/components/ProfileRail";
 import DistrictAdBanner from "@/components/DistrictAdBanner";
+import QuickUnlockModal from "@/components/QuickUnlockModal";
 
 type Row = Record<string, any>;
 const SAVED_SEARCHES_KEY = "tsap_saved_searches_v1";
@@ -159,6 +160,7 @@ export default function MatchesPage() {
   const [sending, setSending] = useState<string>("");
   const [needsLogin, setNeedsLogin] = useState<boolean>(false);
   const [sheet, setSheet] = useState<boolean>(false);
+  const [unlockTarget, setUnlockTarget] = useState<Row | null>(null);
   const [savedSearches, setSavedSearches] = useState<{ label: string; filters: Row; sort?: string }[]>([]);
   const [serverSearches, setServerSearches] = useState<Row[]>([]);
   const [facets, setFacets] = useState<Row | null>(null);
@@ -602,20 +604,27 @@ export default function MatchesPage() {
         {row.match_score_v2 && <ScoreBreakdown v2={row.match_score_v2} />}
 
         {/* Action Buttons */}
-        <div className="bg-slate-50 p-3 px-4 border-t border-slate-100 flex items-center justify-between gap-2">
+        <div className="bg-slate-50 p-3 px-4 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
           <Link
             href={`/search/${row.tsap_id}`}
-            className="flex-1 text-center py-2.5 px-3 rounded-xl border border-maroon/30 text-maroon bg-white hover:bg-cream text-xs font-bold transition shadow-xs"
+            className="flex-1 min-w-[100px] text-center py-2.5 px-2.5 rounded-xl border border-maroon/30 text-maroon bg-white hover:bg-cream text-xs font-bold transition shadow-xs"
           >
-            👁️ {te ? "పూర్తి వివరాలు" : "View Details"}
+            👁️ {te ? "వివరాలు" : "View"}
           </Link>
+
+          <button
+            onClick={() => setUnlockTarget(row)}
+            className="flex-1 min-w-[110px] text-center py-2.5 px-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black shadow-md hover-lift transition"
+          >
+            📞 {te ? "నంబర్ అన్‌లాక్" : "Unlock Number"}
+          </button>
 
           <button
             onClick={() => sendInterest(row)}
             disabled={sending === row.tsap_id}
-            className="flex-1 text-center py-2.5 px-3 rounded-xl maroon-gradient text-white text-xs font-black shadow-md hover-lift disabled:opacity-50 transition"
+            className="flex-1 min-w-[100px] text-center py-2.5 px-2.5 rounded-xl maroon-gradient text-white text-xs font-black shadow-md hover-lift disabled:opacity-50 transition"
           >
-            {sending === row.tsap_id ? "పంపుతోంది…" : "💌 Interest పంపు"}
+            {sending === row.tsap_id ? "పంపుతోంది…" : "💌 Interest"}
           </button>
 
           <button
@@ -1471,6 +1480,13 @@ export default function MatchesPage() {
           />
         </div>
       ) : null}
+
+      {/* 🚀 High-Converting Instant Contact Unlock Modal */}
+      <QuickUnlockModal
+        isOpen={Boolean(unlockTarget)}
+        target={unlockTarget}
+        onClose={() => setUnlockTarget(null)}
+      />
     </main>
   );
 }

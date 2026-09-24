@@ -22,6 +22,7 @@ import { firstName } from "@/lib/names";
 import { Duo, duo } from "@/lib/duo";
 import { useLang } from "@/lib/lang";
 import ProfileRail from "@/components/ProfileRail";
+import QuickUnlockModal from "@/components/QuickUnlockModal";
 
 type Row = Record<string, any>;
 
@@ -54,6 +55,7 @@ export default function ProfileView() {
   const [reported, setReported] = useState(false);
   const [unlocked, setUnlocked] = useState("");
   const [unlocking, setUnlocking] = useState(false);
+  const [showUnlockModal, setShowUnlockModal] = useState(false);
   const [compat, setCompat] = useState<Row | null>(null);
   const [voiceUrl, setVoiceUrl] = useState("");
   const [chart, setChart] = useState<Row | null>(null);
@@ -123,16 +125,23 @@ export default function ProfileView() {
   };
 
   const doUnlock = async () => {
-    if (!myTsapId) { setNeedsLogin(true); return; }
+    if (!myTsapId) {
+      setShowUnlockModal(true);
+      return;
+    }
     setUnlocking(true); setMsg(null);
     const { ok, data: d, needsLogin: nl, errorTelugu: eTel } = await apiPost<Row>("/api/unlock",
       { viewer_id: myTsapId, target_id: searchId });
     setUnlocking(false);
-    if (nl) { setNeedsLogin(true); return; }
-    if (ok && d?.success) {
+    if (nl) {
+      setShowUnlockModal(true);
+      return;
+    }
+    if (ok && d?.success && d?.phone) {
       setUnlocked(String(d.phone || ""));
       setMsg({ ok: true, text: String(d.message_telugu || (te ? "✅ Number unlock అయ్యింది!" : "✅ Number unlocked!")) });
     } else {
+      setShowUnlockModal(true);
       setMsg({ ok: false, text: String((d as Row)?.message_telugu || eTel) });
     }
   };
@@ -480,6 +489,14 @@ export default function ProfileView() {
           <p className="mt-4 text-center text-[11px] text-slate-500">
             🔐 {data.consent_note_telugu || (te ? "Numbers consent తోనే exchange అవుతాయి — ఇది ఎప్పుడూ safe గా ఉంటుంది" : "Numbers exchange with consent only — always kept safe")}
           </p>
+
+          {/* ⚡ Instant Contact Unlock & Monetization Modal */}
+          <QuickUnlockModal
+            isOpen={showUnlockModal}
+            onClose={() => setShowUnlockModal(false)}
+            target={profile}
+            onUnlocked={(p) => setUnlocked(p)}
+          />
         </>
       ) : null}
     </main>

@@ -53,8 +53,8 @@ export default function SiteFooter() {
             <img src={SITE_CONFIG.logoImage} alt="మన వివాహ logo" width={40} height={40}
               className="w-10 h-10 rounded-xl object-cover" />
             <div>
-              <div className="brand-wordmark brand-wordmark-dark font-bold leading-none telugu text-[17px]" aria-label="మన వివాహ">మన వివాహ</div>
-              <div className="text-[10px] opacity-70">మన వివాహ • {te ? "తెలుగు మ్యాట్రిమోనీ" : "Telugu Matrimony"}</div>
+              <div className="brand-wordmark brand-wordmark-dark font-bold leading-none telugu text-[17px]" aria-label="శుభలగ్నం మన వివాహ">శుభలగ్నం మన వివాహ</div>
+              <div className="text-[10px] opacity-70">శుభలగ్నం • {te ? "తెలుగు వారి పవిత్ర మ్యాట్రిమోనీ" : "Telugu Authentic Matrimony"}</div>
             </div>
           </div>
           <div className="text-xs opacity-75 mt-3 telugu leading-relaxed">

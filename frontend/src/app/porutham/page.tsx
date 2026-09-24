@@ -295,12 +295,21 @@ function PoruthamInner() {
                 🕉️ {res.advice_telugu || res.reason}
               </div>
 
-              <div className="mt-4 flex flex-wrap gap-2 print:hidden">
-                <button onClick={() => window.print()} className="px-4 py-3 rounded-2xl maroon-gradient text-white font-bold text-[12px]">🖨️ Print / PDF రిపోర్ట్</button>
-                <button onClick={shareWa} className="px-4 py-3 rounded-2xl bg-green-600 text-white font-bold text-[12px]">WhatsApp లో షేర్</button>
+                <div className="mt-4 flex flex-wrap gap-2 print:hidden">
+                <a
+                  href={res._byStar ? `/api/astro/report/download?bride_star=${encodeURIComponent(bStar)}&bride_rasi=${encodeURIComponent(bRasi)}&groom_star=${encodeURIComponent(gStar)}&groom_rasi=${encodeURIComponent(gRasi)}` : `/api/astro/report/download?bride_id=${encodeURIComponent(bride)}&groom_id=${encodeURIComponent(groom)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-4 py-3 rounded-2xl gold-gradient text-maroon font-black text-[12px] shadow-gold hover-lift flex items-center gap-1.5"
+                >
+                  <span>📜</span>
+                  <span>{te ? "అధికారిక వేద గుణమేళనం PDF డౌన్‌లోడ్" : "Download Official Vedic PDF Certificate"}</span>
+                </a>
+                <button onClick={() => window.print()} className="px-4 py-3 rounded-2xl maroon-gradient text-white font-bold text-[12px]">🖨️ Print View</button>
+                <button onClick={shareWa} className="px-4 py-3 rounded-2xl bg-[#25D366] text-white font-bold text-[12px]">WhatsApp లో షేర్</button>
                 {!res._byStar && <button onClick={shareImg} className="px-4 py-3 rounded-2xl border border-maroon/25 text-maroon font-bold text-[12px]">🖼️ రిపోర్ట్ ఇమేజ్</button>}
-                <Link href="/requests" className="px-4 py-3 rounded-2xl border border-maroon/25 text-maroon font-bold text-[12px]">{te ? "💌 Interest పంపు (1 credit)" : "💌 Send interest (1 credit)"}</Link>
-              </div>
+                <Link href="/requests" className="px-4 py-3 rounded-2xl border border-maroon/25 text-maroon font-bold text-[12px]">{te ? "💌 Interest పంపు" : "💌 Send interest"}</Link>
+                </div>
             </div>
 
             {/* ---------- rasi charts ---------- */}

@@ -39,7 +39,7 @@ MIN_QUALIFYING_AMOUNT = 29         # ₹29 kanna thakkuva unte count cheyyadu
 REPEAT_COMMISSION_PCT = 0.0        # 🌊 WAVE 25: repeat ki commission LEDU (₹50 first-payment-only)
 REPEAT_COMMISSION_CAP = 0          # retired — compat kosam uncham
 REFEREE_BONUS_CREDITS = 1          # kotha user ki bonus credit (andariki)
-MIN_PAYOUT = 100                   # payout minimum ₹100
+MIN_PAYOUT = 50                    # payout minimum ₹50 (1 paid referral thone withdraw cheyyochu)
 PAYOUT_SLA_DAYS = 3                # request → 3 working days lo pay
 # 🚦 SOFT tripwires (BLOCK ledu — "evvaru enni aina refer cheyyochu"):
 #    ee numbers dhaatithe commission AUTO hold avvadu, admin review ki flag matrame vastundi.
@@ -564,7 +564,7 @@ def reverse_referral_payment(referred_user: Dict, plan_amount: int, all_users: L
 UPI_RE = re.compile(r"^[a-zA-Z0-9._-]{2,64}@[a-zA-Z]{2,32}$")
 IFSC_RE = re.compile(r"^[A-Z]{4}0[A-Z0-9]{6}$")
 # 🌊 WAVE 25 — payout UTR/reference: UPI 12-digit ref / bank UTR (audit must be traceable)
-PAYOUT_UTR_RE = re.compile(r"^[A-Za-z0-9]{6,30}$")
+PAYOUT_UTR_RE = re.compile(r"^[A-Za-z0-9_-]{6,30}$")
 _PAYOUT_LOCKS: Dict[str, threading.Lock] = defaultdict(threading.Lock)
 # 🌊 WAVE 27 — race locks: concurrent request/commission/attach → double-money ban
 _REF_LOCKS: Dict[str, threading.Lock] = defaultdict(threading.Lock)

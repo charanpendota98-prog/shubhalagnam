@@ -105,17 +105,17 @@ export default function SiteHeader() {
       }`}
     >
       <div className="max-w-7xl mx-auto px-3 sm:px-4 h-16 flex items-center justify-between gap-2">
-        {/* Brand — 💍 R13: kotha marriage logo + peru Telugu lo */}
+        {/* Brand — 💍 Official Shubhalagnam Mana Vivaha Logo & Wordmark */}
         <Link href="/" className="flex items-center gap-2 min-w-0 flex-1 focus-brand rounded-xl">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={SITE_CONFIG.logoImage} alt="మన వివాహ logo" width={40} height={40}
+          <img src={SITE_CONFIG.logoImage} alt="శుభలగ్నం మన వివాహ logo" width={40} height={40}
             className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl object-cover shadow-gold shrink-0" />
           <div className="min-w-0">
-            <div className="brand-wordmark font-bold truncate text-[17px] sm:text-[19px] telugu" aria-label="మన వివాహ">
-              మన వివాహ
+            <div className="brand-wordmark font-bold truncate text-[17px] sm:text-[19px] telugu" aria-label="శుభలగ్నం మన వివాహ">
+              శుభలగ్నం <span className="font-normal text-xs text-amber-700 hidden sm:inline">మన వివాహ</span>
             </div>
             <div className="hidden sm:block text-[10px] text-gray-500 leading-tight truncate telugu">
-              {te ? "తెలుగు మ్యాట్రిమోనీ" : "Telugu Matrimony"}
+              {te ? "తెలుగు వారి పవిత్ర మ్యాట్రిమోనీ" : "Telugu Authentic Matrimony"}
             </div>
           </div>
         </Link>

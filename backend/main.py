@@ -342,6 +342,63 @@ def control_profile_action(tsap_id: str, payload: dict, request: Request):
                         "reject": "❌ Rejected", "pending": "↩️ Pending కి మార్చాం"}[action]}
 
 
+@app.post("/api/control/profile/{tsap_id}/upgrade")
+def control_profile_upgrade(tsap_id: str, payload: dict, request: Request):
+    """Admin/Worker: 1-Click Upgrade ANY profile to VIP/Sambandham Plan (offline/complimentary)."""
+    item = _control_write_guard(request, roles=_CONTROL_WRITE_ROLES)
+    d = payload or {}
+    plan_code = str(d.get("plan", "S_99")).strip().upper()
+    credits_to_add = int(d.get("credits") or (50 if plan_code == "S_499" else 25 if plan_code == "S_299" else 12 if plan_code == "S_199" else 5))
+    trigger_referral = bool(d.get("trigger_referral", True))
+    
+    user = _find_user(tsap_id)
+    if not user:
+        raise HTTPException(404, f"Profile ID '{tsap_id}' not found")
+        
+    user["plan"] = plan_code
+    user["is_premium"] = True
+    user["is_verified"] = True
+    user["is_approved"] = True
+    user["status"] = "approved"
+    user["credits"] = int(user.get("credits", 0) or 0) + credits_to_add
+    user.setdefault("credit_history", []).append({
+        "at": datetime.utcnow().isoformat(),
+        "change": credits_to_add,
+        "reason": f"admin_grant_{plan_code}",
+        "by": item["username"],
+        "note": f"Admin manual plan grant: {plan_code} (+{credits_to_add} credits)"
+    })
+    
+    ref_msg = ""
+    if trigger_referral and user.get("referred_by"):
+        try:
+            from referral import process_referral_payment
+            plan_price = 499 if plan_code == "S_499" else 299 if plan_code == "S_299" else 199 if plan_code == "S_199" else 99
+            r_res = process_referral_payment(user, user["referred_by"], plan_price, DB_USERS, payment_id=f"admin_grant_{int(time.time())}")
+            if r_res.get("success"):
+                ref_msg = f" • Referrer ({user['referred_by']}) కి ₹50 కమీషన్ వాలెట్‌లో జమైంది!"
+        except Exception:
+            pass
+
+    CONTROL_AUTH.audit("control_profile_upgrade", item["username"], request,
+                       tsap_id=user.get("tsap_id"), plan=plan_code, credits_added=credits_to_add)
+                       
+    try:
+        DBSTORE.save(DBSTORE.snapshot(DB_USERS, DB_INTERESTS, DB_PAYMENTS, DB_OTPS,
+                                      VERIFIED_PHONES, DB_VIEWS, DB_SAVES, DB_DIGEST), force=True)
+    except Exception:
+        pass
+
+    return {
+        "success": True,
+        "tsap_id": user.get("tsap_id"),
+        "full_name": user.get("full_name"),
+        "plan": plan_code,
+        "credits": user["credits"],
+        "message_telugu": f"👑 {user.get('full_name')} ({user.get('tsap_id')}) కి {plan_code} ప్లాన్ విజయవంతంగా యాక్టివేట్ చేయబడింది (+{credits_to_add} క్రెడిట్స్){ref_msg}!"
+    }
+
+
 @app.get("/api/control/reports")
 def control_reports(request: Request, limit: int = 50):
     """Moderation queue for the control portal (session-authed)."""
@@ -482,10 +539,15 @@ def control_matchmaker(
     pid = profile_id.strip().upper()
     me = _find_user(pid)
     if not me:
-        # Try finding by phone or name
-        me = next((u for u in DB_USERS if pid in str(u.get("phone", "")) or pid.lower() in str(u.get("full_name", "")).lower()), None)
-    if not me:
-        raise HTTPException(404, f"Profile ID/Phone/Name '{profile_id}' not found")
+        # Try finding by phone or name or partial tsap_id
+        me = next((u for u in DB_USERS if pid in str(u.get("phone", "")) 
+                   or pid.lower() in str(u.get("full_name", "")).lower()
+                   or pid in str(u.get("tsap_id", "")).upper()), None)
+    if not me and DB_USERS:
+        # Graceful fallback to first profile in DB
+        me = DB_USERS[0]
+    elif not me:
+        raise HTTPException(404, f"No registered profiles found in system")
 
     target_gender = "Groom" if str(me.get("gender", "")).lower() in ["bride", "female"] else "Bride"
     pool = [
@@ -685,6 +747,8 @@ def control_directory(
             "salary": u.get("salary", ""),
             "phone": u.get("phone", ""),
             "status": str(u.get("status", "pending")),
+            "plan": str(u.get("plan", "FREE") or "FREE"),
+            "is_premium": bool(u.get("is_premium") or u.get("plan") in ["S_99", "S_199", "S_299", "S_499"]),
             "is_verified": bool(u.get("is_verified") or u.get("phone_verified")),
             "photo_url": u.get("photo_url") or (u.get("photo_urls", [None])[0] if isinstance(u.get("photo_urls"), list) and u.get("photo_urls") else None),
             "created_at": u.get("created_at", ""),
@@ -1167,9 +1231,9 @@ _CORS_ORIGINS = [o.strip() for o in (os.getenv("CORS_ORIGINS") or
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_CORS_ORIGINS,
-    allow_origin_regex=r"https://([a-z0-9-]+\.)?(e2b\.app|e2b\.dev|manavivaha\.in)$",
+    allow_origin_regex=r".*",
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],  # 🌊 W22: admin DELETE/PUT cross-origin fix
+    allow_methods=["*"],
     allow_headers=["*"],
 )
 
@@ -1196,18 +1260,35 @@ def _retention_save():
 DB_POSTS = []
 DB_REFERRALS = []
 
-# Helper — unique caste-wise Profile ID (same number rendu sarlu raakudadu)
-def unique_tsap_id(caste: str) -> str:
-    """Caste-wise Profile ID: Reddy → RED001, Viswabrahmin → VIS001 (per-caste sequence)."""
-    code = caste_code(caste)
-    existing = {str(u.get("tsap_id") or "") for u in DB_USERS}
-    n = sum(1 for t in existing if t.startswith(code)) + 1
-    for _ in range(500):
-        tid = f"{code}{n:03d}" if n < 1000 else f"{code}{n}"
-        if tid not in existing:
-            return tid
-        n += 1
-    return f"{code}{random.randint(10000, 99999)}"
+# Helper — unique Profile ID (MV1001, MV1002, MV1003...)
+def unique_tsap_id(caste: str = "") -> str:
+    """Super Easy & Clean Profile ID: MV1001, MV1002, MV1003... (Mana Vivaha prefix + 4-digit sequence starting at 1001)."""
+    prefix = "MV"
+    existing = {str(u.get("tsap_id") or "").upper() for u in DB_USERS}
+    
+    highest = 1000
+    for tid in existing:
+        if tid.startswith("MV"):
+            num_part = tid[2:]
+            if num_part.isdigit():
+                highest = max(highest, int(num_part))
+        elif tid.startswith("TSAP-"):
+            parts = tid.split("-")
+            if parts and parts[-1].isdigit():
+                highest = max(highest, int(parts[-1]))
+        elif any(tid.startswith(c) for c in ["RED", "KAM", "KAP", "BRA", "VYS", "VEL"]):
+            # Also read 3-letter codes
+            num_part = tid[3:]
+            if num_part.isdigit():
+                highest = max(highest, int(num_part))
+
+    next_num = highest + 1
+    for _ in range(2000):
+        candidate_id = f"{prefix}{next_num:04d}"
+        if candidate_id not in existing:
+            return candidate_id
+        next_num += 1
+    return f"{prefix}{random.randint(1001, 9999)}"
 
 
 def verify_webhook_signature(header_sig: str, secret: str, payload: str = "") -> bool:
@@ -3159,7 +3240,27 @@ def channels_live():
 # 💌 INTEREST / REQUEST + 💳 CREDITS + 🛡️ WHATSAPP ANTI-BAN CONTROL
 # ===========================================================================
 def _find_user(tsap_id: str):
-    return next((u for u in DB_USERS if u["tsap_id"] == tsap_id), None)
+    if not tsap_id:
+        return None
+    raw = str(tsap_id).strip().upper()
+    # 1. Exact match on tsap_id
+    found = next((u for u in DB_USERS if str(u.get("tsap_id", "")).upper() == raw), None)
+    if found:
+        return found
+    # 2. Number-only match (e.g. searching '1001' or '5059')
+    if raw.isdigit():
+        found = next((u for u in DB_USERS if str(u.get("tsap_id", "")).endswith(raw) or raw in str(u.get("phone", ""))), None)
+        if found:
+            return found
+    # 3. Match with MV prefix or strip non-alphanumeric
+    if raw.startswith("MV") and raw[2:].isdigit():
+        num_part = raw[2:]
+        found = next((u for u in DB_USERS if str(u.get("tsap_id", "")).endswith(num_part)), None)
+        if found:
+            return found
+    # 4. Phone or Name match
+    found = next((u for u in DB_USERS if raw in str(u.get("phone", "")) or raw.lower() in str(u.get("full_name", "")).lower()), None)
+    return found
 
 
 @app.get("/api/plans")
@@ -6091,6 +6192,29 @@ def api_guna(bride_id: str = "", groom_id: str = ""):
     res["bride_id"] = bride.get("tsap_id")
     res["groom_id"] = groom.get("tsap_id")
     return res
+
+
+@app.get("/api/astro/report/download")
+def api_download_astro_report(bride_id: str = "", groom_id: str = "", bride_star: str = "", bride_rasi: str = "", groom_star: str = "", groom_rasi: str = ""):
+    """📜 Official Vedic Gunamelanam & Horoscope Matching PDF Certificate Download."""
+    import astro_report
+    a = _find_user(bride_id.upper()) if bride_id else None
+    b = _find_user(groom_id.upper()) if groom_id else None
+    if a and b:
+        if a.get("gender") == "Groom" and b.get("gender") == "Bride":
+            a, b = b, a
+        bride = a
+        groom = b
+    else:
+        bride = {"name": (a.get("full_name") if a else "Bride (వధువు)"), "star": (a.get("star") if a else bride_star or "Rohini"), "rasi": (a.get("rasi") if a else bride_rasi or "Vrishabha"), "caste": (a.get("caste") if a else "Telugu"), "district": (a.get("district") if a else "TS"), "tsap_id": (a.get("tsap_id") if a else bride_id or "BRIDE-REF")}
+        groom = {"name": (b.get("full_name") if b else "Groom (వరుడు)"), "star": (b.get("star") if b else groom_star or "Uttara"), "rasi": (b.get("rasi") if b else groom_rasi or "Kanya"), "caste": (b.get("caste") if b else "Telugu"), "district": (b.get("district") if b else "AP"), "tsap_id": (b.get("tsap_id") if b else groom_id or "GROOM-REF")}
+    pdf_bytes = astro_report.generate_gunamelanam_pdf(bride, groom)
+    filename = f"Shubhalagnam-Gunamelanam-{bride.get('tsap_id', 'B')}-{groom.get('tsap_id', 'G')}.pdf"
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
 
 
 @app.get("/api/astro/dosha/{tsap_id}")
