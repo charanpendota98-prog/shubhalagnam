@@ -174,19 +174,34 @@ export default function PayBox({ planCode, price, label }: { planCode: string; p
             <span className="ml-1 font-normal text-gray-500">• {te ? "24h valid" : "valid 24h"}</span>
           </div>
           {order.mode !== "razorpay" && (
-            <div className="text-[11px] bg-white rounded-lg p-2 border space-y-2">
-              <div>💳 UPI ID: <b className="font-mono">{order.upi_id}</b> • Amount: <b>₹{order.final_amount}</b></div>
+            <div className="text-[11px] bg-white rounded-lg p-2.5 border space-y-2">
+              <div className="flex items-center justify-between">
+                <span>💳 UPI ID: <b className="font-mono text-maroon">{order.upi_id || "9394483300@ybl"}</b></span>
+                <span className="font-bold text-emerald-800 text-xs">₹{order.final_amount}</span>
+              </div>
+              <a
+                href={`upi://pay?pa=${encodeURIComponent(order.upi_id || "9394483300@ybl")}&pn=${encodeURIComponent("Mana Vivaha")}&am=${order.final_amount}&cu=INR&tn=${encodeURIComponent(`ManaVivaha ${order.id}`)}`}
+                className="w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg bg-[#7A0C2E] hover:bg-[#911239] text-white font-bold text-xs transition shadow-xs"
+              >
+                <span>📲</span>
+                <span>{te ? `UPI యాప్‌తో పే చేయండి (₹${order.final_amount})` : `Pay ₹${order.final_amount} via UPI App`}</span>
+              </a>
               {order.status === "claimed" ? (
-                <div className="font-bold text-green-700">{te ? "✅ UTR వచ్చింది — admin verify చేస్తున్నాడు, త్వరలోనే credits add 🙏" : "✅ UTR received — admin is verifying, credits soon 🙏"}</div>
+                <div className="font-bold text-green-700 bg-green-50 p-2 rounded-lg border border-green-200">
+                  {te ? "✅ UTR వచ్చింది — admin verify చేస్తున్నాడు, త్వరలోనే credits add 🙏" : "✅ UTR received — admin is verifying, credits soon 🙏"}
+                </div>
               ) : (
-                <div className="flex gap-2">
-                  <input value={utr} onChange={(e) => setUtr(e.target.value.replace(/\D/g, "").slice(0, 12))}
-                    placeholder="12-digit UTR" inputMode="numeric"
-                    className="flex-1 rounded-lg border px-3 py-2 font-mono" aria-label="12-digit UTR" />
-                  <button onClick={submitClaim} disabled={claimBusy}
-                    className="rounded-lg bg-green-700 text-white px-3 py-2 font-bold disabled:opacity-50">
-                    {claimBusy ? "⏳…" : te ? "UTR పంపు" : "Send UTR"}
-                  </button>
+                <div className="space-y-1">
+                  <div className="text-[10px] text-gray-500 font-bold">{te ? "పేమెంట్ తర్వాత 12-అంకెల UTR ఇవ్వండి:" : "Enter 12-digit UTR after payment:"}</div>
+                  <div className="flex gap-2">
+                    <input value={utr} onChange={(e) => setUtr(e.target.value.replace(/\D/g, "").slice(0, 12))}
+                      placeholder="12-digit UTR" inputMode="numeric"
+                      className="flex-1 rounded-lg border px-3 py-2 font-mono text-xs" aria-label="12-digit UTR" />
+                    <button onClick={submitClaim} disabled={claimBusy || utr.length < 12}
+                      className="rounded-lg bg-green-700 hover:bg-green-800 text-white px-3 py-2 font-bold text-xs disabled:opacity-50 transition shadow-xs">
+                      {claimBusy ? "⏳…" : te ? "సమర్పించు" : "Submit UTR"}
+                    </button>
+                  </div>
                 </div>
               )}
             </div>

@@ -3464,7 +3464,7 @@ def credits_buy(payload: dict, request: Request = None):
     if not auto:
         order["payment_required"] = True
         order["next_step_telugu"] = ("💳 ₹%d pay చెయ్యండి — payment vachhaka credits automatic గా add అవుతాయి "
-                                     "(webhook). UPI: manavivaha@upi | Razorpay link soon."
+                                     f"(webhook). UPI: {os.getenv('PAY_UPI_ID', '9394483300@ybl')} | Razorpay link soon."
                                      % int(plan["price"]))
     if auto and plan["price"] > 0:
         u["credits"] = int(u.get("credits", 0)) + int(plan.get("profiles", 0) or 0)
@@ -3502,7 +3502,8 @@ def credits_buy(payload: dict, request: Request = None):
             except Exception as e:
                 order["referral"] = {"error": str(e)[:120]}
     DB_PAYMENTS.append(order)
-    upi = f"upi://pay?pa=manavivaha@upi&pn=ManaVivaha&am={plan['price']}&cu=INR&tn={order_id}"
+    upi_id = os.getenv("PAY_UPI_ID", "9394483300@ybl")
+    upi = f"upi://pay?pa={upi_id}&pn=ManaVivaha&am={plan['price']}&cu=INR&tn={order_id}"
     _rec = _item_note = (f"🎁 {addon['label']} active!" if addon else
                          f"🎉 ₹{plan['price']} → {plan.get('profiles', 0)} profiles add అయ్యాయి! Total credits: {u.get('credits', 0)}")
     return {
@@ -6004,7 +6005,7 @@ def boost_buy(payload: dict, request: Request = None):
         order["effect"] = eff["message_telugu"]
     else:
         order["payment_required"] = True
-        order["next_step_telugu"] = (f"💳 ₹{pack['price']} pay చెయ్యండి — payment vachhaka boost automatic ON. UPI: manavivaha@upi")
+        order["next_step_telugu"] = (f"💳 ₹{pack['price']} pay చెయ్యండి — payment vachhaka boost automatic ON. UPI: {os.getenv('PAY_UPI_ID', '9394483300@ybl')}")
     DB_PAYMENTS.append(order)
     return {"success": True, "order": order, "boost_until": str(u.get("boost_until", "") or ""),
             "boosted": A11.is_boosted(u),

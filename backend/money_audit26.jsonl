@@ -467,3 +467,4 @@
 {"at": "2026-09-25T17:30:01.039682", "event": "profile_ban", "actor": "admin", "details": {"tsap_id": "TSAP-F-2025-9001", "reason": ""}}
 {"at": "2026-09-25T17:30:01.042363", "event": "profile_unban", "actor": "admin", "details": {"tsap_id": "TSAP-F-2025-9001"}}
 {"at": "2026-09-25T17:30:01.047315", "event": "profile_unban", "actor": "admin", "details": {"tsap_id": "TSAP-F-2025-9001"}}
+{"at": "2026-09-25T17:39:08.607635", "event": "pay_confirmed", "actor": "admin", "details": {"order_id": "pay_ord_00017", "utr": "939448330777", "amount": 99, "tsap_id": "MV5063"}}

@@ -109,7 +109,7 @@ def pay_config() -> Dict:
     """Public config — key_id matrame (secret NEVER)."""
     key_id = _key_id()
     secret = _secret()
-    upi = os.getenv("PAY_UPI_ID", "manavivaha@upi")
+    upi = os.getenv("PAY_UPI_ID", "9394483300@ybl")
     live = bool(key_id and secret)
     return {"mode": "razorpay" if live else "manual_upi",
             "key_id": key_id if live else "",
