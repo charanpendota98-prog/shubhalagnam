@@ -214,8 +214,9 @@ export default function PrivacyPage() {
       <div className="mt-8 rounded-2xl border border-gray-200 bg-white p-5 text-xs text-gray-700">
         <div className="font-bold text-[#7A0C2E]">🧑‍⚖️ {te ? "Grievance Officer (DPDP Act 2023)" : "Grievance Officer (DPDP Act 2023)"}</div>
         <div className="mt-2 space-y-1">
-          <div>Name: Grievance Officer, {SITE_CONFIG.legalName}</div>
-          <div>Email: <b>{SITE_CONFIG.supportEmail}</b> • WhatsApp/Phone: <b>{SITE_CONFIG.supportPhoneDisplay}</b></div>
+          <div>Name: <b>{SITE_CONFIG.owner.name}</b> (Grievance Officer & Signatory)</div>
+          <div>Owner ID: <span className="font-mono font-bold text-[#7A0C2E]">{SITE_CONFIG.owner.id}</span></div>
+          <div>Email: <b>{SITE_CONFIG.owner.email}</b> • WhatsApp/Phone: <b>{SITE_CONFIG.owner.contactNumber}</b></div>
           <div>Address: Hyderabad, Telangana, India</div>
           <div>{te ? "Response: 15 రోజుల్లో (complaint acknowledge 48h లోపు)" : "Response: within 15 days (complaint acknowledged within 48h)"}</div>
         </div>

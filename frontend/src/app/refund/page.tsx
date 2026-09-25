@@ -158,8 +158,9 @@ export default function RefundPage() {
       <div className="mt-8 rounded-2xl border border-gray-200 bg-white p-5 text-xs text-gray-700">
         <div className="font-bold text-[#7A0C2E]">📞 {te ? "Contact (refunds & payments)" : "Contact (refunds & payments)"}</div>
         <div className="mt-2 space-y-1">
-          <div>WhatsApp / Phone: <b>{SITE_CONFIG.supportPhoneDisplay}</b></div>
-          <div>Email: <b>{SITE_CONFIG.supportEmail}</b></div>
+          <div>Authorized Signatory: <b>{SITE_CONFIG.owner.name}</b> (Owner ID: <span className="font-mono text-[#7A0C2E] font-bold">{SITE_CONFIG.owner.id}</span>)</div>
+          <div>WhatsApp / Phone: <a href={`tel:${SITE_CONFIG.owner.contactNumber}`} className="font-bold text-emerald-700 hover:underline">{SITE_CONFIG.owner.contactNumber}</a></div>
+          <div>Email: <a href={`mailto:${SITE_CONFIG.owner.email}`} className="font-bold text-emerald-700 hover:underline">{SITE_CONFIG.owner.email}</a></div>
           <div>Website: <b>https://{SITE_CONFIG.domain}</b> • Telegram: {SITE_CONFIG.officialChannel}</div>
           <div>Business: {SITE_CONFIG.legalName}, Hyderabad, Telangana, India</div>
           <div>{te ? "Working hours: Mon–Sat, 9 AM – 8 PM IST (response 24h లోపు)" : "Working hours: Mon–Sat, 9 AM – 8 PM IST (response within 24h)"}</div>

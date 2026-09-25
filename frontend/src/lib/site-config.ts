@@ -21,22 +21,29 @@ export const SITE_CONFIG = {
   established: 2025,
 
   // ---------- Contact / channels ----------
-  // 🐞 FIX (F08): ikkada **fake** number ("+91 98480 12345") undedi — legal/refund pages lo kooda ade
-  // kanipinchi, customers tappu number ki message chesevaru. Ippudu env nunchi:
-  //   NEXT_PUBLIC_SUPPORT_WHATSAPP=9190XXXXXXXX  NEXT_PUBLIC_SUPPORT_PHONE=+91 90XX XXX XXX
-  // Set cheyyakapote Telegram bot link chupistundi (fake number eppudu chupinchamu).
   botUsername: "@telugumatrimony1_bot",
   botUrl: "https://t.me/telugumatrimony1_bot",
   unlockBot: (tsapId: string) => `https://t.me/telugumatrimony1_bot?start=unlock_${encodeURIComponent(tsapId)}`,
-  // public-facing "Telegram" link — official CHANNEL (bot wording eppudu chupinchamu)
   officialChannel: "@TSAP_MATRIMONY",
   officialChannelUrl: "https://t.me/TSAP_MATRIMONY",
-  supportWhatsapp: (process.env.NEXT_PUBLIC_SUPPORT_WHATSAPP || "").trim(),
-  supportPhone: (process.env.NEXT_PUBLIC_SUPPORT_PHONE || "").trim(),
-  supportEmail: (process.env.NEXT_PUBLIC_SUPPORT_EMAIL || "care@manavivaha.in").trim(),
-  supportConfigured: Boolean((process.env.NEXT_PUBLIC_SUPPORT_WHATSAPP || process.env.NEXT_PUBLIC_SUPPORT_PHONE || "").trim()),
-  get supportPhoneDisplay() { return this.supportPhone || "Telegram bot (@" + this.botUsername.replace("@", "") + ")"; },
-  get supportLink() { return this.supportWhatsapp ? `https://wa.me/${this.supportWhatsapp}` : this.botUrl; },
+  supportWhatsapp: (process.env.NEXT_PUBLIC_SUPPORT_WHATSAPP || "919394483300").trim(),
+  supportPhone: (process.env.NEXT_PUBLIC_SUPPORT_PHONE || "+919394483300").trim(),
+  supportEmail: (process.env.NEXT_PUBLIC_SUPPORT_EMAIL || "charan.pendota98@gmail.com").trim(),
+  supportConfigured: true,
+  get supportPhoneDisplay() { return this.supportPhone || "+91 93944 83300"; },
+  get supportLink() { return `https://wa.me/${this.supportWhatsapp || "919394483300"}`; },
+
+  // ---------- Owner & Acceptance Details ----------
+  owner: {
+    id: "TeNDDG5ywwZIg3",
+    name: "PENDOTA CHARAN",
+    signatoryName: "PENDOTA CHARAN",
+    ipAddress: "10.26.123.93",
+    dateOfAcceptance: "2026-09-20 23:08:03 IST",
+    contactNumber: "+919394483300",
+    email: "charan.pendota98@gmail.com",
+    status: "Verified & Digitally Accepted",
+  },
 
   // ---------- Social (optional, empty = hide) ----------
   social: {
@@ -100,11 +107,18 @@ export const SITE_CONFIG = {
     "Watermark + fraud alerts",
   ],
 
-  // ---------- Legal / compliance ----------
+  // ---------- Legal / compliance & Acceptance ----------
   legal: {
     refundPolicy: "7 days — pay ayyaka profile work avvakapoyina full refund",
     privacyNote: "Mee number evariki share cheyyamu. Data India lo store avutundi.",
-    grievanceOfficer: "Charana Pendota, care@manavivaha.in",
+    grievanceOfficer: "PENDOTA CHARAN, charan.pendota98@gmail.com",
+    ownerId: "TeNDDG5ywwZIg3",
+    ownerName: "PENDOTA CHARAN",
+    signatoryName: "PENDOTA CHARAN",
+    ipAddress: "10.26.123.93",
+    dateOfAcceptance: "2026-09-20 23:08:03 IST",
+    contactNumber: "+919394483300",
+    email: "charan.pendota98@gmail.com",
   },
 } as const;
 

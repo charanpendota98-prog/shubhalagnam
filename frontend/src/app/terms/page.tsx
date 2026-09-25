@@ -206,11 +206,67 @@ export default function TermsPage() {
         </ul>
       </Section>
 
-      <div className="mt-8 rounded-2xl border border-gray-200 bg-white p-5 text-xs text-gray-700">
-        <div className="font-bold text-[#7A0C2E]">{te ? "Contact" : "Contact"}</div>
-        <div className="mt-2 space-y-1">
-          <div>Email: <b>{SITE_CONFIG.supportEmail}</b> • WhatsApp/Phone: <b>{SITE_CONFIG.supportPhoneDisplay}</b></div>
-          <div>{SITE_CONFIG.legalName}, Hyderabad, Telangana, India</div>
+      {/* Verified Digital Acceptance & Ownership Certificate */}
+      <div className="mt-8 rounded-3xl border-2 border-emerald-500/30 bg-gradient-to-br from-emerald-50/70 via-white to-amber-50/50 p-6 shadow-md">
+        <div className="flex items-center justify-between border-b border-emerald-200 pb-3">
+          <div className="flex items-center gap-2">
+            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-600 text-white text-sm font-bold shadow-xs">✓</span>
+            <div>
+              <div className="text-sm font-extrabold text-emerald-950">
+                {te ? "ధృవీకరించబడిన సేవా ఒప్పందం & అంగీకార వివరాలు" : "Verified Digital Acceptance & Ownership Certificate"}
+              </div>
+              <div className="text-[11px] text-emerald-700 font-medium">
+                {te ? "డిజిటల్ సంతకం మరియు లీగల్ అథెంటికేషన్ సర్టిఫికేట్" : "Digitally Certified & Formally Accepted Service Agreement"}
+              </div>
+            </div>
+          </div>
+          <span className="rounded-full bg-emerald-100 border border-emerald-300 px-3 py-1 text-[11px] font-bold text-emerald-800">
+            ● Active & Verified
+          </span>
+        </div>
+
+        <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+          <div className="rounded-2xl bg-white/90 border border-emerald-100 p-3 shadow-2xs">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Owner ID</div>
+            <div className="mt-0.5 font-mono font-bold text-[#7A0C2E] text-[13px]">{SITE_CONFIG.owner.id}</div>
+          </div>
+
+          <div className="rounded-2xl bg-white/90 border border-emerald-100 p-3 shadow-2xs">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Owner & Signatory Name</div>
+            <div className="mt-0.5 font-bold text-gray-900 text-[13px]">{SITE_CONFIG.owner.name}</div>
+          </div>
+
+          <div className="rounded-2xl bg-white/90 border border-emerald-100 p-3 shadow-2xs">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Contact Number</div>
+            <div className="mt-0.5 font-mono font-bold text-gray-900">
+              <a href={`tel:${SITE_CONFIG.owner.contactNumber}`} className="text-emerald-700 hover:underline">
+                {SITE_CONFIG.owner.contactNumber}
+              </a>
+            </div>
+          </div>
+
+          <div className="rounded-2xl bg-white/90 border border-emerald-100 p-3 shadow-2xs">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Official Email</div>
+            <div className="mt-0.5 font-mono font-bold text-gray-900">
+              <a href={`mailto:${SITE_CONFIG.owner.email}`} className="text-emerald-700 hover:underline">
+                {SITE_CONFIG.owner.email}
+              </a>
+            </div>
+          </div>
+
+          <div className="rounded-2xl bg-white/90 border border-emerald-100 p-3 shadow-2xs">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Date Of Acceptance</div>
+            <div className="mt-0.5 font-mono font-semibold text-gray-800">{SITE_CONFIG.owner.dateOfAcceptance}</div>
+          </div>
+
+          <div className="rounded-2xl bg-white/90 border border-emerald-100 p-3 shadow-2xs">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Registered IP Address</div>
+            <div className="mt-0.5 font-mono font-semibold text-gray-800">{SITE_CONFIG.owner.ipAddress}</div>
+          </div>
+        </div>
+
+        <div className="mt-3 text-[11px] text-gray-600 bg-emerald-50/50 rounded-xl p-2.5 border border-emerald-100">
+          🔒 {te ? "ఈ వివరాలు భారతీయ ఐటీ చట్టం 2000 ప్రకారం అధికారికంగా డిజిటల్ రికార్డ్ చేయబడ్డాయి." : "These acceptance parameters are digitally signed, timestamped, and stored in compliance with the Information Technology Act, 2000."}
         </div>
       </div>
 

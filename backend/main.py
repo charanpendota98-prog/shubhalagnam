@@ -6911,6 +6911,16 @@ def api_owner_summary(request: Request):
     except Exception:
         out["referral"] = {"paid_referrals": 0, "error": True}
     try:
+        out["owner_acceptance"] = {
+            "owner_id": "TeNDDG5ywwZIg3",
+            "owner_name": "PENDOTA CHARAN",
+            "signatory_name": "PENDOTA CHARAN",
+            "ip_address": "10.26.123.93",
+            "date_of_acceptance": "2026-09-20 23:08:03 IST",
+            "contact_number": "+919394483300",
+            "email": "charan.pendota98@gmail.com",
+            "status": "Verified & Digitally Accepted"
+        }
         out["system"] = {"wa_queue": len(WA_QUEUE or []), "dead_letters": len(WA_DEAD or []),
                          "worker": bool(worker_running()),
                          "pay_mode": PP.pay_config().get("mode", ""),
@@ -6919,6 +6929,23 @@ def api_owner_summary(request: Request):
     except Exception:
         out["system"] = {"error": True}
     return out
+
+
+@app.get("/api/legal/acceptance")
+def api_legal_acceptance():
+    """🛡️ Verified legal acceptance & ownership details."""
+    return {
+        "success": True,
+        "owner_id": "TeNDDG5ywwZIg3",
+        "owner_name": "PENDOTA CHARAN",
+        "signatory_name": "PENDOTA CHARAN",
+        "ip_address": "10.26.123.93",
+        "date_of_acceptance": "2026-09-20 23:08:03 IST",
+        "contact_number": "+919394483300",
+        "email": "charan.pendota98@gmail.com",
+        "brand_name": "మన వివాహ",
+        "legal_status": "Verified & Digitally Accepted"
+    }
 
 
 @app.get("/api/admin/backup/export")
