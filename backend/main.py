@@ -6932,6 +6932,26 @@ def api_owner_summary(request: Request):
     return out
 
 
+@app.get("/api/pay/qr/{order_id}.png")
+def api_pay_qr_png(order_id: str):
+    """📱 Generates a crisp, scannable UPI QR code PNG for any payment order."""
+    import io
+    import qrcode
+    from fastapi.responses import Response
+    po = PP.get_pay_order(order_id)
+    upi_id = os.getenv("PAY_UPI_ID", "9394483300@ybl")
+    amt = int(po.get("final_amount", 99)) if po else 99
+    # Standard NPCI UPI URI scheme
+    upi_uri = f"upi://pay?pa={upi_id}&pn=Mana%20Vivaha&am={amt}&cu=INR&tn=ManaVivaha%20{order_id}"
+    qr = qrcode.QRCode(version=1, box_size=8, border=2)
+    qr.add_data(upi_uri)
+    qr.make(fit=True)
+    img = qr.make_image(fill_color="#7A0C2E", back_color="#FFFDF7")
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    return Response(content=buf.getvalue(), media_type="image/png")
+
+
 @app.get("/api/legal/acceptance")
 def api_legal_acceptance():
     """🛡️ Verified legal acceptance & ownership details."""

@@ -179,12 +179,28 @@ export default function PayBox({ planCode, price, label }: { planCode: string; p
                 <span>💳 UPI ID: <b className="font-mono text-maroon">{order.upi_id || "9394483300@ybl"}</b></span>
                 <span className="font-bold text-emerald-800 text-xs">₹{order.final_amount}</span>
               </div>
+
+              {/* Dynamic Scannable UPI QR */}
+              <div className="flex flex-col items-center justify-center p-2.5 bg-[#FFFDF7] rounded-xl border border-gold/30">
+                <span className="text-[10px] text-gray-500 font-bold mb-1">
+                  {te ? "QR కోడ్ స్కాన్ చేసి పే చేయండి (GPay / PhonePe / Paytm):" : "Scan QR code to pay:"}
+                </span>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={`/api/pay/qr/${order.id}.png`}
+                  alt="Scan and Pay via UPI"
+                  width={140}
+                  height={140}
+                  className="w-32 h-32 rounded-lg shadow-xs border border-slate-200"
+                />
+              </div>
+
               <a
                 href={`upi://pay?pa=${encodeURIComponent(order.upi_id || "9394483300@ybl")}&pn=${encodeURIComponent("Mana Vivaha")}&am=${order.final_amount}&cu=INR&tn=${encodeURIComponent(`ManaVivaha ${order.id}`)}`}
                 className="w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg bg-[#7A0C2E] hover:bg-[#911239] text-white font-bold text-xs transition shadow-xs"
               >
                 <span>📲</span>
-                <span>{te ? `UPI యాప్‌తో పే చేయండి (₹${order.final_amount})` : `Pay ₹${order.final_amount} via UPI App`}</span>
+                <span>{te ? `లేదా మొబైల్ UPI యాప్‌తో పే చేయండి (₹${order.final_amount})` : `Or Pay ₹${order.final_amount} via UPI App`}</span>
               </a>
               {order.status === "claimed" ? (
                 <div className="font-bold text-green-700 bg-green-50 p-2 rounded-lg border border-green-200">

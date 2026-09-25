@@ -371,6 +371,19 @@ export default function QuickUnlockModal({
                 <div className="bg-amber-50 font-mono font-black text-sm text-maroon py-2 px-3 rounded-lg border border-gold/40 select-all">
                   {payOrder.upi_id || "9394483300@ybl"}
                 </div>
+
+                {/* Live Scannable Dynamic QR */}
+                <div className="flex flex-col items-center justify-center p-2 bg-[#FFFDF7] rounded-xl border border-gold/30">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={`/api/pay/qr/${payOrder.id}.png`}
+                    alt="Scan and Pay via UPI"
+                    width={140}
+                    height={140}
+                    className="w-32 h-32 rounded-lg shadow-xs border border-slate-200"
+                  />
+                </div>
+
                 <div className="text-[11px] text-slate-500">
                   {te ? "లేదా డైరెక్ట్ UPI పే నొక్కండి:" : "Or tap below to open UPI App:"}
                 </div>
