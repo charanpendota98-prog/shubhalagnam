@@ -635,6 +635,63 @@ function Wizard() {
     }
   };
 
+  const fillSampleDemo = (g: "Bride" | "Groom") => {
+    if (g === "Bride") {
+      setF({
+        ...DEFAULT_FORM,
+        gender: "Bride",
+        full_name: "సాయి మౌనిక రెడ్డి",
+        dob: "2000-05-18",
+        age: "26",
+        height: "5'4\"",
+        marital_status: "Pelli Kaledu",
+        religion: "Hindu",
+        caste: "Reddy",
+        sub_caste: "Motati",
+        gothram: "Bharadwaj",
+        star: "Rohini",
+        rasi: "Vrishabha (Taurus)",
+        work_type: "Software / IT / Tech",
+        education: "B.Tech / B.E.",
+        job: "Software Engineer",
+        salary: "₹15 - 20 Lakhs / year",
+        state: "TS",
+        district: "Hyderabad",
+        phone: "9848011223",
+        password: "password123",
+        about_myself: "నమస్కారం, నా పేరు సాయి మౌనిక. నేను B.Tech పూర్తి చేసి హైదరాబాద్ లో సాఫ్ట్‌వేర్ ఇంజనీర్‌గా స్థిరపడ్డాను. మాది సాంప్రదాయ కుటుంబం. జీవితాంతం తోడుగా ఉంటూ పరస్పరం అర్థం చేసుకునే చక్కని జీవన సహచరుడు కొరకు చూస్తున్నాము.",
+        consent: true,
+      });
+    } else {
+      setF({
+        ...DEFAULT_FORM,
+        gender: "Groom",
+        full_name: "రాజేష్ కుమార్",
+        dob: "1997-08-22",
+        age: "29",
+        height: "5'10\"",
+        marital_status: "Pelli Kaledu",
+        religion: "Hindu",
+        caste: "Kamma",
+        sub_caste: "Chowdary",
+        gothram: "Kasyapa",
+        star: "Swathi",
+        rasi: "Thula (Libra)",
+        work_type: "Software / IT / Tech",
+        education: "MS in USA / Abroad",
+        job: "Senior Tech Lead",
+        salary: "₹25 - 35 Lakhs / year",
+        state: "TS",
+        district: "Hyderabad",
+        phone: "9848022334",
+        password: "password123",
+        about_myself: "నమస్కారం, నా పేరు రాజేష్ కుమార్. నేను MS పూర్తి చేసి సాఫ్ట్‌వేర్ ప్రొఫెషనల్‌గా స్థిరపడ్డాను. మాది ఉన్నత విలువల గల గౌరవప్రదమైన కుటుంబం. సంస్కారం మరియు కుటుంబ విలువలను గౌరవించే మంచి జీవన సహచరి కొరకు చూస్తున్నాము.",
+        consent: true,
+      });
+    }
+    setErrs([]);
+  };
+
   const readableError = (d: any, te: boolean): string => {
     const fallback = te ? "నమోదు విఫలమైంది — ఫీల్డ్‌లు అన్నీ నింపి మళ్లీ ప్రయత్నించండి" : "Registration failed — please fill all fields and retry";
     const det = d?.detail;
@@ -1046,6 +1103,30 @@ function Wizard() {
           {/* ---------------- STEP 1: BASIC DETAILS ---------------- */}
           {step === 1 && (
             <>
+              {/* Quick Sample Demo Profile Fill */}
+              <div className="bg-gradient-to-r from-amber-50 to-rose-50 border border-gold/40 rounded-2xl p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-xs">
+                <div className="text-xs font-bold text-maroon flex items-center gap-1.5">
+                  <span>⚡</span>
+                  <span>త్వరిత నమూనా డెమో పూరింపు (1-Click Sample Profile):</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => fillSampleDemo("Bride")}
+                    className="px-3 py-1 rounded-xl bg-white border border-rose-200 text-rose-800 font-bold text-xs hover:bg-rose-100 transition shadow-xs"
+                  >
+                    👰 వధువు డెమో
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => fillSampleDemo("Groom")}
+                    className="px-3 py-1 rounded-xl bg-white border border-indigo-200 text-indigo-800 font-bold text-xs hover:bg-indigo-100 transition shadow-xs"
+                  >
+                    🤵 వరుడు డెమో
+                  </button>
+                </div>
+              </div>
+
               <div>
                 <label className="text-[13px] font-bold text-ink">{T("ఎవరి కోసం ప్రొఫైల్ నమోదు చేస్తున్నారు?", "Who is registering?")} <span className="req-star">*</span></label>
                 <div className="mt-2 grid grid-cols-2 gap-3">
