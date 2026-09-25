@@ -220,8 +220,20 @@ export default function RequestsPage() {
     refresh(myId);
   };
 
-  const chip = (s: string) =>
-    `text-[10px] font-bold px-2 py-0.5 rounded-full border ${STATUS_STYLE[s] || "bg-gray-100 text-gray-600 border-gray-300"}`;
+  const chip = (s: string) => {
+    const cls = STATUS_STYLE[s] || "bg-gray-100 text-gray-600 border-gray-300";
+    const label =
+      s === "pending"
+        ? te ? "⏳ పరిశీలనలో ఉంది (Pending)" : "⏳ Pending"
+        : s === "accepted"
+        ? te ? "🎉 ఆమోదించబడింది (Accepted)" : "🎉 Accepted"
+        : s === "declined"
+        ? te ? "ℹ️ ముగిసింది (100% రీఫండ్)" : "ℹ️ Declined (Refunded)"
+        : s === "expired"
+        ? te ? "⏳ గడువు ముగిసింది" : "⏳ Expired"
+        : s.toUpperCase();
+    return <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${cls}`}>{label}</span>;
+  };
 
   return (
     <main className="min-h-screen pb-36">
@@ -310,7 +322,7 @@ export default function RequestsPage() {
               <Reveal key={it.request_id}>
                 <div className="bg-white rounded-2xl p-4 card-shadow border border-gold/20">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className={chip(it.status)}>{it.status.toUpperCase()}</span>
+                    {chip(it.status)}
                     <span className="text-[11px] text-gray-500 font-mono">{it.request_id}</span>
                     {it.score > 0 && <span className="text-[11px] font-bold text-maroon">⭐ {it.score}% match</span>}
                     {(it as any).porutham_score ? (
@@ -344,22 +356,24 @@ export default function RequestsPage() {
                       <div className="mt-3 flex flex-wrap gap-2">
                         {it.actions?.includes("accept") ? (
                           <>
-                            <button onClick={() => respond(it.request_id, "accept")} disabled={busy} className="bg-emerald-600 text-white font-bold text-[13px] px-4 py-2 rounded-xl hover-lift">
-                              ✅ Accept — number exchange
+                            <button onClick={() => respond(it.request_id, "accept")} disabled={busy} className="bg-emerald-600 text-white font-bold text-[13px] px-4 py-2.5 rounded-xl hover:bg-emerald-700 transition shadow-sm flex items-center gap-1.5">
+                              <span>✅</span> {te ? "ఆమోదించు (Accept & Share Number)" : "Accept & Share Number"}
                             </button>
-                            <button onClick={() => respond(it.request_id, "decline")} disabled={busy} className="bg-white border border-rose-300 text-rose-700 font-bold text-[13px] px-4 py-2 rounded-xl">
-                              ❌ Decline (credit refund)
+                            <button onClick={() => respond(it.request_id, "decline")} disabled={busy} className="bg-white border border-rose-300 text-rose-700 font-bold text-[13px] px-4 py-2.5 rounded-xl hover:bg-rose-50 transition">
+                              <span>❌</span> {te ? "తిరస్కరించు (Decline & 100% Refund)" : "Decline (100% Refund)"}
                             </button>
                           </>
                         ) : it.status === "accepted" ? (
-                          <div className="text-[12px] bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2 text-emerald-900">
-                            ✅ Accepted — contact: <b>{it.requester_phone}</b> (WhatsApp lo kooda vachhindi)
+                          <div className="text-[12px] bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2 text-emerald-900 font-semibold flex items-center gap-2">
+                            <span>🎉</span> {te ? "ఆమోదించబడింది — ఫోన్ నంబర్:" : "Accepted — Phone:"} <b className="text-emerald-800 text-[13px]">{it.requester_phone}</b> {te ? "(వాట్సాప్‌లో కూడా పంపబడింది)" : "(Delivered on WhatsApp)"}
                           </div>
                         ) : (
-                          <div className="text-[12px] text-gray-500">Ee request {it.status} — inka action ledu</div>
+                          <div className="text-[12px] text-gray-500 italic py-1">
+                            {it.status === "declined" ? (te ? "ℹ️ ఈ సంబంధం ప్రస్తుతానికి తిరస్కరించబడింది (క్రెడిట్ రీఫండ్ అయింది)" : "ℹ️ Declined (Sender credit refunded)") : `Ee request ${it.status}`}
+                          </div>
                         )}
-                        <Link href={`/search/${it.from_id}`} className="text-[13px] font-bold text-maroon underline px-2 py-2">
-                          Full profile chudu →
+                        <Link href={`/search/${it.from_id}`} className="text-[13px] font-bold text-maroon hover:underline px-2 py-2 flex items-center">
+                          {te ? "పూర్తి ప్రొఫైల్ చూడండి →" : "View Full Profile →"}
                         </Link>
                       </div>
                     </div>
@@ -379,11 +393,11 @@ export default function RequestsPage() {
                 <div className="bg-white rounded-2xl p-4 card-shadow border border-gold/20 flex flex-wrap items-center gap-3">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className={chip(it.status)}>{it.status.toUpperCase()}</span>
+                      {chip(it.status)}
                       <span className="font-bold text-[14px] text-maroon">{it.profile?.full_name} ({it.profile?.age}y)</span>
                       <span className="text-[11px] text-gray-500 font-mono">{it.to_id}</span>
                       {it.score > 0 && <span className="text-[11px] font-bold">⭐ {it.score}%</span>}
-                      {it.credit_refunded && <span className="text-[10px] font-bold text-emerald-700">↩️ refund</span>}
+                      {it.credit_refunded && <span className="text-[10px] font-bold text-emerald-700">↩️ 100% Refund</span>}
                     </div>
                     <div className="text-[12px] text-gray-600 mt-1">
                       🎓 {it.profile?.education} • 💼 {it.profile?.job} • 📍 {it.profile?.district}, {it.profile?.state} • 💍 {it.profile?.caste}
