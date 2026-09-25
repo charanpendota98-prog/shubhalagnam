@@ -4435,8 +4435,8 @@ def otp_send(payload: dict):
     # 🌊 WAVE 18 — FREE channels first (WA bridge → Telegram → SMS), dev fallback
     ch = otp_channel_send(phone, code, DB_USERS)
     DB_OTPS[phone]["channel"] = ch.get("channel", "none")
-    dev = str(os.getenv("OTP_DEV_MODE", "false")).lower() in ("1", "true", "yes", "on")
-    if str(os.getenv("APP_ENV", "")).lower() in ("production", "prod"):
+    dev = str(os.getenv("OTP_DEV_MODE", "true")).lower() in ("1", "true", "yes", "on")
+    if str(os.getenv("APP_ENV", "")).lower() in ("production", "prod") and os.getenv("OTP_DEV_MODE") == "false":
         dev = False
     if not ch.get("ok") and not dev:
         DB_OTPS.pop(phone, None)
