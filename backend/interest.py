@@ -370,7 +370,7 @@ def interest_to_owner_text(requester: Dict, owner: Dict, rec: Dict) -> str:
     r = safe_user(requester)
     reasons = "\n".join(f"  ✅ {x}" for x in (rec.get("reasons") or [])[:3])
     return (
-        f"💌 *మన వివాహ (MANA VIVAHA) — మీ ప్రొఫైల్‌కు సంబంధం వచ్చింది!*\n"
+        f"💌 *MANA VIVAHA — మీ ప్రొఫైల్‌కు INTEREST వచ్చింది!*\n"
         f"━━━━━━━━━━━━━━━━\n"
         f"మీ ప్రొఫైల్ వివరాలు చూసి క్రింది వారు సంబంధం కోసం ఆసక్తి (Interest) తెలిపారు 👇\n\n"
         f"👤 *{r['full_name']}*  ({r['age']} సం.)\n"
@@ -390,7 +390,7 @@ def interest_to_owner_text(requester: Dict, owner: Dict, rec: Dict) -> str:
         f"🔗 {SITE}/requests?id={owner.get('tsap_id','')}\n\n"
         f"✅ *Accept* చేస్తే → ఇరువైపులా నంబర్లు వాట్సాప్‌లో మార్పిడి అవుతాయి.\n"
         f"❌ *Decline* చేస్తే → మర్యాదపూర్వకంగా తెలియజేయబడుతుంది.\n"
-        f"🚫 అనవసర చాటింగ్ ఉండదు — డైరెక్ట్ ఫ్యామిలీ కాంటాక్ట్ మాత్రమే.\n"
+        f"🚫 Chatting లేదు — *డైరెక్ట్ ఫ్యామిలీ కాంటాక్ట్ మాత్రమే* (Direct Contact Only).\n"
         f"🆔 Request ID: {rec['request_id']}  •  ⏳ 7 రోజులు చెల్లుబాటు అవుతుంది\n"
         f"⚠️ మన వివాహ ఎప్పుడూ ముందస్తు అడ్వాన్స్ డబ్బులు అడగదు • Support: {SUPPORT}"
     )

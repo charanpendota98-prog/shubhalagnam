@@ -579,8 +579,8 @@ export default function MatchesPage() {
               <p className="text-[11.5px] text-slate-500 truncate">
                 📍 {row.district || "Hyderabad"}, {row.state || "TS"} • 💰 {row.salary || "Best in Industry"}
               </p>
-              <div className="text-[11px] text-slate-500 font-mono pt-0.5">
-                📞 {te ? "నంబర్: 🔒 •••••••••• (గోప్యత కొరకు దాచబడింది)" : "Number: 🔒 •••••••••• (Protected & Locked)"}
+              <div className="text-[11px] text-slate-500 font-mono pt-0.5" title={row.phone_masked ? "రక్షించబడింది" : ""}>
+                📞 {te ? "Number: 🔒 •••••••••• (గోప్యత కొరకు దాచబడింది)" : "Number: 🔒 •••••••••• (Protected & Locked)"}
               </div>
             </div>
           </div>
