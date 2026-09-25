@@ -1114,6 +1114,45 @@ function Wizard() {
           {/* ---------------- STEP 2: CASTE & ASTROLOGY ---------------- */}
           {step === 2 && (
             <>
+              {/* Popular Telugu Caste Quick Chips */}
+              <div className="mb-2 bg-cream/60 border border-gold/40 rounded-2xl p-3.5 space-y-2">
+                <div className="text-xs font-bold text-slate-700 flex items-center justify-between">
+                  <span>⚡ ప్రముఖ కులాలు (1-క్లిక్ త్వరిత ఎంపిక):</span>
+                  <span className="text-[10px] text-maroon font-bold">మొత్తం 50+ కులాలు</span>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {[
+                    { v: "Reddy", te: "రెడ్డి" },
+                    { v: "Kamma", te: "కమ్మ" },
+                    { v: "Kapu", te: "కాపు / బలిజ" },
+                    { v: "Arya Vysya", te: "ఆర్య వైశ్య" },
+                    { v: "Brahmin", te: "బ్రాహ్మణ" },
+                    { v: "Padmashali", te: "పద్మశాలి" },
+                    { v: "Munnuru Kapu", te: "మున్నూరు కాపు" },
+                    { v: "Yadava", te: "యాదవ" },
+                    { v: "Goud", te: "గౌడ్" },
+                    { v: "Mudiraj", te: "ముదిరాజ్" },
+                    { v: "Velama", te: "వెలమ" },
+                    { v: "Mala", te: "మాల" },
+                    { v: "Madiga", te: "మాదిగ" },
+                    { v: "Viswabrahmin", te: "విశ్వబ్రాహ్మణ" },
+                  ].map((c) => (
+                    <button
+                      key={c.v}
+                      type="button"
+                      onClick={() => { set("caste", c.v); set("sub_caste", ""); }}
+                      className={`px-3 py-1.5 rounded-full text-xs font-bold transition ${
+                        f.caste === c.v
+                          ? "maroon-gradient text-white border-transparent shadow-xs"
+                          : "bg-white border border-gold/40 text-maroon hover:bg-gold/20"
+                      }`}
+                    >
+                      <span className="telugu font-black">{c.te}</span> <span className="font-normal text-[10px] opacity-80">({c.v})</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               <SearchSelect label={`కులం / Caste (${f.religion || "Hindu"})`} required
                 options={casteOpts} value={f.caste}
                 teMap={CASTE_TELUGU}
