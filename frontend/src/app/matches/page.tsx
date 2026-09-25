@@ -107,7 +107,7 @@ function ScoreBreakdown({ v2 }: { v2: any }) {
             💞 mutual (+8%)
           </span>
         ) : null}
-        <span className="ml-auto text-[11px] text-gray-500">{open ? (te ? "▲ మూసెయ్" : "▲ Hide") : (te ? "▼ చూడు" : "▼ View")}</span>
+        <span className="ml-auto text-[11px] text-gray-500">{open ? (te ? "▲ దాచు" : "▲ Hide") : (te ? "▼ వివరాలు చూడండి" : "▼ View details")}</span>
       </button>
       {open && (
         <div className="px-3 pb-3">

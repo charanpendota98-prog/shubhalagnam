@@ -915,7 +915,55 @@ export default function Dashboard() {
       )}
 
       {/* Main Content View */}
-      <div className="mx-auto max-w-7xl px-4 pt-5">
+      <div className="mx-auto max-w-7xl px-4 pt-4 space-y-4">
+        
+        {/* =========================================================================
+            ⚡ WORKER SHIFT & LIVE WORKSPACE ACTIVITY BAR
+            ========================================================================= */}
+        <div className="bg-gradient-to-r from-[#170514] via-[#2c0821] to-[#170514] text-white rounded-3xl p-4 sm:p-5 border-2 border-gold/40 shadow-md flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <span className="relative flex h-3.5 w-3.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-emerald-500"></span>
+            </span>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-black text-amber-300">
+                  🟢 వర్కర్ కమాండ్ డెస్క్ (Worker Command Center)
+                </span>
+                <span className="bg-white/10 text-white text-[10px] font-bold px-2 py-0.5 rounded-full border border-white/20">
+                  {owner ? "👑 సూపర్ అడ్మిన్" : "👷 వెరిఫికేషన్ స్టాఫ్"}
+                </span>
+              </div>
+              <p className="text-[11px] text-white/80 mt-0.5 telugu">
+                లైవ్ మోడరేషన్ డ్యూటీ ఆన్ • 30,000+ ప్రొఫైల్స్ మరియు 1000 మంది వినియోగదారుల హై-స్కేలబిలిటీ వ్యవస్థ
+              </p>
+            </div>
+          </div>
+
+          {/* Key Quick Shift Metrics */}
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-xs">
+            <div className="bg-white/10 px-3 py-1.5 rounded-xl border border-white/15 flex items-center gap-1.5">
+              <span>👥</span>
+              <span className="font-bold">{t.profiles} ప్రొఫైళ్లు</span>
+            </div>
+            <div className="bg-white/10 px-3 py-1.5 rounded-xl border border-white/15 flex items-center gap-1.5">
+              <span>📸</span>
+              <span className="font-bold text-amber-300">{t.with_photo} ఫోటోలు</span>
+            </div>
+            <div className="bg-white/10 px-3 py-1.5 rounded-xl border border-white/15 flex items-center gap-1.5">
+              <span>💌</span>
+              <span className="font-bold text-emerald-300">{t.interests} మ్యాచ్‌లు</span>
+            </div>
+            <button
+              onClick={exportProfilesCsv}
+              className="bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-extrabold px-3 py-1.5 rounded-xl shadow-xs transition flex items-center gap-1.5"
+            >
+              <span>📥</span>
+              <span>CSV ఎగుమతి</span>
+            </button>
+          </div>
+        </div>
         
         {/* =========================================================================
             TAB 1: ⚡ SMART MATCHMAKER (SINGLE PROFILE ID LOOKUP & SUITABLE MATCHES)
