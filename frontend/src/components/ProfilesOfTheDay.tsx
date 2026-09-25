@@ -69,7 +69,7 @@ const DEFAULT_SPOTLIGHTS: SpotlightProfile[] = [
     badge_text: "✈️ NRI SPOTLIGHT",
     headline: "యూఎస్ స్థిరపడిన ప్రొఫెషనల్ · కృష్ణా జిల్లా",
     pitch_text: "అమెరికాలో మంచి ఉద్యోగంలో స్థిరపడిన వరుడు. విద్యావంతురాలైన సంప్రదాయ వధువు కావలెను.",
-    photo_url: "/promo/cine-1.jpg",
+    photo_url: "/promo/groom-kamma.jpg",
   },
   {
     promo_id: "SPOT-003",
@@ -85,7 +85,7 @@ const DEFAULT_SPOTLIGHTS: SpotlightProfile[] = [
     badge_text: "🩺 DOCTOR ALLIANCE",
     headline: "డాక్టర్ వధువు · విశాఖపట్నం సంప్రదాయ కుటుంబం",
     pitch_text: "మెడికల్ లేదా సివిల్స్/ఐటీ రంగంలో స్థిరపడిన అనుకూలమైన వరుని కోసం చూస్తున్నాము.",
-    photo_url: "/promo/cine-3.jpg",
+    photo_url: "/promo/bride-kapu.jpg",
   },
 ];
 
