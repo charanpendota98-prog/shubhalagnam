@@ -370,10 +370,10 @@ def interest_to_owner_text(requester: Dict, owner: Dict, rec: Dict) -> str:
     r = safe_user(requester)
     reasons = "\n".join(f"  ✅ {x}" for x in (rec.get("reasons") or [])[:3])
     return (
-        f"💌 *MANA VIVAHA — మీ profile కి INTEREST వచ్చింది!*\n"
+        f"💌 *మన వివాహ (MANA VIVAHA) — మీ ప్రొఫైల్‌కు సంబంధం వచ్చింది!*\n"
         f"━━━━━━━━━━━━━━━━\n"
-        f"ఒకరు మీ profile చూసి *\"interesting గా ఉన్నారు\"* అని request పెట్టారు 👇\n\n"
-        f"👤 *{r['full_name']}*  ({r['age']} yrs)\n"
+        f"మీ ప్రొఫైల్ వివరాలు చూసి క్రింది వారు సంబంధం కోసం ఆసక్తి (Interest) తెలిపారు 👇\n\n"
+        f"👤 *{r['full_name']}*  ({r['age']} సం.)\n"
         f"🆔 {r['tsap_id']}{'  ✅ Verified' if r['verified'] else ''}\n"
         f"🎓 {r['education']} {r['education_detail']}\n"
         f"💼 {r['job']} {r['company']}\n"
@@ -381,17 +381,18 @@ def interest_to_owner_text(requester: Dict, owner: Dict, rec: Dict) -> str:
         f"📍 {r['district']}, {r['state']}{'  •  💼 ' + r['work_location'] if r['work_location'] else ''}\n"
         f"💍 {r['caste']}{' / ' + r['sub_caste'] if r['sub_caste'] else ''}"
         f"{'  |  గోత్రం: ' + r['gothram'] if r['gothram'] else ''}\n"
-        f"🌟 Star: {r['star'] or '—'}  |  రాశి: {r['rasi'] or '—'}\n"
-        + (f"⭐ *{rec['score']}% match* — {', '.join((rec.get('reasons') or [])[:2])}\n" if rec.get("score") else "")
-        + (f"📝 *Valla message:* \"{rec['note']}\"\n" if rec.get("note") else "")
+        f"🌟 నక్షత్రం: {r['star'] or '—'}  |  రాశి: {r['rasi'] or '—'}\n"
+        + (f"⭐ *{rec['score']}% సరిపోలిక (Match)* — {', '.join((rec.get('reasons') or [])[:2])}\n" if rec.get("score") else "")
+        + (f"📝 *సందేశం:* \"{rec['note']}\"\n" if rec.get("note") else "")
         + f"━━━━━━━━━━━━━━━━\n"
-        f"📸 Full profile + photo: {SITE}/search/{r['tsap_id']}\n"
-        f"✅ *Accept* చేస్తే → వల్ల number మీకు WhatsApp లో వస్తుంది\n"
-        f"❌ *Decline* చేస్తే → polite గా no cheptham (and వల్ల credit refund)\n"
-        f"🚫 Chatting లేదు — *direct contact exchange మాత్రమే* (safe, no time waste)\n"
-        f"💻 Accept/Decline ఇక్కడ: {SITE}/requests?id={owner.get('tsap_id','')}\n"
-        f"🆔 Request ID: {rec['request_id']}  •  ⏳ {EXPIRY_DAYS} days valid\n"
-        f"⚠️ మన వివాహ ఎప్పుడు advance money adagadu • Report: {SUPPORT}"
+        f"📸 ఫోటో & పూర్తి వివరాలు: {SITE}/search/{r['tsap_id']}\n\n"
+        f"👉 *1-క్లిక్‌తో ఆమోదించడానికి (Accept / Decline):*\n"
+        f"🔗 {SITE}/requests?id={owner.get('tsap_id','')}\n\n"
+        f"✅ *Accept* చేస్తే → ఇరువైపులా నంబర్లు వాట్సాప్‌లో మార్పిడి అవుతాయి.\n"
+        f"❌ *Decline* చేస్తే → మర్యాదపూర్వకంగా తెలియజేయబడుతుంది.\n"
+        f"🚫 అనవసర చాటింగ్ ఉండదు — డైరెక్ట్ ఫ్యామిలీ కాంటాక్ట్ మాత్రమే.\n"
+        f"🆔 Request ID: {rec['request_id']}  •  ⏳ 7 రోజులు చెల్లుబాటు అవుతుంది\n"
+        f"⚠️ మన వివాహ ఎప్పుడూ ముందస్తు అడ్వాన్స్ డబ్బులు అడగదు • Support: {SUPPORT}"
     )
 
 
