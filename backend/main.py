@@ -1051,7 +1051,8 @@ async def _startup_publisher():
         if _ret.get("deleted"):
             print(f"[RETENTION] {_ret['deleted']} profiles (3+ years) archived+deleted → {_ret.get('archive','')}")
         _retention_save()
-        RETENTION.start_daily(lambda: (RETENTION.run(DB_USERS, DB_INTERESTS, DB_VIEWS, DB_SAVES), _retention_save()))
+        _reindex_users()
+        RETENTION.start_daily(lambda: (RETENTION.run(DB_USERS, DB_INTERESTS, DB_VIEWS, DB_SAVES), _retention_save(), _reindex_users()))
     except Exception as e:
         print("[RETENTION] startup skip:", str(e)[:80])
     # demo/launch inventory: empty DB aithe (dev/preview lo) ventane profiles — site khali ga kanipinchadu
@@ -1662,6 +1663,7 @@ async def register(
         user["completeness"] = min(100, int(len(filled) * 100 / max(1, len(user))))
         user["score"] = max(70, min(99, 70 + int(user["completeness"] * 0.3)))
         DB_USERS.append(user)
+        _reindex_users()
 
     # 4. Card Gen — FULL DETAIL NEAT CARD (Pillow). Fail ayithe path matrame istundi.
     card_path = f"/tmp/cards/{tsap_id}.png"          # filesystem (internal use)
@@ -3359,13 +3361,24 @@ def channels_live():
 # ===========================================================================
 # 💌 INTEREST / REQUEST + 💳 CREDITS + 🛡️ WHATSAPP ANTI-BAN CONTROL
 # ===========================================================================
+_USERS_ID_MAP: dict = {}
+_USERS_PHONE_MAP: dict = {}
+
+def _reindex_users():
+    global _USERS_ID_MAP, _USERS_PHONE_MAP
+    _USERS_ID_MAP = {str(u.get("tsap_id", "")).upper(): u for u in DB_USERS if u.get("tsap_id")}
+    _USERS_PHONE_MAP = {str(u.get("phone", "")).strip(): u for u in DB_USERS if u.get("phone")}
+
 def _find_user(tsap_id: str):
     if not tsap_id:
         return None
     raw = str(tsap_id).strip().upper()
+    if raw in _USERS_ID_MAP:
+        return _USERS_ID_MAP[raw]
     # 1. Exact match on tsap_id
     found = next((u for u in DB_USERS if str(u.get("tsap_id", "")).upper() == raw), None)
     if found:
+        _USERS_ID_MAP[raw] = found
         return found
     # 2. Number-only match (e.g. searching '1001' or '5059')
     if raw.isdigit():
