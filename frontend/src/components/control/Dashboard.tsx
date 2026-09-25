@@ -17,6 +17,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useLang } from "@/lib/lang";
 import { BarList, Donut, Sparkline } from "./Charts";
+import ChannelsConsole from "@/components/ChannelsConsole";
+import WANumbersConsole from "@/components/WANumbersConsole";
 import {
   CASTES,
   CASTE_TELUGU,
@@ -97,6 +99,7 @@ const T = {
     tabVendors: "🏪 పెళ్లి సేవలు & వెండర్లు",
     tabSpotlight: "🌟 స్పాట్‌లైట్ / Profiles of Day", tabReferrals: "🤝 రెఫరల్స్ & పేఅవుట్స్", tabReports: "🚩 రిపోర్ట్‌లు",
     tabRevenue: "💰 రాబడి", tabAudit: "📝 ఆడిట్ లాగ్",
+    tabChannels: "📡 టెలిగ్రామ్ & వాట్సాప్ ఛానెల్స్", tabNumbers: "📱 వాట్సాప్ & ఫోన్ నంబర్లు",
     profilesTot: "మొత్తం ప్రొఫైళ్లు", pendingTot: "పరిశీలనలో ఉన్నవి", approvedTot: "ఆమోదించినవి",
     verifiedTot: "ధృవీకరించినవి", withPhotoTot: "ఫోటో ఉన్నవి", malesTot: "పురుషులు (వరులు)",
     femalesTot: "స్త్రీలు (వధువులు)", reportsTot: "ఓపెన్ రిపోర్ట్‌లు", interestsTot: "పంపిన సంబంధాలు",
@@ -119,6 +122,7 @@ const T = {
     tabVendors: "🏪 Wedding Vendors",
     tabSpotlight: "🌟 Spotlight / Profiles of Day", tabReferrals: "🤝 Referrals & Payouts", tabReports: "🚩 Reports",
     tabRevenue: "💰 Revenue", tabAudit: "📝 Audit Log",
+    tabChannels: "📡 Channels (TG/WA)", tabNumbers: "📱 WhatsApp & Phone Numbers",
     profilesTot: "Total Profiles", pendingTot: "Pending Approval", approvedTot: "Approved",
     verifiedTot: "Verified", withPhotoTot: "With Photo", malesTot: "Grooms",
     femalesTot: "Brides", reportsTot: "Open Reports", interestsTot: "Interest Requests",
@@ -792,6 +796,8 @@ export default function Dashboard() {
     { k: "overview" as const, label: L.tabOverview },
     { k: "queue" as const, label: `${L.tabQueue} (${t.pending})` },
     { k: "castes" as const, label: L.tabCastes },
+    { k: "channels" as const, label: L.tabChannels },
+    { k: "numbers" as const, label: L.tabNumbers },
     { k: "addProfile" as const, label: L.tabAddProfile },
     { k: "ads" as const, label: L.tabAds },
     { k: "vendors" as const, label: L.tabVendors },
@@ -1754,6 +1760,28 @@ export default function Dashboard() {
                 </div>
               </div>
             ))}
+          </div>
+        )}
+
+        {/* Telegram & WhatsApp Channels Management */}
+        {tab === "channels" && (
+          <div className="bg-white rounded-3xl p-6 border border-gold/30 shadow-xs space-y-4">
+            <h3 className="font-black text-lg text-[#7A0C2E] flex items-center gap-2">
+              <span>📡</span>
+              <span>టెలిగ్రామ్ & వాట్సాప్ ఛానెల్స్ మేనేజ్‌మెంట్ (Telegram & WhatsApp Channels Hub)</span>
+            </h3>
+            <ChannelsConsole />
+          </div>
+        )}
+
+        {/* WhatsApp & Phone Numbers Management */}
+        {tab === "numbers" && (
+          <div className="bg-white rounded-3xl p-6 border border-gold/30 shadow-xs space-y-4">
+            <h3 className="font-black text-lg text-[#7A0C2E] flex items-center gap-2">
+              <span>📱</span>
+              <span>అఫీషియల్ వాట్సాప్ & ఫోన్ నంబర్లు (WhatsApp Senders & Support Numbers)</span>
+            </h3>
+            <WANumbersConsole />
           </div>
         )}
 
