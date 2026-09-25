@@ -160,8 +160,8 @@ export default function CasteClient({ caste, role, district, chan, otherChan }: 
           <div className="bg-navy text-white rounded-2xl p-5 card-shadow">
             <div className="flex items-center justify-between gap-2">
               <div className="font-bold leading-tight">{myChanLabel}</div>
-              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap ${chan?.live ? "bg-emerald-400/20 text-emerald-300" : "bg-amber-400/20 text-amber-300"}`}>
-                {chan?.live ? "● LIVE" : te ? "త్వరలో" : "Soon"}
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap bg-emerald-400/20 text-emerald-300">
+                ● LIVE ✅
               </span>
             </div>
             <div className="text-[11px] opacity-70 mt-0.5">
@@ -240,11 +240,11 @@ export default function CasteClient({ caste, role, district, chan, otherChan }: 
             </div>
             <div>
               <div className="font-bold text-ink">
-                {te ? <>{caste.name} porutham check ఉందా?</> : <>Is there {caste.name} porutham check?</>}
+                {te ? <>{caste.name} వేద గుణమేళనం / జాతక పొంతన ఉందా?</> : <>Is there {caste.name} Vedic Gunamelanam check?</>}
               </div>
               <div className="text-gray-600">
-                {te ? "అవును — 10 porutham (rasi, nakshatra, gana, yoni, rajju, vedha…) report free గా /requests లో చూడొచ్చు."
-                    : "Yes — the 10-porutham (rasi, nakshatra, gana, yoni, rajju, vedha…) report is free to view in /requests."}
+                {te ? "అవును — వేద గుణమేళనం (రాశి, నక్షత్ర, గణ, యోని, రజ్జు, వేధ…) రిపోర్ట్ ఉచితంగా /porutham లో చూడొచ్చు."
+                    : "Yes — the Vedic Gunamelanam (rasi, nakshatra, gana, yoni, rajju, vedha…) report is free to view in /porutham."}
               </div>
             </div>
           </div>

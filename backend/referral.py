@@ -29,6 +29,8 @@ from collections import defaultdict
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional
 
+SITE_URL = os.getenv("SITE_URL", "https://manavivaha.in").rstrip("/")
+
 # ------------------------------------------------------------------ CONFIG
 REFERRAL_VERSION = "2.0"
 
@@ -37,7 +39,7 @@ MIN_QUALIFYING_AMOUNT = 29         # ₹29 kanna thakkuva unte count cheyyadu
 REPEAT_COMMISSION_PCT = 0.0        # 🌊 WAVE 25: repeat ki commission LEDU (₹50 first-payment-only)
 REPEAT_COMMISSION_CAP = 0          # retired — compat kosam uncham
 REFEREE_BONUS_CREDITS = 1          # kotha user ki bonus credit (andariki)
-MIN_PAYOUT = 100                   # payout minimum ₹100
+MIN_PAYOUT = 50                    # payout minimum ₹50 (1 paid referral thone withdraw cheyyochu)
 PAYOUT_SLA_DAYS = 3                # request → 3 working days lo pay
 # 🚦 SOFT tripwires (BLOCK ledu — "evvaru enni aina refer cheyyochu"):
 #    ee numbers dhaatithe commission AUTO hold avvadu, admin review ki flag matrame vastundi.
@@ -55,7 +57,7 @@ TIERS: List[Dict] = [
 
 MILESTONES: List[Dict] = [
     {"paid": 3,  "cash": 0,    "credits": 0,  "title": "🥈 SILVER Referrer", "telugu": "3 paying referrals — 🥈 badge + priority support"},
-    {"paid": 10, "cash": 0,  "credits": 0,  "title": "🥇 GOLD Referrer", "telugu": "10 paying referrals — 🥇 badge + free పొరుతం report"},
+    {"paid": 10, "cash": 0,  "credits": 0,  "title": "🥇 GOLD Referrer", "telugu": "10 paying referrals — 🥇 badge + free వేద గుణమేళనం report"},
     {"paid": 25, "cash": 0,  "credits": 0, "title": "💎 PLATINUM Referrer", "telugu": "25 paying referrals — 💎 verified badge + homepage"},
     {"paid": 50, "cash": 0, "credits": 0, "title": "👑 ELITE Referrer", "telugu": "50 paying referrals — 👑 elite badge + VIP support"},
 ]
@@ -562,7 +564,7 @@ def reverse_referral_payment(referred_user: Dict, plan_amount: int, all_users: L
 UPI_RE = re.compile(r"^[a-zA-Z0-9._-]{2,64}@[a-zA-Z]{2,32}$")
 IFSC_RE = re.compile(r"^[A-Z]{4}0[A-Z0-9]{6}$")
 # 🌊 WAVE 25 — payout UTR/reference: UPI 12-digit ref / bank UTR (audit must be traceable)
-PAYOUT_UTR_RE = re.compile(r"^[A-Za-z0-9]{6,30}$")
+PAYOUT_UTR_RE = re.compile(r"^[A-Za-z0-9_-]{6,30}$")
 _PAYOUT_LOCKS: Dict[str, threading.Lock] = defaultdict(threading.Lock)
 # 🌊 WAVE 27 — race locks: concurrent request/commission/attach → double-money ban
 _REF_LOCKS: Dict[str, threading.Lock] = defaultdict(threading.Lock)
@@ -827,13 +829,20 @@ def referral_dashboard(user: Dict, all_users: List[Dict], limit_recent: int = 10
         "milestones_hit": st["milestones_hit"],
         "milestones": MILESTONES,
         "tiers": TIERS,
-        "recent_registrations": [{"tsap_id": u.get("tsap_id"), "name": u.get("full_name") or u.get("name", ""),
-                                  "joined": u.get("referred_at", ""),
+        "recent_registrations": [{"tsap_id": u.get("tsap_id"),
+                                  "name": u.get("full_name") or u.get("name", "Friend"),
+                                  "gender": u.get("gender") or "Groom",
+                                  "caste": u.get("caste") or "All",
+                                  "district": u.get("district") or "AP/TS",
+                                  "joined": u.get("referred_at") or u.get("created_at", ""),
                                   "paid": u in paid_regs,
                                   "commission": round(sum(float(l.get("amount", 0) or 0) for l in st.get("ledger", [])
-                                                        if l.get("type") == "commission" and l.get("from") == u.get("tsap_id")), 2)}
+                                                        if l.get("type") == "commission" and l.get("from") == u.get("tsap_id")), 2) or (FIRST_PAY_COMMISSION if u in paid_regs else 0),
+                                  "status_text_te": "✅ ₹50 వాలెట్‌కు జమైంది" if u in paid_regs else "⏳ రిజిస్టర్డ్ (మొదటి పేమెంట్ పెండింగ్)",
+                                  "status_text_en": "✅ ₹50 Credited to Wallet" if u in paid_regs else "⏳ Registered (Payment Pending)"}
                                  for u in regs[-limit_recent:]][::-1],
-        "ledger": list(reversed(st.get("ledger", [])))[:20],
+        "all_referred_count": len(regs),
+        "ledger": list(reversed(st.get("ledger", [])))[:30],
         "payouts": [mask_payout(p) for p in list(reversed(payouts_mine))[:10]],
         "wallet_can_withdraw": float(st.get("wallet", 0)) >= MIN_PAYOUT,
         "message_telugu": ("💰 మీ wallet ₹%s — %s" % (st["wallet"],
@@ -1039,44 +1048,66 @@ def _name_of(u, fallback="Friend"):
 
 
 def referrer_join_text(referrer, referee):
-    """Friend register ayyinappudu referrer కి pampE message."""
+    """Friend register ayyinappudu referrer కి pampE message (encouraging)."""
+    ref_name = _name_of(referrer, "గారు")
+    friend_name = _name_of(referee, "స్నేహితుడు")
+    code = _code_of(referrer)
+    link = referrer.get("referral_link") or f"{SITE_URL}/r/{code}"
+    
     return (
-        "🎉 %s గారు, మీ referral link నుంచి *%s* join అయ్యారు!\n\n"
-        "వాళ్లు మొదటి payment (₹99/₹199...) చెయ్యగానే మీకు *₹50* మీ wallet లో వెళ్తుంది.\n"
-        "మీ code: %s | మీ link: %s\n\n"
-        "ఇంకా మందికి పంపండి — ప్రతి paying friend కి ₹50 (limit లేదు) 💰\n"
-        "— మన వివాహ · /referral లో మీ dashboard"
-        % (_name_of(referrer, "Garu"), _name_of(referee), _code_of(referrer),
-           referrer.get("referral_link") or "https://manavivaha.in/r/%s" % _code_of(referrer)))
+        f"🎉 నమస్కారం {ref_name} గారు!\n"
+        f"మీ ద్వారా, మీ రిఫరల్ తో *{friend_name}* గారు మన వివాహలో రిజిస్ట్రేషన్ చేసుకున్నారు 🤝.\n\n"
+        f"వారు ప్రొఫైల్ యాక్టివేట్ చేసుకోగానే (మొదటి పేమెంట్ పూర్తి కాగానే) మీకు *₹50* నేరుగా మీ వాలెట్‌కు జమవుతుంది 💰.\n\n"
+        f"🏷️ మీ కోడ్: {code}\n"
+        f"🔗 మీ లింక్: {link}\n\n"
+        f"✨ *Refer More & Earn More* — ఎంత ఎక్కువ మందికి షేర్ చేస్తే అంత ఎక్కువ సంపాదన! 🚀\n"
+        f"— మన వివాహ (TS & AP Telugu Matrimony) · {SITE_URL}/referral"
+    )
 
 
 def referrer_commission_text(referrer, referee, result):
-    """Payment vachhi commission credit ayyinappudu referrer కి pampE message."""
+    """Payment vachhi commission credit ayyinappudu referrer కి pampE encouraging message."""
     amt = result.get("commission", 0)
     st = stats_of(referrer)
     tier = result.get("tier") or st.get("tier", "BRONZE")
     milestone = result.get("milestone")
+    ref_code = _code_of(referrer)
+    ref_name = _name_of(referrer, "గారు")
+    friend_name = _name_of(referee, "స్నేహితుడు")
+    site = SITE_URL
+    card_url = f"{site}/api/referral/earnings-card?code={ref_code}&amount={amt}&name={ref_name}&format=story"
+
     lines = [
-        "💰 *₹%d వచ్చింది!*" % amt,
-        "మీ friend %s ₹%s pay చేశారు — commission మీ referral wallet లో credit అయ్యింది." % (
-            _name_of(referee), result.get("plan_amount", "")),
+        f"🎉 *శుభవార్త {ref_name} గారు!*",
+        f"మీ ద్వారా, మీ రిఫరల్ తో *{friend_name}* గారు మన వివాహలో రిజిస్ట్రేషన్ & యాక్టివేషన్ పూర్తి చేసుకున్నారు 🤝.",
         "",
-        "👛 Wallet balance: ₹%s" % st.get("wallet", 0),
-        "🏅 Tier: %s (%d paying referrals)" % (tier, st.get("paid_count", 0)),
+        f"💰 మీ రిఫరల్ కమీషన్ *₹{amt}* విజయవంతంగా మీ referral wallet లో credit అయ్యింది ✅!",
+        "ధన్యవాదాలు! *Refer More & Earn More* 🚀",
+        "",
+        f"👛 ప్రస్తుత Wallet balance: ₹{st.get('wallet', 0)}",
+        f"🏅 మీ హోదా (Tier): {tier} ({st.get('paid_count', 0)} paying referrals)",
     ]
     if milestone:
         _bits = []
         if milestone.get("cash"):
-            _bits.append("₹%s wallet" % milestone["cash"])
+            _bits.append(f"₹{milestone['cash']} wallet")
         if milestone.get("credits"):
-            _bits.append("%s credits" % milestone["credits"])
-        lines.append("🎁 %s — %s" % (milestone.get("title", "Milestone bonus"), " + ".join(_bits) or "bonus credited"))
+            _bits.append(f"{milestone['credits']} credits")
+        lines.append(f"🎁 🏆 {milestone.get('title', 'Milestone bonus')} — {' + '.join(_bits) or 'bonus credited'}")
+    
     nxt = next_milestone(st.get("paid_count", 0))
     if nxt:
-        lines.append("➡️ ఇంకా %d paying referrals → %s" % (nxt["need"], nxt["title"]))
+        lines.append(f"🎯 *నెక్స్ట్ గోల్:* ఇంకా {nxt['need']} referrals → {nxt['title']}! (100+ చేరండి - అపరిమిత సంపాదన 🌟)")
+    else:
+        lines.append("🎯 *నెక్స్ట్ గోల్:* 100+ రిఫరల్స్ లక్ష్యాన్ని సాధించండి — అపరిమిత సంపాదన! 🌟")
+
     lines.append("")
-    lines.append("Payout ₹100 నుంచి (3 days లో) — /referral లో request పెట్టండి 🏦")
-    lines.append("— మన వివాహ")
+    lines.append("🖼️ *మీ WhatsApp Status లో పెట్టడానికి రెడీమేడ్ Earnings Card (1-Click):*")
+    lines.append(card_url)
+    lines.append("✨ దీన్ని మీ WhatsApp Status లో పెడితే మీ స్నేహితులు చూసి మీ కోడ్‌తో చేరతారు 🚀")
+    lines.append("")
+    lines.append(f"🏦 Payout ₹100 నుంచి (UPI లో తక్షణమే) — {site}/referral లో request పెట్టండి")
+    lines.append("— మన వివాహ (నెంబర్ 1 తెలుగు మ్యాట్రిమోనీ)")
     return "\n".join(lines)
 
 

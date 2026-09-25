@@ -65,7 +65,7 @@ export default function StoriesClient() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-8">
+    <div className="mx-auto max-w-3xl px-4 py-8 pb-36">
       <h1 className="text-3xl font-extrabold text-rose-900">💑 <Duo en="Success Stories" te="విజయగాథలు" /></h1>
       <div className="mt-4"><FeaturedStories limit={6} /></div>
       <h2 className="mt-8 text-xl font-extrabold text-rose-900">💬 <Duo en="Community stories" te="మీ కథలు" /></h2>

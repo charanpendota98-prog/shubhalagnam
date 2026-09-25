@@ -51,6 +51,9 @@ body {
 
 .telugu {
   font-family: 'Noto Sans Telugu', system-ui, sans-serif;
+  line-height: 1.55;
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 /* ---------- Brand utilities ---------- */
@@ -107,6 +110,7 @@ body {
 .wedding-story__scene { position: absolute; inset: -5%; transform-origin: center; transition: transform .08s linear; touch-action: pan-y; cursor: grab; }
 .wedding-story__scene:active { cursor: grabbing; }
 .wedding-story__image { position: absolute; inset: 0; background: url('/promo/hero-wedding.jpg') center/cover; filter: saturate(.82) contrast(1.06); }
+.wedding-story__film { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; filter: saturate(.92) contrast(1.05); user-select: none; -webkit-user-drag: none; pointer-events: none; }
 .wedding-story__shade { position: absolute; inset: 0; background: linear-gradient(90deg, rgba(19,5,17,.9) 0%, rgba(39,9,28,.55) 45%, rgba(15,5,15,.18) 100%), linear-gradient(0deg, rgba(16,3,13,.8), transparent 60%); }
 .wedding-story__glow { position: absolute; border-radius: 999px; filter: blur(30px); background: #f4c969; opacity: .24; animation: weddingGlow 5s ease-in-out infinite; }
 .wedding-story__glow--one { width: 18rem; height: 18rem; right: 12%; top: 8%; }
@@ -130,10 +134,9 @@ body {
 
 /* ---------- Scroll reveal ---------- */
 .reveal {
-  opacity: 0;
-  transform: translateY(22px);
-  transition: opacity 0.7s cubic-bezier(0.22, 1, 0.36, 1), transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
-  will-change: opacity, transform;
+  opacity: 1;
+  transform: none;
+  transition: opacity 0.4s ease, transform 0.4s ease;
 }
 .reveal.is-visible { opacity: 1; transform: none; }
 
@@ -330,6 +333,11 @@ button:not(:disabled):active { transform: scale(0.97); }
   background-clip: text;
   -webkit-text-fill-color: transparent;
   animation: brandSheen 4.8s ease-in-out infinite;
+  /* Telugu glyphs have tall matras/descenders — give them room so
+     background-clip:text never crops the top or bottom of the name. */
+  line-height: 1.35;
+  padding-block: 0.06em;
+  display: inline-block;
 }
 .brand-wordmark-dark {
   background-image: linear-gradient(105deg, #d4af37 0%, #f8d86a 38%, #fff8cf 49%, #ffffff 52%, #fff0a8 56%, #d4af37 70%, #d4af37 100%);
@@ -375,3 +383,156 @@ button:not(:disabled):active { transform: scale(0.97); }
 @keyframes kenburns { from { transform: scale(1.02) translate3d(0,0,0); } to { transform: scale(1.10) translate3d(-1.5%, -1%, 0); } }
 @keyframes petals { from { transform: translate3d(0,-3%,0); opacity:.25; } 50% { opacity:.65; } to { transform: translate3d(2%,4%,0); opacity:.25; } }
 @media (prefers-reduced-motion: reduce) { .motion-safe\:animate-\[kenburns_18s_ease-in-out_infinite_alternate\], .motion-safe\:animate-\[petals_12s_linear_infinite\] { animation: none !important; } }
+
+/* ============================================================
+   🎬 CINEMATIC VIDEO HERO — top-matrimony feel (crossfade film)
+   ============================================================ */
+.cine-hero {
+  position: relative;
+  min-height: 100svh;
+  overflow: hidden;
+  isolation: isolate;
+  background: #150410;
+  color: #fff;
+}
+@media (max-width: 767px) { .cine-hero { min-height: 92svh; } }
+
+/* Each frame = one wedding still; they crossfade + Ken-Burns like a wedding film reel */
+.cine-frame {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  opacity: 0;
+  animation: cineReel 32s linear infinite;
+  will-change: opacity, transform;
+}
+.cine-frame:nth-child(1) { animation-delay: 0s; }
+.cine-frame:nth-child(2) { animation-delay: 8s; }
+.cine-frame:nth-child(3) { animation-delay: 16s; }
+.cine-frame:nth-child(4) { animation-delay: 24s; }
+
+/* 4 frames × 8s each = 32s loop. Fade in/hold/fade out + slow zoom+pan (Ken Burns). */
+@keyframes cineReel {
+  0%    { opacity: 0; transform: scale(1.12) translate3d(2%, 1%, 0); }
+  3%    { opacity: 1; }
+  22%   { opacity: 1; }
+  25%   { opacity: 0; }
+  100%  { opacity: 0; transform: scale(1.02) translate3d(-2%, -1%, 0); }
+}
+
+/* Real animated wedding film (WebP) — fades in over static base once loaded */
+.cine-film { z-index: 0; opacity: 0; animation: cineFilmIn 1.2s ease-out .2s forwards; }
+@keyframes cineFilmIn { to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .cine-film { display: none; } }
+
+/* Cinematic color grade + vignette + readable copy gradient */
+.cine-grade {
+  position: absolute; inset: 0; z-index: 1; pointer-events: none;
+  background:
+    radial-gradient(120% 90% at 78% 38%, rgba(255,205,120,.12), transparent 42%),
+    linear-gradient(90deg, rgba(14,3,11,.94) 0%, rgba(16,4,13,.78) 34%, rgba(18,5,14,.34) 66%, rgba(14,3,11,.55) 100%),
+    linear-gradient(0deg, rgba(10,2,9,.92) 0%, rgba(10,2,9,.2) 42%, transparent 68%);
+}
+.cine-vignette {
+  position: absolute; inset: 0; z-index: 1; pointer-events: none;
+  box-shadow: inset 0 0 220px 60px rgba(10,2,8,.7);
+}
+/* subtle film grain flicker */
+.cine-grain {
+  position: absolute; inset: -50%; z-index: 1; pointer-events: none; opacity: .06;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  animation: cineGrain .7s steps(3) infinite;
+}
+@keyframes cineGrain {
+  0% { transform: translate(0,0); } 33% { transform: translate(-4%,3%); } 66% { transform: translate(3%,-2%); } 100% { transform: translate(0,0); }
+}
+
+/* Floating flower petals drifting across the film */
+.cine-petal {
+  position: absolute; z-index: 2; top: -6%; pointer-events: none;
+  font-size: 1.1rem; opacity: 0; filter: drop-shadow(0 4px 6px rgba(0,0,0,.3));
+  animation: cinePetalFall linear infinite;
+}
+@keyframes cinePetalFall {
+  0%   { opacity: 0; transform: translateY(-10%) translateX(0) rotate(0deg); }
+  10%  { opacity: .9; }
+  90%  { opacity: .9; }
+  100% { opacity: 0; transform: translateY(115vh) translateX(60px) rotate(320deg); }
+}
+
+/* Animated shining gold headline for hero */
+.cine-title-gold {
+  background: linear-gradient(100deg, #f6d98a 0%, #fff7d6 20%, #ffffff 26%, #f6d98a 40%, #e7b84f 60%, #fff2b8 80%, #f6d98a 100%);
+  background-size: 240% 100%;
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent; color: transparent;
+  animation: cineTitleSheen 6s ease-in-out infinite;
+}
+@keyframes cineTitleSheen { 0%,100% { background-position: 0% 0; } 50% { background-position: 120% 0; } }
+
+/* Ring-glow "Register" primary CTA */
+.cine-cta-glow { position: relative; }
+.cine-cta-glow::after {
+  content: ""; position: absolute; inset: -3px; border-radius: 999px; z-index: -1;
+  background: linear-gradient(135deg, #ffd45e, #ff8a5b, #ffd45e); filter: blur(8px);
+  opacity: .55; animation: ctaPulse 2.6s ease-in-out infinite;
+}
+@keyframes ctaPulse { 0%,100% { opacity: .4; transform: scale(1); } 50% { opacity: .8; transform: scale(1.04); } }
+
+/* Floating live "match" chips over the film */
+.cine-float-card {
+  animation: cineFloatCard 5.5s ease-in-out infinite;
+}
+.cine-float-card--slow { animation-duration: 7s; animation-delay: -2s; }
+@keyframes cineFloatCard { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-12px); } }
+
+/* Scroll cue */
+.cine-scroll-cue { animation: cineScrollCue 1.8s ease-in-out infinite; }
+@keyframes cineScrollCue { 0%,100% { transform: translateY(0); opacity: .5; } 50% { transform: translateY(7px); opacity: 1; } }
+
+/* Frame counter bars (film-reel style progress) */
+.cine-bar { position: relative; height: 3px; border-radius: 999px; background: rgba(255,255,255,.22); overflow: hidden; }
+.cine-bar > i { position: absolute; inset: 0; display: block; background: linear-gradient(90deg,#f6d98a,#fff); transform-origin: left; transform: scaleX(0); animation: cineBarFill 8s linear infinite; }
+.cine-bar:nth-child(1) > i { animation-delay: 0s; }
+.cine-bar:nth-child(2) > i { animation-delay: 8s; }
+.cine-bar:nth-child(3) > i { animation-delay: 16s; }
+.cine-bar:nth-child(4) > i { animation-delay: 24s; }
+@keyframes cineBarFill { 0% { transform: scaleX(0); } 3% { transform: scaleX(.05);} 25% { transform: scaleX(1); } 100% { transform: scaleX(1); } }
+
+/* Luxury Gold Glow & Shimmer Utilities */
+.shadow-gold {
+  box-shadow: 0 10px 30px -5px rgba(212, 175, 55, 0.45);
+}
+
+.shadow-gold-lg {
+  box-shadow: 0 20px 50px -10px rgba(212, 175, 55, 0.6);
+}
+
+.shine-hover {
+  position: relative;
+  overflow: hidden;
+}
+.shine-hover::after {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -60%;
+  width: 20%;
+  height: 200%;
+  background: rgba(255, 255, 255, 0.35);
+  transform: rotate(30deg);
+  transition: none;
+}
+.shine-hover:hover::after {
+  left: 140%;
+  transition: all 0.75s ease-in-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cine-frame { animation: none; opacity: 0; }
+  .cine-frame:nth-child(1) { opacity: 1; }
+  .cine-grain, .cine-petal, .cine-float-card, .cine-scroll-cue, .cine-cta-glow::after, .cine-bar > i, .shine-hover::after { animation: none !important; }
+  .cine-title-gold { animation: none; background-position: 0 0; }
+  .cine-bar:nth-child(1) > i { transform: scaleX(1); }
+}

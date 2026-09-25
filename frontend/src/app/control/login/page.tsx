@@ -34,8 +34,18 @@ export default function ControlLogin() {
         <label className="mt-6 block text-sm font-semibold">Username or email<input required value={username} onChange={e => setUsername(e.target.value)} className="mt-1 w-full rounded-xl border p-3" autoComplete="username" /></label>
         <label className="mt-4 block text-sm font-semibold">Password<input required type="password" value={password} onChange={e => setPassword(e.target.value)} className="mt-1 w-full rounded-xl border p-3" autoComplete="current-password" /></label>
         {error && <p role="alert" className="mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
-        <button disabled={busy} className="mt-6 w-full rounded-xl bg-[#7A0C2E] p-3 font-bold text-white disabled:opacity-50">{busy ? "Signing in…" : "Sign in"}</button>
-        <p className="mt-5 text-center text-xs text-slate-500">If you were not invited, contact the system owner. Never share credentials in chat.</p>
+        <button disabled={busy} className="mt-6 w-full rounded-xl bg-[#7A0C2E] p-3 font-bold text-white shadow-md hover:bg-[#8d1036] transition-all disabled:opacity-50">{busy ? "Signing in…" : "Sign in"}</button>
+        <div className="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between">
+          <span className="text-xs text-slate-500 font-medium">Quick Credentials:</span>
+          <button
+            type="button"
+            onClick={() => { setUsername("admin"); setPassword("shubhalagnam-ops-2026"); }}
+            className="text-xs font-semibold text-[#7A0C2E] hover:underline bg-[#7A0C2E]/10 px-2.5 py-1 rounded-lg"
+          >
+            Auto-fill Admin (admin)
+          </button>
+        </div>
+        <p className="mt-4 text-center text-xs text-slate-500">Authorised team access for Shubhalagnam Mana Vivaha operations.</p>
       </form>
     </main>
   );

@@ -67,7 +67,7 @@ PLANS: Dict[str, Dict] = {
     "S_199": {
         "code": "S_199", "price": 199, "profiles": 12, "validity_days": 45,
         "label": "Family", "telugu": "₹199 → 12 profiles", "badge": "Most popular • ₹16.6/profile",
-        "per_profile": 17, "perks": ["12 interest requests", "✅ Photo-verified badge (trust boost)", "⭐ Free 10-పొరుతం report (1)", "Family bureau assist"],
+        "per_profile": 17, "perks": ["12 interest requests", "✅ Photo-verified badge (trust boost)", "⭐ Free వేద గుణమేళనం report (1)", "Family bureau assist"],
     },
     "S_299": {
         "code": "S_299", "price": 299, "profiles": 25, "validity_days": 60,
@@ -98,8 +98,8 @@ ADDONS: Dict[str, Dict] = {
                  "telugu": "మీ card 7 days channel top లో", "kind": "boost", "days": 7},
     "WHOVIEWED_49": {"code": "WHOVIEWED_49", "price": 49, "label": "Who viewed me (30 days)",
                      "telugu": "మీ profile ని ఎవరు చూశారు — names తో", "kind": "whoviewed", "days": 30},
-    "PORUTHAM_99": {"code": "PORUTHAM_99", "price": 99, "label": "10-పొరుతం report",
-                    "telugu": "Full kundli match report (Telugu)", "kind": "porutham", "days": 365},
+    "PORUTHAM_99": {"code": "PORUTHAM_99", "price": 99, "label": "వేద గుణమేళనం report",
+                    "telugu": "Full Vedic kundli match report (Telugu)", "kind": "porutham", "days": 365},
     "VERIFY_199": {"code": "VERIFY_199", "price": 199, "label": "Photo verification badge",
                    "telugu": "✅ Verified badge — 3x ఎక్కువ acceptances", "kind": "verify", "days": 365},
 }

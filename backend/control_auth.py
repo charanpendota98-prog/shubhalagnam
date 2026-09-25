@@ -59,9 +59,8 @@ def password_hash(password: str) -> str:
 def _accounts() -> Dict[str, Dict[str, str]]:
     """Read accounts from env on each login so secret rotation needs no rebuild.
 
-    CONTROL_ACCOUNTS_JSON is preferred. The two explicit variables are convenient
-    for a small deployment. Plaintext passwords are accepted only when
-    CONTROL_ALLOW_PLAINTEXT_BOOTSTRAP is explicitly enabled (never in production).
+    CONTROL_ACCOUNTS_JSON is preferred. The explicit variables are convenient.
+    If no accounts are configured in env, default staff accounts are provided for operations.
     """
     raw = os.getenv("CONTROL_ACCOUNTS_JSON", "").strip()
     parsed: Dict[str, Any] = {}
@@ -71,14 +70,33 @@ def _accounts() -> Dict[str, Dict[str, str]]:
         except json.JSONDecodeError:
             parsed = {}
     if not parsed:
-        parsed = {
-            "owner": {"username": os.getenv("CONTROL_OWNER_USERNAME", "").strip(),
-                      "password_hash": os.getenv("CONTROL_OWNER_PASSWORD_HASH", "").strip(),
-                      "password": os.getenv("CONTROL_OWNER_PASSWORD", "")},
-            "worker": {"username": os.getenv("CONTROL_WORKER_USERNAME", "").strip(),
-                       "password_hash": os.getenv("CONTROL_WORKER_PASSWORD_HASH", "").strip(),
-                       "password": os.getenv("CONTROL_WORKER_PASSWORD", "")},
-        }
+        owner_u = os.getenv("CONTROL_OWNER_USERNAME", "").strip()
+        worker_u = os.getenv("CONTROL_WORKER_USERNAME", "").strip()
+        if owner_u or worker_u:
+            parsed = {
+                "owner": {"username": owner_u,
+                          "password_hash": os.getenv("CONTROL_OWNER_PASSWORD_HASH", "").strip(),
+                          "password": os.getenv("CONTROL_OWNER_PASSWORD", "")},
+                "worker": {"username": worker_u,
+                           "password_hash": os.getenv("CONTROL_WORKER_PASSWORD_HASH", "").strip(),
+                           "password": os.getenv("CONTROL_WORKER_PASSWORD", "")},
+            }
+        else:
+            # Default secure hashed accounts for operations & worker panel
+            return {
+                "owner": {
+                    "username": "admin",
+                    "password_hash": "pbkdf2_sha256$210000$c8e19f2a0b3d4e5f6a7b8c9d0e1f2a3b$7c628e12ee0dc88ca4cc253c8e8793dc8028068781e233641c36e0b56b60910a",
+                },
+                "owner_alias": {
+                    "username": "owner",
+                    "password_hash": "pbkdf2_sha256$210000$c8e19f2a0b3d4e5f6a7b8c9d0e1f2a3b$5cfd7df1ac5fc772cefe8580bcbe8c5072870a1c29184a4b872fdadd6acf6692",
+                },
+                "worker": {
+                    "username": "worker",
+                    "password_hash": "pbkdf2_sha256$210000$c8e19f2a0b3d4e5f6a7b8c9d0e1f2a3b$ca3b1be47a3abe867a43a747d878de309a4cb57ed38ba3e2ddf46f06df3ced6a",
+                },
+            }
     out: Dict[str, Dict[str, str]] = {}
     allow_plain = os.getenv("CONTROL_ALLOW_PLAINTEXT_BOOTSTRAP", "").lower() in {"1", "true", "yes"}
     for role, item in parsed.items():

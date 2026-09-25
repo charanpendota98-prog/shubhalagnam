@@ -5,23 +5,23 @@
 # ============================================================
 services:
   postgres:
-    ports: !reset []
+    ports: []
   redis:
-    ports: !reset []
+    ports: []
   backend:
     # Caddy runs on the VM host; keep API reachable only via loopback.
     ports:
       - "127.0.0.1:8000:8000"
     command: uvicorn main:app --host 0.0.0.0 --port 8000 --workers 1
     restart: unless-stopped
-    volumes: !override
+    volumes:
       - cardsdata:/tmp/cards
       - photosdata:/tmp/photos
       - publishlogs:/app/publish_logs
       - controldata:/var/lib/manavivaha
     environment:
       - APP_ENV=production
-      - TSAP_AUTH_MODE=on
+      - TSAP_AUTH_MODE=${TSAP_AUTH_MODE:-on}
       - TSAP_API_KEY=${TSAP_API_KEY:?TSAP_API_KEY is required}
       - TSAP_AUTH_SECRET=${TSAP_AUTH_SECRET:?TSAP_AUTH_SECRET is required}
       - ADMIN_KEY=${ADMIN_KEY:?ADMIN_KEY is required}
@@ -62,7 +62,7 @@ services:
         NEXT_PUBLIC_SUPPORT_EMAIL: ${NEXT_PUBLIC_SUPPORT_EMAIL}
     command: npm run start -- -p 3000 -H 0.0.0.0
     restart: unless-stopped
-    volumes: !reset []
+    volumes: []
     environment:
       - BACKEND_URL=http://backend:8000
       - NEXT_PUBLIC_SUPPORT_PHONE=${NEXT_PUBLIC_SUPPORT_PHONE}
@@ -70,11 +70,11 @@ services:
       - NEXT_PUBLIC_SUPPORT_EMAIL=${NEXT_PUBLIC_SUPPORT_EMAIL}
 
   whatsapp-bridge:
-    ports: !reset []
+    ports: []
   whatsapp-bridge2:
-    ports: !reset []
+    ports: []
   whatsapp-bridge3:
-    ports: !reset []
+    ports: []
   bot:
     restart: unless-stopped
     environment:

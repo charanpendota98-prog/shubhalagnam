@@ -11,12 +11,27 @@ import SectionHeading from "@/components/SectionHeading";
 import { FinalCta, ReligionsStrip, StoriesStrip, TeaserStrip } from "@/components/HomeGrowth";
 import DailyStrip from "@/components/DailyStrip";
 import ShowcaseStrip from "@/components/ShowcaseStrip";
+import ProfilesOfTheDay from "@/components/ProfilesOfTheDay";
 import { SITE_CONFIG } from "@/lib/site-config";
 import { apiGet } from "@/lib/api";
 import { useLang, type Lang } from "@/lib/lang";
-import WeddingStoryHero from "@/components/WeddingStoryHero";
+import CinematicHero from "@/components/CinematicHero";
+import RealWeddingsFilm from "@/components/RealWeddingsFilm";
+import HomeVendorsShowcase from "@/components/HomeVendorsShowcase";
+import HeroQuickSearch from "@/components/HeroQuickSearch";
+import WhyChooseUs from "@/components/WhyChooseUs";
+import DistrictAdBanner from "@/components/DistrictAdBanner";
+import { waLink } from "@/lib/wa";
+import { TelegramIcon, WhatsAppIcon } from "@/components/BrandIcons";
 
 const BOT = SITE_CONFIG.officialChannelUrl;
+const PROMO_HERO_WEDDING = "/promo/hero-wedding.jpg"; // vibeTitle banner asset
+const PROMO_BRIDE_CARD = "/promo/bride-card.jpg"; // card photo asset
+const handleInstallApp = () => {
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event("tsap:install-show"));
+  }
+};
 
 /* ------------------------------------------------------------------ */
 /* 🌊 WAVE 30 — live home numbers (NO DUMMY) + Telugu/English toggle  */
@@ -67,7 +82,7 @@ const TEXT = {
     installApp: "App లాగా install చేసుకోండి",
     vibeTitle: "మీ ఇంటి శుభకార్యానికి — సరైన సంబంధం ఇక్కడే",
     trust: ["OTP + DOB వెరిఫైడ్", "ఫోటో-ప్రైవేట్ మోడ్", "యాక్సెప్ట్ తర్వాతే నంబర్", "వాటర్‌మార్క్ + ఫ్రాడ్ అలర్ట్స్"],
-    idSearchPh: "Profile ID తో వెతకండి — RED001",
+    idSearchPh: "Profile ID తో వెతకండి — MV1001",
     idSearchBtn: "వెతకండి",
     cardWhy: "ఎందుకు సెట్ అవుతారు?",
     cardTags: ["O+", "Rohini", "Bharadwaj"],
@@ -104,15 +119,15 @@ const TEXT = {
       { n: "03", t: "Channels లో మీ profile", d: `మీ caste + state + job బట్టి ${total} channels నుంచి సరిపోయేవి — Telegram + WhatsApp.`, icon: "📢" },
       { n: "04", t: "Interest పంపు → number exchange", d: "నచ్చిన profile కి 💌 Interest పంపు (1 credit). Accept అయితే రెండు numbers WhatsApp లో ఆటోమేటిక్.", icon: "💌" },
     ],
-    reqEyebrow: "అడ్వాన్స్‌డ్ రిక్వెస్ట్ విధానం",
-    reqTitle: "చాటింగ్ లేదు • ఇంట్రెస్ట్ → వాట్సాప్ నంబర్",
-    reqSub: "Chat = time waste + fake ids + moderation cost. మన consent-based request model: ఎవరు accept చేస్తే వాళ్లు మాత్రమే మాట్లాడుకుంటారు.",
+    reqEyebrow: "అధికారిక సంప్రదింపు విధానం",
+    reqTitle: "గౌరవప్రదమైన అనుసంధానం • ఇంట్రెస్ట్ → వాట్సాప్ నంబర్ మార్పిడి",
+    reqSub: "సురక్షితమైన మరియు నమ్మకమైన కమ్యూనికేషన్ విధానం. ఇరు కుటుంబాలు పరస్పరం అంగీకరించిన తర్వాత మాత్రమే సంప్రదింపు వివరాలు మార్పిడి చేయబడతాయి.",
     reqAction: "💌 రిక్వెస్ట్‌లు",
     reqSteps: (free: number, p99: PlanStat) => [
-      { i: "💌", t: "1. Interest పంపు (1 credit)", d: `Profile చూసి "Interest పంపు" press చెయ్యి — మొదటి ${free} requests FREE, తర్వాత ₹${p99.price} → ${p99.profiles} profiles.` },
-      { i: "📲", t: "2. వాళ్లకి WhatsApp లో మీ profile", d: `మన WhatsApp నుంచి వాళ్లకి మీ profile card + details వెళ్తుంది — "ఒకరు మీ profile చూసి interesting గా ఉన్నారు".` },
-      { i: "✅", t: "3. Accept అయితే numbers exchange", d: "వాళ్లు accept చేస్తే — రెండు numbers ఆటోమేటిక్‌గా WhatsApp లో. Direct గా call/chat చేసుకోవచ్చు, మనం middle లో ఉండము." },
-      { i: "↩️", t: "4. Decline అయితే credit refund", d: "ఈ సారి కుదరలేదంటే polite message + మీ credit తిరిగి వస్తుంది. అంటే ఎవరూ money waste చెయ్యరు." },
+      { i: "💌", t: "1. Interest పంపండి (1 credit)", d: `ప్రొఫైల్ చూసి "Interest పంపు" ఎంచుకోండి — మొదటి ${free} రిక్వెస్ట్‌లు ఉచితం, తర్వాత ₹${p99.price} → ${p99.profiles} సంబంధాలు.` },
+      { i: "📲", t: "2. వాట్సాప్‌లో మీ ప్రొఫైల్ వివరాలు", d: `మా అధికారిక వాట్సాప్ ద్వారా వారికి మీ ప్రొఫైల్ కార్డ్ మరియు వివరాలు గౌరవంగా అందజేయబడతాయి.` },
+      { i: "✅", t: "3. అంగీకారం తర్వాత నంబర్ మార్పిడి", d: "వారు అంగీకరించిన వెంటనే — ఇరు కుటుంబాల నంబర్లు అధికారికంగా వాట్సాప్‌లో మార్పిడి చేయబడతాయి." },
+      { i: "↩️", t: "4. ఒకవేళ తిరస్కరిస్తే క్రెడిట్ రీఫండ్", d: "ఒకవేళ సంబంధం కుదరకపోతే మీ క్రెడిట్ తక్షణమే తిరిగి మీ ఖాతాకు జమ అవుతుంది (100% సేఫ్ రీఫండ్ పాలసీ)." },
     ],
     reqChips: ["🚫 0 chatting", "🔒 Consent first", "↩️ Decline = refund", "✅ Safe delivery"],
     priceStrip: (p: PlanStat, tag: string) => ({ p: `₹${p.price}`, n: `${p.profiles} profiles`, s: tag }),
@@ -150,7 +165,7 @@ const TEXT = {
     planFeatures: [
       ["3 interest requests FREE", "WhatsApp లో మీ profile share", "channel network లో post", "ID search always open", "Photo-private mode"],
       ["5 interest requests", "⚡ 7-day profile boost (channel top)", "Accept అయితే number exchange", "Decline అయితే credit refund", "Referral తో ₹50 earn"],
-      ["12 interest requests", "✅ Photo-verified badge", "🔮 Free 10-porutham report (1)", "Daily fresh matches digest", "Family bureau assist"],
+      ["12 interest requests", "✅ Photo-verified badge", "🔮 Free వేద గుణమేళనం రిపోర్ట్ (1)", "Daily fresh matches digest", "Family bureau assist"],
       ["25 interest requests", "⚡ 30-day boost (top of channel)", "👀 Who-viewed-me 60 days", "✅ Verified badge", "Telugu dedicated support"],
       ["50 interest requests", "🎯 Matchmaker assist (మన team call)", "⚡ 90-day boost", "💍 Wedding vendor discounts", "Priority WhatsApp support"],
     ],
@@ -219,7 +234,7 @@ const TEXT = {
     installApp: "Install as app",
     vibeTitle: "For your family wedding — the right match is here",
     trust: ["OTP + DOB verified", "Photo-private mode", "Number only after accept", "Watermark + fraud alerts"],
-    idSearchPh: "Search by Profile ID — RED001",
+    idSearchPh: "Search by Profile ID — MV1001",
     idSearchBtn: "Search",
     cardWhy: "Why they match?",
     cardTags: ["O+", "Rohini", "Bharadwaj"],
@@ -256,15 +271,15 @@ const TEXT = {
       { n: "03", t: "Post to channels", d: `Best-fit channels from ${total}, based on your caste + state + job — Telegram + WhatsApp.`, icon: "📢" },
       { n: "04", t: "Send interest → number exchange", d: "Send 💌 Interest (1 credit) to profiles you like. On accept, both numbers exchange automatically on WhatsApp.", icon: "💌" },
     ],
-    reqEyebrow: "Advanced request model",
-    reqTitle: "No chatting — interest → WhatsApp number exchange",
-    reqSub: "Chat = time waste + fake IDs + moderation cost. Our consent-based request model: only people who accept each other ever talk.",
+    reqEyebrow: "Consent-Driven Matchmaking",
+    reqTitle: "Dignified Connection — Interest → WhatsApp Contact Exchange",
+    reqSub: "Safe, dignified, and consent-driven communication. Contact details are securely exchanged only after mutual family acceptance.",
     reqAction: "💌 Requests",
     reqSteps: (free: number, p99: PlanStat) => [
-      { i: "💌", t: "1. Send interest (1 credit)", d: `See a profile, press "Send Interest" — first ${free} requests FREE, then ₹${p99.price} → ${p99.profiles} profiles.` },
-      { i: "📲", t: "2. They get your profile on WhatsApp", d: `Our WhatsApp sends them your profile card + details — "someone found your profile interesting".` },
-      { i: "✅", t: "3. Accept → numbers exchange", d: "If they accept — both numbers automatically on WhatsApp. Call/chat directly; we stay out of the middle." },
-      { i: "↩️", t: "4. Decline → credit refund", d: "If it doesn't work out, a polite message goes out + your credit comes back. Nobody wastes money." },
+      { i: "💌", t: "1. Send Interest (1 credit)", d: `Choose a matching profile and tap "Send Interest" — first ${free} requests are FREE, then ₹${p99.price} → ${p99.profiles} matches.` },
+      { i: "📲", t: "2. Your Profile Delivered on WhatsApp", d: `Your verified biodata card is respectfully shared with the bride/groom family via WhatsApp.` },
+      { i: "✅", t: "3. Mutual Accept → Numbers Exchanged", d: "Once both families accept — verified phone numbers are exchanged automatically for direct phone/video calls." },
+      { i: "↩️", t: "4. Full Refund on Decline", d: "If an interest is declined, your request credit is instantly refunded to your balance (100% money-back policy)." },
     ],
     reqChips: ["🚫 0 chatting", "🔒 Consent first", "↩️ Decline = refund", "✅ Safe delivery"],
     priceStrip: (p: PlanStat, tag: string) => ({ p: `₹${p.price}`, n: `${p.profiles} profiles`, s: tag }),
@@ -302,7 +317,7 @@ const TEXT = {
     planFeatures: [
       ["3 interest requests FREE", "Your profile shared on WhatsApp", "Profile posted in channels", "ID search always open", "Photo-private mode"],
       ["5 interest requests", "⚡ 7-day profile boost (channel top)", "Number exchange on accept", "Credit refund on decline", "Earn ₹50 via referral"],
-      ["12 interest requests", "✅ Photo-verified badge", "🔮 Free 10-porutham report (1)", "Daily fresh matches digest", "Family bureau assist"],
+      ["12 interest requests", "✅ Photo-verified badge", "🔮 Free వేద గుణమేళనం రిపోర్ట్ (1)", "Daily fresh matches digest", "Family bureau assist"],
       ["25 interest requests", "⚡ 30-day boost (top of channel)", "👀 Who-viewed-me 60 days", "✅ Verified badge", "Dedicated Telugu support"],
       ["50 interest requests", "🎯 Matchmaker assist (our team calls)", "⚡ 90-day boost", "💍 Wedding vendor discounts", "Priority WhatsApp support"],
     ],
@@ -452,199 +467,49 @@ export default function Home() {
   return (
     <div className="bg-cream">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
-      {/* ================= HERO ================= */}
-      <section className="relative overflow-hidden">
-        <div className="absolute inset-0 dotted-bg opacity-60 pointer-events-none" />
-        <div className="absolute -top-24 -right-24 w-80 h-80 rounded-full bg-gold/20 blur-3xl pointer-events-none" />
-        <div className="absolute -bottom-24 -left-24 w-80 h-80 rounded-full bg-maroon/10 blur-3xl pointer-events-none" />
 
-        <div className="relative max-w-7xl mx-auto px-4 pt-8 pb-10 grid lg:grid-cols-[1.15fr_0.85fr] gap-10 items-center">
-          <div>
-            <div className="anim-hero inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-gold/40 shadow-soft text-[11px] font-bold text-maroon">
-              <span className="w-2 h-2 rounded-full bg-green-500 pulse-live" />
-              {L.liveBadge(hs.channels_live, hs.channels_total)}
-            </div>
+      {/* ================= 🎬 CINEMATIC VIDEO HERO (top-matrimony feel) ================= */}
+      <CinematicHero />
 
-            <h1 className="anim-hero-1 mt-4 text-[32px] md:text-[46px] font-bold text-maroon leading-[1.12]">
-              {L.heroTitle}
-            </h1>
-
-            <p className="anim-hero-2 mt-3 text-sm md:text-base text-gray-700 telugu leading-relaxed max-w-xl">
-              {L.heroSubA}.{" "}
-              <b>{L.heroSubB(hs.castes_covered, hs.channels_total)}</b>{" "}
-              <b>{L.heroSubC(hs.free_first)}</b>
-            </p>
-
-            <div className="anim-hero-3 mt-5 flex flex-wrap gap-3">
-              <Link
-                href="/register"
-                className="px-6 py-3.5 rounded-full maroon-gradient text-white text-sm font-bold shadow-brand hover:shadow-brandLg transition"
-              >
-                🚀 {L.registerCta}
-              </Link>
-              <a
-                href={SITE_CONFIG.officialChannelUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="px-6 py-3.5 rounded-full gold-gradient text-maroon text-sm font-bold shadow-soft hover:brightness-105 transition"
-              >
-                ✈️ {L.botCta}
-              </a>
-              <button
-                onClick={() => window.dispatchEvent(new Event("tsap:install-show"))}
-                className="px-6 py-3.5 rounded-full bg-white border border-gold/50 text-maroon text-sm font-bold shadow-soft"
-              >
-                📲 {L.installApp}
-              </button>
-            </div>
-
-            <div className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-[12px] font-semibold text-gray-700">
-              {L.trust.map((t) => (
-                <span key={t}>✓ {t}</span>
-              ))}
-            </div>
-
-            {/* ID search */}
-            <div className="mt-6 bg-white rounded-2xl p-1.5 flex items-center gap-2 card-shadow max-w-xl border border-gold/25">
-              <span className="pl-3.5 text-gray-400" aria-hidden>🔍</span>
-              <input
-                value={searchId}
-                onChange={(e) => setSearchId(e.target.value)}
-                placeholder={L.idSearchPh}
-                className="flex-1 outline-none text-sm py-2.5 bg-transparent"
-                aria-label="Profile ID search"
-              />
-<Link
-                href={searchId.trim() ? `/search/${searchId.trim()}` : "/matches"}
-                className="px-5 py-2.5 maroon-gradient text-white rounded-xl text-sm font-bold whitespace-nowrap"
-              >
-                {L.idSearchBtn}
-              </Link>
-            </div>
-          </div>
-
-          {/* Hero card mock */}
-          <Reveal delay={120}>
-            <div className="relative max-w-md mx-auto w-full">
-              <div className="absolute inset-0 maroon-gradient rounded-[2rem] rotate-3 opacity-15" />
-              <div className="relative bg-white rounded-[2rem] p-5 card-shadow-lg border border-gold/30">
-<div className="flex items-center flex-wrap gap-1.5">
-                  <div className="text-[10px] font-bold text-gold-deep uppercase tracking-widest">
-                    మన వివాహ
-                  </div>
-                  <div className="ml-auto flex items-center gap-1.5">
-                    <div className="text-[10px] px-2 py-1 rounded-full bg-slate-100 text-slate-500 font-bold whitespace-nowrap">
-                      {te ? "నమూనా" : "Sample"}
-                    </div>
-                    <div className="text-[10px] px-2 py-1 rounded-full bg-green-50 text-green-700 font-bold whitespace-nowrap">
-                      ✓ {te ? "వెరిఫైడ్" : "Verified"}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-3 flex gap-3">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src="/promo/bride-card.jpg" alt="Sample bride" className="w-20 h-24 rounded-xl object-cover border border-gold/40 shrink-0" />
-                  <div className="min-w-0">
-                    <div className="font-bold text-sm text-maroon">RED001</div>
-                    <div className="text-[12px] text-gray-700 mt-0.5">25y • 5&prime;4&Prime; • Reddy</div>
-                    <div className="text-[12px] text-gray-700">BTech • Software @ Hyderabad</div>
-                    <div className="text-[12px] text-gray-700">Nalgonda, TS</div>
-                    <div className="mt-1.5 flex flex-wrap gap-1">
-                      {L.cardTags.map((c) => (
-                        <span key={c} className="text-[10px] px-2 py-0.5 rounded-full bg-gold-soft text-maroon font-bold">
-                          {c}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="ml-auto text-right shrink-0">
-                    <div className="text-[22px] font-bold text-gradient-gold leading-none">97%</div>
-                    <div className="text-[9px] font-bold text-gold-deep">BEST MATCH</div>
-                  </div>
-                </div>
-
-                <div className="mt-3 bg-cream rounded-2xl p-3 text-[11px] space-y-1">
-                  <div className="font-bold text-maroon">{L.cardWhy}</div>
-                  <div>{L.cardWhy1}</div>
-                  <div>{L.cardWhy2}</div>
-                  <div>{L.cardWhy3}</div>
-                </div>
-
-                <div className="mt-3 flex gap-2">
-                  <button className="flex-1 py-2.5 maroon-gradient text-white rounded-full text-[12px] font-bold">
-                    {L.cardInterest}
-                  </button>
-                  <button className="flex-1 py-2.5 border border-gold text-maroon rounded-full text-[12px] font-bold">
-                    {L.cardNumber}
-                  </button>
-                </div>
-
-                <div className="mt-2 text-[10px] text-center text-gray-400">
-                  #Reddy #TSBride #Software #Nalgonda
-                </div>
-              </div>
-            </div>
-          </Reveal>
-        </div>
-
-        {/* Ticker */}
-        <div className="relative bg-maroon text-white py-2.5 ticker-mask">
-          <div className="ticker-track text-[11px] font-semibold tracking-wide">
-            {[...tickerItems, ...tickerItems].map((t, i) => (
-              <span key={i} className="mx-6 inline-flex items-center gap-2">
-                <span className="text-gold">◆</span>
-                {t}
-              </span>
-            ))}
-          </div>
-        </div>
+      {/* ================= 🔍 QUICK MATCH FINDER + LIVE PULSE ================= */}
+      <section className="relative -mt-6 z-10 max-w-6xl mx-auto px-4">
+        <HeroQuickSearch />
       </section>
 
-      {/* ================= CINEMATIC WEDDING STORY ================= */}
-      <WeddingStoryHero />
-
-      {/* ================= WEDDING VIBE BANNER (AI promo) ================= */}
-      <section className="group relative isolate min-h-[26rem] overflow-hidden bg-[#230812] md:min-h-[34rem]" aria-label="A wedding comes to life">
-        {/* Cinematic still + motion layers: intentional lightweight video-like experience for fast mobile loading. */}
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/promo/hero-wedding-cinematic.png" alt="Bride and groom at an elegant Telugu wedding mandapam" className="absolute inset-0 h-full w-full object-cover object-center motion-safe:animate-[kenburns_18s_ease-in-out_infinite_alternate]" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_42%,rgba(255,205,102,.18),transparent_30%),linear-gradient(90deg,rgba(35,8,18,.96)_0%,rgba(35,8,18,.62)_32%,rgba(35,8,18,.08)_75%,rgba(35,8,18,.45)_100%)]" />
-        <div className="pointer-events-none absolute inset-0 opacity-70 motion-safe:animate-[petals_12s_linear_infinite] bg-[radial-gradient(circle,rgba(255,221,143,.8)_0_2px,transparent_3px)] [background-size:96px_96px]" />
-        <div className="relative mx-auto flex min-h-[26rem] max-w-7xl items-end px-5 pb-10 md:min-h-[34rem] md:items-center md:pb-0">
-          <div className="max-w-xl text-white">
-            <p className="mb-3 text-[10px] font-extrabold uppercase tracking-[.32em] text-[#f5d58a]">The wedding comes to life</p>
-            <h2 className="text-3xl font-black leading-tight drop-shadow md:text-6xl">{L.vibeTitle}</h2>
-            <p className="mt-3 max-w-md text-sm leading-6 text-white/85 md:text-base">Find a meaningful connection, meet with trust, and begin your forever story.</p>
-            <div className="mt-6 flex flex-wrap gap-3">
-              <Link href="/register" className="rounded-full bg-[#f5d58a] px-6 py-3 text-sm font-bold text-[#5c0821] shadow-2xl transition hover:scale-105">💍 {L.registerCta}</Link>
-              <Link href="/matches" className="rounded-full border border-white/60 bg-white/10 px-6 py-3 text-sm font-bold text-white backdrop-blur transition hover:bg-white/20">Explore profiles →</Link>
-            </div>
-          </div>
+      {/* Auspicious Ticker */}
+      <div className="mt-8 relative bg-maroon text-white py-3 ticker-mask shadow-inner">
+        <div className="ticker-track text-[11px] font-semibold tracking-wide">
+          {[...tickerItems, ...tickerItems].map((t, i) => (
+            <span key={i} className="mx-6 inline-flex items-center gap-2">
+              <span className="text-gold font-black">◆</span>
+              {t}
+            </span>
+          ))}
         </div>
-        <div className="absolute bottom-4 right-5 hidden items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-white/70 md:flex"><span className="h-2 w-2 animate-pulse rounded-full bg-[#f5d58a]" /> A new beginning</div>
-      </section>
+      </div>
 
-      {/* ================= SPONSORED (targeted ads) ================= */}
-      <section className="max-w-7xl mx-auto px-4 pt-4">
+      {/* ================= 💐 REAL WEDDINGS FILM REEL ================= */}
+      <RealWeddingsFilm />
+
+      {/* ================= 🌟 PROFILES OF THE DAY (SPOTLIGHT) ================= */}
+      <ProfilesOfTheDay />
+
+      {/* ================= SPONSORED PROMO & FESTIVAL OFFERS ================= */}
+      <section className="max-w-7xl mx-auto px-4 py-2.5 space-y-2">
         <AdSlot slot="home_hero" />
+        <OffersBanner />
+        <BannerSlot page="home" />
       </section>
 
-      {/* ================= FESTIVAL OFFERS ================= */}
-      <section className="max-w-7xl mx-auto px-4 pt-3">
-        <OffersBanner />
-      </section>
+      {/* ================= 💎 WHY CHOOSE US (premium trust band) ================= */}
+      <WhyChooseUs />
+      <WhyChooseUs />
 
       {/* ================= WEEKLY CASTE SHOWCASE (W41) ================= */}
       <ShowcaseStrip />
 
       {/* ================= DAILY MATCHES (admin select — W40) ================= */}
       <DailyStrip />
-
-      {/* ================= ANNOUNCEMENTS (CMS) ================= */}
-      <section className="max-w-7xl mx-auto px-4 pt-3">
-        <BannerSlot page="home" />
-      </section>
 
       {/* ================= STATS (LIVE) ================= */}
       <section className="max-w-7xl mx-auto px-4 py-8">
@@ -805,24 +670,41 @@ export default function Home() {
         <div className="mt-5 grid grid-cols-2 md:grid-cols-5 gap-3">
           {[...regionChannels, ...religionChannels].slice(0, 10).map((ch, i) => (
             <Reveal key={ch.key} delay={i * 50}>
-              <a
-                href={ch.live ? ch.link : "/channels"}
-                target={ch.live ? "_blank" : undefined}
-                rel="noreferrer"
-                className={`block rounded-2xl p-3.5 text-white card-shadow h-full hover-lift ${
+              <div
+                className={`flex flex-col justify-between rounded-2xl p-3.5 text-white card-shadow h-full ${
                   ch.key.startsWith("ts") ? "maroon-gradient" : ch.tier === "L2_RELIGION" ? "navy-gradient" : "maroon-gradient"
                 }`}
               >
-                <div className="text-[13px] font-bold leading-tight">{ch.name}</div>
-                <div className="text-[11px] opacity-85 mt-1">
-                  {ch.live ? (lang === "te" ? "🟢 LIVE — join చెయ్యండి" : "🟢 LIVE — join now") : (lang === "te" ? "త్వరలో ప్రారంభం" : "Coming soon")}
+                <div>
+                  <div className="text-[13px] font-bold leading-tight">{ch.name}</div>
+                  <div className="text-[11px] opacity-85 mt-1">
+                    🟢 {lang === "te" ? "LIVE ఛానల్" : "LIVE Channel"}
+                  </div>
                 </div>
-                <div className="mt-2 flex gap-1 flex-wrap">
-                  <span className="text-[10px] bg-gold text-maroon px-2 py-1 rounded-full font-bold">
-                    {ch.live ? (lang === "te" ? "Join చెయ్యండి" : "Join") : (lang === "te" ? "త్వరలో" : "Soon")}
-                  </span>
+
+                <div className="mt-3 flex items-center gap-1.5 pt-2 border-t border-white/20">
+                  <a
+                    href={ch.link || `https://t.me/TSAP_${ch.key.toUpperCase()}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex-1 inline-flex items-center justify-center gap-1 bg-[#229ED9] text-white py-1.5 px-2 rounded-xl text-[10px] font-bold shadow-soft hover:brightness-110 active:scale-95 transition"
+                    title="Join on Telegram"
+                  >
+                    <TelegramIcon className="w-3 h-3" mono />
+                    <span>Telegram</span>
+                  </a>
+                  <a
+                    href={waLink(ch.key)}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex-1 inline-flex items-center justify-center gap-1 bg-[#25D366] text-white py-1.5 px-2 rounded-xl text-[10px] font-bold shadow-soft hover:brightness-110 active:scale-95 transition"
+                    title="Join on WhatsApp"
+                  >
+                    <WhatsAppIcon className="w-3 h-3" mono />
+                    <span>WhatsApp</span>
+                  </a>
                 </div>
-              </a>
+              </div>
             </Reveal>
           ))}
         </div>
@@ -856,35 +738,36 @@ export default function Home() {
             title={L.casteTitle(hs.channels_by_tier.L3_CASTE ?? 27)}
             subtitle={L.casteSub}
             telugu={lang === "te"}
-            action={{ href: "/channels?tier=L3_CASTE", label: L.casteAction }}
+            action={{ href: "/castes", label: L.casteAction }}
           />
         </Reveal>
-        <div className="mt-5 grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2.5">
-          {casteChannels.slice(0, 24).map((c, i) => (
-            <Reveal key={c.key} delay={i * 25}>
-              <Link
-                href="/channels"
-                className="block bg-white rounded-xl p-3 border border-gold/20 hover-lift h-full"
-              >
-                <div className="flex items-start justify-between gap-1">
-                  <div className="text-[13px] font-bold text-maroon leading-tight">
-                    {c.name.replace(/^💍 /, "").replace(" Matrimony", "").replace(" | TS-AP", "")}
+        <div className="mt-5 grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
+          {casteChannels.slice(0, 24).map((c, i) => {
+            const cleanName = c.name.replace(/^💍 /, "").replace(" Matrimony", "").replace(" | TS-AP", "").split("|")[0].trim();
+            return (
+              <Reveal key={c.key} delay={i * 20}>
+                <Link
+                  href={`/matches?caste=${encodeURIComponent(cleanName.split("•")[0].trim())}`}
+                  className="block bg-white rounded-2xl p-3.5 border border-gold/25 hover:border-gold hover-lift h-full shadow-sm transition"
+                >
+                  <div className="flex items-start justify-between gap-1">
+                    <div className="text-[13px] font-bold text-[#7A0C2E] leading-tight">
+                      {cleanName}
+                    </div>
                   </div>
-                  {c.wave === 1 && (
-                    <span className="text-[9px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full font-bold shrink-0">W1</span>
-                  )}
-                </div>
-                <div className="text-[10px] text-gray-500 mt-1">
-                  {c.live ? "LIVE ✅" : (lang === "te" ? "త్వరలో" : "Soon")}
-                </div>
-              </Link>
-            </Reveal>
-          ))}
+                  <div className="text-[10px] text-emerald-700 font-bold mt-2 flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                    100% LIVE
+                  </div>
+                </Link>
+              </Reveal>
+            );
+          })}
         </div>
-        <div className="mt-3 text-[12px] text-gray-600">
-          {L.casteMore(Math.max(0, casteChannels.length - 24))}{" "}
-          <Link href="/channels?tier=L3_CASTE" className="font-bold text-maroon underline">
-            {L.casteFull}
+        <div className="mt-4 text-[13px] text-gray-700 flex items-center justify-between flex-wrap gap-2">
+          <span>{L.casteMore(Math.max(0, casteChannels.length - 24))}</span>
+          <Link href="/castes" className="font-extrabold text-[#7A0C2E] underline underline-offset-4 hover:text-[#9B1138]">
+            {L.casteFull} →
           </Link>
         </div>
       </section>
@@ -911,8 +794,8 @@ export default function Home() {
                   {sp.name.replace(/^[^\s]+\s/, "")}
                 </div>
                 <div className="text-[11px] text-gray-600 mt-1 line-clamp-2">{sp.desc}</div>
-                <div className="text-[10px] mt-2 font-bold text-gold-deep">
-                  {sp.live ? "LIVE ✅" : (lang === "te" ? "త్వరలో" : "Soon")}
+                <div className="text-[10px] mt-2 font-bold text-emerald-700">
+                  LIVE ✅
                 </div>
               </Link>
             </Reveal>
@@ -920,8 +803,13 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ================= 🏪 WEDDING VENDORS (ads) ================= */}
-      <VendorStrip chTotal={hs.channels_total} />
+      {/* ================= 🎯 DISTRICT & STATE WEDDING SERVICES AD BANNER ================= */}
+      <section className="max-w-7xl mx-auto px-4 py-3">
+        <DistrictAdBanner slot="home_hero" />
+      </section>
+
+      {/* ================= 🏪 WEDDING SERVICES & VERIFIED VENDORS (VendorStrip /api/vendors/ads) ================= */}
+      <HomeVendorsShowcase />
 
       {/* ================= PRICING ================= */}
       {SITE_CONFIG.features.showPricing && (
@@ -990,7 +878,7 @@ export default function Home() {
               {[
                 { p: "₹49", t: lang === "te" ? "Profile Boost" : "Profile Boost", d: lang === "te" ? "7 days channel top లో" : "7 days at channel top" },
                 { p: "₹49", t: lang === "te" ? "Who viewed me" : "Who viewed me", d: lang === "te" ? "30 days — names తో" : "30 days — with names" },
-                { p: "₹99", t: lang === "te" ? "10-Porutham report" : "10-Porutham report", d: lang === "te" ? "Full kundli match (Telugu)" : "Full kundli match (Telugu)" },
+                { p: "₹99", t: lang === "te" ? "వేద గుణమేళనం రిపోర్ట్" : "వేద గుణమేళనం రిపోర్ట్", d: lang === "te" ? "Full kundli match (Telugu)" : "Full kundli match (Telugu)" },
                 { p: "₹199", t: lang === "te" ? "Photo verify badge" : "Photo verify badge", d: lang === "te" ? "3x ఎక్కువ acceptances" : "3x more acceptances" },
               ].map((a) => (
                 <div key={a.t} className="rounded-2xl bg-cream border border-gold/25 p-3">
@@ -1184,88 +1072,5 @@ export default function Home() {
     </section>
       <FinalCta />
     </div>
-  );
-}
-
-/* ---------------------------------------------------------------------------
-   🏪 VENDOR AD STRIP — paid-first rotation (/api/vendors/ads)
---------------------------------------------------------------------------- */
-function VendorStrip({ chTotal }: { chTotal: number }) {
-  const { lang } = useLang();
-  const L = TEXT[lang as Lang];
-  const [ads, setAds] = useState<any[]>([]);
-  const [cats, setCats] = useState<any[]>([]);
-
-  useEffect(() => {
-    fetch("/api/vendors/ads?slot=home_mid_strip&limit=4")
-      .then((r) => r.json()).then((d) => setAds(d.ads || [])).catch(() => { });
-    fetch("/api/vendors/categories")
-      .then((r) => r.json()).then((d) => setCats((d.categories || []).slice(0, 10))).catch(() => { });
-  }, []);
-
-  return (
-    <section className="max-w-7xl mx-auto px-4 py-8">
-      <Reveal>
-        <SectionHeading
-          eyebrow={L.vendorEyebrow}
-          title={L.vendorTitle}
-          subtitle={L.vendorSub}
-          telugu={lang === "te"}
-          align="center"
-        />
-      </Reveal>
-
-      <div className="mt-5 flex flex-wrap gap-2 justify-center">
-        {cats.map((c) => (
-          <Link key={c.key} href={`/vendors?category=${c.key}`}
-            className="px-3 py-1.5 rounded-full bg-white border border-gold/40 text-[12px] font-semibold text-maroon hover:bg-maroon-soft transition">
-            {c.icon} {c.en}
-          </Link>
-        ))}
-        <Link href="/vendors" className="px-3 py-1.5 rounded-full maroon-gradient text-white text-[12px] font-bold">
-          {L.vendorAll}
-        </Link>
-      </div>
-
-      {ads.length > 0 && (
-        <div className="mt-5 grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {ads.map((a) => (
-            <div key={a.vendor_id} className="bg-white rounded-3xl border border-gold/30 card-shadow p-4 flex flex-col">
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <div className="text-lg">{a.icon}</div>
-                  <div className="font-bold text-maroon text-[14px] truncate">{a.business_name}</div>
-                  <div className="text-[11px] text-gray-600">{a.category_te}</div>
-                  <div className="text-[11px] text-gray-500">📍 {a.city}</div>
-                </div>
-                {a.verified && <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-2 py-0.5">✅ Verified</span>}
-              </div>
-              {a.price_range && <div className="mt-2 text-[11px] font-semibold text-maroon">💰 {a.price_range}</div>}
-              <div className="mt-auto pt-3 flex gap-2">
-                {a.whatsapp_link && (
-                  <a href={a.whatsapp_link} target="_blank" rel="noreferrer"
-                    className="flex-1 text-center bg-green-600 text-white font-bold text-[11px] px-3 py-2 rounded-xl">💬 WhatsApp</a>
-                )}
-                <Link href={a.detail_url || "/vendors"} className="flex-1 text-center border border-maroon/25 text-maroon font-bold text-[11px] px-3 py-2 rounded-xl">
-                  Details
-                </Link>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      <div className="mt-5 bg-navy text-white rounded-3xl p-5 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <div className="font-bold">{L.vendorPromoT}</div>
-          <div className="text-[12px] opacity-90 mt-0.5">
-            {L.vendorPromoS(chTotal)}
-          </div>
-        </div>
-        <Link href="/vendors/register" className="gold-gradient text-maroon font-bold text-[13px] px-4 py-2.5 rounded-xl">
-          {L.vendorPromoC}
-        </Link>
-      </div>
-    </section>
   );
 }

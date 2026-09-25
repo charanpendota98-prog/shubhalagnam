@@ -395,7 +395,7 @@ TEMPLATES: List[Dict[str, str]] = [
     {"id": "professional", "label": "💼 Job / City match",
      "text": "Hello, మేము కూడా same city లో job చేస్తున్నాం — మన interests/lifestyle match avutunnayi. Matladataniki interest ఉంది."},
     {"id": "horoscope", "label": "⭐ Jatakam / Porutham",
-     "text": "నమస్తే, మీ jathakam details chusi పొరుతం బాగుంది అని anipinchindi — మన ఇంట్లో peddavallaki cheppataniki ముందు మీరు interest ఉంటే చెప్పండి."},
+     "text": "నమస్తే, మీ జాతక వివరాలు చూసి గుణమేళనం & పొంతన బాగుంది అనిపించింది — మన ఇంట్లో పెద్దవాళ్లకు చెప్పడానికి ముందు మీరు ఆసక్తిగా ఉన్నారో లేదో తెలుపగలరు."},
     {"id": "second_marriage", "label": "🔄 Second marriage / Vidakuulu",
      "text": "నమస్తే, మేము కూడా life లో second innings start cheddamani chustunnam. మీ profile chusi hope వచ్చింది — matladocha?"},
     {"id": "parents", "label": "👨‍👩‍👧 Parents tarvupuna (మీ ఇంట్లో వాళ్లకి చెప్పండి)",

@@ -37,7 +37,7 @@ LABELS = {
     "job": ("Job / profession", "ఉద్యోగం"),
     "salary": ("Income", "ఆదాయం"),
     "height": ("Height match", "ఎత్తు"),
-    "horoscope": ("10-porutham", "పొరుత్తం"),
+    "horoscope": ("Gunamelanam", "గుణమేళనం"),
     "family": ("Family background", "కుటుంబం"),
     "lifestyle": ("Lifestyle habits", "జీవనశైలి"),
     "trust": ("Verification / trust", "విశ్వాసం"),
@@ -206,16 +206,16 @@ def _height_pref(user: Dict, match: Dict) -> (float, str):
 
 def _horoscope_pref(user: Dict, match: Dict) -> (float, str):
     if not compute_porutham:
-        return 0.5, "పొరుతం engine లేదు"
+        return 0.5, "గుణమేళనం అందుబాటులో లేదు"
     b, g = (user, match) if user.get("gender") == "Bride" else (match, user)
     try:
         r = compute_porutham(b, g)
     except Exception:
         r = {"available": False}
     if not r.get("available"):
-        return 0.5, "star details lekapote పొరుతం neutral (star add చెయ్యండి)"
+        return 0.5, "నక్షత్ర వివరాలు లేవు (నక్షత్రం నమోదు చేస్తే గుణమేళనం వస్తుంది)"
     sc = float(r.get("score", 0) or 0)
-    return (sc / 10.0), "10-పొరుతం %s/10 — %s" % (sc, str(r.get("verdict", ""))[:40])
+    return (sc / 10.0), "గుణమేళనం %s/10 — %s" % (sc, str(r.get("verdict", ""))[:40])
 
 
 def _family_pref(user: Dict, match: Dict) -> (float, str):

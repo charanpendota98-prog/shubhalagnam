@@ -54,7 +54,7 @@ CHANNELS = {
                  "Website: manavivaha.in • Bot: @telugumatrimony1_bot"),
         "hashtags": ["#ManaVivaha", "#TSAPMatrimony", "#99keSambandham"],
         "wave": 1,
-        "live": False,
+        "live": True,
         "route": "digest",  # only top-3/day, not every profile
     },
 
@@ -94,7 +94,7 @@ CHANNELS = {
                  "Daily కొత్త profiles • Register FREE: manavivaha.in/register"),
         "hashtags": ["#APBride", "#AndhraPradesh"],
         "wave": 1,
-        "live": False,
+        "live": True,
         "route": {"state": "AP", "gender": "Bride"},
     },
     "ap_groom": {
@@ -106,7 +106,7 @@ CHANNELS = {
                  "Daily కొత్త profiles • Register FREE: manavivaha.in/register"),
         "hashtags": ["#APGroom", "#AndhraPradesh"],
         "wave": 1,
-        "live": False,
+        "live": True,
         "route": {"state": "AP", "gender": "Groom"},
     },
     "nri_global": {
@@ -118,7 +118,7 @@ CHANNELS = {
                  "Visa/PR/job status mention చెయ్యండి. manavivaha.in • @telugumatrimony1_bot"),
         "hashtags": ["#NRI", "#TeluguAbroad", "#GlobalTelugu"],
         "wave": 2,
-        "live": False,
+        "live": True,
         "route": {"state": "Other"},
     },
 
@@ -133,7 +133,7 @@ CHANNELS = {
                  "manavivaha.in/register • Bot: @telugumatrimony1_bot"),
         "hashtags": ["#Hindu", "#TeluguMatrimony"],
         "wave": 1,
-        "live": False,
+        "live": True,
         "route": {"religion": "Hindu"},
     },
     # ---- MUSLIM (4 — TS/AP × bride/groom; Sheikh/Syed/Pathan antha same channel) ----
@@ -143,7 +143,7 @@ CHANNELS = {
         "username": "manavivaha_muslim_ts_bride",
         "fallbacks": ["tsmuslimbride", "mv_muslim_ts_brd", "manavivaha_muslim_ts_brd"],
         "hashtags": ["#Muslim", "#Bride", "#Telangana", "#Nikah"],
-        "wave": 1, "live": False, "route": {"religion": "Muslim", "state": "TS", "gender": "Bride"},
+        "wave": 1, "live": True, "route": {"religion": "Muslim", "state": "TS", "gender": "Bride"},
     },
     "muslim_ts_groom": {
         "tier": "L2_RELIGION", "sub": "muslim", "state": "TS", "gender": "Groom",
@@ -151,7 +151,7 @@ CHANNELS = {
         "username": "manavivaha_muslim_ts_groom",
         "fallbacks": ["tsmuslimgroom", "mv_muslim_ts_grm", "manavivaha_muslim_ts_grm"],
         "hashtags": ["#Muslim", "#Groom", "#Telangana", "#Nikah"],
-        "wave": 1, "live": False, "route": {"religion": "Muslim", "state": "TS", "gender": "Groom"},
+        "wave": 1, "live": True, "route": {"religion": "Muslim", "state": "TS", "gender": "Groom"},
     },
     "muslim_ap_bride": {
         "tier": "L2_RELIGION", "sub": "muslim", "state": "AP", "gender": "Bride",
@@ -159,7 +159,7 @@ CHANNELS = {
         "username": "manavivaha_muslim_ap_bride",
         "fallbacks": ["apmuslimbride", "mv_muslim_ap_brd", "manavivaha_muslim_ap_brd"],
         "hashtags": ["#Muslim", "#Bride", "#AndhraPradesh", "#Nikah"],
-        "wave": 1, "live": False, "route": {"religion": "Muslim", "state": "AP", "gender": "Bride"},
+        "wave": 1, "live": True, "route": {"religion": "Muslim", "state": "AP", "gender": "Bride"},
     },
     "muslim_ap_groom": {
         "tier": "L2_RELIGION", "sub": "muslim", "state": "AP", "gender": "Groom",
@@ -167,7 +167,7 @@ CHANNELS = {
         "username": "manavivaha_muslim_ap_groom",
         "fallbacks": ["apmuslimgroom", "mv_muslim_ap_grm", "manavivaha_muslim_ap_grm"],
         "hashtags": ["#Muslim", "#Groom", "#AndhraPradesh", "#Nikah"],
-        "wave": 1, "live": False, "route": {"religion": "Muslim", "state": "AP", "gender": "Groom"},
+        "wave": 1, "live": True, "route": {"religion": "Muslim", "state": "AP", "gender": "Groom"},
     },
     # ---- CHRISTIAN (4 — TS/AP × bride/groom; Catholic/CSI/Baptist antha same channel) ----
     "christian_ts_bride": {
@@ -176,7 +176,7 @@ CHANNELS = {
         "username": "manavivaha_christian_ts_bride",
         "fallbacks": ["tschristianbride", "mv_christ_ts_brd", "manavivaha_christ_ts_brd"],
         "hashtags": ["#Christian", "#Bride", "#Telangana", "#Wedding"],
-        "wave": 1, "live": False, "route": {"religion": "Christian", "state": "TS", "gender": "Bride"},
+        "wave": 1, "live": True, "route": {"religion": "Christian", "state": "TS", "gender": "Bride"},
     },
     "christian_ts_groom": {
         "tier": "L2_RELIGION", "sub": "christian", "state": "TS", "gender": "Groom",
@@ -184,7 +184,7 @@ CHANNELS = {
         "username": "manavivaha_christian_ts_groom",
         "fallbacks": ["tschristiangroom", "mv_christ_ts_grm", "manavivaha_christ_ts_grm"],
         "hashtags": ["#Christian", "#Groom", "#Telangana", "#Wedding"],
-        "wave": 1, "live": False, "route": {"religion": "Christian", "state": "TS", "gender": "Groom"},
+        "wave": 1, "live": True, "route": {"religion": "Christian", "state": "TS", "gender": "Groom"},
     },
     "christian_ap_bride": {
         "tier": "L2_RELIGION", "sub": "christian", "state": "AP", "gender": "Bride",
@@ -192,7 +192,7 @@ CHANNELS = {
         "username": "manavivaha_christian_ap_bride",
         "fallbacks": ["apchristianbride", "mv_christ_ap_brd", "manavivaha_christ_ap_brd"],
         "hashtags": ["#Christian", "#Bride", "#AndhraPradesh", "#Wedding"],
-        "wave": 1, "live": False, "route": {"religion": "Christian", "state": "AP", "gender": "Bride"},
+        "wave": 1, "live": True, "route": {"religion": "Christian", "state": "AP", "gender": "Bride"},
     },
     "christian_ap_groom": {
         "tier": "L2_RELIGION", "sub": "christian", "state": "AP", "gender": "Groom",
@@ -200,7 +200,7 @@ CHANNELS = {
         "username": "manavivaha_christian_ap_groom",
         "fallbacks": ["apchristiangroom", "mv_christ_ap_grm", "manavivaha_christ_ap_grm"],
         "hashtags": ["#Christian", "#Groom", "#AndhraPradesh", "#Wedding"],
-        "wave": 1, "live": False, "route": {"religion": "Christian", "state": "AP", "gender": "Groom"},
+        "wave": 1, "live": True, "route": {"religion": "Christian", "state": "AP", "gender": "Groom"},
     },
     "other_religion": {
         "tier": "L2_RELIGION",
@@ -210,7 +210,7 @@ CHANNELS = {
         "desc": ("Sikh • Jain • Buddhist • Parsi • Jewish • No-caste/No-religion — Telugu matches.\n"
                  "Respectful, private, verified. manavivaha.in/register"),
         "hashtags": ["#OtherReligions", "#Respect"],
-        "wave": 2, "live": False, "route": {"religion": "Other"},
+        "wave": 2, "live": True, "route": {"religion": "Other"},
     },
     "interfaith": {
         "tier": "L2_RELIGION",
@@ -221,7 +221,7 @@ CHANNELS = {
                  "No-caste filter • Full privacy • Couple corner.\n"
                  "manavivaha.in/register • Height secret maintain చేస్తాం 🤝"),
         "hashtags": ["#Intercaste", "#LoveMarriage", "#RegisterMarriage"],
-        "wave": 3, "live": False, "route": {"flag": "interfaith"},
+        "wave": 3, "live": True, "route": {"flag": "interfaith"},
     },
 
     # ===================== LEVEL 3 — HINDU CASTE CLUSTERS (smart groups) =====================
@@ -235,49 +235,49 @@ CHANNELS = {
                         "desc": ("Divorcee • Widow • Widower — 2nd innings కి respect తో platform.\n"
                                  "100% privacy • Judge చెయ్యరు • Serious matches మాత్రమే.\n"
                                  "manavivaha.in/register"),
-                        "hashtags": ["#SecondMarriage", "#Remarriage", "#Respect"], "wave": 2, "live": False,
+                        "hashtags": ["#SecondMarriage", "#Remarriage", "#Respect"], "wave": 2, "live": True,
                         "route": {"flag": "second_marriage"}},
     "differently_abled": {"tier": "L4_SPECIAL", "name": "♿ Differently Abled Matrimony",
                           "username": "manavivaha_able",
                           "fallbacks": ["tsap_handicapped", "manavivaha_differentlyabled"],
                           "desc": ("Differently abled brides & grooms — special care, special respect.\n"
                                    "Family support + verified profiles only. manavivaha.in/register"),
-                          "hashtags": ["#DifferentlyAbled", "#SpecialCare"], "wave": 3, "live": False,
+                          "hashtags": ["#DifferentlyAbled", "#SpecialCare"], "wave": 3, "live": True,
                           "route": {"flag": "differently_abled"}},
     "govt_jobs": {"tier": "L4_SPECIAL", "name": "👮 Govt Job Matches | ప్రభుత్వ ఉద్యోగం",
                   "username": "manavivaha_govt", "fallbacks": ["tsap_govt", "manavivaha_govtjobs"],
                   "desc": "Teacher • Police • Bank • Railway • Group-1/2 • SI • Constable • Nurse — govt job profiles.",
-                  "hashtags": ["#GovtJob", "#GovtTeacher"], "wave": 3, "live": False,
+                  "hashtags": ["#GovtJob", "#GovtTeacher"], "wave": 3, "live": True,
                   "route": {"flag": "govt_job"}},
     "software_it": {"tier": "L4_SPECIAL", "name": "💻 Software / IT Matches",
                     "username": "manavivaha_software", "fallbacks": ["tsap_software", "manavivaha_it"],
                     "desc": "Software • IT • MNC • Product companies — HYD, BLR, PUNE, USA.",
-                    "hashtags": ["#Software", "#IT", "#Hyderabad"], "wave": 3, "live": False,
+                    "hashtags": ["#Software", "#IT", "#Hyderabad"], "wave": 3, "live": True,
                     "route": {"flag": "software"}},
     "doctors_teachers": {"tier": "L4_SPECIAL", "name": "🩺 Doctors & Teachers Matches",
                          "username": "manavivaha_professionals",
                          "fallbacks": ["manavivaha_doctors", "tsap_doctors", "manavivaha_teachers"],
                          "desc": ("MBBS • MD • MS • BDS • Nursing • Pharma • School Teacher • Lecturer • Professor\n"
                                   "Medical + education professionals — ఒకటే chota. manavivaha.in/register"),
-                         "hashtags": ["#Doctors", "#Teachers", "#Healthcare"], "wave": 3, "live": False,
+                         "hashtags": ["#Doctors", "#Teachers", "#Healthcare"], "wave": 3, "live": True,
                          "route": {"flag": "doctor_teacher"}},
     "success_stories": {"tier": "L4_SPECIAL", "name": "🎉 Success Stories & Reviews",
                         "username": "manavivaha_success", "fallbacks": ["tsap_success"],
                         "desc": ("మన వివాహ తో పెళ్లి అయిన couples stories + photos (permission తో).\n"
                                  "Trust = Growth. Me story పంపండి: manavivaha.in/success"),
-                        "hashtags": ["#SuccessStory", "#ManaVivaha"], "wave": 3, "live": False,
+                        "hashtags": ["#SuccessStory", "#ManaVivaha"], "wave": 3, "live": True,
                         "route": "manual"},
     "fraud_alerts": {"tier": "L4_SPECIAL", "name": "⚠️ Fraud Alert & Safety",
                      "username": "manavivaha_alerts", "fallbacks": ["tsap_alerts"],
                      "desc": ("మోసం జాగ్రత్త! Fake profiles, advance money scams, photo theft alerts.\n"
                               "Report: manavivaha.in/report • 24h లో action. Family safety first."),
-                     "hashtags": ["#FraudAlert", "#StaySafe"], "wave": 3, "live": False,
+                     "hashtags": ["#FraudAlert", "#StaySafe"], "wave": 3, "live": True,
                      "route": "manual"},
     "bureau_network": {"tier": "L4_SPECIAL", "name": "🤝 Bureau & Broker Network (B2B)",
                        "username": "manavivaha_bureau", "fallbacks": ["tsap_bureau", "manavivaha_brokers"],
                        "desc": ("Marriage bureaus • Brokers • Influencers — referral ₹50/profile.\n"
                                 "Bulk upload • Dashboard • Leaderboard. manavivaha.in/bureau"),
-                       "hashtags": ["#Bureau", "#Referral50"], "wave": 3, "live": False,
+                       "hashtags": ["#Bureau", "#Referral50"], "wave": 3, "live": True,
                        "route": "manual"},
 }
 
@@ -357,7 +357,7 @@ for _cl in CASTE_CLUSTERS:
                 "username": ("manavivaha_%s_%s" % (_slug, _suffix))[:32],
                 "fallbacks": ["tsap_%s_%s" % (_slug, _suffix), "mv_%s_%s" % (_slug, _fb)],
                 "hashtags": ["#%s" % _slug.title().replace("_", ""), "#%s" % _suffix.title(), "#TS", "#AP"],
-                "wave": _cl["wave"], "live": False,
+                "wave": _cl["wave"], "live": True,
                 "route": {"caste": _en, "gender": _gender, "cluster": _ck},
             }
             _pair[_gender] = _key
@@ -371,7 +371,7 @@ for _cl in CASTE_CLUSTERS:
             "username": ("manavivaha_%s" % _slug)[:32],
             "fallbacks": ["tsap_%s" % _slug, "manavivaha_%s_community" % _slug],
             "hashtags": ["#%s" % _slug.title().replace("_", ""), "#Bride", "#Groom", "#TS", "#AP"],
-            "wave": _cl["wave"], "live": False,
+            "wave": _cl["wave"], "live": True,
             "route": {"caste": _en, "cluster": _ck},
         }
         SPLIT_MAP[_ck] = {"Bride": _key, "Groom": _key}

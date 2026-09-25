@@ -19,10 +19,10 @@ const BACKEND = process.env.BACKEND_URL || "http://localhost:8000";
  * 🌐 Request host ni batti absolute URL (staging / preview / prod — anni chotla OG pani cheyyali).
  * SITE_URL set unte adi ne vadutham (production lo manavivaha.in).
  */
-function siteBase(): string {
+async function siteBase(): Promise<string> {
   if (process.env.SITE_URL) return SITE;
   try {
-    const h = headers();
+    const h = await headers();
     const host = h.get("x-forwarded-host") || h.get("host");
     const proto = h.get("x-forwarded-proto") || "https";
     if (host) return `${proto}://${host}`;
@@ -41,16 +41,17 @@ async function fetchProfile(id: string) {
   }
 }
 
-export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
-  const id = String(params?.id || "").toUpperCase();
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  const { id: rawId } = await params;
+  const id = String(rawId || "").toUpperCase();
   const p = await fetchProfile(id);
   const name = p?.full_name ? String(p.full_name) : "Telugu Matrimony Profile";
   const bits = [p?.age ? `${p.age} yrs` : "", p?.caste, p?.education, p?.job, p?.district].filter(Boolean).join(" • ");
   const title = `${name} (${id}) — ${bits || "Profile"} | మన వివాహ`;
   const description = p
-    ? `${bits}. Porutham, family, horoscope details + interest పంపండి. మన వివాహ — Telugu matrimony (TS + AP), ${CHANNEL_STATS.total} channels, 3 FREE requests.`
+    ? `${bits}. వేద గుణమేళనం, family, horoscope details + interest పంపండి. మన వివాహ — Telugu matrimony (TS + AP), ${CHANNEL_STATS.total} channels, 3 FREE requests.`
     : `మన వివాహ — Telugu matrimony. TS + AP, 43 castes, ${CHANNEL_STATS.total} channels, 3 FREE requests. Register FREE.`;
-  const base = siteBase();
+  const base = await siteBase();
   const ogImage = `${base}/api/og/profile/${encodeURIComponent(id)}.png`;
   return {
     title: { absolute: title },
@@ -70,10 +71,11 @@ export async function generateMetadata({ params }: { params: { id: string } }): 
   };
 }
 
-export default function Page({ params }: { params: { id: string } }) {
-  const base = siteBase();
+export default async function Page({ params }: { params: Promise<{ id: string }> }) {
+  const base = await siteBase();
+  const { id: rawId } = await params;
   // 🌊 WAVE 23 — SECURITY: JSON-LD script-breakout fix (</script> in URL id)
-  const safeId = String(params?.id || "").replace(/[<>"']/g, "").slice(0, 40);
+  const safeId = String(rawId || "").replace(/[<>"']/g, "").slice(0, 40);
   return (
     <>
       <script

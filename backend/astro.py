@@ -208,7 +208,7 @@ def guna_milan(bride_star: str, bride_rasi: str, groom_star: str, groom_rasi: st
     v_score = 1.0 if gv >= bv else 0.0
     kootas.append({"koota": "Varna", "max": 1, "score": v_score,
                    "detail": f"{RASI_VARNA_NAME[gr]} (అబ్బాయి) vs {RASI_VARNA_NAME[br]} (అమ్మాయి)",
-                   "telugu": "✅ Varna పొరుతం" if v_score else "⚠️ Varna తక్కువ — peddalu/పరిహారం"})
+                   "telugu": "✅ వర్ణ గుణమేళనం" if v_score else "⚠️ వర్ణ బలం తక్కువ — పెద్దల సలహా అవసరం"})
 
     # 2. VASHYA (2) — rasi groups
     gg, bg = RASI_VASHYA[gr], RASI_VASHYA[br]
@@ -222,31 +222,31 @@ def guna_milan(bride_star: str, bride_rasi: str, groom_star: str, groom_rasi: st
         va_score = 0.5
     kootas.append({"koota": "Vashya", "max": 2, "score": va_score,
                    "detail": f"{gg} vs {bg}",
-                   "telugu": "✅ Vashya పొరుతం" if va_score >= 1 else "⚠️ Vashya తక్కువ"})
+                   "telugu": "✅ వశ్య పొంతన" if va_score >= 1 else "⚠️ వశ్యం తక్కువ"})
 
     # 3. TARA (3) — ammayi star nunchi abbayi star (9-cycle; 3,5,7 shubha)
     dist = (gs - bs) % 27 + 1
     tara = dist % 9
     t_score = 3.0 if tara in (3, 5, 7) else 0.0
     if tara == 1:
-        doshas.append("Janma-tara (ఒక్క tara) — పరిహారం తర్వాత munduku")
+        doshas.append("జన్మ తార దోషం — శాంతి పరిహారం అవసరం")
     kootas.append({"koota": "Tara", "max": 3, "score": t_score,
                    "detail": f"distance {dist} → tara {tara if tara else 9}",
-                   "telugu": "✅ Tara పొరుతం (శుభ tara)" if t_score else "⚠️ Tara బలం లేదు"})
+                   "telugu": "✅ తారా బలం (శుభ తార)" if t_score else "⚠️ తారా బలం తక్కువ"})
 
     # 4. YONI (2) — animals
     yb, yg = B[2], G[2]
     enemy = any({yb, yg} == set(p) for p in YONI_ENEMY)
     if enemy:
         y_score = 0.0
-        doshas.append(f"Yoni vairam ({YONI_TE.get(yb, yb)} × {YONI_TE.get(yg, yg)})")
+        doshas.append(f"యోని వైర దోషం ({YONI_TE.get(yb, yb)} × {YONI_TE.get(yg, yg)})")
     elif yb == yg:
         y_score = 2.0
     else:
         y_score = 1.0
     kootas.append({"koota": "Yoni", "max": 2, "score": y_score,
                    "detail": f"{YONI_TE.get(yb, yb)} vs {YONI_TE.get(yg, yg)}",
-                   "telugu": "✅ Yoni పొరుతం" if y_score >= 1 else "🚫 Yoni vairam — pandit ని అడగండి"})
+                   "telugu": "✅ యోని పొంతన" if y_score >= 1 else "🚫 యోని వైరం — పురోహితులను సంప్రదించండి"})
 
     # 5. GRAHA MAITRI (5) — rasi lords friendship
     lb, lg = RASI_LORD[br], RASI_LORD[gr]
@@ -280,7 +280,7 @@ def guna_milan(bride_star: str, bride_rasi: str, groom_star: str, groom_rasi: st
         doshas.append(f"Gana dosha ({GANA_TE.get(nb)} × {GANA_TE.get(ng)}) — పరిహారం ఉంది")
     kootas.append({"koota": "Gana", "max": 6, "score": n_score,
                    "detail": f"{GANA_TE.get(nb)} vs {GANA_TE.get(ng)}",
-                   "telugu": "✅ Gana పొరుతం" if n_score >= 5 else "⚠️ Gana dosha — పరిహారం cheskovachu"})
+                   "telugu": "✅ గణ మైత్రి" if n_score >= 5 else "⚠️ గణ దోషం — పరిహారం పరిశీలించండి"})
 
     # 7. BHAKOOT (7) — abbayi rasi ammayi rasi nunchi (6-8, 5-9, 2-12 dosha)
     rdist = (gr - br) % 12 + 1
@@ -295,7 +295,7 @@ def guna_milan(bride_star: str, bride_rasi: str, groom_star: str, groom_rasi: st
         doshas.append(f"Bhakoot dosha {kind} — pandit పరిహారం must")
     kootas.append({"koota": "Bhakoot", "max": 7, "score": bh_score,
                    "detail": f"rasi distance {rdist}",
-                   "telugu": "✅ Bhakoot పొరుతం" if bh_score >= 3 else "🚫 Bhakoot dosha — pandit ని అడగండి"})
+                   "telugu": "✅ భకూట పొంతన" if bh_score >= 3 else "🚫 భకూట దోషం — పురోహితులను సంప్రదించండి"})
 
     # 8. NADI (8) — veru nadi must
     db, dg = B[3], G[3]
@@ -306,17 +306,17 @@ def guna_milan(bride_star: str, bride_rasi: str, groom_star: str, groom_rasi: st
         doshas.append(f"Nadi dosha (రెండు {NADI_TE.get(db)}) — పరిహారం lekunda వద్దు")
     kootas.append({"koota": "Nadi", "max": 8, "score": d_score,
                    "detail": f"{NADI_TE.get(db)} vs {NADI_TE.get(dg)}",
-                   "telugu": "✅ Nadi పొరుతం (వేరు nadi)" if d_score else "🚫 Nadi dosha — pandit ని అడగండి"})
+                   "telugu": "✅ నాడీ శుద్ధి (భిన్న నాడి)" if d_score else "🚫 నాడీ దోషం — పురోహితులను సంప్రదించండి"})
 
     total = round(sum(k["score"] for k in kootas), 1)
     if total >= 32:
-        verdict, ved = "uttama", "🌟 UTTAMA పొరుతం — 32+ guna! పెళ్లి కి best ముహూర్తం చూసుకోండి 💍"
+        verdict, ved = "uttama", "🌟 ఉత్తమ గుణమేళనం — 32+ గుణాలు! పెళ్లి కి శ్రేష్టమైన పొంతన 💍"
     elif total >= 24:
-        verdict, ved = "మంచి", "✅ MANCHI పొరుతం — munduku వెళ్లచ్చు"
+        verdict, ved = "మంచి", "✅ మంచి గుణమేళనం — ముందుకు వెళ్ళవచ్చు"
     elif total >= 18:
-        verdict, ved = "madhyama", "⚠️ MADHYAMA పొరుతం — పరిహారం + pandit salaha తో munduku"
+        verdict, ved = "madhyama", "⚠️ మధ్యస్థ గుణమేళనం — పెద్దల ఆశీస్సులు, పరిహారంతో ముందుకు"
     else:
-        verdict, ved = "తక్కువ", "🚫 Guna తక్కువ — pandit తో మాట్లాడక వద్దు"
+        verdict, ved = "తక్కువ", "🚫 గుణాలు తక్కువ — పురోహితుల సలహా తప్పనిసరి"
     if doshas:
         ved += f" · Doshalu: {len(doshas)} (కింద చూడండి)"
     return {"available": True, "total_36": total, "percent": round(total / 36 * 100, 1),

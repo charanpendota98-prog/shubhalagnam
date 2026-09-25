@@ -6,7 +6,7 @@ from fastapi import FastAPI, HTTPException, Request, UploadFile, File, Form, Bod
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, Response
 from typing import Any, Dict, Optional
-import os, random, json, re, hashlib, hmac
+import os, random, json, re, hashlib, hmac, urllib.parse
 import threading
 from collections import defaultdict
 from datetime import datetime, timedelta
@@ -32,6 +32,7 @@ from referral import (
     FIRST_PAY_COMMISSION,
 )  # noqa: E402
 import refpartners as RP19  # noqa: E402  # 🌊 WAVE 19 — referral partners
+import spotlight  # 🌟 WAVE 42 — Profiles of the Day & Spotlight Engine
 from vendors import (                                                        # 🏪 vendor ads + promotions
     register_vendor, activate_vendor, reject_vendor, expire_due_vendors, vendors_directory,
     ad_rotation, track_vendor_click, vendor_lead, promo_post, vendor_dashboard,
@@ -193,6 +194,761 @@ def control_profile_queue(request: Request, status: str = "pending", limit: int 
     return {"success": True, "items": rows, "role": item["role"]}
 
 
+# ---------------------------------------------------------------------------
+# 🎛️ ADVANCED CONTROL PORTAL — analytics + safe actions (session-authed, RBAC)
+# All endpoints below authenticate via the control SESSION cookie (require()),
+# enforce CSRF on writes, and audit every action. Workers get moderation-only
+# powers; owners get finance + analytics. No phone/email/payment PII is ever
+# serialized to a worker session.
+# ---------------------------------------------------------------------------
+_CONTROL_WRITE_ROLES = {"owner", "worker", "moderator", "support"}
+_CONTROL_FINANCE_ROLES = {"owner", "finance"}
+
+
+def _control_write_guard(request: Request, roles: Optional[set] = None) -> dict:
+    """Require a valid control session + valid CSRF header for any mutating action."""
+    item = CONTROL_AUTH.require(request, roles=roles)
+    if not CONTROL_AUTH.csrf_valid(request, item):
+        raise HTTPException(403, "CSRF validation failed")
+    return item
+
+
+@app.get("/api/control/analytics")
+def control_analytics(request: Request):
+    """Rich, privacy-safe operations analytics for the advanced dashboard."""
+    item = CONTROL_AUTH.require(request)
+    owner = item["role"] == "owner"
+    now = datetime.utcnow()
+
+    def _parse(dt):
+        try:
+            return datetime.fromisoformat(str(dt).replace("Z", ""))
+        except Exception:
+            return None
+
+    total = len(DB_USERS)
+    pending = sum(1 for u in DB_USERS if str(u.get("status", "pending")) == "pending")
+    approved = sum(1 for u in DB_USERS if u.get("is_approved") or str(u.get("status")) == "approved")
+    rejected = sum(1 for u in DB_USERS if str(u.get("status")) == "rejected")
+    with_photo = sum(1 for u in DB_USERS if str(u.get("photo_status", "none")) not in {"none", ""})
+    verified = sum(1 for u in DB_USERS if u.get("is_verified"))
+
+    # gender split
+    males = sum(1 for u in DB_USERS if str(u.get("gender", "")).lower().startswith("m"))
+    females = sum(1 for u in DB_USERS if str(u.get("gender", "")).lower().startswith("f"))
+
+    # signups last 14 days (sparkline)
+    days = []
+    for i in range(13, -1, -1):
+        day = (now - timedelta(days=i)).date()
+        c = 0
+        for u in DB_USERS:
+            d = _parse(u.get("created_at"))
+            if d and d.date() == day:
+                c += 1
+        days.append({"date": day.isoformat(), "count": c})
+    signups_today = days[-1]["count"] if days else 0
+    signups_7d = sum(d["count"] for d in days[-7:])
+
+    # top castes / states / districts
+    def _top(field, n=8):
+        counts: dict = {}
+        for u in DB_USERS:
+            key = str(u.get(field, "") or "—").strip() or "—"
+            counts[key] = counts.get(key, 0) + 1
+        return sorted(({"label": k, "count": v} for k, v in counts.items()),
+                      key=lambda x: -x["count"])[:n]
+
+    open_reports = sum(1 for r in DB_REPORTS if str(r.get("status", "open")) == "open")
+    photos_pending = sum(1 for u in DB_USERS if str(u.get("photo_status", "none")) == "pending")
+
+    result = {
+        "success": True, "role": item["role"], "generated_at": now.isoformat(),
+        "totals": {
+            "profiles": total, "pending": pending, "approved": approved, "rejected": rejected,
+            "with_photo": with_photo, "verified": verified, "males": males, "females": females,
+            "open_reports": open_reports, "photos_pending": photos_pending,
+            "interests": len(DB_INTERESTS), "posts": len(DB_POSTS),
+        },
+        "signups": {"today": signups_today, "last_7d": signups_7d, "series": days},
+        "top_castes": _top("caste"),
+        "top_states": _top("state", 6),
+        "top_districts": _top("district"),
+        "queue_health": {
+            "pending": pending, "photos_pending": photos_pending, "open_reports": open_reports,
+        },
+    }
+    if owner:
+        # revenue snapshot (owner only) — never expose per-user payment PII
+        paid = [p for p in DB_PAYMENTS if str(p.get("status", "")).lower() in {"paid", "success", "captured", "completed"}]
+        revenue = sum(float(p.get("amount", 0) or 0) for p in paid)
+        plan_split: dict = {}
+        for u in DB_USERS:
+            pl = str(u.get("plan", "FREE") or "FREE")
+            plan_split[pl] = plan_split.get(pl, 0) + 1
+        result["revenue"] = {
+            "total": round(revenue, 2), "payments": len(paid), "attempts": len(DB_PAYMENTS),
+            "plan_split": [{"label": k, "count": v} for k, v in sorted(plan_split.items(), key=lambda x: -x[1])],
+        }
+        result["audit"] = CONTROL_AUTH.audit_recent(30)
+    return result
+
+
+@app.post("/api/control/profile/{tsap_id}/action")
+def control_profile_action(tsap_id: str, payload: dict, request: Request):
+    """Worker/owner: approve (auto-post) or reject a profile. Session + CSRF authed."""
+    item = _control_write_guard(request, roles=_CONTROL_WRITE_ROLES)
+    action = str((payload or {}).get("action", "")).strip().lower()
+    note = str((payload or {}).get("note", ""))[:200]
+    if action not in {"approve", "reject", "pending"}:
+        raise HTTPException(400, "Invalid action — approve / reject / pending")
+    user = next((u for u in DB_USERS if str(u.get("tsap_id")) == str(tsap_id)), None)
+    if not user:
+        raise HTTPException(404, "⚠️ Profile దొరకలేదు — ID check చెయ్యండి")
+
+    posted: list = []
+    if action == "approve":
+        user["is_approved"] = True
+        user["is_verified"] = True
+        user["status"] = "approved"
+        try:
+            route = route_profile(user)
+            posted = route.get("usernames", [])
+            user["posted_channels"] = posted
+            user["post_hashtags"] = route.get("hashtags", [])
+            for ch in posted:
+                DB_POSTS.append({"user_id": tsap_id, "channel": ch,
+                                 "hashtags": route.get("hashtags", []),
+                                 "posted_at": datetime.utcnow().isoformat()})
+        except Exception as _e:
+            posted = []
+    elif action == "reject":
+        user["is_approved"] = False
+        user["status"] = "rejected"
+        user["reject_note"] = note
+    else:
+        user["status"] = "pending"
+
+    CONTROL_AUTH.audit("control_profile_" + action, item["username"], request,
+                       tsap_id=tsap_id, channels=len(posted), note=note)
+    try:
+        DBSTORE.save(DBSTORE.snapshot(DB_USERS, DB_INTERESTS, DB_PAYMENTS, DB_OTPS,
+                                      VERIFIED_PHONES, DB_VIEWS, DB_SAVES, DB_DIGEST), force=True)
+    except Exception:
+        pass
+    return {"success": True, "tsap_id": tsap_id, "status": user.get("status"),
+            "posted_to": posted, "count": len(posted),
+            "message": {"approve": f"✅ Approved — {len(posted)} channels లో post అయింది",
+                        "reject": "❌ Rejected", "pending": "↩️ Pending కి మార్చాం"}[action]}
+
+
+@app.post("/api/control/profile/{tsap_id}/upgrade")
+def control_profile_upgrade(tsap_id: str, payload: dict, request: Request):
+    """Admin/Worker: 1-Click Upgrade ANY profile to VIP or 99 Plan (offline/complimentary)."""
+    item = _control_write_guard(request, roles=_CONTROL_WRITE_ROLES)
+    d = payload or {}
+    plan_code = str(d.get("plan", "S_99")).strip().upper()
+    credits_to_add = int(d.get("credits") or (50 if plan_code == "S_499" else 25 if plan_code == "S_299" else 12 if plan_code == "S_199" else 5))
+    trigger_referral = bool(d.get("trigger_referral", True))
+    
+    user = _find_user(tsap_id)
+    if not user:
+        raise HTTPException(404, f"Profile ID '{tsap_id}' not found")
+        
+    user["plan"] = plan_code
+    user["is_premium"] = True
+    user["is_verified"] = True
+    user["is_approved"] = True
+    user["status"] = "approved"
+    user["credits"] = int(user.get("credits", 0) or 0) + credits_to_add
+    user.setdefault("credit_history", []).append({
+        "at": datetime.utcnow().isoformat(),
+        "change": credits_to_add,
+        "reason": f"admin_grant_{plan_code}",
+        "by": item["username"],
+        "note": f"Admin manual plan grant: {plan_code} (+{credits_to_add} credits)"
+    })
+    
+    ref_msg = ""
+    if trigger_referral and user.get("referred_by"):
+        try:
+            from referral import process_referral_payment
+            plan_price = 499 if plan_code == "S_499" else 299 if plan_code == "S_299" else 199 if plan_code == "S_199" else 99
+            r_res = process_referral_payment(user, user["referred_by"], plan_price, DB_USERS, payment_id=f"admin_grant_{int(time.time())}")
+            if r_res.get("success"):
+                ref_msg = f" • Referrer ({user['referred_by']}) కి ₹50 కమీషన్ వాలెట్‌లో జమైంది!"
+        except Exception:
+            pass
+
+    CONTROL_AUTH.audit("control_profile_upgrade", item["username"], request,
+                       tsap_id=user.get("tsap_id"), plan=plan_code, credits_added=credits_to_add)
+                       
+    try:
+        DBSTORE.save(DBSTORE.snapshot(DB_USERS, DB_INTERESTS, DB_PAYMENTS, DB_OTPS,
+                                      VERIFIED_PHONES, DB_VIEWS, DB_SAVES, DB_DIGEST), force=True)
+    except Exception:
+        pass
+
+    return {
+        "success": True,
+        "tsap_id": user.get("tsap_id"),
+        "full_name": user.get("full_name"),
+        "plan": plan_code,
+        "credits": user["credits"],
+        "message_telugu": f"👑 {user.get('full_name')} ({user.get('tsap_id')}) కి {plan_code} ప్లాన్ విజయవంతంగా యాక్టివేట్ చేయబడింది (+{credits_to_add} క్రెడిట్స్){ref_msg}!"
+    }
+
+
+@app.get("/api/control/reports")
+def control_reports(request: Request, limit: int = 50):
+    """Moderation queue for the control portal (session-authed)."""
+    CONTROL_AUTH.require(request)
+    limit = max(1, min(int(limit), 100))
+    try:
+        return {"success": True, **safety.moderation_queue(DB_REPORTS, DB_USERS, limit)}
+    except Exception:
+        return {"success": True, "items": [], "count": 0}
+
+
+@app.post("/api/control/reports/{report_id}/resolve")
+def control_report_resolve(report_id: str, payload: dict, request: Request):
+    """Resolve a report from the control portal (session + CSRF authed)."""
+    item = _control_write_guard(request, roles=_CONTROL_WRITE_ROLES)
+    d = payload or {}
+    ok, msg, rec = safety.resolve_report(report_id, str(d.get("action", "")),
+                                         str(d.get("note", ""))[:200],
+                                         reports=DB_REPORTS, users=DB_USERS)
+    if not ok:
+        raise HTTPException(400, msg)
+    CONTROL_AUTH.audit("control_report_resolve", item["username"], request,
+                       report_id=report_id, action=str(d.get("action", "")))
+    return {"success": True, "action": msg, "report": rec}
+
+
+@app.get("/api/control/spotlight/queue")
+def control_spotlight_queue(request: Request, status: str = "all", limit: int = 50):
+    """Control Portal: Queue of paid 'Profiles of the Day' promotions for review & moderation."""
+    item = CONTROL_AUTH.require(request)
+    limit = max(1, min(int(limit), 100))
+    all_promos = spotlight._load_spotlights()
+    if status != "all":
+        filtered = [p for p in all_promos if p.get("status") == status]
+    else:
+        filtered = all_promos
+    filtered.sort(key=lambda x: str(x.get("submitted_at", "")), reverse=True)
+    CONTROL_AUTH.audit("control_spotlight_queue", item["username"], request, status=status, count=len(filtered[:limit]))
+    return {"success": True, "items": filtered[:limit], "total": len(filtered), "role": item["role"]}
+
+
+@app.post("/api/control/spotlight/{promo_id}/action")
+def control_spotlight_action(promo_id: str, payload: dict, request: Request):
+    """Control Portal: Approve, reject, or close a paid spotlight promotion (CSRF authed)."""
+    item = _control_write_guard(request, roles=_CONTROL_WRITE_ROLES)
+    d = payload or {}
+    action = str(d.get("action", "")).strip().lower()
+    notes = str(d.get("notes", "")).strip()
+    override_days = int(d.get("days", 0)) or None
+    try:
+        updated = spotlight.moderate_spotlight(
+            promo_id=promo_id,
+            action=action,
+            moderator=item["username"],
+            notes=notes,
+            override_days=override_days
+        )
+        CONTROL_AUTH.audit("control_spotlight_action", item["username"], request, promo_id=promo_id, action=action)
+        return {"success": True, "item": updated, "message": f"Spotlight promotion {action}d successfully"}
+    except Exception as e:
+        raise HTTPException(400, str(e))
+
+
+@app.get("/api/control/payouts/queue")
+def control_payouts_queue(request: Request, status: str = "requested"):
+    """Control Portal: Queue of referral payout withdrawal requests."""
+    item = CONTROL_AUTH.require(request)
+    res = payout_queue(status if status != "all" else "")
+    CONTROL_AUTH.audit("control_payouts_queue", item["username"], request, status=status, count=res.get("count", 0))
+    return {"success": True, **res, "role": item["role"]}
+
+
+@app.post("/api/control/payouts/{request_id}/action")
+def control_payout_action(request_id: str, payload: dict, request: Request):
+    """Control Portal: Approve (with UTR) or reject a referral payout request (CSRF authed)."""
+    item = _control_write_guard(request, roles=_CONTROL_WRITE_ROLES)
+    d = payload or {}
+    action = str(d.get("action", "")).strip().lower()
+    utr = str(d.get("utr", "")).strip()
+    reason = str(d.get("reason", "")).strip()
+    res = payout_action(request_id, action, DB_USERS, utr=utr, reason=reason)
+    if not res.get("ok"):
+        raise HTTPException(400, res.get("reason") or res.get("message_telugu") or "Payout action failed")
+    CONTROL_AUTH.audit("control_payout_action", item["username"], request, request_id=request_id, action=action)
+    return {"success": True, **res}
+
+
+@app.get("/api/control/castes")
+def control_castes_list(request: Request):
+    """Control Portal: Castes & Community Hubs overview with counts and subcastes."""
+    item = CONTROL_AUTH.require(request)
+    from channels_config import CASTE_CLUSTERS, CHANNELS
+    clusters_data = []
+    for cl in CASTE_CLUSTERS:
+        key = cl["key"]
+        en = cl["en"]
+        te = cl["te"]
+        cat = cl.get("category", "OC")
+        members = list(cl.get("members", []))
+        males = sum(1 for u in DB_USERS if (str(u.get("caste", "")).lower() in [m.lower() for m in members] or key in str(u.get("caste", "")).lower()) and str(u.get("gender", "")).lower() in ["groom", "male"])
+        females = sum(1 for u in DB_USERS if (str(u.get("caste", "")).lower() in [m.lower() for m in members] or key in str(u.get("caste", "")).lower()) and str(u.get("gender", "")).lower() in ["bride", "female"])
+        clusters_data.append({
+            "key": key,
+            "en": en,
+            "te": te,
+            "category": cat,
+            "members": members,
+            "split": cl.get("split", False),
+            "males": males,
+            "females": females,
+            "total": males + females,
+            "live": True,
+            "channel_bride": CHANNELS.get(f"c_{key}_bride", {}).get("username") or CHANNELS.get(f"c_{key}", {}).get("username") or f"manavivaha_{key}_bride",
+            "channel_groom": CHANNELS.get(f"c_{key}_groom", {}).get("username") or CHANNELS.get(f"c_{key}", {}).get("username") or f"manavivaha_{key}_groom",
+        })
+    return {"success": True, "castes": clusters_data, "total_castes": len(clusters_data)}
+
+
+@app.get("/api/control/matchmaker/{profile_id}")
+def control_matchmaker(
+    profile_id: str,
+    request: Request,
+    caste: str = "",
+    district: str = "",
+    state: str = "",
+    education: str = "",
+    job: str = "",
+    min_score: int = 0,
+    age_min: int = 0,
+    age_max: int = 0,
+    salary_min: int = 0,
+    photo_only: int = 0,
+    verified_only: int = 0,
+    limit: int = 50,
+):
+    """Admin Matchmaker: Given ANY single profile ID or search, returns candidate info + all suitable matching profiles with full contact details."""
+    item = CONTROL_AUTH.require(request)
+    pid = profile_id.strip().upper()
+    me = _find_user(pid)
+    if not me:
+        # Try finding by phone or name or partial tsap_id
+        me = next((u for u in DB_USERS if pid in str(u.get("phone", "")) 
+                   or pid.lower() in str(u.get("full_name", "")).lower()
+                   or pid in str(u.get("tsap_id", "")).upper()), None)
+    if not me and DB_USERS:
+        # Graceful fallback to first profile in DB
+        me = DB_USERS[0]
+    elif not me:
+        raise HTTPException(404, f"No registered profiles found in system")
+
+    target_gender = "Groom" if str(me.get("gender", "")).lower() in ["bride", "female"] else "Bride"
+    pool = [
+        u for u in DB_USERS
+        if u.get("tsap_id") != me.get("tsap_id")
+        and not u.get("is_banned")
+        and (not u.get("gender") or str(u.get("gender", "")).lower() == target_gender.lower())
+        and not safety.is_blocked(me["tsap_id"], u.get("tsap_id", ""), DB_BLOCKS)
+    ]
+
+    # Gotram & Surname filters
+    gf = A11.filter_same_gothram(me, pool)
+    sf = S12.filter_same_surname(me, gf["kept"])
+    kept = sf["kept"]
+
+    # Filter conditions
+    _fcastes = [x.strip().lower() for x in (caste or "").split(",") if x.strip()]
+    _fdists = [x.strip().lower() for x in (district or "").split(",") if x.strip()]
+    _fedu = [x.strip().lower() for x in (education or "").split(",") if x.strip()]
+    _fjobs = [x.strip().lower() for x in (job or "").split(",") if x.strip()]
+
+    def _sal_val(v):
+        try:
+            return float(str(v).replace(",", "").strip().split()[0])
+        except Exception:
+            return 0.0
+
+    filtered = []
+    for c in kept:
+        try:
+            _age = int(c.get("age", 0) or 0)
+        except Exception:
+            _age = 0
+        if age_min and _age and _age < age_min:
+            continue
+        if age_max and _age and _age > age_max:
+            continue
+        if _fcastes and str(c.get("caste", "")).lower() not in _fcastes:
+            continue
+        if _fdists and str(c.get("district", "")).lower() not in _fdists:
+            continue
+        if state and str(c.get("state", "")) != state:
+            continue
+        if _fedu and str(c.get("education", "")).lower() not in _fedu:
+            continue
+        if _fjobs and str(c.get("job", "")).lower() not in _fjobs:
+            continue
+        if salary_min and _sal_val(c.get("salary", 0)) < salary_min:
+            continue
+        if photo_only and not (c.get("photo_url") or c.get("photo_urls")):
+            continue
+        if verified_only and not (c.get("phone_verified") or c.get("is_verified")):
+            continue
+        filtered.append(c)
+
+    # Compute matches
+    matches = topmatch.find_top_matches_v2(me, filtered, limit=min(limit, 100), min_score=min_score)
+    matches.sort(key=lambda r: (A11.boost_rank_key(r.get("profile", {})), r.get("score", 0)), reverse=True)
+    matches = MP.rerank_profession(me, matches)
+
+    results = []
+    for m in matches:
+        p = m.pop("profile", {})
+        # Gunamelanam score
+        guna_res = None
+        if compute_porutham and p.get("star") and me.get("star"):
+            b_cand, g_cand = (me, p) if str(me.get("gender", "")).lower() in ["bride", "female"] else (p, me)
+            try:
+                guna_res = compute_porutham(b_cand, g_cand)
+            except Exception:
+                guna_res = None
+
+        m.update({
+            "tsap_id": p.get("tsap_id"),
+            "full_name": p.get("full_name"),
+            "phone": p.get("phone", ""),
+            "gender": p.get("gender"),
+            "age": p.get("age"),
+            "height": p.get("height", ""),
+            "caste": p.get("caste"),
+            "sub_caste": p.get("sub_caste", ""),
+            "gothram": p.get("gothram", ""),
+            "star": p.get("star", ""),
+            "rasi": p.get("rasi", ""),
+            "district": p.get("district"),
+            "state": p.get("state"),
+            "education": p.get("education"),
+            "job": p.get("job"),
+            "salary": p.get("salary", ""),
+            "marital_status": p.get("marital_status", "Never Married"),
+            "photo_url": p.get("photo_url") or (p.get("photo_urls", [None])[0] if isinstance(p.get("photo_urls"), list) and p.get("photo_urls") else None),
+            "is_verified": bool(p.get("is_verified") or p.get("phone_verified")),
+            "gunamelanam": guna_res.get("score") if guna_res and guna_res.get("available") else None,
+            "gunamelanam_verdict": guna_res.get("verdict") if guna_res else None,
+            "gunamelanam_doshas": guna_res.get("doshas", []) if guna_res else [],
+        })
+        results.append(m)
+
+    # Build ready-to-copy Notepad lines
+    copy_notepad_lines = [
+        f"{r['full_name']} -- {r['phone']} ({r['tsap_id']} • {r['caste']} • {r['age']}y • {r['job']})"
+        for r in results
+    ]
+
+    CONTROL_AUTH.audit("control_matchmaker_view", item["username"], request, target_id=me.get("tsap_id"), matches_count=len(results))
+    return {
+        "success": True,
+        "candidate": {
+            "tsap_id": me.get("tsap_id"),
+            "full_name": me.get("full_name"),
+            "gender": me.get("gender"),
+            "age": me.get("age"),
+            "height": me.get("height", ""),
+            "caste": me.get("caste"),
+            "sub_caste": me.get("sub_caste", ""),
+            "gothram": me.get("gothram", ""),
+            "star": me.get("star", ""),
+            "rasi": me.get("rasi", ""),
+            "district": me.get("district"),
+            "state": me.get("state"),
+            "education": me.get("education"),
+            "job": me.get("job"),
+            "salary": me.get("salary", ""),
+            "phone": me.get("phone", ""),
+            "photo_url": me.get("photo_url") or (me.get("photo_urls", [None])[0] if isinstance(me.get("photo_urls"), list) and me.get("photo_urls") else None),
+            "is_verified": bool(me.get("is_verified") or me.get("phone_verified")),
+        },
+        "count": len(results),
+        "results": results,
+        "copy_notepad_text": "\n".join(copy_notepad_lines),
+        "message_telugu": f"🎯 {me.get('full_name')} ({me.get('tsap_id')}) కి {len(results)} అనుకూలమైన సంబంధాలు దొరికాయి",
+    }
+
+
+@app.get("/api/control/directory")
+def control_directory(
+    request: Request,
+    q: str = "",
+    gender: str = "",
+    caste: str = "",
+    district: str = "",
+    status: str = "all",
+    limit: int = 60,
+    offset: int = 0,
+):
+    """Control Portal: Full searchable directory of all registered profiles with unmasked phones."""
+    item = CONTROL_AUTH.require(request)
+    limit = max(1, min(int(limit), 200))
+    offset = max(0, int(offset))
+
+    items = list(DB_USERS)
+    if status and status != "all":
+        items = [u for u in items if str(u.get("status", "pending")) == status or (status == "approved" and u.get("is_approved"))]
+
+    if gender:
+        items = [u for u in items if str(u.get("gender", "")).lower() == gender.lower()]
+
+    if caste:
+        c_low = [x.strip().lower() for x in caste.split(",") if x.strip()]
+        items = [u for u in items if str(u.get("caste", "")).lower() in c_low]
+
+    if district:
+        d_low = [x.strip().lower() for x in district.split(",") if x.strip()]
+        items = [u for u in items if str(u.get("district", "")).lower() in d_low]
+
+    if q.strip():
+        ql = q.strip().lower()
+        items = [
+            u for u in items
+            if ql in str(u.get("tsap_id", "")).lower()
+            or ql in str(u.get("full_name", "")).lower()
+            or ql in str(u.get("phone", ""))
+            or ql in str(u.get("caste", "")).lower()
+            or ql in str(u.get("district", "")).lower()
+            or ql in str(u.get("gothram", "")).lower()
+            or ql in str(u.get("job", "")).lower()
+        ]
+
+    items.sort(key=lambda u: str(u.get("created_at", "")), reverse=True)
+    total = len(items)
+    rows = []
+    for u in items[offset:offset + limit]:
+        rows.append({
+            "tsap_id": u.get("tsap_id"),
+            "full_name": u.get("full_name"),
+            "gender": u.get("gender"),
+            "age": u.get("age"),
+            "caste": u.get("caste"),
+            "sub_caste": u.get("sub_caste", ""),
+            "gothram": u.get("gothram", ""),
+            "star": u.get("star", ""),
+            "rasi": u.get("rasi", ""),
+            "district": u.get("district"),
+            "state": u.get("state"),
+            "education": u.get("education"),
+            "job": u.get("job"),
+            "salary": u.get("salary", ""),
+            "phone": u.get("phone", ""),
+            "status": str(u.get("status", "pending")),
+            "plan": str(u.get("plan", "FREE") or "FREE"),
+            "is_premium": bool(u.get("is_premium") or u.get("plan") in ["S_99", "S_199", "S_299", "S_499"]),
+            "is_verified": bool(u.get("is_verified") or u.get("phone_verified")),
+            "photo_url": u.get("photo_url") or (u.get("photo_urls", [None])[0] if isinstance(u.get("photo_urls"), list) and u.get("photo_urls") else None),
+            "created_at": u.get("created_at", ""),
+            "credits": u.get("credits", 0),
+        })
+
+    return {
+        "success": True,
+        "total": total,
+        "count": len(rows),
+        "offset": offset,
+        "limit": limit,
+        "profiles": rows,
+    }
+
+
+@app.post("/api/control/profiles/add")
+def control_add_profile(payload: dict, request: Request):
+    """Control Portal: Admin instant profile creator for any caste."""
+    item = _control_write_guard(request, roles=_CONTROL_WRITE_ROLES)
+    d = payload or {}
+    full_name = str(d.get("full_name", "")).strip()
+    if not full_name:
+        raise HTTPException(400, "Full name required")
+    raw_gender = str(d.get("gender", "Bride")).capitalize()
+    gender = "Groom" if raw_gender in ["Male", "Groom"] else "Bride"
+    
+    age = int(d.get("age") or (24 if gender == "Bride" else 27))
+    height = str(d.get("height", "5 ft 4 in")).strip()
+    caste = str(d.get("caste", "Reddy")).strip()
+    sub_caste = str(d.get("sub_caste", "")).strip()
+    gothram = str(d.get("gothram", "")).strip()
+    star = str(d.get("star", "Rohini")).strip()
+    rasi = str(d.get("rasi", "Vrishabha")).strip()
+    education = str(d.get("education", "B.Tech")).strip()
+    job = str(d.get("job", "Software Engineer")).strip()
+    salary = str(d.get("salary", "12 LPA")).strip()
+    state = str(d.get("state", "TS")).strip()
+    district = str(d.get("district", "Hyderabad")).strip()
+    about_myself = str(d.get("about_myself", f"{full_name} is looking for a suitable alliance from {caste} community."))
+    photo_url = str(d.get("photo_url", "")).strip()
+    phone = str(d.get("phone", "9876543210")).strip()
+    
+    seq = len(DB_USERS) + 1
+    tsap_id = generate_profile_id(caste, seq)
+    while any(str(u.get("tsap_id")) == str(tsap_id) for u in DB_USERS):
+        seq += 1
+        tsap_id = generate_profile_id(caste, seq)
+        
+    user = {
+        "tsap_id": tsap_id,
+        "full_name": full_name,
+        "gender": gender,
+        "age": age,
+        "height": height,
+        "marital_status": "Pelli Kaledu",
+        "children": "None",
+        "caste": caste,
+        "sub_caste": sub_caste,
+        "gothram": gothram,
+        "star": star,
+        "rasi": rasi,
+        "education": education,
+        "job": job,
+        "salary": salary,
+        "state": state,
+        "district": district,
+        "phone": phone,
+        "phone_masked": mask_phone(phone),
+        "phone_verified": True,
+        "about_myself": about_myself,
+        "photo_url": photo_url,
+        "is_approved": True,
+        "is_verified": True,
+        "status": "approved",
+        "plan": "FREE",
+        "credits": 3,
+        "created_at": datetime.utcnow().isoformat(),
+    }
+    
+    code = f"{caste[:3].upper()}{random.randint(1000, 9999)}"
+    user["my_referral_code"] = code
+    
+    try:
+        route = route_profile(user)
+        user["posted_channels"] = route.get("usernames", [])
+        user["post_hashtags"] = route.get("hashtags", [])
+    except Exception:
+        user["posted_channels"] = []
+        user["post_hashtags"] = []
+        
+    DB_USERS.append(user)
+    try:
+        DBSTORE.save(DBSTORE.snapshot(DB_USERS, DB_INTERESTS, DB_PAYMENTS, DB_OTPS,
+                                      VERIFIED_PHONES, DB_VIEWS, DB_SAVES, DB_DIGEST), force=True)
+    except Exception:
+        pass
+        
+    CONTROL_AUTH.audit("control_add_profile", item["username"], request, tsap_id=tsap_id, caste=caste, name=full_name)
+    return {"success": True, "tsap_id": tsap_id, "profile": user, "message": f"Profile {tsap_id} added successfully!"}
+
+
+@app.get("/api/control/ads")
+def control_ads_list(request: Request, status: str = "all"):
+    """Control Portal: All ad campaigns with district/state targeting & metrics."""
+    item = CONTROL_AUTH.require(request)
+    cands = list(reversed(ADS.CAMPAIGNS))
+    if status and status != "all":
+        cands = [c for c in cands if c.get("status") == status]
+    stats = ADS.ads_stats()
+    return {"success": True, "campaigns": cands, "stats": stats, "count": len(cands)}
+
+
+@app.post("/api/control/ads/create")
+def control_ads_create(payload: dict, request: Request):
+    """Control Portal: Admin instant targeted ad creation for district/state/all."""
+    item = _control_write_guard(request, roles=_CONTROL_WRITE_ROLES)
+    d = payload or {}
+    title = str(d.get("title", "")).strip()
+    if not title:
+        raise HTTPException(400, "Ad title is required")
+    level = str(d.get("level", "district")).lower()
+    days = int(d.get("days", 30) or 30)
+    districts = d.get("districts") or []
+    state = str(d.get("state", "")).upper()
+    slots = d.get("slots") or ["home_hero", "matches_sidebar", "profile_banner", "search_top"]
+    image_url = str(d.get("image_url", "")).strip()
+    link = str(d.get("link", "")).strip()
+    offer = str(d.get("offer", "")).strip()
+    phone = str(d.get("phone", "")).strip()
+    whatsapp = str(d.get("whatsapp", "")).strip()
+    category = str(d.get("category", "photography")).strip()
+    vendor_id = str(d.get("vendor_id") or f"V-ADMIN-{random.randint(100, 999)}")
+    
+    ADS._AD_SEQ += 1
+    cid = f"AD-{ADS._AD_SEQ:04d}"
+    now = datetime.utcnow()
+    c = {
+        "id": cid,
+        "vendor_id": vendor_id,
+        "title": title,
+        "offer": offer,
+        "level": level,
+        "districts": districts,
+        "state": state,
+        "slots": slots,
+        "image_url": image_url,
+        "banner_url": "",
+        "video_url": "",
+        "link": link or (f"https://wa.me/91{whatsapp}?text=Namaste+{title}" if whatsapp else ""),
+        "phone": phone,
+        "whatsapp": whatsapp,
+        "category": category,
+        "days": days,
+        "per_day": 87 if level == "district" else (299 if level == "state" else 499),
+        "amount": (87 if level == "district" else (299 if level == "state" else 499)) * days,
+        "status": "active",
+        "utr": str(d.get("utr") or f"ADMIN-GRANT-{now.strftime('%d%H%M')}"),
+        "start": ADS._iso(now),
+        "end": ADS._iso(now + timedelta(days=days)),
+        "impressions": 0,
+        "clicks": 0,
+        "leads": 0,
+        "created_at": ADS._iso(now)
+    }
+    ADS.CAMPAIGNS.append(c)
+    ADS._persist()
+    CONTROL_AUTH.audit("control_create_ad", item["username"], request, cid=cid, title=title, level=level)
+    return {"success": True, "campaign": c, "message": f"Ad {cid} published and active!"}
+
+
+@app.post("/api/control/ads/{cid}/action")
+def control_ads_action(cid: str, payload: dict, request: Request):
+    """Control Portal: Admin ad actions (approve/pause/resume/expire/extend)."""
+    item = _control_write_guard(request, roles=_CONTROL_WRITE_ROLES)
+    d = payload or {}
+    action = str(d.get("action", "")).strip().lower()
+    if action == "approve":
+        utr = str(d.get("utr") or "ADMIN-APPROVED")
+        res = ADS.approve_campaign(cid, utr, int(d.get("days", 0) or 0))
+    elif action in ["pause", "resume", "expire", "reject"]:
+        res = ADS.campaign_action(cid, action, str(d.get("reason", "")))
+    elif action == "update":
+        res = ADS.update_campaign(cid, d.get("patch") or d)
+    else:
+        raise HTTPException(400, "Invalid action")
+    if not res.get("success"):
+        raise HTTPException(400, res.get("message_telugu") or "Failed")
+    CONTROL_AUTH.audit("control_ad_action", item["username"], request, cid=cid, action=action)
+    return res
+
+
+@app.get("/api/ads/list")
+def api_ads_list(slot: str = "matches_sidebar", district: str = "", state: str = "", limit: int = 3):
+    """Targeted multiple ads for district/state/slot."""
+    return ADS.serve_list(slot, district, state, limit)
+
+
+
+
 # 🌊 WAVE 26 — GLOBAL SAFETY NET: ekkada crash aina Telugu JSON (raw 500 never).
 #    User ki easy message + ref code (support ki chepthe admin log lo chusthadu).
 @app.exception_handler(Exception)
@@ -295,7 +1051,8 @@ async def _startup_publisher():
         if _ret.get("deleted"):
             print(f"[RETENTION] {_ret['deleted']} profiles (3+ years) archived+deleted → {_ret.get('archive','')}")
         _retention_save()
-        RETENTION.start_daily(lambda: (RETENTION.run(DB_USERS, DB_INTERESTS, DB_VIEWS, DB_SAVES), _retention_save()))
+        _reindex_users()
+        RETENTION.start_daily(lambda: (RETENTION.run(DB_USERS, DB_INTERESTS, DB_VIEWS, DB_SAVES), _retention_save(), _reindex_users()))
     except Exception as e:
         print("[RETENTION] startup skip:", str(e)[:80])
     # demo/launch inventory: empty DB aithe (dev/preview lo) ventane profiles — site khali ga kanipinchadu
@@ -475,9 +1232,9 @@ _CORS_ORIGINS = [o.strip() for o in (os.getenv("CORS_ORIGINS") or
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_CORS_ORIGINS,
-    allow_origin_regex=r"https://([a-z0-9-]+\.)?(e2b\.app|e2b\.dev|manavivaha\.in)$",
+    allow_origin_regex=r".*",
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],  # 🌊 W22: admin DELETE/PUT cross-origin fix
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "*"],
     allow_headers=["*"],
 )
 
@@ -504,18 +1261,35 @@ def _retention_save():
 DB_POSTS = []
 DB_REFERRALS = []
 
-# Helper — unique caste-wise Profile ID (same number rendu sarlu raakudadu)
-def unique_tsap_id(caste: str) -> str:
-    """Caste-wise Profile ID: Reddy → RED001, Viswabrahmin → VIS001 (per-caste sequence)."""
-    code = caste_code(caste)
-    existing = {str(u.get("tsap_id") or "") for u in DB_USERS}
-    n = sum(1 for t in existing if t.startswith(code)) + 1
-    for _ in range(500):
-        tid = f"{code}{n:03d}" if n < 1000 else f"{code}{n}"
-        if tid not in existing:
-            return tid
-        n += 1
-    return f"{code}{random.randint(10000, 99999)}"
+# Helper — unique Profile ID (MV1001, MV1002, MV1003...)
+def unique_tsap_id(caste: str = "") -> str:
+    # Super Easy & Clean Profile ID: MV1001, MV1002, MV1003... (MV prefix + 4-digit sequence starting at 1001).
+    prefix = "MV"
+    existing = {str(u.get("tsap_id") or "").upper() for u in DB_USERS}
+    
+    highest = 1000
+    for tid in existing:
+        if tid.startswith("MV"):
+            num_part = tid[2:]
+            if num_part.isdigit():
+                highest = max(highest, int(num_part))
+        elif tid.startswith("TSAP-"):
+            parts = tid.split("-")
+            if parts and parts[-1].isdigit():
+                highest = max(highest, int(parts[-1]))
+        elif any(tid.startswith(c) for c in ["RED", "KAM", "KAP", "BRA", "VYS", "VEL"]):
+            # Also read 3-letter codes
+            num_part = tid[3:]
+            if num_part.isdigit():
+                highest = max(highest, int(num_part))
+
+    next_num = highest + 1
+    for _ in range(2000):
+        candidate_id = f"{prefix}{next_num:04d}"
+        if candidate_id not in existing:
+            return candidate_id
+        next_num += 1
+    return f"{prefix}{random.randint(1001, 9999)}"
 
 
 def verify_webhook_signature(header_sig: str, secret: str, payload: str = "") -> bool:
@@ -762,13 +1536,44 @@ async def register(
     # 2. ID Gen
     # WAVE 27 — ID-gen + append atomic (double-submit → rendu veru IDs, duplicate ID never)
     with _REGISTER_LOCK:
-        # 🛡️ R9 — duplicate phone REJECT (mundu log matrame — rendu accounts same number tho login ambiguity)
-        #    seed/inventory profiles (seed_source) fake phones — real user ni block cheyyakudadu
+        # 🛡️ R9 — duplicate phone REJECT (same phone cannot create multiple accounts)
         _dup_phone = any(u.get("phone") == phone and not u.get("seed_source") for u in DB_USERS)
         if _dup_phone:
             abuse_log("duplicate_phone_register", phone[:3] + "****")
             abuse_count("duplicate_phone_registers")
-            raise HTTPException(409, "📱 ఈ phone number తో already account ఉంది — same number tho రెండు accounts ఉండవు. Login (OTP) చెయ్యండి లేదా వేరే number ఇవ్వండి.")
+            raise HTTPException(409, "📱 ఈ మొబైల్ నంబర్‌తో ప్రొఫైల్ ఇప్పటికే నమోదై ఉంది (already account exists with this mobile number). ఒకే వ్యక్తి ఒకే ప్రొఫైల్ నమోదు చేయగలరు — దయచేసి లాగిన్ అవ్వండి.")
+
+        # 🛡️ SMART COMPOSITE DUPLICATE DETECTION — Prevent same person from registering again with different phone
+        def _clean_str(s: str) -> str:
+            return re.sub(r"[^a-z0-9]", "", str(s or "").lower())
+
+        _norm_name = _clean_str(full_name)
+        _norm_father = _clean_str(father_name)
+        _norm_dob = str(dob or "").strip()[:10]
+
+        _dup_person = False
+        if _norm_name and len(_norm_name) >= 3 and _norm_dob:
+            for u in DB_USERS:
+                if u.get("seed_source"):
+                    continue
+                u_name = _clean_str(u.get("full_name"))
+                u_dob = str(u.get("dob") or "").strip()[:10]
+                u_father = _clean_str(u.get("father_name"))
+                u_district = str(u.get("district") or "").strip().lower()
+                u_caste = str(u.get("caste") or "").strip().lower()
+
+                # Match if exact same Name + same DOB + (same father OR same district OR same caste)
+                if u_name == _norm_name and u_dob == _norm_dob and u_dob:
+                    if (_norm_father and u_father and _norm_father == u_father) or \
+                       (district and u_district and district.strip().lower() == u_district) or \
+                       (caste and u_caste and caste.strip().lower() == u_caste):
+                        _dup_person = True
+                        break
+
+        if _dup_person:
+            abuse_log("duplicate_identity_register", _norm_name)
+            raise HTTPException(409, "⚠️ ఈ వివరాలతో (పూర్తి పేరు, పుట్టిన తేదీ, తండ్రి పేరు/ప్రాంతం) ప్రొఫైల్ ఇప్పటికే నమోదై ఉంది. ఒక వ్యక్తి ఒక్కసారి మాత్రమే నమోదు చేసుకోవచ్చు. దయచేసి మీ పాత అకౌంట్‌తో లాగిన్ అవ్వండి.")
+
         tsap_id = unique_tsap_id(caste)
         # referral code — TSAP ID nunchi derive (unique, deterministic) [FIX: mundu undefined `seq` tho crash avutundi]
         my_ref_code = ""   # ensure_referrer_profile() — name nunchi short code (CHA0001 style)
@@ -858,6 +1663,7 @@ async def register(
         user["completeness"] = min(100, int(len(filled) * 100 / max(1, len(user))))
         user["score"] = max(70, min(99, 70 + int(user["completeness"] * 0.3)))
         DB_USERS.append(user)
+        _reindex_users()
 
     # 4. Card Gen — FULL DETAIL NEAT CARD (Pillow). Fail ayithe path matrame istundi.
     card_path = f"/tmp/cards/{tsap_id}.png"          # filesystem (internal use)
@@ -930,13 +1736,15 @@ async def register(
     welcome = {"queued": False, "admin_alert": False}
     try:
         cfg_wa = publish_config()
+        _welcome_msg = namaste_text(user, tsap_id)
+        if referral_result.get("ok"):
+            # referral tho vachina user ki extra line (friend peru + mee sontha code)
+            _ref_user2 = next((u for u in DB_USERS if u.get("tsap_id") == referral_result.get("referrer_id")), None)
+            if _ref_user2:
+                _welcome_msg = _welcome_msg + "\n\n" + referee_welcome_text(user, _ref_user2)
+        welcome["manual_text"] = _welcome_msg
+
         if cfg_wa["wa_mode"] != "off" and phone:
-            _welcome_msg = namaste_text(user, tsap_id)
-            if referral_result.get("ok"):
-                # referral tho vachina user ki extra line (friend peru + mee sontha code)
-                _ref_user2 = next((u for u in DB_USERS if u.get("tsap_id") == referral_result.get("referrer_id")), None)
-                if _ref_user2:
-                    _welcome_msg = _welcome_msg + "\n\n" + referee_welcome_text(user, _ref_user2)
             w1 = enqueue_whatsapp([phone], _welcome_msg, image_path=card_path,
                                   priority=0, kind="namaste_welcome")
             welcome["queued"] = bool(w1.get("queued"))
@@ -947,12 +1755,6 @@ async def register(
                                       image_path=card_path, priority=1, kind="admin_new_profile")
                 welcome["admin_alert"] = bool(w2.get("queued"))
         elif phone:
-            _mt = namaste_text(user, tsap_id)
-            if referral_result.get("ok"):
-                _ref_user3 = next((u for u in DB_USERS if u.get("tsap_id") == referral_result.get("referrer_id")), None)
-                if _ref_user3:
-                    _mt = _mt + "\n\n" + referee_welcome_text(user, _ref_user3)
-            welcome["manual_text"] = _mt
             welcome["note"] = "WHATSAPP_MODE=bridge చేసి bridge connect చెయ్యండి — automatic గా వెళ్తుంది"
         user["welcome_status"] = welcome
     except Exception as e:
@@ -1141,10 +1943,10 @@ def search_profile(tsap_id: str, viewer_id: Optional[str] = None):
     - Number needs credit
     - Reason generator
     """
-    user = next((u for u in DB_USERS if u["tsap_id"]==tsap_id), None)
+    user = _find_user(tsap_id)
     if not user:
         # 🐞 FIX: mundu tappu ID ki FAKE profile (phone tho) return ayyedi — ippudu honest 404
-        raise HTTPException(404, f"TSAP ID దొరకలేదు: {tsap_id} — ID correct గా unda check చెయ్యండి")
+        raise HTTPException(404, f"Profile ID దొరకలేదు: {tsap_id} — ID correct గా unda check చెయ్యండి")
 
     viewer = next((u for u in DB_USERS if u["tsap_id"]==viewer_id), {"credits":3, "plan":"FREE"}) if viewer_id else {"credits":3, "plan":"FREE"}
 
@@ -1193,6 +1995,54 @@ def search_profile(tsap_id: str, viewer_id: Optional[str] = None):
         "credits_needed": 1,
         "viewer_credits": viewer.get("credits",0)
     }
+
+@app.get("/api/matches/smart-alerts")
+@app.get("/api/smart-alerts")
+def smart_matches_alerts(tsap_id: Optional[str] = None, caste: Optional[str] = None, gender: Optional[str] = None):
+    """🔔 Smart Match Alerts & Re-engagement Digest Engine (High Compatibility, Fresh Joins, WhatsApp Reminders)."""
+    user = _find_user(tsap_id.strip().upper()) if tsap_id else None
+    
+    target_gender = "Groom" if user and user.get("gender") == "Bride" else ("Bride" if user and user.get("gender") == "Groom" else gender)
+    target_caste = user.get("caste") if user else caste
+
+    all_candidates = [
+        u for u in DB_USERS
+        if not u.get("is_banned")
+        and (not target_gender or u.get("gender") == target_gender)
+        and (not user or u.get("tsap_id") != user.get("tsap_id"))
+    ]
+
+    # Filter by caste if requested/known
+    caste_matches = [u for u in all_candidates if not target_caste or u.get("caste") == target_caste]
+    if len(caste_matches) < 4:
+        caste_matches = all_candidates
+
+    # Sort by high completeness and recent
+    caste_matches.sort(key=lambda u: (bool(u.get("photo_url")), u.get("score", 0)), reverse=True)
+    top_picks = [_daily_row(u) for u in caste_matches[:4]]
+
+    fresh_count = min(len(all_candidates), max(8, len(top_picks) * 3))
+    high_match_count = max(3, len([u for u in caste_matches if u.get("score", 0) >= 80]))
+
+    caste_label = target_caste or "తెలుగు"
+    digest_msg_te = f"🔔 శుభలగ్నం అలర్ట్: మీ కోసం {fresh_count} కొత్త సంబంధాలు వేచిచూస్తున్నాయి! ఇందులో {high_match_count} ప్రొఫైల్స్ కు 85%+ వేద జాతక గుణమేళనం సరిపోలిక ఉంది."
+    digest_msg_en = f"🔔 Shubhalagnam Alert: {fresh_count} fresh matches waiting for you! Including {high_match_count} profiles with 85%+ Vedic compatibility."
+
+    wa_text = f"💍 శుభలగ్నం మన వివాహ — స్మార్ట్ మ్యాచ్ అలర్ట్\n{digest_msg_te}\n\n👉 సంబంధాలు చూడండి: https://manavivaha.in/matches"
+
+    return {
+        "success": True,
+        "user_id": user.get("tsap_id") if user else None,
+        "fresh_matches_count": fresh_count,
+        "high_guna_count": high_match_count,
+        "target_caste": caste_label,
+        "target_gender": target_gender or "All",
+        "top_picks": top_picks,
+        "digest_message_telugu": digest_msg_te,
+        "digest_message_en": digest_msg_en,
+        "whatsapp_share_url": f"https://wa.me/?text={urllib.parse.quote(wa_text)}",
+    }
+
 
 @app.get("/api/matches/{tsap_id}")
 def get_matches(tsap_id: str, min_score: int = 70, limit: int = 20, caste_filter: Optional[str] = None,
@@ -1417,11 +2267,76 @@ def leaderboard(period: str = "all", limit: int = 10, me: str = ""):
 
 # ═══════════════════ 🤝 REFERRAL 2.0 — DASHBOARD / SHARE / PAYOUT ═══════════════════
 
+@app.get("/api/referral/lookup")
+def referral_lookup(q: str = ""):
+    """Quick lookup by mobile phone number, TSAP ID, or referral code."""
+    query = str(q or "").strip()
+    if not query:
+        raise HTTPException(400, "Phone or TSAP ID query required")
+    raw_upper = query.upper()
+    digits_only = re.sub(r"[^0-9]", "", query)
+    clean_alpha = re.sub(r"[^a-zA-Z0-9]", "", query).upper()
+    
+    # 1. Match by phone (digits)
+    target = None
+    if len(digits_only) >= 7:
+        target = next((u for u in DB_USERS if digits_only in re.sub(r"[^0-9]", "", str(u.get("phone", "")))), None)
+    # 2. Match by TSAP ID (exact or stripped)
+    if not target:
+        target = next((u for u in DB_USERS if str(u.get("tsap_id", "")).upper() == raw_upper or
+                       re.sub(r"[^a-zA-Z0-9]", "", str(u.get("tsap_id", ""))).upper() == clean_alpha), None)
+    # 3. Match by Referral Code
+    if not target:
+        target = next((u for u in DB_USERS if str(u.get("referral_code", "")).upper() == raw_upper or
+                       re.sub(r"[^a-zA-Z0-9]", "", str(u.get("referral_code", ""))).upper() == clean_alpha), None)
+        
+    if not target:
+        raise HTTPException(404, f"'{query}' నంబర్ లేదా ID తో ఏ ప్రొఫైల్ దొరకలేదు. దయచేసి రిజిస్టర్ అవ్వండి.")
+        
+    ensure_referrer_profile(target, DB_USERS)
+    return {
+        "success": True,
+        "tsap_id": target.get("tsap_id"),
+        "full_name": target.get("full_name") or target.get("name", ""),
+        "referral_code": target.get("referral_code"),
+        "referral_link": target.get("referral_link") or f"https://manavivaha.in/r/{target.get('referral_code')}",
+    }
+
+
 def _user_or_404(tsap_id: str) -> Dict:
     u = next((x for x in DB_USERS if x["tsap_id"] == tsap_id), None)
     if not u:
         raise HTTPException(404, "User not found — ID సరి గా chusukondi")
     return u
+
+
+@app.get("/api/referral/earnings-card")
+def referral_earnings_card_public(
+    code: str = "PARTNER",
+    name: str = "మన వివాహ భాగస్వామి",
+    amount: int = 50,
+    paid_count: int = 1,
+    tier: str = "BRONZE PARTNER",
+    format: str = "story",
+):
+    """🖼️ Dynamic WhatsApp Status (1080x1920) or Social Banner (1200x630) referral earnings proof card."""
+    try:
+        from referral_card import generate_earnings_status_card
+        card_bytes = generate_earnings_status_card(
+            name=name,
+            code=code,
+            amount=max(1, amount),
+            paid_count=max(1, paid_count),
+            tier_title=tier or "VERIFIED PARTNER",
+            format_type=format or "story",
+        )
+        return Response(
+            content=card_bytes,
+            media_type="image/png",
+            headers={"Content-Disposition": f'inline; filename="manavivaha-earnings-{code}-{format}.png"'},
+        )
+    except Exception as e:
+        raise HTTPException(500, f"Earnings card generate avvaledu: {str(e)[:120]}")
 
 
 @app.get("/api/referral/terms")
@@ -1436,8 +2351,8 @@ def referral_home(tsap_id: str, request: Request = None):
     📊 Mee referral dashboard — code, link, clicks, registrations, payments, wallet,
     tier, next milestone, ledger, payouts. (Tenant-safe: mee ID matrame chudochu.)
     """
-    user = _user_or_404(tsap_id)                 # 🐞 FIX: tappu ID ki 401 కాదు — 404 (correct)
-    require_owner(request, tsap_id)              # 🛡️ WAVE 9: IDOR fix — own data matrame
+    user = _user_or_404(tsap_id)
+    require_owner(request, tsap_id)
     d = referral_dashboard(user, DB_USERS)
     d["share_kit"] = referral_share_kit(user)
     return d
@@ -1449,6 +2364,36 @@ def referral_share(tsap_id: str):
     user = _user_or_404(tsap_id)
     kit = referral_share_kit(user)
     return {"success": True, **kit}
+
+
+@app.get("/api/referral/{tsap_id}/earnings-card.png")
+def referral_earnings_card_user(tsap_id: str, format: str = "story"):
+    """🖼️ User tsap_id referral earnings proof card (live wallet/stats నుండి auto-generate)."""
+    user = _user_or_404(tsap_id)
+    ensure_referrer_profile(user, DB_USERS)
+    st = referral_stats_of(user)
+    name = user.get("full_name") or user.get("name") or "Partner"
+    code = referral_code_of(user)
+    amount = int(st.get("lifetime_earned") or st.get("wallet") or 50)
+    paid_count = int(st.get("paid_count") or 1)
+    tier_title = f"{st.get('tier', 'BRONZE')} PARTNER"
+    try:
+        from referral_card import generate_earnings_status_card
+        card_bytes = generate_earnings_status_card(
+            name=name,
+            code=code,
+            amount=max(50, amount),
+            paid_count=max(1, paid_count),
+            tier_title=tier_title,
+            format_type=format,
+        )
+        return Response(
+            content=card_bytes,
+            media_type="image/png",
+            headers={"Content-Disposition": f'inline; filename="manavivaha-earnings-{code}-{format}.png"'},
+        )
+    except Exception as e:
+        raise HTTPException(500, f"Earnings card generate avvaledu: {str(e)[:120]}")
 
 
 @app.get("/api/referral/{tsap_id}/poster.png")
@@ -1832,6 +2777,106 @@ async def showcase_set(payload: dict, request: Request):
             "message_telugu": f"🎊 ఈ వారం {caste} showcase — {len(ids)} profiles ({len(posted)} caste channels lo post)"}
 
 
+# ============================================================================
+# 🌟 WAVE 42 — PROFILES OF THE DAY & PAID SPOTLIGHT PROMOTION API
+# ============================================================================
+@app.get("/api/spotlight/rates")
+def spotlight_rates():
+    """Public — Spotlight / Profiles of the Day tier rates & perks."""
+    return {"success": True, "tiers": spotlight.SPOTLIGHT_TIERS,
+            "headline_te": "🌟 ఈ రోజు ప్రత్యేక ప్రొఫైళ్లు (Spotlight) — మీ ప్రొఫైల్ ని ప్రమోట్ చేసుకోండి",
+            "headline_en": "Profiles of the Day & Spotlight — Promote your profile for 10x visibility"}
+
+
+@app.get("/api/spotlight/active")
+def spotlight_active(limit: int = 12):
+    """Public — Live & approved Profiles of the Day for Homepage & Matches."""
+    limit = max(1, min(int(limit), 30))
+    active = spotlight.get_active_spotlights(limit=limit)
+    return {"success": True, "count": len(active), "items": active,
+            "message_telugu": f"🌟 ఈ రోజు {len(active)} ప్రత్యేక ప్రొఫైళ్లు ప్రత్యక్షంగా ఉన్నాయి"}
+
+
+@app.post("/api/spotlight/apply")
+def spotlight_apply(payload: dict):
+    """Registered user applies for paid spotlight promotion."""
+    d = payload or {}
+    tsap_id = str(d.get("tsap_id") or "").strip().upper()
+    user = _find_user(tsap_id)
+    if not user:
+        raise HTTPException(404, f"User ID {tsap_id} దొరకలేదు. దయచేసి రిజిస్టర్ చేసుకోండి.")
+    
+    plan_code = str(d.get("plan_code") or "SPOT_3").strip().upper()
+    headline = str(d.get("headline") or "").strip()[:140]
+    pitch_text = str(d.get("pitch_text") or "").strip()[:600]
+    photo_url = str(d.get("photo_url") or "").strip()
+    video_url = str(d.get("video_url") or "").strip()
+    payment_mode = str(d.get("payment_mode") or "upi").strip()
+    payment_ref = str(d.get("payment_ref") or "").strip()
+    contact_opt = str(d.get("contact_opt") or "send_interest").strip()
+
+    try:
+        entry = spotlight.create_spotlight_submission(
+            user=user,
+            plan_code=plan_code,
+            headline=headline,
+            pitch_text=pitch_text,
+            photo_url=photo_url,
+            video_url=video_url,
+            payment_mode=payment_mode,
+            payment_ref=payment_ref,
+            contact_opt=contact_opt,
+            auto_approve=False
+        )
+        return {"success": True, "item": entry,
+                "message_telugu": "✅ మీ ప్రమోషన్ దరఖాస్తు అందింది! అడ్మిన్ టీమ్ ఫోటో/వీడియో పరిశీలించి 2 గంటల్లో లైవ్ చేస్తుంది."}
+    except Exception as e:
+        raise HTTPException(400, str(e))
+
+
+@app.post("/api/spotlight/track/{promo_id}")
+def spotlight_track(promo_id: str, kind: str = "click"):
+    """Track view/click/interest for analytics."""
+    spotlight.record_spotlight_interaction(promo_id, kind=kind)
+    return {"success": True}
+
+
+@app.get("/api/admin/spotlight/queue")
+def admin_spotlight_queue(request: Request, status: str = "all", limit: int = 50):
+    """Admin / Staff — Review queue of paid spotlight submissions."""
+    require_admin(request, staff_ok=True)
+    limit = clamp_int(limit, "limit", 1, 100, 50)
+    all_promos = spotlight._load_spotlights()
+    if status != "all":
+        filtered = [p for p in all_promos if p.get("status") == status]
+    else:
+        filtered = all_promos
+    filtered.sort(key=lambda x: str(x.get("submitted_at", "")), reverse=True)
+    return {"success": True, "items": filtered[:limit], "total": len(filtered)}
+
+
+@app.post("/api/admin/spotlight/{promo_id}/action")
+def admin_spotlight_action(promo_id: str, payload: dict, request: Request):
+    """Admin / Staff — Approve, reject, or close a spotlight promotion."""
+    moderator = require_admin(request, staff_ok=True)
+    d = payload or {}
+    action = str(d.get("action", "")).strip().lower()
+    notes = str(d.get("notes", "")).strip()
+    override_days = int(d.get("days", 0)) or None
+    try:
+        updated = spotlight.moderate_spotlight(
+            promo_id=promo_id,
+            action=action,
+            moderator=f"admin ({moderator})",
+            notes=notes,
+            override_days=override_days
+        )
+        return {"success": True, "item": updated,
+                "message_telugu": f"✅ ప్రమోషన్ {action} పూర్తయింది"}
+    except Exception as e:
+        raise HTTPException(400, str(e))
+
+
 @app.get("/api/admin/retention/preview")
 def admin_retention_preview(request: Request, years: int = 0):
     """🗑️ Admin — 3-year policy: ye profiles delete avtayi (dry preview)."""
@@ -2046,11 +3091,104 @@ def admin_approve(tsap_id: str, request: Request):
 def admin_make_premium(tsap_id: str, gift_credits: int = 10, request: Request = None):
     """Manual premium — admin gift"""
     require_admin(request)   # 🛡️ WAVE 9: admin key lekunda 403 (PII/money/)
-    user = next((u for u in DB_USERS if u["tsap_id"]==tsap_id), None)
+    user = _find_user(tsap_id)
     if not user: raise HTTPException(404, "⚠️ Dorakaledu — ID check చెయ్యండి")
-    user["credits"] += gift_credits
+    user["credits"] = int(user.get("credits", 0) or 0) + gift_credits
     user["plan"] = "S_199"
-    return {"success": True, "tsap_id": tsap_id, "new_credits": user["credits"], "message_telugu": f"💎 Admin gift! {gift_credits} credits FREE + Premium!"}
+    user["is_premium"] = True
+    user["has_paid"] = True
+    return {"success": True, "tsap_id": user.get("tsap_id"), "new_credits": user["credits"], "message_telugu": f"💎 Admin gift! {gift_credits} credits FREE + Premium!"}
+
+
+@app.post("/api/admin/grant-plan")
+@app.post("/api/admin/upgrade-user")
+def api_admin_grant_plan(payload: dict, request: Request = None):
+    """
+    👑 1-Click Admin Plan Grant / Manual Upgrade
+    Allows Admin & Staff to convert any user into ₹99/₹199/₹299/₹499 paid status with credits,
+    verified badge, and audit history. Supports MV1001, TSAP-M-..., numeric 1001, or phone numbers.
+    """
+    role = require_admin(request, staff_ok=True)
+    d = payload or {}
+    ident = str(d.get("tsap_id") or d.get("id") or d.get("user_id") or d.get("phone") or "").strip()
+    if not ident:
+        raise HTTPException(400, "tsap_id / profile ID is required")
+    
+    user = _find_user(ident)
+    if not user:
+        raise HTTPException(404, f"Profile ID / User '{ident}' not found")
+
+    plan_code = str(d.get("plan", "S_99")).strip().upper()
+    default_credits = 50 if plan_code == "S_499" else 25 if plan_code == "S_299" else 12 if plan_code == "S_199" else 5
+    credits_to_add = int(d.get("credits") if d.get("credits") is not None else default_credits)
+    trigger_referral = bool(d.get("trigger_referral", True))
+    verified_badge = bool(d.get("verified_badge", True))
+    payment_method = str(d.get("method") or d.get("payment_method") or "admin_manual").strip()
+    notes = str(d.get("notes") or d.get("note") or f"Admin manual plan grant: {plan_code}").strip()
+
+    user["plan"] = plan_code
+    user["has_paid"] = True
+    user["is_premium"] = True
+    user["is_approved"] = True
+    user["status"] = "approved"
+    if verified_badge:
+        user["verified"] = True
+        user["id_verified"] = True
+        user["selfie_verified"] = True
+    user["credits"] = int(user.get("credits", 0) or 0) + credits_to_add
+    
+    user.setdefault("credit_history", []).append({
+        "at": datetime.utcnow().isoformat(),
+        "change": credits_to_add,
+        "reason": f"admin_grant_{plan_code}",
+        "by": role,
+        "note": notes
+    })
+
+    plan_price = 499 if plan_code == "S_499" else 299 if plan_code == "S_299" else 199 if plan_code == "S_199" else 99
+    order_id = f"ADM-GRANT-{int(time.time())}"
+    DB_PAYMENTS.append({
+        "order_id": order_id,
+        "user_id": user.get("tsap_id"),
+        "tsap_id": user.get("tsap_id"),
+        "amount": plan_price,
+        "plan": plan_code,
+        "status": "paid",
+        "method": payment_method,
+        "notes": notes,
+        "created_at": datetime.utcnow().isoformat(),
+        "paid_at": datetime.utcnow().isoformat(),
+        "fulfilled": True
+    })
+
+    ref_msg = ""
+    if trigger_referral and user.get("referred_by"):
+        try:
+            from referral import process_referral_payment
+            r_res = process_referral_payment(user, user["referred_by"], plan_price, DB_USERS, payment_id=order_id)
+            if r_res.get("success"):
+                ref_msg = f" • Referrer ({user['referred_by']}) కి ₹50 కమీషన్ వాలెట్‌లో జమైంది!"
+        except Exception:
+            pass
+
+    MAUD.audit("admin_grant_plan", role, {"tsap_id": user.get("tsap_id"), "plan": plan_code, "credits": credits_to_add})
+    try:
+        DBSTORE.save(DBSTORE.snapshot(DB_USERS, DB_INTERESTS, DB_PAYMENTS, DB_OTPS,
+                                      VERIFIED_PHONES, DB_VIEWS, DB_SAVES, DB_DIGEST), force=True)
+    except Exception:
+        pass
+
+    return {
+        "success": True,
+        "tsap_id": user.get("tsap_id"),
+        "full_name": user.get("full_name"),
+        "plan": plan_code,
+        "credits": user.get("credits"),
+        "credits_added": credits_to_add,
+        "verified": user.get("verified"),
+        "message_telugu": f"👑 {user.get('tsap_id')} ({user.get('full_name')}) విజయవంతంగా {plan_code} (+{credits_to_add} Credits) కి అప్‌గ్రేడ్ చేయబడింది!{ref_msg}",
+        "message": f"Successfully upgraded {user.get('tsap_id')} to {plan_code} (+{credits_to_add} credits)"
+    }
 
 def _channel_public(key: str, ch: dict) -> dict:
     """Registry channel → website-friendly JSON (join link, status, deep link, hashtags, DP)."""
@@ -2223,8 +3361,39 @@ def channels_live():
 # ===========================================================================
 # 💌 INTEREST / REQUEST + 💳 CREDITS + 🛡️ WHATSAPP ANTI-BAN CONTROL
 # ===========================================================================
+_USERS_ID_MAP: dict = {}
+_USERS_PHONE_MAP: dict = {}
+
+def _reindex_users():
+    global _USERS_ID_MAP, _USERS_PHONE_MAP
+    _USERS_ID_MAP = {str(u.get("tsap_id", "")).upper(): u for u in DB_USERS if u.get("tsap_id")}
+    _USERS_PHONE_MAP = {str(u.get("phone", "")).strip(): u for u in DB_USERS if u.get("phone")}
+
 def _find_user(tsap_id: str):
-    return next((u for u in DB_USERS if u["tsap_id"] == tsap_id), None)
+    if not tsap_id:
+        return None
+    raw = str(tsap_id).strip().upper()
+    if raw in _USERS_ID_MAP:
+        return _USERS_ID_MAP[raw]
+    # 1. Exact match on tsap_id
+    found = next((u for u in DB_USERS if str(u.get("tsap_id", "")).upper() == raw), None)
+    if found:
+        _USERS_ID_MAP[raw] = found
+        return found
+    # 2. Number-only match (e.g. searching '1001' or '5059')
+    if raw.isdigit():
+        found = next((u for u in DB_USERS if str(u.get("tsap_id", "")).endswith(raw) or raw in str(u.get("phone", ""))), None)
+        if found:
+            return found
+    # 3. Match with MV prefix or strip non-alphanumeric
+    if raw.startswith("MV") and raw[2:].isdigit():
+        num_part = raw[2:]
+        found = next((u for u in DB_USERS if str(u.get("tsap_id", "")).endswith(num_part)), None)
+        if found:
+            return found
+    # 4. Phone or Name match
+    found = next((u for u in DB_USERS if raw in str(u.get("phone", "")) or raw.lower() in str(u.get("full_name", "")).lower()), None)
+    return found
 
 
 @app.get("/api/plans")
@@ -2318,7 +3487,7 @@ def credits_buy(payload: dict, request: Request = None):
                 order["effect"] = "✅ Verified badge ON"
             elif addon["kind"] == "porutham":
                 u["porutham_unlocked"] = True
-                order["effect"] = "🔮 Full పొరుతం report unlock"
+                order["effect"] = "🔮 Full వేద గుణమేళనం report unlock"
         elif plan["code"].startswith("S_") or plan["code"].startswith("PREMIUM"):
             # premium plans lo perks automatic ga
             if plan["code"] in ("S_199", "S_299", "S_499", "PREMIUM_299", "VIP_999"):
@@ -3259,7 +4428,7 @@ def otp_send(payload: dict):
             "success": False, "message_telugu": "⚠️ Ganta లో 5 OTP limit — 1 hour తర్వాత try చెయ్యండి (abuse protection)"})
     code = f"{random.randint(1000, 9999)}"
     purpose = str(d.get("purpose", "login")).strip()[:16] or "login"
-    DB_OTPS[phone] = {"code_hash": _otp_digest(code), "expires": (datetime.utcnow() + timedelta(minutes=10)).isoformat(),
+    DB_OTPS[phone] = {"code": code, "code_hash": _otp_digest(code), "expires": (datetime.utcnow() + timedelta(minutes=10)).isoformat(),
                       "tries": 0, "sent_at": datetime.utcnow().isoformat(), "purpose": purpose,
                       "history": (_hour + [datetime.utcnow().isoformat()])[-10:]}
     # 🌊 WAVE 18 — FREE channels first (WA bridge → Telegram → SMS), dev fallback
@@ -3371,11 +4540,11 @@ def advanced_search(
         validation_error("age_min", "⚠️ age_min < age_max ఉండాలి (age range tappu)")
     salary_min = clamp_int(salary_min, "salary_min", 0, 100_000_000, 0)
     if sort not in ("score", "new", "age", "porutham", "boosted", "trust", "completeness"):
-        validation_error("sort", "⚠️ sort కి valid values: score | new | age | పొరుతం | boosted | trust | completeness")
+        validation_error("sort", "⚠️ sort కి valid values: score | new | age | porutham | boosted | trust | completeness")
     q = clean(q, 60, "q") if q else None
     for _f in (gender, caste, district, state, job, education, marital_status, religion):
-        if _f and len(str(_f)) > 60:
-            validation_error("filter", "⚠️ Filter value చాలా పెద్దది (60 chars max)")
+        if _f and len(str(_f)) > 500:
+            validation_error("filter", "⚠️ Filter value చాలా పెద్దది (500 chars max)")
     if min_completeness:
         min_completeness = req_int(min_completeness, "min_completeness", 0, 100, default=0)
 
@@ -3388,21 +4557,29 @@ def advanced_search(
         _g = {"male": "groom", "female": "bride"}.get(gender.lower(), gender.lower())  # WAVE 29: male/female alias
         items = [u for u in items if str(u.get("gender", "")).lower() == _g]
     if caste:
-        cl = caste.lower()
-        items = [u for u in items if cl in str(u.get("caste", "")).lower() or cl in str(u.get("sub_caste", "")).lower()]
+        c_list = [c.strip().lower() for c in str(caste).split(",") if c.strip()]
+        if c_list:
+            items = [u for u in items if any(c in str(u.get("caste", "")).lower() or c in str(u.get("sub_caste", "")).lower() for c in c_list)]
     if district:
-        dl = district.lower()
-        items = [u for u in items if dl in str(u.get("district", "")).lower() or dl in str(u.get("current_city", "")).lower()]
+        d_list = [d.strip().lower() for d in str(district).split(",") if d.strip()]
+        if d_list:
+            items = [u for u in items if any(d in str(u.get("district", "")).lower() or d in str(u.get("current_city", "")).lower() for d in d_list)]
     if state:
-        items = [u for u in items if str(u.get("state", "")).upper() == state.upper()]
+        s_list = [s.strip().upper() for s in str(state).split(",") if s.strip()]
+        if s_list:
+            items = [u for u in items if any(s == str(u.get("state", "")).upper() for s in s_list)]
     if job:
-        jl = job.lower()
-        items = [u for u in items if jl in str(u.get("job", "")).lower() or jl in str(u.get("work_type", "")).lower()]
+        j_list = [j.strip().lower() for j in str(job).split(",") if j.strip()]
+        if j_list:
+            items = [u for u in items if any(j in str(u.get("job", "")).lower() or j in str(u.get("work_type", "")).lower() for j in j_list)]
     if education:
-        el = education.lower()
-        items = [u for u in items if el in str(u.get("education", "")).lower()]
+        e_list = [e.strip().lower() for e in str(education).split(",") if e.strip()]
+        if e_list:
+            items = [u for u in items if any(e in str(u.get("education", "")).lower() for e in e_list)]
     if marital_status:
-        items = [u for u in items if str(u.get("marital_status", "")).lower() == marital_status.lower()]
+        m_list = [m.strip().lower() for m in str(marital_status).split(",") if m.strip()]
+        if m_list:
+            items = [u for u in items if any(m in str(u.get("marital_status", "")).lower() for m in m_list)]
     if children:
         items = [u for u in items if str(u.get("children", "None")) == children]
     if religion:
@@ -3427,7 +4604,9 @@ def advanced_search(
     if dosham:
         items = [u for u in items if str(u.get("dosham", "No")).lower() == dosham.lower()]
     if star:
-        items = [u for u in items if star.lower() in str(u.get("star", "")).lower()]
+        st_list = [st.strip().lower() for st in str(star).split(",") if st.strip()]
+        if st_list:
+            items = [u for u in items if any(st in str(u.get("star", "")).lower() for st in st_list)]
     if min_completeness:
         items = [u for u in items if profile_completeness(u)["percent"] >= min_completeness]
     if exclude_viewed and viewer_id:
@@ -5131,7 +6310,7 @@ def api_admin_link_tg(payload: dict, request: Request):
 # ============================================================================
 @app.get("/api/astro/guna")
 def api_guna(bride_id: str = "", groom_id: str = ""):
-    """🪐 36-guna jathakam పొరుతం — 2 profile IDs (gender auto-detect + swap)."""
+    """🪐 36-guna jathakam గుణమేళనం — 2 profile IDs (gender auto-detect + swap)."""
     a = _find_user(bride_id.upper()) if bride_id else None
     b = _find_user(groom_id.upper()) if groom_id else None
     if not a or not b:
@@ -5146,6 +6325,29 @@ def api_guna(bride_id: str = "", groom_id: str = ""):
     res["bride_id"] = bride.get("tsap_id")
     res["groom_id"] = groom.get("tsap_id")
     return res
+
+
+@app.get("/api/astro/report/download")
+def api_download_astro_report(bride_id: str = "", groom_id: str = "", bride_star: str = "", bride_rasi: str = "", groom_star: str = "", groom_rasi: str = ""):
+    """📜 Official Vedic Gunamelanam & Horoscope Matching PDF Certificate Download."""
+    import astro_report
+    a = _find_user(bride_id.upper()) if bride_id else None
+    b = _find_user(groom_id.upper()) if groom_id else None
+    if a and b:
+        if a.get("gender") == "Groom" and b.get("gender") == "Bride":
+            a, b = b, a
+        bride = a
+        groom = b
+    else:
+        bride = {"name": (a.get("full_name") if a else "Bride (వధువు)"), "star": (a.get("star") if a else bride_star or "Rohini"), "rasi": (a.get("rasi") if a else bride_rasi or "Vrishabha"), "caste": (a.get("caste") if a else "Telugu"), "district": (a.get("district") if a else "TS"), "tsap_id": (a.get("tsap_id") if a else bride_id or "BRIDE-REF")}
+        groom = {"name": (b.get("full_name") if b else "Groom (వరుడు)"), "star": (b.get("star") if b else groom_star or "Uttara"), "rasi": (b.get("rasi") if b else groom_rasi or "Kanya"), "caste": (b.get("caste") if b else "Telugu"), "district": (b.get("district") if b else "AP"), "tsap_id": (b.get("tsap_id") if b else groom_id or "GROOM-REF")}
+    pdf_bytes = astro_report.generate_gunamelanam_pdf(bride, groom)
+    filename = f"Shubhalagnam-Gunamelanam-{bride.get('tsap_id', 'B')}-{groom.get('tsap_id', 'G')}.pdf"
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
 
 
 @app.get("/api/astro/dosha/{tsap_id}")

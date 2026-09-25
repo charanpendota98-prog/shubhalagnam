@@ -207,9 +207,9 @@ export default function RequestsPage() {
     try {
       const d = await fetch(`/api/porutham?bride=${porA.trim().toUpperCase()}&groom=${porB.trim().toUpperCase()}`).then((r) => r.json());
       setPor(d);
-      setToast({ kind: d.available ? "ok" : "info", text: d.available ? `🔮 Porutham ${d.score}/10 — ${d.verdict}` : d.reason });
+      setToast({ kind: d.available ? "ok" : "info", text: d.available ? `🔮 గుణమేళనం ${d.score}/10 — ${d.verdict}` : d.reason });
     } catch {
-      setToast({ kind: "err", text: te ? "Porutham check fail అయ్యింది" : "Porutham check failed" });
+      setToast({ kind: "err", text: te ? "గుణమేళనం లెక్కింపు విఫలమైంది" : "Porutham check failed" });
     }
     setBusy(false);
   };
@@ -224,7 +224,7 @@ export default function RequestsPage() {
     `text-[10px] font-bold px-2 py-0.5 rounded-full border ${STATUS_STYLE[s] || "bg-gray-100 text-gray-600 border-gray-300"}`;
 
   return (
-    <main className="min-h-screen">
+    <main className="min-h-screen pb-36">
       {/* HERO */}
       <section className="maroon-gradient text-white">
         <div className="max-w-6xl mx-auto px-4 py-10">
@@ -234,11 +234,11 @@ export default function RequestsPage() {
             </div>
             <h1 className="mt-3 text-2xl md:text-4xl font-bold"><Duo en="Requests Dashboard" te="రిక్వెస్ట్‌ల డాష్‌బోర్డ్" /></h1>
             <p className="mt-2 text-[13px] md:text-sm opacity-90 telugu max-w-3xl">
-{te ? <>నచ్చిన profile కి <b>Interest పంపు</b> — వాళ్లకి WhatsApp లో మీ profile card వెళ్తుంది.
-              వాళ్లు <b>Accept</b> చేస్తే రెండు numbers automatic గా exchange అవుతాయి. <b>Decline</b> చేస్తే మీ credit refund.
-              Chatting, spam calls, fake ids — అన్నీ ఇక్కడే ఆగుతాయి.</> : <>Send <b>Interest</b> to profiles you like — they get your profile card on WhatsApp.
-              If they <b>Accept</b>, both numbers exchange automatically. On <b>Decline</b>, your credit refunds.
-              Chatting, spam calls, fake ids — all stop here.</>}
+{te ? <>నచ్చిన ప్రొఫైల్‌కు <b>Interest పంపండి</b> — వారి అధికారిక WhatsApp కు మీ బయోడేటా కార్డ్ వెళ్తుంది.
+              వారు <b>అంగీకరించిన వెంటనే</b> ఇరు కుటుంబాల నంబర్లు సురక్షితంగా మార్పిడి అవుతాయి. ఒకవేళ <b>తిరస్కరిస్తే</b> మీ క్రెడిట్ తిరిగి రీఫండ్ అవుతుంది.
+              అనవసరపు స్పామ్ కాల్స్ మరియు అవాంఛిత సందేశాలు లేకుండా సంపూర్ణ గోప్యత లభిస్తుంది.</> : <>Send <b>Interest</b> to profiles you like — your verified biodata card reaches them on WhatsApp.
+              When they <b>Accept</b>, verified contact numbers are securely exchanged. On <b>Decline</b>, your credit is immediately refunded.
+              100% spam-free, private, and dignified matchmaking.</>}
             </p>
           </Reveal>
 
@@ -284,7 +284,7 @@ export default function RequestsPage() {
             { k: "inbox", l: te ? `📥 వచ్చిన requests${inbox.pending ? ` (${inbox.pending})` : ""}` : `📥 Received${inbox.pending ? ` (${inbox.pending})` : ""}` },
             { k: "sent", l: te ? `📤 పంపిన requests${sent.sent?.length ? ` (${sent.sent.length})` : ""}` : `📤 Sent${sent.sent?.length ? ` (${sent.sent.length})` : ""}` },
             { k: "send", l: te ? "💌 Interest పంపు" : "💌 Send interest" },
-            { k: "porutham", l: "🔮 Porutham" },
+            { k: "porutham", l: te ? "🔮 గుణమేళనం" : "🔮 Gunamelanam" },
             { k: "saved", l: `❤️ Saved${saved.count ? ` (${saved.count})` : ""}` },
             { k: "viewers", l: `👀 Viewers${views?.total_views ? ` (${views.total_views})` : ""}` },
             { k: "plans", l: "💳 Plans & Credits" },
@@ -314,7 +314,7 @@ export default function RequestsPage() {
                     <span className="text-[11px] text-gray-500 font-mono">{it.request_id}</span>
                     {it.score > 0 && <span className="text-[11px] font-bold text-maroon">⭐ {it.score}% match</span>}
                     {(it as any).porutham_score ? (
-                      <span className="text-[11px] font-bold text-amber-700">🔮 Porutham {(it as any).porutham_score}/10</span>
+                      <span className="text-[11px] font-bold text-amber-700">🔮 గుణమేళనం {(it as any).porutham_score}/10</span>
                     ) : null}
                     <span className="ml-auto text-[11px] text-gray-500">{it.requester_phone}</span>
                   </div>
@@ -536,15 +536,15 @@ export default function RequestsPage() {
         {tab === "porutham" && (
           <div className="grid md:grid-cols-2 gap-5">
             <div className="bg-white rounded-2xl p-5 card-shadow border border-gold/20">
-              <SectionHeading eyebrow={duo("Traditional 10 poruthams", "సాంప్రదాయ 10 పొరుతాలు")} title={`🔮 ${duo("Kundli / Porutham check", "జాతక / పొరుతం చూడండి")}`}
-                subtitle={te ? "Bride + groom Profile ID ఇవ్వండి — 10 పొరుతాలు (rasi, nakshatra, gana, yoni, rajju, vedha, mahendra, stree deergha, vashya, adhipathi) calculate చేస్తాం." : "Enter bride + groom Profile IDs — we calculate 10 poruthams (rasi, nakshatra, gana, yoni, rajju, vedha, mahendra, stree deergha, vashya, adhipathi)."} telugu align="left" />
+              <SectionHeading eyebrow={duo("Traditional Vedic factors", "సాంప్రదాయ వేద గుణమేళనం")} title={`🔮 ${duo("Kundli / Gunamelanam check", "జాతక గుణమేళనం & పొంతన")}`}
+                subtitle={te ? "వధూవరుల ప్రొఫైల్ ID ఇవ్వండి — రాశి, నక్షత్ర, గణ, యోని, రజ్జు, వేధ, మాహేంద్ర, స్త్రీదీర్ఘ, వశ్య, రాశ్యాధిపతి గుణమేళనం లెక్కిస్తాం." : "Enter bride + groom Profile IDs — we calculate 10 Vedic Gunamelanam factors (rasi, nakshatra, gana, yoni, rajju, vedha, mahendra, stree deergha, vashya, adhipathi)."} telugu align="left" />
               <div className="mt-4 space-y-3">
                 <input value={porA} onChange={(e) => setPorA(e.target.value.toUpperCase())} placeholder="Bride Profile ID — RED001"
                   className="w-full px-3 py-2.5 rounded-xl border border-gold/40 font-mono text-sm outline-none focus-brand" aria-label="Bride Profile ID — RED001" />
                 <input value={porB} onChange={(e) => setPorB(e.target.value.toUpperCase())} placeholder="Groom Profile ID — KAM001"
                   className="w-full px-3 py-2.5 rounded-xl border border-gold/40 font-mono text-sm outline-none focus-brand" aria-label="Groom Profile ID — KAM001" />
                 <button onClick={checkPorutham} disabled={busy} className="w-full maroon-gradient text-white font-bold py-3 rounded-xl hover-lift disabled:opacity-60">
-                  {te ? "🔮 Porutham calculate చెయ్" : "🔮 Calculate porutham"}
+                  {te ? "🔮 గుణమేళనం లెక్కించు" : "🔮 Calculate Gunamelanam"}
                 </button>
                 <div className="text-[11px] text-gray-500">{te ? "ఇది traditional tables బట్టి software estimate — final గా purohit/panchangam తో confirm చెయ్యండి." : "Software estimate from traditional tables — confirm finally with purohit/panchangam."}</div>
               </div>
@@ -579,18 +579,18 @@ export default function RequestsPage() {
                 </div>
               ) : (
                 <div className="bg-cream border border-gold/30 rounded-2xl p-5">
-                  <div className="font-bold text-maroon">{te ? "10 poruthams ఏంటి?" : "What are 10 poruthams?"}</div>
+                  <div className="font-bold text-maroon">{te ? "వేద గుణమేళన అంశాలు ఏంటి?" : "What are Gunamelanam factors?"}</div>
                   <ol className="mt-2 text-[12px] text-gray-700 space-y-1 list-decimal list-inside">
-                    <li>Rasi porutham (6/8 dosham check)</li>
-                    <li>Nakshatra porutham</li>
-                    <li>Gana porutham (Deva/Manushya/Rakshasa)</li>
-                    <li>Yoni porutham (animal symbols)</li>
-                    <li>Rajju porutham ⚠️ critical</li>
-                    <li>Vedha porutham ⚠️ critical</li>
-                    <li>Mahendra porutham</li>
-                    <li>Stree deergha</li>
-                    <li>Vashya porutham</li>
-                    <li>Rasi adhipathi</li>
+                    <li>రాశి పొంతన (Rasi Pontana - 6/8 dosham check)</li>
+                    <li>నక్షత్ర పొంతన (Nakshatra Pontana)</li>
+                    <li>గణ మైత్రి (Gana Maitri - Deva/Manushya/Rakshasa)</li>
+                    <li>యోని పొంతన (Yoni Pontana - animal symbols)</li>
+                    <li>రజ్జు బలం (Rajju Balam ⚠️ critical)</li>
+                    <li>వేధ విశ్లేషణ (Vedha check ⚠️ critical)</li>
+                    <li>మాహేంద్ర పొంతన (Mahendra Pontana)</li>
+                    <li>స్త్రీదీర్ఘ బలం (Stree deergha)</li>
+                    <li>వశ్య పొంతన (Vashya Pontana)</li>
+                    <li>రాశ్యాధిపతి మైత్రి (Rasi adhipathi)</li>
                   </ol>
                   <div className="mt-3 text-[11px] text-gray-600">{te ? <>మీ profile లో <b>Star (Nakshatram)</b> + <b>Rasi</b> fill చేసి ఉంటే automatic గా వస్తుంది.</> : <>If <b>Star (Nakshatram)</b> + <b>Rasi</b> are filled in your profile, it comes automatically.</>}</div>
                 </div>
@@ -615,7 +615,7 @@ export default function RequestsPage() {
                       🎓 {x.profile.education} • 💼 {x.profile.job} • 📍 {x.profile.district}, {x.profile.state} • 💍 {x.profile.caste}
                     </div>
                     {x.porutham ? (
-                      <div className="text-[12px] font-bold text-amber-700 mt-1">🔮 Porutham {x.porutham.score}/{x.porutham.max} — {x.porutham.verdict?.split("—")[0]}</div>
+                      <div className="text-[12px] font-bold text-amber-700 mt-1">🔮 గుణమేళనం {x.porutham.score}/{x.porutham.max} — {x.porutham.verdict?.split("—")[0]}</div>
                     ) : null}
                   </div>
                   <button onClick={() => { setToId(x.profile.tsap_id); setTab("send"); }} className="text-[12px] font-bold maroon-gradient text-white px-3 py-2 rounded-xl">
@@ -708,7 +708,7 @@ export default function RequestsPage() {
 
             {/* 🎁 ADD-ONS */}
             <div className="mt-6">
-              <SectionHeading eyebrow={duo("Add-ons", "అదనపువి")} title={`🎁 ${duo("Extra value — beyond credits", "క్రెడిట్లకు మించి")}`} subtitle={te ? "ఇవి per-item: boost, who-viewed, porutham report, verification badge." : "Per-item extras: boost, who-viewed, porutham report, verification badge."} telugu align="left" />
+              <SectionHeading eyebrow={duo("Add-ons", "అదనపువి")} title={`🎁 ${duo("Extra value — beyond credits", "క్రెడిట్లకు మించి")}`} subtitle={te ? "ఇవి per-item: boost, who-viewed, గుణమేళనం రిపోర్ట్, verification badge." : "Per-item extras: boost, who-viewed, gunamelanam report, verification badge."} telugu align="left" />
               <div className="mt-3 grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
                 {addons.map((a) => (
                   <div key={a.code} className="bg-white rounded-2xl p-4 card-shadow border border-gold/25 flex flex-col">

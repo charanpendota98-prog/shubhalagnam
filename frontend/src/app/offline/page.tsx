@@ -16,11 +16,11 @@ export default function OfflinePage() {
         </h1>
         <p className="mt-2 text-[13px] text-gray-700 telugu">
           {te ? (
-            <>Signal రాగానే మళ్లీ try చెయ్యండి. మీరు already చూసిన pages offline లో కూడా open అవుతాయి
-              (matches, porutham report, safety tips).</>
+            <>సిగ్నల్ రాగానే మళ్లీ ప్రయత్నించండి. మీరు చూసిన పేజీలు ఆఫ్‌లైన్‌లో కూడా అందుబాటులో ఉంటాయి
+              (సంబంధాలు, వేద గుణమేళనం రిపోర్ట్, భద్రతా సూచనలు).</>
           ) : (
-            <>Try again once the signal is back. Pages you already saw open offline too
-              (matches, porutham report, safety tips).</>
+            <>Try again once the signal is back. Pages you already visited open offline too
+              (matches, Gunamelanam report, safety tips).</>
           )}
         </p>
         <div className="mt-4 flex flex-col gap-2">
@@ -31,7 +31,7 @@ export default function OfflinePage() {
             {te ? "🔎 Matches చూడండి" : "🔎 See matches"}
           </Link>
           <Link href="/porutham" className="py-3 rounded-2xl border border-maroon/25 text-maroon font-bold text-[13px]">
-            {te ? "💍 Porutham report" : "💍 Porutham report"}
+            {te ? "💍 వేద గుణమేళనం" : "💍 Gunamelanam report"}
           </Link>
         </div>
         <div className="mt-4 text-[11px] text-gray-500">

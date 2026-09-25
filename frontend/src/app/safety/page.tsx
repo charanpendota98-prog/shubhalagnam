@@ -113,7 +113,7 @@ export default function SafetyPage() {
     : s === "medium" ? "bg-amber-100 text-amber-800 border-amber-300" : "bg-gray-100 text-gray-700 border-gray-300";
 
   return (
-    <main className="min-h-screen bg-cream">
+    <main className="min-h-screen bg-cream pb-36">
       <section className="maroon-gradient text-white">
         <div className="max-w-5xl mx-auto px-4 py-9">
           <div className="text-[11px] font-bold bg-white/10 border border-white/20 rounded-full px-3 py-1 inline-block">

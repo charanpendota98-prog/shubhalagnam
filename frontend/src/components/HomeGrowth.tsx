@@ -45,10 +45,14 @@ export function TeaserStrip() {
         {rows.map((t, i) => (
           <Reveal key={String(t.tsap_id || i)} delay={i * 60}>
             <div className="relative bg-white rounded-2xl overflow-hidden border border-gold/25 card-shadow">
-              <div className="relative h-40 bg-gradient-to-br from-maroon/80 via-maroon to-gold-deep flex items-center justify-center">
-                <span className="text-5xl blur-[6px] select-none" aria-hidden>{t.gender === "Groom" ? "🤵" : "👰"}</span>
-                <span className="absolute inset-0 flex items-center justify-center">
-                  <span className="bg-black/55 text-white text-[11px] font-bold px-3 py-1.5 rounded-full">🔒 Photo locked</span>
+              <div className="relative h-40 bg-gradient-to-br from-maroon via-[#5c0822] to-gold-deep flex items-center justify-center overflow-hidden">
+                {/* soft decorative pattern so a locked card never looks like an empty gap */}
+                <span aria-hidden className="pointer-events-none absolute inset-0 opacity-25"
+                  style={{ backgroundImage: "radial-gradient(circle at 20% 25%, rgba(255,255,255,.35) 0, transparent 42%), radial-gradient(circle at 82% 75%, rgba(212,175,55,.5) 0, transparent 45%)" }} />
+                <span className="text-6xl blur-[6px] select-none opacity-80" aria-hidden>{t.gender === "Groom" ? "🤵" : "👰"}</span>
+                <span className="absolute inset-0 flex flex-col items-center justify-center gap-1.5" title="Photo locked">
+                  <span className="text-2xl">🔒</span>
+                  <span className="bg-black/45 text-white text-[10px] font-bold px-3 py-1 rounded-full backdrop-blur-sm">{t.gender === "Groom" ? (t.district || "Groom") : (t.district || "Bride")}</span>
                 </span>
               </div>
               <div className="p-3">

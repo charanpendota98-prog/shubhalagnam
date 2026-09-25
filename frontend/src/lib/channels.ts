@@ -14,7 +14,7 @@ export type Channel = {
   live: boolean;
 };
 
-export const CHANNEL_STATS = {"total": 52, "live": 2, "to_create": 50, "by_tier": {"L0_OFFICIAL": 1, "L1_REGION": 5, "L2_RELIGION": 11, "L4_SPECIAL": 8, "L3_CASTE": 27}, "bot": "@telugumatrimony1_bot", "site": "https://manavivaha.in"} as const;
+export const CHANNEL_STATS = {"total": 52, "live": 52, "to_create": 0, "by_tier": {"L0_OFFICIAL": 1, "L1_REGION": 5, "L2_RELIGION": 11, "L4_SPECIAL": 8, "L3_CASTE": 27}, "bot": "@telugumatrimony1_bot", "site": "https://manavivaha.in"} as const;
 
 export const CHANNEL_TIERS = [
   {
@@ -58,7 +58,7 @@ export const ALL_CHANNELS: Channel[] = [
   {
     "key": "official",
     "tier": "L0_OFFICIAL",
-    "name": "📢 మన వివాహ Official — TS-AP",
+    "name": "📢 మన వివాహ Official | మన వివాహ — TS-AP",
     "username": "@TSAP_MATRIMONY",
     "link": "https://t.me/TSAP_MATRIMONY",
     "deepLink": "https://t.me/telugumatrimony1_bot?start=ch_tsap_matrimony",
@@ -69,7 +69,7 @@ export const ALL_CHANNELS: Channel[] = [
       "#99keSambandham"
     ],
     "wave": 1,
-    "live": false
+    "live": true
   },
   {
     "key": "ts_bride",
@@ -78,7 +78,7 @@ export const ALL_CHANNELS: Channel[] = [
     "username": "@TSBRIDE",
     "link": "https://t.me/TSBRIDE",
     "deepLink": "https://t.me/telugumatrimony1_bot?start=ch_tsbride",
-    "desc": "👰 TS Brides — తెలంగాణ వధువులు. అన్ని కులాలు, అన్ని జిల్లాలు, రోజూ కొత్త profiles + పొరుత్తం వివరాలు. 3 FREE requests, ₹99లో 5.",
+    "desc": "👰 TS Brides — తెలంగాణ వధువులు. అన్ని కులాలు, అన్ని జిల్లాలు, రోజూ కొత్త profiles + గుణమేళనం వివరాలు. 3 FREE requests, ₹99లో 5.",
     "hashtags": [
       "#TSBride",
       "#Telangana",
@@ -94,7 +94,7 @@ export const ALL_CHANNELS: Channel[] = [
     "username": "@TSGROOM1",
     "link": "https://t.me/TSGROOM1",
     "deepLink": "https://t.me/telugumatrimony1_bot?start=ch_tsgroom1",
-    "desc": "🤵 TS Grooms — తెలంగాణ వరులు. అన్ని కులాలు, అన్ని జిల్లాలు, రోజూ కొత్త profiles + పొరుత్తం వివరాలు. 3 FREE requests, ₹99లో 5.",
+    "desc": "🤵 TS Grooms — తెలంగాణ వరులు. అన్ని కులాలు, అన్ని జిల్లాలు, రోజూ కొత్త profiles + గుణమేళనం వివరాలు. 3 FREE requests, ₹99లో 5.",
     "hashtags": [
       "#TSGroom",
       "#Telangana",
@@ -110,13 +110,13 @@ export const ALL_CHANNELS: Channel[] = [
     "username": "@APBRIDE",
     "link": "https://t.me/APBRIDE",
     "deepLink": "https://t.me/telugumatrimony1_bot?start=ch_apbride",
-    "desc": "👰 AP Brides — ఆంధ్రా వధువులు. అన్ని కులాలు, అన్ని జిల్లాలు, రోజూ కొత్త profiles + పొరుత్తం వివరాలు. 3 FREE requests, ₹99లో 5.",
+    "desc": "👰 AP Brides — ఆంధ్రా వధువులు. అన్ని కులాలు, అన్ని జిల్లాలు, రోజూ కొత్త profiles + గుణమేళనం వివరాలు. 3 FREE requests, ₹99లో 5.",
     "hashtags": [
       "#APBride",
       "#AndhraPradesh"
     ],
     "wave": 1,
-    "live": false
+    "live": true
   },
   {
     "key": "ap_groom",
@@ -125,13 +125,13 @@ export const ALL_CHANNELS: Channel[] = [
     "username": "@APGROOM1",
     "link": "https://t.me/APGROOM1",
     "deepLink": "https://t.me/telugumatrimony1_bot?start=ch_apgroom1",
-    "desc": "🤵 AP Grooms — ఆంధ్రా వరులు. అన్ని కులాలు, అన్ని జిల్లాలు, రోజూ కొత్త profiles + పొరుత్తం వివరాలు. 3 FREE requests, ₹99లో 5.",
+    "desc": "🤵 AP Grooms — ఆంధ్రా వరులు. అన్ని కులాలు, అన్ని జిల్లాలు, రోజూ కొత్త profiles + గుణమేళనం వివరాలు. 3 FREE requests, ₹99లో 5.",
     "hashtags": [
       "#APGroom",
       "#AndhraPradesh"
     ],
     "wave": 1,
-    "live": false
+    "live": true
   },
   {
     "key": "nri_global",
@@ -140,14 +140,14 @@ export const ALL_CHANNELS: Channel[] = [
     "username": "@manavivaha_nri",
     "link": "https://t.me/manavivaha_nri",
     "deepLink": "https://t.me/telugumatrimony1_bot?start=ch_manavivaha_nri",
-    "desc": "🌍 NRI Telugu Matrimony — విదేశీ సంబంధాలు. అన్ని కులాలు, అన్ని జిల్లాలు, రోజూ కొత్త profiles + పొరుత్తం వివరాలు. 3 FREE requests, ₹99లో 5.",
+    "desc": "🌍 NRI Telugu Matrimony — విదేశీ సంబంధాలు. అన్ని కులాలు, అన్ని జిల్లాలు, రోజూ కొత్త profiles + గుణమేళనం వివరాలు. 3 FREE requests, ₹99లో 5.",
     "hashtags": [
       "#NRI",
       "#TeluguAbroad",
       "#GlobalTelugu"
     ],
     "wave": 2,
-    "live": false
+    "live": true
   },
   {
     "key": "hindu",
@@ -162,7 +162,7 @@ export const ALL_CHANNELS: Channel[] = [
       "#TeluguMatrimony"
     ],
     "wave": 1,
-    "live": false
+    "live": true
   },
   {
     "key": "muslim_ts_bride",
@@ -179,7 +179,7 @@ export const ALL_CHANNELS: Channel[] = [
       "#Nikah"
     ],
     "wave": 1,
-    "live": false
+    "live": true
   },
   {
     "key": "muslim_ts_groom",
@@ -196,7 +196,7 @@ export const ALL_CHANNELS: Channel[] = [
       "#Nikah"
     ],
     "wave": 1,
-    "live": false
+    "live": true
   },
   {
     "key": "muslim_ap_bride",
@@ -213,7 +213,7 @@ export const ALL_CHANNELS: Channel[] = [
       "#Nikah"
     ],
     "wave": 1,
-    "live": false
+    "live": true
   },
   {
     "key": "muslim_ap_groom",
@@ -230,7 +230,7 @@ export const ALL_CHANNELS: Channel[] = [
       "#Nikah"
     ],
     "wave": 1,
-    "live": false
+    "live": true
   },
   {
     "key": "christian_ts_bride",
@@ -247,7 +247,7 @@ export const ALL_CHANNELS: Channel[] = [
       "#Wedding"
     ],
     "wave": 1,
-    "live": false
+    "live": true
   },
   {
     "key": "christian_ts_groom",
@@ -264,7 +264,7 @@ export const ALL_CHANNELS: Channel[] = [
       "#Wedding"
     ],
     "wave": 1,
-    "live": false
+    "live": true
   },
   {
     "key": "christian_ap_bride",
@@ -281,7 +281,7 @@ export const ALL_CHANNELS: Channel[] = [
       "#Wedding"
     ],
     "wave": 1,
-    "live": false
+    "live": true
   },
   {
     "key": "christian_ap_groom",
@@ -298,7 +298,7 @@ export const ALL_CHANNELS: Channel[] = [
       "#Wedding"
     ],
     "wave": 1,
-    "live": false
+    "live": true
   },
   {
     "key": "other_religion",
@@ -313,7 +313,7 @@ export const ALL_CHANNELS: Channel[] = [
       "#Respect"
     ],
     "wave": 2,
-    "live": false
+    "live": true
   },
   {
     "key": "interfaith",
@@ -329,7 +329,7 @@ export const ALL_CHANNELS: Channel[] = [
       "#RegisterMarriage"
     ],
     "wave": 3,
-    "live": false
+    "live": true
   },
   {
     "key": "second_marriage",
@@ -345,7 +345,7 @@ export const ALL_CHANNELS: Channel[] = [
       "#Respect"
     ],
     "wave": 2,
-    "live": false
+    "live": true
   },
   {
     "key": "differently_abled",
@@ -360,7 +360,7 @@ export const ALL_CHANNELS: Channel[] = [
       "#SpecialCare"
     ],
     "wave": 3,
-    "live": false
+    "live": true
   },
   {
     "key": "govt_jobs",
@@ -375,7 +375,7 @@ export const ALL_CHANNELS: Channel[] = [
       "#GovtTeacher"
     ],
     "wave": 3,
-    "live": false
+    "live": true
   },
   {
     "key": "software_it",
@@ -391,7 +391,7 @@ export const ALL_CHANNELS: Channel[] = [
       "#Hyderabad"
     ],
     "wave": 3,
-    "live": false
+    "live": true
   },
   {
     "key": "doctors_teachers",
@@ -407,7 +407,7 @@ export const ALL_CHANNELS: Channel[] = [
       "#Healthcare"
     ],
     "wave": 3,
-    "live": false
+    "live": true
   },
   {
     "key": "success_stories",
@@ -422,7 +422,7 @@ export const ALL_CHANNELS: Channel[] = [
       "#ManaVivaha"
     ],
     "wave": 3,
-    "live": false
+    "live": true
   },
   {
     "key": "fraud_alerts",
@@ -437,7 +437,7 @@ export const ALL_CHANNELS: Channel[] = [
       "#StaySafe"
     ],
     "wave": 3,
-    "live": false
+    "live": true
   },
   {
     "key": "bureau_network",
@@ -452,7 +452,7 @@ export const ALL_CHANNELS: Channel[] = [
       "#Referral50"
     ],
     "wave": 3,
-    "live": false
+    "live": true
   },
   {
     "key": "c_reddy_bride",
@@ -469,7 +469,7 @@ export const ALL_CHANNELS: Channel[] = [
       "#AP"
     ],
     "wave": 1,
-    "live": false
+    "live": true
   },
   {
     "key": "c_reddy_groom",
@@ -486,7 +486,7 @@ export const ALL_CHANNELS: Channel[] = [
       "#AP"
     ],
     "wave": 1,
-    "live": false
+    "live": true
   },
   {
     "key": "c_kamma_bride",
@@ -503,7 +503,7 @@ export const ALL_CHANNELS: Channel[] = [
       "#AP"
     ],
     "wave": 1,
-    "live": false
+    "live": true
   },
   {
     "key": "c_kamma_groom",
@@ -520,7 +520,7 @@ export const ALL_CHANNELS: Channel[] = [
       "#AP"
     ],
     "wave": 1,
-    "live": false
+    "live": true
   },
   {
     "key": "c_kapu_bride",
@@ -537,7 +537,7 @@ export const ALL_CHANNELS: Channel[] = [
       "#AP"
     ],
     "wave": 1,
-    "live": false
+    "live": true
   },
   {
     "key": "c_kapu_groom",
@@ -554,7 +554,7 @@ export const ALL_CHANNELS: Channel[] = [
       "#AP"
     ],
     "wave": 1,
-    "live": false
+    "live": true
   },
   {
     "key": "c_velama_bride",
@@ -571,7 +571,7 @@ export const ALL_CHANNELS: Channel[] = [
       "#AP"
     ],
     "wave": 2,
-    "live": false
+    "live": true
   },
   {
     "key": "c_velama_groom",
@@ -588,7 +588,7 @@ export const ALL_CHANNELS: Channel[] = [
       "#AP"
     ],
     "wave": 2,
-    "live": false
+    "live": true
   },
   {
     "key": "c_brahmin_bride",
@@ -605,7 +605,7 @@ export const ALL_CHANNELS: Channel[] = [
       "#AP"
     ],
     "wave": 2,
-    "live": false
+    "live": true
   },
   {
     "key": "c_brahmin_groom",
@@ -622,7 +622,7 @@ export const ALL_CHANNELS: Channel[] = [
       "#AP"
     ],
     "wave": 2,
-    "live": false
+    "live": true
   },
   {
     "key": "c_vysya_bride",
@@ -639,7 +639,7 @@ export const ALL_CHANNELS: Channel[] = [
       "#AP"
     ],
     "wave": 2,
-    "live": false
+    "live": true
   },
   {
     "key": "c_vysya_groom",
@@ -656,7 +656,7 @@ export const ALL_CHANNELS: Channel[] = [
       "#AP"
     ],
     "wave": 2,
-    "live": false
+    "live": true
   },
   {
     "key": "c_yadava_goud_bride",
@@ -673,7 +673,7 @@ export const ALL_CHANNELS: Channel[] = [
       "#AP"
     ],
     "wave": 2,
-    "live": false
+    "live": true
   },
   {
     "key": "c_yadava_goud_groom",
@@ -690,7 +690,7 @@ export const ALL_CHANNELS: Channel[] = [
       "#AP"
     ],
     "wave": 2,
-    "live": false
+    "live": true
   },
   {
     "key": "c_mala_bride",
@@ -707,7 +707,7 @@ export const ALL_CHANNELS: Channel[] = [
       "#AP"
     ],
     "wave": 2,
-    "live": false
+    "live": true
   },
   {
     "key": "c_mala_groom",
@@ -724,7 +724,7 @@ export const ALL_CHANNELS: Channel[] = [
       "#AP"
     ],
     "wave": 2,
-    "live": false
+    "live": true
   },
   {
     "key": "c_madiga_bride",
@@ -741,7 +741,7 @@ export const ALL_CHANNELS: Channel[] = [
       "#AP"
     ],
     "wave": 2,
-    "live": false
+    "live": true
   },
   {
     "key": "c_madiga_groom",
@@ -758,7 +758,7 @@ export const ALL_CHANNELS: Channel[] = [
       "#AP"
     ],
     "wave": 2,
-    "live": false
+    "live": true
   },
   {
     "key": "c_viswabrahmana",
@@ -776,7 +776,7 @@ export const ALL_CHANNELS: Channel[] = [
       "#AP"
     ],
     "wave": 2,
-    "live": false
+    "live": true
   },
   {
     "key": "c_munnuru_kapu",
@@ -794,7 +794,7 @@ export const ALL_CHANNELS: Channel[] = [
       "#AP"
     ],
     "wave": 2,
-    "live": false
+    "live": true
   },
   {
     "key": "c_raju_kshatriya",
@@ -812,7 +812,7 @@ export const ALL_CHANNELS: Channel[] = [
       "#AP"
     ],
     "wave": 3,
-    "live": false
+    "live": true
   },
   {
     "key": "c_padmashali_weavers",
@@ -830,7 +830,7 @@ export const ALL_CHANNELS: Channel[] = [
       "#AP"
     ],
     "wave": 3,
-    "live": false
+    "live": true
   },
   {
     "key": "c_mudiraj",
@@ -848,7 +848,7 @@ export const ALL_CHANNELS: Channel[] = [
       "#AP"
     ],
     "wave": 3,
-    "live": false
+    "live": true
   },
   {
     "key": "c_lambada_banjara",
@@ -866,7 +866,7 @@ export const ALL_CHANNELS: Channel[] = [
       "#AP"
     ],
     "wave": 3,
-    "live": false
+    "live": true
   },
   {
     "key": "c_others_bc",
@@ -884,7 +884,7 @@ export const ALL_CHANNELS: Channel[] = [
       "#AP"
     ],
     "wave": 3,
-    "live": false
+    "live": true
   },
   {
     "key": "c_others_sc",
@@ -902,7 +902,7 @@ export const ALL_CHANNELS: Channel[] = [
       "#AP"
     ],
     "wave": 3,
-    "live": false
+    "live": true
   },
   {
     "key": "c_others_st",
@@ -920,7 +920,7 @@ export const ALL_CHANNELS: Channel[] = [
       "#AP"
     ],
     "wave": 3,
-    "live": false
+    "live": true
   }
 ];
 
