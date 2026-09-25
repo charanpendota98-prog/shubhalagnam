@@ -1075,10 +1075,32 @@ function Wizard() {
                 </div>
               </div>
 
-              <SelectField label={<Duo en="Height" te="ఎత్తు (Height)" />} required value={f.height}
-                onChange={(v) => set("height", v)} placeholder="మీ ఎత్తు ఎంచుకోండి / Select your height">
-                {HEIGHTS.map((h) => (<option key={h} value={h}>{heightLabel(h)}</option>))}
-              </SelectField>
+              {/* Height Quick Pick & Select */}
+              <div className="space-y-1.5">
+                <div className="text-[11px] font-bold text-slate-700 flex items-center justify-between">
+                  <span>⚡ ప్రముఖ ఎత్తులు (1-క్లిక్ ఎంపిక):</span>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {["5'2\"", "5'3\"", "5'4\"", "5'5\"", "5'6\"", "5'7\"", "5'8\"", "5'9\"", "5'10\"", "6'0\""].map((h) => (
+                    <button
+                      key={h}
+                      type="button"
+                      onClick={() => set("height", h)}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-bold transition ${
+                        f.height === h
+                          ? "maroon-gradient text-white border-transparent shadow-xs"
+                          : "bg-cream border border-gold/40 text-maroon hover:bg-gold/20"
+                      }`}
+                    >
+                      {heightLabel(h)}
+                    </button>
+                  ))}
+                </div>
+                <SelectField label={<Duo en="Height" te="ఎత్తు (Height)" />} required value={f.height}
+                  onChange={(v) => set("height", v)} placeholder="మీ ఎత్తు ఎంచుకోండి / Select your height">
+                  {HEIGHTS.map((h) => (<option key={h} value={h}>{heightLabel(h)}</option>))}
+                </SelectField>
+              </div>
 
               <PillGroup label={<Duo en="Marital Status" te="వైవాహిక స్థితి" />} required
                 value={f.marital_status}
@@ -1410,6 +1432,57 @@ function Wizard() {
                         }`}
                       >
                         {c.flag} {c.en.split("/")[0].trim()} <span className="font-normal text-[10px] opacity-80 telugu">({c.te.split("(")[0].trim()})</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Top District Quick Chips for TS & AP */}
+              {f.state === "TS" && (
+                <div className="bg-cream/60 border border-gold/40 rounded-2xl p-3 space-y-1.5">
+                  <div className="text-[11px] font-bold text-slate-700 flex items-center justify-between">
+                    <span>⚡ ప్రముఖ తెలంగాణ జిల్లాలు:</span>
+                    <span className="text-[10px] text-maroon font-bold">మొత్తం 33 జిల్లాలు కింద ఉన్నాయి</span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {["Hyderabad", "Medchal-Malkajgiri", "Ranga Reddy", "Warangal", "Karimnagar", "Nalgonda", "Nizamabad", "Khammam", "Sangareddy"].map((d) => (
+                      <button
+                        key={d}
+                        type="button"
+                        onClick={() => set("district", d)}
+                        className={`px-2.5 py-1 rounded-full text-xs font-bold transition ${
+                          f.district === d
+                            ? "maroon-gradient text-white border-transparent shadow-xs"
+                            : "bg-white border border-gold/40 text-maroon hover:bg-gold/20"
+                        }`}
+                      >
+                        {DISTRICT_TELUGU[d] || d}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {f.state === "AP" && (
+                <div className="bg-cream/60 border border-gold/40 rounded-2xl p-3 space-y-1.5">
+                  <div className="text-[11px] font-bold text-slate-700 flex items-center justify-between">
+                    <span>⚡ ప్రముఖ ఆంధ్రప్రదేశ్ జిల్లాలు:</span>
+                    <span className="text-[10px] text-maroon font-bold">మొత్తం 26 జిల్లాలు కింద ఉన్నాయి</span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {["Visakhapatnam", "NTR", "Guntur", "Tirupati", "Krishna", "Nellore", "East Godavari", "Kurnool", "Chittoor"].map((d) => (
+                      <button
+                        key={d}
+                        type="button"
+                        onClick={() => set("district", d)}
+                        className={`px-2.5 py-1 rounded-full text-xs font-bold transition ${
+                          f.district === d
+                            ? "maroon-gradient text-white border-transparent shadow-xs"
+                            : "bg-white border border-gold/40 text-maroon hover:bg-gold/20"
+                        }`}
+                      >
+                        {DISTRICT_TELUGU[d] || d}
                       </button>
                     ))}
                   </div>
