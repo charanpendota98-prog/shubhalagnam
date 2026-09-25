@@ -21,6 +21,8 @@ import HomeVendorsShowcase from "@/components/HomeVendorsShowcase";
 import HeroQuickSearch from "@/components/HeroQuickSearch";
 import WhyChooseUs from "@/components/WhyChooseUs";
 import DistrictAdBanner from "@/components/DistrictAdBanner";
+import VivahaMuhurthamTeaser from "@/components/VivahaMuhurthamTeaser";
+import HomePoruthamWidget from "@/components/HomePoruthamWidget";
 import { waLink } from "@/lib/wa";
 import { TelegramIcon, WhatsAppIcon } from "@/components/BrandIcons";
 
@@ -494,6 +496,12 @@ export default function Home() {
       {/* ================= 🌟 PROFILES OF THE DAY (SPOTLIGHT) ================= */}
       <ProfilesOfTheDay />
 
+      {/* ================= 🗓️ VIVAHA MUHURTHAMS 2026-2027 ================= */}
+      <VivahaMuhurthamTeaser />
+
+      {/* ================= 🪐 VEDIC GUNAMELANAM & KUNDLI MATCHER ================= */}
+      <HomePoruthamWidget />
+
       {/* ================= SPONSORED PROMO & FESTIVAL OFFERS ================= */}
       <section className="max-w-7xl mx-auto px-4 py-2.5 space-y-2">
         <AdSlot slot="home_hero" />
@@ -502,7 +510,6 @@ export default function Home() {
       </section>
 
       {/* ================= 💎 WHY CHOOSE US (premium trust band) ================= */}
-      <WhyChooseUs />
       <WhyChooseUs />
 
       {/* ================= WEEKLY CASTE SHOWCASE (W41) ================= */}
