@@ -611,18 +611,26 @@ function Wizard() {
     }
   };
 
-  const autoGenerateBio = (type: "te" | "en") => {
-    const name = f.full_name?.trim() || (f.gender === "Bride" ? (type === "te" ? "వధువు" : "Bride") : (type === "te" ? "వరుడు" : "Groom"));
-    const job = f.job || (type === "te" ? "సాఫ్ట్‌వేర్ ఇంజనీర్" : "Software Professional");
-    const edu = f.education || (type === "te" ? "గ్రాడ్యుయేషన్" : "Graduate");
-    const dist = f.district || (type === "te" ? "హైదరాబాద్" : "Hyderabad");
-    const fam = f.family_type === "Joint" ? (type === "te" ? "ఉమ్మడి" : "Joint") : (type === "te" ? "చిన్న" : "Nuclear");
+  const autoGenerateBio = (tone: "traditional" | "professional" | "nri" | "en") => {
+    const name = f.full_name?.trim() || (f.gender === "Bride" ? (tone === "en" ? "Bride" : "వధువు") : (tone === "en" ? "Groom" : "వరుడు"));
+    const job = f.job || (tone === "en" ? "Software Professional" : "సాఫ్ట్‌వేర్ ప్రొఫెషనల్");
+    const edu = f.education || (tone === "en" ? "Graduate" : "డిగ్రీ / గ్రాడ్యుయేషన్");
+    const dist = f.district || (tone === "en" ? "Hyderabad" : "హైదరాబాద్");
+    const sal = f.salary || "మంచి ప్యాకేజీ";
+    const fam = f.family_type === "Joint" ? (tone === "en" ? "Joint" : "ఉమ్మడి") : (tone === "en" ? "Nuclear" : "చిన్న");
+    const caste = f.caste ? `${f.caste} కులం` : "తెలుగు కుటుంబం";
 
-    if (type === "te") {
-      const text = `నమస్కారం, నా పేరు ${name}. నేను ${edu} పూర్తి చేసి ప్రస్తుతం ${dist} లో ${job} గా స్థిరపడ్డాను. మాది ${fam} సాంప్రదాయ కుటుంబం. ఉన్నత సంస్కారం, సంప్రదాయాలు మరియు జీవితంలో పరస్పర అవగాహనతో నడిచే చక్కని జీవన సహచరి/సహచరుడు కొరకు చూస్తున్నాము.`;
+    if (tone === "traditional") {
+      const text = `నమస్కారం, నా పేరు ${name}. నేను ${edu} పూర్తి చేసి ప్రస్తుతం ${dist} లో ${job} గా స్థిరపడ్డాను. మాది ${fam} సాంప్రదాయ ${caste}. ఉన్నత సంస్కారం, సంప్రదాయాలు మరియు జీవితంలో పరస్పర అవగాహనతో నడిచే చక్కని గౌరవప్రదమైన జీవన సహచరి/సహచరుడు కొరకు చూస్తున్నాము.`;
+      set("about_myself", text);
+    } else if (tone === "professional") {
+      const text = `నమస్కారం, నా పేరు ${name}. నేను ${edu} విద్యార్హతతో ${dist} లో ${job} గా పనిచేస్తున్నాను (${sal}). కెరీర్‌లో మంచి స్థిరత్వం కలిగి, ఉన్నత ఆలోచనలు, స్నేహపూర్వక దృక్పథం మరియు జీవితంలో పరస్పరం ప్రోత్సహించుకునే మంచి భాగస్వామి కోసం చూస్తున్నాము.`;
+      set("about_myself", text);
+    } else if (tone === "nri") {
+      const text = `నమస్కారం, నా పేరు ${name}. ${edu} చదువుకుని ప్రస్తుతం ${dist} లో ${job} గా స్థిరపడ్డాను. సాంప్రదాయ మరియు ఆధునిక ఆలోచనల సమన్వయంతో, కుటుంబ విలువలను గౌరవించే చక్కని జీవన సహచరి/సహచరుడు కోసం చూస్తున్నాము.`;
       set("about_myself", text);
     } else {
-      const text = `Namaskaram, my name is ${name}. I have completed ${edu} and currently working as ${job} in ${dist}. We belong to a respected ${f.family_status || "middle class"} family with good cultural values. Looking for a caring, well-settled, and understanding life partner.`;
+      const text = `Namaskaram, my name is ${name}. I have completed ${edu} and currently working as ${job} in ${dist}. We belong to a respected ${f.family_status || "middle class"} family with high cultural values. Looking for an understanding, caring, and compatible life partner.`;
       set("about_myself", text);
     }
   };
@@ -1533,20 +1541,34 @@ function Wizard() {
               <div>
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <label className="text-[13px] font-bold text-ink">{duo("A few words about myself", "నా గురించి కొన్ని మాటలు")} <span className="text-maroon">*</span></label>
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex flex-wrap items-center gap-1.5">
                     <button
                       type="button"
-                      onClick={() => autoGenerateBio("te")}
-                      className="text-[11px] font-bold text-maroon bg-cream border border-gold/40 px-2.5 py-1 rounded-lg hover:bg-gold/30 transition shadow-xs telugu"
+                      onClick={() => autoGenerateBio("traditional")}
+                      className="text-[11px] font-bold text-maroon bg-cream border border-gold/50 px-2.5 py-1 rounded-lg hover:bg-gold/30 transition shadow-xs telugu"
                     >
-                      ✨ ఆటో-బయో (తెలుగు)
+                      🪔 సాంప్రదాయ బయో
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => autoGenerateBio("professional")}
+                      className="text-[11px] font-bold text-indigo-900 bg-indigo-50 border border-indigo-200 px-2.5 py-1 rounded-lg hover:bg-indigo-100 transition shadow-xs telugu"
+                    >
+                      💼 ప్రొఫెషనల్ బయో
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => autoGenerateBio("nri")}
+                      className="text-[11px] font-bold text-emerald-900 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-lg hover:bg-emerald-100 transition shadow-xs telugu"
+                    >
+                      ✈️ NRI / గ్లోబల్ బయో
                     </button>
                     <button
                       type="button"
                       onClick={() => autoGenerateBio("en")}
-                      className="text-[11px] font-bold text-navy bg-slate-50 border border-slate-300 px-2.5 py-1 rounded-lg hover:bg-slate-100 transition shadow-xs"
+                      className="text-[11px] font-bold text-slate-800 bg-slate-100 border border-slate-300 px-2.5 py-1 rounded-lg hover:bg-slate-200 transition shadow-xs"
                     >
-                      ✨ Auto-Bio (En)
+                      ✨ English Bio
                     </button>
                   </div>
                 </div>

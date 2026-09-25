@@ -541,6 +541,39 @@ export default function Dashboard() {
     window.open(`https://t.me/share/url?url=${encodeURIComponent("https://manavivaha.in")}&text=${encodeURIComponent(msg)}`, "_blank");
   };
 
+  const exportProfilesCsv = () => {
+    const list = directoryProfiles.length > 0 ? directoryProfiles : matchedResults;
+    if (list.length === 0) {
+      flash("⚠️ ఎగుమతి చేయడానికి ప్రొఫైళ్లు ఏవీ లేవు");
+      return;
+    }
+    const headers = ["Profile_ID", "Full_Name", "Gender", "Age", "Caste", "Sub_Caste", "Education", "Job", "District", "State", "Phone", "Plan", "Verified"];
+    const rows = list.map((p) => [
+      `"${p.tsap_id || ""}"`,
+      `"${(p.full_name || "").replace(/"/g, '""')}"`,
+      `"${p.gender || ""}"`,
+      `"${p.age || ""}"`,
+      `"${(p.caste || "").replace(/"/g, '""')}"`,
+      `"${(p.sub_caste || "").replace(/"/g, '""')}"`,
+      `"${(p.education || "").replace(/"/g, '""')}"`,
+      `"${(p.job || "").replace(/"/g, '""')}"`,
+      `"${(p.district || "").replace(/"/g, '""')}"`,
+      `"${p.state || ""}"`,
+      `"${p.phone || ""}"`,
+      `"${p.plan || "Free"}"`,
+      `"${p.is_verified ? "Yes" : "No"}"`,
+    ]);
+    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `mana-vivaha-profiles-${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    flash("📥 ప్రొఫైల్స్ CSV విజయవంతంగా డౌన్‌లోడ్ అయ్యింది!");
+  };
+
   async function payoutAction(reqId: string, action: "approve" | "reject", utr?: string) {
     if (!me) return;
     setBusyId(reqId);
@@ -1355,21 +1388,29 @@ export default function Dashboard() {
                   </p>
                 </div>
 
-                {/* Keyword Search */}
-                <div className="flex items-center gap-2">
+                {/* Keyword Search & CSV Export */}
+                <div className="flex items-center gap-2 flex-wrap">
                   <input
                     type="text"
                     value={dirSearch}
                     onChange={(e) => setDirSearch(e.target.value)}
                     onKeyDown={(e) => { if (e.key === "Enter") loadDirectory(); }}
                     placeholder="పేరు, ఫోన్ నంబర్, ID, కులం..."
-                    className="px-4 py-2 rounded-2xl border border-slate-300 text-xs font-bold focus:border-maroon focus:outline-none w-64"
+                    className="px-4 py-2 rounded-2xl border border-slate-300 text-xs font-bold focus:border-maroon focus:outline-none w-52 sm:w-64"
                   />
                   <button
                     onClick={() => loadDirectory()}
                     className="px-4 py-2 rounded-2xl maroon-gradient text-white font-extrabold text-xs shadow-md"
                   >
                     🔍 శోధించు
+                  </button>
+                  <button
+                    onClick={exportProfilesCsv}
+                    className="px-3.5 py-2 rounded-2xl bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold text-xs shadow-sm flex items-center gap-1.5 transition active:scale-95"
+                    title="Export all directory profiles to CSV"
+                  >
+                    <span>📥</span>
+                    <span>CSV ఎగుమతి</span>
                   </button>
                 </div>
               </div>

@@ -11,7 +11,7 @@
  */
 
 import Link from "next/link";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLang, type Lang } from "@/lib/lang";
 
 const COPY = {
@@ -51,25 +51,44 @@ export default function CinematicHero() {
   const L = COPY[(lang as Lang) in COPY ? (lang as Lang) : "te"];
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const [isPlaying, setIsPlaying] = useState(true);
+  const [isMuted, setIsMuted] = useState(true);
 
   // Guaranteed Native Autoplay
   useEffect(() => {
     const playVideo = () => {
       if (videoRef.current) {
-        videoRef.current.muted = true;
-        videoRef.current.play().catch(() => {});
+        videoRef.current.muted = isMuted;
+        videoRef.current.play().then(() => setIsPlaying(true)).catch(() => {});
       }
     };
     playVideo();
     const timer = setTimeout(playVideo, 250);
     return () => clearTimeout(timer);
-  }, []);
+  }, [isMuted]);
+
+  const togglePlay = () => {
+    if (!videoRef.current) return;
+    if (videoRef.current.paused) {
+      videoRef.current.play();
+      setIsPlaying(true);
+    } else {
+      videoRef.current.pause();
+      setIsPlaying(false);
+    }
+  };
+
+  const toggleMute = () => {
+    if (!videoRef.current) return;
+    videoRef.current.muted = !videoRef.current.muted;
+    setIsMuted(videoRef.current.muted);
+  };
 
   return (
     <section className="relative min-h-[85vh] sm:min-h-[88vh] flex items-center overflow-hidden bg-[#0a0107] text-white" aria-label="Mana Vivaha — Telugu Matrimony">
       
       {/* ================= 1. FULL 4K WEDDING FILM BACKGROUND ================= */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden>
+      <div className="absolute inset-0 overflow-hidden" aria-hidden>
         <video
           ref={videoRef}
           autoPlay
@@ -172,6 +191,30 @@ export default function CinematicHero() {
           </div>
 
         </div>
+      </div>
+
+      {/* ================= 4. FLOATING VIDEO CONTROLS (BOTTOM RIGHT) ================= */}
+      <div className="absolute bottom-5 right-5 z-[4] hidden sm:flex items-center gap-2 bg-black/60 border border-gold/40 backdrop-blur-md rounded-full px-3 py-1.5 text-xs text-white/90 shadow-xl">
+        <span className="flex items-center gap-1.5 font-bold text-[11px] text-[#f6d98a] border-r border-white/20 pr-2">
+          <span className="inline-block w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+          4K Telugu Wedding Film
+        </span>
+        <button
+          type="button"
+          onClick={togglePlay}
+          className="hover:text-gold transition px-1.5 py-0.5"
+          title={isPlaying ? "Pause Video" : "Play Video"}
+        >
+          {isPlaying ? "⏸️" : "▶️"}
+        </button>
+        <button
+          type="button"
+          onClick={toggleMute}
+          className="hover:text-gold transition px-1.5 py-0.5"
+          title={isMuted ? "Unmute Audio" : "Mute Audio"}
+        >
+          {isMuted ? "🔇" : "🔊"}
+        </button>
       </div>
 
     </section>
