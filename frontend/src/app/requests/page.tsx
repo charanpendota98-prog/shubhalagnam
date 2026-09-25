@@ -708,7 +708,7 @@ export default function RequestsPage() {
 
             {/* 🎁 ADD-ONS */}
             <div className="mt-6">
-              <SectionHeading eyebrow={duo("Add-ons", "అదనపువి")} title={`🎁 ${duo("Extra value — beyond credits", "క్రెడిట్లకు మించి")}`} subtitle={te ? "ఇవి per-item: boost, who-viewed, porutham report, verification badge." : "Per-item extras: boost, who-viewed, porutham report, verification badge."} telugu align="left" />
+              <SectionHeading eyebrow={duo("Add-ons", "అదనపువి")} title={`🎁 ${duo("Extra value — beyond credits", "క్రెడిట్లకు మించి")}`} subtitle={te ? "ఇవి per-item: boost, who-viewed, గుణమేళనం రిపోర్ట్, verification badge." : "Per-item extras: boost, who-viewed, gunamelanam report, verification badge."} telugu align="left" />
               <div className="mt-3 grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
                 {addons.map((a) => (
                   <div key={a.code} className="bg-white rounded-2xl p-4 card-shadow border border-gold/25 flex flex-col">
