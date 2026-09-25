@@ -580,7 +580,7 @@ export default function MatchesPage() {
                 📍 {row.district || "Hyderabad"}, {row.state || "TS"} • 💰 {row.salary || "Best in Industry"}
               </p>
               <div className="text-[11px] text-slate-500 font-mono pt-0.5">
-                📞 Number: {row.phone_masked || "🔒 98490••••• (లాక్ చేయబడింది)"}
+                📞 {te ? "నంబర్: 🔒 •••••••••• (గోప్యత కొరకు దాచబడింది)" : "Number: 🔒 •••••••••• (Protected & Locked)"}
               </div>
             </div>
           </div>

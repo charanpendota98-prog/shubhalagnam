@@ -7,7 +7,6 @@ import { CHANNEL_STATS } from "@/lib/channels";
 import PWA from "@/components/PWA";
 import SupportWidget from "@/components/SupportWidget";
 import BackToTop from "@/components/BackToTop";
-import LagnaAiAssistant from "@/components/LagnaAiAssistant";
 import LiveMatrimonyTicker from "@/components/LiveMatrimonyTicker";
 import { LangProvider } from "@/lib/lang";
 
@@ -79,7 +78,6 @@ export default function RootLayout({
           <SiteFooter />
           <StickyCTA />
           <PWA />
-          <LagnaAiAssistant />
           <LiveMatrimonyTicker />
           <SupportWidget />
           <BackToTop />

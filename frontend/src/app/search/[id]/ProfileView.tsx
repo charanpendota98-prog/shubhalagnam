@@ -377,14 +377,20 @@ export default function ProfileView() {
             </p>
           ) : null}
 
-          {/* 🔒 NUMBER LOCK — policy: credit tho numbers ivvamu */}
+          {/* 🔒 NUMBER LOCK — policy: Mutual consent contact exchange */}
           <section className="mt-4 rounded-3xl border-2 border-rose-300 bg-rose-50 p-5">
-            <h2 className="text-lg font-extrabold text-[#7A0C2E]">🔒 Phone number — {data.phone_masked || "•••••"} (locked)</h2>
-            <p className="mt-1 text-[13px] text-rose-900">
-              {data.can_view_number_reason || (te ? "Free లో numbers ఇవ్వము — interest accept (consent) తోనే exchange అవుతాయి." : "No numbers in free — exchange only on interest accept (consent).")}
+            <h2 className="text-lg font-extrabold text-[#7A0C2E]">
+              🔒 {te ? "ఫోన్ నంబర్ — •••••••••• (గోప్యతా రక్షణలో ఉంది)" : "Phone Number — •••••••••• (Protected & Locked)"}
+            </h2>
+            <p className="mt-1 text-[13px] text-rose-900 leading-relaxed">
+              {te
+                ? "🔒 గోప్యతా విధానం: మహిళలు మరియు కుటుంబాల భద్రత దృష్ట్యా ఫోన్ నంబర్లు పబ్లిక్‌గా కనిపించవు. మీరు 'Interest పంపండి' క్లిక్ చేసిన తర్వాత, ఎదుటి కుటుంబం అంగీకరిస్తేనే (Mutual Accept) ఇరువైపులా అధికారికంగా నంబర్లు వాట్సాప్‌లో మార్పిడి చేయబడతాయి."
+                : "🔒 Privacy Policy: To protect family safety and privacy, phone numbers are never displayed publicly. When you send Interest and the other family accepts, contact numbers are securely exchanged on WhatsApp."}
             </p>
-            <ol className="mt-3 space-y-1 text-[13px] text-rose-900">
-              {(data.unlock_telugu || (te ? CONSENT_STEPS_TE : CONSENT_STEPS_EN)).map((s: string, i: number) => <li key={i}>{s}</li>)}
+            <ol className="mt-3 space-y-1.5 text-[13px] text-rose-900 font-medium">
+              <li>1️⃣ {te ? "Interest పంపండి (మొదటి 3 అభ్యర్థనలు ఉచితం - FREE)" : "Send Interest (First 3 requests FREE)"}</li>
+              <li>2️⃣ {te ? "ఎదుటి కుటుంబం పరిశీలించి ఆమోదించగానే (Accept) ఇరువైపులా వాట్సాప్‌లో నంబర్లు వస్తాయి" : "Once accepted, verified contact numbers are automatically shared on WhatsApp"}</li>
+              <li>3️⃣ {te ? "ఒకవేళ వారు తిరస్కరిస్తే మీ క్రెడిట్ తిరిగి మీ ఖాతాకు వస్తుంది (100% Refund)" : "If declined or no response within 7 days, your credit is 100% refunded"}</li>
             </ol>
             {unlocked ? (
               <div className="mt-4 rounded-2xl bg-emerald-600 p-4 text-center text-white">
