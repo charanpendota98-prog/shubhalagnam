@@ -1063,6 +1063,44 @@ function Wizard() {
               <TextField label={<Duo en="Full Name" te="పూర్తి పేరు" />} value={f.full_name} onChange={(v) => set("full_name", v)} required
                 placeholder="Ex: Sai Lakshmi / Rajesh Reddy" hint={T("కార్డ్ మరియు ఛానళ్లలో ఇదే పేరు ప్రదర్శించబడుతుంది", "This name shows on profile card & search")} />
 
+              {/* Quick Birth Year Presets */}
+              <div className="bg-cream/60 border border-gold/40 rounded-2xl p-3 space-y-1.5">
+                <div className="text-[11px] font-bold text-slate-700 flex items-center justify-between">
+                  <span>⚡ పుట్టిన సంవత్సరం (1-క్లిక్ సెలెక్షన్):</span>
+                  <span className="text-[10px] text-gray-500">వయస్సు ఆటోమేటిక్‌గా వస్తుంది</span>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {[
+                    { y: 2003, a: 23 },
+                    { y: 2002, a: 24 },
+                    { y: 2001, a: 25 },
+                    { y: 2000, a: 26 },
+                    { y: 1999, a: 27 },
+                    { y: 1998, a: 28 },
+                    { y: 1997, a: 29 },
+                    { y: 1996, a: 30 },
+                    { y: 1995, a: 31 },
+                    { y: 1994, a: 32 },
+                  ].map((item) => (
+                    <button
+                      key={item.y}
+                      type="button"
+                      onClick={() => {
+                        set("dob", `${item.y}-06-15`);
+                        set("age", String(item.a));
+                      }}
+                      className={`px-2.5 py-1 rounded-full text-xs font-bold transition ${
+                        f.dob?.startsWith(String(item.y))
+                          ? "maroon-gradient text-white border-transparent shadow-xs"
+                          : "bg-white border border-gold/40 text-maroon hover:bg-gold/20"
+                      }`}
+                    >
+                      {item.y} <span className="opacity-80 font-normal">({item.a}y)</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               <div className="grid grid-cols-2 gap-3">
                 <TextField label={<Duo en="Date of Birth" te="పుట్టిన తేదీ" />} value={f.dob} onChange={(v) => set("dob", v)} required
                   type="date" max={maxDobFor18()} hint={T("వయస్సు ఆటోమేటిక్‌గా లెక్కించబడుతుంది", "Age is calculated automatically")} />
@@ -1352,6 +1390,31 @@ function Wizard() {
                   <span className="text-[10px] text-gray-500 font-normal">లక్షలు & కోట్లలో</span>
                 </label>
                 <div className="hint mb-1.5">సంవత్సరానికి సుమారు ఆదాయ పరిధిని ఎంచుకోండి (Approximate CTC):</div>
+
+                {/* Popular Salary Quick Chips */}
+                <div className="mb-2 flex flex-wrap gap-1.5">
+                  {[
+                    "₹5 - 7 Lakhs / year",
+                    "₹8 - 10 Lakhs / year",
+                    "₹10 - 12 Lakhs / year",
+                    "₹15 - 20 Lakhs / year",
+                    "₹25 - 35 Lakhs / year",
+                    "₹50+ Lakhs (NRI)",
+                  ].map((sal) => (
+                    <button
+                      key={sal}
+                      type="button"
+                      onClick={() => set("salary", sal)}
+                      className={`px-3 py-1.5 rounded-full text-xs font-bold transition ${
+                        f.salary === sal
+                          ? "maroon-gradient text-white border-transparent shadow-xs"
+                          : "bg-cream border border-gold/40 text-maroon hover:bg-gold/20"
+                      }`}
+                    >
+                      {sal}
+                    </button>
+                  ))}
+                </div>
 
                 <SelectField
                   label=""
