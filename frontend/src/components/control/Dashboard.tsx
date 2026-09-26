@@ -206,13 +206,21 @@ export default function Dashboard() {
   });
 
   // =========================================================================
-  // 📇 2. DIRECTORY STATE
+  // 📇 2. DIRECTORY STATE & ADVANCED FILTERS
   // =========================================================================
   const [dirSearch, setDirSearch] = useState("");
   const [dirGender, setDirGender] = useState("");
   const [dirCaste, setDirCaste] = useState("");
   const [dirDistrict, setDirDistrict] = useState("");
   const [dirStatus, setDirStatus] = useState("all");
+  const [dirDateRange, setDirDateRange] = useState("all");
+  const [dirDateFrom, setDirDateFrom] = useState("");
+  const [dirDateTo, setDirDateTo] = useState("");
+  const [dirPayment, setDirPayment] = useState("all");
+  const [dirVerified, setDirVerified] = useState("all");
+  const [dirPhoto, setDirPhoto] = useState("all");
+  const [dirMarital, setDirMarital] = useState("all");
+  const [dirSummary, setDirSummary] = useState<any>(null);
   const [directoryProfiles, setDirectoryProfiles] = useState<any[]>([]);
   const [dirTotal, setDirTotal] = useState(0);
   const [dirLoading, setDirLoading] = useState(false);
@@ -231,11 +239,28 @@ export default function Dashboard() {
     open: boolean;
     tsapId: string;
     name: string;
+    phone?: string;
+    district?: string;
+    caste?: string;
     currentPlan?: string;
   } | null>(null);
-  const [grantPlanCode, setGrantPlanCode] = useState<"S_99" | "S_199" | "S_299" | "S_499">("S_99");
+  const [grantPlanCode, setGrantPlanCode] = useState<"S_99" | "S_199" | "S_299" | "S_499" | "S_999">("S_99");
   const [grantCredits, setGrantCredits] = useState<number>(5);
+  const [grantPayMode, setGrantPayMode] = useState<string>("UPI_QR");
+  const [grantUtr, setGrantUtr] = useState<string>("");
+  const [grantNotes, setGrantNotes] = useState<string>("");
+  const [grantAmount, setGrantAmount] = useState<number>(99);
   const [grantTriggerRef, setGrantTriggerRef] = useState<boolean>(true);
+
+  // Success Activation Modal
+  const [activatedSuccessModal, setActivatedSuccessModal] = useState<{
+    tsapId: string;
+    name: string;
+    phone: string;
+    plan: string;
+    credits: number;
+    waMessage: string;
+  } | null>(null);
 
   // New Profile Form State
   const [newProf, setNewProf] = useState({
@@ -392,7 +417,7 @@ export default function Dashboard() {
     }
   }, [lookupQuery, mmFilters]);
 
-  // Load Directory
+  // Load Directory with Advanced Dates, Payment Status, Verification & Marital Filters
   const loadDirectory = useCallback(async () => {
     setDirLoading(true);
     try {
@@ -402,19 +427,27 @@ export default function Dashboard() {
       if (dirCaste) qs.set("caste", dirCaste);
       if (dirDistrict) qs.set("district", dirDistrict);
       if (dirStatus) qs.set("status", dirStatus);
-      qs.set("limit", "100");
+      if (dirDateRange) qs.set("date_range", dirDateRange);
+      if (dirDateFrom) qs.set("date_from", dirDateFrom);
+      if (dirDateTo) qs.set("date_to", dirDateTo);
+      if (dirPayment) qs.set("payment_status", dirPayment);
+      if (dirVerified) qs.set("verification_status", dirVerified);
+      if (dirPhoto) qs.set("photo_filter", dirPhoto);
+      if (dirMarital) qs.set("marital_filter", dirMarital);
+      qs.set("limit", "200");
 
       const d = await jget(`/api/control/directory?${qs.toString()}`);
       if (d.success) {
         setDirectoryProfiles(d.profiles || []);
         setDirTotal(d.total || 0);
+        if (d.summary) setDirSummary(d.summary);
       }
     } catch {
       setDirectoryProfiles([]);
     } finally {
       setDirLoading(false);
     }
-  }, [dirSearch, dirGender, dirCaste, dirDistrict, dirStatus]);
+  }, [dirSearch, dirGender, dirCaste, dirDistrict, dirStatus, dirDateRange, dirDateFrom, dirDateTo, dirPayment, dirVerified, dirPhoto, dirMarital]);
 
   useEffect(() => { loadCore(); }, [loadCore]);
   useEffect(() => { if (tab === "matchmaker") runMatchmaker(); }, [tab, runMatchmaker]);
@@ -614,14 +647,31 @@ export default function Dashboard() {
     finally { setBusyId(""); }
   }
 
-  async function upgradeProfile(id: string, plan: "S_99" | "S_199" | "S_299" | "S_499" = "S_99", credits?: number, triggerRef: boolean = true) {
+  async function upgradeProfile(
+    id: string,
+    plan: "S_99" | "S_199" | "S_299" | "S_499" | "S_999" = "S_99",
+    credits?: number,
+    triggerRef: boolean = true,
+    payMode: string = "UPI_QR",
+    utrNum: string = "",
+    noteText: string = "",
+    amtVal?: number
+  ) {
     if (!me) return;
     setBusyId(id);
     try {
       const r = await fetch(`/api/control/profile/${encodeURIComponent(id)}/upgrade`, {
         method: "POST", credentials: "include",
         headers: { "Content-Type": "application/json", "X-Control-CSRF": me.csrf },
-        body: JSON.stringify({ plan, credits, trigger_referral: triggerRef }),
+        body: JSON.stringify({
+          plan,
+          credits,
+          trigger_referral: triggerRef,
+          payment_mode: payMode,
+          utr: utrNum,
+          notes: noteText,
+          amount: amtVal,
+        }),
       });
       const d = await r.json();
       if (!r.ok) throw new Error(d.detail || d.message_telugu || "Failed");
@@ -630,7 +680,18 @@ export default function Dashboard() {
       if (candidate?.tsap_id === id) {
         setCandidate((c: any) => c ? { ...c, plan: d.plan, credits: d.credits, is_premium: true } : c);
       }
+      const targetProf = directoryProfiles.find((x) => x.tsap_id === id);
       setUpgradeModal(null);
+      if (d.wa_message) {
+        setActivatedSuccessModal({
+          tsapId: id,
+          name: d.full_name || id,
+          phone: targetProf?.phone || "",
+          plan: d.plan_title || plan,
+          credits: d.credits,
+          waMessage: d.wa_message,
+        });
+      }
     } catch (e: any) {
       flash(e?.message || "ప్లాన్ యాక్టివేషన్ విఫలమైంది");
     } finally {
@@ -1430,6 +1491,88 @@ export default function Dashboard() {
             ========================================================================= */}
         {tab === "directory" && (
           <div className="space-y-6">
+            {/* Top Metric Summary Cards */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+              <button
+                type="button"
+                onClick={() => { setDirDateRange("all"); setDirPayment("all"); setDirVerified("all"); setDirPhoto("all"); }}
+                className={`p-4 rounded-2xl border text-left transition ${
+                  dirDateRange === "all" && dirPayment === "all" ? "bg-maroon text-white border-maroon shadow-md" : "bg-white border-slate-200 hover:border-gold"
+                }`}
+              >
+                <div className="text-xs font-bold opacity-80">మొత్తం ప్రొఫైళ్లు</div>
+                <div className="text-2xl font-black mt-1">{dirSummary?.total_all ?? dirTotal}</div>
+                <div className="text-[10px] opacity-75 mt-0.5">రిజిస్టర్ అయినవి</div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => { setDirDateRange("today"); setDirPayment("all"); }}
+                className={`p-4 rounded-2xl border text-left transition ${
+                  dirDateRange === "today" ? "bg-amber-500 text-white border-amber-600 shadow-md ring-2 ring-amber-300" : "bg-amber-50/70 border-amber-200 hover:bg-amber-100/70"
+                }`}
+              >
+                <div className="text-xs font-bold text-amber-950 flex items-center gap-1">
+                  <span>🌟</span> <span>ఈరోజు రిజిస్ట్రేషన్లు</span>
+                </div>
+                <div className="text-2xl font-black text-amber-950 mt-1">{dirSummary?.today_count ?? 0}</div>
+                <div className="text-[10px] text-amber-900 font-bold mt-0.5">Today Registered</div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => { setDirDateRange("yesterday"); setDirPayment("all"); }}
+                className={`p-4 rounded-2xl border text-left transition ${
+                  dirDateRange === "yesterday" ? "bg-slate-700 text-white border-slate-800 shadow-md" : "bg-slate-50 border-slate-200 hover:bg-slate-100"
+                }`}
+              >
+                <div className="text-xs font-bold text-slate-700">📅 నిన్నటివి (Yesterday)</div>
+                <div className="text-2xl font-black text-navy mt-1">{dirSummary?.yesterday_count ?? 0}</div>
+                <div className="text-[10px] text-slate-500 mt-0.5">నిన్నటి ప్రొఫైళ్లు</div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => { setDirPayment("unpaid"); setDirDateRange("all"); }}
+                className={`p-4 rounded-2xl border text-left transition ${
+                  dirPayment === "unpaid" ? "bg-rose-600 text-white border-rose-700 shadow-md ring-2 ring-rose-300" : "bg-rose-50/70 border-rose-200 hover:bg-rose-100/70"
+                }`}
+              >
+                <div className="text-xs font-bold text-rose-950 flex items-center gap-1">
+                  <span>🟡</span> <span>ఇంకా చెల్లించని వారు</span>
+                </div>
+                <div className="text-2xl font-black text-rose-950 mt-1">{dirSummary?.unpaid_count ?? 0}</div>
+                <div className="text-[10px] text-rose-800 font-bold mt-0.5">Free / Call Follow-up</div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => { setDirPayment("paid"); setDirDateRange("all"); }}
+                className={`p-4 rounded-2xl border text-left transition ${
+                  dirPayment === "paid" ? "bg-emerald-700 text-white border-emerald-800 shadow-md" : "bg-emerald-50/70 border-emerald-200 hover:bg-emerald-100/70"
+                }`}
+              >
+                <div className="text-xs font-bold text-emerald-950 flex items-center gap-1">
+                  <span>🟢</span> <span>ప్రీమియం / వెరిఫైడ్</span>
+                </div>
+                <div className="text-2xl font-black text-emerald-950 mt-1">{dirSummary?.paid_count ?? 0}</div>
+                <div className="text-[10px] text-emerald-800 font-bold mt-0.5">Paid & Verified Members</div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => { setDirPhoto("with_photo"); }}
+                className={`p-4 rounded-2xl border text-left transition ${
+                  dirPhoto === "with_photo" ? "bg-indigo-700 text-white border-indigo-800 shadow-md" : "bg-indigo-50/70 border-indigo-200 hover:bg-indigo-100/70"
+                }`}
+              >
+                <div className="text-xs font-bold text-indigo-950">📸 ఫోటో ఉన్నవి</div>
+                <div className="text-2xl font-black text-indigo-950 mt-1">{dirSummary?.photo_count ?? 0}</div>
+                <div className="text-[10px] text-indigo-800 font-bold mt-0.5">With Photo</div>
+              </button>
+            </div>
+
+            {/* Filter Card */}
             <div className="bg-white rounded-3xl p-5 sm:p-6 border border-gold/30 shadow-sm space-y-4">
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
@@ -1438,7 +1581,7 @@ export default function Dashboard() {
                     <span>డైరెక్టరీ & సంప్రదింపు నంబర్లు (All Registered Profiles)</span>
                   </h2>
                   <p className="text-xs text-slate-600 mt-1">
-                    మొత్తం {dirTotal} ప్రొఫైళ్లు నమోదై ఉన్నాయి. అన్‌మాస్క్డ్ ఫోన్ నంబర్లతో శోధించండి మరియు నోట్‌ప్యాడ్‌లోకి ఎంచుకోండి.
+                    నమోదైన మొత్తం {dirTotal} ప్రొఫైళ్లు • తేదీ, పేమెంట్ మరియు వెరిఫికేషన్ వారీగా శోధించండి.
                   </p>
                 </div>
 
@@ -1469,53 +1612,147 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              {/* Filters Bar */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs pt-2 border-t border-slate-100">
-                <select
-                  value={dirGender}
-                  onChange={(e) => setDirGender(e.target.value)}
-                  className="px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 font-medium"
-                >
-                  <option value="">👰/🤵 అందరూ (All Genders)</option>
-                  <option value="Bride">👰 వధువులు (Brides)</option>
-                  <option value="Groom">🤵 వరులు (Grooms)</option>
-                </select>
+              {/* Date Filter Quick Pills */}
+              <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-slate-100">
+                <span className="text-xs font-bold text-slate-500 mr-1">📅 నమోదు తేదీ:</span>
+                {[
+                  { id: "all", label: "అన్ని తేదీలు (All)" },
+                  { id: "today", label: "🌟 ఈరోజు (Today)" },
+                  { id: "yesterday", label: "📅 నిన్న (Yesterday)" },
+                  { id: "7days", label: "🗓️ గత 7 రోజులు" },
+                  { id: "month", label: "📆 ఈ నెల (This Month)" },
+                  { id: "custom", label: "🔍 కస్టమ్ తేదీ (Custom)" },
+                ].map((d) => (
+                  <button
+                    key={d.id}
+                    type="button"
+                    onClick={() => setDirDateRange(d.id)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition ${
+                      dirDateRange === d.id
+                        ? "bg-[#7A0C2E] text-white shadow-xs"
+                        : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                    }`}
+                  >
+                    {d.label}
+                  </button>
+                ))}
 
-                <select
-                  value={dirCaste}
-                  onChange={(e) => setDirCaste(e.target.value)}
-                  className="px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 font-medium"
-                >
-                  <option value="">💍 అన్ని కులాలు (All Castes)</option>
-                  {CASTES.map((c) => (
-                    <option key={c} value={c}>{CASTE_TELUGU[c] || c}</option>
-                  ))}
-                </select>
+                {dirDateRange === "custom" && (
+                  <div className="flex items-center gap-2 ml-2 flex-wrap">
+                    <input
+                      type="date"
+                      value={dirDateFrom}
+                      onChange={(e) => setDirDateFrom(e.target.value)}
+                      className="px-2.5 py-1 text-xs border border-slate-300 rounded-lg"
+                    />
+                    <span className="text-xs text-slate-400">నుండి</span>
+                    <input
+                      type="date"
+                      value={dirDateTo}
+                      onChange={(e) => setDirDateTo(e.target.value)}
+                      className="px-2.5 py-1 text-xs border border-slate-300 rounded-lg"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => loadDirectory()}
+                      className="px-2.5 py-1 bg-maroon text-white text-xs font-bold rounded-lg"
+                    >
+                      ఫిల్టర్ చేయి
+                    </button>
+                  </div>
+                )}
+              </div>
 
-                <select
-                  value={dirDistrict}
-                  onChange={(e) => setDirDistrict(e.target.value)}
-                  className="px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 font-medium"
-                >
-                  <option value="">🏡 అన్ని జిల్లాలు (All Districts)</option>
-                  {ALL_DISTRICTS.map((d) => (
-                    <option key={d} value={d}>{d}</option>
-                  ))}
-                </select>
+              {/* Granular Filters Grid */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-2 text-xs pt-2 border-t border-slate-100">
+                {/* Payment Status Filter */}
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 block mb-0.5">💰 పేమెంట్ హోదా:</label>
+                  <select
+                    value={dirPayment}
+                    onChange={(e) => setDirPayment(e.target.value)}
+                    className="w-full px-2.5 py-1.5 rounded-xl border border-slate-200 bg-slate-50 font-medium"
+                  >
+                    <option value="all">అందరూ (All)</option>
+                    <option value="unpaid">🟡 ఇంకా చెల్లించని వారు (Unpaid/Free)</option>
+                    <option value="paid">🟢 ప్రీమియం చెల్లించిన వారు (Paid)</option>
+                  </select>
+                </div>
 
-                <select
-                  value={dirStatus}
-                  onChange={(e) => setDirStatus(e.target.value)}
-                  className="px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 font-medium"
-                >
-                  <option value="all">⚡ అన్ని హోదాలు (All Status)</option>
-                  <option value="approved">ఆమోదించబడినవి (Approved)</option>
-                  <option value="pending">పరిశీలనలో ఉన్నవి (Pending)</option>
-                </select>
+                {/* Verification Filter */}
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 block mb-0.5">✅ వెరిఫికేషన్:</label>
+                  <select
+                    value={dirVerified}
+                    onChange={(e) => setDirVerified(e.target.value)}
+                    className="w-full px-2.5 py-1.5 rounded-xl border border-slate-200 bg-slate-50 font-medium"
+                  >
+                    <option value="all">అందరూ (All)</option>
+                    <option value="verified">✓ Verified Members</option>
+                    <option value="unverified">Unverified Members</option>
+                  </select>
+                </div>
+
+                {/* Marital Status Filter */}
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 block mb-0.5">💍 వివాహ రకం:</label>
+                  <select
+                    value={dirMarital}
+                    onChange={(e) => setDirMarital(e.target.value)}
+                    className="w-full px-2.5 py-1.5 rounded-xl border border-slate-200 bg-slate-50 font-medium"
+                  >
+                    <option value="all">అందరూ (All)</option>
+                    <option value="first_marriage">మొదటి వివాహం (First Marriage)</option>
+                    <option value="second_marriage">పునర్వివాహం (Second Marriage)</option>
+                  </select>
+                </div>
+
+                {/* Photo Filter */}
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 block mb-0.5">📸 ఫోటో:</label>
+                  <select
+                    value={dirPhoto}
+                    onChange={(e) => setDirPhoto(e.target.value)}
+                    className="w-full px-2.5 py-1.5 rounded-xl border border-slate-200 bg-slate-50 font-medium"
+                  >
+                    <option value="all">అందరూ (All)</option>
+                    <option value="with_photo">📸 ఫోటో ఉన్నవి</option>
+                    <option value="no_photo">ఫోటో లేనివి</option>
+                  </select>
+                </div>
+
+                {/* Gender Filter */}
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 block mb-0.5">👰/🤵 లింగం:</label>
+                  <select
+                    value={dirGender}
+                    onChange={(e) => setDirGender(e.target.value)}
+                    className="w-full px-2.5 py-1.5 rounded-xl border border-slate-200 bg-slate-50 font-medium"
+                  >
+                    <option value="">అందరూ (All)</option>
+                    <option value="Bride">👰 వధువులు (Brides)</option>
+                    <option value="Groom">🤵 వరులు (Grooms)</option>
+                  </select>
+                </div>
+
+                {/* District Filter */}
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 block mb-0.5">🏡 జిల్లా:</label>
+                  <select
+                    value={dirDistrict}
+                    onChange={(e) => setDirDistrict(e.target.value)}
+                    className="w-full px-2.5 py-1.5 rounded-xl border border-slate-200 bg-slate-50 font-medium"
+                  >
+                    <option value="">అన్ని జిల్లాలు (All)</option>
+                    {ALL_DISTRICTS.map((d) => (
+                      <option key={d} value={d}>{d}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
             </div>
 
-            {/* Profiles Table / Grid */}
+            {/* Profiles Table */}
             <div className="bg-white rounded-3xl border border-gold/30 overflow-hidden shadow-sm">
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
@@ -1523,31 +1760,36 @@ export default function Dashboard() {
                     <tr>
                       <th className="p-3.5 text-center">ఎంపిక</th>
                       <th className="p-3.5">ID / పేరు</th>
-                      <th className="p-3.5">ప్లాన్ / క్రెడిట్స్</th>
+                      <th className="p-3.5">నమోదు తేదీ</th>
+                      <th className="p-3.5">ప్లాన్ & హోదా</th>
                       <th className="p-3.5">లింగం / వయస్సు</th>
                       <th className="p-3.5">కులం & గోత్రం</th>
-                      <th className="p-3.5">చదువు & ఉద్యోగం</th>
-                      <th className="p-3.5">జిల్లా / రాష్ట్రం</th>
+                      <th className="p-3.5">ఉద్యోగం / చదువు</th>
+                      <th className="p-3.5">జిల్లా / ఊరు</th>
                       <th className="p-3.5">📞 ఫోన్ నంబర్</th>
-                      <th className="p-3.5 text-right">చర్యలు</th>
+                      <th className="p-3.5 text-right">చర్యలు & ప్లాన్</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {dirLoading ? (
                       <tr>
-                        <td colSpan={9} className="p-8 text-center text-slate-400 font-bold">
+                        <td colSpan={10} className="p-8 text-center text-slate-400 font-bold">
                           లోడ్ అవుతోంది…
                         </td>
                       </tr>
                     ) : directoryProfiles.length === 0 ? (
                       <tr>
-                        <td colSpan={9} className="p-8 text-center text-slate-400 font-bold">
-                          ప్రొఫైళ్లు ఏవీ లభించలేదు
+                        <td colSpan={10} className="p-8 text-center text-slate-400 font-bold">
+                          ఎంచుకున్న ఫిల్టర్లతో ప్రొఫైళ్లు ఏవీ లభించలేదు
                         </td>
                       </tr>
                     ) : (
                       directoryProfiles.map((p) => {
                         const isSelected = isProfileSelected(p.tsap_id);
+                        const isPaid = p.is_premium || (p.plan && p.plan !== "FREE");
+                        const regDateStr = p.created_at ? String(p.created_at).slice(0, 10) : "—";
+                        const isToday = regDateStr === new Date().toISOString().slice(0, 10);
+                        
                         return (
                           <tr key={p.tsap_id} className={`hover:bg-amber-50/40 transition ${isSelected ? "bg-rose-50/40" : ""}`}>
                             <td className="p-3.5 text-center">
@@ -1559,25 +1801,43 @@ export default function Dashboard() {
                               />
                             </td>
                             <td className="p-3.5 font-bold">
-                              <div className="text-navy">{p.full_name}</div>
-                              <div className="font-mono text-[10px] text-maroon">{p.tsap_id}</div>
+                              <div className="text-navy flex items-center gap-1.5">
+                                <span>{p.full_name}</span>
+                                {p.marital_status && p.marital_status !== "Pelli Kaledu" && (
+                                  <span className="px-1.5 py-0.2 bg-purple-100 text-purple-800 text-[9px] font-black rounded">
+                                    పునర్వివాహం
+                                  </span>
+                                )}
+                              </div>
+                              <div className="font-mono text-[10px] text-maroon flex items-center gap-1">
+                                <span>{p.tsap_id}</span>
+                                {p.photo_url ? (
+                                  <span className="text-[10px]" title="Photo Uploaded">📸</span>
+                                ) : (
+                                  <span className="text-[9px] text-slate-400 font-sans">నో ఫోటో</span>
+                                )}
+                              </div>
+                            </td>
+                            <td className="p-3.5 font-medium whitespace-nowrap">
+                              <div className={`font-mono text-[11px] ${isToday ? "text-amber-800 font-black" : "text-slate-600"}`}>
+                                {isToday ? `🌟 ఈరోజు` : regDateStr}
+                              </div>
                             </td>
                             <td className="p-3.5 font-medium">
-                              <div className="flex items-center gap-1.5 flex-wrap">
-                                <span className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase ${
-                                  p.plan === "S_499" ? "bg-emerald-100 text-emerald-800" :
-                                  p.plan === "S_199" ? "bg-purple-100 text-purple-800" :
-                                  p.plan === "S_99" ? "bg-amber-100 text-amber-900" :
-                                  "bg-slate-100 text-slate-600"
-                                }`}>
-                                  {p.plan === "S_499" ? "💎 VIP" :
-                                   p.plan === "S_199" ? "⭐ Family" :
-                                   p.plan === "S_99" ? "⚡ ₹99" :
-                                   "Free"}
-                                </span>
-                                <span className="text-[10px] text-slate-500 font-mono">
-                                  🪙 {p.credits || 0}
-                                </span>
+                              <div className="space-y-1">
+                                {isPaid ? (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-black uppercase bg-emerald-100 text-emerald-800 border border-emerald-300">
+                                    <span>👑 {p.plan_name || p.plan}</span>
+                                    <span>✓ VERIFIED</span>
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-black uppercase bg-amber-100 text-amber-900 border border-amber-300">
+                                    <span>🟡 ఉచిత సభ్యులు (Unpaid)</span>
+                                  </span>
+                                )}
+                                <div className="text-[10px] text-slate-500 font-mono">
+                                  🪙 {p.credits || 0} క్రెడిట్స్
+                                </div>
                               </div>
                             </td>
                             <td className="p-3.5 font-medium">
@@ -1589,34 +1849,78 @@ export default function Dashboard() {
                               <div className="text-slate-500">{p.gothram || "—"}</div>
                             </td>
                             <td className="p-3.5 font-medium">
-                              <div>{p.education}</div>
-                              <div className="text-slate-500">{p.job}</div>
+                              <div className="font-semibold text-slate-800">{p.job || "—"}</div>
+                              <div className="text-slate-500">{p.education || "—"}</div>
                             </td>
                             <td className="p-3.5 font-medium">
                               <div>{p.district}</div>
                               <div className="text-slate-500">{p.state}</div>
                             </td>
-                            <td className="p-3.5 font-bold font-mono text-emerald-800">
+                            <td className="p-3.5 font-bold font-mono text-emerald-800 whitespace-nowrap">
                               {p.phone || "—"}
                             </td>
                             <td className="p-3.5 text-right space-x-1 whitespace-nowrap">
+                              {/* Direct Call Link */}
+                              {p.phone && (
+                                <a
+                                  href={`tel:${p.phone}`}
+                                  className="inline-block p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition"
+                                  title="Call Member"
+                                >
+                                  📞
+                                </a>
+                              )}
+
+                              {/* WhatsApp Follow-up */}
+                              {p.phone && (
+                                <a
+                                  href={`https://wa.me/91${p.phone.replace(/\D/g, "")}?text=${encodeURIComponent(
+                                    isPaid
+                                      ? `💐 నమస్కారం ${p.full_name} గారు!\nమన వివాహ (Mana Vivaha) హెల్ప్‌లైన్ నుండి సంప్రదిస్తున్నాం. మీ ప్రొఫైల్ (${p.tsap_id}) కి మ్యాచ్‌ల వివరాలు లేదా ఏదైనా సహాయం కావాలా?`
+                                      : `💐 నమస్కారం ${p.full_name} గారు!\n\nమన వివాహ (Mana Vivaha) లో మీ ప్రొఫైల్ (${p.tsap_id}) నమోదైంది. మీకు సరిపోయే పర్ఫెక్ట్ సంబంధాల సంప్రదింపు వివరాలు (ఫోన్ నంబర్లు) నేరుగా అన్‌లాక్ చేసుకోవడానికి & Verified Badge పొందడానికి మా ప్రత్యేక ప్లాన్స్ చూడండి:\nhttps://manavivaha.in/pricing\n\nమీరు QR కోడ్ లేదా PhonePe/GPay ద్వారా చెల్లించాలనుకుంటే మాకు ఇక్కడ రిప్లై ఇవ్వగలరు.`
+                                  )}`}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="inline-block p-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white transition font-bold"
+                                  title={isPaid ? "WhatsApp Chat" : "WhatsApp Follow-up (కాల్/మెసేజ్ పంపండి)"}
+                                >
+                                  💬
+                                </a>
+                              )}
+
+                              {/* Matchmaker */}
                               <button
                                 onClick={() => {
                                   setLookupQuery(p.tsap_id);
                                   runMatchmaker(p.tsap_id);
                                   setTab("matchmaker");
                                 }}
-                                className="px-2.5 py-1 rounded-lg bg-amber-100 text-maroon font-bold text-[11px] hover:bg-amber-200 transition"
+                                className="px-2.5 py-1.5 rounded-lg bg-amber-100 text-maroon font-bold text-[11px] hover:bg-amber-200 transition"
                                 title="మ్యాచ్‌లు చూడు"
                               >
                                 ⚡ మ్యాచ్‌లు
                               </button>
+
+                              {/* Manual Plan Activation / Verified Badge Grant */}
                               <button
-                                onClick={() => setUpgradeModal({ open: true, tsapId: p.tsap_id, name: p.full_name, currentPlan: p.plan })}
-                                className="px-2.5 py-1 rounded-lg bg-gradient-to-r from-amber-500 to-rose-600 text-white font-bold text-[11px] hover:brightness-110 active:scale-95 transition"
-                                title="1-Click VIP / ప్లాన్ ఇవ్వండి"
+                                onClick={() => {
+                                  setUpgradeModal({
+                                    open: true,
+                                    tsapId: p.tsap_id,
+                                    name: p.full_name,
+                                    phone: p.phone,
+                                    district: p.district,
+                                    caste: p.caste,
+                                    currentPlan: p.plan,
+                                  });
+                                  setGrantPlanCode("S_99");
+                                  setGrantCredits(5);
+                                  setGrantAmount(99);
+                                }}
+                                className="px-2.5 py-1.5 rounded-lg bg-gradient-to-r from-amber-500 to-rose-600 text-white font-bold text-[11px] hover:brightness-110 active:scale-95 transition shadow-xs"
+                                title="1-Click VIP / ప్లాన్ ఇవ్వండి & Verified Badge"
                               >
-                                👑 ప్లాన్
+                                👑 ప్లాన్ ఇవ్వండి
                               </button>
                             </td>
                           </tr>
@@ -2194,16 +2498,18 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* 👑 VIP & 1-CLICK PLAN GRANT MODAL */}
+      {/* 👑 VIP & 1-CLICK PLAN GRANT & MANUAL VERIFICATION MODAL */}
       {upgradeModal && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border-2 border-amber-400 space-y-4 animate-in fade-in zoom-in duration-200">
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border-2 border-amber-400 space-y-4 animate-in fade-in zoom-in duration-200 my-8">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center gap-2">
                 <span className="text-2xl">👑</span>
                 <div>
-                  <h3 className="font-black text-navy text-base">VIP / ప్రీమియం ప్లాన్ ఇవ్వండి</h3>
-                  <p className="text-xs text-slate-500 font-mono">{upgradeModal.name} ({upgradeModal.tsapId})</p>
+                  <h3 className="font-black text-navy text-base">ప్లాన్ యాక్టివేట్ & Verified Badge ఇవ్వండి</h3>
+                  <p className="text-xs text-slate-500 font-mono">
+                    {upgradeModal.name} • <span className="text-maroon font-bold">{upgradeModal.tsapId}</span> • 📞 {upgradeModal.phone || "—"}
+                  </p>
                 </div>
               </div>
               <button
@@ -2214,71 +2520,139 @@ export default function Dashboard() {
               </button>
             </div>
 
-            <p className="text-xs text-slate-600 leading-relaxed">
-              యూజర్ ఆన్‌లైన్ పేమెంట్ చేయకపోయినా (ఆఫ్‌లైన్ నగదు లేదా ప్రత్యేక ప్రోత్సాహం), అడ్మిన్ ప్యానెల్ నుండి నేరుగా ₹99/₹199/₹499 ప్లాన్ యాక్టివేట్ చేయవచ్చు.
-            </p>
+            <div className="bg-amber-50 rounded-2xl p-3 border border-amber-200 text-xs text-amber-950 flex items-start gap-2">
+              <span className="text-base shrink-0">💡</span>
+              <p className="leading-relaxed">
+                యూజర్ వాట్సాప్ క్యూఆర్ (QR), PhonePe/GPay ద్వారా లేదా నేరుగా నగదు చెల్లించినప్పుడు, ఇక్కడ ప్లాన్ ఎంచుకుని <b>Verified Member</b> గా మార్చవచ్చు.
+              </p>
+            </div>
 
-            {/* Plan selection buttons */}
+            {/* Plan selection cards */}
             <div className="space-y-2">
-              <label className="text-xs font-bold text-slate-700 block">యాక్టివేట్ చేయాల్సిన ప్లాన్ ఎంచుకోండి:</label>
+              <label className="text-xs font-bold text-slate-700 block">1. ప్లాన్ ఎంచుకోండి (Select Membership Plan):</label>
               
-              <button
-                type="button"
-                onClick={() => { setGrantPlanCode("S_99"); setGrantCredits(5); }}
-                className={`w-full p-3 rounded-2xl border text-left transition flex items-center justify-between ${
-                  grantPlanCode === "S_99" ? "bg-amber-50 border-amber-500 ring-2 ring-amber-400/50" : "border-slate-200 hover:bg-slate-50"
-                }`}
-              >
-                <div>
-                  <div className="font-black text-sm text-[#7A0C2E]">⚡ ₹99 Sambandham (సంబంధం ప్లాన్)</div>
-                  <div className="text-[11px] text-slate-500">5 డైరెక్ట్ నంబర్లు • 7 రోజుల బూస్ట్ • WhatsApp సపోర్ట్</div>
-                </div>
-                <span className="text-xs font-bold font-mono px-2 py-1 bg-amber-100 text-amber-800 rounded-lg">+5 Cr</span>
-              </button>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {/* S_99 */}
+                <button
+                  type="button"
+                  onClick={() => { setGrantPlanCode("S_99"); setGrantCredits(5); setGrantAmount(99); }}
+                  className={`p-3 rounded-2xl border text-left transition ${
+                    grantPlanCode === "S_99" ? "bg-amber-50 border-amber-500 ring-2 ring-amber-400/50" : "border-slate-200 hover:bg-slate-50"
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="font-black text-xs text-amber-900">🥉 స్వాగతం (Silver)</div>
+                    <span className="font-mono font-black text-xs text-amber-950">₹99</span>
+                  </div>
+                  <div className="text-[10px] text-slate-500 mt-1">5 క్రెడిట్స్ • 30 రోజులు • WhatsApp సపోర్ట్</div>
+                </button>
 
-              <button
-                type="button"
-                onClick={() => { setGrantPlanCode("S_199"); setGrantCredits(12); }}
-                className={`w-full p-3 rounded-2xl border text-left transition flex items-center justify-between ${
-                  grantPlanCode === "S_199" ? "bg-purple-50 border-purple-500 ring-2 ring-purple-400/50" : "border-slate-200 hover:bg-slate-50"
-                }`}
-              >
-                <div>
-                  <div className="font-black text-sm text-purple-900">⭐ ₹199 Family (ఫ్యామిలీ ప్లాన్)</div>
-                  <div className="text-[11px] text-slate-500">12 డైరెక్ట్ నంబర్లు • జాతక పొంతన • 15 రోజుల బూస్ట్</div>
-                </div>
-                <span className="text-xs font-bold font-mono px-2 py-1 bg-purple-100 text-purple-800 rounded-lg">+12 Cr</span>
-              </button>
+                {/* S_199 */}
+                <button
+                  type="button"
+                  onClick={() => { setGrantPlanCode("S_199"); setGrantCredits(15); setGrantAmount(199); }}
+                  className={`p-3 rounded-2xl border text-left transition ${
+                    grantPlanCode === "S_199" ? "bg-purple-50 border-purple-500 ring-2 ring-purple-400/50" : "border-slate-200 hover:bg-slate-50"
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="font-black text-xs text-purple-900">🥈 శుభారంభం (Gold)</div>
+                    <span className="font-mono font-black text-xs text-purple-950">₹199</span>
+                  </div>
+                  <div className="text-[10px] text-slate-500 mt-1">15 క్రెడిట్స్ • 60 రోజులు • జాతక పొంతన</div>
+                </button>
 
+                {/* S_299 */}
+                <button
+                  type="button"
+                  onClick={() => { setGrantPlanCode("S_299"); setGrantCredits(25); setGrantAmount(299); }}
+                  className={`p-3 rounded-2xl border text-left transition ${
+                    grantPlanCode === "S_299" ? "bg-blue-50 border-blue-500 ring-2 ring-blue-400/50" : "border-slate-200 hover:bg-slate-50"
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="font-black text-xs text-blue-900">🥇 కళ్యాణం (Platinum)</div>
+                    <span className="font-mono font-black text-xs text-blue-950">₹299</span>
+                  </div>
+                  <div className="text-[10px] text-slate-500 mt-1">25 క్రెడిట్స్ • 90 రోజులు • ప్రయారిటీ ర్యాంకింగ్</div>
+                </button>
+
+                {/* S_499 */}
+                <button
+                  type="button"
+                  onClick={() => { setGrantPlanCode("S_499"); setGrantCredits(50); setGrantAmount(499); }}
+                  className={`p-3 rounded-2xl border text-left transition ${
+                    grantPlanCode === "S_499" ? "bg-emerald-50 border-emerald-500 ring-2 ring-emerald-400/50" : "border-slate-200 hover:bg-slate-50"
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="font-black text-xs text-emerald-900">💎 కళ్యాణ వైభోగం</div>
+                    <span className="font-mono font-black text-xs text-emerald-950">₹499</span>
+                  </div>
+                  <div className="text-[10px] text-slate-500 mt-1">50 క్రెడిట్స్ • 180 రోజులు • VIP బ్యాడ్జ్</div>
+                </button>
+              </div>
+
+              {/* S_999 Full Width */}
               <button
                 type="button"
-                onClick={() => { setGrantPlanCode("S_499"); setGrantCredits(50); }}
+                onClick={() => { setGrantPlanCode("S_999"); setGrantCredits(100); setGrantAmount(999); }}
                 className={`w-full p-3 rounded-2xl border text-left transition flex items-center justify-between ${
-                  grantPlanCode === "S_499" ? "bg-emerald-50 border-emerald-500 ring-2 ring-emerald-400/50" : "border-slate-200 hover:bg-slate-50"
+                  grantPlanCode === "S_999" ? "bg-rose-50 border-rose-500 ring-2 ring-rose-400/50" : "border-slate-200 hover:bg-slate-50"
                 }`}
               >
                 <div>
-                  <div className="font-black text-sm text-emerald-900">💎 ₹499 VIP Elite (వీఐపీ ప్లాన్)</div>
-                  <div className="text-[11px] text-slate-500">50 డైరెక్ట్ నంబర్లు • అసిస్టెడ్ మ్యాచ్‌మేకింగ్ • VIP బ్యాడ్జ్</div>
+                  <div className="font-black text-xs text-rose-900">👑 మంగళసూత్రం (Royal VIP Assistance)</div>
+                  <div className="text-[10px] text-slate-500">100 క్రెడిట్స్ • 365 రోజులు • పర్సనల్ మ్యాచ్‌మేకింగ్ & అసిస్టెన్స్</div>
                 </div>
-                <span className="text-xs font-bold font-mono px-2 py-1 bg-emerald-100 text-emerald-800 rounded-lg">+50 Cr</span>
+                <span className="font-mono font-black text-sm text-rose-950">₹999</span>
               </button>
             </div>
 
-            {/* Custom Credits override */}
-            <div className="flex items-center justify-between pt-1">
-              <label className="text-xs font-bold text-slate-600">అదనపు క్రెడిట్స్ (Credits to add):</label>
-              <input
-                type="number"
-                min="1"
-                max="500"
-                value={grantCredits}
-                onChange={(e) => setGrantCredits(Math.max(1, parseInt(e.target.value) || 1))}
-                className="w-20 px-2.5 py-1 border border-slate-300 rounded-xl text-center font-bold text-xs focus:border-maroon focus:outline-none"
-              />
+            {/* Payment Mode Selector */}
+            <div className="space-y-1.5 pt-1">
+              <label className="text-xs font-bold text-slate-700 block">2. పేమెంట్ విధానం (Payment Source):</label>
+              <select
+                value={grantPayMode}
+                onChange={(e) => setGrantPayMode(e.target.value)}
+                className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-bold focus:border-maroon focus:outline-none"
+              >
+                <option value="UPI_QR">📱 WhatsApp QR / Direct UPI (6304996088)</option>
+                <option value="PHONEPE">🟣 PhonePe Transfer</option>
+                <option value="GPAY">🔵 Google Pay</option>
+                <option value="BANK_TRANSFER">🏦 Direct Bank Transfer / NetBanking</option>
+                <option value="CASH">💵 Cash / Offline Office Payment</option>
+                <option value="ADMIN_COMPLIMENTARY">🎁 Admin Complimentary (ఉచిత ప్రోత్సాహం)</option>
+              </select>
             </div>
 
-            {/* Referral commission trigger */}
+            {/* UTR & Notes */}
+            <div className="grid grid-cols-2 gap-2 pt-1">
+              <div>
+                <label className="text-[11px] font-bold text-slate-600 block mb-0.5">UTR / లావాదేవీ నంబర్ (Optional):</label>
+                <input
+                  type="text"
+                  value={grantUtr}
+                  onChange={(e) => setGrantUtr(e.target.value)}
+                  placeholder="ఉదా: 425619283741"
+                  className="w-full px-3 py-1.5 border border-slate-300 rounded-xl text-xs font-mono focus:border-maroon focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="text-[11px] font-bold text-slate-600 block mb-0.5">క్రెడిట్స్ (Credits to grant):</label>
+                <input
+                  type="number"
+                  min="1"
+                  max="500"
+                  value={grantCredits}
+                  onChange={(e) => setGrantCredits(Math.max(1, parseInt(e.target.value) || 1))}
+                  className="w-full px-3 py-1.5 border border-slate-300 rounded-xl text-center font-bold text-xs focus:border-maroon focus:outline-none"
+                />
+              </div>
+            </div>
+
+            {/* Referral trigger */}
             <div className="flex items-center gap-2 pt-1">
               <input
                 type="checkbox"
@@ -2288,11 +2662,12 @@ export default function Dashboard() {
                 className="w-4 h-4 rounded accent-[#7A0C2E] cursor-pointer"
               />
               <label htmlFor="triggerRef" className="text-xs font-medium text-slate-700 cursor-pointer">
-                రిఫరల్ కమీషన్ విడుదల చేయి (Trigger ₹50 referral commission if applicable)
+                రిఫరల్ కమీషన్ విడుదల చేయి (Trigger ₹50 referral credit to referrer)
               </label>
             </div>
 
-            <div className="flex gap-2 pt-2">
+            {/* Action buttons */}
+            <div className="flex gap-2 pt-2 border-t border-slate-100">
               <button
                 type="button"
                 onClick={() => setUpgradeModal(null)}
@@ -2303,11 +2678,79 @@ export default function Dashboard() {
               <button
                 type="button"
                 disabled={busyId === upgradeModal.tsapId}
-                onClick={() => upgradeProfile(upgradeModal.tsapId, grantPlanCode, grantCredits, grantTriggerRef)}
-                className="flex-1 py-2.5 rounded-2xl bg-gradient-to-r from-amber-500 to-rose-600 text-white font-extrabold text-xs shadow-md hover:brightness-110 active:scale-98 transition disabled:opacity-50"
+                onClick={() => upgradeProfile(
+                  upgradeModal.tsapId,
+                  grantPlanCode,
+                  grantCredits,
+                  grantTriggerRef,
+                  grantPayMode,
+                  grantUtr,
+                  grantNotes,
+                  grantAmount
+                )}
+                className="flex-1 py-2.5 rounded-2xl bg-gradient-to-r from-emerald-600 via-amber-600 to-rose-600 text-white font-extrabold text-xs shadow-md hover:brightness-110 active:scale-98 transition disabled:opacity-50"
               >
-                {busyId === upgradeModal.tsapId ? "యాక్టివేట్ అవుతోంది..." : `👑 ${grantPlanCode} ప్లాన్ ఇవ్వండి`}
+                {busyId === upgradeModal.tsapId ? "యాక్టివేట్ అవుతోంది..." : `✓ ప్లాన్ యాక్టివేట్ & Verify చేయి`}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 🎉 ACTIVATION SUCCESS & WHATSAPP CONFIRMATION DIALOG */}
+      {activatedSuccessModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border-2 border-emerald-500 space-y-4 animate-in fade-in zoom-in duration-200">
+            <div className="text-center space-y-1">
+              <span className="text-4xl inline-block animate-bounce">🎉</span>
+              <h3 className="font-black text-navy text-lg">ప్లాన్ విజయవంతంగా యాక్టివేట్ అయ్యింది!</h3>
+              <p className="text-xs text-slate-600">
+                <b>{activatedSuccessModal.name}</b> ({activatedSuccessModal.tsapId}) కి <b>{activatedSuccessModal.plan}</b> ప్లాన్ & Verified Badge మంజూరైంది.
+              </p>
+            </div>
+
+            <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 space-y-2">
+              <div className="flex items-center justify-between text-xs font-bold text-slate-700">
+                <span>📲 యూజర్‌కి వాట్సాప్ కన్ఫర్మేషన్ మెసేజ్:</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(activatedSuccessModal.waMessage);
+                    flash("✅ వాట్సాప్ మెసేజ్ కాపీ అయ్యింది!");
+                  }}
+                  className="text-emerald-700 hover:text-emerald-800 text-[11px] font-black underline"
+                >
+                  కాపీ చేయి (Copy)
+                </button>
+              </div>
+              <textarea
+                rows={5}
+                readOnly
+                value={activatedSuccessModal.waMessage}
+                className="w-full p-2.5 bg-white border border-slate-200 rounded-xl text-xs text-slate-800 font-sans leading-relaxed focus:outline-none"
+              />
+            </div>
+
+            <div className="flex gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setActivatedSuccessModal(null)}
+                className="flex-1 py-2.5 rounded-2xl border border-slate-300 font-bold text-xs text-slate-600 hover:bg-slate-100 transition"
+              >
+                ముగించు (Close)
+              </button>
+              {activatedSuccessModal.phone && (
+                <a
+                  href={`https://wa.me/91${activatedSuccessModal.phone.replace(/\D/g, "")}?text=${encodeURIComponent(activatedSuccessModal.waMessage)}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  onClick={() => setActivatedSuccessModal(null)}
+                  className="flex-1 py-2.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs shadow-md text-center transition flex items-center justify-center gap-1.5"
+                >
+                  <span>💬</span>
+                  <span>WhatsApp లో పంపు</span>
+                </a>
+              )}
             </div>
           </div>
         </div>

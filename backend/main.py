@@ -6,7 +6,7 @@ from fastapi import FastAPI, HTTPException, Request, UploadFile, File, Form, Bod
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, Response
 from typing import Any, Dict, Optional
-import os, random, json, re, hashlib, hmac, urllib.parse
+import os, random, json, re, hashlib, hmac, urllib.parse, time
 import threading
 from collections import defaultdict
 from datetime import datetime, timedelta
@@ -344,11 +344,17 @@ def control_profile_action(tsap_id: str, payload: dict, request: Request):
 
 @app.post("/api/control/profile/{tsap_id}/upgrade")
 def control_profile_upgrade(tsap_id: str, payload: dict, request: Request):
-    """Admin/Worker: 1-Click Upgrade ANY profile to VIP or 99 Plan (offline/complimentary)."""
+    """Admin/Worker: 1-Click Upgrade ANY profile to Verified/Premium Plan (offline/QR/PhonePe/GPay/Complimentary)."""
     item = _control_write_guard(request, roles=_CONTROL_WRITE_ROLES)
     d = payload or {}
     plan_code = str(d.get("plan", "S_99")).strip().upper()
-    credits_to_add = int(d.get("credits") or (50 if plan_code == "S_499" else 25 if plan_code == "S_299" else 12 if plan_code == "S_199" else 5))
+    payment_mode = str(d.get("payment_mode", "UPI_QR") or "UPI_QR").strip()
+    utr = str(d.get("utr", "") or "").strip()
+    notes = str(d.get("notes", "") or "").strip()
+    
+    # Custom plan support
+    default_credits = 100 if plan_code == "S_999" else 50 if plan_code == "S_499" else 25 if plan_code == "S_299" else 15 if plan_code == "S_199" else 5
+    credits_to_add = int(d.get("credits") if d.get("credits") is not None else default_credits)
     trigger_referral = bool(d.get("trigger_referral", True))
     
     user = _find_user(tsap_id)
@@ -360,28 +366,62 @@ def control_profile_upgrade(tsap_id: str, payload: dict, request: Request):
     user["is_verified"] = True
     user["is_approved"] = True
     user["status"] = "approved"
+    user["verified_badge"] = True
+    user["verified_at"] = datetime.utcnow().isoformat()
     user["credits"] = int(user.get("credits", 0) or 0) + credits_to_add
+    
+    # Plan Expiry Days
+    expiry_days = 365 if plan_code == "S_999" else 180 if plan_code == "S_499" else 90 if plan_code == "S_299" else 60 if plan_code == "S_199" else 30
+    user["plan_expiry"] = (datetime.utcnow() + timedelta(days=expiry_days)).strftime("%Y-%m-%d")
+    
     user.setdefault("credit_history", []).append({
         "at": datetime.utcnow().isoformat(),
         "change": credits_to_add,
         "reason": f"admin_grant_{plan_code}",
         "by": item["username"],
-        "note": f"Admin manual plan grant: {plan_code} (+{credits_to_add} credits)"
+        "mode": payment_mode,
+        "utr": utr,
+        "note": notes or f"Admin manual plan grant: {plan_code} (+{credits_to_add} credits)"
     })
+    
+    # Record payment order in audit log
+    plan_amounts = {"S_99": 99, "S_199": 199, "S_299": 299, "S_499": 499, "S_999": 999}
+    amount = int(d.get("amount") or plan_amounts.get(plan_code, 99))
+    
+    pay_order = {
+        "pay_order_id": f"ORD_MANUAL_{int(time.time())}_{random.randint(100, 999)}",
+        "tsap_id": user.get("tsap_id"),
+        "full_name": user.get("full_name"),
+        "phone": user.get("phone"),
+        "plan": plan_code,
+        "amount": amount,
+        "status": "paid",
+        "paid_via": payment_mode,
+        "utr": utr,
+        "created_at": datetime.utcnow().isoformat(),
+        "notes": notes,
+        "operator": item["username"]
+    }
+    PP.PAY_ORDERS.append(pay_order)
+    DB_PAYMENTS.append(pay_order)
     
     ref_msg = ""
     if trigger_referral and user.get("referred_by"):
         try:
             from referral import process_referral_payment
-            plan_price = 499 if plan_code == "S_499" else 299 if plan_code == "S_299" else 199 if plan_code == "S_199" else 99
-            r_res = process_referral_payment(user, user["referred_by"], plan_price, DB_USERS, payment_id=f"admin_grant_{int(time.time())}")
+            r_res = process_referral_payment(user, user["referred_by"], amount, DB_USERS, payment_id=pay_order["pay_order_id"])
             if r_res.get("success"):
                 ref_msg = f" • Referrer ({user['referred_by']}) కి ₹50 కమీషన్ వాలెట్‌లో జమైంది!"
         except Exception:
             pass
 
+    plan_title = {"S_99": "స్వాగతం (Silver - ₹99)", "S_199": "శుభారంభం (Gold - ₹199)", "S_299": "కళ్యాణం (Platinum - ₹299)", "S_499": "కళ్యాణ వైభోగం (Diamond - ₹499)", "S_999": "మంగళసూత్రం (Royal VIP - ₹999)"}.get(plan_code, plan_code)
+
+    # Auspicious Telugu WhatsApp message template for member
+    wa_text = f"💐 నమస్కారం {user.get('full_name')} గారు!\n\nమన వివాహ లో మీ ప్రొఫైల్ ({user.get('tsap_id')}) కి *{plan_title}* విజయవంతంగా యాక్టివేట్ చేయబడింది! ✅\n\n🪙 మీ ఖాతాలో *{credits_to_add} క్రెడిట్స్* మరియు ✅ *VERIFIED MEMBER* బ్యాడ్జ్ జోడించబడ్డాయి.\n\n🔗 సరిపోయే పర్ఫెక్ట్ సంబంధాల సంప్రదింపు వివరాలు (Contact Numbers) అన్‌లాక్ చేసుకోవడానికి లాగిన్ అవ్వండి:\nhttps://manavivaha.in/matches\n\nసహాయం కోసం మా హెల్ప్‌లైన్: +91 63049 96088"
+
     CONTROL_AUTH.audit("control_profile_upgrade", item["username"], request,
-                       tsap_id=user.get("tsap_id"), plan=plan_code, credits_added=credits_to_add)
+                       tsap_id=user.get("tsap_id"), plan=plan_code, amount=amount, mode=payment_mode, credits_added=credits_to_add)
                        
     try:
         DBSTORE.save(DBSTORE.snapshot(DB_USERS, DB_INTERESTS, DB_PAYMENTS, DB_OTPS,
@@ -394,8 +434,12 @@ def control_profile_upgrade(tsap_id: str, payload: dict, request: Request):
         "tsap_id": user.get("tsap_id"),
         "full_name": user.get("full_name"),
         "plan": plan_code,
+        "plan_title": plan_title,
         "credits": user["credits"],
-        "message_telugu": f"👑 {user.get('full_name')} ({user.get('tsap_id')}) కి {plan_code} ప్లాన్ విజయవంతంగా యాక్టివేట్ చేయబడింది (+{credits_to_add} క్రెడిట్స్){ref_msg}!"
+        "plan_expiry": user.get("plan_expiry"),
+        "is_verified": True,
+        "wa_message": wa_text,
+        "message_telugu": f"👑 {user.get('full_name')} ({user.get('tsap_id')}) కి {plan_title} విజయవంతంగా యాక్టివేట్ చేయబడింది (+{credits_to_add} క్రెడిట్స్ & Verified Badge){ref_msg}!"
     }
 
 
@@ -690,29 +734,98 @@ def control_directory(
     caste: str = "",
     district: str = "",
     status: str = "all",
-    limit: int = 60,
+    date_range: str = "all",
+    date_from: str = "",
+    date_to: str = "",
+    payment_status: str = "all",
+    verification_status: str = "all",
+    photo_filter: str = "all",
+    marital_filter: str = "all",
+    limit: int = 100,
     offset: int = 0,
 ):
-    """Control Portal: Full searchable directory of all registered profiles with unmasked phones."""
+    """Control Portal: Full searchable directory of all registered profiles with unmasked phones, date filtering, payment and verification filters."""
     item = CONTROL_AUTH.require(request)
-    limit = max(1, min(int(limit), 200))
+    limit = max(1, min(int(limit), 500))
     offset = max(0, int(offset))
 
+    today_str = datetime.utcnow().strftime("%Y-%m-%d")
+    yesterday_str = (datetime.utcnow() - timedelta(days=1)).strftime("%Y-%m-%d")
+    week_ago_str = (datetime.utcnow() - timedelta(days=7)).strftime("%Y-%m-%d")
+    month_prefix = today_str[:7]
+
+    summary = {
+        "total_all": len(DB_USERS),
+        "today_count": sum(1 for u in DB_USERS if str(u.get("created_at", ""))[:10] == today_str),
+        "yesterday_count": sum(1 for u in DB_USERS if str(u.get("created_at", ""))[:10] == yesterday_str),
+        "last_7days_count": sum(1 for u in DB_USERS if str(u.get("created_at", ""))[:10] >= week_ago_str),
+        "paid_count": sum(1 for u in DB_USERS if u.get("is_premium") or str(u.get("plan", "FREE")).upper() not in ("FREE", "", "NONE")),
+        "unpaid_count": sum(1 for u in DB_USERS if not (u.get("is_premium") or str(u.get("plan", "FREE")).upper() not in ("FREE", "", "NONE"))),
+        "verified_count": sum(1 for u in DB_USERS if u.get("is_verified") or u.get("phone_verified")),
+        "photo_count": sum(1 for u in DB_USERS if u.get("photo_url") or u.get("photo_urls")),
+        "pending_count": sum(1 for u in DB_USERS if str(u.get("status", "pending")) == "pending"),
+    }
+
     items = list(DB_USERS)
+
+    # 1. Status filter
     if status and status != "all":
         items = [u for u in items if str(u.get("status", "pending")) == status or (status == "approved" and u.get("is_approved"))]
 
+    # 2. Date Range filter
+    if date_range == "today":
+        items = [u for u in items if str(u.get("created_at", ""))[:10] == today_str]
+    elif date_range == "yesterday":
+        items = [u for u in items if str(u.get("created_at", ""))[:10] == yesterday_str]
+    elif date_range in ("7days", "last_7_days"):
+        items = [u for u in items if str(u.get("created_at", ""))[:10] >= week_ago_str]
+    elif date_range in ("month", "this_month"):
+        items = [u for u in items if str(u.get("created_at", ""))[:10].startswith(month_prefix)]
+    elif date_range == "custom":
+        if date_from:
+            items = [u for u in items if str(u.get("created_at", ""))[:10] >= date_from]
+        if date_to:
+            items = [u for u in items if str(u.get("created_at", ""))[:10] <= date_to]
+
+    # 3. Payment / Plan filter
+    if payment_status == "paid":
+        items = [u for u in items if u.get("is_premium") or str(u.get("plan", "FREE")).upper() not in ("FREE", "", "NONE")]
+    elif payment_status in ("unpaid", "free"):
+        items = [u for u in items if not (u.get("is_premium") or str(u.get("plan", "FREE")).upper() not in ("FREE", "", "NONE"))]
+
+    # 4. Verification filter
+    if verification_status == "verified":
+        items = [u for u in items if u.get("is_verified") or u.get("phone_verified")]
+    elif verification_status == "unverified":
+        items = [u for u in items if not (u.get("is_verified") or u.get("phone_verified"))]
+
+    # 5. Photo filter
+    if photo_filter == "with_photo":
+        items = [u for u in items if u.get("photo_url") or u.get("photo_urls")]
+    elif photo_filter == "no_photo":
+        items = [u for u in items if not (u.get("photo_url") or u.get("photo_urls"))]
+
+    # 6. Marital filter
+    if marital_filter == "first_marriage":
+        items = [u for u in items if str(u.get("marital_status", "")).lower().strip() in ("pelli kaledu", "never married", "unmarried", "single", "", "పెళ్లి కాలేదు")]
+    elif marital_filter in ("second_marriage", "remarriage"):
+        items = [u for u in items if str(u.get("marital_status", "")).lower().strip() not in ("pelli kaledu", "never married", "unmarried", "single", "", "పెళ్లి కాలేదు")]
+
+    # 7. Gender filter
     if gender:
         items = [u for u in items if str(u.get("gender", "")).lower() == gender.lower()]
 
+    # 8. Caste filter
     if caste:
         c_low = [x.strip().lower() for x in caste.split(",") if x.strip()]
-        items = [u for u in items if str(u.get("caste", "")).lower() in c_low]
+        items = [u for u in items if any(c in str(u.get("caste", "")).lower() or c in str(u.get("sub_caste", "")).lower() for c in c_low)]
 
+    # 9. District filter
     if district:
         d_low = [x.strip().lower() for x in district.split(",") if x.strip()]
-        items = [u for u in items if str(u.get("district", "")).lower() in d_low]
+        items = [u for u in items if any(d in str(u.get("district", "")).lower() or d in str(u.get("current_city", "")).lower() for d in d_low)]
 
+    # 10. Keyword search
     if q.strip():
         ql = q.strip().lower()
         items = [
@@ -721,9 +834,11 @@ def control_directory(
             or ql in str(u.get("full_name", "")).lower()
             or ql in str(u.get("phone", ""))
             or ql in str(u.get("caste", "")).lower()
+            or ql in str(u.get("sub_caste", "")).lower()
             or ql in str(u.get("district", "")).lower()
             or ql in str(u.get("gothram", "")).lower()
             or ql in str(u.get("job", "")).lower()
+            or ql in str(u.get("education", "")).lower()
         ]
 
     items.sort(key=lambda u: str(u.get("created_at", "")), reverse=True)
@@ -735,11 +850,14 @@ def control_directory(
             "full_name": u.get("full_name"),
             "gender": u.get("gender"),
             "age": u.get("age"),
+            "dob": u.get("dob", ""),
             "caste": u.get("caste"),
             "sub_caste": u.get("sub_caste", ""),
             "gothram": u.get("gothram", ""),
             "star": u.get("star", ""),
             "rasi": u.get("rasi", ""),
+            "marital_status": u.get("marital_status", "Pelli Kaledu"),
+            "children": u.get("children", "None"),
             "district": u.get("district"),
             "state": u.get("state"),
             "education": u.get("education"),
@@ -748,7 +866,8 @@ def control_directory(
             "phone": u.get("phone", ""),
             "status": str(u.get("status", "pending")),
             "plan": str(u.get("plan", "FREE") or "FREE"),
-            "is_premium": bool(u.get("is_premium") or u.get("plan") in ["S_99", "S_199", "S_299", "S_499"]),
+            "plan_name": {"S_99": "స్వాగతం (Silver)", "S_199": "శుభారంభం (Gold)", "S_299": "కళ్యాణం (Platinum)", "S_499": "కళ్యాణ వైభోగం (Diamond)", "S_999": "మంగళసూత్రం (VIP)"}.get(str(u.get("plan", "FREE")), str(u.get("plan", "FREE"))),
+            "is_premium": bool(u.get("is_premium") or str(u.get("plan", "FREE")).upper() not in ("FREE", "", "NONE")),
             "is_verified": bool(u.get("is_verified") or u.get("phone_verified")),
             "photo_url": u.get("photo_url") or (u.get("photo_urls", [None])[0] if isinstance(u.get("photo_urls"), list) and u.get("photo_urls") else None),
             "created_at": u.get("created_at", ""),
@@ -761,6 +880,7 @@ def control_directory(
         "count": len(rows),
         "offset": offset,
         "limit": limit,
+        "summary": summary,
         "profiles": rows,
     }
 
