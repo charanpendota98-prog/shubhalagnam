@@ -425,10 +425,13 @@ export default function BiodataPage() {
               />
               <div className="text-left">
                 <div className="text-[11px] font-black text-maroon telugu">
-                  మన వివాహ ధృవీకరించిన ప్రొఫైల్
+                  మన వివాహ (MANA VIVAHA) — Verified ✅
                 </div>
-                <div className="text-[10px] text-slate-500 font-mono">
-                  ID: {profileId || "MV1001"} · Verified ✅
+                <div className="text-[10px] text-slate-600 font-mono">
+                  Profile ID: {profileId || "MV1001"}
+                </div>
+                <div className="text-[10px] font-bold text-emerald-800">
+                  📞 WhatsApp: +91 63049 96088
                 </div>
               </div>
             </div>
