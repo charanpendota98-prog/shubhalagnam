@@ -176,7 +176,7 @@ export default function PayBox({ planCode, price, label }: { planCode: string; p
           {order.mode !== "razorpay" && (
             <div className="text-[11px] bg-white rounded-lg p-2.5 border space-y-2">
               <div className="flex items-center justify-between">
-                <span>💳 UPI ID: <b className="font-mono text-maroon">{order.upi_id || "9394483300@ybl"}</b></span>
+                <span className="font-bold text-maroon text-xs">🔒 {te ? "సురక్షిత ఆన్‌లైన్ చెల్లింపు" : "Secure Online Payment"}</span>
                 <span className="font-bold text-emerald-800 text-xs">₹{order.final_amount}</span>
               </div>
 
@@ -200,7 +200,7 @@ export default function PayBox({ planCode, price, label }: { planCode: string; p
                 className="w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg bg-[#7A0C2E] hover:bg-[#911239] text-white font-bold text-xs transition shadow-xs"
               >
                 <span>📲</span>
-                <span>{te ? `లేదా మొబైల్ UPI యాప్‌తో పే చేయండి (₹${order.final_amount})` : `Or Pay ₹${order.final_amount} via UPI App`}</span>
+                <span>{te ? `మొబైల్ UPI యాప్‌తో పే చేయండి (₹${order.final_amount})` : `Pay ₹${order.final_amount} via UPI App`}</span>
               </a>
               {order.status === "claimed" ? (
                 <div className="font-bold text-green-700 bg-green-50 p-2 rounded-lg border border-green-200">
@@ -223,8 +223,8 @@ export default function PayBox({ planCode, price, label }: { planCode: string; p
             </div>
           )}
           <button onClick={payNow} disabled={busy}
-            className="w-full rounded-lg bg-green-700 text-white px-4 py-2 text-xs font-bold disabled:opacity-50">
-            {order.mode === "razorpay" ? (te ? "💳 Razorpay తో Pay" : "💳 Pay with Razorpay") : te ? "✅ Pay చేశాను — details చూడండి" : "✅ I paid — see details"}
+            className="w-full rounded-lg bg-[#7A0C2E] hover:bg-[#911239] text-white px-4 py-2.5 text-xs font-black shadow-md transition disabled:opacity-50">
+            {order.mode === "razorpay" ? (te ? "💳 Razorpay ఆన్‌లైన్ పే (Cards/UPI/NetBanking)" : "💳 Pay with Razorpay (Cards/UPI/NetBanking)") : te ? "💳 ఆన్‌లైన్ పేమెంట్ పూర్తి చేయండి" : "💳 Complete Payment"}
           </button>
           <button onClick={() => { setOrder(null); setMsg(""); }} className="text-[11px] underline text-gray-500">{te ? "← Offer మార్చాలి" : "← Change offer"}</button>
         </>

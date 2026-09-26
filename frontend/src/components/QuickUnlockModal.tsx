@@ -365,12 +365,9 @@ export default function QuickUnlockModal({
               <div className="bg-white rounded-xl p-3 border border-slate-200 text-center space-y-2">
                 <p className="text-xs text-slate-600 font-medium">
                   {te
-                    ? "ఏదైనా UPI యాప్ (GPay / PhonePe / Paytm) ద్వారా పేమెంట్ చేయండి:"
-                    : "Pay via any UPI App (GPay / PhonePe / Paytm / BHIM):"}
+                    ? "QR కోడ్ స్కాన్ చేసి లేదా UPI యాప్ ద్వారా పేమెంట్ పూర్తి చేయండి:"
+                    : "Scan QR code or pay via any UPI App (GPay / PhonePe / Paytm):"}
                 </p>
-                <div className="bg-amber-50 font-mono font-black text-sm text-maroon py-2 px-3 rounded-lg border border-gold/40 select-all">
-                  {payOrder.upi_id || "9394483300@ybl"}
-                </div>
 
                 {/* Live Scannable Dynamic QR */}
                 <div className="flex flex-col items-center justify-center p-2 bg-[#FFFDF7] rounded-xl border border-gold/30">
@@ -385,7 +382,7 @@ export default function QuickUnlockModal({
                 </div>
 
                 <div className="text-[11px] text-slate-500">
-                  {te ? "లేదా డైరెక్ట్ UPI పే నొక్కండి:" : "Or tap below to open UPI App:"}
+                  {te ? "మొబైల్ UPI యాప్‌తో డైరెక్ట్ పేమెంట్:" : "Direct UPI App Payment:"}
                 </div>
                 <a
                   href={`upi://pay?pa=${encodeURIComponent(payOrder.upi_id || "9394483300@ybl")}&pn=${encodeURIComponent("Mana Vivaha")}&am=${payOrder.final_amount}&cu=INR&tn=${encodeURIComponent(`ManaVivaha ${payOrder.id}`)}`}
