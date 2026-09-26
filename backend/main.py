@@ -1552,7 +1552,7 @@ async def register(
         _norm_dob = str(dob or "").strip()[:10]
 
         _dup_person = False
-        if _norm_name and len(_norm_name) >= 3 and _norm_dob:
+        if _norm_name and len(_norm_name) >= 3 and _norm_dob and len(_norm_dob) == 10:
             for u in DB_USERS:
                 if u.get("seed_source"):
                     continue
@@ -1561,12 +1561,19 @@ async def register(
                 u_father = _clean_str(u.get("father_name"))
                 u_district = str(u.get("district") or "").strip().lower()
                 u_caste = str(u.get("caste") or "").strip().lower()
+                req_district = str(district or "").strip().lower()
+                req_caste = str(caste or "").strip().lower()
 
-                # Match if exact same Name + same DOB + (same father OR same district OR same caste)
-                if u_name == _norm_name and u_dob == _norm_dob and u_dob:
-                    if (_norm_father and u_father and _norm_father == u_father) or \
-                       (district and u_district and district.strip().lower() == u_district) or \
-                       (caste and u_caste and caste.strip().lower() == u_caste):
+                # Match if exact same Name + same DOB + any of:
+                # 1. Same Father Name (100% unique identity match)
+                # 2. Same District + Same Caste
+                # 3. Same Caste when Father Name is identical or omitted
+                if u_name == _norm_name and u_dob == _norm_dob:
+                    same_father = bool(_norm_father and u_father and _norm_father == u_father)
+                    same_district_caste = bool(req_district and u_district and req_district == u_district and req_caste and u_caste and req_caste == u_caste)
+                    same_caste_only = bool(req_caste and u_caste and req_caste == u_caste and (not _norm_father or not u_father or _norm_father == u_father))
+
+                    if same_father or same_district_caste or same_caste_only:
                         _dup_person = True
                         break
 
