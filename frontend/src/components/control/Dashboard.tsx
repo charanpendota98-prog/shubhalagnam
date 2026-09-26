@@ -2291,26 +2291,182 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* Referrals & Payouts Tab */}
+        {/* =========================================================================
+            TAB 10: 🤝 REFERRALS & INSTANT UPI PAYOUTS CONSOLE
+            ========================================================================= */}
         {tab === "referrals" && (
-          <div className="space-y-4">
-            <div className="grid md:grid-cols-2 gap-3">
-              {payouts.map((po) => (
-                <div key={po.id} className="bg-white rounded-2xl p-4 border border-gold/30 shadow-xs flex items-center justify-between">
-                  <div>
-                    <div className="font-extrabold text-sm text-navy">{po.name || po.tsap_id}</div>
-                    <div className="text-xs text-emerald-800 font-bold">₹{po.amount} via {po.method} ({po.upi_id || "Bank"})</div>
-                  </div>
-                  <div className="flex gap-1.5">
-                    <button
-                      onClick={() => payoutAction(po.id, "approve")}
-                      className="px-3 py-1.5 rounded-xl bg-emerald-600 text-white font-bold text-xs shadow-xs"
-                    >
-                      ✓ Pay
-                    </button>
-                  </div>
+          <div className="space-y-6">
+            <div className="bg-white rounded-3xl p-5 sm:p-6 border border-gold/30 shadow-sm space-y-4">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-xl font-black text-[#7A0C2E] flex items-center gap-2">
+                    <span>🤝</span>
+                    <span>రెఫరల్ భాగస్వాములు & తక్షణ UPI చెల్లింపులు (Payouts Desk)</span>
+                  </h2>
+                  <p className="text-xs text-slate-600 mt-1">
+                    యూజర్లు మరియు వివాహ బ్యూరోల విత్‌డ్రా అభ్యర్థనలు • PhonePe/GPay ద్వారా 1-ట్యాప్ చెల్లింపు & ఆటోమేటిక్ వాట్సాప్ రశీదు.
+                  </p>
                 </div>
-              ))}
+
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-slate-500">ఫిల్టర్:</span>
+                  {[
+                    { id: "all", label: "అన్నీ (All)" },
+                    { id: "requested", label: "⏳ పెండింగ్ (Pending)" },
+                    { id: "paid", label: "✅ చెల్లించినవి (Paid)" },
+                  ].map((s) => (
+                    <button
+                      key={s.id}
+                      type="button"
+                      onClick={() => { setPStatus(s.id); loadPayouts(s.id); }}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition ${
+                        pStatus === s.id
+                          ? "bg-[#7A0C2E] text-white shadow-xs"
+                          : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                      }`}
+                    >
+                      {s.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Payouts Grid */}
+            <div className="space-y-3">
+              {payouts.length === 0 ? (
+                <div className="bg-white rounded-3xl p-12 text-center text-slate-400 font-bold border border-gold/20">
+                  <span className="text-3xl block mb-2">🤝</span>
+                  <span>ప్రస్తుతం ఎటువంటి విత్‌డ్రా అభ్యర్థనలు లేవు</span>
+                </div>
+              ) : (
+                <div className="grid md:grid-cols-2 gap-4">
+                  {payouts.map((po) => {
+                    const isPending = po.status === "requested";
+                    const isPaid = po.status === "paid";
+                    const directUpiLink = po.upi_id
+                      ? `upi://pay?pa=${encodeURIComponent(po.upi_id)}&pn=${encodeURIComponent(po.name || "ManaVivahaPartner")}&am=${po.amount}&cu=INR&tn=${encodeURIComponent(`ManaVivaha_Payout_${po.id}`)}`
+                      : "";
+
+                    return (
+                      <div
+                        key={po.id}
+                        className={`bg-white rounded-3xl p-5 border-2 transition shadow-sm space-y-3 ${
+                          isPending ? "border-amber-300 bg-amber-50/20" : isPaid ? "border-emerald-300" : "border-slate-200"
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-black text-sm text-navy">{po.name || po.tsap_id}</span>
+                              <span className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase ${
+                                isPending ? "bg-amber-100 text-amber-900 border border-amber-300" :
+                                isPaid ? "bg-emerald-100 text-emerald-800 border border-emerald-300" :
+                                "bg-rose-100 text-rose-800"
+                              }`}>
+                                {isPending ? "⏳ Pending Review" : isPaid ? "✅ Paid / Settled" : "Rejected"}
+                              </span>
+                            </div>
+                            <div className="text-xs text-slate-500 font-mono mt-0.5">
+                              ID: {po.tsap_id || po.partner_id} • Req: {po.id}
+                            </div>
+                          </div>
+
+                          <div className="text-right">
+                            <div className="text-xl font-black text-emerald-700">₹{po.amount}</div>
+                            <div className="text-[10px] text-slate-400">{String(po.requested_at || "").slice(0, 10)}</div>
+                          </div>
+                        </div>
+
+                        {/* UPI / Bank Details Box */}
+                        <div className="bg-slate-50 rounded-2xl p-3 border border-slate-200 text-xs space-y-1">
+                          <div className="flex items-center justify-between">
+                            <span className="text-slate-500 font-bold">చెల్లింపు విధానం:</span>
+                            <span className="font-bold text-slate-800 uppercase font-mono">{po.method || "UPI"}</span>
+                          </div>
+                          {po.upi_id && (
+                            <div className="flex items-center justify-between">
+                              <span className="text-slate-500 font-bold">UPI ID:</span>
+                              <span className="font-bold text-emerald-800 font-mono select-all bg-white px-2 py-0.5 rounded border border-slate-200">{po.upi_id}</span>
+                            </div>
+                          )}
+                          {po.utr && (
+                            <div className="flex items-center justify-between pt-1 border-t border-slate-200">
+                              <span className="text-slate-500 font-bold">UTR / Bank Ref:</span>
+                              <span className="font-bold text-slate-800 font-mono">{po.utr}</span>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Action Buttons for Pending Requests */}
+                        {isPending && (
+                          <div className="space-y-2 pt-1 border-t border-slate-100">
+                            <div className="flex gap-2">
+                              {/* 1-Tap Mobile UPI App Deep-Link */}
+                              {directUpiLink && (
+                                <a
+                                  href={directUpiLink}
+                                  className="flex-1 py-2 px-3 rounded-xl bg-purple-700 hover:bg-purple-800 text-white font-black text-xs flex items-center justify-center gap-1.5 shadow-sm transition active:scale-95"
+                                  title="Open in PhonePe / Google Pay with prefilled amount"
+                                >
+                                  <span>📲</span>
+                                  <span>PhonePe/GPay లో పే చేయి (₹{po.amount})</span>
+                                </a>
+                              )}
+                            </div>
+
+                            <div className="flex gap-2">
+                              {/* Approve & Settle Payout */}
+                              <button
+                                onClick={() => {
+                                  const customUtr = prompt("UPI యాప్ నుండి 12-అంకెల UTR నంబర్ ఎంటర్ చేయండి (లేదా నేరుగా Confirm చేయడానికి OK నొక్కండి):", `UTR${Date.now().toString().slice(-8)}`);
+                                  if (customUtr !== null) {
+                                    payoutAction(po.id, "approve", customUtr.trim());
+                                  }
+                                }}
+                                disabled={busyId === po.id}
+                                className="flex-1 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs shadow-sm transition active:scale-95 disabled:opacity-50 flex items-center justify-center gap-1"
+                              >
+                                <span>✓</span>
+                                <span>చెల్లించినట్లు మార్క్ చేయి (Approve Payout)</span>
+                              </button>
+
+                              {/* Reject Button */}
+                              <button
+                                onClick={() => {
+                                  const reason = prompt("రిజెక్ట్ చేయడానికి గల కారణం రాయండి (యూజర్ వాలెట్‌కు డబ్బు తిరిగి వెళ్తుంది):", "తప్పుడు UPI ID");
+                                  if (reason) payoutAction(po.id, "reject", undefined);
+                                }}
+                                disabled={busyId === po.id}
+                                className="px-3 py-2 rounded-xl border border-rose-300 text-rose-700 hover:bg-rose-50 font-bold text-xs transition"
+                              >
+                                ✕
+                              </button>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* WhatsApp Notification Button for Paid Requests */}
+                        {isPaid && (
+                          <div className="pt-1">
+                            <a
+                              href={`https://wa.me/91${(po.tsap_id ? directoryProfiles.find((x) => x.tsap_id === po.tsap_id)?.phone : "") || ""}?text=${encodeURIComponent(
+                                `🎉 శుభవార్త ${po.name} గారు!\n\nమన వివాహ రెఫరల్ ప్రోగ్రామ్ ద్వారా మీరు సంపాదించిన ₹${po.amount} మీ UPI ఖాతాకు (${po.upi_id || "Bank"}) విజయవంతంగా బదిలీ చేయబడింది! ✅\n\nUTR: ${po.utr || "CONFIRMED"}\n\nమరింత మంది బంధువులు & మిత్రులను ఆహ్వానించి ప్రతి రిఫరల్‌పై ₹50 నగదు సంపాదించండి:\nhttps://manavivaha.in/referral`
+                              )}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="w-full py-2 px-3 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 font-extrabold text-xs flex items-center justify-center gap-1.5 transition"
+                            >
+                              <span>💬</span>
+                              <span>యూజర్‌కి వాట్సాప్ పేమెంట్ రశీదు పంపండి</span>
+                            </a>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
         )}
