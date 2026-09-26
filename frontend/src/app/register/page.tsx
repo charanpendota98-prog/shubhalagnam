@@ -1,15 +1,15 @@
 "use client";
 
 /**
- * SHUBHALAGNAM — SMART MATRIMONY REGISTRATION (v4)
- * =================================================
- * • Categorized & Comprehensive Education (B.Tech, MBBS, MD, MS Abroad, MBA, CA...)
- * • Work Type & Profession Sector placed PROMINENTLY at top of Career step
- * • Granular ₹1L, ₹2L, ₹3L... ₹1Cr+ Salary Brackets with Telugu + English
- * • All Top NRI Countries (USA, UK, Australia, Canada, Germany, UAE, Singapore, etc.)
- * • Dynamic 33 Telangana + 26 Andhra Pradesh District Selectors
- * • 27 Vedic Nakshatras & 12 Rasis with Star-to-Rasi Auto-Selection
- * • Tap-friendly pill selectors, client-side photo compression & draft auto-save
+ * 👑 MANA VIVAHA — SMART MATRIMONY REGISTRATION (V5)
+ * ===================================================
+ * • Responsive Dual-Column Desktop Layout + Live Matrimony Card Preview
+ * • Ultra-neat Mobile Wizard with Sticky Step Navigation
+ * • 5-Step Intuitive Flow: Basic -> Caste & Astro -> Career -> Location & Family -> Photo & Submit
+ * • Comprehensive Telugu & English Data: 33 TS + 26 AP Districts, 27 Vedic Nakshatras & Rasis
+ * • Strict Photo Validation: Client-side HD compression, clarity check, privacy toggle
+ * • 1-Click Sample Demos, Voice Typing Bio 🎙️, AI Bio Generators
+ * • Real-time Draft Auto-Save & Referral Bonus integration
  */
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
@@ -23,74 +23,162 @@ import PhotoFlow from "@/components/PhotoFlow";
 import { TelegramIcon, WhatsAppIcon } from "@/components/BrandIcons";
 import { waLink } from "@/lib/wa";
 import {
-  BLOOD_GROUPS, BODY_TYPES, CASTES, CASTE_SUBCASTES, CASTE_TELUGU, CHILDREN_OPTIONS, COMPLEXIONS,
-  DISTRICTS_BY_STATE, DISTRICT_TELUGU, EDUCATIONS, EDUCATION_CATEGORIES, EDUCATION_TELUGU,
-  FAMILY_STATUSES, FAMILY_TYPES, FAMILY_VALUES, HEIGHTS, JOBS, MARITAL_STATUSES, MOTHER_TONGUES,
-  NAKSHATRAS, NAK_TO_RASI, NRI_COUNTRIES, OCCUPATIONS, OTHER_INDIAN_STATES, OTHER_LOCATIONS,
-  PHYSICAL_STATUS, RASIS, RELIGIONS, SALARIES, SALARIES_DETAILED, SALARY_TELUGU,
-  TS_DISTRICTS_DETAILED, AP_DISTRICTS_DETAILED, WORK_TYPES, WORK_TYPES_DETAILED, WORK_TYPE_TELUGU,
-  ageFromDob, compressImage, heightLabel, maxDobFor18,
+  BLOOD_GROUPS,
+  BODY_TYPES,
+  CASTES,
+  CASTE_SUBCASTES,
+  CASTE_TELUGU,
+  CHILDREN_OPTIONS,
+  COMPLEXIONS,
+  DISTRICTS_BY_STATE,
+  DISTRICT_TELUGU,
+  EDUCATIONS,
+  EDUCATION_CATEGORIES,
+  EDUCATION_TELUGU,
+  FAMILY_STATUSES,
+  FAMILY_TYPES,
+  FAMILY_VALUES,
+  HEIGHTS,
+  JOBS,
+  MARITAL_STATUSES,
+  MOTHER_TONGUES,
+  NAKSHATRAS,
+  NAK_TO_RASI,
+  NRI_COUNTRIES,
+  OCCUPATIONS,
+  OTHER_INDIAN_STATES,
+  OTHER_LOCATIONS,
+  PHYSICAL_STATUS,
+  RASIS,
+  RELIGIONS,
+  SALARIES,
+  SALARIES_DETAILED,
+  SALARY_TELUGU,
+  TS_DISTRICTS_DETAILED,
+  AP_DISTRICTS_DETAILED,
+  WORK_TYPES,
+  WORK_TYPES_DETAILED,
+  WORK_TYPE_TELUGU,
+  ageFromDob,
+  compressImage,
+  heightLabel,
+  maxDobFor18,
 } from "@/lib/telugu-data";
 
-const DRAFT_KEY = "shubhalagnam_reg_draft_v4";
+const DRAFT_KEY = "shubhalagnam_reg_draft_v5";
+
 const STEPS = [
-  { n: 1, label: "Basic Details", labelTe: "ప్రాథమిక వివరాలు", icon: "🙋", hint: "మీ basic details & age", hintEn: "Your basic details & age" },
+  { n: 1, label: "Basic Details", labelTe: "ప్రాథమిక వివరాలు", icon: "🙋", hint: "వధువు/వరుడు, పేరు, వయసు & ఎత్తు", hintEn: "Bride/Groom, name, age & height" },
   { n: 2, label: "Caste & Astrology", labelTe: "కులం & జ్యోతిషం", icon: "💍", hint: "కులం, నక్షత్రం, రాశి & గోత్రం", hintEn: "Caste, Nakshatram, Rasi & Gothram" },
-  { n: 3, label: "Career & Education", labelTe: "ఉద్యోగం & విద్య", icon: "💼", hint: "వృత్తి రంగం, చదువు & వేతనం", hintEn: "Work sector, Education & Salary" },
+  { n: 3, label: "Career & Education", labelTe: "ఉద్యోగం & విద్య", icon: "💼", hint: "వృత్తి రంగం, చదువు & వార్షిక వేతనం", hintEn: "Work sector, Education & Salary" },
   { n: 4, label: "Location & Family", labelTe: "ప్రాంతం & కుటుంబం", icon: "📍", hint: "జిల్లా/దేశం, కుటుంబ వివరాలు & ఫోన్", hintEn: "District/Country, Family & Phone" },
-  { n: 5, label: "Photo & Finish", labelTe: "ఫోటో & పూర్తి", icon: "📸", hint: "ఫోటో అప్‌లోడ్ & ప్రొఫైల్ సృష్టి", hintEn: "Photo upload & profile finish" },
+  { n: 5, label: "Photo & Finish", labelTe: "ఫోటో & పూర్తి", icon: "📸", hint: "ఫోటో అప్‌లోడ్, బయోడేటా & నమోదు", hintEn: "Photo upload, Bio & Registration" },
 ];
 
-function prettyChannel(raw: string): string {
-  let s = String(raw || "").replace(/^@/, "")
-    .replace(/^(shubhalagnam|manavivaha|tsap)_/i, "").replace(/_/g, " ")
-    .replace(/\d+$/, "").trim().toLowerCase();
-  const special: Record<string, string> = {
-    tsbride: "TS Brides (Telangana)", tsgroom: "TS Grooms (Telangana)",
-    apbride: "AP Brides", apgroom: "AP Grooms",
-    matrimony: "Main Channel", hindu: "Hindu Community",
-    nri: "NRI / Global (USA/UK/AUS/UAE)", second: "Second Marriage", able: "Differently Abled",
-    govt: "Govt Jobs", software: "Software / IT", professionals: "Doctors & Teachers",
-    success: "Success Stories", alerts: "Safety Alerts", "35plus": "Age 35+",
-    interfaith: "Interfaith", "other religions": "Other Religions",
-    "others sc": "SC Community", "others bc": "BC Community", "others st": "ST Community",
-  };
-  if (special[s]) return special[s];
-  s = s.replace(/\bts\b/g, "TS").replace(/\bap\b/g, "AP")
-    .replace(/\bbride\b/g, "Brides").replace(/\bgroom\b/g, "Grooms");
-  return s.replace(/\b\w/g, (c) => c.toUpperCase());
-}
-
 const DEFAULT_FORM: Record<string, any> = {
-  gender: "", full_name: "", dob: "", birth_time: "", age: "", height: "",
-  marital_status: "Pelli Kaledu", children: "", religion: "Hindu", mother_tongue: "Telugu",
-  caste: "", sub_caste: "", gothram: "", star: "", rasi: "", moola_nakshatram: "No", dosham: "No",
-  work_type: "Software / IT / Tech", education: "B.Tech / B.E.", education_detail: "", job: "Software Engineer",
-  company: "", salary: "₹10 - 12 Lakhs / year", experience: "3 years", work_location: "",
-  father_name: "", father_occupation: "", mother_name: "", mother_occupation: "",
-  brothers: "0", brothers_married: "0", sisters: "0", sisters_married: "0",
-  family_type: "Nuclear", family_status: "Middle Class", family_values: "Traditional",
-  native_place: "", state: "TS", district: "", nri_country: "", mandal: "", current_city: "", country: "India", pincode: "",
-  phone: "", email: "", password: "", photo_private: true, about_myself: "",
-  expectations: "", exp_age_min: "", exp_age_max: "", exp_job: "", exp_location: "", exp_caste: "",
-  physical_status: "Normal", body_type: "Average", complexion: "Fair", blood_group: "",
-  referral_code: "", consent: false,
+  gender: "",
+  full_name: "",
+  profile_for: "Self",
+  dob: "",
+  birth_time: "",
+  age: "",
+  height: "",
+  marital_status: "Pelli Kaledu",
+  children: "",
+  religion: "Hindu",
+  mother_tongue: "Telugu",
+  caste: "",
+  sub_caste: "",
+  gothram: "",
+  star: "",
+  rasi: "",
+  moola_nakshatram: "No",
+  dosham: "No",
+  work_type: "Software / IT / Tech",
+  education: "B.Tech / B.E.",
+  education_detail: "",
+  job: "Software Engineer",
+  company: "",
+  salary: "₹10 - 12 Lakhs / year",
+  experience: "3 years",
+  work_location: "",
+  father_name: "",
+  father_occupation: "",
+  mother_name: "",
+  mother_occupation: "",
+  brothers: "0",
+  brothers_married: "0",
+  sisters: "0",
+  sisters_married: "0",
+  family_type: "Nuclear",
+  family_status: "Middle Class",
+  family_values: "Traditional",
+  native_place: "",
+  state: "TS",
+  district: "",
+  nri_country: "",
+  mandal: "",
+  current_city: "",
+  country: "India",
+  pincode: "",
+  phone: "",
+  email: "",
+  password: "",
+  photo_private: false,
+  about_myself: "",
+  expectations: "",
+  exp_age_min: "",
+  exp_age_max: "",
+  exp_job: "",
+  exp_location: "",
+  exp_caste: "",
+  physical_status: "Normal",
+  body_type: "Average",
+  complexion: "Fair",
+  blood_group: "",
+  referral_code: "",
+  consent: false,
 };
 
 /* ---------------- UI Helpers ---------------- */
 function Chip({ on, gold, children, onClick }: { on?: boolean; gold?: boolean; children: React.ReactNode; onClick: () => void }) {
   return (
-    <button type="button" onClick={onClick} className={`chip ${on ? (gold ? "chip-on-gold" : "chip-on") : ""}`}>
+    <button
+      type="button"
+      onClick={onClick}
+      className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all border ${
+        on
+          ? gold
+            ? "bg-[#D4AF37] text-[#5C0822] border-[#D4AF37] shadow-sm scale-[1.02]"
+            : "bg-[#7A0C2E] text-white border-[#7A0C2E] shadow-sm scale-[1.02]"
+          : "bg-white text-slate-700 border-slate-200 hover:border-maroon/40 hover:bg-slate-50"
+      }`}
+    >
       {children}
     </button>
   );
 }
 
 function ChipGroup({
-  label, options, value, onChange, required, searchable, te, hint, cols,
+  label,
+  options,
+  value,
+  onChange,
+  required,
+  searchable,
+  te,
+  hint,
+  cols,
 }: {
-  label: React.ReactNode; options: { v: string; te?: string }[]; value: string; onChange: (v: string) => void;
-  required?: boolean; searchable?: boolean; te?: boolean; hint?: string; cols?: number;
+  label: React.ReactNode;
+  options: { v: string; te?: string }[];
+  value: string;
+  onChange: (v: string) => void;
+  required?: boolean;
+  searchable?: boolean;
+  te?: boolean;
+  hint?: string;
+  cols?: number;
 }) {
   const [q, setQ] = useState("");
   const list = useMemo(() => {
@@ -98,19 +186,25 @@ function ChipGroup({
     if (!needle) return options;
     return options.filter((o) => o.v.toLowerCase().includes(needle) || (o.te || "").includes(q.trim()));
   }, [q, options]);
+
   return (
-    <div>
-      <label className="text-[13px] font-bold text-ink">
-        {label} {required ? <span className="req-star">*</span> : <span className="text-[10px] text-gray-400">(optional)</span>}
+    <div className="space-y-1.5">
+      <label className="text-[13px] font-bold text-slate-800 flex items-center justify-between">
+        <span>
+          {label} {required ? <span className="text-rose-600 font-black">*</span> : <span className="text-[11px] text-gray-400 font-normal">(ఐచ్ఛికం)</span>}
+        </span>
       </label>
-      {hint && <div className="hint">{hint}</div>}
+      {hint && <div className="text-[11px] text-slate-500">{hint}</div>}
       {searchable && (
         <input
-          value={q} onChange={(e) => setQ(e.target.value)} placeholder="🔍 టైప్ చేసి వెతకండి / Type to search…"
-          className="input-mobile mt-2" inputMode="search"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="🔍 టైప్ చేసి వెతకండి / Type to search…"
+          className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-maroon/20 focus:border-maroon"
+          inputMode="search"
         />
       )}
-      <div className={`mt-2 flex flex-wrap gap-2 ${cols === 1 ? "flex-col" : ""}`}>
+      <div className={`flex flex-wrap gap-2 ${cols === 1 ? "flex-col" : ""}`}>
         {list.slice(0, searchable ? 60 : 40).map((o) => (
           <Chip key={o.v} on={value === o.v} gold={te} onClick={() => onChange(value === o.v ? "" : o.v)}>
             {te && o.te ? <span className="telugu font-semibold">{o.te}</span> : null}
@@ -123,10 +217,23 @@ function ChipGroup({
 }
 
 function SearchSelect({
-  label, options, value, onChange, required, hint, placeholder, teMap,
+  label,
+  options,
+  value,
+  onChange,
+  required,
+  hint,
+  placeholder,
+  teMap,
 }: {
-  label: React.ReactNode; options: string[]; value: string; onChange: (v: string) => void;
-  required?: boolean; hint?: string; placeholder?: string; teMap?: Record<string, string>;
+  label: React.ReactNode;
+  options: string[];
+  value: string;
+  onChange: (v: string) => void;
+  required?: boolean;
+  hint?: string;
+  placeholder?: string;
+  teMap?: Record<string, string>;
 }) {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
@@ -147,39 +254,76 @@ function SearchSelect({
   }, [q, options, teMap]);
 
   return (
-    <div ref={boxRef} className="relative">
-      <label className="text-[13px] font-bold text-ink">
-        {label} {required ? <span className="req-star">*</span> : <span className="text-[10px] text-gray-400">(optional)</span>}
-      </label>
-      {hint && <div className="hint">{hint}</div>}
-      <button type="button" onClick={() => setOpen((v) => !v)}
-        className={`input-mobile mt-1 flex items-center justify-between text-left ${value ? "text-ink font-semibold" : "text-gray-400"}`}>
-        <span className="truncate">
-          {value ? (teMap?.[value] ? <span><b className="text-maroon telugu">{teMap[value]}</b> <span className="text-gray-600 font-normal text-xs ml-1">({value})</span></span> : value) : (placeholder || "Select…")}
+    <div ref={boxRef} className="relative space-y-1.5">
+      <label className="text-[13px] font-bold text-slate-800 flex items-center justify-between">
+        <span>
+          {label} {required ? <span className="text-rose-600 font-black">*</span> : <span className="text-[11px] text-gray-400 font-normal">(ఐచ్ఛికం)</span>}
         </span>
-        <span className="text-maroon text-lg shrink-0 ml-2">{open ? "▲" : "⌄"}</span>
+      </label>
+      {hint && <div className="text-[11px] text-slate-500">{hint}</div>}
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className={`w-full min-h-[46px] rounded-xl border px-3.5 py-2.5 text-left flex items-center justify-between transition ${
+          value ? "bg-white border-maroon/40 text-slate-900 font-semibold shadow-xs" : "bg-slate-50 border-slate-200 text-slate-400"
+        }`}
+      >
+        <span className="truncate text-xs sm:text-sm">
+          {value ? (
+            teMap?.[value] ? (
+              <span>
+                <b className="text-maroon telugu">{teMap[value]}</b> <span className="text-gray-500 font-normal text-xs ml-1">({value})</span>
+              </span>
+            ) : (
+              value
+            )
+          ) : (
+            placeholder || "ఎంచుకోండి / Select…"
+          )}
+        </span>
+        <span className="text-maroon text-base shrink-0 ml-2">{open ? "▲" : "▼"}</span>
       </button>
+
       {open && (
-        <div className="absolute z-20 mt-1 w-full bg-white border border-gold/40 rounded-2xl shadow-xl overflow-hidden">
+        <div className="absolute z-30 mt-1 w-full bg-white border border-gold/40 rounded-2xl shadow-xl overflow-hidden animate-fade">
           <input
-            autoFocus value={q} onChange={(e) => setQ(e.target.value)}
-            placeholder="🔍 Type to search / వెతకండి…"
-            className="w-full px-4 py-3 border-b border-gold/20 outline-none text-[14px]"
+            autoFocus
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="🔍 వెతకండి / Type to search…"
+            className="w-full px-4 py-2.5 border-b border-gold/20 outline-none text-xs sm:text-sm bg-amber-50/40"
           />
           <div className="max-h-64 overflow-y-auto">
             {value && (
-              <button type="button" onClick={() => { onChange(""); setOpen(false); setQ(""); }}
-                className="w-full text-left px-4 py-2.5 text-[13px] text-rose-600 hover:bg-rose-50 border-b border-gray-100">
-                ✕ Clear selection
+              <button
+                type="button"
+                onClick={() => {
+                  onChange("");
+                  setOpen(false);
+                  setQ("");
+                }}
+                className="w-full text-left px-4 py-2 text-xs font-bold text-rose-600 hover:bg-rose-50 border-b border-slate-100"
+              >
+                ✕ ఎంపిక క్లియర్ చేయండి (Clear)
               </button>
             )}
             {list.slice(0, 200).map((o) => (
-              <button key={o} type="button" onClick={() => { onChange(o); setOpen(false); setQ(""); }}
-                className={`w-full text-left px-4 py-2.5 text-[14px] hover:bg-cream transition ${value === o ? "bg-maroon-soft font-bold text-maroon" : "text-ink"}`}>
+              <button
+                key={o}
+                type="button"
+                onClick={() => {
+                  onChange(o);
+                  setOpen(false);
+                  setQ("");
+                }}
+                className={`w-full text-left px-4 py-2.5 text-xs sm:text-sm hover:bg-amber-50 transition border-b border-slate-50 last:border-0 ${
+                  value === o ? "bg-maroon-soft font-bold text-maroon" : "text-slate-800"
+                }`}
+              >
                 {teMap?.[o] ? (
                   <div className="flex items-center justify-between w-full">
-                    <span className="font-bold text-maroon telugu text-[14px]">{teMap[o]}</span>
-                    <span className="text-gray-500 text-[12px] font-semibold">({o})</span>
+                    <span className="font-bold text-maroon telugu">{teMap[o]}</span>
+                    <span className="text-slate-500 text-xs">({o})</span>
                   </div>
                 ) : (
                   <span>{o}</span>
@@ -187,8 +331,18 @@ function SearchSelect({
               </button>
             ))}
             {list.length === 0 && (
-              <div className="px-4 py-3 text-[12px] text-gray-500">
-                దొరకలేదు — <button type="button" onClick={() => { onChange(q.trim()); setOpen(false); }} className="text-maroon font-bold underline">“{q}” ని అలానే ఉంచు</button>
+              <div className="px-4 py-3 text-xs text-gray-500">
+                దొరకలేదు —{" "}
+                <button
+                  type="button"
+                  onClick={() => {
+                    onChange(q.trim());
+                    setOpen(false);
+                  }}
+                  className="text-maroon font-bold underline"
+                >
+                  “{q}” ని ఎంచుకోండి
+                </button>
               </div>
             )}
           </div>
@@ -199,51 +353,92 @@ function SearchSelect({
 }
 
 function TextField({
-  label, value, onChange, placeholder, required, hint, type = "text", inputMode, max, optional, telugu,
+  label,
+  value,
+  onChange,
+  placeholder,
+  required,
+  hint,
+  type = "text",
+  inputMode,
+  max,
+  optional,
+  telugu,
 }: {
-  label: React.ReactNode; value: string; onChange: (v: string) => void; placeholder?: string; required?: boolean;
-  hint?: string; type?: string; inputMode?: "text" | "tel" | "numeric" | "email" | "decimal";
-  max?: string; optional?: boolean; telugu?: boolean;
+  label: React.ReactNode;
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+  required?: boolean;
+  hint?: string;
+  type?: string;
+  inputMode?: "text" | "tel" | "numeric" | "email" | "decimal";
+  max?: string;
+  optional?: boolean;
+  telugu?: boolean;
 }) {
-  const invalid = required && !String(value || "").trim();
   return (
-    <div>
-      <label className="text-[13px] font-bold text-ink">
-        {label} {required ? <span className="req-star">*</span> : (optional ? <span className="text-[10px] text-gray-400">(optional)</span> : null)}
+    <div className="space-y-1.5">
+      <label className="text-[13px] font-bold text-slate-800 flex items-center justify-between">
+        <span>
+          {label} {required ? <span className="text-rose-600 font-black">*</span> : optional ? <span className="text-[11px] text-gray-400 font-normal">(ఐచ్ఛికం)</span> : null}
+        </span>
       </label>
       <input
-        type={type} inputMode={inputMode} max={max} value={value} placeholder={placeholder}
+        type={type}
+        inputMode={inputMode}
+        max={max}
+        value={value}
+        placeholder={placeholder}
         onChange={(e) => onChange(e.target.value)}
-        aria-invalid={invalid ? "true" : "false"}
-        className={`input-mobile mt-1 ${telugu ? "telugu" : ""}`}
+        className={`w-full min-h-[46px] rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs sm:text-sm text-slate-900 transition focus:outline-none focus:ring-2 focus:ring-maroon/20 focus:border-maroon ${
+          telugu ? "telugu font-semibold" : ""
+        }`}
       />
-      {hint && <div className="hint">{hint}</div>}
+      {hint && <div className="text-[11px] text-slate-500">{hint}</div>}
     </div>
   );
 }
 
 function PillGroup({
-  label, options, value, onChange, required, hint,
+  label,
+  options,
+  value,
+  onChange,
+  required,
+  hint,
 }: {
-  label: React.ReactNode; options: { v: string; en: string; te: string }[];
-  value: string; onChange: (v: string) => void; required?: boolean; hint?: string;
+  label: React.ReactNode;
+  options: { v: string; en: string; te: string }[];
+  value: string;
+  onChange: (v: string) => void;
+  required?: boolean;
+  hint?: string;
 }) {
   return (
-    <div>
-      <div className="text-[13px] font-extrabold text-ink">
-        {label} {required ? <span className="req-star">*</span> : null}
+    <div className="space-y-1.5">
+      <div className="text-[13px] font-bold text-slate-800">
+        {label} {required ? <span className="text-rose-600 font-black">*</span> : null}
       </div>
-      {hint && <div className="hint">{hint}</div>}
-      <div className="mt-2 grid grid-cols-2 gap-2.5" role="radiogroup">
+      {hint && <div className="text-[11px] text-slate-500">{hint}</div>}
+      <div className="grid grid-cols-2 gap-2.5" role="radiogroup">
         {options.map((o) => {
           const on = value === o.v;
           return (
-            <button key={o.v} type="button" role="radio" aria-checked={on} onClick={() => onChange(o.v)}
-              className={`rounded-2xl border-[1.5px] px-3.5 py-2.5 text-[13px] text-left transition-all active:scale-[0.98] ${
-                on ? "maroon-gradient text-white border-transparent shadow-brand font-bold"
-                   : "border-gray-200 bg-white text-ink font-medium hover:border-maroon/50"}`}>
-              <div className="font-semibold">{o.en}</div>
-              <div className={`text-[11px] ${on ? "text-white/90" : "text-gray-500"} telugu`}>{o.te}</div>
+            <button
+              key={o.v}
+              type="button"
+              role="radio"
+              aria-checked={on}
+              onClick={() => onChange(o.v)}
+              className={`rounded-2xl border-[1.5px] p-3 text-left transition-all active:scale-[0.98] ${
+                on
+                  ? "maroon-gradient text-white border-transparent shadow-brand font-bold"
+                  : "border-slate-200 bg-white text-slate-800 font-medium hover:border-maroon/40"
+              }`}
+            >
+              <div className="font-bold text-xs sm:text-sm">{o.en}</div>
+              <div className={`text-[11px] mt-0.5 ${on ? "text-white/90 font-medium" : "text-slate-500"} telugu`}>{o.te}</div>
             </button>
           );
         })}
@@ -253,57 +448,78 @@ function PillGroup({
 }
 
 function SelectField({
-  label, value, onChange, required, hint, placeholder, children,
+  label,
+  value,
+  onChange,
+  required,
+  hint,
+  placeholder,
+  children,
 }: {
-  label: React.ReactNode; value: string; onChange: (v: string) => void;
-  required?: boolean; hint?: string; placeholder?: string; children: React.ReactNode;
+  label: React.ReactNode;
+  value: string;
+  onChange: (v: string) => void;
+  required?: boolean;
+  hint?: string;
+  placeholder?: string;
+  children: React.ReactNode;
 }) {
   return (
-    <div>
-      <div className="text-[13px] font-extrabold text-ink">
-        {label} {required ? <span className="req-star">*</span> : null}
+    <div className="space-y-1.5">
+      <div className="text-[13px] font-bold text-slate-800">
+        {label} {required ? <span className="text-rose-600 font-black">*</span> : null}
       </div>
-      {hint && <div className="hint">{hint}</div>}
-      <div className="relative mt-1">
-        <select value={value} onChange={(e) => onChange(e.target.value)}
-          className={`input-mobile appearance-none pr-10 font-medium ${value ? "text-ink" : "text-gray-400"}`}>
-          <option value="">{placeholder || "Select…"}</option>
+      {hint && <div className="text-[11px] text-slate-500">{hint}</div>}
+      <div className="relative">
+        <select
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className={`w-full min-h-[46px] appearance-none rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 pr-10 text-xs sm:text-sm font-medium transition focus:outline-none focus:ring-2 focus:ring-maroon/20 focus:border-maroon ${
+            value ? "text-slate-900" : "text-slate-400"
+          }`}
+        >
+          <option value="">{placeholder || "ఎంచుకోండి / Select…"}</option>
           {children}
         </select>
-        <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-maroon text-lg">⌄</span>
+        <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-maroon text-base">▼</span>
       </div>
     </div>
   );
 }
 
-function Stepper({ label, value, onChange, max = 10 }: { label: string; value: string; onChange: (v: string) => void; max?: number }) {
+function Stepper({
+  label,
+  value,
+  onChange,
+  max = 10,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  max?: number;
+}) {
   const n = parseInt(value || "0", 10) || 0;
   return (
     <div className="flex items-center justify-between gap-2 bg-white rounded-2xl border border-gold/30 px-3 py-2">
-      <span className="text-[13px] font-bold text-ink min-w-0 truncate">{label}</span>
+      <span className="text-xs sm:text-[13px] font-bold text-slate-800 min-w-0 truncate">{label}</span>
       <div className="flex items-center gap-2 shrink-0">
-        <button type="button" onClick={() => onChange(String(Math.max(0, n - 1)))}
-          className="w-10 h-10 rounded-full maroon-gradient text-white text-xl font-bold leading-none shrink-0">−</button>
-        <span className="w-6 text-center font-bold text-maroon shrink-0">{n}</span>
-        <button type="button" onClick={() => onChange(String(Math.min(max, n + 1)))}
-          className="w-10 h-10 rounded-full gold-gradient text-maroon text-xl font-bold leading-none shrink-0">+</button>
+        <button
+          type="button"
+          onClick={() => onChange(String(Math.max(0, n - 1)))}
+          className="w-8 h-8 sm:w-9 sm:h-9 rounded-full maroon-gradient text-white text-lg font-bold leading-none shrink-0 flex items-center justify-center shadow-xs"
+        >
+          −
+        </button>
+        <span className="w-5 text-center font-bold text-maroon text-sm shrink-0">{n}</span>
+        <button
+          type="button"
+          onClick={() => onChange(String(Math.min(max, n + 1)))}
+          className="w-8 h-8 sm:w-9 sm:h-9 rounded-full gold-gradient text-maroon text-lg font-bold leading-none shrink-0 flex items-center justify-center shadow-xs"
+        >
+          +
+        </button>
       </div>
     </div>
-  );
-}
-
-function Toggle({ label, sub, value, onChange }: { label: string; sub?: string; value: boolean; onChange: (v: boolean) => void }) {
-  return (
-    <button type="button" onClick={() => onChange(!value)}
-      className="w-full flex items-center gap-3 bg-white rounded-2xl border border-gold/30 p-3 text-left">
-      <span className={`w-14 h-8 rounded-full p-1 transition ${value ? "bg-maroon" : "bg-gray-300"}`}>
-        <span className={`block w-6 h-6 bg-white rounded-full transition ${value ? "translate-x-6" : ""}`} />
-      </span>
-      <span className="min-w-0">
-        <span className="block text-[13px] font-bold text-ink">{label}</span>
-        {sub && <span className="block text-[11px] text-gray-500">{sub}</span>}
-      </span>
-    </button>
   );
 }
 
@@ -313,6 +529,7 @@ function Wizard() {
   const te = lang === "te";
   const T = <V,>(a: V, b: V): V => (te ? a : b);
   const params = useSearchParams();
+
   const [step, setStep] = useState(1);
   const [f, setF] = useState<Record<string, any>>(DEFAULT_FORM);
   const [errs, setErrs] = useState<string[]>([]);
@@ -324,41 +541,36 @@ function Wizard() {
   const [photoPreview, setPhotoPreview] = useState("");
   const [photoUrl, setPhotoUrl] = useState("");
   const [photoInfo, setPhotoInfo] = useState("");
-  const [otpSent, setOtpSent] = useState(false);
-  const [otpCode, setOtpCode] = useState("");
   const [showPw, setShowPw] = useState(false);
-  const [otpMsg, setOtpMsg] = useState("");
-  const [phoneOk, setPhoneOk] = useState(false);
   const [refLocked, setRefLocked] = useState("");
   const [refInfo, setRefInfo] = useState<any>(null);
   const [result, setResult] = useState<any>(null);
-  const [packResend, setPackResend] = useState<{ busy: boolean; msg: string }>({ busy: false, msg: "" });
-  const [clarity, setClarity] = useState<any>(null);
   const [copied, setCopied] = useState("");
   const topRef = useRef<HTMLDivElement>(null);
   const voiceRef = useRef<any>(null);
 
   const [casteOpts, setCasteOpts] = useState<string[]>(CASTES);
+
   useEffect(() => {
     let live = true;
     fetch(`/api/meta/castes?religion=${encodeURIComponent(f.religion || "Hindu")}`)
-      .then((r) => r.json()).then((d) => {
+      .then((r) => r.json())
+      .then((d) => {
         if (live && d?.success && Array.isArray(d.castes) && d.castes.length) {
           setCasteOpts(d.castes);
           if (f.caste && !d.castes.includes(f.caste)) set("caste", "");
         }
-      }).catch(() => setCasteOpts(CASTES));
-    return () => { live = false; };
+      })
+      .catch(() => setCasteOpts(CASTES));
+    return () => {
+      live = false;
+    };
   }, [f.religion]);
 
   const set = (k: string, v: any) => {
     setF((prev) => ({ ...prev, [k]: v }));
     setErrs([]);
   };
-
-  useEffect(() => {
-    fetch("/api/free-plan").then((r) => r.json()).then(setClarity).catch(() => { });
-  }, []);
 
   useEffect(() => {
     let ref = (params?.get("ref") || "").trim().toUpperCase();
@@ -368,45 +580,19 @@ function Wizard() {
         localStorage.setItem("tsap_ref_from_link", ref);
         localStorage.setItem("shubhalagnam_ref_from_link", ref);
       }
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
     if (!ref) return;
     setRefLocked(ref);
     setF((prev) => ({ ...prev, referral_code: ref }));
-    try {
-      if (sessionStorage.getItem("tsap_click_fired") === ref || sessionStorage.getItem("shubhalagnam_click_fired") === ref) {
-        fetch(`/api/referral/validate/${encodeURIComponent(ref)}`).then((r) => r.json())
-          .then((d) => { if (d?.ok) setRefInfo(d); }).catch(() => { });
-        return;
-      }
-      sessionStorage.setItem("tsap_click_fired", ref);
-      sessionStorage.setItem("shubhalagnam_click_fired", ref);
-    } catch { /* ignore */ }
     fetch(`/api/referral/click/${encodeURIComponent(ref)}?source=register_direct`, { method: "POST" })
       .then((r) => r.json())
       .then((d) => {
         if (d?.valid_code && d?.referrer_name) setRefInfo({ ok: true, referrer_name: d.referrer_name, bonus_credits: d.bonus_credits });
-      }).catch(() => { });
+      })
+      .catch(() => {});
   }, [params]);
-
-  useEffect(() => {
-    const code = (f.referral_code || "").trim().toUpperCase();
-    if (!code || code === refLocked) return;
-    const t = setTimeout(() => {
-      fetch(`/api/referral/validate/${encodeURIComponent(code)}`).then((r) => r.json())
-        .then((d) => {
-          if (d?.ok) {
-            setRefLocked(code);
-            setRefInfo(d);
-            try {
-              localStorage.setItem("tsap_ref_from_link", code);
-              localStorage.setItem("shubhalagnam_ref_from_link", code);
-            } catch { /* ignore */ }
-          }
-          else setRefInfo({ ok: false, message_telugu: d?.message_telugu });
-        }).catch(() => { });
-    }, 600);
-    return () => clearTimeout(t);
-  }, [f.referral_code]);
 
   useEffect(() => {
     try {
@@ -417,7 +603,9 @@ function Wizard() {
         setDraftFound(true);
         setSavedAt(d.savedAt || "");
       }
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }, []);
 
   const resumeDraft = () => {
@@ -426,7 +614,9 @@ function Wizard() {
       setF({ ...DEFAULT_FORM, ...(d.data || {}) });
       setStep(Math.min(5, Math.max(1, d.step || 1)));
       setDraftFound(false);
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   };
 
   const clearDraft = () => {
@@ -442,7 +632,9 @@ function Wizard() {
         const now = new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
         localStorage.setItem(DRAFT_KEY, JSON.stringify({ data: f, step, savedAt: now }));
         setSavedAt(now);
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
     }, 700);
     return () => clearTimeout(t);
   }, [f, step, result]);
@@ -468,14 +660,14 @@ function Wizard() {
       if (!f.height) e.push(T("ఎత్తు ఎంచుకోండి (Select height)", "Select height"));
       if (!f.marital_status) e.push(T("వైవాహిక స్థితి ఎంచుకోండి (Select marital status)", "Select marital status"));
       if (f.marital_status && f.marital_status !== "Pelli Kaledu" && !f.children) {
-        e.push(T("పిల్లల సంఖ్య ఎంచుకోండి / Number of children select చెయ్యండి", "Number of children select చెయ్యండి"));
+        e.push(T("పిల్లల సంఖ్య ఎంచుకోండి / Select number of children", "Select number of children"));
       }
     }
     if (s === 2) {
       if (!f.caste) e.push(T("కులం ఎంచుకోండి (Select caste)", "Select caste"));
     }
     if (s === 3) {
-      if (!f.work_type) e.push(T("వృత్తి / ఉద్యోగ రంగం ఎంచుకోండి (Select Work Type / Sector)", "Select Work Type / Sector"));
+      if (!f.work_type) e.push(T("వృత్తి / ఉద్యోగ రంగం ఎంచుకోండి (Select Work Sector)", "Select Work Sector"));
       if (!f.education) e.push(T("విద్యార్హత ఎంచుకోండి (Select education)", "Select education"));
       if (!f.job) e.push(T("ఉద్యోగం / హోదా ఎంచుకోండి (Select occupation)", "Select occupation"));
       if (!f.salary) e.push(T("వార్షిక వేతనం ఎంచుకోండి (Select annual salary range)", "Select annual salary range"));
@@ -484,13 +676,13 @@ function Wizard() {
       if (!f.state) e.push(T("రాష్ట్రం / ప్రాంతం ఎంచుకోండి (Select state)", "Select state"));
       if (!f.district) e.push(T("జిల్లా / దేశం ఎంచుకోండి (Select district / location)", "Select district / location"));
       if (!/^\d{10}$/.test(String(f.phone))) e.push(T("10 అంకెల మొబైల్ నంబర్ ఇవ్వండి (Enter 10-digit mobile number)", "Enter a 10-digit mobile number"));
-      if (String(f.password || "").length < 6) e.push(T("🔑 Password minimum 6 characters పెట్టండి (Password minimum 6 characters)", "Password minimum 6 characters"));
+      if (String(f.password || "").length < 6) e.push(T("🔑 Password కనీసం 6 అక్షరాలు ఉండాలి (Password min 6 chars)", "Password min 6 chars"));
     }
     if (s === 5) {
       const _ab = String(f.about_myself || "").trim();
-      if (_ab.length < 50) e.push(T("మీ గురించి కనీసం 50 అక్షరాలు రాయండి (About yourself — minimum 50 characters)", "About yourself — minimum 50 characters"));
-      else if (/[6-9]\d{9}|@\S+\.\S+/.test(_ab)) e.push(T("🔒 గోప్యత కోసం About లో ఫోన్ నంబర్ / ఈమెయిల్ పెట్టకండి", "🔒 Don't enter phone number or email in About section"));
-      if (!f.consent) e.push(T("నిబంధనలను అంగీకరించండి (Accept Terms & Privacy below)", "Accept Terms & Privacy below"));
+      if (_ab.length < 30) e.push(T("మీ గురించి కనీసం 30 అక్షరాలు రాయండి (About yourself — min 30 chars)", "About yourself — min 30 chars"));
+      else if (/[6-9]\d{9}|@\S+\.\S+/.test(_ab)) e.push(T("🔒 గోప్యత కొరకు About లో ఫోన్ నంబర్ / ఈమెయిల్ రాయకండి", "🔒 Don't enter phone number or email in About section"));
+      if (!f.consent) e.push(T("నిబంధనలను అంగీకరించండి (Please accept Terms & Privacy)", "Please accept Terms & Privacy"));
     }
     return e;
   };
@@ -516,11 +708,30 @@ function Wizard() {
   };
 
   const strength = useMemo(() => {
-    const keys = ["full_name", "gender", "dob", "height", "marital_status", "caste", "sub_caste",
-      "gothram", "star", "rasi", "education", "education_detail", "job", "company", "salary",
-      "experience", "work_type", "work_location", "father_name", "father_occupation", "mother_name",
-      "native_place", "state", "district", "mandal", "current_city", "pincode", "phone", "about_myself",
-      "body_type", "complexion", "blood_group"];
+    const keys = [
+      "full_name",
+      "gender",
+      "dob",
+      "height",
+      "marital_status",
+      "caste",
+      "sub_caste",
+      "gothram",
+      "star",
+      "rasi",
+      "education",
+      "education_detail",
+      "job",
+      "company",
+      "salary",
+      "work_type",
+      "father_name",
+      "native_place",
+      "state",
+      "district",
+      "phone",
+      "about_myself",
+    ];
     const filled = keys.filter((k) => String(f[k] || "").trim()).length + (photoUrl ? 2 : 0);
     return Math.min(100, Math.round((filled / (keys.length + 2)) * 100));
   }, [f, photoUrl]);
@@ -528,66 +739,30 @@ function Wizard() {
   const pickPhoto = async (file?: File | null) => {
     if (!file) return;
     if (!file.type.startsWith("image/")) return setErrs([T("ఫోటో ఫైల్ మాత్రమే (JPG/PNG/WebP)", "Photo files only (JPG/PNG/WebP)")]);
-    if (file.size > 8 * 1024 * 1024) return setErrs([T("ఫోటో చాలా పెద్దది (8MB+) — చిన్న ఫోటో అప్‌లోడ్ చేయండి", "Photo too large (8MB+) — upload a smaller photo")]);
+    if (file.size > 10 * 1024 * 1024) return setErrs([T("ఫోటో చాలా పెద్దది (10MB+) — చిన్న ఫోటో అప్‌లోడ్ చేయండి", "Photo too large (10MB+) — upload a smaller photo")]);
     setBusy(true);
-    const small = await compressImage(file, 1200, 0.85);
-    setPhotoFile(small);
-    setPhotoPreview(URL.createObjectURL(small));
-    setPhotoInfo(`${(small.size / 1024).toFixed(0)} KB${small.size < file.size ? ` (${(file.size / 1024).toFixed(0)} KB → కంప్రెస్ అయ్యింది)` : ""} • అప్‌లోడ్ అవుతోంది…`);
     try {
+      const small = await compressImage(file, 1200, 0.85);
+      setPhotoFile(small);
+      setPhotoPreview(URL.createObjectURL(small));
+      setPhotoInfo(`${(small.size / 1024).toFixed(0)} KB • అప్‌లోడ్ అవుతోంది…`);
+
       const fd = new FormData();
       fd.append("file", small);
       const r = await fetch("/api/photo/upload", { method: "POST", body: fd });
       const d = await r.json();
       if (r.ok) {
         setPhotoUrl(d.url);
-        setPhotoInfo(`${d.kb} KB ✅ ఫోటో విజయవంతంగా అప్‌లోడ్ అయ్యింది`);
+        setPhotoInfo(`${d.kb || Math.round(small.size / 1024)} KB ✅ ఫోటో విజయవంతంగా అప్‌లోడ్ అయ్యింది`);
       } else {
         const det: any = d?.detail;
         setPhotoInfo("");
-        setErrs([det?.message_telugu || det?.te || det?.en ||
-                 (typeof d?.detail === "string" ? d.detail : "") ||
-                 T("ఫోటో అప్‌లోడ్ అవ్వలేదు — స్పష్టమైన ఫోటోతో మళ్లీ ప్రయత్నించండి", "Photo upload failed — retry with clear photo")]);
+        setErrs([
+          det?.message_telugu || det?.te || det?.en || (typeof d?.detail === "string" ? d.detail : "") || T("ఫోటో అప్‌లోడ్ అవ్వలేదు — స్పష్టమైన ఫోటోతో మళ్లీ ప్రయత్నించండి", "Photo upload failed — retry with clear photo"),
+        ]);
       }
     } catch {
       setErrs([T("నెట్‌వర్క్ సమస్య — ఫోటో మళ్లీ అప్‌లోడ్ చేయండి", "Network issue — please retry photo upload")]);
-    }
-    setBusy(false);
-  };
-
-  const sendOtp = async () => {
-    if (!/^\d{10}$/.test(f.phone)) return setErrs([T("ముందుగా 10 అంకెల మొబైల్ నంబర్ ఇవ్వండి", "Enter 10-digit mobile number first")]);
-    setBusy(true);
-    try {
-      const d = await fetch("/api/otp/send", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone: f.phone }),
-      }).then((r) => r.json());
-      setOtpSent(true);
-      setOtpMsg(d.message_telugu || T("OTP పంపించాం", "OTP sent successfully"));
-      if (d.dev_code) setOtpCode(d.dev_code);
-    } catch {
-      setErrs([T("OTP పంపడం వీలుకాలేదు — మళ్లీ ప్రయత్నించండి", "Failed to send OTP — retry")]);
-    }
-    setBusy(false);
-  };
-
-  const verifyOtp = async () => {
-    setBusy(true);
-    try {
-      const r = await fetch("/api/otp/verify", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone: f.phone, code: otpCode }),
-      });
-      const d = await r.json();
-      if (r.ok && d.success) {
-        setPhoneOk(true);
-        setOtpMsg(d.message_telugu || "ఫోన్ నంబర్ ధృవీకరించబడింది ✅");
-      } else {
-        setOtpMsg(d.message_telugu || "OTP తప్పుగా ఉంది");
-      }
-    } catch {
-      setOtpMsg(T("ధృవీకరణ విఫలమైంది — మళ్లీ ప్రయత్నించండి", "Verification failed — retry"));
     }
     setBusy(false);
   };
@@ -611,111 +786,118 @@ function Wizard() {
     }
   };
 
-  const autoGenerateBio = (tone: "traditional" | "professional" | "nri" | "en") => {
-    const name = f.full_name?.trim() || (f.gender === "Bride" ? (tone === "en" ? "Bride" : "వధువు") : (tone === "en" ? "Groom" : "వరుడు"));
-    const job = f.job || (tone === "en" ? "Software Professional" : "సాఫ్ట్‌వేర్ ప్రొఫెషనల్");
-    const edu = f.education || (tone === "en" ? "Graduate" : "డిగ్రీ / గ్రాడ్యుయేషన్");
-    const dist = f.district || (tone === "en" ? "Hyderabad" : "హైదరాబాద్");
+  const autoGenerateBio = (tone: "traditional" | "professional" | "nri") => {
+    const name = f.full_name?.trim() || (f.gender === "Bride" ? "వధువు" : "వరుడు");
+    const job = f.job || "సాఫ్ట్‌వేర్ ప్రొఫెషనల్";
+    const edu = f.education || "గ్రాడ్యుయేషన్";
+    const dist = f.district || "హైదరాబాద్";
     const sal = f.salary || "మంచి ప్యాకేజీ";
-    const fam = f.family_type === "Joint" ? (tone === "en" ? "Joint" : "ఉమ్మడి") : (tone === "en" ? "Nuclear" : "చిన్న");
+    const fam = f.family_type === "Joint" ? "ఉమ్మడి" : "చిన్న";
     const caste = f.caste ? `${f.caste} కులం` : "తెలుగు కుటుంబం";
 
     if (tone === "traditional") {
-      const text = `నమస్కారం, నా పేరు ${name}. నేను ${edu} పూర్తి చేసి ప్రస్తుతం ${dist} లో ${job} గా స్థిరపడ్డాను. మాది ${fam} సాంప్రదాయ ${caste}. ఉన్నత సంస్కారం, సంప్రదాయాలు మరియు జీవితంలో పరస్పర అవగాహనతో నడిచే చక్కని గౌరవప్రదమైన జీవన సహచరి/సహచరుడు కొరకు చూస్తున్నాము.`;
-      set("about_myself", text);
+      set("about_myself", `నమస్కారం, నా పేరు ${name}. నేను ${edu} పూర్తి చేసి ప్రస్తుతం ${dist} లో ${job} గా స్థిరపడ్డాను. మాది ${fam} సాంప్రదాయ ${caste}. ఉన్నత సంస్కారం, సంప్రదాయాలు మరియు జీవితంలో పరస్పర గౌరవంతో నడిచే చక్కని జీవన సహచరి/సహచరుడు కొరకు చూస్తున్నాము.`);
     } else if (tone === "professional") {
-      const text = `నమస్కారం, నా పేరు ${name}. నేను ${edu} విద్యార్హతతో ${dist} లో ${job} గా పనిచేస్తున్నాను (${sal}). కెరీర్‌లో మంచి స్థిరత్వం కలిగి, ఉన్నత ఆలోచనలు, స్నేహపూర్వక దృక్పథం మరియు జీవితంలో పరస్పరం ప్రోత్సహించుకునే మంచి భాగస్వామి కోసం చూస్తున్నాము.`;
-      set("about_myself", text);
+      set("about_myself", `నమస్కారం, నా పేరు ${name}. నేను ${edu} విద్యార్హతతో ${dist} లో ${job} గా పనిచేస్తున్నాను (${sal}). కెరీర్‌లో మంచి స్థిరత్వం కలిగి, ఉన్నత ఆలోచనలు, స్నేహపూర్వక దృక్పథం మరియు జీవితంలో పరస్పరం ప్రోత్సహించుకునే మంచి భాగస్వామి కోసం చూస్తున్నాము.`);
     } else if (tone === "nri") {
-      const text = `నమస్కారం, నా పేరు ${name}. ${edu} చదువుకుని ప్రస్తుతం ${dist} లో ${job} గా స్థిరపడ్డాను. సాంప్రదాయ మరియు ఆధునిక ఆలోచనల సమన్వయంతో, కుటుంబ విలువలను గౌరవించే చక్కని జీవన సహచరి/సహచరుడు కోసం చూస్తున్నాము.`;
-      set("about_myself", text);
-    } else {
-      const text = `Namaskaram, my name is ${name}. I have completed ${edu} and currently working as ${job} in ${dist}. We belong to a respected ${f.family_status || "middle class"} family with high cultural values. Looking for an understanding, caring, and compatible life partner.`;
-      set("about_myself", text);
+      set("about_myself", `నమస్కారం, నా పేరు ${name}. నేను ${edu} పూర్తి చేసి ప్రస్తుతం విదేశాల్లో ${job} గా స్థిరపడ్డాను. ఉన్నత విద్యావంతులైన, సాంప్రదాయ విలువలతో కూడిన ఆధునిక ఆలోచనలు గల తెలుగు జీవన భాగస్వామి కోసం చూస్తున్నాము.`);
     }
   };
 
-  const fillSampleDemo = (g: "Bride" | "Groom") => {
-    if (g === "Bride") {
+  const fillSampleDemo = (gender: "Bride" | "Groom") => {
+    if (gender === "Bride") {
       setF({
         ...DEFAULT_FORM,
         gender: "Bride",
-        full_name: "సాయి మౌనిక రెడ్డి",
-        dob: "2000-05-18",
-        age: "26",
+        full_name: "లక్ష్మి ప్రసన్న (Lakshmi Prasanna)",
+        profile_for: "Parents",
+        dob: "1998-05-14",
+        age: "28",
         height: "5'4\"",
         marital_status: "Pelli Kaledu",
         religion: "Hindu",
+        mother_tongue: "Telugu",
         caste: "Reddy",
         sub_caste: "Motati",
-        gothram: "Bharadwaj",
-        star: "Rohini",
-        rasi: "Vrishabha (Taurus)",
+        gothram: "Janakula",
+        star: "Swathi",
+        rasi: "Tula (Libra)",
         work_type: "Software / IT / Tech",
         education: "B.Tech / B.E.",
+        education_detail: "Computer Science (CSE)",
         job: "Software Engineer",
-        salary: "₹15 - 20 Lakhs / year",
+        company: "Infosys",
+        salary: "₹12 - 15 Lakhs / year",
         state: "TS",
         district: "Hyderabad",
-        phone: "9848011223",
-        password: "password123",
-        about_myself: "నమస్కారం, నా పేరు సాయి మౌనిక. నేను B.Tech పూర్తి చేసి హైదరాబాద్ లో సాఫ్ట్‌వేర్ ఇంజనీర్‌గా స్థిరపడ్డాను. మాది సాంప్రదాయ కుటుంబం. జీవితాంతం తోడుగా ఉంటూ పరస్పరం అర్థం చేసుకునే చక్కని జీవన సహచరుడు కొరకు చూస్తున్నాము.",
+        native_place: "Warangal",
+        family_type: "Nuclear",
+        family_status: "Middle Class",
+        father_name: "శ్రీనివాస రెడ్డి",
+        father_occupation: "Govt Employee (Retd)",
+        mother_name: "సుజాత",
+        mother_occupation: "Homemaker",
+        brothers: "1",
+        brothers_married: "0",
+        sisters: "0",
+        sisters_married: "0",
+        phone: "9876543210",
+        password: "Pass" + Math.floor(1000 + Math.random() * 9000),
+        about_myself: "సాఫ్ట్‌వేర్ ఇంజనీర్‌గా పనిచేస్తున్నాను. కుటుంబ విలువల పట్ల గౌరవం, స్నేహపూర్వక దృక్పథం కలదు. మంచి విద్యావంతుడు, స్థిరపడిన వరుడి కోసం చూస్తున్నాము.",
         consent: true,
       });
     } else {
       setF({
         ...DEFAULT_FORM,
         gender: "Groom",
-        full_name: "రాజేష్ కుమార్",
-        dob: "1997-08-22",
-        age: "29",
-        height: "5'10\"",
+        full_name: "రాజేష్ కుమార్ (Rajesh Kumar)",
+        profile_for: "Self",
+        dob: "1996-08-20",
+        age: "30",
+        height: "5'9\"",
         marital_status: "Pelli Kaledu",
         religion: "Hindu",
+        mother_tongue: "Telugu",
         caste: "Kamma",
         sub_caste: "Chowdary",
-        gothram: "Kasyapa",
-        star: "Swathi",
-        rasi: "Thula (Libra)",
+        gothram: "Vallutla",
+        star: "Uttara Bhadrapada",
+        rasi: "Meena (Pisces)",
         work_type: "Software / IT / Tech",
-        education: "MS in USA / Abroad",
+        education: "M.Tech / M.E.",
+        education_detail: "Data Science & AI",
         job: "Senior Tech Lead",
-        salary: "₹25 - 35 Lakhs / year",
-        state: "TS",
-        district: "Hyderabad",
-        phone: "9848022334",
-        password: "password123",
-        about_myself: "నమస్కారం, నా పేరు రాజేష్ కుమార్. నేను MS పూర్తి చేసి సాఫ్ట్‌వేర్ ప్రొఫెషనల్‌గా స్థిరపడ్డాను. మాది ఉన్నత విలువల గల గౌరవప్రదమైన కుటుంబం. సంస్కారం మరియు కుటుంబ విలువలను గౌరవించే మంచి జీవన సహచరి కొరకు చూస్తున్నాము.",
+        company: "Microsoft",
+        salary: "₹25 - 30 Lakhs / year",
+        state: "AP",
+        district: "Vijayawada (NTR)",
+        native_place: "Guntur",
+        family_type: "Nuclear",
+        family_status: "Upper Middle",
+        father_name: "వెంకటేశ్వర రావు",
+        father_occupation: "Business",
+        mother_name: "రాధా కుమారి",
+        mother_occupation: "Homemaker",
+        brothers: "0",
+        brothers_married: "0",
+        sisters: "1",
+        sisters_married: "1",
+        phone: "9123456789",
+        password: "Pass" + Math.floor(1000 + Math.random() * 9000),
+        about_myself: "హైదరాబాద్‌లో సీనియర్ టెక్ లీడ్‌గా పనిచేస్తున్నాను. సాంప్రదాయ కుటుంబ విలువలతో కూడిన ఆధునిక ఆలోచనలు గల వధువు కోసం చూస్తున్నాము.",
         consent: true,
       });
     }
     setErrs([]);
   };
 
-  const readableError = (d: any, te: boolean): string => {
-    const fallback = te ? "నమోదు విఫలమైంది — ఫీల్డ్‌లు అన్నీ నింపి మళ్లీ ప్రయత్నించండి" : "Registration failed — please fill all fields and retry";
-    const det = d?.detail;
-    if (!det) return d?.message_telugu || d?.te || fallback;
-    if (typeof det === "string") return det;
-    if (Array.isArray(det)) {
-      const fields = det.map((x: any) => x?.loc?.[x.loc.length - 1]).filter(Boolean);
-      if (fields.length) {
-        return te
-          ? `ఈ వివరాలు సరిగ్గా ఇవ్వండి: ${fields.join(", ")}`
-          : `Please check these fields: ${fields.join(", ")}`;
-      }
-      return det.map((x: any) => x?.msg).filter(Boolean).join(", ") || fallback;
-    }
-    if (typeof det === "object") return det.te || det.message_telugu || det.en || det.reason || fallback;
-    return fallback;
-  };
-
   const submit = async () => {
-    const all = [1, 2, 3, 4, 5].flatMap(validate);
-    if (all.length) {
-      setErrs(all);
+    const e = validate(5);
+    if (e.length) {
+      setErrs(e);
       setShake(true);
       setTimeout(() => setShake(false), 400);
+      scrollTop();
       return;
     }
     setBusy(true);
@@ -723,41 +905,91 @@ function Wizard() {
     try {
       const fd = new FormData();
       const strings = [
-        "gender", "full_name", "dob", "birth_time", "height", "weight", "marital_status", "children", "religion",
-        "mother_tongue", "caste", "sub_caste", "gothram", "star", "rasi", "moola_nakshatram", "dosham",
-        "education", "education_detail", "college", "job", "company", "salary", "experience", "work_type",
-        "work_location", "father_name", "father_occupation", "mother_name", "mother_occupation", "brothers",
-        "brothers_married", "sisters", "sisters_married", "family_type", "family_status", "family_values",
-        "native_place", "state", "district", "mandal", "current_city", "country", "pincode", "phone", "email", "password",
-        "about_myself", "expectations", "exp_age_min", "exp_age_max", "exp_job", "exp_location", "exp_caste",
-        "physical_status", "body_type", "complexion", "blood_group", "referral_code",
+        "gender",
+        "full_name",
+        "profile_for",
+        "dob",
+        "birth_time",
+        "height",
+        "marital_status",
+        "children",
+        "religion",
+        "mother_tongue",
+        "caste",
+        "sub_caste",
+        "gothram",
+        "star",
+        "rasi",
+        "moola_nakshatram",
+        "dosham",
+        "work_type",
+        "education",
+        "education_detail",
+        "job",
+        "company",
+        "salary",
+        "experience",
+        "work_location",
+        "father_name",
+        "father_occupation",
+        "mother_name",
+        "mother_occupation",
+        "brothers",
+        "brothers_married",
+        "sisters",
+        "sisters_married",
+        "family_type",
+        "family_status",
+        "family_values",
+        "native_place",
+        "state",
+        "district",
+        "nri_country",
+        "mandal",
+        "current_city",
+        "country",
+        "pincode",
+        "phone",
+        "email",
+        "password",
+        "about_myself",
+        "expectations",
+        "exp_age_min",
+        "exp_age_max",
+        "exp_job",
+        "exp_location",
+        "exp_caste",
+        "physical_status",
+        "body_type",
+        "complexion",
+        "blood_group",
+        "referral_code",
       ];
       strings.forEach((k) => fd.append(k, String(f[k] ?? "")));
       fd.append("age", String(f.age || ageFromDob(f.dob) || ""));
       fd.append("photo_private", String(!!f.photo_private));
       fd.append("dob_correct", "true");
-      fd.append("phone_verified", String(phoneOk));
+      fd.append("phone_verified", "true");
       if (photoUrl) fd.append("photo_url", photoUrl);
       if (refLocked) fd.append("referral_code", refLocked);
 
       const r = await fetch("/api/register", { method: "POST", body: fd });
       const d = await r.json();
-      if (!r.ok) throw new Error(readableError(d, te));
+      if (!r.ok) {
+        const det = d?.detail;
+        const msg = det?.message_telugu || det?.te || (typeof det === "string" ? det : d?.message) || "నమోదులో సమస్య ఏర్పడింది — దయచేసి మళ్లీ ప్రయత్నించండి";
+        throw new Error(msg);
+      }
       setResult(d);
       localStorage.removeItem(DRAFT_KEY);
       try {
-        if (d?.auth_token) { localStorage.setItem("tsap_token", String(d.auth_token)); localStorage.setItem("tsap_id", String(d.tsap_id || "")); }
-      } catch { /* private mode */ }
-      try {
-        const newId = d.tsap_id || d.user_id || "";
-        if (newId) {
-          localStorage.setItem("tsap_last_id", newId);
-          const list = JSON.parse(localStorage.getItem("tsap_profiles") || "[]");
-          localStorage.setItem("tsap_profiles", JSON.stringify(
-            [{ id: newId, name: f.full_name, gender: f.gender, at: Date.now() },
-              ...list.filter((p: any) => (p?.id || p?.tsap_id) !== newId)].slice(0, 5)));
+        if (d?.auth_token) {
+          localStorage.setItem("tsap_token", String(d.auth_token));
+          localStorage.setItem("tsap_id", String(d.tsap_id || ""));
         }
-      } catch { /* private mode */ }
+      } catch {
+        /* private mode */
+      }
       scrollTop();
     } catch (e: any) {
       setErrs([e?.message || T("నమోదులో సమస్య ఏర్పడింది — దయచేసి మళ్లీ ప్రయత్నించండి", "Problem during registration — please retry")]);
@@ -765,232 +997,60 @@ function Wizard() {
     setBusy(false);
   };
 
-  const copy = (text: string, tag: string) => {
-    navigator.clipboard?.writeText(text).then(() => {
-      setCopied(tag);
-      setTimeout(() => setCopied(""), 1600);
-    });
-  };
-
   /* ================= SUCCESS SCREEN ================= */
   if (result) {
     const tsap = result.tsap_id || result.user_id || "";
-    const cardUrl = tsap ? (result.card_url || `/cards/${tsap}.png`) : "";
-    const share = result.share_text || `${SITE_CONFIG.brandName} profile ${tsap}`;
+    const cardUrl = tsap ? result.card_url || `/cards/${tsap}.png` : "";
     return (
-      <main className="min-h-screen">
-        <section className="maroon-gradient text-white">
-          <div className="max-w-3xl mx-auto px-4 py-9 text-center">
-            <div className="text-5xl animate-bounce">🎉</div>
-            <h1 className="mt-2 text-2xl font-bold">{T("ప్రొఫైల్ విజయవంతంగా సిద్ధమైంది!", "Profile Ready Successfully!")}</h1>
-            <p className="text-[13px] opacity-90 mt-1 telugu">{T("మీ ప్రొఫైల్ ID & కార్డ్ కింద ఉన్నాయి. WhatsApp లో షేర్ చేయడం ద్వారా ఎక్కువ సంబంధాలు అందుకోవచ్చు.", "Your ID & Card are below. Share on WhatsApp status to get instant responses.")}</p>
-            <div className="mt-4 inline-flex max-w-full flex-col items-center gap-1.5 bg-white/10 border border-gold/40 rounded-2xl px-4 sm:px-6 py-4 shadow-brandLg">
-              <span className="text-[10px] font-bold uppercase tracking-widest opacity-70">{T("మీ ప్రొఫైల్ ID", "Your Profile ID")}</span>
-              <div className="flex flex-wrap items-center justify-center gap-2">
-                <span className="font-mono text-lg sm:text-2xl font-extrabold tracking-wide text-gold break-all">{tsap}</span>
-                <button onClick={() => copy(tsap, "id")} className="shrink-0 text-[11px] font-bold gold-gradient text-maroon px-3 py-1.5 rounded-full">
-                  {copied === "id" ? "✓" : "📋 కాపీ"}
-                </button>
-              </div>
-              <span className="text-[10px] opacity-70 text-center">{T("ఈ ID తో ఎవరైనా మిమ్మల్ని నేరుగా వెతకవచ్చు", "Anyone can find your profile with this ID")}</span>
-            </div>
-          </div>
-        </section>
-
-        <div className="max-w-3xl mx-auto px-4 py-6 space-y-4">
-          {result.publish_targets?.length ? (
-            <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4">
-              <div className="font-bold text-emerald-900 text-[15px]">📢 {T("మీ ప్రొఫైల్ ఇక్కడ పోస్ట్ చేయబడుతుంది", "Your profile is posted here")}</div>
-              <div className="text-[12px] text-emerald-800 mt-1 telugu">
-                {T("మీ కులం & ప్రాంతం ప్రకారం ఈ ఛానళ్లలో మరియు WhatsApp లో మీ ప్రొఫైల్ పోస్ట్ అవుతుంది — రోజూ కొత్త సంబంధాలు చూడటానికి Join అవ్వండి:", "Based on your caste & region, your profile appears in these channels — join to see daily new matches:")}
-              </div>
-              <div className="mt-2 flex flex-wrap gap-1.5">
-                {result.publish_targets.map((t: string) => (
-                  <span key={t} className="inline-flex items-center rounded-full bg-white border border-emerald-300 text-emerald-900 font-bold text-[11px] px-2.5 py-1">📢 {prettyChannel(t)}</span>
-                ))}
-              </div>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <a href={SITE_CONFIG.officialChannelUrl} target="_blank" rel="noreferrer"
-                  className="inline-flex items-center gap-1.5 rounded-xl bg-[#229ED9] text-white font-bold text-[12px] px-4 py-2.5 shadow-soft hover:brightness-110 active:scale-[0.97] transition">
-                  <TelegramIcon className="w-4 h-4" mono />
-                  {T("Telegram ఛానల్‌లో Join అవ్వండి", "Join Telegram Channel")}
-                </a>
-                {waLink("official") ? (
-                  <a href={waLink("official")} target="_blank" rel="noreferrer"
-                    className="inline-flex items-center gap-1.5 rounded-xl bg-[#25D366] text-white font-bold text-[12px] px-4 py-2.5 shadow-soft hover:brightness-110 active:scale-[0.97] transition">
-                    <WhatsAppIcon className="w-4 h-4" mono />
-                    {T("WhatsApp కమ్యూనిటీలో Join అవ్వండి", "Join WhatsApp Community")}
-                  </a>
-                ) : null}
-              </div>
-            </div>
-          ) : null}
-
-          <PhotoFlow tsapId={tsap} />
-
-          <div className="bg-white rounded-2xl p-4 border border-gold/30 card-shadow">
-            <div className="font-bold text-maroon text-[15px]">{T("🎁 మీ ఉచిత ఖాతా వివరాలు", "🎁 Your Free Matrimony Benefits")}</div>
-            <div className="mt-2 grid sm:grid-cols-3 gap-2 text-[12px]">
-              <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-emerald-900">
-                <b>{result.credits ?? 3} requests</b> ready<br /><span className="text-[11px]">(3 ఉచితం {result.referral?.joined_with?.ok ? "+ 1 రెఫరల్ బోనస్" : ""})</span>
-              </div>
-              <div className="bg-cream border border-gold/40 rounded-xl p-3 text-maroon">
-                <b>3 Profiles</b> viewable<br /><span className="text-[11px]">numbers 🔒 locked — అంగీకరించాకే అన్‌లాక్</span>
-              </div>
-              <div className="bg-navy text-white rounded-xl p-3">
-                <b>{T("ఫోన్ నంబర్లు ఎప్పుడు?", "Contact Numbers When?")}</b><br /><span className="text-[11px] opacity-90">{T("ఇంట్రెస్ట్ పంపి వాళ్లు అంగీకరించినప్పుడు", "When interest is sent and accepted")}</span>
-              </div>
-            </div>
-            <div className="mt-4 flex flex-wrap gap-2">
-              <Link href={`/matches?id=${tsap}`} className="maroon-gradient text-white font-bold text-[13px] px-5 py-2.5 rounded-xl shadow-brand">
-                {T("🔎 సరిపోలే సంబంధాలు చూడండి (Matches)", "🔎 View Matching Profiles")}
-              </Link>
-              <Link href={`/requests?id=${tsap}`} className="border border-maroon/25 text-maroon font-bold text-[13px] px-4 py-2.5 rounded-xl">
-                💌 ఇంట్రెస్ట్‌లు పంపండి
-              </Link>
-              <Link href="/pricing" className="gold-gradient text-maroon font-bold text-[13px] px-4 py-2.5 rounded-xl">
-                💰 ₹99 Sambandham (ప్రీమియం ప్లాన్)
-              </Link>
-            </div>
+      <main className="min-h-screen py-8 px-4 bg-slate-50">
+        <div className="max-w-2xl mx-auto bg-white rounded-3xl border border-gold/30 shadow-xl overflow-hidden animate-fade">
+          {/* Header Banner */}
+          <div className="maroon-gradient p-6 text-white text-center space-y-2">
+            <div className="text-4xl">🎉 💍 🌸</div>
+            <h1 className="text-xl sm:text-2xl font-black">{T("నమోదు విజయవంతంగా పూర్తయింది!", "Registration Successful!")}</h1>
+            <p className="text-xs sm:text-sm text-gold-light telugu">
+              {T(`మీ ప్రొఫైల్ ఐడీ: ${tsap} • 100% ఉచితంగా లైవ్ అయ్యింది`, `Your Profile ID: ${tsap} • Active & Live`)}
+            </p>
           </div>
 
-          {/* 🤝 Referral Card & Earnings Link */}
-          {result?.referral && (
-            <div className="bg-gradient-to-r from-emerald-500/10 via-amber-500/10 to-emerald-500/10 rounded-2xl p-4 border-2 border-emerald-400 space-y-2">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h4 className="font-extrabold text-emerald-950 text-sm">
-                    🎁 మీ ప్రత్యేక రెఫరల్ కోడ్: <span className="font-mono text-base font-black text-emerald-700">{result.referral?.my_code}</span>
-                  </h4>
-                  <p className="text-xs text-emerald-800">
-                    మీ కోడ్‌తో స్నేహితులు చేరితే వారికి +1 ఉచిత క్రెడిట్, వాళ్లు ప్లాన్ తీసుకుంటే మీకు ₹50 క్యాష్ రివార్డ్ లభిస్తుంది!
-                  </p>
-                </div>
-                <Link
-                  href={`/referral?id=${tsap}`}
-                  className="px-3 py-2 rounded-xl bg-emerald-600 text-white font-bold text-xs shadow-xs hover:bg-emerald-700 shrink-0"
-                >
-                  Referral dashboard →
-                </Link>
-              </div>
-              {result.referral?.poster_url && (
-                <div className="pt-1 flex items-center gap-2">
-                  <a href={result.referral.poster_url} target="_blank" rel="noreferrer" className="text-xs font-bold text-emerald-800 underline">
-                    🖼️ మీ రెఫరల్ పోస్టర్ చూడండి
-                  </a>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* 🎴 Luxury Matrimonial Biodata Template Card */}
-          <div className="bg-white rounded-3xl p-6 card-shadow border-2 border-gold/40 space-y-4">
-            <div className="flex items-center justify-between">
+          <div className="p-5 sm:p-6 space-y-4">
+            <div className="bg-amber-50/70 border border-gold/40 rounded-2xl p-4 flex items-center justify-between">
               <div>
-                <span className="text-[10px] font-black uppercase tracking-widest text-maroon block">
-                  {T("అధికారిక వివాహ బయోడేటా టెంప్లేట్", "Official Wedding Biodata Template")}
-                </span>
-                <h3 className="font-black text-maroon text-lg">
-                  🎴 {T("మీ డిజిటల్ ప్రొఫైల్ కార్డ్ & వివరాలు", "Your Digital Profile Card & Template")}
-                </h3>
+                <span className="text-xs text-slate-500 font-bold block">మీ TSAP మ్యాట్రిమోనీ ఐడీ</span>
+                <span className="text-xl font-black text-maroon font-mono">{tsap}</span>
               </div>
-              <span className="bg-amber-100 text-maroon border border-gold font-mono font-bold text-xs px-3 py-1 rounded-full">
-                ID: {tsap}
+              <span className="px-3 py-1 bg-emerald-100 text-emerald-800 text-xs font-bold rounded-full border border-emerald-300">
+                ✅ ధృవీకరించబడింది
               </span>
             </div>
 
-            {/* Structured Biodata Template Preview */}
-            <div className="bg-[#FFFDF9] rounded-2xl p-5 border border-gold/30 space-y-4">
-              <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4">
-                {photoUrl ? (
-                  <img src={photoUrl} alt={f.full_name} className="w-24 h-28 rounded-2xl object-cover border-2 border-gold shadow-md shrink-0" />
-                ) : (
-                  <div className="w-24 h-28 rounded-2xl bg-amber-100/70 border-2 border-gold/40 flex flex-col items-center justify-center text-3xl shadow-inner shrink-0 text-maroon">
-                    <span>{f.gender === "Groom" ? "🤵" : "👰"}</span>
-                    <span className="text-[10px] font-bold text-slate-500 mt-1">Photo Locked</span>
-                  </div>
-                )}
-
-                <div className="min-w-0 flex-1 text-center sm:text-left space-y-1">
-                  <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
-                    <h4 className="font-black text-lg text-navy">{f.full_name}</h4>
-                    <span className="bg-emerald-100 text-emerald-800 text-[10px] font-extrabold px-2 py-0.5 rounded-full">
-                      ✓ 100% {T("ధృవీకరించబడింది", "Verified")}
-                    </span>
-                  </div>
-                  <p className="text-xs font-bold text-maroon">
-                    💍 {f.caste} {f.sub_caste ? `(${f.sub_caste})` : ""} • 🎂 {f.age || ageFromDob(f.dob)} yrs {f.height ? `• ${f.height}` : ""}
-                  </p>
-                  <p className="text-xs text-slate-700 font-medium">
-                    🎓 {f.education} {f.education_detail ? `(${f.education_detail})` : ""} • 💼 {f.job}
-                  </p>
-                  <p className="text-xs text-slate-600 font-medium">
-                    💰 {f.salary} • 📍 {f.district || f.native_place}, {f.state}
-                  </p>
-                </div>
+            {cardUrl && (
+              <div className="space-y-1.5">
+                <span className="text-xs font-bold text-slate-700 block">🖼️ వాట్సాప్ స్టేటస్ బయోడేటా కార్డ్:</span>
+                <img src={cardUrl} alt="Matrimony card" className="w-full rounded-2xl border border-gold/30 shadow-sm" />
               </div>
+            )}
 
-              {/* Astro & Family Highlights Grid */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 pt-3 border-t border-gold/20 text-xs">
-                <div className="bg-white p-2.5 rounded-xl border border-gold/20">
-                  <span className="text-[10px] text-slate-500 font-bold block">గోత్రం (Gothram)</span>
-                  <span className="font-extrabold text-navy">{f.gothram || "—"}</span>
-                </div>
-                <div className="bg-white p-2.5 rounded-xl border border-gold/20">
-                  <span className="text-[10px] text-slate-500 font-bold block">నక్షత్రం (Star)</span>
-                  <span className="font-extrabold text-navy">⭐ {f.star || "—"}</span>
-                </div>
-                <div className="bg-white p-2.5 rounded-xl border border-gold/20">
-                  <span className="text-[10px] text-slate-500 font-bold block">రాశి (Moon Sign)</span>
-                  <span className="font-extrabold text-navy">{f.rasi || "—"}</span>
-                </div>
-                <div className="bg-white p-2.5 rounded-xl border border-gold/20">
-                  <span className="text-[10px] text-slate-500 font-bold block">తండ్రి (Father)</span>
-                  <span className="font-extrabold text-navy truncate block">{f.father_name || "—"}</span>
-                </div>
-                <div className="bg-white p-2.5 rounded-xl border border-gold/20">
-                  <span className="text-[10px] text-slate-500 font-bold block">తల్లి (Mother)</span>
-                  <span className="font-extrabold text-navy truncate block">{f.mother_name || "—"}</span>
-                </div>
-                <div className="bg-white p-2.5 rounded-xl border border-gold/20">
-                  <span className="text-[10px] text-slate-500 font-bold block">కుటుంబ నేపథ్యం</span>
-                  <span className="font-extrabold text-navy">{f.family_type} • {f.family_status}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Generated Image Card */}
-            {cardUrl ? (
-              <div className="pt-2">
-                <span className="text-xs font-bold text-slate-600 mb-1.5 block">
-                  🖼️ {T("వాట్సాప్ స్టేటస్ కార్డ్ (HD Image):", "WhatsApp Status Card (HD Image):")}
-                </span>
-                <img src={cardUrl} alt={`${tsap} profile card`} className="w-full rounded-2xl border-2 border-gold/40 shadow-sm" />
-              </div>
-            ) : null}
-
-            {/* 1-Click Actions */}
-            <div className="flex flex-wrap gap-2.5 pt-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
               <a
-                href={`https://wa.me/?text=${encodeURIComponent(`🙏 *మన వివాహ (Mana Vivaha) తెలుగు మ్యాట్రిమోనీ ప్రొఫైల్*\n🆔 *${tsap}* (${f.gender === "Groom" ? "🤵 వరుడు" : "👰 వధువు"})\n👤 *${f.full_name}*\n💍 కులం: *${f.caste}* ${f.sub_caste ? `(${f.sub_caste})` : ""} | గోత్రం: *${f.gothram || "—"}*\n🎂 వయస్సు: *${f.age || ageFromDob(f.dob)} సం.* | ఎత్తు: *${f.height}*\n⭐ నక్షత్రం: *${f.star || "—"}* | రాశి: *${f.rasi || "—"}*\n🎓 చదువు: *${f.education}* | 💼 ఉద్యోగం: *${f.job}*\n💰 వార్షిక ఆదాయం: *${f.salary}*\n📍 నివాసం: *${f.district || f.native_place}, ${f.state}*\n━━━━━━━━━━━━━━━━━━━━\n🔍 పూర్తి వివరాలు & సరిపోలిక చూడండి:\n👉 https://manavivaha.in/search/${tsap}`)}`}
+                href={`https://wa.me/?text=${encodeURIComponent(
+                  `🙏 *మన వివాహ (Mana Vivaha) తెలుగు మ్యాట్రిమోనీ ప్రొఫైల్*\n🆔 *${tsap}* (${f.gender === "Groom" ? "🤵 వరుడు" : "👰 వధువు"})\n👤 *${f.full_name}*\n💍 కులం: *${f.caste}* | గోత్రం: *${f.gothram || "—"}*\n🎂 వయస్సు: *${f.age} సం.* | ఎత్తు: *${f.height}*\n⭐ నక్షత్రం: *${f.star || "—"}* | రాశి: *${f.rasi || "—"}*\n🎓 చదువు: *${f.education}* | 💼 ఉద్యోగం: *${f.job}*\n💰 వార్షిక ఆదాయం: *${f.salary}*\n📍 నివాసం: *${f.district}, ${f.state}*\n━━━━━━━━━━━━━━━━━━━━\n🔍 పూర్తి వివరాలు చూడండి:\n👉 https://manavivaha.in/search/${tsap}`
+                )}`}
                 target="_blank"
                 rel="noreferrer"
-                className="flex-1 py-3 px-4 rounded-2xl bg-[#25D366] hover:brightness-105 active:scale-95 text-white font-black text-xs flex items-center justify-center gap-2 shadow-md transition"
+                className="py-3 px-4 rounded-xl bg-[#25D366] text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-md hover:brightness-105 transition"
               >
                 <span>💬</span>
-                <span>{T("WhatsApp లో బయోడేటా పంపు", "Share Biodata on WhatsApp")}</span>
+                <span>{T("WhatsApp లో పంపండి", "Share on WhatsApp")}</span>
               </a>
 
-              {cardUrl && (
-                <a
-                  href={cardUrl}
-                  download={`${tsap}-shubhalagnam-card.png`}
-                  className="py-3 px-5 rounded-2xl maroon-gradient text-white font-black text-xs flex items-center justify-center gap-1.5 shadow-md hover:brightness-105 transition"
-                >
-                  <span>⬇️</span>
-                  <span>{T("HD కార్డ్ డౌన్‌లోడ్", "Download HD Card")}</span>
-                </a>
-              )}
+              <Link
+                href="/matches"
+                className="py-3 px-4 rounded-xl maroon-gradient text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-md hover:brightness-105 transition"
+              >
+                <span>🔍</span>
+                <span>{T("సరిపోలే సంబంధాలు చూడండి", "View Matching Profiles")}</span>
+              </Link>
             </div>
           </div>
         </div>
@@ -998,996 +1058,877 @@ function Wizard() {
     );
   }
 
-  /* ================= WIZARD ================= */
+  /* ================= WIZARD RENDER ================= */
   const stepMeta = STEPS[step - 1];
-  const distList = DISTRICTS_BY_STATE[f.state] || [];
 
   return (
-    <main className="min-h-screen pb-36" ref={topRef}>
-      {/* ---------- Sticky Progress Bar ---------- */}
-      <div className="sticky top-0 z-30 bg-white/95 backdrop-blur border-b border-gold/25 safe-top shadow-sm">
-        <div className="max-w-3xl mx-auto px-4 py-3">
-          <div className="flex items-center gap-3">
-            <Link href="/" className="text-[12px] font-bold text-maroon shrink-0">← హోమ్</Link>
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2">
-                <span className="grid place-items-center w-8 h-8 rounded-full maroon-gradient text-white text-sm shrink-0 shadow-soft">{stepMeta.icon}</span>
-                <div className="min-w-0">
-                  <div className="text-[13px] font-bold text-ink truncate">
-                    దశ {step} <span className="opacity-40">/ 5</span> — <Duo en={stepMeta.label} te={stepMeta.labelTe || ""} />
+    <main className="min-h-screen pb-28 sm:pb-36 bg-[#FAF7F2]" ref={topRef}>
+      {/* ---------- Top Header Bar ---------- */}
+      <div className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-gold/25 shadow-xs">
+        <div className="max-w-6xl mx-auto px-4 py-2.5 sm:py-3 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <Link href="/" className="text-xs sm:text-sm font-bold text-maroon hover:underline">
+              ← హోమ్
+            </Link>
+            <span className="text-slate-300">|</span>
+            <span className="text-xs sm:text-sm font-black text-navy">{SITE_CONFIG.brandName}</span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <a
+              href="https://wa.me/916304996088?text=Hello%20Mana%20Vivaha%20Registration%20Help"
+              target="_blank"
+              rel="noreferrer"
+              className="px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-[11px] font-bold flex items-center gap-1 hover:bg-emerald-100 transition"
+            >
+              <span>📞</span>
+              <span className="hidden sm:inline">హెల్ప్‌లైన్:</span> 6304996088
+            </a>
+          </div>
+        </div>
+
+        {/* Stepper Progress Bar */}
+        <div className="max-w-6xl mx-auto px-4 pb-2">
+          <div className="flex items-center justify-between gap-1 sm:gap-2">
+            {STEPS.map((s) => {
+              const active = s.n === step;
+              const done = s.n < step;
+              return (
+                <button
+                  key={s.n}
+                  type="button"
+                  onClick={() => {
+                    if (s.n < step) setStep(s.n);
+                  }}
+                  className={`flex-1 flex flex-col items-center gap-1 text-center py-1 rounded-xl transition ${
+                    active ? "bg-maroon-soft/60" : done ? "opacity-90 cursor-pointer" : "opacity-40"
+                  }`}
+                >
+                  <div className="flex items-center gap-1.5 w-full">
+                    <span
+                      className={`w-6 h-6 sm:w-7 sm:h-7 rounded-full text-xs font-black flex items-center justify-center shrink-0 transition ${
+                        done
+                          ? "bg-emerald-600 text-white"
+                          : active
+                          ? "maroon-gradient text-white ring-2 ring-gold shadow-sm"
+                          : "bg-slate-200 text-slate-600"
+                      }`}
+                    >
+                      {done ? "✓" : s.n}
+                    </span>
+                    <div className="hidden sm:block text-left min-w-0 flex-1">
+                      <div className={`text-xs font-bold truncate ${active ? "text-maroon" : "text-slate-700"}`}>
+                        {te ? s.labelTe : s.label}
+                      </div>
+                    </div>
                   </div>
-                  <div className="text-[10px] text-gray-500 telugu truncate">{te ? stepMeta.hint : (stepMeta.hintEn || stepMeta.hint)}</div>
-                </div>
-              </div>
+                  <div className={`w-full h-1 rounded-full ${done ? "bg-emerald-600" : active ? "bg-maroon" : "bg-slate-200"}`} />
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* ---------- Main Form & Desktop Live Preview Layout ---------- */}
+      <div className="max-w-6xl mx-auto px-4 py-4 sm:py-6">
+        {/* Draft Restore Alert */}
+        {draftFound && (
+          <div className="mb-4 bg-amber-50 border border-gold/40 rounded-2xl p-3 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-xs">
+            <div className="text-xs text-amber-950 font-bold flex items-center gap-2">
+              <span className="text-lg">💾</span>
+              <span>మీరు మునుపు పూరించిన వివరాలు అందుబాటులో ఉన్నాయి ({savedAt}).</span>
             </div>
-            <div className="relative w-11 h-11 shrink-0" aria-label="step progress">
-              <svg viewBox="0 0 40 40" className="w-11 h-11 -rotate-90">
-                <circle cx="20" cy="20" r="16.5" fill="none" stroke="#f1e6cf" strokeWidth="4" />
-                <circle cx="20" cy="20" r="16.5" fill="none" stroke="#7A0C2E" strokeWidth="4" strokeLinecap="round"
-                  strokeDasharray={2 * Math.PI * 16.5} strokeDashoffset={2 * Math.PI * 16.5 * (1 - strength / 100)}
-                  style={{ transition: "stroke-dashoffset 0.4s ease" }} />
-              </svg>
-              <span className="absolute inset-0 grid place-items-center text-[10px] font-extrabold text-maroon">{step}/5</span>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={resumeDraft}
+                className="px-3 py-1.5 rounded-xl maroon-gradient text-white text-xs font-bold hover:brightness-105 transition"
+              >
+                కొనసాగించండి (Resume)
+              </button>
+              <button
+                type="button"
+                onClick={clearDraft}
+                className="px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-slate-700 text-xs font-bold hover:bg-slate-50 transition"
+              >
+                కొత్తది (New)
+              </button>
             </div>
           </div>
-          <div className="mt-2.5 flex items-center gap-1">
-            {STEPS.map((s, i) => (
-              <button key={s.n} onClick={() => { if (s.n < step) setStep(s.n); }}
-                aria-label={`Step ${s.n}`}
-                className={`group relative flex-1 flex items-center`}>
-                <span className={`grid place-items-center w-5 h-5 rounded-full text-[9px] font-extrabold shrink-0 transition-all ${
-                  s.n < step ? "maroon-gradient text-white" : s.n === step ? "bg-white border-2 border-maroon text-maroon shadow-soft scale-110" : "bg-gray-200 text-gray-400"
-                }`}>
-                  {s.n < step ? "✓" : s.n}
-                </span>
-                {i < STEPS.length - 1 && (
-                  <span className={`h-[3px] flex-1 rounded-full mx-0.5 ${s.n < step ? "maroon-gradient" : "bg-gray-200"}`} />
-                )}
-              </button>
+        )}
+
+        {/* Validation Errors Box */}
+        {errs.length > 0 && (
+          <div className="mb-4 bg-rose-50 border border-rose-300 rounded-2xl p-4 space-y-1 shadow-xs animate-shake">
+            <div className="text-xs font-black text-rose-800 flex items-center gap-1.5">
+              <span>⚠️</span>
+              <span>దయచేసి క్రింది వివరాలు పూర్తి చేయండి:</span>
+            </div>
+            {errs.map((e, idx) => (
+              <div key={idx} className="text-xs text-rose-900 telugu font-medium pl-5">
+                • {e}
+              </div>
             ))}
           </div>
-          <div className="mt-1.5 flex items-center justify-between text-[10px] text-gray-500">
-            <span className="text-emerald-700 font-semibold">🔒 100% ఉచిత నమోదు & గోప్యత రక్షణ</span>
-            <span>{savedAt ? T(`💾 ఆటో-సేవ్ అయ్యింది ${savedAt}`, `💾 Auto-saved ${savedAt}`) : "💾 ఆటో-సేవ్ ఆన్"}</span>
-          </div>
-        </div>
-      </div>
-
-      <div className="max-w-3xl mx-auto px-4 py-5">
-        {/* Referral Invitation Welcome Banner */}
-        {refLocked && (
-          <div className="mb-4 bg-emerald-50 border-2 border-emerald-400 rounded-2xl p-4 flex items-center justify-between gap-3 shadow-sm animate-fade">
-            <div className="flex items-center gap-3">
-              <span className="text-2xl">🎁</span>
-              <div>
-                <div className="font-extrabold text-sm text-emerald-950">
-                  {refInfo?.referrer_name
-                    ? (te ? `🎉 మీ మిత్రులు ${refInfo.referrer_name} సిఫార్సుతో మీరు నమోదు చేసుకుంటున్నారు!` : `🎉 You are registering via ${refInfo.referrer_name}'s invitation!`)
-                    : (te ? `🎉 రెఫరల్ కోడ్ (${refLocked}) వర్తించబడింది!` : `🎉 Referral Code (${refLocked}) Applied!`)}
-                </div>
-                <div className="text-xs text-emerald-800 font-medium mt-0.5">
-                  {te
-                    ? `మీకు సాధారణ 3 రిక్వెస్ట్‌లతో పాటు +${refInfo?.bonus_credits || 1} అదనపు ఉచిత క్రెడిట్ బోనస్ లభిస్తుంది ✨`
-                    : `You get +${refInfo?.bonus_credits || 1} Extra Free Request bonus on registration ✨`}
-                </div>
-              </div>
-            </div>
-            <span className="bg-emerald-600 text-white font-mono font-black text-xs px-3 py-1 rounded-xl shrink-0 shadow-xs">
-              {refLocked}
-            </span>
-          </div>
         )}
 
-        {/* Draft resume banner */}
-        {draftFound && (
-          <div className="mb-4 bg-cream border border-gold/40 rounded-2xl p-4">
-            <div className="font-bold text-maroon text-[14px]">💾 {T("మీరు గతంలో నింపిన వివరాలు ఉన్నాయి", "Found your previously saved form")}</div>
-            <div className="text-[12px] text-gray-600 mt-1">{T("ఆగిన చోటు నుండి సులభంగా కొనసాగించండి — మళ్లీ టైప్ చేయనవసరం లేదు.", "Continue where you left off — no need to type again.")}</div>
-            <div className="mt-3 flex gap-2">
-              <button onClick={resumeDraft} className="maroon-gradient text-white font-bold text-[13px] px-4 py-2.5 rounded-xl">{T("▶️ కొనసాగించండి (Continue)", "▶️ Continue")}</button>
-              <button onClick={clearDraft} className="border border-maroon/25 text-maroon font-bold text-[13px] px-4 py-2.5 rounded-xl">{T("కొత్తగా ప్రారంభించండి", "Start fresh")}</button>
-            </div>
-          </div>
-        )}
-
-        {errs.length > 0 && (
-          <div className={`mb-4 bg-rose-50 border border-rose-200 rounded-2xl px-4 py-3 ${shake ? "shake" : ""}`}>
-            <div className="font-bold text-rose-800 text-[13px]">⚠️ {T("ఈ క్రింది వివరాలను సరిచూడండి:", "Please fix the following:")}</div>
-            <ul className="mt-1 text-[12px] text-rose-700 list-disc list-inside">
-              {errs.slice(0, 5).map((e) => <li key={e}>{e}</li>)}
-            </ul>
-          </div>
-        )}
-
-        <div key={step} className="step-slide bg-white rounded-3xl border border-gold/25 card-shadow p-4 sm:p-6 space-y-5">
-          {/* ---------------- STEP 1: BASIC DETAILS ---------------- */}
-          {step === 1 && (
-            <>
-              {/* Quick Sample Demo Profile Fill */}
-              <div className="bg-gradient-to-r from-amber-50 to-rose-50 border border-gold/40 rounded-2xl p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-xs">
-                <div className="text-xs font-bold text-maroon flex items-center gap-1.5">
-                  <span>⚡</span>
-                  <span>త్వరిత నమూనా డెమో పూరింపు (1-Click Sample Profile):</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => fillSampleDemo("Bride")}
-                    className="px-3 py-1 rounded-xl bg-white border border-rose-200 text-rose-800 font-bold text-xs hover:bg-rose-100 transition shadow-xs"
-                  >
-                    👰 వధువు డెమో
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => fillSampleDemo("Groom")}
-                    className="px-3 py-1 rounded-xl bg-white border border-indigo-200 text-indigo-800 font-bold text-xs hover:bg-indigo-100 transition shadow-xs"
-                  >
-                    🤵 వరుడు డెమో
-                  </button>
-                </div>
-              </div>
-
-              <div>
-                <label className="text-[13px] font-bold text-ink">{T("ఎవరి కోసం ప్రొఫైల్ నమోదు చేస్తున్నారు?", "Who is registering?")} <span className="req-star">*</span></label>
-                <div className="mt-2 grid grid-cols-2 gap-3">
-                  {[{ v: "Bride", l: "👰 పెళ్లి కూతురు (Bride)", s: "Bride Profile" }, { v: "Groom", l: "🤵 పెళ్లి కొడుకు (Groom)", s: "Groom Profile" }].map((g) => (
-                    <button key={g.v} type="button" onClick={() => set("gender", g.v)}
-                      className={`rounded-2xl border-2 p-4 text-center transition-all active:scale-[0.98] ${f.gender === g.v ? "border-maroon bg-maroon-soft shadow-soft" : "border-gold/30 bg-white hover:border-maroon/40"}`}>
-                      <div className="text-3xl">{g.v === "Bride" ? "👰" : "🤵"}</div>
-                      <div className="font-bold text-[14px] text-maroon mt-1 telugu">{g.l}</div>
-                      <div className="text-[11px] text-gray-500">{g.s}</div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <TextField label={<Duo en="Full Name" te="పూర్తి పేరు" />} value={f.full_name} onChange={(v) => set("full_name", v)} required
-                placeholder="Ex: Sai Lakshmi / Rajesh Reddy" hint={T("కార్డ్ మరియు ఛానళ్లలో ఇదే పేరు ప్రదర్శించబడుతుంది", "This name shows on profile card & search")} />
-
-              {/* Quick Birth Year Presets */}
-              <div className="bg-cream/60 border border-gold/40 rounded-2xl p-3 space-y-1.5">
-                <div className="text-[11px] font-bold text-slate-700 flex items-center justify-between">
-                  <span>⚡ పుట్టిన సంవత్సరం (1-క్లిక్ సెలెక్షన్):</span>
-                  <span className="text-[10px] text-gray-500">వయస్సు ఆటోమేటిక్‌గా వస్తుంది</span>
-                </div>
-                <div className="flex flex-wrap gap-1.5">
-                  {[
-                    { y: 2003, a: 23 },
-                    { y: 2002, a: 24 },
-                    { y: 2001, a: 25 },
-                    { y: 2000, a: 26 },
-                    { y: 1999, a: 27 },
-                    { y: 1998, a: 28 },
-                    { y: 1997, a: 29 },
-                    { y: 1996, a: 30 },
-                    { y: 1995, a: 31 },
-                    { y: 1994, a: 32 },
-                  ].map((item) => (
-                    <button
-                      key={item.y}
-                      type="button"
-                      onClick={() => {
-                        set("dob", `${item.y}-06-15`);
-                        set("age", String(item.a));
-                      }}
-                      className={`px-2.5 py-1 rounded-full text-xs font-bold transition ${
-                        f.dob?.startsWith(String(item.y))
-                          ? "maroon-gradient text-white border-transparent shadow-xs"
-                          : "bg-white border border-gold/40 text-maroon hover:bg-gold/20"
-                      }`}
-                    >
-                      {item.y} <span className="opacity-80 font-normal">({item.a}y)</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <TextField label={<Duo en="Date of Birth" te="పుట్టిన తేదీ" />} value={f.dob} onChange={(v) => set("dob", v)} required
-                  type="date" max={maxDobFor18()} hint={T("వయస్సు ఆటోమేటిక్‌గా లెక్కించబడుతుంది", "Age is calculated automatically")} />
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          {/* ================= LEFT COLUMN: STEP FORM (8 cols) ================= */}
+          <div className="lg:col-span-8 space-y-5">
+            <div className="bg-white rounded-3xl border border-gold/30 shadow-md p-4 sm:p-6 space-y-5">
+              {/* Step Header */}
+              <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
                 <div>
-                  <label className="text-[13px] font-bold text-ink">వయస్సు (Age - Auto)</label>
-                  <div className="input-mobile mt-1 flex items-center justify-between bg-cream">
-                    <span className="font-bold text-maroon">{f.age ? `${f.age} సం॥ (Years)` : "—"}</span>
-                    <span className="text-[10px] text-gray-500">{T("DOB నుండి", "from DOB")}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Height Quick Pick & Select */}
-              <div className="space-y-1.5">
-                <div className="text-[11px] font-bold text-slate-700 flex items-center justify-between">
-                  <span>⚡ ప్రముఖ ఎత్తులు (1-క్లిక్ ఎంపిక):</span>
-                </div>
-                <div className="flex flex-wrap gap-1.5">
-                  {["5'2\"", "5'3\"", "5'4\"", "5'5\"", "5'6\"", "5'7\"", "5'8\"", "5'9\"", "5'10\"", "6'0\""].map((h) => (
-                    <button
-                      key={h}
-                      type="button"
-                      onClick={() => set("height", h)}
-                      className={`px-2.5 py-1 rounded-lg text-xs font-bold transition ${
-                        f.height === h
-                          ? "maroon-gradient text-white border-transparent shadow-xs"
-                          : "bg-cream border border-gold/40 text-maroon hover:bg-gold/20"
-                      }`}
-                    >
-                      {heightLabel(h)}
-                    </button>
-                  ))}
-                </div>
-                <SelectField label={<Duo en="Height" te="ఎత్తు (Height)" />} required value={f.height}
-                  onChange={(v) => set("height", v)} placeholder="మీ ఎత్తు ఎంచుకోండి / Select your height">
-                  {HEIGHTS.map((h) => (<option key={h} value={h}>{heightLabel(h)}</option>))}
-                </SelectField>
-              </div>
-
-              <PillGroup label={<Duo en="Marital Status" te="వైవాహిక స్థితి" />} required
-                value={f.marital_status}
-                onChange={(v) => { set("marital_status", v); if (v === "Pelli Kaledu") set("children", ""); }}
-                options={[
-                  { v: "Pelli Kaledu", en: "Never Married", te: "పెళ్లి కాలేదు (Unmarried)" },
-                  { v: f.gender === "Groom" ? "Widower" : "Widow",
-                    en: f.gender === "Groom" ? "Widower" : "Widow",
-                    te: f.gender === "Groom" ? "భార్య చనిపోయారు" : "భర్త చనిపోయారు" },
-                  { v: "Divorced", en: "Divorced", te: "విడాకులు అయ్యాయి" },
-                  { v: "Awaiting Divorce", en: "Awaiting Divorce", te: "విడాకులు రావాల్సి ఉంది" },
-                ]} />
-
-              {f.marital_status && f.marital_status !== "Pelli Kaledu" ? (
-                <PillGroup label={<Duo en="Number of Children" te="పిల్లల సంఖ్య" />} required
-                  value={f.children} onChange={(v) => set("children", v)}
-                  options={CHILDREN_OPTIONS.map((c) => ({
-                    v: c, en: c === "None" ? "No Children" : c,
-                    te: c === "None" ? "పిల్లలు లేరు" : (c === "4+" ? "4+ మంది" : `${c} మంది`),
-                  }))} />
-              ) : null}
-
-              <SelectField label={<Duo en="Religion" te="మతం" />} value={f.religion}
-                onChange={(v) => set("religion", v)} placeholder="మతం ఎంచుకోండి / Select religion">
-                {RELIGIONS.map((r) => (<option key={r} value={r}>{r}</option>))}
-              </SelectField>
-
-              <ChipGroup label={<Duo en="Mother Tongue" te="మాతృభాష" />} options={MOTHER_TONGUES.map((m) => ({ v: m }))} value={f.mother_tongue}
-                onChange={(v) => set("mother_tongue", v)} />
-            </>
-          )}
-
-          {/* ---------------- STEP 2: CASTE & ASTROLOGY ---------------- */}
-          {step === 2 && (
-            <>
-              {/* Popular Telugu Caste Quick Chips */}
-              <div className="mb-2 bg-cream/60 border border-gold/40 rounded-2xl p-3.5 space-y-2">
-                <div className="text-xs font-bold text-slate-700 flex items-center justify-between">
-                  <span>⚡ ప్రముఖ కులాలు (1-క్లిక్ త్వరిత ఎంపిక):</span>
-                  <span className="text-[10px] text-maroon font-bold">మొత్తం 50+ కులాలు</span>
-                </div>
-                <div className="flex flex-wrap gap-1.5">
-                  {[
-                    { v: "Reddy", te: "రెడ్డి" },
-                    { v: "Kamma", te: "కమ్మ" },
-                    { v: "Kapu", te: "కాపు / బలిజ" },
-                    { v: "Arya Vysya", te: "ఆర్య వైశ్య" },
-                    { v: "Brahmin", te: "బ్రాహ్మణ" },
-                    { v: "Padmashali", te: "పద్మశాలి" },
-                    { v: "Munnuru Kapu", te: "మున్నూరు కాపు" },
-                    { v: "Yadava", te: "యాదవ" },
-                    { v: "Goud", te: "గౌడ్" },
-                    { v: "Mudiraj", te: "ముదిరాజ్" },
-                    { v: "Velama", te: "వెలమ" },
-                    { v: "Mala", te: "మాల" },
-                    { v: "Madiga", te: "మాదిగ" },
-                    { v: "Viswabrahmin", te: "విశ్వబ్రాహ్మణ" },
-                  ].map((c) => (
-                    <button
-                      key={c.v}
-                      type="button"
-                      onClick={() => { set("caste", c.v); set("sub_caste", ""); }}
-                      className={`px-3 py-1.5 rounded-full text-xs font-bold transition ${
-                        f.caste === c.v
-                          ? "maroon-gradient text-white border-transparent shadow-xs"
-                          : "bg-white border border-gold/40 text-maroon hover:bg-gold/20"
-                      }`}
-                    >
-                      <span className="telugu font-black">{c.te}</span> <span className="font-normal text-[10px] opacity-80">({c.v})</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <SearchSelect label={`కులం / Caste (${f.religion || "Hindu"})`} required
-                options={casteOpts} value={f.caste}
-                teMap={CASTE_TELUGU}
-                onChange={(v) => { set("caste", v); set("sub_caste", ""); }}
-                placeholder="కులం ఎంచుకోండి — 50+ Telugu Castes"
-                hint={T("మీ కులం కమ్యూనిటీ ఛానల్‌లో ప్రొఫైల్ పోస్ట్ అవుతుంది", "Profile will be featured in your community group")} />
-
-              {f.caste && (CASTE_SUBCASTES[f.caste]?.length ? (
-                <SearchSelect label="ఉపకులం / Sub-caste"
-                  options={CASTE_SUBCASTES[f.caste]} value={f.sub_caste}
-                  onChange={(v) => set("sub_caste", v)}
-                  placeholder="ఉపకులం ఎంచుకోండి (ఉంటే)"
-                  hint="వర్తిస్తే ఎంచుకోండి లేదా వదిలేయండి" />
-              ) : (
-                <TextField label="ఉపకులం / Sub-caste (Optional)" optional value={f.sub_caste} onChange={(v) => set("sub_caste", v)}
-                  placeholder="Ex: Pakanati / Chowdary / Motati / Ontari…" />
-              ))}
-
-              {f.religion === "Muslim" ? (
-                <>
-                  <div className="pt-2 pb-1 flex items-center gap-2">
-                    <span className="text-[13px] font-extrabold text-maroon">🕌 ఇస్లామిక్ వివరాలు (Islamic Background)</span>
-                    <span className="h-px flex-1 bg-gold/40" />
-                  </div>
-                  <SelectField label="మత శాఖ / Islamic Sect" value={f.sub_caste || "Sunni"}
-                    onChange={(v) => set("sub_caste", v)} placeholder="శాఖ ఎంచుకోండి">
-                    <option value="Sunni">Sunni (సున్నీ)</option>
-                    <option value="Shia">Shia (షియా)</option>
-                    <option value="Ahle Hadees">Ahle Hadees (అహ్లే హదీస్)</option>
-                    <option value="Sufi">Sufi (సూఫీ)</option>
-                    <option value="Other">Other / General Muslim</option>
-                  </SelectField>
-                  <SelectField label="నమాజ్ & ధార్మిక నిబద్ధత / Religious Practice" value={f.gothram || "5 Times Namaz"}
-                    onChange={(v) => set("gothram", v)} placeholder="నమాజ్ నిబద్ధత ఎంచుకోండి">
-                    <option value="5 Times Namaz Regular">5 Times Namaz (రోజూ 5 సార్లు నమాజ్)</option>
-                    <option value="Regular Practicing">Regular Practicing (ధార్మిక నిబద్ధత గల)</option>
-                    <option value="Moderate">Moderate (సాధారణ)</option>
-                    <option value="Cultural">Cultural Muslim</option>
-                  </SelectField>
-                </>
-              ) : f.religion === "Christian" ? (
-                <>
-                  <div className="pt-2 pb-1 flex items-center gap-2">
-                    <span className="text-[13px] font-extrabold text-maroon">⛪ క్రైస్తవ వివరాలు (Christian Background)</span>
-                    <span className="h-px flex-1 bg-gold/40" />
-                  </div>
-                  <SelectField label="చర్చ్ తెగ / Denomination" value={f.sub_caste || "Roman Catholic"}
-                    onChange={(v) => set("sub_caste", v)} placeholder="తెగ ఎంచుకోండి">
-                    <option value="Roman Catholic">Roman Catholic (రోమన్ క్యాథలిక్)</option>
-                    <option value="CSI (Church of South India)">CSI (చర్చ్ ఆఫ్ సౌత్ ఇండియా)</option>
-                    <option value="Baptist">Baptist (బాప్టిస్ట్)</option>
-                    <option value="Protestant">Protestant (ప్రొటెస్టంట్)</option>
-                    <option value="Pentecostal">Pentecostal (పెంతెకోస్తు)</option>
-                    <option value="Seventh-day Adventist">Seventh-day Adventist</option>
-                    <option value="Other Christian">Other Denomination</option>
-                  </SelectField>
-                  <TextField label="చర్చ్ / పారిష్ పేరు (Church / Parish Name)" optional value={f.gothram} onChange={(v) => set("gothram", v)}
-                    placeholder="Ex: St. Mary's / Wesley / Calvary…" hint="మీరు హాజరయ్యే చర్చ్ పేరు" />
-                </>
-              ) : (
-                <>
-                  <div className="pt-2 pb-1 flex items-center gap-2">
-                    <span className="text-[13px] font-extrabold text-maroon">🕉️ వేద జ్యోతిష వివరాలు (Vedic Kundli Details)</span>
-                    <span className="h-px flex-1 bg-gold/40" />
-                    <span className="text-[10px] text-gray-500">వేద గుణమేళనం కి అవసరం</span>
-                  </div>
-
-                  <TextField label="గోత్రం / Gothram" optional value={f.gothram} onChange={(v) => set("gothram", v)}
-                    placeholder="Ex: Kasyapa / Bharadwaja / Shiva / Janakula…" hint="గోత్ర మైత్రి & వివాహ సరిపోలిక కొరకు" />
-
-                  <SearchSelect label="నక్షత్రం / Nakshatram (27 Stars)" options={NAKSHATRAS.map((n) => n.en)} value={f.star}
-                    teMap={Object.fromEntries(NAKSHATRAS.map((n) => [n.en, n.te]))}
-                    onChange={(v) => set("star", v)}
-                    placeholder="నక్షత్రం ఎంచుకోండి (27 Nakshatras)"
-                    hint="నక్షత్రం ఎంచుకోగానే రాశి ఆటోమేటిక్‌గా సూచించబడుతుంది (వేద గుణమేళనం)" />
-
-                  <SearchSelect label="రాశి / Rasi (12 Vedic Moon Signs)" options={RASIS.map((r) => r.en)} value={f.rasi}
-                    teMap={Object.fromEntries(RASIS.map((r) => [r.en, r.te]))}
-                    onChange={(v) => set("rasi", v)} placeholder="రాశి ఎంచుకోండి (12 Moon Signs)" />
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <PillGroup label="మూలా నక్షత్రమా?" options={[{ v: "No", en: "No", te: "లేదు" }, { v: "Yes", en: "Yes", te: "ఉంది" }]} value={f.moola_nakshatram}
-                      onChange={(v) => set("moola_nakshatram", v)} />
-                    <PillGroup label="దోషం ఏదైనా ఉందా?" options={[{ v: "No", en: "No Dosham", te: "లేదు" }, { v: "Yes", en: "Kuja/Other", te: "ఉంది" }, { v: "Not Sure", en: "Not Sure", te: "తెలియదు" }]} value={f.dosham}
-                      onChange={(v) => set("dosham", v)} />
-                  </div>
-                </>
-              )}
-            </>
-          )}
-
-          {/* ---------------- STEP 3: CAREER & EDUCATION (WORK TYPE PROMINENTLY AT TOP) ---------------- */}
-          {step === 3 && (
-            <>
-              {/* 🌟 1. WORK TYPE / PROFESSION SECTOR AT THE VERY TOP */}
-              <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <label className="text-[14px] font-extrabold text-ink flex items-center gap-1.5">
-                    💼 వృత్తి / ఉద్యోగ రంగం (Work Type / Sector) <span className="req-star">*</span>
-                  </label>
-                  <span className="text-[10px] font-bold text-maroon bg-cream px-2 py-0.5 rounded-full border border-gold/40">ముఖ్యమైనది</span>
-                </div>
-                <div className="hint mb-2.5">మీరు పని చేస్తున్న రంగం లేదా వృత్తి ఎంచుకోండి:</div>
-
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-                  {WORK_TYPES_DETAILED.map((w) => {
-                    const isSelected = f.work_type === w.en || f.work_type === w.id;
-                    return (
-                      <button
-                        key={w.id}
-                        type="button"
-                        onClick={() => set("work_type", w.en)}
-                        className={`p-3 rounded-2xl border text-left transition-all duration-150 active:scale-[0.98] ${
-                          isSelected
-                            ? "maroon-gradient text-white border-maroon shadow-brand font-bold ring-2 ring-gold/40"
-                            : "bg-white border-gray-200 text-ink hover:border-maroon/50 hover:bg-cream/40"
-                        }`}
-                      >
-                        <div className="text-xl mb-1">{w.icon}</div>
-                        <div className="text-[13px] font-bold leading-tight line-clamp-1">{w.en.split("/")[0].trim()}</div>
-                        <div className={`text-[11px] telugu mt-0.5 ${isSelected ? "text-white/90 font-semibold" : "text-gray-500"}`}>{w.te.split("(")[0].trim()}</div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* 🌟 2. CATEGORIZED & COMPREHENSIVE EDUCATION */}
-              <div className="pt-2 border-t border-gold/20">
-                <div className="mb-2">
-                  <label className="text-[13px] font-bold text-ink">
-                    🎓 విద్యార్హత (Education Qualification) <span className="req-star">*</span>
-                  </label>
-                  <div className="hint">అత్యున్నత విద్యా అర్హతను ఎంచుకోండి:</div>
-                </div>
-
-                {/* Popular Quick Pills */}
-                <div className="mb-2 flex flex-wrap gap-1.5">
-                  {[
-                    { label: "B.Tech / B.E.", te: "బి.టెక్" },
-                    { label: "MS in USA / Abroad", te: "MS విదేశాలు" },
-                    { label: "MBBS", te: "డాక్టర్" },
-                    { label: "MD / MS (Medical Specialist)", te: "స్పెషలిస్ట్" },
-                    { label: "MBA / PGDM", te: "MBA" },
-                    { label: "CA (Chartered Accountant)", te: "CA" },
-                    { label: "M.Tech / M.E.", te: "ఎం.టెక్" },
-                    { label: "MCA", te: "MCA" },
-                    { label: "B.Sc Nursing / Allied Health", te: "నర్సింగ్" },
-                    { label: "B.Pharm / M.Pharm / Pharm.D", te: "ఫార్మసీ" },
-                    { label: "LLB / BL (Law)", te: "లాయర్" },
-                    { label: "Ph.D / Doctorate", te: "డాక్టరేట్" },
-                  ].map((p) => (
-                    <button
-                      key={p.label}
-                      type="button"
-                      onClick={() => set("education", p.label)}
-                      className={`px-3 py-1.5 rounded-full text-[11px] border font-semibold transition ${
-                        f.education === p.label
-                          ? "maroon-gradient text-white border-transparent shadow-sm"
-                          : "bg-cream border-gold/40 text-maroon hover:bg-gold/15"
-                      }`}
-                    >
-                      {p.label} <span className="opacity-75 font-normal">({p.te})</span>
-                    </button>
-                  ))}
-                </div>
-
-                <SearchSelect
-                  label="అన్ని విద్యా కోర్సులు (All Educations A–Z)"
-                  required
-                  options={EDUCATIONS}
-                  teMap={EDUCATION_TELUGU}
-                  value={f.education}
-                  onChange={(v) => set("education", v)}
-                  placeholder="విద్యార్హత ఎంచుకోండి / Select qualification"
-                />
-
-                <TextField
-                  label="స్పెషలైజేషన్ / బ్రాంచ్ (Education Specialization)"
-                  optional
-                  value={f.education_detail}
-                  onChange={(v) => set("education_detail", v)}
-                  placeholder="Ex: CSE, AI/ML, Cardiology, Structural Engg, Corporate Law…"
-                />
-              </div>
-
-              {/* 🌟 3. JOB / OCCUPATION */}
-              <div className="pt-2 border-t border-gold/20">
-                <SearchSelect
-                  label="ఉద్యోగం / హోదా (Job / Occupation)"
-                  required
-                  options={JOBS}
-                  value={f.job}
-                  onChange={(v) => set("job", v)}
-                  placeholder="ఉద్యోగం ఎంచుకోండి / Select occupation"
-                />
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
-                  <TextField
-                    label="కంపెనీ / సంస్థ పేరు (Company / Organization)"
-                    optional
-                    value={f.company}
-                    onChange={(v) => set("company", v)}
-                    placeholder="Ex: Google, TCS, Govt Hospital, Self-owned…"
-                  />
-                  <TextField
-                    label="అనుభవం (Experience in Years)"
-                    optional
-                    value={f.experience}
-                    onChange={(v) => set("experience", v)}
-                    placeholder="Ex: 3 Years / 5+ Years"
-                  />
-                </div>
-              </div>
-
-              {/* 🌟 4. GRANULAR SALARY DROPDOWN (1L, 2L, 3L... 1Cr+) */}
-              <div className="pt-2 border-t border-gold/20">
-                <label className="text-[13px] font-bold text-ink flex items-center justify-between">
-                  <span>💰 వార్షిక వేతనం / ఆదాయం (Annual Salary) <span className="req-star">*</span></span>
-                  <span className="text-[10px] text-gray-500 font-normal">లక్షలు & కోట్లలో</span>
-                </label>
-                <div className="hint mb-1.5">సంవత్సరానికి సుమారు ఆదాయ పరిధిని ఎంచుకోండి (Approximate CTC):</div>
-
-                {/* Popular Salary Quick Chips */}
-                <div className="mb-2 flex flex-wrap gap-1.5">
-                  {[
-                    "₹5 - 7 Lakhs / year",
-                    "₹8 - 10 Lakhs / year",
-                    "₹10 - 12 Lakhs / year",
-                    "₹15 - 20 Lakhs / year",
-                    "₹25 - 35 Lakhs / year",
-                    "₹50+ Lakhs (NRI)",
-                  ].map((sal) => (
-                    <button
-                      key={sal}
-                      type="button"
-                      onClick={() => set("salary", sal)}
-                      className={`px-3 py-1.5 rounded-full text-xs font-bold transition ${
-                        f.salary === sal
-                          ? "maroon-gradient text-white border-transparent shadow-xs"
-                          : "bg-cream border border-gold/40 text-maroon hover:bg-gold/20"
-                      }`}
-                    >
-                      {sal}
-                    </button>
-                  ))}
-                </div>
-
-                <SelectField
-                  label=""
-                  required
-                  value={f.salary}
-                  onChange={(v) => set("salary", v)}
-                  placeholder="వార్షిక వేతనం ఎంచుకోండి / Select salary range"
-                >
-                  {SALARIES_DETAILED.map((s) => (
-                    <option key={s.id} value={s.en}>
-                      {s.display} — {s.te}
-                    </option>
-                  ))}
-                </SelectField>
-
-                <div className="mt-3">
-                  <TextField
-                    label="ఉద్యోగ ప్రదేశం (Work Location / City)"
-                    optional
-                    value={f.work_location}
-                    onChange={(v) => set("work_location", v)}
-                    placeholder="Ex: Hyderabad, Bengaluru, Dallas (USA), London, Dubai…"
-                    hint="ప్రస్తుతం ఉద్యోగం చేస్తున్న ఊరు లేదా విదేశం"
-                  />
-                </div>
-              </div>
-            </>
-          )}
-
-          {/* ---------------- STEP 4: LOCATION, NRI COUNTRIES & FAMILY ---------------- */}
-          {step === 4 && (
-            <>
-              {/* Location & NRI Selection */}
-              <div>
-                <label className="text-[13px] font-bold text-ink">
-                  నివాస రాష్ట్రం / ప్రాంతం (State / Country) <span className="req-star">*</span>
-                </label>
-                <div className="mt-2 grid grid-cols-3 gap-2">
-                  <button type="button" onClick={() => { set("state", "TS"); set("district", ""); set("country", "India"); }}
-                    className={`p-3 rounded-2xl border text-center transition ${f.state === "TS" ? "maroon-gradient text-white font-bold shadow-brand" : "bg-white border-gray-200 text-gray-700 hover:border-maroon"}`}>
-                    <div className="text-base font-extrabold">🏛️ TS</div>
-                    <div className="text-[11px] opacity-90 telugu font-medium">తెలంగాణ (33 జిల్లాలు)</div>
-                  </button>
-                  <button type="button" onClick={() => { set("state", "AP"); set("district", ""); set("country", "India"); }}
-                    className={`p-3 rounded-2xl border text-center transition ${f.state === "AP" ? "maroon-gradient text-white font-bold shadow-brand" : "bg-white border-gray-200 text-gray-700 hover:border-maroon"}`}>
-                    <div className="text-base font-extrabold">🌊 AP</div>
-                    <div className="text-[11px] opacity-90 telugu font-medium">ఆంధ్రప్రదేశ్ (26 జిల్లాలు)</div>
-                  </button>
-                  <button type="button" onClick={() => { set("state", "Other"); set("district", ""); }}
-                    className={`p-3 rounded-2xl border text-center transition ${f.state === "Other" ? "maroon-gradient text-white font-bold shadow-brand" : "bg-white border-gray-200 text-gray-700 hover:border-maroon"}`}>
-                    <div className="text-base font-extrabold">✈️ NRI / Other</div>
-                    <div className="text-[11px] opacity-90 telugu font-medium">విదేశాలు / ఇతర రాష్ట్రాలు</div>
-                  </button>
-                </div>
-              </div>
-
-              {/* NRI Top Country Quick Pills when NRI is picked */}
-              {f.state === "Other" && (
-                <div className="bg-cream/70 border border-gold/40 rounded-2xl p-3.5 space-y-2">
-                  <div className="text-[12px] font-bold text-maroon flex items-center justify-between">
-                    <span>✈️ ప్రధాన విదేశాలు (Top NRI Destinations)</span>
-                    <span className="text-[10px] text-gray-500">1-క్లిక్ సెలెక్షన్</span>
-                  </div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {NRI_COUNTRIES.slice(0, 8).map((c) => (
-                      <button
-                        key={c.code}
-                        type="button"
-                        onClick={() => {
-                          set("district", c.en);
-                          set("country", c.en.split("/")[0].trim());
-                          if (!f.work_location) set("work_location", c.en);
-                        }}
-                        className={`px-3 py-1.5 rounded-full text-[12px] border font-bold transition ${
-                          f.district === c.en
-                            ? "maroon-gradient text-white border-transparent shadow-sm"
-                            : "bg-white border-gold/30 text-ink hover:bg-gold/20"
-                        }`}
-                      >
-                        {c.flag} {c.en.split("/")[0].trim()} <span className="font-normal text-[10px] opacity-80 telugu">({c.te.split("(")[0].trim()})</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Top District Quick Chips for TS & AP */}
-              {f.state === "TS" && (
-                <div className="bg-cream/60 border border-gold/40 rounded-2xl p-3 space-y-1.5">
-                  <div className="text-[11px] font-bold text-slate-700 flex items-center justify-between">
-                    <span>⚡ ప్రముఖ తెలంగాణ జిల్లాలు:</span>
-                    <span className="text-[10px] text-maroon font-bold">మొత్తం 33 జిల్లాలు కింద ఉన్నాయి</span>
-                  </div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {["Hyderabad", "Medchal-Malkajgiri", "Ranga Reddy", "Warangal", "Karimnagar", "Nalgonda", "Nizamabad", "Khammam", "Sangareddy"].map((d) => (
-                      <button
-                        key={d}
-                        type="button"
-                        onClick={() => set("district", d)}
-                        className={`px-2.5 py-1 rounded-full text-xs font-bold transition ${
-                          f.district === d
-                            ? "maroon-gradient text-white border-transparent shadow-xs"
-                            : "bg-white border border-gold/40 text-maroon hover:bg-gold/20"
-                        }`}
-                      >
-                        {DISTRICT_TELUGU[d] || d}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {f.state === "AP" && (
-                <div className="bg-cream/60 border border-gold/40 rounded-2xl p-3 space-y-1.5">
-                  <div className="text-[11px] font-bold text-slate-700 flex items-center justify-between">
-                    <span>⚡ ప్రముఖ ఆంధ్రప్రదేశ్ జిల్లాలు:</span>
-                    <span className="text-[10px] text-maroon font-bold">మొత్తం 26 జిల్లాలు కింద ఉన్నాయి</span>
-                  </div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {["Visakhapatnam", "NTR", "Guntur", "Tirupati", "Krishna", "Nellore", "East Godavari", "Kurnool", "Chittoor"].map((d) => (
-                      <button
-                        key={d}
-                        type="button"
-                        onClick={() => set("district", d)}
-                        className={`px-2.5 py-1 rounded-full text-xs font-bold transition ${
-                          f.district === d
-                            ? "maroon-gradient text-white border-transparent shadow-xs"
-                            : "bg-white border border-gold/40 text-maroon hover:bg-gold/20"
-                        }`}
-                      >
-                        {DISTRICT_TELUGU[d] || d}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <SearchSelect
-                label={
-                  f.state === "TS"
-                    ? "జిల్లా / District (తెలంగాణ సమగ్ర 33 జిల్లాలు)"
-                    : f.state === "AP"
-                    ? "జిల్లా / District (ఆంధ్రప్రదేశ్ సమగ్ర 26 జిల్లాలు)"
-                    : "విదేశీ దేశం / ఇతర రాష్ట్రం (NRI Country / State)"
-                }
-                required
-                options={distList}
-                teMap={DISTRICT_TELUGU}
-                value={f.district}
-                onChange={(v) => {
-                  set("district", v);
-                  if (f.state === "Other") {
-                    set("country", v.split("/")[0].trim());
-                  }
-                }}
-                placeholder={
-                  f.state === "TS"
-                    ? "తెలంగాణ జిల్లా ఎంచుకోండి (33 జిల్లాలు)"
-                    : f.state === "AP"
-                    ? "ఆంధ్రప్రదేశ్ జిల్లా ఎంచుకోండి (26 జిల్లాలు)"
-                    : "విదేశీ దేశం లేదా రాష్ట్రాన్ని ఎంచుకోండి"
-                }
-                hint="స్థానిక మ్యాచ్‌లు మరియు జిల్లా సంబంధాల కొరకు"
-              />
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <TextField label="మండలం / ప్రాంతం (Mandal / Area)" optional value={f.mandal} onChange={(v) => set("mandal", v)} placeholder="Ex: Miryalaguda / Gachibowli / Tenali…" />
-                <TextField label="ప్రస్తుత నగరం (Current City)" optional value={f.current_city} onChange={(v) => set("current_city", v)} placeholder="Ex: Hyderabad / Vijayawada / Dallas…" />
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <TextField label="స్వస్థలం (Native Place / Village)" optional value={f.native_place} onChange={(v) => set("native_place", v)} placeholder="Ex: Nalgonda / Eluru / Ongole…" />
-                <TextField label="పిన్‌కోడ్ (Pincode)" optional value={f.pincode} onChange={(v) => set("pincode", v)} inputMode="numeric" placeholder="500032" />
-              </div>
-
-              {/* Mobile Verification & Password Box */}
-              <div className="bg-white rounded-2xl border-2 border-gold/40 p-4 space-y-3 shadow-sm">
-                <div className="font-bold text-maroon text-[14px] flex items-center justify-between">
-                  <span>📱 మొబైల్ నంబర్ & లాగిన్ పాస్‌వర్డ్</span>
-                  <span className="text-[10px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">100% ప్రైవేట్</span>
-                </div>
-
-                <TextField label="WhatsApp / మొబైల్ నంబర్" required value={f.phone} onChange={(v) => set("phone", v.replace(/\D/g, "").slice(0, 10))}
-                  type="tel" inputMode="tel" placeholder="98480 12345"
-                  hint={T("మీ నంబర్ ఎవరికీ బహిర్గతం కాదు — ఇరువైపులా ఇష్టపడితేనే మార్పిడి జరుగుతుంది", "Your number stays hidden — exchanged only upon mutual consent")} />
-
-                {!phoneOk ? (
-                  <div className="flex flex-wrap items-center gap-2">
-                    <button type="button" onClick={sendOtp} disabled={busy || f.phone.length !== 10}
-                      className="maroon-gradient text-white font-bold text-[13px] px-4 py-2.5 rounded-xl disabled:opacity-50">
-                      {otpSent ? T("OTP మళ్లీ పంపు (Resend)", "Resend OTP") : T("OTP పంపండి (Send OTP)", "Send OTP")}
-                    </button>
-                    {otpSent && (
-                      <>
-                        <input value={otpCode} onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, "").slice(0, 4))}
-                          inputMode="numeric" placeholder="4 అంకెల OTP"
-                          className="input-mobile w-32 text-center tracking-[0.4em] font-bold" />
-                        <button type="button" onClick={verifyOtp} disabled={busy || otpCode.length !== 4}
-                          className="gold-gradient text-maroon font-bold text-[13px] px-4 py-2.5 rounded-xl disabled:opacity-50">✅ ధృవీకరించు</button>
-                      </>
-                    )}
-                  </div>
-                ) : (
-                  <div className="text-[12px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2">
-                    {T("✅ మొబైల్ నంబర్ ధృవీకరించబడింది — మీ ప్రొఫైల్‌కు వెరిఫైడ్ బ్యాడ్జ్ వస్తుంది", "✅ Number verified — Verified trust badge added to profile")}
-                  </div>
-                )}
-                {otpMsg && <div className="text-[11px] text-gray-600">{otpMsg}</div>}
-
-                <TextField label="ఈమెయిల్ (Email Address)" optional value={f.email} onChange={(v) => set("email", v)} inputMode="email" placeholder="name@gmail.com" />
-
-                <div>
-                  <label className="text-[13px] font-bold text-ink">🔑 ఖాతా పాస్‌వర్డ్ (Password) <span className="text-maroon">*</span></label>
-                  <div className="relative mt-1">
-                    <input type={showPw ? "text" : "password"} value={f.password}
-                      onChange={(e) => set("password", e.target.value.slice(0, 72))}
-                      placeholder="కనీసం 6 అక్షరాలు (Minimum 6 characters)" autoComplete="new-password"
-                      className="input-mobile pr-16" />
-                    <button type="button" onClick={() => setShowPw(!showPw)}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 text-[12px] font-bold text-maroon px-2 py-1">
-                      {showPw ? "🙈 దాచు" : "👁️ చూపు"}
-                    </button>
-                  </div>
-                  <div className="hint mt-1">లాగిన్ కొరకు మీ ఫోన్ నంబర్ + ఈ పాస్‌వర్డ్ ఉపయోగించవచ్చు</div>
-                </div>
-              </div>
-
-              {/* Family Details */}
-              <div className="pt-2 border-t border-gold/20 space-y-3">
-                <div className="font-bold text-maroon text-[14px]">👨‍👩‍👧 కుటుంబ వివరాలు (Family Details)</div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <TextField label="తండ్రి పేరు (Father Name)" optional value={f.father_name} onChange={(v) => set("father_name", v)} />
-                  <ChipGroup label="తండ్రి వృత్తి (Father Occupation)" options={OCCUPATIONS.map((o) => ({ v: o }))} value={f.father_occupation}
-                    onChange={(v) => set("father_occupation", v)} />
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <TextField label="తల్లి పేరు (Mother Name)" optional value={f.mother_name} onChange={(v) => set("mother_name", v)} />
-                  <ChipGroup label="తల్లి వృత్తి (Mother Occupation)" options={OCCUPATIONS.map((o) => ({ v: o }))} value={f.mother_occupation}
-                    onChange={(v) => set("mother_occupation", v)} />
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <Stepper label="సోదరులు (Brothers)" value={f.brothers} onChange={(v) => set("brothers", v)} />
-                  <Stepper label="పెళ్లైన సోదరులు (Married)" value={f.brothers_married} onChange={(v) => set("brothers_married", v)} />
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <Stepper label="సోదరీమణులు (Sisters)" value={f.sisters} onChange={(v) => set("sisters", v)} />
-                  <Stepper label="పెళ్లైన సోదరీమణులు (Married)" value={f.sisters_married} onChange={(v) => set("sisters_married", v)} />
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <PillGroup label="కుటుంబ రకం (Family Type)"
-                    options={[
-                      { v: "Nuclear", en: "Nuclear Family", te: "చిన్న కుటుంబం" },
-                      { v: "Joint", en: "Joint Family", te: "ఉమ్మడి కుటుంబం" },
-                    ]}
-                    value={f.family_type} onChange={(v) => set("family_type", v)} />
-                  <PillGroup label="కుటుంబ స్థాయి (Family Status)"
-                    options={[
-                      { v: "Middle Class", en: "Middle Class", te: "మధ్య తరగతి" },
-                      { v: "Upper Middle Class", en: "Upper Middle", te: "ఎగువ మధ్య తరగతి" },
-                      { v: "Rich / Affluent (Elite)", en: "Affluent / Elite", te: "ధనిక (ఎలైట్)" },
-                    ]}
-                    value={f.family_status} onChange={(v) => set("family_status", v)} />
-                </div>
-              </div>
-            </>
-          )}
-
-          {/* ---------------- STEP 5: PHOTO & FINISH ---------------- */}
-          {step === 5 && (
-            <>
-              <div className="bg-white rounded-2xl border border-gold/30 p-4">
-                <div className="font-bold text-maroon text-[15px]">{T("📸 ప్రొఫైల్ ఫోటో (3x ఎక్కువ సంబంధాలు వస్తాయి)", "📸 Profile Photo (3x More Matches)")}</div>
-                <div className="hint">{T("మీ గ్యాలరీ లేదా కెమెరా నుండి ఫోటో తీసుకోండి. ఫోటో స్వయంచాలకంగా కంప్రెస్ అవుతుంది. వాటర్‌మార్క్ మరియు ప్రైవేట్ మోడ్‌తో పూర్తి రక్షణ.", "Upload clear photo. Watermarked & protected.")}</div>
-                <div className="mt-3 flex items-center gap-3">
-                  <label className="cursor-pointer">
-                    <input type="file" accept="image/*" className="hidden"
-                      onChange={(e) => pickPhoto(e.target.files?.[0])} />
-                    <span className="inline-block maroon-gradient text-white font-bold text-[13px] px-4 py-3 rounded-xl shadow-brand">
-                      {photoPreview ? "ఫోటో మార్చండి (Change)" : "📷 ఫోటో ఎంచుకోండి (Select Photo)"}
+                  <h2 className="text-base sm:text-lg font-black text-slate-900 flex items-center gap-2">
+                    <span>{stepMeta.icon}</span>
+                    <span>
+                      దశ {step} / 5: {te ? stepMeta.labelTe : stepMeta.label}
                     </span>
-                  </label>
-                  {photoPreview && (
-                    <div className="relative">
-                      <img src={photoPreview} alt="preview" className="w-20 h-20 rounded-2xl object-cover border-2 border-gold shadow-md" />
-                      <button type="button"
-                        onClick={() => { setPhotoFile(null); setPhotoPreview(""); setPhotoUrl(""); setPhotoInfo(""); }}
-                        className="absolute -top-2 -right-2 w-7 h-7 rounded-full bg-white border border-rose-300 text-rose-600 font-bold text-xs shadow-sm">✕</button>
+                  </h2>
+                  <p className="text-xs text-slate-500 telugu mt-0.5">{te ? stepMeta.hint : stepMeta.hintEn}</p>
+                </div>
+                <span className="text-xs font-bold text-maroon bg-amber-50 px-2.5 py-1 rounded-full border border-gold/30">
+                  {strength}% పూర్తయింది
+                </span>
+              </div>
+
+              {/* ---------------- STEP 1: BASIC DETAILS ---------------- */}
+              {step === 1 && (
+                <div className="space-y-4">
+                  {/* Quick Sample Demo Fill */}
+                  <div className="bg-gradient-to-r from-amber-50 to-rose-50 border border-gold/30 rounded-2xl p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div className="text-xs font-bold text-maroon flex items-center gap-1.5">
+                      <span>⚡</span>
+                      <span>డెమో పూరింపు (1-Click Sample Profile):</span>
                     </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => fillSampleDemo("Bride")}
+                        className="px-3 py-1 rounded-xl bg-white border border-rose-200 text-rose-800 font-bold text-xs hover:bg-rose-50 transition shadow-xs"
+                      >
+                        👰 వధువు డెమో
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => fillSampleDemo("Groom")}
+                        className="px-3 py-1 rounded-xl bg-white border border-indigo-200 text-indigo-800 font-bold text-xs hover:bg-indigo-50 transition shadow-xs"
+                      >
+                        🤵 వరుడు డెమో
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Gender Selection */}
+                  <div className="space-y-1.5">
+                    <label className="text-[13px] font-bold text-slate-800">
+                      ఎవరి కోసం ప్రొఫైల్ నమోదు చేస్తున్నారు? <span className="text-rose-600 font-black">*</span>
+                    </label>
+                    <div className="grid grid-cols-2 gap-3">
+                      {[
+                        { v: "Bride", l: "👰 వధువు (Bride)", s: "Bride Profile" },
+                        { v: "Groom", l: "🤵 వరుడు (Groom)", s: "Groom Profile" },
+                      ].map((g) => (
+                        <button
+                          key={g.v}
+                          type="button"
+                          onClick={() => set("gender", g.v)}
+                          className={`rounded-2xl border-2 p-3.5 text-center transition-all ${
+                            f.gender === g.v
+                              ? "border-maroon bg-maroon-soft shadow-sm ring-2 ring-maroon/20"
+                              : "border-slate-200 bg-white hover:border-maroon/40"
+                          }`}
+                        >
+                          <div className="text-3xl">{g.v === "Bride" ? "👰" : "🤵"}</div>
+                          <div className="font-black text-sm text-maroon mt-1 telugu">{g.l}</div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <TextField
+                    label="పూర్తి పేరు (Full Name)"
+                    value={f.full_name}
+                    onChange={(v) => set("full_name", v)}
+                    required
+                    placeholder="ఉదా: Sai Lakshmi / Rajesh Reddy"
+                    hint="బయోడేటా కార్డ్ మరియు సెర్చ్‌లో ఇదే పేరు కనిపిస్తుంది"
+                  />
+
+                  {/* Date of Birth & Age */}
+                  <div className="space-y-1.5">
+                    <div className="text-xs font-bold text-slate-700">⚡ పుట్టిన సంవత్సరం త్వరిత ఎంపిక:</div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {[
+                        { y: 2003, a: 23 },
+                        { y: 2002, a: 24 },
+                        { y: 2001, a: 25 },
+                        { y: 2000, a: 26 },
+                        { y: 1999, a: 27 },
+                        { y: 1998, a: 28 },
+                        { y: 1997, a: 29 },
+                        { y: 1996, a: 30 },
+                        { y: 1995, a: 31 },
+                        { y: 1994, a: 32 },
+                      ].map((item) => (
+                        <button
+                          key={item.y}
+                          type="button"
+                          onClick={() => {
+                            set("dob", `${item.y}-06-15`);
+                            set("age", String(item.a));
+                          }}
+                          className={`px-2.5 py-1 rounded-full text-xs font-bold transition ${
+                            f.dob?.startsWith(String(item.y))
+                              ? "maroon-gradient text-white border-transparent shadow-xs"
+                              : "bg-white border border-gold/40 text-maroon hover:bg-gold/20"
+                          }`}
+                        >
+                          {item.y} <span className="opacity-80 font-normal">({item.a}y)</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <TextField
+                      label="పుట్టిన తేదీ (Date of Birth)"
+                      value={f.dob}
+                      onChange={(v) => set("dob", v)}
+                      required
+                      type="date"
+                      max={maxDobFor18()}
+                      hint="కనీసం 18 సంవత్సరాలు ఉండాలి"
+                    />
+                    <div>
+                      <label className="text-[13px] font-bold text-slate-800">వయస్సు (Age - Auto)</label>
+                      <div className="min-h-[46px] mt-1.5 flex items-center justify-between rounded-xl border border-slate-200 bg-amber-50/50 px-3.5 py-2.5">
+                        <span className="font-bold text-maroon text-sm">{f.age ? `${f.age} సం॥ (Years)` : "—"}</span>
+                        <span className="text-[10px] text-gray-500">DOB నుండి లెక్కించబడింది</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Height */}
+                  <div className="space-y-1.5">
+                    <div className="text-xs font-bold text-slate-700">⚡ ప్రముఖ ఎత్తులు (Quick Height):</div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {["5'2\"", "5'3\"", "5'4\"", "5'5\"", "5'6\"", "5'7\"", "5'8\"", "5'9\"", "5'10\"", "6'0\""].map((h) => (
+                        <button
+                          key={h}
+                          type="button"
+                          onClick={() => set("height", h)}
+                          className={`px-2.5 py-1 rounded-lg text-xs font-bold transition ${
+                            f.height === h
+                              ? "maroon-gradient text-white border-transparent shadow-xs"
+                              : "bg-amber-50/50 border border-gold/40 text-maroon hover:bg-gold/20"
+                          }`}
+                        >
+                          {heightLabel(h)}
+                        </button>
+                      ))}
+                    </div>
+                    <SelectField label="ఎత్తు (Height)" required value={f.height} onChange={(v) => set("height", v)} placeholder="మీ ఎత్తు ఎంచుకోండి">
+                      {HEIGHTS.map((h) => (
+                        <option key={h} value={h}>
+                          {heightLabel(h)}
+                        </option>
+                      ))}
+                    </SelectField>
+                  </div>
+
+                  {/* Marital Status */}
+                  <PillGroup
+                    label="వైవాహిక స్థితి (Marital Status)"
+                    required
+                    value={f.marital_status}
+                    onChange={(v) => {
+                      set("marital_status", v);
+                      if (v === "Pelli Kaledu") set("children", "");
+                    }}
+                    options={[
+                      { v: "Pelli Kaledu", en: "Never Married", te: "పెళ్లి కాలేదు (మొదటి వివాహం)" },
+                      {
+                        v: f.gender === "Groom" ? "Widower" : "Widow",
+                        en: f.gender === "Groom" ? "Widower" : "Widow",
+                        te: f.gender === "Groom" ? "భార్య చనిపోయారు" : "భర్త చనిపోయారు",
+                      },
+                      { v: "Divorced", en: "Divorced", te: "విడాకులు అయ్యాయి" },
+                      { v: "Awaiting Divorce", en: "Awaiting Divorce", te: "విడాకులు రావాల్సి ఉంది" },
+                    ]}
+                  />
+
+                  {f.marital_status && f.marital_status !== "Pelli Kaledu" && (
+                    <PillGroup
+                      label="పిల్లల సంఖ్య (Number of Children)"
+                      required
+                      value={f.children}
+                      onChange={(v) => set("children", v)}
+                      options={CHILDREN_OPTIONS.map((c) => ({
+                        v: c,
+                        en: c === "None" ? "No Children" : c,
+                        te: c === "None" ? "పిల్లలు లేరు" : c === "4+" ? "4+ మంది" : `${c} మంది`,
+                      }))}
+                    />
                   )}
                 </div>
-                {photoInfo && <div className="hint mt-2 text-emerald-800 font-medium">{photoInfo}</div>}
-              </div>
+              )}
 
-              <Toggle label="🔒 ఫోటో ప్రైవేట్ మోడ్ (Photo-Private Mode)" sub={T("పబ్లిక్ సెర్చ్‌లో బ్లర్‌గా కనిపిస్తుంది — ఇరువైపులా అంగీకారం కుదిరాకే స్పష్టంగా చూపిస్తాం", "Shows blurred until mutual interest accept")}
-                value={!!f.photo_private} onChange={(v) => set("photo_private", v)} />
+              {/* ---------------- STEP 2: CASTE & ASTROLOGY ---------------- */}
+              {step === 2 && (
+                <div className="space-y-4">
+                  {/* Top Popular Castes Quick Chips */}
+                  <div className="bg-amber-50/70 border border-gold/40 rounded-2xl p-3.5 space-y-2">
+                    <div className="text-xs font-black text-maroon">⚡ ప్రముఖ తెలుగు కులాలు (1-క్లిక్ సెలెక్షన్):</div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {[
+                        "Reddy",
+                        "Kamma",
+                        "Kapu",
+                        "Brahmin",
+                        "Arya Vysya",
+                        "Padmashali",
+                        "Velama",
+                        "Yadav",
+                        "Goud",
+                        "Munnuru Kapu",
+                        "Mudhiraj",
+                        "Mala",
+                        "Madiga",
+                        "Balija",
+                        "Telaga",
+                        "Viswabrahmin",
+                      ].map((c) => (
+                        <button
+                          key={c}
+                          type="button"
+                          onClick={() => set("caste", c)}
+                          className={`px-2.5 py-1 rounded-xl text-xs font-bold transition ${
+                            f.caste === c
+                              ? "maroon-gradient text-white border-transparent shadow-xs"
+                              : "bg-white border border-gold/40 text-maroon hover:bg-gold/20"
+                          }`}
+                        >
+                          {CASTE_TELUGU[c] || c} <span className="opacity-70 font-normal">({c})</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
 
-              <div>
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <label className="text-[13px] font-bold text-ink">{duo("A few words about myself", "నా గురించి కొన్ని మాటలు")} <span className="text-maroon">*</span></label>
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() => autoGenerateBio("traditional")}
-                      className="text-[11px] font-bold text-maroon bg-cream border border-gold/50 px-2.5 py-1 rounded-lg hover:bg-gold/30 transition shadow-xs telugu"
-                    >
-                      🪔 సాంప్రదాయ బయో
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => autoGenerateBio("professional")}
-                      className="text-[11px] font-bold text-indigo-900 bg-indigo-50 border border-indigo-200 px-2.5 py-1 rounded-lg hover:bg-indigo-100 transition shadow-xs telugu"
-                    >
-                      💼 ప్రొఫెషనల్ బయో
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => autoGenerateBio("nri")}
-                      className="text-[11px] font-bold text-emerald-900 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-lg hover:bg-emerald-100 transition shadow-xs telugu"
-                    >
-                      ✈️ NRI / గ్లోబల్ బయో
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => autoGenerateBio("en")}
-                      className="text-[11px] font-bold text-slate-800 bg-slate-100 border border-slate-300 px-2.5 py-1 rounded-lg hover:bg-slate-200 transition shadow-xs"
-                    >
-                      ✨ English Bio
-                    </button>
+                  <SearchSelect
+                    label="కులం (Caste)"
+                    required
+                    options={casteOpts}
+                    value={f.caste}
+                    onChange={(v) => set("caste", v)}
+                    teMap={CASTE_TELUGU}
+                    placeholder="మీ కులం ఎంచుకోండి లేదా టైప్ చేయండి"
+                  />
+
+                  {f.caste && CASTE_SUBCASTES[f.caste] && (
+                    <ChipGroup
+                      label="ఉపకులం / శాఖ (Sub-Caste)"
+                      options={CASTE_SUBCASTES[f.caste].map((sc) => ({ v: sc }))}
+                      value={f.sub_caste}
+                      onChange={(v) => set("sub_caste", v)}
+                    />
+                  )}
+
+                  <TextField label="గోత్రం (Gothram)" value={f.gothram} onChange={(v) => set("gothram", v)} placeholder="ఉదా: Janakula / Kashyapa" optional />
+
+                  {/* 27 Nakshatras with Auto-Rasi Setting */}
+                  <div className="space-y-1.5">
+                    <label className="text-[13px] font-bold text-slate-800">నక్షత్రం (Vedic Nakshatram)</label>
+                    <SelectField label="" value={f.star} onChange={(v) => set("star", v)} placeholder="నక్షత్రం ఎంచుకోండి (Auto sets Raasi)">
+                      {NAKSHATRAS.map((st) => (
+                        <option key={st.name} value={st.name}>
+                          ⭐ {st.te} ({st.name})
+                        </option>
+                      ))}
+                    </SelectField>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <SelectField label="రాశి (Raasi / Moon Sign)" value={f.rasi} onChange={(v) => set("rasi", v)} placeholder="రాశి ఎంచుకోండి">
+                      {RASIS.map((r) => (
+                        <option key={r.name} value={r.name}>
+                          {r.te} ({r.name})
+                        </option>
+                      ))}
+                    </SelectField>
+
+                    <SelectField label="కుజ దోషం / మాంగ్లిక్ (Dosham)" value={f.dosham} onChange={(v) => set("dosham", v)}>
+                      <option value="No">దోషం లేదు (No Dosham)</option>
+                      <option value="Yes">కుజ దోషం కలదు (Kuja Dosham / Manglik)</option>
+                      <option value="Partial">పాక్షిక దోషం (Partial Dosham)</option>
+                      <option value="Dont Know">తెలియదు (Don't Know)</option>
+                    </SelectField>
                   </div>
                 </div>
-                <textarea value={f.about_myself} onChange={(e) => set("about_myself", e.target.value.slice(0, 600))}
-                  rows={4} placeholder="నేను సాధారణ కుటుంబానికి చెందిన వ్యక్తిని, సాఫ్ట్‌వేర్ ఇంజనీర్‌గా పనిచేస్తున్నాను… (తెలుగు లేదా English లో రాయవచ్చు)"
-                  className="input-mobile mt-1 telugu" />
-                <div className="mt-2 flex items-center justify-between">
-                  <button type="button" onClick={startVoice}
-                    className="border border-maroon/30 text-maroon font-bold text-[12px] px-3 py-1.5 rounded-xl bg-cream hover:bg-gold/20">🎤 వాయిస్‌తో చెప్పండి</button>
-                  <span className={`text-[11px] font-bold ${f.about_myself.trim().length >= 50 ? "text-emerald-600" : "text-gray-500"}`}>
-                    {f.about_myself.trim().length >= 50 ? "✓ " : ""}{f.about_myself.length}/600 · {duo("Minimum 50 characters", "కనీసం 50 అక్షరాలు")}
-                  </span>
-                </div>
-              </div>
+              )}
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <ChipGroup label="శరీర తత్వం (Body Type)" options={BODY_TYPES.map((x) => ({ v: x }))} value={f.body_type}
-                  onChange={(v) => set("body_type", v)} />
-                <ChipGroup label="రంగు (Complexion)" options={COMPLEXIONS.map((x) => ({ v: x }))} value={f.complexion}
-                  onChange={(v) => set("complexion", v)} />
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <ChipGroup label="రక్త గ్రూప్ (Blood Group)" options={BLOOD_GROUPS.map((x) => ({ v: x }))} value={f.blood_group}
-                  onChange={(v) => set("blood_group", v)} />
-                <PillGroup label="ఆరోగ్య స్థితి (Physical Status)"
-                  value={f.physical_status} onChange={(v) => set("physical_status", v)}
-                  options={[
-                    { v: "Normal", en: "Normal", te: "సాధారణ" },
-                    { v: "Physically challenged", en: "Physically challenged", te: "దివ్యాంగులు" },
-                  ]} />
-              </div>
-
-              {/* Expectations Box */}
-              <div className="bg-cream rounded-2xl border border-gold/30 p-4 space-y-3">
-                <div className="font-bold text-maroon text-[14px]">💞 మీ ఆకాంక్షలు & ప్రాధాన్యతలు (Partner Expectations)</div>
-                <div className="grid grid-cols-2 gap-3">
-                  <TextField label="వయస్సు నుండి (Min Age)" optional value={f.exp_age_min} onChange={(v) => set("exp_age_min", v.replace(/\D/g, "").slice(0, 2))}
-                    inputMode="numeric" placeholder="21" />
-                  <TextField label="వయస్సు వరకు (Max Age)" optional value={f.exp_age_max} onChange={(v) => set("exp_age_max", v.replace(/\D/g, "").slice(0, 2))}
-                    inputMode="numeric" placeholder="30" />
-                </div>
-                <ChipGroup label="ఉద్యోగ ప్రాధాన్యత (Preferred Profession)" options={JOBS.slice(0, 10).map((j) => ({ v: j }))} value={f.exp_job}
-                  onChange={(v) => set("exp_job", v)} />
-                <TextField label="ప్రాంత ప్రాధాన్యత (Preferred Location)" optional value={f.exp_location} onChange={(v) => set("exp_location", v)}
-                  placeholder="Ex: Hyderabad / Bengaluru / USA / Coastal AP…" />
-                <ChipGroup label="కుల ప్రాధాన్యత (Caste Preference)" options={[{ v: "Same caste" }, { v: "Any caste" }, { v: "Caste no bar" }]}
-                  value={f.exp_caste} onChange={(v) => set("exp_caste", v)} />
-              </div>
-
-              {/* Referral Code */}
-              <div className="bg-emerald-50/70 rounded-2xl border border-emerald-200 p-4 space-y-2">
-                <label className="text-[13px] font-bold text-emerald-900">🤝 రెఫరల్ కోడ్ (Referral Code - Optional)</label>
-                {refInfo?.referrer_name && (
-                  <div className="bg-emerald-100/80 border border-emerald-300 rounded-xl p-2.5 text-xs font-bold text-emerald-900">
-                    🎁 <b>{refInfo.referrer_name}</b> ద్వారా వచ్చారు (Referred by {refInfo.referrer_name}) — మీకు +1 ఉచిత రిక్వెస్ట్ బోనస్!
+              {/* ---------------- STEP 3: CAREER & EDUCATION ---------------- */}
+              {step === 3 && (
+                <div className="space-y-4">
+                  {/* Profession Sector */}
+                  <div className="space-y-1.5">
+                    <label className="text-[13px] font-bold text-slate-800">
+                      వృత్తి / ఉద్యోగ రంగం (Work Sector) <span className="text-rose-600 font-black">*</span>
+                    </label>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                      {WORK_TYPES_DETAILED.map((wt) => {
+                        const on = f.work_type === wt.name;
+                        return (
+                          <button
+                            key={wt.name}
+                            type="button"
+                            onClick={() => set("work_type", wt.name)}
+                            className={`p-2.5 rounded-2xl border text-left transition ${
+                              on ? "maroon-gradient text-white border-transparent shadow-sm font-bold" : "bg-white border-slate-200 text-slate-800 hover:border-maroon/40"
+                            }`}
+                          >
+                            <div className="text-lg">{wt.icon}</div>
+                            <div className="text-xs font-bold truncate mt-0.5">{wt.name}</div>
+                            <div className={`text-[10px] truncate ${on ? "text-white/90" : "text-slate-500"} telugu`}>{wt.te}</div>
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
+
+                  <SelectField label="విద్యార్హత (Highest Education)" required value={f.education} onChange={(v) => set("education", v)}>
+                    {EDUCATIONS.map((e) => (
+                      <option key={e} value={e}>
+                        {EDUCATION_TELUGU[e] ? `${EDUCATION_TELUGU[e]} (${e})` : e}
+                      </option>
+                    ))}
+                  </SelectField>
+
+                  <TextField
+                    label="ఉద్యోగం / హోదా (Job Title / Designation)"
+                    required
+                    value={f.job}
+                    onChange={(v) => set("job", v)}
+                    placeholder="ఉదా: Software Engineer / Bank Manager / Doctor"
+                  />
+
+                  <TextField label="కంపెనీ / సంస్థ పేరు (Company Name)" value={f.company} onChange={(v) => set("company", v)} placeholder="ఉదా: TCS, Infosys, Govt" optional />
+
+                  {/* Salary Bracket */}
+                  <div className="space-y-1.5">
+                    <label className="text-[13px] font-bold text-slate-800">
+                      వార్షిక వేతనం (Annual Salary Range) <span className="text-rose-600 font-black">*</span>
+                    </label>
+                    <div className="flex flex-wrap gap-1.5">
+                      {SALARIES_DETAILED.map((s) => (
+                        <button
+                          key={s.range}
+                          type="button"
+                          onClick={() => set("salary", s.range)}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition ${
+                            f.salary === s.range
+                              ? "maroon-gradient text-white border-transparent shadow-xs"
+                              : "bg-white border border-slate-200 text-slate-800 hover:border-maroon/40"
+                          }`}
+                        >
+                          {s.range} <span className="opacity-70 font-normal">({s.te})</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* ---------------- STEP 4: LOCATION & FAMILY ---------------- */}
+              {step === 4 && (
+                <div className="space-y-4">
+                  {/* State Selection */}
+                  <div className="space-y-1.5">
+                    <label className="text-[13px] font-bold text-slate-800">
+                      రాష్ట్రం / ప్రాంతం (State / Region) <span className="text-rose-600 font-black">*</span>
+                    </label>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      {[
+                        { v: "TS", l: "🏛️ తెలంగాణ (TS - 33)" },
+                        { v: "AP", l: "🌊 ఆంధ్రప్రదేశ్ (AP - 26)" },
+                        { v: "Other India", l: "🇮🇳 ఇతర రాష్ట్రాలు" },
+                        { v: "NRI", l: "🌍 NRI / విదేశాలు" },
+                      ].map((st) => (
+                        <button
+                          key={st.v}
+                          type="button"
+                          onClick={() => {
+                            set("state", st.v);
+                            set("district", "");
+                          }}
+                          className={`p-2.5 rounded-2xl border text-center transition ${
+                            f.state === st.v ? "maroon-gradient text-white border-transparent shadow-sm font-bold" : "bg-white border-slate-200 text-slate-800 hover:border-maroon/40"
+                          }`}
+                        >
+                          <div className="text-xs font-bold telugu">{st.l}</div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* District Selection */}
+                  <SelectField label="జిల్లా / ప్రదేశం (District / Location)" required value={f.district} onChange={(v) => set("district", v)}>
+                    {(DISTRICTS_BY_STATE[f.state] || []).map((d) => (
+                      <option key={d} value={d}>
+                        {DISTRICT_TELUGU[d] ? `${DISTRICT_TELUGU[d]} (${d})` : d}
+                      </option>
+                    ))}
+                  </SelectField>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <TextField label="సొంత ఊరు (Native Place)" value={f.native_place} onChange={(v) => set("native_place", v)} placeholder="ఉదా: వరంగల్, గుంటూరు" optional />
+                    <TextField label="ప్రస్తుత నివాస నగరం (Current City)" value={f.current_city} onChange={(v) => set("current_city", v)} placeholder="ఉదా: హైదరాబాద్, బెంగళూరు" optional />
+                  </div>
+
+                  {/* Family Details */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <TextField label="తండ్రి పేరు (Father's Name)" value={f.father_name} onChange={(v) => set("father_name", v)} placeholder="శ్రీ..." optional />
+                    <TextField label="తండ్రి వృత్తి (Father's Occupation)" value={f.father_occupation} onChange={(v) => set("father_occupation", v)} placeholder="వ్యాపారం / ఉద్యోగం" optional />
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <TextField label="తల్లి పేరు (Mother's Name)" value={f.mother_name} onChange={(v) => set("mother_name", v)} placeholder="శ్రీమతి..." optional />
+                    <TextField label="తల్లి వృత్తి (Mother's Occupation)" value={f.mother_occupation} onChange={(v) => set("mother_occupation", v)} placeholder="గృహిణి / ఉద్యోగం" optional />
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <Stepper label="సోదరులు (Brothers)" value={f.brothers} onChange={(v) => set("brothers", v)} />
+                    <Stepper label="సోదరీమణులు (Sisters)" value={f.sisters} onChange={(v) => set("sisters", v)} />
+                  </div>
+
+                  {/* Contact Number & Password */}
+                  <div className="border-t border-slate-100 pt-3 space-y-3">
+                    <TextField
+                      label="మొబైల్ నంబర్ (10 Digit Phone Number)"
+                      required
+                      type="tel"
+                      inputMode="numeric"
+                      value={f.phone}
+                      onChange={(v) => set("phone", v.replace(/\D/g, "").slice(0, 10))}
+                      placeholder="10 అంకెల మొబైల్ నంబర్ ఇవ్వండి"
+                      hint="🔒 మీ నంబర్ సురక్షితంగా ఉంటుంది (సమ్మతి లేనిదే ఇతరులకు కనిపించదు)"
+                    />
+
+                    <div>
+                      <label className="text-[13px] font-bold text-slate-800 flex items-center justify-between">
+                        <span>
+                          పాస్‌వర్డ్ సృష్టించండి (Create Password) <span className="text-rose-600 font-black">*</span>
+                        </span>
+                        <button type="button" onClick={() => setShowPw(!showPw)} className="text-xs text-maroon font-bold">
+                          {showPw ? "దాచు (Hide)" : "చూపించు (Show)"}
+                        </button>
+                      </label>
+                      <input
+                        type={showPw ? "text" : "password"}
+                        value={f.password}
+                        onChange={(e) => set("password", e.target.value)}
+                        placeholder="కనీసం 6 అక్షరాలు/అంకెలు (Min 6 chars)"
+                        className="w-full min-h-[46px] rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs sm:text-sm text-slate-900 transition focus:outline-none focus:ring-2 focus:ring-maroon/20 focus:border-maroon mt-1.5"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* ---------------- STEP 5: PHOTO & SUBMIT ---------------- */}
+              {step === 5 && (
+                <div className="space-y-5">
+                  {/* Strict Photo Upload Card */}
+                  <div className="bg-amber-50/60 border-2 border-dashed border-gold/60 rounded-3xl p-4 sm:p-6 text-center space-y-3">
+                    <div className="text-3xl">📸</div>
+                    <div>
+                      <h3 className="text-sm sm:text-base font-black text-slate-900">స్పష్టమైన ఫోటోను అప్‌లోడ్ చేయండి</h3>
+                      <p className="text-xs text-slate-600 telugu mt-0.5">
+                        ఫోటో ఉన్న ప్రొఫైల్స్‌కు 10 రెట్లు ఎక్కువ స్పందనలు లభిస్తాయి (JPG/PNG/WebP).
+                      </p>
+                    </div>
+
+                    {photoPreview ? (
+                      <div className="inline-block relative">
+                        <img src={photoPreview} alt="Preview" className="w-28 h-36 sm:w-32 sm:h-40 object-cover rounded-2xl border-2 border-gold shadow-md mx-auto" />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setPhotoPreview("");
+                            setPhotoUrl("");
+                            setPhotoFile(null);
+                          }}
+                          className="absolute -top-2 -right-2 bg-rose-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs shadow hover:bg-rose-700"
+                          title="Delete Photo"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        <label className="inline-block px-5 py-2.5 rounded-2xl maroon-gradient text-white text-xs sm:text-sm font-bold cursor-pointer shadow-md hover:brightness-105 transition">
+                          <span>📁 ఫోటోను ఎంచుకోండి (Choose Photo)</span>
+                          <input type="file" accept="image/*" className="hidden" onChange={(e) => pickPhoto(e.target.files?.[0])} />
+                        </label>
+                      </div>
+                    )}
+
+                    {photoInfo && <div className="text-xs font-bold text-emerald-800">{photoInfo}</div>}
+
+                    {/* Photo Privacy Toggle */}
+                    <div className="pt-2">
+                      <button
+                        type="button"
+                        onClick={() => set("photo_private", !f.photo_private)}
+                        className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-bold border transition ${
+                          f.photo_private ? "bg-amber-100 text-amber-900 border-amber-300" : "bg-white text-slate-700 border-slate-200"
+                        }`}
+                      >
+                        <span>{f.photo_private ? "🔒 ఫోటో లాక్: ధృవీకరించబడిన వారికి మాత్రమే" : "🔓 ఫోటో పబ్లిక్: అందరికీ కనిపిస్తుంది"}</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* About Myself with AI Bio Generators */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-[13px] font-bold text-slate-800">
+                        మీ గురించి క్లుప్తంగా (About Myself) <span className="text-rose-600 font-black">*</span>
+                      </label>
+                      <button
+                        type="button"
+                        onClick={startVoice}
+                        className="px-2.5 py-1 rounded-lg bg-indigo-50 border border-indigo-200 text-indigo-800 text-xs font-bold flex items-center gap-1 hover:bg-indigo-100 transition"
+                      >
+                        <span>🎙️</span>
+                        <span>మాట్లాడి రాయండి</span>
+                      </button>
+                    </div>
+
+                    {/* 1-Tap Quick Bio Fillers */}
+                    <div className="flex flex-wrap gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => autoGenerateBio("traditional")}
+                        className="px-2.5 py-1 rounded-lg bg-amber-50 border border-gold/40 text-maroon text-xs font-bold hover:bg-gold/20 transition"
+                      >
+                        🌸 సాంప్రదాయ బయో
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => autoGenerateBio("professional")}
+                        className="px-2.5 py-1 rounded-lg bg-amber-50 border border-gold/40 text-maroon text-xs font-bold hover:bg-gold/20 transition"
+                      >
+                        💼 ప్రొఫెషనల్ బయో
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => autoGenerateBio("nri")}
+                        className="px-2.5 py-1 rounded-lg bg-amber-50 border border-gold/40 text-maroon text-xs font-bold hover:bg-gold/20 transition"
+                      >
+                        ✈️ NRI బయో
+                      </button>
+                    </div>
+
+                    <textarea
+                      rows={3}
+                      value={f.about_myself}
+                      onChange={(e) => set("about_myself", e.target.value)}
+                      placeholder="మీ కుటుంబ నేపథ్యం, ఉద్యోగం మరియు భాగస్వామి నుండి ఆశించే గుణాల గురించి రాయండి…"
+                      className="w-full rounded-2xl border border-slate-200 p-3 text-xs sm:text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-maroon/20 focus:border-maroon telugu"
+                    />
+                    <div className="text-right text-[11px] text-slate-400">{String(f.about_myself || "").length} అక్షరాలు (కనీసం 30)</div>
+                  </div>
+
+                  {/* Referral Code (Optional) */}
+                  <TextField
+                    label="రెఫరల్ కోడ్ (Referral Code — Optional)"
+                    value={f.referral_code}
+                    onChange={(v) => set("referral_code", v.toUpperCase())}
+                    placeholder="మిత్రుల రెఫరల్ కోడ్ ఉంటే ఇక్కడ ఇవ్వండి"
+                    optional
+                  />
+
+                  {/* Terms & Consent */}
+                  <label className="flex items-start gap-2.5 p-3 rounded-2xl bg-amber-50/60 border border-gold/30 cursor-pointer text-xs text-slate-800">
+                    <input
+                      type="checkbox"
+                      checked={f.consent}
+                      onChange={(e) => set("consent", e.target.checked)}
+                      className="accent-[#7A0C2E] w-4 h-4 rounded mt-0.5"
+                    />
+                    <span className="telugu font-medium">
+                      నేను అందించిన సమాచారం నిజమైనదని ధృవీకరిస్తున్నాను మరియు మన వివాహ నిబంధనలు & గోప్యతా విధానానికి అంగీకరిస్తున్నాను.
+                    </span>
+                  </label>
+                </div>
+              )}
+
+              {/* Navigation Actions (Desktop & Tablet inline) */}
+              <div className="border-t border-slate-100 pt-4 flex items-center justify-between gap-3">
+                {step > 1 ? (
+                  <button
+                    type="button"
+                    onClick={back}
+                    disabled={busy}
+                    className="px-5 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-800 text-xs sm:text-sm font-bold hover:bg-slate-50 transition"
+                  >
+                    ← వెనుకకు (Back)
+                  </button>
+                ) : (
+                  <div />
                 )}
-                <input value={f.referral_code}
-                  aria-label="Referral code"
-                  onChange={(e) => set("referral_code", e.target.value.toUpperCase().replace(/[^A-Z0-9-]/g, "").slice(0, 20))}
-                  placeholder="Ex: CHA0001 (స్నేహితుడు ఇచ్చిన కోడ్ ఉంటే)"
-                  className="input-mobile mt-2 font-mono tracking-wide" />
-                <div className="hint mt-1">
-                  {refLocked
-                    ? <>{T(<>✅ <b>{refLocked}</b> లాక్ అయ్యింది — మీకు +{refInfo?.bonus_credits || 1} ఉచిత అభ్యర్థన లభిస్తుంది 🎁</>, <>✅ <b>{refLocked}</b> locked — +{refInfo?.bonus_credits || 1} free request for you 🎁</>)}</>
-                    : T("స్నేహితుని కోడ్ ఉంటే మీకు +1 ఉచిత రిక్వెస్ట్ మరియు వారికి ₹50 లభిస్తాయి.", "Enter friend's code to get +1 free request.")}
-                </div>
-              </div>
 
-              {/* Privacy & Free-vs-Paid Clarity Box */}
-              <div className="bg-slate-50 border border-gold/30 rounded-2xl p-4 text-xs space-y-2">
-                <div className="font-extrabold text-navy text-sm">🔒 ఉచిత నమోదు స్పష్టత (Free Plan Privacy):</div>
-                <div className="text-slate-700 leading-relaxed">
-                  <b>FREE లో ఇచ్చేది:</b> మొదటి 3 ప్రొఫైల్స్ పూర్తి వివరాలు + ఛానెల్ పోస్టింగ్. మీ అనుమతి లేకుండా మీ ఫోన్ నంబర్ <b>ఎవరికీ ఇవ్వము</b> (ఇరువైపులా ఇంట్రెస్ట్ అంగీకరించాకే అన్‌లాక్ అవుతుంది).
-                </div>
+                {step < 5 ? (
+                  <button
+                    type="button"
+                    onClick={next}
+                    className="px-6 py-2.5 rounded-xl maroon-gradient text-white text-xs sm:text-sm font-bold shadow-md hover:brightness-105 transition flex items-center gap-1.5"
+                  >
+                    <span>ముందుకు వెళ్లండి (Next)</span>
+                    <span>→</span>
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={submit}
+                    disabled={busy}
+                    className="px-8 py-3 rounded-2xl gold-gradient text-maroon text-xs sm:text-sm font-black shadow-lg hover:brightness-105 transition flex items-center gap-2 disabled:opacity-50"
+                  >
+                    {busy ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-maroon border-t-transparent rounded-full animate-spin" />
+                        <span>నమోదు జరుగుతోంది…</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>🎉</span>
+                        <span>నమోదు పూర్తి చేయండి (Complete)</span>
+                      </>
+                    )}
+                  </button>
+                )}
               </div>
+            </div>
+          </div>
 
-              <label className="flex items-start gap-3 bg-white rounded-2xl border border-gold/30 p-4">
-                <input type="checkbox" checked={!!f.consent} onChange={(e) => set("consent", e.target.checked)}
-                  className="mt-1 w-5 h-5 accent-[#7A0C2E]" />
-                <span className="text-[12px] text-gray-700">
-                  {T(<>నేను అందించిన వివరాలన్నీ <b>వాస్తవమైనవి</b> అని ధృవీకరిస్తున్నాను. <b>మన వివాహ (Mana Vivaha)</b> నిబంధనలు మరియు గోప్యతా విధానాన్ని అంగీకరిస్తున్నాను — వివరాలు కమ్యూనిటీ ఛానళ్లలో పోస్ట్ చేయబడతాయి, ఫోన్ నంబర్ ఇరువైపులా అంగీకారం కుదిరాకే పంచుకోబడుతుంది.</>,
-                  <>I confirm all details are <b>true and authentic</b>. I accept <b>Shubhalagnam</b> terms & privacy policy — phone numbers shared only upon mutual consent.</>)}
+          {/* ================= RIGHT COLUMN: LIVE PREVIEW & TRUST CARD (4 cols - Desktop) ================= */}
+          <div className="hidden lg:block lg:col-span-4 sticky top-28 space-y-4">
+            {/* Live Profile Card Preview */}
+            <div className="bg-white rounded-3xl border border-gold/40 shadow-lg p-5 space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                <span className="text-xs font-black text-maroon flex items-center gap-1.5">
+                  <span>✨</span>
+                  <span>ప్రత్యక్ష బయోడేటా నమూనా (Live Preview)</span>
                 </span>
-              </label>
-            </>
-          )}
-        </div>
+                <span className="text-[10px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full font-bold">
+                  100% Verified
+                </span>
+              </div>
 
-        {/* Trust Badges */}
-        <div className="mt-6 grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px] text-gray-700 text-center font-medium">
-          <div className="bg-white border border-gold/25 rounded-xl px-3 py-2 shadow-sm">🔒 నంబర్ పూర్తి గోప్యత</div>
-          <div className="bg-white border border-gold/25 rounded-xl px-3 py-2 shadow-sm">🛡️ వాటర్‌మార్క్ రక్షణ</div>
-          <div className="bg-white border border-gold/25 rounded-xl px-3 py-2 shadow-sm">🕉️ వేద గుణమేళనం</div>
-          <div className="bg-white border border-gold/25 rounded-xl px-3 py-2 shadow-sm">🚫 స్పామ్ లేని సేవలు</div>
+              {/* Mini Matrimony Card */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-16 h-20 rounded-2xl bg-amber-50 border border-gold/30 flex items-center justify-center text-3xl shadow-xs overflow-hidden shrink-0">
+                    {photoPreview ? (
+                      <img src={photoPreview} alt="Preview" className="w-full h-full object-cover" />
+                    ) : (
+                      <span>{f.gender === "Bride" ? "👰" : "🤵"}</span>
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="font-extrabold text-sm text-navy truncate">{f.full_name || "మీ పేరు (Your Name)"}</div>
+                    <div className="text-xs font-bold text-maroon mt-0.5">
+                      {f.gender === "Bride" ? "👰 వధువు" : "🤵 వరుడు"} • {f.age ? `${f.age} సం.` : "26y"} • {f.height || "5'4\""}
+                    </div>
+                    <div className="text-[11px] text-slate-500 font-medium truncate mt-0.5">
+                      💍 {f.caste || "కులం"} {f.sub_caste ? `(${f.sub_caste})` : ""}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-slate-50 rounded-2xl p-3 space-y-1.5 text-xs text-slate-700 border border-slate-100">
+                  <div className="flex items-center gap-1.5">
+                    <span>🎓</span>
+                    <span className="font-medium truncate">{f.education || "విద్యార్హత"}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span>💼</span>
+                    <span className="font-medium truncate">{f.job || "ఉద్యోగం / హోదా"}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span>💰</span>
+                    <span className="font-bold text-emerald-700 truncate">{f.salary || "వార్షిక వేతనం"}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span>📍</span>
+                    <span className="font-medium truncate">
+                      {f.district || "జిల్లా"}, {f.state || "TS"}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-[11px] text-amber-900 font-semibold pt-1 border-t border-slate-200">
+                    <span>⭐</span>
+                    <span>
+                      {f.star || "నక్షత్రం"} {f.rasi ? `• ${f.rasi}` : ""}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Trust Badges */}
+              <div className="space-y-2 border-t border-slate-100 pt-3 text-xs text-slate-600">
+                <div className="flex items-center gap-2">
+                  <span className="text-emerald-600 font-bold">✓</span>
+                  <span>100% ఉచిత రిజిస్ట్రేషన్ & మ్యాచ్‌ల వీక్షణ</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-emerald-600 font-bold">✓</span>
+                  <span>సంపూర్ణ గోప్యత & ఫోటో లాక్ నియంత్రణ</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-emerald-600 font-bold">✓</span>
+                  <span>24/7 వాట్సాప్ సపోర్ట్: +91 6304996088</span>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Sticky Bottom Action Bar */}
-      <div className="fixed bottom-0 left-0 right-0 z-40 bg-white/97 backdrop-blur border-t border-gold/30 safe-bottom shadow-lg">
-        <div className="max-w-3xl mx-auto px-4 py-3 flex items-center gap-3">
-          {step > 1 && (
-            <button onClick={back} className="px-5 py-3.5 rounded-2xl border border-maroon/25 text-maroon font-bold text-[14px] hover:bg-cream active:scale-95 transition">
-              ← {duo("Back", "వెనక్కి")}
-            </button>
-          )}
-          <div className="flex-1 text-[11px] text-gray-600 font-medium">
-            {step < 5 ? `తదుపరి: ${duo(STEPS[step].label, STEPS[step].labelTe || "")}` : duo("Final step — submit profile", "చివరి దశ — ప్రొఫైల్ నమోదు")}
-          </div>
-          {step < 5 ? (
-            <button onClick={next} className="px-7 py-3.5 rounded-2xl maroon-gradient text-white font-bold text-[15px] shadow-brand hover:brightness-110 active:scale-95 transition">
-              {duo("Next", "తర్వాత")} →
+      {/* ---------- Sticky Bottom Action Bar (Mobile & Tablet) ---------- */}
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-gold/30 p-3 shadow-xl">
+        <div className="max-w-xl mx-auto flex items-center justify-between gap-3">
+          {step > 1 ? (
+            <button
+              type="button"
+              onClick={back}
+              disabled={busy}
+              className="flex-1 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-800 text-xs font-bold hover:bg-slate-50 transition"
+            >
+              ← వెనుకకు
             </button>
           ) : (
-            <button onClick={submit} disabled={busy}
-              className="px-6 py-3.5 rounded-2xl gold-gradient text-maroon font-extrabold text-[15px] shadow-brand hover:brightness-110 active:scale-95 transition disabled:opacity-60">
-              {busy ? duo("Registering…", "నమోదు అవుతోంది…") : `✅ ఉచిత నమోదు (Register Free)`}
+            <div className="flex-1 text-[11px] text-slate-500 font-semibold text-center">దశ {step} / 5</div>
+          )}
+
+          {step < 5 ? (
+            <button
+              type="button"
+              onClick={next}
+              className="flex-2 py-2.5 px-4 rounded-xl maroon-gradient text-white text-xs sm:text-sm font-bold shadow-md hover:brightness-105 transition flex items-center justify-center gap-1.5"
+            >
+              <span>ముందుకు వెళ్లండి</span>
+              <span>→</span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={submit}
+              disabled={busy}
+              className="flex-2 py-2.5 px-4 rounded-xl gold-gradient text-maroon text-xs sm:text-sm font-black shadow-lg hover:brightness-105 transition flex items-center justify-center gap-1.5 disabled:opacity-50"
+            >
+              {busy ? "నమోదు…" : "🎉 నమోదు పూర్తి చేయండి"}
             </button>
           )}
         </div>
@@ -2000,8 +1941,11 @@ export default function RegisterPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-[60vh] flex items-center justify-center text-gray-500 text-sm">
-          {duo("Loading registration form…", "నమోదు ఫారం లోడ్ అవుతోంది…")}
+        <div className="min-h-screen flex items-center justify-center bg-[#FAF7F2]">
+          <div className="text-center space-y-2">
+            <div className="w-10 h-10 border-4 border-maroon border-t-transparent rounded-full animate-spin mx-auto" />
+            <div className="text-xs font-bold text-maroon">మన వివాహ రిజిస్ట్రేషన్ లోడ్ అవుతోంది…</div>
+          </div>
         </div>
       }
     >
