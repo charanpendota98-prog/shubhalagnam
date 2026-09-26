@@ -1312,31 +1312,76 @@ function Wizard() {
                   placeholder="Ex: Pakanati / Chowdary / Motati / Ontari…" />
               ))}
 
-              <div className="pt-2 pb-1 flex items-center gap-2">
-                <span className="text-[13px] font-extrabold text-maroon">🕉️ వేద జ్యోతిష వివరాలు (Vedic Kundli Details)</span>
-                <span className="h-px flex-1 bg-gold/40" />
-                <span className="text-[10px] text-gray-500">వేద గుణమేళనం కి అవసరం</span>
-              </div>
+              {f.religion === "Muslim" ? (
+                <>
+                  <div className="pt-2 pb-1 flex items-center gap-2">
+                    <span className="text-[13px] font-extrabold text-maroon">🕌 ఇస్లామిక్ వివరాలు (Islamic Background)</span>
+                    <span className="h-px flex-1 bg-gold/40" />
+                  </div>
+                  <SelectField label="మత శాఖ / Islamic Sect" value={f.sub_caste || "Sunni"}
+                    onChange={(v) => set("sub_caste", v)} placeholder="శాఖ ఎంచుకోండి">
+                    <option value="Sunni">Sunni (సున్నీ)</option>
+                    <option value="Shia">Shia (షియా)</option>
+                    <option value="Ahle Hadees">Ahle Hadees (అహ్లే హదీస్)</option>
+                    <option value="Sufi">Sufi (సూఫీ)</option>
+                    <option value="Other">Other / General Muslim</option>
+                  </SelectField>
+                  <SelectField label="నమాజ్ & ధార్మిక నిబద్ధత / Religious Practice" value={f.gothram || "5 Times Namaz"}
+                    onChange={(v) => set("gothram", v)} placeholder="నమాజ్ నిబద్ధత ఎంచుకోండి">
+                    <option value="5 Times Namaz Regular">5 Times Namaz (రోజూ 5 సార్లు నమాజ్)</option>
+                    <option value="Regular Practicing">Regular Practicing (ధార్మిక నిబద్ధత గల)</option>
+                    <option value="Moderate">Moderate (సాధారణ)</option>
+                    <option value="Cultural">Cultural Muslim</option>
+                  </SelectField>
+                </>
+              ) : f.religion === "Christian" ? (
+                <>
+                  <div className="pt-2 pb-1 flex items-center gap-2">
+                    <span className="text-[13px] font-extrabold text-maroon">⛪ క్రైస్తవ వివరాలు (Christian Background)</span>
+                    <span className="h-px flex-1 bg-gold/40" />
+                  </div>
+                  <SelectField label="చర్చ్ తెగ / Denomination" value={f.sub_caste || "Roman Catholic"}
+                    onChange={(v) => set("sub_caste", v)} placeholder="తెగ ఎంచుకోండి">
+                    <option value="Roman Catholic">Roman Catholic (రోమన్ క్యాథలిక్)</option>
+                    <option value="CSI (Church of South India)">CSI (చర్చ్ ఆఫ్ సౌత్ ఇండియా)</option>
+                    <option value="Baptist">Baptist (బాప్టిస్ట్)</option>
+                    <option value="Protestant">Protestant (ప్రొటెస్టంట్)</option>
+                    <option value="Pentecostal">Pentecostal (పెంతెకోస్తు)</option>
+                    <option value="Seventh-day Adventist">Seventh-day Adventist</option>
+                    <option value="Other Christian">Other Denomination</option>
+                  </SelectField>
+                  <TextField label="చర్చ్ / పారిష్ పేరు (Church / Parish Name)" optional value={f.gothram} onChange={(v) => set("gothram", v)}
+                    placeholder="Ex: St. Mary's / Wesley / Calvary…" hint="మీరు హాజరయ్యే చర్చ్ పేరు" />
+                </>
+              ) : (
+                <>
+                  <div className="pt-2 pb-1 flex items-center gap-2">
+                    <span className="text-[13px] font-extrabold text-maroon">🕉️ వేద జ్యోతిష వివరాలు (Vedic Kundli Details)</span>
+                    <span className="h-px flex-1 bg-gold/40" />
+                    <span className="text-[10px] text-gray-500">వేద గుణమేళనం కి అవసరం</span>
+                  </div>
 
-              <TextField label="గోత్రం / Gothram" optional value={f.gothram} onChange={(v) => set("gothram", v)}
-                placeholder="Ex: Kasyapa / Bharadwaja / Shiva / Janakula…" hint="గోత్ర మైత్రి & వివాహ సరిపోలిక కొరకు" />
+                  <TextField label="గోత్రం / Gothram" optional value={f.gothram} onChange={(v) => set("gothram", v)}
+                    placeholder="Ex: Kasyapa / Bharadwaja / Shiva / Janakula…" hint="గోత్ర మైత్రి & వివాహ సరిపోలిక కొరకు" />
 
-              <SearchSelect label="నక్షత్రం / Nakshatram (27 Stars)" options={NAKSHATRAS.map((n) => n.en)} value={f.star}
-                teMap={Object.fromEntries(NAKSHATRAS.map((n) => [n.en, n.te]))}
-                onChange={(v) => set("star", v)}
-                placeholder="నక్షత్రం ఎంచుకోండి (27 Nakshatras)"
-                hint="నక్షత్రం ఎంచుకోగానే రాశి ఆటోమేటిక్‌గా సూచించబడుతుంది (వేద గుణమేళనం)" />
+                  <SearchSelect label="నక్షత్రం / Nakshatram (27 Stars)" options={NAKSHATRAS.map((n) => n.en)} value={f.star}
+                    teMap={Object.fromEntries(NAKSHATRAS.map((n) => [n.en, n.te]))}
+                    onChange={(v) => set("star", v)}
+                    placeholder="నక్షత్రం ఎంచుకోండి (27 Nakshatras)"
+                    hint="నక్షత్రం ఎంచుకోగానే రాశి ఆటోమేటిక్‌గా సూచించబడుతుంది (వేద గుణమేళనం)" />
 
-              <SearchSelect label="రాశి / Rasi (12 Vedic Moon Signs)" options={RASIS.map((r) => r.en)} value={f.rasi}
-                teMap={Object.fromEntries(RASIS.map((r) => [r.en, r.te]))}
-                onChange={(v) => set("rasi", v)} placeholder="రాశి ఎంచుకోండి (12 Moon Signs)" />
+                  <SearchSelect label="రాశి / Rasi (12 Vedic Moon Signs)" options={RASIS.map((r) => r.en)} value={f.rasi}
+                    teMap={Object.fromEntries(RASIS.map((r) => [r.en, r.te]))}
+                    onChange={(v) => set("rasi", v)} placeholder="రాశి ఎంచుకోండి (12 Moon Signs)" />
 
-              <div className="grid grid-cols-2 gap-3">
-                <PillGroup label="మూలా నక్షత్రమా?" options={[{ v: "No", en: "No", te: "లేదు" }, { v: "Yes", en: "Yes", te: "ఉంది" }]} value={f.moola_nakshatram}
-                  onChange={(v) => set("moola_nakshatram", v)} />
-                <PillGroup label="దోషం ఏదైనా ఉందా?" options={[{ v: "No", en: "No Dosham", te: "లేదు" }, { v: "Yes", en: "Kuja/Other", te: "ఉంది" }, { v: "Not Sure", en: "Not Sure", te: "తెలియదు" }]} value={f.dosham}
-                  onChange={(v) => set("dosham", v)} />
-              </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <PillGroup label="మూలా నక్షత్రమా?" options={[{ v: "No", en: "No", te: "లేదు" }, { v: "Yes", en: "Yes", te: "ఉంది" }]} value={f.moola_nakshatram}
+                      onChange={(v) => set("moola_nakshatram", v)} />
+                    <PillGroup label="దోషం ఏదైనా ఉందా?" options={[{ v: "No", en: "No Dosham", te: "లేదు" }, { v: "Yes", en: "Kuja/Other", te: "ఉంది" }, { v: "Not Sure", en: "Not Sure", te: "తెలియదు" }]} value={f.dosham}
+                      onChange={(v) => set("dosham", v)} />
+                  </div>
+                </>
+              )}
             </>
           )}
 

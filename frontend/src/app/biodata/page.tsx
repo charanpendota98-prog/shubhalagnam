@@ -4,25 +4,43 @@
  * 🎴 MANA VIVAHA — LUXURY TELUGU MARRIAGE BIODATA STUDIO
  * =========================================================
  * - Premium Matrimonial Biodata (Shaadi Elite / VIP Standard)
+ * - Contextual Religious Presets (Hindu / Muslim / Christian / Inter-faith)
  * - 4 Regal Themes: Royal Velvet Maroon 👑, Temple Gold 🪔, Imperial Emerald 🦚, Auspicious Rose 🌸
  * - Crystal Clear English Labels with Traditional Telugu Highlights
+ * - 2nd Marriage / Remarriage Distinguished Header Badge
  * - Form Data Auto-Fill via Profile ID or Live In-Place Editing
  * - Pixel-Perfect A4 Page Dimension for Print & PDF Export
  * - Official Mana Vivaha Digital Trust Badge + WhatsApp Helpline: +91 63049 96088
  */
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useLang } from "@/lib/lang";
 import { SITE_CONFIG } from "@/lib/site-config";
 import { WhatsAppIcon } from "@/components/BrandIcons";
 
-const HEADERS = [
-  "|| శ్రీ రస్తు — శుభమస్తు — అవిఘ్నమస్తు ||",
-  "|| Om Sri Lakshmi Venkateshwaraya Namaha ||",
-  "|| Sri Sita Ramachandrabhyam Namaha ||",
-  "|| Sri Vighneshwaraya Namaha ||",
-];
+const RELIGION_HEADERS: Record<string, string[]> = {
+  Hindu: [
+    "|| శ్రీ రస్తు — శుభమస్తు — అవిఘ్నమస్తు ||",
+    "|| Om Sri Lakshmi Venkateshwaraya Namaha ||",
+    "|| Sri Sita Ramachandrabhyam Namaha ||",
+    "|| Sri Vighneshwaraya Namaha ||",
+  ],
+  Muslim: [
+    "|| بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ (Bismillahir Rahmanir Raheem) ||",
+    "|| In the Name of Allah, Most Gracious, Most Merciful ||",
+    "|| Nikah Mubarak — Blessed Muslim Matrimony ||",
+  ],
+  Christian: [
+    "|| In the Name of Jesus Christ (యేసుక్రీస్తు నామమున) ||",
+    "|| Blessed Christian Holy Matrimony ||",
+    "|| Grace, Peace & Love in Christ Jesus ||",
+  ],
+  Other: [
+    "|| Auspicious Holy Matrimony ||",
+    "|| Sacred Life Partnership ||",
+  ],
+};
 
 const THEMES = [
   {
@@ -79,7 +97,8 @@ export default function BiodataPage() {
   const { lang } = useLang();
   const te = lang === "te";
 
-  const [headerText, setHeaderText] = useState(HEADERS[0]);
+  const [religion, setReligion] = useState<"Hindu" | "Muslim" | "Christian" | "Other">("Hindu");
+  const [headerText, setHeaderText] = useState(RELIGION_HEADERS.Hindu[0]);
   const [selectedTheme, setSelectedTheme] = useState(THEMES[0]);
   const [profileId, setProfileId] = useState("");
   const [loading, setLoading] = useState(false);
@@ -89,41 +108,80 @@ export default function BiodataPage() {
   const [data, setData] = useState({
     title: "MARRIAGE BIODATA (వివాహ బయోడేటా)",
     fullName: "Ravi Teja Reddy",
-    fullNameTe: "రవితేజ రెడ్డి",
     gender: "Groom",
-    maritalStatus: "Never Married (అవివాహితుడు)",
+    maritalStatus: "Never Married",
+    isSecondMarriage: false,
     dob: "15 August 1997",
     tob: "08:45 AM",
-    pob: "Hyderabad, Telangana",
     height: "5' 10\" (178 cm)",
-    complexion: "Wheatish (గోధుమ రంగు)",
+    complexion: "Wheatish",
     caste: "Reddy",
     subCaste: "Motati (మోటాటి)",
+    // Hindu Astrological fields
     gothram: "Bharadwaja (భరద్వాజ)",
     star: "Rohini (రోహిణి)",
-    paadam: "2nd Paadam",
     rasi: "Vrishabha (వృషభం)",
     lagnam: "Mithuna Lagnam (మిథునం)",
+    // Muslim fields
+    islamicSect: "Sunni (సున్నీ)",
+    islamicJamath: "Sheikh (షేక్)",
+    namazStatus: "5 Times Namaz Regular",
+    // Christian fields
+    christianDenomination: "Roman Catholic (రోమన్ క్యాథలిక్)",
+    churchName: "St. Mary's Basilica, Secunderabad",
+    baptismStatus: "Baptized & Active Believer",
+    // Career & Education
     education: "B.Tech in Computer Science",
     educationDetail: "JNTU Hyderabad (2019 Batch)",
     job: "Senior Software Engineer",
     company: "TCS / Amazon Partner",
     salary: "₹18,00,000 / annum (18 LPA)",
-    workLocation: "Hyderabad (Hybrid / WFH)",
+    workLocation: "Hyderabad, Telangana (Hybrid / WFH)",
+    // Family Lineage
     fatherName: "Ramakrishna Reddy",
-    fatherOccupation: "Real Estate & Agriculture (వ్యాపారం)",
+    fatherOccupation: "Real Estate & Agriculture",
     motherName: "Lakshmi Devi",
-    motherOccupation: "Home Maker (గృహిణి)",
-    siblings: "1 Younger Sister (B.Tech Student - Unmarried)",
+    motherOccupation: "Home Maker",
+    siblings: "1 Younger Sister (B.Tech - Unmarried)",
     nativePlace: "Nalgonda / Hyderabad",
     properties: "Own Independent House in Hyderabad + 4 Acres Agricultural Land",
-    familyValues: "Traditional & Cultured (సాంప్రదాయ కుటుంబం)",
+    familyValues: "Traditional & Cultured Family",
+    // Contact
     contactPerson: "Father's Contact",
     phone: "98490XXXXX",
     email: "ramakrishna.reddy@gmail.com",
     address: "Flat 402, Sri Balaji Towers, Kukatpally, Hyderabad - 500072",
     photoUrl: "/promo/groom-kamma.jpg",
   });
+
+  // Handle Religion Change
+  const handleReligionChange = (r: "Hindu" | "Muslim" | "Christian" | "Other") => {
+    setReligion(r);
+    const headers = RELIGION_HEADERS[r] || RELIGION_HEADERS.Hindu;
+    setHeaderText(headers[0]);
+    if (r === "Muslim") {
+      setData((prev) => ({
+        ...prev,
+        title: "NIKAH BIODATA (నికాహ్ బయోడేటా)",
+        caste: "Muslim",
+        subCaste: "Sheikh",
+      }));
+    } else if (r === "Christian") {
+      setData((prev) => ({
+        ...prev,
+        title: "CHRISTIAN MATRIMONIAL BIODATA",
+        caste: "Christian",
+        subCaste: "Roman Catholic",
+      }));
+    } else {
+      setData((prev) => ({
+        ...prev,
+        title: "MARRIAGE BIODATA (వివాహ బయోడేటా)",
+        caste: "Reddy",
+        subCaste: "Motati",
+      }));
+    }
+  };
 
   // Pre-fill from Profile ID
   const fetchProfile = async (id: string) => {
@@ -136,10 +194,26 @@ export default function BiodataPage() {
         const json = await res.json();
         const p = json.profile || json;
         if (p && p.full_name) {
+          const mStatus = p.marital_status || "Never Married";
+          const isRemarriage = mStatus.toLowerCase().includes("divorced") ||
+            mStatus.toLowerCase().includes("widowed") ||
+            mStatus.toLowerCase().includes("remarriage") ||
+            mStatus.toLowerCase().includes("second");
+
+          const pRel = p.religion === "Muslim" ? "Muslim" : (p.religion === "Christian" ? "Christian" : "Hindu");
+          setReligion(pRel);
+          const headers = RELIGION_HEADERS[pRel] || RELIGION_HEADERS.Hindu;
+          setHeaderText(headers[0]);
+
           setData((prev) => ({
             ...prev,
+            title: isRemarriage
+              ? "SECOND MARRIAGE BIODATA (పునర్వివాహం)"
+              : (pRel === "Muslim" ? "NIKAH BIODATA (నికాహ్ బయోడేటా)" : (pRel === "Christian" ? "CHRISTIAN MATRIMONIAL BIODATA" : "MARRIAGE BIODATA (వివాహ బయోడేటా)")),
             fullName: p.full_name || prev.fullName,
             gender: p.gender || prev.gender,
+            maritalStatus: mStatus,
+            isSecondMarriage: isRemarriage,
             dob: p.dob || prev.dob,
             height: p.height || prev.height,
             caste: p.caste || prev.caste,
@@ -175,14 +249,19 @@ export default function BiodataPage() {
     const text = `🌸 *${data.title} — MANA VIVAHA* 🌸\n` +
       `━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
       `👤 *Name:* ${data.fullName} (${data.height})\n` +
-      `💍 *Caste & Gothram:* ${data.caste} (${data.subCaste}) | ${data.gothram}\n` +
-      `🌟 *Horoscope:* ${data.star} (${data.paadam}) · ${data.rasi}\n` +
+      `💍 *Status:* ${data.maritalStatus}\n` +
+      (religion === "Hindu"
+        ? `💍 *Caste & Gothram:* ${data.caste} (${data.subCaste}) | ${data.gothram}\n` +
+          `🌟 *Horoscope:* ${data.star} · ${data.rasi}\n`
+        : religion === "Muslim"
+        ? `🕌 *Sect & Jamath:* ${data.islamicSect} (${data.islamicJamath}) | ${data.namazStatus}\n`
+        : `⛪ *Denomination:* ${data.christianDenomination} | ${data.churchName}\n`) +
       `🎓 *Education:* ${data.education}\n` +
       `💼 *Profession:* ${data.job} at ${data.company}\n` +
       `💰 *Annual Income:* ${data.salary}\n` +
       `📍 *Location:* ${data.workLocation}\n` +
       `━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
-      `👨‍👩‍👦 *Family Background:*\n` +
+      `👨‍👩‍👦 *Family Lineage:*\n` +
       `• Father: ${data.fatherName} (${data.fatherOccupation})\n` +
       `• Mother: ${data.motherName} (${data.motherOccupation})\n` +
       `• Siblings: ${data.siblings}\n` +
@@ -209,10 +288,10 @@ export default function BiodataPage() {
                 <span>👑</span> {te ? "మన వివాహ రాయల్ బయోడేటా స్టూడియో" : "Mana Vivaha Royal Biodata Studio"}
               </div>
               <h1 className="text-xl sm:text-2xl font-black text-ink telugu">
-                {te ? "సంప్రదాయ & ఆధునిక తెలుగు వివాహ బయోడేటా" : "Premium Telugu Marriage Biodata (Shaadi Elite Standard)"}
+                {te ? "సంప్రదాయ & ఆధునిక వివాహ బయోడేటా" : "Shaadi Elite Standard Marriage Biodata"}
               </h1>
               <p className="text-xs text-slate-500 mt-1">
-                {te ? "వివరాలను ఆటో-ఫిల్ చేయండి, రాయల్ థీమ్ ఎంచుకోండి — తక్షణమే హై-క్వాలిటీ A4 PDF డౌన్‌లోడ్ చేసుకోండి లేదా వాట్సాప్‌లో షేర్ చేయండి." : "Auto-fill with Profile ID, pick a royal theme, and export crisp A4 PDF or share to WhatsApp."}
+                {te ? "మతం, కులం, లేదా పునర్వివాహం (2nd Marriage) కి అనుగుణంగా పర్‌ఫెక్ట్ A4 PDF ని డౌన్‌లోడ్ చేయండి." : "Contextualized for Hindu, Muslim, Christian, and Remarriage profiles with crisp A4 PDF export."}
               </p>
             </div>
 
@@ -245,10 +324,10 @@ export default function BiodataPage() {
           </div>
 
           {/* Quick Config Bar */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1">
-                ⚡ {te ? "Profile ID తో ఆటో-ఫిల్ చేయండి" : "Auto-fill with Profile ID"}
+                ⚡ {te ? "Profile ID తో ఆటో-ఫిల్" : "Auto-fill Profile ID"}
               </label>
               <div className="flex gap-2">
                 <input
@@ -264,9 +343,53 @@ export default function BiodataPage() {
                   disabled={loading}
                   className="px-4 py-2 rounded-xl bg-gold text-maroon font-black text-xs hover:bg-gold-light transition shrink-0"
                 >
-                  {loading ? "..." : (te ? "లోడ్ చేయి" : "Load")}
+                  {loading ? "..." : (te ? "లోడ్" : "Load")}
                 </button>
               </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                🕌 / ⛪ / 🪔 {te ? "మత సంప్రదాయం (Religion)" : "Religion / Tradition"}
+              </label>
+              <select
+                value={religion}
+                onChange={(e) => handleReligionChange(e.target.value as any)}
+                className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-bold text-slate-800 focus:border-maroon outline-none bg-white"
+              >
+                <option value="Hindu">Hindu (హిందూ)</option>
+                <option value="Muslim">Muslim (ముస్లిం / Nikah)</option>
+                <option value="Christian">Christian (క్రైస్తవ)</option>
+                <option value="Other">General / Other</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                💍 {te ? "వివాహ స్థితి (Marital Status)" : "Marital Status"}
+              </label>
+              <select
+                value={data.maritalStatus}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  const isRemarr = val !== "Never Married";
+                  setData({
+                    ...data,
+                    maritalStatus: val,
+                    isSecondMarriage: isRemarr,
+                    title: isRemarr
+                      ? "SECOND MARRIAGE BIODATA (పునర్వివాహం)"
+                      : (religion === "Muslim" ? "NIKAH BIODATA (నికాహ్ బయోడేటా)" : (religion === "Christian" ? "CHRISTIAN MATRIMONIAL BIODATA" : "MARRIAGE BIODATA (వివాహ బయోడేటా)")),
+                  });
+                }}
+                className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-bold text-slate-800 focus:border-maroon outline-none bg-white"
+              >
+                <option value="Never Married">Never Married (అవివాహితుడు / అవివాహిత)</option>
+                <option value="Divorced">Divorced (విడాకులు అయినవి)</option>
+                <option value="Widowed">Widowed (భార్య/భర్త మరణించిన)</option>
+                <option value="Awaiting Divorce">Awaiting Divorce (విడాకుల ప్రక్రియలో)</option>
+                <option value="Second Marriage">Second Marriage (పునర్వివాహం)</option>
+              </select>
             </div>
 
             <div>
@@ -283,21 +406,6 @@ export default function BiodataPage() {
                 ))}
               </select>
             </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">
-                🕉️ {te ? "శుభ ప్రారంభ శ్లోకం / శీర్షిక" : "Auspicious Inscription Banner"}
-              </label>
-              <select
-                value={headerText}
-                onChange={(e) => setHeaderText(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-bold text-slate-800 focus:border-maroon outline-none bg-white"
-              >
-                {HEADERS.map((h) => (
-                  <option key={h} value={h}>{h}</option>
-                ))}
-              </select>
-            </div>
           </div>
         </div>
 
@@ -311,28 +419,45 @@ export default function BiodataPage() {
             <p className="text-xs sm:text-sm font-bold tracking-widest text-amber-900 telugu mb-1">
               {headerText}
             </p>
-            <div className={`inline-block px-7 py-1.5 rounded-full ${selectedTheme.headerBg} shadow-sm font-black text-xs sm:text-sm tracking-wider uppercase mt-1.5`}>
-              {data.title}
+
+            {/* Remarriage or Standard Title Badge */}
+            <div className="flex flex-wrap items-center justify-center gap-2 mt-1.5">
+              <div className={`inline-block px-7 py-1.5 rounded-full ${selectedTheme.headerBg} shadow-sm font-black text-xs sm:text-sm tracking-wider uppercase`}>
+                {data.title}
+              </div>
+              {data.isSecondMarriage && (
+                <div className="inline-block px-4 py-1 rounded-full bg-amber-500 text-white font-black text-[11px] shadow-sm uppercase tracking-wide">
+                  💍 Second Marriage / Remarriage
+                </div>
+              )}
             </div>
           </div>
 
           {/* 2. Top Profile Row with Photo & Key Highlights */}
           <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6 py-6 border-b border-slate-200/80">
-            {/* Photo */}
+            {/* Photo with Prominent Luxury Border */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <div className="w-32 h-40 rounded-2xl overflow-hidden border-2 border-gold shadow-md shrink-0 bg-slate-100">
+            <div className="w-32 h-40 rounded-2xl overflow-hidden border-2 border-gold shadow-md shrink-0 bg-slate-100 relative">
               <img
                 src={data.photoUrl || "/promo/groom-kamma.jpg"}
                 alt={data.fullName}
                 className="w-full h-full object-cover"
               />
+              <div className="absolute bottom-1 right-1 bg-black/60 text-white text-[9px] font-mono px-1.5 py-0.5 rounded backdrop-blur-xs">
+                {profileId || "MV1001"}
+              </div>
             </div>
 
             {/* Title / Name & Tags */}
             <div className="space-y-2 text-center sm:text-left flex-1">
-              <h2 className={`text-2xl sm:text-3xl font-black ${selectedTheme.accent} tracking-tight`}>
-                {data.fullName}
-              </h2>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                <h2 className={`text-2xl sm:text-3xl font-black ${selectedTheme.accent} tracking-tight`}>
+                  {data.fullName}
+                </h2>
+                <span className="font-mono text-xs font-bold bg-slate-100 text-slate-700 px-2.5 py-1 rounded-lg border border-slate-200 self-center sm:self-auto">
+                  ID: {profileId || "MV1001"}
+                </span>
+              </div>
 
               <div className="flex flex-wrap items-center justify-center sm:justify-start gap-1.5 pt-0.5">
                 <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${selectedTheme.pill}`}>
@@ -344,6 +469,11 @@ export default function BiodataPage() {
                 <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${selectedTheme.pill}`}>
                   💼 {data.job}
                 </span>
+                {data.isSecondMarriage && (
+                  <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-amber-100 text-amber-900 border border-amber-300">
+                    💍 {data.maritalStatus}
+                  </span>
+                )}
               </div>
 
               <div className="text-xs text-slate-600 font-medium space-y-0.5 pt-1">
@@ -353,7 +483,7 @@ export default function BiodataPage() {
             </div>
           </div>
 
-          {/* 3. Section 1: Personal Details (వ్యక్తిగత వివరాలు) */}
+          {/* 3. Section 1: Personal Details */}
           <div className="py-4 border-b border-slate-200/80">
             <h3 className={`text-xs sm:text-sm font-extrabold ${selectedTheme.accent} uppercase tracking-wider mb-3 flex items-center gap-2`}>
               <span>👤</span> Personal Profile
@@ -368,10 +498,6 @@ export default function BiodataPage() {
                 <span className="font-bold text-slate-800">{data.tob}</span>
               </div>
               <div className="flex justify-between border-b border-slate-100 pb-1">
-                <span className="text-slate-500 font-medium">Place of Birth:</span>
-                <span className="font-bold text-slate-800">{data.pob}</span>
-              </div>
-              <div className="flex justify-between border-b border-slate-100 pb-1">
                 <span className="text-slate-500 font-medium">Height:</span>
                 <span className="font-bold text-slate-800">{data.height}</span>
               </div>
@@ -379,39 +505,87 @@ export default function BiodataPage() {
                 <span className="text-slate-500 font-medium">Complexion:</span>
                 <span className="font-bold text-slate-800">{data.complexion}</span>
               </div>
-              <div className="flex justify-between border-b border-slate-100 pb-1">
+              <div className="flex justify-between border-b border-slate-100 pb-1 col-span-2">
                 <span className="text-slate-500 font-medium">Marital Status:</span>
                 <span className="font-bold text-slate-800">{data.maritalStatus}</span>
               </div>
             </div>
           </div>
 
-          {/* 4. Section 2: Astrological / Horoscope Details (జాతక వివరాలు) */}
+          {/* 4. Section 2: Religion-Specific Details (Hindu / Muslim / Christian) */}
           <div className="py-4 border-b border-slate-200/80">
-            <h3 className={`text-xs sm:text-sm font-extrabold ${selectedTheme.accent} uppercase tracking-wider mb-3 flex items-center gap-2`}>
-              <span>🕉️</span> Horoscope & Astrological Details
-            </h3>
-            <div className="grid grid-cols-2 gap-y-2 gap-x-6 text-xs">
-              <div className="flex justify-between border-b border-slate-100 pb-1">
-                <span className="text-slate-500 font-medium">Gothram:</span>
-                <span className="font-bold text-slate-800">{data.gothram}</span>
-              </div>
-              <div className="flex justify-between border-b border-slate-100 pb-1">
-                <span className="text-slate-500 font-medium">Nakshatram (Star):</span>
-                <span className="font-bold text-slate-800">{data.star} ({data.paadam})</span>
-              </div>
-              <div className="flex justify-between border-b border-slate-100 pb-1">
-                <span className="text-slate-500 font-medium">Rasi (Moon Sign):</span>
-                <span className="font-bold text-slate-800">{data.rasi}</span>
-              </div>
-              <div className="flex justify-between border-b border-slate-100 pb-1">
-                <span className="text-slate-500 font-medium">Lagnam (Ascendant):</span>
-                <span className="font-bold text-slate-800">{data.lagnam}</span>
-              </div>
-            </div>
+            {religion === "Hindu" && (
+              <>
+                <h3 className={`text-xs sm:text-sm font-extrabold ${selectedTheme.accent} uppercase tracking-wider mb-3 flex items-center gap-2`}>
+                  <span>🕉️</span> Horoscope & Astrological Details
+                </h3>
+                <div className="grid grid-cols-2 gap-y-2 gap-x-6 text-xs">
+                  <div className="flex justify-between border-b border-slate-100 pb-1">
+                    <span className="text-slate-500 font-medium">Gothram:</span>
+                    <span className="font-bold text-slate-800">{data.gothram}</span>
+                  </div>
+                  <div className="flex justify-between border-b border-slate-100 pb-1">
+                    <span className="text-slate-500 font-medium">Nakshatram (Star):</span>
+                    <span className="font-bold text-slate-800">{data.star}</span>
+                  </div>
+                  <div className="flex justify-between border-b border-slate-100 pb-1">
+                    <span className="text-slate-500 font-medium">Rasi:</span>
+                    <span className="font-bold text-slate-800">{data.rasi}</span>
+                  </div>
+                  <div className="flex justify-between border-b border-slate-100 pb-1">
+                    <span className="text-slate-500 font-medium">Lagnam:</span>
+                    <span className="font-bold text-slate-800">{data.lagnam}</span>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {religion === "Muslim" && (
+              <>
+                <h3 className={`text-xs sm:text-sm font-extrabold ${selectedTheme.accent} uppercase tracking-wider mb-3 flex items-center gap-2`}>
+                  <span>🕌</span> Islamic & Religious Background
+                </h3>
+                <div className="grid grid-cols-2 gap-y-2 gap-x-6 text-xs">
+                  <div className="flex justify-between border-b border-slate-100 pb-1">
+                    <span className="text-slate-500 font-medium">Islamic Sect:</span>
+                    <span className="font-bold text-slate-800">{data.islamicSect}</span>
+                  </div>
+                  <div className="flex justify-between border-b border-slate-100 pb-1">
+                    <span className="text-slate-500 font-medium">Jamath / Sub-caste:</span>
+                    <span className="font-bold text-slate-800">{data.islamicJamath}</span>
+                  </div>
+                  <div className="flex justify-between border-b border-slate-100 pb-1 col-span-2">
+                    <span className="text-slate-500 font-medium">Religious Practice / Namaz:</span>
+                    <span className="font-bold text-slate-800">{data.namazStatus}</span>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {religion === "Christian" && (
+              <>
+                <h3 className={`text-xs sm:text-sm font-extrabold ${selectedTheme.accent} uppercase tracking-wider mb-3 flex items-center gap-2`}>
+                  <span>⛪</span> Christian Church & Spiritual Background
+                </h3>
+                <div className="grid grid-cols-2 gap-y-2 gap-x-6 text-xs">
+                  <div className="flex justify-between border-b border-slate-100 pb-1">
+                    <span className="text-slate-500 font-medium">Denomination:</span>
+                    <span className="font-bold text-slate-800">{data.christianDenomination}</span>
+                  </div>
+                  <div className="flex justify-between border-b border-slate-100 pb-1">
+                    <span className="text-slate-500 font-medium">Baptism Status:</span>
+                    <span className="font-bold text-slate-800">{data.baptismStatus}</span>
+                  </div>
+                  <div className="flex justify-between border-b border-slate-100 pb-1 col-span-2">
+                    <span className="text-slate-500 font-medium">Parish / Church Name:</span>
+                    <span className="font-bold text-slate-800">{data.churchName}</span>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
 
-          {/* 5. Section 3: Education & Career (విద్య & ఉద్యోగం) */}
+          {/* 5. Section 3: Education & Career */}
           <div className="py-4 border-b border-slate-200/80">
             <h3 className={`text-xs sm:text-sm font-extrabold ${selectedTheme.accent} uppercase tracking-wider mb-3 flex items-center gap-2`}>
               <span>🎓</span> Education & Professional Career
@@ -436,7 +610,7 @@ export default function BiodataPage() {
             </div>
           </div>
 
-          {/* 6. Section 4: Family Details & Properties (కుటుంబ వివరాలు) */}
+          {/* 6. Section 4: Family Details & Properties */}
           <div className="py-4 border-b border-slate-200/80">
             <h3 className={`text-xs sm:text-sm font-extrabold ${selectedTheme.accent} uppercase tracking-wider mb-3 flex items-center gap-2`}>
               <span>👨‍👩‍👦</span> Family Lineage & Background
