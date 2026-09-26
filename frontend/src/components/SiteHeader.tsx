@@ -32,6 +32,7 @@ const NAV_EARN: NavItem[] = [
 
 const NAV_MORE: NavItem[] = [
   { href: "/second-marriage", en: "Second Marriage (Remarriage)", te: "పునర్వివాహం (Second Marriage)", icon: "💍" },
+  { href: "/districts", en: "TS & AP Districts", te: "జిల్లా సమగ్ర సంబంధాలు", icon: "🏛️" },
   { href: "/me", en: "My Account", te: "నా అకౌంట్", icon: "🙋" },
   { href: "/biodata", en: "Biodata Maker", te: "బయోడేటా మేకర్", icon: "🎴" },
   { href: "/porutham", en: "Jyothishyam", te: "జ్యోతిషం", icon: "💍" },
