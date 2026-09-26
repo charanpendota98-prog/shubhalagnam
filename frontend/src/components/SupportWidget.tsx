@@ -2,7 +2,7 @@
 
 /**
  * 📲 OFFICIAL WHATSAPP FLOATING BUTTON — మన వివాహ
- * Direct 1-Tap Connect to Official WhatsApp Support (+919394483300).
+ * Direct 1-Tap Connect to Official WhatsApp Support (+916304996088).
  * Clean, distraction-free, high-end floating button.
  */
 import { usePathname } from "next/navigation";
@@ -17,7 +17,7 @@ export default function SupportWidget() {
   // Hide in register wizard to prevent overlapping bottom action buttons
   if (pathname?.startsWith("/register")) return null;
 
-  const waNumber = SITE_CONFIG.supportWhatsapp || "919394483300";
+  const waNumber = SITE_CONFIG.supportWhatsapp || "916304996088";
   const defaultText = encodeURIComponent(
     te
       ? "నమస్తే మన వివాహ (Mana Vivaha) టీమ్, నాకు సహాయం కావాలి."
@@ -30,8 +30,8 @@ export default function SupportWidget() {
         href={`https://wa.me/${waNumber}?text=${defaultText}`}
         target="_blank"
         rel="noopener noreferrer"
-        aria-label={te ? "వాట్సాప్ సహాయం (+919394483300)" : "WhatsApp Support (+919394483300)"}
-        title={te ? "WhatsApp లో మాట్లాడండి (+91 93944 83300)" : "Chat on WhatsApp (+91 93944 83300)"}
+        aria-label={te ? "వాట్సాప్ సహాయం (+916304996088)" : "WhatsApp Support (+916304996088)"}
+        title={te ? "WhatsApp లో మాట్లాడండి (+91 63049 96088)" : "Chat on WhatsApp (+91 63049 96088)"}
         className="group flex h-13 items-center gap-2.5 rounded-full bg-[#25D366] hover:bg-[#20ba59] px-4 text-white shadow-2xl transition-all duration-300 hover:scale-105 active:scale-95 focus-brand border-2 border-white/50"
       >
         <span className="relative flex h-3 w-3">

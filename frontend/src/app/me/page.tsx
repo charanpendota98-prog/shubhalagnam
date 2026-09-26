@@ -206,7 +206,7 @@ function BoostPanel({ myId }: { myId: string }) {
           </div>
         ))}
       </div>
-      <p className="mt-2 text-[11px] text-slate-500">{te ? "💳 Payment తర్వాత boost automatic ON (UPI: 9394483300@ybl) — UTR ని /pricing లో ఇవ్వండి." : "💳 Boost auto-ON after payment (UPI: 9394483300@ybl) — give UTR in /pricing."}</p>
+      <p className="mt-2 text-[11px] text-slate-500">{te ? "💳 Payment తర్వాత boost automatic ON (UPI: 6304996088@ybl) — UTR ని /pricing లో ఇవ్వండి." : "💳 Boost auto-ON after payment (UPI: 6304996088@ybl) — give UTR in /pricing."}</p>
       <Msg m={msg} />
     </section>
   );

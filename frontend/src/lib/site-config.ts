@@ -26,12 +26,12 @@ export const SITE_CONFIG = {
   unlockBot: (tsapId: string) => `https://t.me/telugumatrimony1_bot?start=unlock_${encodeURIComponent(tsapId)}`,
   officialChannel: "@TSAP_MATRIMONY",
   officialChannelUrl: "https://t.me/TSAP_MATRIMONY",
-  supportWhatsapp: (process.env.NEXT_PUBLIC_SUPPORT_WHATSAPP || "919394483300").trim(),
-  supportPhone: (process.env.NEXT_PUBLIC_SUPPORT_PHONE || "+919394483300").trim(),
+  supportWhatsapp: (process.env.NEXT_PUBLIC_SUPPORT_WHATSAPP || "916304996088").trim(),
+  supportPhone: (process.env.NEXT_PUBLIC_SUPPORT_PHONE || "+916304996088").trim(),
   supportEmail: (process.env.NEXT_PUBLIC_SUPPORT_EMAIL || "charan.pendota98@gmail.com").trim(),
   supportConfigured: true,
-  get supportPhoneDisplay() { return this.supportPhone || "+91 93944 83300"; },
-  get supportLink() { return `https://wa.me/${this.supportWhatsapp || "919394483300"}`; },
+  get supportPhoneDisplay() { return this.supportPhone || "+91 63049 96088"; },
+  get supportLink() { return `https://wa.me/${this.supportWhatsapp || "916304996088"}`; },
 
   // ---------- Owner & Acceptance Details ----------
   owner: {
@@ -40,7 +40,7 @@ export const SITE_CONFIG = {
     signatoryName: "PENDOTA CHARAN",
     ipAddress: "10.26.123.93",
     dateOfAcceptance: "2026-09-20 23:08:03 IST",
-    contactNumber: "+919394483300",
+    contactNumber: "+916304996088",
     email: "charan.pendota98@gmail.com",
     status: "Verified & Digitally Accepted",
   },
@@ -117,7 +117,7 @@ export const SITE_CONFIG = {
     signatoryName: "PENDOTA CHARAN",
     ipAddress: "10.26.123.93",
     dateOfAcceptance: "2026-09-20 23:08:03 IST",
-    contactNumber: "+919394483300",
+    contactNumber: "+916304996088",
     email: "charan.pendota98@gmail.com",
   },
 } as const;

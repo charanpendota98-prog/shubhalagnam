@@ -176,7 +176,7 @@ export default function PayBox({ planCode, price, label }: { planCode: string; p
           {order.mode !== "razorpay" && (
             <div className="text-[11px] bg-white rounded-lg p-2.5 border space-y-2">
               <div className="flex items-center justify-between">
-                <span>💳 UPI ID: <b className="font-mono text-maroon">{order.upi_id || "9394483300@ybl"}</b></span>
+                <span>💳 UPI ID: <b className="font-mono text-maroon">{order.upi_id || "6304996088@ybl"}</b></span>
                 <span className="font-bold text-emerald-800 text-xs">₹{order.final_amount}</span>
               </div>
 
@@ -196,7 +196,7 @@ export default function PayBox({ planCode, price, label }: { planCode: string; p
               </div>
 
               <a
-                href={`upi://pay?pa=${encodeURIComponent(order.upi_id || "9394483300@ybl")}&pn=${encodeURIComponent("Mana Vivaha")}&am=${order.final_amount}&cu=INR&tn=${encodeURIComponent(`ManaVivaha ${order.id}`)}`}
+                href={`upi://pay?pa=${encodeURIComponent(order.upi_id || "6304996088@ybl")}&pn=${encodeURIComponent("Mana Vivaha")}&am=${order.final_amount}&cu=INR&tn=${encodeURIComponent(`ManaVivaha ${order.id}`)}`}
                 className="w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg bg-[#7A0C2E] hover:bg-[#911239] text-white font-bold text-xs transition shadow-xs"
               >
                 <span>📲</span>

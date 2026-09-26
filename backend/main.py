@@ -3464,7 +3464,7 @@ def credits_buy(payload: dict, request: Request = None):
     if not auto:
         order["payment_required"] = True
         order["next_step_telugu"] = ("💳 ₹%d pay చెయ్యండి — payment vachhaka credits automatic గా add అవుతాయి "
-                                     f"(webhook). UPI: {os.getenv('PAY_UPI_ID', '9394483300@ybl')} | Razorpay link soon."
+                                     f"(webhook). UPI: {os.getenv('PAY_UPI_ID', '6304996088@ybl')} | Razorpay link soon."
                                      % int(plan["price"]))
     if auto and plan["price"] > 0:
         u["credits"] = int(u.get("credits", 0)) + int(plan.get("profiles", 0) or 0)
@@ -3502,7 +3502,7 @@ def credits_buy(payload: dict, request: Request = None):
             except Exception as e:
                 order["referral"] = {"error": str(e)[:120]}
     DB_PAYMENTS.append(order)
-    upi_id = os.getenv("PAY_UPI_ID", "9394483300@ybl")
+    upi_id = os.getenv("PAY_UPI_ID", "6304996088@ybl")
     upi = f"upi://pay?pa={upi_id}&pn=ManaVivaha&am={plan['price']}&cu=INR&tn={order_id}"
     _rec = _item_note = (f"🎁 {addon['label']} active!" if addon else
                          f"🎉 ₹{plan['price']} → {plan.get('profiles', 0)} profiles add అయ్యాయి! Total credits: {u.get('credits', 0)}")
@@ -6005,7 +6005,7 @@ def boost_buy(payload: dict, request: Request = None):
         order["effect"] = eff["message_telugu"]
     else:
         order["payment_required"] = True
-        order["next_step_telugu"] = (f"💳 ₹{pack['price']} pay చెయ్యండి — payment vachhaka boost automatic ON. UPI: {os.getenv('PAY_UPI_ID', '9394483300@ybl')}")
+        order["next_step_telugu"] = (f"💳 ₹{pack['price']} pay చెయ్యండి — payment vachhaka boost automatic ON. UPI: {os.getenv('PAY_UPI_ID', '6304996088@ybl')}")
     DB_PAYMENTS.append(order)
     return {"success": True, "order": order, "boost_until": str(u.get("boost_until", "") or ""),
             "boosted": A11.is_boosted(u),
@@ -6918,7 +6918,7 @@ def api_owner_summary(request: Request):
             "signatory_name": "PENDOTA CHARAN",
             "ip_address": "10.26.123.93",
             "date_of_acceptance": "2026-09-20 23:08:03 IST",
-            "contact_number": "+919394483300",
+            "contact_number": "+916304996088",
             "email": "charan.pendota98@gmail.com",
             "status": "Verified & Digitally Accepted"
         }
@@ -6939,7 +6939,7 @@ def api_pay_qr_png(order_id: str):
     import qrcode
     from fastapi.responses import Response
     po = PP.get_pay_order(order_id)
-    upi_id = os.getenv("PAY_UPI_ID", "9394483300@ybl")
+    upi_id = os.getenv("PAY_UPI_ID", "6304996088@ybl")
     amt = int(po.get("final_amount", 99)) if po else 99
     # Standard NPCI UPI URI scheme
     upi_uri = f"upi://pay?pa={upi_id}&pn=Mana%20Vivaha&am={amt}&cu=INR&tn=ManaVivaha%20{order_id}"
@@ -6962,7 +6962,7 @@ def api_legal_acceptance():
         "signatory_name": "PENDOTA CHARAN",
         "ip_address": "10.26.123.93",
         "date_of_acceptance": "2026-09-20 23:08:03 IST",
-        "contact_number": "+919394483300",
+        "contact_number": "+916304996088",
         "email": "charan.pendota98@gmail.com",
         "brand_name": "మన వివాహ",
         "legal_status": "Verified & Digitally Accepted"
