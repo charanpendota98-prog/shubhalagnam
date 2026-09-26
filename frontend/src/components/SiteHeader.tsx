@@ -31,6 +31,7 @@ const NAV_EARN: NavItem[] = [
 
 const NAV_MORE: NavItem[] = [
   { href: "/me", en: "My Account", te: "నా అకౌంట్", icon: "🙋" },
+  { href: "/biodata", en: "Biodata Maker", te: "బయోడేటా మేకర్", icon: "🎴" },
   { href: "/porutham", en: "Jyothishyam", te: "జ్యోతిషం", icon: "💍" },
   { href: "/muhurtham", en: "Muhurthams", te: "ముహూర్తాలు 2026-27", icon: "🗓️" },
   { href: "/stories", en: "Stories", te: "కథలు", icon: "💑" },
