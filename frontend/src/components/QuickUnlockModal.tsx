@@ -536,6 +536,35 @@ export default function QuickUnlockModal({
                 <span>•</span>
                 <span>🤝 24/7 Support</span>
               </div>
+
+              {/* Direct WhatsApp Helpline & QR Assistance */}
+              <div className="mt-3 pt-3 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-2">
+                <div className="text-[11px] text-slate-600 font-medium text-center sm:text-left">
+                  {te ? "ఆన్‌లైన్ చెల్లింపులో సందేహం ఉందా? మా టీమ్ QR కోడ్ పంపిస్తారు:" : "Need help with payment? Get instant QR on WhatsApp:"}
+                </div>
+                <a
+                  href={`https://wa.me/916304996088?text=${encodeURIComponent(
+                    `నమస్కారం మన వివాహ హెల్ప్‌లైన్! నా ప్రొఫైల్ కోసం ప్లాన్ రీఛార్జ్ చేయాలనుకుంటున్నాను. టార్గెట్ ప్రొఫైల్ ID: ${target.tsap_id}. దయచేసి UPI QR కోడ్ పంపగలరు.`
+                  )}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="px-3.5 py-1.5 rounded-xl bg-[#25D366] hover:bg-[#20bd5a] text-white font-extrabold text-xs flex items-center gap-1.5 shadow-xs transition shrink-0"
+                >
+                  <span>💬</span>
+                  <span>{te ? "WhatsApp లో QR పొందండి" : "Get QR on WhatsApp"}</span>
+                </a>
+              </div>
+
+              {/* Free credit earning tips */}
+              <div className="bg-amber-50/70 border border-amber-200 rounded-xl p-2.5 text-[11px] text-amber-950 space-y-1">
+                <div className="font-bold flex items-center gap-1">
+                  <span>💡</span> <span>{te ? "పైసలు లేకుండా ఉచితంగా క్రెడిట్స్ పొందండి:" : "Earn Free Credits without payment:"}</span>
+                </div>
+                <div className="text-slate-600 pl-4 space-y-0.5">
+                  <div>🔥 <b>Daily Streak Login</b>: రోజూ లాగిన్ అయితే +1 క్రెడిట్ బోనస్.</div>
+                  <div>🎁 <b>Referral</b>: మీ బంధువులు/మిత్రులను జాయిన్ చేయిస్తే +2 క్రెడిట్స్ & ₹50 క్యాష్.</div>
+                </div>
+              </div>
             </div>
           )}
 
