@@ -188,8 +188,8 @@ export default function ReferralPage() {
 
   const submitPayout = async () => {
     const amount = parseInt(pay.amount || "0", 10);
-    if (!amount || amount < 100) {
-      setPayRes({ success: false, reason: te ? "కనీస విత్‌డ్రా మొత్తం ₹100" : "Minimum withdrawal is ₹100" });
+    if (!amount || amount < 50) {
+      setPayRes({ success: false, reason: te ? "కనీస విత్‌డ్రా మొత్తం ₹50 (1 రిఫరల్ చాలు)" : "Minimum withdrawal is ₹50 (just 1 referral)" });
       return;
     }
     if (!pay.upi.trim()) {
@@ -396,7 +396,7 @@ export default function ReferralPage() {
             >
               {dash?.wallet_can_withdraw
                 ? (te ? "💸 విత్‌డ్రా అభ్యర్థన (UPI)" : "💸 Withdraw Payout (UPI)")
-                : (te ? `ఇంకా ₹${Math.max(0, 100 - (s.wallet || 0))} కావాలి` : `₹${Math.max(0, 100 - (s.wallet || 0))} more needed`)}
+                : (te ? `ఇంకా ₹${Math.max(0, 50 - (s.wallet || 0))} కావాలి (1 రిఫరల్ = ₹50)` : `₹${Math.max(0, 50 - (s.wallet || 0))} more needed (1 ref = ₹50)`)}
             </button>
           </div>
 
@@ -454,16 +454,16 @@ export default function ReferralPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="block text-[11px] font-bold text-gray-700 mb-1">
-                  {te ? "విత్‌డ్రా మొత్తం (కనీసం ₹100)" : "Withdrawal Amount (Min ₹100)"}
+                  {te ? "విత్‌డ్రా మొత్తం (కనీసం ₹50 — 1 రిఫరల్)" : "Withdrawal Amount (Min ₹50)"}
                 </label>
                 <input
                   type="number"
-                  min="100"
-                  max={s.wallet || 100}
+                  min="50"
+                  max={s.wallet || 50}
                   value={pay.amount}
                   onChange={(e) => setPay({ ...pay, amount: e.target.value })}
                   className="w-full px-4 py-2 rounded-xl border border-gray-300 text-xs focus:border-maroon outline-none"
-                  placeholder="Amount (e.g. 150)"
+                  placeholder="Amount (e.g. 50)"
                 />
               </div>
 
@@ -1109,7 +1109,7 @@ export default function ReferralPage() {
                 "1. ఉచిత నమోదు — ఎవరైనా రిజిస్టర్ అవ్వగానే మొదటి 3 ప్రొఫైల్స్ ఉచితంగా చూడవచ్చు.",
                 "2. మీ స్నేహితుడు ₹99 లేదా ఏదైనా ప్లాన్ మొదటిసారి చెల్లించిన వెంటనే మీ వాలెట్‌కు ₹50 జమ అవుతుంది.",
                 "3. ఎంత మందినైనా రిఫర్ చేయవచ్చు — పరిమితులు లేవు.",
-                "4. వాలెట్ బ్యాలెన్స్ ₹100 దాటగానే తక్షణమే UPI ద్వారా విత్‌డ్రా అభ్యర్థన సమర్పించవచ్చు.",
+                "4. వాలెట్ బ్యాలెన్స్ ₹50 దాటగానే (ఒక్క రిఫరల్ తోనే) తక్షణమే UPI ద్వారా విత్‌డ్రా అభ్యర్థన సమర్పించవచ్చు.",
                 "5. ఫేక్ ప్రొఫైల్స్ మరియు బాట్ అకౌంట్లు అనుమతించబడవు; నిజమైన వినియోగదారుల పేమెంట్లపై మాత్రమే కమీషన్ లభిస్తుంది."
               ]).map((rule: string, i: number) => (
                 <div key={i} className="p-3 bg-slate-50 rounded-2xl border border-slate-100">
