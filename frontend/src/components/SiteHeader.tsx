@@ -14,6 +14,7 @@ type NavItem = { href: string; en: string; te: string; icon: string; xl?: boolea
 const NAV_MAIN: NavItem[] = [
   { href: "/", en: "Home", te: "Home", icon: "🏠" },
   { href: "/matches", en: "Matches", te: "Matches", icon: "💘" },
+  { href: "/second-marriage", en: "Second Marriage", te: "పునర్వివాహం", icon: "💍" },
   { href: "/spotlight", en: "Spotlight", te: "Spotlight", icon: "🌟" },
   { href: "/channels", en: "Channels", te: "Channels", icon: "📢" },
   { href: "/castes", en: "Castes", te: "Castes", icon: "🪔" },
@@ -30,6 +31,7 @@ const NAV_EARN: NavItem[] = [
 ];
 
 const NAV_MORE: NavItem[] = [
+  { href: "/second-marriage", en: "Second Marriage (Remarriage)", te: "పునర్వివాహం (Second Marriage)", icon: "💍" },
   { href: "/me", en: "My Account", te: "నా అకౌంట్", icon: "🙋" },
   { href: "/biodata", en: "Biodata Maker", te: "బయోడేటా మేకర్", icon: "🎴" },
   { href: "/porutham", en: "Jyothishyam", te: "జ్యోతిషం", icon: "💍" },

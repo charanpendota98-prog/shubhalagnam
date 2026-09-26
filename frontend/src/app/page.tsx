@@ -23,6 +23,7 @@ import WhyChooseUs from "@/components/WhyChooseUs";
 import DistrictAdBanner from "@/components/DistrictAdBanner";
 import VivahaMuhurthamTeaser from "@/components/VivahaMuhurthamTeaser";
 import HomePoruthamWidget from "@/components/HomePoruthamWidget";
+import HomeSecondMarriageSection from "@/components/HomeSecondMarriageSection";
 import { waLink } from "@/lib/wa";
 import { TelegramIcon, WhatsAppIcon } from "@/components/BrandIcons";
 
@@ -501,6 +502,9 @@ export default function Home() {
 
       {/* ================= 🪐 VEDIC GUNAMELANAM & KUNDLI MATCHER ================= */}
       <HomePoruthamWidget />
+
+      {/* ================= 💍 SECOND MARRIAGE & REMARRIAGE PORTAL ================= */}
+      <HomeSecondMarriageSection />
 
       {/* ================= SPONSORED PROMO & FESTIVAL OFFERS ================= */}
       <section className="max-w-7xl mx-auto px-4 py-2.5 space-y-2">

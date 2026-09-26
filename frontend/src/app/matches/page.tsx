@@ -572,6 +572,23 @@ export default function MatchesPage() {
                 {row.children && row.children !== "None" && <span>• 👶 {row.children}</span>}
               </p>
 
+              {/* 💍 Dignified Second Marriage / Remarriage Badge */}
+              {row.marital_status &&
+                !["pelli kaledu", "never married", "unmarried", ""].includes(
+                  row.marital_status.toLowerCase().trim()
+                ) && (
+                  <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
+                    <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-rose-50 text-rose-800 border border-rose-200">
+                      💍 పునర్వివాహం ({row.marital_status})
+                    </span>
+                    {row.children && row.children !== "None" && (
+                      <span className="text-[9.5px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-900 border border-amber-200">
+                        👶 {row.children}
+                      </span>
+                    )}
+                  </div>
+                )}
+
               <p className="text-xs text-slate-700 font-medium truncate">
                 🎓 {row.education || "Graduate"} • 💼 {row.job || "Professional"}
               </p>
@@ -1062,6 +1079,82 @@ export default function MatchesPage() {
             </div>
           </div>
 
+          {/* 9. 💍 Marital Status Filter (వైవాహిక స్థితి & పునర్వివాహం) */}
+          <div className="border-t border-slate-100 pt-3">
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-xs font-black text-slate-800">
+                💍 {te ? "వైవాహిక స్థితి (Marital Status):" : "Marital Status:"}
+              </label>
+              {filters.marital_status && (
+                <button onClick={() => setF("marital_status", "")} className="text-[10.5px] text-maroon font-bold">
+                  Reset
+                </button>
+              )}
+            </div>
+            <div className="space-y-1.5">
+              {[
+                { v: "", l: te ? "అందరూ (All)" : "All Statuses" },
+                { v: "Pelli Kaledu", l: te ? "పెళ్లి కాలేదు (Never Married)" : "Never Married" },
+                { v: "Divorced,Widow,Widower,Awaiting Divorce", l: te ? "💍 పునర్వివాహం (Second Marriage Only)" : "💍 Second Marriage Only" },
+                { v: "Divorced", l: te ? "🕊️ విడాకులు (Divorced)" : "🕊️ Divorced" },
+                { v: "Widow", l: te ? "🌸 వితంతువు / విధురుడు (Widowed)" : "🌸 Widow / Widower" },
+                { v: "Awaiting Divorce", l: te ? "⏳ విడాకుల నిరీక్షణ (Awaiting Divorce)" : "⏳ Awaiting Divorce" },
+              ].map((m) => {
+                const isSel = filters.marital_status === m.v;
+                return (
+                  <button
+                    key={m.v}
+                    onClick={() => setF("marital_status", isSel ? "" : m.v)}
+                    className={`block w-full text-left px-2.5 py-1.5 rounded-xl text-xs transition border ${
+                      isSel
+                        ? "bg-maroon text-white font-black border-maroon shadow-xs"
+                        : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
+                    }`}
+                  >
+                    {m.l}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* 10. 👶 Children Filter (పిల్లల వివరాలు) */}
+          <div className="border-t border-slate-100 pt-3">
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-xs font-black text-slate-800">
+                👶 {te ? "పిల్లలు (Children Status):" : "Children Status:"}
+              </label>
+              {filters.children && (
+                <button onClick={() => setF("children", "")} className="text-[10.5px] text-maroon font-bold">
+                  Reset
+                </button>
+              )}
+            </div>
+            <div className="grid grid-cols-2 gap-1.5">
+              {[
+                { v: "", l: te ? "అందరూ" : "All" },
+                { v: "None", l: te ? "పిల్లలు లేరు" : "No Children" },
+                { v: "with_children", l: te ? "పిల్లలు ఉన్నారు" : "With Children" },
+                { v: "1", l: "1 బాబు/పాప" },
+              ].map((c) => {
+                const isSel = filters.children === c.v;
+                return (
+                  <button
+                    key={c.v}
+                    onClick={() => setF("children", isSel ? "" : c.v)}
+                    className={`px-2 py-1.5 rounded-xl text-xs transition border text-center font-bold ${
+                      isSel
+                        ? "bg-maroon text-white border-maroon shadow-xs"
+                        : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
+                    }`}
+                  >
+                    {c.l}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           {/* 📍 Targeted District & State Wedding Services */}
           <div className="mt-4 pt-4 border-t border-slate-100">
             <DistrictAdBanner slot="matches_sidebar" district={filters.district} state={filters.state} />
@@ -1143,6 +1236,60 @@ export default function MatchesPage() {
               {note.text}
             </div>
           )}
+
+          {/* 🌟 QUICK MATRIMONIAL CATEGORY PRESETS */}
+          <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+            {[
+              {
+                l: te ? "💍 పునర్వివాహం (Second Marriage)" : "💍 Second Marriage",
+                fn: () =>
+                  setF(
+                    "marital_status",
+                    filters.marital_status && filters.marital_status !== "Pelli Kaledu"
+                      ? ""
+                      : "Divorced,Widow,Widower,Awaiting Divorce"
+                  ),
+                active: !!(filters.marital_status && filters.marital_status !== "Pelli Kaledu"),
+              },
+              {
+                l: te ? "👰 వధువులు (Brides)" : "👰 Brides",
+                fn: () => setF("gender", filters.gender === "Bride" ? "" : "Bride"),
+                active: filters.gender === "Bride",
+              },
+              {
+                l: te ? "🤵 వరులు (Grooms)" : "🤵 Grooms",
+                fn: () => setF("gender", filters.gender === "Groom" ? "" : "Groom"),
+                active: filters.gender === "Groom",
+              },
+              {
+                l: te ? "🕊️ పిల్లలు లేనివారు" : "🕊️ No Children",
+                fn: () => setF("children", filters.children === "None" ? "" : "None"),
+                active: filters.children === "None",
+              },
+              {
+                l: te ? "💼 Govt & IT" : "💼 Govt & IT",
+                fn: () => setF("job", filters.job ? "" : "Software,Govt,Teacher,Bank,Doctor"),
+                active: !!filters.job,
+              },
+              {
+                l: te ? "⭐ గుణమేళనం క్రమం" : "⭐ Vedic Porutham",
+                fn: () => setSort(sort === "porutham" ? "score" : "porutham"),
+                active: sort === "porutham",
+              },
+            ].map((pill, i) => (
+              <button
+                key={i}
+                onClick={pill.fn}
+                className={`whitespace-nowrap px-3.5 py-1.5 rounded-full text-xs font-bold transition border ${
+                  pill.active
+                    ? "bg-maroon text-white border-maroon shadow-xs"
+                    : "bg-white text-slate-700 border-slate-200 hover:border-gold hover:bg-amber-50"
+                }`}
+              >
+                {pill.l}
+              </button>
+            ))}
+          </div>
 
           {/* Active Filter Tags Bar (Amazon/Flipkart Style) */}
           {activeChips.length > 0 && (
@@ -1475,26 +1622,41 @@ export default function MatchesPage() {
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-bold text-slate-800 mb-1">వైవాహిక స్థితి</label>
-                      {["Pelli Kaledu", "Divorced", "Widow"].map((m) => (
+                      <label className="block text-xs font-bold text-slate-800 mb-1">వైవాహిక స్థితి (Marital Status)</label>
+                      {[
+                        { v: "Pelli Kaledu", l: "పెళ్లి కాలేదు (Never Married)" },
+                        { v: "Divorced,Widow,Widower,Awaiting Divorce", l: "💍 పునర్వివాహం (Second Marriage Only)" },
+                        { v: "Divorced", l: "🕊️ విడాకులు (Divorced)" },
+                        { v: "Widow", l: "🌸 వితంతువు / విధురుడు (Widow/Widower)" },
+                        { v: "Awaiting Divorce", l: "⏳ విడాకుల నిరీక్షణ (Awaiting Divorce)" },
+                      ].map((m) => (
                         <button
-                          key={m}
-                          onClick={() => setF("marital_status", filters.marital_status === m ? "" : m)}
-                          className={`block w-full text-left p-2 rounded-xl text-xs mb-1 border ${filters.marital_status === m ? "bg-maroon text-white" : "bg-slate-50"}`}
+                          key={m.v}
+                          onClick={() => setF("marital_status", filters.marital_status === m.v ? "" : m.v)}
+                          className={`block w-full text-left p-2 rounded-xl text-xs mb-1 border ${
+                            filters.marital_status === m.v ? "bg-maroon text-white font-bold" : "bg-slate-50"
+                          }`}
                         >
-                          {m === "Pelli Kaledu" ? "Never Married" : m}
+                          {m.l}
                         </button>
                       ))}
                     </div>
                     <div>
                       <label className="block text-xs font-bold text-slate-800 mb-1">పిల్లలు (Children)</label>
-                      {["None", "1", "2", "3+"].map((c) => (
+                      {[
+                        { v: "None", l: "పిల్లలు లేరు (No children)" },
+                        { v: "with_children", l: "పిల్లలు ఉన్నారు (With Children)" },
+                        { v: "1", l: "1 బాబు/పాప" },
+                        { v: "2", l: "2 పిల్లలు" },
+                      ].map((c) => (
                         <button
-                          key={c}
-                          onClick={() => setF("children", filters.children === c ? "" : c)}
-                          className={`block w-full text-left p-2 rounded-xl text-xs mb-1 border ${filters.children === c ? "bg-maroon text-white" : "bg-slate-50"}`}
+                          key={c.v}
+                          onClick={() => setF("children", filters.children === c.v ? "" : c.v)}
+                          className={`block w-full text-left p-2 rounded-xl text-xs mb-1 border ${
+                            filters.children === c.v ? "bg-maroon text-white font-bold" : "bg-slate-50"
+                          }`}
                         >
-                          {c === "None" ? "పిల్లలు లేరు (No children)" : `${c} పిల్లలు`}
+                          {c.l}
                         </button>
                       ))}
                     </div>

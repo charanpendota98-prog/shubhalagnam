@@ -4518,6 +4518,7 @@ def advanced_search(
     state: Optional[str] = None, job: Optional[str] = None, education: Optional[str] = None,
     age_min: int = 18, age_max: int = 60, salary_min: int = 0,
     marital_status: Optional[str] = None, children: Optional[str] = None,
+    second_marriage: bool = False,
     verified_only: bool = False, photo_only: bool = False,
     religion: Optional[str] = None, q: Optional[str] = None,
     sort: str = "score", viewer_id: Optional[str] = None, limit: int = 30, offset: int = 0,
@@ -4577,12 +4578,28 @@ def advanced_search(
         e_list = [e.strip().lower() for e in str(education).split(",") if e.strip()]
         if e_list:
             items = [u for u in items if any(e in str(u.get("education", "")).lower() for e in e_list)]
-    if marital_status:
+    # 💍 Second Marriage / Marital Status filtering
+    if second_marriage or (marital_status and any(k in str(marital_status).lower() for k in ["second_marriage", "second marriage", "remarriage", "punarvivaham", "punar vivaham"])):
+        items = [u for u in items if str(u.get("marital_status", "")).lower().strip() not in ("pelli kaledu", "never married", "unmarried", "single", "", "పెళ్లి కాలేదు")]
+    elif marital_status:
         m_list = [m.strip().lower() for m in str(marital_status).split(",") if m.strip()]
         if m_list:
-            items = [u for u in items if any(m in str(u.get("marital_status", "")).lower() for m in m_list)]
+            items = [u for u in items if any(
+                m in str(u.get("marital_status", "")).lower() or
+                (m in ("never married", "pelli kaledu") and str(u.get("marital_status", "")).lower().strip() in ("pelli kaledu", "never married", "పెళ్లి కాలేదు")) or
+                (m in ("divorced", "vidakuulu") and any(k in str(u.get("marital_status", "")).lower() for k in ["divorc", "vidak", "విడాకు"])) or
+                (m in ("widow", "widower", "vidhava", "vidhurudu") and any(k in str(u.get("marital_status", "")).lower() for k in ["widow", "vidh", "వితంతు", "విధురు"])) or
+                (m in ("awaiting divorce", "separated") and any(k in str(u.get("marital_status", "")).lower() for k in ["awaiting", "separat", "విడాకుల", "నిరీక్షణ"]))
+                for m in m_list
+            )]
     if children:
-        items = [u for u in items if str(u.get("children", "None")) == children]
+        c_str = str(children).strip().lower()
+        if c_str in ("none", "no", "no children", "0", "పిల్లలు లేరు"):
+            items = [u for u in items if str(u.get("children", "None")).strip().lower() in ("none", "0", "", "no", "no children", "పిల్లలు లేరు")]
+        elif c_str in ("with_children", "has_children", "yes", "పిల్లలు ఉన్నారు"):
+            items = [u for u in items if str(u.get("children", "None")).strip().lower() not in ("none", "0", "", "no", "no children", "పిల్లలు లేరు")]
+        else:
+            items = [u for u in items if c_str in str(u.get("children", "")).lower()]
     if religion:
         items = [u for u in items if str(u.get("religion", "Hindu")).lower() == religion.lower()]
     if nri_only:                                    # 🌊 WAVE 14 — NRI-only browse
