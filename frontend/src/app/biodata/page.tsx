@@ -4,16 +4,17 @@
  * 🎴 MANA VIVAHA — 1-MINUTE FREE TELUGU MARRIAGE BIODATA HD JPG STUDIO
  * ====================================================================
  * • 4 Regal Auspicious Themes (Royal Velvet Maroon 🪔, Temple Gold 🦚, Divine Rose 🌸, Imperial Navy 💎)
+ * • Authentic Community Context (Hindu with Vedic Horoscope, Muslim with Nikah/Sect/Namaz, Christian with Church/Denomination)
+ * • Zero Misplaced Slokas — Direct, respectful, ultra-clean details for each tradition
  * • 1-Click Auto-Fill from Profile ID (e.g., MV2001, MV2002)
- * • Complete Telugu + English Details: Personal, Vedic Horoscope, Career, Family Lineage & Assets
  * • Instant Scannable QR Code linking to live profile
- * • 1-Click High-Definition JPG Download (Pixel-Perfect 2x/3x Resolution)
+ * • 1-Click High-Definition JPG Download (Pixel-Perfect 2.5x Resolution for WhatsApp & Print)
  * • Auspicious Trojan Horse Growth Loop for viral WhatsApp sharing
  */
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { toJpeg, toPng } from "html-to-image";
+import { toJpeg } from "html-to-image";
 import QRCode from "qrcode";
 import { useLang } from "@/lib/lang";
 import { SITE_CONFIG } from "@/lib/site-config";
@@ -27,18 +28,18 @@ const RELIGION_HEADERS: Record<string, string[]> = {
     "|| శ్రీ విఘ్నేశ్వరాయ నమః ||",
   ],
   Muslim: [
-    "|| بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ (Bismillahir Rahmanir Raheem) ||",
-    "|| In the Name of Allah, Most Gracious, Most Merciful ||",
-    "|| Nikah Mubarak — Blessed Muslim Matrimony ||",
+    "🌙 بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ (Bismillahir Rahmanir Raheem) 🌙",
+    "🌙 In the Name of Allah, Most Gracious, Most Merciful 🌙",
+    "🌙 Nikah Mubarak — Blessed Muslim Matrimony 🌙",
   ],
   Christian: [
-    "|| In the Name of Jesus Christ (యేసుక్రీస్తు నామమున) ||",
-    "|| Blessed Christian Holy Matrimony ||",
-    "|| Grace, Peace & Love in Christ Jesus ||",
+    "✝️ In the Name of Jesus Christ (యేసుక్రీస్తు నామమున) ✝️",
+    '✝️ "And the two shall become one flesh" — Mark 10:8 ✝️',
+    "✝️ Grace, Peace & Love in Christ Jesus ✝️",
   ],
   Other: [
-    "|| Auspicious Holy Matrimony ||",
-    "|| Sacred Life Partnership ||",
+    "💍 Auspicious Sacred Matrimony (వివాహ బంధం) 💍",
+    "💍 Sacred Life Partnership 💍",
   ],
 };
 
@@ -131,12 +132,20 @@ export default function BiodataPage() {
     motherTongue: "Telugu (తెలుగు)",
     caste: "Reddy",
     subCaste: "Motati (మోటాటి)",
-    // Astrological fields
+    // Hindu Astrological fields
     gothram: "Janakula (జనకుల)",
     star: "Swathi (స్వాతి)",
     rasi: "Tula / Libra (తులా రాశి)",
     lagnam: "Kanya (కన్యా లగ్నం)",
     dosham: "No (దోషం లేదు)",
+    // Muslim specific fields
+    islamicSect: "Sunni (సున్నీ)",
+    islamicJamath: "Sheikh (షేక్)",
+    namazStatus: "5 Times Namaz Regular (క్రమబద్ధమైన నమాజ్)",
+    // Christian specific fields
+    christianDenomination: "Roman Catholic (రోమన్ క్యాథలిక్)",
+    churchName: "St. Mary's Basilica, Secunderabad",
+    baptismStatus: "Baptized & Active Believer (బాప్టిజం పొందారు)",
     // Career & Education
     education: "B.Tech in Computer Science (CSE)",
     educationDetail: "Osmania University, Hyderabad",
@@ -184,16 +193,21 @@ export default function BiodataPage() {
     if (r === "Muslim") {
       setData((prev) => ({
         ...prev,
-        title: "నికాహ్ బయోడేటా (NIKAH BIODATA)",
+        title: "నికాహ్ బయోడేటా (NIKAH MATRIMONIAL BIODATA)",
         caste: "Muslim",
         subCaste: "Sheikh",
       }));
     } else if (r === "Christian") {
       setData((prev) => ({
         ...prev,
-        title: "CHRISTIAN MATRIMONIAL BIODATA",
+        title: "క్రైస్తవ వివాహ బయోడేటా (CHRISTIAN BIODATA)",
         caste: "Christian",
         subCaste: "Roman Catholic",
+      }));
+    } else if (r === "Other") {
+      setData((prev) => ({
+        ...prev,
+        title: "వివాహ బయోడేటా (MARRIAGE BIODATA)",
       }));
     } else {
       setData((prev) => ({
@@ -235,7 +249,7 @@ export default function BiodataPage() {
               : pRel === "Muslim"
               ? "నికాహ్ బయోడేటా (NIKAH BIODATA)"
               : pRel === "Christian"
-              ? "CHRISTIAN MATRIMONIAL BIODATA"
+              ? "క్రైస్తవ వివాహ బయోడేటా (CHRISTIAN BIODATA)"
               : "వివాహ బయోడేటా (MARRIAGE BIODATA)",
             fullName: p.full_name || prev.fullName,
             gender: p.gender || prev.gender,
@@ -291,21 +305,33 @@ export default function BiodataPage() {
       link.click();
     } catch (err) {
       console.error("Error generating JPG biodata:", err);
-      alert("ఫోటో డౌన్‌లోడ్ చేయడంలో సమస్య ఏర్పడింది. దయచేసి ప్రింట్ ఆప్షన్ ఉపయోగించండి.");
+      alert("ఫోటో డౌన్‌లోడ్ చేయడంలో సమస్య ఏర్పడింది. దయచేసి మళ్లీ ప్రయత్నించండి.");
     }
     setDownloading(false);
   };
 
   // Share on WhatsApp
   const shareOnWhatsApp = () => {
+    const headerPrefix =
+      religion === "Muslim"
+        ? "🌙 *|| بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ ||*\n👑 *మన వివాహ (Mana Vivaha) — నికాహ్ బయోడేటా*\n"
+        : religion === "Christian"
+        ? "✝️ *|| In the Name of Jesus Christ ||*\n👑 *మన వివాహ (Mana Vivaha) — క్రైస్తవ వివాహ బయోడేటా*\n"
+        : "🙏 *|| శ్రీరస్తు — శుభమస్తు — అవిఘ్నమస్తు ||*\n👑 *మన వివాహ (Mana Vivaha) — తెలుగు వివాహ బయోడేటా*\n";
+
+    const communityDetails =
+      religion === "Muslim"
+        ? `🕌 *Sect & Jamath:* ${data.islamicSect} (${data.islamicJamath})\n🕌 *Namaz & Deen:* ${data.namazStatus}\n`
+        : religion === "Christian"
+        ? `⛪ *Denomination:* ${data.christianDenomination}\n⛪ *Church / Parish:* ${data.churchName}\n⛪ *Faith Status:* ${data.baptismStatus}\n`
+        : `💍 *కులం & గోత్రం:* ${data.caste} ${data.subCaste ? `(${data.subCaste})` : ""} | గోత్రం: ${data.gothram}\n⭐ *జ్యోతిషం:* నక్షత్రం: ${data.star} · రాశి: ${data.rasi}\n`;
+
     const text =
-      `🙏 *|| శ్రీరస్తు — శుభమస్తు — అవిఘ్నమస్తు ||*\n` +
-      `👑 *మన వివాహ (Mana Vivaha) — తెలుగు వివాహ బయోడేటా*\n` +
+      headerPrefix +
       `━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
       `👤 *పేరు:* ${data.fullName} (${data.height})\n` +
       `💍 *వైవాహిక స్థితి:* ${data.maritalStatus}\n` +
-      `💍 *కులం & గోత్రం:* ${data.caste} ${data.subCaste ? `(${data.subCaste})` : ""} | గోత్రం: ${data.gothram}\n` +
-      `⭐ *జ్యోతిషం:* నక్షత్రం: ${data.star} · రాశి: ${data.rasi}\n` +
+      communityDetails +
       `🎓 *విద్యార్హత:* ${data.education}\n` +
       `💼 *ఉద్యోగం:* ${data.job} (${data.company})\n` +
       `💰 *వార్షిక ఆదాయం:* ${data.salary}\n` +
@@ -340,7 +366,7 @@ export default function BiodataPage() {
                 1-నిమిషంలో ఉచిత తెలుగు వివాహ బయోడేటా HD JPG మేకర్
               </h1>
               <p className="text-xs text-slate-500 mt-1">
-                సంప్రదాయ వినాయక శ్లోకం, జాతకం, నక్షత్రం, గోత్రం, కుటుంబ వివరాలతో కూడిన రాయల్ HD JPG బయోడేటాను డౌన్‌లోడ్ చేయండి.
+                సంప్రదాయ వినాయక శ్లోకం, నికాహ్ లేదా క్రైస్తవ బయోడేటాను పర్‌ఫెక్ట్ HD JPG ఇమేజ్ రూపంలో డౌన్‌లోడ్ చేసుకోండి.
               </p>
             </div>
 
@@ -413,6 +439,22 @@ export default function BiodataPage() {
 
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1">
+                🕌 / ⛪ / 🪔 సంప్రదాయం (Tradition / Religion):
+              </label>
+              <select
+                value={religion}
+                onChange={(e) => handleReligionChange(e.target.value as any)}
+                className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-800 focus:border-maroon outline-none bg-white"
+              >
+                <option value="Hindu">హిందూ (Hindu - వేద జాతకం & గోత్రం)</option>
+                <option value="Muslim">ముస్లిం (Muslim - నికాహ్, మస్లక్ & నమాజ్)</option>
+                <option value="Christian">క్రైస్తవ (Christian - చర్చి & తెగ)</option>
+                <option value="Other">సాధారణ వివాహం (General Matrimony)</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">
                 🎨 రాయల్ థీమ్ ఎంపిక (Regal Theme):
               </label>
               <select
@@ -423,23 +465,6 @@ export default function BiodataPage() {
                 {THEMES.map((t) => (
                   <option key={t.id} value={t.id}>
                     {t.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">
-                🕉️ సంప్రదాయ శ్లోకం (Auspicious Header):
-              </label>
-              <select
-                value={headerText}
-                onChange={(e) => setHeaderText(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-800 focus:border-maroon outline-none bg-white"
-              >
-                {(RELIGION_HEADERS[religion] || RELIGION_HEADERS.Hindu).map((h) => (
-                  <option key={h} value={h}>
-                    {h}
                   </option>
                 ))}
               </select>
@@ -504,51 +529,122 @@ export default function BiodataPage() {
                   className="w-full p-2 border rounded-xl"
                 />
               </div>
-              <div>
-                <label className="font-bold text-slate-700 block mb-1">కులం (Caste):</label>
-                <input
-                  type="text"
-                  value={data.caste}
-                  onChange={(e) => setData({ ...data, caste: e.target.value })}
-                  className="w-full p-2 border rounded-xl"
-                />
-              </div>
-              <div>
-                <label className="font-bold text-slate-700 block mb-1">ఉపకులం (Sub-caste):</label>
-                <input
-                  type="text"
-                  value={data.subCaste}
-                  onChange={(e) => setData({ ...data, subCaste: e.target.value })}
-                  className="w-full p-2 border rounded-xl"
-                />
-              </div>
-              <div>
-                <label className="font-bold text-slate-700 block mb-1">గోత్రం (Gothram):</label>
-                <input
-                  type="text"
-                  value={data.gothram}
-                  onChange={(e) => setData({ ...data, gothram: e.target.value })}
-                  className="w-full p-2 border rounded-xl"
-                />
-              </div>
-              <div>
-                <label className="font-bold text-slate-700 block mb-1">నక్షత్రం (Nakshatram):</label>
-                <input
-                  type="text"
-                  value={data.star}
-                  onChange={(e) => setData({ ...data, star: e.target.value })}
-                  className="w-full p-2 border rounded-xl"
-                />
-              </div>
-              <div>
-                <label className="font-bold text-slate-700 block mb-1">రాశి (Raasi):</label>
-                <input
-                  type="text"
-                  value={data.rasi}
-                  onChange={(e) => setData({ ...data, rasi: e.target.value })}
-                  className="w-full p-2 border rounded-xl"
-                />
-              </div>
+
+              {/* Religion Specific Form Fields */}
+              {religion === "Hindu" && (
+                <>
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">కులం (Caste):</label>
+                    <input
+                      type="text"
+                      value={data.caste}
+                      onChange={(e) => setData({ ...data, caste: e.target.value })}
+                      className="w-full p-2 border rounded-xl"
+                    />
+                  </div>
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">ఉపకులం (Sub-caste):</label>
+                    <input
+                      type="text"
+                      value={data.subCaste}
+                      onChange={(e) => setData({ ...data, subCaste: e.target.value })}
+                      className="w-full p-2 border rounded-xl"
+                    />
+                  </div>
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">గోత్రం (Gothram):</label>
+                    <input
+                      type="text"
+                      value={data.gothram}
+                      onChange={(e) => setData({ ...data, gothram: e.target.value })}
+                      className="w-full p-2 border rounded-xl"
+                    />
+                  </div>
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">నక్షత్రం (Nakshatram):</label>
+                    <input
+                      type="text"
+                      value={data.star}
+                      onChange={(e) => setData({ ...data, star: e.target.value })}
+                      className="w-full p-2 border rounded-xl"
+                    />
+                  </div>
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">రాశి (Raasi):</label>
+                    <input
+                      type="text"
+                      value={data.rasi}
+                      onChange={(e) => setData({ ...data, rasi: e.target.value })}
+                      className="w-full p-2 border rounded-xl"
+                    />
+                  </div>
+                </>
+              )}
+
+              {religion === "Muslim" && (
+                <>
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">ఫిర్కా / శాఖ (Sect / Maslak):</label>
+                    <input
+                      type="text"
+                      value={data.islamicSect}
+                      onChange={(e) => setData({ ...data, islamicSect: e.target.value })}
+                      className="w-full p-2 border rounded-xl"
+                    />
+                  </div>
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">జమాత్ / శాఖ (Jamath / Community):</label>
+                    <input
+                      type="text"
+                      value={data.islamicJamath}
+                      onChange={(e) => setData({ ...data, islamicJamath: e.target.value })}
+                      className="w-full p-2 border rounded-xl"
+                    />
+                  </div>
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">నమాజ్ & దీన్ ప్రాక్టీస్:</label>
+                    <input
+                      type="text"
+                      value={data.namazStatus}
+                      onChange={(e) => setData({ ...data, namazStatus: e.target.value })}
+                      className="w-full p-2 border rounded-xl"
+                    />
+                  </div>
+                </>
+              )}
+
+              {religion === "Christian" && (
+                <>
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">తెగ / డినామినేషన్ (Denomination):</label>
+                    <input
+                      type="text"
+                      value={data.christianDenomination}
+                      onChange={(e) => setData({ ...data, christianDenomination: e.target.value })}
+                      className="w-full p-2 border rounded-xl"
+                    />
+                  </div>
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">చర్చి పేరు (Church / Parish):</label>
+                    <input
+                      type="text"
+                      value={data.churchName}
+                      onChange={(e) => setData({ ...data, churchName: e.target.value })}
+                      className="w-full p-2 border rounded-xl"
+                    />
+                  </div>
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">బాప్టిజం & విశ్వాస స్థితి:</label>
+                    <input
+                      type="text"
+                      value={data.baptismStatus}
+                      onChange={(e) => setData({ ...data, baptismStatus: e.target.value })}
+                      className="w-full p-2 border rounded-xl"
+                    />
+                  </div>
+                </>
+              )}
+
               <div>
                 <label className="font-bold text-slate-700 block mb-1">చదువు (Education):</label>
                 <input
@@ -614,22 +710,46 @@ export default function BiodataPage() {
             id="biodata-canvas"
             className={`w-[800px] min-w-[800px] mx-auto rounded-3xl ${selectedTheme.canvasBg} border-4 ${selectedTheme.border} p-8 shadow-2xl text-slate-900 transition-all space-y-6 relative overflow-hidden`}
           >
-            {/* Auspicious Watermark Background Motifs */}
-            <div className="absolute top-0 left-0 w-32 h-32 opacity-10 pointer-events-none text-8xl">🪔</div>
-            <div className="absolute top-0 right-0 w-32 h-32 opacity-10 pointer-events-none text-8xl">🌸</div>
-            <div className="absolute bottom-16 left-0 w-32 h-32 opacity-10 pointer-events-none text-8xl">⚜️</div>
-            <div className="absolute bottom-16 right-0 w-32 h-32 opacity-10 pointer-events-none text-8xl">🦚</div>
+            {/* Contextual Watermark Background Motifs */}
+            {religion === "Muslim" ? (
+              <>
+                <div className="absolute top-0 left-0 w-32 h-32 opacity-10 pointer-events-none text-8xl">🌙</div>
+                <div className="absolute top-0 right-0 w-32 h-32 opacity-10 pointer-events-none text-8xl">⭐️</div>
+                <div className="absolute bottom-16 left-0 w-32 h-32 opacity-10 pointer-events-none text-8xl">🕌</div>
+                <div className="absolute bottom-16 right-0 w-32 h-32 opacity-10 pointer-events-none text-8xl">🤲</div>
+              </>
+            ) : religion === "Christian" ? (
+              <>
+                <div className="absolute top-0 left-0 w-32 h-32 opacity-10 pointer-events-none text-8xl">✝️</div>
+                <div className="absolute top-0 right-0 w-32 h-32 opacity-10 pointer-events-none text-8xl">🕊️</div>
+                <div className="absolute bottom-16 left-0 w-32 h-32 opacity-10 pointer-events-none text-8xl">⛪</div>
+                <div className="absolute bottom-16 right-0 w-32 h-32 opacity-10 pointer-events-none text-8xl">📖</div>
+              </>
+            ) : (
+              <>
+                <div className="absolute top-0 left-0 w-32 h-32 opacity-10 pointer-events-none text-8xl">🪔</div>
+                <div className="absolute top-0 right-0 w-32 h-32 opacity-10 pointer-events-none text-8xl">🌸</div>
+                <div className="absolute bottom-16 left-0 w-32 h-32 opacity-10 pointer-events-none text-8xl">⚜️</div>
+                <div className="absolute bottom-16 right-0 w-32 h-32 opacity-10 pointer-events-none text-8xl">🦚</div>
+              </>
+            )}
 
             {/* 1. Auspicious Top Header Banner */}
-            <div className="text-center pb-4 border-b-2 border-dashed border-amber-300">
+            <div className="text-center pb-4 border-b-2 border-dashed border-amber-300/80">
               <div className="flex items-center justify-center gap-2 mb-1">
-                <span className="text-2xl">🙏</span>
-                <span className="text-sm font-bold tracking-widest text-amber-900 telugu">{headerText}</span>
-                <span className="text-2xl">🙏</span>
+                <span className="text-xl">
+                  {religion === "Muslim" ? "🌙" : religion === "Christian" ? "✝️" : "🙏"}
+                </span>
+                <span className="text-xs sm:text-sm font-bold tracking-widest text-amber-950 telugu font-mono">
+                  {headerText}
+                </span>
+                <span className="text-xl">
+                  {religion === "Muslim" ? "🌙" : religion === "Christian" ? "✝️" : "🙏"}
+                </span>
               </div>
 
               {/* Title Badge */}
-              <div className="inline-block mt-1 px-8 py-2 rounded-full ${selectedTheme.headerBg} shadow-sm font-black text-sm tracking-wider uppercase">
+              <div className={`inline-block mt-1 px-8 py-2 rounded-full ${selectedTheme.headerBg} shadow-sm font-black text-sm tracking-wider uppercase`}>
                 {data.title}
               </div>
             </div>
@@ -657,7 +777,7 @@ export default function BiodataPage() {
 
                 <div className="flex flex-wrap gap-2 pt-1">
                   <span className={`px-3 py-1 rounded-full text-xs font-bold ${selectedTheme.pill}`}>
-                    💍 {data.caste} {data.subCaste ? `(${data.subCaste})` : ""}
+                    {religion === "Muslim" ? "🕌 Muslim" : religion === "Christian" ? "⛪ Christian" : `💍 ${data.caste} ${data.subCaste ? `(${data.subCaste})` : ""}`}
                   </span>
                   <span className={`px-3 py-1 rounded-full text-xs font-bold ${selectedTheme.pill}`}>
                     🎂 {data.dob} ({data.height})
@@ -677,37 +797,81 @@ export default function BiodataPage() {
               </div>
             </div>
 
-            {/* 3. Section 1: వ్యక్తిగత & జ్యోతిష వివరాలు (Astrology & Horoscope) */}
+            {/* 3. Section 1: Community / Astrology / Deen Details */}
             <div className="space-y-3 pb-4 border-b border-slate-200">
-              <h3 className={`text-xs font-black ${selectedTheme.accent} uppercase tracking-wider flex items-center gap-1.5`}>
-                <span>⭐</span> <span>కులం & జ్యోతిష వివరాలు (Caste & Horoscope)</span>
-              </h3>
-              <div className="grid grid-cols-3 gap-y-2 gap-x-4 text-xs bg-amber-50/40 p-3 rounded-2xl border border-gold/30">
-                <div>
-                  <span className="text-slate-500 font-medium block">కులం / ఉపకులం:</span>
-                  <span className="font-bold text-slate-900">{data.caste} {data.subCaste ? `(${data.subCaste})` : ""}</span>
-                </div>
-                <div>
-                  <span className="text-slate-500 font-medium block">గోత్రం (Gothram):</span>
-                  <span className="font-bold text-slate-900">{data.gothram || "—"}</span>
-                </div>
-                <div>
-                  <span className="text-slate-500 font-medium block">నక్షత్రం (Nakshatram):</span>
-                  <span className="font-bold text-maroon">⭐ {data.star || "—"}</span>
-                </div>
-                <div>
-                  <span className="text-slate-500 font-medium block">రాశి (Moon Sign):</span>
-                  <span className="font-bold text-slate-900">{data.rasi || "—"}</span>
-                </div>
-                <div>
-                  <span className="text-slate-500 font-medium block">లగ్నం (Lagnam):</span>
-                  <span className="font-bold text-slate-900">{data.lagnam || "—"}</span>
-                </div>
-                <div>
-                  <span className="text-slate-500 font-medium block">కుజ దోషం (Manglik):</span>
-                  <span className="font-bold text-emerald-800">{data.dosham || "లేదు (No)"}</span>
-                </div>
-              </div>
+              {religion === "Muslim" ? (
+                <>
+                  <h3 className={`text-xs font-black ${selectedTheme.accent} uppercase tracking-wider flex items-center gap-1.5`}>
+                    <span>🕌</span> <span>ఇస్లామిక్ & కమ్యూనిటీ వివరాలు (Islamic & Community Details)</span>
+                  </h3>
+                  <div className="grid grid-cols-3 gap-y-2 gap-x-4 text-xs bg-emerald-50/50 p-3 rounded-2xl border border-emerald-200">
+                    <div>
+                      <span className="text-slate-500 font-medium block">ఫిర్కా / శాఖ (Sect / Maslak):</span>
+                      <span className="font-bold text-slate-900">{data.islamicSect || "Sunni (సున్నీ)"}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-500 font-medium block">జమాత్ / శాఖ (Jamath):</span>
+                      <span className="font-bold text-slate-900">{data.islamicJamath || "Sheikh (షేక్)"}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-500 font-medium block">నమాజ్ & దీనీ స్థితి:</span>
+                      <span className="font-bold text-emerald-800">{data.namazStatus || "5 Times Namaz Regular"}</span>
+                    </div>
+                  </div>
+                </>
+              ) : religion === "Christian" ? (
+                <>
+                  <h3 className={`text-xs font-black ${selectedTheme.accent} uppercase tracking-wider flex items-center gap-1.5`}>
+                    <span>⛪</span> <span>క్రైస్తవ తెగ & చర్చి వివరాలు (Christian Denomination & Church)</span>
+                  </h3>
+                  <div className="grid grid-cols-3 gap-y-2 gap-x-4 text-xs bg-indigo-50/50 p-3 rounded-2xl border border-indigo-200">
+                    <div>
+                      <span className="text-slate-500 font-medium block">తెగ / డినామినేషన్:</span>
+                      <span className="font-bold text-slate-900">{data.christianDenomination || "Roman Catholic"}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-500 font-medium block">చర్చి పేరు & లొకేషన్:</span>
+                      <span className="font-bold text-slate-900">{data.churchName || "St. Mary's Church"}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-500 font-medium block">బాప్టిజం స్థితి:</span>
+                      <span className="font-bold text-indigo-900">{data.baptismStatus || "Baptized & Active Believer"}</span>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <h3 className={`text-xs font-black ${selectedTheme.accent} uppercase tracking-wider flex items-center gap-1.5`}>
+                    <span>⭐</span> <span>కులం & జ్యోతిష వివరాలు (Caste & Horoscope)</span>
+                  </h3>
+                  <div className="grid grid-cols-3 gap-y-2 gap-x-4 text-xs bg-amber-50/40 p-3 rounded-2xl border border-gold/30">
+                    <div>
+                      <span className="text-slate-500 font-medium block">కులం / ఉపకులం:</span>
+                      <span className="font-bold text-slate-900">{data.caste} {data.subCaste ? `(${data.subCaste})` : ""}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-500 font-medium block">గోత్రం (Gothram):</span>
+                      <span className="font-bold text-slate-900">{data.gothram || "—"}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-500 font-medium block">నక్షత్రం (Nakshatram):</span>
+                      <span className="font-bold text-maroon">⭐ {data.star || "—"}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-500 font-medium block">రాశి (Moon Sign):</span>
+                      <span className="font-bold text-slate-900">{data.rasi || "—"}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-500 font-medium block">లగ్నం (Lagnam):</span>
+                      <span className="font-bold text-slate-900">{data.lagnam || "—"}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-500 font-medium block">కుజ దోషం (Manglik):</span>
+                      <span className="font-bold text-emerald-800">{data.dosham || "లేదు (No)"}</span>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
 
             {/* 4. Section 2: విద్య, ఉద్యోగం & కుటుంబ వివరాలు (Career & Family Details) */}
@@ -766,7 +930,7 @@ export default function BiodataPage() {
                   </span>
                 </div>
                 <p className="text-[11px] text-slate-700 font-medium leading-relaxed telugu">
-                  🔍 ఈ సంబంధం యొక్క పూర్తి ప్రొఫైల్, ఫోటోలు, జాతక సరిపోలిక & సంప్రదింపుల కొరకు పక్కన ఉన్న <b>QR Code స్కాన్ చేయండి</b> లేదా <b>manavivaha.in/search/{profileId || "MV2001"}</b> లో చూడండి.
+                  🔍 ఈ సంబంధం యొక్క పూర్తి ప్రొఫైల్, ఫోటోలు & సంప్రదింపుల కొరకు పక్కన ఉన్న <b>QR Code స్కాన్ చేయండి</b> లేదా <b>manavivaha.in/search/{profileId || "MV2001"}</b> లో చూడండి.
                 </p>
                 <div className="text-[10px] text-slate-500 font-bold pt-0.5">
                   📞 అధికారిక వాట్సాప్ హెల్ప్‌లైన్: +91 6304996088 • 100% నమ్మకమైన తెలుగు మ్యాట్రిమోనీ
