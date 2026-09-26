@@ -972,7 +972,7 @@ function Wizard() {
             {/* 1-Click Actions */}
             <div className="flex flex-wrap gap-2.5 pt-2">
               <a
-                href={`https://wa.me/?text=${encodeURIComponent(`🙏 *శుభలగ్నం తెలుగు మ్యాట్రిమోనీ ప్రొఫైల్*\n🆔 *${tsap}* (${f.gender === "Groom" ? "🤵 వరుడు" : "👰 వధువు"})\n👤 *${f.full_name}*\n💍 కులం: *${f.caste}* ${f.sub_caste ? `(${f.sub_caste})` : ""} | గోత్రం: *${f.gothram || "—"}*\n🎂 వయస్సు: *${f.age || ageFromDob(f.dob)} సం.* | ఎత్తు: *${f.height}*\n⭐ నక్షత్రం: *${f.star || "—"}* | రాశి: *${f.rasi || "—"}*\n🎓 చదువు: *${f.education}* | 💼 ఉద్యోగం: *${f.job}*\n💰 వార్షిక ఆదాయం: *${f.salary}*\n📍 నివాసం: *${f.district || f.native_place}, ${f.state}*\n━━━━━━━━━━━━━━━━━━━━\n🔍 పూర్తి వివరాలు & సరిపోలిక చూడండి:\n👉 https://manavivaha.in/search/${tsap}`)}`}
+                href={`https://wa.me/?text=${encodeURIComponent(`🙏 *మన వివాహ (Mana Vivaha) తెలుగు మ్యాట్రిమోనీ ప్రొఫైల్*\n🆔 *${tsap}* (${f.gender === "Groom" ? "🤵 వరుడు" : "👰 వధువు"})\n👤 *${f.full_name}*\n💍 కులం: *${f.caste}* ${f.sub_caste ? `(${f.sub_caste})` : ""} | గోత్రం: *${f.gothram || "—"}*\n🎂 వయస్సు: *${f.age || ageFromDob(f.dob)} సం.* | ఎత్తు: *${f.height}*\n⭐ నక్షత్రం: *${f.star || "—"}* | రాశి: *${f.rasi || "—"}*\n🎓 చదువు: *${f.education}* | 💼 ఉద్యోగం: *${f.job}*\n💰 వార్షిక ఆదాయం: *${f.salary}*\n📍 నివాసం: *${f.district || f.native_place}, ${f.state}*\n━━━━━━━━━━━━━━━━━━━━\n🔍 పూర్తి వివరాలు & సరిపోలిక చూడండి:\n👉 https://manavivaha.in/search/${tsap}`)}`}
                 target="_blank"
                 rel="noreferrer"
                 className="flex-1 py-3 px-4 rounded-2xl bg-[#25D366] hover:brightness-105 active:scale-95 text-white font-black text-xs flex items-center justify-center gap-2 shadow-md transition"
@@ -1952,7 +1952,7 @@ function Wizard() {
                 <input type="checkbox" checked={!!f.consent} onChange={(e) => set("consent", e.target.checked)}
                   className="mt-1 w-5 h-5 accent-[#7A0C2E]" />
                 <span className="text-[12px] text-gray-700">
-                  {T(<>నేను అందించిన వివరాలన్నీ <b>వాస్తవమైనవి</b> అని ధృవీకరిస్తున్నాను. <b>శుభలగ్నం</b> నిబంధనలు మరియు గోప్యతా విధానాన్ని అంగీకరిస్తున్నాను — వివరాలు కమ్యూనిటీ ఛానళ్లలో పోస్ట్ చేయబడతాయి, ఫోన్ నంబర్ ఇరువైపులా అంగీకారం కుదిరాకే పంచుకోబడుతుంది.</>,
+                  {T(<>నేను అందించిన వివరాలన్నీ <b>వాస్తవమైనవి</b> అని ధృవీకరిస్తున్నాను. <b>మన వివాహ (Mana Vivaha)</b> నిబంధనలు మరియు గోప్యతా విధానాన్ని అంగీకరిస్తున్నాను — వివరాలు కమ్యూనిటీ ఛానళ్లలో పోస్ట్ చేయబడతాయి, ఫోన్ నంబర్ ఇరువైపులా అంగీకారం కుదిరాకే పంచుకోబడుతుంది.</>,
                   <>I confirm all details are <b>true and authentic</b>. I accept <b>Shubhalagnam</b> terms & privacy policy — phone numbers shared only upon mutual consent.</>)}
                 </span>
               </label>

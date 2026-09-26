@@ -47,7 +47,7 @@ export default function MuhurthamPage() {
   }, [selectedMonth, search]);
 
   const shareWa = (m: MuhurthamDate) => {
-    const text = `💍 శుభలగ్నం — వివాహ సుముహూర్తం 📅\n` +
+    const text = `💍 మన వివాహ (Mana Vivaha) — వివాహ సుముహూర్తం 📅\n` +
       `🗓️ తేదీ: ${m.teluguDate}\n` +
       `🌙 మాసం: ${m.teluguMonth} • ${m.season}\n` +
       `⭐ నక్షత్రం: ${m.nakshatram}\n` +

@@ -328,7 +328,7 @@ export default function QuickUnlockModal({
                 {unlockedPhone}
               </div>
               <p className="text-xs text-emerald-700 font-medium">
-                {te ? "గౌరవంగా మాట్లాడండి • శుభలగ్నం నుండి తీసుకున్నామని చెప్పండి 🙏" : "Mention Shubhalagnam Matrimony reference when you call 🙏"}
+                {te ? "గౌరవంగా మాట్లాడండి • మన వివాహ (Mana Vivaha) నుండి తీసుకున్నామని చెప్పండి 🙏" : "Mention Mana Vivaha Matrimony reference when you call 🙏"}
               </p>
               <div className="flex gap-2.5 pt-1">
                 <a
@@ -339,7 +339,7 @@ export default function QuickUnlockModal({
                   <span>{te ? "డైరెక్ట్ కాల్" : "Call Now"}</span>
                 </a>
                 <a
-                  href={`https://wa.me/91${unlockedPhone}?text=${encodeURIComponent(`నమస్కారం, శుభలగ్నం మ్యాట్రిమోనీలో మీ ప్రొఫైల్ (${target.tsap_id}) చూసి సంప్రదిస్తున్నాము.`)}`}
+                  href={`https://wa.me/91${unlockedPhone}?text=${encodeURIComponent(`నమస్కారం, మన వివాహ (Mana Vivaha) మ్యాట్రిమోనీలో మీ ప్రొఫైల్ (${target.tsap_id}) చూసి సంప్రదిస్తున్నాము.`)}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex-1 py-2.5 px-4 rounded-xl bg-[#25D366] hover:brightness-105 text-white font-black text-xs flex items-center justify-center gap-1.5 shadow-md transition"

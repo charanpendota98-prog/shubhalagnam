@@ -19,7 +19,7 @@ export default function VivahaMuhurthamTeaser() {
   const peakDates = VIVAHA_MUHURTHAMS_2026_2027.filter((m) => m.notes.includes("శ్రేష్టం") || m.notes.includes("అత్యుత్తమం")).slice(0, 4);
 
   const shareWa = (m: MuhurthamDate) => {
-    const text = `💍 శుభలగ్నం — వివాహ సుముహూర్తం 📅\n` +
+    const text = `💍 మన వివాహ (Mana Vivaha) — వివాహ సుముహూర్తం 📅\n` +
       `🗓️ తేదీ: ${m.teluguDate}\n` +
       `🌙 మాసం: ${m.teluguMonth}\n` +
       `⭐ నక్షత్రం: ${m.nakshatram}\n` +

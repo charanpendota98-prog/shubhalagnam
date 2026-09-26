@@ -83,7 +83,7 @@ export default function DistrictAdBanner({
       {ads.map((ad) => {
         const waNumber = ad.whatsapp || ad.phone || "9876543210";
         const waText = encodeURIComponent(
-          `నమస్తే, శుభలగ్నం/మన వివాహలో మీ ప్రకటన చూసి సంప్రదిస్తున్నాను: ${ad.title}`
+          `నమస్తే, మన వివాహ (Mana Vivaha) లో మీ ప్రకటన చూసి సంప్రదిస్తున్నాను: ${ad.title}`
         );
         const waUrl = ad.link || `https://wa.me/91${waNumber.replace(/[^0-9]/g, "")}?text=${waText}`;
 

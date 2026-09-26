@@ -483,7 +483,7 @@ export default function Dashboard() {
       return;
     }
 
-    let header = `💍 *శుభలగ్నం మన వివాహ — సంబంధాల వివరాలు*\n\n`;
+    let header = `💍 *మన వివాహ (Mana Vivaha) — సంబంధాల వివరాలు*\n\n`;
     if (candidate) {
       header += `👤 *అభ్యర్థి:* ${candidate.full_name} (${candidate.tsap_id} • ${candidate.caste} • ${candidate.age}y)\n`;
       header += `━━━━━━━━━━━━━━━━━━━━━\n\n`;
@@ -522,7 +522,7 @@ export default function Dashboard() {
         .join("\n");
     }
 
-    const footer = `\n━━━━━━━━━━━━━━━━━━━━━\n🌐 శుభలగ్నం మన వివాహ — 100% వెరిఫైడ్ తెలుగు సంబంధాలు\n👉 https://manavivaha.in`;
+    const footer = `\n━━━━━━━━━━━━━━━━━━━━━\n🌐 మన వివాహ (Mana Vivaha) — 100% వెరిఫైడ్ తెలుగు సంబంధాలు\n👉 https://manavivaha.in`;
     const fullMsg = header + body + footer;
 
     const targetPhone = recipientPhone.replace(/\D/g, "");
@@ -536,7 +536,7 @@ export default function Dashboard() {
   // Telegram Share Generator
   const shareTelegram = () => {
     if (selectedProfiles.length === 0) return;
-    const msg = `💍 *శుభలగ్నం మన వివాహ — సరిపోలే సంబంధాలు*\n\n` +
+    const msg = `💍 *మన వివాహ (Mana Vivaha) — సరిపోలే సంబంధాలు*\n\n` +
       selectedProfiles
         .map((p, i) => `${i + 1}. ${p.full_name} (${p.tsap_id}) — ${p.caste} • ${p.age}y • ${p.district}\n📞 ${p.phone}`)
         .join("\n\n") +
@@ -825,7 +825,7 @@ export default function Dashboard() {
             <div>
               <div className="flex items-center gap-2">
                 <span className="text-base font-extrabold text-[#7A0C2E]">
-                  శుభలగ్నం <span className="text-slate-800">అడ్మిన్ పోర్టల్</span>
+                  మన వివాహ <span className="text-slate-800">అడ్మిన్ పోర్టల్</span>
                 </span>
                 <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider ${
                   owner ? "bg-amber-100 text-amber-900 border border-amber-300" : "bg-slate-100 text-slate-700"

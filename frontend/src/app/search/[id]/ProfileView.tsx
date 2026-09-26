@@ -204,7 +204,7 @@ export default function ProfileView() {
 <body>
   <div class="card">
     <div class="header">
-      <div class="title">💍 శుభలగ్నం — వివాహ పరిచయ పత్రం</div>
+      <div class="title">💍 మన వివాహ (Mana Vivaha) — వివాహ పరిచయ పత్రం</div>
       <div class="sub">MANA VIVAHA • TS & AP TELUGU MATRIMONY (ID: ${profile.tsap_id})</div>
     </div>
     <div class="grid">

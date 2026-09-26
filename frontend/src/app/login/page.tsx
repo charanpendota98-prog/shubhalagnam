@@ -194,7 +194,7 @@ export default function LoginPage() {
           <Link href="/" className="inline-flex items-center gap-2 mb-2">
             <span className="text-3xl">💍</span>
             <span className="font-extrabold text-2xl tracking-tight text-[#7A0C2E]">
-              శుభలగ్నం <span className="text-gold">మన వివాహ</span>
+              మన వివాహ <span className="text-gold">Mana Vivaha</span>
             </span>
           </Link>
           <h1 className="text-xl font-extrabold text-slate-800 flex items-center justify-center gap-2">

@@ -73,11 +73,10 @@ def caste_code(caste: str) -> str:
     return "TEL"
 
 
-def generate_profile_id(caste: str, seq: int = 1) -> str:
-    """'Reddy' + 1 → RED1001 · 'Viswabrahmin' + 1 → VIS1001 · 1042 → RED1042."""
-    code = caste_code(caste)
+def generate_profile_id(caste: str = "", seq: int = 1) -> str:
+    """Clean brand Profile ID: MV1001, MV1002, MV1003... (MV = Mana Vivaha)."""
     num = 1000 + seq if seq < 1000 else seq
-    return f"{code}{num:04d}"
+    return f"MV{num:04d}"
 
 def create_profile_card(user: Dict, output_path: str) -> str:
     """
