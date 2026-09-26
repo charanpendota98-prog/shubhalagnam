@@ -555,14 +555,13 @@ export default function QuickUnlockModal({
                 </a>
               </div>
 
-              {/* Free credit earning tips */}
+              {/* Referral credit earning tips */}
               <div className="bg-amber-50/70 border border-amber-200 rounded-xl p-2.5 text-[11px] text-amber-950 space-y-1">
                 <div className="font-bold flex items-center gap-1">
-                  <span>💡</span> <span>{te ? "పైసలు లేకుండా ఉచితంగా క్రెడిట్స్ పొందండి:" : "Earn Free Credits without payment:"}</span>
+                  <span>🎁</span> <span>{te ? "ఉచితంగా కాంటాక్ట్ క్రెడిట్స్ పొందే అవకాశం:" : "Earn Free Contact Credits via Referral:"}</span>
                 </div>
                 <div className="text-slate-600 pl-4 space-y-0.5">
-                  <div>🔥 <b>Daily Streak Login</b>: రోజూ లాగిన్ అయితే +1 క్రెడిట్ బోనస్.</div>
-                  <div>🎁 <b>Referral</b>: మీ బంధువులు/మిత్రులను జాయిన్ చేయిస్తే +2 క్రెడిట్స్ & ₹50 క్యాష్.</div>
+                  <div>🤝 <b>రిఫరల్ షేరింగ్</b>: మీ లింక్‌తో బంధువులు/మిత్రులు రిజిస్టర్ అయితే ప్రతి రిజిస్ట్రేషన్‌కు <b>+2 ఉచిత క్రెడిట్స్</b> లభిస్తాయి! అలాగే వారు ప్లాన్ తీసుకుంటే మీ వాలెట్‌కు <b>₹50 నగదు</b> జమ అవుతుంది.</div>
                 </div>
               </div>
             </div>

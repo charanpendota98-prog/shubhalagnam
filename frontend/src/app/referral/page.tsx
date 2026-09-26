@@ -254,18 +254,18 @@ export default function ReferralPage() {
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
             <div className="space-y-3 max-w-2xl">
               <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full text-xs font-black uppercase bg-gradient-to-r from-amber-400 to-yellow-300 text-maroon shadow-md border border-white/40">
-                <span>💰</span>
-                <span>{te ? "చెల్లించిన ప్రతి రెఫరల్‌కు ఫ్లాట్ ₹50 నేరుగా మీ వాలెట్‌లో" : "FLAT ₹50 COMMISSION PER PAYING REFERRAL"}</span>
+                <span>🎁</span>
+                <span>{te ? "ప్రతి రిజిస్ట్రేషన్‌కు +2 క్రెడిట్స్ • చెల్లింపుపై ₹50 నగదు కమీషన్" : "+2 FREE CREDITS PER SIGNUP • ₹50 CASH ON PLAN PURCHASE"}</span>
               </div>
 
               <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black tracking-tight leading-tight">
-                <Duo en="Referral Partner & High-Income Console" te="రెఫరల్ భాగస్వామ్యం & సంపాదన వేదిక 🤝" />
+                <Duo en="Referral Partner & Rewards Console" te="రెఫరల్ భాగస్వామ్యం & సంపాదన వేదిక 🤝" />
               </h1>
 
               <p className="text-xs sm:text-sm text-amber-100 leading-relaxed">
                 {te
-                  ? "మీరు పెళ్లి సంబంధం వెతకాల్సిన అవసరం లేదు — విద్యార్థులు, గృహిణులు, ఉద్యోగస్తులు లేదా ఎవరైనా తమ లింక్‌ని వాట్సాప్‌లో షేర్ చేసి అపరిమితంగా సంపాదించవచ్చు. మీ స్నేహితుడు ఎప్పుడైనా ₹99 చెల్లించగానే ₹50 మీ బ్యాంక్/UPI కి జమ అవుతుంది!"
-                  : "You don't need to look for a match yourself — students, homemakers, matchmakers, or anyone can share their referral link and earn unlimited rewards. Get ₹50 straight into your wallet on every ₹99 paid referral!"}
+                  ? "మీ రిఫరల్ లింక్ ద్వారా బంధువులు లేదా స్నేహితులు రిజిస్టర్ అవ్వగానే మీకు +2 ఉచిత కాంటాక్ట్ అన్‌లాక్ క్రెడిట్స్ లభిస్తాయి! అలాగే వారు ₹99 లేదా ఏదైనా ప్లాన్ తీసుకున్న వెంటనే మీ వాలెట్‌కు ₹50 తక్షణ నగదు జమ అవుతుంది (UPI ద్వారా నేరుగా బ్యాంక్‌కి విత్‌డ్రా చేసుకోవచ్చు)."
+                  : "When your friends or relatives register with your link, you instantly get +2 free contact unlock credits! Plus, when they take any plan (₹99+), you earn flat ₹50 cash in your wallet, withdrawable directly via UPI to your bank account!"}
               </p>
 
               {/* Ticker of Recent Platform Earnings */}

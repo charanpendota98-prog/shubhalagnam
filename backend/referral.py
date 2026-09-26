@@ -373,6 +373,14 @@ def _attach_referral_locked(user: Dict, code: str, all_users: List[Dict]) -> Dic
             {"id": _next_id("RJ"), "at": _now(), "type": "join_event", "amount": 0,
              "from": user.get("tsap_id"), "from_name": user.get("full_name") or user.get("name", ""),
              "note": "same phone నుంచి join (family) — flag only, block లేదు"})
+    # 🎁 Referrer gets +2 free contact unlock credits per registration
+    REFERRER_REG_CREDITS = 2
+    ref["credits"] = int(ref.get("credits", 0) or 0) + REFERRER_REG_CREDITS
+    ref.setdefault("credit_history", []).append(
+        {"at": _now(), "change": REFERRER_REG_CREDITS, "reason": "referral_friend_registered",
+         "by": user.get("tsap_id"), "note": f"మీ referral తో {user.get('full_name', 'కొత్త సభ్యులు')} చేరారు (+{REFERRER_REG_CREDITS} ఉచిత క్రెడిట్స్)"}
+    )
+    st["credits_earned"] = int(st.get("credits_earned", 0) or 0) + REFERRER_REG_CREDITS
     st["total"] = st["registrations"]
     ref["referral_stats"] = st
     # 🎁 referee (kotha user) bonus — andariki
@@ -383,6 +391,7 @@ def _attach_referral_locked(user: Dict, code: str, all_users: List[Dict]) -> Dic
     save_state()
     return {"ok": True, "referrer_code": _code_of(ref), "referrer_id": ref.get("tsap_id"),
             "referrer_name": ref.get("full_name") or ref.get("name") or "", "bonus_credits": REFEREE_BONUS_CREDITS,
+            "referrer_bonus_credits": REFERRER_REG_CREDITS,
             "referee_credits": user.get("credits", 0), "commission_offer": FIRST_PAY_COMMISSION,
             "flags": _soft_flags,
             "note_telugu": ("ℹ️ మీ code తో ఒకటే phone నుంచి ఇంకా ఒకరు join అయ్యారు — పర్వాలేదు, "
