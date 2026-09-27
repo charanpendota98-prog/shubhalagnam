@@ -724,14 +724,22 @@ export default function ReferralPage() {
               </div>
 
               {/* Theme & Actions */}
-              <div className="flex items-center gap-2 shrink-0">
+              <div className="flex flex-wrap items-center gap-2 shrink-0">
                 <button
                   type="button"
                   onClick={downloadShopPosterHD}
                   disabled={shopPosterDownloading}
-                  className="px-5 py-2.5 rounded-2xl gold-gradient text-maroon font-black text-xs shadow-md hover:brightness-105 transition flex items-center gap-1.5 disabled:opacity-50"
+                  className="px-4 sm:px-5 py-2.5 rounded-2xl gold-gradient text-maroon font-black text-xs shadow-md hover:brightness-105 transition flex items-center gap-1.5 disabled:opacity-50"
                 >
                   {shopPosterDownloading ? "డౌన్‌లోడ్…" : "📸 HD పోస్టర్ డౌన్‌లోడ్ (JPG)"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => window.print()}
+                  className="px-3.5 py-2.5 rounded-2xl bg-white border-2 border-gold/50 text-maroon font-black text-xs shadow-xs hover:bg-amber-50 transition flex items-center gap-1.5"
+                >
+                  <span>🖨️</span>
+                  <span>{te ? "ప్రింట్" : "Print"}</span>
                 </button>
                 <a
                   href={`https://wa.me/?text=${encodeURIComponent(

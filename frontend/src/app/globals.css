@@ -529,10 +529,19 @@ button:not(:disabled):active { transform: scale(0.97); }
   transition: all 0.75s ease-in-out;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .cine-frame { animation: none; opacity: 0; }
-  .cine-frame:nth-child(1) { opacity: 1; }
-  .cine-grain, .cine-petal, .cine-float-card, .cine-scroll-cue, .cine-cta-glow::after, .cine-bar > i, .shine-hover::after { animation: none !important; }
-  .cine-title-gold { animation: none; background-position: 0 0; }
-  .cine-bar:nth-child(1) > i { transform: scaleX(1); }
+@media print {
+  body {
+    background: white !important;
+    color: black !important;
+  }
+  header, footer, nav, .no-print, [role="navigation"] {
+    display: none !important;
+  }
+  #shop-sticker-canvas, #biodata-canvas {
+    box-shadow: none !important;
+    border-width: 2px !important;
+    margin: 0 auto !important;
+    max-width: 100% !important;
+    page-break-inside: avoid !important;
+  }
 }

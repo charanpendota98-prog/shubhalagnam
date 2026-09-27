@@ -3023,6 +3023,7 @@ def spotlight_rates():
 
 
 @app.get("/api/spotlight/active")
+@app.get("/api/spotlight/today")
 def spotlight_active(limit: int = 12):
     """Public — Live & approved Profiles of the Day for Homepage & Matches."""
     limit = max(1, min(int(limit), 30))
