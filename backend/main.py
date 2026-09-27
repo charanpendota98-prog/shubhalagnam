@@ -2520,10 +2520,28 @@ def referral_lookup(q: str = ""):
 
 
 def _user_or_404(tsap_id: str) -> Dict:
-    u = next((x for x in DB_USERS if x["tsap_id"] == tsap_id), None)
-    if not u:
-        raise HTTPException(404, "User not found — ID సరి గా chusukondi")
-    return u
+    raw = (tsap_id or "").strip()
+    u = next((x for x in DB_USERS if x.get("tsap_id", "").upper() == raw.upper()), None)
+    if u:
+        return u
+    # Check by referral code
+    u = next((x for x in DB_USERS if str(x.get("referral_code", "")).upper() == raw.upper()), None)
+    if u:
+        return u
+    # Check by phone
+    clean_p = re.sub(r"\D", "", raw)
+    if len(clean_p) >= 10:
+        u = next((x for x in DB_USERS if str(x.get("phone", "")).endswith(clean_p[-10:])), None)
+        if u:
+            return u
+    # Check via referral module finder
+    try:
+        u = referral_find_referrer(raw, DB_USERS)
+        if u:
+            return u
+    except Exception:
+        pass
+    raise HTTPException(404, "User not found — ID లేదా రిఫరల్ కోడ్ సరిచూసుకోండి")
 
 
 @app.get("/api/referral/earnings-card")
