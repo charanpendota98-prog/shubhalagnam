@@ -1514,18 +1514,18 @@ _INTEREST_LOCKS = defaultdict(threading.Lock)  # WAVE 27: per-sender lock (doubl
 async def register(
     gender: str = Form(...),
     age: int = Form(...),
-    height: str = Form(...),
-    marital_status: str = Form(...),
+    height: str = Form("5'5\""),
+    marital_status: str = Form("Pelli Kaledu"),
     children: str = Form("None"),
     caste: str = Form(...),
     sub_caste: str = Form(""),
     gothram: str = Form(""),
     star: str = Form(""),
-    education: str = Form(...),
-    job: str = Form(...),
-    salary: str = Form(...),
-    state: str = Form(...),
-    district: str = Form(...),
+    education: str = Form("Graduate"),
+    job: str = Form("Private Sector"),
+    salary: str = Form("₹5 - 7 Lakhs / year"),
+    state: str = Form("TS"),
+    district: str = Form("Hyderabad"),
     mandal: str = Form(""),
     phone: str = Form(...),
     password: str = Form(""),
@@ -1611,13 +1611,13 @@ async def register(
     children = req_choice(children, "children", ["None", "1", "2", "3", "4+"], required=False, default="None")
     if marital_status == "Pelli Kaledu":
         children = "None"                       # never-married → smart force (junk reject)
-    caste = req_text(caste, "caste", 2, 40)
-    height = req_text(height, "height", 1, 12)
-    education = req_text(education, "education", 1, 60)
-    job = req_text(job, "job", 1, 60)
-    salary = req_text(salary, "salary", 1, 24)
-    state = req_choice(state, "state", ["TS", "AP", "KA", "MH", "Other"])
-    district = req_text(district, "district", 2, 40)
+    caste = req_text(caste or "Telugu", "caste", 2, 40)
+    height = req_text(height or "5'5\"", "height", 1, 12)
+    education = req_text(education or "Graduate", "education", 1, 60)
+    job = req_text(job or "Private Sector", "job", 1, 60)
+    salary = req_text(salary or "₹5 - 7 Lakhs / year", "salary", 1, 24)
+    state = req_choice(state or "TS", "state", ["TS", "AP", "KA", "MH", "Other"])
+    district = req_text(district or "Hyderabad", "district", 2, 40)
     family_status = req_choice(family_status, "family_status",
                                # 🌊 WAVE 17 canonical (screenshot) + legacy (old data/tests)
                                ["Middle Class", "Upper Middle Class", "Rich / Affluent (Elite)",

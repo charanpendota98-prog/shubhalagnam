@@ -457,12 +457,12 @@ function EditProfilePanel({ myId }: { myId: string }) {
           </div>
         </div>
 
-        {/* 4. Family Details */}
+        {/* 4. Family & Physical Details */}
         <div className="space-y-4">
           <h3 className="text-sm font-black text-maroon uppercase tracking-wider border-b border-slate-100 pb-2 flex items-center gap-2">
-            <span>👨‍👩‍👧</span> <span>కుటుంబ వివరాలు & ఆస్తిపాస్తులు (Family Details)</span>
+            <span>👨‍👩‍👧</span> <span>కుటుంబ వివరాలు & శారీరక లక్షణాలు (Family & Physical)</span>
           </h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 text-xs">
             <div>
               <label className="font-bold text-slate-800 block mb-1">తండ్రి పేరు & వృత్తి:</label>
               <input
@@ -494,6 +494,39 @@ function EditProfilePanel({ myId }: { myId: string }) {
               />
             </div>
             <div>
+              <label className="font-bold text-slate-800 block mb-1">అన్నదమ్ములు (Brothers):</label>
+              <input
+                type="text"
+                value={profile.brothers ?? "0"}
+                onChange={(e) => setField("brothers", e.target.value)}
+                placeholder="ఉదా: 1 (పెళ్లి అయింది)"
+                className="w-full p-2.5 border border-slate-200 rounded-xl focus:outline-none focus:border-maroon"
+              />
+            </div>
+            <div>
+              <label className="font-bold text-slate-800 block mb-1">అక్కచెల్లెళ్లు (Sisters):</label>
+              <input
+                type="text"
+                value={profile.sisters ?? "0"}
+                onChange={(e) => setField("sisters", e.target.value)}
+                placeholder="ఉదా: 1"
+                className="w-full p-2.5 border border-slate-200 rounded-xl focus:outline-none focus:border-maroon"
+              />
+            </div>
+            <div>
+              <label className="font-bold text-slate-800 block mb-1">వర్ణం (Complexion):</label>
+              <select
+                value={profile.complexion || "Fair"}
+                onChange={(e) => setField("complexion", e.target.value)}
+                className="w-full p-2.5 border border-slate-200 rounded-xl bg-white focus:outline-none focus:border-maroon"
+              >
+                <option value="Very Fair">చాలా చామనచాయ (Very Fair)</option>
+                <option value="Fair">ఎరుపు / తెల్లని (Fair)</option>
+                <option value="Wheatish">గోధుమ రంగు (Wheatish)</option>
+                <option value="Dark">నలుపు / చామనచాయ</option>
+              </select>
+            </div>
+            <div className="sm:col-span-2 lg:col-span-3">
               <label className="font-bold text-slate-800 block mb-1">ఫోటో URL (Photo Link):</label>
               <input
                 type="text"
@@ -503,13 +536,13 @@ function EditProfilePanel({ myId }: { myId: string }) {
                 className="w-full p-2.5 border border-slate-200 rounded-xl focus:outline-none focus:border-maroon"
               />
             </div>
-            <div className="sm:col-span-2">
+            <div className="sm:col-span-2 lg:col-span-3">
               <label className="font-bold text-slate-800 block mb-1">నా గురించి (About Myself):</label>
               <textarea
                 rows={3}
                 value={profile.about_myself || ""}
                 onChange={(e) => setField("about_myself", e.target.value)}
-                placeholder="మీ గురించి క్లుప్తంగా రాయండి…"
+                placeholder="మీ కుటుంబం, వ్యక్తిత్వం మరియు అంచనాల గురించి క్లుప్తంగా రాయండి…"
                 className="w-full p-2.5 border border-slate-200 rounded-xl focus:outline-none focus:border-maroon telugu"
               />
             </div>

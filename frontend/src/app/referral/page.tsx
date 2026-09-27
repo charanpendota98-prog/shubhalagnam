@@ -26,6 +26,102 @@ const RECENT_COMMISSIONS_TICKER = [
   { name: "Anil Reddy", dist: "Warangal", amt: 100, time: "1 hour ago", mode: "PhonePe" },
 ];
 
+const SHOP_TEMPLATES: Record<string, {
+  id: string;
+  label: string;
+  badge: string;
+  hookTe: string;
+  hookEn: string;
+  subTe: string;
+  subEn: string;
+  points: string[];
+}> = {
+  general: {
+    id: "general",
+    label: "🏪 సాధారణ షాప్ & కౌంటర్",
+    badge: "1-MIN REGISTRATION",
+    hookTe: "⚡ కేవలం 1-నిమిషంలో ఉచిత రిజిస్ట్రేషన్!",
+    hookEn: "1-MINUTE FREE TELUGU MATRIMONY REGISTRATION",
+    subTe: "📱 ఈ QR కోడ్‌ని కెమెరా / PhonePe / GPay తో స్కాన్ చేయండి!",
+    subEn: "Scan QR with any Camera / PhonePe / GPay to get 10,000+ matches",
+    points: [
+      "10,000+ ధృవీకరించబడిన వధువు & వరుల సంబంధాలు",
+      "100% ఫోటో & ఫోన్ నంబర్ గోప్యతా రక్షణ",
+      "కేవలం ₹99 కే ప్లాన్స్ — వేల రూపాయల భారం లేదు!",
+    ],
+  },
+  xerox: {
+    id: "xerox",
+    label: "🖨️ జిరాక్స్ & మీసేవ సెంటర్",
+    badge: "BIODATA & REGISTRATION",
+    hookTe: "⚡ ఉచిత మ్యాట్రిమోనీ బయోడేటా & 1-నిమిషం రిజిస్ట్రేషన్!",
+    hookEn: "FREE HD BIODATA & INSTANT REGISTRATION DESK",
+    subTe: "📱 QR స్కాన్ చేసి వెంటనే సంబంధాలు చూడండి లేదా బయోడేటా తీసుకోండి!",
+    subEn: "Scan QR to generate printable HD Marriage Biodata in 1-min",
+    points: [
+      "ఉచిత HD కలర్ బయోడేటా JPG & PDF డౌన్‌లోడ్",
+      "తెలంగాణ & ఏపీలోని అన్ని కులాల సంబంధాలు",
+      "నంబర్ ప్రైవసీ లాక్ & తక్షణ మ్యాచ్ అప్‌డేట్స్",
+    ],
+  },
+  studio: {
+    id: "studio",
+    label: "📸 ఫోటో స్టూడియో & ల్యాబ్",
+    badge: "STUDIO PHOTO MATRIMONY",
+    hookTe: "⚡ మీ ఫోటోతో 1-నిమిషంలో పెళ్లి సంబంధాల నమోదు!",
+    hookEn: "PHOTO STUDIO MATRIMONY — INSTANT TELUGU MATCHES",
+    subTe: "📱 QR స్కాన్ చేసి మీ ప్రొఫైల్ నమోదు చేయండి — మ్యాచెస్ పొందండి!",
+    subEn: "Scan QR with your phone to upload photo and find matches",
+    points: [
+      "హై-రిజల్యూషన్ ఫోటో బయోడేటా కార్డ్స్",
+      "నక్షత్రం, రాశి & జాతక చక్రం గుణమేళనం",
+      "సాఫ్ట్‌వేర్, గవర్నమెంట్ & బిజినెస్ సంబంధాలు",
+    ],
+  },
+  tea: {
+    id: "tea",
+    label: "☕ టీ స్టాల్, కేఫ్ & హోటల్",
+    badge: "TEA TIME MATRIMONY",
+    hookTe: "⚡ వేడి వేడి టీ తాగుతూ... 1-నిమిషంలో పెళ్లి సంబంధాలు!",
+    hookEn: "1-MINUTE INSTANT TELUGU MATRIMONY SEARCH",
+    subTe: "📱 మీ మొబైల్ కెమెరాతో QR స్కాన్ చేసి సంబంధాలు చూడండి!",
+    subEn: "Scan QR on your phone to explore 10,000+ matches instantly",
+    points: [
+      "1 నిమిషంలో సులభమైన ఉచిత రిజిస్ట్రేషన్",
+      "33 TS & 26 AP జిల్లాల సంబంధాలు",
+      "దళారులు లేని నేరుగా కుటుంబాలతో సంభాషణ",
+    ],
+  },
+  tailor: {
+    id: "tailor",
+    label: "🪡 టైలరింగ్ & బ్యూటీ పార్లర్",
+    badge: "BRIDAL & GROOM DESK",
+    hookTe: "⚡ పెళ్లి చూపుల ముస్తాబు & సరైన సంబంధాలు — 1-నిమిషంలో!",
+    hookEn: "BRIDAL & GROOM MATRIMONY CORNER",
+    subTe: "📱 QR స్కాన్ చేసి ఉత్తమ వధువు/వరుల ప్రొఫైల్స్ పొందండి!",
+    subEn: "Scan QR to discover top-rated brides & grooms in 1-min",
+    points: [
+      "సాఫ్ట్‌వేర్, గవర్నమెంట్ & వ్యాపార సంబంధాలు",
+      "100% నంబర్ & ఫోటో గోప్యతా భద్రత",
+      "అత్యంత అందుబాటు ధరల్లో ప్లాన్స్ (కేవలం ₹99)",
+    ],
+  },
+  story: {
+    id: "story",
+    label: "📱 WhatsApp Status Story",
+    badge: "WHATSAPP STATUS FLYER",
+    hookTe: "⚡ 1-నిమిషంలో రిజిస్ట్రేషన్ • 10,000+ సంబంధాలు!",
+    hookEn: "SCAN QR TO FIND YOUR PERFECT TELUGU MATCH!",
+    subTe: "📱 PhonePe / GPay / కెమెరాతో QR స్కాన్ చేయండి!",
+    subEn: "Scan with PhonePe, GPay or Camera to register free in 1-min!",
+    points: [
+      "1-నిమిషంలో ఉచిత రిజిస్ట్రేషన్",
+      "10,000+ ధృవీకరించబడిన ప్రొఫైల్స్",
+      "100% సేఫ్ & ప్రైవేట్",
+    ],
+  },
+};
+
 export default function ReferralPage() {
   const { lang } = useLang();
   const te = lang === "te";
@@ -50,6 +146,7 @@ export default function ReferralPage() {
   // Shop Sticker & QR Poster State
   const [shopPosterDownloading, setShopPosterDownloading] = useState(false);
   const [shopPosterTheme, setShopPosterTheme] = useState<"maroon" | "gold" | "navy">("maroon");
+  const [shopTemplate, setShopTemplate] = useState<"general" | "xerox" | "studio" | "tea" | "tailor" | "story">("general");
   const [qrCodeUrl, setQrCodeUrl] = useState<string>("");
   const shopPosterRef = useRef<HTMLDivElement>(null);
 
@@ -653,6 +750,27 @@ export default function ReferralPage() {
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
               {/* Controls Column (4 cols) */}
               <div className="lg:col-span-4 space-y-4 bg-amber-50/50 p-5 rounded-3xl border border-gold/30 text-xs">
+                {/* Business / Shop Template Picker */}
+                <div>
+                  <label className="font-bold text-slate-800 block mb-1">🏢 షాప్ / ప్రచార రకం (Shop Template):</label>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {Object.values(SHOP_TEMPLATES).map((t) => (
+                      <button
+                        key={t.id}
+                        type="button"
+                        onClick={() => setShopTemplate(t.id as any)}
+                        className={`p-2 rounded-xl text-[11px] font-bold border text-left transition ${
+                          shopTemplate === t.id
+                            ? "bg-maroon text-white border-maroon shadow-xs"
+                            : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
+                        }`}
+                      >
+                        {t.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
                 <div>
                   <label className="font-bold text-slate-800 block mb-1">🎨 పోస్టర్ థీమ్ (Poster Theme):</label>
                   <div className="grid grid-cols-3 gap-1.5">
@@ -678,12 +796,12 @@ export default function ReferralPage() {
                 </div>
 
                 <div>
-                  <label className="font-bold text-slate-800 block mb-1">🏢 షాప్ / కౌంటర్ పేరు (Optional):</label>
+                  <label className="font-bold text-slate-800 block mb-1">🏷️ షాప్ / సెంటర్ పేరు (Business Name):</label>
                   <input
                     type="text"
                     value={posterCustomName}
                     onChange={(e) => setPosterCustomName(e.target.value)}
-                    placeholder="ఉదా: శ్రీ సాయి జిరాక్స్ / నా పేరు"
+                    placeholder="ఉదా: శ్రీ సాయి జిరాక్స్ సెంటర్ / రమేష్"
                     className="w-full p-2.5 border border-slate-200 rounded-xl bg-white focus:outline-none focus:border-maroon"
                   />
                 </div>
@@ -691,13 +809,12 @@ export default function ReferralPage() {
                 <div className="bg-white p-3.5 rounded-2xl border border-gold/30 space-y-2 text-slate-700">
                   <div className="font-black text-maroon flex items-center gap-1.5">
                     <span>💡</span>
-                    <span>ఎక్కడ ఉపయోగించాలి?</span>
+                    <span>షాప్ స్టిక్కర్ వ్యూహం (Marketing Tips):</span>
                   </div>
                   <ul className="space-y-1 text-[11px] list-disc list-inside">
-                    <li>జిరాక్స్ సెంటర్లు, ఇంటర్నెట్ కేఫ్‌లు, మీ-సేవ కేంద్రాలు</li>
-                    <li>టీ పాయింట్స్, బ్యూటీ పార్లర్స్ & టైలరింగ్ షాపులు</li>
-                    <li>కళ్యాణ మండపాలు & ఫంక్షన్ హాల్స్ కౌంటర్లు</li>
-                    <li>వాట్సాప్ స్టేటస్ & ఫ్యామిలీ గ్రూపులు</li>
+                    <li>ఈ పోస్టర్‌ని కౌంటర్ లేదా గ్లాస్ డోర్‌పై అతికించండి.</li>
+                    <li>కస్టమర్లు స్కాన్ చేసి చేరితే మీకు +2 క్రెడిట్స్ మరియు ₹50 నగదు!</li>
+                    <li>WhatsApp గ్రూపులలో HD JPG ఇమేజ్ షేర్ చేయండి.</li>
                   </ul>
                 </div>
               </div>
@@ -706,7 +823,7 @@ export default function ReferralPage() {
               <div className="lg:col-span-8 flex flex-col items-center">
                 <div className="text-xs font-bold text-slate-500 mb-2 flex items-center gap-1.5">
                   <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                  <span>ప్రింటబుల్ HD షాప్ స్టిక్కర్ పోస్టర్ (Live Canvas Preview)</span>
+                  <span>ప్రింటబుల్ HD షాప్ స్టిక్కర్ పోస్టర్ ({SHOP_TEMPLATES[shopTemplate]?.label})</span>
                 </div>
 
                 {/* The Poster Target */}
@@ -740,13 +857,13 @@ export default function ReferralPage() {
                     </p>
                   </div>
 
-                  {/* 1-Minute Registration Hook */}
+                  {/* 1-Minute Registration Dynamic Hook */}
                   <div className="bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-400 text-[#5C0822] rounded-2xl p-2.5 shadow-sm">
                     <div className="text-sm sm:text-base font-black uppercase tracking-wide">
-                      ⚡ కేవలం 1-నిమిషంలో ఉచిత రిజిస్ట్రేషన్!
+                      {SHOP_TEMPLATES[shopTemplate]?.hookTe || "⚡ కేవలం 1-నిమిషంలో ఉచిత రిజిస్ట్రేషన్!"}
                     </div>
                     <div className="text-[11px] font-extrabold mt-0.5">
-                      1-MINUTE FREE TELUGU MATRIMONY REGISTRATION
+                      {SHOP_TEMPLATES[shopTemplate]?.hookEn || "1-MINUTE FREE TELUGU MATRIMONY REGISTRATION"}
                     </div>
                   </div>
 
@@ -759,32 +876,33 @@ export default function ReferralPage() {
                         <div className="w-48 h-48 bg-slate-100 flex items-center justify-center text-xs">QR</div>
                       )}
                     </div>
-                    <div className="inline-block px-4 py-1 rounded-full maroon-gradient text-white text-[11px] font-black shadow-xs">
-                      📱 కెమెరా / PhonePe / GPay తో స్కాన్ చేయండి
+                    <div className="inline-block px-4 py-1.5 rounded-full maroon-gradient text-white text-[11px] font-black shadow-xs">
+                      {SHOP_TEMPLATES[shopTemplate]?.subTe || "📱 కెమెరా / PhonePe / GPay తో స్కాన్ చేయండి"}
+                    </div>
+                    <div className="text-[10px] text-slate-500 font-bold">
+                      {SHOP_TEMPLATES[shopTemplate]?.subEn || "Scan to get 10,000+ suitable Telugu matches"}
                     </div>
                   </div>
 
                   {/* Marketing Highlights */}
                   <div className="space-y-1.5 text-xs text-slate-800 text-left bg-amber-50/70 p-3.5 rounded-2xl border border-gold/30">
-                    <div className="flex items-center gap-2">
-                      <span className="text-emerald-600 font-bold">✓</span>
-                      <span className="font-bold">10,000+ ధృవీకరించబడిన వధువు & వరుల సంబంధాలు</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-emerald-600 font-bold">✓</span>
-                      <span className="font-bold">100% ఫోటో & ఫోన్ నంబర్ గోప్యతా రక్షణ</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-emerald-600 font-bold">✓</span>
-                      <span className="font-bold text-[#7A0C2E]">కేవలం ₹99 కే ప్లాన్స్ — వేల రూపాయల భారం లేదు!</span>
-                    </div>
+                    {(SHOP_TEMPLATES[shopTemplate]?.points || [
+                      "10,000+ ధృవీకరించబడిన వధువు & వరుల సంబంధాలు",
+                      "100% ఫోటో & ఫోన్ నంబర్ గోప్యతా రక్షణ",
+                      "కేవలం ₹99 కే ప్లాన్స్ — వేల రూపాయల భారం లేదు!",
+                    ]).map((pt, i) => (
+                      <div key={i} className="flex items-center gap-2">
+                        <span className="text-emerald-600 font-bold">✓</span>
+                        <span className="font-bold">{pt}</span>
+                      </div>
+                    ))}
                   </div>
 
                   {/* Referral Attribution Footer */}
-                  <div className="pt-1 border-t border-slate-200 flex items-center justify-between text-[11px] text-slate-600">
+                  <div className="pt-2 border-t border-slate-200 flex items-center justify-between text-[11px] text-slate-600">
                     <div>
                       <span className="font-bold block text-maroon">సిఫార్సు కోడ్: {refCodeActive}</span>
-                      {posterCustomName && <span className="font-semibold text-slate-500">షాప్: {posterCustomName}</span>}
+                      {posterCustomName && <span className="font-semibold text-slate-500">సెంటర్: {posterCustomName}</span>}
                     </div>
                     <div className="text-right">
                       <span className="font-bold text-slate-900 block">📞 6304996088</span>
