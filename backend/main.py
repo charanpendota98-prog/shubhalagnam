@@ -2123,6 +2123,95 @@ def search_profile(tsap_id: str, viewer_id: Optional[str] = None):
         "viewer_credits": viewer.get("credits",0)
     }
 
+
+@app.get("/api/profile/{tsap_id}")
+def get_user_profile_for_edit(tsap_id: str):
+    """Fetch full profile data for self-editing and view completeness meter."""
+    clean_id = tsap_id.strip().upper()
+    user = _find_user(clean_id)
+    if not user:
+        raise HTTPException(404, f"Profile ID {tsap_id} not found")
+    
+    core_keys = [
+        "full_name", "gender", "dob", "height", "marital_status", "caste", "sub_caste",
+        "gothram", "star", "rasi", "education", "education_detail", "job", "company", "salary",
+        "work_type", "work_location", "father_name", "father_occupation", "mother_name",
+        "native_place", "state", "district", "phone", "about_myself", "photo_url"
+    ]
+    filled = [k for k in core_keys if bool(str(user.get(k) or "").strip())]
+    missing = [k for k in core_keys if not bool(str(user.get(k) or "").strip())]
+    score = min(100, int((len(filled) / len(core_keys)) * 100))
+    
+    return {
+        "success": True,
+        "profile": user,
+        "completeness_score": score,
+        "filled_count": len(filled),
+        "total_fields": len(core_keys),
+        "missing_fields": missing,
+        "referral_code": user.get("my_code") or user.get("referral_code") or clean_id,
+        "credits": user.get("credits", 3),
+        "is_verified": bool(user.get("is_verified") or user.get("verified")),
+    }
+
+
+@app.post("/api/profile/update")
+def update_user_profile(payload: dict):
+    """Allows user to update profile anytime, increasing completeness to 100%."""
+    tsap_id = str(payload.get("tsap_id") or payload.get("id") or "").strip().upper()
+    user = _find_user(tsap_id)
+    if not user:
+        raise HTTPException(404, f"Profile {tsap_id} not found")
+    
+    updatable_fields = [
+        "full_name", "dob", "birth_time", "height", "marital_status", "children", "caste",
+        "sub_caste", "gothram", "star", "rasi", "dosham", "education", "education_detail",
+        "job", "company", "salary", "work_type", "work_location", "father_name",
+        "father_occupation", "mother_name", "mother_occupation", "brothers", "sisters",
+        "native_place", "state", "district", "mandal", "current_city", "about_myself",
+        "photo_url", "photo_private", "blood_group", "complexion", "body_type"
+    ]
+    for k in updatable_fields:
+        if k in payload and payload[k] is not None:
+            user[k] = payload[k]
+    
+    if payload.get("dob"):
+        try:
+            from datetime import datetime, date
+            dob_dt = datetime.strptime(str(payload["dob"])[:10], "%Y-%m-%d").date()
+            today = date.today()
+            age = today.year - dob_dt.year - ((today.month, today.day) < (dob_dt.month, dob_dt.day))
+            if age >= 18:
+                user["age"] = age
+        except Exception:
+            pass
+    
+    core_keys = [
+        "full_name", "gender", "dob", "height", "marital_status", "caste", "sub_caste",
+        "gothram", "star", "rasi", "education", "education_detail", "job", "company", "salary",
+        "work_type", "work_location", "father_name", "father_occupation", "mother_name",
+        "native_place", "state", "district", "phone", "about_myself", "photo_url"
+    ]
+    filled = [k for k in core_keys if bool(str(user.get(k) or "").strip())]
+    missing = [k for k in core_keys if not bool(str(user.get(k) or "").strip())]
+    user["completeness_score"] = min(100, int((len(filled) / len(core_keys)) * 100))
+    user["score"] = user["completeness_score"]
+    
+    try:
+        import json
+        with open("data_db.json", "w", encoding="utf-8") as f:
+            json.dump(DB_USERS, f, ensure_ascii=False, indent=2)
+    except Exception:
+        pass
+        
+    return {
+        "success": True,
+        "message_telugu": "✅ మీ ప్రొఫైల్ వివరాలు విజయవంతంగా అప్‌డేట్ అయ్యాయి!",
+        "completeness_score": user["completeness_score"],
+        "missing_fields": missing,
+        "profile": safe_user(user)
+    }
+
 @app.get("/api/matches/smart-alerts")
 @app.get("/api/smart-alerts")
 def smart_matches_alerts(tsap_id: Optional[str] = None, caste: Optional[str] = None, gender: Optional[str] = None):

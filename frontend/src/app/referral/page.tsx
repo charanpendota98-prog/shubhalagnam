@@ -6,8 +6,10 @@
  * Live Earnings Calculator · Real Referee Details Table · 1-Tap WhatsApp Kit ·
  * UPI Instant Withdrawals · Live Social Proof & Leaderboard.
  */
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import Link from "next/link";
+import { toJpeg } from "html-to-image";
+import QRCode from "qrcode";
 import { useLang } from "@/lib/lang";
 import { Duo, duo } from "@/lib/duo";
 import { authHeaders } from "@/lib/api";
@@ -44,6 +46,12 @@ export default function ReferralPage() {
   const [posterFormat, setPosterFormat] = useState<"story" | "banner">("story");
   const [posterAmount, setPosterAmount] = useState<number>(50);
   const [posterCustomName, setPosterCustomName] = useState<string>("");
+
+  // Shop Sticker & QR Poster State
+  const [shopPosterDownloading, setShopPosterDownloading] = useState(false);
+  const [shopPosterTheme, setShopPosterTheme] = useState<"maroon" | "gold" | "navy">("maroon");
+  const [qrCodeUrl, setQrCodeUrl] = useState<string>("");
+  const shopPosterRef = useRef<HTMLDivElement>(null);
 
   // Quick Partner Form inside page
   const [quickName, setQuickName] = useState("");
@@ -242,6 +250,44 @@ export default function ReferralPage() {
     const refLink = link || `https://manavivaha.in/r/${code}`;
     return `నాకు మన వివాహ ద్వారా ₹${posterAmount} రెఫరల్ క్యాష్ వచ్చింది! మీరు కూడా సంబంధం చూస్తున్నారా? ఈ లింక్‌తో ఉచితంగా రిజిస్టర్ అవ్వండి: ${refLink}`;
   }, [posterAmount, dash?.code, quickSuccess?.partner_id, link]);
+
+  const refCodeActive = dash?.code || quickSuccess?.partner_id || tsapId || "MV";
+  const refRegistrationUrl = `https://manavivaha.in/register?ref=${refCodeActive}`;
+
+  useEffect(() => {
+    if (refRegistrationUrl) {
+      QRCode.toDataURL(refRegistrationUrl, {
+        width: 280,
+        margin: 1,
+        color: {
+          dark: shopPosterTheme === "navy" ? "#0F1F3C" : "#7A0C2E",
+          light: "#FFFFFF",
+        },
+      })
+        .then(setQrCodeUrl)
+        .catch(() => {});
+    }
+  }, [refRegistrationUrl, shopPosterTheme]);
+
+  const downloadShopPosterHD = async () => {
+    if (!shopPosterRef.current) return;
+    setShopPosterDownloading(true);
+    try {
+      const dataUrl = await toJpeg(shopPosterRef.current, {
+        quality: 0.96,
+        pixelRatio: 2.5,
+        backgroundColor: "#FFFFFF",
+      });
+      const a = document.createElement("a");
+      a.download = `ManaVivaha_Shop_Sticker_${refCodeActive}.jpg`;
+      a.href = dataUrl;
+      a.click();
+    } catch (e) {
+      console.error(e);
+      alert("పోస్టర్ డౌన్‌లోడ్ చేయడంలో సమస్య ఏర్పడింది.");
+    }
+    setShopPosterDownloading(false);
+  };
 
   return (
     <main className="min-h-screen bg-[#FFF8E7] pb-36">
@@ -541,6 +587,7 @@ export default function ReferralPage() {
         <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-hide">
           {[
             { id: "overview", label: te ? "📊 అవలోకనం" : "📊 Overview" },
+            { id: "shop_poster", label: te ? "🏪 షాప్ స్టిక్కర్ & QR పోస్టర్" : "🏪 Shop Sticker & QR Poster" },
             { id: "status_poster", label: te ? "🖼️ వాట్సాప్ స్టేటస్ పోస్టర్" : "🖼️ Status Poster" },
             { id: "calculator", label: te ? "🧮 సంపాదన కాలిక్యులేటర్" : "🧮 Calculator" },
             { id: "friends", label: te ? `👥 నా రెఫరల్స్ (${friendsList.length})` : `👥 Referred Friends (${friendsList.length})` },
@@ -562,6 +609,193 @@ export default function ReferralPage() {
             </button>
           ))}
         </div>
+
+        {/* ================= TAB: SHOP STICKER & QR POSTER STUDIO ================= */}
+        {activeTab === "shop_poster" && (
+          <div className="bg-white rounded-3xl p-6 sm:p-8 border border-gold/40 shadow-sm space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+              <div>
+                <h3 className="text-xl font-black text-maroon flex items-center gap-2">
+                  <span>🏪</span>
+                  <span>{te ? "షాప్ & స్టిక్కర్ QR పోస్టర్ స్టూడియో (Printable Standee)" : "Shop & Sticker QR Poster Studio"}</span>
+                </h3>
+                <p className="text-xs text-slate-500 mt-1">
+                  {te
+                    ? "ఈ పోస్టర్‌ను ప్రింట్ చేసి దుకాణాలు, జిరాక్స్ సెంటర్లు, ఫంక్షన్ హాళ్లలో స్టిక్కర్‌లా అతికించండి లేదా వాట్సాప్‌లో షేర్ చేయండి. ఎవరైనా స్కాన్ చేసి చేరితే మీకు నేరుగా ₹50 నగదు!"
+                    : "Print this QR poster as a sticker/standee for shops, xerox centers, or share on WhatsApp. Earn ₹50 cash per paid referral!"}
+                </p>
+              </div>
+
+              {/* Theme & Actions */}
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={downloadShopPosterHD}
+                  disabled={shopPosterDownloading}
+                  className="px-5 py-2.5 rounded-2xl gold-gradient text-maroon font-black text-xs shadow-md hover:brightness-105 transition flex items-center gap-1.5 disabled:opacity-50"
+                >
+                  {shopPosterDownloading ? "డౌన్‌లోడ్…" : "📸 HD పోస్టర్ డౌన్‌లోడ్ (JPG)"}
+                </button>
+                <a
+                  href={`https://wa.me/?text=${encodeURIComponent(
+                    `🙏 *మన వివాహ (MANA VIVAHA) — తెలుగు వివాహ వేదిక*\n⚡ *కేవలం 1-నిమిషంలో ఉచిత రిజిస్ట్రేషన్!*\n💍 10,000+ ధృవీకరించబడిన సంబంధాలు • కేవలం ₹99 కే ప్లాన్స్!\n📲 నా రిఫరల్ లింక్ ద్వారా ఇప్పుడే ఉచితంగా చేరండి:\n👉 https://manavivaha.in/register?ref=${refCodeActive}\n\n(లేదా QR కోడ్ స్కాన్ చేయండి)`
+                  )}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="px-4 py-2.5 rounded-2xl bg-[#25D366] text-white font-black text-xs shadow-md hover:brightness-105 transition flex items-center gap-1.5"
+                >
+                  <WhatsAppIcon className="w-4 h-4 fill-white" />
+                  <span>వాట్సాప్ షేర్</span>
+                </a>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+              {/* Controls Column (4 cols) */}
+              <div className="lg:col-span-4 space-y-4 bg-amber-50/50 p-5 rounded-3xl border border-gold/30 text-xs">
+                <div>
+                  <label className="font-bold text-slate-800 block mb-1">🎨 పోస్టర్ థీమ్ (Poster Theme):</label>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {[
+                      { v: "maroon", l: "రాయల్ మెరూన్" },
+                      { v: "gold", l: "టెంపుల్ గోల్డ్" },
+                      { v: "navy", l: "రాయల్ నేవీ" },
+                    ].map((t) => (
+                      <button
+                        key={t.v}
+                        type="button"
+                        onClick={() => setShopPosterTheme(t.v as any)}
+                        className={`py-2 rounded-xl text-xs font-bold border transition ${
+                          shopPosterTheme === t.v
+                            ? "bg-maroon text-white border-maroon shadow-xs"
+                            : "bg-white text-slate-700 border-slate-200"
+                        }`}
+                      >
+                        {t.l}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="font-bold text-slate-800 block mb-1">🏢 షాప్ / కౌంటర్ పేరు (Optional):</label>
+                  <input
+                    type="text"
+                    value={posterCustomName}
+                    onChange={(e) => setPosterCustomName(e.target.value)}
+                    placeholder="ఉదా: శ్రీ సాయి జిరాక్స్ / నా పేరు"
+                    className="w-full p-2.5 border border-slate-200 rounded-xl bg-white focus:outline-none focus:border-maroon"
+                  />
+                </div>
+
+                <div className="bg-white p-3.5 rounded-2xl border border-gold/30 space-y-2 text-slate-700">
+                  <div className="font-black text-maroon flex items-center gap-1.5">
+                    <span>💡</span>
+                    <span>ఎక్కడ ఉపయోగించాలి?</span>
+                  </div>
+                  <ul className="space-y-1 text-[11px] list-disc list-inside">
+                    <li>జిరాక్స్ సెంటర్లు, ఇంటర్నెట్ కేఫ్‌లు, మీ-సేవ కేంద్రాలు</li>
+                    <li>టీ పాయింట్స్, బ్యూటీ పార్లర్స్ & టైలరింగ్ షాపులు</li>
+                    <li>కళ్యాణ మండపాలు & ఫంక్షన్ హాల్స్ కౌంటర్లు</li>
+                    <li>వాట్సాప్ స్టేటస్ & ఫ్యామిలీ గ్రూపులు</li>
+                  </ul>
+                </div>
+              </div>
+
+              {/* Printable Canvas Column (8 cols) */}
+              <div className="lg:col-span-8 flex flex-col items-center">
+                <div className="text-xs font-bold text-slate-500 mb-2 flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                  <span>ప్రింటబుల్ HD షాప్ స్టిక్కర్ పోస్టర్ (Live Canvas Preview)</span>
+                </div>
+
+                {/* The Poster Target */}
+                <div
+                  ref={shopPosterRef}
+                  id="shop-sticker-canvas"
+                  className={`w-full max-w-[480px] rounded-3xl p-6 sm:p-8 shadow-2xl border-4 text-center space-y-4 relative overflow-hidden transition-all ${
+                    shopPosterTheme === "gold"
+                      ? "bg-[#FFFDF2] border-[#B8860B] text-slate-900"
+                      : shopPosterTheme === "navy"
+                      ? "bg-[#F4F7FC] border-[#0F1F3C] text-slate-900"
+                      : "bg-[#FFFDF7] border-[#7A0C2E] text-slate-900"
+                  }`}
+                >
+                  {/* Watermark Motifs */}
+                  <div className="absolute top-2 left-2 text-4xl opacity-15 pointer-events-none">🪔</div>
+                  <div className="absolute top-2 right-2 text-4xl opacity-15 pointer-events-none">🌸</div>
+                  <div className="absolute bottom-2 left-2 text-4xl opacity-15 pointer-events-none">⚜️</div>
+                  <div className="absolute bottom-2 right-2 text-4xl opacity-15 pointer-events-none">🦚</div>
+
+                  {/* Brand Header */}
+                  <div className="border-b-2 border-dashed border-amber-300 pb-3 space-y-1">
+                    <div className="flex items-center justify-center gap-1.5 text-xs font-black text-amber-900 tracking-wider">
+                      <span>🙏 || శ్రీరస్తు — శుభమస్తు || 🙏</span>
+                    </div>
+                    <div className="text-2xl sm:text-3xl font-black text-[#7A0C2E] tracking-tight uppercase">
+                      మన వివాహ (MANA VIVAHA)
+                    </div>
+                    <p className="text-xs font-bold text-slate-600 telugu">
+                      తెలుగువారి అత్యంత విశ్వసనీయ & పవిత్ర వివాహ వేదిక 💍
+                    </p>
+                  </div>
+
+                  {/* 1-Minute Registration Hook */}
+                  <div className="bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-400 text-[#5C0822] rounded-2xl p-2.5 shadow-sm">
+                    <div className="text-sm sm:text-base font-black uppercase tracking-wide">
+                      ⚡ కేవలం 1-నిమిషంలో ఉచిత రిజిస్ట్రేషన్!
+                    </div>
+                    <div className="text-[11px] font-extrabold mt-0.5">
+                      1-MINUTE FREE TELUGU MATRIMONY REGISTRATION
+                    </div>
+                  </div>
+
+                  {/* High-Contrast QR Code Box */}
+                  <div className="bg-white p-4 rounded-3xl border-2 border-gold shadow-md inline-block mx-auto space-y-2">
+                    <div className="w-48 h-48 sm:w-56 sm:h-56 mx-auto flex items-center justify-center">
+                      {qrCodeUrl ? (
+                        <img src={qrCodeUrl} alt="Scan QR" className="w-full h-full object-contain" />
+                      ) : (
+                        <div className="w-48 h-48 bg-slate-100 flex items-center justify-center text-xs">QR</div>
+                      )}
+                    </div>
+                    <div className="inline-block px-4 py-1 rounded-full maroon-gradient text-white text-[11px] font-black shadow-xs">
+                      📱 కెమెరా / PhonePe / GPay తో స్కాన్ చేయండి
+                    </div>
+                  </div>
+
+                  {/* Marketing Highlights */}
+                  <div className="space-y-1.5 text-xs text-slate-800 text-left bg-amber-50/70 p-3.5 rounded-2xl border border-gold/30">
+                    <div className="flex items-center gap-2">
+                      <span className="text-emerald-600 font-bold">✓</span>
+                      <span className="font-bold">10,000+ ధృవీకరించబడిన వధువు & వరుల సంబంధాలు</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-emerald-600 font-bold">✓</span>
+                      <span className="font-bold">100% ఫోటో & ఫోన్ నంబర్ గోప్యతా రక్షణ</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-emerald-600 font-bold">✓</span>
+                      <span className="font-bold text-[#7A0C2E]">కేవలం ₹99 కే ప్లాన్స్ — వేల రూపాయల భారం లేదు!</span>
+                    </div>
+                  </div>
+
+                  {/* Referral Attribution Footer */}
+                  <div className="pt-1 border-t border-slate-200 flex items-center justify-between text-[11px] text-slate-600">
+                    <div>
+                      <span className="font-bold block text-maroon">సిఫార్సు కోడ్: {refCodeActive}</span>
+                      {posterCustomName && <span className="font-semibold text-slate-500">షాప్: {posterCustomName}</span>}
+                    </div>
+                    <div className="text-right">
+                      <span className="font-bold text-slate-900 block">📞 6304996088</span>
+                      <span className="text-[10px] text-slate-500">manavivaha.in</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* ================= TAB: WHATSAPP STATUS & EARNINGS POSTER GENERATOR ================= */}
         {activeTab === "status_poster" && (
