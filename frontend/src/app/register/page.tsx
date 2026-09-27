@@ -311,6 +311,78 @@ function SearchSelect({
   );
 }
 
+function PillGroup({
+  label,
+  options,
+  value,
+  onChange,
+  required,
+}: {
+  label: React.ReactNode;
+  options: { v: string; te?: string; sub?: string }[];
+  value: string;
+  onChange: (v: string) => void;
+  required?: boolean;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <label className="text-[13px] font-bold text-slate-800">
+        {label} {required && <span className="text-rose-600 font-black">*</span>}
+      </label>
+      <div className="flex flex-wrap gap-2">
+        {options.map((o) => (
+          <button
+            key={o.v}
+            type="button"
+            onClick={() => onChange(o.v)}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition border ${
+              value === o.v ? "bg-maroon text-white border-maroon shadow-xs" : "bg-white text-slate-700 border-slate-200"
+            }`}
+          >
+            {o.te || o.v}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function SelectField({
+  label,
+  value,
+  onChange,
+  options,
+  placeholder,
+  required,
+}: {
+  label: React.ReactNode;
+  value: string;
+  onChange: (v: string) => void;
+  options: { v: string; l?: string }[];
+  placeholder?: string;
+  required?: boolean;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <label className="text-[13px] font-bold text-slate-800">
+        {label} {required && <span className="text-rose-600 font-black">*</span>}
+      </label>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-medium"
+      >
+        {placeholder && <option value="">{placeholder}</option>}
+        {options.map((o) => (
+          <option key={o.v} value={o.v}>
+            {o.l || o.v}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
 function TextField({
   label,
   value,
@@ -417,12 +489,15 @@ function Wizard() {
     if (!ref) return;
     setRefLocked(ref);
     setF((prev) => ({ ...prev, referral_code: ref }));
-    fetch(`/api/referral/click/${encodeURIComponent(ref)}?source=register_direct`, { method: "POST" })
-      .then((r) => r.json())
-      .then((d) => {
-        if (d?.valid_code && d?.referrer_name) setRefInfo({ ok: true, referrer_name: d.referrer_name, bonus_credits: d.bonus_credits });
-      })
-      .catch(() => {});
+    if (!sessionStorage.getItem("tsap_click_fired")) {
+      sessionStorage.setItem("tsap_click_fired", "1");
+      fetch(`/api/referral/click/${encodeURIComponent(ref)}?source=register_direct`, { method: "POST" })
+        .then((r) => r.json())
+        .then((d) => {
+          if (d?.valid_code && d?.referrer_name) setRefInfo({ ok: true, referrer_name: d.referrer_name, bonus_credits: d.bonus_credits });
+        })
+        .catch(() => {});
+    }
   }, [params]);
 
   useEffect(() => {
@@ -501,8 +576,11 @@ function Wizard() {
       if (!String(f.full_name).trim()) e.push(T("పూర్తి పేరు నమోదు చేయండి (Enter full name)", "Enter full name"));
       if (!f.dob) e.push(T("పుట్టిన తేదీ ఎంచుకోండి (Select date of birth)", "Select date of birth"));
       else if (!ageFromDob(f.dob)) e.push(T("పుట్టిన తేదీ సరైనది కాదు — కనీసం 18 ఏళ్లు ఉండాలి", "DOB must be at least 18 years"));
-      if (!f.height) e.push(T("ఎత్తు ఎంచుకోండి (Select height)", "Select height"));
+      if (!f.height) e.push(T("ఎత్తు ఎంచుకోండి (Select your height)", "Select your height"));
       if (!f.marital_status) e.push(T("వైవాహిక స్థితి ఎంచుకోండి (Select marital status)", "Select marital status"));
+      if (f.marital_status && f.marital_status !== "Pelli Kaledu" && !f.children) {
+        e.push(T("పిల్లల సంఖ్య ఎంచుకోండి / Number of children select చెయ్యండి", "Number of children select చెయ్యండి"));
+      }
     }
     if (s === 2) {
       if (!f.caste) e.push(T("కులం ఎంచుకోండి (Select caste)", "Select caste"));
@@ -630,6 +708,8 @@ function Wizard() {
           localStorage.setItem("tsap_token", String(d.auth_token));
           localStorage.setItem("tsap_id", String(d.tsap_id || ""));
           localStorage.setItem("tsap_last_id", String(d.tsap_id || ""));
+          const existing = JSON.parse(localStorage.getItem("tsap_profiles") || "[]");
+          localStorage.setItem("tsap_profiles", JSON.stringify([{ id: d.tsap_id, name: payload.full_name }, ...existing]));
         }
       } catch {
         /* ignore */
@@ -742,14 +822,31 @@ function Wizard() {
               </span>
             </div>
 
+            {/* What you got card */}
+            <div className="bg-amber-50/60 border border-gold/30 rounded-2xl p-3.5 text-xs text-slate-700 space-y-1">
+              <div className="font-bold text-maroon">🎁 మీ అకౌంట్ వివరాలు & కాంటాక్ట్ స్టేటస్:</div>
+              <div><b>3 requests</b> ready • ఫోన్ నంబర్లు <b>numbers 🔒 locked</b> (గోప్యతా రక్షణతో).</div>
+            </div>
+
             {/* Referral confirmation if attached */}
-            {refLocked && (
+            {(result.joined_with?.ok || refLocked) && (
               <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-3.5 flex items-center gap-3 text-xs text-emerald-900">
                 <span className="text-xl">🎁</span>
                 <div>
                   <span className="font-bold">రిఫరల్ బోనస్ యాక్టివేట్ అయ్యింది! </span>
-                  <span>మీ ఖాతాకు +2 ఉచిత కాంటాక్ట్ క్రెడిట్స్ మరియు ప్రత్యేక వెల్‌కమ్ ఆఫర్ జోడించబడ్డాయి.</span>
+                  <span>మీ ఖాతాకు +{result.joined_with?.bonus_credits || 2} ఉచిత కాంటాక్ట్ క్రెడిట్స్ (bonus_credits) మరియు ప్రత్యేక వెల్‌కమ్ ఆఫర్ జోడించబడ్డాయి.</span>
                 </div>
+              </div>
+            )}
+
+            {/* Referral Dashboard & Poster Card */}
+            {(result.referral?.my_code || result.my_referral_code) && (
+              <div className="bg-amber-50 border border-gold/40 rounded-2xl p-3.5 text-xs space-y-1">
+                <div className="font-bold text-maroon">🎁 మీ రిఫరల్ కోడ్: {result.referral?.my_code || result.my_referral_code}</div>
+                <div className="text-slate-600">స్నేహితులకు షేర్ చేసి ప్రతి రిజిస్ట్రేషన్‌కు +2 క్రెడిట్స్ & ₹50 నగదు పొందండి. (poster_url: {result.referral?.poster_url || `/api/referral/${tsap}/poster.png`})</div>
+                <Link href={`/referral?id=${tsap}`} className="text-maroon font-bold underline inline-block pt-1">
+                  Referral dashboard కి వెళ్లండి →
+                </Link>
               </div>
             )}
 
@@ -927,7 +1024,7 @@ function Wizard() {
               <span className="text-2xl sm:text-3xl">🎁</span>
               <div>
                 <div className="font-black text-xs sm:text-sm uppercase tracking-wide">
-                  సిఫార్సు చేయబడిన రిజిస్ట్రేషన్ (Referral Active: {refLocked})
+                  మీరు {refInfo?.referrer_name ? `${refInfo.referrer_name} గారి సిఫార్సు ద్వారా వచ్చారు` : "సిఫార్సు ద్వారా వచ్చారు"} (Referral Active: {refLocked})
                 </div>
                 <div className="text-[11px] sm:text-xs font-bold mt-0.5 opacity-90">
                   {refInfo?.referrer_name ? `సిఫార్సు చేసినవారు: ${refInfo.referrer_name} • ` : ""}
@@ -1199,25 +1296,49 @@ function Wizard() {
                   <span className="text-slate-500 text-[11px]">రిఫరల్ కోడ్ ఉంటే +2 ఉచిత క్రెడిట్స్ బోనస్ లభిస్తాయి.</span>
                 </div>
                 <input
+                  aria-label="Referral code"
                   type="text"
                   value={f.referral_code || ""}
-                  onChange={(e) => set("referral_code", e.target.value.toUpperCase())}
+                  onChange={(e) => {
+                    const code = e.target.value.toUpperCase();
+                    set("referral_code", code);
+                    if (code.length >= 3) {
+                      fetch(`/api/referral/validate/${encodeURIComponent(code)}`)
+                        .then((r) => r.json())
+                        .then((d) => {
+                          if (d?.ok && d?.referrer_name) setRefInfo({ ok: true, referrer_name: d.referrer_name, bonus_credits: d.bonus_credits });
+                        })
+                        .catch(() => {});
+                    }
+                  }}
                   placeholder="కోడ్ ఇవ్వండి (ఉదా: CHARAN519)"
                   disabled={!!refLocked}
                   className="w-full sm:w-48 px-3 py-1.5 bg-white border border-gold/40 rounded-xl uppercase font-mono font-bold text-xs"
                 />
               </div>
 
-              {/* Reassurance Banner */}
-              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 text-xs text-slate-700 space-y-1">
-                <div className="font-black text-navy flex items-center gap-1.5">
-                  <span>💡</span>
-                  <span>100% ప్రొఫైల్ వివరాలు ఎప్పుడు పూర్తి చేయాలి?</span>
-                </div>
-                <p className="text-slate-600 leading-relaxed">
-                  ఇప్పుడే 1-నిమిషంలో ప్రొఫైల్ ఐడీ క్రియేట్ చేసుకోండి. నమోదు పూర్తయిన తర్వాత మీ అకౌంట్ <strong className="text-maroon">"Edit Profile"</strong> లో చదువు, ఉద్యోగం, జాతక చక్రం, కుటుంబ వివరాలు, ఫోటోను ఎప్పుడైనా 100% పూర్తి చేసుకోవచ్చు.
-                </p>
+            {/* Free vs Paid Clarity Box */}
+            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 text-xs text-slate-700 space-y-1.5 clarity">
+              <div className="font-black text-navy flex items-center justify-between">
+                <span>🔒 ఉచిత రిజిస్ట్రేషన్ & గోప్యతా విధానం (Free vs Paid Clarity)</span>
+                <span className="text-[10px] text-slate-500 font-mono">/api/free-plan</span>
               </div>
+              <div className="text-slate-600 space-y-1">
+                <div><b>FREE లో ఇచ్చేది:</b> ఉచిత రిజిస్ట్రేషన్, 10,000+ సంబంధాల శోధన, 3 ఉచిత కాంటాక్ట్ రిక్వెస్ట్స్.</div>
+                <div><b>FREE లో ఇవ్వనిది:</b> డైరెక్ట్ ఫోన్ నంబర్లు <b>ఎవరికీ ఇవ్వము</b> (ఇరువైపులా ఆమోదం పొందిన తర్వాత లేదా ప్లాన్ ఉన్నప్పుడే నంబర్లు మార్పిడి అవుతాయి).</div>
+              </div>
+            </div>
+
+            {/* Reassurance Banner */}
+            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 text-xs text-slate-700 space-y-1">
+              <div className="font-black text-navy flex items-center gap-1.5">
+                <span>💡</span>
+                <span>100% ప్రొఫైల్ వివరాలు ఎప్పుడు పూర్తి చేయాలి?</span>
+              </div>
+              <p className="text-slate-600 leading-relaxed">
+                ఇప్పుడే 1-నిమిషంలో ప్రొఫైల్ ఐడీ క్రియేట్ చేసుకోండి. నమోదు పూర్తయిన తర్వాత మీ అకౌంట్ <strong className="text-maroon">"Edit Profile"</strong> లో చదువు, ఉద్యోగం, జాతక చక్రం, కుటుంబ వివరాలు, ఫోటోను ఎప్పుడైనా 100% పూర్తి చేసుకోవచ్చు.
+              </p>
+            </div>
 
               {/* Submit CTA */}
               <button
@@ -1390,6 +1511,7 @@ function Wizard() {
                           onChange={(e) => set("height", e.target.value)}
                           className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-medium"
                         >
+                          <option value="">Select your height</option>
                           {HEIGHTS.map((h) => (
                             <option key={h} value={h}>
                               {heightLabel(h)}
@@ -1407,9 +1529,65 @@ function Wizard() {
                         >
                           <option value="Pelli Kaledu">పెళ్లి కాలేదు (Never Married)</option>
                           <option value="Divorced">విడాకులు (Divorced)</option>
-                          <option value="Widow">వితంతువు (Widow)</option>
-                          <option value="Widower">భార్య చనిపోయారు (Widower)</option>
+                          <option value={f.gender === "Groom" ? "Widower" : "Widow"}>
+                            {f.gender === "Groom" ? "భార్య చనిపోయారు (Widower)" : "వితంతువు (Widow)"}
+                          </option>
+                          <option value="Awaiting Divorce">విడాకుల నిరీక్షణ (Awaiting Divorce)</option>
                         </select>
+                      </div>
+                    </div>
+
+                    {f.marital_status !== "Pelli Kaledu" && (
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-bold text-slate-800">పిల్లలు (Children) *</label>
+                        <select
+                          value={f.children || "None"}
+                          onChange={(e) => set("children", e.target.value)}
+                          className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-medium"
+                        >
+                          {CHILDREN_OPTIONS.map((co) => (
+                            <option key={co.v} value={co.v}>
+                              {co.l}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-slate-800">మతం (Religion)</label>
+                      <select
+                        value={f.religion || "Hindu"}
+                        onChange={(e) => set("religion", e.target.value)}
+                        className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-medium"
+                      >
+                        <option value="">Select religion</option>
+                        {RELIGIONS.map((r) => (
+                          <option key={r} value={r}>
+                            {r}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-slate-800">శారీరక స్థితి (Physical Status)</label>
+                      <div className="flex flex-wrap gap-2">
+                        {[
+                          { v: "Normal", l: "సాధారణం (Normal)" },
+                          { v: "Physically Challenged", l: "దివ్యాంగులు (Physically challenged)" },
+                        ].map((p) => (
+                          <button
+                            key={p.v}
+                            type="button"
+                            onClick={() => set("physical_status", p.v)}
+                            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition border ${
+                              f.physical_status === p.v ? "bg-maroon text-white border-maroon" : "bg-white text-slate-700 border-slate-200"
+                            }`}
+                          >
+                            {p.l}
+                          </button>
+                        ))}
                       </div>
                     </div>
                   </div>

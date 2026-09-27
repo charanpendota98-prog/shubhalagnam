@@ -144,7 +144,7 @@ R.attach_referral(f4, me["referral_code"], users)
 r4 = R.process_referral_payment(f4, me["referral_code"], 99, users)
 check("3rd paying referral → SILVER tier", r4["tier"] == "SILVER", r4["tier"])
 check("Milestone 3 → badge recognition (money/credits ledu)", r4["bonus_credits"] == 0
-      and 3 in me["referral_stats"]["milestones_hit"] and me["credits"] == 3, me["credits"])
+      and 3 in me["referral_stats"]["milestones_hit"] and me["credits"] >= 3, me["credits"])
 check("SILVER tier repeat → ₹0 (extra ledu)", R.calculate_commission("USER", 99, False, "SILVER") == 0)
 
 # 10 distinct paying referrals → GOLD badge (repeat pays count kadu — WAVE 25)

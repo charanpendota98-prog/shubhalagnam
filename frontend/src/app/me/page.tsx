@@ -642,49 +642,160 @@ function UnlocksPanel({ myId }: { myId: string }) {
 function BoostPanel({ myId }: { myId: string }) {
   const { lang } = useLang();
   const te = lang === "te";
+  const [packs, setPacks] = useState<Row[]>([]);
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    apiGet<Row[]>("/api/boost/packs").then((r) => {
+      if (r.ok && r.data) setPacks(r.data);
+    });
+  }, []);
+
+  const buy = async (packId: string) => {
+    setBusy(true);
+    const { ok, data } = await apiPost<Row>("/api/boost/buy", { tsap_id: myId, pack_id: packId });
+    setBusy(false);
+    if (ok && data?.success) setMsg({ ok: true, text: String(data.message_telugu || "Boost activated!") });
+    else setMsg({ ok: false, text: String(data?.message_telugu || "Boost purchase failed") });
+  };
+
   return (
     <section className="rounded-3xl border border-gold/30 bg-white p-5 text-center space-y-3">
       <div className="text-4xl">⚡</div>
       <h2 className="text-base font-extrabold text-[#7A0C2E]">ప్రొఫైల్ బూస్ట్ (Profile Boost)</h2>
       <p className="text-xs text-slate-600 telugu">మీ ప్రొఫైల్‌ను సెర్చ్ రిజల్ట్స్‌లో టాప్ ర్యాంకింగ్‌లో ప్రదర్శించడానికి బూస్ట్ చేయండి.</p>
-      <Link href="/pricing" className="inline-block px-6 py-2.5 rounded-2xl gold-gradient text-maroon font-bold text-xs shadow-md">
-        బూస్ట్ ప్లాన్స్ చూడండి
-      </Link>
+      {packs.length > 0 && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+          {packs.map((p, i) => (
+            <div key={i} className="border border-gold/40 rounded-2xl p-3 text-xs flex items-center justify-between">
+              <div className="text-left">
+                <div className="font-bold text-maroon">{p.name || p.title}</div>
+                <div className="text-slate-500 font-mono">₹{p.price}</div>
+              </div>
+              <button
+                type="button"
+                onClick={() => buy(p.id)}
+                disabled={busy}
+                className="px-3 py-1.5 rounded-xl gold-gradient text-maroon font-bold text-xs shadow-xs"
+              >
+                బూస్ట్ చేయండి
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+      <Msg m={msg} />
     </section>
   );
 }
 
 /* ---------------- 🎙️ VOICE ---------------- */
 function VoicePanel({ myId }: { myId: string }) {
+  const [voiceData, setVoiceData] = useState<Row | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+
+  useEffect(() => {
+    apiGet<Row>(`/api/voice/${encodeURIComponent(myId)}`).then((r) => {
+      if (r.ok && r.data) setVoiceData(r.data);
+    });
+  }, [myId]);
+
+  const handleVoiceUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    const fd = new FormData();
+    fd.append("tsap_id", myId);
+    fd.append("file", file);
+    try {
+      const res = await fetch("/api/voice/upload", { method: "POST", body: fd });
+      const d = await res.json();
+      if (res.ok && d.success) setMsg({ ok: true, text: "వాయిస్ బయోడేటా అప్‌లోడ్ అయింది! ✅" });
+      else setMsg({ ok: false, text: d.detail || "అప్‌లోడ్ విఫలమైంది" });
+    } catch {
+      setMsg({ ok: false, text: "నెట్‌వర్క్ సమస్య" });
+    }
+    setUploading(false);
+  };
+
   return (
     <section className="rounded-3xl border border-indigo-200 bg-white p-5 text-center space-y-3">
       <div className="text-4xl">🎙️</div>
       <h2 className="text-base font-extrabold text-[#7A0C2E]">వాయిస్ బయోడేటా (Voice Bio)</h2>
       <p className="text-xs text-slate-600">మీ స్వరం ద్వారా ఆడియో బయోడేటా రికార్డ్ చేసి ప్రొఫైల్‌కు జోడించండి.</p>
+      <input type="file" accept="audio/*" onChange={handleVoiceUpload} className="text-xs mx-auto block pt-2" />
+      {uploading && <div className="text-xs text-slate-500">అప్‌లోడ్ అవుతోంది…</div>}
+      <Msg m={msg} />
     </section>
   );
 }
 
 /* ---------------- 🪐 JATHAKAM ---------------- */
 function JathakamPanel({ myId }: { myId: string }) {
+  const [dosha, setDosha] = useState<Row | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+
+  useEffect(() => {
+    apiGet<Row>(`/api/astro/dosha/${encodeURIComponent(myId)}`).then((r) => {
+      if (r.ok && r.data) setDosha(r.data);
+    });
+  }, [myId]);
+
+  const handleJathakamUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    const fd = new FormData();
+    fd.append("tsap_id", myId);
+    fd.append("file", file);
+    try {
+      const res = await fetch("/api/astro/jathakam/upload", { method: "POST", body: fd });
+      const d = await res.json();
+      if (res.ok && d.success) setMsg({ ok: true, text: "జాతక పత్రం అప్‌లోడ్ అయింది! ✅" });
+      else setMsg({ ok: false, text: d.detail || "అప్‌లోడ్ విఫలమైంది" });
+    } catch {
+      setMsg({ ok: false, text: "నెట్‌వర్క్ సమస్య" });
+    }
+    setUploading(false);
+  };
+
   return (
     <section className="rounded-3xl border border-amber-200 bg-white p-5 text-center space-y-3">
       <div className="text-4xl">🪐</div>
       <h2 className="text-base font-extrabold text-[#7A0C2E]">వేద జాతకం & రాశి చక్రం</h2>
-      <Link href="/porutham" className="inline-block px-6 py-2.5 rounded-2xl maroon-gradient text-white font-bold text-xs shadow-md">
-        ఉచిత గుణమేళనం చెక్ చేయండి
-      </Link>
+      <RasiChart tsapId={myId} />
+      <div className="pt-2">
+        <label className="text-xs font-bold text-slate-700 block mb-1">జాతక పత్రం అప్‌లోడ్ (Kundli / Jathakam Image):</label>
+        <input type="file" accept="image/*,application/pdf" onChange={handleJathakamUpload} className="text-xs mx-auto block" />
+        {uploading && <div className="text-xs text-slate-500 mt-1">అప్‌లోడ్ అవుతోంది…</div>}
+        <Msg m={msg} />
+      </div>
+      <div className="flex justify-center gap-2 pt-2">
+        <Link href="/porutham" className="px-5 py-2.5 rounded-2xl maroon-gradient text-white font-bold text-xs shadow-md">
+          ఉచిత గుణమేళనం చెక్ చేయండి
+        </Link>
+      </div>
     </section>
   );
 }
 
 /* ---------------- 📤 SHARE ---------------- */
 function SharePanel({ myId }: { myId: string }) {
+  const [kit, setKit] = useState<Row | null>(null);
+  useEffect(() => {
+    apiGet<Row>(`/api/share/kit/${encodeURIComponent(myId)}`).then((r) => {
+      if (r.ok && r.data) setKit(r.data);
+    });
+  }, [myId]);
+
   return (
     <section className="rounded-3xl border border-emerald-200 bg-white p-5 text-center space-y-3">
       <div className="text-4xl">📤</div>
       <h2 className="text-base font-extrabold text-[#7A0C2E]">ప్రొఫైల్ షేరింగ్ & బయోడేటా</h2>
-      <div className="flex justify-center gap-3">
+      <div className="flex flex-wrap justify-center gap-3">
         <Link href={`/biodata`} className="px-5 py-2.5 rounded-2xl gold-gradient text-maroon font-bold text-xs shadow-md">
           🎴 HD బయోడేటా JPG డౌన్‌లోడ్
         </Link>

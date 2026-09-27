@@ -519,8 +519,10 @@ export default function MatchesPage() {
               <p className="text-[11.5px] text-slate-500 truncate">
                 📍 {DISTRICT_TELUGU[row.district] || row.district || "Hyderabad"}, {row.state || "TS"} • 💰 {row.salary || "Best in Industry"}
               </p>
-              <div className="text-[11px] text-slate-500 font-mono pt-0.5">
-                📞 🔒 •••••••••• (గోప్యత కొరకు దాచబడింది)
+              <div className="text-[11px] text-slate-500 font-mono pt-0.5 flex items-center gap-1.5">
+                <span>🔒 Number:</span>
+                <span className="bg-slate-100 px-2 py-0.5 rounded-lg font-bold text-slate-700">{row.phone_masked || "98••••••45"}</span>
+                <span className="text-[10px] text-slate-400">(గోప్యత కొరకు దాచబడింది)</span>
               </div>
             </div>
           </div>
@@ -714,6 +716,24 @@ export default function MatchesPage() {
                 </button>
               )}
             </div>
+
+            {/* Children Filter */}
+            {filters.marital_status && filters.marital_status !== "Pelli Kaledu" && (
+              <div className="border-t border-slate-100 pt-3 space-y-1.5">
+                <label className="text-xs font-black text-slate-800">👶 పిల్లలు (Children):</label>
+                <select
+                  value={filters.children || ""}
+                  onChange={(e) => setF("children", e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs font-bold"
+                >
+                  <option value="">అన్నీ (All)</option>
+                  <option value="None">పిల్లలు లేరు (None)</option>
+                  <option value="1">1 బాబు / పాప (1 Child)</option>
+                  <option value="2">2 పిల్లలు (2 Children)</option>
+                  <option value="3+">3+ పిల్లలు (3+ Children)</option>
+                </select>
+              </div>
+            )}
 
             {/* Keyword Search */}
             <div>
@@ -977,6 +997,20 @@ export default function MatchesPage() {
                 </button>
               </div>
             )}
+
+            {/* Clarity Banner */}
+            <div className="bg-gradient-to-r from-amber-50 to-rose-50 border border-gold/40 rounded-2xl p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+              <div className="flex items-center gap-2.5">
+                <span className="text-xl">🔒</span>
+                <div>
+                  <span className="font-bold text-maroon">ఫోన్ నంబర్ల గోప్యతా నియమం: </span>
+                  <span className="text-slate-700">మొదటి 3 కాంటాక్ట్ రిక్వెస్ట్స్ ఉచితం. డైరెక్ట్ Numbers ivvamu (ఇరువైపులా అంగీకారం లేదా ప్లాన్ ఉన్నప్పుడే నంబర్లు లభిస్తాయి — ₹99 → 5 profiles).</span>
+                </div>
+              </div>
+              <Link href="/pricing" className="px-3.5 py-1.5 rounded-xl gold-gradient text-maroon font-bold text-xs shrink-0 self-start sm:self-auto shadow-xs">
+                ప్లాన్స్ చూడండి →
+              </Link>
+            </div>
 
             {/* Matches Cards Grid */}
             {loading ? (
