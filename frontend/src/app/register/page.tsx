@@ -565,7 +565,7 @@ function Wizard() {
     if (!f.caste) e.push(T("కులం ఎంచుకోండి (Select caste)", "Select caste"));
     if (!f.district) e.push(T("జిల్లా ఎంచుకోండి (Select district)", "Select district"));
     if (!/^\d{10}$/.test(String(f.phone))) e.push(T("10 అంకెల మొబైల్ నంబర్ ఇవ్వండి (Enter 10-digit mobile number)", "Enter a 10-digit mobile number"));
-    if (String(f.password || "").length < 6) e.push(T("🔑 పాస్‌వర్డ్ కనీసం 6 అక్షరాలు ఉండాలి (Password min 6 chars)", "Password min 6 chars"));
+    if (String(f.password || "").length < 6) e.push(T("Password minimum 6 characters పెట్టండి", "Password minimum 6 characters పెట్టండి"));
     return e;
   };
 
@@ -595,7 +595,7 @@ function Wizard() {
       if (!f.state) e.push(T("రాష్ట్రం / ప్రాంతం ఎంచుకోండి (Select state)", "Select state"));
       if (!f.district) e.push(T("జిల్లా / దేశం ఎంచుకోండి (Select district / location)", "Select district / location"));
       if (!/^\d{10}$/.test(String(f.phone))) e.push(T("10 అంకెల మొబైల్ నంబర్ ఇవ్వండి (Enter 10-digit mobile number)", "Enter a 10-digit mobile number"));
-      if (String(f.password || "").length < 6) e.push(T("🔑 Password కనీసం 6 అక్షరాలు ఉండాలి (Password min 6 chars)", "Password min 6 chars"));
+      if (String(f.password || "").length < 6) e.push(T("Password minimum 6 characters పెట్టండి", "Password minimum 6 characters పెట్టండి"));
     }
     return e;
   };
@@ -849,6 +849,11 @@ function Wizard() {
                 </Link>
               </div>
             )}
+
+            {/* Photo Flow upload */}
+            <div className="border border-gold/30 rounded-2xl p-4 bg-white space-y-2">
+              <PhotoFlow tsapId={tsap} />
+            </div>
 
             {/* 100% Profile Completeness Loop Banner */}
             <div className="bg-gradient-to-r from-amber-50 via-rose-50 to-amber-50 border-2 border-gold/40 rounded-2xl p-4 space-y-2">
@@ -1270,13 +1275,13 @@ function Wizard() {
                 />
                 <div className="space-y-1.5 relative">
                   <label className="text-xs font-bold text-slate-800 flex items-center justify-between">
-                    <span>పాస్‌వర్డ్ (Password) <span className="text-rose-600 font-black">*</span></span>
+                    <span>పాస్‌వర్డ్ (Password - Minimum 6 characters) <span className="text-rose-600 font-black">*</span></span>
                     <button
                       type="button"
                       onClick={() => setShowPw(!showPw)}
                       className="text-[11px] text-maroon font-bold"
                     >
-                      {showPw ? "దాచు" : "చూపు"}
+                      {showPw ? "Hide" : "Show"}
                     </button>
                   </label>
                   <input
@@ -1287,6 +1292,14 @@ function Wizard() {
                     className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 font-medium focus:outline-none focus:border-maroon"
                   />
                 </div>
+              </div>
+
+              {/* ₹99 Sambandham Nudge */}
+              <div className="text-xs text-slate-600 bg-amber-50/50 border border-gold/20 rounded-xl p-2.5 flex items-center justify-between">
+                <span>🌟 <b>₹99 Sambandham</b> ప్లాన్ కోసం ప్రీమియం ఆఫర్స్ ఉన్నాయి</span>
+                <Link href="/pricing" className="text-maroon font-bold underline text-xs">
+                  ప్లాన్స్ →
+                </Link>
               </div>
 
               {/* Referral Code (Locked or Input) */}
@@ -1775,14 +1788,44 @@ function Wizard() {
                     />
 
                     <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-slate-800">నా గురించి (About Myself)</label>
+                      <label className="text-xs font-bold text-slate-800">కుటుంబ స్థితి (Family Status)</label>
+                      <div className="flex flex-wrap gap-2">
+                        {[
+                          { v: "Middle Class", te: "మిడిల్ క్లాస్ (Middle Class)" },
+                          { v: "Upper Middle Class", te: "అప్పర్ మిడిల్ క్లాస్ (Upper Middle Class)" },
+                          { v: "Rich / Affluent (Elite)", te: "ధనిక / ఎలైట్ (Rich / Affluent (Elite))" },
+                        ].map((fs) => (
+                          <button
+                            key={fs.v}
+                            type="button"
+                            onClick={() => set("family_status", fs.v)}
+                            className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition ${
+                              f.family_status === fs.v ? "bg-maroon text-white border-maroon" : "bg-white text-slate-700 border-slate-200"
+                            }`}
+                          >
+                            {fs.te}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-slate-800 flex items-center justify-between">
+                        <span>నా గురించి (About Myself)</span>
+                        <span className="text-[11px] text-slate-500 font-normal">
+                          Minimum 50 characters • కనీసం 50 అక్షరాలు (minimum 50 characters)
+                        </span>
+                      </label>
                       <textarea
                         rows={3}
                         value={f.about_myself || ""}
                         onChange={(e) => set("about_myself", e.target.value)}
-                        placeholder="మీ కుటుంబం, వ్యక్తిత్వం మరియు అంచనాల గురించి క్లుప్తంగా రాయండి…"
+                        placeholder="మీ కుటుంబం, వ్యక్తిత్వం మరియు అంచనాల గురించి రాయండి… (ఫోన్ నంబర్లు [6-9] లేదా ఈమెయిల్ ఇక్కడ పెట్టకండి — గోప్యతా రక్షణ)"
                         className="w-full bg-white border border-slate-200 rounded-xl p-3 text-xs text-slate-900 font-medium focus:outline-none focus:border-maroon telugu"
                       />
+                      <div className="text-[11px] text-slate-500">
+                        {String(f.about_myself || "").length} అక్షరాలు (కనీసం 50 అక్షరాలు ఉండాలి • ఫోన్ నంబర్లు [6-9] పెట్టకండి)
+                      </div>
                     </div>
                   </div>
                 )}

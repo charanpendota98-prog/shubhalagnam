@@ -828,3 +828,63 @@
 {"at": "2026-09-27T19:49:46.573630", "event": "payout_paid", "actor": "admin", "details": {"request_id": "PAY-2609271949-0022", "amount": 200, "utr": "UTRAPI1", "tsap_id": "TSAP-M-2025-1042", "partner_id": ""}}
 {"at": "2026-09-27T19:49:46.581281", "event": "payout_rejected", "actor": "admin", "details": {"request_id": "PAY-2609271949-0025", "amount": 100, "utr": "", "tsap_id": "TSAP-M-2025-1042", "partner_id": ""}}
 {"at": "2026-09-27T19:49:46.585134", "event": "refunded", "actor": "admin", "details": {"tsap_id": "MV1043", "amount": 0, "reversed": 50, "reason": "api_test"}}
+{"at": "2026-09-27T19:51:43.588147", "event": "pay_confirmed", "actor": "admin", "details": {"order_id": "pay_ord_00001", "utr": "411111111111", "amount": 99, "tsap_id": "MV5171"}}
+{"at": "2026-09-27T19:51:43.620720", "event": "pay_verified", "actor": "MV5171", "details": {"order_id": "pay_ord_00003", "payment_id": "pay_w14_ok1", "amount": 29}}
+{"at": "2026-09-27T19:52:00.385760", "event": "pay_confirmed", "actor": "admin", "details": {"order_id": "pay_ord_00001", "utr": "411111111111", "amount": 99, "tsap_id": "MV4055"}}
+{"at": "2026-09-27T19:52:00.420521", "event": "pay_verified", "actor": "MV4055", "details": {"order_id": "pay_ord_00003", "payment_id": "pay_w14_ok1", "amount": 29}}
+{"at": "2026-09-27T19:52:10.453166", "event": "payout_paid", "actor": "admin", "details": {"request_id": "PAY-2609271952-0022", "amount": 200, "utr": "UTRAPI1", "tsap_id": "TSAP-M-2025-1042", "partner_id": ""}}
+{"at": "2026-09-27T19:52:10.460682", "event": "payout_rejected", "actor": "admin", "details": {"request_id": "PAY-2609271952-0025", "amount": 100, "utr": "", "tsap_id": "TSAP-M-2025-1042", "partner_id": ""}}
+{"at": "2026-09-27T19:52:10.463757", "event": "refunded", "actor": "admin", "details": {"tsap_id": "MV5040", "amount": 0, "reversed": 50, "reason": "api_test"}}
+{"at": "2026-09-27T19:52:51.367605", "event": "pay_confirmed", "actor": "admin", "details": {"order_id": "pay_ord_00001", "utr": "411111111111", "amount": 99, "tsap_id": "MV4055"}}
+{"at": "2026-09-27T19:52:51.401336", "event": "pay_verified", "actor": "MV4055", "details": {"order_id": "pay_ord_00003", "payment_id": "pay_w14_ok1", "amount": 29}}
+{"at": "2026-09-27T19:53:35.183184", "event": "id_verified", "actor": "admin", "details": {"tsap_id": "TSAP-M-2711-1", "method": "government_id", "note": ""}}
+{"at": "2026-09-27T19:53:35.201029", "event": "id_verified", "actor": "admin", "details": {"tsap_id": "TSAP-M-2711-1", "method": "government_id", "note": ""}}
+{"at": "2026-09-27T19:53:35.216346", "event": "profile_ban", "actor": "admin", "details": {"tsap_id": "TSAP-M-2711-1", "reason": ""}}
+{"at": "2026-09-27T19:53:35.221543", "event": "profile_ban", "actor": "admin", "details": {"tsap_id": "TSAP-M-2711-1", "reason": ""}}
+{"at": "2026-09-27T19:53:35.226981", "event": "profile_unban", "actor": "admin", "details": {"tsap_id": "TSAP-M-2711-1"}}
+{"at": "2026-09-27T19:53:35.232627", "event": "profile_unban", "actor": "admin", "details": {"tsap_id": "TSAP-M-2711-1"}}
+{"at": "2026-09-27T19:53:37.199636", "event": "pay_confirmed", "actor": "admin", "details": {"order_id": "pay_ord_00006", "utr": "428281111111", "amount": 99, "tsap_id": "MV1001"}}
+{"at": "2026-09-27T19:53:38.738887", "event": "profile_approve", "actor": "admin", "details": {"tsap_id": "MV1002", "channels": ["@TSBRIDE", "@manavivaha_reddy_bride", "@manavivaha_software"]}}
+{"at": "2026-09-27T19:53:38.742431", "event": "profile_approve", "actor": "admin", "details": {"tsap_id": "MV1001", "channels": ["@TSGROOM1", "@manavivaha_reddy_groom", "@manavivaha_software"]}}
+{"at": "2026-09-27T19:53:41.237446", "event": "pay_verified", "actor": "TSAP-F-2025-9001", "details": {"order_id": "pay_ord_00009", "payment_id": "pay_W34OK7639E0", "amount": 99}}
+{"at": "2026-09-27T19:53:41.264544", "event": "pay_confirmed", "actor": "admin", "details": {"order_id": "pay_ord_00010", "utr": "667535527516", "amount": 199, "tsap_id": "TSAP-M-2025-9002"}}
+{"at": "2026-09-27T19:53:41.273339", "event": "pay_refunded", "actor": "admin", "details": {"order_id": "pay_ord_00010", "refund_id": "MANUAL:returned UTR 999999999999", "via": "manual_upi", "reversed": ["credits -12 (balance 3)", "plan -> FREE"]}}
+{"at": "2026-09-27T19:53:41.298751", "event": "pay_verified", "actor": "TSAP-F-2025-9001", "details": {"order_id": "pay_ord_00012", "payment_id": "pay_W34R67639E0", "amount": 99}}
+{"at": "2026-09-27T19:53:41.303429", "event": "pay_refunded", "actor": "admin", "details": {"order_id": "pay_ord_00012", "refund_id": "rfnd_W34R6", "via": "razorpay", "reversed": ["credits -5 (balance 13)", "plan -> FREE"]}}
+{"at": "2026-09-27T19:53:41.312484", "event": "pay_verified", "actor": "TSAP-F-2025-9001", "details": {"order_id": "pay_ord_00013", "payment_id": "pay_W34R77639E0", "amount": 99}}
+{"at": "2026-09-27T19:53:42.935923", "event": "profile_approve", "actor": "admin", "details": {"tsap_id": "TSAP-F-2025-9001", "channels": ["@TSBRIDE", "@manavivaha_reddy_bride", "@manavivaha_software"]}}
+{"at": "2026-09-27T19:53:42.940943", "event": "profile_approve", "actor": "admin", "details": {"tsap_id": "TSAP-F-2025-9001", "channels": ["@TSBRIDE", "@manavivaha_reddy_bride", "@manavivaha_software"]}}
+{"at": "2026-09-27T19:53:56.708988", "event": "id_verified", "actor": "admin", "details": {"tsap_id": "TSAP-F-2025-9001", "method": "government_id", "note": ""}}
+{"at": "2026-09-27T19:53:56.717571", "event": "id_verified", "actor": "admin", "details": {"tsap_id": "TSAP-F-2025-9001", "method": "government_id", "note": ""}}
+{"at": "2026-09-27T19:53:56.726116", "event": "profile_ban", "actor": "admin", "details": {"tsap_id": "TSAP-F-2025-9001", "reason": ""}}
+{"at": "2026-09-27T19:53:56.730196", "event": "profile_ban", "actor": "admin", "details": {"tsap_id": "TSAP-F-2025-9001", "reason": ""}}
+{"at": "2026-09-27T19:53:56.734103", "event": "profile_unban", "actor": "admin", "details": {"tsap_id": "TSAP-F-2025-9001"}}
+{"at": "2026-09-27T19:53:56.737655", "event": "profile_unban", "actor": "admin", "details": {"tsap_id": "TSAP-F-2025-9001"}}
+{"at": "2026-09-27T19:57:50.792840", "event": "payout_paid", "actor": "admin", "details": {"request_id": "PAY-2609271957-0022", "amount": 200, "utr": "UTRAPI1", "tsap_id": "TSAP-M-2025-1042", "partner_id": ""}}
+{"at": "2026-09-27T19:57:50.800510", "event": "payout_rejected", "actor": "admin", "details": {"request_id": "PAY-2609271957-0025", "amount": 100, "utr": "", "tsap_id": "TSAP-M-2025-1042", "partner_id": ""}}
+{"at": "2026-09-27T19:57:50.803897", "event": "refunded", "actor": "admin", "details": {"tsap_id": "MV5041", "amount": 0, "reversed": 50, "reason": "api_test"}}
+{"at": "2026-09-27T19:58:31.186638", "event": "pay_confirmed", "actor": "admin", "details": {"order_id": "pay_ord_00001", "utr": "411111111111", "amount": 99, "tsap_id": "MV4055"}}
+{"at": "2026-09-27T19:58:31.220789", "event": "pay_verified", "actor": "MV4055", "details": {"order_id": "pay_ord_00003", "payment_id": "pay_w14_ok1", "amount": 29}}
+{"at": "2026-09-27T19:59:15.915328", "event": "id_verified", "actor": "admin", "details": {"tsap_id": "TSAP-M-2711-1", "method": "government_id", "note": ""}}
+{"at": "2026-09-27T19:59:15.926056", "event": "id_verified", "actor": "admin", "details": {"tsap_id": "TSAP-M-2711-1", "method": "government_id", "note": ""}}
+{"at": "2026-09-27T19:59:15.936289", "event": "profile_ban", "actor": "admin", "details": {"tsap_id": "TSAP-M-2711-1", "reason": ""}}
+{"at": "2026-09-27T19:59:15.940528", "event": "profile_ban", "actor": "admin", "details": {"tsap_id": "TSAP-M-2711-1", "reason": ""}}
+{"at": "2026-09-27T19:59:15.944298", "event": "profile_unban", "actor": "admin", "details": {"tsap_id": "TSAP-M-2711-1"}}
+{"at": "2026-09-27T19:59:15.948113", "event": "profile_unban", "actor": "admin", "details": {"tsap_id": "TSAP-M-2711-1"}}
+{"at": "2026-09-27T19:59:17.862753", "event": "pay_confirmed", "actor": "admin", "details": {"order_id": "pay_ord_00006", "utr": "428281111111", "amount": 99, "tsap_id": "MV1001"}}
+{"at": "2026-09-27T19:59:19.408758", "event": "profile_approve", "actor": "admin", "details": {"tsap_id": "MV1002", "channels": ["@TSBRIDE", "@manavivaha_reddy_bride", "@manavivaha_software"]}}
+{"at": "2026-09-27T19:59:19.412421", "event": "profile_approve", "actor": "admin", "details": {"tsap_id": "MV1001", "channels": ["@TSGROOM1", "@manavivaha_reddy_groom", "@manavivaha_software"]}}
+{"at": "2026-09-27T19:59:21.931864", "event": "pay_verified", "actor": "TSAP-F-2025-9001", "details": {"order_id": "pay_ord_00009", "payment_id": "pay_W34OKF008E5", "amount": 99}}
+{"at": "2026-09-27T19:59:21.959405", "event": "pay_confirmed", "actor": "admin", "details": {"order_id": "pay_ord_00010", "utr": "642417691117", "amount": 199, "tsap_id": "TSAP-M-2025-9002"}}
+{"at": "2026-09-27T19:59:21.967949", "event": "pay_refunded", "actor": "admin", "details": {"order_id": "pay_ord_00010", "refund_id": "MANUAL:returned UTR 999999999999", "via": "manual_upi", "reversed": ["credits -12 (balance 3)", "plan -> FREE"]}}
+{"at": "2026-09-27T19:59:21.993706", "event": "pay_verified", "actor": "TSAP-F-2025-9001", "details": {"order_id": "pay_ord_00012", "payment_id": "pay_W34R6F008E5", "amount": 99}}
+{"at": "2026-09-27T19:59:21.997856", "event": "pay_refunded", "actor": "admin", "details": {"order_id": "pay_ord_00012", "refund_id": "rfnd_W34R6", "via": "razorpay", "reversed": ["credits -5 (balance 13)", "plan -> FREE"]}}
+{"at": "2026-09-27T19:59:22.006670", "event": "pay_verified", "actor": "TSAP-F-2025-9001", "details": {"order_id": "pay_ord_00013", "payment_id": "pay_W34R7F008E5", "amount": 99}}
+{"at": "2026-09-27T19:59:23.611606", "event": "profile_approve", "actor": "admin", "details": {"tsap_id": "TSAP-F-2025-9001", "channels": ["@TSBRIDE", "@manavivaha_reddy_bride", "@manavivaha_software"]}}
+{"at": "2026-09-27T19:59:23.614951", "event": "profile_approve", "actor": "admin", "details": {"tsap_id": "TSAP-F-2025-9001", "channels": ["@TSBRIDE", "@manavivaha_reddy_bride", "@manavivaha_software"]}}
+{"at": "2026-09-27T19:59:37.094161", "event": "id_verified", "actor": "admin", "details": {"tsap_id": "TSAP-F-2025-9001", "method": "government_id", "note": ""}}
+{"at": "2026-09-27T19:59:37.103262", "event": "id_verified", "actor": "admin", "details": {"tsap_id": "TSAP-F-2025-9001", "method": "government_id", "note": ""}}
+{"at": "2026-09-27T19:59:37.112167", "event": "profile_ban", "actor": "admin", "details": {"tsap_id": "TSAP-F-2025-9001", "reason": ""}}
+{"at": "2026-09-27T19:59:37.115885", "event": "profile_ban", "actor": "admin", "details": {"tsap_id": "TSAP-F-2025-9001", "reason": ""}}
+{"at": "2026-09-27T19:59:37.119601", "event": "profile_unban", "actor": "admin", "details": {"tsap_id": "TSAP-F-2025-9001"}}
+{"at": "2026-09-27T19:59:37.123022", "event": "profile_unban", "actor": "admin", "details": {"tsap_id": "TSAP-F-2025-9001"}}

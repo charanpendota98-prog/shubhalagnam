@@ -158,6 +158,7 @@ function ScoreBreakdown({ v2 }: { v2: any }) {
 export default function MatchesPage() {
   const { lang } = useLang();
   const te = lang === "te";
+  const unlockBot = (id: string) => SITE_CONFIG.unlockBot(id);
 
   const [filters, setFilters] = useState<Row>(DEFAULT_FILTERS);
   const [sort, setSort] = useState<string>("score");
@@ -557,6 +558,16 @@ export default function MatchesPage() {
           >
             👁️ వివరాలు
           </Link>
+
+          <a
+            href={unlockBot(row.tsap_id)}
+            target="_blank"
+            rel="noreferrer"
+            className="hidden"
+            aria-label="Full details + Number"
+          >
+            Full details + Number
+          </a>
 
           <button
             onClick={() => setUnlockTarget(row)}
@@ -998,13 +1009,13 @@ export default function MatchesPage() {
               </div>
             )}
 
-            {/* Clarity Banner */}
+            {/* Clarity Banner - Numbers ivvamu */}
             <div className="bg-gradient-to-r from-amber-50 to-rose-50 border border-gold/40 rounded-2xl p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
               <div className="flex items-center gap-2.5">
                 <span className="text-xl">🔒</span>
                 <div>
                   <span className="font-bold text-maroon">ఫోన్ నంబర్ల గోప్యతా నియమం: </span>
-                  <span className="text-slate-700">మొదటి 3 కాంటాక్ట్ రిక్వెస్ట్స్ ఉచితం. డైరెక్ట్ Numbers ivvamu (ఇరువైపులా అంగీకారం లేదా ప్లాన్ ఉన్నప్పుడే నంబర్లు లభిస్తాయి — ₹99 → 5 profiles).</span>
+                  <span className="text-slate-700">మొదటి 3 కాంటాక్ట్ రిక్వెస్ట్స్ ఉచితం. డైరెక్ట్ నంబర్లు ఇవ్వము (ఇరువైపులా అంగీకారం లేదా ప్లాన్ ఉన్నప్పుడే నంబర్లు లభిస్తాయి — ₹99 → 5 profiles).</span>
                 </div>
               </div>
               <Link href="/pricing" className="px-3.5 py-1.5 rounded-xl gold-gradient text-maroon font-bold text-xs shrink-0 self-start sm:self-auto shadow-xs">
