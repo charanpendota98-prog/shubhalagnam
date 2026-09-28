@@ -656,14 +656,38 @@ def control_matchmaker(
     results = []
     for m in matches:
         p = m.pop("profile", {})
-        # Gunamelanam score
+        # Vedic Gunamelanam score
         guna_res = None
-        if compute_porutham and p.get("star") and me.get("star"):
-            b_cand, g_cand = (me, p) if str(me.get("gender", "")).lower() in ["bride", "female"] else (p, me)
+        b_cand, g_cand = (me, p) if str(me.get("gender", "")).lower() in ["bride", "female"] else (p, me)
+        if p.get("star") and me.get("star"):
+            try:
+                g_calc = AST.guna_milan(b_cand.get("star", ""), b_cand.get("rasi", ""), g_cand.get("star", ""), g_cand.get("rasi", ""))
+                if g_calc and g_calc.get("available"):
+                    guna_res = {
+                        "score": g_calc.get("total_36"),
+                        "verdict": g_calc.get("verdict_telugu") or g_calc.get("verdict"),
+                        "doshas": g_calc.get("doshas", []),
+                    }
+            except Exception:
+                guna_res = None
+        if not guna_res and compute_porutham:
             try:
                 guna_res = compute_porutham(b_cand, g_cand)
             except Exception:
-                guna_res = None
+                pass
+
+        # Match reason badges in Telugu
+        reasons = []
+        if str(p.get("caste", "")).lower() == str(me.get("caste", "")).lower():
+            reasons.append(f"🏛️ ఒకే కులం ({p.get('caste')})")
+        if str(p.get("district", "")).lower() == str(me.get("district", "")).lower():
+            reasons.append(f"📍 స్థానిక జిల్లా ({p.get('district')})")
+        if p.get("education") and me.get("education") and str(p.get("education")).lower() == str(me.get("education")).lower():
+            reasons.append(f"🎓 సమ విద్య ({p.get('education')})")
+        if guna_res and guna_res.get("score"):
+            reasons.append(f"🪐 గుణాలు: {guna_res.get('score')}/36")
+        if not reasons:
+            reasons.append("⚡ అనుకూల వయస్సు & సంబంధం")
 
         m.update({
             "tsap_id": p.get("tsap_id"),
@@ -685,9 +709,10 @@ def control_matchmaker(
             "marital_status": p.get("marital_status", "Never Married"),
             "photo_url": p.get("photo_url") or (p.get("photo_urls", [None])[0] if isinstance(p.get("photo_urls"), list) and p.get("photo_urls") else None),
             "is_verified": bool(p.get("is_verified") or p.get("phone_verified")),
-            "gunamelanam": guna_res.get("score") if guna_res and guna_res.get("available") else None,
+            "gunamelanam": guna_res.get("score") if guna_res else None,
             "gunamelanam_verdict": guna_res.get("verdict") if guna_res else None,
             "gunamelanam_doshas": guna_res.get("doshas", []) if guna_res else [],
+            "reasons": reasons,
         })
         results.append(m)
 

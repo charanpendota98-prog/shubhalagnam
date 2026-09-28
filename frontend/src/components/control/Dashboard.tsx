@@ -246,6 +246,15 @@ export default function Dashboard() {
     caste?: string;
     currentPlan?: string;
   } | null>(null);
+
+  // Photo Preview Modal State
+  const [previewPhotoModal, setPreviewPhotoModal] = useState<{
+    open: boolean;
+    url: string;
+    name: string;
+    tsapId: string;
+  } | null>(null);
+
   const [grantPlanCode, setGrantPlanCode] = useState<"S_99" | "S_199" | "S_299" | "S_499" | "S_999">("S_99");
   const [grantCredits, setGrantCredits] = useState<number>(5);
   const [grantPayMode, setGrantPayMode] = useState<string>("UPI_QR");
@@ -1340,7 +1349,7 @@ export default function Dashboard() {
             {mmLoading ? (
               <div className="grid md:grid-cols-2 gap-4">
                 {[0, 1, 2, 3].map((i) => (
-                  <div key={i} className="bg-white rounded-3xl p-5 border border-gold/20 animate-pulse h-40" />
+                  <div key={i} className="bg-white rounded-3xl p-5 border border-gold/20 animate-pulse h-48" />
                 ))}
               </div>
             ) : matchedResults.length === 0 ? (
@@ -1357,6 +1366,11 @@ export default function Dashboard() {
               <div className="grid md:grid-cols-2 gap-4">
                 {matchedResults.map((row) => {
                   const isSelected = isProfileSelected(row.tsap_id);
+                  const isPaid = row.is_premium || (row.plan && row.plan !== "FREE");
+                  
+                  // Candidate WhatsApp Share Text
+                  const waShareText = candidate?.phone ? `🙏 నమస్తే ${candidate.full_name || ""} గారు!\nమన వివాహ (Mana Vivaha) లో మీ ప్రొఫైల్ (${candidate.tsap_id}) కి సరిపోయే ఉత్తమ సంబంధం వివరాలు:\n\n👰/🤵 ${row.full_name} (${row.age} సం., ${row.height || "5'5\""})\n💍 కులం: ${row.caste} ${row.sub_caste ? `(${row.sub_caste})` : ""}\n⭐ నక్షత్రం / రాశి: ${row.star || "—"} / ${row.rasi || "—"}\n🎓 చదువు: ${row.education || "Graduate"}\n💼 ఉద్యోగం: ${row.job || "Professional"}\n💰 వార్షిక ఆదాయం: ${row.salary || "—"}\n🏡 జిల్లా: ${row.district}, ${row.state}\n\n🔍 పూర్తి ప్రొఫైల్ చూడండి:\nhttps://manavivaha.in/search/${row.tsap_id}\n\nసంప్రదించడానికి మన వివాహ హెల్ప్‌లైన్: 6304996088` : "";
+
                   return (
                     <div
                       key={row.tsap_id}
@@ -1379,18 +1393,31 @@ export default function Dashboard() {
                             />
                           </div>
 
-                          {/* Avatar */}
-                          <div className="relative shrink-0">
+                          {/* Avatar with click to enlarge */}
+                          <div className="relative shrink-0 group">
                             {row.photo_url ? (
-                              <img
-                                src={row.photo_url}
-                                alt={row.full_name}
-                                className="w-16 h-20 rounded-2xl object-cover border border-gold/30 shadow-sm"
-                              />
+                              <div
+                                onClick={() => setPreviewPhotoModal({ open: true, url: row.photo_url, name: row.full_name, tsapId: row.tsap_id })}
+                                className="cursor-pointer relative overflow-hidden rounded-2xl"
+                              >
+                                <img
+                                  src={row.photo_url}
+                                  alt={row.full_name}
+                                  className="w-20 h-24 rounded-2xl object-cover border-2 border-gold/40 shadow-sm group-hover:scale-105 transition duration-300"
+                                />
+                                <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-xs font-bold transition">
+                                  🔍 పెద్దది
+                                </div>
+                              </div>
                             ) : (
-                              <div className="w-16 h-20 rounded-2xl bg-amber-50 border border-gold/30 flex flex-col items-center justify-center text-2xl text-maroon">
+                              <div className="w-20 h-24 rounded-2xl bg-amber-50 border-2 border-gold/30 flex flex-col items-center justify-center text-3xl text-maroon shadow-xs">
                                 <span>{row.gender === "Bride" ? "👰" : "🤵"}</span>
                               </div>
+                            )}
+                            {row.is_verified && (
+                              <span className="absolute -bottom-1 -right-1 bg-emerald-600 text-white rounded-full p-0.5 text-[9px] shadow" title="Verified Profile">
+                                ✓
+                              </span>
                             )}
                           </div>
 
@@ -1400,17 +1427,24 @@ export default function Dashboard() {
                               <span className="font-extrabold text-sm sm:text-base text-navy truncate">
                                 {row.full_name}
                               </span>
-                              <span className="font-mono text-[11px] font-black text-maroon bg-amber-100 px-2 py-0.5 rounded-full shrink-0">
-                                {row.score || 85}% మ్యాచ్
+                              <span className="font-mono text-[11px] font-black text-maroon bg-amber-100 px-2 py-0.5 rounded-full shrink-0 border border-amber-300">
+                                🔥 {row.score || 85}% మ్యాచ్
                               </span>
                             </div>
 
                             <div className="text-xs font-bold text-maroon flex flex-wrap items-center gap-1.5">
-                              <span>🆔 {row.tsap_id}</span>
+                              <span className="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-800">🆔 {row.tsap_id}</span>
                               <span>•</span>
                               <span>🎂 {row.age} yrs</span>
                               <span>•</span>
                               <span>💍 {row.caste} {row.sub_caste ? `(${row.sub_caste})` : ""}</span>
+                            </div>
+
+                            {/* Astrological & Community details */}
+                            <div className="text-xs text-slate-700 flex flex-wrap gap-x-2 gap-y-0.5 font-medium">
+                              {row.gothram && <span>🪔 {row.gothram}</span>}
+                              {row.star && <span>⭐ {row.star}</span>}
+                              {row.rasi && <span>🌙 {row.rasi}</span>}
                             </div>
 
                             <div className="text-xs text-slate-600 font-medium truncate">
@@ -1423,57 +1457,97 @@ export default function Dashboard() {
                           </div>
                         </div>
 
+                        {/* Match Reasons Badges */}
+                        {row.reasons && row.reasons.length > 0 && (
+                          <div className="flex flex-wrap gap-1.5 pt-0.5">
+                            {row.reasons.map((r: string, rIdx: number) => (
+                              <span
+                                key={rIdx}
+                                className="px-2 py-0.5 rounded-lg bg-emerald-50 text-emerald-800 text-[10px] font-black border border-emerald-200"
+                              >
+                                {r}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+
                         {/* Vedic Gunamelanam & Dosha Summary */}
                         <div className="bg-amber-50/80 rounded-2xl p-2.5 border border-gold/30 flex items-center justify-between text-xs">
-                          <div className="flex items-center gap-1.5">
+                          <div className="flex items-center gap-1.5 flex-wrap">
                             <span>🪐</span>
                             <span className="font-extrabold text-maroon">
-                              వేద గుణమేళనం: <b>{row.gunamelanam ? `${row.gunamelanam}/10` : "8/10"}</b>
+                              వేద గుణమేళనం: <b>{row.gunamelanam ? `${row.gunamelanam}/36 గుణాలు` : "గుణమేళనం సరిపోయింది ✅"}</b>
                             </span>
                             <span className="text-[11px] text-emerald-700 font-bold ml-1">
-                              (రజ్జు శుద్ధి ✅)
+                              {row.gunamelanam_verdict ? `(${row.gunamelanam_verdict})` : "(రజ్జు శుద్ధి ✅)"}
                             </span>
                           </div>
                           {row.star && (
-                            <span className="text-[11px] text-slate-600 font-medium">
-                              ⭐ {row.star}
+                            <span className="text-[11px] text-slate-600 font-bold">
+                              ⭐ {row.star} ({row.rasi || ""})
                             </span>
                           )}
                         </div>
 
-                        {/* Unmasked Contact Number Box */}
-                        <div className="bg-slate-50 rounded-2xl p-2.5 border border-slate-200 flex items-center justify-between">
+                        {/* Unmasked Contact Number Box & Quick Actions */}
+                        <div className="bg-slate-50 rounded-2xl p-2.5 border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                           <div className="flex items-center gap-2">
                             <span className="text-base">📞</span>
                             <div>
-                              <span className="text-[10px] text-slate-400 block font-bold uppercase">ఫోన్ నంబర్ (Full Unmasked)</span>
-                              <span className="text-xs sm:text-sm font-black text-slate-800 font-mono">
+                              <span className="text-[9px] text-slate-400 block font-bold uppercase">డైరెక్ట్ ఫోన్ నంబర్</span>
+                              <span className="text-xs sm:text-sm font-black text-slate-800 font-mono tracking-wide">
                                 {row.phone || "నంబర్ లేదు"}
                               </span>
                             </div>
                           </div>
 
-                          <div className="flex items-center gap-1.5">
+                          <div className="flex items-center gap-1.5 flex-wrap justify-end">
                             {row.phone && (
+                              <>
+                                <a
+                                  href={`tel:${row.phone}`}
+                                  className="px-2.5 py-1.5 rounded-xl bg-slate-800 text-white font-bold text-[11px] hover:bg-slate-900 shadow-xs flex items-center gap-1"
+                                  title="Call Match"
+                                >
+                                  <span>📞</span>
+                                  <span>Call</span>
+                                </a>
+                                <a
+                                  href={`https://wa.me/91${row.phone.replace(/\D/g, "")}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="px-2.5 py-1.5 rounded-xl bg-[#25D366] text-white font-bold text-[11px] hover:brightness-105 shadow-xs flex items-center gap-1"
+                                  title="WhatsApp Chat with Match"
+                                >
+                                  <span>💬</span>
+                                  <span>Chat</span>
+                                </a>
+                              </>
+                            )}
+
+                            {/* Share this match to candidate directly */}
+                            {candidate?.phone && (
                               <a
-                                href={`https://wa.me/91${row.phone.replace(/\D/g, "")}`}
+                                href={`https://wa.me/91${candidate.phone.replace(/\D/g, "")}?text=${encodeURIComponent(waShareText)}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="p-1.5 rounded-xl bg-[#25D366] text-white hover:brightness-105 shadow-xs"
-                                title="Chat on WhatsApp"
+                                className="px-2.5 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-rose-600 text-white font-black text-[11px] hover:brightness-110 shadow-xs flex items-center gap-1"
+                                title="ఈ సంబంధం వివరాలు అభ్యర్థికి WhatsApp లో పంపండి"
                               >
-                                💬
+                                <span>💌</span>
+                                <span>అభ్యర్థికి పంపు</span>
                               </a>
                             )}
+
                             <button
                               onClick={() => toggleSelectProfile(row)}
-                              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition shadow-xs ${
+                              className={`px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition shadow-xs ${
                                 isSelected
                                   ? "bg-maroon text-white"
                                   : "bg-white border border-gold text-maroon hover:bg-gold-soft"
                               }`}
                             >
-                              {isSelected ? "✓ ఎంపికైంది" : "➕ నోట్‌ప్యాడ్"}
+                              {isSelected ? "✓ నోట్‌ప్యాడ్‌లో ఉంది" : "➕ నోట్‌ప్యాడ్"}
                             </button>
                           </div>
                         </div>
@@ -2909,6 +2983,47 @@ export default function Dashboard() {
                   <span>WhatsApp లో పంపు</span>
                 </a>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 🖼️ Large HD Photo Preview Modal */}
+      {previewPhotoModal?.open && (
+        <div
+          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
+          onClick={() => setPreviewPhotoModal(null)}
+        >
+          <div
+            className="bg-white rounded-3xl max-w-lg w-full overflow-hidden shadow-2xl border-2 border-gold/40 animate-in fade-in zoom-in duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="relative bg-slate-950 flex items-center justify-center min-h-[350px] max-h-[500px]">
+              <img
+                src={previewPhotoModal.url}
+                alt={previewPhotoModal.name}
+                className="max-w-full max-h-[500px] object-contain"
+              />
+              <button
+                type="button"
+                onClick={() => setPreviewPhotoModal(null)}
+                className="absolute top-3 right-3 bg-black/60 hover:bg-black text-white rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold backdrop-blur-xs transition"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="p-4 bg-white flex items-center justify-between">
+              <div>
+                <h4 className="font-extrabold text-sm text-navy">{previewPhotoModal.name}</h4>
+                <p className="text-xs font-mono font-bold text-maroon">{previewPhotoModal.tsapId}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPreviewPhotoModal(null)}
+                className="px-4 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition"
+              >
+                క్లోజ్ చేయి (Close)
+              </button>
             </div>
           </div>
         </div>
