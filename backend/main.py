@@ -7122,6 +7122,16 @@ def api_admin_profiles(
             "message_telugu": "👥 %d profiles (%s • %s)" % (total, status, paid_status)}
 
 
+@app.post("/api/admin/manual-plan-activate")
+def api_admin_manual_plan_activate_body(payload: dict, request: Request):
+    """ADMIN - Manual plan activation alias with payload body."""
+    data = payload or {}
+    tsap_id = str(data.get("tsap_id") or data.get("id") or "").strip()
+    if not tsap_id:
+        raise HTTPException(400, "tsap_id is required in payload")
+    return api_admin_activate_plan(tsap_id, data, request)
+
+
 @app.post("/api/admin/profiles/{tsap_id}/activate-plan")
 def api_admin_activate_plan(tsap_id: str, payload: dict, request: Request):
     """ADMIN - Manual plan activation (when user pays cash / direct UPI / phone call)."""
