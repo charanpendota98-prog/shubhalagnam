@@ -160,6 +160,15 @@ def login(username: str, password: str, request: Optional[Request] = None) -> Di
 def session(request: Optional[Request]) -> Optional[Dict[str, Any]]:
     if not request:
         return None
+    # Support X-Admin-Key header for API clients & automation
+    try:
+        import hardening
+        hdr_key = request.headers.get("X-Admin-Key", "") or request.headers.get("x-admin-key", "")
+        if hdr_key and (hmac.compare_digest(hdr_key, hardening.ADMIN_KEY) or hdr_key == hardening.ADMIN_KEY):
+            return {"role": "owner", "username": "admin", "sid": "api_key_session", "csrf": "api_key_csrf"}
+    except Exception as e:
+        pass
+
     sid = request.cookies.get(COOKIE_NAME, "")
     if not sid:
         return None
