@@ -491,14 +491,8 @@ export default function Home() {
         </div>
       </div>
 
-      {/* ================= 💐 REAL WEDDINGS FILM REEL ================= */}
-      <RealWeddingsFilm />
-
       {/* ================= 🌟 PROFILES OF THE DAY (SPOTLIGHT) ================= */}
       <ProfilesOfTheDay />
-
-      {/* ================= 🗓️ VIVAHA MUHURTHAMS 2026-2027 ================= */}
-      <VivahaMuhurthamTeaser />
 
       {/* ================= 🪐 VEDIC GUNAMELANAM & KUNDLI MATCHER ================= */}
       <HomePoruthamWidget />
@@ -506,21 +500,8 @@ export default function Home() {
       {/* ================= 💍 SECOND MARRIAGE & REMARRIAGE PORTAL ================= */}
       <HomeSecondMarriageSection />
 
-      {/* ================= SPONSORED PROMO & FESTIVAL OFFERS ================= */}
-      <section className="max-w-7xl mx-auto px-4 py-2.5 space-y-2">
-        <AdSlot slot="home_hero" />
-        <OffersBanner />
-        <BannerSlot page="home" />
-      </section>
-
       {/* ================= 💎 WHY CHOOSE US (premium trust band) ================= */}
       <WhyChooseUs />
-
-      {/* ================= WEEKLY CASTE SHOWCASE (W41) ================= */}
-      <ShowcaseStrip />
-
-      {/* ================= DAILY MATCHES (admin select — W40) ================= */}
-      <DailyStrip />
 
       {/* ================= STATS (LIVE) ================= */}
       <section className="max-w-7xl mx-auto px-4 py-8">
@@ -541,11 +522,6 @@ export default function Home() {
           ))}
         </div>
       </section>
-
-      {/* ================= WAVE 18 GROWTH: TEASERS + STORIES + RELIGIONS ================= */}
-      <TeaserStrip />
-      <StoriesStrip />
-      <ReligionsStrip />
 
       {/* ================= HOW IT WORKS ================= */}
       <section className="max-w-7xl mx-auto px-4 py-8">
@@ -814,9 +790,15 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ================= 🎯 DISTRICT & STATE WEDDING SERVICES AD BANNER ================= */}
-      <section className="max-w-7xl mx-auto px-4 py-3">
-        <DistrictAdBanner slot="home_hero" />
+      {/* ================= 🗓️ VIVAHA MUHURTHAMS 2026-2027 ================= */}
+      <VivahaMuhurthamTeaser />
+
+      {/* ================= 💐 REAL WEDDINGS FILM REEL & STORIES ================= */}
+      <RealWeddingsFilm />
+
+      {/* ================= SPONSORED PROMO & FESTIVAL OFFERS ================= */}
+      <section className="max-w-7xl mx-auto px-4 py-2">
+        <OffersBanner />
       </section>
 
       {/* ================= 🏪 WEDDING SERVICES & VERIFIED VENDORS (VendorStrip /api/vendors/ads) ================= */}
