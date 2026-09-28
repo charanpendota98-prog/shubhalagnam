@@ -4108,30 +4108,61 @@ def demo_seed(request: Request = None):
     Demo profiles create (frontend test cheyyadaniki) — idempotent, dev convenience.
     DEMO_SEED_ENABLED=false chesthe bandh.
     """
-    require_admin(request)   # 🛡️ WAVE 9: admin key lekunda 403 (PII/money/)
+    if request is not None:
+        require_admin(request)   # 🛡️ WAVE 9: admin key lekunda 403 (PII/money/)
     if str(os.getenv("DEMO_SEED_ENABLED", "true")).lower() not in ("1", "true", "yes", "on"):
         raise HTTPException(403, "Demo seed bandh చేశారు")
     seeds = [
         # ---- 4 base profiles (fixed IDs — /matches, /search demo IDs tho match avvali) ----
+        dict(prefer_id="MV1001", gender="Bride", full_name="Lakshmi Prasanna Reddy", age=24, caste="Reddy",
+             sub_caste="Pakanati", education="BTech", education_detail="CSE", job="Software Engineer",
+             company="Microsoft IDC", salary="18L", height="5'4\"", weight="54kg", district="Hyderabad", state="TS",
+             gothram="Bharadwaj", star="Rohini", rasi="Vrishabha", phone="9848011111", family_type="Nuclear",
+             family_status="Middle Class", marital_status="పెళ్లి కాలేదు", is_verified=True),
+        dict(prefer_id="MV1002", gender="Groom", full_name="Kiran Kumar Reddy", age=28, caste="Reddy",
+             sub_caste="Pakanati", education="MS (CS)", education_detail="USA", job="Staff AI Engineer", company="Google",
+             salary="$165k", height="5'11\"", weight="74kg", district="USA / NRI", state="TS", gothram="Janakula",
+             star="Uttara", rasi="Simha", phone="9848033333", family_type="Nuclear",
+             family_status="Middle Class", marital_status="పెళ్లి కాలేదు", is_verified=True),
+        dict(prefer_id="MV1003", gender="Bride", full_name="Harika Chowdary", age=25, caste="Kamma",
+             sub_caste="Pedakanti", education="MBBS, MD", education_detail="MD Medicine", job="Doctor",
+             company="Apollo", salary="24L", height="5'5\"", weight="56kg", district="Vijayawada", state="AP",
+             gothram="Kasyapa", star="Swati", rasi="Tula", phone="9848022222", family_type="Joint",
+             family_status="Upper Middle", marital_status="పెళ్లి కాలేదు", is_verified=True),
+        dict(prefer_id="MV1004", gender="Groom", full_name="Sai Teja Kamma", age=27, caste="Kamma",
+             sub_caste="Chowdary", education="B.Tech + MBA", education_detail="IIT+IIM", job="Product Manager", company="Amazon",
+             salary="38L", height="5'10\"", weight="78kg", district="Guntur", state="AP", gothram="Vasishta",
+             star="Hasta", rasi="Kanya", phone="9848044444", family_type="Nuclear",
+             family_status="Upper Middle", marital_status="పెళ్లి కాలేదు", is_verified=True),
+        dict(prefer_id="MV2001", gender="Bride", full_name="Sowmya Reddy", age=30, caste="Reddy",
+             sub_caste="Motati", education="B.Tech, MBA", education_detail="MBA HR", job="HR Manager",
+             company="Tech Mahindra", salary="14L", height="5'4\"", weight="55kg", district="Hyderabad", state="TS",
+             gothram="Janakula", star="Anuradha", rasi="Vrishchika", phone="9848088899", family_type="Nuclear",
+             family_status="Middle Class", marital_status="Divorced", is_verified=True),
+        dict(prefer_id="MV2002", gender="Groom", full_name="Dr. Sandeep Kamma", age=33, caste="Kamma",
+             sub_caste="Chowdary", education="MBBS, MS", education_detail="MS Ortho", job="Orthopaedic Surgeon",
+             company="Care Hospitals", salary="36L", height="5'10\"", weight="76kg", district="Guntur", state="AP",
+             gothram="Vasishta", star="Uttarabhadra", rasi="Meena", phone="9848099988", family_type="Nuclear",
+             family_status="Upper Middle", marital_status="Divorced", is_verified=True),
         dict(prefer_id="TSAP-F-2025-1042", gender="Bride", full_name="Lakshmi Reddy", age=24, caste="Reddy",
              sub_caste="Pakanati", education="BTech", education_detail="CSE", job="Software Engineer",
              company="TCS", salary="8L", height="5'4\"", weight="54kg", district="Hyderabad", state="TS",
-             gothram="Bharadwaj", star="Rohini", rasi="Vrishabha", phone="9848011111", family_type="Nuclear",
+             gothram="Bharadwaj", star="Rohini", rasi="Vrishabha", phone="9848011112", family_type="Nuclear",
              family_status="Middle Class", marital_status="పెళ్లి కాలేదు", is_verified=True),
         dict(prefer_id="TSAP-F-2025-2042", gender="Bride", full_name="Sravani Chowdary", age=26, caste="Kamma",
              sub_caste="", education="MSc", education_detail="Data Science", job="Data Analyst",
              company="Deloitte", salary="10L", height="5'5\"", weight="56kg", district="Vijayawada", state="AP",
-             gothram="Kasyapa", star="Ashwini", rasi="Mesha", phone="9848022222", family_type="Joint",
+             gothram="Kasyapa", star="Ashwini", rasi="Mesha", phone="9848022223", family_type="Joint",
              family_status="Upper Middle", marital_status="పెళ్లి కాలేదు", is_verified=True),
         dict(prefer_id="TSAP-M-2025-1042", gender="Groom", full_name="Kiran Kumar Verma", age=29, caste="Reddy",
              sub_caste="Deshathi", education="MBBS", education_detail="MD", job="Doctor", company="Apollo",
              salary="2L+/mo", height="5'10\"", weight="74kg", district="Nalgonda", state="TS", gothram="Vasishta",
-             star="Mrigasira", rasi="Dhanu", phone="9848033333", family_type="Nuclear",
+             star="Mrigasira", rasi="Dhanu", phone="9848033334", family_type="Nuclear",
              family_status="Middle Class", marital_status="పెళ్లి కాలేదు", is_verified=True),
         dict(prefer_id="TSAP-M-2025-4042", gender="Groom", full_name="Arjun Nandan", age=31, caste="Kamma",
              sub_caste="", education="MS", education_detail="USA", job="Product Manager", company="Amazon",
              salary="40L", height="5'11\"", weight="78kg", district="Guntur", state="AP", gothram="Kaundinya",
-             star="Bharani", rasi="Simha", phone="9848044444", family_type="Nuclear",
+             star="Bharani", rasi="Simha", phone="9848044445", family_type="Nuclear",
              family_status="Upper Middle", marital_status="పెళ్లి కాలేదు", is_verified=True),
         # ---- 6 more brides ----
         dict(gender="Bride", full_name="Divya Kapu", age=23, caste="Kapu", sub_caste="Telaga",
@@ -4240,15 +4271,32 @@ def demo_seed(request: Request = None):
 # 🔮 10-PORUTHAM (kundli match) + 👀 WHO VIEWED ME + ❤️ SHORTLIST + 🎁 ADD-ONS
 # ===========================================================================
 @app.get("/api/porutham")
-def porutham_by_id(bride: str = "", groom: str = ""):
+def porutham_by_id(bride: str = "", groom: str = "", boy_star: str = "", girl_star: str = "",
+                   groom_star: str = "", bride_star: str = "", star1: str = "", star2: str = "",
+                   boy_rasi: str = "", girl_rasi: str = "", groom_rasi: str = "", bride_rasi: str = ""):
     """
-    TSAP IDs tho 10-porutham (kundli match) — score /10 + Telugu verdict + per-item notes.
-    Udaharanam: /api/porutham?bride=TSAP-F-2025-1042&groom=TSAP-M-2025-1042
+    TSAP IDs లేదా direct Nakshatra/Rasi పేర్లతో 10-porutham (గుణమేళనం) లెక్కించుము.
+    Udaharanam:
+      /api/porutham?bride=MV1001&groom=MV1002
+      /api/porutham?boy_star=Rohini&girl_star=Mrigasira
     """
+    # 1. Direct star/rasi check if provided
+    g_star = groom_star or boy_star or star2 or ""
+    b_star = bride_star or girl_star or star1 or ""
+    g_rasi_val = groom_rasi or boy_rasi or ""
+    b_rasi_val = bride_rasi or girl_rasi or ""
+
+    if g_star or b_star:
+        b_mock = {"star": b_star, "rasi": b_rasi_val, "gender": "Bride"}
+        g_mock = {"star": g_star, "rasi": g_rasi_val, "gender": "Groom"}
+        res = compute_porutham(b_mock, g_mock)
+        return {"bride": b_mock, "groom": g_mock, **res}
+
+    # 2. Look up by TSAP ID
     b = _find_user(bride)
     g = _find_user(groom)
     if not b or not g:
-        raise HTTPException(404, "Bride/Groom TSAP ID correct గా ఇవ్వండి")
+        raise HTTPException(404, "Bride/Groom TSAP ID లేదా నక్షత్రం (Star) వివరాలు ఇవ్వండి")
     res = compute_porutham(b, g)
     return {"bride": safe_user(b), "groom": safe_user(g), **res}
 
