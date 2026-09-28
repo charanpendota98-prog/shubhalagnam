@@ -61,14 +61,23 @@ export function BarList({
   );
 }
 
+const PALETTE = ["#7A0C2E", "#D4AF37", "#2D5A27", "#1E40AF", "#C2410C", "#9333EA", "#0D9488", "#E11D48"];
+
 export function Donut({
   segments,
+  items,
   size = 120,
 }: {
-  segments: { label: string; value: number; color: string }[];
+  segments?: { label: string; value: number; color: string }[];
+  items?: { label: string; count: number }[];
   size?: number;
 }) {
-  const total = Math.max(1, segments.reduce((s, x) => s + x.value, 0));
+  const normSegments = segments || (items || []).map((it, idx) => ({
+    label: it.label,
+    value: it.count,
+    color: PALETTE[idx % PALETTE.length],
+  }));
+  const total = Math.max(1, normSegments.reduce((s, x) => s + x.value, 0));
   const r = size / 2 - 10;
   const c = 2 * Math.PI * r;
   let offset = 0;
@@ -76,7 +85,7 @@ export function Donut({
     <div className="flex items-center gap-4">
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
         <g transform={`rotate(-90 ${size / 2} ${size / 2})`}>
-          {segments.map((s) => {
+          {normSegments.map((s) => {
             const len = (s.value / total) * c;
             const el = (
               <circle
@@ -101,7 +110,7 @@ export function Donut({
         </text>
       </svg>
       <div className="space-y-1.5">
-        {segments.map((s) => (
+        {normSegments.map((s) => (
           <div key={s.label} className="flex items-center gap-2 text-[12px] font-semibold text-slate-600">
             <span className="h-2.5 w-2.5 rounded-full" style={{ background: s.color }} />
             {s.label} · {s.value}

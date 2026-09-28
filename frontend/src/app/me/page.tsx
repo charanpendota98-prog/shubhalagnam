@@ -342,8 +342,8 @@ function EditProfilePanel({ myId }: { myId: string }) {
               >
                 <option value="">నక్షత్రం ఎంచుకోండి</option>
                 {NAKSHATRAS.map((st) => (
-                  <option key={st.name} value={st.name}>
-                    ⭐ {st.te} ({st.name})
+                  <option key={st.en} value={st.en}>
+                    ⭐ {st.te} ({st.en})
                   </option>
                 ))}
               </select>
@@ -357,8 +357,8 @@ function EditProfilePanel({ myId }: { myId: string }) {
               >
                 <option value="">రాశి ఎంచుకోండి</option>
                 {RASIS.map((r) => (
-                  <option key={r.name} value={r.name}>
-                    {r.te} ({r.name})
+                  <option key={r.en} value={r.en}>
+                    {r.te} ({r.en})
                   </option>
                 ))}
               </select>
@@ -735,12 +735,16 @@ function VoicePanel({ myId }: { myId: string }) {
 /* ---------------- 🪐 JATHAKAM ---------------- */
 function JathakamPanel({ myId }: { myId: string }) {
   const [dosha, setDosha] = useState<Row | null>(null);
+  const [chart, setChart] = useState<Row | null>(null);
   const [uploading, setUploading] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
   useEffect(() => {
     apiGet<Row>(`/api/astro/dosha/${encodeURIComponent(myId)}`).then((r) => {
       if (r.ok && r.data) setDosha(r.data);
+    });
+    apiGet<Row>(`/api/astro/chart/${encodeURIComponent(myId)}`).then((r) => {
+      if (r.ok && r.data?.success) setChart(r.data);
     });
   }, [myId]);
 
@@ -766,7 +770,11 @@ function JathakamPanel({ myId }: { myId: string }) {
     <section className="rounded-3xl border border-amber-200 bg-white p-5 text-center space-y-3">
       <div className="text-4xl">🪐</div>
       <h2 className="text-base font-extrabold text-[#7A0C2E]">వేద జాతకం & రాశి చక్రం</h2>
-      <RasiChart tsapId={myId} />
+      {chart ? (
+        <RasiChart houses={chart.houses} moonHouse={chart.moon_house} star={chart.star} rasi={chart.rasi} title="నా రాశి చక్రం" />
+      ) : (
+        <RasiChart star="Rohini" rasi="Vrishabha" title="రాశి చక్రం" />
+      )}
       <div className="pt-2">
         <label className="text-xs font-bold text-slate-700 block mb-1">జాతక పత్రం అప్‌లోడ్ (Kundli / Jathakam Image):</label>
         <input type="file" accept="image/*,application/pdf" onChange={handleJathakamUpload} className="text-xs mx-auto block" />

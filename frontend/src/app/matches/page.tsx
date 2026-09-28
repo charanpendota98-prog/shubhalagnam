@@ -1630,12 +1630,12 @@ export default function MatchesPage() {
                   <label className="block text-xs font-bold text-slate-800">నక్షత్రం ఎంచుకోండి:</label>
                   <div className="max-h-60 overflow-y-auto space-y-1">
                     {NAKSHATRAS.map((st) => {
-                      const checked = isMultiSelected("star", st.name);
+                      const checked = isMultiSelected("star", st.en);
                       return (
-                        <label key={st.name} className="flex items-center gap-2 p-2 rounded-xl text-xs bg-slate-50 cursor-pointer">
-                          <input type="checkbox" checked={checked} onChange={() => toggleMulti("star", st.name)} className="accent-[#7A0C2E] rounded" />
+                        <label key={st.en} className="flex items-center gap-2 p-2 rounded-xl text-xs bg-slate-50 cursor-pointer">
+                          <input type="checkbox" checked={checked} onChange={() => toggleMulti("star", st.en)} className="accent-[#7A0C2E] rounded" />
                           <span>
-                            ⭐ {st.te} ({st.name})
+                            ⭐ {st.te} ({st.en})
                           </span>
                         </label>
                       );
@@ -1661,9 +1661,19 @@ export default function MatchesPage() {
       {/* Instant Contact Unlock Modal */}
       {unlockTarget && (
         <QuickUnlockModal
-          target={unlockTarget}
+          isOpen={!!unlockTarget}
+          target={{
+            tsap_id: String(unlockTarget.tsap_id || unlockTarget.id || "MV1001"),
+            full_name: unlockTarget.full_name,
+            gender: unlockTarget.gender,
+            age: unlockTarget.age,
+            caste: unlockTarget.caste,
+            district: unlockTarget.district,
+            job: unlockTarget.job,
+            photo_url: unlockTarget.photo_url,
+          }}
           onClose={() => setUnlockTarget(null)}
-          onSuccess={() => {
+          onUnlocked={() => {
             setUnlockTarget(null);
             fetchMatches();
           }}

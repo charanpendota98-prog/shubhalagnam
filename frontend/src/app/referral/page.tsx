@@ -132,7 +132,7 @@ export default function ReferralPage() {
   const [board, setBoard] = useState<any[]>([]);
   const [you, setYou] = useState<any>(null);
   const [terms, setTerms] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState<"overview" | "status_poster" | "friends" | "share" | "payouts" | "calculator" | "leaderboard" | "terms">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "shop_poster" | "status_poster" | "friends" | "share" | "payouts" | "calculator" | "leaderboard" | "terms">("overview");
   const [msgIdx, setMsgIdx] = useState(0);
   const [err, setErr] = useState("");
   const [searchErr, setSearchErr] = useState("");

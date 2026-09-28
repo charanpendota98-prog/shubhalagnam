@@ -68,7 +68,7 @@ export default function VivahaMuhurthamTeaser() {
         <div className="relative grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-6">
           {peakDates.map((m) => (
             <div
-              key={m.id}
+              key={m.date}
               className="group relative rounded-2xl bg-white/10 hover:bg-white/15 border border-white/20 hover:border-gold/60 p-4 backdrop-blur-md shadow-lg transition-all duration-300 flex flex-col justify-between"
             >
               <div>

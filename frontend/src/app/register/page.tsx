@@ -1559,8 +1559,8 @@ function Wizard() {
                           className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-medium"
                         >
                           {CHILDREN_OPTIONS.map((co) => (
-                            <option key={co.v} value={co.v}>
-                              {co.l}
+                            <option key={co} value={co}>
+                              {co === "None" ? "పిల్లలు లేరు (None)" : `${co} పిల్లలు (${co} Children)`}
                             </option>
                           ))}
                         </select>
@@ -1642,8 +1642,8 @@ function Wizard() {
                         >
                           <option value="">నక్షత్రం ఎంచుకోండి</option>
                           {NAKSHATRAS.map((st) => (
-                            <option key={st.name} value={st.name}>
-                              ⭐ {st.te} ({st.name})
+                            <option key={st.en} value={st.en}>
+                              ⭐ {st.te} ({st.en})
                             </option>
                           ))}
                         </select>
@@ -1658,8 +1658,8 @@ function Wizard() {
                         >
                           <option value="">రాశి ఎంచుకోండి</option>
                           {RASIS.map((r) => (
-                            <option key={r.name} value={r.name}>
-                              {r.te} ({r.name})
+                            <option key={r.en} value={r.en}>
+                              {r.te} ({r.en})
                             </option>
                           ))}
                         </select>

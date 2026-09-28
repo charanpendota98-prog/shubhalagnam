@@ -667,7 +667,16 @@ export default function ProfileView() {
           <QuickUnlockModal
             isOpen={showUnlockModal}
             onClose={() => setShowUnlockModal(false)}
-            target={profile}
+            target={profile.tsap_id ? {
+              tsap_id: String(profile.tsap_id),
+              full_name: profile.full_name,
+              gender: profile.gender,
+              age: profile.age,
+              caste: profile.caste,
+              district: profile.district,
+              job: profile.job,
+              photo_url: profile.photo_url,
+            } : null}
             onUnlocked={(p) => setUnlocked(p)}
           />
         </>

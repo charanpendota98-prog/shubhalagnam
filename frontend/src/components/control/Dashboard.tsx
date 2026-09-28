@@ -62,7 +62,7 @@ type SpotlightItem = {
   submitted_at: string; moderator_notes?: string;
 };
 type PayoutItem = {
-  id: string; tsap_id: string; name?: string; amount: number;
+  id: string; tsap_id: string; partner_id?: string; name?: string; amount: number;
   method: string; upi_id?: string; account?: string; ifsc?: string;
   status: string; requested_at: string; utr?: string;
 };
@@ -158,6 +158,8 @@ export default function Dashboard() {
     | "overview"
     | "queue"
     | "castes"
+    | "channels"
+    | "numbers"
     | "addProfile"
     | "ads"
     | "vendors"
