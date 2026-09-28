@@ -8,6 +8,7 @@ import PWA from "@/components/PWA";
 import SupportWidget from "@/components/SupportWidget";
 import BackToTop from "@/components/BackToTop";
 import LiveMatrimonyTicker from "@/components/LiveMatrimonyTicker";
+import LagnaAiAssistant from "@/components/LagnaAiAssistant";
 import { LangProvider } from "@/lib/lang";
 
 const SITE = process.env.SITE_URL || "https://manavivaha.in";
@@ -80,6 +81,7 @@ export default function RootLayout({
           <PWA />
           <LiveMatrimonyTicker />
           <SupportWidget />
+          <LagnaAiAssistant />
           <BackToTop />
         </LangProvider>
       </body>
