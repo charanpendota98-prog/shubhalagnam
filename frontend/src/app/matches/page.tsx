@@ -960,24 +960,22 @@ export default function MatchesPage() {
         <div className="bg-slate-50 p-3 px-4 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
           <Link
             href={`/search/${row.tsap_id}`}
-            className="flex-1 min-w-[80px] text-center py-2.5 px-2 rounded-xl border border-maroon/30 text-maroon bg-white hover:bg-cream text-xs font-bold transition shadow-xs"
+            className="flex-1 min-w-[70px] text-center py-2.5 px-2 rounded-xl border border-maroon/30 text-maroon bg-white hover:bg-cream text-xs font-bold transition shadow-xs"
           >
             👁️ వివరాలు
           </Link>
 
-          <a
-            href={unlockBot(row.tsap_id)}
-            target="_blank"
-            rel="noreferrer"
-            className="hidden"
-            aria-label="Full details + Number"
+          <Link
+            href={`/biodata?id=${row.tsap_id}`}
+            className="py-2.5 px-2.5 rounded-xl border border-amber-300 bg-amber-50 hover:bg-amber-100 text-maroon text-xs font-black transition shadow-xs flex items-center justify-center shrink-0"
+            title="HD కలర్ బయోడేటా డౌన్‌లోడ్"
           >
-            Full details + Number
-          </a>
+            🎴 బయోడేటా
+          </Link>
 
           <button
             onClick={() => setUnlockTarget(row)}
-            className="flex-1 min-w-[110px] text-center py-2.5 px-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black shadow-md hover-lift transition"
+            className="flex-1 min-w-[100px] text-center py-2.5 px-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black shadow-md hover-lift transition"
           >
             📞 సంప్రదించండి
           </button>

@@ -603,8 +603,15 @@ export default function ProfileView() {
 
           {/* actions */}
           <section className="mt-4 flex flex-wrap gap-2">
+            <Link
+              href={`/biodata?id=${profile.tsap_id}`}
+              className="rounded-xl gold-gradient px-4 py-2 text-sm font-black text-maroon hover:brightness-105 transition shadow-xs flex items-center gap-1.5"
+            >
+              <span>🎴</span>
+              <span>{te ? "HD కలర్ బయోడేటా JPG" : "HD Color Biodata JPG"}</span>
+            </Link>
             <button onClick={printBiodata} className="rounded-xl border border-amber-400 bg-amber-50 hover:bg-amber-100 px-4 py-2 text-sm font-bold text-[#7A0C2E] transition shadow-xs">
-              📄 {te ? "బయోడేటా డౌన్‌లోడ్ (Print)" : "Download Biodata (Print)"}
+              📄 {te ? "ప్రింట్ బయోడేటా" : "Print Biodata"}
             </button>
             <button onClick={() => void toggleSave()}
               className={`rounded-xl px-4 py-2 text-sm font-bold ${savedNow ? "bg-rose-100 text-rose-700" : "border border-slate-300 text-slate-700"}`}>

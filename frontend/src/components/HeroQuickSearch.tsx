@@ -19,6 +19,10 @@ import {
 } from "@/lib/telugu-data";
 
 const QUICK_CHIPS = [
+  { label: "Housewife", te: "🏡 గృహిణి (Housewife)" },
+  { label: "Software", te: "💻 సాఫ్ట్‌వేర్ / IT" },
+  { label: "Govt", te: "🏛️ గవర్నమెంట్ జాబ్" },
+  { label: "Second Marriage", te: "❤️ పునర్వివాహం" },
   { label: "Reddy", te: "రెడ్డి" },
   { label: "Kamma", te: "కమ్మ" },
   { label: "Kapu", te: "కాపు" },
@@ -29,7 +33,6 @@ const QUICK_CHIPS = [
   { label: "Padmashali", te: "పద్మశాలి" },
   { label: "Goud", te: "గౌడ్" },
   { label: "Mudiraj", te: "ముదిరాజ్" },
-  { label: "SC / ST", te: "SC / ST" },
   { label: "NRI", te: "NRI సంబంధాలు" },
 ];
 
@@ -210,15 +213,24 @@ export default function HeroQuickSearch() {
     router.push(`/matches?${params.toString()}`);
   };
 
-  const selectQuickChip = (casteName: string) => {
-    if (casteName === "NRI") {
+  const selectQuickChip = (chipLabel: string) => {
+    if (chipLabel === "Housewife") {
+      setGender("Bride");
+      router.push("/matches?gender=Bride&job=Housewife%20%2F%20Homemaker%20(%E0%B0%97%E0%B1%83%E0%B0%B9%E0%B0%BF%E0%B0%A3%E0%B0%BF)");
+    } else if (chipLabel === "Software") {
+      router.push("/matches?job=Software%20%2F%20IT%20%2F%20Tech");
+    } else if (chipLabel === "Govt") {
+      router.push("/matches?job=Govt%20%2F%20PSU");
+    } else if (chipLabel === "Second Marriage") {
+      router.push("/second-marriage");
+    } else if (chipLabel === "NRI") {
       setStateFilter("NRI");
       setDistrict("All Districts");
       setCaste("All Castes");
-    } else if (casteName === "SC / ST") {
+    } else if (chipLabel === "SC / ST") {
       setCaste("Mala");
     } else {
-      setCaste(casteName);
+      setCaste(chipLabel);
     }
   };
 
