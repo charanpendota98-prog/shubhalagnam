@@ -7,12 +7,14 @@
  */
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { useParams } from "next/navigation";
 import { useLang } from "@/lib/lang";
 
-export default function VendorDetailPage({ params }: { params: { id: string } }) {
+export default function VendorDetailPage() {
+  const routeParams = useParams();
   const { lang } = useLang();
   const te = lang === "te";
-  const id = params?.id || "";
+  const id = String(routeParams?.id || "");
   const [data, setData] = useState<any>(null);
   const [dash, setDash] = useState<any>(null);
   const [promo, setPromo] = useState<any>(null);
@@ -152,7 +154,7 @@ export default function VendorDetailPage({ params }: { params: { id: string } })
                       <input className="input-mobile" placeholder={te ? "మీ mobile (10 digits) *" : "Your mobile (10 digits) *"} value={lead.phone}
                         onChange={(e) => setLead({ ...lead, phone: e.target.value })} inputMode="tel" aria-label={te ? "మీ mobile" : "Your mobile"} />
                       <input className="input-mobile" placeholder="District" value={lead.district} onChange={(e) => setLead({ ...lead, district: e.target.value })} aria-label="District" />
-                      <input className="input-mobile" type="date" value={lead.event_date} onChange={(e) => setLead({ ...lead, event_date: e.target.value })} aria-label="Text input" />
+                      <input className="input-mobile" type="date" value={lead.event_date} onChange={(e) => setLead({ ...lead, event_date: e.target.value })} aria-label="Event date" />
                       <input className="input-mobile" placeholder={te ? "Budget (ఉదాహరణ: ₹80,000)" : "Budget (e.g. ₹80,000)"} value={lead.budget} onChange={(e) => setLead({ ...lead, budget: e.target.value })} aria-label="Budget" />
                       <input className="input-mobile" placeholder={te ? "Requirement (ఉదాహరణ: 400 members lunch)" : "Requirement (e.g. 400 members lunch)"} value={lead.message} onChange={(e) => setLead({ ...lead, message: e.target.value })} aria-label={te ? "Requirement" : "Requirement"} />
                     </div>

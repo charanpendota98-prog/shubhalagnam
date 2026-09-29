@@ -177,7 +177,7 @@ export default function AdminPage() {
   };
 
   const setIdVerified = async (id: string, verified: boolean) => {
-    const note = verified ? (window.prompt("Review note (ID number enter cheyyakandi)", "Original ID visually matched with profile") || "manual review") : "admin revoke";
+    const note = verified ? (window.prompt("Review note (Do not enter ID number)", "Original ID visually matched with profile") || "manual review") : "admin revoke";
     const r = await fetch(`/api/admin/profiles/${id}/id-verification`, {
       method: "POST", headers: { ...authHeaders(true), "Content-Type": "application/json" },
       body: JSON.stringify({ verified, method: "government_id", note }),

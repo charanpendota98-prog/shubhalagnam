@@ -87,7 +87,8 @@ slang_hits = []
 for fp in tsx_files():
     vis = visible_text(open(fp, encoding="utf-8").read())
     for tok in SLANG:
-        if tok in vis:
+        # Match as whole word to avoid false positives (e.g. "undali" inside "Kundali")
+        if re.search(r'\b' + re.escape(tok) + r'\b', vis, re.IGNORECASE):
             rel = os.path.relpath(fp, SRC)
             # allowlist: data values + legit words
             if tok == "garu</b> dwara":

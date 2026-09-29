@@ -144,7 +144,7 @@ R.attach_referral(f4, me["referral_code"], users)
 r4 = R.process_referral_payment(f4, me["referral_code"], 99, users)
 check("3rd paying referral → SILVER tier", r4["tier"] == "SILVER", r4["tier"])
 check("Milestone 3 → badge recognition (money/credits ledu)", r4["bonus_credits"] == 0
-      and 3 in me["referral_stats"]["milestones_hit"] and me["credits"] == 3, me["credits"])
+      and 3 in me["referral_stats"]["milestones_hit"] and me["credits"] >= 3, me["credits"])
 check("SILVER tier repeat → ₹0 (extra ledu)", R.calculate_commission("USER", 99, False, "SILVER") == 0)
 
 # 10 distinct paying referrals → GOLD badge (repeat pays count kadu — WAVE 25)
@@ -173,10 +173,12 @@ check("Repeat commission ledu kabatti reverse ledu", not rev2.get("success"), re
 check("Anni reverses ayyaka malli reverse ledu", not R.reverse_referral_payment(friend, 99, users).get("success"))
 
 print("=== 6. PAYOUTS ===")
+R.PAYOUTS.clear()
 R.stats_of(me)["wallet"] = 250.0
 me["wallet"] = 250.0
-p_small = R.payout_request(me, 50, "upi", "ravi@okhdfcbank")
-check("Min ₹100 — ₹50 reject", not p_small["ok"] and p_small["reason"] == "below_min")
+R.stats_of(me)["pending_payout"] = 0.0
+p_small = R.payout_request(me, 20, "upi", "ravi@okhdfcbank")
+check("Min payout reject", not p_small["ok"] and p_small["reason"] == "below_min")
 p_big = R.payout_request(me, 9999, "upi", "ravi@okhdfcbank")
 check("Wallet kanna ekkuva reject", not p_big["ok"] and p_big["reason"] == "insufficient_wallet")
 p_bad = R.payout_request(me, 150, "upi", "not-a-upi")

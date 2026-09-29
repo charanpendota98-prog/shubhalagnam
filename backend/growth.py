@@ -20,7 +20,7 @@ import random
 
 SITE = os.getenv("PUBLIC_SITE_URL", "https://manavivaha.in").rstrip("/")
 BOT_USERNAME = os.getenv("BOT_USERNAME", "@telugumatrimony1_bot")
-SUPPORT_PHONE = os.getenv("SUPPORT_PHONE", "9100000000")
+SUPPORT_PHONE = os.getenv("SUPPORT_PHONE", "6304996088")
 
 DB_VISITORS: List[Dict] = []   # {vid, at, path, ref, utm, device, ua}
 DB_LEADS: List[Dict] = []      # {id, at, name, phone, gender, age, district, caste, source, status, notes}

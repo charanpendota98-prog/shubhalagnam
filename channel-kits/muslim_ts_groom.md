@@ -1,6 +1,6 @@
 # ☪️ Telangana Muslim Grooms | తెలంగాణ ముస్లిం వరులు
 
-- **Key:** `muslim_ts_groom`  •  **Tier:** L2_RELIGION  •  **Wave:** 1  •  **Status:** create ⬜
+- **Key:** `muslim_ts_groom`  •  **Tier:** L2_RELIGION  •  **Wave:** 1  •  **Status:** LIVE ✅
 - **Username:** `@manavivaha_muslim_ts_groom` (already taken? → @tsmuslimgroom, @mv_muslim_ts_grm, @manavivaha_muslim_ts_grm)
 - **Link:** https://t.me/manavivaha_muslim_ts_groom
 - **Hashtags:** #Muslim #Groom #Telangana #Nikah
@@ -33,7 +33,7 @@ Telugu Matrimony — TS + AP
 ఇక్కడ ఏం దొరుకుతుంది:
 ✅ రోజూ కొత్త *నిజమైన profiles* (ఫోటో గోప్యం — చూడాలంటే site లో)
 ✅ విద్య • ఉద్యోగం • జీతం • జిల్లా • జాతకం వివరాలతో full details
-✅ *10-పొరుత్తం* (కుండలి match) score + రజ్జు/వేధ దోషం హెచ్చరిక
+✅ *వేద గుణమేళనం* (కుండలి match) స్కోరు + రజ్జు/వేధ దోషం హెచ్చరిక
 ✅ ఫోన్ నంబర్ — రెండు వైపులా ఒప్పుకున్న తర్వాతే share అవుతుంది
 
 ఎలా use చేయాలి (3 steps):
@@ -80,7 +80,7 @@ TS + AP తెలుగు మ్యాట్రిమోని — రోజూ
 ✅ 3 requests FREE
 ✅ ఫోటో గోప్యం (privacy guaranteed)
 ✅ ఫోన్ నంబర్ — రెండు వైపులు ఒప్పుకున్న తర్వాతే
-✅ 10-పొరుత్తం score ప్రతి profile కి
+✅ వేద గుణమేళనం స్కోరు ప్రతి profile కి
 
 👉 Join: https://t.me/manavivaha_muslim_ts_groom
 🌐 Register FREE: https://manavivaha.in

@@ -5,6 +5,7 @@
  */
 import { useCallback, useEffect, useState } from "react";
 import { useLang } from "@/lib/lang";
+import { SITE_CONFIG } from "@/lib/site-config";
 
 type Row = Record<string, any>;
 const KEY = "tsap_admin_key";
@@ -97,10 +98,59 @@ export default function OwnerPage() {
 
   return (
     <main className="mx-auto max-w-4xl px-4 py-6">
-      <h1 className="text-2xl font-extrabold text-[#7A0C2E]">👑 {te ? "Business Dashboard" : "Business Dashboard"}</h1>
-      <p className="text-[11px] text-slate-500">{te ? "Owner only — ఈ page link ఎక్కడా ఉండదు" : "Owner only — this page is not linked anywhere"}</p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-rose-200 pb-3">
+        <div>
+          <h1 className="text-2xl font-extrabold text-[#7A0C2E]">👑 {te ? "Owner Control & Business Hub" : "Owner Control & Business Hub"}</h1>
+          <p className="text-[11px] text-slate-500">{te ? "Official Owner Management Console — Mana Vivaha" : "Official Owner Management Console — Mana Vivaha"}</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-300 text-xs font-bold">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            Verified Owner Active
+          </span>
+        </div>
+      </div>
 
-      <div className="mt-3 flex gap-2">
+      {/* Official Acceptance & Owner Credentials Badge */}
+      <div className="mt-4 rounded-3xl border border-emerald-500/30 bg-gradient-to-r from-emerald-50/80 via-white to-amber-50/40 p-4 shadow-sm">
+        <div className="flex items-center justify-between border-b border-emerald-100 pb-2">
+          <div className="text-xs font-bold text-emerald-950 flex items-center gap-1.5">
+            <span>🛡️</span>
+            <span>{te ? "అధికారిక యజమాని అంగీకార పత్రం (Official Owner Acceptance)" : "Official Owner Acceptance Details"}</span>
+          </div>
+          <span className="font-mono text-[10px] text-emerald-700 font-bold bg-white px-2 py-0.5 rounded-full border border-emerald-200">
+            ID: {SITE_CONFIG.owner.id}
+          </span>
+        </div>
+        <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px]">
+          <div className="bg-white/80 p-2 rounded-xl border border-emerald-100">
+            <span className="text-gray-500 block text-[9px] uppercase font-bold">Owner Name</span>
+            <span className="font-bold text-gray-900">{SITE_CONFIG.owner.name}</span>
+          </div>
+          <div className="bg-white/80 p-2 rounded-xl border border-emerald-100">
+            <span className="text-gray-500 block text-[9px] uppercase font-bold">Signatory Name</span>
+            <span className="font-bold text-gray-900">{SITE_CONFIG.owner.signatoryName}</span>
+          </div>
+          <div className="bg-white/80 p-2 rounded-xl border border-emerald-100">
+            <span className="text-gray-500 block text-[9px] uppercase font-bold">Contact Phone</span>
+            <span className="font-mono font-bold text-emerald-800">{SITE_CONFIG.owner.contactNumber}</span>
+          </div>
+          <div className="bg-white/80 p-2 rounded-xl border border-emerald-100">
+            <span className="text-gray-500 block text-[9px] uppercase font-bold">Official Email</span>
+            <span className="font-mono font-bold text-emerald-800 truncate block">{SITE_CONFIG.owner.email}</span>
+          </div>
+          <div className="bg-white/80 p-2 rounded-xl border border-emerald-100 col-span-2">
+            <span className="text-gray-500 block text-[9px] uppercase font-bold">Date of Acceptance</span>
+            <span className="font-mono font-bold text-gray-800">{SITE_CONFIG.owner.dateOfAcceptance}</span>
+          </div>
+          <div className="bg-white/80 p-2 rounded-xl border border-emerald-100 col-span-2">
+            <span className="text-gray-500 block text-[9px] uppercase font-bold">Acceptance IP Address</span>
+            <span className="font-mono font-bold text-gray-800">{SITE_CONFIG.owner.ipAddress}</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-4 flex gap-2">
         <input value={key} onChange={(e) => setKey(e.target.value)} type="password"
           placeholder={te ? "Admin key" : "Admin key"} aria-label="Admin key"
           className="flex-1 rounded-2xl border px-3 py-2 font-mono text-sm" />

@@ -237,16 +237,37 @@ def _is_live(c: Dict) -> bool:
     return True
 
 
+def _scope_priority(c: Dict, district: str, state: str) -> int:
+    lvl = str(c.get("level", "all")).lower()
+    dist_clean = str(district or "").lower().strip()
+    state_clean = str(state or "").upper().strip()
+    
+    if lvl == "district" and dist_clean:
+        ds = [str(d).lower().strip() for d in (c.get("districts") or [])]
+        if any(dist_clean in d or d in dist_clean for d in ds):
+            return 3
+    if lvl == "state" and state_clean:
+        cs = (c.get("state") or "").upper().strip()
+        if cs and cs == state_clean:
+            return 2
+    if lvl == "all":
+        return 1
+    return 0
+
+
 def _scope_ok(c: Dict, district: str, state: str) -> bool:
-    lvl = c.get("level", "all")
+    lvl = str(c.get("level", "all")).lower()
     if lvl == "all":
         return True
     if lvl == "state":
-        cs = (c.get("state") or "").upper()
-        return (not cs) or cs == (state or "").upper()
+        cs = (c.get("state") or "").upper().strip()
+        return (not cs) or (not state) or cs == (state or "").upper().strip()
     # district
-    ds = [str(d).lower() for d in (c.get("districts") or [])]
-    return (district or "").lower() in ds
+    ds = [str(d).lower().strip() for d in (c.get("districts") or [])]
+    dist_clean = (district or "").lower().strip()
+    if not dist_clean:
+        return True
+    return any(dist_clean in d or d in dist_clean for d in ds)
 
 
 # ---------------------------------------------------------------------------
@@ -255,7 +276,7 @@ def _scope_ok(c: Dict, district: str, state: str) -> bool:
 def serve(slot: str, district: str = "", state: str = "") -> Dict:
     """
     Okka slot ki best ad — scope match + live + rotation.
-    No ad → {ok: False} (UI house-promo chupisthundi, khaali vaddu).
+    Targeting priority: Specific District (3) > State TS/AP (2) > All (1).
     """
     if slot not in SLOTS:
         return {"ok": False, "reason": "bad_slot"}
@@ -263,12 +284,34 @@ def serve(slot: str, district: str = "", state: str = "") -> Dict:
              and _scope_ok(c, district or "", state or "")]
     if not cands:
         return {"ok": False, "reason": "no_ads"}
-    cands.sort(key=lambda x: (x.get("impressions", 0), x.get("id", "")))
+    # Sort by priority score DESC, then least impressions ASC
+    cands.sort(key=lambda x: (-_scope_priority(x, district, state), x.get("impressions", 0), x.get("id", "")))
     ad = cands[0]
     ad["impressions"] = int(ad.get("impressions", 0)) + 1
     _persist()
     return {"ok": True, "ad": {k: ad.get(k) for k in
-            ("id", "vendor_id", "title", "offer", "image_url", "banner_url", "video_url", "link")}}
+            ("id", "vendor_id", "title", "offer", "image_url", "banner_url", "video_url", "link",
+             "phone", "whatsapp", "category", "level", "districts", "state")}}
+
+
+def serve_list(slot: str = "matches_sidebar", district: str = "", state: str = "", limit: int = 3) -> Dict:
+    """Returns multiple targeted ads matching district and state."""
+    cands = [c for c in CAMPAIGNS if (not slot or slot in (c.get("slots") or [])) and _is_live(c)
+             and _scope_ok(c, district or "", state or "")]
+    if not cands:
+        return {"ok": False, "ads": [], "count": 0}
+    cands.sort(key=lambda x: (-_scope_priority(x, district, state), x.get("impressions", 0), x.get("id", "")))
+    chosen = cands[:limit]
+    for ad in chosen:
+        ad["impressions"] = int(ad.get("impressions", 0)) + 1
+    _persist()
+    return {
+        "ok": True,
+        "count": len(chosen),
+        "ads": [{k: a.get(k) for k in ("id", "vendor_id", "title", "offer", "image_url", "banner_url",
+                                      "video_url", "link", "phone", "whatsapp", "category", "level",
+                                      "districts", "state")} for a in chosen]
+    }
 
 
 def track_click(cid: str) -> Dict:
