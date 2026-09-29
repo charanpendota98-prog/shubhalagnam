@@ -22,6 +22,8 @@ import {
   EDUCATIONS,
   HEIGHTS,
   JOBS,
+  BRIDE_PREFERRED_JOBS,
+  GROOM_PREFERRED_JOBS,
   MARITAL_STATUSES,
   NAKSHATRAS,
   RASIS,
@@ -193,6 +195,9 @@ function PartnerPreferencesPanel({ myId }: { myId: string }) {
     void loadPreferences();
   }, [loadPreferences]);
 
+  const isGroom = myProfile?.gender === "Groom" || myProfile?.gender === "Male" || myProfile?.gender === "అబ్బాయి";
+  const displayJobs = isGroom ? BRIDE_PREFERRED_JOBS : GROOM_PREFERRED_JOBS;
+
   const toggleCaste = (c: string) => {
     setCastes((prev) =>
       prev.includes(c) ? prev.filter((item) => item !== c) : [...prev, c]
@@ -344,6 +349,96 @@ function PartnerPreferencesPanel({ myId }: { myId: string }) {
 
       <form onSubmit={handleSave} className="rounded-3xl border border-gold/40 bg-white p-6 shadow-sm space-y-6">
         <Msg m={msg} />
+
+        {/* ⚡ SMART 1-CLICK MATCH PRESETS (త్వరిత ఎంపికలు) */}
+        <div className="rounded-2xl bg-gradient-to-r from-amber-50 via-rose-50 to-amber-50 border border-gold/40 p-4 space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-black text-maroon flex items-center gap-1.5 uppercase tracking-wide">
+              <span>⚡</span> <span>స్మార్ట్ 1-క్లిక్ ప్రిసెట్స్ (Quick 1-Click Setup)</span>
+            </span>
+            <span className="text-[10px] text-slate-500 font-bold">ఒక్క క్లిక్‌తో మీ ప్రిఫరెన్సెస్ సెట్ చేయండి</span>
+          </div>
+
+          <div className="flex flex-wrap gap-2 pt-1">
+            {myProfile?.caste && (
+              <button
+                type="button"
+                onClick={() => {
+                  setCasteNoBar(false);
+                  setCastes([myProfile.caste]);
+                  setDistricts(["Hyderabad", "Ranga Reddy", "Medchal-Malkajgiri"]);
+                }}
+                className="px-3 py-1.5 rounded-xl text-xs font-black bg-white border border-amber-300 text-maroon shadow-xs hover:bg-amber-100 transition flex items-center gap-1"
+              >
+                <span>💍</span>
+                <span>సొంత కులం ({myProfile.caste}) + హైదరాబాద్</span>
+              </button>
+            )}
+
+            {/* Housewife / Homemaker Preset for Grooms */}
+            {isGroom && (
+              <button
+                type="button"
+                onClick={() => {
+                  setJobs(["Housewife / Homemaker (గృహిణి)", "Not Working / Looking for Job"]);
+                }}
+                className="px-3 py-1.5 rounded-xl text-xs font-black bg-white border border-rose-300 text-rose-800 shadow-xs hover:bg-rose-50 transition flex items-center gap-1"
+              >
+                <span>🏡</span>
+                <span>గృహిణి మాత్రమే (Housewife / Homemaker)</span>
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={() => {
+                setEducations(["B.Tech / B.E.", "M.Tech / M.E.", "MS (USA / Abroad)", "MBA / PGDM"]);
+                setJobs(["Software / IT Professional"]);
+                setDistricts(["Hyderabad", "Ranga Reddy", "Medchal-Malkajgiri"]);
+              }}
+              className="px-3 py-1.5 rounded-xl text-xs font-black bg-white border border-blue-300 text-blue-800 shadow-xs hover:bg-blue-50 transition flex items-center gap-1"
+            >
+              <span>💻</span>
+              <span>సాఫ్ట్‌వేర్ / IT ప్రొఫెషనల్స్</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setJobs(["Govt Employee / PSU", "Govt Employee (Central / State)", "Bank Officer / PO / Manager", "IAS / IPS / Civil Services / Group 1"]);
+              }}
+              className="px-3 py-1.5 rounded-xl text-xs font-black bg-white border border-emerald-300 text-emerald-800 shadow-xs hover:bg-emerald-50 transition flex items-center gap-1"
+            >
+              <span>🏛️</span>
+              <span>గవర్నమెంట్ ఉద్యోగులు</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setDistricts(["USA / NRI", "Other"]);
+                setEducations(["MS (USA / Abroad)", "B.Tech / B.E.", "M.Tech / M.E."]);
+                setJobs(["NRI / Working Abroad", "Software / IT Professional"]);
+              }}
+              className="px-3 py-1.5 rounded-xl text-xs font-black bg-white border border-indigo-300 text-indigo-800 shadow-xs hover:bg-indigo-50 transition flex items-center gap-1"
+            >
+              <span>🌍</span>
+              <span>NRI సంబంధాలు (USA / Abroad)</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setCasteNoBar(true);
+                setCastes([]);
+              }}
+              className="px-3 py-1.5 rounded-xl text-xs font-black bg-white border border-purple-300 text-purple-800 shadow-xs hover:bg-purple-50 transition flex items-center gap-1"
+            >
+              <span>💖</span>
+              <span>Caste No Bar (ఏ కులమైనా పర్వాలేదు)</span>
+            </button>
+          </div>
+        </div>
 
         {/* 1. Age & Height Compatibility */}
         <div className="space-y-3">
@@ -603,22 +698,48 @@ function PartnerPreferencesPanel({ myId }: { myId: string }) {
             <h3 className="text-sm font-black text-maroon uppercase tracking-wider flex items-center gap-2">
               <span>💼</span> <span>కోరుకునే ఉద్యోగం / వృత్తి (Job / Profession - Multi-Select)</span>
             </h3>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() =>
-                  setJobs([
-                    "Software / IT Professional",
-                    "Govt Employee / PSU",
-                    "Doctor / Medical Professional",
-                    "Banking / Financial Services",
-                    "Business / Self-Employed",
-                  ])
-                }
-                className="text-[11px] font-bold text-amber-800 bg-amber-50 px-2.5 py-1 rounded-full border border-amber-200 hover:bg-amber-100"
-              >
-                + టాప్ ప్రొఫెషన్స్ అన్నీ
-              </button>
+            <div className="flex items-center gap-2 flex-wrap">
+              {isGroom ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setJobs(["Housewife / Homemaker (గృహిణి)", "Not Working / Looking for Job"])}
+                    className="text-[11px] font-black text-rose-800 bg-rose-50 px-2.5 py-1 rounded-full border border-rose-200 hover:bg-rose-100"
+                  >
+                    🏡 గృహిణి మాత్రమే (Housewife)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setJobs([
+                        "Software / IT Professional",
+                        "Govt Employee / PSU / Bank",
+                        "Doctor / Medical / Healthcare",
+                        "Teacher / Lecturer / Professor",
+                      ])
+                    }
+                    className="text-[11px] font-black text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200 hover:bg-emerald-100"
+                  >
+                    💼 ఉద్యోగం చేసే అమ్మాయిలు (Working)
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() =>
+                    setJobs([
+                      "Software / IT Professional",
+                      "Govt Employee / PSU (Central / State)",
+                      "Doctor / Surgeon / Medical Specialist",
+                      "Bank Officer / PO / Manager",
+                      "Business Owner / Industrialist / Builder",
+                    ])
+                  }
+                  className="text-[11px] font-bold text-amber-800 bg-amber-50 px-2.5 py-1 rounded-full border border-amber-200 hover:bg-amber-100"
+                >
+                  + టాప్ ప్రొఫెషన్స్ అన్నీ
+                </button>
+              )}
               {jobs.length > 0 && (
                 <button
                   type="button"
@@ -632,22 +753,9 @@ function PartnerPreferencesPanel({ myId }: { myId: string }) {
           </div>
 
           <div className="flex flex-wrap gap-1.5 p-2 border border-slate-100 rounded-2xl bg-slate-50/50">
-            {[
-              "Software / IT Professional",
-              "Govt Employee / PSU",
-              "Doctor / Medical Professional",
-              "Civil Services / Police / Defense",
-              "Banking / Financial Services",
-              "Business / Self-Employed",
-              "Professor / Lecturer / Teacher",
-              "Civil / Mech / Core Engineer",
-              "Chartered Accountant / Auditor",
-              "Private Firm Employee",
-              "Lawyer / Legal Professional",
-              "NRI / Working Abroad",
-              "Any Working",
-            ].map((j) => {
+            {displayJobs.map((j) => {
               const isSel = jobs.includes(j);
+              const isHousewife = j.includes("Housewife") || j.includes("Homemaker") || j.includes("గృహిణి");
               return (
                 <button
                   type="button"
@@ -655,7 +763,11 @@ function PartnerPreferencesPanel({ myId }: { myId: string }) {
                   onClick={() => toggleJob(j)}
                   className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
                     isSel
-                      ? "bg-[#7A0C2E] text-white shadow-xs"
+                      ? isHousewife
+                        ? "bg-rose-700 text-white shadow-xs"
+                        : "bg-[#7A0C2E] text-white shadow-xs"
+                      : isHousewife
+                      ? "bg-rose-50 border border-rose-300 text-rose-900 hover:bg-rose-100"
                       : "bg-white border border-slate-200 text-slate-700 hover:border-gold hover:bg-amber-50"
                   }`}
                 >

@@ -1073,6 +1073,18 @@ export default function MatchesPage() {
             </button>
 
             <button
+              onClick={() => toggleMulti("job", "Housewife / Homemaker (గృహిణి)")}
+              className={`px-3 py-1.5 rounded-full text-xs font-bold shrink-0 transition flex items-center gap-1 border ${
+                isMultiSelected("job", "Housewife / Homemaker (గృహిణి)")
+                  ? "bg-rose-700 text-white border-rose-700 shadow-xs"
+                  : "bg-white text-slate-700 border-slate-200 hover:border-rose-700"
+              }`}
+            >
+              <span>🏡</span>
+              <span>Housewife / గృహిణి</span>
+            </button>
+
+            <button
               onClick={() => toggleMulti("job", "Software / IT / Tech")}
               className={`px-3 py-1.5 rounded-full text-xs font-bold shrink-0 transition border ${
                 isMultiSelected("job", "Software / IT / Tech") ? "bg-navy text-white border-navy shadow-xs" : "bg-white text-slate-700 border-slate-200 hover:border-navy"
@@ -1660,7 +1672,7 @@ export default function MatchesPage() {
                 <div className="space-y-3">
                   <label className="block text-xs font-bold text-slate-800">వృత్తి / ఉద్యోగ రంగం:</label>
                   <div className="grid grid-cols-2 gap-2">
-                    {WORK_TYPES.map((wt) => {
+                    {["Housewife / Homemaker (గృహిణి)", "Not Working / Student", ...WORK_TYPES].map((wt) => {
                       const checked = isMultiSelected("job", wt);
                       return (
                         <label key={wt} className="flex items-center gap-2 p-2 rounded-xl text-xs bg-slate-50 cursor-pointer">

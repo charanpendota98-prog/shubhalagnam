@@ -5194,7 +5194,13 @@ def advanced_search(
     if job:
         j_list = [j.strip().lower() for j in str(job).split(",") if j.strip()]
         if j_list:
-            items = [u for u in items if any(j in str(u.get("job", "")).lower() or j in str(u.get("work_type", "")).lower() for j in j_list)]
+            items = [u for u in items if any(
+                j in str(u.get("job", "")).lower() or
+                j in str(u.get("work_type", "")).lower() or
+                (("housewife" in j or "homemaker" in j or "గృహిణి" in j or "not working" in j) and
+                 (not str(u.get("job", "")).strip() or any(hk in str(u.get("job", "")).lower() for hk in ["housewife", "homemaker", "not working", "student", "గృహిణి", "none", "no job"])))
+                for j in j_list
+            )]
     if education:
         e_list = [e.strip().lower() for e in str(education).split(",") if e.strip()]
         if e_list:

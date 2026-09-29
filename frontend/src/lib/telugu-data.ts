@@ -484,7 +484,38 @@ export const JOBS = [
   "Civil Engineer / Builder", "Mechanical / Electrical Engineer", "Lawyer / Legal Advisor",
   "Police Officer / Defence / Army", "Architect / Interior Designer", "Graphic / UI/UX Designer",
   "HR / Marketing / Sales Manager", "Customer Support / Operations", "Farmer / Farm Owner",
-  "Driver / Logistics", "Self Employed / Freelancer", "Not Working / Student", "Other Occupation"
+  "Driver / Logistics", "Self Employed / Freelancer", "Housewife / Homemaker (గృహిణి)", "Not Working / Student", "Other Occupation"
+];
+
+export const BRIDE_PREFERRED_JOBS = [
+  "Housewife / Homemaker (గృహిణి)",
+  "Not Working / Looking for Job",
+  "Software / IT Professional",
+  "Govt Employee / PSU / Bank",
+  "Doctor / Medical / Healthcare",
+  "Teacher / Lecturer / Professor",
+  "Banking / Financial Analyst",
+  "HR / Admin / Corporate",
+  "Business / Entrepreneur",
+  "NRI / Working Abroad",
+  "Student / Higher Studies",
+  "Any (Working or Homemaker)",
+];
+
+export const GROOM_PREFERRED_JOBS = [
+  "Software / IT Professional",
+  "Govt Employee / PSU (Central / State)",
+  "Doctor / Surgeon / Medical Specialist",
+  "IAS / IPS / Civil Services / Group 1",
+  "Bank Officer / PO / Manager",
+  "Chartered Accountant (CA) / Finance",
+  "Business Owner / Industrialist / Builder",
+  "Core Engineer (Civil / Mech / Electrical)",
+  "Professor / Lecturer / Scientist",
+  "Lawyer / Legal Professional",
+  "Defence / Police / Army Officer",
+  "NRI / Working Abroad (USA / UK / Canada / Gulf)",
+  "Any Working Professional",
 ];
 
 // =========================================================================
