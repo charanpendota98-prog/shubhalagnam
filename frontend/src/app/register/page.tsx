@@ -850,6 +850,24 @@ function Wizard() {
               </div>
             )}
 
+            {/* Set Partner Preferences Now Card */}
+            <div className="bg-gradient-to-r from-amber-500 to-rose-600 rounded-2xl p-4 text-white space-y-2 shadow-md">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">🎯</span>
+                <span className="font-black text-sm">మీకు ఎలాంటి సంబంధం కావాలి? (Partner Preferences)</span>
+              </div>
+              <p className="text-[11px] text-amber-100">
+                మీరు కోరుకునే కులాలు (Castes), వయస్సు, విద్యార్హతలు & జిల్లాలను ఇప్పుడే సెట్ చేసుకోండి. సిస్టమ్ ఆటోమేటిక్‌గా ఆ సంబంధాలనే మీకు చూపిస్తుంది!
+              </p>
+              <Link
+                href="/me"
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white text-[#7A0C2E] font-black text-xs hover:bg-amber-100 transition shadow"
+              >
+                <span>🎯</span>
+                <span>నా ప్రిఫరెన్సెస్ సెట్ చేయండి →</span>
+              </Link>
+            </div>
+
             {/* Photo Flow upload */}
             <div className="border border-gold/30 rounded-2xl p-4 bg-white space-y-2">
               <PhotoFlow tsapId={tsap} />

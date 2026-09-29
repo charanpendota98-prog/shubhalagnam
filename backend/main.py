@@ -2177,6 +2177,291 @@ def search_profile(tsap_id: str, viewer_id: Optional[str] = None):
     }
 
 
+def _clean_str(s: str) -> str:
+    import re
+    return re.sub(r"[^a-z0-9]", "", str(s or "").lower())
+
+
+def _has_overlap(candidate_val: str, pref_list: list) -> bool:
+    import re
+    if not pref_list:
+        return True
+    c_clean = _clean_str(candidate_val)
+    if not c_clean:
+        return True
+    for p in pref_list:
+        p_clean = _clean_str(p)
+        if not p_clean or p_clean in ["any", "all", "anni", "castenobar"]:
+            return True
+        if c_clean in p_clean or p_clean in c_clean:
+            return True
+        for sub in re.split(r"[/,|+&()]", str(p)):
+            sub_c = _clean_str(sub)
+            if sub_c and (c_clean in sub_c or sub_c in c_clean):
+                return True
+    return False
+
+
+def _generate_default_preferences(user: dict) -> dict:
+    """Generates smart partner preferences based on user gender, age, caste, and profession."""
+    g = str(user.get("gender", "")).lower()
+    u_age = int(user.get("age", 0) or 26)
+    u_caste = user.get("caste") or ""
+    u_subcaste = user.get("sub_caste") or ""
+    u_dist = user.get("district") or "Hyderabad"
+    u_marital = str(user.get("marital_status", "")).lower()
+
+    is_remarriage = ("divorce" in u_marital) or ("widow" in u_marital) or ("విడాకులు" in u_marital) or ("రెండవ" in u_marital)
+    marital_list = ["Divorced", "Widowed", "Separated"] if is_remarriage else ["Never Married"]
+
+    if g in ["groom", "male", "అబ్బాయి"]:
+        age_min = max(18, u_age - 6)
+        age_max = max(21, u_age - 1)
+        h_min = "5'0\""
+        h_max = user.get("height") or "5'7\""
+        edus = ["B.Tech / B.E.", "Degree / Post Graduate", "MBA / MCA", "M.Tech / M.E.", "MBBS / Medical"]
+        jobs = ["Software / IT Professional", "Govt Employee / PSU", "Doctor / Medical", "Banking / Finance", "Private Firm", "Any Working"]
+        min_sal = "Any"
+    else:
+        age_min = max(21, u_age + 1)
+        age_max = u_age + 6
+        h_min = user.get("height") or "5'4\""
+        h_max = "6'2\""
+        edus = ["B.Tech / B.E.", "M.Tech / M.E.", "MBA / PGDM", "MS (USA / Abroad)", "MBBS / MD / MS", "CA / CS"]
+        jobs = ["Software / IT Professional", "Govt Employee / PSU", "Doctor / Medical", "Business / Self-Employed", "Banking / Finance"]
+        min_sal = "₹5 - 7 Lakhs / year"
+
+    dists = [u_dist, "Hyderabad", "Ranga Reddy", "Medchal-Malkajgiri"] if u_dist else ["Hyderabad", "Ranga Reddy"]
+    castes = [u_caste] if u_caste else []
+    subcastes = [u_subcaste] if u_subcaste else []
+
+    return {
+        "age_min": age_min,
+        "age_max": age_max,
+        "height_min": h_min,
+        "height_max": h_max,
+        "castes": castes,
+        "sub_castes": subcastes,
+        "caste_no_bar": False if castes else True,
+        "educations": edus,
+        "jobs": jobs,
+        "min_salary": min_sal,
+        "districts": list(dict.fromkeys(dists)),
+        "states": ["TS", "AP"],
+        "marital_statuses": marital_list,
+        "diet": "Any",
+        "notes": "",
+    }
+
+
+def _evaluate_partner_preferences_match(user: dict, prefs: dict, candidate: dict) -> tuple:
+    """Evaluates whether candidate matches user's saved partner preferences and calculates preference match score."""
+    opp_gender = "Bride" if str(user.get("gender", "")).lower() in ["groom", "male"] else "Groom"
+    if str(candidate.get("gender", "")).lower() != opp_gender.lower():
+        return False, 0, []
+    if str(candidate.get("tsap_id", "")).upper() == str(user.get("tsap_id", "")).upper():
+        return False, 0, []
+
+    reasons = []
+    score = 75
+
+    # 1. Age
+    cand_age = int(candidate.get("age", 0) or 0)
+    age_min = int(prefs.get("age_min") or 18)
+    age_max = int(prefs.get("age_max") or 60)
+    if cand_age:
+        if cand_age < age_min or cand_age > age_max:
+            return False, 0, []
+        reasons.append(f"వయస్సు {cand_age}y (ప్రిఫరెన్స్ {age_min}-{age_max}y)")
+        score += 5
+
+    # 2. Caste & Subcaste
+    caste_no_bar = bool(prefs.get("caste_no_bar"))
+    pref_castes = [c for c in prefs.get("castes", []) if str(c).strip()]
+    cand_caste = str(candidate.get("caste", "")).strip()
+
+    if not caste_no_bar and pref_castes:
+        if not _has_overlap(cand_caste, pref_castes):
+            return False, 0, []
+        reasons.append(f"🏛️ కులం: {candidate.get('caste')}")
+        score += 8
+    elif cand_caste and _clean_str(cand_caste) == _clean_str(user.get("caste")):
+        reasons.append(f"🏛️ ఒకే కులం ({candidate.get('caste')})")
+        score += 6
+
+    pref_subcastes = [s for s in prefs.get("sub_castes", []) if str(s).strip()]
+    cand_subcaste = str(candidate.get("sub_caste", "")).strip()
+    if pref_subcastes and cand_subcaste:
+        if _has_overlap(cand_subcaste, pref_subcastes):
+            reasons.append(f"ఉపకులం: {candidate.get('sub_caste')}")
+            score += 4
+
+    # 3. Marital Status
+    pref_marital = [m for m in prefs.get("marital_statuses", []) if str(m).strip()]
+    cand_marital = str(candidate.get("marital_status", "")).strip()
+    if pref_marital and cand_marital:
+        is_cand_never = any(k in cand_marital.lower() for k in ["never", "kaledu", "కాలేదు", "single", "first"])
+        is_pref_never = any(any(k in str(pm).lower() for k in ["never", "kaledu", "కాలేదు", "single", "first"]) for pm in pref_marital)
+        if is_cand_never != is_pref_never and not any(k in str(pref_marital).lower() for k in ["any", "all", "అన్నీ"]):
+            return False, 0, []
+        reasons.append("వైవాహిక స్థితి సరిపోయింది")
+        score += 4
+
+    # 4. Education
+    pref_edus = [e for e in prefs.get("educations", []) if str(e).strip()]
+    cand_edu = str(candidate.get("education", "")).strip()
+    if pref_edus and cand_edu:
+        if _has_overlap(cand_edu, pref_edus):
+            reasons.append(f"🎓 {candidate.get('education')}")
+            score += 5
+
+    # 5. Job / Profession
+    pref_jobs = [j for j in prefs.get("jobs", []) if str(j).strip()]
+    cand_job = str(candidate.get("job", "")).strip()
+    if pref_jobs and cand_job:
+        if _has_overlap(cand_job, pref_jobs):
+            reasons.append(f"💼 {candidate.get('job')}")
+            score += 5
+
+    # 6. Districts / Location
+    pref_dists = [d for d in prefs.get("districts", []) if str(d).strip()]
+    cand_dist = str(candidate.get("district", "")).strip()
+    if pref_dists and cand_dist:
+        if _has_overlap(cand_dist, pref_dists):
+            reasons.append(f"📍 {candidate.get('district')}")
+            score += 5
+
+    return True, min(100, score), reasons
+
+
+@app.get("/api/profile/preferences")
+def get_partner_preferences(tsap_id: str):
+    """Fetches user's saved partner preferences, default smart suggestions, and live match count."""
+    clean_id = str(tsap_id or "").strip().upper()
+    user = _find_user(clean_id)
+    if not user:
+        raise HTTPException(404, f"Profile {clean_id} not found")
+
+    prefs = user.get("partner_preferences")
+    if not prefs or not isinstance(prefs, dict):
+        prefs = _generate_default_preferences(user)
+        user["partner_preferences"] = prefs
+
+    # Calculate live matches count matching preferences
+    matching_candidates = []
+    for c in DB_USERS:
+        is_m, score, reasons = _evaluate_partner_preferences_match(user, prefs, c)
+        if is_m:
+            c_safe = safe_user(c)
+            c_safe["pref_score"] = score
+            c_safe["pref_reasons"] = reasons
+            matching_candidates.append(c_safe)
+
+    matching_candidates.sort(key=lambda x: (bool(x.get("photo_url")), x.get("pref_score", 0)), reverse=True)
+
+    return {
+        "success": True,
+        "tsap_id": clean_id,
+        "preferences": prefs,
+        "matching_count": len(matching_candidates),
+        "preview_matches": matching_candidates[:6],
+    }
+
+
+@app.post("/api/profile/preferences")
+def save_partner_preferences(payload: dict):
+    """Saves user's custom multi-select partner preferences (Castes, Subcastes, Age, Height, Education, Jobs, Districts, Salary)."""
+    clean_id = str(payload.get("tsap_id") or payload.get("id") or "").strip().upper()
+    user = _find_user(clean_id)
+    if not user:
+        raise HTTPException(404, f"Profile {clean_id} not found")
+
+    prefs = {
+        "age_min": int(payload.get("age_min") or 18),
+        "age_max": int(payload.get("age_max") or 60),
+        "height_min": str(payload.get("height_min") or "").strip(),
+        "height_max": str(payload.get("height_max") or "").strip(),
+        "castes": list(payload.get("castes") or []),
+        "sub_castes": list(payload.get("sub_castes") or []),
+        "caste_no_bar": bool(payload.get("caste_no_bar")),
+        "educations": list(payload.get("educations") or []),
+        "jobs": list(payload.get("jobs") or []),
+        "min_salary": str(payload.get("min_salary") or "Any").strip(),
+        "districts": list(payload.get("districts") or []),
+        "states": list(payload.get("states") or ["TS", "AP"]),
+        "marital_statuses": list(payload.get("marital_statuses") or ["Never Married"]),
+        "diet": str(payload.get("diet") or "Any").strip(),
+        "notes": str(payload.get("notes") or "").strip(),
+        "saved_at": datetime.now().isoformat(),
+    }
+
+    user["partner_preferences"] = prefs
+    user["exp_filters"] = {
+        "ageMin": prefs["age_min"],
+        "ageMax": prefs["age_max"],
+        "job": ", ".join(prefs["jobs"][:2]),
+        "location": ", ".join(prefs["districts"][:2]),
+        "caste": "no bar" if prefs["caste_no_bar"] else ", ".join(prefs["castes"][:2]),
+    }
+
+    # Save to disk
+    try:
+        import json
+        with open("data_db.json", "w", encoding="utf-8") as f:
+            json.dump(DB_USERS, f, ensure_ascii=False, indent=2)
+    except Exception:
+        pass
+
+    # Count matching candidates
+    matching_candidates = []
+    for c in DB_USERS:
+        is_m, score, reasons = _evaluate_partner_preferences_match(user, prefs, c)
+        if is_m:
+            c_safe = safe_user(c)
+            c_safe["pref_score"] = score
+            c_safe["pref_reasons"] = reasons
+            matching_candidates.append(c_safe)
+
+    matching_candidates.sort(key=lambda x: (bool(x.get("photo_url")), x.get("pref_score", 0)), reverse=True)
+
+    return {
+        "success": True,
+        "message_telugu": "✅ మీ పార్టనర్ ప్రిఫరెన్సెస్ విజయవంతంగా సేవ్ అయ్యాయి! మీకు సరిపోయే సంబంధాలు సిద్ధం.",
+        "tsap_id": clean_id,
+        "preferences": prefs,
+        "matching_count": len(matching_candidates),
+        "preview_matches": matching_candidates[:6],
+    }
+
+
+@app.get("/api/matches/partner-preferred")
+def get_partner_preferred_matches(tsap_id: str, limit: int = 50):
+    """Returns all profiles matching user's saved partner preferences."""
+    clean_id = str(tsap_id or "").strip().upper()
+    user = _find_user(clean_id)
+    if not user:
+        raise HTTPException(404, f"Profile {clean_id} not found")
+
+    prefs = user.get("partner_preferences") or _generate_default_preferences(user)
+
+    matches = []
+    for c in DB_USERS:
+        is_m, score, reasons = _evaluate_partner_preferences_match(user, prefs, c)
+        if is_m:
+            c_safe = safe_user(c)
+            c_safe["pref_score"] = score
+            c_safe["pref_reasons"] = reasons
+            matches.append(c_safe)
+
+    matches.sort(key=lambda x: (bool(x.get("photo_url")), x.get("pref_score", 0)), reverse=True)
+    return {
+        "success": True,
+        "tsap_id": clean_id,
+        "total_matches": len(matches),
+        "matches": matches[:limit],
+    }
+
+
 @app.get("/api/profile/{tsap_id}")
 def get_user_profile_for_edit(tsap_id: str):
     """Fetch full profile data for self-editing and view completeness meter."""

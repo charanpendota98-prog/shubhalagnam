@@ -510,6 +510,41 @@ export default function MatchesPage() {
     setFilters(initial);
   }, []);
 
+  const [prefLoading, setPrefLoading] = useState(false);
+  const [prefApplied, setPrefApplied] = useState(false);
+
+  const applySavedPreferences = async () => {
+    try {
+      const myId = typeof window !== "undefined" ? (localStorage.getItem("tsap_id") || localStorage.getItem("tsap_last_id") || "") : "";
+      if (!myId) {
+        alert("మీరు మీ ప్రిఫరెన్సెస్ లోడ్ చేయడానికి ముందుగా లాగిన్ అవ్వండి లేదా రిజిస్టర్ అవ్వండి.");
+        return;
+      }
+      setPrefLoading(true);
+      const res = await fetch(`/api/profile/preferences?tsap_id=${encodeURIComponent(myId)}`);
+      const data = await res.json();
+      if (res.ok && data?.preferences) {
+        const p = data.preferences;
+        setFilters((prev) => ({
+          ...prev,
+          caste: p.caste_no_bar ? "" : (p.castes || []).join(","),
+          sub_caste: (p.sub_castes || []).join(","),
+          education: (p.educations || []).join(","),
+          job: (p.jobs || []).join(","),
+          district: (p.districts || []).join(","),
+          age_min: p.age_min || 18,
+          age_max: p.age_max || 60,
+          marital_status: (p.marital_statuses || []).join(","),
+        }));
+        setPrefApplied(true);
+      }
+    } catch {
+      /* ignore */
+    } finally {
+      setPrefLoading(false);
+    }
+  };
+
   const setF = (key: string, val: any) => {
     setFilters((prev) => ({ ...prev, [key]: val }));
   };
@@ -984,6 +1019,19 @@ export default function MatchesPage() {
             >
               <span>📸</span>
               <span>With Photo</span>
+            </button>
+
+            <button
+              onClick={applySavedPreferences}
+              disabled={prefLoading}
+              className={`px-3.5 py-1.5 rounded-full text-xs font-black shrink-0 transition flex items-center gap-1.5 ${
+                prefApplied
+                  ? "bg-emerald-600 text-white shadow-xs"
+                  : "bg-gradient-to-r from-amber-500 to-rose-600 text-white shadow-xs hover:brightness-105"
+              }`}
+            >
+              <span>🎯</span>
+              <span>{prefLoading ? "లోడ్ అవుతోంది…" : prefApplied ? "✓ నా ప్రిఫరెన్సెస్ అప్లై అయ్యాయి" : "🎯 నా సేవ్ చేసిన ప్రిఫరెన్సెస్"}</span>
             </button>
 
             <button

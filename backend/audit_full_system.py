@@ -252,6 +252,34 @@ def run_deep_audit():
     report("User Facing Brand: Mana Vivaha (మన వివాహ)", True, "Brand verified across apps, cards, and manifests")
 
     # ---------------------------------------------------------
+    # 10. Partner Preferences Multi-Select Engine
+    # ---------------------------------------------------------
+    print("\n--- SECTION 10: PARTNER PREFERENCES & MULTI-SELECT SAVING ENGINE ---")
+    pref_res = client.post("/api/profile/preferences", json={
+        "tsap_id": tsap_g,
+        "age_min": 21,
+        "age_max": 28,
+        "castes": ["Reddy", "Kamma", "Kapu", "Arya Vysya"],
+        "sub_castes": ["Motati", "Chowdary"],
+        "caste_no_bar": False,
+        "educations": ["B.Tech / B.E.", "M.Tech / M.E.", "MS (USA / Abroad)", "MBA / PGDM"],
+        "jobs": ["Software / IT Professional", "Govt Employee / PSU", "Doctor / Medical Professional"],
+        "districts": ["Hyderabad", "Ranga Reddy", "Guntur", "Krishna"],
+        "marital_statuses": ["Never Married"],
+        "diet": "Any"
+    })
+    report("Save Multi-Select Partner Preferences API", pref_res.status_code == 200 and pref_res.json().get("success") is True,
+           f"Saved preferences: {pref_res.status_code}")
+
+    pref_get_res = client.get(f"/api/profile/preferences?tsap_id={tsap_g}")
+    report("Get Partner Preferences & Live Count API", pref_get_res.status_code == 200 and "matching_count" in pref_get_res.json(),
+           f"Live Matching Count: {pref_get_res.json().get('matching_count')}")
+
+    pref_match_res = client.get(f"/api/matches/partner-preferred?tsap_id={tsap_g}")
+    report("Fetch Partner Preferred Matches List API", pref_match_res.status_code == 200 and "matches" in pref_match_res.json(),
+           f"Total Matches Returned: {len(pref_match_res.json().get('matches', []))}")
+
+    # ---------------------------------------------------------
     # Summary
     # ---------------------------------------------------------
     print("\n" + "=" * 80)

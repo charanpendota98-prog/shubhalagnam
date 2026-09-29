@@ -16,12 +16,18 @@ import { Duo } from "@/lib/duo";
 import { useLang } from "@/lib/lang";
 import {
   CASTES,
+  CASTES_DETAILED,
+  CASTE_SUBCASTES,
   CASTE_TELUGU,
   EDUCATIONS,
   HEIGHTS,
+  JOBS,
+  MARITAL_STATUSES,
   NAKSHATRAS,
   RASIS,
   SALARIES,
+  TS_DISTRICTS,
+  AP_DISTRICTS,
   DISTRICTS_BY_STATE,
   DISTRICT_TELUGU,
   WORK_TYPES,
@@ -29,10 +35,11 @@ import {
 } from "@/lib/telugu-data";
 
 type Row = Record<string, any>;
-type Tab = "edit" | "streak" | "unlocks" | "boost" | "voice" | "jathakam" | "share" | "alerts";
+type Tab = "preferences" | "edit" | "streak" | "unlocks" | "boost" | "voice" | "jathakam" | "share" | "alerts";
 
 const TABS: [Tab, string, string][] = [
-  ["edit", "✏️ Edit Profile", "✏️ ప్రొఫైల్ సవరణ (100%)"],
+  ["preferences", "🎯 Partner Preferences", "🎯 కోరుకునే సంబంధం (ప్రిఫరెన్సెస్)"],
+  ["edit", "✏️ Edit Profile", "✏️ నా ప్రొఫైల్ సవరణ (100%)"],
   ["streak", "🔥 Streak", "🔥 స్ట్రీక్"],
   ["unlocks", "📋 Unlocks", "📋 అన్‌లాక్‌లు"],
   ["boost", "⚡ Boost", "⚡ బూస్ట్"],
@@ -46,7 +53,7 @@ export default function MePage() {
   const { lang } = useLang();
   const te = lang === "te";
   const [myId, setMyId] = useState("");
-  const [tab, setTab] = useState<Tab>("edit");
+  const [tab, setTab] = useState<Tab>("preferences");
 
   useEffect(() => {
     try {
@@ -62,7 +69,7 @@ export default function MePage() {
       <div className="flex items-center justify-between border-b border-gold/30 pb-3">
         <div>
           <h1 className="text-2xl font-black text-[#7A0C2E]">
-            <Duo en="🙋 My Account & Profile" te="🙋 నా ప్రొఫైల్ & అకౌంట్" />
+            <Duo en="🙋 My Account & Partner Preferences" te="🙋 నా ప్రొఫైల్ & కోరుకునే సంబంధం" />
           </h1>
           {myId && <p className="font-mono text-xs font-bold text-slate-500 mt-0.5">ID: {myId}</p>}
         </div>
@@ -89,6 +96,7 @@ export default function MePage() {
           </div>
 
           <div className="mt-5">
+            {tab === "preferences" && <PartnerPreferencesPanel myId={myId} />}
             {tab === "edit" && <EditProfilePanel myId={myId} />}
             {tab === "streak" && <StreakPanel myId={myId} />}
             {tab === "unlocks" && <UnlocksPanel myId={myId} />}
@@ -118,6 +126,709 @@ function Msg({ m }: { m: { ok: boolean; text: string } | null }) {
     >
       {m.text}
     </p>
+  );
+}
+
+/* ---------------- 🎯 PARTNER PREFERENCES (కోరుకునే సంబంధం) ---------------- */
+function PartnerPreferencesPanel({ myId }: { myId: string }) {
+  const { lang } = useLang();
+  const te = lang === "te";
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+
+  // Preference State
+  const [ageMin, setAgeMin] = useState(21);
+  const [ageMax, setAgeMax] = useState(30);
+  const [heightMin, setHeightMin] = useState("5'0\"");
+  const [heightMax, setHeightMax] = useState("5'10\"");
+  const [castes, setCastes] = useState<string[]>([]);
+  const [subCastes, setSubCastes] = useState<string[]>([]);
+  const [casteNoBar, setCasteNoBar] = useState(false);
+  const [educations, setEducations] = useState<string[]>([]);
+  const [jobs, setJobs] = useState<string[]>([]);
+  const [minSalary, setMinSalary] = useState("Any");
+  const [districts, setDistricts] = useState<string[]>([]);
+  const [maritalStatuses, setMaritalStatuses] = useState<string[]>(["Never Married"]);
+  const [diet, setDiet] = useState("Any");
+  const [notes, setNotes] = useState("");
+
+  // Filters & Counts
+  const [casteSearch, setCasteSearch] = useState("");
+  const [districtSearch, setDistrictSearch] = useState("");
+  const [matchingCount, setMatchingCount] = useState<number>(0);
+  const [previewMatches, setPreviewMatches] = useState<any[]>([]);
+  const [myProfile, setMyProfile] = useState<Row | null>(null);
+
+  const loadPreferences = useCallback(async () => {
+    setLoading(true);
+    const { ok, data } = await apiGet<Row>(`/api/profile/preferences?tsap_id=${encodeURIComponent(myId)}`);
+    if (ok && data?.preferences) {
+      const p = data.preferences;
+      setAgeMin(p.age_min || 21);
+      setAgeMax(p.age_max || 30);
+      setHeightMin(p.height_min || "5'0\"");
+      setHeightMax(p.height_max || "5'10\"");
+      setCastes(p.castes || []);
+      setSubCastes(p.sub_castes || []);
+      setCasteNoBar(Boolean(p.caste_no_bar));
+      setEducations(p.educations || []);
+      setJobs(p.jobs || []);
+      setMinSalary(p.min_salary || "Any");
+      setDistricts(p.districts || []);
+      setMaritalStatuses(p.marital_statuses || ["Never Married"]);
+      setDiet(p.diet || "Any");
+      setNotes(p.notes || "");
+      setMatchingCount(data.matching_count || 0);
+      setPreviewMatches(data.preview_matches || []);
+    }
+    const profRes = await apiGet<Row>(`/api/profile/${encodeURIComponent(myId)}`);
+    if (profRes.ok && profRes.data?.profile) {
+      setMyProfile(profRes.data.profile);
+    }
+    setLoading(false);
+  }, [myId]);
+
+  useEffect(() => {
+    void loadPreferences();
+  }, [loadPreferences]);
+
+  const toggleCaste = (c: string) => {
+    setCastes((prev) =>
+      prev.includes(c) ? prev.filter((item) => item !== c) : [...prev, c]
+    );
+  };
+
+  const toggleSubCaste = (s: string) => {
+    setSubCastes((prev) =>
+      prev.includes(s) ? prev.filter((item) => item !== s) : [...prev, s]
+    );
+  };
+
+  const toggleEducation = (e: string) => {
+    setEducations((prev) =>
+      prev.includes(e) ? prev.filter((item) => item !== e) : [...prev, e]
+    );
+  };
+
+  const toggleJob = (j: string) => {
+    setJobs((prev) =>
+      prev.includes(j) ? prev.filter((item) => item !== j) : [...prev, j]
+    );
+  };
+
+  const toggleDistrict = (d: string) => {
+    setDistricts((prev) =>
+      prev.includes(d) ? prev.filter((item) => item !== d) : [...prev, d]
+    );
+  };
+
+  const toggleMarital = (m: string) => {
+    setMaritalStatuses((prev) =>
+      prev.includes(m) ? prev.filter((item) => item !== m) : [...prev, m]
+    );
+  };
+
+  // Dynamically aggregated subcastes based on selected castes
+  const availableSubCastes = Array.from(
+    new Set(
+      castes.flatMap((c) => CASTE_SUBCASTES[c] || [])
+    )
+  );
+
+  const filteredCastes = CASTES_DETAILED.filter((c) => {
+    if (!casteSearch.trim()) return true;
+    const q = casteSearch.toLowerCase();
+    return c.en.toLowerCase().includes(q) || c.te.includes(q);
+  });
+
+  const allDistricts = Array.from(
+    new Set([...TS_DISTRICTS, ...AP_DISTRICTS, "USA / NRI", "Other"])
+  );
+
+  const filteredDistricts = allDistricts.filter((d) => {
+    if (!districtSearch.trim()) return true;
+    const q = districtSearch.toLowerCase();
+    const teName = DISTRICT_TELUGU[d] || "";
+    return d.toLowerCase().includes(q) || teName.includes(q);
+  });
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    setMsg(null);
+    const payload = {
+      tsap_id: myId,
+      age_min: ageMin,
+      age_max: ageMax,
+      height_min: heightMin,
+      height_max: heightMax,
+      castes,
+      sub_castes: subCastes,
+      caste_no_bar: casteNoBar,
+      educations,
+      jobs,
+      min_salary: minSalary,
+      districts,
+      marital_statuses: maritalStatuses,
+      diet,
+      notes,
+    };
+
+    const { ok, data } = await apiPost<Row>("/api/profile/preferences", payload);
+    setSaving(false);
+    if (ok && data?.success) {
+      setMsg({ ok: true, text: data.message_telugu || "మీ ప్రిఫరెన్సెస్ భద్రపరచబడ్డాయి! ✅" });
+      setMatchingCount(data.matching_count || 0);
+      setPreviewMatches(data.preview_matches || []);
+    } else {
+      setMsg({ ok: false, text: "ప్రిఫరెన్సెస్ సేవ్ చేయడంలో లోపం జరిగింది. దయచేసి మళ్లీ ప్రయత్నించండి." });
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="rounded-3xl border border-gold/30 bg-white p-8 text-center text-sm font-bold text-slate-500">
+        మీ పార్టనర్ ప్రిఫరెన్సెస్ లోడ్ అవుతున్నాయి…
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Top Banner with Match Count */}
+      <div className="rounded-3xl bg-gradient-to-r from-amber-500 via-rose-600 to-[#7A0C2E] p-6 text-white shadow-lg">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="text-center sm:text-left">
+            <span className="inline-block bg-white/20 backdrop-blur-md px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider mb-2">
+              🎯 స్మార్ట్ మ్యాచింగ్ ఫిల్టర్స్
+            </span>
+            <h2 className="text-xl sm:text-2xl font-black">
+              మీకు ఎలాంటి సంబంధం కావాలి? (Partner Preferences)
+            </h2>
+            <p className="text-xs sm:text-sm text-amber-100 mt-1 max-w-xl">
+              మీరు కోరుకునే వయస్సు, కులాలు, చదువు, ఉద్యోగం & జిల్లాలను ఇక్కడ సేవ్ చేసుకోండి. వీటికి సరిపోయే సంబంధాలు మాత్రమే మీకు నేరుగా సూచించబడతాయి.
+            </p>
+          </div>
+
+          <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/20 text-center shrink-0 min-w-[160px]">
+            <span className="text-xs text-amber-200 block font-bold">లభించిన సంబంధాలు</span>
+            <span className="text-3xl font-black text-amber-300 block">{matchingCount}</span>
+            <span className="text-[11px] text-white/90">మీ కోరికకు తగినవి</span>
+          </div>
+        </div>
+
+        {/* Quick View Matches Button */}
+        {matchingCount > 0 && (
+          <div className="mt-4 pt-4 border-t border-white/20 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex -space-x-2 overflow-hidden">
+              {previewMatches.slice(0, 4).map((pm, idx) => (
+                <div key={idx} className="w-8 h-8 rounded-full border-2 border-white bg-amber-100 flex items-center justify-center text-xs font-bold text-maroon overflow-hidden">
+                  {pm.photo_url ? (
+                    <img src={pm.photo_url} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    <span>{pm.gender === "Bride" ? "👰" : "🤵"}</span>
+                  )}
+                </div>
+              ))}
+            </div>
+            <Link
+              href="/matches"
+              className="px-4 py-2 rounded-xl bg-white text-[#7A0C2E] font-black text-xs hover:bg-amber-100 transition shadow"
+            >
+              👉 ఈ {matchingCount} సంబంధాలను ఇప్పుడే చూడండి
+            </Link>
+          </div>
+        )}
+      </div>
+
+      <form onSubmit={handleSave} className="rounded-3xl border border-gold/40 bg-white p-6 shadow-sm space-y-6">
+        <Msg m={msg} />
+
+        {/* 1. Age & Height Compatibility */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+            <h3 className="text-sm font-black text-maroon uppercase tracking-wider flex items-center gap-2">
+              <span>🎂</span> <span>వయస్సు & ఎత్తు పరిధి (Age & Height Range)</span>
+            </h3>
+            <span className="text-xs font-bold text-[#7A0C2E] bg-amber-50 px-3 py-1 rounded-full border border-amber-200">
+              {ageMin} నుండి {ageMax} సం. • {heightMin} నుండి {heightMax}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
+            <div>
+              <label className="font-bold text-slate-800 block mb-1">కనీస వయస్సు (Min Age):</label>
+              <select
+                value={ageMin}
+                onChange={(e) => setAgeMin(Number(e.target.value))}
+                className="w-full p-2.5 border border-slate-200 rounded-xl bg-white font-bold text-slate-800 focus:outline-none focus:border-maroon"
+              >
+                {[18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 32, 35, 40].map((a) => (
+                  <option key={a} value={a}>
+                    {a} సంవత్సరాలు
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="font-bold text-slate-800 block mb-1">గరిష్ట వయస్సు (Max Age):</label>
+              <select
+                value={ageMax}
+                onChange={(e) => setAgeMax(Number(e.target.value))}
+                className="w-full p-2.5 border border-slate-200 rounded-xl bg-white font-bold text-slate-800 focus:outline-none focus:border-maroon"
+              >
+                {[22, 23, 24, 25, 26, 27, 28, 29, 30, 32, 34, 36, 38, 40, 45, 50, 55, 60].map((a) => (
+                  <option key={a} value={a}>
+                    {a} సంవత్సరాలు
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="font-bold text-slate-800 block mb-1">కనీస ఎత్తు (Min Height):</label>
+              <select
+                value={heightMin}
+                onChange={(e) => setHeightMin(e.target.value)}
+                className="w-full p-2.5 border border-slate-200 rounded-xl bg-white font-bold text-slate-800 focus:outline-none focus:border-maroon"
+              >
+                {HEIGHTS.map((h) => (
+                  <option key={h} value={h}>
+                    {h}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="font-bold text-slate-800 block mb-1">గరిష్ట ఎత్తు (Max Height):</label>
+              <select
+                value={heightMax}
+                onChange={(e) => setHeightMax(e.target.value)}
+                className="w-full p-2.5 border border-slate-200 rounded-xl bg-white font-bold text-slate-800 focus:outline-none focus:border-maroon"
+              >
+                {HEIGHTS.map((h) => (
+                  <option key={h} value={h}>
+                    {h}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </div>
+
+        {/* 2. Castes Multi-Select */}
+        <div className="space-y-3 border-t border-slate-100 pt-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-2">
+            <h3 className="text-sm font-black text-maroon uppercase tracking-wider flex items-center gap-2">
+              <span>🏛️</span> <span>కోరుకునే కులాలు (Castes Preference - Multi-Select)</span>
+            </h3>
+            <div className="flex items-center gap-2">
+              <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700 bg-amber-50 px-3 py-1 rounded-full border border-amber-200 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={casteNoBar}
+                  onChange={(e) => {
+                    setCasteNoBar(e.target.checked);
+                    if (e.target.checked) setCastes([]);
+                  }}
+                  className="rounded accent-maroon"
+                />
+                <span>అన్ని కులాలు పర్వాలేదు (Caste No Bar)</span>
+              </label>
+
+              {myProfile?.caste && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCasteNoBar(false);
+                    setCastes([myProfile.caste]);
+                  }}
+                  className="text-[11px] font-bold text-maroon underline hover:text-amber-800"
+                >
+                  నా కులం ({myProfile.caste}) మాత్రమే
+                </button>
+              )}
+            </div>
+          </div>
+
+          {!casteNoBar && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={casteSearch}
+                  onChange={(e) => setCasteSearch(e.target.value)}
+                  placeholder="🔍 కులాన్ని వెతకండి (ఉదా: Reddy, Kamma, Arya Vysya, Yadava, Padmashali)..."
+                  className="w-full p-2.5 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-maroon"
+                />
+                {castes.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setCastes([])}
+                    className="shrink-0 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl"
+                  >
+                    క్లియర్ ({castes.length})
+                  </button>
+                )}
+              </div>
+
+              {/* Caste Chips */}
+              <div className="flex flex-wrap gap-1.5 max-h-48 overflow-y-auto p-2 border border-slate-100 rounded-2xl bg-slate-50/50">
+                {filteredCastes.map((c) => {
+                  const isSel = castes.includes(c.en);
+                  return (
+                    <button
+                      type="button"
+                      key={c.en}
+                      onClick={() => toggleCaste(c.en)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
+                        isSel
+                          ? "bg-[#7A0C2E] text-white shadow-xs"
+                          : "bg-white border border-slate-200 text-slate-700 hover:border-gold hover:bg-amber-50"
+                      }`}
+                    >
+                      <span>{isSel ? "✓" : "+"}</span>
+                      <span>{c.display}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Selected Sub-castes if available */}
+              {availableSubCastes.length > 0 && (
+                <div className="pt-2 space-y-1.5">
+                  <span className="text-xs font-bold text-slate-700 block">
+                    ఉపకులాలు (Sub-castes - ఐచ్ఛికం):
+                  </span>
+                  <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto p-2 border border-slate-100 rounded-2xl bg-amber-50/40">
+                    {availableSubCastes.map((sub) => {
+                      const isSubSel = subCastes.includes(sub);
+                      return (
+                        <button
+                          type="button"
+                          key={sub}
+                          onClick={() => toggleSubCaste(sub)}
+                          className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition flex items-center gap-1 ${
+                            isSubSel
+                              ? "bg-amber-600 text-white shadow-xs"
+                              : "bg-white border border-amber-200 text-slate-700 hover:bg-amber-100"
+                          }`}
+                        >
+                          <span>{isSubSel ? "✓" : "+"}</span>
+                          <span>{sub}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* 3. Education Multi-Select */}
+        <div className="space-y-3 border-t border-slate-100 pt-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-2">
+            <h3 className="text-sm font-black text-maroon uppercase tracking-wider flex items-center gap-2">
+              <span>🎓</span> <span>కోరుకునే విద్యార్హతలు (Education - Multi-Select)</span>
+            </h3>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() =>
+                  setEducations([
+                    "B.Tech / B.E.",
+                    "M.Tech / M.E.",
+                    "MS (USA / Abroad)",
+                    "MBBS / MD / MS",
+                    "MBA / PGDM",
+                    "MCA",
+                  ])
+                }
+                className="text-[11px] font-bold text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200 hover:bg-emerald-100"
+              >
+                + ప్రొఫెషనల్ / IT డిగ్రీలు అన్నీ
+              </button>
+              {educations.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setEducations([])}
+                  className="text-[11px] font-bold text-slate-500 hover:text-slate-800"
+                >
+                  క్లియర్ ({educations.length})
+                </button>
+              )}
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-1.5 p-2 border border-slate-100 rounded-2xl bg-slate-50/50">
+            {[
+              "B.Tech / B.E.",
+              "M.Tech / M.E.",
+              "MS (USA / Abroad)",
+              "MBBS / MD / MS",
+              "B.Pharm / M.Pharm",
+              "MBA / PGDM",
+              "MCA",
+              "CA / CS / ICWA",
+              "Degree (B.Sc / B.Com / B.A)",
+              "Post Graduate (M.Sc / M.Com / M.A)",
+              "Ph.D / Doctorate",
+              "Polytechnic / Diploma",
+              "Inter / 12th",
+            ].map((e) => {
+              const isSel = educations.includes(e);
+              return (
+                <button
+                  type="button"
+                  key={e}
+                  onClick={() => toggleEducation(e)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
+                    isSel
+                      ? "bg-[#7A0C2E] text-white shadow-xs"
+                      : "bg-white border border-slate-200 text-slate-700 hover:border-gold hover:bg-amber-50"
+                  }`}
+                >
+                  <span>{isSel ? "✓" : "+"}</span>
+                  <span>{e}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* 4. Profession / Jobs Multi-Select */}
+        <div className="space-y-3 border-t border-slate-100 pt-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-2">
+            <h3 className="text-sm font-black text-maroon uppercase tracking-wider flex items-center gap-2">
+              <span>💼</span> <span>కోరుకునే ఉద్యోగం / వృత్తి (Job / Profession - Multi-Select)</span>
+            </h3>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() =>
+                  setJobs([
+                    "Software / IT Professional",
+                    "Govt Employee / PSU",
+                    "Doctor / Medical Professional",
+                    "Banking / Financial Services",
+                    "Business / Self-Employed",
+                  ])
+                }
+                className="text-[11px] font-bold text-amber-800 bg-amber-50 px-2.5 py-1 rounded-full border border-amber-200 hover:bg-amber-100"
+              >
+                + టాప్ ప్రొఫెషన్స్ అన్నీ
+              </button>
+              {jobs.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setJobs([])}
+                  className="text-[11px] font-bold text-slate-500 hover:text-slate-800"
+                >
+                  క్లియర్ ({jobs.length})
+                </button>
+              )}
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-1.5 p-2 border border-slate-100 rounded-2xl bg-slate-50/50">
+            {[
+              "Software / IT Professional",
+              "Govt Employee / PSU",
+              "Doctor / Medical Professional",
+              "Civil Services / Police / Defense",
+              "Banking / Financial Services",
+              "Business / Self-Employed",
+              "Professor / Lecturer / Teacher",
+              "Civil / Mech / Core Engineer",
+              "Chartered Accountant / Auditor",
+              "Private Firm Employee",
+              "Lawyer / Legal Professional",
+              "NRI / Working Abroad",
+              "Any Working",
+            ].map((j) => {
+              const isSel = jobs.includes(j);
+              return (
+                <button
+                  type="button"
+                  key={j}
+                  onClick={() => toggleJob(j)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
+                    isSel
+                      ? "bg-[#7A0C2E] text-white shadow-xs"
+                      : "bg-white border border-slate-200 text-slate-700 hover:border-gold hover:bg-amber-50"
+                  }`}
+                >
+                  <span>{isSel ? "✓" : "+"}</span>
+                  <span>{j}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Minimum Income Bracket */}
+          <div className="pt-2">
+            <label className="font-bold text-slate-800 block text-xs mb-1">
+              కనీస వార్షిక ఆదాయం (Minimum Annual Income):
+            </label>
+            <select
+              value={minSalary}
+              onChange={(e) => setMinSalary(e.target.value)}
+              className="w-full sm:w-72 p-2.5 border border-slate-200 rounded-xl bg-white text-xs font-bold text-slate-800 focus:outline-none focus:border-maroon"
+            >
+              <option value="Any">ఏదైనా ఆదాయం (Any Salary)</option>
+              <option value="₹3 - 5 Lakhs / year">₹3 - 5 లక్షలు / సం. పైన</option>
+              <option value="₹5 - 7 Lakhs / year">₹5 - 7 లక్షలు / సం. పైన</option>
+              <option value="₹7 - 10 Lakhs / year">₹7 - 10 లక్షలు / సం. పైన</option>
+              <option value="₹10 - 15 Lakhs / year">₹10 - 15 లక్షలు / సం. పైన</option>
+              <option value="₹15 - 25 Lakhs / year">₹15 - 25 లక్షలు / సం. పైన</option>
+              <option value="₹25 - 50 Lakhs / year">₹25 - 50 లక్షలు / సం. పైన</option>
+              <option value="₹50+ Lakhs (NRI / High Networth)">₹50+ లక్షలు (NRI / High Networth)</option>
+            </select>
+          </div>
+        </div>
+
+        {/* 5. Districts Multi-Select */}
+        <div className="space-y-3 border-t border-slate-100 pt-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-2">
+            <h3 className="text-sm font-black text-maroon uppercase tracking-wider flex items-center gap-2">
+              <span>📍</span> <span>కోరుకునే జిల్లాలు & ప్రాంతాలు (Districts - Multi-Select)</span>
+            </h3>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() =>
+                  setDistricts(["Hyderabad", "Ranga Reddy", "Medchal-Malkajgiri", "Sangareddy"])
+                }
+                className="text-[11px] font-bold text-slate-800 bg-amber-50 px-2.5 py-1 rounded-full border border-amber-200 hover:bg-amber-100"
+              >
+                హైదరాబాద్ మెట్రో
+              </button>
+              <button
+                type="button"
+                onClick={() => setDistricts([...TS_DISTRICTS])}
+                className="text-[11px] font-bold text-indigo-800 bg-indigo-50 px-2.5 py-1 rounded-full border border-indigo-200 hover:bg-indigo-100"
+              >
+                తెలంగాణ అన్నీ
+              </button>
+              <button
+                type="button"
+                onClick={() => setDistricts([...AP_DISTRICTS])}
+                className="text-[11px] font-bold text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200 hover:bg-emerald-100"
+              >
+                ఆంధ్రప్రదేశ్ అన్నీ
+              </button>
+              {districts.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setDistricts([])}
+                  className="text-[11px] font-bold text-slate-500 hover:text-slate-800"
+                >
+                  క్లియర్ ({districts.length})
+                </button>
+              )}
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <input
+              type="text"
+              value={districtSearch}
+              onChange={(e) => setDistrictSearch(e.target.value)}
+              placeholder="🔍 జిల్లాను వెతకండి (ఉదా: Hyderabad, Warangal, Guntur, Krishna, Visakhapatnam)..."
+              className="w-full p-2.5 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-maroon"
+            />
+
+            <div className="flex flex-wrap gap-1.5 max-h-48 overflow-y-auto p-2 border border-slate-100 rounded-2xl bg-slate-50/50">
+              {filteredDistricts.map((d) => {
+                const isSel = districts.includes(d);
+                const teName = DISTRICT_TELUGU[d] || "";
+                return (
+                  <button
+                    type="button"
+                    key={d}
+                    onClick={() => toggleDistrict(d)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
+                      isSel
+                        ? "bg-[#7A0C2E] text-white shadow-xs"
+                        : "bg-white border border-slate-200 text-slate-700 hover:border-gold hover:bg-amber-50"
+                    }`}
+                  >
+                    <span>{isSel ? "✓" : "+"}</span>
+                    <span>{d} {teName ? `(${teName})` : ""}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        {/* 6. Marital Status & Diet */}
+        <div className="space-y-3 border-t border-slate-100 pt-4">
+          <h3 className="text-sm font-black text-maroon uppercase tracking-wider flex items-center gap-2 border-b border-slate-100 pb-2">
+            <span>💍</span> <span>వైవాహిక స్థితి & ఇతర అలవాట్లు (Marital & Lifestyle)</span>
+          </h3>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+            <div>
+              <label className="font-bold text-slate-800 block mb-1.5">వైవాహిక స్థితి (Marital Status):</label>
+              <div className="flex flex-wrap gap-1.5">
+                {[
+                  { v: "Never Married", l: "మొదటి వివాహం (Never Married)" },
+                  { v: "Divorced", l: "విడాకులు (Divorced)" },
+                  { v: "Widowed", l: "వితంతువు (Widowed)" },
+                ].map((m) => {
+                  const isSel = maritalStatuses.includes(m.v);
+                  return (
+                    <button
+                      type="button"
+                      key={m.v}
+                      onClick={() => toggleMarital(m.v)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
+                        isSel
+                          ? "bg-[#7A0C2E] text-white shadow-xs"
+                          : "bg-white border border-slate-200 text-slate-700 hover:border-gold hover:bg-amber-50"
+                      }`}
+                    >
+                      <span>{isSel ? "✓" : "+"}</span>
+                      <span>{m.l}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div>
+              <label className="font-bold text-slate-800 block mb-1.5">ఆహారపు అలవాటు (Diet):</label>
+              <select
+                value={diet}
+                onChange={(e) => setDiet(e.target.value)}
+                className="w-full p-2.5 border border-slate-200 rounded-xl bg-white font-bold text-slate-800 focus:outline-none focus:border-maroon"
+              >
+                <option value="Any">ఏదైనా (Any Diet)</option>
+                <option value="Vegetarian">శాఖాహారం మాత్రమే (Vegetarian Only)</option>
+                <option value="Non-Vegetarian">మాంసాహారం (Non-Vegetarian)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        {/* 7. Save Action Bar */}
+        <div className="pt-4 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3">
+          <div className="text-xs text-slate-600 font-medium text-center sm:text-left">
+            💾 సేవ్ చేయగానే మీ కోసం ప్రత్యేకంగా సరిపోయే సంబంధాల జాబితా ఆటోమేటిక్‌గా అప్‌డేట్ అవుతుంది.
+          </div>
+
+          <button
+            type="submit"
+            disabled={saving}
+            className="w-full sm:w-auto px-8 py-3.5 rounded-2xl gold-gradient text-maroon text-sm font-black shadow-md hover:brightness-105 transition flex items-center justify-center gap-2 disabled:opacity-50"
+          >
+            {saving ? "సేవ్ అవుతోంది…" : "💾 నా ప్రిఫరెన్సెస్ సేవ్ చేయండి (Save Preferences)"}
+          </button>
+        </div>
+      </form>
+    </div>
   );
 }
 

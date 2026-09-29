@@ -282,6 +282,37 @@ def run_e2e_stress_test():
     assert res_standee.status_code == 200 and len(res_standee.content) > 5000
     print(f"  ✓ Viral Referral Assets generated: Story ({len(res_story.content)}B), Banner ({len(res_banner.content)}B), Standee ({len(res_standee.content)}B)")
 
+    # 6. Partner Preferences Multi-Select Configuration & Smart Match Suggestion
+    pref_payload = {
+        "tsap_id": sample_bride['tsap_id'],
+        "age_min": 24,
+        "age_max": 32,
+        "height_min": "5'5\"",
+        "height_max": "6'2\"",
+        "castes": ["Reddy", "Kamma", "Kapu", "Yadava", "Velama"],
+        "sub_castes": ["Motati", "Pokanati", "Chowdary"],
+        "caste_no_bar": False,
+        "educations": ["B.Tech / B.E.", "M.Tech / M.E.", "MS (USA / Abroad)", "MBA / PGDM"],
+        "jobs": ["Software / IT Professional", "Govt Employee / PSU", "Doctor / Medical Professional"],
+        "min_salary": "₹5 - 7 Lakhs / year",
+        "districts": ["Hyderabad", "Ranga Reddy", "Medchal-Malkajgiri", "Warangal", "Guntur", "Krishna"],
+        "marital_statuses": ["Never Married"],
+        "diet": "Any"
+    }
+    res_save_prefs = client.post("/api/profile/preferences", json=pref_payload)
+    assert res_save_prefs.status_code == 200
+    pref_data = res_save_prefs.json()
+    assert pref_data.get("success") is True
+    print(f"  ✓ Saved Partner Preferences: {res_save_prefs.status_code} — Matches count: {pref_data.get('matching_count')}")
+
+    # 7. Get Partner Preferred Matches List
+    res_pref_matches = client.get(f"/api/matches/partner-preferred?tsap_id={sample_bride['tsap_id']}")
+    assert res_pref_matches.status_code == 200
+    pref_matches_data = res_pref_matches.json()
+    assert pref_matches_data.get("success") is True
+    assert len(pref_matches_data.get("matches", [])) > 0
+    print(f"  ✓ Fetched Partner Preferred Matches: {len(pref_matches_data.get('matches', []))} high-suitability candidates")
+
     # -------------------------------------------------------------------------
     # PART 3: ADMIN DIRECTORY & DATE FILTERING WITH 100+ PROFILES
     # -------------------------------------------------------------------------
