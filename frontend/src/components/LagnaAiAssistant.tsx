@@ -78,7 +78,44 @@ export default function LagnaAiAssistant() {
       let actions: { label: string; href?: string }[] = [];
       const lower = text.toLowerCase();
 
-      if (lower.includes("software") || lower.includes("సాఫ్ట్‌వేర్") || lower.includes("it") || lower.includes("hyd") || lower.includes("హైదరాబాద్")) {
+      if (lower.includes("housewife") || lower.includes("homemaker") || lower.includes("గృహిణి") || lower.includes("non-working")) {
+        replyText = te
+          ? "గృహిణి (Housewife / Homemaker) అమ్మాయిల ప్రొఫైల్స్ మరియు కుటుంబ విలువలని గౌరవించే సంప్రదాయ వధువుల సంబంధాలు ప్రత్యేకంగా అందుబాటులో ఉన్నాయి."
+          : "We have dedicated verified Bride profiles who are Housewife / Homemaker and cultured homemakers.";
+        actions = [
+          { label: te ? "🏡 గృహిణి (Homemaker) సంబంధాలు చూడండి →" : "View Homemaker Matches →", href: "/matches?job=Housewife%20/%20Homemaker%20(%E0%B0%97%E0%B1%83%E0%B0%B9%E0%B0%BF%E0%B0%A3%E0%B0%BF)&gender=Bride" },
+          { label: te ? "💍 అన్ని వధువుల సంబంధాలు →" : "All Brides →", href: "/matches?gender=Bride" },
+        ];
+      } else if (lower.includes("second marriage") || lower.includes("remarriage") || lower.includes("పునర్వివాహం") || lower.includes("విడాకులు") || lower.includes("divorce") || lower.includes("widow") || lower.includes("వితంతు")) {
+        replyText = te
+          ? "పునర్వివాహం (Second Marriage) కోసం ప్రత్యేక సురక్షిత పోర్టల్ సిద్ధంగా ఉంది. విడాకులు తీసుకున్నవారు (పిల్లలు ఉన్నవారు/లేనివారు), వితంతువుల కోసం 100% గోప్యతతో కూడిన వేదిక."
+          : "Dedicated Second Marriage & Remarriage portal with confidential verified profiles for Divorced, Widowed, and Awaiting Divorce individuals.";
+        actions = [
+          { label: te ? "🔄 పునర్వివాహ పోర్టల్ చూడండి →" : "Open Second Marriage Portal →", href: "/second-marriage" },
+          { label: te ? "📞 కౌన్సెలర్ సంప్రదించండి →" : "Chat with Counselor →", href: "https://wa.me/916304996088?text=Second%20Marriage%20Counseling" },
+        ];
+      } else if (lower.includes("biodata") || lower.includes("బయోడేటా") || lower.includes("jpg") || lower.includes("pdf")) {
+        replyText = te
+          ? "కేవలం 1-నిమిషంలో 4 రాజసం ఉట్టిపడే కలర్ థీమ్స్‌లో QR కోడ్‌తో కూడిన HD కలర్ బయోడేటా JPG ని ఉచితంగా డౌన్‌లోడ్ చేసుకోండి!"
+          : "Generate and download print-ready 2.5x HD Marriage Biodata JPG with dynamic QR code for free in 1-minute!";
+        actions = [
+          { label: te ? "🎴 ఉచిత HD బయోడేటా స్టూడియో తెరవండి →" : "Open HD Biodata Studio →", href: "/biodata" },
+        ];
+      } else if (lower.includes("doctor") || lower.includes("డాక్టర్") || lower.includes("mbbs") || lower.includes("md")) {
+        replyText = te
+          ? "MBBS, MD, MS, BDS డాక్టర్ల మరియు మెడికల్ స్పెషలిస్టుల తెలుగు సంబంధాలు తెలంగాణ & ఆంధ్రప్రదేశ్ అంతటా అందుబాటులో ఉన్నాయి."
+          : "Verified Doctor (MBBS, MD, MS, BDS) & Healthcare specialist profiles available across TS, AP & NRI.";
+        actions = [
+          { label: te ? "🩺 డాక్టర్ సంబంధాలు చూడండి →" : "Explore Doctor Matches →", href: "/matches?job=Doctor%20/%20Physician" },
+        ];
+      } else if (lower.includes("govt") || lower.includes("ప్రభుత్వ") || lower.includes("psu") || lower.includes("bank") || lower.includes("బ్యాంక్")) {
+        replyText = te
+          ? "కేంద్ర & రాష్ట్ర ప్రభుత్వ ఉద్యోగులు, గ్రూప్-1 ఆఫీసర్లు, బ్యాంకు అధికారులు మరియు టీచర్ల సంబంధాలు సిద్ధంగా ఉన్నాయి."
+          : "Central & State Govt employees, PSU staff, Bank PO/Managers, and Teachers profiles available.";
+        actions = [
+          { label: te ? "🏛️ ప్రభుత్వ ఉద్యోగుల సంబంధాలు →" : "Explore Govt Matches →", href: "/matches?job=Govt%20Employee%20(Central%20/%20State)" },
+        ];
+      } else if (lower.includes("software") || lower.includes("సాఫ్ట్‌వేర్") || lower.includes("it") || lower.includes("hyd") || lower.includes("హైదరాబాద్")) {
         replyText = te
           ? "హైదరాబాద్ & గ్లోబల్ NRI లొకేషన్లలో ఉన్న టాప్ సాఫ్ట్‌వేర్ ఇంజనీర్లు, టీమ్ లీడ్స్ & IT ప్రొఫెషనల్స్ సంబంధాలు సిద్ధంగా ఉన్నాయి! మొదటి 3 సంబంధాలు ఉచితంగా చూడవచ్చు."
           : "We have hundreds of verified Software Engineers and IT professionals in Hyderabad and NRI locations ready for you! First 3 profiles are completely FREE.";
