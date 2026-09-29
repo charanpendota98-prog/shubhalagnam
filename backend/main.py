@@ -3954,6 +3954,23 @@ def channels_live():
 _USERS_ID_MAP: dict = {}
 _USERS_PHONE_MAP: dict = {}
 
+def _ensure_db_initialized():
+    global DB_USERS
+    if not DB_USERS:
+        try:
+            _snap = DBSTORE.load()
+            if _snap and _snap.get("users"):
+                DB_USERS.extend(_snap["users"])
+                _reindex_users()
+        except Exception:
+            pass
+    if not DB_USERS:
+        try:
+            demo_seed()
+            _reindex_users()
+        except Exception:
+            pass
+
 def _reindex_users():
     global _USERS_ID_MAP, _USERS_PHONE_MAP
     _USERS_ID_MAP = {str(u.get("tsap_id", "")).upper(): u for u in DB_USERS if u.get("tsap_id")}
@@ -3962,6 +3979,7 @@ def _reindex_users():
 def _find_user(tsap_id: str):
     if not tsap_id:
         return None
+    _ensure_db_initialized()
     raw = str(tsap_id).strip().upper()
     if raw in _USERS_ID_MAP:
         return _USERS_ID_MAP[raw]
