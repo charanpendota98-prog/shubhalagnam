@@ -1471,6 +1471,19 @@ export default function Dashboard() {
                           </div>
                         )}
 
+                        {/* AI Match Insights */}
+                        {row.ai_summary && (
+                          <div className="bg-gradient-to-r from-amber-50 to-rose-50 rounded-2xl p-2.5 border border-amber-200/80 text-xs">
+                            <div className="font-extrabold text-[#7A0C2E] flex items-center gap-1.5 mb-0.5">
+                              <span>✨</span>
+                              <span>AI మ్యాచ్ మేకర్ విశ్లేషణ:</span>
+                            </div>
+                            <p className="text-[11px] text-slate-700 leading-relaxed font-medium">
+                              {row.ai_summary}
+                            </p>
+                          </div>
+                        )}
+
                         {/* Vedic Gunamelanam & Dosha Summary */}
                         <div className="bg-amber-50/80 rounded-2xl p-2.5 border border-gold/30 flex items-center justify-between text-xs">
                           <div className="flex items-center gap-1.5 flex-wrap">

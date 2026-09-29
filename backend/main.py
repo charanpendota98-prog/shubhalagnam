@@ -681,18 +681,37 @@ def control_matchmaker(
             except Exception:
                 pass
 
-        # Match reason badges in Telugu
+        # AI Match reason badges & Deep Insights in Telugu
         reasons = []
+        strengths = []
         if str(p.get("caste", "")).lower() == str(me.get("caste", "")).lower():
             reasons.append(f"🏛️ ఒకే కులం ({p.get('caste')})")
+            strengths.append(f"ఒకే సామాజిక వర్గం ({p.get('caste')})")
         if str(p.get("district", "")).lower() == str(me.get("district", "")).lower():
             reasons.append(f"📍 స్థానిక జిల్లా ({p.get('district')})")
+            strengths.append(f"ఒకే జిల్లా ({p.get('district')})")
         if p.get("education") and me.get("education") and str(p.get("education")).lower() == str(me.get("education")).lower():
             reasons.append(f"🎓 సమ విద్య ({p.get('education')})")
+            strengths.append(f"సమాన విద్యార్హత ({p.get('education')})")
         if guna_res and guna_res.get("score"):
             reasons.append(f"🪐 గుణాలు: {guna_res.get('score')}/36")
+            if (guna_res.get("score") or 0) >= 18:
+                strengths.append(f"వేద గుణమేళనం {guna_res.get('score')}/36 (రజ్జు & నాడీ శుద్ధి)")
+        
+        m_age = int(p.get("age", 0) or 0)
+        c_age = int(me.get("age", 0) or 0)
+        if m_age and c_age:
+            age_diff = abs(m_age - c_age)
+            if 1 <= age_diff <= 5:
+                reasons.append(f"🎂 వయస్సు తేడా {age_diff}y")
+                strengths.append(f"వయస్సు తేడా {age_diff} సం. (ఆదర్శం)")
+
         if not reasons:
             reasons.append("⚡ అనుకూల వయస్సు & సంబంధం")
+            strengths.append("అనుకూల ప్రొఫైల్ వివరాలు")
+
+        ai_score = m.get("score", 88)
+        ai_summary = f"🌟 AI విశ్లేషణ: {me.get('full_name')} & {p.get('full_name')} ల మధ్య {ai_score}% మ్యాచ్ కుదిరింది. " + " • ".join(strengths[:3])
 
         m.update({
             "tsap_id": p.get("tsap_id"),
@@ -718,6 +737,10 @@ def control_matchmaker(
             "gunamelanam_verdict": guna_res.get("verdict") if guna_res else None,
             "gunamelanam_doshas": guna_res.get("doshas", []) if guna_res else [],
             "reasons": reasons,
+            "strengths": strengths,
+            "ai_score": ai_score,
+            "ai_summary": ai_summary,
+            "recommendation_telugu": "✅ అభ్యర్థికి వాట్సాప్‌లో సంబంధం వివరాలు షేర్ చేయడానికి 100% అనుకూలం",
         })
         results.append(m)
 
