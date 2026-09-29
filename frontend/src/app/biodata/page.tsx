@@ -170,6 +170,18 @@ export default function BiodataPage() {
     photoUrl: "/promo/bride-card.jpg",
   });
 
+  // Auto-fill from URL query parameter ?id=... on mount
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const urlId = params.get("id");
+      if (urlId) {
+        setProfileId(urlId.toUpperCase());
+        void fetchProfile(urlId.toUpperCase());
+      }
+    }
+  }, []);
+
   // Generate QR code for viral loop
   useEffect(() => {
     const targetUrl = `https://manavivaha.in/search/${profileId || "MV2001"}`;

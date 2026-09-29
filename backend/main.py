@@ -1645,9 +1645,23 @@ async def register(
     7. Find Top 3 FREE matches (score 70%+ + reasons)
     8. Return ID + card + matches
     """
-    # 1. Validate — 🛡️ WAVE 9 strict (mundu age check tappa em ledu → 500s, XSS, junk rows)
-    gender = req_choice(gender, "gender", ["Bride", "Groom", "Male", "Female"])
-    gender = {"Male": "Groom", "Female": "Bride"}.get(gender, gender)
+    # 1. Validate & Smart Normalization
+    _g_clean = str(gender or "").strip().lower()
+    if _g_clean in ["bride", "female", "f", "అమ్మాయి", "వధువు"] or "bride" in _g_clean or "female" in _g_clean:
+        gender = "Bride"
+    else:
+        gender = "Groom"
+
+    _ms_clean = str(marital_status or "").strip().lower()
+    if any(k in _ms_clean for k in ["never", "kaledu", "కాలేదు", "single", "first", "unmarried"]):
+        marital_status = "Pelli Kaledu"
+    elif any(k in _ms_clean for k in ["divorc", "vidak", "విడాకు"]):
+        marital_status = "Divorced"
+    elif any(k in _ms_clean for k in ["widow", "vidh", "వితంతు", "విధురు"]):
+        marital_status = "Widow" if gender == "Bride" else "Widower"
+    elif any(k in _ms_clean for k in ["await", "separat", "నిరీక్షణ"]):
+        marital_status = "Awaiting Divorce"
+
     age = req_int(age, "age", 21 if gender == "Groom" else 18, 70)
     phone = req_phone(phone, "phone")
     password = (password or "").strip()
