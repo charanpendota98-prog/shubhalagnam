@@ -1484,20 +1484,23 @@ export default function Dashboard() {
                           </div>
                         )}
 
-                        {/* Vedic Gunamelanam & Dosha Summary */}
-                        <div className="bg-amber-50/80 rounded-2xl p-2.5 border border-gold/30 flex items-center justify-between text-xs">
+                        {/* Core Match Compatibility & Astro Info (Optional) */}
+                        <div className="bg-amber-50/70 rounded-2xl p-2.5 border border-gold/30 flex items-center justify-between text-xs flex-wrap gap-2">
                           <div className="flex items-center gap-1.5 flex-wrap">
-                            <span>🪐</span>
                             <span className="font-extrabold text-maroon">
-                              వేద గుణమేళనం: <b>{row.gunamelanam ? `${row.gunamelanam}/36 గుణాలు` : "గుణమేళనం సరిపోయింది ✅"}</b>
+                              🎯 ప్రొఫైల్ అనుకూలత:
                             </span>
-                            <span className="text-[11px] text-emerald-700 font-bold ml-1">
-                              {row.gunamelanam_verdict ? `(${row.gunamelanam_verdict})` : "(రజ్జు శుద్ధి ✅)"}
+                            <span className="text-[11px] text-emerald-700 font-bold">
+                              అన్ని ప్రధాన అర్హతలు సరిపోయాయి ✅
                             </span>
                           </div>
-                          {row.star && (
-                            <span className="text-[11px] text-slate-600 font-bold">
-                              ⭐ {row.star} ({row.rasi || ""})
+                          {row.star ? (
+                            <span className="text-[11px] text-slate-700 font-bold bg-white/80 px-2 py-0.5 rounded-lg border border-slate-200">
+                              ⭐ నక్షత్రం: {row.star} {row.rasi ? `(${row.rasi})` : ""}
+                            </span>
+                          ) : (
+                            <span className="text-[10px] text-slate-500 font-medium">
+                              (నక్షత్రం ఐచ్ఛికం)
                             </span>
                           )}
                         </div>

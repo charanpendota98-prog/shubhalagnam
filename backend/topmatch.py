@@ -26,8 +26,8 @@ except Exception:                                    # engine lekapoyina score p
     compute_porutham = None
 
 WEIGHTS: Dict[str, int] = {
-    "age": 13, "caste": 13, "location": 12, "education": 9, "job": 10,
-    "salary": 8, "height": 5, "horoscope": 10, "family": 8, "lifestyle": 7, "trust": 5,
+    "age": 16, "caste": 16, "location": 15, "education": 12, "job": 13,
+    "salary": 10, "height": 6, "horoscope": 0, "family": 11, "lifestyle": 11, "trust": 0,
 }
 LABELS = {
     "age": ("Age match", "వయస్సు"),
@@ -37,7 +37,7 @@ LABELS = {
     "job": ("Job / profession", "ఉద్యోగం"),
     "salary": ("Income", "ఆదాయం"),
     "height": ("Height match", "ఎత్తు"),
-    "horoscope": ("Gunamelanam", "గుణమేళనం"),
+    "horoscope": ("Horoscope (Optional)", "నక్షత్రం (ఐచ్ఛికం)"),
     "family": ("Family background", "కుటుంబం"),
     "lifestyle": ("Lifestyle habits", "జీవనశైలి"),
     "trust": ("Verification / trust", "విశ్వాసం"),
@@ -205,17 +205,11 @@ def _height_pref(user: Dict, match: Dict) -> (float, str):
 
 
 def _horoscope_pref(user: Dict, match: Dict) -> (float, str):
-    if not compute_porutham:
-        return 0.5, "గుణమేళనం అందుబాటులో లేదు"
-    b, g = (user, match) if user.get("gender") == "Bride" else (match, user)
-    try:
-        r = compute_porutham(b, g)
-    except Exception:
-        r = {"available": False}
-    if not r.get("available"):
-        return 0.5, "నక్షత్ర వివరాలు లేవు (నక్షత్రం నమోదు చేస్తే గుణమేళనం వస్తుంది)"
-    sc = float(r.get("score", 0) or 0)
-    return (sc / 10.0), "గుణమేళనం %s/10 — %s" % (sc, str(r.get("verdict", ""))[:40])
+    # Horoscope/Star is 100% optional — never filter out or penalize candidates
+    s = match.get("star")
+    if s:
+        return 1.0, f"నక్షత్రం: {s} (ఐచ్ఛికం)"
+    return 1.0, "నక్షత్రం ఐచ్ఛికం (నో ఫిల్టర్)"
 
 
 def _family_pref(user: Dict, match: Dict) -> (float, str):

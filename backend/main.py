@@ -681,7 +681,7 @@ def control_matchmaker(
             except Exception:
                 pass
 
-        # AI Match reason badges & Deep Insights in Telugu
+        # AI Match reason badges & Deep Insights in Telugu (Real-world practical criteria)
         reasons = []
         strengths = []
         if str(p.get("caste", "")).lower() == str(me.get("caste", "")).lower():
@@ -693,10 +693,9 @@ def control_matchmaker(
         if p.get("education") and me.get("education") and str(p.get("education")).lower() == str(me.get("education")).lower():
             reasons.append(f"🎓 సమ విద్య ({p.get('education')})")
             strengths.append(f"సమాన విద్యార్హత ({p.get('education')})")
-        if guna_res and guna_res.get("score"):
-            reasons.append(f"🪐 గుణాలు: {guna_res.get('score')}/36")
-            if (guna_res.get("score") or 0) >= 18:
-                strengths.append(f"వేద గుణమేళనం {guna_res.get('score')}/36 (రజ్జు & నాడీ శుద్ధి)")
+        if p.get("job") and ("software" in str(p.get("job")).lower() or "govt" in str(p.get("job")).lower() or "business" in str(p.get("job")).lower()):
+            reasons.append(f"💼 {p.get('job')}")
+            strengths.append(f"సెటిల్డ్ వృత్తి ({p.get('job')})")
         
         m_age = int(p.get("age", 0) or 0)
         c_age = int(me.get("age", 0) or 0)

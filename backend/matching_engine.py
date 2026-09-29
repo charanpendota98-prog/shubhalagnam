@@ -109,9 +109,8 @@ def calculate_height_score(user_height: str, match_height: str, user_gender: str
         return 3
 
 def calculate_horoscope_score(user_star: str, match_star: str) -> int:
-    if not user_star or not match_star: return 3
-    if user_star==match_star: return 5
-    return 3  # Phase-2: real panchangam logic
+    # Optional field — no penalty or filtering
+    return 5
 
 def calculate_marital_score(user_marital: str, match_marital: str) -> int:
     return 5 if user_marital==match_marital else 2
