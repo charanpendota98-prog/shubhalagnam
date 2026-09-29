@@ -2519,12 +2519,15 @@ def update_user_profile(payload: dict):
         raise HTTPException(404, f"Profile {tsap_id} not found")
     
     updatable_fields = [
-        "full_name", "dob", "birth_time", "height", "marital_status", "children", "caste",
+        "full_name", "dob", "birth_time", "height", "weight", "marital_status", "children", "caste",
         "sub_caste", "gothram", "star", "rasi", "dosham", "education", "education_detail",
         "job", "company", "salary", "work_type", "work_location", "father_name",
         "father_occupation", "mother_name", "mother_occupation", "brothers", "sisters",
-        "native_place", "state", "district", "mandal", "current_city", "about_myself",
-        "photo_url", "photo_private", "blood_group", "complexion", "body_type"
+        "native_place", "state", "district", "mandal", "current_city", "about_myself", "expectations",
+        "exp_age_min", "exp_age_max", "exp_caste", "exp_education", "exp_job", "exp_location", "exp_salary",
+        "family_type", "family_status", "family_values", "mother_tongue", "physical_status",
+        "country", "citizenship", "visa_status", "is_nri",
+        "photo_url", "photo_urls", "photo_private", "blood_group", "complexion", "body_type"
     ]
     for k in updatable_fields:
         if k in payload and payload[k] is not None:

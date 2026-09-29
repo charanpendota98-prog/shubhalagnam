@@ -456,6 +456,22 @@ export default function ProfileView() {
               </div>
             </div>
 
+            {myTsapId && profile.tsap_id === myTsapId ? (
+              <div className="mt-3 flex items-center justify-between bg-amber-50 border border-amber-300 rounded-2xl p-3">
+                <div className="text-xs font-bold text-maroon flex items-center gap-1.5">
+                  <span>👑</span>
+                  <span>{te ? "ఇది మీ స్వంత ప్రొఫైల్ (మీరు ఎప్పుడైనా వివరాలు మార్చుకోవచ్చు)" : "This is your profile (You can edit anytime)"}</span>
+                </div>
+                <Link
+                  href="/me"
+                  className="px-3.5 py-1.5 rounded-xl maroon-gradient text-white text-xs font-bold shadow-xs hover:brightness-105 transition flex items-center gap-1"
+                >
+                  <span>✏️</span>
+                  <span>{te ? "వివరాలు సవరించండి" : "Edit Profile"}</span>
+                </Link>
+              </div>
+            ) : null}
+
             {voiceUrl ? (
               <div className="mt-3">
                 <VoiceBiodataPlayer voiceUrl={voiceUrl} name={profile.full_name} role={profile.gender} />
