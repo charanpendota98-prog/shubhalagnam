@@ -11,9 +11,12 @@ import asyncio
 import os
 import sys
 
-_vendor_dir = os.path.join(os.path.dirname(__file__), "vendor")
+_backend_dir = os.path.dirname(os.path.abspath(__file__))
+_vendor_dir = os.path.join(_backend_dir, "vendor")
 if os.path.isdir(_vendor_dir) and _vendor_dir not in sys.path:
     sys.path.insert(0, _vendor_dir)
+if _backend_dir not in sys.path:
+    sys.path.insert(0, _backend_dir)
 
 from aiogram import Bot, Dispatcher, F
 from aiogram.types import Message, CallbackQuery, ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton

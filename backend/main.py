@@ -3,9 +3,12 @@ TSAP Matrimony — FastAPI Backend — Pin-to-Pin Perfect Advanced
 All endpoints: Register, ID Search, Matches, Credits, Referral, Bureau, Admin, Payment, Channels auto-post
 """
 import sys, os
-_vendor_dir = os.path.join(os.path.dirname(__file__), "vendor")
+_backend_dir = os.path.dirname(os.path.abspath(__file__))
+_vendor_dir = os.path.join(_backend_dir, "vendor")
 if os.path.isdir(_vendor_dir) and _vendor_dir not in sys.path:
     sys.path.insert(0, _vendor_dir)
+if _backend_dir not in sys.path:
+    sys.path.insert(0, _backend_dir)
 
 from fastapi import FastAPI, HTTPException, Request, UploadFile, File, Form, Body
 from fastapi.middleware.cors import CORSMiddleware
