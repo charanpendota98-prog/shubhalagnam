@@ -17,6 +17,7 @@ import { useLang } from "@/lib/lang";
 import { useSearchParams } from "next/navigation";
 import { NAKSHATRAS, NAK_TO_RASI, RASIS } from "@/lib/telugu-data";
 import RasiChart from "@/components/RasiChart";
+import KundaliRadarVisualizer from "@/components/KundaliRadarVisualizer";
 
 type Res = Record<string, any>;
 
@@ -295,7 +296,19 @@ function PoruthamInner() {
                 🕉️ {res.advice_telugu || res.reason}
               </div>
 
-                <div className="mt-4 flex flex-wrap gap-2 print:hidden">
+              {/* 🕉️ Interactive Kundali 36-Gunas Radar Visualizer */}
+              <div className="mt-4">
+                <KundaliRadarVisualizer
+                  totalScore={Math.round((res.score / 10) * 36)}
+                  maxScore={36}
+                  brideName={res.bride?.full_name || res._bride}
+                  groomName={res.groom?.full_name || res._groom}
+                  brideStar={res.bride_star_en || res.bride_star}
+                  groomStar={res.groom_star_en || res.groom_star}
+                />
+              </div>
+
+              <div className="mt-4 flex flex-wrap gap-2 print:hidden">
                 <a
                   href={res._byStar ? `/api/astro/report/download?bride_star=${encodeURIComponent(bStar)}&bride_rasi=${encodeURIComponent(bRasi)}&groom_star=${encodeURIComponent(gStar)}&groom_rasi=${encodeURIComponent(gRasi)}` : `/api/astro/report/download?bride_id=${encodeURIComponent(bride)}&groom_id=${encodeURIComponent(groom)}`}
                   target="_blank"

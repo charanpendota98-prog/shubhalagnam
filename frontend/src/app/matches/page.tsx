@@ -46,6 +46,7 @@ import { useLang } from "@/lib/lang";
 import ProfileRail from "@/components/ProfileRail";
 import DistrictAdBanner from "@/components/DistrictAdBanner";
 import QuickUnlockModal from "@/components/QuickUnlockModal";
+import WhatsAppProposalModal from "@/components/WhatsAppProposalModal";
 
 type Row = Record<string, any>;
 const SAVED_SEARCHES_KEY = "tsap_saved_searches_v5";
@@ -485,6 +486,7 @@ export default function MatchesPage() {
   const [savedIds, setSavedIds] = useState<string[]>([]);
   const [sheet, setSheet] = useState<boolean>(false);
   const [unlockTarget, setUnlockTarget] = useState<Row | null>(null);
+  const [proposalTarget, setProposalTarget] = useState<Row | null>(null);
 
   // In-filter search state
   const [casteSearch, setCasteSearch] = useState("");
@@ -981,9 +983,9 @@ export default function MatchesPage() {
           </button>
 
           <button
-            onClick={() => shareWhatsApp(row)}
+            onClick={() => setProposalTarget(row)}
             className="w-10 h-10 rounded-xl bg-[#25D366] text-white flex items-center justify-center text-base hover:brightness-105 transition shadow-xs shrink-0"
-            title="WhatsApp లో పంపండి"
+            title="WhatsApp లో సంబంధం వివరాలు షేర్ చేయండి"
           >
             💬
           </button>
@@ -1735,6 +1737,34 @@ export default function MatchesPage() {
             setUnlockTarget(null);
             fetchMatches();
           }}
+        />
+      )}
+
+      {/* Instant WhatsApp Proposal Modal */}
+      {proposalTarget && (
+        <WhatsAppProposalModal
+          isOpen={!!proposalTarget}
+          profile={{
+            tsap_id: String(proposalTarget.tsap_id || proposalTarget.id || "MV1001"),
+            full_name: proposalTarget.full_name,
+            gender: proposalTarget.gender,
+            age: proposalTarget.age,
+            height: proposalTarget.height,
+            caste: proposalTarget.caste,
+            sub_caste: proposalTarget.sub_caste,
+            gothram: proposalTarget.gothram,
+            star: proposalTarget.star,
+            rasi: proposalTarget.rasi,
+            education: proposalTarget.education,
+            job: proposalTarget.job,
+            company: proposalTarget.company,
+            salary: proposalTarget.salary,
+            district: proposalTarget.district,
+            state: proposalTarget.state,
+            marital_status: proposalTarget.marital_status,
+            photo_url: proposalTarget.photo_url,
+          }}
+          onClose={() => setProposalTarget(null)}
         />
       )}
     </main>

@@ -23,6 +23,9 @@ import { Duo, duo } from "@/lib/duo";
 import { useLang } from "@/lib/lang";
 import ProfileRail from "@/components/ProfileRail";
 import QuickUnlockModal from "@/components/QuickUnlockModal";
+import WhatsAppProposalModal from "@/components/WhatsAppProposalModal";
+import VoiceBiodataPlayer from "@/components/VoiceBiodataPlayer";
+import KundaliRadarVisualizer from "@/components/KundaliRadarVisualizer";
 
 type Row = Record<string, any>;
 
@@ -207,6 +210,7 @@ export default function ProfileView() {
   const [unlocked, setUnlocked] = useState("");
   const [unlocking, setUnlocking] = useState(false);
   const [showUnlockModal, setShowUnlockModal] = useState(false);
+  const [showProposalModal, setShowProposalModal] = useState(false);
   const [compat, setCompat] = useState<Row | null>(null);
   const [voiceUrl, setVoiceUrl] = useState("");
   const [chart, setChart] = useState<Row | null>(null);
@@ -453,10 +457,8 @@ export default function ProfileView() {
             </div>
 
             {voiceUrl ? (
-              <div className="mt-3 flex items-center gap-2 rounded-2xl bg-rose-50 p-2">
-                <span className="text-[12px] font-bold">🎙️</span>
-                {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
-                <audio controls src={voiceUrl} className="h-8 flex-1" />
+              <div className="mt-3">
+                <VoiceBiodataPlayer voiceUrl={voiceUrl} name={profile.full_name} role={profile.gender} />
               </div>
             ) : null}
 
@@ -617,8 +619,9 @@ export default function ProfileView() {
               className={`rounded-xl px-4 py-2 text-sm font-bold ${savedNow ? "bg-rose-100 text-rose-700" : "border border-slate-300 text-slate-700"}`}>
               {savedNow ? (te ? "❤️ Shortlist లో ఉంది" : "❤️ In shortlist") : "🤍 Shortlist"}
             </button>
-            <button onClick={shareWhatsApp} className="rounded-xl bg-green-600 hover:bg-green-700 px-4 py-2 text-sm font-bold text-white transition">
-              💬 WhatsApp Share
+            <button onClick={() => setShowProposalModal(true)} className="rounded-xl bg-green-600 hover:bg-green-700 px-4 py-2 text-sm font-bold text-white transition flex items-center gap-1.5 shadow-xs">
+              <span>💬</span>
+              <span>{te ? "వాట్సాప్ ప్రపోజల్ షేర్" : "WhatsApp Proposal Share"}</span>
             </button>
             <button onClick={() => void doBlock()} disabled={blocked} className="rounded-xl border border-rose-300 px-4 py-2 text-sm font-bold text-rose-700 disabled:opacity-50">
               🚫 Block
@@ -685,6 +688,33 @@ export default function ProfileView() {
               photo_url: profile.photo_url,
             } : null}
             onUnlocked={(p) => setUnlocked(p)}
+          />
+
+          {/* 💌 Direct WhatsApp Proposal Modal */}
+          <WhatsAppProposalModal
+            isOpen={showProposalModal}
+            onClose={() => setShowProposalModal(false)}
+            profile={profile.tsap_id ? {
+              tsap_id: String(profile.tsap_id),
+              full_name: profile.full_name,
+              gender: profile.gender,
+              age: profile.age,
+              height: profile.height,
+              caste: profile.caste,
+              sub_caste: profile.sub_caste,
+              gothram: profile.gothram,
+              star: profile.star,
+              rasi: profile.rasi,
+              education: profile.education,
+              job: profile.job,
+              company: profile.company,
+              salary: profile.salary,
+              district: profile.district,
+              state: profile.state,
+              marital_status: profile.marital_status,
+              father_name: profile.father_name,
+              photo_url: profile.photo_url,
+            } : null}
           />
         </>
       ) : null}
