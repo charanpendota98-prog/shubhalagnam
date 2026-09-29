@@ -1249,6 +1249,50 @@ function Wizard() {
                 />
               </div>
 
+              {/* 4.5. Education & Profession */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-slate-50/70 p-3 rounded-2xl border border-slate-200">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-800">విద్యార్హత (Education) *</label>
+                  <select
+                    value={f.education || "B.Tech / Graduate"}
+                    onChange={(e) => set("education", e.target.value)}
+                    className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-medium"
+                  >
+                    {EDUCATIONS.map((e) => (
+                      <option key={e} value={e}>
+                        {e}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-800">ఉద్యోగం / హోదా (Job Title) *</label>
+                  <select
+                    value={f.job || "Private Sector"}
+                    onChange={(e) => {
+                      const j = e.target.value;
+                      set("job", j);
+                      if (j.includes("Housewife") || j.includes("Student")) {
+                        set("salary", "None / Not Applicable");
+                      }
+                    }}
+                    className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-medium"
+                  >
+                    <option value="Housewife / Homemaker (గృహిణి)">🏡 Housewife / Homemaker (గృహిణి)</option>
+                    <option value="Software Engineer">💻 Software Engineer / IT</option>
+                    <option value="Govt Employee (Central / State)">🏛️ Govt Employee / PSU</option>
+                    <option value="Bank Officer / PO / Manager">🏦 Bank Officer / Finance</option>
+                    <option value="Doctor / Physician">🩺 Doctor / Healthcare</option>
+                    <option value="Teacher / School Faculty">🎓 Teacher / Professor</option>
+                    <option value="Business Owner / Entrepreneur">💼 Business / Self Employed</option>
+                    <option value="Farmer / Farm Owner">🌾 Farmer / Agriculture</option>
+                    <option value="Private Sector">🏢 Private Sector Professional</option>
+                    <option value="Not Working / Student">📚 Student / Looking for Job</option>
+                  </select>
+                </div>
+              </div>
+
               {/* 5. State & District */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1.5">
@@ -1704,19 +1748,55 @@ function Wizard() {
                       </select>
                     </div>
 
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold text-slate-800">
+                        త్వరిత ఎంపిక (Quick Job Select):
+                      </label>
+                      <div className="flex flex-wrap gap-1.5">
+                        {[
+                          { l: "🏡 Housewife (గృహిణి)", v: "Housewife / Homemaker (గృహిణి)", sal: "None / Not Applicable" },
+                          { l: "💻 Software Engineer", v: "Software Engineer", sal: "₹10 - 15 Lakhs / year" },
+                          { l: "🏛️ Govt Employee", v: "Govt Employee (Central / State)", sal: "₹7 - 10 Lakhs / year" },
+                          { l: "🩺 Doctor", v: "Doctor / Physician", sal: "₹15 - 25 Lakhs / year" },
+                          { l: "🎓 Teacher / Faculty", v: "Teacher / School Faculty", sal: "₹4 - 7 Lakhs / year" },
+                          { l: "💼 Business Owner", v: "Business Owner / Entrepreneur", sal: "₹15 - 25 Lakhs / year" },
+                          { l: "🌾 Farmer / Agri", v: "Farmer / Farm Owner", sal: "₹4 - 7 Lakhs / year" },
+                          { l: "🏢 Private Job", v: "Private Sector Professional", sal: "₹7 - 10 Lakhs / year" },
+                        ].map((qj) => (
+                          <button
+                            key={qj.v}
+                            type="button"
+                            onClick={() => {
+                              set("job", qj.v);
+                              if (qj.sal && (f.salary === "₹7 - 10 Lakhs / year" || !f.salary || qj.v.includes("Housewife"))) {
+                                set("salary", qj.sal);
+                              }
+                            }}
+                            className={`px-2.5 py-1 rounded-full text-xs font-bold transition border ${
+                              f.job === qj.v
+                                ? "bg-[#7A0C2E] text-white border-[#7A0C2E] shadow-xs"
+                                : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
+                            }`}
+                          >
+                            {qj.l}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <TextField
-                        label="ఉద్యోగం (Job Title)"
+                        label="ఉద్యోగం / హోదా (Job Title)"
                         value={f.job}
                         onChange={(v) => set("job", v)}
                         required
-                        placeholder="ఉదా: Software Engineer"
+                        placeholder="ఉదా: Software Engineer, Housewife, Teacher…"
                       />
                       <TextField
-                        label="కంపెనీ (Company Name)"
+                        label="కంపెనీ / ఆఫీస్ (Company Name - Optional)"
                         value={f.company}
                         onChange={(v) => set("company", v)}
-                        placeholder="ఉదా: TCS, MNC, Govt"
+                        placeholder="ఉదా: TCS, MNC, Govt, Self…"
                       />
                     </div>
 
@@ -1727,6 +1807,7 @@ function Wizard() {
                         onChange={(e) => set("salary", e.target.value)}
                         className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-medium"
                       >
+                        <option value="None / Not Applicable">None / Not Applicable (గృహిణి / Not Working)</option>
                         {SALARIES.map((s) => (
                           <option key={s} value={s}>
                             {s}
