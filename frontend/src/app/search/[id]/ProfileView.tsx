@@ -488,12 +488,12 @@ export default function ProfileView() {
                 ["💼 ఉద్యోగం", `${profile.job || "—"}${profile.company ? ` @ ${profile.company}` : ""}`],
                 ["💰 ఆదాయం", profile.salary || "—"],
                 ["📍 ప్రాంతం", `${profile.district || "—"}, ${profile.state || "—"}`],
-                ["⭐ నక్షత్రం", `${profile.star || "—"} / ${profile.rasi || "—"}`],
-                ["💍 Marital", profile.marital_status || "—"],
-                ["👶 Children • పిల్లలు", profile.children && profile.children !== "None" ? profile.children : "None • లేరు"],
-                ["🕉️ గోత్రం", profile.gothram || "—"],
+                ["⭐ నక్షత్రం (రిఫరెన్స్)", `${profile.star || "—"} / ${profile.rasi || "—"}`],
+                ["💍 వైవాహిక స్థితి", profile.marital_status || "—"],
+                ["👶 పిల్లలు", profile.children && profile.children !== "None" ? profile.children : "లేరు (None)"],
+                ["🕉️ గోత్రం (రిఫరెన్స్)", profile.gothram || "—"],
                 ["👨‍👩‍👧 కుటుంబం", `${profile.family_type || "—"} · ${profile.family_status || "—"}`],
-                ["🧿 దోషం", profile.dosham || "No"],
+                ["🧿 దోషం", profile.dosham || "లేదు (None)"],
               ].map(([k, v]) => (
                 <div key={String(k)}>
                   <dt className="text-[11px] text-slate-500">{k}</dt>
