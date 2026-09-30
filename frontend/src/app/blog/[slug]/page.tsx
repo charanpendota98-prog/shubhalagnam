@@ -6,8 +6,9 @@ import { BLOG_ARTICLES, articleBySlug } from "@/lib/blog";
 const SITE = (process.env.SITE_URL || "https://manavivaha.in").replace(/\/$/, "");
 export const generateStaticParams = () => BLOG_ARTICLES.map(({ slug }) => ({ slug }));
 
-export function generateMetadata({ params }: { params: { slug: string } }): Metadata {
-  const article = articleBySlug(params.slug);
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const { slug } = await params;
+  const article = articleBySlug(slug);
   if (!article) return {};
   return {
     title: article.title,
@@ -20,8 +21,9 @@ export function generateMetadata({ params }: { params: { slug: string } }): Meta
   };
 }
 
-export default function ArticlePage({ params }: { params: { slug: string } }) {
-  const article = articleBySlug(params.slug);
+export default async function ArticlePage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
+  const article = articleBySlug(slug);
   if (!article) notFound();
   const schema = {
     "@context": "https://schema.org", "@type": "Article", headline: article.title,
@@ -32,7 +34,9 @@ export default function ArticlePage({ params }: { params: { slug: string } }) {
   };
   return (
     <main className="mx-auto max-w-3xl px-4 py-8 sm:py-12">
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(schema).replace(/</g, "\\u003c") }} />
+      <script type="application/ld+json">
+        {JSON.stringify(schema).replace(/</g, "\\u003c")}
+      </script>
       <nav className="text-xs text-slate-500" aria-label="Breadcrumb"><Link href="/">హోమ్</Link> / <Link href="/blog">సలహాలు</Link></nav>
       <article className="mt-4 rounded-[2rem] border border-gold/25 bg-white p-5 shadow-sm sm:p-9">
         <header className="border-b border-gold/25 pb-6">

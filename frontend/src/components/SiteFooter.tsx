@@ -12,13 +12,19 @@ export default function SiteFooter() {
     {
       titleTe: "చూడండి", titleEn: "Explore",
       links: [
-        { href: "/register", teL: "Register (FREE)", enL: "Register (FREE)" },
+        { href: "/register", teL: "ఉచిత నమోదు (Register FREE)", enL: "Register (FREE)" },
+        { href: "/matches", teL: "సంబంధాలు & ఫిల్టర్లు", enL: "Matches & Filters" },
+        { href: "/second-marriage", teL: "💍 పునర్వివాహం (Second Marriage)", enL: "💍 Second Marriage (Remarriage)" },
+        { href: "/districts", teL: "🏛️ జిల్లా సమగ్ర సంబంధాలు (TS/AP)", enL: "🏛️ TS & AP Districts Hub" },
+        { href: "/compare", teL: "⚖️ సంబంధాల పోలిక స్టూడియో", enL: "⚖️ Profile Compare Studio" },
+        { href: "/pelli-choopulu", teL: "☕ పెళ్లి చూపుల గైడ్", enL: "☕ Pelli Choopulu Guide" },
+        { href: "/lagna-patrika", teL: "📜 శుభ లగ్న పత్రిక స్టూడియో", enL: "📜 Lagna Patrika Studio" },
+        { href: "/biodata", teL: "🎴 బయోడేటా మేకర్ (Biodata Studio)", enL: "🎴 Biodata Studio" },
+        { href: "/muhurtham", teL: "🗓️ వివాహ ముహూర్తాలు 2026-27", enL: "🗓️ Vivaha Muhurthams 2026-27" },
+        { href: "/castes", teL: "కులాల వారీగా (43 Castes)", enL: "Caste-wise (43 Castes)" },
         { href: "/channels", teL: `అన్ని ${CHANNEL_STATS.total} Channels`, enL: `All ${CHANNEL_STATS.total} Channels` },
-        { href: "/matches", teL: "సంబంధాలు & Filters", enL: "Matches & Filters" },
-        { href: "/castes", teL: "కులాల వారీగా", enL: "Caste-wise" },
         { href: "/stories", teL: "విజయ గాథలు", enL: "Success stories" },
-        { href: "/blog", teL: "తెలుగు వివాహ సలహాలు", enL: "Telugu marriage guides" },
-        { href: "/porutham", teL: "జ్యోతిషం — పొరుతం (10)", enL: "Jyothishyam — Porutham (10)" },
+        { href: "/porutham", teL: "వేద జ్యోతిషం — గుణమేళనం", enL: "Jyothishyam — Gunamelanam" },
         { href: "/safety", teL: "Trust & Safety Center", enL: "Trust & Safety Center" },
       ],
     },
@@ -53,8 +59,8 @@ export default function SiteFooter() {
             <img src={SITE_CONFIG.logoImage} alt="మన వివాహ logo" width={40} height={40}
               className="w-10 h-10 rounded-xl object-cover" />
             <div>
-              <div className="brand-wordmark brand-wordmark-dark font-bold leading-none telugu text-[17px]" aria-label="మన వివాహ">మన వివాహ</div>
-              <div className="text-[10px] opacity-70">మన వివాహ • {te ? "తెలుగు మ్యాట్రిమోనీ" : "Telugu Matrimony"}</div>
+              <div className="brand-wordmark brand-wordmark-dark font-bold leading-none telugu text-[18px]" aria-label="మన వివాహ">మన వివాహ</div>
+              <div className="text-[10px] opacity-70">మన వివాహ • {te ? "తెలుగు వారి పవిత్ర మ్యాట్రిమోనీ" : "Telugu Authentic Matrimony"}</div>
             </div>
           </div>
           <div className="text-xs opacity-75 mt-3 telugu leading-relaxed">

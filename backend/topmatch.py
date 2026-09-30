@@ -26,8 +26,8 @@ except Exception:                                    # engine lekapoyina score p
     compute_porutham = None
 
 WEIGHTS: Dict[str, int] = {
-    "age": 13, "caste": 13, "location": 12, "education": 9, "job": 10,
-    "salary": 8, "height": 5, "horoscope": 10, "family": 8, "lifestyle": 7, "trust": 5,
+    "age": 15, "caste": 15, "location": 14, "education": 11, "job": 12,
+    "salary": 10, "height": 5, "horoscope": 0, "family": 9, "lifestyle": 9, "trust": 0,
 }
 LABELS = {
     "age": ("Age match", "వయస్సు"),
@@ -37,7 +37,7 @@ LABELS = {
     "job": ("Job / profession", "ఉద్యోగం"),
     "salary": ("Income", "ఆదాయం"),
     "height": ("Height match", "ఎత్తు"),
-    "horoscope": ("10-porutham", "పొరుత్తం"),
+    "horoscope": ("Horoscope (Optional)", "నక్షత్రం (ఐచ్ఛికం)"),
     "family": ("Family background", "కుటుంబం"),
     "lifestyle": ("Lifestyle habits", "జీవనశైలి"),
     "trust": ("Verification / trust", "విశ్వాసం"),
@@ -205,17 +205,11 @@ def _height_pref(user: Dict, match: Dict) -> (float, str):
 
 
 def _horoscope_pref(user: Dict, match: Dict) -> (float, str):
-    if not compute_porutham:
-        return 0.5, "పొరుతం engine లేదు"
-    b, g = (user, match) if user.get("gender") == "Bride" else (match, user)
-    try:
-        r = compute_porutham(b, g)
-    except Exception:
-        r = {"available": False}
-    if not r.get("available"):
-        return 0.5, "star details lekapote పొరుతం neutral (star add చెయ్యండి)"
-    sc = float(r.get("score", 0) or 0)
-    return (sc / 10.0), "10-పొరుతం %s/10 — %s" % (sc, str(r.get("verdict", ""))[:40])
+    # Horoscope/Star is 100% optional — never filter out or penalize candidates
+    s = match.get("star")
+    if s:
+        return 1.0, f"నక్షత్రం: {s} (ఐచ్ఛికం)"
+    return 1.0, "నక్షత్రం ఐచ్ఛికం (నో ఫిల్టర్)"
 
 
 def _family_pref(user: Dict, match: Dict) -> (float, str):
@@ -312,7 +306,7 @@ def score_match_v2(user: Dict, match: Dict, include_mutual: bool = True) -> Dict
         total += pts
         breakdown.append({"key": key, "label": LABELS[key][0], "telugu": LABELS[key][1],
                           "points": pts, "max": w, "ratio": round(ratio, 2), "note": note})
-    score = int(round(total))
+    score = min(100, max(0, int(round(total))))
     raw_score = score                      # mutual bonus ki mundu score (transparency)
     grade, verdict = _grade(score)
 
@@ -320,7 +314,7 @@ def score_match_v2(user: Dict, match: Dict, include_mutual: bool = True) -> Dict
     if include_mutual:
         try:
             rev = score_match_v2(match, user, include_mutual=False)
-            rscore = int(rev["score"])
+            rscore = min(100, max(0, int(rev["score"])))
             mutual = {"their_score": rscore, "both_like": rscore >= 65 and score >= 65,
                       "note": ("💞 Mutual match — iddariki score 65+ (చాలా rare, వెంటనే పంపండి)"
                                if (rscore >= 65 and score >= 65) else
@@ -328,10 +322,10 @@ def score_match_v2(user: Dict, match: Dict, include_mutual: bool = True) -> Dict
             if mutual["both_like"]:
                 bonus = round(total * 0.08, 1)
                 total += bonus
-                score = int(round(total))
+                score = min(100, max(0, int(round(total))))
                 grade, verdict = _grade(score)
                 breakdown.append({"key": "mutual", "label": "Mutual interest bonus", "telugu": "పరస్పరం",
-                                  "points": bonus, "max": round(bonus), "ratio": 1.0,
+                                  "points": bonus, "max": bonus, "ratio": 1.0,
                                   "note": "iddari expectations కూడా match — 8% bonus"})
         except Exception:
             mutual = {}

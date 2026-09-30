@@ -45,6 +45,9 @@ backend/push_state.json
 backend/refpartners19.json
 backend/referral_partners.csv
 backend/data_db.json
+data_db.json
 
 # wave39 local snapshots (machine-specific)
 backend/backups/
+backend/vendor/
+

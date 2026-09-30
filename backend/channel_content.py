@@ -229,7 +229,7 @@ def perfect_description(key: str, ch: Dict | None = None) -> str:
         body = ("%s — %s (%s). Sub-castes: %s. నిజమైన profiles, 3 requests FREE, ₹99లో 5."
                 % (te, en, who, mem))
     elif key in REGION_TITLE:
-        body = ("%s — %s. అన్ని కులాలు, అన్ని జిల్లాలు, రోజూ కొత్త profiles + పొరుత్తం వివరాలు. "
+        body = ("%s — %s. అన్ని కులాలు, అన్ని జిల్లాలు, రోజూ కొత్త profiles + వేద గుణమేళనం వివరాలు. "
                 "3 FREE requests, ₹99లో 5." % (REGION_TITLE[key][0], REGION_TITLE[key][1]))
     elif key in RELIGION_TITLE:
         body = ("%s — %s. వధువులు + వరులు, అన్ని జిల్లాలు. 3 FREE requests, ₹99లో 5."
@@ -268,7 +268,7 @@ def pinned_welcome(key: str, ch: Dict | None = None) -> str:
         "ఇక్కడ ఏం దొరుకుతుంది:\n"
         "✅ రోజూ కొత్త *నిజమైన profiles* (ఫోటో గోప్యం — చూడాలంటే site లో)\n"
         "✅ విద్య • ఉద్యోగం • జీతం • జిల్లా • జాతకం వివరాలతో full details\n"
-        "✅ *10-పొరుత్తం* (కుండలి match) score + రజ్జు/వేధ దోషం హెచ్చరిక\n"
+        "✅ *వేద గుణమేళనం* (కుండలి match) స్కోరు + రజ్జు/వేధ దోషం హెచ్చరిక\n"
         "✅ ఫోన్ నంబర్ — రెండు వైపులా ఒప్పుకున్న తర్వాతే share అవుతుంది\n\n"
         "ఎలా use చేయాలి (3 steps):\n"
         "1️⃣ మీకు నచ్చిన profile చూడండి (ID ఉంటుంది: TSAP-F-2025-1042)\n"
@@ -310,7 +310,7 @@ def posting_schedule() -> List[Dict[str, str]]:
     return [
         {"time": "7:30 AM", "what": "☀️ Morning profile (bride)", "why": "Office/పెళ్లి chusetappudu scroll peak"},
         {"time": "12:30 PM", "what": "🍛 Lunch profile (groom)", "why": "Lunch break లో views ఎక్కువ"},
-        {"time": "6:00 PM", "what": "🌆 Evening profile + పొరుతం score", "why": "Intlo అందరూ కలిసి chustaru"},
+        {"time": "6:00 PM", "what": "🌆 Evening profile + వేద గుణమేళనం score", "why": "Intlo అందరూ కలిసి chustaru"},
         {"time": "9:00 PM", "what": "🌙 Night profile + success story (Vara/Somvara)", "why": "Ratri 8–10 views highest"},
         {"time": "Sunday 10 AM", "what": "📊 Weekly digest (top-10 profiles + new channels)", "why": "Sunday planning time"},
     ]
@@ -327,7 +327,7 @@ def share_text(key: str, ch: Dict | None = None) -> str:
         "✅ 3 requests FREE\n"
         "✅ ఫోటో గోప్యం (privacy guaranteed)\n"
         "✅ ఫోన్ నంబర్ — రెండు వైపులు ఒప్పుకున్న తర్వాతే\n"
-        "✅ 10-పొరుత్తం score ప్రతి profile కి\n\n"
+        "✅ వేద గుణమేళనం స్కోరు ప్రతి profile కి\n\n"
         "👉 Join: %s\n"
         "🌐 Register FREE: %s\n\n"
         "#ManaVivaha #TeluguMatrimony #PelliChoopulu"
