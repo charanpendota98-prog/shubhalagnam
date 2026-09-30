@@ -143,6 +143,81 @@ export default function SiteHeader() {
               {n.icon} {te ? n.te : n.en}
             </Link>
           ))}
+
+          {/* ✨ Studios Dropdown for Desktop */}
+          <div className="relative group">
+            <button
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-[13px] font-semibold text-ink/75 hover:text-maroon hover:bg-maroon-soft transition"
+              aria-haspopup="true"
+            >
+              <span>✨</span>
+              <span>{te ? "స్టూడియోలు" : "Studios"}</span>
+              <span className="text-[10px] text-gray-400 group-hover:rotate-180 transition-transform duration-200">▼</span>
+            </button>
+
+            <div className="absolute left-0 top-full mt-1.5 w-64 bg-white/95 backdrop-blur-md rounded-2xl shadow-xl border border-gold/30 p-2 opacity-0 translate-y-2 pointer-events-none group-hover:opacity-100 group-hover:translate-y-0 group-hover:pointer-events-auto transition-all duration-200 z-50">
+              <Link
+                href="/lagna-patrika"
+                className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-gold/10 text-xs font-bold text-gray-800 hover:text-maroon transition"
+              >
+                <span className="text-lg">📜</span>
+                <div>
+                  <div>{te ? "శుభ లగ్న పత్రిక స్టూడియో" : "Lagna Patrika Studio"}</div>
+                  <div className="text-[10px] font-normal text-gray-500">{te ? "4 రాయల్ థీమ్స్ • HD JPG" : "Royal Wedding Invitations"}</div>
+                </div>
+              </Link>
+              <Link
+                href="/compare"
+                className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-gold/10 text-xs font-bold text-gray-800 hover:text-maroon transition"
+              >
+                <span className="text-lg">⚖️</span>
+                <div>
+                  <div>{te ? "సంబంధాల పోలిక స్టూడియో" : "Profile Compare Matrix"}</div>
+                  <div className="text-[10px] font-normal text-gray-500">{te ? "Side-by-Side 3 Profiles" : "Compare Astro & Income"}</div>
+                </div>
+              </Link>
+              <Link
+                href="/pelli-choopulu"
+                className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-gold/10 text-xs font-bold text-gray-800 hover:text-maroon transition"
+              >
+                <span className="text-lg">☕</span>
+                <div>
+                  <div>{te ? "పెళ్లి చూపుల గైడ్" : "Pelli Choopulu Guide"}</div>
+                  <div className="text-[10px] font-normal text-gray-500">{te ? "ఆచారాలు & పెద్దల చెక్‌లిస్ట్" : "Etiquette & 1-on-1 Questions"}</div>
+                </div>
+              </Link>
+              <Link
+                href="/biodata"
+                className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-gold/10 text-xs font-bold text-gray-800 hover:text-maroon transition"
+              >
+                <span className="text-lg">🎴</span>
+                <div>
+                  <div>{te ? "తెలుగు బయోడేటా మేకర్" : "Free Biodata Maker"}</div>
+                  <div className="text-[10px] font-normal text-gray-500">{te ? "1 నిమిషంలో ఉచిత HD కార్డ్" : "Instant Wedding Biodata"}</div>
+                </div>
+              </Link>
+              <Link
+                href="/districts"
+                className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-gold/10 text-xs font-bold text-gray-800 hover:text-maroon transition"
+              >
+                <span className="text-lg">🏛️</span>
+                <div>
+                  <div>{te ? "TS & AP 59 జిల్లాలు" : "TS & AP Districts Hub"}</div>
+                  <div className="text-[10px] font-normal text-gray-500">{te ? "స్థానిక ప్రాంతాల సంబంధాలు" : "District-wise Matching"}</div>
+                </div>
+              </Link>
+              <Link
+                href="/muhurtham"
+                className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-gold/10 text-xs font-bold text-gray-800 hover:text-maroon transition"
+              >
+                <span className="text-lg">🗓️</span>
+                <div>
+                  <div>{te ? "వివాహ ముహూర్తాలు 2026-27" : "Muhurtham Calendar"}</div>
+                  <div className="text-[10px] font-normal text-gray-500">{te ? "తిథి, నక్షత్రం, లగ్న వివరాలు" : "Auspicious Wedding Dates"}</div>
+                </div>
+              </Link>
+            </div>
+          </div>
         </nav>
 
         {/* Right actions */}

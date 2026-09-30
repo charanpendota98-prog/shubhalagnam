@@ -2295,3 +2295,4 @@
 {"at": "2026-09-29T16:20:32.659585", "event": "manual_plan_activated", "actor": "admin", "details": {"tsap_id": "MV1095", "plan_id": "S_499", "amount": 499, "credits_added": 25, "note": "Manual plan activation by Admin"}}
 {"at": "2026-09-29T16:20:33.823679", "event": "manual_plan_activated", "actor": "admin", "details": {"tsap_id": "MV1098", "plan_id": "S_199", "amount": 199, "credits_added": 10, "note": "Manual plan activation by Admin"}}
 {"at": "2026-09-29T16:20:49.495315", "event": "manual_plan_activated", "actor": "admin", "details": {"tsap_id": "MV1099", "plan_id": "SAMBANDHAM_99", "amount": 99, "credits_added": 5, "note": "User paid via Cash / Direct PhonePe to office"}}
+{"at": "2026-09-30T01:19:01.824963", "event": "manual_plan_activated", "actor": "admin", "details": {"tsap_id": "MV1001", "plan_id": "SAMBANDHAM_99", "amount": 99, "credits_added": 5, "note": "Manual plan activation by Admin"}}
