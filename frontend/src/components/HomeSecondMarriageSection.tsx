@@ -53,7 +53,7 @@ const FEATURED_REMARRIAGE: RemarriageCard[] = [
     salary: "₹32L",
     location: "Hyderabad / Vijayawada",
     star: "Swati",
-    photo: "/promo/groom-kamma.jpg",
+    photo: "/promo/cine-couple-hd.jpg",
     about: "Microsoft లో ఆర్కిటెక్ట్. లీగల్ డివోర్స్ ఆర్డర్ ఉంది. నమ్మకంతో కొత్త జీవితాన్ని ప్రారంభించే తోడు కావాలి.",
   },
   {
@@ -193,7 +193,7 @@ export default function HomeSecondMarriageSection() {
               <div className="space-y-2.5">
                 {/* Remarriage Status Badge — kudi vaipu (right side), ID left */}
                 <div className="flex items-center justify-between gap-1">
-                  <span className="text-[10px] font-mono font-bold text-slate-400">{p.id}</span>
+                  <span className="text-[10px] font-mono font-bold text-slate-400" title={te ? "నమూనా ప్రొఫైల్ (Sample)" : "Sample profile"}>{p.id} · {te ? "నమూనా" : "Sample"}</span>
                   <span className={`text-[10px] font-black px-2 py-0.5 rounded-full border ${p.statusBg}`}>
                     {p.statusLabel}
                   </span>
@@ -231,7 +231,7 @@ export default function HomeSecondMarriageSection() {
               {/* Card Action */}
               <div className="flex items-center gap-2 pt-1 border-t border-slate-100">
                 <Link
-                  href={`/search/${p.id}`}
+                  href="/second-marriage"
                   className="flex-1 text-center py-2 rounded-xl bg-maroon text-white font-bold text-xs shadow-xs hover:bg-maroon-deep transition"
                 >
                   👁️ వివరాలు

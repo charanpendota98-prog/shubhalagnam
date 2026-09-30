@@ -101,7 +101,7 @@ const FALLBACK_PROFILES: ProfileRow[] = [
     about_myself: "Microsoft లో స్టాఫ్ ఆర్కిటెక్ట్‌గా పనిచేస్తున్నాను. లీగల్ డివోర్స్ పూర్తయింది. పరస్పర నమ్మకంతో కొత్త జీవితాన్ని ప్రారంభించే మంచి తోడు కావాలి.",
     expectations: "ఉన్నత విద్యావంతురాలైన వధువు కావాలి.",
     is_verified: true,
-    photo_urls: ["/promo/groom-kamma.jpg"],
+    photo_urls: ["/promo/cine-couple-hd.jpg"],
     score: 92,
   },
   {

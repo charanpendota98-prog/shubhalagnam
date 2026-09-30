@@ -95,6 +95,12 @@ export default function ProfilesOfTheDay() {
   const [profiles, setProfiles] = useState<SpotlightProfile[]>(DEFAULT_SPOTLIGHTS);
   const [activeVideo, setActiveVideo] = useState<string | null>(null);
   const [sentInterest, setSentInterest] = useState<Record<string, boolean>>({});
+  // R14 FIX: DEFAULT_SPOTLIGHTS (illustrative sample cards) reuses tsap_ids like
+  // MV1001 that a DIFFERENT real/demo person owns on /search/[id] — clicking
+  // "వివరాలు" ముందు వేరే పేరు/ఫోటో చూపించేది, users కి fake గా అనిపించేది.
+  // isFallback true అయినప్పుడు (real paid spotlight data ఇంకా రాలేదు) — Sample
+  // బ్యాడ్జ్ చూపించి, CTA లు /register కి పంపిస్తాం, mismatched profile కి కాదు.
+  const isFallback = profiles === DEFAULT_SPOTLIGHTS;
 
   useEffect(() => {
     fetch("/api/spotlight/active?limit=6")
@@ -174,7 +180,7 @@ export default function ProfilesOfTheDay() {
                     </span>
 
                     <span className="bg-black/60 backdrop-blur-md text-white text-[10px] font-bold px-2.5 py-1 rounded-full border border-white/20">
-                      ID: {p.tsap_id}
+                      {isFallback ? (te ? "నమూనా (Sample)" : "Sample") : `ID: ${p.tsap_id}`}
                     </span>
                   </div>
 
@@ -237,30 +243,40 @@ export default function ProfilesOfTheDay() {
                   {/* Actions */}
                   <div className="pt-2 border-t border-gray-100 space-y-2">
                     <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => handleInterest(p.promo_id, p.tsap_id)}
-                        disabled={sentInterest[p.promo_id]}
-                        className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-1.5 cursor-pointer ${
-                          sentInterest[p.promo_id]
-                            ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
-                            : "maroon-gradient text-white hover:brightness-110 active:scale-95"
-                        }`}
-                      >
-                        <span>{sentInterest[p.promo_id] ? "✅" : "💍"}</span>
-                        <span>
-                          {sentInterest[p.promo_id]
-                            ? (te ? "సంబంధం కోరాం" : "Interest Sent")
-                            : (te ? "ఉచిత సంబంధం పంపండి" : "Send Free Interest")}
-                        </span>
-                      </button>
+                      {isFallback ? (
+                        <Link
+                          href="/register"
+                          className="flex-1 py-2.5 px-3 rounded-xl text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-1.5 cursor-pointer maroon-gradient text-white hover:brightness-110 active:scale-95"
+                        >
+                          <span>💍</span>
+                          <span>{te ? "ఉచితంగా రిజిస్టర్ చేసుకోండి" : "Register FREE"}</span>
+                        </Link>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => handleInterest(p.promo_id, p.tsap_id)}
+                          disabled={sentInterest[p.promo_id]}
+                          className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-1.5 cursor-pointer ${
+                            sentInterest[p.promo_id]
+                              ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
+                              : "maroon-gradient text-white hover:brightness-110 active:scale-95"
+                          }`}
+                        >
+                          <span>{sentInterest[p.promo_id] ? "✅" : "💍"}</span>
+                          <span>
+                            {sentInterest[p.promo_id]
+                              ? (te ? "సంబంధం కోరాం" : "Interest Sent")
+                              : (te ? "ఉచిత సంబంధం పంపండి" : "Send Free Interest")}
+                          </span>
+                        </button>
+                      )}
 
                       <Link
-                        href={`/search/${p.tsap_id}`}
+                        href={isFallback ? "/spotlight" : `/search/${p.tsap_id}`}
                         onClick={() => handleTrackClick(p.promo_id)}
                         className="py-2.5 px-3 rounded-xl text-xs font-bold border border-gold text-maroon hover:bg-gold-soft transition-colors flex items-center justify-center cursor-pointer"
                       >
-                        {te ? "వివరాలు →" : "View →"}
+                        {isFallback ? (te ? "మీ ప్రొఫైల్ ప్రమోట్ చేయండి →" : "Promote Yours →") : (te ? "వివరాలు →" : "View →")}
                       </Link>
                     </div>
 

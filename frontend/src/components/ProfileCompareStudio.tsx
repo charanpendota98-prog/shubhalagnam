@@ -71,7 +71,7 @@ const SAMPLE_DATABASE: Record<string, ProfileCard> = {
     district: "హైదరాబాద్",
     state: "తెలంగాణ",
     marital_status: "ఎన్నడూ పెళ్లి కాలేదు",
-    photo_url: "/promo/bride-kapu.jpg",
+    photo_url: "/promo/cine-hero-telugu.jpg",
     gunamelanam_score: 31,
   },
   MV1002: {
@@ -91,7 +91,7 @@ const SAMPLE_DATABASE: Record<string, ProfileCard> = {
     district: "విజయవాడ",
     state: "ఆంధ్రప్రదేశ్",
     marital_status: "ఎన్నడూ పెళ్లి కాలేదు",
-    photo_url: "/promo/bride-card.jpg",
+    photo_url: "/promo/hero-wedding-cinematic.png",
     gunamelanam_score: 29,
   },
   MV1003: {
@@ -131,7 +131,7 @@ const SAMPLE_DATABASE: Record<string, ProfileCard> = {
     district: "విశాఖపట్నం",
     state: "ఆంధ్రప్రదేశ్",
     marital_status: "ఎన్నడూ పెళ్లి కాలేదు",
-    photo_url: "/promo/cine-2.jpg",
+    photo_url: "/promo/cine-blessings-hd.jpg",
     gunamelanam_score: 32,
   },
   DOC202: {
@@ -211,7 +211,7 @@ const SAMPLE_DATABASE: Record<string, ProfileCard> = {
     district: "హైదరాబాద్",
     state: "తెలంగాణ",
     marital_status: "ఎన్నడూ పెళ్లి కాలేదు",
-    photo_url: "/promo/story-2.jpg",
+    photo_url: "/promo/cine-royal-hd.jpg",
     gunamelanam_score: 30,
   },
   GOV303: {

@@ -4,9 +4,13 @@ import { usePathname } from "next/navigation";
 import { useLang } from "@/lib/lang";
 
 /** Mobile app navigation — Modern, Thumb-friendly, Top Matrimony App Standard. */
+/* R14 FIX: Pricing add చేశాం — desktop nav లో direct గా కనిపించేది, కానీ మొబైల్
+ * bottom nav లో లేకపోవడం వల్ల మొబైల్ users కి hamburger menu తెరిచే వరకు
+ * ధరలు చూసే direct access ఉండేది కాదు (audit flagged this). */
 const ITEMS = [
   { href: "/", icon: "🏠", te: "హోమ్", en: "Home" },
   { href: "/matches", icon: "💘", te: "సంబంధాలు", en: "Matches" },
+  { href: "/pricing", icon: "💰", te: "ధరలు", en: "Pricing" },
   { href: "/spotlight", icon: "🌟", te: "స్పాట్‌లైట్", en: "Spotlight" },
   { href: "/referral", icon: "🤝", te: "రెఫరల్", en: "Referral" },
   { href: "/me", icon: "👤", te: "నా అకౌంట్", en: "Account" },

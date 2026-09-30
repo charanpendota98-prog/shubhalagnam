@@ -2050,18 +2050,44 @@ function Wizard() {
   );
 }
 
+/* R14 FIX: Wizard లో useSearchParams() (రెఫరల్ కోడ్ చదవడానికి) వాడటం వల్ల
+ * Next.js ఈ subtree ని static/SSR పేజ్ shell లో render చేయకుండా, ఈ Suspense
+ * fallback నే HTML గా పంపిస్తుంది — అంటే JS లేని crawler/browser కి గతంలో ఖాళీ
+ * spinner తప్ప నిజమైన content ఏమీ కనిపించేది కాదు (SEO/no-JS గ్యాప్).
+ * ఇప్పుడు fallback లో నిజమైన heading + benefits + phone/WhatsApp CTA పెట్టాం,
+ * Wizard లాజిక్ ఏమీ మార్చకుండానే — hydrate అయ్యాక వెంటనే అసలు ఫారమ్ కనిపిస్తుంది. */
+function RegisterFallback() {
+  return (
+    <div className="min-h-dvh bg-[#FAF7F2] px-4 py-10">
+      <div className="mx-auto max-w-lg text-center">
+        <h1 className="text-xl font-extrabold text-maroon">
+          మన వివాహలో ఉచిత రిజిస్ట్రేషన్ (Register FREE)
+        </h1>
+        <p className="mt-2 text-sm text-slate-700">
+          1 నిమిషంలో ఉచిత రిజిస్ట్రేషన్ చేసుకోండి — DOB verified, photo-private
+          profiles, మొదటి 3 ఇంట్రెస్ట్ రిక్వెస్ట్స్ FREE.
+        </p>
+        <ul className="mt-4 space-y-1.5 text-left text-[13px] text-slate-600 mx-auto max-w-sm">
+          <li>✅ ఉచితంగా ప్రొఫైల్ క్రియేట్ చేసుకోండి</li>
+          <li>✅ మీ ఫోటో ప్రైవేట్‌గా ఉంటుంది (verified users కి మాత్రమే కనిపిస్తుంది)</li>
+          <li>✅ DOB &amp; ID verification తో నమ్మకమైన ప్రొఫైల్స్</li>
+        </ul>
+        <div className="mt-6 w-10 h-10 border-4 border-maroon border-t-transparent rounded-full animate-spin mx-auto" aria-hidden="true" />
+        <p className="mt-2 text-xs font-bold text-maroon">రిజిస్ట్రేషన్ ఫారమ్ లోడ్ అవుతోంది…</p>
+        <p className="mt-4 text-xs text-slate-500">
+          ఫారమ్ కనిపించకపోతే, నేరుగా కాల్/WhatsApp చేయండి:{" "}
+          <a href="tel:+916304996088" className="font-bold text-maroon underline">
+            +91 6304996088
+          </a>
+        </p>
+      </div>
+    </div>
+  );
+}
+
 export default function RegisterPage() {
   return (
-    <Suspense
-      fallback={
-        <div className="min-h-dvh flex items-center justify-center bg-[#FAF7F2]">
-          <div className="text-center space-y-2">
-            <div className="w-10 h-10 border-4 border-maroon border-t-transparent rounded-full animate-spin mx-auto" />
-            <div className="text-xs font-bold text-maroon">మన వివాహ రిజిస్ట్రేషన్ లోడ్ అవుతోంది…</div>
-          </div>
-        </div>
-      }
-    >
+    <Suspense fallback={<RegisterFallback />}>
       <Wizard />
     </Suspense>
   );
