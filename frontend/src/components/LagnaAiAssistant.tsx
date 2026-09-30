@@ -78,7 +78,28 @@ export default function LagnaAiAssistant() {
       let actions: { label: string; href?: string }[] = [];
       const lower = text.toLowerCase();
 
-      if (lower.includes("housewife") || lower.includes("homemaker") || lower.includes("గృహిణి") || lower.includes("non-working")) {
+      if (lower.includes("lagna patrika") || lower.includes("లగ్న పత్రిక") || lower.includes("patrika") || lower.includes("invitation")) {
+        replyText = te
+          ? "రాయల్ సంస్కృత శ్లోకాలు, ముహూర్త వివరాలు, ఇరువైపుల పెద్దల పేర్లతో 4 రాయల్ థీమ్స్‌లో అందమైన డిజిటల్ శుభ లగ్న పత్రికను ఉచితంగా తయారు చేసుకోండి!"
+          : "Create royal Telugu Lagna Patrika wedding invitation cards with Sanskrit slokas and instant HD JPG download for free!";
+        actions = [
+          { label: te ? "📜 లగ్న పత్రిక స్టూడియో తెరవండి →" : "Open Lagna Patrika Studio →", href: "/lagna-patrika" },
+        ];
+      } else if (lower.includes("compare") || lower.includes("పోలిక") || lower.includes("సరిపోల్చ") || lower.includes("matrix")) {
+        replyText = te
+          ? "2 లేదా 3 సంబంధాలను పక్కపక్కనే పెట్టి వేద గుణమేళనం (36 గుణాలు), చదువు, ఉద్యోగం, జీతం మరియు గోత్రాలను సమగ్రంగా సరిపోల్చుకోండి."
+          : "Compare 2-3 Telugu matrimony profiles side-by-side across Gunamelanam, education, salary, and share a WhatsApp comparison deck.";
+        actions = [
+          { label: te ? "⚖️ సంబంధాల పోలిక స్టూడియో →" : "Open Compare Studio →", href: "/compare" },
+        ];
+      } else if (lower.includes("pelli choopulu") || lower.includes("పెళ్లి చూపుల") || lower.includes("choopulu") || lower.includes("etiquette")) {
+        replyText = te
+          ? "సాంప్రదాయ పెళ్లి చూపుల పద్ధతులు, తాంబూలాల మర్యాదలు, పెద్దల చెక్‌లిస్ట్ మరియు అభ్యర్థుల ప్రైవేట్ 1-on-1 సంభాషణ ప్రశ్నల సమగ్ర గైడ్."
+          : "Explore traditional Telugu Pelli Choopulu customs, parent checklists, and candidate 1-on-1 questions guide.";
+        actions = [
+          { label: te ? "☕ పెళ్లి చూపుల గైడ్ చదవండి →" : "Open Pelli Choopulu Guide →", href: "/pelli-choopulu" },
+        ];
+      } else if (lower.includes("housewife") || lower.includes("homemaker") || lower.includes("గృహిణి") || lower.includes("non-working")) {
         replyText = te
           ? "గృహిణి (Housewife / Homemaker) అమ్మాయిల ప్రొఫైల్స్ మరియు కుటుంబ విలువలని గౌరవించే సంప్రదాయ వధువుల సంబంధాలు ప్రత్యేకంగా అందుబాటులో ఉన్నాయి."
           : "We have dedicated verified Bride profiles who are Housewife / Homemaker and cultured homemakers.";
