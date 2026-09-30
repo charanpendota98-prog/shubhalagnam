@@ -857,7 +857,7 @@ export default function MatchesPage() {
   const shareText = (row: Row) =>
     `🙏 ${SITE_CONFIG.brandName} profile — ${firstName(row.full_name)} (${row.tsap_id})\n` +
     `👉 ${row.age}y • ${row.caste} • ${row.education} • ${row.job}\n` +
-    `📍 ${row.district}, ${row.state} • 💰 ${row.salary}\n` +
+    `📍 ${row.district}, ${stateFullName(row.state, te)} • 💰 ${row.salary}\n` +
     `Full details: ${SITE_CONFIG.siteUrl || "https://manavivaha.in"}/search/${row.tsap_id}`;
 
   const shareWhatsApp = (row: Row) => window.open(`https://wa.me/?text=${encodeURIComponent(shareText(row))}`, "_blank");
@@ -951,7 +951,7 @@ export default function MatchesPage() {
               </p>
 
               <p className="text-[11.5px] text-slate-500 truncate">
-                📍 {DISTRICT_TELUGU[row.district] || row.district || "Hyderabad"}, {row.state || "TS"} • 💰 {row.salary || "Best in Industry"}
+                📍 {DISTRICT_TELUGU[row.district] || row.district || "Hyderabad"}, {stateFullName(row.state, te)} • 💰 {row.salary || "Best in Industry"}
               </p>
               <div className="text-[11px] text-slate-500 font-mono pt-0.5 flex items-center gap-1.5">
                 <span>🔒 Number:</span>

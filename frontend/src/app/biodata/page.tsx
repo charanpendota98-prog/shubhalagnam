@@ -17,6 +17,7 @@ import Link from "next/link";
 import { toJpeg } from "html-to-image";
 import QRCode from "qrcode";
 import { useLang } from "@/lib/lang";
+import { stateFullName } from "@/lib/telugu-data";
 import { SITE_CONFIG } from "@/lib/site-config";
 import { WhatsAppIcon } from "@/components/BrandIcons";
 
@@ -279,8 +280,8 @@ export default function BiodataPage() {
             job: p.job || prev.job,
             company: p.company || prev.company,
             salary: p.salary || prev.salary,
-            workLocation: p.work_location || `${p.district || "Hyderabad"}, ${p.state || "TS"}`,
-            nativePlace: `${p.district || "Hyderabad"}, ${p.state || "Telangana"}`,
+            workLocation: p.work_location || `${p.district || "Hyderabad"}, ${stateFullName(p.state, te)}`,
+            nativePlace: `${p.district || "Hyderabad"}, ${stateFullName(p.state, te)}`,
             photoUrl: p.photo_url || prev.photoUrl,
           }));
         }

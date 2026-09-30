@@ -191,12 +191,12 @@ export default function HomeSecondMarriageSection() {
               className="bg-white text-slate-900 rounded-2xl p-4 border border-gold/40 shadow-lg flex flex-col justify-between space-y-3 hover:-translate-y-1 transition duration-200"
             >
               <div className="space-y-2.5">
-                {/* Remarriage Status Badge */}
+                {/* Remarriage Status Badge — kudi vaipu (right side), ID left */}
                 <div className="flex items-center justify-between gap-1">
+                  <span className="text-[10px] font-mono font-bold text-slate-400">{p.id}</span>
                   <span className={`text-[10px] font-black px-2 py-0.5 rounded-full border ${p.statusBg}`}>
                     {p.statusLabel}
                   </span>
-                  <span className="text-[10px] font-mono font-bold text-slate-400">{p.id}</span>
                 </div>
 
                 {/* Photo & Name */}

@@ -19,6 +19,7 @@ import { SITE_CONFIG } from "@/lib/site-config";
 import { authHeaders } from "@/lib/api";
 import { Duo, duo } from "@/lib/duo";
 import { useLang } from "@/lib/lang";
+import { stateFullName } from "@/lib/telugu-data";
 import PhotoFlow from "@/components/PhotoFlow";
 import { TelegramIcon, WhatsAppIcon } from "@/components/BrandIcons";
 import { waLink } from "@/lib/wa";
@@ -1468,7 +1469,7 @@ function Wizard() {
                   <div className="bg-slate-50 rounded-2xl p-3 space-y-1.5 text-xs text-slate-700 border border-slate-100">
                     <div className="flex items-center gap-1.5">
                       <span>📍</span>
-                      <span className="font-medium truncate">{f.district || "జిల్లా"}, {f.state || "TS"}</span>
+                      <span className="font-medium truncate">{f.district || "జిల్లా"}, {stateFullName(f.state, te)}</span>
                     </div>
                     <div className="flex items-center gap-1.5">
                       <span>📱</span>
@@ -2023,7 +2024,7 @@ function Wizard() {
                     <div className="flex items-center gap-1.5">
                       <span>📍</span>
                       <span className="font-medium truncate">
-                        {f.district || "జిల్లా"}, {f.state || "TS"}
+                        {f.district || "జిల్లా"}, {stateFullName(f.state, te)}
                       </span>
                     </div>
                   </div>

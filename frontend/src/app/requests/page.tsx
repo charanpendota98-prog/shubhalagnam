@@ -17,6 +17,7 @@ import Reveal from "@/components/Reveal";
 import SectionHeading from "@/components/SectionHeading";
 import { Duo, duo } from "@/lib/duo";
 import { useLang } from "@/lib/lang";
+import { stateFullName } from "@/lib/telugu-data";
 
 type Plan = { code: string; price: number; profiles: number; label: string; telugu: string; badge: string; per_profile: number; perks?: string[] };
 type Addon = { code: string; price: number; label: string; telugu: string; kind: string };
@@ -338,7 +339,7 @@ export default function RequestsPage() {
                         🎓 {it.requester?.education} {it.requester?.education_detail}<br />
                         💼 {it.requester?.job} {it.requester?.company}<br />
                         💰 {it.requester?.salary} • 📏 {it.requester?.height}<br />
-                        📍 {it.requester?.district}, {it.requester?.state}<br />
+                        📍 {it.requester?.district}, {it.requester?.state ? stateFullName(it.requester.state, te) : "—"}<br />
                         💍 {it.requester?.caste} {it.requester?.gothram ? `• Gothram ${it.requester?.gothram}` : ""}<br />
                         🌟 {it.requester?.star || "—"} • Rasi {it.requester?.rasi || "—"}
                       </div>
@@ -400,7 +401,7 @@ export default function RequestsPage() {
                       {it.credit_refunded && <span className="text-[10px] font-bold text-emerald-700">↩️ 100% Refund</span>}
                     </div>
                     <div className="text-[12px] text-gray-600 mt-1">
-                      🎓 {it.profile?.education} • 💼 {it.profile?.job} • 📍 {it.profile?.district}, {it.profile?.state} • 💍 {it.profile?.caste}
+                      🎓 {it.profile?.education} • 💼 {it.profile?.job} • 📍 {it.profile?.district}, {it.profile?.state ? stateFullName(it.profile.state, te) : "—"} • 💍 {it.profile?.caste}
                     </div>
                   </div>
                   <div className="text-right">
@@ -626,7 +627,7 @@ export default function RequestsPage() {
                       <span className="ml-2 text-[11px] text-gray-500 font-mono">{x.profile.tsap_id}</span>
                     </div>
                     <div className="text-[12px] text-gray-600 mt-1">
-                      🎓 {x.profile.education} • 💼 {x.profile.job} • 📍 {x.profile.district}, {x.profile.state} • 💍 {x.profile.caste}
+                      🎓 {x.profile.education} • 💼 {x.profile.job} • 📍 {x.profile.district}, {x.profile.state ? stateFullName(x.profile.state, te) : "—"} • 💍 {x.profile.caste}
                     </div>
                     {x.porutham ? (
                       <div className="text-[12px] font-bold text-amber-700 mt-1">🔮 గుణమేళనం {x.porutham.score}/{x.porutham.max} — {x.porutham.verdict?.split("—")[0]}</div>

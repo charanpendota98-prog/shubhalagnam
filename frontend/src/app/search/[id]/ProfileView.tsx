@@ -345,7 +345,7 @@ export default function ProfileView() {
     if (!profile) return;
     const text = `🙏 మన వివాహ profile — ${firstName(profile.full_name)} (${profile.tsap_id})\n` +
       `${profile.age}y • ${profile.height || "—"} • ${profile.caste} • ${profile.education} • ${profile.job}\n` +
-      `📍 ${profile.district}, ${profile.state} • 💰 ${profile.salary}\n` +
+      `📍 ${profile.district}, ${stateFullName(profile.state, te)} • 💰 ${profile.salary}\n` +
       `🔒 Number locked — ${te ? "interest accept అయితే exchange" : "exchange on interest accept"}\n` +
       `Full details: ${window.location.origin}/search/${profile.tsap_id}`;
     window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
@@ -389,7 +389,7 @@ export default function ProfileView() {
       <div class="item"><div class="label">చదువు (Education)</div><div class="val">${profile.education || "—"} ${profile.education_detail || ""}</div></div>
       <div class="item"><div class="label">ఉద్యోగం / వ్యాపారం (Job)</div><div class="val">${profile.job || "—"} ${profile.company ? `@ ${profile.company}` : ""}</div></div>
       <div class="item"><div class="label">వార్షిక ఆదాయం (Annual Salary)</div><div class="val">${profile.salary || "—"}</div></div>
-      <div class="item"><div class="label">ప్రాంతం / నివాసం (Location)</div><div class="val">${profile.district || "—"}, ${profile.state || "—"}</div></div>
+      <div class="item"><div class="label">ప్రాంతం / నివాసం (Location)</div><div class="val">${profile.district || "—"}, ${profile.state ? stateFullName(profile.state, te) : "—"}</div></div>
       <div class="item"><div class="label">వైవాహిక స్థితి (Marital Status)</div><div class="val">${profile.marital_status || "Never Married"}</div></div>
       <div class="item"><div class="label">కుటుంబ నేపథ్యం (Family)</div><div class="val">${profile.family_type || "Joint/Nuclear"} · ${profile.family_status || "Middle/Upper"}</div></div>
       <div class="item"><div class="label">దోషం (Dosham)</div><div class="val">${profile.dosham || "None"}</div></div>
