@@ -197,7 +197,7 @@ export default function CasteClient({ caste, role, district, chan, otherChan }: 
 
           <div className="bg-white rounded-2xl p-5 card-shadow border border-gold/20">
             <div className="font-bold text-maroon text-[14px]">
-              {te ? "Pricing (chatting లేదు)" : "Pricing (no chatting)"}
+              {te ? "పారదర్శక ధరలు (Direct Connect Pricing)" : "Transparent Pricing (Direct Connect)"}
             </div>
             <ul className="mt-2 text-[12px] text-gray-700 space-y-1">
               <li>{te ? <>🎁 మొదటి <b>3 interest requests FREE</b></> : <>🎁 First <b>3 interest requests FREE</b></>}</li>

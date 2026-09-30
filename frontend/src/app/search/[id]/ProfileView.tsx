@@ -31,14 +31,14 @@ import FamilyCompatibilityRadar from "@/components/FamilyCompatibilityRadar";
 type Row = Record<string, any>;
 
 const CONSENT_STEPS_TE = [
-  "1️⃣ Interest పంపండి (FREE 3 requests) — వాళ్లకి మీ profile WhatsApp లో వెళ్తుంది",
-  "2️⃣ వాళ్లు accept చేస్తే — రెండు వైపులా numbers WhatsApp లో exchange (consent)",
-  "3️⃣ అప్పుడు మాట్లాడుకోండి — మన side నుంచి మధ్యస్థం కూడా ఉంది",
+  "1️⃣ ఇంట్రెస్ట్ పంపండి (ప్రారంభ 3 రిక్వెస్ట్‌లు ఉచితం) — మీ అధికారిక ప్రొఫైల్ వివరాలు వారికి వాట్సాప్‌లో అందజేయబడతాయి",
+  "2️⃣ వారు అంగీకరించిన వెంటనే — ఇరు కుటుంబాల అధికారిక సంప్రదింపు వివరాలు పరస్పరం మార్పిడి చేయబడతాయి",
+  "3️⃣ ప్రత్యక్ష సంభాషణ & వివాహ చర్చలు — మా కస్టమర్ కేర్ మధ్యవర్తిత్వ సహకారం కూడా అందుబాటులో ఉంటుంది",
 ];
 const CONSENT_STEPS_EN = [
-  "1️⃣ Send Interest (FREE 3 requests) — they get your profile on WhatsApp",
-  "2️⃣ If they accept — numbers exchange on WhatsApp both sides (consent)",
-  "3️⃣ Then talk — our mediation support stays available",
+  "1️⃣ Send Interest (Initial 3 requests FREE) — your verified profile details are delivered via WhatsApp",
+  "2️⃣ Mutual Family Acceptance — verified contact details are exchanged directly on WhatsApp",
+  "3️⃣ Direct Family Interaction — our professional matrimonial counselor support remains available",
 ];
 
 const SAMPLE_PROFILES_MAP: Record<string, Row> = {

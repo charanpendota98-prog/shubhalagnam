@@ -82,23 +82,23 @@ export default function TermsPage() {
         </ul>
       </Section>
 
-      <Section title={te ? "4. Requests policy (chatting లేదు)" : "4. Requests policy (no chatting)"}>
+      <Section title={te ? "4. అధికారిక సంప్రదింపుల విధానం (Consent-Driven Requests Policy)" : "4. Official Consent-Driven Requests Policy"}>
         <ul>
           {te ? (
             <>
-              <li><b>Chatting / DM feature లేదు</b> — spam &amp; మోసం ఆపడానికి ఇదే మన design.</li>
-              <li>మీరు పంపిన <b>request</b> — target కి మీ profile + card WhatsApp లో వెళ్తుంది (మన official number నుంచి).</li>
-              <li>Numbers <b>రెండు వైపులా ఒప్పుక తర్వాతే</b> share అవుతాయి. Declined అయిన వాళ్ల number ఎప్పుడూ ఇవ్వము.</li>
-              <li>ఒక్క request = ఒక్క credit. Decline/no-response (7 రోజులు) అయితే credit మళ్లీ వస్తుంది.</li>
-              <li>Daily limits + duplicate check ఉన్నాయి (ఒక profile కి repeat requests block).</li>
+              <li><b>అనవసర చాటింగ్ / DM ఫీచర్ ఉండదు</b> — స్పామ్ మరియు మోసాలను అరికట్టడానికి ఇరు కుటుంబాల సమ్మతి ఆధారిత విధానం మాత్రమే అమలులో ఉంటుంది.</li>
+              <li>మీరు పంపిన <b>ఇంట్రెస్ట్ రిక్వెస్ట్</b> — వారి వాట్సాప్‌కు మన అధికారిక సపోర్ట్ నంబర్ ద్వారా గౌరవప్రదంగా పంపబడుతుంది.</li>
+              <li>సంప్రదింపు నంబర్లు <b>ఇరువైపులా పరస్పర అంగీకారం తర్వాత మాత్రమే</b> మార్పిడి చేయబడతాయి. తిరస్కరించిన వారి వివరాలు ఎన్నడూ బహిర్గతం కావు.</li>
+              <li>ఒక రిక్వెస్ట్ = ఒక క్రెడిట్. ఒకవేళ తిరస్కరించబడినా లేదా 7 రోజుల్లో స్పందన లేకపోయినా క్రెడిట్ 100% రీఫండ్ చేయబడుతుంది.</li>
+              <li>రోజువారీ పరిమితులు మరియు డూప్లికేట్ ప్రొటెక్షన్ నిబంధనలు ఖచ్చితంగా అమలు చేయబడతాయి.</li>
             </>
           ) : (
             <>
-              <li><b>No chatting / DM feature</b> — this is our design to stop spam &amp; fraud.</li>
-              <li>A <b>request</b> you send — your profile + card goes to the target on WhatsApp (from our official number).</li>
-              <li>Numbers are shared only <b>after mutual accept</b>. We never give numbers of people who declined.</li>
-              <li>One request = one credit. On decline/no-response (7 days) the credit comes back.</li>
-              <li>Daily limits + duplicate checks exist (repeat requests to one profile are blocked).</li>
+              <li><b>No casual chatting / DM feature</b> — to eliminate spam and protect privacy, communication is strictly consent-driven between families.</li>
+              <li>Your <b>Interest Request</b> is respectfully delivered with your verified biodata card via our official verified WhatsApp channel.</li>
+              <li>Contact phone numbers are securely exchanged only <b>after mutual family acceptance</b>. Contact details of declined interests are never disclosed.</li>
+              <li>One request = one credit. On decline or no-response within 7 days, your credit is 100% refunded to your balance.</li>
+              <li>Daily limits and anti-spam duplicate request guards are strictly enforced.</li>
             </>
           )}
         </ul>
