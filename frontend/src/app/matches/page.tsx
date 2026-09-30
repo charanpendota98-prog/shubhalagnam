@@ -1423,14 +1423,6 @@ export default function MatchesPage() {
               </div>
             </div>
 
-            {/* Cultural Non-Discrimination Advisory Badge */}
-            <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-300 rounded-2xl p-3.5 flex items-center gap-3 text-xs text-amber-950 shadow-xs">
-              <span className="text-xl">🪔</span>
-              <p className="leading-relaxed">
-                <span className="font-bold text-maroon">కుటుంబ నిర్ణయానికి పూర్తి స్వేచ్ఛ:</span> మా ప్లాట్‌ఫారమ్ ఏ సంబంధాన్నీ జాతకం పేరిట ఫిల్టర్ చేయదు లేదా తొలగించదు. ప్రొఫైల్ లోని నక్షత్రం, గోత్రం వివరాలను మీ స్వంత కుటుంబ పండితులతో నిశ్చింతగా సంప్రదించుకోవచ్చు.
-              </p>
-            </div>
-
             {/* Active Filter Chips Bar */}
             {activeChips.length > 0 && (
               <div className="flex flex-wrap items-center gap-1.5">
