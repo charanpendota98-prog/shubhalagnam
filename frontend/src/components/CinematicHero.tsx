@@ -1,12 +1,11 @@
 "use client";
 
 /**
- * 👑 MANA VIVAHA — ULTRA-MODERN CINEMATIC WEDDING HERO
- * =======================================================
- * • Crystal-clear, full-bleed 4K Telugu wedding video background with guaranteed native autoplay & smooth looping.
- * • Clean, uncluttered, highly-converting Telugu matrimony UI.
- * • No redundant scene text buttons or photo grids.
- * • Pure royal gold typography, particle physics, verified trust metrics, and direct action CTAs.
+ * 👑 MANA VIVAHA — ELEGANT COMPACT CINEMATIC WEDDING HERO
+ * ========================================================
+ * • Ultra-HD Telugu wedding background video with guaranteed native autoplay.
+ * • Clean, compact, refined side typography & action panel.
+ * • 100% uncluttered, neat, and perfectly proportioned layout.
  */
 
 import Link from "next/link";
@@ -40,7 +39,7 @@ const COPY = {
     titleB: "begin right here.",
     sub: "The most trusted matrimonial platform for Telangana & Andhra Pradesh families — 100% verified profiles, complete photo privacy, and dignified family connections.",
     pricePill: "From ₹99 · first 3 profiles completely free (FREE)",
-    ctaReg: "Free Register",
+    ctaReg: "Free Register — FREE",
     ctaBrowse: "Browse Profiles",
     trust: [
       { icon: "🛡️", t: "100% OTP & Identity Verified", sub: "Zero fake profiles" },
@@ -66,7 +65,7 @@ export default function CinematicHero() {
   const [isPlaying, setIsPlaying] = useState(true);
   const [isMuted, setIsMuted] = useState(true);
 
-  // Guaranteed Native Autoplay & Loop handling across all mobile & desktop browsers
+  // Guaranteed Native Autoplay & Loop handling
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
@@ -132,13 +131,13 @@ export default function CinematicHero() {
     };
     window.addEventListener("resize", onResize);
 
-    const particles = Array.from({ length: 30 }, () => ({
+    const particles = Array.from({ length: 24 }, () => ({
       x: Math.random() * width,
       y: Math.random() * height,
-      size: Math.random() * 2.5 + 1.2,
-      speedY: Math.random() * 0.7 + 0.3,
-      speedX: Math.random() * 0.4 - 0.2,
-      opacity: Math.random() * 0.5 + 0.25,
+      size: Math.random() * 2 + 1,
+      speedY: Math.random() * 0.6 + 0.2,
+      speedX: Math.random() * 0.3 - 0.15,
+      opacity: Math.random() * 0.45 + 0.2,
       color: Math.random() > 0.4 ? "#F59E0B" : "#FDE047",
     }));
 
@@ -155,7 +154,7 @@ export default function CinematicHero() {
         ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
         ctx.fillStyle = p.color;
         ctx.globalAlpha = p.opacity;
-        ctx.shadowBlur = 6;
+        ctx.shadowBlur = 5;
         ctx.shadowColor = "#F59E0B";
         ctx.fill();
       });
@@ -177,10 +176,10 @@ export default function CinematicHero() {
 
   return (
     <section
-      className="relative min-h-[85vh] sm:min-h-[88vh] flex items-center justify-center overflow-hidden bg-[#0d0107] text-white"
+      className="relative min-h-[75vh] sm:min-h-[80vh] flex items-center overflow-hidden bg-[#0d0107] text-white"
       aria-label="Mana Vivaha — Telugu Matrimony"
     >
-      {/* ================= 1. NATIVE 4K CINEMATIC WEDDING VIDEO BACKGROUND ================= */}
+      {/* ================= 1. 4K CINEMATIC WEDDING VIDEO BACKGROUND ================= */}
       <div className="absolute inset-0 overflow-hidden" aria-hidden>
         <video
           ref={videoRef}
@@ -208,126 +207,136 @@ export default function CinematicHero() {
       {/* Golden Akshathalu Canvas Overlay */}
       <canvas
         ref={canvasRef}
-        className="pointer-events-none absolute inset-0 z-[2] opacity-80"
+        className="pointer-events-none absolute inset-0 z-[2] opacity-75"
       />
 
-      {/* ================= 2. CRISP, CLEAN CINEMATIC OVERLAY (NO HEAVY MUDDINESS) ================= */}
+      {/* Clean Asymmetric Overlay (Allows the video to shine on the right side) */}
       <div
         className="absolute inset-0 z-[1] pointer-events-none"
         style={{
           background:
-            "linear-gradient(180deg, rgba(13,1,7,0.75) 0%, rgba(13,1,7,0.4) 40%, rgba(13,1,7,0.65) 75%, rgba(13,1,7,0.95) 100%)",
+            "linear-gradient(90deg, rgba(13,1,7,0.92) 0%, rgba(13,1,7,0.78) 45%, rgba(13,1,7,0.35) 75%, rgba(13,1,7,0.15) 100%)",
         }}
       />
       <div
         className="absolute inset-0 z-[1] pointer-events-none"
         style={{
           background:
-            "radial-gradient(ellipse at center, transparent 30%, rgba(13,1,7,0.7) 100%)",
+            "linear-gradient(180deg, rgba(13,1,7,0.5) 0%, transparent 30%, rgba(13,1,7,0.6) 80%, #0d0107 100%)",
         }}
       />
 
-      {/* Audio Mute/Unmute Quick Toggle */}
-      <button
-        type="button"
-        onClick={toggleSound}
-        className="absolute top-5 right-5 z-20 flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/60 hover:bg-black/80 border border-amber-400/40 text-amber-300 text-xs backdrop-blur-md transition shadow-lg"
-        title={isMuted ? "Unmute Video Sound" : "Mute Video Sound"}
-      >
-        <span>{isMuted ? "🔇" : "🔊"}</span>
-        <span className="hidden sm:inline text-[11px] font-bold">
-          {isMuted ? "సౌండ్ ఆన్" : "మ్యూట్"}
-        </span>
-      </button>
+      {/* Ambient Lighting Accents */}
+      <div className="pointer-events-none absolute top-10 left-10 h-72 w-72 rounded-full bg-amber-500/10 blur-[100px]" />
 
-      {/* ================= 3. HERO CONTENT CONTAINER ================= */}
-      <div className="relative z-[3] mx-auto w-full max-w-5xl px-4 sm:px-6 py-12 sm:py-16 text-center space-y-6 sm:space-y-8">
-        
-        {/* Auspicious Eyebrow Badge */}
-        <div className="flex flex-wrap items-center justify-center gap-2.5">
-          <span className="inline-flex items-center gap-2 rounded-full border border-amber-400/50 bg-black/70 px-4 py-1.5 text-xs font-black uppercase tracking-wider text-amber-300 backdrop-blur-xl shadow-xl">
-            <span className="text-amber-400">🪔</span>
-            <span>{L.kicker}</span>
-          </span>
+      {/* ================= 2. MAIN CONTAINER ================= */}
+      <div className="relative z-[3] mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-center">
+          
+          {/* LEFT/SIDE CONTAINER: COMPACT & REFINED LUXURY PANEL */}
+          <div className="lg:col-span-7 xl:col-span-6 text-left">
+            <div className="bg-black/55 backdrop-blur-xl border border-amber-400/30 rounded-3xl p-5 sm:p-7 shadow-[0_15px_40px_rgba(0,0,0,0.7)] space-y-4 sm:space-y-5">
+              
+              {/* Auspicious Eyebrow Badge */}
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-400/50 bg-black/70 px-3 py-1 text-[11px] sm:text-xs font-black uppercase tracking-wider text-amber-300 shadow-sm">
+                  <span>🪔</span>
+                  <span>{L.kicker}</span>
+                </span>
 
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-950/80 border border-emerald-500/40 text-[11px] font-bold text-emerald-300 backdrop-blur-md shadow-md">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            <span>10,000+ ధృవీకరించిన ప్రొఫైల్స్</span>
-          </span>
-        </div>
-
-        {/* Majestic Royal Gold Headline */}
-        <div className="space-y-2">
-          <h1 className="text-3xl sm:text-5xl md:text-6xl lg:text-[64px] font-black leading-[1.15] tracking-tight text-white drop-shadow-[0_4px_30px_rgba(0,0,0,0.9)]">
-            {L.titleA}
-            <br />
-            <span className="bg-gradient-to-r from-amber-200 via-yellow-300 to-amber-400 bg-clip-text text-transparent drop-shadow-[0_4px_25px_rgba(245,158,11,0.5)]">
-              {L.titleB}
-            </span>
-          </h1>
-        </div>
-
-        {/* Subtitle */}
-        <p className="max-w-2xl mx-auto text-sm sm:text-base md:text-lg font-normal leading-relaxed text-gray-200 drop-shadow-[0_2px_12px_rgba(0,0,0,0.85)]">
-          {L.sub}
-        </p>
-
-        {/* Action CTAs */}
-        <div className="flex flex-wrap items-center justify-center gap-4 pt-2">
-          <Link
-            href="/register"
-            className="inline-flex items-center gap-3 rounded-full bg-gradient-to-r from-amber-400 via-amber-300 to-yellow-500 px-9 py-4 text-base sm:text-lg font-black text-rose-950 shadow-[0_12px_35px_rgba(245,158,11,0.5)] transition hover:brightness-110 hover:shadow-[0_15px_40px_rgba(245,158,11,0.7)] active:scale-95"
-          >
-            <span className="text-xl">💍</span>
-            <span>{L.ctaReg}</span>
-            <span aria-hidden className="text-xl">→</span>
-          </Link>
-
-          <Link
-            href="/matches"
-            className="inline-flex items-center gap-2.5 rounded-full border-2 border-white/40 bg-black/50 px-8 py-4 text-base sm:text-lg font-bold text-white backdrop-blur-xl transition hover:bg-white/20 hover:border-white/70 active:scale-95 shadow-lg"
-          >
-            <span>🔍</span>
-            <span>{L.ctaBrowse}</span>
-          </Link>
-        </div>
-
-        {/* Pricing Offer Pill */}
-        <div>
-          <span className="inline-flex items-center gap-2 rounded-full border border-amber-400/40 bg-black/60 px-5 py-2 text-xs sm:text-sm font-bold text-amber-200 backdrop-blur-md shadow-md">
-            <span className="text-amber-400">✦</span>
-            <span>{L.pricePill}</span>
-          </span>
-        </div>
-
-        {/* 3 Core Trust Pillars */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-6 max-w-3xl mx-auto border-t border-white/20">
-          {L.trust.map((t, i) => (
-            <div
-              key={i}
-              className="flex items-center justify-center sm:justify-start gap-2.5 p-2 rounded-2xl bg-black/40 backdrop-blur-sm border border-white/10 text-xs text-gray-200"
-            >
-              <span className="text-xl shrink-0">{t.icon}</span>
-              <div className="text-left">
-                <div className="font-bold text-white text-[13px]">{t.t}</div>
-                <div className="text-[11px] text-gray-300">{t.sub}</div>
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-950/80 border border-emerald-500/40 text-[10px] sm:text-[11px] font-bold text-emerald-300">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  <span>10,000+ ధృవీకరించిన సంబంధాలు</span>
+                </span>
               </div>
+
+              {/* Compact, Refined Royal Gold Headline */}
+              <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold leading-tight tracking-tight text-white drop-shadow-[0_2px_15px_rgba(0,0,0,0.8)]">
+                {L.titleA}
+                <br />
+                <span className="bg-gradient-to-r from-amber-200 via-yellow-300 to-amber-400 bg-clip-text text-transparent">
+                  {L.titleB}
+                </span>
+              </h1>
+
+              {/* Compact Subtitle */}
+              <p className="text-xs sm:text-sm font-normal leading-relaxed text-gray-200 drop-shadow-sm">
+                {L.sub}
+              </p>
+
+              {/* Compact Action Buttons */}
+              <div className="flex flex-wrap items-center gap-2.5 pt-1">
+                <Link
+                  href="/register"
+                  className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-amber-400 via-amber-300 to-yellow-500 px-6 py-2.5 sm:px-7 sm:py-3 text-sm sm:text-base font-black text-rose-950 shadow-[0_8px_25px_rgba(245,158,11,0.4)] transition hover:brightness-110 active:scale-95"
+                >
+                  <span>💍</span>
+                  <span>{L.ctaReg}</span>
+                  <span aria-hidden className="text-base">→</span>
+                </Link>
+
+                <Link
+                  href="/matches"
+                  className="inline-flex items-center gap-2 rounded-full border border-white/40 bg-white/10 hover:bg-white/20 px-5 py-2.5 sm:px-6 sm:py-3 text-sm sm:text-base font-bold text-white backdrop-blur-md transition active:scale-95 shadow-sm"
+                >
+                  <span>🔍</span>
+                  <span>{L.ctaBrowse}</span>
+                </Link>
+              </div>
+
+              {/* Compact Pricing Offer Pill */}
+              <div>
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-400/35 bg-black/50 px-3.5 py-1 text-[11px] sm:text-xs font-semibold text-amber-200 backdrop-blur-sm">
+                  <span className="text-amber-400">✦</span>
+                  <span>{L.pricePill}</span>
+                </span>
+              </div>
+
+              {/* 3 Compact Trust Pillars */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-3 border-t border-white/15">
+                {L.trust.map((t, i) => (
+                  <div key={i} className="flex items-start gap-2 p-1 text-[11px] sm:text-xs text-gray-200">
+                    <span className="text-base shrink-0 mt-0.5">{t.icon}</span>
+                    <div>
+                      <div className="font-bold text-white text-[11px] sm:text-xs leading-snug">{t.t}</div>
+                      <div className="text-[10px] text-gray-400 leading-tight">{t.sub}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
             </div>
-          ))}
-        </div>
-
-        {/* Floating Live Metrics Bar */}
-        <div className="pt-2">
-          <div className="max-w-3xl mx-auto bg-gradient-to-r from-black/80 via-rose-950/60 to-black/80 backdrop-blur-xl border border-amber-400/40 rounded-3xl p-4 shadow-2xl grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
-            {L.stats.map((s, idx) => (
-              <div key={idx} className="space-y-0.5">
-                <div className="text-xl sm:text-2xl font-black text-amber-300">{s.val}</div>
-                <div className="text-[11px] font-semibold text-gray-300">{s.lbl}</div>
-              </div>
-            ))}
           </div>
-        </div>
 
+          {/* RIGHT SIDE: UNOBSTRUCTED VIDEO SHOWCASE & FLOATING METRICS */}
+          <div className="lg:col-span-5 xl:col-span-6 flex flex-col justify-between items-end space-y-4">
+            
+            {/* Audio Toggle Button */}
+            <button
+              type="button"
+              onClick={toggleSound}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/60 hover:bg-black/80 border border-amber-400/40 text-amber-300 text-xs backdrop-blur-md transition shadow-lg"
+              title={isMuted ? "Unmute Video Sound" : "Mute Video Sound"}
+            >
+              <span>{isMuted ? "🔇" : "🔊"}</span>
+              <span className="text-[11px] font-bold">
+                {isMuted ? "సౌండ్ ఆన్" : "మ్యూట్"}
+              </span>
+            </button>
+
+            {/* Floating Live Metrics Card */}
+            <div className="w-full max-w-md bg-black/60 backdrop-blur-xl border border-amber-400/35 rounded-3xl p-3.5 shadow-2xl grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
+              {L.stats.map((s, idx) => (
+                <div key={idx} className="space-y-0.5">
+                  <div className="text-lg sm:text-xl font-black text-amber-300">{s.val}</div>
+                  <div className="text-[10px] sm:text-[11px] font-semibold text-gray-300 leading-tight">{s.lbl}</div>
+                </div>
+              ))}
+            </div>
+
+          </div>
+
+        </div>
       </div>
     </section>
   );
