@@ -65,7 +65,7 @@ export default function ChannelsPage() {
   const liveCount = liveList.length;
 
   return (
-    <div className="min-h-screen bg-[#FFF8E7] p-4 pb-36">
+    <div className="min-h-dvh bg-[#FFF8E7] p-4 pb-36">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-4 gap-2">

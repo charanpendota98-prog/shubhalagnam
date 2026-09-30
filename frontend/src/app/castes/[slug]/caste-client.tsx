@@ -36,7 +36,7 @@ export default function CasteClient({ caste, role, district, chan, otherChan }: 
   const sameCasteOtherRole = buildSlug(caste.key, role === "bride" ? "groom" : "bride", district?.slug);
 
   return (
-    <main className="min-h-screen">
+    <main className="min-h-dvh">
       <section className="maroon-gradient text-white">
         <div className="max-w-5xl mx-auto px-4 py-10">
           <nav className="text-[11px] opacity-90 flex gap-2 flex-wrap">

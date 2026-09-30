@@ -82,7 +82,7 @@ export default function GrowthPage() {
   const ab = wa?.antiban || {};
 
   return (
-    <main className="min-h-screen bg-cream pb-16">
+    <main className="min-h-dvh bg-cream pb-16">
       {/* 🔐 WAVE 9 — admin key card: /api/leads* lo phone numbers unnayi (PII) → key tho matrame */}
       <div className="max-w-6xl mx-auto px-4 pt-4">
         <div className={`rounded-2xl border p-4 ${needsAdminKey ? "border-rose-300 bg-rose-50" : "border-gold/30 bg-white"}`}>

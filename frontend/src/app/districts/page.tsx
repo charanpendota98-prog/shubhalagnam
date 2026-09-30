@@ -84,7 +84,7 @@ export default function DistrictsPage() {
   }, [allDistricts, activeTab, searchQuery]);
 
   return (
-    <div className="min-h-screen bg-[#FFFDF9] pb-24">
+    <div className="min-h-dvh bg-[#FFFDF9] pb-24">
       {/* ================= HERO HEADER ================= */}
       <section className="relative overflow-hidden bg-gradient-to-br from-[#4A0518] via-[#6B0C27] to-[#8C1438] text-white py-12 px-4 border-b-4 border-gold">
         <div className="max-w-6xl mx-auto text-center space-y-4 relative z-10">

@@ -1023,7 +1023,7 @@ export default function MatchesPage() {
   };
 
   return (
-    <main className="min-h-screen bg-[#FAF7F2] pb-24 sm:pb-28">
+    <main className="min-h-dvh bg-[#FAF7F2] pb-24 sm:pb-28">
       {/* ---------- Sticky Top Quick-Pill Bar ---------- */}
       <div className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-gold/25 shadow-xs">
         <div className="max-w-7xl mx-auto px-4 py-2.5">

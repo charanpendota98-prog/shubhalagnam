@@ -176,7 +176,7 @@ export default function CinematicHero() {
 
   return (
     <section
-      className="relative min-h-[75vh] sm:min-h-[80vh] flex items-center overflow-hidden bg-[#0d0107] text-white"
+      className="relative min-h-[75dvh] sm:min-h-[80dvh] flex items-center overflow-hidden bg-[#0d0107] text-white"
       aria-label="Mana Vivaha — Telugu Matrimony"
     >
       {/* ================= 1. 4K CINEMATIC WEDDING VIDEO BACKGROUND ================= */}

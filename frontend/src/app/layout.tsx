@@ -72,7 +72,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="te-IN">
-      <body className="antialiased min-h-screen flex flex-col">
+      <body className="antialiased min-h-dvh flex flex-col">
         <LangProvider>
           <SiteHeader />
           <main className="flex-1">{children}</main>

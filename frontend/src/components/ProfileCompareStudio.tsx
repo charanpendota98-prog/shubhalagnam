@@ -323,7 +323,7 @@ export default function ProfileCompareStudio() {
   const activeProfiles = showThird ? profiles.slice(0, 3) : profiles.slice(0, 2);
 
   return (
-    <div className="min-h-screen bg-[#FDFBF7] py-10 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-dvh bg-[#FDFBF7] py-10 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto space-y-8">
         {/* Header */}
         <div className="text-center space-y-3">

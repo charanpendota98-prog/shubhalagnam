@@ -63,7 +63,7 @@ export default function MuhurthamPage() {
   };
 
   return (
-    <main className="min-h-screen bg-[#FCFBF8] pb-36">
+    <main className="min-h-dvh bg-[#FCFBF8] pb-36">
       {/* HERO SECTION */}
       <section className="maroon-gradient text-white border-b-4 border-gold/40">
         <div className="max-w-6xl mx-auto px-4 py-12">

@@ -798,7 +798,7 @@ function Wizard() {
     const tsap = result.tsap_id || result.user_id || "";
     const cardUrl = tsap ? result.card_url || `/cards/${tsap}.png` : "";
     return (
-      <main className="min-h-screen py-8 px-4 bg-[#FAF7F2]">
+      <main className="min-h-dvh py-8 px-4 bg-[#FAF7F2]">
         <div className="max-w-2xl mx-auto bg-white rounded-3xl border border-gold/40 shadow-2xl overflow-hidden animate-fade">
           {/* Header Banner */}
           <div className="maroon-gradient p-6 text-white text-center space-y-2">
@@ -938,7 +938,7 @@ function Wizard() {
   const stepMeta = STEPS[step - 1];
 
   return (
-    <main className="min-h-screen pb-28 sm:pb-36 bg-[#FAF7F2]" ref={topRef}>
+    <main className="min-h-dvh pb-28 sm:pb-36 bg-[#FAF7F2]" ref={topRef}>
       {/* ---------- Top Header Bar ---------- */}
       <div className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-gold/25 shadow-xs">
         <div className="max-w-6xl mx-auto px-4 py-2.5 sm:py-3 flex items-center justify-between gap-3">
@@ -2054,7 +2054,7 @@ export default function RegisterPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen flex items-center justify-center bg-[#FAF7F2]">
+        <div className="min-h-dvh flex items-center justify-center bg-[#FAF7F2]">
           <div className="text-center space-y-2">
             <div className="w-10 h-10 border-4 border-maroon border-t-transparent rounded-full animate-spin mx-auto" />
             <div className="text-xs font-bold text-maroon">మన వివాహ రిజిస్ట్రేషన్ లోడ్ అవుతోంది…</div>

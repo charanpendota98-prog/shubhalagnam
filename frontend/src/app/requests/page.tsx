@@ -237,7 +237,7 @@ export default function RequestsPage() {
   };
 
   return (
-    <main className="min-h-screen pb-36">
+    <main className="min-h-dvh pb-36">
       {/* HERO */}
       <section className="maroon-gradient text-white">
         <div className="max-w-6xl mx-auto px-4 py-10">

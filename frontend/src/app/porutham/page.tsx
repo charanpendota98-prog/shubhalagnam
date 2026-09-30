@@ -114,7 +114,7 @@ function PoruthamInner() {
   const items: Res[] = res?.items || [];
 
   return (
-    <main className="min-h-screen bg-cream pb-36">
+    <main className="min-h-dvh bg-cream pb-36">
       <section className="maroon-gradient text-white print:!bg-white print:!text-maroon">
         <div className="max-w-4xl mx-auto px-4 py-8">
           <div className="text-[11px] font-bold bg-white/10 border border-white/20 rounded-full px-3 py-1 inline-block">
@@ -385,7 +385,7 @@ function PoruthamInner() {
 
 export default function PoruthamPage() {
   return (
-    <Suspense fallback={<main className="min-h-screen bg-cream p-8 text-center text-[13px]">వేద గుణమేళనం లోడ్ అవుతుంది…</main>}>
+    <Suspense fallback={<main className="min-h-dvh bg-cream p-8 text-center text-[13px]">వేద గుణమేళనం లోడ్ అవుతుంది…</main>}>
       <PoruthamInner />
     </Suspense>
   );

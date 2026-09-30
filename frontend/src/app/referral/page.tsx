@@ -387,7 +387,7 @@ export default function ReferralPage() {
   };
 
   return (
-    <main className="min-h-screen bg-[#FFF8E7] pb-36">
+    <main className="min-h-dvh bg-[#FFF8E7] pb-36">
       
       {/* ================= HERO SECTION ================= */}
       <section className="maroon-gradient text-white relative overflow-hidden">

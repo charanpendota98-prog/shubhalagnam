@@ -207,7 +207,7 @@ export default function AdminPage() {
   const rows = (queue.items || []).filter((p: any) => ((p.code || "") + (p.name || "") + (p.upi_id || "") + p.id).toLowerCase().includes(search.toLowerCase()));
 
   return (
-    <main className="min-h-screen bg-[#FFF8E7] p-4">
+    <main className="min-h-dvh bg-[#FFF8E7] p-4">
 
       {/* 🔐 WAVE 9 — ADMIN KEY + ABUSE DASHBOARD */}
       <section className="mx-auto max-w-6xl px-4 pt-4">

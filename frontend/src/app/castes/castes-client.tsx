@@ -305,7 +305,7 @@ export default function CastesClient() {
   }, [search, selectedCat]);
 
   return (
-    <main className="min-h-screen pb-36 bg-[#FCFBF8]">
+    <main className="min-h-dvh pb-36 bg-[#FCFBF8]">
       {/* HERO SECTION */}
       <section className="maroon-gradient text-white border-b-4 border-gold/40">
         <div className="max-w-6xl mx-auto px-4 py-12">

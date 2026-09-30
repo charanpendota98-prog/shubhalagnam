@@ -1022,7 +1022,7 @@ export default function Dashboard() {
 
   if (err) {
     return (
-      <main className="min-h-screen bg-cream p-8 text-center">
+      <main className="min-h-dvh bg-cream p-8 text-center">
         <p className="text-rose-700 font-bold">{err}</p>
         <button onClick={loadCore} className="mt-4 rounded-xl maroon-gradient px-4 py-2 text-white font-bold">{L.refresh}</button>
       </main>
@@ -1031,7 +1031,7 @@ export default function Dashboard() {
 
   if (!me || !an) {
     return (
-      <main className="min-h-screen bg-cream p-12 text-center text-sm font-bold text-slate-500">
+      <main className="min-h-dvh bg-cream p-12 text-center text-sm font-bold text-slate-500">
         {L.loading}
       </main>
     );
@@ -1058,7 +1058,7 @@ export default function Dashboard() {
   ];
 
   return (
-    <main className="min-h-screen bg-[#FAF6F0] pb-44 text-slate-800">
+    <main className="min-h-dvh bg-[#FAF6F0] pb-44 text-slate-800">
       
       {/* =========================================================================
           TOP OPERATIONS HEADER (WITH PROMINENT WHATSAPP & TELEGRAM BUTTONS)

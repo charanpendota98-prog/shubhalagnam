@@ -20,7 +20,7 @@ export default function SearchIndexPage() {
   };
 
   return (
-    <div className="min-h-screen bg-cream p-4 grid place-items-center">
+    <div className="min-h-dvh bg-cream p-4 grid place-items-center">
       <div className="w-full max-w-md bg-white rounded-3xl p-6 card-shadow border border-gold/30 text-center">
         <div className="text-3xl">🔍</div>
         <h1 className="mt-2 text-xl font-bold text-maroon">

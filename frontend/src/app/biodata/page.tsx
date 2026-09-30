@@ -365,7 +365,7 @@ export default function BiodataPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#FAF7F2] py-6 sm:py-10 px-3 sm:px-6 font-sans">
+    <div className="min-h-dvh bg-[#FAF7F2] py-6 sm:py-10 px-3 sm:px-6 font-sans">
       <div className="max-w-6xl mx-auto space-y-6">
         
         {/* ================= TOP STUDIO CONTROLS (NO PRINT) ================= */}

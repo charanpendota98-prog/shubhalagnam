@@ -484,7 +484,7 @@ export default function SecondMarriagePage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#FFFDF9] pb-20">
+    <div className="min-h-dvh bg-[#FFFDF9] pb-20">
       {/* ================= HERO HEADER ================= */}
       <section className="relative overflow-hidden bg-gradient-to-br from-[#4A0518] via-[#660B25] to-[#8C1438] text-white py-12 px-4 border-b-4 border-gold">
         {/* Decorative Background Circles */}

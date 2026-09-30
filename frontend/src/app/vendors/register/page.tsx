@@ -80,7 +80,7 @@ export default function VendorRegisterPage() {
   if (res) {
     const v = res.vendor;
     return (
-      <main className="min-h-screen bg-cream pb-20">
+      <main className="min-h-dvh bg-cream pb-20">
         <section className="maroon-gradient text-white">
           <div className="max-w-3xl mx-auto px-4 py-9 text-center">
             <div className="text-5xl">🎉</div>
@@ -145,7 +145,7 @@ export default function VendorRegisterPage() {
 
   /* ---------------- FORM ---------------- */
   return (
-    <main className="min-h-screen bg-cream pb-24">
+    <main className="min-h-dvh bg-cream pb-24">
       <section className="maroon-gradient text-white">
         <div className="max-w-3xl mx-auto px-4 py-8">
           <div className="text-[12px] opacity-90 mb-1">

@@ -57,7 +57,7 @@ export default function VendorDetailPage() {
 
   if (err) {
     return (
-      <main className="min-h-screen bg-cream flex items-center justify-center px-4">
+      <main className="min-h-dvh bg-cream flex items-center justify-center px-4">
         <div className="bg-white rounded-3xl border border-gold/30 p-6 text-center max-w-md">
           <div className="text-4xl">🔍</div>
           <div className="mt-2 font-bold text-maroon">⚠️ {err}</div>
@@ -69,10 +69,10 @@ export default function VendorDetailPage() {
     );
   }
 
-  if (!v) return <main className="min-h-screen bg-cream grid place-items-center"><span className="text-maroon font-bold">⏳ Loading…</span></main>;
+  if (!v) return <main className="min-h-dvh bg-cream grid place-items-center"><span className="text-maroon font-bold">⏳ Loading…</span></main>;
 
   return (
-    <main className="min-h-screen bg-cream pb-20">
+    <main className="min-h-dvh bg-cream pb-20">
       <section className="maroon-gradient text-white">
         <div className="max-w-5xl mx-auto px-4 py-8">
           <div className="text-[12px] opacity-90 mb-1"><Link href="/vendors" className="underline">← Vendors</Link></div>
