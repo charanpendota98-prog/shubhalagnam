@@ -97,12 +97,29 @@ export default function MuhurthamPage() {
                 className="bg-white/15 hover:bg-white/25 border border-white/30 text-white font-bold px-5 py-3 rounded-2xl text-xs transition flex items-center gap-2"
               >
                 <span>🔍</span>
-                <span>{te ? "ఈ నక్షత్రాల సంబంధాలు చూడండి" : "Explore Matching Profiles"}</span>
+                <span>{te ? "సంబంధాలు చూడండి" : "Explore Matching Profiles"}</span>
               </Link>
             </div>
           </Reveal>
         </div>
       </section>
+
+      {/* CULTURALLY AUTHENTIC HONEST ADVISORY BANNER */}
+      <div className="max-w-6xl mx-auto px-4 -mt-4 relative z-10">
+        <div className="bg-amber-50 border-2 border-amber-300 rounded-3xl p-5 shadow-lg flex items-start gap-3.5 text-xs text-amber-950">
+          <span className="text-2xl shrink-0 mt-0.5">🪔</span>
+          <div className="space-y-1">
+            <div className="font-extrabold text-sm text-maroon">
+              {te ? "ముఖ్య గమనిక — పురోహితుల సంప్రదింపు సూచన:" : "Important Note — Family Astrologer Consultation:"}
+            </div>
+            <p className="leading-relaxed text-gray-800">
+              {te
+                ? "వివాహ ముహూర్తం అనేది వధూవరుల ఇరువురి జన్మ నక్షత్రాలు, జాతక చక్రం, గురుబలం, శుక్రబలం మరియు లగ్న శుద్ధి ఆధారంగా మీ కుటుంబ పురోహితులు లేదా సిద్ధాంతులచే మాత్రమే తుదిగా ఖరారు చేసుకోవాలి. ఇక్కడ ఇవ్వబడినవి పంచాంగ రీత్యా సాధారణ సమాచారం మాత్రమే."
+                : "Auspicious wedding muhurthams must be finalized individually with your family astrologer/purohit based on both bride and groom's birth stars, Guru/Shukra balam, and exact lagna shuddhi. The dates below are general panchangam references."}
+            </p>
+          </div>
+        </div>
+      </div>
 
       {/* MAIN CONTENT AREA */}
       <div className="max-w-6xl mx-auto px-4 py-10">
