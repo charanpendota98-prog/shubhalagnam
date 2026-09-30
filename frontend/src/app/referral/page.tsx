@@ -17,15 +17,6 @@ import { WhatsAppIcon, TelegramIcon } from "@/components/BrandIcons";
 
 type Dash = any;
 
-const RECENT_COMMISSIONS_TICKER = [
-  { name: "Ravi Teja", dist: "Hyderabad", amt: 50, time: "2 mins ago", mode: "UPI" },
-  { name: "Sita Mahalakshmi", dist: "Vijayawada", amt: 150, time: "8 mins ago", mode: "PhonePe" },
-  { name: "Kalyan Kumar", dist: "Guntur", amt: 50, time: "15 mins ago", mode: "GPay" },
-  { name: "Bhavani Shankar", dist: "Visakhapatnam", amt: 200, time: "27 mins ago", mode: "UPI" },
-  { name: "Venkata Rao (Bureau)", dist: "Khammam", amt: 500, time: "42 mins ago", mode: "Bank" },
-  { name: "Anil Reddy", dist: "Warangal", amt: 100, time: "1 hour ago", mode: "PhonePe" },
-];
-
 const SHOP_TEMPLATES: Record<string, {
   id: string;
   label: string;

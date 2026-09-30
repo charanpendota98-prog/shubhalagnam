@@ -18,7 +18,7 @@ const COPY = {
     titleA: "నమ్మకమైన పవిత్ర బంధం,",
     titleB: "ఇక్కడే మొదలవుతుంది",
     sub: "తెలంగాణ & ఆంధ్రప్రదేశ్ కుటుంబాల కొరకు అత్యున్నత విశ్వసనీయ వేదిక — 100% ధృవీకరించిన ప్రొఫైల్స్, సంపూర్ణ ఫోటో గోప్యత మరియు గౌరవప్రదమైన అనుసంధానం.",
-    pricePill: "₹99 నుంచి ప్రారంభం · మొదటి 3 ప్రొఫైల్స్ పూర్తిగా ఉచితం (FREE)",
+    pricePill: "₹29 నుంచి ప్రారంభం · మొదటి 3 ప్రొఫైల్స్ పూర్తిగా ఉచితం (FREE)",
     ctaReg: "ఉచిత నమోదు — FREE",
     ctaBrowse: "సంబంధాలు చూడండి",
     trust: [
@@ -38,7 +38,7 @@ const COPY = {
     titleA: "Sacred, trusted bonds,",
     titleB: "begin right here.",
     sub: "The most trusted matrimonial platform for Telangana & Andhra Pradesh families — 100% verified profiles, complete photo privacy, and dignified family connections.",
-    pricePill: "From ₹99 · first 3 profiles completely free (FREE)",
+    pricePill: "From ₹29 · first 3 profiles completely free (FREE)",
     ctaReg: "Free Register — FREE",
     ctaBrowse: "Browse Profiles",
     trust: [

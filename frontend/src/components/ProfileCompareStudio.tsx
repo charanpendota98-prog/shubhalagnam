@@ -131,7 +131,7 @@ const SAMPLE_DATABASE: Record<string, ProfileCard> = {
     district: "విశాఖపట్నం",
     state: "ఆంధ్రప్రదేశ్",
     marital_status: "ఎన్నడూ పెళ్లి కాలేదు",
-    photo_url: "/promo/bride-card.jpg",
+    photo_url: "/promo/cine-2.jpg",
     gunamelanam_score: 32,
   },
   DOC202: {
@@ -211,7 +211,7 @@ const SAMPLE_DATABASE: Record<string, ProfileCard> = {
     district: "హైదరాబాద్",
     state: "తెలంగాణ",
     marital_status: "ఎన్నడూ పెళ్లి కాలేదు",
-    photo_url: "/promo/groom-vysya.jpg",
+    photo_url: "/promo/story-2.jpg",
     gunamelanam_score: 30,
   },
   GOV303: {

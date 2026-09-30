@@ -36,7 +36,7 @@ const FEATURED_REMARRIAGE: RemarriageCard[] = [
     salary: "₹18.5L",
     location: "Hyderabad / Nalgonda",
     star: "Uttara Phalguni",
-    photo: "/promo/bride-card.jpg",
+    photo: "/promo/cine-4.jpg",
     about: "IT లో స్థిరపడ్డాను. లీగల్ డివోర్స్ పూర్తయింది. పరస్పర గౌరవం, బాధ్యత గల మంచి తోడు కోసం చూస్తున్నాం.",
   },
   {

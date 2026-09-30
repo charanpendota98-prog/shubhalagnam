@@ -17,6 +17,15 @@ const nextConfig = {
     ];
   },
 
+  // R14 FIX: /remarriage పాత client-side hack (component render + JS router.replace)
+  // తీసేసి config-level 308 permanent redirect పెట్టాం — ఇది edge/server layer లోనే
+  // నిజమైన HTTP redirect header పంపుతుంది (curl/crawlers/browsers అందరికీ ఒకేలా పనిచేస్తుంది).
+  async redirects() {
+    return [
+      { source: '/remarriage', destination: '/second-marriage', permanent: true },
+    ];
+  },
+
   async headers() {
     // 🛡️ R11: production lo SAMEORIGIN (clickjacking block — matrimony site ki must).
     // Dev/preview lo ALLOWALL (sandbox iframe preview kavali).

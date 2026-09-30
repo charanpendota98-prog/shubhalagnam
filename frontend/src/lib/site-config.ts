@@ -7,6 +7,15 @@
  * Colors marchali ante: tailwind.config.ts (brand tokens) + src/app/globals.css (gradients).
  */
 
+/**
+ * R14 FIX: Support email ippudu ONE place nunchi (env var) fully configurable.
+ * NEXT_PUBLIC_SUPPORT_EMAIL set చేస్తే — supportEmail + legal.grievanceOfficer +
+ * legal.email అన్నీ ఒకేసారి update అవుతాయి (business domain mail వచ్చాక ఒక్క
+ * env var మార్చితే సరిపోతుంది, code లో వెతికి మార్చాల్సిన అవసరం లేదు).
+ * ఇప్పటికి (business mailbox set అయ్యేవరకు) fallback గా personal Gmail ఉంచాం.
+ */
+const SUPPORT_EMAIL = (process.env.NEXT_PUBLIC_SUPPORT_EMAIL || "charan.pendota98@gmail.com").trim();
+
 export const SITE_CONFIG = {
   // ---------- Brand ----------
   brandName: "మన వివాహ",
@@ -28,7 +37,7 @@ export const SITE_CONFIG = {
   officialChannelUrl: "https://t.me/TSAP_MATRIMONY",
   supportWhatsapp: (process.env.NEXT_PUBLIC_SUPPORT_WHATSAPP || "916304996088").trim(),
   supportPhone: (process.env.NEXT_PUBLIC_SUPPORT_PHONE || "+916304996088").trim(),
-  supportEmail: (process.env.NEXT_PUBLIC_SUPPORT_EMAIL || "charan.pendota98@gmail.com").trim(),
+  supportEmail: SUPPORT_EMAIL,
   supportConfigured: true,
   get supportPhoneDisplay() { return this.supportPhone || "+91 63049 96088"; },
   get supportLink() { return `https://wa.me/${this.supportWhatsapp || "916304996088"}`; },
@@ -111,14 +120,14 @@ export const SITE_CONFIG = {
   legal: {
     refundPolicy: "7 days — pay ayyaka profile work avvakapoyina full refund",
     privacyNote: "Mee number evariki share cheyyamu. Data India lo store avutundi.",
-    grievanceOfficer: "PENDOTA CHARAN, charan.pendota98@gmail.com",
+    grievanceOfficer: `PENDOTA CHARAN, ${SUPPORT_EMAIL}`,
     ownerId: "TeNDDG5ywwZIg3",
     ownerName: "PENDOTA CHARAN",
     signatoryName: "PENDOTA CHARAN",
     ipAddress: "10.26.123.93",
     dateOfAcceptance: "2026-09-20 23:08:03 IST",
     contactNumber: "+916304996088",
-    email: "charan.pendota98@gmail.com",
+    email: SUPPORT_EMAIL,
   },
 } as const;
 
