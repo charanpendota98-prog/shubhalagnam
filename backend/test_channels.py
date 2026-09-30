@@ -3,8 +3,11 @@ Test Bot Posting to Live Channels TSBRIDE, TSGROOM1
 Run: python test_channels.py
 """
 import os, sys
-from dotenv import load_dotenv
-load_dotenv()
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
 
 BOT_TOKEN = os.getenv("BOT_TOKEN", "0000000000:TEST-FAKE-TOKEN-DO-NOT-USE")
 

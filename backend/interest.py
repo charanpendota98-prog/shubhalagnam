@@ -67,7 +67,7 @@ PLANS: Dict[str, Dict] = {
     "S_199": {
         "code": "S_199", "price": 199, "profiles": 12, "validity_days": 45,
         "label": "Family", "telugu": "₹199 → 12 profiles", "badge": "Most popular • ₹16.6/profile",
-        "per_profile": 17, "perks": ["12 interest requests", "✅ Photo-verified badge (trust boost)", "⭐ Free 10-పొరుతం report (1)", "Family bureau assist"],
+        "per_profile": 17, "perks": ["12 interest requests", "✅ Photo-verified badge (trust boost)", "⭐ Free వేద గుణమేళనం report (1)", "Family bureau assist"],
     },
     "S_299": {
         "code": "S_299", "price": 299, "profiles": 25, "validity_days": 60,
@@ -98,8 +98,8 @@ ADDONS: Dict[str, Dict] = {
                  "telugu": "మీ card 7 days channel top లో", "kind": "boost", "days": 7},
     "WHOVIEWED_49": {"code": "WHOVIEWED_49", "price": 49, "label": "Who viewed me (30 days)",
                      "telugu": "మీ profile ని ఎవరు చూశారు — names తో", "kind": "whoviewed", "days": 30},
-    "PORUTHAM_99": {"code": "PORUTHAM_99", "price": 99, "label": "10-పొరుతం report",
-                    "telugu": "Full kundli match report (Telugu)", "kind": "porutham", "days": 365},
+    "PORUTHAM_99": {"code": "PORUTHAM_99", "price": 99, "label": "వేద గుణమేళనం report",
+                    "telugu": "Full Vedic kundli match report (Telugu)", "kind": "porutham", "days": 365},
     "VERIFY_199": {"code": "VERIFY_199", "price": 199, "label": "Photo verification badge",
                    "telugu": "✅ Verified badge — 3x ఎక్కువ acceptances", "kind": "verify", "days": 365},
 }
@@ -370,10 +370,10 @@ def interest_to_owner_text(requester: Dict, owner: Dict, rec: Dict) -> str:
     r = safe_user(requester)
     reasons = "\n".join(f"  ✅ {x}" for x in (rec.get("reasons") or [])[:3])
     return (
-        f"💌 *MANA VIVAHA — మీ profile కి INTEREST వచ్చింది!*\n"
+        f"💌 *MANA VIVAHA — మీ ప్రొఫైల్‌కు INTEREST వచ్చింది!*\n"
         f"━━━━━━━━━━━━━━━━\n"
-        f"ఒకరు మీ profile చూసి *\"interesting గా ఉన్నారు\"* అని request పెట్టారు 👇\n\n"
-        f"👤 *{r['full_name']}*  ({r['age']} yrs)\n"
+        f"మీ ప్రొఫైల్ వివరాలు చూసి క్రింది వారు సంబంధం కోసం ఆసక్తి (Interest) తెలిపారు 👇\n\n"
+        f"👤 *{r['full_name']}*  ({r['age']} సం.)\n"
         f"🆔 {r['tsap_id']}{'  ✅ Verified' if r['verified'] else ''}\n"
         f"🎓 {r['education']} {r['education_detail']}\n"
         f"💼 {r['job']} {r['company']}\n"
@@ -381,50 +381,55 @@ def interest_to_owner_text(requester: Dict, owner: Dict, rec: Dict) -> str:
         f"📍 {r['district']}, {r['state']}{'  •  💼 ' + r['work_location'] if r['work_location'] else ''}\n"
         f"💍 {r['caste']}{' / ' + r['sub_caste'] if r['sub_caste'] else ''}"
         f"{'  |  గోత్రం: ' + r['gothram'] if r['gothram'] else ''}\n"
-        f"🌟 Star: {r['star'] or '—'}  |  రాశి: {r['rasi'] or '—'}\n"
-        + (f"⭐ *{rec['score']}% match* — {', '.join((rec.get('reasons') or [])[:2])}\n" if rec.get("score") else "")
-        + (f"📝 *Valla message:* \"{rec['note']}\"\n" if rec.get("note") else "")
+        f"🌟 నక్షత్రం: {r['star'] or '—'}  |  రాశి: {r['rasi'] or '—'}\n"
+        + (f"⭐ *{rec['score']}% సరిపోలిక (Match)* — {', '.join((rec.get('reasons') or [])[:2])}\n" if rec.get("score") else "")
+        + (f"📝 *సందేశం:* \"{rec['note']}\"\n" if rec.get("note") else "")
         + f"━━━━━━━━━━━━━━━━\n"
-        f"📸 Full profile + photo: {SITE}/search/{r['tsap_id']}\n"
-        f"✅ *Accept* చేస్తే → వల్ల number మీకు WhatsApp లో వస్తుంది\n"
-        f"❌ *Decline* చేస్తే → polite గా no cheptham (and వల్ల credit refund)\n"
-        f"🚫 Chatting లేదు — *direct contact exchange మాత్రమే* (safe, no time waste)\n"
-        f"💻 Accept/Decline ఇక్కడ: {SITE}/requests?id={owner.get('tsap_id','')}\n"
-        f"🆔 Request ID: {rec['request_id']}  •  ⏳ {EXPIRY_DAYS} days valid\n"
-        f"⚠️ మన వివాహ ఎప్పుడు advance money adagadu • Report: {SUPPORT}"
+        f"📸 ఫోటో & పూర్తి వివరాలు: {SITE}/search/{r['tsap_id']}\n\n"
+        f"👉 *1-క్లిక్‌తో ఆమోదించడానికి (Accept / Decline):*\n"
+        f"🔗 {SITE}/requests?id={owner.get('tsap_id','')}\n\n"
+        f"✅ *Accept* చేస్తే → ఇరువైపులా నంబర్లు వాట్సాప్‌లో మార్పిడి అవుతాయి.\n"
+        f"❌ *Decline* చేస్తే → మర్యాదపూర్వకంగా తెలియజేయబడుతుంది.\n"
+        f"🚫 Chatting లేదు — *డైరెక్ట్ ఫ్యామిలీ కాంటాక్ట్ మాత్రమే* (Direct Contact Only).\n"
+        f"🆔 Request ID: {rec['request_id']}  •  ⏳ 7 రోజులు చెల్లుబాటు అవుతుంది\n"
+        f"⚠️ మన వివాహ ఎప్పుడూ ముందస్తు అడ్వాన్స్ డబ్బులు అడగదు • Support: {SUPPORT}"
     )
 
 
 def interest_accepted_text(requester: Dict, owner: Dict, rec: Dict) -> str:
     o = safe_user(owner)
     phone = str(owner.get("phone", "") or "").strip()
-    phone_line = f"📞 *{phone}*" if phone else f"📞 Number: {SITE}/requests?id={requester.get('tsap_id','')}"
+    phone_line = f"📞 *{phone}*" if phone else f"📞 సంప్రదించండి: {SITE}/requests?id={requester.get('tsap_id','')}"
     return (
-        f"🎉 *INTEREST ACCEPT AYYINDI!*\n"
+        f"🎉 *మన వివాహ (MANA VIVAHA) — శుభవార్త! సంబంధం ఆమోదించబడింది!*\n"
         f"━━━━━━━━━━━━━━━━\n"
-        f"👤 *{o['full_name']}* ({o['tsap_id']}) మీ request ని *accept* చేశారు ✅\n\n"
-        f"📞 Contact: {phone_line}  (+ WhatsApp)\n"
-        f"📍 {o['district']}, {o['state']}  |  💍 {o['caste']}\n"
-        f"🎓 {o['education']}  |  💼 {o['job']}\n\n"
-        f"✅ మీ number కూడా వాళ్లకి share అయ్యింది — ఇప్పుడు direct matladukovachu\n"
-        f"💐 All the best! మన వివాహ parivaaram నుంచి శుభాకాంక్షలు\n"
-        f"❓ ఏమైనా help కావాలి అంటే: {SUPPORT}\n"
-        f"⚠️ Advance money / gold అడిగితే వెంటనే report చెయ్యండి — safety first"
+        f"👤 *{o['full_name']}* ({o['tsap_id']}) మీ సంబంధం అభ్యర్థనను ఆమోదించారు ✅\n\n"
+        f"📞 *వారి ఫోన్ నంబర్:* {phone_line} (Call / WhatsApp)\n"
+        f"📍 *ప్రాంతం:* {o['district']}, {o['state']}  |  💍 *కులం:* {o['caste']}\n"
+        f"🎓 *విద్య:* {o['education']}  |  💼 *ఉద్యోగం:* {o['job']}\n\n"
+        f"✅ మీ నంబర్ కూడా వారి కుటుంబానికి వాట్సాప్‌లో పంపబడింది.\n"
+        f"ఇప్పుడు మీరు నేరుగా ఫోన్ చేసి లేదా వాట్సాప్‌లో మాట్లాడవచ్చు.\n\n"
+        f"💐 *మన వివాహ బృందం తరఫున మీకు హృదయపూర్వక శుభాకాంక్షలు!*\n"
+        f"❓ సహాయం కోసం: {SUPPORT}\n"
+        f"⚠️ ముందస్తు అడ్వాన్స్ డబ్బులు / బంగారం అడిగితే వెంటనే నివేదించండి — గోప్యతే మా ప్రాధాన్యత."
     )
 
 
 def interest_declined_text(requester: Dict, owner: Dict, rec: Dict) -> str:
     o = safe_user(owner)
-    refund = "✅ మీ credit refund అయ్యింది (మన trust policy)" if rec.get("credit_refunded") else ""
+    credits_left = requester.get("credits", 0)
+    caste_filter = f"?caste={o.get('caste', '')}" if o.get("caste") else ""
     return (
-        f"🙏 *MANA VIVAHA — Response వచ్చింది*\n"
+        f"🙏 *మన వివాహ (MANA VIVAHA) — సంబంధం అప్‌డేట్*\n"
         f"━━━━━━━━━━━━━━━━\n"
-        f"👤 {o['full_name']} ({o['tsap_id']}) ఈ సారి interest కి yes అనలేదు.\n"
-        f"{refund}\n\n"
-        f"💚 నిరాశ పడకండి — {SITE}/matches లో మీ {o['caste']} "
-        f"{o['district']} matches చూడండి, రోజుకి కొత్త profiles వస్తాయి.\n"
-        f"💡 Tip: photo + గోత్రం + star add చేస్తే 3x ఎక్కువ acceptances వస్తాయి\n"
-        f"🆔 {rec['request_id']}"
+        f"👤 *{o['full_name']}* ({o['tsap_id']}) కుటుంబం వారి వ్యక్తిగత ప్రాధాన్యతలు / జాతక పొంతన దృష్ట్యా ప్రస్తుతానికి ఈ సంబంధం ముందుకు సాగలేకపోతున్నారు.\n\n"
+        f"💰 *100% క్రెడిట్ రీఫండ్ చేయబడింది:*\n"
+        f"మీరు ఉపయోగించిన 1 క్రెడిట్ తిరిగి మీ ఖాతాకు జమ చేయబడింది (ప్రస్తుత క్రెడిట్స్: {credits_left}).\n\n"
+        f"💚 *మంచి సంబంధం మీ కోసం వేచి ఉంది:*\n"
+        f"మీ కులం మరియు జిల్లాలో మీ జాతకానికి చక్కగా సరిపోయే మరిన్ని ఉత్తమ సంబంధాలను ఇక్కడ వీక్షించండి 👇\n"
+        f"🔗 {SITE}/matches{caste_filter}\n\n"
+        f"💡 *సలహా:* మీ ప్రొఫైల్‌లో స్పష్టమైన ఫోటో, గోత్రం, నక్షత్ర వివరాలు అప్‌డేట్ చేయడం ద్వారా 3 రెట్లు వేగంగా స్పందన లభిస్తుంది.\n"
+        f"🆔 Request ID: {rec['request_id']}"
     )
 
 
@@ -432,12 +437,15 @@ def interest_notify_text(requester: Dict, owner: Dict, rec: Dict) -> str:
     """Requester కి confirmation (మన WhatsApp నుంచి)."""
     o = safe_user(owner)
     return (
-        f"✅ *Interest pampincharu — {rec['request_id']}*\n"
-        f"👤 {o['full_name']} ({o['tsap_id']}) — {o['district']}, {o['caste']}\n"
-        f"⏳ {EXPIRY_DAYS} days లో reply vasthundi (accept/decline)\n"
-        f"📊 మీ credits: {requester.get('credits', 0)} migilayi\n"
-        f"📸 Valla profile: {SITE}/search/{o['tsap_id']}\n"
-        f"💡 Advance money అడిగితే వెంటనే report చెయ్యండి — {SUPPORT}"
+        f"✅ *మన వివాహ — సంబంధం ఆసక్తి (Interest) విజయవంతంగా పంపబడింది!*\n"
+        f"━━━━━━━━━━━━━━━━\n"
+        f"👤 ఎవరికి: *{o['full_name']}* ({o['tsap_id']}) — {o['district']}, {o['caste']}\n"
+        f"🆔 Request ID: {rec['request_id']}\n"
+        f"⏳ రాబోయే 7 రోజులలో వారి నుండి స్పందన (Accept / Response) అందుతుంది.\n"
+        f"📊 మిగిలిన క్రెడిట్స్: {requester.get('credits', 0)}\n"
+        f"📸 వారి ప్రొఫైల్: {SITE}/search/{o['tsap_id']}\n\n"
+        f"🔒 *భద్రతా విధానం:* వారు ఆమోదించిన వెంటనే మాత్రమే వారి ఫోన్ నంబర్ మీకు అందించబడుతుంది.\n"
+        f"💡 సహాయం కోసం: {SUPPORT}"
     )
 
 

@@ -9,10 +9,11 @@ import { parseSlug, channelForCaste } from "@/lib/seo-pages";
 import { SITE_CONFIG } from "@/lib/site-config";
 import CasteClient from "./caste-client";
 
-type Params = { params: { slug: string } };
+type Params = { params: Promise<{ slug: string }> };
 
-export function generateMetadata({ params }: Params): Metadata {
-  const parsed = parseSlug(params.slug);
+export async function generateMetadata({ params }: Params): Promise<Metadata> {
+  const { slug } = await params;
+  const parsed = parseSlug(slug);
   if (!parsed) return { title: "Caste Matrimony Channels" };
   const { caste, role, district } = parsed;
   const chan = channelForCaste(caste.key, role);
@@ -26,12 +27,13 @@ export function generateMetadata({ params }: Params): Metadata {
       `${caste.name.toLowerCase()} groom`, `${caste.name.toLowerCase()} sambandham`,
       `telugu matrimony ${district?.name || "telangana"}`, "Telugu matrimony", "manavivaha",
     ],
-    alternates: { canonical: `${SITE_CONFIG.siteUrl}/castes/${params.slug}` },
+    alternates: { canonical: `${SITE_CONFIG.siteUrl}/castes/${slug}` },
   };
 }
 
-export default function CasteLandingPage({ params }: Params) {
-  const parsed = parseSlug(params.slug);
+export default async function CasteLandingPage({ params }: Params) {
+  const { slug } = await params;
+  const parsed = parseSlug(slug);
   if (!parsed) notFound();
   const { caste, role, district } = parsed;
   const chan = channelForCaste(caste.key, role);

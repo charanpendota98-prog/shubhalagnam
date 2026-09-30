@@ -26,6 +26,18 @@ import time
 from collections import deque
 from datetime import datetime, timedelta
 from typing import Any, Deque, Dict, Iterable, List, Optional, Tuple
+import sys
+import os
+
+_backend_dir = os.path.dirname(os.path.abspath(__file__))
+_vendor_dir = os.path.join(_backend_dir, "vendor")
+if os.path.isdir(_vendor_dir) and _vendor_dir not in sys.path:
+    sys.path.insert(0, _vendor_dir)
+if _backend_dir not in sys.path:
+    sys.path.insert(0, _backend_dir)
+_vendor_dir = os.path.join(os.path.dirname(__file__), "vendor")
+if os.path.isdir(_vendor_dir) and _vendor_dir not in sys.path:
+    sys.path.insert(0, _vendor_dir)
 
 from fastapi import HTTPException, Request
 from fastapi.responses import JSONResponse

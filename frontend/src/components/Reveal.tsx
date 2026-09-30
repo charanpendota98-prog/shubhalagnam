@@ -9,40 +9,21 @@ type Props = {
 };
 
 /**
- * Scroll-reveal wrapper — IntersectionObserver tho.
- * SSR lo content render avutundi (opacity 0 class tho) — SEO ki problem ledu.
+ * Scroll-reveal wrapper — Safe & Always Visible (Zero blank screen bugs).
  */
 export default function Reveal({ children, delay = 0, className = "", as = "div" }: Props) {
   const ref = useRef<HTMLElement | null>(null);
-  const [visible, setVisible] = useState(false);
+  const [visible, setVisible] = useState(true);
 
   useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    if (typeof IntersectionObserver === "undefined") {
-      setVisible(true);
-      return;
-    }
-    const io = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((e) => {
-          if (e.isIntersecting) {
-            setVisible(true);
-            io.unobserve(e.target);
-          }
-        });
-      },
-      { rootMargin: "0px 0px -10% 0px", threshold: 0.08 }
-    );
-    io.observe(el);
-    return () => io.disconnect();
+    setVisible(true);
   }, []);
 
   const Tag = as as any;
   return (
     <Tag
       ref={ref as any}
-      className={`reveal ${visible ? "is-visible" : ""} ${className}`}
+      className={`reveal is-visible ${className}`}
       style={delay ? { transitionDelay: `${delay}ms` } : undefined}
     >
       {children}

@@ -21,28 +21,28 @@ type Plan = {
 type Addon = { code: string; price: number; label: string; telugu: string };
 
 const FALLBACK_PLANS: Plan[] = [
-  { code: "FREE", price: 0, profiles: 3, label: "Free", telugu: "మొదటి 3 requests FREE", badge: te0("ఎప్పుడైనా", "No card"), perks: ["3 interest requests", "Profile card + channels"], perksTe: ["3 interest requests", "Profile card + channels"] },
-  { code: "S_29", price: 29, profiles: 1, label: "Single", telugu: "₹29 → 1 request", per_profile: 29, perks: ["1 interest request", "Decline అయితే refund"], perksTe: ["1 interest request", "Decline అయితే refund"] },
-  { code: "S_99", price: 99, profiles: 5, label: "Sambandham", telugu: "₹99 → 5 requests", per_profile: 20, badge: te0("చాలా వారు తీసుకుంటారు", "Popular"), perks: ["5 requests", "7-day boost"], perksTe: ["5 requests", "7-day boost"] },
-  { code: "S_199", price: 199, profiles: 12, label: "Family", telugu: "₹199 → 12 requests", per_profile: 17, badge: te0("బెస్ట్ విలువ", "Best value"), perks: ["12 requests", "✅ Verified badge", "1 జ్యోతిషం report"], perksTe: ["12 requests", "✅ Verified badge", "1 జ్యోతిషం report"] },
-  { code: "S_299", price: 299, profiles: 25, label: "Premium", telugu: "₹299 → 25 requests", per_profile: 12, perks: ["25 requests", "30-day boost", "Who viewed (60d)"], perksTe: ["25 requests", "30-day boost", "Who viewed (60d)"] },
-  { code: "S_499", price: 499, profiles: 50, label: "VIP", telugu: "₹499 → 50 requests", per_profile: 10, perks: ["50 requests", "Matchmaker assist", "90-day boost"], perksTe: ["50 requests", "Matchmaker assist", "90-day boost"] },
+  { code: "FREE", price: 0, profiles: 3, label: "Free", telugu: "మొదటి 3 సంబంధాలు ఉచితం", badge: "ఎప్పుడైనా ఉచితం", perks: ["3 Interest requests", "Verified profile card", "52+ Channels network"], perksTe: ["3 ఉచిత ఇంట్రెస్ట్ అభ్యర్థనలు", "ధృవీకరించబడిన ప్రొఫైల్ కార్డ్", "52+ ఛానళ్లలో పోస్టింగ్"] },
+  { code: "S_29", price: 29, profiles: 1, label: "Single", telugu: "₹29 → 1 సంబంధం నంబర్", per_profile: 29, perks: ["1 Direct contact unlock", "100% Refund on decline"], perksTe: ["1 డైరెక్ట్ సంప్రదింపు నంబర్", "తిరస్కరణ జరిగితే 100% రీఫండ్"] },
+  { code: "S_99", price: 99, profiles: 5, label: "Sambandham", telugu: "₹99 → 5 సంబంధాలు", per_profile: 20, badge: "చాలామంది ఎంపిక ⭐", perks: ["5 Direct contact unlocks", "7-Day profile booster", "Full refund on decline"], perksTe: ["5 డైరెక్ట్ నంబర్ అన్‌లాక్స్", "7 రోజుల ప్రొఫైల్ బూస్టర్", "తిరస్కరణ జరిగితే పూర్తి రీఫండ్"] },
+  { code: "S_199", price: 199, profiles: 12, label: "Family", telugu: "₹199 → 12 సంబంధాలు", per_profile: 17, badge: "ఉత్తమ విలువ", perks: ["12 Contact unlocks", "✅ Verified badge", "1 Vedic Gunamelanam PDF report"], perksTe: ["12 సంప్రదింపు నంబర్లు", "✅ వెరిఫైడ్ బ్యాడ్జ్", "1 వేద గుణమేళనం PDF సర్టిఫికేట్"] },
+  { code: "S_299", price: 299, profiles: 25, label: "Premium", telugu: "₹299 → 25 సంబంధాలు", per_profile: 12, perks: ["25 Contact unlocks", "30-Day priority boost", "Who-viewed-me list"], perksTe: ["25 సంప్రదింపు నంబర్లు", "30 రోజుల ప్రాధాన్యత బూస్ట్", "ప్రొఫైల్ వీక్షకుల జాబితా"] },
+  { code: "S_499", price: 499, profiles: 50, label: "VIP", telugu: "₹499 → 50 సంబంధాలు", per_profile: 10, perks: ["50 Contact unlocks", "Dedicated relationship manager", "90-Day VIP boost"], perksTe: ["50 సంప్రదింపు నంబర్లు", "డెడికేటెడ్ రిలేషన్షిప్ మేనేజర్", "90 రోజుల VIP బూస్ట్"] },
 ];
 function te0(te: string, en: string) { return en; }  // fallback labels English (live API te labels vastayi)
 
 const FALLBACK_ADDONS: Addon[] = [
   { code: "BOOST_49", price: 49, label: "Profile Boost (7 days)", telugu: "Channel top లో మీ card — 3× views" },
   { code: "WHOVIEWED_49", price: 49, label: "Who viewed me (30 days)", telugu: "ఎవరు చూశారు — names తో" },
-  { code: "PORUTHAM_99", price: 99, label: "జ్యోతిషం పొరుతం report", telugu: "Full kundli match report (Telugu)" },
+  { code: "PORUTHAM_99", price: 99, label: "వేద గుణమేళనం రిపోర్ట్", telugu: "Full Vedic kundli match report (Telugu)" },
   { code: "VERIFY_199", price: 199, label: "Photo verification", telugu: "✅ Verified badge" },
 ];
 
 const FAQ: { q: string; a: string }[] = [
-  { q: "FREE లో ఏమి వస్తుంది?", a: "3 interest requests + profile card + channels లో posting. Card details అవసరం లేదు." },
-  { q: "Phone number ఎప్పుడు వస్తుంది?", a: "రెండు వైపులా accept అయ్యాకే. Chatting లేదు — requests మాత్రమే." },
-  { q: "Decline అయితే డబ్బు పోతుందా?", a: "లేదు — respond అవ్వకపోతే లేదా decline అయితే ఆ request credit refund." },
-  { q: "Validity ఎంత?", a: "₹29 → 15 రోజులు · ₹99 → 30 · ₹199 → 45 · ₹299 → 60 · ₹499 → 90 రోజులు." },
-  { q: "Auto-renewal / hidden charges?", a: "లేవు. GST invoice support దగ్గర అడిగితే 24 గంటల్లో వస్తుంది." },
+  { q: "ఉచిత సభ్యత్వంలో ఏయే సేవలు అందుతాయి?", a: "3 ఉచిత ఇంట్రెస్ట్ రిక్వెస్ట్‌లు + ప్రొఫైల్ కార్డ్ తయారీ + 52+ ఛానళ్ల నెట్‌వర్క్‌లో ప్రదర్శన లభిస్తాయి. ఎలాంటి క్రెడిట్ కార్డ్ వివరాలు అవసరం లేదు." },
+  { q: "సంప్రదింపుల ఫోన్ నంబర్లు ఎప్పుడు లభిస్తాయి?", a: "ఇరు కుటుంబాలు పరస్పరం అంగీకరించిన తర్వాత మాత్రమే అధికారిక వాట్సాప్ ద్వారా నంబర్లు మార్పిడి చేయబడతాయి." },
+  { q: "సంబంధం తిరస్కరిస్తే క్రెడిట్స్ పరిస్థితి ఏమిటి?", a: "ఒకవేళ సంబంధం తిరస్కరించబడినా లేదా గడువులోగా స్పందన రాకపోయినా మీ రిక్వెస్ట్ క్రెడిట్ 100% తిరిగి మీ బ్యాలెన్స్‌కు జమ చేయబడుతుంది." },
+  { q: "ప్లాన్ చెల్లుబాటు కాలపరిమితి (Validity) ఎంత?", a: "₹29 ప్లాన్ → 15 రోజులు · ₹99 ప్లాన్ → 30 రోజులు · ₹199 ప్లాన్ → 45 రోజులు · ₹299 ప్లాన్ → 60 రోజులు · ₹499 VIP ప్లాన్ → 90 రోజులు." },
+  { q: "ఆటో-రెన్యూవల్ లేదా దాచిన రుసుములు ఏమైనా ఉన్నాయా?", a: "ఎలాంటి దాచిన ఛార్జీలు లేదా ఆటో-డెబిట్ ఉండదు. అవసరమైనప్పుడు మాత్రమే మీ స్వంత నిర్ణయంతో ప్లాన్ కొనుగోలు చేసుకోవచ్చు." },
 ];
 
 export default function PricingPage() {
@@ -65,7 +65,7 @@ export default function PricingPage() {
   const free = plans.find((p) => p.price === 0) || FALLBACK_PLANS[0];
 
   return (
-    <main className="max-w-6xl mx-auto px-4 py-8">
+    <main className="max-w-6xl mx-auto px-4 py-8 pb-36">
       {/* HERO — okka line (R13 minimal) */}
       <div className="text-center">
         <h1 className="text-3xl md:text-4xl font-extrabold text-[#7A0C2E] telugu">
@@ -122,8 +122,8 @@ export default function PricingPage() {
         </div>
       </section>
 
-      {/* ADD-ONS + RENEWAL + REFERRAL — compact row */}
-      <section className="mt-10 grid md:grid-cols-3 gap-4">
+      {/* ADD-ONS + RENEWAL + REFERRAL + SPOTLIGHT — compact row */}
+      <section className="mt-10 grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="rounded-2xl border border-gray-200 bg-white p-5">
           <div className="font-bold text-[#7A0C2E] telugu">{te ? "🎁 Add-ons" : "🎁 Add-ons"}</div>
           <ul className="mt-3 space-y-2 text-xs">
@@ -139,6 +139,13 @@ export default function PricingPage() {
           <div className="font-bold text-[#7A0C2E] telugu">{te ? "🔁 Renewal (పాత customers)" : "🔁 Renewal"}</div>
           <div className="mt-3 text-sm telugu">₹{SITE_CONFIG.pricing.renewal.price} → <b>{SITE_CONFIG.pricing.renewal.profiles} requests</b></div>
           <Link href="/requests#renew" className="mt-3 inline-block text-xs font-bold text-[#7A0C2E] underline">{te ? "Renewal తీసుకోండి →" : "Get renewal →"}</Link>
+        </div>
+        <div className="rounded-2xl border border-gold/40 bg-white p-5">
+          <div className="font-bold text-[#7A0C2E] telugu">🌟 {te ? "స్పాట్‌లైట్ ప్రమోషన్" : "Spotlight Boost"}</div>
+          <div className="mt-3 text-xs telugu text-gray-700">
+            {te ? <>హోమ్‌పేజీ టాప్‌లో ఫోటో & వీడియోతో మీ ప్రొఫైల్ ప్రమోట్ చేసుకోండి — <b>₹99 నుండి</b>.</> : <>Promote your profile with photo & video at top of home — <b>from ₹99</b>.</>}
+          </div>
+          <Link href="/spotlight" className="mt-3 inline-block text-xs font-bold text-[#7A0C2E] underline">{te ? "ప్రమోట్ చేసుకోండి →" : "Promote profile →"}</Link>
         </div>
         <div className="rounded-2xl border border-gray-200 bg-white p-5">
           <div className="font-bold text-[#7A0C2E] telugu">🤝 Referral — ₹{SITE_CONFIG.pricing.referralPerPay}</div>

@@ -12,7 +12,7 @@ export default function TermsPage() {
   const { lang } = useLang();
   const te = lang === "te";
   return (
-    <main className="max-w-3xl mx-auto px-4 py-8">
+    <main className="max-w-3xl mx-auto px-4 py-8 pb-36">
       <h1 className="text-2xl md:text-3xl font-extrabold text-[#7A0C2E] telugu">
         {te ? "📄 Terms of Use (సేవా నియమాలు)" : "📄 Terms of Use"}
       </h1>
@@ -82,23 +82,23 @@ export default function TermsPage() {
         </ul>
       </Section>
 
-      <Section title={te ? "4. Requests policy (chatting లేదు)" : "4. Requests policy (no chatting)"}>
+      <Section title={te ? "4. అధికారిక సంప్రదింపుల విధానం (Consent-Driven Requests Policy)" : "4. Official Consent-Driven Requests Policy"}>
         <ul>
           {te ? (
             <>
-              <li><b>Chatting / DM feature లేదు</b> — spam &amp; మోసం ఆపడానికి ఇదే మన design.</li>
-              <li>మీరు పంపిన <b>request</b> — target కి మీ profile + card WhatsApp లో వెళ్తుంది (మన official number నుంచి).</li>
-              <li>Numbers <b>రెండు వైపులా ఒప్పుక తర్వాతే</b> share అవుతాయి. Declined అయిన వాళ్ల number ఎప్పుడూ ఇవ్వము.</li>
-              <li>ఒక్క request = ఒక్క credit. Decline/no-response (7 రోజులు) అయితే credit మళ్లీ వస్తుంది.</li>
-              <li>Daily limits + duplicate check ఉన్నాయి (ఒక profile కి repeat requests block).</li>
+              <li><b>అనవసర చాటింగ్ / DM ఫీచర్ ఉండదు</b> — స్పామ్ మరియు మోసాలను అరికట్టడానికి ఇరు కుటుంబాల సమ్మతి ఆధారిత విధానం మాత్రమే అమలులో ఉంటుంది.</li>
+              <li>మీరు పంపిన <b>ఇంట్రెస్ట్ రిక్వెస్ట్</b> — వారి వాట్సాప్‌కు మన అధికారిక సపోర్ట్ నంబర్ ద్వారా గౌరవప్రదంగా పంపబడుతుంది.</li>
+              <li>సంప్రదింపు నంబర్లు <b>ఇరువైపులా పరస్పర అంగీకారం తర్వాత మాత్రమే</b> మార్పిడి చేయబడతాయి. తిరస్కరించిన వారి వివరాలు ఎన్నడూ బహిర్గతం కావు.</li>
+              <li>ఒక రిక్వెస్ట్ = ఒక క్రెడిట్. ఒకవేళ తిరస్కరించబడినా లేదా 7 రోజుల్లో స్పందన లేకపోయినా క్రెడిట్ 100% రీఫండ్ చేయబడుతుంది.</li>
+              <li>రోజువారీ పరిమితులు మరియు డూప్లికేట్ ప్రొటెక్షన్ నిబంధనలు ఖచ్చితంగా అమలు చేయబడతాయి.</li>
             </>
           ) : (
             <>
-              <li><b>No chatting / DM feature</b> — this is our design to stop spam &amp; fraud.</li>
-              <li>A <b>request</b> you send — your profile + card goes to the target on WhatsApp (from our official number).</li>
-              <li>Numbers are shared only <b>after mutual accept</b>. We never give numbers of people who declined.</li>
-              <li>One request = one credit. On decline/no-response (7 days) the credit comes back.</li>
-              <li>Daily limits + duplicate checks exist (repeat requests to one profile are blocked).</li>
+              <li><b>No casual chatting / DM feature</b> — to eliminate spam and protect privacy, communication is strictly consent-driven between families.</li>
+              <li>Your <b>Interest Request</b> is respectfully delivered with your verified biodata card via our official verified WhatsApp channel.</li>
+              <li>Contact phone numbers are securely exchanged only <b>after mutual family acceptance</b>. Contact details of declined interests are never disclosed.</li>
+              <li>One request = one credit. On decline or no-response within 7 days, your credit is 100% refunded to your balance.</li>
+              <li>Daily limits and anti-spam duplicate request guards are strictly enforced.</li>
             </>
           )}
         </ul>
@@ -206,11 +206,67 @@ export default function TermsPage() {
         </ul>
       </Section>
 
-      <div className="mt-8 rounded-2xl border border-gray-200 bg-white p-5 text-xs text-gray-700">
-        <div className="font-bold text-[#7A0C2E]">{te ? "Contact" : "Contact"}</div>
-        <div className="mt-2 space-y-1">
-          <div>Email: <b>{SITE_CONFIG.supportEmail}</b> • WhatsApp/Phone: <b>{SITE_CONFIG.supportPhoneDisplay}</b></div>
-          <div>{SITE_CONFIG.legalName}, Hyderabad, Telangana, India</div>
+      {/* Verified Digital Acceptance & Ownership Certificate */}
+      <div className="mt-8 rounded-3xl border-2 border-emerald-500/30 bg-gradient-to-br from-emerald-50/70 via-white to-amber-50/50 p-6 shadow-md">
+        <div className="flex items-center justify-between border-b border-emerald-200 pb-3">
+          <div className="flex items-center gap-2">
+            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-600 text-white text-sm font-bold shadow-xs">✓</span>
+            <div>
+              <div className="text-sm font-extrabold text-emerald-950">
+                {te ? "ధృవీకరించబడిన సేవా ఒప్పందం & అంగీకార వివరాలు" : "Verified Digital Acceptance & Ownership Certificate"}
+              </div>
+              <div className="text-[11px] text-emerald-700 font-medium">
+                {te ? "డిజిటల్ సంతకం మరియు లీగల్ అథెంటికేషన్ సర్టిఫికేట్" : "Digitally Certified & Formally Accepted Service Agreement"}
+              </div>
+            </div>
+          </div>
+          <span className="rounded-full bg-emerald-100 border border-emerald-300 px-3 py-1 text-[11px] font-bold text-emerald-800">
+            ● Active & Verified
+          </span>
+        </div>
+
+        <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+          <div className="rounded-2xl bg-white/90 border border-emerald-100 p-3 shadow-2xs">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Owner ID</div>
+            <div className="mt-0.5 font-mono font-bold text-[#7A0C2E] text-[13px]">{SITE_CONFIG.owner.id}</div>
+          </div>
+
+          <div className="rounded-2xl bg-white/90 border border-emerald-100 p-3 shadow-2xs">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Owner & Signatory Name</div>
+            <div className="mt-0.5 font-bold text-gray-900 text-[13px]">{SITE_CONFIG.owner.name}</div>
+          </div>
+
+          <div className="rounded-2xl bg-white/90 border border-emerald-100 p-3 shadow-2xs">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Contact Number</div>
+            <div className="mt-0.5 font-mono font-bold text-gray-900">
+              <a href={`tel:${SITE_CONFIG.owner.contactNumber}`} className="text-emerald-700 hover:underline">
+                {SITE_CONFIG.owner.contactNumber}
+              </a>
+            </div>
+          </div>
+
+          <div className="rounded-2xl bg-white/90 border border-emerald-100 p-3 shadow-2xs">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Official Email</div>
+            <div className="mt-0.5 font-mono font-bold text-gray-900">
+              <a href={`mailto:${SITE_CONFIG.owner.email}`} className="text-emerald-700 hover:underline">
+                {SITE_CONFIG.owner.email}
+              </a>
+            </div>
+          </div>
+
+          <div className="rounded-2xl bg-white/90 border border-emerald-100 p-3 shadow-2xs">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Date Of Acceptance</div>
+            <div className="mt-0.5 font-mono font-semibold text-gray-800">{SITE_CONFIG.owner.dateOfAcceptance}</div>
+          </div>
+
+          <div className="rounded-2xl bg-white/90 border border-emerald-100 p-3 shadow-2xs">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Registered IP Address</div>
+            <div className="mt-0.5 font-mono font-semibold text-gray-800">{SITE_CONFIG.owner.ipAddress}</div>
+          </div>
+        </div>
+
+        <div className="mt-3 text-[11px] text-gray-600 bg-emerald-50/50 rounded-xl p-2.5 border border-emerald-100">
+          🔒 {te ? "ఈ వివరాలు భారతీయ ఐటీ చట్టం 2000 ప్రకారం అధికారికంగా డిజిటల్ రికార్డ్ చేయబడ్డాయి." : "These acceptance parameters are digitally signed, timestamped, and stored in compliance with the Information Technology Act, 2000."}
         </div>
       </div>
 

@@ -125,7 +125,7 @@ def og_profile_png(user: Dict, out_path: Optional[str] = None) -> Optional[str]:
 
 
 def og_porutham_png(bride: Dict, groom: Dict, result: Dict, out_path: Optional[str] = None) -> Optional[str]:
-    """10-పొరుతం report preview — score + pass/fail count (+ Telugu verdict English transliteration)."""
+    """10-Vedic Gunamelanam report preview — score + pass/fail count."""
     if not PIL_OK:
         return None
     r = result or {}
@@ -134,8 +134,8 @@ def og_porutham_png(bride: Dict, groom: Dict, result: Dict, out_path: Optional[s
     img = Image.new("RGB", (W, H), CREAM)
     d = ImageDraw.Draw(img)
     d.rectangle([0, 0, W, 120], fill=MAROON)
-    d.text((50, 24), "10-PORUTHAM KUNDLI MATCH", font=_font(40, True), fill=GOLD)
-    d.text((50, 76), "మన వివాహ • Telugu traditional match report", font=_font(24), fill=CREAM)
+    d.text((50, 24), "VEDIC GUNAMELANAM KUNDLI MATCH", font=_font(40, True), fill=GOLD)
+    d.text((50, 76), "మన వివాహ • Telugu Vedic Horoscope Match Report", font=_font(24), fill=CREAM)
 
     score = r.get("score", "—")
     d.ellipse([60, 170, 340, 450], fill=MAROON)
@@ -162,21 +162,20 @@ def og_porutham_png(bride: Dict, groom: Dict, result: Dict, out_path: Optional[s
         nm = it.get("porutham") or it.get("name") or "—"
         d.text((col + 62, row + 4), _fit(d, str(nm), _font(24), 300), font=_font(24), fill=INK)
 
-    # verdict line — image lo Telugu font ledu (server), so English summary (site lo Telugu untundi)
     try:
         sc_num = int(score)
     except Exception:
         sc_num = 0
-    eng = ("Excellent పొరుతం — go ahead" if sc_num >= 8 else
-           "Good పొరుతం — most points match" if sc_num >= 6 else
+    eng = ("Excellent Gunamelanam — go ahead" if sc_num >= 8 else
+           "Good Match — most points align" if sc_num >= 6 else
            "Average — some points differ" if sc_num >= 4 else "Weak — consult elders")
     dosha = ", ".join([str(x) for x in (r.get("doshas") or [])])
     line = "%s / 10  —  %s" % (score, eng) + (("   |  Dosha: " + dosha) if dosha else "")
     d.rounded_rectangle([400, 496, 1140, 546], radius=16, fill=GOLD)
     d.text((420, 508), _fit(d, line, _font(22, True), 700), font=_font(22, True), fill=MAROON)
 
-    _brand_bar(d, W, H, "జ్యోతిషం PORUTHAM REPORT", img=img)
-    out_path = out_path or os.path.join(PREVIEW_DIR, "పొరుతం-%s-%s.png" % (b.get("tsap_id", "A"), g.get("tsap_id", "B")))
+    _brand_bar(d, W, H, "వేద గుణమేళనం GUNAMELANAM REPORT", img=img)
+    out_path = out_path or os.path.join(PREVIEW_DIR, "gunamelanam-%s-%s.png" % (b.get("tsap_id", "A"), g.get("tsap_id", "B")))
     os.makedirs(os.path.dirname(out_path), exist_ok=True)
     img.save(out_path, "PNG", optimize=True)
     return out_path

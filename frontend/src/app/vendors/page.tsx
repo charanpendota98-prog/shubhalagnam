@@ -60,7 +60,7 @@ export default function VendorsPage() {
   };
 
   return (
-    <main className="min-h-screen bg-cream pb-20">
+    <main className="min-h-screen bg-cream pb-36">
       {/* HERO */}
       <section className="maroon-gradient text-white">
         <div className="max-w-7xl mx-auto px-4 py-9">
