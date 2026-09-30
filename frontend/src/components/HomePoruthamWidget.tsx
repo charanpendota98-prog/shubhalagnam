@@ -168,13 +168,26 @@ export default function HomePoruthamWidget() {
                   </div>
                 </div>
 
-                {/* PDF Link Button */}
-                <Link
-                  href={`/porutham?b_star=${encodeURIComponent(bStar)}&g_star=${encodeURIComponent(gStar)}`}
-                  className="block w-full py-3 bg-amber-400 hover:bg-amber-500 text-maroon font-black text-xs rounded-xl shadow-xs transition telugu"
-                >
-                  📄 {te ? "పూర్తి గుణమేళనం PDF రిపోర్ట్ చూడండి →" : "View Full Vedic Gunamelanam Report →"}
-                </Link>
+                {/* Actions: PDF Link Button + WhatsApp Share */}
+                <div className="space-y-2">
+                  <Link
+                    href={`/porutham?b_star=${encodeURIComponent(bStar)}&g_star=${encodeURIComponent(gStar)}`}
+                    className="block w-full py-3 bg-amber-400 hover:bg-amber-500 text-maroon font-black text-xs rounded-xl shadow-xs transition telugu"
+                  >
+                    📄 {te ? "పూర్తి గుణమేళనం PDF రిపోర్ట్ చూడండి →" : "View Full Vedic Gunamelanam Report →"}
+                  </Link>
+
+                  <a
+                    href={`https://wa.me/?text=${encodeURIComponent(
+                      `🪔 *మన వివాహ — వేద గుణమేళనం ఫలితం* 🪔\n\n👰 వధువు నక్షత్రం: ${bStar}\n🤵 వరుని నక్షత్రం: ${gStar}\n✨ వేద పొంతన స్కోర్: ${score.score ?? 8}/10 (${score.verdict_telugu || "మంచి కలయిక"})\n✓ రజ్జు శుద్ధి: ఉత్తమం\n✓ గణ మైత్రి: అనుకూలం\n\n🌐 వివరాలు: https://manavivaha.in/porutham?b_star=${encodeURIComponent(bStar)}&g_star=${encodeURIComponent(gStar)}\n📞 హెల్ప్‌లైన్: +91 6304996088`
+                    )}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center justify-center gap-2 w-full py-2.5 bg-[#25D366] hover:brightness-110 text-white font-bold text-xs rounded-xl shadow transition"
+                  >
+                    <span>💬 WhatsApp లో జాతక నివేదిక పంపండి</span>
+                  </a>
+                </div>
               </div>
             ) : (
               <div className="p-8 bg-slate-50/80 rounded-[2rem] border-2 border-dashed border-gold/50 text-center space-y-2.5">
