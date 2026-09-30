@@ -21,6 +21,7 @@ import { SITE_CONFIG } from "@/lib/site-config";
 import { firstName } from "@/lib/names";
 import { Duo, duo } from "@/lib/duo";
 import { useLang } from "@/lib/lang";
+import { stateFullName } from "@/lib/telugu-data";
 import ProfileRail from "@/components/ProfileRail";
 import QuickUnlockModal from "@/components/QuickUnlockModal";
 import WhatsAppProposalModal from "@/components/WhatsAppProposalModal";
@@ -487,7 +488,7 @@ export default function ProfileView() {
                 ["🎓 చదువు", `${profile.education || "—"}${profile.education_detail ? ` ${profile.education_detail}` : ""}`],
                 ["💼 ఉద్యోగం", `${profile.job || "—"}${profile.company ? ` @ ${profile.company}` : ""}`],
                 ["💰 ఆదాయం", profile.salary || "—"],
-                ["📍 ప్రాంతం", `${profile.district || "—"}, ${profile.state || "—"}`],
+                ["📍 ప్రాంతం", `${profile.district || "—"}, ${profile.state ? stateFullName(profile.state, te) : "—"}`],
                 ["⭐ నక్షత్రం (రిఫరెన్స్)", `${profile.star || "—"} / ${profile.rasi || "—"}`],
                 ["💍 వైవాహిక స్థితి", profile.marital_status || "—"],
                 ["👶 పిల్లలు", profile.children && profile.children !== "None" ? profile.children : "లేరు (None)"],
@@ -533,7 +534,7 @@ export default function ProfileView() {
               locationMatch={profile.district ? 86 : 80}
               physicalMatch={profile.height ? 90 : 85}
               financialMatch={profile.income_range || profile.salary ? 88 : 82}
-              onSendProposal={() => setProposalOpen(true)}
+              onSendProposal={() => setShowProposalModal(true)}
             />
           </div>
 

@@ -192,11 +192,14 @@ export default function ProfilesOfTheDay() {
 
                   {/* Bottom Image Details (Name + Age + Verified) */}
                   <div className="absolute bottom-3 left-3 right-3 text-white">
+                    {/* 📱💻 FIX: min-w-0 lekapothe peru (full name) photo మీద overlay లో
+                        truncate avvakunda phone/laptop rendu lo kanipinchakunda (cut/missing)
+                        poyedi — ippudu peru eppudu neatga "…" tho కనిపిస్తుంది. */}
                     <div className="flex items-center gap-2">
-                      <h3 className="font-extrabold text-lg sm:text-xl drop-shadow truncate">
+                      <h3 className="min-w-0 flex-1 truncate font-extrabold text-lg sm:text-xl drop-shadow">
                         {p.full_name}
                       </h3>
-                      <span className="text-emerald-400 text-sm font-bold drop-shadow" title="Verified Profile">
+                      <span className="shrink-0 text-emerald-400 text-sm font-bold drop-shadow" title="Verified Profile">
                         ✓
                       </span>
                     </div>
@@ -309,7 +312,28 @@ export default function ProfilesOfTheDay() {
                   allowFullScreen
                 />
               ) : (
-                <video src={activeVideo} controls autoPlay className="w-full h-full" />
+                <video
+                  key={activeVideo}
+                  src={activeVideo}
+                  controls
+                  autoPlay
+                  playsInline
+                  muted
+                  preload="auto"
+                  className="w-full h-full"
+                  onLoadedData={(e) => {
+                    // 📱 R11 FIX: video asalu kaniponchatledu bug — mobile autoplay
+                    // muted tho matrame reliable ga fire avuthundi. Load ayyaka
+                    // user ki sound kavali ante 1 tap tho unmute chesthundi (video
+                    // controls lo already unmute button untundi kabatti ikkada
+                    // extra UI avasaram ledu — ee handler play() ni force chestundi
+                    // (kondaru mobile browsers lo autoplay attribute silent ga fail avutundi).
+                    const v = e.currentTarget;
+                    v.play().catch(() => {
+                      /* autoplay blocked — user tap chesi controls tho play cheyyochu */
+                    });
+                  }}
+                />
               )}
             </div>
           </div>

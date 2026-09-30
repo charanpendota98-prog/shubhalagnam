@@ -12,6 +12,7 @@ import {
   AP_DISTRICTS,
   DISTRICT_TELUGU,
   DISTRICTS_BY_STATE,
+  stateFullName,
 } from "@/lib/telugu-data";
 
 interface ProfileRow {
@@ -747,9 +748,14 @@ export default function SecondMarriagePage() {
                         )}
                       </div>
 
-                      <span className="text-[11px] font-mono font-bold text-slate-400 bg-slate-50 px-2 py-0.5 rounded-lg">
-                        ID: {row.tsap_id}
-                      </span>
+                      <div className="flex flex-col items-end gap-1">
+                        <span className="text-[9.5px] font-black px-2 py-0.5 rounded-full bg-navy text-white whitespace-nowrap">
+                          🏛️ {stateFullName(row.state, te)}
+                        </span>
+                        <span className="text-[11px] font-mono font-bold text-slate-400 bg-slate-50 px-2 py-0.5 rounded-lg">
+                          ID: {row.tsap_id}
+                        </span>
+                      </div>
                     </div>
 
                     {/* Profile Avatar & Details */}
@@ -788,16 +794,18 @@ export default function SecondMarriagePage() {
                       {/* Bio Meta */}
                       <div className="min-w-0 flex-1 space-y-1">
                         <div className="flex items-center justify-between gap-1">
+                          {/* 📱💻 FIX: min-w-0 lekapothe peru (name) phone/laptop lo truncate
+                              avvakunda push ayyi kanipinchakunda (missing) potundi */}
                           <Link
                             href={`/search/${row.tsap_id}`}
-                            className="font-black text-base text-navy hover:text-maroon truncate"
+                            className="min-w-0 flex-1 truncate font-black text-base text-navy hover:text-maroon"
                           >
                             {row.full_name}
                           </Link>
 
                           <button
                             onClick={() => toggleSave(row.tsap_id)}
-                            className={`p-1.5 rounded-full transition ${
+                            className={`shrink-0 p-1.5 rounded-full transition ${
                               isSaved ? "text-rose-600 bg-rose-50" : "text-slate-400 hover:text-rose-500"
                             }`}
                             title={isSaved ? "Saved" : "Shortlist"}

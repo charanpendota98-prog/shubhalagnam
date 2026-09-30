@@ -5,6 +5,7 @@ import { ALL_CHANNELS, CHANNEL_STATS, CHANNEL_TIERS, Channel } from "@/lib/chann
 import { Duo } from "@/lib/duo";
 import { useLang } from "@/lib/lang";
 import { TelegramIcon, WhatsAppIcon } from "@/components/BrandIcons";
+import { SITE_CONFIG } from "@/lib/site-config";
 
 export default function ChannelsPage() {
   const { lang } = useLang();
@@ -40,12 +41,24 @@ export default function ChannelsPage() {
     );
   }, [tier, q, gender]);
 
-  // Active channels list with automatic fallback so all 52 channels are accessible
+  // 🐞 FIX: mundu ikkada fake/hallucinated WhatsApp channel link generate ayyedi
+  // (hash-based random ID → click chesthe "invalid invite link" 404!). Ippudu:
+  //   1) Real admin-mapped/server whatsapp link unte adi matrame
+  //   2) Lekapothe FAKE link pettakunda — real support WhatsApp number ki
+  //      "ee channel join cheyyali" ane pre-filled message tho genuine working chat.
+  // Idi ఎప్పుడూ 100% pని చేసే (working) link — dead/broken WhatsApp invite ivvadu.
   const getLinks = (c: Channel) => {
     const server = liveLinks[c.key] || {};
-    const tg = server.telegram || (c.username ? `https://t.me/${c.username.replace(/^@/, "")}` : `https://t.me/TSAP_${c.key.toUpperCase()}`);
-    const wa = server.whatsapp || `https://whatsapp.com/channel/0029Va${Math.abs(c.key.split("").reduce((a, b) => ((a << 5) - a) + b.charCodeAt(0), 0) % 100000000).toString().padStart(8, "0")}`;
-    return { telegram: tg, whatsapp: wa };
+    const tg = server.telegram || (c.username ? `https://t.me/${c.username.replace(/^@/, "")}` : "");
+    const realWa = (server.whatsapp || "").trim();
+    const waIsReal = /^https:\/\/(wa\.me|whatsapp\.com)\//i.test(realWa) && !/channel\/(xyz123|bbb|0029Va\d{8}$)/i.test(realWa);
+    const supportMsg = encodeURIComponent(
+      te
+        ? `నమస్తే! నేను "${c.name}" WhatsApp ఛానల్‌లో join అవ్వాలనుకుంటున్నాను. దయచేసి లింక్ పంపండి 🙏`
+        : `Hi! I'd like to join the "${c.name}" WhatsApp channel. Please share the link 🙏`
+    );
+    const wa = waIsReal ? realWa : `https://wa.me/${SITE_CONFIG.supportWhatsapp}?text=${supportMsg}`;
+    return { telegram: tg, whatsapp: wa, whatsappIsDirect: waIsReal };
   };
 
   const liveList = list;
@@ -141,7 +154,7 @@ export default function ChannelsPage() {
                         <a href={lnk.whatsapp} target="_blank" rel="noreferrer"
                           className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-[#25D366] text-white rounded-full text-[11px] font-bold shadow-soft hover:brightness-110 active:scale-95 transition">
                           <WhatsAppIcon className="w-3.5 h-3.5" mono />
-                          <span>WhatsApp ఛానల్</span>
+                          <span>{lnk.whatsappIsDirect ? (te ? "WhatsApp ఛానల్" : "WhatsApp Channel") : (te ? "WhatsApp లో అడగండి" : "Ask on WhatsApp")}</span>
                         </a>
                       )}
                     </div>

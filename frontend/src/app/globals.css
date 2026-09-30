@@ -545,3 +545,25 @@ button:not(:disabled):active { transform: scale(0.97); }
     page-break-inside: avoid !important;
   }
 }
+
+/* ============================================================
+   📱 MOBILE "ZOOM IN / ZOOM OUT" BUG FIX (Registration + anni forms)
+   ============================================================
+   Problem: Registration form (and other forms) lo inputs/selects text-xs
+   (12px) tho unnayi. Mobile Safari (iOS) + konni Android browsers oka rule
+   follow chestayi — ఏదైనా input/select/textarea ki focus vachinappudu, aa
+   field computed font-size < 16px unte, browser page ni automatic ga
+   ZOOM-IN chestundi (accidental pinch-zoom la anipistundi), field nunchi
+   blur ayyaka మల్లీ ZOOM-OUT avuthundi. Idే user ki "zoom in and zoom out
+   avuthundi" ane jarring experience.
+   Fix: mobile viewport lo EVERY form field ki minimum 16px font-size force
+   cheyyadam — ee oka rule tho registration + login + search + anni forms
+   lo ee bug oka sari ki fix avuthundi (prathi component tocha avasaram ledu).
+   ============================================================ */
+@media (max-width: 820px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}

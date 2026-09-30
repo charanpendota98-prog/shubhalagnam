@@ -33,6 +33,9 @@ import {
   AP_DISTRICTS,
   WORK_TYPES,
   heightLabel,
+  stateFullName,
+  isSecondMarriageStatus,
+  secondMarriageLabel,
 } from "@/lib/telugu-data";
 import { SITE_CONFIG } from "@/lib/site-config";
 import QuickLead from "@/components/QuickLead";
@@ -88,6 +91,12 @@ const DEFAULT_FILTERS: Row = {
 };
 
 const ALL_DISTRICTS_COMBINED = Array.from(new Set([...TS_DISTRICTS, ...AP_DISTRICTS, "USA / NRI", "Other"])).filter(Boolean);
+
+// 🏛️💍 state full-name (Telangana/Andhra Pradesh) badge + second-marriage-only
+// badge helpers ippudu @/lib/telugu-data lo shared (matches + second-marriage +
+// search/profile pages anni consistent ga fix avvadaniki).
+const stateLabel = (stateRaw: string | undefined | null, te: boolean) => stateFullName(stateRaw, te);
+const isSecondMarriage = isSecondMarriageStatus;
 
 const FALLBACK_MATCHES: Row[] = [
   {
@@ -860,7 +869,18 @@ export default function MatchesPage() {
     const photo = row.photo_url || (Array.isArray(row.photo_urls) && row.photo_urls[0]) || "";
 
     return (
-      <div className="bg-white rounded-3xl border border-gold/30 shadow-sm hover:border-gold/60 hover:shadow-md transition overflow-hidden flex flex-col justify-between">
+      <div className="relative bg-white rounded-3xl border border-gold/30 shadow-sm hover:border-gold/60 hover:shadow-md transition overflow-hidden flex flex-col justify-between">
+        {/* 🏛️ TOP-RIGHT BADGES: state (Telangana/Andhra Pradesh) neatga + 2nd Marriage (only if applicable) */}
+        <div className="absolute top-2.5 right-2.5 z-10 flex flex-col items-end gap-1">
+          <span className="text-[9.5px] font-black px-2 py-0.5 rounded-full bg-navy/90 text-white shadow-sm backdrop-blur-sm whitespace-nowrap">
+            🏛️ {stateLabel(row.state, te)}
+          </span>
+          {isSecondMarriage(row.marital_status) && (
+            <span className="text-[9px] font-black px-2 py-0.5 rounded-full bg-rose-600 text-white shadow-sm whitespace-nowrap">
+              {te ? "💍 2వ వివాహం" : "💍 2nd Marriage"}
+            </span>
+          )}
+        </div>
         <div className="p-4 sm:p-5 space-y-3.5">
           <div className="flex items-start gap-3.5">
             {/* Avatar / Photo */}
@@ -883,16 +903,20 @@ export default function MatchesPage() {
             </div>
 
             {/* Meta & Badges */}
+            {/* 📱💻 FIX: name "miss/cut" avvadam bug — Link ki min-w-0 lekapothe flex truncate
+                pani cheyyadu (parent overflow ki compute avvakunda content pedda size teesukuntundi,
+                phone lo ID/heart button push ayyi peru kanipinchakunda potundi). Ippudu peru eppudu
+                neatga (…) tho truncate avuthundi, ID + heart eppudu kanipistayi (shrink-0). */}
             <div className="min-w-0 flex-1 space-y-1">
-              <div className="flex items-center justify-between gap-1">
-                <Link href={`/search/${row.tsap_id}`} className="font-extrabold text-sm sm:text-base text-navy hover:text-maroon truncate flex items-center gap-1.5">
-                  <span>{firstName(row.full_name)}</span>
-                  <span className="font-mono text-xs font-semibold text-slate-400">({row.tsap_id})</span>
+              <div className="flex items-center justify-between gap-1 pr-16 sm:pr-20">
+                <Link href={`/search/${row.tsap_id}`} className="min-w-0 flex-1 font-extrabold text-sm sm:text-base text-navy hover:text-maroon flex items-center gap-1.5">
+                  <span className="truncate">{firstName(row.full_name)}</span>
+                  <span className="shrink-0 font-mono text-xs font-semibold text-slate-400">({row.tsap_id})</span>
                 </Link>
 
                 <button
                   onClick={() => toggleSave(row)}
-                  className={`p-1.5 rounded-full transition ${isSaved ? "text-rose-600 bg-rose-50" : "text-slate-400 hover:text-rose-500"}`}
+                  className={`shrink-0 p-1.5 rounded-full transition ${isSaved ? "text-rose-600 bg-rose-50" : "text-slate-400 hover:text-rose-500"}`}
                   title={isSaved ? "Saved" : "Shortlist"}
                 >
                   {isSaved ? "❤️" : "🤍"}
@@ -907,11 +931,12 @@ export default function MatchesPage() {
                 {row.height && <span>• {row.height}</span>}
               </p>
 
-              {/* Second Marriage Tag if applicable */}
-              {row.marital_status && !["pelli kaledu", "never married", "unmarried", ""].includes(row.marital_status.toLowerCase().trim()) && (
+              {/* 💍 Second Marriage detail (ONLY for genuine 2nd marriage profiles — 1st marriage
+                  / Pelli Kaledu / Never Married ki idi ఎప్పుడూ కనిపించదు) */}
+              {isSecondMarriage(row.marital_status) && (
                 <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
                   <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-rose-50 text-rose-800 border border-rose-200">
-                    💍 పునర్వివాహం ({row.marital_status})
+                    {secondMarriageLabel(row.marital_status, te)}
                   </span>
                   {row.children && row.children !== "None" && (
                     <span className="text-[9.5px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-900 border border-amber-200">
