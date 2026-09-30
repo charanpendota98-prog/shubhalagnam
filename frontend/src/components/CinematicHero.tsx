@@ -66,27 +66,51 @@ export default function CinematicHero() {
   const [isPlaying, setIsPlaying] = useState(true);
   const [isMuted, setIsMuted] = useState(true);
 
-  // Guaranteed Native Autoplay & Loop handling
+  // Guaranteed Native Autoplay & Loop handling across all mobile & desktop browsers
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
 
+    video.defaultMuted = true;
     video.muted = true;
     video.playsInline = true;
     video.autoplay = true;
     video.loop = true;
+    video.setAttribute("playsinline", "true");
+    video.setAttribute("webkit-playsinline", "true");
+    video.setAttribute("muted", "true");
 
     const tryPlay = () => {
-      video.play().then(() => setIsPlaying(true)).catch(() => {});
+      if (video.paused) {
+        const promise = video.play();
+        if (promise !== undefined) {
+          promise.then(() => setIsPlaying(true)).catch(() => {});
+        }
+      }
     };
 
     tryPlay();
+    const timer1 = setTimeout(tryPlay, 100);
+    const timer2 = setTimeout(tryPlay, 400);
+
     video.addEventListener("canplay", tryPlay);
+    video.addEventListener("canplaythrough", tryPlay);
     video.addEventListener("loadedmetadata", tryPlay);
+    window.addEventListener("touchstart", tryPlay, { once: true, passive: true });
+    window.addEventListener("scroll", tryPlay, { once: true, passive: true });
+    
+    const handleVis = () => {
+      if (document.visibilityState === "visible") tryPlay();
+    };
+    document.addEventListener("visibilitychange", handleVis);
 
     return () => {
+      clearTimeout(timer1);
+      clearTimeout(timer2);
       video.removeEventListener("canplay", tryPlay);
+      video.removeEventListener("canplaythrough", tryPlay);
       video.removeEventListener("loadedmetadata", tryPlay);
+      document.removeEventListener("visibilitychange", handleVis);
     };
   }, []);
 
@@ -166,7 +190,8 @@ export default function CinematicHero() {
           playsInline
           preload="auto"
           poster="/promo/hero-bg-ultra.jpg"
-          className="h-full w-full object-cover object-center transition-opacity duration-1000"
+          disablePictureInPicture
+          className="h-full w-full object-cover object-center pointer-events-none select-none transition-opacity duration-1000"
         >
           <source src="/promo/wedding-film.mp4" type="video/mp4" />
           <source src="/promo/wedding-story-film.mp4" type="video/mp4" />
