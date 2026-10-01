@@ -239,6 +239,66 @@ separate-justification change):
 4. Ran all remaining 44 standalone `test_*.py` scripts; 13 report non-zero exit. **Verified these are 100% pre-existing** by running the exact same 13 files against a parallel venv built from the original, unmodified `requirements.txt` — byte-for-byte identical pass/fail results. All 13 check frontend `.tsx` source-file content (e.g. `"useLang" in page_source`) and are unrelated to backend Python dependencies — zero regressions introduced by this change.
 5. Directly exercised the Pillow-dependent `photo_validate.validate_photo()` function with a synthetic image end-to-end to confirm the structural photo-quality checks still execute correctly under Pillow 12.3.0.
 
+## 🔴 Phase 13 finding — stored XSS → full account takeover via "Print Biodata" (fixed this pass)
+
+**Severity: P0 (critical).** While doing the broader `dangerouslySetInnerHTML`
+sweep below, found a *third*, previously-unaudited raw-HTML-injection site
+that the earlier "only 2 call sites, both safe" sweep had missed because it
+doesn't use `dangerouslySetInnerHTML` at all — it uses `document.write()`.
+
+**Where:** `frontend/src/app/search/[id]/ProfileView.tsx`, `printBiodata()`.
+The "🖨️ Print Biodata" button opens a blank popup window
+(`window.open("", "_blank")`) and builds a full HTML document as a raw
+template-literal string — directly interpolating `profile.full_name`,
+`profile.about_myself`, `profile.company`, `profile.education_detail`,
+`profile.caste`, `profile.sub_caste`, `profile.gothram`, and every other
+profile field with **zero escaping**, then writes it into the popup with
+`printWindow.document.write(html)`.
+
+**Why it's exploitable:**
+- `full_name` and `about_myself` are free-text fields set at registration.
+  Backend validation (`backend/main.py`, registration handler) only checks
+  `about_myself` for minimum length (≥50 chars) and for phone-number/email
+  patterns (privacy leak prevention) — it does **not** strip or reject
+  HTML/script content, and `full_name` only gets `.strip()`'d. So a profile
+  can be registered with e.g. `full_name = "<script>…steal tokens…</script>"`
+  or the payload hidden inside `about_myself`/`company`/`education_detail`.
+- React's JSX auto-escaping (the usual XSS defense in this codebase) **does
+  not apply** to manually-built strings passed to `document.write()` — this
+  bypasses it completely, same bug class as an unescaped `dangerouslySetInnerHTML`
+  would be.
+- The popup is opened via `window.open("", ...)` (no URL → `about:blank`),
+  which is **same-origin** with the opener. Any script injected into it runs
+  with same-origin privileges — including `window.opener` access back into
+  the original tab. The frontend stores the session token in
+  `localStorage.getItem("tsap_token")` (`frontend/src/app/register/page-client.tsx`),
+  which is readable by same-origin JS. **Any visitor who views a malicious
+  profile and clicks "Print Biodata" would have their session token stolen
+  — full account takeover**, the same end result as the critical IDOR fixed
+  earlier this phase, just via a different vector (stored XSS instead of
+  missing authz).
+- Blast radius: every visitor who prints *any* profile's biodata, not just
+  the attacker's own session — this is stored XSS served to other users,
+  not self-XSS.
+
+**Fix:** added an `escapeHtml()` helper (escapes `& < > " '`) and wrapped
+every interpolated profile field in the `printBiodata()` template with it
+before building the HTML string. Zero behavior change for legitimate
+profile data (names/castes/job titles etc. don't contain those characters
+in normal use); verified: (a) `npx tsc --noEmit` clean, (b) production
+`next build` clean, (c) manual escaping unit-check confirms
+`<script>alert(document.cookie)</script>` → `&lt;script&gt;alert(document.cookie)&lt;/script&gt;`,
+(d) `GET /search/MV1001` still renders 200 with the fix live.
+**Files:** `frontend/src/app/search/[id]/ProfileView.tsx`.
+**Residual risk / follow-up:** this fix is a presentation-layer mitigation
+(escape-on-output). The root cause — `full_name`/`about_myself`/etc. accept
+arbitrary HTML-special characters at registration with no sanitization —
+still exists and should ideally also be defended at the input layer (reject
+or strip `<`/`>` at registration, or run a proper HTML sanitizer) as
+defense-in-depth, since any *other* currently-safe (React-escaped) call site
+that later gets refactored into raw string interpolation would reintroduce
+this bug. Tracked as a next-step below.
+
 ## Phase 13 — broader IDOR + upload-path sweep (done this pass)
 
 Followed up on next-steps items 2 and 4 below with a systematic, repo-wide
@@ -327,9 +387,21 @@ check rather than a spot check:
     public URL), so there's no read-side traversal surface for it either.
 
 ## Next steps (Phase 12/13 sweep — still open)
-1. Broader `dangerouslySetInnerHTML` / raw-HTML-injection sweep across every
-   component in `frontend/src` (only the 2 existing call sites were checked
-   so far — both were safe).
+1. ~~Broader `dangerouslySetInnerHTML` / raw-HTML-injection sweep~~ — **done
+   this pass**, repo-wide (`grep -rn "dangerouslySetInnerHTML\|\.innerHTML\s*=\|document\.write(\|eval(\|new Function("`
+   across `frontend/src`): the 2 pre-existing `dangerouslySetInnerHTML`
+   sites (JSON-LD on the homepage + profile page) are confirmed safe —
+   one serializes only hardcoded site-config/FAQ constants, the other
+   already strips `< > " '` from the URL-sourced id before use (a prior
+   WAVE 23 fix). Found and fixed one new site the earlier sweep's grep
+   pattern missed: `document.write()` in `printBiodata()` — see the
+   critical finding above. No `eval(`/`new Function(`/raw `.innerHTML =`
+   sites exist anywhere in the frontend. **Follow-up still open:** add
+   input-layer sanitization for `full_name`/`about_myself`/`company`/
+   `education_detail` at registration (reject or strip `< >` server-side)
+   as defense-in-depth on top of the escape-on-output fix, so that any
+   future code path that renders these fields outside of JSX's
+   auto-escaping doesn't reopen the same bug class.
 2. Decide + implement a token-revocation story (short-lived access token +
    refresh token, or a server-side revocation list) if "logout everywhere" /
    compromised-account response time becomes a product requirement — this is

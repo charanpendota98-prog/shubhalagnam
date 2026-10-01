@@ -31,6 +31,24 @@ import FamilyCompatibilityRadar from "@/components/FamilyCompatibilityRadar";
 
 type Row = Record<string, any>;
 
+// 🛡️ P0 FIX: printBiodata() builds a raw HTML string from user-submitted
+// profile fields (full_name, about_myself, company, education_detail, ...)
+// and injects it via document.write() into a new same-origin window — React's
+// JSX auto-escaping does NOT apply here since it's manual string interpolation.
+// Without escaping, a profile registered with e.g. full_name containing
+// "<script>...</script>" would execute attacker JS in a window that has
+// window.opener access back into this origin (incl. localStorage["tsap_token"]
+// — full account takeover for anyone who clicks "Print Biodata" on a
+// malicious profile). Escape every interpolated value before use.
+function escapeHtml(value: unknown): string {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 const CONSENT_STEPS_TE = [
   "1️⃣ ఇంట్రెస్ట్ పంపండి (ప్రారంభ 3 రిక్వెస్ట్‌లు ఉచితం) — మీ అధికారిక ప్రొఫైల్ వివరాలు వారికి వాట్సాప్‌లో అందజేయబడతాయి",
   "2️⃣ వారు అంగీకరించిన వెంటనే — ఇరు కుటుంబాల అధికారిక సంప్రదింపు వివరాలు పరస్పరం మార్పిడి చేయబడతాయి",
@@ -355,11 +373,16 @@ export default function ProfileView() {
     if (!profile) return;
     const printWindow = window.open("", "_blank");
     if (!printWindow) { window.print(); return; }
+    // 🛡️ P0 FIX: escape every user-submitted field before string-interpolating
+    // it into raw HTML (see escapeHtml() doc comment above for why this matters).
+    const e = escapeHtml;
+    const nameOrId = e(profile.full_name || profile.tsap_id);
+    const tsapId = e(profile.tsap_id);
     const html = `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
-  <title>వివాహ బయోడేటా — ${profile.full_name || profile.tsap_id}</title>
+  <title>వివాహ బయోడేటా — ${nameOrId}</title>
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #fff; color: #1e293b; padding: 24px; }
     .card { max-width: 650px; margin: 0 auto; border: 4px double #7A0C2E; border-radius: 16px; padding: 24px; background: #fffdfa; }
@@ -378,25 +401,25 @@ export default function ProfileView() {
   <div class="card">
     <div class="header">
       <div class="title">💍 మన వివాహ (Mana Vivaha) — వివాహ పరిచయ పత్రం</div>
-      <div class="sub">MANA VIVAHA • TS & AP TELUGU MATRIMONY (ID: ${profile.tsap_id})</div>
+      <div class="sub">MANA VIVAHA • TS & AP TELUGU MATRIMONY (ID: ${tsapId})</div>
     </div>
     <div class="grid">
-      <div class="item"><div class="label">పేరు (Name)</div><div class="val">${profile.full_name || profile.tsap_id}</div></div>
-      <div class="item"><div class="label">వయస్సు & ఎత్తు (Age & Height)</div><div class="val">${profile.age} సం॥ · ${profile.height || "—"}</div></div>
-      <div class="item"><div class="label">కులం & ఉపకులం (Caste)</div><div class="val">${profile.caste || "—"} ${profile.sub_caste ? `(${profile.sub_caste})` : ""}</div></div>
-      <div class="item"><div class="label">గోత్రం (Gothram)</div><div class="val">${profile.gothram || "—"}</div></div>
-      <div class="item"><div class="label">నక్షత్రం & రాశి (Star & Sign)</div><div class="val">${profile.star || "—"} / ${profile.rasi || "—"}</div></div>
-      <div class="item"><div class="label">చదువు (Education)</div><div class="val">${profile.education || "—"} ${profile.education_detail || ""}</div></div>
-      <div class="item"><div class="label">ఉద్యోగం / వ్యాపారం (Job)</div><div class="val">${profile.job || "—"} ${profile.company ? `@ ${profile.company}` : ""}</div></div>
-      <div class="item"><div class="label">వార్షిక ఆదాయం (Annual Salary)</div><div class="val">${profile.salary || "—"}</div></div>
-      <div class="item"><div class="label">ప్రాంతం / నివాసం (Location)</div><div class="val">${profile.district || "—"}, ${profile.state ? stateFullName(profile.state, te) : "—"}</div></div>
-      <div class="item"><div class="label">వైవాహిక స్థితి (Marital Status)</div><div class="val">${profile.marital_status || "Never Married"}</div></div>
-      <div class="item"><div class="label">కుటుంబ నేపథ్యం (Family)</div><div class="val">${profile.family_type || "Joint/Nuclear"} · ${profile.family_status || "Middle/Upper"}</div></div>
-      <div class="item"><div class="label">దోషం (Dosham)</div><div class="val">${profile.dosham || "None"}</div></div>
+      <div class="item"><div class="label">పేరు (Name)</div><div class="val">${nameOrId}</div></div>
+      <div class="item"><div class="label">వయస్సు & ఎత్తు (Age & Height)</div><div class="val">${e(profile.age)} సం॥ · ${e(profile.height || "—")}</div></div>
+      <div class="item"><div class="label">కులం & ఉపకులం (Caste)</div><div class="val">${e(profile.caste || "—")} ${profile.sub_caste ? `(${e(profile.sub_caste)})` : ""}</div></div>
+      <div class="item"><div class="label">గోత్రం (Gothram)</div><div class="val">${e(profile.gothram || "—")}</div></div>
+      <div class="item"><div class="label">నక్షత్రం & రాశి (Star & Sign)</div><div class="val">${e(profile.star || "—")} / ${e(profile.rasi || "—")}</div></div>
+      <div class="item"><div class="label">చదువు (Education)</div><div class="val">${e(profile.education || "—")} ${e(profile.education_detail || "")}</div></div>
+      <div class="item"><div class="label">ఉద్యోగం / వ్యాపారం (Job)</div><div class="val">${e(profile.job || "—")} ${profile.company ? `@ ${e(profile.company)}` : ""}</div></div>
+      <div class="item"><div class="label">వార్షిక ఆదాయం (Annual Salary)</div><div class="val">${e(profile.salary || "—")}</div></div>
+      <div class="item"><div class="label">ప్రాంతం / నివాసం (Location)</div><div class="val">${e(profile.district || "—")}, ${e(profile.state ? stateFullName(profile.state, te) : "—")}</div></div>
+      <div class="item"><div class="label">వైవాహిక స్థితి (Marital Status)</div><div class="val">${e(profile.marital_status || "Never Married")}</div></div>
+      <div class="item"><div class="label">కుటుంబ నేపథ్యం (Family)</div><div class="val">${e(profile.family_type || "Joint/Nuclear")} · ${e(profile.family_status || "Middle/Upper")}</div></div>
+      <div class="item"><div class="label">దోషం (Dosham)</div><div class="val">${e(profile.dosham || "None")}</div></div>
     </div>
-    ${profile.about_myself ? `<div class="about"><b>స్వవిషయం (About):</b> ${profile.about_myself}</div>` : ""}
+    ${profile.about_myself ? `<div class="about"><b>స్వవిషయం (About):</b> ${e(profile.about_myself)}</div>` : ""}
     <div class="footer">
-      🔒 100% Verified TS & AP Matrimony Profile · manavivaha.in/search/${profile.tsap_id}
+      🔒 100% Verified TS & AP Matrimony Profile · manavivaha.in/search/${tsapId}
     </div>
   </div>
   <script>window.onload = function() { window.print(); };</script>
