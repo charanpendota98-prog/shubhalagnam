@@ -18,6 +18,32 @@
   -webkit-tap-highlight-color: transparent;
 }
 
+/* ============================================================
+   ADVANCED-PASS 1 — Global accessible focus ring (site-wide a11y fix)
+   ~99 interactive elements across the app use `outline-none` for a
+   custom look but never ship a replacement focus style — keyboard /
+   switch / screen-reader users get ZERO visible focus indicator
+   (fails WCAG 2.4.7). Rather than hand-patch 99 call-sites (high
+   regression risk, impossible to visually re-verify in this sandbox),
+   we restore a single branded focus-visible ring globally. It only
+   fires for keyboard/AT focus (`:focus-visible`, not mouse clicks), so
+   it never adds visual noise to normal pointer interaction, and it
+   layers on top of any existing Tailwind `ring-*`/`outline-*` utility
+   without fighting it (outline is a separate paint layer from
+   box-shadow-based rings).
+   ============================================================ */
+:focus-visible {
+  outline: 2.5px solid var(--gold);
+  outline-offset: 2px;
+  border-radius: 4px;
+  transition: outline-offset 0.15s ease;
+}
+/* Buttons/links that are already pill/rounded-full keep the ring tight to the shape */
+a:focus-visible,
+button:focus-visible {
+  outline-offset: 3px;
+}
+
 html {
   scroll-behavior: smooth;
   scroll-padding-top: calc(var(--header-h) + 12px);
