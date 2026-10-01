@@ -1599,14 +1599,28 @@ async def _security_middleware(request: Request, call_next):
     return response
 
 
-# 🛡️ CORS FIX: mundu "*" + credentials (browser security hole). Ippudu env allowlist + preview regex.
+# 🛡️ CORS FIX (P0, re-verified): mundu "*" + credentials (browser security hole).
+# Ippudu strict env allowlist ONLY — the previous `allow_origin_regex=r".*"` here
+# was a bug that silently re-opened the exact hole this comment claims to have
+# fixed: Starlette's CORSMiddleware allows an origin if it matches EITHER
+# `allow_origins` OR `allow_origin_regex`, so `r".*"` matched every possible
+# Origin header, reflected it back, and paired it with
+# `allow_credentials=True` — i.e. any website on the internet could make
+# credentialed cross-origin requests to this API. Verified exploitable via
+# `curl -H "Origin: https://evil-attacker-site.com"` before this fix (got
+# `access-control-allow-origin: https://evil-attacker-site.com` +
+# `access-control-allow-credentials: true` back). The real website never
+# needed this: `frontend/next.config.mjs` proxies all `/api/*` calls
+# server-side (Next.js rewrites), so the browser never makes a cross-origin
+# call to this backend in production — CORS here only matters for direct
+# API consumers (admin subdomain, mobile app, API testing), which the
+# explicit `CORS_ORIGINS` env allowlist already covers.
 _CORS_ORIGINS = [o.strip() for o in (os.getenv("CORS_ORIGINS") or
                 "https://manavivaha.in,https://www.manavivaha.in,http://localhost:3000,"
                 "http://127.0.0.1:3000,http://localhost:8000").split(",") if o.strip()]
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_CORS_ORIGINS,
-    allow_origin_regex=r".*",
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "*"],
     allow_headers=["*"],
@@ -2552,12 +2566,17 @@ def _evaluate_partner_preferences_match(user: dict, prefs: dict, candidate: dict
 
 
 @app.get("/api/profile/preferences")
-def get_partner_preferences(tsap_id: str):
+def get_partner_preferences(tsap_id: str, request: Request):
     """Fetches user's saved partner preferences, default smart suggestions, and live match count."""
     clean_id = str(tsap_id or "").strip().upper()
     user = _find_user(clean_id)
     if not user:
         raise HTTPException(404, f"Profile {clean_id} not found")
+
+    # 🛡️ P0 IDOR fix: own partner-preferences matrame — zero-auth read/write
+    # of someone else's preferences (and the match preview list built from
+    # them) ledu ippudu.
+    require_owner(request, clean_id)
 
     prefs = user.get("partner_preferences")
     if not prefs or not isinstance(prefs, dict):
@@ -2586,12 +2605,15 @@ def get_partner_preferences(tsap_id: str):
 
 
 @app.post("/api/profile/preferences")
-def save_partner_preferences(payload: dict):
+def save_partner_preferences(payload: dict, request: Request):
     """Saves user's custom multi-select partner preferences (Castes, Subcastes, Age, Height, Education, Jobs, Districts, Salary)."""
     clean_id = str(payload.get("tsap_id") or payload.get("id") or "").strip().upper()
     user = _find_user(clean_id)
     if not user:
         raise HTTPException(404, f"Profile {clean_id} not found")
+
+    # 🛡️ P0 IDOR fix: own preferences matrame overwrite cheyyagalaru.
+    require_owner(request, clean_id)
 
     prefs = {
         "age_min": int(payload.get("age_min") or 18),
@@ -2687,13 +2709,21 @@ def get_partner_preferred_matches(tsap_id: str, limit: int = 50):
 
 
 @app.get("/api/profile/{tsap_id}")
-def get_user_profile_for_edit(tsap_id: str):
+def get_user_profile_for_edit(tsap_id: str, request: Request):
     """Fetch full profile data for self-editing and view completeness meter."""
     clean_id = tsap_id.strip().upper()
     user = _find_user(clean_id)
     if not user:
         raise HTTPException(404, f"Profile ID {tsap_id} not found")
-    
+
+    # 🛡️ P0 IDOR FIX: idi mundu ANY caller ki (zero auth) full raw user dict
+    # ichedi — phone, password_hash, AND a live reusable auth_token (full
+    # account takeover) anni leak ayyedi, just tsap_id telisthe chalu (IDs
+    # sequential ga guess cheyyochu: MV1001, MV1002...). Ippudu owner token
+    # తప్పనిసరి — ee page "self-editing" కోసమే, వేరే వాళ్ల profile fetch
+    # cheyakudadu.
+    require_owner(request, clean_id)
+
     core_keys = [
         "full_name", "gender", "dob", "height", "marital_status", "caste", "sub_caste",
         "gothram", "star", "rasi", "education", "education_detail", "job", "company", "salary",
@@ -2703,10 +2733,14 @@ def get_user_profile_for_edit(tsap_id: str):
     filled = [k for k in core_keys if bool(str(user.get(k) or "").strip())]
     missing = [k for k in core_keys if not bool(str(user.get(k) or "").strip())]
     score = min(100, int((len(filled) / len(core_keys)) * 100))
-    
+
+    # 🛡️ Defense-in-depth: even for the verified owner, never echo the
+    # password hash or a live bearer token back out of a GET response body.
+    safe_profile = {k: v for k, v in user.items() if k not in ("password_hash", "auth_token")}
+
     return {
         "success": True,
-        "profile": user,
+        "profile": safe_profile,
         "completeness_score": score,
         "filled_count": len(filled),
         "total_fields": len(core_keys),
@@ -2718,13 +2752,18 @@ def get_user_profile_for_edit(tsap_id: str):
 
 
 @app.post("/api/profile/update")
-def update_user_profile(payload: dict):
+def update_user_profile(payload: dict, request: Request):
     """Allows user to update profile anytime, increasing completeness to 100%."""
     tsap_id = str(payload.get("tsap_id") or payload.get("id") or "").strip().upper()
     user = _find_user(tsap_id)
     if not user:
         raise HTTPException(404, f"Profile {tsap_id} not found")
-    
+
+    # 🛡️ P0 IDOR FIX: idi mundu ANY caller ki — just tsap_id tho (body lo
+    # attacker-controlled) — ANY other user's profile field-by-field
+    # overwrite cheyyagaligedi, zero auth. Ippudu owner token తప్పనిసరి.
+    require_owner(request, tsap_id)
+
     updatable_fields = [
         "full_name", "dob", "birth_time", "height", "weight", "marital_status", "children", "caste",
         "sub_caste", "gothram", "star", "rasi", "dosham", "education", "education_detail",
@@ -2781,7 +2820,7 @@ def update_user_profile(payload: dict):
 
 @app.post("/api/user/delete-account")
 @app.post("/api/profile/{tsap_id}/delete")
-def delete_user_account(payload: dict, tsap_id: Optional[str] = None):
+def delete_user_account(payload: dict, request: Request, tsap_id: Optional[str] = None):
     """User self-service account deletion & marriage fixed celebration flow.
     Allows users who got married or wish to leave to permanently archive/delete their profile.
     """
@@ -2789,7 +2828,13 @@ def delete_user_account(payload: dict, tsap_id: Optional[str] = None):
     user = _find_user(clean_id)
     if not user:
         raise HTTPException(404, f"Profile ID '{clean_id}' not found")
-        
+
+    # 🛡️ P0 IDOR FIX: idi mundu ANY caller ki — just tsap_id telisthe chalu —
+    # ANY other user's account ni deactivate/delete cheyyagaligedi, zero auth
+    # (sequential IDs valla mass-delete script kuda possible). Ippudu owner
+    # token తప్పనిసరి.
+    require_owner(request, clean_id)
+
     reason = str(payload.get("reason", "married_via_manavivaha")).strip()
     partner_name = str(payload.get("partner_name", "")).strip()
     feedback = str(payload.get("feedback", "")).strip()

@@ -41,7 +41,7 @@ import { SITE_CONFIG } from "@/lib/site-config";
 import QuickLead from "@/components/QuickLead";
 import TrustBadge from "@/components/TrustBadge";
 import AuthGate from "@/components/AuthGate";
-import { apiGet, apiPost, getToken } from "@/lib/api";
+import { apiGet, apiPost, getToken, authHeaders } from "@/lib/api";
 import { firstName } from "@/lib/names";
 import TopPicks from "@/components/TopPicks";
 import { Duo, duo } from "@/lib/duo";
@@ -532,7 +532,8 @@ export default function MatchesPage() {
         return;
       }
       setPrefLoading(true);
-      const res = await fetch(`/api/profile/preferences?tsap_id=${encodeURIComponent(myId)}`);
+      // 🛡️ P0 security fix: /api/profile/preferences now requires the owner's token.
+      const res = await fetch(`/api/profile/preferences?tsap_id=${encodeURIComponent(myId)}`, { headers: authHeaders() });
       const data = await res.json();
       if (res.ok && data?.preferences) {
         const p = data.preferences;

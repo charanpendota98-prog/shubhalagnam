@@ -12,6 +12,10 @@ import AuthGate from "@/components/AuthGate";
 import RasiChart from "@/components/RasiChart";
 import PushBell from "@/components/PushBell";
 import { apiGet, apiPost, authHeaders } from "@/lib/api";
+// 🛡️ P0 security fix: /api/profile/{id} (GET+update) and /api/user/delete-account
+// now require the owner's X-Tsap-Token server-side (was a zero-auth IDOR that
+// leaked raw phone/password_hash/auth_token and allowed anyone to edit/delete
+// any profile by guessing a tsap_id). authHeaders() attaches that token.
 import { Duo } from "@/lib/duo";
 import { useLang } from "@/lib/lang";
 import {
@@ -85,7 +89,7 @@ export default function MePage() {
     try {
       const res = await fetch("/api/user/delete-account", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: authHeaders(),
         body: JSON.stringify({
           tsap_id: myId,
           reason: deleteReason,
@@ -1219,7 +1223,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
   const loadProfile = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/profile/${encodeURIComponent(myId)}`);
+      const res = await fetch(`/api/profile/${encodeURIComponent(myId)}`, { headers: authHeaders() });
       if (res.ok) {
         const d = await res.json();
         setProfile(d.profile || {});
@@ -1247,7 +1251,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
     try {
       const res = await fetch("/api/profile/update", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: authHeaders(),
         body: JSON.stringify({ tsap_id: myId, ...profile }),
       });
       const d = await res.json();

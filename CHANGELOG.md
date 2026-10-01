@@ -3,6 +3,115 @@
 All entries are real, implemented, tested changes — not recommendations.
 Format: date, priority, domain, what/why, files, verification.
 
+## 2026-10-01 — Phase 12 security sweep: critical account-takeover IDOR + CORS fixes
+
+### P0 — CRITICAL — Fixed: unauthenticated IDOR leaking live session tokens (full account takeover)
+**Domain:** Application Security / Authentication & Authorization
+**Found by:** systematically grepping every route handler keyed by `tsap_id`
+for a missing call to this codebase's own existing IDOR guard
+(`require_owner`, already used in ~20 other places), then empirically
+confirming each candidate live against the running API with `curl`.
+
+**The bug:** `GET /api/profile/{tsap_id}` (meant for self-editing, per its
+own docstring) had **zero authentication** and returned the complete raw
+internal user record — including `auth_token` (a live, reusable, 30-day
+bearer session token for that user), raw unmasked `phone`, and
+`password_hash` — to *any* caller supplying *any* `tsap_id` (sequential and
+trivially enumerable: `MV1001`, `MV1002`, ...). This is full account
+takeover, not just a data leak: anyone could script a loop over every ID,
+collect every user's live session token, and act as that user on every
+`require_owner`-protected endpoint with no password needed.
+
+Four sibling endpoints had the same missing-auth defect: `POST
+/api/profile/update` (arbitrary profile overwrite by any anonymous caller),
+`POST /api/user/delete-account` + `/api/profile/{tsap_id}/delete`
+(unauthenticated account deactivation — scriptable into mass-deleting the
+entire user base given sequential IDs), and `GET`/`POST
+/api/profile/preferences` (unauthenticated read/write of match preferences).
+
+**Verified exploitable before the fix** (reproduced live, not theoretical):
+registered a disposable test account, then fetched
+`GET /api/profile/{its_id}` with **zero auth headers** → got back its live
+`auth_token`, raw `phone`, and `password_hash` in the response body; then
+called `POST /api/profile/update` with zero auth to rename the account to
+"HACKED BY ATTACKER" — succeeded.
+
+**Fix:** added `require_owner(request, tsap_id)` to all 5 endpoints.
+Additionally, `GET /api/profile/{tsap_id}` now strips `password_hash` and
+`auth_token` from its response even for the verified owner (defense in
+depth — a GET response body never needs to re-echo a live credential).
+The frontend already has a global API client (`frontend/src/lib/api.ts`)
+that attaches the `X-Tsap-Token` header specifically for this IDOR-guard
+pattern, but 4 call sites in `me/page-client.tsx` and
+`matches/page-client.tsx` used a raw `fetch()` that bypassed it — updated
+all 4 to send `authHeaders()` so real logged-in users are unaffected by the
+new server-side enforcement.
+
+**Files:** `backend/main.py` (5 endpoints),
+`frontend/src/app/me/page-client.tsx`,
+`frontend/src/app/matches/page-client.tsx`.
+
+**Verification performed:**
+- All 4 original zero-auth attacks re-run post-fix → all now `401`.
+- Registered a fresh real user; all 5 endpoints called **with its own valid
+  token** → still work correctly end-to-end (self-view shows its own real
+  phone for editing, update succeeds, preferences readable/writable);
+  `password_hash`/`auth_token` confirmed absent from the response even for
+  the owner.
+- Called the same endpoints with **a different, valid-but-wrong user's**
+  token → still correctly `401`s (confirms identity-match checking, not
+  just "any token present").
+- Full regression: `test_100_developer_checks.py` 110/110,
+  `test_100_registrations_e2e.py` 100/100, both unchanged; all other 44
+  standalone test scripts produce the identical 13 pre-existing
+  (frontend-content, unrelated) failures as before this change.
+- `npx tsc --noEmit` and a full `next build` both pass cleanly.
+
+### P0 — Fixed: CORS wildcard-with-credentials (any website could make authenticated cross-origin requests)
+**Domain:** Application Security / Browser security model
+**Found by:** reviewing the global middleware stack. `allow_origin_regex=r".*"`
+was set alongside `allow_credentials=True` and an explicit `CORS_ORIGINS`
+allowlist — but Starlette's `CORSMiddleware` allows an origin if it matches
+*either* the allowlist *or* the regex, so `r".*"` (matches literally any
+Origin header) completely nullified the allowlist. The code comment directly
+above this line claimed to have already fixed "`*` + credentials (browser
+security hole)" — this regex silently reopened the exact same hole.
+
+**Verified exploitable before the fix:** `curl` with
+`Origin: https://evil-attacker-site.com` got back
+`access-control-allow-origin: https://evil-attacker-site.com` +
+`access-control-allow-credentials: true`.
+
+**Fix:** removed the `allow_origin_regex`, kept only the explicit
+`CORS_ORIGINS` env allowlist (already the documented production
+configuration). The real website doesn't need browser-side CORS at all for
+its own traffic — `frontend/next.config.mjs` proxies `/api/*` server-side,
+so the browser never makes a cross-origin call to this backend in
+production; CORS only matters for direct API consumers, which the allowlist
+already covers.
+
+**Files:** `backend/main.py`.
+
+**Verification:** malicious origins now get `400 Disallowed CORS origin`;
+`localhost:3000` and `manavivaha.in` still work. Full regression suite
+re-run, zero regressions.
+
+### P1 — Added: Content-Security-Policy (was completely missing)
+**Domain:** Application Security / Browser security headers
+Built a real allowlist from an actual audit of this app's external resource
+usage: Razorpay's checkout widget is the only third-party
+script/frame/connect target in the entire app; no `next/image` remote
+domains, no Analytics/GTM/Google Fonts. Applied in production only (same
+prod/dev split the existing `X-Frame-Options` config already used, to avoid
+breaking Turbopack HMR or the Arena sandbox iframe preview in dev).
+
+**Files:** `frontend/next.config.mjs`.
+
+**Verification:** `next build` + `next start` in production mode; sampled 7
+pages all returned `200` with the CSP header and full content; scanned
+rendered HTML for any script/style/link not covered by the allowlist — found
+none.
+
 ## 2026-10-01 — Full-organization audit, Phase 0 (Discovery) + first P0/P1/P2 fixes
 
 ### P0 — Fixed: data-corrupting non-atomic writes in profile endpoints
