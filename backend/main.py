@@ -2621,11 +2621,18 @@ def save_partner_preferences(payload: dict):
         "caste": "no bar" if prefs["caste_no_bar"] else ", ".join(prefs["castes"][:2]),
     }
 
-    # Save to disk
+    # Save to disk — P0 FIX (full-audit pass): this used to do a raw
+    # open("data_db.json","w") + json.dump(DB_USERS, ...) which (a) is NOT
+    # atomic (a crash mid-write corrupts/truncates the file) and (b) writes
+    # a bare LIST to disk instead of the {"users":[...], "interests":[...],
+    # ...} snapshot shape DBSTORE.load() expects — db_store.load() silently
+    # treats a non-dict payload as empty ({}), which on the next restart
+    # would wipe DB_INTERESTS/DB_PAYMENTS/DB_OTPS and fall back to demo
+    # seed data. Now uses the same atomic tmp+rename DBSTORE.save() path
+    # used everywhere else in this file.
     try:
-        import json
-        with open("data_db.json", "w", encoding="utf-8") as f:
-            json.dump(DB_USERS, f, ensure_ascii=False, indent=2)
+        DBSTORE.save(DBSTORE.snapshot(DB_USERS, DB_INTERESTS, DB_PAYMENTS, DB_OTPS,
+                                      VERIFIED_PHONES, DB_VIEWS, DB_SAVES, DB_DIGEST), force=True)
     except Exception:
         pass
 
@@ -2756,9 +2763,10 @@ def update_user_profile(payload: dict):
     user["score"] = user["completeness_score"]
     
     try:
-        import json
-        with open("data_db.json", "w", encoding="utf-8") as f:
-            json.dump(DB_USERS, f, ensure_ascii=False, indent=2)
+        # P0 FIX — same atomic-snapshot fix as save_partner_preferences() above
+        # (was a raw, non-atomic, structure-corrupting json.dump(DB_USERS, ...)).
+        DBSTORE.save(DBSTORE.snapshot(DB_USERS, DB_INTERESTS, DB_PAYMENTS, DB_OTPS,
+                                      VERIFIED_PHONES, DB_VIEWS, DB_SAVES, DB_DIGEST), force=True)
     except Exception:
         pass
         
