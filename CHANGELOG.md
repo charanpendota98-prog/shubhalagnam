@@ -69,6 +69,64 @@ code, so exposure was lower than "actively exploited in a known code path" —
 but a critical CVE with a zero-risk patch-version fix available is not
 something to leave unpatched regardless.
 
+### P1 — Fixed: backend dependency CVE exposure (`pip-audit`)
+**Domain:** Application Security / Dependency hygiene (backend)
+**Found by:** `pip-audit -r backend/requirements.txt`, which flagged 13
+packages with 150+ CVE/PYSEC advisories. Before patch-bumping, every flagged
+package was checked for real usage via repo-wide grep (direct imports,
+dynamic `importlib`/`__import__`, Dockerfile/compose/shell-script
+references).
+
+**Finding 1 — 8 flagged packages are 100% dead code**, never imported
+anywhere in the repository: `python-jose[cryptography]`, `passlib[bcrypt]`,
+`rembg`, `onnxruntime`, `sentence-transformers`, `transformers`, `celery`,
+`apscheduler` (plus their transitive-only `ecdsa`). This also confirms this
+app's auth is hand-rolled PBKDF2+HMAC, never `jose`/`passlib` as the listed
+dependency would suggest.
+
+**Fix 1:** removed all 8 dead packages from `backend/requirements.txt`
+outright — safer than upgrading something that's never executed, and it
+shrinks install time/image size/future audit noise.
+
+**Finding 2 — the packages actually used in production** (`fastapi`
+→ transitively pins `starlette`; `aiohttp`/`aiogram` for the Telegram bot;
+`Pillow`, `python-multipart`, `python-dotenv`) had real, patchable CVEs.
+
+**Fix 2:** bumped to the newest mutually-compatible versions without
+touching the pinned `pydantic==2.5.3` (a pydantic 2.7+ bump is a larger,
+separately-justified change — see `SECURITY_AUDIT.md`):
+`fastapi` 0.110.0→0.121.0, `starlette` 0.36.3→0.49.1 (pinned explicitly),
+`aiohttp` 3.9.3→3.9.5 (capped by `aiogram==3.4.1`'s own `~=3.9.0`
+constraint), `Pillow` 10.2.0→12.3.0, `python-multipart` 0.0.9→0.0.32,
+`python-dotenv` 1.0.1→1.2.2.
+
+**Residual (documented, not fixed this pass):** a handful of `starlette` and
+`aiohttp` CVEs require a starlette 1.x / aiogram major-version bump,
+respectively, which cascade into a `pydantic`/bot-flow regression pass of
+their own — logged as scoped follow-ups in `SECURITY_AUDIT.md` rather than
+done blindly in this pass.
+
+**Files:** `backend/requirements.txt`.
+
+**Verification performed:**
+- Baseline: `test_100_developer_checks.py` (110/110) and
+  `test_100_registrations_e2e.py` (100/100) passed on the original deps.
+- Clean `pip install` of the new `requirements.txt` in a fresh venv — no
+  resolver errors.
+- Backend restarted on the new deps; both full regression scripts re-run →
+  still 110/110 and 100/100.
+- All 44 other standalone `test_*.py` scripts run; the 13 that report
+  non-zero exit were verified **byte-for-byte identical** against a parallel
+  venv built from the original, unmodified `requirements.txt` — i.e.
+  pre-existing frontend-feature gaps (checking `.tsx` source for strings like
+  `"useLang"`), not regressions from this change.
+- `photo_validate.validate_photo()` (the PIL-based upload-quality pipeline)
+  exercised directly with a synthetic image under Pillow 12.3.0 — blur/glare/
+  brightness/contrast checks all executed correctly.
+- `pip-audit` re-run after the fix: down from 13 flagged packages/150+
+  advisories to 2 packages with documented, lower-reachability residual
+  advisories.
+
 ### P2 — Fixed: sitemap/robots contradiction on `/requests`
 **Domain:** Technical SEO Architect / Indexation Specialist
 `frontend/src/app/sitemap.ts` listed the private, login-gated `/requests`
