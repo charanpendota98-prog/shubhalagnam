@@ -53,8 +53,9 @@ backend/token_versions.json.tmp
 backend/backups/
 backend/vendor/
 
-# money/unlocks runtime ledgers (append-only logs — regenerate per environment, polluted git status on every test run)
+# money/unlocks/astro runtime ledgers (append-only logs — regenerate per environment, polluted git status on every test run)
 backend/money_audit26.jsonl
 backend/unlocks12.json
+backend/astro13.json
 
 backend/.venv/

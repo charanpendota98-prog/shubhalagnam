@@ -7623,6 +7623,29 @@ def api_astro_queue(request: Request, status: str = ""):
     return {"success": True, "count": len(items), "items": list(reversed(items))}
 
 
+@app.get("/api/admin/astro/queue/{jid}/file")
+def api_astro_jathakam_file(jid: str, request: Request):
+    """📜 Admin/pandit: securely retrieve an uploaded jathakam file for review.
+    🐞 FIX (completeness gap): jathakam upload stored the file but there was no way
+    for the pandit/admin to actually view it before verify/reject — admin-gated here,
+    filename is looked up server-side (never taken from the client), path-traversal safe."""
+    require_admin(request)
+    j = next((x for x in AST.JATHAKAMS if x.get("id") == jid), None)
+    if not j:
+        raise HTTPException(404, "Jathakam దొరకలేదు")
+    filename = os.path.basename(str(j.get("file", "")))
+    if not filename:
+        raise HTTPException(404, "Jathakam file దొరకలేదు")
+    path = os.path.join("/tmp/jathakam", filename)
+    if not os.path.isfile(path):
+        raise HTTPException(404, "Jathakam file disk మీద దొరకలేదు (expired/cleared?)")
+    ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
+    media = {"pdf": "application/pdf", "jpg": "image/jpeg", "jpeg": "image/jpeg",
+             "png": "image/png", "webp": "image/webp"}.get(ext, "application/octet-stream")
+    return FileResponse(path, media_type=media, filename=filename,
+                         headers={"Cache-Control": "no-store"})
+
+
 @app.post("/api/admin/astro/verify/{jid}")
 def api_astro_verify(jid: str, payload: dict, request: Request):
     require_admin(request)
