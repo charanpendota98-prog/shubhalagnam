@@ -316,15 +316,16 @@ clean, (c) manual escaping unit-check confirms
 exactly as described above, (f) full `test_100_developer_checks.py`
 (110/110) and `test_100_registrations_e2e.py` (100/100) regression suites
 passing post-fix.
-**Residual risk / follow-up:** `POST /api/control/profiles/add` (the admin
-Control Portal's instant profile creator, gated behind
-`_control_write_guard` + an elevated staff/admin role) still sets
-`full_name` and other fields with a bare `.strip()`, no `clean()` call.
-Lower priority — exploiting it requires an already-compromised or malicious
-admin credential, which is a strictly higher trust boundary than a normal
-user account (an admin with write access already has far more direct ways
-to tamper with data) — but still worth closing for defense-in-depth.
-Tracked as a next step below.
+**Residual risk, closed in the same pass:** `POST /api/control/profiles/add`
+(the admin Control Portal's instant profile creator, gated behind
+`_control_write_guard` + an elevated staff/admin role) also set `full_name`
+and other fields with a bare `.strip()`, no `clean()` call. Lower severity
+— exploiting it requires an already-compromised or malicious admin
+credential, a strictly higher trust boundary than a normal user account —
+but closed anyway for defense-in-depth consistency: added the same
+`clean()` pass over its free-text fields before the new profile is
+appended to `DB_USERS`. Verified with the full regression suites
+(110/110, 100/100) passing post-fix.
 
 ## Phase 13 — broader IDOR + upload-path sweep (done this pass)
 
@@ -426,11 +427,8 @@ check rather than a spot check:
    sites exist anywhere in the frontend. Root-caused and fixed at the input
    layer too — see the critical finding above (`/api/profile/update` was
    bypassing registration's `clean()` sanitization entirely).
-2. Add the same `clean()` sanitization to `POST /api/control/profiles/add`
-   (admin Control Portal profile creator) — currently a bare `.strip()`,
-   lower priority since it's already behind an elevated-role guard but
-   worth closing for defense-in-depth consistency with every other write
-   path.
+2. ~~Add the same `clean()` sanitization to `POST /api/control/profiles/add`~~
+   — **done this pass** too, see the critical finding above.
 3. Decide + implement a token-revocation story (short-lived access token +
    refresh token, or a server-side revocation list) if "logout everywhere" /
    compromised-account response time becomes a product requirement — this is

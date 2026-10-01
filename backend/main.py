@@ -1205,7 +1205,20 @@ def control_add_profile(payload: dict, request: Request):
     
     code = f"{caste[:3].upper()}{random.randint(1000, 9999)}"
     user["my_referral_code"] = code
-    
+
+    # 🛡️ P3 hardening (defense-in-depth, consistency w/ the Phase 13
+    # /api/profile/update fix): this admin-only Control Portal creator built
+    # every field with a bare .strip(), unlike the public /api/register path
+    # which always runs free-text fields through clean() (HTML-tag +
+    # javascript:/onerror= stripping). Requires an elevated admin/staff
+    # credential to reach (_control_write_guard above), so the practical
+    # risk is low, but sanitize anyway for consistency across every write path.
+    for _k, _n in (("full_name", 60), ("caste", 40), ("sub_caste", 40), ("gothram", 40),
+                   ("star", 30), ("rasi", 30), ("education", 60), ("job", 60), ("salary", 24),
+                   ("district", 40), ("about_myself", 600)):
+        if _k in user:
+            user[_k] = clean(user.get(_k), _n, "control_add_profile:" + _k)
+
     try:
         route = route_profile(user)
         user["posted_channels"] = route.get("usernames", [])
