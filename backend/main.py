@@ -5405,17 +5405,40 @@ PW_LOCKS: Dict[str, Dict[str, Any]] = {}   # phone → {fails, locked_until}
 
 
 def _hash_password(pw: str) -> str:
+    # 🛡️ Phase 15: OWASP Password Storage Cheat Sheet (2023) recommends
+    # >=600,000 iterations for PBKDF2-HMAC-SHA256 (this repo's prior default
+    # of 120,000 was the older 2017-era guidance). The iteration count is
+    # now stamped into the stored hash itself (4-part format) so it can be
+    # bumped again in the future without invalidating hashes created today.
     salt = _secrets.token_hex(16)
-    h = _hashlib.pbkdf2_hmac("sha256", pw.encode("utf-8"), bytes.fromhex(salt), 120_000)
-    return f"pbkdf2${salt}${h.hex()}"
+    iterations = PBKDF2_ITERATIONS
+    h = _hashlib.pbkdf2_hmac("sha256", pw.encode("utf-8"), bytes.fromhex(salt), iterations)
+    return f"pbkdf2${iterations}${salt}${h.hex()}"
+
+
+PBKDF2_ITERATIONS = 600_000
+PBKDF2_ITERATIONS_LEGACY = 120_000  # 🛡️ pre-Phase-15 hashes (3-part format, no stamped count)
 
 
 def _check_password(pw: str, stored: str) -> bool:
     try:
-        algo, salt, hexh = (stored or "").split("$")
+        parts = (stored or "").split("$")
+        if len(parts) == 4:
+            # current format: pbkdf2$<iterations>$<salt>$<hash>
+            algo, iters_s, salt, hexh = parts
+            iterations = int(iters_s)
+        elif len(parts) == 3:
+            # 🛡️ backward compat: hashes created before Phase 15 didn't stamp
+            # the iteration count — they were always hashed with the old
+            # default. Verify against that fixed count so existing users'
+            # passwords (set before this change shipped) keep working.
+            algo, salt, hexh = parts
+            iterations = PBKDF2_ITERATIONS_LEGACY
+        else:
+            return False
         if algo != "pbkdf2":
             return False
-        h = _hashlib.pbkdf2_hmac("sha256", pw.encode("utf-8"), bytes.fromhex(salt), 120_000)
+        h = _hashlib.pbkdf2_hmac("sha256", pw.encode("utf-8"), bytes.fromhex(salt), iterations)
         return _secrets.compare_digest(h.hex(), hexh)
     except Exception:
         return False
