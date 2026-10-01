@@ -7029,7 +7029,11 @@ async def voice_upload(request: Request, file: UploadFile = File(...), tsap_id: 
     if not chk.get("ok"):
         raise HTTPException(400, chk["error_telugu"])
     os.makedirs("/tmp/voice", exist_ok=True)
-    token = (tid.strip() or "tmp") + "-" + datetime.utcnow().strftime("%y%m%d%H%M%S")
+    # 🛡️ P2 hardening (consistency w/ WAVE 23 fix on /api/photo/upload): tid is
+    # always server-generated at registration so this isn't reachable today,
+    # but sanitize anyway rather than relying on that invariant forever.
+    _safe_tid = re.sub(r"[^A-Z0-9-]", "", tid.strip().upper())[:24]
+    token = (_safe_tid or "tmp") + "-" + datetime.utcnow().strftime("%y%m%d%H%M%S")
     name = f"{token}.{chk['ext']}"
     path = f"/tmp/voice/{name}"
     try:

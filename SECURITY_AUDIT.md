@@ -239,29 +239,110 @@ separate-justification change):
 4. Ran all remaining 44 standalone `test_*.py` scripts; 13 report non-zero exit. **Verified these are 100% pre-existing** by running the exact same 13 files against a parallel venv built from the original, unmodified `requirements.txt` — byte-for-byte identical pass/fail results. All 13 check frontend `.tsx` source-file content (e.g. `"useLang" in page_source`) and are unrelated to backend Python dependencies — zero regressions introduced by this change.
 5. Directly exercised the Pillow-dependent `photo_validate.validate_photo()` function with a synthetic image end-to-end to confirm the structural photo-quality checks still execute correctly under Pillow 12.3.0.
 
-## Next steps (Phase 12 full sweep — still open)
+## Phase 13 — broader IDOR + upload-path sweep (done this pass)
+
+Followed up on next-steps items 2 and 4 below with a systematic, repo-wide
+check rather than a spot check:
+
+- **Route-surface IDOR sweep.** Extracted all 300 `@app.get/post/put/patch/
+  delete` route decorators in `backend/main.py` and flagged every one whose
+  path contains an id-like segment (`vendor_id`, `owner_id`, `user_id`,
+  `ref_id`, `code`, `referral_id`, `payment_id`, `order_id`, `request_id`,
+  `match_id`, `report_id`, generic `id`) *and* whose handler body has none of
+  the known guards (`require_owner`, `require_admin(`, `is_admin(`,
+  `_control_write_guard`, `require_vendor`, `is_automation(`). 9 candidates
+  came back; a second pass did the same thing for handlers that take a raw
+  `payload: dict` and pull an id key (`vendor_id`/`tsap_id`/`owner_id`/
+  `user_id`/`report_id`/`request_id`/`order_id`/`interest_id`/`from_id`/`id`)
+  out of the body instead of the path (this is the exact shape the critical
+  `/api/profile/update` bug fixed last pass had) — 1 more candidate.
+  Manually read every one of the 10:
+  - `POST /api/referral/click/{code}`, `GET /api/referral/validate/{code}` —
+    intentionally public: these exist so an unauthenticated visitor who
+    clicked a shared referral link gets attributed/validated. No private
+    data returned, no state mutated on someone else's behalf. Safe by design.
+  - `GET /api/vendors/{vendor_id}`, `.../promo`, `.../poster(.png)`,
+    `POST /.../click` — public vendor-directory listing + its own marketing
+    asset generator (QR/poster/caption text for the vendor's own public
+    listing). All four go through a `public_vendor()` projection that never
+    includes the vendor's private contact/bank fields. The one endpoint that
+    *does* return sensitive vendor analytics, `GET /api/vendors/{id}/
+    dashboard`, already calls `require_vendor(request, vendor_id)` — it just
+    didn't match the path-param regex because of how its guard line was
+    phrased, not because it's unprotected. No fix needed.
+  - `GET /api/pay/qr/{order_id}.png` (+ alias) — generates a static UPI
+    payment QR (merchant VPA + a numeric amount) server-side from
+    `order_id`. Doesn't reveal who the payer is, their phone, or any other
+    PII; the `order_id` itself isn't guessable-and-useful for anything since
+    the QR just encodes "pay ₹X to the business's own public UPI handle".
+    Safe by design (this is meant to be shareable without login so the
+    payer can scan it from any device).
+  - `POST /api/channels/route` (the `payload`-based hit) — a stateless
+    marketing-copy calculator: caller supplies a hypothetical profile shape
+    (gender/state/caste/age/job/`tsap_id` text) and gets back which
+    Telegram/WhatsApp channels *would* this profile route to, for preview
+    purposes. It never calls `_find_user()` / never reads or writes a real
+    DB record — the `tsap_id` in the payload is just interpolated into a
+    sample caption string. Not an IDOR because there's no "other user's
+    record" being accessed at all.
+
+  **Conclusion: no further IDOR vulnerabilities found.** The critical bug
+  fixed last pass (missing `require_owner` on `tsap_id`-keyed endpoints) was
+  the only real instance of this bug class in the codebase; everything else
+  flagged by the heuristic is intentionally-public marketing/directory/
+  QR-generator surface or already guarded under a line the regex didn't
+  recognize.
+
+- **Upload path-traversal / filename-sanitization audit.** Checked all 4
+  `UploadFile` endpoints (`/api/photo/upload`, `/api/verify/selfie`,
+  `/api/voice/upload`, `/api/astro/jathakam/upload`):
+  - `/api/photo/upload` already sanitizes the caller-supplied `tsap_id` with
+    `re.sub(r"[^A-Z0-9-]", "", ...)` before using it in the saved filename
+    (WAVE 23 fix, pre-existing) and never uses the original uploaded
+    filename for anything beyond extracting+allowlisting the extension —
+    good.
+  - `/api/verify/selfie` and `/api/astro/jathakam/upload` build the saved
+    filename from `u["tsap_id"]` read back off a DB record that was found by
+    exact match *before* that point, not from raw caller input — safe, since
+    `tsap_id` values are always server-generated at registration
+    (`generate_profile_id()`, never accepted as free-form user text).
+  - `/api/voice/upload` was the one gap: it built the saved filename from
+    the raw `tsap_id` Form field without the same sanitization the photo
+    endpoint has. Not currently exploitable — `require_owner()` runs first
+    and a caller can only hold a valid token for a `tsap_id` the server
+    itself generated (clean `[A-Z0-9-]` by construction) — but this relied
+    on that invariant never changing, so **fixed**: added the identical
+    `re.sub(r"[^A-Z0-9-]", "", ...)` sanitization used in `/api/photo/upload`
+    before the value is used in the on-disk filename. Zero behavior change
+    for legitimate IDs; verified with a real multipart upload against the
+    running backend post-fix (clean `tmp-<timestamp>.wav` filename
+    produced) plus the full `test_100_developer_checks.py` /
+    `test_100_registrations_e2e.py` regression suites (110/110 and 100/100
+    passing).
+  - All three upload directories (`/tmp/photos`, `/tmp/voice`, `/tmp/cards`)
+    are served back out via Starlette's `StaticFiles` mount, which has its
+    own battle-tested traversal protection — no custom file-serving code to
+    audit there. `/tmp/jathakam` isn't mounted/served at all (pandit-review
+    workflow only references it by a server-issued `jathakam_id`, never a
+    public URL), so there's no read-side traversal surface for it either.
+
+## Next steps (Phase 12/13 sweep — still open)
 1. Broader `dangerouslySetInnerHTML` / raw-HTML-injection sweep across every
    component in `frontend/src` (only the 2 existing call sites were checked
-   this pass — both were safe).
-2. Path-traversal / filename-sanitization check on the photo-upload save path.
-3. Decide + implement a token-revocation story (short-lived access token +
+   so far — both were safe).
+2. Decide + implement a token-revocation story (short-lived access token +
    refresh token, or a server-side revocation list) if "logout everywhere" /
    compromised-account response time becomes a product requirement — this is
-   now higher priority given the account-takeover IDOR found this pass
-   (tokens issued before this fix remain valid until natural expiry; anyone
+   higher priority given the account-takeover IDOR found in Phase 12
+   (tokens issued before that fix remain valid until natural expiry; anyone
    who already scraped a token during the vulnerable window should be
    force-logged-out, which isn't possible without a revocation mechanism).
-4. Do a second, broader pass of the same "grep every route for a missing
-   `require_owner`" methodology used to find this pass's critical IDOR
-   against the full 300-route surface (this pass focused on `tsap_id`-keyed
-   routes specifically; there may be other private-data shapes, e.g.
-   vendor/referral/payment records, worth the same systematic check).
-5. Scoped follow-up: bump `pydantic` to 2.7+ and `fastapi` to 0.135+ to reach
+3. Scoped follow-up: bump `pydantic` to 2.7+ and `fastapi` to 0.135+ to reach
    starlette 1.x and close the remaining starlette CVEs — needs its own
    dedicated regression pass given how central pydantic models are to this
    codebase.
-6. Scoped follow-up: evaluate an `aiogram` major-version upgrade (bot-flow
+4. Scoped follow-up: evaluate an `aiogram` major-version upgrade (bot-flow
    regression testing required) to unlock a fully-patched `aiohttp`.
-7. Scoped follow-up: nonce-based CSP (remove `'unsafe-inline'` from
+5. Scoped follow-up: nonce-based CSP (remove `'unsafe-inline'` from
    `script-src`/`style-src`) — needs per-request nonce plumbing through
    Next.js middleware, a larger change than this pass's allowlist-only CSP.

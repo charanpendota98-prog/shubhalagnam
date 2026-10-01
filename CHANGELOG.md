@@ -3,6 +3,30 @@
 All entries are real, implemented, tested changes — not recommendations.
 Format: date, priority, domain, what/why, files, verification.
 
+## 2026-10-01 — Phase 13 security sweep: broader IDOR audit + upload hardening
+
+### P2 — Fixed: `/api/voice/upload` filename missing the same path-traversal sanitization as `/api/photo/upload`
+**Domain:** Application Security / File Upload Handling
+**Found by:** auditing all 4 `UploadFile` endpoints for filename-construction safety after the Phase 12 IDOR fix, specifically checking whether any of them build an on-disk filename from unsanitized caller input.
+**What:** `/api/photo/upload` already sanitizes the caller-supplied `tsap_id` with `re.sub(r"[^A-Z0-9-]", "", ...)` before it goes into the saved filename (a pre-existing WAVE 23 fix). `/api/voice/upload` built its filename from the raw `tsap_id` Form field without that same sanitization. Not currently exploitable in practice — `require_owner()` runs first and valid tokens only ever carry a server-generated `tsap_id` (always clean `[A-Z0-9-]`, produced by `generate_profile_id()` at registration, never accepted as free-form client text) — but it relied on that invariant holding forever rather than defending in depth.
+**Fix:** Added the identical `re.sub(r"[^A-Z0-9-]", "", tid.strip().upper())[:24]` sanitization used in `/api/photo/upload` to `/api/voice/upload` before the value is used in the saved filename. Zero behavior change for legitimate IDs.
+**Files:** `backend/main.py` (`voice_upload`).
+**Verification:** Manual multipart upload against the running backend post-fix produced a clean filename (`tmp-<timestamp>.wav`); full `test_100_developer_checks.py` (110/110) and `test_100_registrations_e2e.py` (100/100) regression suites re-run clean.
+
+### Audit only — no further fix needed: broader IDOR route-surface sweep (300 routes) + remaining 3 upload endpoints
+**Domain:** Application Security / Authorization
+**What was checked:** Extended the Phase 12 `require_owner`-sweep methodology from `tsap_id`-only path params to *every* id-like path param across all 300 route decorators in `backend/main.py` (`vendor_id`, `owner_id`, `user_id`, `ref_id`, `code`, `referral_id`, `payment_id`, `order_id`, `request_id`, `match_id`, `report_id`, generic `id`), plus a second pass over handlers that pull an id key out of a raw `payload: dict` body instead of the URL path (the exact shape the critical `/api/profile/update` bug had). Turned up 10 candidates total; manually read every one:
+- `POST /api/referral/click/{code}`, `GET /api/referral/validate/{code}` — intentionally public referral-link attribution/validation, no PII returned, no third-party state mutated.
+- `GET /api/vendors/{vendor_id}`, `.../promo`, `.../poster(.png)`, `POST /.../click` — public vendor-directory listing + its own public marketing-asset generator, all routed through a `public_vendor()` projection; the one endpoint with real vendor analytics (`.../dashboard`) already calls `require_vendor()` and just didn't match the detection regex.
+- `GET /api/pay/qr/{order_id}.png` (+ alias) — generates a static UPI QR (merchant VPA + amount only, no payer identity) — safe/intended to be shareable without login.
+- `POST /api/channels/route` — stateless marketing-copy preview calculator that never touches the real user database (`tsap_id` is only interpolated into a sample caption string) — not an IDOR because no other user's record is ever accessed.
+- `/api/verify/selfie` and `/api/astro/jathakam/upload` build their saved filenames from a DB-verified `tsap_id` (read back after an exact-match lookup), not raw caller input — already safe.
+- All upload directories (`/tmp/photos`, `/tmp/voice`, `/tmp/cards`) are served back via Starlette's `StaticFiles` mount (its own battle-tested traversal protection); `/tmp/jathakam` has no public read route at all.
+
+**Conclusion:** no further IDOR or path-traversal vulnerabilities found beyond the one fix above. The Phase 12 critical bug was the only real instance of the missing-`require_owner` pattern in the codebase.
+**Files:** audit only, see `SECURITY_AUDIT.md` → "Phase 13 — broader IDOR + upload-path sweep" for the full per-endpoint reasoning.
+**Verification:** n/a (no behavior change beyond the voice-upload fix above).
+
 ## 2026-10-01 — Phase 12 security sweep: critical account-takeover IDOR + CORS fixes
 
 ### P0 — CRITICAL — Fixed: unauthenticated IDOR leaking live session tokens (full account takeover)
