@@ -281,23 +281,50 @@ profile field with **zero escaping**, then writes it into the popup with
   the attacker's own session — this is stored XSS served to other users,
   not self-XSS.
 
-**Fix:** added an `escapeHtml()` helper (escapes `& < > " '`) and wrapped
-every interpolated profile field in the `printBiodata()` template with it
-before building the HTML string. Zero behavior change for legitimate
-profile data (names/castes/job titles etc. don't contain those characters
-in normal use); verified: (a) `npx tsc --noEmit` clean, (b) production
-`next build` clean, (c) manual escaping unit-check confirms
+**Fix (two layers):**
+1. **Output layer (frontend):** added an `escapeHtml()` helper (escapes
+   `& < > " '`) and wrapped every interpolated profile field in the
+   `printBiodata()` template with it before building the HTML string.
+2. **Input layer (backend, the actual root cause):** registration
+   (`POST /api/register`) already runs every free-text field through
+   `clean()` (strips HTML tags + `javascript:`/`onerror=`/`<script`
+   patterns) right before saving — see the `"🛡️ sanitize free-text (XSS /
+   control chars / huge payload fix)"` loop in `main.py`. But
+   `POST /api/profile/update` (the endpoint a user calls to edit their
+   *own* profile after registering) was setting every field straight from
+   the request payload — `user[k] = payload[k]` — with **zero**
+   sanitization, completely bypassing that protection. Confirmed exploitable
+   live: registered a real test user, called `/api/profile/update` with
+   `about_myself="<script>alert(document.cookie)</script>..."` and
+   `company="<img src=x onerror=alert(1)>EvilCorp"` using that user's own
+   valid owner token (no IDOR needed — this doesn't require bypassing auth,
+   just normal self-service profile editing), then fetched the profile back
+   via `/api/search/{id}` and confirmed the raw `<script>`/`<img onerror>`
+   tags were stored and returned verbatim. **Fixed** by adding the same
+   `clean()` sanitization pass (same field/max-length table as registration)
+   to `/api/profile/update` before any free-text field is persisted.
+   Re-ran the exact same exploit payload post-fix: `about_myself` came back
+   as `"alert(document.cookie) hello there..."` (tags stripped, inert) and
+   `company` came back as `"EvilCorp"` (the `<img onerror>` wrapper gone).
+**Files:** `frontend/src/app/search/[id]/ProfileView.tsx`,
+`backend/main.py` (`update_user_profile`).
+**Verification:** (a) `npx tsc --noEmit` clean, (b) production `next build`
+clean, (c) manual escaping unit-check confirms
 `<script>alert(document.cookie)</script>` → `&lt;script&gt;alert(document.cookie)&lt;/script&gt;`,
-(d) `GET /search/MV1001` still renders 200 with the fix live.
-**Files:** `frontend/src/app/search/[id]/ProfileView.tsx`.
-**Residual risk / follow-up:** this fix is a presentation-layer mitigation
-(escape-on-output). The root cause — `full_name`/`about_myself`/etc. accept
-arbitrary HTML-special characters at registration with no sanitization —
-still exists and should ideally also be defended at the input layer (reject
-or strip `<`/`>` at registration, or run a proper HTML sanitizer) as
-defense-in-depth, since any *other* currently-safe (React-escaped) call site
-that later gets refactored into raw string interpolation would reintroduce
-this bug. Tracked as a next-step below.
+(d) `GET /search/MV1001` still renders 200 with the frontend fix live,
+(e) live end-to-end exploit-then-fix test against `/api/profile/update`
+exactly as described above, (f) full `test_100_developer_checks.py`
+(110/110) and `test_100_registrations_e2e.py` (100/100) regression suites
+passing post-fix.
+**Residual risk / follow-up:** `POST /api/control/profiles/add` (the admin
+Control Portal's instant profile creator, gated behind
+`_control_write_guard` + an elevated staff/admin role) still sets
+`full_name` and other fields with a bare `.strip()`, no `clean()` call.
+Lower priority — exploiting it requires an already-compromised or malicious
+admin credential, which is a strictly higher trust boundary than a normal
+user account (an admin with write access already has far more direct ways
+to tamper with data) — but still worth closing for defense-in-depth.
+Tracked as a next step below.
 
 ## Phase 13 — broader IDOR + upload-path sweep (done this pass)
 
@@ -396,25 +423,27 @@ check rather than a spot check:
    WAVE 23 fix). Found and fixed one new site the earlier sweep's grep
    pattern missed: `document.write()` in `printBiodata()` — see the
    critical finding above. No `eval(`/`new Function(`/raw `.innerHTML =`
-   sites exist anywhere in the frontend. **Follow-up still open:** add
-   input-layer sanitization for `full_name`/`about_myself`/`company`/
-   `education_detail` at registration (reject or strip `< >` server-side)
-   as defense-in-depth on top of the escape-on-output fix, so that any
-   future code path that renders these fields outside of JSX's
-   auto-escaping doesn't reopen the same bug class.
-2. Decide + implement a token-revocation story (short-lived access token +
+   sites exist anywhere in the frontend. Root-caused and fixed at the input
+   layer too — see the critical finding above (`/api/profile/update` was
+   bypassing registration's `clean()` sanitization entirely).
+2. Add the same `clean()` sanitization to `POST /api/control/profiles/add`
+   (admin Control Portal profile creator) — currently a bare `.strip()`,
+   lower priority since it's already behind an elevated-role guard but
+   worth closing for defense-in-depth consistency with every other write
+   path.
+3. Decide + implement a token-revocation story (short-lived access token +
    refresh token, or a server-side revocation list) if "logout everywhere" /
    compromised-account response time becomes a product requirement — this is
    higher priority given the account-takeover IDOR found in Phase 12
    (tokens issued before that fix remain valid until natural expiry; anyone
    who already scraped a token during the vulnerable window should be
    force-logged-out, which isn't possible without a revocation mechanism).
-3. Scoped follow-up: bump `pydantic` to 2.7+ and `fastapi` to 0.135+ to reach
+4. Scoped follow-up: bump `pydantic` to 2.7+ and `fastapi` to 0.135+ to reach
    starlette 1.x and close the remaining starlette CVEs — needs its own
    dedicated regression pass given how central pydantic models are to this
    codebase.
-4. Scoped follow-up: evaluate an `aiogram` major-version upgrade (bot-flow
+5. Scoped follow-up: evaluate an `aiogram` major-version upgrade (bot-flow
    regression testing required) to unlock a fully-patched `aiohttp`.
-5. Scoped follow-up: nonce-based CSP (remove `'unsafe-inline'` from
+6. Scoped follow-up: nonce-based CSP (remove `'unsafe-inline'` from
    `script-src`/`style-src`) — needs per-request nonce plumbing through
    Next.js middleware, a larger change than this pass's allowlist-only CSP.

@@ -2778,7 +2778,34 @@ def update_user_profile(payload: dict, request: Request):
     for k in updatable_fields:
         if k in payload and payload[k] is not None:
             user[k] = payload[k]
-    
+
+    # 🛡️ P0 FIX (Phase 13): registration already runs every free-text field
+    # through clean() (strips HTML tags + javascript:/onerror=/<script
+    # patterns — see "register:" sanitize loop above) but THIS endpoint was
+    # setting fields straight from payload with zero sanitization, so a
+    # logged-in user could set e.g. about_myself="<script>...</script>" on
+    # their OWN profile (no IDOR needed — require_owner already gates this
+    # to the owner) and have it persist raw. Any other visitor who later
+    # viewed that profile and used a raw-HTML code path (e.g. the
+    # printBiodata() document.write() bug fixed this same pass) would then
+    # run the attacker's script. Close the gap at the source too: sanitize
+    # the same way registration does, for every free-text field this
+    # endpoint allows updating.
+    _free_text_max = {
+        "full_name": 60, "height": 12, "marital_status": 30, "caste": 40, "sub_caste": 40,
+        "gothram": 40, "star": 30, "rasi": 30, "dosham": 30, "education": 60, "education_detail": 120,
+        "job": 60, "company": 80, "salary": 24, "work_type": 40, "work_location": 60,
+        "father_name": 60, "father_occupation": 60, "mother_name": 60, "mother_occupation": 60,
+        "native_place": 60, "district": 40, "mandal": 40, "current_city": 40,
+        "about_myself": 600, "expectations": 400, "exp_caste": 40, "exp_education": 60,
+        "exp_job": 60, "exp_location": 60, "exp_salary": 24, "family_type": 30, "family_status": 40,
+        "family_values": 40, "mother_tongue": 30, "physical_status": 40, "country": 60,
+        "citizenship": 40, "visa_status": 40, "blood_group": 8, "complexion": 30, "body_type": 30,
+    }
+    for _k, _n in _free_text_max.items():
+        if _k in payload and payload[_k] is not None and _k in user:
+            user[_k] = clean(user.get(_k), _n, "profile_update:" + _k)
+
     if payload.get("dob"):
         try:
             from datetime import datetime, date
