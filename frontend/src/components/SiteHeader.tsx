@@ -7,8 +7,54 @@ import { useSession, logout } from "@/lib/auth";
 import { apiGet } from "@/lib/api";
 import { Duo, duo } from "@/lib/duo";
 import { LangToggle, useLang } from "@/lib/lang";
+import {
+  Home, HeartHandshake, RefreshCw, Star, Megaphone, Users, Wallet, Gift,
+  Sparkles, ChevronDown, ScrollText, Scale, Coffee, IdCard, MapPin,
+  CalendarDays, BookOpen, Store, ShieldCheck, BadgeCheck, UserCircle2,
+  UserPlus, Landmark, ClipboardList, Moon, LogOut, Smartphone, Search,
+  type LucideIcon,
+} from "lucide-react";
 
 type NavItem = { href: string; en: string; te: string; icon: string; xl?: boolean };
+
+/* ADVANCED-PASS 1 — Design system upgrade: emoji icons (🏠💘📢 etc.) swapped
+   for a crisp, consistent SVG icon set. Emoji render wildly differently
+   across OS/browser/font (chunky color glyphs on Android, thin outline on
+   iOS, missing glyphs on some Linux fonts) which reads as "amateur" on a
+   premium matrimony brand — a single vector icon set looks identical and
+   polished everywhere. Keyed by href so the *same* destination always gets
+   the *same* icon across desktop pills, the Studios dropdown and the
+   mobile menu. The `icon` emoji field stays in NAV_* arrays (future-proof/
+   backward compatible) but is no longer rendered directly. */
+const ICON_MAP: Record<string, LucideIcon> = {
+  "/": Home,
+  "/matches": HeartHandshake,
+  "/second-marriage": RefreshCw,
+  "/spotlight": Star,
+  "/channels": Megaphone,
+  "/castes": Users,
+  "/pricing": Wallet,
+  "/referral": Gift,
+  "/referral/register": UserPlus,
+  "/bureau": Landmark,
+  "/vendors/register": ClipboardList,
+  "/districts": MapPin,
+  "/compare": Scale,
+  "/pelli-choopulu": Coffee,
+  "/me": UserCircle2,
+  "/lagna-patrika": ScrollText,
+  "/biodata": IdCard,
+  "/porutham": Moon,
+  "/muhurtham": CalendarDays,
+  "/stories": BookOpen,
+  "/vendors": Store,
+  "/safety": ShieldCheck,
+  "/verify": BadgeCheck,
+};
+const NavIcon = ({ href, className = "w-4 h-4" }: { href: string; className?: string }) => {
+  const Icon = ICON_MAP[href] || Sparkles;
+  return <Icon className={className} strokeWidth={2.25} aria-hidden="true" />;
+};
 
 /* Desktop pills — neat & clean single labels */
 const NAV_MAIN: NavItem[] = [
@@ -99,7 +145,9 @@ export default function SiteHeader() {
         isActive(n.href) ? "bg-maroon text-white shadow-soft" : "text-ink/80 hover:bg-white"
       }`}
     >
-      <span className="w-6 text-center">{n.icon}</span>
+      <span className="w-6 flex items-center justify-center text-maroon/70">
+        <NavIcon href={n.href} className="w-[18px] h-[18px]" />
+      </span>
       <Duo en={n.en} te={n.te} />
       {isActive(n.href) && <span className="ml-auto text-[10px] opacity-80">●</span>}
     </Link>
@@ -134,25 +182,26 @@ export default function SiteHeader() {
               key={n.href}
               href={n.href}
               title={duo(n.en, n.te)}
-              className={`${n.xl ? "hidden xl:inline-flex" : ""} px-3.5 py-2 rounded-full text-[13px] font-semibold transition ${
+              className={`${n.xl ? "hidden xl:inline-flex" : ""} inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-[13px] font-semibold transition ${
                 isActive(n.href)
                   ? "bg-maroon text-white shadow-soft"
                   : "text-ink/75 hover:text-maroon hover:bg-maroon-soft"
               }`}
             >
-              {n.icon} {te ? n.te : n.en}
+              <NavIcon href={n.href} className={`w-[15px] h-[15px] ${isActive(n.href) ? "text-white" : "text-maroon/60"}`} />
+              {te ? n.te : n.en}
             </Link>
           ))}
 
-          {/* ✨ Studios Dropdown for Desktop */}
+          {/* Studios Dropdown for Desktop */}
           <div className="relative group">
             <button
               className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-[13px] font-semibold text-ink/75 hover:text-maroon hover:bg-maroon-soft transition"
               aria-haspopup="true"
             >
-              <span>✨</span>
+              <Sparkles className="w-[15px] h-[15px] text-gold-deep" strokeWidth={2.25} aria-hidden="true" />
               <span>{te ? "స్టూడియోలు" : "Studios"}</span>
-              <span className="text-[10px] text-gray-400 group-hover:rotate-180 transition-transform duration-200">▼</span>
+              <ChevronDown className="w-3.5 h-3.5 text-gray-400 group-hover:rotate-180 transition-transform duration-200" strokeWidth={2.5} aria-hidden="true" />
             </button>
 
             <div className="absolute left-0 top-full mt-1.5 w-64 bg-white/95 backdrop-blur-md rounded-2xl shadow-xl border border-gold/30 p-2 opacity-0 translate-y-2 pointer-events-none group-hover:opacity-100 group-hover:translate-y-0 group-hover:pointer-events-auto transition-all duration-200 z-50">
@@ -160,7 +209,7 @@ export default function SiteHeader() {
                 href="/lagna-patrika"
                 className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-gold/10 text-xs font-bold text-gray-800 hover:text-maroon transition"
               >
-                <span className="text-lg">📜</span>
+                <ScrollText className="w-[18px] h-[18px] text-maroon/70 shrink-0" strokeWidth={2} aria-hidden="true" />
                 <div>
                   <div>{te ? "శుభ లగ్న పత్రిక స్టూడియో" : "Lagna Patrika Studio"}</div>
                   <div className="text-[10px] font-normal text-gray-500">{te ? "4 రాయల్ థీమ్స్ • HD JPG" : "Royal Wedding Invitations"}</div>
@@ -170,7 +219,7 @@ export default function SiteHeader() {
                 href="/compare"
                 className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-gold/10 text-xs font-bold text-gray-800 hover:text-maroon transition"
               >
-                <span className="text-lg">⚖️</span>
+                <Scale className="w-[18px] h-[18px] text-maroon/70 shrink-0" strokeWidth={2} aria-hidden="true" />
                 <div>
                   <div>{te ? "సంబంధాల పోలిక స్టూడియో" : "Profile Compare Matrix"}</div>
                   <div className="text-[10px] font-normal text-gray-500">{te ? "Side-by-Side 3 Profiles" : "Compare Astro & Income"}</div>
@@ -180,7 +229,7 @@ export default function SiteHeader() {
                 href="/pelli-choopulu"
                 className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-gold/10 text-xs font-bold text-gray-800 hover:text-maroon transition"
               >
-                <span className="text-lg">☕</span>
+                <Coffee className="w-[18px] h-[18px] text-maroon/70 shrink-0" strokeWidth={2} aria-hidden="true" />
                 <div>
                   <div>{te ? "పెళ్లి చూపుల గైడ్" : "Pelli Choopulu Guide"}</div>
                   <div className="text-[10px] font-normal text-gray-500">{te ? "ఆచారాలు & పెద్దల చెక్‌లిస్ట్" : "Etiquette & 1-on-1 Questions"}</div>
@@ -190,7 +239,7 @@ export default function SiteHeader() {
                 href="/biodata"
                 className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-gold/10 text-xs font-bold text-gray-800 hover:text-maroon transition"
               >
-                <span className="text-lg">🎴</span>
+                <IdCard className="w-[18px] h-[18px] text-maroon/70 shrink-0" strokeWidth={2} aria-hidden="true" />
                 <div>
                   <div>{te ? "తెలుగు బయోడేటా మేకర్" : "Free Biodata Maker"}</div>
                   <div className="text-[10px] font-normal text-gray-500">{te ? "1 నిమిషంలో ఉచిత HD కార్డ్" : "Instant Wedding Biodata"}</div>
@@ -200,7 +249,7 @@ export default function SiteHeader() {
                 href="/districts"
                 className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-gold/10 text-xs font-bold text-gray-800 hover:text-maroon transition"
               >
-                <span className="text-lg">🏛️</span>
+                <MapPin className="w-[18px] h-[18px] text-maroon/70 shrink-0" strokeWidth={2} aria-hidden="true" />
                 <div>
                   <div>{te ? "TS & AP 59 జిల్లాలు" : "TS & AP Districts Hub"}</div>
                   <div className="text-[10px] font-normal text-gray-500">{te ? "స్థానిక ప్రాంతాల సంబంధాలు" : "District-wise Matching"}</div>
@@ -210,7 +259,7 @@ export default function SiteHeader() {
                 href="/muhurtham"
                 className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-gold/10 text-xs font-bold text-gray-800 hover:text-maroon transition"
               >
-                <span className="text-lg">🗓️</span>
+                <CalendarDays className="w-[18px] h-[18px] text-maroon/70 shrink-0" strokeWidth={2} aria-hidden="true" />
                 <div>
                   <div>{te ? "వివాహ ముహూర్తాలు 2026-27" : "Muhurtham Calendar"}</div>
                   <div className="text-[10px] font-normal text-gray-500">{te ? "తిథి, నక్షత్రం, లగ్న వివరాలు" : "Auspicious Wedding Dates"}</div>
@@ -225,27 +274,30 @@ export default function SiteHeader() {
           <LangToggle compact />
           <Link
             href="/porutham"
-            className="hidden md:inline-flex px-3.5 py-2 text-[13px] font-semibold border border-maroon/30 text-maroon rounded-full hover:bg-maroon-soft transition"
+            className="hidden md:inline-flex items-center gap-1.5 px-3.5 py-2 text-[13px] font-semibold border border-maroon/30 text-maroon rounded-full hover:bg-maroon-soft transition"
           >
-            💍 <Duo en="Jyothishyam" te="జ్యోతిషం" />
+            <Moon className="w-[15px] h-[15px]" strokeWidth={2.25} aria-hidden="true" /> <Duo en="Jyothishyam" te="జ్యోతిషం" />
           </Link>
           {ready && tsapId && sessionOk ? (
             <span className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-2 text-[13px] font-semibold border border-emerald-300 bg-emerald-50 text-emerald-800 rounded-full">
-              <Link href="/me" className="hover:underline">👤 {tsapId.length > 14 ? `${tsapId.slice(0, 9)}…${tsapId.slice(-4)}` : tsapId}</Link>
+              <Link href="/me" className="inline-flex items-center gap-1.5 hover:underline">
+                <UserCircle2 className="w-[15px] h-[15px]" strokeWidth={2.25} aria-hidden="true" />
+                {tsapId.length > 14 ? `${tsapId.slice(0, 9)}…${tsapId.slice(-4)}` : tsapId}
+              </Link>
               <button
                 onClick={() => { logout(); window.location.href = "/"; }}
-                className="ml-1 rounded-full bg-emerald-200 px-2 py-0.5 text-[11px] font-bold hover:bg-emerald-300"
+                className="ml-1 rounded-full bg-emerald-200 p-1 hover:bg-emerald-300 inline-flex items-center justify-center"
                 aria-label="Logout"
               >
-                ⎋
+                <LogOut className="w-3 h-3" strokeWidth={2.5} aria-hidden="true" />
               </button>
             </span>
           ) : (
             <Link
               href="/login"
-              className="hidden sm:inline-flex px-3.5 py-2 text-[13px] font-bold border border-maroon/30 text-maroon rounded-full hover:bg-maroon-soft transition"
+              className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-2 text-[13px] font-bold border border-maroon/30 text-maroon rounded-full hover:bg-maroon-soft transition"
             >
-              📱 Login
+              <Smartphone className="w-[15px] h-[15px]" strokeWidth={2.25} aria-hidden="true" /> Login
             </Link>
           )}
           <Link
@@ -305,16 +357,18 @@ export default function SiteHeader() {
           <div className="flex gap-2 pt-3">
             <Link
               href="/matches"
-              className="flex-1 text-center px-4 py-3 rounded-xl border border-maroon/25 text-maroon text-sm font-bold"
+              className="flex-1 inline-flex items-center justify-center gap-1.5 px-4 py-3 rounded-xl border border-maroon/25 text-maroon text-sm font-bold"
             >
-              <Duo en="🔍 Search matches" te="🔍 సంబంధాలు వెతకండి" />
+              <Search className="w-4 h-4" strokeWidth={2.25} aria-hidden="true" />
+              <Duo en="Search matches" te="సంబంధాలు వెతకండి" />
             </Link>
             <a
               href={SITE_CONFIG.officialChannelUrl}
               target="_blank"
               rel="noreferrer"
-              className="flex-1 text-center px-4 py-3 rounded-xl gold-gradient text-maroon text-sm font-bold"
+              className="flex-1 inline-flex items-center justify-center gap-1.5 px-4 py-3 rounded-xl gold-gradient text-maroon text-sm font-bold"
             >
+              <Megaphone className="w-4 h-4" strokeWidth={2.25} aria-hidden="true" />
               <Duo en="Telegram Channel" te="టెలిగ్రామ్ ఛానల్" />
             </a>
           </div>

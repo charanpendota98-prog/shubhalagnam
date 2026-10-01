@@ -41,7 +41,7 @@ export default function ReferralLandingPage() {
   }, [checked, valid, code, router]);
 
   return (
-    <main className="min-h-screen bg-[#FFF8E7] flex items-center justify-center p-4">
+    <main className="min-h-dvh bg-[#FFF8E7] flex items-center justify-center p-4">
       <div className="w-full max-w-md bg-white rounded-[1.5rem] shadow-lg p-6 text-center">
         <div className="w-16 h-16 maroon-gradient rounded-full flex items-center justify-center text-white text-3xl mx-auto">
           {valid === false ? "⚠️" : "🎁"}

@@ -111,7 +111,13 @@ export default function RealWeddingsFilm() {
   const L = COPY[(lang as Lang) in COPY ? (lang as Lang) : "te"];
   const [selectedStory, setSelectedStory] = useState<WeddingStory | null>(null);
 
+  // R14 FIX: seamless CSS marquee లూప్ కోసం SHOTS ని రెండుసార్లు render చేస్తాం
+  // (standard infinite-scroll technique) — కానీ JS/CSS animation పనిచేయని static
+  // view/crawler కి ఇది "అదే 4 జంటలు రెండుసార్లు" అని duplicate content లా
+  // కనిపించేది. రెండో కాపీని aria-hidden చేసి, decorative repeat అని స్పష్టం చేశాం —
+  // screen readers/SEO ఇప్పుడు కేవలం అసలైన 4 stories నే content గా చూస్తాయి.
   const reel = [...SHOTS, ...SHOTS];
+  const isDuplicateHalf = (i: number) => i >= SHOTS.length;
 
   return (
     <section className="relative overflow-hidden bg-gradient-to-b from-[#12040e] via-[#1a0515] to-[#12040e] py-16 text-white" aria-label="Real Weddings Film Reel">
@@ -140,6 +146,7 @@ export default function RealWeddingsFilm() {
           {reel.map((s, i) => (
             <figure
               key={i}
+              aria-hidden={isDuplicateHalf(i) ? true : undefined}
               onClick={() => setSelectedStory(s)}
               className="group relative mx-3.5 h-72 w-[310px] sm:h-84 sm:w-[380px] md:h-96 md:w-[440px] shrink-0 overflow-hidden rounded-3xl border-2 border-gold/30 bg-black/40 shadow-2xl transition-all duration-500 hover:border-gold hover:scale-[1.02] cursor-pointer"
             >

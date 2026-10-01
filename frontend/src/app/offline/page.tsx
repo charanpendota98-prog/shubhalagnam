@@ -8,7 +8,7 @@ export default function OfflinePage() {
   const { lang } = useLang();
   const te = lang === "te";
   return (
-    <main className="min-h-screen bg-cream flex items-center justify-center px-4">
+    <main className="min-h-dvh bg-cream flex items-center justify-center px-4">
       <div className="bg-white rounded-[2rem] border border-gold/30 p-7 max-w-md w-full text-center card-shadow">
         <div className="text-5xl">📡</div>
         <h1 className="mt-3 text-xl font-bold text-maroon">

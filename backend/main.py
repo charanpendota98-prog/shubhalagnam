@@ -80,7 +80,7 @@ from hardening import (
     auth_enforced, require_owner, require_admin, rate_limit_hit, too_many,
     apply_security_headers, posture as security_posture, abuse_snapshot, abuse_log,
     sign_token, verify_token, token_from_request, is_admin, is_automation, clean, req_text,
-    require_vendor, vendor_token, admin_role,
+    require_vendor, vendor_token, admin_role, revoke_all_tokens,
     req_phone, req_int, req_choice, req_bool, validation_error, seen as idem_seen, abuse_count, clamp_int,
     ADMIN_KEY as TSAP_ADMIN_KEY, NAME_RE, PHONE_RE, dev_mode,
 )
@@ -1205,7 +1205,20 @@ def control_add_profile(payload: dict, request: Request):
     
     code = f"{caste[:3].upper()}{random.randint(1000, 9999)}"
     user["my_referral_code"] = code
-    
+
+    # 🛡️ P3 hardening (defense-in-depth, consistency w/ the Phase 13
+    # /api/profile/update fix): this admin-only Control Portal creator built
+    # every field with a bare .strip(), unlike the public /api/register path
+    # which always runs free-text fields through clean() (HTML-tag +
+    # javascript:/onerror= stripping). Requires an elevated admin/staff
+    # credential to reach (_control_write_guard above), so the practical
+    # risk is low, but sanitize anyway for consistency across every write path.
+    for _k, _n in (("full_name", 60), ("caste", 40), ("sub_caste", 40), ("gothram", 40),
+                   ("star", 30), ("rasi", 30), ("education", 60), ("job", 60), ("salary", 24),
+                   ("district", 40), ("about_myself", 600)):
+        if _k in user:
+            user[_k] = clean(user.get(_k), _n, "control_add_profile:" + _k)
+
     try:
         route = route_profile(user)
         user["posted_channels"] = route.get("usernames", [])
@@ -1599,14 +1612,28 @@ async def _security_middleware(request: Request, call_next):
     return response
 
 
-# 🛡️ CORS FIX: mundu "*" + credentials (browser security hole). Ippudu env allowlist + preview regex.
+# 🛡️ CORS FIX (P0, re-verified): mundu "*" + credentials (browser security hole).
+# Ippudu strict env allowlist ONLY — the previous `allow_origin_regex=r".*"` here
+# was a bug that silently re-opened the exact hole this comment claims to have
+# fixed: Starlette's CORSMiddleware allows an origin if it matches EITHER
+# `allow_origins` OR `allow_origin_regex`, so `r".*"` matched every possible
+# Origin header, reflected it back, and paired it with
+# `allow_credentials=True` — i.e. any website on the internet could make
+# credentialed cross-origin requests to this API. Verified exploitable via
+# `curl -H "Origin: https://evil-attacker-site.com"` before this fix (got
+# `access-control-allow-origin: https://evil-attacker-site.com` +
+# `access-control-allow-credentials: true` back). The real website never
+# needed this: `frontend/next.config.mjs` proxies all `/api/*` calls
+# server-side (Next.js rewrites), so the browser never makes a cross-origin
+# call to this backend in production — CORS here only matters for direct
+# API consumers (admin subdomain, mobile app, API testing), which the
+# explicit `CORS_ORIGINS` env allowlist already covers.
 _CORS_ORIGINS = [o.strip() for o in (os.getenv("CORS_ORIGINS") or
                 "https://manavivaha.in,https://www.manavivaha.in,http://localhost:3000,"
                 "http://127.0.0.1:3000,http://localhost:8000").split(",") if o.strip()]
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_CORS_ORIGINS,
-    allow_origin_regex=r".*",
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "*"],
     allow_headers=["*"],
@@ -2552,12 +2579,17 @@ def _evaluate_partner_preferences_match(user: dict, prefs: dict, candidate: dict
 
 
 @app.get("/api/profile/preferences")
-def get_partner_preferences(tsap_id: str):
+def get_partner_preferences(tsap_id: str, request: Request):
     """Fetches user's saved partner preferences, default smart suggestions, and live match count."""
     clean_id = str(tsap_id or "").strip().upper()
     user = _find_user(clean_id)
     if not user:
         raise HTTPException(404, f"Profile {clean_id} not found")
+
+    # 🛡️ P0 IDOR fix: own partner-preferences matrame — zero-auth read/write
+    # of someone else's preferences (and the match preview list built from
+    # them) ledu ippudu.
+    require_owner(request, clean_id)
 
     prefs = user.get("partner_preferences")
     if not prefs or not isinstance(prefs, dict):
@@ -2586,12 +2618,15 @@ def get_partner_preferences(tsap_id: str):
 
 
 @app.post("/api/profile/preferences")
-def save_partner_preferences(payload: dict):
+def save_partner_preferences(payload: dict, request: Request):
     """Saves user's custom multi-select partner preferences (Castes, Subcastes, Age, Height, Education, Jobs, Districts, Salary)."""
     clean_id = str(payload.get("tsap_id") or payload.get("id") or "").strip().upper()
     user = _find_user(clean_id)
     if not user:
         raise HTTPException(404, f"Profile {clean_id} not found")
+
+    # 🛡️ P0 IDOR fix: own preferences matrame overwrite cheyyagalaru.
+    require_owner(request, clean_id)
 
     prefs = {
         "age_min": int(payload.get("age_min") or 18),
@@ -2621,11 +2656,18 @@ def save_partner_preferences(payload: dict):
         "caste": "no bar" if prefs["caste_no_bar"] else ", ".join(prefs["castes"][:2]),
     }
 
-    # Save to disk
+    # Save to disk — P0 FIX (full-audit pass): this used to do a raw
+    # open("data_db.json","w") + json.dump(DB_USERS, ...) which (a) is NOT
+    # atomic (a crash mid-write corrupts/truncates the file) and (b) writes
+    # a bare LIST to disk instead of the {"users":[...], "interests":[...],
+    # ...} snapshot shape DBSTORE.load() expects — db_store.load() silently
+    # treats a non-dict payload as empty ({}), which on the next restart
+    # would wipe DB_INTERESTS/DB_PAYMENTS/DB_OTPS and fall back to demo
+    # seed data. Now uses the same atomic tmp+rename DBSTORE.save() path
+    # used everywhere else in this file.
     try:
-        import json
-        with open("data_db.json", "w", encoding="utf-8") as f:
-            json.dump(DB_USERS, f, ensure_ascii=False, indent=2)
+        DBSTORE.save(DBSTORE.snapshot(DB_USERS, DB_INTERESTS, DB_PAYMENTS, DB_OTPS,
+                                      VERIFIED_PHONES, DB_VIEWS, DB_SAVES, DB_DIGEST), force=True)
     except Exception:
         pass
 
@@ -2680,13 +2722,21 @@ def get_partner_preferred_matches(tsap_id: str, limit: int = 50):
 
 
 @app.get("/api/profile/{tsap_id}")
-def get_user_profile_for_edit(tsap_id: str):
+def get_user_profile_for_edit(tsap_id: str, request: Request):
     """Fetch full profile data for self-editing and view completeness meter."""
     clean_id = tsap_id.strip().upper()
     user = _find_user(clean_id)
     if not user:
         raise HTTPException(404, f"Profile ID {tsap_id} not found")
-    
+
+    # 🛡️ P0 IDOR FIX: idi mundu ANY caller ki (zero auth) full raw user dict
+    # ichedi — phone, password_hash, AND a live reusable auth_token (full
+    # account takeover) anni leak ayyedi, just tsap_id telisthe chalu (IDs
+    # sequential ga guess cheyyochu: MV1001, MV1002...). Ippudu owner token
+    # తప్పనిసరి — ee page "self-editing" కోసమే, వేరే వాళ్ల profile fetch
+    # cheyakudadu.
+    require_owner(request, clean_id)
+
     core_keys = [
         "full_name", "gender", "dob", "height", "marital_status", "caste", "sub_caste",
         "gothram", "star", "rasi", "education", "education_detail", "job", "company", "salary",
@@ -2696,10 +2746,14 @@ def get_user_profile_for_edit(tsap_id: str):
     filled = [k for k in core_keys if bool(str(user.get(k) or "").strip())]
     missing = [k for k in core_keys if not bool(str(user.get(k) or "").strip())]
     score = min(100, int((len(filled) / len(core_keys)) * 100))
-    
+
+    # 🛡️ Defense-in-depth: even for the verified owner, never echo the
+    # password hash or a live bearer token back out of a GET response body.
+    safe_profile = {k: v for k, v in user.items() if k not in ("password_hash", "auth_token")}
+
     return {
         "success": True,
-        "profile": user,
+        "profile": safe_profile,
         "completeness_score": score,
         "filled_count": len(filled),
         "total_fields": len(core_keys),
@@ -2711,13 +2765,18 @@ def get_user_profile_for_edit(tsap_id: str):
 
 
 @app.post("/api/profile/update")
-def update_user_profile(payload: dict):
+def update_user_profile(payload: dict, request: Request):
     """Allows user to update profile anytime, increasing completeness to 100%."""
     tsap_id = str(payload.get("tsap_id") or payload.get("id") or "").strip().upper()
     user = _find_user(tsap_id)
     if not user:
         raise HTTPException(404, f"Profile {tsap_id} not found")
-    
+
+    # 🛡️ P0 IDOR FIX: idi mundu ANY caller ki — just tsap_id tho (body lo
+    # attacker-controlled) — ANY other user's profile field-by-field
+    # overwrite cheyyagaligedi, zero auth. Ippudu owner token తప్పనిసరి.
+    require_owner(request, tsap_id)
+
     updatable_fields = [
         "full_name", "dob", "birth_time", "height", "weight", "marital_status", "children", "caste",
         "sub_caste", "gothram", "star", "rasi", "dosham", "education", "education_detail",
@@ -2732,7 +2791,34 @@ def update_user_profile(payload: dict):
     for k in updatable_fields:
         if k in payload and payload[k] is not None:
             user[k] = payload[k]
-    
+
+    # 🛡️ P0 FIX (Phase 13): registration already runs every free-text field
+    # through clean() (strips HTML tags + javascript:/onerror=/<script
+    # patterns — see "register:" sanitize loop above) but THIS endpoint was
+    # setting fields straight from payload with zero sanitization, so a
+    # logged-in user could set e.g. about_myself="<script>...</script>" on
+    # their OWN profile (no IDOR needed — require_owner already gates this
+    # to the owner) and have it persist raw. Any other visitor who later
+    # viewed that profile and used a raw-HTML code path (e.g. the
+    # printBiodata() document.write() bug fixed this same pass) would then
+    # run the attacker's script. Close the gap at the source too: sanitize
+    # the same way registration does, for every free-text field this
+    # endpoint allows updating.
+    _free_text_max = {
+        "full_name": 60, "height": 12, "marital_status": 30, "caste": 40, "sub_caste": 40,
+        "gothram": 40, "star": 30, "rasi": 30, "dosham": 30, "education": 60, "education_detail": 120,
+        "job": 60, "company": 80, "salary": 24, "work_type": 40, "work_location": 60,
+        "father_name": 60, "father_occupation": 60, "mother_name": 60, "mother_occupation": 60,
+        "native_place": 60, "district": 40, "mandal": 40, "current_city": 40,
+        "about_myself": 600, "expectations": 400, "exp_caste": 40, "exp_education": 60,
+        "exp_job": 60, "exp_location": 60, "exp_salary": 24, "family_type": 30, "family_status": 40,
+        "family_values": 40, "mother_tongue": 30, "physical_status": 40, "country": 60,
+        "citizenship": 40, "visa_status": 40, "blood_group": 8, "complexion": 30, "body_type": 30,
+    }
+    for _k, _n in _free_text_max.items():
+        if _k in payload and payload[_k] is not None and _k in user:
+            user[_k] = clean(user.get(_k), _n, "profile_update:" + _k)
+
     if payload.get("dob"):
         try:
             from datetime import datetime, date
@@ -2756,9 +2842,10 @@ def update_user_profile(payload: dict):
     user["score"] = user["completeness_score"]
     
     try:
-        import json
-        with open("data_db.json", "w", encoding="utf-8") as f:
-            json.dump(DB_USERS, f, ensure_ascii=False, indent=2)
+        # P0 FIX — same atomic-snapshot fix as save_partner_preferences() above
+        # (was a raw, non-atomic, structure-corrupting json.dump(DB_USERS, ...)).
+        DBSTORE.save(DBSTORE.snapshot(DB_USERS, DB_INTERESTS, DB_PAYMENTS, DB_OTPS,
+                                      VERIFIED_PHONES, DB_VIEWS, DB_SAVES, DB_DIGEST), force=True)
     except Exception:
         pass
         
@@ -2773,7 +2860,7 @@ def update_user_profile(payload: dict):
 
 @app.post("/api/user/delete-account")
 @app.post("/api/profile/{tsap_id}/delete")
-def delete_user_account(payload: dict, tsap_id: Optional[str] = None):
+def delete_user_account(payload: dict, request: Request, tsap_id: Optional[str] = None):
     """User self-service account deletion & marriage fixed celebration flow.
     Allows users who got married or wish to leave to permanently archive/delete their profile.
     """
@@ -2781,7 +2868,13 @@ def delete_user_account(payload: dict, tsap_id: Optional[str] = None):
     user = _find_user(clean_id)
     if not user:
         raise HTTPException(404, f"Profile ID '{clean_id}' not found")
-        
+
+    # 🛡️ P0 IDOR FIX: idi mundu ANY caller ki — just tsap_id telisthe chalu —
+    # ANY other user's account ni deactivate/delete cheyyagaligedi, zero auth
+    # (sequential IDs valla mass-delete script kuda possible). Ippudu owner
+    # token తప్పనిసరి.
+    require_owner(request, clean_id)
+
     reason = str(payload.get("reason", "married_via_manavivaha")).strip()
     partner_name = str(payload.get("partner_name", "")).strip()
     feedback = str(payload.get("feedback", "")).strip()
@@ -5312,17 +5405,40 @@ PW_LOCKS: Dict[str, Dict[str, Any]] = {}   # phone → {fails, locked_until}
 
 
 def _hash_password(pw: str) -> str:
+    # 🛡️ Phase 15: OWASP Password Storage Cheat Sheet (2023) recommends
+    # >=600,000 iterations for PBKDF2-HMAC-SHA256 (this repo's prior default
+    # of 120,000 was the older 2017-era guidance). The iteration count is
+    # now stamped into the stored hash itself (4-part format) so it can be
+    # bumped again in the future without invalidating hashes created today.
     salt = _secrets.token_hex(16)
-    h = _hashlib.pbkdf2_hmac("sha256", pw.encode("utf-8"), bytes.fromhex(salt), 120_000)
-    return f"pbkdf2${salt}${h.hex()}"
+    iterations = PBKDF2_ITERATIONS
+    h = _hashlib.pbkdf2_hmac("sha256", pw.encode("utf-8"), bytes.fromhex(salt), iterations)
+    return f"pbkdf2${iterations}${salt}${h.hex()}"
+
+
+PBKDF2_ITERATIONS = 600_000
+PBKDF2_ITERATIONS_LEGACY = 120_000  # 🛡️ pre-Phase-15 hashes (3-part format, no stamped count)
 
 
 def _check_password(pw: str, stored: str) -> bool:
     try:
-        algo, salt, hexh = (stored or "").split("$")
+        parts = (stored or "").split("$")
+        if len(parts) == 4:
+            # current format: pbkdf2$<iterations>$<salt>$<hash>
+            algo, iters_s, salt, hexh = parts
+            iterations = int(iters_s)
+        elif len(parts) == 3:
+            # 🛡️ backward compat: hashes created before Phase 15 didn't stamp
+            # the iteration count — they were always hashed with the old
+            # default. Verify against that fixed count so existing users'
+            # passwords (set before this change shipped) keep working.
+            algo, salt, hexh = parts
+            iterations = PBKDF2_ITERATIONS_LEGACY
+        else:
+            return False
         if algo != "pbkdf2":
             return False
-        h = _hashlib.pbkdf2_hmac("sha256", pw.encode("utf-8"), bytes.fromhex(salt), 120_000)
+        h = _hashlib.pbkdf2_hmac("sha256", pw.encode("utf-8"), bytes.fromhex(salt), iterations)
         return _secrets.compare_digest(h.hex(), hexh)
     except Exception:
         return False
@@ -5413,8 +5529,14 @@ def auth_reset(payload: dict):
     u["phone_verified"] = True
     DB_OTPS.pop(phone, None)
     PW_LOCKS.pop(phone, None)
+    # 🔐 Phase 14: a password reset is a security event — invalidate every
+    # token issued before this moment (any device/session that was logged
+    # in with the old credentials, or any token an attacker may have
+    # obtained, stops working immediately). The fresh token below is signed
+    # *after* the bump so it carries the new version and keeps working.
+    revoke_all_tokens(u["tsap_id"])
     return {"success": True, "tsap_id": u["tsap_id"], "auth_token": sign_token(u["tsap_id"]),
-            "message_telugu": "✅ Password మారింది — ఇప్పుడు number + password తో login చెయ్యండి 🔑"}
+            "message_telugu": "✅ Password మారింది — పాత sessions అన్నీ logout అయ్యాయి, ఇప్పుడు number + password తో login చెయ్యండి 🔑"}
 
 
 def _otp_digest(code: str) -> str:
@@ -6367,6 +6489,41 @@ def auth_demo_token(payload: dict = Body(default={}), request: Request = None):
             "user": safe_user(u), "message_telugu": "🎬 Demo login — real users కి OTP login (phone) ఉంది"}
 
 
+@app.post("/api/auth/logout-everywhere")
+def auth_logout_everywhere(payload: dict, request: Request):
+    """🔐 Phase 14 — user-initiated "log out of all devices": invalidates
+    EVERY token issued to this account so far (phone lost/stolen, suspected
+    account compromise, or just routine hygiene), not just the current
+    session's cookie/localStorage. Requires the caller to already hold a
+    currently-valid token for this exact account (require_owner) — this is
+    a self-service action, not a way to log someone else out."""
+    tsap_id = str((payload or {}).get("tsap_id") or "").strip().upper()
+    if not tsap_id:
+        raise HTTPException(400, "tsap_id ఇవ్వండి")
+    u = _find_user(tsap_id)
+    if not u:
+        raise HTTPException(404, "Profile దొరకలేదు")
+    require_owner(request, tsap_id)
+    new_version = revoke_all_tokens(tsap_id)
+    return {"success": True, "tsap_id": tsap_id, "token_version": new_version,
+            "auth_token": sign_token(tsap_id),  # caller's own session keeps working
+            "message_telugu": "🔐 అన్ని devices నుండి logout అయ్యారు — ఈ session మాత్రం active గా ఉంటుంది"}
+
+
+@app.post("/api/admin/users/{tsap_id}/force-logout")
+def admin_force_logout(tsap_id: str, request: Request):
+    """🔐 Phase 14 — ADMIN: force-logout every session for a specific
+    account (incident response for a reported/compromised profile) without
+    needing the user's own credentials."""
+    require_admin(request, staff_ok=True)
+    u = _find_user(tsap_id)
+    if not u:
+        raise HTTPException(404, "Profile దొరకలేదు")
+    new_version = revoke_all_tokens(tsap_id)
+    return {"success": True, "tsap_id": tsap_id, "token_version": new_version,
+            "message_telugu": f"🔐 {tsap_id} — అన్ని sessions force-logout అయ్యాయి"}
+
+
 @app.get("/api/profile/{tsap_id}/quality")
 def profile_quality(tsap_id: str):
     """⭐ Profile completeness % + trust score + Telugu next steps (register/profile improve కి)."""
@@ -6976,7 +7133,11 @@ async def voice_upload(request: Request, file: UploadFile = File(...), tsap_id: 
     if not chk.get("ok"):
         raise HTTPException(400, chk["error_telugu"])
     os.makedirs("/tmp/voice", exist_ok=True)
-    token = (tid.strip() or "tmp") + "-" + datetime.utcnow().strftime("%y%m%d%H%M%S")
+    # 🛡️ P2 hardening (consistency w/ WAVE 23 fix on /api/photo/upload): tid is
+    # always server-generated at registration so this isn't reachable today,
+    # but sanitize anyway rather than relying on that invariant forever.
+    _safe_tid = re.sub(r"[^A-Z0-9-]", "", tid.strip().upper())[:24]
+    token = (_safe_tid or "tmp") + "-" + datetime.utcnow().strftime("%y%m%d%H%M%S")
     name = f"{token}.{chk['ext']}"
     path = f"/tmp/voice/{name}"
     try:
@@ -7460,6 +7621,29 @@ def api_astro_queue(request: Request, status: str = ""):
     require_admin(request)
     items = [j for j in AST.JATHAKAMS if not status or j.get("status") == status]
     return {"success": True, "count": len(items), "items": list(reversed(items))}
+
+
+@app.get("/api/admin/astro/queue/{jid}/file")
+def api_astro_jathakam_file(jid: str, request: Request):
+    """📜 Admin/pandit: securely retrieve an uploaded jathakam file for review.
+    🐞 FIX (completeness gap): jathakam upload stored the file but there was no way
+    for the pandit/admin to actually view it before verify/reject — admin-gated here,
+    filename is looked up server-side (never taken from the client), path-traversal safe."""
+    require_admin(request)
+    j = next((x for x in AST.JATHAKAMS if x.get("id") == jid), None)
+    if not j:
+        raise HTTPException(404, "Jathakam దొరకలేదు")
+    filename = os.path.basename(str(j.get("file", "")))
+    if not filename:
+        raise HTTPException(404, "Jathakam file దొరకలేదు")
+    path = os.path.join("/tmp/jathakam", filename)
+    if not os.path.isfile(path):
+        raise HTTPException(404, "Jathakam file disk మీద దొరకలేదు (expired/cleared?)")
+    ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
+    media = {"pdf": "application/pdf", "jpg": "image/jpeg", "jpeg": "image/jpeg",
+             "png": "image/png", "webp": "image/webp"}.get(ext, "application/octet-stream")
+    return FileResponse(path, media_type=media, filename=filename,
+                         headers={"Cache-Control": "no-store"})
 
 
 @app.post("/api/admin/astro/verify/{jid}")

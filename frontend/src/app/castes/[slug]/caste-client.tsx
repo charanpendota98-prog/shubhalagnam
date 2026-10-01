@@ -7,6 +7,7 @@ import { CHANNEL_STATS } from "@/lib/channels";
 import { waLink } from "@/lib/wa";
 import { TelegramIcon, WhatsAppIcon } from "@/components/BrandIcons";
 import { useLang } from "@/lib/lang";
+import { stateFullName } from "@/lib/telugu-data";
 
 type Caste = {
   key: string; name: string; split?: boolean;
@@ -31,11 +32,11 @@ export default function CasteClient({ caste, role, district, chan, otherChan }: 
   const myChanLabel = `${caste.name} ${role === "bride" ? "Brides" : "Grooms"}`;
   const otherChanLabel = `${caste.name} ${role === "bride" ? "Grooms" : "Brides"}`;
   const roleEn = role === "bride" ? "Bride" : "Groom";
-  const where = district ? `${district.name}, ${district.state}` : te ? "Telangana + Andhra Pradesh" : "Telangana + Andhra Pradesh";
+  const where = district ? `${district.name}, ${stateFullName(district.state, te)}` : te ? "Telangana + Andhra Pradesh" : "Telangana + Andhra Pradesh";
   const sameCasteOtherRole = buildSlug(caste.key, role === "bride" ? "groom" : "bride", district?.slug);
 
   return (
-    <main className="min-h-screen">
+    <main className="min-h-dvh">
       <section className="maroon-gradient text-white">
         <div className="max-w-5xl mx-auto px-4 py-10">
           <nav className="text-[11px] opacity-90 flex gap-2 flex-wrap">

@@ -809,3 +809,38 @@ export async function compressImage(file: File, maxDim = 1200, quality = 0.85): 
     return file;
   }
 }
+
+// 🏛️ FIX: card/profile UI lo state eppudu raw code ("TS"/"AP") laaga kanipinchakunda,
+// full name ("Telangana" / "Andhra Pradesh") neatga top-right badge la chupinchadaniki
+// shared helper — matches, second-marriage, search/profile anni chota consistent.
+const STATE_FULL_NAME: Record<string, { te: string; en: string }> = {
+  TS: { te: "తెలంగాణ", en: "Telangana" },
+  TG: { te: "తెలంగాణ", en: "Telangana" },
+  TELANGANA: { te: "తెలంగాణ", en: "Telangana" },
+  AP: { te: "ఆంధ్రప్రదేశ్", en: "Andhra Pradesh" },
+  "ANDHRA PRADESH": { te: "ఆంధ్రప్రదేశ్", en: "Andhra Pradesh" },
+};
+
+export function stateFullName(stateRaw?: string | null, te: boolean = true): string {
+  const key = String(stateRaw || "TS").trim().toUpperCase();
+  const hit = STATE_FULL_NAME[key];
+  if (hit) return te ? hit.te : hit.en;
+  return String(stateRaw || (te ? "తెలంగాణ" : "Telangana"));
+}
+
+// 💍 FIX: "1st marriage" (Pelli Kaledu / Never Married / Single) profiles కి ఎప్పుడూ
+// "Second Marriage" badge కనిపించకూడదు — genuine second marriage (Divorced/Widowed/
+// Widower/Separated) profiles కి మాత్రమే చూపించడానికి shared check.
+const FIRST_MARRIAGE_STATUSES = ["pelli kaledu", "never married", "unmarried", "single", ""];
+export function isSecondMarriageStatus(maritalStatus?: string | null): boolean {
+  const v = String(maritalStatus || "").toLowerCase().trim();
+  return !!v && !FIRST_MARRIAGE_STATUSES.includes(v);
+}
+
+export function secondMarriageLabel(maritalStatus: string, te: boolean = true): string {
+  const v = String(maritalStatus || "").toLowerCase();
+  if (v.includes("widow")) return te ? "🕊️ వితంతువు/విధురుడు — 2వ వివాహం" : "🕊️ Widowed — 2nd Marriage";
+  if (v.includes("divorc") || v.includes("విడాకులు")) return te ? "🕊️ విడాకులు — 2వ వివాహం" : "🕊️ Divorced — 2nd Marriage";
+  if (v.includes("separat")) return te ? "🕊️ విడిపోయారు — 2వ వివాహం" : "🕊️ Separated — 2nd Marriage";
+  return te ? `💍 2వ వివాహం (${maritalStatus})` : `💍 2nd Marriage (${maritalStatus})`;
+}

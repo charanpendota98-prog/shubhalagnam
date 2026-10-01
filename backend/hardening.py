@@ -19,6 +19,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import hmac
+import json
 import os
 import re
 import secrets
@@ -118,16 +119,83 @@ def _b64d(txt: str) -> bytes:
     return base64.urlsafe_b64decode(txt + pad)
 
 
+# ---------------------------------------------------------------------------
+# 1b. TOKEN REVOCATION ("logout everywhere" / force-logout a compromised
+#     account) — Phase 14 fix. Tokens are stateless HMAC (no server-side
+#     session table), so by default a token stays valid until its natural
+#     TTL (720h / 30 days) expiry — there was no way to invalidate one early
+#     even after e.g. a password reset, a user-initiated "log out of all
+#     devices", or an admin responding to a reported/compromised account.
+#     This matters concretely: the critical IDOR fixed earlier this audit
+#     pass leaked live tokens for a window before the fix landed, and those
+#     pre-fix tokens would otherwise remain valid for up to 30 more days.
+#
+#     Design: a per-user monotonic "token version" counter, persisted to a
+#     small JSON file (gitignored runtime state, same convention as this
+#     repo's other *_state.json files). sign_token() stamps the *current*
+#     version into every new token's payload; verify_token() rejects any
+#     token whose stamped version is behind the live counter. Bumping one
+#     user's counter by 1 instantly invalidates every token issued to them
+#     before that moment — across every device/session — in O(1), without
+#     needing to track or blacklist individual tokens.
+# ---------------------------------------------------------------------------
+_TOKEN_VERSIONS_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "token_versions.json")
+_TOKEN_VERSIONS: Dict[str, int] = {}
+
+
+def _load_token_versions() -> None:
+    try:
+        with open(_TOKEN_VERSIONS_PATH, "r", encoding="utf-8") as f:
+            data = json.load(f) or {}
+        if isinstance(data, dict):
+            _TOKEN_VERSIONS.update({str(k): int(v) for k, v in data.items() if str(v).lstrip("-").isdigit()})
+    except Exception:
+        pass
+
+
+def _save_token_versions() -> None:
+    try:
+        tmp = _TOKEN_VERSIONS_PATH + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(_TOKEN_VERSIONS, f)
+        os.replace(tmp, _TOKEN_VERSIONS_PATH)
+    except Exception:
+        pass
+
+
+_load_token_versions()
+
+
+def token_version(tsap_id: str) -> int:
+    """Current live token-version for this user (0 if never revoked)."""
+    return int(_TOKEN_VERSIONS.get(str(tsap_id or "").strip().upper(), 0))
+
+
+def revoke_all_tokens(tsap_id: str) -> int:
+    """🔐 Force-logout every device/session for this user: bump their token
+    version so every token issued before this call stops verifying,
+    immediately. Call this on password reset, a user-initiated "log out
+    everywhere", or an admin response to a compromised/reported account.
+    Returns the new version number."""
+    tid = str(tsap_id or "").strip().upper()
+    if not tid:
+        return 0
+    _TOKEN_VERSIONS[tid] = token_version(tid) + 1
+    _save_token_versions()
+    return _TOKEN_VERSIONS[tid]
+
+
 def sign_token(tsap_id: str, ttl_seconds: int = TOKEN_TTL_SECONDS, scope: str = "user") -> str:
     """User కి signed token — private endpoints కి proof (IDOR fix)."""
     exp = int(time.time()) + int(ttl_seconds)
-    payload = f"{tsap_id}|{exp}|{scope}|{secrets.token_hex(4)}"
+    tv = token_version(tsap_id)
+    payload = f"{tsap_id}|{exp}|{scope}|{tv}|{secrets.token_hex(4)}"
     sig = hmac.new(SECRET.encode(), payload.encode(), hashlib.sha256).digest()
     return f"{_b64e(payload.encode())}.{_b64e(sig)}"
 
 
 def verify_token(token: str) -> Optional[Dict[str, Any]]:
-    """Valid token → {'tsap_id', 'exp', 'scope'} , else None (tamper/expire)."""
+    """Valid token → {'tsap_id', 'exp', 'scope'} , else None (tamper/expire/revoked)."""
     try:
         p_b64, s_b64 = str(token or "").split(".", 1)
         payload = _b64d(p_b64).decode()
@@ -135,9 +203,22 @@ def verify_token(token: str) -> Optional[Dict[str, Any]]:
         expect = hmac.new(SECRET.encode(), payload.encode(), hashlib.sha256).digest()
         if not hmac.compare_digest(sig, expect):
             return None
-        tsap_id, exp, scope, *_ = (payload.split("|") + ["", "0", "user"])[:4]
+        parts = payload.split("|")
+        # New tokens: tsap_id|exp|scope|tv|nonce (5 parts).
+        # Old tokens signed before the revocation feature: tsap_id|exp|scope|nonce
+        # (4 parts, no tv) — treat as version 0 so they still get checked
+        # against the live counter (any revoke_all_tokens() call invalidates
+        # them too, same as new-format tokens).
+        if len(parts) >= 5:
+            tsap_id, exp, scope, tv_s = parts[0], parts[1], parts[2], parts[3]
+            tv = int(tv_s) if tv_s.lstrip("-").isdigit() else 0
+        else:
+            tsap_id, exp, scope, *_ = (parts + ["", "0", "user"])[:4]
+            tv = 0
         if int(exp) < int(time.time()):
             return None
+        if tv < token_version(tsap_id):
+            return None  # 🔐 revoked — a logout-everywhere/reset happened after this token was issued
         return {"tsap_id": tsap_id, "exp": int(exp), "scope": scope or "user"}
     except Exception:
         return None

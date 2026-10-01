@@ -5,13 +5,32 @@
  */
 import { useEffect, useRef, useState } from "react";
 
-/** సంఖ్యలు count-up చెయ్యడానికి (52 channels, 43 castes...) — professional touch */
+/**
+ * సంఖ్యలు count-up చెయ్యడానికి (52 channels, 43 castes...) — professional touch.
+ *
+ * R14 FIX: మొదట్లో `useState(0)` పెట్టడం వల్ల ప్రతి page load లో నిజమైన సంఖ్య (52, 43...)
+ * ఇప్పటికే target గా వచ్చినా కూడా ఒక్క ఫ్రేమ్ పాటు "0" ఫ్లాష్ అయ్యేది (SSR/initial paint లో
+ * తప్పుడు "0 Channels, 0 కులాలు" కనిపించేది). ఇప్పుడు initial state నే నేరుగా `target`
+ * గా పెట్టేసాం — కరెక్ట్ విలువ మొదటి పెయింట్ నుంచే కనిపిస్తుంది (0 ఫ్లాష్ ఉండదు).
+ * Animation ఇక మీదట target నిజంగా మారినప్పుడు మాత్రమే (ఉదా: API నుంచి fresh live
+ * numbers వచ్చినప్పుడు fallback నుంచి కొత్త విలువకి) పాత విలువ నుంచి కొత్త విలువకి smooth గా run అవుతుంది.
+ */
 export function useCountUp(target: number, duration = 900): number {
-  const [v, setV] = useState(0);
-  const started = useRef(false);
+  const [v, setV] = useState(target); // బేక్డ్-ఇన్ కరెక్ట్ డిఫాల్ట్ — 0 ఫ్లాష్ లేదు
+  const prevTarget = useRef(target);
+  const initialized = useRef(false);
+
   useEffect(() => {
-    if (started.current) return;
-    started.current = true;
+    // మొదటి mount లో ఇప్పటికే సరైన విలువ కనిపిస్తుంది కాబట్టి యానిమేట్ చెయ్యనవసరం లేదు.
+    if (!initialized.current) {
+      initialized.current = true;
+      prevTarget.current = target;
+      return;
+    }
+    if (target === prevTarget.current) return;
+    const from = prevTarget.current;
+    prevTarget.current = target;
+
     // prefers-reduced-motion → instant
     try {
       if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) { setV(target); return; }
@@ -21,7 +40,7 @@ export function useCountUp(target: number, duration = 900): number {
     const tick = (t: number) => {
       const p = Math.min(1, (t - t0) / duration);
       const eased = 1 - Math.pow(1 - p, 3); // ease-out cubic
-      setV(Math.round(target * eased));
+      setV(Math.round(from + (target - from) * eased));
       if (p < 1) raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);

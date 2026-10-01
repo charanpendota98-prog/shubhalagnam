@@ -14,8 +14,12 @@ type LiveEvent = {
   titleTe: string;
   titleEn: string;
   location: string;
-  timeTe: string;
-  timeEn: string;
+  /** R14 FIX: fixed "2 mins ago" style strings తీసేసి — baseSeconds nunchi ప్రతిసారి
+   *  నిజంగా గడిచిన సమయం (real elapsed time) లెక్కేసి "X mins ago" ni DYNAMIC గా చూపిస్తాం.
+   *  Ide fixed string ఉంటే tab ni చాలాసేపు తెరిచి ఉంచితే అదే "2 mins ago" ఎప్పటికీ
+   *  మారకుండా కనిపించి — idi fake ani బయటపడేది. Ippudu ఎప్పుడూ నిజంగానే పెరుగుతూ ఉంటుంది.
+   */
+  baseSeconds: number;
   badge: string;
 };
 
@@ -26,8 +30,7 @@ const EVENTS: LiveEvent[] = [
     titleTe: "పరస్పరం ఇంట్రెస్ట్ ఆమోదించబడింది (Consent Exchanged)",
     titleEn: "Mutual Interest Accepted & WhatsApp Contact Shared",
     location: "హైదరాబాద్ • రెడ్డి సమాజం",
-    timeTe: "2 నిమిషాల క్రితం",
-    timeEn: "2 mins ago",
+    baseSeconds: 120,
     badge: "Match Made",
   },
   {
@@ -36,8 +39,7 @@ const EVENTS: LiveEvent[] = [
     titleTe: "కొత్త B.Tech సాఫ్ట్‌వేర్ వధువు ప్రొఫైల్ చేరింది",
     titleEn: "New B.Tech Software Bride Profile Verified",
     location: "విశాఖపట్నం • కాపు",
-    timeTe: "4 నిమిషాల క్రితం",
-    timeEn: "4 mins ago",
+    baseSeconds: 240,
     badge: "New Profile",
   },
   {
@@ -46,8 +48,7 @@ const EVENTS: LiveEvent[] = [
     titleTe: "₹50 రెఫరల్ కమీషన్ తక్షణమే వాలెట్‌లో జమ అయ్యింది",
     titleEn: "₹50 Referral Commission Credited to Wallet",
     location: "వరంగల్ • పార్ట్‌నర్",
-    timeTe: "7 నిమిషాల క్రితం",
-    timeEn: "7 mins ago",
+    baseSeconds: 420,
     badge: "₹50 Payout",
   },
   {
@@ -56,8 +57,7 @@ const EVENTS: LiveEvent[] = [
     titleTe: "10/10 వేద జాతక సరిపోలిక (రజ్జు శుద్ధి ధృవీకరణ)",
     titleEn: "10/10 Vedic Horoscope Compatibility Verified",
     location: "విజయవాడ • కమ్మ",
-    timeTe: "11 నిమిషాల క్రితం",
-    timeEn: "11 mins ago",
+    baseSeconds: 660,
     badge: "10/10 గుణమేళనం",
   },
   {
@@ -66,8 +66,7 @@ const EVENTS: LiveEvent[] = [
     titleTe: "USA లో MS చదివిన సాఫ్ట్‌వేర్ వరుడు ప్రొఫైల్ లైవ్",
     titleEn: "USA MS Software Engineer Groom Profile Verified",
     location: "హైదరాబాద్ / డల్లాస్ NRI",
-    timeTe: "14 నిమిషాల క్రితం",
-    timeEn: "14 mins ago",
+    baseSeconds: 840,
     badge: "NRI Match",
   },
   {
@@ -76,11 +75,20 @@ const EVENTS: LiveEvent[] = [
     titleTe: "వివాహం నిశ్చయమైంది — శుభాకాంక్షలు 🎉",
     titleEn: "Marriage Fixed — Congratulations! 🎉",
     location: "కరీంనగర్ • పద్మశాలి",
-    timeTe: "19 నిమిషాల క్రితం",
-    timeEn: "19 mins ago",
+    baseSeconds: 1140,
     badge: "Success Story",
   },
 ];
+
+/** "X seconds/minutes/hours ago" — real elapsed time (seconds) nunchi format chestundi. */
+function formatAgo(totalSeconds: number, te: boolean): string {
+  const s = Math.max(5, Math.round(totalSeconds));
+  if (s < 60) return te ? `${s} సెకన్ల క్రితం` : `${s} sec ago`;
+  const m = Math.round(s / 60);
+  if (m < 60) return te ? `${m} నిమిషాల క్రితం` : `${m} min${m === 1 ? "" : "s"} ago`;
+  const h = Math.round(m / 60);
+  return te ? `${h} గంటల క్రితం` : `${h} hr${h === 1 ? "" : "s"} ago`;
+}
 
 export default function LiveMatrimonyTicker() {
   const { lang } = useLang();
@@ -88,6 +96,10 @@ export default function LiveMatrimonyTicker() {
   const [index, setIndex] = useState(0);
   const [visible, setVisible] = useState(false);
   const [closed, setClosed] = useState(false);
+  // R14 FIX: page load సమయం + session కి ఒక చిన్న random jitter (0-90s) — ప్రతి
+  // visit కి కొద్దిగా వేరే starting number, ఒకే session లో మాత్రం ఎప్పుడూ నిజంగానే పెరుగుతూ.
+  const [mountedAt] = useState(() => Date.now());
+  const [jitter] = useState(() => Math.floor(Math.random() * 90));
 
   useEffect(() => {
     if (closed) return;
@@ -114,6 +126,8 @@ export default function LiveMatrimonyTicker() {
   if (closed) return null;
 
   const ev = EVENTS[index];
+  const elapsedSeconds = (Date.now() - mountedAt) / 1000;
+  const agoText = formatAgo(ev.baseSeconds + jitter + elapsedSeconds, te);
 
   return (
     <div
@@ -132,7 +146,7 @@ export default function LiveMatrimonyTicker() {
               {ev.badge}
             </span>
             <span className="text-[8.5px] text-gray-400 font-medium">
-              {te ? ev.timeTe : ev.timeEn}
+              {agoText}
             </span>
           </div>
 

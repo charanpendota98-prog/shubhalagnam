@@ -46,8 +46,16 @@ backend/refpartners19.json
 backend/referral_partners.csv
 backend/data_db.json
 data_db.json
+backend/token_versions.json
+backend/token_versions.json.tmp
 
 # wave39 local snapshots (machine-specific)
 backend/backups/
 backend/vendor/
 
+# money/unlocks/astro runtime ledgers (append-only logs — regenerate per environment, polluted git status on every test run)
+backend/money_audit26.jsonl
+backend/unlocks12.json
+backend/astro13.json
+
+backend/.venv/

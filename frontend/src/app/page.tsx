@@ -199,7 +199,7 @@ const TEXT = {
     ctaBot: "టెలిగ్రామ్ ఛానల్‌లో చేరండి",
     trustTitle: "🛡️ విశ్వసనీయత & పూర్తి భద్రత",
     trustSub: "మీ సంప్రదింపు వివరాలు ఎల్లప్పుడూ గోప్యంగా ఉంటాయి — ఇరు కుటుంబాలు అంగీకరించిన తర్వాత మాత్రమే నంబర్లు మార్పిడి అవుతాయి.",
-    trustAvg: (n: number) => `సగటు Trust Score (${n} ప్రొఫైల్స్)`,
+    trustAvg: (n: number | undefined) => `సగటు Trust Score (${n === undefined ? "—" : n} ప్రొఫైల్స్)`,
     trustAvgD: "Verify + complete profile ఉంటే score పెరుగుతుంది — matches కూడా ఎక్కువ వస్తాయి.",
     trustNum: "🔒 నంబర్ policy",
     trustNumD: "మీ ఫోన్ నంబర్ ఎప్పుడూ ఎవరికీ నేరుగా కనిపించదు (98••••••45 గానే చూపిస్తుంది).",
@@ -350,7 +350,7 @@ const TEXT = {
     ctaBot: "Join on Telegram",
     trustTitle: "🛡️ Trust & Safety",
     trustSub: "Your phone number is never shown publicly — exchanged only after both sides accept.",
-    trustAvg: (n: number) => `Average trust score (${n} profiles)`,
+    trustAvg: (n: number | undefined) => `Average trust score (${n === undefined ? "—" : n} profiles)`,
     trustAvgD: "Verified + complete profiles score higher — and get more matches.",
     trustNum: "🔒 Number policy",
     trustNumD: "Your phone number is never shown directly to anyone (always masked as 98••••••45).",
@@ -1247,7 +1247,7 @@ export default function Home() {
       <div className="mt-5 grid gap-4 md:grid-cols-3">
         <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
           <p className="text-2xl font-extrabold text-emerald-900">{trustBoard ? `${trustBoard.average_trust}/100` : "—"}</p>
-          <p className="text-[13px] font-semibold text-emerald-900">{L.trustAvg(trustBoard?.count ?? 0)}</p>
+          <p className="text-[13px] font-semibold text-emerald-900">{L.trustAvg(trustBoard?.count)}</p>
           <p className="mt-1 text-[12px] text-emerald-800">{L.trustAvgD}</p>
         </div>
         <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4">

@@ -17,6 +17,7 @@ import Link from "next/link";
 import { toJpeg } from "html-to-image";
 import QRCode from "qrcode";
 import { useLang } from "@/lib/lang";
+import { stateFullName } from "@/lib/telugu-data";
 import { SITE_CONFIG } from "@/lib/site-config";
 import { WhatsAppIcon } from "@/components/BrandIcons";
 
@@ -279,8 +280,8 @@ export default function BiodataPage() {
             job: p.job || prev.job,
             company: p.company || prev.company,
             salary: p.salary || prev.salary,
-            workLocation: p.work_location || `${p.district || "Hyderabad"}, ${p.state || "TS"}`,
-            nativePlace: `${p.district || "Hyderabad"}, ${p.state || "Telangana"}`,
+            workLocation: p.work_location || `${p.district || "Hyderabad"}, ${stateFullName(p.state, te)}`,
+            nativePlace: `${p.district || "Hyderabad"}, ${stateFullName(p.state, te)}`,
             photoUrl: p.photo_url || prev.photoUrl,
           }));
         }
@@ -364,7 +365,7 @@ export default function BiodataPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#FAF7F2] py-6 sm:py-10 px-3 sm:px-6 font-sans">
+    <div className="min-h-dvh bg-[#FAF7F2] py-6 sm:py-10 px-3 sm:px-6 font-sans">
       <div className="max-w-6xl mx-auto space-y-6">
         
         {/* ================= TOP STUDIO CONTROLS (NO PRINT) ================= */}

@@ -32,7 +32,7 @@ export default function PelliChoopuluGuide() {
   const shareUrl = `https://wa.me/?text=${encodeURIComponent(shareText)}`;
 
   return (
-    <div className="min-h-screen bg-[#FDFBF7] py-10 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-dvh bg-[#FDFBF7] py-10 px-4 sm:px-6 lg:px-8">
       <div className="max-w-5xl mx-auto space-y-8">
         {/* Header */}
         <div className="text-center space-y-3">

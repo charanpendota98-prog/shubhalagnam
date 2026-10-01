@@ -18,6 +18,32 @@
   -webkit-tap-highlight-color: transparent;
 }
 
+/* ============================================================
+   ADVANCED-PASS 1 — Global accessible focus ring (site-wide a11y fix)
+   ~99 interactive elements across the app use `outline-none` for a
+   custom look but never ship a replacement focus style — keyboard /
+   switch / screen-reader users get ZERO visible focus indicator
+   (fails WCAG 2.4.7). Rather than hand-patch 99 call-sites (high
+   regression risk, impossible to visually re-verify in this sandbox),
+   we restore a single branded focus-visible ring globally. It only
+   fires for keyboard/AT focus (`:focus-visible`, not mouse clicks), so
+   it never adds visual noise to normal pointer interaction, and it
+   layers on top of any existing Tailwind `ring-*`/`outline-*` utility
+   without fighting it (outline is a separate paint layer from
+   box-shadow-based rings).
+   ============================================================ */
+:focus-visible {
+  outline: 2.5px solid var(--gold);
+  outline-offset: 2px;
+  border-radius: 4px;
+  transition: outline-offset 0.15s ease;
+}
+/* Buttons/links that are already pill/rounded-full keep the ring tight to the shape */
+a:focus-visible,
+button:focus-visible {
+  outline-offset: 3px;
+}
+
 html {
   scroll-behavior: smooth;
   scroll-padding-top: calc(var(--header-h) + 12px);
@@ -544,4 +570,53 @@ button:not(:disabled):active { transform: scale(0.97); }
     max-width: 100% !important;
     page-break-inside: avoid !important;
   }
+}
+
+/* ============================================================
+   📱 MOBILE "ZOOM IN / ZOOM OUT" BUG FIX (Registration + anni forms)
+   ============================================================
+   Problem: Registration form (and other forms) lo inputs/selects text-xs
+   (12px) tho unnayi. Mobile Safari (iOS) + konni Android browsers oka rule
+   follow chestayi — ఏదైనా input/select/textarea ki focus vachinappudu, aa
+   field computed font-size < 16px unte, browser page ni automatic ga
+   ZOOM-IN chestundi (accidental pinch-zoom la anipistundi), field nunchi
+   blur ayyaka మల్లీ ZOOM-OUT avuthundi. Idే user ki "zoom in and zoom out
+   avuthundi" ane jarring experience.
+   Fix: mobile viewport lo EVERY form field ki minimum 16px font-size force
+   cheyyadam — ee oka rule tho registration + login + search + anni forms
+   lo ee bug oka sari ki fix avuthundi (prathi component tocha avasaram ledu).
+
+   R2 FIX (stability hardening): "max-width: 820px" okatE unte — pedda phone
+   ni LANDSCAPE lo tిప్పితే (e.g. iPhone Pro Max ~926px wide) width ee query
+   ni miss avutundi, so aa oka orientation lo malli zoom bug vachestundi.
+   "pointer: coarse" (ఏ touchscreen device aina — width/orientation తేడా
+   లేకుండా) ni కూడా add చేసాం, రెండు feet తో ee bug పూర్తిగా aagipోతుంది.
+   ============================================================ */
+@media (max-width: 820px), (pointer: coarse) {
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+
+/* ============================================================
+   📱 DOUBLE-TAP-TO-ZOOM HARDENING (buttons/links/cards)
+   ============================================================
+   Problem: slow network mీద impatient users CTA button/card ni rెండు సార్లు
+   tap chesthe, iOS Safari దాన్ని "double-tap to zoom" gesture ga tీసుకుని
+   page ni అకస్మాత్తుగా zoom-in chేస్తుంది — idi కూడా "zoom in/out unstable"
+   అనే feeling ki oka కారణం.
+   Fix: anni interactive elements (button, a, [role=button]) కి
+   touch-action: manipulation — ఇది pinch-zoom ni disable cheyyadu (accessibility
+   safe), కానీ double-tap-zoom + 300ms tap delay ni matrame block chestundi.
+   ============================================================ */
+button,
+a,
+[role="button"],
+input,
+select,
+textarea,
+label {
+  touch-action: manipulation;
 }

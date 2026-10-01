@@ -4,6 +4,7 @@
  * No ad → house promo (khaali vaddu, revenue + UX).
  */
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useLang } from "@/lib/lang";
 
 type Ad = {
@@ -55,12 +56,12 @@ export default function AdSlot({ slot, district = "", state = "", className = ""
             </span>
           </p>
         </div>
-        <a
+        <Link
           href="/vendors/campaign"
           className="shrink-0 px-3.5 py-1 rounded-xl bg-[#7A0C2E] hover:bg-[#5C0822] text-white font-bold text-[11px] transition shadow-xs"
         >
           {te ? "ప్రకటన వేయండి →" : "Start Campaign →"}
-        </a>
+        </Link>
       </div>
     );
   }

@@ -45,6 +45,30 @@ BLACK = (26, 26, 26)
 GREY = (110, 110, 110)
 LIGHT = (246, 243, 236)
 GREEN = (22, 130, 70)
+ROSE = (190, 24, 60)
+
+# 🏛️ Full state name (card lo "TS"/"AP" raw code kaakunda "Telangana"/"Andhra Pradesh"
+# neatga chupinchadaniki) — WhatsApp/Telegram card + web anni chota consistent.
+STATE_FULL = {
+    "TS": "Telangana", "TG": "Telangana", "TELANGANA": "Telangana",
+    "AP": "Andhra Pradesh", "ANDHRA PRADESH": "Andhra Pradesh",
+}
+
+
+def state_full_name(state: str) -> str:
+    key = str(state or "TS").strip().upper()
+    return STATE_FULL.get(key, str(state or "Telangana"))
+
+
+# 💍 "1st marriage" (Pelli Kaledu / Never Married) profiles కి card మీద ఎప్పుడూ
+# "2nd Marriage" badge కనిపించకూడదు — genuine Divorced/Widowed/Separated profiles
+# కి మాత్రమే, కుడివైపు (right side) neat గా ribbon badge చూపించాలి.
+_FIRST_MARRIAGE = {"pelli kaledu", "never married", "unmarried", "single", ""}
+
+
+def is_second_marriage(marital_status: str) -> bool:
+    v = str(marital_status or "").strip().lower()
+    return bool(v) and v not in _FIRST_MARRIAGE
 
 W, H = 900, 2400   # H = max canvas; chivarlo content ki crop chestham (footer overlap avvadu)
 BRAND = "MANA VIVAHA"
@@ -243,13 +267,28 @@ class CardBuilder:
 
         # name + tagline (right of photo)
         x = 320
-        d.text((x, self.y + 4), _fit(d, _s(self.u.get("full_name"), "Profile"), F(26, True), W - x - 30),
+        is_2nd = is_second_marriage(self.u.get("marital_status"))
+        # name ki full width teeskovadaniki — 2nd marriage badge unte konchem thakkuva width
+        name_max_w = (W - x - 190) if is_2nd else (W - x - 30)
+        d.text((x, self.y + 4), _fit(d, _s(self.u.get("full_name"), "Profile"), F(26, True), name_max_w),
                fill=self.accent, font=F(26, True))
+
+        # 💍 R11 FIX: "1st marriage" profiles కి ఎప్పుడూ ఏ badge కనిపించదు — genuine
+        # Divorced/Widowed/Separated profiles కి మాత్రమే, CARD కుడివైపు (top-right of
+        # this name row) neatగా "2ND MARRIAGE" ribbon badge.
+        if is_2nd:
+            badge_txt = "💔 2ND MARRIAGE"
+            bw = int(d.textlength(de_emoji(badge_txt), font=F(13, True))) + 24
+            bx1 = W - 30 - bw
+            d.rounded_rectangle([bx1, self.y, bx1 + bw, self.y + 28], 14, fill=ROSE)
+            d.text((bx1 + 12, self.y + 6), de_emoji(badge_txt), fill=WHITE, font=F(13, True))
+
         line2 = f"{_s(self.u.get('age'),'—')} yrs  •  {_s(self.u.get('height'),'—')}  •  {_s(self.u.get('caste'),'—')}"
         d.text((x, self.y + 42), line2, fill=BLACK, font=F(17))
         line3 = f"{'BRIDE' if self.is_bride else 'GROOM'}  {ICON['dot']}  {_s(self.u.get('marital_status'),'Pelli Kaledu')}  {ICON['dot']}  {_s(self.u.get('physical_status'),'Normal')}"
         d.text((x, self.y + 68), line3, fill=GREY, font=F(15))
-        line4 = f"Location: {_s(self.u.get('district'),'-')}, {_s(self.u.get('state'),'TS')}"
+        # 🏛️ FIX: raw "TS"/"AP" kaakunda full state name "Telangana"/"Andhra Pradesh" neatga
+        line4 = f"Location: {_s(self.u.get('district'),'-')}, {state_full_name(self.u.get('state'))}"
         if _s(self.u.get("mandal")):
             line4 += f"  •  {self.u['mandal']}"
         d.text((x, self.y + 94), line4, fill=BLACK, font=F(15))
@@ -439,7 +478,7 @@ class CardBuilder:
         ])
 
         self.section("📍 LOCATION & CONTACT", [
-            ("State", u.get("state")),
+            ("State", state_full_name(u.get("state")) if _s(u.get("state")) else ""),
             ("District", u.get("district")),
             ("Mandal / Town", u.get("mandal")),
             ("Current City", u.get("current_city")),
