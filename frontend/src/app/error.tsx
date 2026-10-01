@@ -1,6 +1,7 @@
 "use client";
 /** ⚠️ Error boundary — crash aithe friendly Telugu message + retry (white screen ledu) */
 import { useEffect } from "react";
+import Link from "next/link";
 import { useLang } from "@/lib/lang";
 
 export default function Error({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
@@ -18,7 +19,7 @@ export default function Error({ error, reset }: { error: Error & { digest?: stri
       </p>
       <div className="mt-6 flex flex-wrap justify-center gap-2">
         <button onClick={reset} className="rounded-xl bg-[#7A0C2E] px-4 py-2 font-semibold text-white">{te ? "🔄 మళ్లీ try" : "🔄 Retry"}</button>
-        <a href="/" className="rounded-xl border border-[#7A0C2E] px-4 py-2 font-semibold text-[#7A0C2E]">{te ? "🏠 హోమ్" : "🏠 Home"}</a>
+        <Link href="/" className="rounded-xl border border-[#7A0C2E] px-4 py-2 font-semibold text-[#7A0C2E]">{te ? "🏠 హోమ్" : "🏠 Home"}</Link>
       </div>
       {error?.digest && <p className="mt-4 text-xs text-slate-400">ref: {error.digest}</p>}
     </main>
