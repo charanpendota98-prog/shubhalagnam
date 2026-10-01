@@ -46,6 +46,8 @@ backend/refpartners19.json
 backend/referral_partners.csv
 backend/data_db.json
 data_db.json
+backend/token_versions.json
+backend/token_versions.json.tmp
 
 # wave39 local snapshots (machine-specific)
 backend/backups/

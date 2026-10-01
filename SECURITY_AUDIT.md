@@ -414,6 +414,73 @@ check rather than a spot check:
     workflow only references it by a server-issued `jathakam_id`, never a
     public URL), so there's no read-side traversal surface for it either.
 
+## Phase 14 — token revocation ("logout everywhere" + incident-response remediation)
+
+**Closes the #1 residual risk flagged after the Phase 12 critical IDOR fix.**
+Auth tokens here are stateless HMAC (`tsap_id|exp|scope|nonce`, 30-day TTL) —
+there was no server-side session table, so there was no way to invalidate a
+specific token before its natural expiry. Concretely, this meant: (a) any
+token an attacker scraped during the Phase 12 IDOR window would keep working
+for up to 30 more days even after that bug was patched, (b) a user who
+changed their password (because they suspected compromise) didn't actually
+get their old sessions logged out, and (c) there was no "log out of all
+devices" self-service option and no admin "force-logout this reported
+account" tool.
+
+**Design (`backend/hardening.py`):** added a per-user, monotonically
+increasing **token version** counter, persisted to a small gitignored JSON
+file (`backend/token_versions.json`, same convention as this repo's other
+`*_state.json` runtime files — added to `.gitignore`). `sign_token()` now
+stamps the *current* version into every new token's payload
+(`tsap_id|exp|scope|tv|nonce`); `verify_token()` rejects any token whose
+stamped version is behind the live counter for that user. Bumping one
+user's counter via `revoke_all_tokens(tsap_id)` invalidates **every** token
+issued to them before that moment, on every device/session, in O(1) —
+no need to track or blacklist individual tokens. Old-format tokens signed
+before this feature shipped (4 fields, no `tv`) are treated as version 0,
+so they're still subject to revocation if `revoke_all_tokens()` is ever
+called for that user — full backward compatibility, zero breakage for
+tokens already in the wild.
+
+**Wired in three places:**
+1. `POST /api/auth/reset` (password reset) now calls `revoke_all_tokens()`
+   before issuing the new post-reset token — changing your password now
+   actually logs out every other session, as users would expect.
+2. New `POST /api/auth/logout-everywhere` — self-service "log out of all
+   devices" (e.g. lost/stolen phone). Requires `require_owner` (the caller
+   must already hold a currently-valid token for that exact account) and
+   returns a fresh token for the calling session so it isn't accidentally
+   logged out by its own request.
+3. New `POST /api/admin/users/{tsap_id}/force-logout` — admin/staff
+   incident-response tool to kill every session for a specific reported or
+   compromised account without needing that user's credentials.
+
+**One-time remediation, executed this pass:** added
+`backend/ops_revoke_all_tokens.py`, an explicit (not automatic-on-startup —
+that would force-logout everyone on every routine restart, which is too
+disruptive) ops script that bumps every existing user's token version once.
+Ran it against this environment's current user table (83 users) to
+retroactively invalidate every token that existed before this patch,
+including anything that may have been scraped during the earlier Phase 12
+IDOR window. Confirmed via live test: a token minted before the bulk-revoke
+now gets `401` everywhere; a fresh registration/login minted after the
+revoke works normally (`200`).
+
+**Verification:** live end-to-end test — registered a real user, confirmed
+its token worked, called `/api/auth/logout-everywhere`, confirmed the old
+token now returns `401` on `/api/profile/update` while the freshly-returned
+token still returns `200`; separately verified `/api/admin/users/{id}/
+force-logout` with the derived dev admin key produces the same effect;
+verified an old-format (pre-feature, 4-field) synthetic token keeps working
+until revoked, then stops, proving backward compatibility; ran
+`ops_revoke_all_tokens.py --dry-run` then for real against the live 83-user
+table, restarted the backend, and confirmed pre-revoke tokens are rejected
+while post-revoke registrations/logins work; full `test_100_developer_checks.py`
+(110/110) and `test_100_registrations_e2e.py` (100/100) regression suites
+passing throughout.
+**Files:** `backend/hardening.py`, `backend/main.py`, `backend/
+ops_revoke_all_tokens.py` (new), `.gitignore`.
+
 ## Next steps (Phase 12/13 sweep — still open)
 1. ~~Broader `dangerouslySetInnerHTML` / raw-HTML-injection sweep~~ — **done
    this pass**, repo-wide (`grep -rn "dangerouslySetInnerHTML\|\.innerHTML\s*=\|document\.write(\|eval(\|new Function("`
@@ -429,13 +496,13 @@ check rather than a spot check:
    bypassing registration's `clean()` sanitization entirely).
 2. ~~Add the same `clean()` sanitization to `POST /api/control/profiles/add`~~
    — **done this pass** too, see the critical finding above.
-3. Decide + implement a token-revocation story (short-lived access token +
-   refresh token, or a server-side revocation list) if "logout everywhere" /
-   compromised-account response time becomes a product requirement — this is
-   higher priority given the account-takeover IDOR found in Phase 12
-   (tokens issued before that fix remain valid until natural expiry; anyone
-   who already scraped a token during the vulnerable window should be
-   force-logged-out, which isn't possible without a revocation mechanism).
+3. ~~Decide + implement a token-revocation story~~ — **done this pass**, see
+   "Phase 14 — token revocation" above (per-user token-version counter +
+   logout-everywhere + admin force-logout + one-time bulk remediation of
+   every pre-existing token). Still-open refinement: the revocation check
+   is O(1) per request but the version table itself is a flat JSON file —
+   fine at this scale, would want a real datastore (Redis/Postgres) before
+   this matters at higher user counts.
 4. Scoped follow-up: bump `pydantic` to 2.7+ and `fastapi` to 0.135+ to reach
    starlette 1.x and close the remaining starlette CVEs — needs its own
    dedicated regression pass given how central pydantic models are to this

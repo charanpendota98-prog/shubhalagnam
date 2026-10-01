@@ -80,7 +80,7 @@ from hardening import (
     auth_enforced, require_owner, require_admin, rate_limit_hit, too_many,
     apply_security_headers, posture as security_posture, abuse_snapshot, abuse_log,
     sign_token, verify_token, token_from_request, is_admin, is_automation, clean, req_text,
-    require_vendor, vendor_token, admin_role,
+    require_vendor, vendor_token, admin_role, revoke_all_tokens,
     req_phone, req_int, req_choice, req_bool, validation_error, seen as idem_seen, abuse_count, clamp_int,
     ADMIN_KEY as TSAP_ADMIN_KEY, NAME_RE, PHONE_RE, dev_mode,
 )
@@ -5506,8 +5506,14 @@ def auth_reset(payload: dict):
     u["phone_verified"] = True
     DB_OTPS.pop(phone, None)
     PW_LOCKS.pop(phone, None)
+    # 🔐 Phase 14: a password reset is a security event — invalidate every
+    # token issued before this moment (any device/session that was logged
+    # in with the old credentials, or any token an attacker may have
+    # obtained, stops working immediately). The fresh token below is signed
+    # *after* the bump so it carries the new version and keeps working.
+    revoke_all_tokens(u["tsap_id"])
     return {"success": True, "tsap_id": u["tsap_id"], "auth_token": sign_token(u["tsap_id"]),
-            "message_telugu": "✅ Password మారింది — ఇప్పుడు number + password తో login చెయ్యండి 🔑"}
+            "message_telugu": "✅ Password మారింది — పాత sessions అన్నీ logout అయ్యాయి, ఇప్పుడు number + password తో login చెయ్యండి 🔑"}
 
 
 def _otp_digest(code: str) -> str:
@@ -6458,6 +6464,41 @@ def auth_demo_token(payload: dict = Body(default={}), request: Request = None):
         raise HTTPException(403, "🔒 Idi demo profile కాదు — OTP (phone) తో login చెయ్యండి")
     return {"success": True, "tsap_id": tid, "auth_token": sign_token(tid), "demo": True,
             "user": safe_user(u), "message_telugu": "🎬 Demo login — real users కి OTP login (phone) ఉంది"}
+
+
+@app.post("/api/auth/logout-everywhere")
+def auth_logout_everywhere(payload: dict, request: Request):
+    """🔐 Phase 14 — user-initiated "log out of all devices": invalidates
+    EVERY token issued to this account so far (phone lost/stolen, suspected
+    account compromise, or just routine hygiene), not just the current
+    session's cookie/localStorage. Requires the caller to already hold a
+    currently-valid token for this exact account (require_owner) — this is
+    a self-service action, not a way to log someone else out."""
+    tsap_id = str((payload or {}).get("tsap_id") or "").strip().upper()
+    if not tsap_id:
+        raise HTTPException(400, "tsap_id ఇవ్వండి")
+    u = _find_user(tsap_id)
+    if not u:
+        raise HTTPException(404, "Profile దొరకలేదు")
+    require_owner(request, tsap_id)
+    new_version = revoke_all_tokens(tsap_id)
+    return {"success": True, "tsap_id": tsap_id, "token_version": new_version,
+            "auth_token": sign_token(tsap_id),  # caller's own session keeps working
+            "message_telugu": "🔐 అన్ని devices నుండి logout అయ్యారు — ఈ session మాత్రం active గా ఉంటుంది"}
+
+
+@app.post("/api/admin/users/{tsap_id}/force-logout")
+def admin_force_logout(tsap_id: str, request: Request):
+    """🔐 Phase 14 — ADMIN: force-logout every session for a specific
+    account (incident response for a reported/compromised profile) without
+    needing the user's own credentials."""
+    require_admin(request, staff_ok=True)
+    u = _find_user(tsap_id)
+    if not u:
+        raise HTTPException(404, "Profile దొరకలేదు")
+    new_version = revoke_all_tokens(tsap_id)
+    return {"success": True, "tsap_id": tsap_id, "token_version": new_version,
+            "message_telugu": f"🔐 {tsap_id} — అన్ని sessions force-logout అయ్యాయి"}
 
 
 @app.get("/api/profile/{tsap_id}/quality")

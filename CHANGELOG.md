@@ -3,6 +3,16 @@
 All entries are real, implemented, tested changes — not recommendations.
 Format: date, priority, domain, what/why, files, verification.
 
+## 2026-10-01 — Phase 14: token revocation ("logout everywhere" + incident-response remediation)
+
+### P1 — Fixed: no way to invalidate an auth token before its natural 30-day expiry
+**Domain:** Application Security / Authentication
+**Why this mattered now:** auth tokens are stateless HMAC with a 30-day TTL and no server-side session table — there was no way to force-logout a session early. This was the #1 residual risk flagged after the Phase 12 critical IDOR fix: any token an attacker scraped during that IDOR's exposure window would have kept working for up to 30 more days even after the bug was patched. It also meant a password reset didn't actually invalidate old sessions, and there was no "log out of all devices" or admin "force-logout this reported account" capability.
+**What:** added a per-user, monotonically increasing token-version counter (`backend/hardening.py`), persisted to a gitignored `backend/token_versions.json`. `sign_token()` stamps the live version into every new token; `verify_token()` rejects any token whose stamped version is behind the current counter for that user. `revoke_all_tokens(tsap_id)` bumps the counter, instantly invalidating every token issued to that user across every device/session, in O(1). Old-format tokens (signed before this feature existed) are treated as version 0, so they're fully covered by revocation too — zero breakage for tokens already in the wild.
+**Wired in:** (1) `POST /api/auth/reset` now revokes all prior sessions before issuing the post-reset token. (2) New `POST /api/auth/logout-everywhere` — user self-service "log out of all devices" (owner-token-gated). (3) New `POST /api/admin/users/{tsap_id}/force-logout` — admin/staff incident-response tool. (4) New one-time ops script `backend/ops_revoke_all_tokens.py`, run once against this environment's live 83-user table to retroactively invalidate every pre-existing token (closing the Phase 12 IDOR exposure window).
+**Files:** `backend/hardening.py`, `backend/main.py`, `backend/ops_revoke_all_tokens.py` (new), `.gitignore`.
+**Verification:** live end-to-end test (register → confirm token works → logout-everywhere → confirm old token 401s, new token 200s); admin force-logout tested the same way with the derived dev admin key; synthetic old-format token confirmed to work until revoked, then rejected (backward-compat proof); `ops_revoke_all_tokens.py --dry-run` then for-real against the live 83-user table, backend restarted, pre-revoke tokens confirmed rejected while fresh post-revoke registrations/logins return 200; full `test_100_developer_checks.py` (110/110) and `test_100_registrations_e2e.py` (100/100) regression suites passing throughout; both services health-checked post-change.
+
 ## 2026-10-01 — Phase 13 security sweep: broader IDOR audit + upload hardening
 
 ### P0 — CRITICAL — Fixed: stored XSS in "Print Biodata" → full account takeover (token theft via `document.write()`)
