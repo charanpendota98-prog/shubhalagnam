@@ -89,6 +89,7 @@ from quality import (
     profile_completeness, trust_score, templates as quality_templates, facets as search_facets,
     save_search, saved_for, delete_search, new_matches_for, mark_alerted, matches_filters,
     log_consent, consent_for, load_saved_searches, load_consent_ledger, CONSENT_LEDGER,
+    SAVED_SEARCHES,
 )
 from interest import (
     PLANS as INTEREST_PLANS, plan_list, get_plan, plan_by_amount, apply_payment,
@@ -102,6 +103,7 @@ from card_generator import generate_id as _gen_id
 from porutham import compute_porutham, porutham_line, norm_nakshatra, norm_rasi
 import topmatch, safety, preview, bot_pool, wa_pool
 import matchbot  # 🧠 Smart Match Assistant — personalized daily briefing + tips
+import digest_engine  # 📬 personalized daily digest engine (generate queue, gated send)
 import smart12 as S12  # 🔒 WAVE 12: masked captions + unlock/entitlement + ₹500 assisted
 import astro as AST      # 🪐 WAVE 13: 36-guna + dosha + jathakam
 import ads as ADS        # 📢 WAVE 13: vendor ad campaigns
@@ -6002,6 +6004,95 @@ async def _send_telegram_public(chat: str, text: str):
 
 
 
+
+
+# ============================================================================
+#  📬 PERSONALIZED DAILY DIGEST (digest_engine.py)
+#  Existing /api/digest = GLOBAL broadcast. These = PER-USER personalized.
+#  🛡️ Generation NEVER sends; real WhatsApp send is gated behind
+#     DIGEST_PERSONAL_SEND=1 AND WHATSAPP_MODE (queue no-ops when wa off).
+# ============================================================================
+def _digest_send_enabled() -> bool:
+    return str(os.getenv("DIGEST_PERSONAL_SEND", "0")).lower() in ("1", "true", "yes", "on")
+
+
+def _personal_digest_batch(lang: str = "te", engaged_only: bool = True):
+    """Generate today's personalized-digest queue (pure generation, no send)."""
+    return digest_engine.run_personal_digests(
+        DB_USERS, DB_USERS, DB_INTERESTS, DB_VIEWS, DB_SAVES,
+        saved_searches=SAVED_SEARCHES, new_matches_fn=new_matches_for,
+        consent_fn=consent_for, lang=lang, engaged_only=engaged_only)
+
+
+@app.get("/api/digest/personal/preview")
+def digest_personal_preview(request: Request = None):
+    """🛡️ ADMIN — dry run: ఎంతమందికి personalized digest వెళ్తుంది, sample texts.
+    No state change, no send. Review చేసి తర్వాత run చెయ్యండి."""
+    require_admin(request)
+    batch = _personal_digest_batch("te", True)
+    return {"success": True, "dry_run": True, "counts": batch["counts"],
+            "queued": batch["queued"], "samples": batch["samples"],
+            "send_gated": not _digest_send_enabled(),
+            "wa_mode": publish_config()["wa_mode"],
+            "how_to_send": "POST /api/digest/personal/run (DIGEST_PERSONAL_SEND=1 + WHATSAPP_MODE on ఉంటేనే పంపుతుంది)"}
+
+
+@app.post("/api/digest/personal/run")
+def digest_personal_run(payload: dict = Body(default={}), request: Request = None):
+    """🛡️ ADMIN — personalized digest queue generate + log. Send ONLY if
+    DIGEST_PERSONAL_SEND=1 AND wa_mode != off (default OFF → live site కి safe)."""
+    require_admin(request)
+    d = payload or {}
+    lang = "en" if str(d.get("lang", "te")).lower() == "en" else "te"
+    engaged_only = req_bool(d.get("engaged_only", True))
+    batch = _personal_digest_batch(lang, engaged_only)
+
+    # log summary to the persisted digest history (kind=personal)
+    DB_DIGEST.append({"at": batch["at"], "kind": "personal", "lang": lang,
+                      "queued": batch["queued"], "counts": batch["counts"]})
+
+    send_enabled = _digest_send_enabled()
+    wa_on = publish_config()["wa_mode"] != "off"
+    if send_enabled and wa_on:
+        def _send(rec):
+            u = _find_user(rec.get("tsap_id", "")) or {}
+            phone = str(u.get("phone", "") or "")
+            if len(phone) < 10:
+                return {"tsap_id": rec.get("tsap_id"), "queued": False, "reason": "no_phone"}
+            q = enqueue_whatsapp([phone], rec.get("text", ""), priority=1, kind="personal_digest")
+            # dedup for next run: mark the saved searches that produced hits
+            hits = {s["search_id"]: s.get("ids", []) for s in rec.get("saved_searches", []) if s.get("ids")}
+            if hits:
+                for sr in saved_for(rec.get("tsap_id", "")):
+                    ids = hits.get(sr.get("search_id"))
+                    if ids:
+                        mark_alerted(sr, ids)
+            return {"tsap_id": rec.get("tsap_id"), **q}
+        send_result = digest_engine.send_digest_queue(batch["queue"], _send)
+        send_result["skipped"] = False
+    else:
+        send_result = {"sent": 0, "failed": 0, "skipped": True,
+                       "reason": "gated_off" if not send_enabled else "wa_mode_off"}
+
+    return {"success": True, "counts": batch["counts"], "queued": batch["queued"],
+            "samples": batch["samples"], "send_enabled": send_enabled, "wa_on": wa_on,
+            "send": send_result,
+            "message_telugu": ("📬 Personalized digest queue సిద్ధం (%d మంది). Send gated — "
+                               "DIGEST_PERSONAL_SEND=1 + WhatsApp on ఉంటేనే పంపుతుంది." % batch["queued"])}
+
+
+@app.get("/api/assistant/digest/{tsap_id}")
+def api_assistant_digest(tsap_id: str, request: Request = None):
+    """🧠 OWNER — మీ personal digest preview (ఈ రోజు మీకు ఏమి పంపుతామో). Owner-guarded."""
+    require_owner(request, tsap_id)
+    me = _find_user(tsap_id)
+    if not me:
+        raise HTTPException(404, "మీ ప్రొఫైల్ దొరకలేదు")
+    rec = digest_engine.build_personal_digest(
+        me, DB_USERS, DB_INTERESTS, DB_VIEWS, DB_SAVES,
+        saved_searches=SAVED_SEARCHES, new_matches_fn=new_matches_for,
+        consent_rows=consent_for(tsap_id), engaged_only=False)  # owner preview: always show
+    return {"success": True, **rec}
 
 
 # ============================================================================
