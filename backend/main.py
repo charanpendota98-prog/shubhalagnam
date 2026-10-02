@@ -101,6 +101,7 @@ from interest import (
 from card_generator import generate_id as _gen_id
 from porutham import compute_porutham, porutham_line, norm_nakshatra, norm_rasi
 import topmatch, safety, preview, bot_pool, wa_pool
+import matchbot  # 🧠 Smart Match Assistant — personalized daily briefing + tips
 import smart12 as S12  # 🔒 WAVE 12: masked captions + unlock/entitlement + ₹500 assisted
 import astro as AST      # 🪐 WAVE 13: 36-guna + dosha + jathakam
 import ads as ADS        # 📢 WAVE 13: vendor ad campaigns
@@ -6271,6 +6272,43 @@ def api_top_matches(tsap_id: str, limit: int = 10, min_score: int = 65, include_
                 f" · 🚫 same-surname {len(s13skip)} skip" if s13skip else "",
                 f" · 🚫 age-rule {len(a14skip)} skip" if a14skip else "",
                 " · ✈️ NRI-only" if nri_only else "")}
+
+
+# ============================================================================
+#  🧠 SMART MATCH ASSISTANT — personalized daily briefing + actionable tips
+#  (matchbot.py: topmatch score + quality nudge + mutual alerts, privacy-safe)
+# ============================================================================
+@app.get("/api/assistant/briefing/{tsap_id}")
+def api_assistant_briefing(tsap_id: str, limit: int = 3, request: Request = None):
+    """🧠 "ఈ రోజు మీ కోసం" — per-user smart digest: top NEW/mutual matches
+    (explainable why), who noticed you (interests received + views), profile
+    nudge. Owner-guarded (IDOR). Output privacy-safe (safe_user — no raw phone)."""
+    require_owner(request, tsap_id)
+    me = _find_user(tsap_id)
+    if not me:
+        raise HTTPException(404, "మీ ప్రొఫైల్ దొరకలేదు")
+    lim = clamp_int(limit, "limit", 1, 6, 3)
+    # blocked/banned already excluded inside matchbot; also respect safety blocks
+    pool = [u for u in DB_USERS if not safety.is_blocked(tsap_id, u.get("tsap_id", ""), DB_BLOCKS)]
+    brief = matchbot.daily_briefing(me, pool, DB_INTERESTS, DB_VIEWS, DB_SAVES,
+                                    blocks=DB_BLOCKS, limit=lim)
+    brief["tips"] = matchbot.assistant_tips(me, brief)
+    return brief
+
+
+@app.get("/api/assistant/tips/{tsap_id}")
+def api_assistant_tips(tsap_id: str, request: Request = None):
+    """🧠 Actionable next-steps only (profile complete / photo / respond / verify)."""
+    require_owner(request, tsap_id)
+    me = _find_user(tsap_id)
+    if not me:
+        raise HTTPException(404, "మీ ప్రొఫైల్ దొరకలేదు")
+    pool = [u for u in DB_USERS if not safety.is_blocked(tsap_id, u.get("tsap_id", ""), DB_BLOCKS)]
+    brief = matchbot.daily_briefing(me, pool, DB_INTERESTS, DB_VIEWS, DB_SAVES,
+                                    blocks=DB_BLOCKS, limit=3)
+    return {"success": True, "tsap_id": tsap_id.upper(),
+            "tips": matchbot.assistant_tips(me, brief),
+            "summary_telugu": brief.get("summary_telugu", "")}
 
 
 # ============================================================================
