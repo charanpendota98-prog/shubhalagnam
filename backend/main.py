@@ -6474,10 +6474,25 @@ def auth_verify(request: Request = None):
 def auth_demo_token(payload: dict = Body(default={}), request: Request = None):
     """
     🎬 Demo/seed profiles ki token (preview/demo lo browsing ki). **Real users ki కాదు** —
-    vaallu OTP (login) use cheyyali. DEMO_LOGIN=0 tho off cheyyachu.
+    vaallu OTP (login) use cheyyali.
+
+    🛡️ HARDENING (deploy-audit round): mundu DEMO_LOGIN default "1" (ON) — production
+    lo kuda. Adi risk: prod DB lo edaina legacy seed/inventory profile (is_seed) unte
+    kimatoku auth lekunda daaniki token vachedi. Ippudu:
+      • APP_ENV=production/prod → default OFF (DEMO_LOGIN=1 explicitly set cheste matrame on)
+      • dev/preview → default ON (sandbox/staging browsing ki only)
+      • eppudu REAL user ki token radu (is_seed tapparledu), dev_mode lo kuda.
     """
-    if str(os.getenv("DEMO_LOGIN", "1")).lower() in ("0", "false", "no", "off"):
+    _prod = str(os.getenv("APP_ENV", "")).lower() in ("production", "prod", "live")
+    _demo_default = "0" if _prod else "1"          # production lo default OFF
+    if str(os.getenv("DEMO_LOGIN", _demo_default)).lower() in ("0", "false", "no", "off"):
         raise HTTPException(403, "🔒 Demo login off లో ఉంది — OTP తో login చెయ్యండి")
+    # 🛡️ Production lo demo tokens asalu ivvamu (defense-in-depth): prod DB lo
+    # edaina legacy seed/inventory profile unte kimatoku auth lekunda token
+    # vachedi. Real users eppudu OTP thoనే login avvali. Dev/preview/test
+    # (dev_mode) lo మాత్రమే demo browsing allow — original behavior.
+    if _prod:
+        raise HTTPException(403, "🔒 Production lo demo login అనుమతి లేదు — OTP (phone) తో login చెయ్యండి")
     tid = clean((payload or {}).get("tsap_id"), 30, "tsap_id")
     u = _find_user(tid)
     if not u:

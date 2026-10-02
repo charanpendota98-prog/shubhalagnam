@@ -51,6 +51,7 @@ services:
       - PAYMENT_AUTO_APPROVE=false
       - DEMO_SEED_ENABLED=false
       - LAUNCH_SEED_COUNT=0
+      - DEMO_LOGIN=false
 
   frontend:
     build:
