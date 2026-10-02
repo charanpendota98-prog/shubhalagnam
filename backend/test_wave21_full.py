@@ -16,6 +16,7 @@ os.environ.setdefault("WA_TEST_FAST", "1")
 os.environ.setdefault("OTP_DEV_MODE", "true")
 os.environ.setdefault("WA_LONG_PAUSE_CHANCE", "0")
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from testutil_paths import src_page  # noqa: E402  # App Router page.tsx + page-client.tsx aware
 
 PASS, FAIL, FAILED = 0, 0, []
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -125,8 +126,7 @@ section("E. frontend static")
 
 
 def read(rel):
-    pth = os.path.join(ROOT, "frontend", rel)
-    return open(pth, encoding="utf-8").read() if os.path.exists(pth) else ""
+    return src_page(os.path.join("frontend", rel))
 
 
 rp = read("src/app/referral/page.tsx")

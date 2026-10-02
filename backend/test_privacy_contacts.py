@@ -22,6 +22,7 @@ import re
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from testutil_paths import src_page  # noqa: E402  # App Router page.tsx + page-client.tsx aware
 # 🐞 FIX (R12): standalone run lo auth ENFORCED → interest send 401. Suite convention: dev mode.
 os.environ.setdefault("WA_TEST_FAST", "1")
 
@@ -243,8 +244,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 def read(path):
-    with open(os.path.join(ROOT, path), "r", encoding="utf-8") as f:
-        return f.read()
+    return src_page(path)
 
 
 reg_pg = read("frontend/src/app/register/page.tsx")

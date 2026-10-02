@@ -18,6 +18,7 @@ os.environ.setdefault("WA_TEST_FAST", "1")
 os.environ.setdefault("OTP_DEV_MODE", "true")
 os.environ.setdefault("WA_LONG_PAUSE_CHANCE", "0")
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from testutil_paths import src_page  # noqa: E402  # App Router page.tsx + page-client.tsx aware
 
 PASS, FAIL, FAILED = 0, 0, []
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -142,8 +143,7 @@ ln = _msrc[:i].count("\n")
 check("C4 top-matches owner-guarded (personal ranking)", "require_owner" in "\n".join(_lines[ln:ln + 12]))
 
 section("D. XSS + misc")
-_p = os.path.join(ROOT, "frontend", "src/app/search/[id]/page.tsx")
-_psrc = open(_p, encoding="utf-8").read() if os.path.exists(_p) else ""
+_psrc = src_page("frontend/src/app/search/[id]/page.tsx")
 check("D1 JSON-LD id sanitized (<>\" stripped)", 'replace(/[<>"\']/g' in _psrc and "safeId" in _psrc)
 _n = sum(1 for _f in [os.path.join(dp, f) for dp, _, fs in os.walk(os.path.join(ROOT, "frontend", "src"))
                       for f in fs if f.endswith(".tsx")]

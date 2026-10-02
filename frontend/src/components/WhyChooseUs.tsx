@@ -13,7 +13,7 @@ const COPY = {
   te: {
     eyebrow: "ఎందుకు మన వివాహ",
     title: "నమ్మకం, గోప్యత, గౌరవం — మూడూ ఒకేచోట",
-    sub: "10,000+ తెలుగు కుటుంబాలు నమ్మిన వేదిక. మీ వివరాలు సురక్షితం, మీ ఎంపిక మీ చేతిలో.",
+    sub: "తెలంగాణ & ఆంధ్రప్రదేశ్ కుటుంబాల నమ్మకమైన వేదిక — OTP ధృవీకరించిన ప్రొఫైల్స్. మీ వివరాలు సురక్షితం, మీ ఎంపిక మీ చేతిలో.",
     features: [
       { icon: "🛡️", t: "ధృవీకరించిన ప్రొఫైల్స్", d: "OTP + వయసు ధృవీకరణ — నకిలీ ప్రొఫైల్స్‌కి చోటు లేదు." },
       { icon: "🔒", t: "ఫోటో గోప్యత", d: "మీ ఫోటోలు మీ అనుమతితోనే కనిపిస్తాయి — వాటర్‌మార్క్ రక్షణ." },
@@ -21,12 +21,12 @@ const COPY = {
       { icon: "💰", t: "సరసమైన ధరలు", d: "₹29 నుంచి · మొదటి 3 ప్రొఫైల్స్ ఉచితం · దాచిన ఛార్జీలు లేవు." },
     ],
     cta: "ఇప్పుడే మొదలుపెట్టండి",
-    badge: "10,000+ కుటుంబాల నమ్మకం",
+    badge: "ధృవీకరించిన ప్రొఫైల్స్ నెట్‌వర్క్",
   },
   en: {
     eyebrow: "Why Mana Vivaha",
     title: "Trust, privacy and respect — all in one place",
-    sub: "A platform trusted by 10,000+ Telugu families. Your details stay safe, your choice stays yours.",
+    sub: "A trusted platform for Telangana & Andhra Pradesh families — OTP-verified profiles. Your details stay safe, your choice stays yours.",
     features: [
       { icon: "🛡️", t: "Verified profiles", d: "OTP + age verification — no room for fake profiles." },
       { icon: "🔒", t: "Photo privacy", d: "Your photos show only with your consent — watermark protected." },
@@ -34,7 +34,7 @@ const COPY = {
       { icon: "💰", t: "Fair pricing", d: "From ₹29 · first 3 profiles free · no hidden charges." },
     ],
     cta: "Get started now",
-    badge: "Trusted by 10,000+ families",
+    badge: "Verified profiles network",
   },
 };
 

@@ -42,6 +42,7 @@ def section(t):
 import main  # noqa: E402
 from hardening import ADMIN_KEY  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
+from testutil_paths import src_page  # noqa: E402  # App Router page.tsx + page-client.tsx aware
 
 client = TestClient(main.app, raise_server_exceptions=False)
 BE = os.path.dirname(os.path.abspath(__file__))
@@ -52,12 +53,12 @@ H_ADMIN = {"x-admin-key": ADMIN_KEY}
 # P1 - install UX markers
 # ===========================================================================
 section("P1 - install UX")
-pwa = open(os.path.join(ROOT, "frontend", "src", "components", "PWA.tsx"), encoding="utf-8").read()
+pwa = src_page("frontend/src/components/PWA.tsx")
 check("P1 manual event listener", "tsap:install-show" in pwa)
 check("P1 iOS steps", "Add to Home Screen" in pwa)
 check("P1 installed detect", "appinstalled" in pwa and "display-mode: standalone" in pwa)
 check("P1 sw register", 'register("/sw.js")' in pwa)
-home = open(os.path.join(ROOT, "frontend", "src", "app", "page.tsx"), encoding="utf-8").read()
+home = src_page("frontend/src/app/page.tsx")
 check("P1 hero button dispatches", 'dispatchEvent(new Event("tsap:install-show"))' in home)
 check("P1 installApp te+en", "App లాగా install చేసుకోండి" in home and "Install as app" in home)
 mf = json.load(open(os.path.join(ROOT, "frontend", "public", "manifest.webmanifest"),
@@ -152,10 +153,8 @@ shutil.rmtree(os.path.join(BE, "backups"), ignore_errors=True)
 # ===========================================================================
 section("B3 - guide + owner card")
 check("B3 guide exists", os.path.exists(os.path.join(ROOT, "BACKUP-GUIDE-TELUGU.md")))
-check("B3 gitignore backups", "backend/backups/" in open(
-    os.path.join(ROOT, ".gitignore"), encoding="utf-8").read())
-own = open(os.path.join(ROOT, "frontend", "src", "app", "owner", "page.tsx"),
-           encoding="utf-8").read()
+check("B3 gitignore backups", "backend/backups/" in src_page(".gitignore"))
+own = src_page("frontend/src/app/owner/page.tsx")
 check("B3 owner backup card", "/api/admin/backup/export" in own
       and "/api/admin/backup/import" in own)
 

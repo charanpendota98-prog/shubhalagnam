@@ -42,6 +42,7 @@ from fastapi.testclient import TestClient  # noqa: E402
 import main  # noqa: E402
 from otp_channels import send_otp, _sms_send, _telegram_send  # noqa: E402
 from telegram_bot import parse_start_ref  # noqa: E402
+from testutil_paths import src_page  # noqa: E402  # App Router page.tsx + page-client.tsx aware
 
 client = TestClient(main.app, raise_server_exceptions=False)
 client.post("/api/demo/seed")
@@ -140,25 +141,25 @@ check("D2 old refs intact", parse_start_ref("/start ch_reddy")["kind"] == "chann
 section("E. FRONTEND STATIC")
 # ═══════════════════════════════════════════════════════════════════════════
 F = os.path.join(ROOT, "frontend")
-reg_src = open(os.path.join(F, "src", "app", "register", "page.tsx"), encoding="utf-8").read()
+reg_src = src_page("frontend/src/app/register/page.tsx")
 check("E1 register password field+show/hide", "Minimum 6 characters" in reg_src and "Show" in reg_src)
 check("E2 register password validation+submit", "Password minimum 6 characters పెట్టండి" in reg_src
       and '"password"' in reg_src)
 check("E3 99 nudge → pricing", "₹99 Sambandham" in reg_src and 'href="/pricing"' in reg_src)
-lg_src = open(os.path.join(F, "src", "app", "login", "page.tsx"), encoding="utf-8").read()
+lg_src = src_page("frontend/src/app/login/page.tsx")
 check("E4 login tabs", '"password"' in lg_src and '"otp"' in lg_src and "Member Login" in lg_src)
 check("E5 forgot+reset wired", "/api/auth/forgot" in lg_src and "/api/auth/reset" in lg_src
       and "Forgot password" in lg_src)
 check("E6 password login wired", "/api/auth/login-password" in lg_src)
-hg_src = open(os.path.join(F, "src", "components", "HomeGrowth.tsx"), encoding="utf-8").read()
-pg_src = open(os.path.join(F, "src", "app", "page.tsx"), encoding="utf-8").read()
+hg_src = src_page("frontend/src/components/HomeGrowth.tsx")
+pg_src = src_page("frontend/src/app/page.tsx")
 check("E7 growth strips", "TeaserStrip" in pg_src and "StoriesStrip" in pg_src
       and "ReligionsStrip" in pg_src and "FinalCta" in pg_src)
 check("E8 blur+lock+CTA", "blur-[6px]" in hg_src and "Photo locked" in hg_src and "View full profile" in hg_src)
 check("E9 religions 3 only", all(x in hg_src for x in ('"Hindu"', '"Muslim"', '"Christian"')))
-cfg_src = open(os.path.join(F, "src", "lib", "site-config.ts"), encoding="utf-8").read()
-mp_src = open(os.path.join(F, "src", "app", "matches", "page.tsx"), encoding="utf-8").read()
-pv_src = open(os.path.join(F, "src", "app", "search", "[id]", "ProfileView.tsx"), encoding="utf-8").read()
+cfg_src = src_page("frontend/src/lib/site-config.ts")
+mp_src = src_page("frontend/src/app/matches/page.tsx")
+pv_src = src_page("frontend/src/app/search/[id]/ProfileView.tsx")
 check("E10 reveal deep-links", "unlock_" in cfg_src and "unlockBot(row.tsap_id)" in mp_src
       and "Full details + Number" in mp_src and "unlockBot(profile.tsap_id)" in pv_src)
 

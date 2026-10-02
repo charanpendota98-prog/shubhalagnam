@@ -43,6 +43,7 @@ def check(name, cond, extra=None):
 from fastapi.testclient import TestClient
 import main
 from interest import safe_user
+from testutil_paths import src_page  # noqa: E402  # App Router page.tsx + page-client.tsx aware
 
 client = TestClient(main.app, raise_server_exceptions=False)
 client.post("/api/demo/seed")
@@ -111,8 +112,7 @@ check("D3 profile pub children", pf.get("children") == "2", pf.get("children"))
 # ═══════════════════════════════════════════════════════════════════════════
 section("E–F. FRONTEND STATIC + HEIGHT MATH")
 # ═══════════════════════════════════════════════════════════════════════════
-reg_p = os.path.join(ROOT, "frontend", "src", "app", "register", "page.tsx")
-reg_src = open(reg_p, encoding="utf-8").read()
+reg_src = src_page("frontend/src/app/register/page.tsx")
 check("E1 PillGroup atom", "function PillGroup" in reg_src)
 check("E2 SelectField atom", "function SelectField" in reg_src)
 check("E3 height dropdown ft/cm", "heightLabel(h)" in reg_src and "Select your height" in reg_src)
@@ -121,11 +121,11 @@ check("E5 conditional children", 'f.marital_status !== "Pelli Kaledu"' in reg_sr
 check("E6 children validation", "Number of children select చెయ్యండి" in reg_src)
 check("E7 religion dropdown", "Select religion" in reg_src and "<option" in reg_src)
 check("E8 physical pills", "Physically challenged" in reg_src and "దివ్యాంగులు" in reg_src)
-td = open(os.path.join(ROOT, "frontend", "src", "lib", "telugu-data.ts"), encoding="utf-8").read()
+td = src_page("frontend/src/lib/telugu-data.ts")
 check("E9 canonical statuses", '"Awaiting Divorce"' in td and '"Widower"' in td and "CHILDREN_OPTIONS" in td)
-mp = open(os.path.join(ROOT, "frontend", "src", "app", "matches", "page.tsx"), encoding="utf-8").read()
+mp = src_page("frontend/src/app/matches/page.tsx")
 check("E10 matches children filter+card", 'setF("children"' in mp and "👶 {row.children}" in mp)
-pv = open(os.path.join(ROOT, "frontend", "src", "app", "search", "[id]", "ProfileView.tsx"), encoding="utf-8").read()
+pv = src_page("frontend/src/app/search/[id]/ProfileView.tsx")
 check("E11 profile children row", "Children • పిల్లలు" in pv)
 m = re.search(r"export function heightLabel\(h: string\): string \{(.*?)\n\}", td, re.S)
 node_src = "function heightLabel(h){" + m.group(1).replace(": string", "") + "\n}" if m else ""

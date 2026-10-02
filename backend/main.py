@@ -7785,10 +7785,22 @@ def api_meta_home_stats():
     plans = [{"code": p.get("code"), "price": p.get("price"), "profiles": p.get("profiles"),
               "label": p.get("label"), "telugu": p.get("telugu"), "badge": p.get("badge")}
              for p in plan_list_with_free()]
+    _stats = real_platform_stats()
     return {"success": True,
             "channels_total": ch.get("total", 0), "channels_live": ch.get("live", 0),
             "channels_by_tier": by_tier,
             "castes_covered": len(MP.castes_for("Hindu").get("castes", [])),
+            # 🛡️ HONEST live numbers — homepage/hero/trust-band ee values chupistundi
+            # (10,000+ constant kaadu). Frontend `useLiveStats()` idi consume chestundi.
+            "profiles_count": _stats.get("profiles_count", 0),
+            "brides_count": _stats.get("brides_count", 0),
+            "grooms_count": _stats.get("grooms_count", 0),
+            "verified_count": _stats.get("verified_count", 0),
+            "verified_percentage": _stats.get("verified_percentage", 0),
+            "districts_with_profiles": _stats.get("districts_with_profiles", 0),
+            "castes_with_profiles": _stats.get("castes_with_profiles", 0),
+            "interests_sent": _stats.get("interests_sent", 0),
+            "stats_are_live": True,
             "free_first": 3,
             "plans": plans,
             "addons": [{"code": a.get("code"), "price": a.get("price"),
@@ -8777,21 +8789,74 @@ def api_castes_list():
     }
 
 
+def real_platform_stats() -> dict:
+    """🛡️ HONEST STATS — single source of truth for every public number.
+
+    ⚠️ Why this changed (deploy-hardening round):
+    This endpoint used to return `max(10000, len(DB_USERS) + 9940)` with a
+    hard-coded `verified_percentage: 98.4` and `daily_matches_generated: 1450`.
+    On a LIVE, paid site that is a fabricated commercial claim: the frontend
+    repeated "10,000+ verified profiles / families" in the hero, the trust band
+    and the referral share templates while the real inventory was a few hundred
+    profiles. That is exactly what the Consumer Protection Act 2019 (misleading
+    advertisements), ASCI code and a payment-gateway/bank KYC review look for —
+    and it also destroys the one asset a matrimony brand has (trust).
+
+    Now every public number is derived from the actual DB:
+      • profiles_count   → approved/live profiles really in the system
+      • verified_*       → OTP/photo/selfie verified counts, not a guessed %
+      • districts/castes → coverage we genuinely serve (these were already real)
+      • daily_matches    → matches we actually generated (retention log), else 0
+    Nothing is padded, and `stats_are_live: true` lets the UI/tests prove the
+    number came from data instead of a marketing constant.
+    """
+    approved = [u for u in DB_USERS if u.get("is_approved", True)]
+    total = len(approved)
+    verified = sum(1 for u in approved if u.get("phone_verified") or u.get("is_verified"))
+    photo_verified = sum(1 for u in approved if u.get("selfie_verified") or u.get("photo_status") == "approved")
+    brides = sum(1 for u in approved if str(u.get("gender", "")).lower() in ("bride", "female", "f"))
+    grooms = sum(1 for u in approved if str(u.get("gender", "")).lower() in ("groom", "male", "m"))
+    districts = {str(u.get("district") or "").strip() for u in approved if str(u.get("district") or "").strip()}
+    castes = {str(u.get("caste") or "").strip() for u in approved if str(u.get("caste") or "").strip()}
+    # "daily matches generated" = ఈ రోజు admin-curated featured profiles (real,
+    # lekunte 0). Mundu 1450 ani constant chepparu — adi nijam kaadu.
+    try:
+        _today = datetime.utcnow().strftime("%Y-%m-%d")
+        daily_matches = len(_load_daily().get(_today, []) or [])
+    except Exception:
+        daily_matches = 0
+    helpline = (os.getenv("SUPPORT_PHONE") or os.getenv("ADMIN_WHATSAPP_NUMBER") or "+916304996088").strip()
+    if helpline and not helpline.startswith("+"):
+        helpline = "+" + helpline
+    return {
+        "success": True,
+        "stats_are_live": True,
+        "profiles_count": total,
+        "profiles_total": total,
+        "brides_count": brides,
+        "grooms_count": grooms,
+        "verified_count": verified,
+        "photo_verified_count": photo_verified,
+        "districts_count": len(TS_DISTRICTS_LIST) + len(AP_DISTRICTS_LIST),
+        "districts_with_profiles": len(districts),
+        "castes_count": len(TELUGU_CASTES_43),
+        "castes_with_profiles": len(castes),
+        "verified_percentage": round((verified / total) * 100, 1) if total else 0.0,
+        "daily_matches_generated": daily_matches,
+        "interests_sent": len(DB_INTERESTS or []),
+        "helpline": helpline,
+        "message_telugu": f"{total} ధృవీకరించబడిన నిజమైన తెలుగు సంబంధాలు • {len(castes)} కులాలు • {len(districts)} జిల్లాలు",
+    }
+
+
 @app.get("/api/stats")
 @app.get("/api/platform/stats")
 def api_platform_stats():
-    """Returns live public platform stats for homepage tickers and trust badges."""
-    total_profiles = max(10000, len(DB_USERS) + 9940)
-    return {
-        "success": True,
-        "profiles_count": total_profiles,
-        "districts_count": len(TS_DISTRICTS_LIST) + len(AP_DISTRICTS_LIST),
-        "castes_count": len(TELUGU_CASTES_43),
-        "verified_percentage": 98.4,
-        "daily_matches_generated": 1450,
-        "helpline": "+91 6304996088",
-        "message_telugu": "10,000+ ధృవీకరించబడిన తెలుగు సంబంధాలు",
-    }
+    """Returns live public platform stats for homepage tickers and trust badges.
+
+    Numbers are real (see `real_platform_stats`) — never inflated.
+    """
+    return real_platform_stats()
 
 
 @app.get("/api/second-marriage/profiles")

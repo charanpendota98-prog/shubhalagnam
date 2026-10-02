@@ -46,6 +46,7 @@ import hardening as H
 import main
 import cms as CMS
 import chanmap as CHAN
+from testutil_paths import src_page  # noqa: E402  # App Router page.tsx + page-client.tsx aware
 
 client = TestClient(main.app, raise_server_exceptions=False)
 HDR_ADMIN = {"X-Admin-Key": H.ADMIN_KEY}
@@ -191,7 +192,7 @@ section("F. DUO BILINGUAL STATIC")
 # ═══════════════════════════════════════════════════════════════════════════
 duo_p = os.path.join(ROOT, "frontend", "src", "lib", "duo.ts")
 check("F1 duo.ts exists", os.path.exists(duo_p))
-css = open(os.path.join(ROOT, "frontend", "src", "app", "globals.css"), encoding="utf-8").read()
+css = src_page("frontend/src/app/globals.css")
 check("F2 .duo-te CSS", ".duo-te" in css)
 n_duo = 0
 for root, _, files in os.walk(os.path.join(ROOT, "frontend", "src")):

@@ -33,6 +33,7 @@ import main as M  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
 
 c = TestClient(M.app, raise_server_exceptions=False)
+from testutil_paths import src_page  # noqa: E402  # App Router page.tsx + page-client.tsx aware
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SRC = os.path.join(ROOT, "frontend", "src")
 
@@ -54,24 +55,54 @@ SLANG = [
 
 
 def visible_text(src_text):
-    """Strip comments so only user-visible code is scanned."""
+    """Strip comments so only user-visible code is scanned.
+
+    🛠️ FIX (deploy-hardening round): the old stripper only understood comments
+    that *start* a line. Multi-line JSX comments like:
+
+        <div>
+          {/* 📱 FIX: … lekapothe peru
+              truncate avvakunda … poyedi — ippudu … */}
+          <h3>{name}</h3>
+
+    leaked their 2nd+ lines into the "visible" text (line 2 begins with regular
+    code indentation, not `/*`), so developer notes written in roman-Telugu were
+    reported as user-visible slang — a false failure that hid real ones.
+
+    Now: (a) block-comment state is tracked no matter where `/*` appears in the
+    line (including `{/*`), (b) inline `/* … */` is removed from the line, and
+    (c) trailing `//` notes are still stripped.
+    """
     out = []
     in_block = False
-    for line in src_text.splitlines():
-        s = line.strip()
+    for raw in src_text.splitlines():
+        line = raw
         if in_block:
-            if "*/" in s:
-                in_block = False
-            continue
-        if s.startswith("/**") or s.startswith("/*"):
-            if "*/" not in s:
+            end = line.find("*/")
+            if end == -1:
+                continue                      # whole line still inside the comment
+            line = line[end + 2:]
+            in_block = False
+            if not line.strip():
+                continue
+        # remove every complete inline block comment on this line
+        while True:
+            a = line.find("/*")
+            if a == -1:
+                break
+            b = line.find("*/", a + 2)
+            if b == -1:
+                line = line[:a]               # comment opens here and runs on
                 in_block = True
-            continue
-        if s.startswith("//") or s.startswith("*") or s.startswith("{/*"):
+                break
+            line = line[:a] + line[b + 2:]
+        s = line.strip()
+        if s.startswith("//") or s.startswith("*"):
             continue
         # strip trailing // comments (naive but fine for scan)
         line = re.sub(r"\s+//.*$", "", line)
-        out.append(line)
+        if line.strip():
+            out.append(line)
     return "\n".join(out)
 
 
@@ -128,27 +159,27 @@ for pg in PAGES:
     if not os.path.exists(fp):
         missing.append((pg, "FILE MISSING"))
         continue
-    src = open(fp, encoding="utf-8").read()
+    src = src_page(fp)
     if not ("useLang" in src or "Duo" in src or "duo(" in src):
         missing.append((pg, "no lang mechanism"))
 check("N2.1 all client pages lang-aware", not missing, missing[:6])
 
 section("N3 no-demo")
-login_src = open(os.path.join(SRC, "app/login/page.tsx"), encoding="utf-8").read()
-matches_src = open(os.path.join(SRC, "app/matches/page.tsx"), encoding="utf-8").read()
-referral_src = open(os.path.join(SRC, "app/referral/page.tsx"), encoding="utf-8").read()
-nf_src = open(os.path.join(SRC, "app/not-found.tsx"), encoding="utf-8").read()
+login_src = src_page("frontend/src/app/login/page.tsx")
+matches_src = src_page("frontend/src/app/matches/page.tsx")
+referral_src = src_page("frontend/src/app/referral/page.tsx")
+nf_src = src_page("frontend/src/app/not-found.tsx")
 check("N3.1 login has no demo UI", "demoLogin" not in login_src and "Demo login" not in login_src)
 check("N3.2 matches has no demo rows", "DEMO" not in visible_text(matches_src).upper().replace("NO DEMO", ""))
 check("N3.3 referral has no DEMO_ID", "DEMO_ID" not in referral_src)
 check("N3.4 not-found has no stale count claim", "76+" not in nf_src and "76" not in nf_src)
 check("N3.5 layout metadata clean", all(
-    t not in open(os.path.join(SRC, "app/layout.tsx"), encoding="utf-8").read()
+    t not in src_page("frontend/src/app/layout.tsx")
     for t in ("ke Sambandham", "Modati", "modati", "3 numbers FREE", "lo register")))
 
 section("N4 smooth scroll + BackToTop")
-css = open(os.path.join(SRC, "app/globals.css"), encoding="utf-8").read()
-layout = open(os.path.join(SRC, "app/layout.tsx"), encoding="utf-8").read()
+css = src_page("frontend/src/app/globals.css")
+layout = src_page("frontend/src/app/layout.tsx")
 check("N4.1 smooth scroll", "scroll-behavior: smooth" in css)
 check("N4.2 anchor offset", "scroll-padding-top" in css)
 check("N4.3 BackToTop mounted", "BackToTop" in layout
@@ -169,7 +200,7 @@ r = c.get("/api/channels")
 check("N5.3 channels 200", r.status_code == 200, (r.status_code, r.text[:120]))
 
 section("N6 backend neat Telugu (referral program + no fake)")
-ref_src = open(os.path.join(ROOT, "backend", "referral.py"), encoding="utf-8").read()
+ref_src = src_page("backend/referral.py")
 ref_user_lines = [l for l in ref_src.splitlines()
                   if "telugu" in l.lower() and '"' in l and not l.strip().startswith("#")]
 ref_blob = "\n".join(ref_user_lines)
@@ -178,20 +209,20 @@ for tok in ("ke Sambandham", "100+", "dorakaledu", "okkasari", "cheyyochu", "Mod
             "garu,", "garu ", "Mee ", "mee ", "cheyyagane", "ayyindi", "avvachu",
             "ivvaledu", "ivvandi", "matrame", "kosam", "nunchi", "levu", "ledu"):
     check(f"N6.1 no {tok!r} in referral.py user strings", tok not in ref_blob, tok)
-main_src = open(os.path.join(ROOT, "backend", "main.py"), encoding="utf-8").read()
+main_src = src_page("backend/main.py")
 check("N6.2 no ke Sambandham in main.py user strings",
       "ke Sambandham" not in main_src.replace("Modati 3", ""))
 
 section("N7 admin hidden from public UI (anti-scam)")
-header_src = open(os.path.join(SRC, "components", "SiteHeader.tsx"), encoding="utf-8").read()
-footer_src = open(os.path.join(SRC, "components", "SiteFooter.tsx"), encoding="utf-8").read()
+header_src = src_page("frontend/src/components/SiteHeader.tsx")
+footer_src = src_page("frontend/src/components/SiteFooter.tsx")
 check("N7.1 no /admin link in header", '"/admin"' not in header_src and "'/admin'" not in header_src)
 check("N7.2 no /growth link in header", "href=\"/growth\"" not in header_src)
 check("N7.3 no /admin link in footer", '"/admin"' not in footer_src)
-robots_src = open(os.path.join(SRC, "app", "robots.ts"), encoding="utf-8").read()
+robots_src = src_page("frontend/src/app/robots.ts")
 check("N7.4 robots blocks admin+growth",
       all(x in robots_src for x in ("/admin", "/growth")))
-sitemap_src = open(os.path.join(SRC, "app", "sitemap.ts"), encoding="utf-8").read()
+sitemap_src = src_page("frontend/src/app/sitemap.ts")
 check("N7.5 sitemap has no admin/growth",
       "/admin" not in sitemap_src and "/growth" not in sitemap_src)
 
@@ -243,12 +274,12 @@ check("N9.4 no ke Sambandham anywhere backend",
       "ke Sambandham" not in _full.replace("99keSambandham", ""))
 
 section("N8 no-fake markers on illustrations")
-home_src = open(os.path.join(SRC, "app", "page.tsx"), encoding="utf-8").read()
+home_src = src_page("frontend/src/app/page.tsx")
 check("N8.1 hero card marked sample", "నమూనా" in home_src)
 # 🐞 FIX (R12): "Sample message" → bilingual "నమూనా/Sample" badge (R5 mockup rebuild)
 check("N8.2 whatsapp mock marked sample", "Sample" in home_src and "నమూనా" in home_src)
 check("N8.3 no No.1 claims", "No.1" not in home_src
-      and "No.1" not in open(os.path.join(SRC, "app", "layout.tsx"), encoding="utf-8").read()
+      and "No.1" not in src_page("frontend/src/app/layout.tsx")
       and "No.1" not in footer_src)
 
 print(f"\n{'=' * 60}\n🌊 WAVE 31 NEAT: {PASS} passed, {FAIL} failed")

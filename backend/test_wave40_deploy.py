@@ -40,6 +40,7 @@ def section(t):
 
 import main  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
+from testutil_paths import src_page  # noqa: E402  # App Router page.tsx + page-client.tsx aware
 
 client = TestClient(main.app, raise_server_exceptions=False)
 BE = os.path.dirname(os.path.abspath(__file__))
@@ -49,7 +50,7 @@ ROOT = os.path.join(BE, "..")
 # D1 - env template
 # ===========================================================================
 section("D1 - env template")
-env = open(os.path.join(ROOT, ".env.example"), encoding="utf-8").read()
+env = src_page(".env.example")
 for v in ("TSAP_AUTH_MODE", "TSAP_API_KEY", "ADMIN_KEY", "JWT_SECRET", "CORS_ORIGINS",
           "PUBLIC_SITE_URL", "OTP_CHANNELS", "MSG91_KEY", "FAST2SMS_KEY", "PAYMENTS_LIVE",
           "RAZORPAY_KEY_ID", "RAZORPAY_KEY_SECRET", "RAZORPAY_WEBHOOK_SECRET",
@@ -71,7 +72,7 @@ except Exception as ex:
 check("D2 yaml valid", yok)
 svc = (prod.get("services", {}) if yok else {})
 check("D2 backend+frontend", "backend" in svc and "frontend" in svc, list(svc))
-praw = open(os.path.join(ROOT, "docker-compose.prod.yml"), encoding="utf-8").read()
+praw = src_page("docker-compose.prod.yml")
 cmds = " ".join(str(s.get("command", "")) for s in svc.values())
 check("D2 no reload/dev", "--reload" not in cmds and "dev" not in cmds, cmds[:150])
 check("D2 workers=1", "--workers 1" in cmds and "--workers 2" not in cmds)
@@ -144,7 +145,7 @@ if os.path.exists(g):
     gt = open(g, encoding="utf-8").read()
     check("D6 guide steps", all(k in gt.lower() for k in
           ("docker compose", ".env", "caddy", "backup", "rollback")), gt[:100])
-nc = open(os.path.join(ROOT, "frontend", "next.config.mjs"), encoding="utf-8").read()
+nc = src_page("frontend/next.config.mjs")
 check("D6 api proxy", "BACKEND_URL" in nc and "/api/:path*" in nc)
 
 # ===========================================================================

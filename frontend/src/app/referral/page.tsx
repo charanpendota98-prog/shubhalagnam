@@ -34,9 +34,9 @@ const SHOP_TEMPLATES: Record<string, {
     hookTe: "⚡ కేవలం 1-నిమిషంలో ఉచిత రిజిస్ట్రేషన్!",
     hookEn: "1-MINUTE FREE TELUGU MATRIMONY REGISTRATION",
     subTe: "📱 ఈ QR కోడ్‌ని కెమెరా / PhonePe / GPay తో స్కాన్ చేయండి!",
-    subEn: "Scan QR with any Camera / PhonePe / GPay to get 10,000+ matches",
+    subEn: "Scan QR with any Camera / PhonePe / GPay to browse verified Telugu matches",
     points: [
-      "10,000+ ధృవీకరించబడిన వధువు & వరుల సంబంధాలు",
+      "ధృవీకరించబడిన వధువు & వరుల సంబంధాలు",
       "100% ఫోటో & ఫోన్ నంబర్ గోప్యతా రక్షణ",
       "కేవలం ₹99 కే ప్లాన్స్ — వేల రూపాయల భారం లేదు!",
     ],
@@ -76,7 +76,7 @@ const SHOP_TEMPLATES: Record<string, {
     hookTe: "⚡ వేడి వేడి టీ తాగుతూ... 1-నిమిషంలో పెళ్లి సంబంధాలు!",
     hookEn: "1-MINUTE INSTANT TELUGU MATRIMONY SEARCH",
     subTe: "📱 మీ మొబైల్ కెమెరాతో QR స్కాన్ చేసి సంబంధాలు చూడండి!",
-    subEn: "Scan QR on your phone to explore 10,000+ matches instantly",
+    subEn: "Scan QR on your phone to explore verified matches instantly",
     points: [
       "1 నిమిషంలో సులభమైన ఉచిత రిజిస్ట్రేషన్",
       "33 TS & 26 AP జిల్లాల సంబంధాలు",
@@ -101,13 +101,13 @@ const SHOP_TEMPLATES: Record<string, {
     id: "story",
     label: "📱 WhatsApp Status Story",
     badge: "WHATSAPP STATUS FLYER",
-    hookTe: "⚡ 1-నిమిషంలో రిజిస్ట్రేషన్ • 10,000+ సంబంధాలు!",
+    hookTe: "⚡ 1-నిమిషంలో రిజిస్ట్రేషన్ • ధృవీకరించిన సంబంధాలు!",
     hookEn: "SCAN QR TO FIND YOUR PERFECT TELUGU MATCH!",
     subTe: "📱 PhonePe / GPay / కెమెరాతో QR స్కాన్ చేయండి!",
     subEn: "Scan with PhonePe, GPay or Camera to register free in 1-min!",
     points: [
       "1-నిమిషంలో ఉచిత రిజిస్ట్రేషన్",
-      "10,000+ ధృవీకరించబడిన ప్రొఫైల్స్",
+      "ధృవీకరించబడిన ప్రొఫైల్స్",
       "100% సేఫ్ & ప్రైవేట్",
     ],
   },
@@ -734,7 +734,7 @@ export default function ReferralPage() {
                 </button>
                 <a
                   href={`https://wa.me/?text=${encodeURIComponent(
-                    `🙏 *మన వివాహ (MANA VIVAHA) — తెలుగు వివాహ వేదిక*\n⚡ *కేవలం 1-నిమిషంలో ఉచిత రిజిస్ట్రేషన్!*\n💍 10,000+ ధృవీకరించబడిన సంబంధాలు • కేవలం ₹99 కే ప్లాన్స్!\n📲 నా రిఫరల్ లింక్ ద్వారా ఇప్పుడే ఉచితంగా చేరండి:\n👉 https://manavivaha.in/register?ref=${refCodeActive}\n\n(లేదా QR కోడ్ స్కాన్ చేయండి)`
+                    `🙏 *మన వివాహ (MANA VIVAHA) — తెలుగు వివాహ వేదిక*\n⚡ *కేవలం 1-నిమిషంలో ఉచిత రిజిస్ట్రేషన్!*\n💍 ధృవీకరించబడిన తెలుగు సంబంధాలు • కేవలం ₹99 కే ప్లాన్స్!\n📲 నా రిఫరల్ లింక్ ద్వారా ఇప్పుడే ఉచితంగా చేరండి:\n👉 https://manavivaha.in/register?ref=${refCodeActive}\n\n(లేదా QR కోడ్ స్కాన్ చేయండి)`
                   )}`}
                   target="_blank"
                   rel="noreferrer"
@@ -879,14 +879,14 @@ export default function ReferralPage() {
                       {SHOP_TEMPLATES[shopTemplate]?.subTe || "📱 కెమెరా / PhonePe / GPay తో స్కాన్ చేయండి"}
                     </div>
                     <div className="text-[10px] text-slate-500 font-bold">
-                      {SHOP_TEMPLATES[shopTemplate]?.subEn || "Scan to get 10,000+ suitable Telugu matches"}
+                      {SHOP_TEMPLATES[shopTemplate]?.subEn || "Scan to browse verified Telugu matches"}
                     </div>
                   </div>
 
                   {/* Marketing Highlights */}
                   <div className="space-y-1.5 text-xs text-slate-800 text-left bg-amber-50/70 p-3.5 rounded-2xl border border-gold/30">
                     {(SHOP_TEMPLATES[shopTemplate]?.points || [
-                      "10,000+ ధృవీకరించబడిన వధువు & వరుల సంబంధాలు",
+                      "ధృవీకరించబడిన వధువు & వరుల సంబంధాలు",
                       "100% ఫోటో & ఫోన్ నంబర్ గోప్యతా రక్షణ",
                       "కేవలం ₹99 కే ప్లాన్స్ — వేల రూపాయల భారం లేదు!",
                     ]).map((pt, i) => (

@@ -44,6 +44,7 @@ def section(t):
 import main  # noqa: E402
 from hardening import sign_token, ADMIN_KEY  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
+from testutil_paths import src_page  # noqa: E402  # App Router page.tsx + page-client.tsx aware
 
 client = TestClient(main.app, raise_server_exceptions=False)
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
@@ -60,28 +61,26 @@ EP = f"https://fcm.googleapis.com/fcm/send/w38-{RUN.lower()}"
 # M1 - PWA files/markers
 # ===========================================================================
 section("M1 - PWA + push + owner files")
-mf = open(os.path.join(ROOT, "frontend", "public", "manifest.webmanifest"), encoding="utf-8").read()
+mf = src_page("frontend/public/manifest.webmanifest")
 check("M1 manifest shortcuts+maskable", '"shortcuts"' in mf and '"maskable"' in mf
       and '"start_url"' in mf)
-sw = open(os.path.join(ROOT, "frontend", "public", "sw.js"), encoding="utf-8").read()
+sw = src_page("frontend/public/sw.js")
 check("M1 sw push+click handlers", 'addEventListener("push"' in sw
       and 'addEventListener("notificationclick"' in sw, sw[:80])
 check("M1 sw version bumped (v7 — R9)", "mv-v7" in sw)
-pb = open(os.path.join(ROOT, "frontend", "src", "components", "PushBell.tsx"), encoding="utf-8").read()
+pb = src_page("frontend/src/components/PushBell.tsx")
 check("M1 PushBell wires 3 APIs", "/api/push/subscribe" in pb and "/api/push/unsubscribe" in pb
       and "/api/push/notify/" in pb and "pushManager" in pb)
-me = open(os.path.join(ROOT, "frontend", "src", "app", "me", "page.tsx"), encoding="utf-8").read()
+me = src_page("frontend/src/app/me/page.tsx")
 check("M1 /me Alerts tab", '"alerts"' in me and "PushBell" in me)
-al = open(os.path.join(ROOT, "frontend", "public", ".well-known", "assetlinks.json"),
-          encoding="utf-8").read()
+al = src_page("frontend/public/.well-known/assetlinks.json")
 check("M1 assetlinks package", "in.manavivaha.app" in al)
 check("M1 playstore guide", os.path.exists(os.path.join(ROOT, "PLAYSTORE-GUIDE-TELUGU.md")))
-env = open(os.path.join(ROOT, ".env.example"), encoding="utf-8").read()
+env = src_page(".env.example")
 check("M1 VAPID env template", "VAPID_PUBLIC_KEY" in env and "VAPID_PRIVATE_KEY" in env)
 check("M1 /owner page hidden (no nav link)",
       os.path.exists(os.path.join(ROOT, "frontend", "src", "app", "owner", "page.tsx"))
-      and 'href="/owner"' not in open(os.path.join(
-          ROOT, "frontend", "src", "components", "SiteHeader.tsx"), encoding="utf-8").read())
+      and 'href="/owner"' not in src_page("frontend/src/components/SiteHeader.tsx"))
 
 # ===========================================================================
 # M2 - push flow
