@@ -16,6 +16,7 @@ import os
 import sys
 import json
 import random as _rnd  # 🛡️ R10: unique phone per run
+from testutil_paths import src_page  # noqa: E402  # App Router page.tsx + page-client.tsx aware
 
 os.environ.setdefault("PUBLISH_DRY_RUN", "true")
 os.environ.setdefault("WA_TEST_FAST", "true")
@@ -407,8 +408,18 @@ def test_pricing_pages_and_payments():
           and "FAQ" in pages["pricing"] and "రెండు వైపులా accept" in pages["pricing"])
     check("/refund policy lo decline-refund + 7-day + GST", all(x in pages["refund"] for x in
           ("7 ", "declin", "GST", "6")))
-    check("/terms lo eligibility 18+/21+ + chatting ledu + banned list", all(x in pages["terms"] for x in
-          ("21+", "Chatting", "Prohibited", "Hyderabad")))
+    # 🛠️ FIX: the invariant is "terms must state the no-chatting model + age
+    # eligibility + banned-conduct list + jurisdiction" — in EITHER language.
+    # The old assertion hard-coded the English word "Chatting" with a capital C,
+    # while the shipped copy says "No casual chatting / DM feature" (and the
+    # Telugu block says "చాటింగ్"), so the check failed on a casing technicality
+    # instead of testing the real policy content.
+    _terms = pages["terms"]
+    _terms_lower = _terms.lower()
+    check("/terms lo eligibility 18+/21+ + chatting ledu + banned list",
+          all(x in _terms for x in ("21+", "Prohibited", "Hyderabad"))
+          and ("chatting" in _terms_lower or "చాటింగ్" in _terms),
+          [t for t in ("21+", "Prohibited", "Hyderabad", "chatting") if t not in _terms and t.lower() not in _terms_lower])
     check("/privacy lo DPDP + grievance officer + delete 30 days", all(x in pages["privacy"] for x in
           ("Grievance", "30 ", "delete", "అమ్మము")))
     _links = {"pricing": ["/refund", "/terms", "/privacy"], "terms": ["/pricing", "/refund", "/privacy"],
@@ -426,8 +437,7 @@ def test_pricing_pages_and_payments():
 
 
 def pathlib_read(path):
-    with open(path, "r", encoding="utf-8") as f:
-        return f.read()
+    return src_page(path)
 
 
 # --------------------------------------------------------------------------- #

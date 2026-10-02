@@ -23,6 +23,7 @@ import sys
 import tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from testutil_paths import src_page  # noqa: E402  # App Router page.tsx + page-client.tsx aware
 
 import vendors as V  # noqa: E402
 
@@ -260,8 +261,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 def read(path):
-    with open(os.path.join(ROOT, path), "r", encoding="utf-8") as f:
-        return f.read()
+    return src_page(path)
 
 
 dir_pg = read("frontend/src/app/vendors/page.tsx")

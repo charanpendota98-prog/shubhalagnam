@@ -11,6 +11,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useLang, type Lang } from "@/lib/lang";
+import { useLiveStats, fmtNum, type LiveStats } from "@/lib/live-stats";
 
 const COPY = {
   te: {
@@ -26,11 +27,14 @@ const COPY = {
       { icon: "🔒", t: "సంపూర్ణ ఫోటో గోప్యత", sub: "వాటర్‌మార్క్ భద్రత" },
       { icon: "👨‍👩‍👧‍👦", t: "నేరుగా కుటుంబాల పరిచయం", sub: "చాటింగ్ లేదు • డైరెక్ట్ కనెక్ట్" },
     ],
+    // 🛡️ honest stats: `key` ni useLiveStats() backend nunchi real value tho fill chestundi.
+    // "3,500+ marriages" lanti substatiate cheyale ni number tisesaru — yerine nijam
+    // coverage (districts) + verified profiles. 100% safe = policy claim (count kaadu).
     stats: [
-      { val: "10,000+", lbl: "ధృవీకరించిన ప్రొఫైల్స్" },
-      { val: "3,500+", lbl: "శుభ వివాహాలు" },
-      { val: "52+", lbl: "కమ్యూనిటీ ఛానల్స్" },
-      { val: "100%", lbl: "సురక్షితం & గోప్యత" },
+      { key: "profiles", val: "", lbl: "ధృవీకరించిన ప్రొఫైల్స్" },
+      { key: "districts", val: "", lbl: "జిల్లాల కవరేజ్" },
+      { key: "channels", val: "", lbl: "కమ్యూనిటీ ఛానల్స్" },
+      { key: "safety", val: "100%", lbl: "సురక్షితం & గోప్యత" },
     ],
   },
   en: {
@@ -47,10 +51,10 @@ const COPY = {
       { icon: "👨‍👩‍👧‍👦", t: "Direct Family-to-Family Connect", sub: "No chatting • Direct numbers" },
     ],
     stats: [
-      { val: "10,000+", lbl: "Verified Profiles" },
-      { val: "3,500+", lbl: "Happy Marriages" },
-      { val: "52+", lbl: "Community Channels" },
-      { val: "100%", lbl: "Safe & Privacy First" },
+      { key: "profiles", val: "", lbl: "Verified Profiles" },
+      { key: "districts", val: "", lbl: "Districts Covered" },
+      { key: "channels", val: "", lbl: "Community Channels" },
+      { key: "safety", val: "100%", lbl: "Safe & Privacy First" },
     ],
   },
 };
@@ -59,6 +63,15 @@ export default function CinematicHero() {
   const { lang } = useLang();
   const te = lang === "te";
   const L = COPY[(lang as Lang) in COPY ? (lang as Lang) : "te"];
+  const live = useLiveStats();
+  const _curLang: Lang = (lang as Lang) in COPY ? (lang as Lang) : "te";
+  // Real value resolver — fabricated numbers ikkada radu, backend truth matrame.
+  const statVal = (s: { key?: string; val: string }): string => {
+    if (s.key === "profiles") return fmtNum(live.profiles_count) + "+";
+    if (s.key === "districts") return (live.districts_with_profiles || 59) + "+";
+    if (s.key === "channels") return fmtNum(live.channels_total || live.channels_live) + "+";
+    return s.val || "100%";
+  };
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -246,7 +259,9 @@ export default function CinematicHero() {
 
                 <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-950/80 border border-emerald-500/40 text-[10px] sm:text-[11px] font-bold text-emerald-300">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                  <span>10,000+ ధృవీకరించిన సంబంధాలు</span>
+                  <span>{_curLang === "te"
+                    ? `${fmtNum(live.profiles_count)}+ ధృవీకరించిన సంబంధాలు`
+                    : `${fmtNum(live.profiles_count)}+ verified matches`}</span>
                 </span>
               </div>
 
@@ -328,7 +343,7 @@ export default function CinematicHero() {
             <div className="w-full max-w-md bg-black/60 backdrop-blur-xl border border-amber-400/35 rounded-3xl p-3.5 shadow-2xl grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
               {L.stats.map((s, idx) => (
                 <div key={idx} className="space-y-0.5">
-                  <div className="text-lg sm:text-xl font-black text-amber-300">{s.val}</div>
+                  <div className="text-lg sm:text-xl font-black text-amber-300">{statVal(s)}</div>
                   <div className="text-[10px] sm:text-[11px] font-semibold text-gray-300 leading-tight">{s.lbl}</div>
                 </div>
               ))}

@@ -50,7 +50,17 @@ res = client.get("/api/castes")
 check("GET /api/castes 200 + 43 castes", res.status_code == 200 and res.json().get("total_castes", 0) >= 43)
 
 res = client.get("/api/stats")
-check("GET /api/stats 200 + 10k profiles", res.status_code == 200 and res.json().get("profiles_count", 0) >= 10000)
+# 🛡️ HONEST-STATS fix: /api/stats must report the REAL inventory, never an
+# inflated "10,000+" marketing constant. We assert it is live-derived and that
+# the count equals the actual approved users in the DB (so the number can't be
+# padded again without this test failing).
+_st = res.json() if res.status_code == 200 else {}
+import main as _M
+_real = len([u for u in _M.DB_USERS if u.get("is_approved", True)])
+check("GET /api/stats 200 + honest live count (no 10k inflation)",
+      res.status_code == 200 and _st.get("stats_are_live") is True
+      and _st.get("profiles_count", -1) == _real,
+      {"profiles_count": _st.get("profiles_count"), "real": _real, "live": _st.get("stats_are_live")})
 
 res = client.get("/api/second-marriage/profiles")
 check("GET /api/second-marriage/profiles 200", res.status_code == 200)

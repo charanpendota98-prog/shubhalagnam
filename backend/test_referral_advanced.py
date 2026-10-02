@@ -23,6 +23,7 @@ import tempfile
 import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from testutil_paths import src_page  # noqa: E402  # App Router page.tsx + page-client.tsx aware
 
 import referral as R  # noqa: E402
 
@@ -402,8 +403,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 def read(path):
-    with open(os.path.join(ROOT, path), "r", encoding="utf-8") as f:
-        return f.read()
+    return src_page(path)
 
 
 dash_pg = read("frontend/src/app/referral/page.tsx")

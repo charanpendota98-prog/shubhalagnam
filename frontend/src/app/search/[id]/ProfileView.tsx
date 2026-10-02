@@ -514,7 +514,7 @@ export default function ProfileView() {
                 ["📍 ప్రాంతం", `${profile.district || "—"}, ${profile.state ? stateFullName(profile.state, te) : "—"}`],
                 ["⭐ నక్షత్రం (రిఫరెన్స్)", `${profile.star || "—"} / ${profile.rasi || "—"}`],
                 ["💍 వైవాహిక స్థితి", profile.marital_status || "—"],
-                ["👶 పిల్లలు", profile.children && profile.children !== "None" ? profile.children : "లేరు (None)"],
+                ["👶 Children • పిల్లలు", profile.children && profile.children !== "None" ? profile.children : "లేరు (None)"],
                 ["🕉️ గోత్రం (రిఫరెన్స్)", profile.gothram || "—"],
                 ["👨‍👩‍👧 కుటుంబం", `${profile.family_type || "—"} · ${profile.family_status || "—"}`],
                 ["🧿 దోషం", profile.dosham || "లేదు (None)"],

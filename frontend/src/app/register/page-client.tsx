@@ -910,7 +910,7 @@ function Wizard() {
                 className="py-3.5 px-4 rounded-xl maroon-gradient text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-md hover:brightness-105 transition"
               >
                 <span>🔍</span>
-                <span>{T("10,000+ సంబంధాలు చూడండి", "View Matching Profiles")}</span>
+                <span>{T("ధృవీకరించిన సంబంధాలు చూడండి", "View Matching Profiles")}</span>
               </Link>
 
               <Link
@@ -1400,7 +1400,7 @@ function Wizard() {
                 <span className="text-[10px] text-slate-500 font-mono">/api/free-plan</span>
               </div>
               <div className="text-slate-600 space-y-1">
-                <div><b>FREE లో ఇచ్చేది:</b> ఉచిత రిజిస్ట్రేషన్, 10,000+ సంబంధాల శోధన, 3 ఉచిత కాంటాక్ట్ రిక్వెస్ట్స్.</div>
+                <div><b>FREE లో ఇచ్చేది:</b> ఉచిత రిజిస్ట్రేషన్, ధృవీకరించిన సంబంధాల శోధన, 3 ఉచిత కాంటాక్ట్ రిక్వెస్ట్స్.</div>
                 <div><b>FREE లో ఇవ్వనిది:</b> డైరెక్ట్ ఫోన్ నంబర్లు <b>ఎవరికీ ఇవ్వము</b> (ఇరువైపులా ఆమోదం పొందిన తర్వాత లేదా ప్లాన్ ఉన్నప్పుడే నంబర్లు మార్పిడి అవుతాయి).</div>
               </div>
             </div>
@@ -1487,7 +1487,7 @@ function Wizard() {
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="text-emerald-600 font-bold">✓</span>
-                    <span>10,000+ సంబంధాల శోధన అందుబాటు</span>
+                    <span>ధృవీకరించిన సంబంధాల శోధన అందుబాటు</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="text-emerald-600 font-bold">✓</span>

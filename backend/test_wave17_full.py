@@ -46,6 +46,7 @@ from fastapi.testclient import TestClient  # noqa: E402
 import main  # noqa: E402
 from interest import safe_user  # noqa: E402
 from photo_validate import validate_photo  # noqa: E402
+from testutil_paths import src_page  # noqa: E402  # App Router page.tsx + page-client.tsx aware
 
 random.seed(17)
 
@@ -204,26 +205,26 @@ check("E3 profile pub selfie+photo", pf.get("selfie_verified") is True and pf.ge
 section("F. FRONTEND STATIC + PWA")
 # ═══════════════════════════════════════════════════════════════════════════
 F = os.path.join(ROOT, "frontend")
-reg_src = open(os.path.join(F, "src", "app", "register", "page.tsx"), encoding="utf-8").read()
+reg_src = src_page("frontend/src/app/register/page.tsx")
 check("F1 family pills canonical", "Upper Middle Class" in reg_src and "Rich / Affluent (Elite)" in reg_src)
 check("F2 about mandatory+counter", "Minimum 50 characters" in reg_src and "minimum 50 characters" in reg_src)
 check("F3 about contact guard", "[6-9]" in reg_src and "పెట్టకండి" in reg_src)
 check("F4 PhotoFlow on success", "PhotoFlow" in reg_src and "<PhotoFlow tsapId={tsap}" in reg_src)
-pf_src = open(os.path.join(F, "src", "components", "PhotoFlow.tsx"), encoding="utf-8").read()
+pf_src = src_page("frontend/src/components/PhotoFlow.tsx")
 check("F5 PhotoFlow states", all(x in pf_src for x in
       ("Add photo for better responses", "Upload in progress", "Photo not approved",
        "Add new photo", "I will do this later", "Photo approved", "validation in progress")))
-vf_src = open(os.path.join(F, "src", "app", "verify", "page.tsx"), encoding="utf-8").read()
+vf_src = src_page("frontend/src/app/verify/page.tsx")
 check("F6 verify selfie page", "Verify with a live selfie" in vf_src and "/api/verify/selfie" in vf_src)
-ap_src = open(os.path.join(F, "src", "app", "admin", "photos", "page.tsx"), encoding="utf-8").read()
-adm_src = open(os.path.join(F, "src", "app", "admin", "page.tsx"), encoding="utf-8").read()
+ap_src = src_page("frontend/src/app/admin/photos/page.tsx")
+adm_src = src_page("frontend/src/app/admin/page.tsx")
 check("F7 admin review UI+tab", "/api/admin/photos/review" in ap_src and '"photos"' in adm_src)
-lg_src = open(os.path.join(F, "src", "app", "login", "page.tsx"), encoding="utf-8").read()
+lg_src = src_page("frontend/src/app/login/page.tsx")
 check("F8 keep-logged-in checkbox", "Keep me logged in" in lg_src and "sessionStorage" in
-      open(os.path.join(F, "src", "lib", "api.ts"), encoding="utf-8").read())
-man = open(os.path.join(F, "public", "manifest.webmanifest"), encoding="utf-8").read()
+      src_page("frontend/src/lib/api.ts"))
+man = src_page("frontend/public/manifest.webmanifest")
 check("F9 PWA manifest installable", '"standalone"' in man and "icon-512" in man and "shortcuts" in man)
-pwa_src = open(os.path.join(F, "src", "components", "PWA.tsx"), encoding="utf-8").read()
+pwa_src = src_page("frontend/src/components/PWA.tsx")
 check("F10 install prompt + SW", "beforeinstallprompt" in pwa_src and "serviceWorker" in pwa_src)
 
 print(f"\n{'=' * 76}\nRESULT: {PASS} pass / {FAIL} fail")

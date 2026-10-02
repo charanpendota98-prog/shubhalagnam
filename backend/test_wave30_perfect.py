@@ -34,6 +34,7 @@ import hardening as H
 import referral
 import paypro as PP
 from fastapi.testclient import TestClient
+from testutil_paths import src_page  # noqa: E402  # App Router page.tsx + page-client.tsx aware
 
 c = TestClient(M.app, raise_server_exceptions=False)
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -83,20 +84,20 @@ try:
     check("P2.3 no demo testimonials", not demo, demo[:3])
     amma = grep_count("amma channels")
     check("P2.4 no 'amma channels'", not amma, amma[:2])
-    home_src = open(os.path.join(src, "app", "page.tsx"), encoding="utf-8").read()
+    home_src = src_page("frontend/src/app/page.tsx")
     check("P2.5 home fetches home-stats", "/api/meta/home-stats" in home_src)
     check("P2.6 home uses lang", "useLang" in home_src and "TEXT[lang" in home_src)
 
     section("P3 Telugu/English toggle system")
-    lang_src = open(os.path.join(src, "lib", "lang.tsx"), encoding="utf-8").read()
+    lang_src = src_page("frontend/src/lib/lang.tsx")
     check("P3.1 LangProvider + toggle + persist", "LangProvider" in lang_src
           and "LangToggle" in lang_src and "tsap_lang" in lang_src)
-    duo_src = open(os.path.join(src, "lib", "duo.ts"), encoding="utf-8").read()
+    duo_src = src_page("frontend/src/lib/duo.ts")
     check("P3.2 duo toggle-aware (no concat)", "getLang()" in duo_src and "• ${te}" not in duo_src,
           duo_src[:200])
-    header_src = open(os.path.join(src, "components", "SiteHeader.tsx"), encoding="utf-8").read()
+    header_src = src_page("frontend/src/components/SiteHeader.tsx")
     check("P3.3 header has toggle", "LangToggle" in header_src)
-    layout_src = open(os.path.join(src, "app", "layout.tsx"), encoding="utf-8").read()
+    layout_src = src_page("frontend/src/app/layout.tsx")
     check("P3.4 provider in layout", "LangProvider" in layout_src)
     # home TEXT dict: te/en key parity (function-name scan)
     # 🐞 FIX (R12): TEXT dict tarvata helper functions (StatValue — R11) vachay kabatti
@@ -107,7 +108,7 @@ try:
     check("P3.5 home te/en key parity", te_keys == en_keys,
           (te_keys ^ en_keys) if te_keys != en_keys else f"{len(te_keys)} keys")
     for pg in ("pricing/page.tsx", "login/page.tsx", "register/page.tsx"):
-        psrc = open(os.path.join(src, "app", pg), encoding="utf-8").read()
+        psrc = src_page("frontend/src/app/" + pg)
         check(f"P3.6 {pg} lang-aware", "useLang" in psrc, pg)
 finally:
     pass

@@ -345,11 +345,21 @@ try:
     check("S2 admin route noauth -> 403", a1.status_code == 403, a1.status_code)
     a2 = client.get("/api/admin/payments", headers=H_ADMIN)
     check("S2 admin route with key -> 200", a2.status_code == 200, a2.text[:150])
-    o1 = client.get(f"/api/credits/{U2['tsap_id']}", headers=H_OWNER1)
+    # 🔐 Phase-14 token versioning interaction (fixed this round):
+    # the S1 sweep above POSTs {} to *every* route, which includes
+    # /api/auth/logout-everywhere and /api/admin/users/{id}/force-logout. Those
+    # legitimately call revoke_all_tokens(), so H_OWNER1 (signed at import time)
+    # is stale by design once we get here. Revoke-before-this-moment must fail,
+    # a freshly signed token must work — assert both instead of tripping over it.
+    o0 = client.get(f"/api/credits/{U1['tsap_id']}", headers=H_OWNER1)
+    check("S2 token issued before a revoke -> 401 (logout-everywhere works)",
+          o0.status_code == 401, o0.status_code)
+    H_OWNER1_FRESH = {"x-tsap-token": sign_token(U1["tsap_id"])}
+    o1 = client.get(f"/api/credits/{U2['tsap_id']}", headers=H_OWNER1_FRESH)
     check("S2 owner route wrong-owner -> 401", o1.status_code == 401, o1.status_code)
     o1b = client.get(f"/api/credits/{U1['tsap_id']}")
     check("S2 owner route no-token -> 401", o1b.status_code == 401, o1b.status_code)
-    o2 = client.get(f"/api/credits/{U1['tsap_id']}", headers=H_OWNER1)
+    o2 = client.get(f"/api/credits/{U1['tsap_id']}", headers=H_OWNER1_FRESH)
     check("S2 owner route self -> 200", o2.status_code == 200, o2.text[:150])
     f5z = client.post(f"/api/admin/payments/{oid5}/refund", json={"reason": "x", "note": "y"})
     check("S2 refund noauth (enforced) -> 403", f5z.status_code == 403, f5z.status_code)

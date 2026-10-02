@@ -30,6 +30,20 @@ const nextConfig = {
     // 🛡️ R11: production lo SAMEORIGIN (clickjacking block — matrimony site ki must).
     // Dev/preview lo ALLOWALL (sandbox iframe preview kavali).
     const isProd = process.env.NODE_ENV === 'production';
+    // 🖼️ PREVIEW/EMBED OPT-IN (deploy round): a production build must still be
+    // embeddable in *explicitly trusted* origins — staging/review iframes, the
+    // Arena preview proxy, an internal QA frame. Default stays locked
+    // (frame-ancestors 'self'), so nothing changes on manavivaha.in unless
+    // EMBED_ALLOWED_ORIGINS is set in the environment. Space-separated list of
+    // full origins, e.g. "https://qa.manavivaha.in https://*.e2b.app".
+    const embedOrigins = (process.env.EMBED_ALLOWED_ORIGINS || '')
+      .split(/[\s,]+/)
+      .map((o) => o.trim())
+      .filter(Boolean);
+    const embeddable = !isProd || embedOrigins.length > 0;
+    const frameAncestors = embeddable
+      ? ["'self'", ...embedOrigins].join(' ')
+      : "'self'";
     // 🛡️ P1 security fix: Content-Security-Policy was completely missing.
     // Allowlist built from an actual audit of this app's external resource
     // usage (not a generic template): Razorpay is the only third-party
@@ -57,8 +71,11 @@ const nextConfig = {
       "object-src 'none'",
       "base-uri 'self'",
       "form-action 'self'",
-      "frame-ancestors 'self'",
+      `frame-ancestors ${frameAncestors}`,
     ].join('; ');
+    // X-Frame-Options has no allowlist syntax: keep SAMEORIGIN for production
+    // builds and let CSP frame-ancestors (which modern browsers honour first)
+    // carry the explicit trusted origins when EMBED_ALLOWED_ORIGINS is set.
     const base = isProd
       ? [
           { key: 'X-Frame-Options', value: 'SAMEORIGIN' },

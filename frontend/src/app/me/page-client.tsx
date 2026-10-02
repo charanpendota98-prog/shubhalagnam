@@ -11,6 +11,7 @@ import Link from "next/link";
 import AuthGate from "@/components/AuthGate";
 import RasiChart from "@/components/RasiChart";
 import PushBell from "@/components/PushBell";
+import MatchAssistant from "@/components/MatchAssistant";
 import { apiGet, apiPost, authHeaders } from "@/lib/api";
 // 🛡️ P0 security fix: /api/profile/{id} (GET+update) and /api/user/delete-account
 // now require the owner's X-Tsap-Token server-side (was a zero-auth IDOR that
@@ -144,6 +145,11 @@ export default function MePage() {
 
       {myId ? (
         <>
+          {/* 🧠 Smart Match Assistant — daily personalized briefing (top of dashboard) */}
+          <div className="mt-4">
+            <MatchAssistant />
+          </div>
+
           <div className="mt-4 flex gap-2 overflow-x-auto pb-1 no-scrollbar">
             {TABS.map(([v, en, t]) => (
               <button

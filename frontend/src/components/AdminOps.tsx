@@ -292,3 +292,91 @@ export function PublishPanel() {
     </div>
   );
 }
+
+export function PersonalizedDigestPanel() {
+  const { lang } = useLang();
+  const te = lang !== "en";
+  const [prev, setPrev] = useState<Row | null>(null);
+  const [flash, setFlash] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const load = async () => {
+    setBusy(true);
+    try {
+      const r = await fetch(withToken("/api/digest/personal/preview"), { headers: authHeaders(true) });
+      const d = await r.json();
+      if (d.success) setPrev(d);
+      else setFlash(d.detail || "load fail");
+    } catch { setFlash(te ? "⚠️ API error" : "⚠️ API error"); }
+    finally { setBusy(false); }
+  };
+  useEffect(() => { void load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const run = async () => {
+    setBusy(true); setFlash("");
+    try {
+      const r = await fetch(withToken("/api/digest/personal/run"), { method: "POST", headers: H(), body: JSON.stringify({ lang: te ? "te" : "en" }) });
+      const d = await r.json();
+      if (d.success) {
+        const s = d.send || {};
+        setFlash(s.skipped
+          ? `📬 Queue సిద్ధం: ${d.queued} మంది · 🔒 Send gated (${s.reason}) — ఏదీ పంపలేదు`
+          : `📬 ${d.queued} queued · ✅ sent ${s.sent}`);
+        void load();
+      } else setFlash(d.detail || "run fail");
+    } catch { setFlash(te ? "⚠️ API error" : "⚠️ API error"); }
+    finally { setBusy(false); }
+  };
+
+  const c = (prev?.counts || {}) as Row;
+  const chips: [string, any][] = [
+    [te ? "మొత్తం" : "Total", c.total], [te ? "పంపుతారు" : "Sendable", c.sendable],
+    [te ? "ఆప్ట్-అవుట్" : "Opted-out", c.opted_out], [te ? "ఫోన్ లేదు" : "No phone", c.no_phone],
+    [te ? "యాక్టివ్ కాదు" : "Not engaged", c.not_engaged], [te ? "కొత్తది లేదు" : "No new", c.no_new_content],
+  ];
+
+  return (
+    <div className="rounded-xl border p-3 text-xs">
+      <div className="flex flex-wrap items-center gap-2">
+        <b className="text-[#7A0C2E]">📬 Personalized daily digest</b>
+        {prev?.send_gated && (
+          <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-black text-amber-800">
+            🔒 {te ? "Send GATED (ఆఫ్)" : "Send GATED (off)"}
+          </span>
+        )}
+        <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-bold text-gray-600">WA: {prev?.wa_mode || "—"}</span>
+        <button onClick={() => void load()} disabled={busy} className="ml-auto underline disabled:opacity-40">↻</button>
+      </div>
+      <p className="mt-1 text-[11px] text-gray-500">
+        {te
+          ? "ప్రతి user కి వ్యక్తిగత digest (matchbot + saved searches). Generate మాత్రమే — send కి DIGEST_PERSONAL_SEND=1 + WhatsApp on కావాలి (live site కి safe)."
+          : "Per-user personalized digest (matchbot + saved searches). Generation only — sending needs DIGEST_PERSONAL_SEND=1 + WhatsApp on (safe for live site)."}
+      </p>
+      {flash && <div className="my-2 rounded-lg bg-[#0F1F3C] p-2 text-[11px] text-white">{flash}</div>}
+      <div className="mt-2 grid grid-cols-3 gap-1.5 md:grid-cols-6">
+        {chips.map(([l, v]) => (
+          <div key={l as string} className="rounded-lg border bg-gray-50 p-1.5 text-center">
+            <div className="font-extrabold text-[#7A0C2E]">{String(v ?? 0)}</div>
+            <div className="text-[10px] text-gray-500">{l}</div>
+          </div>
+        ))}
+      </div>
+      {(prev?.samples || []).length > 0 && (
+        <div className="mt-2 space-y-1">
+          {(prev!.samples as Row[]).map((s, i) => (
+            <div key={i} className="rounded-lg bg-gray-50 px-2 py-1 text-[11px]">
+              <span className="font-mono text-[10px] text-gray-400">{s.tsap_id}: </span>
+              <span className="whitespace-pre-wrap text-gray-700">{String(s.text || "").slice(0, 160)}</span>
+            </div>
+          ))}
+        </div>
+      )}
+      <div className="mt-2 flex flex-wrap gap-2">
+        <button onClick={() => void run()} disabled={busy}
+          className="rounded-full bg-[#7A0C2E] px-4 py-1.5 font-bold text-white disabled:opacity-40">
+          {te ? "📬 Queue generate చేయండి" : "📬 Generate queue"}
+        </button>
+      </div>
+    </div>
+  );
+}

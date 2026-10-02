@@ -21,7 +21,7 @@ import ContentConsole from "@/components/ContentConsole";
 import ChannelsConsole from "@/components/ChannelsConsole";
 import WANumbersConsole from "@/components/WANumbersConsole";
 import ReferralReport from "@/components/ReferralReport";
-import { ModerationQueue, StoriesQueue, LeadsPanel, PublishPanel } from "@/components/AdminOps";
+import { ModerationQueue, StoriesQueue, LeadsPanel, PublishPanel, PersonalizedDigestPanel } from "@/components/AdminOps";
 import { apiGet, apiPost, authHeaders, getAdminKey, setAdminKey } from "@/lib/api";
 import Link from "next/link";
 import { Duo, duo } from "@/lib/duo";
@@ -398,6 +398,8 @@ export default function AdminPage() {
               <LeadsPanel />
               <h2 className="font-bold text-[#7A0C2E] mt-4">📮 Publish control — re-post + digest + dead letters</h2>
               <PublishPanel />
+              <h2 className="font-bold text-[#7A0C2E] mt-4">📬 Personalized digest — per-user (matchbot + saved searches)</h2>
+              <PersonalizedDigestPanel />
             </>
           )}
 

@@ -89,6 +89,7 @@ from quality import (
     profile_completeness, trust_score, templates as quality_templates, facets as search_facets,
     save_search, saved_for, delete_search, new_matches_for, mark_alerted, matches_filters,
     log_consent, consent_for, load_saved_searches, load_consent_ledger, CONSENT_LEDGER,
+    SAVED_SEARCHES,
 )
 from interest import (
     PLANS as INTEREST_PLANS, plan_list, get_plan, plan_by_amount, apply_payment,
@@ -101,6 +102,8 @@ from interest import (
 from card_generator import generate_id as _gen_id
 from porutham import compute_porutham, porutham_line, norm_nakshatra, norm_rasi
 import topmatch, safety, preview, bot_pool, wa_pool
+import matchbot  # 🧠 Smart Match Assistant — personalized daily briefing + tips
+import digest_engine  # 📬 personalized daily digest engine (generate queue, gated send)
 import smart12 as S12  # 🔒 WAVE 12: masked captions + unlock/entitlement + ₹500 assisted
 import astro as AST      # 🪐 WAVE 13: 36-guna + dosha + jathakam
 import ads as ADS        # 📢 WAVE 13: vendor ad campaigns
@@ -6004,6 +6007,95 @@ async def _send_telegram_public(chat: str, text: str):
 
 
 # ============================================================================
+#  📬 PERSONALIZED DAILY DIGEST (digest_engine.py)
+#  Existing /api/digest = GLOBAL broadcast. These = PER-USER personalized.
+#  🛡️ Generation NEVER sends; real WhatsApp send is gated behind
+#     DIGEST_PERSONAL_SEND=1 AND WHATSAPP_MODE (queue no-ops when wa off).
+# ============================================================================
+def _digest_send_enabled() -> bool:
+    return str(os.getenv("DIGEST_PERSONAL_SEND", "0")).lower() in ("1", "true", "yes", "on")
+
+
+def _personal_digest_batch(lang: str = "te", engaged_only: bool = True):
+    """Generate today's personalized-digest queue (pure generation, no send)."""
+    return digest_engine.run_personal_digests(
+        DB_USERS, DB_USERS, DB_INTERESTS, DB_VIEWS, DB_SAVES,
+        saved_searches=SAVED_SEARCHES, new_matches_fn=new_matches_for,
+        consent_fn=consent_for, lang=lang, engaged_only=engaged_only)
+
+
+@app.get("/api/digest/personal/preview")
+def digest_personal_preview(request: Request = None):
+    """🛡️ ADMIN — dry run: ఎంతమందికి personalized digest వెళ్తుంది, sample texts.
+    No state change, no send. Review చేసి తర్వాత run చెయ్యండి."""
+    require_admin(request)
+    batch = _personal_digest_batch("te", True)
+    return {"success": True, "dry_run": True, "counts": batch["counts"],
+            "queued": batch["queued"], "samples": batch["samples"],
+            "send_gated": not _digest_send_enabled(),
+            "wa_mode": publish_config()["wa_mode"],
+            "how_to_send": "POST /api/digest/personal/run (DIGEST_PERSONAL_SEND=1 + WHATSAPP_MODE on ఉంటేనే పంపుతుంది)"}
+
+
+@app.post("/api/digest/personal/run")
+def digest_personal_run(payload: dict = Body(default={}), request: Request = None):
+    """🛡️ ADMIN — personalized digest queue generate + log. Send ONLY if
+    DIGEST_PERSONAL_SEND=1 AND wa_mode != off (default OFF → live site కి safe)."""
+    require_admin(request)
+    d = payload or {}
+    lang = "en" if str(d.get("lang", "te")).lower() == "en" else "te"
+    engaged_only = req_bool(d.get("engaged_only", True))
+    batch = _personal_digest_batch(lang, engaged_only)
+
+    # log summary to the persisted digest history (kind=personal)
+    DB_DIGEST.append({"at": batch["at"], "kind": "personal", "lang": lang,
+                      "queued": batch["queued"], "counts": batch["counts"]})
+
+    send_enabled = _digest_send_enabled()
+    wa_on = publish_config()["wa_mode"] != "off"
+    if send_enabled and wa_on:
+        def _send(rec):
+            u = _find_user(rec.get("tsap_id", "")) or {}
+            phone = str(u.get("phone", "") or "")
+            if len(phone) < 10:
+                return {"tsap_id": rec.get("tsap_id"), "queued": False, "reason": "no_phone"}
+            q = enqueue_whatsapp([phone], rec.get("text", ""), priority=1, kind="personal_digest")
+            # dedup for next run: mark the saved searches that produced hits
+            hits = {s["search_id"]: s.get("ids", []) for s in rec.get("saved_searches", []) if s.get("ids")}
+            if hits:
+                for sr in saved_for(rec.get("tsap_id", "")):
+                    ids = hits.get(sr.get("search_id"))
+                    if ids:
+                        mark_alerted(sr, ids)
+            return {"tsap_id": rec.get("tsap_id"), **q}
+        send_result = digest_engine.send_digest_queue(batch["queue"], _send)
+        send_result["skipped"] = False
+    else:
+        send_result = {"sent": 0, "failed": 0, "skipped": True,
+                       "reason": "gated_off" if not send_enabled else "wa_mode_off"}
+
+    return {"success": True, "counts": batch["counts"], "queued": batch["queued"],
+            "samples": batch["samples"], "send_enabled": send_enabled, "wa_on": wa_on,
+            "send": send_result,
+            "message_telugu": ("📬 Personalized digest queue సిద్ధం (%d మంది). Send gated — "
+                               "DIGEST_PERSONAL_SEND=1 + WhatsApp on ఉంటేనే పంపుతుంది." % batch["queued"])}
+
+
+@app.get("/api/assistant/digest/{tsap_id}")
+def api_assistant_digest(tsap_id: str, request: Request = None):
+    """🧠 OWNER — మీ personal digest preview (ఈ రోజు మీకు ఏమి పంపుతామో). Owner-guarded."""
+    require_owner(request, tsap_id)
+    me = _find_user(tsap_id)
+    if not me:
+        raise HTTPException(404, "మీ ప్రొఫైల్ దొరకలేదు")
+    rec = digest_engine.build_personal_digest(
+        me, DB_USERS, DB_INTERESTS, DB_VIEWS, DB_SAVES,
+        saved_searches=SAVED_SEARCHES, new_matches_fn=new_matches_for,
+        consent_rows=consent_for(tsap_id), engaged_only=False)  # owner preview: always show
+    return {"success": True, **rec}
+
+
+# ============================================================================
 #  VISITOR + LEAD CAPTURE  ("chusina vallu antha DB lo save")
 # ============================================================================
 @app.post("/api/track")
@@ -6274,6 +6366,43 @@ def api_top_matches(tsap_id: str, limit: int = 10, min_score: int = 65, include_
 
 
 # ============================================================================
+#  🧠 SMART MATCH ASSISTANT — personalized daily briefing + actionable tips
+#  (matchbot.py: topmatch score + quality nudge + mutual alerts, privacy-safe)
+# ============================================================================
+@app.get("/api/assistant/briefing/{tsap_id}")
+def api_assistant_briefing(tsap_id: str, limit: int = 3, request: Request = None):
+    """🧠 "ఈ రోజు మీ కోసం" — per-user smart digest: top NEW/mutual matches
+    (explainable why), who noticed you (interests received + views), profile
+    nudge. Owner-guarded (IDOR). Output privacy-safe (safe_user — no raw phone)."""
+    require_owner(request, tsap_id)
+    me = _find_user(tsap_id)
+    if not me:
+        raise HTTPException(404, "మీ ప్రొఫైల్ దొరకలేదు")
+    lim = clamp_int(limit, "limit", 1, 6, 3)
+    # blocked/banned already excluded inside matchbot; also respect safety blocks
+    pool = [u for u in DB_USERS if not safety.is_blocked(tsap_id, u.get("tsap_id", ""), DB_BLOCKS)]
+    brief = matchbot.daily_briefing(me, pool, DB_INTERESTS, DB_VIEWS, DB_SAVES,
+                                    blocks=DB_BLOCKS, limit=lim)
+    brief["tips"] = matchbot.assistant_tips(me, brief)
+    return brief
+
+
+@app.get("/api/assistant/tips/{tsap_id}")
+def api_assistant_tips(tsap_id: str, request: Request = None):
+    """🧠 Actionable next-steps only (profile complete / photo / respond / verify)."""
+    require_owner(request, tsap_id)
+    me = _find_user(tsap_id)
+    if not me:
+        raise HTTPException(404, "మీ ప్రొఫైల్ దొరకలేదు")
+    pool = [u for u in DB_USERS if not safety.is_blocked(tsap_id, u.get("tsap_id", ""), DB_BLOCKS)]
+    brief = matchbot.daily_briefing(me, pool, DB_INTERESTS, DB_VIEWS, DB_SAVES,
+                                    blocks=DB_BLOCKS, limit=3)
+    return {"success": True, "tsap_id": tsap_id.upper(),
+            "tips": matchbot.assistant_tips(me, brief),
+            "summary_telugu": brief.get("summary_telugu", "")}
+
+
+# ============================================================================
 #  TRUST & SAFETY — report / block / verify / moderation
 # ============================================================================
 @app.get("/api/safety/tips")
@@ -6474,10 +6603,25 @@ def auth_verify(request: Request = None):
 def auth_demo_token(payload: dict = Body(default={}), request: Request = None):
     """
     🎬 Demo/seed profiles ki token (preview/demo lo browsing ki). **Real users ki కాదు** —
-    vaallu OTP (login) use cheyyali. DEMO_LOGIN=0 tho off cheyyachu.
+    vaallu OTP (login) use cheyyali.
+
+    🛡️ HARDENING (deploy-audit round): mundu DEMO_LOGIN default "1" (ON) — production
+    lo kuda. Adi risk: prod DB lo edaina legacy seed/inventory profile (is_seed) unte
+    kimatoku auth lekunda daaniki token vachedi. Ippudu:
+      • APP_ENV=production/prod → default OFF (DEMO_LOGIN=1 explicitly set cheste matrame on)
+      • dev/preview → default ON (sandbox/staging browsing ki only)
+      • eppudu REAL user ki token radu (is_seed tapparledu), dev_mode lo kuda.
     """
-    if str(os.getenv("DEMO_LOGIN", "1")).lower() in ("0", "false", "no", "off"):
+    _prod = str(os.getenv("APP_ENV", "")).lower() in ("production", "prod", "live")
+    _demo_default = "0" if _prod else "1"          # production lo default OFF
+    if str(os.getenv("DEMO_LOGIN", _demo_default)).lower() in ("0", "false", "no", "off"):
         raise HTTPException(403, "🔒 Demo login off లో ఉంది — OTP తో login చెయ్యండి")
+    # 🛡️ Production lo demo tokens asalu ivvamu (defense-in-depth): prod DB lo
+    # edaina legacy seed/inventory profile unte kimatoku auth lekunda token
+    # vachedi. Real users eppudu OTP thoనే login avvali. Dev/preview/test
+    # (dev_mode) lo మాత్రమే demo browsing allow — original behavior.
+    if _prod:
+        raise HTTPException(403, "🔒 Production lo demo login అనుమతి లేదు — OTP (phone) తో login చెయ్యండి")
     tid = clean((payload or {}).get("tsap_id"), 30, "tsap_id")
     u = _find_user(tid)
     if not u:
@@ -7785,10 +7929,22 @@ def api_meta_home_stats():
     plans = [{"code": p.get("code"), "price": p.get("price"), "profiles": p.get("profiles"),
               "label": p.get("label"), "telugu": p.get("telugu"), "badge": p.get("badge")}
              for p in plan_list_with_free()]
+    _stats = real_platform_stats()
     return {"success": True,
             "channels_total": ch.get("total", 0), "channels_live": ch.get("live", 0),
             "channels_by_tier": by_tier,
             "castes_covered": len(MP.castes_for("Hindu").get("castes", [])),
+            # 🛡️ HONEST live numbers — homepage/hero/trust-band ee values chupistundi
+            # (10,000+ constant kaadu). Frontend `useLiveStats()` idi consume chestundi.
+            "profiles_count": _stats.get("profiles_count", 0),
+            "brides_count": _stats.get("brides_count", 0),
+            "grooms_count": _stats.get("grooms_count", 0),
+            "verified_count": _stats.get("verified_count", 0),
+            "verified_percentage": _stats.get("verified_percentage", 0),
+            "districts_with_profiles": _stats.get("districts_with_profiles", 0),
+            "castes_with_profiles": _stats.get("castes_with_profiles", 0),
+            "interests_sent": _stats.get("interests_sent", 0),
+            "stats_are_live": True,
             "free_first": 3,
             "plans": plans,
             "addons": [{"code": a.get("code"), "price": a.get("price"),
@@ -8777,21 +8933,74 @@ def api_castes_list():
     }
 
 
+def real_platform_stats() -> dict:
+    """🛡️ HONEST STATS — single source of truth for every public number.
+
+    ⚠️ Why this changed (deploy-hardening round):
+    This endpoint used to return `max(10000, len(DB_USERS) + 9940)` with a
+    hard-coded `verified_percentage: 98.4` and `daily_matches_generated: 1450`.
+    On a LIVE, paid site that is a fabricated commercial claim: the frontend
+    repeated "10,000+ verified profiles / families" in the hero, the trust band
+    and the referral share templates while the real inventory was a few hundred
+    profiles. That is exactly what the Consumer Protection Act 2019 (misleading
+    advertisements), ASCI code and a payment-gateway/bank KYC review look for —
+    and it also destroys the one asset a matrimony brand has (trust).
+
+    Now every public number is derived from the actual DB:
+      • profiles_count   → approved/live profiles really in the system
+      • verified_*       → OTP/photo/selfie verified counts, not a guessed %
+      • districts/castes → coverage we genuinely serve (these were already real)
+      • daily_matches    → matches we actually generated (retention log), else 0
+    Nothing is padded, and `stats_are_live: true` lets the UI/tests prove the
+    number came from data instead of a marketing constant.
+    """
+    approved = [u for u in DB_USERS if u.get("is_approved", True)]
+    total = len(approved)
+    verified = sum(1 for u in approved if u.get("phone_verified") or u.get("is_verified"))
+    photo_verified = sum(1 for u in approved if u.get("selfie_verified") or u.get("photo_status") == "approved")
+    brides = sum(1 for u in approved if str(u.get("gender", "")).lower() in ("bride", "female", "f"))
+    grooms = sum(1 for u in approved if str(u.get("gender", "")).lower() in ("groom", "male", "m"))
+    districts = {str(u.get("district") or "").strip() for u in approved if str(u.get("district") or "").strip()}
+    castes = {str(u.get("caste") or "").strip() for u in approved if str(u.get("caste") or "").strip()}
+    # "daily matches generated" = ఈ రోజు admin-curated featured profiles (real,
+    # lekunte 0). Mundu 1450 ani constant chepparu — adi nijam kaadu.
+    try:
+        _today = datetime.utcnow().strftime("%Y-%m-%d")
+        daily_matches = len(_load_daily().get(_today, []) or [])
+    except Exception:
+        daily_matches = 0
+    helpline = (os.getenv("SUPPORT_PHONE") or os.getenv("ADMIN_WHATSAPP_NUMBER") or "+916304996088").strip()
+    if helpline and not helpline.startswith("+"):
+        helpline = "+" + helpline
+    return {
+        "success": True,
+        "stats_are_live": True,
+        "profiles_count": total,
+        "profiles_total": total,
+        "brides_count": brides,
+        "grooms_count": grooms,
+        "verified_count": verified,
+        "photo_verified_count": photo_verified,
+        "districts_count": len(TS_DISTRICTS_LIST) + len(AP_DISTRICTS_LIST),
+        "districts_with_profiles": len(districts),
+        "castes_count": len(TELUGU_CASTES_43),
+        "castes_with_profiles": len(castes),
+        "verified_percentage": round((verified / total) * 100, 1) if total else 0.0,
+        "daily_matches_generated": daily_matches,
+        "interests_sent": len(DB_INTERESTS or []),
+        "helpline": helpline,
+        "message_telugu": f"{total} ధృవీకరించబడిన నిజమైన తెలుగు సంబంధాలు • {len(castes)} కులాలు • {len(districts)} జిల్లాలు",
+    }
+
+
 @app.get("/api/stats")
 @app.get("/api/platform/stats")
 def api_platform_stats():
-    """Returns live public platform stats for homepage tickers and trust badges."""
-    total_profiles = max(10000, len(DB_USERS) + 9940)
-    return {
-        "success": True,
-        "profiles_count": total_profiles,
-        "districts_count": len(TS_DISTRICTS_LIST) + len(AP_DISTRICTS_LIST),
-        "castes_count": len(TELUGU_CASTES_43),
-        "verified_percentage": 98.4,
-        "daily_matches_generated": 1450,
-        "helpline": "+91 6304996088",
-        "message_telugu": "10,000+ ధృవీకరించబడిన తెలుగు సంబంధాలు",
-    }
+    """Returns live public platform stats for homepage tickers and trust badges.
+
+    Numbers are real (see `real_platform_stats`) — never inflated.
+    """
+    return real_platform_stats()
 
 
 @app.get("/api/second-marriage/profiles")
