@@ -71,7 +71,7 @@ export default function ChannelsPage() {
         <div className="flex items-center justify-between mb-4 gap-2">
           <Link href="/" className="text-sm font-bold text-[#7A0C2E] shrink-0">← {te ? "హోమ్" : "Home"}</Link>
           <div className="font-bold text-[#7A0C2E] text-sm sm:text-base truncate">📢 {te ? "మా ఛానళ్లు" : "Our Channels"}</div>
-          <Link href="/register" className="text-xs bg-[#7A0C2E] text-white px-3 py-1.5 rounded-full shrink-0 whitespace-nowrap">
+          <Link href="/register" className="hidden min-[380px]:inline-flex min-h-10 items-center text-xs bg-[#7A0C2E] text-white px-3 py-1.5 rounded-full shrink-0 whitespace-nowrap">
             {te ? "ఉచిత నమోదు" : "Register FREE"}
           </Link>
         </div>
@@ -88,7 +88,7 @@ export default function ChannelsPage() {
             {[
               { l: te ? "మొత్తం ఛానళ్లు" : "Total channels", v: CHANNEL_STATS.total },
               { l: te ? "కుల-వారీ ఛానెల్స్" : "Caste-specific channels", v: CHANNEL_STATS.by_tier.L3_CASTE },
-              { l: te ? "మతాలు" : "Religions", v: CHANNEL_STATS.by_tier.L2_RELIGION },
+              { l: te ? "కమ్యూనిటీ ఛానళ్లు" : "Community channels", v: CHANNEL_STATS.by_tier.L2_RELIGION },
             ].map(s => (
               <div key={s.l} className="bg-white/10 rounded-xl p-3 text-center">
                 <div className="text-2xl font-bold text-[#D4AF37]">{s.v}</div>
@@ -101,7 +101,7 @@ export default function ChannelsPage() {
         {/* Filters */}
         <div className="mt-4 bg-white rounded-[1.5rem] p-4 card-shadow">
           <input value={q} onChange={e => setQ(e.target.value)}
-            placeholder={te ? "🔍 వెతకండి — Reddy, Muslim, NRI, Doctors..." : "🔍 Search — Reddy, Muslim, NRI, Doctors..."}
+            placeholder={te ? "🔍 వెతకండి — Reddy, NRI, Doctors..." : "🔍 Search — Reddy, NRI, Doctors..."}
             className="w-full p-3 rounded-xl bg-gray-50 border text-sm" aria-label="Search channels" />
           <div className="flex flex-wrap gap-2 mt-3">
             <button onClick={() => setTier("ALL")}

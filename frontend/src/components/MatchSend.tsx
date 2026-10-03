@@ -264,7 +264,7 @@ export default function MatchSend() {
               <label className="flex items-center gap-1"><input type="checkbox" checked={fVerified} onChange={(e) => setFVerified(e.target.checked)} /> ✅ verified</label>
               <label className="flex items-center gap-1"><input type="checkbox" checked={fPhoto} onChange={(e) => setFPhoto(e.target.checked)} /> 📸 photo</label>
               <select value={fReligion} onChange={(e) => setFReligion(e.target.value)} aria-label="Religion" className="rounded-lg border px-2 py-1">
-                <option value="">{te ? "Religion: అన్నీ" : "Religion: all"}</option><option>Hindu</option><option>Muslim</option><option>Christian</option>
+                <option value="Hindu">{te ? "🕉️ హిందూ" : "🕉️ Hindu"}</option>
               </select>
               <select value={fState} onChange={(e) => setFState(e.target.value)} aria-label="State" className="rounded-lg border px-2 py-1">
                 <option value="">{te ? "State: అన్నీ" : "State: all"}</option><option>TS</option><option>AP</option>

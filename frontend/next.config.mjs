@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Server build lo lint/type errors valla build fail avvakudadu
-  typescript: { ignoreBuildErrors: true },
+  // Type errors must fail production builds; silently shipping broken UI is unsafe.
+  typescript: { ignoreBuildErrors: false },
 
   // /api/* ni backend ki proxy — browser localhost ni touch cheyyadu (CORS + docker friendly)
   // Docker: BACKEND_URL=http://backend:8000 · Local/sandbox: http://localhost:8000
@@ -78,6 +78,7 @@ const nextConfig = {
     // carry the explicit trusted origins when EMBED_ALLOWED_ORIGINS is set.
     const base = isProd
       ? [
+          { key: 'Strict-Transport-Security', value: 'max-age=31536000; includeSubDomains; preload' },
           { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
           { key: 'X-Content-Type-Options', value: 'nosniff' },
           { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
@@ -87,6 +88,10 @@ const nextConfig = {
       : [{ key: 'X-Frame-Options', value: 'ALLOWALL' }];
     return [
       { source: '/(.*)', headers: base },
+      {
+        source: '/:path*.:ext(png|jpg|jpeg|webp|avif|svg|ico|woff2|mp4)',
+        headers: [{ key: 'Cache-Control', value: 'public, max-age=86400, stale-while-revalidate=604800' }],
+      },
     ];
   },
 };

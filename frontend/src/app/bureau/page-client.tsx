@@ -62,7 +62,7 @@ export default function BureauPage() {
         <div className="flex flex-wrap items-center justify-between gap-2 mb-6">
           <Link href="/" className="text-sm font-bold text-[#7A0C2E] shrink-0">← {te ? "హోమ్" : "Home"}</Link>
           <div className="font-bold text-[#7A0C2E] text-sm sm:text-base truncate min-w-0">🏢 {T.title}</div>
-          <Link href="/referral/register" className="text-xs bg-[#7A0C2E] text-white px-3 py-1.5 rounded-full shrink-0 whitespace-nowrap">
+          <Link href="/referral/register" className="hidden min-[380px]:inline-flex min-h-10 items-center text-xs bg-[#7A0C2E] text-white px-3 py-1.5 rounded-full shrink-0 whitespace-nowrap">
             {te ? "బ్యూరో నమోదు" : "Bureau Register"} →
           </Link>
         </div>

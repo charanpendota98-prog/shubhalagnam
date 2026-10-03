@@ -51,7 +51,6 @@ import {
   OTHER_LOCATIONS,
   PHYSICAL_STATUS,
   RASIS,
-  RELIGIONS,
   SALARIES,
   SALARIES_DETAILED,
   SALARY_TELUGU,
@@ -1637,12 +1636,9 @@ function Wizard() {
                         onChange={(e) => set("religion", e.target.value)}
                         className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-medium"
                       >
-                        <option value="">Select religion</option>
-                        {RELIGIONS.map((r) => (
-                          <option key={r} value={r}>
-                            {r}
-                          </option>
-                        ))}
+                        <option value="Hindu">🕉️ హిందూ (Hindu)</option>
+                        <option value="Muslim">☪️ ముస్లిం (Muslim)</option>
+                        <option value="Christian">✝️ క్రైస్తవ (Christian)</option>
                       </select>
                     </div>
 

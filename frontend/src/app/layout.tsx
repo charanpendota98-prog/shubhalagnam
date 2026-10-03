@@ -7,8 +7,6 @@ import { CHANNEL_STATS } from "@/lib/channels";
 import PWA from "@/components/PWA";
 import SupportWidget from "@/components/SupportWidget";
 import BackToTop from "@/components/BackToTop";
-import LiveMatrimonyTicker from "@/components/LiveMatrimonyTicker";
-import LagnaAiAssistant from "@/components/LagnaAiAssistant";
 import { LangProvider } from "@/lib/lang";
 
 const SITE = process.env.SITE_URL || "https://manavivaha.in";
@@ -62,6 +60,9 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
+  maximumScale: 5,
+  userScalable: true,
+  interactiveWidget: "resizes-content",
   themeColor: "#7A0C2E",
 };
 
@@ -71,17 +72,23 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="te-IN">
+    <html lang="te-IN" suppressHydrationWarning>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var l=localStorage.getItem('tsap_lang');if(l!=='en'&&l!=='te')l='te';var r=document.documentElement;r.lang=l==='en'?'en-IN':'te-IN';r.dataset.lang=l;}catch(e){}})();`,
+          }}
+        />
+      </head>
       <body className="antialiased min-h-dvh flex flex-col">
         <LangProvider>
+          <a href="#main-content" className="skip-link">Skip to main content</a>
           <SiteHeader />
-          <main className="flex-1">{children}</main>
+          <main id="main-content" className="flex-1" tabIndex={-1}>{children}</main>
           <SiteFooter />
           <StickyCTA />
           <PWA />
-          <LiveMatrimonyTicker />
           <SupportWidget />
-          <LagnaAiAssistant />
           <BackToTop />
         </LangProvider>
       </body>

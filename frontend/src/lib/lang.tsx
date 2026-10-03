@@ -1,75 +1,106 @@
 "use client";
-/**
- * 🌐 WAVE 30 — ONE language at a time (Telugu ⇄ English toggle).
- * User: mix ("galiz") vaddu — neat + professional. Default Telugu, toggle English.
- * Persisted in localStorage (tsap_lang). SSR-safe (default te until mount).
- */
-import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
+/** Global Telugu ⇄ English preference shared by every client page. */
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 
 export type Lang = "te" | "en";
 const STORE_KEY = "tsap_lang";
+const EVENT_NAME = "manavivaha:language";
 
-// module-level mirror so plain duo(en,te) calls (outside JSX) follow the toggle
 let currentLang: Lang = "te";
-export function getLang(): Lang {
-  return currentLang;
+export function getLang(): Lang { return currentLang; }
+
+function validLang(value: unknown): value is Lang {
+  return value === "te" || value === "en";
 }
 
-type Ctx = { lang: Lang; setLang: (l: Lang) => void; t: (te: string, en: string) => string };
-const LangCtx = createContext<Ctx>({ lang: "te", setLang: () => {}, t: (te) => te });
+function applyDocumentLanguage(lang: Lang) {
+  currentLang = lang;
+  const root = document.documentElement;
+  root.lang = lang === "te" ? "te-IN" : "en-IN";
+  root.dir = "ltr";
+  root.dataset.lang = lang;
+}
+
+type Ctx = { lang: Lang; setLang: (lang: Lang) => void; t: (te: string, en: string) => string };
+const LangCtx = createContext<Ctx | null>(null);
 
 export function LangProvider({ children }: { children: React.ReactNode }) {
   const [lang, setLangState] = useState<Lang>("te");
+
+  const update = useCallback((next: Lang, persist: boolean) => {
+    applyDocumentLanguage(next);
+    setLangState(next);
+    if (persist) {
+      try { localStorage.setItem(STORE_KEY, next); } catch { /* storage may be disabled */ }
+    }
+  }, []);
+
   useEffect(() => {
+    let initial: Lang = "te";
     try {
       const saved = localStorage.getItem(STORE_KEY);
-      if (saved === "en" || saved === "te") {
-        currentLang = saved;
-        setLangState(saved);
-      }
-    } catch { /* ignore */ }
-  }, []);
-  const setLang = useCallback((l: Lang) => {
-    currentLang = l;
-    setLangState(l);
-    try { localStorage.setItem(STORE_KEY, l); } catch { /* ignore */ }
-    try { document.documentElement.lang = l === "te" ? "te-IN" : "en-IN"; } catch { /* ignore */ }
-  }, []);
-  const t = useCallback((te: string, en: string) => (lang === "te" ? te : en), [lang]);
-  return <LangCtx.Provider value={{ lang, setLang, t }}>{children}</LangCtx.Provider>;
+      if (validLang(saved)) initial = saved;
+    } catch { /* use Telugu default */ }
+    update(initial, false);
+
+    // Keep multiple open tabs/windows in the same selected language.
+    const onStorage = (event: StorageEvent) => {
+      if (event.key === STORE_KEY && validLang(event.newValue)) update(event.newValue, false);
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, [update]);
+
+  const setLang = useCallback((next: Lang) => {
+    update(next, true);
+    window.dispatchEvent(new CustomEvent(EVENT_NAME, { detail: { lang: next } }));
+  }, [update]);
+
+  const value = useMemo<Ctx>(() => ({
+    lang,
+    setLang,
+    t: (te, en) => (lang === "te" ? te : en),
+  }), [lang, setLang]);
+
+  return <LangCtx.Provider value={value}>{children}</LangCtx.Provider>;
 }
 
 export function useLang(): Ctx {
-  return useContext(LangCtx);
+  const value = useContext(LangCtx);
+  if (!value) throw new Error("useLang must be used inside LangProvider");
+  return value;
 }
 
-/** JSX: <T te="నమోదు" en="Register" /> */
 export function T({ te, en, className = "" }: { te: string; en: string; className?: string }) {
   const { lang } = useLang();
-  return <span className={className}>{lang === "te" ? te : en}</span>;
+  return <span className={className} lang={lang === "te" ? "te-IN" : "en-IN"}>{lang === "te" ? te : en}</span>;
 }
 
-/** Header pill toggle */
 export function LangToggle({ compact = false }: { compact?: boolean }) {
   const { lang, setLang } = useLang();
   return (
     <div
-      className={`inline-flex items-center rounded-full border border-maroon/25 bg-white p-0.5 ${compact ? "text-[11px]" : "text-[12px]"} font-bold`}
+      className={`lang-toggle ${compact ? "lang-toggle--compact" : ""}`}
       role="group"
-      aria-label="Language / భాష"
+      aria-label={lang === "te" ? "భాషను ఎంచుకోండి" : "Choose language"}
     >
-      {(["te", "en"] as Lang[]).map((l) => (
-        <button
-          key={l}
-          onClick={() => setLang(l)}
-          aria-pressed={lang === l}
-          className={`px-2.5 py-1 rounded-full transition ${
-            lang === l ? "maroon-gradient text-white shadow-soft" : "text-maroon/70 hover:bg-maroon-soft"
-          }`}
-        >
-          {l === "te" ? "తెలుగు" : "English"}
-        </button>
-      ))}
+      {(["te", "en"] as Lang[]).map((option) => {
+        const selected = lang === option;
+        const label = option === "te" ? "తెలుగు" : "English";
+        return (
+          <button
+            key={option}
+            type="button"
+            onClick={() => setLang(option)}
+            aria-pressed={selected}
+            aria-label={option === "te" ? "తెలుగులో చూపించండి" : "Show in English"}
+            lang={option === "te" ? "te-IN" : "en-IN"}
+            className={selected ? "is-selected" : ""}
+          >
+            {label}
+          </button>
+        );
+      })}
     </div>
   );
 }

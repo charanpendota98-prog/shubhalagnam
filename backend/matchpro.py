@@ -229,17 +229,15 @@ RELIGION_CASTES: Dict[str, List[str]] = {
     "Buddhist": sorted(OTHER_GROUPS),
     "Other": sorted(OTHER_GROUPS),
 }
-RELIGIONS = ["Hindu", "Muslim", "Christian", "Sikh", "Jain", "Buddhist", "Other"]
+RELIGIONS = ["Hindu", "Muslim", "Christian"]
 
 
 def castes_for(religion: str) -> Dict:
-    """Religion → alpha-sorted caste/group list (register + filters)."""
-    r = str(religion or "").strip().capitalize()
-    alias = {"Hindhu": "Hindu", "Muslims": "Muslim", "Islam": "Muslim",
-             "Christians": "Christian", "Cristians": "Christian"}
-    r = alias.get(r, r)
-    if r not in RELIGION_CASTES:
-        return {"religion": r or "Hindu", "castes": sorted(HINDU_CASTES),
-                "note_telugu": "Religion తెలియదు — Hindu castes chupisthunnam"}
+    """Supported religion → alpha-sorted caste/community list."""
+    r = str(religion or "Hindu").strip().capitalize()
+    r = {"Hindhu": "Hindu", "Islam": "Muslim", "Muslims": "Muslim",
+         "Christians": "Christian"}.get(r, r)
+    if r not in RELIGIONS:
+        r = "Hindu"
     return {"religion": r, "castes": list(RELIGION_CASTES[r]),
             "note_telugu": f"✅ {r} — {len(RELIGION_CASTES[r])} groups (A–Z order)"}

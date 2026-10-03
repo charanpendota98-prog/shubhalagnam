@@ -68,7 +68,7 @@ export default function PWA() {
   const iosMode = isIOS && !promptEvent;
 
   return (
-    <div className="fixed bottom-3 left-3 right-3 md:left-auto md:right-4 md:w-[360px] z-40 no-print">
+    <div className="fixed bottom-36 left-3 right-3 md:bottom-4 md:left-auto md:right-4 md:w-[360px] z-40 no-print">
       <div className="bg-white rounded-2xl border border-gold/40 shadow-brand p-3 flex items-center gap-3 step-slide">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/icons/icon-192.png" alt="మన వివాహ app" className="w-11 h-11 rounded-xl border border-gold/30" />

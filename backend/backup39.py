@@ -70,7 +70,9 @@ def export_zip() -> tuple:
             # TSAP_DB_FILE=BASE/live.json), the glob already added it as
             # `live.json`; skip that duplicate — we re-add it canonically below
             # so import (which requires "data_db.json") always finds the core.
-            if not db_in_base and os.path.abspath(fp) == db_file:
+            if not db_in_base and (os.path.abspath(fp) == db_file or bn == CANONICAL_DB):
+                # An external DB_FILE is the source of truth. Do not let a stale
+                # backend/data_db.json occupy the canonical archive name first.
                 continue
             with open(fp, "rb") as f:
                 blob = f.read()
