@@ -940,7 +940,7 @@ function Wizard() {
   return (
     <main className="min-h-dvh pb-28 sm:pb-36 bg-[#FAF7F2]" ref={topRef}>
       {/* ---------- Top Header Bar ---------- */}
-      <div className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-gold/25 shadow-xs">
+      <div className="sticky top-16 z-30 bg-white/95 backdrop-blur-md border-b border-gold/25 shadow-xs">
         <div className="max-w-6xl mx-auto px-4 py-2.5 sm:py-3 flex items-center justify-between gap-3">
           <div className="flex items-center gap-2 sm:gap-3">
             <Link href="/" className="text-xs sm:text-sm font-bold text-maroon hover:underline">

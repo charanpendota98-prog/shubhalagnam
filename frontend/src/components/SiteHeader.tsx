@@ -182,7 +182,7 @@ export default function SiteHeader() {
               key={n.href}
               href={n.href}
               title={duo(n.en, n.te)}
-              className={`${n.xl ? "hidden xl:inline-flex" : ""} inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-[13px] font-semibold transition ${
+              className={`${n.xl ? "hidden xl:inline-flex" : ""} inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full whitespace-nowrap text-[13px] font-semibold transition ${
                 isActive(n.href)
                   ? "bg-maroon text-white shadow-soft"
                   : "text-ink/75 hover:text-maroon hover:bg-maroon-soft"
