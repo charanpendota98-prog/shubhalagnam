@@ -1877,6 +1877,7 @@ async def register(
     8. Return ID + card + matches
     """
     # 1. Validate & Smart Normalization
+    religion = req_choice(religion or "Hindu", "religion", ["Hindu", "Muslim", "Christian"])
     _g_clean = str(gender or "").strip().lower()
     if _g_clean in ["bride", "female", "f", "అమ్మాయి", "వధువు", "woman", "girl"] or "bride" in _g_clean or "female" in _g_clean:
         gender = "Bride"

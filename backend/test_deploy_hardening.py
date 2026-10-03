@@ -77,7 +77,7 @@ with client:  # triggers startup (demo/launch seed) so DB_USERS is populated
           hs.get("profiles_count") == real_approved and hs.get("stats_are_live") is True,
           {"hs": hs.get("profiles_count"), "real": real_approved})
     check("A6 home-stats still has channels/plans truth (no regression)",
-          hs.get("channels_total") == 52 and isinstance(hs.get("plans"), list) and hs.get("plans"),
+          hs.get("channels_total") == len(M.CHANNELS) and isinstance(hs.get("plans"), list) and hs.get("plans"),
           {"channels": hs.get("channels_total"), "plans": len(hs.get("plans") or [])})
 
 # frontend must not hard-code fabricated counts anymore

@@ -58,14 +58,15 @@ const NavIcon = ({ href, className = "w-4 h-4" }: { href: string; className?: st
 
 /* Desktop pills — neat & clean single labels */
 const NAV_MAIN: NavItem[] = [
-  { href: "/", en: "Home", te: "Home", icon: "🏠" },
-  { href: "/matches", en: "Matches", te: "Matches", icon: "💘" },
+  { href: "/", en: "Home", te: "హోమ్", icon: "🏠" },
+  { href: "/matches", en: "Matches", te: "సంబంధాలు", icon: "💘" },
   { href: "/second-marriage", en: "Second Marriage", te: "పునర్వివాహం", icon: "💍" },
-  { href: "/spotlight", en: "Spotlight", te: "Spotlight", icon: "🌟" },
-  { href: "/channels", en: "Channels", te: "Channels", icon: "📢" },
-  { href: "/castes", en: "Castes", te: "Castes", icon: "🪔" },
-  { href: "/pricing", en: "Pricing", te: "Pricing", icon: "💰" },
-  { href: "/referral", en: "Referral", te: "Referral", icon: "🤝" },
+  { href: "/spotlight", en: "Spotlight", te: "ప్రత్యేక ప్రొఫైళ్లు", icon: "🌟" },
+  { href: "/channels", en: "Channels", te: "ఛానళ్లు", icon: "📢" },
+  // Keep common laptop widths uncluttered; these remain one tap away in the menu.
+  { href: "/castes", en: "Communities", te: "కులాలు", icon: "🪔", xl: true },
+  { href: "/pricing", en: "Pricing", te: "ధరలు", icon: "💰", xl: true },
+  { href: "/referral", en: "Referral", te: "రెఫరల్", icon: "🤝", xl: true },
 ];
 
 const NAV_EARN: NavItem[] = [
@@ -155,34 +156,39 @@ export default function SiteHeader() {
 
   return (
     <header
-      className={`sticky top-0 z-50 no-print border-b transition-all duration-300 ${
-        scrolled ? "glass border-gold/30 shadow-soft" : "bg-cream border-transparent"
+      className={`brand-header sticky top-0 z-50 no-print border-b transition-shadow duration-300 ${
+        scrolled ? "border-gold/35 shadow-[0_8px_26px_rgba(74,12,34,.1)]" : "border-gold/20"
       }`}
     >
-      <div className="max-w-7xl mx-auto px-3 sm:px-4 h-16 flex items-center justify-between gap-2">
-        {/* Brand — 💍 Official Mana Vivaha Logo & Wordmark */}
-        <Link href="/" className="flex items-center gap-2 min-w-0 flex-1 focus-brand rounded-xl">
+      <div className="max-w-[1440px] mx-auto px-3 sm:px-4 h-16 lg:h-14 flex items-center justify-between gap-2">
+        {/* One clean wordmark: the selected language controls every visible label. */}
+        <Link href="/" className="flex items-center gap-2.5 min-w-0 flex-1 focus-brand rounded-xl" aria-label={te ? "మన వివాహ హోమ్" : "Mana Vivaha home"}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={SITE_CONFIG.logoImage} alt="మన వివాహ logo" width={40} height={40}
-            className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl object-cover shadow-gold shrink-0" />
-          <div className="min-w-0">
-            <div className="brand-wordmark font-bold truncate text-[18px] sm:text-[20px] telugu" aria-label="మన వివాహ">
-              మన వివాహ <span className="font-normal text-xs text-amber-700 hidden sm:inline">Mana Vivaha</span>
+          <img src={SITE_CONFIG.logoImage} alt="" width={44} height={44}
+            className="w-10 h-10 lg:w-8 lg:h-8 rounded-xl lg:rounded-lg object-cover shadow-[0_5px_14px_rgba(122,12,46,.18)] ring-1 ring-maroon/10 shrink-0" />
+          <div className="brand-lockup min-w-0">
+            <div
+              className={`brand-name ${te ? "telugu" : ""}`}
+              aria-label={te ? "మన వివాహ" : "Mana Vivaha"}
+            >
+              <span className="brand-name-primary">{te ? "మన" : "Mana"}</span>{" "}
+              <span className="brand-name-accent">{te ? "వివాహ" : "Vivaha"}</span>
+              <span className="brand-spark" aria-hidden="true">✦</span>
             </div>
-            <div className="hidden sm:block text-[10px] text-gray-500 leading-tight truncate telugu">
-              {te ? "తెలుగు వారి పవిత్ర మ్యాట్రిమోనీ" : "Telugu Authentic Matrimony"}
+            <div className={`brand-tagline hidden sm:block truncate ${te ? "telugu" : ""}`}>
+              {te ? "తెలుగు వారి వివాహ వేదిక" : "Telugu Matrimony"}
             </div>
           </div>
         </Link>
 
         {/* Desktop nav */}
         <nav className="hidden lg:flex items-center gap-1" aria-label="Main">
-          {NAV_MAIN.map((n) => (
+          {NAV_MAIN.filter((n) => n.href !== "/" && n.href !== "/matches").map((n) => (
             <Link
               key={n.href}
               href={n.href}
               title={duo(n.en, n.te)}
-              className={`${n.xl ? "hidden xl:inline-flex" : ""} inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full whitespace-nowrap text-[13px] font-semibold transition ${
+              className={`${n.xl ? "hidden xl:inline-flex" : "inline-flex"} items-center gap-1.5 px-2.5 py-2 rounded-full whitespace-nowrap text-[12px] font-semibold transition ${
                 isActive(n.href)
                   ? "bg-maroon text-white shadow-soft"
                   : "text-ink/75 hover:text-maroon hover:bg-maroon-soft"
@@ -204,7 +210,7 @@ export default function SiteHeader() {
               <ChevronDown className="w-3.5 h-3.5 text-gray-400 group-hover:rotate-180 transition-transform duration-200" strokeWidth={2.5} aria-hidden="true" />
             </button>
 
-            <div className="absolute left-0 top-full mt-1.5 w-64 bg-white/95 backdrop-blur-md rounded-2xl shadow-xl border border-gold/30 p-2 opacity-0 translate-y-2 pointer-events-none group-hover:opacity-100 group-hover:translate-y-0 group-hover:pointer-events-auto transition-all duration-200 z-50">
+            <div className="absolute left-0 top-full mt-1.5 w-64 bg-white/95 backdrop-blur-md rounded-2xl shadow-xl border border-gold/30 p-2 opacity-0 translate-y-2 pointer-events-none group-hover:opacity-100 group-hover:translate-y-0 group-hover:pointer-events-auto group-focus-within:opacity-100 group-focus-within:translate-y-0 group-focus-within:pointer-events-auto transition-all duration-200 z-50">
               <Link
                 href="/lagna-patrika"
                 className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-gold/10 text-xs font-bold text-gray-800 hover:text-maroon transition"
@@ -271,7 +277,10 @@ export default function SiteHeader() {
 
         {/* Right actions */}
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-          <LangToggle compact />
+          <div className="hidden md:block"><LangToggle compact /></div>
+          <div className="md:hidden">
+            <LangToggle compact />
+          </div>
           <Link
             href="/porutham"
             className="hidden md:inline-flex items-center gap-1.5 px-3.5 py-2 text-[13px] font-semibold border border-maroon/30 text-maroon rounded-full hover:bg-maroon-soft transition"
@@ -297,14 +306,14 @@ export default function SiteHeader() {
               href="/login"
               className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-2 text-[13px] font-bold border border-maroon/30 text-maroon rounded-full hover:bg-maroon-soft transition"
             >
-              <Smartphone className="w-[15px] h-[15px]" strokeWidth={2.25} aria-hidden="true" /> Login
+              <Smartphone className="w-[15px] h-[15px]" strokeWidth={2.25} aria-hidden="true" /> {te ? "లాగిన్" : "Login"}
             </Link>
           )}
           <Link
             href="/register"
-            className="px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-full text-[12px] sm:text-[13px] font-black maroon-gradient text-white shadow-soft hover:shadow-brand transition whitespace-nowrap"
+            className="hidden sm:inline-flex px-4 py-2 rounded-full text-[13px] font-black maroon-gradient text-white shadow-soft hover:shadow-brand transition whitespace-nowrap"
           >
-            <span>ఉచిత నమోదు</span>
+            <span>{te ? "ఉచిత నమోదు" : "Free Register"}</span>
           </Link>
           <button
             aria-label={te ? "మెనూ" : "Menu"}
@@ -344,7 +353,7 @@ export default function SiteHeader() {
         <div className="glass border-t border-gold/25 px-4 pt-1 pb-4 max-h-[75vh] overflow-y-auto overscroll-contain menu-scroll">
           {groupTitle("Main", "మెయిన్")}
           <div className="space-y-1">
-            {NAV_MAIN.filter((n) => !n.xl).map(menuLink)}
+            {NAV_MAIN.map(menuLink)}
           </div>
           {groupTitle("Earn", "సంపాదించండి")}
           <div className="space-y-1">

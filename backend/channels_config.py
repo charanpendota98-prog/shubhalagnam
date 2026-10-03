@@ -281,6 +281,33 @@ CHANNELS = {
                        "route": "manual"},
 }
 
+# Keep religion channels compact: TS + AP are combined into one Bride and one
+# Groom channel per community. The older state-split/other/interfaith entries
+# remain historical definitions only and never enter runtime APIs or routing.
+_LEGACY_RELIGION_KEYS = {
+    "muslim_ts_bride", "muslim_ts_groom", "muslim_ap_bride", "muslim_ap_groom",
+    "christian_ts_bride", "christian_ts_groom", "christian_ap_bride", "christian_ap_groom",
+    "other_religion", "interfaith",
+}
+CHANNELS = {key: channel for key, channel in CHANNELS.items() if key not in _LEGACY_RELIGION_KEYS}
+for _key, _religion, _gender, _icon, _te in (
+    ("muslim_bride", "Muslim", "Bride", "☪️", "ముస్లిం వధువులు"),
+    ("muslim_groom", "Muslim", "Groom", "☪️", "ముస్లిం వరులు"),
+    ("christian_bride", "Christian", "Bride", "✝️", "క్రైస్తవ వధువులు"),
+    ("christian_groom", "Christian", "Groom", "✝️", "క్రైస్తవ వరులు"),
+):
+    _plural = "Brides" if _gender == "Bride" else "Grooms"
+    CHANNELS[_key] = {
+        "tier": "L2_RELIGION", "religion": _religion, "gender": _gender,
+        "name": f"{_icon} {_religion} {_plural} | {_te}",
+        "username": f"manavivaha_{_religion.lower()}_{_gender.lower()}",
+        "fallbacks": [],
+        "desc": f"TS & AP {_religion} {_plural} — {_te}.",
+        "hashtags": [f"#{_religion}", f"#{_gender}", "#TS", "#AP"],
+        "wave": 1, "live": True,
+        "route": {"religion": _religion, "gender": _gender},
+    }
+
 # >>> LIVE_KEYS_EXTRA (setup_channels.py --mark-live idi auto-manage chestundi)
 LIVE_KEYS_EXTRA = [
 ]
@@ -314,12 +341,12 @@ CASTE_CLUSTERS: List[Dict] = [
     {"key": "madiga", "en": "Madiga", "te": "మాదిగ", "category": "SC", "split": True, "wave": 2,
      "members": ["Madiga", "Madiga Dasu", "Mashteen", "Madiga Dasari"]},
     {"key": "viswabrahmana", "en": "Viswabrahmana (Viswakarma)", "te": "విశ్వబ్రాహ్మణ", "category": "BC",
-     "split": False, "wave": 2,
+     "split": True, "wave": 2,
      "members": ["Viswakarma", "Viswabrahmin", "Viswabrahmana", "Kamsali", "Kammari", "Kanchari", "Vadla",
                  "Ausula", "Silpi", "Shilpi", "Vadrangi", "Achari"]},
-    {"key": "munnuru_kapu", "en": "Munnuru Kapu", "te": "మున్నూరు కాపు", "category": "BC", "split": False,
+    {"key": "munnuru_kapu", "en": "Munnuru Kapu", "te": "మున్నూరు కాపు", "category": "BC", "split": True,
      "wave": 2, "members": ["Munnuru Kapu", "Munnuru"]},
-    {"key": "raju_kshatriya", "en": "Raju • Kshatriya", "te": "రాజు • క్షత్రియ", "category": "OC", "split": False,
+    {"key": "raju_kshatriya", "en": "Raju • Kshatriya", "te": "రాజు • క్షత్రియ", "category": "OC", "split": True,
      "wave": 3, "members": ["Raju", "Rajulu", "Kshatriya", "Vanniyar"]},
     {"key": "padmashali_weavers", "en": "Padmashali • Devanga (Weavers)", "te": "పద్మశాలి • దేవాంగ",
      "category": "BC", "split": False, "wave": 3,
@@ -327,13 +354,13 @@ CASTE_CLUSTERS: List[Dict] = [
     {"key": "mudiraj", "en": "Mudiraj • Tenugollu", "te": "ముదిరాజ • తెనుగొల్ల", "category": "BC", "split": False,
      "wave": 3, "members": ["Mudiraj", "Mudiraju", "Mutrasi", "Tenugollu"]},
     {"key": "lambada_banjara", "en": "Lambada • Banjara (ST)", "te": "లంబాడ • బంజార", "category": "ST",
-     "split": False, "wave": 3, "members": ["Lambada", "Lambadi", "Banjara", "Lambani", "Sugali"]},
-    {"key": "others_bc", "en": "Other BC Communities", "te": "ఇతర BC కులాలు", "category": "BC", "split": False,
+     "split": True, "wave": 3, "members": ["Lambada", "Lambadi", "Banjara", "Lambani", "Sugali"]},
+    {"key": "others_bc", "en": "Other BC Communities", "te": "ఇతర BC కులాలు", "category": "BC", "split": True,
      "wave": 3, "members": ["Kummara", "Kulala", "Salivahana", "Gandla", "Telikula", "Uppara", "Sagara",
                             "Vaddera", "Odde", "Rajaka", "Chakali", "Mangali", "Nayi-Brahmin", "Boya", "Valmiki",
                             "Srisayana", "Segidi", "Gavara", "Bestha", "Gangaputra", "Jalari", "Vadabalija",
                             "Jangam", "Jogi", "Dasari", "Bhatraju", "Kalinga"]},
-    {"key": "others_sc", "en": "Other SC Communities", "te": "ఇతర SC కులాలు", "category": "SC", "split": False,
+    {"key": "others_sc", "en": "Other SC Communities", "te": "ఇతర SC కులాలు", "category": "SC", "split": True,
      "wave": 3, "members": ["Adi Andhra", "Adi Dravida", "Arundhatiya", "Relli", "Arwa Mala", "Samban", "Dandasi"]},
     {"key": "others_st", "en": "Other ST Communities", "te": "ఇతర ST కులాలు", "category": "ST", "split": False,
      "wave": 3, "members": ["Koya", "Koitur", "Gond", "Rajgond", "Naikpod", "Chenchu", "Bagata", "Konda Reddi",
@@ -780,10 +807,9 @@ def route_profile(profile: dict, max_posts: int = MAX_POSTS) -> dict:
             ordered.append(("hindu", "religion (caste Open/Others)"))
             notes.append("Caste 'Open/Others' — caste channel skip (hashtag #Open)")
     elif religion in ("Muslim", "Christian"):
-        # ☪️✝️ religion × state × gender = 4 channels (Sheikh/Syed/Catholic/CSI ante okate channel)
-        _s = state if state in ("TS", "AP") else "TS"
-        ordered.append(("%s_%s_%s" % (religion.lower(), _s.lower(), gender.lower()),
-                        "religion=%s + %s + %s" % (religion, _s, gender)))
+        # TS + AP combined: exactly one Bride and one Groom channel per community.
+        ordered.append(("%s_%s" % (religion.lower(), gender.lower()),
+                        "religion=%s + %s (TS & AP)" % (religion, gender)))
     else:
         ordered.append(("other_religion", "religion=Other"))
 
@@ -886,7 +912,8 @@ DEFAULT_WA_LINKS: Dict[str, str] = {
     "c_kamma_groom": "https://whatsapp.com/channel/0029Vb8r6ZJFXUueNw3SQU3r",
     "c_kapu_bride": "https://whatsapp.com/channel/0029VbDyehn30LKVqYhOfn0L",
     "c_kapu_groom": "https://whatsapp.com/channel/0029Vb8le7LLCoX4ClqFvi1J",
-    "c_munnuru_kapu": "https://whatsapp.com/channel/0029VbECYss60eBcdKqXag3D",
+    "c_munnuru_kapu_bride": "https://whatsapp.com/channel/0029VbECYss60eBcdKqXag3D",
+    "c_munnuru_kapu_groom": "https://whatsapp.com/channel/0029VbD3XJa4CrfknKw76i0e",
     "c_velama_bride": "https://whatsapp.com/channel/0029Vb98bMQBFLgUhEG7cq37",
     "c_velama_groom": "https://whatsapp.com/channel/0029Vb9KeAeD38CUvyswkO3O",
     "c_brahmin_bride": "https://whatsapp.com/channel/0029VbDba8OLSmbk24oJaf3O",
@@ -896,16 +923,25 @@ DEFAULT_WA_LINKS: Dict[str, str] = {
     "c_yadava_goud_bride": "https://whatsapp.com/channel/0029Vb8fFvdHVvTcadiqkp2D",
     "c_yadava_goud_groom": "https://whatsapp.com/channel/0029VbDn2nT7j6g3fdTXgq3A",
     "c_padmashali_weavers": "https://whatsapp.com/channel/0029VbDO1JI0AgW8yM52cm1J",
-    "c_viswabrahmana": "https://whatsapp.com/channel/0029VbDdWlb8aKvK4Rddz32k",
-    "c_raju_kshatriya": "https://whatsapp.com/channel/0029VbDnKz45q08XGV69LJ0f",
+    "c_viswabrahmana_bride": "https://whatsapp.com/channel/0029Vb8MKAKBA1f7VLuIaX2Y",
+    "c_viswabrahmana_groom": "https://whatsapp.com/channel/0029VbDdWlb8aKvK4Rddz32k",
+    "c_raju_kshatriya_bride": "https://whatsapp.com/channel/0029VbEEoWhJJhzenO8voU1e",
+    "c_raju_kshatriya_groom": "https://whatsapp.com/channel/0029VbDnKz45q08XGV69LJ0f",
     "c_mala_bride": "https://whatsapp.com/channel/0029VbDtETF65yD6fNeGlf2A",
     "c_mala_groom": "https://whatsapp.com/channel/0029Vb8uW65EwEjvgTserz3x",
     "c_madiga_bride": "https://whatsapp.com/channel/0029Vb94k5RKAwEkRYeW7m1C",
     "c_madiga_groom": "https://whatsapp.com/channel/0029VbDwFWs60eBX0hvdW93T",
-    "c_lambada_banjara": "https://whatsapp.com/channel/0029Vb902btGE56gSl4iV10H",
-    "c_others_bc": "https://whatsapp.com/channel/0029VbE9dOxDDmFZvsPGd31I",
-    "c_others_sc": "https://whatsapp.com/channel/0029VbDNWfI002TDBUfbFp2A",
+    "c_lambada_banjara_bride": "https://whatsapp.com/channel/0029VbD3CW6HVvTbgyWWvX3r",
+    "c_lambada_banjara_groom": "https://whatsapp.com/channel/0029Vb902btGE56gSl4iV10H",
+    "c_others_bc_bride": "https://whatsapp.com/channel/0029VbDz6odI7Be7YAuc1e3w",
+    "c_others_bc_groom": "https://whatsapp.com/channel/0029VbE9dOxDDmFZvsPGd31I",
+    "c_others_sc_bride": "https://whatsapp.com/channel/0029Vb8oMp4J93we9t58Sr0m",
+    "c_others_sc_groom": "https://whatsapp.com/channel/0029VbDNWfI002TDBUfbFp2A",
     "c_mudiraj": "https://whatsapp.com/channel/0029VbDrXXxATRSsOCpkZD2J",
+    "muslim_groom": "https://whatsapp.com/channel/0029VbEPpCj0lwgqyXF6vV1a",
+    "muslim_bride": "https://whatsapp.com/channel/0029VbEMkZZDDmFUKnTbB31b",
+    "christian_groom": "https://whatsapp.com/channel/0029Vb9U1HC84OmDO5Q7HM0I",
+    "christian_bride": "https://whatsapp.com/channel/0029Vb8ikeUHgZWViQMiJQ2h",
 }
 
 

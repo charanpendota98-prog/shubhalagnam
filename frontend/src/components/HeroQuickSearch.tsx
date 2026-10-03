@@ -19,10 +19,10 @@ import {
 } from "@/lib/telugu-data";
 
 const QUICK_CHIPS = [
-  { label: "Housewife", te: "🏡 గృహిణి (Housewife)" },
-  { label: "Software", te: "💻 సాఫ్ట్‌వేర్ / IT" },
+  { label: "Housewife", te: "🏡 గృహిణి" },
+  { label: "Software", te: "💻 సాఫ్ట్‌వేర్" },
   { label: "Govt", te: "🏛️ గవర్నమెంట్ జాబ్" },
-  { label: "Second Marriage", te: "❤️ పునర్వివాహం" },
+  { label: "Second Marriage", te: "💍 పునర్వివాహం" },
   { label: "Reddy", te: "రెడ్డి" },
   { label: "Kamma", te: "కమ్మ" },
   { label: "Kapu", te: "కాపు" },
@@ -37,12 +37,12 @@ const QUICK_CHIPS = [
 ];
 
 const AGE_RANGES = [
-  { label: "21 - 25 Yrs", min: 21, max: 25 },
-  { label: "24 - 28 Yrs", min: 24, max: 28 },
-  { label: "27 - 32 Yrs", min: 27, max: 32 },
-  { label: "30 - 36 Yrs", min: 30, max: 36 },
-  { label: "35 - 45 Yrs", min: 35, max: 45 },
-  { label: "All Ages (18-60)", min: 18, max: 60 },
+  { label: "21–25 years", te: "21–25 సంవత్సరాలు", min: 21, max: 25 },
+  { label: "24–28 years", te: "24–28 సంవత్సరాలు", min: 24, max: 28 },
+  { label: "27–32 years", te: "27–32 సంవత్సరాలు", min: 27, max: 32 },
+  { label: "30–36 years", te: "30–36 సంవత్సరాలు", min: 30, max: 36 },
+  { label: "35–45 years", te: "35–45 సంవత్సరాలు", min: 35, max: 45 },
+  { label: "All ages (18–60)", te: "అన్ని వయస్సులు (18–60)", min: 18, max: 60 },
 ];
 
 export default function HeroQuickSearch() {
@@ -54,9 +54,8 @@ export default function HeroQuickSearch() {
   const [stateFilter, setStateFilter] = useState<"ALL" | "TS" | "AP" | "NRI">("ALL");
   const [caste, setCaste] = useState<string>("All Castes");
   const [district, setDistrict] = useState<string>("All Districts");
-  const [ageIdx, setAgeIdx] = useState<number>(1);
-  const [isListening, setIsListening] = useState(false);
-  const [voiceTranscript, setVoiceTranscript] = useState("");
+  // Start broad; users can narrow this without silently losing valid matches.
+  const [ageIdx, setAgeIdx] = useState<number>(5);
 
   // Search dropdown states
   const [casteSearchOpen, setCasteSearchOpen] = useState(false);
@@ -116,94 +115,16 @@ export default function HeroQuickSearch() {
     );
   }, [availableDistricts, districtQuery]);
 
-  const handleVoiceSearch = () => {
-    if (typeof window === "undefined") return;
-    const SpeechRecognition =
-      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-
-    if (!SpeechRecognition) {
-      alert(te ? "మీ బ్రౌజర్‌లో వాయిస్ సెర్చ్ సపోర్ట్ లేదు." : "Voice search is not supported in this browser.");
-      return;
-    }
-
-    const recognition = new SpeechRecognition();
-    recognition.lang = te ? "te-IN" : "en-IN";
-    recognition.continuous = false;
-    recognition.interimResults = false;
-
-    recognition.onstart = () => {
-      setIsListening(true);
-      setVoiceTranscript(te ? "వింటున్నాను... మాట్లాడండి..." : "Listening... speak now...");
-    };
-
-    recognition.onresult = (event: any) => {
-      const speech = event.results[0][0].transcript;
-      setVoiceTranscript(`"${speech}"`);
-      setIsListening(false);
-
-      const lower = speech.toLowerCase();
-      // Auto-detect caste
-      for (const c of CASTES) {
-        if (lower.includes(c.toLowerCase())) {
-          setCaste(c);
-          break;
-        }
-      }
-      if (lower.includes("రెడ్డి") || lower.includes("reddy")) setCaste("Reddy");
-      if (lower.includes("కమ్మ") || lower.includes("kamma")) setCaste("Kamma");
-      if (lower.includes("కాపు") || lower.includes("kapu")) setCaste("Kapu");
-      if (lower.includes("వైశ్య") || lower.includes("vysya")) setCaste("Arya Vysya");
-      if (lower.includes("బ్రాహ్మణ") || lower.includes("brahmin")) setCaste("Brahmin");
-      if (lower.includes("యాదవ") || lower.includes("yadav")) setCaste("Yadava");
-      if (lower.includes("పద్మశాలి") || lower.includes("padmashali")) setCaste("Padmashali");
-      if (lower.includes("గౌడ్") || lower.includes("goud")) setCaste("Goud");
-      if (lower.includes("ముదిరాజ్") || lower.includes("mudiraj")) setCaste("Mudiraj");
-
-      // Auto-detect gender
-      if (lower.includes("వరుడు") || lower.includes("అబ్బాయి") || lower.includes("groom") || lower.includes("male")) {
-        setGender("Groom");
-      } else if (lower.includes("వధువు") || lower.includes("అమ్మాయి") || lower.includes("bride") || lower.includes("female")) {
-        setGender("Bride");
-      }
-
-      // Auto-detect district
-      for (const d of availableDistricts) {
-        if (lower.includes(d.en.toLowerCase()) || lower.includes(d.te.toLowerCase())) {
-          setDistrict(d.en);
-          break;
-        }
-      }
-      if (lower.includes("హైదరాబాద్") || lower.includes("hyderabad")) setDistrict("Hyderabad");
-      if (lower.includes("వరంగల్") || lower.includes("warangal")) setDistrict("Warangal");
-      if (lower.includes("వైజాగ్") || lower.includes("విశాఖ") || lower.includes("visakhapatnam")) setDistrict("Visakhapatnam");
-      if (lower.includes("విజయవాడ") || lower.includes("vijayawada")) setDistrict("NTR");
-      if (lower.includes("గుంటూరు") || lower.includes("guntur")) setDistrict("Guntur");
-    };
-
-    recognition.onerror = () => {
-      setIsListening(false);
-      setVoiceTranscript("");
-    };
-
-    recognition.onend = () => {
-      setIsListening(false);
-    };
-
-    recognition.start();
-  };
-
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     const params = new URLSearchParams();
     if (gender) params.set("gender", gender);
     if (caste && caste !== "All Castes") params.set("caste", caste);
     if (stateFilter !== "ALL") params.set("state", stateFilter);
+    if (stateFilter === "NRI") params.set("nri_only", "true");
     if (district && district !== "All Districts") {
-      if (district.includes("USA") || district.includes("UK") || district.includes("NRI")) {
-        params.set("nri_only", "true");
-      } else {
-        params.set("district", district.split(" ")[0]);
-      }
+      if (stateFilter === "NRI") params.set("country", district);
+      else params.set("district", district);
     }
     const age = AGE_RANGES[ageIdx];
     if (age) {
@@ -235,10 +156,10 @@ export default function HeroQuickSearch() {
   };
 
   return (
-    <div className="w-full max-w-5xl mx-auto bg-white/95 backdrop-blur-2xl rounded-[2rem] p-5 sm:p-7 border-2 border-gold/70 shadow-[0_20px_70px_rgba(122,12,46,0.18)]">
+    <div className="w-full max-w-6xl mx-auto bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-6 border border-gold/50 shadow-[0_18px_55px_rgba(78,12,35,0.14)]">
       <form onSubmit={handleSearch} className="space-y-4">
         
-        {/* Top Control Bar: Looking for Gender + State Switcher + Voice Search */}
+        {/* Top Control Bar: Looking for Gender + State Switcher */}
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gold/30 pb-4">
           
           {/* Gender Selector */}
@@ -256,7 +177,7 @@ export default function HeroQuickSearch() {
                     : "text-gray-700 hover:text-maroon"
                 }`}
               >
-                👰 {te ? "వధువు (Bride)" : "Bride"}
+                👰 {te ? "వధువు" : "Bride"}
               </button>
               <button
                 type="button"
@@ -267,13 +188,13 @@ export default function HeroQuickSearch() {
                     : "text-gray-700 hover:text-maroon"
                 }`}
               >
-                🤵 {te ? "వరుడు (Groom)" : "Groom"}
+                🤵 {te ? "వరుడు" : "Groom"}
               </button>
             </div>
           </div>
 
           {/* State Filter Buttons */}
-          <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-2xl border border-gray-300">
+          <div className="flex max-w-full items-center gap-1 overflow-x-auto scrollbar-hide p-1 bg-slate-100 rounded-xl border border-gray-200" role="group" aria-label={te ? "ప్రాంతం" : "Region"}>
             <button
               type="button"
               onClick={() => { setStateFilter("ALL"); setDistrict("All Districts"); }}
@@ -312,34 +233,12 @@ export default function HeroQuickSearch() {
             </button>
           </div>
 
-          {/* Voice Search Button */}
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={handleVoiceSearch}
-              className={`flex items-center gap-1.5 text-xs font-black px-3.5 py-2 rounded-xl border transition-all cursor-pointer ${
-                isListening
-                  ? "bg-rose-600 text-white border-rose-700 animate-pulse shadow-lg"
-                  : "bg-amber-50 text-maroon border-gold/60 hover:bg-gold/20 shadow-xs"
-              }`}
-              title={te ? "వాయిస్ సెర్చ్ — మాట్లాడి వెతకండి" : "Voice Search (Speak in Telugu/English)"}
-            >
-              <span className="text-sm">🎙️</span>
-              <span className="telugu">{isListening ? (te ? "వింటున్నాను..." : "Listening...") : (te ? "వాయిస్ సెర్చ్" : "Voice Search")}</span>
-            </button>
-
-            <span className="hidden sm:inline-block text-[11px] font-extrabold text-emerald-800 bg-emerald-50 border border-emerald-300 px-3 py-1.5 rounded-full shadow-xs">
-              ⚡ {te ? "మొదటి 3 నంబర్లు FREE" : "First 3 FREE"}
-            </span>
-          </div>
+          <span className="hidden sm:inline-flex items-center text-[11px] font-extrabold text-emerald-800 bg-emerald-50 border border-emerald-300 px-3 py-2 rounded-xl">
+            ✓ {te ? "మొదటి 3 ఇంట్రెస్ట్‌లు ఉచితం" : "First 3 interests free"}
+          </span>
         </div>
 
-        {voiceTranscript && (
-          <div className="text-xs bg-amber-50 border border-gold/40 px-3.5 py-2 rounded-xl text-maroon font-bold animate-fade flex items-center justify-between">
-            <span>🗣️ {voiceTranscript}</span>
-            <button type="button" onClick={() => setVoiceTranscript("")} className="text-gray-400 hover:text-gray-600 text-xs font-bold">✕</button>
-          </div>
-        )}
+
 
         {/* 4 Form Inputs Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 items-end">
@@ -347,17 +246,19 @@ export default function HeroQuickSearch() {
           {/* 1. Searchable Caste Dropdown */}
           <div className="relative" ref={casteRef}>
             <label className="block text-[11px] font-extrabold text-gray-800 mb-1.5 telugu">
-              🪔 {te ? "కులం (Caste — సెర్చ్ చేయండి):" : "Caste (Searchable):"}
+              🪔 {te ? "కులం" : "Community"}
             </label>
             
             <button
               type="button"
               onClick={() => setCasteSearchOpen(!casteSearchOpen)}
+              aria-expanded={casteSearchOpen}
+              aria-haspopup="listbox"
               className="w-full px-3.5 py-3 bg-amber-50/60 border border-gold/50 rounded-xl text-xs font-bold text-navy text-left flex items-center justify-between focus:ring-2 focus:ring-maroon cursor-pointer shadow-xs"
             >
               <span className="truncate">
                 {caste === "All Castes"
-                  ? (te ? "అన్ని కులాలు (All Castes)" : "All Castes")
+                  ? (te ? "అన్ని కులాలు" : "All communities")
                   : `${CASTE_TELUGU[caste] ? `${CASTE_TELUGU[caste]} · ` : ""}${caste}`}
               </span>
               <span className="text-gray-400 text-xs">▼</span>
@@ -388,7 +289,7 @@ export default function HeroQuickSearch() {
                         caste === c ? "bg-[#7A0C2E] text-white" : "hover:bg-amber-50 text-navy"
                       }`}
                     >
-                      <span>{c === "All Castes" ? (te ? "అన్ని కులాలు (All Castes)" : "All Castes") : c}</span>
+                      <span>{c === "All Castes" ? (te ? "అన్ని కులాలు" : "All communities") : c}</span>
                       {c !== "All Castes" && CASTE_TELUGU[c] && (
                         <span className={`text-[11px] ${caste === c ? "text-amber-200" : "text-gray-500"}`}>
                           {CASTE_TELUGU[c]}
@@ -409,7 +310,7 @@ export default function HeroQuickSearch() {
           {/* 2. Age Range Selector */}
           <div>
             <label className="block text-[11px] font-extrabold text-gray-800 mb-1.5 telugu">
-              🎂 {te ? "వయస్సు (Age Range):" : "Age Range:"}
+              🎂 {te ? "వయస్సు" : "Age range"}
             </label>
             <select
               value={ageIdx}
@@ -417,7 +318,7 @@ export default function HeroQuickSearch() {
               className="w-full px-3.5 py-3 bg-amber-50/60 border border-gold/50 rounded-xl text-xs font-bold text-navy focus:outline-none focus:ring-2 focus:ring-maroon cursor-pointer shadow-xs"
             >
               {AGE_RANGES.map((a, i) => (
-                <option key={a.label} value={i}>{a.label}</option>
+                <option key={a.label} value={i}>{te ? a.te : a.label}</option>
               ))}
             </select>
           </div>
@@ -425,17 +326,19 @@ export default function HeroQuickSearch() {
           {/* 3. Searchable District Dropdown (All 33 TS + 26 AP + NRI) */}
           <div className="relative" ref={districtRef}>
             <label className="block text-[11px] font-extrabold text-gray-800 mb-1.5 telugu">
-              📍 {te ? "జిల్లా / నగరం (59 జిల్లాలు):" : "District / City (All 59 Dist):"}
+              📍 {te ? "జిల్లా లేదా నగరం" : "District or city"}
             </label>
             
             <button
               type="button"
               onClick={() => setDistrictSearchOpen(!districtSearchOpen)}
+              aria-expanded={districtSearchOpen}
+              aria-haspopup="listbox"
               className="w-full px-3.5 py-3 bg-amber-50/60 border border-gold/50 rounded-xl text-xs font-bold text-navy text-left flex items-center justify-between focus:ring-2 focus:ring-maroon cursor-pointer shadow-xs"
             >
               <span className="truncate">
                 {district === "All Districts"
-                  ? (te ? "అన్ని జిల్లాలు (All Districts)" : "All Districts")
+                  ? (te ? "అన్ని జిల్లాలు" : "All districts")
                   : `${DISTRICT_TELUGU[district] ? `${DISTRICT_TELUGU[district]} · ` : ""}${district}`}
               </span>
               <span className="text-gray-400 text-xs">▼</span>

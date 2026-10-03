@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useLang } from "@/lib/lang";
-import { Home, HeartHandshake, Wallet, Star, Gift, UserCircle2, type LucideIcon } from "lucide-react";
+import { Home, HeartHandshake, Wallet, Gift, UserCircle2, type LucideIcon } from "lucide-react";
 
 /** Mobile app navigation — Modern, Thumb-friendly, Top Matrimony App Standard. */
 /* R14 FIX: Pricing add చేశాం — desktop nav లో direct గా కనిపించేది, కానీ మొబైల్
@@ -18,7 +18,6 @@ const ITEMS: { href: string; icon: LucideIcon; te: string; en: string }[] = [
   { href: "/", icon: Home, te: "హోమ్", en: "Home" },
   { href: "/matches", icon: HeartHandshake, te: "సంబంధాలు", en: "Matches" },
   { href: "/pricing", icon: Wallet, te: "ధరలు", en: "Pricing" },
-  { href: "/spotlight", icon: Star, te: "స్పాట్‌లైట్", en: "Spotlight" },
   { href: "/referral", icon: Gift, te: "రెఫరల్", en: "Referral" },
   { href: "/me", icon: UserCircle2, te: "నా అకౌంట్", en: "Account" },
 ];

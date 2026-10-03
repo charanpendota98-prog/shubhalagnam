@@ -743,7 +743,7 @@ export const CASTE_SUBCASTES: Record<string, string[]> = (() => {
   return map;
 })();
 
-export const RELIGIONS = ["Hindu", "Muslim", "Christian", "Sikh", "Jain", "Buddhist", "Other"];
+export const RELIGIONS = ["Hindu", "Muslim", "Christian"];
 
 export const MOTHER_TONGUES = ["Telugu", "Urdu", "Hindi", "Tamil", "Kannada", "English", "Other"];
 

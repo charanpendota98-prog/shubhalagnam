@@ -120,7 +120,7 @@ pats = [r"rzp_live_[A-Za-z0-9]{6,}", r"AKIA[0-9A-Z]{10,}", r"xoxb-[0-9A-Za-z-]+"
 hits = []
 for dirpath, dirnames, files in os.walk(ROOT):
     dirnames[:] = [d for d in dirnames
-                   if d not in (".git", "node_modules", ".next", "__pycache__", "backups")]
+                   if d not in (".git", ".venv", "venv", "node_modules", ".next", "__pycache__", "backups")]
     for fn in files:
         if not fn.endswith((".py", ".yml", ".yaml", ".example", ".tsx", ".ts", ".js",
                              ".md", ".json", ".sh")):

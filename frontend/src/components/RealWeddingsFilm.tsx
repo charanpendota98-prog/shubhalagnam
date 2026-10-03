@@ -148,7 +148,7 @@ export default function RealWeddingsFilm() {
               key={i}
               aria-hidden={isDuplicateHalf(i) ? true : undefined}
               onClick={() => setSelectedStory(s)}
-              className="group relative mx-3.5 h-72 w-[310px] sm:h-84 sm:w-[380px] md:h-96 md:w-[440px] shrink-0 overflow-hidden rounded-3xl border-2 border-gold/30 bg-black/40 shadow-2xl transition-all duration-500 hover:border-gold hover:scale-[1.02] cursor-pointer"
+              className="group relative mx-2 h-72 w-[calc(100vw-2rem)] max-w-[310px] sm:mx-3.5 sm:h-84 sm:w-[380px] md:h-96 md:w-[440px] shrink-0 overflow-hidden rounded-3xl border-2 border-gold/30 bg-black/40 shadow-2xl transition-all duration-500 hover:border-gold hover:scale-[1.02] cursor-pointer"
             >
               {/* Wedding Still Image */}
               {/* eslint-disable-next-line @next/next/no-img-element */}

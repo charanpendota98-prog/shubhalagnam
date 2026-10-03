@@ -15,7 +15,7 @@ OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)),
 TIER_LABEL = {
     "L0_OFFICIAL": ("Official Hub", "📢", "Top-3 daily, success stories, safety alerts"),
     "L1_REGION": ("Main 4 Channels", "📍", "TS Bride • TS Groom • AP Bride • AP Groom (+ NRI)"),
-    "L2_RELIGION": ("Religion", "🕊️", "Hindu, Muslim, Christian, Other, Inter-faith"),
+    "L2_RELIGION": ("Community", "🕊️", "Hindu hub plus Muslim and Christian Bride/Groom channels"),
     "L3_CASTE": ("Caste-wise", "💍", "Caste ప్రకారం — top 18 castes కి bride/groom separate, మిగిలిన 25 castes కి mixed"),
     "L4_SPECIAL": ("Special", "⭐", "2nd marriage, able, govt, IT, doctors, 35+, bureau"),
 }
@@ -38,11 +38,11 @@ def main():
             "wave": ch.get("wave", 4),
             "live": bool(ch.get("live")),
         })
-    # Register form dropdown — 43 caste channels + religion options + Open
+    # Hindu-only registration: caste channels plus caste-no-bar/open.
     caste_options = [c.get("route", {}).get("caste") for c in CHANNELS.values()
                      if c["tier"] == "L3_CASTE" and isinstance(c.get("route"), dict)]
     caste_options = [c for c in caste_options if c]
-    caste_options = list(dict.fromkeys(caste_options)) + ["Muslim", "Christian", "Open"]
+    caste_options = list(dict.fromkeys(caste_options)) + ["Open"]
 
     tiers = [{"key": t, "label": TIER_LABEL[t][0], "icon": TIER_LABEL[t][1],
               "hint": TIER_LABEL[t][2],
@@ -57,7 +57,7 @@ def main():
     ts += f"export const CHANNEL_STATS = {json.dumps(stats, ensure_ascii=False)} as const;\n\n"
     ts += f"export const CHANNEL_TIERS = {json.dumps(tiers, ensure_ascii=False, indent=2)} as const;\n\n"
     ts += "export const ALL_CHANNELS: Channel[] = " + json.dumps(rows, ensure_ascii=False, indent=2) + ";\n\n"
-    ts += "// Register form dropdown — registry nunchi (43 castes + Muslim/Christian/Open)\n"
+    ts += "// Hindu-only register form dropdown — registry castes + Open\n"
     ts += "export const CASTE_OPTIONS: string[] = " + json.dumps(caste_options, ensure_ascii=False, indent=2) + ";\n"
     with open(OUT, "w", encoding="utf-8") as f:
         f.write(ts)

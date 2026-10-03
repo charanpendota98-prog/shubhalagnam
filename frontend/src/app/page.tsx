@@ -8,7 +8,7 @@ import AdSlot from "@/components/AdSlot";
 import OffersBanner from "@/components/OffersBanner";
 import BannerSlot from "@/components/BannerSlot";
 import SectionHeading from "@/components/SectionHeading";
-import { FinalCta, ReligionsStrip, StoriesStrip, TeaserStrip } from "@/components/HomeGrowth";
+import { FinalCta, StoriesStrip, TeaserStrip } from "@/components/HomeGrowth";
 import DailyStrip from "@/components/DailyStrip";
 import ShowcaseStrip from "@/components/ShowcaseStrip";
 import ProfilesOfTheDay from "@/components/ProfilesOfTheDay";
@@ -21,7 +21,6 @@ import HomeVendorsShowcase from "@/components/HomeVendorsShowcase";
 import HeroQuickSearch from "@/components/HeroQuickSearch";
 import WhyChooseUs from "@/components/WhyChooseUs";
 import DistrictAdBanner from "@/components/DistrictAdBanner";
-import VivahaMuhurthamTeaser from "@/components/VivahaMuhurthamTeaser";
 import HomeSecondMarriageSection from "@/components/HomeSecondMarriageSection";
 import { waLink } from "@/lib/wa";
 import { TelegramIcon, WhatsAppIcon } from "@/components/BrandIcons";
@@ -99,7 +98,7 @@ const TEXT = {
       "Photo-Private • DOB Verified • Watermark protected",
       "Telegram + WhatsApp channels లో post",
       `${castes} castes: Reddy నుంచి Madiga, Lambada, Boya వరకు`,
-      "Muslim • Christian • Inter-faith channels కూడా",
+      "హిందూ కులాల కోసం ప్రత్యేక ఛానళ్లు",
       "Referral — ప్రతి profile కి ₹50",
     ],
     statChannels: "Channels (network)",
@@ -250,7 +249,7 @@ const TEXT = {
       "Photo-Private • DOB Verified • Watermark protected",
       "Telegram + WhatsApp channels లో post",
       `${castes} castes: Reddy to Madiga, Lambada, Boya`,
-      "Muslim • Christian • Inter-faith channels too",
+      "Dedicated channels for Hindu communities",
       "Referral — ₹50 per profile",
     ],
     statChannels: "Channels (network)",
@@ -415,7 +414,6 @@ export default function Home() {
   const specialChannels: Channel[] = useMemo(() => ALL_CHANNELS.filter((c) => c.tier === "L4_SPECIAL"), []);
   const liveChannels = ALL_CHANNELS.filter((c) => c.live);
 
-  const tickerItems = L.ticker(hs.channels_total, hs.castes_covered, hs.free_first);
 
   const PLANS = [
     { name: L.planNames[0], price: "₹0", tag: L.planTags[0], credits: L.planCredits(hs.free_first, p99, p199, p299, p499)[0], features: (L.planFeatures[0] as string[]).map((f) => f.replace("channel network లో post", `${hs.channels_total} channel network`).replace("channel network", `${hs.channels_total} channels`)) },
@@ -466,7 +464,7 @@ export default function Home() {
   };
 
   return (
-    <div className="bg-cream">
+    <div className="home-page bg-cream">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       {/* ================= 🎬 CINEMATIC VIDEO HERO (top-matrimony feel) ================= */}
@@ -477,17 +475,7 @@ export default function Home() {
         <HeroQuickSearch />
       </section>
 
-      {/* Auspicious Ticker */}
-      <div className="mt-8 relative bg-maroon text-white py-3 ticker-mask shadow-inner">
-        <div className="ticker-track text-[11px] font-semibold tracking-wide">
-          {[...tickerItems, ...tickerItems].map((t, i) => (
-            <span key={i} className="mx-6 inline-flex items-center gap-2">
-              <span className="text-gold font-black">◆</span>
-              {t}
-            </span>
-          ))}
-        </div>
-      </div>
+
 
       {/* ================= 🌟 PROFILES OF THE DAY (SPOTLIGHT) ================= */}
       <ProfilesOfTheDay />
@@ -956,9 +944,6 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ================= 🗓️ VIVAHA MUHURTHAMS 2026-2027 ================= */}
-      <VivahaMuhurthamTeaser />
-
       {/* ================= 🪔 TRADITIONAL LAGNA PATRIKA STUDIO ================= */}
       <section className="max-w-7xl mx-auto px-4 py-6">
         <Reveal>
@@ -1087,7 +1072,7 @@ export default function Home() {
                 { p: "₹49", t: lang === "te" ? "Profile Boost" : "Profile Boost", d: lang === "te" ? "7 days channel top లో" : "7 days at channel top" },
                 { p: "₹49", t: lang === "te" ? "Who viewed me" : "Who viewed me", d: lang === "te" ? "30 days — names తో" : "30 days — with names" },
                 { p: "₹99", t: lang === "te" ? "వేద గుణమేళనం రిపోర్ట్" : "వేద గుణమేళనం రిపోర్ట్", d: lang === "te" ? "Full kundli match (Telugu)" : "Full kundli match (Telugu)" },
-                { p: "₹199", t: lang === "te" ? "Photo verify badge" : "Photo verify badge", d: lang === "te" ? "3x ఎక్కువ acceptances" : "3x more acceptances" },
+                { p: "₹199", t: lang === "te" ? "Photo verify badge" : "Photo verify badge", d: lang === "te" ? "ప్రొఫైల్ నమ్మకాన్ని పెంచుతుంది" : "Builds profile trust" },
               ].map((a) => (
                 <div key={a.t} className="rounded-2xl bg-cream border border-gold/25 p-3">
                   <div className="text-lg font-bold text-maroon">{a.p}</div>

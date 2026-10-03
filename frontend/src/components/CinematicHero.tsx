@@ -9,16 +9,16 @@
  */
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { useLang, type Lang } from "@/lib/lang";
-import { useLiveStats, fmtNum, type LiveStats } from "@/lib/live-stats";
+
 
 const COPY = {
   te: {
     kicker: "పవిత్రమైన తెలుగు వివాహ వేదిక · మన వివాహ",
     titleA: "నమ్మకమైన పవిత్ర బంధం,",
     titleB: "ఇక్కడే మొదలవుతుంది",
-    sub: "తెలంగాణ & ఆంధ్రప్రదేశ్ కుటుంబాల కొరకు అత్యున్నత విశ్వసనీయ వేదిక — 100% ధృవీకరించిన ప్రొఫైల్స్, సంపూర్ణ ఫోటో గోప్యత మరియు గౌరవప్రదమైన అనుసంధానం.",
+    sub: "తెలంగాణ & ఆంధ్రప్రదేశ్ కుటుంబాల కోసం గోప్యతకు ప్రాధాన్యం ఇచ్చే వేదిక — ప్రతి ప్రొఫైల్‌కు స్పష్టమైన వెరిఫికేషన్ స్థాయి, ఫోటో నియంత్రణ మరియు గౌరవప్రదమైన అనుసంధానం.",
     pricePill: "₹29 నుంచి ప్రారంభం · మొదటి 3 ప్రొఫైల్స్ పూర్తిగా ఉచితం (FREE)",
     ctaReg: "ఉచిత నమోదు — FREE",
     ctaBrowse: "సంబంధాలు చూడండి",
@@ -34,7 +34,7 @@ const COPY = {
       { key: "profiles", val: "", lbl: "ధృవీకరించిన ప్రొఫైల్స్" },
       { key: "districts", val: "", lbl: "జిల్లాల కవరేజ్" },
       { key: "channels", val: "", lbl: "కమ్యూనిటీ ఛానల్స్" },
-      { key: "safety", val: "100%", lbl: "సురక్షితం & గోప్యత" },
+      { key: "safety", val: "24/7", lbl: "భద్రతా సహాయం" }
     ],
   },
   en: {
@@ -54,7 +54,7 @@ const COPY = {
       { key: "profiles", val: "", lbl: "Verified Profiles" },
       { key: "districts", val: "", lbl: "Districts Covered" },
       { key: "channels", val: "", lbl: "Community Channels" },
-      { key: "safety", val: "100%", lbl: "Safe & Privacy First" },
+      { key: "safety", val: "24/7", lbl: "Safety Support" }
     ],
   },
 };
@@ -63,20 +63,8 @@ export default function CinematicHero() {
   const { lang } = useLang();
   const te = lang === "te";
   const L = COPY[(lang as Lang) in COPY ? (lang as Lang) : "te"];
-  const live = useLiveStats();
-  const _curLang: Lang = (lang as Lang) in COPY ? (lang as Lang) : "te";
-  // Real value resolver — fabricated numbers ikkada radu, backend truth matrame.
-  const statVal = (s: { key?: string; val: string }): string => {
-    if (s.key === "profiles") return fmtNum(live.profiles_count) + "+";
-    if (s.key === "districts") return (live.districts_with_profiles || 59) + "+";
-    if (s.key === "channels") return fmtNum(live.channels_total || live.channels_live) + "+";
-    return s.val || "100%";
-  };
-
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const [isPlaying, setIsPlaying] = useState(true);
-  const [isMuted, setIsMuted] = useState(true);
 
   // Guaranteed Native Autoplay & Loop handling
   useEffect(() => {
@@ -96,7 +84,7 @@ export default function CinematicHero() {
       if (video.paused) {
         const promise = video.play();
         if (promise !== undefined) {
-          promise.then(() => setIsPlaying(true)).catch(() => {});
+          promise.catch(() => {});
         }
       }
     };
@@ -181,15 +169,9 @@ export default function CinematicHero() {
     };
   }, []);
 
-  const toggleSound = () => {
-    if (!videoRef.current) return;
-    videoRef.current.muted = !videoRef.current.muted;
-    setIsMuted(videoRef.current.muted);
-  };
-
   return (
     <section
-      className="relative min-h-[75dvh] sm:min-h-[80dvh] flex items-center overflow-hidden bg-[#0d0107] text-white"
+      className="relative min-h-[640px] sm:min-h-[620px] lg:min-h-[660px] flex items-center overflow-hidden bg-[#0d0107] text-white"
       aria-label="Mana Vivaha — Telugu Matrimony"
     >
       {/* ================= 1. 4K CINEMATIC WEDDING VIDEO BACKGROUND ================= */}
@@ -200,10 +182,10 @@ export default function CinematicHero() {
           loop
           muted
           playsInline
-          preload="auto"
+          preload="metadata"
           poster="/promo/hero-bg-ultra.jpg"
           disablePictureInPicture
-          className="h-full w-full object-cover object-center pointer-events-none select-none transition-opacity duration-1000"
+          className="h-full w-full object-cover object-[62%_center] sm:object-center pointer-events-none select-none"
         >
           <source src="/promo/wedding-film.mp4" type="video/mp4" />
           <source src="/promo/wedding-story-film.mp4" type="video/mp4" />
@@ -220,7 +202,7 @@ export default function CinematicHero() {
       {/* Golden Akshathalu Canvas Overlay */}
       <canvas
         ref={canvasRef}
-        className="pointer-events-none absolute inset-0 z-[2] opacity-75"
+        className="hidden sm:block pointer-events-none absolute inset-0 z-[2] opacity-50"
       />
 
       {/* Clean Asymmetric Overlay (Allows the video to shine on the right side) */}
@@ -228,7 +210,7 @@ export default function CinematicHero() {
         className="absolute inset-0 z-[1] pointer-events-none"
         style={{
           background:
-            "linear-gradient(90deg, rgba(13,1,7,0.92) 0%, rgba(13,1,7,0.78) 45%, rgba(13,1,7,0.35) 75%, rgba(13,1,7,0.15) 100%)",
+            "linear-gradient(90deg, rgba(13,1,7,0.94) 0%, rgba(13,1,7,0.82) 42%, rgba(13,1,7,0.26) 72%, rgba(13,1,7,0.08) 100%)",
         }}
       />
       <div
@@ -243,26 +225,20 @@ export default function CinematicHero() {
       <div className="pointer-events-none absolute top-10 left-10 h-72 w-72 rounded-full bg-amber-500/10 blur-[100px]" />
 
       {/* ================= 2. MAIN CONTAINER ================= */}
-      <div className="relative z-[3] mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
+      <div className="relative z-[3] mx-auto w-full max-w-7xl px-5 sm:px-7 lg:px-10 py-9 sm:py-12">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-center">
           
           {/* LEFT/SIDE CONTAINER: COMPACT & REFINED LUXURY PANEL */}
           <div className="lg:col-span-7 xl:col-span-6 text-left">
-            <div className="bg-black/55 backdrop-blur-xl border border-amber-400/30 rounded-3xl p-5 sm:p-7 shadow-[0_15px_40px_rgba(0,0,0,0.7)] space-y-4 sm:space-y-5">
+            <div className="max-w-2xl space-y-4 sm:space-y-5 text-shadow-hero">
               
               {/* Auspicious Eyebrow Badge */}
               <div className="flex flex-wrap items-center gap-2">
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-400/50 bg-black/70 px-3 py-1 text-[11px] sm:text-xs font-black uppercase tracking-wider text-amber-300 shadow-sm">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-400/50 bg-[#2b0918] px-3 py-1 text-[11px] sm:text-xs font-black uppercase tracking-wider text-amber-300 shadow-sm">
                   <span>🪔</span>
                   <span>{L.kicker}</span>
                 </span>
 
-                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-950/80 border border-emerald-500/40 text-[10px] sm:text-[11px] font-bold text-emerald-300">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                  <span>{_curLang === "te"
-                    ? `${fmtNum(live.profiles_count)}+ ధృవీకరించిన సంబంధాలు`
-                    : `${fmtNum(live.profiles_count)}+ verified matches`}</span>
-                </span>
               </div>
 
               {/* Compact, Refined Royal Gold Headline */}
@@ -292,7 +268,7 @@ export default function CinematicHero() {
 
                 <Link
                   href="/matches"
-                  className="inline-flex items-center gap-2 rounded-full border border-white/40 bg-white/10 hover:bg-white/20 px-5 py-2.5 sm:px-6 sm:py-3 text-sm sm:text-base font-bold text-white backdrop-blur-md transition active:scale-95 shadow-sm"
+                  className="inline-flex items-center gap-2 rounded-full border border-white/60 bg-[#3a1423] hover:bg-[#52182d] px-5 py-2.5 sm:px-6 sm:py-3 text-sm sm:text-base font-bold text-white transition active:scale-95 shadow-sm"
                 >
                   <span>🔍</span>
                   <span>{L.ctaBrowse}</span>
@@ -301,54 +277,13 @@ export default function CinematicHero() {
 
               {/* Compact Pricing Offer Pill */}
               <div>
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-400/35 bg-black/50 px-3.5 py-1 text-[11px] sm:text-xs font-semibold text-amber-200 backdrop-blur-sm">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-400/40 bg-[#180710] px-3.5 py-1.5 text-[11px] sm:text-xs font-semibold text-amber-200">
                   <span className="text-amber-400">✦</span>
                   <span>{L.pricePill}</span>
                 </span>
               </div>
 
-              {/* 3 Compact Trust Pillars */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-3 border-t border-white/15">
-                {L.trust.map((t, i) => (
-                  <div key={i} className="flex items-start gap-2 p-1 text-[11px] sm:text-xs text-gray-200">
-                    <span className="text-base shrink-0 mt-0.5">{t.icon}</span>
-                    <div>
-                      <div className="font-bold text-white text-[11px] sm:text-xs leading-snug">{t.t}</div>
-                      <div className="text-[10px] text-gray-400 leading-tight">{t.sub}</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
             </div>
-          </div>
-
-          {/* RIGHT SIDE: UNOBSTRUCTED VIDEO SHOWCASE & FLOATING METRICS */}
-          <div className="lg:col-span-5 xl:col-span-6 flex flex-col justify-between items-end space-y-4">
-            
-            {/* Audio Toggle Button */}
-            <button
-              type="button"
-              onClick={toggleSound}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/60 hover:bg-black/80 border border-amber-400/40 text-amber-300 text-xs backdrop-blur-md transition shadow-lg"
-              title={isMuted ? "Unmute Video Sound" : "Mute Video Sound"}
-            >
-              <span>{isMuted ? "🔇" : "🔊"}</span>
-              <span className="text-[11px] font-bold">
-                {isMuted ? "సౌండ్ ఆన్" : "మ్యూట్"}
-              </span>
-            </button>
-
-            {/* Floating Live Metrics Card */}
-            <div className="w-full max-w-md bg-black/60 backdrop-blur-xl border border-amber-400/35 rounded-3xl p-3.5 shadow-2xl grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
-              {L.stats.map((s, idx) => (
-                <div key={idx} className="space-y-0.5">
-                  <div className="text-lg sm:text-xl font-black text-amber-300">{statVal(s)}</div>
-                  <div className="text-[10px] sm:text-[11px] font-semibold text-gray-300 leading-tight">{s.lbl}</div>
-                </div>
-              ))}
-            </div>
-
           </div>
 
         </div>
