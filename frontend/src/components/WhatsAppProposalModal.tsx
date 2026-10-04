@@ -53,7 +53,7 @@ export default function WhatsAppProposalModal({ isOpen, onClose, profile }: Prop
     if (tone === "parent") {
       greeting = te
         ? `🙏 నమస్కారం అండి!\nమేము మన వివాహ (Mana Vivaha) లో మీ కోసం సరితూగే ${genderTitleTe} సంబంధం ప్రొఫైల్ వివరాలను పంపుతున్నాము:`
-        : `🙏 Namaskaram!\nWe are sharing a verified Telugu matrimonial match profile from Mana Vivaha:`;
+        : `🙏 Namaskaram!\nWe are sharing a Telugu matrimonial profile from Mana Vivaha for your consideration:`;
     } else if (tone === "self") {
       greeting = te
         ? `🙏 నమస్కారం అండి!\nనేను మన వివాహ (Mana Vivaha) లో నా పెళ్లి సంబంధం కోసం వివరాలను పంపుతున్నాను. దయచేసి పరిశీలించండి:`
@@ -67,18 +67,20 @@ export default function WhatsAppProposalModal({ isOpen, onClose, profile }: Prop
     const lines = [
       greeting,
       `\n🆔 Profile ID: ${profile.tsap_id}`,
-      `👤 పేరు: ${profile.full_name || "పేరు గోప్యంగా ఉంచబడింది"}`,
-      `🎂 వయస్సు & ఎత్తు: ${profile.age ? `${profile.age} సం||` : "N/A"}${profile.height ? ` • ${profile.height}` : ""}`,
-      `🎓 చదువు: ${profile.education || "Graduate"}`,
-      `💼 ఉద్యోగం: ${profile.job || "Private"}${profile.company ? ` (${profile.company})` : ""}`,
+      `👤 పేరు: ${profile.full_name || "పేరు ఇవ్వలేదు"}`,
     ];
+    if (profile.age || profile.height) {
+      lines.push(`🎂 వయస్సు & ఎత్తు: ${profile.age ? `${profile.age} సం.` : ""}${profile.height ? `${profile.age ? " • " : ""}${profile.height}` : ""}`);
+    }
+    if (profile.education) lines.push(`🎓 చదువు: ${profile.education}`);
+    if (profile.job || profile.company) lines.push(`💼 ఉద్యోగం: ${[profile.job, profile.company].filter(Boolean).join(" · ")}`);
 
     if (includeSalary && profile.salary) {
       lines.push(`💰 వార్షిక ఆదాయం (Salary): ${profile.salary}`);
     }
 
-    lines.push(`📍 ఊరు / జిల్లా: ${profile.district || "Telangana / AP"}${profile.state ? ` (${profile.state})` : ""}`);
-    lines.push(`🏛️ కులం: ${profile.caste || "Telugu Community"}${profile.sub_caste ? ` (${profile.sub_caste})` : ""}`);
+    if (profile.district || profile.state) lines.push(`📍 ఊరు / జిల్లా: ${[profile.district, profile.state].filter(Boolean).join(", ")}`);
+    if (profile.caste || profile.sub_caste) lines.push(`🏛️ కులం: ${[profile.caste, profile.sub_caste].filter(Boolean).join(" / ")}`);
 
     if (includeAstro) {
       const astroParts = [];
@@ -100,8 +102,8 @@ export default function WhatsAppProposalModal({ isOpen, onClose, profile }: Prop
       lines.push(`\n🎴 HD కలర్ బయోడేటా డౌన్‌లోడ్ చేయడానికి లింక్:\n👉 ${biodataUrl}`);
     }
 
-    lines.push(`\n✨ మన వివాహ (Mana Vivaha) — 100% నమ్మకమైన తెలుగు మ్యాట్రిమోని వేదిక`);
-    lines.push(`📞 హెల్ప్‌లైన్ & వాట్సాప్: +91 6304996088`);
+    lines.push(`\n✨ మన వివాహ (Mana Vivaha) — Telugu matrimony profile service`);
+    lines.push(te ? "వివరాలను కుటుంబ సభ్యులతో కలిసి పరిశీలించి స్వతంత్రంగా ధృవీకరించండి." : "Please review and independently verify the details with your family.");
 
     return lines.join("\n");
   };

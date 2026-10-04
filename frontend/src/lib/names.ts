@@ -1,6 +1,6 @@
 /**
  * 👋 WAVE 13 — public name display (first-name only, surname hidden).
- * Backend lo surname undi (same-surname block kosam) — UI lo matram first name.
+ * The backend retains submitted names; public profile cards display only a first name.
  */
 export function firstName(fullName?: string): string {
   const parts = String(fullName || "").trim().split(/\s+/).filter(Boolean);

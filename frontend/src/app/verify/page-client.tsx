@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * 🤳 WAVE 17 — Verify Profile (live selfie → trust badge).
+ * 🤳 WAVE 17 — Verify Profile (live selfie → separately recorded review status).
  * Screenshot 6 standard: Verify Profile + Skip + "Verify with a live selfie" card.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -63,7 +63,7 @@ export default function VerifyPage() {
   };
 
   return (
-    <main className="mx-auto max-w-2xl px-4 py-8 pb-36">
+    <div className="mx-auto max-w-2xl px-4 py-8 pb-36">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-xl sm:text-2xl font-extrabold text-maroon min-w-0">🤳 <Duo en="Verify Profile" te="ప్రొఫైల్ ధృవీకరణ" /></h1>
         <Link href="/matches" className="text-[13px] font-bold text-maroon shrink-0"><Duo en="Skip for now ›" te="ప్రస్తుతానికి దాటవేయి ›" /></Link>
@@ -79,7 +79,7 @@ export default function VerifyPage() {
             <div className="font-bold text-[16px]"><Duo en="Verify the profile using the below option:" te="కింది విధంగా ప్రొఫైల్ ధృవీకరించండి:" /></div>
             {status === "approved" ? (
               <div className="mt-3 rounded-xl bg-emerald-100 border border-emerald-300 p-3 font-bold text-emerald-900 text-[13px]">
-                ✅ <Duo en="Selfie Verified — trust badge added to your profile!" te="సెల్ఫీ ధృవీకరించబడింది — మీ ప్రొఫైల్‌కు ట్రస్ట్ బ్యాడ్జ్ వచ్చింది!" />
+                ✅ <Duo en="Selfie review status recorded on your profile." te="సెల్ఫీ సమీక్ష స్థితి మీ ప్రొఫైల్‌లో నమోదు చేయబడింది." />
               </div>
             ) : status === "pending" ? (
               <div className="mt-3 rounded-xl bg-amber-50 border border-amber-300 p-3 text-[13px] telugu">
@@ -110,10 +110,10 @@ export default function VerifyPage() {
           </div>
         </div>
         <p className="mt-4 text-[11px] text-gray-500 telugu">
-          {duo("Blur/dark/screenshot selfies auto-reject. Verified profiles get 3x more responses.",
-               "బ్లర్/చీకటి/స్క్రీన్‌షాట్ సెల్ఫీలు ఆటో-రిజెక్ట్. ధృవీకరించిన ప్రొఫైళ్లకు 3 రెట్లు ఎక్కువ స్పందనలు.")}
+          {duo("Uploads receive technical checks and a separate staff review. A recorded check does not verify every profile detail or guarantee responses.",
+               "అప్‌లోడ్‌లకు సాంకేతిక తనిఖీలు, వేరుగా staff review ఉంటాయి. నమోదైన తనిఖీ అన్ని profile వివరాలను నిర్ధారించదు; స్పందనలకూ హామీ కాదు.")}
         </p>
       </section>
-    </main>
+    </div>
   );
 }

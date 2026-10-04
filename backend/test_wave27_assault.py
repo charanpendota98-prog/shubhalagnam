@@ -17,6 +17,8 @@ os.environ.setdefault("WA_TEST_FAST", "1")
 os.environ.setdefault("OTP_DEV_MODE", "true")
 os.environ.setdefault("WA_LONG_PAUSE_CHANCE", "0")
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from test_storage import isolate_test_stores  # noqa: E402
+isolate_test_stores("wave27")
 
 PASS, FAIL, FAILED = 0, 0, []
 
@@ -71,7 +73,7 @@ try:
     referral.attach_referral(nb, "RACE2", M.DB_USERS)
     outs2 = []
     ts = [threading.Thread(target=lambda i=i: outs2.append(
-        referral.process_referral_payment(nb, "RACE2", 99, M.DB_USERS, payment_id=f"rc-{i}")))
+        referral.process_referral_payment(nb, "RACE2", 99, M.DB_USERS, payment_id=f"rc-{i}", plan_code="S_99")))
         for i in range(6)]
     [t.start() for t in ts]
     [t.join() for t in ts]

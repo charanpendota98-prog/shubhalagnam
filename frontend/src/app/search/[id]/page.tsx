@@ -50,7 +50,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   const title = `${name} (${id}) — ${bits || "Profile"} | మన వివాహ`;
   const description = p
     ? `${bits}. వేద గుణమేళనం, family, horoscope details + interest పంపండి. మన వివాహ — Telugu matrimony (TS + AP), ${CHANNEL_STATS.total} channels, 3 FREE requests.`
-    : `మన వివాహ — Telugu matrimony. TS + AP, 43 castes, ${CHANNEL_STATS.total} channels, 3 FREE requests. Register FREE.`;
+    : `మన వివాహ — Telugu matrimony. TS + AP community options, ${CHANNEL_STATS.total} channels, 3 FREE requests. Register FREE.`;
   const base = await siteBase();
   const ogImage = `${base}/api/og/profile/${encodeURIComponent(id)}.png`;
   return {
@@ -86,7 +86,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
             "@type": "Person",
             identifier: safeId,
             url: `${base}/search/${encodeURIComponent(safeId)}`,
-            name: "మన వివాహ verified profile",
+            name: "మన వివాహ profile",
             description: "Telugu matrimony profile — మన వివాహ (TS + AP)",
             isPartOf: { "@type": "WebSite", name: "మన వివాహ", url: base },
           }),

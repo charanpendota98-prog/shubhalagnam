@@ -7,7 +7,7 @@ Cover:
   1. Categories (18, Telugu names, pelli-related) + lookup
   2. Packages (₹149 → ₹3999 ladder, days, perks, popular flag)
   3. Register (validation, duplicate, ID gen, UPI/PhonePe link, steps)
-  4. Activate / reject / expire (+ verified badge from package)
+  4. Activate / reject / expire (paid package does not grant verification)
   5. Directory (category / district / city / search / paid-first order / counts)
   6. Ad rotation (slots, weights, impression tracking, house note)
   7. Leads (validation, vendor WhatsApp text, lead count, more options)
@@ -23,6 +23,8 @@ import sys
 import tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from test_storage import isolate_test_stores  # noqa: E402
+isolate_test_stores("vendors")
 from testutil_paths import src_page  # noqa: E402  # App Router page.tsx + page-client.tsx aware
 
 import vendors as V  # noqa: E402
@@ -91,7 +93,7 @@ print("=== 4. ACTIVATE / REJECT / EXPIRE ===")
 act = V.activate_vendor(r1["vendor_id"], utr="UTR123")
 check("Activate → status active + expires_at", act["ok"] and act["vendor"]["status"] == "active"
       and act["vendor"]["expires_at"].startswith(str(__import__("datetime").datetime.now().year)))
-check("Standard package → verified badge", act["vendor"]["verified"] is True)
+check("Paid activation does not grant a verified badge", act["vendor"]["verified"] is False)
 check("Expiry = package days (90)", act["days"] == 90)
 V.activate_vendor(r2["vendor_id"], utr="UTR999")
 check("Unknown vendor activate → not_found", V.activate_vendor("MVV-9999")["reason"] == "not_found")

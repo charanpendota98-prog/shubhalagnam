@@ -6,8 +6,7 @@ import { useLang } from "@/lib/lang";
 
 type Profile = {
   tsap_id: string; full_name?: string; age?: number; caste?: string; district?: string;
-  job?: string; photo_url?: string; id_verified?: boolean; similarity_score?: number;
-  similarity_reasons?: string[]; viewed_at?: string;
+  job?: string; photo_url?: string; id_verified?: boolean; viewed_at?: string;
 };
 type Response = { profiles?: Profile[] };
 
@@ -35,10 +34,10 @@ export default function ProfileRail({ kind, profileId }: { kind: "recent" | "sim
   if (!loading && profiles.length === 0) return null;
   const title = kind === "recent"
     ? (te ? "ఇటీవల చూసిన ప్రొఫైళ్లు" : "Recently viewed")
-    : (te ? "ఇలాంటి మరిన్ని ప్రొఫైళ్లు" : "Similar profiles");
+    : (te ? "మరిన్ని ప్రొఫైళ్లు" : "More profiles");
   const subtitle = kind === "recent"
     ? (te ? "మీరు ఆపిన చోటు నుంచే మళ్లీ కొనసాగించండి" : "Continue where you left off")
-    : (te ? "కులం, వయస్సు, ప్రాంతం, చదువు ఆధారంగా" : "Based on caste, age, location and education");
+    : (te ? "కొత్తగా ఆమోదించిన ప్రొఫైళ్లు; similarity ranking లేదు" : "Recently added approved profiles; not ranked for similarity");
 
   return (
     <section className="my-6" aria-labelledby={`${kind}-profiles-title`}>
@@ -60,14 +59,12 @@ export default function ProfileRail({ kind, profileId }: { kind: "recent" | "sim
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={p.photo_url} alt="" loading="lazy" className="h-full w-full object-cover" />
                 ) : <div className="grid h-full place-items-center text-4xl" aria-hidden="true">{p.full_name ? "👤" : "💍"}</div>}
-                {p.id_verified ? <span className="absolute left-2 top-2 rounded-full bg-blue-600 px-2 py-0.5 text-[9px] font-extrabold text-white shadow">🪪 ID VERIFIED</span> : null}
-                {typeof p.similarity_score === "number" ? <span className="absolute bottom-2 right-2 rounded-full bg-maroon px-2 py-0.5 text-[9px] font-bold text-white">{p.similarity_score}%</span> : null}
+                {p.id_verified ? <span title={te ? "ప్రభుత్వ ID సమీక్ష నమోదు; ఇతర profile వివరాలు నిర్ధారించబడవు" : "Government ID review recorded; other profile details are not verified"} className="absolute left-2 top-2 rounded-full bg-blue-600 px-2 py-0.5 text-[9px] font-extrabold text-white shadow">🪪 {te ? "ID సమీక్ష" : "ID reviewed"}</span> : null}
               </div>
               <div className="p-2.5">
                 <p className="truncate text-[12px] font-extrabold text-ink">{p.full_name || p.tsap_id}</p>
                 <p className="mt-0.5 truncate text-[10px] text-slate-600">{[p.age ? `${p.age}y` : "", p.caste].filter(Boolean).join(" • ")}</p>
-                <p className="truncate text-[10px] text-slate-500">📍 {p.district || "TS/AP"}</p>
-                {p.similarity_reasons?.[0] ? <p className="mt-1 truncate text-[9px] font-semibold text-emerald-700">✓ {p.similarity_reasons[0]}</p> : null}
+                {p.district ? <p className="truncate text-[10px] text-slate-500">📍 {p.district}</p> : null}
               </div>
             </Link>
           ))}

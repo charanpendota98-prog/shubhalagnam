@@ -2,7 +2,7 @@
 /**
  * 💳 WAVE 14 — SAFE-PAY BOX (pricing → order → Razorpay/manual-UPI → verify)
  * Amount SERVER computes — client amount nammamu. Secret eppudu frontend ki radhu.
- * Props: planCode (S_29..S_499), price (display), label.
+ * Props: planCode (S_99..S_499), price (display), label.
  */
 import { useState } from "react";
 import { authHeaders } from "@/lib/api";
@@ -22,7 +22,7 @@ function loadRazorpay(): Promise<boolean> {
   });
 }
 
-export default function PayBox({ planCode, price, label }: { planCode: string; price: number; label: string }) {
+export default function PayBox({ planCode, price, label, purpose = "credits", tsapId = "" }: { planCode: string; price: number; label: string; purpose?: "credits" | "boost"; tsapId?: string }) {
   const { lang } = useLang();
   const te = lang === "te";
   const [open, setOpen] = useState(false);
@@ -41,13 +41,14 @@ export default function PayBox({ planCode, price, label }: { planCode: string; p
     if (!code) { setPromo(te ? "ముందు offer code ఇవ్వండి" : "Enter offer code first"); return; }
     setPromoBusy(true);
     try {
-      const d = await fetch(`/api/promo/apply?code=${encodeURIComponent(code)}&purpose=credits&plan=${encodeURIComponent(planCode)}&user=${encodeURIComponent(myId())}`).then((r) => r.json());
+      const d = await fetch(`/api/promo/apply?code=${encodeURIComponent(code)}&purpose=${encodeURIComponent(purpose)}&plan=${encodeURIComponent(planCode)}&user=${encodeURIComponent(myId())}`).then((r) => r.json());
       setPromo(d.success ? String(d.message_telugu || "OK") : String(d.detail || "Invalid code"));
     } catch { setPromo(te ? "Network problem" : "Network problem"); }
     setPromoBusy(false);
   };
 
   const myId = () => {
+    if (tsapId.trim()) return tsapId.trim().toUpperCase();
     try { return localStorage.getItem("tsap_id") || ""; } catch { return ""; }
   };
 
@@ -58,7 +59,7 @@ export default function PayBox({ planCode, price, label }: { planCode: string; p
     try {
       const r = await fetch("/api/pay/order", {
         method: "POST", headers: { ...authHeaders(), "Content-Type": "application/json" },
-        body: JSON.stringify({ tsap_id: id, purpose: "credits", ref: planCode, offer_code: offer.trim().toUpperCase() }),
+        body: JSON.stringify({ tsap_id: id, purpose, ref: planCode, offer_code: offer.trim().toUpperCase() }),
       });
       const d = await r.json();
       if (!r.ok) { setMsg(d.detail || d.message_telugu || "Order fail"); setBusy(false); return; }
@@ -87,8 +88,17 @@ export default function PayBox({ planCode, price, label }: { planCode: string; p
   const payNow = async () => {
     if (!order || busy) return;
     setBusy(true);
+    if (order.mode === "manual_upi") {
+      if (!order.upi_id) {
+        setMsg(te ? "చెల్లింపు వివరాలు అందుబాటులో లేవు. డబ్బు పంపవద్దు; తర్వాత మళ్లీ ప్రయత్నించండి." : "Payment destination is not configured. Do not send money; try again later.");
+      } else {
+        setMsg(te ? `💳 ₹${order.final_amount} ను చూపించిన వ్యాపారి UPI ID కి చెల్లించి, statement లోని UTR నమోదు చేయండి. Admin verify చేసిన తర్వాతే order పూర్తి అవుతుంది. (Order: ${order.id})` : `Pay ₹${order.final_amount} to the configured merchant UPI ID shown below, then enter the UTR from your statement. The order completes only after admin verification. (Order: ${order.id})`);
+      }
+      setBusy(false);
+      return;
+    }
     if (order.mode !== "razorpay" || !order.key_id) {
-      setMsg(te ? `💳 ${order.upi_id || "manavivaha@upi"} కి ₹${order.final_amount} pay చేసి — కింద UTR (12 digits) ఇవ్వండి. Admin bank statement verify చేసి confirm చేస్తాడు 🙏 (Order: ${order.id})` : `💳 Pay ₹${order.final_amount} to ${order.upi_id || "manavivaha@upi"} — enter UTR (12 digits) below. Admin verifies the bank statement and confirms 🙏 (Order: ${order.id})`);
+      setMsg(te ? "చెల్లింపు provider అందుబాటులో లేదు. డబ్బు పంపవద్దు; తర్వాత మళ్లీ ప్రయత్నించండి." : "No payment provider is available. Do not send money; try again later.");
       setBusy(false);
       return;
     }
@@ -173,7 +183,7 @@ export default function PayBox({ planCode, price, label }: { planCode: string; p
             {order.discount ? <span className="ml-1 text-green-700">(−₹{order.discount} {order.offer_code})</span> : null}
             <span className="ml-1 font-normal text-gray-500">• {te ? "24h valid" : "valid 24h"}</span>
           </div>
-          {order.mode !== "razorpay" && (
+          {order.mode === "manual_upi" && order.upi_id && (
             <div className="text-[11px] bg-white rounded-lg p-2.5 border space-y-2">
               <div className="flex items-center justify-between">
                 <span className="font-bold text-maroon text-xs">🔒 {te ? "సురక్షిత ఆన్‌లైన్ చెల్లింపు" : "Secure Online Payment"}</span>
@@ -196,7 +206,7 @@ export default function PayBox({ planCode, price, label }: { planCode: string; p
               </div>
 
               <a
-                href={`upi://pay?pa=${encodeURIComponent(order.upi_id || "9394483300@ybl")}&pn=${encodeURIComponent("Mana Vivaha")}&am=${order.final_amount}&cu=INR&tn=${encodeURIComponent(`ManaVivaha ${order.id}`)}`}
+                href={`upi://pay?pa=${encodeURIComponent(order.upi_id)}&pn=${encodeURIComponent("Mana Vivaha")}&am=${order.final_amount}&cu=INR&tn=${encodeURIComponent(`ManaVivaha ${order.id}`)}`}
                 className="w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg bg-[#7A0C2E] hover:bg-[#911239] text-white font-bold text-xs transition shadow-xs"
               >
                 <span>📲</span>

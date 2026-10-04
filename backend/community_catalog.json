@@ -1,0 +1,341 @@
+{
+  "metadata": "Optional community-reported labels from the registration UI. Not an official or exhaustive classification; self-description is supported.",
+  "hindu_subcastes": {
+    "Adi Andhra": [
+      "Adi Andhra (Any)",
+      "Adi Dravida",
+      "Arundhatiya",
+      "Arwa Mala",
+      "Relli"
+    ],
+    "Are Katika": [
+      "Are Katika",
+      "Katika (Any)",
+      "Suryavamsi Katika"
+    ],
+    "Arya Vysya": [
+      "Arya Vysya",
+      "Beri Vysya",
+      "Kalinga Vysya",
+      "Kanyaka Parameswari",
+      "Komati",
+      "Sadhu Chetty",
+      "Trivarnika Vysya",
+      "Vysya (Any)"
+    ],
+    "Balija": [
+      "Balija (Any)",
+      "Gajula Balija",
+      "Lingadhari Balija",
+      "Raju Balija",
+      "Sadhu Balija",
+      "Setti Balija",
+      "Surya Balija"
+    ],
+    "Bestha": [
+      "Bestha (Any)",
+      "Gangaputra",
+      "Gundla",
+      "Jalari",
+      "Kabbili"
+    ],
+    "Bhatraju": [
+      "Bhatraju",
+      "Raju (Any)"
+    ],
+    "Bondili": [
+      "Bondili (Any)",
+      "Bondili Rajput"
+    ],
+    "Boya": [
+      "Boya",
+      "Boya (Any)",
+      "Nayak",
+      "Talari",
+      "Valmiki"
+    ],
+    "Brahmin": [
+      "Brahmin (Any)",
+      "Dravida Brahmin",
+      "Golconda Vyapari",
+      "Iyer",
+      "Karnakammalu",
+      "Madhwa",
+      "Niyogi Brahmin (Aruvela)",
+      "Niyogi Brahmin (Nandavarika)",
+      "Niyogi Brahmin (Prathamasaki)",
+      "Sistla",
+      "Smartha",
+      "Sri Vaishnava (Iyengar)",
+      "Vaidiki Brahmin (Kasalanadu)",
+      "Vaidiki Brahmin (Mulakanadu)",
+      "Vaidiki Brahmin (Telaganya)",
+      "Vaidiki Brahmin (Velanadu)",
+      "Vaidiki Brahmin (Venginadu)"
+    ],
+    "Devanga": [
+      "Devanga (Any)",
+      "Devanga Chettiar",
+      "Hatagar"
+    ],
+    "Gandla": [
+      "Gandla (Any)",
+      "Telikula",
+      "Vaniyan"
+    ],
+    "Gavara": [
+      "Gavara",
+      "Gavara (Any)",
+      "Gavara Komati"
+    ],
+    "Gond": [
+      "Gond (Any)",
+      "Muria",
+      "Naikpod",
+      "Rajgond"
+    ],
+    "Goud": [
+      "Ediga",
+      "Gamalla",
+      "Goud (Any)",
+      "Gouda",
+      "Idiga",
+      "Kalalee",
+      "Kavali",
+      "Settibalija Goud"
+    ],
+    "Intercaste": [
+      "Any",
+      "Caste No Bar",
+      "Intercaste"
+    ],
+    "Jangam": [
+      "Jangam (Any)",
+      "Silavanth",
+      "Veerasaiva Jangam"
+    ],
+    "Kalinga": [
+      "Buragam Kalinga",
+      "Kalinga (Any)",
+      "Pandava Kalinga"
+    ],
+    "Kamma": [
+      "Chinna Kamma",
+      "Choudary",
+      "Chowdary",
+      "Gampa Kamma",
+      "Godachati Kamma",
+      "Illuvellani Kamma",
+      "Kamma (Any)",
+      "Pedda Kamma"
+    ],
+    "Kapu": [
+      "Kapu (Any)",
+      "Kapu (Coastal AP)",
+      "Kapu (Rayalaseema)",
+      "Kapu (Telangana)",
+      "Ontari",
+      "Palli Kapu",
+      "Turupu Kapu"
+    ],
+    "Koppula Velama": [
+      "Koppula Velama",
+      "Velama (Any)"
+    ],
+    "Koya": [
+      "Gutti Koya",
+      "Koitur",
+      "Koya (Any)",
+      "Raja Koya"
+    ],
+    "Kummara": [
+      "Kulala",
+      "Kumbhar",
+      "Kummara (Any)",
+      "Salivahana"
+    ],
+    "Kuruba": [
+      "Gorrela Kuruba",
+      "Hattikankana",
+      "Kuruba (Any)",
+      "Kuruva",
+      "Unnikankana"
+    ],
+    "Lambada": [
+      "Banjara",
+      "Gor",
+      "Lambada (Any)",
+      "Lambadi",
+      "Lambani",
+      "Sugali"
+    ],
+    "Lingayat": [
+      "Banajiga",
+      "Lingayat (Any)",
+      "Panchamasali",
+      "Sadar",
+      "Veerasaiva Lingayat"
+    ],
+    "Madiga": [
+      "Bavuri",
+      "Madiga (Any)",
+      "Madiga Dasari",
+      "Madiga Dasu",
+      "Mashteen",
+      "Sindhollu"
+    ],
+    "Mala": [
+      "Mala (Any)",
+      "Mala Ayawaru",
+      "Mala Dasari",
+      "Mala Jangam",
+      "Reddi Mala",
+      "Sarindla"
+    ],
+    "Medari": [
+      "Mahendra",
+      "Medara (Any)",
+      "Medari"
+    ],
+    "Meru": [
+      "Meru (Any)",
+      "Meru Darji",
+      "Namdev Darji",
+      "Shimpi"
+    ],
+    "Mudiraj": [
+      "Bant",
+      "Mudiraj (Any)",
+      "Mudiraju",
+      "Mutrasi",
+      "Palegarlu",
+      "Tenugollu"
+    ],
+    "Munnuru Kapu": [
+      "Munnuru",
+      "Munnuru Kapu (Any)",
+      "Munnurukapu Patel"
+    ],
+    "Nayee Brahmin": [
+      "Dhanujaya",
+      "Mangali",
+      "Nayee Brahmin (Any)",
+      "Nayi-Brahmin"
+    ],
+    "Padmashali": [
+      "Karna Bhakthulu",
+      "Padmasali",
+      "Padmashali (Any)",
+      "Pattusali",
+      "Sali",
+      "Senapathula",
+      "Swakula Sali",
+      "Thogata"
+    ],
+    "Perika": [
+      "Perika (Any)",
+      "Puragiri Kshatriya"
+    ],
+    "Rajaka": [
+      "Chakali",
+      "Dhobi",
+      "Madivala",
+      "Rajaka (Any)"
+    ],
+    "Raju": [
+      "Chandra Vamsam",
+      "Kshatriya",
+      "Raju (Any)",
+      "Rajulu",
+      "Surya Vamsam",
+      "Vanniyar Raju"
+    ],
+    "Reddy": [
+      "Ayodhyanagar Reddy",
+      "Chitteti Reddy",
+      "Deshathi Reddy",
+      "Ganjam Reddy",
+      "Gudati Reddy",
+      "Konda Reddy",
+      "Motati Reddy",
+      "Neravati Reddy",
+      "Pakanati Reddy",
+      "Pedakanti Reddy",
+      "Pokanati Reddy",
+      "Reddy (Any)",
+      "Renati Reddy",
+      "Velnati Reddy"
+    ],
+    "SC Others": [
+      "Bindla",
+      "Chamar",
+      "Dandasi",
+      "Samban",
+      "SC Others (Any)"
+    ],
+    "Srisayana": [
+      "Segidi",
+      "Srisayana (Any)"
+    ],
+    "ST Others": [
+      "Andh",
+      "Bagata",
+      "Chenchu",
+      "Konda Reddi",
+      "Savara",
+      "ST Others (Any)",
+      "Yanadi",
+      "Yerukula"
+    ],
+    "Telaga": [
+      "Kamma Telaga",
+      "Penta Telaga",
+      "Telaga",
+      "Telaga (Any)"
+    ],
+    "Togata": [
+      "Togata (Any)",
+      "Togata Kshatriya",
+      "Togataveera"
+    ],
+    "Uppara": [
+      "Chetti Uppara",
+      "Sagara",
+      "Uppara (Any)"
+    ],
+    "Vaddera": [
+      "Bandi Vaddera",
+      "Odde",
+      "Rathi Vaddera",
+      "Uppu Vaddera",
+      "Vaddera (Any)"
+    ],
+    "Velama": [
+      "Adi Velama",
+      "Koppula Velama",
+      "Padma Velama",
+      "Velama (Any)",
+      "Velama Dora"
+    ],
+    "Viswabrahmin": [
+      "Achari",
+      "Ausula / Silpi (Sculptor)",
+      "Kammari (Blacksmith)",
+      "Kamsali (Gold)",
+      "Kanchari (Bronze)",
+      "Vadla / Vadrangi (Carpenter)",
+      "Viswabrahmana",
+      "Viswakarma (Any)"
+    ],
+    "Yadava": [
+      "Ala Golla",
+      "Golla",
+      "Gopala",
+      "Karna Golla",
+      "Kuruma",
+      "Puja Golla",
+      "Yadava (Any)",
+      "Yerra Golla"
+    ]
+  }
+}

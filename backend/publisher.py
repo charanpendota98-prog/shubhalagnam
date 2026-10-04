@@ -53,7 +53,7 @@ from channels_config import (
 )
 from wa_antiban import ENGINE as WA_ENGINE, variantize as wa_variantize
 
-LOG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "publish_log.jsonl")
+LOG_FILE = os.environ.get("MANA_VIVAHA_PUBLISH_LOG_FILE", os.path.join(os.path.dirname(os.path.abspath(__file__)), "publish_log.jsonl"))
 
 # In-memory state (real lo Redis/DB)
 PUBLISH_QUEUE: List[Dict] = []
@@ -96,9 +96,14 @@ def config() -> Dict:
     token = os.getenv("BOT_TOKEN", "").strip()
     wa_mode = os.getenv("WHATSAPP_MODE", "off").strip().lower()
     dry_default = not token  # token lekapothe default dry-run (crash avvakudadu)
+    auto_publish_after_approval = _env_bool(
+        "AUTO_POST_ON_APPROVAL", _env_bool("AUTO_POST_ON_REGISTER", True)
+    )
     return {
         "bot_token": token,
-        "auto_post_on_register": _env_bool("AUTO_POST_ON_REGISTER", True),
+        # Keep the legacy key for clients, but new registrations are held until approval.
+        "auto_post_on_approval": auto_publish_after_approval,
+        "auto_post_on_register": auto_publish_after_approval,
         "dry_run": _env_bool("PUBLISH_DRY_RUN", dry_default),
         "wa_mode": wa_mode if wa_mode in ("off", "cloud_api", "bridge") else "off",
         "wa_token": os.getenv("WHATSAPP_TOKEN", "").strip(),
@@ -123,7 +128,8 @@ def publish_status() -> Dict:
             "targets": len(c["wa_to"]) + len(c["wa_bridge_targets"]),
         },
         "dry_run": c["dry_run"],
-        "auto_post_on_register": c["auto_post_on_register"],
+        "auto_post_on_approval": c["auto_post_on_approval"],
+        "auto_post_on_register": c["auto_post_on_register"],  # legacy alias
         "whatsapp_queue": wa_queue_stats(),
         "bots": bot_pool.bot_health(),
         "whatsapp_instances": wa_pool.wa_health(),
@@ -138,7 +144,7 @@ def publish_status() -> Dict:
 # ---------------------------------------------------------------------------
 # MESSAGE BUILDERS
 # ---------------------------------------------------------------------------
-def build_whatsapp_text(profile: Dict, tsap_id: str, score: int = 92) -> str:
+def build_whatsapp_text(profile: Dict, tsap_id: str, score: int | None = None) -> str:
     """WhatsApp formatting (*bold* — Telegram ** కాదు). 🔒 WAVE 12 MASKED (name/number లేదు)."""
     from smart12 import build_masked_whatsapp  # lazy: cycle-safe
     return build_masked_whatsapp(profile or {}, tsap_id, score)
@@ -490,7 +496,7 @@ def wa_worker_running() -> bool:
 # ---------------------------------------------------------------------------
 # MAIN PUBLISH
 # ---------------------------------------------------------------------------
-async def publish_profile(profile: Dict, tsap_id: str, score: int = 92,
+async def publish_profile(profile: Dict, tsap_id: str, score: int | None = None,
                           photo_path: Optional[str] = None) -> Dict:
     """
     One profile → Telegram LIVE channels + WhatsApp (mode batti).
@@ -498,8 +504,9 @@ async def publish_profile(profile: Dict, tsap_id: str, score: int = 92,
     """
     cfg = config()
     targets = post_targets(profile)
-    caption = build_caption(profile, tsap_id, score)
-    wa_text = build_whatsapp_text(profile, tsap_id, score)
+    # ``score`` is a deprecated legacy argument and intentionally ignored.
+    caption = build_caption(profile, tsap_id)
+    wa_text = build_whatsapp_text(profile, tsap_id)
 
     tg_results = []
     for chat in targets["ready"]:
@@ -527,7 +534,6 @@ async def publish_profile(profile: Dict, tsap_id: str, score: int = 92,
     entry = {
         "tsap_id": tsap_id,
         "name": profile.get("full_name", ""),
-        "score": score,
         "at": datetime.utcnow().isoformat(),
         "telegram": tg_results,
         "whatsapp": {"mode": cfg["wa_mode"], "results": wa_results,
@@ -565,8 +571,9 @@ def read_log(limit: int = 50) -> List[Dict]:
 # ---------------------------------------------------------------------------
 # QUEUE (register endpoint block avvakunda background lo post)
 # ---------------------------------------------------------------------------
-def enqueue(profile: Dict, tsap_id: str, score: int = 92, photo_path: Optional[str] = None) -> Dict:
-    job = {"profile": profile, "tsap_id": tsap_id, "score": score,
+def enqueue(profile: Dict, tsap_id: str, score: int | None = None, photo_path: Optional[str] = None) -> Dict:
+    """Queue a profile post; deprecated ``score`` argument is ignored and never stored."""
+    job = {"profile": profile, "tsap_id": tsap_id,
            "photo_path": photo_path, "queued_at": datetime.utcnow().isoformat()}
     PUBLISH_QUEUE.append(job)
     return {"queued": True, "position": len(PUBLISH_QUEUE), "tsap_id": tsap_id,
@@ -578,7 +585,7 @@ async def _worker_loop(interval: float = 2.0):
         if PUBLISH_QUEUE:
             job = PUBLISH_QUEUE.pop(0)
             try:
-                await publish_profile(job["profile"], job["tsap_id"], job["score"], job["photo_path"])
+                await publish_profile(job["profile"], job["tsap_id"], photo_path=job["photo_path"])
             except Exception as e:
                 _append_log_file({"tsap_id": job["tsap_id"], "ok": False, "error": str(e)[:200],
                                   "at": datetime.utcnow().isoformat()})

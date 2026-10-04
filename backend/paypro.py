@@ -8,7 +8,7 @@ SAFETY FIRST (user demand — mistakes/errors vaddu):
   4. SECRET eppudu expose kadu — /api/pay/config lo key_id (public) matrame.
   5. Keys lekapothe → honest MANUAL-UPI mode (admin UTR confirm → fulfill).
 
-Purposes: credits (S_29..S_499 plan) · assisted (ORD-xxxx) · ads (AD-xxxx) · boost (B_1/3/7).
+Purposes: credits (consumer S_99..S_499 / separate bureau plans) · assisted shortlist · ads · boost.
 Offers: festival promo codes (%/flat off, dates, applies_to, usage cap) — ADMIN lone create.
 """
 from __future__ import annotations
@@ -24,7 +24,7 @@ from datetime import datetime
 from typing import Dict, List, Optional
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-PERSIST_FILE = os.path.join(BASE_DIR, "paypro14.json")
+PERSIST_FILE = os.environ.get("MANA_VIVAHA_PAYPRO_FILE", os.path.join(BASE_DIR, "paypro14.json"))
 
 PAY_ORDERS: List[Dict] = []
 
@@ -106,16 +106,19 @@ _restore()
 # ---------------------------------------------------------------------------
 
 def pay_config() -> Dict:
-    """Public config — key_id matrame (secret NEVER)."""
+    """Public payment config; never invent a merchant destination or expose secrets."""
     key_id = _key_id()
     secret = _secret()
-    upi = os.getenv("PAY_UPI_ID", "9394483300@ybl")
+    upi = os.getenv("PAY_UPI_ID", "").strip()
     live = bool(key_id and secret)
-    return {"mode": "razorpay" if live else "manual_upi",
-            "key_id": key_id if live else "",
-            "upi_id": upi,
-            "note_telugu": ("💳 Online pay ready (Razorpay)" if live
-                            else f"💳 UPI manual: {upi} కి pay చేసి UTR పంపండి — admin confirm చేస్తాడు")}
+    mode = "razorpay" if live else "manual_upi" if upi else "unconfigured"
+    if live:
+        note = "Online checkout is configured."
+    elif upi:
+        note = "Manual UPI is configured; an operator must verify the submitted payment reference."
+    else:
+        note = "Payment is not configured. Do not send money until an official checkout destination is provided."
+    return {"mode": mode, "key_id": key_id if live else "", "upi_id": upi, "note_telugu": note}
 
 
 def _key_id() -> str:
@@ -266,7 +269,7 @@ def _expected_amount(purpose: str, ref: str) -> Dict:
     if purpose == "credits":
         plan = get_plan(ref)
         if (plan.get("code") or "FREE") == "FREE":
-            return {"ok": False, "message_telugu": "⚠️ Plan code S_29/S_99/S_199/S_299/S_499 మాత్రమే"}
+            return {"ok": False, "message_telugu": "⚠️ Plan code S_99/S_199/S_299/S_499 మాత్రమే"}
         return {"ok": True, "amount": int(plan["price"]), "label": plan.get("telugu", plan.get("label", ref)),
                 "credits": int(plan.get("profiles", 0))}
     if purpose == "assisted":
@@ -329,8 +332,10 @@ def create_pay_order(tsap_id: str, purpose: str, ref: str, offer_code: str = "")
     off = validate_offer(offer_code, purpose.lower(), exp["amount"], tsap_id)
     if not off.get("ok"):
         return {"success": False, "message_telugu": off.get("message_telugu")}
-    _SEQ += 1
     cfg = pay_config()
+    if cfg.get("mode") == "unconfigured":
+        return {"success": False, "message_telugu": "Payment is unavailable until a real checkout provider or merchant UPI ID is configured."}
+    _SEQ += 1
     po = {"id": f"pay_ord_{_SEQ:05d}", "tsap_id": tsap_id, "purpose": purpose.lower(),
           "ref": ref, "amount": exp["amount"], "final_amount": off["final_amount"],
           "discount": off["discount"], "offer_code": off.get("code", ""),
@@ -409,9 +414,11 @@ def _rzp_payment_status(payment_id: str) -> Dict:
 
 
 def _fire_referral_commission(user: Dict, po: Dict, payment_id: str) -> None:
-    """WAVE 24 — GAP FIX: pay/order flow (Razorpay verify + manual UTR) lo commission
-    padatledu! Fulfill success ayina ventane referrer ki Rs50/10% (rules engine vare)."""
+    """Pay a referral reward only for a qualifying paid consumer request plan."""
     try:
+        plan_code = str(po.get("ref") or "").strip().upper()
+        if po.get("purpose") != "credits" or plan_code not in {"S_99", "S_199", "S_299", "S_499"}:
+            return
         if not user.get("referred_by"):
             return
         import main as MAIN  # lazy
@@ -420,13 +427,15 @@ def _fire_referral_commission(user: Dict, po: Dict, payment_id: str) -> None:
             amt = int(po.get("final_amount", 0) or 0)
         except Exception:
             amt = 0
-        res = process_referral_payment(user, user["referred_by"], amt, MAIN.DB_USERS,
-                                       payment_id=payment_id or po.get("utr", ""))
+        res = process_referral_payment(
+            user, user["referred_by"], amt, MAIN.DB_USERS,
+            payment_id=payment_id or po.get("utr", ""), plan_code=plan_code,
+        )
         po["referral"] = {"success": bool(res.get("success")),
                           "commission": res.get("commission", 0),
                           "reason": res.get("reason", "")}
     except Exception as e:
-        # commission eppudu fulfill ni break cheyyakudadu — log + continue
+        # Referral accounting must not break already-verified fulfillment; keep an audit note.
         try:
             po["referral"] = {"success": False, "reason": "error", "error": str(e)[:100]}
         except Exception:
@@ -454,22 +463,19 @@ def fulfill_order(po: Dict, payment_id: str, via: str) -> Dict:
         r = S12.mark_order_paid(ref, payment_id or po.get("utr", "") or "RZPAY")
         if not r.get("success"):
             return {"ok": False, "message_telugu": r.get("message_telugu")}
-        _fire_referral_commission(user, po, payment_id)
-        return {"ok": True, "referral": po.get("referral"),
+        return {"ok": True,
                 "message_telugu": f"✅ Assisted {ref} PAID — admin profiles select చేసి personal గా pampisthadu 🙏"}
     if purpose == "ads":
         import ads as ADS
         r = ADS.approve_campaign(ref, payment_id or po.get("utr", "") or "RZPAY")
         if not r.get("success"):
             return {"ok": False, "message_telugu": r.get("message_telugu")}
-        _fire_referral_commission(user, po, payment_id)
-        return {"ok": True, "referral": po.get("referral"),
+        return {"ok": True,
                 "message_telugu": f"✅ Campaign {ref} LIVE — {r['campaign']['days']} days 🎉"}
     if purpose == "boost":
         import advanced11 as A11
         eff = A11.apply_boost(user, str(ref).upper())
-        _fire_referral_commission(user, po, payment_id)
-        return {"ok": True, "referral": po.get("referral"),
+        return {"ok": True,
                 "message_telugu": f"✅ Boost ON! {eff.get('message_telugu', '')} ⚡"}
     return {"ok": False, "message_telugu": "⚠️ Unknown purpose"}
 

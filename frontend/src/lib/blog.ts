@@ -15,7 +15,7 @@ export const BLOG_ARTICLES: BlogArticle[] = [
       { heading: "1. ప్రొఫైల్ ఫోటో ఎలా ఉండాలి?", paragraphs: ["సహజమైన వెలుతురులో, ముఖం స్పష్టంగా కనిపించే తాజా ఫోటో పెట్టండి. ఎక్కువ filters, sunglasses లేదా group photo వాడకండి.", "Photo-private mode ఎంచుకుంటే మీ అనుమతి లేకుండా పూర్తి ఫోటో చూపించము."], tips: ["6 నెలల్లో తీసిన ఫోటో", "ముఖం స్పష్టంగా", "సాదా background", "కనీసం రెండు photos"] },
       { heading: "2. చదువు, ఉద్యోగం, ఆదాయం", paragraphs: ["Degree పేరు, ప్రస్తుతం చేసే పని, పని చేసే నగరం స్పష్టంగా రాయండి. ఆదాయం range ఇవ్వొచ్చు; తప్పు సమాచారం ఇవ్వకండి.", "Work location సరైనదైతే దగ్గర ప్రాంతాల matches మరింత relevant గా వస్తాయి."] },
       { heading: "3. కుటుంబం మరియు అంచనాలు", paragraphs: ["కుటుంబ రకం, స్వస్థలం, తల్లిదండ్రుల వివరాలు సంక్షిప్తంగా ఇవ్వండి. Partner గురించి తప్పనిసరి విషయాలు మాత్రమే expectations లో రాయండి.", "గౌరవంగా, positive గా రాసిన profile కి responses ఎక్కువగా వచ్చే అవకాశం ఉంటుంది."] },
-      { heading: "4. నమ్మకం పెంచే verification", paragraphs: ["Phone OTP, selfie మరియు admin manual ID review వేర్వేరు checks. ID-Verified badge ఉన్నప్పుడు ప్రభుత్వ ID ని team manual గా పరిశీలించినట్లు అర్థం; ID number public గా store లేదా display చేయము."] },
+      { heading: "4. నమ్మకం పెంచే verification", paragraphs: ["Phone OTP, selfie/photo review మరియు admin manual ID review వేర్వేరు checks. Government ID review label ఉంటే ఆ document ను team పరిశీలించినట్లు మాత్రమే; ఇది ఇతర profile వివరాలను నిర్ధారించదు. ID number public గా store లేదా display చేయము."] },
     ],
   },
   {
@@ -44,7 +44,7 @@ export const BLOG_ARTICLES: BlogArticle[] = [
       { heading: "జీవన లక్ష్యాలు", paragraphs: ["Career కొనసాగించాలా, ఏ నగరంలో ఉండాలి, విదేశీ అవకాశాలు, పిల్లల గురించి అభిప్రాయం వంటి విషయాలు ముందే చర్చించండి."], tips: ["Career plans", "Location", "Family responsibilities", "Children", "Lifestyle"] },
       { heading: "ఆర్థిక స్పష్టత", paragraphs: ["జీతం మాత్రమే కాదు; అప్పులు, savings habits, కుటుంబ బాధ్యతలు కూడా గౌరవంగా మాట్లాడుకోవాలి. కట్నం అడగడం చట్టవిరుద్ధం మరియు అంగీకరించరానిది."] },
       { heading: "ఆరోగ్యం మరియు జాతకం", paragraphs: ["ముఖ్యమైన ఆరోగ్య విషయాలను దాచకుండా పరస్పరం చెప్పుకోవాలి. జాతకం కుటుంబ విశ్వాసానికి ఉపయోగపడొచ్చు, కానీ medical advice లేదా ఇద్దరి consent కి ప్రత్యామ్నాయం కాదు."] },
-      { heading: "Final verification", paragraphs: ["చిరునామా, ఉద్యోగం, విద్య మరియు కుటుంబ పరిచయాలను independently verify చేయండి. అవసరమైతే ID-Verified profile కి ప్రాధాన్యం ఇవ్వండి; అయినా మీ స్వంత due diligence తప్పనిసరి."] },
+      { heading: "Final verification", paragraphs: ["చిరునామా, ఉద్యోగం, విద్య మరియు కుటుంబ పరిచయాలను independently verify చేయండి. Government ID సమీక్ష నమోదు చేసిన profile అయితే ఆ నిర్దిష్ట తనిఖీని మాత్రమే గుర్తించండి; అయినా మీ స్వంత due diligence తప్పనిసరి."] },
     ],
   },
 ];

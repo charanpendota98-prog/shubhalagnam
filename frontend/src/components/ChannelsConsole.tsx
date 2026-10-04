@@ -78,14 +78,14 @@ export default function ChannelsConsole() {
   return (
     <div>
       <p className="telugu mt-2 text-xs text-gray-500">
-        {te ? "మీ Telegram/WhatsApp channel links ఇక్కడ map చెయ్యండి — site Join buttons + welcome-kit auto-update." : "Map your Telegram/WhatsApp channel links here — site Join buttons + welcome-kit auto-update."}
-        Bulk paste → preview → 1-click apply.
+        {te ? "Telegram/WhatsApp directory links ఇక్కడ map చెయ్యండి — URL host/format validate అవుతుంది; external availability తనిఖీ చేయబడదు." : "Map Telegram/WhatsApp directory links here — URL host/format is validated; external availability is not checked."}
+        Bulk paste → preview → apply.
       </p>
       {flash && <div className="my-2 rounded-xl bg-[#0F1F3C] text-white text-xs p-2">{flash}</div>}
 
       {cov && (
         <div className="grid grid-cols-2 md:grid-cols-5 gap-2 my-2">
-          {[["Channels", cov.total], ["🟢 Live", cov.live], ["💬 With WhatsApp", cov.with_whatsapp],
+          {[["Channel entries", cov.total], ["🟢 Posting enabled", cov.live], ["💬 WhatsApp URLs", cov.with_whatsapp],
             ["✏️ Customized", cov.customized]].map(([l, v]) => (
             <div key={l as string} className="rounded-xl bg-rose-50 border border-rose-100 p-2 text-center">
               <div className="text-lg font-extrabold text-[#7A0C2E]">{String(v ?? 0)}</div>
@@ -93,7 +93,7 @@ export default function ChannelsConsole() {
             </div>
           ))}
           <div className={`rounded-xl border p-2 text-center ${(cov.critical_gaps || []).length ? "bg-amber-50 border-amber-200" : "bg-green-50 border-green-200"}`}>
-            <div className="text-[11px] font-bold">{(cov.critical_gaps || []).length ? `⚠️ Gaps: ${(cov.critical_gaps || []).join(", ")}` : "✅ Critical anni live"}</div>
+            <div className="text-[11px] font-bold">{(cov.critical_gaps || []).length ? `⚠️ Not enabled for routing: ${(cov.critical_gaps || []).join(", ")}` : "✅ Critical destinations enabled for routing"}</div>
           </div>
         </div>
       )}
@@ -119,8 +119,8 @@ export default function ChannelsConsole() {
 
       {/* bulk import */}
       <div className="rounded-xl border p-3 text-xs space-y-2 my-2">
-        <div className="font-bold text-[#7A0C2E]">📋 Bulk import — <span className="font-mono">Label | tg-link | wa-link</span> (line ki okati)</div>
-        <textarea value={bulk} onChange={(e) => setBulk(e.target.value)} rows={3} placeholder={"TS Brides | https://t.me/TSBRIDE | https://whatsapp.com/channel/xxx\nReddy Brides | https://t.me/reddybrides |"}
+        <div className="font-bold text-[#7A0C2E]">📋 Bulk import — <span className="font-mono">Label | tg-link | wa-link</span> (one per line)</div>
+        <textarea value={bulk} onChange={(e) => setBulk(e.target.value)} rows={3} placeholder={"TS Brides | https://t.me/TSBRIDE | https://whatsapp.com/channel/<real-channel-id>\nReddy Brides | https://t.me/reddybrides |"}
           className="w-full rounded-lg border px-2 py-1.5 font-mono" aria-label="Bulk import" />
         <div className="flex gap-2">
           <button onClick={() => void doImport(false)} className="rounded-lg bg-blue-600 text-white px-4 py-1.5 font-bold">🔍 Preview match</button>
@@ -162,7 +162,7 @@ export default function ChannelsConsole() {
           <div key={c.key} className="rounded-xl border p-2.5 text-xs">
             <div className="flex flex-wrap items-center gap-2">
               <span className="font-mono font-bold">{c.key}</span>
-              <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${c.live ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>{c.live ? "LIVE" : c.tier}</span>
+              <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${c.live ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>{c.live ? "ROUTING ENABLED" : c.tier}</span>
               {!c.active && <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-red-100 text-red-700">OFF</span>}
               {c.customized && <span className="text-[10px] text-blue-700">✏️</span>}
               <span className="text-gray-600 truncate max-w-[220px]">{channelLabel(c)}</span>

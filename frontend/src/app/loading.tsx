@@ -7,7 +7,7 @@ export default function Loading() {
   const { lang } = useLang();
   const label = lang === "te" ? "పేజీ సిద్ధమవుతోంది" : "Loading page";
   return (
-    <main className="mx-auto w-full max-w-6xl px-4 py-8" aria-busy="true" aria-label={label}>
+    <div className="mx-auto w-full max-w-6xl px-4 py-8" aria-busy="true" aria-label={label}>
       <span className="sr-only">{label}</span>
       <div className="animate-pulse space-y-5" aria-hidden="true">
         <div className="h-7 w-2/3 max-w-md rounded-lg bg-maroon/10" />
@@ -18,6 +18,6 @@ export default function Loading() {
           ))}
         </div>
       </div>
-    </main>
+    </div>
   );
 }

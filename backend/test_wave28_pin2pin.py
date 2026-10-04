@@ -28,6 +28,8 @@ os.environ.setdefault("WA_TEST_FAST", "1")
 os.environ.setdefault("OTP_DEV_MODE", "true")
 os.environ.setdefault("WA_LONG_PAUSE_CHANCE", "0")
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from test_storage import isolate_test_stores  # noqa: E402
+isolate_test_stores("wave28")
 
 PASS, FAIL, FAILED = 0, 0, []
 
@@ -207,7 +209,7 @@ try:
           (cf.status_code, cf.text[:200]))
     check("6.8 balance grew", int(user_of(GROOM).get("credits", 0)) >= 8,
           user_of(GROOM).get("credits"))
-    ro = c.post("/api/pay/order", json={"tsap_id": GROOM, "purpose": "credits", "ref": "S_29",
+    ro = c.post("/api/pay/order", json={"tsap_id": GROOM, "purpose": "credits", "ref": "S_99",
                                         "mode": "razorpay"}, headers=HD)
     check("6.9 razorpay order", ro.status_code in (200, 201), (ro.status_code, ro.text[:200]))
 

@@ -78,7 +78,6 @@ export default function ContentConsole() {
             <div className="text-[11px] text-gray-500">{l}</div>
           </div>
         ))}
-        <button onClick={() => void post("/api/admin/cms/seed", {})} className="rounded-xl bg-[#7A0C2E] text-white text-xs font-bold p-2">🌱 Demo seed</button>
         <button onClick={() => void load()} className="rounded-xl bg-gray-100 text-xs font-bold p-2">↻ Refresh</button>
       </div>
       {flash && <div className="mb-2 rounded-xl bg-[#0F1F3C] text-white text-xs p-2">{flash}</div>}

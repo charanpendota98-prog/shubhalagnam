@@ -133,7 +133,7 @@ def main():
     A("## 🖥️ Website + API")
     A("")
     A("- `/channels` — 52 channels, tier tabs + search + wave filter + LIVE filter + copy info")
-    A("- Home page — region/religion grid + 43 caste grid + special categories (anni registry nunchi)")
+    A("- Home page — region/religion grid + selected community channels + special categories (registry-driven)")
     A("- API — `GET /api/channels`, `?tier=L3_CASTE`, `GET /api/channels/live`, `POST /api/channels/route`")
     A("")
     A("---")

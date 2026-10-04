@@ -7,10 +7,10 @@
   2. TELEGRAM (linked users) — FREE ✅ (mana bot nunchi linked chat_id ki DM)
      → BOT_TOKEN + user /link chesi unte.
   3. SMS provider (MSG91/Fast2SMS) — trial FREE, tarvata ~₹0.15/SMS (env keys unte).
-  4. DEV fallback — OTP_DEV_MODE=true → code response lo (testing).
 
 Priority: OTP_CHANNELS env (default "wa,telegram,sms"). First success wins.
-Returns {ok, channel, detail} — channel ∈ wa|telegram|sms|dev|none.
+If no configured delivery channel succeeds, OTP delivery fails closed; codes are never returned to the client.
+Returns {ok, channel, detail} — channel ∈ wa|telegram|sms|none.
 """
 from __future__ import annotations
 
@@ -98,33 +98,29 @@ def _sms_send(phone: str, text: str) -> Dict[str, Any]:
 
 
 def send_otp(phone: str, code: str, users: Optional[List[Dict]] = None) -> Dict[str, Any]:
-    """Fallback chain: wa → telegram → sms → dev/none. First success wins."""
+    """Try configured delivery channels only; never expose the OTP as a fallback."""
     text = OTP_TEXT.format(code=code)
     order = [c.strip().lower() for c in os.getenv("OTP_CHANNELS", "wa,telegram,sms").split(",") if c.strip()]
     tried: Dict[str, str] = {}
     for ch in order:
         if ch in ("wa", "whatsapp"):
-            r = _wa_send(phone, text)
+            result = _wa_send(phone, text)
         elif ch in ("telegram", "tg"):
-            r = _telegram_send(phone, text, users)
+            result = _telegram_send(phone, text, users)
         elif ch == "sms":
-            r = _sms_send(phone, text)
+            result = _sms_send(phone, text)
         else:
             continue
-        tried[ch] = str(r.get("detail", ""))
-        if r.get("ok"):
+        tried[ch] = str(result.get("detail", ""))
+        if result.get("ok"):
             return {"ok": True, "channel": ch if ch != "tg" else "telegram",
-                    "detail": r["detail"], "tried": tried}
-    dev = str(os.getenv("OTP_DEV_MODE", "true")).lower() in ("1", "true", "yes", "on")
-    return {"ok": False, "channel": "dev" if dev else "none",
-            "detail": "dev_mode (code response లో)" if dev else "no_channel_configured",
-            "tried": tried}
+                    "detail": result.get("detail", ""), "tried": tried}
+    return {"ok": False, "channel": "none", "detail": "no_channel_configured", "tried": tried}
 
 
 CHANNEL_TELUGU = {
     "wa": "📲 WhatsApp లో OTP పంపించాం (FREE)",
     "telegram": "✈️ Telegram lo OTP pampinchaam (FREE)",
     "sms": "📩 SMS lo OTP pampinchaam",
-    "dev": "📱 OTP ready అయ్యింది",
     "none": "⚠️ OTP channel configure కాలేదు — support కి చెప్పండి",
 }

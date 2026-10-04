@@ -6,7 +6,7 @@
  * • Interest pampu (1 credit; modati 3 FREE) → owner ki WhatsApp lo mee profile
  * • Inbox: vachina requests → ✅ Accept / ❌ Decline (decline = credit refund)
  * • Sent: pampina requests + status + accept ayyaka contact
- * • Plans: ₹99 → 5 profiles | ₹199 → 12 | ₹299 → 25 | ₹499 → 50 (VIP)  — add-ons + renewal tho
+ * • Plans: ₹99 → 5 requests | ₹199 → 12 | ₹299 → 25 | ₹499 → 50 (VIP)  — add-ons + renewal tho
  * • Anti-ban WhatsApp status (queue + random gap) chupisthundi
  */
 import { useCallback, useEffect, useState } from "react";
@@ -15,24 +15,25 @@ import { authHeaders, apiPost, apiGet, getToken } from "@/lib/api";
 import Link from "next/link";
 import Reveal from "@/components/Reveal";
 import SectionHeading from "@/components/SectionHeading";
+import PayBox from "@/components/PayBox";
 import { Duo, duo } from "@/lib/duo";
 import { useLang } from "@/lib/lang";
 import { stateFullName } from "@/lib/telugu-data";
 
 type Plan = { code: string; price: number; profiles: number; label: string; telugu: string; badge: string; per_profile: number; perks?: string[] };
 type Addon = { code: string; price: number; label: string; telugu: string; kind: string };
-type Saved = { saved_at: string; profile: any; porutham?: { score: number; max: number; verdict: string } | null };
+type Saved = { saved_at: string; profile: any; porutham?: { checks_passed: number | null; checks_total: number; doshas: string[] } | null };
 type Req = {
-  request_id: string; from_id: string; to_id: string; status: string; score: number;
-  note?: string; reasons?: string[]; created_at?: string; credit_refunded?: boolean;
+  request_id: string; from_id: string; to_id: string; status: string;
+  note?: string; observations?: string[]; created_at?: string; credit_refunded?: boolean;
   requester?: any; profile?: any; requester_phone?: string; contact?: string; actions?: string[];
 };
 
 const PLANS_FALLBACK: Plan[] = [
-  { code: "S_99", price: 99, profiles: 5, label: "Sambandham", telugu: "₹99 → 5 profiles", badge: "Entry • ₹19.8/profile", per_profile: 20 },
-  { code: "S_199", price: 199, profiles: 12, label: "Family", telugu: "₹199 → 12 profiles", badge: "Most popular • ₹16.6/profile", per_profile: 17 },
-  { code: "S_299", price: 299, profiles: 25, label: "Premium", telugu: "₹299 → 25 profiles", badge: "Best value • ₹12/profile", per_profile: 12 },
-  { code: "S_499", price: 499, profiles: 50, label: "VIP", telugu: "₹499 → 50 profiles", badge: "VIP", per_profile: 10 },
+  { code: "S_99", price: 99, profiles: 5, label: "Sambandham", telugu: "₹99 → 5 interest requests", badge: "Entry • ₹20/request", per_profile: 20 },
+  { code: "S_199", price: 199, profiles: 12, label: "Family", telugu: "₹199 → 12 interest requests", badge: "Most popular • ₹16.6/request", per_profile: 17 },
+  { code: "S_299", price: 299, profiles: 25, label: "Premium", telugu: "₹299 → 25 interest requests", badge: "Best value • ₹12/request", per_profile: 12 },
+  { code: "S_499", price: 499, profiles: 50, label: "VIP", telugu: "₹499 → 50 interest requests", badge: "VIP • ₹10/request", per_profile: 10 },
 ];
 
 const STATUS_STYLE: Record<string, string> = {
@@ -182,33 +183,15 @@ export default function RequestsPage() {
     setBusy(false);
   };
 
-  const buy = async (plan: string) => {
-    setBusy(true);
-    try {
-      const r = await fetch("/api/credits/buy", {
-        method: "POST",
-        headers: authHeaders(),
-        body: JSON.stringify({ tsap_id: myId, plan }),
-      });
-      const d = await r.json();
-      if (r.ok) {
-        setCredits(d.credits_now);
-        setToast({ kind: "ok", text: d.message_telugu });
-        if (d.upi_link) window.open(d.upi_link, "_blank");
-      } else setToast({ kind: "err", text: d.detail || (te ? "Payment start అవ్వలేదు" : "Payment did not start") });
-    } catch {
-      setToast({ kind: "err", text: "Network problem" });
-    }
-    setBusy(false);
-  };
-
   const checkPorutham = async () => {
     if (!porA || !porB) return setToast({ kind: "err", text: te ? "రెండు Profile ID ఇవ్వండి (bride + groom)" : "Enter both Profile IDs (bride + groom)" });
     setBusy(true);
     try {
       const d = await fetch(`/api/porutham?bride=${porA.trim().toUpperCase()}&groom=${porB.trim().toUpperCase()}`).then((r) => r.json());
       setPor(d);
-      setToast({ kind: d.available ? "ok" : "info", text: d.available ? `🔮 గుణమేళనం ${d.score}/10 — ${d.verdict}` : d.reason });
+      setToast({ kind: d.available ? "ok" : "info", text: d.available
+        ? `🔮 Porutham checks marked pass: ${d.passed_checks ?? 0} of ${d.total_checks ?? 10}. Review each item; this is not a compatibility score or marriage verdict.`
+        : (d.reason || (te ? "తగిన నక్షత్ర వివరాలు లేవు." : "Required star details are unavailable.")) });
     } catch {
       setToast({ kind: "err", text: te ? "గుణమేళనం లెక్కింపు విఫలమైంది" : "Porutham check failed" });
     }
@@ -229,7 +212,7 @@ export default function RequestsPage() {
         : s === "accepted"
         ? te ? "🎉 ఆమోదించబడింది (Accepted)" : "🎉 Accepted"
         : s === "declined"
-        ? te ? "ℹ️ ముగిసింది (100% రీఫండ్)" : "ℹ️ Declined (Refunded)"
+        ? te ? "ℹ️ తిరస్కరించబడింది" : "ℹ️ Declined"
         : s === "expired"
         ? te ? "⏳ గడువు ముగిసింది" : "⏳ Expired"
         : s.toUpperCase();
@@ -237,21 +220,21 @@ export default function RequestsPage() {
   };
 
   return (
-    <main className="min-h-dvh pb-36">
+    <div className="min-h-dvh pb-36">
       {/* HERO */}
       <section className="maroon-gradient text-white">
         <div className="max-w-6xl mx-auto px-4 py-10">
           <Reveal>
             <div className="inline-flex items-center gap-2 bg-white/10 border border-white/20 rounded-full px-3 py-1 text-[11px] font-bold">
-              {te ? "🚫 Chatting లేదు • 💌 Interest request • ✅ Safe WhatsApp delivery" : "🚫 No chatting • 💌 Interest request • ✅ Safe WhatsApp delivery"}
+              {te ? "🚫 Chatting లేదు • 💌 Interest request • 🔒 Acceptance తర్వాత contact sharing" : "🚫 No in-app chat • 💌 Interest request • 🔒 Contact sharing after acceptance"}
             </div>
             <h1 className="mt-3 text-2xl md:text-4xl font-bold"><Duo en="Requests Dashboard" te="రిక్వెస్ట్‌ల డాష్‌బోర్డ్" /></h1>
             <p className="mt-2 text-[13px] md:text-sm opacity-90 telugu max-w-3xl">
-{te ? <>నచ్చిన ప్రొఫైల్‌కు <b>Interest పంపండి</b> — వారి అధికారిక WhatsApp కు మీ బయోడేటా కార్డ్ వెళ్తుంది.
-              వారు <b>అంగీకరించిన వెంటనే</b> ఇరు కుటుంబాల నంబర్లు సురక్షితంగా మార్పిడి అవుతాయి. ఒకవేళ <b>తిరస్కరిస్తే</b> మీ క్రెడిట్ తిరిగి రీఫండ్ అవుతుంది.
-              అనవసరపు స్పామ్ కాల్స్ మరియు అవాంఛిత సందేశాలు లేకుండా సంపూర్ణ గోప్యత లభిస్తుంది.</> : <>Send <b>Interest</b> to profiles you like — your verified biodata card reaches them on WhatsApp.
-              When they <b>Accept</b>, verified contact numbers are securely exchanged. On <b>Decline</b>, your credit is immediately refunded.
-              100% spam-free, private, and dignified matchmaking.</>}
+{te ? <>నచ్చిన profile కు <b>Interest పంపండి</b>. Notification అందుబాటు configured services పై ఆధారపడుతుంది; delivery హామీ లేదు.
+              Profile owner <b>accept చేసిన తర్వాత</b> privacy settings ప్రకారం contact details share అవుతాయి. Decline అయితే మీ account లో చూపిన credit-refund policy వర్తిస్తుంది.
+              Paid credits consent ను bypass చేయవు; online పరిచయాల వివరాలను స్వతంత్రంగా నిర్ధారించండి.</> : <>Send <b>Interest</b> to a profile you like. Notification availability depends on configured services; delivery is not guaranteed.
+              If the profile owner <b>accepts</b>, contact details may be shared according to privacy settings. Declines follow the credit-refund policy shown in your account.
+              Paid credits cannot bypass consent; verify details independently.</>}
             </p>
           </Reveal>
 
@@ -262,8 +245,8 @@ export default function RequestsPage() {
                 value={myId}
                 onChange={(e) => setMyId(e.target.value.toUpperCase())}
                 onBlur={(e) => saveId(e.target.value)}
-                placeholder="RED001"
-                className="mt-1 w-full max-w-[224px] sm:w-56 px-3 py-2 rounded-xl text-ink font-mono text-sm outline-none focus-brand" aria-label="KAM001" />
+                placeholder={te ? "మీ రిజిస్టర్ చేసిన Profile ID" : "Your registered Profile ID"}
+                className="mt-1 w-full max-w-[224px] sm:w-56 px-3 py-2 rounded-xl text-ink font-mono text-sm outline-none focus-brand" aria-label={te ? "మీ Profile ID" : "Your Profile ID"} />
             </div>
             <button onClick={() => saveId(myId)} className="gold-gradient text-maroon font-bold text-sm px-4 py-2.5 rounded-xl hover-lift">
               {te ? "నా dashboard చూడు" : "Load my dashboard"}
@@ -324,10 +307,10 @@ export default function RequestsPage() {
                 <div className="bg-white rounded-2xl p-4 card-shadow border border-gold/20">
                   <div className="flex flex-wrap items-center gap-2">
                     {chip(it.status)}
+                    {it.credit_refunded && <span className="text-[10px] font-bold text-emerald-700">↩️ {te ? "1 క్రెడిట్ తిరిగి" : "1 credit returned"}</span>}
                     <span className="text-[11px] text-gray-500 font-mono">{it.request_id}</span>
-                    {it.score > 0 && <span className="text-[11px] font-bold text-maroon">⭐ {it.score}% match</span>}
-                    {(it as any).porutham_score ? (
-                      <span className="text-[11px] font-bold text-amber-700">🔮 గుణమేళనం {(it as any).porutham_score}/10</span>
+                    {(it as any).porutham_checks_passed != null ? (
+                      <span className="text-[11px] font-bold text-amber-700">🔮 Porutham checks marked pass: {(it as any).porutham_checks_passed} of {(it as any).porutham_checks_total ?? 10}</span>
                     ) : null}
                     <span className="ml-auto text-[11px] text-gray-500">{it.requester_phone}</span>
                   </div>
@@ -346,11 +329,11 @@ export default function RequestsPage() {
                       {it.note ? <div className="mt-2 text-[12px] bg-cream border border-gold/30 rounded-xl p-2">📝 &ldquo;{it.note}&rdquo;</div> : null}
                     </div>
                     <div>
-                      {it.reasons?.length ? (
+                      {it.observations?.length ? (
                         <div className="text-[12px] text-gray-700">
-                          <div className="font-bold text-maroon mb-1">Enduku match avutaru:</div>
-                          {it.reasons.slice(0, 4).map((r) => (
-                            <div key={r}>✅ {r}</div>
+                          <div className="font-bold text-maroon mb-1">{te ? "చూడటానికి వివరాలు (match verdict కాదు):" : "Listed details (not a match verdict):"}</div>
+                          {it.observations.slice(0, 4).map((item) => (
+                            <div key={item}>• {item}</div>
                           ))}
                         </div>
                       ) : null}
@@ -361,16 +344,16 @@ export default function RequestsPage() {
                               <span>✅</span> {te ? "ఆమోదించు (Accept & Share Number)" : "Accept & Share Number"}
                             </button>
                             <button onClick={() => respond(it.request_id, "decline")} disabled={busy} className="bg-white border border-rose-300 text-rose-700 font-bold text-[13px] px-4 py-2.5 rounded-xl hover:bg-rose-50 transition">
-                              <span>❌</span> {te ? "తిరస్కరించు (Decline & 100% Refund)" : "Decline (100% Refund)"}
+                              <span>❌</span> {te ? "తిరస్కరించు (sender‌కు 1 request credit తిరిగి)" : "Decline (return 1 request credit to sender)"}
                             </button>
                           </>
                         ) : it.status === "accepted" ? (
                           <div className="text-[12px] bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2 text-emerald-900 font-semibold flex items-center gap-2">
-                            <span>🎉</span> {te ? "ఆమోదించబడింది — ఫోన్ నంబర్:" : "Accepted — Phone:"} <b className="text-emerald-800 text-[13px]">{it.requester_phone}</b> {te ? "(వాట్సాప్‌లో కూడా పంపబడింది)" : "(Delivered on WhatsApp)"}
+                            <span>🎉</span> {te ? "ఆమోదించబడింది — request చేసిన వారి phone:" : "Accepted — requester phone:"} <b className="text-emerald-800 text-[13px]">{it.requester_phone}</b> {te ? "(external WhatsApp delivery హామీ లేదు)" : "(external WhatsApp delivery is not guaranteed)"}
                           </div>
                         ) : (
                           <div className="text-[12px] text-gray-500 italic py-1">
-                            {it.status === "declined" ? (te ? "ℹ️ ఈ సంబంధం ప్రస్తుతానికి తిరస్కరించబడింది (క్రెడిట్ రీఫండ్ అయింది)" : "ℹ️ Declined (Sender credit refunded)") : `Ee request ${it.status}`}
+                            {it.status === "declined" ? (it.credit_refunded ? (te ? "ℹ️ Interest తిరస్కరించబడింది • 1 credit తిరిగి వచ్చింది" : "ℹ️ Interest declined • 1 credit returned") : (te ? "ℹ️ Interest తిరస్కరించబడింది" : "ℹ️ Interest declined")) : it.status === "expired" ? (it.credit_refunded ? (te ? "⏳ గడువు ముగిసింది • 1 credit తిరిగి వచ్చింది" : "⏳ Expired • 1 credit returned") : (te ? "⏳ గడువు ముగిసింది" : "⏳ Expired")) : `Ee request ${it.status}`}
                           </div>
                         )}
                         <Link href={`/search/${it.from_id}`} className="text-[13px] font-bold text-maroon hover:underline px-2 py-2 flex items-center">
@@ -397,8 +380,7 @@ export default function RequestsPage() {
                       {chip(it.status)}
                       <span className="font-bold text-[14px] text-maroon">{it.profile?.full_name} ({it.profile?.age}y)</span>
                       <span className="text-[11px] text-gray-500 font-mono">{it.to_id}</span>
-                      {it.score > 0 && <span className="text-[11px] font-bold">⭐ {it.score}%</span>}
-                      {it.credit_refunded && <span className="text-[10px] font-bold text-emerald-700">↩️ 100% Refund</span>}
+                      {it.credit_refunded && <span className="text-[10px] font-bold text-emerald-700">↩️ {te ? "1 క్రెడిట్ తిరిగి" : "1 credit returned"}</span>}
                     </div>
                     <div className="text-[12px] text-gray-600 mt-1">
                       🎓 {it.profile?.education} • 💼 {it.profile?.job} • 📍 {it.profile?.district}, {it.profile?.state ? stateFullName(it.profile.state, te) : "—"} • 💍 {it.profile?.caste}
@@ -422,15 +404,15 @@ export default function RequestsPage() {
         {tab === "send" && (
           <div className="grid md:grid-cols-2 gap-5">
             <div className="bg-white rounded-2xl p-5 card-shadow border border-gold/20">
-              <SectionHeading eyebrow={duo("1 credit = 1 profile", "1 క్రెడిట్ = 1 ప్రొఫైల్")} title={`💌 ${duo("Send interest", "ఇంట్రెస్ట్ పంపండి")}`} subtitle={te ? "Profile ID ఇవ్వండి — వాళ్లకి మన WhatsApp నుంచి మీ profile + card వెళ్తుంది." : "Enter profile ID — they get your profile + card from our WhatsApp."} telugu align="left" />
+              <SectionHeading eyebrow={duo("1 credit = 1 interest request", "1 క్రెడిట్ = 1 interest request")} title={`💌 ${duo("Send interest", "ఇంట్రెస్ట్ పంపండి")}`} subtitle={te ? "Profile ID ఇవ్వండి — notification availability configured services పై ఆధారపడుతుంది; contact sharing owner acceptance తర్వాతే." : "Enter a profile ID — notification availability depends on configuration; contact sharing follows owner acceptance."} telugu align="left" />
               <div className="mt-4 space-y-3">
                 <div>
                   <label className="text-[12px] font-bold text-ink">Profile ID *</label>
                   <input
                     value={toId}
                     onChange={(e) => setToId(e.target.value.toUpperCase())}
-                    placeholder="RED001"
-                    className="mt-1 w-full px-3 py-2.5 rounded-xl border border-gold/40 font-mono text-sm outline-none focus-brand" aria-label="RED001" />
+                    placeholder={te ? "ఆసక్తి పంపాల్సిన Profile ID" : "Profile ID to send interest to"}
+                    className="mt-1 w-full px-3 py-2.5 rounded-xl border border-gold/40 font-mono text-sm outline-none focus-brand" aria-label={te ? "ఆసక్తి స్వీకర్త Profile ID" : "Recipient Profile ID"} />
                 </div>
                 {templates.length > 0 && (
                   <div>
@@ -470,10 +452,13 @@ export default function RequestsPage() {
                 <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4">
                   <div className="font-bold text-emerald-900">{te ? <>✅ {lastSend.request_id} పంపించారు</> : <>✅ {lastSend.request_id} sent</>}</div>
                   <div className="text-[12px] text-emerald-900 mt-1">
-                    ⭐ {lastSend.score}% match • ⏳ {lastSend.expires_in_days} {te ? "days valid • credits మిగిలాయి" : "days valid • credits left"} <b>{lastSend.credits_left}</b>
+                    ⏳ {lastSend.expires_in_days} {te ? "రోజులు valid • credits మిగిలాయి" : "days valid • credits left"} <b>{lastSend.credits_left}</b>
+                  </div>
+                  <div className="text-[11px] text-emerald-900/80 mt-1">
+                    {te ? "ప్రొఫైల్ వివరాలు / మీరు సేవ్ చేసిన preferences మాత్రమే; compatibility score లెక్కించలేదు." : "Profile details and saved preferences only; no compatibility score is calculated."}
                   </div>
                   <div className="text-[12px] text-emerald-900 mt-2">
-                    📲 WhatsApp: {lastSend.whatsapp?.owner_queued ? (te ? "వాళ్లకి పంపాం" : "sent to them") : (te ? "పంపలేదు" : "not sent")}
+                    📲 {te ? "WhatsApp notification:" : "WhatsApp notification:"} {lastSend.whatsapp?.owner_queued ? (te ? "queue లో చేరింది; delivery హామీ లేదు" : "queued; delivery is not guaranteed") : (te ? "queue కాలేదు" : "not queued")}
                   </div>
                   <button onClick={() => setShowOwnerMsg(!showOwnerMsg)} className="mt-3 text-[12px] font-bold text-emerald-800 underline">
                     {showOwnerMsg ? (te ? "Message దాచి పెట్టు" : "Hide message") : (te ? "వాళ్లకి వెళ్లే message చూడు (preview)" : "Preview their message")}
@@ -487,9 +472,9 @@ export default function RequestsPage() {
                   <div className="font-bold text-maroon">{te ? "ఎలా పని చేస్తుంది?" : "How it works?"}</div>
                   <ol className="mt-2 text-[12px] text-gray-700 space-y-1 list-decimal list-inside">
                     <li>{te ? "మీ ID + వాళ్ల ID ఇవ్వండి → request పంపిస్తాం (1 credit)" : "Enter your ID + their ID → we send request (1 credit)"}</li>
-                    <li>{te ? "వాళ్లకి మన WhatsApp నుంచి మీ profile card + details" : "They get your profile card + details from our WhatsApp"}</li>
-                    <li>{te ? "వాళ్లు Accept చేస్తే — రెండు numbers automatic గా WhatsApp లో" : "If they Accept — both numbers automatically on WhatsApp"}</li>
-                    <li>{te ? "Decline/expire అయితే — మీ credit refund (expire కి కూడా)" : "On decline/expire — your credit refunds (expire too)"}</li>
+                    <li>{te ? "Notification availability configured service పై ఆధారపడుతుంది" : "Notification availability depends on configured services"}</li>
+                    <li>{te ? "వాళ్లు accept చేస్తే, privacy settings ప్రకారం contact details share అవుతాయి; external delivery హామీ లేదు" : "If they accept, contact details may be shared according to privacy settings; external delivery is not guaranteed"}</li>
+                    <li>{te ? "Decline లేదా 7-day expiry పై 1 request credit ఒకసారి తిరిగి వస్తుంది; cash refund కాదు" : "On decline or 7-day expiry, 1 request credit is returned once; this is not a cash refund"}</li>
                   </ol>
                   <div className="mt-3 text-[11px] text-gray-600">{te ? "🚫 Chatting లేదు — consent-based contact exchange మాత్రమే. Fake ids, spam calls block." : "🚫 No chatting — consent-based contact exchange only. Fake ids, spam calls blocked."}</div>
                 </div>
@@ -497,8 +482,8 @@ export default function RequestsPage() {
 
               {quality && (
                 <div className="bg-white border border-gold/30 rounded-2xl p-4">
-                  <div className="font-bold text-maroon text-[13px]">{te ? "📝 మీ profile strength:" : "📝 Your profile strength:"} {quality.completeness?.percent ?? "—"}%</div>
-                  <div className="mt-1 text-[11px] text-gray-600">{quality.grade_telugu || quality.completeness?.verdict_telugu || ""}</div>
+                  <div className="font-bold text-maroon text-[13px]">{te ? "📝 మీ profile fields:" : "📝 Your profile fields:"} {quality.completeness?.percent ?? "—"}%</div>
+                  <div className="mt-1 text-[11px] text-gray-600">{te ? "ఇది నింపిన fields మాత్రమే; identity లేదా match score కాదు." : "Filled fields only; not an identity or match score."}</div>
                   <div className="mt-2 h-2 bg-gray-100 rounded-full overflow-hidden">
                     <div className="h-2 gold-gradient" style={{ width: `${Math.min(100, Number(quality.completeness?.percent ?? 0))}%` }} />
                   </div>
@@ -508,11 +493,6 @@ export default function RequestsPage() {
                     </ul>
                   )}
 
-                  {quality.trust && (
-                    <div className="mt-2 text-[11px] text-emerald-800">
-                      🛡️ Trust score: <b>{quality.trust.score}</b>/100 • {quality.trust.badge_telugu}
-                    </div>
-                  )}
                   {quality.photo_tip_telugu && <div className="mt-1 text-[11px] text-gray-600">📷 {quality.photo_tip_telugu}</div>}
                 </div>
               )}
@@ -551,31 +531,39 @@ export default function RequestsPage() {
         {tab === "porutham" && (
           <div className="grid md:grid-cols-2 gap-5">
             <div className="bg-white rounded-2xl p-5 card-shadow border border-gold/20">
-              <SectionHeading eyebrow={duo("Traditional Vedic factors", "సాంప్రదాయ వేద గుణమేళనం")} title={`🔮 ${duo("Kundli / Gunamelanam check", "జాతక గుణమేళనం & పొంతన")}`}
-                subtitle={te ? "వధూవరుల ప్రొఫైల్ ID ఇవ్వండి — రాశి, నక్షత్ర, గణ, యోని, రజ్జు, వేధ, మాహేంద్ర, స్త్రీదీర్ఘ, వశ్య, రాశ్యాధిపతి గుణమేళనం లెక్కిస్తాం." : "Enter bride + groom Profile IDs — we calculate 10 Vedic Gunamelanam factors (rasi, nakshatra, gana, yoni, rajju, vedha, mahendra, stree deergha, vashya, adhipathi)."} telugu align="left" />
+              <SectionHeading eyebrow={duo("Traditional rule checks", "సాంప్రదాయ నియమ-ఆధారిత checks")} title={`🔮 ${duo("Porutham reference", "Porutham సూచన")}`}
+                subtitle={te ? "వధూవరుల ప్రొఫైల్ ID ఇవ్వండి — అందుబాటులో ఉన్న నక్షత్ర వివరాలపై పది నియమ-ఆధారిత అంశాలను విడిగా చూపిస్తాం." : "Enter bride + groom Profile IDs to view ten rule-based Porutham checks individually when star details are available."} telugu align="left" />
               <div className="mt-4 space-y-3">
-                <input value={porA} onChange={(e) => setPorA(e.target.value.toUpperCase())} placeholder="Bride Profile ID — RED001"
-                  className="w-full px-3 py-2.5 rounded-xl border border-gold/40 font-mono text-sm outline-none focus-brand" aria-label="Bride Profile ID — RED001" />
-                <input value={porB} onChange={(e) => setPorB(e.target.value.toUpperCase())} placeholder="Groom Profile ID — KAM001"
-                  className="w-full px-3 py-2.5 rounded-xl border border-gold/40 font-mono text-sm outline-none focus-brand" aria-label="Groom Profile ID — KAM001" />
+                <input value={porA} onChange={(e) => setPorA(e.target.value.toUpperCase())} placeholder={te ? "వధువు Profile ID" : "Bride Profile ID"}
+                  className="w-full px-3 py-2.5 rounded-xl border border-gold/40 font-mono text-sm outline-none focus-brand" aria-label={te ? "వధువు Profile ID" : "Bride Profile ID"} />
+                <input value={porB} onChange={(e) => setPorB(e.target.value.toUpperCase())} placeholder={te ? "వరుడు Profile ID" : "Groom Profile ID"}
+                  className="w-full px-3 py-2.5 rounded-xl border border-gold/40 font-mono text-sm outline-none focus-brand" aria-label={te ? "వరుడు Profile ID" : "Groom Profile ID"} />
                 <button onClick={checkPorutham} disabled={busy} className="w-full maroon-gradient text-white font-bold py-3 rounded-xl hover-lift disabled:opacity-60">
-                  {te ? "🔮 గుణమేళనం లెక్కించు" : "🔮 Calculate Gunamelanam"}
+                  {te ? "🔮 Porutham checks చూడండి" : "🔮 View Porutham checks"}
                 </button>
-                <div className="text-[11px] text-gray-500">{te ? "ఇది traditional tables బట్టి software estimate — final గా purohit/panchangam తో confirm చెయ్యండి." : "Software estimate from traditional tables — confirm finally with purohit/panchangam."}</div>
+                <div className="text-[11px] text-gray-500">{te ? "ఇది పరిమిత సాంప్రదాయ reference మాత్రమే; మొత్తం compatibility score, వివాహ సిఫార్సు లేదా ఫలిత అంచనా ఇవ్వదు. వివరాలను విడిగా నిర్ధారించండి." : "A limited traditional reference only; it does not provide an overall compatibility score, marriage recommendation, or outcome prediction. Verify details independently."}</div>
               </div>
             </div>
             <div className="space-y-3">
               {por ? (
                 <div className="bg-white rounded-2xl p-5 card-shadow border border-gold/30">
-                  <div className="flex items-center gap-3">
-                    <div className="text-3xl font-bold text-maroon">{por.score}<span className="text-sm text-gray-400">/{por.max_score || 10}</span></div>
-                    <div>
-                      <div className="font-bold text-[14px] text-maroon">{por.verdict}</div>
-                      <div className="text-[11px] text-gray-500">
-                        {por.bride_star || por.bride?.star} ↔ {por.groom_star || por.groom?.star} • {por.bride_rasi} ↔ {por.groom_rasi}
+                  {por.available ? (
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="font-bold text-[14px] text-maroon">{te ? "Porutham checks లెక్కించబడ్డాయి" : "Porutham checks calculated"}</div>
+                        <div className="mt-1 text-[11px] text-gray-500">
+                          {por.bride_star || por.bride?.star} ↔ {por.groom_star || por.groom?.star} • {por.bride_rasi} ↔ {por.groom_rasi}
+                        </div>
+                      </div>
+                      <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-center text-[12px] font-bold text-amber-950">
+                        {por.passed_checks ?? 0} of {por.total_checks ?? 10}<div className="text-[10px] font-medium">{te ? "checks pass గా గుర్తింపు" : "checks marked pass"}</div>
                       </div>
                     </div>
-                  </div>
+                  ) : (
+                    <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-[12px] text-amber-900">
+                      {por.reason || (te ? "తగిన నక్షత్ర వివరాలు లేవు; Porutham లెక్కించలేదు." : "Required star details are missing; Porutham was not calculated.")}
+                    </div>
+                  )}
                   <div className="mt-3 space-y-1.5">
                     {(por.items || []).map((x: any) => (
                       <div key={x.no} className="text-[12px] flex gap-2">
@@ -587,10 +575,10 @@ export default function RequestsPage() {
                   </div>
                   {por.doshas?.length ? (
                     <div className="mt-3 text-[12px] bg-rose-50 border border-rose-200 text-rose-800 rounded-xl px-3 py-2">
-                      {te ? <>⚠️ Critical: {por.doshas.join(", ")} — పెద్దలు + పురోహితులతో discuss చెయ్యండి</> : <>⚠️ Critical: {por.doshas.join(", ")} — discuss with elders + purohit</>}
+                      {te ? <>గమనిక: {por.doshas.join(", ")} — ఈ సంప్రదాయ అంశాలపై కుటుంబం/అర్హులైన సలహాదారులతో చర్చించండి; ఇది వివాహ తీర్పు కాదు.</> : <>Traditional reference flags: {por.doshas.join(", ")} — discuss with family or a qualified adviser; this is not a marriage verdict.</>}
                     </div>
                   ) : null}
-                  <div className="mt-3 text-[11px] text-gray-500">{por.advice_telugu}</div>
+                  <div className="mt-3 text-[11px] text-gray-500">{por.advice_telugu || por.reason}</div>
                 </div>
               ) : (
                 <div className="bg-cream border border-gold/30 rounded-2xl p-5">
@@ -629,8 +617,8 @@ export default function RequestsPage() {
                     <div className="text-[12px] text-gray-600 mt-1">
                       🎓 {x.profile.education} • 💼 {x.profile.job} • 📍 {x.profile.district}, {x.profile.state ? stateFullName(x.profile.state, te) : "—"} • 💍 {x.profile.caste}
                     </div>
-                    {x.porutham ? (
-                      <div className="text-[12px] font-bold text-amber-700 mt-1">🔮 గుణమేళనం {x.porutham.score}/{x.porutham.max} — {x.porutham.verdict?.split("—")[0]}</div>
+                    {x.porutham?.checks_passed != null ? (
+                      <div className="text-[12px] font-bold text-amber-700 mt-1">🔮 Porutham checks marked pass: {x.porutham.checks_passed} of {x.porutham.checks_total} — review individual rules; not a compatibility verdict.</div>
                     ) : null}
                   </div>
                   <button onClick={() => { setToId(x.profile.tsap_id); setTab("send"); }} className="text-[12px] font-bold maroon-gradient text-white px-3 py-2 rounded-xl">
@@ -663,7 +651,7 @@ export default function RequestsPage() {
                     <div className="text-[13px] text-gray-700 flex-1">
                       {te ? <>🔒 ఎవరు చూశారో names చూడాలంటే <b>₹49</b> (30 days) — లేదా ₹299+ plan లో free గా వస్తుంది.</> : <>🔒 To see viewer names <b>₹49</b> (30 days) — or free with ₹299+ plan.</>}
                     </div>
-                    <button onClick={() => buy("WHOVIEWED_49")} className="gold-gradient text-maroon font-bold text-[12px] px-4 py-2 rounded-xl">₹49 unlock</button>
+                    {myId ? <PayBox planCode="WHOVIEWED_49" price={49} label={te ? "వీక్షకుల పేర్లు అన్‌లాక్" : "Unlock viewer names"} tsapId={myId} /> : <span className="text-xs text-slate-600">{te ? "ముందుగా Profile ID నమోదు చేయండి" : "Enter your Profile ID first"}</span>}
                   </div>
                 )}
                 <div className="bg-white rounded-2xl p-4 card-shadow border border-gold/20">
@@ -686,11 +674,11 @@ export default function RequestsPage() {
         {/* PLANS */}
         {tab === "plans" && (
           <div>
-            <SectionHeading eyebrow={duo("Credits", "క్రెడిట్లు")} title={duo("Plans — 1 credit = 1 profile", "ప్లాన్లు — 1 క్రెడిట్ = 1 ప్రొఫైల్")} subtitle={te ? "₹/profile ప్రతి tier లో తగ్గుతుంది (₹20 → ₹10). Decline అయితే credit refund. Razorpay live అయ్యాక automatic — ఇప్పుడు UPI link తో." : "₹/profile drops every tier (₹20 → ₹10). Credit refund on decline. Automatic after Razorpay live — UPI link now."} telugu align="left" />
+            <SectionHeading eyebrow={duo("Credits", "క్రెడిట్లు")} title={duo("Plans — 1 credit = 1 interest request", "ప్లాన్లు — 1 క్రెడిట్ = 1 interest request")} subtitle={te ? "₹/request ప్రతి tier లో తగ్గుతుంది (₹20 → ₹10). Declines కు account లో చూపిన refund policy వర్తిస్తుంది; expiry/no-response refund హామీ కాదు." : "₹/request drops by tier (about ₹20 → ₹10). Declines follow the refund policy in your account; no-response/expiry refunds are not guaranteed."} telugu align="left" />
             {renewal && (
               <div className="mt-3 rounded-2xl bg-cream border border-gold/30 p-3 text-[12px] text-gray-700">
-                {te ? <>🔁 <b>Renewal offer (పాత customers):</b> ₹{renewal.price} → <b>{renewal.profiles} profiles</b> — first-time ₹99 → 5 profiles.</> : <>🔁 <b>Renewal offer (old customers):</b> ₹{renewal.price} → <b>{renewal.profiles} profiles</b> — first-time ₹99 → 5 profiles.</>}
-                <button onClick={() => buy(renewal.code)} className="ml-2 text-maroon font-bold underline">{te ? "renew చెయ్" : "renew"}</button>
+                {te ? <>🔁 <b>Renewal offer (పాత customers):</b> ₹{renewal.price} → <b>{renewal.profiles} interest requests</b> — first-time ₹99 → 5 requests.</> : <>🔁 <b>Renewal offer (old customers):</b> ₹{renewal.price} → <b>{renewal.profiles} interest requests</b> — first-time ₹99 → 5 requests.</>}
+                {myId && <div className="mt-3 max-w-sm"><PayBox planCode={renewal.code} price={renewal.price} label={te ? "ప్లాన్ రిన్యూ చేయండి" : "Renew plan"} tsapId={myId} /></div>}
               </div>
             )}
             <div className="mt-4 grid md:grid-cols-3 gap-4">
@@ -699,41 +687,40 @@ export default function RequestsPage() {
                   <div className={`bg-white rounded-2xl p-5 card-shadow border h-full ${p.code === "S_299" ? "border-gold" : "border-gold/20"}`}>
                     {p.badge && <div className="text-[10px] font-bold text-gold-deep tracking-widest uppercase">{p.badge}</div>}
                     <div className="text-2xl font-bold text-maroon mt-1">₹{p.price}</div>
-                    <div className="font-bold text-[14px] text-ink">{p.profiles} profiles</div>
-                    <div className="text-[11px] text-gray-500">₹{p.per_profile}/profile • {p.label}</div>
+                    <div className="font-bold text-[14px] text-ink">{p.profiles} interest requests</div>
+                    <div className="text-[11px] text-gray-500">₹{p.per_profile}/request • {p.label}</div>
                     <ul className="mt-3 text-[12px] text-gray-700 space-y-1">
-                      {(p.perks || (te ? [`${p.profiles} interest requests`, "WhatsApp లో profile share", "Accept అయితే number exchange", "Decline అయితే refund"] : [`${p.profiles} interest requests`, "Profile share on WhatsApp", "Number exchange on accept", "Refund on decline"])).map((x: string) => (
+                      {(p.perks || (te ? [`${p.profiles} interest requests`, "Notification availability varies", "Contact sharing after owner acceptance", "Refund policy as shown in account"] : [`${p.profiles} interest requests`, "Notification availability varies", "Contact sharing after owner acceptance", "Refund policy as shown in account"])).map((x: string) => (
                         <li key={x}>✅ {x}</li>
                       ))}
                     </ul>
-                    <button
-                      onClick={() => buy(p.code)}
-                      disabled={busy || !myId}
-                      className="mt-4 w-full gold-gradient text-maroon font-bold py-2.5 rounded-xl hover-lift disabled:opacity-50"
-                    >
-                      {myId ? `₹${p.price} pay → ${p.profiles} profiles` : te ? "మీ Profile ID ఇవ్వండి" : "Enter your Profile ID"}
-                    </button>
+                    {myId ? (
+                      <div className="mt-4"><PayBox planCode={p.code} price={p.price} label={`${p.profiles} ${te ? "interest requests" : "interest requests"}`} tsapId={myId} /></div>
+                    ) : (
+                      <p className="mt-4 rounded-xl bg-slate-50 px-3 py-2.5 text-center text-xs text-slate-600">{te ? "మీ Profile ID ఇవ్వండి" : "Enter your Profile ID"}</p>
+                    )}
                   </div>
                 </Reveal>
               ))}
             </div>
             <div className="mt-4 text-[12px] text-gray-600 bg-cream border border-gold/30 rounded-2xl p-4">
-{te ? <>💡 <b>Free plan:</b> register చెయ్యగానే 3 interest requests FREE. <b>Referral:</b> friend ని పిలిచి వాళ్లు ₹99 pay చేస్తే మీకు ₹50 + వాళ్లకి extra credit. <b>Bureau/agents:</b> ₹999/mo → 25 profiles + monthly report.</> : <>💡 <b>Free plan:</b> 3 interest requests FREE on register. <b>Referral:</b> invite a friend, they pay ₹99, you get ₹50 + they get extra credit. <b>Bureau/agents:</b> ₹999/mo → 25 profiles + monthly report.</>}
+{te ? <>💡 <b>Free plan:</b> నమోదు సమయంలో 3 interest requests. <b>Referral:</b> valid attachment పై కొత్త user కు +1, referrer కు +2 request credits (cash కాదు). Referrer కు ₹50 ఒక్కసారి మాత్రమే—మొదటి S_99/S_199/S_299/S_499 consumer-plan payment కనీసం ₹99 అయితే అర్హత ఉండవచ్చు; exclusions మరియు manual review వర్తిస్తాయి. <b>Bureau/agents:</b> ₹999 / 30 days → 25 request credits.</> : <>💡 <b>Free plan:</b> 3 interest requests on registration. <b>Referral:</b> a valid attachment gives +1 request credit to the new user and +2 to the referrer (not cash). The referrer may qualify for ₹50 once only on the first S_99/S_199/S_299/S_499 consumer-plan payment of at least ₹99; exclusions and manual review apply. <b>Bureau/agents:</b> ₹999 / 30 days → 25 request credits.</>}
             </div>
 
             {/* 🎁 ADD-ONS */}
             <div className="mt-6">
-              <SectionHeading eyebrow={duo("Add-ons", "అదనపువి")} title={`🎁 ${duo("Extra value — beyond credits", "క్రెడిట్లకు మించి")}`} subtitle={te ? "ఇవి per-item: boost, who-viewed, గుణమేళనం రిపోర్ట్, verification badge." : "Per-item extras: boost, who-viewed, gunamelanam report, verification badge."} telugu align="left" />
+              <SectionHeading eyebrow={duo("Add-ons", "అదనపువి")} title={`🎁 ${duo("Extra value — beyond credits", "క్రెడిట్లకు మించి")}`} subtitle={te ? "Per-item extras: profile boost, who-viewed access, manual photo-review request." : "Per-item extras: profile boost, who-viewed access, manual photo-review request."} telugu align="left" />
               <div className="mt-3 grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
                 {addons.map((a) => (
                   <div key={a.code} className="bg-white rounded-2xl p-4 card-shadow border border-gold/25 flex flex-col">
                     <div className="text-xl font-bold text-maroon">₹{a.price}</div>
                     <div className="text-[13px] font-bold text-ink">{a.label}</div>
                     <div className="text-[11px] text-gray-600 flex-1">{a.telugu}</div>
-                    <button onClick={() => buy(a.code)} disabled={busy || !myId}
-                      className="mt-3 gold-gradient text-maroon font-bold text-[12px] py-2 rounded-xl disabled:opacity-50">
-                      {te ? <>₹{a.price} తీసుకోండి</> : <>Take for ₹{a.price}</>}
-                    </button>
+                    {myId ? (
+                      <div className="mt-3"><PayBox planCode={a.code} price={a.price} label={a.label} tsapId={myId} /></div>
+                    ) : (
+                      <p className="mt-3 rounded-xl bg-slate-50 px-3 py-2 text-center text-xs text-slate-600">{te ? "ముందుగా Profile ID నమోదు చేయండి" : "Enter your Profile ID first"}</p>
+                    )}
                   </div>
                 ))}
               </div>
@@ -747,7 +734,7 @@ export default function RequestsPage() {
             note={te ? "ఈ private data సురక్షితంగా ఉంచాం (వేరే వాళ్లు మీ inbox చూడలేరు). Phone OTP login 10 seconds." : "This private data is kept secure (others can\u2019t see your inbox). Phone OTP login takes 10 seconds."} />
         </div>
       ) : null}
-    </main>
+    </div>
   );
 }
 

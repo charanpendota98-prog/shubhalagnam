@@ -105,10 +105,10 @@ check("unblock non-existent → not_blocked", safety.unblock_user("TSAP-F-1001",
 print("=== 6. VERIFICATION LEVELS ===")
 u = U("TSAP-F-5001")
 b0 = safety.verification_badge(u)
-check("default level none + trust 40", b0["level"] == "none" and b0["trust_score"] == 40)
+check("default verification status is none with no trust score", b0["level"] == "none" and "trust_score" not in b0 and "stars" not in b0)
 check("badge Telugu + next step", bool(b0["telugu"]) and "OTP" in b0["next_step_telugu"])
 safety.set_verification(u, "id")
-check("id verify → level id + trust 100", u["verification_level"] == "id" and safety.verification_badge(u)["trust_score"] == 100)
+check("id verify → recorded ID level only", u["verification_level"] == "id" and safety.verification_badge(u)["level"] == "id" and "trust_score" not in safety.verification_badge(u))
 safety.set_verification(u, "phone")
 check("level DOWNGRADE avvadu (id ne untundi)", u["verification_level"] == "id")
 check("tappu kind reject", safety.set_verification(u, "aadhaar_only")[0] is False)
@@ -140,8 +140,8 @@ try:
 except Exception as e:
     check("PIL open", False, repr(e))
 p2 = preview.og_porutham_png(prof, dict(prof, tsap_id="TSAP-M-7777", gender="Groom", full_name="Ravi Kumar"),
-                            {"score": 8, "verdict": "Excellent porutham", "items": [
-                                {"porutham": "Rasi Porutham", "pass": True}, {"porutham": "Rajju Porutham", "pass": False}]},
+                            {"available": True, "passed_checks": 1, "total_checks": 2, "items": [
+                                {"no": 1, "name": "Rasi Porutham", "pass": True}, {"no": 5, "name": "Rajju Porutham", "pass": False}]},
                             "/tmp/previews/test-porutham.png")
 check("porutham OG generate", bool(p2) and os.path.exists(p2))
 check("porutham OG size", Image.open(p2).size == (1200, 630))
@@ -195,7 +195,7 @@ try:
         r = c.post("/api/verify/request", json={"tsap_id": b["tsap_id"], "kind": "photo"})
         check("POST /api/verify/request 200", r.status_code == 200 and r.json()["verification"]["level"] in ("photo", "id"))
         rv = c.get("/api/verification/%s" % b["tsap_id"]).json()
-        check("GET /api/verification/{id} badge", rv["level"] in ("photo", "id") and rv["trust_score"] >= 85)
+        check("GET /api/verification/{id} exposes recorded level only", rv["level"] in ("photo", "id") and "trust_score" not in rv and "stars" not in rv)
         check("tappu kind → 400", c.post("/api/verify/request", json={"tsap_id": b["tsap_id"], "kind": "nope"}).status_code == 400)
 
         og = c.get("/api/og/profile/%s.png" % b["tsap_id"])

@@ -3,7 +3,7 @@
  * 🏪 VENDOR REGISTER — mee business ni మన వివాహ lo promote cheyyandi
  * ==================================================================
  * 18 categories (catering, photography, decorations, hall, pandit...) + ad packages ₹149 → ₹3999.
- * Register → payment (UPI/PhonePe) → admin verify (2 గంటల్లో) → listing ACTIVE + promo post + poster.
+ * Register → payment reference review → listing activation + promo post + poster. Payment is not business verification.
  */
 import { useEffect, useState } from "react";
 import Link from "next/link";
@@ -80,7 +80,7 @@ export default function VendorRegisterPage() {
   if (res) {
     const v = res.vendor;
     return (
-      <main className="min-h-dvh bg-cream pb-20">
+      <div className="min-h-dvh bg-cream pb-20">
         <section className="maroon-gradient text-white">
           <div className="max-w-3xl mx-auto px-4 py-9 text-center">
             <div className="text-5xl">🎉</div>
@@ -99,7 +99,7 @@ export default function VendorRegisterPage() {
           <div className="bg-white rounded-3xl border border-gold/30 p-5">
             <div className="font-bold text-maroon text-[15px]">{te ? <>💰 ఇప్పుడు payment చెయ్యండి — ₹{res.amount}</> : <>💰 Pay now — ₹{res.amount}</>}</div>
             <div className="text-[12px] text-gray-600 mt-1">
-              {te ? <>Package: <b>{res.package.name}</b> ({res.package.days} days). Payment verify అయ్యగానే listing ACTIVE అవుతుంది (2 గంటల్లో).</> : <>Package: <b>{res.package.name}</b> ({res.package.days} days). Listing goes ACTIVE once payment verifies (within 2 hours).</>}
+              {te ? <>Package: <b>{res.package.name}</b> ({res.package.days} days). Payment reference review తర్వాత listing activation నిర్ణయిస్తారు; payment business లేదా identity ను verify చేయదు.</> : <>Package: <b>{res.package.name}</b> ({res.package.days} days). Listing activation follows payment-reference review; payment does not verify the business or its identity.</>}
             </div>
             <ol className="mt-3 space-y-1 text-[12px] text-gray-700 list-decimal list-inside">
               {(res.steps_telugu || []).map((s: string) => <li key={s}>{s.replace(/^\d️⃣\s*/, "")}</li>)}
@@ -121,7 +121,7 @@ export default function VendorRegisterPage() {
           <div className="bg-cream border border-gold/40 rounded-3xl p-5">
             <div className="font-bold text-maroon">{te ? "✅ Payment తర్వాత ఏం అవుతుంది?" : "✅ What happens after payment?"}</div>
             <ul className="mt-2 space-y-1 text-[12px] text-gray-700">
-              <li>1️⃣ {te ? "Admin verify (2 గంటల్లో) → listing ACTIVE + ✅ Verified badge" : "Admin verifies (within 2 hours) → listing ACTIVE + ✅ Verified badge"}</li>
+              <li>1️⃣ {te ? "Payment reference review తర్వాత listing activation; ఇది business/identity verification కాదు" : "Listing activation after payment-reference review; this is not business or identity verification"}</li>
               <li>2️⃣ {te ? "Telugu promo post ready — మీ city/caste channel + 4 main channels లో" : "Telugu promo post ready — your city/caste channel + 4 main channels"}</li>
               <li>3️⃣ {te ? "QR తో poster (square + status) — మీ WhatsApp groups లో పెట్టుకోండి" : "Poster with QR (square + status) — post in your WhatsApp groups"}</li>
               <li>4️⃣ {te ? "Enquiries direct మీ WhatsApp కి + dashboard లో impressions/clicks/leads" : "Enquiries direct to your WhatsApp + impressions/clicks/leads in dashboard"}</li>
@@ -139,13 +139,13 @@ export default function VendorRegisterPage() {
             {te ? <>Support: మన WhatsApp number కి screenshot పంపండి — reference <b>{v.id}</b></> : <>Support: send screenshot to our WhatsApp number — reference <b>{v.id}</b></>}
           </div>
         </div>
-      </main>
+      </div>
     );
   }
 
   /* ---------------- FORM ---------------- */
   return (
-    <main className="min-h-dvh bg-cream pb-24">
+    <div className="min-h-dvh bg-cream pb-24">
       <section className="maroon-gradient text-white">
         <div className="max-w-3xl mx-auto px-4 py-8">
           <div className="text-[12px] opacity-90 mb-1">
@@ -262,6 +262,6 @@ export default function VendorRegisterPage() {
           {busy ? (te ? "⏳ Submit అవుతుంది…" : "⏳ Submitting…") : te ? "🏪 Vendor request పంపండి (free signup)" : "🏪 Send vendor request (free signup)"}
         </button>
       </div>
-    </main>
+    </div>
   );
 }

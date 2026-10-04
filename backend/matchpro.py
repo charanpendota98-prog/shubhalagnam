@@ -1,17 +1,7 @@
-"""
-🎯 WAVE 14 — PERFECT MATCH ENGINE (మన వివాహ)
-================================================
-1. AGE RULE (sampradayam, DOB-date accurate):
-   ammayi (bride) abbayi (groom) kanna thakkuva-vayasu (younger) or SAME DATE ayi undali.
-   Ammayi 1 roju pedda ayina → SKIP (suggest vaddu). Same-day puttina → OK.
-   Priority: 0–12 months thakkuva (younger) brides FIRST.
-2. PROFESSION AFFINITY: Doctor→Doctor, Software→Software, Govt→Govt... same-group FIRST.
-   (Score math marchamu — rank/boost layer matrame, topmatch tests safe.)
-3. NRI: country/field nunchi is_nri + filters.
-4. RELIGION → CASTES (alphabetical): Hindu 43 + Muslim/Christian groups.
+"""Optional filtering helpers for explicit age rules and NRI data.
 
-DOB lekapothe age-years fallback (equal age → allow + note; bride_age > groom_age → block).
-Data rendu lekapothe block kadu (honest unknown) — kani rank low.
+These helpers do not infer compatibility from profession categories. Ranking of
+profiles must use saved member preferences and actual recency only.
 """
 from __future__ import annotations
 
@@ -42,70 +32,38 @@ def _roles(a: Dict, b: Dict) -> Tuple[Optional[Dict], Optional[Dict]]:
 
 
 def age_rule_check(a: Dict, b: Dict) -> Dict:
-    """
-    Bride younger-or-same-date vs groom? Returns:
-    {applicable, blocked, reason, verdict_telugu, gap_days, gap_text, via}
-    via: dob (exact) | age_years (fallback) | unknown
-    """
+    """Report available age facts only; never exclude or rank a pair by gendered age rules."""
     bride, groom = _roles(a, b)
     if not bride:
-        return {"applicable": False, "blocked": False, "reason": "same_gender_or_unknown",
-                "verdict_telugu": "Age rule Bride×Groom కే (same-gender కి N/A)"}
+        return {"applicable": False, "blocked": False, "reason": "roles_unknown",
+                "note_telugu": "వయస్సు పోలికకు Bride/Groom వివరాలు రెండూ అందుబాటులో లేవు."}
     bd, gd = parse_dob(bride.get("dob", "")), parse_dob(groom.get("dob", ""))
     if bd and gd:
-        gap = (bd - gd).days   # +ve = bride younger by N days
-        if gap < 0:
-            return {"applicable": True, "blocked": True, "reason": "bride_older",
-                    "gap_days": gap, "via": "dob",
-                    "verdict_telugu": f"🚫 Ammayi అబ్బాయి kanna {-gap} రోజు పెద్దది — సంప్రదాయం prakaram suggest cheyyamu 🙏"}
-        txt = "ఒక్క roje puttaru (same date) 🎉" if gap == 0 else (
-            f"అమ్మాయి {gap} rojulu చిన్న" if gap < 365 else f"అమ్మాయి ~{gap // 365}y చిన్న")
-        return {"applicable": True, "blocked": False, "reason": "age_ok",
-                "gap_days": gap, "gap_text": txt, "via": "dob",
-                "verdict_telugu": f"✅ Vayasu set — {txt}"}
-    # fallback: age years
+        gap = (bd - gd).days
+        return {"applicable": True, "blocked": False, "reason": "age_details_available",
+                "gap_days": gap, "via": "dob",
+                "note_telugu": f"సభ్యులు నమోదు చేసిన పుట్టిన తేదీల మధ్య {abs(gap)} రోజుల తేడా ఉంది; తేదీలను స్వతంత్రంగా నిర్ధారించండి."}
     try:
         ba, ga = int(bride.get("age") or 0), int(groom.get("age") or 0)
-    except Exception:
+    except (TypeError, ValueError, OverflowError):
         ba, ga = 0, 0
-    if ba and ga:
-        if ba > ga:
-            return {"applicable": True, "blocked": True, "reason": "bride_older",
-                    "via": "age_years", "gap_days": None,
-                    "verdict_telugu": f"🚫 Ammayi ({ba}) అబ్బాయి ({ga}) kanna పెద్దది — suggest cheyyamu 🙏"}
-        return {"applicable": True, "blocked": False, "reason": "age_ok",
-                "via": "age_years", "gap_days": None,
-                "verdict_telugu": "✅ Vayasu paranga OK (DOB పెడితే date-accurate గా chustham)"}
+    if 18 <= ba <= 100 and 18 <= ga <= 100:
+        gap = abs(ba - ga)
+        return {"applicable": True, "blocked": False, "reason": "age_details_available",
+                "gap_years": gap, "via": "age_years",
+                "note_telugu": f"సభ్యులు నమోదు చేసిన వయస్సుల మధ్య {gap} సంవత్సరాల తేడా ఉంది; పుట్టిన తేదీలను స్వతంత్రంగా నిర్ధారించండి."}
     return {"applicable": True, "blocked": False, "reason": "age_unknown", "via": "unknown",
-            "gap_days": None, "verdict_telugu": "⚠️ DOB/age లేదు — age verify cheyyalekapoyam (rank తక్కువ)"}
+            "note_telugu": "వయస్సు వివరాలు అందుబాటులో లేవు; ఎలాంటి age-based exclusion చేయలేదు."}
 
 
 def age_priority_key(me: Dict, other: Dict) -> Tuple[int, int]:
-    """
-    Sort key (chinnadi = FIRST): 0–12 months younger brides first.
-    Returns (tier, -gap_days?) — tier: 0 ideal (0–365d younger), 1 older-gap bride-younger,
-    2 unknown, 3 fallback-ok. (Blocked pairs filter lo ne pothayi.)
-    """
-    r = age_rule_check(me, other)
-    if r.get("blocked"):
-        return (9, 0)
-    gap = r.get("gap_days")
-    if isinstance(gap, int):
-        return (0, -gap) if 0 <= gap <= 365 else (1, -gap)
-    if r.get("via") == "age_years":
-        return (1, 0)
-    return (2, 0)
+    """Neutral compatibility helper; ages do not affect ranking."""
+    return (0, 0)
 
 
 def filter_age_ok(me: Dict, pool: list) -> Dict:
-    kept, skipped = [], []
-    for u in (pool or []):
-        if (u or {}).get("tsap_id") == (me or {}).get("tsap_id"):
-            kept.append(u)
-            continue
-        (skipped if age_rule_check(me, u).get("blocked") else kept).append(u)
-    ids = [u.get("tsap_id") for u in skipped]
-    return {"kept": kept, "skipped_ids": ids, "skipped_count": len(ids)}
+    """Legacy name: return candidates unchanged; age suitability is member-led."""
+    return {"kept": list(pool or []), "skipped_ids": [], "skipped_count": 0}
 
 
 # ---------------------------------------------------------------------------
@@ -147,38 +105,18 @@ def job_group(profile: Dict) -> str:
 
 
 def profession_affinity(a: Dict, b: Dict) -> Dict:
-    """Same-group → boost + telugu reason (rank layer కోసం)."""
-    ga, gb = job_group(a), job_group(b)
-    same = ga == gb and ga != "other"
-    both_known = ga != "other" and gb != "other"
-    return {"a_group": ga, "b_group": gb, "same_group": same, "both_known": both_known,
-            "boost": 12 if same else (4 if both_known else 0),
-            "reason_telugu": (f"💼 {GROUP_TE[ga]} × {GROUP_TE[gb]} — okkate rangam, understanding easy!"
-                               if same else "")}
+    """Describe an exact same-job entry only; job categories do not affect ranking."""
+    job_a = str((a or {}).get("job") or "").strip()
+    job_b = str((b or {}).get("job") or "").strip()
+    same = bool(job_a and job_b and job_a.casefold() == job_b.casefold())
+    return {"a_group": job_group(a), "b_group": job_group(b), "same_group": same,
+            "both_known": bool(job_a and job_b), "boost": 0,
+            "reason_telugu": f"రెండు profiles‌లోనూ వృత్తిగా {job_a} నమోదు చేశారు." if same else ""}
 
 
 def rerank_profession(me: Dict, rows: List[Dict]) -> List[Dict]:
-    """
-    Rows (each with profile/score) → same-profession FIRST (score order within group).
-    Score math marchadu — order + reason matrame.
-    """
-    def _prof(r):
-        return r.get("profile") or {k: r.get(k) for k in
-                ("tsap_id", "full_name", "job", "company", "education", "education_detail")}
-    scored = []
-    for r in (rows or []):
-        aff = profession_affinity(me, _prof(r))
-        r2 = dict(r)
-        r2["profession"] = {"group": aff["b_group"], "group_telugu": GROUP_TE.get(aff["b_group"], ""),
-                            "same_group": aff["same_group"]}
-        if aff["same_group"]:
-            rs = list(r2.get("reasons") or [])
-            rs.insert(0, aff["reason_telugu"])
-            r2["reasons"] = rs
-        scored.append((0 if aff["same_group"] else 1, -(r.get("score", 0) or 0), r2))
-    scored.sort(key=lambda x: (x[0], x[1]))
-    return [x[2] for x in scored]
-
+    """Legacy no-op: profession or education categories never alter candidate order."""
+    return list(rows or [])
 
 # ---------------------------------------------------------------------------
 # 3. NRI
@@ -192,44 +130,53 @@ ABROAD_WORDS = ["usa", "america", "united states", "uk", "london", "canada", "to
 
 def detect_nri(country: str = "", work_location: str = "", current_city: str = "",
                state: str = "") -> Dict:
-    """country explicit (India kakapothe NRI) + abroad-city keywords fallback."""
+    """Use an explicit country or member-entered location; leave unknown country blank."""
     c = str(country or "").strip()
-    hay = f" {work_location or ''} {current_city or ''} ".lower()
-    if c and c.lower() not in ("india", "bharat", "bharath", ""):
+    hay = f" {work_location or ''} {current_city or ''} ".casefold()
+    if c and c.casefold() not in ("india", "bharat", "bharath"):
         return {"is_nri": True, "country": c, "via": "country"}
+    if c:
+        return {"is_nri": False, "country": c, "via": "country"}
     hit = next((w for w in ABROAD_WORDS if w in hay), "")
     if hit:
-        return {"is_nri": True, "country": c or "Abroad", "via": f"location:{hit}"}
-    return {"is_nri": False, "country": c or "India", "via": "india"}
+        return {"is_nri": True, "country": "", "via": f"member_location:{hit}"}
+    return {"is_nri": False, "country": "", "via": "unknown"}
 
 
 # ---------------------------------------------------------------------------
 # 4. RELIGION → CASTES (alphabetical)
 # ---------------------------------------------------------------------------
-HINDU_CASTES = ["Adi Andhra", "Balija", "Bestha", "Bhatraju", "Boya", "Brahmin", "Dasari",
-                "Devanga", "Gandla", "Gavara", "Gond", "Goud", "Jalari", "Jangam", "Jogi",
-                "Kalinga", "Kamma", "Kapu", "Koppula Velama", "Koya", "Kummara", "Kuruba",
-                "Lambada", "Madiga", "Mala", "Mangali", "Mudiraj", "Munnuru Kapu", "Padmashali",
-                "Rajaka", "Raju", "Reddy", "SC Others", "Srisayana", "ST Others", "Telaga",
-                "Uppara", "Vadabalija", "Vaddera", "Velama", "Viswakarma", "Vysya", "Yadav"]
+HINDU_CASTES = [
+    "Adi Andhra", "Are Katika", "Arya Vysya", "Balija", "Bestha", "Bhatraju", "Bondili", "Boya",
+    "Brahmin", "Dasari", "Devanga", "Gandla", "Gavara", "Gond", "Goud", "Intercaste", "Jalari",
+    "Jangam", "Jogi", "Kalinga", "Kamma", "Kapu", "Koppula Velama", "Koya", "Kummara", "Kuruba",
+    "Lambada", "Lingayat", "Madiga", "Mala", "Mangali", "Medari", "Meru", "Mudiraj", "Munnuru Kapu",
+    "Nayee Brahmin", "Other / self-described", "Padmashali", "Perika", "Rajaka", "Raju", "Reddy",
+    "SC Others", "Srisayana", "ST Others", "Telaga", "Togata", "Uppara", "Vadabalija", "Vaddera",
+    "Velama", "Viswabrahmin", "Viswakarma", "Vysya", "Yadav", "Yadava",
+]
 MUSLIM_GROUPS = ["Ansari", "Bohra", "Dudekula", "Khoja", "Labab", "Mapila", "Memons",
-                 "Mughal", "Pathan", "Qureshi", "Sheikh", "Syed", "Other Muslim"]
+                 "Mughal", "Pathan", "Qureshi", "Sheikh", "Syed", "Other Muslim", "Other / self-described"]
 CHRISTIAN_GROUPS = ["Baptist", "CSI", "Lutheran", "Marthoma", "Methodist", "Orthodox",
-                    "Pentecostal", "Roman Catholic", "Seventh-day Adventist", "Other Christian"]
-SIKH_GROUPS = ["Jat", "Khatri", "Ramgarhia", "Other Sikh"]
-JAIN_GROUPS = ["Digambara", "Shwetambara", "Other Jain"]
-OTHER_GROUPS = ["Inter-caste", "No caste", "Other"]
+                    "Pentecostal", "Roman Catholic", "Seventh-day Adventist", "Other Christian", "Other / self-described"]
+SIKH_GROUPS = ["Jat", "Khatri", "Ramgarhia", "Other Sikh", "Other / self-described"]
+JAIN_GROUPS = ["Digambara", "Shwetambara", "Other Jain", "Other / self-described"]
+OTHER_GROUPS = ["Inter-caste", "No caste", "Other", "Other / self-described"]
+
+def _alpha_unique(values: List[str]) -> List[str]:
+    return sorted(set(values), key=lambda value: (value.casefold(), value))
+
 
 RELIGION_CASTES: Dict[str, List[str]] = {
-    "Hindu": sorted(HINDU_CASTES),
-    "Muslim": sorted(MUSLIM_GROUPS),
-    "Christian": sorted(CHRISTIAN_GROUPS),
-    "Sikh": sorted(SIKH_GROUPS),
-    "Jain": sorted(JAIN_GROUPS),
-    "Buddhist": sorted(OTHER_GROUPS),
-    "Other": sorted(OTHER_GROUPS),
+    "Hindu": _alpha_unique(HINDU_CASTES),
+    "Muslim": _alpha_unique(MUSLIM_GROUPS),
+    "Christian": _alpha_unique(CHRISTIAN_GROUPS),
+    "Sikh": _alpha_unique(SIKH_GROUPS),
+    "Jain": _alpha_unique(JAIN_GROUPS),
+    "Buddhist": _alpha_unique(OTHER_GROUPS),
+    "Other": _alpha_unique(OTHER_GROUPS),
 }
-RELIGIONS = ["Hindu", "Muslim", "Christian"]
+RELIGIONS = ["Hindu", "Muslim", "Christian", "Sikh", "Jain", "Buddhist", "Other"]
 
 
 def castes_for(religion: str) -> Dict:
@@ -238,6 +185,6 @@ def castes_for(religion: str) -> Dict:
     r = {"Hindhu": "Hindu", "Islam": "Muslim", "Muslims": "Muslim",
          "Christians": "Christian"}.get(r, r)
     if r not in RELIGIONS:
-        r = "Hindu"
+        r = "Other"
     return {"religion": r, "castes": list(RELIGION_CASTES[r]),
             "note_telugu": f"✅ {r} — {len(RELIGION_CASTES[r])} groups (A–Z order)"}

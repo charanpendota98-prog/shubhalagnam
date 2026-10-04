@@ -116,7 +116,7 @@ class UserDB(BaseModel):
     is_approved: bool = False
     privacy_mode: str = "public"  # public / private
     credits: int = 3
-    plan: str = "FREE"  # FREE, S_29, S_99, S_199, S_299, S_499, BUREAU_999, BUREAU_2999
+    plan: str = "FREE"  # FREE, S_99, S_199, S_299, S_499, BUREAU_999, BUREAU_2999
     plan_expiry: Optional[datetime] = None
     source_channel: Optional[str] = ""  # deep link source
     created_at: datetime = Field(default_factory=datetime.utcnow)
@@ -124,8 +124,7 @@ class UserDB(BaseModel):
 
 class MatchResult(BaseModel):
     matched_user_id: str
-    score: int
-    reasons: List[str]  # personalized Telugu reasons
+    observations: List[str] = Field(default_factory=list)
     is_paid_unlock: bool = False
     is_sent: bool = False
 
@@ -170,15 +169,18 @@ class RegisterResponse(BaseModel):
     # 🔐 WAVE 9 — auth token (private API IDOR fix) + privacy/clarity fields
     auth_token: str = ""
     phone_masked: str = ""
+    phone_verified: bool = False
+    is_approved: bool = False
     duplicate_phone: bool = False
     quality: Optional[Dict[str, Any]] = None
     message_plan_telugu: str = ""
     next_steps: List[str]
     auto_post_queue: List[str]
     top_3_matches: List[MatchResult]
-    # Auto-publish (Telegram + WhatsApp) — register avvagane
+    # Candidate destinations and approval-gated publish queue status; queue does not confirm delivery.
     publish_queued: bool = False
     publish_targets: List[str] = []
+    publish_reason: str = "awaiting_profile_approval"
     namaste_queued: bool = False
     welcome_status: Optional[Dict[str, Any]] = None
     share_kit: Optional[Dict[str, Any]] = None
@@ -192,5 +194,7 @@ class SearchResponse(BaseModel):
     profile: UserDB
     can_view_number: bool
     credits_needed: int
-    reasons: List[str]
+    observations: List[str] = Field(default_factory=list)
+    differences: List[str] = Field(default_factory=list)
+    preference_checks: List[Dict[str, Any]] = Field(default_factory=list)
     is_photo_blur: bool

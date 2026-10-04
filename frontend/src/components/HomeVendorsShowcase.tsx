@@ -2,8 +2,7 @@
 /**
  * 🏪 HOME VENDORS SHOWCASE — పెళ్లి సేవలు & వెండర్లు
  * ===================================================
- * Instant render with top verified Telugu wedding services,
- * WhatsApp contact buttons, category filter chips & 0 empty gaps.
+ * Shows only vendors returned by the directory API; never substitutes fabricated businesses.
  */
 import { useEffect, useState } from "react";
 import Link from "next/link";
@@ -28,111 +27,6 @@ type Vendor = {
   call_link: string;
 };
 
-const DEFAULT_VENDORS: Vendor[] = [
-  {
-    id: "MVV-0002",
-    business_name: "Sri Balaji Photography",
-    category: "photography",
-    category_te: "ఫోటోగ్రఫీ",
-    icon: "📸",
-    city: "Hyderabad",
-    district: "Rangareddy",
-    service_areas: "Hyderabad, TS & AP",
-    price_range: "₹40,000 - 1,20,000",
-    about: "Candid + traditional + drone. Pre-wedding shoot, full album design, same-day cinematic edit.",
-    experience_years: "12",
-    verified: true,
-    package: "V_PREMIUM",
-    whatsapp_link: "https://wa.me/919848011102?text=నమస్తే! మన వివాహ (manavivaha.in) లో మీ Sri Balaji Photography listing చూశాను — details చెప్పండి",
-    call_link: "tel:+919848011102",
-  },
-  {
-    id: "MVV-0001",
-    business_name: "Sri Lakshmi Catering",
-    category: "catering",
-    category_te: "విందు భోజనం (Catering)",
-    icon: "🍛",
-    city: "Warangal",
-    district: "Warangal",
-    service_areas: "Warangal, Hanamkonda, Kazipet",
-    price_range: "₹250-450 per plate",
-    about: "Traditional Telugu vindu — 200 నుండి 2000 మంది సభ్యుల వరకు. Veg + non-veg live counters.",
-    experience_years: "25",
-    verified: true,
-    package: "V_STANDARD",
-    whatsapp_link: "https://wa.me/919848011101?text=నమస్తే! మన వివాహ (manavivaha.in) లో మీ Sri Lakshmi Catering listing చూశాను — details చెప్పండి",
-    call_link: "tel:+919848011101",
-  },
-  {
-    id: "MVV-0003",
-    business_name: "Vasavi Decorations",
-    category: "decorations",
-    category_te: "అలంకరణ (Decorations) & పూలు",
-    icon: "🌸",
-    city: "Vijayawada",
-    district: "Krishna",
-    service_areas: "Vijayawada, Guntur, Tenali",
-    price_range: "₹35,000 - 2,00,000",
-    about: "Mandap, stage backdrop, natural flower decoration, royal lighting. పెళ్లి & నిశ్చితార్థం.",
-    experience_years: "15",
-    verified: true,
-    package: "V_STANDARD",
-    whatsapp_link: "https://wa.me/919848011103?text=నమస్తే! మన వివాహ (manavivaha.in) లో మీ Vasavi Decorations listing చూశాను — details చెప్పండి",
-    call_link: "tel:+919848011103",
-  },
-  {
-    id: "MVV-0008",
-    business_name: "Lakshmi Bridal Makeup Studio",
-    category: "makeup",
-    category_te: "మేకప్ & బ్యూటీషియన్",
-    icon: "💄",
-    city: "Nizamabad",
-    district: "Nizamabad",
-    service_areas: "Nizamabad, Armoor, Kamareddy",
-    price_range: "₹12,000 - 60,000",
-    about: "Bridal makeup, hairstyle, saree draping, HD + airbrush. Reception + పెళ్లి packages.",
-    experience_years: "10",
-    verified: true,
-    package: "V_STANDARD",
-    whatsapp_link: "https://wa.me/919848011108?text=నమస్తే! మన వివాహ (manavivaha.in) లో మీ Lakshmi Bridal Makeup Studio listing చూశాను — details చెప్పండి",
-    call_link: "tel:+919848011108",
-  },
-  {
-    id: "MVV-0004",
-    business_name: "Sai Kalyana Mandapam",
-    category: "banquet_hall",
-    category_te: "ఫంక్షన్ హాల్ / కళ్యాణ మండపం",
-    icon: "🏛️",
-    city: "Karimnagar",
-    district: "Karimnagar",
-    service_areas: "Karimnagar, Peddapalli, Jagtial",
-    price_range: "₹45,000 - 1,50,000/day",
-    about: "AC function hall — 800 members seating, 200 car parking, dining hall + rooms, generator backup.",
-    experience_years: "20",
-    verified: true,
-    package: "V_BASIC",
-    whatsapp_link: "https://wa.me/919848011104?text=నమస్తే! మన వివాహ (manavivaha.in) లో మీ Sai Kalyana Mandapam listing చూశాను — details చెప్పండి",
-    call_link: "tel:+919848011104",
-  },
-  {
-    id: "MVV-0009",
-    business_name: "Vijaya Wedding Planners",
-    category: "wedding_planner",
-    category_te: "వెడ్డింగ్ ప్లానర్",
-    icon: "📋",
-    city: "Visakhapatnam",
-    district: "Visakhapatnam",
-    service_areas: "Visakhapatnam, Vizianagaram, Srikakulam",
-    price_range: "₹1,50,000 నుంచి (package)",
-    about: "Complete పెళ్లి planning — hall, catering, decoration, photography, makeup. End-to-end.",
-    experience_years: "8",
-    verified: true,
-    package: "V_PREMIUM",
-    whatsapp_link: "https://wa.me/919848011109?text=నమస్తే! మన వివాహ (manavivaha.in) లో మీ Vijaya Wedding Planners listing చూశాను — details చెప్పండి",
-    call_link: "tel:+919848011109",
-  },
-];
-
 const CATEGORY_CHIPS = [
   { key: "all", label_te: "అన్నీ (All)", label_en: "All", icon: "✨" },
   { key: "photography", label_te: "ఫోటోగ్రఫీ", label_en: "Photography", icon: "📸" },
@@ -146,18 +40,18 @@ const CATEGORY_CHIPS = [
 export default function HomeVendorsShowcase() {
   const { lang } = useLang();
   const te = lang === "te";
-  const [vendors, setVendors] = useState<Vendor[]>(DEFAULT_VENDORS);
+  const [vendors, setVendors] = useState<Vendor[]>([]);
+  const [loading, setLoading] = useState(true);
   const [activeCat, setActiveCat] = useState<string>("all");
 
   useEffect(() => {
     fetch("/api/vendors?limit=12")
       .then((r) => r.json())
       .then((d) => {
-        if (d?.success && Array.isArray(d.vendors) && d.vendors.length > 0) {
-          setVendors(d.vendors);
-        }
+        if (d?.success && Array.isArray(d.vendors)) setVendors(d.vendors);
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setLoading(false));
   }, []);
 
   const filteredVendors = activeCat === "all"
@@ -173,10 +67,10 @@ export default function HomeVendorsShowcase() {
           <div>
             <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-[11px] font-black uppercase bg-amber-100 text-maroon border border-amber-300">
               <span>🏪</span>
-              <span>{te ? "విశ్వసనీయ పెళ్లి సేవలు" : "TRUSTED WEDDING SERVICES"}</span>
+              <span>{te ? "పెళ్లి సేవల డైరెక్టరీ" : "WEDDING SERVICES DIRECTORY"}</span>
             </div>
             <h2 className="text-xl sm:text-2xl font-black text-[#7A0C2E] mt-1.5">
-              {te ? "మీ ఇంటి శుభకార్యానికి — వెరిఫైడ్ పెళ్లి వెండర్లు" : "Wedding Services & Verified Vendors"}
+              {te ? "మీ శుభకార్యానికి పెళ్లి సేవలు" : "Wedding Services & Vendors"}
             </h2>
             <p className="text-xs text-gray-600 mt-0.5">
               {te
@@ -190,7 +84,7 @@ export default function HomeVendorsShowcase() {
               href="/vendors/campaign"
               className="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 text-[#7A0C2E] text-xs font-black shadow-xs hover:shadow-md transition whitespace-nowrap"
             >
-              📢 {te ? "మీ ప్రకటన ఇవ్వండి (₹49)" : "Advertise (₹49)"}
+              📢 {te ? "మీ ప్రకటన ఇవ్వండి (₹149 నుంచి)" : "Advertise (from ₹149)"}
             </Link>
             <Link
               href="/vendors"
@@ -221,7 +115,9 @@ export default function HomeVendorsShowcase() {
         </div>
 
         {/* Vendors Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-2">
+        {loading ? <p className="py-6 text-center text-sm text-gray-500" role="status">{te ? "వెండర్లు లోడ్ అవుతున్నారు…" : "Loading vendor listings…"}</p>
+          : filteredVendors.length === 0 ? <div className="py-6 text-center text-sm text-gray-600">{te ? "ప్రస్తుతం listing ఏదీ లేదు. డైరెక్టరీని చూడండి లేదా మీ business జోడించండి." : "No vendor listings are available right now. View the directory or add your business."}</div>
+          : <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-2">
           {filteredVendors.map((v) => (
             <div
               key={v.id}
@@ -244,8 +140,8 @@ export default function HomeVendorsShowcase() {
                   </div>
 
                   {v.verified && (
-                    <span className="px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-300 text-emerald-800 text-[10px] font-bold shrink-0">
-                      ✓ Verified
+                    <span className="px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-300 text-emerald-800 text-[10px] font-bold shrink-0" title="Manually reviewed by staff">
+                      ✓ Staff reviewed
                     </span>
                   )}
                 </div>
@@ -266,15 +162,13 @@ export default function HomeVendorsShowcase() {
 
               {/* Action Buttons */}
               <div className="grid grid-cols-2 gap-2 mt-3 pt-2">
-                <a
-                  href={v.whatsapp_link || `https://wa.me/919848011101?text=నమస్తే! మన వివాహ లో మీ ${encodeURIComponent(v.business_name)} listing చూశాను`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition text-center"
-                >
-                  <WhatsAppIcon className="w-3.5 h-3.5 fill-current" />
-                  <span>వాట్సాప్ విచారణ</span>
-                </a>
+                {v.whatsapp_link ? (
+                  <a href={v.whatsapp_link} target="_blank" rel="noreferrer"
+                    className="py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition text-center">
+                    <WhatsAppIcon className="w-3.5 h-3.5 fill-current" />
+                    <span>వాట్సాప్ విచారణ</span>
+                  </a>
+                ) : <span className="py-2 px-3 rounded-xl bg-gray-100 text-gray-500 text-xs text-center">{te ? "సంప్రదింపు అందుబాటులో లేదు" : "Contact unavailable"}</span>}
                 <Link
                   href={`/vendors/${v.id}`}
                   className="py-2 px-3 rounded-xl border border-gold/60 hover:bg-amber-50 text-maroon font-bold text-xs text-center transition"
@@ -284,12 +178,12 @@ export default function HomeVendorsShowcase() {
               </div>
             </div>
           ))}
-        </div>
+        </div>}
 
         {/* Footer Banner Inside Card */}
         <div className="mt-4 p-3 bg-gradient-to-r from-amber-100/60 via-orange-50 to-amber-100/60 rounded-2xl border border-amber-200/80 flex flex-col sm:flex-row items-center justify-between gap-2 text-center sm:text-left">
           <p className="text-xs text-[#7A0C2E] font-bold">
-            💡 {te ? "మీరు పెళ్లి సేవలు అందించే వ్యాపారస్తులా? రోజుకు కేవలం ₹49 తో వేల మంది కస్టమర్లను పొందండి!" : "Are you a wedding vendor? Reach thousands of families for just ₹49/day!"}
+            💡 {te ? "మీరు పెళ్లి సేవలు అందించే వ్యాపారస్తులా? మీ listing ను ₹149 నుంచి ప్రచారం చేయండి." : "Are you a wedding vendor? Promote your listing with packages from ₹149."}
           </p>
           <Link
             href="/vendors/register"

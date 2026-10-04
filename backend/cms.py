@@ -1,11 +1,7 @@
-"""
-📝 WAVE 15 — CMS (Admin-curated content: custom pages + success stories + banners)
-====================================================================================
-Admin website ni customize cheyyochu — code marchakunda:
-  • PAGES   — custom pages (slug: /p/about-us) — EN+TE title/body, photos, tags
-  • STORIES — featured success stories (couple photo + story + tags + district)
-  • BANNERS — announcement strips (homepage/pricing/all pages, link, order)
-Public read (published only) · Admin CRUD · tags filter · 1-click seed.
+"""Admin-curated CMS content: custom pages, consented success stories, and banners.
+
+Only explicitly entered and published content is served. Synthetic test data must use
+an isolated temporary CMS store; there is no production/demo seeding path.
 """
 from __future__ import annotations
 
@@ -16,7 +12,7 @@ from datetime import datetime
 from typing import Dict, List, Optional
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-PERSIST_FILE = os.path.join(BASE_DIR, "cms15.json")
+PERSIST_FILE = os.environ.get("MANA_VIVAHA_CMS_FILE", os.path.join(BASE_DIR, "cms15.json"))
 
 PAGES: List[Dict] = []
 STORIES: List[Dict] = []
@@ -204,32 +200,6 @@ def all_tags() -> List[str]:
                 out.append(t)
     return sorted(out)
 
-
-def seed_cms() -> Dict:
-    """Admin 1-click: demo pages + stories (edit/delete చెయ్యొచ్చు)."""
-    added = []
-    if not get_page("about-us"):
-        upsert_page("about-us", "About మన వివాహ", "మన వివాహ గురించి",
-                    "TS & AP's most advanced Telugu matrimony — region, religion, caste and special channels with smart auto-posting.",
-                    "TS & AP ల అత్యంత అధునాతన తెలుగు మ్యాట్రిమోనీ — region, religion, caste, special ఛానళ్లతో స్మార్ట్ ఆటో-పోస్టింగ్.",
-                    tags=["info", "trust"])
-        added.append("page:about-us")
-    if not get_page("contact-us"):
-        upsert_page("contact-us", "Contact Us", "మమ్మల్ని సంప్రదించండి",
-                    "WhatsApp/Telegram support + email care@manavivaha.in. 10am–8pm IST, all days.",
-                    "వాట్సాప్/టెలిగ్రామ్ support + email care@manavivaha.in. ఉదయం 10 – రాత్రి 8, అన్ని రోజులు.",
-                    tags=["info", "support"])
-        added.append("page:contact-us")
-    if not STORIES:
-        upsert_story("", "Ravi Kumar", "Lakshmi", "", "Met through మన వివాహ TS channel — married in 3 months!",
-                     "మన వివాహ TS ఛానల్ ద్వారా పరిచయం — 3 నెలల్లో పెళ్లి!", "Hyderabad", "2026-02-14",
-                     tags=["hyderabad", "love"])
-        upsert_story("", "Suresh", "Anitha", "", "Parents found the perfect alliance via caste channel.",
-                     "కుల ఛానల్ ద్వారా తల్లిదండ్రులు మంచి సంబంధం కుదిర్చారు.", "Vijayawada", "2026-05-20",
-                     tags=["vijayawada", "arranged"])
-        added += ["story×2"]
-    return {"success": True, "added": added,
-            "message_telugu": f"✅ CMS seed: {', '.join(added) or 'already unnai'}"}
 
 
 def cms_stats() -> Dict:

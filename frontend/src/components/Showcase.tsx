@@ -53,7 +53,7 @@ export default function Showcase() {
       if (d.success) {
         setRows(d.candidates || []); setSuggestion(d.next_caste_suggestion || ""); setSel({});
         if (d.current_week?.ids) setSel(Object.fromEntries(d.current_week.ids.map((x: string) => [x, true])));
-        setFlash(te ? `✅ ${d.count} ${cc} profiles (photos + score first)` : `✅ ${d.count} ${cc} profiles`);
+        setFlash(te ? `✅ ${d.count} ${cc} profiles · reviewed public photos first` : `✅ ${d.count} ${cc} profiles · reviewed public photos first`);
       } else setFlash(d.detail || "fail");
     } catch { setFlash(te ? "⚠️ API error" : "⚠️ API error"); }
     finally { setLoading(false); }
@@ -81,7 +81,7 @@ export default function Showcase() {
   return (
     <div>
       <p className="telugu mt-2 text-xs text-gray-500">
-        {te ? <>వారానికి <b>ఒక కులం</b> — ఆ caste best profiles ఎంచుకుని showcase set చెయ్యండి → వారి caste channels లో post. Homepage లో అందరికీ కనిపిస్తుంది.</> : <>One caste per week — pick that caste&apos;s best profiles → showcase set → posted to their caste channels. Shows on homepage.</>}
+        {te ? <>వారానికి <b>ఒక community</b> — చూపించదలచిన profiles ను review చేసి, showcase గా ఎంచుకోండి. Homepage లో కనిపించేలా సెట్ చేయవచ్చు.</> : <>Review and select the profiles you want to feature for one community each week. The showcase can appear on the homepage.</>}
       </p>
 
       {cur?.caste ? (

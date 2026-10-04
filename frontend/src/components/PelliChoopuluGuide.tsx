@@ -8,7 +8,6 @@
  */
 import { useState } from "react";
 import Link from "next/link";
-import { SITE_CONFIG } from "@/lib/site-config";
 import { useLang } from "@/lib/lang";
 import { WhatsAppIcon } from "@/components/BrandIcons";
 import SectionHeading from "@/components/SectionHeading";
@@ -26,8 +25,7 @@ export default function PelliChoopuluGuide() {
 
   const shareText = `☕ *మన వివాహ — సాంప్రదాయ పెళ్లి చూపుల సమగ్ర మార్గదర్శిని* 🌸\n\n` +
     `పెళ్లి చూపులకు వెళ్లేముందు తెలుసుకోవాల్సిన ముఖ్యమైన విషయాలు, పెద్దల మర్యాదలు, అభ్యర్థులు అడగాల్సిన ప్రశ్నలు మరియు తాంబూలాల ఆచారాలు.\n\n` +
-    `🔗 చదవండి: https://manavivaha.in/pelli-choopulu\n` +
-    `📞 మన వివాహ హెల్ప్‌లైన్: +91 6304996088`;
+    `🔗 చదవండి: https://manavivaha.in/pelli-choopulu`;
 
   const shareUrl = `https://wa.me/?text=${encodeURIComponent(shareText)}`;
 

@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 
 export default function BlogPage() {
   return (
-    <main className="mx-auto max-w-6xl px-4 py-8 sm:py-12">
+    <div className="mx-auto max-w-6xl px-4 py-8 sm:py-12">
       <header className="overflow-hidden rounded-[2rem] bg-gradient-to-br from-maroon to-[#4d071d] p-6 text-white sm:p-10">
         <p className="text-xs font-bold uppercase tracking-[.2em] text-gold">మన వివాహ మార్గదర్శి</p>
         <h1 className="mt-2 max-w-3xl text-3xl font-extrabold leading-tight telugu sm:text-5xl">తెలుగు వివాహ సలహాలు</h1>
@@ -27,6 +27,6 @@ export default function BlogPage() {
           </article>
         ))}
       </div>
-    </main>
+    </div>
   );
 }

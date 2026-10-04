@@ -3,10 +3,10 @@
 /**
  * 👑 CASTES DIRECTORY — మన వివాహ 2.0 (Ultra-Neat & Best-in-Class UI)
  * ====================================================================
- * Comprehensive Telugu Communities Matrimonial Hub with:
+ * Selected Telugu Community Hubs (not an exhaustive official classification):
  *   • Pure Telugu + English Bilingual Community Cards
  *   • Dedicated Bride & Groom Direct Action Portals
- *   • Instant 1-Tap Telegram & WhatsApp Channel Connects
+ *   • Only listed links or explicitly configured support contacts; no guessed fallback links
  *   • Category Filters (OC, BC, SC, ST, All) & Realtime In-Search
  *   • Zero Awkward Wrapping or Layout Cuts
  */
@@ -14,9 +14,8 @@ import { useState, useMemo } from "react";
 import Link from "next/link";
 import Reveal from "@/components/Reveal";
 import SectionHeading from "@/components/SectionHeading";
-import { CASTES, buildSlug } from "@/lib/seo-pages";
 import { CHANNEL_STATS } from "@/lib/channels";
-import { waLink } from "@/lib/wa";
+import { getWAChannelLink } from "@/lib/wa";
 import { TelegramIcon, WhatsAppIcon } from "@/components/BrandIcons";
 import { useLang } from "@/lib/lang";
 import { CASTE_TELUGU } from "@/lib/telugu-data";
@@ -301,17 +300,17 @@ export default function CastesClient() {
         c.subcastes.toLowerCase().includes(q);
       const matchesCat = selectedCat === "ALL" || c.category === selectedCat;
       return matchesQuery && matchesCat;
-    });
+    }).sort((a, b) => a.englishName.localeCompare(b.englishName, "en", { sensitivity: "base" }));
   }, [search, selectedCat]);
 
   return (
-    <main className="min-h-dvh pb-36 bg-[#FCFBF8]">
+    <div className="min-h-dvh pb-36 bg-[#FCFBF8]">
       {/* HERO SECTION */}
       <section className="maroon-gradient text-white border-b-4 border-gold/40">
         <div className="max-w-6xl mx-auto px-4 py-12">
           <Reveal>
             <div className="inline-flex items-center gap-2 bg-white/15 border border-white/25 rounded-full px-4 py-1.5 text-xs font-bold shadow-sm">
-              👑 {te ? "ఆంధ్రప్రదేశ్ & తెలంగాణ సమగ్ర కులాలు" : "All TS & AP Telugu Communities"} • 100% {te ? "ధృవీకరించిన సంబంధాలు" : "Verified Matches"}
+              👑 {te ? "తెలుగు కమ్యూనిటీ హబ్‌లు" : "Selected Telugu community hubs"} • {te ? "ప్రొఫైల్ ధృవీకరణ స్థాయి స్పష్టంగా" : "Profile verification status shown individually"}
             </div>
             
             <h1 className="mt-4 text-3xl md:text-5xl font-black tracking-tight telugu">
@@ -320,9 +319,9 @@ export default function CastesClient() {
             
             <p className="mt-3 text-sm md:text-base opacity-95 telugu max-w-3xl leading-relaxed">
               {te ? (
-                <>మీ కులాన్ని ఎంచుకోండి — ఆ సమాజపు వధువులు & వరుల సంబంధాలు, ప్రత్యేక టెలిగ్రామ్ & వాట్సాప్ ఛానల్స్, వేద జాతక సరిపోలిక మరియు నేరుగా సంబంధాల అన్వేషణ అంతా ఒక్క చోటే. OC, BC, SC, ST — అన్ని వర్గాల సంబంధాలు అందుబాటులో ఉన్నాయి.</>
+                <>మీ కమ్యూనిటీని ఎంచుకోండి — లిస్టులో ఉన్న ఛానల్స్, అందుబాటులో ఉన్న ప్రొఫైల్స్ మరియు సంబంధాల అన్వేషణ చూడండి. ఇది ఎంపిక చేసిన హబ్‌ల జాబితా మాత్రమే; నమోదు సమయంలో ఇతర పేర్లను స్వయంగా పేర్కొనవచ్చు.</>
               ) : (
-                <>Select your community — explore verified brides and grooms, dedicated Telegram & WhatsApp matrimonial channels, Vedic Gunamelanam horoscope matchmaker, and direct match search.</>
+                <>Choose a community to browse listed channels and available profiles. This directory covers selected hubs, not every community; registration also supports self-described names.</>
               )}
             </p>
 
@@ -353,7 +352,7 @@ export default function CastesClient() {
         <SectionHeading
           eyebrow={te ? "సమాజాలు & కమ్యూనిటీలు" : "Telugu Communities & Hubs"}
           title={te ? "మీ కులం ఎంచుకోండి — సంబంధాలు చూడండి" : "Select Your Community — Explore Alliances"}
-          subtitle={te ? "ప్రతి కులానికి వధువులు & వరుల ప్రత్యేక లైవ్ ఛానల్స్ మరియు సంబంధాల సెర్చ్ అందుబాటులో ఉంది." : "Dedicated bride & groom channels and direct match discovery for every community."}
+          subtitle={te ? "ప్రతి సమాజానికి వధువులు & వరుల channel listings మరియు సంబంధాల సెర్చ్. External links availability ఆటోమేటిక్‌గా తనిఖీ చేయబడదు." : "Bride and groom channel listings plus profile discovery for each community. External link availability is not checked automatically."}
           telugu
         />
 
@@ -382,7 +381,10 @@ export default function CastesClient() {
 
         {/* ELEGANT CASTE CARDS GRID */}
         <div className="mt-8 grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
-          {filteredCastes.map((c, i) => (
+          {filteredCastes.map((c, i) => {
+            const brideWhatsApp = getWAChannelLink(c.brideWaKey);
+            const groomWhatsApp = getWAChannelLink(c.groomWaKey);
+            return (
             <Reveal key={c.key} delay={(i % 6) * 35}>
               <div className="bg-white rounded-3xl p-5 border border-gold/30 hover:border-gold shadow-md hover:shadow-xl transition-all duration-300 h-full flex flex-col justify-between group">
                 
@@ -401,9 +403,8 @@ export default function CastesClient() {
                       </div>
                     </div>
                     
-                    <span className="inline-flex items-center gap-1 text-[10px] font-black px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-300 shadow-sm shrink-0">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                      100% Live
+                    <span className="inline-flex items-center text-[10px] font-black px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 border border-slate-200 shadow-sm shrink-0">
+                      {te ? "లిస్టులో ఉంది" : "LISTED"}
                     </span>
                   </div>
 
@@ -436,13 +437,16 @@ export default function CastesClient() {
                       >
                         <TelegramIcon className="w-4 h-4" mono />
                       </a>
-                      {waLink(c.brideWaKey) ? (
+                      {brideWhatsApp.url ? (
                         <a
-                          href={waLink(c.brideWaKey)}
+                          href={brideWhatsApp.url}
                           target="_blank"
-                          rel="noreferrer"
-                          title={te ? "వధువుల WhatsApp ఛానల్" : "Brides WhatsApp Channel"}
-                          className="grid place-items-center w-8 h-8 rounded-xl bg-[#25D366] text-white shadow-soft hover:scale-110 active:scale-95 transition"
+                          rel="noopener noreferrer"
+                          aria-label={te
+                            ? (brideWhatsApp.isDirectChannel ? "లిస్టు చేసిన వధువుల WhatsApp link" : "Configured WhatsApp support తెరవండి")
+                            : (brideWhatsApp.isDirectChannel ? "Open listed Brides WhatsApp link" : "Open configured WhatsApp support")}
+                          title={te ? "బాహ్య WhatsApp లింక్; availability తనిఖీ చేయబడదు" : "External WhatsApp link; availability is not checked"}
+                          className="grid place-items-center w-8 h-8 rounded-xl bg-gradient-to-br from-[#128C4A] to-[#20bd5a] text-white shadow-soft hover:scale-110 active:scale-95 transition"
                         >
                           <WhatsAppIcon className="w-4 h-4" mono />
                         </a>
@@ -469,13 +473,16 @@ export default function CastesClient() {
                       >
                         <TelegramIcon className="w-4 h-4" mono />
                       </a>
-                      {waLink(c.groomWaKey) ? (
+                      {groomWhatsApp.url ? (
                         <a
-                          href={waLink(c.groomWaKey)}
+                          href={groomWhatsApp.url}
                           target="_blank"
-                          rel="noreferrer"
-                          title={te ? "వరుల WhatsApp ఛానల్" : "Grooms WhatsApp Channel"}
-                          className="grid place-items-center w-8 h-8 rounded-xl bg-[#25D366] text-white shadow-soft hover:scale-110 active:scale-95 transition"
+                          rel="noopener noreferrer"
+                          aria-label={te
+                            ? (groomWhatsApp.isDirectChannel ? "లిస్టు చేసిన వరుల WhatsApp link" : "Configured WhatsApp support తెరవండి")
+                            : (groomWhatsApp.isDirectChannel ? "Open listed Grooms WhatsApp link" : "Open configured WhatsApp support")}
+                          title={te ? "బాహ్య WhatsApp లింక్; availability తనిఖీ చేయబడదు" : "External WhatsApp link; availability is not checked"}
+                          className="grid place-items-center w-8 h-8 rounded-xl bg-gradient-to-br from-[#128C4A] to-[#20bd5a] text-white shadow-soft hover:scale-110 active:scale-95 transition"
                         >
                           <WhatsAppIcon className="w-4 h-4" mono />
                         </a>
@@ -497,7 +504,8 @@ export default function CastesClient() {
 
               </div>
             </Reveal>
-          ))}
+            );
+          })}
         </div>
 
         {/* Empty state */}
@@ -508,7 +516,7 @@ export default function CastesClient() {
               {te ? "మీరు వెతికిన కులం దొరకలేదు" : "No castes matched your search"}
             </div>
             <p className="text-xs text-gray-500 mt-1 telugu max-w-md mx-auto">
-              {te ? "దయచేసి స్పెల్లింగ్ సరిచూసుకోండి లేదా నేరుగా ఉచిత నమోదు ద్వారా మీ ప్రొఫైల్ సృష్టించండి — అన్ని కులాలు అందుబాటులో ఉన్నాయి." : "Please check your spelling or register free — all community options are supported."}
+              {te ? "పేరు కనిపించకపోతే ఉచిత నమోదులో ‘Other / self-described’ ఎంపికను ఎంచుకుని మీ కమ్యూనిటీ పేరును నమోదు చేయండి." : "If you do not see a match, choose ‘Other / self-described’ during free registration and enter your community name."}
             </p>
             <Link href="/register" className="inline-block mt-5 maroon-gradient text-white font-bold px-6 py-3 rounded-2xl text-xs shadow-brand hover-lift">
               {te ? "📝 ఉచిత నమోదు" : "Register Free"}
@@ -538,6 +546,6 @@ export default function CastesClient() {
         </div>
 
       </div>
-    </main>
+    </div>
   );
 }

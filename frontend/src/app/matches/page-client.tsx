@@ -9,8 +9,8 @@
  * • Dual Age & Height Range sliders, Salary quick chips
  * • Mobile Flipkart/Myntra style bottom-sheet filter drawer with category tabs
  * • Active filter chips with instant [x] dismiss and Clear All
- * • Vedic Gunamelanam breakdown & Match Score 2.0 on cards
- * • Instant Contact Unlock Modal with credits, UPI & WhatsApp helpline
+ * • Member-entered profile details with no synthetic compatibility percentage
+ * • Consent-gated contact flow; support destinations appear only when configured
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
@@ -36,10 +36,10 @@ import {
   stateFullName,
   isSecondMarriageStatus,
   secondMarriageLabel,
+  sortUniqueOptions,
 } from "@/lib/telugu-data";
 import { SITE_CONFIG } from "@/lib/site-config";
 import QuickLead from "@/components/QuickLead";
-import TrustBadge from "@/components/TrustBadge";
 import AuthGate from "@/components/AuthGate";
 import { apiGet, apiPost, getToken, authHeaders } from "@/lib/api";
 import { firstName } from "@/lib/names";
@@ -55,13 +55,9 @@ type Row = Record<string, any>;
 const SAVED_SEARCHES_KEY = "tsap_saved_searches_v5";
 
 const SORTS = [
-  { v: "score", l: "🏆 Best match", lTe: "🏆 బెస్ట్ మ్యాచ్" },
-  { v: "porutham", l: "💍 Gunamelanam", lTe: "💍 గుణమేళనం" },
-  { v: "trust", l: "🛡️ Trust score", lTe: "🛡️ ట్రస్ట్ స్కోర్" },
-  { v: "completeness", l: "📝 Profile complete", lTe: "📝 ప్రొఫైల్ పూర్తి" },
-  { v: "new", l: "🆕 New", lTe: "🆕 కొత్తవి" },
-  { v: "age", l: "🎂 Age (Low to High)", lTe: "🎂 వయసు (తక్కువ నుండి)" },
-  { v: "boosted", l: "⚡ Boosted", lTe: "⚡ బూస్టెడ్" },
+  { v: "new", l: "🆕 Recently added", lTe: "🆕 ఇటీవల జోడించినవి" },
+  { v: "age", l: "🎂 Age (low to high)", lTe: "🎂 వయసు (తక్కువ నుండి)" },
+  { v: "boosted", l: "📣 Promoted", lTe: "📣 ప్రమోట్ చేసినవి" },
 ];
 
 const DEFAULT_FILTERS: Row = {
@@ -90,7 +86,13 @@ const DEFAULT_FILTERS: Row = {
   height_max: "",
 };
 
-const ALL_DISTRICTS_COMBINED = Array.from(new Set([...TS_DISTRICTS, ...AP_DISTRICTS, "USA / NRI", "Other"])).filter(Boolean);
+const ALL_DISTRICTS_COMBINED = sortUniqueOptions([
+  ...TS_DISTRICTS,
+  ...AP_DISTRICTS,
+  ...(DISTRICTS_BY_STATE.Other || []),
+  "USA / NRI",
+  "Other",
+]);
 
 // 🏛️💍 state full-name (Telangana/Andhra Pradesh) badge + second-marriage-only
 // badge helpers ippudu @/lib/telugu-data lo shared (matches + second-marriage +
@@ -98,398 +100,17 @@ const ALL_DISTRICTS_COMBINED = Array.from(new Set([...TS_DISTRICTS, ...AP_DISTRI
 const stateLabel = (stateRaw: string | undefined | null, te: boolean) => stateFullName(stateRaw, te);
 const isSecondMarriage = isSecondMarriageStatus;
 
-const FALLBACK_MATCHES: Row[] = [
-  {
-    tsap_id: "MV1001",
-    gender: "Bride",
-    full_name: "Lakshmi Prasanna Reddy",
-    age: 25,
-    height: "5'4\"",
-    caste: "Reddy",
-    sub_caste: "Motati",
-    gothram: "Bharadwaj",
-    star: "Rohini",
-    rasi: "Vrishabha",
-    education: "B.Tech (CSE)",
-    education_detail: "B.Tech Computer Science (JNTU Hyderabad)",
-    job: "Senior Software Engineer",
-    company: "Microsoft IDC",
-    salary: "₹18 LPA",
-    district: "Hyderabad",
-    state: "TS",
-    work_location: "HITEC City, Hyderabad",
-    marital_status: "Pelli Kaledu",
-    children: "None",
-    about_myself: "Cultured, family-oriented and working at Microsoft Hyderabad. Enjoys classical music and travel.",
-    is_verified: true,
-    phone_verified: true,
-    score: 96,
-  },
-  {
-    tsap_id: "MV1002",
-    gender: "Groom",
-    full_name: "Kiran Kumar Reddy",
-    age: 28,
-    height: "5'11\"",
-    caste: "Reddy",
-    sub_caste: "Pakanati",
-    gothram: "Janakula",
-    star: "Uttara",
-    rasi: "Simha",
-    education: "MS (CS)",
-    education_detail: "MS in Data Science (Arizona State University)",
-    job: "Staff AI Engineer",
-    company: "Google",
-    salary: "$165k / ₹1.4 Cr",
-    district: "USA / NRI",
-    state: "TS",
-    work_location: "Mountain View, California (H-1B)",
-    marital_status: "Pelli Kaledu",
-    children: "None",
-    about_myself: "Tech professional based in Bay Area USA. Traditional values, looking for well-educated life partner.",
-    is_verified: true,
-    phone_verified: true,
-    score: 94,
-  },
-  {
-    tsap_id: "MV1003",
-    gender: "Bride",
-    full_name: "Harika Chowdary",
-    age: 24,
-    height: "5'5\"",
-    caste: "Kamma",
-    sub_caste: "Pedakanti",
-    gothram: "Kasyapa",
-    star: "Swati",
-    rasi: "Tula",
-    education: "MBBS, MD",
-    education_detail: "MD General Medicine (Osmania Medical College)",
-    job: "Doctor (Consultant Physician)",
-    company: "Apollo Hospitals",
-    salary: "₹24 LPA",
-    district: "Vijayawada",
-    state: "AP",
-    work_location: "Vijayawada / Hyderabad",
-    marital_status: "Pelli Kaledu",
-    children: "None",
-    about_myself: "Dedicated medical practitioner from an affluent, cultured family. Seeking ambitious doctor or professional.",
-    is_verified: true,
-    phone_verified: true,
-    score: 95,
-  },
-  {
-    tsap_id: "MV1004",
-    gender: "Groom",
-    full_name: "Sai Teja Kamma",
-    age: 27,
-    height: "5'10\"",
-    caste: "Kamma",
-    sub_caste: "Chowdary",
-    gothram: "Vasishta",
-    star: "Hastha",
-    rasi: "Kanya",
-    education: "B.Tech + MBA",
-    education_detail: "B.Tech IIT Madras, MBA IIM Bangalore",
-    job: "Product Manager",
-    company: "Amazon",
-    salary: "₹38 LPA",
-    district: "Guntur",
-    state: "AP",
-    work_location: "Financial District, Hyderabad",
-    marital_status: "Pelli Kaledu",
-    children: "None",
-    about_myself: "Product leader, passionate about tech innovation and fitness. Seeking understanding partner.",
-    is_verified: true,
-    phone_verified: true,
-    score: 98,
-  },
-  {
-    tsap_id: "MV1005",
-    gender: "Bride",
-    full_name: "Sneha Kapu",
-    age: 26,
-    height: "5'3\"",
-    caste: "Kapu",
-    sub_caste: "Telaga",
-    gothram: "Kaushika",
-    star: "Anuradha",
-    rasi: "Vrishchika",
-    education: "M.Tech",
-    education_detail: "M.Tech VLSI (NIT Warangal)",
-    job: "Hardware Design Engineer",
-    company: "Qualcomm",
-    salary: "₹22 LPA",
-    district: "Visakhapatnam",
-    state: "AP",
-    work_location: "Hyderabad",
-    marital_status: "Pelli Kaledu",
-    children: "None",
-    about_myself: "Calm natured, working in semiconductor domain. Values mutual respect and cultural traditions.",
-    is_verified: true,
-    phone_verified: true,
-    score: 92,
-  },
-  {
-    tsap_id: "MV1006",
-    gender: "Groom",
-    full_name: "Naveen Naidu",
-    age: 29,
-    height: "5'9\"",
-    caste: "Kapu",
-    sub_caste: "Balija",
-    gothram: "Srivatsa",
-    star: "Revati",
-    rasi: "Meena",
-    education: "B.Tech",
-    education_detail: "B.Tech Mechanical (AU Visakhapatnam)",
-    job: "Assistant Executive Engineer (Govt)",
-    company: "AP Irrigation Dept",
-    salary: "₹14 LPA",
-    district: "East Godavari",
-    state: "AP",
-    work_location: "Kakinada / Rajahmundry",
-    marital_status: "Pelli Kaledu",
-    children: "None",
-    about_myself: "Gazetted state government officer. Settled in coastal Andhra with ancestral properties.",
-    is_verified: true,
-    phone_verified: true,
-    score: 91,
-  },
-  {
-    tsap_id: "MV1007",
-    gender: "Bride",
-    full_name: "Sravani Sharma",
-    age: 24,
-    height: "5'4\"",
-    caste: "Brahmin",
-    sub_caste: "Niyogi",
-    gothram: "Gautama",
-    star: "Mrigasira",
-    rasi: "Mithuna",
-    education: "CA (Chartered Accountant)",
-    education_detail: "Chartered Accountant (ICAI All India Rank)",
-    job: "Senior Finance Manager",
-    company: "Deloitte India",
-    salary: "₹20 LPA",
-    district: "Secunderabad",
-    state: "TS",
-    work_location: "Hyderabad",
-    marital_status: "Pelli Kaledu",
-    children: "None",
-    about_myself: "Strictly vegetarian, devout Vedic family. Accomplished CA with strong cultural roots.",
-    is_verified: true,
-    phone_verified: true,
-    score: 97,
-  },
-  {
-    tsap_id: "MV1008",
-    gender: "Groom",
-    full_name: "Srinivasa Murthy",
-    age: 28,
-    height: "5'10\"",
-    caste: "Brahmin",
-    sub_caste: "Vaidiki",
-    gothram: "Kasyapa",
-    star: "Pushya",
-    rasi: "Karka",
-    education: "MS (Embedded Systems)",
-    education_detail: "MS Germany (TU Munich)",
-    job: "Senior Embedded Engineer",
-    company: "Bosch Automotive",
-    salary: "€78k / ₹72 LPA",
-    district: "Tirupati",
-    state: "AP",
-    work_location: "Munich, Germany / Bangalore",
-    marital_status: "Pelli Kaledu",
-    children: "None",
-    about_myself: "Traditional Brahmin boy working in Germany, planning to relocate to Bangalore/Hyderabad.",
-    is_verified: true,
-    phone_verified: true,
-    score: 93,
-  },
-  {
-    tsap_id: "MV1009",
-    gender: "Bride",
-    full_name: "Pooja Gupta",
-    age: 25,
-    height: "5'2\"",
-    caste: "Arya Vysya",
-    sub_caste: "Kanyaka Parameswari",
-    gothram: "Sankhyayana",
-    star: "Chitra",
-    rasi: "Kanya",
-    education: "MBA (Finance)",
-    education_detail: "MBA Finance (Symbiosis Pune)",
-    job: "Branch Manager",
-    company: "HDFC Bank",
-    salary: "₹15 LPA",
-    district: "Warangal",
-    state: "TS",
-    work_location: "Hanamkonda / Hyderabad",
-    marital_status: "Pelli Kaledu",
-    children: "None",
-    about_myself: "Respectful, business family background from Warangal. Seeking Vysya groom with good family values.",
-    is_verified: true,
-    phone_verified: true,
-    score: 90,
-  },
-  {
-    tsap_id: "MV1010",
-    gender: "Groom",
-    full_name: "Rajesh Kumar Goud",
-    age: 29,
-    height: "5'9\"",
-    caste: "Goud",
-    sub_caste: "Ediga",
-    gothram: "Shiva",
-    star: "Sravana",
-    rasi: "Makara",
-    education: "B.Tech + M.Tech",
-    education_detail: "M.Tech Structural Engineering (OU Hyderabad)",
-    job: "Real Estate Developer & Builder",
-    company: "Self Employed",
-    salary: "₹35 LPA",
-    district: "Karimnagar",
-    state: "TS",
-    work_location: "Karimnagar & Hyderabad",
-    marital_status: "Pelli Kaledu",
-    children: "None",
-    about_myself: "Self-driven civil engineering entrepreneur with ongoing residential projects. Family oriented.",
-    is_verified: true,
-    phone_verified: true,
-    score: 92,
-  },
-  {
-    tsap_id: "MV2001",
-    gender: "Bride",
-    full_name: "Sowmya Reddy",
-    age: 30,
-    height: "5'4\"",
-    caste: "Reddy",
-    sub_caste: "Motati",
-    gothram: "Janakula",
-    star: "Anuradha",
-    rasi: "Vrishchika",
-    education: "B.Tech, MBA",
-    education_detail: "MBA (HR) from Osmania University",
-    job: "HR Manager",
-    company: "Tech Mahindra",
-    salary: "₹14 LPA",
-    district: "Hyderabad",
-    state: "TS",
-    work_location: "Madhapur, Hyderabad",
-    marital_status: "Divorced",
-    children: "None",
-    about_myself: "Brief childless marriage annulled legally. Positive outlook, seeking a mature and understanding life partner.",
-    is_verified: true,
-    phone_verified: true,
-    score: 94,
-  },
-  {
-    tsap_id: "MV2002",
-    gender: "Groom",
-    full_name: "Dr. Sandeep Kamma",
-    age: 33,
-    height: "5'10\"",
-    caste: "Kamma",
-    sub_caste: "Chowdary",
-    gothram: "Vasishta",
-    star: "Uttarabhadra",
-    rasi: "Meena",
-    education: "MBBS, MS (Ortho)",
-    education_detail: "MS Orthopaedics (KIMS)",
-    job: "Consultant Orthopaedic Surgeon",
-    company: "Care Hospitals",
-    salary: "₹36 LPA",
-    district: "Guntur",
-    state: "AP",
-    work_location: "Guntur & Vijayawada",
-    marital_status: "Divorced",
-    children: "1 Living Separately",
-    about_myself: "Independent practicing surgeon. Mutual consent divorce, legally settled. Seeking genuine companionship.",
-    is_verified: true,
-    phone_verified: true,
-    score: 92,
-  },
-];
-
-/* ---------- 🧠 MATCH SCORE 2.0 — EXPANDABLE PANEL ---------- */
-function ScoreBreakdown({ v2 }: { v2: any }) {
-  const { lang } = useLang();
-  const te = lang === "te";
-  const [open, setOpen] = useState(false);
-  if (!v2) return null;
-  const gradeColor: Record<string, string> = {
-    perfect: "bg-emerald-100 text-emerald-800 border-emerald-300",
-    best: "bg-emerald-50 text-emerald-800 border-emerald-200",
-    good: "bg-amber-50 text-amber-800 border-amber-200",
-    average: "bg-gray-100 text-gray-700 border-gray-300",
-  };
-  const gc = gradeColor[String(v2.grade || "average")] || gradeColor.average;
-  return (
-    <div className="mx-4 mb-3 rounded-2xl border border-maroon/15 bg-white overflow-hidden shadow-xs">
-      <button onClick={() => setOpen(!open)} className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-slate-50 transition">
-        <span className="text-[12px] font-bold text-maroon">{te ? "🧠 ఎందుకు ఈ సరిపోలిక?" : "🧠 Why this match score?"}</span>
-        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${gc}`}>{v2.grade}</span>
-        {v2?.mutual?.both_like ? (
-          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 border border-rose-300">
-            💞 mutual (+8%)
-          </span>
-        ) : null}
-        <span className="ml-auto text-[11px] text-gray-500 font-semibold">{open ? (te ? "▲ దాచు" : "▲ Hide") : (te ? "▼ వివరాలు" : "▼ Details")}</span>
-      </button>
-      {open && (
-        <div className="px-3 pb-3 border-t border-slate-100 pt-2">
-          <div className="text-[11px] text-gray-600 mb-2">{v2.verdict}</div>
-          <div className="space-y-1.5">
-            {(v2.breakdown || []).map((b: any, i: number) => {
-              const got = Number(b.points ?? b.score ?? 0);
-              const max = Math.max(1, Number(b.max || 1));
-              const pct = Math.round((got / max) * 100);
-              return (
-                <div key={i} className="flex items-center gap-2">
-                  <span className="text-[10px] w-[92px] shrink-0 text-gray-700 truncate" title={b.note}>
-                    {b.label}
-                  </span>
-                  <span className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
-                    <span
-                      className="block h-2 rounded-full"
-                      style={{ width: `${pct}%`, background: pct >= 80 ? "#0f7a4a" : pct >= 55 ? "#C79A2E" : "#c0405a" }}
-                    />
-                  </span>
-                  <span className="text-[10px] font-bold text-gray-700 w-[52px] text-right">
-                    {got}/{max}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-          {Array.isArray(v2.weak_points) && v2.weak_points.length > 0 && (
-            <div className="mt-2.5 bg-rose-50 border border-rose-200 rounded-xl p-2.5">
-              <div className="text-[10px] font-bold text-rose-800">{te ? "⚠️ సూచనలు" : "⚠️ Observations"}</div>
-              {v2.weak_points.map((w: string, i: number) => (
-                <div key={i} className="text-[10px] text-rose-900 telugu">
-                  • {w}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
 export default function MatchesPage() {
   const { lang } = useLang();
   const te = lang === "te";
   const unlockBot = (id: string) => SITE_CONFIG.unlockBot(id);
 
   const [filters, setFilters] = useState<Row>(DEFAULT_FILTERS);
-  const [sort, setSort] = useState<string>("score");
+  const [sort, setSort] = useState<string>("new");
   const [rows, setRows] = useState<Row[]>([]);
   const [total, setTotal] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(true);
+  const [requestError, setRequestError] = useState<boolean>(false);
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [myTsapId, setMyTsapId] = useState<string>("");
   const [savedIds, setSavedIds] = useState<string[]>([]);
@@ -598,7 +219,7 @@ export default function MatchesPage() {
         subs.push(...CASTE_SUBCASTES[match]);
       }
     });
-    return Array.from(new Set(subs));
+    return sortUniqueOptions(subs);
   }, [filters.caste]);
 
   // Filtered Castes & Districts in Search List
@@ -717,7 +338,7 @@ export default function MatchesPage() {
     if (filters.verified_only) {
       chips.push({
         key: "verified",
-        label: "👑 Verified Only",
+        label: te ? "తనిఖీ నమోదు చేసినవి" : "With a recorded check",
         clear: () => setF("verified_only", false),
       });
     }
@@ -759,6 +380,7 @@ export default function MatchesPage() {
   const fetchMatches = useCallback(async () => {
     const curId = ++reqId.current;
     setLoading(true);
+    setRequestError(false);
     try {
       const q = new URLSearchParams();
       Object.entries(filters).forEach(([k, v]) => {
@@ -769,73 +391,24 @@ export default function MatchesPage() {
       q.set("sort", sort);
       q.set("limit", "100");
 
-      const r = await fetch(`/api/search?${q.toString()}`);
+      const r = await fetch(`/api/search?${q.toString()}`, { headers: authHeaders() });
       if (!r.ok) throw new Error("Failed to fetch matches");
       const data = await r.json();
-      const results = data.results || data.profiles || [];
+      const results = Array.isArray(data.results)
+        ? data.results
+        : Array.isArray(data.profiles)
+          ? data.profiles
+          : [];
       if (curId === reqId.current) {
-        if (results.length > 0) {
-          setRows(results);
-          setTotal(data.total || results.length);
-        } else {
-          // Client-side fallback filtering
-          let fb = [...FALLBACK_MATCHES];
-          if (filters.gender) {
-            fb = fb.filter((p) => p.gender?.toLowerCase() === filters.gender.toLowerCase());
-          }
-          if (filters.caste) {
-            const castes = String(filters.caste).split(",").map((c) => c.trim().toLowerCase());
-            fb = fb.filter((p) => castes.some((c) => p.caste?.toLowerCase().includes(c)));
-          }
-          if (filters.sub_caste) {
-            const subs = String(filters.sub_caste).split(",").map((s) => s.trim().toLowerCase());
-            fb = fb.filter((p) => subs.some((s) => p.sub_caste?.toLowerCase().includes(s)));
-          }
-          if (filters.state) {
-            fb = fb.filter((p) => p.state?.toUpperCase() === filters.state.toUpperCase());
-          }
-          if (filters.district) {
-            const dists = String(filters.district).split(",").map((d) => d.trim().toLowerCase());
-            fb = fb.filter((p) => dists.some((d) => p.district?.toLowerCase().includes(d)));
-          }
-          if (filters.marital_status) {
-            fb = fb.filter((p) => p.marital_status?.toLowerCase().includes(filters.marital_status.toLowerCase()));
-          }
-          if (filters.nri_only) {
-            fb = fb.filter((p) => p.district === "USA / NRI" || p.work_location?.includes("USA") || p.work_location?.includes("Germany"));
-          }
-          if (filters.age_min) {
-            fb = fb.filter((p) => (p.age || 25) >= Number(filters.age_min));
-          }
-          if (filters.age_max) {
-            fb = fb.filter((p) => (p.age || 25) <= Number(filters.age_max));
-          }
-          if (filters.q) {
-            const query = String(filters.q).toLowerCase();
-            fb = fb.filter((p) =>
-              p.full_name?.toLowerCase().includes(query) ||
-              p.caste?.toLowerCase().includes(query) ||
-              p.job?.toLowerCase().includes(query) ||
-              p.district?.toLowerCase().includes(query) ||
-              p.tsap_id?.toLowerCase().includes(query)
-            );
-          }
-          setRows(fb);
-          setTotal(fb.length);
-        }
+        setRows(results);
+        setTotal(typeof data.total === "number" ? data.total : results.length);
       }
     } catch {
       if (curId === reqId.current) {
-        let fb = [...FALLBACK_MATCHES];
-        if (filters.gender) {
-          fb = fb.filter((p) => p.gender?.toLowerCase() === filters.gender.toLowerCase());
-        }
-        if (filters.caste) {
-          const castes = String(filters.caste).split(",").map((c) => c.trim().toLowerCase());
-          fb = fb.filter((p) => castes.some((c) => p.caste?.toLowerCase().includes(c)));
-        }
-        setRows(fb);
-        setTotal(fb.length);
+        // Never substitute invented/demo profiles for real search results.
+        setRows([]);
+        setTotal(0);
+        setRequestError(true);
       }
     }
     if (curId === reqId.current) setLoading(false);
@@ -866,7 +439,6 @@ export default function MatchesPage() {
   /* ---------- Profile Card Component ---------- */
   const Card = ({ row }: { row: Row }) => {
     const isSaved = savedIds.includes(row.tsap_id);
-    const scoreVal = row.match_score_v2?.score ?? row.score ?? 88;
     const photo = row.photo_url || (Array.isArray(row.photo_urls) && row.photo_urls[0]) || "";
 
     return (
@@ -890,12 +462,12 @@ export default function MatchesPage() {
                 <img src={photo} alt={firstName(row.full_name)} className="w-20 h-24 sm:w-24 sm:h-28 rounded-2xl object-cover border border-gold/40 shadow-xs" />
               ) : (
                 <div className="w-20 h-24 sm:w-24 sm:h-28 rounded-2xl bg-amber-50/80 border border-gold/40 flex flex-col items-center justify-center text-3xl shadow-inner text-maroon">
-                  <span>{row.gender === "Groom" || row.gender === "Male" ? "🤵" : "👰"}</span>
+                  <span>{row.gender === "Groom" || row.gender === "Male" ? "🤵" : row.gender === "Bride" || row.gender === "Female" ? "👰" : "💍"}</span>
                   <span className="text-[10px] font-bold mt-1 text-slate-500">🔒 Photo Lock</span>
                 </div>
               )}
               {row.is_verified && (
-                <span className="absolute -bottom-1.5 -right-1 bg-emerald-600 text-white rounded-full p-1 shadow" title="100% Verified Profile">
+                <span role="img" aria-label={te ? "ఒక verification check నమోదు చేయబడింది" : "A verification check is recorded"} className="absolute -bottom-1.5 -right-1 bg-emerald-600 text-white rounded-full p-1 shadow" title={te ? "నమోదైన తనిఖీ మాత్రమే; అన్ని profile వివరాలను ధృవీకరించదు" : "A recorded check only; it does not verify all profile details"}>
                   <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                   </svg>
@@ -910,9 +482,9 @@ export default function MatchesPage() {
                 neatga (…) tho truncate avuthundi, ID + heart eppudu kanipistayi (shrink-0). */}
             <div className="min-w-0 flex-1 space-y-1">
               <div className="flex items-center justify-between gap-1 pr-16 sm:pr-20">
-                <Link href={`/search/${row.tsap_id}`} className="min-w-0 flex-1 font-extrabold text-sm sm:text-base text-navy hover:text-maroon flex items-center gap-1.5">
-                  <span className="truncate">{firstName(row.full_name)}</span>
-                  <span className="shrink-0 font-mono text-xs font-semibold text-slate-400">({row.tsap_id})</span>
+                <Link href={`/search/${row.tsap_id}`} className="min-w-0 flex-1 break-words font-extrabold text-sm sm:text-base text-navy hover:text-maroon flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+                  <span className="break-words">{firstName(row.full_name) || row.tsap_id}</span>
+                  <span className="break-all font-mono text-[10px] font-semibold text-slate-400">({row.tsap_id})</span>
                 </Link>
 
                 <button
@@ -924,13 +496,14 @@ export default function MatchesPage() {
                 </button>
               </div>
 
-              <p className="text-xs font-bold text-maroon flex flex-wrap items-center gap-1.5">
-                <span>💍 {CASTE_TELUGU[row.caste] || row.caste || "Telugu"}</span>
-                {row.sub_caste && <span className="text-slate-500">({row.sub_caste})</span>}
-                <span className="text-slate-300">•</span>
-                <span>🎂 {row.age} yrs</span>
-                {row.height && <span>• {row.height}</span>}
-              </p>
+              {(row.caste || row.sub_caste || row.age || row.height) && (
+                <p className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 break-words text-xs font-bold text-maroon">
+                  {row.caste && <span>💍 {CASTE_TELUGU[row.caste] || row.caste}</span>}
+                  {row.sub_caste && <span className="text-slate-500">({row.sub_caste})</span>}
+                  {row.age && <span>🎂 {row.age} yrs</span>}
+                  {row.height && <span>{row.height}</span>}
+                </p>
+              )}
 
               {/* 💍 Second Marriage detail (ONLY for genuine 2nd marriage profiles — 1st marriage
                   / Pelli Kaledu / Never Married ki idi ఎప్పుడూ కనిపించదు) */}
@@ -947,42 +520,48 @@ export default function MatchesPage() {
                 </div>
               )}
 
-              <p className="text-xs text-slate-700 font-medium truncate">
-                🎓 {row.education || "Graduate"} • 💼 {row.job || "Professional"}
-              </p>
+              {(row.education || row.job) && (
+                <p className="break-words text-xs font-medium leading-relaxed text-slate-700">
+                  {[row.education, row.job].filter(Boolean).join(" • ")}
+                </p>
+              )}
 
-              <p className="text-[11.5px] text-slate-500 truncate">
-                📍 {DISTRICT_TELUGU[row.district] || row.district || "Hyderabad"}, {stateFullName(row.state, te)} • 💰 {row.salary || "Best in Industry"}
-              </p>
-              <div className="text-[11px] text-slate-500 font-mono pt-0.5 flex items-center gap-1.5">
-                <span>🔒 Number:</span>
-                <span className="bg-slate-100 px-2 py-0.5 rounded-lg font-bold text-slate-700">{row.phone_masked || "98••••••45"}</span>
-                <span className="text-[10px] text-slate-400">(గోప్యత కొరకు దాచబడింది)</span>
+              {(row.district || row.state || row.salary) && (
+                <p className="break-words text-[11.5px] leading-relaxed text-slate-500">
+                  {[row.district ? `📍 ${DISTRICT_TELUGU[row.district] || row.district}` : "", row.state ? stateFullName(row.state, te) : "", row.salary ? `💰 ${row.salary}` : ""].filter(Boolean).join(" • ")}
+                </p>
+              )}
+              <div className="flex flex-wrap items-center gap-1.5 break-words pt-0.5 font-mono text-[11px] text-slate-500">
+                <span>🔒 {te ? "నంబర్:" : "Contact:"}</span>
+                <span className="rounded-lg bg-slate-100 px-2 py-0.5 font-bold text-slate-700">{row.phone_masked || (te ? "గోప్యంగా ఉంచబడింది" : "Hidden for privacy")}</span>
               </div>
             </div>
           </div>
 
-          {/* Astro & Match Score */}
-          <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100 text-xs">
-            <div className="flex items-center gap-1.5">
-              <span className="bg-amber-100 text-amber-900 font-bold px-2.5 py-0.5 rounded-full text-[11px] border border-amber-300">
-                ⭐ {row.star || "నక్షత్రం"}
-              </span>
-              {row.rasi && (
-                <span className="bg-slate-100 text-slate-700 font-semibold px-2 py-0.5 rounded-full text-[10.5px]">
-                  {row.rasi}
-                </span>
-              )}
+          {/* Optional profile details: factual only, never a compatibility percentage */}
+          <div className="border-t border-slate-100 pt-2 text-xs">
+            <div className="flex flex-wrap items-center gap-1.5">
+              {row.star && <span className="rounded-full border border-amber-300 bg-amber-100 px-2.5 py-0.5 text-[11px] font-bold text-amber-900">⭐ {row.star}</span>}
+              {row.rasi && <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[10.5px] font-semibold text-slate-700">{row.rasi}</span>}
             </div>
-
-            <div className="flex items-center gap-1 font-bold text-maroon">
-              <span>🎯 {scoreVal}% Match</span>
-            </div>
+            {Array.isArray(row.observations) && row.observations.length > 0 ? (
+              <div className="mt-2">
+                <p className="text-[10px] font-bold text-slate-500">{te ? "రెండు profiles లో నమోదు చేసిన వివరాలు (స్వతంత్రంగా నిర్ధారించండి)" : "Details listed by both profiles (verify independently)"}</p>
+                <ul className="mt-1 space-y-1 text-[11px] leading-5 text-slate-600">
+                  {row.observations.slice(0, 3).map((item: string, i: number) => <li key={i}>• {item}</li>)}
+                </ul>
+              </div>
+            ) : null}
+            {Array.isArray(row.preference_checks) && row.preference_checks.length > 0 ? (
+              <div className="mt-2 rounded-lg bg-slate-50 p-2">
+                <p className="text-[10px] font-bold text-slate-500">{te ? "మీరు సేవ్ చేసిన preference checks (compatibility verdict కాదు)" : "Your saved preference checks (not a compatibility verdict)"}</p>
+                <ul className="mt-1 space-y-1 text-[11px] leading-5 text-slate-600">
+                  {row.preference_checks.slice(0, 2).map((item: any, i: number) => <li key={`${item.key}-${i}`}>• {item.note}</li>)}
+                </ul>
+              </div>
+            ) : null}
           </div>
         </div>
-
-        {/* Why Match breakdown */}
-        {row.match_score_v2 && <ScoreBreakdown v2={row.match_score_v2} />}
 
         {/* Action Buttons */}
         <div className="bg-slate-50 p-3 px-4 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
@@ -1024,7 +603,7 @@ export default function MatchesPage() {
   };
 
   return (
-    <main className="min-h-dvh bg-[#FAF7F2] pb-24 sm:pb-28">
+    <div className="min-h-dvh bg-[#FAF7F2] pb-24 sm:pb-28">
       {/* ---------- Sticky Top Quick-Pill Bar ---------- */}
       <div className="sticky top-16 z-30 bg-white/95 backdrop-blur-md border-b border-gold/25 shadow-xs">
         <div className="max-w-7xl mx-auto px-4 py-2.5">
@@ -1037,7 +616,7 @@ export default function MatchesPage() {
               }`}
             >
               <span>👑</span>
-              <span>Verified Only</span>
+              <span>{te ? "తనిఖీ నమోదు చేసినవి" : "Recorded check"}</span>
             </button>
 
             <button
@@ -1137,7 +716,7 @@ export default function MatchesPage() {
                 filters.state === "TS" ? "bg-maroon text-white border-maroon shadow-xs" : "bg-white text-slate-700 border-slate-200"
               }`}
             >
-              📍 Telangana (33)
+              📍 Telangana ({TS_DISTRICTS.length})
             </button>
 
             <button
@@ -1146,7 +725,7 @@ export default function MatchesPage() {
                 filters.state === "AP" ? "bg-maroon text-white border-maroon shadow-xs" : "bg-white text-slate-700 border-slate-200"
               }`}
             >
-              🌊 Andhra Pradesh (26)
+              🌊 Andhra Pradesh ({AP_DISTRICTS.length})
             </button>
 
             <button
@@ -1332,8 +911,8 @@ export default function MatchesPage() {
               <div className="flex gap-1">
                 {[
                   { v: "", l: "అన్నీ" },
-                  { v: "TS", l: "🏛️ TS (33)" },
-                  { v: "AP", l: "🌊 AP (26)" },
+                  { v: "TS", l: `🏛️ TS (${TS_DISTRICTS.length})` },
+                  { v: "AP", l: `🌊 AP (${AP_DISTRICTS.length})` },
                 ].map((st) => (
                   <button
                     key={st.v}
@@ -1349,7 +928,9 @@ export default function MatchesPage() {
 
               <div className="flex items-center justify-between text-[11px]">
                 <button type="button" onClick={filters.state === "AP" ? selectAllAP : selectAllTS} className="text-[#7A0C2E] font-bold hover:underline">
-                  {filters.state === "AP" ? "✓ అన్ని 26 AP జిల్లాలు" : "✓ అన్ని 33 TS జిల్లాలు"}
+                  {filters.state === "AP"
+                    ? `✓ ${te ? "అన్ని" : "All"} ${AP_DISTRICTS.length} AP ${te ? "జిల్లాలు" : "districts"}`
+                    : `✓ ${te ? "అన్ని" : "All"} ${TS_DISTRICTS.length} TS ${te ? "జిల్లాలు" : "districts"}`}
                 </button>
               </div>
 
@@ -1417,10 +998,16 @@ export default function MatchesPage() {
             <div className="bg-white rounded-2xl border border-gold/30 p-3.5 sm:p-4 shadow-xs flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h1 className="text-base sm:text-lg font-black text-slate-900">
-                  🔍 {loading ? "వెతుకుతున్నాము…" : `${total} మంది సరిపోలే ప్రొఫైల్స్ లభించాయి`}
+                  🔍 {loading
+                    ? (te ? "వెతుకుతున్నాము…" : "Searching…")
+                    : requestError
+                      ? (te ? "ప్రొఫైళ్లను లోడ్ చేయలేకపోయాం" : "Could not load profiles")
+                      : (te ? `${total} సరిపోలే ప్రొఫైల్స్ లభించాయి` : `${total} matching profiles found`)}
                 </h1>
-                <p className="text-xs text-slate-500 telugu">
-                  మీ ప్రాధాన్యతలకు సరిపోయే 100% ధృవీకరించబడిన తెలుగు సంబంధాలు
+                <p className="text-xs text-slate-500">
+                  {filters.verified_only
+                    ? (te ? "కనీసం ఒక verification check నమోదు చేసిన profiles" : "Profiles with at least one recorded verification check")
+                    : (te ? "మీ ప్రాధాన్యతలకు సరిపోయే ప్రొఫైల్స్" : "Profiles matching your preferences")}
                 </p>
               </div>
 
@@ -1498,6 +1085,15 @@ export default function MatchesPage() {
                     </div>
                   </div>
                 ))}
+              </div>
+            ) : requestError ? (
+              <div role="alert" className="bg-white rounded-3xl border border-rose-200 p-8 text-center space-y-3">
+                <div className="text-4xl">📡</div>
+                <h3 className="text-base font-black text-slate-900">{te ? "సంబంధాలను లోడ్ చేయడంలో సమస్య" : "We couldn't load profiles"}</h3>
+                <p className="text-xs text-slate-600">{te ? "మీ కనెక్షన్‌ను తనిఖీ చేసి మళ్లీ ప్రయత్నించండి." : "Check your connection and try again."}</p>
+                <button onClick={() => void fetchMatches()} className="px-5 py-2.5 rounded-xl maroon-gradient text-white text-xs font-bold shadow-md">
+                  {te ? "మళ్లీ ప్రయత్నించండి" : "Try again"}
+                </button>
               </div>
             ) : rows.length === 0 ? (
               <div className="bg-white rounded-3xl border border-gold/30 p-8 text-center space-y-3">
@@ -1659,8 +1255,8 @@ export default function MatchesPage() {
                   <div className="flex gap-2">
                     {[
                       { v: "", l: "అన్నీ" },
-                      { v: "TS", l: "🏛️ TS (33)" },
-                      { v: "AP", l: "🌊 AP (26)" },
+                      { v: "TS", l: `🏛️ TS (${TS_DISTRICTS.length})` },
+                      { v: "AP", l: `🌊 AP (${AP_DISTRICTS.length})` },
                     ].map((st) => (
                       <button
                         key={st.v}
@@ -1748,11 +1344,11 @@ export default function MatchesPage() {
       )}
 
       {/* Instant Contact Unlock Modal */}
-      {unlockTarget && (
+      {unlockTarget && (unlockTarget.tsap_id || unlockTarget.id) && (
         <QuickUnlockModal
           isOpen={!!unlockTarget}
           target={{
-            tsap_id: String(unlockTarget.tsap_id || unlockTarget.id || "MV1001"),
+            tsap_id: String(unlockTarget.tsap_id || unlockTarget.id),
             full_name: unlockTarget.full_name,
             gender: unlockTarget.gender,
             age: unlockTarget.age,
@@ -1770,11 +1366,11 @@ export default function MatchesPage() {
       )}
 
       {/* Instant WhatsApp Proposal Modal */}
-      {proposalTarget && (
+      {proposalTarget && (proposalTarget.tsap_id || proposalTarget.id) && (
         <WhatsAppProposalModal
           isOpen={!!proposalTarget}
           profile={{
-            tsap_id: String(proposalTarget.tsap_id || proposalTarget.id || "MV1001"),
+            tsap_id: String(proposalTarget.tsap_id || proposalTarget.id),
             full_name: proposalTarget.full_name,
             gender: proposalTarget.gender,
             age: proposalTarget.age,
@@ -1796,6 +1392,6 @@ export default function MatchesPage() {
           onClose={() => setProposalTarget(null)}
         />
       )}
-    </main>
+    </div>
   );
 }

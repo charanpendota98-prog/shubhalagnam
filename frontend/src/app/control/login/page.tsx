@@ -7,22 +7,17 @@ import Link from "next/link";
 export default function ControlLogin() {
   const router = useRouter();
   const [roleTab, setRoleTab] = useState<"admin" | "worker">("admin");
-  const [username, setUsername] = useState("admin");
-  const [password, setPassword] = useState("shubhalagnam-ops-2026");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
   const switchTab = (tab: "admin" | "worker") => {
     setRoleTab(tab);
+    setUsername("");
+    setPassword("");
     setError("");
-    if (tab === "admin") {
-      setUsername("admin");
-      setPassword("shubhalagnam-ops-2026");
-    } else {
-      setUsername("worker");
-      setPassword("worker-ops-2026");
-    }
   };
 
   async function submit(event: FormEvent) {
@@ -47,7 +42,7 @@ export default function ControlLogin() {
   }
 
   return (
-    <main className="flex min-h-dvh items-center justify-center bg-[#FAF7F2] px-4 py-12">
+    <div className="flex min-h-dvh items-center justify-center bg-[#FAF7F2] px-4 py-12">
       <div className="w-full max-w-md">
         {/* Brand Header */}
         <div className="text-center mb-6 space-y-1">
@@ -64,7 +59,6 @@ export default function ControlLogin() {
         <form
           onSubmit={submit}
           className="rounded-3xl border border-gold/30 bg-white p-7 shadow-xl shadow-slate-200/50 space-y-5"
-          autoComplete="off"
         >
           {/* Role Selection Tabs */}
           <div className="grid grid-cols-2 p-1 bg-slate-100 rounded-2xl gap-1">
@@ -96,38 +90,29 @@ export default function ControlLogin() {
 
           <div className="bg-amber-50/70 rounded-2xl p-3 border border-amber-200/60 text-xs text-amber-950 flex items-start gap-2">
             <span className="text-base shrink-0">🔒</span>
-            <p className="leading-relaxed">
-              {roleTab === "admin" ? (
-                <>
-                  <b>అడ్మిన్ పోర్టల్:</b> పూర్తి డైరెక్టరీ, అన్‌మాస్క్డ్ నంబర్లు, స్మార్ట్ మ్యాచ్ మేకర్, వాట్సాప్ ప్రపోజల్స్, మరియు ప్లాన్ అప్‌గ్రేడ్ యాక్సెస్.
-                </>
-              ) : (
-                <>
-                  <b>వర్కర్ పోర్టల్:</b> ప్రొఫైల్స్ వెరిఫికేషన్, ఫోటో మోడరేషన్, ఎంక్వైరీ ఫాలో-అప్ మరియు సేఫ్ వర్క్‌స్పేస్ యాక్సెస్.
-                </>
-              )}
-            </p>
+            <p className="leading-relaxed">అధీకృత సిబ్బందికి మాత్రమే. మీ ఖాతా పాత్ర మరియు అనుమతుల ఆధారంగా యాక్సెస్ పరిమితం చేయబడుతుంది.</p>
           </div>
 
           {/* Username */}
           <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1">
+            <label htmlFor="control-username" className="block text-xs font-bold text-slate-700 mb-1">
               యూజర్‌నేమ్ (Username)
             </label>
             <input
+              id="control-username"
               required
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               className="w-full rounded-xl border border-slate-300 p-3 text-xs font-bold focus:border-[#7A0C2E] focus:outline-none transition"
               autoComplete="username"
-              placeholder="admin లేదా worker"
+              placeholder="మీకు కేటాయించిన యూజర్‌నేమ్"
             />
           </div>
 
           {/* Password */}
           <div>
             <div className="flex items-center justify-between mb-1">
-              <label className="block text-xs font-bold text-slate-700">
+              <label htmlFor="control-password" className="block text-xs font-bold text-slate-700">
                 పాస్‌వర్డ్ (Password)
               </label>
               <button
@@ -139,6 +124,7 @@ export default function ControlLogin() {
               </button>
             </div>
             <input
+              id="control-password"
               required
               type={showPassword ? "text" : "password"}
               value={password}
@@ -163,33 +149,13 @@ export default function ControlLogin() {
             {busy ? "లాగిన్ అవుతోంది…" : `లాగిన్ చేయండి (${roleTab === "admin" ? "Admin" : "Worker"})`}
           </button>
 
-          {/* Quick Demo Credentials */}
-          <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
-            <span className="text-[11px] text-slate-500 font-medium">1-క్లిక్ ఆటో ఫిల్:</span>
-            <div className="flex gap-1.5">
-              <button
-                type="button"
-                onClick={() => switchTab("admin")}
-                className="text-[11px] font-bold text-[#7A0C2E] bg-maroon/10 hover:bg-maroon/20 px-2.5 py-1 rounded-lg transition"
-              >
-                👑 Admin
-              </button>
-              <button
-                type="button"
-                onClick={() => switchTab("worker")}
-                className="text-[11px] font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 px-2.5 py-1 rounded-lg transition"
-              >
-                👷 Worker
-              </button>
-            </div>
-          </div>
         </form>
 
         <p className="mt-5 text-center text-[11px] text-slate-400">
           గోప్యత మరియు భద్రత కోసం ఈ పోర్టల్ పబ్లిక్ సైట్‌లో లింక్ చేయబడలేదు • మన వివాహ © 2026
         </p>
       </div>
-    </main>
+    </div>
   );
 }
 

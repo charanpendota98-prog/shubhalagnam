@@ -1,14 +1,9 @@
 "use client";
 
 /**
- * /porutham — VEDIC GUNAMELANAM & HOROSCOPE MATCH FULL REPORT (advanced, printable, shareable) 💍
- * ==============================================================================================
- * Top matrimony sites lo "kundli match" paid add-on (₹300+). Manam:
- *   • 10 వేద గుణమేళన సూత్రాలు — ప్రతి అంశానికి pass/fail + వివరణాత్మక తెలుగు విశ్లేషణ
- *   • Score /10 + stars + Telugu verdict + dosha (రజ్జు/వేధ) alert
- *   • WhatsApp lo share cheyyadaniki ready-made report IMAGE (backend Pillow)
- *   • 🖨️ Print / Save as PDF (purohitulu/pedda vaallaki chupinchadaniki)
- *   • Star teliyakapote — star/rasi direct ga select chesi kooda calculate cheyyachu
+ * /porutham — limited traditional reference report
+ * Shows the ten backend rule checks item-by-item when the required star details exist.
+ * It does not produce a compatibility score, star rating, or marriage verdict.
  */
 import { Suspense, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
@@ -17,7 +12,6 @@ import { useLang } from "@/lib/lang";
 import { useSearchParams } from "next/navigation";
 import { NAKSHATRAS, NAK_TO_RASI, RASIS } from "@/lib/telugu-data";
 import RasiChart from "@/components/RasiChart";
-import KundaliRadarVisualizer from "@/components/KundaliRadarVisualizer";
 
 type Res = Record<string, any>;
 
@@ -72,15 +66,15 @@ function PoruthamInner() {
       }
     } catch { setErr(te ? "Network problem — మళ్లీ try చెయ్యండి" : "Network problem — retry"); }
     setBusy(false);
-  }, []);
+  }, [te]);
 
   const checkGothram = async () => {
-    if (!gA.trim() || !gB.trim()) { setGRes({ verdict_telugu: te ? "రెండు Profile IDs ఇవ్వండి" : "Enter both Profile IDs" }); return; }
+    if (!gA.trim() || !gB.trim()) { setGRes({ note_telugu: te ? "రెండు Profile IDs ఇవ్వండి" : "Enter both Profile IDs" }); return; }
     setGBusy(true);
     try {
       const d = await fetch(`/api/gothram/check?a=${encodeURIComponent(gA.trim().toUpperCase())}&b=${encodeURIComponent(gB.trim().toUpperCase())}`).then((r) => r.json());
-      setGRes(d.detail ? { verdict_telugu: d.detail, blocked: false } : d);
-    } catch { setGRes({ verdict_telugu: te ? "Network problem" : "Network problem", blocked: false }); }
+      setGRes(d.detail ? { note_telugu: d.detail, blocked: false } : d);
+    } catch { setGRes({ note_telugu: te ? "Network problem" : "Network problem", blocked: false }); }
     setGBusy(false);
   };
 
@@ -99,8 +93,8 @@ function PoruthamInner() {
 
   const shareWa = () => {
     if (!res) return;
-    const txt = `💍 వేద గుణమేళనం & జాతక పొంతన రిపోర్ట్ — మన వివాహ\n${res.bride?.full_name || res._bride} ❤️ ${res.groom?.full_name || res._groom}\n`
-      + `Score: ${res.score}/${res.max_score} (${res.stars}★)\n${res.verdict}\n`
+    const txt = `మన వివాహ — traditional Porutham checks\n${res.bride?.full_name || res._bride} • ${res.groom?.full_name || res._groom}\n`
+      + `Checks marked pass: ${res.passed_checks ?? 0} of ${res.total_checks ?? 10}\nReview every item separately. This is not a compatibility score or marriage recommendation.\n`
       + `Details: https://manavivaha.in/porutham`;
     window.open(`https://wa.me/?text=${encodeURIComponent(txt)}`, "_blank");
   };
@@ -114,22 +108,20 @@ function PoruthamInner() {
   const items: Res[] = res?.items || [];
 
   return (
-    <main className="min-h-dvh bg-cream pb-36">
+    <div className="min-h-dvh bg-cream pb-36">
       <section className="maroon-gradient text-white print:!bg-white print:!text-maroon">
         <div className="max-w-4xl mx-auto px-4 py-8">
           <div className="text-[11px] font-bold bg-white/10 border border-white/20 rounded-full px-3 py-1 inline-block">
             💍 <Duo en="Jyothishyam (Astrology) • Vedic Gunamelanam" te="వేద జ్యోతిషం • వివాహ గుణమేళనం & జాతక పొంతన" />
           </div>
-          <h1 className="mt-3 text-2xl md:text-3xl font-bold"><Duo en="Jyothishyam — Vedic Marriage Gunamelanam Full Report" te="జ్యోతిషం — వివాహ గుణమేళనం & జాతక పొంతన పూర్తి రిపోర్ట్" /></h1>
+          <h1 className="mt-3 text-2xl md:text-3xl font-bold"><Duo en="Jyothishyam — Ten-check Porutham Reference" te="జ్యోతిషం — పది నియమ-ఆధారిత పొంతన checks" /></h1>
           <p className="mt-2 text-[13px] md:text-sm opacity-90 telugu max-w-3xl">
-{te ? <>రాశి • నక్షత్రం • గణం • యోని • రజ్జు • వేధ • మాహేంద్ర • స్త్రీదీర్ఘ • వశ్య • రాశ్యాధిపతి —
-            సంపూర్ణ వేద గుణమేళనం ఒకేచోట, స్పష్టమైన తెలుగు వివరణతో. రజ్జు/వేధ దోషాలుంటే ముందే సూచిస్తాం.</> : <>Rasi • Nakshatra • Gana • Yoni • Rajju • Vedha • Mahendra • Stree Deergha • Vashya • Rasi Adhipathi —
-            complete Vedic Gunamelanam in one place with Telugu explanation. We warn early about Rajju/Vedha dosha.</>}
+{te ? <>నక్షత్ర వివరాల ఆధారంగా backend లెక్కించే పది సాంప్రదాయ checks మరియు వాటి వివరణ. ఇది పూర్తి జాతక విశ్లేషణ, వ్యక్తిత్వ అంచనా లేదా వివాహ ఫలిత హామీ కాదు; కుటుంబం/అర్హులైన సలహాదారులతో వివరాలు నిర్ధారించండి.</> : <>Ten traditional checks calculated by the backend from supplied star details. This is a limited reference, not a complete horoscope, a personality assessment, or a prediction of marriage outcomes; verify details with family and a qualified adviser.</>}
           </p>
           <div className="mt-3 flex flex-wrap gap-2 text-[11px]">
-            <span className="bg-white/10 border border-white/20 rounded-full px-3 py-1.5">📄 Print/PDF report</span>
-            <span className="bg-white/10 border border-white/20 rounded-full px-3 py-1.5">🖼️ WhatsApp share image</span>
-            <span className="bg-white/10 border border-white/20 rounded-full px-3 py-1.5">🎁 Add-on ₹49 lo detailed</span>
+            <span className="bg-white/10 border border-white/20 rounded-full px-3 py-1.5">📄 10-check reference / PDF</span>
+            <span className="bg-white/10 border border-white/20 rounded-full px-3 py-1.5">🖼️ Shareable result image</span>
+            <span className="bg-white/10 border border-white/20 rounded-full px-3 py-1.5">ℹ️ Rule-based, limited reference</span>
           </div>
         </div>
       </section>
@@ -147,11 +139,11 @@ function PoruthamInner() {
             <div className="mt-3 grid md:grid-cols-3 gap-3">
               <div>
                 <label className="text-[12px] font-bold">👰 Bride Profile ID</label>
-                <input value={bride} onChange={(e) => setBride(e.target.value.toUpperCase())} placeholder="MV1001" className="input-mobile font-mono" />
+                <input value={bride} onChange={(e) => setBride(e.target.value.toUpperCase())} placeholder={te ? "వధువు Profile ID" : "Bride Profile ID"} className="input-mobile font-mono" />
               </div>
               <div>
                 <label className="text-[12px] font-bold">🤵 Groom Profile ID</label>
-                <input value={groom} onChange={(e) => setGroom(e.target.value.toUpperCase())} placeholder="MV1002" className="input-mobile font-mono" />
+                <input value={groom} onChange={(e) => setGroom(e.target.value.toUpperCase())} placeholder={te ? "వరుడు Profile ID" : "Groom Profile ID"} className="input-mobile font-mono" />
               </div>
               <div className="flex items-end">
                 <button onClick={() => calcById(bride, groom)} disabled={busy}
@@ -228,9 +220,10 @@ function PoruthamInner() {
           {err && <div className="mt-3 bg-rose-50 border border-rose-200 text-rose-800 rounded-xl px-3 py-2 text-[12px]">{err}</div>}
         </div>
 
-        {/* ---------- gothram checker ---------- */}
+        {/* ---------- member-entered gothram comparison ---------- */}
         <div className="bg-white rounded-[1.5rem] border border-gold/25 p-4 print:hidden">
-          <div className="font-bold text-maroon text-[14px]">{te ? "🛡️ గోత్రం check — same గోత్రం అయితే పెళ్లి కూడదు" : "🛡️ Gothram check — same gothram blocks marriage"}</div>
+          <div className="font-bold text-maroon text-[14px]">{te ? "🛡️ ప్రొఫైల్‌లో ఇచ్చిన గోత్ర వివరాలను పోల్చండి" : "🛡️ Compare member-entered gothram details"}</div>
+          <p className="mt-1 text-[11px] text-slate-600">{te ? "ఇది నమోదు చేసిన పదాల పోలిక మాత్రమే; కుటుంబ సంప్రదాయం లేదా వివాహ నిర్ణయంపై తీర్పు కాదు." : "This compares the entered text only; it is not a ruling on family tradition or a marriage decision."}</p>
           <div className="mt-2 grid md:grid-cols-3 gap-2">
             <input value={gA} onChange={(e) => setGA(e.target.value.toUpperCase())} placeholder="Profile ID - A" className="input-mobile font-mono" aria-label="Profile ID A" />
             <input value={gB} onChange={(e) => setGB(e.target.value.toUpperCase())} placeholder="Profile ID - B" className="input-mobile font-mono" aria-label="Profile ID B" />
@@ -239,9 +232,9 @@ function PoruthamInner() {
               {gBusy ? "…" : te ? "🛡️ Check" : "🛡️ Check"}
             </button>
           </div>
-          {gRes?.verdict_telugu && (
-            <p className={`mt-2 rounded-xl border p-2 text-[12px] font-bold ${gRes.blocked ? "border-red-300 bg-red-50 text-red-800" : "border-emerald-200 bg-emerald-50 text-emerald-900"}`}>
-              {gRes.verdict_telugu}
+          {gRes?.note_telugu && (
+            <p role="status" className="mt-2 rounded-xl border border-slate-200 bg-slate-50 p-2 text-[12px] font-medium text-slate-700">
+              {gRes.note_telugu}
             </p>
           )}
         </div>
@@ -251,18 +244,19 @@ function PoruthamInner() {
           <>
             <div className="bg-white rounded-[1.5rem] border border-gold/25 p-5">
               <div className="flex flex-col md:flex-row md:items-center gap-4">
-                <div className="shrink-0 w-[124px] h-[124px] rounded-full maroon-gradient text-center flex flex-col items-center justify-center mx-auto md:mx-0">
-                  <div className="text-4xl font-bold text-white">{res.score}<span className="text-[16px] opacity-80">/10</span></div>
-                  <div className="text-[10px] text-[#EAD08A] mt-0.5">{res.percent}%</div>
-                </div>
-                <div className="flex-1 text-center md:text-left">
-                  <div className="text-[17px] font-bold text-maroon telugu">{res.verdict}</div>
-                  <div className="mt-1 text-[13px] text-gray-700">
-                    {"★".repeat(res.stars || 0)}{"☆".repeat(5 - (res.stars || 0))} •{" "}
-                    {res.available ? (te ? `${items.filter((i) => i.pass).length} గుణాలు అనుకూలం` : `${items.filter((i) => i.pass).length} points matched`) : (te ? "డేటా సరిపోలేదు" : "not enough data")}
-                  </div>
+                <div className="min-w-0 flex-1 text-center md:text-left">
+                  {res.available ? (
+                    <>
+                      <div className="text-[17px] font-bold text-maroon telugu">{te ? "Porutham checks లెక్కించబడ్డాయి" : "Porutham checks calculated"}</div>
+                      <div className="mt-1 inline-flex rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-[12px] font-bold text-amber-950">
+                        {te ? `${res.passed_checks ?? 0} / ${res.total_checks ?? 10} checks pass గా గుర్తింపు` : `${res.passed_checks ?? 0} of ${res.total_checks ?? 10} checks marked pass`}
+                      </div>
+                    </>
+                  ) : (
+                    <div className="text-[13px] text-slate-700">{te ? "తగిన నక్షత్ర వివరాలు లేవు — Porutham లెక్కించలేదు" : "Required star details are missing; Porutham was not calculated."}</div>
+                  )}
                   {res.available && (
-                    <div className="mt-1.5 text-[12px] text-gray-700">
+                    <div className="mt-2 text-[12px] text-gray-700">
                       👰 {res.bride?.full_name || res._bride} — <b>{(res.bride_star_en || "")} ({res.bride_star || ""})</b>, {res.bride_rasi || ""}<br />
                       🤵 {res.groom?.full_name || res._groom} — <b>{(res.groom_star_en || "")} ({res.groom_star || ""})</b>, {res.groom_rasi || ""}
                     </div>
@@ -296,18 +290,7 @@ function PoruthamInner() {
                 🕉️ {res.advice_telugu || res.reason}
               </div>
 
-              {/* 🕉️ Interactive Kundali 36-Gunas Radar Visualizer */}
-              <div className="mt-4">
-                <KundaliRadarVisualizer
-                  totalScore={Math.round((res.score / 10) * 36)}
-                  maxScore={36}
-                  brideName={res.bride?.full_name || res._bride}
-                  groomName={res.groom?.full_name || res._groom}
-                  brideStar={res.bride_star_en || res.bride_star}
-                  groomStar={res.groom_star_en || res.groom_star}
-                />
-              </div>
-
+              {res.available && (
               <div className="mt-4 flex flex-wrap gap-2 print:hidden">
                 <a
                   href={res._byStar ? `/api/astro/report/download?bride_star=${encodeURIComponent(bStar)}&bride_rasi=${encodeURIComponent(bRasi)}&groom_star=${encodeURIComponent(gStar)}&groom_rasi=${encodeURIComponent(gRasi)}` : `/api/astro/report/download?bride_id=${encodeURIComponent(bride)}&groom_id=${encodeURIComponent(groom)}`}
@@ -316,13 +299,14 @@ function PoruthamInner() {
                   className="px-4 py-3 rounded-2xl gold-gradient text-maroon font-black text-[12px] shadow-gold hover-lift flex items-center gap-1.5"
                 >
                   <span>📜</span>
-                  <span>{te ? "అధికారిక వేద గుణమేళనం PDF డౌన్‌లోడ్" : "Download Official Vedic PDF Certificate"}</span>
+                  <span>{te ? "10 checks reference PDF డౌన్‌లోడ్" : "Download 10-check reference PDF"}</span>
                 </a>
                 <button onClick={() => window.print()} className="px-4 py-3 rounded-2xl maroon-gradient text-white font-bold text-[12px]">🖨️ Print View</button>
-                <button onClick={shareWa} className="px-4 py-3 rounded-2xl bg-[#25D366] text-white font-bold text-[12px]">WhatsApp లో షేర్</button>
+                <button onClick={shareWa} title={te ? "బాహ్య WhatsApp share తెరుస్తుంది; availability తనిఖీ చేయబడదు" : "Opens external WhatsApp sharing; availability is not checked"} className="px-4 py-3 rounded-2xl bg-[#25D366] text-white font-bold text-[12px]">{te ? "WhatsApp లో షేర్" : "Share via WhatsApp"}</button>
                 {!res._byStar && <button onClick={shareImg} className="px-4 py-3 rounded-2xl border border-maroon/25 text-maroon font-bold text-[12px]">🖼️ రిపోర్ట్ ఇమేజ్</button>}
                 <Link href="/requests" className="px-4 py-3 rounded-2xl border border-maroon/25 text-maroon font-bold text-[12px]">{te ? "💌 Interest పంపు" : "💌 Send interest"}</Link>
-                </div>
+              </div>
+              )}
             </div>
 
             {/* ---------- rasi charts ---------- */}
@@ -334,11 +318,11 @@ function PoruthamInner() {
             )}
 
             {/* ---------- report image preview ---------- */}
-            {!res._byStar && imgOk && (
+            {res.available && !res._byStar && imgOk && (
               <div className="bg-white rounded-[1.5rem] border border-gold/25 p-4 print:hidden">
                 <div className="font-bold text-maroon text-[14px]">{te ? "🖼️ WhatsApp లో షేర్ చేయడానికి గుణమేళనం ఇమేజ్" : "🖼️ Gunamelanam image ready to share on WhatsApp"}</div>
                 <div className="text-[11px] text-gray-600 mt-1">
-                  {te ? "ఈ ఇమేజ్‌ని WhatsApp గ్రూప్ / ఫ్యామిలీకి పంపండి — స్కోర్, గుణాలు, తీర్పు అన్నీ కనిపిస్తాయి." : "Send this image to WhatsApp group / family — score, points, verdict all visible."}
+                  {te ? "ఇమేజ్‌లో backend ఇచ్చిన పది checks వివరాలు మాత్రమే ఉంటాయి. WhatsApp ద్వారా పంచుకోవాలా వద్దా అనేది మీ నిర్ణయం; బాహ్య లభ్యత తనిఖీ చేయబడదు." : "The image contains the backend's ten checks. Sharing via WhatsApp is optional; external availability is not checked."}
                 </div>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
@@ -354,19 +338,19 @@ function PoruthamInner() {
 
         {/* ---------- glossary ---------- */}
         <div className="bg-white rounded-[1.5rem] border border-gold/25 p-5 print:hidden">
-          <div className="font-bold text-maroon text-[15px]">{te ? "📚 వేద గుణమేళనం & జాతక పొంతన అంటే ఏమిటి? (పెళ్లి పెద్దలు చూసే ముఖ్య విషయాలు)" : "📚 What are the 10 Vedic Kundli Compatibility Factors?"}</div>
+          <div className="font-bold text-maroon text-[15px]">{te ? "📚 ఈ పది నియమ-ఆధారిత checks గురించి (సమాచారం కోసం మాత్రమే)" : "📚 About these ten rule-based checks (informational only)"}</div>
           <div className="mt-3 grid md:grid-cols-2 gap-2 text-[11px] text-gray-700 telugu leading-relaxed">
             {[
-              ["రాశి పొంతన (Rasi Koota)", "వధూవరుల రాశుల మధ్య దూరం 6/8 కాకూడదు (షష్టాష్టక దోష నివారణ)."],
-              ["దిన / నక్షత్ర గుణం (Dina Koota)", "నక్షత్రాల మధ్య వేధ (విరోధం) లేకుండా ఆరోగ్య ఆయుష్షులను సూచిస్తుంది."],
-              ["గణ మైత్రి (Gana Koota)", "దేవ–మనుష్య–రాక్షస గణాల పొంతన (స్వభావం + మానసిక అనుకూలత)."],
-              ["యోని పొంతన (Yoni Koota)", "శారీరక & దాంపత్య సుఖం (శత్రు యోనులు కాకుండా మైత్రి)."],
-              ["రజ్జు శుద్ధి (Rajju Koota)", "⚠️ అత్యంత ముఖ్యం — ఒకే రజ్జు కాకుండా దీర్ఘాయుష్షు & మాంగల్య బలం."],
-              ["వేధ దోష పరిశీలన (Vedha Koota)", "⚠️ ముఖ్యం — పరస్పర నక్షత్ర వేధ లేకుండా శుభప్రదం."],
-              ["మాహేంద్ర పొంతన (Mahendra Koota)", "సంతాన భాగ్యం & ఐశ్వర్య వృద్ధి కొరకు."],
-              ["స్త్రీ దీర్ఘం (Stree Deergha)", "స్త్రీకి దీర్ఘ సుమంగళి యోగం & సౌభాగ్యం."],
-              ["వశ్య పొంతన (Vashya Koota)", "పరస్పర ఆకర్షణ, అవగాహన మరియు గౌరవం."],
-              ["రాశ్యాధిపతి మైత్రి (Graha Maitri)", "రాశి అధిపతుల మిత్రత్వం — శాశ్వత దాంపత్య బలం."],
+              ["రాశి పొంతన (Rasi)", "ఈ implementation లో రాశుల మధ్య 6/8 దూరం ఉందో లేదో తనిఖీ చేస్తుంది."],
+              ["నక్షత్ర / దిన గుణం", "నక్షత్రాల మధ్య backend లో నిర్వచించిన వేధ జంట ఉందో పరిశీలిస్తుంది."],
+              ["గణ మైత్రి (Gana)", "ఎంచుకున్న నక్షత్రాల గణ వర్గీకరణను backend పట్టికతో పోలుస్తుంది."],
+              ["యోని పొంతన (Yoni)", "నక్షత్రాలకు కేటాయించిన యోని వర్గాలు శత్రు జంటలో ఉన్నాయో చూస్తుంది."],
+              ["రజ్జు శుద్ధి (Rajju)", "రెండు నక్షత్రాలు ఒకే రజ్జు సమూహంలో ఉన్నాయో తనిఖీ చేస్తుంది."],
+              ["వేధ పరిశీలన (Vedha)", "నిర్వచించిన నక్షత్ర వేధ జంటలలో ఈ రెండు నక్షత్రాలు ఉన్నాయో చూస్తుంది."],
+              ["మాహేంద్ర పొంతన (Mahendra)", "Backend నియమంలో జాబితా చేసిన నక్షత్ర దూరాలనే pass గా గుర్తిస్తుంది."],
+              ["స్త్రీ దీర్ఘం (Stree Deergha)", "వరుని నక్షత్రం నుండి వధువు నక్షత్రం వరకు లెక్కించిన దూరం 13 లేదా అంతకంటే ఎక్కువో చూస్తుంది."],
+              ["వశ్య పొంతన (Vashya)", "రాశులకు backend లో ఇచ్చిన వశ్య వర్గాలు లేదా అనుబంధ జంటలను పోలుస్తుంది."],
+              ["రాశ్యాధిపతి మైత్రి (Rasi Adhipathi)", "రాశి అధిపతులకు backend లో నిర్వచించిన ఒకే లేదా మిత్ర జంట వర్తిస్తుందో చూస్తుంది."],
             ].map(([t, d]) => (
               <div key={t} className="bg-cream rounded-xl p-2.5 border border-gold/20">
                 <div className="font-bold text-maroon">{t}</div>
@@ -374,18 +358,18 @@ function PoruthamInner() {
               </div>
             ))}
           </div>
-          <div className="mt-3 text-[11px] text-gray-500">
-            {te ? <>🎁 <b>సంపూర్ణ గుణమేళనం జాతక రిపోర్ట్ (PDF + వేద పురోహితుల సంప్రదింపులు)</b> — కేవలం ₹49.</> : <>🎁 <b>Complete Kundli Gunamelanam report (PDF + purohit consult)</b> — just ₹49.</>}
+          <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-[11px] text-gray-600">
+            {te ? "ఈ automated reference లో పురోహితుల సంప్రదింపు లేదా పూర్తి జాతక విశ్లేషణ చేర్చలేదు." : "This automated reference does not include an astrologer consultation or a complete horoscope analysis."}
           </div>
         </div>
       </div>
-    </main>
+    </div>
   );
 }
 
 export default function PoruthamPage() {
   return (
-    <Suspense fallback={<main className="min-h-dvh bg-cream p-8 text-center text-[13px]">వేద గుణమేళనం లోడ్ అవుతుంది…</main>}>
+    <Suspense fallback={<div className="min-h-dvh bg-cream p-8 text-center text-[13px]">వేద గుణమేళనం లోడ్ అవుతుంది…</div>}>
       <PoruthamInner />
     </Suspense>
   );

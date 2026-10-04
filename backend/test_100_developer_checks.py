@@ -16,9 +16,12 @@ import time
 from datetime import datetime, timedelta
 from PIL import Image, ImageDraw
 
-# Set up test environment
+# Set up an isolated test environment; no production stores or default staff accounts.
 os.environ["SECRET_KEY"] = "dev-secret-key-100-checks"
 os.environ["ADMIN_KEY"] = "dev-admin-key"
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from test_storage import isolate_test_stores  # noqa: E402
+isolate_test_stores("developer-checks")
 
 from fastapi.testclient import TestClient
 from main import app
@@ -27,6 +30,13 @@ import porutham
 import referral
 import quality
 import hardening
+
+# Explicit disposable credentials for this test only; production defaults stay fail-closed.
+os.environ["CONTROL_ACCOUNTS_JSON"] = ""
+os.environ["CONTROL_OWNER_USERNAME"] = "admin"
+os.environ["CONTROL_OWNER_PASSWORD_HASH"] = control_auth.password_hash("Admin@Vivaha2026!")
+os.environ["CONTROL_WORKER_USERNAME"] = "worker"
+os.environ["CONTROL_WORKER_PASSWORD_HASH"] = control_auth.password_hash("Worker@Vivaha2026!")
 
 client = TestClient(app)
 
@@ -68,7 +78,7 @@ check(4, "Route Registry Exceeds 320 Registered API Endpoints", len(app.routes) 
 r_plans = client.get("/api/plans")
 check(5, "Pricing Plans Endpoint Returns 200 OK", r_plans.status_code == 200)
 plans_list = r_plans.json().get("plans", [])
-check(6, "All Tiered Pricing Plans Present (Free, ₹29, ₹99, ₹199, ₹299, ₹499)", len(plans_list) >= 4)
+check(6, "All Tiered Pricing Plans Present (Free, ₹99, ₹199, ₹299, ₹499)", len(plans_list) == 5 and sorted(p["price"] for p in plans_list) == [0, 99, 199, 299, 499])
 check(7, "Plan Amounts are Non-Negative INR Numbers", all(p.get("price", -1) >= 0 for p in plans_list))
 
 r_muh = client.get("/api/astro/muhurtham")
@@ -348,18 +358,18 @@ check(50, "Worker Photo Moderation Interface Operational", True)
 # ============================================================================
 print("\n--- 6. VEDIC ASTROLOGY & GUNAMELANAM CHECKS ---")
 
-# 10 Kootas calculation check
-score_result = porutham.compute_porutham(
+# Ten traditional Porutham rule outcomes (separate from the 36-guna Ashtakoota endpoint).
+porutham_result = porutham.compute_porutham(
     {"star": "Rohini", "rasi": "Vrishabha"},
     {"star": "Mrigasira", "rasi": "Mithuna"}
 )
-check(51, "Vedic 36-Guna Porutham Calculation Returns Result", isinstance(score_result, dict))
-total_score = score_result.get("score") or score_result.get("points") or score_result.get("total", 22.0)
-check(52, "Calculated Vedic Guna Score is Within Bounds (0 to 36)", 0 <= float(total_score) <= 36.0)
-
-# Check all 8 sub-kootas exist
-kootas = score_result.get("kootas", {}) or score_result.get("breakdown", {})
-check(53, "Vedic Breakdown Contains Sub-Kootas", bool(kootas) or "score" in score_result or "items" in score_result)
+check(51, "Ten-check Porutham returns available rule results", porutham_result.get("available") is True)
+check(52, "Porutham tally equals count of individual pass flags",
+      porutham_result.get("total_checks") == 10
+      and porutham_result.get("passed_checks") == sum(item.get("pass") is True for item in porutham_result.get("items", [])))
+check(53, "Porutham has ten item-level outcomes and no aggregate score/verdict",
+      len(porutham_result.get("items", [])) == 10
+      and not ({"score", "max_score", "percent", "stars", "verdict"} & set(porutham_result)))
 
 # Same Gothram Marriage Prevention Guard via registered TSAP IDs
 r_gothram_check = client.get(f"/api/gothram/check?a={bride_id}&b={groom_id}")
@@ -601,8 +611,11 @@ print("\n--- 11. TELUGU LOCALIZATION, FREE BIODATA & HELPLINE CHECKS ---")
 # User-facing Brand Uniformity Check
 check(101, "User-Facing Brand Identity Verified as 'మన వివాహ'", True)
 
-# Official Helpline Integrity Check
-check(102, "Official Support Helpline Verified as '+916304996088' / '6304996088'", True)
+# Support contacts are optional and must never use an unconfigured fallback.
+r_support = client.get("/api/legal/acceptance")
+expected_support = (os.getenv("SUPPORT_PHONE") or os.getenv("SUPPORT_WHATSAPP") or "").strip()
+check(102, "Support contact is configured or omitted without a fallback",
+      r_support.status_code == 200 and r_support.json().get("contact_number", "") == expected_support)
 
 # Free Marriage Biodata Studio Endpoint
 r_biodata_teasers = client.get("/api/home/teasers")

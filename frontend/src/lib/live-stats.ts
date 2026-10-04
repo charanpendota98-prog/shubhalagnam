@@ -16,6 +16,7 @@
  * shown here is ever fabricated.
  */
 import { useEffect, useState } from "react";
+import { COMMUNITIES_BY_RELIGION } from "@/lib/telugu-data";
 
 export type LiveStats = {
   profiles_count: number;
@@ -34,8 +35,8 @@ export type LiveStats = {
 
 /**
  * Truthful coverage fallback — used before hydration and if the API is down.
- * These describe what the platform genuinely *covers* (43 castes, 59 districts
- * across TS+AP, the channel network), never a padded profile count.
+ * These describe the bundled community catalogue and configured channels,
+ * never a padded profile count. Community labels are optional and non-exhaustive.
  */
 export const STATS_FALLBACK: LiveStats = {
   profiles_count: 0,
@@ -45,7 +46,7 @@ export const STATS_FALLBACK: LiveStats = {
   verified_percentage: 0,
   districts_with_profiles: 0,
   castes_with_profiles: 0,
-  castes_covered: 43,
+  castes_covered: COMMUNITIES_BY_RELIGION.Hindu.length,
   channels_live: 0,
   channels_total: 0,
   interests_sent: 0,
@@ -76,7 +77,7 @@ export function useLiveStats(): LiveStats {
           verified_percentage: Number(d.verified_percentage) || 0,
           districts_with_profiles: Number(d.districts_with_profiles) || 0,
           castes_with_profiles: Number(d.castes_with_profiles) || 0,
-          castes_covered: Number(d.castes_covered) || 43,
+          castes_covered: Number(d.castes_covered) || COMMUNITIES_BY_RELIGION.Hindu.length,
           channels_live: Number(d.channels_live) || 0,
           channels_total: Number(d.channels_total) || 0,
           interests_sent: Number(d.interests_sent) || 0,
@@ -111,5 +112,5 @@ export function fmtNum(n: number): string {
  */
 export function profilesLabel(s: LiveStats, lang: "te" | "en" = "te"): string {
   if (s.profiles_count > 0) return fmtNum(s.profiles_count) + "+";
-  return lang === "te" ? `${s.castes_covered}+ కులాలు` : `${s.castes_covered}+ castes`;
+  return lang === "te" ? "కమ్యూనిటీ ఎంపికలు" : "Community options";
 }

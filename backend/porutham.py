@@ -1,10 +1,11 @@
 """
-మన వివాహ — 10-PORUTHAM (KUNDLI MATCH) ENGINE 🔮
-==================================================
-Top matrimony sites (Bharat Matrimony, Shaadi) ee feature ni PAID ga ammutunnayi.
-Manam free ga compute chesi, cards/requests lo chupistham — ee trust factor valla conversions perugutayi.
+మన వివాహ — 10-PORUTHAM REFERENCE ENGINE 🔮
+==========================================
+This module implements ten rule-based traditional reference checks from supplied star details.
+It does not predict compatibility, marriage outcomes, or user suitability.
 
-Ee module: Telugu traditional 10-porutham tables batti approximate match score.
+Ee module: ten rule-based traditional Porutham checks with item-level outcomes.
+It does not assign a compatibility score, percentage, star rating, or match verdict.
 
 10 PORUTHAMS (traditional order):
   1. Rasi Porutham        — 6/8 (shashtashtaka) dosham check
@@ -174,8 +175,8 @@ def _vedha(a: int, b: int) -> bool:
 
 def compute_porutham(bride: Dict, groom: Dict) -> Dict:
     """
-    Bride + groom (star/rasi fields unna profiles) → 10-porutham result.
-    Returns: score (0-10), verdict, per-item list, dosha flags, Telugu summary.
+    Bride + groom (star/rasi fields unna profiles) → ten check outcomes.
+    Returns per-item pass/review facts and dosha flags, not an overall score or verdict.
     """
     b_star_raw, g_star_raw = bride.get("star") or bride.get("moola_nakshatram") or "", \
         groom.get("star") or groom.get("moola_nakshatram") or ""
@@ -191,10 +192,10 @@ def compute_porutham(bride: Dict, groom: Dict) -> Dict:
     if b_star is None or g_star is None:
         return {
             "available": False,
-            "reason": "నక్షత్రం (Star) వివరాలు ప్రొఫైల్స్‌లో లేవు — గుణమేళనం లెక్కించలేకపోయాం",
-            "score": 0, "max_score": 10, "verdict": "వివరాలు లేవు",
+            "reason": "నక్షత్రం (Star) వివరాలు ప్రొఫైల్స్‌లో లేవు — గుణమేళనం లెక్కించలేదు",
+            "passed_checks": None, "total_checks": 10,
             "items": [], "doshas": [],
-            "advice_telugu": "రిజిస్ట్రేషన్‌లో నక్షత్రం (Star / Nakshatram) నమోదు చేయండి — అప్పుడు వేద గుణమేళనం స్వయంచాలకంగా వస్తుంది.",
+            "advice_telugu": "రెండు ప్రొఫైల్స్‌లో అవసరమైన నక్షత్ర వివరాలు నమోదు చేసిన తర్వాత మాత్రమే ఈ సాంప్రదాయ checks లెక్కించవచ్చు.",
         }
 
     # 1. Rasi (shashtashtaka 6/8 dosham)
@@ -270,42 +271,32 @@ def compute_porutham(bride: Dict, groom: Dict) -> Dict:
     items.append({"no": 10, "name": "రాశ్యాధిపతి మైత్రి", "telugu": "రాశ్యాధిపతి మైత్రి", "pass": lord_ok,
                   "note": f"{b_lord} ↔ {g_lord} — " + ("మిత్ర గ్రహాలు ✅" if lord_ok else "శత్రు/సమ గ్రహాలు")})
 
-    score = len([i for i in items if i["pass"]])
+    passed_checks = sum(1 for item in items if item["pass"] is True)
     doshas = [i["name"] for i in items if not i["pass"] and i["no"] in (5, 6)]
     critical_miss = bool([i for i in items if not i["pass"] and i["no"] in (5, 6)])
-    if score >= 8 and not critical_miss:
-        verdict, stars = "⭐ అద్భుత కలయిక — వేద గుణమేళనం చాలా బాగుంది", 5
-    elif score >= 6 and not critical_miss:
-        verdict, stars = "✅ మంచి సంబంధం — ప్రధాన గుణాలు కలుస్తున్నాయి", 4
-    elif critical_miss:
-        verdict, stars = "⚠️ రజ్జు/వేధ దోషం — వేద పురోహితులతో సంప్రదించండి", 2
-    else:
-        verdict, stars = "🟡 మధ్యస్థ కలయిక — పెద్దల ఆశీస్సులతో ముందుకు వెళ్లండి", 3
 
     return {
         "available": True,
         "bride_star": NAKSHATRA_TELUGU[b_star], "groom_star": NAKSHATRA_TELUGU[g_star],
         "bride_star_en": NAKSHATRAS[b_star].title(), "groom_star_en": NAKSHATRAS[g_star].title(),
         "bride_rasi": RASI_TELUGU[b_rasi], "groom_rasi": RASI_TELUGU[g_rasi],
-        "score": score, "max_score": 10,
-        "percent": int(score * 10),
-        "stars": stars,
-        "verdict": verdict,
+        "passed_checks": passed_checks, "total_checks": len(items),
         "items": items,
         "doshas": doshas,
         "advice_telugu": (
-            "ఇది వేద జ్యోతిష గుణమేళనం ప్రాథమిక సరిపోలిక. తుది నిర్ణయానికి వధూవరుల జాతక చక్రాలు, దశాభుక్తులను పురోహితుల వద్ద సరిచూసుకోండి."
-            + (" ⚠️ రజ్జు/వేధ దోషం ఉంది — పరిహారం పరిశీలించండి." if critical_miss else "")
+            "ఇవి అందించిన నక్షత్ర వివరాలపై ఈ implementation లెక్కించిన పది నియమాల ఫలితాలు మాత్రమే; పూర్తి జాతకం లేదా వివాహ సిఫార్సు కాదు. ప్రతి అంశాన్ని విడిగా పరిశీలించి, సంప్రదాయం గురించి అర్హులైన సలహాదారుతో చర్చించండి."
+            + (" రజ్జు/వేధ check లో review అవసరం." if critical_miss else "")
         ),
     }
 
 
 def porutham_line(bride: Dict, groom: Dict) -> str:
-    """WhatsApp/card message లో చూపించడానికి ఒక్క line (short)."""
-    r = compute_porutham(bride, groom)
-    if not r.get("available"):
-        return "🔮 గుణమేళనం: నక్షత్ర వివరాలు లేవు (నమోదులో పూరించండి)"
-    return f"🔮 గుణమేళనం: {r['score']}/10 {r['verdict'].split('—')[0].strip()}"
+    """One factual summary line; never call check counts a compatibility score."""
+    result = compute_porutham(bride, groom)
+    if not result.get("available"):
+        return "🔮 Porutham checks లెక్కించలేదు — అవసరమైన నక్షత్ర వివరాలు అందుబాటులో లేవు."
+    return (f"🔮 {result['passed_checks']} of {result['total_checks']} Porutham checks marked pass; "
+            "review each item separately (not a compatibility verdict).")
 
 
 if __name__ == "__main__":  # demo: python porutham.py

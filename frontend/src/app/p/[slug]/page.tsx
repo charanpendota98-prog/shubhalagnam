@@ -28,7 +28,7 @@ export default function CmsPage() {
   }, [slug]);
   const paras = (t: string) => (t || "").split(/\n+/).map((x) => x.trim()).filter(Boolean);
   return (
-    <main className="max-w-3xl mx-auto px-4 py-8">
+    <div className="max-w-3xl mx-auto px-4 py-8">
       <Link href="/" className="text-xs font-bold text-[#7A0C2E]">← {te ? "హోమ్" : "Home"}</Link>
       {missing && <p className="mt-6 text-center text-gray-500">{te ? "⚠️ Page దొరకలేదు — admin publish చెయ్యలేదు." : "⚠️ Page not found — admin hasn\u2019t published it."}</p>}
       {p && (
@@ -67,6 +67,6 @@ export default function CmsPage() {
           </div>
         </div>
       )}
-    </main>
+    </div>
   );
 }

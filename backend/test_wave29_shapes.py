@@ -11,6 +11,8 @@ os.environ.setdefault("WA_TEST_FAST", "1")
 os.environ.setdefault("OTP_DEV_MODE", "true")
 os.environ.setdefault("WA_LONG_PAUSE_CHANCE", "0")
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from test_storage import isolate_test_stores  # noqa: E402
+isolate_test_stores("wave29")
 
 PASS, FAIL, FAILED = 0, 0, []
 
@@ -233,8 +235,12 @@ try:
         vd = c.get(f"/api/vendors/{VID}")
         check("S6.6 vendor detail keys", vd.status_code in (200, 404), vd.status_code)
     por = c.get(f"/api/porutham?bride={B}&groom={G}")
-    check("S6.7 porutham GET keys", por.status_code == 200 and "score" in por.json()
-          and "verdict" in por.json(), (por.status_code, por.text[:200]))
+    pj = por.json()
+    check("S6.7 porutham factual shape", por.status_code == 200 and pj.get("available") is True
+          and pj.get("total_checks") == 10 and isinstance(pj.get("items"), list),
+          (por.status_code, list(pj)[:12]))
+    check("S6.7 porutham no aggregate score/verdict",
+          not ({"score", "max_score", "percent", "stars", "verdict"} & set(pj)))
     og = c.get(f"/api/og/porutham/{B}/{G}.png")
     check("S6.8 og png bytes", og.status_code == 200 and len(og.content) > 1000,
           (og.status_code, len(og.content)))

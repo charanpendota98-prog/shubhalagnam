@@ -9,6 +9,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useLang } from "@/lib/lang";
+import { whatsappPhoneLink } from "@/lib/wa";
 
 export default function VendorDetailPage() {
   const routeParams = useParams();
@@ -57,7 +58,7 @@ export default function VendorDetailPage() {
 
   if (err) {
     return (
-      <main className="min-h-dvh bg-cream flex items-center justify-center px-4">
+      <div className="min-h-dvh bg-cream flex items-center justify-center px-4">
         <div className="bg-white rounded-3xl border border-gold/30 p-6 text-center max-w-md">
           <div className="text-4xl">🔍</div>
           <div className="mt-2 font-bold text-maroon">⚠️ {err}</div>
@@ -65,14 +66,14 @@ export default function VendorDetailPage() {
             {te ? "🏪 Vendors list చూడండి" : "🏪 See vendors list"}
           </Link>
         </div>
-      </main>
+      </div>
     );
   }
 
-  if (!v) return <main className="min-h-dvh bg-cream grid place-items-center"><span className="text-maroon font-bold">⏳ Loading…</span></main>;
+  if (!v) return <div className="min-h-dvh bg-cream grid place-items-center"><span className="text-maroon font-bold">⏳ Loading…</span></div>;
 
   return (
-    <main className="min-h-dvh bg-cream pb-20">
+    <div className="min-h-dvh bg-cream pb-20">
       <section className="maroon-gradient text-white">
         <div className="max-w-5xl mx-auto px-4 py-8">
           <div className="text-[12px] opacity-90 mb-1"><Link href="/vendors" className="underline">← Vendors</Link></div>
@@ -80,7 +81,7 @@ export default function VendorDetailPage() {
             <div>
               <h1 className="text-2xl md:text-3xl font-extrabold flex items-center gap-2">
                 <span>{v.icon}</span> {v.business_name}
-                {v.verified && <span className="text-[11px] font-bold bg-emerald-500/90 text-white px-2 py-0.5 rounded-full">✅ Verified</span>}
+                {v.verified && <span title="Manually reviewed by staff" className="text-[11px] font-bold bg-emerald-500/90 text-white px-2 py-0.5 rounded-full">✓ Staff reviewed</span>}
               </h1>
               <div className="text-[13px] opacity-90 mt-1">{v.category_te || v.category} · 📍 {v.city}{v.district && v.district !== v.city ? `, ${v.district}` : ""}</div>
               <div className="mt-2 flex flex-wrap gap-2 text-[11px]">
@@ -112,7 +113,7 @@ export default function VendorDetailPage() {
             <div className="md:col-span-2 space-y-4">
               <div className="bg-white rounded-3xl border border-gold/30 p-5">
                 <div className="font-bold text-maroon">About</div>
-                <p className="mt-2 text-[13px] text-gray-700">{v.about || (te ? "మన వివాహ verified vendor." : "మన వివాహ verified vendor.")}</p>
+                <p className="mt-2 text-[13px] text-gray-700">{v.about || (te ? "మన వివాహ wedding vendor directory listing." : "Wedding vendor listing on మన వివాహ.")}</p>
                 <div className="mt-3 grid sm:grid-cols-2 gap-2 text-[12px]">
                   {v.service_areas && <div className="bg-cream rounded-xl px-3 py-2">🗺️ Service areas: <b>{v.service_areas}</b></div>}
                   {v.price_range && <div className="bg-cream rounded-xl px-3 py-2">💰 Rates: <b>{v.price_range}</b></div>}
@@ -261,9 +262,9 @@ export default function VendorDetailPage() {
                 {(dash?.recent_leads || []).map((l: any) => (
                   <div key={l.id} className="bg-cream rounded-xl px-3 py-2 text-[12px] flex flex-wrap items-center justify-between gap-2">
                     <span>{l.name} · {l.district || "-"} {l.event_date ? `· 📅 ${l.event_date}` : ""} {l.budget ? `· 💰 ${l.budget}` : ""}</span>
-                    <a href={`https://wa.me/91${l.phone}`} target="_blank" rel="noreferrer" className="text-green-700 font-bold underline text-[11px]">
+                    {whatsappPhoneLink(l.phone) ? <a href={whatsappPhoneLink(l.phone) || undefined} target="_blank" rel="noopener noreferrer" className="text-green-700 font-bold underline text-[11px]">
                       WhatsApp {l.phone}
-                    </a>
+                    </a> : null}
                   </div>
                 ))}
               </div>
@@ -271,6 +272,6 @@ export default function VendorDetailPage() {
           </div>
         )}
       </div>
-    </main>
+    </div>
   );
 }

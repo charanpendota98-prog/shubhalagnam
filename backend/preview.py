@@ -1,14 +1,14 @@
 """
 MANA VIVAHA — SOCIAL PREVIEW / OG IMAGE ENGINE 🖼️
 =================================================
-WhatsApp / Telegram / Facebook lo link pampinappudu **photo preview** kanipisthundi —
-adi click rate ni 2–3x penchutundi (matrimony lo bhayankaramaina reach booster).
+WhatsApp / Telegram / Facebook lo link pampinappudu profile/page preview kanipistundi.
+External platforms control their own rendering and delivery; no click-through claim is made.
 
 Ee module 3 images generate chestundi (Pillow, DejaVu fonts — English text, because
 Telugu font server lo install kaakapote boxes vasthayi; HTML pages lo Telugu perfect ga vastundi):
 
   1. `og_profile_png(user)`      — profile link preview (1200x630): name, ID, age, caste, job, district
-  2. `og_porutham_png(b, g, res)` — 10-porutham report preview (score + verdict, English)
+  2. `og_porutham_png(b, g, res)` — individual ten-rule outcomes (no aggregate score or verdict)
   3. `og_generic_png(title, sub)` — site/caste/SEO page preview
 
 Files `PREVIEW_DIR` (default /tmp/previews) lo save avutayi → main.py static mount chestundi.
@@ -90,8 +90,10 @@ def og_profile_png(user: Dict, out_path: Optional[str] = None) -> Optional[str]:
         d.rectangle([0, i, W, i + 6], fill=(shade, 12, 46))
     d.rectangle([0, 0, 14, H], fill=GOLD)
 
-    tsap = u.get("tsap_id", "TSAP-XXXX")
-    name = _fit(d, u.get("full_name", "Telugu Profile"), _font(56, True), 900)
+    tsap = str(u.get("tsap_id") or "").strip()
+    if not tsap:
+        return None
+    name = _fit(d, u.get("full_name") or "Profile", _font(56, True), 900)
     d.text((60, 70), name, font=_font(56, True), fill=WHITE)
     d.text((60, 146), "%s  |  %s yrs  |  %s" % (tsap, u.get("age", "—"), u.get("gender", "")),
            font=_font(26, True), fill=GOLD)
@@ -100,7 +102,7 @@ def og_profile_png(user: Dict, out_path: Optional[str] = None) -> Optional[str]:
         ("Caste", "%s%s" % (u.get("caste", "—"), (" / " + u["sub_caste"]) if u.get("sub_caste") else "")),
         ("Education", "%s %s" % (u.get("education", "—"), u.get("education_detail", ""))),
         ("Profession", "%s %s" % (u.get("job", "—"), ("@ " + u["company"]) if u.get("company") else "")),
-        ("Location", "%s, %s" % (u.get("district", "—"), u.get("state", "TS"))),
+        ("Location", "%s, %s" % (u.get("district") or "—", u.get("state") or "—")),
         ("Star / రాశి", "%s / %s" % (u.get("star", "—"), u.get("rasi", "—"))),
         ("Family", "%s • %s" % (u.get("family_type", "—"), u.get("family_status", "—"))),
     ]
@@ -110,10 +112,12 @@ def og_profile_png(user: Dict, out_path: Optional[str] = None) -> Optional[str]:
         d.text((300, y), _fit(d, val, _font(26), 780), font=_font(26), fill=WHITE)
         y += 46
 
-    verified = bool(u.get("is_verified") or u.get("phone_verified"))
-    if verified:
-        d.rounded_rectangle([60, y + 10, 320, y + 62], radius=26, fill=(16, 122, 74))
-        d.text((84, y + 24), "VERIFIED PROFILE", font=_font(24, True), fill=WHITE)
+    verification_label = ("GOVT ID REVIEWED" if u.get("id_verified") else
+                          "PHOTO REVIEWED" if u.get("selfie_verified") or u.get("photo_status") == "approved" else
+                          "PHONE OTP VERIFIED" if u.get("phone_verified") else "")
+    if verification_label:
+        d.rounded_rectangle([60, y + 10, 420, y + 62], radius=26, fill=(16, 122, 74))
+        d.text((84, y + 24), verification_label, font=_font(24, True), fill=WHITE)
     d.rounded_rectangle([W - 520, y + 10, W - 60, y + 62], radius=26, fill=GOLD)
     d.text((W - 500, y + 24), "Details + Interest: manavivaha.in", font=_font(22, True), fill=MAROON)
 
@@ -125,8 +129,8 @@ def og_profile_png(user: Dict, out_path: Optional[str] = None) -> Optional[str]:
 
 
 def og_porutham_png(bride: Dict, groom: Dict, result: Dict, out_path: Optional[str] = None) -> Optional[str]:
-    """10-Vedic Gunamelanam report preview — score + pass/fail count."""
-    if not PIL_OK:
+    """Render actual ten-rule outcomes as a limited reference, never as an aggregate score."""
+    if not PIL_OK or not (result or {}).get("available"):
         return None
     r = result or {}
     b, g = bride or {}, groom or {}
@@ -134,48 +138,45 @@ def og_porutham_png(bride: Dict, groom: Dict, result: Dict, out_path: Optional[s
     img = Image.new("RGB", (W, H), CREAM)
     d = ImageDraw.Draw(img)
     d.rectangle([0, 0, W, 120], fill=MAROON)
-    d.text((50, 24), "VEDIC GUNAMELANAM KUNDLI MATCH", font=_font(40, True), fill=GOLD)
-    d.text((50, 76), "మన వివాహ • Telugu Vedic Horoscope Match Report", font=_font(24), fill=CREAM)
-
-    score = r.get("score", "—")
-    d.ellipse([60, 170, 340, 450], fill=MAROON)
-    d.text((132, 250), str(score), font=_font(96, True), fill=GOLD)
-    d.text((190, 356), "/ 10", font=_font(34, True), fill=CREAM)
-    d.text((150, 470), "Score", font=_font(28, True), fill=MAROON)
-
-    d.text((400, 170), "Bride: %s (%s / %s)" % (b.get("full_name", "—"), b.get("star", "—"), b.get("rasi", "—")),
-           font=_font(28, True), fill=INK)
-    d.text((400, 212), "Groom: %s (%s / %s)" % (g.get("full_name", "—"), g.get("star", "—"), g.get("rasi", "—")),
-           font=_font(28, True), fill=INK)
+    d.text((50, 24), "TEN-CHECK PORUTHAM REFERENCE", font=_font(40, True), fill=GOLD)
+    d.text((50, 76), "Limited rule-based reference • not a complete horoscope", font=_font(22), fill=CREAM)
 
     items = list(r.get("items") or [])[:10]
-    y = 252
-    for i, it in enumerate(items):
-        col = 400 + (i // 5) * 380
-        row = y + (i % 5) * 48
-        ok = bool(it.get("pass") or it.get("ok"))
-        mark = "OK" if ok else "X"
-        color = (16, 122, 74) if ok else (200, 40, 60)
-        d.rounded_rectangle([col, row, col + 50, row + 34], radius=10, fill=color)
-        fmark = _font(20, True)
-        d.text((col + (50 - d.textlength(mark, font=fmark)) / 2, row + 5), mark, font=fmark, fill=WHITE)
-        nm = it.get("porutham") or it.get("name") or "—"
-        d.text((col + 62, row + 4), _fit(d, str(nm), _font(24), 300), font=_font(24), fill=INK)
+    passed = sum(1 for item in items if item.get("pass") is True)
+    b_label = "Bride: %s (%s)" % (b.get("tsap_id", "—"), r.get("bride_star_en", "—"))
+    g_label = "Groom: %s (%s)" % (g.get("tsap_id", "—"), r.get("groom_star_en", "—"))
+    d.text((60, 145), _fit(d, b_label, _font(24, True), 1080), font=_font(24, True), fill=INK)
+    d.text((60, 182), _fit(d, g_label, _font(24, True), 1080), font=_font(24, True), fill=INK)
+    count_label = f"Checks marked pass: {passed} of {len(items)}"
+    d.text((60, 222), count_label, font=_font(27, True), fill=MAROON)
 
-    try:
-        sc_num = int(score)
-    except Exception:
-        sc_num = 0
-    eng = ("Excellent Gunamelanam — go ahead" if sc_num >= 8 else
-           "Good Match — most points align" if sc_num >= 6 else
-           "Average — some points differ" if sc_num >= 4 else "Weak — consult elders")
-    dosha = ", ".join([str(x) for x in (r.get("doshas") or [])])
-    line = "%s / 10  —  %s" % (score, eng) + (("   |  Dosha: " + dosha) if dosha else "")
-    d.rounded_rectangle([400, 496, 1140, 546], radius=16, fill=GOLD)
-    d.text((420, 508), _fit(d, line, _font(22, True), 700), font=_font(22, True), fill=MAROON)
+    check_names = {
+        1: "Rasi", 2: "Nakshatra / Dina", 3: "Gana", 4: "Yoni", 5: "Rajju",
+        6: "Vedha", 7: "Mahendra", 8: "Stree Deergha", 9: "Vashya", 10: "Rasi Adhipathi",
+    }
+    for index, item in enumerate(items):
+        number = item.get("no")
+        try:
+            number = int(number)
+        except (TypeError, ValueError):
+            number = 0
+        ok = item.get("pass") is True
+        mark = "MARKED PASS" if ok else "REVIEW"
+        color = (16, 122, 74) if ok else (180, 95, 25)
+        column, row = index // 5, index % 5
+        x = 60 + column * 555
+        y = 274 + row * 43
+        d.rounded_rectangle([x, y, x + 118, y + 31], radius=8, fill=color)
+        d.text((x + 8, y + 6), mark, font=_font(15, True), fill=WHITE)
+        name = check_names.get(number, f"Porutham check {number}")
+        d.text((x + 130, y + 3), _fit(d, name, _font(20), 390), font=_font(20), fill=INK)
 
-    _brand_bar(d, W, H, "వేద గుణమేళనం GUNAMELANAM REPORT", img=img)
-    out_path = out_path or os.path.join(PREVIEW_DIR, "gunamelanam-%s-%s.png" % (b.get("tsap_id", "A"), g.get("tsap_id", "B")))
+    d.text((60, 502), "Pass count is a tally only — not a compatibility score or marriage verdict.",
+           font=_font(18, True), fill=MAROON)
+    d.text((60, 527), "Not a complete horoscope or marriage recommendation. Verify details independently.",
+           font=_font(17), fill=INK)
+    _brand_bar(d, W, H, "LIMITED RULE-BASED REFERENCE", img=img)
+    out_path = out_path or os.path.join(PREVIEW_DIR, "porutham-%s-%s.png" % (b.get("tsap_id", "A"), g.get("tsap_id", "B")))
     os.makedirs(os.path.dirname(out_path), exist_ok=True)
     img.save(out_path, "PNG", optimize=True)
     return out_path
@@ -191,7 +192,6 @@ def og_generic_png(title: str, subtitle: str, out_path: Optional[str] = None, na
     d.rectangle([0, 0, 14, H], fill=GOLD)
     d.text((60, 120), _fit(d, title, _font(52, True), 1040), font=_font(52, True), fill=WHITE)
     d.text((60, 230), _fit(d, subtitle, _font(28), 1040), font=_font(28), fill=GOLD)
-    d.text((60, 330), "52 channels • 43 castes • TS + AP • 3 FREE requests", font=_font(26), fill=CREAM)
     d.rounded_rectangle([60, 420, 620, 480], radius=26, fill=GOLD)
     d.text((84, 436), "manavivaha.in — FREE గా register చెయ్యండి", font=_font(22, True), fill=MAROON)
     _brand_bar(d, W, H, img=img)

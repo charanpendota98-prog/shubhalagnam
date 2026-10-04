@@ -97,7 +97,7 @@ export default function OwnerPage() {
   const maxC = Math.max(1, ...series.map((s) => Number(s.collected || 0)));
 
   return (
-    <main className="mx-auto max-w-4xl px-4 py-6">
+    <div className="mx-auto max-w-4xl px-4 py-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-rose-200 pb-3">
         <div>
           <h1 className="text-2xl font-extrabold text-[#7A0C2E]">👑 {te ? "Owner Control & Business Hub" : "Owner Control & Business Hub"}</h1>
@@ -274,6 +274,6 @@ export default function OwnerPage() {
           </Card>
         </div>
       )}
-    </main>
+    </div>
   );
 }

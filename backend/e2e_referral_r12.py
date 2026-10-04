@@ -1,9 +1,9 @@
-"""💎 R12 LIVE E2E — user exact scenario:
-1. Referrer registers → gets CHA-style code
-2. Friend comes via /r/CODE (click track) → registers with code (auto-fill simulation)
-3. Friend does NOT pay yet → dashboard shows PENDING pipeline (1 friend, ₹50)
-4. "3 days later" friend pays ₹99 → referrer wallet +₹50 (delayed commission)
-5. Leaderboard LIVE: referrer visible with ₹50, me= rank works
+"""Referral regression E2E — no projected future rewards:
+1. Referrer registers → receives a referral code
+2. Friend visits the tracked link and registers with the code
+3. Before payment, dashboard may show a registration count but no projected money
+4. A confirmed qualifying first consumer-plan payment records one ₹50 wallet reward
+5. Leaderboard totals include recorded qualifying rewards only
 Admin key computed in-process (never printed).
 """
 import hashlib
@@ -87,8 +87,8 @@ st, otp = req("POST", "/api/auth/otp", data={"phone": r1.get("_phone", "")})
 st, dash = req("GET", f"/api/referral/{ref_id}", headers=AH)
 check("Referrer dashboard (admin view)", st == 200 and dash.get("ok"), st)
 ds = dash.get("stats", {})
-check("💎 Pending pipeline: 1 friend not paid", ds.get("pending_friends") == 1, ds.get("pending_friends"))
-check("💎 Pending value ₹50", ds.get("pending_value") == 50, ds.get("pending_value"))
+check("Referral registration count: 1 friend without recorded reward", ds.get("pending_friends") == 1, ds.get("pending_friends"))
+check("No projected pending reward value is returned", "pending_value" not in ds, ds.get("pending_value"))
 check("Registrations=1, paid=0", ds.get("registrations") == 1 and ds.get("paid_count") == 0)
 
 print("=== 4. LEADERBOARD BEFORE PAYMENT (alive board) ===")

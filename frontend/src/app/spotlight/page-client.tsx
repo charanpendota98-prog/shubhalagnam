@@ -26,13 +26,14 @@ export default function SpotlightPromotionPage() {
   const te = lang === "te";
 
   const [tiers, setTiers] = useState<Record<string, Tier>>({});
+  const [ratesLoading, setRatesLoading] = useState(true);
+  const [paymentConfig, setPaymentConfig] = useState<{ mode: string; upi_id?: string } | null>(null);
   const [selectedPlan, setSelectedPlan] = useState("SPOT_7");
   const [tsapId, setTsapId] = useState("");
   const [headline, setHeadline] = useState("");
   const [pitchText, setPitchText] = useState("");
   const [photoUrl, setPhotoUrl] = useState("");
   const [videoUrl, setVideoUrl] = useState("");
-  const [paymentMode, setPaymentMode] = useState("upi");
   const [paymentRef, setPaymentRef] = useState("");
   const [contactOpt, setContactOpt] = useState("send_interest");
 
@@ -41,23 +42,19 @@ export default function SpotlightPromotionPage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    // Check localStorage for logged in user
     try {
-      const saved = localStorage.getItem("tsap_last_id") || "";
-      if (saved) setTsapId(saved);
-      else {
-        const profiles = JSON.parse(localStorage.getItem("tsap_profiles") || "[]");
-        if (profiles[0]?.id) setTsapId(profiles[0].id);
-      }
-    } catch {}
+      setTsapId(localStorage.getItem("tsap_id") || localStorage.getItem("tsap_last_id") || "");
+    } catch { /* private browsing may block storage */ }
 
-    // Fetch live tiers
-    fetch("/api/spotlight/rates")
-      .then((r) => r.json())
-      .then((d) => {
-        if (d?.success && d.tiers) setTiers(d.tiers);
-      })
-      .catch(() => {});
+    Promise.all([
+      fetch("/api/spotlight/rates").then((r) => r.ok ? r.json() : null),
+      fetch("/api/pay/config").then((r) => r.ok ? r.json() : null),
+    ]).then(([rateData, payData]) => {
+      if (rateData?.success && rateData.tiers) setTiers(rateData.tiers);
+      if (payData?.success) setPaymentConfig({ mode: String(payData.mode || "unconfigured"), upi_id: String(payData.upi_id || "") });
+    }).catch(() => {
+      setPaymentConfig({ mode: "unconfigured" });
+    }).finally(() => setRatesLoading(false));
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -67,7 +64,19 @@ export default function SpotlightPromotionPage() {
 
     const id = tsapId.trim().toUpperCase();
     if (!id) {
-      setError(te ? "⚠️ దయచేసి మీ Profile ID ని ఇవ్వండి (ex: MV1001)" : "⚠️ Please enter your Profile ID (ex: MV1001)");
+      setError(te ? "మీ రిజిస్టర్ చేసిన Profile ID నమోదు చేయండి." : "Enter your registered Profile ID.");
+      return;
+    }
+    if (!headline.trim() || headline.trim().length > 140 || !pitchText.trim() || pitchText.trim().length > 600) {
+      setError(te ? "హెడ్‌లైన్ మరియు పరిచయాన్ని నమోదు చేయండి (గరిష్ఠంగా 140 / 600 అక్షరాలు)." : "Enter a headline and introduction (maximum 140 / 600 characters).");
+      return;
+    }
+    if (!/^\d{12}$/.test(paymentRef.trim())) {
+      setError(te ? "మీ UPI యాప్ statement లో ఉన్న నిజమైన 12-అంకెల UTR నమోదు చేయండి." : "Enter the actual 12-digit UTR from your UPI statement.");
+      return;
+    }
+    if (paymentConfig?.mode !== "manual_upi" || !paymentConfig.upi_id) {
+      setError(te ? "అధికారిక UPI చెల్లింపు వివరాలు ప్రస్తుతం అందుబాటులో లేవు. డబ్బు పంపవద్దు." : "Official UPI payment details are unavailable. Do not send money.");
       return;
     }
 
@@ -83,8 +92,8 @@ export default function SpotlightPromotionPage() {
           pitch_text: pitchText.trim(),
           photo_url: photoUrl.trim(),
           video_url: videoUrl.trim(),
-          payment_mode: paymentMode,
-          payment_ref: paymentRef.trim() || `UPI-${Date.now().toString().slice(-6)}`,
+          payment_mode: "manual_upi",
+          payment_ref: paymentRef.trim(),
           contact_opt: contactOpt,
         }),
       });
@@ -102,13 +111,12 @@ export default function SpotlightPromotionPage() {
     }
   };
 
-  const planObj = tiers[selectedPlan] || {
-    price: selectedPlan === "SPOT_30" ? 499 : selectedPlan === "SPOT_7" ? 199 : 99,
-    days: selectedPlan === "SPOT_30" ? 30 : selectedPlan === "SPOT_7" ? 7 : 3,
-  };
+  const planObj = tiers[selectedPlan];
+  const planPrice = Number(planObj?.price || 0);
+  const paymentReady = paymentConfig?.mode === "manual_upi" && Boolean(paymentConfig.upi_id);
 
   return (
-    <main className="min-h-dvh bg-[#FFF8E7] py-8 px-4 sm:px-6 lg:px-8 pb-36">
+    <div className="min-h-dvh bg-[#FFF8E7] py-8 px-4 sm:px-6 lg:px-8 pb-36">
       <div className="max-w-4xl mx-auto space-y-8">
         
         {/* Navigation Breadcrumb */}
@@ -118,7 +126,7 @@ export default function SpotlightPromotionPage() {
             <span>{te ? "హోమ్‌కి వెళ్లండి" : "Back to Home"}</span>
           </Link>
           <span className="text-[11px] font-bold bg-amber-200/60 text-maroon px-3 py-1 rounded-full border border-gold/40">
-            ⚡ 10x Profile Reach & Responses
+            ⭐ Sponsored profile promotion
           </span>
         </div>
 
@@ -131,8 +139,8 @@ export default function SpotlightPromotionPage() {
           </h1>
           <p className="mt-2 text-xs sm:text-sm text-amber-100 max-w-2xl mx-auto leading-relaxed">
             {te
-              ? "మీ ఫోటో మరియు వీడియో పరిచయంతో హోమ్‌పేజీ టాప్‌లో, మ్యాచెస్ సైడ్‌బార్‌లో మరియు 52+ ఛానళ్లలో ప్రత్యేకంగా కనిపించండి. త్వరితగతిన మంచి సంబంధం కుదుర్చుకోండి!"
-              : "Feature your profile with high-res photo and video intro at the top of homepage, matches section, and Telegram/WhatsApp channels for maximum alliance proposals."}
+              ? "చెల్లింపు మరియు మీడియా సమీక్ష పూర్తయ్యాక, ఎంచుకున్న కాలానికి మీ ప్రొఫైల్‌ను ప్రమోట్ చేస్తాం. ప్రచురణ సమయం మారవచ్చు."
+              : "After payment and media review, your profile can be featured for the selected duration. Publication timing may vary."}
           </p>
         </div>
 
@@ -145,8 +153,8 @@ export default function SpotlightPromotionPage() {
             <h2 className="text-xl font-extrabold text-gray-900">
               {te ? "ధన్యవాదాలు! మీ దరఖాస్తు నమోదైంది 🎉" : "Promotion Application Submitted! 🎉"}
             </h2>
-            <p className="text-sm text-gray-600 max-w-md mx-auto">
-              {result.message_telugu || (te ? "అడ్మిన్ టీమ్ వివరాలు పరిశీలించి 2 గంటల్లో లైవ్ చేస్తుంది." : "Our admin team will review media and activate your spotlight within 2 hours.")}
+            <p className="text-sm leading-relaxed text-gray-600 max-w-md mx-auto">
+              {result.message_telugu || (te ? "మీ దరఖాస్తు చెల్లింపు, మీడియా సమీక్ష కోసం వేచి ఉంది. ఆమోదం వచ్చే వరకు ఇది public లో కనిపించదు." : "Your application is awaiting payment and media review. It will not appear publicly until approved.")}
             </p>
             <div className="bg-amber-50 rounded-2xl p-4 max-w-sm mx-auto text-left text-xs text-maroon border border-amber-200 space-y-1">
               <div><b>Promo ID:</b> {result.item?.promo_id}</div>
@@ -177,28 +185,25 @@ export default function SpotlightPromotionPage() {
                 <label className="block text-xs font-bold text-gray-800 uppercase tracking-wider mb-2">
                   1. {te ? "ప్లాన్ ఎంచుకోండి" : "Select Promotion Plan"}
                 </label>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  {[
-                    { code: "SPOT_3", days: 3, price: 99, label: "3 Days", badge: "⚡ ₹99", desc: te ? "హోమ్ & మ్యాచెస్ బూస్ట్" : "Home & Matches" },
-                    { code: "SPOT_7", days: 7, price: 199, label: "7 Days", badge: "🌟 ₹199 (Best)", desc: te ? "వీడియో + ఛానల్ పిన్" : "Video + Channel Pin" },
-                    { code: "SPOT_30", days: 30, price: 499, label: "30 Days", badge: "💎 ₹499 (VIP)", desc: te ? "30 రోజులు సూపర్ స్పాట్‌లైట్" : "VIP Month Super" },
-                  ].map((p) => (
-                    <button
-                      key={p.code}
-                      type="button"
-                      onClick={() => setSelectedPlan(p.code)}
-                      className={`p-4 rounded-2xl border text-left transition-all ${
-                        selectedPlan === p.code
-                          ? "border-maroon bg-rose-50/60 shadow-md scale-[1.02] ring-2 ring-maroon/20"
-                          : "border-gray-200 hover:border-gold"
-                      }`}
-                    >
-                      <div className="font-extrabold text-sm text-maroon">{p.badge}</div>
-                      <div className="text-xs font-semibold text-gray-800 mt-1">{p.label}</div>
-                      <div className="text-[11px] text-gray-500 mt-0.5">{p.desc}</div>
-                    </button>
-                  ))}
-                </div>
+                {ratesLoading ? (
+                  <p className="rounded-xl bg-slate-50 p-4 text-sm text-slate-600" role="status">{te ? "ప్లాన్‌లను లోడ్ చేస్తున్నాం…" : "Loading current plans…"}</p>
+                ) : Object.keys(tiers).length ? (
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                    {Object.values(tiers).map((plan) => (
+                      <button key={plan.code} type="button" onClick={() => setSelectedPlan(plan.code)}
+                        aria-pressed={selectedPlan === plan.code}
+                        className={`min-w-0 rounded-2xl border p-4 text-left transition-all ${selectedPlan === plan.code ? "border-maroon bg-rose-50/60 shadow-md ring-2 ring-maroon/20" : "border-gray-200 hover:border-gold"}`}>
+                        <div className="break-words font-extrabold text-sm text-maroon">{plan.badge || plan.name_en}</div>
+                        <div className="mt-1 text-xs font-semibold text-gray-800">{plan.days} {te ? "రోజులు" : "days"} · ₹{plan.price}</div>
+                        <ul className="mt-2 space-y-1 text-[11px] leading-relaxed text-gray-600">
+                          {(plan.perks_te || []).map((perk) => <li key={perk}>• {perk}</li>)}
+                        </ul>
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900" role="alert">{te ? "ప్రస్తుతం ప్లాన్ వివరాలు అందుబాటులో లేవు." : "Plan details are currently unavailable."}</p>
+                )}
               </div>
 
               {/* Step 2: User Details */}
@@ -210,7 +215,7 @@ export default function SpotlightPromotionPage() {
                   <input
                     type="text"
                     required
-                    placeholder="e.g. TSAP-M-2026-1088"
+                    placeholder={te ? "రిజిస్టర్ చేసిన Profile ID" : "Registered Profile ID"}
                     value={tsapId}
                     onChange={(e) => setTsapId(e.target.value.toUpperCase())}
                     className="w-full px-4 py-2.5 rounded-xl border border-gray-300 text-sm focus:border-maroon focus:ring-1 focus:ring-maroon outline-none"
@@ -225,29 +230,25 @@ export default function SpotlightPromotionPage() {
 
                 {/* Step 3: Custom Pitch & Headline */}
                 <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-1">
-                    3. {te ? "ఆకర్షణీయమైన హెడ్‌లైన్ (Headline)" : "Punchy Headline"}
+                  <label htmlFor="spotlight-headline" className="block text-xs font-bold text-gray-700 mb-1">
+                    3. {te ? "హెడ్‌లైన్ (గరిష్ఠం 140 అక్షరాలు)" : "Headline (maximum 140 characters)"} <span className="text-red-600">*</span>
                   </label>
-                  <input
-                    type="text"
-                    placeholder={te ? "ఉదా: హైదరాబాద్ సాఫ్ట్‌వేర్ ఇంజనీర్ — మంచి కుటుంబ సంబంధం కోసం" : "e.g. Software Engineer in Hyderabad — Seeking cultured alliance"}
-                    value={headline}
-                    onChange={(e) => setHeadline(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-xl border border-gray-300 text-sm focus:border-maroon focus:ring-1 focus:ring-maroon outline-none"
-                  />
+                  <input id="spotlight-headline" type="text" required maxLength={140}
+                    placeholder={te ? "మీరు పంచుకోవాలనుకునే చిన్న పరిచయం" : "A short headline in your own words"}
+                    value={headline} onChange={(e) => setHeadline(e.target.value)}
+                    className="w-full rounded-xl border border-gray-300 px-4 py-2.5 text-sm outline-none focus:border-maroon focus:ring-1 focus:ring-maroon" />
+                  <p className="text-right text-[10px] text-slate-500">{headline.length}/140</p>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-1">
-                    4. {te ? "మీ వ్యక్తిగత పరిచయం & కోరికలు (Alliance Pitch)" : "Alliance Bio & Expectations"}
+                  <label htmlFor="spotlight-pitch" className="block text-xs font-bold text-gray-700 mb-1">
+                    4. {te ? "మీ పరిచయం మరియు అంచనాలు (గరిష్ఠం 600 అక్షరాలు)" : "Your introduction and expectations (maximum 600 characters)"} <span className="text-red-600">*</span>
                   </label>
-                  <textarea
-                    rows={3}
-                    placeholder={te ? "మీ కుటుంబం, చదువు, ఉద్యోగం మరియు కాబోయే జీవిత భాగస్వామి నుంచి మీ అంచనాలను 2-3 వాక్యాలలో రాయండి..." : "Write 2-3 lines introducing yourself, family background, and partner preferences..."}
-                    value={pitchText}
-                    onChange={(e) => setPitchText(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-xl border border-gray-300 text-sm focus:border-maroon focus:ring-1 focus:ring-maroon outline-none"
-                  />
+                  <textarea id="spotlight-pitch" rows={4} required maxLength={600}
+                    placeholder={te ? "మీ గురించి, కుటుంబం గురించి, భాగస్వామిలో కోరుకునే విషయాలను మీ మాటల్లో రాయండి." : "In your own words, share about yourself, your family, and what you hope to find."}
+                    value={pitchText} onChange={(e) => setPitchText(e.target.value)}
+                    className="w-full resize-y rounded-xl border border-gray-300 px-4 py-2.5 text-sm leading-relaxed outline-none focus:border-maroon focus:ring-1 focus:ring-maroon" />
+                  <p className="text-right text-[10px] text-slate-500">{pitchText.length}/600</p>
                 </div>
 
                 {/* Step 4: Media Links (Photo + Video) */}
@@ -279,36 +280,47 @@ export default function SpotlightPromotionPage() {
                   </div>
                 </div>
 
-                {/* Step 5: Payment Info */}
-                <div className="bg-amber-50/70 rounded-2xl p-4 border border-amber-200 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-maroon">💰 {te ? "చెల్లించాల్సిన మొత్తం:" : "Amount to Pay:"}</span>
-                    <span className="text-base font-extrabold text-maroon">₹{planObj.price}</span>
+                {/* Step 5: Payment details */}
+                <div className="space-y-3 rounded-2xl border border-amber-200 bg-amber-50/70 p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="text-xs font-bold text-maroon">💰 {te ? "ప్లాన్ మొత్తం" : "Plan amount"}</span>
+                    <span className="text-base font-extrabold text-maroon">{planObj ? `₹${planPrice}` : "—"}</span>
                   </div>
-
-                  <div className="text-[11px] text-gray-600">
-                    {te
-                      ? "UPI ID: `manavivaha@icici` కి ₹" + planObj.price + " Google Pay/PhonePe/Paytm ద్వారా చెల్లించి, క్రింద UTR / Ref Number నమోదు చేయండి."
-                      : "Pay ₹" + planObj.price + " via UPI to `manavivaha@icici` and enter your UTR / Transaction Reference below."}
-                  </div>
-
-                  <input
-                    type="text"
-                    placeholder={te ? "UPI Transaction Ref / UTR నంబర్" : "UPI Transaction Ref / UTR"}
-                    value={paymentRef}
-                    onChange={(e) => setPaymentRef(e.target.value)}
-                    className="w-full px-4 py-2 rounded-xl bg-white border border-gray-300 text-xs focus:border-maroon outline-none"
-                  />
+                  {paymentReady ? (
+                    <>
+                      <div className="space-y-2 text-xs text-gray-700">
+                        <p>{te ? "చెల్లింపు కోసం ప్రస్తుత merchant UPI ID:" : "Configured merchant UPI ID for payment:"}</p>
+                        <div className="flex min-w-0 flex-col gap-2 rounded-xl border border-amber-200 bg-white p-3 sm:flex-row sm:items-center sm:justify-between">
+                          <code className="min-w-0 break-all font-bold text-maroon">{paymentConfig?.upi_id}</code>
+                          <a className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-lg bg-maroon px-3 py-2 text-center font-bold text-white"
+                            href={`upi://pay?pa=${encodeURIComponent(paymentConfig?.upi_id || "")}&pn=${encodeURIComponent("Mana Vivaha")}&am=${planPrice}&cu=INR&tn=${encodeURIComponent(`Spotlight ${selectedPlan}`)}`}>
+                            {te ? `UPI యాప్ తెరవండి · ₹${planPrice}` : `Open UPI app · ₹${planPrice}`}
+                          </a>
+                        </div>
+                        <p className="leading-relaxed text-slate-600">
+                          {te ? "చెల్లింపు పూర్తయ్యాక UPI statement లోని నిజమైన 12-అంకెల UTR నమోదు చేయండి. UTR సమర్పణ మాత్రమే payment confirmation కాదు; admin బ్యాంక్ స్టేట్‌మెంట్‌తో సరిపోల్చాలి." : "After paying, enter the actual 12-digit UTR from your UPI statement. Submitting a UTR is not payment confirmation; an administrator must match it against the bank statement."}
+                        </p>
+                      </div>
+                      <label htmlFor="spotlight-utr" className="block text-xs font-bold text-gray-700">
+                        {te ? "నిజమైన 12-అంకెల UTR" : "Actual 12-digit UTR"} <span className="text-red-600">*</span>
+                      </label>
+                      <input id="spotlight-utr" type="text" inputMode="numeric" autoComplete="off" maxLength={12} required
+                        placeholder="12-digit UTR" value={paymentRef}
+                        onChange={(e) => setPaymentRef(e.target.value.replace(/\D/g, "").slice(0, 12))}
+                        className="w-full rounded-xl border border-gray-300 bg-white px-4 py-2.5 font-mono text-sm outline-none focus:border-maroon" />
+                    </>
+                  ) : (
+                    <div className="rounded-xl border border-amber-300 bg-white p-3 text-xs leading-relaxed text-amber-950" role="alert">
+                      {te ? "ఈ ప్రమోషన్‌కు UPI payment ప్రస్తుతం configure కాలేదు. అధికారిక చెల్లింపు వివరాలు కనిపించే వరకు డబ్బు పంపవద్దు." : "UPI payment for this promotion is not configured. Do not send money until an official destination is shown."}
+                    </div>
+                  )}
                 </div>
               </div>
 
               {/* Submit Button */}
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full py-3.5 rounded-2xl maroon-gradient text-white font-extrabold text-sm shadow-brand hover:brightness-110 active:scale-[0.98] transition-all disabled:opacity-50"
-              >
-                {loading ? (te ? "నమోదు చేస్తున్నాం…" : "Submitting…") : `🚀 ${te ? "స్పాట్‌లైట్ ప్రమోషన్ సమర్పించండి" : "Submit Spotlight Promotion"} (₹${planObj.price})`}
+              <button type="submit" disabled={loading || ratesLoading || !planObj || !paymentReady}
+                className="w-full rounded-2xl maroon-gradient py-3.5 text-sm font-extrabold text-white shadow-brand transition-all hover:brightness-110 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50">
+                {loading ? (te ? "నమోదు చేస్తున్నాం…" : "Submitting…") : !paymentReady ? (te ? "చెల్లింపు అందుబాటులో లేదు" : "Payment unavailable") : `${te ? "స్పాట్‌లైట్ దరఖాస్తు సమర్పించండి" : "Submit spotlight application"}${planObj ? ` · ₹${planPrice}` : ""}`}
               </button>
             </form>
 
@@ -318,50 +330,49 @@ export default function SpotlightPromotionPage() {
                 👁️ {te ? "హోమ్‌పేజీలో ఎలా కనిపిస్తుంది:" : "Live Preview on Homepage:"}
               </div>
 
-              <div className="bg-white rounded-3xl overflow-hidden border border-amber-300 shadow-lg p-0">
-                <div className="relative h-48 bg-slate-900">
-                  <img
-                    src={photoUrl || "/promo/cine-1.jpg"}
-                    alt="Preview"
-                    className="w-full h-full object-cover"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent" />
-                  <div className="absolute top-2 left-2">
-                    <span className="px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase bg-amber-400 text-maroon">
-                      {selectedPlan === "SPOT_30" ? "💎 VIP SPOTLIGHT" : "✨ PROFILE OF THE DAY"}
+              <div className="overflow-hidden rounded-3xl border border-amber-300 bg-white shadow-lg">
+                <div className="relative flex h-48 items-center justify-center overflow-hidden bg-gradient-to-br from-rose-100 via-amber-50 to-slate-100">
+                  {photoUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={photoUrl} alt={te ? "మీ ఫోటో ప్రివ్యూ" : "Your photo preview"} className="h-full w-full object-cover" />
+                  ) : (
+                    <div className="text-center text-maroon">
+                      <div className="text-4xl" aria-hidden="true">💍</div>
+                      <div className="mt-1 text-xs font-semibold">{te ? "మీ ఫోటో ఇక్కడ కనిపిస్తుంది" : "Your photo appears here"}</div>
+                    </div>
+                  )}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-transparent" aria-hidden="true" />
+                  <div className="absolute left-3 right-3 top-3">
+                    <span className="inline-block max-w-full break-words rounded-full bg-amber-300 px-2.5 py-1 text-[9px] font-black uppercase text-maroon">
+                      {planObj?.badge || (te ? "ప్రమోట్ చేసిన ప్రొఫైల్" : "Sponsored profile")}
                     </span>
                   </div>
-                  <div className="absolute bottom-2 left-3 right-3 text-white">
-                    <div className="font-bold text-sm truncate">{tsapId || "Your Name"}</div>
-                    <div className="text-[10px] text-amber-200">28 Yrs · Verified Alliance</div>
+                  <div className="absolute bottom-3 left-3 right-3 text-white">
+                    <div className="break-words text-sm font-bold">{te ? "మీ రిజిస్టర్ చేసిన ప్రొఫైల్" : "Your registered profile"}</div>
+                    <div className="text-[10px] text-amber-100">{te ? "ఆమోదం తర్వాత మాత్రమే public అవుతుంది" : "Shown publicly only after review"}</div>
                   </div>
                 </div>
 
-                <div className="p-4 space-y-2">
-                  <div className="text-xs font-bold text-maroon truncate">
-                    📍 {headline || (te ? "హైదరాబాద్ ప్రొఫెషనల్" : "Hyderabad Professional")}
+                <div className="space-y-3 p-4">
+                  <div className="break-words rounded-lg bg-amber-50 p-2 text-xs font-bold leading-relaxed text-maroon">
+                    {headline || (te ? "మీ హెడ్‌లైన్ ప్రివ్యూ" : "Your headline preview")}
                   </div>
-                  <p className="text-[11px] text-gray-600 line-clamp-3 italic bg-slate-50 p-2 rounded-xl">
-                    &ldquo;{pitchText || (te ? "మంచి విద్యావంతులైన భాగస్వామి కోసం చూస్తున్నాము..." : "Looking for a well-educated, cultured life partner...")}&rdquo;
+                  <p className="min-h-16 break-words rounded-xl bg-slate-50 p-3 text-[11px] leading-relaxed text-gray-600">
+                    {pitchText || (te ? "మీ పరిచయం ఇక్కడ కనిపిస్తుంది." : "Your introduction will appear here.")}
                   </p>
-                  <div className="pt-2 flex gap-2">
-                    <div className="flex-1 py-1.5 rounded-lg maroon-gradient text-white text-[10px] font-bold text-center">
-                      💍 {te ? "సంబంధం పంపండి" : "Send Interest"}
-                    </div>
-                    <div className="py-1.5 px-3 rounded-lg border border-gold text-maroon text-[10px] font-bold text-center">
-                      👀 View
-                    </div>
-                  </div>
+                  <p className="text-[10px] leading-relaxed text-slate-500">
+                    {te ? "ఇది preview మాత్రమే. ఆమోదానికి ముందు నిజమైన profile వివరాలు, మీడియా పరిశీలిస్తారు." : "Preview only. Real profile details and media are reviewed before approval."}
+                  </p>
                 </div>
               </div>
 
               {/* Trust Box */}
               <div className="bg-white/80 rounded-2xl p-4 border border-gold/30 text-xs text-gray-700 space-y-2">
-                <div className="font-bold text-maroon">🛡️ 100% Manual Review</div>
-                <div className="text-[11px] text-gray-600 leading-relaxed">
+                <div className="font-bold text-maroon">🛡️ {te ? "సమీక్ష ప్రక్రియ" : "Review process"}</div>
+                <div className="text-[11px] leading-relaxed text-gray-600">
                   {te
-                    ? "అభ్యంతరకరమైన ఫోటోలు లేదా తప్పుడు వివరాలు అనుమతించబడవు. ప్రతి ప్రమోషన్‌ను మా అడ్మిన్ టీమ్ పరిశీలించిన తర్వాతే లైవ్ చేస్తుంది."
-                    : "No fake profiles or improper media allowed. Our safety operations team reviews every submission before making it live."}
+                    ? "UTR ను బ్యాంక్ స్టేట్‌మెంట్‌తో సరిపోల్చి, మీడియా/వివరాలను సమీక్షించిన తర్వాత మాత్రమే దరఖాస్తు ఆమోదించబడుతుంది. సమయం మారవచ్చు."
+                    : "Applications are approved only after the UTR is matched to the bank statement and the submitted details/media are reviewed. Review timing may vary."}
                 </div>
               </div>
             </div>
@@ -370,6 +381,6 @@ export default function SpotlightPromotionPage() {
         )}
 
       </div>
-    </main>
+    </div>
   );
 }

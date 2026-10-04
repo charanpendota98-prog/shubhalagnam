@@ -4,32 +4,29 @@
  * 👑 MANA VIVAHA — SMART MATRIMONY REGISTRATION & 1-MINUTE ONBOARDING (V5.5)
  * =========================================================================
  * • ⚡ 1-Minute Quick Registration Mode vs 🌟 5-Step Detailed Registration Mode
- * • 🎁 Auto-Locked Referral QR Support + Instant Welcome Credit Bonuses
+ * • 🎁 Auto-Locked Referral Links + Explicit Interest-Request Credits
  * • 100% Progressive Profile Completion Loop with Seamless Handoff to /me
  * • Responsive Dual-Column Desktop Layout + Live Matrimony Card Preview
  * • Strict Photo Validation: Client-side HD compression, clarity check, privacy toggle
- * • 1-Click Sample Demos, Voice Typing Bio 🎙️, AI Bio Generators
- * • Real-time Draft Auto-Save & Permanent DB Persistence
+ * • No prefilled profile data; users enter and select their own details
+ * • Real-time Draft Auto-Save & server-confirmed registration status
  */
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Suspense, useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import Reveal from "@/components/Reveal";
 import { SITE_CONFIG } from "@/lib/site-config";
-import { authHeaders } from "@/lib/api";
-import { Duo, duo } from "@/lib/duo";
 import { useLang } from "@/lib/lang";
 import { stateFullName } from "@/lib/telugu-data";
 import PhotoFlow from "@/components/PhotoFlow";
 import { TelegramIcon, WhatsAppIcon } from "@/components/BrandIcons";
-import { waLink } from "@/lib/wa";
 import {
   BLOOD_GROUPS,
   BODY_TYPES,
-  CASTES,
   CASTE_SUBCASTES,
   CASTE_TELUGU,
   CHILDREN_OPTIONS,
+  COMMUNITIES_BY_RELIGION,
   COMPLEXIONS,
   DISTRICTS_BY_STATE,
   DISTRICT_TELUGU,
@@ -47,6 +44,7 @@ import {
   NAK_TO_RASI,
   NRI_COUNTRIES,
   OCCUPATIONS,
+  OTHER_COMMUNITY_OPTION,
   OTHER_INDIAN_STATES,
   OTHER_LOCATIONS,
   PHYSICAL_STATUS,
@@ -62,10 +60,21 @@ import {
   ageFromDob,
   compressImage,
   heightLabel,
-  maxDobFor18,
+  maxDobForAge,
+  RELIGIONS,
+  sortUniqueOptions,
 } from "@/lib/telugu-data";
 
-const DRAFT_KEY = "shubhalagnam_reg_draft_v5";
+const DRAFT_KEY = "shubhalagnam_reg_draft_v6";
+const RELIGION_LABELS: Record<string, string> = {
+  Hindu: "హిందూ (Hindu)",
+  Muslim: "ముస్లిం (Muslim)",
+  Christian: "క్రైస్తవ (Christian)",
+  Sikh: "సిక్కు (Sikh)",
+  Jain: "జైన (Jain)",
+  Buddhist: "బౌద్ధ (Buddhist)",
+  Other: "ఇతర మతం (Other)",
+};
 
 const STEPS = [
   { n: 1, label: "Basic Details", labelTe: "ప్రాథమిక వివరాలు", icon: "🙋", hint: "వధువు/వరుడు, పేరు, వయసు & ఎత్తు", hintEn: "Bride/Groom, name, age & height" },
@@ -78,53 +87,55 @@ const STEPS = [
 const DEFAULT_FORM: Record<string, any> = {
   gender: "",
   full_name: "",
-  profile_for: "Self",
+  profile_for: "",
   dob: "",
   birth_time: "",
   age: "",
-  height: "5'5\"",
-  marital_status: "Pelli Kaledu",
+  height: "",
+  marital_status: "",
   children: "",
-  religion: "Hindu",
-  mother_tongue: "Telugu",
+  religion: "",
+  mother_tongue: "",
   caste: "",
+  caste_custom: "",
   sub_caste: "",
+  sub_caste_custom: "",
   gothram: "",
   star: "",
   rasi: "",
-  moola_nakshatram: "No",
-  dosham: "No",
-  work_type: "Software / IT / Tech",
-  education: "B.Tech / Graduate",
+  moola_nakshatram: "",
+  dosham: "",
+  work_type: "",
+  education: "",
   education_detail: "",
-  job: "Private Sector",
+  job: "",
   company: "",
-  salary: "₹7 - 10 Lakhs / year",
-  experience: "3 years",
-  work_location: "Hyderabad",
+  salary: "",
+  experience: "",
+  work_location: "",
   father_name: "",
   father_occupation: "",
   mother_name: "",
   mother_occupation: "",
-  brothers: "0",
-  brothers_married: "0",
-  sisters: "0",
-  sisters_married: "0",
-  family_type: "Nuclear",
-  family_status: "Middle Class",
-  family_values: "Traditional",
+  brothers: "",
+  brothers_married: "",
+  sisters: "",
+  sisters_married: "",
+  family_type: "",
+  family_status: "",
+  family_values: "",
   native_place: "",
-  state: "TS",
+  state: "",
   district: "",
   nri_country: "",
   mandal: "",
   current_city: "",
-  country: "India",
+  country: "",
   pincode: "",
   phone: "",
   email: "",
   password: "",
-  photo_private: false,
+  photo_private: true,
   about_myself: "",
   expectations: "",
   exp_age_min: "",
@@ -132,12 +143,12 @@ const DEFAULT_FORM: Record<string, any> = {
   exp_job: "",
   exp_location: "",
   exp_caste: "",
-  physical_status: "Normal",
-  body_type: "Average",
-  complexion: "Fair",
+  physical_status: "",
+  body_type: "",
+  complexion: "",
   blood_group: "",
   referral_code: "",
-  consent: true,
+  consent_confirmed: false,
 };
 
 /* ---------------- UI Helpers ---------------- */
@@ -146,6 +157,7 @@ function Chip({ on, gold, children, onClick }: { on?: boolean; gold?: boolean; c
     <button
       type="button"
       onClick={onClick}
+      aria-pressed={!!on}
       className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all border ${
         on
           ? gold
@@ -181,6 +193,7 @@ function ChipGroup({
   cols?: number;
 }) {
   const [q, setQ] = useState("");
+  const groupId = useId();
   const list = useMemo(() => {
     const needle = q.trim().toLowerCase();
     if (!needle) return options;
@@ -188,29 +201,48 @@ function ChipGroup({
   }, [q, options]);
 
   return (
-    <div className="space-y-1.5">
-      <label className="text-[13px] font-bold text-slate-800 flex items-center justify-between">
-        <span>
-          {label} {required ? <span className="text-rose-600 font-black">*</span> : <span className="text-[11px] text-gray-400 font-normal">(ఐచ్ఛికం)</span>}
-        </span>
-      </label>
+    <fieldset aria-required={required} className="min-w-0 space-y-1.5 border-0 p-0">
+      <legend id={groupId} className="text-[13px] font-bold text-slate-800">
+        {label} {required ? <span className="text-rose-600 font-black">*</span> : <span className="text-[11px] text-gray-400 font-normal">(ఐచ్ఛికం)</span>}
+      </legend>
       {hint && <div className="text-[11px] text-slate-500">{hint}</div>}
       {searchable && (
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="🔍 టైప్ చేసి వెతకండి / Type to search…"
+          aria-label={`${String(label)} — search options`}
           className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-maroon/20 focus:border-maroon"
           inputMode="search"
         />
       )}
-      <div className={`flex flex-wrap gap-2 ${cols === 1 ? "flex-col" : ""}`}>
+      <div role="group" aria-labelledby={groupId} className={`flex flex-wrap gap-2 ${cols === 1 ? "flex-col" : ""}`}>
         {list.slice(0, searchable ? 60 : 40).map((o) => (
           <Chip key={o.v} on={value === o.v} gold={te} onClick={() => onChange(value === o.v ? "" : o.v)}>
             {te && o.te ? <span className="telugu font-semibold">{o.te}</span> : null}
             <span>{o.v}</span>
           </Chip>
         ))}
+      </div>
+    </fieldset>
+  );
+}
+
+function ConsentNotice({ checked, onChange }: { checked: boolean; onChange: (checked: boolean) => void }) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700 space-y-1.5">
+      <label htmlFor="registration-consent" className="flex items-start gap-2.5 cursor-pointer">
+        <input
+          id="registration-consent"
+          type="checkbox"
+          checked={checked}
+          onChange={(event) => onChange(event.target.checked)}
+          className="mt-0.5 h-4 w-4 shrink-0 accent-[#7A0C2E]"
+        />
+        <span>ఈ ప్రొఫైల్ నా సొంతది లేదా దాని వివరాలు నమోదు చేయడానికి నాకు స్పష్టమైన అనుమతి ఉంది. సమర్పించిన వివరాలను సేవా నిబంధనలు మరియు గోప్యతా విధానం ప్రకారం ఉపయోగించడానికి నేను అంగీకరిస్తున్నాను. (I confirm I own this profile or have permission to submit it, and consent to processing under the Terms and Privacy Policy.)</span>
+      </label>
+      <div className="pl-6 text-[11px]">
+        చదవండి: <Link href="/terms" className="font-bold text-maroon underline">సేవా నిబంధనలు</Link> · <Link href="/privacy" className="font-bold text-maroon underline">గోప్యతా విధానం</Link>
       </div>
     </div>
   );
@@ -225,6 +257,7 @@ function SearchSelect({
   hint,
   placeholder,
   teMap,
+  disabled,
 }: {
   label: React.ReactNode;
   options: string[];
@@ -234,18 +267,26 @@ function SearchSelect({
   hint?: string;
   placeholder?: string;
   teMap?: Record<string, string>;
+  disabled?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
+  const fieldId = useId();
+  const optionsId = `${fieldId}-options`;
   const boxRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
-    const onDoc = (e: MouseEvent) => {
+    const onDoc = (e: PointerEvent) => {
       if (boxRef.current && !boxRef.current.contains(e.target as Node)) setOpen(false);
     };
-    document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
+    document.addEventListener("pointerdown", onDoc);
+    return () => document.removeEventListener("pointerdown", onDoc);
   }, []);
+
+  useEffect(() => {
+    if (disabled) setOpen(false);
+  }, [disabled]);
 
   const list = useMemo(() => {
     const needle = q.trim().toLowerCase();
@@ -255,7 +296,7 @@ function SearchSelect({
 
   return (
     <div className="space-y-1.5 relative" ref={boxRef}>
-      <label className="text-[13px] font-bold text-slate-800 flex items-center justify-between">
+      <label htmlFor={fieldId} id={`${fieldId}-label`} className="text-[13px] font-bold text-slate-800 flex items-center justify-between">
         <span>
           {label} {required ? <span className="text-rose-600 font-black">*</span> : <span className="text-[11px] text-gray-400 font-normal">(ఐచ్ఛికం)</span>}
         </span>
@@ -263,24 +304,44 @@ function SearchSelect({
       {hint && <div className="text-[11px] text-slate-500">{hint}</div>}
 
       <button
+        ref={triggerRef}
+        id={fieldId}
         type="button"
+        aria-labelledby={`${fieldId}-label ${fieldId}-value`}
+        aria-expanded={open}
+        aria-controls={optionsId}
+        aria-required={required}
+        aria-disabled={disabled || undefined}
+        disabled={disabled}
         onClick={() => setOpen(!open)}
         className={`w-full text-left bg-white border rounded-xl px-3.5 py-2.5 text-xs font-medium flex items-center justify-between transition ${
-          open ? "border-maroon ring-2 ring-maroon/20" : "border-slate-200 hover:border-slate-300"
+          disabled ? "cursor-not-allowed bg-slate-50 text-slate-400" : open ? "border-maroon ring-2 ring-maroon/20" : "border-slate-200 hover:border-slate-300"
         }`}
       >
-        <span className={value ? "text-slate-900 font-bold" : "text-slate-400"}>
+        <span id={`${fieldId}-value`} className={value ? "text-slate-900 font-bold" : "text-slate-400"}>
           {value ? (teMap && teMap[value] ? `${teMap[value]} (${value})` : value) : placeholder || "ఎంచుకోండి (Select)…"}
         </span>
         <span className="text-slate-400 text-[10px]">▼</span>
       </button>
 
       {open && (
-        <div className="absolute top-full left-0 right-0 z-50 mt-1 bg-white border border-slate-200 rounded-2xl shadow-xl p-2 max-h-60 overflow-y-auto space-y-1">
+        <div
+          id={optionsId}
+          className="absolute top-full left-0 right-0 z-50 mt-1 bg-white border border-slate-200 rounded-2xl shadow-xl p-2 max-h-60 overflow-y-auto space-y-1"
+          onKeyDown={(event) => {
+            if (event.key === "Escape") {
+              event.preventDefault();
+              setOpen(false);
+              triggerRef.current?.focus();
+            }
+          }}
+        >
           <input
             autoFocus
+            type="search"
             value={q}
             onChange={(e) => setQ(e.target.value)}
+            aria-label="Search available options"
             placeholder="🔍 వెతకండి / Type to filter…"
             className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-maroon mb-1"
           />
@@ -324,17 +385,19 @@ function PillGroup({
   onChange: (v: string) => void;
   required?: boolean;
 }) {
+  const groupId = useId();
   return (
-    <div className="space-y-1.5">
-      <label className="text-[13px] font-bold text-slate-800">
+    <fieldset aria-required={required} className="min-w-0 space-y-1.5 border-0 p-0">
+      <legend id={groupId} className="text-[13px] font-bold text-slate-800">
         {label} {required && <span className="text-rose-600 font-black">*</span>}
-      </label>
-      <div className="flex flex-wrap gap-2">
+      </legend>
+      <div role="group" aria-labelledby={groupId} className="flex flex-wrap gap-2">
         {options.map((o) => (
           <button
             key={o.v}
             type="button"
             onClick={() => onChange(o.v)}
+            aria-pressed={value === o.v}
             className={`px-3 py-1.5 rounded-xl text-xs font-bold transition border ${
               value === o.v ? "bg-maroon text-white border-maroon shadow-xs" : "bg-white text-slate-700 border-slate-200"
             }`}
@@ -343,7 +406,7 @@ function PillGroup({
           </button>
         ))}
       </div>
-    </div>
+    </fieldset>
   );
 }
 
@@ -362,12 +425,15 @@ function SelectField({
   placeholder?: string;
   required?: boolean;
 }) {
+  const fieldId = useId();
   return (
     <div className="space-y-1.5">
-      <label className="text-[13px] font-bold text-slate-800">
+      <label htmlFor={fieldId} className="text-[13px] font-bold text-slate-800">
         {label} {required && <span className="text-rose-600 font-black">*</span>}
       </label>
       <select
+        id={fieldId}
+        required={required}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-medium"
@@ -393,6 +459,7 @@ function TextField({
   hint,
   disabled,
   maxLength,
+  max,
 }: {
   label: React.ReactNode;
   value: any;
@@ -403,19 +470,24 @@ function TextField({
   hint?: string;
   disabled?: boolean;
   maxLength?: number;
+  max?: string;
 }) {
+  const fieldId = useId();
   return (
     <div className="space-y-1.5">
-      <label className="text-[13px] font-bold text-slate-800 flex items-center justify-between">
+      <label htmlFor={fieldId} className="text-[13px] font-bold text-slate-800 flex items-center justify-between">
         <span>
           {label} {required ? <span className="text-rose-600 font-black">*</span> : <span className="text-[11px] text-gray-400 font-normal">(ఐచ్ఛికం)</span>}
         </span>
       </label>
       {hint && <div className="text-[11px] text-slate-500">{hint}</div>}
       <input
+        id={fieldId}
+        aria-required={required}
         type={type}
         disabled={disabled}
         maxLength={maxLength}
+        max={max}
         value={value ?? ""}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
@@ -451,28 +523,126 @@ function Wizard() {
   const [result, setResult] = useState<any>(null);
   const topRef = useRef<HTMLDivElement>(null);
 
-  const [casteOpts, setCasteOpts] = useState<string[]>(CASTES);
-
-  useEffect(() => {
-    let live = true;
-    fetch(`/api/meta/castes?religion=${encodeURIComponent(f.religion || "Hindu")}`)
-      .then((r) => r.json())
-      .then((d) => {
-        if (live && d?.success && Array.isArray(d.castes) && d.castes.length) {
-          setCasteOpts(d.castes);
-          if (f.caste && !d.castes.includes(f.caste)) set("caste", "");
-        }
-      })
-      .catch(() => setCasteOpts(CASTES));
-    return () => {
-      live = false;
-    };
-  }, [f.religion]);
+  const [casteOpts, setCasteOpts] = useState<string[]>([]);
+  const [casteLoading, setCasteLoading] = useState(false);
+  const [casteListOffline, setCasteListOffline] = useState(false);
+  const [subcasteOpts, setSubcasteOpts] = useState<string[]>([]);
+  const [subcasteLoading, setSubcasteLoading] = useState(false);
+  const [subcasteListOffline, setSubcasteListOffline] = useState(false);
 
   const set = (k: string, v: any) => {
     setF((prev) => ({ ...prev, [k]: v }));
     setErrs([]);
   };
+
+  const setReligion = (religion: string) => {
+    setF((prev) => ({
+      ...prev,
+      religion,
+      caste: "",
+      caste_custom: "",
+      sub_caste: "",
+      sub_caste_custom: "",
+    }));
+    setErrs([]);
+  };
+
+  const setCaste = (caste: string) => {
+    setF((prev) => ({
+      ...prev,
+      caste,
+      caste_custom: caste === "Other / self-described" ? prev.caste_custom : "",
+      sub_caste: "",
+      sub_caste_custom: "",
+    }));
+    setErrs([]);
+  };
+
+  const setSubcaste = (sub_caste: string) => {
+    setF((prev) => ({
+      ...prev,
+      sub_caste,
+      sub_caste_custom: sub_caste === "Other / self-described" ? prev.sub_caste_custom : "",
+    }));
+    setErrs([]);
+  };
+
+  useEffect(() => {
+    const religion = String(f.religion || "");
+    let live = true;
+    if (!religion) {
+      setCasteOpts([]);
+      setCasteLoading(false);
+      setCasteListOffline(false);
+      return () => { live = false; };
+    }
+
+    const local = COMMUNITIES_BY_RELIGION[religion] || [];
+    setCasteOpts(sortUniqueOptions([...local, OTHER_COMMUNITY_OPTION]));
+    setCasteLoading(true);
+    setCasteListOffline(false);
+    fetch(`/api/meta/castes?religion=${encodeURIComponent(religion)}`)
+      .then((r) => {
+        if (!r.ok) throw new Error("Community list request failed");
+        return r.json();
+      })
+      .then((d) => {
+        if (!live) return;
+        if (!d?.success || !Array.isArray(d.castes)) throw new Error("Invalid community list response");
+        const apiOptions = (d.castes as unknown[])
+          .map((value) => String(value || "").trim())
+          .filter(Boolean);
+        setCasteOpts(sortUniqueOptions([...apiOptions, ...local, OTHER_COMMUNITY_OPTION]));
+        setCasteLoading(false);
+      })
+      .catch(() => {
+        if (!live) return;
+        setCasteOpts(sortUniqueOptions([...local, OTHER_COMMUNITY_OPTION]));
+        setCasteListOffline(true);
+        setCasteLoading(false);
+      });
+
+    return () => { live = false; };
+  }, [f.religion]);
+
+  useEffect(() => {
+    const religion = String(f.religion || "");
+    const caste = String(f.caste || "");
+    let live = true;
+    if (!religion || !caste || caste === "Other / self-described") {
+      setSubcasteOpts([]);
+      setSubcasteLoading(false);
+      setSubcasteListOffline(false);
+      return () => { live = false; };
+    }
+
+    const local = religion === "Hindu" ? (CASTE_SUBCASTES[caste] || []) : [];
+    const withSelfDescription = (values: string[]) =>
+      sortUniqueOptions([...values, OTHER_COMMUNITY_OPTION]);
+    setSubcasteOpts(withSelfDescription(local));
+    setSubcasteLoading(true);
+    setSubcasteListOffline(false);
+
+    fetch(`/api/meta/subcastes?religion=${encodeURIComponent(religion)}&caste=${encodeURIComponent(caste)}`)
+      .then((response) => {
+        if (!response.ok) throw new Error("Sub-community request failed");
+        return response.json();
+      })
+      .then((data) => {
+        if (!live) return;
+        if (!data?.success || !Array.isArray(data.subcastes)) throw new Error("Invalid sub-community list response");
+        setSubcasteOpts(withSelfDescription([...data.subcastes, ...local]));
+        setSubcasteLoading(false);
+      })
+      .catch(() => {
+        if (!live) return;
+        setSubcasteOpts(withSelfDescription(local));
+        setSubcasteListOffline(true);
+        setSubcasteLoading(false);
+      });
+
+    return () => { live = false; };
+  }, [f.religion, f.caste]);
 
   // Referral param sync & locking
   useEffect(() => {
@@ -517,7 +687,7 @@ function Wizard() {
   const resumeDraft = () => {
     try {
       const d = JSON.parse(localStorage.getItem(DRAFT_KEY) || "{}");
-      setF({ ...DEFAULT_FORM, ...(d.data || {}) });
+      setF({ ...DEFAULT_FORM, ...(d.data || {}), password: "", consent_confirmed: false });
       setStep(Math.min(5, Math.max(1, d.step || 1)));
       setDraftFound(false);
     } catch {
@@ -536,7 +706,8 @@ function Wizard() {
     const t = setTimeout(() => {
       try {
         const now = new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
-        localStorage.setItem(DRAFT_KEY, JSON.stringify({ data: f, step, savedAt: now }));
+        const draftData = { ...f, password: "", consent_confirmed: false };
+        localStorage.setItem(DRAFT_KEY, JSON.stringify({ data: draftData, step, savedAt: now }));
         setSavedAt(now);
       } catch {
         /* ignore */
@@ -546,8 +717,9 @@ function Wizard() {
   }, [f, step, result]);
 
   useEffect(() => {
-    const a = ageFromDob(f.dob);
-    if (a && String(a) !== String(f.age)) setF((prev) => ({ ...prev, age: String(a) }));
+    const age = ageFromDob(f.dob);
+    const nextAge = age === null ? "" : String(age);
+    setF((prev) => prev.age === nextAge ? prev : ({ ...prev, age: nextAge }));
   }, [f.dob]);
 
   useEffect(() => {
@@ -561,9 +733,13 @@ function Wizard() {
     if (!f.gender) e.push(T("వధువు / వరుడు ఎంచుకోండి (Select Bride / Groom)", "Select Bride / Groom"));
     if (!String(f.full_name).trim()) e.push(T("పూర్తి పేరు నమోదు చేయండి (Enter full name)", "Enter full name"));
     if (!f.dob) e.push(T("పుట్టిన తేదీ ఎంచుకోండి (Select date of birth)", "Select date of birth"));
-    else if (!ageFromDob(f.dob)) e.push(T("పుట్టిన తేదీ ప్రకారం కనీసం 18 ఏళ్లు ఉండాలి", "DOB must be at least 18 years"));
-    if (!f.caste) e.push(T("కులం ఎంచుకోండి (Select caste)", "Select caste"));
-    if (!f.district) e.push(T("జిల్లా ఎంచుకోండి (Select district)", "Select district"));
+    else if ((ageFromDob(f.dob) ?? 0) < (f.gender === "Groom" ? 21 : 18)) e.push(T("చట్టబద్ధమైన కనీస వయసు నెరవేరే సరైన DOB ఇవ్వండి", "Enter a DOB meeting the minimum legal age (21 for Groom, 18 for Bride)"));
+    if (!f.religion) e.push(T("మతం ఎంచుకోండి (Select religion)", "Select religion"));
+    if (!f.caste) e.push(T("కులం / సంఘం ఎంచుకోండి (Select caste / community)", "Select caste / community"));
+    if (f.caste === "Other / self-described" && !String(f.caste_custom || "").trim()) e.push(T("మీ కులం / సంఘం పేరు నమోదు చేయండి", "Enter your community name"));
+    if (f.sub_caste === "Other / self-described" && !String(f.sub_caste_custom || "").trim()) e.push(T("మీ ఉపకులం / ఉపసంఘం పేరు నమోదు చేయండి", "Enter your subgroup name"));
+    if (!f.state) e.push(T("రాష్ట్రం / ప్రాంతం ఎంచుకోండి (Select state / region)", "Select state / region"));
+    if (!f.district) e.push(T("జిల్లా / నగరం ఎంచుకోండి (Select district / city)", "Select district / city"));
     if (!/^\d{10}$/.test(String(f.phone))) e.push(T("10 అంకెల మొబైల్ నంబర్ ఇవ్వండి (Enter 10-digit mobile number)", "Enter a 10-digit mobile number"));
     if (String(f.password || "").length < 6) e.push(T("Password minimum 6 characters పెట్టండి", "Password minimum 6 characters పెట్టండి"));
     return e;
@@ -575,15 +751,19 @@ function Wizard() {
       if (!f.gender) e.push(T("వధువు / వరుడు ఎంచుకోండి (Select Bride / Groom)", "Select Bride / Groom"));
       if (!String(f.full_name).trim()) e.push(T("పూర్తి పేరు నమోదు చేయండి (Enter full name)", "Enter full name"));
       if (!f.dob) e.push(T("పుట్టిన తేదీ ఎంచుకోండి (Select date of birth)", "Select date of birth"));
-      else if (!ageFromDob(f.dob)) e.push(T("పుట్టిన తేదీ సరైనది కాదు — కనీసం 18 ఏళ్లు ఉండాలి", "DOB must be at least 18 years"));
+      else if ((ageFromDob(f.dob) ?? 0) < (f.gender === "Groom" ? 21 : 18)) e.push(T("చట్టబద్ధమైన కనీస వయసు నెరవేరే సరైన DOB ఇవ్వండి", "Enter a DOB meeting the minimum legal age (21 for Groom, 18 for Bride)"));
       if (!f.height) e.push(T("ఎత్తు ఎంచుకోండి (Select your height)", "Select your height"));
       if (!f.marital_status) e.push(T("వైవాహిక స్థితి ఎంచుకోండి (Select marital status)", "Select marital status"));
+      if (!f.religion) e.push(T("మతం ఎంచుకోండి (Select religion)", "Select religion"));
       if (f.marital_status && f.marital_status !== "Pelli Kaledu" && !f.children) {
         e.push(T("పిల్లల సంఖ్య ఎంచుకోండి / Number of children select చెయ్యండి", "Number of children select చెయ్యండి"));
       }
     }
     if (s === 2) {
-      if (!f.caste) e.push(T("కులం ఎంచుకోండి (Select caste)", "Select caste"));
+      if (!f.religion) e.push(T("మతం ఎంచుకోండి (Select religion)", "Select religion"));
+      if (!f.caste) e.push(T("కులం / సంఘం ఎంచుకోండి (Select caste / community)", "Select caste / community"));
+      if (f.caste === "Other / self-described" && !String(f.caste_custom || "").trim()) e.push(T("మీ కులం / సంఘం పేరు నమోదు చేయండి", "Enter your community name"));
+      if (f.sub_caste === "Other / self-described" && !String(f.sub_caste_custom || "").trim()) e.push(T("మీ ఉపకులం / ఉపసంఘం పేరు నమోదు చేయండి", "Enter your subgroup name"));
     }
     if (s === 3) {
       if (!f.work_type) e.push(T("వృత్తి / ఉద్యోగ రంగం ఎంచుకోండి (Select Work Sector)", "Select Work Sector"));
@@ -597,11 +777,23 @@ function Wizard() {
       if (!/^\d{10}$/.test(String(f.phone))) e.push(T("10 అంకెల మొబైల్ నంబర్ ఇవ్వండి (Enter 10-digit mobile number)", "Enter a 10-digit mobile number"));
       if (String(f.password || "").length < 6) e.push(T("Password minimum 6 characters పెట్టండి", "Password minimum 6 characters పెట్టండి"));
     }
+    if (s === 5) {
+      const about = String(f.about_myself || "").trim();
+      if (about && about.length < 50) e.push(T("నా గురించి కనీసం 50 అక్షరాలు రాయండి", "If you add an About section, enter at least 50 characters"));
+      if (about && (/(?:\+?91[\s-]?)?[6-9]\d{9}/.test(about) || /[^\s@]+@[^\s@]+\.[^\s@]+/.test(about))) {
+        e.push(T("నా గురించి విభాగంలో ఫోన్ / ఈమెయిల్ ఇవ్వకండి", "Do not include a phone number or email in About"));
+      }
+    }
     return e;
   };
 
   const executeSubmit = async (isQuick = false) => {
-    const errsList = isQuick ? validateQuick() : validateStep(step);
+    const errsList = isQuick
+      ? validateQuick()
+      : step === 5
+        ? [1, 2, 3, 4, 5].flatMap((stepNumber) => validateStep(stepNumber))
+        : validateStep(step);
+    if (!f.consent_confirmed) errsList.push(T("దయచేసి సమ్మతి ఇచ్చినట్లు నిర్ధారించండి", "Please confirm consent before creating the profile"));
     if (errsList.length) {
       setErrs(errsList);
       setShake(true);
@@ -676,20 +868,14 @@ function Wizard() {
         "referral_code",
       ];
 
-      // Auto-fallback defaults if quick mode
       const payload: Record<string, any> = { ...f };
-      if (!payload.height) payload.height = "5'5\"";
-      if (!payload.marital_status) payload.marital_status = "Pelli Kaledu";
-      if (!payload.education) payload.education = "Graduate / Degree";
-      if (!payload.job) payload.job = "Private Sector";
-      if (!payload.salary) payload.salary = "₹5 - 7 Lakhs / year";
-      if (!payload.state) payload.state = "TS";
 
       strings.forEach((k) => fd.append(k, String(payload[k] ?? "")));
-      fd.append("age", String(payload.age || ageFromDob(payload.dob) || ""));
+      fd.append("caste_custom", String(payload.caste_custom ?? ""));
+      fd.append("sub_caste_custom", String(payload.sub_caste_custom ?? ""));
+      fd.append("age", String(ageFromDob(payload.dob) ?? ""));
       fd.append("photo_private", String(!!payload.photo_private));
-      fd.append("dob_correct", "true");
-      fd.append("phone_verified", "true");
+      fd.append("consent_confirmed", String(!!payload.consent_confirmed));
       if (photoUrl) fd.append("photo_url", photoUrl);
       if (refLocked) fd.append("referral_code", refLocked);
 
@@ -741,63 +927,16 @@ function Wizard() {
     scrollTop();
   };
 
-  const fillSampleDemo = (gender: "Bride" | "Groom") => {
-    if (gender === "Bride") {
-      setF((prev) => ({
-        ...prev,
-        gender: "Bride",
-        full_name: "Sai Divya",
-        dob: "2000-08-14",
-        age: "26",
-        height: "5'4\"",
-        caste: "Reddy",
-        sub_caste: "Motati",
-        gothram: "Janakula",
-        star: "Rohini",
-        rasi: "Vrishabha",
-        work_type: "Software / IT / Tech",
-        education: "B.Tech / B.E.",
-        job: "Software Engineer",
-        company: "Infosys",
-        salary: "₹10 - 12 Lakhs / year",
-        state: "TS",
-        district: "Hyderabad",
-        phone: "9876543210",
-        password: "password123",
-      }));
-    } else {
-      setF((prev) => ({
-        ...prev,
-        gender: "Groom",
-        full_name: "Ramesh Reddy",
-        dob: "1997-04-10",
-        age: "29",
-        height: "5'9\"",
-        caste: "Reddy",
-        sub_caste: "Gudati",
-        gothram: "Vishnu",
-        star: "Swathi",
-        rasi: "Tula",
-        work_type: "Software / IT / Tech",
-        education: "M.Tech / M.S. (Abroad)",
-        job: "Senior Tech Lead",
-        company: "Google / Tech",
-        salary: "₹25 - 30 Lakhs / year",
-        state: "TS",
-        district: "Hyderabad",
-        phone: "9876543211",
-        password: "password123",
-      }));
-    }
-    setErrs([]);
-  };
+
 
   /* ================= SUCCESS SCREEN ================= */
   if (result) {
     const tsap = result.tsap_id || result.user_id || "";
     const cardUrl = tsap ? result.card_url || `/cards/${tsap}.png` : "";
+    const phoneVerified = result.phone_verified === true;
+    const profileApproved = result.is_approved === true;
     return (
-      <main className="min-h-dvh py-8 px-4 bg-[#FAF7F2]">
+      <div className="min-h-dvh py-8 px-4 bg-[#FAF7F2]">
         <div className="max-w-2xl mx-auto bg-white rounded-3xl border border-gold/40 shadow-2xl overflow-hidden animate-fade">
           {/* Header Banner */}
           <div className="maroon-gradient p-6 text-white text-center space-y-2">
@@ -806,20 +945,28 @@ function Wizard() {
               {T("నమోదు విజయవంతంగా పూర్తయింది!", "Registration Successful!")}
             </h1>
             <p className="text-xs sm:text-sm text-gold-light telugu font-medium">
-              {T(`మీ ప్రొఫైల్ ఐడీ: ${tsap} • 100% ఉచితంగా లైవ్ అయ్యింది`, `Your Profile ID: ${tsap} • Active & Live`)}
+              {T(
+                `మీ ప్రొఫైల్ ఐడీ: ${tsap} • ${profileApproved ? "ఆమోదించబడింది" : "సమీక్ష కోసం సమర్పించబడింది"}`,
+                `Profile ID: ${tsap} • ${profileApproved ? "Approved" : "Submitted for review"}`,
+              )}
             </p>
           </div>
 
           <div className="p-5 sm:p-6 space-y-5">
-            {/* ID & Verified Badge */}
-            <div className="bg-amber-50/80 border border-gold/50 rounded-2xl p-4 flex items-center justify-between">
-              <div>
+            {/* Profile ID plus the actual approval and phone-verification state. */}
+            <div className="bg-amber-50/80 border border-gold/50 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3">
+              <div className="min-w-0">
                 <span className="text-xs text-slate-500 font-bold block">మీ TSAP మ్యాట్రిమోనీ ఐడీ</span>
-                <span className="text-2xl font-black text-maroon font-mono">{tsap}</span>
+                <span className="break-all text-lg sm:text-2xl font-black text-maroon font-mono">{tsap}</span>
               </div>
-              <span className="px-3 py-1.5 bg-emerald-100 text-emerald-800 text-xs font-black rounded-full border border-emerald-300">
-                ✅ ధృవీకరించబడింది
-              </span>
+              <div className="flex flex-col items-start sm:items-end gap-1.5">
+                <span className={`px-3 py-1.5 text-xs font-black rounded-full border ${profileApproved ? "bg-emerald-100 text-emerald-800 border-emerald-300" : "bg-amber-100 text-amber-900 border-amber-300"}`}>
+                  {profileApproved ? T("✓ ప్రొఫైల్ ఆమోదించబడింది", "✓ Profile approved") : T("సమీక్ష కోసం వేచి ఉంది", "Review pending")}
+                </span>
+                <span className={`px-3 py-1.5 text-xs font-bold rounded-full border ${phoneVerified ? "bg-emerald-50 text-emerald-800 border-emerald-200" : "bg-slate-100 text-slate-700 border-slate-200"}`}>
+                  {phoneVerified ? T("✓ ఫోన్ OTP ధృవీకరించబడింది", "✓ Phone OTP verified") : T("ఫోన్ OTP ధృవీకరణ పెండింగ్", "Phone OTP verification pending")}
+                </span>
+              </div>
             </div>
 
             {/* What you got card */}
@@ -834,7 +981,7 @@ function Wizard() {
                 <span className="text-xl">🎁</span>
                 <div>
                   <span className="font-bold">రిఫరల్ బోనస్ యాక్టివేట్ అయ్యింది! </span>
-                  <span>మీ ఖాతాకు +{result.joined_with?.bonus_credits || 2} ఉచిత కాంటాక్ట్ క్రెడిట్స్ (bonus_credits) మరియు ప్రత్యేక వెల్‌కమ్ ఆఫర్ జోడించబడ్డాయి.</span>
+                  <span>మీకు +{result.joined_with?.bonus_credits ?? 1} interest-request credit జోడించబడింది. ఇది cash కాదు, contact unlock కూడా కాదు; referrer కు వచ్చే షరతులతో కూడిన ₹50 reward వేరు.</span>
                 </div>
               </div>
             )}
@@ -843,10 +990,12 @@ function Wizard() {
             {(result.referral?.my_code || result.my_referral_code) && (
               <div className="bg-amber-50 border border-gold/40 rounded-2xl p-3.5 text-xs space-y-1">
                 <div className="font-bold text-maroon">🎁 మీ రిఫరల్ కోడ్: {result.referral?.my_code || result.my_referral_code}</div>
-                <div className="text-slate-600">స్నేహితులకు షేర్ చేసి ప్రతి రిజిస్ట్రేషన్‌కు +2 క్రెడిట్స్ & ₹50 నగదు పొందండి. (poster_url: {result.referral?.poster_url || `/api/referral/${tsap}/poster.png`})</div>
+                <div className="text-slate-600">Valid referral attach పై referrer కు +2, కొత్త user కు +1 interest-request credits వస్తాయి; ఇవి cash కావు. Referrer కు ₹50 ఒక్కసారి మాత్రమే అర్హత ఉండవచ్చు—referee మొదటి S_99/S_199/S_299/S_499 consumer-plan payment కనీసం ₹99 అయితే; exclusions మరియు payout manual review వర్తిస్తాయి.</div>
                 <Link href={`/referral?id=${tsap}`} className="text-maroon font-bold underline inline-block pt-1">
                   Referral dashboard కి వెళ్లండి →
                 </Link>
+                <a href={result.referral?.poster_url || `/api/referral/${tsap}/poster.png`} target="_blank" rel="noreferrer"
+                  className="ml-3 text-maroon font-bold underline inline-block pt-1">Referral QR poster →</a>
               </div>
             )}
 
@@ -930,14 +1079,14 @@ function Wizard() {
             </div>
           </div>
         </div>
-      </main>
+      </div>
     );
   }
 
   const stepMeta = STEPS[step - 1];
 
   return (
-    <main className="min-h-dvh pb-28 sm:pb-36 bg-[#FAF7F2]" ref={topRef}>
+    <div className="min-h-dvh pb-28 sm:pb-36 bg-[#FAF7F2]" ref={topRef}>
       {/* ---------- Top Header Bar ---------- */}
       <div className="sticky top-16 z-30 bg-white/95 backdrop-blur-md border-b border-gold/25 shadow-xs">
         <div className="max-w-6xl mx-auto px-4 py-2.5 sm:py-3 flex items-center justify-between gap-3">
@@ -949,17 +1098,19 @@ function Wizard() {
             <span className="text-xs sm:text-sm font-black text-navy">{SITE_CONFIG.brandName}</span>
           </div>
 
-          <div className="flex items-center gap-2">
+          {SITE_CONFIG.supportLink ? (
             <a
-              href="https://wa.me/916304996088?text=Hello%20Mana%20Vivaha%20Registration%20Help"
+              href={SITE_CONFIG.supportLink}
               target="_blank"
-              rel="noreferrer"
-              className="px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-[11px] font-bold flex items-center gap-1 hover:bg-emerald-100 transition"
+              rel="noopener noreferrer"
+              aria-label={T("WhatsApp support తెరవండి", "Open WhatsApp support")}
+              title={T("బాహ్య WhatsApp సేవ లభ్యతను ఈ సైట్ తనిఖీ చేయదు", "External WhatsApp availability is not checked by this site")}
+              className="px-2.5 py-2 rounded-full bg-gradient-to-r from-emerald-600 to-green-500 border border-emerald-300 text-white text-[11px] font-bold flex items-center gap-1 hover:brightness-105 transition"
             >
-              <span>📞</span>
-              <span className="hidden sm:inline">హెల్ప్‌లైన్:</span> 6304996088
+              <span>💬</span>
+              <span>{T("WhatsApp సహాయం", "WhatsApp support")}</span>
             </a>
-          </div>
+          ) : null}
         </div>
 
         {/* Mode Selector Tabs (1-Minute Quick vs 5-Step Detailed) */}
@@ -1047,16 +1198,17 @@ function Wizard() {
               <span className="text-2xl sm:text-3xl">🎁</span>
               <div>
                 <div className="font-black text-xs sm:text-sm uppercase tracking-wide">
-                  మీరు {refInfo?.referrer_name ? `${refInfo.referrer_name} గారి సిఫార్సు ద్వారా వచ్చారు` : "సిఫార్సు ద్వారా వచ్చారు"} (Referral Active: {refLocked})
+                  {refInfo?.ok && refInfo?.referrer_name ? `${refInfo.referrer_name} గారి సిఫార్సు` : "రిఫరల్ కోడ్ అందింది"}
                 </div>
                 <div className="text-[11px] sm:text-xs font-bold mt-0.5 opacity-90">
-                  {refInfo?.referrer_name ? `సిఫార్సు చేసినవారు: ${refInfo.referrer_name} • ` : ""}
-                  మీకు +2 ఉచిత కాంటాక్ట్ క్రెడిట్స్ మరియు వెల్‌కమ్ బోనస్ లభిస్తాయి!
+                  {refInfo?.ok
+                    ? `సర్వర్ referral code ను ధృవీకరించింది${refInfo?.referrer_name ? `: ${refInfo.referrer_name}` : ""}. Valid attachment పై మీకు +${Number(refInfo?.bonus_credits ?? 1)} interest-request credit వస్తుంది; ఇది cash లేదా contact unlock కాదు.`
+                    : "Referral code మరియు +1 request-credit eligibility ను సర్వర్ నమోదు సమయంలో నిర్ధారిస్తుంది."}
                 </div>
               </div>
             </div>
             <span className="px-3 py-1 bg-[#5C0822] text-white text-[11px] font-black rounded-full self-start sm:self-auto shrink-0 shadow-xs">
-              ⚡ +2 క్రెడిట్స్ లాక్ చేయబడ్డాయి
+              {refInfo?.ok ? `✓ +${Number(refInfo?.bonus_credits ?? 1)} request credit అర్హత` : "పరిశీలనలో"}
             </span>
           </div>
         )}
@@ -1066,7 +1218,10 @@ function Wizard() {
           <div className="bg-amber-50 border border-gold/40 rounded-2xl p-3 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-xs">
             <div className="text-xs text-amber-950 font-bold flex items-center gap-2">
               <span className="text-lg">💾</span>
-              <span>మీరు మునుపు పూరించిన వివరాలు అందుబాటులో ఉన్నాయి ({savedAt}).</span>
+              <span>
+                <span>మీరు మునుపు పూరించిన వివరాలు అందుబాటులో ఉన్నాయి ({savedAt}).</span>
+                <span className="block mt-0.5 text-[10px] font-medium">ఈ పరికరంలో మాత్రమే సేవ్ అవుతాయి; పాస్‌వర్డ్ మరియు సమ్మతి సేవ్ చేయబడవు.</span>
+              </span>
             </div>
             <div className="flex items-center gap-2">
               <button
@@ -1086,6 +1241,7 @@ function Wizard() {
             </div>
           </div>
         )}
+        <p className="text-[10px] text-slate-500">ఆటో-సేవ్ వివరాలు ఈ బ్రౌజర్‌లోని ఈ పరికరంలో నిల్వ ఉంటాయి. పాస్‌వర్డ్ మరియు సమ్మతి నిల్వ చేయబడవు. (Draft details stay in this browser on this device; password and consent are not saved.)</p>
 
         {/* Validation Errors Box */}
         {errs.length > 0 && (
@@ -1120,23 +1276,6 @@ function Wizard() {
                   </p>
                 </div>
 
-                {/* 1-Click Demo Profile Pill */}
-                <div className="flex items-center gap-1.5 shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => fillSampleDemo("Bride")}
-                    className="px-2.5 py-1 rounded-lg bg-rose-50 text-rose-800 font-bold text-[11px] border border-rose-200 hover:bg-rose-100"
-                  >
-                    👰 వధువు డెమో
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => fillSampleDemo("Groom")}
-                    className="px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-800 font-bold text-[11px] border border-indigo-200 hover:bg-indigo-100"
-                  >
-                    🤵 వరుడు డెమో
-                  </button>
-                </div>
               </div>
 
               {/* 1. Gender */}
@@ -1153,6 +1292,7 @@ function Wizard() {
                       key={g.v}
                       type="button"
                       onClick={() => set("gender", g.v)}
+                      aria-pressed={f.gender === g.v}
                       className={`rounded-2xl border-2 p-3 text-center transition-all ${
                         f.gender === g.v
                           ? "border-maroon bg-maroon-soft shadow-sm ring-2 ring-maroon/20"
@@ -1172,92 +1312,109 @@ function Wizard() {
                 value={f.full_name}
                 onChange={(v) => set("full_name", v)}
                 required
-                placeholder="ఉదా: Sai Divya / Rajesh Reddy"
+                placeholder="మీ పూర్తి పేరు నమోదు చేయండి"
               />
 
-              {/* 3. DOB & Age */}
-              <div className="space-y-2">
-                <div className="text-[11px] font-bold text-slate-700">⚡ పుట్టిన సంవత్సరం త్వరిత ఎంపిక:</div>
-                <div className="flex flex-wrap gap-1.5">
-                  {[
-                    { y: 2003, a: 23 },
-                    { y: 2002, a: 24 },
-                    { y: 2001, a: 25 },
-                    { y: 2000, a: 26 },
-                    { y: 1999, a: 27 },
-                    { y: 1998, a: 28 },
-                    { y: 1997, a: 29 },
-                    { y: 1996, a: 30 },
-                    { y: 1995, a: 31 },
-                    { y: 1994, a: 32 },
-                  ].map((item) => (
-                    <button
-                      key={item.y}
-                      type="button"
-                      onClick={() => {
-                        set("dob", `${item.y}-06-15`);
-                        set("age", String(item.a));
-                      }}
-                      className={`px-2.5 py-1 rounded-full text-xs font-bold transition ${
-                        f.dob?.startsWith(String(item.y))
-                          ? "maroon-gradient text-white border-transparent shadow-xs"
-                          : "bg-white border border-gold/40 text-maroon hover:bg-gold/20"
-                      }`}
-                    >
-                      {item.y} <span className="opacity-80 font-normal">({item.a}y)</span>
-                    </button>
-                  ))}
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <TextField
-                    label="పుట్టిన తేదీ (Date of Birth)"
-                    value={f.dob}
-                    onChange={(v) => set("dob", v)}
-                    required
-                    type="date"
-                    hint="DOB ప్రకారం వయసు ఆటోమేటిక్‌గా లెక్కించబడుతుంది"
-                  />
-                  <TextField
-                    label="వయసు (Age in Years)"
-                    value={f.age}
-                    onChange={(v) => set("age", v)}
-                    required
-                    type="number"
-                    disabled
-                    placeholder="26"
-                  />
-                </div>
-              </div>
-
-              {/* 4. Caste & Subcaste */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <SearchSelect
-                  label="కులం (Caste)"
-                  options={casteOpts}
-                  value={f.caste}
-                  onChange={(v) => set("caste", v)}
+              {/* 3. DOB & Age — age is calculated from the chosen date, never guessed. */}
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <TextField
+                  label="పుట్టిన తేదీ (Date of Birth)"
+                  value={f.dob}
+                  onChange={(v) => set("dob", v)}
                   required
-                  teMap={CASTE_TELUGU}
-                  placeholder="కులం ఎంచుకోండి…"
+                  type="date"
+                  max={maxDobForAge(f.gender === "Groom" ? 21 : 18)}
+                  hint="వయసు పుట్టిన తేదీ నుంచి ఆటోమేటిక్‌గా లెక్కించబడుతుంది"
                 />
                 <TextField
-                  label="ఉపకులం (Sub-caste - Optional)"
-                  value={f.sub_caste}
-                  onChange={(v) => set("sub_caste", v)}
-                  placeholder="ఉదా: Motati, Pokanati, 6000 Niyogi…"
+                  label="వయసు (Age in Years)"
+                  value={f.age}
+                  onChange={(v) => set("age", v)}
+                  type="number"
+                  disabled
+                  placeholder="DOB ఎంచుకున్న తర్వాత లెక్కించబడుతుంది"
                 />
+              </div>
+
+              {/* 4. Religion, community & sub-community */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label htmlFor="quick-religion" className="text-xs font-bold text-slate-800">మతం (Religion) *</label>
+                  <select
+                    id="quick-religion"
+                    required
+                    value={f.religion}
+                    onChange={(e) => setReligion(e.target.value)}
+                    className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-medium"
+                  >
+                    <option value="">మతం ఎంచుకోండి (Select religion)</option>
+                    {RELIGIONS.map((religion) => <option key={religion} value={religion}>{RELIGION_LABELS[religion]}</option>)}
+                  </select>
+                </div>
+                <SearchSelect
+                  label="కులం / సంఘం (Caste / Community)"
+                  options={casteOpts}
+                  value={f.caste}
+                  onChange={setCaste}
+                  required
+                  disabled={!f.religion}
+                  teMap={CASTE_TELUGU}
+                  placeholder="కులం / సంఘం ఎంచుకోండి…"
+                  hint={casteLoading ? "సంఘాల జాబితా లోడ్ అవుతోంది…" : casteListOffline ? "ఆఫ్‌లైన్ జాబితా ఉపయోగిస్తున్నాం; జాబితా పూర్తి కాకపోతే ‘Other / self-described’ ఎంచుకోండి." : "మతాన్ని బట్టి జాబితా మారుతుంది. జాబితాలో లేకపోతే ‘Other / self-described’ ఎంచుకోండి."}
+                />
+              </div>
+              {f.caste === "Other / self-described" && (
+                <TextField
+                  label="మీ కులం / సంఘం పేరు (Enter community name)"
+                  value={f.caste_custom}
+                  onChange={(v) => set("caste_custom", v)}
+                  required
+                  maxLength={100}
+                  placeholder="మీరు ఉపయోగించే పేరు నమోదు చేయండి"
+                />
+              )}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {subcasteOpts.length ? (
+                  <SearchSelect
+                    label="ఉపకులం (Sub-caste - Optional)"
+                    options={subcasteOpts}
+                    value={f.sub_caste}
+                    onChange={setSubcaste}
+                    placeholder="ఉపకులం ఎంచుకోండి…"
+                    hint={subcasteLoading ? "ఉపకులాల జాబితా లోడ్ అవుతోంది…" : subcasteListOffline ? "ఆఫ్‌లైన్ జాబితా ఉపయోగిస్తున్నాం; సరైనది లేకపోతే Other / self-described ఎంచుకోండి." : "ఇది ఐచ్చికం. జాబితాలో సరైన పేరు లేకపోతే Other / self-described ఎంచుకోండి."}
+                  />
+                ) : (
+                  <TextField
+                    label="ఉపకులం / ఉపసంఘం (Optional)"
+                    value={f.sub_caste}
+                    onChange={(v) => set("sub_caste", v)}
+                    maxLength={100}
+                    placeholder="వర్తిస్తే మీ స్వంత వివరణ నమోదు చేయండి"
+                    hint="ఈ ఐచ్చిక వివరానికి సిద్ధంగా ఉన్న జాబితా లేదు; మీరు స్వయంగా నమోదు చేయవచ్చు."
+                  />
+                )}
+                {f.sub_caste === "Other / self-described" && (
+                  <TextField
+                    label="ఉపకులం / ఉపసంఘం పేరు (Enter subgroup name)"
+                    value={f.sub_caste_custom}
+                    onChange={(v) => set("sub_caste_custom", v)}
+                    required
+                    maxLength={100}
+                    placeholder="మీరు ఉపయోగించే పేరు నమోదు చేయండి"
+                  />
+                )}
               </div>
 
               {/* 4.5. Education & Profession */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-slate-50/70 p-3 rounded-2xl border border-slate-200">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-800">విద్యార్హత (Education) *</label>
+                  <label className="text-xs font-bold text-slate-800">విద్యార్హత (Education - Optional)</label>
                   <select
-                    value={f.education || "B.Tech / Graduate"}
+                    value={f.education}
                     onChange={(e) => set("education", e.target.value)}
                     className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-medium"
                   >
+                    <option value="">విద్యార్హత ఎంచుకోండి (Optional)</option>
                     {EDUCATIONS.map((e) => (
                       <option key={e} value={e}>
                         {e}
@@ -1267,18 +1424,13 @@ function Wizard() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-800">ఉద్యోగం / హోదా (Job Title) *</label>
+                  <label className="text-xs font-bold text-slate-800">ఉద్యోగం / హోదా (Job Title - Optional)</label>
                   <select
-                    value={f.job || "Private Sector"}
-                    onChange={(e) => {
-                      const j = e.target.value;
-                      set("job", j);
-                      if (j.includes("Housewife") || j.includes("Student")) {
-                        set("salary", "None / Not Applicable");
-                      }
-                    }}
+                    value={f.job}
+                    onChange={(e) => set("job", e.target.value)}
                     className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-medium"
                   >
+                    <option value="">ఉద్యోగం ఎంచుకోండి (Optional)</option>
                     <option value="Housewife / Homemaker (గృహిణి)">🏡 Housewife / Homemaker (గృహిణి)</option>
                     <option value="Software Engineer">💻 Software Engineer / IT</option>
                     <option value="Govt Employee (Central / State)">🏛️ Govt Employee / PSU</option>
@@ -1298,27 +1450,27 @@ function Wizard() {
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-slate-800">రాష్ట్రం (State) *</label>
                   <select
-                    value={f.state || "TS"}
+                    value={f.state}
                     onChange={(e) => {
                       set("state", e.target.value);
                       set("district", "");
                     }}
                     className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-bold"
                   >
+                    <option value="">రాష్ట్రం ఎంచుకోండి (Select state)</option>
                     <option value="TS">తెలంగాణ (Telangana)</option>
                     <option value="AP">ఆంధ్రప్రదేశ్ (Andhra Pradesh)</option>
-                    <option value="KA">కర్ణాటక (Karnataka / Bengaluru)</option>
-                    <option value="MH">మహారాష్ట్ర (Maharashtra / Mumbai)</option>
                     <option value="Other">ఇతర రాష్ట్రం / NRI</option>
                   </select>
                 </div>
 
                 <SearchSelect
                   label="జిల్లా / నగరం (District / City)"
-                  options={DISTRICTS_BY_STATE[f.state] || DISTRICTS_BY_STATE.TS}
+                  options={DISTRICTS_BY_STATE[f.state] || []}
                   value={f.district}
                   onChange={(v) => set("district", v)}
                   required
+                  disabled={!f.state}
                   teMap={DISTRICT_TELUGU}
                   placeholder="జిల్లా ఎంచుకోండి…"
                 />
@@ -1332,7 +1484,7 @@ function Wizard() {
                   onChange={(v) => set("phone", v.replace(/\D/g, "").slice(0, 10))}
                   required
                   maxLength={10}
-                  placeholder="9876543210"
+                  placeholder="10 అంకెల మొబైల్ నంబర్"
                   hint="ధృవీకరణ & సంబంధాల అప్‌డేట్స్ కోసం"
                 />
                 <div className="space-y-1.5 relative">
@@ -1368,7 +1520,7 @@ function Wizard() {
               <div className="bg-amber-50/70 border border-gold/30 rounded-2xl p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
                 <div>
                   <label className="font-bold text-maroon block">సిఫార్సు కోడ్ (Referral Code):</label>
-                  <span className="text-slate-500 text-[11px]">రిఫరల్ కోడ్ ఉంటే +2 ఉచిత క్రెడిట్స్ బోనస్ లభిస్తాయి.</span>
+                  <span className="text-slate-500 text-[11px]">Valid referral attach పై కొత్త user కు +1 interest-request credit; ఇది cash కాదు.</span>
                 </div>
                 <input
                   aria-label="Referral code"
@@ -1386,7 +1538,7 @@ function Wizard() {
                         .catch(() => {});
                     }
                   }}
-                  placeholder="కోడ్ ఇవ్వండి (ఉదా: CHARAN519)"
+                  placeholder="Referral code ఇవ్వండి (ఐచ్ఛికం)"
                   disabled={!!refLocked}
                   className="w-full sm:w-48 px-3 py-1.5 bg-white border border-gold/40 rounded-xl uppercase font-mono font-bold text-xs"
                 />
@@ -1414,6 +1566,8 @@ function Wizard() {
                 ఇప్పుడే 1-నిమిషంలో ప్రొఫైల్ ఐడీ క్రియేట్ చేసుకోండి. నమోదు పూర్తయిన తర్వాత మీ అకౌంట్ <strong className="text-maroon">&ldquo;Edit Profile&rdquo;</strong> లో చదువు, ఉద్యోగం, జాతక చక్రం, కుటుంబ వివరాలు, ఫోటోను ఎప్పుడైనా 100% పూర్తి చేసుకోవచ్చు.
               </p>
             </div>
+
+              <ConsentNotice checked={!!f.consent_confirmed} onChange={(checked) => set("consent_confirmed", checked)} />
 
               {/* Submit CTA */}
               <button
@@ -1444,20 +1598,20 @@ function Wizard() {
                     <span>✨</span>
                     <span>లైవ్ కార్డ్ నమూనా (Live Preview)</span>
                   </span>
-                  <span className="text-[10px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full font-bold">
-                    1-Min Ready
+                  <span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full font-bold">
+                    Preview
                   </span>
                 </div>
 
                 <div className="space-y-3">
                   <div className="flex items-center gap-3">
                     <div className="w-16 h-20 rounded-2xl bg-amber-50 border border-gold/30 flex items-center justify-center text-3xl shadow-xs overflow-hidden shrink-0">
-                      <span>{f.gender === "Bride" ? "👰" : "🤵"}</span>
+                      <span>{f.gender === "Bride" ? "👰" : f.gender === "Groom" ? "🤵" : "👤"}</span>
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="font-extrabold text-sm text-navy truncate">{f.full_name || "మీ పేరు (Your Name)"}</div>
                       <div className="text-xs font-bold text-maroon mt-0.5">
-                        {f.gender === "Bride" ? "👰 వధువు" : "🤵 వరుడు"} • {f.age ? `${f.age} సం.` : "26y"}
+                        {f.gender === "Bride" ? "👰 వధువు" : f.gender === "Groom" ? "🤵 వరుడు" : "ప్రొఫైల్"} • {f.age ? `${f.age} సం.` : "DOB తర్వాత వయసు"}
                       </div>
                       <div className="text-[11px] text-slate-500 font-medium truncate mt-0.5">
                         💍 {f.caste || "కులం"} {f.sub_caste ? `(${f.sub_caste})` : ""}
@@ -1468,7 +1622,7 @@ function Wizard() {
                   <div className="bg-slate-50 rounded-2xl p-3 space-y-1.5 text-xs text-slate-700 border border-slate-100">
                     <div className="flex items-center gap-1.5">
                       <span>📍</span>
-                      <span className="font-medium truncate">{f.district || "జిల్లా"}, {stateFullName(f.state, te)}</span>
+                      <span className="font-medium truncate">{f.district || "ప్రాంతం"}{f.state ? `, ${stateFullName(f.state, te)}` : ""}</span>
                     </div>
                     <div className="flex items-center gap-1.5">
                       <span>📱</span>
@@ -1490,7 +1644,7 @@ function Wizard() {
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="text-emerald-600 font-bold">✓</span>
-                    <span>24/7 హెల్ప్‌లైన్: +91 6304996088</span>
+                    <span>సంప్రదింపు వివరాలు పరస్పర సమ్మతి తర్వాతే పంచబడతాయి.</span>
                   </div>
                 </div>
               </div>
@@ -1557,7 +1711,7 @@ function Wizard() {
                       value={f.full_name}
                       onChange={(v) => set("full_name", v)}
                       required
-                      placeholder="ఉదా: Sai Divya / Ramesh Reddy"
+                      placeholder="మీ పూర్తి పేరు నమోదు చేయండి"
                     />
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1567,6 +1721,7 @@ function Wizard() {
                         onChange={(v) => set("dob", v)}
                         required
                         type="date"
+                        max={maxDobForAge(f.gender === "Groom" ? 21 : 18)}
                       />
                       <TextField
                         label="వయసు (Age)"
@@ -1582,11 +1737,11 @@ function Wizard() {
                       <div className="space-y-1.5">
                         <label className="text-xs font-bold text-slate-800">ఎత్తు (Height) *</label>
                         <select
-                          value={f.height || "5'5\""}
+                          value={f.height}
                           onChange={(e) => set("height", e.target.value)}
                           className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-medium"
                         >
-                          <option value="">Select your height</option>
+                          <option value="">ఎత్తు ఎంచుకోండి (Select height)</option>
                           {HEIGHTS.map((h) => (
                             <option key={h} value={h}>
                               {heightLabel(h)}
@@ -1598,28 +1753,34 @@ function Wizard() {
                       <div className="space-y-1.5">
                         <label className="text-xs font-bold text-slate-800">వైవాహిక స్థితి (Marital Status) *</label>
                         <select
-                          value={f.marital_status || "Pelli Kaledu"}
-                          onChange={(e) => set("marital_status", e.target.value)}
+                          value={f.marital_status}
+                          onChange={(e) => {
+                            setF((prev) => ({ ...prev, marital_status: e.target.value, children: "" }));
+                            setErrs([]);
+                          }}
                           className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-medium"
                         >
+                          <option value="">వైవాహిక స్థితి ఎంచుకోండి (Select marital status)</option>
                           <option value="Pelli Kaledu">పెళ్లి కాలేదు (Never Married)</option>
                           <option value="Divorced">విడాకులు (Divorced)</option>
                           <option value={f.gender === "Groom" ? "Widower" : "Widow"}>
                             {f.gender === "Groom" ? "భార్య చనిపోయారు (Widower)" : "వితంతువు (Widow)"}
                           </option>
                           <option value="Awaiting Divorce">విడాకుల నిరీక్షణ (Awaiting Divorce)</option>
+                          <option value="Separated">విడిగా ఉంటున్నారు (Separated)</option>
                         </select>
                       </div>
                     </div>
 
-                    {f.marital_status !== "Pelli Kaledu" && (
+                    {f.marital_status && f.marital_status !== "Pelli Kaledu" && (
                       <div className="space-y-1.5">
                         <label className="text-xs font-bold text-slate-800">పిల్లలు (Children) *</label>
                         <select
-                          value={f.children || "None"}
+                          value={f.children}
                           onChange={(e) => set("children", e.target.value)}
                           className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-medium"
                         >
+                          <option value="">పిల్లల సంఖ్య ఎంచుకోండి (Select count)</option>
                           {CHILDREN_OPTIONS.map((co) => (
                             <option key={co} value={co}>
                               {co === "None" ? "పిల్లలు లేరు (None)" : `${co} పిల్లలు (${co} Children)`}
@@ -1630,15 +1791,16 @@ function Wizard() {
                     )}
 
                     <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-slate-800">మతం (Religion)</label>
+                      <label htmlFor="full-religion" className="text-xs font-bold text-slate-800">మతం (Religion) *</label>
                       <select
-                        value={f.religion || "Hindu"}
-                        onChange={(e) => set("religion", e.target.value)}
+                        id="full-religion"
+                        required
+                        value={f.religion}
+                        onChange={(e) => setReligion(e.target.value)}
                         className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-medium"
                       >
-                        <option value="Hindu">🕉️ హిందూ (Hindu)</option>
-                        <option value="Muslim">☪️ ముస్లిం (Muslim)</option>
-                        <option value="Christian">✝️ క్రైస్తవ (Christian)</option>
+                        <option value="">మతం ఎంచుకోండి (Select religion)</option>
+                        {RELIGIONS.map((religion) => <option key={religion} value={religion}>{RELIGION_LABELS[religion]}</option>)}
                       </select>
                     </div>
 
@@ -1669,21 +1831,56 @@ function Wizard() {
                 {step === 2 && (
                   <div className="space-y-4">
                     <SearchSelect
-                      label="కులం (Caste)"
+                      label="కులం / సంఘం (Caste / Community)"
                       options={casteOpts}
                       value={f.caste}
-                      onChange={(v) => set("caste", v)}
+                      onChange={setCaste}
                       required
+                      disabled={!f.religion}
                       teMap={CASTE_TELUGU}
-                      placeholder="కులం ఎంచుకోండి…"
+                      placeholder="కులం / సంఘం ఎంచుకోండి…"
+                      hint={casteLoading ? "సంఘాల జాబితా లోడ్ అవుతోంది…" : casteListOffline ? "ఆఫ్‌లైన్ జాబితా ఉపయోగిస్తున్నాం; జాబితా పూర్తి కాకపోతే ‘Other / self-described’ ఎంచుకోండి." : "మతాన్ని బట్టి జాబితా మారుతుంది. జాబితాలో లేకపోతే ‘Other / self-described’ ఎంచుకోండి."}
                     />
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {f.caste === "Other / self-described" && (
                       <TextField
-                        label="ఉపకులం (Sub-caste)"
-                        value={f.sub_caste}
-                        onChange={(v) => set("sub_caste", v)}
-                        placeholder="ఉపకులం"
+                        label="మీ కులం / సంఘం పేరు (Enter community name)"
+                        value={f.caste_custom}
+                        onChange={(v) => set("caste_custom", v)}
+                        required
+                        maxLength={100}
+                        placeholder="మీరు ఉపయోగించే పేరు నమోదు చేయండి"
                       />
+                    )}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {subcasteOpts.length ? (
+                        <SearchSelect
+                          label="ఉపకులం (Sub-caste - Optional)"
+                          options={subcasteOpts}
+                          value={f.sub_caste}
+                          onChange={setSubcaste}
+                          placeholder="ఉపకులం ఎంచుకోండి…"
+                          hint={subcasteLoading ? "ఉపకులాల జాబితా లోడ్ అవుతోంది…" : subcasteListOffline ? "ఆఫ్‌లైన్ జాబితా ఉపయోగిస్తున్నాం; సరైనది లేకపోతే Other / self-described ఎంచుకోండి." : "ఇది ఐచ్చికం. జాబితాలో సరైన పేరు లేకపోతే Other / self-described ఎంచుకోండి."}
+                        />
+                      ) : (
+                        <TextField
+                          label="ఉపకులం / ఉపసంఘం (Optional)"
+                          value={f.sub_caste}
+                          onChange={(v) => set("sub_caste", v)}
+                          maxLength={100}
+                          placeholder="వర్తిస్తే మీ స్వంత వివరణ నమోదు చేయండి"
+                          hint="ఈ ఐచ్చిక వివరానికి సిద్ధంగా ఉన్న జాబితా లేదు; మీరు స్వయంగా నమోదు చేయవచ్చు."
+                        />
+                      )}
+                      {f.sub_caste === "Other / self-described" && (
+                        <TextField
+                          label="ఉపకులం / ఉపసంఘం పేరు (Enter subgroup name)"
+                          value={f.sub_caste_custom}
+                          onChange={(v) => set("sub_caste_custom", v)}
+                          required
+                          maxLength={100}
+                          placeholder="మీరు ఉపయోగించే పేరు నమోదు చేయండి"
+                        />
+                      )}
                       <TextField
                         label="గోత్రం (Gothram)"
                         value={f.gothram}
@@ -1733,10 +1930,11 @@ function Wizard() {
                     <div className="space-y-1.5">
                       <label className="text-xs font-bold text-slate-800">విద్యార్హత (Education) *</label>
                       <select
-                        value={f.education || "B.Tech / Graduate"}
+                        value={f.education}
                         onChange={(e) => set("education", e.target.value)}
                         className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-medium"
                       >
+                        <option value="">విద్యార్హత ఎంచుకోండి (Select education)</option>
                         {EDUCATIONS.map((e) => (
                           <option key={e} value={e}>
                             {e}
@@ -1751,24 +1949,19 @@ function Wizard() {
                       </label>
                       <div className="flex flex-wrap gap-1.5">
                         {[
-                          { l: "🏡 Housewife (గృహిణి)", v: "Housewife / Homemaker (గృహిణి)", sal: "None / Not Applicable" },
-                          { l: "💻 Software Engineer", v: "Software Engineer", sal: "₹10 - 15 Lakhs / year" },
-                          { l: "🏛️ Govt Employee", v: "Govt Employee (Central / State)", sal: "₹7 - 10 Lakhs / year" },
-                          { l: "🩺 Doctor", v: "Doctor / Physician", sal: "₹15 - 25 Lakhs / year" },
-                          { l: "🎓 Teacher / Faculty", v: "Teacher / School Faculty", sal: "₹4 - 7 Lakhs / year" },
-                          { l: "💼 Business Owner", v: "Business Owner / Entrepreneur", sal: "₹15 - 25 Lakhs / year" },
-                          { l: "🌾 Farmer / Agri", v: "Farmer / Farm Owner", sal: "₹4 - 7 Lakhs / year" },
-                          { l: "🏢 Private Job", v: "Private Sector Professional", sal: "₹7 - 10 Lakhs / year" },
+                          { l: "🏡 Housewife (గృహిణి)", v: "Housewife / Homemaker (గృహిణి)" },
+                          { l: "💻 Software Engineer", v: "Software Engineer" },
+                          { l: "🏛️ Govt Employee", v: "Govt Employee (Central / State)" },
+                          { l: "🩺 Doctor", v: "Doctor / Physician" },
+                          { l: "🎓 Teacher / Faculty", v: "Teacher / School Faculty" },
+                          { l: "💼 Business Owner", v: "Business Owner / Entrepreneur" },
+                          { l: "🌾 Farmer / Agri", v: "Farmer / Farm Owner" },
+                          { l: "🏢 Private Job", v: "Private Sector Professional" },
                         ].map((qj) => (
                           <button
                             key={qj.v}
                             type="button"
-                            onClick={() => {
-                              set("job", qj.v);
-                              if (qj.sal && (f.salary === "₹7 - 10 Lakhs / year" || !f.salary || qj.v.includes("Housewife"))) {
-                                set("salary", qj.sal);
-                              }
-                            }}
+                            onClick={() => set("job", qj.v)}
                             className={`px-2.5 py-1 rounded-full text-xs font-bold transition border ${
                               f.job === qj.v
                                 ? "bg-[#7A0C2E] text-white border-[#7A0C2E] shadow-xs"
@@ -1800,10 +1993,11 @@ function Wizard() {
                     <div className="space-y-1.5">
                       <label className="text-xs font-bold text-slate-800">వార్షిక వేతనం (Salary) *</label>
                       <select
-                        value={f.salary || "₹7 - 10 Lakhs / year"}
+                        value={f.salary}
                         onChange={(e) => set("salary", e.target.value)}
                         className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-medium"
                       >
+                        <option value="">వార్షిక వేతనం ఎంచుకోండి (Select salary)</option>
                         <option value="None / Not Applicable">None / Not Applicable (గృహిణి / Not Working)</option>
                         {SALARIES.map((s) => (
                           <option key={s} value={s}>
@@ -1822,27 +2016,27 @@ function Wizard() {
                       <div className="space-y-1.5">
                         <label className="text-xs font-bold text-slate-800">రాష్ట్రం (State) *</label>
                         <select
-                          value={f.state || "TS"}
+                          value={f.state}
                           onChange={(e) => {
                             set("state", e.target.value);
                             set("district", "");
                           }}
                           className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-medium"
                         >
+                          <option value="">రాష్ట్రం ఎంచుకోండి (Select state)</option>
                           <option value="TS">తెలంగాణ (Telangana)</option>
                           <option value="AP">ఆంధ్రప్రదేశ్ (Andhra Pradesh)</option>
-                          <option value="KA">కర్ణాటక (Karnataka)</option>
-                          <option value="MH">మహారాష్ట్ర (Maharashtra)</option>
                           <option value="Other">ఇతర రాష్ట్రం / NRI</option>
                         </select>
                       </div>
 
                       <SearchSelect
                         label="జిల్లా (District)"
-                        options={DISTRICTS_BY_STATE[f.state] || DISTRICTS_BY_STATE.TS}
+                        options={DISTRICTS_BY_STATE[f.state] || []}
                         value={f.district}
                         onChange={(v) => set("district", v)}
                         required
+                        disabled={!f.state}
                         teMap={DISTRICT_TELUGU}
                         placeholder="జిల్లా ఎంచుకోండి…"
                       />
@@ -1855,7 +2049,7 @@ function Wizard() {
                         onChange={(v) => set("phone", v.replace(/\D/g, "").slice(0, 10))}
                         required
                         maxLength={10}
-                        placeholder="9876543210"
+                        placeholder="10 అంకెల మొబైల్ నంబర్"
                       />
                       <TextField
                         label="పాస్‌వర్డ్ (Password)"
@@ -1926,6 +2120,8 @@ function Wizard() {
                   </div>
                 )}
 
+                <ConsentNotice checked={!!f.consent_confirmed} onChange={(checked) => set("consent_confirmed", checked)} />
+
                 {/* Wizard Bottom Buttons */}
                 <div className="border-t border-slate-100 pt-4 flex items-center justify-between gap-3">
                   {step > 1 ? (
@@ -1979,8 +2175,8 @@ function Wizard() {
                     <span>✨</span>
                     <span>లైవ్ కార్డ్ నమూనా (Live Preview)</span>
                   </span>
-                  <span className="text-[10px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full font-bold">
-                    100% Verified
+                  <span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full font-bold">
+                    Preview
                   </span>
                 </div>
 
@@ -1990,16 +2186,16 @@ function Wizard() {
                       {photoPreview ? (
                         <img src={photoPreview} alt="Preview" className="w-full h-full object-cover" />
                       ) : (
-                        <span>{f.gender === "Bride" ? "👰" : "🤵"}</span>
+                        <span>{f.gender === "Bride" ? "👰" : f.gender === "Groom" ? "🤵" : "👤"}</span>
                       )}
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="font-extrabold text-sm text-navy truncate">{f.full_name || "మీ పేరు (Your Name)"}</div>
                       <div className="text-xs font-bold text-maroon mt-0.5">
-                        {f.gender === "Bride" ? "👰 వధువు" : "🤵 వరుడు"} • {f.age ? `${f.age} సం.` : "26y"} • {f.height || "5'4\""}
+                        {f.gender === "Bride" ? "👰 వధువు" : f.gender === "Groom" ? "🤵 వరుడు" : "ప్రొఫైల్"} • {f.age ? `${f.age} సం.` : "DOB తర్వాత వయసు"} • {f.height || "ఎత్తు"}
                       </div>
                       <div className="text-[11px] text-slate-500 font-medium truncate mt-0.5">
-                        💍 {f.caste || "కులం"} {f.sub_caste ? `(${f.sub_caste})` : ""}
+                        💍 {f.caste === "Other / self-described" ? (f.caste_custom || "కులం") : (f.caste || "కులం")} {f.sub_caste ? `(${f.sub_caste === "Other / self-described" ? f.sub_caste_custom : f.sub_caste})` : ""}
                       </div>
                     </div>
                   </div>
@@ -2020,7 +2216,7 @@ function Wizard() {
                     <div className="flex items-center gap-1.5">
                       <span>📍</span>
                       <span className="font-medium truncate">
-                        {f.district || "జిల్లా"}, {stateFullName(f.state, te)}
+                        {f.district || "ప్రాంతం"}{f.state ? `, ${stateFullName(f.state, te)}` : ""}
                       </span>
                     </div>
                   </div>
@@ -2033,7 +2229,7 @@ function Wizard() {
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="text-emerald-600 font-bold">✓</span>
-                    <span>24/7 హెల్ప్‌లైన్: +91 6304996088</span>
+                    <span>సంప్రదింపు వివరాలు పరస్పర సమ్మతి తర్వాతే పంచబడతాయి.</span>
                   </div>
                 </div>
               </div>
@@ -2042,16 +2238,12 @@ function Wizard() {
         )}
 
       </div>
-    </main>
+    </div>
   );
 }
 
-/* R14 FIX: Wizard లో useSearchParams() (రెఫరల్ కోడ్ చదవడానికి) వాడటం వల్ల
- * Next.js ఈ subtree ని static/SSR పేజ్ shell లో render చేయకుండా, ఈ Suspense
- * fallback నే HTML గా పంపిస్తుంది — అంటే JS లేని crawler/browser కి గతంలో ఖాళీ
- * spinner తప్ప నిజమైన content ఏమీ కనిపించేది కాదు (SEO/no-JS గ్యాప్).
- * ఇప్పుడు fallback లో నిజమైన heading + benefits + phone/WhatsApp CTA పెట్టాం,
- * Wizard లాజిక్ ఏమీ మార్చకుండానే — hydrate అయ్యాక వెంటనే అసలు ఫారమ్ కనిపిస్తుంది. */
+/* R14: Keep the loading shell honest. It does not promise verification, privacy
+ * defaults, or a support destination that has not been configured. */
 function RegisterFallback() {
   return (
     <div className="min-h-dvh bg-[#FAF7F2] px-4 py-10">
@@ -2060,22 +2252,24 @@ function RegisterFallback() {
           మన వివాహలో ఉచిత రిజిస్ట్రేషన్ (Register FREE)
         </h1>
         <p className="mt-2 text-sm text-slate-700">
-          1 నిమిషంలో ఉచిత రిజిస్ట్రేషన్ చేసుకోండి — DOB verified, photo-private
-          profiles, మొదటి 3 ఇంట్రెస్ట్ రిక్వెస్ట్స్ FREE.
+          మీకు సౌకర్యంగా ఉన్న వివరాలతో ఉచితంగా profile సృష్టించండి. ఫోటో మరియు contact privacy settings ను review చేయండి.
         </p>
         <ul className="mt-4 space-y-1.5 text-left text-[13px] text-slate-600 mx-auto max-w-sm">
-          <li>✅ ఉచితంగా ప్రొఫైల్ క్రియేట్ చేసుకోండి</li>
-          <li>✅ మీ ఫోటో ప్రైవేట్‌గా ఉంటుంది (verified users కి మాత్రమే కనిపిస్తుంది)</li>
-          <li>✅ DOB &amp; ID verification తో నమ్మకమైన ప్రొఫైల్స్</li>
+          <li>✅ Profile registration is free</li>
+          <li>✅ Profile details are member-submitted; verify them independently</li>
+          <li>✅ Review privacy controls before sharing personal information</li>
         </ul>
         <div className="mt-6 w-10 h-10 border-4 border-maroon border-t-transparent rounded-full animate-spin mx-auto" aria-hidden="true" />
         <p className="mt-2 text-xs font-bold text-maroon">రిజిస్ట్రేషన్ ఫారమ్ లోడ్ అవుతోంది…</p>
-        <p className="mt-4 text-xs text-slate-500">
-          ఫారమ్ కనిపించకపోతే, నేరుగా కాల్/WhatsApp చేయండి:{" "}
-          <a href="tel:+916304996088" className="font-bold text-maroon underline">
-            +91 6304996088
-          </a>
-        </p>
+        <p className="mt-4 text-xs text-slate-500">ఫారమ్ కనిపించకపోతే పేజీని మళ్లీ లోడ్ చేయండి.</p>
+        {SITE_CONFIG.supportLink ? (
+          <p className="mt-2 text-xs text-slate-500">
+            <a href={SITE_CONFIG.supportLink} target="_blank" rel="noopener noreferrer" className="font-bold text-maroon underline">
+              WhatsApp support link
+            </a>
+            <span> — బాహ్య సేవ లభ్యతను ఈ పేజీ నిర్ధారించదు.</span>
+          </p>
+        ) : null}
       </div>
     </div>
   );

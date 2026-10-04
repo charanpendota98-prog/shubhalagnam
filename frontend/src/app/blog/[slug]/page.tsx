@@ -33,7 +33,7 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
     publisher: { "@type": "Organization", name: "మన వివాహ", logo: { "@type": "ImageObject", url: `${SITE}/logo.png` } },
   };
   return (
-    <main className="mx-auto max-w-3xl px-4 py-8 sm:py-12">
+    <div className="mx-auto max-w-3xl px-4 py-8 sm:py-12">
       <script type="application/ld+json">
         {JSON.stringify(schema).replace(/</g, "\\u003c")}
       </script>
@@ -65,6 +65,6 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
         </aside>
       </article>
       <Link href="/blog" className="mt-6 inline-block text-sm font-bold text-maroon">← అన్ని తెలుగు guides</Link>
-    </main>
+    </div>
   );
 }

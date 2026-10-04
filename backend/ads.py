@@ -22,7 +22,7 @@ from datetime import datetime, timedelta
 from typing import Dict, List, Optional
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-PERSIST_FILE = os.path.join(BASE_DIR, "ads13.json")
+PERSIST_FILE = os.environ.get("MANA_VIVAHA_ADS_FILE", os.path.join(BASE_DIR, "ads13.json"))
 
 # ---------------------------------------------------------------------------
 # PRICING (₹) — public rates (GET /api/ads/rates)
@@ -44,6 +44,16 @@ SLOTS = ["home_hero", "matches_sidebar", "profile_banner", "search_top"]
 SLOT_TE = {"home_hero": "🏠 Home hero banner", "matches_sidebar": "💞 Matches sidebar",
            "profile_banner": "👤 Profile page banner", "search_top": "🔎 Search top strip"}
 LEVELS = ["district", "state", "all"]
+_STATE_ALIASES = {
+    "TS": "TS", "TG": "TS", "TELANGANA": "TS", "TELANGANA STATE": "TS",
+    "AP": "AP", "ANDHRA PRADESH": "AP", "ANDHRAPRADESH": "AP",
+}
+
+
+def _state_key(value: str) -> str:
+    raw = str(value or "").strip().upper()
+    return _STATE_ALIASES.get(raw, raw)
+
 
 CAMPAIGNS: List[Dict] = []
 _AD_SEQ = 0
@@ -94,8 +104,11 @@ def quote(level: str, days: int, districts: Optional[List[str]] = None,
     days = int(days or 0)
     if days < RATES["min_days"] or days > RATES["max_days"]:
         return {"ok": False, "message_telugu": f"⚠️ days {RATES['min_days']}–{RATES['max_days']} మాత్రమే"}
-    ds = [d for d in (districts or []) if d]
-    sl = [s for s in (slots or []) if s in SLOTS] or ["matches_sidebar"]
+    ds = list(dict.fromkeys(str(d).strip() for d in (districts or []) if str(d).strip()))
+    requested_slots = list(dict.fromkeys(str(s).strip() for s in (slots or []) if str(s).strip()))
+    if requested_slots and any(slot not in SLOTS for slot in requested_slots):
+        return {"ok": False, "message_telugu": "⚠️ Invalid ad placement selected"}
+    sl = requested_slots or ["matches_sidebar"]
     if level == "district" and not ds:
         return {"ok": False, "message_telugu": "⚠️ district level కి districts list కావాలి"}
     if level == "district":
@@ -121,6 +134,12 @@ def create_campaign(vendor_id: str, title: str, level: str, days: int,
                     link: str = "") -> Dict:
     """Vendor campaign request → status pending (payment + admin approve తర్వాత live)."""
     global _AD_SEQ
+    vendor_id = str(vendor_id or "").strip()
+    state = str(state or "").strip()
+    if not vendor_id:
+        return {"success": False, "message_telugu": "⚠️ Registered vendor ID కావాలి"}
+    if str(level or "").strip().lower() == "state" and not state:
+        return {"success": False, "message_telugu": "⚠️ State-level campaign కి రాష్ట్రం ఎంచుకోండి"}
     q = quote(level, days, districts, slots, bool(video_url))
     if not q.get("ok"):
         return {"success": False, "message_telugu": q.get("message_telugu")}
@@ -129,7 +148,7 @@ def create_campaign(vendor_id: str, title: str, level: str, days: int,
     _AD_SEQ += 1
     c = {"id": f"AD-{_AD_SEQ:04d}", "vendor_id": vendor_id, "title": title.strip(),
          "offer": offer or "", "level": q["level"], "districts": q["districts"],
-         "state": (state or "").upper() or "", "slots": q["slots"],
+         "state": _state_key(state), "slots": q["slots"],
          "image_url": image_url or "", "banner_url": banner_url or "",
          "video_url": video_url or "", "link": link or "",
          "days": days, "per_day": q["per_day"], "amount": q["total"],
@@ -151,9 +170,17 @@ def approve_campaign(cid: str, utr: str, days_override: int = 0) -> Dict:
     c = get_campaign(cid)
     if not c:
         return {"success": False, "message_telugu": "⚠️ Campaign దొరకలేదు"}
-    if not (utr or "").strip():
-        return {"success": False, "message_telugu": "⚠️ UTR lekunda approve cheyyakoodadu (audit)"}
-    days = int(days_override or c.get("days") or RATES["min_days"])
+    if c.get("status") != "pending":
+        return {"success": False, "message_telugu": "⚠️ Pending campaign మాత్రమే approve చేయవచ్చు"}
+    utr_value = str(utr or "").strip()
+    if len(utr_value) < 6 or len(utr_value) > 64:
+        return {"success": False, "message_telugu": "⚠️ Actual payment reference (6–64 characters) అవసరం"}
+    try:
+        days = int(days_override or c.get("days") or RATES["min_days"])
+    except (TypeError, ValueError):
+        return {"success": False, "message_telugu": "⚠️ Campaign days చెల్లుబాటు కావాలి"}
+    if days < RATES["min_days"] or days > RATES["max_days"]:
+        return {"success": False, "message_telugu": f"⚠️ Campaign days {RATES['min_days']}–{RATES['max_days']} మధ్య ఉండాలి"}
     start = _now()
     c.update({"status": "active", "utr": utr.strip(), "days": days,
               "start": _iso(start), "end": _iso(start + timedelta(days=days))})
@@ -173,6 +200,8 @@ def update_campaign(cid: str, patch: Dict) -> Dict:
     for k in ("title", "offer", "state", "image_url", "banner_url", "video_url", "link"):
         if d.get(k) is not None and str(d.get(k)).strip() != "":
             c[k] = str(d[k]).strip()[:300]
+    if d.get("state"):
+        c["state"] = _state_key(d["state"])
     if isinstance(d.get("districts"), list):
         c["districts"] = [str(x).strip() for x in d["districts"] if str(x).strip()][:20]
     if isinstance(d.get("slots"), list):
@@ -208,17 +237,22 @@ def campaign_action(cid: str, action: str, reason: str = "") -> Dict:
     c = get_campaign(cid)
     if not c:
         return {"success": False, "message_telugu": "⚠️ Campaign దొరకలేదు"}
-    if action == "reject":
-        c["status"] = "rejected"
-    elif action == "pause":
-        c["status"] = "paused"
-    elif action == "resume":
-        c["status"] = "active"
-    elif action == "expire":
-        c["status"] = "expired"
-    else:
+    allowed_from = {
+        "reject": {"pending"},
+        "pause": {"active"},
+        "resume": {"paused"},
+        "expire": {"active", "paused"},
+    }
+    if action not in allowed_from:
         return {"success": False, "message_telugu": "⚠️ action: reject/pause/resume/expire"}
-    c["admin_note"] = reason
+    if c.get("status") not in allowed_from[action]:
+        return {"success": False, "message_telugu": f"⚠️ {action} చర్యకు campaign ప్రస్తుతం సరైన status లో లేదు"}
+    if action == "resume" and not str(c.get("utr", "")).strip():
+        return {"success": False, "message_telugu": "⚠️ చెల్లింపు reference లేని campaign ను resume చేయలేము"}
+    if action == "reject" and len(str(reason or "").strip()) < 5:
+        return {"success": False, "message_telugu": "⚠️ Reject చేయడానికి కారణం నమోదు చేయండి"}
+    c["status"] = {"reject": "rejected", "pause": "paused", "resume": "active", "expire": "expired"}[action]
+    c["admin_note"] = str(reason or "").strip()[:500]
     _persist()
     return {"success": True, "campaign": c, "message_telugu": f"✅ {cid} → {c['status']}"}
 
@@ -240,14 +274,14 @@ def _is_live(c: Dict) -> bool:
 def _scope_priority(c: Dict, district: str, state: str) -> int:
     lvl = str(c.get("level", "all")).lower()
     dist_clean = str(district or "").lower().strip()
-    state_clean = str(state or "").upper().strip()
+    state_clean = _state_key(state)
     
     if lvl == "district" and dist_clean:
         ds = [str(d).lower().strip() for d in (c.get("districts") or [])]
         if any(dist_clean in d or d in dist_clean for d in ds):
             return 3
     if lvl == "state" and state_clean:
-        cs = (c.get("state") or "").upper().strip()
+        cs = _state_key(c.get("state", ""))
         if cs and cs == state_clean:
             return 2
     if lvl == "all":
@@ -260,8 +294,9 @@ def _scope_ok(c: Dict, district: str, state: str) -> bool:
     if lvl == "all":
         return True
     if lvl == "state":
-        cs = (c.get("state") or "").upper().strip()
-        return (not cs) or (not state) or cs == (state or "").upper().strip()
+        cs = _state_key(c.get("state", ""))
+        target = _state_key(state)
+        return (not cs) or (not target) or cs == target
     # district
     ds = [str(d).lower().strip() for d in (c.get("districts") or [])]
     dist_clean = (district or "").lower().strip()

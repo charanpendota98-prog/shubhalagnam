@@ -12,7 +12,7 @@ export default function TermsPage() {
   const { lang } = useLang();
   const te = lang === "te";
   return (
-    <main className="max-w-3xl mx-auto px-4 py-8 pb-36">
+    <div className="max-w-3xl mx-auto px-4 py-8 pb-36">
       <h1 className="text-2xl md:text-3xl font-extrabold text-[#7A0C2E] telugu">
         {te ? "📄 Terms of Use (సేవా నియమాలు)" : "📄 Terms of Use"}
       </h1>
@@ -87,17 +87,17 @@ export default function TermsPage() {
           {te ? (
             <>
               <li><b>అనవసర చాటింగ్ / DM ఫీచర్ ఉండదు</b> — స్పామ్ మరియు మోసాలను అరికట్టడానికి ఇరు కుటుంబాల సమ్మతి ఆధారిత విధానం మాత్రమే అమలులో ఉంటుంది.</li>
-              <li>మీరు పంపిన <b>ఇంట్రెస్ట్ రిక్వెస్ట్</b> — వారి వాట్సాప్‌కు మన అధికారిక సపోర్ట్ నంబర్ ద్వారా గౌరవప్రదంగా పంపబడుతుంది.</li>
-              <li>సంప్రదింపు నంబర్లు <b>ఇరువైపులా పరస్పర అంగీకారం తర్వాత మాత్రమే</b> మార్పిడి చేయబడతాయి. తిరస్కరించిన వారి వివరాలు ఎన్నడూ బహిర్గతం కావు.</li>
-              <li>ఒక రిక్వెస్ట్ = ఒక క్రెడిట్. ఒకవేళ తిరస్కరించబడినా లేదా 7 రోజుల్లో స్పందన లేకపోయినా క్రెడిట్ 100% రీఫండ్ చేయబడుతుంది.</li>
+              <li>మీ <b>ఇంట్రెస్ట్ రిక్వెస్ట్</b> ను అమల్లో ఉన్న notification సేవల ద్వారా profile owner‌కు పంపడానికి ప్రయత్నిస్తాం; బాహ్య సేవల delivery హామీ కాదు.</li>
+              <li>Profile owner <b>accept చేసిన తర్వాత మాత్రమే</b>, వర్తించే privacy settings ప్రకారం contact details పంచుకుంటాం. Decline అయితే contact details పంచుకోము.</li>
+              <li>ఒక request = ఒక credit. Owner decline చేసినప్పుడు లేదా 7 రోజులకు స్పందన లేక request expire అయినప్పుడు, ఖర్చయిన request credit ఒకసారి account‌కు తిరిగి వస్తుంది. ఇది cash refund కాదు.</li>
               <li>రోజువారీ పరిమితులు మరియు డూప్లికేట్ ప్రొటెక్షన్ నిబంధనలు ఖచ్చితంగా అమలు చేయబడతాయి.</li>
             </>
           ) : (
             <>
               <li><b>No casual chatting / DM feature</b> — to eliminate spam and protect privacy, communication is strictly consent-driven between families.</li>
-              <li>Your <b>Interest Request</b> is respectfully delivered with your verified biodata card via our official verified WhatsApp channel.</li>
-              <li>Contact phone numbers are securely exchanged only <b>after mutual family acceptance</b>. Contact details of declined interests are never disclosed.</li>
-              <li>One request = one credit. On decline or no-response within 7 days, your credit is 100% refunded to your balance.</li>
+              <li>We attempt to send your <b>Interest Request</b> to the profile owner through the notification services configured for the deployment; external delivery is not guaranteed.</li>
+              <li>Contact details are shared only <b>after the profile owner accepts</b>, subject to the applicable privacy settings. Declined requests do not share contact details.</li>
+              <li>One request = one credit. If the owner declines or the request expires after 7 days without a response, the spent request credit is returned to the account once. This is a credit return, not a cash refund.</li>
               <li>Daily limits and anti-spam duplicate request guards are strictly enforced.</li>
             </>
           )}
@@ -156,7 +156,7 @@ export default function TermsPage() {
                 మీరే కూడా verify చెయ్యాలి (meeting, documents, family background).</li>
               <li>వ్యక్తి వేరే వ్యక్తి మధ్య జరిగే matter, meetings, money dealings కి మనం <b>party కాదు, responsible కాదు</b>.</li>
               <li>మనం ఇచ్చే service maximum liability = <b>మీ last 3 months లో pay చేసిన amount</b> వరకే.</li>
-              <li>Fraud జరిగిన వెంటనే <Link href="/safety" className="underline font-bold">/safety</Link> లో report చెయ్యండి — మనం 24h లో action తీసుకుంటాం (hide/ban + help).</li>
+              <li>Fraud అనుమానం ఉంటే <Link href="/safety" className="underline font-bold">/safety</Link> లో report చేయండి. ప్రతి report‌ను సమీక్షిస్తాం; చర్య సమయం మరియు ఫలితం మారవచ్చు.</li>
             </>
           ) : (
             <>
@@ -164,7 +164,7 @@ export default function TermsPage() {
                 You must verify too (meeting, documents, family background).</li>
               <li>For matters, meetings, or money dealings between individuals, we are <b>not a party and not responsible</b>.</li>
               <li>Our maximum liability = <b>the amount you paid in the last 3 months</b>, at most.</li>
-              <li>Report fraud immediately in <Link href="/safety" className="underline font-bold">/safety</Link> — we act within 24h (hide/ban + help).</li>
+              <li>If you suspect fraud, report it on <Link href="/safety" className="underline font-bold">/safety</Link>. Reports are reviewed; response time and outcome may vary.</li>
             </>
           )}
         </ul>
@@ -276,7 +276,7 @@ export default function TermsPage() {
         <Link href="/privacy" className="underline text-[#7A0C2E] font-bold">🔒 {te ? "Privacy" : "Privacy"}</Link>
         <Link href="/safety" className="underline text-[#7A0C2E] font-bold">🛡️ {te ? "Safety" : "Safety"}</Link>
       </div>
-    </main>
+    </div>
   );
 }
 

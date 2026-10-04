@@ -39,7 +39,7 @@ import channel_content as CC  # noqa: E402
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 ASSET_DIR = os.path.join(HERE, "channel_assets")
-STATE_FILE = os.path.join(HERE, "channel_setup_state.json")
+STATE_FILE = os.environ.get("MANA_VIVAHA_CHANNEL_SETUP_STATE_FILE", os.path.join(HERE, "channel_setup_state.json"))
 REGISTRY = os.path.join(HERE, "channels_config.py")
 API = "https://api.telegram.org/bot%s/%s"
 

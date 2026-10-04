@@ -165,8 +165,11 @@ st, dash = get("/api/referral/%s" % target, headers=owner_headers(target))
 check("/api/referral/{id} dashboard (code+link+stats+kit)",
       st == 200 and dash.get("ok") and dash.get("code") and dash.get("link")
       and len(dash.get("share_kit", {}).get("whatsapp_messages", [])) == 5, st)
-check("dashboard commission rules Telugu (₹50 first, 10% repeat)",
-      "50" in str(dash.get("commission_rules", {}).get("first_payment")) and "10%" in str(dash.get("commission_rules", {}).get("repeat_payment")))
+commission_rules = dash.get("commission_rules", {})
+check("dashboard referral rules (one qualifying ₹50; repeats ₹0)",
+      "50" in str(commission_rules.get("first_payment"))
+      and "S_99" in str(commission_rules.get("first_payment"))
+      and "₹0" in str(commission_rules.get("repeat_payment")))
 check("dashboard tier + milestones", dash.get("tier", {}).get("key") in ("BRONZE", "SILVER", "GOLD", "PLATINUM", "ELITE")
       and len(dash.get("milestones", [])) == 4)
 st, kit = get("/api/referral/%s/share-kit" % target)
@@ -331,4 +334,4 @@ if FAIL:
     for f in FAIL:
         print("   ❌ " + f)
     sys.exit(1)
-print("🏆 LIVE SMOKE PASS — referral 2.0 (₹50 andariki) live lo pani chestundi")
+print("🏆 LIVE SMOKE PASS — referral rewards are one-time and eligibility-based")

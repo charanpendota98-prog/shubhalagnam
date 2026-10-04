@@ -121,7 +121,7 @@ export const DISTRICTS: DistrictInfo[] = [
   { slug: "karimnagar", name: "Karimnagar", state: "TS" },
   { slug: "khammam", name: "Khammam", state: "TS" },
   { slug: "nizamabad", name: "Nizamabad", state: "TS" },
-  { slug: "mahbubnagar", name: "Mahbubnagar", state: "TS" },
+  { slug: "mahbubnagar", name: "Mahabubnagar", state: "TS" },
   { slug: "medak", name: "Medak", state: "TS" },
   { slug: "adilabad", name: "Adilabad", state: "TS" },
   { slug: "suryapet", name: "Suryapet", state: "TS" },

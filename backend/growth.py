@@ -20,7 +20,7 @@ import random
 
 SITE = os.getenv("PUBLIC_SITE_URL", "https://manavivaha.in").rstrip("/")
 BOT_USERNAME = os.getenv("BOT_USERNAME", "@telugumatrimony1_bot")
-SUPPORT_PHONE = os.getenv("SUPPORT_PHONE", "6304996088")
+SUPPORT_PHONE = os.getenv("SUPPORT_PHONE", "").strip()
 
 DB_VISITORS: List[Dict] = []   # {vid, at, path, ref, utm, device, ua}
 DB_LEADS: List[Dict] = []      # {id, at, name, phone, gender, age, district, caste, source, status, notes}
@@ -50,18 +50,17 @@ def namaste_text(user: Dict, tsap_id: str) -> str:
         f"📍 {u.get('district', '—')}, {u.get('state', 'TS')}\n"
         f"👨‍👩‍👧 {u.get('family_type', '—')} • {u.get('family_status', '—')}\n"
         f"━━━━━━━━━━━━━━━━\n"
-        f"📢 మీ profile ఇప్పుడే మన *52 channels* + WhatsApp groups లో post అవుతుంది "
-        f"(anti-ban rules తో — కొన్ని నిమిషాల్లో live).\n"
+        f"📢 Profile publication depends on approval, publisher configuration and destination access; delivery and reach are not guaranteed.\n"
         f"━━━━━━━━━━━━━━━━\n"
-        f"*ఇప్పుడు ఏం చెయ్యాలి?*\n"
-        f"1️⃣ మీ profile card కింద పంపిస్తున్నాం — WhatsApp status లో పెట్టండి (reach double!)\n"
-        f"2️⃣ Matches చూసి 💌 *Interest request* పంపండి — మొదటి 3 FREE\n"
-        f"3️⃣ మీ ID share చెయ్యండి: {tsap_id}\n"
+        f"*ఇప్పుడు ఏం చేయవచ్చు?*\n"
+        f"1️⃣ మీ profile వివరాలు మరియు privacy settings పరిశీలించండి.\n"
+        f"2️⃣ Matches చూసి 💌 *Interest request* పంపండి — credits/plan మీ account లో కనిపిస్తాయి.\n"
+        f"3️⃣ మీ Profile ID share చేయండి: {tsap_id}\n"
         f"━━━━━━━━━━━━━━━━\n"
-        f"🔒 మీ number ఎవరికీ కనిపించదు. Interest accept అయ్యాకే exchange అవుతుంది.\n"
-        f"🚫 Chatting లేదు — spam/loose talk ఉండదు.\n"
+        f"🔒 Contact sharing follows the interest/consent flow and profile settings; independently verify details before proceeding.\n"
+        f"🚫 In-site chat లేదు; external contact తర్వాత spam లేదా unwanted messages జరగవని హామీ లేదు.\n"
         f"🤖 Bot: {BOT_USERNAME} | 🔍 మీ profile: {SITE}/search/{tsap_id}\n"
-        f"⚠️ Advance money అడిగితే వెంటనే report చెయ్యండి: {SUPPORT_PHONE}"
+        + (f"❓ Configured support contact: {SUPPORT_PHONE}" if SUPPORT_PHONE else "")
     )
 
 
@@ -91,10 +90,10 @@ def lead_followup_text(lead: Dict) -> str:
         f"మీ profile *FREE* గా complete చెయ్యడానికి 3 నిమిషాలు చాలు:\n"
         f"1️⃣ పేరు + photo (optional)\n2️⃣ Caste + star details\n3️⃣ Education + job\n"
         f"━━━━━━━━━━━━━━━━\n"
-        f"🔗 ఇక్కడ complete చెయ్యండి: {SITE}/register?phone={l.get('phone', '')}\n"
-        f"లేదా ఈ number కి 'YES' అని reply చెయ్యండి — మన team call చేసి 5 నిమిషాల్లో profile ready చేస్తుంది.\n"
-        f"🔒 మీ number safe — ఎవరికీ share అవ్వదు. 🚫 Chatting లేదు.\n"
-        f"❓ Help: {SUPPORT_PHONE}"
+        f"🔗 ఇక్కడ పూర్తి చేయండి: {SITE}/register\n"
+        f"🔒 మీ profile లో ఉన్న privacy settings ను review చేయండి; contact details sharing consent flow మీద ఆధారపడి ఉంటుంది.\n"
+        f"🚫 In-site chat లేదు. External contact తర్వాత unwanted messages జరగవని హామీ లేదు.\n"
+        + (f"❓ Configured support contact: {SUPPORT_PHONE}" if SUPPORT_PHONE else "")
     )
 
 
@@ -214,7 +213,7 @@ def leads_list(status: str = "", limit: int = 100) -> Dict:
     rows = DB_LEADS if not status else [l for l in DB_LEADS if l.get("status") == status]
     hot = sorted(rows, key=lambda x: (-int(x.get("touches", 1)), x["at"]), reverse=False)[:limit]
     return {"total": len(rows), "items": hot,
-            "message_telugu": "కొత్త leads ముందు follow-up చెయ్యండి — first 24 hours లో response rate 3x ఎక్కువ"}
+            "message_telugu": "కొత్త leads కు వీలైనప్పుడు త్వరగా follow-up చేయండి; response సమయం వ్యక్తిని బట్టి మారుతుంది, హామీ లేదు."}
 
 
 # ---------------------------------------------------------------------------
@@ -248,9 +247,9 @@ def share_kit(user: Dict, tsap_id: str, hashtags: Optional[List[str]] = None) ->
         "telegram_share": "https://t.me/share/url?url=" + _url(f"{SITE}/search/{tsap_id}") + "&text=" + _url(caption),
         "best_time_to_post": "Ratri 8–10 IST (WhatsApp status views ఎక్కువ)",
         "tips_telugu": [
-            "Card image ని WhatsApp status లో 24h పెట్టండి — local reach 3x అవుతుంది",
-            "Family WhatsApp groups లో caption + link పంపండి",
-            "Caste + district group admin కి direct గా పంపండి (మన channels cover chestayi)",
+            "Card image ను మీకు అనుకూలమైన WhatsApp status లేదా group లో share చేయండి; reach/views audience పై ఆధారపడి ఉంటాయి.",
+            "Family WhatsApp groups లో caption + link పంపండి; share చేసే ముందు profile owner consent ఉందని నిర్ధారించండి.",
+            "Caste + district group admin అనుమతి తీసుకుని మాత్రమే link పంపండి.",
         ],
     }
 
@@ -261,26 +260,14 @@ def _url(s: str) -> str:
 
 
 # ---------------------------------------------------------------------------
-# 4) 🚀 LAUNCH INVENTORY HELPER (300–400 profiles chalu — annav)
+# Member inventory aggregate — factual count only; no synthetic launch target.
 # ---------------------------------------------------------------------------
 def inventory_status(total_users: int) -> Dict:
-    """
-    'చాలా మంది ఉండాల్సిన అవసరం లేదు — 300–400 profiles చాలు' → ee gauge.
-    """
-    target = int(os.getenv("LAUNCH_TARGET_PROFILES", "360"))
-    pct = round(total_users / max(1, target) * 100, 1)
-    return {
-        "total_profiles": total_users, "launch_target": target, "percent": pct,
-        "ready": total_users >= target,
-        "message_telugu": ("✅ Launch inventory ready (%d/%d profiles) — channels khali గా kanipinchavu"
-                           % (total_users, target)) if total_users >= target else
-                          ("⚠️ ఇంకా %d profiles కావాలి launch కి (%d/%d). Growth engine leads ని profiles గా marchutundi."
-                           % (target - total_users, total_users, target)),
-        "how_to_fill": ["POST /api/demo/seed-launch (demo inventory)",
-                        "Community heads నుంచి bulk upload",
-                        "Lead follow-up → profile completion (conversion 40%+)",
-                        "Referral link (prathi user 3 profiles techukostadu)"],
-    }
+    try:
+        count = max(0, int(total_users or 0))
+    except (TypeError, ValueError):
+        count = 0
+    return {"total_profiles": count}
 
 
 def expire_old_requests(requests: List[Dict], days: int = 7) -> int:

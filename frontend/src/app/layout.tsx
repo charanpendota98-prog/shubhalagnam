@@ -14,11 +14,11 @@ const SITE = process.env.SITE_URL || "https://manavivaha.in";
 export const metadata: Metadata = {
   metadataBase: new URL(SITE),
   title: {
-    default: "మన వివాహ — Telugu Matrimony | ₹99 Sambandham | First 3 FREE",
+    default: "మన వివాహ — Telugu Matrimony | ₹99 Sambandham | First 3 Requests FREE",
     template: "%s | మన వివాహ (Mana Vivaha)",
   },
   description:
-`తెలంగాణ మరియు ఆంధ్రప్రదేశ్ తెలుగు వారి పవిత్ర మ్యాట్రిమోనీ. మన వివాహ (Mana Vivaha) — Authentic Vedic Gunamelanam, ${CHANNEL_STATS.total} channels, 43 castes, ₹99 Sambandham, first 3 profiles FREE, photo-private, DOB verified, Telegram + WhatsApp channels. Register in 3 minutes!`,
+`తెలంగాణ & ఆంధ్రప్రదేశ్ తెలుగు కుటుంబాల కోసం మన వివాహ (Mana Vivaha). ${CHANNEL_STATS.total} configured channels, ₹99 నుంచి plans, first 3 interest requests free, photo privacy controls, and community self-description. Profile verification status is shown individually.`,
   keywords: [
     "మన వివాహ", "Mana Vivaha", "Telugu matrimony", "TS matrimony", "AP matrimony", "Reddy matrimony", "Kamma matrimony",
     "Kapu matrimony", "Brahmin matrimony", "Vysya matrimony", "Madiga matrimony", "Lambada matrimony", "Muslim matrimony Telugu",
@@ -35,13 +35,13 @@ export const metadata: Metadata = {
     siteName: "మన వివాహ — Telugu Matrimony",
     title: "మన వివాహ — Telugu Matrimony | ₹99 సంబంధం",
     description:
-`తెలంగాణ మరియు ఆంధ్రప్రదేశ్ తెలుగు వారి పవిత్ర మ్యాట్రిమోనీ. ${CHANNEL_STATS.total} channels, 43 castes, ₹99 → 5 profiles, first 3 FREE. Photo-private + DOB verified.`,
+`తెలంగాణ & ఆంధ్రప్రదేశ్ తెలుగు కుటుంబాల కోసం మన వివాహ (Mana Vivaha). ${CHANNEL_STATS.total} configured channels, ₹99 నుంచి plans, first 3 interest requests free, with photo privacy controls and self-described community names.`,
     images: [{ url: "/og-image.png", width: 1200, height: 630, alt: "మన వివాహ — Telugu Matrimony" }],
   },
   twitter: {
     card: "summary_large_image",
     title: "మన వివాహ — Telugu Matrimony",
-    description: `₹99 Sambandham • First 3 FREE • ${CHANNEL_STATS.total} channels • caste-wise`,
+    description: `₹99 Sambandham • First 3 interest requests FREE • ${CHANNEL_STATS.total} configured channels • community options`,
     images: ["/og-image.png"],
   },
   robots: { index: true, follow: true },
@@ -63,6 +63,7 @@ export const viewport: Viewport = {
   maximumScale: 5,
   userScalable: true,
   interactiveWidget: "resizes-content",
+  viewportFit: "cover",
   themeColor: "#7A0C2E",
 };
 

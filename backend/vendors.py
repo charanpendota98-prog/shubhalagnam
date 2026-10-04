@@ -21,10 +21,11 @@ import os
 import random
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional
+from urllib.parse import urlencode
 
 VENDORS_VERSION = "1.0"
 
-STATE_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "vendor_state.json")
+STATE_FILE = os.environ.get("MANA_VIVAHA_VENDOR_STATE_FILE", os.path.join(os.path.dirname(os.path.abspath(__file__)), "vendor_state.json"))
 INR = "₹"
 
 # ---------------------------------------------------------------------------
@@ -71,7 +72,7 @@ PACKAGES: List[Dict] = [
     {
         "code": "V_BASIC", "name": "Basic Listing", "price": 499, "days": 30,
         "telugu": "డైరెక్టరీ లిస్టింగ్ — మీ category లో కనిపిస్తారు",
-        "perks": ["1 category directory listing (30 days)", "Website లో verified-free badge",
+        "perks": ["1 category directory listing (30 days)", "Basic listing label",
                   "1 Telegram promo post (మీ caste/region channel)", "Call/WhatsApp CTA on listing"],
         "best_for": "కొత్త business — మొదటి publicity",
     },
@@ -100,9 +101,9 @@ PACKAGES: List[Dict] = [
     },
     {
         "code": "V_PREMIUM", "name": "Premium Partner", "price": 3999, "days": 180,
-        "telugu": "5 categories + weekly posts + top slot + badge (180 రోజులు)",
+        "telugu": "5 categories + weekly posts + top slot (180 రోజులు)",
         "perks": ["5 category listings + 1 special channel (180 days)", "Weekly promo post (24+ posts)",
-                  "Top slot rotation on home + /vendors page", "✅ Verified badge + rating badge",
+                  "Top slot rotation on home + /vendors page", "Premium Partner label; customer reviews only when submitted",
                   "WhatsApp status blast (2 times/month, our groups)", "Dedicated account manager (call support)",
                   "Bride/groom matching season alert list"],
         "best_for": "Established vendors — full season visibility",
@@ -166,9 +167,22 @@ def load_state() -> Dict:
             return {"ok": True, "loaded": False}
         with open(STATE_FILE, "r", encoding="utf-8") as f:
             data = json.load(f)
-        VENDORS = list(data.get("vendors", []))
-        LEADS = list(data.get("leads", []))
+        raw_vendors = list(data.get("vendors", []))
+        removed_demo_ids = {
+            str(v.get("id", "")) for v in raw_vendors
+            if v.get("source") == "demo_seed" or v.get("demo") is True
+        }
+        VENDORS = [v for v in raw_vendors if v.get("source") != "demo_seed" and v.get("demo") is not True]
+        # Legacy listing tiers used to imply vendor verification. Preserve placements but
+        # discard that unsupported badge unless a future explicit manual review exists.
+        for vendor in VENDORS:
+            vendor["verified"] = bool(vendor.get("manual_verified", False))
+        raw_leads = list(data.get("leads", []))
+        LEADS = [lead for lead in raw_leads
+                 if lead.get("source") != "demo_seed" and str(lead.get("vendor_id", "")) not in removed_demo_ids]
         STATS_LOG = list(data.get("stats", []))
+        if len(VENDORS) != len(raw_vendors) or len(LEADS) != len(raw_leads):
+            save_state()
         return {"ok": True, "loaded": True, "vendors": len(VENDORS), "leads": len(LEADS)}
     except Exception as e:
         return {"ok": False, "error": str(e)[:140]}
@@ -247,19 +261,30 @@ def register_vendor(form: Dict, all_vendors: Optional[List[Dict]] = None) -> Dic
     }
     all_vendors.append(vendor)
     save_state()
+    merchant_upi = (os.getenv("VENDOR_UPI_ID", "").strip()
+                    or os.getenv("PAYMENT_UPI_ID", "").strip()
+                    or os.getenv("PAY_UPI_ID", "").strip())
+    phonepe_link = ""
+    steps = ["1️⃣ మీ vendor request review కోసం నమోదు అయింది (ID: %s)" % vendor["id"]]
+    if merchant_upi:
+        phonepe_link = "upi://pay?" + urlencode({
+            "pa": merchant_upi, "pn": "Mana Vivaha",
+            "am": str(PACKAGE_MAP[pkg]["price"]), "cu": "INR",
+            "tn": vendor["id"],
+        })
+        steps.extend([
+            "2️⃣ అధికారిక UPI ID %s కి ₹%d చెల్లించి payment note లో %s ఇవ్వండి" %
+            (merchant_upi, PACKAGE_MAP[pkg]["price"], vendor["id"]),
+            "3️⃣ UTR ను బ్యాంక్ స్టేట్‌మెంట్‌తో సరిపోల్చిన తర్వాతే activation review జరుగుతుంది",
+            "4️⃣ Payment/business identity review ఆమోదమైతే listing ప్రచురించబడుతుంది",
+        ])
+    else:
+        steps.append("2️⃣ Payment checkout ఇంకా configure కాలేదు. అధికారిక వివరాలు కనిపించే వరకు డబ్బు పంపవద్దు.")
     return {"ok": True, "vendor_id": vendor["id"], "vendor": vendor,
             "package": PACKAGE_MAP[pkg], "amount": PACKAGE_MAP[pkg]["price"],
-            "upi_id": os.getenv("VENDOR_UPI_ID", os.getenv("PAYMENT_UPI_ID", "")),
-            "phonepe_link": "phonepe://pay?pa=%s&pn=ManaVivaha&am=%d&cu=INR&tn=%s"
-                            % (os.getenv("VENDOR_UPI_ID", os.getenv("PAYMENT_UPI_ID", "manavivaha@upi")),
-                               PACKAGE_MAP[pkg]["price"], vendor["id"]),
-            "steps_telugu": [
-                "1️⃣ ₹%d pay చెయ్యండి (UPI leda PhonePe link)" % PACKAGE_MAP[pkg]["price"],
-                "2️⃣ Payment screenshot మన WhatsApp కి పంపండి (reference: %s)" % vendor["id"],
-                "3️⃣ 2 గంటల్లో admin verify చేసి listing ACTIVE chestadu",
-                "4️⃣ మీ promo post + poster ready — మన channels లో వెళ్తుంది",
-            ],
-            "message_telugu": "🎉 %s — మీ vendor request వచ్చింది! Package: %s (₹%d / %d days). Payment తో వెంటనే listing live అవుతుంది."
+            "upi_id": merchant_upi, "checkout_available": bool(merchant_upi),
+            "phonepe_link": phonepe_link, "steps_telugu": steps,
+            "message_telugu": "%s — మీ vendor request వచ్చింది. Package: %s (₹%d / %d days). Payment reference, business details review తర్వాతే listing activation నిర్ణయిస్తారు."
                               % (vendor["business_name"], PACKAGE_MAP[pkg]["name"],
                                  PACKAGE_MAP[pkg]["price"], PACKAGE_MAP[pkg]["days"])}
 
@@ -279,7 +304,7 @@ def activate_vendor(vendor_id: str, package: str = "", utr: str = "",
     v["package_price"] = pkg["price"]
     v["package_days"] = days
     v["status"] = "active"
-    v["verified"] = pkg_code in ("V_PREMIUM", "V_STANDARD") or bool(v.get("verified"))
+    v["verified"] = bool(v.get("manual_verified", False))
     v["activated_at"] = _now()
     v["expires_at"] = (datetime.now() + timedelta(days=days)).isoformat()
     v["payment_ref"] = utr
@@ -510,7 +535,7 @@ def promo_post(vendor: Dict, variant: int = 0, channel: str = "") -> Dict:
             areas or city, phone,
             name.replace(" ", ""), city.replace(" ", "") or "Telugu")),
         ("💍 *పెళ్లి season special* 💍\n\n%s *%s*\n%s\n\n%s\n📍 %s\n💰 %s\n📞 %s\n\n"
-         "Booking fast గా avutunnayi — mundhe confirm చేసుకోండి ✅\nమన వివాహ partner (verified) 🏪"
+         "Booking fast గా avutunnayi — mundhe confirm చేసుకోండి ✅\nమన వివాహ లో listed partner 🏪"
          % (icon, name, cat, about[:200] or "Quality service, మంచి rates.",
             areas or city, price or "Rates call లో cheptam", phone)),
     ]
@@ -519,7 +544,7 @@ def promo_post(vendor: Dict, variant: int = 0, channel: str = "") -> Dict:
          "పెళ్లి సంబంధం చూసుకుంటున్నారా? ఈ vendor ని మనం verify చేశాం ✅ — direct గా contact చెయ్యండి."
          % (name, cat, about[:200] or "మంచి service + reasonable rates",
             areas or city, price or "Call చేసి అడగండి", phone)),
-        ("%s %s — %s\n%s\n📍 %s | 📞 %s\nమన వివాహ verified partner 🏪 (manavivaha.in/vendors)"
+        ("%s %s — %s\n%s\n📍 %s | 📞 %s\nమన వివాహ directory partner 🏪 (manavivaha.in/vendors)"
          % (icon, cat, city, ("⭐ " + about[:150]) if about else "Trusted vendor", areas or city, phone)),
     ]
     return {
@@ -628,7 +653,7 @@ def packages_public() -> Dict:
         "how_it_works_telugu": [
             "1️⃣ Package select చేసి register చెయ్యండి (2 నిమిషాలు)",
             "2️⃣ Payment (UPI/PhonePe) + screenshot మన WhatsApp కి",
-            "3️⃣ 2 గంటల్లో admin verify → listing ACTIVE + verified badge",
+            "3️⃣ Admin payment reference review చేసి listing activation నిర్ణయిస్తారు",
             "4️⃣ Promo post + poster మన Telegram/WhatsApp channels లో (52 channels)",
             "5️⃣ Enquiries direct మీ WhatsApp కి — dashboard లో performance report",
         ],
@@ -636,7 +661,7 @@ def packages_public() -> Dict:
             "🎯 Telugu పెళ్లి market — bride/groom families + relatives (మంచి intent)",
             "📢 52 channels + WhatsApp lanes (anti-ban safe order లో posts)",
             "📊 Impressions/clicks/enquiries — edi pani chesindo కనిపిస్తుంది",
-            "🏅 Verified badge + rating — trust build అవుతుంది",
+            "🏅 Premium placement; ratings/reviews only when submitted by customers (not identity verification)",
             "🔁 Renewal కి discount + season offers (Aashadam, Margashira, Padwa)",
         ],
         "renewal_discount_pct": 15,
@@ -654,85 +679,3 @@ def vendor_stats() -> Dict:
             "categories": len(CATEGORIES), "by_category": counts, "leads": len(LEADS),
             "impressions": sum(int(v.get("impressions", 0)) for v in VENDORS),
             "clicks": sum(int(v.get("clicks", 0)) for v in VENDORS)}
-
-# ---------------------------------------------------------------------------
-# DEMO SEED — site khali ga kanipinchadu (launch lo real vendors tho replace avutayi)
-# ---------------------------------------------------------------------------
-DEMO_VENDORS = [
-    {"business_name": "Sri Lakshmi Catering", "category": "catering", "city": "Warangal", "district": "Warangal",
-     "phone": "9848011101", "package": "V_STANDARD", "price_range": "₹250-450 per plate", "experience_years": "25",
-     "about": "Traditional Telugu vindu — 200 నుంచి 2000 members varaku. Veg + non-veg counters, live dosa counter.",
-     "service_areas": "Warangal, Hanamkonda, Kazipet, Jangaon"},
-    {"business_name": "Sri Balaji Photography", "category": "photography", "city": "Hyderabad", "district": "Rangareddy",
-     "phone": "9848011102", "package": "V_PREMIUM", "price_range": "₹40,000 - 1,20,000", "experience_years": "12",
-     "about": "Candid + traditional + drone. Pre-wedding shoot, full album design, same-day edit.",
-     "service_areas": "Hyderabad, Secunderabad, TS + AP"},
-    {"business_name": "Vasavi Decorations", "category": "decorations", "city": "Vijayawada", "district": "Krishna",
-     "phone": "9848011103", "package": "V_STANDARD", "price_range": "₹35,000 - 2,00,000", "experience_years": "15",
-     "about": "Mandap, stage backdrop, flower decoration, lighting. పెళ్లి, half-saree, seemantham అన్నీ functions.",
-     "service_areas": "Vijayawada, Guntur, Tenali, Eluru"},
-    {"business_name": "Sai Kalyana Mandapam", "category": "banquet_hall", "city": "Karimnagar", "district": "Karimnagar",
-     "phone": "9848011104", "package": "V_BASIC", "price_range": "₹45,000 - 1,50,000/day", "experience_years": "20",
-     "about": "AC function hall — 800 members seating, 200 car parking, dining hall + rooms, generator backup.",
-     "service_areas": "Karimnagar, Peddapalli, Jagtial"},
-    {"business_name": "Srinivasa Tent House", "category": "tent_house", "city": "Nalgonda", "district": "Nalgonda",
-     "phone": "9848011105", "package": "V_BASIC", "price_range": "₹25,000 - 90,000", "experience_years": "18",
-     "about": "Tents, chairs, sound system, shamiana, dining tables — ee area లో 18 years నుంచి.",
-     "service_areas": "Nalgonda, Miryalaguda, Suryapet, Bhongir"},
-    {"business_name": "Pandit Sri Sharma", "category": "pandit", "city": "Hyderabad", "district": "Hyderabad",
-     "phone": "9848011106", "package": "V_BASIC", "price_range": "₹8,000 - 35,000", "experience_years": "22",
-     "about": "ముహూర్తం, పెళ్లి, seemantham, satyanarayana vratam — Telugu + Sanskritlo pooja chepistham.",
-     "service_areas": "Hyderabad, Ranga Reddy, Medchal"},
-    {"business_name": "Sri Padmavathi Jewellers", "category": "jewellery", "city": "Guntur", "district": "Guntur",
-     "phone": "9848011107", "package": "V_BASIC", "price_range": "పెళ్లి haram ₹2L నుంచి", "experience_years": "35",
-     "about": "916 gold, vaddanam, haram, bangles — custom పెళ్లి jewellery designs, hall-mark certified.",
-     "service_areas": "Guntur, Tenali, Chilakaluripet"},
-    {"business_name": "Lakshmi Bridal Makeup Studio", "category": "makeup", "city": "Nizamabad", "district": "Nizamabad",
-     "phone": "9848011108", "package": "V_STANDARD", "price_range": "₹12,000 - 60,000", "experience_years": "10",
-     "about": "Bridal makeup, hairstyle, saree draping, HD + airbrush. Reception + పెళ్లి packages.",
-     "service_areas": "Nizamabad, Armoor, Kamareddy, Adilabad"},
-    {"business_name": "Vijaya Wedding Planners", "category": "wedding_planner", "city": "Visakhapatnam", "district": "Visakhapatnam",
-     "phone": "9848011109", "package": "V_PREMIUM", "price_range": "₹1,50,000 నుంచి (complete package)", "experience_years": "8",
-     "about": "Complete పెళ్లి planning — hall, catering, decoration, photography, makeup, invitation, travel. End-to-end.",
-     "service_areas": "Visakhapatnam, Vizianagaram, Srikakulam, Kakinada"},
-    {"business_name": "Ravi DJ & Melam Band", "category": "music_dj", "city": "Khammam", "district": "Khammam",
-     "phone": "9848011110", "package": "V_BASIC", "price_range": "₹15,000 - 75,000", "experience_years": "14",
-     "about": "DJ + nadaswaram + melam band. Baraat, reception, sangeet కి full sound + lighting.",
-     "service_areas": "Khammam, Kothagudem, Bhadrachalam"},
-]
-
-DEMO_LEADS = [
-    {"vendor": "Sri Lakshmi Catering", "name": "Ravi Kumar", "phone": "9848090001", "district": "Warangal",
-     "event_date": "2026-11-22", "budget": "₹1,20,000", "message": "300 members కి lunch + dinner, veg only"},
-    {"vendor": "Sri Balaji Photography", "name": "Sneha Reddy", "phone": "9848090002", "district": "Hyderabad",
-     "event_date": "2026-12-05", "budget": "₹75,000", "message": "Candid + traditional, 2 days function"},
-]
-
-
-def demo_seed() -> Dict:
-    """Demo vendors + leads (site khali గా కనిపించదు). Idempotent — duplicates add avvavu."""
-    created = []
-    for w in DEMO_VENDORS:
-        if any(x.get("business_name") == w["business_name"] for x in VENDORS):
-            continue
-        form = {"business_name": w["business_name"], "category": w["category"], "phone": w["phone"],
-                "city": w["city"], "district": w["district"], "state": "TS", "package": w["package"],
-                "about": w["about"], "price_range": w["price_range"], "experience_years": w["experience_years"],
-                "service_areas": w["service_areas"], "owner_name": "", "source": "demo_seed"}
-        res = register_vendor(form)
-        if res.get("ok"):
-            activate_vendor(res["vendor_id"], utr="DEMO")
-            created.append(res["vendor_id"])
-    # leads demo (dashboard lo performance kanipinchadaniki)
-    for dl in DEMO_LEADS:
-        v = next((x for x in VENDORS if x.get("business_name") == dl["vendor"]), None)
-        if v and not [l for l in LEADS if l.get("vendor_id") == v["id"]]:
-            vendor_lead(v["id"], {"name": dl["name"], "phone": dl["phone"], "district": dl["district"],
-                                  "event_date": dl["event_date"], "budget": dl["budget"],
-                                  "message": dl["message"], "source": "demo_seed"})
-    # kొంత impressions/clicks (rotation demo)
-    for v in VENDORS[:4]:
-        v["impressions"] = int(v.get("impressions", 0)) + random.randint(40, 160)
-        v["clicks"] = int(v.get("clicks", 0)) + random.randint(5, 25)
-    save_state()
-    return {"ok": True, "created": created, "total": len(VENDORS), "leads": len(LEADS)}

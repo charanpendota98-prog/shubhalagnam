@@ -72,7 +72,8 @@ res = client.get("/api/blog")
 check("GET /api/blog 200", res.status_code == 200)
 
 res = client.get("/api/top-matches")
-check("GET /api/top-matches 200", res.status_code == 200)
+check("GET /api/top-matches rejects missing profile ID without a server error",
+      res.status_code in (400, 401, 403, 404))
 
 res = client.get("/api/featured/caste-showcase")
 check("GET /api/featured/caste-showcase 200", res.status_code == 200)
@@ -85,9 +86,11 @@ user_a = {
     "dob": "1998-05-15",
     "age": 28,
     "phone": "9848012345",
+    "password": "TestPass123!",
     "caste": "Kamma",
     "district": "Guntur",
     "state": "AP",
+    "religion": "Hindu",
     "father_name": "Venkata Rao",
     "height": "5'4\"",
     "marital_status": "Pelli Kaledu",
@@ -95,6 +98,7 @@ user_a = {
     "job": "Software Engineer",
     "salary": "₹12 Lakhs / year",
     "about_myself": "I am a well-educated software professional looking for a suitable Telugu groom from a good family background.",
+    "consent_confirmed": "true",
 }
 
 res_a = client.post("/api/register", data=user_a)
@@ -139,7 +143,9 @@ res_act = client.post(f"/api/admin/profiles/{uid_a}/activate-plan", json=activat
 check("Admin manual plan activate -> 200", res_act.status_code == 200, res_act.text)
 act_data = res_act.json()
 check("Plan updated to SAMBANDHAM_99", act_data.get("plan") == "SAMBANDHAM_99")
-check("Verified badge granted", act_data.get("is_verified") is True)
+check("Plan payment does not grant verification", act_data.get("is_verified") is False)
+check("Plan activation does not bypass profile moderation",
+      main._find_user(uid_a).get("is_approved") is False)
 
 # Now check that user A appears in paid list
 res_admin_paid = client.get("/api/admin/profiles?paid_status=paid&status=all", headers=hdr_admin)
@@ -155,7 +161,8 @@ check("GET /api/referral/{id}/poster (alias) -> 200 + image/png", res_poster_ali
 
 # Payment QR alias
 res_qr = client.get("/api/pay/qr/ORD-TEST-101")
-check("GET /api/pay/qr/{id} (alias) -> 200 + image/png", res_qr.status_code == 200 and res_qr.headers.get("content-type") == "image/png")
+check("GET /api/pay/qr rejects an unknown order without inventing a UPI destination",
+      res_qr.status_code == 404)
 
 # OG profile preview alias
 res_og = client.get(f"/api/og/profile/{uid_a}")

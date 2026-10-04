@@ -1,5 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Arena's browser preview is served from a sandboxed *.e2b.app origin; allow
+  // that host family so Next.js dev assets and HMR work inside the preview.
+  allowedDevOrigins: ["*.e2b.app"],
+
   // Type errors must fail production builds; silently shipping broken UI is unsafe.
   typescript: { ignoreBuildErrors: false },
 

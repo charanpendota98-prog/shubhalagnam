@@ -11,7 +11,7 @@ Exhaustive verification of:
 7. Referral Engine, Dynamic QR Codes & Viral Standee / Earnings Posters
 8. 3-Year Inactivity Retention & Archive Engine
 9. Matrimony Matching & Astrological Rules (Gothram Guard, 36-Guna, Nakshatra, Rasi)
-10. Brand Integrity (మన వివాహ / Mana Vivaha) & Support Contact (+916304996088)
+10. Brand integrity and optional, configuration-backed support contact
 """
 import os
 import re
@@ -247,8 +247,10 @@ def run_deep_audit():
     # 9. Brand & Support Contact Invariants
     # ---------------------------------------------------------
     print("\n--- SECTION 9: BRAND UNIFORMITY & HELPLINE INTEGRITY ---")
-    support_phone = os.getenv("NEXT_PUBLIC_SUPPORT_PHONE", "6304996088")
-    report("Support Helpline Alignment (6304996088)", "6304996088" in support_phone, f"Active support phone: {support_phone}")
+    configured_support = (os.getenv("SUPPORT_PHONE") or os.getenv("SUPPORT_WHATSAPP") or "").strip()
+    legal_contact = client.get("/api/legal/acceptance").json().get("contact_number", "")
+    report("Support contact follows configuration or is omitted", legal_contact == configured_support,
+           "Configured contact returned" if configured_support else "No support number configured; no fallback exposed")
     report("User Facing Brand: Mana Vivaha (మన వివాహ)", True, "Brand verified across apps, cards, and manifests")
 
     # ---------------------------------------------------------

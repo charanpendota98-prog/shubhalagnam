@@ -116,7 +116,7 @@ M.DB_USERS.extend([ref, nb])
 referral.attach_referral(nb, "STORM2", M.DB_USERS)
 outs2 = []
 ts = [threading.Thread(target=lambda i=i: outs2.append(
-    referral.process_referral_payment(nb, "STORM2", 99, M.DB_USERS, payment_id=f"storm-{i}")))
+    referral.process_referral_payment(nb, "STORM2", 99, M.DB_USERS, payment_id=f"storm-{i}", plan_code="S_99")))
     for i in range(8)]
 [t.start() for t in ts]
 [t.join() for t in ts]
@@ -180,7 +180,7 @@ print(f"[p2] races done: cases={CASES[0]} fails={len(FAILS)}", flush=True)
 
 # ------------------------------------------------ JOURNEY STORMS
 print("[p2] journey storms...", flush=True)
-PLANS = ["S_29", "S_99", "S_199", "S_299", "S_499"]
+PLANS = ["S_99", "S_199", "S_299", "S_499"]
 _seq0 = PP._SEQ
 for j in range(100):
     tag = 3000 + j

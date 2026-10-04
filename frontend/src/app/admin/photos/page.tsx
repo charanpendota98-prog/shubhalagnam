@@ -55,7 +55,7 @@ export default function AdminPhotosPage() {
   };
 
   return (
-    <main className="mx-auto max-w-5xl px-4 py-8">
+    <div className="mx-auto max-w-5xl px-4 py-8">
       <h1 className="text-2xl font-extrabold text-maroon">📸 <Duo en="Photo Review Queue" te="ఫోటో పరిశీలన" /></h1>
       <p className="text-[12px] text-gray-600 telugu">{te ? "Technical checks pass అయిన photos మాత్రమే ఇక్కడ — wrong-person/group/celebrity ని reject చెయ్యండి." : "Only photos that passed technical checks — reject wrong-person/group/celebrity."}</p>
 
@@ -109,6 +109,6 @@ export default function AdminPhotosPage() {
           );
         })}
       </div>
-    </main>
+    </div>
   );
 }

@@ -1,368 +1,207 @@
-"""
-MANA VIVAHA — MATCH SCORE 2.0 (advanced, explainable, mutual)
-============================================================
-Top matrimony sites lo score "black box" — manam **explainable** ga istam:
-prathi point ekkada nunchi vachindo Telugu lo cheptham (trust + clarity).
+"""Factual profile comparison and preference-aware candidate ordering.
 
-Differences vs v1 (`matching_engine.calculate_match_score`):
-  1. **Partner preferences** respect chestundi (`exp_filters`: age/job/location/caste)
-  2. **Weights** — 11 components, each 0..1 → weighted /100
-  3. **Mutual score** — vaallu kooda ninnu ishtapaduthunnara? (iddari prefs match = 8% bonus)
-  4. **Trust bonus** — verified (phone/photo/ID) profile ki extra points
-  5. **Horoscope** — 10-porutham engine tho kalipi (stars unte)
-  6. **Breakdown + Telugu verdict** — UI lo "ఎందుకు ee score?" ani chupinchadaniki
-
-Usage:
-    from topmatch import score_match_v2, find_top_matches_v2
-    res = score_match_v2(me, other)     # {"score": 87, "breakdown": [...], "mutual": {...}}
+No compatibility percentage, match grade, mutual-likelihood score, or inferred
+"trust" bonus is calculated here. Results describe overlapping member-entered
+details and, when a member supplied explicit preferences, whether the available
+candidate data meets those preferences. Missing data is left unknown.
 """
 from __future__ import annotations
 
-from typing import Dict, List, Optional
-
-try:
-    from porutham import compute_porutham
-except Exception:                                    # engine lekapoyina score pani chestundi
-    compute_porutham = None
-
-WEIGHTS: Dict[str, int] = {
-    "age": 15, "caste": 15, "location": 14, "education": 11, "job": 12,
-    "salary": 10, "height": 5, "horoscope": 0, "family": 9, "lifestyle": 9, "trust": 0,
-}
-LABELS = {
-    "age": ("Age match", "వయస్సు"),
-    "caste": ("Caste / community", "కులం"),
-    "location": ("Location", "స్థలం"),
-    "education": ("Education", "చదువు"),
-    "job": ("Job / profession", "ఉద్యోగం"),
-    "salary": ("Income", "ఆదాయం"),
-    "height": ("Height match", "ఎత్తు"),
-    "horoscope": ("Horoscope (Optional)", "నక్షత్రం (ఐచ్ఛికం)"),
-    "family": ("Family background", "కుటుంబం"),
-    "lifestyle": ("Lifestyle habits", "జీవనశైలి"),
-    "trust": ("Verification / trust", "విశ్వాసం"),
-}
-_EDU_TIER = {"high": ["btech", "b.tech", "mtech", "m.tech", "mba", "mbbs", "md", "ms", "msc", "mca",
-                      "ca", "phd", "b.pharm", "m.pharm", "degree", "llb"],
-             "mid": ["bcom", "b.com", "bsc", "b.sc", "ba", "b.a", "bba", "b.ed", "polytechnic", "diploma",
-                     "nursing", "gnm", "inter", "12th", "iti", "10th"]}
-_PREMIUM_JOBS = ["doctor", "software", "govt", "bank", "engineer", "lecturer", "professor", "ca", "ias", "teacher"]
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 
-def _num(v, default=0):
+# Values shown as profile facts only. Similarity is not a compatibility claim.
+PROFILE_FIELDS: Tuple[Tuple[str, str, str], ...] = (
+    ("caste", "Community", "కమ్యూనిటీ"),
+    ("sub_caste", "Sub-community", "ఉప-కమ్యూనిటీ"),
+    ("district", "District", "జిల్లా"),
+    ("state", "State", "రాష్ట్రం"),
+    ("education", "Education", "విద్య"),
+    ("job", "Profession", "వృత్తి"),
+    ("marital_status", "Marital status", "వైవాహిక స్థితి"),
+    ("religion", "Religion", "మతం"),
+    ("mother_tongue", "Mother tongue", "మాతృభాష"),
+    ("family_type", "Family type", "కుటుంబ విధానం"),
+    ("star", "Birth star (optional)", "నక్షత్రం (ఐచ్ఛికం)"),
+)
+
+_MISSING = {"", "—", "-", "none", "null", "unknown", "not specified", "n/a", "na"}
+
+
+def _text(value: Any) -> str:
+    if value is None or isinstance(value, (dict, list, tuple, set)):
+        return ""
+    raw = str(value).strip()
+    return "" if raw.casefold() in _MISSING else raw
+
+
+def _key(value: Any) -> str:
+    return " ".join(_text(value).casefold().split())
+
+
+def _age(value: Any) -> Optional[int]:
     try:
-        return float(str(v).replace(",", "").strip())
-    except Exception:
-        return default
+        n = int(float(str(value).strip()))
+        return n if 18 <= n <= 100 else None
+    except (TypeError, ValueError, OverflowError):
+        return None
 
 
-def _salary_rank(value) -> int:
-    """'8L' / '60k' / '40L' / '2L+/mo' → annual rupees (approx)."""
-    s = str(value or "").lower().replace(" ", "")
-    if not s:
-        return 0
-    per_month = "/mo" in s or "month" in s
-    digits = ""
-    for ch in s:
-        if ch.isdigit() or ch == ".":
-            digits += ch
-        elif ch in "lk":
-            break
-    if not digits:
-        return 0
-    n = float(digits)
-    if "l" in s:
-        n *= 100000
-    elif "k" in s:
-        n *= 1000
-    else:
-        n *= 1000 if n < 1000 else 1
-    if per_month:
-        n *= 12
-    return int(n)
+def _preference_comparisons(user: Dict[str, Any], candidate: Dict[str, Any]) -> List[Dict[str, str]]:
+    """Evaluate only explicit, non-empty saved preferences against supplied data."""
+    raw = user.get("exp_filters")
+    prefs = raw if isinstance(raw, dict) else {}
+    rows: List[Dict[str, str]] = []
+
+    lo_raw = prefs.get("ageMin", prefs.get("age_min", user.get("exp_age_min")))
+    hi_raw = prefs.get("ageMax", prefs.get("age_max", user.get("exp_age_max")))
+    try:
+        parsed_lo = int(lo_raw) if _text(lo_raw) else None
+        parsed_hi = int(hi_raw) if _text(hi_raw) else None
+        lo = parsed_lo if parsed_lo is not None and 18 <= parsed_lo <= 70 else None
+        hi = parsed_hi if parsed_hi is not None and 18 <= parsed_hi <= 70 else None
+    except (TypeError, ValueError, OverflowError):
+        lo = hi = None
+    age = _age(candidate.get("age"))
+    if age is not None and (lo is not None or hi is not None):
+        met = (lo is None or age >= lo) and (hi is None or age <= hi)
+        bound = f"{lo if lo is not None else 'any'}–{hi if hi is not None else 'any'}"
+        rows.append({
+            "key": "age", "label": "Age range", "status": "met" if met else "not_met",
+            "note": f"Candidate age {age} is {'within' if met else 'outside'} the saved range ({bound}).",
+        })
+
+    requested_caste = _text(prefs.get("caste", user.get("exp_caste")))
+    norm_caste = _key(requested_caste)
+    candidate_caste = _key(candidate.get("caste"))
+    own_caste = _key(user.get("caste"))
+    if norm_caste in {"same", "same caste", "same community"}:
+        if candidate_caste and own_caste:
+            met = candidate_caste == own_caste
+            rows.append({
+                "key": "caste", "label": "Community preference", "status": "met" if met else "not_met",
+                "note": "Candidate community matches the saved same-community preference." if met
+                        else "Candidate community differs from the saved same-community preference.",
+            })
+    elif norm_caste not in {"any", "no bar", "no preference"} and candidate_caste:
+        met = candidate_caste == norm_caste
+        rows.append({
+            "key": "caste", "label": "Community preference", "status": "met" if met else "not_met",
+            "note": "Candidate community matches the saved preference." if met
+                    else "Candidate community differs from the saved preference.",
+        })
+
+    requested_job = _key(prefs.get("job", user.get("exp_job")))
+    candidate_job = _key(candidate.get("job"))
+    if requested_job and candidate_job:
+        met = requested_job in candidate_job
+        rows.append({
+            "key": "job", "label": "Profession preference", "status": "met" if met else "not_met",
+            "note": "Candidate profession matches the saved preference." if met
+                    else "Candidate profession differs from the saved preference.",
+        })
+
+    requested_location = _key(prefs.get("location", user.get("exp_location")))
+    candidate_locations = [_key(candidate.get(k)) for k in ("district", "state", "work_location", "current_city")]
+    candidate_locations = [value for value in candidate_locations if value]
+    if requested_location and candidate_locations:
+        met = any(requested_location in value or value in requested_location for value in candidate_locations)
+        rows.append({
+            "key": "location", "label": "Location preference", "status": "met" if met else "not_met",
+            "note": "Candidate's listed location matches the saved preference." if met
+                    else "Candidate's listed location differs from the saved preference.",
+        })
+    return rows
 
 
-def _age_pref(user: Dict, match: Dict) -> (float, str):
-    exp = (user or {}).get("exp_filters") or {}
-    lo, hi = _num(exp.get("ageMin"), 0), _num(exp.get("ageMax"), 0)
-    a = int(match.get("age", 0) or 0)
-    if lo and hi and lo <= a <= hi:
-        return 1.0, "మీ expectation (%d-%d) లో ఉన్నారు" % (int(lo), int(hi))
-    if lo and hi:
-        gap = min(abs(a - lo), abs(a - hi))
-        if gap <= 2:
-            return 0.75, "expectation కి %d yr దూరం లో" % gap
-        return 0.35, "expectation (%d-%d) బయట ఉన్నారు" % (int(lo), int(hi))
-    ua = int((user or {}).get("age", 0) or 0)
-    diff = abs(a - ua)
-    if diff == 0:
-        return 1.0, "same age"
-    if diff <= 4:
-        return 1.0, "%d yr gap — ideal" % diff
-    if diff <= 8:
-        return 0.7, "%d yr gap — ok" % diff
-    return 0.3, "%d yr gap — పెద్ద difference" % diff
+def score_match_v2(user: Dict[str, Any], match: Dict[str, Any], include_mutual: bool = False) -> Dict[str, Any]:
+    """Legacy name retained for callers; returns facts and never returns a score.
 
+    ``include_mutual`` is intentionally ignored: profile fields cannot establish
+    whether another member likes or would accept someone.
+    """
+    user = user if isinstance(user, dict) else {}
+    match = match if isinstance(match, dict) else {}
+    observations: List[str] = []
+    differences: List[str] = []
+    breakdown: List[Dict[str, str]] = []
 
-def _caste_pref(user: Dict, match: Dict) -> (float, str):
-    exp = str(((user or {}).get("exp_filters") or {}).get("caste", "")).lower()
-    same = str(user.get("caste", "")).strip().lower() == str(match.get("caste", "")).strip().lower()
-    wants = ("same" in exp) or (not exp) or ("no bar" not in exp and "any" not in exp)
-    if same and wants:
-        return 1.0, "same caste — channels/relatives కి easy"
-    if same:
-        return 0.8, "same caste (మీరు caste-no-bar అన్నారు)"
-    if not wants:
-        return 0.7, "veera caste — meeru caste no bar"
-    return 0.35, "veera caste — మీ expectation same caste"
+    for key, label, te_label in PROFILE_FIELDS:
+        a, b = _text(user.get(key)), _text(match.get(key))
+        if not a or not b:
+            continue
+        same = _key(a) == _key(b)
+        if same:
+            note = f"Both profiles list {a} for {label.lower()}."
+            observations.append(note)
+        else:
+            note = f"Profiles list different {label.lower()} values: {a} and {b}."
+            differences.append(note)
+        breakdown.append({
+            "key": key, "label": label, "telugu": te_label,
+            "status": "same" if same else "different", "note": note,
+        })
 
+    age_a, age_b = _age(user.get("age")), _age(match.get("age"))
+    if age_a is not None and age_b is not None:
+        gap = abs(age_a - age_b)
+        note = f"Member-entered ages are {age_a} and {age_b}; the difference is {gap} year(s). Verify dates independently."
+        observations.append(note)
+        breakdown.append({"key": "age", "label": "Age", "telugu": "వయస్సు", "status": "listed", "note": note})
 
-def _location_pref(user: Dict, match: Dict) -> (float, str):
-    d1, d2 = str(user.get("district", "")).lower(), str(match.get("district", "")).lower()
-    s1, s2 = str(user.get("state", "")).upper(), str(match.get("state", "")).upper()
-    m1, m2 = str(user.get("mandal", "")).lower(), str(match.get("mandal", "")).lower()
-    if m1 and m1 == m2:
-        return 1.0, "same mandal/area — chala convenient"
-    if d1 and d1 == d2:
-        return 0.9, "same district"
-    if s1 and s1 == s2:
-        return 0.7, "same state"
-    w1, w2 = str(user.get("work_location", "")).lower(), str(match.get("work_location", "")).lower()
-    if w1 and w1 == w2:
-        return 0.8, "work location same (%s)" % match.get("work_location")
-    return 0.35, "different state — travel కావాలి"
-
-
-def _edu_pref(user: Dict, match: Dict) -> (float, str):
-    a, b = str(user.get("education", "")).lower(), str(match.get("education", "")).lower()
-    if a and a == b:
-        return 1.0, "same education"
-    ta, tb = _tier(a), _tier(b)
-    if ta and ta == tb:
-        return 1.0, "same education level (%s)" % tb
-    if "high" in (ta, tb):
-        return 0.75, "education levels close"
-    return 0.5, "education levels different"
-
-
-def _tier(edu: str) -> str:
-    for tier, keys in _EDU_TIER.items():
-        if any(k in edu for k in keys):
-            return tier
-    return ""
-
-
-def _job_pref(user: Dict, match: Dict) -> (float, str):
-    exp_job = str(((user or {}).get("exp_filters") or {}).get("job", "")).lower()
-    a, b = str(user.get("job", "")).lower(), str(match.get("job", "")).lower()
-    if exp_job and exp_job and (exp_job in b or b in exp_job):
-        return 1.0, "మీ job preference (%s) match" % match.get("job")
-    if a and a == b:
-        return 1.0, "same profession"
-    if any(k in b for k in _PREMIUM_JOBS):
-        return 0.85, "stable profession (%s)" % match.get("job")
-    if (a and b) and (a.split()[0] == b.split()[0]):
-        return 0.8, "similar profession"
-    return 0.5, "different profession"
-
-
-def _salary_pref(user: Dict, match: Dict) -> (float, str):
-    mine, theirs = _salary_rank(user.get("salary")), _salary_rank(match.get("salary"))
-    if not theirs:
-        return 0.5, "salary pettaledu"
-    if not mine:
-        return 0.8, "income info లేదు (మీది)"
-    ratio = theirs / max(1, mine)
-    if ratio >= 1.0:
-        return 1.0, "income మీ కన్నా ఎక్కువ/same"
-    if ratio >= 0.8:
-        return 0.8, "income close"
-    return 0.5, "income mee kanna thakkuva"
-
-
-def _height_pref(user: Dict, match: Dict) -> (float, str):
-    def inches(v):
-        s = str(v or "").replace("\"", "").strip()
-        if "'" in s:
-            try:
-                ft, inch = s.split("'")
-                return int(ft) * 12 + int(inch or 0)
-            except Exception:
-                return 0
-        return 0
-    hu, hm = inches(user.get("height")), inches(match.get("height"))
-    if not hu or not hm:
-        return 0.6, "height info లేదు"
-    g = str(user.get("gender", ""))
-    diff = hm - hu if g == "Bride" else hu - hm   # groom taller = positive
-    if 1 <= diff <= 8:
-        return 1.0, "height match బాగుంది (%d inch)" % diff
-    if diff == 0:
-        return 0.8, "same height"
-    if -3 <= diff < 0:
-        return 0.7, "height close"
-    return 0.4, "height match weak"
-
-
-def _horoscope_pref(user: Dict, match: Dict) -> (float, str):
-    # Horoscope/Star is 100% optional — never filter out or penalize candidates
-    s = match.get("star")
-    if s:
-        return 1.0, f"నక్షత్రం: {s} (ఐచ్ఛికం)"
-    return 1.0, "నక్షత్రం ఐచ్ఛికం (నో ఫిల్టర్)"
-
-
-def _family_pref(user: Dict, match: Dict) -> (float, str):
-    pts, notes = 0.0, []
-    if str(user.get("family_type", "")).lower() == str(match.get("family_type", "")).lower():
-        pts += 0.4; notes.append("family type same")
-    else:
-        pts += 0.2
-    if str(user.get("family_values", "")).lower() == str(match.get("family_values", "")).lower():
-        pts += 0.35; notes.append("family values same")
-    else:
-        pts += 0.15
-    if str(user.get("family_status", "")).lower() == str(match.get("family_status", "")).lower():
-        pts += 0.25; notes.append("family status similar")
-    else:
-        pts += 0.1
-    return min(1.0, pts), ", ".join(notes) or "family background different"
-
-
-def _lifestyle_pref(user: Dict, match: Dict) -> (float, str):
-    pts, notes = 0.0, []
-    um, mm = str(user.get("marital_status", "")), str(match.get("marital_status", ""))
-    if um and um == mm:
-        pts += 0.4
-    elif "కాలేదు" in um.lower() and "కాలేదు" in mm.lower():
-        pts += 0.4
-    else:
-        pts += 0.1; notes.append("marital status different")
-    if str(user.get("mother_tongue", "")).lower() == str(match.get("mother_tongue", "")).lower():
-        pts += 0.3; notes.append("mother tongue same")
-    else:
-        pts += 0.1
-    if str(user.get("religion", "")).lower() == str(match.get("religion", "")).lower():
-        pts += 0.3; notes.append("same religion")
-    else:
-        pts += 0.05
-    return min(1.0, pts), ", ".join(notes) or "lifestyle matching"
-
-
-def _trust_score(match: Dict) -> (float, str):
-    verified = bool(match.get("is_verified")) or bool(match.get("phone_verified"))
-    level = str(match.get("verification_level", "") or "")
-    boost = bool(match.get("boost_until"))
-    pts = 0.4
-    notes = []
-    if verified:
-        pts += 0.3; notes.append("verified")
-    if level in ("photo", "id"):
-        pts += 0.2; notes.append("photo/ID verified")
-    if match.get("photo_urls"):
-        pts += 0.1; notes.append("photo ఉంది")
-    if boost:
-        notes.append("boosted (active user)")
-    return min(1.0, pts), ", ".join(notes) or "verification pending"
-
-
-COMPONENTS = [
-    ("age", _age_pref), ("caste", _caste_pref), ("location", _location_pref),
-    ("education", _edu_pref), ("job", _job_pref), ("salary", _salary_pref),
-    ("height", _height_pref), ("horoscope", _horoscope_pref), ("family", _family_pref),
-    ("lifestyle", _lifestyle_pref), ("trust", lambda u, m: _trust_score(m)),
-]
-
-
-GRADE_TELUGU = {"perfect": "అద్భుతం (perfect)", "best": "చాలా మంచిది (best)",
-                "good": "మంచిది (good)", "average": "సాధారణం (average)", "low": "తక్కువ (low)"}
-
-
-def _grade(score: int) -> (str, str):
-    """Grade + **Telugu-first** verdict (mass users Telugu లోనే chaduvutaru)."""
-    if score >= 85:
-        return "perfect", "⭐ అద్భుత పొంతన — ఇప్పుడే interest పంపండి! (perfect match)"
-    if score >= 75:
-        return "best", "✅ చాలా మంచి పొంతన — మాట్లాడటానికి worth (best match)"
-    if score >= 65:
-        return "good", "👍 మంచి పొంతన — కొన్ని విషయాలు మాట్లాడుకోవాలి (good match)"
-    if score >= 50:
-        return "average", "🔸 సాధారణం — కొన్ని అంశాలు కలవలేదు (average)"
-    return "low", "🔻 తక్కువ పొంతన — వేరే profiles చూడండి (low match)"
-
-
-def score_match_v2(user: Dict, match: Dict, include_mutual: bool = True) -> Dict:
-    """Weighted 100-point score + component breakdown + mutual check + Telugu verdict."""
-    user, match = user or {}, match or {}
-    breakdown, total = [], 0.0
-    for key, fn in COMPONENTS:
-        try:
-            ratio, note = fn(user, match)
-        except Exception as e:
-            ratio, note = 0.5, "check skip (%s)" % str(e)[:40]
-        ratio = max(0.0, min(1.0, float(ratio)))
-        w = WEIGHTS[key]
-        pts = round(ratio * w, 1)
-        total += pts
-        breakdown.append({"key": key, "label": LABELS[key][0], "telugu": LABELS[key][1],
-                          "points": pts, "max": w, "ratio": round(ratio, 2), "note": note})
-    score = min(100, max(0, int(round(total))))
-    raw_score = score                      # mutual bonus ki mundu score (transparency)
-    grade, verdict = _grade(score)
-
-    mutual = {}
-    if include_mutual:
-        try:
-            rev = score_match_v2(match, user, include_mutual=False)
-            rscore = min(100, max(0, int(rev["score"])))
-            mutual = {"their_score": rscore, "both_like": rscore >= 65 and score >= 65,
-                      "note": ("💞 Mutual match — iddariki score 65+ (చాలా rare, వెంటనే పంపండి)"
-                               if (rscore >= 65 and score >= 65) else
-                               "వాళ్ల side నుంచి score %d" % rscore)}
-            if mutual["both_like"]:
-                bonus = round(total * 0.08, 1)
-                total += bonus
-                score = min(100, max(0, int(round(total))))
-                grade, verdict = _grade(score)
-                breakdown.append({"key": "mutual", "label": "Mutual interest bonus", "telugu": "పరస్పరం",
-                                  "points": bonus, "max": bonus, "ratio": 1.0,
-                                  "note": "iddari expectations కూడా match — 8% bonus"})
-        except Exception:
-            mutual = {}
-
-    top = sorted([b for b in breakdown if b["key"] != "mutual"], key=lambda x: -x["points"])[:4]
-    weak = sorted([b for b in breakdown if b["key"] != "mutual"], key=lambda x: x["ratio"])[:2]
+    preferences = _preference_comparisons(user, match)
+    preference_notes = [row["note"] for row in preferences]
     return {
-        "score": score, "raw_score": raw_score, "grade": grade, "grade_telugu": GRADE_TELUGU[grade],
-        "verdict": verdict, "verdict_telugu": verdict,
-        "breakdown": breakdown, "mutual": mutual,
-        "strengths": ["%s — %s" % (b["label"], b["note"]) for b in top],
-        "weak_points": ["%s — %s" % (b["label"], b["note"]) for b in weak if b["ratio"] < 0.6],
-        "explain_telugu": "ఈ %d score ఎలా వచ్చింది: %s" % (
-            score, ", ".join("%s %s/%s" % (b["label"], b["points"], b["max"]) for b in top)),
-        "how_to_improve": ("Profile లో star + రాశి, photo, verification add cheste score penchochu"
-                           if score < 80 else "మీ profile already strong — interest పంపండి!"),
+        "notice": "Member-entered profile details and explicit preference comparisons only; not a compatibility or identity verdict.",
+        "notice_telugu": "సభ్యులు నమోదు చేసిన వివరాలు, మీరు స్పష్టంగా సేవ్ చేసిన preferences పోలిక మాత్రమే; compatibility లేదా identity verdict కాదు.",
+        "breakdown": breakdown,
+        "observations": observations,
+        "differences": differences,
+        "preferences": preferences,
+        "preference_notes": preference_notes,
+        "mutual": {},
     }
 
 
-def find_top_matches_v2(user: Dict, profiles: List[Dict], limit: int = 10, min_score: int = 65) -> List[Dict]:
-    """Opposite gender + min score + mutual-ranked list (blocked/excluded caller handle chestadu)."""
-    opp = "Bride" if user.get("gender") == "Groom" else "Groom"
-    out = []
-    for p in profiles:
-        if p.get("gender") != opp or p.get("tsap_id") == user.get("tsap_id"):
+def find_top_matches_v2(
+    user: Dict[str, Any], profiles: Iterable[Dict[str, Any]], limit: int = 10,
+    min_score: Optional[int] = None,
+) -> List[Dict[str, Any]]:
+    """Return opposite-gender approved profiles, newest first, with factual comparisons.
+
+    ``min_score`` is accepted for backwards compatibility and ignored because no
+    compatibility score or preference-count rank is produced.
+    """
+    user = user if isinstance(user, dict) else {}
+    gender = _key(user.get("gender"))
+    if gender in {"groom", "male", "man"}:
+        opposite = {"bride", "female", "woman"}
+    elif gender in {"bride", "female", "woman"}:
+        opposite = {"groom", "male", "man"}
+    else:
+        return []
+    try:
+        max_rows = max(0, min(100, int(limit)))
+    except (TypeError, ValueError, OverflowError):
+        max_rows = 10
+
+    ranked: List[Tuple[str, str, Dict[str, Any]]] = []
+    for profile in profiles or []:
+        if not isinstance(profile, dict) or _key(profile.get("gender")) not in opposite:
             continue
-        if p.get("is_approved") is False:
+        if profile.get("is_approved") is False or profile.get("is_banned"):
             continue
-        try:
-            res = score_match_v2(user, p)
-        except Exception:
+        if profile.get("tsap_id") and profile.get("tsap_id") == user.get("tsap_id"):
             continue
-        if res["score"] < min_score:
-            continue
-        out.append({"profile": p, "tsap_id": p.get("tsap_id"), "score": res["score"],
-                    "grade": res["grade"], "verdict_telugu": res["verdict_telugu"],
-                    "mutual": res["mutual"], "strengths": res["strengths"],
-                    "breakdown": res["breakdown"]})
-    out.sort(key=lambda x: (-x["score"], -int(bool(x["mutual"].get("both_like")))))
-    return out[:limit]
+        comparison = score_match_v2(user, profile)
+        created = _text(profile.get("created_at"))
+        profile_id = _text(profile.get("tsap_id"))
+        ranked.append((created, profile_id, {
+            "profile": profile,
+            "observations": comparison["observations"],
+            "differences": comparison["differences"],
+            "preferences": comparison["preferences"],
+        }))
+    # No preference tally or compatibility proxy influences ordering.
+    ranked.sort(key=lambda row: (row[0], row[1]), reverse=True)
+    return [row[2] for row in ranked[:max_rows]]

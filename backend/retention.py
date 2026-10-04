@@ -16,8 +16,8 @@ import os
 from datetime import datetime, timedelta
 
 RETENTION_YEARS = int(os.getenv("RETENTION_YEARS", "3"))
-BACKUP_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "backups")
-LOG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "retention_log.json")
+BACKUP_DIR = os.environ.get("MANA_VIVAHA_RETENTION_BACKUP_DIR", os.path.join(os.path.dirname(os.path.abspath(__file__)), "backups"))
+LOG_FILE = os.environ.get("MANA_VIVAHA_RETENTION_LOG_FILE", os.path.join(os.path.dirname(os.path.abspath(__file__)), "retention_log.json"))
 
 
 def _parse_iso(v):

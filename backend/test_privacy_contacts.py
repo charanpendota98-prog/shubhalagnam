@@ -22,8 +22,10 @@ import re
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from test_storage import isolate_test_stores  # noqa: E402
+isolate_test_stores("privacy-contacts")
 from testutil_paths import src_page  # noqa: E402  # App Router page.tsx + page-client.tsx aware
-# 🐞 FIX (R12): standalone run lo auth ENFORCED → interest send 401. Suite convention: dev mode.
+# Standalone run uses development auth for the consent-flow API checks.
 os.environ.setdefault("WA_TEST_FAST", "1")
 
 PASS, FAIL = [], []
@@ -85,7 +87,7 @@ with TestClient(main.app) as c:
     # 💎 R12: matches ki opposite-gender pool kavali — polluted/small DB lo empty vastundi.
     #    launch seed inventory load chesi (phone dup skip tho) pool guarantee
     try:
-        import seed_launch_db as _SLD
+        from test_fixtures import seed_launch_profiles as _SLD
         for _sd in _SLD.build_profiles(40):
             _ph = str(_sd.get("phone", ""))
             if _ph and any(u.get("phone") == _ph for u in main.DB_USERS):
@@ -227,13 +229,13 @@ with TestClient(main.app) as c:
 
     print("=== 8. /api/free-plan clarity ===")
     fp = c.get("/api/free-plan").json()
-    check("headline: FREE + 3 profiles + numbers ivvamu",
-          fp["success"] and "FREE" in fp["headline_telugu"] and "3 profiles" in fp["headline_telugu"]
-          and "ఇవ్వము" in fp["rule_telugu"])
+    check("headline: FREE + 3 interest requests + consent gate",
+          fp["success"] and "FREE" in fp["headline_telugu"] and "3 interest requests" in fp["headline_telugu"]
+          and "acceptance" in fp["rule_telugu"] and "bypass" in fp["rule_telugu"])
     check("free block: 3 profiles/requests + numbers ❌",
           fp["free"]["profiles"] == 3 and fp["free"]["requests"] == 3 and "ఇవ్వము" in fp["free"]["numbers"])
-    check("paid ladder 5 plans (29 → 499)", len(fp["paid"]) == 5 and fp["paid"][0]["price"] == 29
-          and fp["paid"][-1]["profiles"] == 50)
+    check("paid ladder 4 plans (99 → 499)", len(fp["paid"]) == 4 and fp["paid"][0]["price"] == 99
+          and fp["paid"][-1]["profiles"] == 50 and all(p["price"] >= 99 for p in fp["paid"]))
     check("numbers_rule Telugu (5 rules, consent + chatting ledu)",
           len(fp["numbers_rule_telugu"]) == 5 and any("chat" in r.lower() for r in fp["numbers_rule_telugu"]))
     check("FAQ 4 + CTA links", len(fp["faq_telugu"]) == 4 and fp["cta"]["register"] == "/register")
@@ -257,11 +259,11 @@ check("register clarity: 'FREE లో ఇవ్వనిది' + numbers ivvamu
       "FREE లో ఇచ్చేది" in reg_pg and "ఎవరికీ ఇవ్వము" in reg_pg)
 check("register success lo 'enti vachindi' card (credits + lock + CTA)",
       "requests</b> ready" in reg_pg and "numbers 🔒 locked" in reg_pg)
-check("matches page lo 🔒 number locked chip + phone_masked", "phone_masked" in match_pg and "Number:" in match_pg)
+check("matches page lo 🔒 contact lock + masked phone", "phone_masked" in match_pg and "Contact:" in match_pg)
 check("matches page lo clarity banner + pricing CTA",
       "Numbers ivvamu" in match_pg and "₹99 → 5 profiles" in match_pg)
 check("pricing page lo numbers policy clarity (R13 minimal — okka line)",
-      "రెండు వైపులా accept అయ్యాకే" in pricing_pg)
+      "Profile owner accept చేసిన తర్వాతే contact details share" in pricing_pg)
 check("search page lo leak ki avakasam ledu (safe fields matrame)",
       "p.full_name" in search_pg or "profile" in search_pg)
 

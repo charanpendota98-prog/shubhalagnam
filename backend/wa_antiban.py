@@ -45,7 +45,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional, Tuple
 
 IST = timezone(timedelta(hours=5, minutes=30))
-STATE_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "wa_state.json")
+STATE_FILE = os.environ.get("MANA_VIVAHA_WA_STATE_FILE", os.path.join(os.path.dirname(os.path.abspath(__file__)), "wa_state.json"))
 
 # Same message ni repeat ga pampakunda — greeting/CTA variants (rotation)
 GREETING_VARIANTS = [

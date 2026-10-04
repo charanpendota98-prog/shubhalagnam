@@ -205,7 +205,7 @@ check("P5 via manual_upi", f5b.json().get("via") == "manual_upi", f5b.json())
 f5c = client.post(f"/api/admin/payments/{oid5}/refund",
                   json={"reason": "x", "note": "y"}, headers=H_ADMIN)
 check("P5 double refund idempotent", f5c.status_code == 200 and f5c.json().get("duplicate") is True, f5c.text)
-r5u = client.post("/api/pay/order", json={"tsap_id": U2["tsap_id"], "purpose": "credits", "ref": "S_29"},
+r5u = client.post("/api/pay/order", json={"tsap_id": U2["tsap_id"], "purpose": "credits", "ref": "S_99"},
                   headers=H_OWNER2)
 f5d = client.post(f"/api/admin/payments/{r5u.json()['pay_order']['id']}/refund",
                   json={"reason": "x", "note": "y"}, headers=H_ADMIN)

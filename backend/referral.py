@@ -1,21 +1,18 @@
 """
-MANA VIVAHA — REFERRAL 2.0 (Advanced) 🤝
-========================================
-Rule (user's words): **"referral bonus laga iddam andariki bestga — ₹99 kabatti first time
-vallu manaku pay chestharu, kabatti manam ₹50 istham referal vallaki."**
+MANA VIVAHA — REFERRAL PROGRAM 🤝
+=================================
+The referrer may receive ₹50 once, after a referred user's first qualifying paid
+consumer-plan purchase: S_99, S_199, S_299 or S_499, with an eligible payment amount
+of at least ₹99. Add-ons, renewals, assisted services, boosts, gifts, complimentary
+plans, bureau/B2B plans and other non-consumer payments do not qualify.
 
-Design goals:
-  * ఎవరికైనా ₹50 — referred friend **modati payment** (₹29/₹99/₹199/₹299/₹499 — edaina) chesthe
-  * Referee (kotha user) ki kooda **bonus credits** — "అందరికీ bestga"
-  * Repeat payments ki commission LEDU — ₹50 okkasari matrame (first payment) — WAVE 25 rule
-  * Tiers (BRONZE → ELITE): BADGES matrame (extra % ledu) — recognition kosam
-  * Milestones: 3 / 10 / 25 / 50 paying referrals → cash + credits (AUTO credit — manual ledu)
-  * Anti-fraud: self-referral block, one-referral-lock, daily cap, duplicate phone/UPI, refund clawback
-  * Payouts: wallet → ₹100 min → UPI/bank request → admin approve → UTR (audit trail)
-  * Durability: state file (backend/referral_state.json) — server restart aina wallets/ledger safe
+Referral registration credits are separate from the cash reward: a valid referral
+attachment grants +2 interest-request credits to the referrer and +1 to the new user.
+Payouts are requests from the referral wallet, with a ₹50 minimum and manual review;
+there is no instant-transfer or fixed settlement-time promise.
 
-Backward compatible: generate_referral_code / calculate_commission / check_bonus_eligibility /
-process_referral_payment / get_leaderboard — purathana calls break avvavu (signature defaults).
+Tier thresholds only change the dashboard badge; no extra commission, cash bonus,
+priority support, report, or other perk is promised by tier.
 """
 from __future__ import annotations
 
@@ -34,36 +31,35 @@ SITE_URL = os.getenv("SITE_URL", "https://manavivaha.in").rstrip("/")
 # ------------------------------------------------------------------ CONFIG
 REFERRAL_VERSION = "2.0"
 
-FIRST_PAY_COMMISSION = 50          # ₹50 — modati payment (edi aina) ki flat
-MIN_QUALIFYING_AMOUNT = 29         # ₹29 kanna thakkuva unte count cheyyadu
+FIRST_PAY_COMMISSION = 50          # ₹50 — first qualifying consumer-plan payment only
+MIN_QUALIFYING_AMOUNT = 99         # discounted payments below ₹99 do not qualify
+QUALIFYING_PLAN_CODES = frozenset({"S_99", "S_199", "S_299", "S_499"})
 REPEAT_COMMISSION_PCT = 0.0        # 🌊 WAVE 25: repeat ki commission LEDU (₹50 first-payment-only)
 REPEAT_COMMISSION_CAP = 0          # retired — compat kosam uncham
 REFEREE_BONUS_CREDITS = 1          # kotha user ki bonus credit (andariki)
-MIN_PAYOUT = 50                    # payout minimum ₹50 (1 paid referral thone withdraw cheyyochu)
-PAYOUT_SLA_DAYS = 3                # request → 3 working days lo pay
-# 🚦 SOFT tripwires (BLOCK ledu — "evvaru enni aina refer cheyyochu"):
-#    ee numbers dhaatithe commission AUTO hold avvadu, admin review ki flag matrame vastundi.
-DAILY_PAYING_SOFT_CAP = 50         # okka roju lo ee number paying referrals dhaatithe → review flag
-LIFETIME_SOFT_CAP = 500            # lifetime ee number dhaatithe → review flag
-SAME_PHONE_SOFT_LIMIT = 3          # okate phone number nunchi intha mandi accounts → review flag (block ledu)
+MIN_PAYOUT = 50                    # minimum request from the referral wallet
+# Review is manual. Do not expose a fixed payout ETA unless an enforceable SLA is introduced.
+DAILY_PAYING_SOFT_CAP = 50         # high volume is flagged for review; not a public earning limit
+LIFETIME_SOFT_CAP = 500            # high volume is flagged for review; not a public earning limit
+SAME_PHONE_SOFT_LIMIT = 3          # family/shared-phone pattern is flagged for review
 
 TIERS: List[Dict] = [
-    {"key": "BRONZE",   "min": 0,  "extra_pct": 0,  "icon": "🥉", "perks": ["₹50 per paying referral", "Daily 10 cap"]},
-    {"key": "SILVER",   "min": 3,  "extra_pct": 0,  "icon": "🥈", "perks": ["🥈 Silver Referrer badge", "Priority support"]},
-    {"key": "GOLD",     "min": 10, "extra_pct": 0, "icon": "🥇", "perks": ["🥇 Gold Referrer badge", "Free 1 porutham report", "Channel shout-out"]},
-    {"key": "PLATINUM", "min": 25, "extra_pct": 0, "icon": "💎", "perks": ["💎 Verified Referrer badge", "Homepage recognise"]},
-    {"key": "ELITE",    "min": 50, "extra_pct": 0, "icon": "👑", "perks": ["👑 Elite badge + VIP support", "Top referrer wall"]},
+    {"key": "BRONZE",   "min": 0,  "extra_pct": 0,  "icon": "🥉", "perks": ["BRONZE dashboard badge"]},
+    {"key": "SILVER",   "min": 3,  "extra_pct": 0,  "icon": "🥈", "perks": ["SILVER dashboard badge"]},
+    {"key": "GOLD",     "min": 10, "extra_pct": 0,  "icon": "🥇", "perks": ["GOLD dashboard badge"]},
+    {"key": "PLATINUM", "min": 25, "extra_pct": 0,  "icon": "💎", "perks": ["PLATINUM dashboard badge"]},
+    {"key": "ELITE",    "min": 50, "extra_pct": 0,  "icon": "👑", "perks": ["ELITE dashboard badge"]},
 ]
 
 MILESTONES: List[Dict] = [
-    {"paid": 3,  "cash": 0,    "credits": 0,  "title": "🥈 SILVER Referrer", "telugu": "3 paying referrals — 🥈 badge + priority support"},
-    {"paid": 10, "cash": 0,  "credits": 0,  "title": "🥇 GOLD Referrer", "telugu": "10 paying referrals — 🥇 badge + free వేద గుణమేళనం report"},
-    {"paid": 25, "cash": 0,  "credits": 0, "title": "💎 PLATINUM Referrer", "telugu": "25 paying referrals — 💎 verified badge + homepage"},
-    {"paid": 50, "cash": 0, "credits": 0, "title": "👑 ELITE Referrer", "telugu": "50 paying referrals — 👑 elite badge + VIP support"},
+    {"paid": 3,  "cash": 0, "credits": 0, "title": "🥈 SILVER Referrer", "telugu": "3 eligible first-plan rewards — SILVER dashboard badge"},
+    {"paid": 10, "cash": 0, "credits": 0, "title": "🥇 GOLD Referrer", "telugu": "10 eligible first-plan rewards — GOLD dashboard badge"},
+    {"paid": 25, "cash": 0, "credits": 0, "title": "💎 PLATINUM Referrer", "telugu": "25 eligible first-plan rewards — PLATINUM dashboard badge"},
+    {"paid": 50, "cash": 0, "credits": 0, "title": "👑 ELITE Referrer", "telugu": "50 eligible first-plan rewards — ELITE dashboard badge"},
 ]
 
 REFERRAL_TYPES = ("USER", "LADY", "STUDENT", "INFLUENCER", "BROKER", "BUREAU", "PHONE", "NONE")
-STATE_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "referral_state.json")
+STATE_FILE = os.environ.get("MANA_VIVAHA_REFERRAL_FILE", os.path.join(os.path.dirname(os.path.abspath(__file__)), "referral_state.json"))
 
 PAYOUTS: List[Dict] = []          # admin queue (PAY-YYMMDD-XXXX)
 CLICKS: List[Dict] = []           # /r/<code> clicks (audit + conversion funnel)
@@ -88,22 +84,41 @@ def _code_of(user: Dict) -> str:
     return str(user.get("referral_code") or "").upper().strip()
 
 
+def qualifying_commission_entries(referral_stats: Dict) -> List[Dict]:
+    """Ledger rows that satisfy the current, auditable one-time consumer-plan rule."""
+    prices = {"S_99": 99, "S_199": 199, "S_299": 299, "S_499": 499}
+    rows = []
+    for entry in (referral_stats or {}).get("ledger", []) or []:
+        code = str(entry.get("plan_code", "")).strip().upper()
+        amount = int(entry.get("plan_amount", 0) or 0)
+        if (entry.get("type") == "commission" and not entry.get("reversed")
+                and entry.get("first_payment") is True and code in prices
+                and MIN_QUALIFYING_AMOUNT <= amount <= prices[code]
+                and int(entry.get("amount", 0) or 0) == FIRST_PAY_COMMISSION
+                and entry.get("from")):
+            rows.append(entry)
+    return rows
+
+
 def stats_of(user: Dict) -> Dict:
-    """Referrer stats — pata format తో backward compatible."""
+    """Referral stats; badge/paid counts derive only from verifiable eligible ledger rows."""
     s = user.setdefault("referral_stats", {})
     s.setdefault("clicks", 0)
     s.setdefault("registrations", s.get("total", 0))
     s.setdefault("total", s.get("registrations", 0))
-    s.setdefault("paid_count", 0)
     s.setdefault("wallet", user.get("wallet", 0))
     s.setdefault("lifetime_earned", s.get("wallet", 0))
     s.setdefault("pending_payout", 0)
     s.setdefault("paid_out", 0)
     s.setdefault("paid_today", 0)
     s.setdefault("paid_today_date", "")
-    s.setdefault("tier", "BRONZE")
     s.setdefault("milestones_hit", [])
     s.setdefault("flags", [])
+    # Older versions counted broad has_paid/any-plan purchases. Do not expose those as
+    # eligible ₹50 rewards or use them to advance public referral badges.
+    s["paid_count"] = len({str(e.get("from")) for e in qualifying_commission_entries(s)})
+    s["tier"] = tier_of(s["paid_count"])["key"]
+    user["referral_tier"] = s["tier"]
     return s
 
 
@@ -142,8 +157,8 @@ def parse_referral_type(code: str) -> str:
 def calculate_commission(referral_type: str, plan_amount: int, is_first_payment: bool = True,
                          tier: str = "BRONZE") -> int:
     """
-    🌊 WAVE 25 — FLAT ₹50 ONLY: referred user MODATI payment (≥ ₹29) ki ₹50.
-    Repeat payments ki ₹0. Tier extra LEDU (tiers = badges matrame).
+    Flat ₹50 for the first qualifying consumer-plan payment only; repeat payments get ₹0.
+    The caller must validate the S_99/S_199/S_299/S_499 plan code before this amount-only helper.
     """
     amount = int(plan_amount or 0)
     if amount < MIN_QUALIFYING_AMOUNT:
@@ -154,7 +169,7 @@ def calculate_commission(referral_type: str, plan_amount: int, is_first_payment:
 
 
 def check_bonus_eligibility(referrer_stats: Dict) -> Dict:
-    """Milestone + tier status — bonus cash/credits **auto credit** అవుతాయి (process లో)."""
+    """Report dashboard badge milestones; tiers add no cash or credits."""
     paid = int(referrer_stats.get("paid_count", 0) or 0)
     tier = tier_of(paid)
     hit = [m for m in MILESTONES if paid >= m["paid"]]
@@ -323,7 +338,7 @@ def validate_referral(code: str, all_users: List[Dict]) -> Dict:
             "referrer_name": name, "referrer_id": ref.get("tsap_id"),
             "tier": tier_of(st["paid_count"])["key"], "paid_count": st["paid_count"],
             "bonus_credits": REFEREE_BONUS_CREDITS, "commission_offer": FIRST_PAY_COMMISSION,
-            "message_telugu": "✅ %s గారు ద్వారా వచ్చారు — మీ registration కి +%d FREE credit!" % (name, REFEREE_BONUS_CREDITS)}
+            "message_telugu": "✅ %s గారు ద్వారా వచ్చారు — valid referral attach అయితే మీకు +%d interest-request credit వస్తుంది. ₹50 reward వేరే అర్హతలపై ఆధారపడి ఉంటుంది." % (name, REFEREE_BONUS_CREDITS)}
 
 
 def attach_referral(user: Dict, code: str, all_users: List[Dict]) -> Dict:
@@ -373,7 +388,7 @@ def _attach_referral_locked(user: Dict, code: str, all_users: List[Dict]) -> Dic
             {"id": _next_id("RJ"), "at": _now(), "type": "join_event", "amount": 0,
              "from": user.get("tsap_id"), "from_name": user.get("full_name") or user.get("name", ""),
              "note": "same phone నుంచి join (family) — flag only, block లేదు"})
-    # 🎁 Referrer gets +2 free contact unlock credits per registration
+    # Referral credits are interest-request credits, separate from the ₹50 cash reward.
     REFERRER_REG_CREDITS = 2
     ref["credits"] = int(ref.get("credits", 0) or 0) + REFERRER_REG_CREDITS
     ref.setdefault("credit_history", []).append(
@@ -396,7 +411,7 @@ def _attach_referral_locked(user: Dict, code: str, all_users: List[Dict]) -> Dic
             "flags": _soft_flags,
             "note_telugu": ("ℹ️ మీ code తో ఒకటే phone నుంచి ఇంకా ఒకరు join అయ్యారు — పర్వాలేదు, "
                             "కానీ మన team verify చేస్తుంది" if _family_same_phone else ""),
-            "message_telugu": "🎉 Referral lock అయ్యింది (%s) — మీ account కి +%d FREE credit వచ్చింది!"
+            "message_telugu": "🎉 Referral lock అయ్యింది (%s) — మీకు +%d interest-request credit వచ్చింది. ఈ credits, referrer కు వచ్చే షరతులతో కూడిన ₹50 reward కి వేరు."
                               % (_code_of(ref), REFEREE_BONUS_CREDITS)}
 
 
@@ -419,21 +434,29 @@ def _fraud_flags(referrer: Dict, referred_user: Dict, all_users: List[Dict]) -> 
 
 
 def process_referral_payment(referred_user: Dict, referrer_code: str, plan_amount: int,
-                             all_users: List[Dict], payment_id: str = "") -> Dict:
+                             all_users: List[Dict], payment_id: str = "", plan_code: str = "") -> Dict:
+    """Credit a referrer only for the referee's first qualifying consumer-plan payment."""
     with _REF_LOCKS["commission:" + _ref_lock_key(referred_user)]:
         return _process_referral_payment_locked(referred_user, referrer_code, plan_amount,
-                                                all_users, payment_id)
+                                                all_users, payment_id, plan_code)
 
 
 def _process_referral_payment_locked(referred_user: Dict, referrer_code: str, plan_amount: int,
-                                     all_users: List[Dict], payment_id: str = "") -> Dict:
+                                     all_users: List[Dict], payment_id: str = "", plan_code: str = "") -> Dict:
     """
-    Referred friend pay chesaka → referrer ki ₹50 wallet (FLAT, first payment only).
-    · First payment  → ₹50 flat — "అందరికీ ₹50, anthe" (WAVE 25)
-    · Repeat payment → ₹0 (no commission)
-    · Milestone hit  → badge recognition matrame (cash/credits ledu)
+    ₹50 flat once, on a paid S_99/S_199/S_299/S_499 consumer plan.
+    Add-ons, renewals, bureau packs, assisted services, boosts, gifts, and other payment
+    types are ineligible. A repeat qualifying-plan purchase earns no additional commission.
     """
+    code = str(plan_code or "").strip().upper()
+    if code not in QUALIFYING_PLAN_CODES:
+        return {"success": False, "reason": "ineligible_plan", "plan_code": code,
+                "message_telugu": "ℹ️ Referral reward S_99/S_199/S_299/S_499 consumer plan payment కి మాత్రమే వర్తిస్తుంది"}
     amount = int(plan_amount or 0)
+    expected_plan_price = {"S_99": 99, "S_199": 199, "S_299": 299, "S_499": 499}[code]
+    if amount <= 0 or amount > expected_plan_price:
+        return {"success": False, "reason": "amount_mismatch", "amount": amount, "plan_code": code,
+                "message_telugu": "⚠️ Referral reward కోసం paid amount plan ధరతో సరిపోవాలి"}
     ref = find_referrer(referrer_code, all_users)
     if not ref:
         return {"success": False, "reason": "referrer_not_found", "code": referrer_code,
@@ -451,9 +474,13 @@ def _process_referral_payment_locked(referred_user: Dict, referrer_code: str, pl
         # 🚦 SOFT mode: commission ippude wallet lo pothundi (aapemu) — admin review flag matrame.
         #    Fraud proof ayithe /api/admin/refund tho clawback chestham.
 
-    # first payment? (ee user ki ee varaku commission ivvaledu)
-    first = not any(l.get("type") == "commission" and l.get("from") == referred_user.get("tsap_id")
-                    for l in reversed(st.get("ledger", [])))
+    # First *qualifying consumer-plan* payment: persist a referee marker as well as
+    # checking the referrer's ledger so a retry/restart cannot issue a second reward.
+    has_prior_reward = bool(referred_user.get("referral_first_qualifying_plan_paid_at")) or any(
+        l.get("from") == referred_user.get("tsap_id")
+        for l in qualifying_commission_entries(st)
+    )
+    first = not has_prior_reward
     tier = tier_of(st["paid_count"])["key"]
     commission = calculate_commission(parse_referral_type(referrer_code), amount, first, tier)
     if commission <= 0:
@@ -473,6 +500,9 @@ def _process_referral_payment_locked(referred_user: Dict, referrer_code: str, pl
     # 🌊 WAVE 20 — join paid-ness source of truth (dashboards + ledger anni ikkadi nunchi)
     referred_user["has_paid"] = True
     referred_user.setdefault("first_paid_at", _now())
+    referred_user["referral_first_qualifying_plan_paid_at"] = _now()
+    referred_user["referral_first_qualifying_plan_code"] = code
+    referred_user["referral_first_qualifying_payment_id"] = payment_id or ""
     if st.get("paid_today_date") != _today():
         st["paid_today_date"] = _today()
         st["paid_today"] = 0
@@ -481,11 +511,11 @@ def _process_referral_payment_locked(referred_user: Dict, referrer_code: str, pl
     st.setdefault("ledger", []).append({
         "id": _next_id("RC"), "at": _now(), "type": "commission", "amount": commission,
         "from": referred_user.get("tsap_id"), "from_name": referred_user.get("full_name") or referred_user.get("name", ""),
-        "plan_amount": amount, "first_payment": first, "tier": tier, "payment_id": payment_id,
+        "plan_amount": amount, "plan_code": code, "first_payment": first, "tier": tier, "payment_id": payment_id,
         "note": ("మొదటి payment bonus ₹%d (flat)" % FIRST_PAY_COMMISSION),
     })
 
-    # 🏆 milestone + tier bonus (auto credit — cash + credits)
+    # Tier thresholds update dashboard badges only; milestone cash and credit rewards are disabled.
     bonus = check_bonus_eligibility(st)
     bonus_credits_added = 0
     if bonus["credits"]:
@@ -507,15 +537,11 @@ def _process_referral_payment_locked(referred_user: Dict, referrer_code: str, pl
     ref["referral_tier"] = new_tier["key"]
 
     # referee ki thank-you + referrer ki notification (Telugu)
-    msg_ref = ("🎉 Congrats! %s (₹%d) pay చేశాడు — మీకు ₹%d wallet లో వచ్చింది%s. "
-               "Balance: ₹%s | Tier: %s %s"
+    msg_ref = ("✅ Eligible first consumer-plan payment record అయింది: %s (₹%d). "
+               "మీ referral wallet కు ఒక్కసారి ₹%d జమైంది. Balance: ₹%s | Dashboard tier: %s %s. "
+               "Tier badges వల్ల అదనపు cash లేదా credits రావు."
                % (referred_user.get("tsap_id", "friend"), amount, commission,
-                  (" + %d credits" % bonus_credits_added) if bonus_credits_added else "",
                   st["wallet"], new_tier["icon"], new_tier["key"]))
-    if bonus["reward"]:
-        msg_ref += " 🏆 %s" % bonus["reward"]
-    if bonus["next"]:
-        msg_ref += " | ఇంకా %d pays అయితే %s" % (bonus["next"]["need"], bonus["next"]["title"])
     save_state()
     return {
         "success": True, "referrer_id": ref.get("tsap_id"), "referrer_code": _code_of(ref),
@@ -527,8 +553,7 @@ def _process_referral_payment_locked(referred_user: Dict, referrer_code: str, pl
         "paid_count": st["paid_count"], "next_milestone": bonus["next"],
         "referrer_new_credits": ref.get("credits", 0),
         "message_telugu": msg_ref,
-        "referee_message_telugu": ("🙏 Thank you! మీ payment success. మీ friend %s కి ₹%d bonus వెళ్లింది — "
-                                   "మీ profile ఇప్పుడు channels లో active!" % (_code_of(ref), commission)),
+        "referee_message_telugu": ("🙏 మీ payment success. మీ referral code వాడినందుకు referrer కు ఈ first eligible consumer-plan payment పై ఒకసారి ₹%d reward wallet లో నమోదు అయింది. మీకు వచ్చే referral benefit అనేది valid attachment పై +1 interest-request credit మాత్రమే; cash కాదు." % commission),
     }
 
 
@@ -541,9 +566,8 @@ def reverse_referral_payment(referred_user: Dict, plan_amount: int, all_users: L
         return {"success": False, "reason": "referrer_not_found"}
     st = stats_of(ref)
     def _candidates():
-        return [e for e in st.get("ledger", [])
-                if e.get("type") == "commission" and e.get("from") == referred_user.get("tsap_id")
-                and not e.get("reversed")]
+        return [e for e in qualifying_commission_entries(st)
+                if e.get("from") == referred_user.get("tsap_id")]
     cands = _candidates()
     if not cands:
         return {"success": False, "reason": "no_commission_found"}
@@ -595,7 +619,7 @@ def valid_payout_utr(utr: str) -> bool:
 
 def payout_request(user: Dict, amount: int, method: str = "upi", upi_id: str = "",
                    bank: Optional[Dict] = None, note: str = "") -> Dict:
-    """Wallet → payout request (₹100 min). UPI id validate + duplicate pending guard."""
+    """Create a manual-review payout request from the referral wallet (₹50 minimum)."""
     with _REF_LOCKS["payreq:" + _ref_lock_key(user)]:
         return _payout_request_locked(user, amount, method, upi_id, bank, note)
 
@@ -637,7 +661,7 @@ def _payout_request_locked(user: Dict, amount: int, method: str = "upi", upi_id:
         "upi_id": (upi_id or "").strip() if method == "upi" else "",
         "bank": {k: str(v).strip() for k, v in (bank or {}).items()} if method == "bank" else {},
         "status": "requested", "requested_at": _now(), "utr": "", "note": note,
-        "eta_days": PAYOUT_SLA_DAYS, "tier": st.get("tier", "BRONZE"),
+        "tier": st.get("tier", "BRONZE"),
     }
     PAYOUTS.append(req)
     st["wallet"] = round(float(st.get("wallet", 0)) - amount, 2)
@@ -647,8 +671,8 @@ def _payout_request_locked(user: Dict, amount: int, method: str = "upi", upi_id:
                                         "amount": -amount, "note": "%s → %s" % (req["id"], upi_id or "bank")})
     save_state()
     return {"ok": True, "request": req, "wallet": st["wallet"],
-            "message_telugu": "✅ Payout request వచ్చింది (%s • ₹%d). %d working days లో మీ %s కి వెళ్తుంది."
-                              % (req["id"], amount, PAYOUT_SLA_DAYS, "UPI" if method == "upi" else "bank account")}
+            "message_telugu": "✅ Payout request అందింది (%s • ₹%d). ఇది admin review కోసం queue లో ఉంది. Fixed processing time హామీ లేదు; dashboard లో status చూడండి."
+                              % (req["id"], amount)}
 
 
 def payout_action(request_id: str, action: str, all_users: List[Dict], utr: str = "",
@@ -801,16 +825,39 @@ def referral_dashboard(user: Dict, all_users: List[Dict], limit_recent: int = 10
     st = stats_of(user)
     payouts_mine = [p for p in PAYOUTS if p.get("tsap_id") == user.get("tsap_id")]
     regs = [u for u in all_users if str(u.get("referred_by", "")).upper() == _code_of(user)]
-    paid_regs = [u for u in regs if any(l.get("type") == "commission" and l.get("from") == u.get("tsap_id")
-                                        for l in st.get("ledger", []))]
-    # 💎 R12 — pending pipeline: register ayyi, inka pay cheyani friends (commission future lo vastundi)
-    pending_friends = len(regs) - len(paid_regs)
-    if pending_friends < 0:
-        pending_friends = 0
+    eligible_entries = qualifying_commission_entries(st)
+    paid_ids = {str(e.get("from")) for e in eligible_entries}
+    reversed_ids = {str(e.get("from")) for e in st.get("ledger", []) or []
+                    if e.get("type") == "commission" and e.get("reversed") and e.get("from")}
+    paid_regs = [u for u in regs if str(u.get("tsap_id", "")) in paid_ids]
+    # This is a registration count only; it is never converted into projected money.
+    pending_friends = max(0, len(regs) - len(paid_regs))
     tier = tier_of(st["paid_count"])
     nxt = next_milestone(st["paid_count"])
     cstats = click_stats(_code_of(user))
     conv = round((st["paid_count"] / cstats["clicks"] * 100), 1) if cstats["clicks"] else 0.0
+
+    def _registration_summary(u: Dict) -> Dict:
+        uid = str(u.get("tsap_id", ""))
+        reward = next((e for e in eligible_entries if str(e.get("from")) == uid), None)
+        reversed_reward = uid in reversed_ids and reward is None
+        return {
+            "tsap_id": u.get("tsap_id"),
+            "name": u.get("full_name") or u.get("name", "Friend"),
+            "gender": u.get("gender") or "Groom",
+            "caste": u.get("caste") or "All",
+            "district": u.get("district") or "AP/TS",
+            "joined": u.get("referred_at") or u.get("created_at", ""),
+            "paid": bool(reward),
+            "commission": FIRST_PAY_COMMISSION if reward else 0,
+            "status_text_te": ("✅ అర్హమైన first-plan reward wallet లో జమైంది" if reward else
+                                "↩️ Refund/chargeback తర్వాత referral reward reverse అయింది" if reversed_reward else
+                                "⏳ నమోదు అయింది; అర్హత ఉన్న first consumer-plan payment కోసం వేచి ఉంది"),
+            "status_text_en": ("✅ Eligible first-plan reward credited to wallet" if reward else
+                               "↩️ Referral reward reversed after refund/chargeback" if reversed_reward else
+                               "⏳ Registered; waiting for a qualifying first consumer-plan payment"),
+        }
+
     return {
         "ok": True,
         "code": _code_of(user), "alias": user.get("referral_alias"), "link": user.get("referral_link"),
@@ -822,34 +869,25 @@ def referral_dashboard(user: Dict, all_users: List[Dict], limit_recent: int = 10
             "wallet": st["wallet"], "lifetime_earned": st["lifetime_earned"],
             "pending_payout": st["pending_payout"], "paid_out": st["paid_out"],
             "pending_friends": pending_friends,
-            "pending_value": round(pending_friends * FIRST_PAY_COMMISSION, 2),
-            "credits_earned": sum(int(h.get("change", 0)) for h in user.get("credit_history", [])
-                                  if h.get("reason") == "referral_milestone"),
-            "conversion_pct": conv, "per_paying_user": FIRST_PAY_COMMISSION,
+            "qualifying_rewards_total": len(paid_ids) * FIRST_PAY_COMMISSION,
+            "conversion_pct": conv, "reward_per_qualifying_payment": FIRST_PAY_COMMISSION,
         },
         "commission_rules": {
-            "first_payment": "₹%d (ఏది అయిన plan — ₹%d నుంచి)" % (FIRST_PAY_COMMISSION, MIN_QUALIFYING_AMOUNT),
-            "repeat_payment": "₹0 — commission ఒక్కసారి మాత్రమే (first payment)",
-            "tier_extra": "badges మాత్రమే (extra % లేదు)",
-            "referee_bonus": "+%d credit to the new user" % REFEREE_BONUS_CREDITS,
-            "min_payout": MIN_PAYOUT, "payout_sla_days": PAYOUT_SLA_DAYS,
+            "first_payment": "₹%d once on the first eligible paid S_99/S_199/S_299/S_499 consumer plan (payment amount at least ₹%d)." % (FIRST_PAY_COMMISSION, MIN_QUALIFYING_AMOUNT),
+            "qualifying_plan_codes": sorted(QUALIFYING_PLAN_CODES),
+            "excluded_payment_types": ["add-ons", "assisted services", "boosts", "gifts", "renewals", "complimentary grants", "B2B/bureau plans", "other non-consumer payments"],
+            "repeat_payment": "₹0 — only one reward per referred user, on their first qualifying consumer-plan payment.",
+            "tier_extra": "Dashboard badge only; no extra commission or cash bonus.",
+            "referrer_registration_credits": "+2 interest-request credits after a valid referral attachment; not cash.",
+            "referee_bonus": "+%d interest-request credit to the new user after a valid referral attachment; not cash." % REFEREE_BONUS_CREDITS,
+            "min_payout": MIN_PAYOUT,
+            "payout_processing": "Manual admin review; timing is not guaranteed.",
         },
         "next_milestone": nxt,
         "milestones_hit": st["milestones_hit"],
         "milestones": MILESTONES,
         "tiers": TIERS,
-        "recent_registrations": [{"tsap_id": u.get("tsap_id"),
-                                  "name": u.get("full_name") or u.get("name", "Friend"),
-                                  "gender": u.get("gender") or "Groom",
-                                  "caste": u.get("caste") or "All",
-                                  "district": u.get("district") or "AP/TS",
-                                  "joined": u.get("referred_at") or u.get("created_at", ""),
-                                  "paid": u in paid_regs,
-                                  "commission": round(sum(float(l.get("amount", 0) or 0) for l in st.get("ledger", [])
-                                                        if l.get("type") == "commission" and l.get("from") == u.get("tsap_id")), 2) or (FIRST_PAY_COMMISSION if u in paid_regs else 0),
-                                  "status_text_te": "✅ ₹50 వాలెట్‌కు జమైంది" if u in paid_regs else "⏳ రిజిస్టర్డ్ (మొదటి పేమెంట్ పెండింగ్)",
-                                  "status_text_en": "✅ ₹50 Credited to Wallet" if u in paid_regs else "⏳ Registered (Payment Pending)"}
-                                 for u in regs[-limit_recent:]][::-1],
+        "recent_registrations": [_registration_summary(u) for u in regs[-limit_recent:]][::-1],
         "all_referred_count": len(regs),
         "ledger": list(reversed(st.get("ledger", [])))[:30],
         "payouts": [mask_payout(p) for p in list(reversed(payouts_mine))[:10]],
@@ -862,58 +900,56 @@ def referral_dashboard(user: Dict, all_users: List[Dict], limit_recent: int = 10
 
 # ------------------------------------------------------------------ share kit
 def share_kit(user: Dict) -> Dict:
-    """WhatsApp/Telegram లో share చెయ్యడానికి ready texts (Telugu) + poster + QR link."""
+    """Accurate WhatsApp/Telegram copy plus the user's referral poster and QR target."""
     ensure_referrer_profile(user, [])
     code = _code_of(user)
-    link = user.get("referral_link") or ("https://manavivaha.in/r/%s" % code)
-    name = user.get("full_name") or user.get("name") or "మన వివాహ"
-    wa = ("🙏 నమస్తే! నేను %s.\n\n"
-          "మన వివాహ (TS-AP Telugu Matrimony) — ₹99 సంబంధం, మొదటి 3 requests FREE.\n"
-          "✅ నిజమైన profiles • ఫోటో గోప్యం • 52 Telegram channels\n"
-          "✅ మీ సొంత code %s తో register చేస్తే +1 credit EXTRA FREE!\n\n"
-          "👉 %s\n"
-          "🔗 ఛానెల్: https://t.me/TSAP_MATRIMONY") % (name, code, link)
+    link = user.get("referral_link") or (f"{SITE_URL}/r/{code}" if code else f"{SITE_URL}/register")
+    name = user.get("full_name") or user.get("name") or "మన వివాహ సభ్యుడు"
+    rules_link = f"{SITE_URL}/referral"
+    reward_rule = (
+        f"A referrer may receive ₹{FIRST_PAY_COMMISSION} once if a referred user makes their first eligible "
+        "paid S_99/S_199/S_299/S_499 consumer-plan purchase (payment amount at least ₹99). "
+        "Add-ons, assisted services, boosts, gifts, renewals, complimentary grants and B2B plans are excluded. "
+        "Eligibility and manual review apply; this is not a guaranteed payout."
+    )
+    credit_rule = (
+        "When a valid referral is attached, the new user gets +1 interest-request credit and the referrer gets +2; "
+        "these request credits are separate from the possible ₹50 cash reward."
+    )
+    invitation = f"🙏 నమస్తే! {name} గారు మన వివాహ (Mana Vivaha) లో నా referral link ఇది: {link}"
     variants = [
-        wa,
-        ("💍 పెళ్లి చూసుకుంటున్నారా? మన వివాహ — TS/AP Telugu matrimony.\n"
-         "₹99 → 5 profiles • మొదటి 3 FREE • numbers రెండు వైపులా ok అయ్యాకే.\n"
-         "నా code *%s* తో register చేస్తే మీకు +1 credit FREE 🎁\n%s") % (code, link),
-        ("👰🤵 మన వివాహ లో రోజూ కొత్త profiles (Reddy, Kamma, Kapu, Mala, Madiga... caste-wise channels).\n"
-         "నా code: %s → %s\n+1 credit FREE (నా referral)!") % (code, link),
-        ("🔔 నమస్తే! మీ ఇంట్లో/relative circle లో పెళ్లి చూసుకుంటున్న వాళ్లకి ఈ link పంపండి:\n%s\n"
-         "మన వివాహ — 3 requests FREE, ₹99 కి 5 profiles. నా code *%s* (bonus credit ఉంది).") % (link, code),
-        ("🙏 %s గారు, మన వివాహ లో register చెయ్యండి — photo private, fraud జాగ్రత్త, Telugu support.\n"
-         "%s\nCode: *%s* (+1 credit FREE)") % (name, link, code),
+        f"{invitation}\n\nFree registration includes 3 interest requests. Paid consumer plans start at ₹99.\n{credit_rule}\n{reward_rule}\nRules: {rules_link}",
+        f"💍 Looking for a Telugu matrimony profile? Join Mana Vivaha / మన వివాహ.\n3 interest requests are included with free registration; paid consumer plans start at ₹99.\nUse my referral link: {link}\n{reward_rule}\nRules: {rules_link}",
+        f"🙏 మీ కుటుంబంలో పెళ్లి సంబంధం చూస్తున్నారా? మన వివాహలో ఉచితంగా నమోదు చేసుకోండి.\nఉచిత నమోదుతో 3 interest requests; చెల్లింపు consumer plans ₹99 నుంచి.\nనా link: {link}\n{credit_rule}\n₹50 reward నియమాలు: {rules_link}",
+        f"నా Mana Vivaha referral link: {link}\nRegistration ఉచితం; మొదటి 3 interest requests కూడా. Referral bonus credits మరియు ₹50 reward కు వేర్వేరు అర్హత నియమాలు ఉన్నాయి: {rules_link}",
+        f"💍 Mana Vivaha • మన వివాహ\nFree registration • 3 interest requests\nనా code: {code}\nLink: {link}\nReferral reward: only a qualifying first consumer-plan payment may qualify; details: {rules_link}",
     ]
-    tg = "💍 మన వివాహ — TS/AP Telugu Matrimony\n₹99 సంబంధం • మొదటి 3 FREE\nనా code: %s\n%s" % (code, link)
-    # 🎬 WAVE 40 — VIDEO KIT: promoters వీడియో చేసుకుని promote చేయడానికి ready scripts
     video_kit = [
-        {"style": "15-sec reel (Instagram/YouTube Shorts)",
-         "script": ("[0-3s] క్లోజ్-అప్: 'పెళ్లి సంబంధాలు వెతుకుతున్నారా?'\n"
-                    "[3-8s] స్క్రీన్ రికార్డింగ్: మన వివాహ site — profiles, ₹99 plan\n"
-                    "[8-12s] 'మొదటి 3 సంబంధాలు FREE! నా code %s తో register చెయ్యండి'\n"
-                    "[12-15s] లింక్ చూపించండి: %s + 'లైక్ షేర్ చెయ్యండి!'") % (code, link)},
-        {"style": "30-sec talking video (WhatsApp Status)",
-         "script": ("'నమస్తే! మీ ఇంట్లో, ఫ్రెండ్స్ లో పెళ్లి సంబంధాలు వెతుకుతున్న వాళ్లు ఉన్నారా? "
-                    "మన వివాహ అనే Telugu matrimony site చూడండి — నిజమైన profiles, ఫోటో ప్రైవసీ, "
-                    "కులం వారీగా ఛానళ్లు. మొదటి 3 సంబంధాలు FREE. నా code %s తో register చేస్తే bonus కూడా ఉంది. "
-                    "లింక్ బయోలో ఉంది — షేర్ చేయండి!'") % code},
-        {"style": "Testimonial (ఎవరైనా match అయ్యాక)",
-         "script": ("'మా ఫ్రెండ్ కి మన వివాహ ద్వారా సంబంధం కుదిరింది — నేను refer చేసి ₹%d సంపాదించాను! "
-                    "మీకు కూడా పరిచయాలు ఉంటే ఇది చూడండి — %s'") % (FIRST_PAY_COMMISSION, link)},
+        {"style": "15-second informational video", "script": (
+            f"మన వివాహలో ఉచితంగా నమోదు చేసుకోండి. ఉచిత నమోదుతో 3 interest requests ఉంటాయి; "
+            f"చెల్లింపు consumer plans ₹99 నుంచి. నా referral link {link}. "
+            f"సంభావ్య ₹50 referral reward అర్హత నియమాలకు లోబడి ఉంటుంది: {rules_link}"
+        )},
+        {"style": "30-second informational video", "script": (
+            f"పెళ్లి సంబంధం కోసం వెతుకుతున్నారా? Mana Vivaha, మన వివాహలో మీ profile నమోదు చేసి చూడండి. "
+            f"Registration ఉచితం; మొదటి 3 interest requests ఉంటాయి. Plans, validity, contact-consent నియమాలు "
+            f"ముందుగా పరిశీలించండి. నా link {link}. Referral ద్వారా వచ్చే +1 request credit మరియు referrer కు +2 request credits, "
+            f"ఒకసారి లభించే ₹50 cash reward కి వేరు. ₹50 reward కేవలం మొదటి అర్హమైన S_99/S_199/S_299/S_499 consumer-plan payment పై మాత్రమే; "
+            f"terms: {rules_link}"
+        )},
     ]
     return {
         "code": code, "link": link, "alias": user.get("referral_alias"),
         "whatsapp_messages": variants, "whatsapp_share": "https://wa.me/?text=" + _urlenc(variants[0]),
         "whatsapp_share_variants": ["https://wa.me/?text=" + _urlenc(v) for v in variants],
-        "telegram_share": "https://t.me/share/url?url=%s&text=%s" % (_urlenc(link), _urlenc("మన వివాహ — నా code %s" % code)),
-        "sms_text": "మన వివాహ Telugu Matrimony — నా code %s తో register చెయ్యండి (+1 credit FREE): %s" % (code, link),
-        "poster_text": "💰 ₹50 per paying referral\nCode: %s\n%s" % (code, link),
+        "telegram_share": "https://t.me/share/url?url=%s&text=%s" % (_urlenc(link), _urlenc("Mana Vivaha • మన వివాహ — referral code %s" % code)),
+        "sms_text": f"Mana Vivaha • మన వివాహ — free registration, 3 interest requests. My referral link: {link}. Rules: {rules_link}",
+        "poster_text": f"MANA VIVAHA • మన వివాహ\nFree registration • 3 interest requests\nCode: {code}\nReferral terms: {rules_link}",
         "poster_card": "/api/referral/%s/poster.png" % _tsap_or_code(user),
         "qr_target": link,
-        "status_text": "Manavivaha.in/r/%s — నా code తో register చేస్తే +1 credit free 🎁" % code,
+        "status_text": f"Mana Vivaha • మన వివాహ — free registration and 3 interest requests. My referral link: {link}. Terms: {rules_link}",
         "video_kit": video_kit,
-        "message_telugu": "📲 Share చెయ్యడానికి 5 ready messages (WhatsApp), Telegram link, poster, వీడియో scripts — అన్నీ ఇక్కడే!",
+        "message_telugu": "📲 Share messages and informational video scripts are ready. Referral reward terms are linked in each message.",
     }
 
 
@@ -943,24 +979,22 @@ def get_leaderboard(all_users: List[Dict], limit: int = 10, period: str = "all",
     for u in all_users:
         st = u.get("referral_stats") or {}
         refers = int(st.get("registrations", st.get("total", 0)) or 0)
-        paid = int(st.get("paid_count", 0) or 0)
-        # 💎 R12: paid OR register-chesina someone unte board lo (0-activity users skip)
+        entries = qualifying_commission_entries(st)
+        if cutoff:
+            entries = [entry for entry in entries if str(entry.get("at", "")) >= cutoff]
+        paid = len({str(entry.get("from")) for entry in entries})
+        earned = paid * FIRST_PAY_COMMISSION
+        # Registrations can be shown, but no future earnings are projected.
         if not paid and not refers:
             continue
-        earned = float(st.get("lifetime_earned", u.get("wallet", 0)) or 0)
-        if cutoff:
-            entries = [l for l in st.get("ledger", [])
-                       if l.get("type") in ("commission", "milestone") and str(l.get("at", "")) >= cutoff]
-            if not entries:
-                continue
-            earned = sum(float(l.get("amount", 0)) for l in entries)
+        if cutoff and not paid:
+            continue
         rows.append({
-            # WAVE 25 — public board: FIRST name matrame (surname hidden — W13 rule)
             "name": str(u.get("full_name") or u.get("name") or "మన వివాహ member").split()[0],
             "code": _code_of(u), "tsap_id": u.get("tsap_id"),
             "refers": refers,
             "paid": paid,
-            "earned": round(earned, 2),
+            "earned": earned,
             "tier": tier_of(paid)["key"],
             "icon": tier_of(paid)["icon"],
         })
@@ -969,23 +1003,22 @@ def get_leaderboard(all_users: List[Dict], limit: int = 10, period: str = "all",
         for u in _P19:
             st = u.get("referral_stats") or {}
             refers = int(st.get("registrations", 0) or 0)
-            paid = int(st.get("paid_count", 0) or 0)
+            entries = qualifying_commission_entries(st)
+            if cutoff:
+                entries = [entry for entry in entries if str(entry.get("at", "")) >= cutoff]
+            paid = len({str(entry.get("from")) for entry in entries})
+            earned = paid * FIRST_PAY_COMMISSION
             if not paid and not refers:
                 continue
-            earned = float(st.get("lifetime_earned", 0) or 0)
-            if cutoff:
-                entries = [l for l in st.get("ledger", [])
-                           if l.get("type") in ("commission", "milestone") and str(l.get("at", "")) >= cutoff]
-                if not entries:
-                    continue
-                earned = sum(float(l.get("amount", 0)) for l in entries)
+            if cutoff and not paid:
+                continue
             rows.append({
                 "name": str(u.get("name") or "Partner").split()[0],
                 "code": u.get("partner_id", ""), "tsap_id": "",
                 "partner_id": u.get("partner_id", ""),
                 "refers": refers,
                 "paid": paid,
-                "earned": round(earned, 2),
+                "earned": earned,
                 "tier": tier_of(paid)["key"],
                 "icon": tier_of(paid)["icon"],
             })
@@ -1012,24 +1045,29 @@ def get_leaderboard(all_users: List[Dict], limit: int = 10, period: str = "all",
 def referral_terms_telugu() -> Dict:
     return {
         "version": REFERRAL_VERSION,
-        "headline": "₹50 per paying referral — అందరికీ",
+        "headline": "అర్హత ఉన్న first consumer-plan payment పై ఒక్కసారి ₹50",
         "rules_telugu": [
-            "🆓 Register FREE — **3 matches/profiles FREE**. ఆ తర్వాత friend ₹99 (లేదా ₹29+ ఏదైనా plan) pay చేస్తే —",
-            "💰 **మీ wallet కి ₹50** (ఏదైనా plan, మొదటి payment — అందరికీ ఒకటే)",
-            "👥 **ఎవ్వరు ఎన్ని అయినా refer చెయ్యొచ్చు — limit లేదు, conditions లేవు** (bride/groom/brother/parents/friend/broker/vendor — ఎవ్వరైనా)",
-            "📞 **ఒకటే phone లో కూడా పర్వాలేదు** — ఇంట్లో అందరూ ఒకటే number వాడుకుంటున్నా, అందరూ refer చెయ్యొచ్చు",
-            "🎁 కొత్త user కి (referee) **+1 credit FREE** + free 3 profiles — వాళ్లకి కూడా లాభం",
-            "🔁 Friend తర్వాత మళ్లీ pay చేస్తే (renewal/add-on) — commission **లేదు** (₹50 ఒక్కసారి మాత్రమే — అంతే)",
-            "🏆 Tiers: SILVER 3 → GOLD 10 → PLATINUM 25 → ELITE 50 paying referrals — **badges + recognition** (extra money లేదు)",
-            "💸 Payout: wallet ₹100 దాటితే UPI/bank కి request పెట్టండి — 3 working days లో credit. మనం pay చేశాక wallet నుంచి తీసేస్తాం + transaction list లో **PAID (UTR తో)** కనిపిస్తుంది ✅",
-            "✅ మన team spam/fake patterns (bot registrations, fake payments) ని review చేస్తుంది — నిజమైన referrals కి ఏ problem లేదు",
-            "↩️ Customer refund అడిగితే ఆ commission wallet నుంచి తీసేస్తాం (clawback) — double profit లేదు",
-            "📊 Dashboard లో clicks, registrations, payments, wallet, tier — అన్నీ live గా కనిపిస్తాయి",
+            "🆓 నమోదు ఉచితం. ఉచితంగా 3 interest-request credits ఉంటాయి; అవి 3 profile/contact unlocks కావు.",
+            "💰 Referrer కు ₹50 ఒక్కసారి మాత్రమే: కొత్త referred user చేసిన మొదటి qualifying paid consumer plan S_99, S_199, S_299 లేదా S_499 అయి ఉండాలి; eligible payment మొత్తం కనీసం ₹99 కావాలి.",
+            "🚫 Add-ons, assisted services, boosts, gifts, renewals, complimentary grants, bureau/B2B plans మరియు ఇతర non-consumer payments కు ₹50 reward లేదు.",
+            "🎁 Valid referral attachment అయినప్పుడు referrer కు +2 interest-request credits, కొత్త user కు +1 interest-request credit వస్తాయి. ఇవి cash reward కాదు; వేర్వేరు credits.",
+            "🔁 ఒక్క referred user పై first qualifying consumer-plan payment కు మాత్రమే reward. తర్వాతి plan payments/renewals పై మళ్లీ commission లేదు.",
+            "🏅 3 / 10 / 25 / 50 qualifying rewards వద్ద dashboard tier badge మారుతుంది. Tier వల్ల అదనపు cash, commission, support, report లేదా ఇతర perk లేదు.",
+            f"💸 Payout request కనీసం ₹{MIN_PAYOUT}. Wallet నుంచి request చేసిన తర్వాత admin review ఉంటుంది; auto/instant UPI transfer లేదా fixed processing time హామీ లేదు. Status/settlement వివరాలు dashboard లో చూడండి.",
+            "🔎 High-volume, duplicate, self-referral, fake-payment, chargeback లేదా spam నమూనాలు review చేయబడవచ్చు. No fixed referral-count cap ఉన్నా, reward eligibility మరియు review నియమాలు వర్తిస్తాయి.",
+            "↩️ Eligible payment refund/chargeback అయితే సంబంధిత reward wallet నుంచి reverse చేయబడవచ్చు.",
+            "📊 Dashboard లో నమోదు, qualifying rewards, wallet మరియు payout status చూపబడతాయి. Pending registrations ను భవిష్యత్ ఆదాయంగా లేదా హామీగా లెక్కించము.",
         ],
-        "not_allowed": ["Fake/duplicate registrations (bot accounts)", "Fake payments / chargeback fraud",
-                        "Bulk spam / unsolicited bulk messages", "Refund చేసిన payments కి commission claim", "Fake profiles create చెయ్యడం"],
-        "no_conditions_telugu": "ఎవ్వరు ఎన్ని అయినా refer చెయ్యొచ్చు — ఒకటే phone, ఒకటే family, ఒకటే village — అన్నీ allowed. Limit లేదు.",
-        "support": "manavivaha.in • WhatsApp support • care@manavivaha.in",
+        "not_allowed": ["Self-referral or fake/duplicate registrations", "Fake payments or chargeback abuse",
+                        "Bulk unsolicited messages or spam", "Referral reward claims for excluded payment types",
+                        "Fake profiles or misleading marketing"],
+        "no_conditions_telugu": "నిర్దిష్ట referral-count cap లేదు. కానీ ప్రతి ₹50 reward కు first qualifying consumer-plan payment నియమాలు వర్తిస్తాయి; duplicate, fake, self-referral లేదా spam patterns review చేయబడవచ్చు.",
+        "reward_amount": FIRST_PAY_COMMISSION,
+        "qualifying_plan_codes": sorted(QUALIFYING_PLAN_CODES),
+        "min_qualifying_amount": MIN_QUALIFYING_AMOUNT,
+        "min_payout": MIN_PAYOUT,
+        "payout_processing": "Manual admin review; timing is not guaranteed.",
+        "reward_exclusions": ["add-ons", "assisted services", "boosts", "gifts", "renewals", "complimentary grants", "B2B/bureau plans", "other non-consumer payments"],
     }
 
 
@@ -1049,7 +1087,7 @@ def generate_bureau_white_label_card(original_card_path: str, bureau_name: str, 
         return output_path
 
 # ---------------------------------------------------------------------------
-# 🔔 WhatsApp NOTIFICATIONS (referrer ki instant update — loop closed)
+# 🔔 Referral notifications (queued by the caller; delivery timing depends on the channel)
 #    Ee functions text matrame return chesthayi; queue main.py lo jarugutundi.
 # ---------------------------------------------------------------------------
 def _name_of(u, fallback="Friend"):
@@ -1057,74 +1095,52 @@ def _name_of(u, fallback="Friend"):
 
 
 def referrer_join_text(referrer, referee):
-    """Friend register ayyinappudu referrer కి pampE message (encouraging)."""
+    """Notify the referrer of a registration without promising a cash commission."""
     ref_name = _name_of(referrer, "గారు")
     friend_name = _name_of(referee, "స్నేహితుడు")
     code = _code_of(referrer)
     link = referrer.get("referral_link") or f"{SITE_URL}/r/{code}"
-    
     return (
-        f"🎉 నమస్కారం {ref_name} గారు!\n"
-        f"మీ ద్వారా, మీ రిఫరల్ తో *{friend_name}* గారు మన వివాహలో రిజిస్ట్రేషన్ చేసుకున్నారు 🤝.\n\n"
-        f"వారు ప్రొఫైల్ యాక్టివేట్ చేసుకోగానే (మొదటి పేమెంట్ పూర్తి కాగానే) మీకు *₹50* నేరుగా మీ వాలెట్‌కు జమవుతుంది 💰.\n\n"
-        f"🏷️ మీ కోడ్: {code}\n"
-        f"🔗 మీ లింక్: {link}\n\n"
-        f"✨ *Refer More & Earn More* — ఎంత ఎక్కువ మందికి షేర్ చేస్తే అంత ఎక్కువ సంపాదన! 🚀\n"
-        f"— మన వివాహ (TS & AP Telugu Matrimony) · {SITE_URL}/referral"
+        f"🎉 నమస్కారం {ref_name} గారు! *{friend_name}* గారు మీ referral code తో మన వివాహలో నమోదు చేసుకున్నారు.\n\n"
+        "ఈ valid referral attachment కు మీకు +2 interest-request credits వచ్చాయి; అవి cash కావు.\n"
+        f"మీ కోడ్: {code}\nమీ లింక్: {link}\n\n"
+        f"₹50 referral reward వేరుగా ఉంటుంది: వారు మొదటిసారి కనీసం ₹99 చెల్లించి S_99/S_199/S_299/S_499 consumer plan తీసుకుంటే మాత్రమే ఒకసారి అర్హత ఉండవచ్చు. "
+        f"Add-ons, assisted service, boosts, gifts, renewals, complimentary grants మరియు B2B plans అర్హం కావు. నియమాలు: {SITE_URL}/referral"
     )
 
 
 def referrer_commission_text(referrer, referee, result):
-    """Payment vachhi commission credit ayyinappudu referrer కి pampE encouraging message."""
-    amt = result.get("commission", 0)
+    """Notify the referrer when an eligible ₹50 wallet commission was actually recorded."""
+    amt = int(result.get("commission", 0) or 0)
     st = stats_of(referrer)
     tier = result.get("tier") or st.get("tier", "BRONZE")
-    milestone = result.get("milestone")
-    ref_code = _code_of(referrer)
+    milestone = result.get("milestone") or {}
     ref_name = _name_of(referrer, "గారు")
     friend_name = _name_of(referee, "స్నేహితుడు")
-    site = SITE_URL
-    card_url = f"{site}/api/referral/earnings-card?code={ref_code}&amount={amt}&name={ref_name}&format=story"
-
     lines = [
-        f"🎉 *శుభవార్త {ref_name} గారు!*",
-        f"మీ ద్వారా, మీ రిఫరల్ తో *{friend_name}* గారు మన వివాహలో రిజిస్ట్రేషన్ & యాక్టివేషన్ పూర్తి చేసుకున్నారు 🤝.",
-        "",
-        f"💰 మీ రిఫరల్ కమీషన్ *₹{amt}* విజయవంతంగా మీ referral wallet లో credit అయ్యింది ✅!",
-        "ధన్యవాదాలు! *Refer More & Earn More* 🚀",
-        "",
-        f"👛 ప్రస్తుత Wallet balance: ₹{st.get('wallet', 0)}",
-        f"🏅 మీ హోదా (Tier): {tier} ({st.get('paid_count', 0)} paying referrals)",
+        f"🎉 శుభవార్త {ref_name} గారు! *{friend_name}* గారి మొదటి eligible consumer-plan payment పై ₹{amt} referral reward మీ wallet లో నమోదు అయింది.",
+        f"ఇది bank/UPI payout కాదు. ప్రస్తుత wallet: ₹{st.get('wallet', 0)}.",
+        f"Tier: {tier} ({st.get('paid_count', 0)} qualifying referrals); tier label కు అదనపు cash లేదా commission లేదు.",
+        f"Payout కోసం కనీసం ₹{MIN_PAYOUT} wallet balance తో request పెట్టండి. Request admin review లో ఉంటుంది; fixed processing time హామీ లేదు.",
+        f"నియమాలు: {SITE_URL}/referral",
     ]
-    if milestone:
-        _bits = []
-        if milestone.get("cash"):
-            _bits.append(f"₹{milestone['cash']} wallet")
-        if milestone.get("credits"):
-            _bits.append(f"{milestone['credits']} credits")
-        lines.append(f"🎁 🏆 {milestone.get('title', 'Milestone bonus')} — {' + '.join(_bits) or 'bonus credited'}")
-    
+    if milestone.get("title"):
+        lines.insert(2, f"Dashboard badge update: {milestone['title']} — అదనపు cash/credits లేవు.")
     nxt = next_milestone(st.get("paid_count", 0))
     if nxt:
-        lines.append(f"🎯 *నెక్స్ట్ గోల్:* ఇంకా {nxt['need']} referrals → {nxt['title']}! (100+ చేరండి - అపరిమిత సంపాదన 🌟)")
-    else:
-        lines.append("🎯 *నెక్స్ట్ గోల్:* 100+ రిఫరల్స్ లక్ష్యాన్ని సాధించండి — అపరిమిత సంపాదన! 🌟")
-
-    lines.append("")
-    lines.append("🖼️ *మీ WhatsApp Status లో పెట్టడానికి రెడీమేడ్ Earnings Card (1-Click):*")
-    lines.append(card_url)
-    lines.append("✨ దీన్ని మీ WhatsApp Status లో పెడితే మీ స్నేహితులు చూసి మీ కోడ్‌తో చేరతారు 🚀")
-    lines.append("")
-    lines.append(f"🏦 Payout ₹100 నుంచి (UPI లో తక్షణమే) — {site}/referral లో request పెట్టండి")
-    lines.append("— మన వివాహ (నెంబర్ 1 తెలుగు మ్యాట్రిమోనీ)")
+        lines.append(f"తదుపరి dashboard badge: {nxt['title']} కోసం ఇంకా {nxt['need']} eligible rewards.")
     return "\n".join(lines)
 
 
 def referee_welcome_text(referee, referrer):
-    """Referral తో వచ్చిన కొత్త user కి (నమస్తే message కి add-on line)."""
-    return ("🤝 మీ friend %s గారు referral code తో వచ్చారు — మీకు *+1 FREE credit* bonus! "
-            "Total %s credits ready. మీ సొంత code: %s (friend pay చేస్తే మీకు ₹50)"
-            % (_name_of(referrer, "Friend"), referee.get("credits", 3), _code_of(referee)))
+    """Welcome the referred user; keep request credits distinct from the cash reward."""
+    return (
+        "🤝 మీ referral code నమోదు సమయంలో attach అయింది — మీకు +1 interest-request credit వచ్చింది. "
+        "మీరు కూడా మీ code share చేస్తే valid referral attachment పై referrer కి +2 request credits రావచ్చు. "
+        f"ఇవి ₹50 cash reward కి వేరు. మీ code: {_code_of(referee)}. "
+        "Referrer కు ₹50 ఒక్కసారి మాత్రమే, మీ first eligible S_99/S_199/S_299/S_499 consumer-plan payment పై అర్హత ఉండవచ్చు; add-ons, renewals, assisted services, boosts, gifts, complimentary మరియు B2B payments అర్హం కావు. "
+        f"Rules: {SITE_URL}/referral"
+    )
 
 def mask_payout(rec: Dict) -> Dict:
     """🔒 Public dashboard ki payout record (UPI/bank details masked).

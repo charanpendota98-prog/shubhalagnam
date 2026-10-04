@@ -18,7 +18,7 @@ from difflib import SequenceMatcher
 from typing import Dict, List
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-PERSIST_FILE = os.path.join(BASE_DIR, "chanmap15.json")
+PERSIST_FILE = os.environ.get("MANA_VIVAHA_CHANMAP_FILE", os.path.join(BASE_DIR, "chanmap15.json"))
 
 OVERRIDES: Dict[str, Dict] = {}
 
@@ -46,7 +46,30 @@ def _restore() -> None:
 
 _restore()
 
-_URL_OK = re.compile(r"^https?://\S+$", re.I)
+def _valid_telegram_url(value: str) -> bool:
+    try:
+        from urllib.parse import urlparse
+        url = urlparse(str(value or "").strip())
+        if url.scheme.lower() != "https" or url.username or url.password or url.port:
+            return False
+        host = (url.hostname or "").lower().rstrip(".")
+        path = url.path.strip("/")
+        if host not in {"t.me", "telegram.me"}:
+            return False
+        return bool(re.fullmatch(
+            r"(?:[A-Za-z0-9_]{5,32}|\+[A-Za-z0-9_-]{6,128}|joinchat/[A-Za-z0-9_-]{6,128}|c/\d+/\d+)",
+            path,
+        ))
+    except (TypeError, ValueError):
+        return False
+
+
+def _valid_whatsapp_url(value: str) -> bool:
+    try:
+        from channels_config import _valid_whatsapp_url as valid
+        return valid(value)
+    except Exception:
+        return False
 
 
 def _channels():
@@ -54,17 +77,25 @@ def _channels():
     return CHANNELS
 
 
+def _base_links(key: str) -> Dict:
+    from channels_config import channel_links
+    return channel_links(key)
+
+
 def effective() -> List[Dict]:
     """అన్నీ channels + admin links merged (admin table + public links కి)."""
     out = []
     for key, c in _channels().items():
         o = OVERRIDES.get(key, {})
-        tg = (o.get("telegram_link") or "").strip()
-        # A planned username is not a production link until the channel is
-        # actually created and the bot has been made admin. Explicitly mapped
-        # links can still be previewed in the private console.
-        if not tg and c.get("live") and c.get("username"):
-            tg = f"https://t.me/{c['username']}"
+        configured = _base_links(key)
+        # Only explicitly configured public destinations appear; usernames are not
+        # converted into guessed invite URLs. Syntax does not prove availability.
+        tg = str(o.get("telegram_link") if "telegram_link" in o else configured.get("telegram", "") or "").strip()
+        if tg and not _valid_telegram_url(tg):
+            tg = ""
+        whatsapp = str(o.get("whatsapp_link") if "whatsapp_link" in o else configured.get("whatsapp", "") or "").strip()
+        if whatsapp and not _valid_whatsapp_url(whatsapp):
+            whatsapp = ""
         route = c.get("route", {}) or {}
         # Normalised audience metadata keeps the admin UI neat and avoids
         # guessing bride/groom from display names.
@@ -78,16 +109,27 @@ def effective() -> List[Dict]:
                     "category": c.get("category", ""), "members": list(c.get("members", []))[:40],
                     "audience": audience, "split_by_gender": bool(gender),
                     "desc": (c.get("desc", "") or "")[:200],
-                    "telegram": tg, "whatsapp": (o.get("whatsapp_link") or "").strip(),
+                    "telegram": tg, "whatsapp": whatsapp,
                     "active": o.get("active", True), "note": o.get("note", ""),
                     "customized": key in OVERRIDES})
     return out
 
 
 def public_links() -> Dict[str, Dict]:
-    """/channels page Join buttons కి (active + link ఉన్న vi మాత్రమే)."""
-    return {e["key"]: {"telegram": e["telegram"], "whatsapp": e["whatsapp"]}
-            for e in effective() if e["active"] and (e["telegram"] or e["whatsapp"])}
+    """Public directory links from one backend source; URL syntax is checked, uptime is not."""
+    result: Dict[str, Dict] = {}
+    for entry in effective():
+        if not entry["active"]:
+            continue
+        telegram = entry["telegram"]
+        whatsapp = entry["whatsapp"]
+        if telegram and not _valid_telegram_url(telegram):
+            telegram = ""
+        if whatsapp and not _valid_whatsapp_url(whatsapp):
+            whatsapp = ""
+        if telegram or whatsapp:
+            result[entry["key"]] = {"telegram": telegram, "whatsapp": whatsapp}
+    return result
 
 
 def set_link(key: str, telegram_link: str = "", whatsapp_link: str = "",
@@ -96,11 +138,14 @@ def set_link(key: str, telegram_link: str = "", whatsapp_link: str = "",
     if key not in _channels():
         return {"success": False, "message_telugu": "⚠️ Channel key దొరకలేదు"}
     tg, wa = str(telegram_link or "").strip(), str(whatsapp_link or "").strip()
-    for u, label in ((tg, "Telegram"), (wa, "WhatsApp")):
-        if u and not _URL_OK.match(u):
-            return {"success": False, "message_telugu": f"⚠️ {label} link http(s) URL ఇవ్వండి"}
-        if u and len(u) > 300:
+    for url, label, validator in (
+        (tg, "Telegram", _valid_telegram_url),
+        (wa, "WhatsApp", _valid_whatsapp_url),
+    ):
+        if url and len(url) > 300:
             return {"success": False, "message_telugu": f"⚠️ {label} link too long"}
+        if url and not validator(url):
+            return {"success": False, "message_telugu": f"⚠️ Valid HTTPS {label} channel/invite link ఇవ్వండి"}
     OVERRIDES[key] = {"telegram_link": tg, "whatsapp_link": wa, "active": bool(active),
                       "note": str(note or "").strip()[:200], "updated_at": _now()}
     _persist()
@@ -151,6 +196,15 @@ def import_bulk(text: str, auto_apply: bool = False, threshold: float = 0.45) ->
                 tg = p
             elif not wa:
                 wa = p
+        invalid = []
+        if tg and not _valid_telegram_url(tg):
+            invalid.append("Telegram URL must be a valid HTTPS t.me link")
+        if wa and not _valid_whatsapp_url(wa):
+            invalid.append("WhatsApp URL must be a valid HTTPS WhatsApp channel/invite link")
+        if invalid:
+            unmatched.append({"label": label, "telegram": tg, "whatsapp": wa,
+                              "hint": "; ".join(invalid)})
+            continue
         best, score = None, 0.0
         for e in entries:
             sc = _score(label, e)

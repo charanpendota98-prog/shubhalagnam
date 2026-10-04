@@ -7,6 +7,7 @@
 import { useEffect, useState } from "react";
 import { authHeaders } from "@/lib/api";
 import { useLang } from "@/lib/lang";
+import { whatsappPhoneLink } from "@/lib/wa";
 
 type Row = Record<string, any>;
 const adminToken = () => { try { return localStorage.getItem("tsap_admin_token") || ""; } catch { return ""; } };
@@ -184,7 +185,7 @@ export function LeadsPanel() {
 
   return (
     <div>
-      <p className="telugu mt-2 text-xs text-gray-500">{te ? "కొత్త leads కి 24h లోపు follow-up — response 3x. Call/WhatsApp: number పక్కన link." : "Follow up new leads within 24h — 3x response. Call/WhatsApp via number link."} ({total})</p>
+      <p className="telugu mt-2 text-xs text-gray-500">{te ? "కొత్త leads‌ను ముందుగా పరిశీలించి, follow-up status నమోదు చేయండి. Call/WhatsApp link అందుబాటులో ఉంటే మాత్రమే కనిపిస్తుంది." : "Review new leads first and record follow-up status. Call/WhatsApp links appear only when configured."} ({total})</p>
       <div className="my-2 flex gap-2">
         {[["", te ? "అన్నీ" : "all"], ["new", "new"], ["contacted", "contacted"], ["converted", "converted"]].map(([v, l]) => (
           <button key={v} onClick={() => setSt(v)}
@@ -198,7 +199,7 @@ export function LeadsPanel() {
           <div key={l.id} className="rounded-xl border p-3 text-xs">
             <div className="flex flex-wrap items-center gap-2">
               <span className="font-bold">{l.name || "(no name)"}</span>
-              {l.phone && <a href={`https://wa.me/91${l.phone}`} target="_blank" rel="noreferrer" className="font-mono font-bold text-green-700 underline">📞 {l.phone}</a>}
+              {l.phone && whatsappPhoneLink(l.phone) && <a href={whatsappPhoneLink(l.phone) || undefined} target="_blank" rel="noopener noreferrer" className="font-mono font-bold text-green-700 underline">📞 {l.phone}</a>}
               <span className={`px-2 py-0.5 rounded-full font-bold ${l.status === "converted" ? "bg-green-100 text-green-700" : l.status === "contacted" ? "bg-blue-100 text-blue-700" : "bg-orange-100 text-orange-700"}`}>{l.status}</span>
               <span className="text-gray-500">{l.gender} {l.age} • {l.district} {l.caste} • {l.source}</span>
               <span className="ml-auto text-gray-400">touches:{l.touches ?? 1} • {String(l.at || "").slice(0, 16).replace("T", " ")}</span>
@@ -243,7 +244,7 @@ export function PublishPanel() {
   };
   const republish = async () => {
     if (!tsap.trim()) { setFlash(te ? "Profile ID ఇవ్వండి" : "Give Profile ID"); return; }
-    const r = await fetch(withToken(`/api/publish/now/${tsap.trim().toUpperCase()}?score=92`), { method: "POST", headers: authHeaders(true) });
+    const r = await fetch(withToken(`/api/publish/now/${tsap.trim().toUpperCase()}`), { method: "POST", headers: authHeaders(true) });
     const d = await r.json();
     setFlash(d.success ? `✅ re-post queued → ${(d.targets || []).length} targets` : (d.detail || "done"));
   };

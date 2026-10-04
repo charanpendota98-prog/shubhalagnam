@@ -15,12 +15,16 @@ import json
 import os
 import sys
 import tempfile
+from datetime import datetime, timedelta
 
 os.environ["PUBLISH_DRY_RUN"] = "true"
 os.environ["WA_TEST_FAST"] = "true"
 os.environ["WHATSAPP_MODE"] = "bridge"
 os.environ["WA_BRIDGE_URL"] = "http://localhost:3001"
-os.environ["DEMO_SEED_ENABLED"] = "true"
+os.environ["DEMO_SEED_ENABLED"] = "false"
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from test_storage import isolate_test_stores  # noqa: E402
+isolate_test_stores("interest-antiban")
 
 PASS, FAIL = [], []
 
@@ -106,18 +110,32 @@ def test_interest():
         check("Chatting OFF (model lo ledu)", plans["chatting"] is False)
 
         import hardening as H
-        seed = c.post("/api/demo/seed", headers={"X-Admin-Key": H.ADMIN_KEY}).json()
-        ids = [x["tsap_id"] for x in seed["created"]]
-        check("Demo profiles 4 + unique IDs", len(set(ids)) == len(ids) and len(ids) >= 4, str(ids))
-        groom = next(x["tsap_id"] for x in seed["created"] if x.get("role") == "Groom")
-        brides = [x["tsap_id"] for x in seed["created"] if x.get("role") == "Bride"]
+        seed_response = c.post("/api/demo/seed", headers={"X-Admin-Key": H.ADMIN_KEY})
+        check("Live demo-profile seed endpoint is retired", seed_response.status_code == 410, seed_response.status_code)
+
+        # Synthetic members live only in this isolated test process and disposable DB.
+        def fixture_user(tsap_id, name, gender, phone, age, dob, gothram):
+            return {
+                "tsap_id": tsap_id, "full_name": name, "gender": gender, "phone": phone,
+                "phone_verified": True, "age": age, "dob": dob, "height": "5 ft 6 in",
+                "marital_status": "Pelli Kaledu", "religion": "Hindu", "caste": "Reddy",
+                "sub_caste": "Motati", "gothram": gothram, "district": "Hyderabad", "state": "TS",
+                "education": "BTech", "job": "Engineer", "credits": 3, "plan": "FREE",
+                "is_approved": True, "is_banned": False, "about_myself": "Test fixture profile for consent-gated interest-flow checks.",
+            }
+
+        groom = "TSAP-M-2026-0001"
+        brides = ["TSAP-F-2026-0001", "TSAP-F-2026-0002", "TSAP-F-2026-0003"]
+        M.DB_USERS[:] = [
+            fixture_user(groom, "Test Groom", "Groom", "9848012345", 36, "1990-01-10", "Bharadwaja"),
+            fixture_user(brides[0], "Test Bride One", "Bride", "9848022222", 30, "1996-02-10", "Vasishta"),
+            fixture_user(brides[1], "Test Bride Two", "Bride", "9848033333", 29, "1997-03-10", "Kashyapa"),
+            fixture_user(brides[2], "Test Bride Three", "Bride", "9848044444", 28, "1998-04-10", "Atri"),
+        ]
+        M.DB_INTERESTS.clear()
+        ids = [user["tsap_id"] for user in M.DB_USERS]
+        check("Isolated test fixtures: one groom + three brides", len(ids) == 4 and len(set(ids)) == 4, ids)
         bride = brides[0]
-        # 🐞 FIX (R13): prior-run payments/perks persist (credits≠3, whoviewed active) — reset demo pair
-        for _id in (groom, bride):
-            _u = next((x for x in M.DB_USERS if x["tsap_id"] == _id), None)
-            if _u is not None:
-                _u["credits"] = 3; _u["plan"] = "FREE"
-                _u["whoviewed_until"] = ""; _u["boost_until"] = ""
 
         from hardening import sign_token
         g_headers = {"Authorization": f"Bearer {sign_token(groom)}"}
@@ -133,7 +151,8 @@ def test_interest():
             r = c.post("/api/interest/send", json={"from_id": groom, "to_id": bride, "note": "test"}, headers=g_headers).json()
         check("Interest send success", r.get("success") is True)
         check("Credit deduct ayyindi (3→2)", r.get("credits_left") == 2, str(r.get("credits_left")))
-        check("Match score vasthundi (0 kadu)", r.get("score", 0) > 0, str(r.get("score")))
+        check("No synthetic match score is returned", "score" not in r)
+        check("Profile comparison contains factual observations", bool(r.get("comparison", {}).get("observations")))
         msg = r.get("owner_message_preview", "")
         check("Owner message lo 'MANA VIVAHA' + 'INTEREST'", "MANA VIVAHA" in msg and "INTEREST" in msg)
         check("Owner message lo requester profile details", "Gothram" in msg or "🎓" in msg)
@@ -172,6 +191,24 @@ def test_interest():
         check("Decline → credit refund", after == before + 1, f"{before}→{after}")
         check("Decline message polite", "refund" in dec["message_telugu"].lower())
 
+        # No-response expiry restores the consumed request credit exactly once.
+        expiry_send = c.post("/api/interest/send", json={"from_id": groom, "to_id": brides[2]}, headers=g_headers).json()
+        check("Unanswered-request fixture send succeeds", expiry_send.get("success") is True, expiry_send)
+        expiry_record = next(x for x in M.DB_INTERESTS if x.get("request_id") == expiry_send.get("request_id"))
+        expiry_record["created_at"] = (datetime.utcnow() - timedelta(days=8)).isoformat()
+        before_expiry = c.get(f"/api/credits/{groom}", headers=g_headers).json()["credits"]
+        sent_after_expiry = c.get(f"/api/interest/sent/{groom}", headers=g_headers).json()
+        after_expiry = c.get(f"/api/credits/{groom}", headers=g_headers).json()["credits"]
+        expired_item = next(x for x in sent_after_expiry.get("sent", []) if x.get("request_id") == expiry_send.get("request_id"))
+        check("Seven-day no-response expiry returns one credit once",
+              expired_item.get("status") == "expired" and expired_item.get("credit_refunded") is True
+              and after_expiry == before_expiry + 1,
+              {"status": expired_item.get("status"), "refunded": expired_item.get("credit_refunded"),
+               "credits": f"{before_expiry}→{after_expiry}"})
+        c.get(f"/api/interest/sent/{groom}", headers=g_headers)
+        check("Repeated sent lookup does not double-refund",
+              c.get(f"/api/credits/{groom}", headers=g_headers).json()["credits"] == after_expiry)
+
         # 402 → plans
         u = next(u for u in M.DB_USERS if u["tsap_id"] == groom)
         u["credits"] = 0
@@ -206,7 +243,12 @@ def test_porutham_views_addons():
         check("Rasi parse: vrushabha", norm_rasi("vrushabha") == 1)
         # rules
         good = compute_porutham({"star": "Rohini"}, {"star": "Mrigasira"})
-        check("Porutham: good pair >= 7/10", good["score"] >= 7, str(good["score"]))
+        check("Porutham returns ten individual rule outcomes", good.get("available") is True and len(good.get("items", [])) == 10)
+        check("Porutham pass tally matches individual rule flags",
+              good.get("passed_checks") == sum(item.get("pass") is True for item in good.get("items", []))
+              and good.get("total_checks") == 10, good.get("passed_checks"))
+        check("Porutham omits aggregate score, percentage, stars, and verdict",
+              not ({"score", "max_score", "percent", "stars", "verdict"} & set(good)))
         rajju = compute_porutham({"star": "Ashwini"}, {"star": "Ashwini"})
         check("Rajju dosham detect (same rajju)", any("రజ్జు" in str(d) for d in rajju["doshas"]), str(rajju["doshas"]))
         vedha = compute_porutham({"star": "Ashwini"}, {"star": "Jyeshtha"})
@@ -214,13 +256,30 @@ def test_porutham_views_addons():
         nodata = compute_porutham({}, {})
         check("Star ledu aithe graceful message", nodata["available"] is False)
 
-        seed = c.post("/api/demo/seed").json()
-        g = next(x["tsap_id"] for x in seed["created"] if x["role"] == "Groom")
-        b = next(x["tsap_id"] for x in seed["created"] if x["role"] == "Bride")
+        # Use deterministic in-memory fixtures; production demo-seeding is retired.
+        g, b = "TSAP-M-TEST-9001", "TSAP-F-TEST-9001"
+        M.DB_USERS[:] = [
+            {"tsap_id": g, "full_name": "Test Groom", "gender": "Groom", "phone": "9848012345",
+             "age": 30, "dob": "1996-01-10", "star": "Rohini", "rasi": "Vrishabha",
+             "caste": "Reddy", "district": "Hyderabad", "state": "TS", "credits": 3,
+             "plan": "FREE", "is_approved": True, "photo_urls": []},
+            {"tsap_id": b, "full_name": "Test Bride", "gender": "Bride", "phone": "9848023456",
+             "age": 27, "dob": "1999-03-15", "star": "Mrigasira", "rasi": "Vrishabha",
+             "caste": "Reddy", "district": "Hyderabad", "state": "TS", "credits": 3,
+             "plan": "FREE", "is_approved": True, "photo_urls": []},
+        ]
+        M.DB_INTERESTS.clear()
+        M.DB_VIEWS.clear()
+        M.DB_SAVES.clear()
+        M.DB_PAYMENTS.clear()
 
         pr = c.get(f"/api/porutham?bride={b}&groom={g}").json()
         check("Porutham API (IDs tho) 10 items", len(pr["items"]) == 10, str(len(pr.get("items", []))))
-        check("Porutham verdict Telugu lo", "గుణమేళనం" in pr["verdict"] or "కలయిక" in pr["verdict"] or "సంబంధం" in pr["verdict"])
+        check("Porutham API exposes factual pass tally and individual checks",
+              pr.get("available") is True and pr.get("total_checks") == 10
+              and pr.get("passed_checks") == sum(item.get("pass") is True for item in pr.get("items", [])))
+        check("Porutham API does not expose an aggregate verdict or score",
+              not ({"score", "max_score", "percent", "stars", "verdict"} & set(pr)))
 
         # views — 🐞 FIX (R13): pair views clear (6h dedup + perks from prior runs)
         for _id in (g, b):
@@ -258,19 +317,28 @@ def test_porutham_views_addons():
         check("Ladder ₹499 VIP → 50", pm["S_499"] == (499, 50))
         per = [(v[0] / v[1]) for v in pm.values() if v[0] > 0]
         check("₹/profile prati tier lo thaggutundi", per == sorted(per, reverse=True), str([round(x, 1) for x in per]))
-        check("Add-ons 4 (boost/whoviewed/porutham/verify)", len(pl["addons"]) == 4)
+        check("Three implemented add-ons only (boost/viewers/photo review)", len(pl["addons"]) == 3)
         check("Renewal offer ₹99 → 8 profiles", pl["renewal"]["profiles"] == 8)
 
         # add-on effect
         bo = c.post("/api/credits/buy", json={"tsap_id": g, "plan": "BOOST_49"}).json()
-        check("Boost add-on effect", "Boost" in (bo["order"].get("effect") or ""))
+        boosted_user = M._find_user(g)
+        check("Boost add-on activates the paid boost", bo.get("success") is True and M.A11.is_boosted(boosted_user))
         vf = c.post("/api/credits/buy", json={"tsap_id": g, "plan": "VERIFY_199"}).json()
-        check("Verify add-on → badge ON", next(u for u in M.DB_USERS if u["tsap_id"] == g).get("is_verified") is True)
+        reviewed_user = next(u for u in M.DB_USERS if u["tsap_id"] == g)
+        check("Photo review add-on requests review without granting a badge",
+              bool(reviewed_user.get("photo_review_pending_upload")) and not reviewed_user.get("is_verified"))
 
         # premium perks
+        # Isolate the plan assertion from the boost add-on purchased above.
+        M._find_user(g)["boost_until"] = ""
+        c.post("/api/view", json={"tsap_id": g, "viewer_id": b})
         c.post("/api/credits/buy", json={"tsap_id": g, "plan": "S_299"})
         gu = M._find_user(g) or next(u for u in M.DB_USERS if u["tsap_id"] == g)
-        check("₹299 → boost + whoviewed perks", bool(gu.get("boost_until")) and bool(gu.get("whoviewed_until")))
+        gv = c.get(f"/api/views/{g}").json()
+        check("₹299 plan unlocks viewer names while active, without granting a boost",
+              gu.get("plan") == "S_299" and bool(gu.get("plan_expiry")) and not gu.get("boost_until")
+              and gv["whoviewed_unlocked"] is True and len(gv["viewers"]) >= 1)
 
         # digest
         dg = c.get("/api/digest/preview").json()

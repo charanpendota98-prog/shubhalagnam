@@ -4,7 +4,7 @@
 import Link from "next/link";
 import { CASTES, buildSlug } from "@/lib/seo-pages";
 import { CHANNEL_STATS } from "@/lib/channels";
-import { waLink } from "@/lib/wa";
+import { getWAChannelLink } from "@/lib/wa";
 import { TelegramIcon, WhatsAppIcon } from "@/components/BrandIcons";
 import { useLang } from "@/lib/lang";
 import { stateFullName } from "@/lib/telugu-data";
@@ -34,9 +34,10 @@ export default function CasteClient({ caste, role, district, chan, otherChan }: 
   const roleEn = role === "bride" ? "Bride" : "Groom";
   const where = district ? `${district.name}, ${stateFullName(district.state, te)}` : te ? "Telangana + Andhra Pradesh" : "Telangana + Andhra Pradesh";
   const sameCasteOtherRole = buildSlug(caste.key, role === "bride" ? "groom" : "bride", district?.slug);
+  const whatsappJoin = getWAChannelLink(chan?.key);
 
   return (
-    <main className="min-h-dvh">
+    <div className="min-h-dvh">
       <section className="maroon-gradient text-white">
         <div className="max-w-5xl mx-auto px-4 py-10">
           <nav className="text-[11px] opacity-90 flex gap-2 flex-wrap">
@@ -49,31 +50,32 @@ export default function CasteClient({ caste, role, district, chan, otherChan }: 
           </h1>
           <p className="mt-2 text-[13px] md:text-sm opacity-90 telugu max-w-3xl">
             {te ? (
-              <>{caste.name} {roleTelugu} సంబంధాలు — {where}. 100% verified Telugu profiles, caste-wise Telegram channel
-                (<b>{myChanLabel}</b>) + WhatsApp లో interest పంపండి. 🚫 Chatting లేదు — accept అయితే direct number exchange.</>
+              <>{caste.name} {roleTelugu} సంబంధాలు — {where}. సభ్యులు అందించిన profile వివరాలు; వ్యక్తిగత వివరాలు స్వతంత్రంగా ధృవీకరించబడవు. Phone OTP పూర్తయితే అది phone access నే సూచిస్తుంది, DOB verification కాదు. అంగీకారం తర్వాత contact వివరాలు పంచుకునే ముందు స్వయంగా నిర్ధారించుకోండి.</>
             ) : (
-              <>{caste.name} {roleEn} matches — {where}. 100% verified Telugu profiles, caste-wise Telegram channel
-                (<b>{myChanLabel}</b>) + send interest on WhatsApp. 🚫 No chatting — direct number exchange on accept.</>
+              <>{caste.name} {roleEn} matches — {where}. Profiles are member-submitted; personal details are not independently verified. Phone OTP, when completed, confirms access to a number—not DOB or identity. Confirm details independently before sharing contact information.</>
             )}
           </p>
           <div className="mt-5 flex flex-wrap gap-2">
             <Link href="/register" className="gold-gradient text-maroon font-bold text-sm px-5 py-3 rounded-xl hover-lift">
               {te ? "📝 FREE గా register చెయ్యండి" : "📝 Register FREE"}
             </Link>
-            <a href={chan?.link} target="_blank" rel="noreferrer" className="bg-white/10 border border-white/25 font-bold text-sm px-5 py-3 rounded-xl">
-              📢 {myChanLabel}
-            </a>
+            {chan?.link ? (
+              <a href={chan.link} target="_blank" rel="noopener noreferrer" className="bg-white/10 border border-white/25 font-bold text-sm px-5 py-3 rounded-xl">
+                📢 {te ? `${myChanLabel} — listed link` : `Open listed ${myChanLabel} link`}
+              </a>
+            ) : (
+              <span className="bg-white/10 border border-white/25 font-bold text-sm px-5 py-3 rounded-xl">📢 {te ? "Channel link అందుబాటులో లేదు" : "Channel link not listed"}</span>
+            )}
             <Link href="/requests" className="bg-white/10 border border-white/25 font-bold text-sm px-5 py-3 rounded-xl">
               {te ? "💌 Requests dashboard" : "💌 Requests dashboard"}
             </Link>
           </div>
           <div className="mt-4 flex flex-wrap gap-2 text-[11px] font-bold">
-            <span className="bg-white/10 border border-white/20 px-3 py-1 rounded-full">✅ OTP + DOB verified</span>
-            <span className="bg-white/10 border border-white/20 px-3 py-1 rounded-full">🔒 Photo-private mode</span>
-            <span className="bg-white/10 border border-white/20 px-3 py-1 rounded-full">💰 ₹99 → 5 profiles</span>
-            <span className="bg-white/10 border border-white/20 px-3 py-1 rounded-full">
-              {te ? "↩️ Decline = refund" : "↩️ Decline = refund"}
-            </span>
+            <span className="bg-white/10 border border-white/20 px-3 py-1 rounded-full">{te ? "OTP = ఫోన్ నంబర్ యాక్సెస్ మాత్రమే" : "Phone OTP (if completed) ≠ identity verification"}</span>
+            <span className="bg-white/10 border border-white/20 px-3 py-1 rounded-full">{te ? "పుట్టిన తేదీ సభ్యుడు అందించినది" : "DOB supplied by member"}</span>
+            <span className="bg-white/10 border border-white/20 px-3 py-1 rounded-full">{te ? "ఫోటో గోప్యతా నియంత్రణలు ఐచ్ఛికం" : "Optional photo privacy controls"}</span>
+            <span className="bg-white/10 border border-white/20 px-3 py-1 rounded-full">{te ? "₹99 → 5 requests" : "₹99 → 5 requests"}</span>
+            <span className="bg-white/10 border border-white/20 px-3 py-1 rounded-full">{te ? "తిరస్కరించిన requests: refund policy" : "Declined requests: credit-refund policy"}</span>
           </div>
         </div>
       </section>
@@ -89,16 +91,16 @@ export default function CasteClient({ caste, role, district, chan, otherChan }: 
               {te ? (
                 <>
                   <li><b>FREE register</b> — personal, family, caste/astro, education, location + photo.</li>
-                  <li><b>Profile post:</b> మీ profile card <b>{myChanLabel}</b> channel లో + WhatsApp group లో పోస్ట్ అవుతుంది.</li>
-                  <li><b>💌 Interest పంపండి:</b> నచ్చిన profile కి — వాళ్లకి మన WhatsApp నుంచి మీ profile card వెళ్తుంది.</li>
-                  <li><b>✅ Accept అయితే:</b> రెండు numbers automatic గా exchange ({role === "bride" ? "groom" : "bride"} side consent తో).</li>
+                  <li><b>Profile post:</b> profile ఆమోదం తర్వాత, publisher settings అనుమతిస్తే <b>{myChanLabel}</b> వంటి సంబంధిత destination కు post queue కావచ్చు; delivery హామీ కాదు.</li>
+                  <li><b>💌 Interest పంపండి:</b> notification అందుబాటులో ఉన్న service configuration మీద ఆధారపడి ఉంటుంది.</li>
+                  <li><b>✅ Accept అయితే:</b> అంగీకారం తర్వాత contact వివరాలు share కావచ్చు; స్వయంగా నిర్ధారించుకోండి.</li>
                 </>
               ) : (
                 <>
                   <li><b>Register FREE</b> — personal, family, caste/astro, education, location + photo.</li>
-                  <li><b>Profile post:</b> your profile card goes to the <b>{myChanLabel}</b> channel + WhatsApp group.</li>
-                  <li><b>💌 Send interest:</b> to profiles you like — they get your profile card from our WhatsApp.</li>
-                  <li><b>✅ On accept:</b> both numbers exchange automatically (with the {role === "bride" ? "groom" : "bride"} side&apos;s consent).</li>
+                  <li><b>Profile post:</b> after approval, a post may be queued for relevant destinations such as <b>{myChanLabel}</b> if publishing is configured. Delivery is not guaranteed.</li>
+                  <li><b>💌 Send interest:</b> notification delivery depends on the available service configuration.</li>
+                  <li><b>✅ On accept:</b> contact details may be shared after acceptance; verify them independently.</li>
                 </>
               )}
             </ol>
@@ -138,15 +140,9 @@ export default function CasteClient({ caste, role, district, chan, otherChan }: 
             ) : null}
             <p className="mt-2 text-[13px] text-gray-700 leading-relaxed">
               {te ? (
-                <>మన <b>{CHANNEL_STATS.by_tier.L3_CASTE} caste channels</b> లో ఇది ఒకటి — {caste.name} families కి
-                  same community సంబంధాలు వెతుక్కోవడం easy అవుతుంది. Region (TS/AP) + religion + job (software, doctor, govt)
-                  channels కూడా కలిసి <b>{CHANNEL_STATS.total} channels</b> network లో మీ profile అన్ని related చోటకి వెళ్తుంది —
-                  ఒక్క register తో maximum reach. {chan?.desc}</>
+                <>మన channel registry లో {CHANNEL_STATS.by_tier.L3_CASTE} caste-specific destinations ఉన్నాయి. Profile ఆమోదం తర్వాత, publishing service configure అయి access ఉంటే మాత్రమే సంబంధిత destinations కు post queue అవుతుంది; delivery లేదా reach ను హామీ ఇవ్వలేము. External link availability కూడా ఆటోమేటిక్‌గా తనిఖీ చేయబడదు.</>
               ) : (
-                <>This is one of our <b>{CHANNEL_STATS.by_tier.L3_CASTE} caste channels</b> — it makes finding
-                  same-community matches easy for {caste.name} families. Together with region (TS/AP) + religion + job (software, doctor, govt)
-                  channels, your profile reaches every related corner of the <b>{CHANNEL_STATS.total}-channel</b> network —
-                  maximum reach with one registration. {chan?.desc}</>
+                <>The channel registry contains {CHANNEL_STATS.by_tier.L3_CASTE} caste-specific destinations. A post may be queued for relevant destinations after profile approval only when publishing is configured and has access; delivery or reach is not guaranteed. External link availability is not checked automatically.</>
               )}
             </p>
             <div className="mt-3 flex flex-wrap gap-2 text-[11px]">
@@ -161,34 +157,44 @@ export default function CasteClient({ caste, role, district, chan, otherChan }: 
           <div className="bg-navy text-white rounded-2xl p-5 card-shadow">
             <div className="flex items-center justify-between gap-2">
               <div className="font-bold leading-tight">{myChanLabel}</div>
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap bg-emerald-400/20 text-emerald-300">
-                ● LIVE ✅
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap bg-white/10 text-white/80">
+                {te ? "లిస్టులో ఉంది" : "LISTED"}
               </span>
             </div>
             <div className="text-[11px] opacity-70 mt-0.5">
-              {te ? "కొత్త సంబంధాలు రోజూ ఇక్కడే" : "New matches posted here daily"}
+              {te ? "Channel link availability ఆటోమేటిక్‌గా తనిఖీ చేయబడదు" : "Channel link availability is not checked automatically"}
             </div>
             <div className="mt-3 space-y-2">
-              <a href={chan?.link} target="_blank" rel="noreferrer"
-                className="flex items-center justify-center gap-2 w-full bg-[#229ED9] text-white font-bold text-[13px] py-2.5 rounded-xl shadow-soft hover:brightness-110 active:scale-[0.97] transition">
-                <TelegramIcon className="w-4 h-4" mono />
-                {te ? "Telegram లో join అవ్వండి" : "Join on Telegram"}
-              </a>
-              {waLink(chan?.key) ? (
-                <a href={waLink(chan?.key)} target="_blank" rel="noreferrer"
-                  className="flex items-center justify-center gap-2 w-full bg-[#25D366] text-white font-bold text-[13px] py-2.5 rounded-xl shadow-soft hover:brightness-110 active:scale-[0.97] transition">
-                  <WhatsAppIcon className="w-4 h-4" mono />
-                  {te ? "WhatsApp లో join అవ్వండి" : "Join on WhatsApp"}
+              {chan?.link ? (
+                <a href={chan.link} target="_blank" rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-2 w-full bg-[#229ED9] text-white font-bold text-[13px] py-2.5 rounded-xl shadow-soft hover:brightness-110 active:scale-[0.97] transition">
+                  <TelegramIcon className="w-4 h-4" mono />
+                  {te ? "లిస్టు చేసిన Telegram link తెరవండి" : "Open listed Telegram link"}
                 </a>
               ) : null}
-              {otherChan ? (
-                <a href={otherChan.link} target="_blank" rel="noreferrer"
+              {whatsappJoin.url ? (
+                <a href={whatsappJoin.url} target="_blank" rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-2 w-full bg-gradient-to-r from-[#128C4A] to-[#20bd5a] text-white font-bold text-[13px] py-2.5 rounded-xl shadow-soft hover:brightness-105 active:scale-[0.97] transition"
+                  title={te ? "బాహ్య WhatsApp లింక్; availability తనిఖీ చేయబడదు" : "External WhatsApp link; availability is not checked"}>
+                  <WhatsAppIcon className="w-4 h-4" mono />
+                  {whatsappJoin.isDirectChannel
+                    ? (te ? "లిస్టు చేసిన WhatsApp channel తెరవండి" : "Open listed WhatsApp channel")
+                    : (te ? "Configured WhatsApp support తెరవండి" : "Open configured WhatsApp support")}
+                </a>
+              ) : (
+                <div className="rounded-xl border border-white/20 px-3 py-2 text-center text-[11px] text-white/75">
+                  {te ? "WhatsApp destination లిస్టులో లేదు" : "No WhatsApp destination listed"}
+                </div>
+              )}
+              {otherChan?.link ? (
+                <a href={otherChan.link} target="_blank" rel="noopener noreferrer"
                   className="flex items-center justify-center gap-2 w-full border border-white/25 text-white font-bold text-[12px] py-2 rounded-xl hover:bg-white/10 transition">
                   <TelegramIcon className="w-3.5 h-3.5" mono />
-                  {otherChanLabel} — Telegram
+                  {te ? `${otherChanLabel} — listed Telegram link` : `${otherChanLabel} — listed Telegram link`}
                 </a>
               ) : null}
             </div>
+            <p className="mt-2 text-[10px] leading-relaxed opacity-70">{te ? "లింకులు directory లో ఉన్నవి మాత్రమే; external availability తనిఖీ చేయబడదు." : "Links are directory listings; external availability is not checked."}</p>
             <Link href="/channels" className="mt-3 block text-center text-[11px] underline underline-offset-2 opacity-80 hover:opacity-100">
               {te ? <>అన్ని {CHANNEL_STATS.total} channels →</> : <>All {CHANNEL_STATS.total} channels →</>}
             </Link>
@@ -202,10 +208,10 @@ export default function CasteClient({ caste, role, district, chan, otherChan }: 
             </div>
             <ul className="mt-2 text-[12px] text-gray-700 space-y-1">
               <li>{te ? <>🎁 మొదటి <b>3 interest requests FREE</b></> : <>🎁 First <b>3 interest requests FREE</b></>}</li>
-              <li>₹99 → <b>5 profiles</b> (₹20/profile)</li>
-              <li>₹199 → <b>12 profiles</b> + verified badge</li>
-              <li>₹299 → <b>25 profiles</b> + who-viewed-me</li>
-              <li>₹499 → <b>50 profiles</b> + matchmaker assist</li>
+              <li>₹99 → <b>5 interest requests</b> (₹20/request)</li>
+              <li>₹199 → <b>12 interest requests</b></li>
+              <li>₹299 → <b>25 interest requests</b></li>
+              <li>₹499 → <b>50 interest requests</b></li>
             </ul>
             <Link href="/requests" className="mt-3 block text-center maroon-gradient text-white font-bold text-[12px] py-2.5 rounded-xl">
               {te ? "Plans చూడండి →" : "See plans →"}
@@ -228,15 +234,15 @@ export default function CasteClient({ caste, role, district, chan, otherChan }: 
             <div>
               <div className="font-bold text-ink">{te ? "Chatting ఉందా?" : "Is there chatting?"}</div>
               <div className="text-gray-600">
-                {te ? "లేదు. 💌 Interest పంపండి → వాళ్లకి WhatsApp లో మీ profile → accept అయితే numbers exchange. Decline అయితే credit refund."
-                    : "No. 💌 Send interest → they get your profile on WhatsApp → numbers exchange on accept. Credit refund on decline."}
+                {te ? "ఈ పేజీలో chatting లేదు. Interest notification delivery service configuration మీద ఆధారపడుతుంది. అవతలి వారు accept చేసిన తర్వాతే contact వివరాలు share కావచ్చు; decline అయితే credit-refund policy వర్తిస్తుంది."
+                    : "There is no in-site chat. Interest notification depends on service configuration. Contact details may be shared only after acceptance; the credit-refund policy applies to declined requests."}
               </div>
             </div>
             <div>
               <div className="font-bold text-ink">{te ? "నా profile ఎక్కడ post అవుతుంది?" : "Where does my profile get posted?"}</div>
               <div className="text-gray-600">
-                {te ? <>{myChanLabel} + మీ region (TS/AP) channel + job/education special channel (max 5 channels) — Telegram + WhatsApp రెండు చోట్లా.</>
-                    : <>{myChanLabel} + your region (TS/AP) channel + job/education special channel (max 5 channels) — on both Telegram + WhatsApp.</>}
+                {te ? <>Profile ఆమోదం తర్వాత, publishing service configured అయి channel access ఉంటే {myChanLabel} వంటి సంబంధిత destination కు post queue కావచ్చు. Delivery హామీ కాదు; availability ఆటోమేటిక్‌గా check చేయబడదు.</>
+                    : <>After profile approval, a post may be queued for relevant destinations such as {myChanLabel} if publishing is configured and has channel access. Delivery is not guaranteed, and availability is not checked automatically.</>}
               </div>
             </div>
             <div>
@@ -251,7 +257,7 @@ export default function CasteClient({ caste, role, district, chan, otherChan }: 
           </div>
         </div>
       </section>
-    </main>
+    </div>
   );
 }
 
@@ -271,7 +277,7 @@ function RelatedCastes({ te, casteKey, role, districtSlug }: {
         ))}
       </div>
       <Link href="/castes" className="mt-3 block text-[12px] font-bold text-maroon underline">
-        {te ? "అన్ని castes చూడండి →" : "See all castes →"}
+        {te ? "కమ్యూనిటీ డైరెక్టరీ చూడండి →" : "Browse community directory →"}
       </Link>
     </div>
   );

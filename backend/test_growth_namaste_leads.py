@@ -134,7 +134,7 @@ def test_share_kit():
 # --------------------------------------------------------------------------- #
 def test_launch_inventory():
     print("\n[4] LAUNCH INVENTORY GENERATOR (300-400 profiles)")
-    import seed_launch_db as seed
+    from test_fixtures import seed_launch_profiles as seed
     growth_inventory_target = 60
     profs = seed.build_profiles(growth_inventory_target, seed=42)
     check("60 profiles generated", len(profs) == 60, len(profs))
@@ -308,12 +308,12 @@ def test_pricing_consistency():
 
     # UI (requests page fallback) — API tho match avvali
     ui = {}
-    txt = pathlib_read(os.path.join(root, "frontend", "src", "app", "requests", "page.tsx"))
+    txt = pathlib_read(os.path.join(root, "frontend", "src", "app", "requests", "page-client.tsx"))
     for m in re.finditer(r'code: "(S_\d+)", price: (\d+), profiles: (\d+)', txt):
         ui[m.group(1)] = (int(m.group(2)), int(m.group(3)))
     check("UI requests page: 4 plans rendered", len(ui) >= 4, ui)
     check("UI ↔ API prices match (mismatch = customer confusion)",
-          all(ui.get(k) == v for k, v in ui.items()), "ui=%s api=%s" % (ui, {k: api.get(k) for k in ui}))
+          all(api.get(k) == v for k, v in ui.items()), "ui=%s api=%s" % (ui, {k: api.get(k) for k in ui}))
 
     # homepage — prathi plan price kanipinchali
     hp = pathlib_read(os.path.join(root, "frontend", "src", "app", "page.tsx"))
@@ -325,38 +325,39 @@ def test_pricing_consistency():
     check("Strategy doc lo kotha ladder undi", "₹99 → **5 profiles**" in doc or "₹99 → 5" in doc, "")
     check("Doc lo 5/12/25/50 ladder table", all(x in doc for x in ["₹99", "₹199", "₹299", "₹499"]), "")
     addons = plans.get("addons") or []
-    check("Add-ons 4 unnayi (boost/whoviewed/porutham/verify)", len(addons) >= 4, [a.get("code") for a in addons])
+    check("Three implemented add-ons remain available", {a.get("code") for a in addons} == {"BOOST_49", "WHOVIEWED_49", "VERIFY_199"}, [a.get("code") for a in addons])
     check("Renewal offer undi", bool(plans.get("renewal")), str(plans.get("renewal"))[:80])
     check("Chatting ledu model confirm", plans.get("chatting") is False, plans.get("chatting"))
 
 
 def test_pricing_pages_and_payments():
     """
-    💰 PRICING V2 — ₹29 micro tier, webhook mapping fix, /pricing + legal pages.
+    💰 PRICING CONSISTENCY — ₹99 floor, retired-code rejection, webhook mapping, /pricing + legal pages.
     (User question: "emi aina wrong chesthunna? inka bestga cheyochaa?")
     """
-    print("\n[8] PRICING V2 — MICRO TIER + PAYMENT MAPPING + POLICY PAGES")
+    print("\n[8] PRICING CONSISTENCY — ₹99 FLOOR + PAYMENT MAPPING + POLICY PAGES")
     from fastapi.testclient import TestClient
     import interest as I
     import credits as CR
     import main
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-    # ---- ₹29 micro tier (impulse + anchor) ----
+    # ---- ₹99 is the lowest paid public plan; the retired code cannot buy credits. ----
     codes = [p["code"] for p in I.plan_list()]
-    check("₹29 micro tier (S_29) ladder lo undi", codes[0] == "S_29", codes)
-    micro = I.get_plan("S_29")
-    check("S_29 → 1 profile @ ₹29 (anchor: top tier ₹10/profile)", micro["price"] == 29 and micro["profiles"] == 1)
-    check("S_29 ki 15 రోజుల validity", micro["validity_days"] == 15)
-    per = [p["per_profile"] for p in I.plan_list()]
-    check("₹/profile ladder thaggutundi (29 → 20 → 17 → 12 → 10)",
-          per == [29, 20, 17, 12, 10], per)
+    check("Paid ladder starts at S_99", codes == ["S_99", "S_199", "S_299", "S_499"], codes)
+    check("Retired S_29 resolves to FREE, not a paid plan", I.get_plan("S_29")["code"] == "FREE")
+    check("₹/request ladder matches the four active plans",
+          [p["per_profile"] for p in I.plan_list()] == [20, 17, 12, 10],
+          [p["per_profile"] for p in I.plan_list()])
 
-    # ---- legacy credits.py == kotha interest.py (okka pricing truth) ----
+    # ---- legacy credits.py == interest.py for public paid plans ----
     mismatch = [(k, v["price"], v["credits"]) for k, v in CR.PLANS.items()
-                if k in ("S_29", "S_99", "S_199", "S_299", "S_499")
+                if k in ("S_99", "S_199", "S_299", "S_499")
                 and (v["price"], v["credits"]) != (I.PLANS[k]["price"], I.PLANS[k]["profiles"])]
     check("credits.py amounts/credits interest.py tho match (legacy drift ledu)", not mismatch, mismatch)
+    u_unknown = {"credits": 7}
+    unknown_add = CR.add_credits(u_unknown, "S_29")
+    check("Retired S_29 cannot grant fallback FREE credits", not unknown_add["success"] and u_unknown["credits"] == 7, unknown_add)
     check("legacy aliases kooda kotha prices ki map (TRIAL_99 → ₹99/5)",
           CR.PLANS["TRIAL_99"]["price"] == 99 and CR.PLANS["TRIAL_99"]["credits"] == 5)
 
@@ -366,12 +367,14 @@ def test_pricing_pages_and_payments():
     check("apply_payment ₹199 → S_199 + 12 profiles", r199["ok"] and r199["plan"]["code"] == "S_199"
           and r199["profiles_added"] == 12 and u["credits"] == 12, r199.get("message_telugu"))
     check("apply_payment expiry set ayyindi", bool(u.get("plan_expiry")))
-    r29 = I.apply_payment(u, 29)
-    check("apply_payment ₹29 → +1 profile (total 13)", r29["profiles_added"] == 1 and u["credits"] == 13)
-    r_add = I.apply_payment(u, 49)
-    check("apply_payment ₹49 → addon (boost) — credits add avvavu", r_add["kind"] == "addon" and u["credits"] == 13)
+    retired_amount = I.apply_payment(u, 29)
+    retired_code = I.apply_payment(u, 99, "S_29")
+    check("apply_payment ₹29 rejected; no credit added", not retired_amount["ok"] and u["credits"] == 12, retired_amount)
+    check("retired code with a valid amount fails closed", not retired_code["ok"] and u["credits"] == 12, retired_code)
+    r_add = I.apply_payment(u, 49, "BOOST_49")
+    check("apply_payment ₹49 → implemented boost add-on; no credits", r_add["kind"] == "addon" and u["credits"] == 12)
     r_bad = I.apply_payment(u, 150)
-    check("tappu amount (₹150) reject avutundi", not r_bad["ok"] and u["credits"] == 13)
+    check("invalid amount ₹150 rejected", not r_bad["ok"] and u["credits"] == 12)
 
     # ---- webhook endpoint (neeDHA bug: legacy plan_map) ----
     with TestClient(main.app) as c:
@@ -393,19 +396,22 @@ def test_pricing_pages_and_payments():
         w3 = c.post("/api/payment/webhook?user_id=TSAP-F-2025-1042&amount=99")
         check("webhook payment proof lekapote reject", w3.status_code == 400)
         plans_api = c.get("/api/plans").json()
-    check("API /api/plans lo S_29 kooda chupisthundi",
-          any(p["code"] == "S_29" for p in plans_api["plans"]))
+    check("API /api/plans has no retired S_29/₹29 tier",
+          all(p.get("code") != "S_29" and p.get("price") != 29 for p in plans_api["plans"]))
+    from paypro import _expected_amount
+    check("payment order validation rejects S_29", not _expected_amount("credits", "S_29")["ok"])
 
     # ---- /pricing + legal pages (Razorpay approval + trust) ----
     pages = {name: pathlib_read(os.path.join(root, "frontend", "src", "app", name, "page.tsx"))
              for name in ("pricing", "terms", "privacy", "refund")}
-    check("/pricing page undi + /api/plans nunchi data", "/api/plans" in pages["pricing"])
+    check("/pricing page metadata and client fetch are wired", "PricingPageClient" in pages["pricing"] and "/api/plans" in pricing_client)
     # 💍 R13: pricing minimal redesign — sodi remove (user order). Tier cards + addons +
     # renewal + FAQ inka unnayi; pata "Compare" table / "Vivaha VIP" label / "Single Request" text kaadu
-    check("/pricing lo anni tiers + addons + renewal", all(x in pages["pricing"] for x in
-          ("S_499", "S_29", "S_99", "S_199", "S_299", "Add-ons", "Renewal", "Referral")))
-    check("/pricing lo micro tier + FAQ + numbers policy", "₹29" in pages["pricing"]
-          and "FAQ" in pages["pricing"] and "రెండు వైపులా accept" in pages["pricing"])
+    pricing_client = pathlib_read(os.path.join(root, "frontend", "src", "app", "pricing", "page-client.tsx"))
+    check("/pricing has all four paid tiers and current add-ons", all(x in pricing_client for x in
+          ("S_99", "S_199", "S_299", "S_499", "Add-ons", "Renewal", "Referral")))
+    check("/pricing says ₹99 floor and consent-based contact sharing", "₹99 నుంచి" in pricing_client
+          and "profile owner accepts" in pricing_client and "₹29" not in pricing_client)
     check("/refund policy lo decline-refund + 7-day + GST", all(x in pages["refund"] for x in
           ("7 ", "declin", "GST", "6")))
     # 🛠️ FIX: the invariant is "terms must state the no-chatting model + age
@@ -433,7 +439,7 @@ def test_pricing_pages_and_payments():
     sitemap = pathlib_read(os.path.join(root, "frontend", "src", "app", "sitemap.ts"))
     check("Sitemap lo pricing + policies", all(x in sitemap for x in ("/pricing", "/refund", "/privacy", "/terms")))
     site_cfg = pathlib_read(os.path.join(root, "frontend", "src", "lib", "site-config.ts"))
-    check("site-config lo ₹29 bundle", "single: 29" in site_cfg and "Okka Request" in site_cfg)
+    check("site-config has no ₹29 paid bundle", "single: 29" not in site_cfg and "Okka Request" not in site_cfg)
 
 
 def pathlib_read(path):

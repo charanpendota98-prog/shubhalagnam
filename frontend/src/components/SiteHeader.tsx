@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 import { SITE_CONFIG } from "@/lib/site-config";
 import { useSession, logout } from "@/lib/auth";
 import { apiGet } from "@/lib/api";
@@ -11,7 +11,7 @@ import {
   Home, HeartHandshake, RefreshCw, Star, Megaphone, Users, Wallet, Gift,
   Sparkles, ChevronDown, ScrollText, Scale, Coffee, IdCard, MapPin,
   CalendarDays, BookOpen, Store, ShieldCheck, BadgeCheck, UserCircle2,
-  UserPlus, Landmark, ClipboardList, Moon, LogOut, Smartphone, Search,
+  UserPlus, Landmark, ClipboardList, LogOut, Smartphone, Search,
   type LucideIcon,
 } from "lucide-react";
 
@@ -44,7 +44,6 @@ const ICON_MAP: Record<string, LucideIcon> = {
   "/me": UserCircle2,
   "/lagna-patrika": ScrollText,
   "/biodata": IdCard,
-  "/porutham": Moon,
   "/muhurtham": CalendarDays,
   "/stories": BookOpen,
   "/vendors": Store,
@@ -85,7 +84,6 @@ const NAV_MORE: NavItem[] = [
   { href: "/me", en: "My Account", te: "నా అకౌంట్", icon: "🙋" },
   { href: "/lagna-patrika", en: "Lagna Patrika Studio", te: "శుభ లగ్న పత్రిక స్టూడియో", icon: "📜" },
   { href: "/biodata", en: "Biodata Maker", te: "బయోడేటా మేకర్", icon: "🎴" },
-  { href: "/porutham", en: "Jyothishyam", te: "జ్యోతిషం", icon: "💍" },
   { href: "/muhurtham", en: "Muhurthams", te: "ముహూర్తాలు 2026-27", icon: "🗓️" },
   { href: "/stories", en: "Stories", te: "కథలు", icon: "💑" },
   { href: "/vendors", en: "Vendors", te: "వెండర్లు", icon: "🏪" },
@@ -93,23 +91,50 @@ const NAV_MORE: NavItem[] = [
   { href: "/verify", en: "Verify profile", te: "Profile verify", icon: "✅" },
 ];
 
+// Keep the wide desktop header focused on the primary journeys. The remaining
+// destinations stay available in this compact, keyboard-operable disclosure.
+const NAV_DESKTOP_MORE: NavItem[] = [
+  { href: "/castes", en: "Communities", te: "కులాలు", icon: "🪔" },
+  { href: "/pricing", en: "Pricing & plans", te: "ధరలు", icon: "💰" },
+  { href: "/referral", en: "Referral programme", te: "రెఫరల్", icon: "🤝" },
+  ...NAV_MORE.filter((item) => !["/castes", "/pricing", "/referral"].includes(item.href)),
+];
+
 /* 🔒 Admin (/admin, /growth, /admin/photos) is DELIBERATELY not linked anywhere in public UI
    (anti-scam) — team opens it by direct URL + X-Admin-Key only. */
 
 export default function SiteHeader() {
   const pathname = usePathname();
+  const router = useRouter();
   const { lang } = useLang();
   const te = lang === "te";
   const [open, setOpen] = useState(false);
+  const [studiosOpen, setStudiosOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
-  // 🔐 WAVE 13 — persistent session chip (login ayithe eppudu kanipisthundi)
+  const mobileMenuButtonRef = useRef<HTMLButtonElement>(null);
+  const studiosRef = useRef<HTMLDivElement>(null);
+  const studiosButtonRef = useRef<HTMLButtonElement>(null);
+  const moreRef = useRef<HTMLDivElement>(null);
+  const moreButtonRef = useRef<HTMLButtonElement>(null);
+  // 🔐 WAVE 13 — show the persistent session chip only after server verification.
   const { tsapId, token, ready } = useSession();
-  const [sessionOk, setSessionOk] = useState(false);
+  const [sessionVerification, setSessionVerification] = useState<{ token: string; valid: boolean } | null>(null);
+  const [loggedOutToken, setLoggedOutToken] = useState("");
   useEffect(() => {
-    if (!ready || !token) { setSessionOk(false); return; }
-    apiGet<{ valid?: boolean }>("/api/auth/verify").then(({ ok, data }) =>
-      setSessionOk(!!(ok && (data as { valid?: boolean } | null)?.valid)));
+    if (!ready || !token) return;
+    let active = true;
+    apiGet<{ valid?: boolean }>("/api/auth/verify").then(({ ok, data }) => {
+      if (!active) return;
+      setSessionVerification({
+        token,
+        valid: !!(ok && (data as { valid?: boolean } | null)?.valid),
+      });
+    });
+    return () => { active = false; };
   }, [ready, token]);
+  const sessionOk = ready && !!token && token !== loggedOutToken &&
+    sessionVerification?.token === token && sessionVerification.valid;
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 12);
@@ -119,15 +144,29 @@ export default function SiteHeader() {
   }, []);
 
   useEffect(() => {
-    setOpen(false);
+    const frameId = window.requestAnimationFrame(() => {
+      setOpen(false);
+      setStudiosOpen(false);
+      setMoreOpen(false);
+    });
+    return () => window.cancelAnimationFrame(frameId);
   }, [pathname]);
 
   useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
+    if (!open && !studiosOpen && !moreOpen) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      const active = document.activeElement;
+      if (studiosOpen && studiosRef.current?.contains(active)) studiosButtonRef.current?.focus();
+      else if (moreOpen && moreRef.current?.contains(active)) moreButtonRef.current?.focus();
+      else if (open) mobileMenuButtonRef.current?.focus();
+      setOpen(false);
+      setStudiosOpen(false);
+      setMoreOpen(false);
+    };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open ]);
+  }, [open, studiosOpen, moreOpen]);
 
   const isActive = (href: string) =>
     href === "/" ? pathname === "/" : pathname.startsWith(href);
@@ -142,6 +181,7 @@ export default function SiteHeader() {
     <Link
       key={n.href}
       href={n.href}
+      aria-current={isActive(n.href) ? "page" : undefined}
       className={`flex items-center gap-2.5 px-4 py-2.5 rounded-xl text-sm font-semibold transition ${
         isActive(n.href) ? "bg-maroon text-white shadow-soft" : "text-ink/80 hover:bg-white"
       }`}
@@ -167,28 +207,27 @@ export default function SiteHeader() {
           <img src={SITE_CONFIG.logoImage} alt="" width={44} height={44}
             className="w-10 h-10 lg:w-8 lg:h-8 rounded-xl lg:rounded-lg object-cover shadow-[0_5px_14px_rgba(122,12,46,.18)] ring-1 ring-maroon/10 shrink-0" />
           <div className="brand-lockup min-w-0">
-            <div
-              className={`brand-name ${te ? "telugu" : ""}`}
-              aria-label={te ? "మన వివాహ" : "Mana Vivaha"}
-            >
-              <span className="brand-name-primary">{te ? "మన" : "Mana"}</span>{" "}
-              <span className="brand-name-accent">{te ? "వివాహ" : "Vivaha"}</span>
+            <div className="brand-name" aria-label="Mana Vivaha">
+              <span className="brand-name-primary">Mana</span>{" "}
+              <span className="brand-name-accent">Vivaha</span>
               <span className="brand-spark" aria-hidden="true">✦</span>
             </div>
-            <div className={`brand-tagline hidden sm:block truncate ${te ? "telugu" : ""}`}>
-              {te ? "తెలుగు వారి వివాహ వేదిక" : "Telugu Matrimony"}
+            <div className="brand-name-telugu telugu" aria-label="మన వివాహ">
+              <span className="brand-name-primary">మన</span>{" "}
+              <span className="brand-name-accent">వివాహ</span>
             </div>
           </div>
         </Link>
 
         {/* Desktop nav */}
-        <nav className="hidden lg:flex items-center gap-1" aria-label="Main">
-          {NAV_MAIN.filter((n) => n.href !== "/" && n.href !== "/matches").map((n) => (
+        <nav className="hidden xl:flex items-center gap-1" aria-label={te ? "ప్రధాన నావిగేషన్" : "Main navigation"}>
+          {NAV_MAIN.filter((n) => ["/matches", "/second-marriage", "/spotlight", "/channels"].includes(n.href)).map((n) => (
             <Link
               key={n.href}
               href={n.href}
               title={duo(n.en, n.te)}
-              className={`${n.xl ? "hidden xl:inline-flex" : "inline-flex"} items-center gap-1.5 px-2.5 py-2 rounded-full whitespace-nowrap text-[12px] font-semibold transition ${
+              aria-current={isActive(n.href) ? "page" : undefined}
+              className={`inline-flex items-center gap-1.5 px-2.5 py-2 rounded-full whitespace-nowrap text-[12px] font-semibold transition ${
                 isActive(n.href)
                   ? "bg-maroon text-white shadow-soft"
                   : "text-ink/75 hover:text-maroon hover:bg-maroon-soft"
@@ -200,17 +239,32 @@ export default function SiteHeader() {
           ))}
 
           {/* Studios Dropdown for Desktop */}
-          <div className="relative group">
+          <div
+            ref={studiosRef}
+            className="relative"
+            onBlur={(event) => {
+              if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setStudiosOpen(false);
+            }}
+          >
             <button
+              ref={studiosButtonRef}
+              type="button"
+              onClick={() => { setStudiosOpen((value) => !value); setMoreOpen(false); }}
               className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-[13px] font-semibold text-ink/75 hover:text-maroon hover:bg-maroon-soft transition"
-              aria-haspopup="true"
+              aria-expanded={studiosOpen}
+              aria-controls="desktop-studios-menu"
             >
               <Sparkles className="w-[15px] h-[15px] text-gold-deep" strokeWidth={2.25} aria-hidden="true" />
               <span>{te ? "స్టూడియోలు" : "Studios"}</span>
-              <ChevronDown className="w-3.5 h-3.5 text-gray-400 group-hover:rotate-180 transition-transform duration-200" strokeWidth={2.5} aria-hidden="true" />
+              <ChevronDown className={`w-3.5 h-3.5 text-gray-400 transition-transform duration-200 ${studiosOpen ? "rotate-180" : ""}`} strokeWidth={2.5} aria-hidden="true" />
             </button>
 
-            <div className="absolute left-0 top-full mt-1.5 w-64 bg-white/95 backdrop-blur-md rounded-2xl shadow-xl border border-gold/30 p-2 opacity-0 translate-y-2 pointer-events-none group-hover:opacity-100 group-hover:translate-y-0 group-hover:pointer-events-auto group-focus-within:opacity-100 group-focus-within:translate-y-0 group-focus-within:pointer-events-auto transition-all duration-200 z-50">
+            <div
+              id="desktop-studios-menu"
+              aria-hidden={!studiosOpen}
+              inert={!studiosOpen}
+              className={`absolute left-0 top-full mt-1.5 w-64 max-h-[min(75vh,36rem)] overflow-y-auto bg-white/95 backdrop-blur-md rounded-2xl shadow-xl border border-gold/30 p-2 transition-all duration-200 z-50 ${studiosOpen ? "visible opacity-100 translate-y-0" : "invisible pointer-events-none opacity-0 translate-y-2"}`}
+            >
               <Link
                 href="/lagna-patrika"
                 className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-gold/10 text-xs font-bold text-gray-800 hover:text-maroon transition"
@@ -257,7 +311,7 @@ export default function SiteHeader() {
               >
                 <MapPin className="w-[18px] h-[18px] text-maroon/70 shrink-0" strokeWidth={2} aria-hidden="true" />
                 <div>
-                  <div>{te ? "TS & AP 59 జిల్లాలు" : "TS & AP Districts Hub"}</div>
+                  <div>{te ? "TS & AP జిల్లాలు" : "TS & AP Districts Hub"}</div>
                   <div className="text-[10px] font-normal text-gray-500">{te ? "స్థానిక ప్రాంతాల సంబంధాలు" : "District-wise Matching"}</div>
                 </div>
               </Link>
@@ -273,6 +327,46 @@ export default function SiteHeader() {
               </Link>
             </div>
           </div>
+
+          <div
+            ref={moreRef}
+            className="relative"
+            onBlur={(event) => {
+              if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setMoreOpen(false);
+            }}
+          >
+            <button
+              ref={moreButtonRef}
+              type="button"
+              onClick={() => { setMoreOpen((value) => !value); setStudiosOpen(false); }}
+              className={`inline-flex items-center gap-1 px-3 py-2 rounded-full text-[12px] font-semibold transition ${moreOpen ? "bg-maroon-soft text-maroon" : "text-ink/75 hover:text-maroon hover:bg-maroon-soft"}`}
+              aria-expanded={moreOpen}
+              aria-controls="desktop-more-menu"
+            >
+              <span>{te ? "మరిన్ని" : "More"}</span>
+              <ChevronDown className={`w-3.5 h-3.5 text-gray-400 transition-transform duration-200 ${moreOpen ? "rotate-180" : ""}`} strokeWidth={2.5} aria-hidden="true" />
+            </button>
+            <div
+              id="desktop-more-menu"
+              aria-hidden={!moreOpen}
+              inert={!moreOpen}
+              className={`absolute right-0 top-full mt-1.5 w-64 max-h-[min(75vh,36rem)] overflow-y-auto bg-white/95 backdrop-blur-md rounded-2xl shadow-xl border border-gold/30 p-2 transition-all duration-200 z-50 ${moreOpen ? "visible opacity-100 translate-y-0" : "invisible pointer-events-none opacity-0 translate-y-2"}`}
+            >
+              {NAV_DESKTOP_MORE.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  aria-current={isActive(item.href) ? "page" : undefined}
+                  className={`flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold transition ${isActive(item.href) ? "bg-maroon text-white" : "text-ink/80 hover:bg-gold/10 hover:text-maroon"}`}
+                >
+                  <span className="w-5 flex items-center justify-center shrink-0">
+                    <NavIcon href={item.href} className="w-4 h-4" />
+                  </span>
+                  <Duo en={item.en} te={item.te} />
+                </Link>
+              ))}
+            </div>
+          </div>
         </nav>
 
         {/* Right actions */}
@@ -281,12 +375,6 @@ export default function SiteHeader() {
           <div className="md:hidden">
             <LangToggle compact />
           </div>
-          <Link
-            href="/porutham"
-            className="hidden md:inline-flex items-center gap-1.5 px-3.5 py-2 text-[13px] font-semibold border border-maroon/30 text-maroon rounded-full hover:bg-maroon-soft transition"
-          >
-            <Moon className="w-[15px] h-[15px]" strokeWidth={2.25} aria-hidden="true" /> <Duo en="Jyothishyam" te="జ్యోతిషం" />
-          </Link>
           {ready && tsapId && sessionOk ? (
             <span className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-2 text-[13px] font-semibold border border-emerald-300 bg-emerald-50 text-emerald-800 rounded-full">
               <Link href="/me" className="inline-flex items-center gap-1.5 hover:underline">
@@ -294,7 +382,7 @@ export default function SiteHeader() {
                 {tsapId.length > 14 ? `${tsapId.slice(0, 9)}…${tsapId.slice(-4)}` : tsapId}
               </Link>
               <button
-                onClick={() => { logout(); window.location.href = "/"; }}
+                onClick={() => { logout(); setLoggedOutToken(token); router.replace("/"); }}
                 className="ml-1 rounded-full bg-emerald-200 p-1 hover:bg-emerald-300 inline-flex items-center justify-center"
                 aria-label="Logout"
               >
@@ -320,7 +408,8 @@ export default function SiteHeader() {
             aria-expanded={open}
             aria-controls="mobile-menu"
             onClick={() => setOpen((v) => !v)}
-            className="lg:hidden w-10 h-10 rounded-xl border border-maroon/20 flex items-center justify-center text-maroon focus-brand"
+            ref={mobileMenuButtonRef}
+            className="xl:hidden w-10 h-10 rounded-xl border border-maroon/20 flex items-center justify-center text-maroon focus-brand"
           >
             <span className="relative block w-5 h-3.5">
               <span
@@ -344,13 +433,15 @@ export default function SiteHeader() {
       </div>
 
       {/* Mobile menu card — grouped + scrollable */}
-      <div
+      <nav
         id="mobile-menu"
-        className={`lg:hidden overflow-hidden transition-all duration-300 ${
-          open ? "max-h-[75vh]" : "max-h-0"
-        }`}
+        aria-label={te ? "మొబైల్ నావిగేషన్" : "Mobile navigation"}
+        aria-hidden={!open}
+        inert={!open}
+        data-open={open}
+        className="mobile-menu xl:hidden"
       >
-        <div className="glass border-t border-gold/25 px-4 pt-1 pb-4 max-h-[75vh] overflow-y-auto overscroll-contain menu-scroll">
+        <div className="mobile-menu__panel glass border-t border-gold/25 px-4 pt-1 pb-4 overscroll-contain menu-scroll">
           {groupTitle("Main", "మెయిన్")}
           <div className="space-y-1">
             {NAV_MAIN.map(menuLink)}
@@ -381,11 +472,26 @@ export default function SiteHeader() {
               <Duo en="Telegram Channel" te="టెలిగ్రామ్ ఛానల్" />
             </a>
           </div>
+          <div className="mt-3 grid grid-cols-2 gap-2 border-t border-gold/25 pt-3">
+            <Link
+              href={sessionOk ? "/me" : "/login"}
+              className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-maroon/25 bg-white px-3 py-2.5 text-sm font-bold text-maroon"
+            >
+              {sessionOk ? <UserCircle2 className="h-4 w-4" aria-hidden="true" /> : <Smartphone className="h-4 w-4" aria-hidden="true" />}
+              {sessionOk ? (te ? "నా అకౌంట్" : "My account") : (te ? "లాగిన్" : "Log in")}
+            </Link>
+            <Link
+              href="/register"
+              className="inline-flex items-center justify-center rounded-xl maroon-gradient px-3 py-2.5 text-sm font-bold text-white"
+            >
+              {te ? "ఉచిత నమోదు" : "Register free"}
+            </Link>
+          </div>
           <div className="flex justify-center pt-3">
             <LangToggle />
           </div>
         </div>
-      </div>
+      </nav>
     </header>
   );
 }

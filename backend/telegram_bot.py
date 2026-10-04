@@ -29,7 +29,7 @@ from channels_config import (
 )
 
 BOT_TOKEN = os.getenv("BOT_TOKEN", "YOUR_BOT_TOKEN_HERE")
-ADMIN_CHAT_ID = os.getenv("ADMIN_CHAT_ID", "123456789")
+ADMIN_CHAT_ID = os.getenv("ADMIN_CHAT_ID", "").strip()
 SITE_URL = os.getenv("SITE_URL", "https://manavivaha.in")
 
 
@@ -92,15 +92,15 @@ def help_text() -> str:
         "🙏 మన వివాహ Bot — HELP\n\n"
         "• /start — kottha register (3 min)\n"
         "• /search TSAP-F-1042 — ID తో profile చూడండి\n"
-        "• /unlock TSAP-F-1042 — number unlock (1 credit)\n"
-        "• /mylist — mee unlocked numbers list\n"
+        "• /unlock TSAP-F-1042 — accepted interest ఉంటే contact details చూడండి\n"
+        "• /mylist — accepted contacts (masked) చూడండి\n"
         "• /balance — mee credits + plan\n"
         "• /pay — payment ela (UPI/call)\n"
         "• /link MEE-TSAP-ID — Telegram link (unlock/delivery కోసం)\n"
         "• /myid — మీ Telegram ID (support కి కావాలి)\n"
         "• /cancel — form cancel\n\n"
         "💰 మొదటి 3 profiles + 3 interests FREE\n"
-        "₹99 → 5 profiles (decline అయితే refund)\n"
+        "₹99 → 5 interest-request credits (30 days)\n"
         "₹500 → assisted: మన team meeke 5 profiles personal గా pampisthundi\n\n"
         f"🌐 Website: {SITE_URL}\n"
         "🕙 Support: 10AM–7PM Telugu లో"
@@ -118,8 +118,7 @@ def format_id_search(profile: dict) -> str:
         f"🎓 {p.get('education','—')} · 💼 {p.get('job','—')}\n"
         f"📍 {p.get('district','—')}, {p.get('state','TS')}\n"
         f"⭐ {p.get('star','—')} · గోత్రం: {p.get('gothram','—')}\n\n"
-        f"📞 Number కావాలి అంటే: /unlock {tid} (1 credit)\n"
-        f"Interest pampalante website {SITE_URL}/matches లో login చెయ్యండి 💌"
+        f"💌 Interest పంపడానికి website {SITE_URL}/search/{tid} లో login చేయండి. Owner accept చేసిన తర్వాత contact details share అవుతాయి."
     )
 
 
@@ -128,11 +127,12 @@ def unlock_result_text(data: dict) -> str:
     """POST /api/unlock response → user message."""
     d = data or {}
     if d.get("success"):
-        chg = " (FREE — already unlocked 🙂)" if not d.get("charged") else f" (1 credit cut — migilindi: {d.get('credits_left',0)})"
-        return (f"✅ Number unlock అయ్యింది{chg}\n📞 `{d.get('phone','—')}`\n"
-                f"📝 Gauravamga మాట్లాడండి — all the best! 💍")
+        return (f"✅ అంగీకారం తర్వాత contact details అందుబాటులో ఉన్నాయి\n📞 `{d.get('phone','—')}`\n"
+                f"📝 గౌరవంగా మాట్లాడండి — all the best! 💍")
+    if d.get("reason") == "consent_required":
+        return "🔒 " + str(d.get("message_telugu", "Interest పంపి profile owner acceptance కోసం వేచి ఉండండి."))
     if d.get("reason") == "no_credits":
-        return ("⚠️ Credits ayipoyayi!\n" + str(d.get("message_telugu","")) + "\n\n/pay — payment ఎలా cheyyalo చూడండి 🙏")
+        return ("⚠️ Credits ayipoyayi!\n" + str(d.get("message_telugu","")) + "\n\n/pay — interest-request plans చూడండి 🙏")
     return "⚠️ " + str(d.get("message_telugu") or d.get("detail") or "unlock avvaledu — ID సరి చూడండి")
 
 
@@ -141,32 +141,36 @@ def mylist_text(data: dict) -> str:
     d = data or {}
     items = d.get("profiles", []) or []
     if not items:
-        return ("📋 మీ unlocked list khaali 🙂\n\nChannel లో nachina ID ని /unlock TSAP-F-1042 అని పంపండి (1 credit).\n"
-                "Leda ₹500 assisted — మన team meeke 5 profiles personal గా pampisthundi (/pay).")
+        return ("📋 Accepted contact list ఖాళీగా ఉంది.\n\nWebsite లో profile కి interest పంపండి; owner accept చేసిన తర్వాత contact details share అవుతాయి.\n"
+                "Credits are for interest requests; payment cannot bypass consent.")
     lines = [f"📋 మీ unlocked profiles ({len(items)}):", ""]
     for i, p in enumerate(items, 1):
         lines.append(f"{i}. {p.get('name_masked','—')} — {p.get('phone_masked','')} "
                      f"({p.get('tsap_id','')} · {p.get('caste','')})")
-    lines += ["", "Full number కావాలి అంటే: /unlock <ID> (already unlocked — free 🙂)"]
+    lines += ["", "Accepted interest ఉన్న profile కోసం /unlock <ID> ఉపయోగించండి (no credit charge)."]
     return "\n".join(lines)
 
 
 def balance_text(credits: int, plan: str = "FREE") -> str:
-    return (f"💰 మీ balance: *{credits}* credits\n📦 Plan: {plan}\n\n"
-            f"1 credit = 1 number unlock 📞\nAyipothe /pay లో top-up చెయ్యొచ్చు 🙏")
+    return (f"💰 మీ balance: *{credits}* interest-request credits\n📦 Plan: {plan}\n\n"
+            f"1 credit = 1 interest request. Contact details are shared only after the profile owner accepts.\n"
+            f"Credits అయిపోయినప్పుడు /pay లో configured plans చూడండి 🙏")
 
 
 def pay_text() -> str:
     import os as _os
-    upi = _os.getenv("PAY_UPI_ID", "manavivaha@upi")
-    call = _os.getenv("SUPPORT_CALL_NUMBER", "")
-    lines = ["💳 Payment ఎలా చెయ్యాలి:", "",
-             f"1️⃣ UPI: `{upi}` (note లో మీ TSAP ID పెట్టండి)",
-             "2️⃣ Screenshot + TSAP ID ని support కి పంపండి",
-             "3️⃣ 10 min lo credits add (10AM–7PM)"]
+    upi = _os.getenv("PAY_UPI_ID", "").strip()
+    call = _os.getenv("SUPPORT_CALL_NUMBER", "").strip()
+    if not upi:
+        lines = ["💳 Payment checkout is currently unavailable.",
+                 "Please do not send money until the official payment destination is shown in the app."]
+    else:
+        lines = ["💳 Manual UPI payment:", "",
+                 f"1️⃣ Pay only to the configured merchant UPI ID: `{upi}` (include your TSAP ID in the note).",
+                 "2️⃣ Keep the transaction reference. Credits are added only after an administrator verifies payment."]
     if call:
-        lines.append(f"\n📞 Direct call: {call} (₹500 assisted కూడా call లోనే book చెయ్యొచ్చు)")
-    lines.append("\n💰 ₹99=5 · ₹199=12 · ₹299=25 · ₹500=assisted 5 (personal)")
+        lines.append(f"\n📞 Support call: {call}")
+    lines.append("\n💰 Plans and current prices are shown in the app.")
     return "\n".join(lines)
 
 
@@ -233,14 +237,14 @@ async def cmd_start(message: Message):
         await message.answer(f"🔎 {ref['value']} కోసం వచ్చారు!\n\nMundu మీ details చెప్పండి — మీకు ఎవరు కావాలి?", reply_markup=get_gender_kb())
         user_sessions[message.from_user.id] = {"looking_for": ref["value"]}
     elif ref["kind"] == "unlock":
-        # 🌊 WAVE 18 — website "Full details + Number" button nunchi deep-link
+        # Website deep link — contact remains consent-gated by the API.
         target = ref["value"]
         sess = user_sessions.get(message.from_user.id, {})
         if sess.get("tsap_id"):
             await _do_unlock(message, sess["tsap_id"], target)
         else:
             user_sessions[message.from_user.id] = {**sess, "pending_unlock": target}
-            await message.answer(f"📞 {target} number కావాలి — super!\n\nMundu మీ profile link చెయ్యండి: /link MEE-TSAP-ID\n(Link అయ్యాక number automatic గా వస్తుంది — 1 credit)", parse_mode="Markdown")
+            await message.answer(f"🔒 {target} contact details కోసం ముందుగా మీ profile link చెయ్యండి: /link MEE-TSAP-ID\nInterest పంపి profile owner accept చేసిన తర్వాత మాత్రమే contacts అందుబాటులో ఉంటాయి.", parse_mode="Markdown")
     else:
         await message.answer("🙏 నమస్తే! TS-AP Matrimony కి స్వాగతం!\n\nMeeku ఎవరు కావాలి? [Bride/Groom]", reply_markup=get_gender_kb())
 
@@ -286,7 +290,7 @@ async def cmd_search(message: Message):
 
 
 async def _do_unlock(message: Message, viewer: str, target: str):
-    """🔓 Shared unlock: /unlock command + website deep-link రెండు ikkade."""
+    """Consent-gated contact lookup shared by /unlock and website deep-links."""
     import aiohttp
     api_base = os.getenv("API_BASE", "http://localhost:8000")
     try:
@@ -302,17 +306,17 @@ async def _do_unlock(message: Message, viewer: str, target: str):
 
 @dp.message(Command("unlock"))
 async def cmd_unlock(message: Message):
-    """🔓 /unlock TSAP-F-1042 — 1 credit తో number reveal (bot లో link అయిన ID తో)."""
+    """Show a contact only when the linked member has an accepted interest."""
     parts = str(message.text or "").strip().split()
     if len(parts) < 2:
-        await message.answer("🔓 ఎలా: /unlock TSAP-F-1042\n(Channel post లో ID ఉంటుంది — 1 credit = 1 number 📞)")
+        await message.answer("🔓 ఎలా: /unlock TSAP-F-1042\nContact details display అవ్వడానికి profile owner accepted interest అవసరం.")
         return
     target = parts[1].upper()
     sess = user_sessions.get(message.from_user.id, {})
     viewer = sess.get("tsap_id", "")
     if not viewer:
         user_sessions[message.from_user.id] = {**sess, "pending_unlock": target}
-        await message.answer("🙏 ముందు మీ profile link చెయ్యండి: /link MEE-TSAP-ID\n(ID website login లో / register SMS లో ఉంటుంది — link అయ్యాక number automatic)",
+        await message.answer("🙏 ముందు మీ profile link చెయ్యండి: /link MEE-TSAP-ID\nContact details కోసం profile owner acceptance అవసరం.",
                              parse_mode="Markdown")
         return
     await _do_unlock(message, viewer, target)
@@ -365,7 +369,7 @@ async def cmd_link(message: Message):
     """🔗 /link TSAP-F-1042 — Telegram ని profile తో link (personal delivery + unlock కోసం)."""
     parts = str(message.text or "").strip().split()
     if len(parts) < 2:
-        await message.answer("🔗 ఎలా: /link MEE-TSAP-ID LAST4\n(ID website login లో ఉంటుంది · LAST4 = register చేసిన numberivi last 4 digits)\nLink అయితే personal profiles + unlock ivvachu 🙂")
+        await message.answer("🔗 ఎలా: /link MEE-TSAP-ID LAST4\n(ID website login లో ఉంటుంది · LAST4 = registered phone యొక్క చివరి 4 digits)\nLink అయిన తర్వాత accepted-interest contact access ఉపయోగించవచ్చు.")
         return
     tsap_id = parts[1].upper()
     last4 = "".join(ch for ch in (parts[2] if len(parts) > 2 else "") if ch.isdigit())[-4:]
@@ -386,10 +390,10 @@ async def cmd_link(message: Message):
             _sess = {**user_sessions.get(message.from_user.id, {}), "tsap_id": tsap_id}
             _pend = _sess.pop("pending_unlock", "")
             user_sessions[message.from_user.id] = _sess
-            await message.answer(f"✅ Link అయ్యింది! {tsap_id} ↔ Telegram\n\nIppudu:\n• /unlock <ID> — number reveal (1 credit)\n• /mylist — unlocked list\n• /balance — credits",
+            await message.answer(f"✅ Link అయ్యింది! {tsap_id} ↔ Telegram\n\nIppudu:\n• /unlock <ID> — accepted interest ఉంటే contact details\n• /mylist — accepted contacts (masked)\n• /balance — interest-request credits",
                                  parse_mode="Markdown")
             if _pend:
-                await message.answer(f"⏳ Pending unlock చేస్తున్న: {_pend}…")
+                await message.answer(f"⏳ {_pend} contact access చెక్ చేస్తున్నాం — accepted interest ఉండాలి…")
                 await _do_unlock(message, tsap_id, _pend)
         else:
             await message.answer(f"⚠️ {(data or {}).get('message_telugu') or 'ID దొరకలేదు — సరి చూడండి'}")
@@ -500,14 +504,19 @@ async def contact_received(message: Message):
     except Exception as e:
         print(f"[ADMIN SEND FAIL] {e}")
 
-    # User ko Top 3 FREE
-    await message.answer(f"🎉 Abhinandanalu! Me ID: *{tsap_id}*\n\nMe profile admin check లో ఉంది (2 min). మీకు saripoye Top 3 సంబంధాలు (FREE, numbers lock) 👇\n\n⭐ 92% Match — TSAP-F-1042 — Reddy, 24, BTech, Software Hyd\n⭐ 88% — TSAP-F-1043 — Reddy, 23, Govt Job\n⭐ 85% — TSAP-F-1044 — Kamma, 25, MBA\n\nNumbers chudali అంటే ₹99 (okkasaari) → [📞 ₹99 Pay చేసి Numbers Chudu]", parse_mode="Markdown")
+    await message.answer(
+        f"🎉 మీ registration submit అయింది. మీ ID: *{tsap_id}*\n\n"
+        "Profile review status కోసం website లో sign in చేయండి. అందుబాటులో ఉన్న profiles ను అక్కడే చూడవచ్చు; matches లేదా response హామీ ఇవ్వలేము.\n\n"
+        "మొదటి 3 interest requests ఉచితం. Paid credits ఉంటే ఒక్కో request కు ఒకటి వాడబడుతుంది. "
+        "Contact details profile owner accept చేసిన తర్వాత మాత్రమే share అవుతాయి.",
+        parse_mode="Markdown",
+    )
 
     # Clear session
     # user_sessions.pop(message.from_user.id, None)
 
 
-async def post_to_channels(profile: dict, tsap_id: str, score: int = 92, photo_path: str | None = None):
+async def post_to_channels(profile: dict, tsap_id: str, score: int | None = None, photo_path: str | None = None):
     """
     One approve → Advanced router → anni relevant LIVE channels lo post.
     Create kaani channels ni skip chesi list return chestundi.
@@ -540,7 +549,7 @@ async def post_to_channels(profile: dict, tsap_id: str, score: int = 92, photo_p
 async def approve_callback(callback: CallbackQuery):
     tsap_id = callback.data.replace("approve_","")
     profile = user_profiles.get(tsap_id, {})
-    res = await post_to_channels(profile, tsap_id, score=int(profile.get("score", 92)))
+    res = await post_to_channels(profile, tsap_id)
     pending_txt = ""
     if res["pending_channels"]:
         pending_txt = f"\n\n⏳ Create cheyyalsina channels: {len(res['pending_channels'])} (Wave plan chudu)"

@@ -41,7 +41,8 @@ CASTE_TELUGU: Dict[str, str] = {
     "sc_others": "SC ఇతరులు", "lambada": "లంబాడ", "koya": "కోయ", "gond": "గోండ్",
     "st_others": "ST ఇతరులు",
     # ---- clusters (wave 8 restructure) ----
-    "kapu_family": "కాపు • బలిజ • తెలగ", "yadava_goud": "యాదవ • గౌడ • గొల్ల",
+    "kapu_family": "కాపు • బలిజ • తెలగ", "yadava_goud": "యాదవ • గొల్ల",
+    "goud": "గౌడ", "kuruma": "కురుమ", "rajaka": "రజక", "kummari": "కుమ్మరి", "perika": "పెరిక",
     "viswabrahmana": "విశ్వబ్రహ్మణ", "raju_kshatriya": "రాజు • క్షత్రియ",
     "padmashali_weavers": "పద్మశాలి • దేవాంగ", "mudiraj": "ముదిరాజ • తెనుగొల్ల",
     "lambada_banjara": "లంబాడ • బంజార", "others_bc": "ఇతర BC కులాలు",
@@ -159,7 +160,7 @@ DP_OVERRIDE: Dict[str, Dict[str, str]] = {
     "doctors_teachers": {"big": "DOCTORS", "mid": "TEACHERS", "small": "MEDICAL • EDU"},
     "success_stories": {"big": "SUCCESS", "mid": "STORIES", "small": "REAL COUPLES"},
     "fraud_alerts": {"big": "FRAUD", "mid": "ALERTS", "small": "STAY SAFE"},
-    "bureau_network": {"big": "BUREAU", "mid": "BROKERS", "small": "REFERRAL ₹50"},
+    "bureau_network": {"big": "BUREAU", "mid": "BROKERS", "small": "₹50 IF ELIGIBLE"},
 }
 
 
@@ -213,29 +214,29 @@ def perfect_description(key: str, ch: Dict | None = None) -> str:
     tags = " ".join((ch.get("hashtags") or [])[:3])
     tail = "Register FREE: manavivaha.in | Telegram: %s" % BOT
     if key == "official":
-        body = ("మన వివాహ — TS/AP తెలుగు మ్యాట్రిమోని. రోజూ టాప్-3 సంబంధాలు, విజయ గాథలు, "
-                "మోసం హెచ్చరికలు. 3 requests FREE, ₹99లో 5.")
+        body = ("మన వివాహ — TS/AP తెలుగు మ్యాట్రిమోని directory and service updates. Profiles are member-submitted; "
+                "personal details are not independently verified. Check the site for current plans.")
     elif ch.get("sub") in ("muslim", "christian"):
         sub_te = "ముస్లిం" if ch["sub"] == "muslim" else "క్రైస్తవ"
         st_te = RELIGION_STATE_TE.get(ch.get("state", "TS"), "తెలంగాణ")
         st_en = RELIGION_STATE_EN.get(ch.get("state", "TS"), "TS")
         who = "వధువులు" if ch.get("gender") == "Bride" else "వరులు"
-        body = ("%s %s %s — %s. ఫోటో గోప్యం, నిజమైన profiles, 3 requests FREE, ₹99లో 5. %s"
+        body = ("%s %s %s — %s. Member-submitted profiles; details are not independently verified. Confirm them yourself. %s"
                 % (st_te, sub_te, who, st_en, tags))
     elif key.startswith("c_") and ch.get("cluster_en"):
         en, te = ch["cluster_en"], ch["cluster_te"]
         mem = " • ".join((ch.get("members") or [])[:5])
         who = ("Brides" if key.endswith("_bride") else "Grooms" if key.endswith("_groom") else "Brides + Grooms")
-        body = ("%s — %s (%s). Sub-castes: %s. నిజమైన profiles, 3 requests FREE, ₹99లో 5."
+        body = ("%s — %s (%s). Sub-castes: %s. Profiles are member-submitted; details are not independently verified."
                 % (te, en, who, mem))
     elif key in REGION_TITLE:
-        body = ("%s — %s. అన్ని కులాలు, అన్ని జిల్లాలు, రోజూ కొత్త profiles + వేద గుణమేళనం వివరాలు. "
-                "3 FREE requests, ₹99లో 5." % (REGION_TITLE[key][0], REGION_TITLE[key][1]))
+        body = ("%s — %s. Regional directory for member-submitted profiles. Personal details are not independently verified; "
+                "availability and posting frequency may vary." % (REGION_TITLE[key][0], REGION_TITLE[key][1]))
     elif key in RELIGION_TITLE:
         body = ("%s — %s. వధువులు + వరులు, అన్ని జిల్లాలు. 3 FREE requests, ₹99లో 5."
                 % (RELIGION_TITLE[key][0], RELIGION_TITLE[key][1]))
     elif key in SPECIAL_TITLE:
-        body = ("%s — %s. ఈ కేటగిరీ ప్రత్యేక profiles మాత్రమే — వేరే ఎక్కడా దొరకవు."
+        body = ("%s — %s. Directory for member-submitted profiles in this category. Personal details are not independently verified."
                 % (SPECIAL_TITLE[key][0], SPECIAL_TITLE[key][1]))
     else:
         caste = _caste_key_from_channel(key)
@@ -266,10 +267,11 @@ def pinned_welcome(key: str, ch: Dict | None = None) -> str:
         "%s\n"
         "%s"
         "ఇక్కడ ఏం దొరుకుతుంది:\n"
-        "✅ రోజూ కొత్త *నిజమైన profiles* (ఫోటో గోప్యం — చూడాలంటే site లో)\n"
-        "✅ విద్య • ఉద్యోగం • జీతం • జిల్లా • జాతకం వివరాలతో full details\n"
-        "✅ *వేద గుణమేళనం* (కుండలి match) స్కోరు + రజ్జు/వేధ దోషం హెచ్చరిక\n"
-        "✅ ఫోన్ నంబర్ — రెండు వైపులా ఒప్పుకున్న తర్వాతే share అవుతుంది\n\n"
+        "ℹ️ Members అందించిన profile వివరాలు — వ్యక్తిగత claims ను స్వయంగా ధృవీకరించుకోండి\n"
+        "🔒 ఫోటో visibility మీ privacy settings మీద ఆధారపడి ఉంటుంది\n"
+        "✅ విద్య • ఉద్యోగం • జిల్లా • జాతకం వంటి సభ్యుడు అందించిన వివరాలు\n"
+        "ℹ️ *వేద గుణమేళనం* ఒక జ్యోతిష్య గణన మాత్రమే; వివాహ నిర్ణయానికి హామీ కాదు\n"
+        "✅ Contact details share కావడం acceptance మరియు service settings మీద ఆధారపడి ఉంటుంది\n\n"
         "ఎలా use చేయాలి (3 steps):\n"
         "1️⃣ మీకు నచ్చిన profile చూడండి (ID ఉంటుంది: TSAP-F-2025-1042)\n"
         "2️⃣ %s కి *ID పంపండి* → మా WhatsApp నుంచి మీ profile వాళ్లకి వెళ్తుంది\n"
@@ -277,7 +279,7 @@ def pinned_welcome(key: str, ch: Dict | None = None) -> str:
         "🆓 *మొదటి 3 requests FREE* • తర్వాత ₹99లో 5, ₹199లో 12\n\n"
         "⚠️ *చట్టాలు (తప్పక చదవండి):*\n"
         "🚫 ఇక్కడ *chatting లేదు* — spam, మోసం, డబ్బు అడగడం కూడా లేదు\n"
-        "💰 Advance/registration/visa డబ్బు ఎవరు అడిగినా *100%% మోసం* → వెంటనే report చేయండి\n"
+        "💰 Unsolicited advance/visa డబ్బు అడిగితే జాగ్రత్త — independently verify చేసి అవసరమైతే report చేయండి\n"
         "🚫 బయట numbers/business promos పెట్టొద్దు → remove + ban\n"
         "🚨 మోసం జరిగితే: /safety లో report (మీ పేరు ఎక్కడా కనిపించదు)\n\n"
         "🌐 Register FREE (3 నిమిషాలు): %s\n"

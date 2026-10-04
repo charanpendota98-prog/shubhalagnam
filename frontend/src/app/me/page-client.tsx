@@ -11,6 +11,7 @@ import Link from "next/link";
 import AuthGate from "@/components/AuthGate";
 import RasiChart from "@/components/RasiChart";
 import PushBell from "@/components/PushBell";
+import PayBox from "@/components/PayBox";
 import MatchAssistant from "@/components/MatchAssistant";
 import { apiGet, apiPost, authHeaders } from "@/lib/api";
 // 🛡️ P0 security fix: /api/profile/{id} (GET+update) and /api/user/delete-account
@@ -24,6 +25,7 @@ import {
   CASTES_DETAILED,
   CASTE_SUBCASTES,
   CASTE_TELUGU,
+  OTHER_COMMUNITY_OPTION,
   EDUCATIONS,
   HEIGHTS,
   JOBS,
@@ -35,10 +37,12 @@ import {
   SALARIES,
   TS_DISTRICTS,
   AP_DISTRICTS,
+  OTHER_LOCATIONS,
   DISTRICTS_BY_STATE,
   DISTRICT_TELUGU,
   WORK_TYPES,
   heightLabel,
+  sortUniqueOptions,
 } from "@/lib/telugu-data";
 
 type Row = Record<string, any>;
@@ -119,7 +123,7 @@ export default function MePage() {
   };
 
   return (
-    <main className="mx-auto max-w-4xl px-4 py-6">
+    <div className="mx-auto max-w-4xl px-4 py-6">
       <div className="flex items-center justify-between border-b border-gold/30 pb-3">
         <div>
           <h1 className="text-2xl font-black text-[#7A0C2E]">
@@ -385,7 +389,7 @@ export default function MePage() {
           </div>
         </div>
       )}
-    </main>
+    </div>
   );
 }
 
@@ -506,10 +510,8 @@ function PartnerPreferencesPanel({ myId }: { myId: string }) {
   };
 
   // Dynamically aggregated subcastes based on selected castes
-  const availableSubCastes = Array.from(
-    new Set(
-      castes.flatMap((c) => CASTE_SUBCASTES[c] || [])
-    )
+  const availableSubCastes = sortUniqueOptions(
+    castes.flatMap((c) => CASTE_SUBCASTES[c] || [])
   );
 
   const filteredCastes = CASTES_DETAILED.filter((c) => {
@@ -518,9 +520,13 @@ function PartnerPreferencesPanel({ myId }: { myId: string }) {
     return c.en.toLowerCase().includes(q) || c.te.includes(q);
   });
 
-  const allDistricts = Array.from(
-    new Set([...TS_DISTRICTS, ...AP_DISTRICTS, "USA / NRI", "Other"])
-  );
+  const allDistricts = sortUniqueOptions([
+    ...TS_DISTRICTS,
+    ...AP_DISTRICTS,
+    ...OTHER_LOCATIONS.map((location) => location.en),
+    "USA / NRI",
+    "Other",
+  ]);
 
   const filteredDistricts = allDistricts.filter((d) => {
     if (!districtSearch.trim()) return true;
@@ -1225,6 +1231,14 @@ function EditProfilePanel({ myId }: { myId: string }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const selectedCaste = String(profile.caste || "");
+  const isListedCaste = CASTES.some((caste) =>
+    caste !== OTHER_COMMUNITY_OPTION && caste.toLocaleLowerCase("en") === selectedCaste.toLocaleLowerCase("en")
+  );
+  const casteSelectValue = isListedCaste ? selectedCaste : OTHER_COMMUNITY_OPTION;
+  const customCasteValue = casteSelectValue === OTHER_COMMUNITY_OPTION
+    ? String(profile.caste_custom || (selectedCaste !== OTHER_COMMUNITY_OPTION ? selectedCaste : ""))
+    : "";
 
   const loadProfile = useCallback(async () => {
     setLoading(true);
@@ -1254,11 +1268,22 @@ function EditProfilePanel({ myId }: { myId: string }) {
     e.preventDefault();
     setSaving(true);
     setMsg(null);
+    const profilePayload = { ...profile };
+    if (String(profile.caste || "") === OTHER_COMMUNITY_OPTION) {
+      const customCaste = String(profile.caste_custom || "").trim();
+      if (!customCaste) {
+        setMsg({ ok: false, text: "కమ్యూనిటీ పేరును నమోదు చేయండి (Enter your community name)." });
+        setSaving(false);
+        return;
+      }
+      profilePayload.caste = customCaste;
+    }
+    delete profilePayload.caste_custom;
     try {
       const res = await fetch("/api/profile/update", {
         method: "POST",
         headers: authHeaders(),
-        body: JSON.stringify({ tsap_id: myId, ...profile }),
+        body: JSON.stringify({ tsap_id: myId, ...profilePayload }),
       });
       const d = await res.json();
       if (res.ok && d.success) {
@@ -1373,10 +1398,11 @@ function EditProfilePanel({ myId }: { myId: string }) {
             <div>
               <label className="font-bold text-slate-800 block mb-1">వైవాహిక స్థితి (Marital Status):</label>
               <select
-                value={profile.marital_status || "Pelli Kaledu"}
+                value={profile.marital_status || ""}
                 onChange={(e) => setField("marital_status", e.target.value)}
                 className="w-full p-2.5 border border-slate-200 rounded-xl bg-white focus:outline-none focus:border-maroon"
               >
+                <option value="">ఎంచుకోండి / తెలియజేయలేదు</option>
                 <option value="Pelli Kaledu">పెళ్లి కాలేదు (Never Married)</option>
                 <option value="Divorced">విడాకులు (Divorced)</option>
                 <option value="Widow">వితంతువు (Widow)</option>
@@ -1395,17 +1421,40 @@ function EditProfilePanel({ myId }: { myId: string }) {
             <div>
               <label className="font-bold text-slate-800 block mb-1">కులం (Caste):</label>
               <select
-                value={profile.caste || ""}
-                onChange={(e) => setField("caste", e.target.value)}
+                value={casteSelectValue}
+                onChange={(e) => {
+                  const next = e.target.value;
+                  if (next === OTHER_COMMUNITY_OPTION) {
+                    setField("caste", next);
+                    setField("caste_custom", customCasteValue);
+                  } else {
+                    setField("caste", next);
+                    setField("caste_custom", "");
+                  }
+                }}
                 className="w-full p-2.5 border border-slate-200 rounded-xl bg-white focus:outline-none focus:border-maroon"
               >
                 <option value="">ఎంచుకోండి</option>
                 {CASTES.map((c) => (
                   <option key={c} value={c}>
-                    {CASTE_TELUGU[c] || c} ({c})
+                    {c === OTHER_COMMUNITY_OPTION ? c : `${CASTE_TELUGU[c] || c} (${c})`}
                   </option>
                 ))}
               </select>
+              {casteSelectValue === OTHER_COMMUNITY_OPTION && (
+                <input
+                  type="text"
+                  value={customCasteValue}
+                  onChange={(e) => {
+                    setField("caste", OTHER_COMMUNITY_OPTION);
+                    setField("caste_custom", e.target.value.slice(0, 100));
+                  }}
+                  placeholder="కమ్యూనిటీ పేరు (Enter your community name)"
+                  maxLength={100}
+                  className="mt-2 w-full p-2.5 border border-slate-200 rounded-xl bg-white focus:outline-none focus:border-maroon"
+                  aria-label="Self-described community name"
+                />
+              )}
             </div>
             <div>
               <label className="font-bold text-slate-800 block mb-1">ఉపకులం (Sub-caste):</label>
@@ -1460,10 +1509,11 @@ function EditProfilePanel({ myId }: { myId: string }) {
             <div>
               <label className="font-bold text-slate-800 block mb-1">కుజ దోషం (Dosham):</label>
               <select
-                value={profile.dosham || "No"}
+                value={profile.dosham || ""}
                 onChange={(e) => setField("dosham", e.target.value)}
                 className="w-full p-2.5 border border-slate-200 rounded-xl bg-white focus:outline-none focus:border-maroon"
               >
+                <option value="">ఎంచుకోండి / తెలియదు</option>
                 <option value="No">లేదు (No Dosham)</option>
                 <option value="Yes">కుజ దోషం కలదు (Manglik)</option>
                 <option value="Partial">పాక్షిక దోషం (Partial)</option>
@@ -1591,7 +1641,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
               <label className="font-bold text-slate-800 block mb-1">అన్నదమ్ములు (Brothers):</label>
               <input
                 type="text"
-                value={profile.brothers ?? "0"}
+                value={profile.brothers ?? ""}
                 onChange={(e) => setField("brothers", e.target.value)}
                 placeholder="ఉదా: 1 (పెళ్లి అయింది)"
                 className="w-full p-2.5 border border-slate-200 rounded-xl focus:outline-none focus:border-maroon"
@@ -1601,7 +1651,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
               <label className="font-bold text-slate-800 block mb-1">అక్కచెల్లెళ్లు (Sisters):</label>
               <input
                 type="text"
-                value={profile.sisters ?? "0"}
+                value={profile.sisters ?? ""}
                 onChange={(e) => setField("sisters", e.target.value)}
                 placeholder="ఉదా: 1"
                 className="w-full p-2.5 border border-slate-200 rounded-xl focus:outline-none focus:border-maroon"
@@ -1610,10 +1660,11 @@ function EditProfilePanel({ myId }: { myId: string }) {
             <div>
               <label className="font-bold text-slate-800 block mb-1">వర్ణం (Complexion):</label>
               <select
-                value={profile.complexion || "Fair"}
+                value={profile.complexion || ""}
                 onChange={(e) => setField("complexion", e.target.value)}
                 className="w-full p-2.5 border border-slate-200 rounded-xl bg-white focus:outline-none focus:border-maroon"
               >
+                <option value="">ఎంచుకోండి / తెలియజేయలేదు</option>
                 <option value="Very Fair">చాలా చామనచాయ (Very Fair)</option>
                 <option value="Fair">ఎరుపు / తెల్లని (Fair)</option>
                 <option value="Wheatish">గోధుమ రంగు (Wheatish)</option>
@@ -1623,10 +1674,11 @@ function EditProfilePanel({ myId }: { myId: string }) {
             <div>
               <label className="font-bold text-slate-800 block mb-1">కుటుంబ రకం (Family Type):</label>
               <select
-                value={profile.family_type || "Nuclear"}
+                value={profile.family_type || ""}
                 onChange={(e) => setField("family_type", e.target.value)}
                 className="w-full p-2.5 border border-slate-200 rounded-xl bg-white focus:outline-none focus:border-maroon"
               >
+                <option value="">ఎంచుకోండి / తెలియజేయలేదు</option>
                 <option value="Nuclear">చిన్న కుటుంబం (Nuclear Family)</option>
                 <option value="Joint">ఉమ్మడి కుటుంబం (Joint Family)</option>
               </select>
@@ -1634,10 +1686,11 @@ function EditProfilePanel({ myId }: { myId: string }) {
             <div>
               <label className="font-bold text-slate-800 block mb-1">కుటుంబ స్థాయి (Family Status):</label>
               <select
-                value={profile.family_status || "Middle Class"}
+                value={profile.family_status || ""}
                 onChange={(e) => setField("family_status", e.target.value)}
                 className="w-full p-2.5 border border-slate-200 rounded-xl bg-white focus:outline-none focus:border-maroon"
               >
+                <option value="">ఎంచుకోండి / తెలియజేయలేదు</option>
                 <option value="Middle Class">మధ్యతరగతి (Middle Class)</option>
                 <option value="Upper Middle Class">ఎగువ మధ్యతరగతి (Upper Middle Class)</option>
                 <option value="Rich / Affluent">శ్రీమంతులు / ఉన్నత వర్గం (Rich / Affluent)</option>
@@ -1647,9 +1700,9 @@ function EditProfilePanel({ myId }: { myId: string }) {
               <label className="font-bold text-slate-800 block mb-1">మాతృభాష (Mother Tongue):</label>
               <input
                 type="text"
-                value={profile.mother_tongue || "Telugu"}
+                value={profile.mother_tongue || ""}
                 onChange={(e) => setField("mother_tongue", e.target.value)}
-                placeholder="ఉదా: Telugu"
+                placeholder="మీ మాతృభాష నమోదు చేయండి"
                 className="w-full p-2.5 border border-slate-200 rounded-xl focus:outline-none focus:border-maroon"
               />
             </div>
@@ -1780,49 +1833,40 @@ function BoostPanel({ myId }: { myId: string }) {
   const { lang } = useLang();
   const te = lang === "te";
   const [packs, setPacks] = useState<Row[]>([]);
-  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
 
   useEffect(() => {
-    apiGet<Row[]>("/api/boost/packs").then((r) => {
-      if (r.ok && r.data) setPacks(r.data);
-    });
+    apiGet<Row>("/api/boost/packs").then((result) => {
+      const rows = Array.isArray(result.data) ? result.data : (result.data as any)?.packs;
+      if (result.ok && Array.isArray(rows)) setPacks(rows);
+      else setLoadError(true);
+    }).catch(() => setLoadError(true)).finally(() => setLoading(false));
   }, []);
 
-  const buy = async (packId: string) => {
-    setBusy(true);
-    const { ok, data } = await apiPost<Row>("/api/boost/buy", { tsap_id: myId, pack_id: packId });
-    setBusy(false);
-    if (ok && data?.success) setMsg({ ok: true, text: String(data.message_telugu || "Boost activated!") });
-    else setMsg({ ok: false, text: String(data?.message_telugu || "Boost purchase failed") });
-  };
-
   return (
-    <section className="rounded-3xl border border-gold/30 bg-white p-5 text-center space-y-3">
-      <div className="text-4xl">⚡</div>
-      <h2 className="text-base font-extrabold text-[#7A0C2E]">ప్రొఫైల్ బూస్ట్ (Profile Boost)</h2>
-      <p className="text-xs text-slate-600 telugu">మీ ప్రొఫైల్‌ను సెర్చ్ రిజల్ట్స్‌లో టాప్ ర్యాంకింగ్‌లో ప్రదర్శించడానికి బూస్ట్ చేయండి.</p>
+    <section className="min-w-0 space-y-4 rounded-3xl border border-gold/30 bg-white p-4 text-center sm:p-5">
+      <div className="text-4xl" aria-hidden="true">⚡</div>
+      <h2 className="text-base font-extrabold text-[#7A0C2E]">{te ? "ప్రొఫైల్ ప్రమోషన్" : "Profile promotion"}</h2>
+      <p className="mx-auto max-w-xl text-xs leading-relaxed text-slate-600">
+        {te ? "ఎంచుకున్న కాలానికి బూస్ట్ కొనండి. చెల్లింపు ధృవీకరించిన తర్వాత మాత్రమే అమలవుతుంది." : "Choose a promotion duration. The boost is activated only after payment is verified."}
+      </p>
+      {loading ? <p className="text-sm text-slate-500" role="status">{te ? "ప్యాక్‌లను లోడ్ చేస్తున్నాం…" : "Loading packs…"}</p> : null}
+      {loadError ? <p className="text-sm text-rose-700" role="alert">{te ? "ప్రస్తుతం ప్యాక్‌లు లోడ్ కాలేదు." : "Promotion packs could not be loaded."}</p> : null}
+      {!loading && !loadError && packs.length === 0 ? <p className="text-sm text-slate-500">{te ? "ప్యాక్‌లు అందుబాటులో లేవు." : "No packs are currently available."}</p> : null}
       {packs.length > 0 && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-          {packs.map((p, i) => (
-            <div key={i} className="border border-gold/40 rounded-2xl p-3 text-xs flex items-center justify-between">
-              <div className="text-left">
-                <div className="font-bold text-maroon">{p.name || p.title}</div>
-                <div className="text-slate-500 font-mono">₹{p.price}</div>
+        <div className="grid min-w-0 grid-cols-1 gap-3 pt-1 sm:grid-cols-2">
+          {packs.map((pack) => (
+            <div key={pack.code} className="min-w-0 space-y-3 rounded-2xl border border-gold/40 p-3 text-left">
+              <div className="min-w-0">
+                <div className="break-words text-sm font-bold text-maroon">{pack.label || pack.code}</div>
+                <div className="mt-1 font-mono text-xs text-slate-500">{pack.days} {te ? "రోజులు" : "days"} · ₹{pack.price}</div>
               </div>
-              <button
-                type="button"
-                onClick={() => buy(p.id)}
-                disabled={busy}
-                className="px-3 py-1.5 rounded-xl gold-gradient text-maroon font-bold text-xs shadow-xs"
-              >
-                బూస్ట్ చేయండి
-              </button>
+              <PayBox planCode={pack.code} price={Number(pack.price)} label={te ? "బూస్ట్ ప్యాక్" : "Boost pack"} purpose="boost" tsapId={myId} />
             </div>
           ))}
         </div>
       )}
-      <Msg m={msg} />
     </section>
   );
 }

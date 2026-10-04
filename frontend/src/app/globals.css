@@ -9,6 +9,8 @@
   --gold: #d4af37;
   --cream: #fff8e7;
   --navy: #0f1f3c;
+  --peacock: #0f766e;
+  --peacock-dark: #075e54;
   --header-h: 64px;
 }
 
@@ -78,9 +80,13 @@ body {
   width: 100%;
   min-width: 0;
   font-family: 'Poppins', 'Noto Sans Telugu', system-ui, sans-serif;
-  background: var(--cream);
+  background:
+    radial-gradient(ellipse at 6% 5%, rgba(212,175,55,.09), transparent 34rem),
+    radial-gradient(ellipse at 96% 12%, rgba(15,118,110,.065), transparent 32rem),
+    linear-gradient(180deg, #fffdf8 0%, var(--cream) 100%);
   color: #1a1a1a;
   overflow-x: clip;
+  padding-top: env(safe-area-inset-top);
   padding-bottom: env(safe-area-inset-bottom);
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -228,11 +234,11 @@ button:not(:disabled), a[href] { touch-action: manipulation; }
 }
 
 /* ---------- Brand utilities ---------- */
-.card-shadow { box-shadow: 0 10px 40px rgba(122, 12, 46, 0.15); }
-.card-shadow-lg { box-shadow: 0 20px 60px rgba(122, 12, 46, 0.22); }
+.card-shadow { box-shadow: 0 10px 32px rgba(122, 12, 46, 0.10), 0 3px 14px rgba(15, 118, 110, 0.06); }
+.card-shadow-lg { box-shadow: 0 18px 48px rgba(122, 12, 46, 0.15), 0 8px 24px rgba(15, 118, 110, 0.08); }
 .gold-gradient { background: linear-gradient(135deg, #d4af37 0%, #ffd700 50%, #d4af37 100%); }
 .maroon-gradient { background: linear-gradient(135deg, #7a0c2e 0%, #a0143a 100%); }
-.navy-gradient { background: linear-gradient(135deg, #0f1f3c 0%, #1e3a5f 100%); }
+.navy-gradient { background: linear-gradient(135deg, #0f1f3c 0%, #1e3a5f 58%, #0f766e 100%); }
 .cream-gradient { background: linear-gradient(180deg, #fff8e7 0%, #f7eed8 100%); }
 
 .text-gradient-gold {
@@ -508,46 +514,48 @@ button:not(:disabled):active { transform: scale(0.97); }
   z-index: 2;
   inset: 0 0 auto;
   height: 2px;
-  background: linear-gradient(90deg, #6f0d2d 0%, #bd8a18 42%, #f2d06b 55%, #8a1437 100%);
+  background: linear-gradient(90deg, #6f0d2d 0%, #bd8a18 28%, #0f766e 51%, #f2d06b 74%, #8a1437 100%);
 }
 
-/* Header identity: editorial Telugu typography with a ceremonial two-tone finish. */
+/* Header identity: bilingual wordmark in auspicious maroon, teal and gold. */
 .brand-lockup {
   border-left: 1px solid rgba(184, 134, 11, .32);
   padding-left: .65rem;
 }
 .brand-name {
-  color: #74102d;
-  font-family: 'Noto Serif Telugu', 'Noto Sans Telugu', Georgia, serif;
-  font-size: clamp(1.38rem, 2.25vw, 1.82rem);
+  color: #800020;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: clamp(1.32rem, 2vw, 1.58rem);
   font-weight: 800;
   line-height: 1.08;
-  letter-spacing: -0.035em;
+  letter-spacing: -0.025em;
   white-space: nowrap;
-  text-shadow: 0 1px 0 #fff, 0 4px 16px rgba(116, 16, 45, .11);
-  transform-origin: left center;
-  animation: brandReveal .75s cubic-bezier(.2,.8,.2,1) both;
+  text-shadow: 0 1px 0 #fff, 0 2px 8px rgba(128, 0, 32, .08);
 }
 .brand-name:not(.telugu) {
   font-family: Georgia, 'Times New Roman', serif;
   letter-spacing: -0.035em;
 }
+.brand-name-telugu {
+  display: block;
+  margin-top: 2px;
+  padding-block: .02em;
+  font-family: 'Noto Serif Telugu', 'Noto Sans Telugu', serif;
+  font-size: clamp(.82rem, 1.15vw, .98rem);
+  font-weight: 800;
+  line-height: 1.28;
+  letter-spacing: 0;
+  white-space: nowrap;
+  text-shadow: 0 1px 0 #fff, 0 2px 10px rgba(116, 16, 45, .08);
+}
 .brand-name-primary {
-  background: linear-gradient(135deg, #6d0927 0%, #a61943 46%, #7b0d31 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  -webkit-text-fill-color: transparent;
+  color: #800020;
+  -webkit-text-fill-color: #800020;
 }
 .brand-name-accent {
   position: relative;
-  background: linear-gradient(105deg, #a96c06 0%, #d8aa2d 28%, #fff0a3 46%, #d39a19 61%, #9b6204 100%);
-  background-size: 220% 100%;
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: #a76f00;
-  -webkit-text-fill-color: transparent;
-  animation: brandGoldSweep 4.6s ease-in-out 1.1s infinite;
+  color: #8a6508;
+  -webkit-text-fill-color: #8a6508;
 }
 .brand-spark {
   display: inline-block;
@@ -560,14 +568,6 @@ button:not(:disabled):active { transform: scale(0.97); }
   transform: translateY(.15em);
   filter: drop-shadow(0 1px 2px rgba(122,12,46,.15));
   animation: brandSpark 2.8s ease-in-out 1.5s infinite;
-}
-@keyframes brandReveal {
-  from { opacity: 0; transform: translate3d(-8px, 3px, 0) scale(.97); filter: blur(3px); }
-  to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); filter: blur(0); }
-}
-@keyframes brandGoldSweep {
-  0%, 24% { background-position: 110% 0; }
-  54%, 100% { background-position: -110% 0; }
 }
 @keyframes brandSpark {
   0%, 72%, 100% { opacity: .42; transform: translateY(.15em) scale(.78) rotate(0); }
@@ -585,23 +585,16 @@ button:not(:disabled):active { transform: scale(0.97); }
   background: linear-gradient(90deg, transparent, #d4af37 18%, #b47b08 82%, transparent);
   opacity: .72;
 }
-.brand-tagline {
-  margin-top: 5px;
-  color: #6d625a;
-  font-size: 9px;
-  font-weight: 700;
-  line-height: 1.15;
-  letter-spacing: .055em;
-}
 @media (max-width: 639px) {
   .brand-lockup { border-left: 0; padding-left: 0; }
-  .brand-name { font-size: 1.36rem; }
+  .brand-name { font-size: 1.14rem; }
+  .brand-name-telugu { margin-top: 1px; font-size: .82rem; line-height: 1.2; }
   .brand-spark { display: none; }
 }
 @media (min-width: 1024px) {
   .brand-lockup { padding-left: .5rem; }
-  .brand-name { font-size: .98rem; line-height: 1; }
-  .brand-tagline { margin-top: 2px; font-size: 7.5px; letter-spacing: .025em; }
+  .brand-name { font-size: 1.12rem; line-height: 1; }
+  .brand-name-telugu { margin-top: 1px; font-size: .82rem; line-height: 1.15; }
   .brand-spark { display: none; }
 }
 
@@ -645,14 +638,51 @@ button:not(:disabled):active { transform: scale(0.97); }
 .nav-tab-on { color: #7A0C2E; }
 .nav-tab-icon-on { color: #fff; background: #7A0C2E; box-shadow: 0 4px 12px rgba(122,12,46,.25); font-size: 18px; }
 
+/* The mobile drawer overlays the page rather than pushing it down. The inner
+   panel owns scrolling, remains within the visual viewport, and respects the
+   header height in both portrait and landscape layouts. */
+.mobile-menu {
+  position: absolute;
+  z-index: 40;
+  top: 100%;
+  inset-inline: 0;
+  max-height: 0;
+  overflow: hidden;
+  visibility: hidden;
+  transition: max-height .24s ease, visibility 0s linear .24s;
+}
+.mobile-menu[data-open="true"] {
+  max-height: calc(100dvh - var(--header-h));
+  visibility: visible;
+  transition: max-height .24s ease;
+}
+.mobile-menu__panel {
+  max-height: calc(100dvh - var(--header-h));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
 @media (max-width: 1023px) {
-  body { padding-bottom: calc(64px + env(safe-area-inset-bottom)); }
+  /* Reserve space only on routes that actually render the fixed app nav. */
+  body:has(.mobile-bottom-nav) { padding-bottom: calc(64px + env(safe-area-inset-bottom)); }
+}
+@media (min-width: 1024px) {
+  :root { --header-h: 56px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .brand-wordmark, .brand-name, .brand-name-accent, .brand-spark {
+  *,
+  *::before,
+  *::after {
     animation: none !important;
-    background-position: 0 0;
+    scroll-behavior: auto !important;
+    transition: none !important;
   }
+  .brand-wordmark, .brand-name, .brand-name-accent, .brand-spark,
+  .cine-title-gold { background-position: 0 0; }
+  .cine-frame { opacity: 1; transform: none; }
+  .cine-film, .cine-petal, .cine-grain { display: none !important; }
+  .cine-bar > i { transform: scaleX(1); }
 }
 
 /* strong helper text */
@@ -889,7 +919,7 @@ label {
     animation: none !important;
     transform: none !important;
   }
-  .cine-hero { min-height: auto; }
+  .cinematic-hero { min-height: auto; }
 
   .home-page section {
     padding-left: 1rem;
@@ -903,16 +933,38 @@ label {
   .home-page .grid-cols-3 {
     grid-template-columns: minmax(0, 1fr) !important;
   }
-  .home-page .cine-hero a {
+  .home-page .cinematic-hero a {
     width: 100%;
     justify-content: center;
   }
-  .home-page .cine-hero h1 {
+  .home-page .cinematic-hero h1 {
     font-size: 1.65rem;
     line-height: 1.22;
   }
-  .home-page .cine-hero > div:last-child {
+  .home-page .cinematic-hero > div:last-child {
     padding-left: 1rem;
     padding-right: 1rem;
   }
+}
+
+/* Shared ivory surface with restrained saffron and peacock accents across page shells. */
+.home-page.bg-cream,
+.min-h-dvh.bg-cream {
+  background-image:
+    radial-gradient(ellipse at 0% 0%, rgba(212,175,55,.08), transparent 31rem),
+    radial-gradient(ellipse at 100% 5%, rgba(15,118,110,.06), transparent 32rem),
+    linear-gradient(180deg, #fffdf8 0%, #fff8e7 100%);
+}
+
+/* Late reduced-motion overrides must follow the cinematic component rules. */
+.hero-video { opacity: .98; }
+.hero-poster, .hero-video { filter: saturate(1.26) contrast(1.05) brightness(1.18); }
+@media (prefers-reduced-motion: reduce) {
+  .hero-video { display: none !important; }
+  .cine-frame { opacity: 1 !important; transform: none !important; }
+  .cine-film, .cine-petal, .cine-grain { display: none !important; }
+  .cine-bar > i { transform: scaleX(1) !important; }
+  .wedding-story { height: auto !important; min-height: 34rem; }
+  .wedding-story__sticky { position: relative; min-height: 34rem; }
+  .wedding-story__scene { transform: none !important; }
 }

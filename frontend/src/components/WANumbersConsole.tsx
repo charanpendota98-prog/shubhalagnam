@@ -124,7 +124,7 @@ export default function WANumbersConsole() {
           </select>
           <input value={f.daily_cap} onChange={(e) => setF({ ...f, daily_cap: e.target.value })} placeholder="daily cap (60)"
             inputMode="numeric" className="rounded-lg border border-slate-300 px-2 py-1.5 text-[12px]" />
-          <input value={f.number} onChange={(e) => setF({ ...f, number: e.target.value })} placeholder="9198… (number)"
+          <input value={f.number} onChange={(e) => setF({ ...f, number: e.target.value })} placeholder="Verified WhatsApp number with country code"
             inputMode="numeric" className="rounded-lg border border-slate-300 px-2 py-1.5 text-[12px]" />
           <input value={f.token} onChange={(e) => setF({ ...f, token: e.target.value })} placeholder="bridge token (optional)"
             className="rounded-lg border border-slate-300 px-2 py-1.5 text-[12px] col-span-2" />

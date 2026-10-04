@@ -3,7 +3,7 @@ import RegisterPageClient from "./page-client";
 
 export const metadata: Metadata = {
   title: "ఉచిత రిజిస్ట్రేషన్ (Register FREE) — 1 నిమిషంలో",
-  description: "మన వివాహలో 1 నిమిషంలో ఉచిత రిజిస్ట్రేషన్ చేసుకోండి. DOB verified, photo-private profiles, మొదటి 3 ఇంట్రెస్ట్ రిక్వెస్ట్స్ FREE.",
+  description: "మన వివాహలో ఉచితంగా నమోదు చేసుకోండి. Phone OTP verification, సభ్యుడు అందించే DOB వివరాలు, photo privacy settings మరియు మొదటి 3 interest requests FREE.",
   alternates: { canonical: "https://manavivaha.in/register" },
 };
 

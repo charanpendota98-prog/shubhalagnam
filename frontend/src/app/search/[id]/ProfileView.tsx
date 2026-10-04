@@ -3,21 +3,21 @@
  * 👁️ /search/[id] — PROFILE VIEW (WAVE 9 rewrite)
  * ===============================================
  * 🐞 FIXES (mundu unna bugs):
- *   • HARDCODED fake profile (Lakshmi Reddy + phone "9848012345") — tappu ID ki kooda ade kanipinchedu
+ *   • Removed the legacy hard-coded sample profile fallback — unknown IDs stay unavailable
  *   • "Number Chudu 1 Credit" button — kani backend aa number eppudu ivvadu (fake promise)
  *   • Credit locally deduct ayyedi (server ki telidu) → balance mismatch
- *   • ✅ Ippudu: real /api/search/{id} data, 404 honest, 🔒 consent-based unlock, quality + trust,
- *     block/report wired, shortlist + interest token tho.
+ *   • ✅ Real /api/search/{id} data, honest 404s, consent-based contact access,
+ *     and working block/report actions.
  */
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import TrustBadge from "@/components/TrustBadge";
 import { ProfileSkeleton } from "@/components/Skeletons";
 import AuthGate from "@/components/AuthGate";
 import RasiChart from "@/components/RasiChart";
 import { apiGet, apiPost, authHeaders, getToken } from "@/lib/api";
 import { SITE_CONFIG } from "@/lib/site-config";
+import { normalizeWhatsAppPhone, whatsappPhoneLink } from "@/lib/wa";
 import { firstName } from "@/lib/names";
 import { Duo, duo } from "@/lib/duo";
 import { useLang } from "@/lib/lang";
@@ -26,8 +26,6 @@ import ProfileRail from "@/components/ProfileRail";
 import QuickUnlockModal from "@/components/QuickUnlockModal";
 import WhatsAppProposalModal from "@/components/WhatsAppProposalModal";
 import VoiceBiodataPlayer from "@/components/VoiceBiodataPlayer";
-import KundaliRadarVisualizer from "@/components/KundaliRadarVisualizer";
-import FamilyCompatibilityRadar from "@/components/FamilyCompatibilityRadar";
 
 type Row = Record<string, any>;
 
@@ -50,166 +48,15 @@ function escapeHtml(value: unknown): string {
 }
 
 const CONSENT_STEPS_TE = [
-  "1️⃣ ఇంట్రెస్ట్ పంపండి (ప్రారంభ 3 రిక్వెస్ట్‌లు ఉచితం) — మీ అధికారిక ప్రొఫైల్ వివరాలు వారికి వాట్సాప్‌లో అందజేయబడతాయి",
-  "2️⃣ వారు అంగీకరించిన వెంటనే — ఇరు కుటుంబాల అధికారిక సంప్రదింపు వివరాలు పరస్పరం మార్పిడి చేయబడతాయి",
-  "3️⃣ ప్రత్యక్ష సంభాషణ & వివాహ చర్చలు — మా కస్టమర్ కేర్ మధ్యవర్తిత్వ సహకారం కూడా అందుబాటులో ఉంటుంది",
+  "1️⃣ Interest పంపండి (మొదటి 3 requests ఉచితం) — మీ member-provided profile వివరాలు పంపబడతాయి",
+  "2️⃣ అవతలి profile owner accept చేస్తేనే contact వివరాలు share అవుతాయి",
+  "3️⃣ తర్వాత వివరాలను స్వయంగా నిర్ధారించుకుని కుటుంబాలు మాట్లాడుకోవచ్చు",
 ];
 const CONSENT_STEPS_EN = [
-  "1️⃣ Send Interest (Initial 3 requests FREE) — your verified profile details are delivered via WhatsApp",
-  "2️⃣ Mutual Family Acceptance — verified contact details are exchanged directly on WhatsApp",
-  "3️⃣ Direct Family Interaction — our professional matrimonial counselor support remains available",
+  "1️⃣ Send Interest (first 3 requests FREE) — your member-submitted profile details are sent",
+  "2️⃣ Contact details are shared only if the other profile owner accepts",
+  "3️⃣ Verify details independently before families proceed",
 ];
-
-const SAMPLE_PROFILES_MAP: Record<string, Row> = {
-  MV1001: {
-    tsap_id: "MV1001",
-    full_name: "Lakshmi Prasanna Meka",
-    gender: "Bride",
-    age: 24,
-    height: "5'4\"",
-    weight: "54kg",
-    caste: "Reddy",
-    sub_caste: "Pakanati",
-    gothram: "Bharadwaj",
-    star: "Rohini",
-    rasi: "Vrishabha",
-    education: "B.Tech (CSE)",
-    education_detail: "B.Tech Computer Science (JNTU Hyderabad)",
-    job: "Senior Software Engineer",
-    company: "Microsoft IDC",
-    salary: "₹18 Lakhs / year",
-    district: "Hyderabad",
-    state: "TS",
-    work_location: "HITEC City, Hyderabad",
-    marital_status: "Pelli Kaledu",
-    children: "None",
-    family_type: "Nuclear",
-    family_status: "Upper Middle Class",
-    father_name: "Ramana Reddy (Real Estate / Agriculture)",
-    mother_name: "Padma (Homemaker)",
-    about_myself: "Cultured, family-oriented and working at Microsoft Hyderabad. Enjoys classical Carnatic music and travel.",
-    expectations: "Looking for an educated, well-settled Reddy groom from a good family background.",
-    is_verified: true,
-    phone_verified: true,
-    photo_urls: ["/promo/bride-card.jpg"],
-    photo_url: "/promo/bride-card.jpg",
-  },
-  MV1002: {
-    tsap_id: "MV1002",
-    full_name: "Kiran Kumar Vangaveeti",
-    gender: "Groom",
-    age: 28,
-    height: "5'11\"",
-    weight: "74kg",
-    caste: "Reddy",
-    sub_caste: "Pakanati",
-    gothram: "Janakula",
-    star: "Uttara",
-    rasi: "Simha",
-    education: "MS (Computer Science)",
-    education_detail: "MS Data Science (Arizona State University)",
-    job: "Staff AI Engineer",
-    company: "Google",
-    salary: "$165k / ₹1.4 Cr",
-    district: "USA / NRI",
-    state: "TS",
-    work_location: "Mountain View, California (H-1B)",
-    marital_status: "Pelli Kaledu",
-    children: "None",
-    family_type: "Nuclear",
-    family_status: "Upper Middle Class",
-    father_name: "Srinivasa Reddy (Retd. Govt Officer)",
-    mother_name: "Saraswathi (Homemaker)",
-    about_myself: "Tech professional based in Bay Area USA. Traditional values, looking for well-educated life partner.",
-    expectations: "Seeking a cultured graduate/PG bride willing to relocate or living in USA/India.",
-    is_verified: true,
-    phone_verified: true,
-    photo_urls: ["/promo/groom-kamma.jpg"],
-    photo_url: "/promo/groom-kamma.jpg",
-  },
-  MV1003: {
-    tsap_id: "MV1003",
-    full_name: "Harika Yalamanchili",
-    gender: "Bride",
-    age: 25,
-    height: "5'5\"",
-    weight: "56kg",
-    caste: "Kamma",
-    sub_caste: "Pedakanti",
-    gothram: "Kasyapa",
-    star: "Swati",
-    rasi: "Tula",
-    education: "MBBS, MD",
-    education_detail: "MD General Medicine (Osmania Medical College)",
-    job: "Doctor (Consultant Physician)",
-    company: "Apollo Hospitals",
-    salary: "₹24 Lakhs / year",
-    district: "Vijayawada",
-    state: "AP",
-    work_location: "Vijayawada / Hyderabad",
-    marital_status: "Pelli Kaledu",
-    children: "None",
-    family_type: "Joint",
-    family_status: "Affluent Business",
-    about_myself: "Dedicated medical practitioner from an affluent, cultured family. Seeking ambitious doctor or professional.",
-    is_verified: true,
-    phone_verified: true,
-  },
-  MV2001: {
-    tsap_id: "MV2001",
-    full_name: "Sowmya Meka",
-    gender: "Bride",
-    age: 30,
-    height: "5'4\"",
-    weight: "55kg",
-    caste: "Reddy",
-    sub_caste: "Motati",
-    gothram: "Bharadwaj",
-    star: "Anuradha",
-    rasi: "Vrishchika",
-    education: "B.Tech, MBA",
-    education_detail: "MBA HR from Osmania University",
-    job: "HR Manager",
-    company: "Tech Mahindra",
-    salary: "₹14 Lakhs / year",
-    district: "Hyderabad",
-    state: "TS",
-    work_location: "Madhapur, Hyderabad",
-    marital_status: "Divorced",
-    children: "None",
-    family_type: "Nuclear",
-    about_myself: "Brief childless marriage annulled legally. Positive outlook, seeking a mature and understanding life partner.",
-    is_verified: true,
-    phone_verified: true,
-  },
-  MV2002: {
-    tsap_id: "MV2002",
-    full_name: "Dr. Sandeep Gottipati",
-    gender: "Groom",
-    age: 33,
-    height: "5'10\"",
-    weight: "76kg",
-    caste: "Kamma",
-    sub_caste: "Chowdary",
-    gothram: "Vasishta",
-    star: "Uttarabhadra",
-    rasi: "Meena",
-    education: "MBBS, MS (Ortho)",
-    education_detail: "MS Orthopaedics (KIMS)",
-    job: "Consultant Orthopaedic Surgeon",
-    company: "Care Hospitals",
-    salary: "₹36 Lakhs / year",
-    district: "Guntur",
-    state: "AP",
-    work_location: "Guntur & Vijayawada",
-    marital_status: "Divorced",
-    children: "1 Living Separately",
-    family_type: "Nuclear",
-    about_myself: "Independent practicing surgeon. Mutual consent divorce, legally settled. Seeking genuine companionship.",
-    is_verified: true,
-    phone_verified: true,
-  },
-};
 
 export default function ProfileView() {
   const { lang } = useLang();
@@ -231,7 +78,6 @@ export default function ProfileView() {
   const [unlocking, setUnlocking] = useState(false);
   const [showUnlockModal, setShowUnlockModal] = useState(false);
   const [showProposalModal, setShowProposalModal] = useState(false);
-  const [compat, setCompat] = useState<Row | null>(null);
   const [voiceUrl, setVoiceUrl] = useState("");
   const [chart, setChart] = useState<Row | null>(null);
 
@@ -247,15 +93,7 @@ export default function ProfileView() {
     });
   }, [searchId, idFromUrl]);
 
-  useEffect(() => {
-    if (!myTsapId || !searchId || myTsapId === searchId) { setCompat(null); return; }
-    void apiGet<Row>(`/api/match/score?a=${encodeURIComponent(myTsapId)}&b=${encodeURIComponent(searchId)}`).then(({ ok, data }) => {
-      setCompat(ok && data && typeof data.score === "number" ? data : null);
-    });
-  }, [myTsapId, searchId]);
-
   const profile: Row = data?.profile || {};
-  const trust = (data?.trust as Row) || null;
   const quality = (data?.quality as Row) || null;
 
   const load = useCallback(async (id: string) => {
@@ -264,24 +102,10 @@ export default function ProfileView() {
     const { ok, status, data: d, errorTelugu } = await apiGet<Row>(`/api/search/${encodeURIComponent(id)}`);
     setLoading(false);
     if (!ok || !d) {
-      // Check fallback sample profile
-      const fallback = SAMPLE_PROFILES_MAP[id.toUpperCase()];
-      if (fallback) {
-        setData({
-          success: true,
-          tsap_id: fallback.tsap_id,
-          profile: fallback,
-          trust: { score: 95, level: "id", phone_verified: true, id_verified: true, badge: "ID Verified", trust_reasons: ["100% Verified Profile", "Original Govt ID verified", "Phone OTP active"] },
-          quality: { completeness: 100, missing: [], tips: [] },
-          can_view_number: false,
-          phone_masked: "98••••••45",
-          contact_locked: true,
-          contact_note_telugu: "🔒 Number ఇవ్వము — interest పంపి వాళ్లు accept చేస్తే (లేదా plan తీసుకుంటే) మాత్రమే ఇస్తాం",
-        });
-        return;
-      }
       setData(null);
-      setErr(status === 404 ? (te ? `🔍 Profile ID దొరకలేదు: ${id} — ID correct గా ఉందా check చెయ్యండి (register అయ్యారా?)` : `🔍 Profile ID not found: ${id} — check the ID is correct (registered?)`) : errorTelugu);
+      setErr(status === 404
+        ? (te ? `🔍 Profile ID దొరకలేదు: ${id} — ID correct గా ఉందా check చెయ్యండి (register అయ్యారా?)` : `🔍 Profile ID not found: ${id} — check the ID is correct (registered?)`)
+        : (errorTelugu || (te ? "Profile లోడ్ కాలేదు — మళ్లీ ప్రయత్నించండి" : "Could not load this profile — please retry")));
       return;
     }
     setData(d);
@@ -309,8 +133,8 @@ export default function ProfileView() {
       { from_id: myTsapId, to_id: searchId, channel: "search_page", ...(templateId ? { template_id: templateId } : {}) });
     setSending(false);
     if (nl) { setNeedsLogin(true); return; }
-    if (ok) setMsg({ ok: true, text: String(d?.message_telugu || (te ? "Interest పంపించారు ✅ — accept అయితే numbers exchange" : "Interest sent ✅ — numbers exchange on accept")) });
-    else if (status === 402) setMsg({ ok: false, text: te ? "⚠️ Credits అయిపోయాయి — ₹99 → 5 profiles. Numbers కూడా accept తోనే (consent)." : "⚠️ Credits over — ₹99 → 5 profiles. Numbers also only with accept (consent)." });
+    if (ok) setMsg({ ok: true, text: String(d?.message_telugu || (te ? "Interest పంపించారు. Owner accept చేసిన తర్వాత contact details privacy settings ప్రకారం share అవుతాయి." : "Interest sent. Contact details follow the owner's acceptance and privacy settings.")) });
+    else if (status === 402) setMsg({ ok: false, text: te ? "⚠️ Credits అయిపోయాయి — ₹99 → 5 interest requests. Contact sharing acceptance తర్వాతే." : "⚠️ Credits are depleted — ₹99 → 5 interest requests. Contact sharing follows acceptance." });
     else if (status === 404) setMsg({ ok: false, text: te ? "మీ Profile ID register చెయ్యలేదు — ముందు FREE register చెయ్యండి." : "Your Profile ID is not registered — FREE register first." });
     else setMsg({ ok: false, text: eTel });
   };
@@ -355,18 +179,29 @@ export default function ProfileView() {
   const doReport = async () => {
     const { ok, data: d, needsLogin: nl, errorTelugu: eTel } = await apiPost<Row>("/api/report", { reporter_id: myTsapId, target_id: searchId, category: "fake_profile", detail: "Profile page నుంచి report" });
     if (nl) { setNeedsLogin(true); return; }
-    if (ok) { setReported(true); setMsg({ ok: true, text: String(d?.message_telugu || d?.ack_telugu || (te ? "Report పంపాం — team 48h లో చూస్తుంది" : "Report sent — team reviews in 48h")) }); }
+    if (ok) { setReported(true); setMsg({ ok: true, text: String(d?.message_telugu || d?.ack_telugu || (te ? "Report పంపబడింది — సమీక్ష సమయం మారవచ్చు" : "Report submitted — review timing may vary")) }); }
     else setMsg({ ok: false, text: eTel });
   };
 
   const shareWhatsApp = () => {
-    if (!profile) return;
-    const text = `🙏 మన వివాహ profile — ${firstName(profile.full_name)} (${profile.tsap_id})\n` +
-      `${profile.age}y • ${profile.height || "—"} • ${profile.caste} • ${profile.education} • ${profile.job}\n` +
-      `📍 ${profile.district}, ${stateFullName(profile.state, te)} • 💰 ${profile.salary}\n` +
-      `🔒 Number locked — ${te ? "interest accept అయితే exchange" : "exchange on interest accept"}\n` +
-      `Full details: ${window.location.origin}/search/${profile.tsap_id}`;
-    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
+    if (!profile?.tsap_id) return;
+    const details = [
+      profile.age != null && String(profile.age).trim() ? `${profile.age}y` : "",
+      profile.height || "",
+      profile.caste || "",
+      profile.education || "",
+      profile.job || "",
+      profile.district || "",
+      profile.state ? stateFullName(profile.state, te) : "",
+      profile.salary || "",
+    ].filter((value) => String(value || "").trim());
+    const text = [
+      `🙏 మన వివాహ profile — ${firstName(profile.full_name)} (${profile.tsap_id})`,
+      details.length ? details.join(" • ") : "",
+      "🔒 Contact details follow the consent and privacy flow; verify profile information independently.",
+      `Full details: ${window.location.origin}/search/${encodeURIComponent(String(profile.tsap_id))}`,
+    ].filter(Boolean).join("\n");
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank", "noopener,noreferrer");
   };
 
   const printBiodata = () => {
@@ -413,13 +248,13 @@ export default function ProfileView() {
       <div class="item"><div class="label">ఉద్యోగం / వ్యాపారం (Job)</div><div class="val">${e(profile.job || "—")} ${profile.company ? `@ ${e(profile.company)}` : ""}</div></div>
       <div class="item"><div class="label">వార్షిక ఆదాయం (Annual Salary)</div><div class="val">${e(profile.salary || "—")}</div></div>
       <div class="item"><div class="label">ప్రాంతం / నివాసం (Location)</div><div class="val">${e(profile.district || "—")}, ${e(profile.state ? stateFullName(profile.state, te) : "—")}</div></div>
-      <div class="item"><div class="label">వైవాహిక స్థితి (Marital Status)</div><div class="val">${e(profile.marital_status || "Never Married")}</div></div>
-      <div class="item"><div class="label">కుటుంబ నేపథ్యం (Family)</div><div class="val">${e(profile.family_type || "Joint/Nuclear")} · ${e(profile.family_status || "Middle/Upper")}</div></div>
-      <div class="item"><div class="label">దోషం (Dosham)</div><div class="val">${e(profile.dosham || "None")}</div></div>
+      <div class="item"><div class="label">వైవాహిక స్థితి (Marital Status)</div><div class="val">${e(profile.marital_status || "—")}</div></div>
+      <div class="item"><div class="label">కుటుంబ నేపథ్యం (Family)</div><div class="val">${e(profile.family_type || "—")} · ${e(profile.family_status || "—")}</div></div>
+      <div class="item"><div class="label">దోషం (Dosham)</div><div class="val">${e(profile.dosham || "—")}</div></div>
     </div>
     ${profile.about_myself ? `<div class="about"><b>స్వవిషయం (About):</b> ${e(profile.about_myself)}</div>` : ""}
     <div class="footer">
-      🔒 100% Verified TS & AP Matrimony Profile · manavivaha.in/search/${tsapId}
+      TS & AP Telugu Matrimony profile · verify member details independently · manavivaha.in/search/${tsapId}
     </div>
   </div>
   <script>window.onload = function() { window.print(); };</script>
@@ -429,15 +264,18 @@ export default function ProfileView() {
     printWindow.document.close();
   };
 
+  const normalizedUnlocked = normalizeWhatsAppPhone(unlocked);
+  const unlockedWhatsAppUrl = whatsappPhoneLink(unlocked);
+
   return (
-    <main className="mx-auto max-w-3xl px-4 py-6">
+    <div className="mx-auto max-w-3xl px-4 py-6">
       <div className="flex items-center gap-2">
         <Link href="/matches" className="text-[12px] font-bold text-[#7A0C2E]">← Matches</Link>
         <div className="flex flex-1 items-center gap-2 rounded-2xl border border-rose-200 bg-white px-3 py-2">
           <span>🔍</span>
           <input value={searchId} onChange={(e) => setSearchId(e.target.value.toUpperCase())}
             onKeyDown={(e) => { if (e.key === "Enter") void load(searchId.trim()); }}
-            placeholder="Profile ID (ex: MV1001)" aria-label="Profile ID search"
+            placeholder={te ? "Profile ID" : "Search by Profile ID"} aria-label={te ? "Profile ID వెతకండి" : "Profile ID search"}
             className="flex-1 bg-transparent text-sm outline-none" />
           <button onClick={() => void load(searchId.trim())} className="rounded-xl bg-[#7A0C2E] px-3 py-1.5 text-[12px] font-bold text-white">{te ? "చూడు" : "View"}</button>
         </div>
@@ -464,12 +302,11 @@ export default function ProfileView() {
                 <h1 className="text-2xl font-extrabold text-[#7A0C2E]">{myTsapId && profile.tsap_id === myTsapId ? (profile.full_name || "Profile") : firstName(profile.full_name)}</h1>
                 <p className="font-mono text-[12px] text-slate-500">{profile.tsap_id}</p>
                 <div className="mt-2 flex flex-wrap gap-2 text-[11px]">
-                  <TrustBadge trust={trust} completeness={Number(quality?.percent ?? 0)} />
-                  {profile.phone_verified || profile.is_verified
-                    ? <span className="rounded-full border border-emerald-300 bg-emerald-50 px-2 py-0.5 font-semibold text-emerald-800">✅ Phone verified</span>
-                    : <span className="rounded-full border border-slate-300 bg-slate-50 px-2 py-0.5 text-slate-600">⏳ Verify pending</span>}
-                  {profile.id_verified ? <span className="rounded-full border border-blue-300 bg-blue-50 px-2 py-0.5 font-extrabold text-blue-800" title={te ? "Admin ప్రభుత్వ ID ని manual గా పరిశీలించారు" : "Government ID manually reviewed by admin"}>🪪 ID VERIFIED</span> : null}
-                  {profile.selfie_verified ? <span className="rounded-full border border-emerald-300 bg-emerald-50 px-2 py-0.5 font-semibold text-emerald-800">🤳 Selfie Verified</span> : null}
+                  {profile.phone_verified
+                    ? <span className="rounded-full border border-emerald-300 bg-emerald-50 px-2 py-0.5 font-semibold text-emerald-800">✅ Phone OTP verified</span>
+                    : <span className="rounded-full border border-slate-300 bg-slate-50 px-2 py-0.5 text-slate-600" title={te ? "ఈ phone number కు OTP check నమోదు కాలేదు" : "No phone OTP check is recorded for this number"}>{te ? "ఫోన్ OTP నమోదు కాలేదు" : "Phone OTP not recorded"}</span>}
+                  {profile.id_verified ? <span className="rounded-full border border-blue-300 bg-blue-50 px-2 py-0.5 font-extrabold text-blue-800" title={te ? "ప్రభుత్వ ID ను staff manual గా పరిశీలించారు; ఇది ఇతర వివరాలను ధృవీకరించదు" : "Government ID manually reviewed by staff; this does not verify other profile details"}>🪪 Government ID reviewed</span> : null}
+                  {profile.selfie_verified ? <span className="rounded-full border border-emerald-300 bg-emerald-50 px-2 py-0.5 font-semibold text-emerald-800" title={te ? "సెల్ఫీ చిత్రం staff review లో ఆమోదించబడింది" : "Selfie image approved in staff review; this is not a liveness check"}>🤳 Selfie reviewed</span> : null}
                   {profile.boosted ? <span className="rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 font-semibold text-amber-800">⚡ Boosted</span> : null}
                   {profile.is_nri ? <span className="rounded-full border border-sky-300 bg-sky-50 px-2 py-0.5 font-semibold text-sky-800">✈️ NRI{profile.country && profile.country !== "India" ? ` • ${profile.country}` : ""}</span> : null}
                   {profile.profession_label ? <span className="rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 font-semibold text-amber-800">{profile.profession_label}</span> : null}
@@ -505,7 +342,7 @@ export default function ProfileView() {
 
             <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-2 text-[13px] text-slate-700 sm:grid-cols-3">
               {[
-                ["🎂 వయస్సు", `${profile.age ?? "—"}y`],
+                ["🎂 వయస్సు", profile.age != null && String(profile.age).trim() ? `${profile.age}y` : "—"],
                 ["📏 ఎత్తు", profile.height || "—"],
                 ["🕉️ కులం", `${profile.caste || "—"}${profile.sub_caste ? ` (${profile.sub_caste})` : ""}`],
                 ["🎓 చదువు", `${profile.education || "—"}${profile.education_detail ? ` ${profile.education_detail}` : ""}`],
@@ -514,10 +351,10 @@ export default function ProfileView() {
                 ["📍 ప్రాంతం", `${profile.district || "—"}, ${profile.state ? stateFullName(profile.state, te) : "—"}`],
                 ["⭐ నక్షత్రం (రిఫరెన్స్)", `${profile.star || "—"} / ${profile.rasi || "—"}`],
                 ["💍 వైవాహిక స్థితి", profile.marital_status || "—"],
-                ["👶 Children • పిల్లలు", profile.children && profile.children !== "None" ? profile.children : "లేరు (None)"],
+                ["👶 Children • పిల్లలు", profile.children && String(profile.children).trim() ? (profile.children === "None" ? (te ? "లేరు" : "None") : profile.children) : "—"],
                 ["🕉️ గోత్రం (రిఫరెన్స్)", profile.gothram || "—"],
                 ["👨‍👩‍👧 కుటుంబం", `${profile.family_type || "—"} · ${profile.family_status || "—"}`],
-                ["🧿 దోషం", profile.dosham || "లేదు (None)"],
+                ["🧿 దోషం", profile.dosham || "—"],
               ].map(([k, v]) => (
                 <div key={String(k)}>
                   <dt className="text-[11px] text-slate-500">{k}</dt>
@@ -533,76 +370,48 @@ export default function ProfileView() {
               </div>
             ) : null}
 
-            {Array.isArray(data.reasons) && data.reasons.length ? (
-              <div className="mt-3 rounded-2xl bg-emerald-50 p-3">
-                <p className="text-[12px] font-bold text-emerald-900">{te ? "💡 ఎందుకు match అవుతారు?" : "💡 Why you match?"}</p>
-                <ul className="mt-1 space-y-0.5 text-[12px] text-emerald-900">
-                  {data.reasons.slice(0, 4).map((r: string, i: number) => <li key={i}>✔️ {r}</li>)}
-                </ul>
-              </div>
+            {(Array.isArray(data.observations) && data.observations.length > 0)
+              || (Array.isArray(data.differences) && data.differences.length > 0)
+              || (Array.isArray(data.preference_checks) && data.preference_checks.length > 0) ? (
+              <section className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4" aria-labelledby="profile-facts-title">
+                <h2 id="profile-facts-title" className="text-sm font-extrabold text-slate-800">
+                  {te ? "ప్రొఫైల్ వివరాలు పరిశీలించండి" : "Profile details to review"}
+                </h2>
+                <p className="mt-1 text-[11px] leading-relaxed text-slate-600">
+                  {te ? "ఇవి సభ్యులు ఇచ్చిన వివరాల మధ్య ఉన్న పోలికలు మాత్రమే; compatibility లేదా identity verdict కాదు." : "These are comparisons of member-entered details only—not a compatibility or identity verdict."}
+                </p>
+                {Array.isArray(data.observations) && data.observations.length > 0 && (
+                  <ul className="mt-2 list-disc space-y-1 pl-5 text-[12px] text-slate-700">
+                    {data.observations.slice(0, 4).map((item: string, i: number) => <li key={`observation-${i}`}>{item}</li>)}
+                  </ul>
+                )}
+                {Array.isArray(data.differences) && data.differences.length > 0 && (
+                  <ul className="mt-2 list-disc space-y-1 pl-5 text-[12px] text-slate-700">
+                    {data.differences.slice(0, 4).map((item: string, i: number) => <li key={`difference-${i}`}>{item}</li>)}
+                  </ul>
+                )}
+                {Array.isArray(data.preference_checks) && data.preference_checks.length > 0 && (
+                  <div className="mt-3 space-y-1 border-t border-slate-200 pt-2">
+                    <p className="text-[11px] font-bold text-slate-700">{te ? "మీరు నమోదు చేసిన preferences" : "Your explicitly saved preferences"}</p>
+                    {data.preference_checks.slice(0, 4).map((item: Row, i: number) => (
+                      <p key={`preference-${i}`} className="text-[11px] text-slate-600">{item.note || item.label || item.status}</p>
+                    ))}
+                  </div>
+                )}
+              </section>
             ) : null}
           </section>
 
-          {/* 🧠 360° AI FAMILY & LIFESTYLE COMPATIBILITY RADAR */}
-          <div className="mt-4">
-            <FamilyCompatibilityRadar
-              applicantName={myTsapId || "మీ ప్రొఫైల్"}
-              candidateName={profile.full_name || profile.tsap_id}
-              applicantId={myTsapId || "TS1001"}
-              candidateId={profile.tsap_id}
-              caste={profile.caste || "తెలుగు కుటుంబం"}
-              astroScore={compat?.score || 88}
-              educationMatch={profile.education ? 92 : 82}
-              familyMatch={94}
-              locationMatch={profile.district ? 86 : 80}
-              physicalMatch={profile.height ? 90 : 85}
-              financialMatch={profile.income_range || profile.salary ? 88 : 82}
-              onSendProposal={() => setShowProposalModal(true)}
-            />
-          </div>
-
-          {/* 💯 COMPATIBILITY — enduku ee score? (gothram/surname/age verdicts) */}
-          {compat ? (
-            <section className="mt-4 rounded-3xl border border-gold/30 bg-white p-5">
-              <h2 className="text-lg font-extrabold text-[#7A0C2E]">
-                💯 Compatibility — {compat.score}/100 ({compat.grade_telugu || compat.grade})
+          {chart ? (
+            <section className="mt-4 rounded-3xl border border-amber-200 bg-white p-5" aria-labelledby="profile-chart-title">
+              <h2 id="profile-chart-title" className="mb-3 text-base font-extrabold text-[#7A0C2E]">
+                {te ? "🗺️ రాశి చార్ట్ (సాంప్రదాయ సూచన)" : "🗺️ Rasi chart (traditional reference)"}
               </h2>
-              <p className="mt-1 text-[13px] text-slate-700">{compat.verdict_telugu}</p>
-              {compat.mutual?.both_like ? (
-                <p className="mt-2 rounded-2xl border border-rose-300 bg-rose-50 p-2 text-[12px] font-bold text-rose-800">
-                  {compat.mutual.note} ({te ? "వాళ్ల side" : "their side"}: {compat.mutual.their_score}/100)
-                </p>
-              ) : null}
-              <div className="mt-3 space-y-1.5">
-                {(compat.breakdown || []).filter((b: Row) => b.key !== "mutual").map((b: Row) => (
-                  <div key={b.key} className="text-[12px]">
-                    <div className="flex justify-between">
-                      <span className="font-bold">{b.telugu || b.label}</span>
-                      <span className="text-slate-500">{b.points}/{b.max}</span>
-                    </div>
-                    <div className="h-1.5 rounded-full bg-slate-100">
-                      <div className="h-1.5 rounded-full bg-[#7A0C2E]" style={{ width: `${Math.round((b.ratio || 0) * 100)}%` }} />
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <div className="mt-3 space-y-1.5 text-[12px]">
-                {[compat.gothram, compat.surname, compat.age_rule].filter(Boolean).map((v: Row, i: number) => (
-                  <p key={i} className={`rounded-xl border p-2 ${v.blocked ? "border-red-300 bg-red-50 text-red-800" : "border-emerald-200 bg-emerald-50/60 text-emerald-900"}`}>
-                    {v.verdict_telugu}
-                  </p>
-                ))}
-              </div>
-              {chart ? (
-                <div className="mt-3">
-                  <RasiChart houses={chart.houses} moonHouse={chart.moon_house} star={chart.star} rasi={chart.rasi} note={chart.note_telugu} title={te ? "🗺️ వీళ్ల రాశి చార్ట్" : "🗺️ Their rasi chart"} />
-                </div>
-              ) : null}
+              <p className="mb-3 text-[11px] text-slate-600">
+                {te ? "నక్షత్ర వివరాలు సభ్యులు అందించినవి; ఇది compatibility తీర్పు కాదు." : "Birth details are member-provided; this is not a compatibility verdict."}
+              </p>
+              <RasiChart houses={chart.houses} moonHouse={chart.moon_house} star={chart.star} rasi={chart.rasi} note={chart.note_telugu} title={te ? "వారి రాశి చార్ట్" : "Their rasi chart"} />
             </section>
-          ) : myTsapId && myTsapId !== searchId ? (
-            <p className="mt-4 rounded-2xl border border-slate-200 bg-white p-3 text-center text-[12px] text-slate-500">
-              💯 Compatibility score — profile data tho auto-calculate
-            </p>
           ) : null}
 
           {/* 🔒 NUMBER LOCK — policy: Mutual consent contact exchange */}
@@ -617,16 +426,16 @@ export default function ProfileView() {
             </p>
             <ol className="mt-3 space-y-1.5 text-[13px] text-rose-900 font-medium">
               <li>1️⃣ {te ? "Interest పంపండి (మొదటి 3 అభ్యర్థనలు ఉచితం - FREE)" : "Send Interest (First 3 requests FREE)"}</li>
-              <li>2️⃣ {te ? "ఎదుటి కుటుంబం పరిశీలించి ఆమోదించగానే (Accept) ఇరువైపులా వాట్సాప్‌లో నంబర్లు వస్తాయి" : "Once accepted, verified contact numbers are automatically shared on WhatsApp"}</li>
-              <li>3️⃣ {te ? "ఒకవేళ వారు తిరస్కరిస్తే మీ క్రెడిట్ తిరిగి మీ ఖాతాకు వస్తుంది (100% Refund)" : "If declined or no response within 7 days, your credit is 100% refunded"}</li>
+              <li>2️⃣ {te ? "అవతలి profile owner accept చేస్తే contact వివరాలు share అవుతాయి" : "Contact details are shared if the other profile owner accepts"}</li>
+              <li>3️⃣ {te ? "వారు decline చేస్తే request credit మీ balance కి తిరిగి వస్తుంది" : "If declined, the request credit is returned to your balance"}</li>
             </ol>
             {unlocked ? (
               <div className="mt-4 rounded-2xl bg-emerald-600 p-4 text-center text-white">
-                <p className="text-[12px] opacity-90">{te ? "✅ Unlock అయ్యింది — గౌరవంగా మాట్లాడండి 🙏" : "✅ Unlocked — talk respectfully 🙏"}</p>
+                <p className="text-[12px] opacity-90">{te ? "✅ అంగీకారం తర్వాత contact details అందుబాటులో ఉన్నాయి — గౌరవంగా మాట్లాడండి 🙏" : "✅ Contact details are available after acceptance — talk respectfully 🙏"}</p>
                 <p className="mt-1 text-2xl font-extrabold tracking-wider">{unlocked}</p>
                 <div className="mt-2 flex justify-center gap-2">
-                  <a href={`tel:${unlocked}`} className="rounded-xl bg-white px-4 py-2 text-sm font-bold text-emerald-700">📞 Call</a>
-                  <a href={`https://wa.me/91${unlocked}`} target="_blank" rel="noreferrer" className="rounded-xl bg-emerald-900 px-4 py-2 text-sm font-bold text-white">💬 WhatsApp</a>
+                  <a href={normalizedUnlocked ? `tel:+${normalizedUnlocked}` : undefined} aria-disabled={!normalizedUnlocked} className="rounded-xl bg-white px-4 py-2 text-sm font-bold text-emerald-700 aria-disabled:pointer-events-none aria-disabled:opacity-50">📞 Call</a>
+                  <a href={unlockedWhatsAppUrl || undefined} target="_blank" rel="noopener noreferrer" aria-disabled={!unlockedWhatsAppUrl} className="rounded-xl bg-emerald-900 px-4 py-2 text-sm font-bold text-white aria-disabled:pointer-events-none aria-disabled:opacity-50">💬 WhatsApp</a>
                 </div>
               </div>
             ) : null}
@@ -647,17 +456,17 @@ export default function ProfileView() {
                 <>
                 <button onClick={() => void doUnlock()} disabled={unlocking}
                   className="rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-60">
-                  {unlocking ? "Unlocking…" : "📞 Number Unlock (1 credit)"}
+                  {unlocking ? (te ? "చెక్ చేస్తున్నాం…" : "Checking access…") : (te ? "📞 అంగీకారం తర్వాత contact చూడండి" : "📞 Contact after acceptance")}
                 </button>
                 <a href={SITE_CONFIG.unlockBot(profile.tsap_id)} target="_blank" rel="noreferrer"
-                  title={te ? "Telegram లో ఓపెన్ అవుతుంది — 1 క్రెడిట్‌తో number వస్తుంది" : "Opens on Telegram — number for 1 credit"}
+                  title={te ? "Telegram లో accepted-interest contact access మాత్రమే చూపుతుంది" : "Telegram contact access requires an accepted interest"}
                   className="rounded-xl gold-gradient px-4 py-2.5 text-sm font-bold text-maroon">
-                  📞 {te ? "పూర్తి వివరాలు + నంబర్" : "Full details + Number"}
+                  📞 {te ? "Contact access (acceptance తర్వాత)" : "Contact access (after acceptance)"}
                 </a>
                 </>
               )}
               <Link href="/pricing" className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-bold text-slate-700">
-                💳 Paid plans (₹99 → 5 profiles)
+                💳 Paid plans (₹99 → 5 interest requests)
               </Link>
             </div>
           </section>
@@ -697,21 +506,10 @@ export default function ProfileView() {
             </p>
           ) : null}
 
-          {/* trust breakdown */}
-          {trust ? (
+          {myTsapId && profile.tsap_id === myTsapId && Object.keys(quality?.sections || {}).length ? (
             <section className="mt-4 rounded-3xl border border-slate-200 bg-white p-4">
-              <h2 className="text-sm font-bold text-slate-800">🛡️ Trust score {trust.score}/100 — {trust.badge_telugu}</h2>
-              <ul className="mt-2 space-y-1 text-[12px] text-slate-600">
-                {(trust.factors || []).map((f: Row, i: number) => (
-                  <li key={i}>{(f.points as number) > 0 ? "✅" : "•"} {f.telugu} <span className="text-slate-400">({f.points}/{f.max})</span></li>
-                ))}
-              </ul>
-            </section>
-          ) : null}
-
-          {Object.keys(quality?.sections || {}).length ? (
-            <section className="mt-4 rounded-3xl border border-slate-200 bg-white p-4">
-              <h2 className="text-sm font-bold text-slate-800">📝 Profile completeness {quality?.percent}%</h2>
+              <h2 className="text-sm font-bold text-slate-800">📝 Your profile fields: {quality?.percent}%</h2>
+              <p className="mt-1 text-[11px] text-slate-500">This measures filled fields only; it is not an identity or match score.</p>
               <div className="mt-2 grid grid-cols-2 gap-2 text-[12px] sm:grid-cols-4">
                 {Object.entries(quality.sections as Record<string, Row>).map(([k, v]) => (
                   <div key={k} className="rounded-xl bg-slate-50 p-2">
@@ -729,10 +527,10 @@ export default function ProfileView() {
           <ProfileRail kind="similar" profileId={profile.tsap_id} />
 
           <p className="mt-4 text-center text-[11px] text-slate-500">
-            🔐 {data.consent_note_telugu || (te ? "Numbers consent తోనే exchange అవుతాయి — ఇది ఎప్పుడూ safe గా ఉంటుంది" : "Numbers exchange with consent only — always kept safe")}
+            🔐 {data.consent_note_telugu || (te ? "Contact వివరాలు consent flow లో పంచుకోబడతాయి; స్వతంత్రంగా ధృవీకరించండి. External sharing ను ఈ సైట్ నియంత్రించలదు." : "Contact details follow the consent flow; verify independently. This site cannot control external sharing.")}
           </p>
 
-          {/* ⚡ Instant Contact Unlock & Monetization Modal */}
+          {/* Consent-gated contact access and request-credit purchase flow */}
           <QuickUnlockModal
             isOpen={showUnlockModal}
             onClose={() => setShowUnlockModal(false)}
@@ -777,6 +575,6 @@ export default function ProfileView() {
           />
         </>
       ) : null}
-    </main>
+    </div>
   );
 }

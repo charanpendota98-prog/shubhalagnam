@@ -1,8 +1,8 @@
 """
-⭐ WAVE 9 — PROFILE QUALITY + TRUST + SAVED SEARCHES + CONSENT LEDGER
+⭐ PROFILE COMPLETENESS + VERIFICATION FACTS + SAVED SEARCHES + CONSENT LEDGER
 ====================================================================
-  • profile_completeness()  → form lo em miss ayyindo % + Telugu tips (register/complete-profile fix)
-  • trust_score()           → verification + activity + completeness composite (badge)
+  • profile_completeness()  → form lo em miss ayyindo % + Telugu tips (not an identity/trust score)
+  • verification evidence  → separate recorded checks; never a numeric trust judgment
   • saved searches          → "ee filters తో కొత్త profiles వస్తే WhatsApp alert" (advanced feature)
   • consent ledger          → numbers eppudu evariki exchange అయ్యాయి (audit trail, disputes ki)
   • interest templates      → Telugu ready-made messages (users ki easy + spam takkuva)
@@ -16,9 +16,15 @@ import re
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
+
+def _has_verification_evidence(user: Dict[str, Any]) -> bool:
+    u = user or {}
+    return bool(u.get("phone_verified") or u.get("selfie_verified")
+                or u.get("photo_status") == "approved" or u.get("id_verified"))
+
 from hardening import clean, req_int, req_text, validation_error
 
-STATE_DIR = os.path.dirname(os.path.abspath(__file__))
+STATE_DIR = os.environ.get("MANA_VIVAHA_STATE_DIR", os.path.dirname(os.path.abspath(__file__)))
 SAVED_STATE_FILE = os.path.join(STATE_DIR, "saved_searches_state.json")
 CONSENT_STATE_FILE = os.path.join(STATE_DIR, "consent_ledger_state.json")
 
@@ -113,19 +119,19 @@ def profile_completeness(user: Dict[str, Any]) -> Dict[str, Any]:
                for f in COMPLETENESS_FIELDS if not _filled(user, f)]
     important = [m for m in missing if m["weight"] >= 5 and not m.get("optional")][:5]
     if percent >= 90:
-        level, telugu = "excellent", "🌟 Excellent — మీ profile complete గా ఉంది, matches ఎక్కువ వస్తాయి"
+        level, telugu = "excellent", "✅ Profile‌లోని చాలా వివరాలు నింపబడ్డాయి; member-entered వివరాలను స్వతంత్రంగా నిర్ధారించండి."
     elif percent >= 70:
-        level, telugu = "good", "✅ Good — konchem fields add చేస్తే ఇంకా మంచి matches"
+        level, telugu = "good", "📝 Profile‌ను మరింత పూర్తి చేయడానికి చూపించిన ఖాళీ fields పరిశీలించండి."
     elif percent >= 45:
-        level, telugu = "average", "🟡 Average — photo + about_myself add చేస్తే 3x responses (matrimony survey)"
+        level, telugu = "average", "📝 Profile వివరాలు ఇంకా జోడించవచ్చు; ఫలితాలు లేదా responses‌కు హామీ లేదు."
     else:
-        level, telugu = "low", "🔴 Incomplete — ee profile కి matches తక్కువ వస్తాయి, ippude fill చెయ్యండి"
+        level, telugu = "low", "📝 Profile వివరాలు నింపడానికి చూపించిన fields‌ను పరిశీలించండి."
     return {
         "percent": percent, "level": level, "verdict_telugu": telugu,
         "missing": missing[:12], "missing_count": len(missing),
         "important_telugu": [f"➕ {m['label']} add చెయ్యండి" for m in important],
         "sections": _section_breakdown(user),
-        "bonus_telugu": "📸 Photo ఉన్న profiles కి 5x views · ✅ OTP verify ఉంటే trust badge · 📝 about_myself ఉంటే better matches",
+        "bonus_telugu": "📸 Photo visibility privacy settings పై ఆధారపడి ఉంటుంది. Phone OTP ఆ number access‌ను మాత్రమే నిర్ధారిస్తుంది; profile వివరాలు సభ్యుడు అందిస్తారు.",
     }
 
 
@@ -142,67 +148,26 @@ def _section_breakdown(user: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
 
 
 # ---------------------------------------------------------------------------
-# 2. TRUST SCORE
+# 2. LEGACY TRUST-SCORE SHIM
 # ---------------------------------------------------------------------------
 def trust_score(user: Dict[str, Any], interests: Optional[List[Dict[str, Any]]] = None,
                 reports_against: int = 0, blocks_against: int = 0) -> Dict[str, Any]:
-    """Composite trust: verify + completeness + activity − complaints."""
+    """Deprecated compatibility shim: expose verification/completeness facts only.
+
+    Verification, profile completeness, activity, reports, and blocks are not
+    collapsed into a numeric trustworthiness judgment.
+    """
     u = user or {}
-    factors: List[Dict[str, Any]] = []
-    score = 0
-
-    verified = bool(u.get("is_verified") or u.get("phone_verified"))
-    score += 25 if verified else 0
-    factors.append({"key": "phone_verified", "points": 25 if verified else 0, "max": 25,
-                    "telugu": "✅ Phone verified" if verified else "❌ Phone verify చెయ్యండి (25 pts)"})
-
-    comp = profile_completeness(u)["percent"]
-    comp_points = int(round(comp * 0.25))            # max 25
-    score += comp_points
-    factors.append({"key": "completeness", "points": comp_points, "max": 25,
-                    "telugu": f"📝 Profile completeness {comp}%"})
-
-    has_photo = bool(u.get("photo_urls"))
-    score += 15 if has_photo else 0
-    factors.append({"key": "photo", "points": 15 if has_photo else 0, "max": 15,
-                    "telugu": "📸 Photo ఉంది" if has_photo else "📸 Photo add చెయ్యండి (15 pts)"})
-
-    about = len(str(u.get("about_myself") or ""))
-    about_points = 10 if about >= 80 else (6 if about >= 30 else 0)
-    score += about_points
-    factors.append({"key": "about", "points": about_points, "max": 10,
-                    "telugu": "📄 About section బాగుంది" if about_points == 10 else "📄 'మీ gurinchi' kochem రాయండి (10 pts)"})
-
-    src = "site"
-    act_points = 0
-    if interests is not None:
-        replied = [i for i in interests if i.get("status") in ("accepted", "declined")]
-        act_points = min(10, 2 * len(replied))
-        factors.append({"key": "activity", "points": act_points, "max": 10,
-                        "telugu": f"💬 {len(replied)} requests కి reply iccharu"})
-    else:
-        factors.append({"key": "activity", "points": 0, "max": 10,
-                        "telugu": "💬 Requests కి reply isthe trust perugutundi"})
-    score += act_points
-
-    penalty = min(20, 5 * int(reports_against or 0) + 3 * int(blocks_against or 0))
-    if penalty:
-        factors.append({"key": "complaints", "points": -penalty, "max": 0,
-                        "telugu": f"⚠️ {reports_against} report / {blocks_against} block — {penalty} pts deduct"})
-    score -= penalty
-
-    score = max(0, min(100, score))
-    if score >= 80:
-        level, badge = "gold", "🥇 High trust — verified + complete profile"
-    elif score >= 60:
-        level, badge = "silver", "🥈 Good trust profile"
-    elif score >= 35:
-        level, badge = "bronze", "🥉 Basic — verify + photo add చెయ్యండి"
-    else:
-        level, badge = "new", "🆕 కొత్త profile — trust peragadaniki steps kinda ఉన్నాయి"
-    tips = [f["telugu"] for f in factors if f["max"] and f["points"] < f["max"]]
-    return {"score": score, "level": level, "badge_telugu": badge, "factors": factors,
-            "next_steps_telugu": tips[:4], "source": src}
+    return {
+        "calculated": False,
+        "verification_evidence": {
+            "phone_verified": bool(u.get("phone_verified")),
+            "photo_reviewed": bool(u.get("selfie_verified") or u.get("photo_status") == "approved"),
+            "id_reviewed": bool(u.get("id_verified")),
+        },
+        "profile_completeness_percent": profile_completeness(u).get("percent", 0),
+        "notice": "No trust score is calculated. Verify identity and member-provided details independently.",
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -210,7 +175,7 @@ def trust_score(user: Dict[str, Any], interests: Optional[List[Dict[str, Any]]] 
 # ---------------------------------------------------------------------------
 FILTER_KEYS = ["gender", "caste", "district", "state", "job", "education", "marital_status", "religion",
                "age_min", "age_max", "salary_min", "salary_max", "height_min", "height_max",
-               "verified_only", "photo_only", "dosham", "star", "q", "sort"]
+               "verified_only", "photo_only", "dosham", "star", "q"]
 
 
 def normalize_filters(raw: Dict[str, Any]) -> Dict[str, Any]:
@@ -303,7 +268,7 @@ def matches_filters(user: Dict[str, Any], filters: Dict[str, Any]) -> bool:
         return False
     if f.get("religion") and lc(u.get("religion", "Hindu")) != lc(f["religion"]):
         return False
-    if f.get("verified_only") and not (u.get("is_verified") or u.get("phone_verified")):
+    if f.get("verified_only") and not _has_verification_evidence(u):
         return False
     if f.get("photo_only") and not u.get("photo_urls"):
         return False

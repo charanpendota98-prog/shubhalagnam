@@ -60,7 +60,7 @@ export default function VendorsPage() {
   };
 
   return (
-    <main className="min-h-dvh bg-cream pb-36">
+    <div className="min-h-dvh bg-cream pb-36">
       {/* HERO */}
       <section className="maroon-gradient text-white">
         <div className="max-w-7xl mx-auto px-4 py-9">
@@ -88,7 +88,7 @@ export default function VendorsPage() {
           <div className="mt-4 flex flex-wrap gap-2 text-[11px]">
             <span className="px-3 py-1 rounded-full bg-white/10">{cats.length || 18} categories</span>
             <span className="px-3 py-1 rounded-full bg-white/10">{data?.total ?? "…"} vendors listed</span>
-            <span className="px-3 py-1 rounded-full bg-[#D4AF37] text-maroon font-bold">Verified badge + rating</span>
+            <span className="px-3 py-1 rounded-full bg-white/10">Paid placement; no verification badge included</span>
             <span className="px-3 py-1 rounded-full bg-white/10">{te ? "Enquiries direct మీ WhatsApp కి" : "Enquiries direct to your WhatsApp"}</span>
           </div>
         </div>
@@ -141,7 +141,7 @@ export default function VendorsPage() {
               <div className="text-4xl">🔍</div>
               <div className="mt-2 font-bold text-maroon">{te ? "ఈ filter కి vendors దొరకలేదు" : "No vendors for this filter"}</div>
               <div className="text-[12px] text-gray-600 mt-1 telugu">
-                {te ? "మీ business ని మొదటిగా add చెయ్యండి — మన team 2 గంటల్లో verify చేసి listing live చేస్తుంది." : "Add your business first — our team verifies in 2 hours and takes the listing live."}
+                {te ? "మీ business ను directory లో జోడించండి. Payment review listing placement కోసం మాత్రమే; ఇది business లేదా identity verification కాదు." : "Add your business to the directory. Payment review is for listing placement only; it does not verify the business or its identity."}
               </div>
               <Link href="/vendors/register" className="mt-3 inline-block gold-gradient text-maroon font-bold text-[12px] px-4 py-2.5 rounded-xl">
                 {te ? "🏪 Free గా register చెయ్యండి" : "🏪 Register free"}
@@ -162,7 +162,7 @@ export default function VendorsPage() {
                     <div className="text-[11px] text-gray-500 mt-0.5">📍 {v.city}{v.district && v.district !== v.city ? `, ${v.district}` : ""}</div>
                   </div>
                   <div className="text-right shrink-0">
-                    {v.verified && <div className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-2 py-0.5">✅ Verified</div>}
+                    {v.verified && <div title="Manually reviewed by staff" className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-2 py-0.5">✓ Staff reviewed</div>}
                     {v.package === "V_PREMIUM" && <div className="mt-1 text-[10px] font-bold text-maroon bg-gold/20 rounded-full px-2 py-0.5">👑 Premium</div>}
                   </div>
                 </div>
@@ -273,6 +273,6 @@ export default function VendorsPage() {
           take agreement + bill. Problem? Report: manavivaha.in/safety</>}
         </div>
       </div>
-    </main>
+    </div>
   );
 }

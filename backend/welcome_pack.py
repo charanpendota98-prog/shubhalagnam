@@ -6,7 +6,7 @@ User adigindi (Telugu):
    vadi caste channels — telegram and whatsapp channels — vadi caste related"
 
 Ee module lo:
-  • top-3 matches ni user ki WhatsApp message ga marchadam (numbers 🔒 — links matrame)
+  • up to 3 approved profiles for independent review (numbers 🔒 — links only)
   • caste / region / religion / official channel links (Telegram + WhatsApp) build cheyyadam
   • okate function: build_welcome_pack(user, tsap_id, matches) → dict (API + queue rendu vaadutayi)
 
@@ -18,9 +18,11 @@ RULES (user privacy policy — marchakoodadu):
 from __future__ import annotations
 
 import os
+import re
 from typing import Any, Dict, List, Optional
 
 from channels_config import SITE, caste_channel_links, channel_links, CHANNELS
+from interest import EXPIRY_DAYS, PLANS, REFUND_ON_DECLINE
 
 
 # --------------------------------------------------------------------------- #
@@ -30,9 +32,15 @@ def safe_profile_summary(p: Dict[str, Any]) -> Dict[str, Any]:
     """Match profile నుంచి WhatsApp/website కి pani చేసే safe fields మాత్రమే."""
     p = p or {}
     tsap_id = str(p.get("tsap_id", ""))
+    verification = (
+        "Government ID reviewed" if p.get("id_verified") else
+        "Photo reviewed" if p.get("selfie_verified") or p.get("photo_status") == "approved" else
+        "Phone OTP checked" if p.get("phone_verified") else ""
+    )
+    first_name = str(p.get("full_name") or "").strip().split()
     return {
         "tsap_id": tsap_id,
-        "name": str(p.get("full_name", "") or "—"),
+        "name": first_name[0] if first_name else "—",
         "age": p.get("age", ""),
         "gender": p.get("gender", ""),
         "height": p.get("height", ""),
@@ -46,35 +54,29 @@ def safe_profile_summary(p: Dict[str, Any]) -> Dict[str, Any]:
         "state": p.get("state", ""),
         "star": p.get("star", ""),
         "rasi": p.get("rasi", ""),
-        "verified": bool(p.get("is_verified")),
+        "verification": verification,
         "photo_private": bool(p.get("photo_private") or p.get("privacy_mode") == "private"),
         "phone_masked": str(p.get("phone_masked", "") or ""),
         "link": f"{SITE}/search/{tsap_id}" if tsap_id else SITE,
     }
 
 
-def profile_line(idx: int, prof: Dict[str, Any], score: int = 0, reason: str = "") -> str:
-    """WhatsApp లో ఒక్క profile line (Telugu, emoji, numbers లేదు)."""
+def profile_line(idx: int, prof: Dict[str, Any]) -> str:
+    """One member-provided profile summary for independent review; no score/reason is shown."""
     emoji = ["1️⃣", "2️⃣", "3️⃣"][idx] if idx < 3 else "•"
-    bits = [f"{emoji} *{prof.get('name', '—')}* — {prof.get('age', '—')} yrs"]
-    fam = ", ".join([x for x in [str(prof.get("caste", "")), str(prof.get("district", ""))] if x])
-    if fam:
-        bits.append(fam)
-    work = " • ".join([x for x in [str(prof.get("education", "")), str(prof.get("job", ""))] if x])
-    if work:
-        bits.append(work)
-    line = f"{bits[0]}\n     {(' | '.join(bits[1:]))}" if len(bits) > 1 else bits[0]
+    name = str(prof.get("name") or "Profile")
+    age = prof.get("age")
+    title = f"{emoji} *{name}*" + (f" — {age} yrs" if age not in (None, "", "—") else "")
+    details = [str(value) for value in (prof.get("caste"), prof.get("district"),
+                                         prof.get("education"), prof.get("job")) if value]
+    line = title + ("\n     " + " • ".join(details) if details else "")
     extra = []
-    if score:
-        extra.append(f"⭐ {score}% match")
-    if prof.get("verified"):
-        extra.append("✅ verified")
+    if prof.get("verification"):
+        extra.append(str(prof["verification"]))
     if prof.get("star"):
-        extra.append(f"🌟 {prof['star']}")
+        extra.append(f"Star (optional): {prof['star']}")
     if extra:
         line += f"\n     {' • '.join(extra)}"
-    if reason:
-        line += f"\n     💡 {reason}"
     line += f"\n     🔗 {prof.get('link', SITE)}  (ID: {prof.get('tsap_id', '—')})"
     return line
 
@@ -97,7 +99,7 @@ def channel_line(link: Dict[str, Any], why: str = "") -> str:
     if row:
         out += "\n     " + " | ".join(row)
     else:
-        out += "\n     (link soon — support ki adagandi)"
+        out += "\n     No destination is configured for this channel."
     return out
 
 
@@ -106,15 +108,20 @@ def channels_text(links: List[Dict[str, Any]], why_map: Optional[Dict[str, str]]
     if not links:
         return ""
     lines = [channel_line(l, why_map.get(l.get("key", ""), "")) for l in links]
-    return "📢 *మీ caste channels — daily matches ఇక్కడ* 👇\n" + "\n".join(lines)
+    return ("📢 *మీకు సంబంధించిన channel directory links* 👇\n"
+            "లింకుల external availability ఆటోమేటిక్‌గా తనిఖీ చేయబడదు; delivery లేదా daily posts హామీ కాదు.\n" +
+            "\n".join(lines))
 
 
 def support_note() -> str:
-    """WhatsApp channel link configure అవ్వకపోతే — support కి ఎలా అడగాలి (Telugu)."""
-    wa = os.getenv("SUPPORT_WHATSAPP_NUMBER", os.getenv("ADMIN_WHATSAPP_NUMBER", "")).strip()
-    if wa:
-        return f"📱 WhatsApp channel links కూడా pampistham — support కి 'CHANNEL' అని ping చెయ్యండి: https://wa.me/{wa}"
-    return "📱 WhatsApp channel links configure avutunnayi — Telegram links ippude join అవ్వండి (daily matches)."
+    """Use a normalized support number only; invalid/missing values do not create a broken URL."""
+    raw = os.getenv("SUPPORT_WHATSAPP_NUMBER", os.getenv("ADMIN_WHATSAPP_NUMBER", ""))
+    digits = re.sub(r"\D", "", str(raw or ""))
+    if len(digits) == 10:
+        digits = "91" + digits
+    if re.fullmatch(r"[1-9]\d{7,14}", digits):
+        return f"📱 WhatsApp channel link కావాలంటే support కి 'CHANNEL' అని ping చెయ్యండి: https://wa.me/{digits}"
+    return f"📱 WhatsApp support number is not configured; use {SITE}/safety for current contact options."
 
 
 # --------------------------------------------------------------------------- #
@@ -124,7 +131,7 @@ def build_welcome_pack(user: Dict[str, Any], tsap_id: str, matches: List[Dict[st
                        max_profiles: int = 3, max_channels: int = 5) -> Dict[str, Any]:
     """
     🎁 Full welcome pack:
-      profiles  : top-3 matches (safe summary — phone mask matrame)
+      profiles  : up to 3 available member profiles (safe summary — no contact fields)
       channels  : caste → region → (religion) → official (telegram + whatsapp links)
       message   : WhatsApp lo velle Telugu message (numbers ledu)
     """
@@ -134,9 +141,6 @@ def build_welcome_pack(user: Dict[str, Any], tsap_id: str, matches: List[Dict[st
         row = dict(m or {})
         cand = row.get("profile") or row.get("user") or row
         s = safe_profile_summary(cand)
-        s["score"] = int(row.get("score", 0) or 0)
-        reasons = row.get("reasons") or []
-        s["reason"] = str(reasons[0]) if reasons else ""
         profs.append(s)
 
     chans = caste_channel_links(user, limit=max_channels)
@@ -148,23 +152,41 @@ def build_welcome_pack(user: Dict[str, Any], tsap_id: str, matches: List[Dict[st
         why = {}
 
     _n = len(profs)
-    _n_te = {0: "మీ matches ready", 1: "మీ 1 FREE match ready", 2: "మీ 2 FREE matches ready"}.get(_n, "మీ 3 FREE matches ready")
+    count_label = f"{_n} profile{'s' if _n != 1 else ''} to review" if _n else "No profiles available yet"
+    member_name = str(user.get("full_name") or "").strip().split()
+    greeting = f" {member_name[0]} గారు" if member_name else ""
+    community = str(user.get("caste") or "").strip()
+    sub_community = str(user.get("sub_caste") or "").strip()
+    district = str(user.get("district") or "").strip()
+    state = str(user.get("state") or "").strip()
+    location = ", ".join(part for part in (district, state) if part)
+    free_requests = int(PLANS.get("FREE", {}).get("profiles", 0) or 0)
+    entry_plan = PLANS.get("S_99", {})
+    expiry_policy = (
+        f"On decline or {EXPIRY_DAYS}-day expiry, one request credit is returned once (not a cash refund)."
+        if REFUND_ON_DECLINE else
+        f"Declined requests do not return a credit; on {EXPIRY_DAYS}-day expiry, one request credit is returned once (not a cash refund)."
+    )
+    profile_identity = f"💍 {community}" if community else ""
+    if sub_community:
+        profile_identity += f" / {sub_community}"
+    if location:
+        profile_identity += f" | 📍 {location}"
     head = (
-        f"🎉 *{user.get('full_name', 'గారు')} గారు — {_n_te}!* 🎉\n"
-        f"🆔 *{tsap_id}* | 💍 {user.get('caste', '—')}"
-        f"{(' / ' + str(user['sub_caste'])) if user.get('sub_caste') else ''}"
-        f" | 📍 {user.get('district', '—')}, {user.get('state', 'TS')}\n"
+        f"🎉 *Mana Vivaha —{greeting} {count_label}* 🎉\n"
+        f"🆔 *{tsap_id}*" + (f" | {profile_identity}" if profile_identity else "") + "\n"
         f"━━━━━━━━━━━━━━━━"
     )
     body_parts = [head]
     if profs:
-        body_parts.append(f"🔎 *మీ {_n} profile{'s' if _n != 1 else ''}* (numbers 🔒 — interest accept = consent తో మాత్రమే exchange):\n" +
-                          "\n".join(profile_line(i, p, p.get("score", 0), p.get("reason", ""))
-                                    for i, p in enumerate(profs)))
+        body_parts.append(
+            f"🔎 *{_n} profile{'s' if _n != 1 else ''} to review* (details are member-provided; contact sharing follows owner acceptance and privacy settings):\n" +
+            "\n".join(profile_line(i, p) for i, p in enumerate(profs))
+        )
     else:
-        body_parts.append("🔎 మీ matches ఇంకా prepare avutunnai — konchem sepatlo WhatsApp లో vastayi.")
-    body_parts.append("✅ Interest pampali అంటే: మీ TSAP ID + వాళ్ల ID తో ee link open చెయ్యండి — " +
-                      "1 credit (మొదటి 3 FREE), decline అయితే credit refund.")
+        body_parts.append(f"🔎 No approved candidate profiles are available right now. Open {SITE}/matches to search with filters.")
+    body_parts.append(f"✅ Interest request: 1 credit each. The first {free_requests} requests are free. {expiry_policy}")
+    body_parts.append(f"💳 Paid request packs start at ₹{entry_plan.get('price', 99)} for {entry_plan.get('profiles', 5)} interest requests. Check /requests for current features and terms.")
     if chans:
         body_parts.append(channels_text(chans, why))
     body_parts.append(support_note())
@@ -177,10 +199,10 @@ def build_welcome_pack(user: Dict[str, Any], tsap_id: str, matches: List[Dict[st
         "message_text": message,
         "message_preview": message[:2600],   # channels block kooda preview lo kanipinchali
         "rules_telugu": [
-            "🔒 Numbers ఎప్పుడు public గా ఇవ్వము — interest accept (consent) తో మాత్రమే exchange",
-            "🆓 మొదటి 3 profiles + 3 requests FREE",
-            "💰 ₹99 → 5 profiles + boost (మొదటి 3 FREE taruvata)",
-            "📢 మీ caste Telegram + WhatsApp channels లో daily matches — join అవ్వండి",
+            "🔒 Contact details owner acceptance మరియు privacy settings ప్రకారం మాత్రమే share అవుతాయి; paid credits consent‌ను దాటవేయవు.",
+            f"🆓 మొదటి {free_requests} interest requests free. {expiry_policy}",
+            f"💰 Paid request packs ₹{entry_plan.get('price', 99)} నుంచి ప్రారంభమవుతాయి; features/terms కోసం /requests చూడండి.",
+            "📢 Channel directory links మాత్రమే; external link availability లేదా delivery హామీ లేదు.",
         ],
         "has_numbers": False,
     }

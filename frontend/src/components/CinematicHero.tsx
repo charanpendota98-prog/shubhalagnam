@@ -3,136 +3,100 @@
 /**
  * 👑 MANA VIVAHA — ELEGANT COMPACT CINEMATIC WEDDING HERO
  * ========================================================
- * • Ultra-HD Telugu wedding background video with guaranteed native autoplay.
+ * • Local Telugu wedding background film with a poster fallback when playback is unavailable.
  * • Clean, compact, refined side typography & action panel.
  * • 100% uncluttered, neat, and perfectly proportioned layout.
  */
 
 import Link from "next/link";
+import Image from "next/image";
 import { useEffect, useRef } from "react";
 import { useLang, type Lang } from "@/lib/lang";
 
 
 const COPY = {
   te: {
-    kicker: "పవిత్రమైన తెలుగు వివాహ వేదిక · మన వివాహ",
-    titleA: "నమ్మకమైన పవిత్ర బంధం,",
-    titleB: "ఇక్కడే మొదలవుతుంది",
-    sub: "తెలంగాణ & ఆంధ్రప్రదేశ్ కుటుంబాల కోసం గోప్యతకు ప్రాధాన్యం ఇచ్చే వేదిక — ప్రతి ప్రొఫైల్‌కు స్పష్టమైన వెరిఫికేషన్ స్థాయి, ఫోటో నియంత్రణ మరియు గౌరవప్రదమైన అనుసంధానం.",
-    pricePill: "₹29 నుంచి ప్రారంభం · మొదటి 3 ప్రొఫైల్స్ పూర్తిగా ఉచితం (FREE)",
+    kicker: "తెలుగు కుటుంబాల కోసం · మన వివాహ",
+    titleA: "మీ వివాహ ప్రయాణం,",
+    titleB: "ఇక్కడ మొదలవుతుంది",
+    sub: "తెలంగాణ & ఆంధ్రప్రదేశ్ కుటుంబాల కోసం — ప్రొఫైల్ వివరాలను జాగ్రత్తగా పరిశీలించండి, verification స్థాయిని స్పష్టంగా చూడండి, ఫోటో గోప్యతను మీరే నియంత్రించండి.",
+    pricePill: "₹99 నుంచి · మొదటి 3 interest requests ఉచితం",
     ctaReg: "ఉచిత నమోదు — FREE",
     ctaBrowse: "సంబంధాలు చూడండి",
-    trust: [
-      { icon: "🛡️", t: "100% OTP & ఆధార్ ధృవీకరణ", sub: "నకిలీ ప్రొఫైల్స్ నివారణ" },
-      { icon: "🔒", t: "సంపూర్ణ ఫోటో గోప్యత", sub: "వాటర్‌మార్క్ భద్రత" },
-      { icon: "👨‍👩‍👧‍👦", t: "నేరుగా కుటుంబాల పరిచయం", sub: "చాటింగ్ లేదు • డైరెక్ట్ కనెక్ట్" },
-    ],
-    // 🛡️ honest stats: `key` ni useLiveStats() backend nunchi real value tho fill chestundi.
-    // "3,500+ marriages" lanti substatiate cheyale ni number tisesaru — yerine nijam
-    // coverage (districts) + verified profiles. 100% safe = policy claim (count kaadu).
-    stats: [
-      { key: "profiles", val: "", lbl: "ధృవీకరించిన ప్రొఫైల్స్" },
-      { key: "districts", val: "", lbl: "జిల్లాల కవరేజ్" },
-      { key: "channels", val: "", lbl: "కమ్యూనిటీ ఛానల్స్" },
-      { key: "safety", val: "24/7", lbl: "భద్రతా సహాయం" }
-    ],
   },
   en: {
-    kicker: "Prestigious Telugu Matrimony · Mana Vivaha",
-    titleA: "Sacred, trusted bonds,",
-    titleB: "begin right here.",
-    sub: "The most trusted matrimonial platform for Telangana & Andhra Pradesh families — 100% verified profiles, complete photo privacy, and dignified family connections.",
-    pricePill: "From ₹29 · first 3 profiles completely free (FREE)",
-    ctaReg: "Free Register — FREE",
-    ctaBrowse: "Browse Profiles",
-    trust: [
-      { icon: "🛡️", t: "100% OTP & Identity Verified", sub: "Zero fake profiles" },
-      { icon: "🔒", t: "Complete Photo Privacy", sub: "Watermark protected" },
-      { icon: "👨‍👩‍👧‍👦", t: "Direct Family-to-Family Connect", sub: "No chatting • Direct numbers" },
-    ],
-    stats: [
-      { key: "profiles", val: "", lbl: "Verified Profiles" },
-      { key: "districts", val: "", lbl: "Districts Covered" },
-      { key: "channels", val: "", lbl: "Community Channels" },
-      { key: "safety", val: "24/7", lbl: "Safety Support" }
-    ],
+    kicker: "For Telugu families · Mana Vivaha",
+    titleA: "Your Telugu matrimony journey",
+    titleB: "starts here.",
+    sub: "For families across Telangana and Andhra Pradesh. Review profile details carefully, see each verification status clearly, and choose your photo privacy settings.",
+    pricePill: "From ₹99 · first 3 interest requests are free",
+    ctaReg: "Register free",
+    ctaBrowse: "Browse profiles",
   },
 };
 
 export default function CinematicHero() {
   const { lang } = useLang();
-  const te = lang === "te";
   const L = COPY[(lang as Lang) in COPY ? (lang as Lang) : "te"];
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
-  // Guaranteed Native Autoplay & Loop handling
+  // Keep the wedding film decorative: only play it when it is visible and
+  // motion is allowed. A static, optimized poster remains available otherwise.
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
 
-    video.defaultMuted = true;
-    video.muted = true;
-    video.playsInline = true;
-    video.autoplay = true;
-    video.loop = true;
-    video.setAttribute("playsinline", "true");
-    video.setAttribute("webkit-playsinline", "true");
-    video.setAttribute("muted", "true");
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+    let isVisible = !("IntersectionObserver" in window);
+    let disposed = false;
 
-    const tryPlay = () => {
-      if (video.paused) {
-        const promise = video.play();
-        if (promise !== undefined) {
-          promise.catch(() => {});
-        }
+    const syncPlayback = () => {
+      if (disposed || reducedMotion.matches || document.visibilityState !== "visible" || !isVisible) {
+        video.pause();
+        return;
       }
+      if (video.readyState === HTMLMediaElement.HAVE_NOTHING) video.load();
+      void video.play().catch(() => {
+        // Autoplay can be blocked by browser policy; the optimized poster is the fallback.
+      });
     };
 
-    tryPlay();
-    const timer1 = setTimeout(tryPlay, 100);
-    const timer2 = setTimeout(tryPlay, 400);
-
-    video.addEventListener("canplay", tryPlay);
-    video.addEventListener("canplaythrough", tryPlay);
-    video.addEventListener("loadedmetadata", tryPlay);
-    window.addEventListener("touchstart", tryPlay, { once: true, passive: true });
-    window.addEventListener("scroll", tryPlay, { once: true, passive: true });
-    
-    const handleVis = () => {
-      if (document.visibilityState === "visible") tryPlay();
-    };
-    document.addEventListener("visibilitychange", handleVis);
+    const observer = "IntersectionObserver" in window
+      ? new IntersectionObserver(([entry]) => {
+          isVisible = !!entry?.isIntersecting;
+          syncPlayback();
+        }, { threshold: 0.05 })
+      : null;
+    observer?.observe(video);
+    reducedMotion.addEventListener("change", syncPlayback);
+    document.addEventListener("visibilitychange", syncPlayback);
+    syncPlayback();
 
     return () => {
-      clearTimeout(timer1);
-      clearTimeout(timer2);
-      video.removeEventListener("canplay", tryPlay);
-      video.removeEventListener("canplaythrough", tryPlay);
-      video.removeEventListener("loadedmetadata", tryPlay);
-      document.removeEventListener("visibilitychange", handleVis);
+      disposed = true;
+      observer?.disconnect();
+      reducedMotion.removeEventListener("change", syncPlayback);
+      document.removeEventListener("visibilitychange", syncPlayback);
+      video.pause();
     };
   }, []);
 
-  // Floating Golden Akshathalu Particles
+  // The canvas is a purely decorative effect. Avoid its animation on small
+  // screens, when the hero is off-screen, or when reduced motion is requested.
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+    if (!canvas || reducedMotion.matches || window.innerWidth < 640) return;
+
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    let animId: number;
+    let frameId = 0;
+    let visible = !("IntersectionObserver" in window);
     let width = (canvas.width = window.innerWidth);
     let height = (canvas.height = window.innerHeight);
-
-    const onResize = () => {
-      if (!canvas) return;
-      width = canvas.width = window.innerWidth;
-      height = canvas.height = window.innerHeight;
-    };
-    window.addEventListener("resize", onResize);
-
-    const particles = Array.from({ length: 24 }, () => ({
+    const particles = Array.from({ length: 14 }, () => ({
       x: Math.random() * width,
       y: Math.random() * height,
       size: Math.random() * 2 + 1,
@@ -142,60 +106,91 @@ export default function CinematicHero() {
       color: Math.random() > 0.4 ? "#F59E0B" : "#FDE047",
     }));
 
+    const stop = () => {
+      if (frameId) cancelAnimationFrame(frameId);
+      frameId = 0;
+    };
+    const shouldAnimate = () =>
+      visible && !reducedMotion.matches && document.visibilityState === "visible" && window.innerWidth >= 640;
     const render = () => {
+      frameId = 0;
+      if (!shouldAnimate()) return;
       ctx.clearRect(0, 0, width, height);
-      particles.forEach((p) => {
-        p.y += p.speedY;
-        p.x += p.speedX;
-        if (p.y > height) {
-          p.y = -10;
-          p.x = Math.random() * width;
+      particles.forEach((particle) => {
+        particle.y += particle.speedY;
+        particle.x += particle.speedX;
+        if (particle.y > height) {
+          particle.y = -10;
+          particle.x = Math.random() * width;
         }
         ctx.beginPath();
-        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-        ctx.fillStyle = p.color;
-        ctx.globalAlpha = p.opacity;
+        ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
+        ctx.fillStyle = particle.color;
+        ctx.globalAlpha = particle.opacity;
         ctx.shadowBlur = 5;
         ctx.shadowColor = "#F59E0B";
         ctx.fill();
       });
-      animId = requestAnimationFrame(render);
+      frameId = requestAnimationFrame(render);
     };
-    render();
+    const start = () => {
+      if (shouldAnimate() && !frameId) frameId = requestAnimationFrame(render);
+      else if (!shouldAnimate()) stop();
+    };
+    const resize = () => {
+      width = canvas.width = window.innerWidth;
+      height = canvas.height = window.innerHeight;
+      start();
+    };
+    const observer = "IntersectionObserver" in window
+      ? new IntersectionObserver(([entry]) => {
+          visible = !!entry?.isIntersecting;
+          start();
+        })
+      : null;
+    observer?.observe(canvas);
+    window.addEventListener("resize", resize, { passive: true });
+    document.addEventListener("visibilitychange", start);
+    reducedMotion.addEventListener("change", start);
+    start();
 
     return () => {
-      window.removeEventListener("resize", onResize);
-      cancelAnimationFrame(animId);
+      stop();
+      observer?.disconnect();
+      window.removeEventListener("resize", resize);
+      document.removeEventListener("visibilitychange", start);
+      reducedMotion.removeEventListener("change", start);
     };
   }, []);
 
   return (
     <section
-      className="relative min-h-[640px] sm:min-h-[620px] lg:min-h-[660px] flex items-center overflow-hidden bg-[#0d0107] text-white"
-      aria-label="Mana Vivaha — Telugu Matrimony"
+      className="cinematic-hero relative min-h-[600px] sm:min-h-[620px] lg:min-h-[660px] flex items-center overflow-hidden bg-gradient-to-br from-[#5b0e32] via-[#cf5a42] to-[#0f766e] text-white"
+      aria-label={lang === "te" ? "మన వివాహ — తెలుగు వివాహ పరిచయ వేదిక" : "Mana Vivaha — Telugu matrimony"}
     >
-      {/* ================= 1. 4K CINEMATIC WEDDING VIDEO BACKGROUND ================= */}
-      <div className="absolute inset-0 overflow-hidden" aria-hidden>
+      {/* ================= 1. LOCAL CINEMATIC WEDDING FILM BACKGROUND ================= */}
+      <div className="absolute inset-0 overflow-hidden" aria-hidden="true">
+        <Image
+          src="/promo/hero-bg-ultra.jpg"
+          alt=""
+          fill
+          priority
+          sizes="100vw"
+          className="hero-poster object-cover object-[62%_center] sm:object-center"
+        />
         <video
           ref={videoRef}
-          autoPlay
+          poster="/promo/hero-bg-ultra.jpg"
           loop
           muted
           playsInline
-          preload="metadata"
-          poster="/promo/hero-bg-ultra.jpg"
+          preload="none"
           disablePictureInPicture
-          className="h-full w-full object-cover object-[62%_center] sm:object-center pointer-events-none select-none"
+          aria-hidden="true"
+          className="hero-video h-full w-full object-cover object-[62%_center] sm:object-center pointer-events-none select-none"
         >
           <source src="/promo/wedding-film.mp4" type="video/mp4" />
           <source src="/promo/wedding-story-film.mp4" type="video/mp4" />
-          {/* Fallback Image */}
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/promo/hero-bg-ultra.jpg"
-            alt="Royal Telugu Wedding"
-            className="h-full w-full object-cover object-center"
-          />
         </video>
       </div>
 
@@ -210,26 +205,28 @@ export default function CinematicHero() {
         className="absolute inset-0 z-[1] pointer-events-none"
         style={{
           background:
-            "linear-gradient(90deg, rgba(13,1,7,0.94) 0%, rgba(13,1,7,0.82) 42%, rgba(13,1,7,0.26) 72%, rgba(13,1,7,0.08) 100%)",
+            "linear-gradient(105deg, rgba(122,12,46,0.38) 0%, rgba(160,20,58,0.26) 38%, rgba(0,109,106,0.10) 72%, rgba(15,31,60,0.02) 100%)",
         }}
       />
       <div
         className="absolute inset-0 z-[1] pointer-events-none"
         style={{
           background:
-            "linear-gradient(180deg, rgba(13,1,7,0.5) 0%, transparent 30%, rgba(13,1,7,0.6) 80%, #0d0107 100%)",
+            "linear-gradient(180deg, rgba(15,31,60,0.06) 0%, transparent 38%, rgba(122,12,46,0.10) 68%, rgba(46,4,27,0.42) 100%)",
         }}
       />
 
-      {/* Ambient Lighting Accents */}
-      <div className="pointer-events-none absolute top-10 left-10 h-72 w-72 rounded-full bg-amber-500/10 blur-[100px]" />
+      {/* Layered jewel-tone light keeps the photo vivid while text remains legible. */}
+      <div className="pointer-events-none absolute -top-16 left-[-4rem] z-[2] h-72 w-72 rounded-full bg-rose-400/25 blur-[110px]" />
+      <div className="pointer-events-none absolute top-1/4 right-[-4rem] z-[2] h-80 w-80 rounded-full bg-teal-300/25 blur-[110px]" />
+      <div className="pointer-events-none absolute bottom-[-5rem] left-[28%] z-[2] h-72 w-72 rounded-full bg-amber-400/25 blur-[100px]" />
 
       {/* ================= 2. MAIN CONTAINER ================= */}
       <div className="relative z-[3] mx-auto w-full max-w-7xl px-5 sm:px-7 lg:px-10 py-9 sm:py-12">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-center">
           
           {/* LEFT/SIDE CONTAINER: COMPACT & REFINED LUXURY PANEL */}
-          <div className="lg:col-span-7 xl:col-span-6 text-left">
+          <div className="lg:col-span-8 xl:col-span-7 text-left">
             <div className="max-w-2xl space-y-4 sm:space-y-5 text-shadow-hero">
               
               {/* Auspicious Eyebrow Badge */}
@@ -281,10 +278,14 @@ export default function CinematicHero() {
                   <span className="text-amber-400">✦</span>
                   <span>{L.pricePill}</span>
                 </span>
+                <p className="mt-1.5 text-[10px] leading-relaxed text-white/75 sm:text-xs">
+                  {lang === "te" ? "చిత్రాలు సూచన కోసం మాత్రమే — సభ్యుల ప్రొఫైల్ ఫోటోలు కావు." : "Illustrative visuals only—not member profile photos."}
+                </p>
               </div>
 
             </div>
           </div>
+
 
         </div>
       </div>

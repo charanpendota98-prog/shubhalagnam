@@ -1,8 +1,5 @@
 "use client";
-/**
- * ⭐ WAVE 36 — TOP PICKS (mutual-ranked, boosted-first, gothram/surname/age filtered).
- * Backend /api/top-matches — login unna user ke (owner token).
- */
+/** Owner-only profile list; no compatibility score or preference-count ranking is shown. */
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { apiGet } from "@/lib/api";
@@ -16,7 +13,6 @@ export default function TopPicks() {
   const te = lang === "te";
   const [myId, setMyId] = useState("");
   const [rows, setRows] = useState<Row[]>([]);
-  const [mutual, setMutual] = useState(0);
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
@@ -24,9 +20,9 @@ export default function TopPicks() {
     try { id = localStorage.getItem("tsap_id") || ""; } catch { /* ignore */ }
     if (!id) { setLoaded(true); return; }
     setMyId(id);
-    void apiGet<Row>(`/api/top-matches/${encodeURIComponent(id)}?limit=8&min_score=60`).then(({ ok, data }) => {
+    void apiGet<Row>(`/api/top-matches/${encodeURIComponent(id)}?limit=8`).then(({ ok, data }) => {
       setLoaded(true);
-      if (ok && data) { setRows(data.results || []); setMutual(data.mutual_matches || 0); }
+      if (ok && data) setRows(data.results || []);
     });
   }, []);
 
@@ -34,9 +30,9 @@ export default function TopPicks() {
   if (!myId) {
     return (
       <div className="mb-4 rounded-2xl border border-gold/30 bg-white p-4 text-[13px]">
-        <p className="font-bold text-maroon">⭐ {te ? "Top Picks — మీకు ప్రత్యేకంగా (login తో)" : "Top Picks — curated for you (with login)"}</p>
+        <p className="font-bold text-maroon">⭐ {te ? "పరిశీలించడానికి profiles" : "Profiles to review"}</p>
         <p className="mt-1 text-gray-600">
-          {te ? "Login చేస్తే mutual score + boosted + గోత్రం/వయసు filter తో best matches ఇక్కడ చూపిస్తాం." : "Login to see best matches ranked by mutual score + boosted + gothram/age filters."}{" "}
+          {te ? "Login చేస్తే approved profiles చూడవచ్చు. Compatibility score లెక్కించము; సభ్యులు ఇచ్చిన వివరాలను స్వతంత్రంగా పరిశీలించండి." : "Sign in to view approved profiles. No compatibility score is calculated; review member-provided details independently."}{" "}
           <Link href="/login" className="font-bold text-maroon underline">{te ? "Login" : "Login"}</Link>
         </p>
       </div>
@@ -46,23 +42,21 @@ export default function TopPicks() {
   return (
     <div className="mb-4 rounded-2xl border border-gold/30 bg-gradient-to-b from-amber-50 to-white p-4">
       <div className="flex items-center gap-2">
-        <p className="text-[14px] font-bold text-maroon">⭐ {te ? "Top Picks — మీ best matches" : "Top Picks — your best matches"}</p>
-        {mutual > 0 && <span className="rounded-full bg-rose-100 px-2 py-0.5 text-[11px] font-bold text-rose-700">💞 {mutual} mutual</span>}
+        <p className="text-[14px] font-bold text-maroon">⭐ {te ? "పరిశీలించడానికి profiles" : "Profiles to review"}</p>
       </div>
+      <p className="mt-1 text-[11px] text-slate-600">{te ? "ఇది compatibility నిర్ణయం కాదు. Profile వివరాలు సభ్యులు అందించినవి." : "This is not a compatibility verdict. Profile details are member-provided."}</p>
       <div className="mt-3 flex gap-3 overflow-x-auto pb-1">
         {rows.map((r: Row) => (
           <Link key={r.tsap_id} href={`/search/${r.tsap_id}`}
             className="w-[190px] shrink-0 rounded-2xl border border-gold/25 bg-white p-3">
-            <div className="flex items-center justify-between">
-              <span className="rounded-full bg-[#7A0C2E] px-2 py-0.5 text-[11px] font-bold text-white">{r.score}/100</span>
-              {r.boosted ? <span className="text-[11px]">⚡</span> : null}
-              {r.has_voice ? <span className="text-[11px]">🎙️</span> : null}
-              {r.is_nri ? <span className="text-[11px]">✈️</span> : null}
+            <div className="flex min-h-5 items-center gap-2">
+              {r.boosted ? <span className="text-[11px]" title={te ? "ప్రమోట్ చేసిన ప్రొఫైల్" : "Promoted profile"}>📣</span> : null}
+              {r.has_voice ? <span className="text-[11px]" title={te ? "వాయిస్ పరిచయం ఉంది" : "Voice introduction available"}>🎙️</span> : null}
+              {r.is_nri ? <span className="text-[11px]" title={te ? "సభ్యుడు తెలిపిన విదేశీ స్థానం" : "Listed overseas location"}>✈️</span> : null}
             </div>
-            <p className="mt-1 truncate text-[13px] font-bold">{firstName(r.full_name)} • {r.age}y</p>
-            <p className="truncate text-[11px] text-gray-600">{r.caste} • {r.district}</p>
+            <p className="mt-1 truncate text-[13px] font-bold">{firstName(r.full_name) === "—" ? r.tsap_id : firstName(r.full_name)}{r.age ? ` • ${r.age}y` : ""}</p>
+            <p className="truncate text-[11px] text-gray-600">{[r.caste, r.district].filter(Boolean).join(" • ")}</p>
             <p className="font-mono text-[10px] text-gray-400">{r.tsap_id}</p>
-            {r.mutual?.both_like ? <p className="mt-1 text-[11px] font-bold text-rose-700">💞 Mutual!</p> : null}
           </Link>
         ))}
       </div>

@@ -1,7 +1,7 @@
 """
 🚀 WAVE 11 — ULTRA ADVANCED engines (Top matrimony sites kanna ekkuva)
 =====================================================================
- 1. 🛡️ gothram guard      → same-gothram auto-block (interest + matches + score)
+ 1. 🪔 gothram text compare → informational only; never filters interest or eligibility
  2. 💑 success stories     → submit → admin approve → public list + channel share text
  3. 💬 support FAQ         → Telugu Q&A search (widget + bot rendu vadathayi)
  4. 🔥 daily streak        → rojoo login ki bonus credits (retention engine)
@@ -22,7 +22,7 @@ from typing import Any, Dict, List, Optional
 
 from hardening import clean, req_text, validation_error
 
-STATE_DIR = os.path.dirname(os.path.abspath(__file__))
+STATE_DIR = os.environ.get("MANA_VIVAHA_APP_STATE_DIR", os.path.dirname(os.path.abspath(__file__)))
 STORIES_FILE = os.path.join(STATE_DIR, "stories_state.json")
 PUSH_FILE = os.path.join(STATE_DIR, "push_state.json")
 
@@ -75,7 +75,7 @@ def save_push() -> None:
 
 
 # ---------------------------------------------------------------------------
-# 1. 🛡️ GOTHRAM GUARD — same gothram = pelli kudadhu (Telugu custom MUST)
+# 1. Member-entered gothram text comparison (no eligibility decision)
 # ---------------------------------------------------------------------------
 def norm_gothram(value: Any) -> str:
     """' bharadwaj ' / 'Bharadwaja' → 'bharadwaj' (compare-safe)."""
@@ -90,50 +90,32 @@ def norm_gothram(value: Any) -> str:
 
 
 def gothram_check(a: Dict[str, Any], b: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Rendu profiles madhya gothram check.
-    • iddari gothram telisi, okate ayithe → blocked=True (interest/match aagali)
-    • okariki teliyakunte → warning matrame (block kadu — data ledu kabatti)
-    """
+    """Compare supplied gothram text without making a marriage or eligibility decision."""
     ga_raw = str((a or {}).get("gothram", "") or "").strip()
     gb_raw = str((b or {}).get("gothram", "") or "").strip()
     ga, gb = norm_gothram(ga_raw), norm_gothram(gb_raw)
-    if ga and gb and ga == gb:
-        return {
-            "same": True, "blocked": True,
-            "a_gothram": ga_raw, "b_gothram": gb_raw,
-            "reason": "same_gothram",
-            "verdict_telugu": (
-                f"🚫 Same గోత్రం ({ga_raw}) — పెళ్లి కూడదు (మన సంప్రదాయం). "
-                "Vere profiles చూడండి — exception కావాలి అంటే support కి చెప్పండి."),
-        }
-    if (ga and not gb) or (gb and not ga):
-        return {
-            "same": False, "blocked": False, "unknown_side": True,
-            "a_gothram": ga_raw, "b_gothram": gb_raw,
-            "reason": "gothram_unknown",
-            "verdict_telugu": "⚠️ ఒకరికి గోత్రం లేదు — peddavaallatho confirm చేసుకోండి (same గోత్రం అయితే పెళ్లి కూడదు).",
-        }
+    same = (ga == gb) if ga and gb else None
+    if same is True:
+        reason = "same_text"
+        note = "ఇద్దరూ నమోదు చేసిన గోత్ర వివరాలు ఒకేలా ఉన్నాయి. ఇది text comparison మాత్రమే; వివాహ నిర్ణయం కాదు."
+    elif same is False:
+        reason = "different_text"
+        note = "నమోదు చేసిన గోత్ర వివరాలు వేర్వేరుగా ఉన్నాయి. ఇది text comparison మాత్రమే; సంప్రదాయ తీర్పు కాదు."
+    else:
+        reason = "details_unavailable"
+        note = "ఒకటి లేదా రెండు గోత్ర వివరాలు అందుబాటులో లేవు; పోల్చలేకపోయాం."
     return {
-        "same": False, "blocked": False,
+        "same": same, "blocked": False,
         "a_gothram": ga_raw, "b_gothram": gb_raw,
-        "reason": "ok" if (ga and gb) else "both_unknown",
-        "verdict_telugu": (f"✅ గోత్రం వేరు ({ga_raw} ≠ {gb_raw}) — సంబంధం కి OK"
-                           if (ga and gb) else "ℹ️ గోత్రం details లేదు — profile complete చెయ్యండి"),
+        "reason": reason, "note_telugu": note,
+        "notice": "Member-entered text comparison only; not a compatibility or marriage verdict.",
     }
 
 
 def filter_same_gothram(me: Dict[str, Any], pool: List[Dict[str, Any]]) -> Dict[str, Any]:
-    """pool నుంచి same-గోత్రం profiles teesi, count తో return."""
-    mine = norm_gothram((me or {}).get("gothram"))
-    kept, skipped = [], []
-    for u in pool or []:
-        g = norm_gothram(u.get("gothram"))
-        if mine and g and mine == g:
-            skipped.append(u.get("tsap_id"))
-        else:
-            kept.append(u)
-    return {"kept": kept, "skipped_ids": skipped, "skipped_count": len(skipped)}
+    """Legacy filter name: keep all profiles; a text match is not an eligibility rule."""
+    kept = list(pool or [])
+    return {"kept": kept, "skipped_ids": [], "skipped_count": 0}
 
 
 # ---------------------------------------------------------------------------
@@ -211,16 +193,16 @@ def story_share_text(story: Dict[str, Any]) -> str:
 # ---------------------------------------------------------------------------
 SUPPORT_FAQS: List[Dict[str, Any]] = [
     {"id": "price", "q": "₹99 ఎందుకు? Free లో ఏం వస్తుంది?",
-     "a": "మొదటి 3 profiles + 3 interests FREE. ₹99 → 5 profiles unlock (numbers accept తర్వాత). Decline అయితే credit refund — loss లేదు.",
+     "a": "Free లో 3 interest requests + profile card వస్తాయి. ₹99 → 5 interest requests (30 రోజులు). ఒక్క request‌కు ఒక credit; owner accept చేసిన తర్వాతే contact details పంచుకుంటాం. Decline/7-day expiry పై request credit మాత్రమే తిరిగి వస్తుంది; అది cash refund కాదు.",
      "keys": ["price", "99", "free", "cost", "dabbulu", "rate", "plan"]},
     {"id": "numbers", "q": "Phone numbers ఎప్పుడు vastayi?",
-     "a": "Numbers ఎప్పుడు public కాదు. మీరు interest పంపి, avatali వాళ్లు ACCEPT చేస్తే iddariki numbers WhatsApp లో automatic గా vastayi.",
+     "a": "Numbers public గా కనిపించవు. మీరు interest పంపి profile owner accept చేసిన తర్వాత, privacy settings ప్రకారం contact details share అవుతాయి. Notification/WhatsApp delivery configured services మరియు external availability పై ఆధారపడుతుంది.",
      "keys": ["number", "phone", "contact", "mobile"]},
     {"id": "register", "q": "Register ఎలా? Entha time?",
-     "a": "3 min: /register లో details → OTP verify → photo → ID వస్తుంది. Bot లో కూడా @telugumatrimony1_bot /start చెయ్యొచ్చు.",
+     "a": "/register లో profile వివరాలు నమోదు చేసి, page లో చూపిన phone-verification steps పూర్తి చేయండి. Required fields మారవచ్చు; సమర్పించే ముందు consent చదవండి. Telegram bot link కూడా site లో అందుబాటులో ఉంది.",
      "keys": ["register", "join", "signup", "account", "create"]},
     {"id": "photo_private", "q": "Photo private గా pettukovacha (ammayilu)?",
-     "a": "అవును! Photo-private ON చేస్తే మీ photo blur లో ఉంటుంది — interest accept చేసినవాళ్లకే clear photo. 100% safe.",
+     "a": "Photo-private setting తో public profile/card లో photo ప్రదర్శన నియంత్రించవచ్చు. ఈ setting screenshots లేదా ఇతరుల కాపీలను నిరోధించదు; share చేయకూడని చిత్రాలను upload చేయవద్దు.",
      "keys": ["photo", "private", "blur", "safe", "ammayi", "hide"]},
     {"id": "gothram", "q": "Same గోత్రం అయితే?",
      "a": "Same గోత్రం అయితే interest automatic గా block అవుతుంది — పెళ్లి కూడదు కాబట్టి. Warning కూడా చూపిస్తాం.",
@@ -229,16 +211,16 @@ SUPPORT_FAQS: List[Dict[str, Any]] = [
      "a": "అవును — జన్మ నక్షత్రం + రాశి ఇవ్వండి, వేద గుణమేళనం స్కోరు + తెలుగు విశ్లేషణ ఇస్తాం (/porutham). సంబంధం వివరాల్లో కూడా గుణమేళనం లైన్ వస్తుంది.",
      "keys": ["porutham", "jathakam", "jatakam", "star", "rasi", "nakshatra", "horoscope", "gunamelanam", "ponthana"]},
     {"id": "refund", "q": "Refund policy ఏంటి?",
-     "a": "Matches రాకపోతే 7 days లో refund — /refund లో details చూడండి. Decline అయిన interest credit మీకు automatic refund.",
+     "a": "Paid plan unused ఉంటే cash refund eligibility కోసం payment date నుంచి 7 రోజుల్లో /refund policy ప్రకారం support‌ను సంప్రదించండి. Interest decline లేదా 7-day no-response expiry పై ఖర్చైన 1 request credit తిరిగి వస్తుంది; అది cash refund కాదు.",
      "keys": ["refund", "return", "money back", "cancel"]},
     {"id": "fake", "q": "Fake profiles untaya? Report ఎలా?",
-     "a": "OTP verify + photo check + 2 reports = auto-hide. Fake అనిపిస్తే profile లో Report button నొక్కండి → మన team 24h లో action, మీరు safe.",
+     "a": "Profile లోని Report button ద్వారా వివరాలు పంపండి. కొన్ని report thresholds చేరితే profile తాత్కాలికంగా auto-flag/hide కావచ్చు; ప్రతి report‌ను review చేస్తాం కానీ fixed action time లేదా 100% safety guarantee లేదు.",
      "keys": ["fake", "fraud", "report", "scam", "mosam", "block"]},
     {"id": "bureau", "q": "నేను broker/bureau — ఎలా join అవ్వాలి?",
-     "a": "/bureau లో register → referral code వస్తుంది → మీకు ₹50 per paid user + dashboard. Bureaus కి ₹999 white-label plan ఉంది.",
+     "a": "/bureau లో అందుబాటులో ఉన్న referral/B2B సేవలు మరియు వాటి నియమాలు చూడండి. ₹50 reward అర్హత ఉంటే అది referred user తొలి qualifying S_99/S_199/S_299/S_499 consumer-plan payment (కనీసం ₹99) పై ఒక్కసారి మాత్రమే; exclusions మరియు manual payout review వర్తిస్తాయి.",
      "keys": ["bureau", "broker", "agent", "commission"]},
     {"id": "vendor", "q": "పెళ్లి vendors (catering/photo) ads ఎలా ఇవ్వాలి?",
-     "a": "/vendors లో register → ₹149 నుంచి packages → admin approve → మీకు direct customer leads WhatsApp కి.",
+     "a": "/vendors లో packages/ధరలు చూడండి. Registration, payment verification మరియు admin approval తర్వాత listing ప్రచురించవచ్చు; customer enquiry లేదా WhatsApp delivery హామీ కాదు.",
      "keys": ["vendor", "ad", "catering", "photo", "decoration", "business"]},
     {"id": "whatsapp", "q": "WhatsApp లో matches vastaya?",
      "a": "అవును! Register avvagane 3 profiles WhatsApp కి + రోజు 9AM daily matches (paid) + saved-search alerts. Telegram channels కూడా join అవ్వండి.",

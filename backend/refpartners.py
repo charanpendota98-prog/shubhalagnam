@@ -4,7 +4,7 @@
 Website → Refer → profile create (name, phone, PhonePe number, address, state, district)
  → ID generate (ex: charan108) + link (/r/charan108 — short, click-tracked)
  → link tho open chesthe register daggara referral code AUTO-FILL (existing ?ref= flow)
- → join + payment commissions vallaki (same ₹50 rule, wallet + payouts)
+ → one-time ₹50 reward only on the referee's first qualifying paid S_99/S_199/S_299/S_499 consumer plan (₹99 minimum); wallet + reviewed payouts
  → anni data manaki: JSON + **referral_partners.csv SHEET** + admin report.
 
 Partner dict = referrer-compatible (referral_code/stats/wallet) → find_referrer/
@@ -21,8 +21,8 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-JSON_FILE = os.path.join(BASE, "refpartners19.json")
-CSV_FILE = os.path.join(BASE, "referral_partners.csv")
+JSON_FILE = os.environ.get("MANA_VIVAHA_REF_PARTNERS_FILE", os.path.join(BASE, "refpartners19.json"))
+CSV_FILE = os.environ.get("MANA_VIVAHA_REF_PARTNERS_CSV", os.path.join(BASE, "referral_partners.csv"))
 CSV_HEADER = ["partner_id", "name", "phone", "phonepe", "address", "state", "district",
               "link", "created_at", "registrations", "paid_count", "wallet", "paid_out"]
 
@@ -121,10 +121,9 @@ def register_partner(name: str, phone: str, phonepe: str = "", address: str = ""
         return {"success": True, "already": True, "partner_id": ex["partner_id"],
                 "link": ex.get("link", ""),
                 "message_telugu": f"ℹ️ ఈ number తో already partner ID ఉంది: {ex['partner_id']}"}
-    phonepe_d = "".join(ch for ch in str(phonepe or "") if ch.isdigit())
-    if phonepe_d and (len(phonepe_d) != 10 or phonepe_d[0] not in "6789"):
-        return {"success": False, "reason": "bad_phonepe",
-                "message_telugu": "⚠️ PhonePe number 10 digits ఉండాలి (ledante khali vadileyandi)"}
+    # Kept as an ignored compatibility parameter; payout details are provided only
+    # through the partner's authenticated payout request, never a PhonePe phone field.
+    phonepe_d = ""
     state = (state or "").strip()
     if state not in _STATES:
         return {"success": False, "reason": "bad_state",
@@ -136,7 +135,7 @@ def register_partner(name: str, phone: str, phonepe: str = "", address: str = ""
     pid = _gen_id(name)
     base_url = (site or os.getenv("SITE_URL", "https://manavivaha.in")).rstrip("/")
     p = {"partner_id": pid, "name": name, "full_name": name, "phone": phone,
-         "phonepe": phonepe_d or phone, "address": (address or "").strip()[:200],
+         "phonepe": phonepe_d, "address": (address or "").strip()[:200],
          "state": state, "district": district,
          "referral_code": pid, "link": f"{base_url}/r/{pid}",
          "created_at": _now(), "clicks": 0, "wallet": 0,
@@ -147,7 +146,7 @@ def register_partner(name: str, phone: str, phonepe: str = "", address: str = ""
     _save()
     _csv_append(p)
     return {"success": True, "partner_id": pid, "link": p["link"],
-            "message_telugu": f"🎉 Partner ID ready: {pid} — ee link share చెయ్యండి, prathi payment కి ₹50!"}
+            "message_telugu": f"🎉 Partner ID ready: {pid}. Referral reward ₹50 ఒక్కసారి మాత్రమే: referred user first qualifying S_99/S_199/S_299/S_499 consumer-plan payment (minimum ₹99) పై. Add-ons, renewals, assisted services, boosts, gifts, complimentary grants, B2B/non-consumer payments అర్హం కావు. Payout admin review లో ఉంటుంది."}
 
 
 def record_click(pid: str) -> None:
@@ -159,48 +158,68 @@ def record_click(pid: str) -> None:
 
 
 def partner_public(pid: str, users: Optional[List[Dict]] = None) -> Dict[str, Any]:
-    """Partner dashboard: link + joins + earnings (masked phones)."""
+    """Return public referral counts only; names, identities and financials stay private."""
     p = get_partner(pid)
     if not p:
         return {"success": False, "reason": "not_found",
                 "message_telugu": "⚠️ Partner ID దొరకలేదు"}
     st = p.get("referral_stats", {})
-    _ledger = st.get("ledger", []) or []
-    _paid_ids = {l.get("from") for l in _ledger if l.get("type") == "commission" and l.get("from")}
-    joins = []
+    ledger = st.get("ledger", []) or []
+    from referral import qualifying_commission_entries
+    eligible = qualifying_commission_entries(st)
+    rewarded_ids = {str(entry.get("from")) for entry in eligible}
+    reversed_ids = {str(entry.get("from")) for entry in ledger
+                    if entry.get("type") == "commission" and entry.get("reversed") and entry.get("from")}
+    activity = []
     if users is not None:
-        for u in users:
-            if str(u.get("referred_by", "")).lower() == p["partner_id"].lower():
-                _comm = round(sum(float(l.get("amount", 0) or 0) for l in _ledger
-                                  if l.get("type") == "commission" and l.get("from") == u.get("tsap_id")), 2)
-                joins.append({"tsap_id": u.get("tsap_id", ""),
-                              # WAVE 25 — partner view kuda first-name only (user privacy)
-                              "name": str(u.get("full_name") or u.get("name", "")).split()[0] or "—",
-                              "at": u.get("referred_at", ""),
-                              # has_paid flag + ledger fallback (pata data ki kuda correct)
-                              "paid": bool(u.get("has_paid", False)) or u.get("tsap_id") in _paid_ids,
-                              "commission": _comm})
-    return {"success": True, "partner_id": p["partner_id"], "name": p["name"],
+        for user in users:
+            if str(user.get("referred_by", "")).lower() == p["partner_id"].lower():
+                uid = str(user.get("tsap_id", ""))
+                rewarded = uid in rewarded_ids
+                # This unauthenticated activity feed is anonymous: no name, phone,
+                # TSAP ID, exact registration date, or per-referral cash amount.
+                activity.append({"join_no": len(activity) + 1,
+                                 "paid": rewarded,
+                                 "reward_reversed": uid in reversed_ids and not rewarded})
+    return {"success": True, "partner_id": p["partner_id"],
             "link": p.get("link", ""), "clicks": p.get("clicks", 0),
-            "registrations": st.get("registrations", 0), "paid_count": st.get("paid_count", 0),
-            "wallet": st.get("wallet", 0), "lifetime_earned": st.get("lifetime_earned", 0),
-            "pending_payout": st.get("pending_payout", 0), "paid_out": st.get("paid_out", 0),
-            "joins": joins[-50:]}
+            "registrations": st.get("registrations", 0),
+            "paid_count": len(rewarded_ids), "joins": activity[-50:]}
+
+
+def partner_private(pid: str, users: Optional[List[Dict]] = None) -> Dict[str, Any]:
+    """Financial dashboard; callers must authenticate the partner before using this."""
+    public = partner_public(pid, users)
+    if not public.get("success"):
+        return public
+    p = get_partner(pid)
+    st = p.get("referral_stats", {})
+    from referral import FIRST_PAY_COMMISSION
+    qualifying_total = int(public.get("paid_count", 0)) * FIRST_PAY_COMMISSION
+    public.update({"name": p.get("name", ""),
+                   "qualifying_rewards_total": qualifying_total,
+                   "wallet": st.get("wallet", 0),
+                   "lifetime_earned": qualifying_total,
+                   "pending_payout": st.get("pending_payout", 0),
+                   "paid_out": st.get("paid_out", 0)})
+    return public
 
 
 def admin_report(users: List[Dict]) -> Dict[str, Any]:
     """Admin: ఎవరికీ entha ravali + evari referral లో ఎవరు (partners + users)."""
+    from referral import qualifying_commission_entries, FIRST_PAY_COMMISSION
     rows = []
     for p in PARTNERS:
         st = p.get("referral_stats", {})
         who = [u.get("tsap_id", "") for u in users
                if str(u.get("referred_by", "")).lower() == p["partner_id"].lower()]
+        paid_count = len({str(entry.get("from")) for entry in qualifying_commission_entries(st)})
         rows.append({"kind": "partner", "id": p["partner_id"], "name": p["name"],
                      "phone_masked": (p.get("phone", "")[:2] + "••••••" + p.get("phone", "")[-2:]) if p.get("phone") else "",
                      "phonepe": p.get("phonepe", ""), "state": p.get("state", ""),
                      "district": p.get("district", ""), "registrations": st.get("registrations", 0),
-                     "paid_count": st.get("paid_count", 0), "wallet": st.get("wallet", 0),
-                     "lifetime_earned": st.get("lifetime_earned", 0),
+                     "paid_count": paid_count, "qualifying_rewards_total": paid_count * FIRST_PAY_COMMISSION,
+                     "wallet": st.get("wallet", 0), "lifetime_earned": paid_count * FIRST_PAY_COMMISSION,
                      "pending_payout": st.get("pending_payout", 0), "paid_out": st.get("paid_out", 0),
                      "joined_ids": who})
     for u in (users or []):
@@ -208,11 +227,12 @@ def admin_report(users: List[Dict]) -> Dict[str, Any]:
         if st.get("registrations", 0) or st.get("wallet", 0):
             who = [x.get("tsap_id", "") for x in users
                    if str(x.get("referred_by", "")).upper() == str(u.get("referral_code", "")).upper()]
+            paid_count = len({str(entry.get("from")) for entry in qualifying_commission_entries(st)})
             rows.append({"kind": "user", "id": u.get("tsap_id", ""), "name": u.get("full_name", ""),
                          "phone_masked": "", "phonepe": "", "state": u.get("state", ""),
                          "district": u.get("district", ""), "registrations": st.get("registrations", 0),
-                         "paid_count": st.get("paid_count", 0), "wallet": st.get("wallet", 0),
-                         "lifetime_earned": st.get("lifetime_earned", 0),
+                         "paid_count": paid_count, "qualifying_rewards_total": paid_count * FIRST_PAY_COMMISSION,
+                         "wallet": st.get("wallet", 0), "lifetime_earned": paid_count * FIRST_PAY_COMMISSION,
                          "pending_payout": st.get("pending_payout", 0), "paid_out": st.get("paid_out", 0),
                          "joined_ids": who})
     rows.sort(key=lambda r: (r["lifetime_earned"], r["registrations"]), reverse=True)

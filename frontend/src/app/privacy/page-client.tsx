@@ -11,7 +11,7 @@ export default function PrivacyPage() {
   const { lang } = useLang();
   const te = lang === "te";
   return (
-    <main className="max-w-3xl mx-auto px-4 py-8 pb-36">
+    <div className="max-w-3xl mx-auto px-4 py-8 pb-36">
       <h1 className="text-2xl md:text-3xl font-extrabold text-[#7A0C2E] telugu">
         {te ? "🔒 Privacy Policy (గోప్యతా విధానం)" : "🔒 Privacy Policy"}
       </h1>
@@ -228,7 +228,7 @@ export default function PrivacyPage() {
         <Link href="/refund" className="underline text-[#7A0C2E] font-bold">💸 Refund</Link>
         <Link href="/safety" className="underline text-[#7A0C2E] font-bold">🛡️ Safety</Link>
       </div>
-    </main>
+    </div>
   );
 }
 

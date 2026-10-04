@@ -82,7 +82,7 @@ export default function GrowthPage() {
   const ab = wa?.antiban || {};
 
   return (
-    <main className="min-h-dvh bg-cream pb-16">
+    <div className="min-h-dvh bg-cream pb-16">
       {/* 🔐 WAVE 9 — admin key card: /api/leads* lo phone numbers unnayi (PII) → key tho matrame */}
       <div className="max-w-6xl mx-auto px-4 pt-4">
         <div className={`rounded-2xl border p-4 ${needsAdminKey ? "border-rose-300 bg-rose-50" : "border-gold/30 bg-white"}`}>
@@ -134,31 +134,27 @@ export default function GrowthPage() {
               <KPI label="Unique visitors" value={stats.visitors_unique} sub="IP+device hash" />
               <KPI label="Leads" value={stats.leads_total} sub={te ? `కొత్తవి: ${stats.leads_new}` : `new: ${stats.leads_new}`} tone="gold" />
               <KPI label="Lead conversion" value={`${stats.conversion}%`} sub="unique visitors → leads" tone="gold" />
-              <KPI label="Profiles (inventory)" value={inv?.total_profiles} sub={`target ${inv?.launch_target}`} />
+              <KPI label="Member profiles" value={inv?.total_profiles ?? 0} sub={`${inv?.approved_profiles ?? 0} approved · ${inv?.pending_profiles ?? 0} pending`} />
               <KPI label="WhatsApp sent" value={wa?.sent_total ?? 0} sub={wa?.whatsapp_mode === "off" ? "mode: off (offline)" : `mode: ${wa?.whatsapp_mode}`} />
             </div>
 
-            {/* ---- inventory gauge ---- */}
+            {/* Factual member coverage; no synthetic launch target. */}
             {inv && (
-              <div className="bg-white rounded-2xl border border-gold/25 p-4">
-                <div className="flex items-center justify-between">
-                  <div className="font-bold text-maroon text-[15px]">🚀 Launch inventory — {inv.total_profiles}/{inv.launch_target} ({inv.percent}%)</div>
-                  <div className="text-[11px] text-gray-500">
-                    brides {inv.brides} • grooms {inv.grooms} • verified {inv.verified} • photos {inv.photos}
-                  </div>
+              <section aria-labelledby="member-coverage-heading" className="rounded-2xl border border-gold/25 bg-white p-4">
+                <h2 id="member-coverage-heading" className="text-[15px] font-bold text-maroon">Member profile coverage</h2>
+                <p className="mt-1 text-xs text-gray-600">Counts reflect persisted member records; this dashboard does not generate or seed example profiles.</p>
+                <div className="mt-3 flex flex-wrap gap-2 text-[11px]">
+                  {[
+                    ["Total", inv.total_profiles], ["Approved", inv.approved_profiles], ["Pending", inv.pending_profiles],
+                    ["Brides", inv.brides], ["Grooms", inv.grooms], ["Verified evidence", inv.verified],
+                    ["Approved photos", inv.photos], ["Castes", inv.castes_covered], ["Districts", inv.districts_covered],
+                  ].map(([label, value]) => (
+                    <span key={String(label)} className="rounded-full border border-gold/30 bg-cream px-3 py-1 text-slate-700">
+                      {label}: <b>{Number(value ?? 0)}</b>
+                    </span>
+                  ))}
                 </div>
-                <div className="mt-2 h-3 bg-gray-100 rounded-full overflow-hidden">
-                  <div className="h-3 maroon-gradient" style={{ width: `${Math.min(100, inv.percent)}%` }} />
-                </div>
-                <div className="mt-2 text-[12px] text-gray-600 telugu">{inv.message_telugu}</div>
-                <div className="mt-2 grid md:grid-cols-2 gap-2 text-[11px] text-gray-600">
-                  {(inv.how_to_fill || []).map((h: string) => <div key={h} className="bg-cream rounded-xl px-3 py-2">• {h}</div>)}
-                </div>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  <span className="text-[11px] bg-cream border border-gold/30 rounded-full px-3 py-1">castes covered: {inv.castes_covered}</span>
-                  <span className="text-[11px] bg-cream border border-gold/30 rounded-full px-3 py-1">districts covered: {inv.districts_covered}</span>
-                </div>
-              </div>
+              </section>
             )}
 
             {/* ---- channels + top pages ---- */}
@@ -277,6 +273,6 @@ export default function GrowthPage() {
           </>
         )}
       </div>
-    </main>
+    </div>
   );
 }

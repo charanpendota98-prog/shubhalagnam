@@ -11,7 +11,7 @@ export default function RefundPage() {
   const { lang } = useLang();
   const te = lang === "te";
   return (
-    <main className="max-w-3xl mx-auto px-4 py-8 pb-36">
+    <div className="max-w-3xl mx-auto px-4 py-8 pb-36">
       <h1 className="text-2xl md:text-3xl font-extrabold text-[#7A0C2E] telugu">
         {te ? "💸 Refund & Cancellation Policy (వాపసు విధానం)" : "💸 Refund & Cancellation Policy"}
       </h1>
@@ -35,21 +35,19 @@ export default function RefundPage() {
             <>
               <li><b>Zero usage (7 days):</b> Register అయి ₹ pay చేసి, <b>ఒక్క request కూడా</b> పంపకపోతే —
                 payment date నుంచి <b>7 రోజుల</b> లోపు అడిగితే <b>100% refund</b> (same payment method కి).</li>
-              <li><b>Decline / no response:</b> మీ request ని target వాళ్లు decline చేస్తే లేదా{" "}
-                <b>7 రోజుల</b> లో respond అవ్వకపోతే — ఆ <b>1 credit మళ్లీ మీ account కి</b> refund అవుతుంది
-                (ఇది automatic గా జరుగుతుంది).</li>
-              <li><b>Duplicate / wrong payment:</b> ఒకటే order రెండు సార్లు pay అయితే, verify చేసి 3–5 working days లో refund.</li>
-              <li><b>Technical failure:</b> మీ payment success అయింది కానీ credits add అవ్వకపోతే — screenshot పంపండి, 24h లో fix లేదా refund.</li>
+              <li><b>Decline / no response:</b> target decline చేస్తే లేదా <b>7 రోజుల</b> లో స్పందన లేక request expire అయితే,
+                ఖర్చయిన <b>1 request credit</b> account‌కు ఒకసారి తిరిగి వస్తుంది. ఇది payment amount cash refund కాదు.</li>
+              <li><b>Duplicate / wrong payment:</b> ఒకే order‌కు రెండుసార్లు చెల్లిస్తే, order/payment IDs‌తో support‌ను సంప్రదించండి; review తర్వాత పరిష్కారం తెలియజేస్తాం.</li>
+              <li><b>Technical failure:</b> payment success అయినా credits రాకపోతే, payment/order ID‌తో support‌ను సంప్రదించండి; resolution సమయం మారవచ్చు.</li>
             </>
           ) : (
             <>
               <li><b>Zero usage (7 days):</b> registered and paid ₹ but sent <b>not even one request</b> —
                 ask within <b>7 days</b> of payment date for <b>100% refund</b> (to the same payment method).</li>
-              <li><b>Decline / no response:</b> if the target declines your request or doesn&apos;t
-                respond within <b>7 days</b> — that <b>1 credit is refunded to your account</b>
-                (this happens automatically).</li>
-              <li><b>Duplicate / wrong payment:</b> if one order gets paid twice, we verify and refund in 3–5 working days.</li>
-              <li><b>Technical failure:</b> payment succeeded but credits weren&apos;t added — send a screenshot, fixed or refunded in 24h.</li>
+              <li><b>Decline / no response:</b> if the target declines or the request expires after <b>7 days</b> without a response,
+                the spent <b>request credit is returned to your account once</b>. This is not a cash refund of the payment.</li>
+              <li><b>Duplicate / wrong payment:</b> if you paid twice for one order, contact support with both payment/order IDs; we will review and share the outcome.</li>
+              <li><b>Technical failure:</b> if payment succeeded but credits were not added, share your payment/order ID with support so it can be reviewed; resolution time may vary.</li>
             </>
           )}
         </ul>
@@ -83,19 +81,19 @@ export default function RefundPage() {
         <ol>
           {te ? (
             <>
-              <li>WhatsApp/Phone: <b>{SITE_CONFIG.supportPhoneDisplay}</b> లేదా email: <b>{SITE_CONFIG.supportEmail}</b></li>
+              <li>{SITE_CONFIG.supportLink ? <>WhatsApp: <a href={SITE_CONFIG.supportLink} target="_blank" rel="noopener noreferrer" className="underline">configured support contact</a> • </> : null}{SITE_CONFIG.supportPhoneDisplay ? <>Phone: <b>{SITE_CONFIG.supportPhoneDisplay}</b> • </> : null}Email: <b>{SITE_CONFIG.supportEmail}</b></li>
               <li>పంపాల్సినవి: Profile ID • payment date • amount • Razorpay payment ID • reason (1 line)</li>
-              <li>Verify చేసి <b>2 working days</b> లో approve/decline తెలియజేస్తాం.</li>
-              <li>Approve అయితే <b>5–7 working days</b> లో మీ bank/UPI కి credited అవుతుంది (bank timing బట్టి).</li>
-              <li>Refund confirmation email మీకు పంపిస్తాం.</li>
+              <li>మీ అభ్యర్థనను సమీక్షించి, అందుబాటులో ఉన్న contact channel ద్వారా నిర్ణయాన్ని తెలియజేస్తాం; response సమయం మారవచ్చు.</li>
+              <li>Approve అయితే, refund processing మరియు bank/UPI credit సమయం payment provider‌పై ఆధారపడుతుంది.</li>
+              <li>మీ payment/order ID‌ను భద్రపరచుకోండి; receipt లేదా refund status అందుబాటులో లేకపోతే support‌ను సంప్రదించండి.</li>
             </>
           ) : (
             <>
-              <li>WhatsApp/Phone: <b>{SITE_CONFIG.supportPhoneDisplay}</b> or email: <b>{SITE_CONFIG.supportEmail}</b></li>
+              <li>{SITE_CONFIG.supportLink ? <>WhatsApp: <a href={SITE_CONFIG.supportLink} target="_blank" rel="noopener noreferrer" className="underline">configured support contact</a> • </> : null}{SITE_CONFIG.supportPhoneDisplay ? <>Phone: <b>{SITE_CONFIG.supportPhoneDisplay}</b> • </> : null}Email: <b>{SITE_CONFIG.supportEmail}</b></li>
               <li>Send: Profile ID • payment date • amount • Razorpay payment ID • reason (1 line)</li>
-              <li>We verify and inform approve/decline within <b>2 working days</b>.</li>
-              <li>On approval, credited to your bank/UPI in <b>5–7 working days</b> (depends on bank timing).</li>
-              <li>Refund confirmation email is sent to you.</li>
+              <li>We review the request and share an outcome through an available contact channel; response time may vary.</li>
+              <li>If approved, refund processing and bank/UPI credit timing depend on the payment provider.</li>
+              <li>Keep your payment/order ID. If a receipt or refund status is unavailable, contact support.</li>
             </>
           )}
         </ol>
@@ -123,15 +121,15 @@ export default function RefundPage() {
         <ul>
           {te ? (
             <>
-              <li>ప్రతి payment కి receipt email/WhatsApp లో వస్తుంది.</li>
-              <li><b>GST invoice</b> కావాలంటే payment తర్వాత 24 గంటల్లో అడగండి (GSTIN ఉంటే పంపండి) — మన team పంపిస్తుంది.</li>
-              <li>Prices అన్నీ INR లో, taxes తో సహా (చూపించిన price final).</li>
+              <li>మీ order/payment ID‌ను భద్రపరచుకోండి. Receipt అందుబాటు payment method‌పై ఆధారపడుతుంది; receipt కనిపించకపోతే configured support contact‌ను సంప్రదించండి.</li>
+              <li><b>GST invoice</b> అవసరమైతే, GSTIN మరియు payment వివరాలతో support‌ను సంప్రదించండి; జారీ అర్హత/సమయం నిర్ధారించిన తర్వాత తెలియజేస్తాం.</li>
+              <li>ధరలు INR‌లో చూపిస్తాం. చెల్లించే ముందు checkout లో కనిపించే final amount‌ను పరిశీలించండి.</li>
             </>
           ) : (
             <>
-              <li>Receipt for every payment comes on email/WhatsApp.</li>
-              <li>Need a <b>GST invoice</b>? Ask within 24 hours of payment (send GSTIN if you have one) — our team sends it.</li>
-              <li>All prices in INR, inclusive of taxes (shown price is final).</li>
+              <li>Keep your order/payment ID. Receipt availability depends on the payment method; contact the configured support channel if it is missing.</li>
+              <li>For a <b>GST invoice</b> request, provide your GSTIN and payment details to support; eligibility and timing will be confirmed.</li>
+              <li>Prices are shown in INR. Review the final amount shown at checkout before paying.</li>
             </>
           )}
         </ul>
@@ -141,13 +139,13 @@ export default function RefundPage() {
         <ul>
           {te ? (
             <>
-              <li>ముందు మన support కి చెప్పండి — 90% cases 48h లో resolve అవుతాయి.</li>
+              <li>Dispute ఉంటే, order/payment ID మరియు సమస్య వివరాలతో support‌ను సంప్రదించండి; review సమయం మారవచ్చు.</li>
               <li>Bank chargeback initiate చేస్తే, మన records (payment ID + service usage) పంపిస్తాం.</li>
               <li>Fraudulent chargebacks అయితే account temporary suspend అవ్వచ్చు.</li>
             </>
           ) : (
             <>
-              <li>Tell our support first — 90% of cases resolve in 48h.</li>
+              <li>For a dispute, contact support with your order/payment ID and a short description; review time may vary.</li>
               <li>If you initiate a bank chargeback, we submit our records (payment ID + service usage).</li>
               <li>Fraudulent chargebacks may lead to temporary account suspension.</li>
             </>
@@ -159,11 +157,12 @@ export default function RefundPage() {
         <div className="font-bold text-[#7A0C2E]">📞 {te ? "Contact (refunds & payments)" : "Contact (refunds & payments)"}</div>
         <div className="mt-2 space-y-1">
           <div>Authorized Signatory: <b>{SITE_CONFIG.owner.name}</b> (Owner ID: <span className="font-mono text-[#7A0C2E] font-bold">{SITE_CONFIG.owner.id}</span>)</div>
-          <div>WhatsApp / Phone: <a href={`tel:${SITE_CONFIG.owner.contactNumber}`} className="font-bold text-emerald-700 hover:underline">{SITE_CONFIG.owner.contactNumber}</a></div>
+          {SITE_CONFIG.supportLink ? <div>WhatsApp: <a href={SITE_CONFIG.supportLink} target="_blank" rel="noopener noreferrer" className="font-bold text-emerald-700 hover:underline">Open configured support contact</a></div> : null}
+          {SITE_CONFIG.supportPhoneDisplay ? <div>Phone: <a href={`tel:${SITE_CONFIG.supportPhoneDisplay}`} className="font-bold text-emerald-700 hover:underline">{SITE_CONFIG.supportPhoneDisplay}</a></div> : null}
           <div>Email: <a href={`mailto:${SITE_CONFIG.owner.email}`} className="font-bold text-emerald-700 hover:underline">{SITE_CONFIG.owner.email}</a></div>
           <div>Website: <b>https://{SITE_CONFIG.domain}</b> • Telegram: {SITE_CONFIG.officialChannel}</div>
           <div>Business: {SITE_CONFIG.legalName}, Hyderabad, Telangana, India</div>
-          <div>{te ? "Working hours: Mon–Sat, 9 AM – 8 PM IST (response 24h లోపు)" : "Working hours: Mon–Sat, 9 AM – 8 PM IST (response within 24h)"}</div>
+          <div>{te ? "సహాయం కోసం అందుబాటులో ఉన్న configured contact details ఉపయోగించండి; response సమయం మారవచ్చు." : "Use the configured contact details above for assistance; response time may vary."}</div>
         </div>
       </div>
 
@@ -173,7 +172,7 @@ export default function RefundPage() {
         <Link href="/privacy" className="underline text-[#7A0C2E] font-bold">🔒 Privacy</Link>
         <Link href="/safety" className="underline text-[#7A0C2E] font-bold">🛡️ Safety</Link>
       </div>
-    </main>
+    </div>
   );
 }
 

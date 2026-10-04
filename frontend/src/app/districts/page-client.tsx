@@ -8,7 +8,13 @@ import {
   AP_DISTRICTS_DETAILED,
   OTHER_LOCATIONS,
   DistrictDetail,
+  sortUniqueOptions,
 } from "@/lib/telugu-data";
+
+const TS_DISTRICT_COUNT = TS_DISTRICTS_DETAILED.length;
+const AP_DISTRICT_COUNT = AP_DISTRICTS_DETAILED.length;
+const INDIA_DISTRICT_COUNT = TS_DISTRICT_COUNT + AP_DISTRICT_COUNT;
+const OTHER_LOCATION_COUNT = OTHER_LOCATIONS.length;
 
 const REGIONS = [
   {
@@ -17,7 +23,7 @@ const REGIONS = [
     titleEn: "Hyderabad & Cyberabad IT Hub",
     descTe: "Hyderabad, Rangareddy, Medchal, Sangareddy సాఫ్ట్‌వేర్ & ప్రొఫెషనల్ సంబంధాలు",
     descEn: "Software, High-income IT & Corporate matches across Greater Hyderabad",
-    districts: ["Hyderabad", "Rangareddy", "Medchal-Malkajgiri", "Sangareddy"],
+    districts: sortUniqueOptions(["Hyderabad", "Rangareddy", "Medchal-Malkajgiri", "Sangareddy"]),
     tag: "High Tech & MNCs",
   },
   {
@@ -26,7 +32,7 @@ const REGIONS = [
     titleEn: "Godavari & Coastal Andhra Hub",
     descTe: "East Godavari, West Godavari, Konaseema, Kakinada, Eluru & Krishna",
     descEn: "Traditional, Affluent & Cultured families from Godavari delta & coastal belt",
-    districts: ["East Godavari", "West Godavari", "Dr. B.R. Ambedkar Konaseema", "Kakinada", "Eluru", "Krishna", "NTR"],
+    districts: sortUniqueOptions(["East Godavari", "West Godavari", "Dr. B.R. Ambedkar Konaseema", "Kakinada", "Eluru", "Krishna", "NTR"]),
     tag: "Auspicious & Cultural",
   },
   {
@@ -35,7 +41,7 @@ const REGIONS = [
     titleEn: "Rayalaseema Regional Matrimony",
     descTe: "Tirupati, Chittoor, Kurnool, Nandyal, Ananthapuramu, YSR Kadapa, Annamayya",
     descEn: "Prestigious families, Doctors, Govt Officers & Business alliances",
-    districts: ["Tirupati", "Chittoor", "Kurnool", "Nandyal", "Ananthapuramu", "Sri Sathya Sai", "YSR Kadapa", "Annamayya"],
+    districts: sortUniqueOptions(["Tirupati", "Chittoor", "Kurnool", "Nandyal", "Ananthapuramu", "Sri Sathya Sai", "YSR Kadapa", "Annamayya"]),
     tag: "Royal Heritage",
   },
   {
@@ -44,7 +50,7 @@ const REGIONS = [
     titleEn: "North & Central Telangana Hub",
     descTe: "Warangal, Hanamkonda, Karimnagar, Nizamabad, Khammam, Nalgonda, Siddipet",
     descEn: "Govt employees, Teachers, Businessmen & Agricultural families",
-    districts: ["Warangal", "Hanamkonda", "Karimnagar", "Nizamabad", "Khammam", "Nalgonda", "Siddipet", "Jagtial", "Kamareddy", "Suryapet"],
+    districts: sortUniqueOptions(["Warangal", "Hanamkonda", "Karimnagar", "Nizamabad", "Khammam", "Nalgonda", "Siddipet", "Jagtial", "Kamareddy", "Suryapet"]),
     tag: "Rich Traditions",
   },
   {
@@ -53,7 +59,7 @@ const REGIONS = [
     titleEn: "Global Telugu NRI Matrimony",
     descTe: "USA (H-1B, Green Card), Canada, UK, Australia, Europe & Gulf NRI తెలుగు వారు",
     descEn: "Global Telugu professionals working abroad looking for authentic roots",
-    districts: ["USA / NRI", "UK / London", "Canada", "Australia", "Gulf / Dubai", "Other Indian States"],
+    districts: sortUniqueOptions(["USA / United States", "United Kingdom (UK)", "Canada", "Australia", "UAE / Dubai", "Other Country", "Other Indian State"]),
     tag: "Global Telugu",
   },
 ];
@@ -66,7 +72,8 @@ export default function DistrictsPage() {
   const [searchQuery, setSearchQuery] = useState("");
 
   const allDistricts: DistrictDetail[] = useMemo(() => {
-    return [...TS_DISTRICTS_DETAILED, ...AP_DISTRICTS_DETAILED, ...OTHER_LOCATIONS];
+    return [...TS_DISTRICTS_DETAILED, ...AP_DISTRICTS_DETAILED, ...OTHER_LOCATIONS]
+      .sort((a, b) => a.en.localeCompare(b.en, "en", { sensitivity: "base" }));
   }, []);
 
   const filteredDistricts = useMemo(() => {
@@ -100,17 +107,17 @@ export default function DistrictsPage() {
 
           <p className="max-w-3xl mx-auto text-xs sm:text-sm md:text-base text-rose-100/90 leading-relaxed font-medium">
             {te
-              ? "తెలంగాణలోని 33 జిల్లాలు మరియు ఆంధ్రప్రదేశ్‌లోని 26 జిల్లాలతో పాటు NRI తెలుగు కుటుంబాల కోసం ప్రత్యేక స్థానిక సంబంధాల అన్వేషణ వేదిక."
-              : "Explore verified Telugu matrimonial alliances across all 33 Telangana districts, 26 Andhra Pradesh districts and global NRI communities."}
+              ? `తెలంగాణలోని ${TS_DISTRICT_COUNT} జిల్లాలు మరియు ఆంధ్రప్రదేశ్‌లోని ${AP_DISTRICT_COUNT} జిల్లాల ప్రాంతీయ ఎంపికలు; ఇతర నగరాలు, NRI ప్రాంతాలు కూడా అందుబాటులో ఉన్నాయి.`
+              : `Browse regional options across ${TS_DISTRICT_COUNT} Telangana and ${AP_DISTRICT_COUNT} Andhra Pradesh districts, plus other Indian and NRI locations.`}
           </p>
 
           {/* Quick State Pills */}
           <div className="flex flex-wrap items-center justify-center gap-2.5 pt-3">
             {[
-              { id: "all", l: "🌟 మొత్తం (59 జిల్లాలు + NRI)", count: 59 },
-              { id: "TS", l: "🔴 తెలంగాణ (33 జిల్లాలు)", count: 33 },
-              { id: "AP", l: "🔵 ఆంధ్రప్రదేశ్ (26 జిల్లాలు)", count: 26 },
-              { id: "Other", l: "✈️ USA & NRI గ్లోబల్", count: 8 },
+              { id: "all", l: te ? `🌟 మొత్తం (${INDIA_DISTRICT_COUNT} జిల్లాలు + NRI)` : `🌟 All (${INDIA_DISTRICT_COUNT} districts + NRI)`, count: INDIA_DISTRICT_COUNT },
+              { id: "TS", l: te ? `🔴 తెలంగాణ (${TS_DISTRICT_COUNT} జిల్లాలు)` : `🔴 Telangana (${TS_DISTRICT_COUNT})`, count: TS_DISTRICT_COUNT },
+              { id: "AP", l: te ? `🔵 ఆంధ్రప్రదేశ్ (${AP_DISTRICT_COUNT} జిల్లాలు)` : `🔵 Andhra Pradesh (${AP_DISTRICT_COUNT})`, count: AP_DISTRICT_COUNT },
+              { id: "Other", l: te ? `✈️ ఇతర ప్రాంతాలు (${OTHER_LOCATION_COUNT})` : `✈️ Other & NRI locations (${OTHER_LOCATION_COUNT})`, count: OTHER_LOCATION_COUNT },
             ].map((tab) => (
               <button
                 key={tab.id}
@@ -145,9 +152,9 @@ export default function DistrictsPage() {
           </div>
 
           <div className="text-xs font-bold text-slate-600 flex items-center gap-2">
-            <span>లభించిన జిల్లాలు:</span>
+            <span>{te ? "ఫలితాలు:" : "Results:"}</span>
             <span className="bg-amber-100 text-maroon px-3 py-1 rounded-full font-black text-xs border border-gold/40">
-              {filteredDistricts.length} జిల్లాలు
+              {filteredDistricts.length} {te ? (activeTab === "TS" || activeTab === "AP" ? "జిల్లాలు" : "ప్రాంతాలు") : (activeTab === "TS" || activeTab === "AP" ? "districts" : "locations")}
             </span>
           </div>
         </div>
@@ -209,12 +216,12 @@ export default function DistrictsPage() {
               <span>🏛️</span>
               <span>
                 {activeTab === "TS"
-                  ? "తెలంగాణ సమగ్ర జిల్లాలు (33 TS Districts)"
+                  ? te ? `తెలంగాణ జిల్లాలు (${TS_DISTRICT_COUNT})` : `Telangana districts (${TS_DISTRICT_COUNT})`
                   : activeTab === "AP"
-                  ? "ఆంధ్రప్రదేశ్ సమగ్ర జిల్లాలు (26 AP Districts)"
+                  ? te ? `ఆంధ్రప్రదేశ్ జిల్లాలు (${AP_DISTRICT_COUNT})` : `Andhra Pradesh districts (${AP_DISTRICT_COUNT})`
                   : activeTab === "Other"
-                  ? "NRI & గ్లోబల్ లొకేషన్స్ (Global Hubs)"
-                  : "అన్ని జిల్లాలు (All TS, AP & NRI Districts)"}
+                  ? te ? "ఇతర భారతీయ & NRI ప్రాంతాలు" : "Other Indian and NRI locations"
+                  : te ? `అన్ని జిల్లాలు & ఇతర ప్రాంతాలు (${INDIA_DISTRICT_COUNT} + NRI)` : `Districts & other locations (${INDIA_DISTRICT_COUNT} + NRI)`}
               </span>
             </h2>
           </div>
@@ -238,7 +245,7 @@ export default function DistrictsPage() {
                     >
                       {d.state === "TS" ? "🔴 తెలంగాణ" : d.state === "AP" ? "🔵 ఆంధ్రప్రదేశ్" : "🌐 NRI / ఇతర"}
                     </span>
-                    <span className="text-[10.5px] font-mono text-slate-400">📍 Verified</span>
+                    <span className="text-[10.5px] font-mono text-slate-400">📍 {te ? "ప్రాంతం" : "Location"}</span>
                   </div>
 
                   <h4 className="font-black text-base text-navy mt-2 telugu">{d.te}</h4>

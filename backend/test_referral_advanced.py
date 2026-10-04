@@ -1,15 +1,15 @@
 """
-REFERRAL 2.0 TEST SUITE 🤝 — "andariki ₹50" + anti-fraud + payouts
+REFERRAL 2.0 TEST SUITE 🤝 — qualifying rewards, privacy, anti-fraud + payouts
 =================================================================
 Run:  /tmp/venv/bin/python test_referral_advanced.py   (backend/ cwd nunchi)
 
 Cover:
   1. Code engine (short code LAK42, alias, link, uniqueness, tier)
   2. Attach (validate / self-referral block / same-phone ALLOWED+flag / already-referred / referee bonus)
-  3. Commission math WAVE 25 (→ ₹50 first ONLY; repeat ₹0; tier extra ledu; <₹29 → 0)
-  4. Payment processing (wallet, ledger, tier upgrade, milestone AUTO bonus, daily/lifetime caps)
+  3. Commission math WAVE 25 (→ ₹50 first qualifying ₹99+ payment ONLY; repeat ₹0; tier extra ledu)
+  4. Payment processing (wallet, ledger, badge-only tiers, no milestone cash/credit bonuses)
   5. Refund clawback
-  6. Payouts (min ₹100, wallet check, UPI/bank validation, duplicate pending, approve needs UTR, reject refund)
+  6. Payouts (₹50 minimum, wallet check, UPI/bank validation, duplicate pending, approve needs UTR, reject refund)
   7. Dashboard + funnel + share kit (5 messages) + poster PNG (square/status)
   8. Leaderboard (full_name fix, rank, periods)
   9. API endpoints (TestClient): register→pay→payout→admin, click, validate, terms, fraud-check
@@ -23,6 +23,8 @@ import tempfile
 import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from test_storage import isolate_test_stores  # noqa: E402
+isolate_test_stores("referral-advanced")
 from testutil_paths import src_page  # noqa: E402  # App Router page.tsx + page-client.tsx aware
 
 import referral as R  # noqa: E402
@@ -103,20 +105,22 @@ check("Join message: ₹50 + code + link", "₹50" in jt and me["referral_code"]
 ct = R.referrer_commission_text(me, friend, {"commission": 50, "tier": "BRONZE", "plan_amount": 99})
 check("Commission message: ₹ amount + friend paying + tier",
       "₹50" in ct and "Sita" in ct and "BRONZE" in ct)
-check("Commission message: next milestone + payout line", "SILVER" in ct and "₹100" in ct)
+check("Commission message: next badge + manual-review payout terms", "SILVER" in ct and "₹50" in ct and "fixed processing time" in ct)
 wt = R.referee_welcome_text(friend, me)
-check("Referee welcome: friend peru + bonus credit + sontha code",
-      "Ravi" in wt and "+1 FREE credit" in wt and friend["referral_code"] in wt)
+check("Referee welcome separates request credit from conditional cash reward",
+      "Ravi" in wt and "+1 interest-request credit" in wt and "₹50" in wt
+      and "first eligible" in wt and friend["referral_code"] in wt)
 
 print("=== 3. COMMISSION MATH ===")
-check("First ₹29 → ₹50 (andiiki)", R.calculate_commission("USER", 29, True) == 50)
+check("₹29 below minimum → ₹0", R.calculate_commission("USER", 29, True) == 0)
+check("First ₹99 → ₹50 (qualified plan)", R.calculate_commission("USER", 99, True) == 50)
 check("First ₹99 → ₹50", R.calculate_commission("USER", 99, True) == 50)
 check("First ₹199 → ₹50", R.calculate_commission("USER", 199, True) == 50)
 check("First ₹499 → ₹50", R.calculate_commission("USER", 499, True) == 50)
 check("Repeat ₹99 → ₹0 (flat-50-only)", R.calculate_commission("USER", 99, False) == 0)
 check("Repeat ₹499 → ₹0 (plan tho sambandham ledu)", R.calculate_commission("USER", 499, False) == 0)
 check("Repeat BUREAU ₹2999 → ₹0", R.calculate_commission("BUREAU", 2999, False) == 0)
-check("₹10 payment → ₹0 (min ₹29)", R.calculate_commission("USER", 10, True) == 0)
+check("₹10 payment → ₹0 (min ₹99)", R.calculate_commission("USER", 10, True) == 0)
 check("GOLD tier kuda flat ₹50 (extra ledu)", R.calculate_commission("USER", 99, True, "GOLD") == 50)
 check("ELITE tier repeat → ₹0", R.calculate_commission("USER", 99, False, "ELITE") == 0)
 
@@ -125,11 +129,11 @@ users = fresh_users()
 me, friend = users
 R.ensure_referrer_profile(me, users)
 R.attach_referral(friend, me["referral_code"], users)
-r1 = R.process_referral_payment(friend, me["referral_code"], 99, users, payment_id="pay_T1")
+r1 = R.process_referral_payment(friend, me["referral_code"], 99, users, payment_id="pay_T1", plan_code="S_99")
 check("₹99 first payment → ₹50 wallet", r1["success"] and r1["commission"] == 50 and r1["wallet"] == 50, r1.get("wallet"))
 check("First-payment flag + ledger entry", r1["first_payment"] and any(l["type"] == "commission" for l in me["referral_stats"]["ledger"]))
 check("paid_count +1 + tier BRONZE", me["referral_stats"]["paid_count"] == 1 and r1["tier"] == "BRONZE")
-check("Repeat payment → no commission", R.process_referral_payment(friend, me["referral_code"], 199, users).get("reason") == "no_repeat_commission")
+check("Repeat payment → no commission", R.process_referral_payment(friend, me["referral_code"], 199, users, plan_code="S_199").get("reason") == "no_repeat_commission")
 check("Wallet 50 ye (repeat add kadu)", round(R.stats_of(me)["wallet"], 2) == 50, R.stats_of(me)["wallet"])
 check("Bonus message lo tier + next milestone", "BRONZE" in r1["message_telugu"] and "ఇంకా" in r1["message_telugu"], r1["message_telugu"][-90:])
 
@@ -137,12 +141,12 @@ check("Bonus message lo tier + next milestone", "BRONZE" in r1["message_telugu"]
 f3 = {"tsap_id": "TSAP-F-2025-3333", "full_name": "Third", "phone": "9848033333", "credits": 3}
 users.append(f3)
 R.attach_referral(f3, me["referral_code"], users)
-r3 = R.process_referral_payment(f3, me["referral_code"], 99, users)
+r3 = R.process_referral_payment(f3, me["referral_code"], 99, users, plan_code="S_99")
 check("2nd paying referral → inka BRONZE", r3["tier"] == "BRONZE", r3["tier"])
 f4 = {"tsap_id": "TSAP-F-2025-4444", "full_name": "Fourth", "phone": "9848044444", "credits": 3}
 users.append(f4)
 R.attach_referral(f4, me["referral_code"], users)
-r4 = R.process_referral_payment(f4, me["referral_code"], 99, users)
+r4 = R.process_referral_payment(f4, me["referral_code"], 99, users, plan_code="S_99")
 check("3rd paying referral → SILVER tier", r4["tier"] == "SILVER", r4["tier"])
 check("Milestone 3 → badge recognition (money/credits ledu)", r4["bonus_credits"] == 0
       and 3 in me["referral_stats"]["milestones_hit"] and me["credits"] >= 3, me["credits"])
@@ -153,14 +157,14 @@ for i in range(7):
     u = {"tsap_id": "TSAP-X-%d" % i, "full_name": "X%d" % i, "phone": "98480999%02d" % i, "credits": 0}
     users.append(u)
     R.attach_referral(u, me["referral_code"], users)
-    R.process_referral_payment(u, me["referral_code"], 99, users)
+    R.process_referral_payment(u, me["referral_code"], 99, users, plan_code="S_99")
 st = R.stats_of(me)
 check("10 pays → GOLD tier", st["tier"] == "GOLD", (st["paid_count"], st["tier"]))
 check("GOLD milestone = badge (cash ledu)", 10 in st["milestones_hit"]
       and not any(l["type"] == "milestone" for l in st["ledger"]), st["milestones_hit"])
 check("Next milestone PLATINUM (25)", R.next_milestone(st["paid_count"])["paid"] == 25)
-check("Referrer not found → pending message", R.process_referral_payment(friend, "NOSUCH", 99, users)["reason"] == "referrer_not_found")
-check("₹10 payment reject (too small)", R.process_referral_payment(friend, me["referral_code"], 10, users)["reason"] == "amount_too_small")
+check("Referrer not found → no reward is recorded", R.process_referral_payment(friend, "NOSUCH", 99, users, plan_code="S_99")["reason"] == "referrer_not_found")
+check("₹10 payment reject (too small)", R.process_referral_payment(friend, me["referral_code"], 10, users, plan_code="S_99")["reason"] == "amount_too_small")
 
 print("=== 5. REFUND CLAWBACK ===")
 before = R.stats_of(me)["wallet"]
@@ -277,8 +281,8 @@ with TestClient(main.app) as c:
     mcode = me_api["referral_code"]
 
     t = c.get("/api/referral/terms").json()
-    check("GET /api/referral/terms — Telugu rules", t["success"] and len(t["rules_telugu"]) >= 8
-          and t["headline"].startswith("₹50"))
+    check("GET /api/referral/terms — Telugu qualifying-plan rules", t["success"] and len(t["rules_telugu"]) >= 8
+          and "₹50" in t["headline"] and t["min_payout"] == 50)
     check("Terms lo not_allowed list", len(t["not_allowed"]) >= 4)
 
     # 🐞 FIX (R12): auth-enforced mode lo require_owner 401 istundi (IDOR guard) —
@@ -288,8 +292,8 @@ with TestClient(main.app) as c:
     dash_api = c.get("/api/referral/TSAP-M-2025-1042", headers=_own_headers).json()
     check("GET /api/referral/{id} dashboard", dash_api["ok"] and dash_api["code"] == mcode)
     check("Dashboard lo share_kit kooda vastundi", "whatsapp_messages" in dash_api.get("share_kit", {}))
-    check("💎 R12 dashboard lo pending pipeline stats",
-          "pending_friends" in dash_api.get("stats", {}) and "pending_value" in dash_api.get("stats", {}))
+    check("Dashboard counts registrations without projecting future money",
+          "pending_friends" in dash_api.get("stats", {}) and "pending_value" not in dash_api.get("stats", {}))
 
     kit_api = c.get("/api/referral/TSAP-M-2025-1042/share-kit").json()
     check("GET share-kit — 5 messages", kit_api["success"] and len(kit_api["whatsapp_messages"]) == 5)
@@ -398,6 +402,39 @@ with TestClient(main.app) as c:
     check("GET leaderboard (period + prize line)", lbapi["success"] and "prize_telugu" in lbapi)
     check("404 for bad ID", c.get("/api/referral/TSAP-NOPE").status_code == 404)
 
+    # Partner dashboards expose aggregate counts publicly; financials require a fresh
+    # OTP-derived, partner-scoped token. No referred user's direct identity is exposed.
+    import refpartners as RP19  # noqa: E402
+    _partner_phone = "97%08d" % (int(time.time()) % 100000000)
+    _partner_reg = RP19.register_partner("Referral Test Partner", _partner_phone, state="TS", district="Hyderabad")
+    _partner_id = _partner_reg["partner_id"]
+    _partner_obj = RP19.get_partner(_partner_id)
+    R.stats_of(_partner_obj)["wallet"] = 100
+    _public_partner = c.get(f"/api/referral/partner/{_partner_id}").json()
+    check("Partner public endpoint hides wallet and reward amounts",
+          _public_partner.get("success") and "wallet" not in _public_partner
+          and "qualifying_rewards_total" not in _public_partner and "name" not in _public_partner)
+    _phone_digits = "".join(ch for ch in _partner_phone if ch.isdigit())
+    main.VERIFIED_PHONES.add(_phone_digits)
+    main.VERIFIED_PHONE_AT[_phone_digits] = int(time.time()) - 601
+    _stale_auth = c.post(f"/api/referral/partner/{_partner_id}/auth", json={"phone": _phone_digits})
+    check("Partner session rejects stale OTP verification", _stale_auth.status_code == 401)
+    main.VERIFIED_PHONE_AT[_phone_digits] = int(time.time())
+    _partner_auth = c.post(f"/api/referral/partner/{_partner_id}/auth", json={"phone": _phone_digits})
+    _partner_token = _partner_auth.json().get("partner_token", "")
+    check("Fresh registered-phone verification issues scoped partner token",
+          _partner_auth.status_code == 200 and bool(_partner_token))
+    check("Private partner wallet endpoint rejects missing token",
+          c.get(f"/api/referral/partner/{_partner_id}/private").status_code == 401)
+    _partner_headers = {"X-Partner-Token": _partner_token}
+    _private_partner = c.get(f"/api/referral/partner/{_partner_id}/private", headers=_partner_headers).json()
+    check("Private partner dashboard returns verified wallet", _private_partner.get("wallet") == 100)
+    _partner_payout = c.post("/api/referral/partner/payout",
+                             json={"partner_id": _partner_id, "amount": 50, "method": "upi", "upi_id": "test@okhdfcbank"},
+                             headers=_partner_headers)
+    check("Partner payout request requires token and queues manual review",
+          _partner_payout.status_code == 200 and _partner_payout.json().get("request", {}).get("status") == "requested")
+
 print("=== 11. FRONTEND WIRING ===")
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -410,6 +447,7 @@ dash_pg = read("frontend/src/app/referral/page.tsx")
 land_pg = read("frontend/src/app/r/[code]/page.tsx")
 code_pg = read("frontend/src/app/referral/register/page.tsx")
 admin_pg = read("frontend/src/app/admin/page.tsx")
+admin_dashboard = read("frontend/src/components/control/Dashboard.tsx")
 reg_pg = read("frontend/src/app/register/page.tsx")
 sitemap = read("frontend/src/app/sitemap.ts")
 
@@ -421,9 +459,15 @@ check("/referral lo leaderboard + terms API", "leaderboard" in dash_pg and "/api
 check("/r/[code] click ni API ki pampistundi (funnel)", "/api/referral/click/" in land_pg)
 check("/r/[code] invalid code handle + register redirect", "ref=${code}" in land_pg and "దొరకలేదు" in land_pg)
 check("/referral/register partner register API use chestundi", "/api/referral/partner/register" in code_pg and "/api/referral/partner/${" in code_pg)
-check("Admin payouts tab LIVE API (queue + approve/reject)",
-      "/api/admin/payouts" in admin_pg and "utr" in admin_pg.lower() and "reject" in admin_pg.lower())
-check("Admin lo PhonePe deep link + copy UPI", "phonepe://pay" in admin_pg and "upi_id" in admin_pg)
+check("Admin payout review tab uses queue + approve/reject API",
+      "/api/control/payouts/queue" in admin_dashboard and "utr" in admin_dashboard.lower() and "reject" in admin_dashboard.lower())
+check("Admin UPI payment intent uses supplied UPI ID without invented payee fallback",
+      "upi://pay?pa=${encodeURIComponent(po.upi_id)}" in admin_dashboard
+      and 'po.name || ""' in admin_dashboard and "ManaVivahaPartner" not in admin_dashboard)
+check("Partner financial dashboard uses OTP and a scoped private token",
+      "/api/otp/send" in code_pg and "/private" in code_pg and "X-Partner-Token" in code_pg)
+check("Public partner UI does not display unverified wallet data",
+      "Public dashboard shows aggregate counts only" in code_pg and "privateDash.wallet" in code_pg)
 check("Register page ?ref auto-lock intact", "refLocked" in reg_pg and "referral_code" in reg_pg)
 check("Register success lo referral card (code+link+poster+dashboard)",
       "result.referral?.my_code" in reg_pg and "poster_url" in reg_pg and "Referral dashboard" in reg_pg)
@@ -432,12 +476,13 @@ check("Referral dashboard ?id= ni respect chestundi (register nunchi vachina use
 check("Register page localStorage lo ID save chestundi (demo ID kaadu chupinchadaniki)",
       "tsap_last_id" in reg_pg and "tsap_profiles" in reg_pg)
 check("Foreign script leak ledu (Bengali/Devanagari — Telugu matrame)",
-      not any(0x0980 <= ord(ch) <= 0x09FF for pg in (dash_pg, reg_pg, land_pg, code_pg, admin_pg) for ch in pg))
+      not any(0x0980 <= ord(ch) <= 0x09FF for pg in (dash_pg, reg_pg, land_pg, code_pg, admin_pg, admin_dashboard) for ch in pg))
 check("Register success lo joined_with banner (➕ bonus credit)",
       "joined_with?.ok" in reg_pg and "bonus_credits" in reg_pg)
 check("Sitemap lo /referral", "/referral" in sitemap)
 check("Domain correct (manavivaha.in) — tsapmatrimony.com stale ledu",
-      "tsapmatrimony.com" not in dash_pg and "tsapmatrimony.com" not in code_pg and "tsapmatrimony.com" not in admin_pg)
+      "tsapmatrimony.com" not in dash_pg and "tsapmatrimony.com" not in code_pg
+      and "tsapmatrimony.com" not in admin_pg and "tsapmatrimony.com" not in admin_dashboard)
 
 print("\n=== RESULT: %d pass / %d fail ===" % (len(PASS), len(FAIL)))
 if FAIL:

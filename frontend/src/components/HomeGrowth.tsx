@@ -49,16 +49,24 @@ export function TeaserStrip() {
                 {/* soft decorative pattern so a locked card never looks like an empty gap */}
                 <span aria-hidden className="pointer-events-none absolute inset-0 opacity-25"
                   style={{ backgroundImage: "radial-gradient(circle at 20% 25%, rgba(255,255,255,.35) 0, transparent 42%), radial-gradient(circle at 82% 75%, rgba(212,175,55,.5) 0, transparent 45%)" }} />
-                <span className="text-6xl blur-[6px] select-none opacity-80" aria-hidden>{t.gender === "Groom" ? "🤵" : "👰"}</span>
-                <span className="absolute inset-0 flex flex-col items-center justify-center gap-1.5" title="Photo locked">
-                  <span className="text-2xl">🔒</span>
-                  <span className="bg-black/45 text-white text-[10px] font-bold px-3 py-1 rounded-full backdrop-blur-sm">{t.gender === "Groom" ? (t.district || "Groom") : (t.district || "Bride")}</span>
+                <span className="text-6xl blur-[6px] select-none opacity-80" aria-hidden>
+                  {t.gender === "Groom" ? "🤵" : t.gender === "Bride" ? "👰" : "👤"}
+                </span>
+                <span className="absolute inset-0 flex flex-col items-center justify-center gap-1.5" title="Profile preview">
+                  <span className="text-2xl" aria-hidden>🔒</span>
+                  <span className="max-w-[90%] break-words bg-black/45 text-center text-white text-[10px] font-bold px-3 py-1 rounded-full backdrop-blur-sm">
+                    {t.district || "Profile details protected"}
+                  </span>
                 </span>
               </div>
-              <div className="p-3">
-                <div className="font-bold text-[14px] text-ink">{firstName(t.full_name)} • {t.age}y</div>
-                <div className="text-[11px] text-gray-600">{t.caste} · {t.education} · {t.district}</div>
-                <div className="text-[11px] text-gray-500">{t.job}</div>
+              <div className="min-w-0 p-3">
+                <div className="break-words font-bold text-[14px] text-ink">
+                  {firstName(t.full_name)}{t.age !== undefined && t.age !== null && String(t.age).trim() ? ` • ${t.age}y` : ""}
+                </div>
+                <div className="break-words text-[11px] text-gray-600">
+                  {[t.caste, t.education, t.district].filter((value) => String(value || "").trim()).join(" · ") || "Some details not provided"}
+                </div>
+                {t.job ? <div className="break-words text-[11px] text-gray-500">{t.job}</div> : null}
                 <Link href="/register"
                   className="mt-2 block text-center rounded-xl maroon-gradient text-white text-[12px] font-bold py-2">
                   <Duo en="View full profile" te="పూర్తి ప్రొఫైల్ చూడండి" />
@@ -114,9 +122,9 @@ export function StoriesStrip() {
 
 export function ReligionsStrip() {
   const items = [
-    { icon: "🕉️", en: "Hindu", te: "హిందూ", d: "All castes A–Z — Reddy, Kamma, Kapu, Yadav, SC/ST…", href: "/castes" },
-    { icon: "☪️", en: "Muslim", te: "ముస్లిం", d: "Sunni, Shia + caste groups — dedicated channels", href: "/castes" },
-    { icon: "✝️", en: "Christian", te: "క్రిస్టియన్", d: "All denominations — dedicated channels", href: "/castes" },
+    { icon: "🕉️", en: "Hindu", te: "హిందూ", d: "Selected community labels A–Z; self-description is supported.", href: "/castes" },
+    { icon: "☪️", en: "Muslim", te: "ముస్లిం", d: "Selected community groups; self-description is supported.", href: "/castes" },
+    { icon: "✝️", en: "Christian", te: "క్రిస్టియన్", d: "Selected denomination options; add a name if it is not listed.", href: "/castes" },
   ];
   return (
     <section className="max-w-7xl mx-auto px-4 py-8">
@@ -124,7 +132,7 @@ export function ReligionsStrip() {
         <SectionHeading
           eyebrow={duo("All faiths welcome", "అన్ని మతాలకు స్వాగతం")}
           title={duo("Hindu • Muslim • Christian", "హిందూ • ముస్లిం • క్రిస్టియన్")}
-          subtitle={duo("Select a religion — all its castes A–Z, posted to your caste channel.", "Religion select చెయ్యగానే ఆ మతం castes అన్నీ A–Z — మీ caste channel లో post.")}
+          subtitle={duo("Browse selected community labels and channel hubs. If yours is not shown, you can self-describe it during registration.", "ఎంపిక చేసిన కమ్యూనిటీ పేర్లు, channel hubs చూడండి. మీ పేరు కనిపించకపోతే నమోదులో స్వయంగా నమోదు చేయవచ్చు.")}
           telugu
         />
       </Reveal>
@@ -150,11 +158,11 @@ export function FinalCta() {
       <div className="rounded-3xl maroon-gradient text-white p-6 md:p-10 text-center shadow-brand">
         <div className="text-4xl">💍</div>
         <h2 className="mt-2 text-2xl md:text-3xl font-bold">
-          <Duo en="Your life partner is already here." te="మీ జీవిత భాగస్వామి ఇక్కడే ఉన్నారు." />
+          <Duo en="Start your search for a meaningful connection." te="అర్థవంతమైన పరిచయం కోసం మీ అన్వేషణను ప్రారంభించండి." />
         </h2>
         <p className="mt-2 text-[13px] md:text-sm opacity-90 telugu">
-          {duo("Register FREE in 3 minutes → 3 profiles → ₹99 Sambandham → number via Telegram (1 credit).",
-               "3 నిమిషాల్లో ఉచిత నమోదు → 3 ప్రొఫైళ్లు → ₹99 కే సంబంధం → టెలిగ్రామ్ ద్వారా నంబర్ (1 క్రెడిట్).")}
+          {duo("Create a profile to get started. Interest notifications and contact sharing depend on service configuration, acceptance and privacy settings.",
+               "ప్రొఫైల్ సృష్టించి ప్రారంభించండి. Interest notifications మరియు contact sharing service configuration, acceptance, privacy settings పై ఆధారపడతాయి.")}
         </p>
         <div className="mt-5 flex flex-wrap justify-center gap-3">
           <Link href="/register" className="px-7 py-3.5 rounded-full gold-gradient text-maroon text-sm font-bold shadow-soft">

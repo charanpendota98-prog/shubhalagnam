@@ -8,8 +8,8 @@ Top matrimony sites lo "report / block / verification" undi — manam kooda (ink
      • severity level batti priority (scam/harassment = high)
   2. 🚫 BLOCK — user ni block (vaallu mee profile chudalenu, interest pampalenru, search lo kanipinchadu)
   3. ✅ VERIFICATION LEVELS — phone ✅ → photo ✅ → ID (KYC) ✅ (badge card lo + search lo)
-  4. 👮 MODERATION QUEUE — admin oke chota chusi action teesukovachu
-       (verify / warn / hide / ban / dismiss) — audit log tho
+  4. 👮 MODERATION QUEUE — admin/staff can review and resolve reports
+       (warn / hide / ban / dismiss) — identity verification is a separate workflow
   5. 💡 SAFETY TIPS — Telugu lo (scam build-up, public meeting, video call verify)
 
 Ee module pure logic — DB lists main.py nunchi istham (test lo in-memory).
@@ -26,7 +26,7 @@ REPORT_CATEGORIES = {
     "fake_profile": {"te": "నకిలీ ప్రొఫైల్", "severity": "high",
                      "desc": "Photo/పేరు/details నిజం kaavu (photos vere వాళ్ల vi)"},
     "advance_money": {"te": "ముందు డబ్బు అడిగారు", "severity": "high",
-                      "desc": "Advance/registration/visa అని money adigaru (100% scam)"},
+                      "desc": "Advance/registration/visa కోసం డబ్బు అడిగారు లేదా ఒత్తిడి చేశారు"},
     "harassment": {"te": "వేధింపు / అసభ్య మాటలు", "severity": "high",
                    "desc": "Asabhyam గా matladaru, threat చేశారు, blackmail"},
     "wrong_photo": {"te": "ఫోటో మార్చేశారు", "severity": "medium",
@@ -37,11 +37,10 @@ REPORT_CATEGORIES = {
              "desc": "Interest కాదు — business/promo messages pampisthunnaru"},
     "other": {"te": "ఇతర", "severity": "medium", "desc": "Vere problem — detail లో రాయండి"},
 }
-ACTION_RULES = {"verify": "✅ Manually verify చేసి badge icharu",
-                "warn": "⚠️ Warning pampincharu (audit log లో ఉంది)",
-                "hide": "🙈 Profile hide అయ్యింది (admin review)",
-                "ban": "⛔ Profile ban (permanent) — channels నుంచి teesestham",
-                "dismiss": "❌ Report dismiss (evidence saripoledu)"}
+ACTION_RULES = {"warn": "⚠️ Warning recorded for review",
+                "hide": "🙈 Profile approval disabled pending review",
+                "ban": "⛔ Profile suspended; further review is required",
+                "dismiss": "❌ Report closed without further action"}
 
 
 def submit_report(reporter_id: str, target_id: str, category: str, detail: str = "",
@@ -137,42 +136,57 @@ def block_list(owner_id: str, blocks: Optional[List[Dict]] = None) -> List[Dict]
 # --------------------------------------------------------------- verification
 VERIFY_LEVELS = ["none", "phone", "photo", "id"]
 VERIFY_TELUGU = {
-    "none": "verify కాలేదు",
-    "phone": "📱 Phone verified (OTP)",
-    "photo": "📱✅ Phone + 📸 Photo verified",
-    "id": "🏅 Aadhaar/ID verified (full trust badge)",
+    "none": "ధృవీకరణ ఇంకా లేదు",
+    "phone": "📱 ఫోన్ OTP ద్వారా ధృవీకరించబడింది",
+    "photo": "📸 ఫోటోను బృందం సమీక్షించి ఆమోదించింది",
+    "id": "🪪 ప్రభుత్వ ID ను బృందం మాన్యువల్‌గా సమీక్షించింది",
 }
 
 
+def _verified_level(user: Dict) -> str:
+    """Derive the badge only from server/admin evidence, never a requested level."""
+    u = user or {}
+    if u.get("id_verified"):
+        return "id"
+    if u.get("selfie_verified") or u.get("photo_status") == "approved":
+        return "photo"
+    if u.get("phone_verified"):
+        return "phone"
+    return "none"
+
+
+def has_verification_evidence(user: Dict) -> bool:
+    """True only for OTP or review evidence; ignores legacy plan/approval flags."""
+    return _verified_level(user or {}) != "none"
+
+
 def set_verification(user: Dict, kind: str) -> Tuple[bool, str, Dict]:
-    """phone / photo / id verification level set (level ఎప్పుడు penchadam మాత్రమే)."""
+    """Refresh a level from evidence already recorded by OTP/admin review."""
     kind = str(kind or "").strip().lower()
     if kind not in ("phone", "photo", "id"):
         return False, "kind: phone | photo | id మాత్రమే", {}
-    cur = str((user or {}).get("verification_level", "none") or "none")
-    if VERIFY_LEVELS.index(kind) > VERIFY_LEVELS.index(cur):
-        user["verification_level"] = kind
-    user["verification_" + kind] = True
-    if kind == "photo":
-        user["photo_verified"] = True
-    if kind == "id":
-        user["id_verified"] = True
-    user["verified_at"] = datetime.utcnow().isoformat()
-    return True, "level_%s" % user.get("verification_level", kind), user
+    evidence = {
+        "phone": bool((user or {}).get("phone_verified")),
+        "photo": bool((user or {}).get("selfie_verified") or (user or {}).get("photo_status") == "approved"),
+        "id": bool((user or {}).get("id_verified")),
+    }[kind]
+    if not evidence:
+        return False, "%s verification కి OTP లేదా మాన్యువల్ review evidence అవసరం" % kind, user or {}
+    level = _verified_level(user or {})
+    (user or {})["verification_level"] = level
+    return True, "level_%s" % level, user or {}
 
 
 def verification_badge(user: Dict) -> Dict:
-    """Search/profile లో చూపించడానికి badge (text + level + next step)."""
-    u = user or {}
-    lvl = str(u.get("verification_level", "none") or "none")
-    if lvl == "none" and (u.get("phone_verified") or u.get("is_verified")):
-        lvl = "phone"
-    next_step = {"none": "OTP తో phone verify చెయ్యండి (30 sec)",
-                 "phone": "photo verify చెయ్యండి (selfie + photo)",
-                 "photo": "ID verify చెయ్యండి (Aadhaar last 4 digits) — full trust badge",
-                 "id": "అన్నీ verify అయ్యాయి — మీ profile top లో కనిపిస్తుంది"}[lvl]
-    return {"level": lvl, "telugu": VERIFY_TELUGU[lvl], "stars": VERIFY_LEVELS.index(lvl),
-            "trust_score": {"none": 40, "phone": 65, "photo": 85, "id": 100}[lvl],
+    """Describe the highest completed check without converting it to a trust score."""
+    lvl = _verified_level(user or {})
+    next_step = {
+        "none": "ఫోన్ ధృవీకరణ కోసం OTP ను నమోదు చేయండి",
+        "phone": "ఫోటో/సెల్ఫీ సమీక్ష కోసం /verify లో అప్‌లోడ్ చేయండి",
+        "photo": "ప్రభుత్వ ID సమీక్ష కోసం support ను సంప్రదించండి",
+        "id": "ID మాన్యువల్ సమీక్ష పూర్తయింది",
+    }[lvl]
+    return {"level": lvl, "telugu": VERIFY_TELUGU[lvl],
             "next_step_telugu": next_step}
 
 
@@ -227,8 +241,6 @@ def resolve_report(report_id: str, action: str, note: str = "",
             tgt["is_approved"] = False
             tgt["is_banned"] = True
             tgt["banned_at"] = datetime.utcnow().isoformat()
-        elif action == "verify":
-            set_verification(tgt, "photo")
         elif action == "warn":
             tgt["warnings"] = int(tgt.get("warnings", 0)) + 1
     # same target ki migilina open reports ni kooda close chey (oke action tho)
@@ -245,9 +257,8 @@ def resolve_report(report_id: str, action: str, note: str = "",
 def safety_tips() -> List[Dict]:
     """Telugu safety tips — /safety page + welcome message లో reuse."""
     return [
-        {"icon": "💰", "title": "Advance money ఎప్పుడు వద్దు",
-         "telugu": "Registration fee / visa / hospital / train ticket అని ఎవరు adigina — 100% scam. Ventane report చెయ్యండి: "
-                   "మన team 24h లో action teesukuntundi."},
+        {"icon": "💰", "title": "అత్యవసర డబ్బు అభ్యర్థనలపై జాగ్రత్త",
+         "telugu": "Registration fee / visa / hospital / train ticket అంటూ వెంటనే డబ్బు అడిగితే, చెల్లించే ముందు కుటుంబంతో స్వతంత్రంగా నిర్ధారించండి. అనుమానం ఉంటే report చేయండి; review సమయం, ఫలితం మారవచ్చు."},
         {"icon": "📸", "title": "Photo ఎప్పుడు verify చెయ్యండి",
          "telugu": "Matrimony profile లో photos vere వాళ్ల vi కూడా undochu. WhatsApp video call (2 నిమిషాలు) చేసి confirm చెయ్యండి."},
         {"icon": "🏠", "title": "మొదటి kalthi public place లో",
@@ -262,7 +273,7 @@ def safety_tips() -> List[Dict]:
 
 
 def report_ack_text(target_name: str = "profile") -> str:
-    return ("🙏 Report andinai ki dhanyavadalu!\n"
-            "మన safety team 24 hours లో chusi action teesukuntundi.\n"
-            "🔒 మీ పేరు report లో కనిపించదు — privacy 100%% protected.\n"
-            "⚠️ ఈ madhya aa profile నుంచి money అడిగితే వెంటనే screenshots పంపండి.")
+    return ("🙏 Report పంపినందుకు ధన్యవాదాలు.\n"
+            "ఈ report review కోసం నమోదు చేయబడింది; చర్య సమయం, ఫలితం మారవచ్చు.\n"
+            "🔒 Report చేసిన వారి వివరాలు reported profile owner‌కు చూపించము.\n"
+            "⚠️ డబ్బు అడిగినట్లయితే screenshots లేదా payment details‌ను భద్రపరచండి.")

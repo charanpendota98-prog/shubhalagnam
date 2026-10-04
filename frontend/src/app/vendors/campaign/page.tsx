@@ -70,7 +70,7 @@ export default function VendorCampaignPage() {
   const toggle = (arr: string[], v: string) => (arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v]);
 
   return (
-    <main className="mx-auto max-w-3xl px-4 py-6">
+    <div className="mx-auto max-w-3xl px-4 py-6">
       <Link href="/vendors" className="text-[12px] font-bold text-[#7A0C2E]">← Vendors</Link>
       <h1 className="mt-2 text-2xl font-extrabold text-[#7A0C2E]">{te ? "📢 Ad Campaign — మీ business, correct audience కే" : "📢 Ad Campaign — your business, to the right audience"}</h1>
       <p className="mt-1 text-[13px] text-gray-600">
@@ -164,6 +164,6 @@ export default function VendorCampaignPage() {
           </div>
         </div>
       ) : null}
-    </main>
+    </div>
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { ALL_CHANNELS, CHANNEL_STATS, Channel } from "@/lib/channels";
 import Reveal from "@/components/Reveal";
 import { useCountUp } from "@/components/Skeletons";
@@ -16,18 +17,18 @@ import { SITE_CONFIG } from "@/lib/site-config";
 import { apiGet } from "@/lib/api";
 import { useLang, type Lang } from "@/lib/lang";
 import CinematicHero from "@/components/CinematicHero";
-import RealWeddingsFilm from "@/components/RealWeddingsFilm";
+import CinematicGallery from "@/components/CinematicGallery";
 import HomeVendorsShowcase from "@/components/HomeVendorsShowcase";
 import HeroQuickSearch from "@/components/HeroQuickSearch";
 import WhyChooseUs from "@/components/WhyChooseUs";
 import DistrictAdBanner from "@/components/DistrictAdBanner";
-import HomeSecondMarriageSection from "@/components/HomeSecondMarriageSection";
-import { waLink } from "@/lib/wa";
+import { resolveChannelLinks, useChannelDirectoryLinks } from "@/lib/channel-links";
 import { TelegramIcon, WhatsAppIcon } from "@/components/BrandIcons";
+import { AP_DISTRICTS, TS_DISTRICTS, COMMUNITIES_BY_RELIGION } from "@/lib/telugu-data";
 
 const BOT = SITE_CONFIG.officialChannelUrl;
-const PROMO_HERO_WEDDING = "/promo/hero-wedding.jpg"; // vibeTitle banner asset
-const PROMO_BRIDE_CARD = "/promo/bride-card.jpg"; // card photo asset
+const DISTRICT_OPTIONS_COUNT = TS_DISTRICTS.length + AP_DISTRICTS.length;
+const HINDU_COMMUNITY_OPTION_COUNT = COMMUNITIES_BY_RELIGION.Hindu.length;
 const handleInstallApp = () => {
   if (typeof window !== "undefined") {
     window.dispatchEvent(new Event("tsap:install-show"));
@@ -39,7 +40,7 @@ const handleInstallApp = () => {
 /* ------------------------------------------------------------------ */
 type PlanStat = { code: string; price: number; profiles: number; label: string; telugu: string; badge: string };
 type HomeStats = {
-  channels_total: number; channels_live: number;
+  channels_total: number;
   channels_by_tier: Record<string, number>;
   castes_covered: number; free_first: number;
   plans: PlanStat[];
@@ -49,106 +50,110 @@ type HomeStats = {
 };
 
 const FALLBACK: HomeStats = {
-  channels_total: CHANNEL_STATS.total, channels_live: 2,
-  channels_by_tier: { L1_REGION: 5, L2_RELIGION: 11, L3_CASTE: 27, L4_SPECIAL: 8 },
-  castes_covered: 43, free_first: 3,
+  channels_total: CHANNEL_STATS.total,
+  channels_by_tier: { ...CHANNEL_STATS.by_tier },
+  castes_covered: HINDU_COMMUNITY_OPTION_COUNT, free_first: 3,
   plans: [
-    { code: "FREE", price: 0, profiles: 3, label: "FREE", telugu: "FREE → 3 profiles", badge: "Start" },
-    { code: "S_99", price: 99, profiles: 5, label: "Sambandham", telugu: "₹99 → 5 profiles", badge: "Entry" },
-    { code: "S_199", price: 199, profiles: 12, label: "Family", telugu: "₹199 → 12 profiles", badge: "Popular" },
-    { code: "S_299", price: 299, profiles: 25, label: "Premium", telugu: "₹299 → 25 profiles", badge: "Best value" },
-    { code: "S_499", price: 499, profiles: 50, label: "VIP", telugu: "₹499 → 50 profiles", badge: "VIP" },
+    { code: "FREE", price: 0, profiles: 3, label: "FREE", telugu: "FREE → 3 interest requests", badge: "Start" },
+    { code: "S_99", price: 99, profiles: 5, label: "Sambandham", telugu: "₹99 → 5 interest requests", badge: "Entry" },
+    { code: "S_199", price: 199, profiles: 12, label: "Family", telugu: "₹199 → 12 interest requests", badge: "Popular" },
+    { code: "S_299", price: 299, profiles: 25, label: "Premium", telugu: "₹299 → 25 interest requests", badge: "Best value" },
+    { code: "S_499", price: 499, profiles: 50, label: "VIP", telugu: "₹499 → 50 interest requests", badge: "VIP" },
   ],
   renewal: { price: 99, profiles: 8 },
   bureau: [
-    { code: "BUREAU_999", price: 999, profiles: 25, label: "Bureau Starter", telugu: "₹999 → 25 profiles (B2B)", perks: ["25 profiles", "Monthly engaged report", "Bulk register"] },
+    { code: "BUREAU_999", price: 999, profiles: 25, label: "Bureau Starter", telugu: "₹999 → 25 requests (B2B)", perks: ["25 request credits", "30-day validity", "B2B plan"] },
   ],
-  referral: { per_pay: 50, milestones: [{ paid: 25, title: "💎 PLATINUM Referrer", telugu: "25 paying referrals — 💎 verified badge + homepage" }] },
+  referral: { per_pay: 50, milestones: [{ paid: 25, title: "💎 PLATINUM Referrer", telugu: "25 paid referrals — recognition on the referral page" }] },
 };
 
 function planOf(hs: HomeStats, code: string): PlanStat {
   return hs.plans.find((p) => p.code === code) || FALLBACK.plans.find((p) => p.code === code)!;
 }
 
+function channelCommunityLabel(channel: Channel): string {
+  return channel.name.replace(/^💍 /, "").replace(" Matrimony", "").replace(" | TS-AP", "").split("|")[0].trim();
+}
+
 /* ---------------- Telugu / English copy (ONE language at a time) ---------------- */
 const TEXT = {
   te: {
-    liveBadge: (live: number, total: number) => `${total}+ ఛానళ్లలో మీ ప్రొఫైల్ — LIVE`,
+    liveBadge: (_live: number, total: number) => `మీ profile కోసం ${total} configured channel destinations`,
     heroTitle: "మీ ఇంటి దగ్గరే సంబంధాలు",
     heroSubA: "తెలంగాణ + ఆంధ్రప్రదేశ్ తెలుగు మ్యాట్రిమోనీ",
-    heroSubB: (castes: number, total: number) => `Region • Religion • ${castes} Castes • Special — ${total} channels, ఒక్క రిజిస్టర్‌తో మీ ప్రొఫైల్ సరిపోయే అన్ని చోట్లకీ ఆటోమేటిక్‌గా వెళ్తుంది.`,
-    heroSubC: (free: number) => `₹99 కే సంబంధం — మొదటి ${free} ప్రొఫైళ్లు FREE.`,
+    heroSubB: (communities: number, total: number) => `Region • Religion • ${communities} Hindu community labels (catalog non-exhaustive; self-description available) • Special. ${total} channel destinations configured; profile review తర్వాత సంబంధిత destinations కు route చేస్తాం, delivery guarantee లేదు.`,
+    heroSubC: (free: number) => `₹99 కే సంబంధం — మొదటి ${free} interest requests ఉచితం.`,
     registerCta: "ఉచిత నమోదు — FREE",
     botCta: "Telegram లో చేరండి",
     installApp: "App లాగా install చేసుకోండి",
-    vibeTitle: "మీ ఇంటి శుభకార్యానికి — సరైన సంబంధం ఇక్కడే",
-    trust: ["OTP + DOB వెరిఫైడ్", "ఫోటో-ప్రైవేట్ మోడ్", "యాక్సెప్ట్ తర్వాతే నంబర్", "వాటర్‌మార్క్ + ఫ్రాడ్ అలర్ట్స్"],
-    idSearchPh: "Profile ID తో వెతకండి — MV1001",
+    vibeTitle: "మీ కుటుంబం కోసం ప్రొఫైళ్లను స్వయంగా పరిశీలించండి",
+    trust: ["ఫోన్ OTP స్థితి", "అడ్మిన్ సమీక్ష తర్వాత ప్రొఫైల్ ఆమోదం", "ఫోటో గోప్యతా నియంత్రణలు", "అంగీకారం తర్వాత సంప్రదింపు"],
+    idSearchPh: "Profile ID నమోదు చేసి వెతకండి",
     idSearchBtn: "వెతకండి",
-    cardWhy: "ఎందుకు సెట్ అవుతారు?",
-    cardTags: ["O+", "Rohini", "Bharadwaj"],
-    cardWhy1: "✓ Reddy Bharadwaj గోత్రం + Rohini నక్షత్రం — క్లియర్",
-    cardWhy2: "✓ BTech + Software Engineer (8 LPA) — సెటిల్డ్",
-    cardWhy3: "✓ Hyderabad లోనే ఉద్యోగం — same city",
+    cardWhy: "ప్రొఫైల్‌లో అందుబాటులో ఉన్న వివరాలు",
+    cardTags: ["విద్య", "ప్రాంతం", "ప్రాధాన్యతలు"],
+    cardWhy1: "✓ మీరు ఎంచుకున్న కమ్యూనిటీ ప్రాధాన్యతలు",
+    cardWhy2: "✓ ప్రొఫైల్‌లో నమోదు చేసిన విద్య / ఉద్యోగ సమాచారం",
+    cardWhy3: "✓ అందుబాటులో ఉన్న ప్రాంత వివరాలు",
     cardInterest: "❤️ Interest పంపు",
-    cardNumber: "📞 Number (1 credit)",
-    ticker: (total: number, castes: number, free: number) => [
-      `${total} channels — Region • Religion • Caste • Special`,
-      `₹99 కే సంబంధం — మొదటి ${free} నంబర్లు FREE`,
-      "Photo-Private • DOB Verified • Watermark protected",
-      "Telegram + WhatsApp channels లో post",
-      `${castes} castes: Reddy నుంచి Madiga, Lambada, Boya వరకు`,
-      "హిందూ కులాల కోసం ప్రత్యేక ఛానళ్లు",
-      "Referral — ప్రతి profile కి ₹50",
+    cardNumber: "📞 Contact after acceptance",
+    ticker: (total: number, communities: number, free: number) => [
+      `${total} configured channels — Region • Religion • Community • Special`,
+      `₹99 plan — మొదటి ${free} interest requests ఉచితం`,
+      "Optional photo privacy • profile details సభ్యులు అందిస్తారు",
+      "Configured messaging destinations మాత్రమే; బాహ్య లింకుల లభ్యత హామీ కాదు",
+      `${communities} Hindu community labels; జాబితా సంపూర్ణం కాదు, self-description అందుబాటులో ఉంది`,
+      "Configured community destinations profile approval తర్వాత చూపబడతాయి",
+      "Referral — అర్హమైన first consumer-plan payment పై ఒక్కసారి ₹50 ఉండవచ్చు (నియమాలు వర్తిస్తాయి)",
     ],
     statChannels: "Channels (network)",
-    statChannelsSub: (t: Record<string, number>) => `${t.L1_REGION ?? 5} Region • ${t.L2_RELIGION ?? 11} Religion • ${t.L3_CASTE ?? 27} Caste • ${t.L4_SPECIAL ?? 8} Special`,
-    statCastes: "కులాలు (covered)",
-    statCastesSub: "Reddy నుంచి SC/ST వరకు",
+    statChannelsSub: (t: Record<string, number>) => `${t.L1_REGION ?? 5} Region • ${t.L2_RELIGION ?? 5} Religion • ${t.L3_CASTE ?? 33} Community • ${t.L4_SPECIAL ?? 8} Special`,
+    statCastes: "హిందూ కమ్యూనిటీ లేబుళ్లు",
+    statCastesSub: "ఎంపిక చేసిన జాబితా • స్వయంగా పేరు నమోదు చేయవచ్చు",
     statChat: "No chatting",
-    statChatT: "చాటింగ్ లేదు — direct contact",
-    statChatS: "Safe WhatsApp delivery",
-    statPrice: (p99: PlanStat) => `₹${p99.price}→${p99.profiles}`,
-    statPriceL: (p199: PlanStat, p299: PlanStat) => `Profiles (₹${p199.price}→${p199.profiles}, ₹${p299.price}→${p299.profiles})`,
+    statChatT: "In-app chat లేదు — acceptance తర్వాత contact sharing",
+    statChatS: "Contact details may be shared after acceptance, subject to privacy settings",
+    statPrice: (p99: PlanStat) => `₹${p99.price}→${p99.profiles} requests`,
+    statPriceL: (p199: PlanStat, p299: PlanStat) => `Requests (₹${p199.price}→${p199.profiles}, ₹${p299.price}→${p299.profiles})`,
     statPriceS: (free: number) => `మొదటి ${free} requests FREE`,
     howEyebrow: "ఎలా పనిచేస్తుంది",
-    howTitle: "4 దశల్లో ఆటోమేటిక్ సంబంధం",
-    howSub: "Register అయ్యాక మీ profile అవసరమైన channels లో దానంతట అదే post అవుతుంది. మీరు manual గా ఏదీ చెయ్యక్కర్లేదు.",
+    howTitle: "పరిచయం ప్రారంభించడానికి 4 దశలు",
+    howSub: "మీ profile ని team review చేసిన తర్వాత, configured destinations కి route చేస్తాం. Channel availability/delivery ను హామీ ఇవ్వలేము.",
     howSteps: (total: number) => [
       { n: "01", t: "Register", d: "Personal, family, caste/astro, education, location + photo. 5 easy steps, mobile లోనే.", icon: "📝" },
       { n: "02", t: "Card + ID ready", d: "Profile card ఆటోమేటిక్‌గా generate అవుతుంది — అన్ని details, QR, watermark తో.", icon: "🎴" },
-      { n: "03", t: "Channels లో మీ profile", d: `మీ caste + state + job బట్టి ${total} channels నుంచి సరిపోయేవి — Telegram + WhatsApp.`, icon: "📢" },
-      { n: "04", t: "Interest పంపు → number exchange", d: "నచ్చిన profile కి 💌 Interest పంపు (1 credit). Accept అయితే రెండు numbers WhatsApp లో ఆటోమేటిక్.", icon: "💌" },
+      { n: "03", t: "సంబంధిత destinations కు route", d: `Profile approval తర్వాత caste + state + job ఆధారంగా configured destinations లో ఎంపిక చేస్తాం.`, icon: "📢" },
+      { n: "04", t: "Interest పంపండి → సమ్మతితో సంప్రదింపు", d: "Interest పంపితే notification availability service configuration పై ఆధారపడుతుంది. Accept తర్వాత privacy settings ప్రకారం contact వివరాలు పంచుకోవచ్చు; delivery హామీ కాదు.", icon: "💌" },
     ],
-    reqEyebrow: "అధికారిక సంప్రదింపు విధానం",
-    reqTitle: "గౌరవప్రదమైన అనుసంధానం • ఇంట్రెస్ట్ → వాట్సాప్ నంబర్ మార్పిడి",
-    reqSub: "సురక్షితమైన మరియు నమ్మకమైన కమ్యూనికేషన్ విధానం. ఇరు కుటుంబాలు పరస్పరం అంగీకరించిన తర్వాత మాత్రమే సంప్రదింపు వివరాలు మార్పిడి చేయబడతాయి.",
+    reqEyebrow: "సమ్మతితో సంప్రదింపు",
+    reqTitle: "గౌరవప్రదమైన అనుసంధానం • Interest → సమ్మతితో contact sharing",
+    reqSub: "మీరు interest పంపిన తర్వాత అవతలి profile owner accept చేస్తేనే contact details share అవుతాయి. Online పరిచయాల్లో మీరే due diligence చేయండి.",
     reqAction: "💌 రిక్వెస్ట్‌లు",
     reqSteps: (free: number, p99: PlanStat) => [
-      { i: "💌", t: "1. Interest పంపండి (1 credit)", d: `ప్రొఫైల్ చూసి "Interest పంపు" ఎంచుకోండి — మొదటి ${free} రిక్వెస్ట్‌లు ఉచితం, తర్వాత ₹${p99.price} → ${p99.profiles} సంబంధాలు.` },
-      { i: "📲", t: "2. వాట్సాప్‌లో మీ ప్రొఫైల్ వివరాలు", d: `మా అధికారిక వాట్సాప్ ద్వారా వారికి మీ ప్రొఫైల్ కార్డ్ మరియు వివరాలు గౌరవంగా అందజేయబడతాయి.` },
-      { i: "✅", t: "3. అంగీకారం తర్వాత నంబర్ మార్పిడి", d: "వారు అంగీకరించిన వెంటనే — ఇరు కుటుంబాల నంబర్లు అధికారికంగా వాట్సాప్‌లో మార్పిడి చేయబడతాయి." },
-      { i: "↩️", t: "4. ఒకవేళ తిరస్కరిస్తే క్రెడిట్ రీఫండ్", d: "ఒకవేళ సంబంధం కుదరకపోతే మీ క్రెడిట్ తక్షణమే తిరిగి మీ ఖాతాకు జమ అవుతుంది (100% సేఫ్ రీఫండ్ పాలసీ)." },
+      { i: "💌", t: "1. Interest పంపండి (1 credit)", d: `ప్రొఫైల్ చూసి "Interest పంపు" ఎంచుకోండి — మొదటి ${free} రిక్వెస్ట్‌లు ఉచితం, తర్వాత ₹${p99.price} → ${p99.profiles} interest requests.` },
+      { i: "📲", t: "2. Interest notification", d: `లభ్యమైన notification channel ద్వారా మీ interest మరియు profile details అవతలి వ్యక్తికి పంపబడతాయి.` },
+      { i: "✅", t: "3. Owner accept చేస్తే contact sharing", d: "అంగీకారం తర్వాత privacy settings ప్రకారం contact వివరాలు పంచుకోవచ్చు; వివరాలను స్వతంత్రంగా నిర్ధారించండి." },
+      { i: "↩️", t: "4. Decline credit policy", d: "Declined requests are handled according to the credit-refund policy shown in your account." },
     ],
-    reqChips: ["🚫 0 chatting", "🔒 Consent first", "↩️ Decline = refund", "✅ Safe delivery"],
-    priceStrip: (p: PlanStat, tag: string) => ({ p: `₹${p.price}`, n: `${p.profiles} profiles`, s: tag }),
-    priceTags: ["₹20/profile — entry", "₹17/profile — popular", "₹12/profile — best value"],
+    reqChips: ["🚫 0 chatting", "🔒 Consent first", "↩️ Decline credit policy applies", "ℹ️ Verify details yourself"],
+    priceStrip: (p: PlanStat, tag: string) => ({ p: `₹${p.price}`, n: `${p.profiles} requests`, s: tag }),
+    priceTags: ["₹20/request — entry", "₹16.6/request — 12 requests", "₹12/request — 25 requests"],
     chEyebrow: "ఛానల్ నెట్‌వర్క్",
-    chTitle: (total: number) => `${total} ఛానళ్లు — మీ ప్రొఫైల్ అన్నిచోట్లకు`,
-    chSub: "Region + Religion + Caste + Special. ఒక్క approve = అన్ని related channels లో post.",
+    chTitle: (total: number) => `${total} configured channel listings`,
+    chSub: "Region + Religion + Caste + Special. Profile approval తర్వాత సంబంధిత configured destinations కు route అవుతుంది; live availability check లేదు.",
     chAction: (total: number) => `అన్ని ${total} ఛానళ్లు`,
-    flowTitle: "📢 ఒక్క నమోదు — అన్ని సరైన ఛానళ్లలో ప్రొఫైల్",
+    flowTitle: "📢 Profile approval తర్వాత channel routing",
     flow: [
       { t: "1. మీ వివరాలు", d: "5 సులభమైన స్టెప్స్ + ఫోటో" },
-      { t: "2. సరైన ఛానల్ ఎంపిక", d: "కులం × రాష్ట్రం × వృత్తి బట్టి" },
-      { t: "3. Telegram + WhatsApp", d: "మీ profile card పోస్ట్" },
-      { t: "4. మీకు నోటిఫికేషన్", d: "ఎవరైనా interest పంపితే వెంటనే మీకు తెలుస్తుంది" },
+      { t: "2. సరైన destination ఎంపిక", d: "కులం × రాష్ట్రం × వృత్తి బట్టి" },
+      { t: "3. Configured channel కు route", d: "Reachability అందుబాటుపై ఆధారపడుతుంది" },
+      { t: "4. నోటిఫికేషన్", d: "Notification configuration మరియు delivery timing మారవచ్చు" },
     ],
-    casteEyebrow: "కులాల వారీగా",
-    casteTitle: (n: number) => `${n} కుల ఛానళ్లు — 1 కులం = 1 ఛానల్`,
-    casteSub: "Bride + Groom ఇద్దరూ ఒకే channel లో — #Bride / #Groom hashtag తో filter చేసుకోవచ్చు. మీ కులం channel busy అయ్యే కొద్దీ కొత్త matches ఎక్కువ వస్తాయి.",
+    casteEyebrow: "కమ్యూనిటీ ఛానల్స్",
+    casteTitle: (n: number) => `${n} కమ్యూనిటీ channel listings`,
+    casteSub: "ఇక్కడ channel listings మాత్రమే చూపిస్తాం; profile availability, routing మరియు external destination access మారవచ్చు.",
     casteAction: "కులాల జాబితా",
-    casteMore: (n: number) => `+ ఇంకా ${n} castes (Boya, Kuruba, Uppara, Vaddera, Rajaka, Viswakarma, Kummara, Gandla, Devanga, Koya, Gond, SC/ST sub-castes...) —`,
+    casteMore: (n: number) => `+ ఇంకా ${n} కమ్యూనిటీ channel listings —`,
     casteFull: "పూర్తి జాబితా చూడండి",
     spEyebrow: "ప్రత్యేక విభాగం",
     spTitle: "ప్రతి ఒక్కరికీ సముచిత గౌరవం — ప్రత్యేక వేదిక",
@@ -156,36 +161,36 @@ const TEXT = {
     pricingEyebrow: "సభ్యత్వ ప్యాకేజీలు",
     pricingTitle: "పారదర్శక ధరలు — ₹99 కే సంబంధాల వివరాలు",
     pricingSub: (free: number, p99: PlanStat, p199: PlanStat, p299: PlanStat, p499: PlanStat) =>
-      `నమోదు ఉచితం. మొదటి ${free} ఇంట్రెస్ట్ రిక్వెస్ట్‌లు ఉచితం. ఆ తర్వాత ₹${p99.price} → ${p99.profiles} ప్రొఫైల్స్, ₹${p199.price} → ${p199.profiles}, ₹${p299.price} → ${p299.profiles}, ₹${p499.price} → ${p499.profiles}. తిరస్కరిస్తే క్రెడిట్ రీఫండ్ పాలసీ అమలులో ఉంటుంది.`,
-    planTags: ["ప్రారంభ ప్లాన్", "ఎంట్రీ • ₹20/సంబంధం", "చాలామంది ఎంపిక • ₹17/సంబంధం", "ఉత్తమ విలువ • ₹12/సంబంధం", "విఐపి • ₹10/సంబంధం"],
+      `నమోదు ఉచితం. మొదటి ${free} interest requests ఉచితం. ఆ తర్వాత ₹${p99.price} → ${p99.profiles} requests, ₹${p199.price} → ${p199.profiles}, ₹${p299.price} → ${p299.profiles}, ₹${p499.price} → ${p499.profiles}. Contact sharing acceptance తర్వాతే; decline కు account refund policy వర్తిస్తుంది.`,
+    planTags: ["ప్రారంభ ప్లాన్", "5 requests • ₹20/request", "12 requests • ₹17/request", "25 requests • ₹12/request", "50 requests • ₹10/request"],
     planNames: ["ఉచిత ప్లాన్", "సంబంధం ప్లాన్", "ఫ్యామిలీ ప్లాన్", "ప్రీమియం ప్లాన్", "విఐపి ప్లాన్"],
     planCredits: (free: number, p99: PlanStat, p199: PlanStat, p299: PlanStat, p499: PlanStat) => [
-      `మొదటి ${free} ప్రొఫైల్స్ ఉచితం`, `${p99.profiles} ప్రొఫైల్స్ • 30 రోజులు`, `${p199.profiles} ప్రొఫైల్స్ • 45 రోజులు`,
-      `${p299.profiles} ప్రొఫైల్స్ • 60 రోజులు`, `${p499.profiles} ప్రొఫైల్స్ • 90 రోజులు`,
+      `మొదటి ${free} interest requests ఉచితం`, `${p99.profiles} requests • 30 రోజులు`, `${p199.profiles} requests • 45 రోజులు`,
+      `${p299.profiles} requests • 60 రోజులు`, `${p499.profiles} requests • 90 రోజులు`,
     ],
     planFeatures: [
-      ["3 ఇంట్రెస్ట్ రిక్వెస్ట్‌లు ఉచితం", "వాట్సాప్‌లో మీ ప్రొఫైల్ డెలివరీ", "అన్ని సంబంధిత ఛానళ్లలో పోస్టింగ్", "ప్రొఫైల్ ఐడి సెర్చ్ సౌకర్యం", "ఫోటో ప్రైవేట్ గోప్యతా మోడ్"],
-      ["5 డైరెక్ట్ సంప్రదింపు అన్‌లాక్స్", "⚡ 7-రోజుల ప్రొఫైల్ బూస్ట్ (ఛానల్ టాప్)", "అంగీకారం తర్వాత నంబర్ మార్పిడి", "తిరస్కరణ జరిగితే క్రెడిట్ రీఫండ్", "రెఫరల్ ద్వారా ₹50 సంపాదన"],
-      ["12 డైరెక్ట్ సంప్రదింపు అన్‌లాక్స్", "✅ ఫోటో-వెరిఫైడ్ బ్యాడ్జ్", "🔮 ఉచిత వేద గుణమేళనం PDF రిపోర్ట్ (1)", "రోజువారీ సరికొత్త సంబంధాల జాబితా", "ఫ్యామిలీ రిలేషన్షిప్ అసిస్టెన్స్"],
-      ["25 డైరెక్ట్ సంప్రదింపు అన్‌లాక్స్", "⚡ 30-రోజుల ప్రాధాన్యత బూస్ట్", "👀 ప్రొఫైల్ వీక్షకుల పూర్తి జాబితా (60 రోజులు)", "✅ అధికారిక వెరిఫైడ్ బ్యాడ్జ్", "ప్రత్యేక తెలుగు కస్టమర్ కేర్ సపోర్ట్"],
-      ["50 డైరెక్ట్ సంప్రదింపు అన్‌లాక్స్", "🎯 మ్యాచ్‌మేకర్ అసిస్ట్ (మా టీమ్ ప్రత్యక్ష సహాయం)", "⚡ 90-రోజుల విఐపి బూస్ట్", "💍 వివాహ వెండర్లపై ప్రత్యేక తగ్గింపులు", "ప్రాధాన్యత వాట్సాప్ సహాయం"],
+      ["3 interest requests", "Notification సేవ configuration పై ఆధారపడుతుంది", "Review తర్వాత configured destinations కి మాత్రమే routing", "Profile search", "Optional privacy settings పరిశీలించండి"],
+      ["5 interest requests", "30 రోజుల credit validity", "Consent మరియు privacy settings ప్రకారం contact sharing", "Credit-refund policy account లో చూపినట్లు వర్తిస్తుంది"],
+      ["12 interest requests", "45 రోజుల credit validity", "అదనపు tools లభ్యత వేరుగా చూపిస్తాం", "Match లేదా response guarantee లేదు"],
+      ["25 interest requests", "60 రోజుల credit validity", "Plan active ఉన్నంతవరకు Who viewed పేర్లు", "Contact sharing owner acceptance తర్వాతే"],
+      ["50 interest requests", "90 రోజుల credit validity", "Plan active ఉన్నంతవరకు Who viewed పేర్లు", "Contact sharing owner acceptance తర్వాతే"],
     ],
     planCtaFree: "ఉచితంగా ప్రారంభించండి",
     planCtaPay: (price: string) => `${price} తో ప్లాన్ ప్రారంభించండి`,
-    planSecure: "సురక్షిత చెల్లింపులు • 100% రీఫండ్ పాలసీ",
+    planSecure: "Checkout లో చూపించే payment options మరియు వర్తించే refund policy",
     addonTitle: "🎁 అదనపు సేవలు (Add-ons)",
     addonTag: "ఎప్పుడైనా ఎంచుకోవచ్చు",
     renewalLine: (r: { price: number; profiles: number }, b: { price: number; profiles: number }) =>
-      `🔁 రెన్యూవల్ ఆఫర్: ప్రస్తుత సభ్యులకు ₹${r.price} → ${r.profiles} సంబంధాలు • 🏢 బ్యూరో సభ్యత్వం: ₹${b.price}/నెలకి → ${b.profiles} ప్రొఫైల్స్ + మంత్లీ రిపోర్ట్`,
+      `🔁 రెన్యూవల్ ఆఫర్: ప్రస్తుత సభ్యులకు ₹${r.price} → ${r.profiles} interest requests • 🏢 బ్యూరో ప్లాన్: ₹${b.price}/30 రోజులు → ${b.profiles} request credits`,
     addonCta1: "ప్లాన్లు & సర్వీసులు ఎంచుకోండి →",
     addonCta2: "👀 ప్రొఫైల్ వీక్షకుల జాబితా",
-    refTitle: "🏆 రెఫరల్ ప్రోగ్రామ్ — కుటుంబ బహుమతి",
-    refSub: (per: number) => `మీ మిత్రులు లేదా బంధువులకు మన వివాహ వేదికను సిఫార్సు చేయండి. వారు సభ్యత్వం పొందిన ప్రతిసారి మీకు ₹${per} నేరుగా మీ UPI ఖాతాకు అందుతాయి. మ్యారేజ్ బ్యూరోల కొరకు ప్రత్యేక డాష్‌బోర్డ్ కలదు.`,
-    refCards: (per: number, ms: string) => [{ k: "ప్రతి సక్సెస్ కి", v: `₹${per}` }, { k: "25 రెఫరల్స్ బోనస్", v: ms }, { k: "చెల్లింపు విధానం", v: "వారపు నేరు UPI" }],
+    refTitle: "🏆 రెఫరల్ ప్రోగ్రామ్",
+    refSub: (per: number) => `Valid referral attach పై referrer కు +2, కొత్త user కు +1 interest-request credits వస్తాయి (cash కాదు). Referrer కు ₹${per} ఒక్కసారి మాత్రమే అర్హత ఉండవచ్చు: referee మొదటి S_99/S_199/S_299/S_499 consumer-plan payment కనీసం ₹99 కావాలి. Add-ons, assisted service, boosts, gifts, renewals, complimentary మరియు B2B/non-consumer payments మినహాయింపు.`,
+    refCards: (per: number, _ms: string) => [{ k: "ఒక్కసారి అర్హత ఉండవచ్చు", v: `₹${per}` }, { k: "25 అర్హమైన చెల్లింపులు", v: "ప్లాటినం గుర్తింపు మాత్రమే" }, { k: "చెల్లింపు", v: "మాన్యువల్ సమీక్ష • నిర్ణీత సమయం లేదు" }],
     refCta1: "నా రెఫరల్ కోడ్ →",
     refCta2: "🎁 ఇప్పుడే ప్రారంభించండి",
     burTitle: "🏢 మ్యారేజ్ బ్యూరో & బ్రోకర్ భాగస్వామ్యం (B2B)",
-    burSub: "మీరు ఇప్పటికే మ్యారేజ్ బ్యూరో నిర్వహిస్తున్నారా? మన ధృవీకరించబడిన ప్రొఫైల్స్ ఉపయోగించుకోండి & ప్రత్యేక కమీషన్ పొందండి.",
+    burSub: "మీరు ఇప్పటికే మ్యారేజ్ బ్యూరో నిర్వహిస్తున్నారా? Member-submitted profiles ను మీ clients కోసం browse చేసి, ప్రతి వివరాన్ని స్వయంగా నిర్ధారించండి.",
     burName: (b: { label: string; price: number }) => `${b.label} — ₹${b.price}/నెలకి`,
     burOpen: "B2B భాగస్వామ్యం అందుబాటులో ఉంది",
     burDash: "బ్యూరో డాష్‌బోర్డ్ →",
@@ -193,113 +198,103 @@ const TEXT = {
     faqTitle: "తరచూ అడిగే ప్రశ్నలు — పూర్తి వివరణ",
     ctaTitle: "ఈరోజే ఉచితంగా నమోదు చేసుకోండి",
     ctaSub: (total: number, free: number, p99: PlanStat, p199: PlanStat, p299: PlanStat, p499: PlanStat) =>
-      `ఉచిత నమోదు → ప్రొఫైల్ కార్డ్ సిద్ధం → ${total} ఛానళ్ల నెట్‌వర్క్‌లో ప్రదర్శన → మొదటి ${free} ఇంట్రెస్ట్ రిక్వెస్ట్‌లు పూర్తిగా ఉచితం. ఆ తర్వాత మీ అవసరాన్ని బట్టి ₹${p99.price} నుండి ₹${p499.price} ప్లాన్లు అందుబాటులో ఉన్నాయి.`,
+      `ఉచిత నమోదు → ప్రొఫైల్ సమీక్ష → configured destinations కు routing (లభ్యత/డెలివరీ హామీ కాదు) → మొదటి ${free} interest requests ఉచితం. ఆ తర్వాత ₹${p99.price} నుండి ₹${p499.price} వరకు plans అందుబాటులో ఉన్నాయి.`,
     ctaReg: "ఉచిత ప్రారంభ నమోదు",
     ctaBot: "టెలిగ్రామ్ ఛానల్‌లో చేరండి",
-    trustTitle: "🛡️ విశ్వసనీయత & పూర్తి భద్రత",
-    trustSub: "మీ సంప్రదింపు వివరాలు ఎల్లప్పుడూ గోప్యంగా ఉంటాయి — ఇరు కుటుంబాలు అంగీకరించిన తర్వాత మాత్రమే నంబర్లు మార్పిడి అవుతాయి.",
-    trustAvg: (n: number | undefined) => `సగటు Trust Score (${n === undefined ? "—" : n} ప్రొఫైల్స్)`,
-    trustAvgD: "Verify + complete profile ఉంటే score పెరుగుతుంది — matches కూడా ఎక్కువ వస్తాయి.",
-    trustNum: "🔒 నంబర్ policy",
-    trustNumD: "మీ ఫోన్ నంబర్ ఎప్పుడూ ఎవరికీ నేరుగా కనిపించదు (98••••••45 గానే చూపిస్తుంది).",
-    trustFree: (free: number, p99: PlanStat) => `FREE: ${free} ప్రొఫైల్స్ + ${free} interests · ₹${p99.price} లో → ${p99.profiles} ప్రొఫైల్స్`,
-    trustAbuse: "🧱 మోసం నుండి రక్షణ",
-    trustAuth: "లాగిన్ భద్రత",
-    trustAuthD: (enforced: boolean) => (enforced ? "OTP verified" : "OTP verified"),
-    trustLive: "మీ ప్రొఫైల్ పూర్తిగా నింపితే — ఈ trust board లో మీరు top లో కనిపించే అవకాశం ఎక్కువ.",
     vendorEyebrow: "పెళ్లి వెండర్లు",
     vendorTitle: "🏪 పెళ్లికి కావాల్సినవన్నీ — ఒకేచోట",
-    vendorSub: "Catering • Photography • Decorations • Function Hall • Tent House • Pandit • Jewellery • Makeup • DJ • Invitations • Cars • Planner. Verified vendors, direct WhatsApp, best rates.",
+    vendorSub: "Catering • Photography • Decorations • Function Hall • Tent House • Pandit • Jewellery • Makeup • DJ • Invitations • Cars • Planner. Directory listings are not business or identity verification; confirm details before booking.",
     vendorAll: "అన్ని 18 categories →",
     vendorPromoT: "మీ business కూడా promote చెయ్యాలనుందా? 🏪",
-    vendorPromoS: (total: number) => `₹149 నుంచి — ${total} channels + WhatsApp lanes + website banner + leads direct మీ WhatsApp కి.`,
+    vendorPromoS: (_total: number) => `₹149 నుంచి — listing and promotional placements are subject to channel availability.`,
     vendorPromoC: "Advertise చెయ్యండి →",
     faq: (total: number, p99: PlanStat, p199: PlanStat, p299: PlanStat, p499: PlanStat) => [
-      { q: "నమోదు చేసుకోవడానికి ఏమైనా రుసుము చెల్లించాలా?", a: `నమోదు పూర్తిగా ఉచితం (100% Complimentary). మొదటి 3 ఇంట్రెస్ట్ రిక్వెస్ట్‌లు కూడా ఉచితంగా లభిస్తాయి. ఆ తర్వాత అవసరాన్ని బట్టి ₹${p99.price} నుండి ₹${p499.price} వరకు సరసమైన ప్లాన్లు అందుబాటులో ఉన్నాయి.` },
-      { q: "సంప్రదింపుల విధానం ఎలా ఉంటుంది?", a: `అనవసర చాటింగ్ లేకుండా, గౌరవప్రదమైన "💌 ఇంట్రెస్ట్ పంపు" ద్వారా మీ ప్రొఫైల్ వివరాలు అవతలి కుటుంబానికి వాట్సాప్‌లో అందజేయబడతాయి. వారు అంగీకరించిన వెంటనే ఇరు కుటుంబాల అధికారిక సంప్రదింపు నంబర్లు మార్పిడి అవుతాయి. ఒకవేళ తిరస్కరిస్తే మీ క్రెడిట్ తక్షణమే తిరిగి మీ ఖాతాకు జమ చేయబడుతుంది.` },
-      { q: "ఫోన్ నంబర్లు నేరుగా అందరికీ కనిపిస్తాయా?", a: "భద్రత మరియు గోప్యత దృష్ట్యా ఫోన్ నంబర్లు ఎల్లప్పుడూ లాక్ చేయబడి ఉంటాయి. ఇరు కుటుంబాలు పరస్పరం అంగీకరించిన తర్వాతే అధికారిక వాట్సాప్ ద్వారా నంబర్లు మార్పిడి చేయబడతాయి. దీనివల్ల అపరిచితుల కాల్స్ మరియు ప్రైవసీ ఉల్లంఘనలు పూర్తిగా నిరోధించబడతాయి." },
-      { q: "ఫోటోల భద్రత మరియు గోప్యతా నియమాలు ఏమిటి?", a: "ప్రొఫైల్ ఫోటోలకు ఆటోమేటిక్ వాటర్‌మార్క్ భద్రత ఉంటుంది. అలాగే 'ఫోటో ప్రైవేట్ మోడ్' ద్వారా అనుమతి పొందిన కుటుంబాలకు మాత్రమే ఫోటోలు స్పష్టంగా కనిపించేలా సెట్ చేసుకోవచ్చు." },
-      { q: "ప్రొఫైల్ ఏయే ఛానళ్లలో ప్రదర్శించబడుతుంది?", a: `మీ కులం, ప్రాంతం, మరియు వృత్తి ఆధారంగా మొత్తం ${total} ప్రత్యేక ఛానళ్ల నుండి అత్యంత సరిపోయే ఛానళ్లలో మీ ప్రొఫైల్ కార్డు గౌరవప్రదంగా ప్రదర్శించబడుతుంది.` },
-      { q: "నకిలీ ప్రొఫైల్స్ మరియు భద్రతా చర్యలు ఎలా ఉంటాయి?", a: "OTP మరియు DOB వెరిఫికేషన్, ఫోటో క్లారిటీ తనిఖీ మరియు 3-లేయర్ మోడరేషన్ ద్వారా ప్రతి ప్రొఫైల్ సమగ్రంగా ధృవీకరించబడుతుంది. అనుమానాస్పద ప్రొఫైల్స్‌పై తక్షణమే నిఘా మరియు తొలగింపు చర్యలు ఉంటాయి." },
+      { q: "నమోదు చేసుకోవడానికి ఏమైనా రుసుము చెల్లించాలా?", a: `నమోదు ఉచితం; మొదటి 3 interest requests కూడా ఉచితం. తర్వాత అవసరాన్ని బట్టి ₹${p99.price} నుండి ₹${p499.price} వరకు ప్లాన్లు ఉన్నాయి.` },
+      { q: "సంప్రదింపుల విధానం ఎలా ఉంటుంది?", a: `In-app chat లేదు. "💌 Interest" పంపండి; అవతలి profile owner accept లేదా decline చేయవచ్చు. Acceptance తర్వాత privacy settings ప్రకారం contact వివరాలు పంచుకోవచ్చు. Declined requests కు account లో చూపిన credit-refund policy వర్తిస్తుంది.` },
+      { q: "ఫోన్ నంబర్లు నేరుగా అందరికీ కనిపిస్తాయా?", a: "Public browsing లో contact వివరాలు mask అవుతాయి. Interest accept అయిన తర్వాత privacy settings ప్రకారం contact వివరాలు పంచుకోవచ్చు. ఇది exposure తగ్గిస్తుంది కానీ spam లేదా fraud ను పూర్తిగా నివారించదు." },
+      { q: "ఫోటోల privacy ఎలా పనిచేస్తుంది?", a: "Photo privacy profile లో ఐచ్ఛిక setting. Generated cards లో watermark ఉండవచ్చు; అది screenshots లేదా copying ను అడ్డుకోదు. Upload చేసే ముందు privacy setting పరిశీలించండి." },
+      { q: "ప్రొఫైల్ ఏయే ఛానళ్లకు route అవుతుంది?", a: `Profile review తర్వాత వివరాల ఆధారంగా configured destinations ఎంచుకోవచ్చు. Routing లేదా external availability హామీ కాదు; listed destinations కోసం channel directory చూడండి.` },
+      { q: "నకిలీ ప్రొఫైల్స్ మరియు verification ఎలా ఉంటాయి?", a: "Phone OTP, profile approval, photo review, manual ID review వేర్వేరు checks. DOB సభ్యుడు ఇచ్చిన వివరమే. ఏ badge కూడా profile genuine అని హామీ ఇవ్వదు; కలవడానికి ముందు వివరాలు స్వయంగా నిర్ధారించండి. Report చేసిన వాటిపై చర్య సమయం మారవచ్చు." },
+      { q: "WhatsApp notification వస్తుందా?", a: "Notification లేదా channel post configured WhatsApp destination ఉంటే దాని ద్వారా వెళ్లవచ్చు. Delivery హామీ లేదు; ప్రస్తుత స్థితి కోసం account లోని వివరాలు చూడండి." },
     ],
   },
   en: {
-    liveBadge: (live: number, total: number) => `Your profile — LIVE across ${total}+ channels`,
-    heroTitle: "Perfect matches, close to home",
+    liveBadge: (_live: number, total: number) => `${total} configured channel destinations for profile routing`,
+    heroTitle: "Explore Telugu profiles, at your pace",
     heroSubA: "Telangana + Andhra Pradesh Telugu Matrimony",
-    heroSubB: (castes: number, total: number) => `Region • Religion • ${castes} Castes • Special — ${total} channels. One registration puts your profile everywhere it fits.`,
-    heroSubC: (free: number) => `₹99 Sambandham — first ${free} profiles FREE.`,
+    heroSubB: (communities: number, total: number) => `Region • Religion • ${communities} Hindu community labels (not exhaustive; self-description available) • Special — ${total} channel destinations configured. Profiles are routed after review; availability/delivery is not guaranteed.`,
+    heroSubC: (free: number) => `₹99 Sambandham — first ${free} interest requests are free.`,
     registerCta: "Register FREE",
     botCta: "Join on Telegram",
     installApp: "Install as app",
-    vibeTitle: "For your family wedding — the right match is here",
-    trust: ["OTP + DOB verified", "Photo-private mode", "Number only after accept", "Watermark + fraud alerts"],
-    idSearchPh: "Search by Profile ID — MV1001",
+    vibeTitle: "Review profiles for your family, at your pace",
+    trust: ["Phone OTP status", "Profile review before approval", "Photo privacy controls", "Contact after acceptance"],
+    idSearchPh: "Search by Profile ID",
     idSearchBtn: "Search",
-    cardWhy: "Why they match?",
-    cardTags: ["O+", "Rohini", "Bharadwaj"],
-    cardWhy1: "✓ Reddy Bharadwaj gothram + Rohini star — clear",
-    cardWhy2: "✓ BTech + Software Engineer (8 LPA) — settled",
-    cardWhy3: "✓ Works in Hyderabad — same city",
+    cardWhy: "Profile details available for review",
+    cardTags: ["Education", "Location", "Preferences"],
+    cardWhy1: "✓ Community preferences you selected",
+    cardWhy2: "✓ Education / work details supplied in profiles",
+    cardWhy3: "✓ Location details where available",
     cardInterest: "❤️ Send Interest",
-    cardNumber: "📞 Number (1 credit)",
-    ticker: (total: number, castes: number, free: number) => [
-      `${total} channels — Region • Religion • Caste • Special`,
-      `₹99 Sambandham — first ${free} profiles FREE`,
-      "Photo-Private • DOB Verified • Watermark protected",
-      "Telegram + WhatsApp channels లో post",
-      `${castes} castes: Reddy to Madiga, Lambada, Boya`,
-      "Dedicated channels for Hindu communities",
-      "Referral — ₹50 per profile",
+    cardNumber: "📞 Contact after acceptance",
+    ticker: (total: number, communities: number, free: number) => [
+      `${total} configured channels — Region • Religion • Community • Special`,
+      `₹99 plan — first ${free} interest requests are included free`,
+      "Optional photo privacy • profile details are supplied by members",
+      "Configured messaging destinations only; external availability is not monitored",
+      `${communities} Hindu community labels; catalogue is not exhaustive and self-description is available`,
+      "Community-specific destinations are shown where configured",
+      "Referral — possible one-time ₹50 on an eligible first consumer-plan payment (terms apply)",
     ],
     statChannels: "Channels (network)",
-    statChannelsSub: (t: Record<string, number>) => `${t.L1_REGION ?? 5} Region • ${t.L2_RELIGION ?? 11} Religion • ${t.L3_CASTE ?? 27} Caste • ${t.L4_SPECIAL ?? 8} Special`,
-    statCastes: "Castes covered",
-    statCastesSub: "Reddy to SC/ST",
+    statChannelsSub: (t: Record<string, number>) => `${t.L1_REGION ?? 5} Region • ${t.L2_RELIGION ?? 5} Religion • ${t.L3_CASTE ?? 33} Community • ${t.L4_SPECIAL ?? 8} Special`,
+    statCastes: "Hindu community labels",
+    statCastesSub: "Selected options • self-description available",
     statChat: "No chatting",
-    statChatT: "No chatting — direct contact",
-    statChatS: "Safe WhatsApp delivery",
-    statPrice: (p99: PlanStat) => `₹${p99.price}→${p99.profiles}`,
-    statPriceL: (p199: PlanStat, p299: PlanStat) => `Profiles (₹${p199.price}→${p199.profiles}, ₹${p299.price}→${p299.profiles})`,
+    statChatT: "No in-app chat — contact sharing may follow acceptance",
+    statChatS: "Contact details may be shared after acceptance, subject to privacy settings",
+    statPrice: (p99: PlanStat) => `₹${p99.price}→${p99.profiles} requests`,
+    statPriceL: (p199: PlanStat, p299: PlanStat) => `Requests (₹${p199.price}→${p199.profiles}, ₹${p299.price}→${p299.profiles})`,
     statPriceS: (free: number) => `First ${free} requests FREE`,
     howEyebrow: "How it works",
-    howTitle: "Sambandham in 4 automatic steps",
-    howSub: "Once you register, your profile automatically posts to the right channels. You never have to post anything manually.",
+    howTitle: "4 steps to begin a connection",
+    howSub: "After staff review, your profile is routed to configured destinations. Channel availability and delivery are not monitored or guaranteed.",
     howSteps: (total: number) => [
       { n: "01", t: "Register", d: "Personal, family, caste/astro, education, location + photo. 5 easy steps on mobile.", icon: "📝" },
       { n: "02", t: "Card + ID ready", d: "Profile card is auto-generated — all details, QR and watermark.", icon: "🎴" },
-      { n: "03", t: "Post to channels", d: `Best-fit channels from ${total}, based on your caste + state + job — Telegram + WhatsApp.`, icon: "📢" },
-      { n: "04", t: "Send interest → number exchange", d: "Send 💌 Interest (1 credit) to profiles you like. On accept, both numbers exchange automatically on WhatsApp.", icon: "💌" },
+      { n: "03", t: "Route to matching destinations", d: `After profile approval, routing selects configured destinations based on your details.`, icon: "📢" },
+      { n: "04", t: "Send interest → consent-based contact sharing", d: "Notification availability depends on service configuration. After acceptance, contact details may be shared subject to privacy settings; delivery is not guaranteed.", icon: "💌" },
     ],
     reqEyebrow: "Consent-Driven Matchmaking",
-    reqTitle: "Dignified Connection — Interest → WhatsApp Contact Exchange",
-    reqSub: "Safe, dignified, and consent-driven communication. Contact details are securely exchanged only after mutual family acceptance.",
+    reqTitle: "Dignified connection — Interest → consent-based contact sharing",
+    reqSub: "Contact details may be shared after the other profile owner accepts, subject to privacy settings. Please verify details independently before making decisions.",
     reqAction: "💌 Requests",
     reqSteps: (free: number, p99: PlanStat) => [
       { i: "💌", t: "1. Send Interest (1 credit)", d: `Choose a matching profile and tap "Send Interest" — first ${free} requests are FREE, then ₹${p99.price} → ${p99.profiles} matches.` },
-      { i: "📲", t: "2. Your Profile Delivered on WhatsApp", d: `Your verified biodata card is respectfully shared with the bride/groom family via WhatsApp.` },
-      { i: "✅", t: "3. Mutual Accept → Numbers Exchanged", d: "Once both families accept — verified phone numbers are exchanged automatically for direct phone/video calls." },
-      { i: "↩️", t: "4. Full Refund on Decline", d: "If an interest is declined, your request credit is instantly refunded to your balance (100% money-back policy)." },
+      { i: "📲", t: "2. Interest notification", d: `Your interest and profile details are sent through the available notification channel.` },
+      { i: "✅", t: "3. Owner accepts → contact sharing", d: "Contact details may be shared after acceptance, subject to privacy settings. Verify details independently." },
+      { i: "↩️", t: "4. Decline credit policy", d: "Declined requests are handled according to the credit-refund policy shown in your account." },
     ],
-    reqChips: ["🚫 0 chatting", "🔒 Consent first", "↩️ Decline = refund", "✅ Safe delivery"],
-    priceStrip: (p: PlanStat, tag: string) => ({ p: `₹${p.price}`, n: `${p.profiles} profiles`, s: tag }),
-    priceTags: ["₹20/profile — entry", "₹17/profile — popular", "₹12/profile — best value"],
+    reqChips: ["🚫 0 chatting", "🔒 Consent first", "↩️ Decline credit policy applies", "ℹ️ Verify details yourself"],
+    priceStrip: (p: PlanStat, tag: string) => ({ p: `₹${p.price}`, n: `${p.profiles} requests`, s: tag }),
+    priceTags: ["₹20/request — entry", "₹16.6/request — 12 requests", "₹12/request — 25 requests"],
     chEyebrow: "Channel network",
-    chTitle: (total: number) => `${total} channels — your profile reaches everywhere it fits`,
-    chSub: "Region + Religion + Caste + Special. One approval = posted to all matching channels.",
+    chTitle: (total: number) => `${total} configured channel listings`,
+    chSub: "Region + Religion + Caste + Special. Profile approval starts routing to relevant configured destinations; reachability is not checked.",
     chAction: (total: number) => `All ${total} channels`,
-    flowTitle: "📢 One registration — posted to every matching channel",
+    flowTitle: "📢 Channel routing after profile approval",
     flow: [
       { t: "1. Your details", d: "5 easy steps + photo" },
-      { t: "2. Right channel picked", d: "Based on caste × state × occupation" },
-      { t: "3. Telegram + WhatsApp", d: "Profile card posted" },
-      { t: "4. You get notified", d: "The moment someone sends interest" },
+      { t: "2. Matching destination selected", d: "Based on caste × state × occupation" },
+      { t: "3. Route to configured channel", d: "Reachability depends on platform availability" },
+      { t: "4. Notifications", d: "Availability and delivery timing depend on service configuration" },
     ],
-    casteEyebrow: "Caste-wise",
-    casteTitle: (n: number) => `${n} caste channels — 1 caste = 1 channel`,
-    casteSub: "Brides + grooms in one channel — filter with #Bride / #Groom hashtags. The busier your caste channel gets, the more matches you see.",
+    casteEyebrow: "Community channels",
+    casteTitle: (n: number) => `${n} community channel listings`,
+    casteSub: "This directory lists channel destinations; profile availability, routing and external access may vary.",
     casteAction: "See caste list",
-    casteMore: (n: number) => `+ ${n} more castes (Boya, Kuruba, Uppara, Vaddera, Rajaka, Viswakarma, Kummara, Gandla, Devanga, Koya, Gond, SC/ST sub-castes...) —`,
+    casteMore: (n: number) => `+ ${n} more community channel listings —`,
     casteFull: "see full list",
     spEyebrow: "Special respect",
     spTitle: "A separate space for everyone — with dignity",
@@ -307,32 +302,32 @@ const TEXT = {
     pricingEyebrow: "Pricing",
     pricingTitle: "Simple — ₹99 Sambandham",
     pricingSub: (free: number, p99: PlanStat, p199: PlanStat, p299: PlanStat, p499: PlanStat) =>
-      `Register FREE. First ${free} interest requests FREE. Then ₹${p99.price} → ${p99.profiles} profiles, ₹${p199.price} → ${p199.profiles}, ₹${p299.price} → ${p299.profiles}, ₹${p499.price} → ${p499.profiles}. ₹/profile drops every tier — credit refund on decline.`,
-    planTags: ["Start here", "Entry • ₹20/profile", "Most popular • ₹17/profile", "Best value • ₹12/profile", "VIP • ₹10/profile"],
+      `Register FREE. First ${free} interest requests FREE. Then ₹${p99.price} → ${p99.profiles} requests, ₹${p199.price} → ${p199.profiles}, ₹${p299.price} → ${p299.profiles}, ₹${p499.price} → ${p499.profiles}. Contact sharing follows acceptance; declines follow the refund policy in your account.`,
+    planTags: ["Start here", "5 requests • ₹20/request", "12 requests • ₹17/request", "25 requests • ₹12/request", "50 requests • ₹10/request"],
     planNames: ["FREE", "Sambandham", "Family", "Premium", "VIP"],
     planCredits: (free: number, p99: PlanStat, p199: PlanStat, p299: PlanStat, p499: PlanStat) => [
-      `First ${free} profiles FREE`, `${p99.profiles} profiles • 30 days`, `${p199.profiles} profiles • 45 days`,
-      `${p299.profiles} profiles • 60 days`, `${p499.profiles} profiles • 90 days`,
+      `First ${free} interest requests free`, `${p99.profiles} requests • 30 days`, `${p199.profiles} requests • 45 days`,
+      `${p299.profiles} requests • 60 days`, `${p499.profiles} requests • 90 days`,
     ],
     planFeatures: [
-      ["3 interest requests FREE", "Your profile shared on WhatsApp", "Profile posted in channels", "ID search always open", "Photo-private mode"],
-      ["5 interest requests", "⚡ 7-day profile boost (channel top)", "Number exchange on accept", "Credit refund on decline", "Earn ₹50 via referral"],
-      ["12 interest requests", "✅ Photo-verified badge", "🔮 Free వేద గుణమేళనం రిపోర్ట్ (1)", "Daily fresh matches digest", "Family bureau assist"],
-      ["25 interest requests", "⚡ 30-day boost (top of channel)", "👀 Who-viewed-me 60 days", "✅ Verified badge", "Dedicated Telugu support"],
-      ["50 interest requests", "🎯 Matchmaker assist (our team calls)", "⚡ 90-day boost", "💍 Wedding vendor discounts", "Priority WhatsApp support"],
+      ["3 interest requests", "Notification availability depends on configuration", "Routing only to configured destinations after review", "Profile search", "Review optional privacy controls"],
+      ["5 interest requests", "30-day credit validity", "Consent-based contact sharing", "Credit-refund policy as displayed"],
+      ["12 interest requests", "45-day credit validity", "Any additional tools are listed separately", "No match or response guarantee"],
+      ["25 interest requests", "60-day credit validity", "Who-viewed names while this plan is active", "Contact sharing requires owner acceptance"],
+      ["50 interest requests", "90-day credit validity", "Who-viewed names while this plan is active", "Contact sharing requires owner acceptance"],
     ],
     planCtaFree: "Start FREE",
     planCtaPay: (price: string) => `Pay ${price} & start`,
-    planSecure: "Razorpay secure • refund policy",
+    planSecure: "Payment options appear at checkout when configured; review the applicable refund policy",
     addonTitle: "🎁 Add-ons — extra value beyond credits",
     addonTag: "per-item • anytime",
     renewalLine: (r: { price: number; profiles: number }, b: { price: number; profiles: number }) =>
-      `🔁 Renewal offer: existing customers ₹${r.price} → ${r.profiles} profiles (first-time ₹99 → 5) • 🏢 Bureau: ₹${b.price}/mo → ${b.profiles} profiles + monthly report`,
+      `🔁 Renewal offer: existing customers ₹${r.price} → ${r.profiles} requests (first-time ₹99 → 5) • 🏢 Bureau plan: ₹${b.price}/30 days → ${b.profiles} request credits`,
     addonCta1: "Buy plans + add-ons →",
     addonCta2: "👀 See who viewed you",
-    refTitle: "🏆 Earn — Referral Program",
-    refSub: (per: number) => `You don't need to be looking for a match to join this program — anyone can! Share your link, and you earn ₹${per} every time someone joins and pays through it. Special dashboard for bureaus/brokers too.`,
-    refCards: (per: number, ms: string) => [{ k: "Per pay", v: `₹${per}` }, { k: "25 referrals", v: ms }, { k: "Payout", v: "Weekly UPI" }],
+    refTitle: "🏆 Referral Program",
+    refSub: (per: number) => `A valid referral attachment grants +2 interest-request credits to the referrer and +1 to the new user (not cash). The referrer may qualify for ₹${per} once if the referee's first paid S_99/S_199/S_299/S_499 consumer plan costs at least ₹99. Add-ons, assisted services, boosts, gifts, renewals, complimentary grants and B2B/non-consumer payments are excluded.`,
+    refCards: (per: number, ms: string) => [{ k: "Possible one-time reward", v: `₹${per}` }, { k: "25 qualifying rewards", v: `${ms} badge only` }, { k: "Payout", v: "Manual review • no fixed timing" }],
     refCta1: "My referral code →",
     refCta2: "🎁 Join now",
     burTitle: "🏢 Bureau / Broker B2B",
@@ -344,35 +339,24 @@ const TEXT = {
     faqTitle: "Frequently asked — clear answers",
     ctaTitle: "Start now — it's FREE",
     ctaSub: (total: number, free: number, p99: PlanStat, p199: PlanStat, p299: PlanStat, p499: PlanStat) =>
-      `Register FREE → profile card ready → posted across ${total} channels → first ${free} interest requests FREE. Then ₹${p99.price} → ${p99.profiles} profiles, ₹${p199.price} → ${p199.profiles}, ₹${p299.price} → ${p299.profiles}, ₹${p499.price} → ${p499.profiles} (VIP).`,
+      `Register FREE → profile review → routing to configured destinations (availability/delivery not guaranteed) → first ${free} interest requests FREE. Then ₹${p99.price} → ${p99.profiles}, ₹${p199.price} → ${p199.profiles}, ₹${p299.price} → ${p299.profiles}, ₹${p499.price} → ${p499.profiles}.`,
     ctaReg: "Register FREE",
     ctaBot: "Join on Telegram",
-    trustTitle: "🛡️ Trust & Safety",
-    trustSub: "Your phone number is never shown publicly — exchanged only after both sides accept.",
-    trustAvg: (n: number | undefined) => `Average trust score (${n === undefined ? "—" : n} profiles)`,
-    trustAvgD: "Verified + complete profiles score higher — and get more matches.",
-    trustNum: "🔒 Number policy",
-    trustNumD: "Your phone number is never shown directly to anyone (always masked as 98••••••45).",
-    trustFree: (free: number, p99: PlanStat) => `Free: ${free} profiles + ${free} interests · Paid: ₹${p99.price} → ${p99.profiles} profiles`,
-    trustAbuse: "🧱 Fraud protection",
-    trustAuth: "Login security",
-    trustAuthD: (enforced: boolean) => (enforced ? "OTP verified" : "OTP verified"),
-    trustLive: "Complete your profile fully to have a better chance of showing up top on this trust board.",
     vendorEyebrow: "Wedding Vendors",
     vendorTitle: "🏪 Everything for your wedding — one place",
-    vendorSub: "Catering • Photography • Decorations • Function Hall • Tent House • Pandit • Jewellery • Makeup • DJ • Invitations • Cars • Planner. Verified vendors, direct WhatsApp, best rates.",
+    vendorSub: "Catering • Photography • Decorations • Function Hall • Tent House • Pandit • Jewellery • Makeup • DJ • Invitations • Cars • Planner. Directory listings are not business or identity verification; confirm details before booking.",
     vendorAll: "All 18 categories →",
     vendorPromoT: "Want to promote your business too? 🏪",
-    vendorPromoS: (total: number) => `From ₹149 — ${total} channels + WhatsApp lanes + website banner + leads straight to your WhatsApp.`,
+    vendorPromoS: (_total: number) => `From ₹149 — listing and promotional placements are subject to channel availability.`,
     vendorPromoC: "Advertise →",
     faq: (total: number, p99: PlanStat, p199: PlanStat, p299: PlanStat, p499: PlanStat) => [
-      { q: "How much money to register?", a: `Registration is 100% FREE. First 3 interest requests are FREE too. Then ₹${p99.price} for ${p99.profiles} profiles, ₹${p199.price} for ${p199.profiles}, ₹${p299.price} for ${p299.profiles}, ₹${p499.price} for ${p499.profiles} profiles (₹10–20/profile).` },
-      { q: "Is there chatting? How do we talk?", a: `No chatting — that's it. Send "💌 Interest" (1 credit) to a profile you like. Your profile + details reach them on WhatsApp. If they Accept, both numbers auto-exchange on WhatsApp — talk directly. On Decline your credit is refunded (our trust policy).` },
-      { q: "When is the number visible? Do you share directly?", a: "The number stays locked when you send interest. Numbers exchange only after they Accept — only when both agree. So spam calls, fake IDs and fraud are all blocked. Top matrimony sites use this same consent logic; we just do it fast on WhatsApp." },
-      { q: "Is my photo visible in public?", a: "With Photo-Private ON it shows blurred in public — watermarked on WhatsApp/Telegram cards too. Clear photos only after interest accept. Watermark + report system acts on screenshot misuse." },
-      { q: "Which channels will my profile be posted to?", a: `Best-fit channels (max 5) from ${total}, based on your caste + state + job — Region + Caste-wise (bride/groom separate) + Religion + Special channels, all covered.` },
-      { q: "Does it come on WhatsApp too?", a: "Yes — after the Telegram post it also goes to WhatsApp channels/groups. Interest arrivals also notify you on WhatsApp with a profile card." },
-      { q: "What about fraud/fake profiles?", a: "DOB + OTP verify, photo watermark, 3 reports → auto hide, fraud alerts in our safety channel. Report advance-money demands immediately — action within 24h. Declined credits are refunded." },
+      { q: "How much money to register?", a: `Registration is free and includes 3 interest requests. Then ₹${p99.price} for ${p99.profiles} requests, ₹${p199.price} for ${p199.profiles}, ₹${p299.price} for ${p299.profiles}, or ₹${p499.price} for ${p499.profiles}.` },
+      { q: "Is there chatting? How do we talk?", a: `No in-app chat. Send "💌 Interest" (1 credit) to a profile you like. The owner can accept or decline. Contact details may be shared after acceptance, subject to privacy settings. Declined requests follow the credit-refund policy shown in your account.` },
+      { q: "When is the number visible? Do you share directly?", a: "Contact details stay masked while an interest is pending and may be shared after the recipient accepts, subject to privacy settings. Consent-based sharing reduces exposure but cannot prevent all spam or fraud." },
+      { q: "Is my photo visible in public?", a: "Photo privacy is an optional profile setting and is not enabled by default. Generated cards may include a watermark, but that does not prevent screenshots or copying. Review your privacy setting before uploading." },
+      { q: "Which channels will my profile be posted to?", a: `Configured destinations may be selected based on profile details. Routing and external availability are not guaranteed; check the channel directory for listed destinations.` },
+      { q: "Does it come on WhatsApp too?", a: "Notifications or channel posts may use configured WhatsApp destinations where available. Delivery is not guaranteed; check your account for current status." },
+      { q: "What about fraud/fake profiles?", a: "Phone OTP, profile approval, photo review, and manual ID review are separate checks. DOB is member-provided, and no badge guarantees a genuine profile. Report suspicious conduct and verify details independently; response times may vary." },
     ],
   },
 };
@@ -387,18 +371,12 @@ function StatValue({ value, countUp }: { value: string | number; countUp: boolea
 
 export default function Home() {
   const { lang } = useLang();
+  const channelDirectory = useChannelDirectoryLinks();
   const L = TEXT[lang as Lang];
   const te = lang === "te";
   const [hs, setHs] = useState<HomeStats>(FALLBACK);
-  const [trustBoard, setTrustBoard] = useState<{ count: number; average_trust: number; board: Record<string, unknown>[] } | null>(null);
-  const [posture, setPosture] = useState<Record<string, unknown> | null>(null);
-
   useEffect(() => {
     void apiGet<HomeStats>("/api/meta/home-stats").then(({ ok, data }) => { if (ok && data) setHs(data); });
-    void apiGet<{ count: number; average_trust: number; board: Record<string, unknown>[] }>("/api/trust/board?limit=6")
-      .then(({ ok, data }) => { if (ok && data) setTrustBoard(data); });
-    void apiGet<Record<string, unknown>>("/api/security/posture")
-      .then(({ ok, data }) => { if (ok && data) setPosture(data); });
   }, []);
 
   const p99 = planOf(hs, "S_99"), p199 = planOf(hs, "S_199"), p299 = planOf(hs, "S_299"), p499 = planOf(hs, "S_499");
@@ -410,9 +388,14 @@ export default function Home() {
 
   const regionChannels: Channel[] = useMemo(() => ALL_CHANNELS.filter((c) => c.tier === "L1_REGION"), []);
   const religionChannels: Channel[] = useMemo(() => ALL_CHANNELS.filter((c) => c.tier === "L2_RELIGION"), []);
-  const casteChannels: Channel[] = useMemo(() => ALL_CHANNELS.filter((c) => c.tier === "L3_CASTE"), []);
+  const casteChannels: Channel[] = useMemo(
+    () => ALL_CHANNELS.filter((c) => c.tier === "L3_CASTE").sort((a, b) =>
+      channelCommunityLabel(a).localeCompare(channelCommunityLabel(b), "en", { sensitivity: "base" })
+    ),
+    []
+  );
   const specialChannels: Channel[] = useMemo(() => ALL_CHANNELS.filter((c) => c.tier === "L4_SPECIAL"), []);
-  const liveChannels = ALL_CHANNELS.filter((c) => c.live);
+  const listedChannels = ALL_CHANNELS;
 
 
   const PLANS = [
@@ -477,18 +460,18 @@ export default function Home() {
 
 
 
+      {/* Local promotional film and gallery are explicitly labeled as illustrative. */}
+      <CinematicGallery />
+
       {/* ================= 🌟 PROFILES OF THE DAY (SPOTLIGHT) ================= */}
       <ProfilesOfTheDay />
-
-      {/* ================= 💍 SECOND MARRIAGE & REMARRIAGE PORTAL ================= */}
-      <HomeSecondMarriageSection />
 
       {/* ================= 🌸 NEXT-GEN TELUGU MATRIMONY STUDIOS & TOOLS ================= */}
       <section className="max-w-7xl mx-auto px-4 py-8">
         <Reveal>
           <div className="text-center max-w-3xl mx-auto mb-6">
             <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-gold/20 border border-gold/40 text-maroon text-xs font-bold mb-2">
-              ✨ తెలుగు సాంప్రదాయ డిజిటల్ స్టూడియోలు • Smart Matrimony Tools
+              {lang === "te" ? "✨ తెలుగు వివాహ డిజిటల్ సాధనాలు" : "✨ Telugu wedding tools & studios"}
             </div>
             <h2 className="text-2xl sm:text-3xl font-extrabold text-maroon">
               {lang === "te" ? "వివాహ ప్రయాణానికి అవసరమైన సమగ్ర సాధనాలు" : "Authentic Telugu Matrimony & Wedding Studios"}
@@ -510,7 +493,7 @@ export default function Home() {
             >
               <div className="text-3xl mb-3">📜</div>
               <div className="inline-block px-2.5 py-0.5 rounded-full bg-amber-100 text-maroon font-bold text-[10px] uppercase tracking-wider mb-2">
-                4 రాయల్ థీమ్స్ • HD JPG
+                {lang === "te" ? "4 సంప్రదాయ థీమ్స్ • HD JPG" : "4 traditional themes • HD JPG"}
               </div>
               <h3 className="text-lg font-bold text-maroon group-hover:text-maroon-dark">
                 {lang === "te" ? "శుభ లగ్న పత్రిక స్టూడియో" : "Lagna Patrika Studio"}
@@ -518,10 +501,10 @@ export default function Home() {
               <p className="text-xs text-gray-600 mt-1 leading-relaxed">
                 {lang === "te"
                   ? "సంస్కృత శ్లోకాలు, ముహూర్తం వివరాలు, ఇరువైపుల పెద్దల పేర్లతో రాయల్ తెలుగు లగ్న పత్రిక ఉచితంగా తయారు చేసుకోండి."
-                  : "Generate royal traditional Telugu Lagna Patrika cards with Sanskrit slokas and instant WhatsApp delivery."}
+                  : "Create a traditional Telugu Lagna Patrika with Sanskrit slokas; download or share it using options available on your device."}
               </p>
               <div className="mt-4 text-xs font-bold text-maroon flex items-center gap-1 group-hover:translate-x-1 transition">
-                <span>లగ్న పత్రిక సృష్టించండి</span>
+                <span>{lang === "te" ? "లగ్న పత్రిక సృష్టించండి" : "Create a Lagna Patrika"}</span>
                 <span>→</span>
               </div>
             </Link>
@@ -535,18 +518,18 @@ export default function Home() {
             >
               <div className="text-3xl mb-3">⚖️</div>
               <div className="inline-block px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold text-[10px] uppercase tracking-wider mb-2">
-                Side-by-Side Matrix
+                {lang === "te" ? "పక్కపక్కన పోలిక" : "Side-by-side comparison"}
               </div>
               <h3 className="text-lg font-bold text-maroon group-hover:text-maroon-dark">
                 {lang === "te" ? "సంబంధాల పోలిక స్టూడియో" : "Profile Comparison Matrix"}
               </h3>
               <p className="text-xs text-gray-600 mt-1 leading-relaxed">
                 {lang === "te"
-                  ? "2 లేదా 3 సంబంధాలను పక్కపక్కనే పెట్టి చదువు, ఉద్యోగం, జీతం, గోత్రం మరియు గుణమేళనం సరిపోల్చి తల్లిదండ్రులకు షేర్ చేయండి."
-                  : "Compare 2-3 candidate profiles side-by-side across Astro, salary, education, and share a comparison deck on WhatsApp."}
+                  ? "2 లేదా 3 సంబంధాల ప్రొఫైల్ వివరాలను పక్కపక్కనే పరిశీలించి కుటుంబంతో షేర్ చేయండి. అందుబాటులో ఉన్న వివరాలు మాత్రమే పోల్చబడతాయి."
+                  : "Compare up to three candidate profiles side by side across available details; share or download the comparison using your device options."}
               </p>
               <div className="mt-4 text-xs font-bold text-maroon flex items-center gap-1 group-hover:translate-x-1 transition">
-                <span>సంబంధాలు పోల్చండి</span>
+                <span>{lang === "te" ? "సంబంధాలు పోల్చండి" : "Compare profiles"}</span>
                 <span>→</span>
               </div>
             </Link>
@@ -560,7 +543,7 @@ export default function Home() {
             >
               <div className="text-3xl mb-3">☕</div>
               <div className="inline-block px-2.5 py-0.5 rounded-full bg-rose-100 text-rose-800 font-bold text-[10px] uppercase tracking-wider mb-2">
-                ఆచారాలు & ప్రశ్నలు
+                {lang === "te" ? "ఆచారాలు & ప్రశ్నలు" : "Traditions & questions"}
               </div>
               <h3 className="text-lg font-bold text-maroon group-hover:text-maroon-dark">
                 {lang === "te" ? "పెళ్లి చూపుల సమగ్ర గైడ్" : "Pelli Choopulu Etiquette Guide"}
@@ -571,7 +554,7 @@ export default function Home() {
                   : "Traditional Telugu Pelli Choopulu protocols, hospitality tips, parent talking points, and candidate 1-on-1 questions."}
               </p>
               <div className="mt-4 text-xs font-bold text-maroon flex items-center gap-1 group-hover:translate-x-1 transition">
-                <span>గైడ్ చదవండి</span>
+                <span>{lang === "te" ? "గైడ్ చదవండి" : "Read the guide"}</span>
                 <span>→</span>
               </div>
             </Link>
@@ -585,7 +568,7 @@ export default function Home() {
             >
               <div className="text-3xl mb-3">🎴</div>
               <div className="inline-block px-2.5 py-0.5 rounded-full bg-purple-100 text-purple-800 font-bold text-[10px] uppercase tracking-wider mb-2">
-                1 నిమిషంలో FREE HD JPG
+                {lang === "te" ? "1 నిమిషంలో • ఉచిత HD JPG" : "Free HD JPG in about 1 minute"}
               </div>
               <h3 className="text-lg font-bold text-maroon group-hover:text-maroon-dark">
                 {lang === "te" ? "తెలుగు బయోడేటా మేకర్" : "Telugu Marriage Biodata Studio"}
@@ -593,10 +576,10 @@ export default function Home() {
               <p className="text-xs text-gray-600 mt-1 leading-relaxed">
                 {lang === "te"
                   ? "సులభంగా మీ జాతకం, కుటుంబ వివరాలు, ఫోటోతో కూడిన HD వివాహ బయోడేటా కార్డ్ తయారు చేసుకోండి."
-                  : "Create high-definition marriage biodata cards in Telugu with dynamic QR and share instantly on WhatsApp."}
+                  : "Create a Telugu biodata card with an optional profile QR; download it or share it using options available on your device."}
               </p>
               <div className="mt-4 text-xs font-bold text-maroon flex items-center gap-1 group-hover:translate-x-1 transition">
-                <span>బయోడేటా రూపొందించండి</span>
+                <span>{lang === "te" ? "బయోడేటా రూపొందించండి" : "Create a biodata"}</span>
                 <span>→</span>
               </div>
             </Link>
@@ -610,18 +593,18 @@ export default function Home() {
             >
               <div className="text-3xl mb-3">🏛️</div>
               <div className="inline-block px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-800 font-bold text-[10px] uppercase tracking-wider mb-2">
-                59 జిల్లాలు • TS & AP
+                {lang === "te" ? `TS & AP లో ${DISTRICT_OPTIONS_COUNT} జిల్లాలు` : `${DISTRICT_OPTIONS_COUNT} districts • TS & AP`}
               </div>
               <h3 className="text-lg font-bold text-maroon group-hover:text-maroon-dark">
                 {lang === "te" ? "జిల్లా సమగ్ర సంబంధాల హబ్" : "TS & AP Districts Hub"}
               </h3>
               <p className="text-xs text-gray-600 mt-1 leading-relaxed">
                 {lang === "te"
-                  ? "హైదరాబాద్, విజయవాడ, వైజాగ్, వరంగల్ సహా రెండు తెలుగు రాష్ట్రాల 59 జిల్లాల సంబంధాలను నేరుగా వెతకండి."
-                  : "Browse verified profiles filtered across all 59 districts of Telangana and Andhra Pradesh."}
+                  ? `హైదరాబాద్, విజయవాడ, వైజాగ్, వరంగల్ సహా రెండు తెలుగు రాష్ట్రాల ${DISTRICT_OPTIONS_COUNT} జిల్లాల సంబంధాలను నేరుగా వెతకండి.`
+                  : "Browse profiles across Telangana and Andhra Pradesh, with district filters to narrow your search."}
               </p>
               <div className="mt-4 text-xs font-bold text-maroon flex items-center gap-1 group-hover:translate-x-1 transition">
-                <span>జిల్లాల వారీగా చూడండి</span>
+                <span>{lang === "te" ? "జిల్లాల వారీగా చూడండి" : "Browse by district"}</span>
                 <span>→</span>
               </div>
             </Link>
@@ -635,7 +618,7 @@ export default function Home() {
             >
               <div className="text-3xl mb-3">🗓️</div>
               <div className="inline-block px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900 font-bold text-[10px] uppercase tracking-wider mb-2">
-                2026 - 2027 పంచాంగం
+                {lang === "te" ? "2026–2027 పంచాంగం" : "2026–2027 Panchangam"}
               </div>
               <h3 className="text-lg font-bold text-maroon group-hover:text-maroon-dark">
                 {lang === "te" ? "వివాహ శుభ ముహూర్తాలు" : "Vivaha Muhurtham Calendar"}
@@ -646,7 +629,7 @@ export default function Home() {
                   : "Explore auspicious Telugu marriage dates, thithi, nakshatram, and lagna timings for 2026-2027."}
               </p>
               <div className="mt-4 text-xs font-bold text-maroon flex items-center gap-1 group-hover:translate-x-1 transition">
-                <span>ముహూర్తాలు చూడండి</span>
+                <span>{lang === "te" ? "ముహూర్తాలు చూడండి" : "View auspicious dates"}</span>
                 <span>→</span>
               </div>
             </Link>
@@ -692,7 +675,7 @@ export default function Home() {
             <Reveal key={s.n} delay={i * 90}>
               <div className="relative bg-white rounded-2xl p-5 card-shadow border border-gold/20 h-full hover-lift">
                 <div className="text-3xl" aria-hidden>{s.icon}</div>
-                <div className="mt-2 text-[11px] font-bold text-gold-deep tracking-widest">STEP {s.n}</div>
+                <div className="mt-2 text-[11px] font-bold text-gold-deep tracking-widest">{te ? "దశ" : "STEP"} {s.n}</div>
                 <div className="font-bold text-maroon text-[15px] mt-1">{s.t}</div>
                 <div className="text-[12px] text-gray-600 mt-1.5 leading-relaxed">{s.d}</div>
               </div>
@@ -737,7 +720,7 @@ export default function Home() {
               </Reveal>
             </div>
 
-            {/* RIGHT: WhatsApp mockup (real message we send) */}
+            {/* RIGHT: illustrative notification preview; not proof of delivery */}
             <Reveal delay={140}>
               <div className="rounded-3xl overflow-hidden card-shadow-lg border border-black/10 bg-[#0b141a]">
                 <div className="bg-[#202c33] px-4 py-3 flex items-center gap-3">
@@ -745,36 +728,36 @@ export default function Home() {
                   <img src={SITE_CONFIG.logoImage} alt="మన వివాహ" width={36} height={36} className="w-9 h-9 rounded-full object-cover shrink-0" />
                   <div className="min-w-0 flex-1">
                     <div className="text-white text-[13px] font-bold truncate telugu">మన వివాహ</div>
-                    <div className="text-[10px] text-emerald-300 truncate">🟢 online • verified business</div>
+                    <div className="text-[10px] text-emerald-300 truncate">{te ? "నమూనా notification preview" : "Sample notification preview"}</div>
                   </div>
                   <div className="shrink-0 flex flex-col items-end gap-1">
                     <span className="text-[9px] px-2 py-0.5 rounded-full bg-white/10 text-gray-300 font-bold whitespace-nowrap">{te ? "నమూనా" : "Sample"}</span>
-                    <span className="text-[9px] text-gray-400 whitespace-nowrap">🔒 {te ? "సురక్షితం" : "secured"}</span>
+                    <span className="text-[9px] text-gray-400 whitespace-nowrap">{te ? "ఉదాహరణ మాత్రమే" : "illustrative only"}</span>
                   </div>
                 </div>
                 <div className="p-3 space-y-2 dotted-bg">
                   <div className="bg-[#005c4b] text-white text-[12px] rounded-xl rounded-tl-sm p-3 leading-relaxed max-w-[95%]">
-                    <div className="font-bold">{te ? "💌 MANA VIVAHA — మీ profile కి INTEREST వచ్చింది!" : "💌 MANA VIVAHA — INTEREST on your profile!"}</div>
-                    <div className="opacity-90 mt-1">{te ? <>ఒక person మీ profile చూసి <b>&quot;interesting గా ఉన్నారు&quot;</b> అని request పెట్టారు 👇</> : <>Someone saw your profile and sent a request saying <b>&quot;you look interesting&quot;</b> 👇</>}</div>
+                    <div className="font-bold">{te ? "💌 MANA VIVAHA — Interest notification ఉదాహరణ" : "💌 MANA VIVAHA — illustrative interest notification"}</div>
+                    <div className="opacity-90 mt-1">{te ? "Interest request వివరాలు service configuration మీద ఆధారపడతాయి; ఇది sample layout మాత్రమే." : "Interest notification details depend on service configuration; this is a sample layout only."}</div>
                     <div className="mt-2 pl-1 border-l-2 border-white/30">
-                      👤 <b>Kiran Kumar Reddy</b> (29y)<br />
-                      🎓 MBBS MD • 💼 Doctor, Apollo<br />
-                      📍 Nalgonda, TS • 💍 Reddy<br />
-                      ⭐ <b>82% match</b>
+                      👤 <b>{te ? "సభ్యుల వివరాలు" : "Member details"}</b><br />
+                      🎓 {te ? "ప్రొఫైల్‌లో అందించిన వివరాలు మాత్రమే" : "Only details supplied in the profile"}<br />
+                      📍 {te ? "అందుబాటులో ఉన్న సమాచారం మాత్రమే" : "Only information made available"}<br />
+                      ⭐ {te ? "సరిపోలిక విశ్లేషణ ఉంటే మాత్రమే" : "Match insights only when available"}
                     </div>
-                    <div className="mt-2 opacity-90">{te ? "✅ Accept చేస్తే → వాళ్ల number మీకు WhatsApp లో" : "✅ On accept → their number comes to your WhatsApp"}</div>
-                    <div className="text-[10px] opacity-70 mt-2 text-right">11:42 ✓✓</div>
+                    <div className="mt-2 opacity-90">{te ? "✅ Accept చేస్తే, privacy settings ప్రకారం contact వివరాలు share కావచ్చు." : "✅ If accepted, contact details may be shared according to privacy settings."}</div>
+                    <div className="text-[10px] opacity-70 mt-2 text-right">{te ? "ప్రివ్యూ" : "Preview"}</div>
                   </div>
                   <div className="bg-[#202c33] text-white text-[12px] rounded-xl p-3 max-w-[80%]">
-{te ? "Profile card + photo ఇక్కడే వస్తుంది 🎴" : "Profile card + photo arrives here 🎴"}
-                    <div className="text-[10px] opacity-70 mt-1">attachment: KAM001.png</div>
+{te ? "ప్రొఫైల్ కార్డ్ ఉదాహరణ 🎴" : "Illustrative profile-card preview 🎴"}
+                    <div className="text-[10px] opacity-70 mt-1">{te ? "వాస్తవ నోటిఫికేషన్ కాదు" : "Not an actual delivery"}</div>
                   </div>
-                  <div className="flex gap-2 pt-1">
-                    <button className="flex-1 bg-emerald-600 text-white text-[12px] font-bold rounded-xl py-2">✅ Accept</button>
-                    <button className="flex-1 bg-white/10 text-white text-[12px] font-bold rounded-xl py-2">❌ Decline (refund)</button>
+                  <div className="flex gap-2 pt-1" aria-hidden="true">
+                    <span className="flex-1 rounded-xl bg-emerald-600 py-2 text-center text-[12px] font-bold text-white">✅ {te ? "అంగీకరించండి" : "Accept"}</span>
+                    <span className="flex-1 rounded-xl bg-white/10 py-2 text-center text-[12px] font-bold text-white">❌ {te ? "తిరస్కరించండి" : "Decline"}</span>
                   </div>
                   <div className="text-[10px] text-gray-400 text-center pt-1">
-                    🛡️ {te ? "మీ number safe గా ఉంటుంది — accept చేస్తేనే exchange" : "Your number stays safe — exchanged only on accept"}
+                    ℹ️ {te ? "నోటిఫికేషన్ delivery హామీ కాదు; contact sharing privacy settings పై ఆధారపడుతుంది." : "Notification delivery is not guaranteed; contact sharing depends on privacy settings."}
                   </div>
                 </div>
               </div>
@@ -808,46 +791,78 @@ export default function Home() {
           />
         </Reveal>
 
-        <div className="mt-5 grid grid-cols-2 md:grid-cols-5 gap-3">
-          {[...regionChannels, ...religionChannels].slice(0, 10).map((ch, i) => (
-            <Reveal key={ch.key} delay={i * 50}>
-              <div
-                className={`flex flex-col justify-between rounded-2xl p-3.5 text-white card-shadow h-full ${
-                  ch.key.startsWith("ts") ? "maroon-gradient" : ch.tier === "L2_RELIGION" ? "navy-gradient" : "maroon-gradient"
-                }`}
-              >
-                <div>
-                  <div className="text-[13px] font-bold leading-tight">{ch.name}</div>
-                  <div className="text-[11px] opacity-85 mt-1">
-                    🟢 {lang === "te" ? "LIVE ఛానల్" : "LIVE Channel"}
+        <div className="mt-5 grid grid-cols-1 min-[420px]:grid-cols-2 md:grid-cols-5 gap-3">
+          {[...regionChannels, ...religionChannels].slice(0, 10).map((ch, i) => {
+            const destinations = resolveChannelLinks(ch, channelDirectory);
+            return (
+              <Reveal key={ch.key} delay={i * 50}>
+                <article
+                  className={`flex h-full min-h-[154px] flex-col justify-between rounded-2xl p-3.5 text-white shadow-[0_12px_30px_rgba(44,8,25,.18)] ring-1 ring-white/15 transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_18px_36px_rgba(44,8,25,.24)] ${
+                    ch.tier === "L2_RELIGION" ? "navy-gradient" : "maroon-gradient"
+                  }`}
+                >
+                  <div>
+                    <div className="flex items-start gap-2.5">
+                      <Image
+                        src={SITE_CONFIG.logoImage}
+                        alt=""
+                        width={36}
+                        height={36}
+                        sizes="36px"
+                        className="h-9 w-9 shrink-0 rounded-xl border border-white/40 bg-white object-cover shadow-sm"
+                      />
+                      <div className="min-w-0">
+                        <div className="text-[9px] font-extrabold uppercase tracking-[.16em] text-amber-200">Mana Vivaha</div>
+                        <div className="mt-0.5 break-words text-[13px] font-bold leading-tight">{ch.name}</div>
+                      </div>
+                    </div>
+                    <div className="mt-2 text-[10px] leading-relaxed text-white/75">
+                      {lang === "te" ? "నమోదు చేసిన channel link • availability తనిఖీ చేయలేదు" : "Listed channel link • availability not checked"}
+                    </div>
                   </div>
-                </div>
 
-                <div className="mt-3 flex items-center gap-1.5 pt-2 border-t border-white/20">
-                  <a
-                    href={ch.link || `https://t.me/TSAP_${ch.key.toUpperCase()}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="flex-1 inline-flex items-center justify-center gap-1 bg-[#229ED9] text-white py-1.5 px-2 rounded-xl text-[10px] font-bold shadow-soft hover:brightness-110 active:scale-95 transition"
-                    title="Join on Telegram"
-                  >
-                    <TelegramIcon className="w-3 h-3" mono />
-                    <span>Telegram</span>
-                  </a>
-                  <a
-                    href={waLink(ch.key)}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="flex-1 inline-flex items-center justify-center gap-1 bg-[#25D366] text-white py-1.5 px-2 rounded-xl text-[10px] font-bold shadow-soft hover:brightness-110 active:scale-95 transition"
-                    title="Join on WhatsApp"
-                  >
-                    <WhatsAppIcon className="w-3 h-3" mono />
-                    <span>WhatsApp</span>
-                  </a>
-                </div>
-              </div>
-            </Reveal>
-          ))}
+                  <div className="mt-3 flex flex-wrap items-center gap-1.5 border-t border-white/20 pt-2">
+                    {destinations.telegram && (
+                      <a
+                        href={destinations.telegram}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        aria-label={te ? `${ch.name} Telegram లిస్టింగ్ తెరవండి` : `Open the listed Telegram destination for ${ch.name}`}
+                        className="inline-flex min-h-8 flex-1 items-center justify-center gap-1 rounded-xl bg-[#229ED9] px-2 py-1.5 text-[10px] font-bold text-white shadow-soft transition hover:brightness-110 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                        title={te ? "బాహ్య Telegram link; availability తనిఖీ చేయబడదు" : "External Telegram link; availability is not checked"}
+                      >
+                        <TelegramIcon className="h-3 w-3" mono />
+                        <span>Telegram</span>
+                      </a>
+                    )}
+                    {destinations.whatsapp ? (
+                      <a
+                        href={destinations.whatsapp}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        aria-label={destinations.whatsappIsDirect
+                          ? (te ? `${ch.name} WhatsApp channel తెరవండి` : `Open the listed WhatsApp channel for ${ch.name}`)
+                          : (te ? `${ch.name} గురించి WhatsApp support ని అడగండి` : `Ask WhatsApp support about ${ch.name}`)}
+                        className="inline-flex min-h-8 flex-1 items-center justify-center gap-1 rounded-xl bg-[#0b7d46] px-2 py-1.5 text-[10px] font-bold text-white shadow-soft transition hover:brightness-110 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                        title={te ? "బాహ్య WhatsApp link; availability తనిఖీ చేయబడదు" : "External WhatsApp link; availability is not checked"}
+                      >
+                        <WhatsAppIcon className="h-3 w-3" mono />
+                        <span>{destinations.whatsappIsDirect ? "WhatsApp" : (te ? "సహాయం" : "Support")}</span>
+                      </a>
+                    ) : (
+                      <span
+                        className="inline-flex min-h-8 flex-1 items-center justify-center gap-1 rounded-xl border border-white/20 bg-white/10 px-2 py-1.5 text-[9px] font-semibold text-white/70"
+                        title={te ? "ఈ destination కోసం WhatsApp link ఇవ్వలేదు" : "No WhatsApp invite or support contact is configured for this destination"}
+                      >
+                        <WhatsAppIcon className="h-3 w-3" mono />
+                        <span>{te ? "లింక్ లేదు" : "No WA link"}</span>
+                      </span>
+                    )}
+                  </div>
+                </article>
+              </Reveal>
+            );
+          })}
         </div>
 
         {/* Channel post flow explainer */}
@@ -864,8 +879,8 @@ export default function Home() {
             </div>
             <div className="mt-3 bg-navy text-white rounded-xl p-3 text-[11px]">
               {te
-                ? <>ఉదా: Reddy + TS + Software job → <span className="text-gold font-bold">TS Bride/Groom + Reddy + Software</span> ఛానళ్లలో ప్రొఫైల్ కనిపిస్తుంది</>
-                : <>e.g. Reddy + TS + Software job → profile shows in <span className="text-gold font-bold">TS Bride/Groom + Reddy + Software</span> channels</>}
+                ? <>ఉదా: Reddy + TS + Software job → <span className="text-gold font-bold">TS Bride/Groom + Reddy + Software</span> destinations కు routing ఎంపిక కావచ్చు; configuration/availability పై ఆధారపడి ఉంటుంది</>
+                : <>e.g. Reddy + TS + Software job → routing may select <span className="text-gold font-bold">TS Bride/Groom + Reddy + Software</span> destinations, subject to configuration and availability</>}
             </div>
           </div>
         </Reveal>
@@ -876,7 +891,7 @@ export default function Home() {
         <Reveal>
           <SectionHeading
             eyebrow={L.casteEyebrow}
-            title={L.casteTitle(hs.channels_by_tier.L3_CASTE ?? 27)}
+            title={L.casteTitle(hs.channels_by_tier.L3_CASTE ?? CHANNEL_STATS.by_tier.L3_CASTE)}
             subtitle={L.casteSub}
             telugu={lang === "te"}
             action={{ href: "/castes", label: L.casteAction }}
@@ -884,7 +899,7 @@ export default function Home() {
         </Reveal>
         <div className="mt-5 grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
           {casteChannels.slice(0, 24).map((c, i) => {
-            const cleanName = c.name.replace(/^💍 /, "").replace(" Matrimony", "").replace(" | TS-AP", "").split("|")[0].trim();
+            const cleanName = channelCommunityLabel(c);
             return (
               <Reveal key={c.key} delay={i * 20}>
                 <Link
@@ -898,7 +913,7 @@ export default function Home() {
                   </div>
                   <div className="text-[10px] text-emerald-700 font-bold mt-2 flex items-center gap-1">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                    100% LIVE
+                    {lang === "te" ? "చానల్ directory లో listed" : "Listed in channel directory"}
                   </div>
                 </Link>
               </Reveal>
@@ -936,7 +951,7 @@ export default function Home() {
                 </div>
                 <div className="text-[11px] text-gray-600 mt-1 line-clamp-2">{sp.desc}</div>
                 <div className="text-[10px] mt-2 font-bold text-emerald-700">
-                  LIVE ✅
+                  {lang === "te" ? "ఛానల్ డైరెక్టరీ" : "Channel directory"}
                 </div>
               </Link>
             </Reveal>
@@ -959,8 +974,8 @@ export default function Home() {
                 </h3>
                 <p className="text-xs sm:text-sm text-gray-700 leading-relaxed max-w-xl">
                   {te
-                    ? "పెళ్లి కుదిరిన జంటల కొరకు వేద మంత్రాలు, శుభ ముహూర్తం, రాశి-నక్షత్రం మరియు వేదిక వివరాలతో కూడిన సాంప్రదాయ ఆహ్వాన పత్రిక. WhatsApp లో బంధుమిత్రులకు నేరుగా షేర్ చేయండి."
-                    : "Create authentic Telugu Lagna Patrika with Sanskrit slokas, muhurtham timings & HD photo export ready for WhatsApp."}
+                    ? "పెళ్లి కుదిరిన జంటల కొరకు వేద మంత్రాలు, శుభ ముహూర్తం, రాశి-నక్షత్రం మరియు వేదిక వివరాలతో కూడిన సాంప్రదాయ ఆహ్వాన పత్రిక. మీ device లో అందుబాటులో ఉన్న share options తో పంచుకోండి."
+                    : "Create a Telugu Lagna Patrika with Sanskrit slokas and muhurtham details; download or share it using options available on your device."}
                 </p>
                 <div className="flex flex-wrap items-center gap-3 pt-2">
                   <Link
@@ -981,10 +996,10 @@ export default function Home() {
               <div className="md:col-span-4 text-center">
                 <div className="inline-block p-4 bg-white/90 rounded-2xl shadow-lg border border-gold/40 transform md:rotate-2 hover:rotate-0 transition duration-300">
                   <div className="text-3xl mb-1">🪔 📜 💍</div>
-                  <div className="text-sm font-extrabold text-maroon">॥ శ్రీరస్తు • శుభమస్తు ॥</div>
-                  <div className="text-[11px] text-gray-600 mt-1">4 రాయల్ గోల్డ్ థీమ్స్ • HD డౌన్‌లోడ్</div>
+                  <div className="text-sm font-extrabold text-maroon">{te ? "॥ శ్రీరస్తు • శుభమస్తు ॥" : "Auspicious beginnings"}</div>
+                  <div className="text-[11px] text-gray-600 mt-1">{te ? "4 సంప్రదాయ గోల్డ్ థీమ్స్ • HD డౌన్‌లోడ్" : "4 traditional gold themes • HD download"}</div>
                   <div className="mt-3 px-3 py-1 bg-gold/20 text-maroon rounded-full text-[10px] font-bold">
-                    WhatsApp ఆహ్వానం రెడీ
+                    {te ? "మీ device లో share చేయండి" : "Share using your device options"}
                   </div>
                 </div>
               </div>
@@ -994,7 +1009,6 @@ export default function Home() {
       </section>
 
       {/* ================= 💐 REAL WEDDINGS FILM REEL & STORIES ================= */}
-      <RealWeddingsFilm />
 
       {/* ================= SPONSORED PROMO & FESTIVAL OFFERS ================= */}
       <section className="max-w-7xl mx-auto px-4 py-2">
@@ -1028,14 +1042,14 @@ export default function Home() {
               >
                 {(p as { popular?: boolean }).popular && (
                   <div className="absolute -top-3 left-1/2 -translate-x-1/2 text-[10px] gold-gradient text-maroon px-3 py-1 rounded-full font-bold shadow-gold">
-                    POPULAR
+                    {te ? "ప్రజాదరణ" : "POPULAR"}
                   </div>
                 )}
                 <div className="text-[11px] font-bold text-gold-deep tracking-widest uppercase">{p.tag}</div>
                 <div className="font-bold text-maroon text-lg mt-1">{p.name}</div>
                 <div className="mt-2 flex items-end gap-1">
                   <span className="text-3xl font-bold text-maroon">{p.price}</span>
-                  <span className="text-[11px] text-gray-500 mb-1">one-time</span>
+                  <span className="text-[11px] text-gray-500 mb-1">{te ? "ఒక్కసారి" : "one-time"}</span>
                 </div>
                 <div className="text-[11px] text-gray-600 mt-1">{p.credits}</div>
                 <div className="mt-3 space-y-1.5">
@@ -1067,12 +1081,11 @@ export default function Home() {
               <div className="font-bold text-maroon">{L.addonTitle}</div>
               <span className="text-[10px] font-bold bg-cream border border-gold/40 px-2 py-0.5 rounded-full">{L.addonTag}</span>
             </div>
-            <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="mt-3 grid grid-cols-1 min-[420px]:grid-cols-2 md:grid-cols-3 gap-3">
               {[
-                { p: "₹49", t: lang === "te" ? "Profile Boost" : "Profile Boost", d: lang === "te" ? "7 days channel top లో" : "7 days at channel top" },
-                { p: "₹49", t: lang === "te" ? "Who viewed me" : "Who viewed me", d: lang === "te" ? "30 days — names తో" : "30 days — with names" },
-                { p: "₹99", t: lang === "te" ? "వేద గుణమేళనం రిపోర్ట్" : "వేద గుణమేళనం రిపోర్ట్", d: lang === "te" ? "Full kundli match (Telugu)" : "Full kundli match (Telugu)" },
-                { p: "₹199", t: lang === "te" ? "Photo verify badge" : "Photo verify badge", d: lang === "te" ? "ప్రొఫైల్ నమ్మకాన్ని పెంచుతుంది" : "Builds profile trust" },
+                { p: "₹49", t: lang === "te" ? "ప్రొఫైల్ బూస్ట్" : "Profile Boost", d: lang === "te" ? "1 రోజు బూస్ట్; చూపించే స్థానం configuration పై ఆధారపడుతుంది" : "1-day boost; placement depends on configuration" },
+                { p: "₹49", t: lang === "te" ? "నా ప్రొఫైల్‌ను చూసినవారు" : "Who viewed me", d: lang === "te" ? "అర్హత సదుపాయం active ఉన్నప్పుడు 30 రోజులు" : "30 days when the entitlement is active" },
+                { p: "₹199", t: lang === "te" ? "ఫోటో సమీక్ష అభ్యర్థన" : "Manual photo review request", d: lang === "te" ? "మాన్యువల్ సమీక్ష అభ్యర్థన మాత్రమే; స్వయంచాలక ధృవీకరణ కాదు" : "A manual review request only; it does not automatically verify a profile" },
               ].map((a) => (
                 <div key={a.t} className="rounded-2xl bg-cream border border-gold/25 p-3">
                   <div className="text-lg font-bold text-maroon">{a.p}</div>
@@ -1216,52 +1229,39 @@ export default function Home() {
                 </div>
               </div>
               <div className="mt-6 md:mt-0 text-center shrink-0">
-                <div className="text-[11px] opacity-80">ID search</div>
+                <div className="text-[11px] opacity-80">{te ? "ID ద్వారా వెతకండి" : "Profile ID search"}</div>
                 <div className="font-mono text-gold text-lg">{SITE_CONFIG.domain}/search</div>
-                <div className="text-[11px] opacity-80 mt-2">Telegram</div>
+                <div className="text-[11px] opacity-80 mt-2">{te ? "టెలిగ్రామ్ ఛానల్" : "Telegram channel"}</div>
                 <div className="font-mono text-gold text-lg">{SITE_CONFIG.officialChannel}</div>
               </div>
             </div>
           </div>
         </Reveal>
       </section>
-    {/* 🛡️ WAVE 9 — Trust & security (live numbers) */}
-    <section className="max-w-7xl mx-auto px-4 py-8">
-      <SectionHeading title={L.trustTitle}
-        subtitle={L.trustSub} />
+    <section aria-label={te ? "భద్రత మరియు గోప్యత" : "Safety and privacy"} className="max-w-7xl mx-auto px-4 py-8">
+      <SectionHeading
+        title={te ? "🛡️ మీ భద్రత, మీ నిర్ణయం" : "🛡️ Your safety, your decision"}
+        subtitle={te ? "ఏ verification check ఏమి చెబుతుందో తెలుసుకోండి; profile వివరాలను స్వతంత్రంగా పరిశీలించండి." : "Know what each verification check covers, and review profile details independently."}
+      />
       <div className="mt-5 grid gap-4 md:grid-cols-3">
-        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
-          <p className="text-2xl font-extrabold text-emerald-900">{trustBoard ? `${trustBoard.average_trust}/100` : "—"}</p>
-          <p className="text-[13px] font-semibold text-emerald-900">{L.trustAvg(trustBoard?.count)}</p>
-          <p className="mt-1 text-[12px] text-emerald-800">{L.trustAvgD}</p>
-        </div>
-        <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4">
-          <p className="text-[13px] font-bold text-rose-900">{L.trustNum}</p>
-          <p className="mt-1 text-[12px] text-rose-800">{String(posture?.numbers_policy || L.trustNumD)}</p>
-          <p className="mt-2 text-[12px] font-semibold text-rose-900">{L.trustFree(hs.free_first, p99)}</p>
-        </div>
-        <div className="rounded-2xl border border-sky-200 bg-sky-50 p-4">
-          <p className="text-[13px] font-bold text-sky-900">{L.trustAbuse}</p>
-          <ul className="mt-1 space-y-1 text-[12px] text-sky-900">
-            <li>🔐 {L.trustAuth}: {L.trustAuthD(!!posture?.auth_enforced)}</li>
-            <li>💳 {te ? "సురక్షిత payment — డబుల్ చార్జ్ కాదు" : "Secure payment — no double charging"}</li>
-            <li>📜 {te ? "నంబర్ ఇచ్చినప్పుడు record ఉంటుంది" : "Number sharing is always recorded"}</li>
-          </ul>
-        </div>
+        <article className="rounded-2xl border border-rose-200 bg-gradient-to-br from-rose-50 to-white p-5">
+          <h3 className="font-bold text-rose-950">{te ? "🔒 Contact sharing" : "🔒 Contact sharing"}</h3>
+          <p className="mt-2 text-sm leading-6 text-slate-700">{te ? "Contact వివరాలు దాచబడతాయి. ప్రొఫైల్ యజమాని request‌ను అంగీకరించి, privacy settings అనుమతించిన తర్వాతే పంచుకోవచ్చు. Credits consent‌ను దాటవేయవు." : "Contact details stay hidden. They may be shared only after the profile owner accepts and privacy settings allow it. Credits do not bypass consent."}</p>
+        </article>
+        <article className="rounded-2xl border border-amber-200 bg-gradient-to-br from-amber-50 to-white p-5">
+          <h3 className="font-bold text-amber-950">{te ? "✅ Checks పరిమితులు" : "✅ Know what checks mean"}</h3>
+          <p className="mt-2 text-sm leading-6 text-slate-700">{te ? "Phone OTP ఆ number‌కు access‌ను మాత్రమే నిర్ధారిస్తుంది. Photo, ID reviews వేర్వేరు checks; member ఇచ్చిన వివరాలను స్వతంత్రంగా verify చేయండి." : "Phone OTP confirms access to that number only. Photo and ID reviews are separate checks; verify member-provided details independently."}</p>
+        </article>
+        <article className="rounded-2xl border border-sky-200 bg-gradient-to-br from-sky-50 to-white p-5">
+          <h3 className="font-bold text-sky-950">{te ? "🚩 Report / block" : "🚩 Report or block"}</h3>
+          <p className="mt-2 text-sm leading-6 text-slate-700">{te ? "సందేహాస్పద profile లేదా ప్రవర్తన కనిపిస్తే report చేయండి. మీ account నుంచి profiles‌ను block చేయవచ్చు." : "Report suspicious profiles or conduct. You can block profiles from your account."}</p>
+        </article>
       </div>
-      {trustBoard?.board?.length ? (
-        <div className="mt-4 flex flex-wrap gap-2">
-          {trustBoard.board.map((b) => (
-            <Link key={String(b.tsap_id)} href={`/search/${b.tsap_id}`}
-              className="rounded-full border border-gold/40 bg-white px-3 py-1.5 text-[11px] font-semibold text-maroon hover:bg-cream">
-              {String(b.badge_telugu || "⭐")} {String(b.tsap_id)} · {String(b.trust_score)}/100
-            </Link>
-          ))}
-        </div>
-      ) : null}
-      <p className="mt-3 text-[12px] text-gray-600">
-        {L.trustLive}
-      </p>
+      <div className="mt-5 flex justify-center">
+        <Link href="/safety" className="inline-flex min-h-11 items-center justify-center rounded-full border border-maroon/20 bg-white px-5 py-2.5 text-sm font-bold text-maroon shadow-sm transition hover:bg-rose-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-maroon focus-visible:ring-offset-2">
+          {te ? "Safety & Privacy మార్గదర్శిని చూడండి →" : "Open safety & privacy guide →"}
+        </Link>
+      </div>
     </section>
       <FinalCta />
     </div>

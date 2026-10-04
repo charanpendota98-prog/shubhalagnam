@@ -4,7 +4,7 @@
 Full-detail, neat, section-wise professional card — Telegram/WhatsApp lo post avvadaniki.
 
 Card contents (anni details tho):
-  ┌ Header   : brand + ID + DOB verified + score badge
+  ┌ Header   : brand + ID + limited, recorded verification check status
   │ Photo    : real photo (unavailable ayithe monogram circle) — gold border
   │ Section 1: Personal   (age, height, weight, blood, marital, physical, body, complexion, mother tongue, birth time)
   │ Section 2: Family     (father, mother, occupations, family type/values/status, brothers/sisters, native)
@@ -13,7 +13,7 @@ Card contents (anni details tho):
   │ Section 5: Career     (job, company, salary, work location)
   │ Section 6: Location   (district, mandal, current city, state, pincode)
   │ Section 7: About + Expectations
-  │ Match    : score + 3 personalized reasons
+  │ Match    : no synthetic compatibility score or generated match reasons
   │ Footer   : number lock, ID search, bot, hashtags, QR, watermark, safety line
   └
 
@@ -61,7 +61,7 @@ def state_full_name(state: str) -> str:
 
 
 # 💍 "1st marriage" (Pelli Kaledu / Never Married) profiles కి card మీద ఎప్పుడూ
-# "2nd Marriage" badge కనిపించకూడదు — genuine Divorced/Widowed/Separated profiles
+# "2nd Marriage" badge కనిపించకూడదు — member-entered non-single marital status
 # కి మాత్రమే, కుడివైపు (right side) neat గా ribbon badge చూపించాలి.
 _FIRST_MARRIAGE = {"pelli kaledu", "never married", "unmarried", "single", ""}
 
@@ -212,22 +212,29 @@ class CardBuilder:
         d.text((100, 52), "TS-AP Telugu Matrimony  •  \u20b999 సంబంధం",
                fill=GOLD_LIGHT, font=F(14))
 
-        # id + status line
-        verified = bool(self.u.get("dob_correct") or self.u.get("is_verified"))
-        rid = _s(self.u.get("tsap_id"), "TSAP-F-2025-XXXX")
+        # Show the strongest specific check recorded; payment or approval is not verification.
+        reviewed_id = bool(self.u.get("id_verified"))
+        photo_reviewed = bool(self.u.get("selfie_verified") or self.u.get("photo_status") == "approved")
+        phone_verified = bool(self.u.get("phone_verified"))
+        rid = _s(self.u.get("tsap_id"), "ID unavailable")
         d.rounded_rectangle([100, 76, 330, 104], 12, fill=WHITE)
         d.text((112, 82), f"ID  {rid}", fill=self.accent, font=F(16, True))
-        status = "DOB Verified" if verified else "Verification Pending"
-        d.rounded_rectangle([338, 76, 512, 104], 12,
-                            fill=GREEN if verified else (150, 120, 40))
-        d.text((350, 83), (f"{ICON['check']} " if verified else "~ ") + status,
-               fill=WHITE, font=F(14, True))
+        if reviewed_id:
+            status, status_color = "ID reviewed", GREEN
+        elif photo_reviewed:
+            status, status_color = "Photo reviewed", GREEN
+        elif phone_verified:
+            status, status_color = "Phone OTP", (25, 88, 116)
+        else:
+            status, status_color = "No check recorded", (100, 100, 100)
+        d.rounded_rectangle([338, 76, 512, 104], 12, fill=status_color)
+        prefix = f"{ICON['check']} " if reviewed_id or photo_reviewed or phone_verified else "• "
+        d.text((350, 83), prefix + status, fill=WHITE, font=F(14, True))
 
-        # score badge (right)
-        score = int(self.u.get("score", 92) or 92)
+        # Profile cards never display compatibility or suitability scores.
         d.rounded_rectangle([700, 20, 876, 104], 16, fill=GOLD)
-        d.text((726, 30), f"{score}%", fill=self.accent, font=F(34, True))
-        d.text((716, 74), "BEST MATCH", fill=self.accent, font=F(13, True))
+        d.text((726, 36), "PROFILE", fill=self.accent, font=F(25, True))
+        d.text((726, 70), "INFORMATION", fill=self.accent, font=F(12, True))
         self.y = 132
 
     def photo_block(self):
@@ -306,10 +313,10 @@ class CardBuilder:
             d.text((cx + 10, self.y + 156), c, fill=self.accent, font=F(13, True))
             cx += wpx + 8
 
-        # verified tick block
+        # Keep the notice factual; the status above describes only the specific recorded check.
         d.rounded_rectangle([x, self.y + 192, W - 30, self.y + 236], 12, fill=(238, 246, 238))
-        d.text((x + 12, self.y + 200),
-               f"{ICON['check']} మన వివాహ verified profile  {ICON['dot']}  Photo watermark  {ICON['dot']}  మోసం జాగ్రత్త",
+        notice = "Member-submitted details • Check above covers only the stated item"
+        d.text((x + 12, self.y + 200), _fit(d, notice, F(13, True), W - x - 54),
                fill=GREEN, font=F(13, True))
         self.y += 316
 
@@ -356,23 +363,8 @@ class CardBuilder:
             self.y += 6
 
     def match_block(self):
-        u = self.u
-        reasons = [_s(r) for r in (u.get("reasons") or [])][:3]
-        if not reasons:
-            reasons = ["Caste + Gothram + Location perfect", "Education + Job level match", "Age gap ideal"]
-        d = self.d
-        score = int(u.get("score", 92) or 92)
-        d.rounded_rectangle([24, self.y, W - 24, self.y + 36], 10, fill=self.accent)
-        d.text((38, self.y + 8), f"{ICON['star']} {score}% BEST MATCH  {ICON['dot']}  ఎందుకు set అవుతారు?",
-               fill=GOLD_LIGHT, font=F(16, True))
-        self.y += 46
-        for r in reasons:
-            lines = _wrap(d, de_emoji(r), F(14, True), W - 110, 2)
-            d.text((34, self.y), ICON["check"], fill=GREEN, font=F(15, True))
-            for i, ln in enumerate(lines):
-                d.text((60, self.y + i * 19), ln, fill=BLACK, font=F(14))
-            self.y += 20 * max(1, len(lines)) + 4
-        self.y += 6
+        """Legacy no-op: profile cards do not publish compatibility estimates/reasons."""
+        return
 
     def footer(self):
         """Footer ni final (crop ayyina) image bottom ki vesham — overlap asalu undadu."""
@@ -382,26 +374,33 @@ class CardBuilder:
         y0 = self.img.height - 210
         d.rectangle([0, y0, W, H], fill=MAROON_DARK)
         d.rectangle([0, y0, W, y0 + 4], fill=GOLD)
-        rid = _s(u.get("tsap_id"), "TSAP-F-2025-XXXX")
+        rid = _s(u.get("tsap_id"))
+        year = os.getenv("YEAR", str(datetime.utcnow().year))
 
-        d.text((24, y0 + 16), f"Number: Interest Accept అయ్యాకే  {ICON['dot']}  🔒 Safe  {ICON['dot']}   Telegram: మన వివాహ",
-               fill=GOLD_LIGHT, font=F(15, True))
-        d.text((24, y0 + 44), f"ID Search: {SITE}/search/{rid}   {ICON['dot']}   Register FREE: {SITE}/register",
-               fill=WHITE, font=F(13))
-        tags = _s(u.get("hashtags")) or (
-            f"#{_s(u.get('caste'),'Telugu').replace(' ', '')} #{_s(u.get('state'),'TS')} "
-            f"{'#Bride' if self.is_bride else '#Groom'} #{_s(u.get('district'),'').replace(' ', '')}"
-        )
-        d.text((24, y0 + 68), _fit(d, tags, F(12, True), W - 170), fill=GOLD, font=F(12, True))
-        d.text((24, y0 + 92), f"Credits: {_s(u.get('credits'),3)} FREE  {ICON['dot']}  Referral: {_s(u.get('referral_code'),'-')}",
-               fill=GOLD_LIGHT, font=F(12))
-        d.text((24, y0 + 114), "! Direct గా money అడిగితే వెంటనే report చెయ్యండి - మోసం జాగ్రత్త!",
+        d.text((24, y0 + 16), "Contact details are shared only after profile-owner acceptance.",
+               fill=GOLD_LIGHT, font=F(14, True))
+        if rid:
+            d.text((24, y0 + 44), f"ID Search: {SITE}/search/{rid}   {ICON['dot']}   Register: {SITE}/register",
+                   fill=WHITE, font=F(12))
+        else:
+            d.text((24, y0 + 44), f"Register: {SITE}/register", fill=WHITE, font=F(13))
+        tag_values = [_s(u.get("hashtags"))]
+        if not tag_values[0]:
+            tag_values = [
+                "#ManaVivaha",
+                f"#{_s(u.get('caste')).replace(' ', '')}" if _s(u.get("caste")) else "",
+                f"#{_s(u.get('district')).replace(' ', '')}" if _s(u.get("district")) else "",
+            ]
+        tags = " ".join(value for value in tag_values if value)
+        if tags:
+            d.text((24, y0 + 68), _fit(d, tags, F(12, True), W - 170), fill=GOLD, font=F(12, True))
+        d.text((24, y0 + 92), "Never send advance money; report suspicious requests.",
                fill=(255, 190, 190), font=F(12, True))
-        d.text((24, y0 + 142), f"{rid}  {ICON['dot']}  (c) మన వివాహ {os.getenv('YEAR','2025')}",
+        d.text((24, y0 + 142), f"{rid or 'Profile'}  {ICON['dot']}  © Mana Vivaha {year}",
                fill=(200, 200, 200), font=F(11))
 
-        # QR → ID search
-        if qrcode:
+        # QR code is emitted only for a real profile ID.
+        if qrcode and rid:
             try:
                 qr = qrcode.QRCode(version=1, box_size=4, border=1)
                 qr.add_data(f"{SITE}/search/{rid}")
@@ -411,7 +410,8 @@ class CardBuilder:
                 d.rectangle([W - 152, y0 + 42, W - 26, y0 + 168], outline=GOLD, width=2)
             except Exception:
                 pass
-        d.text((W - 148, y0 + 174), f"Scan {ICON['arrow']} Profile", fill=GOLD_LIGHT, font=F(11, True))
+        if rid:
+            d.text((W - 148, y0 + 174), f"Scan {ICON['arrow']} Profile", fill=GOLD_LIGHT, font=F(11, True))
 
     def watermark(self):
         h = self.img.height
@@ -431,8 +431,6 @@ class CardBuilder:
 
         self.section("👤 PERSONAL DETAILS", [
             ("Full Name", u.get("full_name")),
-            ("Date of Birth", u.get("dob")),
-            ("Birth Time", u.get("birth_time")),
             ("Age", f"{_s(u.get('age'),'—')} yrs"),
             ("Height", u.get("height")),
             ("Weight", u.get("weight")),
@@ -444,14 +442,21 @@ class CardBuilder:
             ("Complexion", u.get("complexion")),
         ])
 
+        brothers = _s(u.get("brothers"))
+        brothers_married = _s(u.get("brothers_married"))
+        sisters = _s(u.get("sisters"))
+        sisters_married = _s(u.get("sisters_married"))
+        brothers_info = f"{brothers} ({brothers_married} married)" if brothers and brothers_married else brothers
+        sisters_info = f"{sisters} ({sisters_married} married)" if sisters and sisters_married else sisters
+
         self.section("👨‍👩‍👧 FAMILY DETAILS", [
             ("Father", f"{_s(u.get('father_name'))} {_s(u.get('father_occupation'))}".strip()),
             ("Mother", f"{_s(u.get('mother_name'))} {_s(u.get('mother_occupation'))}".strip()),
             ("Family Type", u.get("family_type")),
             ("Family Values", u.get("family_values")),
             ("Family Status", u.get("family_status")),
-            ("Brothers", f"{_s(u.get('brothers'),'0')} ({_s(u.get('brothers_married'),'0')} married)"),
-            ("Sisters", f"{_s(u.get('sisters'),'0')} ({_s(u.get('sisters_married'),'0')} married)"),
+            ("Brothers", brothers_info),
+            ("Sisters", sisters_info),
             ("Native Place", u.get("native_place")),
         ])
 
@@ -506,33 +511,3 @@ class CardBuilder:
 def create_pro_card(user: Dict, output_path: str) -> str:
     """Public API — full detail neat card. Fail ayithe old generator try chestundi (main.py lo)."""
     return CardBuilder(user).build(output_path)
-
-
-if __name__ == "__main__":
-    demo = {
-        "tsap_id": "TSAP-F-2025-5775", "full_name": "Lakshmi Reddy", "gender": "Bride",
-        "dob": "2000-06-14", "dob_correct": True, "birth_time": "06:20 AM", "age": 25,
-        "height": "5'4\"", "weight": "54 kg", "blood_group": "O+", "mother_tongue": "Telugu",
-        "marital_status": "Pelli Kaledu", "physical_status": "Normal", "body_type": "Average",
-        "complexion": "Fair", "father_name": "Ramesh Reddy", "father_occupation": "(Farmer)",
-        "mother_name": "Lakshmamma", "mother_occupation": "(Housewife)", "family_type": "Nuclear",
-        "family_values": "Traditional", "family_status": "Middle Class", "brothers": 1,
-        "brothers_married": 0, "sisters": 1, "sisters_married": 1, "native_place": "Miryalaguda",
-        "caste": "Reddy", "sub_caste": "Pakanati", "gothram": "Bharadwaj", "star": "Rohini",
-        "rasi": "Vrishabha", "dosham": "No", "moola_nakshatram": "No", "religion": "Hindu",
-        "education": "BTech", "education_detail": "BTech CSE", "college": "JNTU Hyderabad",
-        "job": "Software Engineer", "company": "TCS", "salary": "8 LPA", "work_location": "Hyderabad",
-        "experience": "3 yrs", "work_type": "Private", "state": "TS", "district": "Nalgonda",
-        "mandal": "Miryalaguda", "current_city": "Hyderabad", "pincode": "508207",
-        "phone": "9848012345", "phone_last4": "2345", "credits": 3,
-        "referral_code": "LAK42", "score": 92,
-        "about_myself": "నేను friendly, family oriented, software లో work చేస్తున్న. Cooking, music ఇష్టం.",
-        "expectations": "Reddy alliance, Hyderabad / Nalgonda, software or govt job, 26-31 age.",
-        "reasons": ["నువ్వు Hyderabad కావాలి అన్నావు → వీళ్లు కూడా Hyderabad లోనే — near!",
-                    "Software + Reddy + BTech — ee combination perfect match",
-                    "Gothram Bharadwaj + Star Rohini — jatakaalu kooda set avuthunnai"],
-        "hashtags": "#TSBride #Reddy #Software #Telangana #Bride #Nalgonda #Age25 #BTech",
-    }
-    out = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "cards", "sample_pro_card.png")
-    create_pro_card(demo, out)
-    print("✅ card created:", os.path.abspath(out), "| telugu font:", has_telugu_font())

@@ -23,6 +23,8 @@ os.environ.setdefault("OTP_DEV_MODE", "true")
 os.environ.setdefault("WA_LONG_PAUSE_CHANCE", "0")
 os.environ.setdefault("WHATSAPP_MODE", "off")
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from test_storage import isolate_test_stores  # noqa: E402
+isolate_test_stores("wave13")
 
 PASS, FAIL, FAILED = 0, 0, []
 PHONE_RE = re.compile(r"(?<![\d•])[6-9]\d{9}(?!\d)")

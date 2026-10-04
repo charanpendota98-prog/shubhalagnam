@@ -1,9 +1,8 @@
 /**
  * MANA VIVAHA — COMPREHENSIVE TELUGU MATRIMONIAL TAXONOMY 💍
  * ==========================================================
- * All 33 Telangana Districts + All 26 Andhra Pradesh Districts
- * All Top NRI Countries (USA, UK, Australia, Canada, Germany, UAE, Singapore, etc.)
- * All 50+ Telugu Castes + Authentic Sub-castes
+ * Telangana and Andhra Pradesh district choices, plus common NRI locations
+ * Curated community labels and optional sub-community choices (not exhaustive)
  * 27 Vedic Nakshatras & 12 Rasis with Telugu + English Side-by-Side
  * Categorized Educations, Work Types & Granular ₹1L - ₹1Cr+ Salary Brackets
  */
@@ -83,7 +82,7 @@ export const RASIS: RasiItem[] = [
 ];
 
 // =========================================================================
-// 🏛️ ALL 33 OFFICIAL DISTRICTS OF TELANGANA (తెలంగాణ సమగ్ర జిల్లాలు)
+// 🏛️ TELANGANA DISTRICT OPTIONS (తెలంగాణ జిల్లాలు)
 // =========================================================================
 export interface DistrictDetail {
   en: string;
@@ -92,7 +91,24 @@ export interface DistrictDetail {
   state: "TS" | "AP" | "Other";
 }
 
-export const TS_DISTRICTS_DETAILED: DistrictDetail[] = [
+/** Case-insensitive A–Z order with case-insensitive duplicate removal. */
+export function sortUniqueOptions(values: readonly string[]): string[] {
+  const unique = new Map<string, string>();
+  values.forEach((value) => {
+    const label = String(value || "").trim();
+    const key = label.toLocaleLowerCase("en");
+    if (label && !unique.has(key)) unique.set(key, label);
+  });
+  return [...unique.values()].sort((a, b) => a.localeCompare(b, "en", { sensitivity: "base" }));
+}
+
+function sortDirectoryByEnglish<T extends { en: string }>(items: readonly T[]): T[] {
+  return [...items].sort((a, b) => a.en.localeCompare(b.en, "en", { sensitivity: "base" }));
+}
+
+export const OTHER_COMMUNITY_OPTION = "Other / self-described";
+
+export const TS_DISTRICTS_DETAILED: DistrictDetail[] = sortDirectoryByEnglish([
   { en: "Adilabad", te: "ఆదిలాబాద్", display: "ఆదిలాబాద్ (Adilabad)", state: "TS" },
   { en: "Bhadradri Kothagudem", te: "భద్రాద్రి కొత్తగూడెం", display: "భద్రాద్రి కొత్తగూడెం (Bhadradri Kothagudem)", state: "TS" },
   { en: "Hanamkonda", te: "హనుమకొండ", display: "హనుమకొండ (Hanamkonda)", state: "TS" },
@@ -106,7 +122,7 @@ export const TS_DISTRICTS_DETAILED: DistrictDetail[] = [
   { en: "Khammam", te: "ఖమ్మం", display: "ఖమ్మం (Khammam)", state: "TS" },
   { en: "Kumuram Bheem Asifabad", te: "కుమురం భీమ్ ఆసిఫాబాద్", display: "కుమురం భీమ్ ఆసిఫాబాద్ (Kumuram Bheem)", state: "TS" },
   { en: "Mahabubabad", te: "మహబూబాబాద్", display: "మహబూబాబాద్ (Mahabubabad)", state: "TS" },
-  { en: "Mahbubnagar", te: "మహబూబ్‌నగర్", display: "మహబూబ్‌నగర్ (Mahbubnagar)", state: "TS" },
+  { en: "Mahabubnagar", te: "మహబూబ్‌నగర్", display: "మహబూబ్‌నగర్ (Mahabubnagar)", state: "TS" },
   { en: "Mancherial", te: "మంచిర్యాల", display: "మంచిర్యాల (Mancherial)", state: "TS" },
   { en: "Medak", te: "మెదక్", display: "మెదక్ (Medak)", state: "TS" },
   { en: "Medchal-Malkajgiri", te: "మేడ్చల్-మల్కాజ్‌గిరి", display: "మేడ్చల్-మల్కాజ్‌గిరి (Medchal)", state: "TS" },
@@ -126,14 +142,14 @@ export const TS_DISTRICTS_DETAILED: DistrictDetail[] = [
   { en: "Wanaparthy", te: "వనపర్తి", display: "వనపర్తి (Wanaparthy)", state: "TS" },
   { en: "Warangal", te: "వరంగల్", display: "వరంగల్ (Warangal)", state: "TS" },
   { en: "Yadadri Bhuvanagiri", te: "యాదాద్రి భువనగిరి", display: "యాదాద్రి భువనగిరి (Yadadri Bhuvanagiri)", state: "TS" },
-];
+]);
 
-export const TS_DISTRICTS: string[] = TS_DISTRICTS_DETAILED.map((d) => d.en);
+export const TS_DISTRICTS: string[] = sortUniqueOptions(TS_DISTRICTS_DETAILED.map((d) => d.en));
 
 // =========================================================================
-// 🌊 ALL 26 OFFICIAL DISTRICTS OF ANDHRA PRADESH (ఆంధ్రప్రదేశ్ సమగ్ర జిల్లాలు)
+// 🌊 ANDHRA PRADESH DISTRICT OPTIONS (ఆంధ్రప్రదేశ్ జిల్లాలు)
 // =========================================================================
-export const AP_DISTRICTS_DETAILED: DistrictDetail[] = [
+export const AP_DISTRICTS_DETAILED: DistrictDetail[] = sortDirectoryByEnglish([
   { en: "Alluri Sitharama Raju", te: "అల్లూరి సీతారామరాజు", display: "అల్లూరి సీతారామరాజు (Alluri Sitharama Raju)", state: "AP" },
   { en: "Anakapalli", te: "అనకాపల్లి", display: "అనకాపల్లి (Anakapalli)", state: "AP" },
   { en: "Ananthapuramu", te: "అనంతపురం", display: "అనంతపురం (Ananthapuramu)", state: "AP" },
@@ -147,10 +163,12 @@ export const AP_DISTRICTS_DETAILED: DistrictDetail[] = [
   { en: "Kakinada", te: "కాకినాడ", display: "కాకినాడ (Kakinada)", state: "AP" },
   { en: "Krishna", te: "కృష్ణా (మచిలీపట్నం)", display: "కృష్ణా (Krishna / Machilipatnam)", state: "AP" },
   { en: "Kurnool", te: "కర్నూలు", display: "కర్నూలు (Kurnool)", state: "AP" },
+  { en: "Markapuram", te: "మార్కాపురం", display: "మార్కాపురం (Markapuram)", state: "AP" },
   { en: "Nandyal", te: "నంద్యాల", display: "నంద్యాల (Nandyal)", state: "AP" },
   { en: "NTR", te: "ఎన్టీఆర్ (విజయవాడ)", display: "ఎన్టీఆర్ (NTR / Vijayawada)", state: "AP" },
   { en: "Palnadu", te: "పల్నాడు (నరసరావుపేట)", display: "పల్నాడు (Palnadu / Narasaraopet)", state: "AP" },
   { en: "Parvathipuram Manyam", te: "పార్వతీపురం మన్యం", display: "పార్వతీపురం మన్యం (Parvathipuram Manyam)", state: "AP" },
+  { en: "Polavaram", te: "పోలవరం", display: "పోలవరం (Polavaram)", state: "AP" },
   { en: "Prakasam", te: "ప్రకాశం (ఒంగోలు)", display: "ప్రకాశం (Prakasam / Ongole)", state: "AP" },
   { en: "Sri Potti Sriramulu Nellore", te: "నెల్లూరు", display: "నెల్లూరు (SPS Nellore)", state: "AP" },
   { en: "Sri Sathya Sai", te: "శ్రీ సత్యసాయి (పుట్టపర్తి)", display: "శ్రీ సత్యసాయి (Sri Sathya Sai / Puttaparthi)", state: "AP" },
@@ -160,9 +178,9 @@ export const AP_DISTRICTS_DETAILED: DistrictDetail[] = [
   { en: "Vizianagaram", te: "విజయనగరం", display: "విజయనగరం (Vizianagaram)", state: "AP" },
   { en: "West Godavari", te: "పశ్చిమ గోదావరి (భీమవరం)", display: "పశ్చిమ గోదావరి (West Godavari / Bhimavaram)", state: "AP" },
   { en: "YSR Kadapa", te: "వైఎస్సార్ కడప", display: "వైఎస్సార్ కడప (YSR Kadapa)", state: "AP" },
-];
+]);
 
-export const AP_DISTRICTS: string[] = AP_DISTRICTS_DETAILED.map((d) => d.en);
+export const AP_DISTRICTS: string[] = sortUniqueOptions(AP_DISTRICTS_DETAILED.map((d) => d.en));
 
 // =========================================================================
 // ✈️ NRI COUNTRIES & OTHER REGIONS (ప్రధాన విదేశాలు & ఇతర రాష్ట్రాలు)
@@ -176,7 +194,7 @@ export interface CountryDetail {
   popular?: boolean;
 }
 
-export const NRI_COUNTRIES: CountryDetail[] = [
+export const NRI_COUNTRIES: CountryDetail[] = sortDirectoryByEnglish([
   { code: "USA", en: "USA / United States", te: "అమెరికా (USA)", display: "🇺🇸 USA / United States (అమెరికా)", flag: "🇺🇸", popular: true },
   { code: "UK", en: "United Kingdom (UK)", te: "యునైటెడ్ కింగ్‌డమ్ (UK / బ్రిటన్)", display: "🇬🇧 UK / United Kingdom (బ్రిటన్)", flag: "🇬🇧", popular: true },
   { code: "AUS", en: "Australia", te: "ఆస్ట్రేలియా (Australia)", display: "🇦🇺 Australia (ఆస్ట్రేలియా)", flag: "🇦🇺", popular: true },
@@ -199,20 +217,20 @@ export const NRI_COUNTRIES: CountryDetail[] = [
   { code: "SWE", en: "Sweden & Nordics", te: "స్వీడన్ & నార్డిక్స్", display: "🇸🇪 Sweden / Nordics (నార్డిక్స్)", flag: "🇸🇪" },
   { code: "ZAF", en: "South Africa", te: "దక్షిణాఫ్రికా (South Africa)", display: "🇿🇦 South Africa (దక్షిణాఫ్రికా)", flag: "🇿🇦" },
   { code: "OTH", en: "Other Country", te: "ఇతర విదేశాలు (Other International)", display: "🌐 Other International (ఇతర దేశాలు)", flag: "🌐" },
-];
+]);
 
-export const OTHER_INDIAN_STATES: DistrictDetail[] = [
+export const OTHER_INDIAN_STATES: DistrictDetail[] = sortDirectoryByEnglish([
   { en: "Bangalore / Karnataka", te: "బెంగళూరు / కర్ణాటక", display: "బెంగళూరు (Bangalore / Karnataka)", state: "Other" },
   { en: "Chennai / Tamil Nadu", te: "చెన్నై / తమిళనాడు", display: "చెన్నై (Chennai / Tamil Nadu)", state: "Other" },
-  { en: "Mumbai / Maharashtra", te: "ముంబై / మహారాష్ట్ర", display: "ముంబై / పూణే (Mumbai / Pune)", state: "Other" },
   { en: "Delhi / NCR", te: "ఢిల్లీ / ఎన్‌సీఆర్", display: "ఢిల్లీ / NCR (Delhi)", state: "Other" },
-  { en: "Kerala", te: "కేరళ", display: "కేరళ (Kerala)", state: "Other" },
   { en: "Gujarat", te: "గుజరాత్", display: "గుజరాత్ (Gujarat)", state: "Other" },
+  { en: "Kerala", te: "కేరళ", display: "కేరళ (Kerala)", state: "Other" },
+  { en: "Mumbai / Maharashtra", te: "ముంబై / మహారాష్ట్ర", display: "ముంబై / పూణే (Mumbai / Pune)", state: "Other" },
   { en: "Odisha", te: "ఒడిశా", display: "ఒడిశా (Odisha)", state: "Other" },
   { en: "Other Indian State", te: "ఇతర భారత రాష్ట్రాలు", display: "భారతదేశంలోని ఇతర రాష్ట్రాలు (Other States)", state: "Other" },
-];
+]);
 
-export const OTHER_LOCATIONS: DistrictDetail[] = [
+export const OTHER_LOCATIONS: DistrictDetail[] = sortDirectoryByEnglish([
   ...NRI_COUNTRIES.map((c) => ({
     en: c.en,
     te: c.te,
@@ -220,12 +238,12 @@ export const OTHER_LOCATIONS: DistrictDetail[] = [
     state: "Other" as const,
   })),
   ...OTHER_INDIAN_STATES,
-];
+]);
 
 export const DISTRICTS_BY_STATE: Record<string, string[]> = {
   TS: TS_DISTRICTS,
   AP: AP_DISTRICTS,
-  Other: OTHER_LOCATIONS.map((l) => l.en),
+  Other: sortUniqueOptions(OTHER_LOCATIONS.map((l) => l.en)),
 };
 
 export const DISTRICT_TELUGU: Record<string, string> = (() => {
@@ -519,7 +537,7 @@ export const GROOM_PREFERRED_JOBS = [
 ];
 
 // =========================================================================
-// 💍 COMPREHENSIVE CASTES & SUB-CASTES DIRECTORY (సమగ్ర కులాలు & ఉపకులాలు)
+// 💍 CURATED COMMUNITY & SUB-COMMUNITY OPTIONS (స్వీయ వివరణకు మద్దతుతో)
 // =========================================================================
 export interface CasteInfo {
   en: string;
@@ -717,9 +735,17 @@ export const CASTES_DETAILED: CasteInfo[] = [
     en: "Intercaste", te: "కుల పట్టింపు లేదు", display: "కుల పట్టింపు లేదు (Caste No Bar / Intercaste)",
     subcastes: ["Caste No Bar", "Intercaste", "Any"]
   },
-];
+  {
+    en: OTHER_COMMUNITY_OPTION, te: "ఇతర / స్వయంగా పేర్కొన్న సంఘం",
+    display: "ఇతర / స్వయంగా పేర్కొన్న సంఘం (Other / self-described)",
+    subcastes: []
+  },
+].map((community) => ({
+  ...community,
+  subcastes: sortUniqueOptions(community.subcastes),
+})).sort((a, b) => a.en.localeCompare(b.en, "en", { sensitivity: "base" }));
 
-export const CASTES: string[] = CASTES_DETAILED.map((c) => c.en);
+export const CASTES: string[] = sortUniqueOptions(CASTES_DETAILED.map((c) => c.en));
 
 export const CASTE_TELUGU: Record<string, string> = (() => {
   const map: Record<string, string> = {
@@ -743,7 +769,18 @@ export const CASTE_SUBCASTES: Record<string, string[]> = (() => {
   return map;
 })();
 
-export const RELIGIONS = ["Hindu", "Muslim", "Christian"];
+export const RELIGIONS = ["Hindu", "Muslim", "Christian", "Sikh", "Jain", "Buddhist", "Other"] as const;
+
+/** Locally bundled fallback while the community list API is unavailable. */
+export const COMMUNITIES_BY_RELIGION: Record<string, string[]> = {
+  Hindu: sortUniqueOptions([...CASTES, "Dasari", "Jalari", "Jogi", "Vadabalija", "Mangali", "Viswakarma", "Vysya", "Yadav", OTHER_COMMUNITY_OPTION]),
+  Muslim: sortUniqueOptions(["Ansari", "Bohra", "Dudekula", "Khoja", "Labab", "Mapila", "Memons", "Mughal", "Pathan", "Qureshi", "Sheikh", "Syed", "Other Muslim", OTHER_COMMUNITY_OPTION]),
+  Christian: sortUniqueOptions(["Baptist", "CSI", "Lutheran", "Marthoma", "Methodist", "Orthodox", "Pentecostal", "Roman Catholic", "Seventh-day Adventist", "Other Christian", OTHER_COMMUNITY_OPTION]),
+  Sikh: sortUniqueOptions(["Jat", "Khatri", "Ramgarhia", "Other Sikh", OTHER_COMMUNITY_OPTION]),
+  Jain: sortUniqueOptions(["Digambara", "Shwetambara", "Other Jain", OTHER_COMMUNITY_OPTION]),
+  Buddhist: sortUniqueOptions(["Inter-caste", "No caste", "Other", OTHER_COMMUNITY_OPTION]),
+  Other: sortUniqueOptions(["Inter-caste", "No caste", "Other", OTHER_COMMUNITY_OPTION]),
+};
 
 export const MOTHER_TONGUES = ["Telugu", "Urdu", "Hindi", "Tamil", "Kannada", "English", "Other"];
 
@@ -777,17 +814,28 @@ export const OCCUPATIONS = ["Farmer", "Business", "Govt Employee", "Private Empl
 
 export function ageFromDob(dob: string): number | null {
   if (!dob) return null;
-  const d = new Date(dob);
-  if (isNaN(d.getTime())) return null;
-  const diff = Date.now() - d.getTime();
-  const age = Math.floor(diff / (365.25 * 24 * 3600 * 1000));
-  return age > 0 && age < 100 ? age : null;
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dob);
+  if (!match) return null;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const birth = new Date(year, month - 1, day);
+  if (birth.getFullYear() !== year || birth.getMonth() !== month - 1 || birth.getDate() !== day) return null;
+  const today = new Date();
+  let age = today.getFullYear() - year;
+  if (today.getMonth() < month - 1 || (today.getMonth() === month - 1 && today.getDate() < day)) age -= 1;
+  return age >= 0 && age < 120 ? age : null;
+}
+
+export function maxDobForAge(minAge: number): string {
+  const d = new Date();
+  d.setFullYear(d.getFullYear() - Math.max(0, Math.floor(minAge)));
+  const local = new Date(d.getTime() - d.getTimezoneOffset() * 60_000);
+  return local.toISOString().slice(0, 10);
 }
 
 export function maxDobFor18(): string {
-  const d = new Date();
-  d.setFullYear(d.getFullYear() - 18);
-  return d.toISOString().slice(0, 10);
+  return maxDobForAge(18);
 }
 
 export async function compressImage(file: File, maxDim = 1200, quality = 0.85): Promise<File> {

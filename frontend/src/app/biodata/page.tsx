@@ -6,10 +6,10 @@
  * • 4 Regal Auspicious Themes (Royal Velvet Maroon 🪔, Temple Gold 🦚, Divine Rose 🌸, Imperial Navy 💎)
  * • Authentic Community Context (Hindu with Vedic Horoscope, Muslim with Nikah/Sect/Namaz, Christian with Church/Denomination)
  * • Zero Misplaced Slokas — Direct, respectful, ultra-clean details for each tradition
- * • 1-Click Auto-Fill from Profile ID (e.g., MV2001, MV2002)
- * • Instant Scannable QR Code linking to live profile
+ * • Auto-fill from a registered Profile ID
+ * • Optional QR Code linking to a profile when a registered Profile ID is entered
  * • 1-Click High-Definition JPG Download (Pixel-Perfect 2.5x Resolution for WhatsApp & Print)
- * • Auspicious Trojan Horse Growth Loop for viral WhatsApp sharing
+ * • WhatsApp sharing with a clear note that biodata details are not independently verified
  */
 
 import { useState, useEffect, useRef } from "react";
@@ -110,7 +110,7 @@ export default function BiodataPage() {
   const [religion, setReligion] = useState<"Hindu" | "Muslim" | "Christian" | "Other">("Hindu");
   const [headerText, setHeaderText] = useState(RELIGION_HEADERS.Hindu[0]);
   const [selectedTheme, setSelectedTheme] = useState(THEMES[0]);
-  const [profileId, setProfileId] = useState("MV2001");
+  const [profileId, setProfileId] = useState("");
   const [loading, setLoading] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -122,53 +122,53 @@ export default function BiodataPage() {
   // Form Data
   const [data, setData] = useState({
     title: "వివాహ బయోడేటా (MARRIAGE BIODATA)",
-    fullName: "లక్ష్మి ప్రసన్న రెడ్డి (Lakshmi Prasanna)",
+    fullName: "",
     gender: "Bride",
-    maritalStatus: "Never Married",
+    maritalStatus: "",
     isSecondMarriage: false,
-    dob: "14 May 1998",
-    tob: "07:30 AM",
-    height: "5' 4\" (162 cm)",
-    complexion: "Fair (చామన ఛాయ)",
-    motherTongue: "Telugu (తెలుగు)",
-    caste: "Reddy",
-    subCaste: "Motati (మోటాటి)",
+    dob: "",
+    tob: "",
+    height: "",
+    complexion: "",
+    motherTongue: "",
+    caste: "",
+    subCaste: "",
     // Hindu Astrological fields
-    gothram: "Janakula (జనకుల)",
-    star: "Swathi (స్వాతి)",
-    rasi: "Tula / Libra (తులా రాశి)",
-    lagnam: "Kanya (కన్యా లగ్నం)",
-    dosham: "No (దోషం లేదు)",
+    gothram: "",
+    star: "",
+    rasi: "",
+    lagnam: "",
+    dosham: "",
     // Muslim specific fields
-    islamicSect: "Sunni (సున్నీ)",
-    islamicJamath: "Sheikh (షేక్)",
-    namazStatus: "5 Times Namaz Regular (క్రమబద్ధమైన నమాజ్)",
+    islamicSect: "",
+    islamicJamath: "",
+    namazStatus: "",
     // Christian specific fields
-    christianDenomination: "Roman Catholic (రోమన్ క్యాథలిక్)",
-    churchName: "St. Mary's Basilica, Secunderabad",
-    baptismStatus: "Baptized & Active Believer (బాప్టిజం పొందారు)",
+    christianDenomination: "",
+    churchName: "",
+    baptismStatus: "",
     // Career & Education
-    education: "B.Tech in Computer Science (CSE)",
-    educationDetail: "Osmania University, Hyderabad",
-    job: "Senior Software Engineer",
-    company: "TCS / Infosys",
-    salary: "₹15,00,000 / annum (15 LPA)",
-    workLocation: "Hyderabad, Telangana",
+    education: "",
+    educationDetail: "",
+    job: "",
+    company: "",
+    salary: "",
+    workLocation: "",
     // Family Lineage & Assets
-    fatherName: "శ్రీనివాస రెడ్డి (Srinivasa Reddy)",
-    fatherOccupation: "Govt Employee (Retd)",
-    motherName: "సుజాత (Sujatha)",
-    motherOccupation: "Home Maker (గృహిణి)",
-    siblings: "1 తమ్ముడు (Software Engineer - Unmarried)",
-    nativePlace: "వరంగల్ / హైదరాబాద్ (Warangal / Hyd)",
-    properties: "సొంత ఇల్లు (Hyderabad) + 5 ఎకరాల వ్యవసాయ భూమి",
-    familyValues: "సాంప్రదాయ & ఉన్నత విలువలు గల కుటుంబం",
+    fatherName: "",
+    fatherOccupation: "",
+    motherName: "",
+    motherOccupation: "",
+    siblings: "",
+    nativePlace: "",
+    properties: "",
+    familyValues: "",
     // Contact
-    contactPerson: "తండ్రి గారి నంబర్ (Father's Contact)",
-    phone: "98490XXXXX",
-    email: "srinivasa.reddy@gmail.com",
-    address: "ఫ్లాట్ 302, శ్రీ బాలాజీ రెసిడెన్సీ, కూకట్‌పల్లి, హైదరాబాద్ - 500072",
-    photoUrl: "/promo/bride-card.jpg",
+    contactPerson: "",
+    phone: "",
+    email: "",
+    address: "",
+    photoUrl: "",
   });
 
   // Auto-fill from URL query parameter ?id=... on mount
@@ -183,9 +183,13 @@ export default function BiodataPage() {
     }
   }, []);
 
-  // Generate QR code for viral loop
+  // Generate a profile QR only when a profile ID has been supplied.
   useEffect(() => {
-    const targetUrl = `https://manavivaha.in/search/${profileId || "MV2001"}`;
+    if (!profileId.trim()) {
+      setQrDataUrl("");
+      return;
+    }
+    const targetUrl = `https://manavivaha.in/search/${encodeURIComponent(profileId.trim())}`;
     QRCode.toDataURL(targetUrl, {
       width: 140,
       margin: 1,
@@ -203,33 +207,12 @@ export default function BiodataPage() {
     setReligion(r);
     const headers = RELIGION_HEADERS[r] || RELIGION_HEADERS.Hindu;
     setHeaderText(headers[0]);
-    if (r === "Muslim") {
-      setData((prev) => ({
-        ...prev,
-        title: "నికాహ్ బయోడేటా (NIKAH MATRIMONIAL BIODATA)",
-        caste: "Muslim",
-        subCaste: "Sheikh",
-      }));
-    } else if (r === "Christian") {
-      setData((prev) => ({
-        ...prev,
-        title: "క్రైస్తవ వివాహ బయోడేటా (CHRISTIAN BIODATA)",
-        caste: "Christian",
-        subCaste: "Roman Catholic",
-      }));
-    } else if (r === "Other") {
-      setData((prev) => ({
-        ...prev,
-        title: "వివాహ బయోడేటా (MARRIAGE BIODATA)",
-      }));
-    } else {
-      setData((prev) => ({
-        ...prev,
-        title: "వివాహ బయోడేటా (MARRIAGE BIODATA)",
-        caste: "Reddy",
-        subCaste: "Motati",
-      }));
-    }
+    const title = r === "Muslim"
+      ? "నికాహ్ బయోడేటా (NIKAH MATRIMONIAL BIODATA)"
+      : r === "Christian"
+      ? "క్రైస్తవ వివాహ బయోడేటా (CHRISTIAN BIODATA)"
+      : "వివాహ బయోడేటా (MARRIAGE BIODATA)";
+    setData((prev) => ({ ...prev, title, caste: "", subCaste: "" }));
   };
 
   // Pre-fill from Profile ID
@@ -243,7 +226,7 @@ export default function BiodataPage() {
         const json = await res.json();
         const p = json.profile || json;
         if (p && p.full_name) {
-          const mStatus = p.marital_status || "Never Married";
+          const mStatus = p.marital_status || "";
           const isRemarriage =
             mStatus.toLowerCase().includes("divorced") ||
             mStatus.toLowerCase().includes("widow") ||
@@ -280,9 +263,9 @@ export default function BiodataPage() {
             job: p.job || prev.job,
             company: p.company || prev.company,
             salary: p.salary || prev.salary,
-            workLocation: p.work_location || `${p.district || "Hyderabad"}, ${stateFullName(p.state, te)}`,
-            nativePlace: `${p.district || "Hyderabad"}, ${stateFullName(p.state, te)}`,
-            photoUrl: p.photo_url || prev.photoUrl,
+            workLocation: p.work_location || [p.district, p.state ? stateFullName(p.state, te) : ""].filter(Boolean).join(", "),
+            nativePlace: [p.district, p.state ? stateFullName(p.state, te) : ""].filter(Boolean).join(", "),
+            photoUrl: p.photo_url || "",
           }));
         }
       }
@@ -357,9 +340,8 @@ export default function BiodataPage() {
       `• సొంత ఊరు: ${data.nativePlace}\n` +
       `• ఆస్తులు: ${data.properties}\n` +
       `━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
-      `🔍 *ఈ ప్రొఫైల్ యొక్క పూర్తి వివరాలు & ధృవీకరణ కొరకు:*\n` +
-      `👉 https://manavivaha.in/search/${profileId || "MV2001"}\n\n` +
-      `📞 *అధికారిక వాట్సాప్ హెల్ప్‌లైన్:* +91 6304996088`;
+      `ℹ️ *ఈ బయోడేటాలోని వివరాలు స్వయంగా అందించినవి; స్వతంత్రంగా ధృవీకరించబడలేదు.*\n` +
+      (profileId.trim() ? `👉 https://manavivaha.in/search/${encodeURIComponent(profileId.trim())}` : "");
 
     window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
   };
@@ -434,7 +416,7 @@ export default function BiodataPage() {
               <div className="flex gap-2">
                 <input
                   type="text"
-                  placeholder="ఉదా: MV2001"
+                  placeholder="మీ ప్రొఫైల్ ఐడీ / Profile ID"
                   value={profileId}
                   onChange={(e) => setProfileId(e.target.value.toUpperCase())}
                   className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-mono font-bold focus:border-maroon outline-none uppercase"
@@ -772,10 +754,17 @@ export default function BiodataPage() {
               {/* Photo with Luxury Frame */}
               <div className="relative shrink-0">
                 <div className={`w-32 h-40 rounded-2xl overflow-hidden border-2 ${selectedTheme.frameBorder} shadow-md bg-white p-1`}>
-                  <img src={data.photoUrl || "/promo/bride-card.jpg"} alt={data.fullName} className="w-full h-full object-cover rounded-xl" />
+                  {data.photoUrl ? (
+                    <img src={data.photoUrl} alt={data.fullName ? `${data.fullName} profile photo` : "Profile photo"} className="w-full h-full object-cover rounded-xl" />
+                  ) : (
+                    <div className="w-full h-full rounded-xl bg-slate-100 text-slate-500 flex flex-col items-center justify-center gap-2 text-center text-xs font-semibold" aria-label="No profile photo added">
+                      <span aria-hidden="true" className="text-3xl">📷</span>
+                      <span>Photo not added</span>
+                    </div>
+                  )}
                 </div>
-                <span className="absolute -bottom-2 -right-2 bg-emerald-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow border border-white">
-                  ✅ 100% Verified
+                <span className="absolute -bottom-2 -right-2 bg-slate-700 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow border border-white">
+                  Details not verified
                 </span>
               </div>
 
@@ -784,7 +773,7 @@ export default function BiodataPage() {
                 <div className="flex items-center justify-between">
                   <h2 className={`text-2xl font-black ${selectedTheme.accent} tracking-tight truncate`}>{data.fullName}</h2>
                   <span className="font-mono text-xs font-black bg-amber-50 text-maroon border border-gold/40 px-3 py-1 rounded-xl shadow-xs">
-                    ID: {profileId || "MV2001"}
+                    ID: {profileId || "—"}
                   </span>
                 </div>
 
@@ -820,15 +809,15 @@ export default function BiodataPage() {
                   <div className="grid grid-cols-3 gap-y-2 gap-x-4 text-xs bg-emerald-50/50 p-3 rounded-2xl border border-emerald-200">
                     <div>
                       <span className="text-slate-500 font-medium block">ఫిర్కా / శాఖ (Sect / Maslak):</span>
-                      <span className="font-bold text-slate-900">{data.islamicSect || "Sunni (సున్నీ)"}</span>
+                      <span className="font-bold text-slate-900">{data.islamicSect || "—"}</span>
                     </div>
                     <div>
                       <span className="text-slate-500 font-medium block">జమాత్ / శాఖ (Jamath):</span>
-                      <span className="font-bold text-slate-900">{data.islamicJamath || "Sheikh (షేక్)"}</span>
+                      <span className="font-bold text-slate-900">{data.islamicJamath || "—"}</span>
                     </div>
                     <div>
                       <span className="text-slate-500 font-medium block">నమాజ్ & దీనీ స్థితి:</span>
-                      <span className="font-bold text-emerald-800">{data.namazStatus || "5 Times Namaz Regular"}</span>
+                      <span className="font-bold text-emerald-800">{data.namazStatus || "—"}</span>
                     </div>
                   </div>
                 </>
@@ -840,15 +829,15 @@ export default function BiodataPage() {
                   <div className="grid grid-cols-3 gap-y-2 gap-x-4 text-xs bg-indigo-50/50 p-3 rounded-2xl border border-indigo-200">
                     <div>
                       <span className="text-slate-500 font-medium block">తెగ / డినామినేషన్:</span>
-                      <span className="font-bold text-slate-900">{data.christianDenomination || "Roman Catholic"}</span>
+                      <span className="font-bold text-slate-900">{data.christianDenomination || "—"}</span>
                     </div>
                     <div>
                       <span className="text-slate-500 font-medium block">చర్చి పేరు & లొకేషన్:</span>
-                      <span className="font-bold text-slate-900">{data.churchName || "St. Mary's Church"}</span>
+                      <span className="font-bold text-slate-900">{data.churchName || "—"}</span>
                     </div>
                     <div>
                       <span className="text-slate-500 font-medium block">బాప్టిజం స్థితి:</span>
-                      <span className="font-bold text-indigo-900">{data.baptismStatus || "Baptized & Active Believer"}</span>
+                      <span className="font-bold text-indigo-900">{data.baptismStatus || "—"}</span>
                     </div>
                   </div>
                 </>
@@ -880,7 +869,7 @@ export default function BiodataPage() {
                     </div>
                     <div>
                       <span className="text-slate-500 font-medium block">కుజ దోషం (Manglik):</span>
-                      <span className="font-bold text-emerald-800">{data.dosham || "లేదు (No)"}</span>
+                      <span className="font-bold text-emerald-800">{data.dosham || "—"}</span>
                     </div>
                   </div>
                 </>
@@ -939,14 +928,16 @@ export default function BiodataPage() {
                 <div className="flex items-center gap-2">
                   <span className="text-base">👑</span>
                   <span className="font-black text-xs text-maroon uppercase tracking-wide">
-                    మన వివాహ (MANA VIVAHA) — అధికారిక ధృవీకరించబడిన ప్రొఫైల్
+                    మన వివాహ (MANA VIVAHA) — Profile link
                   </span>
                 </div>
                 <p className="text-[11px] text-slate-700 font-medium leading-relaxed telugu">
-                  🔍 ఈ సంబంధం యొక్క పూర్తి ప్రొఫైల్, ఫోటోలు & సంప్రదింపుల కొరకు పక్కన ఉన్న <b>QR Code స్కాన్ చేయండి</b> లేదా <b>manavivaha.in/search/{profileId || "MV2001"}</b> లో చూడండి.
+                  {profileId.trim()
+                    ? <>ప్రొఫైల్ వివరాల కోసం <b>QR Code స్కాన్ చేయండి</b> లేదా <b>manavivaha.in/search/{profileId}</b> చూడండి. వివరాలు స్వయంగా అందించినవి; స్వతంత్రంగా ధృవీకరించబడలేదు.</>
+                    : <>QR కోడ్ కోసం నమోదు చేసిన Profile ID ఇవ్వండి. ఈ బయోడేటాలోని వివరాలు స్వతంత్రంగా ధృవీకరించబడలేదు.</>}
                 </p>
                 <div className="text-[10px] text-slate-500 font-bold pt-0.5">
-                  📞 అధికారిక వాట్సాప్ హెల్ప్‌లైన్: +91 6304996088 • 100% నమ్మకమైన తెలుగు మ్యాట్రిమోనీ
+                  కలిసే ముందు సభ్యులు అందించిన వివరాలను స్వతంత్రంగా నిర్ధారించుకోండి.
                 </div>
               </div>
 
@@ -957,7 +948,7 @@ export default function BiodataPage() {
                 ) : (
                   <div className="w-20 h-20 bg-slate-100 flex items-center justify-center text-xs">QR</div>
                 )}
-                <span className="text-[9px] font-extrabold text-maroon block mt-0.5">SCAN TO VIEW</span>
+                <span className="text-[9px] font-extrabold text-maroon block mt-0.5">{qrDataUrl ? "SCAN TO VIEW" : "ADD PROFILE ID"}</span>
               </div>
             </div>
           </div>

@@ -32,7 +32,6 @@ services:
       - CORS_ORIGINS=${CORS_ORIGINS:?CORS_ORIGINS is required}
       - PUBLIC_SITE_URL=${PUBLIC_SITE_URL:?PUBLIC_SITE_URL is required}
       - OTP_CHANNELS=${OTP_CHANNELS:-sms}
-      - OTP_DEV_MODE=false
       - SMS_ROUTE=${SMS_ROUTE:-msg91}
       - SMS_SENDER=${SMS_SENDER}
       - MSG91_KEY=${MSG91_KEY}
@@ -51,7 +50,6 @@ services:
       - PAYMENT_AUTO_APPROVE=false
       - DEMO_SEED_ENABLED=false
       - LAUNCH_SEED_COUNT=0
-      - DEMO_LOGIN=false
 
   frontend:
     build:

@@ -3,11 +3,11 @@
  * 🎯 MATCH & SEND CONSOLE — ₹500 assisted service (WAVE 12)
  * =========================================================
  * Flow:
- *   1. Buyer Profile ID → perfect matches auto-load (score sort)
+ *   1. Buyer Profile ID → load profiles that pass the selected filters
  *   2. Neat filters → enni match ayithe anni chupisthundi
- *   3. ☑️ Select → order (₹500 + UTR paid) → 📩 Telegram / 💬 WhatsApp 1-click send
- *   4. 📋 Copy-list (NAME -- NUMBER) — manual paste fallback
- * STRICT: pampina profiles mathrame buyer ki unlock (backend entitlement).
+ *   3. ☑️ Select up to five → verified ₹500 order → send profile summaries
+ *   4. Contact details stay locked until the profile owner accepts an interest request.
+ * Payments/admin grants never bypass owner consent; copy-list contains no phone numbers.
  */
 import { useMemo, useState } from "react";
 import { authHeaders } from "@/lib/api";
@@ -74,12 +74,12 @@ export default function MatchSend() {
     if (fNri === "only") qs.set("nri_only", "true");
     if (fNri === "exclude") qs.set("nri_exclude", "true");
     try {
-      const r = await fetch(withToken(`/api/admin/match-send/${encodeURIComponent(id)}?limit=100&min_score=0&${qs.toString()}`),
+      const r = await fetch(withToken(`/api/admin/match-send/${encodeURIComponent(id)}?limit=100&${qs.toString()}`),
         { headers: authHeaders(true) });
       const d = await r.json();
       if (!r.ok) { setFlash(d.detail || (te ? "Load fail అయ్యింది" : "Load failed")); return; }
       setData(d);
-      setFlash(te ? `✅ ${d.count} perfect matches load అయ్యాయి` : `✅ ${d.count} perfect matches loaded`);
+      setFlash(te ? `✅ ${d.count} filtered profiles లోడ్ అయ్యాయి` : `✅ ${d.count} filtered profiles loaded`);
       void loadOrders();
     } catch { setFlash(te ? "⚠️ API error — backend check చెయ్యండి" : "⚠️ API error — check backend"); }
     finally { setLoading(false); }
@@ -114,11 +114,18 @@ export default function MatchSend() {
   });
 
   const selIds = Object.keys(sel).filter((k) => sel[k]);
-  const toggle = (id: string) => setSel((s) => ({ ...s, [id]: !s[id] }));
+  const toggle = (id: string) => {
+    if (!sel[id] && selIds.length >= 5) {
+      setFlash(te ? "⚠️ ఒక్క ₹500 order లో 5 profiles వరకు మాత్రమే" : "⚠️ A ₹500 shortlist order covers up to five profiles");
+      return;
+    }
+    setSel((s) => ({ ...s, [id]: !s[id] }));
+  };
   const selectAll = (on: boolean) => {
     const o: Record<string, boolean> = {};
-    filtered.forEach((x) => { o[x.tsap_id] = on; });
+    if (on) filtered.slice(0, 5).forEach((x) => { o[x.tsap_id] = true; });
     setSel(o);
+    if (on && filtered.length > 5) setFlash(te ? "మొదటి 5 profiles select అయ్యాయి" : "Selected the first five profiles");
   };
 
   const createOrder = async () => {
@@ -151,7 +158,7 @@ export default function MatchSend() {
     if (d.success) {
       setDeliverRes(d);
       setCopyList(d.copy_list || "");
-      setFlash(te ? `✅ ${d.delivered} profiles → ${d.buyer_id} (STRICT unlock: ఇవి మాత్రమే)` : `✅ ${d.delivered} profiles → ${d.buyer_id} (STRICT unlock: only these)`);
+      setFlash(te ? `✅ ${d.shortlisted_count} shortlist profiles → ${d.buyer_id}; contact details owner acceptance తర్వాతే` : `✅ ${d.shortlisted_count} shortlist profiles prepared for ${d.buyer_id}; contact details stay consent-gated`);
       void loadOrders();
     } else setFlash(d.detail || "Deliver fail");
   };
@@ -186,8 +193,8 @@ export default function MatchSend() {
   return (
     <div>
       <p className="telugu mt-2 text-xs text-gray-500">
-        Buyer ID → perfect matches → filters → ☑️ select → ₹500 order (UTR) → 📩 Telegram / 💬 WhatsApp send.
-{te ? <>పంపిన profiles <b>మాత్రమే</b> buyer కి unlock — Telegram లో <b>/mylist</b> లో ఇవి మాత్రమే కనిపిస్తాయి.</> : <>Only sent profiles unlock for the buyer — only these show in <b>/mylist</b> on Telegram.</>}
+        Buyer ID → profiles matching explicit filters → select up to five → optional payment-confirmed ₹500 shortlist order → send profile summaries.
+        {te ? <>Paid service అయినా contact numbers share కావు. ప్రతి profile owner interest accept చేసిన తర్వాతే contact details అందుబాటులో ఉంటాయి.</> : <>Payment does not reveal phone numbers. Contact details are available only after the profile owner accepts an interest request.</>}
       </p>
 
       {/* buyer load */}
@@ -199,7 +206,7 @@ export default function MatchSend() {
           className="min-w-[260px] flex-1 rounded-xl border border-[#7A0C2E]/30 px-3 py-2 font-mono text-sm" />
         <button onClick={() => void load()} disabled={loading}
           className="rounded-xl bg-[#7A0C2E] px-5 py-2 text-sm font-bold text-white disabled:opacity-60">
-          {loading ? "⏳ Loading…" : "🎯 Perfect matches load"}
+          {loading ? "⏳ Loading…" : "📋 Load profiles"}
         </button>
       </div>
       {flash ? <div className="mt-2 rounded-xl bg-[#0F1F3C] p-3 text-xs text-white">{flash}</div> : null}
@@ -241,7 +248,7 @@ export default function MatchSend() {
                   aria-label="UTR" className="w-44 rounded-lg border px-2 py-1.5" />
                 <button onClick={() => void markPaid()} className="rounded-lg bg-green-600 px-3 py-1.5 font-bold text-white">✅ Paid</button>
               </div>
-              <p className="mt-1 text-[11px] text-gray-500">{te ? "Order లేకుండా deliver చేస్తే → admin-gift grant (audit లో record)." : "Delivering without order → admin-gift grant (recorded in audit)."}</p>
+              <p className="mt-1 text-[11px] text-gray-500">{te ? "Order లేకుండా పంపితే complimentary shortlist మాత్రమే; phone numbers/contact access ఇవ్వదు." : "Without an order this is a complimentary shortlist only; it never grants phone or contact access."}</p>
             </div>
           </div>
 
@@ -287,7 +294,7 @@ export default function MatchSend() {
               <b className="text-[#7A0C2E]">{filtered.length}/{results.length} profiles</b>{data.filters_skipped ? <span className="text-gray-500"> · 🔍 {data.filters_skipped} server-filter skip</span> : null}
               <button onClick={() => selectAll(true)} className="rounded-full bg-gray-200 px-3 py-1">{te ? "☑️ అన్నీ select" : "☑️ select all"}</button>
               <button onClick={() => selectAll(false)} className="rounded-full bg-gray-200 px-3 py-1">⬜ clear</button>
-              <b>Selected: {selIds.length}</b>
+              <b>Selected: {selIds.length}/5</b>
             </div>
           </div>
 
@@ -296,19 +303,18 @@ export default function MatchSend() {
             <table className="w-full text-xs">
               <thead className="sticky top-0 bg-[#FFF8E7]">
                 <tr className="text-left text-gray-500">
-                  <th className="p-2">☑️</th><th>Score</th><th>Profile</th><th>Details</th><th>Number</th>
+                  <th className="p-2">☑️</th><th>Profile</th><th>Details</th><th>Contact access</th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.length === 0 ? (
-                  <tr><td colSpan={5} className="p-4 text-center text-gray-500">{te ? "Filters కి match అయ్యే profiles లేవు 🙂" : "No profiles match the filters 🙂"}</td></tr>
+                  <tr><td colSpan={4} className="p-4 text-center text-gray-500">{te ? "Filters కి match అయ్యే profiles లేవు 🙂" : "No profiles match the filters 🙂"}</td></tr>
                 ) : filtered.map((x) => (
                   <tr key={x.tsap_id} className={`border-t ${sel[x.tsap_id] ? "bg-emerald-50" : ""}`}>
                     <td className="p-2 text-center">
                       <input type="checkbox" checked={!!sel[x.tsap_id]} onChange={() => toggle(x.tsap_id)}
                         aria-label={`Select ${x.tsap_id}`} className="h-4 w-4 accent-[#7A0C2E]" />
                     </td>
-                    <td className="p-2 font-extrabold text-[#7A0C2E]">{x.score ?? "—"}</td>
                     <td className="p-2">
                       <div className="font-bold">{x.full_name}</div>
                       <div className="font-mono text-[10px] text-gray-500">{x.tsap_id}</div>
@@ -318,7 +324,7 @@ export default function MatchSend() {
                       {x.gender === "Bride" ? "👰" : "🤵"} {x.age}y · {x.caste} · {x.district}
                       <div className="text-[10px] text-gray-500">{x.education} · {x.job} · {x.salary}{x.star ? ` · 🌟${x.star}` : ""} · {x.marital_status || ""}</div>
                     </td>
-                    <td className="p-2 font-mono font-bold">{x.phone || "—"}</td>
+                    <td className="p-2 text-[10px] font-semibold text-slate-600">🔒 {te ? "Owner acceptance తర్వాత" : "Owner acceptance required"}</td>
                   </tr>
                 ))}
               </tbody>
@@ -334,7 +340,8 @@ export default function MatchSend() {
                 <option value="telegram">📩 Telegram DM</option>
                 <option value="whatsapp">💬 WhatsApp</option>
               </select>
-              <button onClick={() => void deliver()} className="rounded-xl bg-[#7A0C2E] px-5 py-2 text-sm font-bold text-white">
+              <button onClick={() => void deliver()} disabled={!selIds.length || selIds.length > 5}
+                className="rounded-xl bg-[#7A0C2E] px-5 py-2 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50">
                 🚀 Send personal ga
               </button>
               <button onClick={() => void refreshCopy()} className="rounded-xl border border-[#7A0C2E] px-4 py-2 text-xs font-bold text-[#7A0C2E]">
@@ -354,7 +361,7 @@ export default function MatchSend() {
             {copyList ? (
               <div className="mt-2">
                 <div className="flex items-center justify-between">
-                  <b className="text-xs text-[#7A0C2E]">📋 Copy-list (NAME -- NUMBER) — copy chesi Telegram/WhatsApp lo paste</b>
+                  <b className="text-xs text-[#7A0C2E]">📋 Shortlist copy (no phone numbers)</b>
                   <button onClick={copyNow} className="rounded-lg bg-[#0F1F3C] px-3 py-1 text-xs font-bold text-white">
                     {copied ? "✅ Copied!" : "📋 Copy"}
                   </button>

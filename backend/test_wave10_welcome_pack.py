@@ -23,7 +23,6 @@ os.environ.setdefault("WA_TEST_FAST", "1")
 os.environ.setdefault("OTP_DEV_MODE", "true")
 os.environ.setdefault("WA_LONG_PAUSE_CHANCE", "0")
 os.environ.setdefault("WHATSAPP_MODE", "bridge")          # queue path test cheyyadaniki
-os.environ.setdefault("WA_CHANNEL_PATTERN", "https://whatsapp.com/channel/{key}")
 os.environ.setdefault("WA_CHANNEL_LINKS", json.dumps({
     "c_reddy_bride": "https://whatsapp.com/channel/REDDY-BRIDE-REAL",
     "official": "https://whatsapp.com/channel/MANAVIVAHA-OFFICIAL",
@@ -73,7 +72,7 @@ check("A1 channel_links telegram URL sari ga build avutundi", l["telegram"] == "
 check("A2 channel name + tier", "Reddy" in l["name"] and l["tier"] == "L3_CASTE", l)
 check("A3 env WA_CHANNEL_LINKS exact link gellipoyindi", l["whatsapp"] == "https://whatsapp.com/channel/REDDY-BRIDE-REAL", l["whatsapp"])
 check("A4 official whatsapp link env nunchi", CC.channel_links("official")["whatsapp"] == "https://whatsapp.com/channel/MANAVIVAHA-OFFICIAL")
-check("A5 pattern tho auto-generate (config lekunda)", "whatsapp.com/channel/c_kamma_groom" in CC.wa_channel_link("c_kamma_groom"), CC.wa_channel_link("c_kamma_groom"))
+check("A5 no WhatsApp URL is synthesized for an unconfigured key", CC.wa_channel_link("not_configured") == "", CC.wa_channel_link("not_configured"))
 check("A6 unknown key ki crash ledu (khali links)", CC.channel_links("no_such_channel")["telegram"] == "", CC.channel_links("no_such_channel"))
 check("A7 anni 52 channels ki telegram link undi", all(CC.channel_links(k)["telegram"].startswith("https://t.me/") for k in CC.CHANNELS),
       [k for k in CC.CHANNELS if not CC.channel_links(k)["telegram"]][:3])
@@ -113,12 +112,14 @@ PROFS = [
     {"tsap_id": "TSAP-M-2025-3", "full_name": "Groom Three", "age": 28, "gender": "Groom", "caste": "Kapu",
      "district": "Vizag", "education": "BTech", "job": "Engineer", "phone": "9848033333"},
 ]
-MATCHES = [{"profile": p, "score": 90 - i * 7, "reasons": [f"Reason {i + 1}"]} for i, p in enumerate(PROFS)]
+MATCHES = [{"profile": p, "observations": ["Member-entered profile facts available for review."]} for p in PROFS]
 pack = WP.build_welcome_pack(USER, USER["tsap_id"], MATCHES)
 check("B1 pack lo profiles exactly 3", len(pack["profiles"]) == 3, len(pack["profiles"]))
 check("B2 profile summary link /search/TSAP-... ki veltundi",
       pack["profiles"][0]["link"].endswith("/search/TSAP-M-2025-1"), pack["profiles"][0]["link"])
-check("B3 score + reason attach ayyayi", pack["profiles"][0]["score"] == 90 and pack["profiles"][0]["reason"] == "Reason 1", pack["profiles"][0])
+check("B3 welcome profiles contain link and no synthetic score/reasons",
+      bool(pack["profiles"][0].get("link")) and not ({"score", "match_score", "compatibility_score", "trust_score", "reasons", "reason"} & set(pack["profiles"][0])),
+      pack["profiles"][0])
 check("B4 channels list lo caste channel first", pack["channels"][0]["key"] == "c_reddy_bride", [c["key"] for c in pack["channels"]])
 msg = pack["message_text"]
 check("B5 message lo '3 FREE' + Telugu text", "3 FREE" in msg and any("\u0c00" <= ch <= "\u0c7f" for ch in msg))
@@ -155,8 +156,10 @@ check("C1 register 200 + welcome_pack block", jr.status_code == 200 and isinstan
 check("C2 pack lo 3 profiles (demo DB nunchi)", len(wp.get("profiles", [])) == 3, [p.get("tsap_id") for p in wp.get("profiles", [])])
 check("C3 profiles anni opposite gender (Groom)", all(p.get("gender") == "Groom" for p in wp.get("profiles", [])),
       [p.get("gender") for p in wp.get("profiles", [])])
-check("C4 profile ki tsap_id + score + link unnayi",
-      all(p.get("tsap_id") and p.get("score", 0) > 0 and p.get("link") for p in wp.get("profiles", [])), wp.get("profiles"))
+check("C4 welcome profiles have IDs/links and no compatibility scores",
+      all(p.get("tsap_id") and p.get("link")
+          and not ({"score", "match_score", "compatibility_score", "trust_score", "grade", "verdict"} & set(p))
+          for p in wp.get("profiles", [])), wp.get("profiles"))
 check("C5 channels lo caste channel first (Reddy Bride)", (wp.get("channels") or [{}])[0].get("key") == "c_reddy_bride", [c["key"] for c in wp["channels"]])
 check("C6 queue block: kind welcome_pack_3profiles", wp.get("queue", {}).get("kind") == "welcome_pack_3profiles", wp.get("queue"))
 check("C7 WHATSAPP_MODE=bridge → queued True (register avvagane veltundi)", wp.get("queue", {}).get("queued") is True, wp.get("queue"))

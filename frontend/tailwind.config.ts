@@ -29,6 +29,11 @@ const config: Config = {
           DEFAULT: "#0F1F3C",
           light: "#1E3A5F",
         },
+        peacock: {
+          DEFAULT: "#0F766E",
+          dark: "#075E54",
+          soft: "#E6F4F1",
+        },
         ink: "#1A1A1A",
       },
       fontFamily: {

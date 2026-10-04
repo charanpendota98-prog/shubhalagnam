@@ -4,7 +4,6 @@
  * ==============================================================
  * • Password Login & SMS/WhatsApp OTP Login
  * • Forgot Password with instant OTP Reset flow
- * • Quick Demo 1-Click Access for instant evaluation
  * • Resend OTP countdown timer & crisp error messages
  */
 import { useState, useEffect } from "react";
@@ -28,7 +27,6 @@ export default function LoginPage() {
   const [stage, setStage] = useState<"phone" | "otp">("phone");
   const [msg, setMsg] = useState("");
   const [msgType, setMsgType] = useState<"err" | "ok" | "info">("info");
-  const [devCode, setDevCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [keep, setKeep] = useState(true);
 
@@ -101,9 +99,8 @@ export default function LoginPage() {
       showFeedback(errorTelugu || (te ? "OTP పంపడంలో సమస్య ఏర్పడింది." : "Failed to send OTP."), "err");
       return;
     }
-    const d = (data || {}) as { dev_code?: string; message_telugu?: string };
+    const d = (data || {}) as { message_telugu?: string };
     setStage("otp");
-    setDevCode(d.dev_code || "");
     setCountdown(30);
     showFeedback(d.message_telugu || (te ? "📱 OTP పంపించాం — మీ SMS/WhatsApp తనిఖీ చేయండి" : "📱 OTP sent — please check your SMS/WhatsApp"), "ok");
   }
@@ -135,7 +132,7 @@ export default function LoginPage() {
     }
     setBusy(true);
     showFeedback("");
-    const { ok, data, errorTelugu } = await apiPost<{ dev_code?: string; message_telugu?: string }>(
+    const { ok, data, errorTelugu } = await apiPost<{ message_telugu?: string }>(
       "/api/auth/forgot", { phone: p }
     );
     setBusy(false);
@@ -145,7 +142,6 @@ export default function LoginPage() {
     }
     setFStage("reset");
     setCountdown(30);
-    setDevCode((data as { dev_code?: string })?.dev_code || "");
     showFeedback(data?.message_telugu || (te ? "📱 పాస్‌వర్డ్ రీసెట్ OTP పంపించాం" : "📱 Password reset OTP sent"), "ok");
   }
 
@@ -158,7 +154,7 @@ export default function LoginPage() {
       showFeedback(te ? "⚠️ కొత్త పాస్‌వర్డ్ కనీసం 6 అక్షరాలు ఉండాలి" : "⚠️ New password must be at least 6 characters", "err");
       return;
     }
-    if (confirmPw && newPw !== confirmPw) {
+    if (newPw !== confirmPw) {
       showFeedback(te ? "⚠️ పాస్‌వర్డ్‌లు సరిపోలడం లేదు" : "⚠️ Passwords do not match", "err");
       return;
     }
@@ -176,17 +172,8 @@ export default function LoginPage() {
     go(String(data?.tsap_id || ""), String(data?.auth_token || ""), true);
   }
 
-  // Quick Demo Login for instant user testing
-  const quickDemoLogin = (demoPhone: string, demoPw: string) => {
-    setPhone(demoPhone);
-    setPassword(demoPw);
-    setTab("password");
-    setForgot(false);
-    showFeedback(te ? "డెమో వివరాలు నింపబడ్డాయి — 'Login' క్లిక్ చేయండి" : "Demo credentials filled — click 'Login'", "info");
-  };
-
   return (
-    <main className="min-h-dvh bg-gradient-to-b from-[#FFFDF9] via-[#FAF5EE] to-[#F5ECE0] py-10 px-4 flex flex-col justify-center items-center">
+    <div className="min-h-dvh bg-gradient-to-b from-[#FFFDF9] via-[#FAF5EE] to-[#F5ECE0] py-10 px-4 flex flex-col justify-center items-center">
       <div className="w-full max-w-md">
         
         {/* Brand Header */}
@@ -268,7 +255,7 @@ export default function LoginPage() {
                     maxLength={10}
                     disabled={fStage === "reset"}
                     onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 10))}
-                    placeholder="98480 12345"
+                    placeholder={te ? "నమోదు చేసిన మొబైల్ నంబర్" : "Registered mobile number"}
                     className="w-full pl-12 pr-4 py-3 rounded-xl border border-slate-200 text-base font-semibold focus:border-maroon focus:ring-1 focus:ring-maroon outline-none disabled:bg-slate-50"
                   />
                 </div>
@@ -284,16 +271,11 @@ export default function LoginPage() {
                       id="f-otp"
                       inputMode="numeric"
                       value={code}
-                      maxLength={6}
-                      onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
-                      placeholder="1234"
+                      maxLength={4}
+                      onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                      placeholder={te ? "OTP కోడ్ నమోదు చేయండి" : "Enter OTP code"}
                       className="w-full text-center tracking-[0.4em] py-3 rounded-xl border border-slate-200 text-xl font-bold font-mono focus:border-maroon focus:ring-1 focus:ring-maroon outline-none"
                     />
-                    {devCode && (
-                      <p className="mt-1 text-xs text-emerald-700 font-mono">
-                        {te ? <>డెమో OTP: <b>{devCode}</b></> : <>Demo OTP: <b>{devCode}</b></>}
-                      </p>
-                    )}
                   </div>
 
                   <div>
@@ -413,7 +395,7 @@ export default function LoginPage() {
                         else void onVerify();
                       }
                     }}
-                    placeholder="98480 12345"
+                    placeholder={te ? "నమోదు చేసిన మొబైల్ నంబర్" : "Registered mobile number"}
                     className="w-full pl-12 pr-4 py-3 rounded-xl border border-slate-200 text-base font-semibold focus:border-maroon focus:ring-1 focus:ring-maroon outline-none disabled:bg-slate-50"
                   />
                 </div>
@@ -472,7 +454,7 @@ export default function LoginPage() {
                       🔢 {te ? "4 అంకెల OTP కోడ్" : "4-digit OTP Code"}
                     </label>
                     <button
-                      onClick={() => { setStage("phone"); setCode(""); setDevCode(""); }}
+                      onClick={() => { setStage("phone"); setCode(""); }}
                       className="text-[11px] text-maroon hover:underline font-bold"
                     >
                       {te ? "నెంబర్ మార్చు" : "Change Number"}
@@ -482,19 +464,14 @@ export default function LoginPage() {
                     id="login-otp"
                     inputMode="numeric"
                     value={code}
-                    maxLength={6}
-                    onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
+                    maxLength={4}
+                    onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 4))}
                     onKeyDown={(e) => {
                       if (e.key === "Enter") void onVerify();
                     }}
-                    placeholder="1234"
+                    placeholder={te ? "OTP కోడ్ నమోదు చేయండి" : "Enter OTP code"}
                     className="w-full text-center tracking-[0.4em] py-3 rounded-xl border border-slate-200 text-2xl font-bold font-mono focus:border-maroon focus:ring-1 focus:ring-maroon outline-none"
                   />
-                  {devCode && (
-                    <p className="mt-1.5 text-xs text-emerald-700 font-mono text-center">
-                      {te ? <>డెమో OTP: <b>{devCode}</b></> : <>Demo OTP: <b>{devCode}</b></>}
-                    </p>
-                  )}
                   <div className="flex justify-between items-center text-xs text-slate-500 mt-2">
                     <span>{te ? "SMS లేదా WhatsApp ద్వారా OTP వస్తుంది" : "OTP sent via SMS / WhatsApp"}</span>
                     {countdown > 0 ? (
@@ -568,30 +545,6 @@ export default function LoginPage() {
             </div>
           )}
 
-          {/* Quick Demo Credentials for Reviewers */}
-          <div className="mt-6 pt-4 border-t border-slate-100">
-            <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2 text-center">
-              ⚡ {te ? "1-క్లిక్ త్వరిత డెమో లాగిన్" : "1-Click Quick Demo Login"}
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => quickDemoLogin("9848011111", "pass123")}
-                className="px-2.5 py-2 rounded-xl bg-slate-50 border border-slate-200 hover:border-gold text-[11px] font-bold text-slate-700 hover:text-maroon transition-all flex items-center justify-center gap-1.5"
-              >
-                <span>👰</span>
-                <span>{te ? "వధువు డెమో" : "Bride Demo"}</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => quickDemoLogin("9848022222", "pass123")}
-                className="px-2.5 py-2 rounded-xl bg-slate-50 border border-slate-200 hover:border-gold text-[11px] font-bold text-slate-700 hover:text-maroon transition-all flex items-center justify-center gap-1.5"
-              >
-                <span>🤵</span>
-                <span>{te ? "వరుడు డెమో" : "Groom Demo"}</span>
-              </button>
-            </div>
-          </div>
         </div>
 
         {/* Register Free CTA Footer */}
@@ -614,6 +567,6 @@ export default function LoginPage() {
         </div>
 
       </div>
-    </main>
+    </div>
   );
 }

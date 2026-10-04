@@ -1,26 +1,28 @@
 """
 మన వివాహ (TSAP Matrimony) — MASTER CHANNEL REGISTRY + AUTO-ROUTER
 ====================================================================
-One profile post → automatic ga annni relevant channels lo ki vellali.
+Profile routing policy and channel directory registry.
 Idi single source of truth: backend, bot, website anni ikkada nunchi chaduvutayi.
+The legacy `live` flag means eligible for routing in config; it is not a live network or permission check.
 
-LEVELS (SMART STRUCTURE — 51 channels, 83 కాదు):
-  L0 OFFICIAL   — 1  (brand hub, top-3/day, success stories)
-  L1 REGION     — 5  (TS Bride/Groom, AP Bride/Groom, NRI/Other-States)
-  L2 RELIGION   — 11 (Muslim ×4 [TS/AP × bride/groom], Christian ×4, Hindu hub, Other, Inter-Faith)
-  L3 CASTE      — 27 (Hindu CASTE CLUSTERS — pedda communities ki bride/groom separate,
-                      chinna sub-castes (ex: Viswabrahmana 5) okate channel lo kalipamu)
-  L4 SPECIAL    — 8  (2nd marriage, differently-abled, govt job, IT, doctors+teachers, success, fraud, bureau)
+LEVELS (CURRENT CHANNEL REGISTRY — 64 listings):
+  L0 OFFICIAL   — 1  (brand hub)
+  L1 REGION     — 5  (TS, AP and other-region listings)
+  L2 RELIGION   — 5  (religion/community directory listings)
+  L3 CASTE      — 45 (selected community-specific channel listings)
+  L4 SPECIAL    — 8  (additional member/profile categories)
   ---------------------------------------------------------------
-  TOTAL         — 52 channels (wave 1 = 20, wave 2 = 16, wave 3 = 15)
+  TOTAL         — 64 channels (catalogue includes distinct user-provided community destinations)
 
 IMPORTANT RULES:
   * Username okkate Telegram lo unique — conflict ayithe FALLBACK list chudu.
-  * LIVE channels (ts_bride, ts_groom) already create అయ్యాయి — vaatini never break.
-  * Max 5 channels per profile auto-post (spam taggadaniki) — priority order lo.
+  * The `live` field is a legacy routing-eligibility flag; channel reachability and bot permissions are not probed here.
+  * Max 5 destinations per profile are selected by the router (priority order).
 """
 
+import re
 from typing import Dict, List
+from urllib.parse import urlparse
 
 BOT_USERNAME = "@telugumatrimony1_bot"
 BRAND = "మన వివాహ"
@@ -37,7 +39,7 @@ SITE = "https://manavivaha.in"
 #   "desc": channel description to paste in Telegram,
 #   "hashtags": always-on hashtags for that channel,
 #   "wave": launch wave,
-#   "live": True if already created + bot admin,
+#   "live": legacy name for routing eligibility (not a network/permission health check),
 # }
 # ---------------------------------------------------------------------------
 
@@ -50,7 +52,7 @@ CHANNELS = {
         "fallbacks": ["manavivaha", "manavivaha_official", "manavivaha_hub"],
         "desc": ("మన వివాహ — TS & AP Telugu Matrimony 🇮🇳\n"
                  "₹99 సంబంధం • మొదటి 3 FREE\n"
-                 "Daily Top-3 matches, success stories, మోసం జాగ్రత్త alerts.\n"
+                 "Matrimony updates, approved stories when available, and safety information.\n"
                  "Website: manavivaha.in • Bot: @telugumatrimony1_bot"),
         "hashtags": ["#ManaVivaha", "#TSAPMatrimony", "#99keSambandham"],
         "wave": 1,
@@ -65,7 +67,7 @@ CHANNELS = {
         "username": "TSBRIDE",
         "fallbacks": ["manavivaha_ts_bride", "tsbrides"],
         "desc": ("Telangana ammayilu — అన్నీ kulasthulu.\n"
-                 "Daily 10+ కొత్త profiles • Photo verified • ID search.\n"
+                 "Directory for member profiles by region and gender. Profile details are member-provided; checks are shown individually.\n"
                  "Register FREE: manavivaha.in/register • Bot: @telugumatrimony1_bot"),
         "hashtags": ["#TSBride", "#Telangana", "#Ammaayi"],
         "wave": 1,
@@ -78,7 +80,7 @@ CHANNELS = {
         "username": "TSGROOM1",
         "fallbacks": ["manavivaha_ts_groom", "tsgroom"],
         "desc": ("Telangana abbayilu — అన్నీ kulasthulu.\n"
-                 "Daily 10+ కొత్త profiles • Photo verified • ID search.\n"
+                 "Directory for member profiles by region and gender. Profile details are member-provided; checks are shown individually.\n"
                  "Register FREE: manavivaha.in/register • Bot: @telugumatrimony1_bot"),
         "hashtags": ["#TSGroom", "#Telangana", "#Abbaayi"],
         "wave": 1,
@@ -90,8 +92,8 @@ CHANNELS = {
         "name": "👰 AP Brides | ఆంధ్రా వధువులు",
         "username": "APBRIDE",
         "fallbacks": ["manavivaha_ap_bride", "apbride1", "manavivaha_apbride"],
-        "desc": ("Andhra Pradesh ammayilu — 26 districts cover.\n"
-                 "Daily కొత్త profiles • Register FREE: manavivaha.in/register"),
+        "desc": ("Andhra Pradesh ammayilu — 28 district options.\n"
+                 "Regional directory listing • Register: manavivaha.in/register"),
         "hashtags": ["#APBride", "#AndhraPradesh"],
         "wave": 1,
         "live": True,
@@ -102,8 +104,8 @@ CHANNELS = {
         "name": "🤵 AP Grooms | ఆంధ్రా వరులు",
         "username": "APGROOM1",
         "fallbacks": ["manavivaha_ap_groom", "apgroom", "manavivaha_apgroom"],
-        "desc": ("Andhra Pradesh abbayilu — 26 districts cover.\n"
-                 "Daily కొత్త profiles • Register FREE: manavivaha.in/register"),
+        "desc": ("Andhra Pradesh abbayilu — 28 district options.\n"
+                 "Regional directory listing • Register: manavivaha.in/register"),
         "hashtags": ["#APGroom", "#AndhraPradesh"],
         "wave": 1,
         "live": True,
@@ -128,7 +130,7 @@ CHANNELS = {
         "name": "🕉️ Hindu Matrimony Hub | హిందూ వివాహాలు",
         "username": "manavivaha_hindu",
         "fallbacks": ["manavivaha_hindus", "tsap_hindu"],
-        "desc": ("Hindu Telugu matches — అన్నీ kulasthulu, అన్నీ districts.\n"
+        "desc": ("Telugu Hindu matrimony directory. Selected community labels and districts are listed; self-description is supported.\n"
                  "Caste-wise channels కూడా ఉంది — profile లో caste filter use చెయ్యండి.\n"
                  "manavivaha.in/register • Bot: @telugumatrimony1_bot"),
         "hashtags": ["#Hindu", "#TeluguMatrimony"],
@@ -208,7 +210,7 @@ CHANNELS = {
         "username": "manavivaha_other_religions",
         "fallbacks": ["manavivaha_others", "manavivaha_minority"],
         "desc": ("Sikh • Jain • Buddhist • Parsi • Jewish • No-caste/No-religion — Telugu matches.\n"
-                 "Respectful, private, verified. manavivaha.in/register"),
+                 "Community directory listing. Profile details are member-provided; check the individual status labels. manavivaha.in/register"),
         "hashtags": ["#OtherReligions", "#Respect"],
         "wave": 2, "live": True, "route": {"religion": "Other"},
     },
@@ -218,7 +220,7 @@ CHANNELS = {
         "username": "manavivaha_interfaith",
         "fallbacks": ["manavivaha_intercaste", "manavivaha_mixedmarriage"],
         "desc": ("Inter-caste • Inter-religion • Love & Register marriage.\n"
-                 "No-caste filter • Full privacy • Couple corner.\n"
+                 "Optional inter-community introduction category. Contact sharing follows profile-owner acceptance and privacy settings.\n"
                  "manavivaha.in/register • Height secret maintain చేస్తాం 🤝"),
         "hashtags": ["#Intercaste", "#LoveMarriage", "#RegisterMarriage"],
         "wave": 3, "live": True, "route": {"flag": "interfaith"},
@@ -233,7 +235,7 @@ CHANNELS = {
     "second_marriage": {"tier": "L4_SPECIAL", "name": "💔 2nd Marriage | Divorcee & Widow",
                         "username": "manavivaha_second", "fallbacks": ["tsap_second", "manavivaha_remarriage"],
                         "desc": ("Divorcee • Widow • Widower — 2nd innings కి respect తో platform.\n"
-                                 "100% privacy • Judge చెయ్యరు • Serious matches మాత్రమే.\n"
+                                 "Optional category for divorcee, widow and widower profiles. Details are member-provided; verify independently.\n"
                                  "manavivaha.in/register"),
                         "hashtags": ["#SecondMarriage", "#Remarriage", "#Respect"], "wave": 2, "live": True,
                         "route": {"flag": "second_marriage"}},
@@ -241,7 +243,7 @@ CHANNELS = {
                           "username": "manavivaha_able",
                           "fallbacks": ["tsap_handicapped", "manavivaha_differentlyabled"],
                           "desc": ("Differently abled brides & grooms — special care, special respect.\n"
-                                   "Family support + verified profiles only. manavivaha.in/register"),
+                                   "Optional category for differently abled members. Profile details and review status are shown individually. manavivaha.in/register"),
                           "hashtags": ["#DifferentlyAbled", "#SpecialCare"], "wave": 3, "live": True,
                           "route": {"flag": "differently_abled"}},
     "govt_jobs": {"tier": "L4_SPECIAL", "name": "👮 Govt Job Matches | ప్రభుత్వ ఉద్యోగం",
@@ -263,21 +265,21 @@ CHANNELS = {
                          "route": {"flag": "doctor_teacher"}},
     "success_stories": {"tier": "L4_SPECIAL", "name": "🎉 Success Stories & Reviews",
                         "username": "manavivaha_success", "fallbacks": ["tsap_success"],
-                        "desc": ("మన వివాహ తో పెళ్లి అయిన couples stories + photos (permission తో).\n"
-                                 "Trust = Growth. Me story పంపండి: manavivaha.in/success"),
+                        "desc": ("Member-submitted stories may appear after review and consent.\n"
+                                 "Submit a story for review: manavivaha.in/stories"),
                         "hashtags": ["#SuccessStory", "#ManaVivaha"], "wave": 3, "live": True,
                         "route": "manual"},
     "fraud_alerts": {"tier": "L4_SPECIAL", "name": "⚠️ Fraud Alert & Safety",
                      "username": "manavivaha_alerts", "fallbacks": ["tsap_alerts"],
                      "desc": ("మోసం జాగ్రత్త! Fake profiles, advance money scams, photo theft alerts.\n"
-                              "Report: manavivaha.in/report • 24h లో action. Family safety first."),
+                              "Use the in-service report tools. Reports are reviewed; response time and outcome may vary."),
                      "hashtags": ["#FraudAlert", "#StaySafe"], "wave": 3, "live": True,
                      "route": "manual"},
     "bureau_network": {"tier": "L4_SPECIAL", "name": "🤝 Bureau & Broker Network (B2B)",
                        "username": "manavivaha_bureau", "fallbacks": ["tsap_bureau", "manavivaha_brokers"],
-                       "desc": ("Marriage bureaus • Brokers • Influencers — referral ₹50/profile.\n"
-                                "Bulk upload • Dashboard • Leaderboard. manavivaha.in/bureau"),
-                       "hashtags": ["#Bureau", "#Referral50"], "wave": 3, "live": True,
+                       "desc": ("Marriage bureaus • Brokers • Influencers — share a Mana Vivaha referral link.\n"
+                                "A ₹50 reward may qualify once on the referee’s first eligible S_99/S_199/S_299/S_499 consumer-plan payment (minimum ₹99); exclusions and manual payout review apply. See manavivaha.in/referral."),
+                       "hashtags": ["#Bureau", "#ReferralTerms"], "wave": 3, "live": True,
                        "route": "manual"},
 }
 
@@ -308,7 +310,7 @@ for _key, _religion, _gender, _icon, _te in (
         "route": {"religion": _religion, "gender": _gender},
     }
 
-# >>> LIVE_KEYS_EXTRA (setup_channels.py --mark-live idi auto-manage chestundi)
+# >>> LIVE_KEYS_EXTRA (manually approved for routing via setup_channels.py --mark-live)
 LIVE_KEYS_EXTRA = [
 ]
 # <<< LIVE_KEYS_EXTRA
@@ -333,9 +335,8 @@ CASTE_CLUSTERS: List[Dict] = [
      "members": ["Vaidiki Brahmin", "Niyogi Brahmin", "Sistla", "Dravida Brahmin", "Iyer"]},
     {"key": "vysya", "en": "Arya Vysya • Komati", "te": "వైశ్య • కోమటి", "category": "OC", "split": True, "wave": 2,
      "members": ["Arya Vysya", "Komati", "Komti", "Vaishya", "Sadhu Chetty"]},
-    {"key": "yadava_goud", "en": "Yadava • Goud • Golla", "te": "యాదవ • గౌడ • గొల్ల", "category": "BC", "split": True,
-     "wave": 2, "members": ["Yadav", "Yadava", "Golla", "Kuruma", "Kuruba", "Goud", "Gouda", "Ediga",
-                            "Gamalla", "Idiga", "Settibalija"]},
+    {"key": "yadava_goud", "en": "Yadava • Golla", "te": "యాదవ • గొల్ల", "category": "BC", "split": True,
+     "wave": 2, "members": ["Yadav", "Yadava", "Golla", "Golla (Yadava)"]},
     {"key": "mala", "en": "Mala", "te": "మాల", "category": "SC", "split": True, "wave": 2,
      "members": ["Mala", "Mala Ayawaru", "Mala Dasari"]},
     {"key": "madiga", "en": "Madiga", "te": "మాదిగ", "category": "SC", "split": True, "wave": 2,
@@ -349,17 +350,27 @@ CASTE_CLUSTERS: List[Dict] = [
     {"key": "raju_kshatriya", "en": "Raju • Kshatriya", "te": "రాజు • క్షత్రియ", "category": "OC", "split": True,
      "wave": 3, "members": ["Raju", "Rajulu", "Kshatriya", "Vanniyar"]},
     {"key": "padmashali_weavers", "en": "Padmashali • Devanga (Weavers)", "te": "పద్మశాలి • దేవాంగ",
-     "category": "BC", "split": False, "wave": 3,
+     "category": "BC", "split": True, "wave": 3,
      "members": ["Padmashali", "Padmasali", "Sali", "Pattusali", "Thogata", "Devanga", "Devanga Chettiar"]},
-    {"key": "mudiraj", "en": "Mudiraj • Tenugollu", "te": "ముదిరాజ • తెనుగొల్ల", "category": "BC", "split": False,
+    {"key": "mudiraj", "en": "Mudiraj • Tenugollu", "te": "ముదిరాజ • తెనుగొల్ల", "category": "BC", "split": True,
      "wave": 3, "members": ["Mudiraj", "Mudiraju", "Mutrasi", "Tenugollu"]},
+    {"key": "goud", "en": "Goud", "te": "గౌడ", "category": "BC", "split": True,
+     "wave": 3, "members": ["Goud", "Gouda", "Ediga", "Gamalla", "Idiga", "Goundla", "Kalalee"]},
+    {"key": "kuruma", "en": "Kuruma", "te": "కురుమ", "category": "BC", "split": True,
+     "wave": 3, "members": ["Kuruma", "Kuruba", "Kuruba (Golla)", "Kuruva", "Gorrela"]},
+    {"key": "rajaka", "en": "Rajaka", "te": "రజక", "category": "BC", "split": True,
+     "wave": 3, "members": ["Rajaka", "Chakali", "Vannar"]},
+    {"key": "kummari", "en": "Kummari", "te": "కుమ్మరి", "category": "BC", "split": True,
+     "wave": 3, "members": ["Kummari", "Kummara", "Kulala", "Kumbhara"]},
+    {"key": "perika", "en": "Perika", "te": "పెరిక", "category": "BC", "split": True,
+     "wave": 3, "members": ["Perika"]},
     {"key": "lambada_banjara", "en": "Lambada • Banjara (ST)", "te": "లంబాడ • బంజార", "category": "ST",
      "split": True, "wave": 3, "members": ["Lambada", "Lambadi", "Banjara", "Lambani", "Sugali"]},
     {"key": "others_bc", "en": "Other BC Communities", "te": "ఇతర BC కులాలు", "category": "BC", "split": True,
-     "wave": 3, "members": ["Kummara", "Kulala", "Salivahana", "Gandla", "Telikula", "Uppara", "Sagara",
-                            "Vaddera", "Odde", "Rajaka", "Chakali", "Mangali", "Nayi-Brahmin", "Boya", "Valmiki",
-                            "Srisayana", "Segidi", "Gavara", "Bestha", "Gangaputra", "Jalari", "Vadabalija",
-                            "Jangam", "Jogi", "Dasari", "Bhatraju", "Kalinga"]},
+     "wave": 3, "members": ["Salivahana", "Gandla", "Telikula", "Uppara", "Sagara", "Vaddera", "Odde",
+                            "Mangali", "Nayi-Brahmin", "Boya", "Valmiki", "Srisayana", "Segidi", "Gavara",
+                            "Bestha", "Gangaputra", "Jalari", "Vadabalija", "Jangam", "Jogi", "Dasari",
+                            "Bhatraju", "Kalinga"]},
     {"key": "others_sc", "en": "Other SC Communities", "te": "ఇతర SC కులాలు", "category": "SC", "split": True,
      "wave": 3, "members": ["Adi Andhra", "Adi Dravida", "Arundhatiya", "Relli", "Arwa Mala", "Samban", "Dandasi"]},
     {"key": "others_st", "en": "Other ST Communities", "te": "ఇతర ST కులాలు", "category": "ST", "split": False,
@@ -417,7 +428,7 @@ from channel_content import perfect_title as _pt, perfect_description as _pd  # 
 for _k, _ch in CHANNELS.items():
     _ch["name"] = _pt(_k, _ch)
     _ch["desc"] = _pd(_k, _ch)
-    if _k in LIVE_KEYS_EXTRA:          # setup_channels.py --mark-live tho verify ayyavi
+    if _k in LIVE_KEYS_EXTRA:          # manually enabled for routing; external reachability remains unchecked
         _ch["live"] = True
 
 # ---------------------------------------------------------------------------
@@ -442,11 +453,11 @@ CASTE_ALIASES = {
     "raju": "raju_kshatriya", "rajulu": "raju_kshatriya", "kshatriya": "raju_kshatriya",
     "vanniyar": "raju_kshatriya", "raju(kshatriya)": "raju_kshatriya",
     # ---- BC ----
-    "goud": "yadava_goud", "gouda": "yadava_goud", "ediga": "yadava_goud", "gamalla": "yadava_goud",
-    "idiga": "yadava_goud", "settibalija": "yadava_goud", "goundla": "yadava_goud", "kalalee": "yadava_goud",
+    "goud": "goud", "gouda": "goud", "ediga": "goud", "gamalla": "goud", "idiga": "goud",
+    "goundla": "goud", "kalalee": "goud",
     "yadav": "yadava_goud", "yadava": "yadava_goud", "golla": "yadava_goud", "golla(yadava)": "yadava_goud",
-    "kuruma": "yadava_goud", "kuruba": "yadava_goud", "kuruba(golla)": "yadava_goud", "kuruva": "yadava_goud",
-    "gorrela": "yadava_goud",
+    "settibalija": "yadava_goud",
+    "kuruma": "kuruma", "kuruba": "kuruma", "kuruba(golla)": "kuruma", "kuruva": "kuruma", "gorrela": "kuruma",
     "viswakarma": "viswabrahmana", "viswabrahmin": "viswabrahmana", "viswabrahmana": "viswabrahmana",
     "kamsali": "viswabrahmana", "kammari": "viswabrahmana", "kanchari": "viswabrahmana",
     "vadla": "viswabrahmana", "ausula": "viswabrahmana", "silpi": "viswabrahmana", "shilpi": "viswabrahmana",
@@ -455,11 +466,12 @@ CASTE_ALIASES = {
     "pattusali": "padmashali_weavers", "thogata": "padmashali_weavers", "thogata sali": "padmashali_weavers",
     "devanga": "padmashali_weavers", "devanga chettiar": "padmashali_weavers",
     "mudiraj": "mudiraj", "mudiraju": "mudiraj", "mutrasi": "mudiraj", "tenugollu": "mudiraj",
-    "kummara": "others_bc", "kulala": "others_bc", "salivahana": "others_bc", "kumbhara": "others_bc",
+    "kummari": "kummari", "kummara": "kummari", "kulala": "kummari", "salivahana": "kummari", "kumbhara": "kummari",
+    "rajaka": "rajaka", "chakali": "rajaka", "vannar": "rajaka", "perika": "perika",
     "gandla": "others_bc", "telikula": "others_bc", "devathilakula": "others_bc",
     "uppara": "others_bc", "sagara": "others_bc", "sagari": "others_bc", "uppari": "others_bc",
     "vaddera": "others_bc", "vaddelu": "others_bc", "odde": "others_bc", "oddilu": "others_bc",
-    "vadde": "others_bc", "rajaka": "others_bc", "chakali": "others_bc", "vannar": "others_bc",
+    "vadde": "others_bc",
     "agnikulakshatriya": "others_bc", "mangali": "others_bc", "mangala": "others_bc", "nayi": "others_bc",
     "nai": "others_bc", "nayi-brahmin": "others_bc", "bhajanthri": "others_bc",
     "boya": "others_bc", "valmiki": "others_bc", "boya bedar": "others_bc", "nishadi": "others_bc",
@@ -555,7 +567,7 @@ def pending_channels() -> list:
 
 
 def channel_chat_id(key: str, only_live: bool = True) -> str | None:
-    """Bot post చెయ్యడానికి chat id/username. only_live=True అయితే created channels మాత్రమే."""
+    """Return a registry-enabled Telegram username; existence/permissions are not checked."""
     ch = CHANNELS.get(key)
     if not ch:
         return None
@@ -566,8 +578,8 @@ def channel_chat_id(key: str, only_live: bool = True) -> str | None:
 
 def post_targets(profile: dict, only_live: bool = True) -> list:
     """
-    Router + live filter → bot e channels lo actually post cheyyali.
-    Create kaani channels ni skip chestundi (429/400 error raakunda) + pending list istundi.
+    Router + registry-eligibility filter returns candidate usernames for the publisher.
+    This does not confirm channel existence, bot permissions, or successful delivery.
     """
     r = route_profile(profile)
     ready, pending = [], []
@@ -654,15 +666,17 @@ def channel_stats() -> dict:
 
 
 def resolve_religion(raw: str) -> str:
-    if not raw:
-        return "Hindu"
-    return RELIGION_ALIASES.get(str(raw).strip().lower(), "Hindu")
+    value = str(raw or "").strip().lower()
+    if not value:
+        return ""
+    return RELIGION_ALIASES.get(value, "Other")
 
 
 def resolve_state(raw: str) -> str:
-    if not raw:
-        return "TS"
-    return STATE_ALIASES.get(str(raw).strip().lower(), "TS")
+    value = str(raw or "").strip().lower()
+    if not value:
+        return ""
+    return STATE_ALIASES.get(value, "Other")
 
 
 def resolve_caste_key(raw: str) -> str | None:
@@ -688,156 +702,127 @@ def _flag_job(text: str, words: tuple) -> bool:
 
 
 def why_telugu(key: str, profile: dict) -> str:
-    """Channel key → caption లో chupinchE Telugu reason (personalized)."""
-    gender_word = "అమ్మాయి" if str(profile.get("gender", "Bride")).lower().startswith("b") else "అబ్బాయి"
-    state = resolve_state(profile.get("state", "TS"))
-    state_word = {"TS": "Telangana", "AP": "Andhra", "Other": "NRI/Abroad"}[state]
-    dist = profile.get("district", "")
-    caste = profile.get("caste", "")
-    age = str(profile.get("age", "")).split("-")[0]
-    reasons = {
-        "ts_bride": f"{state_word} {gender_word} — TS Brides channel లో daily చూసేవాళ్లకి reach",
-        "ts_groom": f"{state_word} {gender_word} — TS Grooms channel లో direct reach",
-        "ap_bride": f"{state_word} {gender_word} — AP Brides channel లో first page",
-        "ap_groom": f"{state_word} {gender_word} — AP Grooms channel లో direct reach",
-        "nri_global": "NRI/Abroad matches కోరుకునే families కి idi first choice",
-        "hindu": "Hindu community matches — caste channel కూడా కలిపి reach",
-        "muslim": "Muslim community — Sheikh/Syed/Pathan/Momin అన్నీ sub-sects కి reach",
-        "christian": "Christian community — Catholic/CSI/Baptist అన్నీ denominations కి reach",
-        "other_religion": "Other religions — respectful + private matches",
-        "interfaith": "Inter-caste / Love marriage కోరుకునే couples కి safe space",
-        "second_marriage": "2nd innings — divorcee/widow కి respect తో matches",
-        "differently_abled": "Differently abled — special care + special respect channel",
-        "govt_jobs": "Govt job profile — ee channel లో demand చాలా ఎక్కువ 🔥",
-        "software_it": "Software/IT job — HYD, BLR, USA matches కి best",
-        "doctors": "Medical profession — doctor matches కి separate channel",
-        "teachers": "Teacher/Lecturer matches — education field families కి",
-        "above_35": f"Age {age} — 35+ channel లో late marriage కి కూడా best సంబంధం",
-        "love_register": "Love/Register marriage support — parents oppuka తో",
+    """Explain the configured destination category; never imply compatibility or reach."""
+    gender_raw = str((profile or {}).get("gender") or "").strip().lower()
+    gender = "bride" if gender_raw.startswith(("b", "f")) else "groom" if gender_raw.startswith(("g", "m")) else ""
+    state = resolve_state((profile or {}).get("state"))
+    labels = {
+        "ts_bride": "Telangana bride category selected from the member-provided location and gender.",
+        "ts_groom": "Telangana groom category selected from the member-provided location and gender.",
+        "ap_bride": "Andhra Pradesh bride category selected from the member-provided location and gender.",
+        "ap_groom": "Andhra Pradesh groom category selected from the member-provided location and gender.",
+        "nri_global": "Other-state / NRI directory category selected from the entered location.",
+        "hindu": "Hindu directory category selected from the member-provided religion.",
+        "muslim_bride": "Muslim bride directory category selected from the member-provided religion and gender.",
+        "muslim_groom": "Muslim groom directory category selected from the member-provided religion and gender.",
+        "christian_bride": "Christian bride directory category selected from the member-provided religion and gender.",
+        "christian_groom": "Christian groom directory category selected from the member-provided religion and gender.",
+        "other_religion": "Other-religion directory category selected from the member-provided religion.",
+        "interfaith": "Inter-community category selected in the profile.",
+        "second_marriage": "Remarriage category selected from the member-provided marital-status details.",
+        "differently_abled": "Accessibility category selected from the member-provided profile details.",
+        "govt_jobs": "Government/public-service occupation category found in the profile text.",
+        "software_it": "Software/IT occupation category found in the profile text.",
+        "doctors_teachers": "Healthcare/education occupation category found in the profile text.",
     }
-    if key in reasons:
-        return reasons[key]
+    if key in labels:
+        return labels[key]
     ch = CHANNELS.get(key, {})
     if ch.get("tier") == "L3_CASTE":
-        return f"{caste} caste channel — {dist or state_word} లో {caste} సంబంధాలు okkate chota"
-    return ch.get("desc", key)[:90]
+        community = str((profile or {}).get("caste") or ch.get("cluster_en") or "community").strip()
+        return f"Community category selected from the member-provided label: {community}."
+    return "Configured directory category; external channel availability is not checked here."
 
 
-# ---------------------------------------------------------------------------
-# THE ROUTER — one profile → all relevant channels
-# ---------------------------------------------------------------------------
-MAX_POSTS = 5  # spam control — max 5 channels per profile
+MAX_POSTS = 5  # spam control — maximum number of destination categories per profile
 
 
 def route_profile(profile: dict, max_posts: int = MAX_POSTS) -> dict:
-    """
-    profile keys (all optional, sane defaults):
-      gender: "Bride" | "Groom"
-      state: "TS" | "AP" | "Other"
-      religion: "Hindu" | "Muslim" | "Christian" | "Other"
-      caste: "Reddy" | "SC-Mala" | ...   (free text ok)
-      age: int or "24"
-      marital_status: "Pelli Kaledu" | "Divorcee" | "Widow" | ...
-      physical_status: "Normal" | "Handicapped" | ...
-      job: "Software Engineer" / "Govt Teacher"
-      education: "MBBS" / "BTech"
-      interfaith: bool  (couple opted for inter-caste channel)
-      wants_nri: bool   (profile is NRI / abroad)
-
-    returns: {"keys": [...], "usernames": [...], "hashtags": "...", "notes": [...]}
-    """
-    gender = profile.get("gender", "Bride")
-    if str(gender).lower().startswith("g"):
-        gender = "Groom"
-    else:
-        gender = "Bride"
-    state = resolve_state(profile.get("state", "TS"))
-    religion = resolve_religion(profile.get("religion") or profile.get("caste", ""))
+    """Select configured channel categories only when the corresponding profile data exists."""
+    profile = profile or {}
+    gender_raw = str(profile.get("gender") or "").strip().lower()
+    gender = "Bride" if gender_raw.startswith(("b", "f")) else "Groom" if gender_raw.startswith(("g", "m")) else ""
+    state = resolve_state(profile.get("state"))
+    religion = resolve_religion(profile.get("religion"))
     caste_key = resolve_caste_key(profile.get("caste", ""))
+
+    def enabled(value) -> bool:
+        return value is True or str(value or "").strip().lower() in ("1", "true", "yes", "on")
 
     try:
         age = int(str(profile.get("age", "0")).split("-")[0] or 0)
-    except Exception:
+    except (TypeError, ValueError):
         age = 0
 
-    marital = str(profile.get("marital_status", "Pelli Kaledu")).lower()
-    physical = str(profile.get("physical_status", "Normal")).lower()
-    job = f"{profile.get('job','')} {profile.get('occupation','')}"
-    education = str(profile.get("education", "")) + " " + str(profile.get("education_detail", ""))
-
-    ordered = []   # (key, reason)
+    marital = str(profile.get("marital_status") or "").strip().lower()
+    physical = str(profile.get("physical_status") or "").strip().lower()
+    job = f"{profile.get('job', '')} {profile.get('occupation', '')}"
+    education = f"{profile.get('education', '')} {profile.get('education_detail', '')}"
+    ordered = []
     notes = []
 
-    # L1 — region (always)
-    if state == "TS":
-        ordered.append(("ts_bride" if gender == "Bride" else "ts_groom", "region+gender"))
-    elif state == "AP":
-        ordered.append(("ap_bride" if gender == "Bride" else "ap_groom", "region+gender"))
-    else:
-        ordered.append(("nri_global", "region=Other/NRI"))
-    # 🌊 WAVE 14 — NRI (TS/AP abroad): home-state channel + NRI global hub kooda.
-    try:
-        from matchpro import detect_nri as _detect_nri
-        _nri = _detect_nri(str(profile.get("country", "")), str(profile.get("work_location", "")),
-                           str(profile.get("current_city", "")), state)
-        if (_nri.get("is_nri") or profile.get("is_nri")) and state in ("TS", "AP"):
-            ordered.append(("nri_global", "NRI member"))
-    except Exception:
-        pass
+    # Region-specific groups need explicit, usable location and gender fields.
+    if state in ("TS", "AP") and gender:
+        ordered.append((f"{state.lower()}_{gender.lower()}", "region_and_gender"))
+    elif state == "Other":
+        ordered.append(("nri_global", "other_region"))
+    elif not state:
+        notes.append("Location not provided or not recognized; no regional destination selected.")
+    if state in ("TS", "AP") and not gender:
+        notes.append("Gender not provided or not recognized; gender-specific regional destination skipped.")
 
-    # L2 — religion + L3 caste
+    # Religion/community groups are chosen only from an explicit religion field.
     if religion == "Hindu":
         if caste_key:
-            # Caste channel already covers the community → general Hindu channel ki
-            # duplicate pettaku. Slot save chesi specialty channel ki vadukuntam.
-            # Exception: TOP MATCH (score>=90) ayithe Hindu hub lo kooda vestham (digest value).
-            if profile.get("top_match"):
-                ordered.append(("hindu", "top-match digest"))
+            if enabled(profile.get("top_match")):
+                # Legacy flag is not a match score and cannot trigger a promotional claim.
+                notes.append("Legacy top_match flag ignored for channel routing.")
+            cluster_routes = SPLIT_MAP.get(caste_key, {})
+            if gender and cluster_routes.get(gender):
+                ordered.append((cluster_routes[gender], f"community_{caste_key}_{gender.lower()}"))
+            elif cluster_routes.get("Bride") == cluster_routes.get("Groom") and cluster_routes.get("Bride"):
+                ordered.append((cluster_routes["Bride"], f"community_{caste_key}"))
+            elif gender:
+                ordered.append(("c_others_bc", f"community_other_{gender.lower()}"))
             else:
-                notes.append("Caste channel ఉంది → general Hindu hub skip (duplication avoid, slot save)")
-            # ⭐ CLUSTER channel — pedda community ayithe bride/groom separate, chinna vi single
-            ck = SPLIT_MAP.get(caste_key, {}).get(gender, "c_%s" % caste_key if "c_" + caste_key in CHANNELS else None)
-            if ck and ck in CHANNELS:
-                split = bool(SPLIT_MAP.get(caste_key, {}).get("Bride") != SPLIT_MAP.get(caste_key, {}).get("Groom"))
-                ordered.append((ck, "cluster=%s + %s%s" % (caste_key, gender,
-                                                           "" if split else " (single channel — #%s filter)" % gender)))
-            else:
-                ordered.append(("c_others_bc", "caste=%s → Other communities channel" % profile.get("caste")))
+                notes.append("Gender missing; gender-specific community destination skipped.")
+            notes.append("Community-specific routing used; broad Hindu destination is not duplicated.")
         else:
-            ordered.append(("hindu", "religion (caste Open/Others)"))
-            notes.append("Caste 'Open/Others' — caste channel skip (hashtag #Open)")
+            ordered.append(("hindu", "hindu_directory"))
     elif religion in ("Muslim", "Christian"):
-        # TS + AP combined: exactly one Bride and one Groom channel per community.
-        ordered.append(("%s_%s" % (religion.lower(), gender.lower()),
-                        "religion=%s + %s (TS & AP)" % (religion, gender)))
+        if gender:
+            ordered.append((f"{religion.lower()}_{gender.lower()}", f"{religion.lower()}_{gender.lower()}_directory"))
+        else:
+            notes.append("Gender missing; religion destination is gender-specific and was skipped.")
+    elif religion == "Other":
+        ordered.append(("other_religion", "other_religion_directory"))
     else:
-        ordered.append(("other_religion", "religion=Other"))
+        notes.append("Religion not provided; religion/community-specific destinations were skipped.")
 
-    # L2b — interfaith / love / no-caste-bar (optional flag)
-    if profile.get("interfaith") or profile.get("love_marriage") or profile.get("caste_no_bar"):
-        ordered.append(("interfaith", "inter-caste / love / caste-no-bar flag"))
+    if enabled(profile.get("interfaith")) or enabled(profile.get("love_marriage")) or enabled(profile.get("caste_no_bar")):
+        ordered.append(("interfaith", "intercommunity_option_selected"))
 
-    # L4 — special flags
-    if marital and marital not in ("pelli kaledu", "never married", "first marriage", "", "unmarried"):
-        ordered.append(("second_marriage", f"marital={profile.get('marital_status')}"))
-    if physical and physical not in ("normal", "", "none"):
-        ordered.append(("differently_abled", f"physical={profile.get('physical_status')}"))
+    if marital and marital not in ("pelli kaledu", "never married", "first marriage", "unmarried", "single"):
+        ordered.append(("second_marriage", "member_provided_marital_status"))
+    if physical and physical not in ("normal", "none", "not specified"):
+        ordered.append(("differently_abled", "member_provided_accessibility_details"))
     if _flag_job(job, BLOCK_GOVT):
-        ordered.append(("govt_jobs", "govt job"))
+        ordered.append(("govt_jobs", "occupation_category"))
     if _flag_job(job, BLOCK_SOFTWARE):
-        ordered.append(("software_it", "software/IT job"))
+        ordered.append(("software_it", "occupation_category"))
     if _flag_job(job + " " + education, BLOCK_DOCTOR) or _flag_job(job, BLOCK_TEACHER):
-        ordered.append(("doctors_teachers", "medical/teaching profession"))
-    if profile.get("wants_nri") or state == "Other":
-        ordered.append(("nri_global", "NRI/abroad"))
+        ordered.append(("doctors_teachers", "occupation_category"))
 
-    # de-dupe, keep order, apply cap
+    wants_nri = enabled(profile.get("wants_nri")) or enabled(profile.get("is_nri"))
+    if wants_nri and state != "Other":
+        ordered.append(("nri_global", "member_selected_nri_category"))
+
     seen, keys, reasons = set(), [], []
     for key, why in ordered:
         if key in seen or key not in CHANNELS:
             continue
-        if len(keys) >= max_posts:
-            notes.append(f"cap {max_posts} reach — '{key}' skipped (priority taggindi)")
+        if len(keys) >= max(0, int(max_posts)):
+            notes.append(f"Destination limit {max_posts} reached; additional configured categories were not selected.")
             continue
         seen.add(key)
         keys.append(key)
@@ -858,10 +843,14 @@ def build_hashtags(profile: dict, keys: list | None = None) -> str:
     caste = str(profile.get("caste", "")).strip().replace(" ", "").replace("-", "")
     if caste and caste.lower() not in ("open", "others", "other", "oc"):
         tags.append("#" + caste)
-    state = resolve_state(profile.get("state", "TS"))
-    tags.append({"TS": "#Telangana", "AP": "#AndhraPradesh", "Other": "#NRI"}[state])
-    gender = "Bride" if str(profile.get("gender", "Bride")).lower().startswith("b") else "Groom"
-    tags.append("#" + gender)
+    state = resolve_state(profile.get("state"))
+    if state:
+        tags.append({"TS": "#Telangana", "AP": "#AndhraPradesh", "Other": "#OtherRegion"}[state])
+    gender_raw = str(profile.get("gender") or "").strip().lower()
+    if gender_raw.startswith(("b", "f")):
+        tags.append("#Bride")
+    elif gender_raw.startswith(("g", "m")):
+        tags.append("#Groom")
     dist = str(profile.get("district", "")).strip().replace(" ", "")
     if dist:
         tags.append("#" + dist)
@@ -882,12 +871,8 @@ def build_hashtags(profile: dict, keys: list | None = None) -> str:
     return " ".join(out)
 
 
-def build_caption(profile: dict, tsap_id: str = "TSAP-F-2025-XXXX", score: int = 92) -> str:
-    """Ready-to-post Telegram caption — 🔒 WAVE 12 MASKED (number ❌ full-name ❌ surname ❌).
-
-    Teaser matrame + unlock CTA. Full number: bot /unlock (1 credit) leda ₹500 assisted.
-    NOTE: ID/score/bot/register/safety substrings intact (old tests green).
-    """
+def build_caption(profile: dict, tsap_id: str = "", score: int | None = None) -> str:
+    """Build a member-detail teaser without invented IDs or compatibility claims."""
     from smart12 import build_masked_caption  # lazy: cycle-safe
     return build_masked_caption(profile or {}, tsap_id, score)
 
@@ -895,8 +880,8 @@ def build_caption(profile: dict, tsap_id: str = "TSAP-F-2025-XXXX", score: int =
 # ═══════════════════════════════════════════════════════════════════════════
 # 📢 CHANNEL LINKS (Telegram + WhatsApp) — "caste channels vadi caste related"
 # ═══════════════════════════════════════════════════════════════════════════
-# Telegram link eppudu automatic (username nunchi). WhatsApp channel/community
-# links ki real id kavali — kabatti **env** nunchi:
+# Directory invite URLs come only from explicitly configured links (not reachability-checked).
+# WhatsApp channel/community links use configured IDs from defaults or env; Telegram links use the analogous TELEGRAM_CHANNEL_LINKS:
 #   WA_CHANNEL_LINKS = {"c_reddy_bride": "https://whatsapp.com/channel/XXXX", ...}
 #   (leda per-channel: WA_CHANNEL_C_REDDY_BRIDE=https://whatsapp.com/channel/XXXX)
 # Configure avvakapote aa channel ki whatsapp="" — message lo Telegram link matrame velthundi.
@@ -904,7 +889,44 @@ import json as _json
 import os as _os
 
 
-# Default live WhatsApp channel links verified for Mana Vivaha
+def _valid_telegram_url(value: str) -> bool:
+    """Accept only HTTPS Telegram channel/usernames and Telegram invite URLs."""
+    try:
+        url = urlparse(str(value or "").strip())
+        if url.scheme.lower() != "https" or url.username or url.password or url.port or url.fragment:
+            return False
+        if (url.hostname or "").lower().rstrip(".") not in {"t.me", "telegram.me"}:
+            return False
+        path = url.path.strip("/")
+        return bool(re.fullmatch(r"(?:[A-Za-z0-9_]{5,32}|\+[A-Za-z0-9_-]{6,128}|joinchat/[A-Za-z0-9_-]{6,128}|c/\d+/\d+)", path))
+    except (TypeError, ValueError):
+        return False
+
+
+def _valid_whatsapp_url(value: str) -> bool:
+    """Accept only HTTPS URLs on official WhatsApp hosts with a channel/invite path.
+
+    This validates URL shape only; it does not prove that an invite is active.
+    """
+    try:
+        url = urlparse(str(value or "").strip())
+        if url.scheme.lower() != "https" or url.username or url.password or url.port:
+            return False
+        host = (url.hostname or "").lower().rstrip(".")
+        if url.fragment:
+            return False
+        path = url.path.strip("/")
+        if host in {"whatsapp.com", "www.whatsapp.com"}:
+            return bool(re.fullmatch(r"channel/[A-Za-z0-9_-]{12,128}", path))
+        if host == "chat.whatsapp.com":
+            return bool(re.fullmatch(r"[A-Za-z0-9_-]{12,128}", path))
+        # wa.me/<phone> and message links are support chats, not channel invites.
+        return False
+    except (TypeError, ValueError):
+        return False
+
+
+# User-provided public invite URLs. Shape is validated; availability is not probed.
 DEFAULT_WA_LINKS: Dict[str, str] = {
     "c_reddy_bride": "https://whatsapp.com/channel/0029VbDpD0N5kg74TpAbIz1R",
     "c_reddy_groom": "https://whatsapp.com/channel/0029Vb900wSEFeXrEfkBNQ0S",
@@ -922,7 +944,6 @@ DEFAULT_WA_LINKS: Dict[str, str] = {
     "c_vysya_groom": "https://whatsapp.com/channel/0029VbDl75K7dmeeZMZA2926",
     "c_yadava_goud_bride": "https://whatsapp.com/channel/0029Vb8fFvdHVvTcadiqkp2D",
     "c_yadava_goud_groom": "https://whatsapp.com/channel/0029VbDn2nT7j6g3fdTXgq3A",
-    "c_padmashali_weavers": "https://whatsapp.com/channel/0029VbDO1JI0AgW8yM52cm1J",
     "c_viswabrahmana_bride": "https://whatsapp.com/channel/0029Vb8MKAKBA1f7VLuIaX2Y",
     "c_viswabrahmana_groom": "https://whatsapp.com/channel/0029VbDdWlb8aKvK4Rddz32k",
     "c_raju_kshatriya_bride": "https://whatsapp.com/channel/0029VbEEoWhJJhzenO8voU1e",
@@ -937,77 +958,130 @@ DEFAULT_WA_LINKS: Dict[str, str] = {
     "c_others_bc_groom": "https://whatsapp.com/channel/0029VbE9dOxDDmFZvsPGd31I",
     "c_others_sc_bride": "https://whatsapp.com/channel/0029Vb8oMp4J93we9t58Sr0m",
     "c_others_sc_groom": "https://whatsapp.com/channel/0029VbDNWfI002TDBUfbFp2A",
-    "c_mudiraj": "https://whatsapp.com/channel/0029VbDrXXxATRSsOCpkZD2J",
+    "c_mudiraj_bride": "https://whatsapp.com/channel/0029VbD5Jy27Noa6foFiXS40",
+    "c_mudiraj_groom": "https://whatsapp.com/channel/0029VbDrXXxATRSsOCpkZD2J",
     "muslim_groom": "https://whatsapp.com/channel/0029VbEPpCj0lwgqyXF6vV1a",
     "muslim_bride": "https://whatsapp.com/channel/0029VbEMkZZDDmFUKnTbB31b",
     "christian_groom": "https://whatsapp.com/channel/0029Vb9U1HC84OmDO5Q7HM0I",
     "christian_bride": "https://whatsapp.com/channel/0029Vb8ikeUHgZWViQMiJQ2h",
+    "c_padmashali_weavers_bride": "https://whatsapp.com/channel/0029Vb8tDgi8Pgs8bBhmwK3H",
+    "c_padmashali_weavers_groom": "https://whatsapp.com/channel/0029Vb9ASfp2phHTNpBVIn1U",
+    "c_goud_bride": "https://whatsapp.com/channel/0029VbE4EXK42DciVXYopI2h",
+    "c_goud_groom": "https://whatsapp.com/channel/0029Vb8opZw6hENsqAzGtY3R",
+    "c_kuruma_bride": "https://whatsapp.com/channel/0029Vb939bo5q08lIoSzFk0B",
+    "c_kuruma_groom": "https://whatsapp.com/channel/0029Vb8fDPRGU3BFVKlVOU3X",
+    "c_rajaka_bride": "https://whatsapp.com/channel/0029Vb9UvFM1SWszlk3KXM2U",
+    "c_kummari_bride": "https://whatsapp.com/channel/0029VbDhazI0wajxHXSCDh1t",
+    "c_kummari_groom": "https://whatsapp.com/channel/0029VbDizeQG8l55W64bVj2V",
+    "c_perika_bride": "https://whatsapp.com/channel/0029VbDV28JIyPtYs0DDQ92f",
+    "c_perika_groom": "https://whatsapp.com/channel/0029Vb8ceI13gvWdFcRSYW3y",
 }
 
+DEFAULT_TELEGRAM_LINKS: Dict[str, str] = {
+    # Previously configured official/regional destinations retained as-is.
+    "official": "https://t.me/TSAP_MATRIMONY",
+    "ts_groom": "https://t.me/TSGROOM1",
+    "ap_bride": "https://t.me/APBRIDE",
+    "c_reddy_bride": "https://t.me/+DdStvgCtmb83M2Y1",
+    "c_reddy_groom": "https://t.me/+bvcPm7h34VpmYTU1",
+    "c_kamma_bride": "https://t.me/+oQcIdTKMlINmZWY1",
+    "c_kamma_groom": "https://t.me/+Y9O_Y8323JA5YjY1",
+    "c_kapu_bride": "https://t.me/+2ZrBXtORoOo5NTU9",
+    "c_kapu_groom": "https://t.me/+S6KxwVibmQU0YmZl",
+    "c_munnuru_kapu_bride": "https://t.me/+G9i5zZ1AXfJkNzE1",
+    "c_munnuru_kapu_groom": "https://t.me/+8aF99CIpwwo5M2Fl",
+    "c_velama_bride": "https://t.me/+zKQU94Dcl8E2YWY1",
+    "c_velama_groom": "https://t.me/+NnMufdM31dc0ZTE1",
+    "c_brahmin_bride": "https://t.me/+tWfcyC7StAw1ZTU1",
+    "c_brahmin_groom": "https://t.me/+9LByJC4Y-5VmM2Q9",
+    "c_vysya_bride": "https://t.me/+ZEoszjmdKmYzMjI1",
+    "c_vysya_groom": "https://t.me/+mhviMJhWFTNhZjBl",
+    "c_yadava_goud_bride": "https://t.me/+kFpsLfat96Y0OWI1",
+    "c_yadava_goud_groom": "https://t.me/+P4MPYpsRG1Y0Y2U9",
+    "c_viswabrahmana_bride": "https://t.me/+lkhMUXqcHdI4M2M1",
+    "c_viswabrahmana_groom": "https://t.me/+qBJlaAISvXM4YWU9",
+    "c_raju_kshatriya_bride": "https://t.me/+m5LPLPhkIpw4ZGI9",
+    "c_raju_kshatriya_groom": "https://t.me/+szuO6inGJ3MyZTFl",
+    "c_mala_bride": "https://t.me/+CCxqPaDSGxUwZjY1",
+    "c_mala_groom": "https://t.me/+NLoRFKT5yJE5N2Fl",
+    "c_madiga_bride": "https://t.me/+32QEp-PKOBVhODY1",
+    "c_madiga_groom": "https://t.me/+_oenYepHzlQzYjdl",
+    "c_lambada_banjara_bride": "https://t.me/+T7ybZrw8VYQ5NTRl",
+    "c_lambada_banjara_groom": "https://t.me/+jOPvVBAKURgyY2Fl",
+    "c_others_bc_bride": "https://t.me/+Y4lpZRyN2ZxiNmI1",
+    "c_others_bc_groom": "https://t.me/+iyf8LbsJyCo3ZGFl",
+    "c_others_sc_bride": "https://t.me/+UfRB95ZYdSBhZmQ1",
+    "c_others_sc_groom": "https://t.me/+3w08vTaC3O42N2U9",
+    "c_mudiraj_groom": "https://t.me/+BMpylXf9XxcyZDBl",
+    "c_mudiraj_bride": "https://t.me/+XebU3qM_WR84YTdl",
+    "muslim_groom": "https://t.me/+81zEc2fHMSMxMTBl",
+    "muslim_bride": "https://t.me/+e0P4TAGx4XxiMWFl",
+    "christian_groom": "https://t.me/+Fs4NLy-bNu9kYWE1",
+    "christian_bride": "https://t.me/+TVXi2Bzl3F5lMjE9",
+    "c_padmashali_weavers_bride": "https://t.me/+WHy86f07cdFiMDY1",
+    "c_padmashali_weavers_groom": "https://t.me/+pxZfSVa1rOEzN2Fl",
+    "c_goud_bride": "https://t.me/+oF8K9j6BCzE2YjVl",
+    "c_goud_groom": "https://t.me/+HmRI0uILZ-NkY2Y9",
+    "c_kuruma_bride": "https://t.me/+W_8aTJ-3B-hhOGFl",
+    "c_kuruma_groom": "https://t.me/+YOoCmdgS_3thY2Jl",
+    "c_rajaka_bride": "https://t.me/+uHfkj71Js_c1ZWJl",
+    "c_rajaka_groom": "https://t.me/+4BStez9IoSAyNmQ1",
+    "c_kummari_bride": "https://t.me/+IilG4JDaWm9iMmE1",
+    "c_kummari_groom": "https://t.me/+Z9UFsOSSY2szMjFl",
+    "c_perika_bride": "https://t.me/+7BHlq1k9R7NhYWQ1",
+    "c_perika_groom": "https://t.me/+MXvizI45UNFmOTE1",
+}
 
-def _wa_links_from_env() -> Dict[str, str]:
-    out: Dict[str, str] = dict(DEFAULT_WA_LINKS)
-    raw = (_os.getenv("WA_CHANNEL_LINKS") or "").strip()
+def _links_from_env(variable: str, prefix: str, defaults: Dict[str, str], validator) -> Dict[str, str]:
+    out: Dict[str, str] = dict(defaults)
+    raw = (_os.getenv(variable) or "").strip()
     if raw:
         try:
             obj = _json.loads(raw)
             if isinstance(obj, dict):
-                for k, v in obj.items():
-                    link = str(v or "").strip()
-                    if link:
-                        out[str(k).strip().lower()] = link
+                for key, value in obj.items():
+                    normalized_key = str(key).strip().lower()
+                    link = str(value or "").strip()
+                    if normalized_key in CHANNELS and validator(link):
+                        out[normalized_key] = link
         except Exception:
             pass
     for key in CHANNELS:
-        env_key = "WA_CHANNEL_" + key.upper()
-        val = (_os.getenv(env_key) or "").strip()
-        if val:
-            out[key.lower()] = val
+        value = (_os.getenv(prefix + key.upper()) or "").strip()
+        if validator(value):
+            out[key.lower()] = value
     return out
 
 
-WA_CHANNEL_LINKS: Dict[str, str] = _wa_links_from_env()
-# official WhatsApp channel (iva anni messages lo pettadaniki)
-WA_OFFICIAL_LINK = (_os.getenv("WA_OFFICIAL_CHANNEL") or "").strip() or WA_CHANNEL_LINKS.get("official", "")
+WA_CHANNEL_LINKS: Dict[str, str] = _links_from_env("WA_CHANNEL_LINKS", "WA_CHANNEL_", DEFAULT_WA_LINKS, _valid_whatsapp_url)
+TELEGRAM_CHANNEL_LINKS: Dict[str, str] = _links_from_env("TELEGRAM_CHANNEL_LINKS", "TELEGRAM_CHANNEL_", DEFAULT_TELEGRAM_LINKS, _valid_telegram_url)
+# Configured official WhatsApp channel (not externally reachability-checked).
+_WA_OFFICIAL_OVERRIDE = (_os.getenv("WA_OFFICIAL_CHANNEL") or "").strip()
+WA_OFFICIAL_LINK = _WA_OFFICIAL_OVERRIDE if _valid_whatsapp_url(_WA_OFFICIAL_OVERRIDE) else WA_CHANNEL_LINKS.get("official", "")
 
 
 def telegram_link(username: str) -> str:
     u = (username or "").strip().lstrip("@")
-    return f"https://t.me/{u}" if u else ""
+    return f"https://t.me/{u}" if re.fullmatch(r"[A-Za-z0-9_]{5,32}", u) else ""
 
 
 def wa_channel_link(key: str) -> str:
-    """
-    WhatsApp channel/community link.
-      1) WA_CHANNEL_LINKS / WA_CHANNEL_<KEY> env (exact link)
-      2) WA_CHANNEL_PATTERN env (ex: "https://whatsapp.com/channel/{key}") tho auto-generate
-    Lekapote '' (message lo Telegram link matrame veltundi + support note vastundi).
-    """
-    k = (key or "").lower()
+    """Return only an exact, configured WhatsApp destination; never construct a URL."""
+    k = (key or "").lower().strip()
     if not k:
         return ""
-    exact = WA_CHANNEL_LINKS.get(k)
-    if exact:
-        return exact
-    pattern = (_os.getenv("WA_CHANNEL_PATTERN") or "").strip()
-    if pattern and ("{key}" in pattern or "{username}" in pattern):
-        c = CHANNELS.get(k) or {}
-        try:
-            return pattern.format(key=k, username=str(c.get("username", "")).lstrip("@"))
-        except Exception:
-            return ""
-    return ""
+    return WA_CHANNEL_LINKS.get(k, "")
 
 
 def channel_links(key: str) -> Dict[str, object]:
-    """ఒక్క channel కి telegram + whatsapp + name + tier."""
+    """Return explicitly configured invite URLs; syntax validation is not an uptime check."""
     c = CHANNELS.get(key) or {}
     return {
         "key": key,
         "name": c.get("name", key),
         "tier": c.get("tier", ""),
         "live": bool(c.get("live")),
-        "telegram": telegram_link(c.get("username", "")),
+        "telegram": TELEGRAM_CHANNEL_LINKS.get(str(key or "").lower(), ""),
         "whatsapp": wa_channel_link(key),
         "hashtags": c.get("hashtags", []),
     }

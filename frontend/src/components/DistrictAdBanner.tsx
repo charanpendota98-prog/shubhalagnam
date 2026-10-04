@@ -8,6 +8,7 @@
 import { useEffect, useState } from "react";
 import { useLang } from "@/lib/lang";
 import { WhatsAppIcon } from "@/components/BrandIcons";
+import { whatsappPhoneLink } from "@/lib/wa";
 
 type Ad = {
   id: string;
@@ -81,11 +82,9 @@ export default function DistrictAdBanner({
   return (
     <div className={`space-y-3 ${className}`}>
       {ads.map((ad) => {
-        const waNumber = ad.whatsapp || ad.phone || "9876543210";
-        const waText = encodeURIComponent(
-          `నమస్తే, మన వివాహ (Mana Vivaha) లో మీ ప్రకటన చూసి సంప్రదిస్తున్నాను: ${ad.title}`
-        );
-        const waUrl = ad.link || `https://wa.me/91${waNumber.replace(/[^0-9]/g, "")}?text=${waText}`;
+        const waNumber = ad.whatsapp || ad.phone || "";
+        const waText = `నమస్తే, మన వివాహ (Mana Vivaha) లో మీ ప్రకటన చూసి సంప్రదిస్తున్నాను: ${ad.title}`;
+        const waUrl = ad.link || whatsappPhoneLink(waNumber, waText) || "";
 
         const locationBadge =
           ad.level === "district" && ad.districts?.length
@@ -112,11 +111,12 @@ export default function DistrictAdBanner({
                   <p className="text-[11px] text-gray-600 truncate">{ad.offer}</p>
                 </div>
                 <a
-                  href={waUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  onClick={() => handleAdClick(ad.id)}
-                  className="shrink-0 flex items-center gap-1 bg-[#25D366] text-white font-bold text-[11px] px-3 py-1.5 rounded-xl shadow-sm hover:brightness-110 active:scale-95 transition"
+                  href={waUrl || undefined}
+                  target={waUrl ? "_blank" : undefined}
+                  rel={waUrl ? "noopener noreferrer" : undefined}
+                  aria-disabled={!waUrl}
+                  onClick={waUrl ? () => handleAdClick(ad.id) : undefined}
+                  className="shrink-0 flex items-center gap-1 bg-[#25D366] text-white font-bold text-[11px] px-3 py-1.5 rounded-xl shadow-sm hover:brightness-110 active:scale-95 transition aria-disabled:pointer-events-none aria-disabled:opacity-50"
                 >
                   <WhatsAppIcon className="w-3.5 h-3.5" mono />
                   <span>{te ? "సంప్రదించండి" : "Enquire"}</span>
@@ -163,11 +163,12 @@ export default function DistrictAdBanner({
 
             <div className="flex items-center gap-2 w-full sm:w-auto justify-end pt-1 sm:pt-0 border-t sm:border-t-0 border-gray-100">
               <a
-                href={waUrl}
-                target="_blank"
-                rel="noreferrer"
-                onClick={() => handleAdClick(ad.id)}
-                className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 bg-[#25D366] text-white font-bold text-[12px] px-4 py-2 rounded-xl shadow-soft hover:brightness-110 active:scale-95 transition"
+                href={waUrl || undefined}
+                target={waUrl ? "_blank" : undefined}
+                rel={waUrl ? "noopener noreferrer" : undefined}
+                aria-disabled={!waUrl}
+                onClick={waUrl ? () => handleAdClick(ad.id) : undefined}
+                className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 bg-[#25D366] text-white font-bold text-[12px] px-4 py-2 rounded-xl shadow-soft hover:brightness-110 active:scale-95 transition aria-disabled:pointer-events-none aria-disabled:opacity-50"
               >
                 <WhatsAppIcon className="w-4 h-4" mono />
                 <span>{te ? "వివరాలు / బుకింగ్" : "Book / Enquire"}</span>

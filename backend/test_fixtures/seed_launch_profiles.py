@@ -1,24 +1,6 @@
+"""Deterministic synthetic fixtures for isolated unit tests only.
+These values are not real members and must never be loaded into or shown by the app.
 """
-MANA VIVAHA — LAUNCH INVENTORY GENERATOR
-========================================
-"చాలా మంది ఉండాల్సిన అవసరం లేదు — 300–400 profiles ఉంటే చాలు" → 360 realistic profiles.
-
-Enduku idi kavali:
-  • Channels / matches / search eppudu khali ga kanipinchakudadu
-  • Caste-wise channels ki sahi profiles (Reddy bride, Madiga groom…)
-  • Star ↔ Rasi correct ga (porutham 10/10 pani cheyyadaniki)
-  • Leads vachinappudu "మీలా anti profiles ఉన్నాయి" ani chupinchadaniki
-
-Usage:
-  python seed_launch_db.py --count 360 --out launch_profiles.json     # JSON generate
-  python seed_launch_db.py --count 360 --load http://localhost:8000  # API ki load
-  python seed_launch_db.py --count 50 --gender Bride --load ...      # only brides
-
-NOTE: ivi demo/launch inventory profiles (fake phones). Real users vachaka admin approve
-      + verification tho replace avutayi. DEMO_SEED_ENABLED=false unte API load bandh.
-"""
-import argparse
-import json
 import random
 from datetime import datetime, date, timedelta
 from typing import Dict, List
@@ -286,40 +268,3 @@ def build_profiles(count: int = 360, seed: int = 42, gender: str = "") -> List[D
             "created_at": datetime.utcnow().isoformat(),
         })
     return out
-
-
-def main() -> None:
-    ap = argparse.ArgumentParser(description="మన వివాహ launch inventory generator")
-    ap.add_argument("--count", type=int, default=360)
-    ap.add_argument("--gender", type=str, default="", help="Bride / Groom / (empty = both)")
-    ap.add_argument("--seed", type=int, default=42)
-    ap.add_argument("--out", type=str, default="", help="JSON file path")
-    ap.add_argument("--load", type=str, default="", help="API base URL (e.g. http://localhost:8000)")
-    args = ap.parse_args()
-
-    profiles = build_profiles(args.count, args.seed, args.gender)
-    brides = len([p for p in profiles if p["gender"] == "Bride"])
-    castes = len({p["caste"] for p in profiles})
-    districts = len({p["district"] for p in profiles})
-    print("Generated %d profiles | %d brides / %d grooms | %d castes | %d districts"
-          % (len(profiles), brides, len(profiles) - brides, castes, districts))
-
-    if args.out:
-        with open(args.out, "w", encoding="utf-8") as f:
-            json.dump(profiles, f, ensure_ascii=False, indent=1)
-        print("JSON: %s" % args.out)
-
-    if args.load:
-        import urllib.request
-        payload = json.dumps({"profiles": profiles}).encode()
-        req = urllib.request.Request(args.load.rstrip("/") + "/api/admin/bulk-profiles",
-                                     data=payload, headers={"Content-Type": "application/json"})
-        try:
-            with urllib.request.urlopen(req, timeout=120) as r:
-                print("Load:", r.status, r.read().decode()[:300])
-        except Exception as e:
-            print("Load failed:", str(e)[:200])
-
-
-if __name__ == "__main__":
-    main()

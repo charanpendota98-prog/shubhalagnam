@@ -12,15 +12,24 @@
 
 Run:  WA_TEST_FAST=1 python3 test_wave15_full.py   (backend/ nunchi)
 """
+import atexit
 import os
 import re
 import sys
+import tempfile
 
 os.environ.setdefault("WA_TEST_FAST", "1")
 os.environ.setdefault("OTP_DEV_MODE", "true")
 os.environ.setdefault("WA_LONG_PAUSE_CHANCE", "0")
 os.environ.setdefault("WHATSAPP_MODE", "off")
+# Never let this scenario test read, delete, or overwrite the application's CMS store.
+_TEST_CMS_DIR = tempfile.TemporaryDirectory(prefix="mana-vivaha-cms-test-")
+atexit.register(_TEST_CMS_DIR.cleanup)
+os.environ["MANA_VIVAHA_CMS_FILE"] = os.path.join(_TEST_CMS_DIR.name, "cms-test.json")
+os.environ["MANA_VIVAHA_CHANMAP_FILE"] = os.path.join(_TEST_CMS_DIR.name, "chanmap-test.json")
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from test_storage import isolate_test_stores  # noqa: E402
+isolate_test_stores("wave15")
 
 PASS, FAIL, FAILED = 0, 0, []
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -82,10 +91,11 @@ d = CMS.delete_item("page", "about-test")
 check("A9 delete page", d["success"] and CMS.get_page("about-test") is None, d)
 d = CMS.delete_item("page", "nope")
 check("A10 delete missing fail", d["success"] is False, d)
-sd = CMS.seed_cms()
-check("A11 seed pages+stories", sd["success"] and CMS.get_page("about-us") is not None
-      and len(CMS.STORIES) >= 1, sd)
-check("A12 tags + stats", "info" in CMS.all_tags() and CMS.cms_stats()["pages"] >= 2, CMS.cms_stats())
+check("A11 production CMS demo-seed helper removed", not hasattr(CMS, "seed_cms"))
+_stats = CMS.cms_stats()
+check("A12 tags + stats reflect only explicit test records",
+      "hyd" in CMS.all_tags() and _stats["pages"] == 0 and _stats["stories"] == 1 and _stats["banners"] == 1,
+      _stats)
 
 # ═══════════════════════════════════════════════════════════════════════════
 section("B. CMS API")
@@ -118,6 +128,8 @@ if _saved is not None:
     os.environ["WA_TEST_FAST"] = _saved
 full = client.get("/api/admin/cms", headers=HDR_ADMIN).json()
 check("B12 admin full dump + stats", full["success"] and full["stats"]["stories"] >= 2, full.get("stats"))
+seed_retired = client.post("/api/admin/cms/seed", headers=HDR_ADMIN)
+check("B13 CMS demo-seed endpoint is retired", seed_retired.status_code == 410, seed_retired.status_code)
 
 # ═══════════════════════════════════════════════════════════════════════════
 section("C. CHANMAP PURE")
@@ -125,13 +137,16 @@ section("C. CHANMAP PURE")
 eff = CHAN.effective()
 check("C1 effective 52", len(eff) == 52, len(eff))
 check("C2 default t.me guess", next(e for e in eff if e["key"] == "ts_bride")["telegram"] == "https://t.me/TSBRIDE")
-sl = CHAN.set_link("ts_bride", "https://t.me/TSBRIDE", "https://whatsapp.com/channel/xyz123", True, "owner gave")
-check("C3 set_link ok", sl["success"] and CHAN.public_links()["ts_bride"]["whatsapp"].endswith("xyz123"), sl)
+valid_wa = "https://whatsapp.com/channel/0029VbDpD0N5kg74TpAbIz1R"
+sl = CHAN.set_link("ts_bride", "https://t.me/TSBRIDE", valid_wa, True, "owner gave")
+check("C3 set_link ok", sl["success"] and CHAN.public_links()["ts_bride"]["whatsapp"] == valid_wa, sl)
+sl = CHAN.set_link("ts_bride", "https://t.me/TSBRIDE", "https://wa.me/919999999999", True)
+check("C3b support chat is not accepted as a channel invite", sl["success"] is False, sl)
 sl = CHAN.set_link("ts_bride", "not-a-url")
 check("C4 bad URL reject", sl["success"] is False, sl)
 sl = CHAN.set_link("nope_key", "https://t.me/x")
 check("C5 bad key reject", sl["success"] is False, sl)
-imp = CHAN.import_bulk("TS Brides | https://t.me/TSBRIDE | https://whatsapp.com/channel/aaa\n"
+imp = CHAN.import_bulk("TS Brides | https://t.me/TSBRIDE | https://whatsapp.com/channel/0029VbDpD0N5kg74TpAbIz1R\n"
                        "ZZZ Unknown 12345 | https://t.me/zzzunknown", auto_apply=False)
 check("C6 import 1 match + 1 manual",
       imp["success"] and len(imp["matched"]) == 1 and imp["matched"][0]["key"] == "ts_bride"
@@ -152,7 +167,7 @@ section("D. CHANMAP API")
 mp = client.get("/api/admin/channels/map?q=ts_bride", headers=HDR_ADMIN).json()
 check("D1 map search", mp["success"] and mp["count"] >= 1 and mp["channels"][0]["key"] == "ts_bride", mp)
 lk = client.post("/api/admin/channels/link", json={"key": "ap_bride", "telegram": "https://t.me/APBRIDE",
-                                                   "whatsapp": "https://whatsapp.com/channel/bbb"},
+                                                   "whatsapp": "https://whatsapp.com/channel/0029VbDpD0N5kg74TpAbIz1R"},
                  headers=HDR_ADMIN).json()
 check("D2 link save API", lk["success"], lk)
 pub = client.get("/api/channels/join").json()
