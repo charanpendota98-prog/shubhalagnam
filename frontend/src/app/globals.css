@@ -1,7 +1,6 @@
 /* System-first font stack avoids render-blocking third-party font requests. */
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+@config "../../tailwind.config.mjs";
 
 :root {
   --maroon: #7a0c2e;
@@ -938,12 +937,21 @@ label {
     justify-content: center;
   }
   .home-page .cinematic-hero h1 {
-    font-size: 1.65rem;
+    font-size: clamp(2rem, 8.5vw, 2.8rem);
     line-height: 1.22;
+    text-wrap: balance;
   }
   .home-page .cinematic-hero > div:last-child {
     padding-left: 1rem;
     padding-right: 1rem;
+  }
+}
+
+@media (min-width: 481px) {
+  .home-page .cinematic-hero h1 {
+    font-size: clamp(2.5rem, 5.2vw, 4.25rem);
+    line-height: 1.12;
+    text-wrap: balance;
   }
 }
 

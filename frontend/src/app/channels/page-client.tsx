@@ -9,6 +9,29 @@ import { resolveChannelLinks, useChannelDirectoryLinks } from "@/lib/channel-lin
 
 const CHANNEL_NAME_COLLATOR = new Intl.Collator("en", { sensitivity: "base", numeric: true });
 const channelSortName = (name: string) => name.normalize("NFKD").replace(/^[^A-Za-z0-9]+/g, "").replace(/[^A-Za-z0-9]+/g, " ").trim();
+const TELUGU_SCRIPT = /[\u0c00-\u0c7f]/;
+
+function channelDisplayName(channel: Channel, telugu: boolean): string {
+  if (telugu) return channel.name;
+  // The registry label keeps its established English name before the separator;
+  // links, usernames, and external destinations remain untouched.
+  return channel.name.split("|")[0]?.trim() || "Channel listing";
+}
+
+function channelDisplayDescription(channel: Channel, telugu: boolean): string {
+  if (telugu) return channel.desc;
+  const englishSentences = channel.desc
+    .split(/(?<=[.!?])\s+/)
+    .filter((sentence) => !TELUGU_SCRIPT.test(sentence.trim()));
+  if (englishSentences.length) return englishSentences.join(" ").trim();
+  if (channel.tier === "L1_REGION") {
+    return "Regional directory listing for member-submitted profiles. Personal details are not independently verified; availability and posting frequency may vary.";
+  }
+  if (channel.tier === "L2_RELIGION") {
+    return "Religion and community directory listing. Personal details are not independently verified; availability and posting frequency may vary.";
+  }
+  return "Selected community directory listing. Community names are not exhaustive; profile details and external channel availability are not independently verified.";
+}
 
 export default function ChannelsPage() {
   const { lang } = useLang();
@@ -70,7 +93,7 @@ export default function ChannelsPage() {
 
         {/* Hero + stats */}
         <div className="maroon-gradient rounded-[1.5rem] p-6 text-white">
-          <h1 className="font-bold text-xl">📢 <Duo en="Mana Vivaha — Channel Network" te="మన వివాహ — ఛానల్ నెట్‌వర్క్" /></h1>
+          <h1 className="font-bold text-xl">📢 <Duo en="Mana Vivaha — Channel Directory" te="మన వివాహ — ఛానల్ డైరెక్టరీ" /></h1>
           <p className="text-xs sm:text-sm mt-2 opacity-90 leading-relaxed">
             {te
               ? <>ప్రొఫైల్ ఆమోదం తర్వాత, publishing configuration మరియు channel access అనుమతిస్తే సంబంధిత destination కు post queue కావచ్చు. Delivery హామీ కాదు. ఇక్కడి Telegram/WhatsApp links availability ను మేము ఆటోమేటిక్‌గా తనిఖీ చేయము.</>
@@ -99,7 +122,7 @@ export default function ChannelsPage() {
         {/* Filters */}
         <div className="mt-4 bg-white rounded-[1.5rem] p-4 card-shadow">
           <input value={q} onChange={e => setQ(e.target.value)}
-            placeholder={te ? "🔍 వెతకండి — Reddy, NRI, Doctors..." : "🔍 Search — Reddy, NRI, Doctors..."}
+            placeholder={te ? "🔍 వెతకండి — Reddy, NRI, Brahmin..." : "🔍 Search — Reddy, NRI, Brahmin..."}
             className="w-full p-3 rounded-xl bg-gray-50 border text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#7A0C2E]" aria-label={te ? "ఛానల్స్ వెతకండి" : "Search channels"} />
           <div className="flex flex-wrap gap-2 mt-3">
             <button type="button" aria-pressed={tier === "ALL"} onClick={() => setTier("ALL")}
@@ -138,7 +161,7 @@ export default function ChannelsPage() {
           <div className="mt-4 bg-white rounded-[1.5rem] p-5 card-shadow">
             <h2 className="font-bold text-[#7A0C2E] text-sm">{te ? `ఛానల్ listings (${listedChannels.length})` : `Channel directory (${listedChannels.length})`}</h2>
             <p className="mt-1 text-[11px] text-slate-500 leading-relaxed">
-              {te ? "External links availability ను ఈ పేజీ తనిఖీ చేయదు. Support link ఉంటే అది configured contact ను మాత్రమే తెరుస్తుంది; configure చేయకపోతే WhatsApp button చూపించము." : "This page does not check external link availability. A support link appears only when configured; otherwise no WhatsApp fallback is shown."}
+              {te ? "ఈ పేజీ external link availability ను తనిఖీ చేయదు. ఇక్కడ channel కోసం owner-configured invite link మాత్రమే చూపిస్తాం; support contact ను channel link గా ఉపయోగించము." : "This page does not check external link availability. It shows only owner-configured channel invites; a support contact is never substituted for a channel link."}
             </p>
             <div className="grid md:grid-cols-2 gap-3 mt-3">
               {listedChannels.map((c: Channel) => {
@@ -147,15 +170,15 @@ export default function ChannelsPage() {
                   <div key={c.key} className="border border-green-300/60 bg-green-50/30 rounded-2xl p-3.5 shadow-sm hover:shadow-md transition">
                     <div className="flex justify-between items-start gap-2">
                       <div className="min-w-0 flex-1">
-                        <div className="font-bold text-[14px] text-[#7A0C2E] truncate">{c.name}</div>
+                        <div className="font-bold text-[14px] text-[#7A0C2E] truncate">{channelDisplayName(c, te)}</div>
                       </div>
                       <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-slate-100 text-slate-600 whitespace-nowrap">{te ? "లిస్టులో ఉంది" : "LISTED"}</span>
                     </div>
-                    <div className="text-[11px] text-gray-600 mt-1 line-clamp-2">{c.desc}</div>
+                    <div className="text-[11px] text-gray-600 mt-1 line-clamp-2">{channelDisplayDescription(c, te)}</div>
                     <div className="flex flex-wrap items-center gap-2 mt-3 pt-2 border-t border-green-200/40">
                       {lnk.telegram && (
                         <a href={lnk.telegram} target="_blank" rel="noopener noreferrer"
-                          aria-label={te ? `${c.name} Telegram listing తెరవండి` : `Open Telegram listing for ${c.name}`}
+                          aria-label={te ? `${channelDisplayName(c, te)} Telegram listing తెరవండి` : `Open Telegram listing for ${channelDisplayName(c, te)}`}
                           className="inline-flex min-h-10 items-center gap-1.5 rounded-full bg-[#229ED9] px-3.5 py-1.5 text-[11px] font-bold text-white shadow-soft transition hover:brightness-110 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7A0C2E]">
                           <TelegramIcon className="w-3.5 h-3.5" mono />
                           <span>{te ? "Telegram link" : "Open Telegram"}</span>
@@ -164,8 +187,8 @@ export default function ChannelsPage() {
                       {lnk.whatsapp ? (
                         <a href={lnk.whatsapp} target="_blank" rel="noopener noreferrer"
                           aria-label={lnk.whatsappIsDirect
-                            ? (te ? `${c.name} WhatsApp channel తెరవండి` : `Open WhatsApp channel for ${c.name}`)
-                            : (te ? `${c.name} గురించి WhatsApp support ని అడగండి` : `Ask WhatsApp support about ${c.name}`)}
+                            ? (te ? `${channelDisplayName(c, te)} WhatsApp channel తెరవండి` : `Open WhatsApp channel for ${channelDisplayName(c, te)}`)
+                            : (te ? `${channelDisplayName(c, te)} గురించి WhatsApp support ని అడగండి` : `Ask WhatsApp support about ${channelDisplayName(c, te)}`)}
                           className="inline-flex min-h-10 items-center gap-1.5 rounded-full bg-[#0b7d46] px-3.5 py-1.5 text-[11px] font-bold text-white shadow-soft transition hover:brightness-110 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7A0C2E]">
                           <WhatsAppIcon className="w-3.5 h-3.5" mono />
                           <span>{lnk.whatsappIsDirect ? (te ? "WhatsApp ఛానల్" : "WhatsApp Channel") : (te ? "WhatsApp support" : "WhatsApp Support")}</span>
@@ -197,7 +220,7 @@ export default function ChannelsPage() {
           <div className="text-xs text-gray-500 mt-1">{te ? <>₹99 సంబంధం • మొదటి 3 FREE • external link availability ఆటోమేటిక్‌గా తనిఖీ చేయబడదు</> : <>₹99 Sambandham • First 3 FREE • external link availability is not checked automatically</>}</div>
           <div className="flex justify-center gap-3 mt-3">
             <Link href="/register" className="px-4 py-2 maroon-gradient text-white rounded-full text-xs font-bold">{te ? "FREE గా నమోదు చెయ్యండి" : "Register FREE"}</Link>
-            <Link href="/bureau" className="px-4 py-2 border border-[#D4AF37] text-[#7A0C2E] rounded-full text-xs font-bold">Bureau / Broker</Link>
+            <Link href="/matches" className="px-4 py-2 border border-[#D4AF37] text-[#7A0C2E] rounded-full text-xs font-bold">{te ? "సంబంధాలు చూడండి" : "Browse matches"}</Link>
           </div>
         </div>
       </div>

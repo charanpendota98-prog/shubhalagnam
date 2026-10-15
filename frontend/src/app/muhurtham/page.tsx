@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import MuhurthamPageClient from "./page-client";
 
 export const metadata: Metadata = {
-  title: "వివాహ ముహూర్తాలు 2026-2027 (Vivaha Muhurthams)",
-  description: "వేద పంచాంగం ప్రకారం 2026-2027 శుభ వివాహ ముహూర్తాలు, లగ్నాలు, నక్షత్రాలు — నెలవారీగా, WhatsApp షేర్ & ప్రింట్ చేసుకోండి.",
+  title: "Wedding Muhurtham Dates & Times",
+  description: "Browse indicative wedding muhurtham dates and times. Confirm the details with a local practitioner before making arrangements.",
   alternates: { canonical: "https://manavivaha.in/muhurtham" },
 };
 

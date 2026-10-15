@@ -7,13 +7,23 @@
  * → Entha mandi profiles ayyaru? (inventory) → WhatsApp queue ela undi? (anti-ban)
  * Ee screen chusi admin rojuki 10 nimushalalo follow-up cheyyali.
  */
-import { authHeaders, getAdminKey, setAdminKey } from "@/lib/api";
-import { useCallback, useEffect, useState } from "react";
+import { apiDisplayMessage, authHeaders, getAdminKey, setAdminKey, readApiJson } from "@/lib/api";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { Duo, duo } from "@/lib/duo";
 import { useLang } from "@/lib/lang";
 
 type Stats = Record<string, any>;
+
+function KPI({ label, value, sub, tone = "maroon" }: { label: string; value: ReactNode; sub?: string; tone?: "maroon" | "gold" }) {
+  return (
+    <div className="bg-white rounded-2xl border border-gold/25 p-4">
+      <div className="text-[11px] text-gray-500">{label}</div>
+      <div className={`text-2xl font-bold ${tone === "gold" ? "text-[#8a6d1a]" : "text-maroon"}`}>{value}</div>
+      {sub && <div className="text-[10px] text-gray-500 mt-0.5">{sub}</div>}
+    </div>
+  );
+}
 
 export default function GrowthPage() {
   const { lang } = useLang();
@@ -40,10 +50,10 @@ export default function GrowthPage() {
   const load = useCallback(async () => {
     try {
       const [s, i, w, l] = await Promise.all([
-        fetch("/api/leads/stats", { headers: authHeaders(true) }).then((r) => r.json()),
-        fetch("/api/inventory").then((r) => r.json()),
-        fetch("/api/wa/status").then((r) => r.json()),
-        fetch("/api/leads?limit=30", { headers: authHeaders(true) }).then((r) => r.json()),
+        fetch("/api/leads/stats", { headers: authHeaders(true) }).then((r) => readApiJson(r)),
+        fetch("/api/inventory").then((r) => readApiJson(r)),
+        fetch("/api/wa/status").then((r) => readApiJson(r)),
+        fetch("/api/leads?limit=30", { headers: authHeaders(true) }).then((r) => readApiJson(r)),
       ]);
       setStats(s); setInv(i); setWa(w); setLeads(l.items || []);
       // 🐞 FIX: 403 vaste khali table chupinchadam kaadu — "admin key kavali" clear ga cheppali
@@ -51,33 +61,27 @@ export default function GrowthPage() {
     } catch {
       setNote(te ? "API reach అవ్వలేదు — backend run అవుతుందో చూసుకోండి" : "API unreachable — check backend is running");
     }
-  }, []);
+  }, [te]);
 
   useEffect(() => { load(); }, [load]);
 
   const followup = async (id: string) => {
     setBusy(id);
     try {
-      const d = await fetch(`/api/leads/followup/${id}`, { method: "POST", headers: authHeaders(true) }).then((r) => r.json());
-      setNote(d.message_telugu || "Follow-up queued");
+      const response = await fetch(`/api/leads/followup/${encodeURIComponent(id)}`, { method: "POST", headers: authHeaders(true) });
+      const d = await readApiJson(response);
+      if (!response.ok || d.success === false) throw new Error(apiDisplayMessage(d, te, te ? "Follow-up queue కాలేదు." : "Follow-up was not queued."));
+      setNote(apiDisplayMessage(d, te, te ? "Follow-up queue అయింది; delivery నిర్ధారణ లేదు." : "Follow-up queued; delivery is not confirmed."));
       load();
-    } catch { setNote(te ? "Follow-up పంపలేదు" : "Follow-up not sent"); }
+    } catch (error: any) { setNote(error?.message || (te ? "Follow-up పంపలేదు" : "Follow-up not sent")); }
     setBusy("");
   };
 
   const waAction = async (path: string) => {
-    const d = await fetch(path, { method: "POST" }).then((r) => r.json());
-    setNote(d.message_telugu || "OK");
+    const d = await fetch(path, { method: "POST" }).then((r) => readApiJson(r));
+    setNote(apiDisplayMessage(d, te, te ? "చర్య పూర్తయింది." : "The action was completed."));
     load();
   };
-
-  const KPI = ({ label, value, sub, tone = "maroon" }: { label: string; value: any; sub?: string; tone?: string }) => (
-    <div className="bg-white rounded-2xl border border-gold/25 p-4">
-      <div className="text-[11px] text-gray-500">{label}</div>
-      <div className={`text-2xl font-bold ${tone === "gold" ? "text-[#8a6d1a]" : "text-maroon"}`}>{value}</div>
-      {sub && <div className="text-[10px] text-gray-500 mt-0.5">{sub}</div>}
-    </div>
-  );
 
   const ab = wa?.antiban || {};
 
@@ -108,10 +112,10 @@ export default function GrowthPage() {
             📈 Growth + Ops dashboard
           </div>
           <h1 className="mt-3 text-2xl md:text-3xl font-bold"><Duo en="Site traffic → Leads → Profiles" te="సందర్శకులు → లీడ్స్ → ప్రొఫైళ్లు" /></h1>
-          <p className="mt-2 text-[13px] opacity-90 telugu max-w-3xl">
-{te ? <>ప్రతి visitor DB లో save అవుతారు (middleware tracking). Number ఇస్తే lead — మన WhatsApp follow-up తో profile గా మారతారు.
-            WhatsApp posts అన్నీ anti-ban gap (120–170s random) తో — ఈ screen లో queue status చూడొచ్చు.</> : <>Every visitor saves to DB (middleware tracking). A number makes a lead — our WhatsApp follow-up converts them to profiles.
-            All WhatsApp posts go with anti-ban gap (120–170s random) — queue status visible on this screen.</>}
+          <p className="mt-2 max-w-3xl text-[13px] opacity-90">
+            {te
+              ? "ఈ డాష్‌బోర్డ్‌లో నమోదు అయిన సందర్శకుల activity, leads మాత్రమే కనిపిస్తాయి. Contact consent ఉన్నప్పుడు మాత్రమే follow-up queue చేయండి; queue చేయడం delivery నిర్ధారణ కాదు."
+              : "This dashboard shows recorded visitor activity and leads. Queue follow-ups only when contact consent is recorded; queueing does not confirm delivery."}
           </p>
           <div className="mt-3 flex flex-wrap gap-2 text-[12px]">
             <button onClick={load} className="px-4 py-2 rounded-full gold-gradient text-maroon font-bold">🔄 Refresh</button>
@@ -146,7 +150,7 @@ export default function GrowthPage() {
                 <div className="mt-3 flex flex-wrap gap-2 text-[11px]">
                   {[
                     ["Total", inv.total_profiles], ["Approved", inv.approved_profiles], ["Pending", inv.pending_profiles],
-                    ["Brides", inv.brides], ["Grooms", inv.grooms], ["Verified evidence", inv.verified],
+                    ["Brides", inv.brides], ["Grooms", inv.grooms], ["Recorded checks", inv.recorded_checks],
                     ["Approved photos", inv.photos], ["Castes", inv.castes_covered], ["Districts", inv.districts_covered],
                   ].map(([label, value]) => (
                     <span key={String(label)} className="rounded-full border border-gold/30 bg-cream px-3 py-1 text-slate-700">
@@ -166,7 +170,7 @@ export default function GrowthPage() {
                     const max = Math.max(...Object.values(stats.by_channel as Record<string, number>).map(Number), 1);
                     return (
                       <div key={k}>
-                        <div className="flex justify-between text-[11px]"><span className="font-bold">{k}</span><span>{String(v)}</span></div>
+                        <div className="flex justify-between text-[11px]"><span className="font-bold">{te ? k : apiDisplayMessage({ message_en: k }, false, "Other")}</span><span>{String(v)}</span></div>
                         <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
                           <div className="h-2 gold-gradient" style={{ width: `${(Number(v) / max) * 100}%` }} />
                         </div>
@@ -199,8 +203,8 @@ export default function GrowthPage() {
                 <table className="w-full text-[12px]">
                   <thead>
                     <tr className="text-left text-gray-500">
-                      <th className="py-1">Lead</th><th>Number</th><th>Gender</th><th>District</th>
-                      <th>Source</th><th>Status</th><th>Follow-up</th>
+                      <th className="py-1">{te ? "లీడ్" : "Lead"}</th><th>{te ? "నంబర్" : "Number"}</th><th>{te ? "లింగం" : "Gender"}</th><th>{te ? "జిల్లా" : "District"}</th>
+                      <th>{te ? "మూలం" : "Source"}</th><th>{te ? "స్థితి" : "Status"}</th><th>{te ? "సంప్రదింపు అంగీకారం" : "Contact consent"}</th><th>{te ? "Follow-up" : "Follow-up"}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -208,30 +212,39 @@ export default function GrowthPage() {
                       <tr key={l.id} className="border-t border-gold/15">
                         <td className="py-1.5 font-mono text-[11px]">{l.id}</td>
                         <td className="font-bold">{l.phone}</td>
-                        <td>{l.gender || "—"}</td>
-                        <td>{l.district || "—"}</td>
-                        <td>{l.source}</td>
+                        <td>{te ? (l.gender || "—") : apiDisplayMessage({ message_en: l.gender }, false, "—")}</td>
+                        <td>{te ? (l.district || "—") : apiDisplayMessage({ message_en: l.district }, false, "—")}</td>
+                        <td>{te ? (l.source || "—") : apiDisplayMessage({ message_en: l.source }, false, "Other")}</td>
                         <td>
                           <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${l.status === "converted" ? "bg-emerald-100 text-emerald-800" :
-                            l.status === "contacted" ? "bg-amber-100 text-amber-800" : "bg-gray-100 text-gray-700"}`}>{l.status}</span>
+                            l.status === "contacted" ? "bg-amber-100 text-amber-800" : "bg-gray-100 text-gray-700"}`}>
+                            {te ? (l.status || "—") : apiDisplayMessage({ message_en: l.status }, false, "Unknown")}
+                          </span>
                         </td>
+                        <td>{l.contact_consent ? (te ? "అవును — registration సహాయం మాత్రమే" : "Yes — registration help only") : (te ? "లేదు" : "No")}</td>
                         <td>
-                          <button onClick={() => followup(l.id)} disabled={busy === l.id}
-                            className="px-3 py-1.5 rounded-full maroon-gradient text-white font-bold text-[10px] disabled:opacity-50">
-                            {busy === l.id ? "…" : "📲 WhatsApp follow-up"}
-                          </button>
+                          {l.contact_consent && !l.followup_queued_at ? (
+                            <button onClick={() => followup(l.id)} disabled={busy === l.id}
+                              className="px-3 py-1.5 rounded-full maroon-gradient text-white font-bold text-[10px] disabled:opacity-50">
+                              {busy === l.id ? "…" : te ? "📲 Opt-in follow-up" : "📲 Opt-in follow-up"}
+                            </button>
+                          ) : l.followup_queued_at ? (
+                            <span className="text-[10px] text-amber-800">{te ? "Queued; delivery నిర్ధారణ లేదు" : "Queued; delivery not confirmed"}</span>
+                          ) : (
+                            <span className="text-[10px] text-slate-500">{te ? "సంప్రదింపు consent లేదు" : "No contact opt-in"}</span>
+                          )}
                         </td>
                       </tr>
                     ))}
-                    {!leads.length && <tr><td colSpan={7} className="py-3 text-gray-500">{te ? "ఇంకా leads లేవు — QuickLead form / register తో వస్తాయి" : "No leads yet — they come via QuickLead form / register"}</td></tr>}
+                    {!leads.length && <tr><td colSpan={8} className="py-3 text-gray-500">{te ? "ఇంకా leads లేవు — సహాయం కోసం స్వచ్ఛందంగా contact consent ఇచ్చినప్పుడు మాత్రమే follow-up చేయండి." : "No leads yet — follow up only when a person has explicitly opted in to registration help."}</td></tr>}
                   </tbody>
                 </table>
               </div>
             </div>
 
-            {/* ---- WhatsApp anti-ban status ---- */}
+            {/* ---- WhatsApp queue controls ---- */}
             <div className="bg-white rounded-2xl border border-gold/25 p-4">
-              <div className="font-bold text-maroon text-[14px]">🛡️ WhatsApp anti-ban status</div>
+              <div className="font-bold text-maroon text-[14px]">{te ? "🛡️ WhatsApp queue & sending controls" : "🛡️ WhatsApp queue & sending controls"}</div>
               <div className="mt-3 grid grid-cols-2 md:grid-cols-5 gap-3 text-[12px]">
                 <div className="bg-cream rounded-xl px-3 py-2">mode: <b>{wa?.whatsapp_mode}</b></div>
                 <div className="bg-cream rounded-xl px-3 py-2">gap: <b>{ab.random_gap || "—"}</b></div>
@@ -245,7 +258,9 @@ export default function GrowthPage() {
                 <button onClick={() => waAction("/api/wa/reset_day")} className="px-4 py-2 rounded-full border border-gold/40 text-maroon font-bold text-[12px]">🔄 Reset day counter</button>
               </div>
               <div className="mt-2 text-[11px] text-gray-500">
-                {te ? "Telegram ముందు post అవుతుంది → WhatsApp తర్వాత (random 120–170s gap, every 6 messages కి 8–20 min break, 8–22 IST only)." : "Telegram posts first → WhatsApp after (random 120–170s gap, 8–20 min break every 6 messages, 8–22 IST only)."}
+                {te
+                  ? "కాన్ఫిగర్ చేసిన delayలు, సమయ పరిమితులు sending controls మాత్రమే; ఇవి platform restrictions‌ను నివారించవు లేదా delivery‌ను హామీ ఇవ్వవు."
+                  : "Configured delays and time windows are sending controls only; they do not prevent platform restrictions or guarantee delivery."}
               </div>
             </div>
 
@@ -254,18 +269,20 @@ export default function GrowthPage() {
               <div className="bg-white rounded-2xl border border-gold/25 p-4">
                 <div className="font-bold text-maroon text-[14px]">📍 Leads by district</div>
                 <div className="mt-2 space-y-1">
-                  {Object.entries(stats.leads_by_district || {}).map(([k, v]) => (
-                    <div key={k} className="flex justify-between text-[12px]"><span>{k}</span><b className="text-maroon">{String(v)}</b></div>
-                  ))}
+                  {Object.entries(stats.leads_by_district || {}).map(([k, v]) => {
+                    const label = te ? k : apiDisplayMessage({ message_en: k }, false, "Other");
+                    return <div key={k} className="flex justify-between text-[12px]"><span>{label}</span><b className="text-maroon">{String(v)}</b></div>;
+                  })}
                   {!Object.keys(stats.leads_by_district || {}).length && <div className="text-[12px] text-gray-500">{te ? "Data లేదు" : "No data"}</div>}
                 </div>
               </div>
               <div className="bg-white rounded-2xl border border-gold/25 p-4">
                 <div className="font-bold text-maroon text-[14px]">🧲 Leads by source</div>
                 <div className="mt-2 space-y-1">
-                  {Object.entries(stats.leads_by_source || {}).map(([k, v]) => (
-                    <div key={k} className="flex justify-between text-[12px]"><span>{k}</span><b className="text-maroon">{String(v)}</b></div>
-                  ))}
+                  {Object.entries(stats.leads_by_source || {}).map(([k, v]) => {
+                    const label = te ? k : apiDisplayMessage({ message_en: k }, false, "Other");
+                    return <div key={k} className="flex justify-between text-[12px]"><span>{label}</span><b className="text-maroon">{String(v)}</b></div>;
+                  })}
                   {!Object.keys(stats.leads_by_source || {}).length && <div className="text-[12px] text-gray-500">{te ? "Data లేదు" : "No data"}</div>}
                 </div>
               </div>

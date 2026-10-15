@@ -1,5 +1,7 @@
 "use client";
 
+
+import { readApiJson } from "@/lib/api";
 import { useState } from "react";
 import Link from "next/link";
 import { useLang } from "@/lib/lang";
@@ -10,9 +12,11 @@ type Result = {
   available?: boolean;
   passed_checks?: number;
   total_checks?: number;
-  items?: Array<{ no?: number; name?: string; telugu?: string; pass?: boolean; note?: string }>;
+  items?: Array<{ no?: number; name?: string; name_en?: string; telugu?: string; pass?: boolean; note?: string; note_en?: string }>;
   advice_telugu?: string;
+  advice_en?: string;
   reason?: string;
+  reason_en?: string;
 };
 
 export default function HomePoruthamWidget() {
@@ -38,7 +42,7 @@ export default function HomePoruthamWidget() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ bride_star: bStar, groom_star: gStar }),
       });
-      const data = await response.json();
+      const data = await readApiJson(response);
       if (!response.ok) throw new Error(data?.detail || data?.message_telugu || "Could not calculate the result.");
       setResult(data);
     } catch (err) {
@@ -86,14 +90,14 @@ export default function HomePoruthamWidget() {
                 👰 {te ? "వధువు నక్షత్రం" : "Bride star"}
                 <select value={bStar} onChange={(event) => { setBStar(event.target.value); setResult(null); }} className="mt-2 min-h-11 w-full rounded-xl border border-rose-200 bg-white px-3 text-sm text-slate-800 focus-brand">
                   <option value="">— {te ? "ఎంచుకోండి" : "Select"} —</option>
-                  {NAKSHATRAS.map((star) => <option key={star.en} value={star.en}>{star.te} ({star.en})</option>)}
+                  {NAKSHATRAS.map((star) => <option key={star.en} value={star.en}>{te ? `${star.te} (${star.en})` : star.en}</option>)}
                 </select>
               </label>
               <label className="block rounded-2xl border border-amber-200 bg-amber-50/70 p-4 text-xs font-bold text-maroon">
                 🤵 {te ? "వరుని నక్షత్రం" : "Groom star"}
                 <select value={gStar} onChange={(event) => { setGStar(event.target.value); setResult(null); }} className="mt-2 min-h-11 w-full rounded-xl border border-amber-200 bg-white px-3 text-sm text-slate-800 focus-brand">
                   <option value="">— {te ? "ఎంచుకోండి" : "Select"} —</option>
-                  {NAKSHATRAS.map((star) => <option key={star.en} value={star.en}>{star.te} ({star.en})</option>)}
+                  {NAKSHATRAS.map((star) => <option key={star.en} value={star.en}>{te ? `${star.te} (${star.en})` : star.en}</option>)}
                 </select>
               </label>
             </div>
@@ -122,9 +126,9 @@ export default function HomePoruthamWidget() {
                       <li key={`${item.no ?? index}-${item.name ?? "check"}`} className={`rounded-xl border p-3 ${item.pass ? "border-emerald-200 bg-emerald-50/70" : "border-amber-200 bg-amber-50/70"}`}>
                         <div className="flex items-start gap-2 text-xs font-bold text-slate-800">
                           <span aria-hidden="true">{item.pass ? "✓" : "•"}</span>
-                          <span className="break-words">{item.no ? `${item.no}. ` : ""}{te ? item.telugu || item.name : item.name || item.telugu}</span>
+                          <span className="break-words">{item.no ? `${item.no}. ` : ""}{te ? item.telugu || item.name : item.name_en || "Porutham check"}</span>
                         </div>
-                        {item.note ? <p className="mt-1 text-[11px] leading-relaxed text-slate-600">{item.note}</p> : null}
+                        {(te ? item.note : item.note_en) ? <p className="mt-1 text-[11px] leading-relaxed text-slate-600">{te ? item.note : item.note_en}</p> : null}
                       </li>
                     ))}
                   </ol>
@@ -140,7 +144,9 @@ export default function HomePoruthamWidget() {
               </>
             ) : result ? (
               <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-xs leading-relaxed text-amber-900" role="status">
-                {result.reason || result.advice_telugu || (te ? "తగిన నక్షత్ర వివరాలు లేవు; Porutham checks లెక్కించలేదు." : "Not enough star details; Porutham checks were not calculated.")}
+                {te
+                  ? result.reason || result.advice_telugu || "తగిన నక్షత్ర వివరాలు లేవు; Porutham checks లెక్కించలేదు."
+                  : result.reason_en || result.advice_en || "Not enough star details; Porutham checks were not calculated."}
               </div>
             ) : (
               <div className="grid min-h-48 place-items-center rounded-xl border border-dashed border-amber-200 bg-gradient-to-br from-amber-50 to-rose-50 p-5 text-center">

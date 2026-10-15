@@ -1,4 +1,6 @@
 "use client";
+
+import { apiDisplayMessage, readApiJson } from "@/lib/api";
 /**
  * 📢 WAVE 13 — VENDOR CAMPAIGN (ad create + live quote)
  * Vendor ID + token tho campaign request → UTR pay → admin approve → LIVE.
@@ -23,7 +25,7 @@ export default function VendorCampaignPage() {
   const [mine, setMine] = useState<any[]>([]);
 
   useEffect(() => {
-    fetch("/api/ads/rates").then((r) => r.json()).then((d) => d.success && setRates(d.rates)).catch(() => {});
+    fetch("/api/ads/rates").then((r) => readApiJson(r)).then((d) => d.success && setRates(d.rates)).catch(() => {});
     try {
       setVendorId(localStorage.getItem("tsap_vendor_id") || "");
       setVToken(localStorage.getItem("tsap_vendor_token") || "");
@@ -40,30 +42,36 @@ export default function VendorCampaignPage() {
     setMsg("");
     const r = await fetch("/api/ads/quote", { method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ level: f.level, days: f.days, districts: f.districts, slots: f.slots, video_url: f.video_url }) });
-    const d = await r.json();
-    if (d.success) { setQuote(d); setMsg(`✅ ${d.message_telugu}`); }
-    else { setQuote(null); setMsg(d.detail || "Quote fail"); }
+    const d = await readApiJson(r);
+    if (d.success) {
+      setQuote(d);
+      setMsg(apiDisplayMessage(d, te, te ? "ధర అంచనా సిద్ధంగా ఉంది." : "Your price quote is ready."));
+    } else {
+      setQuote(null);
+      setMsg(apiDisplayMessage(d, te, te ? "ధర అంచనా పొందలేకపోయాం. ఎంపికలను పరిశీలించండి." : "Could not calculate the quote. Review your selections."));
+    }
   };
 
   const create = async () => {
     if (!vendorId.trim()) { setMsg(te ? "⚠️ Vendor ID ఇవ్వండి (register అయ్యాక వచ్చింది)" : "⚠️ Enter Vendor ID (you got it after register)"); return; }
     const r = await fetch(`/api/vendors/${encodeURIComponent(vendorId.trim())}/campaigns`,
       { method: "POST", headers: vHeaders(), body: JSON.stringify({ ...f, vendor_id: undefined }) });
-    const d = await r.json();
+    const d = await readApiJson(r);
     if (d.success) {
-      setMsg(`✅ ${d.message_telugu} (ID: ${d.campaign.id} — ₹${d.campaign.amount})`);
+      const status = apiDisplayMessage(d, te, te ? "ప్రచార అభ్యర్థన నమోదు అయింది." : "Campaign request recorded.");
+      setMsg(`✅ ${status} (ID: ${d.campaign.id} — ₹${d.campaign.amount})`);
       try {
         localStorage.setItem("tsap_vendor_id", vendorId.trim());
         if (vToken.trim()) localStorage.setItem("tsap_vendor_token", vToken.trim());
       } catch { /* ignore */ }
       void loadMine();
-    } else setMsg(d.detail || "Create fail");
+    } else setMsg(apiDisplayMessage(d, te, te ? "ప్రచార అభ్యర్థన పంపలేకపోయాం." : "Could not submit the campaign request."));
   };
 
   const loadMine = async () => {
     if (!vendorId.trim()) return;
     const r = await fetch(`/api/vendors/${encodeURIComponent(vendorId.trim())}/campaigns`, { headers: vHeaders() });
-    const d = await r.json();
+    const d = await readApiJson(r);
     if (d.success) setMine(d.campaigns || []);
   };
 
@@ -87,14 +95,14 @@ export default function VendorCampaignPage() {
       <div className="mt-4 grid gap-3 rounded-3xl border bg-white p-4">
         <div className="grid gap-2 sm:grid-cols-2">
           <label className="text-xs font-bold">Vendor ID*<input value={vendorId} onChange={(e) => setVendorId(e.target.value)}
-            placeholder="MVV-0001" aria-label="Vendor ID" className="mt-1 w-full rounded-xl border px-3 py-2 font-mono" /></label>
+            placeholder="Your registered vendor ID" aria-label="Vendor ID" className="mt-1 w-full rounded-xl border px-3 py-2 font-mono" /></label>
           <label className="text-xs font-bold">Vendor access code (dashboard)<input value={vToken} onChange={(e) => setVToken(e.target.value)}
-            placeholder="optional (prod lo)" aria-label="Vendor access code" className="mt-1 w-full rounded-xl border px-3 py-2 font-mono" /></label>
+            placeholder="Access code from your vendor registration" aria-label="Vendor access code" className="mt-1 w-full rounded-xl border px-3 py-2 font-mono" /></label>
         </div>
         <label className="text-xs font-bold">Ad title*<input value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })}
-          placeholder="Ex: Lens Studio — Wedding 4K + Drone" aria-label="Title" className="mt-1 w-full rounded-xl border px-3 py-2" /></label>
+          placeholder="Enter a concise campaign title" aria-label="Title" className="mt-1 w-full rounded-xl border px-3 py-2" /></label>
         <label className="text-xs font-bold">🎁 Offer text<input value={f.offer} onChange={(e) => setF({ ...f, offer: e.target.value })}
-          placeholder="Ex: Book now — free pre-wedding shoot" aria-label="Offer" className="mt-1 w-full rounded-xl border px-3 py-2" /></label>
+          placeholder="Describe your offer" aria-label="Offer" className="mt-1 w-full rounded-xl border px-3 py-2" /></label>
         <div className="grid gap-2 sm:grid-cols-3">
           <label className="text-xs font-bold">Scope*<select value={f.level} onChange={(e) => setF({ ...f, level: e.target.value })}
             aria-label="Scope" className="mt-1 w-full rounded-xl border px-3 py-2">
@@ -106,7 +114,7 @@ export default function VendorCampaignPage() {
             <label className="text-xs font-bold">State<select value={f.state} onChange={(e) => setF({ ...f, state: e.target.value })}
               aria-label="State" className="mt-1 w-full rounded-xl border px-3 py-2"><option>TS</option><option>AP</option></select></label>
           ) : <label className="text-xs font-bold">Link (WhatsApp/site)<input value={f.link} onChange={(e) => setF({ ...f, link: e.target.value })}
-            placeholder="https://wa.me/91..." aria-label="Link" className="mt-1 w-full rounded-xl border px-3 py-2" /></label>}
+            placeholder="Verified HTTPS destination (optional)" aria-label="Link" className="mt-1 w-full rounded-xl border px-3 py-2" /></label>}
         </div>
         {f.level === "district" ? (
           <div>
@@ -130,9 +138,9 @@ export default function VendorCampaignPage() {
         </div>
         <div className="grid gap-2 sm:grid-cols-2">
           <label className="text-xs font-bold">🖼️ Photo/banner URL<input value={f.image_url} onChange={(e) => setF({ ...f, image_url: e.target.value })}
-            placeholder="https://...jpg" aria-label="Image" className="mt-1 w-full rounded-xl border px-3 py-2" /></label>
+            placeholder="Image URL (optional)" aria-label="Image" className="mt-1 w-full rounded-xl border px-3 py-2" /></label>
           <label className="text-xs font-bold">🎬 Video URL (YouTube)<input value={f.video_url} onChange={(e) => setF({ ...f, video_url: e.target.value })}
-            placeholder="https://youtu.be/..." aria-label="Video" className="mt-1 w-full rounded-xl border px-3 py-2" /></label>
+            placeholder="YouTube video URL (optional)" aria-label="Video" className="mt-1 w-full rounded-xl border px-3 py-2" /></label>
         </div>
         <div className="flex flex-wrap gap-2">
           <button onClick={() => void getQuote()} className="rounded-xl border border-[#7A0C2E] px-5 py-2.5 text-sm font-bold text-[#7A0C2E]">{te ? "💰 Quote చూడు" : "💰 See quote"}</button>
@@ -154,10 +162,10 @@ export default function VendorCampaignPage() {
             {mine.map((c: any) => (
               <div key={c.id} className="rounded-2xl bg-gray-50 p-3 text-xs">
                 <div className="flex flex-wrap justify-between gap-2">
-                  <b>{c.title}</b>
+                  <b>{te ? c.title : apiDisplayMessage({ message_en: c.title }, false, "Campaign title unavailable in English")}</b>
                   <span className={`rounded-full px-2 py-0.5 text-[10px] ${c.status === "active" ? "bg-green-100 text-green-700" : "bg-orange-100 text-orange-700"}`}>{c.status}</span>
                 </div>
-                <div className="mt-1 text-gray-600">{c.id} · {c.level} {(c.districts || []).join(", ")}{c.state} · {c.days}d · ₹{c.amount} · 👁️ {c.impressions} · 🖱️ {c.clicks}</div>
+                <div className="mt-1 text-gray-600">{c.id} · {c.level} {(c.districts || []).map((district: string) => te ? district : apiDisplayMessage({ message_en: district }, false, "")).filter(Boolean).join(", ")} {c.state} · {c.days}d · ₹{c.amount} · 👁️ {c.impressions} · 🖱️ {c.clicks}</div>
                 {c.status === "pending" ? <div className="mt-1 text-amber-800">{te ? <>⏳ ₹{c.amount} pay చేసి UTR admin కి పంపండి → LIVE చేస్తారు</> : <>⏳ Pay ₹{c.amount} and send UTR to admin → they make it LIVE</>}</div> : null}
               </div>
             ))}

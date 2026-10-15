@@ -16,8 +16,8 @@ and producing a **reviewable send queue**.
     separate, explicit, injectable step.
   • Real WhatsApp send is GATED behind ``DIGEST_PERSONAL_SEND=1`` (default OFF)
     AND ``WHATSAPP_MODE`` (the existing queue no-ops when wa_mode == "off").
-  • Respects opt-out: per-user ``digest_opt_out`` / notification prefs, the
-    saved-search ``alert`` flag, and the consent ledger.
+  • Respects opt-out: per-user ``digest_opt_out`` / notification prefs, a
+    saved-search ``alert`` flag plus recorded per-search consent timestamp, and the consent ledger.
   • Dedup: a stable ``dedup_key`` (hash of the match ids) means the same
     digest is never re-sent on consecutive days.
   • Only ENGAGED users (recent activity) by default — protects sender
@@ -30,7 +30,7 @@ from __future__ import annotations
 
 import os
 import hashlib
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Callable, Iterable
 
 import matchbot
@@ -46,21 +46,27 @@ DEFAULT_LANG = "te"
 # --------------------------------------------------------------------------- #
 # Defensive helpers
 # --------------------------------------------------------------------------- #
+def _naive_utc(value: datetime) -> datetime:
+    """Normalize aware timestamps to naive UTC for consistent stored-time comparisons."""
+    if value.tzinfo is not None:
+        return value.astimezone(timezone.utc).replace(tzinfo=None)
+    return value
+
+
 def _parse_dt(s: Any) -> Optional[datetime]:
     if isinstance(s, datetime):
-        return s
+        return _naive_utc(s)
     if not s or not isinstance(s, str):
         return None
     txt = s.strip().replace("Z", "+00:00")
     try:
-        dt = datetime.fromisoformat(txt)
-        return dt.replace(tzinfo=None) if dt.tzinfo else dt
+        return _naive_utc(datetime.fromisoformat(txt))
     except Exception:
         return None
 
 
 def _now(now: Optional[datetime]) -> datetime:
-    return now or datetime.utcnow()
+    return _naive_utc(now) if now is not None else datetime.utcnow()
 
 
 def _days_since(dt: Optional[datetime], now: datetime) -> Optional[float]:
@@ -230,8 +236,9 @@ def build_personal_digest(user: Dict, profiles: List[Dict],
                 continue
             if str(sr.get("tsap_id", "")).upper() != mid:
                 continue
-            if sr.get("alert") in (False, 0, "0", "false", "no", "off"):
-                continue  # per-search opt-out
+            alert_enabled = sr.get("alert") in (True, 1, "1", "true", "yes", "on")
+            if not alert_enabled or not str(sr.get("alert_consent_at") or "").strip():
+                continue  # fail closed unless this search has recorded explicit alert consent
             try:
                 fresh = new_matches_fn(sr, profiles, [mid], 5) or []
             except Exception:

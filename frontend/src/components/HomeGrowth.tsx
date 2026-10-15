@@ -1,12 +1,14 @@
 "use client";
 
 /**
- * 🏠🌊 WAVE 18 — Homepage growth: blurred teaser profiles + success stories + religions.
- * Open cheyagane register/login ki push — photos blur, details lock, CTA maroon.
+ * Homepage profile previews, member-submitted stories, and community links.
+ * Copy distinguishes member-submitted details from independent identity checks.
  */
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Duo, duo } from "@/lib/duo";
+import { apiDisplayMessage } from "@/lib/api";
+import { useLang } from "@/lib/lang";
 import { apiGet } from "@/lib/api";
 import Reveal from "@/components/Reveal";
 import SectionHeading from "@/components/SectionHeading";
@@ -16,8 +18,8 @@ type Teaser = {
   caste?: string; education?: string; job?: string; district?: string; state?: string;
 };
 type Story = {
-  story_id?: string; couple_names?: string; text?: string; photo_url?: string;
-  district?: string; likes?: number;
+  story_id?: string; couple_names?: string; text?: string; story_en?: string; story_te?: string;
+  photo_url?: string; district?: string;
 };
 
 function firstName(n?: string) {
@@ -25,6 +27,11 @@ function firstName(n?: string) {
 }
 
 export function TeaserStrip() {
+  const { lang } = useLang();
+  const te = lang === "te";
+  const displayField = (value?: string) => te
+    ? String(value || "")
+    : apiDisplayMessage({ message_en: value }, false, "");
   const [rows, setRows] = useState<Teaser[]>([]);
   useEffect(() => {
     void apiGet<{ teasers?: Teaser[] }>("/api/home/teasers?limit=8")
@@ -35,52 +42,59 @@ export function TeaserStrip() {
     <section className="max-w-7xl mx-auto px-4 py-8">
       <Reveal>
         <SectionHeading
-          eyebrow={duo("New profiles", "కొత్త ప్రొఫైళ్లు")}
-          title={duo("Real people. Real families. Waiting for you.", "నిజమైన వ్యక్తులు. నిజమైన కుటుంబాలు. మీకోసం ఎదురుచూస్తున్నారు.")}
-          subtitle={duo("🔒 Photos blur + details lock — REGISTER (FREE) to open full profiles.", "🔒 Photos blur + details lock — REGISTER (FREE) చేస్తే full profiles open అవుతాయి.")}
+          eyebrow={duo("Member-submitted previews", "సభ్యులు సమర్పించిన ప్రివ్యూలు")}
+          title={duo("Explore profile previews at your pace.", "మీ వేగంతో ప్రొఫైల్ ప్రివ్యూలను చూడండి.")}
+          subtitle={duo("Profile details are member-provided and are not independently verified. Owner acceptance grants contact access in accepted-request account views; notification delivery is not guaranteed.", "ప్రొఫైల్ వివరాలు సభ్యులు అందించినవి; స్వతంత్రంగా నిర్ధారించినవి కావు. Owner accept చేసిన తర్వాత accepted-request account views లో contact access వస్తుంది; notification delivery హామీ లేదు.")}
           telugu
         />
       </Reveal>
-      <div className="mt-5 grid grid-cols-2 md:grid-cols-4 gap-3">
-        {rows.map((t, i) => (
-          <Reveal key={String(t.tsap_id || i)} delay={i * 60}>
-            <div className="relative bg-white rounded-2xl overflow-hidden border border-gold/25 card-shadow">
-              <div className="relative h-40 bg-gradient-to-br from-maroon via-[#5c0822] to-gold-deep flex items-center justify-center overflow-hidden">
-                {/* soft decorative pattern so a locked card never looks like an empty gap */}
-                <span aria-hidden className="pointer-events-none absolute inset-0 opacity-25"
-                  style={{ backgroundImage: "radial-gradient(circle at 20% 25%, rgba(255,255,255,.35) 0, transparent 42%), radial-gradient(circle at 82% 75%, rgba(212,175,55,.5) 0, transparent 45%)" }} />
-                <span className="text-6xl blur-[6px] select-none opacity-80" aria-hidden>
-                  {t.gender === "Groom" ? "🤵" : t.gender === "Bride" ? "👰" : "👤"}
-                </span>
-                <span className="absolute inset-0 flex flex-col items-center justify-center gap-1.5" title="Profile preview">
-                  <span className="text-2xl" aria-hidden>🔒</span>
-                  <span className="max-w-[90%] break-words bg-black/45 text-center text-white text-[10px] font-bold px-3 py-1 rounded-full backdrop-blur-sm">
-                    {t.district || "Profile details protected"}
+      <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-4">
+        {rows.map((t, i) => {
+          const caste = displayField(t.caste);
+          const education = displayField(t.education);
+          const district = displayField(t.district);
+          const job = displayField(t.job);
+          const details = [caste, education, district].filter(Boolean);
+          return (
+            <Reveal key={String(t.tsap_id || i)} delay={i * 60}>
+              <div className="relative overflow-hidden rounded-2xl border border-gold/25 bg-white card-shadow">
+                <div className="relative flex h-40 items-center justify-center overflow-hidden bg-gradient-to-br from-maroon via-[#5c0822] to-gold-deep">
+                  <span aria-hidden className="pointer-events-none absolute inset-0 opacity-25"
+                    style={{ backgroundImage: "radial-gradient(circle at 20% 25%, rgba(255,255,255,.35) 0, transparent 42%), radial-gradient(circle at 82% 75%, rgba(212,175,55,.5) 0, transparent 45%)" }} />
+                  <span className="select-none text-6xl opacity-80 blur-[6px]" aria-hidden>
+                    {t.gender === "Groom" ? "🤵" : t.gender === "Bride" ? "👰" : "👤"}
                   </span>
-                </span>
-              </div>
-              <div className="min-w-0 p-3">
-                <div className="break-words font-bold text-[14px] text-ink">
-                  {firstName(t.full_name)}{t.age !== undefined && t.age !== null && String(t.age).trim() ? ` • ${t.age}y` : ""}
+                  <span className="absolute inset-0 flex flex-col items-center justify-center gap-1.5" title={te ? "ప్రొఫైల్ ప్రివ్యూ" : "Profile preview"}>
+                    <span className="text-2xl" aria-hidden>🔒</span>
+                    <span className="max-w-[90%] break-words rounded-full bg-black/45 px-3 py-1 text-center text-[10px] font-bold text-white backdrop-blur-sm">
+                      {district || (te ? "ప్రొఫైల్ వివరాలు రక్షించబడ్డాయి" : "Profile details protected")}
+                    </span>
+                  </span>
                 </div>
-                <div className="break-words text-[11px] text-gray-600">
-                  {[t.caste, t.education, t.district].filter((value) => String(value || "").trim()).join(" · ") || "Some details not provided"}
+                <div className="min-w-0 p-3">
+                  <div className="break-words text-[14px] font-bold text-ink">
+                    {firstName(t.full_name)}{t.age !== undefined && t.age !== null && String(t.age).trim() ? ` • ${t.age} ${te ? "సం." : "years"}` : ""}
+                  </div>
+                  <div className={`break-words text-[11px] text-gray-600 ${te ? "telugu" : ""}`}>
+                    {details.join(" · ") || (te ? "వివరాలు ఇవ్వలేదు" : "No profile details are available in English.")}
+                  </div>
+                  {job ? <div className={`break-words text-[11px] text-gray-500 ${te ? "telugu" : ""}`}>{job}</div> : null}
+                  <Link href="/register" className="mt-2 block rounded-xl maroon-gradient py-2 text-center text-[12px] font-bold text-white">
+                    <Duo en="Create a profile" te="ప్రొఫైల్ సృష్టించండి" />
+                  </Link>
                 </div>
-                {t.job ? <div className="break-words text-[11px] text-gray-500">{t.job}</div> : null}
-                <Link href="/register"
-                  className="mt-2 block text-center rounded-xl maroon-gradient text-white text-[12px] font-bold py-2">
-                  <Duo en="View full profile" te="పూర్తి ప్రొఫైల్ చూడండి" />
-                </Link>
               </div>
-            </div>
-          </Reveal>
-        ))}
+            </Reveal>
+          );
+        })}
       </div>
     </section>
   );
 }
 
 export function StoriesStrip() {
+  const { lang } = useLang();
+  const te = lang === "te";
   const [rows, setRows] = useState<Story[]>([]);
   useEffect(() => {
     void apiGet<{ stories?: Story[] }>("/api/stories?limit=3")
@@ -91,29 +105,37 @@ export function StoriesStrip() {
     <section className="max-w-7xl mx-auto px-4 py-8">
       <Reveal>
         <SectionHeading
-          eyebrow={duo("Success stories", "విజయ గాథలు")}
-          title={duo("They met here. Married here. 💑", "వీరు ఇక్కడే కలిశారు. ఇక్కడే పెళ్లి చేసుకున్నారు. 💑")}
-          subtitle={duo("Your story could be next — register FREE, in 3 minutes.", "మీ story కూడా next — register FREE, 3 నిమిషాల్లో.")}
+          eyebrow={duo("Member stories", "సభ్యుల కథనాలు")}
+          title={duo("Stories shared by members.", "సభ్యులు పంచుకున్న కథనాలు.")}
+          subtitle={duo("Submitted stories are shown after review; review does not independently verify identity or relationship details.", "సభ్యులు పంపిన కథనాలు సమీక్ష తర్వాత చూపబడతాయి; ఆ సమీక్ష గుర్తింపు లేదా సంబంధ వివరాలను స్వతంత్రంగా నిర్ధారించదు.")}
           telugu
         />
       </Reveal>
       <div className="mt-5 grid md:grid-cols-3 gap-4">
-        {rows.map((s, i) => (
-          <Reveal key={String(s.story_id || i)} delay={i * 80}>
-            <div className="bg-white rounded-2xl p-5 border border-gold/25 card-shadow h-full">
-              <div className="text-3xl">💑</div>
-              <div className="font-bold text-maroon mt-2">{s.couple_names || "Happy couple"}</div>
-              <div className="text-[11px] text-gray-500">{s.district} · ❤️ {s.likes ?? 0}</div>
-              <p className="text-[13px] text-gray-700 mt-2 leading-relaxed telugu line-clamp-4">
-                {String(s.text || "").slice(0, 220)}{String(s.text || "").length > 220 ? "…" : ""}
-              </p>
-            </div>
-          </Reveal>
-        ))}
+        {rows.map((s, i) => {
+          const district = te
+            ? String(s.district || "")
+            : apiDisplayMessage({ message_en: s.district }, false, "");
+          const storyText = te
+            ? String(s.story_te || s.text || "")
+            : apiDisplayMessage({ message_en: s.story_en || s.text }, false, "An English version of this story is not available.");
+          return (
+            <Reveal key={String(s.story_id || i)} delay={i * 80}>
+              <div className="h-full rounded-2xl border border-gold/25 bg-white p-5 card-shadow">
+                <div className="text-3xl" aria-hidden="true">💬</div>
+                <div className="mt-2 break-words font-bold text-maroon">{s.couple_names || <Duo en="Member story" te="సభ్యుల కథనం" />}</div>
+                {district ? <div className="break-words text-[11px] text-gray-500">📍 {district}</div> : null}
+                <p lang={te ? "te-IN" : "en-IN"} className={`mt-2 line-clamp-4 whitespace-pre-wrap break-words text-[13px] leading-relaxed text-gray-700 ${te ? "telugu" : ""}`}>
+                  {storyText.length > 220 ? `${storyText.slice(0, 220)}…` : storyText}
+                </p>
+              </div>
+            </Reveal>
+          );
+        })}
       </div>
       <div className="mt-4 text-center">
         <Link href="/stories" className="text-[13px] font-bold text-maroon underline">
-          <Duo en="Read all success stories →" te="అన్ని విజయ గాథలు చదవండి →" />
+          <Duo en="Read member stories →" te="సభ్యుల కథనాలు చదవండి →" />
         </Link>
       </div>
     </section>
@@ -161,8 +183,8 @@ export function FinalCta() {
           <Duo en="Start your search for a meaningful connection." te="అర్థవంతమైన పరిచయం కోసం మీ అన్వేషణను ప్రారంభించండి." />
         </h2>
         <p className="mt-2 text-[13px] md:text-sm opacity-90 telugu">
-          {duo("Create a profile to get started. Interest notifications and contact sharing depend on service configuration, acceptance and privacy settings.",
-               "ప్రొఫైల్ సృష్టించి ప్రారంభించండి. Interest notifications మరియు contact sharing service configuration, acceptance, privacy settings పై ఆధారపడతాయి.")}
+          {duo("Create a profile to get started. After owner acceptance, contact details appear in accepted-request account views; notification delivery is not guaranteed.",
+               "ప్రొఫైల్ సృష్టించి ప్రారంభించండి. Owner accept చేసిన తర్వాత accepted-request account views లో contact details కనిపిస్తాయి; notification delivery హామీ లేదు.")}
         </p>
         <div className="mt-5 flex flex-wrap justify-center gap-3">
           <Link href="/register" className="px-7 py-3.5 rounded-full gold-gradient text-maroon text-sm font-bold shadow-soft">

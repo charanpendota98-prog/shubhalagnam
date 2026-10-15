@@ -14,294 +14,182 @@ import { useState, useMemo } from "react";
 import Link from "next/link";
 import Reveal from "@/components/Reveal";
 import SectionHeading from "@/components/SectionHeading";
-import { CHANNEL_STATS } from "@/lib/channels";
-import { getWAChannelLink } from "@/lib/wa";
+import { ALL_CHANNELS, CHANNEL_STATS } from "@/lib/channels";
+import { resolveChannelLinks, useChannelDirectoryLinks } from "@/lib/channel-links";
 import { TelegramIcon, WhatsAppIcon } from "@/components/BrandIcons";
 import { useLang } from "@/lib/lang";
-import { CASTE_TELUGU } from "@/lib/telugu-data";
+import { CASTE_SUBCASTES, CASTE_TELUGU, CASTES_DETAILED, OTHER_COMMUNITY_OPTION } from "@/lib/telugu-data";
+import { CASTES, buildSlug, type CasteInfo } from "@/lib/seo-pages";
 
-interface CasteDisplayCard {
+type CommunityCategory = "OC" | "BC" | "SC" | "ST" | "OTHER";
+type CommunityCategoryFilter = "ALL" | CommunityCategory;
+type DirectoryMode = "HUBS" | "REGISTRATION";
+type DirectoryLayout = "GRID" | "COMPACT";
+
+type DirectoryTab<K extends string> = { key: K; en: string; te: string };
+
+const CATEGORY_TABS: DirectoryTab<CommunityCategoryFilter>[] = [
+  { key: "ALL", en: "All communities", te: "అన్ని కమ్యూనిటీలు" },
+  { key: "OC", en: "OC", te: "OC" },
+  { key: "BC", en: "BC", te: "BC" },
+  { key: "SC", en: "SC", te: "SC" },
+  { key: "ST", en: "ST", te: "ST" },
+  { key: "OTHER", en: "Other", te: "ఇతర" },
+];
+
+const LINK_TABS: DirectoryTab<"ALL" | "TELEGRAM" | "WHATSAPP">[] = [
+  { key: "ALL", en: "Any listed link", te: "ఏదైనా లిస్టు చేసిన లింక్" },
+  { key: "TELEGRAM", en: "Telegram listed", te: "Telegram లింక్ ఉంది" },
+  { key: "WHATSAPP", en: "WhatsApp channel listed", te: "WhatsApp channel లింక్ ఉంది" },
+];
+
+type CasteDisplayCard = {
   key: string;
   teluguName: string;
   englishName: string;
-  category: "OC" | "BC" | "SC" | "ST";
-  subcastes: string;
-  brideSlug: string;
-  groomSlug: string;
-  brideTgLink: string;
-  groomTgLink: string;
-  brideWaKey: string;
-  groomWaKey: string;
+  category: CommunityCategory;
+  subcastes: string[];
+  matchQuery: string;
+  route: CasteInfo;
+};
+
+type CommunityMetadata = {
+  englishName: string;
+  teluguName: string;
+  category: CommunityCategory;
+  casteLookup?: string;
+  matchQuery?: string;
+};
+
+// Presentation labels supplement the canonical channel registry. All route
+// slugs and external destinations below are derived from that registry.
+const COMMUNITY_METADATA: Record<string, CommunityMetadata> = {
+  reddy: { englishName: "Reddy", teluguName: "రెడ్డి", category: "OC", casteLookup: "Reddy", matchQuery: "Reddy" },
+  kamma: { englishName: "Kamma", teluguName: "కమ్మ", category: "OC", casteLookup: "Kamma", matchQuery: "Kamma" },
+  kapu: { englishName: "Kapu / Balija / Telaga", teluguName: "కాపు / బలిజ / తెలగ", category: "OC", casteLookup: "Kapu", matchQuery: "Kapu, Balija, Telaga" },
+  velama: { englishName: "Velama", teluguName: "వెలమ", category: "OC", casteLookup: "Velama", matchQuery: "Velama" },
+  brahmin: { englishName: "Brahmin", teluguName: "బ్రాహ్మణ", category: "OC", casteLookup: "Brahmin", matchQuery: "Brahmin" },
+  vysya: { englishName: "Arya Vysya / Komati", teluguName: "ఆర్య వైశ్య / కోమటి", category: "OC", casteLookup: "Arya Vysya", matchQuery: "Vysya, Komati" },
+  raju_kshatriya: { englishName: "Raju / Kshatriya", teluguName: "రాజు / క్షత్రియ", category: "OC", casteLookup: "Raju", matchQuery: "Raju, Kshatriya" },
+  yadava_goud: { englishName: "Yadava / Golla", teluguName: "యాదవ / గొల్ల", category: "BC", casteLookup: "Yadava", matchQuery: "Yadava, Golla" },
+  goud: { englishName: "Goud / Ediga", teluguName: "గౌడ్ / ఈడిగ", category: "BC", casteLookup: "Goud", matchQuery: "Goud, Ediga" },
+  padmashali_weavers: { englishName: "Padmashali / Devanga", teluguName: "పద్మశాలి / దేవాంగ", category: "BC", casteLookup: "Padmashali", matchQuery: "Padmashali, Padmasali, Devanga" },
+  viswabrahmana: { englishName: "Viswabrahmin / Viswakarma", teluguName: "విశ్వబ్రాహ్మణ / విశ్వకర్మ", category: "BC", casteLookup: "Viswabrahmin", matchQuery: "Viswabrahmana, Viswabrahmin, Viswakarma" },
+  munnuru_kapu: { englishName: "Munnuru Kapu", teluguName: "మున్నూరు కాపు", category: "BC", casteLookup: "Munnuru Kapu", matchQuery: "Munnuru Kapu, Munnuru" },
+  mudiraj: { englishName: "Mudiraj / Tenugollu", teluguName: "ముదిరాజ్ / తెనుగొల్లు", category: "BC", casteLookup: "Mudiraj", matchQuery: "Mudiraj, Tenugollu" },
+  kuruma: { englishName: "Kuruma", teluguName: "కురుమ", category: "BC", matchQuery: "Kuruma" },
+  rajaka: { englishName: "Rajaka / Chakali", teluguName: "రజక / చాకలి", category: "BC", casteLookup: "Rajaka", matchQuery: "Rajaka, Chakali" },
+  kummari: { englishName: "Kummari / Kummara", teluguName: "కుమ్మరి", category: "BC", casteLookup: "Kummara", matchQuery: "Kummari, Kummara" },
+  perika: { englishName: "Perika", teluguName: "పెరిక", category: "BC", casteLookup: "Perika", matchQuery: "Perika" },
+  others_bc: { englishName: "Other BC Communities", teluguName: "ఇతర BC సంఘాలు", category: "BC", matchQuery: "" },
+  mala: { englishName: "Mala", teluguName: "మాల", category: "SC", casteLookup: "Mala", matchQuery: "Mala" },
+  madiga: { englishName: "Madiga", teluguName: "మాదిగ", category: "SC", casteLookup: "Madiga", matchQuery: "Madiga" },
+  others_sc: { englishName: "Other SC Communities", teluguName: "ఇతర SC సంఘాలు", category: "SC", casteLookup: "SC Others", matchQuery: "" },
+  lambada_banjara: { englishName: "Lambada / Banjara", teluguName: "లంబాడా / బంజారా", category: "ST", casteLookup: "Lambada", matchQuery: "Lambada, Banjara, Sugali" },
+};
+
+/** Build every public hub from canonical channel-backed caste routes. */
+const EXTENDED_COMMUNITIES: CasteDisplayCard[] = CASTES.map((route) => {
+  const metadata = COMMUNITY_METADATA[route.key];
+  const englishName = metadata?.englishName || route.name;
+  const casteLookup = metadata?.casteLookup || englishName;
+  return {
+    key: route.key,
+    route,
+    englishName,
+    teluguName: metadata?.teluguName || CASTE_TELUGU[casteLookup] || route.name,
+    category: metadata?.category || "OTHER",
+    subcastes: CASTE_SUBCASTES[casteLookup] || [],
+    matchQuery: metadata?.matchQuery ?? englishName,
+  };
+}).sort((a, b) => a.englishName.localeCompare(b.englishName, "en", { sensitivity: "base" }));
+
+/** Match a registration label to a hub only when a configured search alias,
+ * registration parent, or listed sub-community explicitly connects them. */
+function hubForRegistrationOption(englishName: string): CasteDisplayCard | undefined {
+  const normalizedName = englishName.trim().toLocaleLowerCase("en").replace(/\s+/g, " ");
+  return EXTENDED_COMMUNITIES.find((hub) => {
+    const metadata = COMMUNITY_METADATA[hub.key];
+    const labels = [
+      metadata?.englishName,
+      metadata?.casteLookup,
+      ...(metadata?.matchQuery || "").split(","),
+      ...hub.subcastes,
+    ];
+    return labels.some((label) => label?.trim().toLocaleLowerCase("en").replace(/\s+/g, " ") === normalizedName);
+  });
 }
 
-const EXTENDED_COMMUNITIES: CasteDisplayCard[] = [
-  {
-    key: "reddy",
-    teluguName: "రెడ్డి",
-    englishName: "Reddy",
-    category: "OC",
-    subcastes: "పాకనాటి, మోటాటి, గుడాటి, దేశతి, గంజాం, పెడకంటి",
-    brideSlug: "reddy-bride",
-    groomSlug: "reddy-groom",
-    brideTgLink: "https://t.me/manavivaha_reddy_bride",
-    groomTgLink: "https://t.me/manavivaha_reddy_groom",
-    brideWaKey: "c_reddy_bride",
-    groomWaKey: "c_reddy_groom",
-  },
-  {
-    key: "kamma",
-    teluguName: "కమ్మ",
-    englishName: "Kamma",
-    category: "OC",
-    subcastes: "చౌదరి, పెద కమ్మ, చిన కమ్మ, గోడచాటి",
-    brideSlug: "kamma-bride",
-    groomSlug: "kamma-groom",
-    brideTgLink: "https://t.me/manavivaha_kamma_bride",
-    groomTgLink: "https://t.me/manavivaha_kamma_groom",
-    brideWaKey: "c_kamma_bride",
-    groomWaKey: "c_kamma_groom",
-  },
-  {
-    key: "kapu",
-    teluguName: "కాపు / బలిజ / తెలగ",
-    englishName: "Kapu / Balija / Telaga",
-    category: "OC",
-    subcastes: "ఒంటరి, తూర్పు కాపు, పల్లి కాపు, గాజుల బలిజ, తెలగ",
-    brideSlug: "kapu-bride",
-    groomSlug: "kapu-groom",
-    brideTgLink: "https://t.me/manavivaha_kapu_bride",
-    groomTgLink: "https://t.me/manavivaha_kapu_groom",
-    brideWaKey: "c_kapu_bride",
-    groomWaKey: "c_kapu_groom",
-  },
-  {
-    key: "vysya",
-    teluguName: "ఆర్య వైశ్య",
-    englishName: "Arya Vysya",
-    category: "OC",
-    subcastes: "కోమటి, త్రివర్ణిక, కాళింగ వైశ్య, సాధు చెట్టి",
-    brideSlug: "vysya-bride",
-    groomSlug: "vysya-groom",
-    brideTgLink: "https://t.me/manavivaha_vysya_bride",
-    groomTgLink: "https://t.me/manavivaha_vysya_groom",
-    brideWaKey: "c_vysya_bride",
-    groomWaKey: "c_vysya_groom",
-  },
-  {
-    key: "brahmin",
-    teluguName: "బ్రాహ్మణ",
-    englishName: "Brahmin",
-    category: "OC",
-    subcastes: "వైదిక, నియోగి, శిష్టకరణ, ద్రావిడ, స్మార్త, మాధ్వ",
-    brideSlug: "brahmin-bride",
-    groomSlug: "brahmin-groom",
-    brideTgLink: "https://t.me/manavivaha_brahmin_bride",
-    groomTgLink: "https://t.me/manavivaha_brahmin_groom",
-    brideWaKey: "c_brahmin_bride",
-    groomWaKey: "c_brahmin_groom",
-  },
-  {
-    key: "velama",
-    teluguName: "వెలమ",
-    englishName: "Velama",
-    category: "OC",
-    subcastes: "పద్మ వెలమ, ఆది వెలమ, కొప్పుల వెలమ",
-    brideSlug: "velama-bride",
-    groomSlug: "velama-groom",
-    brideTgLink: "https://t.me/manavivaha_velama_bride",
-    groomTgLink: "https://t.me/manavivaha_velama_groom",
-    brideWaKey: "c_velama_bride",
-    groomWaKey: "c_velama_groom",
-  },
-  {
-    key: "raju_kshatriya",
-    teluguName: "రాజు / క్షత్రియ",
-    englishName: "Raju / Kshatriya",
-    category: "OC",
-    subcastes: "సూర్య వంశం, చంద్ర వంశం, వన్నియార్ రాజు",
-    brideSlug: "raju_kshatriya-bride",
-    groomSlug: "raju_kshatriya-groom",
-    brideTgLink: "https://t.me/manavivaha_raju_kshatriya",
-    groomTgLink: "https://t.me/manavivaha_raju_kshatriya",
-    brideWaKey: "c_raju_kshatriya",
-    groomWaKey: "c_raju_kshatriya",
-  },
-  {
-    key: "yadava",
-    teluguName: "యాదవ",
-    englishName: "Yadava / Golla",
-    category: "BC",
-    subcastes: "గొల్ల, కురుమ, ఎర్ర గొల్ల, పూజ గొల్ల, కర్ణ గొల్ల",
-    brideSlug: "yadava_goud-bride",
-    groomSlug: "yadava_goud-groom",
-    brideTgLink: "https://t.me/manavivaha_yadava_goud_bride",
-    groomTgLink: "https://t.me/manavivaha_yadava_goud_groom",
-    brideWaKey: "c_yadava_goud_bride",
-    groomWaKey: "c_yadava_goud_groom",
-  },
-  {
-    key: "goud",
-    teluguName: "గౌడ్",
-    englishName: "Goud / Ediga",
-    category: "BC",
-    subcastes: "ఈడిగ, గమళ్ల, గౌడ, శెట్టిబలిజ గౌడ్, కావలి",
-    brideSlug: "yadava_goud-bride",
-    groomSlug: "yadava_goud-groom",
-    brideTgLink: "https://t.me/manavivaha_yadava_goud_bride",
-    groomTgLink: "https://t.me/manavivaha_yadava_goud_groom",
-    brideWaKey: "c_yadava_goud_bride",
-    groomWaKey: "c_yadava_goud_groom",
-  },
-  {
-    key: "padmashali",
-    teluguName: "పద్మశాలి / దేవాంగ",
-    englishName: "Padmashali / Devanga",
-    category: "BC",
-    subcastes: "పద్మసాలి, పట్టుసాలి, తొగట, సేనాపతుల, దేవాంగ",
-    brideSlug: "padmashali_weavers-bride",
-    groomSlug: "padmashali_weavers-groom",
-    brideTgLink: "https://t.me/manavivaha_padmashali_weavers",
-    groomTgLink: "https://t.me/manavivaha_padmashali_weavers",
-    brideWaKey: "c_padmashali_weavers",
-    groomWaKey: "c_padmashali_weavers",
-  },
-  {
-    key: "viswabrahmana",
-    teluguName: "విశ్వబ్రాహ్మణ",
-    englishName: "Viswabrahmin / Viswakarma",
-    category: "BC",
-    subcastes: "కంసాలి, కమ్మరి, కంచరి, వడ్ల, ఆవుసల, శిల్పి, ఆచారి",
-    brideSlug: "viswabrahmana-bride",
-    groomSlug: "viswabrahmana-groom",
-    brideTgLink: "https://t.me/manavivaha_viswabrahmana",
-    groomTgLink: "https://t.me/manavivaha_viswabrahmana",
-    brideWaKey: "c_viswabrahmana",
-    groomWaKey: "c_viswabrahmana",
-  },
-  {
-    key: "munnuru_kapu",
-    teluguName: "మున్నూరు కాపు",
-    englishName: "Munnuru Kapu",
-    category: "BC",
-    subcastes: "మున్నూరు, పటేల్, కాపు",
-    brideSlug: "munnuru_kapu-bride",
-    groomSlug: "munnuru_kapu-groom",
-    brideTgLink: "https://t.me/manavivaha_munnuru_kapu",
-    groomTgLink: "https://t.me/manavivaha_munnuru_kapu",
-    brideWaKey: "c_munnuru_kapu",
-    groomWaKey: "c_munnuru_kapu",
-  },
-  {
-    key: "mudiraj",
-    teluguName: "ముదిరాజ్",
-    englishName: "Mudiraj / Tenugollu",
-    category: "BC",
-    subcastes: "ముదిరాజు, ముత్రాసి, తెనుగొల్లు, బాంట్, పాలేగార్లు",
-    brideSlug: "mudiraj-bride",
-    groomSlug: "mudiraj-groom",
-    brideTgLink: "https://t.me/manavivaha_mudiraj",
-    groomTgLink: "https://t.me/manavivaha_mudiraj",
-    brideWaKey: "c_mudiraj",
-    groomWaKey: "c_mudiraj",
-  },
-  {
-    key: "others_bc",
-    teluguName: "ఇతర BC కులాలు",
-    englishName: "Other BC Communities",
-    category: "BC",
-    subcastes: "కుమ్మర, రజక, నాయీ బ్రాహ్మణ, గాండ్ల, ఉప్పర, వడ్డెర, బెస్త, గవర",
-    brideSlug: "others_bc-bride",
-    groomSlug: "others_bc-groom",
-    brideTgLink: "https://t.me/manavivaha_others_bc",
-    groomTgLink: "https://t.me/manavivaha_others_bc",
-    brideWaKey: "c_others_bc",
-    groomWaKey: "c_others_bc",
-  },
-  {
-    key: "mala",
-    teluguName: "మాల",
-    englishName: "Mala",
-    category: "SC",
-    subcastes: "మాల అయ్యవారు, మాల దాసరి, రెడ్డి మాల, సారిండ్ల",
-    brideSlug: "mala-bride",
-    groomSlug: "mala-groom",
-    brideTgLink: "https://t.me/manavivaha_mala_bride",
-    groomTgLink: "https://t.me/manavivaha_mala_groom",
-    brideWaKey: "c_mala_bride",
-    groomWaKey: "c_mala_groom",
-  },
-  {
-    key: "madiga",
-    teluguName: "మాదిగ",
-    englishName: "Madiga",
-    category: "SC",
-    subcastes: "మాదిగ దాసు, మాష్టీన్, మాదిగ దాసరి, బావురి, సింధోళ్లు",
-    brideSlug: "madiga-bride",
-    groomSlug: "madiga-groom",
-    brideTgLink: "https://t.me/manavivaha_madiga_bride",
-    groomTgLink: "https://t.me/manavivaha_madiga_groom",
-    brideWaKey: "c_madiga_bride",
-    groomWaKey: "c_madiga_groom",
-  },
-  {
-    key: "others_sc",
-    teluguName: "ఆది ఆంధ్ర / ఇతర SC",
-    englishName: "Adi Andhra / Other SC",
-    category: "SC",
-    subcastes: "ఆది ద్రావిడ, అరుంధతీయ, రెల్లి, అర్వ మాల, దండాసి",
-    brideSlug: "others_sc-bride",
-    groomSlug: "others_sc-groom",
-    brideTgLink: "https://t.me/manavivaha_others_sc",
-    groomTgLink: "https://t.me/manavivaha_others_sc",
-    brideWaKey: "c_others_sc",
-    groomWaKey: "c_others_sc",
-  },
-  {
-    key: "lambada_banjara",
-    teluguName: "లంబాడా / బంజారా",
-    englishName: "Lambada / Banjara",
-    category: "ST",
-    subcastes: "లంబాడి, బంజారా, లంబాణి, సుగాలి, గోర్",
-    brideSlug: "lambada_banjara-bride",
-    groomSlug: "lambada_banjara-groom",
-    brideTgLink: "https://t.me/manavivaha_lambada_banjara",
-    groomTgLink: "https://t.me/manavivaha_lambada_banjara",
-    brideWaKey: "c_lambada_banjara",
-    groomWaKey: "c_lambada_banjara",
-  },
-  {
-    key: "others_st",
-    teluguName: "కోయ / గోండ్ / ఇతర ST",
-    englishName: "Koya / Gond / Other ST",
-    category: "ST",
-    subcastes: "కోయ, రాజ్‌గోండ్, చెంచు, బగత, కొండ రెడ్డి, సవర, యానాది, ఎరుకల",
-    brideSlug: "others_st-bride",
-    groomSlug: "others_st-groom",
-    brideTgLink: "https://t.me/manavivaha_others_st",
-    groomTgLink: "https://t.me/manavivaha_others_st",
-    brideWaKey: "c_others_st",
-    groomWaKey: "c_others_st",
-  },
-];
+type ChannelLinkState = ReturnType<typeof useChannelDirectoryLinks>;
+const NO_CHANNEL_LINKS = { telegram: "", whatsapp: "", whatsappIsDirect: false } as const;
+
+function channelLinks(key: string | undefined, directory: ChannelLinkState) {
+  if (!key) return NO_CHANNEL_LINKS;
+  const channel = ALL_CHANNELS.find((item) => item.key === key);
+  return channel ? resolveChannelLinks(channel, directory) : NO_CHANNEL_LINKS;
+}
 
 export default function CastesClient() {
   const { lang } = useLang();
   const te = lang === "te";
+  const channelDirectory = useChannelDirectoryLinks();
+  const getChannelLinks = (key?: string) => channelLinks(key, channelDirectory);
   const [search, setSearch] = useState("");
-  const [selectedCat, setSelectedCat] = useState<string>("ALL");
+  const [directoryMode, setDirectoryMode] = useState<DirectoryMode>("HUBS");
+  const [layout, setLayout] = useState<DirectoryLayout>("GRID");
+  const [selectedLetter, setSelectedLetter] = useState("ALL");
+  const [selectedCat, setSelectedCat] = useState<CommunityCategoryFilter>("ALL");
+  const [selectedLink, setSelectedLink] = useState<"ALL" | "TELEGRAM" | "WHATSAPP">("ALL");
 
   const filteredCastes = useMemo(() => {
+    const q = search.trim().toLowerCase();
     return EXTENDED_COMMUNITIES.filter((c) => {
-      const q = search.trim().toLowerCase();
-      const matchesQuery =
-        !q ||
-        c.englishName.toLowerCase().includes(q) ||
-        c.teluguName.includes(search.trim()) ||
-        c.subcastes.toLowerCase().includes(q);
+      const matchesQuery = !q || [c.englishName, c.teluguName, c.route.name, ...c.subcastes]
+        .some((value) => value.toLowerCase().includes(q));
       const matchesCat = selectedCat === "ALL" || c.category === selectedCat;
-      return matchesQuery && matchesCat;
-    }).sort((a, b) => a.englishName.localeCompare(b.englishName, "en", { sensitivity: "base" }));
-  }, [search, selectedCat]);
+      const matchesLetter = selectedLetter === "ALL" || c.englishName.trim().charAt(0).toUpperCase() === selectedLetter;
+      const links = [channelLinks(c.route.bride?.key, channelDirectory), channelLinks(c.route.groom?.key, channelDirectory)];
+      const matchesLink = selectedLink === "ALL"
+        || (selectedLink === "TELEGRAM" && links.some((link) => Boolean(link.telegram)))
+        || (selectedLink === "WHATSAPP" && links.some((link) => Boolean(link.whatsapp)));
+      return matchesQuery && matchesCat && matchesLink && matchesLetter;
+    });
+  }, [search, selectedCat, selectedLink, selectedLetter, channelDirectory]);
+
+  const filteredRegistrationOptions = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return CASTES_DETAILED.filter((community) => {
+      const matchesQuery = !q || [community.en, community.te, community.display, ...community.subcastes]
+        .some((value) => value.toLowerCase().includes(q));
+      const matchesLetter = selectedLetter === "ALL" || community.en.trim().charAt(0).toUpperCase() === selectedLetter;
+      return matchesQuery && matchesLetter;
+    });
+  }, [search, selectedLetter]);
+
+  const availableLetters = [...new Set((directoryMode === "HUBS"
+    ? EXTENDED_COMMUNITIES.map((community) => community.englishName)
+    : CASTES_DETAILED.map((community) => community.en))
+    .map((name) => name.trim().charAt(0).toUpperCase()).filter(Boolean))].sort((a, b) => a.localeCompare(b, "en"));
+  const resultCount = directoryMode === "HUBS" ? filteredCastes.length : filteredRegistrationOptions.length;
+  const resultTotal = directoryMode === "HUBS" ? EXTENDED_COMMUNITIES.length : CASTES_DETAILED.length;
+  const hasActiveFilters = Boolean(search.trim()) || selectedLetter !== "ALL"
+    || (directoryMode === "HUBS" && (selectedCat !== "ALL" || selectedLink !== "ALL"));
+
+  const changeDirectoryMode = (mode: DirectoryMode) => {
+    setDirectoryMode(mode);
+    setSelectedLetter("ALL");
+    if (mode === "REGISTRATION") {
+      setSelectedCat("ALL");
+      setSelectedLink("ALL");
+    }
+  };
+
+  const clearDirectoryFilters = () => {
+    setSearch("");
+    setSelectedLetter("ALL");
+    setSelectedCat("ALL");
+    setSelectedLink("ALL");
+  };
 
   return (
     <div className="min-h-dvh pb-36 bg-[#FCFBF8]">
@@ -309,39 +197,52 @@ export default function CastesClient() {
       <section className="maroon-gradient text-white border-b-4 border-gold/40">
         <div className="max-w-6xl mx-auto px-4 py-12">
           <Reveal>
-            <div className="inline-flex items-center gap-2 bg-white/15 border border-white/25 rounded-full px-4 py-1.5 text-xs font-bold shadow-sm">
-              👑 {te ? "తెలుగు కమ్యూనిటీ హబ్‌లు" : "Selected Telugu community hubs"} • {te ? "ప్రొఫైల్ ధృవీకరణ స్థాయి స్పష్టంగా" : "Profile verification status shown individually"}
+            <div className="inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/15 px-4 py-1.5 text-xs font-bold shadow-sm">
+              👑 {te ? "రిజిస్ట్రీలో ఉన్న కమ్యూనిటీ హబ్‌లు" : "Registry-backed community hubs"} • {te ? "ప్రతి హబ్‌కు వధువు / వరుడు మార్గాలు" : "Bride and groom routes for each hub"}
             </div>
-            
-            <h1 className="mt-4 text-3xl md:text-5xl font-black tracking-tight telugu">
-              {te ? "కులాల వారీగా సంబంధాలు & లైవ్ ఛానల్స్" : "Caste-Wise Matches & Live Channels"}
+
+            <h1 className="mt-4 max-w-4xl text-3xl font-black tracking-tight sm:text-4xl md:text-5xl">
+              {te ? "కులం / కమ్యూనిటీ హబ్‌లు & సంబంధాల అన్వేషణ" : "Caste & Community Hubs — Explore Matches"}
             </h1>
-            
-            <p className="mt-3 text-sm md:text-base opacity-95 telugu max-w-3xl leading-relaxed">
+
+            <p className="mt-3 max-w-3xl text-sm leading-relaxed text-white/90 md:text-base">
               {te ? (
-                <>మీ కమ్యూనిటీని ఎంచుకోండి — లిస్టులో ఉన్న ఛానల్స్, అందుబాటులో ఉన్న ప్రొఫైల్స్ మరియు సంబంధాల అన్వేషణ చూడండి. ఇది ఎంపిక చేసిన హబ్‌ల జాబితా మాత్రమే; నమోదు సమయంలో ఇతర పేర్లను స్వయంగా పేర్కొనవచ్చు.</>
+                <>కాన్ఫిగర్ చేసిన channel registryలోని {EXTENDED_COMMUNITIES.length} హబ్‌లను చూడండి లేదా {CASTES_DETAILED.length} ప్రస్తుత నమోదు ఎంపికల జాబితాకు మారండి. ఇవి అధికారికంగా సంపూర్ణ జాబితాలు కావు. బాహ్య లింకుల అందుబాటు తనిఖీ చేయబడదు.</>
               ) : (
-                <>Choose a community to browse listed channels and available profiles. This directory covers selected hubs, not every community; registration also supports self-described names.</>
+                <>Browse {EXTENDED_COMMUNITIES.length} hubs in the configured channel registry, or switch to the separate list of {CASTES_DETAILED.length} current registration options. Neither list is an exhaustive or official classification. External link availability is not monitored.</>
               )}
             </p>
 
-            {/* Quick search input */}
-            <div className="mt-6 flex flex-col sm:flex-row gap-2 max-w-xl">
+            <div className="mt-5 grid max-w-4xl grid-cols-2 gap-2 sm:grid-cols-4">
+              {[
+                { value: EXTENDED_COMMUNITIES.length, en: "configured channel hubs", te: "రిజిస్ట్రీ కమ్యూనిటీ హబ్‌లు" },
+                { value: CHANNEL_STATS.by_tier.L3_CASTE, en: "listed channel entries", te: "లిస్టు చేసిన ఛానల్ ఎంట్రీలు" },
+                { value: CASTES_DETAILED.length, en: "registration options", te: "నమోదు ఎంపికలు" },
+                { value: "A–Z", en: "search and filter", te: "వెతకడం & వడపోత" },
+              ].map((stat) => (
+                <div key={stat.en} className="rounded-2xl border border-white/20 bg-white/10 px-3 py-2.5 backdrop-blur-sm">
+                  <div className="text-lg font-black">{stat.value}</div>
+                  <div className="text-[10px] font-semibold text-white/75 sm:text-[11px]">{te ? stat.te : stat.en}</div>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-6 flex max-w-2xl flex-col gap-2 sm:flex-row">
+              <label htmlFor="community-directory-search" className="sr-only">{te ? "కమ్యూనిటీ హబ్‌లు, నమోదు ఎంపికలు లేదా ఉపసమాజాలను వెతకండి" : "Search hubs, registration options, or sub-communities"}</label>
               <input
-                type="text"
-                placeholder={te ? "🔍 కులం / ఉపకులం పేరు టైప్ చేయండి (ఉదా: రెడ్డి, కమ్మ, కాపు, వైశ్య, యాదవ, పద్మశాలి...)" : "🔍 Type caste or sub-caste name (e.g. Reddy, Kamma, Kapu, Vysya...)"}
+                id="community-directory-search"
+                type="search"
+                autoComplete="off"
+                placeholder={te ? "🔍 కమ్యూనిటీ / ఉపసమాజం పేరు" : "🔍 Search hubs, options, or sub-communities"}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="flex-1 bg-white/15 border border-white/30 rounded-2xl px-4 py-3 text-sm text-white placeholder:text-white/70 focus:outline-none focus:ring-2 focus:ring-gold focus:bg-white/25 transition shadow-inner"
+                className="min-h-12 min-w-0 flex-1 rounded-2xl border border-white/30 bg-white/15 px-4 py-3 text-sm text-white placeholder:text-white/70 shadow-inner transition focus:bg-white/25 focus:outline-none focus:ring-2 focus:ring-gold"
               />
-              {search && (
-                <button
-                  onClick={() => setSearch("")}
-                  className="bg-white/20 px-4 py-2.5 rounded-2xl text-xs font-bold hover:bg-white/30 transition text-white"
-                >
-                  Clear
+              {search ? (
+                <button type="button" onClick={() => setSearch("")} className="min-h-12 rounded-2xl border border-white/30 bg-white/15 px-4 py-2.5 text-xs font-bold text-white transition hover:bg-white/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold">
+                  {te ? "వెతుకులాట తొలగించండి" : "Clear search"}
                 </button>
-              )}
+              ) : null}
             </div>
           </Reveal>
         </div>
@@ -352,170 +253,291 @@ export default function CastesClient() {
         <SectionHeading
           eyebrow={te ? "సమాజాలు & కమ్యూనిటీలు" : "Telugu Communities & Hubs"}
           title={te ? "మీ కులం ఎంచుకోండి — సంబంధాలు చూడండి" : "Select Your Community — Explore Alliances"}
-          subtitle={te ? "ప్రతి సమాజానికి వధువులు & వరుల channel listings మరియు సంబంధాల సెర్చ్. External links availability ఆటోమేటిక్‌గా తనిఖీ చేయబడదు." : "Bride and groom channel listings plus profile discovery for each community. External link availability is not checked automatically."}
-          telugu
+          subtitle={directoryMode === "HUBS"
+            ? (te ? "ప్రతి లిస్టు చేసిన హబ్‌కు వధువు, వరుడు మార్గాలు మరియు సంబంధాల సెర్చ్." : "Each listed hub links to bride and groom pages plus profile discovery.")
+            : (te ? "ప్రస్తుత నమోదు ఎంపికలు, వాటి ఉపసమాజాలు మరియు సభ్యుల నమోదు చేసిన ప్రొఫైళ్లను చూడండి." : "Browse current registration choices, their sub-communities, and member-entered profile searches.")}
+          telugu={te}
         />
 
-        {/* Category Filter Tabs */}
-        <div className="mt-6 flex flex-wrap gap-2.5 items-center">
-          {[
-            { key: "ALL", labelTe: "అన్ని కులాలు (All Castes)", labelEn: "All Castes" },
-            { key: "OC", labelTe: "OC కులాలు (రెడ్డి, కమ్మ, కాపు, వైశ్య, బ్రాహ్మణ, వెలమ)", labelEn: "OC Communities" },
-            { key: "BC", labelTe: "BC కులాలు (యాదవ, గౌడ్, పద్మశాలి, ముదిరాజ్, విశ్వబ్రాహ్మణ)", labelEn: "BC Communities" },
-            { key: "SC", labelTe: "SC వర్గాలు (మాల, మాదిగ & ఆది ఆంధ్ర)", labelEn: "SC Communities" },
-            { key: "ST", labelTe: "ST వర్గాలు (లంబాడా, బంజారా, కోయ & గోండ్)", labelEn: "ST Communities" },
-          ].map((cat) => (
-            <button
-              key={cat.key}
-              onClick={() => setSelectedCat(cat.key)}
-              className={`px-4 py-2.5 rounded-2xl text-xs font-black transition-all ${
-                selectedCat === cat.key
-                  ? "maroon-gradient text-white shadow-brand scale-105"
-                  : "bg-white border border-gray-300 text-slate-700 hover:border-maroon/50 hover:bg-amber-50/40"
-              }`}
-            >
-              {te ? cat.labelTe : cat.labelEn}
-            </button>
-          ))}
-        </div>
+        <section aria-labelledby="directory-view-heading" className="mt-6 rounded-3xl border border-amber-200 bg-white p-4 shadow-sm sm:p-5">
+          <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+            <div className="min-w-0">
+              <h2 id="directory-view-heading" className="text-sm font-black text-slate-900">
+                {te ? "కేటలాగ్‌ను ఎంచుకోండి" : "Choose a directory view"}
+              </h2>
+              <p className="mt-1 max-w-2xl text-[11px] leading-relaxed text-slate-600">
+                {directoryMode === "HUBS"
+                  ? (te ? "ఈ హబ్‌లు కాన్ఫిగర్ చేసిన channel registry ఆధారంగా ఉన్నాయి. వర్గ ట్యాగ్‌లు నావిగేషన్ కోసం మాత్రమే." : "These hubs come from the configured channel registry. Group tags are navigational, not official eligibility or verification labels.")
+                  : (te ? `${CASTES_DETAILED.length} నమోదు ఎంపికలు మరియు వాటి ఉపసమాజాలను వెతకండి. dedicated hub లింకులు కాన్ఫిగర్ చేసిన చోట మాత్రమే చూపిస్తాం.` : `Search all ${CASTES_DETAILED.length} current registration choices and their listed sub-communities. Dedicated hub links appear only where configured.`)}
+              </p>
+            </div>
+            <div className="grid w-full grid-cols-2 gap-2 xl:w-auto" role="group" aria-label={te ? "డైరెక్టరీ రకం" : "Directory source"}>
+              <button
+                type="button"
+                aria-pressed={directoryMode === "HUBS"}
+                onClick={() => changeDirectoryMode("HUBS")}
+                className={`min-h-12 rounded-2xl border px-3 py-2 text-left text-xs font-extrabold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-maroon ${directoryMode === "HUBS" ? "maroon-gradient border-transparent text-white shadow-sm" : "border-slate-200 bg-slate-50 text-slate-700 hover:border-maroon/40"}`}
+              >
+                <span className="block">{te ? "కమ్యూనిటీ హబ్‌లు" : "Channel hubs"}</span>
+                <span className="mt-0.5 block text-[10px] opacity-75">{EXTENDED_COMMUNITIES.length} {te ? "రిజిస్ట్రీ హబ్‌లు" : "configured hubs"}</span>
+              </button>
+              <button
+                type="button"
+                aria-pressed={directoryMode === "REGISTRATION"}
+                onClick={() => changeDirectoryMode("REGISTRATION")}
+                className={`min-h-12 rounded-2xl border px-3 py-2 text-left text-xs font-extrabold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-maroon ${directoryMode === "REGISTRATION" ? "maroon-gradient border-transparent text-white shadow-sm" : "border-slate-200 bg-slate-50 text-slate-700 hover:border-maroon/40"}`}
+              >
+                <span className="block">{te ? "నమోదు కమ్యూనిటీ ఎంపికలు" : "Registration catalogue"}</span>
+                <span className="mt-0.5 block text-[10px] opacity-75">{CASTES_DETAILED.length} {te ? "ఎంపికలు" : "current options"}</span>
+              </button>
+            </div>
+          </div>
 
-        {/* ELEGANT CASTE CARDS GRID */}
-        <div className="mt-8 grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+          {directoryMode === "HUBS" ? (
+            <>
+              <div className="mt-4 flex flex-col gap-3 border-t border-slate-100 pt-4 lg:flex-row lg:items-center lg:justify-between">
+                <p className="max-w-xl text-[11px] leading-relaxed text-slate-600">
+                  {te ? "OC / BC / SC / ST ట్యాగ్‌లు నావిగేషన్ కోసం మాత్రమే; అధికారిక అర్హత లేదా కుల ధృవీకరణ కావు." : "OC / BC / SC / ST tags are for navigation only; they are not official eligibility or caste-verification decisions."}
+                </p>
+                <div className="flex flex-wrap gap-2" role="group" aria-label={te ? "కమ్యూనిటీ వర్గం" : "Community group"}>
+                  {CATEGORY_TABS.map((cat) => {
+                    const count = cat.key === "ALL" ? EXTENDED_COMMUNITIES.length : EXTENDED_COMMUNITIES.filter((item) => item.category === cat.key).length;
+                    return (
+                      <button
+                        type="button"
+                        key={cat.key}
+                        aria-pressed={selectedCat === cat.key}
+                        onClick={() => setSelectedCat(cat.key)}
+                        className={`min-h-10 rounded-full border px-3 py-2 text-[11px] font-extrabold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-maroon ${selectedCat === cat.key ? "maroon-gradient border-transparent text-white shadow-sm" : "border-slate-200 bg-slate-50 text-slate-700 hover:border-maroon/40 hover:bg-amber-50"}`}
+                      >
+                        {te ? cat.te : cat.en} <span className="opacity-75">{count}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              <div className="mt-3 flex flex-wrap items-center gap-2" role="group" aria-label={te ? "లిస్టు చేసిన బాహ్య destination వడపోత" : "Filter by listed external destination"}>
+                <span className="mr-1 text-[10px] font-bold uppercase tracking-wide text-slate-500">{te ? "లింకులు" : "Listed links"}</span>
+                {LINK_TABS.map((tab) => (
+                  <button
+                    type="button"
+                    key={tab.key}
+                    aria-pressed={selectedLink === tab.key}
+                    onClick={() => setSelectedLink(tab.key)}
+                    className={`min-h-10 rounded-xl border px-3 py-2 text-[11px] font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-maroon ${selectedLink === tab.key ? "border-[#7A0C2E] bg-rose-50 text-[#7A0C2E]" : "border-slate-200 bg-white text-slate-600 hover:border-maroon/40"}`}
+                  >
+                    {te ? tab.te : tab.en}
+                  </button>
+                ))}
+              </div>
+            </>
+          ) : (
+            <p className="mt-4 rounded-2xl border border-slate-100 bg-slate-50 px-3 py-2.5 text-[11px] leading-relaxed text-slate-600">
+              {te ? "ఈ జాబితా ప్రస్తుత నమోదు ఎంపికలను చూపిస్తుంది; ఇది అన్ని కమ్యూనిటీల అధికారిక జాబితా కాదు. కమ్యూనిటీకి నేరుగా సరిపోయే బాహ్య లింక్ లేకపోతే ఊహించి చూపించము." : "This is the current registration list, not an official or exhaustive community catalogue. No external destination is guessed when an option has no direct configured hub link."}
+            </p>
+          )}
+
+          <div className="mt-4 border-t border-slate-100 pt-3">
+            <div className="mb-2 text-[10px] font-bold uppercase tracking-wide text-slate-500">{te ? "అక్షరం ద్వారా వడపోత" : "Filter alphabetically"}</div>
+            <div className="flex flex-wrap gap-1.5" role="group" aria-label={te ? "అక్షర క్రమ వడపోత" : "Alphabetical community filter"}>
+              {["ALL", ...availableLetters].map((letter) => (
+                <button
+                  type="button"
+                  key={letter}
+                  aria-pressed={selectedLetter === letter}
+                  onClick={() => setSelectedLetter(letter)}
+                  className={`min-h-9 min-w-9 rounded-lg border px-2.5 py-1.5 text-[10px] font-extrabold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-maroon ${selectedLetter === letter ? "border-[#7A0C2E] bg-rose-50 text-[#7A0C2E]" : "border-slate-200 bg-white text-slate-600 hover:border-maroon/40"}`}
+                >
+                  {letter === "ALL" ? (te ? "అన్నీ" : "All") : letter}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="mt-3 flex flex-wrap items-center justify-end gap-3">
+            <span className="mr-auto text-[11px] font-bold text-slate-600" aria-live="polite">
+              {directoryMode === "HUBS"
+                ? (te ? `${resultCount} / ${resultTotal} హబ్‌లు` : `Showing ${resultCount} of ${resultTotal} channel hubs`)
+                : (te ? `${resultCount} / ${resultTotal} నమోదు ఎంపికలు` : `Showing ${resultCount} of ${resultTotal} registration options`)}
+            </span>
+            {directoryMode === "HUBS" ? (
+              <div className="flex gap-1 rounded-xl border border-slate-200 bg-slate-50 p-1" role="group" aria-label={te ? "హబ్ కార్డ్ లేఅవుట్" : "Hub layout"}>
+                {(["GRID", "COMPACT"] as DirectoryLayout[]).map((option) => (
+                  <button
+                    type="button"
+                    key={option}
+                    aria-pressed={layout === option}
+                    onClick={() => setLayout(option)}
+                    className={`min-h-9 rounded-lg px-3 py-1.5 text-[10px] font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-maroon ${layout === option ? "bg-white text-[#7A0C2E] shadow-sm" : "text-slate-600 hover:text-[#7A0C2E]"}`}
+                  >
+                    {option === "GRID" ? (te ? "కార్డ్‌లు" : "Cards") : (te ? "కాంపాక్ట్" : "Compact")}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+            {hasActiveFilters ? (
+              <button type="button" onClick={clearDirectoryFilters} className="min-h-10 rounded-lg px-2.5 text-[11px] font-bold text-[#7A0C2E] underline underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-maroon">
+                {te ? "అన్ని వడపోతలు తొలగించండి" : "Clear filters"}
+              </button>
+            ) : null}
+          </div>
+        </section>
+
+        {directoryMode === "HUBS" ? (
+          <div className={`mt-6 grid gap-4 ${layout === "COMPACT" ? "grid-cols-1" : "sm:grid-cols-2 xl:grid-cols-3"}`}>
           {filteredCastes.map((c, i) => {
-            const brideWhatsApp = getWAChannelLink(c.brideWaKey);
-            const groomWhatsApp = getWAChannelLink(c.groomWaKey);
+            const brideLinks = getChannelLinks(c.route.bride?.key);
+            const groomLinks = getChannelLinks(c.route.groom?.key);
+            const brideTelegram = brideLinks.telegram;
+            const groomTelegram = groomLinks.telegram;
+            const brideWhatsApp = brideLinks.whatsapp;
+            const groomWhatsApp = groomLinks.whatsapp;
+            const matchesHref = c.matchQuery ? `/matches?caste=${encodeURIComponent(c.matchQuery)}` : "/matches";
             return (
-            <Reveal key={c.key} delay={(i % 6) * 35}>
-              <div className="bg-white rounded-3xl p-5 border border-gold/30 hover:border-gold shadow-md hover:shadow-xl transition-all duration-300 h-full flex flex-col justify-between group">
-                
-                {/* Card Header */}
-                <div>
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-xl">💍</span>
-                        <h3 className="font-extrabold text-[#7A0C2E] text-[18px] leading-tight telugu">
-                          {c.teluguName}
+              <Reveal key={c.key} delay={(i % 6) * 35}>
+                <div className={`group flex h-full min-w-0 flex-col rounded-3xl border border-amber-200 bg-white p-4 shadow-sm transition duration-300 hover:-translate-y-0.5 hover:border-amber-400 hover:shadow-xl sm:p-5 ${layout === "COMPACT" ? "lg:flex-row lg:items-center lg:gap-4" : ""}`}>
+                  <div className={`flex items-start justify-between gap-3 ${layout === "COMPACT" ? "lg:flex-1" : ""}`}>
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span aria-hidden="true" className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-rose-50 to-amber-50 text-lg">💍</span>
+                        <h3 lang={te ? "te-IN" : "en-IN"} className={`min-w-0 break-words text-base font-black leading-snug text-[#7A0C2E] sm:text-lg ${te ? "telugu" : ""}`}>
+                          {te ? c.teluguName : c.englishName}
                         </h3>
                       </div>
-                      <div className="text-[12px] font-bold text-slate-500 mt-0.5">
-                        {c.englishName}
-                      </div>
-                    </div>
-                    
-                    <span className="inline-flex items-center text-[10px] font-black px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 border border-slate-200 shadow-sm shrink-0">
-                      {te ? "లిస్టులో ఉంది" : "LISTED"}
-                    </span>
-                  </div>
-
-                  {/* Subcastes highlight */}
-                  <div className="mt-3 bg-amber-50/60 rounded-xl p-2.5 border border-gold/20 text-[11px] text-slate-700 leading-relaxed telugu">
-                    <span className="font-bold text-[#7A0C2E]">ఉపకులాలు: </span>
-                    <span className="opacity-90">{c.subcastes}</span>
-                  </div>
-                </div>
-
-                {/* Card Actions: Dedicated Bride & Groom Lanes */}
-                <div className="mt-5 space-y-3">
-                  
-                  {/* Bride Row */}
-                  <div className="bg-rose-50/40 border border-rose-100 rounded-2xl p-2 flex items-center justify-between gap-2">
-                    <Link
-                      href={`/castes/${c.brideSlug}`}
-                      className="flex-1 text-center text-xs font-extrabold maroon-gradient text-white py-2.5 px-3 rounded-xl hover-lift shadow-sm truncate"
-                    >
-                      👰 {te ? "వధువులు (Brides)" : "Brides"}
-                    </Link>
-                    
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <a
-                        href={c.brideTgLink}
-                        target="_blank"
-                        rel="noreferrer"
-                        title={te ? "వధువుల Telegram ఛానల్" : "Brides Telegram Channel"}
-                        className="grid place-items-center w-8 h-8 rounded-xl bg-[#229ED9] text-white shadow-soft hover:scale-110 active:scale-95 transition"
-                      >
-                        <TelegramIcon className="w-4 h-4" mono />
-                      </a>
-                      {brideWhatsApp.url ? (
-                        <a
-                          href={brideWhatsApp.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          aria-label={te
-                            ? (brideWhatsApp.isDirectChannel ? "లిస్టు చేసిన వధువుల WhatsApp link" : "Configured WhatsApp support తెరవండి")
-                            : (brideWhatsApp.isDirectChannel ? "Open listed Brides WhatsApp link" : "Open configured WhatsApp support")}
-                          title={te ? "బాహ్య WhatsApp లింక్; availability తనిఖీ చేయబడదు" : "External WhatsApp link; availability is not checked"}
-                          className="grid place-items-center w-8 h-8 rounded-xl bg-gradient-to-br from-[#128C4A] to-[#20bd5a] text-white shadow-soft hover:scale-110 active:scale-95 transition"
-                        >
-                          <WhatsAppIcon className="w-4 h-4" mono />
-                        </a>
+                      <p className={`mt-2 text-[10px] font-semibold uppercase tracking-wider text-slate-500 ${layout === "COMPACT" ? "lg:mt-1" : ""}`}>{te ? "లిస్టు చేసిన కమ్యూనిటీ హబ్" : "Registry-listed community hub"}</p>
+                      {layout === "COMPACT" ? (
+                        <p className="mt-1 text-[11px] leading-relaxed text-slate-600">
+                          {te ? `${c.subcastes.length} నమోదు ఉపసమాజ ఎంపికలు` : `${c.subcastes.length} listed registration sub-community options`}
+                        </p>
                       ) : null}
                     </div>
+                    <span className="shrink-0 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[10px] font-black text-slate-600">{c.category}</span>
                   </div>
 
-                  {/* Groom Row */}
-                  <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-2 flex items-center justify-between gap-2">
-                    <Link
-                      href={`/castes/${c.groomSlug}`}
-                      className="flex-1 text-center text-xs font-extrabold bg-white border border-maroon/30 text-maroon hover:bg-rose-50/60 py-2.5 px-3 rounded-xl hover-lift shadow-sm truncate"
-                    >
-                      🤵 {te ? "వరులు (Grooms)" : "Grooms"}
-                    </Link>
-                    
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <a
-                        href={c.groomTgLink}
-                        target="_blank"
-                        rel="noreferrer"
-                        title={te ? "వరుల Telegram ఛానల్" : "Grooms Telegram Channel"}
-                        className="grid place-items-center w-8 h-8 rounded-xl bg-[#229ED9] text-white shadow-soft hover:scale-110 active:scale-95 transition"
-                      >
-                        <TelegramIcon className="w-4 h-4" mono />
-                      </a>
-                      {groomWhatsApp.url ? (
-                        <a
-                          href={groomWhatsApp.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          aria-label={te
-                            ? (groomWhatsApp.isDirectChannel ? "లిస్టు చేసిన వరుల WhatsApp link" : "Configured WhatsApp support తెరవండి")
-                            : (groomWhatsApp.isDirectChannel ? "Open listed Grooms WhatsApp link" : "Open configured WhatsApp support")}
-                          title={te ? "బాహ్య WhatsApp లింక్; availability తనిఖీ చేయబడదు" : "External WhatsApp link; availability is not checked"}
-                          className="grid place-items-center w-8 h-8 rounded-xl bg-gradient-to-br from-[#128C4A] to-[#20bd5a] text-white shadow-soft hover:scale-110 active:scale-95 transition"
-                        >
-                          <WhatsAppIcon className="w-4 h-4" mono />
-                        </a>
-                      ) : null}
+                  {layout === "GRID" ? (
+                    <div className="mt-4 rounded-2xl border border-amber-100 bg-amber-50/60 p-3">
+                      <div className="text-[11px] font-bold text-slate-800">{te ? "నమోదు ఎంపికలు" : "Registration options"}</div>
+                      <p className="mt-1 text-[11px] leading-relaxed text-slate-600">
+                        {te ? (c.subcastes.length ? `ఈ హబ్‌కు ${c.subcastes.length} ఉపసమాజ ఎంపికలు నమోదు ఫారంలో ఉన్నాయి.` : "సరైన ఉపసమాజం కనిపించకపోతే స్వయంగా పేర్కొన్న పేరును నమోదు చేయవచ్చు.") : (c.subcastes.length ? `${c.subcastes.length} sub-community options are available in registration; the list is not exhaustive.` : "If no listed option fits, registration supports a self-described name.")}
+                      </p>
                     </div>
-                  </div>
+                  ) : null}
 
-                  {/* Explore Matches Link */}
-                  <div className="pt-1">
-                    <Link
-                      href={`/matches?caste=${encodeURIComponent(c.englishName.split("/")[0].trim())}`}
-                      className="block text-center text-xs font-extrabold text-[#7A0C2E] hover:text-[#9B1138] bg-amber-50/50 hover:bg-amber-100/60 border border-gold/40 rounded-xl py-2 transition"
-                    >
-                      🔍 {te ? `${c.teluguName.split("/")[0]} సంబంధాలన్నీ చూడండి →` : `Explore all ${c.englishName.split("/")[0]} matches →`}
+                  <div className={`mt-4 grid grid-cols-2 gap-2 ${layout === "COMPACT" ? "lg:mt-0 lg:w-44 lg:shrink-0" : ""}`}>
+                    <Link href={`/castes/${buildSlug(c.key, "bride")}`} className="inline-flex min-h-11 items-center justify-center gap-1 rounded-xl bg-gradient-to-r from-[#7A0C2E] to-[#A0143A] px-3 py-2.5 text-xs font-extrabold text-white shadow-sm transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-maroon focus-visible:ring-offset-2">
+                      👰 {te ? "వధువుల హబ్" : "Brides"}
+                    </Link>
+                    <Link href={`/castes/${buildSlug(c.key, "groom")}`} className="inline-flex min-h-11 items-center justify-center gap-1 rounded-xl border border-[#7A0C2E]/25 bg-rose-50 px-3 py-2.5 text-xs font-extrabold text-[#7A0C2E] transition hover:bg-rose-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-maroon focus-visible:ring-offset-2">
+                      🤵 {te ? "వరుల హబ్" : "Grooms"}
                     </Link>
                   </div>
 
-                </div>
+                  <div className={`mt-3 grid grid-cols-2 gap-2 ${layout === "COMPACT" ? "lg:mt-0 lg:w-56 lg:shrink-0" : ""}`}>
+                    {brideTelegram ? <a href={brideTelegram} target="_blank" rel="noopener noreferrer" aria-label={te ? `${c.englishName} వధువుల Telegram destination తెరవండి` : `Open the listed Telegram destination for ${c.englishName} brides`} title={te ? "బాహ్య Telegram లింక్; అందుబాటు తనిఖీ చేయబడదు" : "External Telegram link; availability is not checked"} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-[#229ED9] px-3 py-2 text-[11px] font-bold text-white transition hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#229ED9] focus-visible:ring-offset-2"><TelegramIcon className="h-4 w-4" mono /> Telegram</a> : <span className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-slate-100 px-3 py-2 text-[11px] font-semibold text-slate-500"><TelegramIcon className="h-4 w-4" mono /> {te ? "Telegram లింక్ లేదు" : "No Telegram link"}</span>}
+                    {brideWhatsApp ? <a href={brideWhatsApp} target="_blank" rel="noopener noreferrer" aria-label={te ? `${c.englishName} వధువుల WhatsApp channel తెరవండి` : `Open the listed WhatsApp channel for ${c.englishName} brides`} title={te ? "బాహ్య WhatsApp channel; అందుబాటు తనిఖీ చేయబడదు" : "External WhatsApp channel; availability is not checked"} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-[#128C4A] px-3 py-2 text-[11px] font-bold text-white transition hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#128C4A] focus-visible:ring-offset-2"><WhatsAppIcon className="h-4 w-4" mono /> WhatsApp</a> : <span className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-slate-100 px-3 py-2 text-[11px] font-semibold text-slate-500"><WhatsAppIcon className="h-4 w-4" mono /> {te ? "WhatsApp లింక్ లేదు" : "No WhatsApp link"}</span>}
+                  </div>
 
-              </div>
-            </Reveal>
+                  <div className={`mt-auto pt-4 ${layout === "COMPACT" ? "lg:mt-0 lg:w-48 lg:shrink-0 lg:pt-0" : ""}`}>
+                    <Link href={matchesHref} className="block min-h-10 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-center text-xs font-extrabold text-[#7A0C2E] transition hover:border-amber-400 hover:bg-amber-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-maroon focus-visible:ring-offset-2">
+                      🔎 {te ? (c.matchQuery ? "ఈ కమ్యూనిటీ సంబంధాలు చూడండి" : "ప్రొఫైల్ మ్యాచ్‌లు చూడండి") : (c.matchQuery ? `Browse ${c.englishName} matches` : "Browse all matches")}
+                    </Link>
+                    <p className="mt-2 text-center text-[10px] leading-relaxed text-slate-500">{te ? "లింకులు నమోదు చేసిన destinations మాత్రమే; బాహ్య సేవ స్థితి ధృవీకరించబడదు." : "Only configured destinations are shown; external service status is not verified."}</p>
+                  </div>
+                </div>
+              </Reveal>
             );
           })}
-        </div>
+          </div>
+        ) : null}
+
+        {directoryMode === "REGISTRATION" ? (
+          <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            {filteredRegistrationOptions.map((community, i) => {
+              const relatedHub = hubForRegistrationOption(community.en);
+              const isSelfDescribed = community.en === OTHER_COMMUNITY_OPTION;
+              const matchesHref = isSelfDescribed ? "/matches" : `/matches?caste=${encodeURIComponent(community.en)}`;
+              return (
+                <Reveal key={community.en} delay={(i % 6) * 25}>
+                  <article className="flex h-full min-w-0 flex-col rounded-3xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-amber-300 hover:shadow-lg sm:p-5">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <h3 lang={te ? "te-IN" : "en-IN"} className={`break-words text-base font-black leading-snug text-[#7A0C2E] sm:text-lg ${te ? "telugu" : ""}`}>
+                          {te ? community.te : community.en}
+                        </h3>
+                        <p className="mt-1 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                          {te ? "ప్రస్తుత నమోదు ఎంపిక" : "Current registration option"}
+                        </p>
+                      </div>
+                      <span aria-hidden="true" className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-amber-50 text-lg">🪷</span>
+                    </div>
+
+                    {community.subcastes.length ? (
+                      <details className="mt-4 rounded-2xl border border-amber-100 bg-amber-50/60 p-3">
+                        <summary className="min-h-10 cursor-pointer select-none text-[11px] font-bold text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-maroon">
+                          {te ? `${community.subcastes.length} ఉపసమాజ ఎంపికలు చూపించండి` : `View ${community.subcastes.length} sub-community options`}
+                        </summary>
+                        <ul className="mt-2 grid max-h-44 grid-cols-1 gap-1.5 overflow-y-auto pr-1 sm:grid-cols-2">
+                          {community.subcastes.map((subcommunity) => (
+                            <li key={subcommunity} className="min-w-0">
+                              <Link href={`/matches?caste=${encodeURIComponent(subcommunity)}`} className="block min-h-9 break-words rounded-lg border border-white/80 bg-white px-2.5 py-2 text-[10px] font-semibold text-slate-700 transition hover:border-amber-300 hover:text-[#7A0C2E] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-maroon">
+                                {subcommunity}
+                              </Link>
+                            </li>
+                          ))}
+                        </ul>
+                      </details>
+                    ) : (
+                      <p className="mt-4 rounded-2xl border border-slate-100 bg-slate-50 p-3 text-[11px] leading-relaxed text-slate-600">
+                        {te ? "ఈ ఎంపికకు ఉపసమాజ జాబితా లేదు; అవసరమైతే నమోదు సమయంలో స్వయంగా పేర్కొన్న పేరు ఉపయోగించండి." : "No sub-community choices are listed for this option; use a self-described name during registration if needed."}
+                      </p>
+                    )}
+
+                    {relatedHub ? (
+                      <div className="mt-3 rounded-2xl border border-rose-100 bg-rose-50/60 p-3">
+                        <p className="mb-2 text-[10px] font-bold text-slate-700">
+                          {te ? `లిస్టు చేసిన సంబంధిత హబ్: ${relatedHub.englishName}` : `Related configured hub: ${relatedHub.englishName}`}
+                        </p>
+                        <div className="grid grid-cols-2 gap-2">
+                          <Link href={`/castes/${buildSlug(relatedHub.key, "bride")}`} className="inline-flex min-h-10 items-center justify-center rounded-xl bg-[#7A0C2E] px-2 py-2 text-[10px] font-extrabold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-maroon focus-visible:ring-offset-2">
+                            {te ? "వధువులు" : "Brides"}
+                          </Link>
+                          <Link href={`/castes/${buildSlug(relatedHub.key, "groom")}`} className="inline-flex min-h-10 items-center justify-center rounded-xl border border-[#7A0C2E]/25 bg-white px-2 py-2 text-[10px] font-extrabold text-[#7A0C2E] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-maroon focus-visible:ring-offset-2">
+                            {te ? "వరులు" : "Grooms"}
+                          </Link>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="mt-3 text-[10px] leading-relaxed text-slate-500">
+                        {te ? "ఈ ఎంపికకు ప్రత్యేక channel hub లింక్‌ను registryలో కనుగొనలేదు." : "No direct channel-hub link is mapped to this registration option."}
+                      </p>
+                    )}
+
+                    <div className="mt-auto grid grid-cols-2 gap-2 pt-4">
+                      <Link href={matchesHref} className="inline-flex min-h-10 items-center justify-center rounded-xl border border-amber-200 bg-amber-50 px-2 py-2 text-center text-[10px] font-extrabold text-[#7A0C2E] transition hover:bg-amber-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-maroon focus-visible:ring-offset-2">
+                        {te ? (isSelfDescribed ? "మ్యాచ్‌లు చూడండి" : "సంబంధాలు చూడండి") : (isSelfDescribed ? "Browse matches" : `Find ${community.en} matches`)}
+                      </Link>
+                      <Link href="/register" className="inline-flex min-h-10 items-center justify-center rounded-xl border border-slate-200 bg-white px-2 py-2 text-center text-[10px] font-extrabold text-slate-700 transition hover:border-maroon/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-maroon focus-visible:ring-offset-2">
+                        {te ? "నమోదు ప్రారంభించండి" : "Start registration"}
+                      </Link>
+                    </div>
+                    <p className="mt-2 text-center text-[10px] leading-relaxed text-slate-500">
+                      {te ? "మ్యాచ్‌లు సభ్యులు నమోదు చేసిన caste / sub-community పదాలను బట్టి వడపోత చేస్తాయి." : "Profile search uses the member-entered caste or sub-community text; results depend on available profiles."}
+                    </p>
+                  </article>
+                </Reveal>
+              );
+            })}
+          </div>
+        ) : null}
 
         {/* Empty state */}
-        {filteredCastes.length === 0 && (
+        {resultCount === 0 && (
           <div className="mt-10 text-center p-10 bg-white rounded-3xl border border-gray-200 card-shadow">
             <div className="text-4xl">🔍</div>
-            <div className="font-extrabold text-gray-800 text-lg mt-3 telugu">
-              {te ? "మీరు వెతికిన కులం దొరకలేదు" : "No castes matched your search"}
+            <div className={`font-extrabold text-gray-800 text-lg mt-3 ${te ? "telugu" : ""}`}>
+              {te ? "ఈ వడపోతలకు సరిపడే కమ్యూనిటీలు లేవు" : "No communities match these filters"}
             </div>
-            <p className="text-xs text-gray-500 mt-1 telugu max-w-md mx-auto">
+            <p className={`text-xs text-gray-500 mt-1 max-w-md mx-auto ${te ? "telugu" : ""}`}>
               {te ? "పేరు కనిపించకపోతే ఉచిత నమోదులో ‘Other / self-described’ ఎంపికను ఎంచుకుని మీ కమ్యూనిటీ పేరును నమోదు చేయండి." : "If you do not see a match, choose ‘Other / self-described’ during free registration and enter your community name."}
             </p>
             <Link href="/register" className="inline-block mt-5 maroon-gradient text-white font-bold px-6 py-3 rounded-2xl text-xs shadow-brand hover-lift">
@@ -527,11 +549,11 @@ export default function CastesClient() {
         {/* Bottom Navigation CTA Bar */}
         <div className="mt-12 p-6 bg-gradient-to-r from-[#7A0C2E] to-[#4A0018] rounded-3xl text-white shadow-xl flex flex-col md:flex-row items-center justify-between gap-4">
           <div>
-            <div className="text-lg font-extrabold telugu">
-              {te ? "మీ కులానికి సరిపోయే సంబంధాలు కావాలా?" : "Looking for perfect community alliances?"}
+            <div className={`text-lg font-extrabold ${te ? "telugu" : ""}`}>
+              {te ? "మీ కులానికి సరిపోయే సంబంధాలు కావాలా?" : "Explore profiles by community"}
             </div>
-            <div className="text-xs text-white/80 mt-1 telugu">
-              {te ? "3 నిమిషాల్లో ఉచితంగా నమోదు చేసుకోండి • మొదటి 3 సంబంధాలు ఉచితం" : "Register in 3 minutes • First 3 requests 100% FREE"}
+            <div className={`text-xs text-white/80 mt-1 ${te ? "telugu" : ""}`}>
+              {te ? "ఉచితంగా నమోదు చేసుకోండి • మొదటి 3 interest requests ఉచితం" : "Register for free • First 3 interest requests are free"}
             </div>
           </div>
 
@@ -540,7 +562,7 @@ export default function CastesClient() {
               {te ? "📝 ఉచిత నమోదు" : "📝 Register FREE"}
             </Link>
             <Link href="/channels" className="bg-white/15 hover:bg-white/25 border border-white/30 text-white font-bold px-5 py-3 rounded-2xl text-xs transition">
-              📢 {CHANNEL_STATS.total} {te ? "ఛానల్స్ నెట్‌వర్క్" : "Channels"}
+              📢 {CHANNEL_STATS.total} {te ? "పబ్లిక్ ఛానల్ listings" : "public channel listings"}
             </Link>
           </div>
         </div>

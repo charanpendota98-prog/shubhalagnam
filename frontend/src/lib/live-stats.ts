@@ -1,5 +1,7 @@
 "use client";
 
+
+import { readApiJson } from "@/lib/api";
 /**
  * 📊 LIVE STATS — honest, backend-derived numbers for hero / trust band.
  * ================================================================
@@ -22,12 +24,15 @@ export type LiveStats = {
   profiles_count: number;
   brides_count: number;
   grooms_count: number;
-  verified_count: number;
-  verified_percentage: number;
+  profiles_with_recorded_check: number;
+  profiles_with_phone_otp: number;
+  profiles_with_photo_review: number;
+  profiles_with_id_review: number;
+  recorded_check_percentage: number;
   districts_with_profiles: number;
   castes_with_profiles: number;
   castes_covered: number;
-  channels_live: number;
+  channels_routing_eligible: number;
   channels_total: number;
   interests_sent: number;
   stats_are_live: boolean;
@@ -42,12 +47,15 @@ export const STATS_FALLBACK: LiveStats = {
   profiles_count: 0,
   brides_count: 0,
   grooms_count: 0,
-  verified_count: 0,
-  verified_percentage: 0,
+  profiles_with_recorded_check: 0,
+  profiles_with_phone_otp: 0,
+  profiles_with_photo_review: 0,
+  profiles_with_id_review: 0,
+  recorded_check_percentage: 0,
   districts_with_profiles: 0,
   castes_with_profiles: 0,
   castes_covered: COMMUNITIES_BY_RELIGION.Hindu.length,
-  channels_live: 0,
+  channels_routing_eligible: 0,
   channels_total: 0,
   interests_sent: 0,
   stats_are_live: false,
@@ -67,18 +75,21 @@ export function useLiveStats(): LiveStats {
       try {
         const r = await fetch("/api/meta/home-stats", { cache: "no-store" });
         if (!r.ok) return;
-        const d = await r.json();
+        const d = await readApiJson(r);
         if (!alive || !d || d.success === false) return;
         const next: LiveStats = {
           profiles_count: Number(d.profiles_count) || 0,
           brides_count: Number(d.brides_count) || 0,
           grooms_count: Number(d.grooms_count) || 0,
-          verified_count: Number(d.verified_count) || 0,
-          verified_percentage: Number(d.verified_percentage) || 0,
+          profiles_with_recorded_check: Number(d.profiles_with_recorded_check) || 0,
+          profiles_with_phone_otp: Number(d.profiles_with_phone_otp) || 0,
+          profiles_with_photo_review: Number(d.profiles_with_photo_review) || 0,
+          profiles_with_id_review: Number(d.profiles_with_id_review) || 0,
+          recorded_check_percentage: Number(d.recorded_check_percentage) || 0,
           districts_with_profiles: Number(d.districts_with_profiles) || 0,
           castes_with_profiles: Number(d.castes_with_profiles) || 0,
           castes_covered: Number(d.castes_covered) || COMMUNITIES_BY_RELIGION.Hindu.length,
-          channels_live: Number(d.channels_live) || 0,
+          channels_routing_eligible: Number(d.channels_routing_eligible) || 0,
           channels_total: Number(d.channels_total) || 0,
           interests_sent: Number(d.interests_sent) || 0,
           stats_are_live: d.stats_are_live !== false,

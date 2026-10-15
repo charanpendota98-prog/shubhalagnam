@@ -20,6 +20,7 @@ def isolate_test_stores(suite: str = "backend-test") -> str:
 
     files = {
         "TSAP_DB_FILE": "data_db.json",
+        "TSAP_TOKEN_VERSIONS_FILE": "quality-state/token_versions.json",
         "MANA_VIVAHA_PAYPRO_FILE": "paypro14.json",
         "MANA_VIVAHA_ADS_FILE": "ads13.json",
         "MANA_VIVAHA_CMS_FILE": "cms15.json",
@@ -38,7 +39,10 @@ def isolate_test_stores(suite: str = "backend-test") -> str:
         "MANA_VIVAHA_RETENTION_LOG_FILE": "retention_log.json",
         "MANA_VIVAHA_MONEY_AUDIT_FILE": "money_audit26.jsonl",
         "MANA_VIVAHA_PUBLISH_LOG_FILE": "publish_log.jsonl",
+        "MANA_VIVAHA_BACKUP_DIR": "backups",
         "MANA_VIVAHA_CHANNEL_SETUP_STATE_FILE": "channel_setup_state.json",
+        "MANA_VIVAHA_CHANNEL_REPORT_DIR": "channel-reports",
+        "PREVIEW_DIR": "previews",
     }
     for name, filename in files.items():
         path = base / filename
@@ -50,4 +54,8 @@ def isolate_test_stores(suite: str = "backend-test") -> str:
     os.environ["MANA_VIVAHA_APP_STATE_DIR"] = str(base / "app-state")
     os.environ["MANA_VIVAHA_RETENTION_BACKUP_DIR"] = str(base / "retention-backups")
     os.environ["MANA_VIVAHA_TEST_DATA_DIR"] = root
+    os.environ["MANA_VIVAHA_MEDIA_DIR"] = str(base / "media")
+    # Development payment fixtures need an explicit, isolated-test-only opt-in.
+    # Production startup rejects this flag even if a copied test environment leaks it.
+    os.environ["MANA_TEST_PAYMENT_FIXTURES"] = "true"
     return root

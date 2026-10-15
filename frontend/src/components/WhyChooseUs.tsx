@@ -17,7 +17,7 @@ const COPY = {
     features: [
       { icon: "📱", t: "Phone OTP status", d: "OTP ఆ phone number‌కు access‌ను నిర్ధారిస్తుంది; వ్యక్తి గుర్తింపును కాదు." },
       { icon: "🔒", t: "ఫోటో గోప్యత", d: "Photo visibility‌ను మీరు ఎంచుకోండి; బయట share చేసిన కాపీలను service నియంత్రించలేదు." },
-      { icon: "🤝", t: "సమ్మతితో contact sharing", d: "In-app chat లేదు. Request acceptance మరియు privacy settings ప్రకారం contact details చూపిస్తాం." },
+      { icon: "🤝", t: "సమ్మతితో contact access", d: "In-app chat లేదు. Owner accept చేసిన తర్వాత accepted-request account views లో contact details కనిపిస్తాయి; notification delivery హామీ లేదు." },
       { icon: "💰", t: "స్పష్టమైన ధరలు", d: "ఉచిత ప్లాన్‌లో 3 interest requests + profile card; paid plans ₹99 నుంచి. Add-ons వేరు కావచ్చు." },
     ],
     cta: "ఇప్పుడే మొదలుపెట్టండి",
@@ -30,7 +30,7 @@ const COPY = {
     features: [
       { icon: "📱", t: "Phone OTP status", d: "OTP confirms access to a phone number, not a person’s identity." },
       { icon: "🔒", t: "Photo privacy", d: "Choose photo visibility; copies shared outside the service are beyond our control." },
-      { icon: "🤝", t: "Consent-based contact sharing", d: "No in-app chat. Contact details follow request acceptance and privacy settings." },
+      { icon: "🤝", t: "Consent-based contact access", d: "No in-app chat. Owner acceptance grants contact access in accepted-request account views; notification delivery is not guaranteed." },
       { icon: "💰", t: "Clear pricing", d: "Free plan: 3 interest requests + profile card. Paid plans start at ₹99; add-ons may cost extra." },
     ],
     cta: "Get started now",
@@ -66,7 +66,7 @@ export default function WhyChooseUs() {
               </div>
               <div className="relative rounded-2xl border border-white/15 bg-black/15 p-4 sm:p-5">
                 <div className="text-lg font-bold sm:text-xl">{lang === "en" ? "You choose what to share" : "ఏమి పంచుకోవాలో మీరే ఎంచుకోండి"}</div>
-                <p className="mt-1 text-sm leading-relaxed text-white/80">{lang === "en" ? "Review profile details and privacy settings before accepting an introduction." : "పరిచయాన్ని ఆమోదించే ముందు profile వివరాలు, privacy settings‌ను పరిశీలించండి."}</p>
+                <p className="mt-1 text-sm leading-relaxed text-white/80">{lang === "en" ? "Review member-provided details; owner acceptance grants contact access in your account, not confirmed message delivery." : "సభ్యులు అందించిన వివరాలను పరిశీలించండి; owner accept చేస్తే account లో contact access వస్తుంది, కానీ సందేశం చేరిందని నిర్ధారణ కాదు."}</p>
               </div>
             </div>
             <div className="absolute -bottom-4 left-4 flex items-center gap-2 rounded-2xl bg-white/95 px-4 py-2.5 shadow-brand">

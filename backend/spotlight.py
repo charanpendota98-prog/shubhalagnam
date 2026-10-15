@@ -1,28 +1,16 @@
-"""
-🌟 WAVE 42 — PROFILES OF THE DAY & PAID SPOTLIGHT ENGINE
-=============================================================
-Registered users can pay to promote their profile as "Profile of the Day" / "Spotlight":
-  • Tier pricing:
-      - SPOT_3:  3 Days  — ₹99  (Featured on Home & Matches + Gold Badge)
-      - SPOT_7:  7 Days  — ₹199 (approved media card + seven-day placement + basic view/click counts)
-      - SPOT_30: 30 Days — ₹499 (VIP Spotlight + Daily Digest Feature + Bureau Priority)
-  • Media support:
-      - High-resolution Photo (upload or photo URL)
-      - Video pitch / Intro (YouTube link, Shorts, MP4)
-      - Telugu + English headline and customized alliance pitch
-  • Lifecycle & Admin Moderation:
-      - User submits promo application + payment ref (UPI/Razorpay)
-      - Admin / Worker cross-checks photo/video suitability
-      - Admin approves (activates spotlight) or rejects (refund note) or closes early
-      - Active spotlights are served publicly on Homepage, Matches, and dedicated section
+"""Paid profile-spotlight submissions with explicit payment and media review.
+
+A spotlight is an on-site sponsored placement for its approved duration; it is
+not an identity check and does not promise reach, responses, or a match.
 """
 from __future__ import annotations
 
 import json
 import os
 import re
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional, Any
+from urllib.parse import parse_qs, urlparse
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 SPOTLIGHT_FILE = os.environ.get("MANA_VIVAHA_SPOTLIGHT_FILE", os.path.join(BASE_DIR, "spotlight_promotions.json"))
@@ -32,28 +20,34 @@ SPOTLIGHT_TIERS = {
         "code": "SPOT_3",
         "days": 3,
         "price": 99,
-        "name_en": "3-Day Spotlight Boost",
+        "name_en": "3-Day Sponsored Spotlight",
         "name_te": "⚡ 3 రోజుల స్పాట్‌లైట్ బూస్ట్",
-        "perks_te": ["చెల్లింపు, మీడియా సమీక్ష తర్వాత స్పాట్‌లైట్ కార్డ్", "ఆమోదం తర్వాత 3 రోజుల ప్రదర్శన", "గోల్డ్ ప్రమోషన్ బ్యాడ్జ్ (ధృవీకరణకు భిన్నం)"],
-        "badge": "⚡ SPONSORED PROFILE"
+        "perks_en": ["Sponsored card after payment and profile/media review", "On-site display for 3 days after approval", "Promotional badge only; no identity, reach, response, or match guarantee"],
+        "perks_te": ["చెల్లింపు, ప్రొఫైల్/మీడియా సమీక్ష తర్వాత స్పాన్సర్డ్ కార్డ్", "ఆమోదం తర్వాత 3 రోజుల పాటు సైట్‌లో ప్రదర్శన", "ప్రమోషన్ బ్యాడ్జ్ మాత్రమే; identity, reach, response లేదా match హామీ లేదు"],
+        "badge": "⚡ SPONSORED PROFILE",
+        "badge_te": "⚡ స్పాన్సర్డ్ ప్రొఫైల్"
     },
     "SPOT_7": {
         "code": "SPOT_7",
         "days": 7,
         "price": 199,
-        "name_en": "7-Day Prime Spotlight",
-        "name_te": "🌟 7 రోజుల ప్రైమ్ స్పాట్‌లైట్",
-        "perks_te": ["మీ ఆమోదించిన ఫోటో / వీడియోతో కార్డ్", "ఆమోదం తర్వాత 7 రోజుల ప్రదర్శన", "క్లిక్‌లు, వీక్షణల ప్రాథమిక గణాంకాలు"],
-        "badge": "🌟 SPONSORED SPOTLIGHT"
+        "name_en": "7-Day Spotlight",
+        "name_te": "🌟 7 రోజుల స్పాట్‌లైట్",
+        "perks_en": ["Approved photo or video card", "On-site display for 7 days after approval", "No reach, response, or match guarantee"],
+        "perks_te": ["ఆమోదించిన ఫోటో లేదా వీడియోతో కార్డ్", "ఆమోదం తర్వాత 7 రోజుల పాటు సైట్‌లో ప్రదర్శన", "రీచ్, స్పందన లేదా మ్యాచ్ హామీ లేదు"],
+        "badge": "🌟 SPONSORED SPOTLIGHT",
+        "badge_te": "🌟 స్పాన్సర్డ్ స్పాట్‌లైట్"
     },
     "SPOT_30": {
         "code": "SPOT_30",
         "days": 30,
         "price": 499,
-        "name_en": "30-Day VIP Super Spotlight",
-        "name_te": "💎 30 రోజుల విఐపి సూపర్ స్పాట్‌లైట్",
-        "perks_te": ["మీడియా ఆమోదం తర్వాత 30 రోజుల ప్రదర్శన", "వీడియో లింక్ ఉంటే వీడియో ప్లేయర్", "ప్రదర్శన గణాంకాలు"],
-        "badge": "💎 SPONSORED FEATURE"
+        "name_en": "30-Day Spotlight",
+        "name_te": "💎 30 రోజుల స్పాట్‌లైట్",
+        "perks_en": ["On-site display for 30 days after approval", "Video player when an approved video is included", "No reach, response, or match guarantee"],
+        "perks_te": ["మీడియా ఆమోదం తర్వాత 30 రోజుల పాటు సైట్‌లో ప్రదర్శన", "ఆమోదించిన వీడియో ఉంటే వీడియో ప్లేయర్", "రీచ్, స్పందన లేదా మ్యాచ్ హామీ లేదు"],
+        "badge": "💎 SPONSORED FEATURE",
+        "badge_te": "💎 స్పాన్సర్డ్ ప్రమోషన్"
     }
 }
 
@@ -78,47 +72,98 @@ def _save_spotlights(items: List[Dict[str, Any]]) -> bool:
         return False
 
 
-def _clean_video_url(url: str) -> str:
-    if not url:
+def _profile_photo_url(value: Any) -> str:
+    """Accept only same-site /photos paths; external image URLs are not public media."""
+    raw = str(value or "").strip()
+    if not raw or len(raw) > 300 or raw.startswith("//"):
         return ""
-    url = str(url).strip()
-    # Normalize YouTube shorts or watch urls to embed format if needed
-    yt_match = re.search(r"(?:youtube\.com\/(?:watch\?v=|shorts\/|embed\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})", url)
-    if yt_match:
-        vid = yt_match.group(1)
-        return f"https://www.youtube.com/embed/{vid}"
-    return url
+    try:
+        parsed = urlparse(raw)
+        if parsed.scheme or parsed.netloc:
+            return ""
+        if parsed.query or parsed.fragment or "\\" in parsed.path:
+            return ""
+        if not re.fullmatch(r"/photos/[A-Za-z0-9._-]{1,180}", parsed.path):
+            return ""
+        if ".." in parsed.path.split("/"):
+            return ""
+        return parsed.path
+    except (TypeError, ValueError):
+        return ""
+
+
+def _clean_video_url(url: str) -> str:
+    """Allow YouTube watch/short/embed URLs only; never pass arbitrary media URLs through."""
+    raw = str(url or "").strip()
+    if not raw:
+        return ""
+    try:
+        parsed = urlparse(raw)
+        if parsed.scheme.lower() != "https" or parsed.username or parsed.password or parsed.port:
+            return ""
+        host = (parsed.hostname or "").lower().rstrip(".")
+        if host not in {"youtube.com", "www.youtube.com", "m.youtube.com", "youtu.be", "youtube-nocookie.com", "www.youtube-nocookie.com"}:
+            return ""
+        video_id = ""
+        if host == "youtu.be":
+            video_id = parsed.path.strip("/").split("/")[0]
+        elif parsed.path == "/watch":
+            video_id = (parse_qs(parsed.query).get("v") or [""])[0]
+        else:
+            match = re.fullmatch(r"/(?:shorts|embed)/([A-Za-z0-9_-]{11})/?", parsed.path)
+            video_id = match.group(1) if match else ""
+        if not re.fullmatch(r"[A-Za-z0-9_-]{11}", video_id):
+            return ""
+        return f"https://www.youtube-nocookie.com/embed/{video_id}"
+    except (TypeError, ValueError):
+        return ""
+
+
+def _parse_utc(value: Any) -> Optional[datetime]:
+    """Parse stored timestamps consistently; invalid/ambiguous dates fail closed."""
+    try:
+        parsed = datetime.fromisoformat(str(value or "").strip().replace("Z", "+00:00"))
+    except (TypeError, ValueError):
+        return None
+    if parsed.tzinfo is not None:
+        parsed = parsed.astimezone(timezone.utc).replace(tzinfo=None)
+    return parsed
 
 
 def get_active_spotlights(limit: int = 12) -> List[Dict[str, Any]]:
-    """Return only approved, unexpired public fields; never leak payment references or notes."""
+    """Return approved, paid, unexpired public fields; never leak payment data or metrics."""
     items = _load_spotlights()
-    now_iso = datetime.utcnow().isoformat()
-    active = []
+    now = datetime.utcnow()
+    active: List[Dict[str, Any]] = []
     expired_changed = False
     public_fields = (
         "promo_id", "tsap_id", "full_name", "gender", "age", "caste", "subcaste",
-        "district", "education", "job", "income", "height", "marital_status",
-        "plan_code", "badge_text", "headline", "pitch_text", "photo_url", "video_url",
-        "media_type", "amount_paid", "views_count", "clicks_count", "interests_count",
-        "approved_at", "expires_at",
+        "district", "education", "job", "height", "badge_text", "badge_text_te", "headline",
+        "pitch_text", "photo_url", "video_url",
     )
 
     for item in items:
-        if item.get("status") != "active" or item.get("payment_status") != "verified":
+        if not isinstance(item, dict) or item.get("status") != "active" or item.get("payment_status") != "verified":
             continue
-        exp = str(item.get("expires_at") or "")
-        if not exp or exp < now_iso:
-            if exp:
-                item["status"] = "expired"
-                expired_changed = True
+        expires_at = _parse_utc(item.get("expires_at"))
+        if expires_at is None or expires_at <= now:
+            item["status"] = "expired"
+            expired_changed = True
             continue
-        active.append({key: item.get(key) for key in public_fields if key in item})
+        active.append(item)
 
     if expired_changed:
         _save_spotlights(items)
-    active.sort(key=lambda x: (x.get("amount_paid", 0), x.get("approved_at", "")), reverse=True)
-    return active[:max(0, int(limit))]
+
+    # Newest approved placement first; order is recency-based, not a popularity or trust ranking.
+    active.sort(key=lambda item: (_parse_utc(item.get("approved_at")) or datetime.min,
+                                  str(item.get("promo_id") or "")), reverse=True)
+    try:
+        max_rows = max(0, min(30, int(limit)))
+    except (TypeError, ValueError, OverflowError):
+        max_rows = 12
+    return [{key: item.get(key) for key in public_fields if key in item}
+            for item in active[:max_rows]]
 
 
 def create_spotlight_submission(
@@ -131,6 +176,7 @@ def create_spotlight_submission(
     payment_mode: str = "upi",
     payment_ref: str = "",
     contact_opt: str = "send_interest",
+    consent_confirmed: bool = False,
     auto_approve: bool = False
 ) -> Dict[str, Any]:
     """Create a pending spotlight application from an authenticated, registered user."""
@@ -143,6 +189,15 @@ def create_spotlight_submission(
     tsap_id = str(user.get("tsap_id") or "").strip().upper()
     if not tsap_id:
         raise ValueError("A registered profile ID is required.")
+    status = str(user.get("status") or "").strip().lower()
+    approved_flag = user.get("is_approved")
+    is_approved = (approved_flag is True or str(approved_flag).strip().lower() in {"1", "true", "yes", "approved"}
+                   or status == "approved")
+    if (not is_approved or user.get("is_banned") or user.get("is_active") is False
+            or status in {"deleted", "married_fixed", "banned", "rejected"}):
+        raise ValueError("Only an active, approved profile may apply for a spotlight.")
+    if consent_confirmed is not True:
+        raise ValueError("Confirm that the profile fields and selected media may appear in a sponsored public placement after approval.")
     headline = str(headline or "").strip()
     pitch_text = str(pitch_text or "").strip()
     if not headline or len(headline) > 140:
@@ -157,13 +212,20 @@ def create_spotlight_submission(
     if str(contact_opt or "").strip().lower() not in ("send_interest", "show_phone"):
         raise ValueError("Choose a valid contact preference.")
 
-    photo = str(photo_url or user.get("photo_url") or user.get("card_url") or "").strip()
+    private_photo = bool(user.get("photo_private") or user.get("privacy_mode") == "private")
+    approved_photo = user.get("photo_status") == "approved" and not private_photo
+    profile_photo = _profile_photo_url(user.get("photo_url")) if approved_photo else ""
+    requested_photo = str(photo_url or "").strip()
+    if requested_photo and requested_photo != profile_photo:
+        raise ValueError("Spotlight photos must be the profile owner's existing, approved public /photos image; external URLs are not accepted.")
+    photo = profile_photo
     video = _clean_video_url(video_url)
-    for label, media_url in (("Photo", photo), ("Video", video)):
-        if media_url and not (media_url.startswith("https://") or media_url.startswith("http://") or media_url.startswith("/")):
-            raise ValueError(f"{label} URL must use http(s) or a site-relative path.")
+    if video_url and not video:
+        raise ValueError("Video link must be a valid HTTPS YouTube watch, Shorts, or embed URL.")
 
     items = _load_spotlights()
+    if any(str(item.get("payment_ref") or "").strip() == payment_ref for item in items if isinstance(item, dict)):
+        raise ValueError("This UPI transaction reference has already been submitted.")
     now = datetime.utcnow()
     promo_id = f"SPOT-{now.strftime('%Y%m%d')}-{len(items)+1:04d}"
     age = user.get("age")
@@ -193,12 +255,16 @@ def create_spotlight_submission(
         "amount_paid": 0,
         "days": int(tier["days"]),
         "badge_text": tier["badge"],
+        "badge_text_te": tier["badge_te"],
         "headline": headline,
         "pitch_text": pitch_text,
         "photo_url": photo,
         "video_url": video,
         "media_type": "video" if video else ("photo" if photo else "none"),
         "contact_opt": str(contact_opt).strip().lower(),
+        "publication_consent": True,
+        "publication_consent_at": now.isoformat(),
+        "publication_consent_version": "spotlight-public-placement-v1",
         "payment_mode": "manual_upi",
         "payment_ref": payment_ref,
         "payment_status": "pending_verification",
@@ -255,6 +321,8 @@ def moderate_spotlight(
     elif action == "approve":
         if target.get("payment_status") != "verified":
             raise ValueError("Verify the payment against the bank statement before approving the spotlight.")
+        if len(str(notes or "").strip()) < 8:
+            raise ValueError("Add an audit note describing the profile/media review before approval.")
         try:
             days = int(override_days or target.get("days", 3))
         except (TypeError, ValueError):
@@ -265,7 +333,8 @@ def moderate_spotlight(
         target["approved_at"] = now.isoformat()
         target["expires_at"] = (now + timedelta(days=days)).isoformat()
         target["moderator"] = moderator
-        target["moderator_notes"] = notes or f"Media approved by {moderator}"
+        target["media_review_note"] = notes.strip()
+        target["media_reviewed_by"] = moderator
     elif action == "reject":
         target["status"] = "rejected"
         target["closed_at"] = now.isoformat()
@@ -286,15 +355,26 @@ def moderate_spotlight(
 
 
 def record_spotlight_interaction(promo_id: str, kind: str = "view") -> bool:
+    """Record a whitelisted interaction only for an active, paid, unexpired placement."""
+    if kind not in {"view", "click", "interest"}:
+        return False
     items = _load_spotlights()
-    for it in items:
-        if it.get("promo_id") == promo_id:
-            if kind == "view":
-                it["views_count"] = it.get("views_count", 0) + 1
-            elif kind == "click":
-                it["clicks_count"] = it.get("clicks_count", 0) + 1
-            elif kind == "interest":
-                it["interests_count"] = it.get("interests_count", 0) + 1
-            _save_spotlights(items)
-            return True
+    now = datetime.utcnow()
+    for item in items:
+        if not isinstance(item, dict) or item.get("promo_id") != promo_id:
+            continue
+        expires_at = _parse_utc(item.get("expires_at"))
+        if (item.get("status") != "active" or item.get("payment_status") != "verified"
+                or expires_at is None or expires_at <= now):
+            if item.get("status") == "active" and (expires_at is None or expires_at <= now):
+                item["status"] = "expired"
+                _save_spotlights(items)
+            return False
+        key = {"view": "views_count", "click": "clicks_count", "interest": "interests_count"}[kind]
+        try:
+            current = max(0, int(item.get(key, 0) or 0))
+        except (TypeError, ValueError, OverflowError):
+            current = 0
+        item[key] = current + 1
+        return _save_spotlights(items)
     return False

@@ -3,7 +3,7 @@
 ====================================================================
 Profile routing policy and channel directory registry.
 Idi single source of truth: backend, bot, website anni ikkada nunchi chaduvutayi.
-The legacy `live` flag means eligible for routing in config; it is not a live network or permission check.
+Routing is disabled unless an exact Telegram destination is explicitly configured. Registry metadata does not check availability or bot permissions.
 
 LEVELS (CURRENT CHANNEL REGISTRY — 64 listings):
   L0 OFFICIAL   — 1  (brand hub)
@@ -15,31 +15,49 @@ LEVELS (CURRENT CHANNEL REGISTRY — 64 listings):
   TOTAL         — 64 channels (catalogue includes distinct user-provided community destinations)
 
 IMPORTANT RULES:
-  * Username okkate Telegram lo unique — conflict ayithe FALLBACK list chudu.
-  * The `live` field is a legacy routing-eligibility flag; channel reachability and bot permissions are not probed here.
+  * Only an explicitly configured destination can be used for routing.
+  * Blank category usernames are intentional; do not generate or guess replacements.
+  * Public-directory exclusions are presentation-only; the owner registry retains their exact configured usernames/invites.
+  * Invite links are kept separately from posting destinations; neither link syntax nor routing eligibility proves availability or bot permissions.
   * Max 5 destinations per profile are selected by the router (priority order).
 """
 
+import json
+import os
 import re
 from typing import Dict, List
 from urllib.parse import urlparse
 
-BOT_USERNAME = "@telugumatrimony1_bot"
+def _configured_bot_username() -> str:
+    """Return only an explicitly configured Telegram bot username; never guess one."""
+    raw = os.getenv("BOT_USERNAME", "").strip().lstrip("@")
+    return "@" + raw if re.fullmatch(r"[A-Za-z0-9_]{5,32}", raw) else ""
+
+
+BOT_USERNAME = _configured_bot_username()
 BRAND = "మన వివాహ"
 LEGAL_BRAND = "Manavivaha"
 SITE = "https://manavivaha.in"
+
+# These category entries remain in the private operator registry so configured
+# usernames/invite URLs are preserved, but they are intentionally not part of
+# the public channel directory at the owner's request.
+PUBLIC_DIRECTORY_EXCLUDED_KEYS = frozenset({
+    "official", "hindu", "c_others_st",
+    "bureau_network", "differently_abled", "doctors_teachers", "fraud_alerts",
+    "govt_jobs", "second_marriage", "software_it", "success_stories",
+})
 
 # ---------------------------------------------------------------------------
 # CHANNEL REGISTRY
 # ---------------------------------------------------------------------------
 # key: {
 #   "name": Telugu+English display name,
-#   "username": Telegram username (without @),
-#   "fallbacks": [alternate usernames if taken],
+#   "username": explicitly configured public username (blank when not supplied),
 #   "desc": channel description to paste in Telegram,
 #   "hashtags": always-on hashtags for that channel,
 #   "wave": launch wave,
-#   "live": legacy name for routing eligibility (not a network/permission health check),
+#   "live": derived routing eligibility (never external health or bot permissions),
 # }
 # ---------------------------------------------------------------------------
 
@@ -49,11 +67,10 @@ CHANNELS = {
         "tier": "L0_OFFICIAL",
         "name": "📢 మన వివాహ Official — TS-AP",
         "username": "TSAP_MATRIMONY",
-        "fallbacks": ["manavivaha", "manavivaha_official", "manavivaha_hub"],
         "desc": ("మన వివాహ — TS & AP Telugu Matrimony 🇮🇳\n"
                  "₹99 సంబంధం • మొదటి 3 FREE\n"
                  "Matrimony updates, approved stories when available, and safety information.\n"
-                 "Website: manavivaha.in • Bot: @telugumatrimony1_bot"),
+                 "Website: manavivaha.in"),
         "hashtags": ["#ManaVivaha", "#TSAPMatrimony", "#99keSambandham"],
         "wave": 1,
         "live": True,
@@ -65,10 +82,9 @@ CHANNELS = {
         "tier": "L1_REGION",
         "name": "👰 TS Brides | తెలంగాణ వధువులు",
         "username": "TSBRIDE",
-        "fallbacks": ["manavivaha_ts_bride", "tsbrides"],
         "desc": ("Telangana ammayilu — అన్నీ kulasthulu.\n"
                  "Directory for member profiles by region and gender. Profile details are member-provided; checks are shown individually.\n"
-                 "Register FREE: manavivaha.in/register • Bot: @telugumatrimony1_bot"),
+                 "Register FREE: manavivaha.in/register"),
         "hashtags": ["#TSBride", "#Telangana", "#Ammaayi"],
         "wave": 1,
         "live": True,
@@ -78,10 +94,9 @@ CHANNELS = {
         "tier": "L1_REGION",
         "name": "🤵 TS Grooms | తెలంగాణ వరులు",
         "username": "TSGROOM1",
-        "fallbacks": ["manavivaha_ts_groom", "tsgroom"],
         "desc": ("Telangana abbayilu — అన్నీ kulasthulu.\n"
                  "Directory for member profiles by region and gender. Profile details are member-provided; checks are shown individually.\n"
-                 "Register FREE: manavivaha.in/register • Bot: @telugumatrimony1_bot"),
+                 "Register FREE: manavivaha.in/register"),
         "hashtags": ["#TSGroom", "#Telangana", "#Abbaayi"],
         "wave": 1,
         "live": True,
@@ -91,7 +106,6 @@ CHANNELS = {
         "tier": "L1_REGION",
         "name": "👰 AP Brides | ఆంధ్రా వధువులు",
         "username": "APBRIDE",
-        "fallbacks": ["manavivaha_ap_bride", "apbride1", "manavivaha_apbride"],
         "desc": ("Andhra Pradesh ammayilu — 28 district options.\n"
                  "Regional directory listing • Register: manavivaha.in/register"),
         "hashtags": ["#APBride", "#AndhraPradesh"],
@@ -103,7 +117,6 @@ CHANNELS = {
         "tier": "L1_REGION",
         "name": "🤵 AP Grooms | ఆంధ్రా వరులు",
         "username": "APGROOM1",
-        "fallbacks": ["manavivaha_ap_groom", "apgroom", "manavivaha_apgroom"],
         "desc": ("Andhra Pradesh abbayilu — 28 district options.\n"
                  "Regional directory listing • Register: manavivaha.in/register"),
         "hashtags": ["#APGroom", "#AndhraPradesh"],
@@ -114,10 +127,9 @@ CHANNELS = {
     "nri_global": {
         "tier": "L1_REGION",
         "name": "🌍 NRI & Other States | విదేశాల తెలుగు",
-        "username": "manavivaha_nri",
-        "fallbacks": ["manavivaha_global", "manavivaha_usa"],
+        "username": "",
         "desc": ("USA • UK • Canada • Australia • Gulf • Singapore — Telugu NRI matches.\n"
-                 "Visa/PR/job status mention చెయ్యండి. manavivaha.in • @telugumatrimony1_bot"),
+                 "Visa/PR/job status mention చెయ్యండి. manavivaha.in"),
         "hashtags": ["#NRI", "#TeluguAbroad", "#GlobalTelugu"],
         "wave": 2,
         "live": True,
@@ -128,104 +140,15 @@ CHANNELS = {
     "hindu": {
         "tier": "L2_RELIGION",
         "name": "🕉️ Hindu Matrimony Hub | హిందూ వివాహాలు",
-        "username": "manavivaha_hindu",
-        "fallbacks": ["manavivaha_hindus", "tsap_hindu"],
+        "username": "",
         "desc": ("Telugu Hindu matrimony directory. Selected community labels and districts are listed; self-description is supported.\n"
                  "Caste-wise channels కూడా ఉంది — profile లో caste filter use చెయ్యండి.\n"
-                 "manavivaha.in/register • Bot: @telugumatrimony1_bot"),
+                 "manavivaha.in/register"),
         "hashtags": ["#Hindu", "#TeluguMatrimony"],
         "wave": 1,
         "live": True,
         "route": {"religion": "Hindu"},
     },
-    # ---- MUSLIM (4 — TS/AP × bride/groom; Sheikh/Syed/Pathan antha same channel) ----
-    "muslim_ts_bride": {
-        "tier": "L2_RELIGION", "sub": "muslim", "state": "TS", "gender": "Bride",
-        "religion": "Muslim", "name": "", "desc": "",
-        "username": "manavivaha_muslim_ts_bride",
-        "fallbacks": ["tsmuslimbride", "mv_muslim_ts_brd", "manavivaha_muslim_ts_brd"],
-        "hashtags": ["#Muslim", "#Bride", "#Telangana", "#Nikah"],
-        "wave": 1, "live": True, "route": {"religion": "Muslim", "state": "TS", "gender": "Bride"},
-    },
-    "muslim_ts_groom": {
-        "tier": "L2_RELIGION", "sub": "muslim", "state": "TS", "gender": "Groom",
-        "religion": "Muslim", "name": "", "desc": "",
-        "username": "manavivaha_muslim_ts_groom",
-        "fallbacks": ["tsmuslimgroom", "mv_muslim_ts_grm", "manavivaha_muslim_ts_grm"],
-        "hashtags": ["#Muslim", "#Groom", "#Telangana", "#Nikah"],
-        "wave": 1, "live": True, "route": {"religion": "Muslim", "state": "TS", "gender": "Groom"},
-    },
-    "muslim_ap_bride": {
-        "tier": "L2_RELIGION", "sub": "muslim", "state": "AP", "gender": "Bride",
-        "religion": "Muslim", "name": "", "desc": "",
-        "username": "manavivaha_muslim_ap_bride",
-        "fallbacks": ["apmuslimbride", "mv_muslim_ap_brd", "manavivaha_muslim_ap_brd"],
-        "hashtags": ["#Muslim", "#Bride", "#AndhraPradesh", "#Nikah"],
-        "wave": 1, "live": True, "route": {"religion": "Muslim", "state": "AP", "gender": "Bride"},
-    },
-    "muslim_ap_groom": {
-        "tier": "L2_RELIGION", "sub": "muslim", "state": "AP", "gender": "Groom",
-        "religion": "Muslim", "name": "", "desc": "",
-        "username": "manavivaha_muslim_ap_groom",
-        "fallbacks": ["apmuslimgroom", "mv_muslim_ap_grm", "manavivaha_muslim_ap_grm"],
-        "hashtags": ["#Muslim", "#Groom", "#AndhraPradesh", "#Nikah"],
-        "wave": 1, "live": True, "route": {"religion": "Muslim", "state": "AP", "gender": "Groom"},
-    },
-    # ---- CHRISTIAN (4 — TS/AP × bride/groom; Catholic/CSI/Baptist antha same channel) ----
-    "christian_ts_bride": {
-        "tier": "L2_RELIGION", "sub": "christian", "state": "TS", "gender": "Bride",
-        "religion": "Christian", "name": "", "desc": "",
-        "username": "manavivaha_christian_ts_bride",
-        "fallbacks": ["tschristianbride", "mv_christ_ts_brd", "manavivaha_christ_ts_brd"],
-        "hashtags": ["#Christian", "#Bride", "#Telangana", "#Wedding"],
-        "wave": 1, "live": True, "route": {"religion": "Christian", "state": "TS", "gender": "Bride"},
-    },
-    "christian_ts_groom": {
-        "tier": "L2_RELIGION", "sub": "christian", "state": "TS", "gender": "Groom",
-        "religion": "Christian", "name": "", "desc": "",
-        "username": "manavivaha_christian_ts_groom",
-        "fallbacks": ["tschristiangroom", "mv_christ_ts_grm", "manavivaha_christ_ts_grm"],
-        "hashtags": ["#Christian", "#Groom", "#Telangana", "#Wedding"],
-        "wave": 1, "live": True, "route": {"religion": "Christian", "state": "TS", "gender": "Groom"},
-    },
-    "christian_ap_bride": {
-        "tier": "L2_RELIGION", "sub": "christian", "state": "AP", "gender": "Bride",
-        "religion": "Christian", "name": "", "desc": "",
-        "username": "manavivaha_christian_ap_bride",
-        "fallbacks": ["apchristianbride", "mv_christ_ap_brd", "manavivaha_christ_ap_brd"],
-        "hashtags": ["#Christian", "#Bride", "#AndhraPradesh", "#Wedding"],
-        "wave": 1, "live": True, "route": {"religion": "Christian", "state": "AP", "gender": "Bride"},
-    },
-    "christian_ap_groom": {
-        "tier": "L2_RELIGION", "sub": "christian", "state": "AP", "gender": "Groom",
-        "religion": "Christian", "name": "", "desc": "",
-        "username": "manavivaha_christian_ap_groom",
-        "fallbacks": ["apchristiangroom", "mv_christ_ap_grm", "manavivaha_christ_ap_grm"],
-        "hashtags": ["#Christian", "#Groom", "#AndhraPradesh", "#Wedding"],
-        "wave": 1, "live": True, "route": {"religion": "Christian", "state": "AP", "gender": "Groom"},
-    },
-    "other_religion": {
-        "tier": "L2_RELIGION",
-        "name": "🕊️ Other Religions | ఇతర మతాలు",
-        "username": "manavivaha_other_religions",
-        "fallbacks": ["manavivaha_others", "manavivaha_minority"],
-        "desc": ("Sikh • Jain • Buddhist • Parsi • Jewish • No-caste/No-religion — Telugu matches.\n"
-                 "Community directory listing. Profile details are member-provided; check the individual status labels. manavivaha.in/register"),
-        "hashtags": ["#OtherReligions", "#Respect"],
-        "wave": 2, "live": True, "route": {"religion": "Other"},
-    },
-    "interfaith": {
-        "tier": "L2_RELIGION",
-        "name": "💞 Inter-Caste & Inter-Faith | ప్రేమ వివాహం",
-        "username": "manavivaha_interfaith",
-        "fallbacks": ["manavivaha_intercaste", "manavivaha_mixedmarriage"],
-        "desc": ("Inter-caste • Inter-religion • Love & Register marriage.\n"
-                 "Optional inter-community introduction category. Contact sharing follows profile-owner acceptance and privacy settings.\n"
-                 "manavivaha.in/register • Height secret maintain చేస్తాం 🤝"),
-        "hashtags": ["#Intercaste", "#LoveMarriage", "#RegisterMarriage"],
-        "wave": 3, "live": True, "route": {"flag": "interfaith"},
-    },
-
     # ===================== LEVEL 3 — HINDU CASTE CLUSTERS (smart groups) =====================
     # 🔑 IDEA: Telugu lo konni castes **okka kula group** laage untayi (ex: Viswabrahmana = 5 sub-castes).
     #         Anduke chinna sub-castes ni okate channel lo kalipamu — create cheyyadam suluvu,
@@ -233,65 +156,56 @@ CHANNELS = {
 
     # ===================== LEVEL 4 — SPECIAL (7) =====================
     "second_marriage": {"tier": "L4_SPECIAL", "name": "💔 2nd Marriage | Divorcee & Widow",
-                        "username": "manavivaha_second", "fallbacks": ["tsap_second", "manavivaha_remarriage"],
+                        "username": "",
                         "desc": ("Divorcee • Widow • Widower — 2nd innings కి respect తో platform.\n"
                                  "Optional category for divorcee, widow and widower profiles. Details are member-provided; verify independently.\n"
                                  "manavivaha.in/register"),
                         "hashtags": ["#SecondMarriage", "#Remarriage", "#Respect"], "wave": 2, "live": True,
                         "route": {"flag": "second_marriage"}},
     "differently_abled": {"tier": "L4_SPECIAL", "name": "♿ Differently Abled Matrimony",
-                          "username": "manavivaha_able",
-                          "fallbacks": ["tsap_handicapped", "manavivaha_differentlyabled"],
+                          "username": "",
                           "desc": ("Differently abled brides & grooms — special care, special respect.\n"
                                    "Optional category for differently abled members. Profile details and review status are shown individually. manavivaha.in/register"),
                           "hashtags": ["#DifferentlyAbled", "#SpecialCare"], "wave": 3, "live": True,
                           "route": {"flag": "differently_abled"}},
     "govt_jobs": {"tier": "L4_SPECIAL", "name": "👮 Govt Job Matches | ప్రభుత్వ ఉద్యోగం",
-                  "username": "manavivaha_govt", "fallbacks": ["tsap_govt", "manavivaha_govtjobs"],
+                  "username": "",
                   "desc": "Teacher • Police • Bank • Railway • Group-1/2 • SI • Constable • Nurse — govt job profiles.",
                   "hashtags": ["#GovtJob", "#GovtTeacher"], "wave": 3, "live": True,
                   "route": {"flag": "govt_job"}},
     "software_it": {"tier": "L4_SPECIAL", "name": "💻 Software / IT Matches",
-                    "username": "manavivaha_software", "fallbacks": ["tsap_software", "manavivaha_it"],
+                    "username": "",
                     "desc": "Software • IT • MNC • Product companies — HYD, BLR, PUNE, USA.",
                     "hashtags": ["#Software", "#IT", "#Hyderabad"], "wave": 3, "live": True,
                     "route": {"flag": "software"}},
     "doctors_teachers": {"tier": "L4_SPECIAL", "name": "🩺 Doctors & Teachers Matches",
-                         "username": "manavivaha_professionals",
-                         "fallbacks": ["manavivaha_doctors", "tsap_doctors", "manavivaha_teachers"],
+                         "username": "",
                          "desc": ("MBBS • MD • MS • BDS • Nursing • Pharma • School Teacher • Lecturer • Professor\n"
                                   "Medical + education professionals — ఒకటే chota. manavivaha.in/register"),
                          "hashtags": ["#Doctors", "#Teachers", "#Healthcare"], "wave": 3, "live": True,
                          "route": {"flag": "doctor_teacher"}},
     "success_stories": {"tier": "L4_SPECIAL", "name": "🎉 Success Stories & Reviews",
-                        "username": "manavivaha_success", "fallbacks": ["tsap_success"],
+                        "username": "",
                         "desc": ("Member-submitted stories may appear after review and consent.\n"
                                  "Submit a story for review: manavivaha.in/stories"),
                         "hashtags": ["#SuccessStory", "#ManaVivaha"], "wave": 3, "live": True,
                         "route": "manual"},
     "fraud_alerts": {"tier": "L4_SPECIAL", "name": "⚠️ Fraud Alert & Safety",
-                     "username": "manavivaha_alerts", "fallbacks": ["tsap_alerts"],
+                     "username": "",
                      "desc": ("మోసం జాగ్రత్త! Fake profiles, advance money scams, photo theft alerts.\n"
                               "Use the in-service report tools. Reports are reviewed; response time and outcome may vary."),
                      "hashtags": ["#FraudAlert", "#StaySafe"], "wave": 3, "live": True,
                      "route": "manual"},
     "bureau_network": {"tier": "L4_SPECIAL", "name": "🤝 Bureau & Broker Network (B2B)",
-                       "username": "manavivaha_bureau", "fallbacks": ["tsap_bureau", "manavivaha_brokers"],
+                       "username": "",
                        "desc": ("Marriage bureaus • Brokers • Influencers — share a Mana Vivaha referral link.\n"
                                 "A ₹50 reward may qualify once on the referee’s first eligible S_99/S_199/S_299/S_499 consumer-plan payment (minimum ₹99); exclusions and manual payout review apply. See manavivaha.in/referral."),
                        "hashtags": ["#Bureau", "#ReferralTerms"], "wave": 3, "live": True,
                        "route": "manual"},
 }
 
-# Keep religion channels compact: TS + AP are combined into one Bride and one
-# Groom channel per community. The older state-split/other/interfaith entries
-# remain historical definitions only and never enter runtime APIs or routing.
-_LEGACY_RELIGION_KEYS = {
-    "muslim_ts_bride", "muslim_ts_groom", "muslim_ap_bride", "muslim_ap_groom",
-    "christian_ts_bride", "christian_ts_groom", "christian_ap_bride", "christian_ap_groom",
-    "other_religion", "interfaith",
-}
-CHANNELS = {key: channel for key, channel in CHANNELS.items() if key not in _LEGACY_RELIGION_KEYS}
+# TS + AP Muslim and Christian listings are generated below as four combined
+# directory entries. No Telegram username is assumed for these categories.
 for _key, _religion, _gender, _icon, _te in (
     ("muslim_bride", "Muslim", "Bride", "☪️", "ముస్లిం వధువులు"),
     ("muslim_groom", "Muslim", "Groom", "☪️", "ముస్లిం వరులు"),
@@ -302,18 +216,12 @@ for _key, _religion, _gender, _icon, _te in (
     CHANNELS[_key] = {
         "tier": "L2_RELIGION", "religion": _religion, "gender": _gender,
         "name": f"{_icon} {_religion} {_plural} | {_te}",
-        "username": f"manavivaha_{_religion.lower()}_{_gender.lower()}",
-        "fallbacks": [],
+        "username": "",
         "desc": f"TS & AP {_religion} {_plural} — {_te}.",
         "hashtags": [f"#{_religion}", f"#{_gender}", "#TS", "#AP"],
-        "wave": 1, "live": True,
+        "wave": 1, "live": False,
         "route": {"religion": _religion, "gender": _gender},
     }
-
-# >>> LIVE_KEYS_EXTRA (manually approved for routing via setup_channels.py --mark-live)
-LIVE_KEYS_EXTRA = [
-]
-# <<< LIVE_KEYS_EXTRA
 
 # ---------------------------------------------------------------------------
 # ⭐ CASTE CLUSTERS — "caste prakaram" smart ga (bride/groom + grouped sub-castes)
@@ -392,8 +300,7 @@ for _cl in CASTE_CLUSTERS:
                 "tier": "L3_CASTE", "cluster": _ck, "cluster_en": _en, "cluster_te": _te,
                 "category": _cl.get("category", ""), "members": list(_cl["members"]),
                 "name": "", "desc": "",
-                "username": ("manavivaha_%s_%s" % (_slug, _suffix))[:32],
-                "fallbacks": ["tsap_%s_%s" % (_slug, _suffix), "mv_%s_%s" % (_slug, _fb)],
+                "username": "",
                 "hashtags": ["#%s" % _slug.title().replace("_", ""), "#%s" % _suffix.title(), "#TS", "#AP"],
                 "wave": _cl["wave"], "live": True,
                 "route": {"caste": _en, "gender": _gender, "cluster": _ck},
@@ -406,8 +313,7 @@ for _cl in CASTE_CLUSTERS:
             "tier": "L3_CASTE", "cluster": _ck, "cluster_en": _en, "cluster_te": _te,
             "category": _cl.get("category", ""), "members": list(_cl["members"]),
             "name": "", "desc": "",
-            "username": ("manavivaha_%s" % _slug)[:32],
-            "fallbacks": ["tsap_%s" % _slug, "manavivaha_%s_community" % _slug],
+            "username": "",
             "hashtags": ["#%s" % _slug.title().replace("_", ""), "#Bride", "#Groom", "#TS", "#AP"],
             "wave": _cl["wave"], "live": True,
             "route": {"caste": _en, "cluster": _ck},
@@ -428,8 +334,90 @@ from channel_content import perfect_title as _pt, perfect_description as _pd  # 
 for _k, _ch in CHANNELS.items():
     _ch["name"] = _pt(_k, _ch)
     _ch["desc"] = _pd(_k, _ch)
-    if _k in LIVE_KEYS_EXTRA:          # manually enabled for routing; external reachability remains unchecked
-        _ch["live"] = True
+
+def _normalize_telegram_destination(value: object) -> str:
+    """Validate one exact operator-supplied Telegram username or channel ID."""
+    raw = str(value or "").strip()
+    if re.fullmatch(r"@[A-Za-z0-9_]{5,32}", raw):
+        return raw
+    if re.fullmatch(r"[A-Za-z0-9_]{5,32}", raw):
+        return "@" + raw
+    if re.fullmatch(r"-100[0-9]{5,20}", raw):
+        return raw
+    return ""
+
+
+def _load_explicit_channel_destinations() -> Dict[str, str]:
+    """Read only explicitly mapped destinations; malformed config fails closed."""
+    raw = os.getenv("TELEGRAM_CHANNEL_DESTINATIONS_JSON", "").strip()
+    if not raw:
+        return {}
+    try:
+        payload = json.loads(raw)
+    except (TypeError, ValueError):
+        return {}
+    if not isinstance(payload, dict):
+        return {}
+    configured = {}
+    for key, value in payload.items():
+        channel_key = str(key or "").strip()
+        if channel_key not in CHANNELS:
+            continue
+        destination = _normalize_telegram_destination(value)
+        if destination:
+            configured[channel_key] = destination
+    return configured
+
+
+def _apply_explicit_routing_configuration() -> None:
+    """Disable routing unless an exact primary or per-key destination is configured."""
+    requested = {
+        value.strip().lstrip("@").casefold()
+        for value in os.getenv("CHANNELS", "").split(",")
+        if value.strip()
+    }
+    mapped = _load_explicit_channel_destinations()
+    for key, channel in CHANNELS.items():
+        username = str(channel.get("username") or "").strip().lstrip("@")
+        destination = mapped.get(key, "")
+        if not destination and username and (key.casefold() in requested or username.casefold() in requested):
+            destination = _normalize_telegram_destination(username)
+        channel["routing_destination"] = destination
+        # `live` is retained for compatibility but now means an exact configured
+        # routing destination only; it never means reachability or bot permissions.
+        channel["live"] = bool(destination)
+
+
+_apply_explicit_routing_configuration()
+
+
+def is_public_channel(key: str) -> bool:
+    """Whether this operator-registry entry is intentionally visible in the public directory."""
+    return str(key or "").strip() in CHANNELS and str(key or "").strip() not in PUBLIC_DIRECTORY_EXCLUDED_KEYS
+
+
+def public_channels(tier: str | None = None) -> list:
+    """Return only public directory entries; internal setup/routing keeps the full registry."""
+    return [{"key": key, **channel} for key, channel in CHANNELS.items()
+            if is_public_channel(key) and (not tier or channel.get("tier") == tier)]
+
+
+def public_channel_stats() -> dict:
+    """Directory counts only; does not imply external availability or bot permissions."""
+    rows = public_channels()
+    by_tier: Dict[str, int] = {}
+    for row in rows:
+        tier = str(row.get("tier") or "OTHER")
+        by_tier[tier] = by_tier.get(tier, 0) + 1
+    routing_eligible = sum(1 for row in rows if _routing_is_explicit(row))
+    return {
+        "total": len(rows),
+        "routing_eligible": routing_eligible,
+        "not_routing_eligible": len(rows) - routing_eligible,
+        "by_tier": by_tier,
+        "external_status_checked": False,
+    }
+
 
 # ---------------------------------------------------------------------------
 # CASTE ALIASES — user free-text ni channel key ki map chesthundi
@@ -558,38 +546,44 @@ def channels_by_tier() -> dict:
     return tiers
 
 
+def _routing_is_explicit(channel: dict) -> bool:
+    """A route is eligible only when both the enable flag and exact target exist."""
+    return bool(channel.get("live") and str(channel.get("routing_destination") or "").strip())
+
+
 def live_channels() -> list:
-    return [{"key": k, **v} for k, v in CHANNELS.items() if v.get("live")]
+    """Compatibility name: these are configured routing targets, not externally live channels."""
+    return [{"key": k, **v} for k, v in CHANNELS.items() if _routing_is_explicit(v)]
 
 
 def pending_channels() -> list:
-    return [{"key": k, **v} for k, v in CHANNELS.items() if not v.get("live")]
+    return [{"key": k, **v} for k, v in CHANNELS.items() if not _routing_is_explicit(v)]
 
 
-def channel_chat_id(key: str, only_live: bool = True) -> str | None:
-    """Return a registry-enabled Telegram username; existence/permissions are not checked."""
+def channel_chat_id(key: str, only_routing_eligible: bool = True) -> str | None:
+    """Return only an explicitly configured destination; external health is unchecked."""
     ch = CHANNELS.get(key)
     if not ch:
         return None
-    if only_live and not ch.get("live"):
+    if only_routing_eligible and not _routing_is_explicit(ch):
         return None
-    return "@" + ch["username"]
+    destination = str(ch.get("routing_destination") or "").strip()
+    return destination or None
 
 
-def post_targets(profile: dict, only_live: bool = True) -> list:
-    """
-    Router + registry-eligibility filter returns candidate usernames for the publisher.
-    This does not confirm channel existence, bot permissions, or successful delivery.
-    """
-    r = route_profile(profile)
-    ready, pending = [], []
-    for key in r["keys"]:
-        if channel_chat_id(key, only_live=True):
-            ready.append("@" + CHANNELS[key]["username"])
+def post_targets(profile: dict, only_routing_eligible: bool = True) -> dict:
+    """Return registry routing candidates only; no external health/delivery is checked."""
+    routed = route_profile(profile)
+    candidates, not_eligible = [], []
+    for key in routed["keys"]:
+        destination = channel_chat_id(key, only_routing_eligible=only_routing_eligible)
+        if destination:
+            candidates.append(destination)
         else:
-            pending.append(key)
-    return {"ready": ready, "pending": pending, "keys": r["keys"],
-            "hashtags": r["hashtags"], "reasons": r["reasons"], "notes": r["notes"]}
+            not_eligible.append(key)
+    return {"routing_candidates": candidates, "not_routing_eligible": not_eligible,
+            "external_status_checked": False, "keys": routed["keys"],
+            "hashtags": routed["hashtags"], "reasons": routed["reasons"], "notes": routed["notes"]}
 
 
 # ---------------------------------------------------------------------------
@@ -605,8 +599,10 @@ def setup_plan(wave: int | None = None) -> list:
         if wave and ch.get("wave") != wave:
             continue
         rows.append({"key": key, "tier": ch.get("tier"), "wave": ch.get("wave"),
-                     "name": ch.get("name"), "username": ch.get("username"),
-                     "fallbacks": ch.get("fallbacks", []), "live": bool(ch.get("live")),
+                     "name": ch.get("name"), "username": ch.get("username") or "",
+                     "routing_eligible": _routing_is_explicit(ch),
+                     "destination_configured": bool(ch.get("routing_destination")),
+                     "external_status_checked": False,
                      "hashtags": ch.get("hashtags", []), "desc": ch.get("desc")})
     rows.sort(key=lambda r: (r["wave"], TIER_PRIORITY.get(r["tier"], 9), r["key"]))
     return rows
@@ -620,12 +616,14 @@ def caste_split_report() -> dict:
     for cl in sorted(CASTE_CLUSTERS, key=lambda c: (c["wave"], c["key"])):
         members_total += len(cl["members"])
         by_category[cl.get("category", "?")] = by_category.get(cl.get("category", "?"), 0) + 1
+        bride_destination = channel_chat_id(SPLIT_MAP[cl["key"]]["Bride"])
+        groom_destination = channel_chat_id(SPLIT_MAP[cl["key"]]["Groom"])
         row = {"cluster": cl["key"], "name": cl["en"], "telugu": cl["te"], "category": cl.get("category", ""),
                "split": bool(cl["split"]), "members": len(cl["members"]),
-               "channel": "@" + CHANNELS[SPLIT_MAP[cl["key"]]["Bride"]]["username"]}
+               "channel": bride_destination or ""}
         if cl["split"]:
-            row["bride"] = "@" + CHANNELS[SPLIT_MAP[cl["key"]]["Bride"]]["username"]
-            row["groom"] = "@" + CHANNELS[SPLIT_MAP[cl["key"]]["Groom"]]["username"]
+            row["bride"] = bride_destination or ""
+            row["groom"] = groom_destination or ""
         by_wave.setdefault(cl["wave"], []).append(row)
     split_n = sum(1 for c in CASTE_CLUSTERS if c["split"])
     single_n = len(CASTE_CLUSTERS) - split_n
@@ -654,14 +652,16 @@ def channel_health_report() -> list:
     return out
 
 def channel_stats() -> dict:
+    """Registry counts only; eligibility is not external availability or permission."""
     tiers = channels_by_tier()
     return {
         "total": len(CHANNELS),
-        "live": len(live_channels()),
-        "to_create": len(pending_channels()),
+        "routing_eligible": len(live_channels()),
+        "not_routing_eligible": len(pending_channels()),
         "by_tier": {t: len(v) for t, v in tiers.items()},
         "bot": BOT_USERNAME,
         "site": SITE,
+        "external_status_checked": False,
     }
 
 
@@ -800,7 +800,10 @@ def route_profile(profile: dict, max_posts: int = MAX_POSTS) -> dict:
         notes.append("Religion not provided; religion/community-specific destinations were skipped.")
 
     if enabled(profile.get("interfaith")) or enabled(profile.get("love_marriage")) or enabled(profile.get("caste_no_bar")):
-        ordered.append(("interfaith", "intercommunity_option_selected"))
+        if "interfaith" in CHANNELS:
+            ordered.append(("interfaith", "intercommunity_option_selected"))
+        else:
+            notes.append("No configured intercommunity destination; no alternate was guessed.")
 
     if marital and marital not in ("pelli kaledu", "never married", "first marriage", "unmarried", "single"):
         ordered.append(("second_marriage", "member_provided_marital_status"))
@@ -819,7 +822,14 @@ def route_profile(profile: dict, max_posts: int = MAX_POSTS) -> dict:
 
     seen, keys, reasons = set(), [], []
     for key, why in ordered:
-        if key in seen or key not in CHANNELS:
+        if key in seen:
+            continue
+        if not is_public_channel(key):
+            notes.append("Some category routes are not listed publicly and were not selected.")
+            continue
+        destination = channel_chat_id(key)
+        if not destination:
+            notes.append(f"No explicit Telegram destination configured for {key}; no alternate was guessed.")
             continue
         if len(keys) >= max(0, int(max_posts)):
             notes.append(f"Destination limit {max_posts} reached; additional configured categories were not selected.")
@@ -827,11 +837,11 @@ def route_profile(profile: dict, max_posts: int = MAX_POSTS) -> dict:
         seen.add(key)
         keys.append(key)
         reasons.append({"key": key, "why": why, "telugu": why_telugu(key, profile),
-                        "username": "@" + CHANNELS[key]["username"]})
+                        "destination": destination, "username": destination})
 
-    usernames = ["@" + CHANNELS[k]["username"] for k in keys]
+    destinations = [reason["destination"] for reason in reasons]
     hashtags = build_hashtags(profile, keys)
-    return {"keys": keys, "usernames": usernames, "reasons": reasons,
+    return {"keys": keys, "usernames": destinations, "destinations": destinations, "reasons": reasons,
             "hashtags": hashtags, "notes": notes, "count": len(keys)}
 
 
@@ -978,10 +988,13 @@ DEFAULT_WA_LINKS: Dict[str, str] = {
 }
 
 DEFAULT_TELEGRAM_LINKS: Dict[str, str] = {
-    # Previously configured official/regional destinations retained as-is.
+    # Exact primary usernames retained from the operator configuration. These are
+    # public-directory links only; they do not enable posting or prove availability.
     "official": "https://t.me/TSAP_MATRIMONY",
+    "ts_bride": "https://t.me/TSBRIDE",
     "ts_groom": "https://t.me/TSGROOM1",
     "ap_bride": "https://t.me/APBRIDE",
+    "ap_groom": "https://t.me/APGROOM1",
     "c_reddy_bride": "https://t.me/+DdStvgCtmb83M2Y1",
     "c_reddy_groom": "https://t.me/+bvcPm7h34VpmYTU1",
     "c_kamma_bride": "https://t.me/+oQcIdTKMlINmZWY1",
@@ -1042,7 +1055,11 @@ def _links_from_env(variable: str, prefix: str, defaults: Dict[str, str], valida
                 for key, value in obj.items():
                     normalized_key = str(key).strip().lower()
                     link = str(value or "").strip()
-                    if normalized_key in CHANNELS and validator(link):
+                    if normalized_key not in CHANNELS:
+                        continue
+                    if not link:
+                        out.pop(normalized_key, None)
+                    elif validator(link):
                         out[normalized_key] = link
         except Exception:
             pass
@@ -1060,10 +1077,6 @@ _WA_OFFICIAL_OVERRIDE = (_os.getenv("WA_OFFICIAL_CHANNEL") or "").strip()
 WA_OFFICIAL_LINK = _WA_OFFICIAL_OVERRIDE if _valid_whatsapp_url(_WA_OFFICIAL_OVERRIDE) else WA_CHANNEL_LINKS.get("official", "")
 
 
-def telegram_link(username: str) -> str:
-    u = (username or "").strip().lstrip("@")
-    return f"https://t.me/{u}" if re.fullmatch(r"[A-Za-z0-9_]{5,32}", u) else ""
-
 
 def wa_channel_link(key: str) -> str:
     """Return only an exact, configured WhatsApp destination; never construct a URL."""
@@ -1080,7 +1093,8 @@ def channel_links(key: str) -> Dict[str, object]:
         "key": key,
         "name": c.get("name", key),
         "tier": c.get("tier", ""),
-        "live": bool(c.get("live")),
+        "routing_eligible": _routing_is_explicit(c),
+        "external_status_checked": False,
         "telegram": TELEGRAM_CHANNEL_LINKS.get(str(key or "").lower(), ""),
         "whatsapp": wa_channel_link(key),
         "hashtags": c.get("hashtags", []),
@@ -1096,7 +1110,8 @@ def _gender_word(profile: Dict) -> str:
     return ""
 
 
-def caste_channel_links(profile: Dict, limit: int = 5) -> List[Dict[str, object]]:
+def caste_channel_links(profile: Dict, limit: int = 5,
+                         directory_links: Dict[str, Dict[str, object]] | None = None) -> List[Dict[str, object]]:
     """
     🔎 Caste-related channel links (caste mundu, tarvata region → religion → official).
     Order: caste(gender) → region(gender) → religion → official → special/job
@@ -1121,10 +1136,17 @@ def caste_channel_links(profile: Dict, limit: int = 5) -> List[Dict[str, object]
             keys.append(k)
     out: List[Dict[str, object]] = []
     for k in keys:
-        if k not in CHANNELS:
+        if not is_public_channel(k):
             continue
         link = channel_links(k)
-        # telegram lekapote (chinna channels ki username untundi but link empty) skip
+        if directory_links is not None:
+            # When a runtime directory map is supplied it is authoritative: an
+            # omitted/inactive entry must not fall back to a hidden base URL.
+            mapped = directory_links.get(k)
+            if not isinstance(mapped, dict):
+                continue
+            link["telegram"] = str(mapped.get("telegram") or "")
+            link["whatsapp"] = str(mapped.get("whatsapp") or "")
         if not link.get("telegram") and not link.get("whatsapp"):
             continue
         out.append(link)

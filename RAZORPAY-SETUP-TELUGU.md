@@ -1,105 +1,15 @@
-# 💳 RAZORPAY SETUP — Step by Step (Telugu)
+# Payment-provider setup — archived safety notice
 
-> Ippudu site **UPI-manual mode** lo nadustundi (user pay chesi UTR isthe admin confirm).
-> Razorpay keys pedithe **automatic online payment** ON — user pay cheyyagane credits auto-add. 
-> Code 100% ready — kevalam keys + webhook matrame kavali.
+> **ఈ పాత setup steps‌ను అనుసరించకండి.** ఇందులో owner నిర్ధారించని UPI recipient, పాత Compose commands, పాత webhook/test assumptions, మరియు పరీక్షించని payment-readiness claims ఉన్నాయి. ఆ values లేదా commands‌ను production‌లో copy చేయకండి.
 
-## 0. Dabbulu ela vastayi (mana site flow)
+ప్రస్తుత checkout‌లో `docker-compose.prod.yml` ద్వారా `PAYMENTS_LIVE` default `false`గా ఉంటుంది; `PAYMENT_AUTO_APPROVE` కూడా `false`. ఈ repository మార్పులు merchant account, settlement, webhook delivery, refunds, compliance, లేదా payment flow production‌లో పనిచేస్తుందని నిరూపించవు. **Production payment launch‌కు ఇప్పటికీ NO-GO.**
 
-```
-User /pricing → plan select → Order create (server amount fix chestundi)
-  → Razorpay checkout (UPI/Card/Netbanking) → Pay
-  → /api/pay/verify (signature verify) → ✅ credits auto-add
-  → backup: webhook payment.captured vachina fulfill (rendu safe: duplicate kaadu)
-Refund: Admin → PayConsole → Refund (Razorpay nunchi money back + credits reverse)
-```
+## Production payment enablementకు ముందు
 
-Secret key **eppudu browser ki velladu** — anni backend lone. 🔒
+1. వ్యాపార యజమాని అధికారిక payment-provider dashboard‌లో merchant account, settlement bank, business/KYC స్థితి, fees, refund/dispute policyలను స్వయంగా నిర్ధారించాలి.
+2. Provider యొక్క ప్రస్తుత అధికారిక documentation ఆధారంగా sandbox integration‌ను staging‌లో పరీక్షించాలి: amount/currency, signature validation, duplicate/replayed webhook, failure, refund, reconciliation సహా.
+3. `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET` వంటి secrets‌ను owner-controlled secret manager లేదా restricted host-only `.env.production`లో మాత్రమే ఉంచాలి. వాటిని Git/chat‌లో పెట్టకండి.
+4. Manual UPI enable చేయాలంటే owner నిర్ధారించిన merchant UPI ID మాత్రమే `PAY_UPI_ID`లో ఇవ్వాలి. ఈ repositoryలో లేదా ఈ పత్రంలో ఎటువంటి recipient, UTR, payment reference, లేదా fallback number అందించబడదు.
+5. Owner sign-off, verified provider configuration, amount/currency and refund review, backup/restore checks పూర్తయ్యే వరకు `PAYMENTS_LIVE=false`గానే ఉంచాలి. Real-money test payment‌ను staging/sandbox verification లేకుండా చేయకండి.
 
-## 1. Razorpay account (10 min, FREE)
-
-1. https://dashboard.razorpay.com/signup — email + phone tho account
-2. Business details: *Mana Vivaha / matrimony services*, website `https://manavivaha.in`
-3. **TEST mode** lo start chey (KYC akkarledu — test keys instant ga vastayi)
-
-## 2. Test keys teesuko (2 min)
-
-1. Dashboard → left menu **Settings → API Keys → Test Mode** → *Generate*
-2. Vastayi: `Key Id` (`rzp_test_...`) + `Key Secret` (okkasari matrame kanipistundi — copy chesko!)
-
-## 3. Server .env lo pettu + restart (2 min)
-
-Server lo (Oracle VM / docker host):
-
-```bash
-cd matrimony-site
-cp .env.example .env        # okkasari matrame
-nano .env                   # kindha 2 lines fill chey:
-```
-
-```env
-RAZORPAY_KEY_ID=rzp_test_xxxxxxxx
-RAZORPAY_KEY_SECRET=xxxxxxxxxxxx
-RAZORPAY_VERIFY_CAPTURE=1
-PAY_UPI_ID=manavivaha@upi
-```
-
-```bash
-docker-compose up -d --build backend    # restart
-curl https://manavivaha.in/api/pay/config
-# {"mode":"razorpay", ...} vaste ✅ ON (manual_upi vaste keys sarigga ledu)
-```
-
-## 4. Webhook pettu (3 min — backup fulfill kosam MUST)
-
-1. Dashboard → **Settings → Webhooks → + Add New Webhook**
-2. URL: `https://manavivaha.in/api/pay/webhook`
-3. Events (4): `payment.authorized` + `payment.captured` + `payment.failed` + `refund.processed`
-4. Secret generate chesi copy → `.env` lo pettu:
-   ```env
-   RAZORPAY_WEBHOOK_SECRET=whsec_xxxx
-   ```
-5. Restart backend. Dashboard lo *Send test event* → mana side accept ayyinda chudu.
-
-## 5. Test payment chey (5 min — REAL dabbulu povi!)
-
-Test mode lo dabbulu **real kaadu**:
-- UPI: `success@razorpay` (success) / `failure@razorpay` (fail test)
-- Card: `4111 1111 1111 1111`, CVV edaina, date future
-
-Site lo /pricing → ₹99 plan → pay → **credits add ayyaya?** Admin → PayConsole lo order `paid` kanipinchala? ✅ ayithe perfect.
-
-## 6. LIVE ki (real dabbulu kosam)
-
-1. Dashboard → **KYC submit**: PAN + bank account + address proof + business proof
-2. Razorpay approve chesaka (1–3 days) → **Live Mode** → live keys (`rzp_live_...`)
-3. `.env` lo test keys → live keys replace + **webhook malli live mode lo create** (secret kotha)
-4. Restart → `/api/pay/config` → `mode: razorpay` ✅
-5. First real payment: nee phone nunchi ₹99 pay → credits + bank settlement (T+2 days) check
-
-## 7. Fees + settlement (telusuko)
-
-- Razorpay commission: domestic ~**2% + GST** per transaction (exact dashboard → Pricing)
-- Settlement: T+2 working days nee bank account ki
-- Refund chesina commission Razorpay ki pothundi (policy — admin refund ki mundu alochinchu)
-
-## 8. Troubleshoot (problem vaste)
-
-| Symptom | Fix |
-|---|---|
-| `/api/pay/config` → `manual_upi` | Keys `.env` lo levu / spelling tappu / restart cheyyaledu |
-| Checkout open avvadu | `key_id` khali — backend log chudu (`docker logs backend`) |
-| Pay ayindi, credits raledu | `/api/pay/verify` fail — browser console + backend log; webhook backup undi kabatti konchem wait chey |
-| Webhook 401/unsigned | `RAZORPAY_WEBHOOK_SECRET` dashboard secret tho match avvatledu |
-| Test key tho live pay | Test/Live keys kalisayi — mode okate vadali (rendu keys same mode) |
-| Refund fail | Razorpay dashboard → payment captured ayyinda chudu; uncaptured ki refund kudharadu |
-
-## 9. Security notes (MUST — dabbulu matter!)
-
-- `.env` file **GitHub lo petta vaddu** (gitignore lo undi — alaage unchali) 🔒
-- `Key Secret` + `Webhook Secret` evariki ivvaddu (team ki ivvalsina — admin key matrame)
-- LIVE keys test server lo vaddu; TEST keys live site lo vaddu
-- Edaina doubt vaste: Razorpay support chat (dashboard lone) — 24x7 untaru
-
----
-*Code status: order → checkout → verify → fulfill + webhook backup + refund + audit — anni tested (Wave 34: 53/0).*
+తాజా release blockers మరియు storage/deployment checks‌కు [`PRODUCTION_READINESS.md`](PRODUCTION_READINESS.md), staging sequence‌కు [`PRODUCTION-DEPLOY.md`](PRODUCTION-DEPLOY.md) చూడండి. Provider credential values లేదా real customer/payment data‌ను chat‌లో లేదా source control‌లో ఎప్పుడూ పంచకండి.

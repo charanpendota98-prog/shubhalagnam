@@ -1,9 +1,10 @@
 "use client";
 
 /**
- * PWA — service worker + "app laga install" (Android prompt + iPhone manual steps).
- * Hero "📲 App" button → window event 'tsap:install-show' → ee card open avutundi.
- * WAVE 39: iOS instructions + reinstall (dismiss ayina malli open cheyochu).
+ * PWA service-worker registration and optional install guidance.
+ * Eligible browsers can show their native install prompt; iOS receives manual
+ * Add to Home Screen steps. Other components may open the guidance via the
+ * `tsap:install-show` event when an explicit install control is available.
  */
 import { useEffect, useState } from "react";
 import { useLang } from "@/lib/lang";

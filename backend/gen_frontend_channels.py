@@ -7,7 +7,7 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from channels_config import CHANNELS, channel_stats, channel_links  # noqa: E402
+from channels_config import CHANNELS, channel_links, is_public_channel, public_channel_stats, SITE  # noqa: E402
 
 OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                    "..", "frontend", "src", "lib", "channels.ts")
@@ -15,7 +15,7 @@ OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)),
 TIER_LABEL = {
     "L0_OFFICIAL": ("Official Hub", "📢", "Announcements and service information"),
     "L1_REGION": ("Regions", "📍", "Telangana, Andhra Pradesh and NRI directory entries"),
-    "L2_RELIGION": ("Community", "🕊️", "Hindu, Muslim and Christian directory entries"),
+    "L2_RELIGION": ("Community", "🕊️", "Religion and community directory entries"),
     "L3_CASTE": ("Community-wise", "💍", "Selected community directory entries"),
     "L4_SPECIAL": ("Special", "⭐", "Additional member-submitted profile categories"),
 }
@@ -25,20 +25,23 @@ TIER_ORDER = ["L0_OFFICIAL", "L1_REGION", "L2_RELIGION", "L3_CASTE", "L4_SPECIAL
 def main():
     rows = []
     for key, ch in CHANNELS.items():
+        if not is_public_channel(key):
+            continue
         links = channel_links(key)
         rows.append({
             "key": key,
             "tier": ch["tier"],
             "name": ch["name"],
-            "username": "@" + ch["username"],
+            "username": ("@" + ch["username"]) if ch.get("username") else "",
             "link": str(links.get("telegram", "") or ""),
-            "deepLink": str(links.get("telegram", "") or ""),
+            # No bot deep-link contract is configured; keep this distinct from the public invite URL.
+            "deepLink": "",
             "whatsappLink": str(links.get("whatsapp", "") or ""),
-            # site-only: "… Register FREE: site | Bot: @x" trailer strip (site meeda redundant + bot wording radhu)
             "desc": " ".join(ch["desc"].split()).split(" Register FREE:")[0],
             "hashtags": ch.get("hashtags", []),
             "wave": ch.get("wave", 4),
-            "live": bool(ch.get("live")),
+            "routingEligible": bool(ch.get("live") and ch.get("routing_destination")),
+            "externalStatusChecked": False,
         })
     # Hindu-only registration: caste channels plus caste-no-bar/open.
     caste_options = [c.get("route", {}).get("caste") for c in CHANNELS.values()
@@ -48,15 +51,24 @@ def main():
 
     tiers = [{"key": t, "label": TIER_LABEL[t][0], "icon": TIER_LABEL[t][1],
               "hint": TIER_LABEL[t][2],
-              "count": sum(1 for r in rows if r["tier"] == t)} for t in TIER_ORDER]
-    stats = channel_stats()
+              "count": sum(1 for r in rows if r["tier"] == t)}
+             for t in TIER_ORDER if any(r["tier"] == t for r in rows)]
+    stats = public_channel_stats()
 
     ts = "// AUTO-GENERATED from backend/channels_config.py — edit registry, run gen_frontend_channels.py\n"
     ts += "// మన వివాహ | TSAP Matrimony — MASTER CHANNEL REGISTRY\n\n"
     ts += "export type Channel = {\n  key: string;\n  tier: string;\n  name: string;\n  username: string;\n"
     ts += "  link: string;\n  deepLink: string;\n  whatsappLink: string;\n  desc: string;\n  hashtags: string[];\n"
-    ts += "  wave: number;\n  live: boolean;\n};\n\n"
-    ts += f"export const CHANNEL_STATS = {json.dumps(stats, ensure_ascii=False)} as const;\n\n"
+    ts += "  wave: number;\n  routingEligible: boolean;\n  externalStatusChecked: boolean;\n};\n\n"
+    public_stats = {
+        "total": stats["total"],
+        "routing_eligible": stats["routing_eligible"],
+        "not_routing_eligible": stats["not_routing_eligible"],
+        "by_tier": stats["by_tier"],
+        "site": SITE,
+        "external_status_checked": False,
+    }
+    ts += f"export const CHANNEL_STATS = {json.dumps(public_stats, ensure_ascii=False)} as const;\n\n"
     ts += f"export const CHANNEL_TIERS = {json.dumps(tiers, ensure_ascii=False, indent=2)} as const;\n\n"
     ts += "export const ALL_CHANNELS: Channel[] = " + json.dumps(rows, ensure_ascii=False, indent=2) + ";\n\n"
     ts += "// Hindu-only register form dropdown — registry castes + Open\n"

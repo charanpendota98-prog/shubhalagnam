@@ -1,13 +1,15 @@
-# MANA VIVAHA — Caddy reverse proxy (SSL automatic + free)
+# MANA VIVAHA — Caddy reverse proxy (automatic TLS requires valid DNS and reachable ports)
+# Replace the sample hostnames below with owner-controlled domains after verifying DNS.
+# This example does not establish domain ownership or production availability.
 # Server lo: sudo apt install -y caddy → ee file ni /etc/caddy/Caddyfile ga copy → sudo systemctl reload caddy
 manavivaha.in, www.manavivaha.in {
-    reverse_proxy localhost:3000
+    reverse_proxy 127.0.0.1:3000
     encode gzip
 }
 
 # Private operations host. The URL is not a security boundary; /control/login
 # still requires a server-side session and role check.
 control.manavivaha.in {
-    reverse_proxy localhost:3000
+    reverse_proxy 127.0.0.1:3000
     encode gzip
 }

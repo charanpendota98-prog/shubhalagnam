@@ -1,11 +1,12 @@
 "use client";
+
+import { readApiJson } from "@/lib/api";
 /**
  * 👑 WAVE 38 — /owner BUSINESS DASHBOARD (revenue + funnel + system).
  * HIDDEN route (public links levu — direct URL + admin key only, like /admin).
  */
 import { useCallback, useEffect, useState } from "react";
 import { useLang } from "@/lib/lang";
-import { SITE_CONFIG } from "@/lib/site-config";
 
 type Row = Record<string, any>;
 const KEY = "tsap_admin_key";
@@ -40,7 +41,7 @@ export default function OwnerPage() {
     setBusy(true); setErr("");
     try {
       const r = await fetch("/api/owner/summary", { headers: { "x-admin-key": k } });
-      const j = await r.json();
+      const j = await readApiJson(r);
       if (r.status === 403) { setErr(te ? "🔑 Key తప్పు — correct admin key ఇవ్వండి" : "🔑 Wrong key — enter correct admin key"); setD(null); }
       else if (j.success) { setD(j); try { localStorage.setItem(KEY, k); } catch { /* ignore */ } }
       else { setErr(j.detail || "Load fail"); setD(null); }
@@ -75,15 +76,44 @@ export default function OwnerPage() {
 
   const restoreBackup = useCallback(async (f: File | undefined) => {
     if (!f) return;
-    if (!window.confirm(te ? "⚠️ Restore: current data replace అవుతుంది. Continue?" : "⚠️ Restore: current data will be replaced. Continue?")) return;
+    if (!window.confirm(te ? "⚠️ ఈ ZIP core/state JSON మాత్రమే restore చేస్తుంది; photos/media, secrets restore కావు. ప్రస్తుత data మారుతుంది. Isolated stagingలో backup/restore ధృవీకరించారా?" : "⚠️ This ZIP restores JSON application state only; photos/media and secrets are not restored. Current data will change. Have you verified backup and restore in isolated staging?")) return;
     setBbusy(true); setBmsg("");
+    const sendRestore = (confirmDestructive: boolean) => fetch("/api/admin/backup/import", {
+      method: "POST",
+      headers: {
+        "x-admin-key": key,
+        "Content-Type": "application/zip",
+        ...(confirmDestructive ? { "X-Confirm-Destructive-Restore": "true" } : {}),
+      },
+      body: f,
+    });
     try {
-      const r = await fetch("/api/admin/backup/import", { method: "POST", headers: { "x-admin-key": key, "Content-Type": "application/zip" }, body: f });
-      const j = await r.json();
-      setBmsg(j.success ? `✅ Restore ok — ${j.restored?.length ?? 0} files (${j.note || ""})` : `❌ ${j.detail || "fail"}`);
+      let r = await sendRestore(false);
+      let j = await readApiJson<Row>(r);
+      const restoreDetail = j.detail as Row | undefined;
+      if (!r.ok && restoreDetail?.code === "restore_requires_confirmation") {
+        const decreases = restoreDetail.decreases as Record<string, { current: number; backup: number }> | undefined;
+        const summary = Object.entries(decreases || {})
+          .map(([name, counts]) => `${name}: ${counts.current} → ${counts.backup}`)
+          .join(", ");
+        const confirmed = window.confirm(te
+          ? `⚠️ ఈ backupలో ప్రస్తుత database కంటే తక్కువ records ఉన్నాయి (${summary}). Restore చేస్తే ప్రస్తుత records తగ్గుతాయి. ముందుగా off-host backup ఉందని నిర్ధారించారా? Restore కొనసాగించాలా?`
+          : `⚠️ This backup has fewer records than the active database (${summary}). Restoring will reduce the current records. Confirm that you have a verified off-host backup. Continue?`);
+        if (confirmed) {
+          r = await sendRestore(true);
+          j = await readApiJson<Row>(r);
+        } else {
+          setBmsg(te ? "Restore రద్దు — ప్రస్తుత registrations మారలేదు." : "Restore cancelled — active registrations were left unchanged.");
+          return;
+        }
+      }
+      const detail = typeof j.detail === "string" ? j.detail : j.detail?.message;
+      setBmsg(j.success
+        ? `✅ Restore ok — ${j.restored?.length ?? 0} files (${j.note || ""})`
+        : `❌ ${detail || "Restore failed"}`);
       if (j.success) void load(key);
     } catch { setBmsg("❌ Network problem"); }
-    setBbusy(false);
+    finally { setBbusy(false); }
   }, [key, te, load]);
 
   const rev: Row = d?.revenue || {};
@@ -104,50 +134,22 @@ export default function OwnerPage() {
           <p className="text-[11px] text-slate-500">{te ? "Official Owner Management Console — Mana Vivaha" : "Official Owner Management Console — Mana Vivaha"}</p>
         </div>
         <div className="flex items-center gap-2">
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-300 text-xs font-bold">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-            Verified Owner Active
+          <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full border text-xs font-bold ${d ? "bg-emerald-50 text-emerald-800 border-emerald-300" : "bg-amber-50 text-amber-900 border-amber-300"}`}>
+            <span className={`w-2 h-2 rounded-full ${d ? "bg-emerald-500" : "bg-amber-500"}`}></span>
+            {d
+              ? (te ? "అడ్మిన్ API యాక్సెస్ ఉంది" : "Admin API access active")
+              : (te ? "అడ్మిన్ కీ అవసరం" : "Admin key required")}
           </span>
         </div>
       </div>
 
-      {/* Official Acceptance & Owner Credentials Badge */}
-      <div className="mt-4 rounded-3xl border border-emerald-500/30 bg-gradient-to-r from-emerald-50/80 via-white to-amber-50/40 p-4 shadow-sm">
-        <div className="flex items-center justify-between border-b border-emerald-100 pb-2">
-          <div className="text-xs font-bold text-emerald-950 flex items-center gap-1.5">
-            <span>🛡️</span>
-            <span>{te ? "అధికారిక యజమాని అంగీకార పత్రం (Official Owner Acceptance)" : "Official Owner Acceptance Details"}</span>
-          </div>
-          <span className="font-mono text-[10px] text-emerald-700 font-bold bg-white px-2 py-0.5 rounded-full border border-emerald-200">
-            ID: {SITE_CONFIG.owner.id}
-          </span>
-        </div>
-        <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px]">
-          <div className="bg-white/80 p-2 rounded-xl border border-emerald-100">
-            <span className="text-gray-500 block text-[9px] uppercase font-bold">Owner Name</span>
-            <span className="font-bold text-gray-900">{SITE_CONFIG.owner.name}</span>
-          </div>
-          <div className="bg-white/80 p-2 rounded-xl border border-emerald-100">
-            <span className="text-gray-500 block text-[9px] uppercase font-bold">Signatory Name</span>
-            <span className="font-bold text-gray-900">{SITE_CONFIG.owner.signatoryName}</span>
-          </div>
-          <div className="bg-white/80 p-2 rounded-xl border border-emerald-100">
-            <span className="text-gray-500 block text-[9px] uppercase font-bold">Contact Phone</span>
-            <span className="font-mono font-bold text-emerald-800">{SITE_CONFIG.owner.contactNumber}</span>
-          </div>
-          <div className="bg-white/80 p-2 rounded-xl border border-emerald-100">
-            <span className="text-gray-500 block text-[9px] uppercase font-bold">Official Email</span>
-            <span className="font-mono font-bold text-emerald-800 truncate block">{SITE_CONFIG.owner.email}</span>
-          </div>
-          <div className="bg-white/80 p-2 rounded-xl border border-emerald-100 col-span-2">
-            <span className="text-gray-500 block text-[9px] uppercase font-bold">Date of Acceptance</span>
-            <span className="font-mono font-bold text-gray-800">{SITE_CONFIG.owner.dateOfAcceptance}</span>
-          </div>
-          <div className="bg-white/80 p-2 rounded-xl border border-emerald-100 col-span-2">
-            <span className="text-gray-500 block text-[9px] uppercase font-bold">Acceptance IP Address</span>
-            <span className="font-mono font-bold text-gray-800">{SITE_CONFIG.owner.ipAddress}</span>
-          </div>
-        </div>
+      <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-700">
+        <p className="font-bold text-slate-900">{te ? "గోప్యత & డేటా స్థితి" : "Privacy and data scope"}</p>
+        <p className="mt-1 text-[12px] leading-relaxed">
+          {te
+            ? "ఈ సారాంశం అడ్మిన్ API కీ అంగీకరించిన తర్వాత మాత్రమే లోడ్ అవుతుంది. ఇక్కడి గణాంకాలు అప్లికేషన్‌లో నమోదైన స్థితిని చూపుతాయి; చెల్లింపు, ఛానల్ లేదా బాహ్య సందేశాల డెలివరీని స్వతంత్రంగా నిర్ధారించవు."
+            : "The summary loads only after the admin API accepts the key. Counts reflect application-recorded state; they do not independently confirm payment, channel availability, or external message delivery."}
+        </p>
       </div>
 
       <div className="mt-4 flex gap-2">
@@ -195,7 +197,7 @@ export default function OwnerPage() {
               <Stat v={users.approved ?? 0} l={te ? "approved" : "approved"} />
               <Stat v={users.pending ?? 0} l={te ? "pending" : "pending"} />
               <Stat v={users.banned ?? 0} l={te ? "banned" : "banned"} />
-              <Stat v={users.verified ?? 0} l={te ? "verified" : "verified"} />
+              <Stat v={users.recorded_checks ?? 0} l={te ? "నమోదైన చెక్‌లు" : "Recorded checks"} />
               <Stat v={users.brides ?? 0} l="brides" />
               <Stat v={users.grooms ?? 0} l="grooms" />
               <Stat v={users.nri ?? 0} l="NRI" />
@@ -204,6 +206,7 @@ export default function OwnerPage() {
             <p className="mt-2 text-[12px] text-slate-600">
               📸 {users.with_photo ?? 0} • 🎙️ {users.with_voice ?? 0} • 💳 {users.credits_out ?? 0} credits out • 👛 ₹{users.wallet_out ?? 0} wallet out
             </p>
+            <p className="mt-1 text-[10px] text-slate-500">{te ? "Recorded checks‌లో Phone OTP, photo review, లేదా manual ID review ఉండవచ్చు; ఇవి identity guarantee కావు." : "Recorded checks may include phone OTP, photo review, or manual ID review; they are not an identity guarantee."}</p>
           </Card>
 
           <Card title={`💌 Funnel — ${funnel.interests ?? 0} interests`}>
@@ -252,7 +255,7 @@ export default function OwnerPage() {
           </Card>
 
           <Card title="💾 Backup / Restore">
-            <p className="text-[12px] text-slate-600">{te ? "అన్నీ (users, payments, interests, channels) okka zip లో. Crash అయినా ఈ zip + code ఉంటే site మళ్ళీ వస్తుంది." : "Everything (users, payments, interests, channels) in one zip. Even after a crash, this zip + code brings the site back."}</p>
+            <p className="text-[12px] leading-relaxed text-slate-600">{te ? "ఈ ZIP‌లో core database మరియు configure చేసిన JSON/JSONL application state మాత్రమే ఉంటాయి. Profile photos, cards, voice introductions, jathakams, posters, .env/secrets లేదా Docker volume ఇందులో ఉండవు. ఇది encrypted off-site backup కాదు. Restore వల్ల records తగ్గితే రెండో confirmation అడుగుతుంది; restore‌కు ముందు same-volume snapshot తీసుకుంటుంది, కానీ అది off-site backup‌కు ప్రత్యామ్నాయం కాదు. Production recovery కోసం మొత్తం data volume మరియు media‌ను encrypted off-host backup చేసి, isolated environment‌లో restore పరీక్షించాలి." : "This ZIP contains the core database and configured JSON/JSONL application state only. It excludes profile photos, cards, voice introductions, jathakams, posters, .env/secrets, and the Docker volume. It is not an encrypted off-site backup. A restore that would reduce active records requires a second confirmation, and a same-volume pre-restore snapshot is attempted first; neither replaces an off-site backup. For production recovery, back up the complete data volume and media off-host with encryption, then test a restore in an isolated environment."}</p>
             <div className="mt-2 flex flex-wrap items-center gap-2">
               <button onClick={() => void downloadBackup()} disabled={bbusy} className="rounded-2xl bg-[#7A0C2E] px-4 py-2 text-[13px] font-bold text-white disabled:opacity-50">⬇️ {te ? "బ్యాకప్ download" : "Download backup"}</button>
               <label className="cursor-pointer rounded-2xl border border-[#7A0C2E] px-4 py-2 text-[13px] font-bold text-[#7A0C2E]">⬆️ {te ? "Restore (zip)" : "Restore (zip)"}
@@ -267,7 +270,7 @@ export default function OwnerPage() {
               <Stat v={sys.wa_queue ?? 0} l="WA queue" />
               <Stat v={sys.dead_letters ?? 0} l="dead letters" />
               <Stat v={sys.worker ? "▶️" : "⏸️"} l="worker" />
-              <Stat v={sys.telegram_live ?? 0} l="TG live" />
+              <Stat v={sys.telegram_routing_eligible ?? 0} l="TG routing eligible (not checked)" />
               <Stat v={sys.vapid_ready ? "✅" : "—"} l="VAPID" />
               <Stat v={sys.pay_mode || "—"} l="pay mode" />
             </div>

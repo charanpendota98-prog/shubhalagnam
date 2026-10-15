@@ -3,8 +3,8 @@ import { Suspense } from "react";
 import VerifyPageClient from "./page-client";
 
 export const metadata: Metadata = {
-  title: "ప్రొఫైల్ వెరిఫికేషన్ (Verify with Selfie)",
-  description: "లైవ్ సెల్ఫీతో మీ ప్రొఫైల్‌ను వెరిఫై చేసుకుని ట్రస్ట్ బ్యాడ్జ్ పొందండి.",
+  title: "Profile Verification & Selfie Review",
+  description: "Submit a selfie for review. A review status does not establish identity or verify every profile detail.",
   alternates: { canonical: "https://manavivaha.in/verify" },
   robots: { index: false, follow: false },
 };

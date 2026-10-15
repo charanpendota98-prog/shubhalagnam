@@ -164,7 +164,7 @@ def build_masked_caption(profile: Dict, tsap_id: str = "", score: int | None = N
         f"{route_block}"
         f"{routed['hashtags']}\n"
         f"━━━━━━━━━━━━━━━\n"
-        f"🔒 Contact details are not public. They may be shared only after profile-owner acceptance, subject to privacy settings.\n"
+        f"🔒 Contact details are not public. They become available in accepted-request account views only after profile-owner acceptance; notification delivery is not guaranteed.\n"
         f"{profile_link}\n"
         f"⚠️ Do not send advance money; report suspicious requests."
     )
@@ -192,7 +192,7 @@ def build_masked_whatsapp(profile: Dict, tsap_id: str = "", score: int | None = 
         f"{route_block}"
         f"━━━━━━━━━━━━━━━━\n"
         f"{routed['hashtags']}\n"
-        f"🔒 Contact details require profile-owner acceptance and follow privacy settings.\n"
+        f"🔒 Contact details require profile-owner acceptance; accepted-request account views show them. External notification delivery is not guaranteed.\n"
         f"{profile_link}\n"
         f"⚠️ Do not send advance money; report suspicious requests."
     )
@@ -240,7 +240,7 @@ def unlock_number(viewer: Dict, target: Dict, *, consent_granted: bool = False) 
         return {"success": False, "reason": "consent_required",
                 "phone_masked": mask_phone(target.get("phone", "")),
                 "credits_left": int(viewer.get("credits", 0) or 0),
-                "message_telugu": "🔒 Contact details కోసం ముందుగా interest పంపండి. Profile owner accept చేసిన తర్వాత మాత్రమే privacy settings ప్రకారం share అవుతాయి; credits తో consent bypass చేయలేరు."}
+                "message_telugu": "🔒 Contact details కోసం ముందుగా interest పంపండి. Profile owner accept చేసిన తర్వాత accepted-request account views లో అందుబాటులోకి వస్తాయి; credits తో consent bypass చేయలేరు."}
     if not is_entitled(viewer_id, target_id):
         grant_unlock(viewer_id, target_id, via="mutual_consent", credits_charged=0,
                      consent_granted=True)
@@ -251,7 +251,7 @@ def unlock_number(viewer: Dict, target: Dict, *, consent_granted: bool = False) 
     return {"success": True, "phone": phone, "phone_masked": mask_phone(phone),
             "charged": 0, "credits_left": int(viewer.get("credits", 0) or 0),
             "via": "mutual_consent",
-            "message_telugu": "✅ Profile owner accept చేశారు. Contact details privacy settings ప్రకారం అందుబాటులో ఉన్నాయి."}
+            "message_telugu": "✅ Profile owner accept చేశారు. Accepted-request account view లో contact details అందుబాటులో ఉన్నాయి."}
 
 
 def my_unlocks(viewer_id: str, users: List[Dict],

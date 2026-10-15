@@ -631,29 +631,34 @@ def _payout_request_locked(user: Dict, amount: int, method: str = "upi", upi_id:
     try:
         amount = int(amount)
     except Exception:
-        return {"ok": False, "reason": "bad_amount", "message_telugu": "⚠️ Amount సరిగా ఇవ్వండి"}
+        return {"ok": False, "reason": "bad_amount", "message_telugu": "⚠️ Amount సరిగా ఇవ్వండి", "message_en": "Enter a valid payout amount."}
     if method not in ("upi", "bank"):
-        return {"ok": False, "reason": "bad_method", "message_telugu": "⚠️ upi లేదా bank మాత్రమే"}
+        return {"ok": False, "reason": "bad_method", "message_telugu": "⚠️ upi లేదా bank మాత్రమే", "message_en": "Choose UPI or bank transfer."}
     if amount < MIN_PAYOUT:
         return {"ok": False, "reason": "below_min", "min": MIN_PAYOUT,
-                "message_telugu": "ℹ️ Minimum ₹%d నుంచి payout అడగొచ్చు — మీ wallet ₹%s" % (MIN_PAYOUT, st["wallet"])}
+                "message_telugu": "ℹ️ Minimum ₹%d నుంచి payout అడగొచ్చు — మీ wallet ₹%s" % (MIN_PAYOUT, st["wallet"]),
+                "message_en": "The minimum payout request is ₹%d. Your wallet balance is ₹%s." % (MIN_PAYOUT, st["wallet"])}
     if amount > float(st.get("wallet", 0)):
         return {"ok": False, "reason": "insufficient_wallet", "wallet": st["wallet"],
-                "message_telugu": "⚠️ Wallet లో ₹%s మాత్రమే ఉంది — ₹%d అడగలేరు" % (st["wallet"], amount)}
+                "message_telugu": "⚠️ Wallet లో ₹%s మాత్రమే ఉంది — ₹%d అడగలేరు" % (st["wallet"], amount),
+                "message_en": "Your wallet balance is ₹%s, which is less than the requested ₹%d." % (st["wallet"], amount)}
     _me = user.get("tsap_id") or user.get("partner_id")
     if any((p.get("tsap_id") or p.get("partner_id")) == _me and p.get("status") == "requested" for p in PAYOUTS):
         return {"ok": False, "reason": "pending_exists",
-                "message_telugu": "⏳ మీ పాత payout request ఇంకా process లో ఉంది — అది అయ్యాక మళ్లీ అడగండి"}
+                "message_telugu": "⏳ మీ పాత payout request ఇంకా process లో ఉంది — అది అయ్యాక మళ్లీ అడగండి",
+                "message_en": "A previous payout request is still pending. Please wait for it to be reviewed."}
     if method == "upi":
         if not UPI_RE.fullmatch((upi_id or "").strip()):
             return {"ok": False, "reason": "bad_upi",
-                    "message_telugu": "⚠️ UPI ID తప్పులా ఉంది (ఉదాహరణ: name@okhdfcbank)"}
+                    "message_telugu": "⚠️ UPI ID తప్పులా ఉంది (ఉదాహరణ: name@okhdfcbank)",
+                    "message_en": "Enter a valid UPI ID (for example, name@okhdfcbank)."}
     else:
         bank = bank or {}
         if not (str(bank.get("account_no", "")).strip() and IFSC_RE.fullmatch(str(bank.get("ifsc", "")).strip().upper())
                 and str(bank.get("holder", "")).strip()):
             return {"ok": False, "reason": "bad_bank",
-                    "message_telugu": "⚠️ Bank details సరిగా ఇవ్వండి (holder + account no + IFSC)"}
+                    "message_telugu": "⚠️ Bank details సరిగా ఇవ్వండి (holder + account no + IFSC)",
+                    "message_en": "Enter the account holder, account number, and a valid IFSC code."}
     req = {
         "id": _next_id("PAY"), "tsap_id": user.get("tsap_id"), "partner_id": user.get("partner_id", ""),
         "name": user.get("full_name") or user.get("name", ""),
@@ -672,6 +677,8 @@ def _payout_request_locked(user: Dict, amount: int, method: str = "upi", upi_id:
     save_state()
     return {"ok": True, "request": req, "wallet": st["wallet"],
             "message_telugu": "✅ Payout request అందింది (%s • ₹%d). ఇది admin review కోసం queue లో ఉంది. Fixed processing time హామీ లేదు; dashboard లో status చూడండి."
+                              % (req["id"], amount),
+            "message_en": "Payout request %s for ₹%d was received and queued for manual review. Processing time is not guaranteed; check the dashboard for status."
                               % (req["id"], amount)}
 
 
@@ -900,56 +907,137 @@ def referral_dashboard(user: Dict, all_users: List[Dict], limit_recent: int = 10
 
 # ------------------------------------------------------------------ share kit
 def share_kit(user: Dict) -> Dict:
-    """Accurate WhatsApp/Telegram copy plus the user's referral poster and QR target."""
+    """Localized, policy-accurate referral copy plus the user's poster and QR target."""
     ensure_referrer_profile(user, [])
     code = _code_of(user)
     link = user.get("referral_link") or (f"{SITE_URL}/r/{code}" if code else f"{SITE_URL}/register")
-    name = user.get("full_name") or user.get("name") or "మన వివాహ సభ్యుడు"
+    name = user.get("full_name") or user.get("name")
+    name_en = str(name).strip() if name else "a Mana Vivaha member"
+    name_te = str(name).strip() if name else "మన వివాహ సభ్యుడు"
     rules_link = f"{SITE_URL}/referral"
-    reward_rule = (
+
+    reward_rule_en = (
         f"A referrer may receive ₹{FIRST_PAY_COMMISSION} once if a referred user makes their first eligible "
         "paid S_99/S_199/S_299/S_499 consumer-plan purchase (payment amount at least ₹99). "
         "Add-ons, assisted services, boosts, gifts, renewals, complimentary grants and B2B plans are excluded. "
         "Eligibility and manual review apply; this is not a guaranteed payout."
     )
-    credit_rule = (
-        "When a valid referral is attached, the new user gets +1 interest-request credit and the referrer gets +2; "
-        "these request credits are separate from the possible ₹50 cash reward."
+    reward_rule_te = (
+        f"రిఫరర్‌కు ₹{FIRST_PAY_COMMISSION} బహుమతి ఒక్కసారి మాత్రమే లభించవచ్చు: పరిచయం చేసిన సభ్యుడి మొదటి అర్హత కలిగిన "
+        "S_99/S_199/S_299/S_499 వినియోగదారు ప్లాన్ చెల్లింపు కనీసం ₹99 ఉండాలి. యాడ్-ఆన్‌లు, సహాయక సేవలు, "
+        "బూస్ట్‌లు, బహుమతులు, పునరుద్ధరణలు, ఉచిత క్రెడిట్‌లు, B2B ప్లాన్‌లు మినహాయింపు. అర్హత మరియు మాన్యువల్ సమీక్ష వర్తిస్తాయి; "
+        "చెల్లింపు హామీ కాదు."
     )
-    invitation = f"🙏 నమస్తే! {name} గారు మన వివాహ (Mana Vivaha) లో నా referral link ఇది: {link}"
-    variants = [
-        f"{invitation}\n\nFree registration includes 3 interest requests. Paid consumer plans start at ₹99.\n{credit_rule}\n{reward_rule}\nRules: {rules_link}",
-        f"💍 Looking for a Telugu matrimony profile? Join Mana Vivaha / మన వివాహ.\n3 interest requests are included with free registration; paid consumer plans start at ₹99.\nUse my referral link: {link}\n{reward_rule}\nRules: {rules_link}",
-        f"🙏 మీ కుటుంబంలో పెళ్లి సంబంధం చూస్తున్నారా? మన వివాహలో ఉచితంగా నమోదు చేసుకోండి.\nఉచిత నమోదుతో 3 interest requests; చెల్లింపు consumer plans ₹99 నుంచి.\nనా link: {link}\n{credit_rule}\n₹50 reward నియమాలు: {rules_link}",
-        f"నా Mana Vivaha referral link: {link}\nRegistration ఉచితం; మొదటి 3 interest requests కూడా. Referral bonus credits మరియు ₹50 reward కు వేర్వేరు అర్హత నియమాలు ఉన్నాయి: {rules_link}",
-        f"💍 Mana Vivaha • మన వివాహ\nFree registration • 3 interest requests\nనా code: {code}\nLink: {link}\nReferral reward: only a qualifying first consumer-plan payment may qualify; details: {rules_link}",
+    credit_rule_en = (
+        "A valid referral grants +1 interest-request credit to the new member and +2 to the referrer; "
+        "these credits are separate from the possible cash reward."
+    )
+    credit_rule_te = (
+        "చెల్లుబాటు అయ్యే referral ద్వారా కొత్త సభ్యుడికి +1, రిఫరర్‌కు +2 ఆసక్తి అభ్యర్థన క్రెడిట్‌లు వస్తాయి; "
+        "ఈ క్రెడిట్‌లు నగదు బహుమతికి వేరు."
+    )
+
+    variants_en = [
+        f"Hello! {name_en} is sharing a Mana Vivaha referral link with you: {link}\n\n"
+        f"Free registration includes 3 interest requests. Consumer plans start at ₹99.\n{credit_rule_en}\n"
+        f"{reward_rule_en}\nTerms: {rules_link}",
+        f"Looking for Telugu matrimony profiles? Join Mana Vivaha.\n\n"
+        f"Free registration includes 3 interest requests; consumer plans start at ₹99.\n"
+        f"My referral code: {code}\nMy link: {link}\n{reward_rule_en}\nTerms: {rules_link}",
+        f"You are invited to join Mana Vivaha.\nFree registration • 3 interest requests • plans from ₹99.\n"
+        f"Referral code: {code}\nOpen my link: {link}\n{credit_rule_en}\nTerms: {rules_link}",
+        f"Share this Mana Vivaha registration link with your family: {link}\n"
+        f"Registration is free and includes 3 interest requests. Referral credits and any cash reward have separate eligibility rules.\n"
+        f"Details: {rules_link}",
+        f"Mana Vivaha referral\nCode: {code}\nLink: {link}\n"
+        f"Free registration • 3 interest requests • consumer plans from ₹99.\n"
+        f"A possible ₹{FIRST_PAY_COMMISSION} reward is subject to first-payment eligibility and manual review. Terms: {rules_link}",
     ]
-    video_kit = [
+    variants_te = [
+        f"నమస్కారం! {name_te} గారు మన వివాహ (Mana Vivaha) నమోదు లింక్‌ను మీతో పంచుకుంటున్నారు: {link}\n\n"
+        f"ఉచిత నమోదుతో 3 ఆసక్తి అభ్యర్థనలు లభిస్తాయి. వినియోగదారు ప్లాన్‌లు ₹99 నుంచి ప్రారంభమవుతాయి.\n"
+        f"{credit_rule_te}\n{reward_rule_te}\nనిబంధనలు: {rules_link}",
+        f"తెలుగు వివాహ ప్రొఫైల్ కోసం చూస్తున్నారా? మన వివాహలో చేరండి.\n\n"
+        f"ఉచిత నమోదుతో 3 ఆసక్తి అభ్యర్థనలు; వినియోగదారు ప్లాన్‌లు ₹99 నుంచి.\n"
+        f"నా referral code: {code}\nనా లింక్: {link}\n{reward_rule_te}\nనిబంధనలు: {rules_link}",
+        f"మన వివాహలో చేరండి.\nఉచిత నమోదు • 3 ఆసక్తి అభ్యర్థనలు • ప్లాన్‌లు ₹99 నుంచి.\n"
+        f"Referral code: {code}\nనా లింక్ తెరవండి: {link}\n{credit_rule_te}\nనిబంధనలు: {rules_link}",
+        f"మీ కుటుంబంతో మన వివాహ నమోదు లింక్‌ను పంచుకోండి: {link}\n"
+        f"నమోదు ఉచితం; 3 ఆసక్తి అభ్యర్థనలు లభిస్తాయి. Referral credits మరియు నగదు బహుమతికి వేర్వేరు అర్హత నియమాలు ఉన్నాయి.\n"
+        f"వివరాలు: {rules_link}",
+        f"మన వివాహ referral\nCode: {code}\nలింక్: {link}\n"
+        f"ఉచిత నమోదు • 3 ఆసక్తి అభ్యర్థనలు • వినియోగదారు ప్లాన్‌లు ₹99 నుంచి.\n"
+        f"₹{FIRST_PAY_COMMISSION} బహుమతి మొదటి చెల్లింపు అర్హత మరియు మాన్యువల్ సమీక్షకు లోబడి ఉంటుంది. నిబంధనలు: {rules_link}",
+    ]
+
+    video_kit_en = [
         {"style": "15-second informational video", "script": (
-            f"మన వివాహలో ఉచితంగా నమోదు చేసుకోండి. ఉచిత నమోదుతో 3 interest requests ఉంటాయి; "
-            f"చెల్లింపు consumer plans ₹99 నుంచి. నా referral link {link}. "
-            f"సంభావ్య ₹50 referral reward అర్హత నియమాలకు లోబడి ఉంటుంది: {rules_link}"
+            f"Join Mana Vivaha with free registration and three included interest requests. "
+            f"Consumer plans start at ninety-nine rupees. Use my referral link: {link}. "
+            f"Any referral reward depends on eligibility and manual review. Terms: {rules_link}."
         )},
         {"style": "30-second informational video", "script": (
-            f"పెళ్లి సంబంధం కోసం వెతుకుతున్నారా? Mana Vivaha, మన వివాహలో మీ profile నమోదు చేసి చూడండి. "
-            f"Registration ఉచితం; మొదటి 3 interest requests ఉంటాయి. Plans, validity, contact-consent నియమాలు "
-            f"ముందుగా పరిశీలించండి. నా link {link}. Referral ద్వారా వచ్చే +1 request credit మరియు referrer కు +2 request credits, "
-            f"ఒకసారి లభించే ₹50 cash reward కి వేరు. ₹50 reward కేవలం మొదటి అర్హమైన S_99/S_199/S_299/S_499 consumer-plan payment పై మాత్రమే; "
-            f"terms: {rules_link}"
+            f"Looking for a Telugu matrimony profile? Create a profile on Mana Vivaha. "
+            f"Registration is free and includes three interest requests. Review plan prices, validity, and contact-consent rules before you choose. "
+            f"My referral link is {link}. A valid referral adds one interest-request credit for the new member and two for the referrer; "
+            f"these are separate from a possible one-time fifty-rupee reward. The reward is only for the first qualifying consumer-plan payment, "
+            f"subject to exclusions and manual review. Terms: {rules_link}."
         )},
     ]
+    video_kit_te = [
+        {"style": "15-second informational video", "script": (
+            f"మన వివాహలో ఉచితంగా నమోదు చేసుకోండి. నమోదుతో 3 ఆసక్తి అభ్యర్థనలు లభిస్తాయి; వినియోగదారు ప్లాన్‌లు ₹99 నుంచి. "
+            f"నా referral link: {link}. ఏదైనా బహుమతి అర్హత మరియు మాన్యువల్ సమీక్షకు లోబడి ఉంటుంది. నిబంధనలు: {rules_link}."
+        )},
+        {"style": "30-second informational video", "script": (
+            f"తెలుగు వివాహ ప్రొఫైల్ కోసం చూస్తున్నారా? మన వివాహలో మీ ప్రొఫైల్ నమోదు చేసుకోండి. నమోదు ఉచితం; 3 ఆసక్తి అభ్యర్థనలు లభిస్తాయి. "
+            f"ప్లాన్ ధరలు, చెల్లుబాటు మరియు సంప్రదింపు అనుమతి నియమాలు ముందుగా పరిశీలించండి. నా లింక్ {link}. "
+            f"చెల్లుబాటు అయ్యే referral ద్వారా కొత్త సభ్యుడికి +1, రిఫరర్‌కు +2 ఆసక్తి అభ్యర్థన క్రెడిట్‌లు వస్తాయి; "
+            f"ఇవి ఒక్కసారి లభించే సంభావ్య ₹{FIRST_PAY_COMMISSION} నగదు బహుమతికి వేరు. బహుమతి మొదటి అర్హత కలిగిన వినియోగదారు ప్లాన్ చెల్లింపుపై మాత్రమే; "
+            f"మినహాయింపులు మరియు మాన్యువల్ సమీక్ష వర్తిస్తాయి. నిబంధనలు: {rules_link}."
+        )},
+    ]
+
+    telegram_text_en = f"Mana Vivaha referral code {code} — free registration and 3 interest requests. Terms: {rules_link}"
+    telegram_text_te = f"మన వివాహ referral code {code} — ఉచిత నమోదు మరియు 3 ఆసక్తి అభ్యర్థనలు. నిబంధనలు: {rules_link}"
+    sms_text_en = f"Mana Vivaha — free registration, 3 interest requests. My referral code: {code}. Link: {link}. Terms: {rules_link}"
+    sms_text_te = f"మన వివాహ — ఉచిత నమోదు, 3 ఆసక్తి అభ్యర్థనలు. నా referral code: {code}. లింక్: {link}. నిబంధనలు: {rules_link}"
+    poster_text_en = f"MANA VIVAHA • మన వివాహ\nFree registration • 3 interest requests\nCode: {code}\nReferral terms: {rules_link}"
+    poster_text_te = f"మన వివాహ • Mana Vivaha\nఉచిత నమోదు • 3 ఆసక్తి అభ్యర్థనలు\nCode: {code}\nReferral నిబంధనలు: {rules_link}"
+    status_text_en = f"Mana Vivaha — free registration and 3 interest requests. My referral code: {code}. Link: {link}. Terms: {rules_link}"
+    status_text_te = f"మన వివాహ — ఉచిత నమోదు మరియు 3 ఆసక్తి అభ్యర్థనలు. నా referral code: {code}. లింక్: {link}. నిబంధనలు: {rules_link}"
+    telegram_share_en = "https://t.me/share/url?url=%s&text=%s" % (_urlenc(link), _urlenc(telegram_text_en))
+    telegram_share_te = "https://t.me/share/url?url=%s&text=%s" % (_urlenc(link), _urlenc(telegram_text_te))
+
+    # Keep legacy keys for existing integrations; the page selects explicit language fields.
     return {
         "code": code, "link": link, "alias": user.get("referral_alias"),
-        "whatsapp_messages": variants, "whatsapp_share": "https://wa.me/?text=" + _urlenc(variants[0]),
-        "whatsapp_share_variants": ["https://wa.me/?text=" + _urlenc(v) for v in variants],
-        "telegram_share": "https://t.me/share/url?url=%s&text=%s" % (_urlenc(link), _urlenc("Mana Vivaha • మన వివాహ — referral code %s" % code)),
-        "sms_text": f"Mana Vivaha • మన వివాహ — free registration, 3 interest requests. My referral link: {link}. Rules: {rules_link}",
-        "poster_text": f"MANA VIVAHA • మన వివాహ\nFree registration • 3 interest requests\nCode: {code}\nReferral terms: {rules_link}",
+        "whatsapp_messages": variants_te,
+        "whatsapp_messages_te": variants_te,
+        "whatsapp_messages_en": variants_en,
+        "whatsapp_share": "https://wa.me/?text=" + _urlenc(variants_te[0]),
+        "whatsapp_share_variants": ["https://wa.me/?text=" + _urlenc(v) for v in variants_te],
+        "whatsapp_share_variants_te": ["https://wa.me/?text=" + _urlenc(v) for v in variants_te],
+        "whatsapp_share_variants_en": ["https://wa.me/?text=" + _urlenc(v) for v in variants_en],
+        "telegram_share": telegram_share_te,
+        "telegram_share_te": telegram_share_te,
+        "telegram_share_en": telegram_share_en,
+        "sms_text": sms_text_te,
+        "sms_text_te": sms_text_te,
+        "sms_text_en": sms_text_en,
+        "poster_text": poster_text_te,
+        "poster_text_te": poster_text_te,
+        "poster_text_en": poster_text_en,
         "poster_card": "/api/referral/%s/poster.png" % _tsap_or_code(user),
         "qr_target": link,
-        "status_text": f"Mana Vivaha • మన వివాహ — free registration and 3 interest requests. My referral link: {link}. Terms: {rules_link}",
-        "video_kit": video_kit,
-        "message_telugu": "📲 Share messages and informational video scripts are ready. Referral reward terms are linked in each message.",
+        "status_text": status_text_te,
+        "status_text_te": status_text_te,
+        "status_text_en": status_text_en,
+        "video_kit": video_kit_te,
+        "video_kit_te": video_kit_te,
+        "video_kit_en": video_kit_en,
+        "message_telugu": "📲 వాట్సాప్ సందేశాలు మరియు సమాచార వీడియో స్క్రిప్ట్‌లు సిద్ధంగా ఉన్నాయి. ప్రతి సందేశంలో referral నిబంధనల లింక్ ఉంది.",
+        "message_en": "WhatsApp messages and informational video scripts are ready. Each message links to the referral terms.",
     }
 
 
@@ -1046,6 +1134,19 @@ def referral_terms_telugu() -> Dict:
     return {
         "version": REFERRAL_VERSION,
         "headline": "అర్హత ఉన్న first consumer-plan payment పై ఒక్కసారి ₹50",
+        "headline_en": "A possible one-time ₹50 reward on the first qualifying consumer-plan payment",
+        "rules_en": [
+            "Registration is free and includes 3 interest-request credits; these do not unlock contact details.",
+            "A referrer may receive ₹50 once if the referred member's first qualifying paid S_99, S_199, S_299, or S_499 consumer plan has a payment amount of at least ₹99.",
+            "Add-ons, assisted services, boosts, gifts, renewals, complimentary grants, bureau/B2B plans, and other non-consumer payments are excluded.",
+            "A valid referral attachment grants +2 interest-request credits to the referrer and +1 to the new member. These credits are separate from any cash reward.",
+            "Only the first qualifying consumer-plan payment for each referred member may qualify; repeat payments and renewals do not earn another commission.",
+            "Dashboard tier badges change at 3, 10, 25, and 50 qualifying rewards. A tier adds no cash, commission, credits, support, reports, or other benefit.",
+            f"Payout requests require a minimum of ₹{MIN_PAYOUT} in the wallet and receive manual admin review. Instant UPI transfer and fixed processing times are not guaranteed.",
+            "High-volume, duplicate, self-referral, fake-payment, chargeback, or spam patterns may be reviewed. There is no fixed referral-count cap, but eligibility and review rules apply.",
+            "A reward may be reversed if its eligible payment is refunded or charged back.",
+            "The dashboard reports registrations, qualifying rewards, wallet balance, and payout status. Pending registrations are not future income or a guarantee.",
+        ],
         "rules_telugu": [
             "🆓 నమోదు ఉచితం. ఉచితంగా 3 interest-request credits ఉంటాయి; అవి 3 profile/contact unlocks కావు.",
             "💰 Referrer కు ₹50 ఒక్కసారి మాత్రమే: కొత్త referred user చేసిన మొదటి qualifying paid consumer plan S_99, S_199, S_299 లేదా S_499 అయి ఉండాలి; eligible payment మొత్తం కనీసం ₹99 కావాలి.",
@@ -1062,6 +1163,7 @@ def referral_terms_telugu() -> Dict:
                         "Bulk unsolicited messages or spam", "Referral reward claims for excluded payment types",
                         "Fake profiles or misleading marketing"],
         "no_conditions_telugu": "నిర్దిష్ట referral-count cap లేదు. కానీ ప్రతి ₹50 reward కు first qualifying consumer-plan payment నియమాలు వర్తిస్తాయి; duplicate, fake, self-referral లేదా spam patterns review చేయబడవచ్చు.",
+        "no_conditions_en": "There is no fixed referral-count cap. Each possible ₹50 reward still depends on first qualifying consumer-plan payment rules; duplicate, fake, self-referral, or spam patterns may be reviewed.",
         "reward_amount": FIRST_PAY_COMMISSION,
         "qualifying_plan_codes": sorted(QUALIFYING_PLAN_CODES),
         "min_qualifying_amount": MIN_QUALIFYING_AMOUNT,

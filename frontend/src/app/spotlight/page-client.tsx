@@ -1,15 +1,15 @@
 "use client";
 /**
- * 🌟 /spotlight — PROMOTE YOUR PROFILE ("Profiles of the Day")
+ * 🌟 /spotlight — paid sponsored profile placement
  * ==============================================================
- * Registered users can boost their profile to the top of the homepage & channels.
- * Photo / Video media upload + custom pitch + UPI payment + admin review.
+ * Registered users can apply for a paid sponsored homepage placement.
+ * Payment and media are reviewed; this is not an identity check or reach guarantee.
  */
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useLang } from "@/lib/lang";
 import { Duo } from "@/lib/duo";
-import { authHeaders } from "@/lib/api";
+import { apiDisplayMessage, authHeaders, readApiJson } from "@/lib/api";
 
 type Tier = {
   code: string;
@@ -17,8 +17,10 @@ type Tier = {
   price: number;
   name_en: string;
   name_te: string;
+  perks_en: string[];
   perks_te: string[];
   badge: string;
+  badge_te?: string;
 };
 
 export default function SpotlightPromotionPage() {
@@ -32,10 +34,9 @@ export default function SpotlightPromotionPage() {
   const [tsapId, setTsapId] = useState("");
   const [headline, setHeadline] = useState("");
   const [pitchText, setPitchText] = useState("");
-  const [photoUrl, setPhotoUrl] = useState("");
   const [videoUrl, setVideoUrl] = useState("");
+  const [consentConfirmed, setConsentConfirmed] = useState(false);
   const [paymentRef, setPaymentRef] = useState("");
-  const [contactOpt, setContactOpt] = useState("send_interest");
 
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<any>(null);
@@ -47,8 +48,8 @@ export default function SpotlightPromotionPage() {
     } catch { /* private browsing may block storage */ }
 
     Promise.all([
-      fetch("/api/spotlight/rates").then((r) => r.ok ? r.json() : null),
-      fetch("/api/pay/config").then((r) => r.ok ? r.json() : null),
+      fetch("/api/spotlight/rates").then((r) => r.ok ? readApiJson(r) : null),
+      fetch("/api/pay/config").then((r) => r.ok ? readApiJson(r) : null),
     ]).then(([rateData, payData]) => {
       if (rateData?.success && rateData.tiers) setTiers(rateData.tiers);
       if (payData?.success) setPaymentConfig({ mode: String(payData.mode || "unconfigured"), upi_id: String(payData.upi_id || "") });
@@ -71,8 +72,12 @@ export default function SpotlightPromotionPage() {
       setError(te ? "హెడ్‌లైన్ మరియు పరిచయాన్ని నమోదు చేయండి (గరిష్ఠంగా 140 / 600 అక్షరాలు)." : "Enter a headline and introduction (maximum 140 / 600 characters).");
       return;
     }
+    if (!consentConfirmed) {
+      setError(te ? "ప్రొఫైల్ వివరాలు/ఎంచుకున్న వీడియో public sponsored placement లో చూపించడానికి మీ సమ్మతి అవసరం." : "Confirm that your profile details and selected video may appear in the sponsored placement.");
+      return;
+    }
     if (!/^\d{12}$/.test(paymentRef.trim())) {
-      setError(te ? "మీ UPI యాప్ statement లో ఉన్న నిజమైన 12-అంకెల UTR నమోదు చేయండి." : "Enter the actual 12-digit UTR from your UPI statement.");
+      setError(te ? "మీ UPI యాప్ statement లోని నిజమైన 12-అంకెల UTR నమోదు చేయండి." : "Enter the actual 12-digit UTR from your UPI statement.");
       return;
     }
     if (paymentConfig?.mode !== "manual_upi" || !paymentConfig.upi_id) {
@@ -90,15 +95,14 @@ export default function SpotlightPromotionPage() {
           plan_code: selectedPlan,
           headline: headline.trim(),
           pitch_text: pitchText.trim(),
-          photo_url: photoUrl.trim(),
           video_url: videoUrl.trim(),
+          consent_confirmed: consentConfirmed,
           payment_mode: "manual_upi",
           payment_ref: paymentRef.trim(),
-          contact_opt: contactOpt,
         }),
       });
 
-      const data = await res.json();
+      const data = await readApiJson(res);
       if (res.ok && data.success) {
         setResult(data);
       } else {
@@ -126,7 +130,7 @@ export default function SpotlightPromotionPage() {
             <span>{te ? "హోమ్‌కి వెళ్లండి" : "Back to Home"}</span>
           </Link>
           <span className="text-[11px] font-bold bg-amber-200/60 text-maroon px-3 py-1 rounded-full border border-gold/40">
-            ⭐ Sponsored profile promotion
+            ⭐ {te ? "ஸ்பான్సర్డ్ ప్రొఫైల్ ప్రమోషన్" : "Sponsored profile promotion"}
           </span>
         </div>
 
@@ -135,12 +139,12 @@ export default function SpotlightPromotionPage() {
           <div className="absolute -right-10 -bottom-10 w-48 h-48 bg-gold/20 rounded-full blur-2xl pointer-events-none" />
           <div className="text-4xl mb-2">🌟</div>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-white">
-            <Duo en="Promote Your Profile — 'Profiles of the Day'" te="మీ ప్రొఫైల్‌ను ప్రమోట్ చేసుకోండి — నేటి విశేష ప్రొఫైల్" />
+            <Duo en="Paid Sponsored Profile Placement" te="చెల్లింపు స్పాన్సర్డ్ ప్రొఫైల్ ప్రమోషన్" />
           </h1>
           <p className="mt-2 text-xs sm:text-sm text-amber-100 max-w-2xl mx-auto leading-relaxed">
             {te
-              ? "చెల్లింపు మరియు మీడియా సమీక్ష పూర్తయ్యాక, ఎంచుకున్న కాలానికి మీ ప్రొఫైల్‌ను ప్రమోట్ చేస్తాం. ప్రచురణ సమయం మారవచ్చు."
-              : "After payment and media review, your profile can be featured for the selected duration. Publication timing may vary."}
+              ? "చెల్లింపు సరిపోల్చి, ప్రొఫైల్/మీడియా సమీక్ష ఆమోదించిన తర్వాతే ఎంచుకున్న కాలానికి సైట్‌లో sponsored placement చూపబడుతుంది. ఇది identity verification, reach, response లేదా match హామీ కాదు."
+              : "An on-site sponsored placement may appear for the selected duration only after payment is matched and the profile/media review is approved. This is not identity verification and does not guarantee reach, responses, or a match."}
           </p>
         </div>
 
@@ -154,13 +158,17 @@ export default function SpotlightPromotionPage() {
               {te ? "ధన్యవాదాలు! మీ దరఖాస్తు నమోదైంది 🎉" : "Promotion Application Submitted! 🎉"}
             </h2>
             <p className="text-sm leading-relaxed text-gray-600 max-w-md mx-auto">
-              {result.message_telugu || (te ? "మీ దరఖాస్తు చెల్లింపు, మీడియా సమీక్ష కోసం వేచి ఉంది. ఆమోదం వచ్చే వరకు ఇది public లో కనిపించదు." : "Your application is awaiting payment and media review. It will not appear publicly until approved.")}
+              {te
+                ? (result.message_telugu || "మీ దరఖాస్తు payment మరియు profile/media review కోసం వేచి ఉంది. ఆమోదం వచ్చే వరకు ఇది public లో కనిపించదు.")
+                : apiDisplayMessage({ message_en: result.message_en }, false, "Your application is awaiting payment and profile/media review. It will not appear publicly until approved.")}
             </p>
             <div className="bg-amber-50 rounded-2xl p-4 max-w-sm mx-auto text-left text-xs text-maroon border border-amber-200 space-y-1">
               <div><b>Promo ID:</b> {result.item?.promo_id}</div>
-              <div><b>User ID:</b> {result.item?.tsap_id}</div>
-              <div><b>Plan:</b> {result.item?.plan_name_te || result.item?.plan_name_en}</div>
-              <div><b>Status:</b> ⏳ {result.item?.status}</div>
+              <div><b>Profile ID:</b> {result.item?.tsap_id}</div>
+              <div><b>{te ? "ప్లాన్" : "Plan"}:</b> {te
+                ? (result.item?.plan_name_te || result.item?.plan_name_en)
+                : apiDisplayMessage({ message_en: result.item?.plan_name_en }, false, "Sponsored placement")}</div>
+              <div><b>{te ? "స్థితి" : "Status"}:</b> ⏳ {result.item?.status === "pending_review" ? (te ? "సమీక్షలో ఉంది" : "Pending review") : result.item?.status}</div>
             </div>
             <div className="pt-4 flex justify-center gap-3">
               <Link href="/" className="px-6 py-2.5 rounded-full maroon-gradient text-white text-xs font-bold shadow-md">
@@ -193,10 +201,12 @@ export default function SpotlightPromotionPage() {
                       <button key={plan.code} type="button" onClick={() => setSelectedPlan(plan.code)}
                         aria-pressed={selectedPlan === plan.code}
                         className={`min-w-0 rounded-2xl border p-4 text-left transition-all ${selectedPlan === plan.code ? "border-maroon bg-rose-50/60 shadow-md ring-2 ring-maroon/20" : "border-gray-200 hover:border-gold"}`}>
-                        <div className="break-words font-extrabold text-sm text-maroon">{plan.badge || plan.name_en}</div>
+                        <div className="break-words font-extrabold text-sm text-maroon">{te
+                          ? (plan.badge_te || plan.badge || plan.name_te)
+                          : apiDisplayMessage({ message_en: plan.badge }, false, apiDisplayMessage({ message_en: plan.name_en }, false, "Promotion plan"))}</div>
                         <div className="mt-1 text-xs font-semibold text-gray-800">{plan.days} {te ? "రోజులు" : "days"} · ₹{plan.price}</div>
                         <ul className="mt-2 space-y-1 text-[11px] leading-relaxed text-gray-600">
-                          {(plan.perks_te || []).map((perk) => <li key={perk}>• {perk}</li>)}
+                          {(te ? plan.perks_te || [] : (plan.perks_en || []).map((perk) => apiDisplayMessage({ message_en: perk }, false, "")).filter(Boolean)).map((perk) => <li key={perk}>• {perk}</li>)}
                         </ul>
                       </button>
                     ))}
@@ -251,32 +261,28 @@ export default function SpotlightPromotionPage() {
                   <p className="text-right text-[10px] text-slate-500">{pitchText.length}/600</p>
                 </div>
 
-                {/* Step 4: Media Links (Photo + Video) */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* Step 4: Media */}
+                <div className="space-y-3">
+                  <p className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs leading-relaxed text-slate-700">
+                    {te ? "మీ existing profile photo approved మరియు public గా ఉంటే అదే వాడవచ్చు. Private లేదా review కాని photo చూపించము; కొత్త photo ఉంటే ముందుగా profile లో upload చేసి review చేయించండి." : "If your existing profile photo is approved and public, it may be used. Private or unreviewed photos are not shown; upload any new photo to your profile and have it reviewed first."}
+                  </p>
                   <div>
-                    <label className="block text-xs font-bold text-gray-700 mb-1">
-                      📸 {te ? "ఫోటో లింక్ (ఐచ్ఛికం)" : "Photo URL (Optional)"}
+                    <label htmlFor="spotlight-video" className="block text-xs font-bold text-gray-700 mb-1">
+                      🎥 {te ? "YouTube / Shorts వీడియో లింక్ (ఐచ్ఛికం)" : "YouTube / Shorts video link (optional)"}
                     </label>
-                    <input
-                      type="url"
-                      placeholder="https://..."
-                      value={photoUrl}
-                      onChange={(e) => setPhotoUrl(e.target.value)}
-                      className="w-full px-4 py-2 rounded-xl border border-gray-300 text-xs focus:border-maroon outline-none"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-gray-700 mb-1">
-                      🎥 {te ? "వీడియో లింక్ (YouTube / Shorts / Reels)" : "Video Intro Link (YouTube/Shorts)"}
-                    </label>
-                    <input
-                      type="url"
-                      placeholder="https://youtube.com/shorts/..."
-                      value={videoUrl}
+                    <input id="spotlight-video" type="url" inputMode="url" autoComplete="url"
+                      placeholder="https://youtube.com/shorts/..." value={videoUrl}
                       onChange={(e) => setVideoUrl(e.target.value)}
-                      className="w-full px-4 py-2 rounded-xl border border-gray-300 text-xs focus:border-maroon outline-none"
-                    />
+                      className="w-full px-4 py-2.5 rounded-xl border border-gray-300 text-sm focus:border-maroon outline-none" />
+                    <p className="mt-1 text-[11px] leading-relaxed text-slate-500">{te ? "YouTube watch/Shorts/embed లింకులు మాత్రమే అనుమతించబడతాయి." : "Only HTTPS YouTube watch, Shorts, or embed links are accepted."}</p>
+                  </div>
+                  <div className="flex items-start gap-2 rounded-xl border border-maroon/20 bg-rose-50/60 p-3 text-xs leading-relaxed text-slate-800">
+                    <input id="spotlight-public-consent" type="checkbox" required checked={consentConfirmed}
+                      onChange={(event) => setConsentConfirmed(event.target.checked)}
+                      className="mt-0.5 h-4 w-4 shrink-0 accent-[#7A0C2E]" />
+                    <label htmlFor="spotlight-public-consent">
+                      {te ? "నా profile ID, పేరు/వివరాలు, headline, పరిచయం మరియు సమర్పించిన media ను payment, profile/media review ఆమోదించిన తర్వాత ఎంచుకున్న కాలానికి public sponsored placement లో చూపించడానికి నేను సమ్మతిస్తున్నాను. Public content ను ఇతరులు copy చేయవచ్చని, ఇది identity verification లేదా reach/match హామీ కాదని అర్థం చేసుకున్నాను." : "I consent to showing my profile ID, name/details, headline, introduction, and submitted media in a public sponsored placement for the selected period after payment and profile/media review are approved. I understand others may copy public content and that this is not identity verification or a reach/match guarantee."}
+                    </label>
                   </div>
                 </div>
 
@@ -327,24 +333,19 @@ export default function SpotlightPromotionPage() {
             {/* Live Preview Sidebar */}
             <div className="space-y-4">
               <div className="text-xs font-bold text-gray-700 uppercase tracking-wider">
-                👁️ {te ? "హోమ్‌పేజీలో ఎలా కనిపిస్తుంది:" : "Live Preview on Homepage:"}
+                👁️ {te ? "హోమ్‌పేజీ కార్డ్ ప్రివ్యూ:" : "Homepage card preview:"}
               </div>
 
               <div className="overflow-hidden rounded-3xl border border-amber-300 bg-white shadow-lg">
                 <div className="relative flex h-48 items-center justify-center overflow-hidden bg-gradient-to-br from-rose-100 via-amber-50 to-slate-100">
-                  {photoUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={photoUrl} alt={te ? "మీ ఫోటో ప్రివ్యూ" : "Your photo preview"} className="h-full w-full object-cover" />
-                  ) : (
-                    <div className="text-center text-maroon">
-                      <div className="text-4xl" aria-hidden="true">💍</div>
-                      <div className="mt-1 text-xs font-semibold">{te ? "మీ ఫోటో ఇక్కడ కనిపిస్తుంది" : "Your photo appears here"}</div>
-                    </div>
-                  )}
+                  <div className="max-w-xs px-4 text-center text-maroon">
+                    <div className="text-4xl" aria-hidden="true">💍</div>
+                    <div className="mt-1 text-xs font-semibold">{te ? "అనుమతించిన profile photo ఉంటే review తర్వాత ఉపయోగిస్తాం" : "An approved public profile photo may be used after review"}</div>
+                  </div>
                   <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-transparent" aria-hidden="true" />
                   <div className="absolute left-3 right-3 top-3">
                     <span className="inline-block max-w-full break-words rounded-full bg-amber-300 px-2.5 py-1 text-[9px] font-black uppercase text-maroon">
-                      {planObj?.badge || (te ? "ప్రమోట్ చేసిన ప్రొఫైల్" : "Sponsored profile")}
+                      {te ? (planObj?.badge_te || "స్పాన్సర్డ్ ప్రొఫైల్") : (planObj?.badge || "Sponsored profile")}
                     </span>
                   </div>
                   <div className="absolute bottom-3 left-3 right-3 text-white">

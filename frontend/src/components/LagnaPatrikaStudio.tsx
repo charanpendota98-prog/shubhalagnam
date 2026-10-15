@@ -1,546 +1,392 @@
 "use client";
 
 /**
- * 🪔 VEDIC LAGNA PATRIKA STUDIO — మన వివాహ సాంప్రదాయ లగ్న పత్రిక స్టూడియో
- * =========================================================================
- * Authentic Telugu Marriage Lagna Patrika Generator with Sanskrit Slokas,
- * Auspicious Muhurtham details, Royal Themes, HD Canvas Image rendering,
- * and 1-Click WhatsApp & PDF Sharing.
+ * Vedic Lagna Patrika Studio — a bilingual, local-only invitation editor.
+ * The visitor's own details are never prefilled with sample people or dates.
  */
-import { useState, useRef, useEffect } from "react";
-import Link from "next/link";
+import { useState } from "react";
 import { SITE_CONFIG } from "@/lib/site-config";
 import { useLang } from "@/lib/lang";
-import { TelegramIcon, WhatsAppIcon } from "@/components/BrandIcons";
-import Reveal from "@/components/Reveal";
-import SectionHeading from "@/components/SectionHeading";
+import { WhatsAppIcon } from "@/components/BrandIcons";
 
 type LagnaTheme = "gold" | "maroon" | "emerald" | "silk";
+type DetailKey =
+  | "brideName" | "brideGothram" | "brideNative" | "brideMother" | "brideFather"
+  | "groomName" | "groomGothram" | "groomNative" | "groomMother" | "groomFather"
+  | "date" | "time" | "lagnam" | "star" | "venue" | "inviter";
 
-const THEMES: { id: LagnaTheme; nameTe: string; nameEn: string; bgClass: string; borderClass: string; textClass: string; accentClass: string }[] = [
+type Details = Record<DetailKey, string>;
+
+const THEMES: {
+  id: LagnaTheme;
+  nameTe: string;
+  nameEn: string;
+  background: string;
+  border: string;
+  ink: string;
+  accent: string;
+  canvasStart: string;
+  canvasMiddle: string;
+  canvasEnd: string;
+}[] = [
   {
-    id: "gold",
-    nameTe: "👑 స్వర్ణ పీతాంబరం (Royal Gold)",
-    nameEn: "Royal Gold",
-    bgClass: "bg-gradient-to-b from-[#FFFDF0] via-[#FFF9D6] to-[#FFF3B0]",
-    borderClass: "border-[#D4AF37]",
-    textClass: "text-[#5C3B00]",
-    accentClass: "bg-[#D4AF37] text-white",
+    id: "gold", nameTe: "👑 స్వర్ణ పీతాంబరం", nameEn: "👑 Royal Gold",
+    background: "bg-gradient-to-b from-[#FFFDF0] via-[#FFF9D6] to-[#FFF3B0]",
+    border: "border-[#D4AF37]", ink: "text-[#5C3B00]", accent: "#8A5A00",
+    canvasStart: "#FFFDF0", canvasMiddle: "#FFF9D6", canvasEnd: "#FFF3B0",
   },
   {
-    id: "maroon",
-    nameTe: "🪔 కుంకుమ మెరూన్ (Temple Maroon)",
-    nameEn: "Temple Maroon",
-    bgClass: "bg-gradient-to-b from-[#FFF5F5] via-[#FFE8E8] to-[#FFD6D6]",
-    borderClass: "border-[#800000]",
-    textClass: "text-[#600000]",
-    accentClass: "bg-[#800000] text-white",
+    id: "maroon", nameTe: "🪔 కుంకుమ మెరూన్", nameEn: "🪔 Temple Maroon",
+    background: "bg-gradient-to-b from-[#FFF5F5] via-[#FFE8E8] to-[#FFD6D6]",
+    border: "border-[#800000]", ink: "text-[#600000]", accent: "#800000",
+    canvasStart: "#FFF5F5", canvasMiddle: "#FFE8E8", canvasEnd: "#FFD6D6",
   },
   {
-    id: "emerald",
-    nameTe: "🌿 తిరుమల పట్టు (Emerald Silk)",
-    nameEn: "Emerald Silk",
-    bgClass: "bg-gradient-to-b from-[#F2FBF7] via-[#E2F7ED] to-[#C9EFE0]",
-    borderClass: "border-[#0F5A47]",
-    textClass: "text-[#063B2E]",
-    accentClass: "bg-[#0F5A47] text-white",
+    id: "emerald", nameTe: "🌿 తిరుమల పట్టు", nameEn: "🌿 Emerald Silk",
+    background: "bg-gradient-to-b from-[#F2FBF7] via-[#E2F7ED] to-[#C9EFE0]",
+    border: "border-[#0F5A47]", ink: "text-[#063B2E]", accent: "#0F5A47",
+    canvasStart: "#F2FBF7", canvasMiddle: "#E2F7ED", canvasEnd: "#C9EFE0",
   },
   {
-    id: "silk",
-    nameTe: "🌸 రాయలసీమ కల్యాణం (Classic Silk)",
-    nameEn: "Classic Silk",
-    bgClass: "bg-gradient-to-b from-[#FAF5FF] via-[#F3E8FF] to-[#E9D5FF]",
-    borderClass: "border-[#6B21A8]",
-    textClass: "text-[#4C1D95]",
-    accentClass: "bg-[#6B21A8] text-white",
+    id: "silk", nameTe: "🌸 రాయలసీమ కల్యాణం", nameEn: "🌸 Classic Silk",
+    background: "bg-gradient-to-b from-[#FAF5FF] via-[#F3E8FF] to-[#E9D5FF]",
+    border: "border-[#6B21A8]", ink: "text-[#4C1D95]", accent: "#6B21A8",
+    canvasStart: "#FAF5FF", canvasMiddle: "#F3E8FF", canvasEnd: "#E9D5FF",
   },
 ];
+
+const EMPTY_DETAILS: Details = {
+  brideName: "", brideGothram: "", brideNative: "", brideMother: "", brideFather: "",
+  groomName: "", groomGothram: "", groomNative: "", groomMother: "", groomFather: "",
+  date: "", time: "", lagnam: "", star: "", venue: "", inviter: "",
+};
+
+const DEFAULT_SLOKA_TE = "వక్రతుండ మహాకాయ సూర్యకోటి సమప్రభ । నిర్విఘ్నం కురు మే దేవ సర్వకార్యేషు సర్వదా ॥";
+const DEFAULT_SLOKA_EN = "Vakratunda Mahakaya Surya Koti Sama Prabha, Nirvighnam Kuru Me Deva Sarva Karyeshu Sarvada.";
+
+const LABELS: Record<DetailKey, { te: string; en: string }> = {
+  brideName: { te: "వధువు పేరు", en: "Bride's name" },
+  brideGothram: { te: "గోత్రం", en: "Gotra" },
+  brideNative: { te: "స్వస్థలం", en: "Hometown" },
+  brideMother: { te: "తల్లి పేరు", en: "Mother's name" },
+  brideFather: { te: "తండ్రి పేరు", en: "Father's name" },
+  groomName: { te: "వరుడి పేరు", en: "Groom's name" },
+  groomGothram: { te: "గోత్రం", en: "Gotra" },
+  groomNative: { te: "స్వస్థలం", en: "Hometown" },
+  groomMother: { te: "తల్లి పేరు", en: "Mother's name" },
+  groomFather: { te: "తండ్రి పేరు", en: "Father's name" },
+  date: { te: "ముహూర్తం తేదీ", en: "Wedding date" },
+  time: { te: "సమయం", en: "Time" },
+  lagnam: { te: "లగ్నం", en: "Lagnam" },
+  star: { te: "నక్షత్రం", en: "Nakshatra" },
+  venue: { te: "కల్యాణ వేదిక / చిరునామా", en: "Venue / address" },
+  inviter: { te: "ఆహ్వానించేవారు", en: "Invited by" },
+};
 
 export default function LagnaPatrikaStudio() {
   const { lang } = useLang();
   const te = lang === "te";
-
-  // Form State
   const [theme, setTheme] = useState<LagnaTheme>("gold");
-  const [sloka, setSloka] = useState<string>("వక్రతుండ మహాకాయ సూర్యకోటి సమప్రభ । నిర్విఘ్నం కురు మే దేవ సర్వకార్యేషు సర్వదా ॥");
-  
-  // Groom Details
-  const [groomName, setGroomName] = useState("చిరంజీవి సాయి కార్తీక్");
-  const [groomGothram, setGroomGothram] = useState("కాశ్యపస గోత్రోద్భవ");
-  const [groomFather, setGroomFather] = useState("శ్రీ వెంకటేశ్వర రావు");
-  const [groomMother, setGroomMother] = useState("శ్రీమతి లక్ష్మీ కాంతమ్మ");
-  const [groomNative, setGroomNative] = useState("హైదరాబాద్, తెలంగాణ");
-
-  // Bride Details
-  const [brideName, setBrideName] = useState("చిరంజీవి సౌభాగ్యవతి శ్రీలక్ష్మి");
-  const [brideGothram, setBrideGothram] = useState("జనకుల గోత్రోద్భవ");
-  const [brideFather, setBrideFather] = useState("శ్రీ రామచంద్ర మూర్తి");
-  const [brideMother, setBrideMother] = useState("శ్రీమతి సీతమ్మ");
-  const [brideNative, setBrideNative] = useState("విజయవాడ, ఆంధ్రప్రదేశ్");
-
-  // Muhurtham Details
-  const [muhurthamDate, setMuhurthamDate] = useState("2026 నవంబర్ 18 (కార్తీక శుద్ధ దశమి)");
-  const [muhurthamTime, setMuhurthamTime] = useState("ఉదయం 09 గంటల 15 నిమిషాలకు");
-  const [muhurthamLagnam, setMuhurthamLagnam] = useState("ధనూ లగ్న పుష్కరాంశ సుముహూర్తమున");
-  const [muhurthamStar, setMuhurthamStar] = useState("ఉత్తరాభాద్ర నక్షత్ర యుక్త");
-  const [venue, setVenue] = useState("శ్రీ వేంకటేశ్వర కల్యాణ మండపం, బంజారా హిల్స్, హైదరాబాద్");
-  const [inviter, setInviter] = useState("వధూవరుల తల్లిదండ్రులు మరియు బంధుమిత్రులు");
-
+  const [sloka, setSloka] = useState("");
+  const [details, setDetails] = useState<Details>(EMPTY_DETAILS);
   const [downloading, setDownloading] = useState(false);
-  const cardRef = useRef<HTMLDivElement>(null);
+  const [downloadError, setDownloadError] = useState("");
+  const currentTheme = THEMES.find((candidate) => candidate.id === theme) ?? THEMES[0];
+  const slokaText = sloka.trim() || (te ? DEFAULT_SLOKA_TE : DEFAULT_SLOKA_EN);
+  const siteUrl = `${SITE_CONFIG.siteUrl.replace(/\/$/, "")}/lagna-patrika`;
+  const displayValue = (value: string) => value.trim() || "—";
 
-  // Generate WhatsApp Share Message
-  const waShareText = `🪔 *మన వివాహ — శుభ లగ్న పత్రిక* 🪔\n\n` +
-    `🙏 *శ్రీరస్తు - శుభమస్తు - అవిఘ్నమస్తు*\n\n` +
-    `👰 *వధువు:* ${brideName} (${brideGothram})\n` +
-    `తల్లిదండ్రులు: ${brideMother} & ${brideFather}\n` +
-    `స్వస్థలం: ${brideNative}\n\n` +
-    `🤵 *వరుడు:* ${groomName} (${groomGothram})\n` +
-    `తల్లిదండ్రులు: ${groomMother} & ${groomFather}\n` +
-    `స్వస్థలం: ${groomNative}\n\n` +
-    `🗓️ *వివాహ తేదీ:* ${muhurthamDate}\n` +
-    `⏰ *శుభ ముహూర్తం:* ${muhurthamTime} (${muhurthamLagnam})\n` +
-    `🌟 *నక్షత్రం:* ${muhurthamStar}\n` +
-    `🏛️ *కల్యాణ వేదిక:* ${venue}\n\n` +
-    `✨ అందరూ విచ్చేసి నూతన వధూవరులను ఆశీర్వదించగలరు 💐\n\n` +
-    `🌐 డిజిటల్ లగ్న పత్రిక & వివాహ సేవలు: https://manavivaha.in/lagna-patrika`;
+  const shareText = [
+    te ? "🪔 మన వివాహ • Mana Vivaha — శుభ లగ్న పత్రిక 🪔" : "🪔 Mana Vivaha (మన వివాహ) — Wedding Invitation 🪔",
+    te ? "🙏 శ్రీరస్తు • శుభమస్తు • అవిఘ్నమస్తు" : "🙏 Sri Rastu • Shubhamastu • Avighnamastu",
+    "",
+    `${te ? "👰 వధువు" : "👰 Bride"}: ${displayValue(details.brideName)}${details.brideGothram.trim() ? ` (${te ? "గోత్రం" : "Gotra"}: ${details.brideGothram.trim()})` : ""}`,
+    `${te ? "తల్లిదండ్రులు" : "Parents"}: ${[details.brideMother, details.brideFather].map((value) => value.trim()).filter(Boolean).join(" & ") || "—"}`,
+    `${te ? "స్వస్థలం" : "Hometown"}: ${displayValue(details.brideNative)}`,
+    "",
+    `${te ? "🤵 వరుడు" : "🤵 Groom"}: ${displayValue(details.groomName)}${details.groomGothram.trim() ? ` (${te ? "గోత్రం" : "Gotra"}: ${details.groomGothram.trim()})` : ""}`,
+    `${te ? "తల్లిదండ్రులు" : "Parents"}: ${[details.groomMother, details.groomFather].map((value) => value.trim()).filter(Boolean).join(" & ") || "—"}`,
+    `${te ? "స్వస్థలం" : "Hometown"}: ${displayValue(details.groomNative)}`,
+    "",
+    `${te ? "🗓️ వివాహ తేదీ" : "🗓️ Wedding date"}: ${displayValue(details.date)}`,
+    `${te ? "⏰ శుభ ముహూర్తం" : "⏰ Auspicious time"}: ${displayValue(details.time)}${details.lagnam.trim() ? ` (${details.lagnam.trim()})` : ""}`,
+    `${te ? "🌟 నక్షత్రం" : "🌟 Nakshatra"}: ${displayValue(details.star)}`,
+    `${te ? "🏛️ కల్యాణ వేదిక" : "🏛️ Venue"}: ${displayValue(details.venue)}`,
+    "",
+    te ? "✨ విచ్చేసి నూతన వధూవరులను ఆశీర్వదించగలరు." : "✨ Please join us and bless the couple.",
+    `${te ? "ఆహ్వానించేవారు" : "Invited by"}: ${displayValue(details.inviter)}`,
+    "",
+    `${te ? "డిజిటల్ లగ్న పత్రిక" : "Create your digital invitation"}: ${siteUrl}`,
+  ].join("\n");
+  const waShareUrl = `https://wa.me/?text=${encodeURIComponent(shareText)}`;
 
-  const waShareUrl = `https://wa.me/?text=${encodeURIComponent(waShareText)}`;
+  const updateDetail = (key: DetailKey, value: string) => {
+    setDetails((current) => ({ ...current, [key]: value }));
+  };
 
-  const currentTheme = THEMES.find((t) => t.id === theme) || THEMES[0];
+  const field = (key: DetailKey, span = false) => {
+    const label = te ? LABELS[key].te : LABELS[key].en;
+    return (
+      <label key={key} className={`block min-w-0 ${span ? "sm:col-span-2" : ""}`} htmlFor={`patrika-${key}`}>
+        <span className="mb-1 block text-xs font-semibold text-gray-700">{label}</span>
+        <input
+          id={`patrika-${key}`}
+          type="text"
+          value={details[key]}
+          onChange={(event) => updateDetail(key, event.target.value)}
+          placeholder={label}
+          autoComplete="off"
+          className="w-full min-w-0 rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-base outline-none transition focus:border-maroon focus:ring-2 focus:ring-maroon/15 sm:text-sm"
+        />
+      </label>
+    );
+  };
 
-  // HD Download handler via Canvas
-  const handleDownloadHD = async () => {
+  const handleDownloadHD = () => {
     setDownloading(true);
+    setDownloadError("");
     try {
-      const el = cardRef.current;
-      if (!el) return;
-
-      // Use html2canvas or dynamic canvas rendering
       const canvas = document.createElement("canvas");
       const ctx = canvas.getContext("2d");
+      if (!ctx) throw new Error("Canvas is unavailable");
       canvas.width = 1080;
       canvas.height = 1620;
 
-      if (ctx) {
-        // Draw background
-        const grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
-        if (theme === "gold") {
-          grad.addColorStop(0, "#FFFDF0");
-          grad.addColorStop(0.5, "#FFF9D6");
-          grad.addColorStop(1, "#FFF3B0");
-        } else if (theme === "maroon") {
-          grad.addColorStop(0, "#FFF5F5");
-          grad.addColorStop(0.5, "#FFE8E8");
-          grad.addColorStop(1, "#FFD6D6");
-        } else if (theme === "emerald") {
-          grad.addColorStop(0, "#F2FBF7");
-          grad.addColorStop(0.5, "#E2F7ED");
-          grad.addColorStop(1, "#C9EFE0");
-        } else {
-          grad.addColorStop(0, "#FAF5FF");
-          grad.addColorStop(0.5, "#F3E8FF");
-          grad.addColorStop(1, "#E9D5FF");
-        }
-        ctx.fillStyle = grad;
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+      const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+      gradient.addColorStop(0, currentTheme.canvasStart);
+      gradient.addColorStop(0.5, currentTheme.canvasMiddle);
+      gradient.addColorStop(1, currentTheme.canvasEnd);
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        // Draw Royal Borders
-        ctx.strokeStyle = theme === "maroon" ? "#800000" : theme === "emerald" ? "#0F5A47" : theme === "silk" ? "#6B21A8" : "#D4AF37";
-        ctx.lineWidth = 16;
-        ctx.strokeRect(30, 30, canvas.width - 60, canvas.height - 60);
-        ctx.lineWidth = 4;
-        ctx.strokeRect(50, 50, canvas.width - 100, canvas.height - 100);
+      ctx.strokeStyle = currentTheme.accent;
+      ctx.lineWidth = 16;
+      ctx.strokeRect(30, 30, canvas.width - 60, canvas.height - 60);
+      ctx.lineWidth = 4;
+      ctx.strokeRect(50, 50, canvas.width - 100, canvas.height - 100);
 
-        // Header Title
-        ctx.fillStyle = theme === "maroon" ? "#800000" : theme === "emerald" ? "#0F5A47" : theme === "silk" ? "#6B21A8" : "#8A5A00";
+      const drawCentered = (text: string, y: number, font: string, color = "#222222") => {
         ctx.textAlign = "center";
-        ctx.font = "bold 42px sans-serif";
-        ctx.fillText("॥ శ్రీరస్తు • శుభమస్తు • అవిఘ్నమస్తు ॥", canvas.width / 2, 130);
+        ctx.textBaseline = "middle";
+        ctx.font = font;
+        ctx.fillStyle = color;
+        ctx.fillText(text || "—", canvas.width / 2, y, 920);
+      };
+      const parentNames = (mother: string, father: string) => [mother, father].map((value) => value.trim()).filter(Boolean).join(" & ") || "—";
+      const person = (role: string, name: string, gotra: string, mother: string, father: string, home: string, startY: number) => {
+        drawCentered(role, startY, "bold 28px sans-serif", currentTheme.accent);
+        drawCentered(displayValue(name), startY + 52, "bold 36px sans-serif");
+        drawCentered(`${te ? "గోత్రం" : "Gotra"}: ${displayValue(gotra)}`, startY + 98, "25px sans-serif", "#555555");
+        drawCentered(`${te ? "తల్లిదండ్రులు" : "Parents"}: ${parentNames(mother, father)}`, startY + 138, "23px sans-serif", "#555555");
+        drawCentered(`${te ? "స్వస్థలం" : "Hometown"}: ${displayValue(home)}`, startY + 178, "23px sans-serif", "#555555");
+      };
 
-        ctx.font = "italic 24px sans-serif";
-        ctx.fillStyle = "#555555";
-        ctx.fillText(sloka, canvas.width / 2, 185);
+      drawCentered(te ? "॥ శ్రీరస్తు • శుభమస్తు • అవిఘ్నమస్తు ॥" : "Sri Rastu • Shubhamastu • Avighnamastu", 100, "bold 32px sans-serif", currentTheme.accent);
+      drawCentered(slokaText, 160, "italic 22px sans-serif", "#555555");
+      drawCentered(te ? "🪔 శుభ లగ్న పత్రిక 🪔" : "🪔 Auspicious Wedding Invitation 🪔", 245, "bold 42px sans-serif", currentTheme.accent);
 
-        // Main Lagna Patrika Box
-        ctx.fillStyle = theme === "maroon" ? "#800000" : theme === "emerald" ? "#0F5A47" : theme === "silk" ? "#6B21A8" : "#8A5A00";
-        ctx.font = "bold 56px sans-serif";
-        ctx.fillText("🪔 శుభ లగ్న పత్రిక 🪔", canvas.width / 2, 280);
+      person(te ? "👰 వధువు" : "👰 Bride", details.brideName, details.brideGothram, details.brideMother, details.brideFather, details.brideNative, 325);
+      person(te ? "🤵 వరుడు" : "🤵 Groom", details.groomName, details.groomGothram, details.groomMother, details.groomFather, details.groomNative, 565);
 
-        // Bride & Groom Box
-        ctx.font = "bold 32px sans-serif";
-        ctx.fillStyle = "#222222";
-        ctx.fillText(`👰 వధువు: ${brideName}`, canvas.width / 2, 400);
-        ctx.font = "26px sans-serif";
-        ctx.fillStyle = "#555555";
-        ctx.fillText(`(${brideGothram} · తల్లిదండ్రులు: ${brideMother} & ${brideFather})`, canvas.width / 2, 445);
-        ctx.fillText(`స్వస్థలం: ${brideNative}`, canvas.width / 2, 485);
+      ctx.fillStyle = "rgba(255, 255, 255, 0.72)";
+      ctx.fillRect(100, 790, canvas.width - 200, 500);
+      ctx.strokeStyle = currentTheme.accent;
+      ctx.lineWidth = 2;
+      ctx.strokeRect(100, 790, canvas.width - 200, 500);
+      drawCentered(te ? "🗓️ శుభ ముహూర్త వివరాలు" : "🗓️ Wedding Ceremony Details", 845, "bold 30px sans-serif", currentTheme.accent);
+      drawCentered(`${te ? "తేదీ" : "Date"}: ${displayValue(details.date)}`, 910, "26px sans-serif");
+      drawCentered(`${te ? "సమయం" : "Time"}: ${displayValue(details.time)}`, 970, "26px sans-serif");
+      drawCentered(`${te ? "లగ్నం" : "Lagnam"}: ${displayValue(details.lagnam)}`, 1030, "26px sans-serif");
+      drawCentered(`${te ? "నక్షత్రం" : "Nakshatra"}: ${displayValue(details.star)}`, 1090, "26px sans-serif");
+      drawCentered(`${te ? "వేదిక" : "Venue"}: ${displayValue(details.venue)}`, 1160, "24px sans-serif");
+      drawCentered(`${te ? "ఆహ్వానించేవారు" : "Invited by"}: ${displayValue(details.inviter)}`, 1370, "bold 23px sans-serif", "#444444");
+      drawCentered(te ? "మన వివాహ • Mana Vivaha • తెలుగు మ్యాట్రిమోనీ" : "Mana Vivaha (మన వివాహ) • Telugu Matrimony", 1515, "bold 22px sans-serif", currentTheme.accent);
+      drawCentered(SITE_CONFIG.domain, 1555, "20px sans-serif", "#555555");
 
-        ctx.font = "bold 36px sans-serif";
-        ctx.fillStyle = theme === "maroon" ? "#800000" : theme === "emerald" ? "#0F5A47" : "#D4AF37";
-        ctx.fillText("💍 పాణిగ్రహణ సుముహూర్తం 💍", canvas.width / 2, 570);
-
-        ctx.font = "bold 32px sans-serif";
-        ctx.fillStyle = "#222222";
-        ctx.fillText(`🤵 వరుడు: ${groomName}`, canvas.width / 2, 660);
-        ctx.font = "26px sans-serif";
-        ctx.fillStyle = "#555555";
-        ctx.fillText(`(${groomGothram} · తల్లిదండ్రులు: ${groomMother} & ${groomFather})`, canvas.width / 2, 705);
-        ctx.fillText(`స్వస్థలం: ${groomNative}`, canvas.width / 2, 745);
-
-        // Muhurtham Details Box
-        ctx.fillStyle = "rgba(255, 255, 255, 0.7)";
-        ctx.fillRect(100, 820, canvas.width - 200, 420);
-        ctx.strokeStyle = ctx.fillStyle;
-        ctx.strokeRect(100, 820, canvas.width - 200, 420);
-
-        ctx.fillStyle = theme === "maroon" ? "#800000" : theme === "emerald" ? "#0F5A47" : theme === "silk" ? "#6B21A8" : "#8A5A00";
-        ctx.font = "bold 34px sans-serif";
-        ctx.fillText("🗓️ నిశ్చయ తాంబూల సుముహూర్త వివరాలు", canvas.width / 2, 880);
-
-        ctx.font = "28px sans-serif";
-        ctx.fillStyle = "#222222";
-        ctx.fillText(`తేదీ: ${muhurthamDate}`, canvas.width / 2, 940);
-        ctx.fillText(`సమయం: ${muhurthamTime}`, canvas.width / 2, 990);
-        ctx.fillText(`లగ్నం: ${muhurthamLagnam}`, canvas.width / 2, 1040);
-        ctx.fillText(`నక్షత్రం: ${muhurthamStar}`, canvas.width / 2, 1090);
-        ctx.fillText(`వేదిక: ${venue}`, canvas.width / 2, 1150);
-
-        // Inviter & Footer
-        ctx.font = "bold 26px sans-serif";
-        ctx.fillStyle = "#444444";
-        ctx.fillText(`ఆహ్వానించేవారు: ${inviter}`, canvas.width / 2, 1340);
-
-        ctx.font = "bold 24px sans-serif";
-        ctx.fillStyle = theme === "maroon" ? "#800000" : theme === "emerald" ? "#0F5A47" : "#D4AF37";
-        ctx.fillText("మన వివాహ • తెలుగు వారి పవిత్ర మ్యాట్రిమోనీ | manavivaha.in", canvas.width / 2, 1540);
-
-        const dataUrl = canvas.toDataURL("image/jpeg", 0.95);
-        const link = document.createElement("a");
-        link.download = `Lagna_Patrika_${groomName.replace(/\s+/g, "_")}_${brideName.replace(/\s+/g, "_")}.jpg`;
-        link.href = dataUrl;
-        link.click();
-      }
-    } catch (e) {
-      console.error("Download failed:", e);
+      const slug = `${details.groomName}-${details.brideName}`
+        .trim()
+        .replace(/\s+/g, "_")
+        .replace(/[^\p{L}\p{N}_-]/gu, "")
+        .replace(/^[-_]+|[-_]+$/g, "");
+      const link = document.createElement("a");
+      link.download = `Lagna_Patrika${slug ? `_${slug}` : ""}.jpg`;
+      link.href = canvas.toDataURL("image/jpeg", 0.95);
+      link.click();
+    } catch (error) {
+      console.error("Lagna Patrika download failed:", error);
+      setDownloadError(te ? "కార్డ్ డౌన్‌లోడ్ కాలేదు. మళ్లీ ప్రయత్నించండి." : "The card could not be downloaded. Please try again.");
     } finally {
       setDownloading(false);
     }
   };
 
+  const groupHeading = (icon: string, title: string) => (
+    <h3 className="flex items-center gap-2 text-sm font-extrabold text-gray-900">{icon} {title}</h3>
+  );
+
+  const previewPerson = (
+    role: string,
+    name: string,
+    gotra: string,
+    mother: string,
+    father: string,
+    home: string,
+    tint: "rose" | "amber",
+  ) => (
+    <section className="min-w-0 rounded-2xl border border-gold/30 bg-white/75 p-4 text-left shadow-sm" aria-label={role}>
+      <h4 className={`mb-2 text-xs font-bold uppercase tracking-wider ${tint === "rose" ? "text-rose-800" : "text-amber-800"}`}>{role}</h4>
+      <p className="break-words text-lg font-extrabold text-gray-900">{displayValue(name)}</p>
+      <dl className="mt-2 space-y-1.5 text-sm text-gray-700">
+        <div className="flex flex-wrap gap-x-1"><dt className="font-semibold">{te ? "గోత్రం:" : "Gotra:"}</dt><dd className="min-w-0 break-words">{displayValue(gotra)}</dd></div>
+        <div className="flex flex-wrap gap-x-1"><dt className="font-semibold">{te ? "తల్లిదండ్రులు:" : "Parents:"}</dt><dd className="min-w-0 break-words">{[mother, father].map((value) => value.trim()).filter(Boolean).join(" & ") || "—"}</dd></div>
+        <div className="flex flex-wrap gap-x-1"><dt className="font-semibold">{te ? "స్వస్థలం:" : "Hometown:"}</dt><dd className="min-w-0 break-words">{displayValue(home)}</dd></div>
+      </dl>
+    </section>
+  );
+
   return (
-    <div className="min-h-dvh bg-[#FDFBF7] py-8 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-6xl mx-auto">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-gold/15 border border-gold/40 text-maroon text-xs font-bold mb-3">
-            🪔 100% ఉచిత తెలుగు డిజిటల్ లగ్న పత్రిక స్టూడియో
+    <main className="min-h-dvh bg-[#FDFBF7] px-4 py-8 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-6xl">
+        <header className="mb-8 text-center">
+          <div className="mb-3 inline-flex max-w-full items-center gap-2 rounded-full border border-gold/40 bg-gold/15 px-4 py-2 text-xs font-bold text-maroon">
+            🪔 {te ? "ఉచిత తెలుగు డిజిటల్ లగ్న పత్రిక స్టూడియో" : "Free Telugu Wedding Invitation Studio"}
           </div>
-          <h1 className="text-3xl sm:text-4xl font-extrabold text-maroon">
+          <h1 className="text-3xl font-extrabold text-maroon sm:text-4xl">
             {te ? "💍 శుభ లగ్న పత్రిక జనరేటర్" : "💍 Telugu Lagna Patrika Studio"}
           </h1>
-          <p className="mt-2 text-sm text-gray-700 max-w-2xl mx-auto">
+          <p className="mx-auto mt-2 max-w-2xl text-sm leading-relaxed text-gray-700">
             {te
-              ? "పెళ్లి కుదిరిన తర్వాత బంధుమిత్రులకు వాట్సాప్‌లో ఆహ్వానం పంపడానికి సాంప్రదాయ లగ్న పత్రికను 1 నిమిషంలో సులభంగా తయారుచేసుకోండి."
-              : "Generate an authentic traditional Telugu Lagna Patrika with muhurtham details, Sanskrit slokas & HD photo export."}
+              ? "వధూవరులు, ముహూర్తం, వేదిక వివరాలతో సాంప్రదాయ లగ్న పత్రికను రూపొందించి WhatsAppలో పంచుకోండి లేదా HD కార్డ్‌గా డౌన్‌లోడ్ చేసుకోండి."
+              : "Create a traditional Telugu wedding invitation with your ceremony details, then share it on WhatsApp or download a high-resolution card."}
           </p>
-        </div>
+        </header>
 
-        {/* Studio Layout: Editor (Left) & Live Preview (Right) */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-          {/* Controls Column */}
-          <div className="lg:col-span-5 bg-white rounded-3xl p-6 shadow-xl border border-gold/30 space-y-6">
-            <h2 className="text-lg font-bold text-maroon flex items-center gap-2 border-b border-gray-100 pb-3">
-              <span>✍️</span>
-              <span>{te ? "లగ్న పత్రిక వివరాలు ఎడిట్ చేయండి" : "Edit Lagna Patrika Details"}</span>
+        <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-12 lg:gap-8">
+          <section className="min-w-0 space-y-6 rounded-3xl border border-gold/30 bg-white p-5 shadow-xl sm:p-6 lg:col-span-5" aria-labelledby="patrika-editor-title">
+            <h2 id="patrika-editor-title" className="flex items-center gap-2 border-b border-gray-100 pb-3 text-lg font-bold text-maroon">
+              <span aria-hidden="true">✍️</span>{te ? "ఆహ్వాన వివరాలు" : "Invitation details"}
             </h2>
 
-            {/* Theme Selector */}
-            <div>
-              <label className="block text-xs font-bold text-gray-700 uppercase mb-2">
-                🎨 {te ? "రాజసం థీమ్ ఎంచుకోండి" : "Select Royal Theme"}
-              </label>
+            <fieldset>
+              <legend className="mb-2 text-xs font-bold uppercase text-gray-700">🎨 {te ? "థీమ్ ఎంచుకోండి" : "Choose a theme"}</legend>
               <div className="grid grid-cols-2 gap-2">
-                {THEMES.map((t) => (
+                {THEMES.map((candidate) => (
                   <button
-                    key={t.id}
-                    onClick={() => setTheme(t.id)}
-                    className={`px-3 py-2 text-xs font-bold rounded-xl border text-left transition ${
-                      theme === t.id
-                        ? "border-maroon bg-maroon/10 text-maroon shadow-sm ring-2 ring-maroon/20"
-                        : "border-gray-200 bg-gray-50 text-gray-700 hover:bg-gray-100"
-                    }`}
+                    key={candidate.id}
+                    type="button"
+                    onClick={() => setTheme(candidate.id)}
+                    aria-pressed={theme === candidate.id}
+                    className={`min-h-11 rounded-xl border px-3 py-2 text-left text-sm font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-maroon focus-visible:ring-offset-2 ${theme === candidate.id ? "border-maroon bg-maroon/10 text-maroon shadow-sm" : "border-gray-200 bg-gray-50 text-gray-700 hover:bg-gray-100"}`}
                   >
-                    {t.nameTe}
+                    {te ? candidate.nameTe : candidate.nameEn}
                   </button>
                 ))}
               </div>
-            </div>
+            </fieldset>
 
-            {/* Sloka Input */}
-            <div>
-              <label className="block text-xs font-bold text-gray-700 mb-1">
-                🪔 {te ? "ప్రారంభ శ్లోకం / మంత్రం" : "Invocational Sloka"}
-              </label>
-              <input
-                type="text"
+            <label className="block">
+              <span className="mb-1 block text-xs font-bold text-gray-700">🪔 {te ? "ప్రార్థనా శ్లోకం" : "Invocation"}</span>
+              <textarea
+                rows={2}
                 value={sloka}
-                onChange={(e) => setSloka(e.target.value)}
-                className="w-full text-xs p-2.5 rounded-xl border border-gray-200 focus:ring-2 focus:ring-gold outline-none"
+                onChange={(event) => setSloka(event.target.value)}
+                placeholder={te ? DEFAULT_SLOKA_TE : DEFAULT_SLOKA_EN}
+                className="w-full resize-y rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-base outline-none transition focus:border-maroon focus:ring-2 focus:ring-maroon/15 sm:text-sm"
               />
-            </div>
+            </label>
 
-            {/* Bride Form */}
-            <div className="p-4 bg-rose-50/60 rounded-2xl border border-rose-200/60 space-y-3">
-              <div className="text-xs font-extrabold text-rose-900 flex items-center gap-1.5">
-                <span>👰</span>
-                <span>{te ? "వధువు వివరాలు (Bride)" : "Bride Details"}</span>
+            <fieldset className="space-y-3 rounded-2xl border border-rose-200/70 bg-rose-50/60 p-4">
+              <legend className="px-1 text-sm font-extrabold text-rose-900">👰 {te ? "వధువు వివరాలు" : "Bride details"}</legend>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {field("brideName", true)}{field("brideGothram")}{field("brideNative")}{field("brideMother")}{field("brideFather")}
               </div>
-              <input
-                type="text"
-                placeholder="వధువు పేరు"
-                value={brideName}
-                onChange={(e) => setBrideName(e.target.value)}
-                className="w-full text-xs p-2.5 rounded-xl border border-gray-200 bg-white outline-none"
-              />
-              <div className="grid grid-cols-2 gap-2">
-                <input
-                  type="text"
-                  placeholder="గోత్రం"
-                  value={brideGothram}
-                  onChange={(e) => setBrideGothram(e.target.value)}
-                  className="w-full text-xs p-2 rounded-xl border border-gray-200 bg-white outline-none"
-                />
-                <input
-                  type="text"
-                  placeholder="స్వస్థలం"
-                  value={brideNative}
-                  onChange={(e) => setBrideNative(e.target.value)}
-                  className="w-full text-xs p-2 rounded-xl border border-gray-200 bg-white outline-none"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <input
-                  type="text"
-                  placeholder="తల్లి పేరు"
-                  value={brideMother}
-                  onChange={(e) => setBrideMother(e.target.value)}
-                  className="w-full text-xs p-2 rounded-xl border border-gray-200 bg-white outline-none"
-                />
-                <input
-                  type="text"
-                  placeholder="తండ్రి పేరు"
-                  value={brideFather}
-                  onChange={(e) => setBrideFather(e.target.value)}
-                  className="w-full text-xs p-2 rounded-xl border border-gray-200 bg-white outline-none"
-                />
-              </div>
-            </div>
+            </fieldset>
 
-            {/* Groom Form */}
-            <div className="p-4 bg-amber-50/60 rounded-2xl border border-amber-200/60 space-y-3">
-              <div className="text-xs font-extrabold text-amber-900 flex items-center gap-1.5">
-                <span>🤵</span>
-                <span>{te ? "వరుడు వివరాలు (Groom)" : "Groom Details"}</span>
+            <fieldset className="space-y-3 rounded-2xl border border-amber-200/70 bg-amber-50/60 p-4">
+              <legend className="px-1 text-sm font-extrabold text-amber-900">🤵 {te ? "వరుడి వివరాలు" : "Groom details"}</legend>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {field("groomName", true)}{field("groomGothram")}{field("groomNative")}{field("groomMother")}{field("groomFather")}
               </div>
-              <input
-                type="text"
-                placeholder="వరుడు పేరు"
-                value={groomName}
-                onChange={(e) => setGroomName(e.target.value)}
-                className="w-full text-xs p-2.5 rounded-xl border border-gray-200 bg-white outline-none"
-              />
-              <div className="grid grid-cols-2 gap-2">
-                <input
-                  type="text"
-                  placeholder="గోత్రం"
-                  value={groomGothram}
-                  onChange={(e) => setGroomGothram(e.target.value)}
-                  className="w-full text-xs p-2 rounded-xl border border-gray-200 bg-white outline-none"
-                />
-                <input
-                  type="text"
-                  placeholder="స్వస్థలం"
-                  value={groomNative}
-                  onChange={(e) => setGroomNative(e.target.value)}
-                  className="w-full text-xs p-2 rounded-xl border border-gray-200 bg-white outline-none"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <input
-                  type="text"
-                  placeholder="తల్లి పేరు"
-                  value={groomMother}
-                  onChange={(e) => setGroomMother(e.target.value)}
-                  className="w-full text-xs p-2 rounded-xl border border-gray-200 bg-white outline-none"
-                />
-                <input
-                  type="text"
-                  placeholder="తండ్రి పేరు"
-                  value={groomFather}
-                  onChange={(e) => setGroomFather(e.target.value)}
-                  className="w-full text-xs p-2 rounded-xl border border-gray-200 bg-white outline-none"
-                />
-              </div>
-            </div>
+            </fieldset>
 
-            {/* Muhurtham Details */}
-            <div className="p-4 bg-emerald-50/60 rounded-2xl border border-emerald-200/60 space-y-3">
-              <div className="text-xs font-extrabold text-emerald-900 flex items-center gap-1.5">
-                <span>🗓️</span>
-                <span>{te ? "వివాహ ముహూర్తం & వేదిక" : "Muhurtham & Venue"}</span>
+            <fieldset className="space-y-3 rounded-2xl border border-emerald-200/70 bg-emerald-50/60 p-4">
+              <legend className="px-1 text-sm font-extrabold text-emerald-900">🗓️ {te ? "ముహూర్తం & వేదిక" : "Muhurtham & venue"}</legend>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {field("date", true)}{field("time")}{field("lagnam")}{field("star", true)}{field("venue", true)}{field("inviter", true)}
               </div>
-              <input
-                type="text"
-                placeholder="ముహూర్తం తేదీ"
-                value={muhurthamDate}
-                onChange={(e) => setMuhurthamDate(e.target.value)}
-                className="w-full text-xs p-2.5 rounded-xl border border-gray-200 bg-white outline-none"
-              />
-              <div className="grid grid-cols-2 gap-2">
-                <input
-                  type="text"
-                  placeholder="సమయం"
-                  value={muhurthamTime}
-                  onChange={(e) => setMuhurthamTime(e.target.value)}
-                  className="w-full text-xs p-2 rounded-xl border border-gray-200 bg-white outline-none"
-                />
-                <input
-                  type="text"
-                  placeholder="లగ్నం"
-                  value={muhurthamLagnam}
-                  onChange={(e) => setMuhurthamLagnam(e.target.value)}
-                  className="w-full text-xs p-2 rounded-xl border border-gray-200 bg-white outline-none"
-                />
-              </div>
-              <input
-                type="text"
-                placeholder="నక్షత్రం"
-                value={muhurthamStar}
-                onChange={(e) => setMuhurthamStar(e.target.value)}
-                className="w-full text-xs p-2 rounded-xl border border-gray-200 bg-white outline-none"
-              />
-              <input
-                type="text"
-                placeholder="కల్యాణ వేదిక / అడ్రస్"
-                value={venue}
-                onChange={(e) => setVenue(e.target.value)}
-                className="w-full text-xs p-2.5 rounded-xl border border-gray-200 bg-white outline-none"
-              />
-              <input
-                type="text"
-                placeholder="ఆహ్వానించేవారు"
-                value={inviter}
-                onChange={(e) => setInviter(e.target.value)}
-                className="w-full text-xs p-2.5 rounded-xl border border-gray-200 bg-white outline-none"
-              />
-            </div>
-          </div>
+            </fieldset>
+            <p className="text-xs leading-relaxed text-gray-500">
+              {te ? "మీరు నమోదు చేసిన వివరాలు అలాగే ఉపయోగించబడతాయి; నమూనా పేర్లు లేదా తేదీలు ముందుగా నింపబడవు." : "Your details are used exactly as entered. No sample names or dates are prefilled."}
+            </p>
+          </section>
 
-          {/* Live Preview Column */}
-          <div className="lg:col-span-7 space-y-4">
-            {/* Action Bar */}
-            <div className="bg-white p-4 rounded-2xl shadow-md border border-gold/30 flex flex-wrap items-center justify-between gap-3">
-              <span className="text-xs font-bold text-gray-700">
-                ✨ {te ? "లైవ్ ప్రివ్యూ & డౌన్‌లోడ్" : "Live Preview & Actions"}
-              </span>
-              <div className="flex items-center gap-2">
+          <section className="min-w-0 space-y-4 lg:col-span-7" aria-labelledby="patrika-preview-title">
+            <div className="flex flex-col gap-3 rounded-2xl border border-gold/30 bg-white p-4 shadow-md sm:flex-row sm:items-center sm:justify-between">
+              <h2 id="patrika-preview-title" className="text-sm font-bold text-gray-800">✨ {te ? "లైవ్ ప్రివ్యూ & డౌన్‌లోడ్" : "Live preview & actions"}</h2>
+              <div className="flex flex-col gap-2 sm:flex-row">
                 <a
                   href={waShareUrl}
                   target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#25D366] text-white rounded-full text-xs font-bold shadow-md hover:brightness-110 active:scale-95 transition"
+                  rel="noopener noreferrer"
+                  aria-label={te ? "WhatsAppలో ఆహ్వానాన్ని పంచుకోండి" : "Share invitation on WhatsApp"}
+                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-[#25D366] px-4 py-2 text-sm font-bold text-white shadow-md transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-700 focus-visible:ring-offset-2 active:scale-[.98]"
                 >
-                  <WhatsAppIcon className="w-4 h-4" mono />
-                  <span>WhatsApp ఆహ్వానం</span>
+                  <WhatsAppIcon className="h-4 w-4" mono />
+                  <span>{te ? "WhatsApp ఆహ్వానం" : "WhatsApp invitation"}</span>
                 </a>
                 <button
+                  type="button"
                   onClick={handleDownloadHD}
                   disabled={downloading}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 bg-maroon text-white rounded-full text-xs font-bold shadow-md hover:bg-maroon-dark active:scale-95 transition disabled:opacity-50"
+                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-maroon px-4 py-2 text-sm font-bold text-white shadow-md transition hover:bg-maroon-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-maroon focus-visible:ring-offset-2 active:scale-[.98] disabled:cursor-wait disabled:opacity-60"
                 >
-                  <span>{downloading ? "⏳ తయారవుతోంది..." : "📥 HD కార్డ్ డౌన్‌లోడ్"}</span>
+                  <span aria-hidden="true">{downloading ? "⏳" : "📥"}</span>
+                  <span>{downloading ? (te ? "తయారవుతోంది…" : "Preparing…") : (te ? "HD కార్డ్ డౌన్‌లోడ్" : "Download HD card")}</span>
                 </button>
               </div>
             </div>
+            {downloadError && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{downloadError}</p>}
 
-            {/* Regal Card Preview */}
-            <div
-              ref={cardRef}
-              className={`rounded-3xl p-6 sm:p-10 shadow-2xl border-4 ${currentTheme.borderClass} ${currentTheme.bgClass} text-center space-y-6 relative overflow-hidden transition-all duration-300`}
-            >
-              {/* Inner Decorative Border */}
-              <div className={`absolute inset-3 border-2 ${currentTheme.borderClass} opacity-40 rounded-2xl pointer-events-none`} />
-
-              {/* Sloka Header */}
-              <div className="space-y-1">
-                <div className={`text-base sm:text-lg font-bold ${currentTheme.textClass}`}>
-                  ॥ శ్రీరస్తు • శుభమస్తు • అవిఘ్నమస్తు ॥
-                </div>
-                <div className="text-xs sm:text-sm italic opacity-80 max-w-lg mx-auto">
-                  {sloka}
-                </div>
-              </div>
-
-              {/* Main Title Badge */}
-              <div className="inline-block py-2 px-8 rounded-full bg-white/80 shadow-md border border-gold/40">
-                <h3 className={`text-2xl sm:text-3xl font-extrabold ${currentTheme.textClass}`}>
-                  🪔 శుభ లగ్న పత్రిక 🪔
+            <article className={`relative min-w-0 overflow-hidden rounded-3xl border-4 ${currentTheme.border} ${currentTheme.background} p-5 text-center shadow-2xl sm:p-8`}>
+              <div className={`pointer-events-none absolute inset-2 rounded-2xl border-2 ${currentTheme.border} opacity-40 sm:inset-3`} aria-hidden="true" />
+              <div className="relative space-y-5">
+                <header className="space-y-2">
+                  <p className={`text-sm font-bold sm:text-base ${currentTheme.ink}`}>
+                    {te ? "॥ శ్రీరస్తు • శుభమస్తు • అవిఘ్నమస్తు ॥" : "Sri Rastu • Shubhamastu • Avighnamastu"}
+                  </p>
+                  <p className="mx-auto max-w-2xl break-words text-xs italic leading-relaxed text-gray-700 sm:text-sm">{slokaText}</p>
+                </header>
+                <h3 className={`inline-flex max-w-full items-center justify-center rounded-full border border-gold/40 bg-white/80 px-4 py-2 text-xl font-extrabold shadow-md sm:px-8 sm:text-2xl ${currentTheme.ink}`}>
+                  🪔 {te ? "శుభ లగ్న పత్రిక" : "Wedding Invitation"} 🪔
                 </h3>
+                <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
+                  {previewPerson(te ? "👰 వధువు" : "👰 Bride", details.brideName, details.brideGothram, details.brideMother, details.brideFather, details.brideNative, "rose")}
+                  {previewPerson(te ? "🤵 వరుడు" : "🤵 Groom", details.groomName, details.groomGothram, details.groomMother, details.groomFather, details.groomNative, "amber")}
+                </div>
+                <section className="rounded-2xl border border-gold/40 bg-white/85 p-4 text-center shadow-md sm:p-5">
+                  <h4 className={`text-sm font-bold uppercase tracking-wide ${currentTheme.ink}`}>
+                    💍 {te ? "శుభ ముహూర్త వివరాలు" : "Ceremony details"}
+                  </h4>
+                  <p className="mt-2 break-words text-base font-extrabold text-maroon sm:text-lg">{displayValue(details.date)}</p>
+                  <p className="break-words text-sm font-semibold text-gray-800">
+                    {displayValue(details.time)}{details.lagnam.trim() ? ` · ${te ? "లగ్నం" : "Lagnam"}: ${details.lagnam}` : ""}
+                  </p>
+                  <p className="mt-1 break-words text-sm text-gray-700"><span className="font-semibold">{te ? "నక్షత్రం:" : "Nakshatra:"}</span> {displayValue(details.star)}</p>
+                  <p className="mt-3 break-words border-t border-gray-200 pt-3 text-sm text-gray-700">
+                    🏛️ <span className="font-semibold">{te ? "కల్యాణ వేదిక:" : "Venue:"}</span> {displayValue(details.venue)}
+                  </p>
+                </section>
+                <p className="break-words text-sm text-gray-700">
+                  <span className="font-semibold">{te ? "ఆహ్వానించేవారు:" : "Invited by:"}</span> {displayValue(details.inviter)}
+                </p>
+                <footer className="break-words text-xs font-bold tracking-wide text-gray-700">
+                  {te ? "మన వివాహ • Mana Vivaha • తెలుగు మ్యాట్రిమోనీ" : "Mana Vivaha (మన వివాహ) • Telugu Matrimony"} | {SITE_CONFIG.domain}
+                </footer>
               </div>
-
-              {/* Bride & Groom Section */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-left my-4">
-                {/* Bride Side */}
-                <div className="p-4 bg-white/70 rounded-2xl border border-gold/30 shadow-sm space-y-1.5">
-                  <div className="text-xs font-bold uppercase tracking-wider text-rose-800">👰 వధువు</div>
-                  <div className="text-sm font-extrabold text-gray-900">{brideName}</div>
-                  <div className="text-xs text-gray-600">గోత్రం: <span className="font-semibold text-gray-800">{brideGothram}</span></div>
-                  <div className="text-xs text-gray-600">తల్లిదండ్రులు: <span className="font-semibold text-gray-800">{brideMother} & {brideFather}</span></div>
-                  <div className="text-xs text-gray-600">స్వస్థలం: <span className="font-semibold text-gray-800">{brideNative}</span></div>
-                </div>
-
-                {/* Groom Side */}
-                <div className="p-4 bg-white/70 rounded-2xl border border-gold/30 shadow-sm space-y-1.5">
-                  <div className="text-xs font-bold uppercase tracking-wider text-amber-800">🤵 వరుడు</div>
-                  <div className="text-sm font-extrabold text-gray-900">{groomName}</div>
-                  <div className="text-xs text-gray-600">గోత్రం: <span className="font-semibold text-gray-800">{groomGothram}</span></div>
-                  <div className="text-xs text-gray-600">తల్లిదండ్రులు: <span className="font-semibold text-gray-800">{groomMother} & {groomFather}</span></div>
-                  <div className="text-xs text-gray-600">స్వస్థలం: <span className="font-semibold text-gray-800">{groomNative}</span></div>
-                </div>
-              </div>
-
-              {/* Muhurtham Details Box */}
-              <div className="bg-white/80 rounded-2xl p-5 border border-gold/40 shadow-md space-y-2 text-center">
-                <div className={`text-sm font-bold uppercase tracking-wider ${currentTheme.textClass}`}>
-                  💍 పాణిగ్రహణ సుముహూర్త వివరాలు 💍
-                </div>
-                <div className="text-base sm:text-lg font-extrabold text-maroon">
-                  {muhurthamDate}
-                </div>
-                <div className="text-sm text-gray-800 font-semibold">
-                  {muhurthamTime} ({muhurthamLagnam})
-                </div>
-                <div className="text-xs text-gray-600">
-                  నక్షత్రం: <span className="font-bold text-gray-800">{muhurthamStar}</span>
-                </div>
-                <div className="text-xs text-gray-700 pt-2 border-t border-gray-200">
-                  🏛️ <span className="font-bold">కల్యాణ వేదిక:</span> {venue}
-                </div>
-              </div>
-
-              {/* Inviter Footer */}
-              <div className="text-xs text-gray-600 pt-2">
-                ఆహ్వానించేవారు: <span className="font-bold text-gray-800">{inviter}</span>
-              </div>
-
-              <div className="text-[11px] font-bold text-gold opacity-90 tracking-wide">
-                మన వివాహ • తెలుగు వారి పవిత్ర మ్యాట్రిమోనీ | manavivaha.in
-              </div>
-            </div>
-          </div>
+            </article>
+          </section>
         </div>
       </div>
-    </div>
+    </main>
   );
 }

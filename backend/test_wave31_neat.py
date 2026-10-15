@@ -273,11 +273,15 @@ check("N9.3 no No.1 claims in backend display",
 check("N9.4 no ke Sambandham anywhere backend",
       "ke Sambandham" not in _full.replace("99keSambandham", ""))
 
-section("N8 no-fake markers on illustrations")
+section("N8 no synthetic homepage previews")
 home_src = src_page("frontend/src/app/page.tsx")
-check("N8.1 hero card marked sample", "నమూనా" in home_src)
-# 🐞 FIX (R12): "Sample message" → bilingual "నమూనా/Sample" badge (R5 mockup rebuild)
-check("N8.2 whatsapp mock marked sample", "Sample" in home_src and "నమూనా" in home_src)
+hero_src = src_page("frontend/src/components/CinematicHero.tsx")
+check("N8.1 homepage has no simulated notification/profile-card preview",
+      "notification preview" not in home_src.lower()
+      and "illustrative profile-card preview" not in home_src.lower())
+check("N8.2 cinematic hero labels its decorative imagery as non-member photos",
+      "Illustrative visuals only—not member profile photos." in hero_src
+      and "సభ్యుల ప్రొఫైల్ ఫోటోలు కావు" in hero_src)
 check("N8.3 no No.1 claims", "No.1" not in home_src
       and "No.1" not in src_page("frontend/src/app/layout.tsx")
       and "No.1" not in footer_src)

@@ -11,7 +11,7 @@
  */
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { apiGet, getTsapId } from "@/lib/api";
+import { apiDisplayMessage, apiGet, getTsapId } from "@/lib/api";
 import { useLang } from "@/lib/lang";
 
 type Row = Record<string, any>;
@@ -36,6 +36,11 @@ function Avatar({ p }: { p: Row }) {
 export default function MatchAssistant() {
   const { lang } = useLang();
   const te = lang !== "en";
+  const displayValue = (value: unknown, fallback = "") => {
+    if (te) return value == null ? "" : String(value);
+    if (typeof value === "number") return String(value);
+    return apiDisplayMessage({ message_en: value }, false, fallback);
+  };
   const [data, setData] = useState<Row | null>(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
@@ -51,7 +56,7 @@ export default function MatchAssistant() {
     setErr("");
     const r = await apiGet<Row>(`/api/assistant/briefing/${encodeURIComponent(id)}?limit=3`);
     if (r.ok && r.data) setData(r.data as Row);
-    else setErr(r.errorTelugu || (te ? "⚠️ లోడ్ చేయలేకపోయాము" : "⚠️ Could not load"));
+    else setErr(r.error || (te ? "⚠️ లోడ్ చేయలేకపోయాము" : "⚠️ Could not load"));
     setLoading(false);
   }, [te]);
 
@@ -83,7 +88,7 @@ export default function MatchAssistant() {
           onClick={() => void load()}
           disabled={loading}
           className="shrink-0 rounded-full border border-gold/50 bg-white/10 px-3 py-1.5 text-[11px] font-bold text-gold hover:bg-white/20 transition disabled:opacity-50"
-          aria-label="refresh"
+          aria-label={te ? "రిఫ్రెష్ చేయండి" : "Refresh match briefing"}
         >
           {loading ? "…" : "↻"}
         </button>
@@ -105,7 +110,7 @@ export default function MatchAssistant() {
         {!loading && !err && data && (
           <>
             {/* summary */}
-            <p className="text-sm font-bold text-[#7A0C2E]">{te ? data.summary_telugu : data.summary_en}</p>
+            <p className="text-sm font-bold text-[#7A0C2E]">{displayValue(te ? data.summary_telugu : data.summary_en, te ? "మీ మ్యాచ్ సమాచారం సిద్ధంగా ఉంది." : "Your match briefing is ready.")}</p>
 
             {/* mutual alert banner */}
             {(recv > 0 || views > 0) && (
@@ -142,7 +147,7 @@ export default function MatchAssistant() {
                               {p.age && p.age !== "—" ? <span className="font-bold text-slate-500">, {p.age}</span> : null}
                             </p>
                             <p className="truncate text-[11px] font-medium text-slate-500">
-                              {[p.caste, p.district, p.height, p.education].filter((x) => x && x !== "—").join(" · ")}
+                              {[p.caste, p.district, p.height, p.education].map((value) => displayValue(value)).filter((value) => value && value !== "—").join(" · ")}
                             </p>
                           </div>
 
@@ -157,12 +162,12 @@ export default function MatchAssistant() {
                         {(m.observations || []).length > 0 && (
                           <div className="mt-2 rounded-lg bg-slate-50 px-2.5 py-2 text-[10px] leading-relaxed text-slate-600">
                             <span className="font-bold">{te ? "ప్రొఫైళ్లలో ఉన్న వివరాలు (నిర్ణయం కాదు): " : "Details listed across profiles (not a verdict): "}</span>
-                            {(m.observations as string[]).slice(0, 2).join(" · ")}
+                            {(m.observations as string[]).slice(0, 2).map((value) => displayValue(value)).filter(Boolean).join(" · ")}
                           </div>
                         )}
 
                         <div className="mt-2 flex items-center justify-between gap-2">
-                          <span className="truncate text-[11px] font-medium text-slate-500">{m.action}</span>
+                          <span className="truncate text-[11px] font-medium text-slate-500">{displayValue(te ? (m.action_telugu || m.action) : m.action_en, te ? "సంబంధ వివరాలను పరిశీలించండి." : "Review the profile details.")}</span>
                           <Link
                             href={`/search/${encodeURIComponent(m.tsap_id)}`}
                             className="shrink-0 rounded-full gold-gradient px-3 py-1 text-[11px] font-black text-maroon hover:brightness-105 transition"
@@ -191,7 +196,11 @@ export default function MatchAssistant() {
                 <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-slate-100">
                   <div className="h-full rounded-full gold-gradient transition-all" style={{ width: `${Math.max(4, pct)}%` }} />
                 </div>
-                {nudge.verdict_telugu && <p className="mt-1.5 text-[11px] font-medium text-slate-500">{nudge.verdict_telugu}</p>}
+                {(te ? nudge.verdict_telugu : nudge.verdict_en) && (
+                  <p className="mt-1.5 text-[11px] font-medium text-slate-500">
+                    {displayValue(te ? nudge.verdict_telugu : nudge.verdict_en, te ? "మీ ప్రొఫైల్ వివరాలను సమీక్షించండి." : "Review your profile details.")}
+                  </p>
+                )}
               </div>
             )}
 
@@ -206,7 +215,7 @@ export default function MatchAssistant() {
                     <li key={i} className="flex items-start gap-2">
                       <span className="mt-0.5 text-xs">{priorityIcon(Number(t.priority || 3))}</span>
                       <div className="min-w-0 flex-1">
-                        <p className="text-[12px] font-medium leading-snug text-slate-700">{te ? t.telugu : t.en}</p>
+                        <p className="text-[12px] font-medium leading-snug text-slate-700">{displayValue(te ? t.telugu : t.en, te ? "మీ ప్రొఫైల్ వివరాలను సమీక్షించండి." : "Review your profile details.")}</p>
                       </div>
                       {t.cta && (
                         <Link

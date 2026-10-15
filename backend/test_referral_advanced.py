@@ -267,7 +267,7 @@ print("=== 10. API ENDPOINTS (TestClient) ===")
 # 🐞 FIX (R12): standalone run lo auth/admin enforcement ON ayyi admin+payout calls 401/403 —
 # suite convention: dev-mode env BEFORE import main (owner-token headers already added above)
 os.environ.setdefault("TSAP_AUTH_MODE", "test")
-from fastapi.testclient import TestClient  # noqa: E402
+from testutil_client import TestClient  # noqa: E402
 import main  # noqa: E402
 
 with TestClient(main.app) as c:

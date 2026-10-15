@@ -3,11 +3,11 @@
 /** /castes/[slug] body — neat Telugu / clean English via toggle (SEO shell stays server). */
 import Link from "next/link";
 import { CASTES, buildSlug } from "@/lib/seo-pages";
-import { CHANNEL_STATS } from "@/lib/channels";
-import { getWAChannelLink } from "@/lib/wa";
+import { ALL_CHANNELS, CHANNEL_STATS } from "@/lib/channels";
 import { TelegramIcon, WhatsAppIcon } from "@/components/BrandIcons";
 import { useLang } from "@/lib/lang";
 import { stateFullName } from "@/lib/telugu-data";
+import { resolveChannelLinks, useChannelDirectoryLinks } from "@/lib/channel-links";
 
 type Caste = {
   key: string; name: string; split?: boolean;
@@ -18,7 +18,7 @@ type Caste = {
 type District = { slug: string; name: string; state: string };
 type Chan = {
   key?: string; name?: string; username?: string; link?: string; deepLink?: string;
-  desc?: string; live?: boolean; wave?: number; hashtags?: string[];
+  desc?: string; routingEligible?: boolean; wave?: number; hashtags?: string[];
 };
 
 export default function CasteClient({ caste, role, district, chan, otherChan }: {
@@ -27,6 +27,15 @@ export default function CasteClient({ caste, role, district, chan, otherChan }: 
 }) {
   const { lang } = useLang();
   const te = lang === "te";
+  const channelDirectory = useChannelDirectoryLinks();
+  const currentChannel = ALL_CHANNELS.find((item) => item.key === chan?.key);
+  const otherChannel = ALL_CHANNELS.find((item) => item.key === otherChan?.key);
+  const currentLinks = currentChannel
+    ? resolveChannelLinks(currentChannel, channelDirectory)
+    : { telegram: "", whatsapp: "", whatsappIsDirect: false };
+  const otherLinks = otherChannel
+    ? resolveChannelLinks(otherChannel, channelDirectory)
+    : { telegram: "", whatsapp: "", whatsappIsDirect: false };
   const otherRole = role === "bride" ? "groom" : "bride";
   const roleTelugu = role === "bride" ? "పెళ్లి కూతురు (Bride)" : "పెళ్లి కొడుకు (Groom)";
   const myChanLabel = `${caste.name} ${role === "bride" ? "Brides" : "Grooms"}`;
@@ -59,8 +68,8 @@ export default function CasteClient({ caste, role, district, chan, otherChan }: 
             <Link href="/register" className="gold-gradient text-maroon font-bold text-sm px-5 py-3 rounded-xl hover-lift">
               {te ? "📝 FREE గా register చెయ్యండి" : "📝 Register FREE"}
             </Link>
-            {chan?.link ? (
-              <a href={chan.link} target="_blank" rel="noopener noreferrer" className="bg-white/10 border border-white/25 font-bold text-sm px-5 py-3 rounded-xl">
+            {currentLinks.telegram ? (
+              <a href={currentLinks.telegram} target="_blank" rel="noopener noreferrer" className="bg-white/10 border border-white/25 font-bold text-sm px-5 py-3 rounded-xl">
                 📢 {te ? `${myChanLabel} — listed link` : `Open listed ${myChanLabel} link`}
               </a>
             ) : (
@@ -93,14 +102,14 @@ export default function CasteClient({ caste, role, district, chan, otherChan }: 
                   <li><b>FREE register</b> — personal, family, caste/astro, education, location + photo.</li>
                   <li><b>Profile post:</b> profile ఆమోదం తర్వాత, publisher settings అనుమతిస్తే <b>{myChanLabel}</b> వంటి సంబంధిత destination కు post queue కావచ్చు; delivery హామీ కాదు.</li>
                   <li><b>💌 Interest పంపండి:</b> notification అందుబాటులో ఉన్న service configuration మీద ఆధారపడి ఉంటుంది.</li>
-                  <li><b>✅ Accept అయితే:</b> అంగీకారం తర్వాత contact వివరాలు share కావచ్చు; స్వయంగా నిర్ధారించుకోండి.</li>
+                  <li><b>✅ Accept అయితే:</b> accepted-request account views లో contact details కనిపిస్తాయి; notification delivery హామీ లేదు. స్వయంగా నిర్ధారించుకోండి.</li>
                 </>
               ) : (
                 <>
                   <li><b>Register FREE</b> — personal, family, caste/astro, education, location + photo.</li>
                   <li><b>Profile post:</b> after approval, a post may be queued for relevant destinations such as <b>{myChanLabel}</b> if publishing is configured. Delivery is not guaranteed.</li>
                   <li><b>💌 Send interest:</b> notification delivery depends on the available service configuration.</li>
-                  <li><b>✅ On accept:</b> contact details may be shared after acceptance; verify them independently.</li>
+                  <li><b>✅ On accept:</b> contact details appear in accepted-request account views; notification delivery is not guaranteed. Verify independently.</li>
                 </>
               )}
             </ol>
@@ -140,7 +149,7 @@ export default function CasteClient({ caste, role, district, chan, otherChan }: 
             ) : null}
             <p className="mt-2 text-[13px] text-gray-700 leading-relaxed">
               {te ? (
-                <>మన channel registry లో {CHANNEL_STATS.by_tier.L3_CASTE} caste-specific destinations ఉన్నాయి. Profile ఆమోదం తర్వాత, publishing service configure అయి access ఉంటే మాత్రమే సంబంధిత destinations కు post queue అవుతుంది; delivery లేదా reach ను హామీ ఇవ్వలేము. External link availability కూడా ఆటోమేటిక్‌గా తనిఖీ చేయబడదు.</>
+                <>పబ్లిక్ directory లో {CHANNEL_STATS.by_tier.L3_CASTE} community listings ఉన్నాయి. వాటికి invite links లేదా external availability నిర్ధారించబడలేదు.</>
               ) : (
                 <>The channel registry contains {CHANNEL_STATS.by_tier.L3_CASTE} caste-specific destinations. A post may be queued for relevant destinations after profile approval only when publishing is configured and has access; delivery or reach is not guaranteed. External link availability is not checked automatically.</>
               )}
@@ -165,19 +174,19 @@ export default function CasteClient({ caste, role, district, chan, otherChan }: 
               {te ? "Channel link availability ఆటోమేటిక్‌గా తనిఖీ చేయబడదు" : "Channel link availability is not checked automatically"}
             </div>
             <div className="mt-3 space-y-2">
-              {chan?.link ? (
-                <a href={chan.link} target="_blank" rel="noopener noreferrer"
+              {currentLinks.telegram ? (
+                <a href={currentLinks.telegram} target="_blank" rel="noopener noreferrer"
                   className="flex items-center justify-center gap-2 w-full bg-[#229ED9] text-white font-bold text-[13px] py-2.5 rounded-xl shadow-soft hover:brightness-110 active:scale-[0.97] transition">
                   <TelegramIcon className="w-4 h-4" mono />
                   {te ? "లిస్టు చేసిన Telegram link తెరవండి" : "Open listed Telegram link"}
                 </a>
               ) : null}
-              {whatsappJoin.url ? (
-                <a href={whatsappJoin.url} target="_blank" rel="noopener noreferrer"
+              {currentLinks.whatsapp ? (
+                <a href={currentLinks.whatsapp} target="_blank" rel="noopener noreferrer"
                   className="flex items-center justify-center gap-2 w-full bg-gradient-to-r from-[#128C4A] to-[#20bd5a] text-white font-bold text-[13px] py-2.5 rounded-xl shadow-soft hover:brightness-105 active:scale-[0.97] transition"
                   title={te ? "బాహ్య WhatsApp లింక్; availability తనిఖీ చేయబడదు" : "External WhatsApp link; availability is not checked"}>
                   <WhatsAppIcon className="w-4 h-4" mono />
-                  {whatsappJoin.isDirectChannel
+                  {currentLinks.whatsappIsDirect
                     ? (te ? "లిస్టు చేసిన WhatsApp channel తెరవండి" : "Open listed WhatsApp channel")
                     : (te ? "Configured WhatsApp support తెరవండి" : "Open configured WhatsApp support")}
                 </a>
@@ -186,8 +195,8 @@ export default function CasteClient({ caste, role, district, chan, otherChan }: 
                   {te ? "WhatsApp destination లిస్టులో లేదు" : "No WhatsApp destination listed"}
                 </div>
               )}
-              {otherChan?.link ? (
-                <a href={otherChan.link} target="_blank" rel="noopener noreferrer"
+              {otherLinks.telegram ? (
+                <a href={otherLinks.telegram} target="_blank" rel="noopener noreferrer"
                   className="flex items-center justify-center gap-2 w-full border border-white/25 text-white font-bold text-[12px] py-2 rounded-xl hover:bg-white/10 transition">
                   <TelegramIcon className="w-3.5 h-3.5" mono />
                   {te ? `${otherChanLabel} — listed Telegram link` : `${otherChanLabel} — listed Telegram link`}
@@ -227,15 +236,15 @@ export default function CasteClient({ caste, role, district, chan, otherChan }: 
             <div>
               <div className="font-bold text-ink">{te ? "Charge ఎంత?" : "How much does it cost?"}</div>
               <div className="text-gray-600">
-                {te ? "Register FREE. మొదటి 3 interest requests FREE. తర్వాత ₹99 → 5 profiles (₹20/profile), ₹499 → 50 (₹10/profile)."
-                    : "Registration is FREE. First 3 interest requests FREE. Then ₹99 → 5 profiles (₹20/profile), ₹499 → 50 (₹10/profile)."}
+                {te ? "Register FREE. మొదటి 3 interest requests FREE. తర్వాత ₹99 → 5 interest requests (₹20/request), ₹499 → 50 (₹10/request)."
+                    : "Registration is FREE. First 3 interest requests FREE. Then ₹99 → 5 interest requests (₹20/request), ₹499 → 50 (₹10/request)."}
               </div>
             </div>
             <div>
               <div className="font-bold text-ink">{te ? "Chatting ఉందా?" : "Is there chatting?"}</div>
               <div className="text-gray-600">
-                {te ? "ఈ పేజీలో chatting లేదు. Interest notification delivery service configuration మీద ఆధారపడుతుంది. అవతలి వారు accept చేసిన తర్వాతే contact వివరాలు share కావచ్చు; decline అయితే credit-refund policy వర్తిస్తుంది."
-                    : "There is no in-site chat. Interest notification depends on service configuration. Contact details may be shared only after acceptance; the credit-refund policy applies to declined requests."}
+                {te ? "ఈ పేజీలో chatting లేదు. Interest notification delivery హామీ లేదు. Owner accept చేసిన తర్వాత accepted-request account views లో contact details కనిపిస్తాయి; decline credit return account policy ప్రకారం ఉంటుంది."
+                    : "There is no in-site chat. Notification delivery is not guaranteed. Owner acceptance grants contact access in accepted-request account views; decline credit returns follow account policy."}
               </div>
             </div>
             <div>

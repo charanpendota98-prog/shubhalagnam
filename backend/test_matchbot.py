@@ -53,7 +53,8 @@ POOL = [
 ]
 INTS = [{"from_id": "BRIDE-1", "to_id": "GROOM-1", "status": "pending", "created_at": NOW.isoformat()}]
 VIEWS = [{"tsap_id": "GROOM-1", "viewer_id": "BRIDE-2", "at": NOW.isoformat()},
-         {"tsap_id": "GROOM-1", "viewer_id": "BRIDE-3", "at": NOW.isoformat()}]
+         {"tsap_id": "GROOM-1", "viewer_id": "BRIDE-3", "at": NOW.isoformat()},
+         {"tsap_id": "BRIDE-3", "viewer_id": "GROOM-1", "at": NOW.isoformat()}]
 
 print("=== 1. DAILY BRIEFING SHAPE ===")
 b = matchbot.daily_briefing(ME, POOL, INTS, VIEWS, [], limit=3, now=NOW)

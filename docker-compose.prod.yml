@@ -1,87 +1,204 @@
-# ============================================================
-# MANA VIVAHA — production overrides
-# Deploy: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
-# All required secrets are deliberately mandatory; no dev fallback is allowed.
-# ============================================================
+# Standalone production stack. Do NOT layer this over docker-compose.yml: that
+# file is development-oriented and bind-mounts source code into the containers.
+# The current backend's system of record is a single-process JSON store, not the
+# unused PostgreSQL/Redis services from the development compose file.
+name: mana-vivaha-production
+
 services:
-  postgres:
-    ports: []
-  redis:
-    ports: []
   backend:
-    # Caddy runs on the VM host; keep API reachable only via loopback.
-    ports:
-      - "127.0.0.1:8000:8000"
-    command: uvicorn main:app --host 0.0.0.0 --port 8000 --workers 1
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]
+    init: true
     restart: unless-stopped
+    stop_grace_period: 45s
+    expose:
+      - "8000"
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     volumes:
-      - cardsdata:/tmp/cards
-      - photosdata:/tmp/photos
-      - publishlogs:/app/publish_logs
-      - controldata:/var/lib/manavivaha
+      - appdata:/var/lib/manavivaha
     environment:
-      - APP_ENV=production
-      - TSAP_AUTH_MODE=${TSAP_AUTH_MODE:-on}
-      - TSAP_API_KEY=${TSAP_API_KEY:?TSAP_API_KEY is required}
-      - TSAP_AUTH_SECRET=${TSAP_AUTH_SECRET:?TSAP_AUTH_SECRET is required}
-      - ADMIN_KEY=${ADMIN_KEY:?ADMIN_KEY is required}
-      - JWT_SECRET=${JWT_SECRET:?JWT_SECRET is required}
-      - CONTROL_ACCOUNTS_JSON=${CONTROL_ACCOUNTS_JSON:?CONTROL_ACCOUNTS_JSON is required}
-      - CONTROL_SESSION_TTL_SECONDS=${CONTROL_SESSION_TTL_SECONDS:-28800}
-      - CONTROL_AUDIT_FILE=${CONTROL_AUDIT_FILE:-/var/lib/manavivaha/control-audit.jsonl}
-      - CORS_ORIGINS=${CORS_ORIGINS:?CORS_ORIGINS is required}
-      - PUBLIC_SITE_URL=${PUBLIC_SITE_URL:?PUBLIC_SITE_URL is required}
-      - OTP_CHANNELS=${OTP_CHANNELS:-sms}
-      - SMS_ROUTE=${SMS_ROUTE:-msg91}
-      - SMS_SENDER=${SMS_SENDER}
-      - MSG91_KEY=${MSG91_KEY}
-      - MSG91_TEMPLATE=${MSG91_TEMPLATE}
-      - FAST2SMS_KEY=${FAST2SMS_KEY}
-      - WHATSAPP_MODE=${WHATSAPP_MODE:-off}
-      - WHATSAPP_BRIDGE_URL=${WHATSAPP_BRIDGE_URL}
-      - WA_INSTANCES=${WA_INSTANCES}
-      - WA_MIN_GAP=${WA_MIN_GAP:-120}
-      - WA_MAX_GAP=${WA_MAX_GAP:-170}
-      - WA_MIN_GAP_INTEREST=${WA_MIN_GAP_INTEREST:-60}
-      - WA_MAX_GAP_INTEREST=${WA_MAX_GAP_INTEREST:-120}
-      - WA_MIN_GAP_OTP=${WA_MIN_GAP_OTP:-25}
-      - WA_MAX_GAP_OTP=${WA_MAX_GAP_OTP:-60}
-      - PAYMENTS_LIVE=${PAYMENTS_LIVE:-true}
-      - PAYMENT_AUTO_APPROVE=false
-      - DEMO_SEED_ENABLED=false
-      - LAUNCH_SEED_COUNT=0
+      APP_ENV: production
+      TSAP_AUTH_MODE: ${TSAP_AUTH_MODE:-on}
+      TSAP_RATE_LIMIT: ${TSAP_RATE_LIMIT:-1}
+      TSAP_API_KEY: ${TSAP_API_KEY:?TSAP_API_KEY is required}
+      TSAP_AUTH_SECRET: ${TSAP_AUTH_SECRET:?TSAP_AUTH_SECRET is required}
+      ADMIN_KEY: ${ADMIN_KEY:?ADMIN_KEY is required}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      CONTROL_ACCOUNTS_JSON: ${CONTROL_ACCOUNTS_JSON:?CONTROL_ACCOUNTS_JSON is required}
+      CONTROL_SESSION_TTL_SECONDS: ${CONTROL_SESSION_TTL_SECONDS:-28800}
+      CONTROL_AUDIT_FILE: /var/lib/manavivaha/state/control-audit.jsonl
+      CORS_ORIGINS: ${CORS_ORIGINS:?CORS_ORIGINS is required}
+      PUBLIC_SITE_URL: ${PUBLIC_SITE_URL:?PUBLIC_SITE_URL is required}
+      SITE_URL: ${PUBLIC_SITE_URL:?PUBLIC_SITE_URL is required}
+      PUBLIC_BASE_URL: ${PUBLIC_SITE_URL:?PUBLIC_SITE_URL is required}
+
+      # Durable JSON stores: all runtime state is placed under the named volume.
+      MANA_VIVAHA_PERSISTENT_ROOT: /var/lib/manavivaha
+      MANA_VIVAHA_STATE_DIR: /var/lib/manavivaha/state
+      MANA_VIVAHA_APP_STATE_DIR: /var/lib/manavivaha/state
+      TSAP_DB_FILE: /var/lib/manavivaha/state/data_db.json
+      TSAP_TOKEN_VERSIONS_FILE: /var/lib/manavivaha/state/token_versions.json
+      MANA_VIVAHA_ADS_FILE: /var/lib/manavivaha/state/ads13.json
+      MANA_VIVAHA_ASTRO_FILE: /var/lib/manavivaha/state/astro13.json
+      MANA_VIVAHA_BACKUP_DIR: /var/lib/manavivaha/backups
+      MANA_VIVAHA_CHANMAP_FILE: /var/lib/manavivaha/state/chanmap15.json
+      MANA_VIVAHA_CMS_FILE: /var/lib/manavivaha/state/cms15.json
+      MANA_VIVAHA_DAILY_MATCHES_FILE: /var/lib/manavivaha/state/daily_matches.json
+      MANA_VIVAHA_MONEY_AUDIT_FILE: /var/lib/manavivaha/state/money_audit26.jsonl
+      MANA_VIVAHA_PAYPRO_FILE: /var/lib/manavivaha/state/paypro14.json
+      MANA_VIVAHA_PUBLISH_LOG_FILE: /var/lib/manavivaha/state/publish_log.jsonl
+      MANA_VIVAHA_REFERRAL_FILE: /var/lib/manavivaha/state/referral_state.json
+      MANA_VIVAHA_REF_PARTNERS_FILE: /var/lib/manavivaha/state/refpartners19.json
+      MANA_VIVAHA_REF_PARTNERS_CSV: /var/lib/manavivaha/state/referral_partners.csv
+      MANA_VIVAHA_RETENTION_BACKUP_DIR: /var/lib/manavivaha/retention-archives
+      MANA_VIVAHA_RETENTION_LOG_FILE: /var/lib/manavivaha/state/retention_log.json
+      MANA_VIVAHA_SMART12_FILE: /var/lib/manavivaha/state/unlocks12.json
+      MANA_VIVAHA_SPOTLIGHT_FILE: /var/lib/manavivaha/state/spotlight_promotions.json
+      MANA_VIVAHA_VENDOR_STATE_FILE: /var/lib/manavivaha/state/vendor_state.json
+      MANA_VIVAHA_WA_STATE_FILE: /var/lib/manavivaha/state/wa_state.json
+      WA_INSTANCE_STATE: /var/lib/manavivaha/state/wa_pool_state.json
+      MANA_VIVAHA_WEEKLY_SHOWCASE_FILE: /var/lib/manavivaha/state/weekly_showcase.json
+      MANA_VIVAHA_CHANNEL_SETUP_STATE_FILE: /var/lib/manavivaha/state/channel_setup_state.json
+      MANA_VIVAHA_CHANNEL_REPORT_DIR: /var/lib/manavivaha/channel-reports
+      MANA_VIVAHA_MEDIA_DIR: /var/lib/manavivaha/media
+      VENDOR_POSTER_DIR: /var/lib/manavivaha/media/vendor-posters
+      REFERRAL_POSTER_DIR: /var/lib/manavivaha/media/referral-posters
+
+      # Providers are optional only where the app supports an honest off state.
+      OTP_DEV_MODE: "false"
+      OTP_CHANNELS: ${OTP_CHANNELS:-sms}
+      SMS_ROUTE: ${SMS_ROUTE:-msg91}
+      SMS_SENDER: ${SMS_SENDER:-}
+      MSG91_KEY: ${MSG91_KEY:-}
+      MSG91_TEMPLATE: ${MSG91_TEMPLATE:-}
+      FAST2SMS_KEY: ${FAST2SMS_KEY:-}
+      WHATSAPP_MODE: ${WHATSAPP_MODE:-off}
+      WHATSAPP_BRIDGE_URL: ${WHATSAPP_BRIDGE_URL:-}
+      WA_INSTANCES: ${WA_INSTANCES:-[]}
+      WA_MIN_GAP: ${WA_MIN_GAP:-120}
+      WA_MAX_GAP: ${WA_MAX_GAP:-170}
+      WA_MIN_GAP_INTEREST: ${WA_MIN_GAP_INTEREST:-60}
+      WA_MAX_GAP_INTEREST: ${WA_MAX_GAP_INTEREST:-120}
+      WA_MIN_GAP_OTP: ${WA_MIN_GAP_OTP:-25}
+      WA_MAX_GAP_OTP: ${WA_MAX_GAP_OTP:-60}
+      WA_DAILY_CAP: ${WA_DAILY_CAP:-60}
+      WA_ACTIVE_START: ${WA_ACTIVE_START:-8}
+      WA_ACTIVE_END: ${WA_ACTIVE_END:-22}
+      WA_WARMUP_DAYS: ${WA_WARMUP_DAYS:-4}
+
+      RAZORPAY_KEY_ID: ${RAZORPAY_KEY_ID:-}
+      RAZORPAY_KEY_SECRET: ${RAZORPAY_KEY_SECRET:-}
+      RAZORPAY_WEBHOOK_SECRET: ${RAZORPAY_WEBHOOK_SECRET:-}
+      RAZORPAY_VERIFY_CAPTURE: ${RAZORPAY_VERIFY_CAPTURE:-1}
+      PAY_UPI_ID: ${PAY_UPI_ID:-}
+      PAYMENT_UPI_ID: ${PAYMENT_UPI_ID:-}
+      VENDOR_UPI_ID: ${VENDOR_UPI_ID:-}
+      PAYMENTS_LIVE: ${PAYMENTS_LIVE:-false}
+      PAYMENT_AUTO_APPROVE: "false"
+
+      BOT_TOKEN: ${BOT_TOKEN:-}
+      BOT_USERNAME: ${BOT_USERNAME:-}
+      BOT_POOL_JSON: ${BOT_POOL_JSON:-}
+      CHANNELS: ${CHANNELS:-}
+      TELEGRAM_CHANNEL_DESTINATIONS_JSON: ${TELEGRAM_CHANNEL_DESTINATIONS_JSON:-}
+      AUTO_POST_ON_REGISTER: ${AUTO_POST_ON_REGISTER:-false}
+      AUTO_POST_ON_APPROVAL: ${AUTO_POST_ON_APPROVAL:-false}
+      PUBLISH_DRY_RUN: ${PUBLISH_DRY_RUN:-true}
+      PUBLISH_RETRIES: ${PUBLISH_RETRIES:-3}
+      PUBLISH_RATE_LIMIT: ${PUBLISH_RATE_LIMIT:-1.2}
+
+      DEMO_SEED_ENABLED: "false"
+      LAUNCH_SEED_COUNT: "0"
+      MANA_TEST_PAYMENT_FIXTURES: "false"
+      SUPPORT_EMAIL: ${SUPPORT_EMAIL:-}
+      SUPPORT_PHONE: ${SUPPORT_PHONE:-}
+      SUPPORT_WHATSAPP: ${SUPPORT_WHATSAPP:-}
+      ADMIN_WHATSAPP_NUMBER: ${ADMIN_WHATSAPP_NUMBER:-}
+      VENDOR_SALES_WHATSAPP: ${VENDOR_SALES_WHATSAPP:-}
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
+      VAPID_SUBJECT: ${VAPID_SUBJECT:-}
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "from urllib.request import urlopen; urlopen('http://127.0.0.1:8000/api/health', timeout=3).read()"
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 45s
 
   frontend:
     build:
       context: ./frontend
+      dockerfile: Dockerfile
       args:
         BACKEND_URL: http://backend:8000
-        NEXT_PUBLIC_SUPPORT_PHONE: ${NEXT_PUBLIC_SUPPORT_PHONE}
-        NEXT_PUBLIC_SUPPORT_WHATSAPP: ${NEXT_PUBLIC_SUPPORT_WHATSAPP}
-        NEXT_PUBLIC_SUPPORT_EMAIL: ${NEXT_PUBLIC_SUPPORT_EMAIL}
-    command: npm run start -- -p 3000 -H 0.0.0.0
+        NEXT_PUBLIC_SUPPORT_PHONE: ${NEXT_PUBLIC_SUPPORT_PHONE:-}
+        NEXT_PUBLIC_SUPPORT_WHATSAPP: ${NEXT_PUBLIC_SUPPORT_WHATSAPP:-}
+        NEXT_PUBLIC_SUPPORT_EMAIL: ${NEXT_PUBLIC_SUPPORT_EMAIL:-}
+        NEXT_PUBLIC_BUSINESS_CONTACT_NAME: ${NEXT_PUBLIC_BUSINESS_CONTACT_NAME:-}
+        NEXT_PUBLIC_BUSINESS_LOCATION: ${NEXT_PUBLIC_BUSINESS_LOCATION:-}
+        NEXT_PUBLIC_GRIEVANCE_OFFICER: ${NEXT_PUBLIC_GRIEVANCE_OFFICER:-}
+        NEXT_PUBLIC_LEGAL_NAME: ${NEXT_PUBLIC_LEGAL_NAME:-}
+    command: ["npm", "run", "start", "--", "-p", "3000", "-H", "0.0.0.0"]
+    init: true
     restart: unless-stopped
-    volumes: []
+    stop_grace_period: 30s
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:3000:3000"
     environment:
-      - BACKEND_URL=http://backend:8000
-      - NEXT_PUBLIC_SUPPORT_PHONE=${NEXT_PUBLIC_SUPPORT_PHONE}
-      - NEXT_PUBLIC_SUPPORT_WHATSAPP=${NEXT_PUBLIC_SUPPORT_WHATSAPP}
-      - NEXT_PUBLIC_SUPPORT_EMAIL=${NEXT_PUBLIC_SUPPORT_EMAIL}
+      BACKEND_URL: http://backend:8000
+      NEXT_PUBLIC_SUPPORT_PHONE: ${NEXT_PUBLIC_SUPPORT_PHONE:-}
+      NEXT_PUBLIC_SUPPORT_WHATSAPP: ${NEXT_PUBLIC_SUPPORT_WHATSAPP:-}
+      NEXT_PUBLIC_SUPPORT_EMAIL: ${NEXT_PUBLIC_SUPPORT_EMAIL:-}
+      NEXT_PUBLIC_BUSINESS_CONTACT_NAME: ${NEXT_PUBLIC_BUSINESS_CONTACT_NAME:-}
+      NEXT_PUBLIC_BUSINESS_LOCATION: ${NEXT_PUBLIC_BUSINESS_LOCATION:-}
+      NEXT_PUBLIC_GRIEVANCE_OFFICER: ${NEXT_PUBLIC_GRIEVANCE_OFFICER:-}
+      NEXT_PUBLIC_LEGAL_NAME: ${NEXT_PUBLIC_LEGAL_NAME:-}
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3000/').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
 
-  whatsapp-bridge:
-    ports: []
-  whatsapp-bridge2:
-    ports: []
-  whatsapp-bridge3:
-    ports: []
+  # Start only after an operator has configured the real Telegram bot token.
   bot:
+    profiles: ["telegram"]
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    command: ["python", "telegram_bot.py"]
+    init: true
     restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
     environment:
-      - TSAP_API_KEY=${TSAP_API_KEY:?TSAP_API_KEY is required}
-      - API_BASE=http://backend:8000
+      BOT_TOKEN: ${BOT_TOKEN:-}
+      TSAP_API_KEY: ${TSAP_API_KEY:?TSAP_API_KEY is required}
+      API_BASE: http://backend:8000
+      CHANNELS: ${CHANNELS:-}
+      TELEGRAM_CHANNEL_DESTINATIONS_JSON: ${TELEGRAM_CHANNEL_DESTINATIONS_JSON:-}
 
 volumes:
-  cardsdata:
-  photosdata:
-  publishlogs:
-  controldata:
+  appdata:
+    name: ${MANA_VIVAHA_VOLUME_NAME:-mana-vivaha-appdata}

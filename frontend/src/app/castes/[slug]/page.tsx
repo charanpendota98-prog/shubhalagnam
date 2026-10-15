@@ -45,12 +45,11 @@ export default async function CasteLandingPage({ params }: Params) {
       role={role}
       district={district ? { slug: district.slug, name: district.name, state: district.state } : null}
       chan={chan ? {
-        key: chan.key, name: chan.name, username: chan.username, link: chan.link, deepLink: chan.deepLink,
-        desc: chan.desc, live: chan.live, wave: chan.wave, hashtags: chan.hashtags,
+        key: chan.key, name: chan.name,
+        desc: chan.desc, routingEligible: chan.routingEligible, wave: chan.wave, hashtags: chan.hashtags,
       } : null}
       otherChan={otherChan ? {
-        key: otherChan.key, name: otherChan.name, username: otherChan.username,
-        link: otherChan.link, live: otherChan.live,
+        key: otherChan.key, name: otherChan.name,
       } : null}
     />
   );

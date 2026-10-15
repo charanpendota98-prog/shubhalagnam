@@ -3,7 +3,6 @@ import "./globals.css";
 import SiteHeader from "@/components/SiteHeader";
 import SiteFooter from "@/components/SiteFooter";
 import StickyCTA from "@/components/StickyCTA";
-import { CHANNEL_STATS } from "@/lib/channels";
 import PWA from "@/components/PWA";
 import SupportWidget from "@/components/SupportWidget";
 import BackToTop from "@/components/BackToTop";
@@ -14,11 +13,11 @@ const SITE = process.env.SITE_URL || "https://manavivaha.in";
 export const metadata: Metadata = {
   metadataBase: new URL(SITE),
   title: {
-    default: "మన వివాహ — Telugu Matrimony | ₹99 Sambandham | First 3 Requests FREE",
-    template: "%s | మన వివాహ (Mana Vivaha)",
+    default: "Telugu Matrimony & Matchmaking | Mana Vivaha (మన వివాహ)",
+    template: "%s | Mana Vivaha (మన వివాహ)",
   },
   description:
-`తెలంగాణ & ఆంధ్రప్రదేశ్ తెలుగు కుటుంబాల కోసం మన వివాహ (Mana Vivaha). ${CHANNEL_STATS.total} configured channels, ₹99 నుంచి plans, first 3 interest requests free, photo privacy controls, and community self-description. Profile verification status is shown individually.`,
+    "Mana Vivaha (మన వివాహ) helps Telugu families in Telangana and Andhra Pradesh explore member-submitted matrimony profiles, community directories, and privacy controls. Verification status is shown individually; profile details and match outcomes are not guaranteed.",
   keywords: [
     "మన వివాహ", "Mana Vivaha", "Telugu matrimony", "TS matrimony", "AP matrimony", "Reddy matrimony", "Kamma matrimony",
     "Kapu matrimony", "Brahmin matrimony", "Vysya matrimony", "Madiga matrimony", "Lambada matrimony", "Muslim matrimony Telugu",
@@ -30,18 +29,18 @@ export const metadata: Metadata = {
   alternates: { canonical: "/" },
   openGraph: {
     type: "website",
-    locale: "te_IN",
+    locale: "en_IN",
     url: SITE,
-    siteName: "మన వివాహ — Telugu Matrimony",
-    title: "మన వివాహ — Telugu Matrimony | ₹99 సంబంధం",
+    siteName: "Mana Vivaha (మన వివాహ)",
+    title: "Telugu Matrimony & Matchmaking | Mana Vivaha (మన వివాహ)",
     description:
-`తెలంగాణ & ఆంధ్రప్రదేశ్ తెలుగు కుటుంబాల కోసం మన వివాహ (Mana Vivaha). ${CHANNEL_STATS.total} configured channels, ₹99 నుంచి plans, first 3 interest requests free, with photo privacy controls and self-described community names.`,
-    images: [{ url: "/og-image.png", width: 1200, height: 630, alt: "మన వివాహ — Telugu Matrimony" }],
+      "Explore member-submitted matrimony profiles, selected community directories, and privacy controls across Telangana and Andhra Pradesh. Verification status is shown individually; profile details and outcomes are not guaranteed.",
+    images: [{ url: "/og-image.png", width: 1200, height: 630, alt: "Mana Vivaha (మన వివాహ) — Telugu Matrimony" }],
   },
   twitter: {
     card: "summary_large_image",
-    title: "మన వివాహ — Telugu Matrimony",
-    description: `₹99 Sambandham • First 3 interest requests FREE • ${CHANNEL_STATS.total} configured channels • community options`,
+    title: "Telugu Matrimony & Matchmaking | Mana Vivaha (మన వివాహ)",
+    description: "Browse member-submitted profiles, community directories, and privacy controls across Telangana and Andhra Pradesh.",
     images: ["/og-image.png"],
   },
   robots: { index: true, follow: true },

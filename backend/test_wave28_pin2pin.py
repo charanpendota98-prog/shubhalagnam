@@ -5,6 +5,7 @@ Run: WA_TEST_FAST=1 python3 test_wave28_pin2pin.py (backend/ nunchi)
 import io
 import os
 import sys
+from unittest.mock import patch
 
 from PIL import Image
 
@@ -27,6 +28,15 @@ def _real_jpg():
 os.environ.setdefault("WA_TEST_FAST", "1")
 os.environ.setdefault("OTP_DEV_MODE", "true")
 os.environ.setdefault("WA_LONG_PAUSE_CHANCE", "0")
+# No live provider calls, outbound messages, or payment credentials in fixtures.
+os.environ["WA_ENABLED"] = "false"
+os.environ["WHATSAPP_MODE"] = "off"
+os.environ["PUBLISH_DRY_RUN"] = "true"
+os.environ["AUTO_POST_ON_APPROVAL"] = "false"
+os.environ["AUTO_POST_ON_REGISTER"] = "false"
+os.environ["OTP_CHANNELS"] = "none"
+for _key in ("PAY_UPI_ID", "RAZORPAY_KEY_ID", "RAZORPAY_KEY", "RAZORPAY_KEY_SECRET", "RAZORPAY_SECRET"):
+    os.environ.pop(_key, None)
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from test_storage import isolate_test_stores  # noqa: E402
 isolate_test_stores("wave28")
@@ -52,7 +62,7 @@ import main as M
 import hardening as H
 import referral
 import paypro as PP
-from fastapi.testclient import TestClient
+from testutil_client import TestClient
 
 c = TestClient(M.app, raise_server_exceptions=False)
 ADMIN = {"X-Admin-Key": H.ADMIN_KEY}
@@ -72,10 +82,15 @@ def new_phone():
 
 
 def reg(gender="male", **kw):
-    d = {"gender": gender, "age": 27 if gender == "male" else 24, "height": "5'8",
-         "marital_status": "Pelli Kaledu", "caste": "Reddy", "education": "BTech",
-         "job": "Software", "salary": "10L", "state": "TS", "district": "Hyd",
-         "phone": new_phone(), "full_name": kw.pop("full_name", "Pin Test")}
+    d = {"gender": gender, "age": 27 if gender == "male" else 24,
+         "dob": "1999-01-15" if gender == "male" else "2002-01-15", "height": "5'8",
+         "star": "Rohini" if gender == "male" else "Ashwini",
+         "rasi": "Vrishabha" if gender == "male" else "Mesha",
+         "marital_status": "Pelli Kaledu", "caste": "Reddy", "religion": "Hindu", "education": "BTech",
+         "job": "Software", "salary": "10L", "state": "TS", "district": "Hyderabad",
+         "phone": new_phone(), "full_name": kw.pop("full_name", "Pin Test"),
+         "password": "test-password",
+         "consent_confirmed": "true"}
     d.update(kw)
     return c.post("/api/register", data=d)
 
@@ -96,25 +111,42 @@ try:
     rb = reg(gender="female", full_name="Pin Rani", age=24)
     BRIDE = rb.json().get("tsap_id") if rb.status_code == 200 else None
     check("1.5 bride 200", rb.status_code == 200)
-    rd = c.post("/api/register", data={"gender": "male", "age": 27, "height": "5'8",
-                 "marital_status": "Pelli Kaledu", "caste": "Reddy", "education": "BTech",
-                 "job": "Software", "salary": "10L", "state": "TS", "district": "Hyd",
-                 "phone": user_of(GROOM)["phone"], "full_name": "Dup Pin"})
+    rd = c.post("/api/register", data={"gender": "male", "age": 27, "dob": "1999-01-15", "height": "5'8",
+                 "marital_status": "Pelli Kaledu", "caste": "Reddy", "religion": "Hindu",
+                 "education": "BTech", "job": "Software", "salary": "10L", "state": "TS", "district": "Hyderabad",
+                 "phone": user_of(GROOM)["phone"], "full_name": "Dup Pin",
+                 "password": "test-password", "consent_confirmed": "true"})
     check("1.6 dup phone → 409 reject (R9 policy — same number tho 2 accounts vaddhu)",
           rd.status_code == 409, (rd.status_code, rd.text[:150]))
-    ri = c.post("/api/register", data={"gender": "x", "age": 5, "phone": "1", "full_name": "z"})
+    ri = c.post("/api/register", data={"gender": "x", "age": 5, "dob": "2021-01-01",
+                                       "phone": "1", "full_name": "z", "religion": "Hindu",
+                                       "password": "test-password",
+                                       "consent_confirmed": "true"})
     check("1.7 invalid → telugu 4xx", ri.status_code in (400, 422), ri.status_code)
+    ap_g = c.post(f"/api/admin/approve/{GROOM}", headers=ADMIN)
+    ap_b = c.post(f"/api/admin/approve/{BRIDE}", headers=ADMIN)
+    check("1.8 moderation approval explicitly enables member-facing flows",
+          ap_g.status_code == 200 and ap_b.status_code == 200,
+          (ap_g.status_code, ap_b.status_code))
 
     section("2. otp + session")
     gph = user_of(GROOM)["phone"]
-    s = c.post("/api/otp/send", json={"phone": gph})
-    check("2.1 otp send", s.status_code == 200, (s.status_code, s.text[:120]))
-    code = (M.DB_OTPS.get(gph) or {}).get("code", "")
-    v = c.post("/api/otp/verify", json={"phone": gph, "code": code})
-    check("2.2 otp verify → token", v.status_code == 200 and "token" in v.text.lower(),
-          (v.status_code, v.text[:150]))
+    no_channel = c.post("/api/otp/send", json={"phone": gph})
+    check("2.1 OTP fails closed with no configured delivery provider",
+          no_channel.status_code == 503 and gph not in M.DB_OTPS
+          and "code" not in no_channel.text.lower(),
+          (no_channel.status_code, no_channel.text[:120]))
+    # A test-only transport stub checks OTP hashing/verification without sending a real message.
+    with patch("main.otp_channel_send", return_value={"ok": True, "channel": "test_stub"}), patch("main.secrets.randbelow", return_value=0):
+        s = c.post("/api/otp/send", json={"phone": gph})
+    check("2.2 OTP accepted only through isolated test transport",
+          s.status_code == 200 and s.json().get("channel") == "test_stub",
+          (s.status_code, s.text[:120]))
+    v = c.post("/api/otp/verify", json={"phone": gph, "code": "1000"})
+    check("2.3 OTP hash verifies and returns a token",
+          v.status_code == 200 and "auth_token" in v.json(), (v.status_code, v.text[:150]))
     v2 = c.post("/api/otp/verify", json={"phone": gph, "code": "0000"})
-    check("2.3 wrong code 4xx", v2.status_code in (400, 401, 404, 429), v2.status_code)
+    check("2.4 reused/wrong OTP is rejected", v2.status_code in (400, 401, 404, 429), v2.status_code)
     TOK = H.sign_token(GROOM)
     HD = {"X-TSAP-Token": TOK}
 
@@ -135,19 +167,28 @@ try:
     check("3.5 selfie route alive", sf.status_code in (200, 201, 400),
           (sf.status_code, sf.text[:120]))
     vr = c.post("/api/verify/request", json={"tsap_id": GROOM, "kind": "photo"})
-    check("3.6 verify request", vr.status_code in (200, 201), (vr.status_code, vr.text[:150]))
+    check("3.6 photo review does not grant verification without recorded evidence",
+          vr.status_code == 400 and not user_of(GROOM).get("is_verified"),
+          (vr.status_code, vr.text[:150]))
     q = c.get(f"/api/profile/{GROOM}/quality")
-    check("3.7 quality score", q.status_code == 200 and "score" in q.text.lower(),
-          (q.status_code, q.text[:150]))
+    _quality = q.json().get("completeness", {}) if q.status_code == 200 else {}
+    check("3.7 derived profile-completeness percent is bounded, not a trust score",
+          isinstance(_quality.get("percent"), int) and 0 <= _quality["percent"] <= 100,
+          (q.status_code, _quality))
 
     section("4. search + matches + score + porutham + astro")
     f = c.get("/api/search?gender=female&age_min=20&age_max=26", headers=HD)
     check("4.1 search works", f.status_code == 200, (f.status_code, f.text[:120]))
     ml = c.get(f"/api/matches/{GROOM}", headers=HD)
     check("4.2 matches list", ml.status_code == 200, (ml.status_code, ml.text[:120]))
-    ms = c.get(f"/api/match/score?a={BRIDE}&b={GROOM}")
-    check("4.3 match score numeric", ms.status_code == 200 and "score" in ms.text.lower(),
-          (ms.status_code, ms.text[:150]))
+    ms = c.get(f"/api/match/score?a={BRIDE}&b={GROOM}",
+               headers={"X-TSAP-Token": H.sign_token(BRIDE)})
+    _comparison = ms.json() if ms.status_code == 200 else {}
+    check("4.3 factual comparison has no numeric compatibility score",
+          ms.status_code == 200 and isinstance(_comparison.get("observations"), list)
+          and _comparison.get("compatibility_score_calculated") is False
+          and "score" not in _comparison,
+          (ms.status_code, list(_comparison)[:12]))
     po = c.post("/api/porutham", json={"bride_id": BRIDE, "groom_id": GROOM})
     check("4.4 porutham", po.status_code in (200, 201), (po.status_code, po.text[:150]))
     ag = c.get(f"/api/astro/guna?bride_id={BRIDE}&groom_id={GROOM}")
@@ -185,33 +226,34 @@ try:
     tp = c.get("/api/templates/interest")
     check("5.10 templates", tp.status_code == 200, tp.status_code)
 
-    section("6. credits + unlock + UPI loop + razorpay loop")
+    section("6. consent-backed contact access + checkout safety")
     bal = c.get(f"/api/credits/{GROOM}", headers=HD)
     if bal.status_code == 404:
         bal = c.get(f"/api/unlocks/balance?tsap_id={GROOM}", headers=HD)
     check("6.1 balance route", bal.status_code == 200, (bal.status_code, bal.text[:150]))
     un = c.post("/api/unlock", json={"viewer_id": GROOM, "target_id": BRIDE}, headers=HD)
-    check("6.2 unlock spends credit", un.status_code in (200, 201),
+    check("6.2 accepted request grants consent-backed, zero-charge contact access",
+          un.status_code == 200 and un.json().get("success") is True
+          and un.json().get("charged") == 0
+          and un.json().get("phone") == user_of(BRIDE).get("phone")
+          and un.json().get("credits_left") == iu.get("credits"),
           (un.status_code, un.text[:200]))
     iu["credits"] = 3
+    _orders_before = len(PP.PAY_ORDERS)
     o = c.post("/api/pay/order", json={"tsap_id": GROOM, "purpose": "credits", "ref": "S_99"},
                headers=HD)
-    check("6.4 pay order", o.status_code in (200, 201) and o.json().get("success", True),
+    check("6.4 checkout fails closed without a configured merchant/provider",
+          o.status_code == 400 and "unavailable" in o.text.lower(),
           (o.status_code, o.text[:200]))
-    oid = (o.json().get("pay_order") or o.json().get("order") or {}).get("id", "")
-    check("6.5 order id", bool(oid), o.text[:150])
-    cl = c.post("/api/pay/claim", json={"order_id": oid, "tsap_id": GROOM,
-                                        "utr": "428281111111"}, headers=HD)
-    check("6.6 UTR claim", cl.status_code in (200, 201), (cl.status_code, cl.text[:200]))
-    cf = c.post(f"/api/admin/payments/{oid}/confirm", json={"utr": "428281111111"},
-                headers=ADMIN)
-    check("6.7 admin confirm adds credits", cf.status_code in (200, 201),
-          (cf.status_code, cf.text[:200]))
-    check("6.8 balance grew", int(user_of(GROOM).get("credits", 0)) >= 8,
-          user_of(GROOM).get("credits"))
+    check("6.5 no fabricated payment order or credit is created",
+          len(PP.PAY_ORDERS) == _orders_before and user_of(GROOM).get("credits") == 3,
+          {"orders_before": _orders_before, "orders_after": len(PP.PAY_ORDERS),
+           "credits": user_of(GROOM).get("credits")})
     ro = c.post("/api/pay/order", json={"tsap_id": GROOM, "purpose": "credits", "ref": "S_99",
                                         "mode": "razorpay"}, headers=HD)
-    check("6.9 razorpay order", ro.status_code in (200, 201), (ro.status_code, ro.text[:200]))
+    check("6.6 Razorpay checkout fails closed without real credentials",
+          ro.status_code == 400 and "unavailable" in ro.text.lower(),
+          (ro.status_code, ro.text[:200]))
 
     section("7. referral full loop")
     rcode = user_of(GROOM).get("referral_code", "")
@@ -238,14 +280,14 @@ try:
           (po7.status_code, po7.text[:200]))
     pr = c.post("/api/referral/partner/register",
                 json={"name": "Pin Partner", "phone": new_phone(), "state": "TS",
-                      "district": "Hyd"})
+                      "district": "Hyderabad"})
     check("7.10 partner register", pr.status_code in (200, 201),
           (pr.status_code, pr.text[:200]))
 
     section("8. vendors + ads + revenue")
     vr8 = c.post("/api/vendors/register", json={"business_name": "Pin Weddings Hall",
                  "owner_name": "Pin Owner", "category": "catering", "phone": new_phone(),
-                 "city": "Hyd", "district": "Hyd", "state": "TS", "package": "V_STANDARD",
+                 "city": "Hyd", "district": "Hyderabad", "state": "TS", "package": "V_STANDARD",
                  "source": "website"})
     check("8.1 vendor register", vr8.status_code in (200, 201),
           (vr8.status_code, vr8.text[:200]))
@@ -277,7 +319,8 @@ try:
     va = c.get("/api/vendors/ads")
     check("8.10 ads feed", va.status_code == 200, va.status_code)
     rv = c.get("/api/admin/vendors/revenue/summary", headers=ADMIN)
-    check("8.11 revenue (admin)", rv.status_code == 200, (rv.status_code, rv.text[:150]))
+    check("8.11 payment revenue remains owner-session-only, not API-key staff data",
+          rv.status_code == 403, (rv.status_code, rv.text[:150]))
 
     section("9. cms + channels + leads + misc")
     pg = c.get("/api/cms/pages/home")
@@ -286,14 +329,16 @@ try:
     if so.status_code == 404:
         so = c.get("/api/cms/stories")
     check("9.2 stories route", so.status_code in (200, 404), so.status_code)
-    ch = c.get("/api/channels/live")
+    ch = c.get("/api/channels/routing-eligible")
     check("9.3 channels live", ch.status_code == 200, (ch.status_code, ch.text[:150]))
     sp = c.get("/api/channels/setup-plan")
     check("9.4 setup plan", sp.status_code == 200, sp.status_code)
     cr = c.post("/api/channels/route", json={"text": "hello test pin"})
     check("9.5 channel route", cr.status_code in (200, 201), (cr.status_code, cr.text[:200]))
-    lq = c.post("/api/leads/quick", json={"phone": new_phone(), "name": "Pin Lead"})
-    check("9.6 quick lead", lq.status_code in (200, 201), (lq.status_code, lq.text[:200]))
+    lq = c.post("/api/leads/quick", json={"phone": new_phone(), "name": "Pin Lead",
+                                          "contact_consent": True})
+    check("9.6 quick lead records only with explicit contact consent",
+          lq.status_code in (200, 201), (lq.status_code, lq.text[:200]))
     ls = c.get("/api/leads/stats", headers=ADMIN)
     check("9.7 lead stats admin", ls.status_code in (200, 201, 403), ls.status_code)
     pl = c.get("/api/plans")

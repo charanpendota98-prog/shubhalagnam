@@ -3,8 +3,8 @@
  * 🎉 WAVE 14 — ADMIN OFFERS CONSOLE
  * Festival promo codes: 1-click seed + create + ON/OFF. ADMIN ONLY.
  */
-import { useEffect, useState } from "react";
-import { authHeaders } from "@/lib/api";
+import { useCallback, useEffect, useState } from "react";
+import { apiDisplayMessage, authHeaders, readApiJson } from "@/lib/api";
 import { useLang } from "@/lib/lang";
 
 type Row = Record<string, any>;
@@ -18,23 +18,26 @@ const H = () => ({ ...authHeaders(true), "Content-Type": "application/json" });
 export default function OffersConsole() {
   const { lang } = useLang();
   const te = lang === "te";
+  const displayDynamicText = (value: unknown, fallback = "Not available in English") => te
+    ? String(value ?? "")
+    : apiDisplayMessage({ message_en: value }, false, fallback);
   const [items, setItems] = useState<Row[]>([]);
   const [flash, setFlash] = useState("");
   const [f, setF] = useState<Row>({ code: "", title: "", pct_off: "10", flat_off: "", applies_to: "credits,assisted", valid_from: "", valid_to: "", max_uses: "100", min_amount: "", festival: "" });
 
-  const load = async () => {
+  const load = useCallback(async () => {
     try {
-      const d = await fetch(withToken("/api/admin/offers"), { headers: authHeaders(true) }).then((r) => r.json());
+      const d = await fetch(withToken("/api/admin/offers"), { headers: authHeaders(true) }).then((r) => readApiJson(r));
       if (d?.success) setItems(d.offers || []);
-      else setFlash(d.detail || "Load fail");
-    } catch { setFlash("Network problem"); }
-  };
-  useEffect(() => { void load(); }, []);
+      else setFlash(apiDisplayMessage(d, te, te ? "ఆఫర్‌లను లోడ్ చేయలేకపోయాం." : "Could not load offers."));
+    } catch { setFlash(te ? "నెట్‌వర్క్ సమస్య" : "Network problem. Please try again."); }
+  }, [te]);
+  useEffect(() => { void load(); }, [load]);
 
   const seed = async () => {
     const r = await fetch(withToken("/api/admin/offers/seed"), { method: "POST", headers: H(), body: JSON.stringify({}) });
-    const d = await r.json();
-    setFlash(d.message_telugu || d.detail || "done");
+    const d = await readApiJson(r);
+    setFlash(apiDisplayMessage(d, te, te ? "చర్య పూర్తయింది." : "Action completed."));
     void load();
   };
   const create = async () => {
@@ -43,41 +46,42 @@ export default function OffersConsole() {
       applies_to: f.applies_to, valid_from: f.valid_from, valid_to: f.valid_to,
       max_uses: Number(f.max_uses || 100), min_amount: Number(f.min_amount || 0), festival: f.festival,
     }) });
-    const d = await r.json();
-    setFlash(d.message_telugu || d.detail || "done");
+    const d = await readApiJson(r);
+    setFlash(apiDisplayMessage(d, te, te ? "చర్య పూర్తయింది." : "Action completed."));
     if (r.ok) { setF({ ...f, code: "", title: "" }); void load(); }
   };
   const del = async (code: string) => {
     if (!confirm(te ? `${code} — promo code ని permanent గా తీసెయ్యాలా?` : `${code} — permanently delete this promo code?`)) return;
     const r = await fetch(withToken(`/api/admin/offers/${encodeURIComponent(code)}`), { method: "DELETE", headers: H() });
-    const d = await r.json();
-    setFlash(d.message_telugu || d.detail || "done");
+    const d = await readApiJson(r);
+    setFlash(apiDisplayMessage(d, te, te ? "చర్య పూర్తయింది." : "Action completed."));
     void load();
   };
   const toggle = async (code: string) => {
     const r = await fetch(withToken(`/api/admin/offers/${code}/toggle`), { method: "POST", headers: H() });
-    const d = await r.json();
-    setFlash(d.message_telugu || d.detail || "done");
+    const d = await readApiJson(r);
+    setFlash(apiDisplayMessage(d, te, te ? "చర్య పూర్తయింది." : "Action completed."));
     void load();
   };
 
   return (
     <div>
       <p className="telugu mt-2 text-xs text-gray-500">
-        Festival codes (Diwali/Sankranti/Ugadi…) — user <b>pricing lo code vesthe discount</b>. Dates + usage-cap
-        server enforce chesthundi. Homepage banner auto-update.
+        {te
+          ? <>పండుగ ఆఫర్ కోడ్‌తో అర్హమైన కొనుగోళ్లకు డిస్కౌంట్ వర్తిస్తుంది. తేదీలు, వినియోగ పరిమితులను సర్వర్ అమలు చేస్తుంది.</>
+          : <>Festival offer codes apply the advertised discount to eligible purchases. The server enforces validity dates and usage limits.</>}
       </p>
       <div className="flex gap-2 my-2">
         <button onClick={() => void seed()} className="rounded-xl bg-[#7A0C2E] text-white px-4 py-2 text-xs font-bold">
-          🪔 Festival presets ON (Diwali25/Sankranti20/Ugadi15/First50)
+          🪔 {te ? "పండుగ ఆఫర్‌లను ప్రారంభించండి" : "Enable available festival offers"}
         </button>
         <button onClick={() => void load()} className="text-xs underline ml-auto">↻ refresh</button>
       </div>
       {flash && <div className="mb-2 rounded-xl bg-[#0F1F3C] text-white text-xs p-2">{flash}</div>}
       <div className="rounded-xl border p-3 text-xs space-y-2 bg-rose-50/40">
-        <div className="font-bold text-[#7A0C2E]">➕ Kotha offer</div>
+        <div className="font-bold text-[#7A0C2E]">➕ {te ? "కొత్త ఆఫర్" : "Create an offer"}</div>
         <div className="grid md:grid-cols-4 gap-2">
-          <input value={f.code} onChange={(e) => setF({ ...f, code: e.target.value.toUpperCase() })} placeholder="CODE (ex: DIWALI25)" className="rounded-lg border px-2 py-1.5 font-mono" aria-label="Code" />
+          <input value={f.code} onChange={(e) => setF({ ...f, code: e.target.value.toUpperCase() })} placeholder="Enter offer code" className="rounded-lg border px-2 py-1.5 font-mono" aria-label="Code" />
           <input value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} placeholder="Title (🪔 Diwali Dhamaka)" className="rounded-lg border px-2 py-1.5" aria-label="Title" />
           <input value={f.pct_off} onChange={(e) => setF({ ...f, pct_off: e.target.value })} placeholder="% off" inputMode="numeric" className="rounded-lg border px-2 py-1.5" aria-label="Percent off" />
           <input value={f.flat_off} onChange={(e) => setF({ ...f, flat_off: e.target.value })} placeholder="₹ flat off" inputMode="numeric" className="rounded-lg border px-2 py-1.5" aria-label="Flat off" />
@@ -93,7 +97,7 @@ export default function OffersConsole() {
           <div key={o.code} className="rounded-xl border p-2.5 text-xs flex flex-wrap items-center gap-2">
             <span className={`px-2 py-0.5 rounded-full font-bold ${o.active ? "bg-green-100 text-green-800" : "bg-gray-200 text-gray-500"}`}>{o.active ? "ON" : "OFF"}</span>
             <span className="font-mono font-bold">{o.code}</span>
-            <span>{o.title}</span>
+            <span>{displayDynamicText(o.title, "Offer title in original language")}</span>
             <span className="text-green-700 font-bold">{o.pct_off ? `${o.pct_off}%` : `₹${o.flat_off}`} OFF</span>
             <span className="text-gray-500">{(o.applies_to || []).join(",")} {o.valid_to ? `• till ${o.valid_to}` : ""} • used {o.used || 0}/{o.max_uses || 0}</span>
             <span className="ml-auto flex gap-1">

@@ -8,8 +8,9 @@ export default function robots(): MetadataRoute.Robots {
       {
         userAgent: "*",
         allow: "/",
-        // Private/owner pages — index avvakudadu (privacy)
-        disallow: ["/admin", "/admin/photos", "/control", "/growth", "/api/", "/search/"],
+        // Restricted routes are blocked. Public member/search pages declare noindex
+        // in metadata so compliant crawlers can see that instruction.
+        disallow: ["/admin", "/admin/photos", "/control", "/growth", "/api/"],
       },
     ],
     sitemap: `${SITE}/sitemap.xml`,

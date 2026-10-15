@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
+import Image from "next/image";
 import { useLang } from "@/lib/lang";
-import { authHeaders } from "@/lib/api";
+import { apiDisplayMessage, authHeaders, readApiJson} from "@/lib/api";
 import { normalizeWhatsAppPhone, whatsappPhoneLink } from "@/lib/wa";
 import { SITE_CONFIG } from "@/lib/site-config";
 
@@ -68,10 +69,14 @@ export default function QuickUnlockModal({
   const [utrBusy, setUtrBusy] = useState(false);
   const normalizedUnlockedPhone = normalizeWhatsAppPhone(unlockedPhone);
   const unlockedWhatsAppUrl = target
-    ? whatsappPhoneLink(unlockedPhone, `నమస్కారం, మన వివాహ (Mana Vivaha) మ్యాట్రిమోనీలో మీ ప్రొఫైల్ (${target.tsap_id}) చూసి సంప్రదిస్తున్నాము.`)
+    ? whatsappPhoneLink(unlockedPhone, te
+      ? `నమస్కారం, మన వివాహ (Mana Vivaha) మ్యాట్రిమోనీలో మీ ప్రొఫైల్ (${target.tsap_id}) చూసి సంప్రదిస్తున్నాను.`
+      : `Hello, I found your profile (${target.tsap_id}) on Mana Vivaha and would like to connect.`)
     : null;
   const paymentHelpUrl = target
-    ? whatsappPhoneLink(SITE_CONFIG.supportWhatsapp, `నమస్కారం మన వివాహ హెల్ప్‌లైన్! నా ప్రొఫైల్ కోసం ప్లాన్ రీచార్జ్ సహాయం కావాలి. టార్గెట్ ప్రొఫైల్ ID: ${target.tsap_id}.`)
+    ? whatsappPhoneLink(SITE_CONFIG.supportWhatsapp, te
+      ? `నమస్కారం మన వివాహ హెల్ప్‌లైన్! నా ప్రొఫైల్ కోసం ప్లాన్ చెల్లింపులో సహాయం కావాలి. లక్ష్య ప్రొఫైల్ ID: ${target.tsap_id}.`
+      : `Hello Mana Vivaha support, I need help with a plan payment for my profile. Target profile ID: ${target.tsap_id}.`)
     : null;
 
   // These are interest-request credits, not direct phone unlocks.
@@ -90,10 +95,9 @@ export default function QuickUnlockModal({
       code: "S_199" as const,
       price: 199,
       credits: 12,
-      popular: true,
       titleTe: "12 interest-request credits",
       titleEn: "12 interest-request credits",
-      badge: te ? "ఎక్కువ మంది ఎంపిక" : "Most popular",
+      badge: "₹17/request credit",
       perkTe: "45 రోజుల validity • Match లేదా response guarantee లేదు",
       perkEn: "45-day validity • No match or response guarantee",
     },
@@ -103,7 +107,7 @@ export default function QuickUnlockModal({
       credits: 25,
       titleTe: "25 interest-request credits",
       titleEn: "25 interest-request credits",
-      badge: te ? "బెస్ట్ విలువ" : "Best value",
+      badge: "₹12/request credit",
       perkTe: "60 రోజుల validity • Contact details acceptance తర్వాతే",
       perkEn: "60-day validity • Contact details follow acceptance",
     },
@@ -132,7 +136,7 @@ export default function QuickUnlockModal({
   };
 
   // A full contact reveal is possible only when an accepted interest grants consent.
-  const attemptDirectUnlock = async () => {
+  const attemptDirectUnlock = useCallback(async () => {
     const vid = getViewerId();
     if (!vid || !target) return;
     setBusy(true);
@@ -146,22 +150,22 @@ export default function QuickUnlockModal({
           target_id: target.tsap_id,
         }),
       });
-      const data = await res.json();
+      const data = await readApiJson(res);
       if (res.ok && data.success && data.phone) {
         setUnlockedPhone(data.phone);
-        setSuccessMsg(data.message_telugu || (te ? "✅ అంగీకారం తర్వాత contact details అందుబాటులో ఉన్నాయి." : "✅ Contact details are available after acceptance."));
+        setSuccessMsg(apiDisplayMessage(data, te, te ? "✅ అంగీకారం తర్వాత contact details అందుబాటులో ఉన్నాయి." : "✅ Contact details are available after acceptance."));
         if (onUnlocked) onUnlocked(data.phone);
       } else if (data.reason === "consent_required" || data.reason === "no_credits") {
         // Keep the request-credit options visible; paid credits cannot bypass consent.
       } else if (!res.ok) {
-        setErrorMsg(data.message_telugu || (te ? "Contact access చెక్ చేయలేకపోయాం." : "Could not check contact access."));
+        setErrorMsg(apiDisplayMessage(data, te, te ? "Contact access చెక్ చేయలేకపోయాం." : "Could not check contact access."));
       }
     } catch {
       // Keep payment modal open
     } finally {
       setBusy(false);
     }
-  };
+  }, [target, te, onUnlocked]);
 
   useEffect(() => {
     if (isOpen && target) {
@@ -172,7 +176,7 @@ export default function QuickUnlockModal({
       setPaymentComplete(false);
       attemptDirectUnlock();
     }
-  }, [isOpen, target]);
+  }, [isOpen, target, attemptDirectUnlock]);
 
   if (!isOpen || !target) return null;
 
@@ -186,13 +190,13 @@ export default function QuickUnlockModal({
       const res = await fetch(
         `/api/promo/apply?code=${encodeURIComponent(code)}&purpose=credits&plan=${encodeURIComponent(selectedPlan)}&user=${encodeURIComponent(getViewerId())}`
       );
-      const d = await res.json();
+      const d = await readApiJson(res);
       if (res.ok && d.success) {
         setPromoDiscount(Number(d.discount || 20));
-        setPromoMsg(`🎉 ${d.message_telugu || "Offer Applied!"} (−₹${d.discount || 20})`);
+        setPromoMsg(`🎉 ${apiDisplayMessage(d, te, te ? "ఆఫర్ వర్తింపజేయబడింది!" : "Offer applied.")} (−₹${d.discount || 20})`);
       } else {
         setPromoDiscount(0);
-        setPromoMsg(d.detail || (te ? "చెల్లని ఆఫర్ కోడ్" : "Invalid promo code"));
+        setPromoMsg(apiDisplayMessage(d, te, te ? "చెల్లని ఆఫర్ కోడ్" : "Invalid promo code"));
       }
     } catch {
       setPromoMsg(te ? "నెట్‌వర్క్ సమస్య" : "Network error");
@@ -225,9 +229,9 @@ export default function QuickUnlockModal({
           offer_code: promoCode.trim().toUpperCase(),
         }),
       });
-      const d = await res.json();
+      const d = await readApiJson(res);
       if (!res.ok || !d.success) {
-        setErrorMsg(d.detail || d.message_telugu || (te ? "ఆర్డర్ క్రియేషన్ విఫలమైంది" : "Order failed"));
+        setErrorMsg(apiDisplayMessage(d, te, te ? "ఆర్డర్ సృష్టించలేకపోయాం. మళ్లీ ప్రయత్నించండి." : "The order could not be created. Please try again."));
         setBusy(false);
         return;
       }
@@ -257,7 +261,7 @@ export default function QuickUnlockModal({
           utr: utr.trim(),
         }),
       });
-      const d = await res.json();
+      const d = await readApiJson(res);
       if (res.ok && d.success) {
         setSuccessMsg(
           te
@@ -266,7 +270,7 @@ export default function QuickUnlockModal({
         );
         setPayOrder({ ...payOrder, status: "claimed" });
       } else {
-        setErrorMsg(d.detail || d.message_telugu || (te ? "సమర్పణ విఫలమైంది" : "Submission failed"));
+        setErrorMsg(apiDisplayMessage(d, te, te ? "సమర్పణ విఫలమైంది. మళ్లీ ప్రయత్నించండి." : "The UTR could not be submitted. Please try again."));
       }
     } catch {
       setErrorMsg(te ? "సమస్య ఏర్పడింది, మళ్ళీ ప్రయత్నించండి" : "Error, please retry");
@@ -294,8 +298,10 @@ export default function QuickUnlockModal({
       order_id: payOrder.rzp_order_id,
       amount: payOrder.checkout_amount_paise,
       currency: "INR",
-      name: "మన వివాహ",
-      description: payOrder.label || currentPkg.titleEn,
+      name: te ? "మన వివాహ" : "Mana Vivaha",
+      description: te
+        ? (payOrder.label || currentPkg.titleTe)
+        : apiDisplayMessage({ message_en: payOrder.label_en, message: payOrder.label || currentPkg.titleEn }, false, currentPkg.titleEn),
       handler: async (response: any) => {
         setBusy(true);
         try {
@@ -309,9 +315,9 @@ export default function QuickUnlockModal({
               razorpay_signature: response.razorpay_signature,
             }),
           });
-          const data = await res.json();
+          const data = await readApiJson(res);
           if (!res.ok || !data.success) {
-            setErrorMsg(data.detail || data.message_telugu || (te ? "చెల్లింపు ధృవీకరణ విఫలమైంది. Support ను సంప్రదించేటప్పుడు payment ID ఇవ్వండి." : "Payment verification failed. Contact support with your payment ID."));
+            setErrorMsg(apiDisplayMessage(data, te, te ? "చెల్లింపును నిర్ధారించలేకపోయాం. Support ను సంప్రదించేటప్పుడు payment ID ఇవ్వండి." : "Payment could not be verified. Contact support with your payment ID."));
             return;
           }
           setPayOrder(null);
@@ -340,6 +346,11 @@ export default function QuickUnlockModal({
   };
 
   const candidateName = target.full_name || target.name || target.tsap_id;
+  const localizedProfileField = (value?: string) => te ? value || "" : apiDisplayMessage({ message_en: value }, false, "");
+  const displayCaste = localizedProfileField(target.caste);
+  const displayDistrict = localizedProfileField(target.district);
+  const displayEducation = localizedProfileField(target.education);
+  const displayJob = localizedProfileField(target.job);
 
   return (
     <div className="fixed inset-0 z-50 bg-black/65 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto animate-fade">
@@ -366,8 +377,8 @@ export default function QuickUnlockModal({
           </h3>
           <p className="text-xs text-amber-100/90 mt-0.5">
             {te
-              ? "Interest పంపండి. Profile owner accept చేసిన తర్వాత privacy settings ప్రకారం details share అవుతాయి."
-              : "Send an interest. Details follow the profile owner's acceptance and privacy settings."}
+              ? "Interest పంపండి. Owner accept చేసిన తర్వాత accepted-request account views లో details కనిపిస్తాయి; notification delivery హామీ లేదు."
+              : "Send an interest. After owner acceptance, details appear in accepted-request account views; notification delivery is not guaranteed."}
           </p>
         </div>
 
@@ -377,9 +388,12 @@ export default function QuickUnlockModal({
           {/* Target Profile Mini Card */}
           <div className="bg-amber-50/70 border border-gold/40 rounded-2xl p-3.5 flex items-center gap-3.5">
             {target.photo_url ? (
-              <img
+              <Image
                 src={target.photo_url}
                 alt={candidateName}
+                width={56}
+                height={64}
+                unoptimized
                 className="w-14 h-16 rounded-xl object-cover border border-gold/30 shadow-xs"
               />
             ) : (
@@ -398,12 +412,12 @@ export default function QuickUnlockModal({
                 </span>
               </div>
 
-              {(target.caste || target.age) && <p className="break-words text-xs font-bold text-maroon mt-0.5">
-                {target.caste ? `💍 ${target.caste}` : ""} {target.age ? `• ${target.age} yrs` : ""}
+              {(displayCaste || target.age) && <p className="break-words text-xs font-bold text-maroon mt-0.5">
+                {displayCaste ? `💍 ${displayCaste}` : ""} {target.age ? `• ${target.age} ${te ? "సం." : "yrs"}` : ""}
               </p>}
-              {(target.district || target.education || target.job) ? (
+              {(displayDistrict || displayEducation || displayJob) ? (
                 <p className="break-words text-[11.5px] leading-relaxed text-slate-600 mt-0.5">
-                  {[target.district, target.education, target.job].filter(Boolean).join(" • ")}
+                  {[displayDistrict, displayEducation, displayJob].filter(Boolean).join(" • ")}
                 </p>
               ) : <p className="text-[11.5px] text-slate-500 mt-0.5">{te ? "అదనపు వివరాలు అందుబాటులో లేవు" : "Additional details are not available"}</p>}
             </div>
@@ -525,7 +539,7 @@ export default function QuickUnlockModal({
                   ? `${currentPkg.credits} interest-request credits మీ ఖాతాకు జమ అయ్యాయి. Interest పంపడానికి ఈ window మూసి కొనసాగండి.`
                   : `${currentPkg.credits} interest-request credits were added to your account. Close this window to continue and send an interest.`}
               </p>
-              <p className="text-xs text-emerald-800">{te ? "Contact details profile owner accept చేసిన తర్వాతే share అవుతాయి." : "Contact details are shared only after the profile owner accepts."}</p>
+              <p className="text-xs text-emerald-800">{te ? "Owner acceptance తర్వాత contact details accepted-request account views లో కనిపిస్తాయి; notification delivery హామీ లేదు." : "After owner acceptance, contact details appear in accepted-request account views; notification delivery is not guaranteed."}</p>
               <button onClick={onClose} className="w-full rounded-xl bg-emerald-700 px-4 py-3 text-sm font-bold text-white">{te ? "కొనసాగించండి" : "Continue"}</button>
             </div>
           ) : (
@@ -566,11 +580,7 @@ export default function QuickUnlockModal({
                             </span>
                             {pkg.badge && (
                               <span
-                                className={`text-[9.5px] font-black px-2 py-0.5 rounded-full ${
-                                  pkg.popular
-                                    ? "bg-amber-400 text-maroon"
-                                    : "bg-emerald-100 text-emerald-800"
-                                }`}
+                                className="text-[9.5px] font-black px-2 py-0.5 rounded-full bg-slate-100 text-slate-700"
                               >
                                 {pkg.badge}
                               </span>

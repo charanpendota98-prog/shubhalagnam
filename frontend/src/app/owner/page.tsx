@@ -3,7 +3,7 @@ import OwnerPageClient from "./page-client";
 
 export const metadata: Metadata = {
   title: "Owner Dashboard",
-  description: "మన వివాహ యజమాని డాష్‌బోర్డ్ — internal use మాత్రమే.",
+  description: "Restricted internal dashboard for authorized owner use.",
   alternates: { canonical: "https://manavivaha.in/owner" },
   robots: { index: false, follow: false },
 };

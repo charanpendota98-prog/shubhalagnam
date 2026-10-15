@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { apiGet } from "@/lib/api";
+import { apiDisplayMessage, apiGet } from "@/lib/api";
 import { SITE_CONFIG } from "@/lib/site-config";
 import { whatsappPhoneLink } from "@/lib/wa";
 import { useLang } from "@/lib/lang";
@@ -16,6 +16,8 @@ import {
   OTHER_LOCATIONS,
   sortUniqueOptions,
   stateFullName,
+  isSecondMarriageStatus,
+  normalizeMaritalStatus,
 } from "@/lib/telugu-data";
 
 interface ProfileRow {
@@ -59,9 +61,20 @@ const ALL_DISTRICTS = sortUniqueOptions([
   "Other",
 ]);
 
+function parseChildrenCount(value?: string | null): number | null {
+  const raw = String(value || "").normalize("NFKC").trim().toLowerCase();
+  if (["none", "no", "no children", "0", "పిల్లలు లేరు"].includes(raw)) return 0;
+  const match = /\d+/.exec(raw);
+  return match ? Number(match[0]) : null;
+}
+
 export default function SecondMarriagePage() {
   const { lang } = useLang();
   const te = lang === "te";
+  const profileText = (value: unknown, fallback = "") => {
+    const text = String(value ?? "").trim();
+    return te ? (text || fallback) : apiDisplayMessage({ message_en: text }, false, fallback);
+  };
 
   // Filter states
   const [gender, setGender] = useState<string>("");
@@ -87,10 +100,7 @@ export default function SecondMarriagePage() {
         if (!isMounted) return;
         const rows = ok && Array.isArray(data?.results) ? data.results : [];
         // Never-married rows are excluded; API failures/empty results stay empty, not fabricated.
-        const filtered = rows.filter((p) =>
-          p.marital_status &&
-          !["pelli kaledu", "never married", "unmarried", "single"].includes(p.marital_status.toLowerCase().trim())
-        );
+        const filtered = rows.filter((p) => isSecondMarriageStatus(p.marital_status));
         setProfiles(filtered);
       })
       .catch(() => {
@@ -138,19 +148,13 @@ export default function SecondMarriagePage() {
       if (gender && p.gender?.toLowerCase() !== gender.toLowerCase()) return false;
 
       // Marital status filter
-      if (maritalFilter) {
-        const m = (p.marital_status || "").toLowerCase();
-        if (maritalFilter === "Divorced" && !m.includes("divorc") && !m.includes("విడాకు")) return false;
-        if (maritalFilter === "Widow" && !m.includes("widow") && !m.includes("వితంతు") && !m.includes("విధురు")) return false;
-        if (maritalFilter === "Awaiting Divorce" && !m.includes("await") && !m.includes("నిరీక్షణ")) return false;
-      }
+      if (maritalFilter && normalizeMaritalStatus(p.marital_status) !== normalizeMaritalStatus(maritalFilter)) return false;
 
       // Children filter
       if (childrenFilter) {
-        const c = (p.children || "None").toLowerCase().trim();
-        const hasNoChild = c === "none" || c === "0" || c === "" || c.includes("లేరు");
-        if (childrenFilter === "None" && !hasNoChild) return false;
-        if (childrenFilter === "with_children" && hasNoChild) return false;
+        const count = parseChildrenCount(p.children);
+        if (childrenFilter === "None" && count !== 0) return false;
+        if (childrenFilter === "with_children" && (count === null || count <= 0)) return false;
       }
 
       // Caste filter
@@ -195,21 +199,21 @@ export default function SecondMarriagePage() {
   };
 
   const getMaritalBadge = (status?: string, genderStr?: string) => {
-    const s = (status || "").toLowerCase();
-    if (s.includes("divorc") || s.includes("విడాకు")) {
-      return { label: "🕊️ విడాకులు (Divorced)", bg: "bg-rose-50 text-rose-800 border-rose-200" };
+    const category = normalizeMaritalStatus(status);
+    if (category === "divorced") {
+      return { label: te ? "🕊️ విడాకులు పొందినవారు" : "🕊️ Divorced", bg: "bg-rose-50 text-rose-800 border-rose-200" };
     }
-    if (s.includes("widow") || s.includes("వితంతు") || s.includes("విధురు")) {
+    if (category === "widowed") {
       const isGroom = genderStr === "Groom" || genderStr === "Male";
       return {
-        label: isGroom ? "🕊️ విధురుడు (Widower)" : "🕊️ వితంతువు (Widow)",
+        label: te ? (isGroom ? "🕊️ విధురుడు" : "🕊️ వితంతువు") : (isGroom ? "🕊️ Widower" : "🕊️ Widow"),
         bg: "bg-purple-50 text-purple-800 border-purple-200",
       };
     }
-    if (s.includes("await") || s.includes("నిరీక్షణ")) {
-      return { label: "⏳ విడాకుల నిరీక్షణ (Awaiting Divorce)", bg: "bg-amber-50 text-amber-800 border-amber-200" };
+    if (category === "awaiting divorce") {
+      return { label: te ? "⏳ విడాకుల ప్రక్రియలో" : "⏳ Awaiting divorce", bg: "bg-amber-50 text-amber-800 border-amber-200" };
     }
-    return { label: "💍 పునర్వివాహం (Second Marriage)", bg: "bg-amber-50 text-maroon border-gold/40" };
+    return { label: te ? "💍 పునర్వివాహం" : "💍 Second marriage", bg: "bg-amber-50 text-maroon border-gold/40" };
   };
 
   return (
@@ -223,18 +227,17 @@ export default function SecondMarriagePage() {
         <div className="max-w-6xl mx-auto relative z-10 text-center space-y-4">
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-gold/20 border border-gold/40 text-amber-200 text-xs font-black tracking-wide uppercase shadow-sm">
             <span>💍</span>
-            <span>మన వివాహ • పునర్వివాహ ప్రత్యేక వేదిక</span>
+            <span>{te ? "మన వివాహ • పునర్వివాహ పరిచయాలు" : "Mana Vivaha · Second-marriage introductions"}</span>
           </div>
 
-          <h1 className="text-2xl sm:text-4xl md:text-5xl font-black tracking-tight leading-tight telugu text-white">
-            మరుజన్మ వంటి కొత్త జీవితానికి... <br className="hidden sm:inline" />
-            <span className="text-amber-300">గౌరవప్రదమైన తోడు</span>
+          <h1 className="text-2xl sm:text-4xl md:text-5xl font-black tracking-tight leading-tight text-white">
+            {te ? <>కొత్త జీవిత అధ్యాయానికి... <br className="hidden sm:inline" /><span className="text-amber-300">గౌరవప్రదమైన పరిచయం</span></> : <>A new chapter, with<br className="hidden sm:inline" /> <span className="text-amber-300">a thoughtful introduction</span></>}
           </h1>
 
           <p className="max-w-3xl mx-auto text-xs sm:text-sm md:text-base text-rose-100/90 leading-relaxed font-medium">
             {te
-              ? "విడాకులు పొందినవారు మరియు వితంతువుల కోసం ప్రత్యేక తెలుగు మ్యాట్రిమోనీ వేదిక. సభ్యులు ఇచ్చిన వివరాలను స్వయంగా పరిశీలించండి; privacy settings profile ను బట్టి మారవచ్చు."
-              : "A dedicated Telugu matrimony directory for divorced and widowed members. Profiles are member-submitted; verify details independently and review each profile’s privacy settings."}
+              ? "విడాకులు పొందినవారు మరియు వితంతువుల కోసం తెలుగు మ్యాట్రిమోనీ డైరెక్టరీ. వివరాలు సభ్యులు అందించినవి; ఫోటో కనిపించడం మీ గోప్యతా సెట్టింగ్‌పై ఆధారపడి ఉంటుంది."
+              : "A Telugu matrimony directory for divorced and widowed members. Profiles are member-submitted; verify details independently and review the available private-photo setting."}
           </p>
 
           {/* Recorded profile information and privacy notes */}
@@ -242,32 +245,32 @@ export default function SecondMarriagePage() {
             <div className="bg-white/10 backdrop-blur-md rounded-2xl p-3 border border-white/15 flex items-center gap-2.5">
               <span className="text-2xl">🔒</span>
               <div>
-                <div className="text-xs font-black text-amber-200">Privacy controls</div>
-                <div className="text-[10px] text-rose-100">Photo setting is optional; phone masked publicly</div>
+                <div className="text-xs font-black text-amber-200">{te ? "గోప్యతా నియంత్రణలు" : "Privacy controls"}</div>
+                <div className="text-[10px] text-rose-100">{te ? "ఫోటో సెట్టింగ్ ఐచ్ఛికం; పబ్లిక్‌గా ఫోన్ దాచబడుతుంది" : "Photo setting is optional; phone is masked publicly"}</div>
               </div>
             </div>
 
             <div className="bg-white/10 backdrop-blur-md rounded-2xl p-3 border border-white/15 flex items-center gap-2.5">
               <span className="text-2xl">⚖️</span>
               <div>
-                <div className="text-xs font-black text-amber-200">Marital status details</div>
-                <div className="text-[10px] text-rose-100">Member-provided; ask for documents</div>
+                <div className="text-xs font-black text-amber-200">{te ? "వైవాహిక స్థితి వివరాలు" : "Marital status details"}</div>
+                <div className="text-[10px] text-rose-100">{te ? "సభ్యులు అందించిన వివరాలు; అవసరమైతే పత్రాలు అడగండి" : "Member-provided; request documents when appropriate"}</div>
               </div>
             </div>
 
             <div className="bg-white/10 backdrop-blur-md rounded-2xl p-3 border border-white/15 flex items-center gap-2.5">
               <span className="text-2xl">👶</span>
               <div>
-                <div className="text-xs font-black text-amber-200">Children’s details</div>
-                <div className="text-[10px] text-rose-100">Member-provided information</div>
+                <div className="text-xs font-black text-amber-200">{te ? "పిల్లల వివరాలు" : "Children’s details"}</div>
+                <div className="text-[10px] text-rose-100">{te ? "సభ్యులు అందించిన సమాచారం" : "Member-provided information"}</div>
               </div>
             </div>
 
             <div className="bg-white/10 backdrop-blur-md rounded-2xl p-3 border border-white/15 flex items-center gap-2.5">
               <span className="text-2xl">👩‍💼</span>
               <div>
-                <div className="text-xs font-black text-amber-200">Consent-led contact</div>
-                <div className="text-[10px] text-rose-100">Contact details follow acceptance and privacy settings</div>
+                <div className="text-xs font-black text-amber-200">{te ? "సమ్మతి తర్వాత సంప్రదింపు" : "Consent-led contact"}</div>
+                <div className="text-[10px] text-rose-100">{te ? "యజమాని అంగీకారం తర్వాత accepted-request account views లో వివరాలు కనిపిస్తాయి" : "Owner acceptance grants contact access in accepted-request account views"}</div>
               </div>
             </div>
           </div>
@@ -279,19 +282,19 @@ export default function SecondMarriagePage() {
               className="px-6 py-3 rounded-2xl gold-gradient text-maroon font-black text-xs sm:text-sm shadow-lg hover-lift flex items-center gap-2"
             >
               <span>📝</span>
-              <span>పునర్వివాహ ఉచిత నమోదు (Register Free)</span>
+              <span>{te ? "పునర్వివాహానికి ఉచితంగా నమోదు" : "Register free for remarriage"}</span>
             </Link>
 
             {SITE_CONFIG.supportWhatsapp ? (
               <a
-                href={whatsappPhoneLink(SITE_CONFIG.supportWhatsapp, "Hello, I have a question about the remarriage listings.") || undefined}
+                href={whatsappPhoneLink(SITE_CONFIG.supportWhatsapp, te ? "నమస్కారం, పునర్వివాహ సంబంధాల జాబితా గురించి నాకు ప్రశ్న ఉంది." : "Hello, I have a question about the remarriage listings.") || undefined}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="px-5 py-3 rounded-2xl bg-gradient-to-r from-[#128C4A] to-[#20bd5a] text-white font-bold text-xs sm:text-sm shadow-md transition hover:brightness-105 flex items-center gap-2"
                 title={te ? "WhatsApp బాహ్య సేవ; లభ్యతను ఈ సైట్ తనిఖీ చేయదు" : "External WhatsApp link; availability is not checked by this site"}
               >
                 <span>💬</span>
-                <span>{te ? "WhatsApp support" : "WhatsApp support"}</span>
+                <span>{te ? "WhatsApp సహాయం" : "WhatsApp support"}</span>
               </a>
             ) : null}
           </div>
@@ -303,25 +306,25 @@ export default function SecondMarriagePage() {
         {/* Quick Filter Category Tabs */}
         <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
           {[
-            { id: "all", l: "🌟 అందరూ (All Remarriage)", icon: "💍" },
-            { id: "brides", l: "👰 వధువులు (Brides)", icon: "👰" },
-            { id: "grooms", l: "🤵 వరులు (Grooms)", icon: "🤵" },
-            { id: "no_children", l: "🕊️ పిల్లలు లేనివారు (No Children)", icon: "🕊️" },
-            { id: "with_children", l: "👶 పిల్లలు ఉన్నవారు (With Children)", icon: "👶" },
-            { id: "divorced", l: "⚖️ విడాకులు (Divorced)", icon: "⚖️" },
-            { id: "widow", l: "🌸 వితంతువు / విధురుడు", icon: "🌸" },
+            { id: "all", te: "🌟 అన్ని పునర్వివాహ సంబంధాలు", en: "🌟 All remarriage profiles" },
+            { id: "brides", te: "👰 వధువులు", en: "👰 Brides" },
+            { id: "grooms", te: "🤵 వరులు", en: "🤵 Grooms" },
+            { id: "no_children", te: "🕊️ పిల్లలు లేనివారు", en: "🕊️ No children" },
+            { id: "with_children", te: "👶 పిల్లలు ఉన్నవారు", en: "👶 With children" },
+            { id: "divorced", te: "⚖️ విడాకులు పొందినవారు", en: "⚖️ Divorced" },
+            { id: "widow", te: "🌸 వితంతువు / విధురుడు", en: "🌸 Widowed" },
           ].map((tab) => (
             <button
               key={tab.id}
               onClick={() => handleTabClick(tab.id)}
+              aria-pressed={activeTab === tab.id}
               className={`whitespace-nowrap px-4 py-2.5 rounded-2xl text-xs font-bold transition flex items-center gap-1.5 border ${
                 activeTab === tab.id
                   ? "bg-maroon text-white border-maroon shadow-md"
                   : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
               }`}
             >
-              <span>{tab.icon}</span>
-              <span>{tab.l}</span>
+              <span>{te ? tab.te : tab.en}</span>
             </button>
           ))}
         </div>
@@ -331,12 +334,13 @@ export default function SecondMarriagePage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
             {/* Search Input */}
             <div>
-              <label className="block text-[11px] font-extrabold text-slate-700 mb-1">
-                🔍 {te ? "వెతకండి (Search Name/ID/Job)" : "Search keyword / ID"}
+              <label htmlFor="remarriage-search" className="block text-[11px] font-extrabold text-slate-700 mb-1">
+                🔍 {te ? "పేరు / ID / ఉద్యోగం వెతకండి" : "Search by name, ID, or occupation"}
               </label>
               <input
+                id="remarriage-search"
                 type="text"
-                placeholder={te ? "ఉదా: MV2001, Software, Reddy..." : "e.g. MV2001, Doctor, Kamma..."}
+                placeholder={te ? "పేరు, ప్రొఫైల్ ID లేదా వృత్తి" : "Name, profile ID, or occupation"}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-maroon"
@@ -345,18 +349,19 @@ export default function SecondMarriagePage() {
 
             {/* Caste Selection */}
             <div>
-              <label className="block text-[11px] font-extrabold text-slate-700 mb-1">
-                💍 {te ? "కులం (Caste)" : "Caste"}
+              <label htmlFor="remarriage-caste" className="block text-[11px] font-extrabold text-slate-700 mb-1">
+                💍 {te ? "కులం" : "Community"}
               </label>
               <select
+                id="remarriage-caste"
                 value={selectedCaste}
                 onChange={(e) => setSelectedCaste(e.target.value)}
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-maroon"
               >
-                <option value="">{te ? "అన్ని కులాలు (All Castes)" : "All Castes"}</option>
+                <option value="">{te ? "అన్ని కులాలు" : "All communities"}</option>
                 {CASTES.map((c) => (
                   <option key={c} value={c}>
-                    {CASTE_TELUGU[c] ? `${CASTE_TELUGU[c]} (${c})` : c}
+                    {te && CASTE_TELUGU[c] ? `${CASTE_TELUGU[c]} (${c})` : c}
                   </option>
                 ))}
               </select>
@@ -364,18 +369,19 @@ export default function SecondMarriagePage() {
 
             {/* District Selection */}
             <div>
-              <label className="block text-[11px] font-extrabold text-slate-700 mb-1">
-                📍 {te ? "జిల్లా / నగరం (District / City)" : "District / Location"}
+              <label htmlFor="remarriage-district" className="block text-[11px] font-extrabold text-slate-700 mb-1">
+                📍 {te ? "జిల్లా / నగరం" : "District / location"}
               </label>
               <select
+                id="remarriage-district"
                 value={selectedDistrict}
                 onChange={(e) => setSelectedDistrict(e.target.value)}
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-maroon"
               >
-                <option value="">{te ? "అన్ని జిల్లాలు (All Districts)" : "All Districts (TS/AP/NRI)"}</option>
+                <option value="">{te ? "అన్ని జిల్లాలు / ప్రాంతాలు" : "All locations (TS, AP, and NRI)"}</option>
                 {ALL_DISTRICTS.map((d) => (
                   <option key={d} value={d}>
-                    {DISTRICT_TELUGU[d] ? `${DISTRICT_TELUGU[d]} (${d})` : d}
+                    {te && DISTRICT_TELUGU[d] ? `${DISTRICT_TELUGU[d]} (${d})` : d}
                   </option>
                 ))}
               </select>
@@ -384,12 +390,13 @@ export default function SecondMarriagePage() {
             {/* Age Range Filter */}
             <div>
               <div className="flex justify-between items-center mb-1">
-                <label className="text-[11px] font-extrabold text-slate-700">
-                  🎂 {te ? "గరిష్ట వయసు (Max Age)" : "Max Age"}
+                <label htmlFor="remarriage-age" className="text-[11px] font-extrabold text-slate-700">
+                  🎂 {te ? "గరిష్ట వయస్సు" : "Maximum age"}
                 </label>
-                <span className="text-xs font-black text-maroon">{ageMax} yrs</span>
+                <span className="text-xs font-black text-maroon">{ageMax} {te ? "సం." : "years"}</span>
               </div>
               <input
+                id="remarriage-age"
                 type="range"
                 min={22}
                 max={60}
@@ -403,7 +410,7 @@ export default function SecondMarriagePage() {
           {/* Active Filter Summary and Clear Button */}
           <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100 text-xs">
             <div className="text-slate-600 font-bold">
-              <span>{te ? "లభించిన పునర్వివాహ సంబంధాలు:" : "Matching Remarriage Profiles:"} </span>
+              <span>{te ? "సరిపోలిన పునర్వివాహ సంబంధాలు:" : "Matching Remarriage Profiles:"} </span>
               <span className="text-maroon font-black text-sm">{filteredProfiles.length}</span>
             </div>
 
@@ -413,7 +420,7 @@ export default function SecondMarriagePage() {
                 className="text-[11px] text-rose-600 hover:text-rose-800 font-bold flex items-center gap-1"
               >
                 <span>✕</span>
-                <span>{te ? "ఫిల్టర్లు రీసెట్ చేయండి (Reset All)" : "Reset Filters"}</span>
+                <span>{te ? "అన్ని వడపోతలను తొలగించండి" : "Reset Filters"}</span>
               </button>
             )}
           </div>
@@ -440,19 +447,19 @@ export default function SecondMarriagePage() {
             <div className="text-4xl">🔍</div>
             <h3 className="text-lg font-bold text-navy">
               {profiles.length === 0
-                ? (te ? "ప్రస్తుతం ప్రచురించిన పునర్వివాహ profiles లేవు" : "No published second-marriage profiles are currently available")
-                : (te ? "మీరు ఎంచుకున్న ఫిల్టర్లతో సంబంధాలు కనిపించలేదు" : "No profiles found matching selected filters")}
+                ? (te ? "ప్రస్తుతం ప్రచురించిన పునర్వివాహ ప్రొఫైళ్లు లేవు" : "No published second-marriage profiles are currently available")
+                : (te ? "ఎంచుకున్న ఫిల్టర్లకు సరిపోయే సంబంధాలు కనిపించలేదు" : "No profiles found matching selected filters")}
             </h3>
             <p className="text-xs text-slate-500 max-w-md mx-auto">
               {profiles.length === 0
-                ? (te ? "నమూనా లేదా కల్పిత profiles చూపించము. తర్వాత మళ్లీ చూడండి." : "We do not substitute sample profiles. Please check again later.")
-                : (te ? "ఫిల్టర్లను కాస్త సడలించి మళ్లీ ప్రయత్నించండి." : "Try broadening your filters.")}
+                ? (te ? "నమూనా లేదా కల్పిత ప్రొఫైళ్లు చూపించము. తర్వాత మళ్లీ చూడండి." : "We do not substitute sample profiles. Please check again later.")
+                : (te ? "వడపోతలను సడలించి మళ్లీ ప్రయత్నించండి." : "Try broadening your filters.")}
             </p>
             <button
               onClick={resetAllFilters}
               className="px-6 py-2.5 rounded-xl maroon-gradient text-white font-bold text-xs shadow-md"
             >
-              {te ? "ఫిల్టర్లు రీసెట్ చేయండి" : "Reset All Filters"}
+              {te ? "వడపోతలను తొలగించండి" : "Reset All Filters"}
             </button>
           </div>
         ) : (
@@ -461,6 +468,19 @@ export default function SecondMarriagePage() {
               const photo = row.photo_url || (Array.isArray(row.photo_urls) && row.photo_urls[0]) || "";
               const maritalBadge = getMaritalBadge(row.marital_status, row.gender);
               const isSaved = savedIds.includes(row.tsap_id);
+              const caste = te ? (CASTE_TELUGU[row.caste || ""] || row.caste || "") : profileText(row.caste);
+              const subCaste = profileText(row.sub_caste);
+              const height = profileText(row.height);
+              const children = profileText(row.children);
+              const education = profileText(row.education);
+              const job = profileText(row.job);
+              const company = profileText(row.company);
+              const district = te ? (DISTRICT_TELUGU[row.district || ""] || row.district || "") : profileText(row.district);
+              const salary = profileText(row.salary);
+              const about = profileText(row.about_myself, te ? "" : "Profile description is not available in English.");
+              const star = profileText(row.star);
+              const rasi = profileText(row.rasi);
+              const gothram = profileText(row.gothram);
 
               return (
                 <div
@@ -475,9 +495,9 @@ export default function SecondMarriagePage() {
                           {maritalBadge.label}
                         </span>
 
-                        {row.children && (
+                        {children && (
                           <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-900 border border-amber-200">
-                            👶 {row.children === "None" ? "పిల్లలు లేరు (No Children)" : row.children}
+                            👶 {children === "None" ? (te ? "పిల్లలు లేరు" : "No children") : children}
                           </span>
                         )}
                       </div>
@@ -500,20 +520,20 @@ export default function SecondMarriagePage() {
                           // eslint-disable-next-line @next/next/no-img-element
                           <img
                             src={photo}
-                            alt={row.full_name}
+                            alt={row.full_name || (te ? "సభ్యుడి ప్రొఫైల్ ఫోటో" : "Member profile photo")}
                             className="w-20 h-24 rounded-2xl object-cover border border-gold/40 shadow-sm"
                           />
                         ) : (
                           <div className="w-20 h-24 rounded-2xl bg-amber-50 border border-gold/30 flex flex-col items-center justify-center text-3xl shadow-inner text-maroon">
                             <span>{row.gender === "Groom" || row.gender === "Male" ? "🤵" : "👰"}</span>
-                            <span className="text-[9px] font-bold mt-1 text-slate-500">🔒 Photo Lock</span>
+                            <span className="text-[9px] font-bold mt-1 text-slate-500">🔒 {te ? "ఫోటో చూపబడలేదు" : "Photo not shown"}</span>
                           </div>
                         )}
                         {(row.phone_verified || row.photo_verified || row.id_verified) && (
                           <div className="absolute -bottom-2 -right-1 flex max-w-[calc(100%-8px)] flex-wrap justify-end gap-1">
-                            {row.phone_verified && <span title={te ? "OTP ఈ phone number వినియోగాన్ని మాత్రమే నిర్ధారిస్తుంది" : "OTP confirms access to this phone number only"} className="rounded bg-sky-700 px-1 py-0.5 text-[8px] text-white shadow">Phone OTP</span>}
-                            {row.photo_verified && <span title={te ? "Photo review నమోదు; identity లేదా ఇతర వివరాల హామీ కాదు" : "Photo review recorded; not an identity or profile-details guarantee"} className="rounded bg-emerald-700 px-1 py-0.5 text-[8px] text-white shadow">{te ? "ఫోటో సమీక్ష" : "Photo reviewed"}</span>}
-                            {row.id_verified && <span title={te ? "ప్రభుత్వ ID సమీక్ష నమోదు; ఇతర వివరాలు నిర్ధారించబడవు" : "Government ID review recorded; other profile details are not verified"} className="rounded bg-blue-700 px-1 py-0.5 text-[8px] text-white shadow">{te ? "ID సమీక్ష" : "ID reviewed"}</span>}
+                            {row.phone_verified && <span title={te ? "OTP ఈ ఫోన్ నంబర్‌కు ప్రాప్యతను మాత్రమే నిర్ధారిస్తుంది" : "OTP confirms access to this phone number only"} className="rounded bg-sky-700 px-1 py-0.5 text-[8px] text-white shadow">Phone OTP</span>}
+                            {row.photo_verified && <span title={te ? "ఫోటో సమీక్ష నమోదు; ఇది గుర్తింపు లేదా ఇతర వివరాల ధృవీకరణ కాదు" : "Photo review recorded; not an identity or profile-details guarantee"} className="rounded bg-emerald-700 px-1 py-0.5 text-[8px] text-white shadow">{te ? "ఫోటో సమీక్ష" : "Photo reviewed"}</span>}
+                            {row.id_verified && <span title={te ? "ప్రభుత్వ గుర్తింపు పత్ర సమీక్ష నమోదు; ఇతర వివరాలు నిర్ధారించబడవు" : "Government ID review recorded; other profile details are not verified"} className="rounded bg-blue-700 px-1 py-0.5 text-[8px] text-white shadow">{te ? "ID సమీక్ష" : "ID reviewed"}</span>}
                           </div>
                         )}
                       </div>
@@ -535,56 +555,56 @@ export default function SecondMarriagePage() {
                             className={`shrink-0 p-1.5 rounded-full transition ${
                               isSaved ? "text-rose-600 bg-rose-50" : "text-slate-400 hover:text-rose-500"
                             }`}
-                            title={isSaved ? "Saved" : "Shortlist"}
+                            title={isSaved ? (te ? "సేవ్ చేయబడింది" : "Saved") : (te ? "ఎంపికల జాబితా" : "Shortlist")}
                           >
                             {isSaved ? "❤️" : "🤍"}
                           </button>
                         </div>
 
-                        {(row.caste || row.sub_caste || row.age || row.height) && <p className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 break-words text-xs font-bold text-maroon">
-                          {row.caste && <span>💍 {row.caste}</span>}
-                          {row.sub_caste && <span className="text-slate-500">({row.sub_caste})</span>}
-                          {row.age && <span>🎂 {row.age} yrs</span>}
-                          {row.height && <span>{row.height}</span>}
+                        {(caste || subCaste || row.age || height) && <p className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 break-words text-xs font-bold text-maroon">
+                          {caste && <span>💍 {caste}</span>}
+                          {subCaste && <span className="text-slate-500">({subCaste})</span>}
+                          {row.age && <span>🎂 {row.age} {te ? "సం." : "years"}</span>}
+                          {height && <span>{height}</span>}
                         </p>}
 
-                        {(row.education || row.job || row.company) && <p className="break-words text-xs font-medium leading-relaxed text-slate-800">
-                          {[row.education, row.job, row.company].filter(Boolean).join(" • ")}
+                        {(education || job || company) && <p className="break-words text-xs font-medium leading-relaxed text-slate-800">
+                          {[education, job, company].filter(Boolean).join(" • ")}
                         </p>}
 
-                        {(row.district || row.state || row.salary) && <p className="break-words text-[11.5px] leading-relaxed text-slate-500">
-                          {[row.district ? `📍 ${row.district}` : "", row.state || "", row.salary ? `💰 ${row.salary}` : ""].filter(Boolean).join(" • ")}
+                        {(district || row.state || salary) && <p className="break-words text-[11.5px] leading-relaxed text-slate-500">
+                          {[district ? `📍 ${district}` : "", row.state ? stateFullName(row.state, te) : "", salary ? `💰 ${salary}` : ""].filter(Boolean).join(" • ")}
                         </p>}
 
                         <div className="break-words text-[11px] text-slate-500 pt-0.5">
-                          🔒 {te ? "సంప్రదింపు వివరాలు గోప్యంగా ఉంచబడ్డాయి" : "Contact details are protected"}
+                          🔒 {te ? "సంప్రదింపు వివరాలు బహిరంగంగా చూపించబడవు" : "Contact details are protected"}
                         </div>
                       </div>
                     </div>
 
                     {/* About Quote */}
-                    {row.about_myself && (
+                    {about && (
                       <div className="bg-amber-50/50 p-2.5 rounded-2xl border border-gold/20 text-xs text-slate-700 italic leading-relaxed">
-                        &quot;{row.about_myself}&quot;
+                        &quot;{about}&quot;
                       </div>
                     )}
 
                     {/* Horoscope Tags */}
                     <div className="flex flex-wrap items-center justify-between gap-2 pt-1 text-xs">
                       <div className="flex items-center gap-1.5 flex-wrap">
-                        {row.star && (
+                        {star && (
                           <span className="bg-amber-100 text-amber-900 font-bold px-2.5 py-0.5 rounded-full text-[10.5px]">
-                            ⭐ {row.star}
+                            ⭐ {star}
                           </span>
                         )}
-                        {row.rasi && (
+                        {rasi && (
                           <span className="bg-slate-100 text-slate-700 font-semibold px-2 py-0.5 rounded-full text-[10.5px]">
-                            {row.rasi}
+                            {rasi}
                           </span>
                         )}
-                        {row.gothram && (
+                        {gothram && (
                           <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full text-[10.5px]">
-                            గోత్రం: {row.gothram}
+                            {te ? "గోత్రం" : "Gothram"}: {gothram}
                           </span>
                         )}
                       </div>
@@ -603,14 +623,14 @@ export default function SecondMarriagePage() {
 
                     {SITE_CONFIG.supportWhatsapp ? (
                       <a
-                        href={whatsappPhoneLink(SITE_CONFIG.supportWhatsapp, `Hello, I have a question about listing ${row.tsap_id}.`) || undefined}
+                        href={whatsappPhoneLink(SITE_CONFIG.supportWhatsapp, te ? `నమస్కారం, ${row.tsap_id} జాబితా గురించి నాకు ప్రశ్న ఉంది.` : `Hello, I have a question about listing ${row.tsap_id}.`) || undefined}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="flex-1 min-w-[130px] text-center py-2.5 px-3 rounded-xl bg-gradient-to-r from-[#128C4A] to-[#20bd5a] text-white text-xs font-bold transition shadow-xs flex items-center justify-center gap-1.5"
                         title={te ? "బాహ్య WhatsApp లింక్; లభ్యత తనిఖీ చేయబడదు" : "External WhatsApp link; availability is not checked"}
                       >
                         <span>💬</span>
-                        <span>{te ? "లిస్టింగ్ గురించి అడగండి" : "Ask about listing"}</span>
+                        <span>{te ? "జాబితా గురించి అడగండి" : "Ask about listing"}</span>
                       </a>
                     ) : null}
 
@@ -619,7 +639,7 @@ export default function SecondMarriagePage() {
                       className="text-center py-2.5 px-3 rounded-xl border border-gold/40 text-amber-900 bg-amber-50 hover:bg-amber-100 text-xs font-bold transition"
                       title="Generate Remarriage Biodata"
                     >
-                      🎴 బయోడేటా
+                      🎴 {te ? "బయోడేటా రూపొందించండి" : "Create biodata"}
                     </Link>
                   </div>
                 </div>
@@ -638,30 +658,30 @@ export default function SecondMarriagePage() {
               </div>
               <div>
                 <h3 className="font-black text-base text-maroon">
-                  {te ? "పునర్వివాహ listings గురించి ప్రశ్నలున్నాయా?" : "Questions about remarriage listings?"}
+                  {te ? "పునర్వివాహ సంబంధాల గురించి ప్రశ్నలున్నాయా?" : "Questions about remarriage listings?"}
                 </h3>
                 <p className="text-xs text-slate-600">
-                  {te ? "ఇక్కడి వివరాలు సభ్యులు అందించినవి; నిర్ణయానికి ముందు స్వతంత్రంగా నిర్ధారించండి." : "Listings are member-submitted; verify details independently before making decisions."}
+                  {te ? "ఇక్కడి వివరాలను సభ్యులు అందించారు; నిర్ణయం తీసుకునే ముందు స్వతంత్రంగా నిర్ధారించండి." : "Listings are member-submitted; verify details independently before making decisions."}
                 </p>
               </div>
             </div>
             <p className="text-xs text-slate-700 leading-relaxed">
               {te
-                ? "అంగీకారం మరియు privacy settings అనుమతించినప్పుడు మాత్రమే contact వివరాలు పంచుకోండి. WhatsApp link అందుబాటులో ఉంటే అది బాహ్య సేవను తెరుస్తుంది; delivery లేదా availability హామీ కాదు."
-                : "Share contact details only with consent and subject to privacy settings. A configured WhatsApp link opens an external service; delivery and availability are not guaranteed."}
+                ? "సంభాషణను కొనసాగించాలా వద్దా మీరే నిర్ణయించండి. యజమాని అంగీకారం తర్వాత అంగీకరించిన అభ్యర్థనల ఖాతా వీక్షణల్లో సంప్రదింపు వివరాలు కనిపిస్తాయి. అమలులో ఉన్న WhatsApp నోటిఫికేషన్‌లో అవి ఉండవచ్చు; పంపిణీ లేదా చదివిన స్థితి నిర్ధారించబడదు."
+                : "Choose whether to continue the conversation. Owner acceptance grants contact access in account views; a configured WhatsApp notification may include the details, but delivery/read status is not confirmed."}
             </p>
             {SITE_CONFIG.supportWhatsapp ? (
               <a
-                href={whatsappPhoneLink(SITE_CONFIG.supportWhatsapp, "Hello, I have a question about the remarriage listings.") || undefined}
+                href={whatsappPhoneLink(SITE_CONFIG.supportWhatsapp, te ? "నమస్కారం, పునర్వివాహ సంబంధాల జాబితా గురించి నాకు ప్రశ్న ఉంది." : "Hello, I have a question about the remarriage listings.") || undefined}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-gradient-to-r from-[#128C4A] to-[#20bd5a] px-4 py-2 text-xs font-bold text-white shadow-sm transition hover:brightness-105"
               >
-                💬 {te ? "WhatsApp support తెరవండి" : "Open WhatsApp support"}
+                💬 {te ? "WhatsApp సహాయాన్ని తెరవండి" : "Open WhatsApp support"}
               </a>
             ) : (
               <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900" role="status">
-                {te ? "ఈ deployment లో WhatsApp support contact configure కాలేదు." : "A WhatsApp support contact is not configured for this deployment."}
+                {te ? "ఈ సేవకు WhatsApp సహాయ సంప్రదింపు ఇంకా అమర్చబడలేదు." : "A WhatsApp support contact is not configured for this deployment."}
               </p>
             )}
           </div>
@@ -676,27 +696,19 @@ export default function SecondMarriagePage() {
             <ul className="space-y-2.5 text-xs text-slate-700">
               <li className="flex items-start gap-2">
                 <span className="text-emerald-600 font-bold">✓</span>
-                <span>
-                  <b>పరస్పర పారదర్శకత:</b> గత వివాహ వివరాలు, లీగల్ స్టేటస్ మరియు ఆర్థిక విషయాలపై ముందే స్పష్టత ఉండాలి.
-                </span>
+                <span><b>{te ? "పరస్పర పారదర్శకత:" : "Mutual transparency:"}</b> {te ? "గత వివాహం, ప్రస్తుత చట్టపరమైన స్థితి మరియు ఆర్థిక విషయాల గురించి స్పష్టంగా మాట్లాడండి." : "Discuss the previous marriage, current legal status, and finances openly."}</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-emerald-600 font-bold">✓</span>
-                <span>
-                  <b>పిల్లల భవిష్యత్తు:</b> పిల్లలు ఉన్నట్లయితే వారి మానసిక స్థైర్యం మరియు బాధ్యతలపై సమాన ప్రాధాన్యత.
-                </span>
+                <span><b>{te ? "పిల్లల శ్రేయస్సు:" : "Children’s wellbeing:"}</b> {te ? "పిల్లలు ఉంటే, వారి అవసరాలు మరియు బాధ్యతల గురించి జాగ్రత్తగా చర్చించండి." : "If children are involved, discuss their needs and responsibilities with care."}</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-emerald-600 font-bold">✓</span>
-                <span>
-                  <b>కుటుంబ ఆమోదం:</b> ఇరువైపులా కుటుంబ సభ్యుల పరస్పర గౌరవం మరియు సంప్రదాయాల సమన్వయం.
-                </span>
+                <span><b>{te ? "కుటుంబ సంభాషణ:" : "Family communication:"}</b> {te ? "ఇరు కుటుంబాల సరిహద్దులు, గౌరవం మరియు ఆచారాల గురించి పరస్పరం మాట్లాడండి." : "Discuss boundaries, respect, and traditions with both families."}</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-emerald-600 font-bold">✓</span>
-                <span>
-                  <b>గోప్యతా హక్కు:</b> అనవసరమైన విచారణలు లేకుండా పరస్పర గౌరవంతో సంబంధాన్ని ముందుకు తీసుకెళ్లడం.
-                </span>
+                <span><b>{te ? "గోప్యత మరియు గౌరవం:" : "Privacy and respect:"}</b> {te ? "అనవసరమైన ప్రశ్నలు అడగకుండా, పరస్పర గౌరవంతో ముందుకు సాగండి." : "Avoid intrusive questions and share information with mutual respect."}</span>
               </li>
             </ul>
           </div>

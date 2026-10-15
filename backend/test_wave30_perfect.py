@@ -1,16 +1,27 @@
 """
-WAVE 30 PERFECT — live home numbers (no dummy) + Telugu/English toggle + copy-truth sweeps.
-Run: WA_TEST_FAST=1 python3 test_wave30_perfect.py (backend/ nunchi)
+Wave 30 homepage/API and copy regression suite — isolated, local-only checks.
+Run: backend/.venv/bin/python backend/test_wave30_perfect.py
 """
 import os
 import re
 import subprocess
 import sys
 
-os.environ.setdefault("WA_TEST_FAST", "1")
-os.environ.setdefault("OTP_DEV_MODE", "true")
-os.environ.setdefault("WA_LONG_PAUSE_CHANCE", "0")
+os.environ["WA_TEST_FAST"] = "1"
+os.environ["OTP_DEV_MODE"] = "true"
+os.environ["WA_LONG_PAUSE_CHANCE"] = "0"
+os.environ["APP_ENV"] = "test"
+os.environ["ENV"] = "test"
+os.environ["WHATSAPP_MODE"] = "off"
+os.environ["PUBLISH_DRY_RUN"] = "true"
+os.environ["AUTO_POST_ON_REGISTER"] = "false"
+for _key in ("BOT_TOKEN", "BOT_TOKEN_BACKUP", "BOT_TOKEN_ALERT", "BOT_TOKEN_2", "BOT_TOKEN_3",
+             "BOT_POOL_JSON", "TSAP_API_KEY", "PAY_UPI_ID", "SUPPORT_CALL_NUMBER"):
+    os.environ.pop(_key, None)
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+from test_storage import isolate_test_stores  # noqa: E402
+_TEST_STORE = isolate_test_stores("wave30-perfect")
 
 PASS, FAIL, FAILED = 0, 0, []
 
@@ -45,9 +56,15 @@ try:
     check("P1.1 200 + success", r.status_code == 200 and r.json().get("success"),
           (r.status_code, r.text[:150]))
     d = r.json()
-    check("P1.2 channels 52/live 2 or 52", d.get("channels_total") == 52 and d.get("channels_live") in (2, 52),
-          (d.get("channels_total"), d.get("channels_live")))
-    check("P1.3 tiers sum to total", sum((d.get("channels_by_tier") or {}).values()) == 52,
+    public_channel_truth = M.public_channel_stats()
+    check("P1.2 homepage counts only public directory rows, not private registry rows",
+          d.get("channels_total") == public_channel_truth.get("total")
+          and d.get("channels_by_tier") == public_channel_truth.get("by_tier")
+          and d.get("channels_routing_eligible") == public_channel_truth.get("routing_eligible"),
+          {"api": (d.get("channels_total"), d.get("channels_by_tier"), d.get("channels_routing_eligible")),
+           "public": public_channel_truth})
+    check("P1.3 public tier counts sum to public total",
+          sum((d.get("channels_by_tier") or {}).values()) == d.get("channels_total"),
           d.get("channels_by_tier"))
     mc = c.get("/api/meta/castes?religion=Hindu").json()
     check("P1.4 castes match meta", d.get("castes_covered") == len(mc.get("castes", [])),

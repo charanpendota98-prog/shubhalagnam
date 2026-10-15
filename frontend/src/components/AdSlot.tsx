@@ -1,4 +1,6 @@
 "use client";
+
+import { apiDisplayMessage, readApiJson } from "@/lib/api";
 /**
  * 📢 WAVE 13 — targeted AdSlot (district/state scope).
  * No ad → house promo (khaali vaddu, revenue + UX).
@@ -8,7 +10,8 @@ import Link from "next/link";
 import { useLang } from "@/lib/lang";
 
 type Ad = {
-  id: string; vendor_id: string; title: string; offer: string;
+  id: string; vendor_id: string; title: string; title_en?: string; title_te?: string;
+  offer: string; offer_en?: string; offer_te?: string;
   image_url: string; banner_url: string; video_url: string; link: string;
 };
 
@@ -29,11 +32,11 @@ export default function AdSlot({ slot, district = "", state = "", className = ""
     let live = true;
     const q = new URLSearchParams({ slot, district, state });
     fetch(`/api/ads?${q.toString()}`)
-      .then((r) => r.json())
+      .then((r) => readApiJson(r))
       .then((d) => { if (live && d.ok && d.ad) setAd(d.ad); })
       .catch(() => { });
     return () => { live = false; };
-  }, [slot, district, state]);
+  }, [slot, district, state, isProtectedFlow]);
 
   if (isProtectedFlow) return null;
 
@@ -66,17 +69,23 @@ export default function AdSlot({ slot, district = "", state = "", className = ""
     );
   }
   const img = ad.banner_url || ad.image_url;
+  const adTitle = te
+    ? ad.title_te || ad.title
+    : apiDisplayMessage({ message_en: ad.title_en || ad.title }, false, "Advertisement details are not available in English.");
+  const adOffer = te
+    ? ad.offer_te || ad.offer
+    : apiDisplayMessage({ message_en: ad.offer_en || ad.offer }, false, "");
   return (
     <div className={`overflow-hidden rounded-2xl border border-[#D4AF37]/60 bg-white shadow-sm ${className}`}>
       <button onClick={onClick} className="block w-full text-left">
         {img ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={img} alt={ad.title} className="max-h-56 w-full object-cover" loading="lazy" />
+          <img src={img} alt={adTitle} className="max-h-56 w-full object-cover" loading="lazy" />
         ) : null}
         <div className="p-3">
           <p className="text-[10px] font-bold uppercase tracking-wide text-gray-400">📢 Sponsored</p>
-          <p className="text-sm font-extrabold text-[#0F1F3C]">{ad.title}</p>
-          {ad.offer ? <p className="mt-0.5 text-[12px] font-bold text-green-700">🎁 {ad.offer}</p> : null}
+          <p lang={te ? "te-IN" : "en-IN"} className={`text-sm font-extrabold text-[#0F1F3C] ${te ? "telugu" : ""}`}>{adTitle}</p>
+          {adOffer ? <p lang={te ? "te-IN" : "en-IN"} className={`mt-0.5 text-[12px] font-bold text-green-700 ${te ? "telugu" : ""}`}>🎁 {adOffer}</p> : null}
           {ad.video_url ? <p className="mt-1 text-[11px] text-[#7A0C2E]">{te ? "▶️ Video చూడండి" : "▶️ Watch video"}</p> : null}
         </div>
       </button>

@@ -5,13 +5,23 @@ Run: python3 assault28_live.py   (servers must be up)
 """
 import http.client
 import json
+import os
 import random
-import subprocess
 import urllib.request
 import urllib.error
+from pathlib import Path
+from urllib.parse import urlsplit
 
-API = "http://localhost:8000"
-WEB = "http://localhost:3000"
+# This smoke test creates a test registration on a running service. It must be
+# explicitly enabled and pointed only at a disposable local/test environment.
+if os.getenv("MANA_VIVAHA_ALLOW_LIVE_TEST_WRITES", "").strip().lower() not in {"1", "true", "yes"}:
+    raise SystemExit("Refusing to create a live smoke-test member. Set MANA_VIVAHA_ALLOW_LIVE_TEST_WRITES=1 only for disposable test data.")
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+from testutil_photos import TEST_PROFILE_PHOTO  # noqa: E402
+
+API = os.getenv("MANA_VIVAHA_API_BASE", "http://localhost:8000").rstrip("/")
+WEB = os.getenv("MANA_VIVAHA_WEB_BASE", "http://localhost:3000").rstrip("/")
 CASES = [0]
 FAILS = []
 
@@ -42,16 +52,29 @@ def hit(method, base, path, body=None, headers=None, expect=(200,)):
         return 0, ""
 
 
-# ---- setup: 1 live user ----
+# ---- setup: 1 isolated test user (pending review; photo stays private) ----
 ph = f"93228{random.randrange(10000, 99999)}"
-boundary = "----live28"
-fields = {"gender": "female", "age": "23", "height": "5'5", "marital_status": "Pelli Kaledu",
+name_suffix = "".join(random.choice("ABCDEFGHJKLMNPQRSTUVWXYZ") for _ in range(6))
+boundary = "----mana-vivaha-live-" + name_suffix
+fields = {"gender": "female", "age": "23", "dob": "2003-01-15", "password": "test-profile-password",
+          "height": "5'5", "marital_status": "Pelli Kaledu", "religion": "Hindu",
           "caste": "Kamma", "education": "BTech", "job": "Software", "salary": "9L",
-          "state": "TS", "district": "Hyd", "phone": ph, "full_name": "Live Storm Rani"}
-mp = "".join(f"--{boundary}\r\nContent-Disposition: form-data; name=\"{k}\"\r\n\r\n{v}\r\n"
-             for k, v in fields.items()) + f"--{boundary}--\r\n"
-conn = http.client.HTTPConnection("localhost", 8000, timeout=10)
-conn.request("POST", "/api/register", mp.encode(),
+          "state": "TS", "district": "Hyderabad", "phone": ph, "full_name": f"Live Storm {name_suffix}",
+          "consent_confirmed": "true", "photo_consent_confirmed": "true", "photo_private": "true"}
+parts = [
+    f"--{boundary}\r\nContent-Disposition: form-data; name=\"{key}\"\r\n\r\n{value}\r\n".encode()
+    for key, value in fields.items()
+]
+parts.append((f"--{boundary}\r\nContent-Disposition: form-data; name=\"photo_file\"; "
+              "filename=\"test-profile.jpg\"\r\nContent-Type: image/jpeg\r\n\r\n").encode())
+parts.extend((TEST_PROFILE_PHOTO, b"\r\n", f"--{boundary}--\r\n".encode()))
+mp = b"".join(parts)
+api_url = urlsplit(API)
+if api_url.scheme != "http" or not api_url.hostname:
+    raise SystemExit("This script supports disposable HTTP test backends only; HTTPS/live targets are refused.")
+conn = http.client.HTTPConnection(api_url.hostname, api_url.port or 80, timeout=10)
+register_path = (api_url.path.rstrip("/") + "/api/register") or "/api/register"
+conn.request("POST", register_path, mp,
              {"Content-Type": f"multipart/form-data; boundary={boundary}"})
 rr = conn.getresponse()
 CASES[0] += 1
@@ -62,13 +85,12 @@ TOK = {"X-TSAP-Token": reg["auth_token"]}
 print(f"[live] user {TID}")
 
 # ---- pages (crawlable) ----
-outs = subprocess.run(["bash", "-c",
-                       "cd /home/user/matrimony-site/frontend/src/app && find . -name page.tsx"],
-                      capture_output=True, text=True).stdout.split()
+app_root = os.path.join(ROOT, "frontend", "src", "app")
 PAGES = []
-for pg in outs:
-    u = pg[1:] if pg.startswith(".") else pg
-    u = u.replace("/page.tsx", "") or "/"
+for page_file in Path(app_root).rglob("page.tsx"):
+    u = page_file.relative_to(app_root).as_posix()
+    u = u.removesuffix("/page.tsx").removesuffix("page.tsx")
+    u = "/" + u.strip("/") if u.strip("/") else "/"
     u = u.replace("[id]", "1")
     if "[" in u or "(" in u or u.endswith(".tsx"):
         continue
@@ -80,7 +102,7 @@ print(f"[live] pages: {len(PAGES)}")
 APIS = [
     ("GET", "/api/health"), ("GET", "/api/plans"), ("GET", "/api/vendors"),
     ("GET", "/api/vendors/categories"), ("GET", "/api/vendors/packages"),
-    ("GET", "/api/vendors/ads"), ("GET", "/api/channels/live"),
+    ("GET", "/api/vendors/ads"), ("GET", "/api/channels/routing-eligible"),
     ("GET", "/api/channels/setup-plan"), ("GET", "/api/safety/tips"),
     ("GET", "/api/templates/interest"), ("GET", "/api/referral/terms"),
     ("GET", "/api/referral/leaderboard"),

@@ -1,28 +1,38 @@
 """
 MANA VIVAHA — GROWTH ENGINE
 ===========================
-1) 🙏 NAMASTE WELCOME AUTOMATION — register avvagane MANA WhatsApp nunchi:
-   • user ki: "నమస్తే <name> గారు! 🙏" + profile card + full details + next steps
+1) 🙏 NAMASTE WELCOME TEXT — prepared for the registrant; WhatsApp is queued only when explicitly configured:
+   • user ki: "నమస్తే <name> గారు! 🙏" + profile card + next steps
    • admin/matcher ki: kotha registration alert (follow-up cheyyadaniki)
-2) 📊 VISITOR + LEAD CAPTURE — "site కి వచ్చిన వాళ్లు, chusina వాళ్లు antha DB లో save అవ్వాలి"
-   • prathi visit (path, referrer, utm, device, city guess) DB_VISITORS lo
-   • number isthe → DB_LEADS (hot lead) + WhatsApp follow-up queue
+2) 📊 VISITOR + LEAD CAPTURE — bounded, process-local analytics
+   • visit paths/referrers/device categories use a salted pseudonymous ID; raw IP and user-agent are not stored in each event
+   • events expire after 30 days, are capped at 10,000, and are cleared when the process restarts
+   • Contact requests enter DB_LEADS; a WhatsApp follow-up is allowed only with recorded opt-in
    • profile views DB_VIEWS lo (already main.py lo) — ikkada who-viewed summary
 3) 🎴 SHARE KIT — "ఒక profile చాలా మంది chudalanukune la" — status-ready image + text + hashtags
 
 Chatting ledu — interest request + WhatsApp profile share model ki todu.
 """
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional, Tuple
 import hashlib
+import hmac
 import os
 import random
+import re
+import threading
 
 SITE = os.getenv("PUBLIC_SITE_URL", "https://manavivaha.in").rstrip("/")
-BOT_USERNAME = os.getenv("BOT_USERNAME", "@telugumatrimony1_bot")
+BOT_USERNAME = os.getenv("BOT_USERNAME", "").strip()
 SUPPORT_PHONE = os.getenv("SUPPORT_PHONE", "").strip()
 
-DB_VISITORS: List[Dict] = []   # {vid, at, path, ref, utm, device, ua}
+DB_VISITORS: List[Dict] = []   # Process-local event records: {vid, at, path, ref, utm, device, channel}
+MAX_VISITOR_EVENTS = 10_000
+VISITOR_RETENTION_DAYS = 30
+VISITOR_PRUNE_INTERVAL_SECONDS = 60
+_VISITOR_ID_SALT = os.urandom(32)
+_VISITOR_LOCK = threading.Lock()
+_LAST_VISITOR_PRUNE_AT = datetime.utcnow()
 DB_LEADS: List[Dict] = []      # {id, at, name, phone, gender, age, district, caste, source, status, notes}
 
 
@@ -59,41 +69,36 @@ def namaste_text(user: Dict, tsap_id: str) -> str:
         f"━━━━━━━━━━━━━━━━\n"
         f"🔒 Contact sharing follows the interest/consent flow and profile settings; independently verify details before proceeding.\n"
         f"🚫 In-site chat లేదు; external contact తర్వాత spam లేదా unwanted messages జరగవని హామీ లేదు.\n"
-        f"🤖 Bot: {BOT_USERNAME} | 🔍 మీ profile: {SITE}/search/{tsap_id}\n"
+        f"{'🤖 Bot: ' + BOT_USERNAME + ' | ' if BOT_USERNAME else ''}🔍 మీ profile: {SITE}/search/{tsap_id}\n"
         + (f"❓ Configured support contact: {SUPPORT_PHONE}" if SUPPORT_PHONE else "")
     )
 
 
 def admin_new_profile_text(user: Dict, tsap_id: str, source: str = "website") -> str:
-    """Admin/matcher కి కొత్త registration alert — 2 నిమిషాల్లో verify + follow-up చెయ్యడానికి."""
+    """Admin/matcher alert for review; it does not imply verification or follow-up timing."""
     u = user or {}
     return (
         f"🆕 *NEW REGISTRATION* ({source})\n"
         f"🆔 {tsap_id} — {u.get('gender', '—')}\n"
         f"👤 {u.get('full_name', '—')} • {u.get('age', '—')}y • {u.get('caste', '—')}\n"
         f"📍 {u.get('district', '—')}, {u.get('state', 'TS')} • 🎓 {u.get('education', '—')} • 💼 {u.get('job', '—')}\n"
-        f"📞 {u.get('phone', '—')} {'✅ verified' if u.get('phone_verified') else '⚠️ verify pending'}\n"
+        f"📞 {u.get('phone', '—')} {'✅ Phone OTP recorded' if u.get('phone_verified') else '⚠️ Phone OTP not recorded'}\n"
         f"📸 photo: {'ఉంది' if u.get('photo_urls') else 'లేదు — అడగండి'}\n"
         f"🎴 Card: {SITE}/cards/{tsap_id}.png\n"
-        f"👉 Follow-up: welcome call + photo అడగండి + channels confirm"
+        f"👉 Review registration details, requested contact consent, photo status, and configured destinations before action."
     )
 
 
 def lead_followup_text(lead: Dict) -> str:
-    """Number ichi ఆగిపోయిన lead కి polite follow-up (మన WhatsApp నుంచి)."""
+    """One opt-in registration-assistance follow-up; no timing or outcome promise."""
     l = lead or {}
     return (
         f"🙏 నమస్తే {l.get('name', 'గారు')} గారు!\n"
-        f"మన వివాహ నుంచి మాట్లాడుతున్నాం 💐\n"
-        f"మీరు {l.get('district', 'మీ ఊర్లో')} నుంచి — {l.get('gender', '')} profile కి interest చూపించారు.\n"
-        f"━━━━━━━━━━━━━━━━\n"
-        f"మీ profile *FREE* గా complete చెయ్యడానికి 3 నిమిషాలు చాలు:\n"
-        f"1️⃣ పేరు + photo (optional)\n2️⃣ Caste + star details\n3️⃣ Education + job\n"
-        f"━━━━━━━━━━━━━━━━\n"
-        f"🔗 ఇక్కడ పూర్తి చేయండి: {SITE}/register\n"
-        f"🔒 మీ profile లో ఉన్న privacy settings ను review చేయండి; contact details sharing consent flow మీద ఆధారపడి ఉంటుంది.\n"
-        f"🚫 In-site chat లేదు. External contact తర్వాత unwanted messages జరగవని హామీ లేదు.\n"
-        + (f"❓ Configured support contact: {SUPPORT_PHONE}" if SUPPORT_PHONE else "")
+        f"మీరు Mana Vivaha registration assistance కోసం follow-up కోరారు.\n"
+        f"మీకు అనుకూలమైనప్పుడు profile ప్రారంభించండి లేదా పూర్తి చేయండి: {SITE}/register\n"
+        f"మొదటి 3 interest requests ఉచితం. Profile details సభ్యులు అందించినవి; స్వతంత్రంగా పరిశీలించండి.\n"
+        f"🔒 Public profile లో contact details చూపించము. Profile owner accept చేసిన తర్వాత accepted-request account views లో contact access వస్తుంది; notification delivery హామీ లేదు.\n"
+        f"🚫 In-site chat లేదు. ఈ సందేశం మీ అభ్యర్థించిన registration సహాయం కోసం మాత్రమే."
     )
 
 
@@ -101,22 +106,110 @@ def lead_followup_text(lead: Dict) -> str:
 # 2) 📊 VISITOR + LEAD CAPTURE
 # ---------------------------------------------------------------------------
 def _vid(ip: str, ua: str) -> str:
-    """Anonymous visitor id (IP+UA hash — cookie లేదు, GDPR-friendly)."""
-    return "V" + hashlib.sha256((str(ip) + "|" + str(ua)[:120]).encode()).hexdigest()[:14]
+    """Process-local pseudonym: link visits briefly without storing raw IP or user-agent."""
+    material = (str(ip) + "|" + str(ua)[:120]).encode("utf-8", "replace")
+    return "V" + hmac.new(_VISITOR_ID_SALT, material, hashlib.sha256).hexdigest()[:14]
+
+
+def _safe_path(raw: str) -> str:
+    path = str(raw or "/").split("?", 1)[0].split("#", 1)[0][:160]
+    if (not path.startswith("/") or path.startswith("//") or chr(92) in path
+            or "@" in path or re.search(r"\d{8,}", path)):
+        return "/"
+    return path
+
+
+def _safe_referrer(raw: str) -> str:
+    """Keep only an HTTP(S) origin; discard paths, queries, fragments and credentials."""
+    try:
+        from urllib.parse import urlsplit
+        parsed = urlsplit(str(raw or "")[:512])
+        if parsed.scheme.lower() not in {"http", "https"} or not parsed.hostname:
+            return ""
+        if parsed.username or parsed.password:
+            return ""
+        host = parsed.hostname.lower()
+        port = parsed.port
+        if port and not ((parsed.scheme.lower() == "http" and port == 80)
+                         or (parsed.scheme.lower() == "https" and port == 443)):
+            host = f"{host}:{port}"
+        return f"{parsed.scheme.lower()}://{host}"[:160]
+    except (TypeError, ValueError):
+        return ""
+
+
+def _safe_utm(raw: str) -> str:
+    """Retain only short standard campaign labels; exclude free-form query data."""
+    from urllib.parse import parse_qsl, quote_plus
+
+    allowed = {"utm_source", "utm_medium", "utm_campaign", "utm_content"}
+    output = []
+    try:
+        pairs = parse_qsl(str(raw or "")[:1024], keep_blank_values=False, max_num_fields=32)
+    except (TypeError, ValueError):
+        return ""
+    for key, value in pairs:
+        key = key.strip().lower()
+        if key not in allowed:
+            continue
+        value = value.strip()
+        if "@" in value or re.search(r"\d{8,}", value):
+            continue
+        value = re.sub(r"[^A-Za-z0-9_. -]", "", value)[:48].strip()
+        if value:
+            output.append(f"{key}={quote_plus(value)}")
+    return "&".join(output)[:160]
+
+
+def _prune_visitor_events_locked(now: datetime) -> None:
+    global _LAST_VISITOR_PRUNE_AT
+    if (len(DB_VISITORS) <= MAX_VISITOR_EVENTS
+            and (now - _LAST_VISITOR_PRUNE_AT).total_seconds() < VISITOR_PRUNE_INTERVAL_SECONDS):
+        return
+    cutoff = now - timedelta(days=VISITOR_RETENTION_DAYS)
+    retained = []
+    for event in DB_VISITORS:
+        try:
+            recorded_at = datetime.fromisoformat(str(event.get("at", "")))
+            if recorded_at.tzinfo is not None:
+                recorded_at = recorded_at.astimezone(timezone.utc).replace(tzinfo=None)
+            if recorded_at >= cutoff:
+                retained.append(event)
+        except (TypeError, ValueError):
+            continue
+    DB_VISITORS[:] = retained[-MAX_VISITOR_EVENTS:]
+    _LAST_VISITOR_PRUNE_AT = now
 
 
 def track_visit(ip: str, ua: str, path: str, ref: str = "", utm: str = "",
                 device: str = "", extra: Optional[Dict] = None) -> Dict:
-    """Prathi visit DB_VISITORS లో — 'chusina వాళ్లు antha save' requirement."""
+    """Record bounded, short-lived aggregate analytics without storing raw IP or user-agent."""
+    now = datetime.utcnow()
+    safe_ref = _safe_referrer(ref)
+    safe_path = _safe_path(path)
+    safe_utm = _safe_utm(utm)
     d = "mobile" if device == "mobile" else ("desktop" if device == "desktop" else ("mobile" if _is_mobile(ua) else "desktop"))
     rec = {
-        "vid": _vid(ip, ua), "at": datetime.utcnow().isoformat(), "path": path[:160],
-        "ref": (ref or "")[:160], "utm": (utm or "")[:160], "device": d,
-        "channel": _channel_of(ref, utm),
+        "vid": _vid(ip, ua), "at": now.isoformat(), "path": safe_path,
+        "ref": safe_ref, "utm": safe_utm, "device": d,
+        "channel": _channel_of(safe_ref, safe_utm),
     }
-    if extra:
-        rec.update({k: str(v)[:120] for k, v in extra.items()})
-    DB_VISITORS.append(rec)
+    if isinstance(extra, dict):
+        screen = str(extra.get("screen", ""))[:16]
+        language = str(extra.get("lang", "")).strip().lower()
+        if re.fullmatch(r"\d{2,4}x\d{2,4}", screen):
+            rec["screen"] = screen
+        if language in {"te", "te-in", "en", "en-in"}:
+            rec["lang"] = language
+        try:
+            seconds = int(extra.get("seconds", ""))
+            if 0 <= seconds <= 86_400:
+                rec["seconds"] = seconds
+        except (TypeError, ValueError):
+            pass
+    with _VISITOR_LOCK:
+        DB_VISITORS.append(rec)
+        _prune_visitor_events_locked(now)
     return rec
 
 
@@ -145,11 +238,9 @@ def _channel_of(ref: str, utm: str) -> str:
 
 
 def save_lead(name: str, phone: str, gender: str = "", district: str = "", caste: str = "",
-              age: str = "", source: str = "website", notes: str = "") -> Tuple[bool, str, Dict]:
-    """
-    Half-filled visitor ni lead ga save chey (hot lead — mana team follow-up chestundi).
-    Same phone malli isthe duplicate update avutundi (fresh ga untundi).
-    """
+              age: str = "", source: str = "website", notes: str = "",
+              contact_consent: bool = False) -> Tuple[bool, str, Dict]:
+    """Save a submitted lead; contact is allowed only when explicit consent is recorded."""
     phone = "".join(ch for ch in str(phone) if ch.isdigit())[-10:]
     if len(phone) != 10:
         return False, "10 digit mobile number ఇవ్వండి", {}
@@ -161,13 +252,20 @@ def save_lead(name: str, phone: str, gender: str = "", district: str = "", caste
                          "source": source or existing.get("source", ""),
                          "notes": notes or existing.get("notes", ""),
                          "updated_at": datetime.utcnow().isoformat(), "touches": int(existing.get("touches", 1)) + 1})
+        if contact_consent:
+            existing["contact_consent"] = True
+            existing["contact_consent_at"] = datetime.utcnow().isoformat()
+            existing["contact_consent_scope"] = "registration_assistance_only"
         return True, "already_lead", existing
     lead = {
         "id": "LEAD-" + datetime.utcnow().strftime("%y%m%d") + "-" + str(len(DB_LEADS) + 1).zfill(4),
         "at": datetime.utcnow().isoformat(), "name": name, "phone": phone, "gender": gender,
         "district": district, "caste": caste, "age": str(age), "source": source, "notes": notes,
         "status": "new", "touches": 1,
-        "followup": "WhatsApp follow-up queued (మన side నుంచి)",
+        "contact_consent": bool(contact_consent),
+        "contact_consent_at": datetime.utcnow().isoformat() if contact_consent else "",
+        "contact_consent_scope": "registration_assistance_only" if contact_consent else "",
+        "followup": "not_queued",
     }
     DB_LEADS.append(lead)
     return True, "new_lead", lead
@@ -217,12 +315,11 @@ def leads_list(status: str = "", limit: int = 100) -> Dict:
 
 
 # ---------------------------------------------------------------------------
-# 3) 🎴 SHARE KIT (profile reach penchadaniki)
+# 3) 🎴 SHARE KIT (member-directed sharing; no reach claim)
 # ---------------------------------------------------------------------------
 def share_kit(user: Dict, tsap_id: str, hashtags: Optional[List[str]] = None) -> Dict:
     """
-    WhatsApp status / groups ki ready kit: card image + Telugu text + hashtags + TG/WA share links.
-    'ఒక profile చాలా మంది chudalanukune la' — idi aa reach engine.
+    Member-directed share text and platform share URLs; no audience or delivery is claimed.
     """
     u = user or {}
     name = u.get("full_name", "Profile")
@@ -245,7 +342,6 @@ def share_kit(user: Dict, tsap_id: str, hashtags: Optional[List[str]] = None) ->
         "hashtags": tags,
         "whatsapp_share": "https://wa.me/?text=" + _url(caption),
         "telegram_share": "https://t.me/share/url?url=" + _url(f"{SITE}/search/{tsap_id}") + "&text=" + _url(caption),
-        "best_time_to_post": "Ratri 8–10 IST (WhatsApp status views ఎక్కువ)",
         "tips_telugu": [
             "Card image ను మీకు అనుకూలమైన WhatsApp status లేదా group లో share చేయండి; reach/views audience పై ఆధారపడి ఉంటాయి.",
             "Family WhatsApp groups లో caption + link పంపండి; share చేసే ముందు profile owner consent ఉందని నిర్ధారించండి.",

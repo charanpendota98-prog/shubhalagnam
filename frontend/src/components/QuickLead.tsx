@@ -1,11 +1,12 @@
 "use client";
 
+
+import { readApiJson } from "@/lib/api";
 /**
  * QUICK LEAD — phone-first entry point (mass adoption + lead capture)
  * ==================================================================
- * "Register form 55 fields" ani bhaya padakunda — 30 seconds lo number iste,
- * mana team call chesi profile FREE ga complete chestundi.
- * Ee data antha DB lo save avutundi (lead capture — growth engine).
+ * Registration-assistance callback request. Contact is attempted only with
+ * explicit, purpose-limited consent; timing and delivery are not guaranteed.
  */
 import { useEffect, useState } from "react";
 import { DISTRICTS_BY_STATE } from "@/lib/telugu-data";
@@ -22,6 +23,7 @@ export default function QuickLead({ source = "site", compact = false }: { source
   const [form, setForm] = useState({ name: "", phone: "", gender: "Bride", district: "", state: "TS", caste: "" });
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [contactConsent, setContactConsent] = useState(false);
 
   useEffect(() => {
     setHidden(localStorage.getItem(HIDE_KEY) === "1");
@@ -30,6 +32,10 @@ export default function QuickLead({ source = "site", compact = false }: { source
   if (hidden && !done) return null;
 
   const submit = async () => {
+    if (!contactConsent) {
+      setMsg({ ok: false, text: te ? "Follow-up కోసం contact consent అవసరం." : "Consent is required for a follow-up request." });
+      return;
+    }
     if (!/^\d{10}$/.test(form.phone)) {
       setMsg({ ok: false, text: te ? "10 digit mobile number ఇవ్వండి" : "Enter a 10-digit mobile number" });
       return;
@@ -38,11 +44,11 @@ export default function QuickLead({ source = "site", compact = false }: { source
     try {
       const r = await fetch("/api/leads/quick", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...form, source }),
+        body: JSON.stringify({ ...form, source, contact_consent: contactConsent }),
       });
-      const d = await r.json();
+      const d = await readApiJson(r);
       if (r.ok && d.success) {
-        setMsg({ ok: true, text: d.message_telugu });
+        setMsg({ ok: true, text: (te ? d.message_telugu : d.message_en) || (te ? "మీ అభ్యర్థన నమోదు అయింది." : "Your request was recorded.") });
         setDone(true);
         localStorage.setItem(HIDE_KEY, "1");
       } else {
@@ -57,10 +63,10 @@ export default function QuickLead({ source = "site", compact = false }: { source
   if (done) {
     return (
       <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4">
-        <div className="font-bold text-emerald-900 text-[14px]">{te ? "✅ Number save అయ్యింది!" : "✅ Number saved!"}</div>
+        <div className="font-bold text-emerald-900 text-[14px]">{te ? "✅ అభ్యర్థన నమోదు అయింది" : "✅ Request recorded"}</div>
         <div className="text-[12px] text-emerald-800 mt-1 telugu">{msg?.text}</div>
         <div className="text-[11px] text-emerald-700 mt-2">
-          {te ? <>⚡ Fast గా కావాలంటే ఇప్పుడే{" "}<a href="/register" className="underline font-bold">3-నిమిషాల register</a> చెయ్యండి — profile + card వెంటనే ready.</> : <>⚡ Want it fast? <a href="/register" className="underline font-bold">3-minute register</a> now — profile + card instantly ready.</>}
+          {te ? <>మీకు అనుకూలమైనప్పుడు <a href="/register" className="underline font-bold">ఉచిత నమోదు</a> ప్రారంభించండి.</> : <>Register for free whenever you are ready: <a href="/register" className="underline font-bold">Create a profile</a>.</>}
         </div>
       </div>
     );
@@ -72,8 +78,8 @@ export default function QuickLead({ source = "site", compact = false }: { source
         <div className="flex items-center gap-3">
           <div className="text-2xl">📱</div>
           <div className="flex-1 min-w-0">
-            <div className="font-bold text-[14px]">{te ? "Form fill చెయ్యడానికి time లేదా?" : "No time to fill the form?"}</div>
-            <div className="text-[11px] opacity-90 telugu">{te ? "Number పెట్టు — మన team call చేసి profile FREE గా complete చేస్తుంది (2 నిమిషాలు)" : "Drop your number — our team calls and completes your profile FREE (2 minutes)"}</div>
+            <div className="font-bold text-[14px]">{te ? "రిజిస్ట్రేషన్ సహాయం కావాలా?" : "Need help with registration?"}</div>
+            <div className="text-[11px] opacity-90 telugu">{te ? "Follow-up అభ్యర్థన పంపండి. సంప్రదింపు/సమయం అందుబాటుపై ఆధారపడుతుంది." : "Request a follow-up. Contact and timing depend on availability."}</div>
           </div>
           <button onClick={() => setOpen(true)} className="shrink-0 gold-gradient text-maroon font-bold text-[13px] px-4 py-2.5 rounded-xl">
             Start
@@ -82,12 +88,12 @@ export default function QuickLead({ source = "site", compact = false }: { source
       ) : (
         <div className="space-y-2.5">
           <div className="flex items-center justify-between">
-            <div className="font-bold text-[14px]">{te ? "📱 30 seconds లో start" : "📱 Start in 30 seconds"}</div>
+            <div className="font-bold text-[14px]">{te ? "📱 సంప్రదింపు అభ్యర్థన" : "📱 Contact request"}</div>
             <button onClick={() => setOpen(false)} className="text-[12px] opacity-80">✕</button>
           </div>
-          <input value={form.phone} inputMode="tel" placeholder="WhatsApp number (10 digit) *"
+          <input value={form.phone} inputMode="tel" autoComplete="tel" placeholder={te ? "Mobile number (10 అంకెలు) *" : "Mobile number (10 digits) *"}
             onChange={(e) => setForm({ ...form, phone: e.target.value.replace(/\D/g, "").slice(0, 10) })}
-            className="input-mobile !bg-white/95" aria-label="WhatsApp number (10 digit) *" />
+            className="input-mobile !bg-white/95" aria-label={te ? "Follow-up కోసం mobile number" : "Mobile number for follow-up"} />
           <input value={form.name} placeholder={te ? "మీ పేరు (optional)" : "Your name (optional)"}
             onChange={(e) => setForm({ ...form, name: e.target.value })}
             className="input-mobile !bg-white/95" aria-label={te ? "మీ పేరు" : "Your name"} />
@@ -112,12 +118,17 @@ export default function QuickLead({ source = "site", compact = false }: { source
               </select>
             </div>
           )}
-          <button onClick={submit} disabled={busy}
-            className="w-full py-3.5 rounded-2xl gold-gradient text-maroon font-bold text-[15px] disabled:opacity-60">
-            {busy ? (te ? "Save అవుతుంది…" : "Saving…") : te ? "✅ Callback తీసుకోండి (FREE)" : "✅ Get a callback (FREE)"}
+          <label htmlFor="quicklead-contact-consent" className="flex items-start gap-2 rounded-xl border border-white/30 bg-white/10 p-3 text-[11px] leading-relaxed">
+            <input id="quicklead-contact-consent" type="checkbox" checked={contactConsent}
+              onChange={(event) => setContactConsent(event.target.checked)} className="mt-0.5 h-4 w-4 shrink-0 accent-amber-400" />
+            <span>{te ? "ఈ registration సహాయం అభ్యర్థన గురించి phone లేదా WhatsApp ద్వారా సంప్రదించడానికి అంగీకరిస్తున్నాను. ప్రచార సందేశాలకు కాదు; సమయం హామీ కాదు." : "I agree to be contacted by phone or WhatsApp about this registration-assistance request only. No promotional messages; timing is not guaranteed."}</span>
+          </label>
+          <button onClick={submit} disabled={busy || !contactConsent}
+            className="w-full py-3.5 rounded-2xl gold-gradient text-maroon font-bold text-[15px] disabled:cursor-not-allowed disabled:opacity-60">
+            {busy ? (te ? "నమోదు అవుతోంది…" : "Submitting…") : te ? "✅ Follow-up అభ్యర్థన పంపండి" : "✅ Request follow-up"}
           </button>
-          {msg && <div className={`text-[12px] ${msg.ok ? "text-emerald-200" : "text-amber-200"}`}>{msg.text}</div>}
-          <div className="text-[10px] opacity-80">{te ? "🔒 Number ఎవరికీ share అవ్వదు • 🚫 Chatting లేదు • ⚠️ Advance money అడిగితే report చెయ్యండి" : "🔒 Number never shared • 🚫 No chatting • ⚠️ Report advance-money demands"}</div>
+          {msg && <div className={`text-[12px] ${msg.ok ? "text-emerald-200" : "text-amber-200"}`} role={msg.ok ? "status" : "alert"}>{msg.text}</div>}
+          <div className="text-[10px] opacity-80">{te ? "🔒 Number public లో చూపించము; అభ్యర్థించిన సహాయం కోసం మాత్రమే ఉపయోగిస్తాం • 🚫 In-site chat లేదు" : "🔒 Your number is not shown publicly and is used only for requested assistance • 🚫 No in-site chat"}</div>
         </div>
       )}
     </div>

@@ -16,9 +16,11 @@ os.environ.setdefault("TSAP_AUTH_MODE", "off")
 os.environ.setdefault("WA_TEST_FAST", "1")
 os.environ.setdefault("OTP_DEV_MODE", "true")
 sys.path.insert(0, os.path.dirname(__file__))
+from test_storage import isolate_test_stores
+isolate_test_stores("api-resilience")
 
 import main
-from fastapi.testclient import TestClient
+from testutil_client import TestClient
 
 client = TestClient(main.app)
 passed = 0
@@ -164,9 +166,22 @@ res_qr = client.get("/api/pay/qr/ORD-TEST-101")
 check("GET /api/pay/qr rejects an unknown order without inventing a UPI destination",
       res_qr.status_code == 404)
 
-# OG profile preview alias
-res_og = client.get(f"/api/og/profile/{uid_a}")
-check("GET /api/og/profile/{id} (alias) -> 200 + image/png", res_og.status_code == 200 and res_og.headers.get("content-type") == "image/png")
+# Pending registrations remain hidden from profile previews. A separate, explicit
+# approved fixture verifies the alias without bypassing that publication gate.
+res_og_pending = client.get(f"/api/og/profile/{uid_a}")
+check("Pending profile OG preview stays hidden", res_og_pending.status_code == 404,
+      (res_og_pending.status_code, res_og_pending.text[:120]))
+_og_fixture = {
+    "tsap_id": "TSAP-F-2026-OG0001", "full_name": "OG Preview Test Fixture",
+    "gender": "Bride", "age": 28, "caste": "Test fixture community",
+    "district": "Hyderabad", "state": "TS", "status": "approved",
+    "is_approved": True, "is_active": True,
+}
+main.DB_USERS.append(_og_fixture)
+res_og = client.get(f"/api/og/profile/{_og_fixture['tsap_id']}")
+check("Approved profile OG alias -> 200 + image/png",
+      res_og.status_code == 200 and res_og.headers.get("content-type") == "image/png",
+      (res_og.status_code, res_og.headers.get("content-type")))
 
 print(f"\n{'=' * 60}")
 print(f"API RESILIENCE AUDIT: {passed} PASSED, {failed} FAILED")

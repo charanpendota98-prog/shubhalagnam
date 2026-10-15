@@ -5,7 +5,7 @@
  * Props: planCode (S_99..S_499), price (display), label.
  */
 import { useState } from "react";
-import { authHeaders } from "@/lib/api";
+import { apiDisplayMessage, authHeaders, readApiJson} from "@/lib/api";
 import { useLang } from "@/lib/lang";
 
 declare global { interface Window { Razorpay?: any } }
@@ -25,6 +25,7 @@ function loadRazorpay(): Promise<boolean> {
 export default function PayBox({ planCode, price, label, purpose = "credits", tsapId = "" }: { planCode: string; price: number; label: string; purpose?: "credits" | "boost"; tsapId?: string }) {
   const { lang } = useLang();
   const te = lang === "te";
+  const displayLabel = te ? label : apiDisplayMessage(label, false, "Payment");
   const [open, setOpen] = useState(false);
   const [offer, setOffer] = useState("");
   const [order, setOrder] = useState<any>(null);
@@ -41,8 +42,10 @@ export default function PayBox({ planCode, price, label, purpose = "credits", ts
     if (!code) { setPromo(te ? "ముందు offer code ఇవ్వండి" : "Enter offer code first"); return; }
     setPromoBusy(true);
     try {
-      const d = await fetch(`/api/promo/apply?code=${encodeURIComponent(code)}&purpose=${encodeURIComponent(purpose)}&plan=${encodeURIComponent(planCode)}&user=${encodeURIComponent(myId())}`).then((r) => r.json());
-      setPromo(d.success ? String(d.message_telugu || "OK") : String(d.detail || "Invalid code"));
+      const d = await fetch(`/api/promo/apply?code=${encodeURIComponent(code)}&purpose=${encodeURIComponent(purpose)}&plan=${encodeURIComponent(planCode)}&user=${encodeURIComponent(myId())}`).then((r) => readApiJson(r));
+      setPromo(apiDisplayMessage(d, te, d.success
+        ? (te ? "Offer code applied." : "Offer code applied.")
+        : (te ? "చెల్లుబాటు అయ్యే offer code కాదు." : "This offer code is not valid.")));
     } catch { setPromo(te ? "Network problem" : "Network problem"); }
     setPromoBusy(false);
   };
@@ -61,10 +64,14 @@ export default function PayBox({ planCode, price, label, purpose = "credits", ts
         method: "POST", headers: { ...authHeaders(), "Content-Type": "application/json" },
         body: JSON.stringify({ tsap_id: id, purpose, ref: planCode, offer_code: offer.trim().toUpperCase() }),
       });
-      const d = await r.json();
-      if (!r.ok) { setMsg(d.detail || d.message_telugu || "Order fail"); setBusy(false); return; }
+      const d = await readApiJson(r);
+      if (!r.ok) {
+        setMsg(apiDisplayMessage(d, te, te ? "Order సృష్టించలేకపోయాం. మళ్లీ ప్రయత్నించండి." : "The order could not be created. Please try again."));
+        setBusy(false);
+        return;
+      }
       setOrder(d.pay_order);
-      setMsg(d.message_telugu || "");
+      setMsg(apiDisplayMessage(d, te, ""));
     } catch { setMsg(te ? "Network problem — మళ్లీ try చెయ్యండి" : "Network problem — retry"); }
     setBusy(false);
   };
@@ -78,8 +85,10 @@ export default function PayBox({ planCode, price, label, purpose = "credits", ts
         method: "POST", headers: { ...authHeaders(), "Content-Type": "application/json" },
         body: JSON.stringify({ order_id: order.id, utr: utr.trim() }),
       });
-      const d = await r.json();
-      setMsg(r.ok ? (d.message_telugu || (te ? "✅ UTR వచ్చింది!" : "✅ UTR received!")) : (d.detail || d.message_telugu || (te ? "Claim fail" : "Claim failed")));
+      const d = await readApiJson(r);
+      setMsg(apiDisplayMessage(d, te, r.ok
+        ? (te ? "✅ UTR నమోదు అయింది." : "✅ UTR submitted.")
+        : (te ? "UTR claim విఫలమైంది. మళ్లీ ప్రయత్నించండి." : "The UTR could not be submitted. Please try again.")));
       if (r.ok) { setOrder({ ...order, status: "claimed" }); setUtr(""); }
     } catch { setMsg(te ? "Network problem — మళ్లీ try చెయ్యండి" : "Network problem — retry"); }
     setClaimBusy(false);
@@ -110,8 +119,10 @@ export default function PayBox({ planCode, price, label, purpose = "credits", ts
       order_id: order.rzp_order_id,
       amount: order.checkout_amount_paise,
       currency: "INR",
-      name: "మన వివాహ",
-      description: order.label || label,
+      name: te ? "మన వివాహ" : "Mana Vivaha",
+      description: te
+        ? (order.label || label)
+        : apiDisplayMessage({ message_en: order.label_en, message: order.label || displayLabel }, false, displayLabel),
       handler: async (resp: any) => {
         setBusy(true);
         try {
@@ -122,9 +133,15 @@ export default function PayBox({ planCode, price, label, purpose = "credits", ts
               razorpay_payment_id: resp.razorpay_payment_id, razorpay_signature: resp.razorpay_signature,
             }),
           });
-          const d = await r.json();
-          if (r.ok) { setDone(d.message_telugu || "✅ Payment success!"); setOrder(null); }
-          else setMsg(d.detail || (te ? "Verify fail — amount cut అయితే support కి payment ID పంపండి" : "Verify failed — if amount was cut, send payment ID to support"));
+          const d = await readApiJson(r);
+          if (r.ok) {
+            setDone(apiDisplayMessage(d, te, te ? "✅ చెల్లింపు నిర్ధారించబడింది." : "✅ Payment confirmed."));
+            setOrder(null);
+          } else {
+            setMsg(apiDisplayMessage(d, te, te
+              ? "చెల్లింపును నిర్ధారించలేకపోయాం. మొత్తం డెబిట్ అయితే payment IDతో support ను సంప్రదించండి."
+              : "Payment could not be verified. If money was debited, contact support with the payment ID."));
+          }
         } catch { setMsg(te ? "Verify error — payment ID తో support ని contact చెయ్యండి" : "Verify error — contact support with payment ID"); }
         setBusy(false);
       },
@@ -140,8 +157,9 @@ export default function PayBox({ planCode, price, label, purpose = "credits", ts
     try {
       rzp.on("payment.failed", (resp: any) => {
         setBusy(false);
-        const why = resp?.error?.description || "";
-        setMsg(te ? `\u274c Payment fail \u0c05\u0c2f\u0c4d\u0c2f\u0c3f\u0c02\u0c26\u0c3f${why ? ` (${why})` : ""} - \u0c21\u0c2c\u0c4d\u0c2c\u0c41\u0c32\u0c41 cut \u0c05\u0c35\u0c4d\u0c35\u0c32\u0c47\u0c26\u0c41, \u0c2e\u0c33\u0c4d\u0c32\u0c40 try \u0c1a\u0c46\u0c2f\u0c4d\u0c2f\u0c02\u0c21\u0c3f` : `\u274c Payment failed${why ? ` (${why})` : ""} - no money cut, please retry`);
+        const rawWhy = resp?.error?.description || "";
+        const why = te ? rawWhy : apiDisplayMessage(rawWhy, false, "");
+        setMsg(te ? `\u274c Payment fail \u0c05\u0c2f\u0c2f\u0c3f\u0c02\u0c26\u0c3f${why ? ` (${why})` : ""} - \u0c21\u0c2c\u0c2c\u0c41 cut \u0c05\u0c35\u0c4d\u0c35\u0c32\u0c47\u0c26\u0c41, \u0c2e\u0c33\u0c4d\u0c32\u0c40 try \u0c1a\u0c46\u0c2f\u0c4d\u0c2f\u0c02\u0c21\u0c3f` : `\u274c Payment failed${why ? ` (${why})` : ""} - no money was debited, please retry`);
       });
     } catch { /* older checkout.js - ignore */ }
     rzp.open();
@@ -153,7 +171,7 @@ export default function PayBox({ planCode, price, label, purpose = "credits", ts
     return (
       <button onClick={() => setOpen(true)}
         className="w-full rounded-xl bg-[#7A0C2E] text-white px-4 py-2.5 font-bold text-sm hover:bg-[#5f0923]">
-        💳 {label} — Pay ₹{price}
+        💳 {displayLabel} — Pay ₹{price}
       </button>
     );
 
@@ -162,7 +180,7 @@ export default function PayBox({ planCode, price, label, purpose = "credits", ts
       {!order ? (
         <>
           <div className="flex gap-2">
-            <input value={offer} onChange={(e) => { setOffer(e.target.value); setPromo(""); }} placeholder="Offer code (DIWALI25…)"
+            <input value={offer} onChange={(e) => { setOffer(e.target.value); setPromo(""); }} placeholder={te ? "Offer code ఉంటే నమోదు చేయండి" : "Enter an offer code if you have one"}
               className="flex-1 rounded-lg border px-3 py-2 text-xs font-mono uppercase" aria-label="Offer code" />
             <button onClick={previewPromo} disabled={promoBusy}
               className="rounded-lg border border-green-700 text-green-700 px-3 py-2 text-xs font-bold disabled:opacity-50">

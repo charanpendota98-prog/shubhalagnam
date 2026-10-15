@@ -7,14 +7,23 @@
  * Colors marchali ante: tailwind.config.ts (brand tokens) + src/app/globals.css (gradients).
  */
 
-/**
- * R14 FIX: Support email ippudu ONE place nunchi (env var) fully configurable.
- * NEXT_PUBLIC_SUPPORT_EMAIL set చేస్తే — supportEmail + legal.grievanceOfficer +
- * legal.email అన్నీ ఒకేసారి update అవుతాయి (business domain mail వచ్చాక ఒక్క
- * env var మార్చితే సరిపోతుంది, code లో వెతికి మార్చాల్సిన అవసరం లేదు).
- * ఇప్పటికి (business mailbox set అయ్యేవరకు) fallback గా personal Gmail ఉంచాం.
- */
-const SUPPORT_EMAIL = (process.env.NEXT_PUBLIC_SUPPORT_EMAIL || "charan.pendota98@gmail.com").trim();
+// Public contact details are owner-supplied deployment configuration only.
+// Empty defaults deliberately hide unverified or unavailable support channels.
+function normalizePublicEmail(raw: string): string {
+  const email = String(raw || "").trim();
+  return /^[^\s@]+@[^\s@.]+(?:\.[^\s@.]+)+$/.test(email) ? email : "";
+}
+function normalizeContactPhone(raw: string): string {
+  const phone = String(raw || "").trim();
+  const digits = phone.replace(/\D/g, "");
+  return /^[+]?[-().\s\d]+$/.test(phone) && digits.length >= 8 && digits.length <= 15 ? phone : "";
+}
+
+const SUPPORT_EMAIL = normalizePublicEmail(process.env.NEXT_PUBLIC_SUPPORT_EMAIL || "");
+const BUSINESS_CONTACT_NAME = (process.env.NEXT_PUBLIC_BUSINESS_CONTACT_NAME || "").trim();
+const BUSINESS_LOCATION = (process.env.NEXT_PUBLIC_BUSINESS_LOCATION || "").trim();
+const GRIEVANCE_OFFICER = (process.env.NEXT_PUBLIC_GRIEVANCE_OFFICER || "").trim();
+const LEGAL_NAME = (process.env.NEXT_PUBLIC_LEGAL_NAME || "").trim();
 function normalizeWhatsAppNumber(raw: string): string {
   let digits = String(raw || "").replace(/\D/g, "");
   if (digits.length === 10) digits = `91${digits}`;
@@ -22,14 +31,14 @@ function normalizeWhatsAppNumber(raw: string): string {
 }
 
 const SUPPORT_WHATSAPP = normalizeWhatsAppNumber(process.env.NEXT_PUBLIC_SUPPORT_WHATSAPP || "");
-const SUPPORT_PHONE = (process.env.NEXT_PUBLIC_SUPPORT_PHONE || "").trim();
+const SUPPORT_PHONE = normalizeContactPhone(process.env.NEXT_PUBLIC_SUPPORT_PHONE || "");
 const SUPPORT_CONTACT_NUMBER = SUPPORT_PHONE || (SUPPORT_WHATSAPP ? `+${SUPPORT_WHATSAPP}` : "");
 
 export const SITE_CONFIG = {
   // ---------- Brand ----------
   brandName: "మన వివాహ",
   brandNameTe: "మన వివాహ",           // 💍 R13: brand peru neat ga Telugu lo
-  legalName: "Manavivaha",
+  legalName: LEGAL_NAME,
   logoText: "MV",
   logoImage: "/logo.png",             // 💍 R13: kotha marriage logo (rings + lotus) — MV text kaadu
   tagline: "Telugu Matrimony",
@@ -39,11 +48,6 @@ export const SITE_CONFIG = {
   established: 2025,
 
   // ---------- Contact / channels ----------
-  botUsername: "@telugumatrimony1_bot",
-  botUrl: "https://t.me/telugumatrimony1_bot",
-  unlockBot: (tsapId: string) => `https://t.me/telugumatrimony1_bot?start=unlock_${encodeURIComponent(tsapId)}`,
-  officialChannel: "@TSAP_MATRIMONY",
-  officialChannelUrl: "https://t.me/TSAP_MATRIMONY",
   supportWhatsapp: SUPPORT_WHATSAPP,
   supportPhone: SUPPORT_PHONE,
   supportEmail: SUPPORT_EMAIL,
@@ -51,21 +55,16 @@ export const SITE_CONFIG = {
   get supportPhoneDisplay() { return this.supportPhone; },
   get supportLink() { return this.supportWhatsapp ? `https://wa.me/${this.supportWhatsapp}` : ""; },
 
-  // ---------- Owner & Acceptance Details ----------
+  // ---------- Optional, owner-supplied public contact ----------
   owner: {
-    id: "TeNDDG5ywwZIg3",
-    name: "PENDOTA CHARAN",
-    signatoryName: "PENDOTA CHARAN",
-    ipAddress: "10.26.123.93",
-    dateOfAcceptance: "2026-09-20 23:08:03 IST",
+    name: BUSINESS_CONTACT_NAME,
     contactNumber: SUPPORT_CONTACT_NUMBER,
-    email: "charan.pendota98@gmail.com",
-    status: "Verified & Digitally Accepted",
+    email: SUPPORT_EMAIL,
+    location: BUSINESS_LOCATION,
   },
 
   // ---------- Social (optional, empty = hide) ----------
   social: {
-    telegramChannel: "https://t.me/TSBRIDE",
     youtube: "",
     instagram: "",
     facebook: "",
@@ -122,16 +121,11 @@ export const SITE_CONFIG = {
     "Watermark + report tools",
   ],
 
-  // ---------- Legal / compliance & Acceptance ----------
+  // ---------- Legal / compliance copy ----------
   legal: {
-    refundPolicy: "Unused-plan cash refund requests: within 7 days under the refund policy; declined/expired interests return one request credit, not cash.",
-    privacyNote: "Mee number evariki share cheyyamu. Data India lo store avutundi.",
-    grievanceOfficer: `PENDOTA CHARAN, ${SUPPORT_EMAIL}`,
-    ownerId: "TeNDDG5ywwZIg3",
-    ownerName: "PENDOTA CHARAN",
-    signatoryName: "PENDOTA CHARAN",
-    ipAddress: "10.26.123.93",
-    dateOfAcceptance: "2026-09-20 23:08:03 IST",
+    refundPolicy: "Unused-plan cash refunds follow the Refund & Cancellation policy. Declined/expired request-credit returns follow the policy shown in your account; credits are not cash refunds.",
+    privacyNote: "Data location depends on the hosting deployment and configured service providers; see the Privacy Policy.",
+    grievanceOfficer: GRIEVANCE_OFFICER,
     contactNumber: SUPPORT_CONTACT_NUMBER,
     email: SUPPORT_EMAIL,
   },

@@ -1,6 +1,6 @@
 """
-TSAP Matrimony — Telegram Bot (aiogram 3.x) — Pin-to-Pin Perfect Advanced
-Flows: Register Telugu buttons, OTP, Photo, Admin Approve, Auto-Router Main 4 + Caste + Special, Credits, Referral, Payment, Daily 9AM
+Mana Vivaha — Telegram helper bot (aiogram 3.x)
+Website is the only registration/checkout flow; this bot provides read-only lookup and consent-gated contact access.
 
 🚀 WAVE 11 — bots perfect:
   • import-safe (BOT_TOKEN lekapoina module import avutundi — tests + health OK)
@@ -19,16 +19,16 @@ if _backend_dir not in sys.path:
     sys.path.insert(0, _backend_dir)
 
 from aiogram import Bot, Dispatcher, F
-from aiogram.types import Message, CallbackQuery, ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import Message, CallbackQuery
 from aiogram.filters import Command
 
-# MASTER CHANNEL REGISTRY + AUTO-ROUTER (52 channels — L0 Official → L4 Special)
+# Canonical directory registry (routing eligibility is not external channel health).
 from channels_config import (
     CHANNELS, channel_stats, route_profile, build_caption, build_hashtags,
     channel_chat_id, post_targets, live_channels,
 )
 
-BOT_TOKEN = os.getenv("BOT_TOKEN", "YOUR_BOT_TOKEN_HERE")
+BOT_TOKEN = (os.getenv("BOT_TOKEN") or "").strip()
 ADMIN_CHAT_ID = os.getenv("ADMIN_CHAT_ID", "").strip()
 SITE_URL = os.getenv("SITE_URL", "https://manavivaha.in")
 
@@ -42,7 +42,7 @@ def _api_headers() -> dict:
 bot = None
 BOT_ERROR = ""
 try:
-    if BOT_TOKEN and ":" in BOT_TOKEN and BOT_TOKEN != "YOUR_BOT_TOKEN_HERE":
+    if BOT_TOKEN and ":" in BOT_TOKEN:
         bot = Bot(token=BOT_TOKEN)
     else:
         BOT_ERROR = "BOT_TOKEN not configured — /start తో test చెయ్యలేము (token పెట్టండి)"
@@ -62,7 +62,8 @@ def bot_status() -> dict:
         "configured": bot is not None,
         "error": BOT_ERROR,
         "admin_configured": bool(ADMIN_CHAT_ID and str(ADMIN_CHAT_ID).isdigit()),
-        "live_channels": len(live_channels()),
+        "routing_eligible_channels": len(live_channels()),
+        "external_channel_status_checked": False,
         "note_telugu": ("🤖 Bot ready — polling start చెయ్యొచ్చు" if bot
                         else "⚠️ BOT_TOKEN పెట్టండి (.env) — appudu polling start అవుతుంది"),
     }
@@ -70,7 +71,7 @@ def bot_status() -> dict:
 
 # ── pure helpers (tests network lekunda run avvadaniki) ───────────────────────
 def parse_start_ref(text: str) -> dict:
-    """'/start ch_reddy' / '/start ref_1042' / '/start TSAP-F-1042' → structured."""
+    """Parse known bot deep-link shapes without creating or mutating member records."""
     parts = str(text or "").strip().split()
     ref = parts[1] if len(parts) > 1 else ""
     out = {"raw": ref, "kind": "plain", "value": ""}
@@ -90,20 +91,19 @@ def parse_start_ref(text: str) -> dict:
 def help_text() -> str:
     return (
         "🙏 మన వివాహ Bot — HELP\n\n"
-        "• /start — kottha register (3 min)\n"
-        "• /search TSAP-F-1042 — ID తో profile చూడండి\n"
-        "• /unlock TSAP-F-1042 — accepted interest ఉంటే contact details చూడండి\n"
-        "• /mylist — accepted contacts (masked) చూడండి\n"
-        "• /balance — mee credits + plan\n"
-        "• /pay — payment ela (UPI/call)\n"
-        "• /link MEE-TSAP-ID — Telegram link (unlock/delivery కోసం)\n"
-        "• /myid — మీ Telegram ID (support కి కావాలి)\n"
-        "• /cancel — form cancel\n\n"
-        "💰 మొదటి 3 profiles + 3 interests FREE\n"
-        "₹99 → 5 interest-request credits (30 days)\n"
-        "₹500 → assisted: మన team meeke 5 profiles personal గా pampisthundi\n\n"
+        "• /start — website registration and service links\n"
+        "• /search <member ID shown on the website> — view a public profile\n"
+        "• /unlock <member ID> — only after an accepted interest and authenticated profile link\n"
+        "• /mylist — accepted contacts (masked)\n"
+        "• /balance — current request-credit balance\n"
+        "• /pay — open the website for current checkout options\n"
+        "• /link <member ID> <phone last 4 digits> — link Telegram to your existing profile\n"
+        "• /myid — show your Telegram ID\n"
+        "• /cancel — clear a pending link/unlock request\n\n"
+        "This bot does not create profiles or collect photos/phone numbers in chat. Do not send payment references or money to a chat contact.\n"
+        "Member details and channel destinations are not independently verified. Check current prices/terms and use the configured website checkout.\n\n"
         f"🌐 Website: {SITE_URL}\n"
-        "🕙 Support: 10AM–7PM Telugu లో"
+        "Profile-owner acceptance is required for contact access in accepted-request account views; notification delivery is not guaranteed."
     )
 
 
@@ -116,7 +116,7 @@ def format_id_search(profile: dict) -> str:
         f"🔎 {tid} — {first_name_of(p.get('full_name',''))}\n"
         f"{p.get('gender','')} · {p.get('age','')} yrs · {p.get('caste','')}\n"
         f"🎓 {p.get('education','—')} · 💼 {p.get('job','—')}\n"
-        f"📍 {p.get('district','—')}, {p.get('state','TS')}\n"
+        f"📍 {p.get('district','—')}, {p.get('state') or 'Not provided'}\n"
         f"⭐ {p.get('star','—')} · గోత్రం: {p.get('gothram','—')}\n\n"
         f"💌 Interest పంపడానికి website {SITE_URL}/search/{tid} లో login చేయండి. Owner accept చేసిన తర్వాత contact details share అవుతాయి."
     )
@@ -174,79 +174,43 @@ def pay_text() -> str:
     return "\n".join(lines)
 
 
-# Telugu keyboards
-def get_gender_kb():
-    return ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text="👰 Bride"), KeyboardButton(text="🤵 Groom")]], resize_keyboard=True)
-
-
-def get_state_kb():
-    return ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text="తెలంగాణ (TS)"), KeyboardButton(text="ఆంధ్రప్రదేశ్ (AP)")]], resize_keyboard=True)
-
-
-# Registry nunchi top castes (L3) — bot lo chupinchE order
-TOP_CASTES = ["Reddy","Kamma","Kapu","Velama","Vysya","Brahmin","Raju","Goud","Yadav","Mudiraj",
-              "Padmashali","Munnuru Kapu","Balija","Viswakarma","Mala","Madiga","Lambada","Boya",
-              "Rajaka","Uppara","Kummara","Open"]
-
-
-def get_religion_kb():
-    """Only the three communities with dedicated live channel coverage."""
-    return ReplyKeyboardMarkup(
-        keyboard=[
-            [KeyboardButton(text="🕉️ Hindu")],
-            [KeyboardButton(text="☪️ Muslim"), KeyboardButton(text="✝️ Christian")],
-        ],
-        resize_keyboard=True,
-        one_time_keyboard=True,
-    )
-
-
-def get_caste_kb():
-    kb = []
-    for i in range(0, len(TOP_CASTES), 2):
-        kb.append([KeyboardButton(text=TOP_CASTES[i]),
-                   KeyboardButton(text=TOP_CASTES[i+1] if i+1 < len(TOP_CASTES) else "Others")])
-    kb.append([KeyboardButton(text="🔎 ఇంకా castes (full list)"), KeyboardButton(text="⏭️ Skip")])
-    return ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True)
-
-
-def get_approve_kb(tsap_id: str):
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="✅ Approve + Auto-Post", callback_data=f"approve_{tsap_id}"),
-         InlineKeyboardButton(text="❌ Reject", callback_data=f"reject_{tsap_id}")],
-        [InlineKeyboardButton(text="💎 Make Premium +10 Credits", callback_data=f"premium_{tsap_id}")]
-    ])
-
-
 dp = Dispatcher()
 
-# In-memory user sessions + profiles (real lo Redis)
+# Minimal session cache for the pending-unlock handoff; profile data stays in the website backend.
 user_sessions = {}
-user_profiles = {}
 
 
 @dp.message(Command("start"))
 async def cmd_start(message: Message):
+    """Route users to the website; this bot does not create local/demo member records."""
     ref = parse_start_ref(message.text)
-    if ref["kind"] == "channel":
-        await message.answer(f"📂 {ref['value']} Channel నుంచి వచ్చారు — welcome! 🙏\n\nTS-AP Matrimony కి స్వాగతం! మీకు ఎవరు కావాలి?", reply_markup=get_gender_kb())
-    elif ref["kind"] == "referral":
-        await message.answer(f"👥 Referral {ref['value']} తో వచ్చారు — మీకు extra benefit! 🎉\n\nMeeku ఎవరు కావాలి?", reply_markup=get_gender_kb())
-        user_sessions[message.from_user.id] = {"referred_by": ref["value"]}
-    elif ref["kind"] == "profile":
-        await message.answer(f"🔎 {ref['value']} కోసం వచ్చారు!\n\nMundu మీ details చెప్పండి — మీకు ఎవరు కావాలి?", reply_markup=get_gender_kb())
-        user_sessions[message.from_user.id] = {"looking_for": ref["value"]}
-    elif ref["kind"] == "unlock":
-        # Website deep link — contact remains consent-gated by the API.
+    if ref["kind"] == "unlock":
         target = ref["value"]
-        sess = user_sessions.get(message.from_user.id, {})
-        if sess.get("tsap_id"):
-            await _do_unlock(message, sess["tsap_id"], target)
+        session = user_sessions.get(message.from_user.id, {})
+        if session.get("tsap_id"):
+            await _do_unlock(message, session["tsap_id"], target)
         else:
-            user_sessions[message.from_user.id] = {**sess, "pending_unlock": target}
-            await message.answer(f"🔒 {target} contact details కోసం ముందుగా మీ profile link చెయ్యండి: /link MEE-TSAP-ID\nInterest పంపి profile owner accept చేసిన తర్వాత మాత్రమే contacts అందుబాటులో ఉంటాయి.", parse_mode="Markdown")
-    else:
-        await message.answer("🙏 నమస్తే! TS-AP Matrimony కి స్వాగతం!\n\nMeeku ఎవరు కావాలి? [Bride/Groom]", reply_markup=get_gender_kb())
+            user_sessions[message.from_user.id] = {**session, "pending_unlock": target}
+            await message.answer(
+                f"🔒 {target} contact access కోసం ముందుగా మీ website profile ను /link ద్వారా link చేయండి. "
+                "Interest request అంగీకరించిన తర్వాత మాత్రమే contact details అందుబాటులో ఉంటాయి."
+            )
+        return
+    if ref["kind"] == "profile":
+        await message.answer(f"🔎 Profile చూడండి: {SITE_URL}/search/{ref['value']}\nInterest పంపడానికి website లో sign in చేయండి.")
+        return
+    if ref["kind"] == "referral":
+        await message.answer(f"👥 Referral details చూడండి: {SITE_URL}/r/{ref['value']}\nWebsite registration లో terms చదవండి.")
+        return
+    if ref["kind"] == "channel":
+        await message.answer(f"📢 Channel directory: {SITE_URL}/channels\nExternal link availability ఈ bot తనిఖీ చేయదు.")
+        return
+    await message.answer(
+        f"🙏 మన వివాహ — Mana Vivaha\n\nRegistration, profile updates, interests and checkout కోసం website ఉపయోగించండి: {SITE_URL}/register\n"
+        "ఈ bot chat లో profiles సృష్టించదు; phone number, photo లేదా payment details పంపవద్దు.\n\n"
+        "Profile owner accept చేసిన తర్వాత contact details accepted-request account views లో అందుబాటులోకి వస్తాయి; notification delivery హామీ లేదు.\n"
+        "Member వివరాలు independently verify చేయబడవు; నిర్ణయానికి ముందు స్వయంగా నిర్ధారించండి."
+    )
 
 
 @dp.message(Command("help"))
@@ -262,7 +226,7 @@ async def cmd_myid(message: Message):
 @dp.message(Command("cancel"))
 async def cmd_cancel(message: Message):
     user_sessions.pop(message.from_user.id, None)
-    await message.answer("❌ Form cancel చేశాం. Malli /start చెయ్యొచ్చు 🙏")
+    await message.answer("✅ Pending Telegram link/unlock details cleared. For profile changes, use the website.")
 
 
 @dp.message(Command("search"))
@@ -270,7 +234,7 @@ async def cmd_search(message: Message):
     """Bot లో ne ID search — backend API కి call (token ఉంటే)."""
     parts = str(message.text or "").strip().split()
     if len(parts) < 2:
-        await message.answer("🔎 ఎలా: /search TSAP-F-1042\nID website card మీద / channel post లో ఉంటుంది")
+        await message.answer("🔎 Usage: /search <member ID shown on the website>")
         return
     tsap_id = parts[1].upper()
     # backend API nunchi profile (site internal call)
@@ -309,14 +273,14 @@ async def cmd_unlock(message: Message):
     """Show a contact only when the linked member has an accepted interest."""
     parts = str(message.text or "").strip().split()
     if len(parts) < 2:
-        await message.answer("🔓 ఎలా: /unlock TSAP-F-1042\nContact details display అవ్వడానికి profile owner accepted interest అవసరం.")
+        await message.answer("🔓 Usage: /unlock <member ID>\nContact details కోసం accepted interest అవసరం.")
         return
     target = parts[1].upper()
     sess = user_sessions.get(message.from_user.id, {})
     viewer = sess.get("tsap_id", "")
     if not viewer:
         user_sessions[message.from_user.id] = {**sess, "pending_unlock": target}
-        await message.answer("🙏 ముందు మీ profile link చెయ్యండి: /link MEE-TSAP-ID\nContact details కోసం profile owner acceptance అవసరం.",
+        await message.answer("🙏 ముందు మీ existing website profile ను /link ద్వారా link చేయండి. Contact access కోసం profile-owner acceptance అవసరం.",
                              parse_mode="Markdown")
         return
     await _do_unlock(message, viewer, target)
@@ -366,15 +330,15 @@ async def cmd_pay(message: Message):
 
 @dp.message(Command("link"))
 async def cmd_link(message: Message):
-    """🔗 /link TSAP-F-1042 — Telegram ని profile తో link (personal delivery + unlock కోసం)."""
+    """Link Telegram to an existing website profile after checking registered-phone digits."""
     parts = str(message.text or "").strip().split()
     if len(parts) < 2:
-        await message.answer("🔗 ఎలా: /link MEE-TSAP-ID LAST4\n(ID website login లో ఉంటుంది · LAST4 = registered phone యొక్క చివరి 4 digits)\nLink అయిన తర్వాత accepted-interest contact access ఉపయోగించవచ్చు.")
+        await message.answer("🔗 Usage: /link <member ID> <last 4 digits of the registered phone>. Contact access still requires an accepted interest.")
         return
     tsap_id = parts[1].upper()
     last4 = "".join(ch for ch in (parts[2] if len(parts) > 2 else "") if ch.isdigit())[-4:]
     if len(last4) != 4:
-        await message.answer("🔐 Security కోసం numberivi last 4 digits కూడా ఇవ్వండి:\n/link %s 1234" % tsap_id)
+        await message.answer("🔐 Security కోసం registered phone యొక్క చివరి 4 digits కూడా ఇవ్వండి: /link %s <last4>" % tsap_id)
         return
     import aiohttp
     api_base = os.getenv("API_BASE", "http://localhost:8000")
@@ -403,207 +367,85 @@ async def cmd_link(message: Message):
 
 @dp.message(F.text.in_(["👰 Bride", "🤵 Groom"]))
 async def gender_chosen(message: Message):
-    gender = "Bride" if "Bride" in message.text else "Groom"
-    user_sessions[message.from_user.id] = {**user_sessions.get(message.from_user.id, {}), "gender": gender}
-    await message.answer(f"{gender} కోసం vetukuthunnara — super! మీ రాష్ట్రం?", reply_markup=get_state_kb())
+    await message.answer(f"For profile search and registration, use {SITE_URL}/register. This bot does not collect profile details.")
 
 
 @dp.message(F.text.contains("తెలంగాణ") | F.text.contains("ఆంధ్ర"))
 async def state_chosen(message: Message):
-    state = "TS" if "తెలంగాణ" in message.text else "AP"
-    user_sessions[message.from_user.id] = {**user_sessions.get(message.from_user.id, {}), "state": state}
-    await message.answer("మీ kulam?", reply_markup=get_caste_kb())
+    await message.answer(f"Select your location on the website: {SITE_URL}/register. This bot does not create member records.")
 
 
 @dp.message(F.photo)
 async def photo_received(message: Message):
-    """📸 Real photo receive — session లో file_id save (backend upload తర్వాత)."""
-    session = user_sessions.get(message.from_user.id, {})
-    if not session:
-        await message.answer("🙏 ముందు /start చెయ్యండి — appudu photo పంపండి")
-        return
-    file_id = message.photo[-1].file_id if message.photo else ""
-    session["photo_file_id"] = file_id
-    session["photo"] = "uploaded"
-    user_sessions[message.from_user.id] = session
-    kb = ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text="📱 Number Share", request_contact=True)]], resize_keyboard=True)
-    await message.answer("📸 Photo వచ్చింది — super! ఇప్పుడు మీ WhatsApp/Telegram number share చెయ్యండి (one tap) — OTP వస్తుంది", reply_markup=kb)
-
-
-@dp.message(F.text)
-async def caste_chosen(message: Message):
-    # Simplified — real lo step-by-step
-    session = user_sessions.get(message.from_user.id, {})
-    if "caste" not in session and message.text not in ["⏭️ Skip"]:
-        # assume caste
-        if message.text in TOP_CASTES or message.text in ("Others",):
-            session["caste"] = message.text
-            user_sessions[message.from_user.id] = session
-            await message.answer(f"{message.text} — super! మీ vayasu? [18-60 type చెయ్యండి] Buttons: [18-22] [23-27] [28-32] [33+]", reply_markup=ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text="18-22"), KeyboardButton(text="23-27")],[KeyboardButton(text="28-32"), KeyboardButton(text="33+")]], resize_keyboard=True))
-            return
-
-    # Age
-    if "age" not in session and message.text in ["18-22","23-27","28-32","33+"]:
-        session["age"] = message.text
-        user_sessions[message.from_user.id] = session
-        await message.answer("మీ photo 1-3 పంపండి 📸 (face clear)", reply_markup=ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text="📸 Photo Skip — Demo")]], resize_keyboard=True))
-        return
-
-    if "photo" not in session and "Photo" in message.text:
-        session["photo"] = "uploaded"
-        user_sessions[message.from_user.id] = session
-        # Contact
-        kb = ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text="📱 Number Share", request_contact=True)]], resize_keyboard=True)
-        await message.answer("మీ WhatsApp/Telegram number share చెయ్యండి (one tap) — OTP వస్తుంది", reply_markup=kb)
-        return
-
-    # fallback — artham kakapothe help
-    if str(message.text or "").startswith("/"):
-        await message.answer("⚠️ ఈ command తెలియదు — /help చూడండి 🙏")
-    else:
-        await message.answer("🙏 Artham కాలేదు — /start (register) leda /help (commands) try చెయ్యండి")
+    await message.answer(f"For your safety, this bot does not collect or store profile photos. Use the secure website flow: {SITE_URL}/register")
 
 
 @dp.message(F.contact)
 async def contact_received(message: Message):
-    phone = message.contact.phone_number
-    session = user_sessions.get(message.from_user.id, {})
-    session["phone"] = phone
-    user_sessions[message.from_user.id] = session
+    await message.answer(f"For your safety, this bot does not collect phone contacts in chat. Use the website's registration flow: {SITE_URL}/register")
 
-    # Generate ID + Card mock
-    import random
-    seq = random.randint(1000,9999)
-    gender = session.get("gender","Bride")
-    tsap_id = f"TSAP-{'F' if gender=='Bride' else 'M'}-2025-{seq}"
-    session["tsap_id"] = tsap_id
 
-    # Router preview — ee profile e channels ki veltundi
-    profile = {
-        "full_name": session.get("full_name", ""), "gender": gender,
-        "state": session.get("state", "TS"), "caste": session.get("caste", "Reddy"),
-        "religion": session.get("religion", "Hindu"), "age": session.get("age", 24),
-        "job": session.get("job", ""), "education": session.get("education", ""),
-        "district": session.get("district", ""), "marital_status": session.get("marital_status", "Pelli Kaledu"),
-    }
-    user_profiles[tsap_id] = profile
-    route = post_targets(profile)
-    approve_text = (f"🆕 NEW PROFILE — {tsap_id}\nGender: {gender}\nCaste: {profile['caste']}\n"
-                    f"State: {profile['state']}\nAge: {profile['age']}\nPhone: {phone}\n"
-                    f"Ref: {session.get('referred_by','—')}\n\n"
-                    f"📤 Post avvalsina LIVE channels ({len(route['ready'])}): {', '.join(route['ready'])}"
-                    f"\n⏳ Pending channels: {len(route['pending'])}"
-                    f"\n#hashtags: {route['hashtags']}")
-
-    # Admin ki approve message (ADMIN_CHAT_ID unte real, lekapothe print)
-    print(f"[ADMIN] {approve_text}")
-    try:
-        _b = get_bot()
-        if _b is not None and ADMIN_CHAT_ID and str(ADMIN_CHAT_ID).isdigit():
-            await _b.send_message(chat_id=ADMIN_CHAT_ID, text=approve_text, reply_markup=get_approve_kb(tsap_id))
-    except Exception as e:
-        print(f"[ADMIN SEND FAIL] {e}")
-
-    await message.answer(
-        f"🎉 మీ registration submit అయింది. మీ ID: *{tsap_id}*\n\n"
-        "Profile review status కోసం website లో sign in చేయండి. అందుబాటులో ఉన్న profiles ను అక్కడే చూడవచ్చు; matches లేదా response హామీ ఇవ్వలేము.\n\n"
-        "మొదటి 3 interest requests ఉచితం. Paid credits ఉంటే ఒక్కో request కు ఒకటి వాడబడుతుంది. "
-        "Contact details profile owner accept చేసిన తర్వాత మాత్రమే share అవుతాయి.",
-        parse_mode="Markdown",
-    )
-
-    # Clear session
-    # user_sessions.pop(message.from_user.id, None)
+@dp.message(F.text)
+async def website_only_fallback(message: Message):
+    if str(message.text or "").startswith("/"):
+        await message.answer("⚠️ Unknown command — /help చూడండి.")
+    else:
+        await message.answer(f"Registration and profile updates are handled on the website: {SITE_URL}/register. Please do not send personal details in this chat.")
 
 
 async def post_to_channels(profile: dict, tsap_id: str, score: int | None = None, photo_path: str | None = None):
-    """
-    One approve → Advanced router → anni relevant LIVE channels lo post.
-    Create kaani channels ni skip chesi list return chestundi.
-    Bot configure kakapothe dry-run preview return (crash kadu).
-    """
-    t = post_targets(profile)
-    caption = build_caption(profile, tsap_id, score)
-    _b = get_bot()
-    if _b is None:
-        return {"posted": [], "failed": [], "pending_channels": t["pending"],
-                "hashtags": t["hashtags"], "notes": t["notes"],
-                "dry_run": True, "caption_preview": caption[:300]}
-    posted, failed = [], []
-    for chat in t["ready"]:
-        try:
-            if photo_path and os.path.exists(photo_path):
-                from aiogram.types import FSInputFile
-                await _b.send_photo(chat_id=chat, photo=FSInputFile(photo_path), caption=caption[:1024])
-            else:
-                await _b.send_message(chat_id=chat, text=caption[:4096])
-            posted.append(chat)
-            await asyncio.sleep(1.2)  # rate-limit safe
-        except Exception as e:
-            failed.append(f"{chat}: {e}")
-    return {"posted": posted, "failed": failed, "pending_channels": t["pending"],
-            "hashtags": t["hashtags"], "notes": t["notes"]}
+    """Retired local workflow: return a preview only and never send channel messages."""
+    targets = post_targets(profile or {})
+    caption = build_caption(profile or {}, tsap_id)
+    return {
+        "posted": [],
+        "failed": [],
+        "not_routing_eligible": targets["not_routing_eligible"],
+        "routing_candidates": targets["routing_candidates"],
+        "hashtags": targets["hashtags"],
+        "notes": targets["notes"],
+        "dry_run": True,
+        "external_status_checked": False,
+        "reason": "Legacy bot registration/publishing is disabled; no message was sent.",
+        "caption_preview": caption[:300],
+    }
 
 
 @dp.callback_query(F.data.startswith("approve_"))
 async def approve_callback(callback: CallbackQuery):
-    tsap_id = callback.data.replace("approve_","")
-    profile = user_profiles.get(tsap_id, {})
-    res = await post_to_channels(profile, tsap_id)
-    pending_txt = ""
-    if res["pending_channels"]:
-        pending_txt = f"\n\n⏳ Create cheyyalsina channels: {len(res['pending_channels'])} (Wave plan chudu)"
-    dry = "\n\n🧪 Dry-run (BOT_TOKEN pettagane live post)" if res.get("dry_run") else ""
-    await callback.message.edit_text(
-        f"✅ {tsap_id} Approved!\n\n📤 Posted ({len(res['posted'])}): {', '.join(res['posted']) or '—'}"
-        f"\n❌ Failed: {', '.join(res['failed']) or '—'}{pending_txt}{dry}"
-        f"\n\n#hashtags: {res['hashtags']}\n\nUser కి Top 3 FREE already sent + daily auto ON after pay.")
-    await callback.answer("Approved + Auto-posted!")
+    await callback.answer("Legacy bot approval is retired; use the authenticated website dashboard.", show_alert=True)
+    if callback.message:
+        await callback.message.edit_text("No profile was approved or posted. Review profiles through the authenticated website dashboard.")
 
 
 @dp.callback_query(F.data.startswith("reject_"))
 async def reject_callback(callback: CallbackQuery):
-    tsap_id = callback.data.replace("reject_","")
-    user_profiles.pop(tsap_id, None)
-    await callback.message.edit_text(f"❌ {tsap_id} rejected — user కి reason తో message పంపండి.")
-    await callback.answer("Rejected")
+    await callback.answer("Legacy bot rejection is retired; use the authenticated website dashboard.", show_alert=True)
+    if callback.message:
+        await callback.message.edit_text("No profile was changed. Review records through the authenticated website dashboard.")
 
 
 @dp.callback_query(F.data.startswith("premium_"))
 async def premium_callback(callback: CallbackQuery):
-    tsap_id = callback.data.replace("premium_","")
-    await callback.message.edit_text(f"💎 {tsap_id} కి 10 credits FREE + Premium gift! User కి message వెళ్లింది.")
-    await callback.answer("Premium gifted!")
+    await callback.answer("Legacy credit gifting is retired; use the authenticated website dashboard.", show_alert=True)
+    if callback.message:
+        await callback.message.edit_text("No credits were added. Use the authenticated website dashboard for member support.")
 
 
-# Daily 9AM sender (APScheduler hook — backend scheduler nunchi call avutundi)
+# Optional scheduler hook kept for callers, but no daily sender is configured here.
 async def daily_sender_once(api_base: str = "") -> dict:
-    """
-    Daily 9AM digest — paid users ki top matches (dry-run preview return).
-    Real scheduler (APScheduler/celery) ee function ni roju 9AM ki call chestundi.
-    """
-    base = api_base or os.getenv("API_BASE", "http://localhost:8000")
-    return {"ok": True, "mode": "hook-ready", "api_base": base,
-            "note": "APScheduler: daily_sender_once() ని 9AM IST కి schedule చెయ్యండి"}
-
-
-async def daily_sender():
-    while True:
-        # In real: query DB for paid users, find 2 new matches, send via bot + WhatsApp API
-        # APScheduler use
-        await asyncio.sleep(86400)  # 24h
-        print("[DAILY] Sending 9AM matches to paid users...")
+    return {"ok": True, "mode": "disabled", "sent": 0,
+            "note": "No daily digest scheduler is configured; no messages were sent."}
 
 
 async def main():
     st = channel_stats()
-    print(f"[BOT START] {st['total']} channels registry | LIVE: {st['live']} | to create: {st['to_create']}")
-    print("[BOT START] live: " + ", ".join("@" + c["username"] for c in live_channels()))
+    print(f"[BOT START] {st['total']} configured listings | routing-eligible flags: {st['routing_eligible']} (external status unchecked)")
+    print("[BOT START] configured routing usernames: " + ", ".join("@" + c["username"] for c in live_channels()))
     _b = get_bot()
     if _b is None:
         print(f"[BOT STOP] {BOT_ERROR}")
         return
-    asyncio.create_task(daily_sender())
     await dp.start_polling(_b)
 
 

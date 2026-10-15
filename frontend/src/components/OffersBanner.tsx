@@ -1,4 +1,6 @@
 "use client";
+
+import { readApiJson } from "@/lib/api";
 /**
  * 🎉 WAVE 14 — OFFERS BANNER (homepage strip)
  * Live festival offers → pricing ki link.
@@ -14,7 +16,7 @@ export default function OffersBanner() {
   const te = lang === "te";
   const [offers, setOffers] = useState<Offer[]>([]);
   useEffect(() => {
-    fetch("/api/offers/active").then((r) => r.json()).then((d) => {
+    fetch("/api/offers/active").then((r) => readApiJson(r)).then((d) => {
       if (d?.success && Array.isArray(d.offers)) setOffers(d.offers.slice(0, 3));
     }).catch(() => {});
   }, []);

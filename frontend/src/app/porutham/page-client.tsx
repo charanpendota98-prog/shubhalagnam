@@ -1,5 +1,7 @@
 "use client";
 
+
+import { apiDisplayMessage, readApiJson } from "@/lib/api";
 /**
  * /porutham — limited traditional reference report
  * Shows the ten backend rule checks item-by-item when the required star details exist.
@@ -7,7 +9,7 @@
  */
 import { Suspense, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { Duo, duo } from "@/lib/duo";
+import { Duo } from "@/lib/duo";
 import { useLang } from "@/lib/lang";
 import { useSearchParams } from "next/navigation";
 import { NAKSHATRAS, NAK_TO_RASI, RASIS } from "@/lib/telugu-data";
@@ -33,7 +35,7 @@ function PoruthamInner() {
   const [imgOk, setImgOk] = useState(true);
   const [gA, setGA] = useState("");
   const [gB, setGB] = useState("");
-  const [gRes, setGRes] = useState<Res | null>(null);
+  const [gRes, setGRes] = useState<{ note: string } | null>(null);
   const [gBusy, setGBusy] = useState(false);
   const [chartB, setChartB] = useState<Res | null>(null);
   const [chartG, setChartG] = useState<Res | null>(null);
@@ -52,13 +54,16 @@ function PoruthamInner() {
     if (!b || !g) { setErr(te ? "రెండు Profile IDs ఇవ్వండి (bride + groom)" : "Enter both Profile IDs (bride + groom)"); return; }
     setBusy(true); setErr(""); setChartB(null); setChartG(null);
     try {
-      const d = await fetch(`/api/porutham?bride=${encodeURIComponent(b)}&groom=${encodeURIComponent(g)}`).then((r) => r.json());
-      if (d.detail) { setErr(typeof d.detail === "string" ? d.detail : (d.detail.te || d.detail.message_telugu || d.detail.en || "గుణమేళనం లెక్కించలేకపోయాం")); setRes(null); } else {
+      const d = await fetch(`/api/porutham?bride=${encodeURIComponent(b)}&groom=${encodeURIComponent(g)}`).then((r) => readApiJson(r));
+      if (d.detail) {
+        setErr(apiDisplayMessage(d, te, te ? "గుణమేళనం లెక్కించలేకపోయాం. మళ్లీ ప్రయత్నించండి." : "Could not calculate the Porutham reference. Please try again."));
+        setRes(null);
+      } else {
         setRes({ ...d, _bride: b, _groom: g }); setImgOk(true);
         try {
           const [cb, cg] = await Promise.all([
-            fetch(`/api/astro/chart/${encodeURIComponent(b)}`).then((r) => r.json()),
-            fetch(`/api/astro/chart/${encodeURIComponent(g)}`).then((r) => r.json()),
+            fetch(`/api/astro/chart/${encodeURIComponent(b)}`).then((r) => readApiJson(r)),
+            fetch(`/api/astro/chart/${encodeURIComponent(g)}`).then((r) => readApiJson(r)),
           ]);
           if (cb?.success) setChartB(cb);
           if (cg?.success) setChartG(cg);
@@ -69,43 +74,70 @@ function PoruthamInner() {
   }, [te]);
 
   const checkGothram = async () => {
-    if (!gA.trim() || !gB.trim()) { setGRes({ note_telugu: te ? "రెండు Profile IDs ఇవ్వండి" : "Enter both Profile IDs" }); return; }
+    if (!gA.trim() || !gB.trim()) {
+      setGRes({ note: te ? "రెండు ప్రొఫైల్ IDలను నమోదు చేయండి." : "Enter both profile IDs." });
+      return;
+    }
     setGBusy(true);
     try {
-      const d = await fetch(`/api/gothram/check?a=${encodeURIComponent(gA.trim().toUpperCase())}&b=${encodeURIComponent(gB.trim().toUpperCase())}`).then((r) => r.json());
-      setGRes(d.detail ? { note_telugu: d.detail, blocked: false } : d);
-    } catch { setGRes({ note_telugu: te ? "Network problem" : "Network problem", blocked: false }); }
+      const d = await fetch(`/api/gothram/check?a=${encodeURIComponent(gA.trim().toUpperCase())}&b=${encodeURIComponent(gB.trim().toUpperCase())}`).then((r) => readApiJson(r));
+      if (d.detail || !d.success) {
+        setGRes({ note: apiDisplayMessage(d, te, te ? "గోత్ర వివరాలను పోల్చలేకపోయాం." : "Could not compare the gothram details.") });
+      } else if (te) {
+        setGRes({ note: d.note_telugu || "నమోదు చేసిన వివరాలను పోల్చలేకపోయాం." });
+      } else {
+        setGRes({ note: d.same === true
+          ? "The entered gothram text matches. This is a text comparison only—not a marriage decision."
+          : d.same === false
+            ? "The entered gothram text differs. This is a text comparison only—not a traditional ruling."
+            : "One or both gothram details are unavailable; no comparison could be made." });
+      }
+    } catch {
+      setGRes({ note: te ? "నెట్‌వర్క్ సమస్య. మళ్లీ ప్రయత్నించండి." : "A network problem occurred. Please try again." });
+    }
     setGBusy(false);
   };
 
   const calcByStar = async () => {
-    if (!bStar || !gStar) { setErr(te ? "Bride + Groom star (నక్షత్రం) select చెయ్యండి" : "Select bride + groom stars (nakshatram)"); return; }
+    if (!bStar || !gStar) { setErr(te ? "వధువు, వరుడు ఇద్దరి నక్షత్రాలను ఎంచుకోండి." : "Select a nakshatra for both profiles."); return; }
     setBusy(true); setErr("");
     try {
       const d = await fetch("/api/porutham", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ bride_star: bStar, bride_rasi: bRasi, groom_star: gStar, groom_rasi: gRasi }),
-      }).then((r) => r.json());
-      setRes({ ...d, _bride: bStar, _groom: gStar, _byStar: true });
-    } catch { setErr(te ? "Network problem — మళ్లీ try చెయ్యండి" : "Network problem — retry"); }
+      }).then((r) => readApiJson(r));
+      if (d.detail) {
+        setErr(apiDisplayMessage(d, te, te ? "గుణమేళనం లెక్కించలేకపోయాం. వివరాలను పరిశీలించండి." : "Could not calculate the Porutham reference. Review the supplied details."));
+        setRes(null);
+      } else {
+        setRes({ ...d, _bride: bStar, _groom: gStar, _byStar: true });
+      }
+    } catch { setErr(te ? "నెట్‌వర్క్ సమస్య. మళ్లీ ప్రయత్నించండి." : "A network problem occurred. Please try again."); }
     setBusy(false);
   };
 
   const shareWa = () => {
     if (!res) return;
-    const txt = `మన వివాహ — traditional Porutham checks\n${res.bride?.full_name || res._bride} • ${res.groom?.full_name || res._groom}\n`
-      + `Checks marked pass: ${res.passed_checks ?? 0} of ${res.total_checks ?? 10}\nReview every item separately. This is not a compatibility score or marriage recommendation.\n`
-      + `Details: https://manavivaha.in/porutham`;
-    window.open(`https://wa.me/?text=${encodeURIComponent(txt)}`, "_blank");
+    const brand = te ? "మన వివాహ (Mana Vivaha)" : "Mana Vivaha (మన వివాహ)";
+    const brideStar = te ? (res.bride_star || res._bride) : apiDisplayMessage({ message_en: res.bride_star_en }, false, res._byStar ? res._bride : "Not available in English");
+    const groomStar = te ? (res.groom_star || res._groom) : apiDisplayMessage({ message_en: res.groom_star_en }, false, res._byStar ? res._groom : "Not available in English");
+    const txt = te
+      ? `${brand} — గుణమేళనం సూచిక\n${res.bride?.full_name || res._bride} • ${brideStar}\n${res.groom?.full_name || res._groom} • ${groomStar}\nసరిపోతాయని గుర్తించిన అంశాలు: ${res.passed_checks ?? 0} / ${res.total_checks ?? 10}\nఇది అనుకూలత స్కోరు లేదా వివాహ సిఫార్సు కాదు. ప్రతి అంశాన్ని విడిగా పరిశీలించండి.\n${window.location.origin}/porutham`
+      : `${brand} — Porutham reference\n${res.bride?.full_name || res._bride} • ${brideStar}\n${res.groom?.full_name || res._groom} • ${groomStar}\nChecks marked pass: ${res.passed_checks ?? 0} of ${res.total_checks ?? 10}\nReview each item separately. This is not a compatibility score or marriage recommendation.\n${window.location.origin}/porutham`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(txt)}`, "_blank", "noopener,noreferrer");
   };
 
   const shareImg = () => {
     if (!res?._bride || !res?._groom || res._byStar) return;
     const url = `${window.location.origin}/api/og/porutham/${encodeURIComponent(res._bride)}/${encodeURIComponent(res._groom)}.png`;
-    window.open(url, "_blank");
+    window.open(url, "_blank", "noopener,noreferrer");
   };
 
   const items: Res[] = res?.items || [];
+  const brideStarLabel = te ? res?.bride_star : apiDisplayMessage({ message_en: res?.bride_star_en }, false, "");
+  const groomStarLabel = te ? res?.groom_star : apiDisplayMessage({ message_en: res?.groom_star_en }, false, "");
+  const brideRasiLabel = te ? res?.bride_rasi : apiDisplayMessage({ message_en: res?.bride_rasi_en }, false, "");
+  const groomRasiLabel = te ? res?.groom_rasi : apiDisplayMessage({ message_en: res?.groom_rasi_en }, false, "");
 
   return (
     <div className="min-h-dvh bg-cream pb-36">
@@ -119,9 +151,9 @@ function PoruthamInner() {
 {te ? <>నక్షత్ర వివరాల ఆధారంగా backend లెక్కించే పది సాంప్రదాయ checks మరియు వాటి వివరణ. ఇది పూర్తి జాతక విశ్లేషణ, వ్యక్తిత్వ అంచనా లేదా వివాహ ఫలిత హామీ కాదు; కుటుంబం/అర్హులైన సలహాదారులతో వివరాలు నిర్ధారించండి.</> : <>Ten traditional checks calculated by the backend from supplied star details. This is a limited reference, not a complete horoscope, a personality assessment, or a prediction of marriage outcomes; verify details with family and a qualified adviser.</>}
           </p>
           <div className="mt-3 flex flex-wrap gap-2 text-[11px]">
-            <span className="bg-white/10 border border-white/20 rounded-full px-3 py-1.5">📄 10-check reference / PDF</span>
-            <span className="bg-white/10 border border-white/20 rounded-full px-3 py-1.5">🖼️ Shareable result image</span>
-            <span className="bg-white/10 border border-white/20 rounded-full px-3 py-1.5">ℹ️ Rule-based, limited reference</span>
+            <span className="bg-white/10 border border-white/20 rounded-full px-3 py-1.5">{te ? "📄 10 అంశాల సూచిక / PDF" : "📄 10-check reference / PDF"}</span>
+            <span className="bg-white/10 border border-white/20 rounded-full px-3 py-1.5">{te ? "🖼️ పంచుకోదగిన ఫలిత చిత్రం" : "🖼️ Shareable result image"}</span>
+            <span className="bg-white/10 border border-white/20 rounded-full px-3 py-1.5">{te ? "ℹ️ పరిమిత నియమ-ఆధారిత సూచిక" : "ℹ️ Limited rule-based reference"}</span>
           </div>
         </div>
       </section>
@@ -155,7 +187,7 @@ function PoruthamInner() {
           ) : (
             <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-3">
               <div>
-                <label className="text-[12px] font-bold">Bride star (వధువు నక్షత్రం)</label>
+                <label className="text-[12px] font-bold">{te ? "వధువు నక్షత్రం" : "Bride nakshatra"}</label>
                 <select
                   value={bStar}
                   onChange={(e) => {
@@ -166,18 +198,18 @@ function PoruthamInner() {
                   className="input-mobile"
                 >
                   <option value="">— select —</option>
-                  {NAKSHATRAS.map((n) => <option key={n.en} value={n.en}>{n.te} ({n.en})</option>)}
+                  {NAKSHATRAS.map((n) => <option key={n.en} value={n.en}>{te ? `${n.te} (${n.en})` : n.en}</option>)}
                 </select>
               </div>
               <div>
-                <label className="text-[12px] font-bold">Bride rasi (రాశి)</label>
+                <label className="text-[12px] font-bold">{te ? "వధువు రాశి" : "Bride rasi"}</label>
                 <select value={bRasi} onChange={(e) => setBRasi(e.target.value)} className="input-mobile">
                   <option value="">— auto —</option>
-                  {RASIS.map((r) => <option key={r.en} value={r.en}>{r.te} ({r.en})</option>)}
+                  {RASIS.map((r) => <option key={r.en} value={r.en}>{te ? `${r.te} (${r.en})` : r.en}</option>)}
                 </select>
               </div>
               <div>
-                <label className="text-[12px] font-bold">Groom star (వరుని నక్షత్రం)</label>
+                <label className="text-[12px] font-bold">{te ? "వరుని నక్షత్రం" : "Groom nakshatra"}</label>
                 <select
                   value={gStar}
                   onChange={(e) => {
@@ -188,14 +220,14 @@ function PoruthamInner() {
                   className="input-mobile"
                 >
                   <option value="">— select —</option>
-                  {NAKSHATRAS.map((n) => <option key={n.en} value={n.en}>{n.te} ({n.en})</option>)}
+                  {NAKSHATRAS.map((n) => <option key={n.en} value={n.en}>{te ? `${n.te} (${n.en})` : n.en}</option>)}
                 </select>
               </div>
               <div>
-                <label className="text-[12px] font-bold">Groom rasi (రాశి)</label>
+                <label className="text-[12px] font-bold">{te ? "వరుని రాశి" : "Groom rasi"}</label>
                 <select value={gRasi} onChange={(e) => setGRasi(e.target.value)} className="input-mobile">
                   <option value="">— auto —</option>
-                  {RASIS.map((r) => <option key={r.en} value={r.en}>{r.te} ({r.en})</option>)}
+                  {RASIS.map((r) => <option key={r.en} value={r.en}>{te ? `${r.te} (${r.en})` : r.en}</option>)}
                 </select>
               </div>
               <div className="col-span-2 md:col-span-4">
@@ -232,9 +264,9 @@ function PoruthamInner() {
               {gBusy ? "…" : te ? "🛡️ Check" : "🛡️ Check"}
             </button>
           </div>
-          {gRes?.note_telugu && (
+          {gRes?.note && (
             <p role="status" className="mt-2 rounded-xl border border-slate-200 bg-slate-50 p-2 text-[12px] font-medium text-slate-700">
-              {gRes.note_telugu}
+              {gRes.note}
             </p>
           )}
         </div>
@@ -257,13 +289,15 @@ function PoruthamInner() {
                   )}
                   {res.available && (
                     <div className="mt-2 text-[12px] text-gray-700">
-                      👰 {res.bride?.full_name || res._bride} — <b>{(res.bride_star_en || "")} ({res.bride_star || ""})</b>, {res.bride_rasi || ""}<br />
-                      🤵 {res.groom?.full_name || res._groom} — <b>{(res.groom_star_en || "")} ({res.groom_star || ""})</b>, {res.groom_rasi || ""}
+                      👰 {res.bride?.full_name || res._bride} — <b>{brideStarLabel || "—"}</b>, {brideRasiLabel || "—"}<br />
+                      🤵 {res.groom?.full_name || res._groom} — <b>{groomStarLabel || "—"}</b>, {groomRasiLabel || "—"}
                     </div>
                   )}
-                  {res.doshas?.length ? (
+                  {(te ? res.doshas : (res.doshas_en || []).map((item: string) => apiDisplayMessage({ message_en: item }, false, "")).filter(Boolean))?.length ? (
                     <div className="mt-2 inline-block bg-rose-50 border border-rose-200 text-rose-800 rounded-xl px-3 py-1.5 text-[11px] font-bold">
-                      {te ? <>⚠️ దోషం: {res.doshas.join(" + ")} — పెద్దలు/పురోహితులను సంప్రదించండి</> : <>⚠️ Dosha: {res.doshas.join(" + ")} — consult elders/purohit</>}
+                      {te
+                        ? <>⚠️ సమీక్షించాల్సిన అంశాలు: {res.doshas.join(" + ")} — కుటుంబ పెద్దలు లేదా అర్హులైన సలహాదారుతో చర్చించండి.</>
+                        : <>⚠️ Items marked for review: {(res.doshas_en || []).map((item: string) => apiDisplayMessage({ message_en: item }, false, "")).filter(Boolean).join(" + ") || "See the individual checks."} — consult a qualified adviser if relevant.</>}
                     </div>
                   ) : null}
                 </div>
@@ -277,17 +311,21 @@ function PoruthamInner() {
                         <span className={`w-6 h-6 rounded-full text-white text-[12px] font-bold flex items-center justify-center ${it.pass ? "bg-emerald-600" : "bg-rose-600"}`}>
                           {it.pass ? "✓" : "✗"}
                         </span>
-                        <span className="text-[13px] font-bold text-ink">{it.no}. {it.name}</span>
-                        <span className="text-[11px] text-gray-500 telugu">{it.telugu}</span>
+                        <span className="text-[13px] font-bold text-ink">{it.no}. {te ? it.name : (it.name_en || `Porutham check ${it.no}`)}</span>
+                        {te ? <span className="text-[11px] text-gray-500 telugu">{it.telugu}</span> : null}
                       </div>
-                      <div className="mt-1 text-[11px] text-gray-700 telugu leading-relaxed">{it.note}</div>
+                      <div className={`mt-1 text-[11px] text-gray-700 leading-relaxed ${te ? "telugu" : ""}`}>
+                        {te ? it.note : apiDisplayMessage({ message_en: it.note_en }, false, "Rule explanation is not available in English.")}
+                      </div>
                     </div>
                   ))}
                 </div>
               )}
 
-              <div className="mt-3 bg-cream rounded-2xl p-3 text-[11px] text-gray-700 telugu leading-relaxed">
-                🕉️ {res.advice_telugu || res.reason}
+              <div className={`mt-3 bg-cream rounded-2xl p-3 text-[11px] text-gray-700 leading-relaxed ${te ? "telugu" : ""}`}>
+                🕉️ {te
+                  ? (res.advice_telugu || res.reason || "వివరాలు అందుబాటులో లేవు.")
+                  : apiDisplayMessage({ message_en: res.advice_en || res.reason_en }, false, "This is a limited reference. Review each item separately; it is not a marriage recommendation.")}
               </div>
 
               {res.available && (
@@ -303,7 +341,7 @@ function PoruthamInner() {
                 </a>
                 <button onClick={() => window.print()} className="px-4 py-3 rounded-2xl maroon-gradient text-white font-bold text-[12px]">🖨️ Print View</button>
                 <button onClick={shareWa} title={te ? "బాహ్య WhatsApp share తెరుస్తుంది; availability తనిఖీ చేయబడదు" : "Opens external WhatsApp sharing; availability is not checked"} className="px-4 py-3 rounded-2xl bg-[#25D366] text-white font-bold text-[12px]">{te ? "WhatsApp లో షేర్" : "Share via WhatsApp"}</button>
-                {!res._byStar && <button onClick={shareImg} className="px-4 py-3 rounded-2xl border border-maroon/25 text-maroon font-bold text-[12px]">🖼️ రిపోర్ట్ ఇమేజ్</button>}
+                {!res._byStar && <button onClick={shareImg} className="px-4 py-3 rounded-2xl border border-maroon/25 text-maroon font-bold text-[12px]">{te ? "🖼️ నివేదిక చిత్రం" : "🖼️ Report image"}</button>}
                 <Link href="/requests" className="px-4 py-3 rounded-2xl border border-maroon/25 text-maroon font-bold text-[12px]">{te ? "💌 Interest పంపు" : "💌 Send interest"}</Link>
               </div>
               )}
@@ -328,7 +366,7 @@ function PoruthamInner() {
                 <img
                   src={`/api/og/porutham/${encodeURIComponent(res._bride)}/${encodeURIComponent(res._groom)}.png`}
                   onError={() => setImgOk(false)}
-                  alt="Gunamelanam report — Telugu"
+                  alt={te ? "గుణమేళనం సూచిక నివేదిక" : "Porutham reference report"}
                   className="mt-3 w-full rounded-2xl border border-gold/30"
                 />
               </div>
@@ -339,22 +377,33 @@ function PoruthamInner() {
         {/* ---------- glossary ---------- */}
         <div className="bg-white rounded-[1.5rem] border border-gold/25 p-5 print:hidden">
           <div className="font-bold text-maroon text-[15px]">{te ? "📚 ఈ పది నియమ-ఆధారిత checks గురించి (సమాచారం కోసం మాత్రమే)" : "📚 About these ten rule-based checks (informational only)"}</div>
-          <div className="mt-3 grid md:grid-cols-2 gap-2 text-[11px] text-gray-700 telugu leading-relaxed">
-            {[
-              ["రాశి పొంతన (Rasi)", "ఈ implementation లో రాశుల మధ్య 6/8 దూరం ఉందో లేదో తనిఖీ చేస్తుంది."],
-              ["నక్షత్ర / దిన గుణం", "నక్షత్రాల మధ్య backend లో నిర్వచించిన వేధ జంట ఉందో పరిశీలిస్తుంది."],
-              ["గణ మైత్రి (Gana)", "ఎంచుకున్న నక్షత్రాల గణ వర్గీకరణను backend పట్టికతో పోలుస్తుంది."],
-              ["యోని పొంతన (Yoni)", "నక్షత్రాలకు కేటాయించిన యోని వర్గాలు శత్రు జంటలో ఉన్నాయో చూస్తుంది."],
-              ["రజ్జు శుద్ధి (Rajju)", "రెండు నక్షత్రాలు ఒకే రజ్జు సమూహంలో ఉన్నాయో తనిఖీ చేస్తుంది."],
-              ["వేధ పరిశీలన (Vedha)", "నిర్వచించిన నక్షత్ర వేధ జంటలలో ఈ రెండు నక్షత్రాలు ఉన్నాయో చూస్తుంది."],
-              ["మాహేంద్ర పొంతన (Mahendra)", "Backend నియమంలో జాబితా చేసిన నక్షత్ర దూరాలనే pass గా గుర్తిస్తుంది."],
-              ["స్త్రీ దీర్ఘం (Stree Deergha)", "వరుని నక్షత్రం నుండి వధువు నక్షత్రం వరకు లెక్కించిన దూరం 13 లేదా అంతకంటే ఎక్కువో చూస్తుంది."],
-              ["వశ్య పొంతన (Vashya)", "రాశులకు backend లో ఇచ్చిన వశ్య వర్గాలు లేదా అనుబంధ జంటలను పోలుస్తుంది."],
-              ["రాశ్యాధిపతి మైత్రి (Rasi Adhipathi)", "రాశి అధిపతులకు backend లో నిర్వచించిన ఒకే లేదా మిత్ర జంట వర్తిస్తుందో చూస్తుంది."],
-            ].map(([t, d]) => (
-              <div key={t} className="bg-cream rounded-xl p-2.5 border border-gold/20">
-                <div className="font-bold text-maroon">{t}</div>
-                <div className="mt-0.5">{d}</div>
+          <div className={`mt-3 grid md:grid-cols-2 gap-2 text-[11px] text-gray-700 leading-relaxed ${te ? "telugu" : ""}`}>
+            {(te ? [
+              ["రాశి పొంతన", "ఈ లెక్కలో రాశుల మధ్య 6/8 స్థాన నియమాన్ని తనిఖీ చేస్తుంది."],
+              ["నక్షత్ర / దిన గుణం", "నక్షత్రాల మధ్య నిర్వచించిన వేధ జంట ఉందో పరిశీలిస్తుంది."],
+              ["గణ మైత్రి", "ఎంచుకున్న నక్షత్రాల గణ వర్గాలను పట్టికతో పోలుస్తుంది."],
+              ["యోని పొంతన", "నక్షత్రాలకు కేటాయించిన యోని వర్గాలు వ్యతిరేక జంటలో ఉన్నాయో చూస్తుంది."],
+              ["రజ్జు శుద్ధి", "రెండు నక్షత్రాలు ఒకే రజ్జు సమూహంలో ఉన్నాయో తనిఖీ చేస్తుంది."],
+              ["వేధ పరిశీలన", "నిర్వచించిన నక్షత్ర వేధ జంటలో ఈ నక్షత్రాలు ఉన్నాయో చూస్తుంది."],
+              ["మాహేంద్ర పొంతన", "ఈ నియమంలో జాబితా చేసిన నక్షత్ర దూరాలను పరిశీలిస్తుంది."],
+              ["స్త్రీ దీర్ఘం", "వరుని నక్షత్రం నుంచి వధువు నక్షత్రం వరకు దూరం 13 లేదా అంతకంటే ఎక్కువ ఉందో చూస్తుంది."],
+              ["వశ్య పొంతన", "రాశులకు ఇచ్చిన వశ్య వర్గాలు లేదా స్నేహ జంటలను పోలుస్తుంది."],
+              ["రాశ్యాధిపతి మైత్రి", "రాశి అధిపతుల సంబంధాన్ని ఈ నియమ పట్టికతో పోలుస్తుంది."],
+            ] : [
+              ["Rasi compatibility", "Checks whether the rasi distance falls in the listed 6/8 positions."],
+              ["Nakshatra / Dina", "Checks for a Vedha pair defined in the reference table."],
+              ["Gana compatibility", "Compares the selected nakshatras’ gana categories with the rule table."],
+              ["Yoni compatibility", "Checks whether the assigned yoni categories form a listed opposing pair."],
+              ["Rajju", "Checks whether both nakshatras fall in the same Rajju group."],
+              ["Vedha", "Checks whether the selected nakshatras form a listed Vedha pair."],
+              ["Mahendra", "Checks the nakshatra distances listed for this rule."],
+              ["Stree Deergha", "Checks whether the count from the groom’s nakshatra to the bride’s is at least 13."],
+              ["Vashya", "Compares the rasi Vashya groups and listed friendly pairs."],
+              ["Rasi lord relationship", "Checks the planetary-lord relationship in the rule table."],
+            ]).map(([title, description]) => (
+              <div key={title} className="bg-cream rounded-xl p-2.5 border border-gold/20">
+                <div className="font-bold text-maroon">{title}</div>
+                <div className="mt-0.5">{description}</div>
               </div>
             ))}
           </div>
@@ -367,9 +416,14 @@ function PoruthamInner() {
   );
 }
 
+function PoruthamLoading() {
+  const { lang } = useLang();
+  return <div className="min-h-dvh bg-cream p-8 text-center text-[13px]">{lang === "te" ? "వేద గుణమేళనం లోడ్ అవుతోంది…" : "Loading the Porutham reference…"}</div>;
+}
+
 export default function PoruthamPage() {
   return (
-    <Suspense fallback={<div className="min-h-dvh bg-cream p-8 text-center text-[13px]">వేద గుణమేళనం లోడ్ అవుతుంది…</div>}>
+    <Suspense fallback={<PoruthamLoading />}>
       <PoruthamInner />
     </Suspense>
   );

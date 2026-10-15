@@ -191,17 +191,16 @@ export interface CountryDetail {
   te: string;
   display: string;
   flag: string;
-  popular?: boolean;
 }
 
 export const NRI_COUNTRIES: CountryDetail[] = sortDirectoryByEnglish([
-  { code: "USA", en: "USA / United States", te: "అమెరికా (USA)", display: "🇺🇸 USA / United States (అమెరికా)", flag: "🇺🇸", popular: true },
-  { code: "UK", en: "United Kingdom (UK)", te: "యునైటెడ్ కింగ్‌డమ్ (UK / బ్రిటన్)", display: "🇬🇧 UK / United Kingdom (బ్రిటన్)", flag: "🇬🇧", popular: true },
-  { code: "AUS", en: "Australia", te: "ఆస్ట్రేలియా (Australia)", display: "🇦🇺 Australia (ఆస్ట్రేలియా)", flag: "🇦🇺", popular: true },
-  { code: "CAN", en: "Canada", te: "కెనడా (Canada)", display: "🇨🇦 Canada (కెనడా)", flag: "🇨🇦", popular: true },
-  { code: "DEU", en: "Germany", te: "జర్మనీ (Germany)", display: "🇩🇪 Germany (జర్మనీ)", flag: "🇩🇪", popular: true },
-  { code: "UAE", en: "UAE / Dubai", te: "దుబాయ్ / యు.ఎ.ఇ (Dubai / UAE)", display: "🇦🇪 UAE / Dubai (దుబాయ్ / ఎమిరేట్స్)", flag: "🇦🇪", popular: true },
-  { code: "SGP", en: "Singapore", te: "సింగపూర్ (Singapore)", display: "🇸🇬 Singapore (సింగపూర్)", flag: "🇸🇬", popular: true },
+  { code: "USA", en: "USA / United States", te: "అమెరికా (USA)", display: "🇺🇸 USA / United States (అమెరికా)", flag: "🇺🇸" },
+  { code: "UK", en: "United Kingdom (UK)", te: "యునైటెడ్ కింగ్‌డమ్ (UK / బ్రిటన్)", display: "🇬🇧 UK / United Kingdom (బ్రిటన్)", flag: "🇬🇧" },
+  { code: "AUS", en: "Australia", te: "ఆస్ట్రేలియా (Australia)", display: "🇦🇺 Australia (ఆస్ట్రేలియా)", flag: "🇦🇺" },
+  { code: "CAN", en: "Canada", te: "కెనడా (Canada)", display: "🇨🇦 Canada (కెనడా)", flag: "🇨🇦" },
+  { code: "DEU", en: "Germany", te: "జర్మనీ (Germany)", display: "🇩🇪 Germany (జర్మనీ)", flag: "🇩🇪" },
+  { code: "UAE", en: "UAE / Dubai", te: "దుబాయ్ / యు.ఎ.ఇ (Dubai / UAE)", display: "🇦🇪 UAE / Dubai (దుబాయ్ / ఎమిరేట్స్)", flag: "🇦🇪" },
+  { code: "SGP", en: "Singapore", te: "సింగపూర్ (Singapore)", display: "🇸🇬 Singapore (సింగపూర్)", flag: "🇸🇬" },
   { code: "SAU", en: "Saudi Arabia", te: "సౌదీ అరేబియా (Saudi Arabia)", display: "🇸🇦 Saudi Arabia (సౌదీ అరేబియా)", flag: "🇸🇦" },
   { code: "QAT", en: "Qatar", te: "ఖతార్ (Qatar)", display: "🇶🇦 Qatar (ఖతార్)", flag: "🇶🇦" },
   { code: "KWT", en: "Kuwait", te: "కువైట్ (Kuwait)", display: "🇰🇼 Kuwait (కువైట్)", flag: "🇰🇼" },
@@ -272,16 +271,15 @@ export interface WorkTypeItem {
   te: string;
   display: string;
   icon: string;
-  popular?: boolean;
 }
 
 export const WORK_TYPES_DETAILED: WorkTypeItem[] = [
-  { id: "Software", en: "Software / IT / Tech", te: "సాఫ్ట్‌వేర్ / ఐటీ రంగం", display: "💻 సాఫ్ట్‌వేర్ / IT (Software / Tech)", icon: "💻", popular: true },
-  { id: "Government", en: "Govt / Public Sector / PSU", te: "ప్రభుత్వ ఉద్యోగం (Govt Job)", display: "🏛️ ప్రభుత్వ ఉద్యోగం (Govt / PSU)", icon: "🏛️", popular: true },
-  { id: "Doctor", en: "Doctor / Healthcare / Medical", te: "డాక్టర్ / వైద్యరంగం (Healthcare)", display: "🩺 డాక్టర్ / వైద్యం (Doctor / Medical)", icon: "🩺", popular: true },
-  { id: "Business", en: "Business / Entrepreneur", te: "వ్యాపారం / బిజినెస్ / సొంత సంస్థ", display: "🏪 వ్యాపారం (Business / Owner)", icon: "🏪", popular: true },
-  { id: "Banking", en: "Banking / Financial Services", te: "బ్యాంకింగ్ / ఫైనాన్స్ రంగం", display: "🏦 బ్యాంకింగ్ / ఫైనాన్స్ (Banking)", icon: "🏦", popular: true },
-  { id: "NRI", en: "NRI / Working Abroad", te: "ఎన్ఆర్ఐ / విదేశీ ఉద్యోగం", display: "✈️ విదేశీ ఉద్యోగం (NRI / Abroad)", icon: "✈️", popular: true },
+  { id: "Software", en: "Software / IT / Tech", te: "సాఫ్ట్‌వేర్ / ఐటీ రంగం", display: "💻 సాఫ్ట్‌వేర్ / IT (Software / Tech)", icon: "💻" },
+  { id: "Government", en: "Govt / Public Sector / PSU", te: "ప్రభుత్వ ఉద్యోగం (Govt Job)", display: "🏛️ ప్రభుత్వ ఉద్యోగం (Govt / PSU)", icon: "🏛️" },
+  { id: "Doctor", en: "Doctor / Healthcare / Medical", te: "డాక్టర్ / వైద్యరంగం (Healthcare)", display: "🩺 డాక్టర్ / వైద్యం (Doctor / Medical)", icon: "🩺" },
+  { id: "Business", en: "Business / Entrepreneur", te: "వ్యాపారం / బిజినెస్ / సొంత సంస్థ", display: "🏪 వ్యాపారం (Business / Owner)", icon: "🏪" },
+  { id: "Banking", en: "Banking / Financial Services", te: "బ్యాంకింగ్ / ఫైనాన్స్ రంగం", display: "🏦 బ్యాంకింగ్ / ఫైనాన్స్ (Banking)", icon: "🏦" },
+  { id: "NRI", en: "NRI / Working Abroad", te: "ఎన్ఆర్ఐ / విదేశీ ఉద్యోగం", display: "✈️ విదేశీ ఉద్యోగం (NRI / Abroad)", icon: "✈️" },
   { id: "Teaching", en: "Teacher / Lecturer / Professor", te: "బోధన / ప్రొఫెసర్ / లెక్చరర్", display: "📚 బోధన / లెక్చరర్ (Teaching)", icon: "📚" },
   { id: "Defence", en: "Civil Services / Defense / Police", te: "సివిల్స్ / రక్షణ దళాలు / పోలీస్", display: "🇮🇳 సివిల్స్ / పోలీస్ / రక్షణ", icon: "🇮🇳" },
   { id: "Lawyer", en: "Legal / Lawyer / Advocate", te: "న్యాయవాది / లీగల్ ప్రాక్టీస్", display: "⚖️ లాయర్ / న్యాయవాది (Legal)", icon: "⚖️" },
@@ -502,11 +500,11 @@ export const JOBS = [
   "Civil Engineer / Builder", "Mechanical / Electrical Engineer", "Lawyer / Legal Advisor",
   "Police Officer / Defence / Army", "Architect / Interior Designer", "Graphic / UI/UX Designer",
   "HR / Marketing / Sales Manager", "Customer Support / Operations", "Farmer / Farm Owner",
-  "Driver / Logistics", "Self Employed / Freelancer", "Housewife / Homemaker (గృహిణి)", "Not Working / Student", "Other Occupation"
+  "Driver / Logistics", "Self Employed / Freelancer", "Housewife / Homemaker", "Not Working / Student", "Other Occupation"
 ];
 
 export const BRIDE_PREFERRED_JOBS = [
-  "Housewife / Homemaker (గృహిణి)",
+  "Housewife / Homemaker",
   "Not Working / Looking for Job",
   "Software / IT Professional",
   "Govt Employee / PSU / Bank",
@@ -792,8 +790,23 @@ export const HEIGHTS = [
 
 export const WEIGHTS = Array.from({ length: 61 }, (_, i) => `${40 + i}kg`);
 
-export const MARITAL_STATUSES = ["Pelli Kaledu", "Widow", "Widower", "Divorced", "Awaiting Divorce", "Separated"];
-export const CHILDREN_OPTIONS = ["None", "1", "2", "3", "4+"];
+export const MARITAL_STATUSES = ["Pelli Kaledu", "Widow", "Widower", "Divorced", "Awaiting Divorce", "Separated"] as const;
+export const MARITAL_STATUS_FILTER_OPTIONS = [
+  { value: "Pelli Kaledu", en: "Never married", te: "పెళ్లి కాలేదు" },
+  { value: "Divorced", en: "Divorced", te: "విడాకులు పొందినవారు" },
+  { value: "Widow", en: "Widow", te: "వితంతువు" },
+  { value: "Widower", en: "Widower", te: "విధురుడు" },
+  { value: "Awaiting Divorce", en: "Awaiting divorce", te: "విడాకుల కోసం ఎదురుచూస్తున్నారు" },
+  { value: "Separated", en: "Separated", te: "విడిగా ఉంటున్నారు" },
+] as const;
+export const CHILDREN_OPTIONS = ["None", "1", "2", "3", "4+"] as const;
+export const CHILDREN_FILTER_OPTIONS = [
+  { value: "", en: "All", te: "అన్నీ" },
+  { value: "None", en: "No children", te: "పిల్లలు లేరు" },
+  { value: "1", en: "1 child", te: "1 బాబు / పాప" },
+  { value: "2", en: "2 children", te: "2 పిల్లలు" },
+  { value: "3+", en: "3 or more children", te: "3 లేదా అంతకంటే ఎక్కువ పిల్లలు" },
+] as const;
 
 export function heightLabel(h: string): string {
   const m = /^(\d)'(\d{1,2})"?$/.exec((h || "").trim());
@@ -876,13 +889,51 @@ export function stateFullName(stateRaw?: string | null, te: boolean = true): str
   return String(stateRaw || (te ? "తెలంగాణ" : "Telangana"));
 }
 
-// 💍 FIX: "1st marriage" (Pelli Kaledu / Never Married / Single) profiles కి ఎప్పుడూ
-// "Second Marriage" badge కనిపించకూడదు — genuine second marriage (Divorced/Widowed/
-// Widower/Separated) profiles కి మాత్రమే చూపించడానికి shared check.
-const FIRST_MARRIAGE_STATUSES = ["pelli kaledu", "never married", "unmarried", "single", ""];
+// Marital-status values exist in legacy Romanized Telugu, English, and Telugu
+// script. Keep first-marriage checks centralized so dependent fields/filters do
+// not accidentally treat "Never married" as a second-marriage status.
+const FIRST_MARRIAGE_STATUSES = new Set([
+  "pelli kaledu",
+  "pelli kaaledu",
+  "pelli kaledhu",
+  "pelli kaaledhu",
+  "pelli kaledu / first marriage",
+  "never married",
+  "never married / first marriage",
+  "never married first marriage",
+  "unmarried",
+  "not married",
+  "single",
+  "first marriage",
+  "పెళ్లి కాలేదు",
+  "పెళ్లికాలేదు",
+]);
+
+function normalizedMaritalStatusText(maritalStatus?: string | null): string {
+  return String(maritalStatus || "").normalize("NFKC").trim().toLowerCase()
+    .replace(/[_\u2010-\u2015-]+/g, " ")
+    .replace(/\s*\/\s*/g, " / ")
+    .replace(/\s+/g, " ");
+}
+
+export function isNeverMarriedStatus(maritalStatus?: string | null): boolean {
+  return FIRST_MARRIAGE_STATUSES.has(normalizedMaritalStatusText(maritalStatus));
+}
+
+export function normalizeMaritalStatus(maritalStatus?: string | null): string {
+  const value = normalizedMaritalStatusText(maritalStatus);
+  if (!value) return "";
+  if (isNeverMarriedStatus(value)) return "never married";
+  if (/(await|pending|నిరీక్షణ|ఎదురుచూస్త)/.test(value)) return "awaiting divorce";
+  if (/(divorc|విడాకుల|విడాకు)/.test(value)) return "divorced";
+  if (/(widow|widower|widowed|vidhava|vidhavudu|vidhurudu|vithanthuvu|వితంతు|విధురు)/.test(value)) return "widowed";
+  if (/(separat|విడిగా)/.test(value)) return "separated";
+  return value;
+}
+
 export function isSecondMarriageStatus(maritalStatus?: string | null): boolean {
-  const v = String(maritalStatus || "").toLowerCase().trim();
-  return !!v && !FIRST_MARRIAGE_STATUSES.includes(v);
+  const value = String(maritalStatus || "").normalize("NFKC").trim();
+  return Boolean(value) && !isNeverMarriedStatus(value);
 }
 
 export function secondMarriageLabel(maritalStatus: string, te: boolean = true): string {

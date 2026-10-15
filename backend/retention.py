@@ -1,15 +1,15 @@
-"""
-🗑️ WAVE 40 — 3-YEAR PROFILE RETENTION (auto-delete + archive)
-=============================================================
-Need: profiles 3 years ayyaka auto-delete → space + DB chinnadiga untundi.
-Safety rules (money/active profiles NEVER lost):
-  1. Archive FIRST → backups/retention-archive-YYYYMMDD.json (full profile + interests)
-     — delete archived data ki venti restore option admin ki.
-  2. SKIP + report: wallet balance > 0, pending payout, active plan (plan_until future),
-     active boost (boost_until future) unna profiles delete cheyyam.
-  3. Payments (DB_PAYMENTS) + money audit + referral ledger ANNI time safe — touch cheyyam.
-  4. Retention log → retention_log.json (delete ayyina ID/phone/date — support ki).
-Run: startup lo okati + roju oosari (background thread).
+"""Retention workflow for inactive member records.
+
+After the configured age threshold (default: three years from profile creation),
+eligible records are removed from active JSON stores only after a full profile
+and related-activity archive is written. This workflow is not an erasure process:
+archives currently have no automatic purge deadline. Profiles with a wallet
+balance, pending payout, active plan, or boost are skipped. Payment and audit
+ledgers are kept separately. The support log stores profile ID, name, and the
+removal timestamp (not the member's phone number).
+
+The scheduler runs shortly after startup and then once per day. A separate
+privacy/erasure request must be handled through the published privacy contact.
 """
 import json
 import os
@@ -30,12 +30,24 @@ def _parse_iso(v):
 
 
 def _is_active(u):
-    """Money/plan safety — active unte delete cheyyakudadu."""
-    if float(u.get("wallet") or 0) > 0:
+    """Preserve accounts with money due or a current paid/boost entitlement."""
+    referral_stats = u.get("referral_stats") if isinstance(u.get("referral_stats"), dict) else {}
+    try:
+        wallet = max(float(u.get("wallet") or 0), float(referral_stats.get("wallet") or 0))
+    except (TypeError, ValueError, OverflowError):
+        return "wallet_balance_unreadable"
+    if wallet > 0:
         return "wallet_balance"
-    if float(u.get("pending_payout") or 0) > 0:
+    try:
+        pending_payout = max(float(u.get("pending_payout") or 0),
+                             float(referral_stats.get("pending_payout") or 0))
+    except (TypeError, ValueError, OverflowError):
+        return "pending_payout_unreadable"
+    if pending_payout > 0:
         return "pending_payout"
-    for k in ("plan_until", "boost_until"):
+    # `plan_expiry` is the current field written by payments; `plan_until` is
+    # retained for records created by older releases. Do not archive a live plan.
+    for k in ("plan_expiry", "plan_until", "boost_until"):
         until = _parse_iso(u.get(k))
         if until and until > datetime.utcnow():
             return k
@@ -70,7 +82,7 @@ def run(users, interests, views, saves, years=None, dry_run=False):
     if not ids or dry_run:
         return {"success": True, "dry_run": True, **p, "deleted": 0}
 
-    # 1) ARCHIVE (delete mundu — poye data zero)
+    # 1) ARCHIVE before active-store removal; this is not permanent data erasure.
     os.makedirs(BACKUP_DIR, exist_ok=True)
     stamp = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
     arc_path = os.path.join(BACKUP_DIR, f"retention-archive-{stamp}.json")

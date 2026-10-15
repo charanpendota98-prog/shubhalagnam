@@ -12,7 +12,7 @@ import { Duo } from "@/lib/duo";
 import { useLang } from "@/lib/lang";
 import { useRouter } from "next/navigation";
 import { rememberSession, sendOtp, verifyOtp } from "@/lib/auth";
-import { apiPost } from "@/lib/api";
+import { apiDisplayMessage, apiPost } from "@/lib/api";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -73,15 +73,15 @@ export default function LoginPage() {
     }
     setBusy(true);
     showFeedback("");
-    const { ok, data, errorTelugu } = await apiPost<{ auth_token?: string; tsap_id?: string; message_telugu?: string }>(
+    const { ok, data, error } = await apiPost<{ auth_token?: string; tsap_id?: string; message_telugu?: string; message_en?: string; message?: string }>(
       "/api/auth/login-password", { phone: p, password }
     );
     setBusy(false);
     if (!ok) {
-      showFeedback(errorTelugu || (te ? "లాగిన్ విఫలమైంది. పాస్‌వర్డ్ సరిచూసుకోండి." : "Login failed. Check credentials."), "err");
+      showFeedback(error || (te ? "లాగిన్ విఫలమైంది. పాస్‌వర్డ్ సరిచూసుకోండి." : "Login failed. Check your credentials."), "err");
       return;
     }
-    showFeedback(data?.message_telugu || (te ? "✅ లాగిన్ విజయవంతమైంది! మీ ఖాతాలోకి వెళ్తున్నారు..." : "✅ Login successful! Redirecting..."), "ok");
+    showFeedback(apiDisplayMessage(data, te, te ? "✅ లాగిన్ విజయవంతమైంది! మీ ఖాతాలోకి వెళ్తున్నారు..." : "✅ Login successful. Redirecting…"), "ok");
     go(String(data?.tsap_id || ""), String(data?.auth_token || ""), true);
   }
 
@@ -93,16 +93,16 @@ export default function LoginPage() {
     }
     setBusy(true);
     showFeedback("");
-    const { ok, data, errorTelugu } = await sendOtp(p);
+    const { ok, data, error } = await sendOtp(p);
     setBusy(false);
     if (!ok) {
-      showFeedback(errorTelugu || (te ? "OTP పంపడంలో సమస్య ఏర్పడింది." : "Failed to send OTP."), "err");
+      showFeedback(error || (te ? "OTP పంపడంలో సమస్య ఏర్పడింది." : "Could not send the OTP. Please try again."), "err");
       return;
     }
-    const d = (data || {}) as { message_telugu?: string };
+    const d = data || {};
     setStage("otp");
     setCountdown(30);
-    showFeedback(d.message_telugu || (te ? "📱 OTP పంపించాం — మీ SMS/WhatsApp తనిఖీ చేయండి" : "📱 OTP sent — please check your SMS/WhatsApp"), "ok");
+    showFeedback(apiDisplayMessage(d, te, te ? "📱 OTP పంపించాం — మీ SMS/WhatsApp తనిఖీ చేయండి" : "📱 OTP sent. Check your SMS or WhatsApp."), "ok");
   }
 
   async function onVerify() {
@@ -113,14 +113,14 @@ export default function LoginPage() {
     }
     setBusy(true);
     showFeedback("");
-    const { ok, data, errorTelugu } = await verifyOtp(digits(), c);
+    const { ok, data, error } = await verifyOtp(digits(), c);
     setBusy(false);
     if (!ok) {
-      showFeedback(errorTelugu || (te ? "తప్పుడు OTP. మళ్లీ ప్రయత్నించండి." : "Invalid OTP code."), "err");
+      showFeedback(error || (te ? "తప్పుడు OTP. మళ్లీ ప్రయత్నించండి." : "Invalid OTP. Please try again."), "err");
       return;
     }
-    const d = (data || {}) as { auth_token?: string; tsap_id?: string; has_account?: boolean; message_telugu?: string };
-    showFeedback(d.message_telugu || (te ? "✅ లాగిన్ విజయవంతమైంది!" : "✅ Login successful!"), "ok");
+    const d = (data || {}) as { auth_token?: string; tsap_id?: string; has_account?: boolean; message_telugu?: string; message_en?: string; message?: string };
+    showFeedback(apiDisplayMessage(d, te, te ? "✅ లాగిన్ విజయవంతమైంది!" : "✅ Login successful."), "ok");
     go(String(d.tsap_id || ""), String(d.auth_token || ""), !!d.has_account);
   }
 
@@ -132,17 +132,17 @@ export default function LoginPage() {
     }
     setBusy(true);
     showFeedback("");
-    const { ok, data, errorTelugu } = await apiPost<{ message_telugu?: string }>(
+    const { ok, data, error } = await apiPost<{ message_telugu?: string; message_en?: string; message?: string }>(
       "/api/auth/forgot", { phone: p }
     );
     setBusy(false);
     if (!ok) {
-      showFeedback(errorTelugu || (te ? "రీసెట్ OTP పంపడంలో సమస్య ఏర్పడింది." : "Failed to send reset OTP."), "err");
+      showFeedback(error || (te ? "రీసెట్ OTP పంపడంలో సమస్య ఏర్పడింది." : "Could not send the password-reset OTP. Please try again."), "err");
       return;
     }
     setFStage("reset");
     setCountdown(30);
-    showFeedback(data?.message_telugu || (te ? "📱 పాస్‌వర్డ్ రీసెట్ OTP పంపించాం" : "📱 Password reset OTP sent"), "ok");
+    showFeedback(apiDisplayMessage(data, te, te ? "📱 పాస్‌వర్డ్ రీసెట్ OTP పంపించాం" : "📱 Password-reset OTP sent."), "ok");
   }
 
   async function onReset() {
@@ -160,15 +160,15 @@ export default function LoginPage() {
     }
     setBusy(true);
     showFeedback("");
-    const { ok, data, errorTelugu } = await apiPost<{ auth_token?: string; tsap_id?: string; message_telugu?: string }>(
+    const { ok, data, error } = await apiPost<{ auth_token?: string; tsap_id?: string; message_telugu?: string; message_en?: string; message?: string }>(
       "/api/auth/reset", { phone: digits(), code: code.trim(), new_password: newPw.trim() }
     );
     setBusy(false);
     if (!ok) {
-      showFeedback(errorTelugu || (te ? "పాస్‌వర్డ్ రీసెట్ విఫలమైంది." : "Password reset failed."), "err");
+      showFeedback(error || (te ? "పాస్‌వర్డ్ రీసెట్ విఫలమైంది." : "Password reset failed. Please try again."), "err");
       return;
     }
-    showFeedback(data?.message_telugu || (te ? "✅ పాస్‌వర్డ్ విజయవంతంగా మార్చబడింది! లాగిన్ అవుతున్నారు..." : "✅ Password changed successfully! Logging in..."), "ok");
+    showFeedback(apiDisplayMessage(data, te, te ? "✅ పాస్‌వర్డ్ విజయవంతంగా మార్చబడింది! లాగిన్ అవుతున్నారు..." : "✅ Password changed successfully. Signing in…"), "ok");
     go(String(data?.tsap_id || ""), String(data?.auth_token || ""), true);
   }
 
@@ -339,7 +339,7 @@ export default function LoginPage() {
                   disabled={busy}
                   className="w-full py-3.5 rounded-2xl maroon-gradient text-white font-bold text-sm shadow-md hover-lift disabled:opacity-50"
                 >
-                  {busy ? "OTP పంపుతున్నారు…" : te ? "📩 రీసెట్ OTP పంపు" : "📩 Send Reset OTP"}
+                  {busy ? (te ? "OTP పంపుతున్నారు…" : "Sending OTP…") : te ? "📩 రీసెట్ OTP పంపు" : "📩 Send Reset OTP"}
                 </button>
               ) : (
                 <div className="space-y-2">
@@ -348,7 +348,7 @@ export default function LoginPage() {
                     disabled={busy}
                     className="w-full py-3.5 rounded-2xl maroon-gradient text-white font-bold text-sm shadow-md hover-lift disabled:opacity-50"
                   >
-                    {busy ? "సేవ్ చేస్తున్నారు…" : te ? "✅ పాస్‌వర్డ్ రీసెట్ చేసి లాగిన్ అవ్వండి" : "✅ Reset Password & Login"}
+                    {busy ? (te ? "సేవ్ చేస్తున్నారు…" : "Saving…") : te ? "✅ పాస్‌వర్డ్ రీసెట్ చేసి లాగిన్ అవ్వండి" : "✅ Reset Password & Login"}
                   </button>
                   <div className="flex justify-between items-center text-xs text-slate-500 pt-1">
                     <button
@@ -522,7 +522,7 @@ export default function LoginPage() {
                     disabled={busy}
                     className="w-full py-3.5 rounded-2xl maroon-gradient text-white font-bold text-sm shadow-md hover-lift disabled:opacity-50"
                   >
-                    {busy ? "లాగిన్ అవుతున్నారు…" : "🔑 Login"}
+                    {busy ? (te ? "లాగిన్ అవుతున్నారు…" : "Signing in…") : "🔑 Login"}
                   </button>
                 ) : stage === "phone" ? (
                   <button
@@ -530,7 +530,7 @@ export default function LoginPage() {
                     disabled={busy}
                     className="w-full py-3.5 rounded-2xl maroon-gradient text-white font-bold text-sm shadow-md hover-lift disabled:opacity-50"
                   >
-                    {busy ? "OTP పంపుతున్నారు…" : te ? "📲 OTP కోడ్ పంపు" : "📲 Send OTP Code"}
+                    {busy ? (te ? "OTP పంపుతున్నారు…" : "Sending OTP…") : te ? "📲 OTP కోడ్ పంపు" : "📲 Send OTP Code"}
                   </button>
                 ) : (
                   <button
@@ -538,7 +538,7 @@ export default function LoginPage() {
                     disabled={busy}
                     className="w-full py-3.5 rounded-2xl maroon-gradient text-white font-bold text-sm shadow-md hover-lift disabled:opacity-50"
                   >
-                    {busy ? "ధృవీకరిస్తున్నారు…" : "✅ Verify & Login"}
+                    {busy ? (te ? "ధృవీకరిస్తున్నారు…" : "Verifying…") : "✅ Verify & Login"}
                   </button>
                 )}
               </div>
@@ -552,17 +552,17 @@ export default function LoginPage() {
           <p className="text-xs text-slate-600">
             {te ? "ఇంకా ఖాతా లేదా?" : "Don't have an account yet?"}{" "}
             <Link href="/register" className="font-extrabold text-[#7A0C2E] hover:underline inline-flex items-center gap-1">
-              <span>ఉచిత నమోదు (Register Free)</span>
+              <span>{te ? "ఉచిత నమోదు" : "Register Free"}</span>
               <span>→</span>
             </Link>
           </p>
 
-          <div className="flex justify-center items-center gap-4 text-[11px] text-slate-500 pt-2">
-            <span className="flex items-center gap-1">🔒 100% గోప్యత</span>
-            <span>•</span>
-            <span className="flex items-center gap-1">🛡️ ఫోన్ నంబర్ రక్షణ</span>
-            <span>•</span>
-            <span className="flex items-center gap-1">🚫 స్పామ్ ఉండదు</span>
+          <div className="flex flex-wrap justify-center items-center gap-x-4 gap-y-2 text-[11px] text-slate-500 pt-2">
+            <span className="flex items-center gap-1">🔒 {te ? "గోప్యతకు ప్రాధాన్యం" : "Privacy-minded"}</span>
+            <span aria-hidden="true">•</span>
+            <span className="flex items-center gap-1">🛡️ {te ? "ఫోన్ నంబర్ రక్షణ" : "Phone number privacy"}</span>
+            <span aria-hidden="true">•</span>
+            <span className="flex items-center gap-1">🚫 {te ? "స్పామ్ ఉండదు" : "No spam"}</span>
           </div>
         </div>
 

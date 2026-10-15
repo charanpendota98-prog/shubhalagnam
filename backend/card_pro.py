@@ -74,7 +74,6 @@ W, H = 900, 2400   # H = max canvas; chivarlo content ki crop chestham (footer o
 BRAND = "MANA VIVAHA"
 LEGAL = "TSAP MATRIMONY"
 SITE = os.getenv("SITE_URL", "https://manavivaha.in")
-BOT = "@telugumatrimony1_bot"
 
 FONT_PATHS_BOLD = [
     "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",

@@ -5,7 +5,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { apiPost, clearAuth, getToken, setToken, TSAP_KEY } from "./api";
+import { apiPost, clearAuth, getToken, getTsapId, setToken } from "./api";
 
 export type Session = { tsapId: string; token: string; ready: boolean };
 
@@ -15,7 +15,7 @@ export function useSession(): Session {
   const [ready, setReady] = useState(false);
   useEffect(() => {
     try {
-      setTsapId(localStorage.getItem(TSAP_KEY) || "");
+      setTsapId(getTsapId());
       setTok(getToken());
     } catch { /* ignore */ }
     setReady(true);

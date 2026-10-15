@@ -19,6 +19,15 @@ import {
   sortUniqueOptions,
 } from "@/lib/telugu-data";
 
+type DistrictRegion = "TS" | "AP" | "NRI";
+type DistrictOption = { en: string; te: string; state: DistrictRegion };
+
+function districtRegionLabel(region: DistrictRegion, te: boolean) {
+  if (region === "TS") return te ? "తెలంగాణ (TS)" : "Telangana";
+  if (region === "AP") return te ? "ఆంధ్రప్రదేశ్ (AP)" : "Andhra Pradesh";
+  return te ? "NRI / గ్లోబల్" : "NRI / International";
+}
+
 const QUICK_CHIPS = [
   { label: "Housewife", te: "🏡 గృహిణి" },
   { label: "Software", te: "💻 సాఫ్ట్‌వేర్" },
@@ -94,16 +103,16 @@ export default function HeroQuickSearch() {
 
   // Dynamic district and NRI location list based on the selected region
   const availableDistricts = useMemo(() => {
-    let list: { en: string; te: string; state: string }[] = [];
+    let list: DistrictOption[] = [];
 
     if (stateFilter === "ALL" || stateFilter === "TS") {
-      list = [...list, ...TS_DISTRICTS_DETAILED.map((d) => ({ en: d.en, te: d.te, state: "తెలంగాణ (TS)" }))];
+      list = [...list, ...TS_DISTRICTS_DETAILED.map((d) => ({ en: d.en, te: d.te, state: "TS" as const }))];
     }
     if (stateFilter === "ALL" || stateFilter === "AP") {
-      list = [...list, ...AP_DISTRICTS_DETAILED.map((d) => ({ en: d.en, te: d.te, state: "ఆంధ్రప్రదేశ్ (AP)" }))];
+      list = [...list, ...AP_DISTRICTS_DETAILED.map((d) => ({ en: d.en, te: d.te, state: "AP" as const }))];
     }
     if (stateFilter === "ALL" || stateFilter === "NRI") {
-      list = [...list, ...NRI_COUNTRIES.map((c) => ({ en: c.en, te: c.te, state: "NRI / గ్లోబల్" }))];
+      list = [...list, ...NRI_COUNTRIES.map((c) => ({ en: c.en, te: c.te, state: "NRI" as const }))];
     }
     return list.sort((a, b) => a.en.localeCompare(b.en, "en", { sensitivity: "base" }));
   }, [stateFilter]);
@@ -111,10 +120,11 @@ export default function HeroQuickSearch() {
   const filteredDistricts = useMemo(() => {
     const q = districtQuery.trim().toLowerCase();
     if (!q) return availableDistricts;
-    return availableDistricts.filter(
-      (d) => d.en.toLowerCase().includes(q) || d.te.toLowerCase().includes(q) || d.state.toLowerCase().includes(q)
-    );
-  }, [availableDistricts, districtQuery]);
+    return availableDistricts.filter((d) => {
+      const region = districtRegionLabel(d.state, te).toLowerCase();
+      return d.en.toLowerCase().includes(q) || (te && d.te.toLowerCase().includes(q)) || region.includes(q);
+    });
+  }, [availableDistricts, districtQuery, te]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -260,7 +270,7 @@ export default function HeroQuickSearch() {
               <span className="truncate">
                 {caste === "All Castes"
                   ? (te ? "అన్ని కులాలు" : "All communities")
-                  : `${CASTE_TELUGU[caste] ? `${CASTE_TELUGU[caste]} · ` : ""}${caste}`}
+                  : (te && CASTE_TELUGU[caste] ? `${CASTE_TELUGU[caste]} (${caste})` : caste)}
               </span>
               <span className="text-gray-400 text-xs">▼</span>
             </button>
@@ -270,7 +280,7 @@ export default function HeroQuickSearch() {
               <div className="absolute left-0 right-0 top-full mt-1 z-50 bg-white rounded-2xl border-2 border-gold shadow-2xl p-2 max-h-64 flex flex-col animate-fade">
                 <input
                   type="text"
-                  placeholder={te ? "🔍 కులాన్ని వెతకండి (ఉదా: రెడ్డి, కమ్మ, కాపు...)" : "🔍 Type to search caste..."}
+                  placeholder={te ? "🔍 కులం లేదా ఉపకులం వెతకండి" : "🔍 Search communities or sub-communities"}
                   value={casteQuery}
                   onChange={(e) => setCasteQuery(e.target.value)}
                   className="w-full px-3 py-2 bg-slate-100 border border-slate-300 rounded-xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-maroon mb-2"
@@ -291,7 +301,7 @@ export default function HeroQuickSearch() {
                       }`}
                     >
                       <span>{c === "All Castes" ? (te ? "అన్ని కులాలు" : "All communities") : c}</span>
-                      {c !== "All Castes" && CASTE_TELUGU[c] && (
+                      {te && c !== "All Castes" && CASTE_TELUGU[c] && (
                         <span className={`text-[11px] ${caste === c ? "text-amber-200" : "text-gray-500"}`}>
                           {CASTE_TELUGU[c]}
                         </span>
@@ -340,7 +350,7 @@ export default function HeroQuickSearch() {
               <span className="truncate">
                 {district === "All Districts"
                   ? (te ? "అన్ని జిల్లాలు" : "All districts")
-                  : `${DISTRICT_TELUGU[district] ? `${DISTRICT_TELUGU[district]} · ` : ""}${district}`}
+                  : (te && DISTRICT_TELUGU[district] ? `${DISTRICT_TELUGU[district]} (${district})` : district)}
               </span>
               <span className="text-gray-400 text-xs">▼</span>
             </button>
@@ -385,10 +395,10 @@ export default function HeroQuickSearch() {
                       }`}
                     >
                       <div>
-                        <span>{d.te}</span> <span className="text-gray-400 text-[10px]">({d.en})</span>
+                        <span>{te ? d.te : d.en}</span>{te && <span className="text-gray-400 text-[10px]"> ({d.en})</span>}
                       </div>
                       <span className={`text-[10px] ${district === d.en ? "text-amber-200" : "text-gray-400"}`}>
-                        {d.state}
+                        {districtRegionLabel(d.state, te)}
                       </span>
                     </button>
                   ))}

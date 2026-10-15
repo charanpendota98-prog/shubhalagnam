@@ -1,7 +1,8 @@
-# CHANGELOG
+# Historical change log
 
-All entries are real, implemented, tested changes — not recommendations.
-Format: date, priority, domain, what/why, files, verification.
+Entries below are preserved as historical notes from earlier branches and work sessions. Counts, sample records, pass totals, process IDs, “live proof,” and deployment claims describe those old notes only; they are not current status or independently re-run verification. Do not use this file as a live deployment or external-service report.
+
+For current repository scope and safe validation, see [`FINAL-TOP-MATRIMONY-SUMMARY.md`](FINAL-TOP-MATRIMONY-SUMMARY.md), [`README.md`](README.md), and [`LOCAL-TEST-VS-ORACLE-DEPLOY.md`](LOCAL-TEST-VS-ORACLE-DEPLOY.md).
 
 ## 2026-10-01 — Phase 14: token revocation ("logout everywhere" + incident-response remediation)
 

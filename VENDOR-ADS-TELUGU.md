@@ -1,135 +1,44 @@
-# 🏪 VENDOR ADS + PROMOTIONS — "పెళ్లి సంబంధం వాళ్లందరికీ ప్రచారం"
+# Vendor directory, lead flow, and paid placements
 
-> **ఒక్క లైన్:** కేటరింగ్, ఫోటోగ్రఫీ, డెకరేషన్స్, హాల్, పండితులు, నగలు, మేకప్, DJ… **పెళ్లి సంబంధం
-> ఉన్న ప్రతి బిజినెస్** Mana Vivaha లో ప్రచారం చేసుకోవచ్చు — **₹149 నుండి**. ఎంక్వైరీలు **నేరుగా వాళ్ల
-> WhatsApp కి**.
->
-> Website: **manavivaha.in/vendors** · బిజినెస్ add చేయడానికి: **manavivaha.in/vendors/register** ·
-> Admin: **manavivaha.in/admin → 🏪 Vendor Ads**
+This guide describes the implementation in the repository. Listings and leads are not evidence that a business has been verified, and package purchase does not guarantee enquiries, reach, bookings, or message delivery.
 
----
+## Categories and current packages
 
-## 1. 18 categories (పెళ్లి సంబంధం అన్నీ)
+The 18 wedding-related categories are served from `backend/vendors.py` and displayed from the API. The same module is the source of truth for package prices:
 
-| | | | |
-|---|---|---|---|
-| 🍛 Catering (విందు భోజనం) | 📸 Photography | 🎥 Videography / Drone | 🌸 Decorations & Flowers |
-| 🏛️ Function Hall | ⛺ Tent House | 🕉️ Pandit / Priest | 💍 Jewellery |
-| 👰 Bridal & Groom Wear | 💄 Makeup & Beautician | 🌿 Mehendi (గోరింటాకు) | 🎶 DJ / మేళం బ్యాండ్ |
-| ✉️ Invitations / Printing | 🚗 Cars & Travel | 📋 Wedding Planner | 🎂 Bakery & Cake |
-| 🎁 Gifts & Hampers | ✈️ Honeymoon Packages | | |
+| Package | Price / term | Included functionality |
+|---|---:|---|
+| One-day Promo Share Kit | ₹149 / one day of private kit access after approval | Share-ready promotional copy and poster generation; it is not a directory listing, and no external post or reach is included or guaranteed. |
+| Basic Listing | ₹499 / 30 days | Paid directory listing; call and WhatsApp links appear only when supplied and valid. |
+| Status Share Kit | ₹499 / one-time | Status-sized poster and share-ready copy; it is not a directory listing, and no status/group distribution is included. |
+| Spotlight | ₹999 / 7 days | Eligibility for configured website ad-slot rotation; no fixed ranking or impression total is promised. |
+| Standard Listing | ₹1,499 / 90 days | Directory listing and vendor dashboard for recorded enquiries; WhatsApp notification depends on a separately configured number and delivery. |
+| Premium Placement | ₹3,999 / 180 days | Directory listing, eligibility for configured website placement rotation, and share-ready promotional content. No identity verification or external reach is implied. |
 
----
+The two share-kit packages do not create public directory listings. After payment-reference and business-details review, the ₹149 Promo Share Kit is available in the private `/vendors/kit` page for one day; the owner can copy its materials and download posters during that term. The ₹499 Status Share Kit is a one-time private-materials package. Neither package posts to an external channel. Confirm current pricing and checkout options on `/vendors` before making a payment; if checkout details are absent, do not pay.
 
-## 2. Ad packages (₹)
+The listed vendor add-ons are currently unavailable online. Do not pay for an unavailable add-on.
 
-| Package | ధర | రోజులు | ఏమి వస్తుంది |
-|---|---|---|---|
-| **Single Channel Post** | **₹149** | 1 | 1 Telegram post (mirror channel) + report (views/enquiries) — test చేయడానికి |
-| **Basic Listing** | **₹499** | 30 | Directory listing + 1 Telegram promo post + call/WhatsApp CTA |
-| **WhatsApp Status Blast** | **₹499** | 1 | మా 3 status lanes లో promo + bonus Telegram post |
-| **Spotlight (7 days)** | **₹999** | 7 | Top banner (7 రోజులు) + status blast + 4 main channels post — season push |
-| **Standard Promo** 🔥 | **₹1499** | 90 | 3 listings + 3 TG + 2 WA posts + **lead box** + priority placement + monthly report |
-| **Premium Partner** 👑 | **₹3999** | 180 | 5 listings + weekly posts (24+) + top slot + ✅ Verified badge + status blasts + account manager |
+## Public listing and customer enquiry
 
-**Add-ons:** Photo/Video gallery ₹299 · Reel/Short video ₹999 · Vendor interview video ₹1499 · Bride/Groom DB mail ₹799
-**Renewal:** 15% discount · **Ad slots:** home top banner · home mid strip · vendors top · matches sidebar · requests sidebar
+- Vendor records are not seeded with demo businesses in the live-facing directory. Empty or unavailable listings should remain empty rather than being replaced with fictional businesses.
+- Vendor-submitted business details, prices, ratings, and photos require independent confirmation before booking. A paid placement is disclosed advertising, not a popularity, trust, or verification score.
+- A customer enquiry is stored for the vendor dashboard. A WhatsApp contact or notification is available only if the relevant business supplies a valid number and the service is configured. A queued notification is not proof of delivery.
+- Enquiry forms require the visitor's explicit consent before sending the lead details to a vendor.
 
----
+## Review and authorization
 
-## 3. వాళ్లకి ఏమి దొరుకుతుంది (value)
+Vendor review reads and actions use an authenticated owner session. State-changing review actions require CSRF protection. Do not remove these guards to make the admin interface easier to use; restore or repair the UI while keeping the authorization checks intact. Payment review and business identity review are separate, and the application does not independently verify vendor identity.
 
-| | |
-|---|---|
-| 📢 **Reach** | 52 Telegram channels (region + religion + caste) + WhatsApp lanes (anti-ban safe order) + website banners |
-| 📊 **Report** | Impressions · Clicks · Enquiries — ఏది పని చేసిందో వెండర్ dashboard లో live |
-| 📩 **Leads** | ఎంక్వైరీ form → వెండర్ WhatsApp కి instant message (పేరు, ఫోన్, ఈవెంట్ తేదీ, బడ్జెట్, requirement) |
-| 🖼️ **Poster** | QR ఉన్న poster (1080×1080 + status 1080×1920) — వాళ్ల WhatsApp గ్రూపుల్లో పెట్టుకోవచ్చు |
-| 📝 **Post ready** | Telugu promo post (Telegram + WhatsApp variants) — ఒక్క copy |
-| ✅ **Trust** | Verified badge + rating + reviews |
-| 🔁 **Renewal** | 15% discount + season offers (ఆషాఢం, మార్గశిర, పడ్వ) |
+## Tests and external status
 
----
+- `backend/test_vendors_ads.py` is a local scenario suite using isolated test state; run it with `cd backend && /tmp/mv-backend-test/bin/python test_vendors_ads.py` in this workspace.
+- `backend/verify_live_flow.py` is GET-only and does not support the retired `--vendor` mutation flow. It is an endpoint smoke check, not a payment, identity, external-link, or delivery test.
+- No Telegram/WhatsApp distribution, vendor message delivery, or external channel availability is established by these local checks.
 
-## 4. వెండర్ flow (5 steps — 2 నిమిషాలు)
+## Source files
 
-1. **/vendors/register** → category select → business details (peru, phone, city, rate range, 3-4 lines about)
-2. Package select → **submit (free signup)**
-3. **Payment** (UPI / PhonePe deep link — amount auto) + screenshot మా WhatsApp కి (reference: MVV-xxxx)
-4. **Admin verify (2 గంటల్లో)** → listing **ACTIVE** + ✅ badge + promo post + poster ready
-5. **Enquiries direct WhatsApp కి** + dashboard లో performance report
-
----
-
-## 5. మనకి ఏమి వస్తుంది (business case)
-
-| విషయం | లెక్క |
-|---|---|
-| 1 vendor (Standard ₹1499 / 90 days) | ≈ **₹500/నెల** per vendor |
-| 20 vendors (Basic/Standard mix) | ≈ **₹12,000–20,000/నెల** recurring |
-| 5 Premium (₹3999 / 180 days) | ≈ **₹11,000/నెల** + premium badge revenue |
-| Season spotlight (₹999 × 10) | **₹9,990** per season (ఆషాఢం/మార్గశిర) |
-| Leads → booking commission (తరువాత) | 2–5% (optional, vendor agreement తో) |
-
-**ఇది pure profit margin** — ఖర్చు: ఒక్క promo post (ఇప్పటికే channels + WhatsApp lanes ఉన్నాయి).
-Bureau (broker B2B) + referral (₹50) + vendor ads (₹149+) = **మూడు revenue lines**.
-
----
-
-## 6. Technical (developer కోసం)
-
-| భాగం | ఫైల్ / endpoint |
-|---|---|
-| Engine (categories, packages, register/activate, directory, rotation, leads, dashboards, revenue) | `backend/vendors.py` |
-| Poster with QR (1080×1080 / 1080×1920, ASCII-safe) | `backend/vendor_kit.py` |
-| Public API | `GET /api/vendors/categories` · `/packages` · `/stats` · `/vendors?category&district&city&q` · `/ads?slot&limit` · `/{id}` · `/{id}/dashboard` · `/{id}/promo` · `/{id}/poster.png?style` |
-| Public POST | `/api/vendors/register` · `/{id}/lead` · `/{id}/click` |
-| Admin | `GET /api/admin/vendors?status=` · `POST /api/admin/vendors/{id}/action?action=approve&utr=&package=|reject|expire` · `GET /api/admin/vendors/revenue/summary` (ADMIN_TOKEN ఉంటే token తప్పనిసరి) |
-| Pages | `/vendors` (directory + packages) · `/vendors/register` (signup + payment) · `/vendors/[id]` (customer view + **vendor dashboard tab**) · home ad strip · `/admin` vendor tab |
-| Tests | `backend/test_vendors_ads.py` (**130 checks**) · `backend/verify_live_flow.py --vendor` (live E2E: register → approve → lead → revenue) |
-
-**Ad priority order:** SPOTLIGHT/PREMIUM → STANDARD → BASIC → SINGLE_POST (weights 6/5/3/1, random shuffle).
-**State:** `backend/vendor_state.json` (gitignored) — vendors, leads, impressions/clicks log.
-
----
-
-## 7. ఇప్పుడు మీరు చేయాల్సిన పని (3 నిమిషాలు)
-
-1. **/vendors** చూడండి — 10 demo vendors ready ఉన్నాయి (Warangal, Hyderabad, Vijayawada, Karimnagar, Guntur, Nizamabad, Vizag, Khammam).
-2. మీకు తెలిసిన **5 vendors** కి ఈ message పంపండి (కింద copy ఉంది) — వాళ్లు register చేసుకుంటారు.
-3. Admin లో **🏪 Vendor Ads** tab → payment వచ్చాక **UTR paste → ✅ Activate** → listing + promo post live (+ poster download).
-
----
-
-## 8. Vendors కి పంపాల్సిన WhatsApp message (copy-paste)
-
-```
-🙏 Namaste! Mana Vivaha (TS/AP Telugu Matrimony — manavivaha.in) nunchi.
-
-మా దగ్గర ఇప్పుడు TS + AP నుండి పెళ్లి చూసుకునే 1000+ families ఉన్నారు (52 Telegram channels + WhatsApp groups).
-మీ <CATERING / PHOTOGRAPHY / DECORATIONS> business ని వాళ్లకి చూపించగలము — **₹149 నుండి**.
-
-ఏమి దొరుకుతుంది:
-✅ Website directory listing (18 categories — మీ category లో)
-✅ 52 channels లో Telugu promo post (మీ city/caste channel + 4 main)
-✅ WhatsApp status/groups లో ప్రచారం (anti-ban safe order lo)
-✅ **Enquiries నేరుగా మీ WhatsApp కి** (పేరు, ఫోన్, event date, budget)
-✅ QR poster (మీ groups లో పెట్టుకోవచ్చు) + dashboard report (views/clicks/leads)
-
-Packages: ₹149 (1 post) · ₹499 (30 days listing) · ₹999 (spotlight) · ₹1499 (90 days + lead box) · ₹3999 (180 days + top slot + verified badge + weekly posts)
-Renewal కి 15% discount.
-
-Register: manavivaha.in/vendors/register (2 నిమిషాలు) — payment తరువాత 2 గంటల్లో listing live.
-Demo చూడండి: manavivaha.in/vendors
-```
-
----
-
-## 9. Referral update — **షరతులు లేవు** ✅
-
-- **ఎవరైనా, ఎన్ని అయినా** refer చేయోచ్చు — **లిమిట్ లేదు**.
-- **ఒకే ఫోన్ నుండి కూడా** పర్వాలేదు (ఇంట్లో అందరూ ఒకే నంబర్ వాడుకుంటున్నా సరే) — conditions లేవు.
-- Flow: **Register FREE (3 profiles free)** → తరువాత ఆ friend **₹99 pay చేసి offer తీసుకున్నప్పుడే** → referrer కి **₹50**.
-- 3+ accounts ఒకే నంబర్ నుండి వస్తే → *review flag* మాత్రమే (block కాదు, commission hold కాదు); నిజమైన కేసులకి ఎటువంటి ఇబ్బంది లేదు.
-- Daily/lifetime caps కూడా **soft** (50/day, 500 lifetime) — flag మాత్రమే.
-- Details: **REFERRAL-2-TELUGU.md**
+- Engine, package catalogue, consent and lead capture: `backend/vendors.py`
+- Owner-session/CSRF-protected application routes: `backend/main.py`
+- Poster generation: `backend/vendor_kit.py`
+- Public directory, registration, profile and vendor review UI: `frontend/src/app/vendors/` and the authenticated admin/control panels.

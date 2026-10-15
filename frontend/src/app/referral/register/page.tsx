@@ -8,6 +8,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { Duo, duo } from "@/lib/duo";
 import { useLang } from "@/lib/lang";
+import { apiDisplayMessage, readApiJson} from "@/lib/api";
 import { DISTRICTS_BY_STATE } from "@/lib/telugu-data";
 
 const STATES = [
@@ -53,17 +54,17 @@ export default function PartnerRegisterPage() {
       const r = await fetch("/api/referral/partner/register", {
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(f),
       });
-      const d = await r.json();
-      if (!r.ok) { setMsg(d.detail || (te ? "Fail అయ్యింది" : "Failed")); return; }
+      const d = await readApiJson(r);
+      if (!r.ok) { setMsg(apiDisplayMessage(d, te, te ? "నమోదు విఫలమైంది. మళ్లీ ప్రయత్నించండి." : "Registration failed. Please try again.")); return; }
       setDone(d);
       setLookup(d.partner_id || "");
       setPhoneForAccess(f.phone);
       setPrivateDash(null);
       setPartnerToken("");
-      setMsg(d.message_telugu || "Ready!");
+      setMsg(apiDisplayMessage(d, te, te ? "నమోదు పూర్తయింది." : "Registration complete."));
       if (d.partner_id) {
         const dashboardResponse = await fetch(`/api/referral/partner/${encodeURIComponent(d.partner_id)}`);
-        const dashboardData = await dashboardResponse.json();
+        const dashboardData = await readApiJson(dashboardResponse);
         if (dashboardResponse.ok && dashboardData.success) setDash(dashboardData);
       }
     } catch {
@@ -84,8 +85,8 @@ export default function PartnerRegisterPage() {
     setDash(null); setMsg(""); setPrivateDash(null); setPartnerToken(""); setOtpSent(false); setOtpCode(""); setPayoutMsg("");
     try {
       const r = await fetch(`/api/referral/partner/${encodeURIComponent(id)}`);
-      const d = await r.json();
-      if (!r.ok) { setMsg(d.detail || (te ? "ID దొరకలేదు" : "ID not found")); return; }
+      const d = await readApiJson(r);
+      if (!r.ok) { setMsg(apiDisplayMessage(d, te, te ? "భాగస్వామి ID దొరకలేదు." : "Partner ID was not found.")); return; }
       setDash(d);
     } catch { setMsg(te ? "Network లేదు" : "No network"); }
   };
@@ -95,10 +96,10 @@ export default function PartnerRegisterPage() {
       const r = await fetch(`/api/referral/partner/${encodeURIComponent(id)}/private`, {
         headers: { "X-Partner-Token": token },
       });
-      const d = await r.json();
+      const d = await readApiJson(r);
       if (!r.ok || !d.success) {
         setPrivateDash(null); setPartnerToken("");
-        setAuthMsg(d.detail || (te ? "Wallet వివరాలు లోడ్ కాలేదు; OTP మళ్లీ verify చేయండి." : "Could not load wallet details. Please verify the OTP again."));
+        setAuthMsg(apiDisplayMessage(d, te, te ? "Wallet వివరాలు లోడ్ కాలేదు; OTP మళ్లీ verify చేయండి." : "Could not load wallet details. Please verify the OTP again."));
         return false;
       }
       setPrivateDash(d);
@@ -122,10 +123,10 @@ export default function PartnerRegisterPage() {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ phone, purpose: "login" }),
       });
-      const d = await r.json();
-      if (!r.ok || !d.success) { setAuthMsg(d.message_telugu || d.detail || (te ? "OTP పంపలేకపోయాం." : "Could not send OTP.")); return; }
+      const d = await readApiJson(r);
+      if (!r.ok || !d.success) { setAuthMsg(apiDisplayMessage(d, te, te ? "OTP పంపలేకపోయాం." : "Could not send the one-time code.")); return; }
       setOtpSent(true);
-      setAuthMsg(d.message_telugu || (te ? "OTP పంపించాం. 10 నిమిషాల్లో నమోదు చేయండి." : "OTP sent. Enter it within 10 minutes."));
+      setAuthMsg(apiDisplayMessage(d, te, te ? "OTP పంపించాం. 10 నిమిషాల్లో నమోదు చేయండి." : "One-time code sent. Enter it within 10 minutes."));
     } catch {
       setAuthMsg(te ? "Network లేదు — OTP పంపలేకపోయాం." : "Network error while sending OTP.");
     } finally {
@@ -147,18 +148,18 @@ export default function PartnerRegisterPage() {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ phone, code }),
       });
-      const verifyData = await verifyResponse.json();
+      const verifyData = await readApiJson(verifyResponse);
       if (!verifyResponse.ok || !verifyData.success) {
-        setAuthMsg(verifyData.message_telugu || verifyData.detail || (te ? "OTP సరిపోలలేదు." : "OTP verification failed."));
+        setAuthMsg(apiDisplayMessage(verifyData, te, te ? "OTP సరిపోలలేదు." : "One-time code verification failed."));
         return;
       }
       const authResponse = await fetch(`/api/referral/partner/${encodeURIComponent(id)}/auth`, {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ phone }),
       });
-      const authData = await authResponse.json();
+      const authData = await readApiJson(authResponse);
       if (!authResponse.ok || !authData.success || !authData.partner_token) {
-        setAuthMsg(authData.detail || (te ? "ఈ మొబైల్ ఈ partner ID కి సరిపోలలేదు." : "That mobile number does not match this partner ID."));
+        setAuthMsg(apiDisplayMessage(authData, te, te ? "ఈ మొబైల్ ఈ partner ID కి సరిపోలలేదు." : "That mobile number does not match this partner ID."));
         return;
       }
       setPartnerToken(authData.partner_token);
@@ -192,9 +193,13 @@ export default function PartnerRegisterPage() {
         headers: { "Content-Type": "application/json", "X-Partner-Token": partnerToken },
         body: JSON.stringify({ partner_id: id, amount, method: "upi", upi_id: payoutUpi.trim() }),
       });
-      const d = await r.json();
-      if (!r.ok || !d.success) { setPayoutMsg(d.detail || d.message_telugu || (te ? "Payout అభ్యర్థన విఫలమైంది." : "Payout request failed.")); return; }
-      setPayoutAmount(""); setPayoutMsg(d.message_telugu || (te ? "అభ్యర్థన review కోసం పంపబడింది." : "Request submitted for review."));
+      const d = await readApiJson(r);
+      if (!r.ok || !d.success) {
+        setPayoutMsg(apiDisplayMessage(d, te, te ? "Payout అభ్యర్థన విఫలమైంది." : "Payout request failed."));
+        return;
+      }
+      setPayoutAmount("");
+      setPayoutMsg(apiDisplayMessage(d, te, te ? "అభ్యర్థన సమీక్ష కోసం పంపబడింది." : "Request submitted for review."));
       await loadPrivateDash(id, partnerToken);
     } catch {
       setPayoutMsg(te ? "Network సమస్య — మళ్లీ ప్రయత్నించండి." : "Network error — please retry.");

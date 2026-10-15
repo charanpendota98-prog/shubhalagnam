@@ -12,39 +12,15 @@ import threading
 os.environ.setdefault("WA_TEST_FAST", "1")
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+from test_storage import isolate_test_stores
+
+isolate_test_stores("assault27-part2")
+
 import main as M
 import hardening as H
 import referral
 import paypro as PP
-from fastapi.testclient import TestClient
-
-# hermetic: module json state files snapshot/restore (cross-run pollution ban)
-_JSON_SNAP = {}
-for _jf in ("paypro14.json", "referral14.json", "refpartners19.json", "unlocks12.json",
-            "vendors20.json", "ads13.json", "astro13.json", "cms15.json", "chanmap15.json"):
-    _jp = os.path.join(os.path.dirname(os.path.abspath(__file__)), _jf)
-    if os.path.exists(_jp):
-        with open(_jp, encoding="utf-8") as _f:
-            _JSON_SNAP[_jp] = _f.read()
-    else:
-        _JSON_SNAP[_jp] = None
-
-
-def _restore_jsons():
-    for _jp, _content in _JSON_SNAP.items():
-        try:
-            if _content is None:
-                if os.path.exists(_jp):
-                    os.remove(_jp)
-            else:
-                with open(_jp, "w", encoding="utf-8") as _f:
-                    _f.write(_content)
-        except Exception:
-            pass
-
-
-import atexit as _atexit
-_atexit.register(_restore_jsons)
+from testutil_client import TestClient
 
 random.seed(2727)
 CASES = [0]  # set from part-1 report at end (combined in final tally)
@@ -135,9 +111,10 @@ ok("R3 bonus once", int(u3.get("credits", 0)) == referral.REFEREE_BONUS_CREDITS,
 
 # R4: concurrent registers → unique IDs
 def reg_form(ph):
-    return {"gender": "male", "age": 27, "height": "5'8", "marital_status": "Pelli Kaledu",
+    return {"gender": "male", "age": 27, "dob": "1999-01-15", "password": "test-profile-password",
+            "height": "5'8", "marital_status": "Pelli Kaledu", "religion": "Hindu",
             "caste": "Reddy", "education": "BTech", "job": "Software", "salary": "10L",
-            "state": "TS", "district": "Hyd", "phone": ph, "full_name": "Race Reg"}
+            "state": "TS", "district": "Hyderabad", "phone": ph, "full_name": "Race Reg"}
 
 reg_ids = []
 ts = [threading.Thread(target=lambda i=i: reg_ids.append(

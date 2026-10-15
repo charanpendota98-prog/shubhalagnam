@@ -9,6 +9,8 @@ from __future__ import annotations
 
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
+from interest import sanitize_public_payload
+
 
 # Values shown as profile facts only. Similarity is not a compatibility claim.
 PROFILE_FIELDS: Tuple[Tuple[str, str, str], ...] = (
@@ -151,7 +153,7 @@ def score_match_v2(user: Dict[str, Any], match: Dict[str, Any], include_mutual: 
 
     preferences = _preference_comparisons(user, match)
     preference_notes = [row["note"] for row in preferences]
-    return {
+    return sanitize_public_payload({
         "notice": "Member-entered profile details and explicit preference comparisons only; not a compatibility or identity verdict.",
         "notice_telugu": "సభ్యులు నమోదు చేసిన వివరాలు, మీరు స్పష్టంగా సేవ్ చేసిన preferences పోలిక మాత్రమే; compatibility లేదా identity verdict కాదు.",
         "breakdown": breakdown,
@@ -160,7 +162,7 @@ def score_match_v2(user: Dict[str, Any], match: Dict[str, Any], include_mutual: 
         "preferences": preferences,
         "preference_notes": preference_notes,
         "mutual": {},
-    }
+    })
 
 
 def find_top_matches_v2(

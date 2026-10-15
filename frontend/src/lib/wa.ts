@@ -1,11 +1,7 @@
-import { ALL_CHANNELS } from "./channels";
-import { SITE_CONFIG } from "./site-config";
-
 /**
- * WhatsApp channel URLs are generated from backend/channels_config.py by
- * backend/gen_frontend_channels.py. URL shape is validated here too; external
- * availability is not checked by the app. A wa.me phone/chat URL is a support
- * destination, not a channel invite, so it is intentionally rejected here.
+ * WhatsApp channel URLs are validated as HTTPS WhatsApp invite destinations;
+ * URL shape does not prove that an invite is active. A wa.me phone/chat URL is
+ * deliberately handled as a separate, explicitly configured support/contact link.
  */
 export function isWhatsAppChannelUrl(value: string): boolean {
   try {
@@ -37,26 +33,6 @@ export function isTelegramChannelUrl(value: string): boolean {
   }
 }
 
-export const WA_CHANNEL_LINKS: Record<string, string> = ALL_CHANNELS.reduce<Record<string, string>>(
-  (links, channel) => {
-    if (channel.whatsappLink && isWhatsAppChannelUrl(channel.whatsappLink)) {
-      links[channel.key] = channel.whatsappLink;
-    }
-    return links;
-  },
-  {},
-);
-
-/** @deprecated This is a support chat, not an official WhatsApp channel. */
-export const WA_OFFICIAL_CHANNEL = SITE_CONFIG.supportLink;
-
-const CHANNEL_ALIASES: Record<string, string> = {
-  c_yadav_bride: "c_yadava_goud_bride",
-  c_yadav_groom: "c_yadava_goud_groom",
-};
-
-export type WhatsAppLink = { url: string; isDirectChannel: boolean };
-
 /** Normalize Indian or international phone input for WhatsApp click-to-chat URLs. */
 export function normalizeWhatsAppPhone(value: unknown, defaultCountryCode = "91"): string | null {
   if (typeof value !== "string" && typeof value !== "number") return null;
@@ -75,34 +51,22 @@ export function whatsappPhoneLink(value: unknown, text?: string): string | null 
   return `https://wa.me/${phone}${query}`;
 }
 
+/** Canonicalize only an explicit wa.me phone URL; reject arbitrary vendor hrefs. */
+export function safeWhatsAppPhoneLink(value: string): string {
+  try {
+    const url = new URL(value);
+    if (url.protocol !== "https:" || url.hostname.toLowerCase() !== "wa.me"
+        || url.username || url.password || url.port || url.hash) return "";
+    const phone = url.pathname.replace(/^\/+|\/+$/g, "");
+    const params = [...url.searchParams.keys()];
+    if (!/^[1-9]\d{7,14}$/.test(phone) || params.length > 1 || params.some((key) => key !== "text")) return "";
+    return whatsappPhoneLink(phone, url.searchParams.get("text") || undefined) || "";
+  } catch {
+    return "";
+  }
+}
+
 /** Build a share-sheet URL without asserting a recipient number. */
 export function whatsappShareLink(text: string): string {
   return `https://wa.me/?text=${encodeURIComponent(text)}`;
-}
-
-/** A support chat is distinct from an official channel invite. */
-export function getWASupportLink(channelKey?: string): string {
-  if (!SITE_CONFIG.supportWhatsapp) return "";
-  const label = channelKey || "Mana Vivaha";
-  return whatsappPhoneLink(
-    SITE_CONFIG.supportWhatsapp,
-    `Hi! Please share the ${label} WhatsApp channel link.`,
-  ) || "";
-}
-
-/** Return a configured channel URL, or an explicitly labelled support-chat fallback. */
-export function getWAChannelLink(channelKey?: string): WhatsAppLink {
-  const key = (channelKey || "").toLowerCase().trim();
-  const link = WA_CHANNEL_LINKS[CHANNEL_ALIASES[key] || key];
-  if (link) return { url: link, isDirectChannel: true };
-
-  // A support-chat fallback is only available when an administrator has
-  // explicitly configured a support destination; never invent a number.
-  return { url: getWASupportLink(channelKey), isDirectChannel: false };
-}
-
-/** URL-only helper for direct channel links; never substitutes a support chat. */
-export function waLink(channelKey?: string): string {
-  const key = (channelKey || "").toLowerCase().trim();
-  return WA_CHANNEL_LINKS[CHANNEL_ALIASES[key] || key] || "";
 }

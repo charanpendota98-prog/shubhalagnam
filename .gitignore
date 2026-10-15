@@ -3,6 +3,9 @@ backend/.env
 frontend/.env.local
 .env
 *.env
+.env.production
+.env.production.*
+vm-backups/
 
 # python
 __pycache__/
@@ -48,6 +51,7 @@ backend/data_db.json
 data_db.json
 backend/token_versions.json
 backend/token_versions.json.tmp
+backend/token_versions.json.tmp.*
 
 # wave39 local snapshots (machine-specific)
 backend/backups/

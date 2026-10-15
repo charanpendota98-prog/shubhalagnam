@@ -1,23 +1,10 @@
 "use client";
-/**
- * 🗓️ DAILY MATCHES CONSOLE (WAVE 40)
- * ===================================
- * "Matches of the Day" — admin selects profiles → set as today's featured
- * + re-post to their caste channels (boost). ⚡ Boost-active (paid) users first.
- */
+/** Admin-curated featured-profile tool; not a compatibility ranking or identity check. */
 import { useEffect, useMemo, useState } from "react";
-import { authHeaders } from "@/lib/api";
+import { apiDisplayMessage, authHeaders, readApiJson } from "@/lib/api";
 import { useLang } from "@/lib/lang";
 
 type Row = Record<string, any>;
-
-const adminToken = () => {
-  try { return localStorage.getItem("tsap_admin_token") || ""; } catch { return ""; }
-};
-const withToken = (url: string) => {
-  const tk = adminToken();
-  return tk ? `${url}${url.includes("?") ? "&" : "?"}token=${encodeURIComponent(tk)}` : url;
-};
 
 export default function DailyMatches() {
   const { lang } = useLang();
@@ -25,123 +12,209 @@ export default function DailyMatches() {
   const [rows, setRows] = useState<Row[]>([]);
   const [today, setToday] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [flash, setFlash] = useState("");
-  const [sel, setSel] = useState<Record<string, boolean>>({});
-  const [q, setQ] = useState("");
-  const [res, setRes] = useState<Row | null>(null);
+  const [selection, setSelection] = useState<Record<string, boolean>>({});
+  const [query, setQuery] = useState("");
+  const [result, setResult] = useState<Row | null>(null);
 
   const load = async () => {
-    setLoading(true); setFlash("");
+    setLoading(true);
+    setFlash("");
     try {
-      const r = await fetch(withToken("/api/admin/daily-matches/candidates?limit=100"), { headers: authHeaders(true) });
-      const d = await r.json();
-      if (d.success) {
-        setRows(d.candidates || []);
-        setToday(d.today || []);
-        setFlash(te ? `✅ ${d.count} candidates · ⚡ ${d.boosted_count} boost active (paid)` : `✅ ${d.count} candidates · ⚡ ${d.boosted_count} boost active (paid)`);
-      } else setFlash(d.detail || "load fail");
-    } catch { setFlash(te ? "⚠️ API error" : "⚠️ API error"); }
-    finally { setLoading(false); }
+      const response = await fetch("/api/admin/daily-matches/candidates?limit=100", {
+        headers: authHeaders(true),
+      });
+      const data = await readApiJson(response);
+      if (!response.ok || !data.success) {
+        setFlash(data.detail || (te ? "లోడ్ చేయడం సాధ్యం కాలేదు" : "Could not load profiles"));
+        return;
+      }
+      setRows(data.candidates || []);
+      setToday(data.today || []);
+      setFlash(te
+        ? `${data.count} ఆమోదించిన profiles · ${data.boosted_count} sponsored placement`
+        : `${data.count} approved profiles · ${data.boosted_count} sponsored placements`);
+    } catch {
+      setFlash(te ? "API అందుబాటులో లేదు" : "API request failed");
+    } finally {
+      setLoading(false);
+    }
   };
+
   useEffect(() => { void load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const filtered = useMemo(() => {
-    if (!q) return rows;
-    const s = q.toLowerCase();
-    return rows.filter((x) => `${x.tsap_id} ${x.full_name} ${x.caste} ${x.district}`.toLowerCase().includes(s));
-  }, [rows, q]);
+    const term = query.trim().toLowerCase();
+    if (!term) return rows;
+    return rows.filter((row) =>
+      `${row.tsap_id} ${row.full_name} ${row.caste} ${row.district}`.toLowerCase().includes(term));
+  }, [rows, query]);
 
-  const selIds = Object.keys(sel).filter((k) => sel[k]);
-  const toggle = (id: string) => setSel((s) => ({ ...s, [id]: !s[id] }));
-  const selectAll = (on: boolean) => {
-    const o: Record<string, boolean> = {};
-    filtered.forEach((x) => { o[x.tsap_id] = on; });
-    setSel(o);
+  const selectedIds = Object.keys(selection).filter((id) => selection[id]);
+  const toggle = (id: string) => setSelection((current) => ({ ...current, [id]: !current[id] }));
+  const selectVisible = (checked: boolean) => {
+    setSelection((current) => {
+      const next = { ...current };
+      filtered.forEach((row) => {
+        if (checked) next[row.tsap_id] = true;
+        else delete next[row.tsap_id];
+      });
+      return next;
+    });
   };
 
   const apply = async (post: boolean) => {
-    if (!selIds.length) { setFlash(te ? "⚠️ Profiles select చెయ్యండి (☑️)" : "⚠️ Select profiles (☑️)"); return; }
-    setFlash(te ? "⏳ Setting + posting…" : "⏳ Setting + posting…");
+    if (!selectedIds.length) {
+      setFlash(te ? "ముందుగా profiles ఎంచుకోండి" : "Select at least one profile first");
+      return;
+    }
+    if (post && !window.confirm(te
+      ? "ఎంచుకున్న profile summaries ప్రస్తుత configured channels‌కు పంపడానికి ప్రయత్నించాలా? Live publishing enabled అయితే ఇది బాహ్య post అవుతుంది. Delivery హామీ లేదు."
+      : "Attempt to publish these profile summaries to currently configured channels? If live publishing is enabled, this sends external posts. Delivery is not guaranteed.")) return;
+
+    setSaving(true);
+    setFlash(post
+      ? (te ? "పోస్టింగ్ స్థితిని తనిఖీ చేస్తున్నాం…" : "Checking publishing result…")
+      : (te ? "Featured జాబితాను సేవ్ చేస్తున్నాం…" : "Saving featured list…"));
     try {
-      const r = await fetch(withToken("/api/admin/daily-matches"), {
-        method: "POST", headers: { ...authHeaders(true), "Content-Type": "application/json" },
-        body: JSON.stringify({ profile_ids: selIds, post_to_channels: post }),
+      const response = await fetch("/api/admin/daily-matches", {
+        method: "POST",
+        headers: { ...authHeaders(true), "Content-Type": "application/json" },
+        body: JSON.stringify({ profile_ids: selectedIds, post_to_channels: post }),
       });
-      const d = await r.json();
-      if (d.success) {
-        setRes(d); setToday(d.selected || []);
-        setFlash(d.message_telugu || `✅ ${d.selected?.length} set · ${d.posted?.length} posted`);
-      } else setFlash(d.detail || "fail");
-    } catch { setFlash(te ? "⚠️ API error" : "⚠️ API error"); }
+      const data = await readApiJson(response);
+      if (!response.ok || !data.success) {
+        setFlash(data.detail || (te ? "సేవ్ చేయడం సాధ్యం కాలేదు" : "Could not save featured profiles"));
+        return;
+      }
+      setResult(data);
+      setToday(data.selected || []);
+      setFlash(te
+        ? `${data.selected?.length || 0} profiles featured జాబితాలో సేవ్ అయ్యాయి`
+        : `${data.selected?.length || 0} profiles saved as today's featured list`);
+      await load();
+    } catch {
+      setFlash(te ? "API request విఫలమైంది" : "API request failed");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
-    <div>
-      <p className="telugu mt-2 text-xs text-gray-500">
-        {te ? <>ఈ రోజు <b>Matches of the Day</b> — select చేసిన profiles home page లో featured గా + వారి caste channels లో మళ్లీ post (⚡ boost). Boost కొన్నవాళ్లు (paid) ముందు కనిపిస్తారు — అదే revenue.</> : <>Today&apos;s <b>Matches of the Day</b> — selected profiles featured on home + re-posted to their caste channels (boost). Paid boost users listed first.</>}
-      </p>
+    <section aria-labelledby="daily-featured-title" className="space-y-3">
+      <div>
+        <h2 id="daily-featured-title" className="text-lg font-extrabold text-[#7A0C2E]">
+          {te ? "ఈ రోజు featured profiles" : "Today’s featured profiles"}
+        </h2>
+        <p className="telugu mt-1 text-xs leading-relaxed text-gray-600">
+          {te
+            ? <>ఇది admin-curated జాబితా మాత్రమే — compatibility, identity లేదా విజయంపై verdict కాదు. Active paid boost ఉన్న profiles‌కు <b>sponsored placement</b> ఇవ్వబడుతుంది; మిగతావి recent registration క్రమంలో ఉంటాయి. Posting వేరే, స్పష్టమైన action.</>
+            : <>This is an admin-curated list—not a compatibility, identity, or outcome verdict. Profiles with an active paid boost receive <b>sponsored placement</b>; others follow recency. Publishing is a separate, explicit action.</>}
+        </p>
+      </div>
 
-      <div className="mt-3 flex flex-wrap items-center gap-2">
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={te ? "వెతకండి: ID / name / caste…" : "Search: ID / name / caste…"}
-          aria-label="Search candidates" className="min-w-[220px] flex-1 rounded-xl border border-[#7A0C2E]/30 px-3 py-2 text-sm" />
-        <button onClick={() => void load()} disabled={loading} className="rounded-xl border border-[#7A0C2E] px-4 py-2 text-xs font-bold text-[#7A0C2E]">🔄 {te ? "రిఫ్రెష్" : "Refresh"}</button>
+      <div className="flex flex-wrap items-center gap-2">
+        <label className="sr-only" htmlFor="daily-featured-search">{te ? "Profiles వెతకండి" : "Search profiles"}</label>
+        <input
+          id="daily-featured-search"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder={te ? "ID / పేరు / caste / district వెతకండి" : "Search ID, name, caste, or district"}
+          className="min-w-[200px] flex-1 rounded-xl border border-[#7A0C2E]/30 px-3 py-2 text-sm"
+        />
+        <button onClick={() => void load()} disabled={loading || saving}
+          className="rounded-xl border border-[#7A0C2E] px-4 py-2 text-xs font-bold text-[#7A0C2E] disabled:opacity-50">
+          {loading ? (te ? "లోడ్ అవుతోంది…" : "Loading…") : (te ? "రిఫ్రెష్" : "Refresh")}
+        </button>
       </div>
 
       {today.length > 0 && (
-        <div className="mt-2 rounded-xl bg-emerald-50 border border-emerald-200 p-2 text-xs">
-          🗓️ {te ? "ఈ రోజు ఎంపిక" : "Today's picks"}: <b>{today.join(", ")}</b>
-        </div>
+        <p className="break-words rounded-xl border border-emerald-200 bg-emerald-50 p-2 text-xs">
+          {te ? "ఈ రోజు featured IDs" : "Today’s featured IDs"}: <b>{today.join(", ")}</b>
+        </p>
       )}
-      {flash ? <div className="mt-2 rounded-xl bg-[#0F1F3C] p-3 text-xs text-white">{flash}</div> : null}
+      {flash && <p role="status" aria-live="polite" className="break-words rounded-xl bg-[#0F1F3C] p-3 text-xs text-white">{flash}</p>}
 
-      <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
-        <b className="text-[#7A0C2E]">{filtered.length} candidates</b>
-        <button onClick={() => selectAll(true)} className="rounded-full bg-gray-200 px-3 py-1">{te ? "☑️ అన్నీ select" : "☑️ select all"}</button>
-        <button onClick={() => selectAll(false)} className="rounded-full bg-gray-200 px-3 py-1">⬜ clear</button>
-        <b>Selected: {selIds.length}</b>
+      <div className="flex flex-wrap items-center gap-2 text-xs">
+        <b className="text-[#7A0C2E]">{filtered.length} {te ? "profiles" : "profiles"}</b>
+        <button type="button" onClick={() => selectVisible(true)} className="rounded-full bg-gray-200 px-3 py-1">
+          {te ? "కనిపిస్తున్నవి ఎంచుకోండి" : "Select visible"}
+        </button>
+        <button type="button" onClick={() => selectVisible(false)} className="rounded-full bg-gray-200 px-3 py-1">
+          {te ? "కనిపిస్తున్నవి తీసేయండి" : "Clear visible"}
+        </button>
+        <b>{te ? "ఎంపిక" : "Selected"}: {selectedIds.length}</b>
       </div>
 
-      <div className="mt-2 max-h-[380px] overflow-auto rounded-2xl border">
-        <table className="w-full text-xs">
+      <div className="max-h-[380px] overflow-auto rounded-2xl border" role="region" aria-label={te ? "ఎంచుకోవడానికి profiles" : "Profiles available for featuring"}>
+        <table className="w-full min-w-[580px] text-xs">
           <thead className="sticky top-0 bg-[#FFF8E7]">
-            <tr className="text-left text-gray-500"><th className="p-2">☑️</th><th>Profile</th><th>Details</th><th>⚡</th></tr>
+            <tr className="text-left text-gray-600">
+              <th scope="col" className="p-2">{te ? "ఎంచుకోండి" : "Select"}</th>
+              <th scope="col" className="p-2">{te ? "Profile" : "Profile"}</th>
+              <th scope="col" className="p-2">{te ? "వివరాలు" : "Details"}</th>
+              <th scope="col" className="p-2">{te ? "Placement" : "Placement"}</th>
+            </tr>
           </thead>
           <tbody>
             {filtered.length === 0 ? (
-              <tr><td colSpan={4} className="p-4 text-center text-gray-500">{te ? "Profiles లేవు" : "No profiles"}</td></tr>
-            ) : filtered.map((x) => (
-              <tr key={x.tsap_id} className={`border-t ${sel[x.tsap_id] ? "bg-emerald-50" : ""} ${today.includes(x.tsap_id) ? "bg-amber-50" : ""}`}>
-                <td className="p-2 text-center"><input type="checkbox" checked={!!sel[x.tsap_id]} onChange={() => toggle(x.tsap_id)} aria-label={`Select ${x.tsap_id}`} className="h-4 w-4 accent-[#7A0C2E]" /></td>
-                <td className="p-2">
-                  <div className="font-bold">{x.full_name}</div>
-                  <div className="font-mono text-[10px] text-gray-500">{x.tsap_id}</div>
+              <tr><td colSpan={4} className="p-4 text-center text-gray-500">{te ? "ఆమోదించిన profiles లేవు" : "No approved profiles found"}</td></tr>
+            ) : filtered.map((row) => {
+              const displayedTerms = [row.caste, row.district, row.job, row.marital_status]
+                .map((value) => te ? String(value || "") : apiDisplayMessage({ message_en: value }, false, ""));
+              const [caste, district, job, maritalStatus] = displayedTerms;
+              return (
+              <tr key={row.tsap_id} className={`border-t ${selection[row.tsap_id] ? "bg-emerald-50" : ""} ${today.includes(row.tsap_id) ? "bg-amber-50" : ""}`}>
+                <td className="p-2 text-center">
+                  <input type="checkbox" checked={!!selection[row.tsap_id]} onChange={() => toggle(row.tsap_id)}
+                    aria-label={`${te ? "ఎంచుకోండి" : "Select"} ${row.tsap_id}`} className="h-4 w-4 accent-[#7A0C2E]" />
                 </td>
                 <td className="p-2">
-                  {x.gender === "Bride" ? "👰" : "🤵"} {x.age}y · {x.caste} · {x.district}
-                  <div className="text-[10px] text-gray-500">{x.job} · {x.marital_status || ""}</div>
+                  <div className="font-bold">{row.full_name}</div>
+                  <div className="font-mono text-[10px] text-gray-500">{row.tsap_id}</div>
                 </td>
-                <td className="p-2">{x.boost_active ? <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-700">⚡ PAID</span> : ""}</td>
+                <td className="p-2">
+                  {row.age ? `${row.age}y · ` : ""}{[caste, district].filter(Boolean).join(" · ")}
+                  <div className="text-[10px] text-gray-500">{[job, maritalStatus].filter(Boolean).join(" · ")}</div>
+                </td>
+                <td className="p-2">
+                  {row.boost_active
+                    ? <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800">{te ? "Sponsored" : "Sponsored"}</span>
+                    : <span className="text-gray-600">{te ? "Featured" : "Featured"}</span>}
+                </td>
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
       </div>
 
-      <div className="mt-3 flex flex-wrap gap-2">
-        <button onClick={() => void apply(true)} className="rounded-xl bg-[#7A0C2E] px-5 py-2.5 text-sm font-bold text-white">
-          🗓️ {te ? "ఈ రోజు matches గా set + channels లో post" : "Set as today + post to channels"}
+      <div className="flex flex-wrap gap-2">
+        <button type="button" onClick={() => void apply(false)} disabled={saving || loading}
+          className="rounded-xl bg-[#7A0C2E] px-5 py-2.5 text-sm font-bold text-white disabled:opacity-50">
+          {te ? "Featured జాబితా సేవ్ చేయండి — post చేయవద్దు" : "Save featured list — no posting"}
         </button>
-        <button onClick={() => void apply(false)} className="rounded-xl border border-[#7A0C2E] px-4 py-2.5 text-xs font-bold text-[#7A0C2E]">
-          {te ? "channels లో post చేయకుండా set మాత్రమే" : "Set only (no posting)"}
+        <button type="button" onClick={() => void apply(true)} disabled={saving || loading}
+          className="rounded-xl border border-[#7A0C2E] px-4 py-2.5 text-xs font-bold text-[#7A0C2E] disabled:opacity-50">
+          {te ? "స్పష్టమైన confirmation తర్వాత channels‌కు post" : "Attempt channel publishing (confirm first)"}
         </button>
       </div>
 
-      {res ? (
-        <div className="mt-2 rounded-xl bg-gray-50 p-3 text-xs">
-          ✅ {te ? "సెట్ చేయబడ్డాయి" : "Set"}: <b>{(res.selected || []).length}</b> · 📢 {te ? "పోస్ట్ అయ్యాయి" : "posted"}: <b>{(res.posted || []).length}</b>
-          {(res.failed || []).length > 0 && <span className="text-red-600"> · ⚠️ {(res.failed || []).length} failed</span>}
+      {result && (
+        <div className="space-y-1 rounded-xl bg-gray-50 p-3 text-xs">
+          <p>{te ? "Featured profiles సేవ్ అయ్యాయి" : "Featured profiles saved"}: <b>{result.selected?.length || 0}</b></p>
+          {result.posting_attempted && <p>
+            {te ? "API ద్వారా అంగీకరించబడినవి" : "Accepted by publishing API"}: <b>{result.posted?.length || 0}</b>
+            {" · "}{te ? "Queue లో చేరినవి" : "Queued"}: <b>{result.queued?.length || 0}</b>
+            {" · "}{te ? "డ్రై-రన్ previewలు" : "Dry-run previews"}: <b>{result.would_post?.length || 0}</b>
+            {" · "}{te ? "విఫలమైనవి" : "Failed"}: <b>{result.failed?.length || 0}</b>
+          </p>}
+          {result.posting_attempted && <p className="text-gray-600">
+            {te ? "API acceptance బాహ్య delivery లేదా views‌కు హామీ కాదు." : "API acceptance does not confirm external delivery or views."}
+          </p>}
         </div>
-      ) : null}
-    </div>
+      )}
+    </section>
   );
 }

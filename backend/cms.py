@@ -83,7 +83,7 @@ def _photos(raw) -> List[str]:
 
 # ------------------------------------------------------------------ PAGES
 def upsert_page(slug: str, title_en: str, title_te: str, body_en: str = "", body_te: str = "",
-                photos=None, tags=None, published: bool = True, order: int = 0) -> Dict:
+                photos=None, tags=None, published: bool = False, order: int = 0) -> Dict:
     slug = str(slug or "").strip().lower()
     if not _SLUG_RE.match(slug):
         return {"success": False, "message_telugu": "⚠️ slug: a–z, 0–9, hyphen (ex: about-us)"}
@@ -117,7 +117,7 @@ def list_pages(published_only: bool = True) -> List[Dict]:
 # ------------------------------------------------------------------ STORIES
 def upsert_story(sid: str = "", groom: str = "", bride: str = "", photo: str = "",
                  story_en: str = "", story_te: str = "", district: str = "",
-                 wedding_date: str = "", tags=None, published: bool = True) -> Dict:
+                 wedding_date: str = "", tags=None, published: bool = False) -> Dict:
     global _SEQ
     if not str(groom or "").strip() or not str(bride or "").strip():
         return {"success": False, "message_telugu": "⚠️ Groom + bride names కావాలి"}
@@ -149,7 +149,7 @@ def list_stories(tag: str = "", published_only: bool = True, limit: int = 20) ->
 
 # ------------------------------------------------------------------ BANNERS
 def upsert_banner(bid: str = "", text_en: str = "", text_te: str = "", link: str = "",
-                  pages=None, active: bool = True, order: int = 0) -> Dict:
+                  pages=None, active: bool = False, order: int = 0) -> Dict:
     global _SEQ
     if not str(text_en or "").strip():
         return {"success": False, "message_telugu": "⚠️ Banner text (English) కావాలి"}

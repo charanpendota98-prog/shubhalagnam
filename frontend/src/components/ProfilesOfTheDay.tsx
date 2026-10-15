@@ -1,5 +1,7 @@
 "use client";
 
+
+import { apiDisplayMessage, readApiJson } from "@/lib/api";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useLang } from "@/lib/lang";
@@ -22,6 +24,7 @@ export type SpotlightProfile = {
   height?: string;
   marital_status?: string;
   badge_text?: string;
+  badge_text_te?: string;
   headline?: string;
   pitch_text?: string;
   photo_url?: string;
@@ -34,17 +37,15 @@ function getVideoSource(raw?: string) {
   if (!raw) return null;
   try {
     const url = new URL(raw);
-    if (url.protocol !== "https:" && url.protocol !== "http:") return null;
+    if (url.protocol !== "https:") return null;
     const host = url.hostname.toLowerCase().replace(/^www\./, "");
-    if (host === "youtu.be" || host.endsWith("youtube.com") || host === "youtube-nocookie.com") {
-      const id = host === "youtu.be"
-        ? url.pathname.split("/").filter(Boolean)[0]
-        : url.searchParams.get("v") || url.pathname.match(/\/(?:embed|shorts)\/([\w-]{11})/)?.[1];
-      return id && /^[\w-]{11}$/.test(id)
-        ? { kind: "embed" as const, src: `https://www.youtube-nocookie.com/embed/${id}?autoplay=1` }
-        : null;
-    }
-    return { kind: "video" as const, src: url.toString() };
+    if (!["youtu.be", "youtube.com", "m.youtube.com", "youtube-nocookie.com"].includes(host)) return null;
+    const id = host === "youtu.be"
+      ? url.pathname.split("/").filter(Boolean)[0]
+      : url.searchParams.get("v") || url.pathname.match(/\/(?:embed|shorts)\/([\w-]{11})/)?.[1];
+    return id && /^[\w-]{11}$/.test(id)
+      ? { kind: "embed" as const, src: `https://www.youtube-nocookie.com/embed/${id}?autoplay=1` }
+      : null;
   } catch {
     return null;
   }
@@ -63,7 +64,7 @@ export default function ProfilesOfTheDay() {
     fetch("/api/spotlight/active?limit=6", { cache: "no-store", signal: controller.signal })
       .then(async (response) => {
         if (!response.ok) throw new Error("Spotlight request failed");
-        return response.json();
+        return readApiJson(response);
       })
       .then((data) => {
         const items = Array.isArray(data?.items) ? data.items : [];
@@ -92,6 +93,10 @@ export default function ProfilesOfTheDay() {
     fetch(`/api/spotlight/track/${encodeURIComponent(promoId)}?kind=click`, { method: "POST" }).catch(() => {});
   };
 
+  // Keep the homepage focused when no approved placement is active. The full
+  // spotlight route remains available from navigation for profile promotion.
+  if (!loading && (loadError || profiles.length === 0)) return null;
+
   return (
     <section className="relative mx-auto max-w-7xl overflow-hidden px-4 py-10" aria-label={te ? "ప్రమోట్ చేసిన ప్రొఫైళ్లు" : "Sponsored profile spotlights"}>
       <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden" aria-hidden="true">
@@ -102,10 +107,10 @@ export default function ProfilesOfTheDay() {
         <div className="mb-6 flex min-w-0 flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <SectionHeading
             eyebrow={duo("⭐ Sponsored profiles", "⭐ ప్రమోట్ చేసిన ప్రొఫైళ్లు")}
-            title={duo("Profiles of the Day", "ఈ రోజు ప్రత్యేక ప్రొఫైళ్లు")}
+            title={duo("Sponsored profile placements", "స్పాన్సర్డ్ ప్రొఫైల్ ప్రమోషన్లు")}
             subtitle={duo(
-              "Profiles appear here only after payment and content review are complete.",
-              "చెల్లింపు, కంటెంట్ సమీక్ష పూర్తయిన ప్రొఫైళ్లు మాత్రమే ఇక్కడ కనిపిస్తాయి."
+              "Sponsored profiles appear after payment and media review. Profile details are member-submitted and are not independently verified.",
+              "చెల్లింపు, మీడియా సమీక్ష తర్వాత ప్రమోట్ చేసిన ప్రొఫైళ్లు కనిపిస్తాయి. వివరాలు సభ్యులు అందించినవి; స్వతంత్రంగా నిర్ధారించినవి కావు."
             )}
             telugu
           />
@@ -130,14 +135,25 @@ export default function ProfilesOfTheDay() {
       ) : profiles.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-amber-300 bg-white/80 p-8 text-center text-sm text-slate-700">
           <p>{te ? "ప్రస్తుతం ఆమోదించిన స్పాట్‌లైట్ ప్రొఫైళ్లు లేవు." : "There are no approved spotlight profiles right now."}</p>
-          <p className="mt-1 text-xs text-slate-500">{te ? "నమూనా ప్రొఫైళ్లు చూపించకుండా, నిజమైన ఆమోదిత ప్రొఫైళ్లు మాత్రమే ఇక్కడ కనిపిస్తాయి." : "Only real, approved profiles are shown here; sample profiles are not used."}</p>
+          <p className="mt-1 text-xs leading-relaxed text-slate-500">{te ? "ఇవి సభ్యులు సమర్పించిన వివరాలు. స్పాట్‌లైట్ సమీక్ష వ్యక్తి గుర్తింపును స్వతంత్రంగా నిర్ధారించదు." : "These are member-submitted details. Spotlight review does not independently verify a person's identity."}</p>
         </div>
       ) : (
         <div className="grid min-w-0 grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
           {profiles.map((profile, index) => {
             const name = profile.full_name?.trim() || profile.tsap_id;
             const video = getVideoSource(profile.video_url);
+            const englishText = (value: unknown) => apiDisplayMessage({ message_en: value }, false, "");
             const attributes = [profile.caste, profile.subcaste, profile.district].filter(Boolean);
+            const displayAttributes = te ? attributes : attributes.map(englishText).filter(Boolean);
+            const displayBadge = te
+              ? (profile.badge_text_te || "స్పాన్సర్డ్ ప్రొఫైల్")
+              : englishText(profile.badge_text) || "Sponsored profile";
+            const displayHeadline = te ? profile.headline : englishText(profile.headline);
+            const displayPitch = te ? profile.pitch_text : englishText(profile.pitch_text);
+            const displayEducation = te ? profile.education : englishText(profile.education);
+            const displayJob = te ? profile.job : englishText(profile.job);
+            const displayDistrict = te ? profile.district : englishText(profile.district);
+            const displayHeight = te ? profile.height : englishText(profile.height);
             const age = Number(profile.age);
             return (
               <Reveal key={profile.promo_id} delay={Math.min(index * 60, 240)}>
@@ -155,7 +171,7 @@ export default function ProfilesOfTheDay() {
                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent" aria-hidden="true" />
                     <div className="absolute left-3 right-3 top-3 flex min-w-0 items-start justify-between gap-2">
                       <span className="max-w-[75%] break-words rounded-full border border-white/40 bg-amber-300 px-3 py-1 text-[10px] font-black uppercase leading-relaxed text-maroon shadow">
-                        {profile.badge_text || (te ? "ప్రమోట్ చేసిన ప్రొఫైల్" : "Sponsored profile")}
+                        {displayBadge}
                       </span>
                       <span className="max-w-[45%] break-all rounded-full border border-white/20 bg-black/60 px-2.5 py-1 font-mono text-[10px] font-bold text-white">{profile.tsap_id}</span>
                     </div>
@@ -168,27 +184,27 @@ export default function ProfilesOfTheDay() {
                       <h3 className="break-words text-lg font-extrabold drop-shadow sm:text-xl">{name}</h3>
                       <p className="mt-1 break-words text-xs font-medium text-amber-100">
                         {Number.isFinite(age) && age > 0 ? `${age} ${te ? "సం." : "yrs"}` : null}
-                        {profile.height ? ` · ${profile.height}` : null}
-                        {attributes.length ? ` · ${attributes.join(" · ")}` : null}
+                        {displayHeight ? ` · ${displayHeight}` : null}
+                        {displayAttributes.length ? ` · ${displayAttributes.join(" · ")}` : null}
                       </p>
                     </div>
                   </div>
 
                   <div className="flex flex-1 flex-col gap-4 p-4 sm:p-5">
                     <div className="min-w-0 space-y-2">
-                      {profile.headline && <h4 className="break-words rounded-xl border border-amber-100 bg-amber-50 px-3 py-2 text-sm font-bold leading-relaxed text-maroon">{profile.headline}</h4>}
-                      {profile.pitch_text && <p className="break-words rounded-2xl border border-slate-100 bg-slate-50 p-3 text-sm leading-relaxed text-slate-700">{profile.pitch_text}</p>}
+                      {displayHeadline && <h4 className="break-words rounded-xl border border-amber-100 bg-amber-50 px-3 py-2 text-sm font-bold leading-relaxed text-maroon">{displayHeadline}</h4>}
+                      {displayPitch && <p className="break-words rounded-2xl border border-slate-100 bg-slate-50 p-3 text-sm leading-relaxed text-slate-700">{displayPitch}</p>}
                       <dl className="grid grid-cols-1 gap-2 text-xs sm:grid-cols-2">
-                        {(profile.education || profile.job) && (
+                        {(displayEducation || displayJob) && (
                           <div className="min-w-0 rounded-xl border border-slate-100 p-2.5">
                             <dt className="text-[10px] text-slate-500">{te ? "విద్య / ఉద్యోగం" : "Education / work"}</dt>
-                            <dd className="break-words font-semibold text-slate-800">{[profile.education, profile.job].filter(Boolean).join(" · ")}</dd>
+                            <dd className="break-words font-semibold text-slate-800">{[displayEducation, displayJob].filter(Boolean).join(" · ")}</dd>
                           </div>
                         )}
-                        {profile.district && (
+                        {displayDistrict && (
                           <div className="min-w-0 rounded-xl border border-slate-100 p-2.5">
                             <dt className="text-[10px] text-slate-500">{te ? "ప్రాంతం" : "Location"}</dt>
-                            <dd className="break-words font-semibold text-slate-800">{profile.district}</dd>
+                            <dd className="break-words font-semibold text-slate-800">{displayDistrict}</dd>
                           </div>
                         )}
                       </dl>

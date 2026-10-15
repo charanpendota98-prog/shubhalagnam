@@ -1,8 +1,10 @@
 "use client";
 
+
+import { readApiJson } from "@/lib/api";
 import { useEffect, useState } from "react";
 import type { Channel } from "./channels";
-import { getWASupportLink, isTelegramChannelUrl, isWhatsAppChannelUrl } from "./wa";
+import { isTelegramChannelUrl, isWhatsAppChannelUrl } from "./wa";
 
 export type ChannelDirectoryLink = { telegram?: string; whatsapp?: string };
 type ChannelDirectoryState = {
@@ -17,9 +19,10 @@ export type ResolvedChannelLinks = {
 };
 
 /**
- * Load the public, admin-mapped channel links once per page. If the backend is
- * unavailable, use the validated registry links bundled with the frontend.
- * External destination uptime is never inferred from URL syntax.
+ * Load public, admin-mapped channel links. If the backend is unavailable, use
+ * only the exact owner-configured URLs bundled from the canonical registry.
+ * A support contact is never substituted for a channel destination, and URL
+ * syntax does not prove external availability.
  */
 export function useChannelDirectoryLinks(): ChannelDirectoryState {
   const [state, setState] = useState<ChannelDirectoryState>({ links: {}, authoritative: false });
@@ -27,7 +30,7 @@ export function useChannelDirectoryLinks(): ChannelDirectoryState {
   useEffect(() => {
     const controller = new AbortController();
     fetch("/api/channels/join", { cache: "no-store", signal: controller.signal })
-      .then((response) => (response.ok ? response.json() : null))
+      .then((response) => (response.ok ? readApiJson(response) : null))
       .then((payload: unknown) => {
         if (!payload || typeof payload !== "object" || !("success" in payload) || payload.success !== true) return;
         const rawLinks = "links" in payload && payload.links && typeof payload.links === "object"
@@ -72,13 +75,9 @@ export function resolveChannelLinks(
     ? configured?.whatsapp || ""
     : channel.whatsappLink;
   const directWhatsApp = isWhatsAppChannelUrl(whatsappCandidate) ? whatsappCandidate : "";
-  const entryIsEnabled = !directory.authoritative || Boolean(configured);
-  const supportFallback = entryIsEnabled ? getWASupportLink(channel.key) : "";
-  const whatsapp = directWhatsApp || supportFallback;
-
   return {
     telegram,
-    whatsapp,
+    whatsapp: directWhatsApp,
     whatsappIsDirect: Boolean(directWhatsApp),
   };
 }

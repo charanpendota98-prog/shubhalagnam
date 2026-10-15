@@ -1,37 +1,34 @@
 "use client";
 
 /**
- * 👑 MANA VIVAHA — ELEGANT COMPACT CINEMATIC WEDDING HERO
- * ========================================================
- * • Local Telugu wedding background film with a poster fallback when playback is unavailable.
- * • Clean, compact, refined side typography & action panel.
- * • 100% uncluttered, neat, and perfectly proportioned layout.
+ * 👑 MANA VIVAHA — RESPONSIVE CINEMATIC WEDDING HERO
+ * ===================================================
+ * • Local decorative wedding film with an optimized poster fallback.
+ * • Clear bilingual brand, concise headline, and touch-friendly actions.
+ * • Responsive typography and spacing for phone through desktop widths.
  */
 
 import Link from "next/link";
 import Image from "next/image";
 import { useEffect, useRef } from "react";
 import { useLang, type Lang } from "@/lib/lang";
+import HomeMatchSearch from "@/components/HomeMatchSearch";
 
 
 const COPY = {
   te: {
-    kicker: "తెలుగు కుటుంబాల కోసం · మన వివాహ",
+    kicker: "తెలుగు కుటుంబాల కోసం · Mana Vivaha · మన వివాహ",
     titleA: "మీ వివాహ ప్రయాణం,",
     titleB: "ఇక్కడ మొదలవుతుంది",
-    sub: "తెలంగాణ & ఆంధ్రప్రదేశ్ కుటుంబాల కోసం — ప్రొఫైల్ వివరాలను జాగ్రత్తగా పరిశీలించండి, verification స్థాయిని స్పష్టంగా చూడండి, ఫోటో గోప్యతను మీరే నియంత్రించండి.",
     pricePill: "₹99 నుంచి · మొదటి 3 interest requests ఉచితం",
-    ctaReg: "ఉచిత నమోదు — FREE",
-    ctaBrowse: "సంబంధాలు చూడండి",
+    ctaReg: "ఉచిత ప్రొఫైల్ సృష్టించండి",
   },
   en: {
-    kicker: "For Telugu families · Mana Vivaha",
+    kicker: "For Telugu families · Mana Vivaha · మన వివాహ",
     titleA: "Your Telugu matrimony journey",
     titleB: "starts here.",
-    sub: "For families across Telangana and Andhra Pradesh. Review profile details carefully, see each verification status clearly, and choose your photo privacy settings.",
     pricePill: "From ₹99 · first 3 interest requests are free",
-    ctaReg: "Register free",
-    ctaBrowse: "Browse profiles",
+    ctaReg: "Create your free profile",
   },
 };
 
@@ -48,11 +45,14 @@ export default function CinematicHero() {
     if (!video) return;
 
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const smallScreen = window.matchMedia("(max-width: 767px)");
+    const connection = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection;
     let isVisible = !("IntersectionObserver" in window);
     let disposed = false;
 
     const syncPlayback = () => {
-      if (disposed || reducedMotion.matches || document.visibilityState !== "visible" || !isVisible) {
+      if (disposed || reducedMotion.matches || smallScreen.matches || connection?.saveData
+          || document.visibilityState !== "visible" || !isVisible) {
         video.pause();
         return;
       }
@@ -70,6 +70,7 @@ export default function CinematicHero() {
       : null;
     observer?.observe(video);
     reducedMotion.addEventListener("change", syncPlayback);
+    smallScreen.addEventListener("change", syncPlayback);
     document.addEventListener("visibilitychange", syncPlayback);
     syncPlayback();
 
@@ -77,6 +78,7 @@ export default function CinematicHero() {
       disposed = true;
       observer?.disconnect();
       reducedMotion.removeEventListener("change", syncPlayback);
+      smallScreen.removeEventListener("change", syncPlayback);
       document.removeEventListener("visibilitychange", syncPlayback);
       video.pause();
     };
@@ -87,7 +89,8 @@ export default function CinematicHero() {
   useEffect(() => {
     const canvas = canvasRef.current;
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
-    if (!canvas || reducedMotion.matches || window.innerWidth < 640) return;
+    const connection = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection;
+    if (!canvas || reducedMotion.matches || connection?.saveData || window.innerWidth < 768) return;
 
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
@@ -111,7 +114,8 @@ export default function CinematicHero() {
       frameId = 0;
     };
     const shouldAnimate = () =>
-      visible && !reducedMotion.matches && document.visibilityState === "visible" && window.innerWidth >= 640;
+      visible && !reducedMotion.matches && !connection?.saveData
+      && document.visibilityState === "visible" && window.innerWidth >= 768;
     const render = () => {
       frameId = 0;
       if (!shouldAnimate()) return;
@@ -165,7 +169,7 @@ export default function CinematicHero() {
 
   return (
     <section
-      className="cinematic-hero relative min-h-[600px] sm:min-h-[620px] lg:min-h-[660px] flex items-center overflow-hidden bg-gradient-to-br from-[#5b0e32] via-[#cf5a42] to-[#0f766e] text-white"
+      className="cinematic-hero relative min-h-[600px] sm:min-h-[680px] lg:min-h-[720px] flex items-center overflow-hidden bg-gradient-to-br from-[#5b0e32] via-[#cf5a42] to-[#0f766e] text-white"
       aria-label={lang === "te" ? "మన వివాహ — తెలుగు వివాహ పరిచయ వేదిక" : "Mana Vivaha — Telugu matrimony"}
     >
       {/* ================= 1. LOCAL CINEMATIC WEDDING FILM BACKGROUND ================= */}
@@ -226,7 +230,7 @@ export default function CinematicHero() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-center">
           
           {/* LEFT/SIDE CONTAINER: COMPACT & REFINED LUXURY PANEL */}
-          <div className="lg:col-span-8 xl:col-span-7 text-left">
+          <div className="lg:col-span-7 xl:col-span-7 text-left">
             <div className="max-w-2xl space-y-4 sm:space-y-5 text-shadow-hero">
               
               {/* Auspicious Eyebrow Badge */}
@@ -239,7 +243,7 @@ export default function CinematicHero() {
               </div>
 
               {/* Compact, Refined Royal Gold Headline */}
-              <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold leading-tight tracking-tight text-white drop-shadow-[0_2px_15px_rgba(0,0,0,0.8)]">
+              <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold leading-[1.18] tracking-tight text-white drop-shadow-[0_2px_18px_rgba(0,0,0,0.75)]">
                 {L.titleA}
                 <br />
                 <span className="bg-gradient-to-r from-amber-200 via-yellow-300 to-amber-400 bg-clip-text text-transparent">
@@ -247,35 +251,22 @@ export default function CinematicHero() {
                 </span>
               </h1>
 
-              {/* Compact Subtitle */}
-              <p className="text-xs sm:text-sm font-normal leading-relaxed text-gray-200 drop-shadow-sm">
-                {L.sub}
-              </p>
+              <div className="h-1 w-16 rounded-full bg-gradient-to-r from-amber-200 via-yellow-400 to-transparent shadow-sm" aria-hidden="true" />
 
-              {/* Compact Action Buttons */}
-              <div className="flex flex-wrap items-center gap-2.5 pt-1">
+              {/* One clear account-creation action; browsing happens in the search card. */}
+              <div className="flex items-center pt-1">
                 <Link
                   href="/register"
-                  className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-amber-400 via-amber-300 to-yellow-500 px-6 py-2.5 sm:px-7 sm:py-3 text-sm sm:text-base font-black text-rose-950 shadow-[0_8px_25px_rgba(245,158,11,0.4)] transition hover:brightness-110 active:scale-95"
+                  className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-gradient-to-r from-amber-300 via-amber-200 to-yellow-400 px-6 py-3 text-sm font-bold leading-snug text-rose-950 shadow-[0_10px_30px_rgba(245,158,11,0.28)] transition hover:brightness-105 active:scale-[.99] sm:px-7 sm:text-base focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-amber-100"
                 >
-                  <span>💍</span>
                   <span>{L.ctaReg}</span>
                   <span aria-hidden className="text-base">→</span>
                 </Link>
-
-                <Link
-                  href="/matches"
-                  className="inline-flex items-center gap-2 rounded-full border border-white/60 bg-[#3a1423] hover:bg-[#52182d] px-5 py-2.5 sm:px-6 sm:py-3 text-sm sm:text-base font-bold text-white transition active:scale-95 shadow-sm"
-                >
-                  <span>🔍</span>
-                  <span>{L.ctaBrowse}</span>
-                </Link>
               </div>
 
-              {/* Compact Pricing Offer Pill */}
-              <div>
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-400/40 bg-[#180710] px-3.5 py-1.5 text-[11px] sm:text-xs font-semibold text-amber-200">
-                  <span className="text-amber-400">✦</span>
+              <div className="pt-1">
+                <span className="inline-flex max-w-full items-center gap-2 rounded-2xl border border-amber-200/50 bg-[#240914]/85 px-4 py-2.5 text-xs font-bold leading-relaxed text-amber-100 shadow-lg backdrop-blur-sm sm:text-sm">
+                  <span className="shrink-0 text-amber-300" aria-hidden="true">✦</span>
                   <span>{L.pricePill}</span>
                 </span>
                 <p className="mt-1.5 text-[10px] leading-relaxed text-white/75 sm:text-xs">
@@ -286,7 +277,9 @@ export default function CinematicHero() {
             </div>
           </div>
 
-
+          <div className="lg:col-span-5 xl:col-span-5">
+            <HomeMatchSearch />
+          </div>
         </div>
       </div>
     </section>

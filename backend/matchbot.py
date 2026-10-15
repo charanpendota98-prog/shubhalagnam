@@ -23,7 +23,7 @@ Public API:
 from __future__ import annotations
 
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
 import topmatch
@@ -39,19 +39,27 @@ MAX_MATCHES = 6
 # --------------------------------------------------------------------------- #
 # helpers
 # --------------------------------------------------------------------------- #
+def _naive_utc(value: datetime) -> datetime:
+    """Normalize aware timestamps to naive UTC for consistent stored-time comparisons."""
+    if value.tzinfo is not None:
+        return value.astimezone(timezone.utc).replace(tzinfo=None)
+    return value
+
+
 def _now(now: Optional[datetime] = None) -> datetime:
-    return now or datetime.utcnow()
+    return _naive_utc(now) if now is not None else datetime.utcnow()
 
 
 def _parse_dt(v: Any) -> Optional[datetime]:
-    """created_at/at (ISO string or datetime) → datetime; junk → None."""
+    """created_at/at (ISO string or datetime) → naive UTC; junk → None."""
     if isinstance(v, datetime):
-        return v
+        return _naive_utc(v)
     s = str(v or "").strip()
     if not s:
         return None
     try:
-        return datetime.fromisoformat(s.replace("Z", ""))
+        parsed = datetime.fromisoformat(s.replace("Z", "+00:00"))
+        return _naive_utc(parsed)
     except Exception:
         return None
 

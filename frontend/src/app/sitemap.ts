@@ -11,19 +11,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { path: "/register", priority: 0.95, freq: "weekly" },
     { path: "/pricing", priority: 0.95, freq: "weekly" },
     { path: "/channels", priority: 0.9, freq: "daily" },
-    { path: "/channels?tier=L3_CASTE", priority: 0.85, freq: "weekly" },
-    { path: "/channels?tier=L4_SPECIAL", priority: 0.8, freq: "weekly" },
     { path: "/terms", priority: 0.4, freq: "yearly" },
     { path: "/privacy", priority: 0.4, freq: "yearly" },
     { path: "/refund", priority: 0.5, freq: "monthly" },
-    // SECURITY/SEO AUDIT FIX: "/requests" (the logged-in interest-requests
-    // dashboard) declares `robots: { index: false, follow: false }` on its
-    // own page — it has zero unique content for a logged-out crawler and is
-    // explicitly asking Google NOT to index it. Listing it here at 0.92
-    // priority/daily-crawl told Google the opposite (crawl this often, it's
-    // important), which is a contradictory signal that wastes crawl budget
-    // and can cause Google to flag the sitemap as unreliable. Removed.
-    { path: "/matches", priority: 0.75, freq: "weekly" },
+    // Dynamic search results and member dashboards stay out of the sitemap;
+    // only public guides and editorial pages are discovery destinations.
+
     { path: "/referral", priority: 0.85, freq: "weekly" },
     { path: "/referral/register", priority: 0.6, freq: "monthly" },
     { path: "/vendors", priority: 0.85, freq: "daily" },

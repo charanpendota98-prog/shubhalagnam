@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { WhatsAppIcon } from "@/components/BrandIcons";
 import { useLang } from "@/lib/lang";
-import { apiPost } from "@/lib/api";
+import { apiDisplayMessage, apiPost } from "@/lib/api";
 
 type ProfileCard = {
   tsap_id: string;
@@ -57,27 +57,32 @@ export default function ProfileCompareStudio() {
 
   const shareText = useMemo(() => {
     if (activeProfiles.length < 2) return "";
-    const lines = ["మన వివాహ — profile comparison", ""];
+    const label = (en: string, teText: string) => te ? teText : en;
+    const safeValue = (value: unknown) => {
+      const text = valueOrLabel(value, "");
+      return te ? text : apiDisplayMessage({ message_en: text }, false, "");
+    };
+    const lines = [label("Mana Vivaha — profile comparison", "మన వివాహ — ప్రొఫైల్ పోలిక"), ""];
     activeProfiles.forEach((profile, index) => {
       lines.push(`${index + 1}. ${valueOrLabel(profile.full_name, "Member profile")} (${profile.tsap_id})`);
       const details = [
-        ["Age", profile.age],
-        ["Caste", [profile.caste, profile.sub_caste].filter(Boolean).join(" · ")],
-        ["Gothram", profile.gothram],
-        ["Star / Rasi", [profile.star, profile.rasi].filter(Boolean).join(" / ")],
-        ["Education", profile.education],
-        ["Profession", profile.job],
-        ["Location", [profile.district, profile.state].filter(Boolean).join(", ")],
+        [label("Age", "వయస్సు"), safeValue(profile.age)],
+        [label("Community / sub-community", "కమ్యూనిటీ / ఉప-కమ్యూనిటీ"), [profile.caste, profile.sub_caste].filter(Boolean).map(safeValue).filter(Boolean).join(" · ")],
+        [label("Gothram", "గోత్రం"), safeValue(profile.gothram)],
+        [label("Star / Rasi", "నక్షత్రం / రాశి"), [profile.star, profile.rasi].filter(Boolean).map(safeValue).filter(Boolean).join(" / ")],
+        [label("Education", "విద్య"), safeValue(profile.education)],
+        [label("Profession", "వృత్తి"), safeValue(profile.job)],
+        [label("Location", "ప్రాంతం"), [profile.district, profile.state].filter(Boolean).map(safeValue).filter(Boolean).join(", ")],
       ] as const;
-      details.forEach(([label, value]) => {
-        const shown = valueOrLabel(value, "Not provided");
-        if (shown !== "Not provided") lines.push(`${label}: ${shown}`);
+      details.forEach(([detailLabel, value]) => {
+        const shown = value || label("Not provided", "వివరాలు ఇవ్వలేదు");
+        if (shown !== label("Not provided", "వివరాలు ఇవ్వలేదు")) lines.push(`${detailLabel}: ${shown}`);
       });
       lines.push("");
     });
-    lines.push("Informational comparison only. Please confirm details directly with the profile owner.");
+    lines.push(label("Informational comparison only. Please confirm details directly with the profile owner.", "ఇది సమాచార పోలిక మాత్రమే. వివరాలను ప్రొఫైల్ యజమానితో నేరుగా నిర్ధారించండి."));
     return lines.join("\n");
-  }, [activeProfiles]);
+  }, [activeProfiles, te]);
 
   const setIdAt = (index: number, value: string) => {
     setIds((current) => {
@@ -137,7 +142,11 @@ export default function ProfileCompareStudio() {
     }
   };
 
-  const renderValue = (value: unknown) => valueOrLabel(value, te ? "వివరాలు ఇవ్వలేదు" : "Not provided");
+  const renderValue = (value: unknown) => {
+    const text = valueOrLabel(value, "");
+    if (!text) return te ? "వివరాలు ఇవ్వలేదు" : "Not provided";
+    return te ? text : apiDisplayMessage({ message_en: text }, false, "Not provided");
+  };
   const detailRows: { label: string; key: keyof ProfileCard }[] = [
     { label: te ? "వయస్సు" : "Age", key: "age" },
     { label: te ? "ఎత్తు" : "Height", key: "height" },
@@ -261,7 +270,7 @@ export default function ProfileCompareStudio() {
                     )}
                     <div className="min-w-0 flex-1">
                       <p className="text-xs font-bold uppercase tracking-wide text-maroon">{te ? `సంబంధం ${index + 1}` : `Profile ${index + 1}`}</p>
-                      <h2 className="mt-0.5 break-words text-lg font-bold text-gray-900">{renderValue(profile.full_name)}</h2>
+                      <h2 className="mt-0.5 break-words text-lg font-bold text-gray-900">{valueOrLabel(profile.full_name, te ? "సభ్యుల ప్రొఫైల్" : "Member profile")}</h2>
                       <p className="mt-0.5 break-all font-mono text-xs text-gray-600">{profile.tsap_id}</p>
                     </div>
                   </div>

@@ -112,7 +112,7 @@ metadata = { robots: { index: false, follow: false } }`.
 | GET | `/api/admin/audit` | `api_admin_audit` | admin, owner | 🌊 WAVE 26 — Money audit trail (admin): approve/pay/payout/refund history. |
 | GET | `/api/admin/backup/export` | `api_admin_backup_export` | admin | 💾 WAVE 39 — anni data files ZIP download (ADMIN KEY ONLY). |
 | POST | `/api/admin/backup/import` | `api_admin_backup_import` | admin | 💾 WAVE 39 — backup ZIP restore (ADMIN KEY ONLY). Body = zip bytes. |
-| POST | `/api/admin/bulk-profiles` | `api_bulk_profiles` | admin |  |
+| POST | `/api/admin/bulk-profiles` | `retired_profile_seed_routes` | admin | Retired; returns HTTP 410 and does not import synthetic profiles. |
 | GET | `/api/admin/channels/coverage` | `api_admin_chan_coverage` | admin |  |
 | POST | `/api/admin/channels/import` | `api_admin_chan_import` | admin | Bulk paste (`Label \| tg-link \| wa-link`) → fuzzy match → apply. |
 | POST | `/api/admin/channels/link` | `api_admin_chan_link` | admin |  |
@@ -166,7 +166,7 @@ metadata = { robots: { index: false, follow: false } }`.
 | POST | `/api/admin/refund/{tsap_id}` | `admin_refund` | admin, owner |  |
 | GET | `/api/admin/retention/preview` | `admin_retention_preview` | admin | 🗑️ Admin — 3-year policy: ye profiles delete avtayi (dry preview). |
 | POST | `/api/admin/retention/run` | `admin_retention_run` | admin | 🗑️ Admin — retention run NOW (archive → delete → save). |
-| POST | `/api/admin/seed-launch` | `api_seed_launch` | admin | Shortcut: demo profiles వెంటనే load (dev/preview కి). DEMO_SEED_ENABLED=false చేస్తే bandh. |
+| POST | `/api/admin/seed-launch` | `retired_profile_seed_routes` | admin | Retired; returns HTTP 410. Synthetic profile imports are not available in live or preview environments. |
 | POST | `/api/admin/showcase` | `showcase_set` | admin | Admin/Staff — ఈ వారం caste showcase set → ఆ caste channels lo post (bride + groom). |
 | GET | `/api/admin/showcase/candidates` | `showcase_candidates` | admin | Admin/Staff — okka caste candidates (score + photo first). Rotation suggestion kooda. |
 | GET | `/api/admin/spotlight/queue` | `admin_spotlight_queue` | admin | Admin / Staff — Review queue of paid spotlight submissions. |
@@ -265,10 +265,10 @@ metadata = { robots: { index: false, follow: false } }`.
 
 | Method | Path | Function | Auth | Purpose |
 |---|---|---|---|---|
-| GET | `/api/channels` | `channels` | — | FULL master registry — 52 channels (L0 Official → L4 Special, caste clusters × bride/groom). |
+| GET | `/api/channels` | `channels` | — | FULL master registry — 64 configured directory entries (not externally verified) (L0 Official → L4 Special, caste clusters × bride/groom). |
 | GET | `/api/channels/join` | `api_channels_join` | admin | Public: Join buttons కి admin-mapped telegram/whatsapp links (active vi మాత్రమే). |
 | GET | `/api/channels/links` | `channels_links` | owner |  |
-| GET | `/api/channels/live` | `channels_live` | — |  |
+| GET | `/api/channels/routing-eligible` | `channels_live` | — |  |
 | GET | `/api/channels/photo/{key}.png` | `channel_photo` | — | Channel DP (512x512) — website లో channel card కి + Telegram setChatPhoto కి same file. |
 | POST | `/api/channels/route` | `channels_route` | admin(soft) |  |
 | GET | `/api/channels/setup-plan` | `channels_setup_plan` | — | Channel create plan (wave order) + caste×gender coverage + health — launch/growth dashboard కి. |
@@ -339,7 +339,7 @@ metadata = { robots: { index: false, follow: false } }`.
 
 | Method | Path | Function | Auth | Purpose |
 |---|---|---|---|---|
-| POST | `/api/demo/seed` | `demo_seed` | admin |  |
+| POST | `/api/demo/seed` | `retired_demo_seed` | admin | Retired; returns HTTP 410 and never creates member records. |
 
 ## `/api/digest` — Digest/notification batching (1)
 
@@ -531,7 +531,7 @@ metadata = { robots: { index: false, follow: false } }`.
 
 | Method | Path | Function | Auth | Purpose |
 |---|---|---|---|---|
-| GET | `/api/platform/stats` | `api_platform_stats` | — | Returns live public platform stats for homepage tickers and trust badges. |
+| GET | `/api/platform/stats` | `api_platform_stats` | — | Returns aggregate counts from active approved profiles; recorded checks are not identity guarantees. |
 
 ## `/api/porutham` — Porutham (horoscope matching) calculator (2)
 
@@ -550,7 +550,7 @@ metadata = { robots: { index: false, follow: false } }`.
 | POST | `/api/profile/update` | `update_user_profile` | owner | Allows user to update profile anytime, increasing completeness to 100%. |
 | GET | `/api/profile/{tsap_id}` | `get_user_profile_for_edit` | owner | Fetch full profile data for self-editing and view completeness meter. |
 | POST | `/api/profile/{tsap_id}/delete` | `delete_user_account` | owner | User self-service account deletion & marriage fixed celebration flow. |
-| GET | `/api/profile/{tsap_id}/quality` | `profile_quality` | — | ⭐ Profile completeness % + trust score + Telugu next steps (register/profile improve కి). |
+| GET | `/api/profile/{tsap_id}/quality` | `profile_quality` | — | Public profile-completeness guidance only; no trust, identity, or compatibility score. |
 
 ## `/api/profiles` — Profiles listing (similar profiles) (1)
 
@@ -616,7 +616,7 @@ metadata = { robots: { index: false, follow: false } }`.
 
 | Method | Path | Function | Auth | Purpose |
 |---|---|---|---|---|
-| GET | `/api/remarriage/profiles` | `api_second_marriage_profiles` | — | Returns verified remarriage / second marriage profiles. |
+| GET | `/api/remarriage/profiles` | `api_second_marriage_profiles` | — | Returns active approved profiles with a member-entered remarriage status; status is not independently verified. |
 
 ## `/api/report` — Report a profile (trust & safety) (1)
 
@@ -668,7 +668,7 @@ metadata = { robots: { index: false, follow: false } }`.
 
 | Method | Path | Function | Auth | Purpose |
 |---|---|---|---|---|
-| GET | `/api/second-marriage/profiles` | `api_second_marriage_profiles` | — | Returns verified remarriage / second marriage profiles. |
+| GET | `/api/second-marriage/profiles` | `api_second_marriage_profiles` | — | Returns active approved profiles with a member-entered remarriage status; status is not independently verified. |
 
 ## `/api/security` — Security posture/abuse snapshot (admin) (1)
 
@@ -686,8 +686,8 @@ metadata = { robots: { index: false, follow: false } }`.
 
 | Method | Path | Function | Auth | Purpose |
 |---|---|---|---|---|
-| GET | `/api/showcase` | `showcase_public` | admin | 🎊 Public — ఈ వారం caste showcase (ఆ caste best profiles). |
-| GET | `/api/showcase/caste` | `api_featured_caste_showcase` | admin | Alias for weekly showcase. |
+| GET | `/api/showcase` | `showcase_public` | — | Public weekly selection; only currently active, approved profiles remain visible. |
+| GET | `/api/showcase/caste` | `api_featured_caste_showcase` | — | Public alias for the active-profile-filtered weekly showcase. |
 
 ## `/api/smart-alerts` — Smart match alerts (1)
 
@@ -709,13 +709,13 @@ metadata = { robots: { index: false, follow: false } }`.
 
 | Method | Path | Function | Auth | Purpose |
 |---|---|---|---|---|
-| GET | `/api/stats` | `api_platform_stats` | — | Returns live public platform stats for homepage tickers and trust badges. |
+| GET | `/api/stats` | `api_platform_stats` | — | Returns aggregate counts from active approved profiles; recorded checks are not identity guarantees. |
 
 ## `/api/stories` — Success stories (3)
 
 | Method | Path | Function | Auth | Purpose |
 |---|---|---|---|---|
-| GET | `/api/stories` | `stories_list` | admin, owner | 💑 Approved success stories (public — trust + viral, numbers లేదు). |
+| GET | `/api/stories` | `stories_list` | admin, owner | Approved, consented success-story entries made public by staff; no reach or outcome guarantee. |
 | POST | `/api/stories/submit` | `story_submit` | admin, owner | 💑 పెళ్లి అయిన janta success story pampu (admin approve తర్వాత public). |
 | POST | `/api/stories/{story_id}/like` | `story_like` | admin, owner |  |
 
@@ -757,11 +757,11 @@ metadata = { robots: { index: false, follow: false } }`.
 |---|---|---|---|---|
 | POST | `/api/track` | `api_track` | — |  |
 
-## `/api/trust` — Trust score (1)
+## `/api/trust` — Retired synthetic trust ranking (1)
 
 | Method | Path | Function | Auth | Purpose |
 |---|---|---|---|---|
-| GET | `/api/trust/board` | `trust_board` | — | 🏅 Public trust leaderboard — complete + verified profiles (encourages form fill). |
+| GET | `/api/trust/board` | `trust_board` | — | Retired with HTTP 410; verification evidence is shown as separate recorded checks, never a composite trust score. |
 
 ## `/api/unblock` — Unblock a profile (1)
 
@@ -818,7 +818,7 @@ metadata = { robots: { index: false, follow: false } }`.
 | Method | Path | Function | Auth | Purpose |
 |---|---|---|---|---|
 | POST | `/api/verify/request` | `api_verify_request` | owner | Phone / Photo / ID verification level penchadam (photo/ID కి admin approve కావాలి — dev లో auto). |
-| POST | `/api/verify/selfie` | `verify_selfie` | admin, owner | 🤳 Live-selfie verification upload — technical checks + admin review → trust badge. |
+| POST | `/api/verify/selfie` | `verify_selfie` | owner | 🤳 Selfie upload for separate review status; the review is not an identity guarantee. |
 
 ## `/api/view` — Record a profile view (1)
 

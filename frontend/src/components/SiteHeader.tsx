@@ -11,7 +11,7 @@ import {
   Home, HeartHandshake, RefreshCw, Star, Megaphone, Users, Wallet, Gift,
   Sparkles, ChevronDown, ScrollText, Scale, Coffee, IdCard, MapPin,
   CalendarDays, BookOpen, Store, ShieldCheck, BadgeCheck, UserCircle2,
-  UserPlus, Landmark, ClipboardList, LogOut, Smartphone, Search,
+  UserPlus, Landmark, ClipboardList, LogOut, Smartphone,
   type LucideIcon,
 } from "lucide-react";
 
@@ -90,6 +90,20 @@ const NAV_MORE: NavItem[] = [
   { href: "/safety", en: "Safety", te: "భద్రత", icon: "🛡️" },
   { href: "/verify", en: "Verify profile", te: "Profile verify", icon: "✅" },
 ];
+
+// The mobile bottom bar already owns Home, Matches, Pricing, Referral and
+// Account. Keep the drawer for secondary journeys, and show each destination
+// only once so the compact navigation stays quick to scan.
+const NAV_MOBILE_MAIN = [
+  ...NAV_MAIN.filter((item) =>
+    ["/second-marriage", "/spotlight", "/channels", "/castes"].includes(item.href),
+  ),
+  ...NAV_MORE.filter((item) => item.href === "/safety"),
+];
+const NAV_MOBILE_PARTNERS = NAV_EARN.filter((item) =>
+  ["/referral/register", "/bureau", "/vendors/register"].includes(item.href),
+);
+const NAV_MOBILE_MORE = NAV_MORE.filter((item) => !["/second-marriage", "/me", "/safety"].includes(item.href));
 
 // Keep the wide desktop header focused on the primary journeys. The remaining
 // destinations stay available in this compact, keyboard-operable disclosure.
@@ -182,7 +196,7 @@ export default function SiteHeader() {
       key={n.href}
       href={n.href}
       aria-current={isActive(n.href) ? "page" : undefined}
-      className={`flex items-center gap-2.5 px-4 py-2.5 rounded-xl text-sm font-semibold transition ${
+      className={`flex min-h-11 items-center gap-2.5 px-4 py-2.5 rounded-xl text-sm font-semibold transition ${
         isActive(n.href) ? "bg-maroon text-white shadow-soft" : "text-ink/80 hover:bg-white"
       }`}
     >
@@ -409,7 +423,7 @@ export default function SiteHeader() {
             aria-controls="mobile-menu"
             onClick={() => setOpen((v) => !v)}
             ref={mobileMenuButtonRef}
-            className="xl:hidden w-10 h-10 rounded-xl border border-maroon/20 flex items-center justify-center text-maroon focus-brand"
+            className="xl:hidden min-h-11 min-w-11 rounded-xl border border-maroon/20 flex items-center justify-center text-maroon focus-brand"
           >
             <span className="relative block w-5 h-3.5">
               <span
@@ -442,35 +456,37 @@ export default function SiteHeader() {
         className="mobile-menu xl:hidden"
       >
         <div className="mobile-menu__panel glass border-t border-gold/25 px-4 pt-1 pb-4 overscroll-contain menu-scroll">
-          {groupTitle("Main", "మెయిన్")}
+          {groupTitle("Explore", "అన్వేషించండి")}
           <div className="space-y-1">
-            {NAV_MAIN.map(menuLink)}
+            {NAV_MOBILE_MAIN.map(menuLink)}
           </div>
-          {groupTitle("Earn", "సంపాదించండి")}
+          {groupTitle("For partners", "భాగస్వాముల కోసం")}
           <div className="space-y-1">
-            {NAV_EARN.map(menuLink)}
+            {NAV_MOBILE_PARTNERS.map(menuLink)}
           </div>
-          {groupTitle("More", "మరిన్ని")}
-          <div className="space-y-1">
-            {NAV_MORE.map(menuLink)}
-          </div>
-          <div className="flex gap-2 pt-3">
+          <details className="group mt-2 rounded-2xl border border-gold/25 bg-white/60">
+            <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 rounded-2xl px-4 py-3 text-sm font-bold text-ink/80 focus-brand [&::-webkit-details-marker]:hidden">
+              <Duo en="Tools & resources" te="సాధనాలు మరియు సమాచారం" />
+              <ChevronDown className="h-4 w-4 shrink-0 text-gray-500 transition-transform group-open:rotate-180" aria-hidden="true" />
+            </summary>
+            <div className="space-y-1 px-1 pb-1">
+              {NAV_MOBILE_MORE.map(menuLink)}
+            </div>
+          </details>
+          <div className="mt-3 grid grid-cols-2 gap-2 border-t border-gold/25 pt-3">
             <Link
-              href="/matches"
-              className="flex-1 inline-flex items-center justify-center gap-1.5 px-4 py-3 rounded-xl border border-maroon/25 text-maroon text-sm font-bold"
+              href={sessionOk ? "/me" : "/login"}
+              className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-xl border border-maroon/25 bg-white px-3 py-2.5 text-sm font-bold text-maroon"
             >
-              <Search className="w-4 h-4" strokeWidth={2.25} aria-hidden="true" />
-              <Duo en="Search matches" te="సంబంధాలు వెతకండి" />
+              {sessionOk ? <UserCircle2 className="h-4 w-4" aria-hidden="true" /> : <Smartphone className="h-4 w-4" aria-hidden="true" />}
+              {sessionOk ? (te ? "నా అకౌంట్" : "My account") : (te ? "లాగిన్" : "Log in")}
             </Link>
-            <a
-              href={SITE_CONFIG.officialChannelUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="flex-1 inline-flex items-center justify-center gap-1.5 px-4 py-3 rounded-xl gold-gradient text-maroon text-sm font-bold"
+            <Link
+              href="/register"
+              className="inline-flex min-h-11 items-center justify-center rounded-xl maroon-gradient px-3 py-2.5 text-sm font-bold text-white"
             >
-              <Megaphone className="w-4 h-4" strokeWidth={2.25} aria-hidden="true" />
-              <Duo en="Telegram Channel" te="టెలిగ్రామ్ ఛానల్" />
-            </a>
+              {te ? "ఉచిత నమోదు" : "Register free"}
+            </Link>
           </div>
           <div className="mt-3 grid grid-cols-2 gap-2 border-t border-gold/25 pt-3">
             <Link

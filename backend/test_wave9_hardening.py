@@ -5,7 +5,7 @@ Cover chesedi:
   A. sanitize/validate units        B. auth tokens (IDOR)
   C. admin key (PII)                D. rate limit (abuse)
   E. payment webhook (money)        F. register validation + clarity
-  G. search/matches quality+trust   H. block/safety
+  G. search/matches factual fields   H. block/safety
   I. views/save consistency         J. saved searches + alerts
   K. consent ledger                 L. advanced endpoints
   M. leads/PII masking              N. 500s fix (bulk-profiles, bad payloads)
@@ -14,11 +14,16 @@ Cover chesedi:
 
 Run:  WA_TEST_FAST=1 /tmp/venv/bin/python test_wave9_hardening.py
 """
-import os, sys, json, re
+import os, sys, json, re, asyncio
+from unittest.mock import patch
 
 os.environ.setdefault("WA_TEST_FAST", "1")          # dev bypass (tests) — enforcement ni veru ga test chestam
 os.environ.setdefault("OTP_DEV_MODE", "true")
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+# Keep every test write out of tracked / production persistence before app imports.
+from test_storage import isolate_test_stores
+isolate_test_stores("wave9-hardening")
 
 PASS, FAIL, FAILED = 0, 0, []
 PHONE_RE = re.compile(r"(?<!\d)[6-9]\d{9}(?!\d)")
@@ -54,26 +59,27 @@ for k in ("TSAP_AUTH_MODE", "TSAP_AUTH_ENFORCE", "ADMIN_KEY", "RAZORPAY_WEBHOOK_
 os.environ["WA_TEST_FAST"] = "1"
 
 import hardening as H
-from fastapi.testclient import TestClient
+from testutil_client import TestClient
 import main
 
 client = TestClient(main.app, raise_server_exceptions=False)
 client.__enter__()
 
-# 🐞 FIX (R12): polluted/fresh DB lo opposite-gender pair lekapothe StopIteration —
-# DB ki SAFE demo pair ensure cheyi (iddaru genders untai anukunte udayam)
+# Deterministic test-only opposite-gender records in the isolated test store.
 if not main.DB_USERS or not any(u.get("gender") != main.DB_USERS[0].get("gender") for u in main.DB_USERS):
-    _demo_pair = [
-        {"tsap_id": "TSAP-F-2025-1042", "full_name": "Sita Reddy", "gender": "Bride", "phone": "9848022222",
+    _test_pair = [
+        {"tsap_id": "TSAP-F-2026-TEST1042", "full_name": "Test Bride", "gender": "Bride", "phone": "9848022222",
          "credits": 3, "plan": "FREE", "wallet": 0, "caste": "Reddy", "age": 24, "height": "5'4\"",
-         "education": "BTech", "job": "Software", "district": "Hyderabad", "state": "TS"},
-        {"tsap_id": "TSAP-M-2025-1042", "full_name": "Ravi Kumar", "gender": "Groom", "phone": "9848012345",
+         "education": "BTech", "job": "Software", "district": "Hyderabad", "state": "TS",
+         "status": "approved", "is_approved": True, "is_active": True},
+        {"tsap_id": "TSAP-M-2026-TEST1042", "full_name": "Test Groom", "gender": "Groom", "phone": "9848012345",
          "credits": 3, "plan": "FREE", "wallet": 0, "caste": "Reddy", "age": 28, "height": "5'9\"",
-         "education": "BTech", "job": "Software", "district": "Hyderabad", "state": "TS"},
+         "education": "BTech", "job": "Software", "district": "Hyderabad", "state": "TS",
+         "status": "approved", "is_approved": True, "is_active": True},
     ]
-    for _du in _demo_pair:
-        if not any(u["tsap_id"] == _du["tsap_id"] for u in main.DB_USERS):
-            main.DB_USERS.append(_du)
+    for _test_user in _test_pair:
+        if not any(u.get("tsap_id") == _test_user["tsap_id"] for u in main.DB_USERS):
+            main.DB_USERS.append(_test_user)
 
 U1 = main.DB_USERS[0]["tsap_id"]
 U2 = next(u["tsap_id"] for u in main.DB_USERS if u["gender"] != main.DB_USERS[0]["gender"])
@@ -145,12 +151,17 @@ set_env(WA_TEST_FAST=None, TSAP_AUTH_MODE="enforce")     # admin key enforcement
 import importlib
 importlib.reload(H)
 ADMIN_ENDPOINTS = ["/api/leads", "/api/leads/stats", "/api/moderation/queue", "/api/admin/payouts",
-                   "/api/admin/vendors", "/api/admin/abuse", "/api/admin/vendors/revenue/summary",
-                   "/api/wa/dead", "/api/bots/health"]
+                   "/api/admin/abuse", "/api/wa/dead", "/api/bots/health"]
+OWNER_SESSION_ENDPOINTS = ["/api/admin/vendors", "/api/admin/vendors/revenue/summary"]
 for ep in ADMIN_ENDPOINTS:
     r = client.get(ep)
     check(f"C1 {ep} key lekunda 403", r.status_code == 403, r.status_code)
 HDR = {"X-Admin-Key": H.ADMIN_KEY}
+for ep in OWNER_SESSION_ENDPOINTS:
+    no_session = client.get(ep)
+    admin_key_only = client.get(ep, headers=HDR)
+    check(f"C1b {ep} requires owner session, not the legacy admin key", no_session.status_code == 401 and admin_key_only.status_code == 403,
+          (no_session.status_code, admin_key_only.status_code))
 for ep in ["/api/leads", "/api/leads/stats", "/api/moderation/queue", "/api/admin/payouts", "/api/admin/abuse"]:
     check(f"C2 {ep} admin key tho 200", client.get(ep, headers=HDR).status_code == 200, ep)
 check("C3 wrong admin key → 403", client.get("/api/leads", headers={"X-Admin-Key": "wrong"}).status_code == 403)
@@ -186,20 +197,27 @@ _otp_phone = "98%08d" % (_run_ts % 100000000)
 _reg_otp = client.post("/api/register", data={
     "gender": "Bride", "age": "24", "height": "5'4\"", "marital_status": "Pelli Kaledu", "caste": "Reddy",
     "education": "BTech", "job": "Software", "salary": "60k", "state": "TS", "district": "Nalgonda",
-    "phone": _otp_phone, "full_name": "OTP Login Bride"})
-r = client.post("/api/otp/send", json={"phone": _otp_phone})
-check("D4 valid OTP send 200", r.status_code == 200, r.text[:120])
-check("D5 dev_code response lo (OTP_DEV_MODE)", "dev_code" in r.json())
-_otp = r.json()["dev_code"]
-r2 = client.post("/api/otp/verify", json={"phone": _otp_phone, "code": _otp})
-check("D6 OTP verify → auth_token", bool(r2.json().get("auth_token")), r2.text[:120])
-check("D7 OTP verify → tsap_id/has_account", "has_account" in r2.json())
-_cool_phone = "97%08d" % ((_run_ts + 5) % 100000000)
-r3 = client.post("/api/otp/send", json={"phone": _cool_phone})
-r3b = client.post("/api/otp/send", json={"phone": _cool_phone})
-check("D8 OTP cooldown 60s → 429", r3.status_code == 200 and r3b.status_code == 429, (r3.status_code, r3b.status_code))
-r4 = client.post("/api/otp/send", json={"phone": "12345"})
-check("D9 OTP bad phone → 400", r4.status_code == 400)
+    "phone": _otp_phone, "full_name": "OTP Login Bride", "consent_confirmed": "true",
+    "religion": "Hindu", "dob": "2002-01-15", "password": "test-password"})
+_captured_otps = {}
+def _test_otp_delivery(phone, code, _users):
+    _captured_otps[phone] = code
+    return {"ok": True, "channel": "isolated-test-mock"}
+
+with patch.object(main, "otp_channel_send", side_effect=_test_otp_delivery):
+    r = client.post("/api/otp/send", json={"phone": _otp_phone})
+    check("D4 valid OTP send through isolated delivery mock", r.status_code == 200, r.text[:120])
+    check("D5 OTP is not returned in the public send response", "dev_code" not in r.json() and _otp_phone in _captured_otps)
+    _otp = _captured_otps[_otp_phone]
+    r2 = client.post("/api/otp/verify", json={"phone": _otp_phone, "code": _otp})
+    check("D6 captured OTP verifies and returns auth_token", bool(r2.json().get("auth_token")), r2.text[:120])
+    check("D7 OTP verify → tsap_id/has_account", "has_account" in r2.json())
+    _cool_phone = "97%08d" % ((_run_ts + 5) % 100000000)
+    r3 = client.post("/api/otp/send", json={"phone": _cool_phone})
+    r3b = client.post("/api/otp/send", json={"phone": _cool_phone})
+    check("D8 OTP cooldown 60s → 429", r3.status_code == 200 and r3b.status_code == 429, (r3.status_code, r3b.status_code))
+    r4 = client.post("/api/otp/send", json={"phone": "12345"})
+    check("D9 OTP bad phone → 400", r4.status_code == 400)
 
 # ═══════════════════════════════════════════════════════════════════════════
 section("E. PAYMENT WEBHOOK (money: fake proof / replay / signature)")
@@ -247,7 +265,8 @@ section("F. REGISTER VALIDATION + CLARITY (form best ga undali)")
 # ═══════════════════════════════════════════════════════════════════════════
 BASE = {"gender": "Bride", "age": "24", "height": "5'4\"", "marital_status": "Pelli Kaledu", "caste": "Reddy",
         "education": "BTech", "job": "Software", "salary": "60k", "state": "TS", "district": "Nalgonda",
-        "phone": "9848012222", "full_name": "Test Bride"}
+        "phone": "9848012222", "full_name": "Test Bride", "consent_confirmed": "true",
+        "religion": "Hindu", "dob": "2002-01-15", "password": "test-password"}
 
 
 def reg(**over):
@@ -255,15 +274,15 @@ def reg(**over):
     return client.post("/api/register", data=d)
 
 
-check("F1 age 12 → 400/422", reg(age="12").status_code in (400, 422))
-check("F2 Groom age 20 → 400/422 (21+ rule)", reg(gender="Groom", age="20").status_code in (400, 422))
+check("F1 under-18 date of birth → 400/422", reg(dob="2010-01-01").status_code in (400, 422))
+check("F2 Groom under 21 from date of birth → 400/422", reg(gender="Groom", dob="2006-10-06").status_code in (400, 422))
 check("F3 phone 5 digits → 400", reg(phone="12345").status_code == 400)
 check("F4 gender junk → 400", reg(gender="Alien").status_code == 400)
 check("F5 marital junk → 400", reg(marital_status="Complicated").status_code == 400)
 check("F6 state junk → 400", reg(state="ZZ").status_code == 400)
 check("F7 empty name → 400", reg(full_name="").status_code == 400)
 check("F8 name lo digits → 400", reg(full_name="Ravi123").status_code == 400)
-check("F9 age junk → 400/422", reg(age="abc").status_code in (400, 422))
+check("F9 malformed date of birth → 400/422", reg(dob="not-a-date").status_code in (400, 422))
 _f10_phone = "98%08d" % ((_run_ts + 11) % 100000000)
 ok = reg(phone=_f10_phone, full_name="Valid Bride")
 check("F10 valid register 200", ok.status_code == 200, ok.text[:150])
@@ -287,18 +306,20 @@ check("F18 about_myself length cap", len(str(u_x.get("about_myself", ""))) <= 60
 check("F19 quality percentile sane", 0 <= int(xj.get("quality", {}).get("percent", -1)) <= 100)
 
 # ═══════════════════════════════════════════════════════════════════════════
-section("G. SEARCH / MATCHES (404 fix + quality/trust + clamps + blocked)")
+section("G. SEARCH / MATCHES (404 fix + factual fields + clamps + blocked)")
 # ═══════════════════════════════════════════════════════════════════════════
 r = client.get("/api/search/TSAP-NOPE-9999")
 check("G1 tappu ID → 404 (fake profile ledu)", r.status_code == 404, r.status_code)
-p = client.get(f"/api/search/{U2}").json()
-check("G2 profile lo quality+trust", "quality" in p and "trust" in p)
+profile_response = client.get(f"/api/search/{U2}")
+p = profile_response.json()
+check("G2 profile completeness only; no trust score", profile_response.status_code == 200 and "quality" in p and "trust" not in p and "trust_score" not in p)
 check("G3 search/{id} lo phone key ledu", "phone" not in p["profile"] and "phone_encrypted" not in p["profile"])
 check("G4 can_view_number False", p.get("can_view_number") is False)
 check("G5 unlock steps 3", len(p.get("unlock_telugu", [])) == 3)
 m = client.get(f"/api/matches/{U1}?limit=-5&min_score=9999").json()
-check("G6 matches clamp (limit/min_score) 500 kaadu", "matches" in m and m.get("min_score") == 100)
-check("G7 matches rows lo quality+trust", all("trust" in row and "quality_percent" in row for row in m["matches"][:3]))
+check("G6 negative match limit clamps to 1 and legacy min_score is explicitly ignored",
+      "matches" in m and len(m.get("matches", [])) <= 1 and m.get("min_score_ignored") is True, m)
+check("G7 matches rows have completeness only, no trust score", all("quality_percent" in row and "trust" not in row and "trust_score" not in row for row in m.get("matches", [])[:3]))
 check("G8 matches lo phone key ledu", all("phone" not in row for row in m["matches"][:3]))
 check("G9 matches lo contact_locked", m.get("contact_locked") is True)
 s = client.get("/api/search?limit=-1").json()
@@ -309,8 +330,7 @@ fac = client.get("/api/facets").json()
 check("G13 facets counts unnayi", fac.get("facets", {}).get("caste") and len(fac["facets"]["caste"]) > 0)
 s2 = client.get("/api/search?with_facets=true&limit=5").json()
 check("G14 search with_facets", bool(s2.get("facets")))
-s3 = client.get("/api/search?sort=trust&limit=5").json()
-check("G15 sort=trust pani chestundi", s3.get("sort") == "trust" and len(s3["results"]) >= 1)
+check("G15 synthetic trust sort rejected", client.get("/api/search?sort=trust&limit=5").status_code == 400)
 check("G16 search facets route /api/facets (search/{id} conflict ledu)", client.get("/api/search/facets").status_code == 404)
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -327,8 +347,10 @@ check("H6 blocked ki interest → 400 + reason blocked_user",
       bid.status_code == 400 and bid.json().get("reason") == "blocked_user", bid.text[:120])
 hnames = [x["tsap_id"] for x in client.get(f"/api/matches/{U1}?limit=50").json()["matches"]]
 check("H7 blocked matches lo ledu", U2 not in hnames, hnames[:5])
-snames = [x["tsap_id"] for x in client.get(f"/api/search?limit=100&viewer_id={U1}").json()["results"]]
-check("H8 blocked search lo ledu (viewer tho)", U2 not in snames)
+snames = [x["tsap_id"] for x in client.get(
+    f"/api/search?limit=100&viewer_id={U1}", headers={"X-Tsap-Token": H.sign_token(U1)}
+).json()["results"]]
+check("H8 blocked search uses authenticated viewer and hides block", U2 not in snames)
 check("H9 unblock", client.post("/api/unblock", json={"tsap_id": U1, "blocked": U2}).json().get("success") is True)
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -363,8 +385,10 @@ lst = client.get(f"/api/saved-searches/{U1}").json()
 check("J5 list lo search undi", lst.get("count", 0) >= 1 and any(x["search_id"] == sid for x in lst["searches"]))
 check("J6 list lo new_matches count", all("new_matches" in x for x in lst["searches"]))
 al = client.post(f"/api/saved-searches/{U1}/alerts").json()
-check("J7 alerts endpoint success", al.get("success") is True, al)
-check("J8 alerts telugu message", "🔔" in str(al.get("message_telugu")) or "ℹ️" in str(al.get("message_telugu")))
+check("J7 alerts endpoint respects default-off saved-search consent",
+      al.get("success") is True and al.get("alerts_sent") == 0 and al.get("alerts_skipped", 0) >= 1, al)
+check("J8 alerts message explains no send without consent",
+      "🔒" in str(al.get("message_telugu")) or "🔔" in str(al.get("message_telugu")) or "ℹ️" in str(al.get("message_telugu")))
 check("J9 delete search", client.delete(f"/api/saved-searches/{U1}/{sid}").json().get("success") is True)
 check("J10 delete unknown → 404", client.delete(f"/api/saved-searches/{U1}/SRCH-99999").status_code == 404)
 check("J11 search save filters validation (salary)", client.post("/api/saved-searches", json={"tsap_id": U1, "filters": {"salary_min": 90000, "salary_max": 100}}).status_code == 400)
@@ -377,25 +401,42 @@ section("K. CONSENT LEDGER (numbers exchange audit)")
 _kg = client.post("/api/register", data={
     "gender": "Groom", "age": "28", "height": "5'9\"", "marital_status": "Pelli Kaledu", "caste": "Reddy",
     "education": "BTech", "job": "Software", "salary": "80k", "state": "TS", "district": "Hyderabad",
-    "phone": "98%08d" % ((_run_ts + 21) % 100000000), "full_name": "Consent Groom"}).json()
+    "phone": "98%08d" % ((_run_ts + 21) % 100000000), "full_name": "Consent Groom", "consent_confirmed": "true",
+    "religion": "Hindu", "dob": "1998-01-15", "password": "test-password"}).json()
 _kb = client.post("/api/register", data={
     "gender": "Bride", "age": "24", "height": "5'3\"", "marital_status": "Pelli Kaledu", "caste": "Reddy",
     "education": "BTech", "job": "Teacher", "salary": "40k", "state": "TS", "district": "Warangal",
-    "phone": "98%08d" % ((_run_ts + 22) % 100000000), "full_name": "Consent Bride"}).json()
+    "phone": "98%08d" % ((_run_ts + 22) % 100000000), "full_name": "Consent Bride", "consent_confirmed": "true",
+    "religion": "Hindu", "dob": "2002-01-15", "password": "test-password"}).json()
 U1, U2 = _kg.get("tsap_id") or U1, _kb.get("tsap_id") or U2
 sender = main._find_user(U1)
 target = main._find_user(U2)
 if sender and target and sender.get("gender") != target.get("gender"):
+    # Registration deliberately leaves profiles pending; prove the interest gate,
+    # then approve these test-only accounts through the same admin endpoint as the app.
+    pending = client.post("/api/interest/send", json={"from_id": U1, "to_id": U2})
+    check("K0 pending profiles cannot send interest", pending.status_code == 403, pending.text[:120])
+    _admin_headers = {"X-Admin-Key": H.ADMIN_KEY}
+    _approve_sender = client.post(f"/api/admin/approve/{U1}", headers=_admin_headers)
+    _approve_target = client.post(f"/api/admin/approve/{U2}", headers=_admin_headers)
+    check("K0a both test profiles explicitly approved",
+          _approve_sender.status_code == 200 and _approve_target.status_code == 200,
+          (_approve_sender.status_code, _approve_target.status_code))
     snd = client.post("/api/interest/send", json={"from_id": U1, "to_id": U2}).json()
     rid = snd.get("request_id")
     check("K1 interest send (consent flow start)", bool(rid), snd)
     acc = client.post("/api/interest/respond", json={"tsap_id": U2, "request_id": rid, "action": "accept"}).json()
     res = acc.get("result") or {}
     check("K2 accept → rendu numbers exchange", res.get("owner_phone") and res.get("requester_phone"), str(res)[:140])
-    check("K3 accept → consent ledger record note", "consent" in str(acc.get("result", {}).get("consent_record_telugu", "")).lower())
+    _consent_note = str(acc.get("result", {}).get("consent_record_telugu", "")).lower()
+    check("K3 acceptance records contact access without claiming delivery",
+          "acceptance" in _consent_note and "contact access" in _consent_note
+          and "delivery proof" in _consent_note)
     cl = client.get(f"/api/consent/log/{U2}").json()
-    check("K4 consent log lo entries", cl.get("count", 0) >= 1 and cl["consents"][0]["numbers_exchanged"] is True)
-    check("K5 consent log lo policy telugu", "consent" in cl.get("policy_telugu", "").lower())
+    check("K4 consent log records accepted contact access",
+          cl.get("count", 0) >= 1 and cl["consents"][0]["contact_access_granted"] is True)
+    check("K5 consent log states it is not WhatsApp delivery proof",
+          "delivery proof" in cl.get("policy_telugu", "").lower())
     check("K6 consent log full numbers ledu", PHONE_RE.search(json.dumps(cl)) is None)
 else:
     for i in range(1, 7):
@@ -408,14 +449,19 @@ q = client.get(f"/api/profile/{U1}/quality").json()
 check("L1 quality: completeness %", 0 <= q["completeness"]["percent"] <= 100)
 check("L2 quality: missing list + telugu tips", isinstance(q["completeness"]["missing"], list) and q["completeness"]["important_telugu"] is not None)
 check("L3 quality exposes no composite trust object", "trust" not in q)
-check("L4 quality is factual completeness guidance", "grade_telugu" in q and "identity" in q["grade_telugu"].lower())
+check("L4 quality guidance discloses member-provided fields are not independently verified", "grade_telugu" in q and "verify" in q["grade_telugu"].lower())
 check("L5 quality unknown → 404", client.get("/api/profile/TSAP-NOPE/quality").status_code == 404)
 tb = client.get("/api/trust/board?limit=5")
 check("L6 synthetic trust board is retired", tb.status_code == 410)
 check("L7 trust board does not publish a ranking", "trust_score" not in tb.text and "average_trust" not in tb.text)
 tpl = client.get("/api/templates/interest").json()
 check("L8 interest templates 6+", len(tpl.get("templates", [])) >= 6)
-check("L9 templates telugu + spam note", all(t.get("text") for t in tpl["templates"]) and "spam" in tpl.get("tip_telugu", "").lower() or True)
+check("L9 templates contain Telugu copy and an anti-spam/reply-expectation note",
+      bool(tpl.get("templates"))
+      and all(t.get("text") and any("\u0c00" <= ch <= "\u0c7f" for ch in t["text"])
+              for t in tpl.get("templates", []))
+      and "spam" in tpl.get("tip_telugu", "").lower()
+      and "హామీ లేదు" in tpl.get("tip_telugu", ""))
 pos = client.get("/api/security/posture").json()
 check("L10 posture: auth flag", "auth_enforced" in pos)
 check("L11 posture: numbers policy telugu", "🔒" in pos.get("numbers_policy_telugu", ""))
@@ -431,27 +477,44 @@ check("L16 filters matcher working", __import__("quality").matches_filters({"age
 section("M. LEADS / PII MASKING + TRACK")
 # ═══════════════════════════════════════════════════════════════════════════
 check("M1 lead quick bad phone → 400", client.post("/api/leads/quick", json={"name": "Test", "phone": "123"}).status_code == 400)
-lk = client.post("/api/leads/quick", json={"name": "Lead Test", "phone": "9848055555", "district": "Warangal"})
-check("M2 lead quick valid → 200", lk.status_code == 200 and lk.json().get("success"), lk.text[:120])
-check("M3 lead next link correct",
-      str(lk.json().get("next", "")).endswith("9848055555"))
-t = client.post("/api/track", json={"path": "/matches", "device": "mobile"}).json()
-check("M4 track endpoint works", t.get("success") is True and "visits_total" in t)
+lk = client.post("/api/leads/quick", json={"name": "Lead Test", "phone": "9848055555", "district": "Warangal", "contact_consent": True})
+check("M2 lead quick valid with explicit consent → 200", lk.status_code == 200 and lk.json().get("success"), lk.text[:120])
+check("M3 no fabricated callback or support destination is returned",
+      "next" not in lk.json() and "9848055555" not in json.dumps(lk.json()))
+t_response = client.post(
+    "/api/track",
+    json={"path": "/matches?contact=member%40example.test", "ip": "spoofed", "ua": "spoofed",
+          "device": "desktop", "visitor_id": "untrusted", "utm": "utm_source=whatsapp&email=member%40example.test"},
+    headers={"User-Agent": "Mozilla/5.0 (Android Mobile)",
+             "Referer": "https://source.example/path?email=member%40example.test"},
+)
+t = t_response.json()
+check("M4 track endpoint works without returning visitor IDs or internal totals",
+      t_response.status_code == 200 and t.get("success") is True
+      and "visitor_id" not in t and "visits_total" not in t)
+tracked_event = main.growth.DB_VISITORS[-1]
+check("M4a analytics use server headers and strip client IDs/contact query data",
+      tracked_event.get("path") == "/matches" and tracked_event.get("ref") == "https://source.example"
+      and tracked_event.get("utm") == "utm_source=whatsapp" and tracked_event.get("device") == "mobile"
+      and all(key not in tracked_event for key in ("ip", "ua", "visitor_id"))
+      and "member@example.test" not in json.dumps(tracked_event))
 check("M5 leads list admin only (dev bypass on → 200)", client.get("/api/leads").status_code == 200)
 
 # ═══════════════════════════════════════════════════════════════════════════
-section("N. 500s FIX (bad payloads ki 400, crash kaadu)")
+section("N. RETIRED SYNTHETIC SEED ROUTES (fail closed with 410)")
 # ═══════════════════════════════════════════════════════════════════════════
-check("N1 bulk-profiles string → 400", client.post("/api/admin/bulk-profiles", json={"profiles": "notalist"}).status_code == 400)
-check("N2 bulk-profiles [1,2,3] → 400", client.post("/api/admin/bulk-profiles", json={"profiles": [1, 2, 3]}).status_code == 400)
-check("N3 bulk-profiles empty → 400", client.post("/api/admin/bulk-profiles", json={}).status_code == 400)
+check("N1 bulk-profiles string → retired 410", client.post("/api/admin/bulk-profiles", json={"profiles": "notalist"}).status_code == 410)
+check("N2 bulk-profiles list → retired 410", client.post("/api/admin/bulk-profiles", json={"profiles": [1, 2, 3]}).status_code == 410)
+check("N3 empty bulk-profiles → retired 410", client.post("/api/admin/bulk-profiles", json={}).status_code == 410)
 check("N4 credits/deduct deprecated 410", client.post(f"/api/credits/deduct/{U1}").status_code == 410)
 check("N5 deduct fake number ledu (policy)",
       "98480xxxxx" not in client.post(f"/api/credits/deduct/{U1}").text)
-check("N6 credits/buy unknown plan → handled", client.post("/api/credits/buy", json={"tsap_id": U1, "plan": "NOPE"}).status_code == 200)
+check("N6 credits/buy unknown plan rejected (no FREE fallback purchase)",
+      client.post("/api/credits/buy", json={"tsap_id": U1, "plan": "NOPE"}).status_code == 400)
 check("N7 payment webhook junk params → 400/422 (500 kaadu)",
       client.post("/api/payment/webhook", params={"user_id": U1, "amount": "abc"}).status_code in (400, 422))
-check("N8 demo/seed admin guard exists (dev bypass)", client.post("/api/demo/seed", json={}).status_code in (200, 403))
+check("N8 demo/seed route retired with 410", client.post("/api/demo/seed", json={}).status_code == 410)
+check("N8b admin seed-launch route retired with 410", client.post("/api/admin/seed-launch", json={}).status_code == 410)
 check("N9 channels/route junk → success/handled", client.post("/api/channels/route", json={"tsap_id": U1, "channel": "NOPE"}).status_code in (200, 400))
 check("N10 match/score unknown → 404", client.post("/api/match/score", json={"from_id": U1, "to_id": "NOPE"}).status_code in (404, 400))
 check("N11 porutham same gender → handled", client.post("/api/porutham", json={"bride_id": U1, "groom_id": U1}).status_code in (200, 400))
@@ -462,13 +525,17 @@ section("O. CREDITS POLICY (numbers ivvamu) + PLAN CLARITY")
 fp = client.get("/api/free-plan").json()
 check("O1 free 3 profiles", fp["free"]["profiles"] == 3)
 check("O2 free numbers ❌", "❌" in str(fp["free"]["numbers"]) or "ivvamu" in str(fp["free"]["numbers"]))
-check("O3 paid rungs 5", len(fp.get("paid", [])) == 5)
+check("O3 exactly four paid consumer plans are published", len(fp.get("paid", [])) == 4)
 check("O4 numbers rule telugu (5 points)", len(fp.get("numbers_rule_telugu", [])) == 5)
 check("O5 faq 4", len(fp.get("faq_telugu", [])) == 4)
 check("O6 instructions + cta", "instructions_telugu" in fp and "cta" in fp)
 pl = client.get("/api/plans").json()
 check("O7 plans endpoint intact", bool(pl))
-check("O8 buy dev lo auto-approve (demo)", client.post("/api/credits/buy", json={"tsap_id": U1, "plan": "S_99"}).json().get("order", {}).get("status") in ("paid", "created"))
+_test_payment = client.post("/api/credits/buy", json={"tsap_id": U1, "plan": "S_99"}).json()
+check("O8 only explicit isolated-test mode can create a marked payment fixture",
+      _test_payment.get("order", {}).get("status") == "paid"
+      and _test_payment.get("order", {}).get("development_fixture") is True
+      and str(_test_payment.get("order", {}).get("order_id", "")).startswith("DEV-"))
 
 # ═══════════════════════════════════════════════════════════════════════════
 section("P/Q/R. HEADERS • INTEREST RULES • TEMPLATES")
@@ -498,12 +565,49 @@ else:
     check("R3/R4/R5 gender data skip", True); check("R4 skip", True); check("R5 skip", True)
 
 check("R6 inbox owner thone (dev bypass)", client.get(f"/api/interest/inbox/{U1}").status_code == 200)
-check("R7 inbox lo requester phone lock (pending)", "🔒" in json.dumps(client.get(f"/api/interest/inbox/{U1}").json(), ensure_ascii=False)
-      or True)
+_pending_inbox_response = client.get(f"/api/interest/inbox/{bride['tsap_id']}") if bride else None
+_pending_inbox = _pending_inbox_response.json() if _pending_inbox_response else {}
+_pending_requests = [item for item in _pending_inbox.get("received", []) if item.get("status") == "pending"]
+_pending_inbox_text = json.dumps(_pending_inbox, ensure_ascii=False)
+check("R7 pending inbox keeps requester phone locked until acceptance",
+      bool(bride) and bool(_pending_requests)
+      and all(not item.get("contact_shared")
+              and item.get("requester_phone") == "🔒 accept చెయ్యండి"
+              for item in _pending_requests)
+      and PHONE_RE.search(_pending_inbox_text) is None,
+      _pending_inbox_text[:180])
 check("R8 interest message length cap", (lambda: (lambda r: r.status_code in (200, 400, 402))(client.post(
     "/api/interest/send", json={"from_id": U1, "to_id": U2, "note": "x" * 2000})))())
 check("R9 publish/preview validation", client.post("/api/publish/preview", json={"tsap_id": ""}).status_code in (200, 400, 404))
 check("R10 health endpoint", client.get("/api/system/health").status_code == 200)
+
+section("S. PRODUCTION STARTUP REJECTS TEST/SECURITY BYPASSES")
+def _production_startup_rejects(**overrides):
+    keys = {"APP_ENV", "TSAP_AUTH_MODE", "WA_TEST_FAST", "TSAP_RATE_LIMIT", "MANA_TEST_PAYMENT_FIXTURES"}
+    previous = {key: os.environ.get(key) for key in keys}
+    try:
+        os.environ.update({"APP_ENV": "production", "TSAP_AUTH_MODE": "enforce",
+                           "WA_TEST_FAST": "0", "TSAP_RATE_LIMIT": "1",
+                           "MANA_TEST_PAYMENT_FIXTURES": ""})
+        os.environ.update({key: str(value) for key, value in overrides.items()})
+        try:
+            asyncio.run(main._startup_publisher())
+        except RuntimeError:
+            return True
+        return False
+    finally:
+        for key, value in previous.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
+
+check("S1 production refuses WA_TEST_FAST auth bypass",
+      _production_startup_rejects(WA_TEST_FAST="1"))
+check("S2 production refuses disabled rate limiting",
+      _production_startup_rejects(TSAP_RATE_LIMIT="off"))
+check("S3 production refuses test payment fixtures",
+      _production_startup_rejects(MANA_TEST_PAYMENT_FIXTURES="true"))
 
 print(f"\n{'=' * 76}")
 print(f"  RESULT: {PASS} pass / {FAIL} fail")

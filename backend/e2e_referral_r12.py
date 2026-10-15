@@ -9,11 +9,21 @@ Admin key computed in-process (never printed).
 import hashlib
 import hmac
 import json
+import os
+import sys
 import time
 import urllib.request
 import urllib.parse
 
-BASE = "http://localhost:8000"
+# This E2E writes test members to a running API. Require an explicit opt-in and
+# point it only at a disposable local/test database; never run it against live data.
+if os.getenv("MANA_VIVAHA_ALLOW_LIVE_TEST_WRITES", "").strip().lower() not in {"1", "true", "yes"}:
+    raise SystemExit("Refusing to create E2E member profiles. Set MANA_VIVAHA_ALLOW_LIVE_TEST_WRITES=1 only for a disposable test backend.")
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from testutil_photos import TEST_PROFILE_PHOTO  # noqa: E402
+
+BASE = os.getenv("MANA_VIVAHA_API_BASE", "http://localhost:8000").rstrip("/")
 PASS, FAIL = [], []
 
 
@@ -22,12 +32,29 @@ def check(name, cond, extra=""):
     print(("  ✅ " if cond else "  ❌ ") + name + (("  | " + str(extra)) if extra else ""))
 
 
-def req(method, path, data=None, headers=None, form=False):
+def req(method, path, data=None, headers=None, form=False, files=None):
     url = BASE + path
     body = None
     h = dict(headers or {})
     if data is not None:
-        if form:
+        if form and files:
+            boundary = "----ManaVivahaE2E" + str(time.time_ns())
+            chunks = []
+            for name, value in data.items():
+                chunks.append((
+                    f"--{boundary}\r\nContent-Disposition: form-data; name=\"{name}\"\r\n\r\n{value}\r\n"
+                ).encode())
+            for name, (filename, content, content_type) in files.items():
+                chunks.append((
+                    f"--{boundary}\r\nContent-Disposition: form-data; name=\"{name}\"; filename=\"{filename}\"\r\n"
+                    f"Content-Type: {content_type}\r\n\r\n"
+                ).encode())
+                chunks.append(bytes(content))
+                chunks.append(b"\r\n")
+            chunks.append(f"--{boundary}--\r\n".encode())
+            body = b"".join(chunks)
+            h["Content-Type"] = f"multipart/form-data; boundary={boundary}"
+        elif form:
             body = urllib.parse.urlencode(data).encode()
             h["Content-Type"] = "application/x-www-form-urlencoded"
         else:
@@ -53,10 +80,13 @@ AH = {"X-Admin-Key": ADMIN_KEY}
 run = str(int(time.time()) % 100000)
 print("=== 1. REFERRER REGISTER ===")
 st, r1 = req("POST", "/api/register", form=True, data={
-    "gender": "Groom", "age": 29, "height": "5'9\"", "marital_status": "Pelli Kaledu",
+    "gender": "Groom", "age": 29, "dob": "1997-01-01", "password": "test-profile-password",
+    "height": "5'9\"", "marital_status": "Pelli Kaledu", "religion": "Hindu",
     "caste": "Reddy", "district": "Rangareddy", "state": "TS",
     "full_name": "Rajesh Kumar", "phone": "98%08d" % (int(time.time()) % 100000000),
-    "job": "Business", "education": "MBA", "salary": "60k"})
+    "job": "Business", "education": "MBA", "salary": "60k",
+    "consent_confirmed": "true", "photo_consent_confirmed": "true", "photo_private": "true"},
+    files={"photo_file": ("test-profile.jpg", TEST_PROFILE_PHOTO, "image/jpeg")})
 check("Referrer register 200", st == 200, st)
 ref_id = r1.get("tsap_id", "")
 ref_code = (r1.get("referral") or {}).get("my_code", "")
@@ -68,11 +98,13 @@ check("Link click tracked", cl.get("success") and cl.get("clicks_total", 0) >= 1
 st, val = req("GET", f"/api/referral/validate/{ref_code}")
 check("Validate code (register page auto-fill API)", val.get("ok") and val.get("bonus_credits") == 1)
 st, r2 = req("POST", "/api/register", form=True, data={
-    "gender": "Bride", "age": 25, "height": "5'3\"", "marital_status": "Pelli Kaledu",
+    "gender": "Bride", "age": 25, "dob": "2001-01-01", "password": "test-profile-password",
+    "height": "5'3\"", "marital_status": "Pelli Kaledu", "religion": "Hindu",
     "caste": "Reddy", "district": "Hyderabad", "state": "TS",
     "full_name": "Delayed Pay Divya", "phone": "97%08d" % ((int(time.time()) + 7) % 100000000),
-    "job": "Software", "education": "B.Tech", "salary": "80k",
-    "referral_code": ref_code})
+    "job": "Software", "education": "B.Tech", "salary": "80k", "referral_code": ref_code,
+    "consent_confirmed": "true", "photo_consent_confirmed": "true", "photo_private": "true"},
+    files={"photo_file": ("test-profile.jpg", TEST_PROFILE_PHOTO, "image/jpeg")})
 check("Friend register 200 with ref code", st == 200, st)
 friend_id = r2.get("tsap_id", "")
 jw = (r2.get("referral") or {}).get("joined_with") or {}

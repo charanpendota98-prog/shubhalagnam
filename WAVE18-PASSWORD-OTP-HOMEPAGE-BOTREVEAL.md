@@ -1,3 +1,7 @@
+# Historical implementation log — not current verification
+
+> Archived 2026-09-16 notes from a different branch. Example profile IDs and demo/dev details below are historical, not live member records or current instructions. Reported pass counts, build output, process IDs, and “live proof” are not current evidence of deployment, identity verification, or external service health. The old mention of a `test_channels` live-network run is not a current smoke-test instruction. For current safe checks use `README.md` and `TEST-2-CHANNELS-NORMAL.md`.
+
 # 🌊 WAVE 18 — PASSWORD LOGIN + FREE OTP + HOMEPAGE GROWTH + BOT REVEAL
 
 **Date:** 2026-09-16 · **Branch:** `arena/01a0aaf1-matrimony-site` (branch-only, NO merge)
@@ -36,13 +40,11 @@ number via **"Full details + Number" button → Telegram bot → 1 credit cut**.
 - **Final CTA:** maroon band — Register FREE + Member Login push.
 - Register success: **🔓 ₹99 ke Sambandham nudge → /pricing** (register → 3 FREE matches → ₹99 = 5 profiles + boost; numbers never free — consent/unlock only, standing rule intact).
 
-## 📞 BOT REVEAL — "Full details + Number" → 1 credit cut
+## 📵 HISTORICAL BOT-LINK FLOW — NOT A CURRENT DESTINATION
 
-- Matches cards + ProfileView: gold **📞 Full details + Number** button →
-  `https://t.me/telugumatrimony1_bot?start=unlock_<TSAP-ID>` (new tab).
-- Bot: `parse_start_ref` handles `unlock_` → linked user → **instant unlock via `/api/unlock` (1 credit cut, reply shows credits-left)**;
-  unlinked → `/link` → **pending unlock auto-continues** after link. `/unlock` command same path (`_do_unlock` shared).
-- No-credits → paywall text + `/pay` (standing rule: credits out → pay again).
+- This archived note described a past unlock-through-bot concept. It is not a live integration, launch instruction, or evidence of external availability.
+- `BOT_USERNAME` is blank by default in the current configuration. Do not construct a Telegram URL, publish a bot CTA, or substitute a guessed username; use the current website interest and consent flow instead.
+- Any future bot contact must be explicitly configured and reviewed before it is shown to members. No automatic identity or delivery claim follows from this historical note.
 
 ## TESTS — `test_wave18_full.py` → **36/36** ✅
 
@@ -53,9 +55,9 @@ C–D. teasers 4 + bot parse 2 · E. frontend static 10.
 
 wave9 203 · w10 74 · w11 87 · w12 75 · w13 105 · w14 106 · w15 54 · w16 30 · w17 46 · **w18 36** ·
 router 60 · setup 84 · growth 138 · antiban 84 · privacy 53 · redundancy 53 · referral 145 · safety 70 · topmatch 61 · vendors 130
-(+test_channels live-network script exit 0).
+(historical script output; not a current external check).
 
-## BUILD + LIVE PROOF (fresh API pid 11318)
+## Historical local checks (not current production verification) (fresh API pid 11318)
 
 - `tsc` clean · `build` green 31/31 · `/` 200 (retry; transient) · `/login` 200 · `/pricing` 200.
 - Live: register+password → `TSAP-F-2025-4345` → pw-login ✅ → forgot (channel `dev`, purpose `reset`) ✅ →

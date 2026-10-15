@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import RefundPageClient from "./page-client";
 
 export const metadata: Metadata = {
-  title: "రీఫండ్ & రద్దు విధానం (Refund & Cancellation Policy)",
-  description: "మన వివాహ రీఫండ్ & రద్దు విధానం — 7 రోజుల్లో పని జరగకపోతే పూర్తి రీఫండ్, డిక్లైన్డ్ క్రెడిట్స్ ఆటోమేటిక్ రీఫండ్.",
+  title: "Refund & Cancellation Policy",
+  description: "Review refund eligibility, including the seven-day unused-credit refund window and the return of eligible request credits after a decline or expiry. Returned credits are not a cash refund.",
   alternates: { canonical: "https://manavivaha.in/refund" },
 };
 

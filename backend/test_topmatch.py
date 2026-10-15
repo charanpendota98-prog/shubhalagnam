@@ -81,6 +81,10 @@ try:
         groom_headers = {"Authorization": f"Bearer {sign_token(GROOM['tsap_id'])}"}
         bride_headers = {"Authorization": f"Bearer {sign_token(BRIDE['tsap_id'])}"}
         with TestClient(main.app) as client:
+            # Lifespan startup may restore the isolated store; inject fixtures afterward.
+            main.DB_USERS[:] = [dict(BRIDE), dict(GROOM), dict(NEW_GROOM)]
+            main.DB_BLOCKS[:] = []
+            main._reindex_users()
             response = client.get("/api/match/score", params={"a": GROOM["tsap_id"], "b": BRIDE["tsap_id"]}, headers=groom_headers)
             body = response.json()
             check("GET /api/match/score returns member-entered comparisons", response.status_code == 200

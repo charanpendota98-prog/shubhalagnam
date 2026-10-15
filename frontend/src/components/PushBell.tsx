@@ -5,7 +5,7 @@
  * preview mode (queue lone — admin push queue lo kanipistundi).
  */
 import { useCallback, useEffect, useState } from "react";
-import { apiGet, apiPost } from "@/lib/api";
+import { apiDisplayMessage, apiGet, apiPost } from "@/lib/api";
 import { useLang } from "@/lib/lang";
 
 function b64ToU8(base64: string): Uint8Array<ArrayBuffer> {
@@ -60,8 +60,8 @@ export default function PushBell({ myId }: { myId: string }) {
     try {
       const p = await Notification.requestPermission();
       setPerm(p);
-      if (p !== "granted") { setMsg(te ? "🔕 Permission ivvaledu — browser settings lo allow cheyandi" : "🔕 Permission denied — allow in browser settings"); setBusy(false); return; }
-      if (!vapid) { setMsg(te ? "ℹ️ Server push keys (VAPID) ఇంకా set కాలేదు — admin కి చెప్పండి" : "ℹ️ Server push keys (VAPID) not set yet — tell admin"); setBusy(false); return; }
+      if (p !== "granted") { setMsg(te ? "🔕 అనుమతి నిరాకరించబడింది — బ్రౌజర్ సెట్టింగ్‌లలో అనుమతించండి" : "🔕 Permission denied — allow notifications in your browser settings"); setBusy(false); return; }
+      if (!vapid) { setMsg(te ? "ℹ️ సర్వర్ పుష్ కీలు (VAPID) ఇంకా అమర్చలేదు — నిర్వాహకుడికి తెలియజేయండి" : "ℹ️ Server push keys (VAPID) are not configured yet — contact the administrator"); setBusy(false); return; }
       const reg = await navigator.serviceWorker.ready;
       const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToU8(vapid) });
       const { ok, data, errorTelugu } = await apiPost<{ message_telugu?: string }>("/api/push/subscribe", {
@@ -69,9 +69,11 @@ export default function PushBell({ myId }: { myId: string }) {
         keys: { p256dh: bufToB64(sub.getKey("p256dh")), auth: bufToB64(sub.getKey("auth")) },
         ua: navigator.userAgent.slice(0, 120),
       });
-      setMsg(ok ? String(data?.message_telugu || "ON") : errorTelugu);
+      setMsg(ok
+        ? apiDisplayMessage(data, te, te ? "🔔 Push alerts enabled." : "🔔 Push alerts enabled.")
+        : apiDisplayMessage(data, te, errorTelugu || (te ? "మళ్లీ ప్రయత్నించండి." : "Please try again.")));
       void refresh();
-    } catch { setMsg(te ? "Subscribe fail — మళ్ళీ try చేయండి" : "Subscribe failed — retry"); }
+    } catch { setMsg(te ? "సభ్యత్వం కల్పించలేకపోయాం — మళ్లీ ప్రయత్నించండి" : "Could not subscribe to alerts. Please try again."); }
     setBusy(false);
   };
 
@@ -83,21 +85,23 @@ export default function PushBell({ myId }: { myId: string }) {
       const ep = sub?.endpoint || "";
       if (sub) await sub.unsubscribe();
       const { data } = await apiPost<{ message_telugu?: string }>("/api/push/unsubscribe", { tsap_id: myId, endpoint: ep });
-      setMsg(String(data?.message_telugu || "OFF"));
+      setMsg(apiDisplayMessage(data, te, te ? "Push alerts disabled." : "Push alerts disabled."));
       void refresh();
-    } catch { setMsg("Unsubscribe fail"); }
+    } catch { setMsg(te ? "అలర్ట్‌లను ఆపలేకపోయాం. మళ్లీ ప్రయత్నించండి." : "Could not turn off alerts. Please try again."); }
     setBusy(false);
   };
 
   const test = async () => {
     setBusy(true); setMsg("");
     const { ok, data, errorTelugu } = await apiPost<Record<string, any>>(`/api/push/notify/${encodeURIComponent(myId)}`, {
-      title: te ? "💍 మన వివాహ — test alert!" : "💍 మన వివాహ — test alert!",
-      body: te ? "Alerts పని చేస్తున్నాయి ✅ — కొత్త matches వస్తే ఇలా వస్తుంది" : "Alerts work ✅ — new matches come like this",
+      title: te ? "💍 మన వివాహ — పరీక్షా నోటిఫికేషన్" : "💍 Mana Vivaha — test notification",
+      body: te ? "నోటిఫికేషన్‌లు పనిచేస్తున్నాయి ✅ — కొత్త మ్యాచ్‌లు వచ్చినప్పుడు ఇలా కనిపిస్తాయి" : "Notifications are working ✅ — this is how new matches will appear",
       url: "/me",
     });
     setBusy(false);
-    setMsg(ok ? `${data?.message_telugu || "sent"} (${data?.mode || ""})` : String(data?.message_telugu || errorTelugu));
+    setMsg(ok
+      ? apiDisplayMessage(data, te, te ? "అలర్ట్ అభ్యర్థన స్వీకరించబడింది. డెలివరీ నిర్ధారితం కాదు." : "Alert request accepted. Delivery is not confirmed.")
+      : apiDisplayMessage(data, te, errorTelugu || (te ? "అలర్ట్ పంపలేకపోయాం." : "The alert could not be sent.")));
   };
 
   if (!supported) {
@@ -116,7 +120,7 @@ export default function PushBell({ myId }: { myId: string }) {
         {!on ? (
           <button onClick={() => void enable()} disabled={busy}
             className="rounded-xl bg-[#7A0C2E] px-4 py-2 text-[12px] font-bold text-white disabled:opacity-50">
-            {busy ? "…" : te ? "🔔 Alerts ON chey" : "🔔 Turn alerts ON"}
+            {busy ? "…" : te ? "🔔 అలర్ట్‌లను ఆన్ చేయండి" : "🔔 Turn alerts on"}
           </button>
         ) : (
           <>
@@ -133,7 +137,7 @@ export default function PushBell({ myId }: { myId: string }) {
       </div>
       {msg && <p className="mt-2 rounded-xl bg-slate-50 p-2 text-[12px] font-bold text-slate-700">{msg}</p>}
       <p className="mt-2 text-[11px] text-slate-500">
-        {te ? "కొత్త matches + interest replies కి notification — browser close చేసినా వస్తుంది." : "Notification for new matches + interest replies — even with browser closed."}
+        {te ? "కొత్త matches మరియు interest replies కోసం నోటిఫికేషన్‌లు అందుతాయి. బ్రౌజర్ మూసిన తర్వాత కూడా రావాలంటే పరికరం, బ్రౌజర్ మరియు సర్వర్ పుష్ మద్దతు అవసరం." : "Receive notifications for new matches and interest replies. Delivery while the browser is closed depends on device, browser, and server push support."}
       </p>
     </div>
   );

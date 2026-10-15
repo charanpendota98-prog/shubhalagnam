@@ -8,7 +8,7 @@
 |---|---:|---:|---:|---|
 | `FREE` | Free | 3 | 365 days in the plan data | Profile card; no payment required |
 | `S_99` | ₹99 | 5 | 30 days | Entry consumer plan |
-| `S_199` | ₹199 | 12 | 45 days | “Most popular” label |
+| `S_199` | ₹199 | 12 | 45 days | No popularity/value badge; show price and credits only |
 | `S_299` | ₹299 | 25 | 60 days | Who-viewed names while this plan is active |
 | `S_499` | ₹499 | 50 | 90 days | Who-viewed names while this plan is active |
 

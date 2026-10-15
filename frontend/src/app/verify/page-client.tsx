@@ -9,7 +9,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Duo, duo } from "@/lib/duo";
 import { useLang } from "@/lib/lang";
-import { TSAP_KEY } from "@/lib/api";
+import { apiDisplayMessage, getToken, TSAP_KEY, readApiJson } from "@/lib/api";
 
 export default function VerifyPage() {
   const { lang } = useLang();
@@ -30,9 +30,13 @@ export default function VerifyPage() {
   const load = useCallback(async () => {
     if (!tsapId) return;
     try {
-      const r = await fetch(`/api/photo/status/${encodeURIComponent(tsapId)}`);
+      const token = getToken();
+      const r = await fetch(`/api/photo/status/${encodeURIComponent(tsapId)}`, {
+        headers: token ? { "X-Tsap-Token": token } : {},
+        cache: "no-store",
+      });
       if (r.ok) {
-        const d = await r.json();
+        const d = await readApiJson(r);
         setStatus(d.selfie_verified ? "approved" : (d.selfie_status || "none"));
       }
     } catch { /* offline */ }
@@ -47,13 +51,17 @@ export default function VerifyPage() {
       const fd = new FormData();
       fd.append("file", f);
       fd.append("tsap_id", tsapId);
-      const r = await fetch("/api/verify/selfie", { method: "POST", body: fd });
-      const d = await r.json().catch(() => ({}));
+      const token = getToken();
+      const r = await fetch("/api/verify/selfie", {
+        method: "POST",
+        headers: token ? { "X-Tsap-Token": token } : {},
+        body: fd,
+      });
+      const d = await readApiJson(r).catch(() => ({}));
       if (!r.ok) {
-        const det = d?.detail || d;
-        setMsg(det?.te || det?.en || (te ? "Selfie fail — మళ్లీ try చెయ్యండి" : "Selfie failed — retry"));
+        setMsg(apiDisplayMessage(d, te, te ? "Selfie fail — మళ్లీ try చెయ్యండి" : "Selfie upload failed. Please try again."));
       } else {
-        setMsg(d.message_telugu || (te ? "Selfie వెళ్లింది ✅" : "Selfie sent ✅"));
+        setMsg(apiDisplayMessage(d, te, te ? "Selfie వెళ్లింది ✅" : "Selfie submitted for review."));
         await load();
       }
     } catch {

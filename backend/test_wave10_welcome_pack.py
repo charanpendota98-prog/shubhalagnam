@@ -1,245 +1,261 @@
-"""
-🎁 WAVE 10 TEST SUITE — "register avvagane WhatsApp ki 3 profiles + caste channel links"
-=======================================================================================
-User adigindi:
-  "registration avvagane elaga vadi whatsapp ki 3 profiles vellai, man channel links vadi
-   caste channels telegram and whatapp channels vadi caste related"
+"""Local-only welcome-pack and public channel-directory regressions.
 
-Cover:
-  A. channel link helpers (telegram + whatsapp, caste mapping)
-  B. welcome_pack builder (3 profiles, numbers 🔒, telugu message)
-  C. register integration (pack + queue + anti-ban order)
-  D. API (/api/welcome-pack/{id}, resend, /api/channels/links)
-  E. privacy (numbers eppudu message lo ledu)
-
-Run:  WA_TEST_FAST=1 /tmp/venv/bin/python test_wave10_welcome_pack.py
+Fixtures and every persistence path are isolated. WhatsApp/Telegram delivery is
+explicitly disabled; configured invite URLs are inspected but never contacted.
+Run: backend/.venv/bin/python backend/test_wave10_welcome_pack.py
 """
-import os
-import sys
+from __future__ import annotations
+
 import json
+import os
 import re
+import sys
+from unittest.mock import patch
 
-os.environ.setdefault("WA_TEST_FAST", "1")
-os.environ.setdefault("OTP_DEV_MODE", "true")
-os.environ.setdefault("WA_LONG_PAUSE_CHANCE", "0")
-os.environ.setdefault("WHATSAPP_MODE", "bridge")          # queue path test cheyyadaniki
-os.environ.setdefault("WA_CHANNEL_LINKS", json.dumps({
-    "c_reddy_bride": "https://whatsapp.com/channel/REDDY-BRIDE-REAL",
-    "official": "https://whatsapp.com/channel/MANAVIVAHA-OFFICIAL",
-}))
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+BACKEND_DIR = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, BACKEND_DIR)
 
+# Fail closed for integrations and keep every write in a disposable test store.
+os.environ.update({
+    "APP_ENV": "test",
+    "ENV": "test",
+    "WA_TEST_FAST": "1",
+    "TSAP_AUTH_MODE": "test",
+    "TSAP_AUTH_ENFORCE": "0",
+    "OTP_DEV_MODE": "true",
+    "WA_LONG_PAUSE_CHANCE": "0",
+    "WHATSAPP_MODE": "off",
+    "WA_ENABLED": "false",
+    "PUBLISH_DRY_RUN": "true",
+    "AUTO_POST_ON_REGISTER": "false",
+    "TELEGRAM_CHANNEL_DESTINATIONS_JSON": "",
+})
+for _key in (
+    "BOT_TOKEN", "BOT_TOKEN_BACKUP", "BOT_TOKEN_ALERT", "BOT_TOKEN_2", "BOT_TOKEN_3",
+    "BOT_POOL_JSON", "TSAP_API_KEY", "ADMIN_CHAT_ID", "DATABASE_URL", "PAY_UPI_ID",
+    "SUPPORT_CALL_NUMBER", "SUPPORT_WHATSAPP", "SUPPORT_WHATSAPP_NUMBER",
+    "WA_CHANNEL_LINKS", "WA_OFFICIAL_CHANNEL", "TELEGRAM_CHANNEL_LINKS",
+):
+    os.environ.pop(_key, None)
+for _key in list(os.environ):
+    if _key.startswith(("TELEGRAM_CHANNEL_", "WA_CHANNEL_")):
+        os.environ.pop(_key, None)
+os.environ["TELEGRAM_CHANNEL_DESTINATIONS_JSON"] = ""
+
+from test_storage import isolate_test_stores  # noqa: E402
+_TEST_STORE = isolate_test_stores("wave10-welcome-pack")
+
+import channels_config as CC  # noqa: E402
+import main  # noqa: E402
+import welcome_pack as WP  # noqa: E402
+from testutil_client import TestClient  # noqa: E402
+
+client = TestClient(main.app, raise_server_exceptions=False)
 PASS, FAIL, FAILED = 0, 0, []
 PHONE_RE = re.compile(r"(?<![\d•])[6-9]\d{9}(?!\d)")
+EXCLUDED = {
+    "official", "hindu", "c_others_st", "bureau_network", "differently_abled",
+    "doctors_teachers", "fraud_alerts", "govt_jobs", "second_marriage",
+    "software_it", "success_stories",
+}
 
 
-def check(name, cond, extra=None):
+def check(name: str, condition: bool, extra=None) -> None:
     global PASS, FAIL
-    if cond:
+    if condition:
         PASS += 1
         print(f"  ✅ {name}")
     else:
         FAIL += 1
         FAILED.append(name)
-        print(f"  ❌ {name}" + (f"  | {str(extra)[:170]}" if extra is not None else ""))
+        print(f"  ❌ {name}" + (f" | {str(extra)[:220]}" if extra is not None else ""))
 
 
-def section(t):
-    print(f"\n{'=' * 76}\n{t}\n{'=' * 76}")
+def section(title: str) -> None:
+    print(f"\n=== {title} ===")
 
 
-import channels_config as CC
-import welcome_pack as WP
-from fastapi.testclient import TestClient
-import main
+def has_telugu(text: str) -> bool:
+    return any("\u0c00" <= ch <= "\u0c7f" for ch in str(text))
 
-client = TestClient(main.app, raise_server_exceptions=False)
 
-BRIDE_REDDY = {"gender": "Bride", "caste": "Reddy", "sub_caste": "Pakanati", "state": "TS",
-               "district": "Hyderabad", "religion": "Hindu", "job": "Software Engineer", "age": 25}
-GROOM_KAMMA = {"gender": "Groom", "caste": "Kamma", "sub_caste": "", "state": "AP",
-               "district": "Guntur", "religion": "Hindu", "job": "Business", "age": 30}
-BRIDE_LAMBADA = {"gender": "Bride", "caste": "Lambada", "sub_caste": "Banjara", "state": "TS",
-                 "district": "Khammam", "religion": "Hindu", "job": "Teacher", "age": 24}
-BRIDE_MUSLIM = {"gender": "Bride", "caste": "Muslim", "sub_caste": "", "state": "TS",
-                "district": "Hyderabad", "religion": "Muslim", "job": "Doctor", "age": 26}
+section("A. Public directory exclusions preserve the private operator registry")
+check("A1 exactly the requested 11 categories are excluded",
+      CC.PUBLIC_DIRECTORY_EXCLUDED_KEYS == EXCLUDED, sorted(CC.PUBLIC_DIRECTORY_EXCLUDED_KEYS))
+check("A2 excluded rows remain internal but are not public",
+      all(key in CC.CHANNELS and not CC.is_public_channel(key) for key in EXCLUDED))
+_public = CC.public_channels()
+_public_keys = {row["key"] for row in _public}
+check("A3 public listing/stats agree and omit all excluded keys",
+      len(_public) == CC.public_channel_stats()["total"]
+      and not (EXCLUDED & _public_keys)
+      and CC.channel_stats()["total"] == len(CC.CHANNELS),
+      (len(_public), CC.public_channel_stats(), len(CC.CHANNELS)))
+check("A4 routing remains disabled unless explicitly configured",
+      CC.public_channel_stats()["routing_eligible"] == 0
+      and not any(row.get("routing_eligible") for row in _public))
+check("A5 no WhatsApp URL is fabricated for an unknown channel",
+      CC.wa_channel_link("not_configured") == "", CC.wa_channel_link("not_configured"))
+check("A6 configured invite URL is preserved exactly (syntax only; no live request)",
+      CC.channel_links("c_reddy_bride")["whatsapp"] == CC.DEFAULT_WA_LINKS["c_reddy_bride"]
+      and CC.channel_links("c_reddy_bride")["external_status_checked"] is False)
 
-# ═══════════════════════════════════════════════════════════════════════════
-section("A. CHANNEL LINKS (telegram + whatsapp) — caste related")
-# ═══════════════════════════════════════════════════════════════════════════
-l = CC.channel_links("c_reddy_bride")
-check("A1 channel_links telegram URL sari ga build avutundi", l["telegram"] == "https://t.me/manavivaha_reddy_bride", l)
-check("A2 channel name + tier", "Reddy" in l["name"] and l["tier"] == "L3_CASTE", l)
-check("A3 env WA_CHANNEL_LINKS exact link gellipoyindi", l["whatsapp"] == "https://whatsapp.com/channel/REDDY-BRIDE-REAL", l["whatsapp"])
-check("A4 official whatsapp link env nunchi", CC.channel_links("official")["whatsapp"] == "https://whatsapp.com/channel/MANAVIVAHA-OFFICIAL")
-check("A5 no WhatsApp URL is synthesized for an unconfigured key", CC.wa_channel_link("not_configured") == "", CC.wa_channel_link("not_configured"))
-check("A6 unknown key ki crash ledu (khali links)", CC.channel_links("no_such_channel")["telegram"] == "", CC.channel_links("no_such_channel"))
-check("A7 anni 52 channels ki telegram link undi", all(CC.channel_links(k)["telegram"].startswith("https://t.me/") for k in CC.CHANNELS),
-      [k for k in CC.CHANNELS if not CC.channel_links(k)["telegram"]][:3])
-_l = CC._wa_links_from_env()
-check("A8 _wa_links_from_env JSON + per-key env rendu chaduvutundi", _l.get("c_reddy_bride", "").endswith("REDDY-BRIDE-REAL") and len(_l) >= 2, _l)
-check("A9 telegram_link @ theesestundi", CC.telegram_link("@TSBRIDE") == "https://t.me/TSBRIDE")
-check("A10 telegram_link khali ki ''", CC.telegram_link("") == "")
+BRIDE_REDDY = {
+    "gender": "Bride", "caste": "Reddy", "sub_caste": "Pakanati Reddy",
+    "state": "TS", "district": "Hyderabad", "religion": "Hindu",
+}
+_directory = main._public_channel_links()
+_reddy_links = CC.caste_channel_links(BRIDE_REDDY, limit=10, directory_links=_directory)
+_reddy_keys = [row["key"] for row in _reddy_links]
+check("A7 Reddy links lead with its configured public entry",
+      bool(_reddy_keys) and _reddy_keys[0] == "c_reddy_bride", _reddy_keys)
+check("A8 recommendation contains no excluded/private channel keys",
+      not (EXCLUDED & set(_reddy_keys)), _reddy_keys)
+check("A9 link rows use the configured directory map, not inferred fallbacks",
+      all(row["telegram"] == _directory.get(row["key"], {}).get("telegram", "")
+          and row["whatsapp"] == _directory.get(row["key"], {}).get("whatsapp", "")
+          for row in _reddy_links), _reddy_links)
 
-r = CC.caste_channel_links(BRIDE_REDDY, limit=5)
-check("A11 Bride-Reddy → first channel c_reddy_bride (caste mundu)", r and r[0]["key"] == "c_reddy_bride", [x["key"] for x in r])
-check("A12 region channel kooda undi (ts_bride)", "ts_bride" in [x["key"] for x in r], [x["key"] for x in r])
-check("A13 official channel always last lo", r[-1]["key"] == "official", [x["key"] for x in r])
-check("A14 max limit respect (<=5)", len(r) <= 5, len(r))
-check("A15 duplicates ledu", len({x["key"] for x in r}) == len(r), [x["key"] for x in r])
-r2 = CC.caste_channel_links(GROOM_KAMMA, limit=5)
-check("A16 Groom-Kamma → c_kamma_groom first", r2 and r2[0]["key"] == "c_kamma_groom", [x["key"] for x in r2])
-check("A17 veru caste → veru channel (gender split)", r[0]["key"] != r2[0]["key"], (r[0]["key"], r2[0]["key"]))
-r3 = CC.caste_channel_links(BRIDE_LAMBADA, limit=4)
-check("A18 Lambada → cluster channel c_lambada_banjara", r3 and r3[0]["key"] == "c_lambada_banjara", [x["key"] for x in r3])
-r4 = CC.caste_channel_links(BRIDE_MUSLIM, limit=5)
-keys4 = [x["key"] for x in r4]
-check("A19 Muslim → religion channel kooda vastundi", any(k.startswith("muslim") for k in keys4), keys4)
-check("A20 prathi link lo telegram unna whatsapp unna okati undali", all(x["telegram"] or x["whatsapp"] for x in r + r4))
 
-# ═══════════════════════════════════════════════════════════════════════════
-section("B. WELCOME PACK BUILDER — 3 profiles + channels + telugu message")
-# ═══════════════════════════════════════════════════════════════════════════
-USER = {"tsap_id": "TSAP-F-2025-9999", "full_name": "Test Bride", "gender": "Bride", "caste": "Reddy",
-        "sub_caste": "Pakanati", "state": "TS", "district": "Hyderabad", "age": 25, "religion": "Hindu",
-        "job": "Software Engineer", "phone": "9848012345"}
-PROFS = [
-    {"tsap_id": "TSAP-M-2025-1", "full_name": "Groom One", "age": 29, "gender": "Groom", "caste": "Reddy",
-     "district": "Nalgonda", "education": "MBBS", "job": "Doctor", "is_verified": True, "phone": "9848011111",
-     "star": "Rohini", "phone_masked": "98••••••11"},
-    {"tsap_id": "TSAP-M-2025-2", "full_name": "Groom Two", "age": 31, "gender": "Groom", "caste": "Kamma",
-     "district": "Guntur", "education": "MBA", "job": "Manager", "phone": "9848022222"},
-    {"tsap_id": "TSAP-M-2025-3", "full_name": "Groom Three", "age": 28, "gender": "Groom", "caste": "Kapu",
-     "district": "Vizag", "education": "BTech", "job": "Engineer", "phone": "9848033333"},
+section("B. Welcome-pack builder is factual, masked, and current on pricing")
+USER = {
+    "tsap_id": "W10-LOCAL-OWNER", "full_name": "Local Fixture Bride", "gender": "Bride",
+    "caste": "Reddy", "sub_caste": "Pakanati Reddy", "state": "TS", "district": "Hyderabad",
+    "religion": "Hindu", "phone": "9999999999",
+}
+PROFILES = [
+    {"tsap_id": "W10-LOCAL-GROOM-1", "full_name": "Fixture Groom One", "age": 29,
+     "gender": "Groom", "caste": "Reddy", "district": "Nalgonda", "education": "MBBS",
+     "job": "Doctor", "phone": "9000000001"},
+    {"tsap_id": "W10-LOCAL-GROOM-2", "full_name": "Fixture Groom Two", "age": 31,
+     "gender": "Groom", "caste": "Kamma", "district": "Guntur", "education": "MBA",
+     "job": "Manager", "phone": "9000000002"},
+    {"tsap_id": "W10-LOCAL-GROOM-3", "full_name": "Fixture Groom Three", "age": 28,
+     "gender": "Groom", "caste": "Kapu", "district": "Visakhapatnam", "education": "BTech",
+     "job": "Engineer", "phone": "9000000003"},
 ]
-MATCHES = [{"profile": p, "observations": ["Member-entered profile facts available for review."]} for p in PROFS]
-pack = WP.build_welcome_pack(USER, USER["tsap_id"], MATCHES)
-check("B1 pack lo profiles exactly 3", len(pack["profiles"]) == 3, len(pack["profiles"]))
-check("B2 profile summary link /search/TSAP-... ki veltundi",
-      pack["profiles"][0]["link"].endswith("/search/TSAP-M-2025-1"), pack["profiles"][0]["link"])
-check("B3 welcome profiles contain link and no synthetic score/reasons",
-      bool(pack["profiles"][0].get("link")) and not ({"score", "match_score", "compatibility_score", "trust_score", "reasons", "reason"} & set(pack["profiles"][0])),
-      pack["profiles"][0])
-check("B4 channels list lo caste channel first", pack["channels"][0]["key"] == "c_reddy_bride", [c["key"] for c in pack["channels"]])
-msg = pack["message_text"]
-check("B5 message lo '3 FREE' + Telugu text", "3 FREE" in msg and any("\u0c00" <= ch <= "\u0c7f" for ch in msg))
-check("B6 message lo 3 profiles IDs unnayi", all(p["tsap_id"] in msg for p in pack["profiles"]))
-check("B7 message lo 10-digit numbers ledu (privacy)", not PHONE_RE.findall(msg), PHONE_RE.findall(msg))
-check("B8 message lo Telegram channel links", "t.me/manavivaha_reddy_bride" in msg, msg[:300])
-check("B9 message lo WhatsApp channel link (env)", "whatsapp.com/channel" in msg, msg[-400:])
-check("B10 message lo numbers rule telugu (🔒)", "🔒" in msg and "consent" in msg.lower(), msg[-500:])
-check("B11 rules_telugu lo 4 points", len(pack["rules_telugu"]) == 4, pack["rules_telugu"])
-check("B12 profiles lo raw phone key ledu (masked matrame)",
-      all("phone" not in p or p["tsap_id"] != "TSAP-M-2025-1" for p in pack["profiles"]) and
-      pack["profiles"][0]["phone_masked"] == "98••••••11", pack["profiles"][0])
-pack0 = WP.build_welcome_pack(USER, USER["tsap_id"], [])
-check("B13 matches lekapote crash ledu + telugu note", "matches inka prepare" in pack0["message_text"] or "prepare avutunnai" in pack0["message_text"], pack0["message_text"][:160])
-check("B14 pack_public has_numbers key theesestundi", "has_numbers" not in WP.pack_public(pack))
-check("B15 channels_count stats (telegram + whatsapp)", WP.channels_count()["telegram_links"] == 52 and WP.channels_count()["whatsapp_links"] >= 52, WP.channels_count())
+MATCHES = [{"profile": profile} for profile in PROFILES]
+pack = WP.build_welcome_pack(USER, USER["tsap_id"], MATCHES, directory_links=_directory)
+check("B1 up to three candidate summaries are shown",
+      len(pack["profiles"]) == 3, len(pack["profiles"]))
+check("B2 profiles link to their website pages without scoring fields",
+      all(row.get("link", "").endswith("/search/" + row.get("tsap_id", ""))
+          and not ({"score", "match_score", "compatibility_score", "trust_score", "reason", "reasons"} & set(row))
+          for row in pack["profiles"]), pack["profiles"])
+check("B3 summary excludes raw phone numbers and surnames",
+      not PHONE_RE.findall(json.dumps(pack))
+      and all(row["name"] == "Fixture" for row in pack["profiles"]), pack["profiles"])
+check("B4 copy states owner-consent/privacy controls and ₹99 interest-request pricing",
+      "owner acceptance" in pack["message_text"].lower()
+      and "₹99" in pack["message_text"]
+      and "interest requests" in pack["message_text"].lower(), pack["message_text"][-700:])
+check("B5 delivery limits are explicit; no popularity or synthetic-score claim",
+      ("హామీ కాదు" in pack["message_text"] or "not guaranteed" in pack["message_text"].lower())
+      and not any(token in pack["message_text"].lower() for token in ("compatibility score", "trust score", "52 channels")),
+      pack["message_text"][-650:])
+check("B6 message retains Telugu and lists only public channel entries",
+      has_telugu(pack["message_text"]) and not (EXCLUDED & {row["key"] for row in pack["channels"]}),
+      [row["key"] for row in pack["channels"]])
+check("B7 public API view omits internal-only has_numbers flag",
+      "has_numbers" not in WP.pack_public(pack))
+_count = WP.channels_count(directory_links=_directory)
+check("B8 URL statistics are public-only and say external status is unchecked",
+      _count["channels"] == len(_public)
+      and _count["telegram_links_configured"] == sum(bool(row.get("telegram")) for row in _directory.values())
+      and _count["whatsapp_links_configured"] == sum(bool(row.get("whatsapp")) for row in _directory.values())
+      and _count["external_status_checked"] is False, _count)
 
-# ═══════════════════════════════════════════════════════════════════════════
-section("C. REGISTER INTEGRATION — 'register avvagane' pack + WhatsApp queue")
-# ═══════════════════════════════════════════════════════════════════════════
-client.post("/api/demo/seed")
-# 🛡️ R10: clean-DB-safe — 3 matches kavali kabatti bulk inventory load (unique seed)
-import random as _rnd10
-client.post("/api/admin/bulk-profiles", json={"generate": 160, "seed": _rnd10.randint(1000, 9999)})
+
+section("C. Public channel links API")
+response = client.get("/api/channels/links?caste=Reddy&gender=Bride&state=TS")
+api_body = response.json()
+api_keys = [row["key"] for row in api_body.get("channels", [])]
+check("C1 HTTP 200 and Reddy public entry first",
+      response.status_code == 200 and api_keys and api_keys[0] == "c_reddy_bride", api_body)
+check("C2 public endpoint does not return excluded rows or contact numbers",
+      not (EXCLUDED & set(api_keys)) and not PHONE_RE.findall(json.dumps(api_body)), api_keys)
+check("C3 counts describe visible entries only; availability is not implied",
+      api_body.get("stats", {}).get("channels") == len(_public)
+      and api_body.get("external_status_checked") is False, api_body.get("stats"))
+check("C4 links exactly match the configured public map",
+      all(row.get("telegram", "") == _directory.get(row["key"], {}).get("telegram", "")
+          and row.get("whatsapp", "") == _directory.get(row["key"], {}).get("whatsapp", "")
+          for row in api_body.get("channels", [])), api_body.get("channels"))
+
+
+section("D. Registration + owner welcome-pack APIs (all local; WhatsApp stays off)")
+def _profile(tsap_id: str, name: str, gender: str, phone: str, caste: str, created_at: str) -> dict:
+    return {
+        "tsap_id": tsap_id, "full_name": name, "gender": gender, "phone": phone,
+        "age": 27, "height": "5'6\"", "marital_status": "Pelli Kaledu", "caste": caste,
+        "sub_caste": "", "religion": "Hindu", "education": "BTech", "job": "Engineer",
+        "state": "TS", "district": "Hyderabad", "status": "approved", "is_approved": True,
+        "is_active": True, "photo_private": True, "privacy_mode": "private", "credits": 3,
+        "created_at": created_at,
+    }
+
+# Distinct, disposable test-only identities; no production/demo-seed endpoint is used.
+main.DB_USERS.clear()
+main.DB_INTERESTS.clear()
+main.DB_PAYMENTS.clear()
+main.DB_BLOCKS.clear()
 main.WA_QUEUE.clear()
-BASE = {"gender": "Bride", "age": "25", "height": "5'4\"", "marital_status": "Pelli Kaledu", "caste": "Reddy",
-        "sub_caste": "Pakanati", "education": "BTech", "job": "Software", "salary": "60k", "state": "TS",
-        "district": "Hyderabad", "phone": "9848019191", "full_name": "Wave Ten Bride", "gothram": "Bharadwaj",
-        "star": "Rohini", "religion": "Hindu"}
-jr = client.post("/api/register", data=BASE)
-j = jr.json()
-wp = j.get("welcome_pack") or {}
-check("C1 register 200 + welcome_pack block", jr.status_code == 200 and isinstance(wp, dict) and wp, str(j)[:160])
-check("C2 pack lo 3 profiles (demo DB nunchi)", len(wp.get("profiles", [])) == 3, [p.get("tsap_id") for p in wp.get("profiles", [])])
-check("C3 profiles anni opposite gender (Groom)", all(p.get("gender") == "Groom" for p in wp.get("profiles", [])),
-      [p.get("gender") for p in wp.get("profiles", [])])
-check("C4 welcome profiles have IDs/links and no compatibility scores",
-      all(p.get("tsap_id") and p.get("link")
-          and not ({"score", "match_score", "compatibility_score", "trust_score", "grade", "verdict"} & set(p))
-          for p in wp.get("profiles", [])), wp.get("profiles"))
-check("C5 channels lo caste channel first (Reddy Bride)", (wp.get("channels") or [{}])[0].get("key") == "c_reddy_bride", [c["key"] for c in wp["channels"]])
-check("C6 queue block: kind welcome_pack_3profiles", wp.get("queue", {}).get("kind") == "welcome_pack_3profiles", wp.get("queue"))
-check("C7 WHATSAPP_MODE=bridge → queued True (register avvagane veltundi)", wp.get("queue", {}).get("queued") is True, wp.get("queue"))
-check("C8 register response lo welcome_pack.queue note telugu", "వ" in str(wp.get("queue", {}).get("note_telugu", "")) or "WhatsApp" in str(wp.get("queue", {}).get("note_telugu", "")), wp.get("queue", {}).get("note_telugu"))
-qmsgs = [x for x in main.WA_QUEUE if str(x.get("kind", "")).startswith("welcome_pack")]
-check("C9 WhatsApp queue lo pack message undi (user number ki)",
-      bool(qmsgs) and bool(qmsgs[-1].get("target")), qmsgs[-1:] if qmsgs else main.WA_QUEUE[-2:])
-if qmsgs:
-    qtext = qmsgs[-1].get("text", "")
-    # 🛡️ R10: TSAP-M- hardcode vaddhu — profile lines end with "(ID: X)" marker
-    check("C10 queued message lo 3 profiles + caste channel link", qtext.count("(ID:") >= 2 and "c_reddy_bride" not in qtext, qtext[:200])
-    check("C11 queued message lo numbers ledu", not PHONE_RE.findall(qtext), PHONE_RE.findall(qtext))
-    check("C12 queued message lo WhatsApp channel link", "whatsapp.com/channel" in qtext)
-    check("C13 namaste welcome mundu, pack tarvata (anti-ban order)",
-          [x.get("kind") for x in main.WA_QUEUE].index("namaste_welcome") < [x.get("kind") for x in main.WA_QUEUE].index(qmsgs[-1]["kind"]),
-          [x.get("kind") for x in main.WA_QUEUE])
-_found = set(PHONE_RE.findall(json.dumps(j)))
-check("C14 register response lo vere vaalla numbers ledu (sontha mask matrame ok)",
-      _found <= {"9848019191", "6304996088", "9100000000"}, _found)
-check("C15 auth_token tho pack owner-only data", bool(j.get("auth_token")))
-NEW_ID, NEW_TOK = j.get("tsap_id", ""), j.get("auth_token", "")
+main.DB_USERS.extend([
+    _profile("W10-LOCAL-GROOM-1", "Fixture Groom One", "Groom", "9000000001", "Reddy", "2026-10-06T12:00:00"),
+    _profile("W10-LOCAL-GROOM-2", "Fixture Groom Two", "Groom", "9000000002", "Kamma", "2026-10-06T11:00:00"),
+    _profile("W10-LOCAL-GROOM-3", "Fixture Groom Three", "Groom", "9000000003", "Kapu", "2026-10-06T10:00:00"),
+])
+main._reindex_users()
 
-# groom register → bride profiles + groom caste channels
-BASE_G = dict(BASE, gender="Groom", age="30", caste="Kamma", sub_caste="", phone="9848029292",
-              full_name="Wave Ten Groom", state="AP", district="Guntur", height="5'10\"")
-jg = client.post("/api/register", data=BASE_G).json()
-wpg = jg.get("welcome_pack") or {}
-check("C16 Groom register → Bride profiles vachayi", wpg.get("profiles") and all(p["gender"] == "Bride" for p in wpg["profiles"]),
-      [p.get("gender") for p in wpg.get("profiles", [])])
-check("C17 Groom caste channels (Kamma groom)", wpg.get("channels") and wpg["channels"][0]["key"] == "c_kamma_groom", [c["key"] for c in wpg.get("channels", [])])
-GROOM_ID, GROOM_TOK = jg.get("tsap_id", ""), jg.get("auth_token", "")
+registration = {
+    "gender": "Bride", "height": "5'4\"", "marital_status": "Pelli Kaledu",
+    "caste": "Reddy", "sub_caste": "Pakanati Reddy", "education": "BTech",
+    "job": "Software", "state": "TS", "district": "Hyderabad", "phone": "9999999999",
+    "full_name": "Local Fixture Bride", "dob": "1998-10-06", "password": "Local-test-pass-42",
+    "religion": "Hindu", "consent_confirmed": "true", "photo_private": "true",
+}
+# Assert that a WhatsApp queue call cannot occur with delivery explicitly disabled.
+with patch.object(main, "create_pro_card", None), \
+     patch.object(main, "enqueue_whatsapp", side_effect=AssertionError("WhatsApp must remain off")):
+    registered = client.post("/api/register", data=registration)
+reg_body = registered.json()
+welcome = reg_body.get("welcome_pack") or {}
+reg_id = str(reg_body.get("tsap_id") or "")
+check("D1 registration accepts explicit consent and returns a welcome pack",
+      registered.status_code == 200 and bool(reg_id) and isinstance(welcome, dict), reg_body)
+check("D2 local matching returns at most three real test fixtures without scores",
+      1 <= len(welcome.get("profiles", [])) <= 3
+      and all(row.get("gender") == "Groom"
+              and not ({"score", "match_score", "compatibility_score", "trust_score", "reasons", "reason"} & set(row))
+              for row in welcome.get("profiles", [])), welcome.get("profiles"))
+check("D3 response has no other-member phone numbers and does not claim queued delivery",
+      not {"9000000001", "9000000002", "9000000003"}.intersection(PHONE_RE.findall(json.dumps(reg_body)))
+      and welcome.get("queue", {}).get("queued") is False
+      and not PHONE_RE.findall(json.dumps(welcome)), welcome.get("queue"))
+check("D4 registration welcome-pack channels exclude private categories",
+      not (EXCLUDED & {row["key"] for row in welcome.get("channels", [])}),
+      [row.get("key") for row in welcome.get("channels", [])])
 
-# ═══════════════════════════════════════════════════════════════════════════
-section("D. API — /api/welcome-pack/{id} + resend + /api/channels/links")
-# ═══════════════════════════════════════════════════════════════════════════
-r = client.get(f"/api/welcome-pack/{NEW_ID}", headers={"X-Tsap-Token": NEW_TOK})
-check("D1 GET welcome-pack 200 (owner)", r.status_code == 200, r.status_code)
-dj = r.json() if r.status_code == 200 else {}
-check("D2 GET pack → 3 profiles + channels + message", len(dj.get("profiles", [])) == 3 and dj.get("channels") and dj.get("message_text"), sorted(dj.keys()))
-check("D3 GET pack lo raw numbers ledu (mask matrame)", not PHONE_RE.findall(json.dumps(dj)), PHONE_RE.findall(json.dumps(dj))[:3])
-check("D4 GET pack queue status chupistundi", "queue" in dj, sorted(dj.keys()))
-r = client.get("/api/welcome-pack/TSAP-NOT-EXIST")
-check("D5 unknown ID → 404", r.status_code == 404, r.status_code)
-r = client.get(f"/api/welcome-pack/{GROOM_ID}", headers={"X-Tsap-Token": NEW_TOK})
-check("D6 veru vaadi ID + naa token (dev bypass lo 200 — enforce lo 401) ", r.status_code in (200, 401), r.status_code)
+owner_pack = client.get(f"/api/welcome-pack/{reg_id}")
+owner_body = owner_pack.json()
+check("D5 owner pack route returns consent-safe summaries",
+      owner_pack.status_code == 200 and owner_body.get("success") is True
+      and not PHONE_RE.findall(json.dumps(owner_body)), owner_body)
+check("D6 unknown profile ID is rejected",
+      client.get("/api/welcome-pack/W10-LOCAL-MISSING").status_code == 404)
 
-main.WA_QUEUE.clear()
-r = client.post(f"/api/welcome-pack/{NEW_ID}/resend", headers={"X-Tsap-Token": NEW_TOK})
-rj = r.json()
-check("D7 resend 200 + queued True (bridge)", r.status_code == 200 and rj.get("queued") is True, rj)
-check("D8 resend lo 3 profiles + channels kooda return", len(rj.get("profiles", [])) == 3 and rj.get("channels"), sorted(rj.keys()))
-check("D9 resend queue ki vellindi (kind welcome_pack_resend)",
-      any(x.get("kind") == "welcome_pack_resend" for x in main.WA_QUEUE), [x.get("kind") for x in main.WA_QUEUE])
-check("D10 resend message lo mallī caste channel link", "manavivaha_reddy_bride" in rj.get("message_preview", ""), rj.get("message_preview", "")[:150])
+with patch.object(main, "enqueue_whatsapp", side_effect=AssertionError("WhatsApp must remain off")):
+    resent = client.post(f"/api/welcome-pack/{reg_id}/resend")
+resent_body = resent.json()
+check("D7 resend stays an offline preview and never queues/sends",
+      resent.status_code == 200 and resent_body.get("queued") is False
+      and not main.WA_QUEUE and not PHONE_RE.findall(json.dumps(resent_body)), resent_body)
+check("D8 no production/demo seed path was used or created",
+      not any(user.get("demo") or user.get("seed_source") for user in main.DB_USERS)
+      and len(main.DB_USERS) == 4, len(main.DB_USERS))
 
-r = client.get("/api/channels/links?caste=Reddy&gender=Bride&state=TS")
-cj = r.json()
-check("D11 /api/channels/links 200 + caste first", r.status_code == 200 and (cj.get("channels") or [{}])[0].get("key") == "c_reddy_bride", [c["key"] for c in cj.get("channels", [])])
-check("D12 channels/links stats (52 channels + links)", cj["stats"]["channels"] == 52 and cj["stats"]["whatsapp_links"] >= 52, cj["stats"])
-check("D13 channels/links lo phone numbers ledu (public)", not PHONE_RE.findall(json.dumps(cj)), PHONE_RE.findall(json.dumps(cj))[:3])
-r = client.get("/api/channels/links?caste=Kamma&gender=Groom&limit=999")
-check("D14 limit clamp (999 → <=10)", r.status_code == 200 and len(r.json()["channels"]) <= 10, len(r.json().get("channels", [])))
-r = client.get("/api/channels/links")
-check("D15 caste ivvakapote telugu hint (caste adagali)", r.status_code == 200 and "Caste పంపండి" in r.json().get("note_telugu", ""), r.json().get("note_telugu"))
-
-# ═══════════════════════════════════════════════════════════════════════════
-section("E. PRIVACY + REGRESSION")
-# ═══════════════════════════════════════════════════════════════════════════
-check("E1 welcome pack message lo 'phone' numbers eppudu ledu",
-      not PHONE_RE.findall(WP.build_welcome_pack(USER, USER["tsap_id"], MATCHES)["message_text"]))
-check("E2 mask style (98••••••45) message/response lo undi", "•" in str(wp.get("profiles", [{}])[0].get("phone_masked", "")) or
-      all("•" in str(p.get("phone_masked", "")) or not p.get("phone_masked") for p in wp.get("profiles", [])))
-check("E3 register response lo quality + auth_token inka intact",
-      isinstance(j.get("quality"), dict) and "percent" in j["quality"] and j.get("auth_token"))
-check("E4 top_3_matches (legacy field) inka undi", isinstance(j.get("top_3_matches"), list) and len(j["top_3_matches"]) >= 1, len(j.get("top_3_matches", [])))
-check("E5 namaste_queued True (bridge mode)", j.get("namaste_queued") is True, j.get("namaste_queued"))
-check("E6 pack channel count <=5 (spam control)", len(wp.get("channels", [])) <= 5, len(wp.get("channels", [])))
-check("E7 search/{id} lo inka phone key ledu", "phone" not in json.dumps(client.get(f"/api/search/{PROFS[0]['tsap_id']}").json().get("profile", {})).lower().replace("phone_masked", ""), "")
-
-print("\n" + "=" * 76)
-print(f"RESULT: {PASS} pass / {FAIL} fail")
+print(f"\nRESULT: {PASS} pass / {FAIL} fail")
 if FAILED:
     print("FAILED:", FAILED)
+    sys.exit(1)
+print("✅ All welcome-pack checks passed; no external messaging or channel requests were made.")

@@ -27,21 +27,22 @@ once, right after deploying the Phase 14 patch to a given environment.
 
 USAGE
 -----
-    cd backend && python ops_revoke_all_tokens.py [--dry-run]
+    # Run inside the backend container (or with the exact same durable-volume
+    # paths and production secrets as the backend), then restart the service:
+    docker compose -f docker-compose.prod.yml exec backend python ops_revoke_all_tokens.py --dry-run
+    docker compose -f docker-compose.prod.yml exec backend python ops_revoke_all_tokens.py
+    docker compose -f docker-compose.prod.yml restart backend
 
-IMPORTANT: restart the backend process after running this (not dry-run).
-The running server keeps its own in-memory copy of the token-version table,
-loaded once at import time — this script writes straight to
-token_versions.json from a separate process, so a currently-running server
-won't see the change until it reloads that file, which only happens on
-startup.
+IMPORTANT: the production token-version file is TSAP_TOKEN_VERSIONS_FILE on the
+same durable state volume as the profile database. Never run the production
+operation from a host shell using the local default path. The running server
+keeps an in-memory copy loaded at import time; restart every backend worker
+immediately after the operation before treating revocation as effective.
 
-Reads the same tsap_id list the running backend uses (backend/data_db.json
-if present, else falls back to the demo/seed profile table main.py builds
-in-memory) and calls hardening.revoke_all_tokens() for each one. Safe to
-run multiple times (idempotent in effect, though each run does increment
-the counter by 1 again — running it twice in a row just means users need
-to log in once, not twice).
+Reads the profile IDs from TSAP_DB_FILE (or the local backend/data_db.json
+default) and calls hardening.revoke_all_tokens() for each persisted user. It
+does not read or create demo/seed profiles. Safe to run multiple times in the
+sense that tokens remain revoked, though each run increments counters again.
 """
 import json
 import os
@@ -49,9 +50,12 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from hardening import revoke_all_tokens, token_version  # noqa: E402
+from hardening import revoke_all_tokens, token_version, TOKEN_VERSIONS_PATH  # noqa: E402
 
-DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data_db.json")
+DB_PATH = os.path.abspath(
+    os.getenv("TSAP_DB_FILE", "").strip()
+    or os.path.join(os.path.dirname(os.path.abspath(__file__)), "data_db.json")
+)
 
 
 def _load_tsap_ids() -> list:
@@ -62,7 +66,8 @@ def _load_tsap_ids() -> list:
     with open(DB_PATH, "r", encoding="utf-8") as f:
         data = json.load(f) or {}
     users = data.get("users", []) if isinstance(data, dict) else (data or [])
-    return [str(u.get("tsap_id")) for u in users if u.get("tsap_id")]
+    return [str(u.get("tsap_id")) for u in users
+            if isinstance(u, dict) and str(u.get("tsap_id", "")).strip()]
 
 
 def main():
@@ -71,7 +76,8 @@ def main():
     if not ids:
         print("[ops_revoke_all_tokens] No users found — nothing to revoke.")
         return
-    print(f"[ops_revoke_all_tokens] {len(ids)} users found.")
+    print(f"[ops_revoke_all_tokens] {len(ids)} persisted users found.")
+    print(f"[ops_revoke_all_tokens] token-version file: {TOKEN_VERSIONS_PATH}")
     if dry_run:
         print("[ops_revoke_all_tokens] --dry-run: not writing anything. "
               f"Current versions sample: "
@@ -79,10 +85,10 @@ def main():
         return
     for tid in ids:
         new_v = revoke_all_tokens(tid)
-    print(f"[ops_revoke_all_tokens] Done — all {len(ids)} users bumped to a "
-          f"fresh token version. Every pre-existing token (including any "
-          f"leaked during the pre-Phase-12-fix window) is now invalid. "
-          f"Every user will need to log in again to get a new, working token.")
+    print(f"[ops_revoke_all_tokens] Durable counters written for {len(ids)} users. "
+          "Restart every backend worker now; the live process keeps its in-memory "
+          "counter until restart. After restart, pre-existing tokens are rejected "
+          "and each user must log in again for a fresh token.")
 
 
 if __name__ == "__main__":

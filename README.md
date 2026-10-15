@@ -6,13 +6,16 @@ Mana Vivaha is a Telugu matrimony service for members in Telangana and Andhra Pr
 
 - **Free start:** registration includes 3 interest-request credits.
 - **Consumer plans:** ₹99 → 5 requests, ₹199 → 12, ₹299 → 25, ₹499 → 50. The lowest paid consumer plan is ₹99. Credit validity and included features are shown on `/pricing` and come from `backend/interest.py`.
+- **Vendor packages are separate:** `V_SINGLE_POST` ₹149 is one-day private, share-ready promo material—not a directory listing. `V_BASIC` ₹499 for 30 days is the first directory-listing package. Neither price promises external posting, reach, views, or leads.
 - **Contact privacy:** purchasing credits does not reveal a phone number. Contact details are shared only after the profile owner accepts and applicable privacy settings allow it.
 - **Referral:** a valid referral attachment grants request credits (not cash). A referrer may qualify for ₹50 once, only on the referred member's first qualifying paid S_99/S_199/S_299/S_499 consumer-plan payment of at least ₹99. Add-ons, renewals, complimentary grants, assisted services, boosts, and B2B/bureau payments are excluded. Payout requests are reviewed manually; eligibility and timing are not guaranteed.
 - **Catalogues:** the current location lists contain 33 Telangana and 28 Andhra Pradesh district options. Registration and profile editing support `Other / self-described` community names; the community lists are not an official or exhaustive classification.
-- **Channel directory:** the registry contains 52 configured entries (1 official, 5 regional, 5 religion, 33 selected-community, 8 special). Local checks cannot guarantee an external Telegram/WhatsApp destination is live or that a post will be delivered.
+- **Channel directory:** the registry contains 64 configured entries (1 official, 5 regional, 5 religion, 45 selected-community, 8 special). Routing flags and link syntax do not prove external availability, bot permissions, or delivery; no external channel check is implied.
 - **Live data:** generated profiles, demo credentials, and seed accounts are not production data sources. Synthetic test records belong under `backend/test_fixtures/` only.
 
 The implementation source of truth is `backend/interest.py` (plans/add-ons), `backend/referral.py` (reward eligibility), `backend/location_catalog.py` and `backend/community_catalog.py` (backend catalogues), `frontend/src/lib/telugu-data.ts` (frontend catalogues), and `backend/channels_config.py` (channel registry).
+
+For the verified current-state product audit, target architecture, proposed future relational schema, consent/matchmaking flows, responsive QA matrix, trust rules, pricing guardrails, component map, and SEO roadmap, see [`MANAVIVAHA_PRODUCT_BLUEPRINT.md`](MANAVIVAHA_PRODUCT_BLUEPRINT.md). The blueprint clearly distinguishes shipped code from proposed work and is not a production-readiness claim.
 
 ## Local development
 
@@ -33,18 +36,29 @@ The optional WhatsApp bridge requires its own opt-in configuration and account p
 ## Validation commands
 
 ```bash
-# Focused catalogue regression tests
-cd backend && python -m unittest test_catalog_ordering -v
+# Backend (run the commands from the repository root)
+(
+  cd backend
+  python -m pip install -r requirements-test.txt
+  python -m unittest test_catalog_ordering -v
+  # Static Compose/storage checks; these do not run Docker.
+  python test_production_storage_gate.py
+  python test_wave39_install_backup.py
+  python test_wave40_deploy.py
+  python test_registration_photo_required.py
+)
 
 # Frontend lint, TypeScript, and production build
-cd frontend
-npm ci
-npm run lint
-npx tsc --noEmit
-npm run build
+(
+  cd frontend
+  npm ci
+  npm run lint
+  npx tsc --noEmit
+  npm run build
+)
 ```
 
-Other scripts under `backend/` include live-service smoke tests and manually run scenario tests; inspect their setup before executing them. They are not all safe to run as an indiscriminate test-discovery command.
+`backend/verify_live_flow.py` performs GET-only endpoint checks against local or explicitly configured staging URLs; it does not create accounts or mutate production data. `backend/test_channels.py` is a no-network dry run by default; its optional Telegram path is read-only and requires explicit operator opt-in. Neither local tests nor repository configuration prove external uptime or delivery. Inspect scenario-test setup before running scripts; they are not all safe to invoke through indiscriminate test discovery.
 
 ## Repository map
 

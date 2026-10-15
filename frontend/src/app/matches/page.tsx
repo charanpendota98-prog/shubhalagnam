@@ -2,9 +2,11 @@ import type { Metadata } from "next";
 import MatchesPageClient from "./page-client";
 
 export const metadata: Metadata = {
-  title: "నా మ్యాచెస్ (My Matches) — కుల, జిల్లా, విద్య ఆధారంగా వెతకండి",
-  description: "కులం, ఉప-కులం, జిల్లా, విద్య, ఉద్యోగం, నక్షత్రం ఆధారంగా వేల మంది వధూవరుల ప్రొఫైల్స్‌ను ఫిల్టర్ చేసి వెతకండి — మన వివాహ.",
+  title: "Matrimony Matches & Profile Search",
+  description: "Search member-submitted profiles using available community, district, education, work, and traditional-reference filters. Profile details are not independently verified.",
   alternates: { canonical: "https://manavivaha.in/matches" },
+  // Filter state and member results are dynamic; keep this utility page out of the index.
+  robots: { index: false, follow: false },
 };
 
 export default function MatchesPage() {

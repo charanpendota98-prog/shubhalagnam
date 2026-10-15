@@ -19,6 +19,8 @@ from datetime import datetime, timedelta
 
 os.environ["PUBLISH_DRY_RUN"] = "true"
 os.environ["WA_TEST_FAST"] = "true"
+# Exercise the engine without enabling any real WhatsApp delivery in this suite.
+os.environ["WA_ENABLED"] = "false"
 os.environ["WHATSAPP_MODE"] = "bridge"
 os.environ["WA_BRIDGE_URL"] = "http://localhost:3001"
 os.environ["DEMO_SEED_ENABLED"] = "false"
@@ -45,6 +47,7 @@ def test_antiban():
     check("Active hours 8–22 IST (raatri aapitam)", (c["active_start"], c["active_end"]) == (8, 22))
     check("Break every 6 messages", c["break_every"] == 6)
     check("Daily cap 60 / target cap 8", (c["daily_cap"], c["target_daily_cap"]) == (60, 8))
+    check("Live WhatsApp sending is opt-in and disabled in this test", c["enabled"] is False, str(c["enabled"]))
     check("Fresh session ki wait ledu (ventane first post)", e.wait_seconds(1) == 0.0)
 
     # 🕐 WALL-CLOCK FLAKINESS FIX: suite raatri (22:00–08:00 IST) run ayithe quiet_hours valla
@@ -73,7 +76,9 @@ def test_antiban():
     check("Daily count track avutundi", e2.daily_count() == 14, str(e2.daily_count()))
     check("Warmup ramp (day-1 cap < full cap)", e2.warmup_cap() < 60, str(e2.warmup_cap()))
 
-    # caps
+    # Behaviour checks need the opt-in engine enabled; keep it false everywhere
+    # else in this suite so no test can trigger real WhatsApp delivery.
+    os.environ["WA_ENABLED"] = "true"
     e3 = WhatsAppAntiban(tempfile.mktemp(suffix=".json"))
     for _ in range(c["target_daily_cap"]):
         e3.record_send("@same", ok=True, priority=1)
@@ -85,6 +90,7 @@ def test_antiban():
     check("Kill switch (pause) pani chestundi", e3.check("@x")[1] == "paused")
     e3.resume()
     check("Resume tarvata ready", e3.check("@x")[1] in ("ok", "gap_wait"))
+    os.environ["WA_ENABLED"] = "false"
 
     # failures → cooldown
     e4 = WhatsAppAntiban(tempfile.mktemp(suffix=".json"))
@@ -247,6 +253,9 @@ def test_porutham_views_addons():
         check("Porutham pass tally matches individual rule flags",
               good.get("passed_checks") == sum(item.get("pass") is True for item in good.get("items", []))
               and good.get("total_checks") == 10, good.get("passed_checks"))
+        english_copy = [good.get("advice_en", ""), *[item.get("name_en", "") + " " + item.get("note_en", "") for item in good.get("items", [])]]
+        check("Porutham exposes complete Telugu-free English explanations",
+              all(text.strip() and not any("\u0c00" <= char <= "\u0c7f" for char in text) for text in english_copy))
         check("Porutham omits aggregate score, percentage, stars, and verdict",
               not ({"score", "max_score", "percent", "stars", "verdict"} & set(good)))
         rajju = compute_porutham({"star": "Ashwini"}, {"star": "Ashwini"})

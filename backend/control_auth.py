@@ -32,10 +32,13 @@ def _now() -> int:
     return int(time.time())
 
 
+CONTROL_PASSWORD_ITERATIONS = 600_000
+
+
 def _hash_password(password: str, salt: Optional[str] = None) -> str:
     salt = salt or secrets.token_hex(16)
-    digest = hashlib.pbkdf2_hmac("sha256", password.encode(), bytes.fromhex(salt), 210_000)
-    return f"pbkdf2_sha256$210000${salt}${digest.hex()}"
+    digest = hashlib.pbkdf2_hmac("sha256", password.encode(), bytes.fromhex(salt), CONTROL_PASSWORD_ITERATIONS)
+    return f"pbkdf2_sha256${CONTROL_PASSWORD_ITERATIONS}${salt}${digest.hex()}"
 
 
 def _verify_password(password: str, encoded: str) -> bool:

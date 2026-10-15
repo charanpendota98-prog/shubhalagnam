@@ -4,15 +4,25 @@ MANA VIVAHA — TRUST & SAFETY + OG PREVIEW TEST SUITE 🛡️🖼️
 Run:  /tmp/venv/bin/python test_safety_preview.py   (backend/ cwd nunchi)
 
 Cover: report categories/severity, duplicate reports, auto-flag (profile hide),
-moderation queue ordering + suggested action, resolve actions (verify/warn/hide/ban/dismiss)
+moderation queue ordering + suggested action, resolve actions (warn/hide/ban/dismiss)
 + audit, block/unblock both directions, search + interest respect blocks,
-verification levels/badges, safety tips, API endpoints, OG PNG generation.
+evidence-gated verification levels/badges, safety tips, API endpoints, OG PNG generation.
 """
 import os
 import sys
 
 os.environ.setdefault("WA_TEST_FAST", "1")
+os.environ.update({
+    "APP_ENV": "test", "ENV": "test", "TSAP_AUTH_MODE": "off",
+    "TSAP_AUTH_SECRET": "safety-preview-test-secret-only",
+    "ADMIN_KEY": "safety-preview-test-admin-only",
+    "WA_ENABLED": "false", "WHATSAPP_MODE": "off", "PUBLISH_DRY_RUN": "true",
+    "AUTO_POST_ON_APPROVAL": "false", "AUTO_POST_ON_REGISTER": "false",
+    "OTP_CHANNELS": "none", "DEMO_SEED_ENABLED": "false",
+})
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from test_storage import isolate_test_stores  # noqa: E402
+isolate_test_stores("safety-preview")
 
 import safety  # noqa: E402
 import preview  # noqa: E402
@@ -27,8 +37,11 @@ def check(name, cond, extra=""):
 
 
 def U(tsap, **kw):
-    d = dict(tsap_id=tsap, full_name="User " + tsap[-4:], gender="Bride", age=25, caste="Reddy",
-             district="Hyderabad", state="TS", is_approved=True, phone="9848000000")
+    gender = kw.get("gender", "Bride")
+    d = dict(tsap_id=tsap, full_name="User " + tsap[-4:], gender=gender, age=25, caste="Reddy",
+             district="Hyderabad", state="TS", status="approved", is_approved=True, is_active=True,
+             phone="9848000000", star="Ashwini" if gender == "Bride" else "Rohini",
+             rasi="Mesha" if gender == "Bride" else "Vrishabha", phone_verified=False)
     d.update(kw)
     return d
 
@@ -55,7 +68,9 @@ ok3, _, rec3 = safety.submit_report("TSAP-F-1002", "TSAP-M-2001", "advance_money
 check("rendo high report → AUTO-FLAG (profile hide)", rec3["auto_flagged"] is True and rec3.get("auto_action") == "profile_hidden_for_review")
 tgt = next(u for u in users if u["tsap_id"] == "TSAP-M-2001")
 check("auto-flag target is_approved False + reason", tgt["is_approved"] is False and "auto_flag" in tgt.get("hidden_reason", ""))
-check("report ack Telugu text", "Report" in safety.report_ack_text() and "24" in safety.report_ack_text())
+_ack = safety.report_ack_text()
+check("report acknowledgement confirms review without a false 24-hour promise",
+      "Report" in _ack and "review" in _ack.lower() and "24" not in _ack)
 
 print("=== 3. STATS + MODERATION QUEUE ===")
 st = safety.report_stats(reports)
@@ -75,11 +90,13 @@ print("=== 4. RESOLVE (admin actions) ===")
 rid = reports[0]["id"]
 check("tappu action reject", safety.resolve_report(rid, "delete_everything", "", reports, users)[0] is False)
 check("tappu report id reject", safety.resolve_report("REP-NOPE", "warn", "", reports, users)[0] is False)
-ok, act, _ = safety.resolve_report(rid, "verify", "certificates chusanu", reports, users)
-check("verify action + badge level set", ok and act == "verify" and users[3]["verification_level"] in ("photo", "id"),
-      users[3].get("verification_level"))
+ok, act, resolved = safety.resolve_report(rid, "warn", "review note", reports, users)
+check("moderation warning records an action without granting verification",
+      ok and act == "warn" and users[3].get("warnings") == 1
+      and not safety.has_verification_evidence(users[3]), users[3].get("verification_level"))
 check("same target migilina reports bulk close", all(r["status"] == "resolved" for r in reports if r["target_id"] == "TSAP-M-2001"))
-check("audit note save ayindi", reports[0]["admin_note"] == "certificates chusanu" and reports[0]["action_telugu"])
+check("audit note and action are recorded", resolved.get("admin_note") == "review note"
+      and resolved.get("action_telugu"))
 
 warn_u = U("TSAP-M-3001")
 safety.submit_report("TSAP-F-1003", "TSAP-M-3001", "spam", "", reports, users + [warn_u])
@@ -107,8 +124,15 @@ u = U("TSAP-F-5001")
 b0 = safety.verification_badge(u)
 check("default verification status is none with no trust score", b0["level"] == "none" and "trust_score" not in b0 and "stars" not in b0)
 check("badge Telugu + next step", bool(b0["telugu"]) and "OTP" in b0["next_step_telugu"])
-safety.set_verification(u, "id")
-check("id verify → recorded ID level only", u["verification_level"] == "id" and safety.verification_badge(u)["level"] == "id" and "trust_score" not in safety.verification_badge(u))
+no_evidence, _, _ = safety.set_verification(u, "id")
+check("ID level cannot be self-asserted without recorded evidence",
+      no_evidence is False and safety.verification_badge(u)["level"] == "none")
+u["id_verified"] = True  # test-only fixture for an independently recorded admin review
+verified, _, _ = safety.set_verification(u, "id")
+check("recorded ID-review evidence yields only the ID level",
+      verified and u["verification_level"] == "id" and safety.verification_badge(u)["level"] == "id"
+      and "trust_score" not in safety.verification_badge(u))
+u["phone_verified"] = True
 safety.set_verification(u, "phone")
 check("level DOWNGRADE avvadu (id ne untundi)", u["verification_level"] == "id")
 check("tappu kind reject", safety.set_verification(u, "aadhaar_only")[0] is False)
@@ -120,7 +144,9 @@ print("=== 7. SAFETY TIPS ===")
 tips = safety.safety_tips()
 check("6 tips (advance money, video verify, public place, OTP, certificates, no-chat)", len(tips) == 6, len(tips))
 check("prathi tip ki icon + Telugu", all(t["icon"] and len(t["telugu"]) > 30 for t in tips))
-check("advance money tip lo 'scam' warning", any("scam" in t["telugu"].lower() for t in tips))
+check("advance-money tip asks families to verify and report suspicious requests",
+      any("Registration fee" in t["telugu"] and "report" in t["telugu"].lower()
+          for t in tips))
 check("chatting-ledu line kooda undi", any("chatting" in t["title"].lower() or "chatting" in t["telugu"].lower() for t in tips))
 
 print("=== 8. OG PREVIEW IMAGES (Pillow) ===")
@@ -128,7 +154,7 @@ prof = dict(tsap_id="TSAP-F-7777", full_name="Sri Lakshmi Reddy", age=24, gender
             sub_caste="Pakanati", education="BTech", education_detail="CSE", job="Software Engineer",
             company="TCS", salary="8L", district="Hyderabad", state="TS", star="Rohini", rasi="Vrishabha",
             family_type="Nuclear", family_status="Middle Class", is_verified=True)
-p1 = preview.og_profile_png(prof, "/tmp/previews/test-profile.png")
+p1 = preview.og_profile_png(prof, os.path.join(preview.PREVIEW_DIR, "test-profile.png"))
 check("profile OG generate", bool(p1) and os.path.exists(p1))
 with open(p1, "rb") as f:
     sig = f.read(8)
@@ -142,10 +168,11 @@ except Exception as e:
 p2 = preview.og_porutham_png(prof, dict(prof, tsap_id="TSAP-M-7777", gender="Groom", full_name="Ravi Kumar"),
                             {"available": True, "passed_checks": 1, "total_checks": 2, "items": [
                                 {"no": 1, "name": "Rasi Porutham", "pass": True}, {"no": 5, "name": "Rajju Porutham", "pass": False}]},
-                            "/tmp/previews/test-porutham.png")
+                            os.path.join(preview.PREVIEW_DIR, "test-porutham.png"))
 check("porutham OG generate", bool(p2) and os.path.exists(p2))
 check("porutham OG size", Image.open(p2).size == (1200, 630))
-p3 = preview.og_generic_png("Reddy Bride Hyderabad", "24 profiles • 3 FREE requests", "/tmp/previews/test-site.png", "sitepage")
+p3 = preview.og_generic_png("Reddy Bride Hyderabad", "24 profiles • 3 FREE requests",
+                            os.path.join(preview.PREVIEW_DIR, "test-site.png"), "sitepage")
 check("generic OG generate", bool(p3) and os.path.exists(p3))
 
 print("=== 9. API ENDPOINTS (TestClient) ===")
@@ -153,6 +180,14 @@ try:
     from fastapi.testclient import TestClient
     import main
 
+    # Use only explicitly synthetic, isolated profiles; never read/write the normal store.
+    main.DB_USERS[:] = [
+        U("TSAP-F-API5001", gender="Bride", full_name="Safety Test Bride", phone="9848010001"),
+        U("TSAP-M-API5001", gender="Groom", full_name="Safety Test Groom", phone="9848010002"),
+    ]
+    main.DB_REPORTS[:] = []
+    main.DB_BLOCKS[:] = []
+    admin_headers = {"X-Admin-Key": os.environ["ADMIN_KEY"]}
     with TestClient(main.app) as c:
         r = c.get("/api/safety/tips")
         d = r.json()
@@ -170,12 +205,16 @@ try:
         check("tappu category → 400", c.post("/api/report", json={"reporter_id": b["tsap_id"], "target_id": g["tsap_id"],
                                                                 "category": "nope"}).status_code == 400)
 
-        rq = c.get("/api/moderation/queue").json()
-        check("GET /api/moderation/queue 200", rq["open"] >= 1 and len(rq["items"]) >= 1)
+        rq_resp = c.get("/api/moderation/queue", headers=admin_headers)
+        rq = rq_resp.json()
+        check("GET /api/moderation/queue 200", rq_resp.status_code == 200
+              and rq["open"] >= 1 and len(rq["items"]) >= 1)
         rid = rq["items"][0]["report_id"]
-        r = c.post("/api/moderation/resolve/%s" % rid, json={"action": "warn", "note": "modati warning"})
+        r = c.post("/api/moderation/resolve/%s" % rid,
+                   json={"action": "warn", "note": "modati warning"}, headers=admin_headers)
         check("POST /api/moderation/resolve 200", r.status_code == 200 and r.json()["success"], r.status_code)
-        check("tappu action resolve → 400", c.post("/api/moderation/resolve/%s" % rid, json={"action": "zzz"}).status_code == 400)
+        check("tappu action resolve → 400", c.post("/api/moderation/resolve/%s" % rid,
+              json={"action": "zzz"}, headers=admin_headers).status_code == 400)
 
         r = c.post("/api/block", json={"owner": b["tsap_id"], "blocked": g["tsap_id"], "reason": "test"})
         check("POST /api/block 200 + Telugu msg", r.status_code == 200 and "Block" in r.json()["message_telugu"])
@@ -193,9 +232,15 @@ try:
         check("POST /api/unblock 200", r.status_code == 200 and r.json()["success"])
 
         r = c.post("/api/verify/request", json={"tsap_id": b["tsap_id"], "kind": "photo"})
-        check("POST /api/verify/request 200", r.status_code == 200 and r.json()["verification"]["level"] in ("photo", "id"))
+        check("POST /api/verify/request rejects photo badge without review evidence",
+              r.status_code == 400 and not b.get("is_verified"), r.status_code)
         rv = c.get("/api/verification/%s" % b["tsap_id"]).json()
-        check("GET /api/verification/{id} exposes recorded level only", rv["level"] in ("photo", "id") and "trust_score" not in rv and "stars" not in rv)
+        check("GET /api/verification/{id} exposes none without evidence and no trust score",
+              rv["level"] == "none" and "trust_score" not in rv and "stars" not in rv)
+        b["phone_verified"] = True  # isolated server-side OTP evidence fixture
+        r = c.post("/api/verify/request", json={"tsap_id": b["tsap_id"], "kind": "phone"})
+        check("POST /api/verify/request returns only the recorded OTP level",
+              r.status_code == 200 and r.json()["verification"]["level"] == "phone")
         check("tappu kind → 400", c.post("/api/verify/request", json={"tsap_id": b["tsap_id"], "kind": "nope"}).status_code == 400)
 
         og = c.get("/api/og/profile/%s.png" % b["tsap_id"])

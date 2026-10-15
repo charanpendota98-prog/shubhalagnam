@@ -1,11 +1,11 @@
 """
 📡 WAVE 15 — CHANNEL MAPPER (admin: links + bulk import + coverage)
 ====================================================================
-User (owner) Telegram/WhatsApp channel links istharu → perfect mapping:
+Owner-configured Telegram/WhatsApp links are mapped by registry key; URL shape does not prove availability:
   • effective(): CHANNELS + admin overrides (telegram/whatsapp links, active, note)
   • set_link(): per-channel links edit (URL validate)
   • import_bulk(): paste list (`label | tg-link | wa-link`) → fuzzy match → 1-click apply
-  • coverage(): tier-wise live counts + critical gaps (TS/AP × Bride/Groom, religions…)
+  • coverage(): tier-wise routing-eligibility counts + critical config gaps (not external health)
 Overrides chanmap15.json lo persist (base CHANNELS code ni touch cheyyamu).
 """
 from __future__ import annotations
@@ -84,6 +84,7 @@ def _base_links(key: str) -> Dict:
 
 def effective() -> List[Dict]:
     """అన్నీ channels + admin links merged (admin table + public links కి)."""
+    from channels_config import _routing_is_explicit
     out = []
     for key, c in _channels().items():
         o = OVERRIDES.get(key, {})
@@ -104,7 +105,8 @@ def effective() -> List[Dict]:
         cluster = c.get("cluster", "") or (route.get("cluster", "") if isinstance(route, dict) else "")
         audience = "both" if not gender else ("bride" if str(gender).lower() == "bride" else "groom")
         out.append({"key": key, "tier": c.get("tier", ""), "name": c.get("name", key),
-                    "username": c.get("username", ""), "live": bool(c.get("live", False)),
+                    "username": c.get("username", ""), "routing_eligible": _routing_is_explicit(c),
+                    "external_status_checked": False,
                     "route": route, "gender": gender, "state": state, "cluster": cluster,
                     "category": c.get("category", ""), "members": list(c.get("members", []))[:40],
                     "audience": audience, "split_by_gender": bool(gender),
@@ -136,21 +138,21 @@ def set_link(key: str, telegram_link: str = "", whatsapp_link: str = "",
              active: bool = True, note: str = "") -> Dict:
     key = str(key or "").strip()
     if key not in _channels():
-        return {"success": False, "message_telugu": "⚠️ Channel key దొరకలేదు"}
+        return {"success": False, "message_telugu": "⚠️ Channel key దొరకలేదు", "message_en": "The channel key was not found."}
     tg, wa = str(telegram_link or "").strip(), str(whatsapp_link or "").strip()
     for url, label, validator in (
         (tg, "Telegram", _valid_telegram_url),
         (wa, "WhatsApp", _valid_whatsapp_url),
     ):
         if url and len(url) > 300:
-            return {"success": False, "message_telugu": f"⚠️ {label} link too long"}
+            return {"success": False, "message_telugu": f"⚠️ {label} link too long", "message_en": f"The {label} link is too long."}
         if url and not validator(url):
-            return {"success": False, "message_telugu": f"⚠️ Valid HTTPS {label} channel/invite link ఇవ్వండి"}
+            return {"success": False, "message_telugu": f"⚠️ Valid HTTPS {label} channel/invite link ఇవ్వండి", "message_en": f"Enter a valid HTTPS {label} channel or invite link."}
     OVERRIDES[key] = {"telegram_link": tg, "whatsapp_link": wa, "active": bool(active),
                       "note": str(note or "").strip()[:200], "updated_at": _now()}
     _persist()
     return {"success": True, "channel": next(e for e in effective() if e["key"] == key),
-            "message_telugu": f"✅ {key} links save అయ్యాయి"}
+            "message_telugu": f"✅ {key} links save అయ్యాయి", "message_en": f"Links saved for {key}. External availability is not verified."}
 
 
 def _score(label: str, entry: Dict) -> float:
@@ -178,9 +180,10 @@ def import_bulk(text: str, auto_apply: bool = False, threshold: float = 0.45) ->
     matched, unmatched, applied = [], [], []
     lines = [l.strip() for l in str(text or "").splitlines() if l.strip() and not l.strip().startswith("#")]
     if not lines:
-        return {"success": False, "message_telugu": "⚠️ Lines లేవు — `Label | tg-link | wa-link` format లో paste చెయ్యండి"}
+        return {"success": False, "message_telugu": "⚠️ Lines లేవు — `Label | tg-link | wa-link` format లో paste చెయ్యండి",
+                "message_en": "Paste at least one line in Label | Telegram link | WhatsApp link format."}
     if len(lines) > 200:
-        return {"success": False, "message_telugu": "⚠️ ఒక్క సరి 200 lines max"}
+        return {"success": False, "message_telugu": "⚠️ ఒక్క సరి 200 lines max", "message_en": "Import up to 200 lines at a time."}
     for ln in lines[:200]:
         parts = [p.strip() for p in re.split(r"\s*\|\s*|\t", ln) if p.strip()]
         if len(parts) < 2:
@@ -224,34 +227,44 @@ def import_bulk(text: str, auto_apply: bool = False, threshold: float = 0.45) ->
                               "hint": f"best guess: {best['key']} ({round(score,2)})" if best else "no guess"})
     _persist()
     return {"success": True, "matched": matched, "unmatched": unmatched, "applied": applied,
-            "message_telugu": f"✅ {len(matched)} match • {len(unmatched)} manual కావాలి" + (f" • {len(applied)} save" if auto_apply else "")}
+            "message_telugu": f"✅ {len(matched)} match • {len(unmatched)} manual కావాలి" + (f" • {len(applied)} save" if auto_apply else ""),
+            "message_en": f"{len(matched)} matched; {len(unmatched)} need manual review" + (f"; {len(applied)} saved" if auto_apply else "") + "."}
 
 
 CRITICAL_KEYS = ["official", "ts_bride", "ts_groom", "ap_bride", "ap_groom", "nri_global",
-                 "hindu", "muslim_ts_bride", "christian_ts_bride"]
+                 "hindu", "muslim_bride", "christian_bride"]
 
 
 def coverage() -> Dict:
-    """Tier-wise live/active + critical gaps — admin dashboard కి."""
+    """Admin registry coverage; counts eligibility flags, not external channel health."""
     eff = effective()
     by_tier: Dict[str, Dict] = {}
-    for e in eff:
-        t = by_tier.setdefault(e["tier"] or "?", {"total": 0, "live": 0, "with_wa": 0,
-                                                  "inactive": 0, "pending_keys": []})
-        t["total"] += 1
-        if e["live"]:
-            t["live"] += 1
-        if e["whatsapp"]:
-            t["with_wa"] += 1
-        if not e["active"]:
-            t["inactive"] += 1
-        elif not e["live"] and len(t["pending_keys"]) < 30:
-            t["pending_keys"].append(e["key"])
-    by_key = {e["key"]: e for e in eff}
-    gaps = [k for k in CRITICAL_KEYS if not (by_key.get(k) or {}).get("live")]
-    return {"success": True, "total": len(eff),
-            "live": sum(1 for e in eff if e["live"]),
-            "with_whatsapp": sum(1 for e in eff if e["whatsapp"]),
-            "customized": sum(1 for e in eff if e["customized"]),
-            "by_tier": by_tier, "critical_gaps": gaps,
-            "message_telugu": f"📡 {len(eff)} channels • {sum(1 for e in eff if e['live'])} live" + (f" • gaps: {', '.join(gaps)}" if gaps else " • critical అన్నీ live ✅")}
+    for entry in eff:
+        tier = by_tier.setdefault(entry["tier"] or "?", {
+            "total": 0, "routing_eligible": 0, "with_wa": 0,
+            "inactive": 0, "pending_keys": [],
+        })
+        tier["total"] += 1
+        if entry["routing_eligible"]:
+            tier["routing_eligible"] += 1
+        if entry["whatsapp"]:
+            tier["with_wa"] += 1
+        if not entry["active"]:
+            tier["inactive"] += 1
+        elif not entry["routing_eligible"] and len(tier["pending_keys"]) < 30:
+            tier["pending_keys"].append(entry["key"])
+    by_key = {entry["key"]: entry for entry in eff}
+    gaps = [key for key in CRITICAL_KEYS if not (by_key.get(key) or {}).get("routing_eligible")]
+    eligible = sum(1 for entry in eff if entry["routing_eligible"])
+    return {
+        "success": True,
+        "total": len(eff),
+        "routing_eligible": eligible,
+        "with_whatsapp": sum(1 for entry in eff if entry["whatsapp"]),
+        "customized": sum(1 for entry in eff if entry["customized"]),
+        "by_tier": by_tier,
+        "critical_gaps": gaps,
+        "external_status_checked": False,
+        "message_telugu": f"📡 {len(eff)} listings • {eligible} registry routing flags (external availability/permissions unchecked)"
+                         + (f" • gaps: {', '.join(gaps)}" if gaps else ""),
+    }

@@ -1,20 +1,20 @@
 """
-🌊 WAVE 14 TEST SUITE — PERFECT MATCH + ADMIN SUPREME
-=====================================================
-  A. age-rule pure (1-day-older block, same-day OK, 0–12mo first, fallback, unknown)
-  B. profession pure (job_group + affinity + rerank order, score math intact)
-  C. NRI pure (detect_nri country/location/india)
-  D. religion→community options (Hindu A–Z + self-description, Muslim/Christian + aliases)
-  E. age API (interest block + credit intact + top-matches skip/flag + score + match-send)
-  F. profession API (same-group first ordering + scores unchanged + labels)
-  G. NRI API (register country + search nri_only + profile fields + top-matches nri_only)
-  H. safe-pay manual (config + order + offer + UTR confirm + idempotent + guards)
-  I. safe-pay razorpay (HMAC ok/tamper/replay — env keys)
-  J. offers admin (seed/create/duplicate/toggle/expiry)
+🌊 WAVE 14 TEST SUITE — FACT-ONLY MATCH FILTERS + ADMIN SAFETY
+==============================================================
+  A. age comparisons are descriptive only (DOB, fallback, unknown)
+  B. profession observations do not add compatibility or ranking scores
+  C. NRI classification (explicit country/member-entered location)
+  D. religion→community options (alphabetized lists + self-description + aliases)
+  E. API matching is not blocked or ranked by age/name/gothram
+  F. profession facts do not alter recency/explicit-filter ordering
+  G. NRI API (country + search filter + profile fields)
+  H. payment configuration fails closed without a real merchant destination
+  I. Razorpay HMAC flow through an isolated sandbox stub (valid/tamper/replay)
+  J. offer creation, quote math, toggle and expiry (no payment implied)
   K. ads update (dates/districts/days + guards)
-  L. bot matches (top-3 text, masked, skips)
-  M. meta endpoints (religions + castes)
-  N. regression guards (surname/gothram fields intact, score math untouched)
+  L. bot matches (top-3 facts, masked, recency-limited)
+  M. meta endpoints (religions + communities)
+  N. legacy name/gothram/age filters do not create eligibility or scores
 
 Run:  WA_TEST_FAST=1 python3 test_wave14_full.py   (backend/ nunchi)
 """
@@ -58,7 +58,7 @@ def check(name, cond, extra=None):
         print(f"  ❌ {name} :: {str(extra)[:220]}")
 
 
-from fastapi.testclient import TestClient
+from testutil_client import TestClient
 import hardening as H
 import main
 import matchpro as MP
@@ -76,6 +76,13 @@ try:
 except OSError:
     pass
 
+# Keep real payment credentials out of test requests; the Razorpay section uses
+# synthetic sandbox values and a local network stub, restored before exit.
+_PAYMENT_ENV_KEYS = ("PAY_UPI_ID", "RAZORPAY_KEY_ID", "RAZORPAY_KEY_SECRET", "RAZORPAY_KEY", "RAZORPAY_SECRET")
+_PAYMENT_ENV_ORIGINAL = {key: os.environ.get(key) for key in _PAYMENT_ENV_KEYS}
+for _key in _PAYMENT_ENV_KEYS:
+    os.environ.pop(_key, None)
+
 # ═══════════════════════════════════════════════════════════════════════════
 section("A. AGE-RULE PURE (DOB-date accurate)")
 # ═══════════════════════════════════════════════════════════════════════════
@@ -90,7 +97,8 @@ check("A1 reports one-day DOB difference without blocking", r["blocked"] is Fals
       and r["via"] == "dob", r)
 check("A2 note asks users to verify member-entered dates", "స్వతంత్రంగా నిర్ధారించండి" in r["note_telugu"])
 r = MP.age_rule_check(G, B_OLDER1)   # direction flip
-check("A3 date difference is direction-independent in magnitude", r["blocked"] is False and r["gap_days"] == 1)
+check("A3 date-difference magnitude is direction-independent",
+      r["blocked"] is False and abs(r["gap_days"]) == 1)
 r = MP.age_rule_check(B_SAME, G)
 check("A4 same-day comparison is factual only", r["blocked"] is False and r["gap_days"] == 0, r)
 check("A5 ages never change the priority key",
@@ -139,7 +147,8 @@ check("B11 profession helper preserves input rows", rr == rows)
 section("C. NRI PURE")
 # ═══════════════════════════════════════════════════════════════════════════
 check("C1 USA → NRI", MP.detect_nri("USA", "", "")["is_nri"] is True)
-check("C2 India → local", MP.detect_nri("India", "", "") == {"is_nri": False, "country": "India", "via": "india"})
+check("C2 India → local, with explicit-country provenance",
+      MP.detect_nri("India", "", "") == {"is_nri": False, "country": "India", "via": "country"})
 check("C3 empty → local India", MP.detect_nri("", "", "")["is_nri"] is False)
 check("C4 Dallas location → NRI", MP.detect_nri("", "Dallas, USA", "")["is_nri"] is True)
 check("C5 Hyderabad → local", MP.detect_nri("India", "Hyderabad", "Hyderabad")["is_nri"] is False)
@@ -151,7 +160,8 @@ section("D. RELIGION→CASTE PURE")
 check("D1 7 religions", MP.RELIGIONS == ["Hindu", "Muslim", "Christian", "Sikh", "Jain", "Buddhist", "Other"])
 h = MP.castes_for("Hindu")
 check("D2 Hindu community list includes local and self-described options", len(h["castes"]) >= 50 and "Other / self-described" in h["castes"], len(h["castes"]))
-check("D3 Hindu A–Z sorted", h["castes"] == sorted(h["castes"]) and h["castes"][0] == "Adi Andhra", h["castes"][:3])
+check("D3 Hindu communities alphabetize case-insensitively",
+      h["castes"] == MP._alpha_unique(h["castes"]) and h["castes"][0] == "Adi Andhra", h["castes"][:3])
 m = MP.castes_for("Muslim")
 check("D4 Muslim groups A–Z", "Syed" in m["castes"] and m["castes"] == sorted(m["castes"]), m["castes"][:3])
 c = MP.castes_for("Christian")
@@ -164,7 +174,8 @@ section("E–G. API REGISTERS (age + profession + NRI)")
 # ═══════════════════════════════════════════════════════════════════════════
 client.post("/api/demo/seed")
 BASE = {"height": "5'6\"", "marital_status": "Pelli Kaledu", "education": "BTech",
-        "salary": "60k", "state": "TS", "district": "Hyderabad", "religion": "Hindu"}
+        "salary": "60k", "state": "TS", "district": "Hyderabad", "religion": "Hindu",
+        "password": "test-profile-password"}
 GG = dict(BASE, gender="Groom", age="27", dob="1998-05-10", phone="9948011111",
           full_name="Wave Fourteen Groom Alpuri", job="Doctor", caste="Reddy", gothram="GTA")
 BB1 = dict(BASE, gender="Bride", age="27", dob="1998-05-09", phone="9948022222",
@@ -251,58 +262,47 @@ check("G5 local profile is_nri False",
       client.get(f"/api/search/{B2}").json().get("profile", {}).get("is_nri") is False)
 
 # ═══════════════════════════════════════════════════════════════════════════
-section("H. SAFE-PAY MANUAL-UPI")
+section("H. SAFE PAYMENTS FAIL CLOSED")
 # ═══════════════════════════════════════════════════════════════════════════
 cfg = client.get("/api/pay/config").json()
-check("H1 config manual mode (no keys)", cfg.get("success") and cfg.get("mode") == "manual_upi"
-      and "secret" not in str(cfg).lower().replace("razorpay secure", ""), cfg)
-check("H2 config has plans + offers + upi", "plans" in cfg and "offers" in cfg and "upi_id" in cfg)
-o1 = client.post("/api/pay/order", json={"tsap_id": GID, "purpose": "credits", "ref": "S_99"}).json()
-check("H3 order S_99 server amount", o1.get("success") and o1["pay_order"]["final_amount"] == 99
-      and o1["pay_order"]["mode"] == "manual_upi", o1)
-PO1 = o1["pay_order"]["id"]
-bad = client.post("/api/pay/order", json={"tsap_id": GID, "purpose": "credits", "ref": "FREE"})
-check("H4 FREE ref reject", bad.status_code == 400, bad.status_code)
-bad2 = client.post("/api/pay/order", json={"tsap_id": GID, "purpose": "lottery", "ref": "X"})
-check("H5 bad purpose reject", bad2.status_code == 400, bad2.status_code)
-bad3 = client.post("/api/pay/order", json={"tsap_id": GID, "purpose": "credits", "ref": "S_99",
-                                            "offer_code": "BOGUS99"})
-check("H6 bad offer reject", bad3.status_code == 400, bad3.status_code)
+check("H1 no provider or merchant destination reports unconfigured",
+      cfg.get("success") and cfg.get("mode") == "unconfigured" and not cfg.get("upi_id")
+      and "secret" not in str(cfg).lower(), cfg)
+orders_before = len(PP.PAY_ORDERS)
+unconfigured_order = client.post("/api/pay/order", json={
+    "tsap_id": GID, "purpose": "credits", "ref": "S_99", "amount": 1
+})
+check("H2 checkout fails closed without a real configured destination",
+      unconfigured_order.status_code == 400 and "unavailable" in unconfigured_order.json().get("detail", "").lower()
+      and len(PP.PAY_ORDERS) == orders_before, unconfigured_order.text[:160])
+bad_purpose = client.post("/api/pay/order", json={
+    "tsap_id": GID, "purpose": "lottery", "ref": "X", "amount": 1
+})
+check("H3 unknown payment purpose is rejected", bad_purpose.status_code == 400, bad_purpose.status_code)
+bad_offer = client.post("/api/pay/order", json={
+    "tsap_id": GID, "purpose": "credits", "ref": "S_99", "offer_code": "BOGUS99"
+})
+check("H4 invalid offer is rejected without creating an order",
+      bad_offer.status_code == 400 and len(PP.PAY_ORDERS) == orders_before, bad_offer.status_code)
 seed = client.post("/api/admin/offers/seed", json={"valid_from": "2020-01-01", "valid_to": "2030-12-31"},
                    headers=HDR_ADMIN).json()
-check("H7 festival seed 4", seed.get("success") and len(seed.get("added", [])) == 4, seed)
-o2 = client.post("/api/pay/order", json={"tsap_id": GID, "purpose": "credits", "ref": "S_199",
-                                          "offer_code": "diwali25"}).json()
-po2 = o2.get("pay_order", {})
-check("H8 DIWALI25 25% off 199", o2.get("success") and po2.get("discount") == 49
-      and po2.get("final_amount") == 150, po2)
-PO2 = po2.get("id", "")
-st = client.get(f"/api/pay/status/{PO1}").json()
-check("H9 status created + no secrets", st.get("success") and st["order"]["status"] == "created"
-      and "signature" not in st["order"] and "payment_id" not in st["order"], st)
-cr0 = next(u for u in main.DB_USERS if u["tsap_id"] == GID).get("credits", 0)
-cf_noutr = client.post(f"/api/admin/payments/{PO1}/confirm", json={}, headers=HDR_ADMIN)
-check("H10 UTR lekunda confirm NO", cf_noutr.status_code == 400, cf_noutr.status_code)
-cf = client.post(f"/api/admin/payments/{PO1}/confirm", json={"utr": "411111111111"}, headers=HDR_ADMIN).json()
-check("H11 UTR confirm fulfill", cf.get("success") and "success" in cf.get("message_telugu", ""), cf)
-cr1 = next(u for u in main.DB_USERS if u["tsap_id"] == GID).get("credits", 0)
-check("H12 S_99 → +5 credits", cr1 - cr0 == 5, (cr0, cr1))
-cf2 = client.post(f"/api/admin/payments/{PO1}/confirm", json={"utr": "411111111111"}, headers=HDR_ADMIN).json()
-cr2 = next(u for u in main.DB_USERS if u["tsap_id"] == GID).get("credits", 0)
-check("H13 double-confirm idempotent", cf2.get("duplicate") is True and cr2 == cr1, (cf2, cr2))
-vf = client.post("/api/pay/verify", json={"order_id": PO2, "razorpay_order_id": "o1",
-                                           "razorpay_payment_id": "p1", "razorpay_signature": "s1"})
-check("H14 manual mode lo online-verify honest-fail", vf.status_code == 400, vf.status_code)
-al = client.get("/api/admin/payments", headers=HDR_ADMIN).json()
-check("H15 admin payments list + stats", al.get("success") and al.get("count", 0) >= 2
-      and al.get("stats", {}).get("paid", 0) >= 1, al.get("stats"))
-_saved_fast = os.environ.pop("WA_TEST_FAST", None)   # enforcement ON (temp)
+check("H5 admin can seed offers without creating a payment",
+      seed.get("success") and len(seed.get("added", [])) == 4 and len(PP.PAY_ORDERS) == orders_before, seed)
+valid_offer = PP.validate_offer("DIWALI25", "credits", 99, GID)
+check("H6 offer quote can be validated without implying payment",
+      valid_offer.get("ok") is True and 0 < valid_offer.get("discount", 0) < 99
+      and valid_offer.get("final_amount") + valid_offer.get("discount") == 99, valid_offer)
+invalid_offer = PP.validate_offer("NO-SUCH-OFFER", "credits", 99, GID)
+check("H7 unknown offer fails validation", invalid_offer.get("ok") is False, invalid_offer)
+_saved_fast = os.environ.pop("WA_TEST_FAST", None)
 noauth = client.get("/api/admin/payments")
-check("H16 admin key lekunda 403", noauth.status_code == 403, noauth.status_code)
-noauth2 = client.get("/api/admin/payments", headers=HDR_ADMIN)
-check("H17 admin key tho OK", noauth2.status_code == 200, noauth2.status_code)
+check("H8 payment queue remains protected", noauth.status_code == 403, noauth.status_code)
 if _saved_fast is not None:
     os.environ["WA_TEST_FAST"] = _saved_fast
+admin_payments = client.get("/api/admin/payments", headers=HDR_ADMIN).json()
+check("H9 no unconfigured order appears in the payment queue",
+      admin_payments.get("success") is True and admin_payments.get("count") == 0
+      and admin_payments.get("stats", {}).get("total", 0) == 0, admin_payments)
 
 # ═══════════════════════════════════════════════════════════════════════════
 section("I. SAFE-PAY RAZORPAY (HMAC)")
@@ -355,6 +355,11 @@ check("I7 failed order stays created", st4["order"]["status"] == "created", st4[
 _PP14._rzp_create_order = _PPx
 os.environ.pop("RAZORPAY_KEY_ID", None)
 os.environ.pop("RAZORPAY_KEY_SECRET", None)
+for _key, _value in _PAYMENT_ENV_ORIGINAL.items():
+    if _value is None:
+        os.environ.pop(_key, None)
+    else:
+        os.environ[_key] = _value
 
 # ═══════════════════════════════════════════════════════════════════════════
 section("J. OFFERS ADMIN")
@@ -366,22 +371,20 @@ co = client.post("/api/admin/offers", json={"code": "W14FLAT", "title": "Wave14 
 check("J1 create flat offer", co.get("success") and co["offer"]["code"] == "W14FLAT", co)
 dup = client.post("/api/admin/offers", json={"code": "W14FLAT", "flat_off": 10}, headers=HDR_ADMIN)
 check("J2 duplicate code reject", dup.status_code == 400, dup.status_code)
-of = client.post("/api/pay/order", json={"tsap_id": GID, "purpose": "credits", "ref": "S_99",
-                                          "offer_code": "W14FLAT"}).json()
-check("J3 flat 30 off 99 → 69", of.get("success") and of["pay_order"]["final_amount"] == 69, of)
+of = PP.validate_offer("W14FLAT", "credits", 99, GID)
+check("J3 flat 30 off 99 → 69 is quote math only",
+      of.get("ok") and of.get("final_amount") == 69 and of.get("discount") == 30, of)
 tg = client.post("/api/admin/offers/W14FLAT/toggle", headers=HDR_ADMIN).json()
 check("J4 toggle OFF", tg.get("success") and tg["offer"]["active"] is False, tg)
-of2 = client.post("/api/pay/order", json={"tsap_id": GID, "purpose": "credits", "ref": "S_99",
-                                           "offer_code": "W14FLAT"})
-check("J5 OFF offer reject", of2.status_code == 400, of2.status_code)
+of2 = PP.validate_offer("W14FLAT", "credits", 99, GID)
+check("J5 OFF offer rejected without attempting payment", of2.get("ok") is False, of2)
 client.post("/api/admin/offers/W14FLAT/toggle", headers=HDR_ADMIN)
 exp = client.post("/api/admin/offers", json={"code": "W14OLD", "pct_off": 50, "applies_to": "credits",
                                               "valid_from": "2020-01-01", "valid_to": "2020-02-01"},
                   headers=HDR_ADMIN).json()
-check("J6 expired offer create ok (enforce at use)", exp.get("success"), exp)
-exp2 = client.post("/api/pay/order", json={"tsap_id": GID, "purpose": "credits", "ref": "S_99",
-                                            "offer_code": "W14OLD"})
-check("J7 expired use reject", exp2.status_code == 400, exp2.status_code)
+check("J6 expired offer can be recorded (enforce at use)", exp.get("success"), exp)
+exp2 = PP.validate_offer("W14OLD", "credits", 99, GID)
+check("J7 expired offer fails quote validation", exp2.get("ok") is False and exp2.get("reason") == "expired", exp2)
 la = client.get("/api/admin/offers", headers=HDR_ADMIN).json()
 check("J8 admin offers list", la.get("success") and la.get("count", 0) >= 6, la.get("count"))
 pub = client.get("/api/offers/active").json()
@@ -429,8 +432,8 @@ check("L2 bot text describes profiles to review + /view", "profiles to review" i
 check("L3 bot masked (no phone)", not PHONE_RE.findall(bot.get("text", "")))
 check("L4 bot uses recency order with no invented exclusion counters",
       bot.get("ranking_basis") == "creation_time_descending" and "skipped" not in bot)
-check("L5 older-than-groom profile can still appear in review list",
-      B1 in [m.get("tsap_id") for m in bot.get("matches", [])])
+check("L5 older-than-groom profile remains eligible in the full review pool",
+      B1 in ids and tm.get("legacy_exclusion_flags_ignored") is True)
 bot404 = client.get("/api/bot/matches?tsap_id=BOGUS-ID")
 check("L6 bogus ID 404", bot404.status_code == 404, bot404.status_code)
 
@@ -445,7 +448,7 @@ mc2 = client.get("/api/meta/castes?religion=Hindu").json()
 _hindu_community_options = MP.castes_for("Hindu")["castes"]
 check("M3 Hindu community API includes alphabetized self-description option",
       mc2.get("success") and mc2.get("castes") == _hindu_community_options
-      and _hindu_community_options == sorted(_hindu_community_options)
+      and _hindu_community_options == MP._alpha_unique(_hindu_community_options)
       and "Other / self-described" in _hindu_community_options,
       {"api_count": len(mc2.get("castes", [])), "expected_count": len(_hindu_community_options)})
 

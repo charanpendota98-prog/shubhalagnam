@@ -3,7 +3,7 @@
 ==============================================================================
   A. db_store (roundtrip, atomic, corrupt-proof, verified set)
   B. CORS (PUT/PATCH/DELETE allowed)
-  C. unlock auth (401 no-token enforced, owner-token ok, automation ok)
+  C. unlock auth and consent (409 before accepted interest; owner/bot unlock only after consent)
   D. link-telegram (last4 must match, unknown 404)
   E. bot headers (5 sites send X-Api-Key) + startup warn
 
@@ -16,6 +16,8 @@ os.environ.setdefault("WA_TEST_FAST", "1")
 os.environ.setdefault("OTP_DEV_MODE", "true")
 os.environ.setdefault("WA_LONG_PAUSE_CHANCE", "0")
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from test_storage import isolate_test_stores  # noqa: E402
+_TEST_STORE = isolate_test_stores("wave22-consent")
 
 PASS, FAIL, FAILED = 0, 0, []
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -75,6 +77,7 @@ section("C. unlock auth")
 import hardening as H
 
 _users_snap = list(M.DB_USERS)
+_interests_snap = list(M.DB_INTERESTS)
 _old_fast = os.environ.get("WA_TEST_FAST")
 _old_key = H.API_KEY
 try:
@@ -84,11 +87,13 @@ try:
                        "credits": 0, "gender": "Bride"})
     tok = H.sign_token("TSAP-M-2022-1")
     c = TestClient(M.app)
-    # open mode (test fast) — old behavior intact
+    # Test mode may relax request authentication, but never profile-owner consent.
     r0 = c.post("/api/unlock", json={"viewer_id": "TSAP-M-2022-1", "target_id": "TSAP-F-2022-2"})
-    check("C1 test-mode unlock works (no token)", r0.status_code == 200 and r0.json().get("success") is True,
-          (r0.status_code, r0.json()))
-    # enforced mode
+    check("C1 test-mode unlock still requires accepted-interest consent",
+          r0.status_code == 409 and r0.json().get("reason") == "consent_required"
+          and "phone" not in r0.json(), (r0.status_code, r0.json()))
+    M.DB_INTERESTS.append({"from_id": "TSAP-M-2022-1", "to_id": "TSAP-F-2022-2", "status": "accepted"})
+    # Enforced mode verifies identity in addition to the independent consent gate.
     os.environ["WA_TEST_FAST"] = "0"
     H.API_KEY = "w22testkey"
     check("C2 enforced now on", H.auth_enforced() is True)
@@ -96,16 +101,19 @@ try:
     check("C3 no token → 401 (IDOR closed)", r1.status_code == 401, r1.status_code)
     r2 = c.post("/api/unlock", json={"viewer_id": "TSAP-M-2022-1", "target_id": "TSAP-F-2022-2"},
                 headers={"X-Tsap-Token": tok})
-    check("C4 owner token → 200", r2.status_code == 200, (r2.status_code, r2.text[:120]))
+    check("C4 owner token + accepted interest → 200",
+          r2.status_code == 200 and r2.json().get("success") is True, (r2.status_code, r2.text[:120]))
     r3 = c.post("/api/unlock", json={"viewer_id": "TSAP-M-2022-1", "target_id": "TSAP-F-2022-2"},
                 headers={"X-Api-Key": "w22testkey"})
-    check("C5 automation key → 200 (bot path)", r3.status_code == 200, r3.status_code)
+    check("C5 automation key + accepted interest → 200 (bot path)",
+          r3.status_code == 200 and r3.json().get("success") is True, (r3.status_code, r3.text[:120]))
     r4 = c.get("/api/unlocks/TSAP-M-2022-1")
     check("C6 unlocks list no token → 401", r4.status_code == 401, r4.status_code)
     r5 = c.get("/api/unlocks/TSAP-M-2022-1", headers={"X-Tsap-Token": tok})
     check("C7 unlocks list owner → 200", r5.status_code == 200, r5.status_code)
 finally:
     M.DB_USERS[:] = _users_snap
+    M.DB_INTERESTS[:] = _interests_snap
     if _old_fast is None:
         os.environ.pop("WA_TEST_FAST", None)
     else:
@@ -129,7 +137,8 @@ section("E. bot + startup static")
 _src = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "telegram_bot.py"), encoding="utf-8").read()
 check("E1 _api_headers helper", "def _api_headers" in _src and "X-Api-Key" in _src)
 check("E2 all 5 API sites send headers", _src.count("headers=_api_headers()") >= 5, _src.count("headers=_api_headers()"))
-check("E3 /link asks LAST4", "LAST4" in _src and "phone_last4" in _src)
+check("E3 /link explains the registered phone's last four digits",
+      "last 4" in _src.lower() and "phone_last4" in _src)
 _msrc = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "main.py"), encoding="utf-8").read()
 check("E4 startup warns without TSAP_API_KEY", "TSAP_API_KEY" in _msrc and "bot automation" in _msrc)
 check("E5 middleware autosave wired", "DBSTORE.save(DBSTORE.snapshot" in _msrc)

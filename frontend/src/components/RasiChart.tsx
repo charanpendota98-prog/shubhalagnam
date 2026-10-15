@@ -4,6 +4,7 @@
  * Backend /api/astro/chart data nunchi: 12 fixed houses + Moon house highlight.
  * Lagna/planets manaki teliyavu kabatti honest Moon-only chart.
  */
+import { apiDisplayMessage } from "@/lib/api";
 import { RASIS } from "@/lib/telugu-data";
 import { useLang } from "@/lib/lang";
 
@@ -36,10 +37,14 @@ export default function RasiChart({ houses, moonHouse, star, rasi, note, title }
     );
   }
   const teName = (h: number) => RASIS[h - 1]?.te || "";
+  const enName = (h: House) => h.rasi_en || RASIS[h.house - 1]?.en || `House ${h.house}`;
+  const safeNote = te ? note : apiDisplayMessage({ message_en: note }, false, "");
+  const displayStar = te ? star : apiDisplayMessage({ message_en: star }, false, "");
+  const displayRasi = te ? rasi : apiDisplayMessage({ message_en: rasi }, false, "");
   return (
     <div className="rounded-2xl border border-gold/30 bg-white p-3">
       {title ? <p className="mb-2 text-center text-[13px] font-bold text-maroon">{title}</p> : null}
-      <svg viewBox={`0 0 ${S} ${S}`} className="mx-auto w-full max-w-[300px]" role="img" aria-label="Rasi chart">
+      <svg viewBox={`0 0 ${S} ${S}`} className="mx-auto w-full max-w-[300px]" role="img" aria-label={te ? "రాశి చార్ట్" : "Rasi chart"}>
         {houses.map((h) => {
           const [r, c] = POS[h.house] || [0, 0];
           const x = c * C;
@@ -52,10 +57,10 @@ export default function RasiChart({ houses, moonHouse, star, rasi, note, title }
                 stroke={isMoon ? "#B8860B" : "#7A0C2E"} strokeWidth={isMoon ? 2.5 : 1} />
               <text x={x + 6} y={y + 14} fontSize="9" fill="#999">{h.house}</text>
               <text x={x + C / 2} y={y + C / 2 - 2} textAnchor="middle" fontSize="12" fontWeight="bold" fill="#7A0C2E">
-                {teName(h.house)}
+                {te ? teName(h.house) : enName(h)}
               </text>
               {isMoon ? (
-                <text x={x + C / 2} y={y + C / 2 + 16} textAnchor="middle" fontSize="13">🌙 చం</text>
+                <text x={x + C / 2} y={y + C / 2 + 16} textAnchor="middle" fontSize="13">{te ? "🌙 చం" : "🌙 Moon"}</text>
               ) : null}
             </g>
           );
@@ -64,13 +69,13 @@ export default function RasiChart({ houses, moonHouse, star, rasi, note, title }
         <text x={C * 2} y={C + 44} textAnchor="middle" fontSize="12" fontWeight="bold" fill="#EAD08A">
           {te ? "చంద్ర చార్ట్" : "Moon chart"}
         </text>
-        <text x={C * 2} y={C + 66} textAnchor="middle" fontSize="11" fill="#FFFFFF">{star || ""}</text>
-        <text x={C * 2} y={C + 84} textAnchor="middle" fontSize="11" fill="#FFFFFF">{rasi || ""}</text>
+        <text x={C * 2} y={C + 66} textAnchor="middle" fontSize="11" fill="#FFFFFF">{displayStar || ""}</text>
+        <text x={C * 2} y={C + 84} textAnchor="middle" fontSize="11" fill="#FFFFFF">{displayRasi || ""}</text>
         <text x={C * 2} y={C + 106} textAnchor="middle" fontSize="9" fill="#EAD08A">
           {moonHouse ? (te ? `${moonHouse}వ ఇంట్లో చంద్రుడు` : `Moon in house ${moonHouse}`) : ""}
         </text>
       </svg>
-      {note ? <p className="mt-2 text-center text-[11px] text-gray-600">{note}</p> : null}
+      {safeNote ? <p className="mt-2 text-center text-[11px] text-gray-600">{safeNote}</p> : null}
     </div>
   );
 }

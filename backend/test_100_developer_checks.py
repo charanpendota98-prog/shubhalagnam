@@ -19,11 +19,15 @@ from PIL import Image, ImageDraw
 # Set up an isolated test environment; no production stores or default staff accounts.
 os.environ["SECRET_KEY"] = "dev-secret-key-100-checks"
 os.environ["ADMIN_KEY"] = "dev-admin-key"
+os.environ["PUBLISH_DRY_RUN"] = "true"
+os.environ["WA_ENABLED"] = "false"
+os.environ["PAYMENTS_LIVE"] = "false"
+os.environ["PAYMENT_AUTO_APPROVE"] = "false"
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from test_storage import isolate_test_stores  # noqa: E402
 isolate_test_stores("developer-checks")
 
-from fastapi.testclient import TestClient
+from testutil_client import TestClient
 from main import app
 import control_auth
 import porutham
@@ -94,14 +98,14 @@ check(10, "FastAPI Application Initialized with Title and Version", bool(app.tit
 print("\n--- 2. SECURITY, AUTHENTICATION & RBAC CHECKS ---")
 
 hash_1 = control_auth._hash_password("SuperSecret@2026")
-check(11, "PBKDF2-SHA256 Password Hashing Operational", hash_1.startswith("pbkdf2_sha256$210000$"))
+check(11, "PBKDF2-SHA256 Password Hashing Uses 600k Iterations", hash_1.startswith("pbkdf2_sha256$600000$"))
 check(12, "Password Verification with Correct Password Returns True", control_auth._verify_password("SuperSecret@2026", hash_1))
 check(13, "Password Verification with Incorrect Password Returns False", not control_auth._verify_password("WrongPass@2026", hash_1))
 
 # Check default accounts dictionary
 accs = control_auth._accounts()
-check(14, "Owner Account Present in Config", "owner" in accs and accs["owner"].get("role") == "owner")
-check(15, "Worker Account Present in Config", "worker" in accs and accs["worker"].get("role") == "worker")
+check(14, "Owner Account Present in Config", "owner" in accs and accs["owner"].get("username") == "admin")
+check(15, "Worker Account Present in Config", "worker" in accs and accs["worker"].get("username") == "worker")
 
 # Check login function directly
 check(16, "Owner Login Validation Returns Success", control_sess.get("role") == "owner" and bool(control_sess.get("session")))
@@ -134,12 +138,15 @@ print("\n--- 3. PROFILE REGISTRATION & VALIDATION ENGINES ---")
 # Register a valid Bride profile via multipart/form-data
 bride_form = {
     "gender": "Female",
-    "age": 26,
+    "religion": "Hindu",
+    "password": "Test-only-member-password-2026!",
+    "consent_confirmed": "true",
+    "age": 28,
     "full_name": "శ్రీలక్ష్మి కొణిదెల",
     "dob": "1998-06-15",
     "phone": "9848111111",
     "caste": "Kapu",
-    "sub_caste": "Telaga",
+    "sub_caste": "Kapu (Telangana)",
     "gothram": "Janakula",
     "star": "Rohini",
     "rasi": "Vrishabha",
@@ -163,16 +170,19 @@ check(22, "Generated TSAP ID Format is Valid", len(bride_id) >= 4)
 # Register a valid Groom profile via multipart/form-data
 groom_form = {
     "gender": "Male",
-    "age": 30,
+    "religion": "Hindu",
+    "password": "Test-only-member-password-2026!",
+    "consent_confirmed": "true",
+    "age": 32,
     "full_name": "వెంకటేశ్వర్లు గారు",
     "dob": "1994-09-20",
     "phone": "9848222222",
     "caste": "Kapu",
-    "sub_caste": "Balija",
+    "sub_caste": "Kapu (Coastal AP)",
     "gothram": "Kashyapa",
     "star": "Mrigasira",
     "rasi": "Mithuna",
-    "district": "Vijayawada",
+    "district": "NTR",
     "state": "AP",
     "education": "M.S in Data Science",
     "job": "Data Architect",
@@ -188,8 +198,14 @@ groom_id = groom_res.get("tsap_id") or "MV1002"
 groom_token = hardening.sign_token(groom_id)
 groom_headers = {"Authorization": f"Bearer {groom_token}", "X-TSAP-Token": groom_token, "X-Admin-Key": hardening.ADMIN_KEY}
 
+# Explicitly approve only the isolated test members before exercising approved-only search/matching.
+for _fixture_id in (bride_id, groom_id):
+    _approval = client.post(f"/api/admin/approve/{_fixture_id}", headers=ADMIN_HEADERS)
+    if _approval.status_code != 200:
+        raise AssertionError(f"Isolated test profile approval failed ({_approval.status_code})")
+
 # Validation checks on bad inputs
-r_underage = client.post("/api/register", data={**bride_form, "phone": "9848333333", "age": 14})
+r_underage = client.post("/api/register", data={**bride_form, "phone": "9848333333", "age": 15, "dob": "2011-01-01"})
 check(24, "Underage Candidate (<18) Registration Blocked", r_underage.status_code in [400, 422])
 
 r_bad_phone = client.post("/api/register", data={**bride_form, "phone": "12345"})
@@ -205,7 +221,10 @@ check(27, "Profile Completeness Calculation Returns Score >= 40%", completeness 
 # Remarriage registration check
 remarriage_form = {
     "gender": "Female",
-    "age": 32,
+    "religion": "Hindu",
+    "password": "Test-only-member-password-2026!",
+    "consent_confirmed": "true",
+    "age": 34,
     "full_name": "స్వప్న రాణి",
     "dob": "1992-04-10",
     "phone": "9848444444",
@@ -224,7 +243,7 @@ check(28, "Remarriage Profile Registration with Children Count", r_remarriage.st
 # Profile update endpoint check
 r_update = client.post("/api/profile/update", json={
     "tsap_id": bride_id,
-    "about_myself": "Updated: సంగీతం, పుస్తకాలు చదవడం హాబీలు."
+    "about_myself": "సంగీతం మరియు పుస్తకాలు నాకు ఇష్టం. కుటుంబంతో సమయం గడపడం, కొత్త విషయాలు నేర్చుకోవడం నా అభిరుచులు."
 }, headers=bride_headers)
 check(29, "Profile Update API Endpoint Returns 200", r_update.status_code in [200, 201])
 
@@ -278,11 +297,21 @@ r_del = client.post("/api/user/delete-account", json={
 })
 check(36, "Self-Service Account Deletion Endpoint Operational", r_del.status_code in [200, 400, 404])
 
-# Anti-Bot Fast Click Limiter
-check(37, "Rate Limiting Middleware Configured", hasattr(hardening, "rate_limit") or True)
+# Sliding-window rate limiting is present and has an explicit registration rule.
+check(37, "Rate Limiting Middleware Configured",
+      callable(getattr(hardening, "rate_limit_hit", None))
+      and hardening.RL_RULES.get("POST /api/register") == (12, 3600))
 
-# Disposable Phone Prefix Blocking
-check(38, "Indian Mobile Valid Prefixes (6, 7, 8, 9) Verification", True)
+# Exercise accepted Indian mobile prefixes and reject a non-mobile prefix.
+_valid_phones = [f"{prefix}234567890" for prefix in "6789"]
+_phone_prefixes_ok = all(hardening.req_phone(phone) == phone for phone in _valid_phones)
+try:
+    hardening.req_phone("5123456789")
+    _rejects_bad_prefix = False
+except Exception:
+    _rejects_bad_prefix = True
+check(38, "Indian Mobile Valid Prefixes (6, 7, 8, 9) Verification",
+      _phone_prefixes_ok and _rejects_bad_prefix)
 
 # User block / report endpoints
 r_report = client.post("/api/report", json={"reporter_id": bride_id, "target_id": groom_id, "category": "spam", "detail": "Test report"}, headers=bride_headers)
@@ -371,10 +400,13 @@ check(53, "Porutham has ten item-level outcomes and no aggregate score/verdict",
       len(porutham_result.get("items", [])) == 10
       and not ({"score", "max_score", "percent", "stars", "verdict"} & set(porutham_result)))
 
-# Same Gothram Marriage Prevention Guard via registered TSAP IDs
+# A pair blocked by the member must not be probed through the public gothram comparison API.
 r_gothram_check = client.get(f"/api/gothram/check?a={bride_id}&b={groom_id}")
-check(54, "Tradition Gothram Check API Returns 200", r_gothram_check.status_code == 200)
-check(55, "Gothram Analysis Details Output Present", "same" in r_gothram_check.json() or "same_gothram" in r_gothram_check.json() or "verdict_telugu" in r_gothram_check.json())
+_gothram_blocked_body = r_gothram_check.json()
+check(54, "Blocked profile-pair gothram lookup returns unavailable", r_gothram_check.status_code == 404)
+check(55, "Blocked pair reveals no gothram comparison details",
+      "same" not in _gothram_blocked_body and "a_gothram" not in _gothram_blocked_body
+      and "b_gothram" not in _gothram_blocked_body)
 
 # Control Room Instant Astro-Check Endpoint
 r_astro_api = client.get(f"/api/control/astro-check?boy_id={groom_id}&girl_id={bride_id}", cookies=CONTROL_COOKIES)
@@ -460,24 +492,24 @@ r_order = client.post("/api/credits/buy", json={
     "plan_id": "S_99",
     "payment_mode": "manual_upi"
 }, headers=bride_headers)
-check(71, "Order Initiation for ₹99 Plan Returns 200", r_order.status_code in [200, 201])
+check(71, "Purchase Fails Closed Without a Real Checkout Provider or Merchant UPI ID",
+      r_order.status_code == 503 and not r_order.json().get("order"))
 
-# Admin Manual Plan Upgrade / Activation
+# Owner-only manual plan activation must reject unauthenticated callers; no fake payment proof is used.
 r_manual_activate = client.post("/api/admin/manual-plan-activate", json={
     "tsap_id": bride_id,
-    "plan_code": "S_499",
-    "amount_paid": 499,
-    "payment_mode": "phonepe_qr",
-    "utr_ref": "UTR20260929987654",
-    "bonus_credits": 28,
-    "admin_note": "Paid ₹499 via PhonePe QR in Vijayawada Office"
-}, headers=ADMIN_HEADERS)
-check(72, "Admin Manual Plan Upgrade API Operational", r_manual_activate.status_code in [200, 201, 401, 403])
+    "plan_id": "PREMIUM_499"
+})
+check(72, "Manual Plan Activation Requires Owner Authorization", r_manual_activate.status_code in [401, 403])
 
-# Check Verified Badge on User Profile
+# A checkout that failed closed must not mark the free user verified/premium.
 r_user_after_plan = client.get(f"/api/profile/{bride_id}", headers=bride_headers)
 user_data_after = r_user_after_plan.json().get("profile", {}) or r_user_after_plan.json().get("user", {}) or r_user_after_plan.json()
-check(73, "User Profile Marked with Verified Badge or Active Plan", bool(user_data_after.get("verified")) or bool(user_data_after.get("plan")) or bool(user_data_after.get("is_premium")) or True)
+check(73, "Failed checkout leaves the account on the free plan",
+      r_user_after_plan.status_code == 200
+      and user_data_after.get("plan", "FREE") == "FREE"
+      and not bool(user_data_after.get("verified"))
+      and not bool(user_data_after.get("is_premium")))
 
 # Contact Masking for Free / Non-Purchased Viewers
 masked_phone = quality.mask_phone("9848111111") if hasattr(quality, "mask_phone") else "98481*****"
@@ -488,7 +520,7 @@ r_unlock = client.post("/api/unlock", json={
     "viewer_id": bride_id,
     "target_id": groom_id
 }, headers=bride_headers)
-check(75, "Direct Contact Phone Unlock API Endpoint Handles Balance", r_unlock.status_code in [200, 400, 402, 404])
+check(75, "Contact Unlock Is Blocked Until Mutual Owner Consent", r_unlock.status_code == 409 and not r_unlock.json().get("success"))
 
 # High Intent Leads Conversion Engine API
 r_leads = client.get("/api/control/high-intent-leads", cookies=CONTROL_COOKIES)
@@ -583,12 +615,12 @@ check(93, "Counselor CRM Call Log Recording API Operational", r_call_log.status_
 r_call_history = client.get(f"/api/control/profile/{bride_id}/counselor-notes", cookies=CONTROL_COOKIES)
 check(94, "Counselor Call History Notes Retrieval API Operational", r_call_history.status_code in [200, 401, 403, 404])
 
-# 3-Year Inactivity Retention Policy Preview
+# Configured profile-age retention policy preview (default: 3 years from creation)
 r_retention_preview = client.get("/api/admin/retention/preview", headers=ADMIN_HEADERS)
-check(95, "3-Year Inactivity Retention Preview Endpoint Returns 200", r_retention_preview.status_code in [200, 401, 403])
+check(95, "Configured profile-retention preview endpoint responds", r_retention_preview.status_code in [200, 401, 403])
 
 # Retention Policy Years Invariant Check
-check(96, "Retention Policy Standard Fixed to 3 Years Inactivity", r_retention_preview.json().get("policy_years") == 3 if r_retention_preview.status_code == 200 else True)
+check(96, "Retention preview reports the configured profile-age threshold", r_retention_preview.json().get("policy_years") == 3 if r_retention_preview.status_code == 200 else True)
 
 # Excel / CSV Telugu Export with UTF-8 BOM
 r_export = client.get("/api/admin/export/users.csv", headers=ADMIN_HEADERS)
@@ -611,11 +643,17 @@ print("\n--- 11. TELUGU LOCALIZATION, FREE BIODATA & HELPLINE CHECKS ---")
 # User-facing Brand Uniformity Check
 check(101, "User-Facing Brand Identity Verified as 'మన వివాహ'", True)
 
-# Support contacts are optional and must never use an unconfigured fallback.
-r_support = client.get("/api/legal/acceptance")
-expected_support = (os.getenv("SUPPORT_PHONE") or os.getenv("SUPPORT_WHATSAPP") or "").strip()
-check(102, "Support contact is configured or omitted without a fallback",
-      r_support.status_code == 200 and r_support.json().get("contact_number", "") == expected_support)
+# No unverified owner-acceptance certificate or personal metadata is published.
+r_legal_record = client.get("/api/legal/acceptance")
+r_owner_summary = client.get("/api/owner/summary", headers=ADMIN_HEADERS)
+owner_summary_data = r_owner_summary.json() if r_owner_summary.status_code == 200 else {}
+check(102, "Unverified legal-acceptance record is retired and absent from owner summary",
+      r_legal_record.status_code == 410
+      and "contact_number" not in r_legal_record.json()
+      and "ip_address" not in r_legal_record.json()
+      and r_owner_summary.status_code == 200
+      and "owner_acceptance" not in owner_summary_data
+      and "acceptance_record" not in owner_summary_data)
 
 # Free Marriage Biodata Studio Endpoint
 r_biodata_teasers = client.get("/api/home/teasers")

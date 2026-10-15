@@ -1,13 +1,13 @@
 """
 మన వివాహ — INTEREST / REQUEST ENGINE  💌  (CHATTING LEDU — anthe fix)
 =======================================================================
-Model (top matrimony sites la advanced, kani chatting tho కాదు):
-  1. User profile chusi  →  "💌 Interest Pampu" press chesthadu  (1 credit)
-  2. Mana side nunchi **WhatsApp** lo aa PROFILE OWNER ki message + profile card:
-       "ఒక person మీ profile chusi interesting గా ఉన్నారు… వల్ల profile idi 👇"
-     (ante request pettina vadi profile owner ki WhatsApp lo share avutundi ✅)
-  3. Owner "✅ Accept" chesthe → **rendu numbers WhatsApp lo automatic ga** (consent based)
-  4. Owner "❌ Decline" chesthe → polite message + **mee credit refund** (trust!)
+Model (in-site chat లేదు):
+  1. User profile చూసి "Interest" పంపుతారు (1 request credit).
+  2. Owner inbox లో request/profile వివరాలు కనిపిస్తాయి; configured notifications queue కావచ్చు,
+     కానీ queue status external delivery proof కాదు.
+  3. Owner accept చేసినప్పుడు accepted-request account views లో contact access grant అవుతుంది;
+     optional WhatsApp notifications delivery హామీ కాదు.
+  4. Decline credit return is controlled by INTEREST_REFUND_ON_DECLINE; expiry policy is separate.
 
 Enduku chatting ledu (mee decision — correct):
   • Chat = time waste + fake accounts + harassment risk + moderation cost (24/7 team kavali)
@@ -17,8 +17,8 @@ Enduku chatting ledu (mee decision — correct):
 Credits (final ladder — ₹/profile prati tier lo thaggutundi):
   FREE  → 3 requests   (modati 3 FREE — register cheyagane)
   ₹99   → 5 interest requests (₹20/request)
-  ₹199  → 12 interest requests (₹17/request, "Most popular")
-  ₹299  → 25 interest requests (₹12/request, "Best value")
+  ₹199  → 12 interest requests (about ₹17/request)
+  ₹299  → 25 interest requests (about ₹12/request)
   ₹499  → 50 interest requests (₹10/request, 90-day validity)
   ₹299 and ₹499 plans include Who-viewed access while the plan is active.
   Add-ons: ⚡ 1-day Boost ₹49 • 👀 Who-viewed 30 days ₹49 • 📸 Manual photo review request ₹199
@@ -35,15 +35,41 @@ from __future__ import annotations
 
 import os
 import random
+import re
 import threading
 from datetime import datetime, timedelta
+from urllib.parse import urlsplit
 from typing import Dict, List, Optional, Tuple
 
+from models import is_never_married_status
+
 SITE = os.getenv("SITE_URL", "https://manavivaha.in").rstrip("/")
-SUPPORT = (os.getenv("SUPPORT_WHATSAPP", "").strip() or os.getenv("SUPPORT_PHONE", "").strip())
+SUPPORT = os.getenv("SUPPORT_WHATSAPP", "").strip()
 SUPPORT_SUFFIX = f" • Support: {SUPPORT}" if SUPPORT else ""
 SUPPORT_HELP_LINE = f"❓ సహాయం కోసం: {SUPPORT}\n" if SUPPORT else ""
-BOT_USERNAME = os.getenv("BOT_USERNAME", "@telugumatrimony1_bot")
+
+_PUBLIC_PHONE_TEXT = re.compile(r"(?<!\d)(?:\+?91[\s().-]*)?[6-9](?:[\s().-]*\d){9}(?!\d)")
+_PUBLIC_EMAIL_TEXT = re.compile(r"(?<![\w.+-])[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}(?![\w-])", re.IGNORECASE)
+
+
+def sanitize_public_text(value: object) -> str:
+    """Hide contact strings accidentally pasted into member-entered public text."""
+    text = str(value or "")
+    text = _PUBLIC_EMAIL_TEXT.sub("[contact hidden]", text)
+    return _PUBLIC_PHONE_TEXT.sub("[contact hidden]", text)
+
+
+def sanitize_public_payload(value):
+    """Recursively sanitize free-text values before member-facing serialization."""
+    if isinstance(value, str):
+        return sanitize_public_text(value)
+    if isinstance(value, dict):
+        return {key: sanitize_public_payload(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [sanitize_public_payload(item) for item in value]
+    if isinstance(value, tuple):
+        return tuple(sanitize_public_payload(item) for item in value)
+    return value
 
 # ------------------------------------------------------------------ PLANS
 # 📊 PUBLIC PRICING LADDER — free requests first, then four paid plans.
@@ -58,36 +84,38 @@ PLANS: Dict[str, Dict] = {
     "S_99": {
         "code": "S_99", "price": 99, "profiles": 5, "validity_days": 30,
         "label": "Sambandham", "telugu": "₹99 → 5 interest requests", "badge": "Entry",
-        "per_profile": 20, "perks": ["5 interest requests", "30-day credit validity", "Contact details only after the profile owner accepts", "Refund policy as shown in your account"],
-        "perksTe": ["5 interest requests", "30 రోజుల credit validity", "Profile owner accept చేసిన తర్వాతే contact details share అవుతాయి", "Account లో చూపిన refund policy వర్తిస్తుంది"],
+        "per_profile": 20, "perks": ["5 interest requests", "30-day credit validity", "Contact access in accepted-request account views after owner acceptance", "Refund policy as shown in your account"],
+        "perksTe": ["5 interest requests", "30 రోజుల credit validity", "Owner accept చేసిన తర్వాత accepted-request account views లో contact details కనిపిస్తాయి", "Account లో చూపిన refund policy వర్తిస్తుంది"],
     },
     "S_199": {
         "code": "S_199", "price": 199, "profiles": 12, "validity_days": 45,
-        "label": "Family", "telugu": "₹199 → 12 interest requests", "badge": "Most popular",
-        "per_profile": 17, "perks": ["12 interest requests", "45-day credit validity", "Contact details only after the profile owner accepts", "Refund policy as shown in your account"],
-        "perksTe": ["12 interest requests", "45 రోజుల credit validity", "Profile owner accept చేసిన తర్వాతే contact details share అవుతాయి", "Account లో చూపిన refund policy వర్తిస్తుంది"],
+        "label": "Family", "telugu": "₹199 → 12 interest requests", "badge": "₹17/request",
+        "per_profile": 17, "perks": ["12 interest requests", "45-day credit validity", "Contact access in accepted-request account views after owner acceptance", "Refund policy as shown in your account"],
+        "perksTe": ["12 interest requests", "45 రోజుల credit validity", "Owner accept చేసిన తర్వాత accepted-request account views లో contact details కనిపిస్తాయి", "Account లో చూపిన refund policy వర్తిస్తుంది"],
     },
     "S_299": {
         "code": "S_299", "price": 299, "profiles": 25, "validity_days": 60,
-        "label": "Premium", "telugu": "₹299 → 25 interest requests", "badge": "Best value",
+        "label": "Premium", "telugu": "₹299 → 25 interest requests", "badge": "₹12/request",
         "per_profile": 12, "perks": ["25 interest requests", "60-day credit validity", "Who-viewed names while this plan is active", "Contact details only after the profile owner accepts", "Refund policy as shown in your account"],
-        "perksTe": ["25 interest requests", "60 రోజుల credit validity", "ఈ plan active ఉన్నంతవరకు మీ profile చూసిన వారి పేర్లు", "Profile owner accept చేసిన తర్వాతే contact details share అవుతాయి", "Account లో చూపిన refund policy వర్తిస్తుంది"],
+        "perksTe": ["25 interest requests", "60 రోజుల credit validity", "ఈ plan active ఉన్నంతవరకు మీ profile చూసిన వారి పేర్లు", "Owner accept చేసిన తర్వాత accepted-request account views లో contact details కనిపిస్తాయి", "Account లో చూపిన refund policy వర్తిస్తుంది"],
     },
     "S_499": {
         "code": "S_499", "price": 499, "profiles": 50, "validity_days": 90,
         "label": "VIP", "telugu": "₹499 → 50 interest requests", "badge": "VIP",
         "per_profile": 10, "perks": ["50 interest requests", "90-day credit validity", "Who-viewed names while this plan is active", "Contact details only after the profile owner accepts", "Refund policy as shown in your account"],
-        "perksTe": ["50 interest requests", "90 రోజుల credit validity", "ఈ plan active ఉన్నంతవరకు మీ profile చూసిన వారి పేర్లు", "Profile owner accept చేసిన తర్వాతే contact details share అవుతాయి", "Account లో చూపిన refund policy వర్తిస్తుంది"],
+        "perksTe": ["50 interest requests", "90 రోజుల credit validity", "ఈ plan active ఉన్నంతవరకు మీ profile చూసిన వారి పేర్లు", "Owner accept చేసిన తర్వాత accepted-request account views లో contact details కనిపిస్తాయి", "Account లో చూపిన refund policy వర్తిస్తుంది"],
     },
     "BUREAU_999": {
         "code": "BUREAU_999", "price": 999, "profiles": 25, "validity_days": 30,
         "label": "Bureau Starter", "telugu": "₹999 → 25 requests (B2B)", "badge": "Bureau/Agents",
         "per_profile": 40, "perks": ["25 interest requests", "30-day credit validity"],
+        "perksTe": ["25 interest requests", "30 రోజుల credit validity"],
     },
     "BUREAU_2999": {
         "code": "BUREAU_2999", "price": 2999, "profiles": 100, "validity_days": 30,
         "label": "Bureau Pro", "telugu": "₹2999 → 100 requests (B2B)", "badge": "Bureau Pro",
         "per_profile": 30, "perks": ["100 interest requests", "30-day credit validity"],
+        "perksTe": ["100 interest requests", "30 రోజుల credit validity"],
     },
 }
 
@@ -240,6 +268,24 @@ def mask_phone(phone: str) -> str:
     return d[:2] + "•" * max(0, len(d) - 4) + d[-2:]
 
 
+def _public_photo_path(value: object) -> str:
+    """Return only same-site uploaded /photos paths; external and traversal URLs fail closed."""
+    raw = str(value or "").strip()
+    if not raw or len(raw) > 220 or raw.startswith("//") or "\\" in raw:
+        return ""
+    try:
+        parsed = urlsplit(raw)
+    except ValueError:
+        return ""
+    if parsed.scheme or parsed.netloc or parsed.query or parsed.fragment:
+        return ""
+    if not re.fullmatch(r"/photos/[A-Za-z0-9._-]{1,180}", parsed.path):
+        return ""
+    if ".." in parsed.path.split("/"):
+        return ""
+    return parsed.path
+
+
 def safe_user(u: Optional[Dict]) -> Dict:
     """
     Contact details teesesi (privacy first) — **numbers ivvamu**.
@@ -253,8 +299,9 @@ def safe_user(u: Optional[Dict]) -> Dict:
     verification_level = "id" if id_verified else "photo" if photo_verified else "phone" if phone_verified else "none"
     private_photo = bool(u.get("photo_private") or u.get("privacy_mode") == "private")
     photo_values = u.get("photo_urls", []) if isinstance(u.get("photo_urls"), list) else []
-    public_photo_url = "" if private_photo else (u.get("photo_url") or (photo_values[0] if photo_values else ""))
-    return {
+    raw_photo_url = u.get("photo_url") or (photo_values[0] if photo_values else "")
+    public_photo_url = "" if private_photo else _public_photo_path(raw_photo_url)
+    public = {
         "tsap_id": u.get("tsap_id"),
         "full_name": u.get("full_name", "—"),
         "age": u.get("age", "—"),
@@ -268,7 +315,7 @@ def safe_user(u: Optional[Dict]) -> Dict:
         "salary": u.get("salary", "—"),
         "height": u.get("height", "—"),
         "marital_status": u.get("marital_status", "—"),
-        "children": u.get("children", ""),
+        "children": "" if is_never_married_status(u.get("marital_status")) else u.get("children", ""),
         "physical_status": u.get("physical_status", ""),
         "district": u.get("district", "—"),
         "state": u.get("state", ""),
@@ -278,20 +325,22 @@ def safe_user(u: Optional[Dict]) -> Dict:
         "rasi": u.get("rasi", ""),
         "family_type": u.get("family_type", ""),
         "photo_url": public_photo_url if u.get("photo_status") == "approved" and not private_photo else "",
-        "photo_status": u.get("photo_status", "none"),
-        "has_photo": bool(u.get("has_photo", False)),
-        "phone_verified": bool(u.get("phone_verified", False)),
+        # Review state is account-private; public consumers get only whether an approved,
+        # privacy-eligible photo is actually available.
+        "has_photo": bool(public_photo_url and u.get("photo_status") == "approved"),
         "phone_verified": phone_verified,
         "selfie_verified": bool(u.get("selfie_verified", False)),
         "photo_verified": photo_verified,
         "id_verified": id_verified,
         "verification_level": verification_level,
-        "verified": verification_level != "none",
         # 🔒 CONTACT LOCK — public la kanipinchE prathi profile ki idi untundi
         "phone_masked": mask_phone(u.get("phone", "")),
         "contact_locked": True,
-        "contact_note_telugu": "🔒 Profile owner అంగీకరించే వరకు Number ఇవ్వము. Acceptance తర్వాత privacy settings అనుమతిస్తే contact details share అవుతాయి; paid credits consent‌ను bypass చేయవు.",
+        "contact_note_telugu": "🔒 Public profile లో number చూపించము. Profile owner accept చేసిన తర్వాత accepted-request account views లో contact access వస్తుంది; paid credits consent‌ను bypass చేయవు.",
     }
+    # Defense in depth for imported/legacy records: member-entered text fields must not
+    # bypass the structured contact lock by embedding a phone number or email address.
+    return sanitize_public_payload(public)
 
 
 def daily_sent_count(interests: List[Dict], from_id: str) -> int:
@@ -398,7 +447,7 @@ def create_interest(frm: Dict, to: Dict, note: str = "", score: Optional[int] = 
 
 
 def respond_interest(rec: Dict, owner: Dict, requester: Dict, action: str) -> Dict:
-    """Owner accept/decline. Contact exchange + refund logic."""
+    """Owner accept/decline; acceptance grants in-service contact access."""
     action = (action or "").lower()
     if rec.get("status") != "pending":
         return {"success": False, "message": f"ఈ request already {rec.get('status')} — ఇంకా action లేదు"}
@@ -409,7 +458,8 @@ def respond_interest(rec: Dict, owner: Dict, requester: Dict, action: str) -> Di
         rec["contact_shared"] = True
         out["owner_phone"] = owner.get("phone", "")
         out["requester_phone"] = requester.get("phone", "")
-        out["message"] = "✅ Accept అయ్యింది — రెండు numbers WhatsApp లో share అయ్యాయి"
+        out["contact_access_granted"] = True
+        out["message"] = "✅ Accept అయ్యింది — accepted-request account views లో contact access అందుబాటులో ఉంది; notification delivery నిర్ధారించబడలేదు."
     elif action == "decline":
         rec["status"] = "declined"
         if REFUND_ON_DECLINE:
@@ -429,12 +479,17 @@ def interest_to_owner_text(requester: Dict, owner: Dict, rec: Dict) -> str:
     """Owner కి message — requester profile (idi user adigina 'profile share')."""
     r = safe_user(requester)
     observations = "\n".join(f"  • {x}" for x in (rec.get("observations") or [])[:3])
+    verification_fact = {
+        "phone": "📱 Phone OTP check recorded",
+        "photo": "📷 Photo review recorded",
+        "id": "🪪 ID review recorded",
+    }.get(str(r.get("verification_level") or ""), "")
     return (
         f"💌 *MANA VIVAHA — మీ ప్రొఫైల్‌కు INTEREST వచ్చింది!*\n"
         f"━━━━━━━━━━━━━━━━\n"
         f"మీ ప్రొఫైల్ వివరాలు చూసి క్రింది వారు సంబంధం కోసం ఆసక్తి (Interest) తెలిపారు 👇\n\n"
         f"👤 *{r['full_name']}*  ({r['age']} సం.)\n"
-        f"🆔 {r['tsap_id']}{'  ✅ Verified' if r['verified'] else ''}\n"
+        f"🆔 {r['tsap_id']}{f'  • {verification_fact}' if verification_fact else ''}\n"
         f"🎓 {r['education']} {r['education_detail']}\n"
         f"💼 {r['job']} {r['company']}\n"
         f"💰 {r['salary']}  |  📏 {r['height']}\n"
@@ -448,7 +503,8 @@ def interest_to_owner_text(requester: Dict, owner: Dict, rec: Dict) -> str:
         f"📸 ఫోటో & పూర్తి వివరాలు: {SITE}/search/{r['tsap_id']}\n\n"
         f"👉 *1-క్లిక్‌తో ఆమోదించడానికి (Accept / Decline):*\n"
         f"🔗 {SITE}/requests?id={owner.get('tsap_id','')}\n\n"
-        f"✅ *Accept* చేస్తే → ఇరువైపులా నంబర్లు వాట్సాప్‌లో మార్పిడి అవుతాయి.\n"
+        f"✅ *Accept* చేస్తే → accepted-request account views లో ఇరువైపుల contact details అందుబాటులోకి వస్తాయి.\n"
+        f"ℹ️ Configured WhatsApp notification queue కావచ్చు; delivery హామీ లేదు.\n"
         f"❌ *Decline* చేస్తే → మర్యాదపూర్వకంగా తెలియజేయబడుతుంది.\n"
         f"🚫 Chatting లేదు — *డైరెక్ట్ ఫ్యామిలీ కాంటాక్ట్ మాత్రమే* (Direct Contact Only).\n"
         f"🆔 Request ID: {rec['request_id']}  •  ⏳ 7 రోజులు చెల్లుబాటు అవుతుంది\n"
@@ -457,21 +513,37 @@ def interest_to_owner_text(requester: Dict, owner: Dict, rec: Dict) -> str:
 
 
 def interest_accepted_text(requester: Dict, owner: Dict, rec: Dict) -> str:
+    """Requester notification; contact access comes from acceptance, delivery is not implied."""
     o = safe_user(owner)
     phone = str(owner.get("phone", "") or "").strip()
-    phone_line = f"📞 *{phone}*" if phone else f"📞 సంప్రదించండి: {SITE}/requests?id={requester.get('tsap_id','')}"
+    phone_line = f"📞 *{phone}*" if phone else f"📞 మీ accepted request చూడండి: {SITE}/requests?id={requester.get('tsap_id','')}"
     return (
-        f"🎉 *మన వివాహ (MANA VIVAHA) — శుభవార్త! సంబంధం ఆమోదించబడింది!*\n"
+        f"🎉 *మన వివాహ (MANA VIVAHA) — శుభవార్త! మీ interest ఆమోదించబడింది!*\n"
         f"━━━━━━━━━━━━━━━━\n"
-        f"👤 *{o['full_name']}* ({o['tsap_id']}) మీ సంబంధం అభ్యర్థనను ఆమోదించారు ✅\n\n"
-        f"📞 *వారి ఫోన్ నంబర్:* {phone_line} (Call / WhatsApp)\n"
-        f"📍 *ప్రాంతం:* {o['district']}, {o['state']}  |  💍 *కులం:* {o['caste']}\n"
-        f"🎓 *విద్య:* {o['education']}  |  💼 *ఉద్యోగం:* {o['job']}\n\n"
-        f"✅ మీ నంబర్ కూడా వారి కుటుంబానికి వాట్సాప్‌లో పంపబడింది.\n"
-        f"ఇప్పుడు మీరు నేరుగా ఫోన్ చేసి లేదా వాట్సాప్‌లో మాట్లాడవచ్చు.\n\n"
-        f"💐 *మన వివాహ బృందం తరఫున మీకు హృదయపూర్వక శుభాకాంక్షలు!*\n"
+        f"👤 *{o['full_name']}* ({o['tsap_id']}) మీ request ను accept చేశారు ✅\n\n"
+        f"📞 *వారి contact:* {phone_line}\n"
+        f"📍 *ప్రాంతం:* {o['district']}, {o['state']}  |  💍 *కమ్యూనిటీ:* {o['caste']}\n"
+        f"🎓 *విద్య:* {o['education']}  |  💼 *వృత్తి:* {o['job']}\n\n"
+        f"Accepted request లో మీ account ద్వారా contact details చూడవచ్చు. ఈ WhatsApp message queue/notification మాత్రమే; delivery నిర్ధారించబడలేదు.\n"
+        f"💐 *మన వివాహ బృందం తరఫున శుభాకాంక్షలు!*\n"
         f"{SUPPORT_HELP_LINE}"
-        f"⚠️ ముందస్తు అడ్వాన్స్ డబ్బులు / బంగారం అడిగితే వెంటనే నివేదించండి — గోప్యతే మా ప్రాధాన్యత."
+        f"⚠️ ముందస్తు అడ్వాన్స్ డబ్బులు / బంగారం అడిగితే independently verify చేసి report చేయండి."
+    )
+
+
+def interest_accepted_owner_text(owner: Dict, requester: Dict, rec: Dict) -> str:
+    """Owner notification; explicitly identifies the requester's contact after acceptance."""
+    r = safe_user(requester)
+    phone = str(requester.get("phone", "") or "").strip()
+    phone_line = f"📞 *{phone}*" if phone else f"📞 మీ accepted request చూడండి: {SITE}/requests?id={owner.get('tsap_id','')}"
+    return (
+        f"✅ *మన వివాహ — మీరు interest ను accept చేశారు*\n"
+        f"━━━━━━━━━━━━━━━━\n"
+        f"👤 *Request చేసినవారు:* {r['full_name']} ({r['tsap_id']})\n"
+        f"📞 *వారి contact:* {phone_line}\n\n"
+        f"Accepted request లో requester contact మీ account view లో కూడా అందుబాటులో ఉంటుంది.\n"
+        f"ఈ WhatsApp message queue/notification మాత్రమే; delivery నిర్ధారించబడలేదు.\n"
+        f"⚠️ ముందస్తు అడ్వాన్స్ డబ్బులు / బంగారం అడిగితే independently verify చేసి report చేయండి."
     )
 
 
@@ -479,16 +551,20 @@ def interest_declined_text(requester: Dict, owner: Dict, rec: Dict) -> str:
     o = safe_user(owner)
     credits_left = requester.get("credits", 0)
     caste_filter = f"?caste={o.get('caste', '')}" if o.get("caste") else ""
+    refund_line = (
+        f"మీ account కు 1 request credit తిరిగి వచ్చింది (credits: {credits_left}); ఇది cash refund కాదు."
+        if REFUND_ON_DECLINE and rec.get("credit_refunded") else
+        "ఈ decline పై request credit తిరిగి రాలేదు; account లోని refund policy చూడండి."
+    )
     return (
         f"🙏 *మన వివాహ (MANA VIVAHA) — సంబంధం అప్‌డేట్*\n"
         f"━━━━━━━━━━━━━━━━\n"
-        f"👤 *{o['full_name']}* ({o['tsap_id']}) కుటుంబం వారి వ్యక్తిగత ప్రాధాన్యతలు / జాతక పొంతన దృష్ట్యా ప్రస్తుతానికి ఈ సంబంధం ముందుకు సాగలేకపోతున్నారు.\n\n"
-        f"💰 *100% క్రెడిట్ రీఫండ్ చేయబడింది:*\n"
-        f"మీరు ఉపయోగించిన 1 క్రెడిట్ తిరిగి మీ ఖాతాకు జమ చేయబడింది (ప్రస్తుత క్రెడిట్స్: {credits_left}).\n\n"
+        f"👤 *{o['full_name']}* ({o['tsap_id']}) ఈ interest request ను accept చేయలేదు.\n\n"
+        f"{refund_line}\n\n"
         f"💚 *ఇతర profiles ను పరిశీలించండి:*\n"
         f"జాబితాలోని వివరాలు సభ్యులు అందించినవి; మీకు అవసరమైన వివరాలను స్వతంత్రంగా నిర్ధారించండి 👇\n"
         f"🔗 {SITE}/matches{caste_filter}\n\n"
-        f"💡 *గమనిక:* ఫోటో, గోత్రం, నక్షత్రం వంటి వివరాలు profile లో అందుబాటులో ఉంటే పరిశీలించండి. స్పందన సమయం వ్యక్తిని బట్టి మారుతుంది; హామీ లేదు.\n"
+        f"💡 స్పందన సమయం recipient పై ఆధారపడుతుంది; హామీ లేదు.\n"
         f"🆔 Request ID: {rec['request_id']}"
     )
 

@@ -21,7 +21,7 @@ import os
 import re
 from typing import Any, Dict, List, Optional
 
-from channels_config import SITE, caste_channel_links, channel_links, CHANNELS
+from channels_config import SITE, caste_channel_links, channel_links, CHANNELS, is_public_channel
 from interest import EXPIRY_DAYS, PLANS, REFUND_ON_DECLINE
 
 
@@ -115,7 +115,7 @@ def channels_text(links: List[Dict[str, Any]], why_map: Optional[Dict[str, str]]
 
 def support_note() -> str:
     """Use a normalized support number only; invalid/missing values do not create a broken URL."""
-    raw = os.getenv("SUPPORT_WHATSAPP_NUMBER", os.getenv("ADMIN_WHATSAPP_NUMBER", ""))
+    raw = os.getenv("SUPPORT_WHATSAPP", "") or os.getenv("SUPPORT_WHATSAPP_NUMBER", "")
     digits = re.sub(r"\D", "", str(raw or ""))
     if len(digits) == 10:
         digits = "91" + digits
@@ -128,7 +128,8 @@ def support_note() -> str:
 # 3. MASTER BUILDER
 # --------------------------------------------------------------------------- #
 def build_welcome_pack(user: Dict[str, Any], tsap_id: str, matches: List[Dict[str, Any]],
-                       max_profiles: int = 3, max_channels: int = 5) -> Dict[str, Any]:
+                       max_profiles: int = 3, max_channels: int = 5,
+                       directory_links: Dict[str, Dict[str, Any]] | None = None) -> Dict[str, Any]:
     """
     🎁 Full welcome pack:
       profiles  : up to 3 available member profiles (safe summary — no contact fields)
@@ -143,7 +144,7 @@ def build_welcome_pack(user: Dict[str, Any], tsap_id: str, matches: List[Dict[st
         s = safe_profile_summary(cand)
         profs.append(s)
 
-    chans = caste_channel_links(user, limit=max_channels)
+    chans = caste_channel_links(user, limit=max_channels, directory_links=directory_links)
     why = {}
     try:
         from channels_config import route_profile
@@ -180,7 +181,7 @@ def build_welcome_pack(user: Dict[str, Any], tsap_id: str, matches: List[Dict[st
     body_parts = [head]
     if profs:
         body_parts.append(
-            f"🔎 *{_n} profile{'s' if _n != 1 else ''} to review* (details are member-provided; contact sharing follows owner acceptance and privacy settings):\n" +
+            f"🔎 *{_n} profile{'s' if _n != 1 else ''} to review* (details are member-provided; contact access appears in accepted-request account views after owner acceptance):\n" +
             "\n".join(profile_line(i, p) for i, p in enumerate(profs))
         )
     else:
@@ -199,7 +200,7 @@ def build_welcome_pack(user: Dict[str, Any], tsap_id: str, matches: List[Dict[st
         "message_text": message,
         "message_preview": message[:2600],   # channels block kooda preview lo kanipinchali
         "rules_telugu": [
-            "🔒 Contact details owner acceptance మరియు privacy settings ప్రకారం మాత్రమే share అవుతాయి; paid credits consent‌ను దాటవేయవు.",
+            "🔒 Public profile లో contact details చూపించము; owner accept చేసిన తర్వాత accepted-request account views లో వస్తాయి. Paid credits consent‌ను దాటవేయవు.",
             f"🆓 మొదటి {free_requests} interest requests free. {expiry_policy}",
             f"💰 Paid request packs ₹{entry_plan.get('price', 99)} నుంచి ప్రారంభమవుతాయి; features/terms కోసం /requests చూడండి.",
             "📢 Channel directory links మాత్రమే; external link availability లేదా delivery హామీ లేదు.",
@@ -215,11 +216,17 @@ def pack_public(pack: Dict[str, Any]) -> Dict[str, Any]:
     return {k: v for k, v in pack.items() if k != "has_numbers"}
 
 
-def channels_count() -> Dict[str, int]:
-    """Debug/stats — enni channels కి telegram/whatsapp link configure అయ్యాయి."""
+def channels_count(directory_links: Dict[str, Dict[str, Any]] | None = None) -> Dict[str, Any]:
+    """Count visible directory URLs only; this does not check external availability."""
     tg = wa = 0
-    for key in CHANNELS:
-        l = channel_links(key)
-        tg += 1 if l.get("telegram") else 0
-        wa += 1 if l.get("whatsapp") else 0
-    return {"channels": len(CHANNELS), "telegram_links": tg, "whatsapp_links": wa}
+    public_keys = [key for key in CHANNELS if is_public_channel(key)]
+    for key in public_keys:
+        links = channel_links(key) if directory_links is None else directory_links.get(key, {})
+        tg += 1 if links.get("telegram") else 0
+        wa += 1 if links.get("whatsapp") else 0
+    return {
+        "channels": len(public_keys),
+        "telegram_links_configured": tg,
+        "whatsapp_links_configured": wa,
+        "external_status_checked": False,
+    }

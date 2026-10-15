@@ -4,8 +4,8 @@
  * Safe-pay orders (Razorpay verify auto / manual-UPI UTR confirm) + collection stats.
  * ADMIN ONLY.
  */
-import { useEffect, useState } from "react";
-import { authHeaders } from "@/lib/api";
+import { useCallback, useEffect, useState } from "react";
+import { apiDisplayMessage, authHeaders, readApiJson } from "@/lib/api";
 import { useLang } from "@/lib/lang";
 
 type Row = Record<string, any>;
@@ -18,6 +18,9 @@ const withToken = (url: string) => {
 export default function PayConsole() {
   const { lang } = useLang();
   const te = lang === "te";
+  const displayDynamicText = (value: unknown, fallback = "Not available in English") => te
+    ? String(value ?? "")
+    : apiDisplayMessage({ message_en: value }, false, fallback);
   const [items, setItems] = useState<Row[]>([]);
   const [stats, setStats] = useState<Row | null>(null);
   const [status, setStatus] = useState("");
@@ -29,15 +32,15 @@ export default function PayConsole() {
   const [clawId, setClawId] = useState("");
   const [clawAmt, setClawAmt] = useState("");
 
-  const load = async () => {
+  const load = useCallback(async () => {
     try {
       const d = await fetch(withToken(`/api/admin/payments${status ? `?status=${status}` : ""}`),
-        { headers: authHeaders(true) }).then((r) => r.json());
+        { headers: authHeaders(true) }).then((r) => readApiJson(r));
       if (d.success) { setItems(d.orders || []); setStats(d.stats || null); }
-      else setFlash(d.detail || "Load fail");
-    } catch { setFlash("Network problem"); }
-  };
-  useEffect(() => { void load(); }, [status]);
+      else setFlash(apiDisplayMessage(d, te, te ? "చెల్లింపుల వివరాలు లోడ్ కాలేదు." : "Could not load payment details."));
+    } catch { setFlash(te ? "నెట్‌వర్క్ సమస్య" : "Network problem. Please try again."); }
+  }, [status, te]);
+  useEffect(() => { void load(); }, [load]);
 
   const confirm = async (id: string) => {
     const u = (utr[id] ?? items.find((x: any) => x.id === id)?.claim_utr ?? "").trim();
@@ -45,8 +48,8 @@ export default function PayConsole() {
     const r = await fetch(withToken(`/api/admin/payments/${id}/confirm`),
       { method: "POST", headers: { ...authHeaders(true), "Content-Type": "application/json" },
         body: JSON.stringify({ utr: u }) });
-    const d = await r.json();
-    setFlash(d.message_telugu || d.detail || "done");
+    const d = await readApiJson(r);
+    setFlash(apiDisplayMessage(d, te, te ? "చెల్లింపు స్థితి నవీకరించబడింది." : "Payment status updated."));
     void load();
   };
 
@@ -58,25 +61,25 @@ export default function PayConsole() {
     const r = await fetch(withToken(`/api/admin/payments/${id}/refund`),
       { method: "POST", headers: { ...authHeaders(true), "Content-Type": "application/json" },
         body: JSON.stringify({ reason, note }) });
-    const d = await r.json();
-    setFlash(d.message_telugu || d.detail || "done");
+    const d = await readApiJson(r);
+    setFlash(apiDisplayMessage(d, te, te ? "Refund స్థితి నవీకరించబడింది." : "Refund status updated."));
     void load();
   };
 
   const loadAudit = async () => {
     try {
-      const d = await fetch(withToken("/api/admin/audit?limit=30"), { headers: authHeaders(true) }).then((r) => r.json());
+      const d = await fetch(withToken("/api/admin/audit?limit=30"), { headers: authHeaders(true) }).then((r) => readApiJson(r));
       if (d.success) { setAudit(d.events || []); setShowAudit(true); }
-      else setFlash(d.detail || "Audit load fail");
-    } catch { setFlash("Network problem"); }
+      else setFlash(apiDisplayMessage(d, te, te ? "Audit లోడ్ కాలేదు." : "Could not load the audit log."));
+    } catch { setFlash(te ? "నెట్‌వర్క్ సమస్య" : "Network problem. Please try again."); }
   };
 
   const clawback = async () => {
     if (!clawId.trim()) { setFlash(te ? "Profile ID ఇవ్వండి" : "Give Profile ID"); return; }
     const r = await fetch(withToken(`/api/admin/refund/${clawId.trim().toUpperCase()}?amount=${encodeURIComponent(clawAmt || "0")}&reason=admin_clawback`),
       { method: "POST", headers: authHeaders(true) });
-    const d = await r.json();
-    setFlash(d.message_telugu || d.reason || "done");
+    const d = await readApiJson(r);
+    setFlash(apiDisplayMessage(d, te, te ? "కమిషన్ సర్దుబాటు అభ్యర్థన పూర్తయింది." : "Commission adjustment request completed."));
   };
 
   return (
@@ -116,7 +119,7 @@ export default function PayConsole() {
         <div className="mb-2 max-h-[160px] space-y-1 overflow-auto rounded-xl border p-2 text-[11px]">
           <div className="flex items-center"><b>\U0001F9FE Audit (latest 30)</b><button onClick={() => setShowAudit(false)} className="ml-auto underline">close</button></div>
           {audit.map((e: any, i: number) => (
-            <div key={i} className="rounded-lg bg-gray-50 px-2 py-1 font-mono">{e.event} \u2022 {e.actor} \u2022 {JSON.stringify(e.data || {}).slice(0, 90)} \u2022 {String(e.at || "").slice(0, 19).replace("T", " ")}</div>
+            <div key={i} className="rounded-lg bg-gray-50 px-2 py-1 font-mono">{displayDynamicText(e.event, "Event label unavailable in English")} \u2022 {e.actor} \u2022 {displayDynamicText(JSON.stringify(e.data || {}), "Audit details unavailable in English").slice(0, 90)} \u2022 {String(e.at || "").slice(0, 19).replace("T", " ")}</div>
           ))}
           {!audit.length && <p className="text-gray-400">No records.</p>}
         </div>

@@ -17,6 +17,10 @@ from datetime import datetime, timedelta
 
 os.environ.setdefault("WA_TEST_FAST", "1")
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from test_storage import isolate_test_stores  # noqa: E402
+
+isolate_test_stores("digest-engine")
+os.environ["MANA_TEST_PAYMENT_FIXTURES"] = "false"
 
 import digest_engine as DE  # noqa: E402
 
@@ -49,6 +53,7 @@ POOL = [ME,
 INTS = [{"from_id": "GROOM-1", "to_id": "BRIDE-9", "status": "pending", "created_at": NOW.isoformat()}]
 VIEWS = [{"tsap_id": "GROOM-1", "viewer_id": "BRIDE-2", "at": NOW.isoformat()}]
 SAVED = [{"search_id": "SRCH-1", "tsap_id": "GROOM-1", "name": "Reddy Hyderabad", "alert": True,
+          "alert_consent_at": NOW.isoformat(),
           "filters": {"caste": "Reddy", "district": "Hyderabad"}, "last_seen_ids": []}]
 
 
@@ -74,6 +79,10 @@ check("saved_hits from saved search", rec["saved_hits"] >= 1, rec["saved_hits"])
 check("has dedup_key", bool(rec["dedup_key"]))
 check("text non-empty", bool(rec["text"]))
 check("text has saved-search line", "saved search" in rec["text"])
+legacy_search = {**SAVED[0]}
+legacy_search.pop("alert_consent_at", None)
+legacy_digest = DE.build_personal_digest(ME, POOL, INTS, VIEWS, [], [legacy_search], new_matches_fn, now=NOW)
+check("legacy alert flag without recorded consent is paused", legacy_digest["saved_hits"] == 0, legacy_digest["saved_hits"])
 
 print("\n=== 2. PRIVACY — NO RAW PHONE ===")
 allphones = [p["phone"] for p in POOL if p["phone"]]
@@ -160,8 +169,8 @@ check("empty send ok", DE.send_digest_queue([], lambda r: {})["sent"] == 0)
 print("\n=== 11. ENDPOINTS (dev harness) ===")
 try:
     os.environ["TSAP_AUTH_MODE"] = "off"
-    os.environ["DEMO_SEED_ENABLED"] = "true"
-    os.environ["LAUNCH_SEED_COUNT"] = "60"
+    os.environ.pop("DEMO_SEED_ENABLED", None)
+    os.environ.pop("LAUNCH_SEED_COUNT", None)
     os.environ["WHATSAPP_MODE"] = "off"
     os.environ.pop("DIGEST_PERSONAL_SEND", None)
     import main as M
@@ -169,6 +178,15 @@ try:
     from hardening import sign_token, ADMIN_KEY
     cl = TestClient(M.app, raise_server_exceptions=False)
     with cl:
+        # The production seed route is retired; inject one isolated test-only member after startup.
+        test_groom = {"tsap_id": "DETEST-GROOM-001", "full_name": "Digest Test Groom",
+                      "gender": "Groom", "age": 29, "caste": "Reddy", "district": "Hyderabad",
+                      "state": "TS", "phone": "9000012345", "is_approved": True,
+                      "is_active": True, "status": "approved", "created_at": NOW.isoformat(),
+                      "credits": 3, "plan": "FREE"}
+        M.DB_USERS[:] = [u for u in M.DB_USERS if u.get("tsap_id") != test_groom["tsap_id"]]
+        M.DB_USERS.append(test_groom)
+        M._reindex_users()
         AH = {"x-tsap-token": sign_token("ADMIN"), "X-Admin-Key": ADMIN_KEY}
         pv = cl.get("/api/digest/personal/preview", headers=AH)
         check("GET /api/digest/personal/preview 200", pv.status_code == 200, pv.status_code)
@@ -182,7 +200,7 @@ try:
         check("run send_enabled False (gated)", rj.get("send_enabled") is False)
         check("run send skipped (nothing sent)", rj.get("send", {}).get("skipped") is True, rj.get("send"))
         check("run logged to DB_DIGEST (kind=personal)", any(e.get("kind") == "personal" for e in M.DB_DIGEST))
-        groom = next((u for u in M.DB_USERS if u.get("gender") == "Groom" and u.get("is_approved", True) and u.get("phone")), None)
+        groom = next((u for u in M.DB_USERS if u.get("tsap_id") == "DETEST-GROOM-001"), None)
         if groom:
             gid = groom["tsap_id"]
             od = cl.get(f"/api/assistant/digest/{gid}", headers={"x-tsap-token": sign_token(gid)})

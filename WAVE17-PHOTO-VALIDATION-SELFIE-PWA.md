@@ -1,3 +1,7 @@
+# Historical implementation log — not current verification
+
+> Archived 2026-09-16 notes from a different branch. Example profile IDs and generated images below are historical test fixtures, not live member records. Reported pass counts, build output, process IDs, and “live proof” are not current evidence of deployment, identity verification, or external service health. The old mention of a `test_channels` live-network run is not a current smoke-test instruction. For current safe checks use `README.md` and `TEST-2-CHANNELS-NORMAL.md`.
+
 # 🌊 WAVE 17 — PHOTO VALIDATION + SELFIE VERIFY + PWA (screenshot-standard)
 
 **Date:** 2026-09-16 · **Branch:** `arena/01a0aaf1-matrimony-site` (branch-only, NO merge) ·
@@ -48,9 +52,9 @@ D. family canonical/legacy/junk + about short/phone/email 400 · E. photo gating
 
 wave9 203 · wave10 74 · wave11 87 · wave12 75 · wave13 105 · wave14 106 · wave15 54 · wave16 30 · **wave17 46** ·
 router 60 · setup 84 · growth 138 · antiban 84 · privacy 53 · redundancy 53 · referral 145 · safety 70 · topmatch 61 · vendors 130
-(+test_channels live-network script exit 0).
+(historical script output; not a current external check).
 
-## BUILD + LIVE PROOF (2026-09-16, fresh API pid 9989)
+## Historical local checks (not current production verification) (2026-09-16, fresh API pid 9989)
 
 - `tsc` clean · `build` green 31 pages (incl. `/verify`, `/admin/photos`).
 - `/verify` 200 · `/admin/photos` 200 · manifest + `sw.js` 200.

@@ -13,15 +13,22 @@ if _backend_dir not in sys.path:
 from fastapi import FastAPI, HTTPException, Request, UploadFile, File, Form, Body
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, Response
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
+from contextlib import asynccontextmanager
 import os, random, json, re, hashlib, hmac, urllib.parse, time, secrets
 from urllib.parse import quote
 import threading
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 
+MEDIA_ROOT = os.path.realpath(os.getenv("MANA_VIVAHA_MEDIA_DIR", "/tmp"))
+CARD_MEDIA_DIR = os.path.join(MEDIA_ROOT, "cards")
+PHOTO_MEDIA_DIR = os.path.join(MEDIA_ROOT, "photos")
+VOICE_MEDIA_DIR = os.path.join(MEDIA_ROOT, "voice")
+JATHAKAM_MEDIA_DIR = os.path.join(MEDIA_ROOT, "jathakam")
+
 # Import our modules
-from models import RegisterRequest, RegisterResponse, SearchResponse, MatchResult
+from models import RegisterRequest, RegisterResponse, SearchResponse, MatchResult, is_never_married_status
 from card_generator import generate_profile_id
 from credits import PLANS, can_view_number, deduct_credit, add_credits
 from referral import (
@@ -43,7 +50,10 @@ from vendors import (                                                        # �
     register_vendor, activate_vendor, reject_vendor, expire_due_vendors, vendors_directory,
     ad_rotation, track_vendor_click, vendor_lead, promo_post, vendor_dashboard,
     vendor_queue, vendor_revenue, packages_public as vendor_packages_public,
-    vendor_stats, public_vendor, category_label as vendor_category_label,
+    vendor_stats, public_vendor, explicit_whatsapp_number as vendor_whatsapp_number,
+    is_active_listing as vendor_is_active_listing,
+    category_label as vendor_category_label,
+    SHARE_KIT_CODES as VENDOR_SHARE_KIT_CODES,
     CATEGORIES as VENDOR_CATEGORIES, PACKAGES as VENDOR_PACKAGES, SLOTS as VENDOR_SLOTS,
     load_state as vendors_load_state, save_state as vendors_save_state,
 )
@@ -51,6 +61,8 @@ from channels_config import (
     CHANNELS, channel_stats, channels_by_tier, route_profile, build_caption,
     build_hashtags, live_channels, pending_channels, all_channels, resolve_caste_key,
     setup_plan as channels_config_setup_plan, caste_split_report, channel_health_report,
+    channel_links, BOT_USERNAME, _routing_is_explicit, is_public_channel,
+    public_channels, public_channel_stats,
 )
 try:
     from card_pro import create_pro_card, has_telugu_font  # full-detail neat card
@@ -60,6 +72,11 @@ except Exception:  # fonts/PIL lekapoyina server padipodu
         return False
 
 import growth
+import publisher as PUBLISHER
+import wa_antiban as WA_ANTIBAN
+import vendors as VENDOR_STORE
+import quality as QUALITY
+import referral as REFERRAL
 from growth import (namaste_text, admin_new_profile_text, lead_followup_text,
                       track_visit, save_lead, lead_stats, leads_list, share_kit, inventory_status)
 from publisher import (dead_letters, requeue_dead,
@@ -74,27 +91,49 @@ import control_auth as CONTROL_AUTH  # private operations portal sessions
 import money_audit as MAUD  # noqa: E402  # 🌊 WAVE 26 — money audit trail
 import retention as RETENTION  # 🗑️ WAVE 40: 3-year profile auto-delete (archive first)
 from hardening import (
-    auth_enforced, require_owner, require_admin, rate_limit_hit, too_many,
+    auth_enforced, require_owner, require_admin, rate_limit_hit, too_many, client_ip,
     apply_security_headers, posture as security_posture, abuse_snapshot, abuse_log,
     sign_token, verify_token, token_from_request, is_admin, is_automation, clean, req_text,
     require_vendor, vendor_token, admin_role, revoke_all_tokens,
     req_phone, req_int, req_choice, req_bool, validation_error, seen as idem_seen, abuse_count, clamp_int,
     ADMIN_KEY as TSAP_ADMIN_KEY, NAME_RE, PHONE_RE, dev_mode,
+    TOKEN_VERSIONS_PATH,
 )
+
+_PRODUCTION_ENV_NAMES = {"production", "prod", "live"}
+
+
+def _is_production_environment() -> bool:
+    return str(os.getenv("APP_ENV", "")).strip().lower() in _PRODUCTION_ENV_NAMES
+
+
+def _test_payment_fixtures_enabled() -> bool:
+    """Only explicit isolated tests may synthesize paid results; never preview or live."""
+    fixture_flag = str(os.getenv("MANA_TEST_PAYMENT_FIXTURES", "")).strip().lower()
+    environment = str(os.getenv("APP_ENV", "")).strip().lower()
+    isolated_data_dir = str(os.getenv("MANA_VIVAHA_TEST_DATA_DIR", "")).strip()
+    return (
+        dev_mode()
+        and environment in {"", "test"}
+        and bool(isolated_data_dir)
+        and fixture_flag in {"1", "true", "yes", "on"}
+    )
+
+
 # ⭐ profiles quality + saved searches + consent ledger + templates
 from quality import (
     profile_completeness, templates as quality_templates, facets as search_facets,
-    save_search, saved_for, delete_search, new_matches_for, mark_alerted, matches_filters,
+    save_search, saved_for, delete_search, set_search_alert, new_matches_for, mark_alerted, matches_filters,
     log_consent, consent_for, load_saved_searches, load_consent_ledger, CONSENT_LEDGER,
     SAVED_SEARCHES,
 )
 from interest import (
     PLANS as INTEREST_PLANS, plan_list, get_plan, plan_by_amount, apply_payment,
     can_send_interest, create_interest, respond_interest, expire_old,
-    interest_to_owner_text, interest_accepted_text, interest_declined_text,
-    interest_notify_text, inbox_for, sent_for, safe_user,
+    interest_to_owner_text, interest_accepted_text, interest_accepted_owner_text, interest_declined_text,
+    interest_notify_text, inbox_for, sent_for, safe_user, sanitize_public_text, sanitize_public_payload,
     MAX_PER_DAY as INTEREST_MAX_PER_DAY, EXPIRY_DAYS as INTEREST_EXPIRY_DAYS,
-    mask_phone,
+    REFUND_ON_DECLINE as INTEREST_REFUND_ON_DECLINE, mask_phone,
 )
 from porutham import compute_porutham, porutham_line, norm_nakshatra, norm_rasi
 import topmatch, safety, preview, bot_pool, wa_pool
@@ -112,6 +151,187 @@ from location_catalog import (
 )
 
 
+def _validate_production_storage() -> dict:
+    """Fail closed unless every durable store/media path is on the mounted data root."""
+    root_value = os.getenv("MANA_VIVAHA_PERSISTENT_ROOT", "").strip()
+    state_value = os.getenv("MANA_VIVAHA_STATE_DIR", "").strip()
+    if not root_value or not os.path.isabs(root_value):
+        raise RuntimeError("MANA_VIVAHA_PERSISTENT_ROOT must be an absolute durable-volume path")
+    if not state_value or not os.path.isabs(state_value):
+        raise RuntimeError("MANA_VIVAHA_STATE_DIR must be an absolute durable state path")
+
+    root = os.path.realpath(root_value)
+    state_root = os.path.realpath(state_value)
+    if root == "/" or root == "/tmp" or root.startswith("/tmp/"):
+        raise RuntimeError("Production persistence cannot use the container root or ephemeral /tmp")
+    try:
+        token_state_is_backed_up = os.path.commonpath((state_root, os.path.realpath(TOKEN_VERSIONS_PATH))) == state_root
+    except ValueError:
+        token_state_is_backed_up = False
+    if not token_state_is_backed_up:
+        raise RuntimeError("Production token-revocation state must be inside MANA_VIVAHA_STATE_DIR for durable backup")
+
+    import backup39 as BACKUP
+    paths = [
+        ("state directory", state_value, True),
+        ("core profiles/payments database", DBSTORE.DB_FILE, False),
+        ("token-revocation versions", TOKEN_VERSIONS_PATH, False),
+        ("payment/offer state", PP.PERSIST_FILE, False),
+        ("ad campaigns", ADS.PERSIST_FILE, False),
+        ("astrology records", AST.PERSIST_FILE, False),
+        ("CMS content", CMS.PERSIST_FILE, False),
+        ("channel overrides", CHAN.PERSIST_FILE, False),
+        ("consent ledger", QUALITY.CONSENT_STATE_FILE, False),
+        ("saved searches", QUALITY.SAVED_STATE_FILE, False),
+        ("stories", A11.STORIES_FILE, False),
+        ("push subscriptions", A11.PUSH_FILE, False),
+        ("money audit", MAUD.AUDIT_FILE, False),
+        ("publisher log", PUBLISHER.LOG_FILE, False),
+        ("referrals", REFERRAL.STATE_FILE, False),
+        ("referral partners", RP19.JSON_FILE, False),
+        ("referral partner export", RP19.CSV_FILE, False),
+        ("retention log", RETENTION.LOG_FILE, False),
+        ("retention archives", RETENTION.BACKUP_DIR, True),
+        ("smart reveal state", S12.PERSIST_FILE, False),
+        ("spotlight state", spotlight.SPOTLIGHT_FILE, False),
+        ("vendor state", VENDOR_STORE.STATE_FILE, False),
+        ("WhatsApp anti-abuse state", WA_ANTIBAN.STATE_FILE, False),
+        ("WhatsApp instance state", wa_pool.STATE_FILE, False),
+        ("daily matches", DAILY_FILE, False),
+        ("weekly showcase", SHOWCASE_FILE, False),
+        ("backup snapshots", BACKUP.BACKUP_DIR, True),
+        ("control audit", os.getenv("CONTROL_AUDIT_FILE", "").strip(), False),
+        ("media root", MEDIA_ROOT, True),
+        ("profile cards", CARD_MEDIA_DIR, True),
+        ("profile photos", PHOTO_MEDIA_DIR, True),
+        ("voice introductions", VOICE_MEDIA_DIR, True),
+        ("jathakam uploads", JATHAKAM_MEDIA_DIR, True),
+        ("vendor poster output", os.getenv("VENDOR_POSTER_DIR", "").strip(), True),
+        ("referral poster output", os.getenv("REFERRAL_POSTER_DIR", "").strip(), True),
+    ]
+
+    writable_dirs = {root}
+    for label, value, is_directory in paths:
+        if not value or not os.path.isabs(value):
+            raise RuntimeError(f"Production storage path for {label} must be absolute and configured")
+        resolved = os.path.realpath(value)
+        try:
+            within_root = os.path.commonpath((root, resolved)) == root
+        except ValueError:
+            within_root = False
+        if not within_root:
+            raise RuntimeError(f"Production storage path for {label} is outside the durable volume")
+        target_dir = resolved if is_directory else os.path.dirname(resolved)
+        os.makedirs(target_dir, mode=0o700, exist_ok=True)
+        writable_dirs.add(target_dir)
+
+    for directory in writable_dirs:
+        try:
+            probe = os.path.join(directory, ".mana-vivaha-write-check-" + secrets.token_hex(8))
+            fd = os.open(probe, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+            os.close(fd)
+            os.unlink(probe)
+        except OSError as exc:
+            raise RuntimeError(f"Production data volume is not writable: {directory}") from exc
+
+    return {"root": root, "durable_paths": len(paths)}
+
+
+def _validate_production_core_database() -> dict:
+    """Validate the core registration store before any production workers start.
+
+    A missing/corrupt/incomplete store is never interpreted as an empty database.
+    A genuinely new installation must use the separate one-shot bootstrap command;
+    ordinary server startup can never initialize or authorize an empty replacement volume.
+    """
+    path = os.path.abspath(DBSTORE.DB_FILE)
+    collections = {
+        "users": list,
+        "interests": list,
+        "payments": list,
+        "otps": dict,
+        "verified_phones": list,
+        "views": list,
+        "saves": list,
+        "digest": list,
+    }
+
+    def _read_store() -> dict:
+        try:
+            with open(path, encoding="utf-8") as handle:
+                value = json.load(handle)
+        except Exception as exc:
+            raise RuntimeError(
+                "Production core database is unreadable or corrupt; preserve the file and restore a verified backup"
+            ) from exc
+        if not isinstance(value, dict):
+            raise RuntimeError("Production core database must be a JSON object; file was not modified")
+        missing = [key for key in collections if key not in value]
+        if missing:
+            raise RuntimeError(
+                "Production core database is missing required fields (%s); preserve it and migrate/restore a verified backup"
+                % ", ".join(missing)
+            )
+        wrong_types = [key for key, expected in collections.items() if not isinstance(value.get(key), expected)]
+        if wrong_types:
+            raise RuntimeError(
+                "Production core database has invalid collection types (%s); file was not modified"
+                % ", ".join(wrong_types)
+            )
+        if any(not isinstance(row, dict) for key in ("users", "interests", "payments", "views", "saves", "digest")
+               for row in value[key]):
+            raise RuntimeError("Production core database contains malformed rows; file was not modified")
+        if any(not isinstance(phone, str) for phone in value["verified_phones"]):
+            raise RuntimeError("Production core database contains malformed verified-phone values; file was not modified")
+        if any(not isinstance(phone, str) or not isinstance(record, dict)
+               for phone, record in value["otps"].items()):
+            raise RuntimeError("Production core database contains malformed OTP state; file was not modified")
+        return value
+
+    if not os.path.exists(path):
+        raise RuntimeError(
+            "Production core database is missing at %s; startup is blocked to protect registrations. "
+            "Restore the existing database, or use bootstrap_core_db.py --confirm-new-install only "
+            "for a verified brand-new installation" % path
+        )
+
+    payload = _read_store()
+    has_records = any(bool(payload[key]) for key in collections)
+    if not has_records and payload.get("storage_format") != DBSTORE.STORAGE_FORMAT:
+        raise RuntimeError(
+            "Production core database is empty and has no initialization marker; startup is blocked. "
+            "After a verified backup, use the one-shot --confirm-existing-empty command only if every collection is truly empty"
+        )
+
+    seen_ids = set()
+    seen_phones = set()
+    for row_number, profile in enumerate(payload["users"], start=1):
+        if not isinstance(profile, dict):
+            raise RuntimeError("Production profile row %d is malformed; no records were discarded" % row_number)
+        if _is_synthetic_profile(profile):
+            raise RuntimeError(
+                "Production database contains a demo/seed profile at row %d; review it offline without deleting real registrations"
+                % row_number
+            )
+        tsap_id = str(profile.get("tsap_id") or "").strip().upper()
+        if not tsap_id or tsap_id in seen_ids:
+            raise RuntimeError(
+                "Production database contains a missing/duplicate profile ID at row %d; no records were discarded"
+                % row_number
+            )
+        seen_ids.add(tsap_id)
+        phone = str(profile.get("phone") or "").strip()
+        if phone and phone in seen_phones:
+            raise RuntimeError(
+                "Production database contains a duplicate profile phone at row %d; no records were discarded"
+                % row_number
+            )
+        if phone:
+            seen_phones.add(phone)
+
+    return {"file": path, "users": len(payload["users"]), "has_records": has_records}
+
+
 def _is_synthetic_profile(profile: Optional[Dict]) -> bool:
     """Recognize legacy fixtures so they cannot enter member-facing data paths."""
     if not isinstance(profile, dict):
@@ -122,6 +342,22 @@ def _is_synthetic_profile(profile: Optional[Dict]) -> bool:
         or profile.get("profile_note") == "TSAP demo profile"
         or profile.get("inventory_status") or profile.get("seed")
     )
+
+
+def _is_approved_profile(profile: Optional[Dict]) -> bool:
+    """Fail closed for public listings, including accounts explicitly deactivated by their owner."""
+    if not isinstance(profile, dict) or profile.get("is_banned") or _is_synthetic_profile(profile):
+        return False
+    status = str(profile.get("status") or "").strip().lower()
+    if status in {"pending", "rejected", "deleted", "married_fixed", "banned", "inactive", "hidden"}:
+        return False
+    active = profile.get("is_active")
+    if active is not None and str(active).strip().lower() not in {"1", "true", "yes", "on", "active", "approved"}:
+        return False
+    flag = profile.get("is_approved")
+    if flag is not None:
+        return flag is True or str(flag).strip().lower() in {"1", "true", "yes", "approved"}
+    return status == "approved"
 
 
 def _is_nri(u: Dict) -> bool:  # 🌊 WAVE 14 adapter: stored flag + detect_nri fallback
@@ -150,7 +386,18 @@ from welcome_pack import build_welcome_pack, pack_public, channels_count as wa_l
 # 🚀 WAVE 11 — additional tools (gothram text comparison, stories, streak, push, voice, boosts)
 import advanced11 as A11
 
-app = FastAPI(title="TSAP Matrimony API — Ultra Advanced", version="2.0")
+@asynccontextmanager
+async def _app_lifespan(_application):
+    """Use FastAPI's lifespan contract for worker setup and final persistence flush."""
+    await _startup_publisher()
+    await _startup_backup39()
+    try:
+        yield
+    finally:
+        await _shutdown_flush_db()
+
+
+app = FastAPI(title="TSAP Matrimony API — Ultra Advanced", version="2.0", lifespan=_app_lifespan)
 
 
 # ---------------------------------------------------------------------------
@@ -235,7 +482,19 @@ _CONTROL_OWNER_ROLES = {"owner"}
 def _control_write_guard(request: Request, roles: Optional[set] = None) -> dict:
     """Require a valid control session + valid CSRF header for any mutating action."""
     item = CONTROL_AUTH.require(request, roles=roles)
+    if item.get("sid") == "api_key_session":
+        raise HTTPException(403, "An owner session cookie is required for this control action")
     if not CONTROL_AUTH.csrf_valid(request, item):
+        raise HTTPException(403, "CSRF validation failed")
+    return item
+
+
+def _control_owner_session_guard(request: Request, *, mutating: bool = False) -> dict:
+    """Vendor review is restricted to an owner session cookie; writes also need CSRF."""
+    item = CONTROL_AUTH.require(request, roles=_CONTROL_OWNER_ROLES)
+    if item.get("sid") == "api_key_session":
+        raise HTTPException(403, "Owner session cookie required")
+    if mutating and not CONTROL_AUTH.csrf_valid(request, item):
         raise HTTPException(403, "CSRF validation failed")
     return item
 
@@ -259,7 +518,7 @@ def control_analytics(request: Request):
     approved = sum(1 for u in DB_USERS if u.get("is_approved") or str(u.get("status")) == "approved")
     rejected = sum(1 for u in DB_USERS if str(u.get("status")) == "rejected")
     with_photo = sum(1 for u in DB_USERS if str(u.get("photo_status", "none")) not in {"none", ""})
-    verified = sum(1 for u in DB_USERS if safety.has_verification_evidence(u))
+    recorded_checks = sum(1 for u in DB_USERS if safety.has_verification_evidence(u))
 
     # gender split
     males = sum(1 for u in DB_USERS if str(u.get("gender", "")).lower().startswith("m"))
@@ -294,7 +553,7 @@ def control_analytics(request: Request):
         "success": True, "role": item["role"], "generated_at": now.isoformat(),
         "totals": {
             "profiles": total, "pending": pending, "approved": approved, "rejected": rejected,
-            "with_photo": with_photo, "verified": verified, "males": males, "females": females,
+            "with_photo": with_photo, "recorded_checks": recorded_checks, "males": males, "females": females,
             "open_reports": open_reports, "photos_pending": photos_pending,
             "interests": len(DB_INTERESTS), "posts": len(DB_POSTS),
         },
@@ -331,12 +590,12 @@ def _queue_approved_profile_publication(user: dict) -> dict:
         return {"queued": False, "targets": [], "reason": "auto_publish_disabled"}
 
     plan = post_targets(user)
-    if not plan.get("ready"):
+    if not plan.get("routing_candidates"):
         return {"queued": False, "targets": [], "reason": "no_routing_destinations"}
 
     tsap_id = str(user.get("tsap_id", ""))
     private_photo = bool(user.get("photo_private") or user.get("privacy_mode") == "private")
-    candidate_card = f"/tmp/cards/{tsap_id}.png"
+    candidate_card = os.path.join(CARD_MEDIA_DIR, f"{tsap_id}.png")
     photo_path = candidate_card if not private_photo and os.path.isfile(candidate_card) else None
     result = enqueue(user, tsap_id, photo_path=photo_path)
     result["reason"] = "queued_for_delivery" if result.get("queued") else "queue_failed"
@@ -481,6 +740,13 @@ def control_profile_upgrade(tsap_id: str, payload: dict, request: Request):
         "Plan activation does not verify identity or approve a profile. Contact details require profile-owner acceptance.\n"
         "Payment / complimentary status: " + ("complimentary grant" if is_comped else "recorded payment")
     )
+    wa_text_en = (
+        f"💐 Hello {user.get('full_name')},\n\n"
+        f"Your {plan_title} plan on Mana Vivaha has been activated.\n"
+        f"🪙 {expected_credits} interest-request credits were added; the plan is valid for {plan['validity_days']} days.\n"
+        "Plan activation does not verify identity or approve a profile. Contact details require profile-owner acceptance.\n"
+        "Payment / complimentary status: " + ("complimentary grant" if is_comped else "recorded payment")
+    )
     CONTROL_AUTH.audit("control_profile_upgrade", item["username"], request,
                        tsap_id=tsap_id, plan=plan_code, amount=amount, comped=is_comped,
                        credits_added=expected_credits)
@@ -495,7 +761,7 @@ def control_profile_upgrade(tsap_id: str, payload: dict, request: Request):
         "plan": plan_code, "plan_title": plan_title, "credits": user["credits"],
         "credits_added": expected_credits, "plan_expiry": user.get("plan_expiry"),
         "comped": is_comped, "verification": safety.verification_badge(user),
-        "wa_message": wa_text,
+        "wa_message": wa_text, "wa_message_en": wa_text_en,
         "message_telugu": f"{user.get('tsap_id')} కి {plan_title} active అయ్యింది (+{expected_credits} interest-request credits, {plan['validity_days']} రోజులు). Profile approval / identity verification వేరుగా ఉంటుంది.{ref_msg}",
     }
 
@@ -664,7 +930,7 @@ def control_payout_action(request_id: str, payload: dict, request: Request):
 def control_castes_list(request: Request):
     """Control Portal: Castes & Community Hubs overview with counts and subcastes."""
     item = CONTROL_AUTH.require(request)
-    from channels_config import CASTE_CLUSTERS, CHANNELS
+    from channels_config import CASTE_CLUSTERS, CHANNELS, _routing_is_explicit
     clusters_data = []
     for cl in CASTE_CLUSTERS:
         key = cl["key"]
@@ -674,6 +940,9 @@ def control_castes_list(request: Request):
         members = list(cl.get("members", []))
         males = sum(1 for u in DB_USERS if (str(u.get("caste", "")).lower() in [m.lower() for m in members] or key in str(u.get("caste", "")).lower()) and str(u.get("gender", "")).lower() in ["groom", "male"])
         females = sum(1 for u in DB_USERS if (str(u.get("caste", "")).lower() in [m.lower() for m in members] or key in str(u.get("caste", "")).lower()) and str(u.get("gender", "")).lower() in ["bride", "female"])
+        mixed_channel = CHANNELS.get(f"c_{key}")
+        bride_channel = CHANNELS.get(f"c_{key}_bride") or mixed_channel
+        groom_channel = CHANNELS.get(f"c_{key}_groom") or mixed_channel
         clusters_data.append({
             "key": key,
             "en": en,
@@ -684,9 +953,12 @@ def control_castes_list(request: Request):
             "males": males,
             "females": females,
             "total": males + females,
-            "live": True,
-            "channel_bride": CHANNELS.get(f"c_{key}_bride", {}).get("username") or CHANNELS.get(f"c_{key}", {}).get("username") or f"manavivaha_{key}_bride",
-            "channel_groom": CHANNELS.get(f"c_{key}_groom", {}).get("username") or CHANNELS.get(f"c_{key}", {}).get("username") or f"manavivaha_{key}_groom",
+            "routing_eligible": bool(
+                (bride_channel and _routing_is_explicit(bride_channel))
+                or (groom_channel and _routing_is_explicit(groom_channel))
+            ),
+            "channel_bride": (bride_channel or {}).get("username", ""),
+            "channel_groom": (groom_channel or {}).get("username", ""),
         })
     return {"success": True, "castes": clusters_data, "total_castes": len(clusters_data)}
 
@@ -712,14 +984,14 @@ def control_matchmaker(
     item = CONTROL_AUTH.require(request, roles=_CONTROL_OWNER_ROLES)
     pid = profile_id.strip().upper()
     me = next((u for u in DB_USERS if str(u.get("tsap_id", "")).strip().upper() == pid), None)
-    if not me:
-        raise HTTPException(404, "Profile ID not found")
+    if not _is_approved_profile(me):
+        raise HTTPException(404, "Approved profile ID not found")
 
     target_gender = "Groom" if str(me.get("gender", "")).lower() in ["bride", "female"] else "Bride"
     pool = [
         u for u in DB_USERS
-        if u.get("tsap_id") != me.get("tsap_id")
-        and not u.get("is_banned")
+        if _is_approved_profile(u)
+        and u.get("tsap_id") != me.get("tsap_id")
         and (not u.get("gender") or str(u.get("gender", "")).lower() == target_gender.lower())
         and not safety.is_blocked(me["tsap_id"], u.get("tsap_id", ""), DB_BLOCKS)
     ]
@@ -1019,7 +1291,7 @@ def control_directory(
             "star": u.get("star", ""),
             "rasi": u.get("rasi", ""),
             "marital_status": u.get("marital_status", "Pelli Kaledu"),
-            "children": u.get("children", "None"),
+            "children": "" if is_never_married_status(u.get("marital_status")) else u.get("children", ""),
             "district": u.get("district"),
             "state": u.get("state"),
             "education": u.get("education"),
@@ -1095,7 +1367,7 @@ def control_astro_check(boy_id: str, girl_id: str, request: Request):
         "───────────────────────────",
         f"🌐 *ప్రొఫైల్ లింకులు:* https://manavivaha.in/search/{u_boy.get('tsap_id')} & https://manavivaha.in/search/{u_girl.get('tsap_id')}",
     ])
-    configured_support = (os.getenv("SUPPORT_WHATSAPP") or os.getenv("SUPPORT_PHONE") or "").strip()
+    configured_support = os.getenv("SUPPORT_WHATSAPP", "").strip()
     if configured_support:
         wa_lines.append(f"📞 Configured support contact: {configured_support}")
     wa_lines.append("_ఈ నివేదిక సాంప్రదాయ సూచిక మాత్రమే; వివరాలు మరియు నిర్ణయాలను స్వతంత్రంగా నిర్ధారించండి. మన వివాహ_")
@@ -1114,7 +1386,7 @@ def control_astro_check(boy_id: str, girl_id: str, request: Request):
 def control_demand_matrix(request: Request):
     """Control Portal: Caste Demand & Gender Supply Balance Matrix."""
     item = CONTROL_AUTH.require(request)
-    caste_map = defaultdict(lambda: {"brides": 0, "grooms": 0, "verified": 0})
+    caste_map = defaultdict(lambda: {"brides": 0, "grooms": 0, "recorded_checks": 0})
     for u in DB_USERS:
         c = str(u.get("caste", "Other")).strip() or "Other"
         g = str(u.get("gender", "Bride")).capitalize()
@@ -1123,7 +1395,7 @@ def control_demand_matrix(request: Request):
         else:
             caste_map[c]["brides"] += 1
         if safety.has_verification_evidence(u):
-            caste_map[c]["verified"] += 1
+            caste_map[c]["recorded_checks"] += 1
 
     results = []
     for c, data in sorted(caste_map.items(), key=lambda x: x[1]["brides"] + x[1]["grooms"], reverse=True):
@@ -1138,7 +1410,7 @@ def control_demand_matrix(request: Request):
             "brides": b,
             "grooms": g,
             "ratio": ratio,
-            "verified": data["verified"],
+            "recorded_checks": data["recorded_checks"],
             "health": health,
             "health_telugu": {
                 "balanced": "⚖️ సమతుల్యం (Balanced)",
@@ -1281,7 +1553,6 @@ def control_add_profile(payload: dict, request: Request):
             "state": state,
             "district": district,
             "phone": phone,
-            "phone_encrypted": encrypt_phone(phone),
             "phone_last4": phone[-4:],
             "phone_masked": mask_phone(phone),
             "phone_verified": False,
@@ -1325,17 +1596,78 @@ def control_add_profile(payload: dict, request: Request):
             user["post_hashtags"] = []
         
         DB_USERS.append(user)
-    try:
-        DBSTORE.save(DBSTORE.snapshot(DB_USERS, DB_INTERESTS, DB_PAYMENTS, DB_OTPS,
-                                      VERIFIED_PHONES, DB_VIEWS, DB_SAVES, DB_DIGEST), force=True)
-    except Exception:
-        pass
-        
+        _reindex_users()
+        if not DBSTORE.save(DBSTORE.snapshot(DB_USERS, DB_INTERESTS, DB_PAYMENTS, DB_OTPS,
+                                             VERIFIED_PHONES, DB_VIEWS, DB_SAVES, DB_DIGEST), force=True):
+            DB_USERS.remove(user)
+            _reindex_users()
+            raise HTTPException(503, "Profile could not be saved safely; no profile was accepted. Please retry.")
+
     CONTROL_AUTH.audit("control_add_profile", item["username"], request, tsap_id=tsap_id, caste=caste, name=full_name)
     return {"success": True, "tsap_id": tsap_id, "status": "pending", "is_approved": False,
             "is_verified": False, "phone_verified": False,
             "profile": {"tsap_id": tsap_id, "status": "pending"},
             "message": f"Profile {tsap_id} created for review. No channel post was sent."}
+
+
+@app.get("/api/control/vendors")
+def control_vendors_list(request: Request, status: str = "pending"):
+    """Owner-only vendor review queue; records come from storage, never demo fixtures."""
+    item = _control_owner_session_guard(request)
+    status = str(status or "pending").strip().lower()
+    if status not in {"pending", "active", "kit_ready", "rejected", "expired", "all"}:
+        raise HTTPException(400, "Invalid vendor status")
+    result = vendor_queue(status)
+    CONTROL_AUTH.audit("control_vendor_queue", item["username"], request,
+                       status=status, count=result.get("count", 0))
+    return {"success": True, **result, "status": status}
+
+
+@app.get("/api/control/vendors/revenue")
+def control_vendors_revenue(request: Request):
+    """Owner-only aggregate vendor figures; no vendor records are fabricated."""
+    item = _control_owner_session_guard(request)
+    result = vendor_revenue()
+    CONTROL_AUTH.audit("control_vendor_revenue_view", item["username"], request)
+    return {"success": True, **result}
+
+
+@app.post("/api/control/vendors/{vendor_id}/action")
+def control_vendor_action(vendor_id: str, payload: dict, request: Request):
+    """Owner-session + CSRF protected manual review of vendor payment/listing status."""
+    item = _control_owner_session_guard(request, mutating=True)
+    import vendors as VND
+    vendor = next((v for v in VND.VENDORS if str(v.get("id", "")) == vendor_id), None)
+    if not vendor:
+        raise HTTPException(404, "Vendor not found")
+    data = payload or {}
+    action = str(data.get("action", "")).strip().lower()
+    if action in {"approve", "reject"} and vendor.get("status") != "pending":
+        raise HTTPException(409, "Only pending vendor applications can be approved or rejected")
+    if action == "approve":
+        utr = str(data.get("utr", "")).strip()
+        if not re.fullmatch(r"[A-Za-z0-9/-]{6,64}", utr):
+            raise HTTPException(400, "Enter the actual payment reference from the reviewed receipt")
+        result = activate_vendor(vendor_id, package=str(data.get("package", "")), utr=utr)
+    elif action == "reject":
+        reason = str(data.get("reason", "")).strip()
+        if len(reason) < 5:
+            raise HTTPException(400, "A clear rejection reason is required")
+        result = reject_vendor(vendor_id, reason)
+    elif action == "expire":
+        vendor["status"] = "expired"
+        vendors_save_state()
+        result = {"ok": True, "vendor": vendor,
+                  "message_telugu": "⏳ %s listing expire చేశాం" % vendor.get("business_name", "Vendor")}
+    else:
+        raise HTTPException(400, "Action must be approve, reject, or expire")
+    if not result.get("ok"):
+        status_code = 404 if result.get("reason") == "not_found" else 400
+        raise HTTPException(status_code, str(result.get("reason") or "Vendor action failed"))
+    CONTROL_AUTH.audit("control_vendor_action", item["username"], request,
+                       vendor_id=vendor_id, decision=action,
+                       package=(result.get("vendor") or {}).get("package", ""))
+    return {"success": True, **result}
 
 
 @app.get("/api/control/ads")
@@ -1359,7 +1691,7 @@ def control_ads_create(payload: dict, request: Request):
         raise HTTPException(400, "An existing vendor ID is required")
     import vendors as VND
     vendor = next((v for v in VND.VENDORS if str(v.get("id", "")) == vendor_id), None)
-    if not vendor or vendor.get("status") != "active":
+    if not vendor_is_active_listing(vendor):
         raise HTTPException(404, "An active registered vendor was not found")
 
     try:
@@ -1451,22 +1783,134 @@ async def _telugu_500_handler(request: Request, exc: Exception):
         "success": False, "error": "server_error", "ref": ref,
         "message_telugu": "⚠️ Konchem technical problem (ref: %s) — మళ్లీ try చెయ్యండి, kakapothe support కి ref code పంపండి 🙏" % ref})
 
-# Card + photo files static ga serve — /cards/{id}.png browser lo direct open avutundi
+# Generated cards and uploaded photos contain member data. Do not mount their
+# storage directories as public StaticFiles: every filename would bypass profile,
+# privacy, owner, and moderator checks. Voice assets remain a separate public feature.
 try:
     from fastapi.staticfiles import StaticFiles
-    os.makedirs("/tmp/cards", exist_ok=True)
-    os.makedirs("/tmp/photos", exist_ok=True)
-    app.mount("/cards", StaticFiles(directory="/tmp/cards"), name="cards")
-    app.mount("/photos", StaticFiles(directory="/tmp/photos"), name="photos")
-    os.makedirs("/tmp/voice", exist_ok=True)                                        # 🎙️ WAVE 11
-    app.mount("/voice", StaticFiles(directory="/tmp/voice"), name="voice")          # 🎙️ WAVE 11
+    os.makedirs(CARD_MEDIA_DIR, exist_ok=True)
+    os.makedirs(PHOTO_MEDIA_DIR, exist_ok=True)
+    os.makedirs(VOICE_MEDIA_DIR, exist_ok=True)                                      # 🎙️ WAVE 11
+    app.mount("/voice", StaticFiles(directory=VOICE_MEDIA_DIR), name="voice")        # 🎙️ WAVE 11
 except Exception as _e:
     print("[STATIC] mount skip:", _e)
 
-@app.on_event("startup")
+
+def _media_filename(value: object, prefix: str) -> str:
+    """Accept only a bare same-site media path; reject external URLs and traversal."""
+    raw = str(value or "").strip()
+    if not raw or len(raw) > 240 or "\\" in raw:
+        return ""
+    try:
+        parsed = urllib.parse.urlsplit(raw)
+    except ValueError:
+        return ""
+    if parsed.scheme or parsed.netloc or parsed.query or parsed.fragment:
+        return ""
+    match = re.fullmatch(re.escape(prefix) + r"([A-Za-z0-9._-]{1,180})", parsed.path)
+    if not match:
+        return ""
+    filename = match.group(1)
+    if filename in {".", ".."} or ".." in filename:
+        return ""
+    return filename
+
+
+def _media_file(directory: str, filename: str) -> str:
+    """Resolve a one-component media filename without allowing path escape."""
+    root = os.path.realpath(directory)
+    path = os.path.realpath(os.path.join(root, filename))
+    if os.path.dirname(path) != root or not os.path.isfile(path):
+        raise HTTPException(404, "Media not found")
+    return path
+
+
+@app.get("/photos/{filename}")
+def guarded_profile_photo(filename: str, request: Request):
+    """Serve approved public profile photos; keep private, pending, and selfie media gated."""
+    if not re.fullmatch(r"[A-Za-z0-9._-]{1,180}", filename) or ".." in filename:
+        raise HTTPException(404, "Photo not found")
+    photo_owners, selfie_owners = [], []
+    for profile in DB_USERS:
+        if not isinstance(profile, dict):
+            continue
+        raw_values = profile.get("photo_urls", []) if isinstance(profile.get("photo_urls"), list) else []
+        values = [profile.get("photo_url"), *raw_values]
+        if any(_media_filename(value, "/photos/") == filename for value in values):
+            photo_owners.append(profile)
+        if _media_filename(profile.get("selfie_url"), "/photos/") == filename:
+            selfie_owners.append(profile)
+    owners = photo_owners + [u for u in selfie_owners if u not in photo_owners]
+    cms_public_reference = False
+    try:
+        for page in CMS.list_pages(True):
+            cms_public_reference |= any(_media_filename(value, "/photos/") == filename
+                                        for value in (page.get("photos") or []))
+        for story in CMS.list_stories("", True, 100):
+            cms_public_reference |= _media_filename(story.get("photo"), "/photos/") == filename
+    except Exception:
+        cms_public_reference = False
+
+    is_private = any(bool(u.get("photo_private") or u.get("privacy_mode") == "private") for u in owners)
+    has_public_photo_reference = cms_public_reference or (
+        not selfie_owners and not is_private
+        and any(_is_approved_profile(u) and u.get("photo_status") == "approved" for u in photo_owners)
+    )
+    identity = token_from_request(request)
+    owner_ids = {str(u.get("tsap_id", "")).strip().upper() for u in owners}
+    is_owner = bool(identity and str(identity.get("tsap_id", "")).strip().upper() in owner_ids)
+    if not has_public_photo_reference and not is_owner:
+        try:
+            require_admin(request, staff_ok=True)
+        except HTTPException:
+            # A uniform 404 avoids confirming whether a private/pending upload exists.
+            raise HTTPException(404, "Photo not found")
+
+    path = _media_file(PHOTO_MEDIA_DIR, filename)
+    cache = "public, max-age=3600" if has_public_photo_reference else "private, no-store"
+    return FileResponse(path, headers={"Cache-Control": cache, "X-Content-Type-Options": "nosniff"})
+
+
+@app.get("/cards/{filename}")
+def guarded_profile_card(filename: str, request: Request):
+    """Serve a card only for an active public profile, its owner, or authorized staff."""
+    if not re.fullmatch(r"[A-Za-z0-9-]{3,32}\.png", filename):
+        raise HTTPException(404, "Card not found")
+    tsap_id = filename[:-4].upper()
+    profile = _find_user(tsap_id)
+    if not profile or _is_synthetic_profile(profile):
+        raise HTTPException(404, "Card not found")
+    is_private = bool(profile.get("photo_private") or profile.get("privacy_mode") == "private")
+    has_public_card = _is_approved_profile(profile) and not is_private
+    identity = token_from_request(request)
+    is_owner = bool(identity and str(identity.get("tsap_id", "")).strip().upper() == tsap_id)
+    if not has_public_card and not is_owner:
+        try:
+            require_admin(request, staff_ok=True)
+        except HTTPException:
+            raise HTTPException(404, "Card not found")
+    path = _media_file(CARD_MEDIA_DIR, filename)
+    cache = "public, max-age=300" if has_public_card else "private, no-store"
+    return FileResponse(path, media_type="image/png", headers={"Cache-Control": cache,
+                                                                 "X-Content-Type-Options": "nosniff"})
+
+
 async def _startup_publisher():
     # Never bring an unconfigured operations plane online in production.
-    if str(os.getenv("APP_ENV", "")).lower() in {"production", "prod"}:
+    if _is_production_environment():
+        _validate_production_storage()
+        db_state = _validate_production_core_database()
+        print("[DB] production persistence validated: users=%d records=%s file=%s" % (
+            db_state["users"], "present" if db_state["has_records"] else "explicitly initialized empty",
+            db_state["file"]))
+        # Refuse unsafe operator flags too: a copied test env must never turn
+        # auth off, disable rate limits, or auto-apply developer payment fixtures.
+        if not auth_enforced():
+            raise RuntimeError("Authentication bypass flags are forbidden in production")
+        if str(os.getenv("TSAP_RATE_LIMIT", "")).strip().lower() in {"0", "false", "no", "off"}:
+            raise RuntimeError("Rate limiting cannot be disabled in production")
+        if str(os.getenv("MANA_TEST_PAYMENT_FIXTURES", "")).strip().lower() in {"1", "true", "yes", "on"}:
+            raise RuntimeError("Test payment fixtures are forbidden in production")
         if not os.getenv("TSAP_AUTH_SECRET", "").strip() or len(os.getenv("TSAP_AUTH_SECRET", "")) < 32:
             raise RuntimeError("TSAP_AUTH_SECRET (32+ random chars) is required in production")
         if not os.getenv("ADMIN_KEY", "").strip() or len(os.getenv("ADMIN_KEY", "")) < 32:
@@ -1482,7 +1926,7 @@ async def _startup_publisher():
     start_wa_worker()
     wa = st["whatsapp_queue"]["antiban"]
     print(f"[PUBLISHER] worker={ok} | telegram={'ready' if st['telegram']['configured'] else 'dry-run'} "
-          f"| whatsapp={st['whatsapp']['mode']} | live_channels={st['telegram']['live_channels']}")
+          f"| whatsapp={st['whatsapp']['mode']} | routing_eligible={st['telegram']['routing_eligible_count']} (external status unchecked)")
     if not os.getenv("TSAP_API_KEY", "").strip():
         print("[AUTH] ⚠️ TSAP_API_KEY ledu — Telegram bot automation private API ki 401 (API+bot env lo same key pettandi)")
     print(f"[WHATSAPP-ANTIBAN] telegram mundu → whatsapp tarvata | gap={wa['random_gap']} | "
@@ -1490,8 +1934,10 @@ async def _startup_publisher():
     # 🌊 WAVE 22 — restart aina data povatledu: disk nunchi users/interests/payments restore
     try:
         _snap = DBSTORE.load()
-        if _snap.get("users"):
-            _u = _snap["users"]
+        if not isinstance(_snap, dict) or (_is_production_environment() and not _snap):
+            raise RuntimeError("core database did not load as a valid snapshot")
+        if _snap:
+            _u = _snap.get("users", [])
             # Restore only genuine member records. Prior demo/launch seed rows are
             # excluded before any operations or public endpoint can serialize them.
             _by_id, _seen_ph, _clean = {}, set(), []
@@ -1516,6 +1962,10 @@ async def _startup_publisher():
                 _by_id[_tid] = _x
                 _clean.append(_x)
             _dropped = len(_u) - len(_clean)
+            if _dropped and _is_production_environment():
+                raise RuntimeError(
+                    "production restore would discard %d profile rows; no database write was attempted" % _dropped
+                )
 
             def _kept_records(key):
                 rows = _snap.get(key, [])
@@ -1541,7 +1991,11 @@ async def _startup_publisher():
             print("[DB] restored %d users, %d interests, %d payments from disk" % (
                 len(DB_USERS), len(DB_INTERESTS), len(DB_PAYMENTS)))
     except Exception as e:
-        print("[DB] restore skip:", str(e)[:80])
+        print("[DB] restore failed:", str(e)[:120])
+        if _is_production_environment():
+            raise RuntimeError(
+                "Production core database restore failed; startup is blocked and the source file was not intentionally replaced"
+            ) from e
     # 🗑️ WAVE 40 — 3-year retention: restore tarvata ventane okasari + roju oosari
     # (money-safe: wallet/plan/boost active unna profiles skip; archive mundu — data poyedam ledu)
     try:
@@ -1719,6 +2173,7 @@ DB_VIEWS = []          # {"tsap_id": who got viewed, "viewer_id": who viewed, "a
 DB_SAVES = []          # shortlist: {"tsap_id": owner, "saved_id": saved profile, "at": iso}
 DB_DIGEST = []         # daily digest log
 DB_OTPS = {}           # {"phone": {"code_hash": HMAC, "expires": iso, "tries": n}}
+_OTP_VERIFY_LOCK = threading.Lock()  # one login verification per OTP, even under concurrent retries
 VERIFIED_PHONES = set()  # OTP-verified numbers (legacy checks)
 VERIFIED_PHONE_AT = {}  # recent verification timestamps for short-lived partner sessions
 DB_REPORTS = safety.DB_REPORTS      # safety reports (moderation queue)
@@ -1834,10 +2289,6 @@ def mask_pii(obj):
     return obj
 
 
-def encrypt_phone(phone: str) -> str:
-    # Mock encrypt — real lo AES
-    return f"enc_{phone[-4:]}"
-
 @app.get("/")
 def root():
     return {"message": "TSAP Matrimony API — Ultra Advanced, Deep, Never Before 🔥", "status": "LIVE", "version": "2.0", "chatting": False, "model": "Interest request + WhatsApp profile share",
@@ -1918,16 +2369,18 @@ async def register(
     experience: str = Form(""),
     work_type: str = Form(""),
     pincode: str = Form(""),
-    photo_url: str = Form(""),        # uploaded photo ka URL (S3/static)
+    photo_url: str = Form(""),        # ignored: profile photos must be uploaded as a validated file
+    photo_file: UploadFile | None = File(None),
     upload_token: str = Form(""),
     phone_verified: bool = Form(False),  # ignored: client cannot attest server-side OTP verification
     consent_confirmed: bool = Form(False),
+    photo_consent_confirmed: bool = Form(False),
 ):
     """
     Pin-to-Pin Register Flow:
     1. Validate OTP (mock)
     2. Generate ID: TSAP-M-2025-XXXX
-    3. Encrypt phone, save DB
+    3. Store registration data; public serializers remove contact fields
     4. Generate card (Pillow)
     5. Referral code generate for this user
     6. Auto-post queue: Main 4 + Caste + Special
@@ -1937,6 +2390,35 @@ async def register(
     # 1. Validate & Smart Normalization
     if not req_bool(consent_confirmed):
         raise HTTPException(400, "Please confirm the profile-submission consent before registering")
+    if not req_bool(photo_consent_confirmed):
+        raise HTTPException(400, {
+            "reason": "PHOTO_CONSENT_REQUIRED",
+            "message_en": "Confirm that you have permission to upload this photo.",
+            "message_telugu": "ఈ ఫోటోను అప్‌లోడ్ చేయడానికి మీకు అనుమతి ఉందని నిర్ధారించండి.",
+            "en": "Confirm that you have permission to upload this photo.",
+            "te": "ఈ ఫోటోను అప్‌లోడ్ చేయడానికి మీకు అనుమతి ఉందని నిర్ధారించండి.",
+        })
+    if photo_file is None:
+        raise HTTPException(400, {
+            "reason": "PHOTO_REQUIRED",
+            "message_en": "A clear profile photo is required before registration.",
+            "message_telugu": "నమోదుకు ముందు స్పష్టమైన ప్రొఫైల్ ఫోటోను జోడించండి.",
+            "en": "A clear profile photo is required before registration.",
+            "te": "నమోదుకు ముందు స్పష్టమైన ప్రొఫైల్ ఫోటోను జోడించండి.",
+        })
+    photo_data = await photo_file.read(5 * 1024 * 1024 + 1)
+    photo_verdict = validate_photo(photo_data, photo_file.filename or "")
+    if not photo_verdict["ok"]:
+        raise HTTPException(422, {
+            "reason": photo_verdict["reason"],
+            "message_en": photo_verdict["en"],
+            "message_telugu": photo_verdict["te"],
+            "en": photo_verdict["en"],
+            "te": photo_verdict["te"],
+            "checks": photo_verdict["checks"],
+        })
+    # Never trust a caller-supplied external photo URL or preapproved status.
+    photo_url = ""
     religion = req_choice(religion, "religion", MP.RELIGIONS)
     _g_clean = str(gender or "").strip().lower()
     if _g_clean in ["bride", "female", "f", "అమ్మాయి", "వధువు", "woman", "girl"] or "bride" in _g_clean or "female" in _g_clean:
@@ -1947,7 +2429,7 @@ async def register(
         raise HTTPException(400, "⚠️ Gender must be Groom or Bride (వరుడు లేదా వధువు)")
 
     _ms_clean = str(marital_status or "").strip().lower()
-    if any(k in _ms_clean for k in ["never", "kaledu", "కాలేదు", "single", "first", "unmarried"]):
+    if is_never_married_status(_ms_clean):
         marital_status = "Pelli Kaledu"
     elif any(k in _ms_clean for k in ["divorc", "vidak", "విడాకు"]):
         marital_status = "Divorced"
@@ -1984,7 +2466,9 @@ async def register(
 
     marital_options = ["Pelli Kaledu", "Divorced", "Awaiting Divorce", "Separated", "Widow" if gender == "Bride" else "Widower"]
     marital_status = req_choice(marital_status, "marital_status", marital_options, required=False, default="")
-    children = req_choice(children, "children", ["None", "1", "2", "3", "4+"], required=False, default="")
+    # Ignore child counts sent by stale drafts/older clients for first-marriage profiles.
+    children = "" if is_never_married_status(marital_status) else req_choice(
+        children, "children", ["None", "1", "2", "3", "4+"], required=False, default="")
 
     community_options = MP.castes_for(religion)["castes"]
     if str(caste or "").strip() == "Other / self-described":
@@ -2119,6 +2603,19 @@ async def register(
             raise HTTPException(409, "⚠️ ఈ వివరాలతో (పూర్తి పేరు, పుట్టిన తేదీ, తండ్రి పేరు/ప్రాంతం) ప్రొఫైల్ ఇప్పటికే నమోదై ఉంది. ఒక వ్యక్తి ఒక్కసారి మాత్రమే నమోదు చేసుకోవచ్చు. దయచేసి మీ పాత అకౌంట్‌తో లాగిన్ అవ్వండి.")
 
         tsap_id = unique_tsap_id(caste)
+        photo_ext = {"JPEG": "jpg", "PNG": "png", "WEBP": "webp"}[photo_verdict["checks"]["format"]]
+        safe_photo_id = re.sub(r"[^A-Z0-9-]", "", str(tsap_id).upper())[:32]
+        photo_name = f"{safe_photo_id}-{secrets.token_hex(8)}.{photo_ext}"
+        registration_photo_path = os.path.join(PHOTO_MEDIA_DIR, photo_name)
+        try:
+            os.makedirs(PHOTO_MEDIA_DIR, exist_ok=True)
+            with open(registration_photo_path, "xb") as photo_output:
+                photo_output.write(photo_data)
+        except Exception as exc:
+            raise HTTPException(500, "The photo could not be saved. Please try again.") from exc
+        photo_url = f"/photos/{photo_name}"
+        photo_uploaded_at = datetime.utcnow().isoformat()
+
         # referral code — TSAP ID nunchi derive (unique, deterministic) [FIX: mundu undefined `seq` tho crash avutundi]
         my_ref_code = ""   # ensure_referrer_profile() — name nunchi short code (CHA0001 style)
 
@@ -2132,6 +2629,9 @@ async def register(
             "consent_confirmed": True,
             "consent_confirmed_at": datetime.utcnow().isoformat(),
             "consent_version": "profile-data-v1",
+            "photo_consent_confirmed": True,
+            "photo_consent_confirmed_at": datetime.utcnow().isoformat(),
+            "photo_consent_version": "profile-photo-v1",
             "birth_time": birth_time,
             "age": age,
             "height": height,
@@ -2181,14 +2681,17 @@ async def register(
             "mandal": mandal,
             "current_city": current_city,
             "email": email,
-            "phone_encrypted": encrypt_phone(phone),
             "phone_last4": phone[-4:],
             "phone": phone,
             "password_hash": _hash_password(password) if password else "",
             "referral_code": my_ref_code,
             "referred_by": "",                    # attach_referral() validate chesi lock chestundi (kinda)
             "referred_by_raw": referral_code,     # form lo vachina code (audit)
-            "photo_urls": ([photo_url] if photo_url else []),   # FIX: fake path valla photo_only filter ellappudu match ayyedi
+            "photo_url": photo_url,
+            "photo_urls": [photo_url],
+            "photo_status": "pending",
+            "photo_checks": photo_verdict["checks"],
+            "photo_uploaded_at": photo_uploaded_at,
             "card_url": f"/cards/{tsap_id}.png",   # web URL (card files static mount lo undi)
             "is_verified": False,
             # 🌊 WAVE 23 — SECURITY: form nunchi phone_verified=true pampina nammamu!
@@ -2206,16 +2709,26 @@ async def register(
         }
         DB_USERS.append(user)
         _reindex_users()
+        # A successful registration must be on durable storage before the API can
+        # return success. The generic request middleware is debounced for routine
+        # writes; this explicit checkpoint closes that data-loss window.
+        if not DBSTORE.save(DBSTORE.snapshot(DB_USERS, DB_INTERESTS, DB_PAYMENTS, DB_OTPS,
+                                             VERIFIED_PHONES, DB_VIEWS, DB_SAVES, DB_DIGEST), force=True):
+            DB_USERS.remove(user)
+            _reindex_users()
+            try:
+                os.remove(registration_photo_path)
+            except OSError:
+                pass
+            raise HTTPException(503, "Registration could not be saved safely. No registration was accepted; please retry.")
 
     # 4. Card Gen — FULL DETAIL NEAT CARD (Pillow). Fail ayithe path matrame istundi.
-    card_path = f"/tmp/cards/{tsap_id}.png"          # filesystem (internal use)
+    card_path = os.path.join(CARD_MEDIA_DIR, f"{tsap_id}.png")  # filesystem (internal use)
     card_url = f"/cards/{tsap_id}.png"               # web URL (browser/Telegram lo open avutundi)
     try:
         if create_pro_card:
-            os.makedirs("/tmp/cards", exist_ok=True)
-            # photo upload ayyindi unte card lo real photo (face crop) vestham
-            if photo_url and not photo_private:
-                user["photo_path"] = photo_url if os.path.isabs(photo_url) else photo_url.replace("/photos/", "/tmp/photos/")
+            os.makedirs(CARD_MEDIA_DIR, exist_ok=True)
+            # The image stays out of shareable cards until the photo is reviewed and approved.
             create_pro_card(user, card_path)
             user["card_generated"] = True
             user["card_url"] = card_url
@@ -2274,8 +2787,8 @@ async def register(
         user["publish_targets"] = pub["targets"]
     user["publish_queued"] = bool(pub.get("queued"))
 
-    # 6c. NAMASTE WELCOME AUTOMATION — MANA WhatsApp nunchi user ki card + full details
-    #     (register avvagane pothundi — user ki "profile vellinda?" ani doubt undadu)
+    # 6c. Optional WhatsApp welcome: queue only when the operator has explicitly
+    # enabled a WhatsApp mode; otherwise return the prepared text without claiming delivery.
     welcome = {"queued": False, "admin_alert": False}
     try:
         cfg_wa = publish_config()
@@ -2298,7 +2811,7 @@ async def register(
                                       image_path=card_path, priority=1, kind="admin_new_profile")
                 welcome["admin_alert"] = bool(w2.get("queued"))
         elif phone:
-            welcome["note"] = "WHATSAPP_MODE=bridge చేసి bridge connect చెయ్యండి — automatic గా వెళ్తుంది"
+            welcome["note"] = "WhatsApp mode is off; a welcome text is prepared but was not queued or sent."
         user["welcome_status"] = welcome
     except Exception as e:
         welcome["error"] = str(e)[:140]
@@ -2319,10 +2832,9 @@ async def register(
     opposite = "Bride" if gender == "Groom" else "Groom"
     candidates = [
         u for u in DB_USERS
-        if str((u or {}).get("gender", "")) == opposite
+        if _is_approved_profile(u)
+        and str((u or {}).get("gender", "")) == opposite
         and str((u or {}).get("tsap_id", "")) != tsap_id
-        and (u or {}).get("is_approved", True) is not False
-        and not (u or {}).get("is_banned")
     ]
     selected = topmatch.find_top_matches_v2(user, candidates, limit=3)
     top_matches = []
@@ -2337,7 +2849,7 @@ async def register(
     #     (numbers 🔒 — profile links + caste Telegram/WhatsApp channel links matrame)
     _cand_map = {str(c.get("tsap_id", "")): c for c in candidates}
     _pack_matches = [{"profile": _cand_map.get(m.matched_user_id, {})} for m in top_matches]
-    welcome_pack = build_welcome_pack(user, tsap_id, _pack_matches)
+    welcome_pack = build_welcome_pack(user, tsap_id, _pack_matches, directory_links=_public_channel_links())
     pack_queue: Dict[str, Any] = {"queued": False, "kind": "welcome_pack_3profiles"}
     try:
         _cfg_wa3 = publish_config()
@@ -2346,11 +2858,9 @@ async def register(
                                    kind="welcome_pack_3profiles")
             pack_queue["queued"] = bool(_wq.get("queued"))
             pack_queue["wa_result"] = _wq
-            pack_queue["note_telugu"] = ("✅ Register అయిన వెంటనే మీ WhatsApp కి 3 profiles + "
-                                         "మీ caste channel links (Telegram + WhatsApp) veltayi")
+            pack_queue["note_telugu"] = ("WhatsApp queueలో ఒక message పెట్టాం; delivery నిర్ధారణ లేదు.")
         else:
-            pack_queue["note_telugu"] = ("WHATSAPP_MODE=bridge చేసి bridge connect చెయ్యండి — appudu "
-                                         "register అయిన వెంటనే 3 profiles + caste channel links veltayi")
+            pack_queue["note_telugu"] = ("WhatsApp mode off — message text responseలో ఉంది; queue లేదా delivery జరగలేదు.")
             pack_queue["manual_text"] = welcome_pack["message_text"]
     except Exception as _e:
         pack_queue["error"] = str(_e)[:140]
@@ -2374,6 +2884,13 @@ async def register(
     _base_credits = 3 if user.get("credits", 3) == 3 else max(3, int(user.get("credits", 3)))
     _credits = _base_credits + (_ref_bonus if _ref_bonus and user.get("credits", 3) == 3 else 0)
     user["credits"] = max(int(user.get("credits", 3)), _credits)
+    # Persist referral/card/status fields added after the durable profile checkpoint.
+    # The original registration is already safely committed if this enrichment
+    # write fails, so do not tell the user to retry and create a duplicate account.
+    with _REGISTER_LOCK:
+        if not DBSTORE.save(DBSTORE.snapshot(DB_USERS, DB_INTERESTS, DB_PAYMENTS, DB_OTPS,
+                                             VERIFIED_PHONES, DB_VIEWS, DB_SAVES, DB_DIGEST), force=True):
+            print("[DB] warning: post-registration metadata flush failed; durable profile checkpoint remains")
     return RegisterResponse(
         tsap_id=tsap_id,
         auth_token=user.get("auth_token", ""),
@@ -2382,7 +2899,7 @@ async def register(
         is_approved=bool(user.get("is_approved")),
         duplicate_phone=bool(user.get("duplicate_phone")),
         quality=profile_completeness(user),
-        message_plan_telugu=("🆓 మొదటి 3 interest requests FREE · 🔒 Contact details profile owner accept చేసి privacy settings అనుమతించిన తర్వాతే share అవుతాయి · Paid: ₹99 → 5 requests"),
+        message_plan_telugu=("🆓 మొదటి 3 interest requests FREE · 🔒 Public search లో contact details చూపించము; profile owner accept చేసిన తర్వాత accepted-request account flows లో అందుబాటులో ఉంటాయి · Paid: ₹99 → 5 requests"),
         card_url=user.get("card_url", card_url),
         credits=user.get("credits", 3),
         message_telugu=("🎉 మీ ID: %s. మీ ప్రొఫైల్ సమీక్ష కోసం పంపబడింది; ఆమోదం వచ్చే వరకు ప్రచురించబడదు. %d సంభావ్య matches అందుబాటులో ఉన్నాయి.%s"
@@ -2395,7 +2912,7 @@ async def register(
         publish_queued=pub.get("queued", False),
         publish_targets=pub.get("targets", []),
         publish_reason=pub.get("reason", ""),
-        namaste_queued=bool(welcome.get("queued") or welcome.get("manual_text")),
+        namaste_queued=bool(welcome.get("queued")),
         welcome_status=welcome,
         welcome_pack=pack_public(welcome_pack),
         share_kit=share_kit(user, tsap_id),
@@ -2427,23 +2944,27 @@ def free_plan_clarity():
     🆓 FREE vs PAID — crystal clear (Telugu).
     "3 profiles ఇస్తాం కానీ numbers ఇవ్వము — వాళ్లు pay chesaka numbers/contact"
     """
-    free = plan_by_code("FREE") if "plan_by_code" in dir() else None
+    decline_credit_note = (
+        "🔁 Owner decline చేస్తే ఒక request credit తిరిగి account లో జమ అవుతుంది; ఇది cash refund కాదు."
+        if INTEREST_REFUND_ON_DECLINE else
+        "🔁 Owner decline చేస్తే request credit తిరిగి రాదు; no-response expiry పై ఒక credit తిరిగి వస్తుంది."
+    )
     return {
         "success": True,
-        "headline_telugu": "Register 100% FREE — 3 interest requests పంపొచ్చు. Contact details మాత్రం acceptance తర్వాత, privacy settings ప్రకారం share అవుతాయి.",
-        "rule_telugu": "Contact details public గా కనిపించవు. Interest పంపించి profile owner ACCEPT చేసిన తర్వాత మాత్రమే, privacy settings ప్రకారం share అవుతాయి. Paid plans అదనపు interest-request credits మాత్రమే ఇస్తాయి; acceptance ను bypass చేయవు.",
+        "headline_telugu": "Register 100% FREE — 3 interest requests పంపొచ్చు. Contact details public search లో చూపించము; profile owner accept చేసిన తర్వాత account flows లో అందుబాటులోకి వస్తాయి.",
+        "rule_telugu": "Public profile/search లో contact details చూపించము. Interest పంపిన తర్వాత profile owner ACCEPT చేస్తే, accepted-request account flows లో contact details అందుబాటులోకి వస్తాయి. Configured WhatsApp notifications queue కావచ్చు; delivery హామీ లేదు. Paid plans అదనపు interest-request credits మాత్రమే ఇస్తాయి; acceptance ను bypass చేయవు.",
         "free": {
             "price": 0,
             "profiles": 3,
             "requests": 3,
             "numbers": "❌ ఇవ్వము (locked)",
-            "photo": "blur (privacy mode ఉన్న profiles)",
-            "chat": "లేదు (chatting లేదు — requests మాత్రమే)",
+            "photo": "blur (photo privacy ఎంపిక private గా ఉన్న profiles)",
+            "chat": "లేదు (in-site chat లేదు — interest requests మాత్రమే)",
             "validity": "365 days",
             "getting_started": ["Register (2 నిమిషాల form)", "Profile card free గా generate అవుతుంది",
                                 "3 profiles చూడొచ్చు — 🔒 numbers locked",
                                 "3 interest requests పంపొచ్చు; notifications configured services పై ఆధారపడతాయి",
-                                "Profile owner accept చేసిన తర్వాత privacy settings ప్రకారం contact details share అవుతాయి"]
+                                "Profile owner accept చేసిన తర్వాత accepted-request account flows లో contact details కనిపిస్తాయి; WhatsApp delivery హామీ లేదు"]
         },
         "paid": [
             {"code": "S_99", "price": 99, "profiles": 5, "validity_days": 30, "telugu": "₹99 → 5 interest requests"},
@@ -2452,25 +2973,25 @@ def free_plan_clarity():
             {"code": "S_499", "price": 499, "profiles": 50, "validity_days": 90, "telugu": "₹499 → 50 interest requests"},
         ],
         "numbers_rule_telugu": [
-            "🔒 Free లో numbers kanipinchavu — 'contact locked' అని మాత్రమే కనిపిస్తుంది (98••••••45 style)",
-            "💌 Interest పంపితే profile notification configured services ద్వారా వెళ్లే ప్రయత్నం జరుగుతుంది; delivery హామీ కాదు",
-            "✅ Profile owner అంగీకరించిన తర్వాత privacy settings ప్రకారం contact details share అవుతాయి",
-            "❌ Chatting లేదు — మనం chat platform కాదు (spam ఉండదు, complaint ఉండదు)",
-            "🔁 Decline అయితే మీ credit refund అవుతుంది (loss లేదు)",
+            "🔒 Free లో numbers public search లో కనిపించవు — 'contact locked' అని మాత్రమే కనిపిస్తుంది (98••••••45 style)",
+            "💌 Interest request recipient కి కనిపిస్తుంది; notification configured service ద్వారా queue కావచ్చు, delivery హామీ లేదు",
+            "✅ Profile owner accept చేసిన తర్వాత accepted-request account flows లో ఇరువురి contact details అందుబాటులోకి వస్తాయి",
+            "❌ In-site chat లేదు. Unwanted behavior కోసం report/block controls వాడండి; external calls/messages ను service నియంత్రించదు",
+            decline_credit_note,
         ],
         "why_telugu": [
-            "📵 Number public గా ఉంటే spam/broker calls vastayi — andukane lock",
-            "🛡️ రెండు vaipula interest ఉంటే మాత్రమే contact — aa తర్వాత మీ ఇష్టం",
-            "💯 మీ number DB లో encrypted గా ఉంటుంది (phone_encrypted)",
+            "📵 Phone number public గా చూపించము; unsolicited contact ప్రమాదాన్ని తగ్గించడానికి mask చేస్తాము",
+            "🛡️ Contact access profile owner acceptance తర్వాతే వస్తుంది; paid credits consent ను bypass చేయవు",
+            "🔐 Public profile/search responses contact fields ను omit లేదా mask చేస్తాయి; ఇది at-rest encryption హామీ కాదు",
         ],
         "faq_telugu": [
-            {"q": "3 profiles FREE అంటే ఏంటి?", "a": "Register అయ్యాక 3 interest requests పంపొచ్చు — prathi request కి ఒక profile. Numbers మాత్రం lock."},
-            {"q": "Numbers ఎప్పుడు vastayi?", "a": "మీరు interest పంపిన తర్వాత profile owner accept చేస్తే, privacy settings ప్రకారం contact details share అవుతాయి. Paid plan acceptance ను bypass చేయదు."},
-            {"q": "₹99 ఎందుకు ఇవ్వాలి?", "a": "మొదటి 3 ఉచిత interest requests తర్వాత ₹99 plan 5 credits ఇస్తుంది. Validity 30 రోజులు; credit refund policy మీ account లో చూపినట్లు వర్తిస్తుంది."},
-            {"q": "మీ number ఎవరికీ telustundi?", "a": "మీ consent తో ఒక్క person కి మాత్రమే (accept చేసిన వాళ్లకి). Admin కి audit purpose కి telustundi."},
+            {"q": "3 profiles FREE అంటే ఏంటి?", "a": "Register అయ్యాక 3 interest requests పంపొచ్చు — ఒక్క request కి ఒక profile. Public search లో numbers locked."},
+            {"q": "Numbers ఎప్పుడు కనిపిస్తాయి?", "a": "మీరు interest పంపిన తర్వాత profile owner accept చేస్తే, accepted-request account flows లో contact details అందుబాటులోకి వస్తాయి. Paid plan acceptance ను bypass చేయదు."},
+            {"q": "₹99 ఎందుకు ఇవ్వాలి?", "a": "మొదటి 3 ఉచిత interest requests తర్వాత ₹99 plan 5 credits ఇస్తుంది. Validity 30 రోజులు; credit refund policy account లో చూపినట్లు వర్తిస్తుంది."},
+            {"q": "మీ number ఎవరికీ తెలుస్తుంది?", "a": "Public profile/search లో కాదు. Accepted request లో profile owner మరియు requester account flows లో contact details కనిపించవచ్చు; configured notification delivery guaranteed కాదు."},
         ],
         "cta": {"register": "/register", "pricing": "/pricing", "requests": "/requests", "demo": "/matches"},
-        "instructions_telugu": "Register FREE చేసి interest request పంపండి. Profile owner accept చేసిన తర్వాత privacy settings ప్రకారం contact details share అవుతాయి; notifications delivery guarantee కాదు.",
+        "instructions_telugu": "Register FREE చేసి interest request పంపండి. Profile owner accept చేసిన తర్వాత accepted-request account flows లో contact details కనిపిస్తాయి; WhatsApp notification delivery హామీ లేదు.",
     }
 
 
@@ -2484,14 +3005,18 @@ def search_profile(tsap_id: str, viewer_id: Optional[str] = None, request: Reque
     - Factual, member-entered profile comparison only
     """
     user = _find_user(tsap_id)
-    if not user:
-        # 🐞 FIX: mundu tappu ID ki FAKE profile (phone tho) return ayyedi — ippudu honest 404
+    if not user or _is_synthetic_profile(user):
+        # Never expose a deleted/fictional record through an ID-guessable public route.
         raise HTTPException(404, f"Profile ID దొరకలేదు: {tsap_id} — ID correct గా unda check చెయ్యండి")
 
     identity = token_from_request(request) if request else None
-    viewer = _find_user(str(identity.get("tsap_id", ""))) if identity else None
-    if viewer_id and (not identity or str(identity.get("tsap_id", "")) != str(viewer_id)):
-        viewer = None
+    authenticated_id = str((identity or {}).get("tsap_id", "")).strip().upper()
+    viewer = _find_user(authenticated_id) if authenticated_id else None
+    is_owner = bool(authenticated_id and authenticated_id == str(user.get("tsap_id", "")).strip().upper())
+    if not is_owner and not _is_approved_profile(user):
+        raise HTTPException(404, "Approved active profile not found")
+    if viewer and not is_owner and safety.is_blocked(authenticated_id, str(user.get("tsap_id", "")), DB_BLOCKS):
+        raise HTTPException(404, "Approved active profile not found")
 
     # Compare only facts supplied by an authenticated member; never calculate a compatibility score.
     observations, differences, preference_checks = [], [], []
@@ -2501,25 +3026,28 @@ def search_profile(tsap_id: str, viewer_id: Optional[str] = None, request: Reque
         differences = comparison.get("differences", [])
         preference_checks = comparison.get("preferences", [])
 
-    # 🔒 PRIVACY FIX: mundu ikkada FULL user dict (phone + email + encrypted) return ayyedi — leak!
-    #    Ippudu contact details teesesi matrame (numbers ivvamu).
+    # Public profile response uses the explicit safe_user serializer; raw contact fields stay out.
     pub = dict(safe_user(user))
     pub["is_nri"] = _is_nri(user)              # 🌊 WAVE 14 — NRI badge
-    pub["country"] = user.get("country", "India")
-    pub["profession_label"] = _prof_label(user)
-    pub["radius"] = user.get("radius", "")
-    pub["about_myself"] = user.get("about_myself", "")
-    pub["family_details"] = user.get("family_details", "")
+    pub["country"] = sanitize_public_text(user.get("country", "India"))
+    pub["profession_label"] = sanitize_public_text(_prof_label(user))
+    pub["radius"] = sanitize_public_text(user.get("radius", ""))
+    pub["about_myself"] = sanitize_public_text(user.get("about_myself", ""))
+    pub["family_details"] = sanitize_public_text(user.get("family_details", ""))
     private_photo = bool(user.get("photo_private") or user.get("privacy_mode") == "private")
-    is_owner = bool(viewer and str(viewer.get("tsap_id", "")) == str(user.get("tsap_id", "")))
-    photo_values = user.get("photo_urls", []) if isinstance(user.get("photo_urls"), list) else []
-    if private_photo and not is_owner:
-        pub["photo_urls"] = []
-        pub["photo_url"] = ""
-    else:
-        pub["photo_urls"] = photo_values
-    pub["has_photo"] = bool(photo_values)
-    pub["photo_status"] = user.get("photo_status", "none")      # 🌊 WAVE 17
+    raw_photo_values = user.get("photo_urls", []) if isinstance(user.get("photo_urls"), list) else []
+    approved_photos = [spotlight._profile_photo_url(value) for value in raw_photo_values]
+    approved_photos = [value for value in approved_photos if value]
+    primary_photo = spotlight._profile_photo_url(user.get("photo_url"))
+    public_photos = (approved_photos or ([primary_photo] if primary_photo else [])) \
+        if user.get("photo_status") == "approved" and not private_photo else []
+    visible_photos = public_photos if not is_owner else [
+        value for value in [primary_photo, *approved_photos] if value
+    ]
+    pub["photo_url"] = visible_photos[0] if visible_photos else ""
+    pub["photo_urls"] = list(dict.fromkeys(visible_photos))
+    pub["has_photo"] = bool(public_photos) if not is_owner else bool(visible_photos)
+    # Review state and rejection reasons are available only through the owner-gated status route.
     pub["selfie_verified"] = bool(user.get("selfie_verified", False))
     pub["id_verified"] = bool(user.get("id_verified", False))
     pub["id_verification_method"] = user.get("id_verification_method", "") if pub["id_verified"] else ""
@@ -2532,9 +3060,9 @@ def search_profile(tsap_id: str, viewer_id: Optional[str] = None, request: Reque
         "phone_masked": pub.get("phone_masked", ""),
         "unlock_telugu": ["1️⃣ Interest పంపండి (మొదటి 3 requests FREE)",
                           "2️⃣ Paid plans అదనపు interest requests ఇస్తాయి — ₹99 నుంచి",
-                          "3️⃣ Contact details profile owner accept చేసిన తర్వాత, privacy settings ప్రకారం మాత్రమే share అవుతాయి"],
+                          "3️⃣ Profile owner accept చేసిన తర్వాత contact details accepted-request account views లో అందుబాటులోకి వస్తాయి"],
         "quality": profile_completeness(user),
-        "consent_note_telugu": "🔒 Contact details are shared only after profile-owner acceptance and according to privacy settings. Independently verify member-provided details.",
+        "consent_note_telugu": "🔒 Contact details are not public. They become available in accepted-request account views after profile-owner acceptance; notification delivery is not guaranteed. Independently verify member-provided details.",
         "is_photo_blur": bool(private_photo and not is_owner),
         "observations": observations,
         "differences": differences,
@@ -2989,8 +3517,8 @@ def update_user_profile(payload: dict, request: Request):
 @app.post("/api/user/delete-account")
 @app.post("/api/profile/{tsap_id}/delete")
 def delete_user_account(payload: dict, request: Request, tsap_id: Optional[str] = None):
-    """User self-service account deletion & marriage fixed celebration flow.
-    Allows users who got married or wish to leave to permanently archive/delete their profile.
+    """Self-service profile deactivation/public-listing removal and marriage status flow.
+    This marks the account inactive; it does not erase all profile, payment, audit, or archive records.
     """
     clean_id = str(tsap_id or payload.get("tsap_id") or payload.get("id") or payload.get("user_id") or "").strip().upper()
     user = _find_user(clean_id)
@@ -3024,9 +3552,10 @@ def delete_user_account(payload: dict, request: Request, tsap_id: Optional[str] 
         user["marriage_fixed_at"] = datetime.utcnow().isoformat()
         msg = f"🎉 హృదయపూర్వక శుభాకాంక్షలు {user.get('full_name')} గారు! మన వివాహ ద్వారా మీకు వివాహం నిశ్చయమైనందుకు ఎంతో సంతోషిస్తున్నాము. మీ వైవాహిక జీవితం సుఖసంతోషాలతో వర్ధిల్లాలని మనస్ఫూర్తిగా కోరుకుంటున్నాం! 💐"
     elif is_married_offline:
-        msg = f"💐 శుభాకాంక్షలు {user.get('full_name')} గారు! మీ వివాహం నిశ్చయమైనందుకు సంతోషం. మీ ప్రొఫైల్ విజయవంతంగా తొలగించబడింది."
+        msg = f"💐 శుభాకాంక్షలు {user.get('full_name')} గారు! మీ వివాహం నిశ్చయమైనందుకు సంతోషం. మీ ప్రొఫైల్ active public search నుంచి దాచబడింది."
     else:
-        msg = f"✅ {user.get('full_name')} గారు, మీ ప్రొఫైల్ విజయవంతంగా తొలగించబడింది. భవిష్యత్తులో మీకు ఎల్లప్పుడూ స్వాగతం!"
+        msg = f"✅ {user.get('full_name')} గారు, మీ ప్రొఫైల్ active public search నుంచి దాచబడింది. Stored records erase request కోసం /privacy లోని contact ను సంప్రదించండి."
+    msg += " ముందే accepted request ద్వారా ఇచ్చిన contact access ఈ చర్యతో revoke కాదు; బయట save చేసిన copies ను తిరిగి తీసుకోలేము."
 
     try:
         DBSTORE.save(DBSTORE.snapshot(DB_USERS, DB_INTERESTS, DB_PAYMENTS, DB_OTPS,
@@ -3038,6 +3567,11 @@ def delete_user_account(payload: dict, request: Request, tsap_id: Optional[str] 
         "success": True,
         "tsap_id": clean_id,
         "message_telugu": msg,
+        "message_en": (("Congratulations. Your profile is hidden from active public search. For a separate data-erasure request, use the privacy contact on /privacy."
+                        if is_married_here or is_married_offline else
+                        "Your profile is hidden from active public search. This action does not erase all stored records; use the privacy contact on /privacy for an erasure request.")
+                       + " It does not revoke contact access already granted through accepted requests or recall copies already saved/shared."),
+        "profile_visibility": "hidden",
         "is_married": is_married_here or is_married_offline,
         "congratulations": is_married_here
     }
@@ -3059,8 +3593,7 @@ def smart_matches_alerts(tsap_id: Optional[str] = None, caste: Optional[str] = N
     target_caste = user.get("caste") if user else caste
     all_candidates = [
         profile for profile in DB_USERS
-        if isinstance(profile, dict) and not _is_synthetic_profile(profile)
-        and not profile.get("is_banned") and profile.get("is_approved", True) is not False
+        if _is_approved_profile(profile)
         and (not target_gender or profile.get("gender") == target_gender)
         and (not user or (profile.get("tsap_id") != user.get("tsap_id")
                           and not safety.is_blocked(user.get("tsap_id", ""), profile.get("tsap_id", ""), DB_BLOCKS)))
@@ -3112,8 +3645,8 @@ def get_matches(tsap_id: str, min_score: int = 70, limit: int = 20, caste_filter
     """Owner-only candidate list; explicit preferences and recency, never compatibility points."""
     clean_id = str(tsap_id or "").strip().upper()
     user = _find_user(clean_id)
-    if not user:
-        raise HTTPException(404, "⚠️ User దొరకలేదు — TSAP ID check చెయ్యండి")
+    if not _is_approved_profile(user):
+        raise HTTPException(404, "Approved member profile not found")
     require_owner(request, clean_id)
 
     # Keep old query parameters bounded for clients, but deliberately do not use a score threshold.
@@ -3121,9 +3654,9 @@ def get_matches(tsap_id: str, min_score: int = 70, limit: int = 20, caste_filter
     limit = clamp_int(limit, "limit", 1, 50, 20)
     offset = clamp_int(offset, "offset", 0, 10000, 0)
 
-    all_profiles = [p for p in DB_USERS if not _is_synthetic_profile(p)
+    all_profiles = [p for p in DB_USERS if _is_approved_profile(p)
                     and not safety.is_blocked(clean_id, p.get("tsap_id", ""), DB_BLOCKS)
-                    and not p.get("is_banned") and p.get("tsap_id") != clean_id]
+                    and p.get("tsap_id") != clean_id]
     if caste_filter:
         all_profiles = [p for p in all_profiles if p.get("caste") == caste_filter]
     filters = {"education": education, "district": district, "marital_status": marital_status, "dosham": dosham,
@@ -3138,14 +3671,19 @@ def get_matches(tsap_id: str, min_score: int = 70, limit: int = 20, caste_filter
         profile = match.get("profile") or {}
         row = dict(safe_user(profile))
         private_photo = bool(profile.get("photo_private") or profile.get("privacy_mode") == "private")
-        photo_values = profile.get("photo_urls", []) if isinstance(profile.get("photo_urls"), list) else []
+        raw_photo_values = profile.get("photo_urls", []) if isinstance(profile.get("photo_urls"), list) else []
+        approved_photo_values = [spotlight._profile_photo_url(value) for value in [
+            *raw_photo_values, profile.get("photo_url")
+        ]]
+        public_photo_values = list(dict.fromkeys(value for value in approved_photo_values if value)) \
+            if profile.get("photo_status") == "approved" and not private_photo else []
         row.update({
             "observations": match.get("observations", []),
             "differences": match.get("differences", []),
             "preference_checks": match.get("preferences", []),
-            "has_photo": bool(photo_values or profile.get("photo_url")),
-            "photo_urls": [] if private_photo else photo_values,
-            "photo_url": "" if private_photo else (profile.get("photo_url") or (photo_values[0] if photo_values else "")),
+            "has_photo": bool(public_photo_values),
+            "photo_urls": public_photo_values,
+            "photo_url": public_photo_values[0] if public_photo_values else "",
             "is_verified": safety.has_verification_evidence(profile),
             "verification": safety.verification_badge(profile)["level"],
             "quality_percent": profile_completeness(profile).get("percent", 0),
@@ -3156,7 +3694,7 @@ def get_matches(tsap_id: str, min_score: int = 70, limit: int = 20, caste_filter
             "filter": caste_filter or "All", "ranking_basis": "creation_time_descending",
             "compatibility_score_calculated": False, "min_score_ignored": True,
             "contact_locked": True,
-            "contact_note_telugu": "🔒 Contact details profile owner accept చేసిన తర్వాత, privacy settings ప్రకారం మాత్రమే share అవుతాయి; paid plan consent‌ను bypass చేయదు."}
+            "contact_note_telugu": "🔒 Public profile లో contact details చూపించము. Profile owner accept చేసిన తర్వాత accepted-request account views లో అందుబాటులోకి వస్తాయి; paid plan consent‌ను bypass చేయదు."}
 
 @app.post("/api/credits/deduct/{tsap_id}")
 def deduct_credit_api(tsap_id: str, target_id: str = "", request: Request = None):
@@ -3167,10 +3705,9 @@ def deduct_credit_api(tsap_id: str, target_id: str = "", request: Request = None
     require_owner(request, tsap_id)   # 🛡️ IDOR fix
     return JSONResponse(status_code=410, content={
         "success": False, "deprecated": True,
-        "message_telugu": ("🔒 Numbers ఇప్పుడు credit తో ఇవ్వము — interest పంపండి, వాళ్లు accept cheste "
-                           "రెండు numbers WhatsApp లో exchange అవుతాయి (FREE)."),
-        "how_to_unlock": ["1️⃣ Interest పంపండి (FREE 3 requests)", "2️⃣ Vaallu accept చెయ్యాలి (consent)",
-                          "3️⃣ Appudu రెండు numbers WhatsApp లో — మనం madhyalo unnam"],
+        "message_telugu": ("🔒 Contact details కు paid credits నేరుగా access ఇవ్వవు. Interest పంపండి; profile owner accept చేసిన తర్వాత accepted-request account flows లో వివరాలు అందుబాటులోకి వస్తాయి."),
+        "how_to_unlock": ["1️⃣ Interest పంపండి (మొదటి 3 requests FREE)", "2️⃣ Profile owner స్వయంగా accept చేయాలి (consent)",
+                          "3️⃣ Accept అయిన request లో contact details చూడండి; WhatsApp notification delivery హామీ లేదు"],
         "pay_url": "/pricing"})
 
 @app.post("/api/payment/webhook")
@@ -3660,77 +4197,121 @@ def _load_daily() -> dict:
 
 
 def _daily_row(u: dict) -> dict:
-    """Public profile summary with no contact details or synthetic ranking fields."""
+    """Public featured-profile summary; no contact details or compatibility score."""
     private_photo = bool(u.get("photo_private") or u.get("privacy_mode") == "private")
     approved_photo = u.get("photo_status") == "approved"
-    public_photo = (u.get("photo_url", "") or "") if approved_photo and not private_photo else ""
-    return {"tsap_id": u.get("tsap_id"), "full_name": u.get("full_name", ""),
-            "gender": u.get("gender"), "age": u.get("age"), "caste": u.get("caste", ""),
-            "district": u.get("district", ""), "state": u.get("state", ""),
-            "education": u.get("education", ""), "job": u.get("job", ""),
-            "salary": u.get("salary", ""), "marital_status": u.get("marital_status", ""),
-            "star": u.get("star", ""), "has_photo": bool(u.get("photo_url") or u.get("photo_urls")),
+    raw_photo_values = u.get("photo_urls", []) if isinstance(u.get("photo_urls"), list) else []
+    candidates = [u.get("photo_url"), *raw_photo_values]
+    public_photo = ""
+    if approved_photo and not private_photo:
+        public_photo = next((spotlight._profile_photo_url(value) for value in candidates
+                             if spotlight._profile_photo_url(value)), "")
+    now_iso = datetime.utcnow().isoformat()
+    return {"tsap_id": sanitize_public_text(u.get("tsap_id", "")),
+            "full_name": sanitize_public_text(u.get("full_name", "")),
+            "gender": sanitize_public_text(u.get("gender", "")), "age": u.get("age"),
+            "caste": sanitize_public_text(u.get("caste", "")),
+            "district": sanitize_public_text(u.get("district", "")),
+            "state": sanitize_public_text(u.get("state", "")),
+            "education": sanitize_public_text(u.get("education", "")),
+            "job": sanitize_public_text(u.get("job", "")),
+            "salary": sanitize_public_text(u.get("salary", "")),
+            "marital_status": sanitize_public_text(u.get("marital_status", "")),
+            "star": sanitize_public_text(u.get("star", "")), "has_photo": bool(public_photo),
             "photo_url": public_photo,
             "card_url": "" if private_photo else u.get("card_url", ""),
-            "verification": u.get("verification", ""), "boosted": bool(u.get("boost_until"))}
+            "boosted": str(u.get("boost_until") or "") > now_iso,
+            "placement_label": "Sponsored placement" if str(u.get("boost_until") or "") > now_iso else "Featured profile"}
 
 
 @app.get("/api/daily-matches")
 def daily_matches_public():
-    """🗓️ Public — ఈ రోజు featured profiles (admin select chesina 'Matches of the Day')."""
+    """Public, admin-curated featured profiles; not compatibility or identity matches."""
     today = datetime.utcnow().strftime("%Y-%m-%d")
     ids = _load_daily().get(today, [])
     rows = []
     for tid in ids:
         u = _find_user(tid)
-        if u and not u.get("is_banned"):
+        if _is_approved_profile(u):
             rows.append(_daily_row(u))
-    return {"success": True, "date": today, "count": len(rows), "matches": rows,
-            "note_telugu": "🗓️ ఈ రోజు ఎంపిక profiles — ⚡ Boost తో మీ profile కూడా ఇక్కడ రావచ్చు"}
+    return {"success": True, "date": today, "count": len(rows), "featured_profiles": rows,
+            "curation": "Admin-selected featured profiles; not a compatibility ranking.",
+            "identity_verification": "not_performed",
+            "note_telugu": "🗓️ ఇవి admin ఎంపిక చేసిన featured profiles మాత్రమే; compatibility ranking లేదా identity verification కాదు."}
 
 
 @app.get("/api/admin/daily-matches/candidates")
 def daily_matches_candidates(request: Request, limit: int = 60):
-    """Admin — candidates: ⚡ boost active (paid) users FIRST, then fresh registrations."""
+    """Owner/admin tool: approved non-synthetic profiles, with sponsored placement disclosed."""
     require_admin(request, staff_ok=True)
     limit = clamp_int(limit, "limit", 1, 200, 60)
     now_iso = datetime.utcnow().isoformat()
-    boosted = [u for u in DB_USERS if str(u.get("boost_until") or "") > now_iso and not u.get("is_banned")]
+    candidates = [u for u in DB_USERS if _is_approved_profile(u)]
+    boosted = [u for u in candidates if str(u.get("boost_until") or "") > now_iso]
     boosted_ids = {id(u) for u in boosted}
-    others = [u for u in DB_USERS if id(u) not in boosted_ids and not u.get("is_banned")]
+    others = [u for u in candidates if id(u) not in boosted_ids]
     others.sort(key=lambda u: str(u.get("created_at", "")), reverse=True)
     rows = []
     for u in (boosted + others)[:limit]:
-        rows.append({**_daily_row(u), "boost_active": id(u) in boosted_ids, "phone": u.get("phone", "")})
+        rows.append({**_daily_row(u), "boost_active": id(u) in boosted_ids})
     today = datetime.utcnow().strftime("%Y-%m-%d")
     return {"success": True, "today": _load_daily().get(today, []), "boosted_count": len(boosted),
             "count": len(rows), "candidates": rows,
-            "note_telugu": "⚡ Boost active (paid) users mundu — vari caste channels lo TOP post"}
+            "ordering": "Active paid boost placement, then recency; not a compatibility ranking.",
+            "note_telugu": "ఆమోదించిన profiles మాత్రమే. Active paid boost ఉంటే sponsored placement గా గుర్తించి, తర్వాత recency క్రమంలో చూపిస్తాం; ఇది compatibility ranking కాదు."}
 
 
 @app.post("/api/admin/daily-matches")
 async def daily_matches_set(payload: dict, request: Request):
-    """Admin — ఈ రోజు 'Matches of the Day' select → profiles vari caste channels lo post (boost)."""
+    """Set today's admin-curated featured profiles; external publishing is explicit."""
     require_admin(request, staff_ok=True)
-    ids = [str(x).strip().upper() for x in (payload or {}).get("profile_ids", []) if str(x).strip()]
+    raw_ids = (payload or {}).get("profile_ids", [])
+    if not isinstance(raw_ids, list):
+        raise HTTPException(400, "profile_ids must be a list")
+    ids = list(dict.fromkeys(str(x).strip().upper() for x in raw_ids if str(x).strip()))[:30]
     if not ids:
-        raise HTTPException(400, "profile_ids list ఇవ్వండి (ex: [\"RED001\",\"KAM002\"])")
-    ids = ids[:30]
+        raise HTTPException(400, "profile_ids list is required")
     users = []
     for tid in ids:
         u = _find_user(tid)
-        if not u:
-            raise HTTPException(404, f"ID {tid} దొరకలేదు")
+        if not u or _is_synthetic_profile(u):
+            raise HTTPException(404, "Profile not found")
+        if not _is_approved_profile(u):
+            raise HTTPException(409, "Only approved, active profiles can be featured")
         users.append(u)
-    do_post = bool((payload or {}).get("post_to_channels", True))
-    posted, failed = [], []
+
+    # Metadata-only selection is the safe default. Posting is a separate, explicit action.
+    do_post = bool((payload or {}).get("post_to_channels", False))
+    posted, would_post, queued, failed = [], [], [], []
     if do_post:
         for u in users:
             try:
-                await publish_profile(u, u["tsap_id"])
-                posted.append(u["tsap_id"])
+                result = await publish_profile(u, u["tsap_id"])
+                if not isinstance(result, dict):
+                    raise RuntimeError("Publisher returned an invalid result")
+                tg_results = result.get("telegram", [])
+                wa_results = (result.get("whatsapp", {}).get("results", [])
+                              if isinstance(result, dict) else [])
+                wa_queued = any(row.get("queued") for row in wa_results if isinstance(row, dict))
+                dry_run_targets = any(row.get("dry_run") for row in tg_results if isinstance(row, dict))
+                if result.get("dry_run"):
+                    if dry_run_targets or wa_queued:
+                        would_post.append(u["tsap_id"])
+                    else:
+                        failed.append({"id": u["tsap_id"], "error": "No configured publishing route."})
+                    continue
+                accepted = [row for row in tg_results
+                            if isinstance(row, dict) and row.get("ok") and not row.get("dry_run")
+                            and not row.get("skipped")]
+                if accepted:
+                    posted.append({"id": u["tsap_id"], "accepted_by_api": len(accepted)})
+                if wa_queued:
+                    queued.append(u["tsap_id"])
+                if not accepted and not wa_queued:
+                    failed.append({"id": u["tsap_id"], "error": "No publishing API accepted or queued a post."})
             except Exception as e:
                 failed.append({"id": u["tsap_id"], "error": str(e)[:80]})
+
     today = datetime.utcnow().strftime("%Y-%m-%d")
     data = _load_daily()
     data[today] = ids
@@ -3740,8 +4321,9 @@ async def daily_matches_set(payload: dict, request: Request):
     except Exception as e:
         print("[DAILY] save fail:", str(e)[:80])
     return {"success": True, "date": today, "selected": ids,
-            "posted": posted, "failed": failed,
-            "message_telugu": f"🗓️ {len(ids)} profiles ఈ రోజు 'Matches of the Day' — {len(posted)} caste channels lo post ayyayi"}
+            "posting_attempted": do_post, "posted": posted, "would_post": would_post,
+            "queued": queued, "failed": failed, "external_delivery_verified": False,
+            "message_telugu": f"🗓️ {len(ids)} profiles featured జాబితాలో సేవ్ అయ్యాయి. API accepted: {len(posted)}; queue accepted: {len(queued)}; dry-run: {len(would_post)}; failed: {len(failed)}. Delivery/read confirmation లేదు."}
 
 
 @app.get("/api/admin/whoami")
@@ -3785,7 +4367,7 @@ def _caste_rotation(all_castes, last_caste):
 
 @app.get("/api/showcase")
 def showcase_public():
-    """🎊 Public — ఈ వారం caste showcase (ఆ caste best profiles)."""
+    """Public weekly showcase; re-checks each selected profile's current active/approval state."""
     data = _load_showcase()
     wk = _week_key()
     cur = data.get(wk) or {}
@@ -3793,7 +4375,7 @@ def showcase_public():
     rows = []
     for tid in ids:
         u = _find_user(tid)
-        if u and not u.get("is_banned"):
+        if _is_approved_profile(u):
             rows.append(_daily_row(u))
     prev_wk = None
     return {"success": True, "week": wk, "caste": cur.get("caste", ""), "count": len(rows),
@@ -3810,7 +4392,7 @@ def showcase_candidates(request: Request, caste: str = "", limit: int = 40):
     if not caste:
         raise HTTPException(400, "caste param కావాలి (ex: ?caste=Reddy)")
     rows = [u for u in DB_USERS if str(u.get("caste", "")).lower() == caste.lower()
-            and not u.get("is_banned") and u.get("is_approved", True)]
+            and _is_approved_profile(u)]
     rows.sort(key=lambda u: (
         bool(u.get("photo_status") == "approved" and u.get("photo_url")
              and not (u.get("photo_private") or u.get("privacy_mode") == "private")),
@@ -3834,7 +4416,7 @@ def showcase_candidates(request: Request, caste: str = "", limit: int = 40):
 
 @app.post("/api/admin/showcase")
 async def showcase_set(payload: dict, request: Request):
-    """Admin/Staff — ఈ వారం caste showcase set → ఆ caste channels lo post (bride + groom)."""
+    """Admin/Staff — select active approved on-site showcase profiles; channel posting requires explicit opt-in."""
     require_admin(request, staff_ok=True)
     d = payload or {}
     caste = str(d.get("caste", "")).strip()
@@ -3849,10 +4431,13 @@ async def showcase_set(payload: dict, request: Request):
         u = _find_user(tid)
         if not u:
             raise HTTPException(404, f"ID {tid} దొరకలేదు")
+        if not _is_approved_profile(u):
+            raise HTTPException(409, f"ID {tid} is not an active, approved profile")
         if str(u.get("caste", "")).lower() != caste.lower():
             raise HTTPException(400, f"ID {tid} caste {u.get('caste')} — showcase caste {caste} కాదు")
         users.append(u)
-    do_post = bool(d.get("post_to_channels", True))
+    # Publishing externally is opt-in; omitting the flag only saves the on-site selection.
+    do_post = d.get("post_to_channels") is True
     posted, failed = [], []
     if do_post:
         for u in users:
@@ -3881,20 +4466,45 @@ async def showcase_set(payload: dict, request: Request):
 # ============================================================================
 @app.get("/api/spotlight/rates")
 def spotlight_rates():
-    """Public — Spotlight / Profiles of the Day tier rates & perks."""
+    """Public — paid sponsored profile-spotlight rates and disclosed on-site terms."""
     return {"success": True, "tiers": spotlight.SPOTLIGHT_TIERS,
-            "headline_te": "🌟 ఈ రోజు ప్రత్యేక ప్రొఫైళ్లు (Spotlight) — మీ ప్రొఫైల్ ని ప్రమోట్ చేసుకోండి",
-            "headline_en": "Profiles of the Day & Spotlight — Promote your profile for 10x visibility"}
+            "headline_te": "🌟 చెల్లింపు స్పాన్సర్డ్ ప్రొఫైల్ ప్రమోషన్ కోసం దరఖాస్తు చేయండి",
+            "headline_en": "Apply for a paid sponsored profile placement"}
+
+
+def _current_public_spotlights(limit: int = 12) -> list:
+    """Re-check the current profile state so deactivated/private records stop being promoted."""
+    rows = spotlight.get_active_spotlights(limit=30)
+    public = []
+    for row in rows:
+        user = _find_user(str(row.get("tsap_id") or ""))
+        if not _is_approved_profile(user):
+            continue
+        status = str(user.get("status") or "").strip().lower()
+        active_flag = str(user.get("is_active", "true")).strip().lower()
+        if status in {"pending", "deleted", "married_fixed", "banned", "rejected"} or active_flag in {"0", "false", "no", "off"}:
+            continue
+        current_photo = ""
+        if (user.get("photo_status") == "approved"
+                and not (user.get("photo_private") or user.get("privacy_mode") == "private")):
+            current_photo = spotlight._profile_photo_url(user.get("photo_url"))
+        safe_row = dict(row)
+        if not current_photo or current_photo != str(row.get("photo_url") or ""):
+            safe_row["photo_url"] = ""
+        public.append(safe_row)
+        if len(public) >= limit:
+            break
+    return public
 
 
 @app.get("/api/spotlight/active")
 @app.get("/api/spotlight/today")
 def spotlight_active(limit: int = 12):
-    """Public — Live & approved Profiles of the Day for Homepage & Matches."""
+    """Public — currently approved, paid, unexpired placements on active profiles; not identity-verified."""
     limit = max(1, min(int(limit), 30))
-    active = spotlight.get_active_spotlights(limit=limit)
+    active = _current_public_spotlights(limit=limit)
     return {"success": True, "count": len(active), "items": active,
-            "message_telugu": f"🌟 ఈ రోజు {len(active)} ప్రత్యేక ప్రొఫైళ్లు ప్రత్యక్షంగా ఉన్నాయి"}
+            "message_telugu": f"🌟 ప్రస్తుతం ఆమోదించిన sponsored profiles: {len(active)} (గుర్తింపు స్వతంత్రంగా నిర్ధారించబడదు)"}
 
 
 @app.post("/api/spotlight/apply")
@@ -3922,10 +4532,12 @@ def spotlight_apply(payload: dict, request: Request):
             payment_mode="manual_upi",
             payment_ref=str(d.get("payment_ref") or "").strip(),
             contact_opt=str(d.get("contact_opt") or "send_interest").strip(),
+            consent_confirmed=req_bool(d.get("consent_confirmed")),
             auto_approve=False,
         )
         return {"success": True, "item": entry,
-                "message_telugu": "మీ దరఖాస్తు అందింది. UTR ను బ్యాంక్ స్టేట్‌మెంట్‌తో, ప్రొఫైల్ మీడియాను సిబ్బంది ధృవీకరించే వరకు ఇది public లో కనిపించదు."}
+                "message_en": "Application received. It stays private until the UTR is matched to the bank statement and the submitted profile/media review is recorded.",
+                "message_telugu": "మీ దరఖాస్తు అందింది. UTR ను బ్యాంక్ స్టేట్‌మెంట్‌తో సరిపోల్చి, ప్రొఫైల్/మీడియా సమీక్ష నమోదు చేసే వరకు ఇది public లో కనిపించదు."}
     except Exception as e:
         raise HTTPException(400, str(e))
 
@@ -3939,8 +4551,8 @@ def spotlight_track(promo_id: str, kind: str = "click"):
 
 @app.get("/api/admin/spotlight/queue")
 def admin_spotlight_queue(request: Request, status: str = "all", limit: int = 50):
-    """Admin / Staff — Review queue of paid spotlight submissions."""
-    require_admin(request, staff_ok=True)
+    """Owner-only review queue for paid spotlight submissions and UTR references."""
+    require_admin(request)
     limit = clamp_int(limit, "limit", 1, 100, 50)
     all_promos = spotlight._load_spotlights()
     if status != "all":
@@ -3953,8 +4565,8 @@ def admin_spotlight_queue(request: Request, status: str = "all", limit: int = 50
 
 @app.post("/api/admin/spotlight/{promo_id}/action")
 def admin_spotlight_action(promo_id: str, payload: dict, request: Request):
-    """Admin / Staff — Approve, reject, or close a spotlight promotion."""
-    moderator = require_admin(request, staff_ok=True)
+    """Owner-only payment verification and approval actions for spotlight promotions."""
+    moderator = require_admin(request)
     d = payload or {}
     action = str(d.get("action", "")).strip().lower()
     notes = str(d.get("notes", "")).strip()
@@ -4279,23 +4891,50 @@ def api_admin_grant_plan(payload: dict, request: Request = None):
     }
 
 
+def _public_channel_links() -> dict:
+    """Owner-configured links for public listings only; private registry rows stay internal."""
+    return {key: value for key, value in CHAN.public_links().items() if is_public_channel(key)}
+
+
+def _channel_stats_public() -> dict:
+    """Counts for the public directory, excluding operator-hidden listings."""
+    return public_channel_stats()
+
+
 def _channel_public(key: str, ch: dict) -> dict:
-    """Registry channel → website-friendly JSON (join link, status, deep link, hashtags, DP)."""
-    user = ch["username"]
+    """Registry entry using only explicit usernames/invite links; no inferred status."""
+    username = str(ch.get("username") or "").strip().lstrip("@")
+    configured_links = channel_links(key)
+    mapped_links = _public_channel_links().get(key)
+    if mapped_links is not None:
+        public_link = str(mapped_links.get("telegram") or "")
+        public_whatsapp = str(mapped_links.get("whatsapp") or "")
+    elif key in getattr(CHAN, "OVERRIDES", {}):
+        # An explicit admin override may intentionally disable a base link.
+        public_link = ""
+        public_whatsapp = ""
+    else:
+        public_link = str(configured_links.get("telegram") or "")
+        public_whatsapp = str(configured_links.get("whatsapp") or "")
     route = ch.get("route") if isinstance(ch.get("route"), dict) else {}
+    routing_eligible = _routing_is_explicit(ch)
     return {
         "key": key,
         "tier": ch.get("tier"),
         "name": ch.get("name"),
-        "username": "@" + user,
-        "link": f"https://t.me/{user}",
-        "deep_link": f"https://t.me/telugumatrimony1_bot?start=ch_{user.lower()}",
+        "username": "@" + username if username else "",
+        "link": public_link,
+        "whatsapp_link": public_whatsapp,
+        # No bot deep-link contract is configured for channel joins.
+        "deep_link": "",
         "desc": ch.get("desc"),
         "hashtags": ch.get("hashtags", []),
         "wave": ch.get("wave"),
-        "live": bool(ch.get("live")),
-        "status": "LIVE ✅ Bot Admin" if ch.get("live") else f"Create — Wave-{ch.get('wave')}",
-        "fallbacks": ch.get("fallbacks", []),
+        "routing_eligible": routing_eligible,
+        "destination_configured": bool(ch.get("routing_destination")),
+        "external_status_checked": False,
+        "status": ("Explicit destination configured; external availability and bot permissions unchecked"
+                   if routing_eligible else "No posting destination configured"),
         "photo": f"/api/channels/photo/{key}.png",
         "caste": (route or {}).get("caste", ""),
         "gender": (route or {}).get("gender", ""),
@@ -4303,15 +4942,13 @@ def _channel_public(key: str, ch: dict) -> dict:
 
 @app.get("/api/channels/photo/{key}.png")
 def channel_photo(key: str):
-    """Channel DP (512x512) — website లో channel card కి + Telegram setChatPhoto కి same file."""
+    """Serve a maintained channel asset; a public GET never creates or replaces artwork."""
     import setup_channels as SC
+    if not is_public_channel(key):
+        raise HTTPException(404, "Channel listing not found")
     path = os.path.join(SC.ASSET_DIR, "%s.png" % key)
-    if not os.path.exists(path):
-        if key not in CHANNELS:
-            raise HTTPException(404, "Channel దొరకలేదు: %s" % key)
-        path = SC.channel_dp_image(key, CHANNELS.get(key))
-    if not path or not os.path.exists(path):
-        raise HTTPException(500, "DP generate avvaledu")
+    if not os.path.isfile(path):
+        raise HTTPException(404, "No maintained channel artwork is available for this listing")
     return FileResponse(path, media_type="image/png", headers={"Cache-Control": "public, max-age=86400"})
 
 
@@ -4320,59 +4957,68 @@ def channel_kit(key: str):
     """ఒక్క channel కి full kit — description + 📌 pinned post + rules + share text (website నుంచి copy)."""
     import channel_content as CC
     ch = CHANNELS.get(key)
-    if not ch:
+    if not ch or not is_public_channel(key):
         raise HTTPException(404, "Channel దొరకలేదు: %s" % key)
+    public_channel = _channel_public(key, ch)
     return {"key": key, "name": CC.perfect_title(key, ch), "desc": CC.perfect_description(key, ch),
             "pinned_post": CC.pinned_welcome(key, ch), "rules_post": CC.rules_post(key),
-            "share_text": CC.share_text(key, ch), "dp_text": CC.dp_text(key),
-            "hashtags": ch.get("hashtags", []), "username": "@" + ch["username"],
-            "link": "https://t.me/" + ch["username"], "photo": f"/api/channels/photo/{key}.png",
-            "live": bool(ch.get("live")), "wave": ch.get("wave"),
+            "share_text": CC.share_text(key, ch, telegram_link=public_channel["link"]), "dp_text": CC.dp_text(key),
+            "hashtags": ch.get("hashtags", []), "username": public_channel["username"],
+            "link": public_channel["link"], "photo": f"/api/channels/photo/{key}.png",
+            "routing_eligible": public_channel["routing_eligible"],
+            "destination_configured": public_channel["destination_configured"], "wave": ch.get("wave"),
+            "external_status_checked": False, "deep_link": "",
+            "status": public_channel["status"],
             "how_to_setup_telugu": [
-                "1) Telegram → New Channel → Name paste → Username paste (taken అయితే fallback)",
-                "2) Channel → Administrators → @telugumatrimony1_bot add → Change Info + Post + Pin ✅",
-                "3) Description paste → 📌 pinned post paste+pin → DP upload (photo link)",
-                "4) Taruvata: python setup_channels.py --apply --key %s" % key,
+                "1) Use only an owner-confirmed exact posting destination or public invite URL. Blank values are intentional; do not guess a replacement.",
+                "2) Posting is disabled unless the exact destination is explicitly configured. A bot identity or admin permission is not assumed.",
+                "3) If the operator separately enables posting, run the read-only --check for the exact destination and review results before any mutation.",
+                "4) --apply may change metadata, upload artwork, create an invite, send and pin; use only with separate explicit operator approval.",
             ]}
 
 
 @app.get("/api/channels/setup-plan")
 def channels_setup_plan(wave: Optional[int] = None):
-    """Channel create plan (wave order) + caste×gender coverage + health — launch/growth dashboard కి."""
-    return {"plan": channels_config_setup_plan(wave), "caste_coverage": caste_split_report(),
-            "config_problems": channel_health_report(), "stats": channel_stats(),
-            "message_telugu": "Wave order లో create చెయ్యండి — wave 1 లో 4 main + top castes (bride/groom) "
-                              "ఉన్నాయి. Prathi channel కి kit + DP ready (website /channels లో)."}
+    """Public-facing setup summary for directory-listed channels only."""
+    plan = [row for row in channels_config_setup_plan(wave) if is_public_channel(row.get("key", ""))]
+    problems = [row for row in channel_health_report() if is_public_channel(row.get("key", ""))]
+    return {"plan": plan, "config_problems": problems, "stats": _channel_stats_public(),
+            "message_telugu": "Public directory order లోని listings మాత్రమే చూపిస్తున్నాం. External availability లేదా delivery నిర్ధారించబడదు."}
 
 
 @app.get("/api/channels")
 def channels(tier: Optional[str] = None):
-    """FULL master registry — 52 channels (L0 Official → L4 Special, caste clusters × bride/groom)."""
+    """Canonical channel directory; external usernames and permissions are not checked here."""
     tiers = channels_by_tier()
     out_tiers = {
-        t: [_channel_public(c["key"], c) for c in items]
-        for t, items in tiers.items()
+        tier_key: public_rows
+        for tier_key, items in tiers.items()
+        if (public_rows := [_channel_public(channel["key"], channel)
+                            for channel in items if is_public_channel(channel["key"])])
     }
+    stats = _channel_stats_public()
     if tier:
         items = out_tiers.get(tier, [])
-        return {"tier": tier, "channels": items, "count": len(items), "stats": channel_stats()}
+        return {"tier": tier, "channels": items, "count": len(items), "stats": stats}
     return {
-        "brand": "మన వివాహ | TSAP Matrimony",
+        "brand": "మన వివాహ | Mana Vivaha",
         "site": "https://manavivaha.in",
-        "bot": "@telugumatrimony1_bot",
-        "stats": channel_stats(),
+        "stats": stats,
         "tiers": {
-            "L0_OFFICIAL": "Brand hub — daily Top-3, success stories, safety alerts",
-            "L1_REGION": "Main 4 — TS Bride, TS Groom, AP Bride, AP Groom (+ NRI)",
-            "L2_RELIGION": "Hindu, Muslim, Christian, Other, Inter-faith",
-            "L3_CASTE": "Caste-wise — top castes కి bride/groom separate (caste prakaram), migilina castes కి mixed",
-            "L4_SPECIAL": "2nd marriage, differently-abled, govt job, IT, doctors, 35+, bureau",
+            tier_key: label for tier_key, label in {
+                "L0_OFFICIAL": "Official service-information listing",
+                "L1_REGION": "Telangana, Andhra Pradesh and NRI directory listings",
+                "L2_RELIGION": "Religion and community directory listings",
+                "L3_CASTE": "Selected community and gender listings",
+                "L4_SPECIAL": "Additional member-submitted profile categories",
+            }.items() if tier_key in out_tiers
         },
         "channels_by_tier": out_tiers,
-        "live": [_channel_public(c["key"], c) for c in live_channels()],
-        "to_create": [_channel_public(c["key"], c) for c in pending_channels()],
-        "total_live": channel_stats()["live"],
-        "total_planned": channel_stats()["total"],
+        "routing_eligible": [_channel_public(c["key"], c) for c in live_channels() if is_public_channel(c["key"])],
+        "not_routing_eligible": [_channel_public(c["key"], c) for c in pending_channels() if is_public_channel(c["key"])],
+        "external_status_checked": False,
+        "total_routing_eligible": stats["routing_eligible"],
+        "total_listed": stats["total"],
     }
 
 @app.post("/api/channels/route")
@@ -4440,10 +5086,12 @@ def publish_preview(payload: dict):
         "targets": post_targets(profile),
     }
 
-@app.get("/api/channels/live")
-def channels_live():
-    return {"live": [_channel_public(c["key"], c) for c in live_channels()],
-            "count": channel_stats()["live"], "bot": "@telugumatrimony1_bot"}
+@app.get("/api/channels/routing-eligible")
+def channels_routing_eligible():
+    rows = [_channel_public(c["key"], c) for c in live_channels() if is_public_channel(c["key"])]
+    return {"routing_eligible": rows, "count": len(rows),
+            "external_status_checked": False,
+            "status": "Registry eligibility only; external availability and bot permissions are unchecked"}
 
 
 # ===========================================================================
@@ -4510,7 +5158,7 @@ def plans_endpoint():
         "renewal": renewal_offer(),
         "bureau": bureau_list(),  # WAVE 29: pricing B2B single-source (page fallback tho match)
         "value_ladder": [f"₹{p['price']} → {p['profiles']} interest requests (₹{p['per_profile']}/request)" for p in plan_list()],
-        "note_telugu": "ఒక్క interest request కు 1 credit. Profile owner accept చేసిన తర్వాత privacy settings ప్రకారం contact details share అవుతాయి. Decline అయితే account లో చూపిన credit-refund policy వర్తిస్తుంది. "
+        "note_telugu": "ఒక్క interest request కు 1 credit. Public search లో contact details ఉండవు; profile owner accept చేసిన తర్వాత accepted-request account flows లో అందుబాటులోకి వస్తాయి. WhatsApp notification delivery హామీ లేదు. Decline అయితే account లో చూపిన credit policy వర్తిస్తుంది. "
                        "₹299, ₹499 plans active ఉన్నప్పుడు Who-viewed names అందుబాటులో ఉంటాయి. Match లేదా response హామీ లేదు.",
     }
 
@@ -4539,7 +5187,7 @@ def credits_endpoint(tsap_id: str, request: Request = None):
 
 @app.post("/api/credits/buy")
 def credits_buy(payload: dict, request: Request):
-    """Compatibility plan-purchase route: development-only fixtures or a verified PayPro order."""
+    """Compatibility purchase route: an explicit isolated test fixture or verified PayPro order."""
     d = payload or {}
     tsap_id = str(d.get("tsap_id") or "").strip().upper()
     require_owner(request, tsap_id)
@@ -4551,8 +5199,8 @@ def credits_buy(payload: dict, request: Request):
     if plan.get("code") == "FREE" or int(plan.get("price", 0) or 0) <= 0:
         raise HTTPException(400, "Choose a valid paid plan or add-on.")
 
-    # Development-only shortcut is retained for automated local tests; production always uses PayPro.
-    if dev_mode():
+    # Explicit fixture mode is test-only; normal dev/preview and production stay fail-closed.
+    if _test_payment_fixtures_enabled():
         applied = apply_payment(user, int(plan["price"]), plan_code)
         if not applied.get("ok"):
             raise HTTPException(400, applied.get("error", "Plan could not be applied."))
@@ -4600,6 +5248,11 @@ async def interest_send(payload: dict, request: Request = None):
         raise HTTPException(404, f"మీ TSAP ID దొరకలేదు: {from_id} — ముందు register చెయ్యండి")
     if not to:
         raise HTTPException(404, f"Profile దొరకలేదు: {to_id}")
+    if not _is_approved_profile(frm):
+        raise HTTPException(403, "Only an approved active member can send an interest request")
+    if not _is_approved_profile(to):
+        # Do not let guessed IDs send requests to hidden, pending, or synthetic profiles.
+        raise HTTPException(404, f"Active approved profile not found: {to_id}")
 
     if safety.is_blocked(from_id, to_id, DB_BLOCKS):
         # 🐞 FIX: mundu block unna kooda "gender tappu" error vachedi (misleading message)
@@ -4667,6 +5320,13 @@ async def interest_send(payload: dict, request: Request = None):
                                kind="interest_to_owner")
     wa_plan2 = enqueue_whatsapp([frm_phone], notify_text, image_id=to_id, priority=0,
                                 kind="interest_confirm")
+    rec["notification_queue"] = {
+        "owner_queued": bool(wa_plan.get("queued")),
+        "requester_queued": bool(wa_plan2.get("queued")),
+        "delivery_confirmed": False,
+        "recorded_at": datetime.utcnow().isoformat(),
+    }
+    _persist_core_state()
     if not wa_plan.get("queued"):
         start_wa_worker()
 
@@ -4688,13 +5348,15 @@ async def interest_send(payload: dict, request: Request = None):
             "mode": publish_config()["wa_mode"],
             "owner_queued": wa_plan.get("queued", False),
             "requester_queued": wa_plan2.get("queued", False),
-            "owner_link_manual": whatsapp_link(owner_phone, owner_text) if not wa_plan.get("queued") else "",
+            # Never return a click-to-chat URL containing the recipient's phone before consent.
+            "owner_link_manual": "",
+            "manual_notification_note": "No manual recipient link is exposed before owner acceptance; queue status does not confirm delivery.",
             "anti_ban": f"{int(WA_ENGINE.cfg()['min_gap_interest'])}–{int(WA_ENGINE.cfg()['max_gap_interest'])}s random gap (fast lane)",
         },
         "owner_message_preview": owner_text,
-        "message_telugu": (f"💌 Interest pampincharu! {safe_user(to)['full_name']} కి WhatsApp లో "
-                           f"మీ profile వెళ్తుంది. Accept అయితే numbers automatic గా exchange అవుతాయి. "
-                           f"Credits migilayi: {frm.get('credits', 0)}"),
+        "message_telugu": (f"💌 Interest request {safe_user(to)['full_name']} కి నమోదు అయ్యింది. "
+                           "Configured notification queue కావచ్చు; delivery హామీ లేదు. Accept చేస్తే accepted-request account flows లో contact details అందుబాటులోకి వస్తాయి. "
+                           f"మిగిలిన credits: {frm.get('credits', 0)}"),
     }
 
 
@@ -4708,7 +5370,7 @@ def interest_inbox(tsap_id: str, request: Request = None):
         _persist_core_state()
     data = inbox_for(u, DB_USERS, DB_INTERESTS)
     data["credits"] = u.get("credits", 0)
-    data["model"] = "accept → number exchange (chatting లేదు)"
+    data["model"] = "owner acceptance → contact access in accepted-request account views; notification delivery is not guaranteed"
     return data
 
 
@@ -4727,7 +5389,7 @@ def interest_sent(tsap_id: str, request: Request = None):
 
 @app.post("/api/interest/respond")
 async def interest_respond(payload: dict, request: Request = None):
-    """Owner accept/decline. Accept → రెండు numbers WhatsApp లో (consent based). Decline → credit refund."""
+    """Record the owner's decision; acceptance grants in-service contact access, not delivery proof."""
     d = payload or {}
     tsap_id = d.get("tsap_id", "")
     request_id = d.get("request_id", "")
@@ -4746,26 +5408,39 @@ async def interest_respond(payload: dict, request: Request = None):
     if not res.get("success"):
         return JSONResponse(status_code=400, content=res)
 
-    wa = {}
+    wa = {"queued": False, "delivery_confirmed": False}
     if action == "accept" and requester:
-        txt = interest_accepted_text(requester, owner, rec)
-        wa = enqueue_whatsapp([requester.get("phone", "")], txt, image_id=owner["tsap_id"],
-                              priority=0, kind="interest_accepted")
-        enqueue_whatsapp([owner.get("phone", "")], txt, image_id=requester["tsap_id"],
-                         priority=0, kind="interest_accepted_owner")
+        requester_text = interest_accepted_text(requester, owner, rec)
+        owner_text = interest_accepted_owner_text(owner, requester, rec)
+        requester_wa = enqueue_whatsapp([requester.get("phone", "")], requester_text,
+                                       image_id=owner["tsap_id"], priority=0, kind="interest_accepted")
+        owner_wa = enqueue_whatsapp([owner.get("phone", "")], owner_text,
+                                    image_id=requester["tsap_id"], priority=0, kind="interest_accepted_owner")
+        wa = {
+            "queued": bool(requester_wa.get("queued") or owner_wa.get("queued")),
+            "requester_queued": bool(requester_wa.get("queued")),
+            "owner_queued": bool(owner_wa.get("queued")),
+            "delivery_confirmed": False,
+            "note": "Queue state only; external WhatsApp delivery was not checked.",
+        }
         res["contact"] = {"name": requester.get("full_name"), "phone": requester.get("phone", "")}
-        # 📜 consent ledger (audit trail — numbers eppudu exchange ayyayo)
+        # This records the access grant from owner acceptance, not message delivery.
         log_consent("interest_accepted", owner.get("tsap_id", ""), requester.get("tsap_id", ""),
-                    request_id=request_id, exchanged=True, note="రెండు numbers WhatsApp లో exchange")
-        res["consent_record_telugu"] = "📜 ఈ exchange consent ledger లో record అయ్యింది (మీ profile లో చూడొచ్చు)"
+                    request_id=request_id, contact_access_granted=True,
+                    note="Owner acceptance enabled contact access in accepted-request views.")
+        res["consent_record_telugu"] = "📜 Owner acceptance వల్ల accepted-request account views లో contact access ఇచ్చిన event నమోదు అయింది; message delivery proof కాదు."
     elif action == "decline":
         log_consent("interest_declined", owner.get("tsap_id", ""), (requester or {}).get("tsap_id", ""),
-                    request_id=request_id, exchanged=False, note="number share చెయ్యలేదు")
+                    request_id=request_id, contact_access_granted=False,
+                    note="Request declined; contact access not granted.")
         if rec.get("credit_refunded"):
             requester and requester.update({"credits": int(requester.get("credits", 0)) + 1})
         if requester:
             txt = interest_declined_text(requester, owner, rec)
-            wa = enqueue_whatsapp([requester.get("phone", "")], txt, priority=0, kind="interest_declined")
+            decline_wa = enqueue_whatsapp([requester.get("phone", "")], txt, priority=0,
+                                          kind="interest_declined")
+            wa = {"queued": bool(decline_wa.get("queued")), "delivery_confirmed": False,
+                  "note": "Queue state only; external WhatsApp delivery was not checked."}
     elif action == "withdraw":
         rec["credit_refunded"] = True
         if requester:
@@ -4786,13 +5461,28 @@ def interest_status(request_id: str, request: Request):
         require_owner(request, rec.get("from_id", ""))
     except HTTPException:
         require_owner(request, rec.get("to_id", ""))
-    return {"request": rec,
-            "steps": [
-                {"step": "Request pampincharu", "done": True},
-                {"step": "Owner కి WhatsApp లో మీ profile వెళ్లింది", "done": True},
-                {"step": "Owner reply (accept/decline)", "done": rec["status"] in ("accepted", "declined")},
-                {"step": "Numbers exchange (WhatsApp)", "done": rec.get("contact_shared", False)},
-            ]}
+    queue_state = rec.get("notification_queue") if isinstance(rec.get("notification_queue"), dict) else None
+    status = str(rec.get("status", "pending"))
+    response_done = status in {"accepted", "declined", "expired", "withdrawn"}
+    contact_granted = bool(rec.get("contact_shared")) and status == "accepted"
+    owner_queued = bool(queue_state and queue_state.get("owner_queued"))
+    queue_label_en = ("Owner notification queued" if owner_queued else
+                      "Owner notification was not queued" if queue_state else
+                      "Owner notification queue status not recorded")
+    queue_label_te = ("Owner notification queue లో చేర్చబడింది" if owner_queued else
+                      "Owner notification queue కాలేదు" if queue_state else
+                      "Owner notification queue స్థితి నమోదు కాలేదు")
+    steps = [
+        {"step": "Interest request recorded", "step_telugu": "Interest request నమోదు అయ్యింది", "done": True},
+        {"step": queue_label_en, "step_telugu": queue_label_te, "done": owner_queued,
+         "note": "Queue state only; external delivery is not confirmed."},
+        {"step": f"Owner response: {status}", "step_telugu": f"Owner response: {status}", "done": response_done},
+        {"step": "Contact access in accepted-request account views", "step_telugu": "Accepted-request account views లో contact access", "done": contact_granted},
+    ]
+    return {"request": rec, "steps": steps,
+            "notification_queue": queue_state or {"status_recorded": False, "delivery_confirmed": False},
+            "note": "WhatsApp queue status does not confirm external delivery or reading.",
+            "note_telugu": "WhatsApp queue స్థితి మాత్రమే; external delivery లేదా message చదివినట్లు నిర్ధారణ కాదు."}
 
 
 # ---------------------------------------------------------------- WhatsApp control
@@ -4951,8 +5641,8 @@ def porutham_by_id(bride: str = "", groom: str = "", boy_star: str = "", girl_st
     # 2. Look up by TSAP ID
     b = _find_user(bride)
     g = _find_user(groom)
-    if not b or not g:
-        raise HTTPException(404, "Bride/Groom TSAP ID లేదా నక్షత్రం (Star) వివరాలు ఇవ్వండి")
+    if not b or not g or not _is_approved_profile(b) or not _is_approved_profile(g):
+        raise HTTPException(404, "Active approved Bride/Groom profile ID లేదా నక్షత్ర వివరాలు ఇవ్వండి")
     res = compute_porutham(b, g)
     return {"bride": safe_user(b), "groom": safe_user(g), **res}
 
@@ -5196,10 +5886,20 @@ def saved_list(tsap_id: str, request: Request = None):
 async def photo_upload(file: UploadFile = File(...), tsap_id: str = Form(""), request: Request = None):
     """
     📸 Real photo upload — phone lo camera/gallery nunchi.
-    Validation: JPG/PNG/WebP, max 5 MB. Storage: /tmp/photos (docker volume) → /photos/{name} URL.
-    (P0 gap fill — mundu photo preview matrame undi, real upload ledu)
+    Validation: decoded JPEG/PNG/WebP image, max 5 MB, safe dimensions and clarity checks.
+    Member uploads stay private until staff approval and the member's privacy choice allow visibility.
     """
-    data = await file.read()
+    # Authenticate the target before reading or validating uploaded bytes.
+    _tid = re.sub(r"[^A-Z0-9-]", "", (tsap_id or "").strip().upper())[:24]
+    if _tid:
+        _owner = _find_user(_tid)
+        if not _owner:
+            raise HTTPException(404, "Profile not found")
+        require_owner(request, _tid)
+    else:
+        # Unattached CMS/media uploads are an admin operation, never anonymous storage.
+        require_admin(request)
+    data = await file.read(5 * 1024 * 1024 + 1)
     # 🌊 WAVE 17 — Layer-1 automatic validation (thappu photo iste asalu thisukovaddu)
     verdict = validate_photo(data, file.filename or "")
     if not verdict["ok"]:
@@ -5207,28 +5907,24 @@ async def photo_upload(file: UploadFile = File(...), tsap_id: str = Form(""), re
                                   "te": verdict["te"],
                                   "message_telugu": f"📸 {verdict['te']}",
                                   "checks": verdict["checks"]})
-    # 🌊 WAVE 23 — SECURITY: tsap_id tho path traversal (../../) + vere vaalla profile ki upload — rendu block
-    _tid = re.sub(r"[^A-Z0-9-]", "", (tsap_id or "").strip().upper())[:24]
-    if _tid:
-        require_owner(request, _tid)
-    ext = (file.filename or "").split(".")[-1].lower()
-    if ext not in {"jpg", "jpeg", "png", "webp"}:
-        ext = {"heic": "jpg", "heif": "jpg"}.get(ext, "jpg")
-    os.makedirs("/tmp/photos", exist_ok=True)
-    token = (_tid or "tmp") + "-" + datetime.utcnow().strftime("%y%m%d%H%M%S") + "-" + str(random.randint(100, 999))
-    name = f"{token}.{ 'jpg' if ext in ('heic','heif') else ext }"
-    path = f"/tmp/photos/{name}"
+    # Use the decoded image format, never the user-controlled filename extension.
+    ext = {"JPEG": "jpg", "PNG": "png", "WEBP": "webp"}[verdict["checks"]["format"]]
+    os.makedirs(PHOTO_MEDIA_DIR, exist_ok=True)
+    safe_owner = _tid or "admin"
+    token = safe_owner + "-" + datetime.utcnow().strftime("%y%m%d%H%M%S") + "-" + secrets.token_hex(6)
+    name = f"{token}.{ext}"
+    path = os.path.join(PHOTO_MEDIA_DIR, name)
     try:
-        with open(path, "wb") as f:
+        with open(path, "xb") as f:
             f.write(data)
     except Exception as e:
-        raise HTTPException(500, f"Photo save avvaledu: {str(e)[:80]}")
-    _u = next((u for u in DB_USERS if u.get("tsap_id") == tsap_id.strip()), None) if tsap_id else None
-    if _u is not None:
-        _u["photo_url"] = f"/photos/{name}"
-        _u["photo_status"] = "pending"          # Layer-2: admin human review (top-site standard)
-        _u["photo_checks"] = verdict["checks"]
-        _u["photo_uploaded_at"] = datetime.utcnow().isoformat()
+        raise HTTPException(500, f"Photo save failed: {str(e)[:80]}")
+    if _tid:
+        _owner["photo_url"] = f"/photos/{name}"
+        _owner["photo_urls"] = [f"/photos/{name}"]
+        _owner["photo_status"] = "pending"  # A human review is still required.
+        _owner["photo_checks"] = verdict["checks"]
+        _owner["photo_uploaded_at"] = datetime.utcnow().isoformat()
     return {"success": True, "url": f"/photos/{name}", "bytes": len(data),
             "kb": round(len(data) / 1024, 1),
             "status": "pending", "checks": verdict["checks"],
@@ -5236,13 +5932,16 @@ async def photo_upload(file: UploadFile = File(...), tsap_id: str = Form(""), re
 
 
 @app.get("/api/photo/status/{tsap_id}")
-def photo_status(tsap_id: str):
-    """📸 Photo + selfie verification status (frontend screens: validating/approved/not-approved)."""
-    u = next((x for x in DB_USERS if x.get("tsap_id") == tsap_id), None)
+def photo_status(tsap_id: str, request: Request):
+    """Owner-only photo/selfie review status; never expose moderation reasons by guessed ID."""
+    u = _find_user(tsap_id)
     if not u:
         raise HTTPException(404, "Profile dorakaledu")
-    return {"success": True, "tsap_id": tsap_id,
-            "photo_url": u.get("photo_url", ""), "photo_status": u.get("photo_status", "none"),
+    require_owner(request, str(u.get("tsap_id", "")))
+    photo_filename = _media_filename(u.get("photo_url"), "/photos/")
+    return {"success": True, "tsap_id": u.get("tsap_id", tsap_id),
+            "photo_url": f"/photos/{photo_filename}" if photo_filename else "",
+            "photo_status": u.get("photo_status", "none"),
             "photo_reason": u.get("photo_reason", ""), "photo_reason_te": u.get("photo_reason_te", ""),
             "selfie_status": u.get("selfie_status", "none"),
             "selfie_verified": bool(u.get("selfie_verified", False))}
@@ -5262,9 +5961,9 @@ async def verify_selfie(file: UploadFile = File(...), tsap_id: str = Form(""), r
                                   "te": verdict["te"],
                                   "message_telugu": f"🤳 {verdict['te']}",
                                   "checks": verdict["checks"]})
-    os.makedirs("/tmp/photos", exist_ok=True)
+    os.makedirs(PHOTO_MEDIA_DIR, exist_ok=True)
     name = f"{u['tsap_id']}-selfie-" + datetime.utcnow().strftime("%y%m%d%H%M%S") + ".jpg"
-    with open(f"/tmp/photos/{name}", "wb") as f:
+    with open(os.path.join(PHOTO_MEDIA_DIR, name), "wb") as f:
         f.write(data)
     u["selfie_url"] = f"/photos/{name}"
     u["selfie_status"] = "pending"
@@ -5282,12 +5981,37 @@ def admin_photos_pending(request: Request):
         _first = str(u.get("full_name", "")).split()[0] if str(u.get("full_name", "")).split() else ""
         if u.get("photo_status") == "pending":
             q.append({"kind": "photo", "tsap_id": u.get("tsap_id"), "name": _first,
-                      "url": u.get("photo_url", ""), "checks": u.get("photo_checks", {}),
-                      "at": u.get("photo_uploaded_at", "")})
+                      "url": f"/api/admin/photos/{urllib.parse.quote(str(u.get('tsap_id', '')), safe='')}/content?kind=photo",
+                      "checks": u.get("photo_checks", {}), "at": u.get("photo_uploaded_at", "")})
         if u.get("selfie_status") == "pending":
             q.append({"kind": "selfie", "tsap_id": u.get("tsap_id"), "name": _first,
-                      "url": u.get("selfie_url", ""), "checks": u.get("selfie_checks", {}), "at": ""})
+                      "url": f"/api/admin/photos/{urllib.parse.quote(str(u.get('tsap_id', '')), safe='')}/content?kind=selfie",
+                      "checks": u.get("selfie_checks", {}), "at": ""})
     return {"success": True, "count": len(q), "queue": q}
+
+
+@app.get("/api/admin/photos/{tsap_id}/content")
+def admin_photo_content(tsap_id: str, request: Request, kind: str = "photo"):
+    """Admin/staff-only binary access to pending review media; never publish storage URLs."""
+    require_admin(request, staff_ok=True)
+    profile = _find_user(str(tsap_id or "").strip().upper())
+    if not profile:
+        raise HTTPException(404, "Photo not found")
+    media_kind = str(kind or "photo").strip().lower()
+    if media_kind == "photo":
+        status, media_url = profile.get("photo_status"), profile.get("photo_url")
+    elif media_kind == "selfie":
+        status, media_url = profile.get("selfie_status"), profile.get("selfie_url")
+    else:
+        raise HTTPException(400, "kind must be photo or selfie")
+    if status != "pending":
+        raise HTTPException(404, "Pending review media not found")
+    filename = _media_filename(media_url, "/photos/")
+    if not filename:
+        raise HTTPException(404, "Pending review media not found")
+    path = _media_file(PHOTO_MEDIA_DIR, filename)
+    return FileResponse(path, headers={"Cache-Control": "private, no-store",
+                                       "X-Content-Type-Options": "nosniff"})
 
 
 @app.post("/api/admin/photos/review")
@@ -5547,61 +6271,64 @@ def otp_verify(payload: dict):
     code = str(d.get("code", "")).strip()
     if not re.fullmatch(r"\d{4}", code):
         raise HTTPException(400, "Enter the four-digit OTP")
-    rec = DB_OTPS.get(phone)
-    if not rec or rec.get("purpose") != "login":
-        raise HTTPException(400, "Request a login OTP first")
-    try:
-        if datetime.fromisoformat(rec["expires"]) < datetime.utcnow():
+
+    # Lookup, attempt counting, digest comparison, and consume are one atomic
+    # operation. Concurrent retries cannot all reuse the same login code.
+    with _OTP_VERIFY_LOCK:
+        rec = DB_OTPS.get(phone)
+        if not rec or rec.get("purpose") != "login":
+            raise HTTPException(400, "Request a login OTP first")
+        try:
+            if datetime.fromisoformat(rec["expires"]) < datetime.utcnow():
+                DB_OTPS.pop(phone, None)
+                raise HTTPException(400, "OTP expire అయ్యింది — మళ్లీ పంపండి")
+        except HTTPException:
+            raise
+        except (KeyError, TypeError, ValueError):
             DB_OTPS.pop(phone, None)
-            raise HTTPException(400, "OTP expire అయ్యింది — మళ్లీ పంపండి")
-    except HTTPException:
-        raise
-    except (KeyError, TypeError, ValueError):
+            raise HTTPException(400, "OTP invalid లేదా expire అయ్యింది — మళ్లీ పంపండి")
+
+        rec["tries"] = int(rec.get("tries", 0)) + 1
+        if rec["tries"] > 5:
+            DB_OTPS.pop(phone, None)
+            abuse_log("otp_locked", phone[-4:])
+            abuse_count("otp_locked")
+            raise HTTPException(429, "చాలా సార్లు ప్రయత్నించారు — కొత్త OTP తీసుకోండి")
+
+        expected = str(rec.get("code_hash", ""))
+        valid = bool(expected) and hmac.compare_digest(_otp_digest(code), expected)
+        if not valid:
+            return JSONResponse(status_code=400, content={
+                "success": False,
+                "error": "invalid_otp",
+                "message_telugu": "❌ OTP తప్పు లేదా invalid — సరైన OTP నమోదు చేయండి",
+                "tries_left": max(0, 5 - rec["tries"]),
+            })
+
+        VERIFIED_PHONES.add(phone)
+        VERIFIED_PHONE_AT[phone] = int(time.time())
         DB_OTPS.pop(phone, None)
-        raise HTTPException(400, "OTP invalid లేదా expire అయ్యింది — మళ్లీ పంపండి")
-
-    rec["tries"] = int(rec.get("tries", 0)) + 1
-    if rec["tries"] > 5:
-        DB_OTPS.pop(phone, None)
-        abuse_log("otp_locked", phone[-4:])
-        abuse_count("otp_locked")
-        raise HTTPException(429, "చాలా సార్లు ప్రయత్నించారు — కొత్త OTP తీసుకోండి")
-
-    expected = str(rec.get("code_hash", ""))
-    valid = bool(expected) and hmac.compare_digest(_otp_digest(code), expected)
-    if not valid:
-        return JSONResponse(status_code=400, content={
-            "success": False,
-            "error": "invalid_otp",
-            "message_telugu": "❌ OTP తప్పు లేదా invalid — సరైన OTP నమోదు చేయండి",
-            "tries_left": max(0, 5 - rec["tries"]),
-        })
-
-    VERIFIED_PHONES.add(phone)
-    VERIFIED_PHONE_AT[phone] = int(time.time())
-    DB_OTPS.pop(phone, None)
-    u = next((x for x in DB_USERS if x.get("phone") == phone), None)
-    if u:
-        u["phone_verified"] = True
-    tsap_id = (u or {}).get("tsap_id", "")
-    return {
-        "success": True,
-        "phone_verified": True,
-        "tsap_id": tsap_id,
-        "auth_token": sign_token(tsap_id) if tsap_id else "",
-        "has_account": bool(u),
-        "profile": safe_user(u) if u else None,
-        "quality": profile_completeness(u) if u else None,
-        "message_telugu": ("✅ Number verify అయ్యింది"
-                           if u else "✅ Number verify అయ్యింది — ఇప్పుడు register చేయండి"),
-    }
+        u = next((x for x in DB_USERS if x.get("phone") == phone), None)
+        if u:
+            u["phone_verified"] = True
+        tsap_id = (u or {}).get("tsap_id", "")
+        return {
+            "success": True,
+            "phone_verified": True,
+            "tsap_id": tsap_id,
+            "auth_token": sign_token(tsap_id) if tsap_id else "",
+            "has_account": bool(u),
+            "profile": safe_user(u) if u else None,
+            "quality": profile_completeness(u) if u else None,
+            "message_telugu": ("✅ Number verify అయ్యింది"
+                               if u else "✅ Number verify అయ్యింది — ఇప్పుడు register చేయండి"),
+        }
 
 
 @app.get("/api/home/teasers")
 def home_teasers(limit: int = 8):
-    """🏠 Homepage teaser profiles — RANDOM approved, safe_user only (blur+lock frontend lo).
-    Register/login ki push cheyyadaniki — numbers/photos-full evvamu."""
-    pool = [u for u in DB_USERS if u.get("is_approved")]
+    """Homepage preview from approved, non-synthetic records; no identity claim."""
+    pool = [u for u in DB_USERS if _is_approved_profile(u)]
     random.shuffle(pool)
     rows = []
     for u in pool[:max(1, min(int(limit or 8), 12))]:
@@ -5610,13 +6337,14 @@ def home_teasers(limit: int = 8):
         r["photo_url"] = ""          # teaser lo clear photo vaddu — attract kosam blur tile
         rows.append(r)
     return {"success": True, "count": len(rows), "teasers": rows,
-            "cta_telugu": "🔒 Full details + photo chudali అంటే REGISTER (FREE) — 3 నిమిషాల్లో!"}
+            "cta_telugu": "🔒 Full details + photo chudali అంటే REGISTER (FREE) చెయ్యండి."}
 
 
 @app.get("/api/search")
 def advanced_search(
-    gender: Optional[str] = None, caste: Optional[str] = None, district: Optional[str] = None,
-    state: Optional[str] = None, job: Optional[str] = None, education: Optional[str] = None,
+    gender: Optional[str] = None, caste: Optional[str] = None, sub_caste: Optional[str] = None,
+    district: Optional[str] = None, state: Optional[str] = None, job: Optional[str] = None,
+    education: Optional[str] = None,
     age_min: int = 18, age_max: int = 60, salary_min: int = 0,
     marital_status: Optional[str] = None, children: Optional[str] = None,
     second_marriage: bool = False,
@@ -5625,7 +6353,7 @@ def advanced_search(
     sort: str = "new", viewer_id: Optional[str] = None, limit: int = 30, offset: int = 0,
     nri_only: bool = False, profession_first: bool = False,
     salary_max: int = 0, height_min: str = "", height_max: str = "", dosham: Optional[str] = None,
-    star: Optional[str] = None, min_completeness: int = 0, exclude_viewed: bool = False,
+    star: Optional[str] = None, rasi: Optional[str] = None, min_completeness: int = 0, exclude_viewed: bool = False,
     exclude_interested: bool = False, with_facets: bool = False,
     request: Request = None,
 ):
@@ -5649,7 +6377,7 @@ def advanced_search(
     if sort not in ("new", "age", "boosted"):
         validation_error("sort", "⚠️ sort కి valid values: new | age | boosted")
     q = clean(q, 60, "q") if q else None
-    for _f in (gender, caste, district, state, job, education, marital_status, religion):
+    for _f in (gender, caste, sub_caste, district, state, job, education, marital_status, children, religion, dosham, star, rasi):
         if _f and len(str(_f)) > 500:
             validation_error("filter", "⚠️ Filter value చాలా పెద్దది (500 chars max)")
     if min_completeness:
@@ -5659,7 +6387,7 @@ def advanced_search(
     identity = token_from_request(request) if request else None
     viewer_id = str(identity.get("tsap_id", "")).strip().upper() if identity else ""
 
-    items = [u for u in DB_USERS if u.get("is_approved", True)]
+    items = [u for u in DB_USERS if _is_approved_profile(u)]
     if viewer_id:
         items = [u for u in items if not safety.is_blocked(viewer_id, u.get("tsap_id", ""), DB_BLOCKS)]
     else:
@@ -5671,6 +6399,10 @@ def advanced_search(
         c_list = [c.strip().lower() for c in str(caste).split(",") if c.strip()]
         if c_list:
             items = [u for u in items if any(c in str(u.get("caste", "")).lower() or c in str(u.get("sub_caste", "")).lower() for c in c_list)]
+    if sub_caste:
+        sc_list = [sc.strip().lower() for sc in str(sub_caste).split(",") if sc.strip()]
+        if sc_list:
+            items = [u for u in items if any(sc in str(u.get("sub_caste", "")).lower() for sc in sc_list)]
     if district:
         d_list = [d.strip().lower() for d in str(district).split(",") if d.strip()]
         if d_list:
@@ -5693,36 +6425,82 @@ def advanced_search(
         e_list = [e.strip().lower() for e in str(education).split(",") if e.strip()]
         if e_list:
             items = [u for u in items if any(e in str(u.get("education", "")).lower() for e in e_list)]
-    # 💍 Second Marriage / Marital Status filtering
-    if second_marriage or (marital_status and any(k in str(marital_status).lower() for k in ["second_marriage", "second marriage", "remarriage", "punarvivaham", "punar vivaham"])):
-        items = [u for u in items if str(u.get("marital_status", "")).lower().strip() not in ("pelli kaledu", "never married", "unmarried", "single", "", "పెళ్లి కాలేదు")]
+    # 💍 First/second marriage labels are normalized through one alias-aware policy.
+    _marital_raw = str(marital_status or "").lower()
+    _second_marriage_filter = second_marriage or any(
+        marker in _marital_raw for marker in ("second_marriage", "second marriage", "remarriage", "punarvivaham", "punar vivaham")
+    )
+    if _second_marriage_filter:
+        items = [u for u in items
+                 if str(u.get("marital_status", "")).strip()
+                 and not is_never_married_status(u.get("marital_status"))]
     elif marital_status:
         m_list = [m.strip().lower() for m in str(marital_status).split(",") if m.strip()]
+
+        def _matches_marital_filter(profile_status, selected):
+            actual = str(profile_status or "").strip().lower()
+            if is_never_married_status(selected):
+                return is_never_married_status(actual)
+            if is_never_married_status(actual):
+                return False
+            if selected in ("divorced", "vidakuulu"):
+                return any(k in actual for k in ("divorc", "vidak", "విడాకు"))
+            if selected in ("widow", "widower", "widowed", "vidhava", "vidhurudu"):
+                return any(k in actual for k in ("widow", "vidh", "వితంతు", "విధురు"))
+            if selected in ("awaiting divorce", "separated"):
+                return any(k in actual for k in ("awaiting", "separat", "విడాకుల", "నిరీక్షణ"))
+            return bool(selected and selected in actual)
+
         if m_list:
-            items = [u for u in items if any(
-                m in str(u.get("marital_status", "")).lower() or
-                (m in ("never married", "pelli kaledu") and str(u.get("marital_status", "")).lower().strip() in ("pelli kaledu", "never married", "పెళ్లి కాలేదు")) or
-                (m in ("divorced", "vidakuulu") and any(k in str(u.get("marital_status", "")).lower() for k in ["divorc", "vidak", "విడాకు"])) or
-                (m in ("widow", "widower", "vidhava", "vidhurudu") and any(k in str(u.get("marital_status", "")).lower() for k in ["widow", "vidh", "వితంతు", "విధురు"])) or
-                (m in ("awaiting divorce", "separated") and any(k in str(u.get("marital_status", "")).lower() for k in ["awaiting", "separat", "విడాకుల", "నిరీక్షణ"]))
-                for m in m_list
-            )]
-    if children:
+            items = [u for u in items
+                     if any(_matches_marital_filter(u.get("marital_status"), selected) for selected in m_list)]
+    selected_marital_values = [value.strip() for value in str(marital_status or "").split(",") if value.strip()]
+    children_filter_ignored = bool(selected_marital_values) and all(
+        is_never_married_status(value) for value in selected_marital_values
+    )
+    if children and not children_filter_ignored:
         c_str = str(children).strip().lower()
+
+        def _children_count(value):
+            raw = str(value or "").strip().lower()
+            if raw in ("none", "no", "no children", "0", "పిల్లలు లేరు"):
+                return 0
+            match = re.search(r"\d+", raw)
+            return int(match.group()) if match else None
+
+        def _has_children_match(profile, predicate):
+            # Old rows may contain stale counts. First-marriage profiles never
+            # participate in child-count searches, regardless of legacy values.
+            return (not is_never_married_status(profile.get("marital_status"))
+                    and predicate(_children_count(profile.get("children"))))
+
         if c_str in ("none", "no", "no children", "0", "పిల్లలు లేరు"):
-            items = [u for u in items if str(u.get("children", "None")).strip().lower() in ("none", "0", "", "no", "no children", "పిల్లలు లేరు")]
+            items = [u for u in items if _has_children_match(u, lambda count: count == 0)]
         elif c_str in ("with_children", "has_children", "yes", "పిల్లలు ఉన్నారు"):
-            items = [u for u in items if str(u.get("children", "None")).strip().lower() not in ("none", "0", "", "no", "no children", "పిల్లలు లేరు")]
+            items = [u for u in items if _has_children_match(u, lambda count: (count or 0) > 0)]
+        elif c_str.endswith("+") and c_str[:-1].isdigit():
+            minimum = int(c_str[:-1])
+            items = [u for u in items if _has_children_match(u, lambda count: count is not None and count >= minimum)]
+        elif c_str.isdigit():
+            target_count = int(c_str)
+            items = [u for u in items if _has_children_match(u, lambda count: count == target_count)]
         else:
-            items = [u for u in items if c_str in str(u.get("children", "")).lower()]
+            items = [u for u in items if _has_children_match(
+                u, lambda count: c_str in str(u.get("children", "")).lower())]
     if religion:
-        items = [u for u in items if str(u.get("religion", "")).lower() == religion.lower()]
+        religion_terms = [term.strip().casefold() for term in str(religion).split(",") if term.strip()]
+        if religion_terms:
+            items = [u for u in items if str(u.get("religion", "")).strip().casefold() in religion_terms]
     if nri_only:                                    # 🌊 WAVE 14 — NRI-only browse
         items = [u for u in items if _is_nri(u)]
     if verified_only:
         items = [u for u in items if safety.has_verification_evidence(u)]
     if photo_only:
-        items = [u for u in items if u.get("photo_urls")]
+        items = [u for u in items if u.get("photo_status") == "approved"
+                 and not (u.get("photo_private") or u.get("privacy_mode") == "private")
+                 and any(spotlight._profile_photo_url(value) for value in (
+                     (u.get("photo_urls") if isinstance(u.get("photo_urls"), list) else []) + [u.get("photo_url")]
+                 ))]
     items = [u for u in items if age_min <= int(u.get("age", 0) or 0) <= age_max]
     if salary_max:
         def _sal_max(u):
@@ -5735,11 +6513,22 @@ def advanced_search(
         lo_cm, hi_cm = _height_cm(height_min) if height_min else 0, _height_cm(height_max) if height_max else 999
         items = [u for u in items if _height_cm(u.get("height")) and lo_cm <= _height_cm(u.get("height")) <= hi_cm]
     if dosham:
-        items = [u for u in items if str(u.get("dosham", "No")).lower() == dosham.lower()]
+        dosham_terms = [term.strip().lower() for term in str(dosham).split(",") if term.strip()]
+        if dosham_terms:
+            # Missing member-entered data stays unknown; do not infer "No dosham".
+            items = [u for u in items if any(
+                term in str(u.get("dosham", "")).lower() for term in dosham_terms
+            )]
     if star:
         st_list = [st.strip().lower() for st in str(star).split(",") if st.strip()]
         if st_list:
             items = [u for u in items if any(st in str(u.get("star", "")).lower() for st in st_list)]
+    if rasi:
+        rasi_terms = [term.strip().lower() for term in str(rasi).split(",") if term.strip()]
+        if rasi_terms:
+            items = [u for u in items if any(
+                term in str(u.get("rasi", "")).lower() for term in rasi_terms
+            )]
     if min_completeness:
         items = [u for u in items if profile_completeness(u)["percent"] >= min_completeness]
     if exclude_viewed and viewer_id:
@@ -5756,10 +6545,10 @@ def advanced_search(
             return int(digits) if digits else 0
         items = [u for u in items if _sal(u) >= salary_min]
     if q:
-        ql = q.lower()
-        items = [u for u in items
-                 if ql in str(u.get("full_name", "")).lower() or ql in str(u.get("district", "")).lower()
-                 or ql in str(u.get("caste", "")).lower() or ql in str(u.get("job", "")).lower()]
+        ql = q.casefold()
+        searchable_fields = ("tsap_id", "full_name", "district", "current_city", "caste", "sub_caste",
+                             "job", "education", "gothram")
+        items = [u for u in items if any(ql in str(u.get(field, "")).casefold() for field in searchable_fields)]
 
     viewer = _find_user(viewer_id) if viewer_id else None
     out = []
@@ -5768,16 +6557,16 @@ def advanced_search(
         row["phone_verified"] = bool(u.get("phone_verified"))
         row["is_verified"] = safety.has_verification_evidence(u)
         row["id_verified"] = bool(u.get("id_verified"))
-        row["has_photo"] = bool(u.get("photo_urls"))
+        row["has_photo"] = bool(row.get("photo_url"))
         row["boosted"] = bool(u.get("boost_until"))
         row["marital_status"] = u.get("marital_status", "—")
-        row["salary"] = u.get("salary", "—")
-        row["company"] = u.get("company", "")
-        row["sub_caste"] = u.get("sub_caste", "")
-        row["moola_nakshatram"] = u.get("moola_nakshatram", "")
+        row["salary"] = sanitize_public_text(u.get("salary", "—"))
+        row["company"] = sanitize_public_text(u.get("company", ""))
+        row["sub_caste"] = sanitize_public_text(u.get("sub_caste", ""))
+        row["moola_nakshatram"] = sanitize_public_text(u.get("moola_nakshatram", ""))
         row["is_nri"] = _is_nri(u)
-        row["profession_label"] = _prof_label(u)
-        row["country"] = u.get("country", "")
+        row["profession_label"] = sanitize_public_text(_prof_label(u))
+        row["country"] = sanitize_public_text(u.get("country", ""))
         row["_sort_created_at"] = u.get("created_at", "")
         row["boosted"] = A11.is_boosted(u)
         badge = safety.verification_badge(u)
@@ -5842,11 +6631,18 @@ def recently_viewed_profiles(viewer_id: str, request: Request, limit: int = 12):
         if not profile or profile.get("is_banned") or safety.is_blocked(viewer_id, target_id, DB_BLOCKS):
             continue
         row = dict(safe_user(profile))
+        private_photo = bool(profile.get("privacy_mode") == "private" or profile.get("photo_private"))
+        photo_candidates = profile.get("photo_urls", []) if isinstance(profile.get("photo_urls"), list) else []
+        photo_candidates = [profile.get("photo_url"), *photo_candidates]
+        public_photo = ""
+        if profile.get("photo_status") == "approved" and not private_photo:
+            public_photo = next((spotlight._profile_photo_url(value) for value in photo_candidates
+                                 if spotlight._profile_photo_url(value)), "")
         row.update({
             "viewed_at": event.get("at", ""),
             "id_verified": bool(profile.get("id_verified")),
-            "has_photo": bool(profile.get("photo_urls")),
-            "photo_url": "" if (profile.get("privacy_mode") == "private" or profile.get("photo_private")) else (profile.get("photo_urls") or [""])[0],
+            "has_photo": bool(public_photo),
+            "photo_url": public_photo,
         })
         rows.append(row)
         if len(rows) >= limit:
@@ -5859,17 +6655,15 @@ def recently_viewed_profiles(viewer_id: str, request: Request, limit: int = 12):
 def similar_profiles(tsap_id: str, limit: int = 8):
     """Legacy route returning more approved profiles of the same gender, newest first."""
     target = _find_user(str(tsap_id or "").strip().upper())
-    if (not target or target.get("is_banned") or _is_synthetic_profile(target)
-            or target.get("is_approved") is False):
-        raise HTTPException(404, "Approved profile not found")
+    if not _is_approved_profile(target):
+        raise HTTPException(404, "Approved active profile not found")
     limit = clamp_int(limit, "limit", 1, 12, 8)
     target_gender = str(target.get("gender") or "").strip().casefold()
     candidates = [
         profile for profile in DB_USERS
         if isinstance(profile, dict) and profile.get("tsap_id") != target.get("tsap_id")
         and str(profile.get("gender") or "").strip().casefold() == target_gender
-        and not profile.get("is_banned") and profile.get("is_approved", True) is not False
-        and not _is_synthetic_profile(profile)
+        and _is_approved_profile(profile)
     ] if target_gender else []
     candidates.sort(key=lambda profile: (str(profile.get("created_at") or ""),
                                          str(profile.get("tsap_id") or "")), reverse=True)
@@ -5878,7 +6672,7 @@ def similar_profiles(tsap_id: str, limit: int = 8):
         row = dict(safe_user(candidate))
         row.update({
             "id_verified": bool(candidate.get("id_verified")),
-            "has_photo": bool(candidate.get("photo_urls")),
+            "has_photo": bool(row.get("photo_url")),
         })
         rows.append(row)
     return {
@@ -5899,10 +6693,11 @@ def digest_preview():
     (Cron/scheduler ee endpoint ni pilichi post cheyyali — anti-ban queue lo veltundi)
     """
     today = datetime.utcnow().strftime("%Y-%m-%d")
-    brides = [u for u in DB_USERS if u.get("gender") == "Bride"]
-    grooms = [u for u in DB_USERS if u.get("gender") == "Groom"]
+    approved_profiles = [u for u in DB_USERS if _is_approved_profile(u)]
+    brides = [u for u in approved_profiles if u.get("gender") == "Bride"]
+    grooms = [u for u in approved_profiles if u.get("gender") == "Groom"]
     by_caste: Dict[str, int] = {}
-    for u in DB_USERS:
+    for u in approved_profiles:
         c = u.get("caste") or "Other"
         by_caste[c] = by_caste.get(c, 0) + 1
     top = sorted(by_caste.items(), key=lambda x: -x[1])[:6]
@@ -5920,8 +6715,7 @@ def digest_preview():
     DB_DIGEST.append(entry)
     return {"success": True, "text": text, "brides": len(brides), "grooms": len(grooms),
             "top_castes": top,
-            "how_to_post": "POST /api/publish/digest చెయ్యండి → Telegram + WhatsApp (anti-ban gap తో) వెళ్తుంది",
-            "history": DB_DIGEST[-7:]}
+            "how_to_post": "POST /api/publish/digest చెయ్యండి → Telegram + WhatsApp (anti-ban gap తో) వెళ్తుంది"}
 
 
 @app.post("/api/publish/digest")
@@ -5961,24 +6755,27 @@ def _digest_send_enabled() -> bool:
 
 
 def _personal_digest_batch(lang: str = "te", engaged_only: bool = True):
-    """Generate today's personalized-digest queue (pure generation, no send)."""
+    """Generate today's personalized-digest queue from current approved member profiles."""
+    approved_members = [u for u in DB_USERS if _is_approved_profile(u)]
     return digest_engine.run_personal_digests(
-        DB_USERS, DB_USERS, DB_INTERESTS, DB_VIEWS, DB_SAVES,
+        approved_members, approved_members, DB_INTERESTS, DB_VIEWS, DB_SAVES,
         saved_searches=SAVED_SEARCHES, new_matches_fn=new_matches_for,
         consent_fn=consent_for, lang=lang, engaged_only=engaged_only)
 
 
 @app.get("/api/digest/personal/preview")
-def digest_personal_preview(request: Request = None):
+def digest_personal_preview(request: Request = None, lang: str = "te"):
     """🛡️ ADMIN — dry run: ఎంతమందికి personalized digest వెళ్తుంది, sample texts.
     No state change, no send. Review చేసి తర్వాత run చెయ్యండి."""
     require_admin(request)
-    batch = _personal_digest_batch("te", True)
-    return {"success": True, "dry_run": True, "counts": batch["counts"],
+    language = "en" if str(lang or "").lower() == "en" else "te"
+    batch = _personal_digest_batch(language, True)
+    return {"success": True, "dry_run": True, "lang": language, "counts": batch["counts"],
             "queued": batch["queued"], "samples": batch["samples"],
             "send_gated": not _digest_send_enabled(),
             "wa_mode": publish_config()["wa_mode"],
-            "how_to_send": "POST /api/digest/personal/run (DIGEST_PERSONAL_SEND=1 + WHATSAPP_MODE on ఉంటేనే పంపుతుంది)"}
+            "how_to_send": "POST /api/digest/personal/run (DIGEST_PERSONAL_SEND=1 + WHATSAPP_MODE on ఉంటేనే పంపుతుంది)",
+            "how_to_send_en": "Send only when DIGEST_PERSONAL_SEND=1 and WhatsApp is configured and enabled."}
 
 
 @app.post("/api/digest/personal/run")
@@ -6022,7 +6819,9 @@ def digest_personal_run(payload: dict = Body(default={}), request: Request = Non
             "samples": batch["samples"], "send_enabled": send_enabled, "wa_on": wa_on,
             "send": send_result,
             "message_telugu": ("📬 Personalized digest queue సిద్ధం (%d మంది). Send gated — "
-                               "DIGEST_PERSONAL_SEND=1 + WhatsApp on ఉంటేనే పంపుతుంది." % batch["queued"])}
+                               "DIGEST_PERSONAL_SEND=1 + WhatsApp on ఉంటేనే పంపుతుంది." % batch["queued"]),
+            "message_en": ("Personalized digest queue prepared for %d recipients. Sending is gated and requires DIGEST_PERSONAL_SEND=1 plus configured WhatsApp."
+                           % batch["queued"])}
 
 
 @app.get("/api/assistant/digest/{tsap_id}")
@@ -6032,8 +6831,9 @@ def api_assistant_digest(tsap_id: str, request: Request = None):
     me = _find_user(tsap_id)
     if not me:
         raise HTTPException(404, "మీ ప్రొఫైల్ దొరకలేదు")
+    public_candidates = [u for u in DB_USERS if _is_approved_profile(u)]
     rec = digest_engine.build_personal_digest(
-        me, DB_USERS, DB_INTERESTS, DB_VIEWS, DB_SAVES,
+        me, public_candidates, DB_INTERESTS, DB_VIEWS, DB_SAVES,
         saved_searches=SAVED_SEARCHES, new_matches_fn=new_matches_for,
         consent_rows=consent_for(tsap_id), engaged_only=False)  # owner preview: always show
     return {"success": True, **rec}
@@ -6043,46 +6843,47 @@ def api_assistant_digest(tsap_id: str, request: Request = None):
 #  VISITOR + LEAD CAPTURE  ("chusina vallu antha DB lo save")
 # ============================================================================
 @app.post("/api/track")
-def api_track(payload: dict):
-    """
-    Frontend beacon — client-side info (screen, time on page, utm) tho visit ni enrich chestundi.
-    Server middleware kooda prathi request ni track chestundi (double safety).
-    """
+def api_track(payload: dict, request: Request):
+    """Accept a small analytics beacon without trusting client-supplied IP/UA or returning visitor IDs."""
     p = payload or {}
-    rec = track_visit(str(p.get("ip", "")), str(p.get("ua", "")), str(p.get("path", "/")),
-                      str(p.get("ref", "")), str(p.get("utm", "")), str(p.get("device", "")),
-                      extra={"screen": p.get("screen", ""), "lang": p.get("lang", ""),
-                             "seconds": p.get("seconds", ""), "visitor_id": p.get("visitor_id", "")})
-    return {"success": True, "visitor_id": rec["vid"], "channel": rec["channel"],
-            "visits_total": len(growth.DB_VISITORS)}
+    ua = request.headers.get("user-agent", "")
+    ref = request.headers.get("referer", "")
+    rec = track_visit(
+        client_ip(request), ua, str(p.get("path", "/")), ref,
+        str(p.get("utm", "")), "",
+        extra={"screen": p.get("screen", ""), "lang": p.get("lang", ""),
+               "seconds": p.get("seconds", "")},
+    )
+    return {"success": True, "channel": rec["channel"]}
 
 
 @app.post("/api/leads/quick")
 def api_lead_quick(payload: dict):
-    """
-    Phone-first quick start: "number pettu — మన team మీ profile complete చేస్తుంది" (FREE).
-    3-minute register form ki mundu 30-second entry point (phone lo chala easy).
-    """
+    """Save a callback request only after explicit, purpose-limited contact consent."""
     p = payload or {}
+    if p.get("contact_consent") is not True:
+        raise HTTPException(400, "Explicit consent to registration-assistance follow-up is required.")
     # 🛡️ validation: phone 10-digit, name sanitize (mundu "x" phone tho junk leads vachevi)
     _pname = clean(p.get("name", ""), 60, "lead_name")
     _pphone = req_phone(p.get("phone", ""), "phone")
     ok, kind, lead = save_lead(_pname, _pphone,
                                gender=str(p.get("gender", "")), district=str(p.get("district", "")),
                                caste=str(p.get("caste", "")), age=str(p.get("age", "")),
-                               source=str(p.get("source", "quick_form")), notes=str(p.get("notes", "")))
+                               source=str(p.get("source", "quick_form")), notes=str(p.get("notes", "")),
+                               contact_consent=True)
     if not ok:
         raise HTTPException(400, kind)
     cfg = publish_config()
     queued = {"queued": False}
-    if cfg["wa_mode"] != "off" and kind == "new_lead":
+    if cfg["wa_mode"] != "off" and kind == "new_lead" and lead.get("contact_consent") is True:
         queued = enqueue_whatsapp([lead["phone"]], lead_followup_text(lead), priority=0, kind="lead_followup")
+        if queued.get("queued"):
+            lead["followup"] = "whatsapp_queued"
+            lead["followup_queued_at"] = datetime.utcnow().isoformat()
     return {"success": True, "lead_id": lead["id"], "kind": kind, "lead_status": lead.get("status"),
             "followup_queued": bool(queued.get("queued")), "wa_mode": cfg["wa_mode"],
-            "next": "/register?phone=" + lead["phone"],
-            "message_telugu": ("Number save అయ్యింది! మన team 10 నిమిషాల్లో call చేసి మీ profile FREE గా "
-                               "complete చేస్తుంది. Leda మీరు ippude 3 నిమిషాల్లో register cheyyochu."),
-            "whatsapp_link": "https://wa.me/91" + lead["phone"]}
+            "message_en": "Your request is recorded. A registration-assistance follow-up may be attempted using the contact method you approved; timing is not guaranteed. Your number is not shown publicly.",
+            "message_telugu": "మీ అభ్యర్థన నమోదు అయింది. మీరు అంగీకరించిన contact method ద్వారా registration సహాయం కోసం ప్రయత్నించవచ్చు; సమయం హామీ కాదు. మీ number public లో చూపించము."}
 
 
 @app.get("/api/leads")
@@ -6108,39 +6909,56 @@ def api_lead_stats(request: Request = None):
 
 @app.post("/api/leads/followup/{lead_id}")
 def api_lead_followup(lead_id: str, request: Request = None):
-    """Lead కి WhatsApp follow-up pampu (మన side నుంచి)."""
+    """Queue one registration-assistance message only when this lead explicitly opted in."""
     require_admin(request)   # 🛡️ WAVE 9: admin key lekunda 403 (PII/money/)
     lead = next((l for l in growth.DB_LEADS if l["id"] == lead_id), None)
     if not lead:
         raise HTTPException(404, "Lead dorakaledu")
+    if lead.get("contact_consent") is not True:
+        raise HTTPException(409, "Lead did not consent to contact; do not send a follow-up.")
+    if lead.get("followup_queued_at"):
+        raise HTTPException(409, "A follow-up is already queued for this request.")
     cfg = publish_config()
-    res = {"queued": False}
-    if cfg["wa_mode"] != "off":
-        res = enqueue_whatsapp([lead["phone"]], lead_followup_text(lead), priority=0, kind="lead_followup")
+    if cfg["wa_mode"] == "off":
+        raise HTTPException(503, "WhatsApp follow-up is not configured.")
+    res = enqueue_whatsapp([lead["phone"]], lead_followup_text(lead), priority=0, kind="lead_followup")
+    if not res.get("queued"):
+        return {"success": False, "lead_id": lead["id"], "whatsapp": res, "wa_mode": cfg["wa_mode"],
+                "message_en": "Follow-up was not queued. No message delivery is confirmed.",
+                "message_telugu": "Follow-up queue కాలేదు; message చేరినట్లు నిర్ధారణ లేదు."}
     lead["status"] = "contacted"
+    lead["followup"] = "whatsapp_queued"
+    lead["followup_queued_at"] = datetime.utcnow().isoformat()
     lead["touches"] = int(lead.get("touches", 1)) + 1
     lead["contacted_at"] = datetime.utcnow().isoformat()
-    return {"success": True, "lead": lead, "whatsapp": res, "wa_mode": cfg["wa_mode"],
-            "message_telugu": "Follow-up WhatsApp queue లో pettam (anti-ban gap తో పోతుంది)"}
+    return {"success": True, "lead_id": lead["id"], "whatsapp": res, "wa_mode": cfg["wa_mode"],
+            "message_en": "One opt-in registration-assistance message was queued; delivery is not confirmed.",
+            "message_telugu": "మీ opt-in ప్రకారం ఒక registration-assistance message queue అయింది; delivery నిర్ధారణ లేదు."}
 
 
 # ============================================================================
-#  SHARE KIT — reach engine ("oka profile chala mandi chudalanukune la")
+#  SHARE KIT — member-directed share text; no reach guarantee
 # ============================================================================
 @app.get("/api/share/kit/{tsap_id}")
-def api_share_kit(tsap_id: str):
+def api_share_kit(tsap_id: str, request: Request = None):
     u = _find_user(tsap_id) or _find_user(tsap_id.upper())
-    if not u:
+    if not u or u.get("is_banned") or _is_synthetic_profile(u):
         raise HTTPException(404, "Profile dorakaledu")
+    require_owner(request, str(u.get("tsap_id") or ""))
     return share_kit(u, u["tsap_id"], hashtags=u.get("post_hashtags"))
 
 
 @app.get("/api/inventory")
 def api_inventory():
-    """Aggregate counts from persisted member records only; no launch-target fiction."""
-    members = [u for u in DB_USERS if isinstance(u, dict) and not _is_synthetic_profile(u)]
-    approved = [u for u in members if u.get("is_approved", True) and not u.get("is_banned")]
-    pending = [u for u in members if u.get("is_approved") is False and not u.get("is_banned")]
+    """Aggregate current member records; hidden/deactivated accounts are excluded."""
+    hidden_statuses = {"deleted", "married_fixed", "banned", "inactive", "hidden", "rejected"}
+    members = [u for u in DB_USERS if isinstance(u, dict) and not _is_synthetic_profile(u)
+               and not u.get("is_banned")
+               and str(u.get("status", "")).strip().lower() not in hidden_statuses
+               and (u.get("is_active") is None or str(u.get("is_active")).strip().lower() in {"1", "true", "yes", "on", "active", "approved"})]
+    approved = [u for u in members if _is_approved_profile(u)]
+    pending = [u for u in members if not _is_approved_profile(u)
+               and (u.get("is_approved") is False or str(u.get("status", "")).strip().lower() == "pending")]
     return {
         "success": True,
         **inventory_status(len(members)),
@@ -6150,8 +6968,9 @@ def api_inventory():
         "grooms": len([u for u in approved if u.get("gender") == "Groom"]),
         "castes_covered": len({str(u.get("caste", "")).strip() for u in approved if str(u.get("caste", "")).strip()}),
         "districts_covered": len({canonicalize_district(str(u.get("state", "")), str(u.get("district", ""))) for u in approved if str(u.get("district", "")).strip()}),
-        "verified": len([u for u in approved if safety.has_verification_evidence(u)]),
-        "photos": len([u for u in approved if u.get("photo_status") == "approved" and u.get("photo_url")]),
+        "recorded_checks": len([u for u in approved if safety.has_verification_evidence(u)]),
+        "photos": len([u for u in approved if u.get("photo_status") == "approved" and u.get("photo_url")
+                        and not u.get("photo_private") and u.get("privacy_mode") != "private"]),
     }
 
 
@@ -6175,15 +6994,14 @@ def api_match_score(a: str, b: str, request: Request = None):
     b = str(b or "").strip().upper()
     require_owner(request, a)
     me, other = _find_user(a), _find_user(b)
-    if (not me or not other or me.get("is_banned") or other.get("is_banned")
-            or me.get("is_approved") is False or other.get("is_approved") is False):
-        raise HTTPException(404, "రెండు approved TSAP profiles అవసరం")
+    if not _is_approved_profile(me) or not _is_approved_profile(other):
+        raise HTTPException(404, "రెండు active, approved TSAP profiles అవసరం")
     if safety.is_blocked(a, b, DB_BLOCKS):
         raise HTTPException(404, "Profile pair unavailable")
     res = topmatch.score_match_v2(me, other)
     res["viewer"] = a
-    res["other"] = {"tsap_id": other.get("tsap_id"), "full_name": other.get("full_name"),
-                    "verification": safety.verification_badge(other)}
+    res["other"] = sanitize_public_payload({"tsap_id": other.get("tsap_id"), "full_name": other.get("full_name"),
+                                           "verification": safety.verification_badge(other)})
     res["compatibility_score_calculated"] = False
     res["comparison_basis"] = "member_entered_profile_facts_and_explicit_preferences"
     return res
@@ -6206,23 +7024,24 @@ def api_match_score_raw(payload: dict):
 def api_top_matches(tsap_id: str, limit: int = 10, min_score: int = 65, include_same_gothram: int = 0,
                       include_same_surname: int = 0, include_age_block: int = 0, nri_only: int = 0,
                       request: Request = None):
-    """Return owner-only candidates filtered by current rules, then explicit preferences/recency."""
+    """Return owner-only approved candidates; active paid placement then recency, not compatibility."""
     require_owner(request, tsap_id)  # 🌊 WAVE 23 — naa match ranking naake (privacy)
     me = _find_user(tsap_id)
-    if not me:
-        raise HTTPException(404, "Mee profile dorakaledu")
-    pool = [u for u in DB_USERS if not safety.is_blocked(tsap_id, u.get("tsap_id", ""), DB_BLOCKS)
-            and not u.get("is_banned")]
+    if not _is_approved_profile(me):
+        raise HTTPException(404, "Approved member profile not found")
+    pool = [u for u in DB_USERS if _is_approved_profile(u)
+            and not safety.is_blocked(tsap_id, u.get("tsap_id", ""), DB_BLOCKS)
+            and str(u.get("tsap_id", "")) != str(me.get("tsap_id", ""))]
     # Legacy exclusion flags remain accepted for old clients but never decide eligibility.
     if nri_only:
         pool = [c for c in pool if _is_nri(c)]
     rows = topmatch.find_top_matches_v2(me, pool, limit=limit, min_score=min_score)
     # Paid promotion is kept separate from profile observations.
     rows.sort(key=lambda r: A11.boost_rank_key(r.get("profile", {})), reverse=True)
-    rows = MP.rerank_profession(me, rows)     # 🌊 WAVE 14: profession affinity first
     out = []
     for r in rows:
         prof = r.pop("profile")
+        r["tsap_id"] = prof.get("tsap_id")
         r["full_name"] = prof.get("full_name")
         r["age"] = prof.get("age")
         r["caste"] = prof.get("caste")
@@ -6235,10 +7054,10 @@ def api_top_matches(tsap_id: str, limit: int = 10, min_score: int = 65, include_
         r["boosted"] = A11.is_boosted(prof)
         r["voice_url"] = prof.get("voice_url", "")
         r["has_voice"] = bool(prof.get("voice_url"))
-        r["children"] = prof.get("children", "None")
+        r["children"] = "" if is_never_married_status(prof.get("marital_status")) else prof.get("children", "")
         r["is_nri"] = _is_nri(prof)
         r["profession_label"] = _prof_label(prof)
-        out.append(r)
+        out.append(sanitize_public_payload(r))
     return {"tsap_id": tsap_id, "count": len(out),
             "nri_only": bool(nri_only), "ranking_basis": "active_paid_boost_then_recency",
             "compatibility_score_calculated": False, "min_score_ignored": True,
@@ -6261,8 +7080,9 @@ def api_assistant_briefing(tsap_id: str, limit: int = 3, request: Request = None
     if not me:
         raise HTTPException(404, "మీ ప్రొఫైల్ దొరకలేదు")
     lim = clamp_int(limit, "limit", 1, 6, 3)
-    # blocked/banned already excluded inside matchbot; also respect safety blocks
-    pool = [u for u in DB_USERS if not safety.is_blocked(tsap_id, u.get("tsap_id", ""), DB_BLOCKS)]
+    # Candidate details are member-facing: only current active, approved, real profiles enter.
+    pool = [u for u in DB_USERS if _is_approved_profile(u)
+            and not safety.is_blocked(tsap_id, u.get("tsap_id", ""), DB_BLOCKS)]
     brief = matchbot.daily_briefing(me, pool, DB_INTERESTS, DB_VIEWS, DB_SAVES,
                                     blocks=DB_BLOCKS, limit=lim)
     brief["tips"] = matchbot.assistant_tips(me, brief)
@@ -6276,7 +7096,8 @@ def api_assistant_tips(tsap_id: str, request: Request = None):
     me = _find_user(tsap_id)
     if not me:
         raise HTTPException(404, "మీ ప్రొఫైల్ దొరకలేదు")
-    pool = [u for u in DB_USERS if not safety.is_blocked(tsap_id, u.get("tsap_id", ""), DB_BLOCKS)]
+    pool = [u for u in DB_USERS if _is_approved_profile(u)
+            and not safety.is_blocked(tsap_id, u.get("tsap_id", ""), DB_BLOCKS)]
     brief = matchbot.daily_briefing(me, pool, DB_INTERESTS, DB_VIEWS, DB_SAVES,
                                     blocks=DB_BLOCKS, limit=3)
     return {"success": True, "tsap_id": tsap_id.upper(),
@@ -6290,7 +7111,7 @@ def api_assistant_tips(tsap_id: str, request: Request = None):
 @app.get("/api/safety/tips")
 def api_safety_tips():
     return {"tips": safety.safety_tips(),
-            "verify_levels": [{"level": k, "telugu": v} for k, v in safety.VERIFY_TELUGU.items()],
+            "verify_levels": [{"level": k, "telugu": v, "english": safety.VERIFY_ENGLISH[k]} for k, v in safety.VERIFY_TELUGU.items()],
             "report_categories": [{"key": k, **v} for k, v in safety.REPORT_CATEGORIES.items()],
             "message_telugu": "Safety first: advance money వద్దు, public లో kalthi, video call తో verify 🙏"}
 
@@ -6415,20 +7236,20 @@ def api_verification(tsap_id: str, request: Request = None):
 # ============================================================================
 @app.get("/api/og/profile/{tsap_id}.png")
 def api_og_profile(tsap_id: str):
-    u = _find_user(tsap_id) or next((x for x in DB_USERS if x["tsap_id"].upper() == tsap_id.upper()), None)
-    if not u:
-        raise HTTPException(404, "Profile dorakaledu")
+    u = _find_user(tsap_id)
+    if not _is_approved_profile(u):
+        raise HTTPException(404, "Active approved profile not found")
     path = preview.og_profile_png(u)
     if not path or not os.path.exists(path):
         raise HTTPException(500, "Preview generate avvaledu (Pillow/font check చెయ్యండి)")
-    return FileResponse(path, media_type="image/png", headers={"Cache-Control": "public, max-age=3600"})
+    return FileResponse(path, media_type="image/png", headers={"Cache-Control": "public, max-age=0, must-revalidate"})
 
 
 @app.get("/api/og/porutham/{bride}/{groom}.png")
 def api_og_porutham(bride: str, groom: str):
     b, g = _find_user(bride), _find_user(groom)
-    if not b or not g:
-        raise HTTPException(404, "రెండు profiles కావాలి")
+    if not _is_approved_profile(b) or not _is_approved_profile(g):
+        raise HTTPException(404, "Active approved profiles not found")
     res = compute_porutham(b, g)
     if not res.get("available"):
         raise HTTPException(422, res.get("reason") or "Required star details are unavailable")
@@ -6458,13 +7279,13 @@ def api_og_site(title: str = "మన వివాహ — Telugu Matrimony", subt
 def security_posture_endpoint():
     """Public security posture (trust page కి): auth, headers, rate limit, numbers policy."""
     p = security_posture()
-    p["numbers_policy_telugu"] = ("🔒 Phone numbers public API లో ఎప్పుడు లేదు (98••••••45 mask) — "
-                                  "interest accept (consent) తో మాత్రమే exchange")
+    p["numbers_policy_telugu"] = ("🔒 Public profile/search responses లో phone number చూపించము; accepted interest తర్వాత మాత్రమే "
+                                  "restricted account flows లో contact access వస్తుంది. WhatsApp delivery హామీ లేదు.")
     p["data_practices_telugu"] = [
-        "మీ number DB లో encrypted column లో — public responses లో asalu radu",
-        "Consent ledger: numbers ఎప్పుడు ఎవరికీ exchange ayyayo record ఉంటుంది (dispute కి proof)",
-        "Rate limit + OTP lock: broker/spam calls aapadaniki",
-        "Admin endpoints ki key — PII leaks block chesam",
+        "Public profile/search serializers contact fields ను omit లేదా mask చేస్తాయి; ఇది database/backups at-rest encryption హామీ కాదు.",
+        "Consent log owner acceptance వల్ల contact access grant అయిన event ను నమోదు చేస్తుంది; WhatsApp delivery proof కాదు.",
+        "Rate limits మరియు OTP checks abuse తగ్గించేందుకు controls మాత్రమే; అన్ని spam లేదా unwanted contact ను అడ్డుకుంటాయని హామీ లేదు.",
+        "Admin routes role/key protected; production storage, backups మరియు access permissions ను operator వేరుగా secure చేయాలి.",
     ]
     return p
 
@@ -6533,14 +7354,16 @@ def profile_quality(tsap_id: str):
     comp = profile_completeness(u)
     return {"tsap_id": tsap_id, "completeness": comp,
             "grade_telugu": "Profile‌లో సభ్యుడు అందించిన fields మాత్రమే completeness‌లో లెక్కించబడతాయి; అవి స్వతంత్రంగా verify చేయబడవు.",
-            "photo_tip_telugu": "📸 స్పష్టమైన ఫోటో profile‌ను గుర్తించడంలో సహాయపడవచ్చు; visibility మీ privacy settings‌పై ఆధారపడి ఉంటుంది. ఫలితాలు మారవచ్చు."}
+            "grade_en": "Completeness counts profile fields supplied by the member; it does not independently verify them.",
+            "photo_tip_telugu": "📸 స్పష్టమైన ఫోటో profile‌ను గుర్తించడంలో సహాయపడవచ్చు; visibility మీ privacy settings‌పై ఆధారపడి ఉంటుంది. ఫలితాలు మారవచ్చు.",
+            "photo_tip_en": "📸 A clear photo may help identify the profile. Visibility depends on your privacy settings; results may vary."}
 
 
 @app.get("/api/facets")
 def search_facets_endpoint(gender: Optional[str] = None, limit: int = 12):
     """🔎 Search UI chips కి counts (caste/district/education/job) — advanced filter UX."""
     limit = clamp_int(limit, "limit", 1, 30, 12)
-    items = [u for u in DB_USERS if not u.get("is_banned") and u.get("is_approved", True)]
+    items = [u for u in DB_USERS if _is_approved_profile(u)]
     if gender:
         items = [u for u in items if str(u.get("gender", "")).lower() == clean(gender, 10).lower()]
     return {"total": len(items), "facets": search_facets(items, limit),
@@ -6551,32 +7374,65 @@ def search_facets_endpoint(gender: Optional[str] = None, limit: int = 12):
 def interest_template_list():
     """💬 Ready-made Telugu interest messages (spam తక్కువ, response ఎక్కువ)."""
     return {"templates": quality_templates(),
-            "tip_telugu": "Short + family mention + city/job reference ఉంటే replies ఎక్కువ వస్తాయి",
+            "tip_telugu": "సందేశాన్ని సంక్షిప్తంగా, గౌరవంగా మీ మాటల్లో రాయండి; పునరావృత సందేశాలు spam‌గా పరిగణించబడవచ్చు. Reply వస్తుందనే హామీ లేదు.",
             "rule_telugu": "Copy చేసి మీ style లో edit cheskovachu — numbers ee stage లో ఇవ్వము (consent తో తర్వాత)"}
 
 
 @app.post("/api/saved-searches")
 def saved_search_create(payload: dict = Body(default={}), request: Request = None):
-    """🔔 Search save చెయ్యండి — కొత్త profiles వస్తే WhatsApp alert (advanced feature)."""
+    """Save owner-private search criteria; notifications require explicit opt-in."""
     d = payload or {}
     tsap_id = clean(d.get("tsap_id"), 30, "tsap_id")
     require_owner(request, tsap_id)
     if not _find_user(tsap_id):
         raise HTTPException(404, "Mee profile dorakaledu")
-    rec = save_search(tsap_id, d.get("name", ""), d.get("filters") or {}, alert=req_bool(d.get("alert", True)))
+    alert_enabled = req_bool(d.get("alert", False))
+    if alert_enabled and not req_bool(d.get("alert_consent_confirmed", False)):
+        validation_error("alert_consent_confirmed", "⚠️ WhatsApp alerts కోసం స్పష్టమైన సమ్మతి అవసరం")
+    rec = save_search(tsap_id, d.get("name", ""), d.get("filters") or {}, alert=alert_enabled)
+    message_telugu = ("🔔 Search save అయ్యింది — మీరు alerts‌కు సమ్మతి ఇచ్చారు"
+                      if alert_enabled else "🔒 Search మీ ఖాతాలో మాత్రమే save అయ్యింది; notifications ఆఫ్‌లో ఉన్నాయి")
+    message_en = ("Search saved. Alerts were explicitly enabled."
+                  if alert_enabled else "Search saved privately to your account; notifications are off.")
     return {"success": True, "search": rec, "total": len(saved_for(tsap_id)),
-            "message_telugu": "🔔 Search save అయ్యింది — కొత్త matches వస్తే మీకు WhatsApp alert వస్తుంది"}
+            "message_telugu": message_telugu, "message_en": message_en,
+            "alert_enabled": alert_enabled}
+
+
+def _saved_search_candidates(owner_id: str):
+    """Mirror public search visibility for previews and alerts; never expose pending or blocked members."""
+    return [u for u in DB_USERS if _is_approved_profile(u)
+            and not safety.is_blocked(owner_id, str(u.get("tsap_id") or ""), DB_BLOCKS)]
 
 
 @app.get("/api/saved-searches/{tsap_id}")
 def saved_search_list(tsap_id: str, request: Request = None):
     require_owner(request, tsap_id)
     rows = saved_for(tsap_id)
+    candidates = _saved_search_candidates(tsap_id)
     out = []
     for r in rows:
-        fresh = new_matches_for(r, DB_USERS, exclude=[tsap_id], limit=5)
+        fresh = new_matches_for(r, candidates, exclude=[tsap_id], limit=5)
         out.append({**r, "new_matches": len(fresh), "sample": [safe_user(x) for x in fresh[:3]]})
     return {"tsap_id": tsap_id, "count": len(out), "searches": out}
+
+
+@app.put("/api/saved-searches/{tsap_id}/{search_id}")
+def saved_search_update(tsap_id: str, search_id: str, payload: dict = Body(default={}), request: Request = None):
+    require_owner(request, tsap_id)
+    d = payload or {}
+    if "alert" not in d:
+        validation_error("alert", "⚠️ Alert setting ఇవ్వండి")
+    alert_enabled = req_bool(d.get("alert"))
+    if alert_enabled and not req_bool(d.get("alert_consent_confirmed", False)):
+        validation_error("alert_consent_confirmed", "⚠️ WhatsApp alerts కోసం స్పష్టమైన సమ్మతి అవసరం")
+    rec = set_search_alert(tsap_id, search_id, alert_enabled)
+    if not rec:
+        raise HTTPException(404, "Ee search dorakaledu")
+    enabled = bool(rec.get("alert"))
+    return {"success": True, "search_id": search_id, "alert_enabled": enabled,
+            "message_telugu": ("🔔 ఈ search‌కు alerts ఆన్ చేశారు" if enabled else "🔒 ఈ search‌కు notifications ఆఫ్ చేశారు"),
+            "message_en": ("Alerts are enabled for this search." if enabled else "Notifications are off for this search.")}
 
 
 @app.delete("/api/saved-searches/{tsap_id}/{search_id}")
@@ -6585,7 +7441,7 @@ def saved_search_delete(tsap_id: str, search_id: str, request: Request = None):
     ok = delete_search(tsap_id, search_id)
     if not ok:
         raise HTTPException(404, "Ee search dorakaledu")
-    return {"success": True, "message_telugu": "🗑️ Search delete అయ్యింది"}
+    return {"success": True, "message_telugu": "🗑️ Search delete అయ్యింది", "message_en": "Saved search deleted."}
 
 
 @app.post("/api/saved-searches/{tsap_id}/alerts")
@@ -6596,9 +7452,16 @@ def saved_search_alerts(tsap_id: str, request: Request = None):
     if not u:
         raise HTTPException(404, "Mee profile dorakaledu")
     total = 0
+    skipped = 0
     details = []
+    candidates = _saved_search_candidates(tsap_id)
+    wa_mode = publish_config()["wa_mode"]
     for r in saved_for(tsap_id):
-        fresh = new_matches_for(r, DB_USERS, exclude=[tsap_id], limit=5)
+        alert_enabled = r.get("alert") in (True, 1, "1", "true", "yes", "on")
+        if not alert_enabled or not str(r.get("alert_consent_at") or "").strip():
+            skipped += 1
+            continue
+        fresh = new_matches_for(r, candidates, exclude=[tsap_id], limit=5)
         if not fresh:
             continue
         total += len(fresh)
@@ -6606,33 +7469,47 @@ def saved_search_alerts(tsap_id: str, request: Request = None):
         txt = (f"🔔 {r['name']} — మీ saved search కి {len(fresh)} కొత్త profiles dorikayi!\n{names}\n"
                f"Chudataniki: manavivaha.in/matches?search={r['search_id']}")
         q = {"queued": False}
-        if publish_config()["wa_mode"] != "off":
+        if wa_mode != "off":
             q = enqueue_whatsapp([u.get("phone", "")], txt, priority=1, kind="saved_search_alert")
-        mark_alerted(r, [x["tsap_id"] for x in fresh])
+        if q.get("queued"):
+            mark_alerted(r, [x["tsap_id"] for x in fresh])
         details.append({"search_id": r["search_id"], "new_matches": len(fresh), "queued": bool(q.get("queued")),
                         "text": txt})
-    return {"success": True, "alerts_sent": len(details), "new_matches_total": total, "details": details,
-            "message_telugu": (f"🔔 {total} కొత్త matches (saved searches) — WhatsApp queue లో pettam"
-                               if total else "ℹ️ ఇప్పుడు కొత్త matches లేవు — filters mariste ఇంకా dorukutayi")}
+    alerts_queued = sum(1 for item in details if item.get("queued"))
+    if alerts_queued:
+        message_telugu = f"🔔 {alerts_queued} saved search alerts WhatsApp queue లో పెట్టాం"
+        message_en = f"{alerts_queued} saved-search alert(s) queued for WhatsApp."
+    elif total and wa_mode == "off":
+        message_telugu = "ℹ️ కొత్త matches ఉన్నాయి, కానీ WhatsApp ప్రస్తుతం ఆఫ్‌లో ఉంది — queue చేయలేదు"
+        message_en = "New matches are available, but WhatsApp is off; no alerts were queued."
+    elif skipped:
+        message_telugu = "🔒 Alerts ఆఫ్‌లో ఉన్నాయి లేదా స్పష్టమైన సమ్మతి లేదు; ఏ notification పంపలేదు"
+        message_en = "Alerts are off or explicit consent is missing; no notifications were sent."
+    else:
+        message_telugu = "ℹ️ ఇప్పుడు కొత్త matches లేవు — filters మార్చి మళ్లీ చూడండి"
+        message_en = "There are no new saved-search matches right now."
+    return {"success": True, "alerts_sent": alerts_queued, "alerts_queued": alerts_queued,
+            "alerts_skipped": skipped, "new_matches_total": total, "details": details,
+            "message_telugu": message_telugu, "message_en": message_en}
 
 
 @app.get("/api/consent/log/{tsap_id}")
 def consent_log_endpoint(tsap_id: str, request: Request = None):
     """
-    📜 Consent ledger — numbers eppudu evariki exchange ayyayo (audit; dispute ki proof).
-    Numbers ikkada kooda masked — proof matrame (full number eppudu API lo radu).
+    Owner-only record of contact-access grants/declines; this does not prove WhatsApp delivery.
     """
     require_owner(request, tsap_id)
     rows = consent_for(tsap_id)
     safe_rows = [{"at": r.get("at"), "action": r.get("action"),
                   "with": mask_phone(str(r.get("other_id", ""))[-10:]) if str(r.get("other_id", "")).isdigit() else r.get("other_id"),
-                  "request_id": r.get("request_id"), "numbers_exchanged": r.get("numbers_exchanged"),
-                  "lawful_basis": r.get("lawful_basis"), "retention_days": r.get("retention_days")} for r in rows]
+                  "request_id": r.get("request_id"),
+                  "contact_access_granted": bool(r.get("contact_access_granted", r.get("numbers_exchanged", False)))}
+                 for r in rows]
     return {"tsap_id": tsap_id, "count": len(safe_rows), "consents": safe_rows,
-            "policy_telugu": "🔐 Numbers consent తో మాత్రమే exchange — ee ledger లో record ఉంటుంది (3 years retention)",
-            "your_rights_telugu": ["మీ data delete చెయ్యాలి అంటే support కి చెప్పండి",
-                                   "Block చేసిన profiles కి మీ data కనిపించదు",
-                                   "Number ఎప్పుడు public గా (search/Google) కనిపించదు"]}
+            "policy_telugu": "ఈ operational ledger owner acceptance వల్ల contact access ఇచ్చిన/నిరాకరించిన events మాత్రమే చూపిస్తుంది; WhatsApp delivery proof కాదు. గరిష్ఠంగా తాజా 5,000 events నిల్వ ఉంటాయి; age-based auto-purge అమలు కాలేదు.",
+            "your_rights_telugu": ["Stored-data access/correction/erasure request కోసం /privacy లోని contact ను సంప్రదించండి; request స్వయంగా instant erasure కాదు",
+                                   "Block చేసిన profiles కు మీ data కనిపించదు; ఇది stored records erase చేయదు",
+                                   "Contact details public profile/search లో ఉండవు; accepted request తర్వాత account flows లో కనిపించవచ్చు"]}
 
 
 @app.get("/api/admin/abuse")
@@ -6668,7 +7545,7 @@ def vendor_stats_api():
 
 @app.get("/api/vendors/packages")
 def vendor_packages():
-    """🏷️ Ad packages (₹149 నుంచి ₹3999) + add-ons + slots."""
+    """🏷️ Share kits, directory listings and placements with separate terms, plus add-ons/slots."""
     return {"success": True, **vendor_packages_public()}
 
 
@@ -6705,40 +7582,48 @@ def vendor_register(payload: Dict[str, Any] = Body(default={})):
             res.setdefault("note_telugu", "🔐 ఈ vendor_token save చెయ్యండి — మీ dashboard (impressions/clicks/leads) కి కావాలి")
     if not res.get("ok"):
         return JSONResponse(status_code=400, content={"success": False, **res})
-    # Admin ki instant alert (WhatsApp) + vendor ki confirmation text
+    # Optional admin notification queue; enqueue is not a delivery confirmation.
     try:
         admin_no = os.getenv("ADMIN_WHATSAPP_NUMBER", "").strip()
         v = res["vendor"]
         _txt = ("🏪 *NEW VENDOR REQUEST*\n%s (%s)\n📍 %s, %s\n📞 %s\n💼 Package: %s = ₹%d\n"
-                "Vendor ID: %s\n\nPayment verify చేసి /api/admin/vendors/%s/action?action=approve&utr=... "
-                "తో activate చెయ్యండి" % (v["business_name"], v["category_te"], v["city"], v["district"],
-                                            v["phone"], res["package"]["name"], res["amount"], v["id"], v["id"]))
+                "Vendor ID: %s\n\nOwner operations portal లో receipt/bank record సరిపోల్చి review చేయండి. "
+                "Owner session + CSRF అవసరం; payment/listing review identity verification కాదు." %
+                (v["business_name"], v["category_te"], v["city"], v["district"],
+                 v["phone"], res["package"]["name"], res["amount"], v["id"]))
         if admin_no and publish_config()["wa_mode"] != "off":
-            enqueue_whatsapp([admin_no], _txt, priority=0, kind="vendor_request")
-            res["admin_notified"] = True
+            _admin_queue = enqueue_whatsapp([admin_no], _txt, priority=0, kind="vendor_request")
+            res["admin_notification_queued"] = bool(_admin_queue.get("queued"))
         else:
-            res["admin_alert_text"] = _txt
+            res["admin_notification_queued"] = False
     except Exception as e:
         res["notify_error"] = str(e)[:100]
     return {"success": True, **res}
 
 
+def _require_active_public_vendor(vendor_id: str) -> dict:
+    """Resolve only a currently active, unexpired vendor listing for public routes."""
+    import vendors as VND
+    vendor = next((x for x in VND.VENDORS if x.get("id") == vendor_id), None)
+    if not VND.is_active_listing(vendor):
+        raise HTTPException(404, "Active vendor listing not found")
+    return vendor
+
+
 @app.get("/api/vendors/{vendor_id}")
 def vendor_detail(vendor_id: str, track: bool = False):
-    """🏪 Vendor public detail (contact WhatsApp CTA తో)."""
-    v = next((x for x in __import__("vendors").VENDORS if x.get("id") == vendor_id), None)
-    if not v:
-        raise HTTPException(404, "Vendor dorakaledi")
-    if v.get("status") == "pending" and str(v.get("phone")) != (os.getenv("ADMIN_PHONE", "") or "___"):
-        pass  # pending listing public ki kanipinchadu (kaani owner/demo ki chudataniki allow)
+    """Public detail for active vendor listings only."""
+    v = _require_active_public_vendor(vendor_id)
     if track:
-        track_vendor_click(vendor_id, source="detail")
+        result = track_vendor_click(vendor_id, source="detail")
+        if not result.get("ok"):
+            raise HTTPException(404, "Active vendor listing not found")
     same_cat = [x for x in __import__("vendors").VENDORS
-                if x.get("category") == v.get("category") and x.get("status") == "active" and x.get("id") != vendor_id][:4]
+                if x.get("category") == v.get("category") and vendor_is_active_listing(x) and x.get("id") != vendor_id][:4]
     return {"success": True, "vendor": public_vendor(v), "package": VENDOR_PACKAGES and
             {p["code"]: p for p in VENDOR_PACKAGES}.get(v.get("package"), {}),
             "similar": [public_vendor(x) for x in same_cat],
-            "review_note_telugu": "మీ experience share చెయ్యండి — మన team verify చేసి rating update చేస్తుంది"}
+            "review_note_telugu": "ఈ directory customer-review/rating certification కాదు. Booking ముందు vendor వివరాలు, ధర, లభ్యతను నేరుగా నిర్ధారించండి."}
 
 
 @app.get("/api/vendors/{vendor_id}/dashboard")
@@ -6751,12 +7636,55 @@ def vendor_dash(vendor_id: str, request: Request = None):
     return {"success": True, **d}
 
 
+@app.get("/api/vendors/{vendor_id}/kit")
+def vendor_share_kit(vendor_id: str, variant: int = 0, request: Request = None):
+    """Owner-only share-kit materials; a promo-kit purchase is not a public listing."""
+    require_vendor(request, vendor_id)
+    import vendors as VND
+    vendor = next((x for x in VND.VENDORS if x.get("id") == vendor_id), None)
+    if not vendor or str(vendor.get("package", "")).upper() not in VENDOR_SHARE_KIT_CODES:
+        raise HTTPException(404, "Share kit not found")
+    if vendor.get("status") != "kit_ready":
+        raise HTTPException(409, "Share kit is not ready; payment-reference review may still be pending")
+    if not VND.is_ready_share_kit(vendor):
+        raise HTTPException(410, "Private share-kit access has expired")
+    result = promo_post(vendor, variant=variant)
+    result.update({
+        "success": True,
+        "kit_ready": True,
+        "package": VND.PACKAGE_MAP.get(vendor.get("package"), {}),
+        "vendor": public_vendor(vendor),
+        "expires_at": vendor.get("expires_at", ""),
+        "poster_square": "/api/vendors/%s/kit/poster.png?style=square" % vendor_id,
+        "poster_status": "/api/vendors/%s/kit/poster.png?style=status" % vendor_id,
+    })
+    return result
+
+
+@app.get("/api/vendors/{vendor_id}/kit/poster.png")
+def vendor_share_kit_poster(vendor_id: str, style: str = "square", request: Request = None):
+    """Owner-only PNG generation for an approved share-kit package."""
+    require_vendor(request, vendor_id)
+    import vendors as VND
+    vendor = next((x for x in VND.VENDORS if x.get("id") == vendor_id), None)
+    if (not vendor or str(vendor.get("package", "")).upper() not in VENDOR_SHARE_KIT_CODES
+            or vendor.get("status") != "kit_ready"):
+        raise HTTPException(404, "Ready share kit not found")
+    if not VND.is_ready_share_kit(vendor):
+        raise HTTPException(410, "Private share-kit access has expired")
+    try:
+        import vendor_kit
+        path = vendor_kit.vendor_poster(vendor, style=("status" if style == "status" else "square"))
+        return FileResponse(path, media_type="image/png",
+                            filename="manavivaha-share-kit-%s-%s.png" % (vendor_id, style))
+    except Exception as e:
+        raise HTTPException(500, "Poster generate avvaledu: %s" % str(e)[:120])
+
+
 @app.get("/api/vendors/{vendor_id}/promo")
 def vendor_promo(vendor_id: str, variant: int = 0):
     """📝 Telugu promo post (Telegram + WhatsApp ready) + poster text."""
-    v = next((x for x in __import__("vendors").VENDORS if x.get("id") == vendor_id), None)
-    if not v:
-        raise HTTPException(404, "Vendor dorakaledi")
+    v = _require_active_public_vendor(vendor_id)
     return {"success": True, **promo_post(v, variant=variant),
             "poster_square": "/api/vendors/%s/poster.png?style=square" % vendor_id,
             "poster_status": "/api/vendors/%s/poster.png?style=status" % vendor_id}
@@ -6765,9 +7693,7 @@ def vendor_promo(vendor_id: str, variant: int = 0):
 @app.get("/api/vendors/{vendor_id}/poster.png")
 def vendor_poster_png(vendor_id: str, style: str = "square"):
     """🖼️ Vendor promo poster (QR తో) — square / status."""
-    v = next((x for x in __import__("vendors").VENDORS if x.get("id") == vendor_id), None)
-    if not v:
-        raise HTTPException(404, "Vendor dorakaledi")
+    v = _require_active_public_vendor(vendor_id)
     try:
         import vendor_kit
         path = vendor_kit.vendor_poster(v, style=("status" if style == "status" else "square"))
@@ -6779,37 +7705,37 @@ def vendor_poster_png(vendor_id: str, style: str = "square"):
 
 @app.post("/api/vendors/{vendor_id}/lead")
 def vendor_lead_api(vendor_id: str, payload: Dict[str, Any] = Body(default={})):
-    """📩 Enquiry → vendor కి instant WhatsApp + admin alert (+ customer ko 3 more options)."""
+    """Store an enquiry; WhatsApp notifications are queued only when explicitly configured."""
     res = vendor_lead(vendor_id, payload or {})
     if not res.get("ok"):
-        return JSONResponse(status_code=400, content={"success": False, **res})
+        status_code = 404 if res.get("reason") in {"not_found", "not_active"} else 400
+        return JSONResponse(status_code=status_code, content={"success": False, **res})
     try:
         v = res["vendor"]
         _to_vendor = res["vendor_whatsapp_text"]
         _phone = "".join(ch for ch in str(v.get("whatsapp_link", "")) if ch.isdigit())[2:12]
-        vnum = ""
         _vend = next((x for x in __import__("vendors").VENDORS if x.get("id") == vendor_id), None)
-        vnum = str((_vend or {}).get("whatsapp") or (_vend or {}).get("phone") or "")
+        vnum = vendor_whatsapp_number(_vend or {})
         if vnum and publish_config()["wa_mode"] != "off":
-            enqueue_whatsapp([vnum], _to_vendor, priority=0, kind="vendor_lead")
-            res["vendor_notified"] = True
+            _vendor_queue = enqueue_whatsapp([vnum], _to_vendor, priority=0, kind="vendor_lead")
+            res["vendor_notification_queued"] = bool(_vendor_queue.get("queued"))
         else:
-            res["vendor_alert_text"] = _to_vendor
+            res["vendor_notification_queued"] = False
         admin_no = os.getenv("ADMIN_WHATSAPP_NUMBER", "").strip()
         if admin_no and publish_config()["wa_mode"] != "off":
-            enqueue_whatsapp([admin_no], "📩 Vendor enquiry: %s ← %s (%s)"
-                             % (v.get("business_name"), payload.get("name"), payload.get("phone")),
-                             priority=1, kind="vendor_lead_admin")
-            res["admin_notified"] = True
+            _admin_queue = enqueue_whatsapp([admin_no], "📩 Vendor enquiry: %s ← %s (%s)"
+                                            % (v.get("business_name"), payload.get("name"), payload.get("phone")),
+                                            priority=1, kind="vendor_lead_admin")
+            res["admin_notification_queued"] = bool(_admin_queue.get("queued"))
     except Exception as e:
         res["notify_error"] = str(e)[:100]
-    # 🎯 Mana side advantage: category lo inka 3 options (customer ni mana daggarane unchadam)
+    # Return additional matching vendor listings when available; no outbound message is implied.
     try:
         import vendors as _vmod
         _v = next((x for x in _vmod.VENDORS if x.get("id") == vendor_id), None)
         if _v:
             _more = [public_vendor(x) for x in _vmod.VENDORS
-                     if x.get("category") == _v.get("category") and x.get("status") == "active"
+                     if x.get("category") == _v.get("category") and vendor_is_active_listing(x)
                      and x.get("id") != vendor_id][:3]
             res["more_options"] = _more
             if _more:
@@ -6824,28 +7750,22 @@ def vendor_lead_api(vendor_id: str, payload: Dict[str, Any] = Body(default={})):
 def vendor_click(vendor_id: str, source: str = ""):
     res = track_vendor_click(vendor_id, source)
     if not res.get("ok"):
-        raise HTTPException(404, "Vendor dorakaledi")
+        raise HTTPException(404, "Active vendor listing not found")
     return {"success": True, **res}
 
 
 @app.get("/api/admin/vendors")
 def admin_vendor_list(status: str = "pending", token: str = "", request: Request = None):
-    """👮 Admin — vendor requests queue (approve/reject)."""
-    require_admin(request)   # 🛡️ WAVE 9: admin key lekunda 403 (PII/money/)
-    _g = _admin_guard(token)
-    if _g:
-        return _g
+    """Legacy alias: vendor-review data still requires an owner session cookie."""
+    _control_owner_session_guard(request)
     return {"success": True, **vendor_queue(status)}
 
 
 @app.post("/api/admin/vendors/{vendor_id}/action")
 def admin_vendor_action(vendor_id: str, action: str, package: str = "", utr: str = "",
                         reason: str = "", token: str = "", request: Request = None):
-    """✅ approve (package + UTR) · ❌ reject · ⏳ expire."""
-    require_admin(request)   # 🛡️ WAVE 9: admin key lekunda 403 (PII/money/)
-    _g = _admin_guard(token)
-    if _g:
-        return _g
+    """Legacy alias: every vendor-review mutation requires owner session + CSRF."""
+    _control_owner_session_guard(request, mutating=True)
     if action == "approve":
         res = activate_vendor(vendor_id, package=package, utr=utr)
     elif action == "reject":
@@ -6866,11 +7786,8 @@ def admin_vendor_action(vendor_id: str, action: str, package: str = "", utr: str
 
 @app.get("/api/admin/vendors/revenue/summary")
 def admin_vendor_revenue(token: str = "", request: Request = None):
-    """💰 Vendor revenue: active, pipeline, MRR, leads, renewals due."""
-    require_admin(request)   # 🛡️ WAVE 9: admin key lekunda 403 (PII/money/)
-    _g = _admin_guard(token)
-    if _g:
-        return _g
+    """Legacy alias: vendor revenue is owner-session protected."""
+    _control_owner_session_guard(request)
     return {"success": True, **vendor_revenue()}
 
 
@@ -6885,11 +7802,11 @@ def welcome_pack_get(tsap_id: str, request: Request = None):
     opposite = "Bride" if user.get("gender") == "Groom" else "Groom"
     cands = [u for u in DB_USERS if str(u.get("gender", "")) == opposite
              and str(u.get("tsap_id", "")) != tsap_id
-             and u.get("is_approved", True) is not False and not u.get("is_banned")
+             and _is_approved_profile(u)
              and not safety.is_blocked(tsap_id, str(u.get("tsap_id", "")), DB_BLOCKS)]
     rows = [{"profile": row["profile"]}
             for row in topmatch.find_top_matches_v2(user, cands, limit=3)]
-    pack = build_welcome_pack(user, tsap_id, rows)
+    pack = build_welcome_pack(user, tsap_id, rows, directory_links=_public_channel_links())
     pack["queue"] = user.get("welcome_pack_queue", {"queued": False,
                                                     "note_telugu": "Register లో queue avvaledu — resend చెయ్యండి"})
     return {"success": True, **pack_public(pack)}
@@ -6903,11 +7820,11 @@ def welcome_pack_resend(tsap_id: str, request: Request = None):
     opposite = "Bride" if user.get("gender") == "Groom" else "Groom"
     cands = [u for u in DB_USERS if str(u.get("gender", "")) == opposite
              and str(u.get("tsap_id", "")) != tsap_id
-             and u.get("is_approved", True) is not False and not u.get("is_banned")
+             and _is_approved_profile(u)
              and not safety.is_blocked(tsap_id, str(u.get("tsap_id", "")), DB_BLOCKS)]
     rows = [{"profile": row["profile"]}
             for row in topmatch.find_top_matches_v2(user, cands, limit=3)]
-    pack = build_welcome_pack(user, tsap_id, rows)
+    pack = build_welcome_pack(user, tsap_id, rows, directory_links=_public_channel_links())
     phone = str(user.get("phone") or "").strip()
     res: Dict[str, Any] = {"queued": False}
     try:
@@ -6950,12 +7867,15 @@ def channels_links(caste: str = "", gender: str = "", state: str = "", district:
     prof = {"caste": clean(caste, 40, "caste"), "gender": clean(gender, 20, "gender"),
             "state": clean(state, 10, "state"), "district": clean(district, 40, "district"),
             "religion": clean(religion, 20, "religion")}
-    links = caste_channel_links(prof, limit=clamp_int(limit, "limit", 1, 10, 5))
+    public_directory_links = _public_channel_links()
+    links = caste_channel_links(prof, limit=clamp_int(limit, "limit", 1, 10, 5),
+                                directory_links=public_directory_links)
     if not str(caste or "").strip():
-        note = "Caste పంపండి (?caste=Reddy&gender=Bride) — మీ caste channels (Telegram + WhatsApp) చూపిస్తాం"
+        note = "కమ్యూనిటీ, లింగం ఎంచుకుంటే registry లో configured URLs చూపిస్తాం; బయట availability తనిఖీ చేయలేదు."
     else:
-        note = "📢 మీ caste channel లో daily matches — Telegram + WhatsApp రెండు join అవ్వండి"
-    return {"success": True, "channels": links, "stats": wa_links_stats(), "note_telugu": note}
+        note = "ఇవి repository/admin configuration లోని URLs మాత్రమే; external channel availability లేదా posting frequency హామీ కాదు."
+    return {"success": True, "channels": links, "stats": wa_links_stats(directory_links=public_directory_links),
+            "external_status_checked": False, "note_telugu": note}
 
 
 # ============================================================================
@@ -6964,16 +7884,23 @@ def channels_links(caste: str = "", gender: str = "", state: str = "", district:
 # ============================================================================
 @app.get("/api/gothram/check")
 def gothram_check(a: str, b: str):
-    """Compare member-entered gothram text only; this endpoint never blocks or decides eligibility."""
-    me, other = _find_user(a), _find_user(b)
-    if not me or not other:
-        raise HTTPException(404, "రెండు TSAP IDs correct గా ఇవ్వండి")
-    return {"success": True, "a": a, "b": b, **A11.gothram_check(me, other)}
+    """Compare only active public profiles; never expose their raw gothram or decide eligibility."""
+    a_id, b_id = str(a or "").strip().upper(), str(b or "").strip().upper()
+    me, other = _find_user(a_id), _find_user(b_id)
+    if (not _is_approved_profile(me) or not _is_approved_profile(other)
+            or safety.is_blocked(a_id, b_id, DB_BLOCKS)):
+        raise HTTPException(404, "రెండు active, approved public profile IDs అవసరం")
+    comparison = A11.gothram_check(me, other)
+    return {"success": True, "a": a_id, "b": b_id,
+            "same": comparison.get("same"), "blocked": False,
+            "reason": comparison.get("reason", "details_unavailable"),
+            "note_telugu": comparison.get("note_telugu", ""),
+            "notice": comparison.get("notice", "Member-entered text comparison only; not a compatibility verdict.")}
 
 
 @app.post("/api/stories/submit")
 def story_submit(payload: dict, request: Request = None):
-    """💑 పెళ్లి అయిన janta success story pampu (admin approve తర్వాత public)."""
+    """Accept a member-shared story for moderation; submission is not identity verification."""
     d = payload or {}
     require_owner(request, str(d.get("tsap_id", "")))
     u = _find_user(str(d.get("tsap_id", "")))
@@ -6981,19 +7908,19 @@ def story_submit(payload: dict, request: Request = None):
         raise HTTPException(404, "మీ profile దొరకలేదు — ముందు register చెయ్యండి")
     rec = A11.submit_story(str(d.get("tsap_id", "")), str(d.get("text", "")),
                            partner_id=str(d.get("partner_id", "")),
-                           couple_names=str(d.get("couple_names", "")) or str(u.get("full_name", "")),
+                           couple_names=str(d.get("couple_names", "")),
                            photo_url=str(d.get("photo_url", "")),
-                           district=str(d.get("district", "")) or str(u.get("district", "")))
+                           district=str(d.get("district", "")))
     return {"success": True, "story": rec,
             "message_telugu": "💑 మీ story review కోసం పంపబడింది. Approve అయితే /stories page‌లో కనిపిస్తుంది; review సమయం, ప్రచురణ హామీ కాదు."}
 
 
 @app.get("/api/stories")
 def stories_list(limit: int = 20):
-    """💑 Approved success stories (public — trust + viral, numbers లేదు)."""
+    """Public member-submitted stories that were approved for display; approval is not verification."""
     rows = A11.approved_stories(clamp_int(limit, "limit", 1, 50, 20))
     return {"success": True, "count": len(rows), "stories": rows,
-            "share_note_telugu": "💑 పెళ్లి ayinda? మీ story పంపండి — janta photo + 2 lines చాలు!"}
+            "publication_note": "Stories are member-submitted and moderated for publication; identity and relationship details are not independently verified."}
 
 
 @app.post("/api/stories/{story_id}/like")
@@ -7012,7 +7939,7 @@ def admin_story_action(story_id: str, payload: dict = None, request: Request = N
     out = {"success": True, "story": rec}
     if rec.get("status") == "approved":
         out["share_text"] = A11.story_share_text(rec)
-        out["share_note_telugu"] = "📢 ఈ text official channel + WhatsApp లో forward చెయ్యండి"
+        out["share_note_telugu"] = "📢 Share చేయడం ఐచ్ఛికం. కథనం/పేర్లను సంబంధితుల స్పష్టమైన సమ్మతితో మాత్రమే పంచుకోండి; destinations ముందుగా operator స్వయంగా నిర్ధారించాలి. Review గుర్తింపును verify చేయదు."
     return out
 
 
@@ -7021,7 +7948,7 @@ def support_faq(q: str = "", limit: int = 5):
     """💬 Telugu support Q&A — ?q=price అని search (widget + bot common)."""
     rows = A11.search_faq(q, clamp_int(limit, "limit", 1, 12, 5))
     return {"success": True, "count": len(rows), "faqs": rows,
-            "human_telugu": "Manishitho matladali అంటే bot లో /help — 10AM–7PM Telugu support 🙏"}
+            "human_telugu": "Contact options ఉన్నచోట వాటిని చూడండి. WhatsApp support contact configure కానప్పుడు ఆ link చూపించము; response time హామీ కాదు."}
 
 
 @app.get("/api/streak/{tsap_id}")
@@ -7047,12 +7974,15 @@ def streak_claim(payload: dict, request: Request = None):
 
 @app.get("/api/push/vapid")
 def push_vapid():
-    """🔔 VAPID public key (browser subscribe కి) — keys lekapothe preview mode."""
-    key = A11.vapid_public_key()
+    """Expose a browser key only when server-side push sending is fully configured."""
+    ready = A11.vapid_delivery_ready()
+    key = A11.vapid_public_key() if ready else ""
     return {"success": True, "vapid_public_key": key,
-            "mode": "live-ready" if key else "preview",
-            "note_telugu": "🔔 Alerts ON చెయ్యండి — కొత్త matches వస్తే notification" if key
-                           else "ℹ️ VAPID keys set చెయ్యగానే live push (ఇప్పుడు queue-preview mode)"}
+            "vapid_ready": ready, "mode": "live-ready" if ready else "preview",
+            "note_telugu": "🔔 Alerts ON చెయ్యండి — కొత్త matches వస్తే notification" if ready
+                           else "ℹ️ Owner-configured VAPID keys, sender, contact లేకపోవడంతో alerts preview మాత్రమే.",
+            "note_en": "Push alerts are available to enable." if ready
+                       else "Push alerts remain in preview until owner-configured VAPID keys, sender, and contact are available."}
 
 
 @app.post("/api/push/subscribe")
@@ -7095,7 +8025,7 @@ def admin_push_queue(request: Request = None):
     require_admin(request)
     return {"success": True, "subs": len(A11.PUSH_SUBS),
             "queue": A11.PUSH_QUEUE[-30:][::-1],
-            "vapid_ready": bool(A11.vapid_public_key())}
+            "vapid_ready": A11.vapid_delivery_ready()}
 
 
 @app.post("/api/voice/upload")
@@ -7112,14 +8042,14 @@ async def voice_upload(request: Request, file: UploadFile = File(...), tsap_id: 
     chk = A11.voice_validate(file.filename or "", len(data))
     if not chk.get("ok"):
         raise HTTPException(400, chk["error_telugu"])
-    os.makedirs("/tmp/voice", exist_ok=True)
+    os.makedirs(VOICE_MEDIA_DIR, exist_ok=True)
     # 🛡️ P2 hardening (consistency w/ WAVE 23 fix on /api/photo/upload): tid is
     # always server-generated at registration so this isn't reachable today,
     # but sanitize anyway rather than relying on that invariant forever.
     _safe_tid = re.sub(r"[^A-Z0-9-]", "", tid.strip().upper())[:24]
     token = (_safe_tid or "tmp") + "-" + datetime.utcnow().strftime("%y%m%d%H%M%S")
     name = f"{token}.{chk['ext']}"
-    path = f"/tmp/voice/{name}"
+    path = os.path.join(VOICE_MEDIA_DIR, name)
     try:
         with open(path, "wb") as f:
             f.write(data)
@@ -7167,7 +8097,7 @@ def boost_packs():
 
 @app.post("/api/boost/buy")
 def boost_buy(payload: dict, request: Request):
-    """Compatibility route: development fixture or a real PayPro order, never a fabricated payment."""
+    """Compatibility route: explicit isolated test fixture or real PayPro order, never a live fabricated payment."""
     d = payload or {}
     tsap_id = str(d.get("tsap_id") or "").strip().upper()
     require_owner(request, tsap_id)
@@ -7178,7 +8108,7 @@ def boost_buy(payload: dict, request: Request):
     if pack_code not in A11.BOOST_PACKS:
         raise HTTPException(400, "Choose boost pack B_1, B_3, or B_7.")
 
-    if dev_mode():
+    if _test_payment_fixtures_enabled():
         effect = A11.apply_boost(user, pack_code)
         order_id = "DEV-BOOST-" + datetime.utcnow().strftime("%y%m%d%H%M%S") + str(len(DB_PAYMENTS) + 1).zfill(3)
         order = {"order_id": order_id, "tsap_id": tsap_id, "plan": pack_code,
@@ -7285,7 +8215,7 @@ def api_my_unlocks(viewer_id: str, request: Request = None):
 # --- ₹500 assisted orders (admin) --------------------------------------------
 @app.post("/api/admin/assist-orders")
 def api_assist_create(payload: dict, request: Request):
-    require_admin(request, staff_ok=True)
+    require_admin(request)  # financial order creation is owner-only
     d = payload or {}
     buyer = _find_user(str(d.get("buyer_id", "")).upper())
     if not buyer:
@@ -7298,14 +8228,14 @@ def api_assist_create(payload: dict, request: Request):
 
 @app.get("/api/admin/assist-orders")
 def api_assist_list(request: Request, status: str = ""):
-    require_admin(request, staff_ok=True)
+    require_admin(request)  # order records may contain payment references
     items = [o for o in S12.ORDERS if not status or o.get("status") == status]
     return {"success": True, "count": len(items), "orders": list(reversed(items))}
 
 
 @app.post("/api/admin/assist-orders/{order_id}/paid")
 def api_assist_paid(order_id: str, payload: dict, request: Request):
-    require_admin(request, staff_ok=True)
+    require_admin(request)  # payment-reference review is owner-only
     res = S12.mark_order_paid(order_id, str((payload or {}).get("utr", "")))
     if not res.get("success"):
         raise HTTPException(400, res.get("message_telugu"))
@@ -7324,6 +8254,8 @@ def api_assist_attach(order_id: str, payload: dict, request: Request):
     missing = [i for i in ids if not _find_user(i)]
     if missing:
         raise HTTPException(404, f"IDs dorakalevu: {', '.join(missing)}")
+    if any(not _is_approved_profile(_find_user(i)) for i in ids):
+        raise HTTPException(404, "Inactive or unapproved profiles cannot be attached to a shortlist")
     if order.get("amount") != S12.ASSISTED_PRICE:
         raise HTTPException(400, "Assisted shortlist price mismatch")
     res = S12.attach_order_profiles(order_id, ids)
@@ -7348,6 +8280,8 @@ def api_copy_list(request: Request, buyer: str = "", ids: str = "", order_id: st
         raise HTTPException(404, "కొన్ని IDs dorakalevu — list సరి చూడండి")
     if any(_is_synthetic_profile(t) for t in targets):
         raise HTTPException(400, "Demo/test profile ను shortlist copy లో చేర్చలేరు")
+    if any(not _is_approved_profile(t) for t in targets):
+        raise HTTPException(404, "Inactive or unapproved profiles are not available for shortlist copy")
     if order_id:
         order = S12.get_order(order_id)
         if not order:
@@ -7357,10 +8291,11 @@ def api_copy_list(request: Request, buyer: str = "", ids: str = "", order_id: st
         if order.get("status") not in ("paid", "delivered"):
             raise HTTPException(400, "Payment confirm అయిన తర్వాత మాత్రమే paid-service copy తయారు చేయండి")
     try:
-        text = S12.build_copy_list(b, targets, order_id)
+        text = S12.build_copy_list(b, sanitize_public_payload(targets), order_id)
     except ValueError as exc:
         raise HTTPException(422, str(exc))
-    return {"success": True, "count": len(targets), "contact_access": "owner_acceptance_required", "text": text}
+    return {"success": True, "count": len(targets), "contact_access": "owner_acceptance_required",
+            "text": sanitize_public_text(text)}
 
 
 @app.get("/api/admin/match-send/{buyer_id}")
@@ -7374,14 +8309,13 @@ def api_match_send(buyer_id: str, request: Request, limit: int = 20, min_score: 
     Admin-only filtered profile list for manual review; no synthetic score or suitability ranking.
     Candidate contact data stays locked until profile-owner acceptance.
     """
-    require_admin(request, staff_ok=True)
+    role = require_admin(request, staff_ok=True)
     me = _find_user(buyer_id.upper())
     if not me:
         raise HTTPException(404, f"Buyer ID దొరకలేదు: {buyer_id}")
     pool = [u for u in DB_USERS if u.get("tsap_id") != me["tsap_id"]
-            and not _is_synthetic_profile(u)
-            and not safety.is_blocked(me["tsap_id"], u.get("tsap_id", ""), DB_BLOCKS)
-            and not u.get("is_banned")]
+            and _is_approved_profile(u)
+            and not safety.is_blocked(me["tsap_id"], u.get("tsap_id", ""), DB_BLOCKS)]
     # Legacy exclusions remain accepted for old clients but do not decide eligibility.
     kept = list(pool)
     if nri_only:
@@ -7393,6 +8327,7 @@ def api_match_send(buyer_id: str, request: Request, limit: int = 20, min_score: 
     _frel = (religion or "").strip()
     _fmari = [x.strip() for x in (marital or "").split(",") if x.strip()]
     _fkids = (children or "").strip()
+    _children_filter_ignored = bool(_fmari) and all(is_never_married_status(value) for value in _fmari)
     _fcastes = [x.strip().lower() for x in (castes or "").split(",") if x.strip()]
     _fdists = [x.strip().lower() for x in (districts or "").split(",") if x.strip()]
     _fedu = [x.strip().lower() for x in (education or "").split(",") if x.strip()]
@@ -7431,8 +8366,11 @@ def api_match_send(buyer_id: str, request: Request, limit: int = 20, min_score: 
             return False
         if _fmari and str(c.get("marital_status", "")) not in _fmari:
             return False
-        if _fkids and str(c.get("children", "None")) != _fkids:
-            return False
+        if _fkids and not _children_filter_ignored:
+            if is_never_married_status(c.get("marital_status")):
+                return False
+            if str(c.get("children", "None")) != _fkids:
+                return False
         if photo_only and not (c.get("has_photo") or c.get("photo_url")):
             return False
         if verified_only and not safety.has_verification_evidence(c):
@@ -7449,13 +8387,17 @@ def api_match_send(buyer_id: str, request: Request, limit: int = 20, min_score: 
     out = []
     for r in rows:
         prof = r.pop("profile")
-        r.update({"full_name": prof.get("full_name"),
+        # Authenticated admin/staff shortlist UI needs the internal profile ID to
+        # select and deliver profiles; phone and other contact data stay locked.
+        r.update({"tsap_id": prof.get("tsap_id"),
+                  "full_name": prof.get("full_name"),
                   "contact_access": "owner_acceptance_required",
                   "age": prof.get("age"), "gender": prof.get("gender"), "caste": prof.get("caste"),
                   "sub_caste": prof.get("sub_caste", ""), "district": prof.get("district"),
                   "state": prof.get("state"), "education": prof.get("education"),
                   "job": prof.get("job"), "salary": prof.get("salary", ""),
-                  "marital_status": prof.get("marital_status", ""), "children": prof.get("children", "None"),
+                  "marital_status": prof.get("marital_status", ""),
+                  "children": "" if is_never_married_status(prof.get("marital_status")) else prof.get("children", ""),
                   "star": prof.get("star", ""),
                   "height": prof.get("height", ""),
                   "verification": safety.verification_badge(prof)["level"],
@@ -7464,11 +8406,14 @@ def api_match_send(buyer_id: str, request: Request, limit: int = 20, min_score: 
                   "has_photo": bool(prof.get("photo_urls")),
                   "is_nri": _is_nri(prof),
                   "profession_label": _prof_label(prof)})
-        out.append(r)
-    return {"buyer": {"tsap_id": me["tsap_id"], "name": me.get("full_name"),
-                      "phone": me.get("phone", ""), "credits": me.get("credits", 0),
-                      "telegram_chat_id": me.get("telegram_chat_id", ""),
-                      "telegram_linked": bool(me.get("telegram_chat_id"))},
+        out.append(sanitize_public_payload(r))
+    buyer_summary = {"tsap_id": sanitize_public_text(me.get("tsap_id", "")),
+                     "name": sanitize_public_text(me.get("full_name", ""))}
+    if role == "owner":
+        buyer_summary.update({"phone": me.get("phone", ""), "credits": me.get("credits", 0),
+                              "telegram_chat_id": me.get("telegram_chat_id", ""),
+                              "telegram_linked": bool(me.get("telegram_chat_id"))})
+    return {"buyer": buyer_summary, "role": role, "sensitive_fields_visible": role == "owner",
             "count": len(out), "nri_only": bool(nri_only), "nri_excluded": bool(nri_exclude),
             "filters_skipped": _f19skip, "legacy_exclusion_flags_ignored": True,
             "ranking_basis": "active_paid_boost_then_recency",
@@ -7495,6 +8440,8 @@ async def api_match_deliver(payload: dict, request: Request):
             raise HTTPException(400, "మీ స్వంత profile ను shortlist చేయలేరు")
         if _is_synthetic_profile(target):
             raise HTTPException(400, "Demo/test profile ను member shortlist లో పంపలేరు")
+        if not _is_approved_profile(target):
+            raise HTTPException(404, "Inactive or unapproved profiles cannot be delivered in a shortlist")
         if safety.is_blocked(buyer["tsap_id"], target.get("tsap_id", ""), DB_BLOCKS):
             raise HTTPException(400, "Blocked profile ను shortlist చేయలేరు")
 
@@ -7520,9 +8467,26 @@ async def api_match_deliver(payload: dict, request: Request):
             S12._persist()
 
     try:
-        res = await S12.deliver_personal(buyer, targets, via=via, order_id=order_id)
+        res = await S12.deliver_personal(buyer, sanitize_public_payload(targets), via=via, order_id=order_id)
     except ValueError as exc:
-        raise HTTPException(422, str(exc))
+        raise HTTPException(422, sanitize_public_text(str(exc)))
+    if role != "owner":
+        telegram_result = res.get("telegram") if isinstance(res.get("telegram"), dict) else {}
+        whatsapp_result = res.get("whatsapp") if isinstance(res.get("whatsapp"), dict) else {}
+        res = {
+            "ok": bool(res.get("ok")),
+            "via": str(res.get("via", via)),
+            "messages": int(res.get("messages", 0) or 0),
+            "telegram": {"wanted": bool(telegram_result.get("wanted")),
+                         "sent": int(telegram_result.get("sent", 0) or 0),
+                         "failed": "delivery_unconfirmed" if telegram_result.get("failed") else ""},
+            "whatsapp": {"wanted": bool(whatsapp_result.get("wanted")),
+                         "queued": int(whatsapp_result.get("queued", 0) or 0),
+                         "failed": "delivery_unconfirmed" if whatsapp_result.get("failed") else ""},
+            "copy_list": sanitize_public_text(res.get("copy_list", "")),
+            "message_telugu": sanitize_public_text(res.get("message_telugu", "")),
+            "recipient_details_visible": False,
+        }
     if order_id and res.get("ok"):
         order = S12.get_order(order_id)
         order["status"] = "delivered"
@@ -7533,7 +8497,8 @@ async def api_match_deliver(payload: dict, request: Request):
         "delivery_ok": bool(res.get("ok")), "contact_access": "owner_acceptance_required",
     })
     res.update({"success": True, "buyer_id": buyer["tsap_id"], "shortlisted_count": len(ids),
-                "contact_access": "owner_acceptance_required", "order_id": order_id,
+                "contact_access": "owner_acceptance_required", "order_id": order_id, "role": role,
+                "recipient_details_visible": role == "owner",
                 "delivery_status": "sent_or_queued" if res.get("ok") else "preview_or_delivery_unavailable"})
     return res
 
@@ -7616,25 +8581,35 @@ def api_download_astro_report(bride_id: str = "", groom_id: str = "", bride_star
     )
 
 
-@app.get("/api/astro/dosha/{tsap_id}")
-def api_dosha(tsap_id: str):
-    """🔍 Dosha screening — profile కి దోషం unda/leda (honest flags)."""
-    u = _find_user(tsap_id.upper())
-    if not u:
+def _astro_profile_or_404(tsap_id: str, request: Request = None) -> Dict:
+    """Astrology routes expose only active public profiles or the authenticated owner's own record."""
+    u = _find_user(str(tsap_id or "").strip().upper())
+    if not u or _is_synthetic_profile(u):
         raise HTTPException(404, "Profile dorakaledu")
+    identity = token_from_request(request) if request else None
+    viewer_id = str((identity or {}).get("tsap_id", "")).strip().upper()
+    owner_id = str(u.get("tsap_id", "")).strip().upper()
+    if viewer_id != owner_id:
+        if not _is_approved_profile(u) or (viewer_id and safety.is_blocked(viewer_id, owner_id, DB_BLOCKS)):
+            raise HTTPException(404, "Active approved profile not found")
+    return u
+
+
+@app.get("/api/astro/dosha/{tsap_id}")
+def api_dosha(tsap_id: str, request: Request = None):
+    """🔍 Dosha screening — profile కి దోషం unda/leda (honest flags)."""
+    u = _astro_profile_or_404(tsap_id, request)
     res = AST.dosha_screening(u)
     res["tsap_id"] = u["tsap_id"]
     return res
 
 
 @app.get("/api/astro/chart/{tsap_id}")
-def api_astro_chart(tsap_id: str):
+def api_astro_chart(tsap_id: str, request: Request = None):
     """🗺️ Rasi katam data — South-Indian fixed chart (Moon house = stored rasi).
     Lagna + planets manaki teliyavu (birth time/place accurate ga lekapothe guess vaddhu)
     kabatti honest Moon-only chart — migathadi ki jathakam upload → pandit review."""
-    u = _find_user(tsap_id.upper())
-    if not u:
-        raise HTTPException(404, "Profile dorakaledu")
+    u = _astro_profile_or_404(tsap_id, request)
     ri = AST.rasi_index(str(u.get("rasi", "") or ""))
     houses = [{"house": i + 1, "rasi_en": AST.rasi_name(i), "moon": (ri == i)} for i in range(12)]
     return {"success": True, "tsap_id": u["tsap_id"], "style": "south-indian",
@@ -7660,9 +8635,9 @@ async def api_jathakam_upload(file: UploadFile = File(...), tsap_id: str = Form(
         raise HTTPException(413, "File 8MB kanna ఎక్కువ — compress చేసి పంపండి")
     if len(data) < 1024:
         raise HTTPException(400, "File khaali — మళ్లీ upload చెయ్యండి")
-    os.makedirs("/tmp/jathakam", exist_ok=True)
-    name = f"{u['tsap_id']}-{datetime.utcnow().strftime('%y%m%d%H%M%S')}.{ext}"
-    with open(f"/tmp/jathakam/{name}", "wb") as f:
+    os.makedirs(JATHAKAM_MEDIA_DIR, exist_ok=True)
+    name = f"{u['tsap_id']}-{datetime.utcnow().strftime('%y%m%d%H%M%S')}-{secrets.token_hex(4)}.{ext}"
+    with open(os.path.join(JATHAKAM_MEDIA_DIR, name), "xb") as f:
         f.write(data)
     j = AST.submit_jathakam(u["tsap_id"], name, "pdf" if ext == "pdf" else "photo")
     return {"success": True, "jathakam_id": j["id"],
@@ -7689,7 +8664,7 @@ def api_astro_jathakam_file(jid: str, request: Request):
     filename = os.path.basename(str(j.get("file", "")))
     if not filename:
         raise HTTPException(404, "Jathakam file దొరకలేదు")
-    path = os.path.join("/tmp/jathakam", filename)
+    path = _media_file(JATHAKAM_MEDIA_DIR, filename)
     if not os.path.isfile(path):
         raise HTTPException(404, "Jathakam file disk మీద దొరకలేదు (expired/cleared?)")
     ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
@@ -7736,7 +8711,7 @@ def api_ads_quote(payload: dict):
     q = ADS.quote(str(d.get("level", "")), int(d.get("days", 0) or 0),
                   d.get("districts") or [], d.get("slots") or [], bool(d.get("video_url")))
     if not q.get("ok"):
-        raise HTTPException(400, q.get("message_telugu"))
+        return JSONResponse(status_code=400, content={"success": False, **q})
     return {"success": True, **q}
 
 
@@ -7767,7 +8742,7 @@ def api_vendor_campaign_create(vendor_id: str, payload: dict, request: Request):
                               str(d.get("video_url", "")), str(d.get("offer", "")),
                               str(d.get("link", "")))
     if not res.get("success"):
-        raise HTTPException(400, res.get("message_telugu"))
+        return JSONResponse(status_code=400, content=res)
     return res
 
 
@@ -7854,15 +8829,15 @@ def api_meta_subcastes(religion: str = "Hindu", caste: str = ""):
 
 @app.get("/api/meta/home-stats")
 def api_meta_home_stats():
-    """🌊 WAVE 30 — homepage live numbers (NO DUMMY): channels + castes + plans + referral + bureau."""
-    ch = channel_stats()
+    """Homepage aggregates use public listings and current plans; hidden operator rows stay internal."""
+    ch = public_channel_stats()
     by_tier = ch.get("by_tier", {}) or {}
     plans = [{"code": p.get("code"), "price": p.get("price"), "profiles": p.get("profiles"),
               "label": p.get("label"), "telugu": p.get("telugu"), "badge": p.get("badge")}
              for p in plan_list_with_free()]
     _stats = real_platform_stats()
     return {"success": True,
-            "channels_total": ch.get("total", 0), "channels_live": ch.get("live", 0),
+            "channels_total": ch.get("total", 0), "channels_routing_eligible": ch.get("routing_eligible", 0),
             "channels_by_tier": by_tier,
             "castes_covered": len(MP.castes_for("Hindu").get("castes", [])),
             # 🛡️ HONEST live numbers — homepage/hero/trust-band ee values chupistundi
@@ -7870,8 +8845,12 @@ def api_meta_home_stats():
             "profiles_count": _stats.get("profiles_count", 0),
             "brides_count": _stats.get("brides_count", 0),
             "grooms_count": _stats.get("grooms_count", 0),
-            "verified_count": _stats.get("verified_count", 0),
-            "verified_percentage": _stats.get("verified_percentage", 0),
+            "profiles_with_recorded_check": _stats.get("profiles_with_recorded_check", 0),
+            "profiles_with_phone_otp": _stats.get("profiles_with_phone_otp", 0),
+            "profiles_with_photo_review": _stats.get("profiles_with_photo_review", 0),
+            "profiles_with_id_review": _stats.get("profiles_with_id_review", 0),
+            "recorded_check_percentage": _stats.get("recorded_check_percentage", 0),
+            "verification_scope": _stats.get("verification_scope", "Recorded checks only; no identity guarantee."),
             "districts_with_profiles": _stats.get("districts_with_profiles", 0),
             "castes_with_profiles": _stats.get("castes_with_profiles", 0),
             "interests_sent": _stats.get("interests_sent", 0),
@@ -8125,6 +9104,8 @@ def api_admin_profiles(
         rows.append({"tsap_id": u.get("tsap_id"), "full_name": u.get("full_name"), "gender": u.get("gender"),
                      "age": u.get("age"), "caste": u.get("caste"), "district": u.get("district"), "state": u.get("state"),
                      "phone": ph, "phone_verified": bool(u.get("phone_verified")),
+                     "photo_verified": bool(u.get("selfie_verified") or u.get("photo_status") == "approved"),
+                     "verification_level": safety.verification_badge(u)["level"],
                      "is_verified": safety.has_verification_evidence(u), "id_verified": bool(u.get("id_verified")),
                      "id_verification_method": u.get("id_verification_method", ""),
                      "id_verified_at": u.get("id_verified_at", ""), "is_approved": bool(u.get("is_approved")),
@@ -8316,7 +9297,7 @@ def api_owner_summary(request: Request):
                         "banned": len([u for u in users if u.get("is_banned")]),
                         "brides": len([u for u in users if u.get("gender") == "Bride"]),
                         "grooms": len([u for u in users if u.get("gender") == "Groom"]),
-                        "verified": len([u for u in users if safety.has_verification_evidence(u)]),
+                        "recorded_checks": len([u for u in users if safety.has_verification_evidence(u)]),
                         "nri": len([u for u in users if _is_nri(u)]),
                         "with_photo": len([u for u in users if u.get("photo_urls")]),
                         "with_voice": len([u for u in users if u.get("voice_url")]),
@@ -8356,21 +9337,12 @@ def api_owner_summary(request: Request):
     except Exception:
         out["referral"] = {"paid_referrals": 0, "error": True}
     try:
-        out["owner_acceptance"] = {
-            "owner_id": "TeNDDG5ywwZIg3",
-            "owner_name": "PENDOTA CHARAN",
-            "signatory_name": "PENDOTA CHARAN",
-            "ip_address": "10.26.123.93",
-            "date_of_acceptance": "2026-09-20 23:08:03 IST",
-            "contact_number": (os.getenv("SUPPORT_PHONE") or os.getenv("SUPPORT_WHATSAPP") or "").strip(),
-            "email": "charan.pendota98@gmail.com",
-            "status": "Verified & Digitally Accepted"
-        }
         out["system"] = {"wa_queue": len(WA_QUEUE or []), "dead_letters": len(WA_DEAD or []),
                          "worker": bool(worker_running()),
                          "pay_mode": PP.pay_config().get("mode", ""),
-                         "vapid_ready": bool(A11.vapid_public_key()),
-                         "telegram_live": publish_status().get("telegram", {}).get("live_channels", 0)}
+                         "vapid_ready": A11.vapid_delivery_ready(),
+                         "telegram_routing_eligible": publish_status().get("telegram", {}).get("routing_eligible_count", 0),
+                         "telegram_external_status_checked": False}
     except Exception:
         out["system"] = {"error": True}
     return out
@@ -8408,19 +9380,11 @@ def api_pay_qr_png(order_id: str):
 
 @app.get("/api/legal/acceptance")
 def api_legal_acceptance():
-    """🛡️ Verified legal acceptance & ownership details."""
-    return {
-        "success": True,
-        "owner_id": "TeNDDG5ywwZIg3",
-        "owner_name": "PENDOTA CHARAN",
-        "signatory_name": "PENDOTA CHARAN",
-        "ip_address": "10.26.123.93",
-        "date_of_acceptance": "2026-09-20 23:08:03 IST",
-        "contact_number": (os.getenv("SUPPORT_PHONE") or os.getenv("SUPPORT_WHATSAPP") or "").strip(),
-        "email": "charan.pendota98@gmail.com",
-        "brand_name": "మన వివాహ",
-        "legal_status": "Verified & Digitally Accepted"
-    }
+    """Retired: this service does not publish an evidence-backed acceptance certificate."""
+    raise HTTPException(
+        status_code=410,
+        detail="No evidence-backed owner acceptance record is published by this service.",
+    )
 
 
 @app.get("/api/admin/backup/export")
@@ -8429,24 +9393,44 @@ def api_admin_backup_export(request: Request):
     require_admin(request)
     import backup39
     from fastapi.responses import Response
-    blob, name = backup39.export_zip()
+    try:
+        blob, name = backup39.export_zip()
+    except (OSError, RuntimeError) as exc:
+        raise HTTPException(503, "complete backup unavailable; the configured core database could not be read") from exc
     return Response(content=blob, media_type="application/zip",
                     headers={"Content-Disposition": 'attachment; filename="%s"' % name})
 
 
 @app.post("/api/admin/backup/import")
 async def api_admin_backup_import(request: Request):
-    """💾 WAVE 39 — backup ZIP restore (ADMIN KEY ONLY). Body = zip bytes.
-    Files replace + core DB memory reload; wa/push satellites ki restart best."""
+    """💾 WAVE 39 — admin ZIP restore; any reduction in core records needs a second confirmation."""
     require_admin(request)
     import backup39
     data = await request.body()
     if not data:
         raise HTTPException(400, "empty body — zip bytes required")
+    allow_destructive = request.headers.get("x-confirm-destructive-restore", "").strip().lower() in {
+        "1", "true", "yes", "confirm"
+    }
+    current_counts = {
+        "users": len(DB_USERS), "interests": len(DB_INTERESTS), "payments": len(DB_PAYMENTS),
+        "otps": len(DB_OTPS), "verified_phones": len(VERIFIED_PHONES), "views": len(DB_VIEWS),
+        "saves": len(DB_SAVES), "digest": len(DB_DIGEST),
+    }
     try:
-        res = backup39.import_zip(data)
+        res = backup39.import_zip(
+            data, allow_destructive=allow_destructive, current_counts=current_counts
+        )
+    except backup39.DestructiveRestoreRequired as e:
+        raise HTTPException(409, {
+            "code": "restore_requires_confirmation",
+            "message": str(e),
+            "decreases": e.decreases,
+        })
     except ValueError as e:
         raise HTTPException(400, "backup reject: %s" % e)
+    except (OSError, RuntimeError) as e:
+        raise HTTPException(503, "restore stopped because the pre-restore backup or durable write failed; inspect storage before retry") from e
     core = False
     try:
         _snap = DBSTORE.load()
@@ -8477,7 +9461,6 @@ async def api_admin_backup_import(request: Request):
     return {"success": True, **res}
 
 
-@app.on_event("shutdown")
 async def _shutdown_flush_db():
     """🛡️ R9 — docker restart / SIGTERM mundu DB force-flush (5s debounce window lo unna
     registrations/payments silent ga povatam block — matrimony data ante life data)."""
@@ -8489,7 +9472,6 @@ async def _shutdown_flush_db():
         print("[DB] shutdown flush fail:", str(e)[:120])
 
 
-@app.on_event("startup")
 async def _startup_backup39():
     try:
         import backup39
@@ -8587,15 +9569,21 @@ def api_admin_ads_update(cid: str, payload: dict, request: Request):
 #  🌊 WAVE 14 — BOT /matches (personal top-3, Telugu text + structured)
 # ============================================================================
 @app.get("/api/bot/matches")
-def api_bot_matches(tsap_id: str, limit: int = 3):
-    """Telegram /matches command: approved opposite-gender profiles, newest first."""
-    me = _find_user(tsap_id.upper())
-    if not me:
-        raise HTTPException(404, "TSAP ID దొరకలేదు — /register తో link చెయ్యండి")
-    pool = [u for u in DB_USERS if u.get("tsap_id") != me["tsap_id"] and not u.get("is_banned")
-            and u.get("is_approved") is not False
-            and not safety.is_blocked(tsap_id.upper(), u.get("tsap_id", ""), DB_BLOCKS)]
-    rows = topmatch.find_top_matches_v2(me, pool, limit=10)[:max(1, min(int(limit or 3), 5))]
+def api_bot_matches(tsap_id: str, limit: int = 3, request: Request = None):
+    """Telegram /matches command: owner-authenticated, approved profiles, newest first."""
+    normalized_id = str(tsap_id or "").strip().upper()
+    require_owner(request, normalized_id)
+    me = _find_user(normalized_id)
+    if not _is_approved_profile(me):
+        raise HTTPException(404, "Approved member profile not found")
+    pool = [u for u in DB_USERS if _is_approved_profile(u)
+            and str(u.get("tsap_id", "")).upper() != normalized_id
+            and not safety.is_blocked(normalized_id, u.get("tsap_id", ""), DB_BLOCKS)]
+    try:
+        max_rows = max(1, min(int(limit or 3), 5))
+    except (TypeError, ValueError, OverflowError):
+        max_rows = 3
+    rows = topmatch.find_top_matches_v2(me, pool, limit=10)[:max_rows]
     lines = [f"💘 <b>{len(rows)} profiles to review</b> (newest first; no compatibility score)"]
     cards = []
     for i, r in enumerate(rows, 1):
@@ -8618,9 +9606,10 @@ def api_bot_matches(tsap_id: str, limit: int = 3):
                       "caste": prof.get("caste"), "district": prof.get("district"),
                       "profession": job, "is_nri": _is_nri(prof),
                       "observations": r.get("observations", []), "phone_hidden": True})
-    lines.append("📞 Contact details follow the profile owner's acceptance and privacy settings; paid credits do not bypass consent.")
+    lines.append("📞 Contact details are not public; owner acceptance grants access in accepted-request account views. Paid credits do not bypass consent; notification delivery is not guaranteed.")
     return {"success": True, "for": tsap_id.upper(), "count": len(cards),
-            "text": "\n".join(lines), "matches": cards,
+            "text": "\n".join(sanitize_public_text(line) for line in lines),
+            "matches": sanitize_public_payload(cards),
             "ranking_basis": "creation_time_descending",
             "message_telugu": f"{len(cards)} profiles — profile details review చెయ్యండి; compatibility score ఇవ్వలేదు."}
 
@@ -8677,7 +9666,7 @@ def api_admin_cms_page(payload: dict, request: Request):
     d = payload or {}
     res = CMS.upsert_page(str(d.get("slug", "")), str(d.get("title_en", "")), str(d.get("title_te", "")),
                           str(d.get("body_en", "") or ""), str(d.get("body_te", "") or ""),
-                          d.get("photos"), d.get("tags"), d.get("published", True),
+                          d.get("photos"), d.get("tags"), d.get("published", False),
                           int(d.get("order", 0) or 0))
     if not res.get("success"):
         raise HTTPException(400, res.get("message_telugu"))
@@ -8692,7 +9681,7 @@ def api_admin_cms_story(payload: dict, request: Request):
                            str(d.get("photo", "") or ""), str(d.get("story_en", "") or ""),
                            str(d.get("story_te", "") or ""), str(d.get("district", "") or ""),
                            str(d.get("wedding_date", "") or ""), d.get("tags"),
-                           d.get("published", True))
+                           d.get("published", False))
     if not res.get("success"):
         raise HTTPException(400, res.get("message_telugu"))
     return res
@@ -8704,7 +9693,7 @@ def api_admin_cms_banner(payload: dict, request: Request):
     d = payload or {}
     res = CMS.upsert_banner(str(d.get("id", "") or ""), str(d.get("text_en", "")), str(d.get("text_te", "") or ""),
                             str(d.get("link", "") or ""), d.get("pages", "all"),
-                            d.get("active", True), int(d.get("order", 0) or 0))
+                            d.get("active", False), int(d.get("order", 0) or 0))
     if not res.get("success"):
         raise HTTPException(400, res.get("message_telugu"))
     return res
@@ -8731,8 +9720,9 @@ def api_admin_cms_seed_retired(request: Request):
 # ============================================================================
 @app.get("/api/channels/join")
 def api_channels_join():
-    """Public: Join buttons కి admin-mapped telegram/whatsapp links (active vi మాత్రమే)."""
-    return {"success": True, "links": CHAN.public_links()}
+    """Public directory URLs for visible listings; external availability is unchecked."""
+    links = _public_channel_links()
+    return {"success": True, "links": links, "external_status_checked": False}
 
 
 @app.get("/api/admin/channels/map")
@@ -8807,7 +9797,8 @@ def api_admin_poster_gaps(payload: dict, request: Request):
     os.environ["WA_MIN_GAP"] = str(mn)
     os.environ["WA_MAX_GAP"] = str(mx)
     return {"success": True, "gaps": {"min_gap": mn, "max_gap": mx},
-            "message_telugu": f"✅ Random gap {mn}–{mx} sec set అయ్యింది (server restart varaku; permanent కి env లో పెట్టండి)"}
+            "message_telugu": f"✅ Random gap {mn}–{mx} sec set అయ్యింది (server restart varaku; permanent కి env లో పెట్టండి)",
+            "message_en": f"Random posting gaps set to {mn}–{mx} seconds for this server process; configure environment values to persist across restarts."}
 
 
 # ============================================================================
@@ -8825,6 +9816,8 @@ def api_districts_stats():
     """Returns active district breakdown across Telangana and Andhra Pradesh."""
     counts: dict = {}
     for u in DB_USERS:
+        if not _is_approved_profile(u):
+            continue
         state = str(u.get("state") or "").strip()
         d = canonicalize_district(state, str(u.get("district") or ""))
         if d:
@@ -8844,6 +9837,8 @@ def api_castes_list():
     """Return alphabetized Hindu community labels and member-entered counts."""
     counts: dict = {}
     for u in DB_USERS:
+        if not _is_approved_profile(u):
+            continue
         c = str(u.get("caste") or "").strip()
         if c:
             counts[c] = counts.get(c, 0) + 1
@@ -8877,27 +9872,29 @@ def real_platform_stats() -> dict:
 
     Now every public number is derived from the actual DB:
       • profiles_count   → approved/live profiles really in the system
-      • verified_*       → OTP/photo/selfie verified counts, not a guessed %
+      • verification metrics → separate phone OTP/photo/ID review records, never an identity guarantee
       • districts/castes → coverage we genuinely serve (these were already real)
-      • daily_matches    → matches we actually generated (retention log), else 0
+      • featured_profiles_today → admin-curated featured profile count, else 0
     Nothing is padded, and `stats_are_live: true` lets the UI/tests prove the
     number came from data instead of a marketing constant.
     """
-    approved = [u for u in DB_USERS if u.get("is_approved", True)]
+    approved = [u for u in DB_USERS if _is_approved_profile(u)]
     total = len(approved)
-    verified = sum(1 for u in approved if safety.has_verification_evidence(u))
-    photo_verified = sum(1 for u in approved if u.get("selfie_verified") or u.get("photo_status") == "approved")
+    with_recorded_check = sum(1 for u in approved if safety.has_verification_evidence(u))
+    phone_otp_count = sum(1 for u in approved if u.get("phone_verified"))
+    photo_review_count = sum(1 for u in approved if u.get("selfie_verified") or u.get("photo_status") == "approved")
+    id_review_count = sum(1 for u in approved if u.get("id_verified"))
     brides = sum(1 for u in approved if str(u.get("gender", "")).lower() in ("bride", "female", "f"))
     grooms = sum(1 for u in approved if str(u.get("gender", "")).lower() in ("groom", "male", "m"))
     districts = {canonicalize_district(str(u.get("state") or ""), str(u.get("district") or "")) for u in approved if str(u.get("district") or "").strip()}
     castes = {str(u.get("caste") or "").strip() for u in approved if str(u.get("caste") or "").strip()}
-    # "daily matches generated" = ఈ రోజు admin-curated featured profiles (real,
-    # lekunte 0). Mundu 1450 ani constant chepparu — adi nijam kaadu.
+    # This is an admin-curated featured-profile count, not generated matches.
     try:
         _today = datetime.utcnow().strftime("%Y-%m-%d")
-        daily_matches = len(_load_daily().get(_today, []) or [])
+        _featured_ids = _load_daily().get(_today, []) or []
+        featured_profiles_today = sum(1 for _id in _featured_ids if _is_approved_profile(_find_user(_id)))
     except Exception:
-        daily_matches = 0
+        featured_profiles_today = 0
     helpline = os.getenv("SUPPORT_PHONE", "").strip()
     if helpline and not helpline.startswith("+"):
         helpline = "+" + helpline
@@ -8908,15 +9905,18 @@ def real_platform_stats() -> dict:
         "profiles_total": total,
         "brides_count": brides,
         "grooms_count": grooms,
-        "verified_count": verified,
-        "photo_verified_count": photo_verified,
+        "profiles_with_recorded_check": with_recorded_check,
+        "profiles_with_phone_otp": phone_otp_count,
+        "profiles_with_photo_review": photo_review_count,
+        "profiles_with_id_review": id_review_count,
         "districts_count": len(TS_DISTRICTS_LIST) + len(AP_DISTRICTS_LIST),
         "districts_with_profiles": len(districts),
         "castes_count": len(HINDU_COMMUNITY_OPTIONS),
         "communities_count": len(HINDU_COMMUNITY_OPTIONS),
         "castes_with_profiles": len(castes),
-        "verified_percentage": round((verified / total) * 100, 1) if total else 0.0,
-        "daily_matches_generated": daily_matches,
+        "recorded_check_percentage": round((with_recorded_check / total) * 100, 1) if total else 0.0,
+        "verification_scope": "Phone OTP, photo review, or manual ID review evidence; no identity guarantee.",
+        "featured_profiles_today": featured_profiles_today,
         "interests_sent": len(DB_INTERESTS or []),
         "helpline": helpline,
         "message_telugu": f"{total} తెలుగు ప్రొఫైల్స్ • {len(castes)} సంఘ పేర్లు • {len(districts)} ప్రాంతాలు",
@@ -8936,9 +9936,12 @@ def api_platform_stats():
 @app.get("/api/second-marriage/profiles")
 @app.get("/api/remarriage/profiles")
 def api_second_marriage_profiles(gender: str = "", limit: int = 20, offset: int = 0):
-    """Return member-submitted profiles with selected remarriage-related status values."""
+    """Return only active, approved member-submitted remarriage-related profiles."""
+    limit = clamp_int(limit, "limit", 1, 100, 20)
+    offset = clamp_int(offset, "offset", 0, 100000, 0)
     non_unmarried = ["divorced", "widow", "widower", "awaiting divorce", "separated", "vidakuulu"]
-    items = [u for u in DB_USERS if str(u.get("marital_status", "")).strip().lower() in non_unmarried]
+    items = [u for u in DB_USERS if _is_approved_profile(u)
+             and str(u.get("marital_status", "")).strip().lower() in non_unmarried]
     if gender:
         items = [u for u in items if str(u.get("gender", "")).lower() == gender.lower()]
     safe = [safe_user(u) for u in items[offset:offset + limit]]
@@ -8958,12 +9961,15 @@ def api_astro_muhurtham():
         "success": True,
         "year": "2026-2027",
         "muhurthams": [
-            {"date": "2026-10-14", "thithi": "Dasami", "star": "Anuradha", "lagna": "Dhanus", "rating": "⭐⭐⭐⭐⭐"},
-            {"date": "2026-10-28", "thithi": "Chaturdasi", "star": "Rohini", "lagna": "Vrishabha", "rating": "⭐⭐⭐⭐⭐"},
-            {"date": "2026-11-12", "thithi": "Panchami", "star": "Uttara", "lagna": "Kanya", "rating": "⭐⭐⭐⭐⭐"},
-            {"date": "2026-12-05", "thithi": "Ekadasi", "star": "Swathi", "lagna": "Makara", "rating": "⭐⭐⭐⭐⭐"},
+            {"date": "2026-10-14", "thithi": "Dasami", "star": "Anuradha", "lagna": "Dhanus"},
+            {"date": "2026-10-28", "thithi": "Chaturdasi", "star": "Rohini", "lagna": "Vrishabha"},
+            {"date": "2026-11-12", "thithi": "Panchami", "star": "Uttara", "lagna": "Kanya"},
+            {"date": "2026-12-05", "thithi": "Ekadasi", "star": "Swathi", "lagna": "Makara"},
         ],
-        "message_telugu": "🌸 శుభ ముహూర్తాల జాబితా",
+        "source_status": "reference_only_not_independently_validated",
+        "note_en": "Reference dates only; panchangam data has not been independently validated. Confirm locally before relying on it.",
+        "note_telugu": "సూచిక తేదీలు మాత్రమే; పంచాంగ వివరాలను స్వతంత్రంగా నిర్ధారించలేదు. ఉపయోగించే ముందు స్థానికంగా నిర్ధారించండి.",
+        "message_telugu": "🌸 సూచిక ముహూర్త తేదీలు — booking ముందు స్థానికంగా నిర్ధారించండి",
     }
 
 
@@ -9049,10 +10055,10 @@ def vendor_poster_alias(vendor_id: str, style: str = "square"):
 
 
 @app.get("/api/astro/chart")
-def api_astro_chart_default(tsap_id: str = ""):
+def api_astro_chart_default(tsap_id: str = "", request: Request = None):
     if not tsap_id.strip():
         raise HTTPException(400, "A profile ID is required to build a chart")
-    return api_astro_chart(tsap_id)
+    return api_astro_chart(tsap_id, request=request)
 
 
 @app.get("/api/top-matches")
@@ -9088,8 +10094,7 @@ def api_compare_profiles(payload: dict, request: Request = None):
         matched = next((u for u in DB_USERS
                         if str(u.get("tsap_id", "")).strip().upper() == profile_id), None)
         is_synthetic = _is_synthetic_profile(matched)
-        if (not matched or is_synthetic or matched.get("is_approved") is False
-                or matched.get("is_banned")):
+        if not _is_approved_profile(matched) or is_synthetic:
             raise HTTPException(404, "One or more approved member profiles are unavailable")
         if viewer_id and safety.is_blocked(viewer_id, profile_id, DB_BLOCKS):
             raise HTTPException(404, "One or more approved member profiles are unavailable")

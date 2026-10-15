@@ -3,8 +3,8 @@
 /**
  * 🎛️ ADVANCED CONTROL & ADMIN DASHBOARD — Shubhalagnam Mana Vivaha
  * ====================================================================
- * • ⚡ Smart Matchmaker: Enter ANY Single ID / Phone → Instantly finds all suitable matches with Vedic Gunamelanam & unmasked phones
- * • 📇 Contacts Directory: Search & multi-select profiles with owner-consented contact details
+ * • ⚡ Matchmaker: Apply explicit filters and compare member-entered facts; no compatibility verdict is calculated
+ * • 📇 Contacts Directory: Search profiles; contact details follow owner consent and privacy settings
  * • 📝 Dynamic Floating Notepad: Formats only selected, permission-appropriate profile details
  * • 📲 WhatsApp Sharing: 
  *      - Mode A: Privacy Safe (Profiles only - No numbers)
@@ -15,7 +15,10 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { useLang } from "@/lib/lang";
+import { apiDisplayMessage, readApiJson} from "@/lib/api";
 import { SITE_CONFIG } from "@/lib/site-config";
 import { whatsappPhoneLink, whatsappShareLink } from "@/lib/wa";
 import { BarList, Donut, Sparkline } from "./Charts";
@@ -38,9 +41,30 @@ import {
 } from "@/lib/telugu-data";
 
 type Me = { role: string; username: string; csrf: string };
+
+type RecordedCheckBadge = { icon: string; label: string; title: string };
+function recordedCheckBadge(profile: any, telugu: boolean): RecordedCheckBadge | null {
+  const raw = String(profile?.verification_level || profile?.verification || "").toLowerCase();
+  const level = ["phone", "photo", "id"].includes(raw)
+    ? raw
+    : profile?.id_verified ? "id" : profile?.photo_verified ? "photo" : profile?.phone_verified ? "phone" : "";
+  if (level === "phone") return {
+    icon: "📱", label: telugu ? "ఫోన్ OTP" : "Phone OTP",
+    title: telugu ? "OTP ఈ phone number వినియోగాన్ని మాత్రమే నిర్ధారిస్తుంది." : "OTP confirms access to this phone number only.",
+  };
+  if (level === "photo") return {
+    icon: "📷", label: telugu ? "ఫోటో review" : "Photo review",
+    title: telugu ? "సమర్పించిన ఫోటోపై review మాత్రమే; identity లేదా liveness check కాదు." : "Review of the submitted photo only; not an identity or liveness check.",
+  };
+  if (level === "id") return {
+    icon: "🪪", label: telugu ? "ప్రభుత్వ ID review" : "Government ID review",
+    title: telugu ? "ప్రభుత్వ ID review status మాత్రమే; ఇతర profile వివరాలు నిర్ధారించబడవు." : "Government ID review status only; other profile details are not verified.",
+  };
+  return null;
+}
 type Totals = {
   profiles: number; pending: number; approved: number; rejected: number;
-  with_photo: number; verified: number; males: number; females: number;
+  with_photo: number; recorded_checks: number; males: number; females: number;
   open_reports: number; photos_pending: number; interests: number; posts: number;
 };
 type Analytics = {
@@ -59,7 +83,7 @@ type QueueItem = {
 };
 type ReportItem = {
   report_id?: string; id?: string; target_id?: string; reporter_id?: string;
-  category?: string; category_telugu?: string; detail?: string; status?: string;
+  category?: string; category_telugu?: string; category_en?: string; detail?: string; detail_en?: string; status?: string;
   severity?: string; reports_on_target?: number; suggested_action?: string; at?: string;
   target?: { tsap_id?: string; full_name?: string; district?: string; is_approved?: boolean; verification?: string } | null;
 };
@@ -77,14 +101,16 @@ type PayoutItem = {
 };
 type CasteHubItem = {
   key: string; en: string; te: string; category: string; members: string[];
-  split: boolean; males: number; females: number; total: number; live: boolean;
+  split: boolean; males: number; females: number; total: number; routing_eligible?: boolean;
   channel_bride?: string; channel_groom?: string;
 };
 type VendorItem = {
   id?: string; vendor_id?: string; name?: string; business_name?: string;
   category: string; category_name?: string; phone_masked?: string;
-  phone?: string; district: string; state?: string; rating?: number;
-  package_name?: string; verified?: boolean;
+  phone?: string; district: string; state?: string;
+  package?: string; package_name?: string; package_price?: number; package_days?: number;
+  status?: string; payment_ref?: string; created_at?: string; expires_at?: string;
+  listing_details_reviewed?: boolean;
 };
 type AdCampaignItem = {
   id: string; vendor_id?: string; title: string; offer?: string;
@@ -109,8 +135,8 @@ const T = {
     tabSpotlight: "🌟 స్పాట్‌లైట్ / Profiles of Day", tabReferrals: "🤝 రెఫరల్స్ & పేఅవుట్స్", tabReports: "🚩 రిపోర్ట్‌లు",
     tabRevenue: "💰 రాబడి", tabAudit: "📝 ఆడిట్ లాగ్",
     tabChannels: "📡 టెలిగ్రామ్ & వాట్సాప్ ఛానెల్స్", tabNumbers: "📱 వాట్సాప్ & ఫోన్ నంబర్లు",
-    profilesTot: "మొత్తం ప్రొఫైళ్లు", pendingTot: "పరిశీలనలో ఉన్నవి", approvedTot: "ఆమోదించినవి",
-    verifiedTot: "ధృవీకరించినవి", withPhotoTot: "ఫోటో ఉన్నవి", malesTot: "పురుషులు (వరులు)",
+    photoQueue: "📸 ఫోటో సమీక్ష", profilesTot: "మొత్తం ప్రొఫైళ్లు", pendingTot: "పరిశీలనలో ఉన్నవి", approvedTot: "ఆమోదించినవి",
+    recordedChecksTot: "ఫోన్ OTP / ఫోటో / ID సమీక్ష", withPhotoTot: "ఫోటో ఉన్నవి", malesTot: "పురుషులు (వరులు)",
     femalesTot: "స్త్రీలు (వధువులు)", reportsTot: "ఓపెన్ రిపోర్ట్‌లు", interestsTot: "పంపిన సంబంధాలు",
     postsTot: "ఛానల్ పోస్ట్‌లు", signupsToday: "నేటి రిజిస్ట్రేషన్లు", signups7d: "గత 7 రోజుల రిజిస్ట్రేషన్లు",
     topCastes: "అగ్ర కులాలు", topStates: "రాష్ట్రాలు", topDistricts: "అగ్ర జిల్లాలు",
@@ -132,8 +158,8 @@ const T = {
     tabSpotlight: "🌟 Spotlight / Profiles of Day", tabReferrals: "🤝 Referrals & Payouts", tabReports: "🚩 Reports",
     tabRevenue: "💰 Revenue", tabAudit: "📝 Audit Log",
     tabChannels: "📡 Channels (TG/WA)", tabNumbers: "📱 WhatsApp & Phone Numbers",
-    profilesTot: "Total Profiles", pendingTot: "Pending Approval", approvedTot: "Approved",
-    verifiedTot: "Verified", withPhotoTot: "With Photo", malesTot: "Grooms",
+    photoQueue: "📸 Photo review", profilesTot: "Total Profiles", pendingTot: "Pending Approval", approvedTot: "Approved",
+    recordedChecksTot: "Recorded phone, photo or government ID checks", withPhotoTot: "With Photo", malesTot: "Grooms",
     femalesTot: "Brides", reportsTot: "Open Reports", interestsTot: "Interest Requests",
     postsTot: "Channel Posts", signupsToday: "Signups Today", signups7d: "Signups (7d)",
     topCastes: "Top Castes", topStates: "States", topDistricts: "Top Districts",
@@ -158,13 +184,15 @@ async function jget(url: string) {
   const r = await fetch(url, { credentials: "include" });
   if (r.status === 401) throw new Error("401");
   if (!r.ok) throw new Error("load");
-  return r.json();
+  return readApiJson(r);
 }
 
 export default function Dashboard() {
+  const router = useRouter();
   const { lang } = useLang();
   const te = lang === "te";
   const L = T[(lang as "te" | "en") in T ? (lang as "te" | "en") : "te"];
+  const tr = <T,>(telugu: T, english: T): T => (te ? telugu : english);
   const [me, setMe] = useState<Me | null>(null);
   const [an, setAn] = useState<Analytics | null>(null);
   const [tab, setTab] = useState<
@@ -191,11 +219,16 @@ export default function Dashboard() {
   const [spotlights, setSpotlights] = useState<SpotlightItem[]>([]);
   const [spStatus, setSpStatus] = useState<string>("all");
   const [spPaymentNotes, setSpPaymentNotes] = useState<Record<string, string>>({});
+  const [spMediaNotes, setSpMediaNotes] = useState<Record<string, string>>({});
   const [payouts, setPayouts] = useState<PayoutItem[]>([]);
   const [pStatus, setPStatus] = useState<string>("all");
   const [reports, setReports] = useState<ReportItem[]>([]);
   const [castesData, setCastesData] = useState<CasteHubItem[]>([]);
   const [vendorsData, setVendorsData] = useState<VendorItem[]>([]);
+  const [vendorStatus, setVendorStatus] = useState("pending");
+  const [vendorRevenue, setVendorRevenue] = useState<{ active?: number; pending?: number; collected?: number; pipeline?: number } | null>(null);
+  const [vendorUtrById, setVendorUtrById] = useState<Record<string, string>>({});
+  const [vendorReasonById, setVendorReasonById] = useState<Record<string, string>>({});
   const [adsData, setAdsData] = useState<AdCampaignItem[]>([]);
   const [adFilterLevel, setAdFilterLevel] = useState<string>("all");
   const [adDraft, setAdDraft] = useState({
@@ -244,7 +277,7 @@ export default function Dashboard() {
   const [dirDateFrom, setDirDateFrom] = useState("");
   const [dirDateTo, setDirDateTo] = useState("");
   const [dirPayment, setDirPayment] = useState("all");
-  const [dirVerified, setDirVerified] = useState("all");
+  const [dirCheckStatus, setDirCheckStatus] = useState("all");
   const [dirPhoto, setDirPhoto] = useState("all");
   const [dirMarital, setDirMarital] = useState("all");
   const [dirProfession, setDirProfession] = useState("all");
@@ -302,6 +335,9 @@ export default function Dashboard() {
     loading: boolean;
     result: any;
   } | null>(null);
+  const poruthamShareText = te
+    ? String(astroCheckModal?.result?.wa_report_text || "")
+    : apiDisplayMessage({ message_en: astroCheckModal?.result?.wa_report_text_en, message: astroCheckModal?.result?.wa_report_text }, false, "");
 
   // 📊 Caste Demand & Supply Matrix State
   const [demandMatrixData, setDemandMatrixData] = useState<any[]>([]);
@@ -374,7 +410,7 @@ export default function Dashboard() {
 
   const owner = me?.role === "owner";
   const financeAccess = owner || me?.role === "finance";
-  const gotoLogin = () => { window.location.href = "/control/login"; };
+  const gotoLogin = useCallback(() => router.push("/control/login"), [router]);
   const resetGrantForm = () => {
     setGrantPlanCode("");
     setGrantCredits(0);
@@ -385,10 +421,13 @@ export default function Dashboard() {
     setGrantTriggerRef(false);
   };
 
-  const flash = (m: string) => {
-    setToast(m);
+  const flash = useCallback((message: string) => {
+    const displayMessage = te
+      ? message
+      : apiDisplayMessage(message, false, "The server response is not available in English. Check the updated status.");
+    setToast(displayMessage);
     setTimeout(() => setToast(""), 3500);
-  };
+  }, [te]);
 
   const loadCore = useCallback(async () => {
     try {
@@ -400,9 +439,11 @@ export default function Dashboard() {
       setErr("");
     } catch (e: any) {
       if (e?.message === "401") gotoLogin();
-      else setErr(e?.message || "Error loading control data");
+      else setErr(te
+        ? (e?.message || "కంట్రోల్ డేటా లోడ్ కాలేదు")
+        : apiDisplayMessage(e?.message || "", false, "Unable to load control data. Please try again."));
     }
-  }, []);
+  }, [gotoLogin, te]);
 
   const loadQueue = useCallback(async (st: string) => {
     try {
@@ -441,10 +482,17 @@ export default function Dashboard() {
 
   const loadVendors = useCallback(async () => {
     try {
-      const d = await jget("/api/vendors/list?limit=100");
-      setVendorsData(d.vendors || []);
-    } catch { setVendorsData([]); }
-  }, []);
+      const [queue, revenue] = await Promise.all([
+        jget(`/api/control/vendors?status=${encodeURIComponent(vendorStatus)}`),
+        jget("/api/control/vendors/revenue"),
+      ]);
+      setVendorsData(queue.items || []);
+      setVendorRevenue(revenue);
+    } catch {
+      setVendorsData([]);
+      setVendorRevenue(null);
+    }
+  }, [vendorStatus]);
 
   const loadAds = useCallback(async () => {
     try {
@@ -475,14 +523,16 @@ export default function Dashboard() {
       if (d.success) {
         setCandidate(d.candidate);
         setMatchedResults(d.results || []);
-        flash(`ℹ️ ${d.candidate?.full_name} (${d.candidate?.tsap_id}) కోసం ${d.count} profiles — filters apply అయ్యాయి; score లెక్కించలేదు`);
+        flash(te
+          ? `ℹ️ ${d.candidate?.full_name} (${d.candidate?.tsap_id}) కోసం ${d.count} ప్రొఫైళ్లు — ఫిల్టర్‌లు వర్తింపజేశాం; సరిపోలిక స్కోర్ లెక్కించలేదు.`
+          : `ℹ️ ${d.count} profiles found for ${d.candidate?.full_name} (${d.candidate?.tsap_id}). Filters applied; no compatibility score was calculated.`);
       }
     } catch (e: any) {
-      flash(e?.message || "సంబంధాలు వెతకడంలో సమస్య ఏర్పడింది");
+      flash(te ? (e?.message || "సంబంధాలను వెతకడంలో సమస్య ఏర్పడింది") : apiDisplayMessage(e?.message || "", false, "Could not search profiles. Please try again."));
     } finally {
       setMmLoading(false);
     }
-  }, [lookupQuery, mmFilters]);
+  }, [lookupQuery, mmFilters, flash, te]);
 
   // Load Directory with Advanced Dates, Payment Status, Verification, Marital & Profession Filters
   const loadDirectory = useCallback(async () => {
@@ -498,7 +548,7 @@ export default function Dashboard() {
       if (dirDateFrom) qs.set("date_from", dirDateFrom);
       if (dirDateTo) qs.set("date_to", dirDateTo);
       if (dirPayment) qs.set("payment_status", dirPayment);
-      if (dirVerified) qs.set("verification_status", dirVerified);
+      if (dirCheckStatus) qs.set("verification_status", dirCheckStatus);
       if (dirPhoto) qs.set("photo_filter", dirPhoto);
       if (dirMarital) qs.set("marital_filter", dirMarital);
       if (dirProfession && dirProfession !== "all") qs.set("profession_filter", dirProfession);
@@ -515,7 +565,7 @@ export default function Dashboard() {
     } finally {
       setDirLoading(false);
     }
-  }, [dirSearch, dirGender, dirCaste, dirDistrict, dirStatus, dirDateRange, dirDateFrom, dirDateTo, dirPayment, dirVerified, dirPhoto, dirMarital, dirProfession]);
+  }, [dirSearch, dirGender, dirCaste, dirDistrict, dirStatus, dirDateRange, dirDateFrom, dirDateTo, dirPayment, dirCheckStatus, dirPhoto, dirMarital, dirProfession]);
 
   // 💌 Dynamic WhatsApp Proposal Text Generator
   const buildProposalText = (
@@ -526,29 +576,35 @@ export default function Dashboard() {
   ) => {
     if (!cand) return "";
     const genderLabel = cand.gender === "Bride"
-      ? "వధువు (Bride)"
-      : cand.gender === "Groom" ? "వరుడు (Groom)" : "ప్రొఫైల్ (Profile)";
-    const candidateName = cand.full_name || cand.tsap_id || "ప్రొఫైల్ (Profile)";
+      ? (te ? "వధువు" : "bride")
+      : cand.gender === "Groom" ? (te ? "వరుడు" : "groom") : (te ? "ప్రొఫైల్" : "profile");
+    const candidateName = cand.full_name || cand.tsap_id || (te ? "ప్రొఫైల్" : "profile");
     const candidateDetails = [cand.tsap_id, cand.caste, cand.district]
       .filter((value) => String(value || "").trim())
       .join(" • ");
 
     let header = "";
     if (tmpl === "parents") {
-      header = `🙏 *నమస్కారం అండి!*\n\n*మన వివాహ (Mana Vivaha)* నుండి ${genderLabel} *${candidateName}*${candidateDetails ? ` (${candidateDetails})` : ""} కోసం అందుబాటులో ఉన్న ప్రొఫైల్ సూచనలను పంచుకుంటున్నాం. వివరాలు సభ్యులు అందించినవి; దయచేసి స్వతంత్రంగా నిర్ధారించండి:`;
+      header = te
+        ? `🙏 *నమస్కారం అండి!*\n\n*మన వివాహ (Mana Vivaha)* నుండి ${genderLabel} *${candidateName}*${candidateDetails ? ` (${candidateDetails})` : ""} కోసం అందుబాటులో ఉన్న ప్రొఫైల్ సూచనలను పంచుకుంటున్నాం. వివరాలు సభ్యులు అందించినవి; దయచేసి స్వతంత్రంగా నిర్ధారించండి:`
+        : `🙏 *Hello!*\n\nWe are sharing profile suggestions available through *Mana Vivaha* for ${genderLabel} *${candidateName}*${candidateDetails ? ` (${candidateDetails})` : ""}. Details are member-submitted; please verify them independently:`;
     } else if (tmpl === "vip") {
-      header = `👑 *ప్రొఫైల్ సూచనలు*\n\n*మన వివాహ (Mana Vivaha)* లోని *${candidateName}*${candidateDetails ? ` (${candidateDetails})` : ""} కోసం ఎంపిక చేసిన ప్రొఫైల్ వివరాలు:`;
+      header = te
+        ? `👑 *ప్రొఫైల్ సూచనలు*\n\n*మన వివాహ (Mana Vivaha)* లోని *${candidateName}*${candidateDetails ? ` (${candidateDetails})` : ""} కోసం ఎంపిక చేసిన ప్రొఫైల్ వివరాలు:`
+        : `👑 *Profile suggestions*\n\nSelected profile details for *${candidateName}*${candidateDetails ? ` (${candidateDetails})` : ""} on *Mana Vivaha*:`;
     } else {
-      header = `💐 *నమస్కారం ${candidateName} గారు!*\n\nమీ ప్రొఫైల్ ప్రాధాన్యతలకు సరిపోలవచ్చని చూపబడిన కొన్ని ప్రొఫైల్ వివరాలు ఇవి. సరిపోలిక హామీ కాదు; సభ్యులు అందించిన వివరాలను స్వతంత్రంగా నిర్ధారించండి:`;
+      header = te
+        ? `💐 *నమస్కారం ${candidateName} గారు!*\n\nమీ ప్రొఫైల్ ప్రాధాన్యతలకు సరిపోలవచ్చని చూపబడిన కొన్ని ప్రొఫైల్ వివరాలు ఇవి. సరిపోలిక హామీ కాదు; సభ్యులు అందించిన వివరాలను స్వతంత్రంగా నిర్ధారించండి:`
+        : `💐 *Hello ${candidateName},*\n\nHere are a few profiles that may fit your stated preferences. This is not a match guarantee; please verify member-submitted details independently:`;
     }
 
     let matchLines = "";
     if (matches && matches.length > 0) {
       matchLines = matches
         .map((m, idx) => {
-          const mName = m.full_name || m.name || m.tsap_id || "Profile";
+          const mName = m.full_name || m.name || m.tsap_id || (te ? "ప్రొఫైల్" : "Profile");
           const details = [
-            m.age != null && String(m.age).trim() ? `${m.age} సం.` : "",
+            m.age != null && String(m.age).trim() ? `${m.age} ${te ? "సం." : "years"}` : "",
             m.height || "",
             m.caste ? `${m.caste}${m.sub_caste ? ` (${m.sub_caste})` : ""}` : "",
             m.education || "",
@@ -557,16 +613,18 @@ export default function Dashboard() {
             m.district || "",
           ].filter((value) => String(value || "").trim());
           const bio = m.tsap_id
-            ? `\n   🎴 ప్రొఫైల్ వివరాలు: https://manavivaha.in/search/${encodeURIComponent(String(m.tsap_id))}` : "";
+            ? `\n   🎴 ${te ? "ప్రొఫైల్ వివరాలు" : "Profile"}: https://manavivaha.in/search/${encodeURIComponent(String(m.tsap_id))}` : "";
           return `\n*${idx + 1}. ${mName}${m.tsap_id && mName !== m.tsap_id ? ` (${m.tsap_id})` : ""}*${details.length ? `\n   📌 ${details.join(" • ")}` : ""}${bio}`;
         })
         .join("\n");
     } else {
-      matchLines = "\n(ప్రొఫైల్ వివరాలు జతచేయలేదు)";
+      matchLines = te ? "\n(ప్రొఫైల్ వివరాలు జతచేయలేదు)" : "\n(No profile details were attached.)";
     }
 
-    const notePart = note ? `\n\n📝 *గమనిక:* ${note}` : "";
-    const footer = `\n\n🌐 manavivaha.in — సభ్యులు అందించిన వివరాలను, గుర్తింపును మరియు సంప్రదింపు సమాచారాన్ని స్వతంత్రంగా నిర్ధారించండి.\n\n_మన వివాహ • తెలుగు వివాహ పరిచయ వేదిక_`;
+    const notePart = note ? `\n\n📝 *${te ? "గమనిక" : "Note"}:* ${note}` : "";
+    const footer = te
+      ? `\n\n🌐 manavivaha.in — సభ్యులు అందించిన వివరాలను, గుర్తింపును మరియు సంప్రదింపు సమాచారాన్ని స్వతంత్రంగా నిర్ధారించండి.\n\n_మన వివాహ • తెలుగు వివాహ పరిచయ వేదిక_`
+      : `\n\n🌐 manavivaha.in — Profiles and contact details are member-submitted. Please verify all information independently.\n\n_Mana Vivaha • Telugu Matrimony_`;
 
     return `${header}\n${matchLines}${notePart}${footer}`;
   };
@@ -609,9 +667,9 @@ export default function Dashboard() {
           callback_at: counselorModal.callbackAt,
         }),
       });
-      const d = await r.json();
+      const d = await readApiJson(r);
       if (!r.ok) throw new Error(d.detail || "Failed to save note");
-      flash("✅ కౌన్సిలర్ నోట్ నమోదైంది!");
+      flash(tr("✅ కౌన్సిలర్ గమనిక సేవ్ అయింది.", "✅ Counsellor note saved."));
       setCounselorModal((prev: any) => prev ? {
         ...prev,
         notes: d.notes || [...prev.notes, d.entry],
@@ -620,7 +678,7 @@ export default function Dashboard() {
       } : null);
       loadDirectory();
     } catch (e: any) {
-      flash(e?.message || "సేవ్ చేయడంలో సమస్య ఏర్పడింది");
+      flash(te ? (e?.message || "గమనికను సేవ్ చేయడంలో సమస్య ఏర్పడింది") : apiDisplayMessage(e?.message || "", false, "Could not save the note. Please try again."));
     } finally {
       setBusyId("");
     }
@@ -636,7 +694,7 @@ export default function Dashboard() {
         setAstroCheckModal((prev: any) => prev ? { ...prev, result: d, loading: false } : null);
       }
     } catch (e: any) {
-      flash(e?.message || "జాతక గుణమేళనం లెక్కించడంలో సమస్య ఏర్పడింది");
+      flash(te ? (e?.message || "జాతక సూచికను లెక్కించడంలో సమస్య ఏర్పడింది") : apiDisplayMessage(e?.message || "", false, "Could not calculate the horoscope reference. Please try again."));
       setAstroCheckModal((prev: any) => prev ? { ...prev, loading: false } : null);
     }
   };
@@ -669,7 +727,7 @@ export default function Dashboard() {
     setAdminCasteLoading(true);
     setAdminCasteOffline(false);
     fetch(`/api/meta/castes?religion=${encodeURIComponent(religion)}`)
-      .then((r) => { if (!r.ok) throw new Error("Community list unavailable"); return r.json(); })
+      .then((r) => { if (!r.ok) throw new Error("Community list unavailable"); return readApiJson(r); })
       .then((d) => {
         if (!live) return;
         if (!d?.success || !Array.isArray(d.castes)) throw new Error("Invalid community list");
@@ -746,91 +804,72 @@ export default function Dashboard() {
     const textToCopy = notepadNote ? `${notepadNote}\n\n${generatedNotepadText}` : generatedNotepadText;
     if (!textToCopy) return;
     navigator.clipboard?.writeText(textToCopy);
-    flash("📋 నోట్‌ప్యాడ్ కాపీ అయ్యింది! (Copied to Clipboard)");
+    flash(te ? "📋 నోట్‌ప్యాడ్ కాపీ అయింది!" : "📋 Notepad copied to clipboard.");
   };
 
-  // WhatsApp Share Generator
+  // WhatsApp share text follows the selected language; profile values stay member-entered.
   const shareWhatsApp = (includeNumbers: boolean) => {
     if (selectedProfiles.length === 0) {
-      flash("⚠️ దయచేసి కనీసం ఒక ప్రొఫైల్‌ను ఎంచుకోండి");
+      flash(tr("⚠️ కనీసం ఒక ప్రొఫైల్‌ను ఎంచుకోండి.", "⚠️ Select at least one profile."));
       return;
     }
 
-    let header = `💍 *మన వివాహ (Mana Vivaha) — సంబంధాల వివరాలు*\n\n`;
+    let header = tr("💍 *మన వివాహ (Mana Vivaha) — సంబంధాల వివరాలు*\n\n", "💍 *Mana Vivaha — Profile suggestions*\n\n");
     if (candidate) {
       const candidateDetails = [candidate.tsap_id, candidate.caste, candidate.age ? `${candidate.age}y` : ""].filter(Boolean).join(" • ");
-      header += `👤 *అభ్యర్థి:* ${candidate.full_name} (${candidateDetails})\n`;
+      header += `${tr("👤 *అభ్యర్థి:*", "👤 *Candidate:")} ${candidate.full_name} (${candidateDetails})\n`;
       header += `━━━━━━━━━━━━━━━━━━━━━\n\n`;
     }
 
-    let body = "";
-    if (includeNumbers) {
-      // MODE B: Full Profiles WITH PHONE NUMBERS
-      body = selectedProfiles
-        .map((p, idx) => {
-          const icon = p.gender === "Bride" ? "👰" : "🤵";
-          let line = `${idx + 1}. ${icon} *${p.full_name}* (${p.tsap_id})\n`;
-          const ageHeight = [p.age ? `వయస్సు: ${p.age} సం.` : "", p.height ? `ఎత్తు: ${p.height}` : ""].filter(Boolean).join(" | ");
-          if (ageHeight) line += `   🎂 ${ageHeight}\n`;
-          if (p.caste) line += `   💍 కులం: ${p.caste}${p.sub_caste ? ` (${p.sub_caste})` : ""}\n`;
-          const educationJob = [p.education ? `విద్య: ${p.education}` : "", p.job ? `ఉద్యోగం: ${p.job}` : ""].filter(Boolean).join(" | ");
-          if (educationJob) line += `   🎓 ${educationJob}\n`;
-          const location = [p.district, p.state].filter(Boolean).join(", ");
-          if (location) line += `   📍 ప్రాంతం: ${location}\n`;
-          if (p.ashtakoota_total_36 != null) line += `   🪐 36-guna Ashtakoota reference total: ${p.ashtakoota_total_36}/36 — traditional calculation only, not a marriage verdict\n`;
-          if (p.porutham_checks_passed != null) line += `   🪔 Porutham checks marked pass: ${p.porutham_checks_passed} of ${p.porutham_checks_total} — review each item; not a compatibility score\n`;
-          line += `   📞 *ఫోన్ నంబర్:* ${p.phone || "అందుబాటులో లేదు"}\n`;
-          return line;
-        })
-        .join("\n");
-    } else {
-      // MODE A: Privacy Safe (NO PHONE NUMBERS)
-      body = selectedProfiles
-        .map((p, idx) => {
-          const icon = p.gender === "Bride" ? "👰" : "🤵";
-          let line = `${idx + 1}. ${icon} *${p.full_name}* (${p.tsap_id})\n`;
-          const ageHeight = [p.age ? `வయస్సు: ${p.age} సం.` : "", p.height ? `ఎత్తు: ${p.height}` : ""].filter(Boolean).join(" | ");
-          if (ageHeight) line += `   🎂 ${ageHeight}\n`;
-          if (p.caste) line += `   💍 కులం: ${p.caste}${p.sub_caste ? ` (${p.sub_caste})` : ""}\n`;
-          const educationJob = [p.education ? `విద్య: ${p.education}` : "", p.job ? `ఉద్యోగం: ${p.job}` : ""].filter(Boolean).join(" | ");
-          if (educationJob) line += `   🎓 ${educationJob}\n`;
-          const location = [p.district, p.state].filter(Boolean).join(", ");
-          if (location) line += `   📍 ప్రాంతం: ${location}\n`;
-          if (p.ashtakoota_total_36 != null) line += `   🪐 36-guna Ashtakoota reference total: ${p.ashtakoota_total_36}/36 — traditional calculation only, not a marriage verdict\n`;
-          if (p.porutham_checks_passed != null) line += `   🪔 Porutham checks marked pass: ${p.porutham_checks_passed} of ${p.porutham_checks_total} — review each item; not a compatibility score\n`;
-          line += `   🔗 ప్రొఫైల్ లింక్: https://manavivaha.in/search/${p.tsap_id}\n`;
-          return line;
-        })
-        .join("\n");
-    }
+    const body = selectedProfiles
+      .map((p, idx) => {
+        const icon = p.gender === "Bride" ? "👰" : "🤵";
+        let line = `${idx + 1}. ${icon} *${p.full_name}* (${p.tsap_id})\n`;
+        const ageHeight = [
+          p.age ? `${tr("వయస్సు", "Age")}: ${p.age} ${tr("సం.", "years")}` : "",
+          p.height ? `${tr("ఎత్తు", "Height")}: ${p.height}` : "",
+        ].filter(Boolean).join(" | ");
+        if (ageHeight) line += `   🎂 ${ageHeight}\n`;
+        if (p.caste) line += `   💍 ${tr("కమ్యూనిటీ", "Community")}: ${p.caste}${p.sub_caste ? ` (${p.sub_caste})` : ""}\n`;
+        const educationJob = [p.education ? `${tr("విద్య", "Education")}: ${p.education}` : "", p.job ? `${tr("వృత్తి", "Occupation")}: ${p.job}` : ""].filter(Boolean).join(" | ");
+        if (educationJob) line += `   🎓 ${educationJob}\n`;
+        const location = [p.district, p.state].filter(Boolean).join(", ");
+        if (location) line += `   📍 ${tr("ప్రాంతం", "Location")}: ${location}\n`;
+        if (p.ashtakoota_total_36 != null) line += `   🪐 36-guna Ashtakoota reference total: ${p.ashtakoota_total_36}/36 — traditional calculation only, not a marriage verdict\n`;
+        if (p.porutham_checks_passed != null) line += `   🪔 Porutham checks marked pass: ${p.porutham_checks_passed} of ${p.porutham_checks_total} — review each item; not a compatibility score\n`;
+        if (includeNumbers) line += `   📞 *${tr("ఫోన్ నంబర్", "Phone number")}:* ${p.phone || tr("అందుబాటులో లేదు", "Not available")}\n`;
+        else line += `   🔗 ${tr("ప్రొఫైల్ లింక్", "Profile link")}: https://manavivaha.in/search/${encodeURIComponent(String(p.tsap_id || ""))}\n`;
+        return line;
+      })
+      .join("\n");
 
-    const footer = `\n━━━━━━━━━━━━━━━━━━━━━\n🌐 మన వివాహ (Mana Vivaha) — member-submitted profiles; please verify details independently.\n👉 https://manavivaha.in`;
+    const footer = tr(
+      `\n━━━━━━━━━━━━━━━━━━━━━\n🌐 మన వివాహ (Mana Vivaha) — సభ్యులు అందించిన ప్రొఫైల్ వివరాలు; దయచేసి స్వతంత్రంగా నిర్ధారించండి.\n👉 https://manavivaha.in`,
+      `\n━━━━━━━━━━━━━━━━━━━━━\n🌐 Mana Vivaha — Profile details are member-submitted; please verify all information independently.\n👉 https://manavivaha.in`,
+    );
     const fullMsg = header + body + footer;
-
     const waUrl = whatsappPhoneLink(recipientPhone, fullMsg) || whatsappShareLink(fullMsg);
-
-    window.open(waUrl, "_blank");
+    window.open(waUrl, "_blank", "noopener,noreferrer");
   };
 
   // Telegram Share Generator
   const shareTelegram = () => {
     if (selectedProfiles.length === 0) return;
-    const msg = `💍 *మన వివాహ (Mana Vivaha) — సరిపోలే సంబంధాలు*\n\n` +
-      selectedProfiles
-        .map((p, i) => `${i + 1}. ${p.full_name} (${p.tsap_id}) — ${p.caste} • ${p.age}y • ${p.district}\n📞 ${p.phone}`)
-        .join("\n\n") +
-      `\n\n🌐 https://manavivaha.in`;
+    const title = tr("💍 *మన వివాహ (Mana Vivaha) — సరిపోలే సంబంధాలు*", "💍 *Mana Vivaha — Profile suggestions*");
+    const msg = title + "\n\n" + selectedProfiles
+      .map((p, i) => `${i + 1}. ${p.full_name} (${p.tsap_id}) — ${p.caste} • ${p.age}y • ${p.district}\n🔗 ${tr("ప్రొఫైల్", "Profile")}: https://manavivaha.in/search/${encodeURIComponent(String(p.tsap_id || ""))}`)
+      .join("\n\n") + "\n\n🌐 https://manavivaha.in";
 
-    window.open(`https://t.me/share/url?url=${encodeURIComponent("https://manavivaha.in")}&text=${encodeURIComponent(msg)}`, "_blank");
+    window.open(`https://t.me/share/url?url=${encodeURIComponent("https://manavivaha.in")}&text=${encodeURIComponent(msg)}`, "_blank", "noopener,noreferrer");
   };
 
   const exportProfilesCsv = () => {
     const list = directoryProfiles.length > 0 ? directoryProfiles : matchedResults;
     if (list.length === 0) {
-      flash("⚠️ ఎగుమతి చేయడానికి ప్రొఫైళ్లు ఏవీ లేవు");
+      flash(te ? "⚠️ ఎగుమతి చేయడానికి ప్రొఫైళ్లు లేవు." : "⚠️ There are no profiles to export.");
       return;
     }
-    const headers = ["Profile_ID", "Full_Name", "Gender", "Age", "Caste", "Sub_Caste", "Education", "Job", "District", "State", "Phone", "Plan", "Verification_Check_Recorded"];
+    const headers = ["Profile_ID", "Full_Name", "Gender", "Age", "Caste", "Sub_Caste", "Education", "Job", "District", "State", "Phone", "Plan", "Recorded_Check_Type"];
     const rows = list.map((p) => [
       `"${p.tsap_id || ""}"`,
       `"${(p.full_name || "").replace(/"/g, '""')}"`,
@@ -844,7 +883,7 @@ export default function Dashboard() {
       `"${p.state || ""}"`,
       `"${p.phone || ""}"`,
       `"${p.plan || "Free"}"`,
-      `"${p.is_verified ? "Yes" : "No"}"`,
+      `"${(recordedCheckBadge(p, false)?.label || "None recorded").replace(/"/g, '""')}"`,
     ]);
     const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
     const encodedUri = encodeURI(csvContent);
@@ -854,17 +893,17 @@ export default function Dashboard() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    flash("📥 ప్రొఫైల్స్ CSV విజయవంతంగా డౌన్‌లోడ్ అయ్యింది!");
+    flash(te ? "📥 ప్రొఫైల్‌ల CSV డౌన్‌లోడ్ అయింది." : "📥 Profile CSV downloaded.");
   };
 
   async function payoutAction(reqId: string, action: "approve" | "reject", utr = "", reason = "") {
     if (!me) return;
     if (action === "approve" && !utr.trim()) {
-      flash("చెల్లింపు నిర్ధారణకు నిజమైన UTR అవసరం.");
+      flash(te ? "చెల్లింపును నిర్ధారించడానికి నిజమైన UTR అవసరం." : "A valid UTR is required to confirm payment.");
       return;
     }
     if (action === "reject" && !reason.trim()) {
-      flash("తిరస్కరణకు కారణం నమోదు చేయండి.");
+      flash(te ? "తిరస్కరణకు కారణం నమోదు చేయండి." : "Enter a reason for rejecting this payout.");
       return;
     }
     setBusyId(reqId);
@@ -874,9 +913,9 @@ export default function Dashboard() {
         headers: { "Content-Type": "application/json", "X-Control-CSRF": me.csrf },
         body: JSON.stringify({ action, utr: utr.trim(), reason: reason.trim() }),
       });
-      const d = await r.json();
+      const d = await readApiJson(r);
       if (!r.ok) throw new Error(d.detail || d.reason || "fail");
-      flash(d.message_telugu || L.done);
+      flash(apiDisplayMessage(d, te, te ? L.done : "Payout updated."));
       loadPayouts(pStatus);
       loadCore();
     } catch (e: any) { flash(e?.message || L.failed); }
@@ -894,7 +933,7 @@ export default function Dashboard() {
         headers: { "Content-Type": "application/json", "X-Control-CSRF": me.csrf },
         body: JSON.stringify({ action, note }),
       });
-      const d = await r.json();
+      const d = await readApiJson(r);
       if (!r.ok) throw new Error(d.detail || "fail");
       flash(d.message || L.done);
       setQueue((q) => q.filter((x) => x.tsap_id !== id));
@@ -915,7 +954,7 @@ export default function Dashboard() {
         headers: { "Content-Type": "application/json", "X-Control-CSRF": me.csrf },
         body: JSON.stringify({ action, note }),
       });
-      const d = await r.json();
+      const d = await readApiJson(r);
       if (!r.ok) throw new Error(d.detail || "Could not resolve report");
       flash(d.action || L.done);
       await loadReports();
@@ -953,9 +992,11 @@ export default function Dashboard() {
           amount: amtVal,
         }),
       });
-      const d = await r.json();
+      const d = await readApiJson(r);
       if (!r.ok) throw new Error(d.detail || d.message_telugu || "Failed");
-      flash(d.message_telugu || `👑 ${id} విజయవంతంగా ${plan} కి అప్‌గ్రేడ్ చేయబడింది!`);
+      flash(apiDisplayMessage(d, te, te
+        ? `👑 ${id} కి ${d.plan_title || plan} ప్లాన్ యాక్టివేట్ అయింది.`
+        : `👑 Plan ${d.plan_title || plan} was activated for ${id}.`));
       loadDirectory();
       if (candidate?.tsap_id === id) {
         setCandidate((c: any) => c ? { ...c, plan: d.plan, credits: d.credits, is_premium: true } : c);
@@ -969,11 +1010,13 @@ export default function Dashboard() {
           phone: targetProf?.phone || "",
           plan: d.plan_title || plan,
           credits: d.credits,
-          waMessage: d.wa_message,
+          waMessage: te
+            ? (d.wa_message || "")
+            : (d.wa_message_en || `Hello ${d.full_name || id}, your ${d.plan_title || plan} plan has been activated. ${d.credits_added ?? credits ?? 0} interest-request credits were added. Plan activation does not approve your profile or verify identity. Contact details require profile-owner acceptance.`),
         });
       }
     } catch (e: any) {
-      flash(e?.message || "ప్లాన్ యాక్టివేషన్ విఫలమైంది");
+      flash(te ? (e?.message || "ప్లాన్ యాక్టివేషన్ విఫలమైంది") : apiDisplayMessage(e?.message || "", false, "Plan activation failed. Please try again."));
     } finally {
       setBusyId("");
     }
@@ -981,13 +1024,22 @@ export default function Dashboard() {
 
   async function spotlightAction(promoId: string, action: "verify_payment" | "approve" | "reject" | "close", days?: number) {
     if (!me) return;
-    const notes = (spPaymentNotes[promoId] || "").trim();
+    const paymentNote = (spPaymentNotes[promoId] || "").trim();
+    const mediaNote = (spMediaNotes[promoId] || "").trim();
+    const notes = action === "approve" ? mediaNote : paymentNote;
     if (action === "verify_payment") {
-      if (notes.length < 8) {
+      if (paymentNote.length < 8) {
         flash("Add an audit note describing how the UTR was matched to the bank statement.");
         return;
       }
       if (!window.confirm("Confirm you personally matched this UTR and amount against the merchant bank statement. This does not activate the profile.")) return;
+    }
+    if (action === "approve") {
+      if (mediaNote.length < 8) {
+        flash("Add an audit note describing the profile and media review.");
+        return;
+      }
+      if (!window.confirm("Confirm you reviewed the submitted profile and media. This is not identity verification.")) return;
     }
     setBusyId(promoId);
     try {
@@ -996,7 +1048,7 @@ export default function Dashboard() {
         headers: { "Content-Type": "application/json", "X-Control-CSRF": me.csrf },
         body: JSON.stringify({ action, days, notes }),
       });
-      const d = await r.json();
+      const d = await readApiJson(r);
       if (!r.ok) throw new Error(d.detail || "fail");
       flash(d.message || L.done);
       loadSpotlights(spStatus);
@@ -1031,12 +1083,46 @@ export default function Dashboard() {
         headers: { "Content-Type": "application/json", "X-Control-CSRF": me.csrf },
         body: JSON.stringify({ action, ...extra }),
       });
-      const d = await r.json();
+      const d = await readApiJson(r);
       if (!r.ok) throw new Error(d.detail || d.message_telugu || "Failed");
       flash(d.message_telugu || "Action completed!");
       loadAds();
     } catch (err: any) {
       flash(err?.message || "Failed to update ad");
+    } finally {
+      setBusyId("");
+    }
+  }
+
+  async function handleVendorAction(vendorId: string, action: "approve" | "reject" | "expire") {
+    if (!me) return;
+    const utr = (vendorUtrById[vendorId] || "").trim();
+    const reason = (vendorReasonById[vendorId] || "").trim();
+    if (action === "approve") {
+      if (!/^[A-Za-z0-9/-]{6,64}$/.test(utr)) {
+        flash("Enter the actual payment reference from the reviewed receipt.");
+        return;
+      }
+      if (!window.confirm("Confirm that you reviewed the receipt and matched the reference and amount. Payment does not verify business identity.")) return;
+    }
+    if (action === "reject" && reason.length < 5) {
+      flash("Add a clear reason before rejecting this vendor.");
+      return;
+    }
+    if (action === "expire" && !window.confirm("Expire this vendor listing?")) return;
+    setBusyId(vendorId);
+    try {
+      const r = await fetch(`/api/control/vendors/${encodeURIComponent(vendorId)}/action`, {
+        method: "POST", credentials: "include",
+        headers: { "Content-Type": "application/json", "X-Control-CSRF": me.csrf },
+        body: JSON.stringify({ action, ...(action === "approve" ? { utr } : {}), ...(action === "reject" ? { reason } : {}) }),
+      });
+      const data = await readApiJson(r);
+      if (!r.ok) throw new Error(data.detail || data.message_telugu || "Vendor review failed");
+      flash(data.message_telugu || "Vendor listing updated.");
+      await Promise.all([loadVendors(), loadCore()]);
+    } catch (error: any) {
+      flash(error?.message || "Vendor review failed.");
     } finally {
       setBusyId("");
     }
@@ -1056,7 +1142,7 @@ export default function Dashboard() {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ level: adDraft.level, days: Number(adDraft.days), districts, slots: adDraft.slots }),
       });
-      const data = await r.json();
+      const data = await readApiJson(r);
       if (!r.ok || !data.success) throw new Error(data.detail || data.message_telugu || "Unable to calculate quote");
       setAdQuote(data);
     } catch (error: any) {
@@ -1077,7 +1163,7 @@ export default function Dashboard() {
         headers: { "Content-Type": "application/json", "X-Control-CSRF": me.csrf },
         body: JSON.stringify({ ...adDraft, days: Number(adDraft.days), districts }),
       });
-      const data = await r.json();
+      const data = await readApiJson(r);
       if (!r.ok) throw new Error(data.detail || data.message_telugu || "Campaign could not be created");
       flash("Campaign request created as pending. It is not live until payment is reviewed and approved.");
       setAdDraft((current) => ({ ...current, title: "", offer: "", image_url: "", link: "" }));
@@ -1100,7 +1186,7 @@ export default function Dashboard() {
         headers: { "Content-Type": "application/json", "X-Control-CSRF": me.csrf },
         body: JSON.stringify(newProf),
       });
-      const d = await r.json();
+      const d = await readApiJson(r);
       if (!r.ok) throw new Error(d.detail || "Failed to create profile");
       flash(`✅ Profile created: ${d.tsap_id}`);
       loadCore();
@@ -1158,7 +1244,7 @@ export default function Dashboard() {
     { k: "revenue" as const, label: L.tabRevenue },
   ];
   const ownerTabs = [
-    { k: "matchmaker" as const, label: "⚡ స్మార్ట్ మ్యాచ్ మేకర్" },
+    { k: "matchmaker" as const, label: tr("⚡ స్మార్ట్ మ్యాచ్ మేకర్", "⚡ Smart Matchmaker") },
     { k: "directory" as const, label: `📇 డైరెక్టరీ & కాంటాక్ట్స్ (${t.profiles})` },
     { k: "overview" as const, label: L.tabOverview },
     { k: "queue" as const, label: `${L.tabQueue} (${t.pending})` },
@@ -1193,7 +1279,7 @@ export default function Dashboard() {
             <div>
               <div className="flex items-center gap-2">
                 <span className="text-base font-extrabold text-[#7A0C2E]">
-                  మన వివాహ <span className="text-slate-800">{owner ? "అడ్మిన్ పోర్టల్" : financeAccess ? "ఫైనాన్స్ డెస్క్" : "మోడరేషన్ వర్క్‌స్పేస్"}</span>
+                  {te ? "మన వివాహ" : "Mana Vivaha"} <span className="text-slate-800">{owner ? tr("అడ్మిన్ పోర్టల్", "Admin Portal") : financeAccess ? tr("ఫైనాన్స్ డెస్క్", "Finance Desk") : tr("మోడరేషన్ వర్క్‌స్పేస్", "Moderation Workspace")}</span>
                 </span>
                 <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider ${
                   owner ? "bg-amber-100 text-amber-900 border border-amber-300" : "bg-slate-100 text-slate-700"
@@ -1202,7 +1288,7 @@ export default function Dashboard() {
                 </span>
               </div>
               <p className="text-[11px] text-slate-500">
-                {L.signedAs} <b>{me.username}</b> • {owner ? "All owner operations" : financeAccess ? "Finance operations" : "Profile review and report moderation"}
+                {L.signedAs} <b>{me.username}</b> • {owner ? tr("యజమాని కార్యకలాపాలు", "Owner operations") : financeAccess ? tr("ఆర్థిక కార్యకలాపాలు", "Finance operations") : tr("ప్రొఫైల్ సమీక్ష మరియు రిపోర్ట్‌ల నిర్వహణ", "Profile review and report moderation")}
               </p>
             </div>
           </div>
@@ -1221,21 +1307,21 @@ export default function Dashboard() {
                 <span>WhatsApp</span>
               </a>
             )}
-            {owner && SITE_CONFIG.botUrl && (
-              <a
-                href={SITE_CONFIG.botUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 rounded-xl bg-[#229ED9] px-3.5 py-2 text-xs font-extrabold text-white shadow-sm hover:brightness-105 active:scale-95 transition-all"
-                title="Open configured Telegram bot"
+            {owner ? (
+              <Link
+                href="/admin/photos"
+                className="inline-flex min-h-10 items-center gap-1.5 rounded-xl border border-[#7A0C2E]/25 bg-rose-50 px-3 py-2 text-xs font-extrabold text-[#7A0C2E] hover:bg-rose-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7A0C2E] focus-visible:ring-offset-2"
+                aria-label={`${L.photoQueue}, ${t.photos_pending} pending`}
               >
-                <span aria-hidden="true">📢</span>
-                <span>Telegram</span>
-              </a>
-            )}
+                <span aria-hidden="true">📸</span>
+                <span>{L.photoQueue}</span>
+                <span className="rounded-full bg-white px-1.5 py-0.5 text-[10px] font-black">{t.photos_pending}</span>
+              </Link>
+            ) : null}
             <Link
               href="/"
               target="_blank"
+              rel="noopener noreferrer"
               className="inline-flex items-center gap-1 rounded-xl border border-maroon/25 px-3 py-2 text-xs font-bold text-maroon hover:bg-cream transition-all"
             >
               <span aria-hidden="true">🌐</span>
@@ -1294,14 +1380,14 @@ export default function Dashboard() {
             <div>
               <div className="flex items-center gap-2">
                 <span className="text-sm font-black text-amber-300">
-                  {owner ? "ఆపరేషన్స్ డెస్క్" : financeAccess ? "ఫైనాన్స్ డెస్క్" : "ప్రొఫైల్ సమీక్ష వర్క్‌స్పేస్"}
+                  {owner ? tr("ఆపరేషన్స్ డెస్క్", "Operations Desk") : financeAccess ? tr("ఫైనాన్స్ డెస్క్", "Finance Desk") : tr("ప్రొఫైల్ సమీక్ష వర్క్‌స్పేస్", "Profile Review Workspace")}
                 </span>
                 <span className="bg-white/10 text-white text-[10px] font-bold px-2 py-0.5 rounded-full border border-white/20">
                   {owner ? "Owner" : financeAccess ? "Finance" : "Moderation"}
                 </span>
               </div>
               <p className="text-[11px] text-white/80 mt-0.5 telugu">
-                సిస్టమ్‌లో ప్రస్తుతం ఉన్న లెక్కలు మాత్రమే; ప్రొఫైల్ సమాచారం సభ్యులు అందించినది.
+                {tr("సిస్టమ్‌లో ప్రస్తుతం ఉన్న లెక్కలు మాత్రమే; ప్రొఫైల్ సమాచారం సభ్యులు అందించినది.", "Live system counts only. Profile information is provided by members.")}
               </p>
             </div>
           </div>
@@ -1310,15 +1396,15 @@ export default function Dashboard() {
           <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-xs">
             <div className="bg-white/10 px-3 py-1.5 rounded-xl border border-white/15 flex items-center gap-1.5">
               <span>👥</span>
-              <span className="font-bold">{t.profiles} ప్రొఫైళ్లు</span>
+              <span className="font-bold">{t.profiles} {tr("ప్రొఫైళ్లు", "profiles")}</span>
             </div>
             <div className="bg-white/10 px-3 py-1.5 rounded-xl border border-white/15 flex items-center gap-1.5">
               <span>📸</span>
-              <span className="font-bold text-amber-300">{t.with_photo} ఫోటోలు</span>
+              <span className="font-bold text-amber-300">{t.with_photo} {tr("ఫోటోలు", "with photos")}</span>
             </div>
             <div className="bg-white/10 px-3 py-1.5 rounded-xl border border-white/15 flex items-center gap-1.5">
               <span>💌</span>
-              <span className="font-bold text-emerald-300">{t.interests} మ్యాచ్‌లు</span>
+              <span className="font-bold text-emerald-300">{t.interests} {tr("సంబంధాలు", "interest requests")}</span>
             </div>
             {owner && (
               <button
@@ -1327,7 +1413,7 @@ export default function Dashboard() {
                 className="bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-extrabold px-3 py-1.5 rounded-xl shadow-xs transition flex items-center gap-1.5"
               >
                 <span aria-hidden="true">📥</span>
-                <span>CSV ఎగుమతి</span>
+                <span>{tr("CSV ఎగుమతి", "Export CSV")}</span>
               </button>
             )}
           </div>
@@ -1345,10 +1431,10 @@ export default function Dashboard() {
                 <div>
                   <h2 className="text-xl font-black text-[#7A0C2E] flex items-center gap-2">
                     <span>⚡</span>
-                    <span>స్మార్ట్ మ్యాచ్ మేకర్ & జాతక సరిపోలిక (1-Click Matchmaker)</span>
+                    <span>{tr("స్మార్ట్ మ్యాచ్ మేకర్ & జాతక సరిపోలిక", "Smart Matchmaker")}</span>
                   </h2>
                   <p className="text-xs text-slate-600 mt-1">
-                    నమోదు చేసిన ఖచ్చితమైన Profile ID ఇవ్వండి. ఫలితాలు అందుబాటులో ఉన్న వివరాల ఆధారంగా ర్యాంక్ అవుతాయి; జాతక గుణమేళనం మార్గదర్శకం మాత్రమే.
+                    {tr("నమోదైన ఖచ్చితమైన ప్రొఫైల్ ID ఇవ్వండి. అందుబాటులో ఉన్న సభ్యులు అందించిన వివరాల ఆధారంగా ప్రొఫైల్‌లు ఫిల్టర్ అవుతాయి; జాతక గుణమేళనం మార్గదర్శకం మాత్రమే.", "Enter an exact, registered profile ID. Results are filtered using available member-submitted details; horoscope matching is informational only.")}
                   </p>
                 </div>
 
@@ -1370,7 +1456,7 @@ export default function Dashboard() {
                     disabled={mmLoading}
                     className="px-5 py-2.5 rounded-2xl maroon-gradient text-white font-extrabold text-xs shadow-md hover-lift disabled:opacity-50 whitespace-nowrap"
                   >
-                    {mmLoading ? "వెతుకుతోంది…" : "🔍 సంబంధాలు శోధించండి"}
+                    {mmLoading ? tr("వెతుకుతోంది…", "Searching…") : tr("🔍 సంబంధాలను శోధించండి", "🔍 Search profiles")}
                   </button>
                 </div>
               </div>
@@ -1386,9 +1472,12 @@ export default function Dashboard() {
                   <div className="flex items-start gap-4">
                     <div className="relative shrink-0">
                       {candidate.photo_url ? (
-                        <img
+                        <Image
                           src={candidate.photo_url}
                           alt={candidate.full_name}
+                          width={80}
+                          height={96}
+                          unoptimized
                           className="w-20 h-24 rounded-2xl object-cover border-2 border-gold/60 shadow-md"
                         />
                       ) : (
@@ -1396,11 +1485,11 @@ export default function Dashboard() {
                           <span>{candidate.gender === "Bride" ? "👰" : "🤵"}</span>
                         </div>
                       )}
-                      {candidate.is_verified && (
-                        <span className="absolute -bottom-2 -right-1 bg-emerald-600 text-white rounded-full p-1 shadow" title="Verification evidence is recorded; this is not an identity guarantee">
-                          ✓
+                      {(() => { const check = recordedCheckBadge(candidate, te); return check ? (
+                        <span className="absolute -bottom-1 left-1 max-w-[calc(100%-0.5rem)] truncate rounded-full bg-slate-900/90 px-1.5 py-0.5 text-[8px] font-bold text-white shadow" title={check.title}>
+                          {check.icon} {check.label}
                         </span>
-                      )}
+                      ) : null; })()}
                     </div>
 
                     <div className="space-y-1">
@@ -1410,22 +1499,22 @@ export default function Dashboard() {
                           {candidate.tsap_id}
                         </span>
                         <span className="text-xs font-bold text-slate-500">
-                          {candidate.gender === "Bride" ? "వధువు" : "వరుడు"}{candidate.age ? ` • ${candidate.age} సం.` : ""}
+                          {candidate.gender === "Bride" ? tr("వధువు", "Bride") : tr("వరుడు", "Groom")}{candidate.age ? ` • ${candidate.age} ${tr("సం.", "years")}` : ""}
                         </span>
                       </div>
 
                       <div className="text-xs font-bold text-slate-700 flex flex-wrap gap-x-3 gap-y-1">
-                        {candidate.caste && <span>💍 <b>కమ్యూనిటీ:</b> {candidate.caste} {candidate.sub_caste ? `(${candidate.sub_caste})` : ""}</span>}
-                        {candidate.gothram && <span>🪔 <b>గోత్రం:</b> {candidate.gothram}</span>}
-                        {candidate.star && <span>⭐ <b>నక్షత్రం:</b> {candidate.star}</span>}
-                        {candidate.rasi && <span>🌙 <b>రాశి:</b> {candidate.rasi}</span>}
+                        {candidate.caste && <span>💍 <b>{tr("కమ్యూనిటీ:", "Community:")}</b> {candidate.caste} {candidate.sub_caste ? `(${candidate.sub_caste})` : ""}</span>}
+                        {candidate.gothram && <span>🪔 <b>{tr("గోత్రం:", "Gothram:")}</b> {candidate.gothram}</span>}
+                        {candidate.star && <span>⭐ <b>{tr("నక్షత్రం:", "Nakshatram:")}</b> {candidate.star}</span>}
+                        {candidate.rasi && <span>🌙 <b>{tr("రాశి:", "Rasi:")}</b> {candidate.rasi}</span>}
                       </div>
 
                       <div className="text-xs text-slate-600 flex flex-wrap gap-x-3 gap-y-1 pt-0.5">
-                        {candidate.education && <span>🎓 <b>విద్య:</b> {candidate.education}</span>}
-                        {candidate.job && <span>💼 <b>వృత్తి:</b> {candidate.job}</span>}
-                        {candidate.salary && <span>💰 <b>ఆదాయం:</b> {candidate.salary}</span>}
-                        {(candidate.district || candidate.state) && <span>📍 <b>ప్రాంతం:</b> {[candidate.district, candidate.state].filter(Boolean).join(", ")}</span>}
+                        {candidate.education && <span>🎓 <b>{tr("విద్య:", "Education:")}</b> {candidate.education}</span>}
+                        {candidate.job && <span>💼 <b>{tr("వృత్తి:", "Occupation:")}</b> {candidate.job}</span>}
+                        {candidate.salary && <span>💰 <b>{tr("ఆదాయం:", "Income:")}</b> {candidate.salary}</span>}
+                        {(candidate.district || candidate.state) && <span>📍 <b>{tr("ప్రాంతం:", "Location:")}</b> {[candidate.district, candidate.state].filter(Boolean).join(", ")}</span>}
                       </div>
                     </div>
                   </div>
@@ -1433,9 +1522,9 @@ export default function Dashboard() {
                   {/* Right: Unmasked Direct Phone & Quick Actions */}
                   <div className="bg-white/90 rounded-2xl p-3.5 border border-gold/40 shadow-xs flex flex-col sm:items-end gap-2 w-full md:w-auto">
                     <div className="text-right">
-                      <span className="text-[10px] font-bold uppercase text-slate-400 block">📞 డైరెక్ట్ కాంటాక్ట్ నంబర్:</span>
+                      <span className="text-[10px] font-bold uppercase text-slate-400 block">📞 {tr("నేరుగా సంప్రదించాల్సిన నంబర్:", "Direct contact number:")}</span>
                       <span className="text-base font-black text-emerald-800 font-mono tracking-wide">
-                        {candidate.phone || "నంబర్ లేదు"}
+                        {candidate.phone || tr("నంబర్ లేదు", "No number available")}
                       </span>
                     </div>
 
@@ -1443,7 +1532,7 @@ export default function Dashboard() {
                       {/* Plan Badge & Fast Upgrade Button */}
                       <div className="flex items-center gap-1.5">
                         <span className="px-2.5 py-1 rounded-xl text-[10px] font-black bg-slate-100 text-slate-700 border border-slate-200">
-                          ప్లాన్: {candidate.plan || "స్థితి అందుబాటులో లేదు"}
+                          {tr("ప్లాన్:", "Plan:")} {candidate.plan || tr("స్థితి అందుబాటులో లేదు", "Status unavailable")}
                         </span>
                         <button
                           type="button"
@@ -1454,7 +1543,7 @@ export default function Dashboard() {
                           className="px-2.5 py-1 rounded-xl bg-gradient-to-r from-amber-500 to-rose-600 text-white font-extrabold text-[11px] shadow-xs hover:brightness-110 active:scale-95 transition"
                           title="Manually grant a plan; this does not verify identity or approve the profile"
                         >
-                          ప్లాన్ మంజూరు
+                          {tr("ప్లాన్ మంజూరు", "Grant plan")}
                         </button>
                       </div>
 
@@ -1491,25 +1580,25 @@ export default function Dashboard() {
                           });
                         }}
                         className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-700 text-white font-extrabold text-[11px] shadow-xs flex items-center gap-1 hover:brightness-105 active:scale-95 transition"
-                        title="WhatsApp ప్రపోజల్ మెసేజ్ బిల్డ్ చేయండి"
+                        title={tr("WhatsApp ప్రపోజల్ మెసేజ్ బిల్డ్ చేయండి", "Build WhatsApp proposal message")}
                       >
                         <span>💌</span>
-                        <span>WhatsApp ప్రపోజల్</span>
+                        <span>{tr("WhatsApp ప్రపోజల్", "WhatsApp proposal")}</span>
                       </button>
 
                       <button
                         onClick={() => {
                           setPrintSheetModal({
                             open: true,
-                            title: `${candidate.full_name} (${candidate.tsap_id}) — మ్యాచ్ షీట్`,
+                            title: `${candidate.full_name} (${candidate.tsap_id}) — ${tr("మ్యాచ్ షీట్", "Match sheet")}`,
                             profiles: [candidate, ...matchedResults],
                           });
                         }}
                         className="px-3 py-1.5 rounded-xl bg-slate-700 hover:bg-slate-800 text-white font-extrabold text-[11px] shadow-xs flex items-center gap-1 transition"
-                        title="మ్యాచ్‌ల వివరాలు ప్రింట్ చేయండి"
+                        title={tr("మ్యాచ్‌ల వివరాలు ప్రింట్ చేయండి", "Print match details")}
                       >
                         <span>🖨️</span>
-                        <span>ప్రింట్ షీట్</span>
+                        <span>{tr("ప్రింట్ షీట్", "Print sheet")}</span>
                       </button>
 
                       <button
@@ -1530,19 +1619,19 @@ export default function Dashboard() {
                           }
                         }}
                         className="px-3 py-1.5 rounded-xl bg-purple-50 text-purple-900 border border-purple-200 font-extrabold text-[11px] shadow-xs flex items-center gap-1 hover:bg-purple-100 transition"
-                        title="వేద జాతక గుణమేళనం లెక్కించండి"
+                        title={tr("వేద జాతక గుణమేళనం లెక్కించండి", "Calculate Vedic horoscope comparison")}
                       >
                         <span>🪔</span>
-                        <span>జాతక చెకర్</span>
+                        <span>{tr("జాతక చెకర్", "Horoscope check")}</span>
                       </button>
 
                       <button
                         onClick={() => openCounselorModal(candidate)}
                         className="px-3 py-1.5 rounded-xl bg-indigo-50 text-indigo-900 border border-indigo-200 font-extrabold text-[11px] shadow-xs flex items-center gap-1 hover:bg-indigo-100 transition"
-                        title="కౌన్సిలర్ నోట్స్ & కాల్ లాగ్స్"
+                        title={tr("కౌన్సిలర్ నోట్స్ & కాల్ లాగ్స్", "Counsellor notes and call log")}
                       >
                         <span>📝</span>
-                        <span>CRM నోట్స్</span>
+                        <span>{tr("CRM నోట్స్", "CRM notes")}</span>
                       </button>
 
                       <button
@@ -1553,7 +1642,7 @@ export default function Dashboard() {
                             : "bg-white text-maroon border-gold/40 hover:bg-cream"
                         }`}
                       >
-                        {isProfileSelected(candidate.tsap_id) ? "✓ నోట్‌ప్యాడ్‌లో ఉంది" : "➕ నోట్‌ప్యాడ్‌కు జోడించు"}
+                        {isProfileSelected(candidate.tsap_id) ? tr("✓ నోట్‌ప్యాడ్‌లో ఉంది", "✓ Added to notepad") : tr("➕ నోట్‌ప్యాడ్‌కు జోడించు", "➕ Add to notepad")}
                       </button>
                     </div>
                   </div>
@@ -1565,7 +1654,7 @@ export default function Dashboard() {
             {/* Advanced Filters Bar for Matches */}
             <div className="bg-white rounded-3xl p-4 border border-gold/30 shadow-xs space-y-3">
               <div className="flex items-center justify-between text-xs font-black text-slate-700">
-                <span>🎯 సరిపోయే సంబంధాల వడపోతలు (Filter Matches):</span>
+                <span>{tr("🎯 సరిపోయే సంబంధాల ఫిల్టర్‌లు", "🎯 Match filters")}</span>
                 <button
                   onClick={() => {
                     setMmFilters({
@@ -1577,7 +1666,7 @@ export default function Dashboard() {
                   }}
                   className="text-maroon hover:underline font-bold"
                 >
-                  అన్నీ రీసెట్
+                  {tr("అన్నీ రీసెట్ చేయండి", "Reset all")}
                 </button>
               </div>
 
@@ -1590,9 +1679,9 @@ export default function Dashboard() {
                   }}
                   className="px-2.5 py-2 rounded-xl border border-slate-200 bg-slate-50 font-medium"
                 >
-                  <option value="">💍 అన్ని కులాలు (All Castes)</option>
+                  <option value="">💍 {tr("అన్ని కమ్యూనిటీలు", "All communities")}</option>
                   {CASTES.map((c) => (
-                    <option key={c} value={c}>{CASTE_TELUGU[c] || c} ({c})</option>
+                    <option key={c} value={c}>{te ? `${CASTE_TELUGU[c] || c} (${c})` : c}</option>
                   ))}
                 </select>
 
@@ -1602,7 +1691,7 @@ export default function Dashboard() {
                   onChange={(e) => setMmFilters({ ...mmFilters, district: e.target.value })}
                   className="px-2.5 py-2 rounded-xl border border-slate-200 bg-slate-50 font-medium"
                 >
-                  <option value="">🏡 అన్ని జిల్లాలు (All Districts)</option>
+                  <option value="">🏡 {tr("అన్ని జిల్లాలు", "All districts")}</option>
                   {ALL_DISTRICTS.map((d) => (
                     <option key={d} value={d}>{d}</option>
                   ))}
@@ -1629,7 +1718,7 @@ export default function Dashboard() {
                   onClick={() => runMatchmaker()}
                   className="px-3 py-2 rounded-xl maroon-gradient text-white font-extrabold text-xs shadow-xs"
                 >
-                  ⚡ ఫిల్టర్ వర్తింపు
+                  ⚡ {tr("ఫిల్టర్‌లు వర్తింపజేయండి", "Apply filters")}
                 </button>
               </div>
             </div>
@@ -1638,20 +1727,20 @@ export default function Dashboard() {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span className="text-sm font-black text-navy">
-                  🎯 సరిపోయే సంబంధాల జాబితా ({matchedResults.length})
+                  🎯 {tr("సరిపోలిన ప్రొఫైళ్లు", "Filtered profiles")} ({matchedResults.length})
                 </span>
                 {matchedResults.length > 0 && (
                   <button
                     onClick={selectAllMatches}
                     className="text-xs font-bold text-maroon hover:underline ml-2"
                   >
-                    {selectedProfiles.length === matchedResults.length ? "అన్నీ తీసివేయి (Deselect All)" : "అన్నీ ఎంచుకో (Select All)"}
+                    {selectedProfiles.length === matchedResults.length ? tr("అన్నింటినీ తీసివేయండి", "Deselect all") : tr("అన్నింటినీ ఎంచుకోండి", "Select all")}
                   </button>
                 )}
               </div>
 
               <span className="text-xs text-slate-500 font-medium">
-                సభ్యుడు పంచుకున్న వివరాలు మాత్రమే చూపబడతాయి; స్వతంత్రంగా ధృవీకరించండి
+                {tr("సభ్యులు అందించిన వివరాలు మాత్రమే; దయచేసి స్వతంత్రంగా నిర్ధారించండి.", "Member-submitted details only; please verify independently.")}
               </span>
             </div>
 
@@ -1666,10 +1755,10 @@ export default function Dashboard() {
               <div className="bg-white rounded-3xl p-10 text-center border border-gold/30 shadow-sm space-y-2">
                 <div className="text-4xl">🔍</div>
                 <h4 className="font-extrabold text-base text-navy">
-                  సరిపోయే సంబంధాలు ఏవీ దొరకలేదు
+                  {tr("ప్రొఫైల్‌లు ఏవీ కనుగొనబడలేదు", "No profiles found")}
                 </h4>
                 <p className="text-xs text-slate-500 max-w-md mx-auto">
-                  దయచేసి పైన వేరే Profile ID ఇవ్వండి లేదా ఫిల్టర్లను సడలించి మళ్లీ ప్రయత్నించండి.
+                  {tr("మరొక ప్రొఫైల్ ID ప్రయత్నించండి లేదా ఫిల్టర్‌లను సడలించండి.", "Try another profile ID or broaden the filters.")}
                 </p>
               </div>
             ) : (
@@ -1680,18 +1769,23 @@ export default function Dashboard() {
                   
                   const profileUrl = `${SITE_CONFIG.siteUrl.replace(/\/$/, "")}/search/${encodeURIComponent(String(row.tsap_id || ""))}`;
                   const shareDetails = [
-                    row.age ? `🎂 వయస్సు: ${row.age}` : "",
-                    row.height ? `📏 ఎత్తు: ${row.height}` : "",
+                    row.age ? `🎂 ${tr("వయస్సు", "Age")}: ${row.age}` : "",
+                    row.height ? `📏 ${tr("ఎత్తు", "Height")}: ${row.height}` : "",
                     row.caste ? `💍 కమ్యూనిటీ: ${row.caste}${row.sub_caste ? ` (${row.sub_caste})` : ""}` : "",
-                    row.star || row.rasi ? `⭐ నక్షత్రం / రాశి: ${row.star || "—"} / ${row.rasi || "—"}` : "",
-                    row.education ? `🎓 విద్య: ${row.education}` : "",
-                    row.job ? `💼 వృత్తి: ${row.job}` : "",
-                    row.salary ? `💰 ఆదాయం: ${row.salary}` : "",
-                    row.district || row.state ? `🏡 స్థానం: ${[row.district, row.state].filter(Boolean).join(", ")}` : "",
-                    `🔍 ప్రొఫైల్: ${profileUrl}`,
+                    row.star || row.rasi ? `⭐ ${tr("నక్షత్రం / రాశి", "Nakshatram / rasi")}: ${row.star || "—"} / ${row.rasi || "—"}` : "",
+                    row.education ? `🎓 ${tr("విద్య", "Education")}: ${row.education}` : "",
+                    row.job ? `💼 ${tr("వృత్తి", "Occupation")}: ${row.job}` : "",
+                    row.salary ? `💰 ${tr("ఆదాయం", "Income")}: ${row.salary}` : "",
+                    row.district || row.state ? `🏡 ${tr("ప్రాంతం", "Location")}: ${[row.district, row.state].filter(Boolean).join(", ")}` : "",
+                    `🔍 ${tr("ప్రొఫైల్", "Profile")}: ${profileUrl}`,
                   ].filter(Boolean);
                   const waShareText = candidate?.phone
-                    ? [`నమస్కారం ${candidate.full_name || ""} గారు,`, `మీ ప్రొఫైల్ (${candidate.tsap_id}) కోసం ఒక సంబంధ వివరాన్ని పంపిస్తున్నాం.`, "", row.full_name || row.tsap_id, ...shareDetails, "", "ప్రొఫైల్ వివరాలు సభ్యులు అందించినవి; కుటుంబంతో చర్చించి స్వతంత్రంగా నిర్ధారించండి."].join("\n")
+                    ? [
+                        tr(`నమస్కారం ${candidate.full_name || ""} గారు,`, `Hello ${candidate.full_name || ""},`),
+                        tr(`మీ ప్రొఫైల్ (${candidate.tsap_id}) కోసం ఒక సంబంధ వివరాన్ని పంపిస్తున్నాం.`, `Here is a profile suggestion for your profile (${candidate.tsap_id}).`),
+                        "", row.full_name || row.tsap_id, ...shareDetails, "",
+                        tr("ప్రొఫైల్ వివరాలు సభ్యులు అందించినవి; కుటుంబంతో చర్చించి స్వతంత్రంగా నిర్ధారించండి.", "Profile details are member-submitted; discuss with your family and verify independently."),
+                      ].join("\n")
                     : "";
 
                   return (
@@ -1723,13 +1817,16 @@ export default function Dashboard() {
                                 onClick={() => setPreviewPhotoModal({ open: true, url: row.photo_url, name: row.full_name, tsapId: row.tsap_id })}
                                 className="cursor-pointer relative overflow-hidden rounded-2xl"
                               >
-                                <img
+                                <Image
                                   src={row.photo_url}
                                   alt={row.full_name}
+                                  width={80}
+                                  height={96}
+                                  unoptimized
                                   className="w-20 h-24 rounded-2xl object-cover border-2 border-gold/40 shadow-sm group-hover:scale-105 transition duration-300"
                                 />
                                 <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-xs font-bold transition">
-                                  🔍 పెద్దది
+                                  🔍 {tr("పెద్దగా చూడండి", "View larger")}
                                 </div>
                               </div>
                             ) : (
@@ -1737,11 +1834,11 @@ export default function Dashboard() {
                                 <span>{row.gender === "Bride" ? "👰" : "🤵"}</span>
                               </div>
                             )}
-                              {row.is_verified && (
-                              <span className="absolute -bottom-1 -right-1 bg-emerald-600 text-white rounded-full p-0.5 text-[9px] shadow" title="Verification evidence recorded; this is not an identity guarantee">
-                                ✓
-                              </span>
-                            )}
+                              {(() => { const check = recordedCheckBadge(row, te); return check ? (
+                                <span className="absolute -bottom-1 left-1 max-w-[calc(100%-0.5rem)] truncate rounded-full bg-slate-900/90 px-1.5 py-0.5 text-[8px] font-bold text-white shadow" title={check.title}>
+                                  {check.icon} {check.label}
+                                </span>
+                              ) : null; })()}
                           </div>
 
                           {/* Profile Details */}
@@ -1783,7 +1880,7 @@ export default function Dashboard() {
                           <div className="rounded-2xl border border-slate-200 bg-slate-50 p-2.5 text-xs">
                             <div className="mb-1 flex items-center gap-1.5 font-extrabold text-slate-700">
                               <span aria-hidden="true">ℹ️</span>
-                              <span>వివరాలు రెండు profiles లో నమోదు అయ్యాయి (ఇది match verdict కాదు)</span>
+                              <span>{tr("ఈ వివరాలు రెండు ప్రొఫైళ్లలో నమోదు అయ్యాయి; ఇది సరిపోలిక తీర్పు కాదు.", "These details are present in both profiles; this is not a match verdict.")}</span>
                             </div>
                             <ul className="list-disc space-y-0.5 pl-5 text-[11px] leading-relaxed font-medium text-slate-700">
                               {row.observations.slice(0, 4).map((item: string, itemIndex: number) => <li key={itemIndex}>{item}</li>)}
@@ -1800,9 +1897,9 @@ export default function Dashboard() {
                           <div className="flex items-center gap-2">
                             <span className="text-base">📞</span>
                             <div>
-                              <span className="text-[9px] text-slate-400 block font-bold uppercase">డైరెక్ట్ ఫోన్ నంబర్</span>
+                              <span className="text-[9px] text-slate-400 block font-bold uppercase">{tr("నేరుగా సంప్రదించాల్సిన ఫోన్ నంబర్", "Direct phone number")}</span>
                               <span className="text-xs sm:text-sm font-black text-slate-800 font-mono tracking-wide">
-                                {row.phone || "నంబర్ లేదు"}
+                                {row.phone || tr("నంబర్ లేదు", "No number available")}
                               </span>
                             </div>
                           </div>
@@ -1838,10 +1935,10 @@ export default function Dashboard() {
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="px-2.5 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-rose-600 text-white font-black text-[11px] hover:brightness-110 shadow-xs flex items-center gap-1"
-                                title="ఈ సంబంధం వివరాలు అభ్యర్థికి WhatsApp లో పంపండి"
+                                title={tr("ఈ సంబంధం వివరాలను అభ్యర్థికి WhatsApp ద్వారా పంపండి", "Send these profile details to the candidate on WhatsApp")}
                               >
                                 <span>💌</span>
-                                <span>అభ్యర్థికి పంపు</span>
+                                <span>{tr("అభ్యర్థికి పంపండి", "Send to candidate")}</span>
                               </a>
                             )}
 
@@ -1853,7 +1950,7 @@ export default function Dashboard() {
                                   : "bg-white border border-gold text-maroon hover:bg-gold-soft"
                               }`}
                             >
-                              {isSelected ? "✓ నోట్‌ప్యాడ్‌లో ఉంది" : "➕ నోట్‌ప్యాడ్"}
+                              {isSelected ? tr("✓ నోట్‌ప్యాడ్‌లో ఉంది", "✓ In notepad") : tr("➕ నోట్‌ప్యాడ్‌కు జోడించండి", "➕ Add to notepad")}
                             </button>
                           </div>
                         </div>
@@ -1877,14 +1974,14 @@ export default function Dashboard() {
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
               <button
                 type="button"
-                onClick={() => { setDirDateRange("all"); setDirPayment("all"); setDirVerified("all"); setDirPhoto("all"); }}
+                onClick={() => { setDirDateRange("all"); setDirPayment("all"); setDirCheckStatus("all"); setDirPhoto("all"); }}
                 className={`p-4 rounded-2xl border text-left transition ${
                   dirDateRange === "all" && dirPayment === "all" ? "bg-maroon text-white border-maroon shadow-md" : "bg-white border-slate-200 hover:border-gold"
                 }`}
               >
-                <div className="text-xs font-bold opacity-80">మొత్తం ప్రొఫైళ్లు</div>
+                <div className="text-xs font-bold opacity-80">{tr("మొత్తం ప్రొఫైళ్లు", "Total profiles")}</div>
                 <div className="text-2xl font-black mt-1">{dirSummary?.total_all ?? dirTotal}</div>
-                <div className="text-[10px] opacity-75 mt-0.5">రిజిస్టర్ అయినవి</div>
+                <div className="text-[10px] opacity-75 mt-0.5">{tr("నమోదైనవి", "Registered")}</div>
               </button>
 
               <button
@@ -1895,7 +1992,7 @@ export default function Dashboard() {
                 }`}
               >
                 <div className="text-xs font-bold text-amber-950 flex items-center gap-1">
-                  <span>🌟</span> <span>ఈరోజు రిజిస్ట్రేషన్లు</span>
+                  <span>🌟</span> <span>{tr("ఈరోజు నమోదైనవి", "Registered today")}</span>
                 </div>
                 <div className="text-2xl font-black text-amber-950 mt-1">{dirSummary?.today_count ?? 0}</div>
                 <div className="text-[10px] text-amber-900 font-bold mt-0.5">Today Registered</div>
@@ -1908,9 +2005,9 @@ export default function Dashboard() {
                   dirDateRange === "yesterday" ? "bg-slate-700 text-white border-slate-800 shadow-md" : "bg-slate-50 border-slate-200 hover:bg-slate-100"
                 }`}
               >
-                <div className="text-xs font-bold text-slate-700">📅 నిన్నటివి (Yesterday)</div>
+                <div className="text-xs font-bold text-slate-700">📅 {tr("నిన్న", "Yesterday")}</div>
                 <div className="text-2xl font-black text-navy mt-1">{dirSummary?.yesterday_count ?? 0}</div>
-                <div className="text-[10px] text-slate-500 mt-0.5">నిన్నటి ప్రొఫైళ్లు</div>
+                <div className="text-[10px] text-slate-500 mt-0.5">{tr("నిన్న నమోదైనవి", "Profiles registered yesterday")}</div>
               </button>
 
               <button
@@ -1921,7 +2018,7 @@ export default function Dashboard() {
                 }`}
               >
                 <div className="text-xs font-bold text-rose-950 flex items-center gap-1">
-                  <span>🟡</span> <span>ఇంకా చెల్లించని వారు</span>
+                  <span>🟡</span> <span>{tr("చెల్లింపు లేని ప్రొఫైళ్లు", "Unpaid profiles")}</span>
                 </div>
                 <div className="text-2xl font-black text-rose-950 mt-1">{dirSummary?.unpaid_count ?? 0}</div>
                 <div className="text-[10px] text-rose-800 font-bold mt-0.5">Free / Call Follow-up</div>
@@ -1948,7 +2045,7 @@ export default function Dashboard() {
                   dirPhoto === "with_photo" ? "bg-indigo-700 text-white border-indigo-800 shadow-md" : "bg-indigo-50/70 border-indigo-200 hover:bg-indigo-100/70"
                 }`}
               >
-                <div className="text-xs font-bold text-indigo-950">📸 ఫోటో ఉన్నవి</div>
+                <div className="text-xs font-bold text-indigo-950">📸 {tr("ఫోటో ఉన్నవి", "With photo")}</div>
                 <div className="text-2xl font-black text-indigo-950 mt-1">{dirSummary?.photo_count ?? 0}</div>
                 <div className="text-[10px] text-indigo-800 font-bold mt-0.5">With Photo</div>
               </button>
@@ -1960,10 +2057,10 @@ export default function Dashboard() {
                 <div>
                   <h2 className="text-xl font-black text-[#7A0C2E] flex items-center gap-2">
                     <span>📇</span>
-                    <span>డైరెక్టరీ & సంప్రదింపు నంబర్లు (All Registered Profiles)</span>
+                    <span>{tr("డైరెక్టరీ & సంప్రదింపు నంబర్లు", "Directory and contact numbers")}</span>
                   </h2>
                   <p className="text-xs text-slate-600 mt-1">
-                    నమోదైన మొత్తం {dirTotal} ప్రొఫైళ్లు • తేదీ, పేమెంట్ మరియు వెరిఫికేషన్ వారీగా శోధించండి.
+                    {tr(`మొత్తం ${dirTotal} నమోదైన ప్రొఫైళ్లు • తేదీ, చెల్లింపు మరియు నమోదైన చెక్‌ల ద్వారా శోధించండి.`, `${dirTotal} registered profiles • search by date, payment, and recorded checks.`)}
                   </p>
                 </div>
 
@@ -1974,20 +2071,20 @@ export default function Dashboard() {
                     value={dirSearch}
                     onChange={(e) => setDirSearch(e.target.value)}
                     onKeyDown={(e) => { if (e.key === "Enter") loadDirectory(); }}
-                    placeholder="పేరు, ఫోన్ నంబర్, ID, కులం..."
+                    placeholder={tr("పేరు, ఫోన్ నంబర్, ID లేదా కమ్యూనిటీ…", "Name, phone, ID, or community…")}
                     className="px-4 py-2 rounded-2xl border border-slate-300 text-xs font-bold focus:border-maroon focus:outline-none w-52 sm:w-64"
                   />
                   <button
                     onClick={() => loadDirectory()}
                     className="px-4 py-2 rounded-2xl maroon-gradient text-white font-extrabold text-xs shadow-md"
                   >
-                    🔍 శోధించు
+                    🔍 {tr("శోధించండి", "Search")}
                   </button>
                   <button
                     onClick={() => {
                       setPrintSheetModal({
                         open: true,
-                        title: `మన వివాహ (Mana Vivaha) — రిజిస్టర్డ్ ప్రొఫైల్స్ డైరెక్టరీ షీట్ (${directoryProfiles.length} మంది)`,
+                        title: tr(`మన వివాహ — నమోదైన ప్రొఫైల్‌ల డైరెక్టరీ (${directoryProfiles.length})`, `Mana Vivaha — Registered profile directory (${directoryProfiles.length})`),
                         profiles: directoryProfiles,
                       });
                     }}
@@ -1995,7 +2092,7 @@ export default function Dashboard() {
                     title="Print directory profiles sheet"
                   >
                     <span>🖨️</span>
-                    <span>ప్రింట్ షీట్</span>
+                    <span>{tr("ప్రింట్ షీట్", "Print sheet")}</span>
                   </button>
                   <button
                     onClick={exportProfilesCsv}
@@ -2003,21 +2100,21 @@ export default function Dashboard() {
                     title="Export all directory profiles to CSV"
                   >
                     <span>📥</span>
-                    <span>CSV ఎగుమతి</span>
+                    <span>{tr("CSV ఎగుమతి", "Export CSV")}</span>
                   </button>
                 </div>
               </div>
 
               {/* Date Filter Quick Pills */}
               <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-slate-100">
-                <span className="text-xs font-bold text-slate-500 mr-1">📅 నమోదు తేదీ:</span>
+                <span className="text-xs font-bold text-slate-500 mr-1">📅 {tr("నమోదు తేదీ:", "Registration date:")}</span>
                 {[
-                  { id: "all", label: "అన్ని తేదీలు (All)" },
-                  { id: "today", label: "🌟 ఈరోజు (Today)" },
-                  { id: "yesterday", label: "📅 నిన్న (Yesterday)" },
-                  { id: "7days", label: "🗓️ గత 7 రోజులు" },
-                  { id: "month", label: "📆 ఈ నెల (This Month)" },
-                  { id: "custom", label: "🔍 కస్టమ్ తేదీ (Custom)" },
+                  { id: "all", label: tr("అన్ని తేదీలు", "All dates") },
+                  { id: "today", label: tr("🌟 ఈరోజు", "🌟 Today") },
+                  { id: "yesterday", label: tr("📅 నిన్న", "📅 Yesterday") },
+                  { id: "7days", label: tr("🗓️ గత 7 రోజులు", "🗓️ Last 7 days") },
+                  { id: "month", label: tr("📆 ఈ నెల", "📆 This month") },
+                  { id: "custom", label: tr("🔍 అనుకూల తేదీ", "🔍 Custom dates") },
                 ].map((d) => (
                   <button
                     key={d.id}
@@ -2041,7 +2138,7 @@ export default function Dashboard() {
                       onChange={(e) => setDirDateFrom(e.target.value)}
                       className="px-2.5 py-1 text-xs border border-slate-300 rounded-lg"
                     />
-                    <span className="text-xs text-slate-400">నుండి</span>
+                    <span className="text-xs text-slate-400">{tr("నుండి", "to")}</span>
                     <input
                       type="date"
                       value={dirDateTo}
@@ -2053,7 +2150,7 @@ export default function Dashboard() {
                       onClick={() => loadDirectory()}
                       className="px-2.5 py-1 bg-maroon text-white text-xs font-bold rounded-lg"
                     >
-                      ఫిల్టర్ చేయి
+                      {tr("ఫిల్టర్ చేయండి", "Apply")}
                     </button>
                   </div>
                 )}
@@ -2061,13 +2158,13 @@ export default function Dashboard() {
 
               {/* Profession & Category Quick Pills */}
               <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-slate-100">
-                <span className="text-xs font-bold text-slate-500 mr-1">💼 ఉద్యోగం / వర్గం:</span>
+                <span className="text-xs font-bold text-slate-500 mr-1">💼 {tr("వృత్తి / వర్గం:", "Occupation / category:")}</span>
                 {[
-                  { id: "all", label: "అన్ని రంగాలు (All)" },
-                  { id: "housewife", label: "🏡 గృహిణి (Housewife / Homemaker)" },
-                  { id: "it_software", label: "💻 సాఫ్ట్‌వేర్ / IT" },
-                  { id: "govt", label: "🏛️ ప్రభుత్వ ఉద్యోగం (Govt Job)" },
-                  { id: "business", label: "🏢 బిజినెస్ / వ్యాపారం" },
+                  { id: "all", label: tr("అన్ని రంగాలు", "All categories") },
+                  { id: "housewife", label: tr("🏡 గృహిణి", "🏡 Homemaker") },
+                  { id: "it_software", label: tr("💻 సాఫ్ట్‌వేర్ / IT", "💻 Software / IT") },
+                  { id: "govt", label: tr("🏛️ ప్రభుత్వ ఉద్యోగం", "🏛️ Government job") },
+                  { id: "business", label: tr("🏢 వ్యాపారం", "🏢 Business") },
                 ].map((prof) => (
                   <button
                     key={prof.id}
@@ -2088,83 +2185,83 @@ export default function Dashboard() {
               <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-2 text-xs pt-2 border-t border-slate-100">
                 {/* Payment Status Filter */}
                 <div>
-                  <label className="text-[10px] font-bold text-slate-500 block mb-0.5">💰 పేమెంట్ హోదా:</label>
+                  <label className="text-[10px] font-bold text-slate-500 block mb-0.5">💰 {tr("చెల్లింపు స్థితి:", "Payment status:")}</label>
                   <select
                     value={dirPayment}
                     onChange={(e) => setDirPayment(e.target.value)}
                     className="w-full px-2.5 py-1.5 rounded-xl border border-slate-200 bg-slate-50 font-medium"
                   >
-                    <option value="all">అందరూ (All)</option>
-                    <option value="unpaid">🟡 ఇంకా చెల్లించని వారు (Unpaid/Free)</option>
-                    <option value="paid">🟢 ప్రీమియం చెల్లించిన వారు (Paid)</option>
+                    <option value="all">{tr("అన్నీ", "All")}</option>
+                    <option value="unpaid">🟡 {tr("చెల్లింపు లేనివి / ఉచితం", "Unpaid / free")}</option>
+                    <option value="paid">🟢 {tr("చెల్లించినవి", "Paid")}</option>
                   </select>
                 </div>
 
-                {/* Verification Filter */}
+                {/* Recorded-check filter; not an identity verdict */}
                 <div>
-                  <label className="text-[10px] font-bold text-slate-500 block mb-0.5">✅ వెరిఫికేషన్:</label>
+                  <label className="text-[10px] font-bold text-slate-500 block mb-0.5">{te ? "🛡️ నమోదైన చెక్ (OTP / ఫోటో / ID):" : "🛡️ Recorded check (OTP / photo / ID):"}</label>
                   <select
-                    value={dirVerified}
-                    onChange={(e) => setDirVerified(e.target.value)}
+                    value={dirCheckStatus}
+                    onChange={(e) => setDirCheckStatus(e.target.value)}
                     className="w-full px-2.5 py-1.5 rounded-xl border border-slate-200 bg-slate-50 font-medium"
                   >
-                    <option value="all">అందరూ (All)</option>
-                    <option value="verified">✓ Verified Members</option>
-                    <option value="unverified">Unverified Members</option>
+                    <option value="all">{te ? "అందరూ (All)" : "All"}</option>
+                    <option value="verified">{te ? "చెక్ నమోదు అయింది (గుర్తింపు హామీ కాదు)" : "A check is recorded (not identity-verified)"}</option>
+                    <option value="unverified">{te ? "చెక్ నమోదు కాలేదు" : "No check recorded"}</option>
                   </select>
                 </div>
 
                 {/* Marital Status Filter */}
                 <div>
-                  <label className="text-[10px] font-bold text-slate-500 block mb-0.5">💍 వివాహ రకం:</label>
+                  <label className="text-[10px] font-bold text-slate-500 block mb-0.5">💍 {tr("వైవాహిక స్థితి:", "Marital status:")}</label>
                   <select
                     value={dirMarital}
                     onChange={(e) => setDirMarital(e.target.value)}
                     className="w-full px-2.5 py-1.5 rounded-xl border border-slate-200 bg-slate-50 font-medium"
                   >
-                    <option value="all">అందరూ (All)</option>
-                    <option value="first_marriage">మొదటి వివాహం (First Marriage)</option>
-                    <option value="second_marriage">పునర్వివాహం (Second Marriage)</option>
+                    <option value="all">{tr("అన్నీ", "All")}</option>
+                    <option value="first_marriage">{tr("మొదటి వివాహం", "Never married")}</option>
+                    <option value="second_marriage">{tr("విడాకులు / విధవ / విధురుడు", "Previously married")}</option>
                   </select>
                 </div>
 
                 {/* Photo Filter */}
                 <div>
-                  <label className="text-[10px] font-bold text-slate-500 block mb-0.5">📸 ఫోటో:</label>
+                  <label className="text-[10px] font-bold text-slate-500 block mb-0.5">📸 {tr("ఫోటో:", "Photo:")}</label>
                   <select
                     value={dirPhoto}
                     onChange={(e) => setDirPhoto(e.target.value)}
                     className="w-full px-2.5 py-1.5 rounded-xl border border-slate-200 bg-slate-50 font-medium"
                   >
-                    <option value="all">అందరూ (All)</option>
-                    <option value="with_photo">📸 ఫోటో ఉన్నవి</option>
-                    <option value="no_photo">ఫోటో లేనివి</option>
+                    <option value="all">{tr("అన్నీ", "All")}</option>
+                    <option value="with_photo">📸 {tr("ఫోటో ఉన్నవి", "With photo")}</option>
+                    <option value="no_photo">{tr("ఫోటో లేనివి", "No photo")}</option>
                   </select>
                 </div>
 
                 {/* Gender Filter */}
                 <div>
-                  <label className="text-[10px] font-bold text-slate-500 block mb-0.5">👰/🤵 లింగం:</label>
+                  <label className="text-[10px] font-bold text-slate-500 block mb-0.5">👰/🤵 {tr("లింగం:", "Gender:")}</label>
                   <select
                     value={dirGender}
                     onChange={(e) => setDirGender(e.target.value)}
                     className="w-full px-2.5 py-1.5 rounded-xl border border-slate-200 bg-slate-50 font-medium"
                   >
-                    <option value="">అందరూ (All)</option>
-                    <option value="Bride">👰 వధువులు (Brides)</option>
-                    <option value="Groom">🤵 వరులు (Grooms)</option>
+                    <option value="">{tr("అన్నీ", "All")}</option>
+                    <option value="Bride">👰 {tr("వధువులు", "Brides")}</option>
+                    <option value="Groom">🤵 {tr("వరులు", "Grooms")}</option>
                   </select>
                 </div>
 
                 {/* District Filter */}
                 <div>
-                  <label className="text-[10px] font-bold text-slate-500 block mb-0.5">🏡 జిల్లా:</label>
+                  <label className="text-[10px] font-bold text-slate-500 block mb-0.5">🏡 {tr("జిల్లా:", "District:")}</label>
                   <select
                     value={dirDistrict}
                     onChange={(e) => setDirDistrict(e.target.value)}
                     className="w-full px-2.5 py-1.5 rounded-xl border border-slate-200 bg-slate-50 font-medium"
                   >
-                    <option value="">అన్ని జిల్లాలు (All)</option>
+                    <option value="">{tr("అన్ని జిల్లాలు", "All districts")}</option>
                     {(newProf.state === "TS" ? TS_DISTRICTS : newProf.state === "AP" ? AP_DISTRICTS : []).map((d) => (
                       <option key={d} value={d}>{d}</option>
                     ))}
@@ -2179,29 +2276,29 @@ export default function Dashboard() {
                 <table className="w-full text-left text-xs">
                   <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-extrabold uppercase tracking-wider">
                     <tr>
-                      <th className="p-3.5 text-center">ఎంపిక</th>
-                      <th className="p-3.5">ID / పేరు</th>
-                      <th className="p-3.5">నమోదు తేదీ</th>
-                      <th className="p-3.5">ప్లాన్ & హోదా</th>
-                      <th className="p-3.5">లింగం / వయస్సు</th>
-                      <th className="p-3.5">కులం & గోత్రం</th>
-                      <th className="p-3.5">ఉద్యోగం / చదువు</th>
-                      <th className="p-3.5">జిల్లా / ఊరు</th>
-                      <th className="p-3.5">📞 ఫోన్ నంబర్</th>
-                      <th className="p-3.5 text-right">చర్యలు & ప్లాన్</th>
+                      <th className="p-3.5 text-center">{tr("ఎంపిక", "Select")}</th>
+                      <th className="p-3.5">{tr("ID / పేరు", "ID / name")}</th>
+                      <th className="p-3.5">{tr("నమోదు తేదీ", "Registration date")}</th>
+                      <th className="p-3.5">{tr("ప్లాన్ & స్థితి", "Plan & status")}</th>
+                      <th className="p-3.5">{tr("లింగం / వయస్సు", "Gender / age")}</th>
+                      <th className="p-3.5">{tr("కమ్యూనిటీ & గోత్రం", "Community & gothram")}</th>
+                      <th className="p-3.5">{tr("వృత్తి / విద్య", "Occupation / education")}</th>
+                      <th className="p-3.5">{tr("జిల్లా / ఊరు", "District / city")}</th>
+                      <th className="p-3.5">📞 {tr("ఫోన్ నంబర్", "Phone number")}</th>
+                      <th className="p-3.5 text-right">{tr("చర్యలు & ప్లాన్", "Actions & plan")}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {dirLoading ? (
                       <tr>
                         <td colSpan={10} className="p-8 text-center text-slate-400 font-bold">
-                          లోడ్ అవుతోంది…
+                          {tr("లోడ్ అవుతోంది…", "Loading…")}
                         </td>
                       </tr>
                     ) : directoryProfiles.length === 0 ? (
                       <tr>
                         <td colSpan={10} className="p-8 text-center text-slate-400 font-bold">
-                          ఎంచుకున్న ఫిల్టర్లతో ప్రొఫైళ్లు ఏవీ లభించలేదు
+                          {tr("ఎంచుకున్న ఫిల్టర్‌లకు ప్రొఫైల్‌లు లేవు.", "No profiles match the selected filters.")}
                         </td>
                       </tr>
                     ) : (
@@ -2226,7 +2323,7 @@ export default function Dashboard() {
                                 <span>{p.full_name}</span>
                                 {p.marital_status && p.marital_status !== "Pelli Kaledu" && (
                                   <span className="px-1.5 py-0.2 bg-purple-100 text-purple-800 text-[9px] font-black rounded">
-                                    పునర్వివాహం
+                                    {tr("గతంలో వివాహమైన", "Previously married")}
                                   </span>
                                 )}
                               </div>
@@ -2235,13 +2332,13 @@ export default function Dashboard() {
                                 {p.photo_url ? (
                                   <span className="text-[10px]" title="Photo Uploaded">📸</span>
                                 ) : (
-                                  <span className="text-[9px] text-slate-400 font-sans">నో ఫోటో</span>
+                                  <span className="text-[9px] text-slate-400 font-sans">{tr("ఫోటో లేదు", "No photo")}</span>
                                 )}
                               </div>
                             </td>
                             <td className="p-3.5 font-medium whitespace-nowrap">
                               <div className={`font-mono text-[11px] ${isToday ? "text-amber-800 font-black" : "text-slate-600"}`}>
-                                {isToday ? `🌟 ఈరోజు` : regDateStr}
+                                {isToday ? `🌟 ${tr("ఈరోజు", "Today")}` : regDateStr}
                               </div>
                             </td>
                             <td className="p-3.5 font-medium">
@@ -2253,17 +2350,17 @@ export default function Dashboard() {
                                   </span>
                                 ) : (
                                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-black uppercase bg-amber-100 text-amber-900 border border-amber-300">
-                                    <span>🟡 ఉచిత సభ్యులు (Unpaid)</span>
+                                    <span>🟡 {tr("ఉచిత సభ్యులు", "Free member")}</span>
                                   </span>
                                 )}
                                 <div className="text-[10px] text-slate-500 font-mono">
-                                  🪙 {p.credits || 0} క్రెడిట్స్
+                                  🪙 {p.credits || 0} {tr("క్రెడిట్‌లు", "credits")}
                                 </div>
                               </div>
                             </td>
                             <td className="p-3.5 font-medium">
-                              <div>{p.gender === "Bride" ? "👰 వధువు" : "🤵 వరుడు"}</div>
-                              <div className="text-slate-500">{p.age} సం.</div>
+                              <div>{p.gender === "Bride" ? `👰 ${tr("వధువు", "Bride")}` : `🤵 ${tr("వరుడు", "Groom")}`}</div>
+                              <div className="text-slate-500">{p.age} {tr("సం.", "years")}</div>
                             </td>
                             <td className="p-3.5 font-medium">
                               <div>{p.caste} {p.sub_caste ? `(${p.sub_caste})` : ""}</div>
@@ -2296,12 +2393,12 @@ export default function Dashboard() {
                               {p.phone && (
                                 <a
                                   href={whatsappPhoneLink(p.phone, isPaid
-                                    ? `నమస్కారం ${p.full_name} గారు! మన వివాహ నుంచి సంప్రదిస్తున్నాం. మీ profile (${p.tsap_id}) గురించి సహాయం కావాలంటే వివరాలు చెప్పండి.`
-                                    : `నమస్కారం ${p.full_name} గారు! మన వివాహలో మీ profile (${p.tsap_id}) నమోదు అయింది. ప్రస్తుత సేవలు, ధరల వివరాలకు https://manavivaha.in/pricing చూడండి. Profile approval లేదా verification హామీ కాదు; చెల్లింపులు website లోని అధికారిక విధానం ద్వారానే చేయండి.`) || undefined}
+                                    ? tr(`నమస్కారం ${p.full_name} గారు! మన వివాహ నుంచి సంప్రదిస్తున్నాం. మీ ప్రొఫైల్ (${p.tsap_id}) గురించి సహాయం కావాలంటే తెలియజేయండి.`, `Hello ${p.full_name}, this is Mana Vivaha. Let us know if you need assistance with your profile (${p.tsap_id}).`)
+                                    : tr(`నమస్కారం ${p.full_name} గారు! మన వివాహలో మీ ప్రొఫైల్ (${p.tsap_id}) నమోదు అయింది. ప్రస్తుత సేవలు, ధరల వివరాలకు https://manavivaha.in/pricing చూడండి. ప్రొఫైల్ ఆమోదం లేదా వెరిఫికేషన్‌కు హామీ లేదు; చెల్లింపులు అధికారిక వెబ్‌సైట్ ద్వారా మాత్రమే చేయండి.`, `Hello ${p.full_name}, your profile (${p.tsap_id}) is registered with Mana Vivaha. Current services and prices: https://manavivaha.in/pricing. Profile approval or verification is not guaranteed. Please pay only through the official website.`)) || undefined}
                                   target="_blank"
                                   rel="noreferrer"
                                   className="inline-block p-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white transition font-bold"
-                                  title={isPaid ? "WhatsApp Chat" : "WhatsApp Follow-up (కాల్/మెసేజ్ పంపండి)"}
+                                  title={isPaid ? "WhatsApp Chat" : tr("WhatsApp ఫాలో-అప్", "WhatsApp follow-up")}
                                 >
                                   💬
                                 </a>
@@ -2315,9 +2412,9 @@ export default function Dashboard() {
                                   setTab("matchmaker");
                                 }}
                                 className="px-2.5 py-1.5 rounded-lg bg-amber-100 text-maroon font-bold text-[11px] hover:bg-amber-200 transition"
-                                title="మ్యాచ్‌లు చూడు"
+                                title={tr("ప్రొఫైల్‌లను చూడండి", "Find profiles")}
                               >
-                                ⚡ మ్యాచ్‌లు
+                                ⚡ {tr("ప్రొఫైల్‌లు", "Profiles")}
                               </button>
 
                               {/* WhatsApp Proposal Generator */}
@@ -2334,16 +2431,16 @@ export default function Dashboard() {
                                   });
                                 }}
                                 className="px-2.5 py-1.5 rounded-lg bg-emerald-50 text-emerald-900 border border-emerald-300 font-bold text-[11px] hover:bg-emerald-100 transition shadow-xs"
-                                title="WhatsApp ప్రపోజల్ బిల్డర్"
+                                title={tr("WhatsApp ప్రపోజల్ బిల్డర్", "WhatsApp proposal builder")}
                               >
-                                💌 ప్రపోజల్
+                                💌 {tr("ప్రపోజల్", "Proposal")}
                               </button>
 
                               {/* Counselor CRM Call Notes */}
                               <button
                                 onClick={() => openCounselorModal(p)}
                                 className="px-2.5 py-1.5 rounded-lg bg-indigo-50 text-indigo-900 border border-indigo-200 font-bold text-[11px] hover:bg-indigo-100 transition shadow-xs"
-                                title="కౌన్సిలర్ కాల్ నోట్స్ & CRM హిస్టరీ"
+                                title={tr("కౌన్సిలర్ కాల్ నోట్స్ & CRM హిస్టరీ", "Counsellor call notes and CRM history")}
                               >
                                 📝 CRM
                               </button>
@@ -2365,7 +2462,7 @@ export default function Dashboard() {
                                 className="px-2.5 py-1.5 rounded-lg bg-gradient-to-r from-amber-500 to-rose-600 text-white font-bold text-[11px] hover:brightness-110 active:scale-95 transition shadow-xs"
                                 title="Activate a current interest-request plan"
                               >
-                                👑 ప్లాన్ ఇవ్వండి
+                                👑 {tr("ప్లాన్ ఇవ్వండి", "Grant plan")}
                               </button>
                             </td>
                           </tr>
@@ -2390,7 +2487,7 @@ export default function Dashboard() {
                 { label: L.profilesTot, val: t.profiles, icon: "👥" },
                 { label: L.pendingTot, val: t.pending, icon: "⏳", alert: t.pending > 0 },
                 { label: L.approvedTot, val: t.approved, icon: "✅" },
-                { label: L.verifiedTot, val: t.verified, icon: "🛡️" },
+                { label: L.recordedChecksTot, val: t.recorded_checks, icon: "🛡️" },
                 { label: L.withPhotoTot, val: t.with_photo, icon: "📸" },
                 { label: L.reportsTot, val: t.open_reports, icon: "🚩", alert: t.open_reports > 0 },
               ].map((k) => (
@@ -2492,10 +2589,10 @@ export default function Dashboard() {
                 <div>
                   <h3 className="font-black text-maroon text-base flex items-center gap-2">
                     <span>📊</span>
-                    <span>కమ్యూనిటీ డిమాండ్ & సప్లై విశ్లేషణ (Caste Demand & Supply Balance Matrix)</span>
+                    <span>{tr("కమ్యూనిటీ డిమాండ్ & సరఫరా సమతుల్యత", "Community demand and supply overview")}</span>
                   </h3>
                   <p className="text-xs text-slate-500">
-                    ప్రతి కులంలో వధూవరుల నిష్పత్తి (Ratio), డిమాండ్ హెల్త్ మరియు వెరిఫైడ్ మెంబర్స్ స్థితి.
+                    {tr("ప్రతి కమ్యూనిటీలో వధూవరుల నిష్పత్తి మరియు నమోదు చేసిన చెక్‌ల సంఖ్య. ఇది ప్రొఫైల్ నాణ్యత లేదా ధృవీకరణకు రేటింగ్ కాదు.", "Bride-to-groom ratios and recorded checks by community. This is not a rating of profile quality or verification.")}
                   </p>
                 </div>
                 <button
@@ -2503,7 +2600,7 @@ export default function Dashboard() {
                   onClick={loadDemandMatrix}
                   className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition"
                 >
-                  🔄 రీఫ్రెష్
+                  🔄 {tr("రిఫ్రెష్", "Refresh")}
                 </button>
               </div>
 
@@ -2512,13 +2609,13 @@ export default function Dashboard() {
                   <table className="w-full text-left text-xs border-collapse">
                     <thead className="bg-slate-50 text-slate-700 font-extrabold uppercase border-b border-slate-200">
                       <tr>
-                        <th className="p-3">కులం (Community)</th>
-                        <th className="p-3 text-center">మొత్తం ప్రొఫైళ్లు</th>
-                        <th className="p-3 text-center">👰 వధువులు</th>
-                        <th className="p-3 text-center">🤵 వరులు</th>
-                        <th className="p-3 text-center">వధువు/వరుడు నిష్పత్తి</th>
-                        <th className="p-3 text-center">డిమాండ్ స్థితి (Status)</th>
-                        <th className="p-3 text-center">వెరిఫైడ్</th>
+                        <th className="p-3">{tr("కమ్యూనిటీ", "Community")}</th>
+                        <th className="p-3 text-center">{tr("మొత్తం ప్రొఫైళ్లు", "Total profiles")}</th>
+                        <th className="p-3 text-center">👰 {tr("వధువులు", "Brides")}</th>
+                        <th className="p-3 text-center">🤵 {tr("వరులు", "Grooms")}</th>
+                        <th className="p-3 text-center">{tr("వధువు / వరుడు నిష్పత్తి", "Bride-to-groom ratio")}</th>
+                        <th className="p-3 text-center">{tr("నిష్పత్తి సూచన", "Ratio indicator")}</th>
+                        <th className="p-3 text-center" title="Phone OTP, photo review, or manual ID review record; not identity proof.">{te ? "నమోదైన చెక్‌లు" : "Recorded checks"}</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
@@ -2537,10 +2634,10 @@ export default function Dashboard() {
                                 ? "bg-blue-100 text-blue-800"
                                 : "bg-purple-100 text-purple-800"
                             }`}>
-                              {row.health_telugu}
+                              {te ? row.health_telugu : row.health === "balanced" ? "Balanced" : row.health === "high_groom_demand" ? "Fewer grooms" : "Fewer brides"}
                             </span>
                           </td>
-                          <td className="p-3 text-center font-mono font-bold text-emerald-700">{row.verified}</td>
+                          <td className="p-3 text-center font-mono font-bold text-emerald-700">{row.recorded_checks}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -2554,7 +2651,7 @@ export default function Dashboard() {
               {castesData.map((c) => (
                 <div key={c.key} className="bg-white rounded-2xl p-4 border border-gold/30 shadow-xs space-y-2">
                   <div className="flex items-center justify-between">
-                    <span className="font-extrabold text-sm text-maroon">{c.te}</span>
+                    <span className="font-extrabold text-sm text-maroon">{te ? c.te : c.en}</span>
                     <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full">
                       {c.total} Profiles
                     </span>
@@ -2562,23 +2659,40 @@ export default function Dashboard() {
                   <div className="text-[11px] text-slate-600">
                     👰 {c.females} Brides • 🤵 {c.males} Grooms
                   </div>
-                  <div className="pt-1 flex gap-1">
-                    <a
-                      href={`https://t.me/${c.channel_bride || "manavivaha"}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex-1 py-1 text-center text-[10px] font-bold bg-[#229ED9] text-white rounded-lg"
-                    >
-                      📢 Brides Channel
-                    </a>
-                    <a
-                      href={`https://t.me/${c.channel_groom || "manavivaha"}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex-1 py-1 text-center text-[10px] font-bold bg-[#229ED9] text-white rounded-lg"
-                    >
-                      📢 Grooms Channel
-                    </a>
+                  <p className="text-[10px] leading-relaxed text-slate-500">
+                    {c.routing_eligible
+                      ? (te ? "Routing కోసం నమోదు అయింది; బాహ్య availability తనిఖీ కాలేదు." : "Marked for routing; external availability is not checked.")
+                      : (te ? "Routing destination నమోదు కాలేదు." : "No routing destination is configured.")}
+                  </p>
+                  <div className="pt-1 flex flex-wrap gap-1">
+                    {c.channel_bride ? (
+                      <a
+                        href={`https://t.me/${encodeURIComponent(c.channel_bride)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex-1 min-w-[7rem] py-2 text-center text-[10px] font-bold bg-[#229ED9] text-white rounded-lg"
+                      >
+                        📢 {te ? "వధువుల listing" : "Brides listing"}
+                      </a>
+                    ) : (
+                      <span className="flex-1 min-w-[7rem] py-2 text-center text-[10px] text-slate-500 rounded-lg bg-slate-50">
+                        {te ? "వధువుల destination లేదు" : "No brides destination"}
+                      </span>
+                    )}
+                    {c.channel_groom ? (
+                      <a
+                        href={`https://t.me/${encodeURIComponent(c.channel_groom)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex-1 min-w-[7rem] py-2 text-center text-[10px] font-bold bg-[#229ED9] text-white rounded-lg"
+                      >
+                        📢 {te ? "వరుల listing" : "Grooms listing"}
+                      </a>
+                    ) : (
+                      <span className="flex-1 min-w-[7rem] py-2 text-center text-[10px] text-slate-500 rounded-lg bg-slate-50">
+                        {te ? "వరుల destination లేదు" : "No grooms destination"}
+                      </span>
+                    )}
                   </div>
                 </div>
               ))}
@@ -2591,7 +2705,7 @@ export default function Dashboard() {
           <div className="bg-white rounded-3xl p-6 border border-gold/30 shadow-xs space-y-4">
             <h3 className="font-black text-lg text-[#7A0C2E] flex items-center gap-2">
               <span>📡</span>
-              <span>టెలిగ్రామ్ & వాట్సాప్ ఛానెల్స్ మేనేజ్‌మెంట్ (Telegram & WhatsApp Channels Hub)</span>
+              <span>{tr("టెలిగ్రామ్ & వాట్సాప్ ఛానెల్‌ల నిర్వహణ", "Telegram and WhatsApp channels")}</span>
             </h3>
             <ChannelsConsole />
           </div>
@@ -2602,7 +2716,7 @@ export default function Dashboard() {
           <div className="bg-white rounded-3xl p-6 border border-gold/30 shadow-xs space-y-4">
             <h3 className="font-black text-lg text-[#7A0C2E] flex items-center gap-2">
               <span>📱</span>
-              <span>అఫీషియల్ వాట్సాప్ & ఫోన్ నంబర్లు (WhatsApp Senders & Support Numbers)</span>
+              <span>{tr("అధికారిక WhatsApp పంపేవారు & మద్దతు నంబర్లు", "WhatsApp senders and support numbers")}</span>
             </h3>
             <WANumbersConsole />
           </div>
@@ -2611,12 +2725,12 @@ export default function Dashboard() {
         {/* Add Profile Form Tab */}
         {tab === "addProfile" && owner && (
           <div className="bg-white rounded-3xl p-6 sm:p-8 border border-gold/30 max-w-2xl mx-auto shadow-sm">
-            <h2 className="text-lg font-black text-[#7A0C2E] mb-2">➕ ప్రొఫైల్ చేర్చండి (Staff-entered profile)</h2>
-            <p className="mb-4 text-xs leading-relaxed text-slate-600">సభ్యుని స్పష్టమైన సమ్మతి తీసుకున్న తర్వాత మాత్రమే వివరాలు నమోదు చేయండి. ప్రతి సమాచారం సభ్యుడు అందించినది; staff entry, phone OTP లేదా profile approval identity verification కాదు. Review పూర్తయ్యే వరకు profile ప్రచురించబడదు.</p>
+            <h2 className="text-lg font-black text-[#7A0C2E] mb-2">{tr("➕ ప్రొఫైల్ చేర్చండి", "➕ Add a profile")}</h2>
+            <p className="mb-4 text-xs leading-relaxed text-slate-600">{tr("సభ్యుని స్పష్టమైన సమ్మతి పొందిన తర్వాత మాత్రమే వివరాలు నమోదు చేయండి. సమాచారం సభ్యుడు అందించినది. సిబ్బంది నమోదు, ఫోన్ OTP లేదా ప్రొఫైల్ ఆమోదం గుర్తింపు ధృవీకరణ కాదు. సమీక్ష పూర్తయ్యే వరకు ప్రొఫైల్ ప్రచురించబడదు.", "Enter details only with the member’s explicit consent. All information is member-provided. Staff entry, phone OTP, and profile approval are not identity verification. The profile will not be published until reviewed.")}</p>
             <form onSubmit={handleCreateProfile} className="space-y-4 text-xs font-bold">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-slate-700 mb-1">పూర్తి పేరు (Full Name) *</label>
+                  <label className="block text-slate-700 mb-1">{tr("పూర్తి పేరు", "Full name")} *</label>
                   <input
                     required
                     value={newProf.full_name}
@@ -2626,23 +2740,23 @@ export default function Dashboard() {
                   />
                 </div>
                 <div>
-                  <label className="block text-slate-700 mb-1">లింగం (Gender) *</label>
+                  <label className="block text-slate-700 mb-1">{tr("లింగం", "Gender")} *</label>
                   <select
                     required
                     value={newProf.gender}
                     onChange={(e) => setNewProf({ ...newProf, gender: e.target.value })}
                     className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm"
                   >
-                    <option value="" disabled>Choose gender / లింగం ఎంచుకోండి</option>
-                    <option value="Bride">👰 వధువు (Bride)</option>
-                    <option value="Groom">🤵 వరుడు (Groom)</option>
+                    <option value="" disabled>{tr("లింగాన్ని ఎంచుకోండి", "Choose gender")}</option>
+                    <option value="Bride">👰 {tr("వధువు", "Bride")}</option>
+                    <option value="Groom">🤵 {tr("వరుడు", "Groom")}</option>
                   </select>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 <div>
-                  <label className="block text-slate-700 mb-1">వయస్సు (Age - Optional)</label>
+                  <label className="block text-slate-700 mb-1">{tr("వయస్సు (ఐచ్ఛికం)", "Age (optional)")}</label>
                   <input
                     type="number"
                     min={newProf.gender === "Groom" ? 21 : 18}
@@ -2655,19 +2769,19 @@ export default function Dashboard() {
                   />
                 </div>
                 <div>
-                  <label className="block text-slate-700 mb-1">మతం (Religion) *</label>
+                  <label className="block text-slate-700 mb-1">{tr("మతం", "Religion")} *</label>
                   <select
                     required
                     value={newProf.religion}
                     onChange={(e) => setNewProf({ ...newProf, religion: e.target.value, caste: "", caste_custom: "", sub_caste: "", sub_caste_custom: "" })}
                     className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm"
                   >
-                    <option value="">మతం ఎంచుకోండి (Select religion)</option>
+                    <option value="">{tr("మతాన్ని ఎంచుకోండి", "Select religion")}</option>
                     {RELIGIONS.map((religion) => <option key={religion} value={religion}>{religion}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-slate-700 mb-1">కులం / సంఘం (Caste / Community) *</label>
+                  <label className="block text-slate-700 mb-1">{tr("కులం / కమ్యూనిటీ", "Caste / community")} *</label>
                   <select
                     required
                     disabled={!newProf.religion}
@@ -2675,22 +2789,22 @@ export default function Dashboard() {
                     onChange={(e) => setNewProf({ ...newProf, caste: e.target.value, caste_custom: "", sub_caste: "", sub_caste_custom: "" })}
                     className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm disabled:bg-slate-100"
                   >
-                    <option value="">సంఘం ఎంచుకోండి (Select community)</option>
-                    {adminCasteOpts.map((c) => <option key={c} value={c}>{CASTE_TELUGU[c] || c}</option>)}
+                    <option value="">{tr("కమ్యూనిటీని ఎంచుకోండి", "Select community")}</option>
+                    {adminCasteOpts.map((c) => <option key={c} value={c}>{te ? CASTE_TELUGU[c] || c : c}</option>)}
                   </select>
-                  <p className="mt-1 text-[10px] text-slate-500">{adminCasteLoading ? "జాబితా లోడ్ అవుతోంది…" : adminCasteOffline ? "ఆఫ్‌లైన్ జాబితా; అవసరమైతే Other / self-described వాడండి." : "ప్రతి మతానికి వేరు జాబితా; జాబితాలో లేనిది స్వయంగా నమోదు చేయండి."}</p>
+                  <p className="mt-1 text-[10px] text-slate-500">{adminCasteLoading ? tr("కమ్యూనిటీల జాబితా లోడ్ అవుతోంది…", "Loading community options…") : adminCasteOffline ? tr("ఆఫ్‌లైన్ జాబితా. అవసరమైతే Other / self-described ఎంచుకోండి.", "Offline list. Choose Other / self-described if needed.") : tr("ప్రతి మతానికి వేరు జాబితా. జాబితాలో లేని కమ్యూనిటీని స్వయంగా నమోదు చేయండి.", "Options vary by religion. Enter a community if it is not listed.")}</p>
                 </div>
                 {newProf.caste === "Other / self-described" && (
                   <div>
-                    <label className="block text-slate-700 mb-1">సభ్యుడు తెలిపిన కులం / సంఘం *</label>
+                    <label className="block text-slate-700 mb-1">{tr("సభ్యుడు తెలిపిన కమ్యూనిటీ", "Member-provided community")} *</label>
                     <input required maxLength={100} value={newProf.caste_custom} onChange={(e) => setNewProf({ ...newProf, caste_custom: e.target.value })} className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm" placeholder="Member-provided community name" />
                   </div>
                 )}
                 <div>
-                  <label className="block text-slate-700 mb-1">ఉపకులం / ఉపసంఘం (Optional)</label>
+                  <label className="block text-slate-700 mb-1">{tr("ఉప-కమ్యూనిటీ (ఐచ్ఛికం)", "Sub-community (optional)")}</label>
                   {adminSubcasteOpts.length ? (
                     <select value={newProf.sub_caste} onChange={(e) => setNewProf({ ...newProf, sub_caste: e.target.value, sub_caste_custom: "" })} className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm">
-                      <option value="">ఎంచుకోండి (Optional)</option>
+                      <option value="">{tr("ఎంచుకోండి (ఐచ్ఛికం)", "Select (optional)")}</option>
                       {adminSubcasteOpts.map((sub) => <option key={sub} value={sub}>{sub}</option>)}
                     </select>
                   ) : (
@@ -2699,21 +2813,21 @@ export default function Dashboard() {
                   {newProf.sub_caste === "Other / self-described" && <input required maxLength={100} value={newProf.sub_caste_custom} onChange={(e) => setNewProf({ ...newProf, sub_caste_custom: e.target.value })} className="mt-2 w-full px-3 py-2 rounded-xl border border-slate-300 text-sm" placeholder="Member-provided subgroup name" />}
                 </div>
                 <div>
-                  <label className="block text-slate-700 mb-1">రాష్ట్రం / ప్రాంతం (State / Region) *</label>
+                  <label className="block text-slate-700 mb-1">{tr("రాష్ట్రం / ప్రాంతం", "State / region")} *</label>
                   <select
                     required
                     value={newProf.state}
                     onChange={(e) => setNewProf({ ...newProf, state: e.target.value, district: "" })}
                     className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm"
                   >
-                    <option value="">ప్రాంతం ఎంచుకోండి (Select region)</option>
+                    <option value="">{tr("ప్రాంతాన్ని ఎంచుకోండి", "Select region")}</option>
                     <option value="TS">Telangana</option>
                     <option value="AP">Andhra Pradesh</option>
-                    <option value="Other">Other Indian state / NRI</option>
+                    <option value="Other">{tr("ఇతర భారత రాష్ట్రం / NRI", "Other Indian state / NRI")}</option>
                   </select>
                 </div>
                 <div>
-                  <label className="block text-slate-700 mb-1">జిల్లా / స్థానం (District / Location) *</label>
+                  <label className="block text-slate-700 mb-1">{tr("జిల్లా / స్థానం", "District / location")} *</label>
                   <select
                     required
                     disabled={!newProf.state}
@@ -2721,7 +2835,7 @@ export default function Dashboard() {
                     onChange={(e) => setNewProf({ ...newProf, district: e.target.value })}
                     className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm disabled:bg-slate-100"
                   >
-                    <option value="">స్థానం ఎంచుకోండి (Select location)</option>
+                    <option value="">{tr("స్థానాన్ని ఎంచుకోండి", "Select location")}</option>
                     {(newProf.state === "TS" ? TS_DISTRICTS : newProf.state === "AP" ? AP_DISTRICTS : newProf.state === "Other" ? OTHER_LOCATIONS.map((location) => location.en) : []).map((d) => (
                       <option key={d} value={d}>{d}</option>
                     ))}
@@ -2731,7 +2845,7 @@ export default function Dashboard() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-slate-700 mb-1">విద్య (Education)</label>
+                  <label className="block text-slate-700 mb-1">{tr("విద్య", "Education")}</label>
                   <input
                     value={newProf.education}
                     onChange={(e) => setNewProf({ ...newProf, education: e.target.value })}
@@ -2740,7 +2854,7 @@ export default function Dashboard() {
                   />
                 </div>
                 <div>
-                  <label className="block text-slate-700 mb-1">ఉద్యోగం (Job)</label>
+                  <label className="block text-slate-700 mb-1">{tr("వృత్తి", "Occupation")}</label>
                   <input
                     value={newProf.job}
                     onChange={(e) => setNewProf({ ...newProf, job: e.target.value })}
@@ -2751,7 +2865,7 @@ export default function Dashboard() {
               </div>
 
               <div>
-                <label className="block text-slate-700 mb-1">📞 ఫోన్ నంబర్ (Phone Number) *</label>
+                <label className="block text-slate-700 mb-1">📞 {tr("ఫోన్ నంబర్", "Phone number")} *</label>
                 <input
                   required
                   value={newProf.phone}
@@ -2769,14 +2883,14 @@ export default function Dashboard() {
                   onChange={(e) => setNewProf({ ...newProf, consent_confirmed: e.target.checked })}
                   className="mt-0.5"
                 />
-                <span>సభ్యుని స్పష్టమైన సమ్మతి తీసుకున్నాను; వివరాలు ఆయన/ఆమె అందించినవే. I confirm the member consented to this entry and supplied these details.</span>
+                <span>{tr("సభ్యుని స్పష్టమైన సమ్మతి తీసుకున్నాను; ఈ వివరాలను సభ్యుడే అందించారు.", "I confirm the member consented to this entry and supplied these details.")}</span>
               </label>
               <button
                 type="submit"
                 disabled={profSubmitting}
                 className="w-full py-3 rounded-2xl maroon-gradient text-white font-black text-sm shadow-md hover-lift disabled:opacity-50"
               >
-                {profSubmitting ? "సేవ్ చేస్తున్నారు…" : "🚀 ప్రొఫైల్ సృష్టించి మ్యాచ్‌లు శోధించండి"}
+                {profSubmitting ? tr("సేవ్ అవుతోంది…", "Saving…") : tr("🚀 ప్రొఫైల్ సృష్టించి మ్యాచ్‌లను శోధించండి", "🚀 Create profile and find matches")}
               </button>
             </form>
           </div>
@@ -2898,7 +3012,7 @@ export default function Dashboard() {
                         <div className="mt-4 space-y-3 rounded-2xl border border-amber-200 bg-amber-50/70 p-3">
                           <p className="text-xs font-semibold leading-5 text-amber-900">Review the receipt and amount before approval. The submitted reference is recorded as supplied; this system cannot verify payment with a bank.</p>
                           <label className="block text-xs font-bold text-slate-700" htmlFor={`ad-utr-${ad.id}`}>Actual payment reference / UTR
-                            <input id={`ad-utr-${ad.id}`} maxLength={64} value={adUtrById[ad.id] || ""} onChange={(e) => setAdUtrById((current) => ({ ...current, [ad.id]: e.target.value }))} className="mt-1.5 min-h-10 w-full rounded-xl border border-slate-300 bg-white px-3 font-mono text-sm" placeholder="Enter reference from verified receipt" />
+                            <input id={`ad-utr-${ad.id}`} maxLength={64} value={adUtrById[ad.id] || ""} onChange={(e) => setAdUtrById((current) => ({ ...current, [ad.id]: e.target.value }))} className="mt-1.5 min-h-10 w-full rounded-xl border border-slate-300 bg-white px-3 font-mono text-sm" placeholder="Enter actual reference from reviewed receipt" />
                           </label>
                           <label className="block text-xs font-bold text-slate-700" htmlFor={`ad-reason-${ad.id}`}>Rejection reason (required to reject)
                             <input id={`ad-reason-${ad.id}`} maxLength={500} value={adReasonById[ad.id] || ""} onChange={(e) => setAdReasonById((current) => ({ ...current, [ad.id]: e.target.value }))} className="mt-1.5 min-h-10 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm" placeholder="Write a clear reason" />
@@ -2919,19 +3033,91 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* Vendors Tab */}
+        {/* Vendors Tab — owner-only, session authenticated; no seeded sample records */}
         {tab === "vendors" && owner && (
-          <div className="grid md:grid-cols-3 gap-4">
-            {vendorsData.map((v) => (
-              <div key={v.id || v.vendor_id} className="bg-white rounded-2xl p-4 border border-gold/30 shadow-xs space-y-2">
-                <div className="font-extrabold text-sm text-navy">{v.business_name || v.name}</div>
-                <div className="text-[11px] font-mono text-slate-500">Vendor ID: {v.id || v.vendor_id || "Not available"}</div>
-                <div className="text-xs text-maroon font-bold">📂 {v.category_name || v.category}</div>
-                <div className="text-xs text-slate-600">🏡 {v.district}, {v.state}</div>
-                <div className="text-xs font-mono text-emerald-800 font-bold">📞 {v.phone || v.phone_masked || "—"}</div>
+          <section className="min-w-0 space-y-5" aria-labelledby="vendor-admin-heading">
+            <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+              <div className="min-w-0">
+                <h2 id="vendor-admin-heading" className="text-xl font-black text-navy">{te ? "వెండర్ సమీక్ష" : "Vendor review"}</h2>
+                <p className="mt-1 text-sm leading-relaxed text-slate-600">{te ? "నిజమైన vendor records మాత్రమే. చెల్లింపును బ్యాంక్‌తో స్వయంగా సరిపోల్చిన తర్వాతే approve చేయండి." : "Live vendor records only. Approve only after personally matching the payment against the bank record."}</p>
               </div>
-            ))}
-          </div>
+              <label className="block w-full text-xs font-bold text-slate-700 sm:w-56">
+                {te ? "స్థితి" : "Filter by status"}
+                <select value={vendorStatus} onChange={(event) => setVendorStatus(event.target.value)} className="mt-1.5 min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm">
+                  <option value="pending">{te ? "పెండింగ్" : "Pending"}</option>
+                  <option value="active">{te ? "యాక్టివ్" : "Active listings"}</option>
+                  <option value="kit_ready">{te ? "పూర్తయిన share kits" : "Ready share kits"}</option>
+                  <option value="rejected">{te ? "తిరస్కరించినవి" : "Rejected"}</option>
+                  <option value="expired">{te ? "గడువు ముగిసినవి" : "Expired"}</option>
+                  <option value="all">{te ? "అన్నీ" : "All"}</option>
+                </select>
+              </label>
+            </div>
+
+            {vendorRevenue && (
+              <div className="grid min-w-0 grid-cols-2 gap-3 lg:grid-cols-4" aria-label={te ? "వెండర్ ఆదాయ సారాంశం" : "Vendor revenue summary"}>
+                {[
+                  [te ? "యాక్టివ్ వెండర్లు" : "Active vendors", vendorRevenue.active ?? 0],
+                  [te ? "పెండింగ్ వెండర్లు" : "Pending vendors", vendorRevenue.pending ?? 0],
+                  [te ? "నమోదైన వసూళ్లు" : "Recorded collected", `₹${vendorRevenue.collected ?? 0}`],
+                  [te ? "పెండింగ్ మొత్తం" : "Pending amount", `₹${vendorRevenue.pipeline ?? 0}`],
+                ].map(([label, value]) => (
+                  <div key={String(label)} className="min-w-0 rounded-2xl border border-gold/30 bg-white p-3 shadow-xs sm:p-4">
+                    <div className="break-words text-xs font-semibold text-slate-600">{label}</div>
+                    <div className="mt-1 break-words text-lg font-black text-navy sm:text-xl">{value}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {vendorsData.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-gold/40 bg-white p-8 text-center text-sm text-slate-600">
+                {te ? "ఈ స్థితిలో వెండర్ రికార్డులు లేవు." : "No vendor records match this status."}
+              </div>
+            ) : (
+              <div className="grid min-w-0 gap-4 xl:grid-cols-2">
+                {vendorsData.map((vendor) => {
+                  const vendorId = vendor.id || vendor.vendor_id || "";
+                  return (
+                    <article key={vendorId || `${vendor.business_name}-${vendor.category}`} className="min-w-0 space-y-3 rounded-2xl border border-gold/30 bg-white p-4 shadow-xs sm:p-5">
+                      <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                        <div className="min-w-0">
+                          <h3 className="break-words text-base font-black text-navy">{vendor.business_name || vendor.name || (te ? "పేరు ఇవ్వలేదు" : "Name not provided")}</h3>
+                          <p className="mt-1 break-all font-mono text-xs text-slate-500">{te ? "వెండర్ ID" : "Vendor ID"}: {vendorId || "—"}</p>
+                        </div>
+                        <span className="w-fit shrink-0 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[10px] font-black uppercase text-slate-700">{vendor.status || "unknown"}</span>
+                      </div>
+                      <div className="grid min-w-0 gap-x-4 gap-y-2 text-sm sm:grid-cols-2">
+                        <p className="min-w-0 break-words text-slate-700">📂 {vendor.category_name || vendor.category || "—"}</p>
+                        <p className="min-w-0 break-words text-slate-700">📍 {[vendor.district, vendor.state].filter(Boolean).join(", ") || "—"}</p>
+                        <p className="min-w-0 break-all font-mono text-slate-700">📞 {vendor.phone || vendor.phone_masked || "—"}</p>
+                        <p className="min-w-0 break-words text-slate-700">{vendor.package_name || vendor.package || "—"} · ₹{vendor.package_price ?? 0}</p>
+                        <p className="min-w-0 break-all text-xs text-slate-600 sm:col-span-2">{te ? "చెల్లింపు రిఫరెన్స్" : "Submitted payment reference"}: <span className="font-mono">{vendor.payment_ref || (te ? "సమర్పించలేదు" : "Not submitted")}</span></p>
+                      </div>
+                      {vendor.status === "pending" && vendorId && (
+                        <div className="space-y-3 rounded-xl border border-amber-200 bg-amber-50/70 p-3">
+                          <p className="text-xs leading-relaxed text-amber-950">{te ? "రిసీట్ మరియు మొత్తాన్ని బ్యాంక్ రికార్డుతో సరిపోల్చండి. సిస్టమ్ చెల్లింపును స్వతంత్రంగా ధృవీకరించదు; చెల్లింపు business identity verification కాదు." : "Match the receipt and amount against the bank record. This system cannot independently verify payment; payment is not business identity verification."}</p>
+                          <label htmlFor={`vendor-utr-${vendorId}`} className="block text-xs font-bold text-slate-700">
+                            {te ? "నిజమైన payment reference / UTR" : "Actual payment reference / UTR"}
+                            <input id={`vendor-utr-${vendorId}`} maxLength={64} value={vendorUtrById[vendorId] || ""} onChange={(event) => setVendorUtrById((current) => ({ ...current, [vendorId]: event.target.value }))} className="mt-1.5 min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 font-mono text-sm" autoComplete="off" />
+                          </label>
+                          <label htmlFor={`vendor-reason-${vendorId}`} className="block text-xs font-bold text-slate-700">
+                            {te ? "తిరస్కరణ కారణం (తిరస్కరించడానికి అవసరం)" : "Rejection reason (required to reject)"}
+                            <input id={`vendor-reason-${vendorId}`} maxLength={500} value={vendorReasonById[vendorId] || ""} onChange={(event) => setVendorReasonById((current) => ({ ...current, [vendorId]: event.target.value }))} className="mt-1.5 min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm" />
+                          </label>
+                          <div className="flex flex-wrap gap-2">
+                            <button type="button" disabled={busyId === vendorId} onClick={() => void handleVendorAction(vendorId, "approve")} className="min-h-11 rounded-xl bg-emerald-700 px-4 py-2 text-xs font-bold text-white disabled:opacity-50">{te ? "రిసీట్ సమీక్ష తర్వాత approve" : "Approve after receipt review"}</button>
+                            <button type="button" disabled={busyId === vendorId} onClick={() => void handleVendorAction(vendorId, "reject")} className="min-h-11 rounded-xl bg-rose-700 px-4 py-2 text-xs font-bold text-white disabled:opacity-50">{te ? "కారణంతో తిరస్కరించండి" : "Reject with reason"}</button>
+                          </div>
+                        </div>
+                      )}
+                      {vendor.status === "active" && vendorId && <button type="button" disabled={busyId === vendorId} onClick={() => void handleVendorAction(vendorId, "expire")} className="min-h-11 rounded-xl border border-slate-300 px-4 py-2 text-xs font-bold text-slate-700 disabled:opacity-50">{te ? "లిస్టింగ్‌ను ముగించండి" : "Expire listing"}</button>}
+                    </article>
+                  );
+                })}
+              </div>
+            )}
+          </section>
         )}
 
         {/* Spotlight Tab */}
@@ -2975,6 +3161,16 @@ export default function Dashboard() {
                             rows={2} maxLength={300} className="w-full min-w-0 resize-y rounded-xl border border-slate-300 px-3 py-2 text-xs leading-relaxed" />
                         </div>
                       )}
+                      {paymentVerified && sp.status === "pending_review" && (
+                        <div className="space-y-2">
+                          <label htmlFor={`spotlight-media-audit-${sp.promo_id}`} className="block text-xs font-bold text-slate-700">
+                            {te ? "ప్రొఫైల్/మీడియాలో సమీక్షించిన అంశాల audit note నమోదు చేయండి; ఇది identity verification కాదు" : "Record what you reviewed in the profile/media; this is not identity verification"}
+                          </label>
+                          <textarea id={`spotlight-media-audit-${sp.promo_id}`} value={spMediaNotes[sp.promo_id] || ""}
+                            onChange={(e) => setSpMediaNotes((prev) => ({ ...prev, [sp.promo_id]: e.target.value.slice(0, 300) }))}
+                            rows={2} maxLength={300} className="w-full min-w-0 resize-y rounded-xl border border-slate-300 px-3 py-2 text-xs leading-relaxed" />
+                        </div>
+                      )}
                       <div className="flex flex-wrap gap-2 border-t border-slate-100 pt-3">
                         {!paymentVerified && sp.status === "pending_review" && (
                           <button type="button" onClick={() => spotlightAction(sp.promo_id, "verify_payment")} disabled={busyId === sp.promo_id}
@@ -2983,7 +3179,7 @@ export default function Dashboard() {
                           </button>
                         )}
                         {paymentVerified && sp.status === "pending_review" && (
-                          <button type="button" onClick={() => spotlightAction(sp.promo_id, "approve")} disabled={busyId === sp.promo_id}
+                          <button type="button" onClick={() => spotlightAction(sp.promo_id, "approve")} disabled={busyId === sp.promo_id || (spMediaNotes[sp.promo_id] || "").trim().length < 8}
                             className="rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white disabled:opacity-50">
                             {te ? "మీడియా ఆమోదించి ప్రచురించు" : "Approve media & publish"}
                           </button>
@@ -3013,19 +3209,19 @@ export default function Dashboard() {
                 <div>
                   <h2 className="text-xl font-black text-[#7A0C2E] flex items-center gap-2">
                     <span>🤝</span>
-                    <span>రెఫరల్ భాగస్వాములు & payout అభ్యర్థనల సమీక్ష (Payout Review Desk)</span>
+                    <span>{tr("రెఫరల్ భాగస్వాములు & చెల్లింపు అభ్యర్థనల సమీక్ష", "Referral partners and payout review")}</span>
                   </h2>
                   <p className="text-xs text-slate-600 mt-1">
-                    యూజర్లు మరియు భాగస్వాముల payout అభ్యర్థనలు • UPI వివరాలు పరిశీలించి, settlement తర్వాత UTR నమోదు చేసి status update చేయండి. WhatsApp సందేశం వేరుగా పంపాలి.
+                    {tr("వినియోగదారులు మరియు భాగస్వాముల చెల్లింపు అభ్యర్థనలు. UPI వివరాలను పరిశీలించి, చెల్లింపు పూర్తైన తర్వాత నిజమైన UTR నమోదు చేసి స్థితిని నవీకరించండి. WhatsApp సందేశం విడిగా పంపాలి.", "Payout requests from users and partners. Review UPI details, enter the actual UTR only after settlement, and update the status. WhatsApp messages are sent separately.")}
                   </p>
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold text-slate-500">ఫిల్టర్:</span>
+                  <span className="text-xs font-bold text-slate-500">{tr("ఫిల్టర్:", "Filter:")}</span>
                   {[
-                    { id: "all", label: "అన్నీ (All)" },
-                    { id: "requested", label: "⏳ పెండింగ్ (Pending)" },
-                    { id: "paid", label: "✅ చెల్లించినవి (Paid)" },
+                    { id: "all", label: tr("అన్నీ", "All") },
+                    { id: "requested", label: tr("⏳ పెండింగ్", "⏳ Pending") },
+                    { id: "paid", label: tr("✅ చెల్లించినవి", "✅ Paid") },
                   ].map((s) => (
                     <button
                       key={s.id}
@@ -3049,7 +3245,7 @@ export default function Dashboard() {
               {payouts.length === 0 ? (
                 <div className="bg-white rounded-3xl p-12 text-center text-slate-400 font-bold border border-gold/20">
                   <span className="text-3xl block mb-2">🤝</span>
-                  <span>ప్రస్తుతం ఎటువంటి విత్‌డ్రా అభ్యర్థనలు లేవు</span>
+                  <span>{tr("ప్రస్తుతం చెల్లింపు అభ్యర్థనలు లేవు", "There are no payout requests right now.")}</span>
                 </div>
               ) : (
                 <div className="grid md:grid-cols-2 gap-4">
@@ -3057,7 +3253,7 @@ export default function Dashboard() {
                     const isPending = po.status === "requested";
                     const isPaid = po.status === "paid";
                     const recipientPhone = po.tsap_id ? directoryProfiles.find((x) => x.tsap_id === po.tsap_id)?.phone || "" : "";
-                    const payoutMessage = `🎉 శుభవార్త ${po.name} గారు!\n\nమన వివాహ referral ప్రోగ్రామ్ ద్వారా ₹${po.amount} payout మీ UPI ఖాతాకు process చేయబడింది.\n${po.utr ? `UTR: ${po.utr}\n` : ""}\nReferral వివరాలు: https://manavivaha.in/referral`;
+                    const payoutMessage = tr(`🎉 శుభవార్త ${po.name} గారు!\n\nమన వివాహ రిఫరల్ ప్రోగ్రామ్ ద్వారా ₹${po.amount} చెల్లింపు మీ UPI ఖాతాకు పంపబడింది.\n${po.utr ? `UTR: ${po.utr}\n` : ""}\nవివరాలు: https://manavivaha.in/referral`, `🎉 Good news, ${po.name}!\n\nYour ₹${po.amount} payout through the Mana Vivaha referral program has been processed to your UPI account.\n${po.utr ? `UTR: ${po.utr}\n` : ""}\nDetails: https://manavivaha.in/referral`);
                     const payoutWaLink = whatsappPhoneLink(recipientPhone, payoutMessage);
                     const directUpiLink = po.upi_id
                       ? `upi://pay?pa=${encodeURIComponent(po.upi_id)}&pn=${encodeURIComponent(po.name || "")}&am=${po.amount}&cu=INR&tn=${encodeURIComponent(`ManaVivaha_Payout_${po.id}`)}`
@@ -3096,7 +3292,7 @@ export default function Dashboard() {
                         {/* UPI / Bank Details Box */}
                         <div className="bg-slate-50 rounded-2xl p-3 border border-slate-200 text-xs space-y-1">
                           <div className="flex items-center justify-between">
-                            <span className="text-slate-500 font-bold">చెల్లింపు విధానం:</span>
+                            <span className="text-slate-500 font-bold">{tr("చెల్లింపు విధానం:", "Payment method:")}</span>
                             <span className="font-bold text-slate-800 uppercase font-mono">{po.method || "UPI"}</span>
                           </div>
                           {po.upi_id && (
@@ -3125,7 +3321,7 @@ export default function Dashboard() {
                                   title="Open in PhonePe / Google Pay with prefilled amount"
                                 >
                                   <span>📲</span>
-                                  <span>PhonePe/GPay లో పే చేయి (₹{po.amount})</span>
+                                  <span>{tr(`PhonePe / Google Pay ద్వారా చెల్లించండి (₹${po.amount})`, `Pay via PhonePe / Google Pay (₹${po.amount})`)}</span>
                                 </a>
                               )}
                             </div>
@@ -3134,20 +3330,20 @@ export default function Dashboard() {
                               {/* Approve & Settle Payout */}
                               <button
                                 onClick={() => {
-                                  const customUtr = prompt("వాస్తవ బ్యాంక్ / UPI రసీదులో ఉన్న UTR నమోదు చేయండి. ధృవీకరించని చెల్లింపును మార్క్ చేయవద్దు:", "");
+                                  const customUtr = prompt(tr("నిజమైన బ్యాంక్ / UPI రసీదులోని UTR నమోదు చేయండి. నిర్ధారించని చెల్లింపును ఆమోదించవద్దు:", "Enter the UTR from the actual bank / UPI receipt. Do not approve an unverified payment:"), "");
                                   if (customUtr?.trim()) payoutAction(po.id, "approve", customUtr.trim());
                                 }}
                                 disabled={busyId === po.id}
                                 className="flex-1 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs shadow-sm transition active:scale-95 disabled:opacity-50 flex items-center justify-center gap-1"
                               >
                                 <span>✓</span>
-                                <span>చెల్లించినట్లు మార్క్ చేయి (Approve Payout)</span>
+                                <span>{tr("చెల్లింపు పూర్తైనట్లు ఆమోదించండి", "Approve settled payout")}</span>
                               </button>
 
                               {/* Reject Button */}
                               <button
                                 onClick={() => {
-                                  const reason = prompt("తిరస్కరణకు నిజమైన కారణం నమోదు చేయండి:", "");
+                                  const reason = prompt(tr("తిరస్కరణకు కారణం నమోదు చేయండి:", "Enter a reason for rejection:"), "");
                                   if (reason?.trim()) payoutAction(po.id, "reject", "", reason.trim());
                                 }}
                                 disabled={busyId === po.id}
@@ -3169,7 +3365,7 @@ export default function Dashboard() {
                               className="w-full py-2 px-3 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 font-extrabold text-xs flex items-center justify-center gap-1.5 transition"
                             >
                               <span>💬</span>
-                              <span>యూజర్‌కి వాట్సాప్ payout సమాచారం పంపండి</span>
+                              <span>{tr("వినియోగదారుకు WhatsApp చెల్లింపు సమాచారం పంపండి", "Send payout details on WhatsApp")}</span>
                             </a>
                           </div>
                         )}
@@ -3194,11 +3390,11 @@ export default function Dashboard() {
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div className="min-w-0 space-y-1">
                       <div className="flex flex-wrap items-center gap-2">
-                        <h3 className="font-black text-sm text-rose-700">🚩 {r.category_telugu || r.category}</h3>
+                        <h3 className="font-black text-sm text-rose-700">🚩 {te ? (r.category_telugu || r.category) : apiDisplayMessage({ message_en: r.category_en, message: r.category }, false, "Report category")}</h3>
                         <span className="rounded-full bg-rose-50 px-2 py-0.5 text-[10px] font-bold uppercase text-rose-800">{r.severity || "unrated"}</span>
                         <span className="text-[10px] text-slate-500">Allegation under review</span>
                       </div>
-                      <p className="break-words text-xs text-slate-700">{r.detail || "No additional details were provided."}</p>
+                      <p className="break-words text-xs text-slate-700">{te ? (r.detail || "అదనపు వివరాలు ఇవ్వలేదు.") : apiDisplayMessage({ detail_en: r.detail_en, detail: r.detail }, false, "Report details are not available in English.")}</p>
                       <p className="text-[11px] text-slate-500">
                         Report ID: {reportId} • Target: {r.target?.full_name || r.target_id || "Unknown"}
                         {r.target?.district ? ` • ${r.target.district}` : ""}
@@ -3221,7 +3417,7 @@ export default function Dashboard() {
         {/* Revenue Tab (Owner only) */}
         {tab === "revenue" && financeAccess && an.revenue && (
           <div className="bg-white rounded-3xl p-6 border border-gold/30 space-y-4">
-            <h3 className="font-black text-lg text-[#7A0C2E]">💰 రాబడి వివరాలు (Total Revenue: ₹{an.revenue.total})</h3>
+            <h3 className="font-black text-lg text-[#7A0C2E]">{tr(`💰 మొత్తం రాబడి: ₹${an.revenue.total}`, `💰 Total revenue: ₹${an.revenue.total}`)}</h3>
             <div className="grid md:grid-cols-2 gap-5">
               <Donut items={an.revenue.plan_split} />
               <BarList items={an.revenue.plan_split} />
@@ -3232,7 +3428,7 @@ export default function Dashboard() {
         {/* Audit Tab (Owner only) */}
         {tab === "audit" && owner && an.audit && (
           <div className="bg-white rounded-3xl p-6 border border-gold/30 space-y-3">
-            <h3 className="font-black text-base text-navy">📝 ఇటీవలి ఆడిట్ లాగ్</h3>
+            <h3 className="font-black text-base text-navy">📝 {tr("ఇటీవలి ఆడిట్ లాగ్", "Recent audit log")}</h3>
             <div className="space-y-2 max-h-96 overflow-y-auto">
               {an.audit.map((a, i) => (
                 <div key={i} className="text-xs p-2 rounded-xl bg-slate-50 border border-slate-100 flex justify-between">
@@ -3260,7 +3456,7 @@ export default function Dashboard() {
               <div className="flex items-center gap-3">
                 <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-maroon text-white shadow-xs">
                   <span>📝</span>
-                  <span>{selectedProfiles.length} సంబంధాలు ఎంపికయ్యాయి</span>
+                  <span>{selectedProfiles.length} {tr("ప్రొఫైళ్లు ఎంపికయ్యాయి", "profiles selected")}</span>
                 </span>
 
                 <div className="flex items-center bg-slate-100 rounded-xl p-0.5 text-[11px] font-bold">
@@ -3270,7 +3466,7 @@ export default function Dashboard() {
                       notepadFormat === "simple" ? "bg-white text-maroon shadow-xs" : "text-slate-600"
                     }`}
                   >
-                    Name -- Number (సాధారణం)
+                    {tr("పేరు — నంబర్ (సాధారణం)", "Name — number (simple)")}
                   </button>
                   <button
                     onClick={() => setNotepadFormat("detailed")}
@@ -3278,7 +3474,7 @@ export default function Dashboard() {
                       notepadFormat === "detailed" ? "bg-white text-maroon shadow-xs" : "text-slate-600"
                     }`}
                   >
-                    వివరాలతో (Detailed)
+                    {tr("వివరాలతో", "Detailed")}
                   </button>
                 </div>
 
@@ -3286,7 +3482,7 @@ export default function Dashboard() {
                   onClick={() => setIsNotepadMinimized(!isNotepadMinimized)}
                   className="text-xs text-slate-500 hover:text-maroon underline font-bold"
                 >
-                  {isNotepadMinimized ? "🔼 నోట్‌ప్యాడ్ చూపించు" : "🔽 దాచు"}
+                  {isNotepadMinimized ? tr("🔼 నోట్‌ప్యాడ్ చూపించు", "🔼 Show notepad") : tr("🔽 దాచు", "🔽 Hide") }
                 </button>
               </div>
 
@@ -3298,7 +3494,7 @@ export default function Dashboard() {
                   type="text"
                   value={recipientPhone}
                   onChange={(e) => setRecipientPhone(e.target.value)}
-                  placeholder="స్వీకర్త WhatsApp నంబర్"
+                  placeholder={tr("స్వీకర్త WhatsApp నంబర్", "Recipient WhatsApp number")}
                   className="px-3 py-1.5 rounded-xl border border-slate-300 text-xs font-mono font-bold focus:border-maroon focus:outline-none w-44"
                 />
 
@@ -3309,7 +3505,7 @@ export default function Dashboard() {
                   title="Copy formatted contact list to clipboard"
                 >
                   <span>📋</span>
-                  <span>కాపీ చేసుకోండి</span>
+                  <span>{tr("కాపీ చేయండి", "Copy")}</span>
                 </button>
 
                 {/* 2. WhatsApp Button: Profiles ONLY (Privacy Safe) */}
@@ -3319,7 +3515,7 @@ export default function Dashboard() {
                   title="Share profile cards without exposing phone numbers"
                 >
                   <span>📲</span>
-                  <span>వాట్సాప్ (గోప్యత)</span>
+                  <span>{tr("WhatsApp (నంబర్లు లేకుండా)", "WhatsApp (no phone numbers)")}</span>
                 </button>
 
                 {/* 3. WhatsApp Button: Profiles + PHONE NUMBERS */}
@@ -3329,7 +3525,7 @@ export default function Dashboard() {
                   title="Share profile cards WITH full phone numbers"
                 >
                   <span>💬</span>
-                  <span>వాట్సాప్ + నంబర్లు</span>
+                  <span>{tr("WhatsApp + నంబర్లు", "WhatsApp + phone numbers")}</span>
                 </button>
 
                 {/* 4. Telegram Share Button */}
@@ -3358,8 +3554,8 @@ export default function Dashboard() {
               <div className="mt-3 pt-3 border-t border-slate-200 grid md:grid-cols-3 gap-3">
                 <div className="md:col-span-2 space-y-1">
                   <div className="flex items-center justify-between text-[11px] font-bold text-slate-500">
-                    <span>📝 నోట్‌ప్యాడ్ ప్రివ్యూ (Live Contact List):</span>
-                    <span className="font-mono text-emerald-700">✅ Edit / Copy / WhatsApp కి సిద్ధం</span>
+                    <span>📝 {tr("నోట్‌ప్యాడ్ ప్రివ్యూ", "Notepad preview")}</span>
+                    <span className="font-mono text-emerald-700">✅ {tr("సవరించడానికి / కాపీ చేయడానికి / WhatsApp ద్వారా పంపడానికి సిద్ధం", "Ready to edit, copy, or share on WhatsApp")}</span>
                   </div>
                   <textarea
                     rows={3}
@@ -3370,12 +3566,12 @@ export default function Dashboard() {
                 </div>
 
                 <div className="space-y-1">
-                  <span className="text-[11px] font-bold text-slate-500 block">✍️ అదనపు గమనిక (Custom Note):</span>
+                  <span className="text-[11px] font-bold text-slate-500 block">✍️ {tr("అదనపు గమనిక", "Additional note")}</span>
                   <textarea
                     rows={3}
                     value={notepadNote}
                     onChange={(e) => setNotepadNote(e.target.value)}
-                    placeholder="ఉదా: సభ్యులు ఇచ్చిన వివరాలను కుటుంబంతో పరిశీలించండి; జాతక సూచిక ఉంటే విడిగా నిర్ధారించండి..."
+                    placeholder={tr("ఉదా: సభ్యులు అందించిన వివరాలను కుటుంబంతో పరిశీలించండి; జాతక సూచికను విడిగా నిర్ధారించండి…", "e.g. Review member-provided details with the family; verify any horoscope reference separately…")}
                     className="w-full p-2.5 rounded-xl bg-white border border-slate-200 text-xs text-slate-800 focus:border-maroon focus:outline-none"
                   />
                 </div>
@@ -3394,7 +3590,7 @@ export default function Dashboard() {
               <div className="flex items-center gap-2">
                 <span className="text-2xl">👑</span>
                 <div>
-                  <h3 className="font-black text-navy text-base">ప్లాన్ క్రెడిట్స్ యాక్టివేట్ చేయండి</h3>
+                  <h3 className="font-black text-navy text-base">{tr("ప్లాన్ క్రెడిట్‌లను యాక్టివేట్ చేయండి", "Activate plan credits")}</h3>
                   <p className="text-xs text-slate-500 font-mono">
                     {upgradeModal.name} • <span className="text-maroon font-bold">{upgradeModal.tsapId}</span> • 📞 {upgradeModal.phone || "—"}
                   </p>
@@ -3411,13 +3607,13 @@ export default function Dashboard() {
             <div className="bg-amber-50 rounded-2xl p-3 border border-amber-200 text-xs text-amber-950 flex items-start gap-2">
               <span className="text-base shrink-0">💡</span>
               <p className="leading-relaxed">
-                సరైన payment source / UTR నమోదు చేసి ప్లాన్ యాక్టివేట్ చేయండి. ఇది request credits మాత్రమే జోడిస్తుంది — profile approval, photo review లేదా identity verification వేరుగా ఉంటాయి. Complimentary grants కు referral reward వర్తించదు.
+                {tr("నిజమైన చెల్లింపు మూలం / UTRను నమోదు చేసిన తర్వాత మాత్రమే ప్లాన్‌ను యాక్టివేట్ చేయండి. ఇది interest-request క్రెడిట్‌లను మాత్రమే జోడిస్తుంది; ప్రొఫైల్ ఆమోదం, ఫోటో సమీక్ష లేదా గుర్తింపు ధృవీకరణ వేరుగా ఉంటాయి. ఉచిత ప్రోత్సాహకాలకు రిఫరల్ రివార్డు వర్తించదు.", "Enter an actual payment source and UTR before activating a paid plan. This adds interest-request credits only; profile approval, photo review, and identity verification are separate. Complimentary grants do not trigger referral rewards.")}
               </p>
             </div>
 
             {/* Plan selection cards */}
             <div className="space-y-2">
-              <label className="text-xs font-bold text-slate-700 block">1. ప్లాన్ ఎంచుకోండి (Select Membership Plan):</label>
+              <label className="text-xs font-bold text-slate-700 block">1. {tr("ప్లాన్‌ను ఎంచుకోండి", "Select a plan")}:</label>
               
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {/* S_99 */}
@@ -3432,7 +3628,7 @@ export default function Dashboard() {
                     <div className="font-black text-xs text-amber-900">🥉 Sambandham</div>
                     <span className="font-mono font-black text-xs text-amber-950">₹99</span>
                   </div>
-                  <div className="text-[10px] text-slate-500 mt-1">5 interest requests • 30 రోజులు</div>
+                  <div className="text-[10px] text-slate-500 mt-1">{tr("5 సంబంధ అభ్యర్థనలు • 30 రోజులు", "5 interest requests • 30 days")}</div>
                 </button>
 
                 {/* S_199 */}
@@ -3447,7 +3643,7 @@ export default function Dashboard() {
                     <div className="font-black text-xs text-purple-900">🥈 Family</div>
                     <span className="font-mono font-black text-xs text-purple-950">₹199</span>
                   </div>
-                  <div className="text-[10px] text-slate-500 mt-1">12 interest requests • 45 రోజులు</div>
+                  <div className="text-[10px] text-slate-500 mt-1">{tr("12 సంబంధ అభ్యర్థనలు • 45 రోజులు", "12 interest requests • 45 days")}</div>
                 </button>
 
                 {/* S_299 */}
@@ -3462,7 +3658,7 @@ export default function Dashboard() {
                     <div className="font-black text-xs text-blue-900">🥇 Premium</div>
                     <span className="font-mono font-black text-xs text-blue-950">₹299</span>
                   </div>
-                  <div className="text-[10px] text-slate-500 mt-1">25 interest requests • 60 రోజులు • Who-viewed names while active</div>
+                  <div className="text-[10px] text-slate-500 mt-1">{tr("25 సంబంధ అభ్యర్థనలు • 60 రోజులు • యాక్టివ్‌గా ఉన్నప్పుడు ప్రొఫైల్‌ను చూసిన వారి పేర్లు", "25 interest requests • 60 days • Names of profile viewers while active")}</div>
                 </button>
 
                 {/* S_499 */}
@@ -3477,7 +3673,7 @@ export default function Dashboard() {
                     <div className="font-black text-xs text-emerald-900">💎 VIP</div>
                     <span className="font-mono font-black text-xs text-emerald-950">₹499</span>
                   </div>
-                  <div className="text-[10px] text-slate-500 mt-1">50 interest requests • 90 రోజులు • Who-viewed names while active</div>
+                  <div className="text-[10px] text-slate-500 mt-1">{tr("50 సంబంధ అభ్యర్థనలు • 90 రోజులు • యాక్టివ్‌గా ఉన్నప్పుడు ప్రొఫైల్‌ను చూసిన వారి పేర్లు", "50 interest requests • 90 days • Names of profile viewers while active")}</div>
                 </button>
               </div>
 
@@ -3486,7 +3682,7 @@ export default function Dashboard() {
 
             {/* Payment Mode Selector */}
             <div className="space-y-1.5 pt-1">
-              <label className="text-xs font-bold text-slate-700 block">2. పేమెంట్ విధానం (Payment Source):</label>
+              <label className="text-xs font-bold text-slate-700 block">2. {tr("చెల్లింపు మూలం", "Payment source")}:</label>
               <select
                 value={grantPayMode}
                 onChange={(e) => {
@@ -3501,25 +3697,25 @@ export default function Dashboard() {
                 }}
                 className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-bold focus:border-maroon focus:outline-none"
               >
-                <option value="">పేమెంట్ విధానం ఎంచుకోండి (Select payment source)</option>
-                <option value="UPI_QR">📱 UPI / QR ద్వారా చెల్లింపు</option>
+                <option value="">{tr("చెల్లింపు మూలాన్ని ఎంచుకోండి", "Select payment source")}</option>
+                <option value="UPI_QR">📱 {tr("UPI / QR చెల్లింపు", "UPI / QR payment")}</option>
                 <option value="PHONEPE">🟣 PhonePe Transfer</option>
                 <option value="GPAY">🔵 Google Pay</option>
                 <option value="BANK_TRANSFER">🏦 Direct Bank Transfer / NetBanking</option>
                 <option value="CASH">💵 Cash / Offline Office Payment</option>
-                <option value="ADMIN_COMPLIMENTARY">🎁 Admin Complimentary (ఉచిత ప్రోత్సాహం)</option>
+                <option value="ADMIN_COMPLIMENTARY">🎁 {tr("అడ్మిన్ ఉచిత ప్రోత్సాహం", "Admin complimentary grant")}</option>
               </select>
             </div>
 
             {/* UTR & Notes */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
                 <div>
-                  <label className="text-[11px] font-bold text-slate-600 block mb-0.5">UTR / లావాదేవీ నంబర్ (Optional):</label>
+                  <label className="text-[11px] font-bold text-slate-600 block mb-0.5">UTR / {tr("లావాదేవీ నంబర్ (ఐచ్ఛికం)", "transaction reference (optional")}):</label>
                   <input
                     type="text"
                     value={grantUtr}
                     onChange={(e) => setGrantUtr(e.target.value)}
-                    placeholder="చెల్లింపు రిఫరెన్స్ ఉంటే నమోదు చేయండి"
+                    placeholder={tr("చెల్లింపు రిఫరెన్స్ ఉంటే నమోదు చేయండి", "Enter the payment reference, if available")}
                     className="w-full px-3 py-1.5 border border-slate-300 rounded-xl text-xs font-mono focus:border-maroon focus:outline-none"
                   />
                 </div>
@@ -3539,7 +3735,7 @@ export default function Dashboard() {
                 className="w-4 h-4 rounded accent-[#7A0C2E] cursor-pointer"
               />
               <label htmlFor="triggerRef" className="text-xs font-medium text-slate-700 cursor-pointer">
-                Eligible first paid plan మాత్రమే: ₹50 referral wallet reward (complimentary grant / repeat payment కి కాదు)
+                {tr("మొదటి అర్హత కలిగిన చెల్లింపు ప్లాన్‌కే ₹50 రిఫరల్ వాలెట్ రివార్డు వర్తిస్తుంది; ఉచిత ప్రోత్సాహం లేదా పునరావృత చెల్లింపులకు కాదు.", "The ₹50 referral wallet reward applies only to the first eligible paid plan, not complimentary grants or repeat payments.")}
               </label>
             </div>
 
@@ -3550,7 +3746,7 @@ export default function Dashboard() {
                 onClick={() => setUpgradeModal(null)}
                 className="flex-1 py-2.5 rounded-2xl border border-slate-300 font-bold text-xs text-slate-600 hover:bg-slate-100 transition"
               >
-                రద్దు చేయి (Cancel)
+                {tr("రద్దు చేయండి", "Cancel")}
               </button>
               <button
                 type="button"
@@ -3570,7 +3766,7 @@ export default function Dashboard() {
                 }}
                 className="flex-1 py-2.5 rounded-2xl bg-gradient-to-r from-emerald-600 via-amber-600 to-rose-600 text-white font-extrabold text-xs shadow-md hover:brightness-110 active:scale-98 transition disabled:opacity-50"
               >
-                {busyId === upgradeModal.tsapId ? "యాక్టివేట్ అవుతోంది..." : `✓ ప్లాన్ క్రెడిట్స్ యాక్టివేట్ చేయి`}
+                {busyId === upgradeModal.tsapId ? tr("యాక్టివేట్ అవుతోంది…", "Activating…") : tr("✓ ప్లాన్ క్రెడిట్‌లను యాక్టివేట్ చేయండి", "✓ Activate plan credits")}
               </button>
             </div>
           </div>
@@ -3583,24 +3779,24 @@ export default function Dashboard() {
           <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border-2 border-emerald-500 space-y-4 animate-in fade-in zoom-in duration-200">
             <div className="text-center space-y-1">
               <span className="text-4xl inline-block animate-bounce">🎉</span>
-              <h3 className="font-black text-navy text-lg">ప్లాన్ విజయవంతంగా యాక్టివేట్ అయ్యింది!</h3>
+              <h3 className="font-black text-navy text-lg">{tr("ప్లాన్ విజయవంతంగా యాక్టివేట్ అయింది!", "Plan activated successfully")}</h3>
               <p className="text-xs text-slate-600">
-                <b>{activatedSuccessModal.name}</b> ({activatedSuccessModal.tsapId}) కి <b>{activatedSuccessModal.plan}</b> plan credits జోడించబడ్డాయి. Profile approval / verification వేరుగా ఉంటాయి.
+                {tr(<><b>{activatedSuccessModal.name}</b> ({activatedSuccessModal.tsapId}) కి <b>{activatedSuccessModal.plan}</b> ప్లాన్ క్రెడిట్‌లు జోడించబడ్డాయి. ప్రొఫైల్ ఆమోదం / గుర్తింపు ధృవీకరణ వేరుగా ఉంటాయి.</>, <><b>{activatedSuccessModal.name}</b> ({activatedSuccessModal.tsapId}) received credits for <b>{activatedSuccessModal.plan}</b>. Profile approval and identity verification are separate.</>)}
               </p>
             </div>
 
             <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 space-y-2">
               <div className="flex items-center justify-between text-xs font-bold text-slate-700">
-                <span>📲 యూజర్‌కి వాట్సాప్ కన్ఫర్మేషన్ మెసేజ్:</span>
+                <span>📲 {tr("వినియోగదారుకు WhatsApp నిర్ధారణ సందేశం:", "WhatsApp confirmation message:")}</span>
                 <button
                   type="button"
                   onClick={() => {
                     navigator.clipboard.writeText(activatedSuccessModal.waMessage);
-                    flash("✅ వాట్సాప్ మెసేజ్ కాపీ అయ్యింది!");
+                    flash(tr("✅ WhatsApp సందేశం కాపీ అయింది.", "✅ WhatsApp message copied."));
                   }}
                   className="text-emerald-700 hover:text-emerald-800 text-[11px] font-black underline"
                 >
-                  కాపీ చేయి (Copy)
+                  {tr("కాపీ చేయండి", "Copy")}
                 </button>
               </div>
               <textarea
@@ -3617,7 +3813,7 @@ export default function Dashboard() {
                 onClick={() => setActivatedSuccessModal(null)}
                 className="flex-1 py-2.5 rounded-2xl border border-slate-300 font-bold text-xs text-slate-600 hover:bg-slate-100 transition"
               >
-                ముగించు (Close)
+                {tr("ముగించు", "Close")}
               </button>
               {activatedSuccessModal.phone && (
                 <a
@@ -3628,7 +3824,7 @@ export default function Dashboard() {
                   className="flex-1 py-2.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs shadow-md text-center transition flex items-center justify-center gap-1.5"
                 >
                   <span>💬</span>
-                  <span>WhatsApp లో పంపు</span>
+                  <span>{tr("WhatsApp ద్వారా పంపండి", "Send on WhatsApp")}</span>
                 </a>
               )}
             </div>
@@ -3647,9 +3843,12 @@ export default function Dashboard() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="relative bg-slate-950 flex items-center justify-center min-h-[350px] max-h-[500px]">
-              <img
+              <Image
                 src={previewPhotoModal.url}
                 alt={previewPhotoModal.name}
+                width={1000}
+                height={800}
+                unoptimized
                 className="max-w-full max-h-[500px] object-contain"
               />
               <button
@@ -3670,7 +3869,7 @@ export default function Dashboard() {
                 onClick={() => setPreviewPhotoModal(null)}
                 className="px-4 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition"
               >
-                క్లోజ్ చేయి (Close)
+                {tr("మూసివేయండి", "Close")}
               </button>
             </div>
           </div>
@@ -3685,9 +3884,9 @@ export default function Dashboard() {
               <div className="flex items-center gap-2">
                 <span className="text-2xl">💌</span>
                 <div>
-                  <h3 className="font-black text-navy text-base">WhatsApp ప్రపోజల్ డిస్పాచర్ (Proposal Builder)</h3>
+                  <h3 className="font-black text-navy text-base">{tr("WhatsApp ప్రపోజల్ బిల్డర్", "WhatsApp proposal builder")}</h3>
                   <p className="text-xs text-slate-500">
-                    {proposalBatchModal.candidate?.full_name} ({proposalBatchModal.candidate?.tsap_id}) కోసం సంబంధాల వివరాలు
+                    {tr(`${proposalBatchModal.candidate?.full_name} (${proposalBatchModal.candidate?.tsap_id}) కోసం ప్రొఫైల్ సూచనలు`, `Profile suggestions for ${proposalBatchModal.candidate?.full_name} (${proposalBatchModal.candidate?.tsap_id})`)}
                   </p>
                 </div>
               </div>
@@ -3701,12 +3900,12 @@ export default function Dashboard() {
 
             {/* Template Selector Pills */}
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-slate-700 block">1. ప్రపోజల్ టెంప్లేట్ ఎంచుకోండి:</label>
+              <label className="text-xs font-bold text-slate-700 block">1. {tr("ప్రపోజల్ టెంప్లేట్‌ను ఎంచుకోండి:", "Choose a proposal template:")}</label>
               <div className="grid grid-cols-3 gap-2">
                 {[
-                  { id: "parents" as const, label: "👨‍👩‍👧 తల్లిదండ్రుల కోసం (Parents)" },
-                  { id: "direct" as const, label: "💍 డైరెక్ట్ మ్యాచ్ షీట్ (Direct)" },
-                  { id: "vip" as const, label: "👑 VIP ప్రత్యేక సంబంధం (VIP)" },
+                  { id: "parents" as const, label: tr("👨‍👩‍👧 తల్లిదండ్రుల కోసం", "👨‍👩‍👧 For parents") },
+                  { id: "direct" as const, label: tr("💍 నేరుగా ప్రొఫైల్ వివరాలు", "💍 Direct profile details") },
+                  { id: "vip" as const, label: tr("👑 ప్రత్యేక పరిచయం", "👑 Featured introduction") },
                 ].map((t) => (
                   <button
                     key={t.id}
@@ -3727,23 +3926,23 @@ export default function Dashboard() {
             {/* Recipient Phone & Custom Note */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="text-[11px] font-bold text-slate-600 block mb-1">📞 పంపాల్సిన WhatsApp నంబర్:</label>
+                <label className="text-[11px] font-bold text-slate-600 block mb-1">📞 {tr("పంపాల్సిన WhatsApp నంబర్:", "WhatsApp recipient number:")}</label>
                 <input
                   type="text"
                   value={proposalBatchModal.recipientPhone}
                   onChange={(e) => setProposalBatchModal({ ...proposalBatchModal, recipientPhone: e.target.value })}
-                  placeholder="సభ్యుడు అందించిన 10 అంకెల నంబర్"
+                  placeholder={tr("సభ్యుడు అందించిన 10 అంకెల నంబర్", "10-digit number provided by the member")}
                   className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-mono font-bold focus:border-emerald-600 focus:outline-none"
                 />
               </div>
 
               <div>
-                <label className="text-[11px] font-bold text-slate-600 block mb-1">📝 ప్రత్యేక సూచనలు / గమనిక (Optional):</label>
+                <label className="text-[11px] font-bold text-slate-600 block mb-1">📝 {tr("ప్రత్యేక సూచనలు / గమనిక (ఐచ్ఛికం):", "Custom note (optional):")}</label>
                 <input
                   type="text"
                   value={proposalBatchModal.customNote}
                   onChange={(e) => setProposalBatchModal({ ...proposalBatchModal, customNote: e.target.value })}
-                  placeholder="ఉదా: జాతకం కలిసింది, వెంటనే సంప్రదించండి"
+                  placeholder={tr("ఉదా: సంప్రదింపు సమయం లేదా అదనపు సూచనను నమోదు చేయండి", "e.g. Add a preferred contact time or other note")}
                   className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs focus:border-emerald-600 focus:outline-none"
                 />
               </div>
@@ -3752,7 +3951,7 @@ export default function Dashboard() {
             {/* Generated Live Proposal Message Preview */}
             <div className="space-y-1.5">
               <div className="flex items-center justify-between text-xs font-bold text-slate-700">
-                <span>📲 సిద్ధమైన WhatsApp ప్రపోజల్ మెసేజ్:</span>
+                <span>📲 {tr("WhatsApp సందేశ ప్రివ్యూ:", "WhatsApp message preview:")}</span>
                 <button
                   type="button"
                   onClick={() => {
@@ -3763,12 +3962,12 @@ export default function Dashboard() {
                       proposalBatchModal.customNote
                     );
                     navigator.clipboard.writeText(text);
-                    flash("✅ ప్రపోజల్ మెసేజ్ కాపీ అయ్యింది!");
+                    flash(tr("✅ ప్రపోజల్ సందేశం కాపీ అయింది.", "✅ Proposal message copied."));
                   }}
                   className="text-emerald-700 hover:text-emerald-800 text-[11px] font-black underline flex items-center gap-1"
                 >
                   <span>📋</span>
-                  <span>కాపీ చేయి (Copy)</span>
+                  <span>{tr("కాపీ చేయండి", "Copy")}</span>
                 </button>
               </div>
               <textarea
@@ -3791,7 +3990,7 @@ export default function Dashboard() {
                 onClick={() => setProposalBatchModal(null)}
                 className="flex-1 py-2.5 rounded-2xl border border-slate-300 font-bold text-xs text-slate-600 hover:bg-slate-100 transition"
               >
-                రద్దు చేయి (Cancel)
+                {tr("రద్దు చేయండి", "Cancel")}
               </button>
               <button
                 type="button"
@@ -3803,11 +4002,11 @@ export default function Dashboard() {
                     proposalBatchModal.customNote
                   );
                   navigator.clipboard.writeText(text);
-                  flash("✅ ప్రపోజల్ టెక్స్ట్ కాపీ అయ్యింది!");
+                  flash(tr("✅ ప్రపోజల్ టెక్స్ట్ కాపీ అయింది.", "✅ Proposal text copied."));
                 }}
                 className="py-2.5 px-4 rounded-2xl bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs shadow-xs transition"
               >
-                📋 టెక్స్ట్ కాపీ
+                📋 {tr("టెక్స్ట్ కాపీ చేయండి", "Copy text")}
               </button>
               <a
                 href={whatsappPhoneLink(proposalBatchModal.recipientPhone,
@@ -3823,7 +4022,7 @@ export default function Dashboard() {
                 className="flex-1 py-2.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs shadow-md text-center transition flex items-center justify-center gap-1.5"
               >
                 <span>💬</span>
-                <span>WhatsApp లో పంపు</span>
+                <span>{tr("WhatsApp ద్వారా పంపండి", "Send on WhatsApp")}</span>
               </a>
             </div>
           </div>
@@ -3838,7 +4037,7 @@ export default function Dashboard() {
               <div className="flex items-center gap-2">
                 <span className="text-2xl">🖨️</span>
                 <div>
-                  <h3 className="font-black text-navy text-base">మన వివాహ — ప్రింట్ షీట్ స్టూడియో (Print Studio)</h3>
+                  <h3 className="font-black text-navy text-base">{tr("మన వివాహ — ప్రింట్ షీట్", "Mana Vivaha — Print sheet")}</h3>
                   <p className="text-xs text-slate-500">{printSheetModal.title}</p>
                 </div>
               </div>
@@ -3849,7 +4048,7 @@ export default function Dashboard() {
                   className="px-4 py-2 rounded-xl bg-maroon text-white font-extrabold text-xs shadow-md hover:brightness-110 transition flex items-center gap-1.5"
                 >
                   <span>🖨️</span>
-                  <span>ప్రింట్ చేయి (Print / PDF)</span>
+                  <span>{tr("ప్రింట్ చేయండి / PDF సేవ్ చేయండి", "Print / save PDF")}</span>
                 </button>
                 <button
                   onClick={() => setPrintSheetModal(null)}
@@ -3864,37 +4063,37 @@ export default function Dashboard() {
             <div className="space-y-4 bg-white p-4 border border-slate-200 rounded-2xl text-slate-900 print:border-none print:p-0">
               <div className="flex items-center justify-between border-b-2 border-maroon pb-3">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-maroon text-white flex items-center justify-center text-xl font-black">
-                    వి
+                  <div className="w-10 h-10 rounded-xl bg-maroon text-white flex items-center justify-center text-xl font-black" aria-hidden="true">
+                    {te ? "వి" : "MV"}
                   </div>
                   <div>
-                    <h2 className="text-xl font-black text-maroon">మన వివాహ (Mana Vivaha)</h2>
-                    <p className="text-[10px] text-slate-500 font-bold">తెలుగు వివాహ పరిచయ వేదిక</p>
+                    <h2 className="text-xl font-black text-maroon">{te ? "మన వివాహ" : "Mana Vivaha"}</h2>
+                    <p className="text-[10px] text-slate-500 font-bold">{tr("తెలుగు వివాహ పరిచయ వేదిక", "Telugu matrimony platform")}</p>
                   </div>
                 </div>
                 <div className="text-right text-xs">
                   {SITE_CONFIG.supportPhoneDisplay ? <div className="font-bold text-slate-700">Support: {SITE_CONFIG.supportPhoneDisplay}</div> : null}
-                  <div className="text-[10px] text-slate-500">తేదీ: {new Date().toLocaleDateString("te-IN")}</div>
+                  <div className="text-[10px] text-slate-500">{tr("తేదీ:", "Date:")} {new Date().toLocaleDateString(te ? "te-IN" : "en-IN")}</div>
                 </div>
               </div>
 
               <div className="text-center">
                 <h3 className="text-sm font-black text-navy">{printSheetModal.title}</h3>
-                <p className="text-[10px] text-slate-500 mt-0.5">మొత్తం ప్రొఫైళ్లు: {printSheetModal.profiles.length}</p>
+                <p className="text-[10px] text-slate-500 mt-0.5">{tr("మొత్తం ప్రొఫైళ్లు:", "Total profiles:")} {printSheetModal.profiles.length}</p>
               </div>
 
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-[11px] border-collapse border border-slate-300">
                   <thead className="bg-slate-100 text-slate-800 font-bold">
                     <tr>
-                      <th className="border border-slate-300 p-2 text-center">క్ర.సం.</th>
-                      <th className="border border-slate-300 p-2">TSAP ID / పేరు</th>
-                      <th className="border border-slate-300 p-2">లింగం / వయసు</th>
-                      <th className="border border-slate-300 p-2">కులం & గోత్రం</th>
-                      <th className="border border-slate-300 p-2">చదువు & ఉద్యోగం</th>
-                      <th className="border border-slate-300 p-2">ఆదాయం / ప్రాంతం</th>
-                      <th className="border border-slate-300 p-2">ఫోన్ నంబర్</th>
-                      <th className="border border-slate-300 p-2 text-center">హోదా</th>
+                      <th className="border border-slate-300 p-2 text-center">{tr("క్రమ సంఖ్య", "No.")}</th>
+                      <th className="border border-slate-300 p-2">{tr("TSAP ID / పేరు", "TSAP ID / name")}</th>
+                      <th className="border border-slate-300 p-2">{tr("లింగం / వయస్సు", "Gender / age")}</th>
+                      <th className="border border-slate-300 p-2">{tr("కమ్యూనిటీ & గోత్రం", "Community & gothram")}</th>
+                      <th className="border border-slate-300 p-2">{tr("విద్య & వృత్తి", "Education & occupation")}</th>
+                      <th className="border border-slate-300 p-2">{tr("ఆదాయం / ప్రాంతం", "Income / location")}</th>
+                      <th className="border border-slate-300 p-2">{tr("ఫోన్ నంబర్", "Phone number")}</th>
+                      <th className="border border-slate-300 p-2 text-center">{tr("ప్లాన్ స్థితి", "Plan status")}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -3906,8 +4105,8 @@ export default function Dashboard() {
                           <div className="text-[9px] font-mono text-maroon font-bold">{p.tsap_id}</div>
                         </td>
                         <td className="border border-slate-300 p-2">
-                          <div>{p.gender === "Bride" ? "👰 వధువు" : p.gender === "Groom" ? "🤵 వరుడు" : "—"}</div>
-                          <div className="text-slate-500">{p.age ? `${p.age} సం.` : "—"}</div>
+                          <div>{p.gender === "Bride" ? `👰 ${tr("వధువు", "Bride")}` : p.gender === "Groom" ? `🤵 ${tr("వరుడు", "Groom")}` : "—"}</div>
+                          <div className="text-slate-500">{p.age ? `${p.age} ${tr("సం.", "years")}` : "—"}</div>
                         </td>
                         <td className="border border-slate-300 p-2">
                           <div className="font-medium">{p.caste} {p.sub_caste ? `(${p.sub_caste})` : ""}</div>
@@ -3940,7 +4139,7 @@ export default function Dashboard() {
               </div>
 
               <div className="text-center text-[10px] text-slate-400 pt-2 border-t border-slate-100">
-                ఈ సమాచారం కేవలం వివాహ సంబంధాల పరిశీలన కోసం మాత్రమే. గోప్యత పాటించగలరు • మన వివాహ © 2026
+                {tr("ఈ సమాచారం వివాహ సంబంధాల పరిశీలన కోసం మాత్రమే. దయచేసి గోప్యత పాటించండి. • మన వివాహ © 2026", "For matrimonial review only. Please respect privacy. • Mana Vivaha © 2026")}
               </div>
             </div>
 
@@ -3950,7 +4149,7 @@ export default function Dashboard() {
                 onClick={() => setPrintSheetModal(null)}
                 className="px-4 py-2 rounded-xl border border-slate-300 font-bold text-xs text-slate-600 hover:bg-slate-100 transition"
               >
-                ముగించు (Close)
+                {tr("ముగించు", "Close")}
               </button>
               <button
                 type="button"
@@ -3958,7 +4157,7 @@ export default function Dashboard() {
                 className="px-5 py-2 rounded-xl bg-maroon text-white font-extrabold text-xs shadow-md hover:brightness-110 transition flex items-center gap-1.5"
               >
                 <span>🖨️</span>
-                <span>ప్రింట్ చేయి (Print / Save PDF)</span>
+                <span>{tr("ప్రింట్ చేయండి / PDFగా సేవ్ చేయండి", "Print / save as PDF")}</span>
               </button>
             </div>
           </div>
@@ -3973,7 +4172,7 @@ export default function Dashboard() {
               <div className="flex items-center gap-2">
                 <span className="text-2xl">📝</span>
                 <div>
-                  <h3 className="font-black text-navy text-base">కౌన్సిలర్ CRM & కాల్ ట్రాకర్ (Counselor Log)</h3>
+                  <h3 className="font-black text-navy text-base">{tr("కౌన్సిలర్ CRM & కాల్ లాగ్", "Counsellor CRM and call log")}</h3>
                   <p className="text-xs text-slate-500 font-mono">
                     {counselorModal.name} • <span className="text-maroon font-bold">{counselorModal.tsapId}</span> • 📞 {counselorModal.phone || "—"}
                   </p>
@@ -3990,42 +4189,42 @@ export default function Dashboard() {
             {/* Quick WhatsApp Nudge Buttons */}
             {counselorModal.phone && (
               <div className="space-y-1.5 bg-slate-50 p-3 rounded-2xl border border-slate-200">
-                <span className="text-[11px] font-bold text-slate-600 block">⚡ తక్షణ WhatsApp నడ్జ్ టెంప్లేట్స్:</span>
+                <span className="text-[11px] font-bold text-slate-600 block">⚡ {tr("WhatsApp సందేశ టెంప్లేట్‌లు:", "WhatsApp message templates:")}</span>
                 <div className="flex flex-wrap gap-1.5">
                   <a
-                    href={whatsappPhoneLink(counselorModal.phone, `💐 నమస్కారం ${counselorModal.name} గారు!\nమన వివాహ (Mana Vivaha) హెల్ప్‌లైన్ నుండి సంప్రదిస్తున్నాం. మీ ప్రొఫైల్ కి మంచి రెస్పాన్స్ రావడానికి దయచేసి స్పష్టమైన ఫోటోను అప్‌లోడ్ చేయండి:\nhttps://manavivaha.in/me`) || undefined}
+                    href={whatsappPhoneLink(counselorModal.phone, tr(`💐 నమస్కారం ${counselorModal.name} గారు!\nమన వివాహ (Mana Vivaha) నుంచి సంప్రదిస్తున్నాం. ప్రొఫైల్‌ను స్పష్టంగా చూపించడానికి మీకు ఇష్టమైతే ఫోటోను అప్‌లోడ్ చేయండి:\nhttps://manavivaha.in/me`, `💐 Hello ${counselorModal.name}, this is Mana Vivaha. If you wish, you can add a photo to your profile to help members review it:\nhttps://manavivaha.in/me`)) || undefined}
                     target="_blank"
                     rel="noreferrer"
                     className="px-2.5 py-1 rounded-xl bg-amber-100 hover:bg-amber-200 text-amber-900 text-[11px] font-bold flex items-center gap-1 transition"
                   >
-                    <span>📸</span> <span>ఫోటో రిమైండర్</span>
+                    <span>📸</span> <span>{tr("ఫోటో గురించి", "Photo reminder")}</span>
                   </a>
 
                   <a
-                    href={whatsappPhoneLink(counselorModal.phone, `💐 నమస్కారం ${counselorModal.name} గారు!\nమీ జాతక పొంతన (Kundali Match) సరిగ్గా లెక్కించడానికి మీ నక్షత్రం, రాశి మరియు గోత్రం వివరాలను ఇక్కడ అప్‌డేట్ చేసుకోండి:\nhttps://manavivaha.in/me`) || undefined}
+                    href={whatsappPhoneLink(counselorModal.phone, tr(`💐 నమస్కారం ${counselorModal.name} గారు!\nజాతక సూచిక కోసం మీ నక్షత్రం, రాశి మరియు గోత్రం వివరాలను ఇక్కడ నవీకరించండి:\nhttps://manavivaha.in/me`, `💐 Hello ${counselorModal.name}, you can update your nakshatram, rasi, and gothram details here for an informational horoscope reference:\nhttps://manavivaha.in/me`)) || undefined}
                     target="_blank"
                     rel="noreferrer"
                     className="px-2.5 py-1 rounded-xl bg-purple-100 hover:bg-purple-200 text-purple-900 text-[11px] font-bold flex items-center gap-1 transition"
                   >
-                    <span>🪔</span> <span>జాతకం వివరాల నడ్జ్</span>
+                    <span>🪔</span> <span>{tr("జాతక వివరాలు", "Horoscope details")}</span>
                   </a>
 
                   <a
-                    href={whatsappPhoneLink(counselorModal.phone, `💐 నమస్కారం ${counselorModal.name} గారు!\nప్రస్తుత ప్లాన్స్ వివరాలు ఇక్కడ చూడండి. Contact access consent మరియు సేవా నియమాలకు లోబడి ఉంటుంది; match లేదా verification హామీ కాదు:\nhttps://manavivaha.in/pricing`) || undefined}
+                    href={whatsappPhoneLink(counselorModal.phone, tr(`💐 నమస్కారం ${counselorModal.name} గారు!\nప్రస్తుత ప్లాన్ వివరాలను ఇక్కడ చూడండి. సంప్రదింపు వివరాల ప్రాప్యత సమ్మతి మరియు సేవా నిబంధనలకు లోబడి ఉంటుంది; సంబంధం లేదా ధృవీకరణకు హామీ లేదు:\nhttps://manavivaha.in/pricing`, `💐 Hello ${counselorModal.name}, view current plans and prices here. Access to contact details is subject to consent and service terms; no match or verification is guaranteed:\nhttps://manavivaha.in/pricing`)) || undefined}
                     target="_blank"
                     rel="noreferrer"
                     className="px-2.5 py-1 rounded-xl bg-emerald-100 hover:bg-emerald-200 text-emerald-900 text-[11px] font-bold flex items-center gap-1 transition"
                   >
-                    <span>👑</span> <span>₹99 ప్లాన్ ఆఫర్</span>
+                    <span>👑</span> <span>{tr("₹99 నుంచి ప్లాన్‌లు", "Plans from ₹99")}</span>
                   </a>
 
                   <a
-                    href={whatsappPhoneLink(counselorModal.phone, `💐 నమస్కారం ${counselorModal.name} గారు!\nమీకు చూపిన matches పరిశీలించడానికి ఇక్కడ చూడండి:\nhttps://manavivaha.in/matches`) || undefined}
+                    href={whatsappPhoneLink(counselorModal.phone, tr(`💐 నమస్కారం ${counselorModal.name} గారు!\nమీకు చూపిన ప్రొఫైల్‌లను ఇక్కడ పరిశీలించండి:\nhttps://manavivaha.in/matches`, `💐 Hello ${counselorModal.name}, review the profiles shown to you here:\nhttps://manavivaha.in/matches`)) || undefined}
                     target="_blank"
                     rel="noreferrer"
                     className="px-2.5 py-1 rounded-xl bg-rose-100 hover:bg-rose-200 text-rose-900 text-[11px] font-bold flex items-center gap-1 transition"
                   >
-                    <span>💍</span> <span>మ్యాచ్ అలర్ట్</span>
+                    <span>💍</span> <span>{tr("ప్రొఫైల్‌లను చూడండి", "Browse profiles")}</span>
                   </a>
                 </div>
               </div>
@@ -4033,43 +4232,43 @@ export default function Dashboard() {
 
             {/* Stage Selector */}
             <div className="space-y-1">
-              <label className="text-xs font-bold text-slate-700 block">1. కస్టమర్ స్టేజ్ (Pipeline Stage):</label>
+              <label className="text-xs font-bold text-slate-700 block">1. {tr("సంప్రదింపు దశ:", "Contact stage:")}</label>
               <select
                 value={counselorModal.newStage}
                 onChange={(e) => setCounselorModal({ ...counselorModal, newStage: e.target.value })}
                 className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-bold focus:border-indigo-600 focus:outline-none"
               >
-                <option value="new_lead">🌟 New Lead (కొత్త రిజిస్ట్రేషన్)</option>
-                <option value="call_scheduled">📞 Call Scheduled (కాల్ షెడ్యూల్ చేయబడింది)</option>
-                <option value="spoke_interested">💬 Spoke with Parent — Interested (మాట్లాడాం - ఆసక్తి ఉంది)</option>
-                <option value="proposal_sent">💌 Proposal Sent (సంబంధాల ప్రపోజల్ పంపించాం)</option>
-                <option value="negotiation">🤝 Plan Negotiation (ప్లాన్ డిస్కషన్ లో ఉంది)</option>
-                <option value="paid_vip">👑 Paid VIP (ప్రీమియం మెంబర్)</option>
-                <option value="matched_married">💍 Matched & Married! (సంబంధం కుదిరింది!)</option>
-                <option value="not_interested">❌ Not Interested (ఆసక్తి లేదు)</option>
+                <option value="new_lead">🌟 {tr("కొత్త లీడ్", "New lead")}</option>
+                <option value="call_scheduled">📞 {tr("కాల్ షెడ్యూల్ అయింది", "Call scheduled")}</option>
+                <option value="spoke_interested">💬 {tr("కుటుంబంతో మాట్లాడాం — ఆసక్తి ఉంది", "Spoke with family — interested")}</option>
+                <option value="proposal_sent">💌 {tr("ప్రొఫైల్ సూచనలు పంపాం", "Profile suggestions sent")}</option>
+                <option value="negotiation">🤝 {tr("ప్లాన్ చర్చలో ఉంది", "Plan discussion")}</option>
+                <option value="paid_vip">👑 {tr("చెల్లింపు ప్లాన్", "Paid plan")}</option>
+                <option value="matched_married">💍 {tr("వివాహం కుదిరింది", "Married")}</option>
+                <option value="not_interested">❌ {tr("ఆసక్తి లేదు", "Not interested")}</option>
               </select>
             </div>
 
             {/* Note & Callback Date */}
             <div className="space-y-2">
               <div>
-                <label className="text-xs font-bold text-slate-700 block mb-1">2. కౌన్సిలర్ సంభాషణ వివరాలు (Call Notes):</label>
+                <label className="text-xs font-bold text-slate-700 block mb-1">2. {tr("సంభాషణ గమనికలు:", "Conversation notes:")}</label>
                 <textarea
                   rows={3}
                   value={counselorModal.newNote}
                   onChange={(e) => setCounselorModal({ ...counselorModal, newNote: e.target.value })}
-                  placeholder="ఉదా: తండ్రి గారితో మాట్లాడాము. సాఫ్ట్‌వేర్ లేదా గవర్నమెంట్ ఉద్యోగం సంబంధాలు కోరుతున్నారు. రేపు మధ్యాహ్నం 3 గంటలకు ప్రపోజల్ పంపాలి..."
+                  placeholder={tr("సంభాషణలో జరిగినదాన్ని, సభ్యుడు తెలిపిన ప్రాధాన్యతలను మరియు తదుపరి చర్యను నమోదు చేయండి…", "Record what was discussed, the member’s stated preferences, and the next action…")}
                   className="w-full p-2.5 border border-slate-300 rounded-xl text-xs focus:border-indigo-600 focus:outline-none"
                 />
               </div>
 
               <div>
-                <label className="text-[11px] font-bold text-slate-600 block mb-0.5">📅 తదుపరి ఫాలో-అప్ సమయం (Next Callback Date/Time):</label>
+                <label className="text-[11px] font-bold text-slate-600 block mb-0.5">📅 {tr("తదుపరి సంప్రదింపు సమయం:", "Next follow-up date / time:")}</label>
                 <input
                   type="text"
                   value={counselorModal.callbackAt}
                   onChange={(e) => setCounselorModal({ ...counselorModal, callbackAt: e.target.value })}
-                  placeholder="ఉదా: రేపు సాయంత్రం 5:00 PM లేదా 2026-10-02"
+                  placeholder={tr("తేదీ, సమయాన్ని నమోదు చేయండి (YYYY-MM-DD HH:MM)", "Enter date and time (YYYY-MM-DD HH:MM)")}
                   className="w-full px-3 py-1.5 border border-slate-300 rounded-xl text-xs focus:border-indigo-600 focus:outline-none"
                 />
               </div>
@@ -4077,7 +4276,7 @@ export default function Dashboard() {
 
             {/* Previous History Timeline */}
             <div className="space-y-1.5 pt-2 border-t border-slate-100">
-              <span className="text-xs font-bold text-slate-700 block">📜 గత సంభాషణల చరిత్ర (Activity Trail):</span>
+              <span className="text-xs font-bold text-slate-700 block">📜 {tr("సంప్రదింపుల చరిత్ర:", "Contact history:")}</span>
               <div className="max-h-40 overflow-y-auto space-y-2 pr-1">
                 {counselorModal.notes && counselorModal.notes.length > 0 ? (
                   counselorModal.notes.map((n, i) => (
@@ -4088,12 +4287,12 @@ export default function Dashboard() {
                       </div>
                       <div className="font-medium text-slate-800">{n.note || "—"}</div>
                       {n.callback_at && (
-                        <div className="text-[10px] text-amber-800 font-bold">⏰ ఫాలో-అప్: {n.callback_at}</div>
+                        <div className="text-[10px] text-amber-800 font-bold">⏰ {tr("తదుపరి సంప్రదింపు:", "Follow-up:")} {n.callback_at}</div>
                       )}
                     </div>
                   ))
                 ) : (
-                  <p className="text-xs text-slate-400 italic py-2 text-center">ఇంకా ఎలాంటి గత నోట్స్ లేవు.</p>
+                  <p className="text-xs text-slate-400 italic py-2 text-center">{tr("గత గమనికలు లేవు.", "No previous notes.")}</p>
                 )}
               </div>
             </div>
@@ -4105,7 +4304,7 @@ export default function Dashboard() {
                 onClick={() => setCounselorModal(null)}
                 className="flex-1 py-2.5 rounded-2xl border border-slate-300 font-bold text-xs text-slate-600 hover:bg-slate-100 transition"
               >
-                ముగించు (Close)
+                {tr("ముగించు", "Close")}
               </button>
               <button
                 type="button"
@@ -4113,7 +4312,7 @@ export default function Dashboard() {
                 onClick={saveCounselorNote}
                 className="flex-1 py-2.5 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs shadow-md transition disabled:opacity-50"
               >
-                {busyId === counselorModal.tsapId ? "నమోదవుతోంది..." : "💾 నోట్ నమోదు చేయి (Save Note)"}
+                {busyId === counselorModal.tsapId ? tr("సేవ్ అవుతోంది…", "Saving…") : tr("💾 గమనికను సేవ్ చేయండి", "💾 Save note")}
               </button>
             </div>
           </div>
@@ -4128,9 +4327,9 @@ export default function Dashboard() {
               <div className="flex items-center gap-2">
                 <span className="text-2xl">🪔</span>
                 <div>
-                  <h3 className="font-black text-navy text-base">సాంప్రదాయ Porutham సూచిక (Traditional Reference)</h3>
+                  <h3 className="font-black text-navy text-base">{te ? "సాంప్రదాయ Porutham సూచిక" : "Traditional Porutham Reference"}</h3>
                   <p className="text-xs text-slate-500">
-                    IDలతో నమోదు చేసిన నక్షత్ర వివరాలపై Porutham checks; డేటా లేనప్పుడు స్కోరు సృష్టించదు
+                    {te ? "ప్రొఫైల్ IDలతో నమోదు చేసిన నక్షత్ర వివరాలపై ఆధారపడుతుంది; వివరాలు లేనప్పుడు స్కోరు సృష్టించదు." : "Uses star details recorded on the supplied profile IDs; no score is generated when details are missing."}
                   </p>
                 </div>
               </div>
@@ -4145,23 +4344,23 @@ export default function Dashboard() {
             {/* Boy & Girl ID Inputs */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-purple-50/50 p-3.5 rounded-2xl border border-purple-200">
               <div>
-                <label className="text-xs font-bold text-slate-700 block mb-1">🤵 వరుడు (Groom) TSAP ID:</label>
+                <label className="text-xs font-bold text-slate-700 block mb-1">{te ? "🤵 వరుడు TSAP ID:" : "🤵 Groom TSAP ID:"}</label>
                 <input
                   type="text"
                   value={astroCheckModal.boyId}
                   onChange={(e) => setAstroCheckModal({ ...astroCheckModal, boyId: e.target.value.toUpperCase() })}
-                  placeholder="ఇప్పటికే ఉన్న వరుడు ప్రొఫైల్ ID"
+                  placeholder={te ? "ఇప్పటికే ఉన్న వరుడు ప్రొఫైల్ ID" : "Existing groom profile ID"}
                   className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-mono font-bold focus:border-purple-600 focus:outline-none"
                 />
               </div>
 
               <div>
-                <label className="text-xs font-bold text-slate-700 block mb-1">👰 వధువు (Bride) TSAP ID:</label>
+                <label className="text-xs font-bold text-slate-700 block mb-1">{te ? "👰 వధువు TSAP ID:" : "👰 Bride TSAP ID:"}</label>
                 <input
                   type="text"
                   value={astroCheckModal.girlId}
                   onChange={(e) => setAstroCheckModal({ ...astroCheckModal, girlId: e.target.value.toUpperCase() })}
-                  placeholder="ఇప్పటికే ఉన్న వధువు ప్రొఫైల్ ID"
+                  placeholder={te ? "ఇప్పటికే ఉన్న వధువు ప్రొఫైల్ ID" : "Existing bride profile ID"}
                   className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-mono font-bold focus:border-purple-600 focus:outline-none"
                 />
               </div>
@@ -4173,7 +4372,9 @@ export default function Dashboard() {
                   onClick={() => runAstroCheck(astroCheckModal.boyId, astroCheckModal.girlId)}
                   className="w-full py-2.5 rounded-xl bg-gradient-to-r from-purple-700 to-indigo-800 hover:brightness-110 text-white font-extrabold text-xs shadow-md transition disabled:opacity-50"
                 >
-                  {astroCheckModal.loading ? "Porutham లెక్కిస్తోంది..." : "⚡ Porutham reference లెక్కించు"}
+                  {astroCheckModal.loading
+                    ? (te ? "Porutham లెక్కిస్తోంది..." : "Calculating Porutham…")
+                    : (te ? "⚡ Porutham సూచికను లెక్కించు" : "⚡ Calculate Porutham reference")}
                 </button>
               </div>
             </div>
@@ -4189,17 +4390,19 @@ export default function Dashboard() {
                       <div className="bg-gradient-to-r from-amber-500/10 via-purple-500/10 to-indigo-500/10 p-4 rounded-2xl border border-purple-200">
                         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
                           <div className="min-w-0 space-y-1">
-                            <span className="text-[10px] font-bold uppercase text-slate-500 block">సాంప్రదాయ Porutham సూచిక · వివాహ తీర్పు కాదు</span>
+                            <span className="text-[10px] font-bold uppercase text-slate-500 block">{te ? "సాంప్రదాయ Porutham సూచిక · వివాహ తీర్పు కాదు" : "Traditional Porutham reference · not a marriage verdict"}</span>
                             <h4 className="text-base font-black text-[#7A0C2E]">
                               {available
-                                ? `ఈ implementation లో ${porutham.passed_checks} of ${porutham.total_checks ?? 10} checks pass గా గుర్తించబడ్డాయి.`
-                                : (porutham?.reason || "అవసరమైన నక్షత్ర వివరాలు లేవు; Porutham లెక్కించలేదు.")}
+                                ? te
+                                  ? `ఈ implementation లో ${porutham.passed_checks} of ${porutham.total_checks ?? 10} checks pass గా గుర్తించబడ్డాయి.`
+                                  : `In this implementation, ${porutham.passed_checks} of ${porutham.total_checks ?? 10} checks are marked as passing.`
+                                : apiDisplayMessage(porutham, te, te ? "అవసరమైన నక్షత్ర వివరాలు లేవు; Porutham లెక్కించలేదు." : "Required birth-star details are unavailable; Porutham was not calculated.")}
                             </h4>
                             <p className="text-xs text-slate-600 leading-relaxed">
-                              వరుడు: <b>{astroCheckModal.result.boy?.full_name || astroCheckModal.result.boy?.tsap_id || "—"}</b>
-                              {" "}({astroCheckModal.result.boy?.star || "—"} · {astroCheckModal.result.boy?.rasi || "—"})
-                              {" "}↔ వధువు: <b>{astroCheckModal.result.girl?.full_name || astroCheckModal.result.girl?.tsap_id || "—"}</b>
-                              {" "}({astroCheckModal.result.girl?.star || "—"} · {astroCheckModal.result.girl?.rasi || "—"})
+                              {te ? "వరుడు:" : "Groom:"} <b>{astroCheckModal.result.boy?.full_name || astroCheckModal.result.boy?.tsap_id || "—"}</b>
+                              {" "}({apiDisplayMessage({ message_en: astroCheckModal.result.boy?.star_en, message: astroCheckModal.result.boy?.star }, te, "—")} · {apiDisplayMessage({ message_en: astroCheckModal.result.boy?.rasi_en, message: astroCheckModal.result.boy?.rasi }, te, "—")})
+                              {" "}↔ {te ? "వధువు:" : "Bride:"} <b>{astroCheckModal.result.girl?.full_name || astroCheckModal.result.girl?.tsap_id || "—"}</b>
+                              {" "}({apiDisplayMessage({ message_en: astroCheckModal.result.girl?.star_en, message: astroCheckModal.result.girl?.star }, te, "—")} · {apiDisplayMessage({ message_en: astroCheckModal.result.girl?.rasi_en, message: astroCheckModal.result.girl?.rasi }, te, "—")})
                             </p>
                           </div>
                           {available ? (
@@ -4211,29 +4414,34 @@ export default function Dashboard() {
                             </div>
                           ) : (
                             <span className="self-start rounded-full border border-amber-200 bg-amber-50 px-3 py-1.5 text-[11px] font-bold text-amber-900">
-                              లెక్కించలేదు
+                              {te ? "లెక్కించలేదు" : "Not calculated"}
                             </span>
                           )}
                         </div>
                         <p className="mt-3 border-t border-purple-100 pt-2 text-[11px] leading-relaxed text-slate-600">
-                          ఇది ప్రొఫైల్‌లో నమోదు చేసిన నక్షత్ర వివరాలపై ఆధారపడిన సాంప్రదాయ సూచిక మాత్రమే. వ్యక్తుల అనుకూలత, భవిష్యత్తు లేదా వివాహ ఫలితానికి హామీ/తీర్పు కాదు; వివరాలను సంబంధిత సభ్యులతో నిర్ధారించండి.
+                          {te
+                            ? "ఇది ప్రొఫైల్‌లో నమోదు చేసిన నక్షత్ర వివరాలపై ఆధారపడిన సాంప్రదాయ సూచిక మాత్రమే. వ్యక్తుల అనుకూలత, భవిష్యత్తు లేదా వివాహ ఫలితానికి హామీ/తీర్పు కాదు; వివరాలను సంబంధిత సభ్యులతో నిర్ధారించండి."
+                            : "This is a traditional reference based on star details entered in the profiles. It does not assess personal compatibility, predict the future, or guarantee a marriage outcome; confirm details with the members."}
                         </p>
                       </div>
 
                       {astroCheckModal.result.same_gothram === true ? (
                         <div className="p-3 bg-amber-50 border border-amber-300 rounded-xl text-xs text-amber-950 flex items-start gap-2">
                           <span aria-hidden="true">ℹ️</span>
-                          <span>ఇద్దరు ప్రొఫైళ్లలో ఇచ్చిన గోత్ర వివరాలు ఒకేలా ఉన్నాయి ({astroCheckModal.result.boy?.gothram || "—"}). ఇది సమాచార గమనిక మాత్రమే; కుటుంబ సంప్రదాయాన్ని స్వయంగా పరిశీలించండి.</span>
+                          <span>{te
+                            ? <>ఇద్దరు ప్రొఫైళ్లలో ఇచ్చిన గోత్ర వివరాలు ఒకేలా ఉన్నాయి ({astroCheckModal.result.boy?.gothram || "—"}). ఇది సమాచార గమనిక మాత్రమే; కుటుంబ సంప్రదాయాన్ని స్వయంగా పరిశీలించండి.</>
+                            : <>The two profiles list the same gotra ({apiDisplayMessage({ message_en: astroCheckModal.result.boy?.gothram_en, message: astroCheckModal.result.boy?.gothram }, false, "not available in English")}). This is informational only; confirm family customs independently.</>}
+                          </span>
                         </div>
                       ) : astroCheckModal.result.same_gothram === false ? (
                         <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 flex items-start gap-2">
                           <span aria-hidden="true">ℹ️</span>
-                          <span>ప్రొఫైళ్లలో ఇచ్చిన గోత్ర వివరాలు వేర్వేరుగా ఉన్నాయి. ఇది ఇతర అనుకూలత లేదా వివాహ సిఫార్సు కాదు.</span>
+                          <span>{te ? "ప్రొఫైళ్లలో ఇచ్చిన గోత్ర వివరాలు వేర్వేరుగా ఉన్నాయి. ఇది ఇతర అనుకూలత లేదా వివాహ సిఫార్సు కాదు." : "The profiles list different gotra details. This does not indicate overall compatibility or provide a marriage recommendation."}</span>
                         </div>
                       ) : (
                         <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 flex items-start gap-2">
                           <span aria-hidden="true">ℹ️</span>
-                          <span>రెండు గోత్ర వివరాలు అందుబాటులో లేనందున గోత్ర పోలిక చేయలేదు.</span>
+                          <span>{te ? "రెండు గోత్ర వివరాలు అందుబాటులో లేనందున గోత్ర పోలిక చేయలేదు." : "A gotra comparison was not made because both details were not available."}</span>
                         </div>
                       )}
 
@@ -4242,21 +4450,21 @@ export default function Dashboard() {
                           <table className="w-full text-[11px] text-left">
                             <thead className="bg-slate-100 text-slate-700 font-bold sticky top-0">
                               <tr>
-                                <th className="p-2">Porutham అంశం</th>
-                                <th className="p-2 text-center">లెక్కింపు</th>
-                                <th className="p-2">సాంప్రదాయ గమనిక</th>
+                                <th className="p-2">{te ? "Porutham అంశం" : "Porutham factor"}</th>
+                                <th className="p-2 text-center">{te ? "లెక్కింపు" : "Check"}</th>
+                                <th className="p-2">{te ? "సాంప్రదాయ గమనిక" : "Traditional note"}</th>
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
                               {porutham.items.map((it: any, index: number) => (
                                 <tr key={it.no ?? it.name ?? index}>
-                                  <td className="p-2 font-bold text-slate-800">{it.telugu || it.name || "—"}</td>
+                                  <td className="p-2 font-bold text-slate-800">{te ? (it.telugu || it.name || "—") : apiDisplayMessage({ message_en: it.name_en, message: it.name }, false, "Porutham factor")}</td>
                                   <td className="p-2 text-center">
                                     {it.pass
-                                      ? <span className="text-emerald-700 font-bold">✓ నియమం సరిపడింది</span>
-                                      : <span className="text-slate-600">నియమం సరిపోలలేదు</span>}
+                                      ? <span className="text-emerald-700 font-bold">{te ? "✓ నియమం సరిపడింది" : "✓ Marked as passing"}</span>
+                                      : <span className="text-slate-600">{te ? "నియమం సరిపోలలేదు" : "Not marked as passing"}</span>}
                                   </td>
-                                  <td className="p-2 text-slate-600 text-[10px]">{it.note || "—"}</td>
+                                  <td className="p-2 text-slate-600 text-[10px]">{te ? (it.note || "—") : apiDisplayMessage({ message_en: it.note_en, message: it.note }, false, "No English note available.")}</td>
                                 </tr>
                               ))}
                             </tbody>
@@ -4264,9 +4472,9 @@ export default function Dashboard() {
                         </div>
                       )}
 
-                      {porutham?.advice_telugu && (
+                      {(te ? porutham?.advice_telugu : apiDisplayMessage({ message_en: porutham?.advice_en, message: porutham?.advice }, false, "")) && (
                         <p className="rounded-xl bg-indigo-50 border border-indigo-100 p-3 text-xs text-indigo-900 leading-relaxed">
-                          {porutham.advice_telugu}
+                          {te ? porutham.advice_telugu : apiDisplayMessage({ message_en: porutham?.advice_en, message: porutham?.advice }, false, "")}
                         </p>
                       )}
                     </>
@@ -4276,25 +4484,31 @@ export default function Dashboard() {
                 {/* WhatsApp share contains the same factual report; the link is a share sheet, not support. */}
                 <div className="space-y-1.5 pt-1">
                   <div className="flex items-center justify-between gap-2 text-xs font-bold text-slate-700">
-                    <span>📲 WhatsApp లో పంచుకునే Porutham నివేదిక:</span>
+                    <span>{te ? "📲 WhatsApp లో పంచుకునే Porutham నివేదిక:" : "📲 Porutham report to share on WhatsApp:"}</span>
                     <button
                       type="button"
+                      disabled={!poruthamShareText}
                       onClick={() => {
-                        navigator.clipboard.writeText(astroCheckModal.result.wa_report_text || "");
-                        flash("✅ నివేదిక కాపీ అయ్యింది!");
+                        navigator.clipboard.writeText(poruthamShareText);
+                        flash(te ? "✅ నివేదిక కాపీ అయ్యింది!" : "✅ Report copied.");
                       }}
-                      className="text-purple-700 hover:text-purple-800 text-[11px] font-black underline flex items-center gap-1"
+                      className="text-purple-700 hover:text-purple-800 text-[11px] font-black underline flex items-center gap-1 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       <span>📋</span>
-                      <span>కాపీ చేయి</span>
+                      <span>{te ? "కాపీ చేయి" : "Copy"}</span>
                     </button>
                   </div>
-                  <textarea
-                    rows={6}
-                    readOnly
-                    value={astroCheckModal.result.wa_report_text || ""}
-                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 font-sans leading-relaxed focus:outline-none whitespace-pre-wrap select-all"
-                  />
+                  {poruthamShareText ? (
+                    <textarea
+                      rows={6}
+                      readOnly
+                      value={poruthamShareText}
+                      aria-label={te ? "Porutham నివేదిక" : "Porutham report"}
+                      className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 font-sans leading-relaxed focus:outline-none whitespace-pre-wrap select-all"
+                    />
+                  ) : (
+                    <p className="rounded-xl bg-slate-50 p-3 text-xs text-slate-600">{te ? "నివేదిక share text అందుబాటులో లేదు." : "An English share text is not available for this report."}</p>
+                  )}
                 </div>
               </div>
             )}
@@ -4306,17 +4520,17 @@ export default function Dashboard() {
                 onClick={() => setAstroCheckModal(null)}
                 className="flex-1 py-2.5 rounded-2xl border border-slate-300 font-bold text-xs text-slate-600 hover:bg-slate-100 transition"
               >
-                ముగించు (Close)
+                {tr("ముగించు", "Close")}
               </button>
-              {astroCheckModal.result && (
+              {astroCheckModal.result && poruthamShareText && (
                 <a
-                  href={`https://wa.me/?text=${encodeURIComponent(astroCheckModal.result.wa_report_text)}`}
+                  href={`https://wa.me/?text=${encodeURIComponent(poruthamShareText)}`}
                   target="_blank"
                   rel="noreferrer"
                   className="flex-1 py-2.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs shadow-md text-center transition flex items-center justify-center gap-1.5"
                 >
                   <span>💬</span>
-                  <span>WhatsApp లో పంపు</span>
+                  <span>{tr("WhatsApp ద్వారా పంపండి", "Send on WhatsApp")}</span>
                 </a>
               )}
             </div>

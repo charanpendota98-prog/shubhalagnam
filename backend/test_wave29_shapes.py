@@ -6,10 +6,18 @@ Run: WA_TEST_FAST=1 python3 test_wave29_shapes.py (backend/ nunchi)
 import io
 import os
 import sys
+from unittest.mock import patch
 
 os.environ.setdefault("WA_TEST_FAST", "1")
 os.environ.setdefault("OTP_DEV_MODE", "true")
 os.environ.setdefault("WA_LONG_PAUSE_CHANCE", "0")
+# Keep integration checks offline and prevent test approval from sending externally.
+os.environ["WA_ENABLED"] = "false"
+os.environ["WHATSAPP_MODE"] = "off"
+os.environ["PUBLISH_DRY_RUN"] = "true"
+os.environ["AUTO_POST_ON_APPROVAL"] = "false"
+os.environ["AUTO_POST_ON_REGISTER"] = "false"
+os.environ["OTP_CHANNELS"] = "none"
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from test_storage import isolate_test_stores  # noqa: E402
 isolate_test_stores("wave29")
@@ -33,9 +41,10 @@ def check(name, cond, extra=None):
 
 import main as M
 import hardening as H
+import quality as Q
 import referral
 import paypro as PP
-from fastapi.testclient import TestClient
+from testutil_client import TestClient
 
 c = TestClient(M.app, raise_server_exceptions=False)
 ADMIN = {"X-Admin-Key": H.ADMIN_KEY}
@@ -55,10 +64,15 @@ def new_phone():
 
 
 def reg(gender="male", **kw):
-    d = {"gender": gender, "age": 27 if gender == "male" else 24, "height": "5'8",
-         "marital_status": "Pelli Kaledu", "caste": "Reddy", "education": "BTech",
-         "job": "Software", "salary": "10L", "state": "TS", "district": "Hyd",
-         "phone": new_phone(), "full_name": kw.pop("full_name", "Shape Test")}
+    d = {"gender": gender, "age": 27 if gender == "male" else 24,
+         "dob": "1999-01-15" if gender == "male" else "2002-01-15", "height": "5'8",
+         "star": "Rohini" if gender == "male" else "Ashwini",
+         "rasi": "Vrishabha" if gender == "male" else "Mesha",
+         "marital_status": "Pelli Kaledu", "caste": "Reddy", "religion": "Hindu", "education": "BTech",
+         "job": "Software", "salary": "10L", "state": "TS", "district": "Hyderabad",
+         "phone": new_phone(), "full_name": kw.pop("full_name", "Shape Test"),
+         "password": "test-password",
+         "consent_confirmed": "true"}
     d.update(kw)
     return c.post("/api/register", data=d)
 
@@ -68,6 +82,57 @@ def user_of(tsap):
 
 
 try:
+    section("S0 saved-search filter semantics")
+    normalized_filters = Q.normalize_filters({
+        "sub_caste": "Kapu subgroup A,Kapu subgroup B", "rasi": "Mesha,Meena",
+        "children": "1", "nri_only": "false", "photo_only": "false", "verified_only": "true",
+    })
+    check("S0.1 normalizer keeps new filters typed and does not turn string false into true",
+          normalized_filters.get("sub_caste") == "Kapu subgroup A,Kapu subgroup B"
+          and normalized_filters.get("rasi") == "Mesha,Meena"
+          and normalized_filters.get("children") == "1"
+          and normalized_filters.get("verified_only") is True
+          and "nri_only" not in normalized_filters and "photo_only" not in normalized_filters,
+          normalized_filters)
+    age_only_rejected = False
+    try:
+        Q.normalize_filters({"age_min": 70})
+    except Exception as error:
+        age_only_rejected = getattr(error, "status_code", None) in (400, 422)
+    check("S0.1b one-sided age minimum respects the default maximum", age_only_rejected)
+    search_profile = {
+        "tsap_id": "TEST-SEARCH-01", "gender": "Bride", "caste": "Kapu", "sub_caste": "Kapu subgroup A",
+        "district": "Hyderabad", "current_city": "Hyderabad", "state": "TS", "job": "Software Engineer",
+        "work_type": "IT", "education": "MTech Computer Science", "marital_status": "Divorced",
+        "children": "1", "religion": "Hindu", "age": 30, "salary": "10L", "height": "5'6",
+        "phone_verified": True, "photo_status": "approved", "photo_urls": ["/media/test-approved.jpg"],
+        "dosham": "No", "star": "Rohini", "rasi": "Mesha", "country": "India",
+        "full_name": "Kapu Sample", "gothram": "Test Gothram",
+    }
+    combined_filter = {
+        "gender": "female", "caste": "Reddy,Kapu", "sub_caste": "Other,Kapu subgroup",
+        "district": "Nope,Hyderabad", "state": "AP,TS", "job": "Doctor,Software",
+        "education": "BTech,MTech", "marital_status": "Never married,Divorced", "children": "1",
+        "religion": "Christian,Hindu", "age_min": 25, "age_max": 35,
+        "salary_min": 500_000, "salary_max": 1_500_000, "height_min": "5'5", "height_max": "5'7",
+        "verified_only": True, "photo_only": True, "dosham": "Manglik,No", "star": "Ashwini,Rohini",
+        "rasi": "Meena,Mesha", "q": "Kapu",
+    }
+    check("S0.2 all visible filters use multi-value OR and member-provided matching",
+          Q.matches_filters(search_profile, combined_filter))
+    check("S0.3 NRI-only uses location evidence",
+          Q.matches_filters({"country": "USA", "age": 30}, {"nri_only": True}))
+    check("S0.4 missing religion and dosham remain unknown",
+          not Q.matches_filters({"age": 30}, {"religion": "Hindu"})
+          and not Q.matches_filters({"age": 30}, {"dosham": "No"}))
+    check("S0.5 constrained age, salary, height exclude unknown values",
+          not Q.matches_filters({}, {"age_min": 18, "age_max": 60})
+          and not Q.matches_filters({"age": 30}, {"salary_max": 5_000_000})
+          and not Q.matches_filters({"age": 30}, {"height_min": "5'0"}))
+    check("S0.6 photo-only excludes private or unapproved photos",
+          not Q.matches_filters({"photo_status": "pending", "photo_urls": ["/photo.jpg"]}, {"photo_only": True})
+          and not Q.matches_filters({"photo_status": "approved", "photo_urls": ["/photo.jpg"], "photo_private": True}, {"photo_only": True}))
+
     section("S1 register+login shapes (register/login pages)")
     r = reg(full_name="Shape Raja")
     G = r.json()["tsap_id"]
@@ -83,13 +148,18 @@ try:
     fp = c.get("/api/free-plan")
     check("S1.3 free-plan alive", fp.status_code == 200, (fp.status_code, fp.text[:120]))
     gph = user_of(G)["phone"]
-    s = c.post("/api/otp/send", json={"phone": gph})
-    check("S1.4 otp send shape", s.status_code == 200 and "message_telugu" in s.json(),
-          (s.status_code, s.text[:150]))
-    code = (M.DB_OTPS.get(gph) or {}).get("code", "")
-    v = c.post("/api/otp/verify", json={"phone": gph, "code": code})
-    check("S1.5 verify keys", v.status_code == 200 and all(k in v.json() for k in
-          ("tsap_id", "auth_token")), (v.status_code, v.text[:200]))
+    no_channel = c.post("/api/otp/send", json={"phone": gph})
+    check("S1.4 OTP fails closed without configured delivery and returns no code",
+          no_channel.status_code == 503 and gph not in M.DB_OTPS
+          and "code" not in no_channel.text.lower(),
+          (no_channel.status_code, no_channel.text[:150]))
+    with patch("main.otp_channel_send", return_value={"ok": True, "channel": "test_stub"}), patch("main.secrets.randbelow", return_value=0):
+        s = c.post("/api/otp/send", json={"phone": gph})
+    v = c.post("/api/otp/verify", json={"phone": gph, "code": "1000"})
+    check("S1.5 OTP verify returns the expected account token through isolated test transport",
+          s.status_code == 200 and v.status_code == 200
+          and all(k in v.json() for k in ("tsap_id", "auth_token")),
+          (s.status_code, v.status_code, v.text[:200]))
     TOK = H.sign_token(G)
     HD = {"X-TSAP-Token": TOK}
     HD2 = {"X-TSAP-Token": H.sign_token(B)}
@@ -99,11 +169,45 @@ try:
     ap2 = c.post(f"/api/admin/approve/{G}", headers=ADMIN)
     check("S2.0 admin approve", ap1.status_code in (200, 201) and ap2.status_code in (200, 201),
           (ap1.status_code, ap2.status_code))
+    user_of(B)["sub_caste"] = "Test Subcaste A"
+    user_of(B)["dosham"] = "No"
+    user_of(G)["sub_caste"] = "Test Subcaste B"
+    user_of(G).pop("dosham", None)  # Unknown must not be silently treated as "No".
+    sub_a = c.get("/api/search?sub_caste=Test%20Subcaste%20A")
+    sub_any = c.get("/api/search?sub_caste=Test%20Subcaste%20A%2CTest%20Subcaste%20B")
+    check("S2.0a sub-caste filter accepts an independent multi-value parameter",
+          sub_a.status_code == 200 and sub_a.json().get("total") == 1
+          and sub_a.json()["results"][0].get("tsap_id") == B,
+          (sub_a.status_code, sub_a.json().get("total"), [row.get("tsap_id") for row in sub_a.json().get("results", [])]))
+    check("S2.0b sub-caste multi-select uses OR semantics",
+          sub_any.status_code == 200 and sub_any.json().get("total") == 2,
+          (sub_any.status_code, sub_any.json().get("total")))
+    rasi = c.get("/api/search?rasi=Mesha")
+    check("S2.0c rasi filter is applied by the API",
+          rasi.status_code == 200 and rasi.json().get("total") == 1
+          and rasi.json()["results"][0].get("tsap_id") == B,
+          (rasi.status_code, rasi.json().get("total"), [row.get("tsap_id") for row in rasi.json().get("results", [])]))
+    dosham_no = c.get("/api/search?dosham=No")
+    check("S2.0d missing dosham remains unknown rather than matching No",
+          dosham_no.status_code == 200 and dosham_no.json().get("total") == 1
+          and dosham_no.json()["results"][0].get("tsap_id") == B,
+          (dosham_no.status_code, dosham_no.json().get("total"), [row.get("tsap_id") for row in dosham_no.json().get("results", [])]))
     f = c.get("/api/search?gender=Bride&age_min=20&age_max=30", headers=HD)
-    check("S2.0b male/female alias", c.get("/api/search?gender=female", headers=HD).json().get("total", 0) >= 1)
+    check("S2.1a male/female alias", c.get("/api/search?gender=female", headers=HD).json().get("total", 0) >= 1)
     j = f.json()
     check("S2.1 search keys", f.status_code == 200 and isinstance(j.get("results"), list)
           and "total" in j, (f.status_code, list(j)[:8]))
+    page0 = c.get("/api/search?limit=1&offset=0")
+    page1 = c.get("/api/search?limit=1&offset=1")
+    page2 = c.get("/api/search?limit=1&offset=2")
+    ids0 = [row.get("tsap_id") for row in page0.json().get("results", [])]
+    ids1 = [row.get("tsap_id") for row in page1.json().get("results", [])]
+    check("S2.1b limit/offset returns distinct pages and an empty end page",
+          page0.status_code == page1.status_code == page2.status_code == 200
+          and page0.json().get("total") == page1.json().get("total") == 2
+          and len(ids0) == len(ids1) == 1 and ids0[0] != ids1[0]
+          and page2.json().get("results") == [],
+          (page0.status_code, page1.status_code, page2.status_code, ids0, ids1))
     row = (j.get("results") or [{}])[0]
     check("S2.2 row keys", all(k in row for k in
           ("tsap_id", "full_name", "age", "caste", "education", "job", "district",
@@ -116,9 +220,90 @@ try:
     sv0 = c.get(f"/api/saved/{G}", headers=HD)
     check("S2.5 saved shape", sv0.status_code == 200
           and ("items" in sv0.json() or "saved" in sv0.json()), sv0.text[:150])
+    created_search = c.post("/api/saved-searches", headers=HD, json={
+        "tsap_id": G, "name": "Sub-caste filter", "filters": {"sub_caste": "Test Subcaste A"}, "alert": False,
+    })
+    default_alert_search = c.post("/api/saved-searches", headers=HD, json={
+        "tsap_id": G, "name": "Rasi filter", "filters": {"rasi": "Mesha"},
+    })
+    check("S2.5a saved-search create keeps filters and notifications off by explicit consent",
+          created_search.status_code == 200 and created_search.json().get("search", {}).get("alert") is False
+          and created_search.json().get("search", {}).get("filters", {}).get("sub_caste") == "Test Subcaste A"
+          and created_search.json().get("alert_enabled") is False,
+          (created_search.status_code, created_search.text[:200]))
+    check("S2.5b omitted alert flag is safely disabled by default",
+          default_alert_search.status_code == 200 and default_alert_search.json().get("search", {}).get("alert") is False,
+          (default_alert_search.status_code, default_alert_search.text[:150]))
+    unconfirmed_alert = c.post("/api/saved-searches", headers=HD, json={
+        "tsap_id": G, "name": "Unconfirmed alert", "filters": {"gender": "Bride"}, "alert": True,
+    })
+    check("S2.5b1 alert cannot turn on without explicit consent confirmation",
+          unconfirmed_alert.status_code in (400, 422), (unconfirmed_alert.status_code, unconfirmed_alert.text[:150]))
+    opted_in_search = c.post("/api/saved-searches", headers=HD, json={
+        "tsap_id": G, "name": "Temporary alert test", "filters": {"gender": "Bride"},
+        "alert": True, "alert_consent_confirmed": True,
+    })
+    opted_in_id = (opted_in_search.json().get("search") or {}).get("search_id", "")
+    unconfirmed_update = c.put(f"/api/saved-searches/{G}/{opted_in_id}", headers=HD,
+                               json={"alert": True}) if opted_in_id else None
+    alert_off = c.put(f"/api/saved-searches/{G}/{opted_in_id}", headers=HD, json={"alert": False}) if opted_in_id else None
+    alert_removed = c.delete(f"/api/saved-searches/{G}/{opted_in_id}", headers=HD) if opted_in_id else None
+    check("S2.5c explicit alert consent is timestamped, required to opt in, and withdrawable",
+          opted_in_search.status_code == 200
+          and bool((opted_in_search.json().get("search") or {}).get("alert_consent_at"))
+          and unconfirmed_update is not None and unconfirmed_update.status_code in (400, 422)
+          and alert_off is not None and alert_off.status_code == 200
+          and alert_off.json().get("alert_enabled") is False
+          and alert_removed is not None and alert_removed.status_code == 200,
+          (opted_in_search.status_code, getattr(unconfirmed_update, "status_code", None),
+           getattr(alert_off, "status_code", None), getattr(alert_removed, "status_code", None)))
     ss0 = c.get(f"/api/saved-searches/{G}", headers=HD)
-    check("S2.6 saved-searches shape", ss0.status_code == 200
-          and isinstance(ss0.json().get("searches"), list), ss0.text[:150])
+    saved_rows = ss0.json().get("searches", []) if ss0.status_code == 200 else []
+    check("S2.6 saved-searches shape and filter-aware current matches",
+          ss0.status_code == 200 and len(saved_rows) == 2
+          and any(row.get("new_matches") == 1 and row.get("sample", [{}])[0].get("tsap_id") == B for row in saved_rows),
+          (ss0.status_code, ss0.text[:250]))
+    target_profile = user_of(B)
+    prior_status = target_profile.get("status")
+    target_profile["status"] = "pending"
+    pending_rows_response = c.get(f"/api/saved-searches/{G}", headers=HD)
+    target_profile["status"] = prior_status
+    pending_rows = pending_rows_response.json().get("searches", []) if pending_rows_response.status_code == 200 else []
+    check("S2.6a saved-search previews exclude pending profiles",
+          pending_rows_response.status_code == 200 and len(pending_rows) == 2
+          and all(row.get("new_matches") == 0 and not row.get("sample") for row in pending_rows),
+          (pending_rows_response.status_code, pending_rows))
+    block_result = c.post("/api/block", headers=HD, json={"tsap_id": G, "block_id": B})
+    blocked_rows_response = c.get(f"/api/saved-searches/{G}", headers=HD)
+    blocked_rows = blocked_rows_response.json().get("searches", []) if blocked_rows_response.status_code == 200 else []
+    unblock_result = c.post("/api/unblock", headers=HD, json={"tsap_id": G, "block_id": B})
+    check("S2.6b saved-search previews exclude blocked profiles",
+          block_result.status_code == 200 and blocked_rows_response.status_code == 200
+          and len(blocked_rows) == 2 and all(row.get("new_matches") == 0 for row in blocked_rows)
+          and unblock_result.status_code == 200 and unblock_result.json().get("success") is True,
+          (block_result.status_code, blocked_rows_response.status_code, unblock_result.status_code))
+    no_alerts = c.post(f"/api/saved-searches/{G}/alerts", headers=HD)
+    check("S2.6c manual alert trigger respects explicit per-search consent",
+          no_alerts.status_code == 200 and no_alerts.json().get("alerts_sent") == 0
+          and no_alerts.json().get("alerts_skipped") == 2 and not no_alerts.json().get("details"),
+          (no_alerts.status_code, no_alerts.text[:200]))
+    paused_queue_search = c.post("/api/saved-searches", headers=HD, json={
+        "tsap_id": G, "name": "Offline queue safety", "filters": {"gender": "Bride"},
+        "alert": True, "alert_consent_confirmed": True,
+    })
+    paused_search_id = (paused_queue_search.json().get("search") or {}).get("search_id", "")
+    paused_alerts = c.post(f"/api/saved-searches/{G}/alerts", headers=HD) if paused_search_id else None
+    paused_detail = ((paused_alerts.json().get("details") or [{}])[0]
+                     if paused_alerts is not None and paused_alerts.status_code == 200 else {})
+    paused_search = next((r for r in Q.saved_for(G) if r.get("search_id") == paused_search_id), {})
+    check("S2.6d offline WhatsApp does not queue or mark consented alert results as sent",
+          paused_search_id and paused_alerts is not None and paused_alerts.status_code == 200
+          and paused_alerts.json().get("alerts_sent") == 0 and paused_alerts.json().get("new_matches_total", 0) >= 1
+          and paused_detail.get("queued") is False and paused_search.get("alerts_sent") == 0
+          and not paused_search.get("last_seen_ids"),
+          (getattr(paused_alerts, "status_code", None), getattr(paused_alerts, "text", "")[:200], paused_search))
+    if paused_search_id:
+        c.delete(f"/api/saved-searches/{G}/{paused_search_id}", headers=HD)
     ml = c.get(f"/api/matches/{G}", headers=HD)
     check("S2.7 matches list alive", ml.status_code == 200, ml.status_code)
 
@@ -131,8 +316,10 @@ try:
           (p.status_code, list(prof)[:14] if isinstance(prof, dict) else prof))
     user_of(G)["credits"] = 5
     un = c.post("/api/unlock", json={"viewer_id": G, "target_id": B}, headers=HD)
-    check("S3.2 unlock keys", un.status_code in (200, 201) and "phone" in un.json()
-          and "message_telugu" in un.json(), (un.status_code, un.text[:200]))
+    check("S3.2 contact stays locked before owner acceptance",
+          un.status_code == 409 and un.json().get("reason") == "consent_required"
+          and user_of(B).get("phone") not in un.text,
+          (un.status_code, un.text[:200]))
     sv = c.post("/api/save", json={"tsap_id": G, "target_id": B}, headers=HD)
     check("S3.3 save target_id alias", sv.status_code in (200, 201),
           (sv.status_code, sv.text[:150]))
@@ -167,10 +354,16 @@ try:
     rs = c.post("/api/interest/respond", json={"tsap_id": B, "request_id": RID,
                                                "action": "accept"}, headers=HD2)
     check("S4.4 respond shape", rs.status_code in (200, 201), (rs.status_code, rs.text[:200]))
+    accepted_unlock = c.post("/api/unlock", json={"viewer_id": G, "target_id": B}, headers=HD)
+    check("S4.5 accepted request enables zero-charge contact access",
+          accepted_unlock.status_code == 200 and accepted_unlock.json().get("success") is True
+          and accepted_unlock.json().get("charged") == 0
+          and accepted_unlock.json().get("phone") == user_of(B).get("phone"),
+          (accepted_unlock.status_code, accepted_unlock.text[:180]))
     wa = c.get("/api/wa/status", headers=HD)
-    check("S4.5 wa status (auth) ", wa.status_code in (200, 403), wa.status_code)
+    check("S4.6 wa status (auth)", wa.status_code in (200, 403), wa.status_code)
     if wa.status_code == 200:
-        check("S4.6 antiban keys", "antiban" in wa.json(), list(wa.json())[:8])
+        check("S4.7 antiban keys", "antiban" in wa.json(), list(wa.json())[:8])
 
     section("S5 referral shapes (referral page)")
     dh = c.get(f"/api/referral/{G}", headers=HD)
@@ -216,13 +409,13 @@ try:
           list(pj6["plans"][0])[:10])
     check("S6.3 addons/renewal/bureau", "addons" in pj6 and "renewal" in pj6
           and "bureau" in pj6, list(pj6)[:10])
-    vl = c.get("/api/vendors?category=catering&district=Hyd")
+    vl = c.get("/api/vendors?category=catering&district=Hyderabad")
     vj = vl.json()
     check("S6.4 vendors keys", vl.status_code == 200 and "vendors" in vj and "total" in vj,
           (vl.status_code, list(vj)[:8]))
     vr = c.post("/api/vendors/register", json={"business_name": "Shape Hall",
                  "owner_name": "Shape Owner", "category": "catering", "phone": new_phone(),
-                 "city": "Hyd", "district": "Hyd", "state": "TS", "package": "V_STANDARD",
+                 "city": "Hyd", "district": "Hyderabad", "state": "TS", "package": "V_STANDARD",
                  "source": "website"})
     VID = ""
     try:
@@ -246,7 +439,7 @@ try:
           (og.status_code, len(og.content)))
     cj = c.get("/api/channels/join")
     check("S6.9 channels join", cj.status_code in (200, 404), (cj.status_code, cj.text[:150]))
-    ck = c.get("/api/channels/live")
+    ck = c.get("/api/channels/routing-eligible")
     check("S6.10 channels live", ck.status_code == 200, ck.status_code)
     ph = c.get("/api/channels/photo/test.png")
     check("S6.11 channel photo (404 ok)", ph.status_code in (200, 404), ph.status_code)

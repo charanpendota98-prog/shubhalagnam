@@ -1,9 +1,9 @@
 """
-🌟 WAVE 13 TEST SUITE — FIRST-NAME + SURNAME GUARD + ASTRO + ADS
-================================================================
-  A. first-name display + surname pure (extract/norm/check/filter)
-  B. public display: caption/bot first-name, surname hidden, number ledu
-  C. surname backend block: interest + top-matches + score + admin match-send
+🌟 WAVE 13 TEST SUITE — FIRST-NAME + NAME-TOKEN NOTICE + ASTRO + ADS
+=====================================================================
+  A. first-name display + optional final-token comparison (never eligibility)
+  B. public display: caption/bot first-name, rest of name hidden, number ledu
+  C. non-blocking name-token behavior across interest + matches + admin list
   D. astro pure: star/rasi norm + 27 table + gana/yoni/nadi sanity
   E. 36-guna math: known-answers (tara/yoni/nadi/bhakoot/maitri) + totals + verdicts
   F. dosha screening + jathakam engine (submit/verify/stats)
@@ -45,7 +45,7 @@ def check(name, cond, extra=None):
         print(f"  ❌ {name} :: {str(extra)[:220]}")
 
 
-from fastapi.testclient import TestClient
+from testutil_client import TestClient
 import hardening as H
 import main
 import smart12 as S12
@@ -70,19 +70,22 @@ check("A4 surname_of", S12.surname_of("Lakshmi Reddy") == "Reddy")
 check("A5 surname single → ''", S12.surname_of("Sravani") == "")
 check("A6 norm_surname", S12.norm_surname(" Reddy. ") == "reddy", S12.norm_surname(" Reddy. "))
 c = S12.same_surname_check({"full_name": "Lakshmi Reddy"}, {"full_name": "RAVI  reddy "})
-check("A7 same surname (case/space) → blocked", c["blocked"] is True and c["reason"] == "same_surname", c)
-check("A8 verdict telugu 🚫+kudadhu", "🚫" in c["verdict_telugu"] and "కూడదు" in c["verdict_telugu"])
+check("A7 same final name token is reported but never blocks", c["same"] is True and c["blocked"] is False
+      and c["reason"] == "same_final_name_token", c)
+check("A8 explanatory copy avoids an eligibility verdict",
+      "వివాహ నిర్ణయం కాదు" in c["note_telugu"] and "does not determine eligibility" in c["notice"])
 c2 = S12.same_surname_check({"full_name": "Lakshmi Reddy"}, {"full_name": "Ravi Kumar"})
-check("A9 veru surname → OK", c2["blocked"] is False and c2["reason"] == "surname_ok")
+check("A9 different final token is informational only",
+      c2["same"] is False and c2["blocked"] is False and c2["reason"] == "different_final_name_token")
 c3 = S12.same_surname_check({"full_name": "Lakshmi"}, {"full_name": "Ravi Kumar"})
-check("A10 surname lekapothe block kadu + warning",
-      c3["blocked"] is False and c3.get("unknown_side") is True)
+check("A10 missing token stays unknown and non-blocking",
+      c3["blocked"] is False and c3["same"] is None and c3["reason"] == "name_token_unavailable")
 f = S12.filter_same_surname({"tsap_id": "M", "full_name": "A Reddy"},
                              [{"tsap_id": "X1", "full_name": "B REDDY"},
                               {"tsap_id": "X2", "full_name": "C Kumar"},
                               {"tsap_id": "X3", "full_name": "Solo"}])
-check("A11 filter: 1 skip + 2 kept", f["skipped_count"] == 1 and len(f["kept"]) == 2, f["skipped_ids"])
-check("A12 skipped X1", f["skipped_ids"] == ["X1"])
+check("A11 legacy filter keeps every profile", f["skipped_count"] == 0 and len(f["kept"]) == 3, f)
+check("A12 no profile is skipped by a name token", f["skipped_ids"] == [])
 
 # ═══════════════════════════════════════════════════════════════════════════
 section("B. PUBLIC DISPLAY (first-name, surname/number hidden)")
@@ -94,24 +97,27 @@ cap = CC.build_caption(prof, "TSAP-F-2025-5775", 92)
 check("B1 first name visible", "Lakshmi" in cap)
 check("B2 full-name string ledu", "Lakshmi Reddy" not in cap)
 check("B3 number ledu", not PHONE_RE.findall(cap))
-check("B4 CTA intact", "/unlock TSAP-F-2025-5775" in cap and "మోసం జాగ్రత్త" in cap)
+check("B4 public CTA uses profile route and owner-consent copy",
+      "/search/TSAP-F-2025-5775" in cap and "profile-owner acceptance" in cap
+      and "/unlock" not in cap)
 card = TB.format_id_search(dict(prof, tsap_id="TSAP-F-1"))
 check("B5 bot card first-name + hidden rest",
       "Lakshmi" in card and "Lakshmi Reddy" not in card and "9848012345" not in card, card[:150])
 
 # ═══════════════════════════════════════════════════════════════════════════
-section("C. SURNAME BACKEND BLOCK (API)")
+section("C. NON-BLOCKING NAME-TOKEN POLICY (API)")
 # ═══════════════════════════════════════════════════════════════════════════
 client.post("/api/demo/seed")
 import random as _r13
 _PH = lambda: "9933%06d" % _r13.randint(0, 999999)  # R10: unique per run (demo fixed phones tho dup vaddhu)
-BB = {"gender": "Bride", "age": "25", "height": "5'4\"", "marital_status": "Pelli Kaledu", "caste": "Reddy",
+BB = {"gender": "Bride", "age": "25", "dob": "2001-01-01", "password": "test-profile-password",
+      "height": "5'4\"", "marital_status": "Pelli Kaledu", "caste": "Reddy",
       "education": "BTech", "job": "Software", "salary": "60k", "state": "TS", "district": "Hyderabad",
       "phone": _PH(), "full_name": "Wave Thirteen Reddy", "gothram": "Bharadwaj",
       "star": "Rohini", "rasi": "Vrishabha", "religion": "Hindu"}
-BG_SAME = dict(BB, gender="Groom", age="29", phone=_PH(), full_name="Wave Groom REDDY",
+BG_SAME = dict(BB, gender="Groom", age="29", dob="1997-01-01", phone=_PH(), full_name="Wave Groom REDDY",
                gothram="Koundinya", height="5'9\"", star="Mrigasira", rasi="Vrishabha")
-BG_DIFF = dict(BB, gender="Groom", age="30", phone=_PH(), full_name="Wave Groom Kumar",
+BG_DIFF = dict(BB, gender="Groom", age="30", dob="1996-01-01", phone=_PH(), full_name="Wave Groom Kumar",
                gothram="Koundinya", height="5'10\"", star="Ardra", rasi="Mithuna")
 b = client.post("/api/register", data=BB).json()
 g1 = client.post("/api/register", data=BG_SAME).json()
@@ -121,28 +127,51 @@ check("C0 3 register", all([BID, G1, G2]), (BID, G1, G2))
 for _u in main.DB_USERS:
     if _u.get("tsap_id") in (BID, G1, G2):
         _u["is_approved"] = True
+g1_user = next(u for u in main.DB_USERS if u["tsap_id"] == G1)
+credits_before = int(g1_user.get("credits", 0) or 0)
 ib = client.post("/api/interest/send", json={"from_id": G1, "to_id": BID})
-check("C1 same-surname interest BLOCK", ib.status_code == 400 and ib.json().get("reason") == "same_surname",
+check("C1 matching final name tokens never block an interest",
+      ib.status_code == 200 and ib.json().get("success") is True,
       (ib.status_code, str(ib.json())[:150]))
-cr = next(u for u in main.DB_USERS if u["tsap_id"] == G1).get("credits", 0)
-check("C2 block ayina credit cut kadu", cr >= 3, cr)
+credits_after = int(g1_user.get("credits", 0) or 0)
+check("C2 pending interest uses one request credit",
+      credits_before >= 1 and credits_after == credits_before - 1, (credits_before, credits_after))
 io = client.post("/api/interest/send", json={"from_id": G2, "to_id": BID})
-check("C3 veru surname interest OK", io.status_code == 200 and io.json().get("success") is True,
+check("C3 different final token also has no special eligibility effect",
+      io.status_code == 200 and io.json().get("success") is True,
       (io.status_code, str(io.json())[:150]))
 tm = client.get(f"/api/top-matches/{BID}?limit=10&min_score=0").json()
-check("C4 top-matches surname_skipped field", "surname_skipped" in tm, list(tm.keys()))
-check("C5 G1 (same surname) results lo ledu",
-      G1 not in [r.get("tsap_id") for r in tm.get("results", [])], tm.get("surname_skipped"))
+tm_ids = [row.get("tsap_id") for row in tm.get("results", [])]
+check("C4 top matches use recency/paid placement, not name-token exclusions",
+      tm.get("legacy_exclusion_flags_ignored") is True and "surname_skipped" not in tm
+      and tm.get("compatibility_score_calculated") is False, list(tm.keys()))
+check("C5 same final token does not exclude G1", G1 in tm_ids, tm_ids)
 tm2 = client.get(f"/api/top-matches/{BID}?limit=10&min_score=0&include_same_surname=1").json()
-check("C6 include flag tho G1 kanipisthundi",
-      G1 in [r.get("tsap_id") for r in tm2.get("results", [])])
-sc = client.get(f"/api/match/score?a={G1}&b={BID}").json()
-check("C7 score lo surname verdict", sc.get("surname", {}).get("blocked") is True, sc.get("surname"))
-sc2 = client.get(f"/api/match/score?a={G2}&b={BID}").json()
-check("C8 veru surname score OK", sc2.get("surname", {}).get("blocked") is False)
+tm2_ids = [row.get("tsap_id") for row in tm2.get("results", [])]
+check("C6 legacy surname flag does not change eligibility", tm_ids == tm2_ids, tm2_ids)
+sc_response = client.post("/api/match/score", json={
+    "a": next(u for u in main.DB_USERS if u["tsap_id"] == G1),
+    "b": next(u for u in main.DB_USERS if u["tsap_id"] == BID),
+})
+sc = sc_response.json()
+check("C7 match comparison exposes facts, not a surname verdict or score",
+      sc_response.status_code == 200 and sc.get("compatibility_score_calculated") is False
+      and "surname" not in sc and "score" not in sc, list(sc.keys()))
+sc2_response = client.post("/api/match/score", json={
+    "a": next(u for u in main.DB_USERS if u["tsap_id"] == G2),
+    "b": next(u for u in main.DB_USERS if u["tsap_id"] == BID),
+})
+sc2 = sc2_response.json()
+check("C8 different token comparison has same factual-only policy",
+      sc2_response.status_code == 200 and sc2.get("compatibility_score_calculated") is False
+      and "surname" not in sc2 and "score" not in sc2)
 ms = client.get(f"/api/admin/match-send/{BID}?limit=20&min_score=0", headers=HDR_ADMIN).json()
-check("C9 admin match-send surname_skipped", "surname_skipped" in ms
-      and G1 not in [r.get("tsap_id") for r in ms.get("results", [])], ms.get("surname_skipped"))
+ms_ids = [row.get("tsap_id") for row in ms.get("results", [])]
+check("C9 admin list does not use name-token or compatibility ranking",
+      ms.get("legacy_exclusion_flags_ignored") is True and "surname_skipped" not in ms
+      and G1 in ms_ids
+      and all(not ({"score", "compatibility_score", "surname", "surname_skipped"} & set(row))
+              for row in ms.get("results", [])), (ms_ids, list(ms.get("results", [{}])[0].keys())))
 
 # ═══════════════════════════════════════════════════════════════════════════
 section("D. ASTRO PURE (stars/rasis/tables)")
@@ -292,12 +321,18 @@ ADS.get_campaign(CID)["end"] = "2020-01-01T00:00:00"
 sv4 = ADS.serve("matches_sidebar", "Hyderabad", "TS")
 check("H14 expiry auto (old end → no_ads + expired)", sv4.get("ok") is False
       and ADS.get_campaign(CID)["status"] == "expired")
-ADS.approve_campaign(CID, "UTR-AD-2")
-ADS.campaign_action(CID, "pause")
-check("H15 pause → serve ledu", ADS.serve("matches_sidebar", "Hyderabad", "TS")["ok"] is False)
-ADS.campaign_action(CID, "resume")
-check("H16 resume → serve", ADS.serve("matches_sidebar", "Hyderabad", "TS")["ok"] is True)
-check("H17 stats", ADS.ads_stats()["total"] >= 1 and "collected" in ADS.ads_stats())
+expired_resume = ADS.campaign_action(CID, "resume")
+check("H15 expired campaigns cannot be resumed",
+      expired_resume.get("success") is False and ADS.get_campaign(CID)["status"] == "expired")
+paused_campaign = ADS.create_campaign("MVV-2", "Second Test Studio", "district", 7,
+                                      ["Hyderabad"], "TS", ["matches_sidebar"])
+PAUSE_ID = paused_campaign.get("campaign", {}).get("id", "")
+ADS.approve_campaign(PAUSE_ID, "UTR-AD-2")
+pause_result = ADS.campaign_action(PAUSE_ID, "pause")
+check("H16 active campaign can be paused and resumed only from paused state",
+      pause_result.get("success") is True and ADS.campaign_action(PAUSE_ID, "resume").get("success") is True
+      and ADS.get_campaign(PAUSE_ID)["status"] == "active")
+check("H17 stats", ADS.ads_stats()["total"] >= 2 and "collected" in ADS.ads_stats())
 
 # ═══════════════════════════════════════════════════════════════════════════
 section("I. ADS API (rates/serve/vendor/admin)")
@@ -338,15 +373,23 @@ check("I12 admin ads stats + revenue", stt.get("success") and stt.get("collected
 # ═══════════════════════════════════════════════════════════════════════════
 section("J. SESSION CONTRACT (login persist)")
 # ═══════════════════════════════════════════════════════════════════════════
-dt = client.post("/api/auth/demo-token", json={"tsap_id": BID}).json()
-check("J1 demo-token undi", dt.get("success") and dt.get("auth_token"), str(dt)[:120])
-tok = dt.get("auth_token", "")
+dt_response = client.post("/api/auth/demo-token", json={"tsap_id": BID})
+dt = dt_response.json()
+check("J1 demo-token is retired", dt_response.status_code == 410 and "retired" in dt.get("detail", "").lower(), dt)
+login_user = next(u for u in main.DB_USERS if u["tsap_id"] == BID)
+login_response = client.post("/api/auth/login-password", json={
+    "phone": login_user["phone"], "password": BB["password"]
+})
+login_data = login_response.json()
+check("J2 password login returns a session token",
+      login_response.status_code == 200 and bool(login_data.get("auth_token")), login_data)
+tok = login_data.get("auth_token", "")
 vv = client.get("/api/auth/verify", headers={"Authorization": f"Bearer {tok}"}).json()
-check("J2 verify echo tsap_id", vv.get("valid") is True and vv.get("tsap_id") == BID, vv)
+check("J3 verify echoes the authenticated member ID", vv.get("valid") is True and vv.get("tsap_id") == BID, vv)
 vv2 = client.get("/api/auth/verify", headers={"Authorization": "Bearer bogus-token-xyz"}).json()
-check("J3 bogus token invalid", vv2.get("valid") is not True, vv2)
+check("J4 bogus token invalid", vv2.get("valid") is not True, vv2)
 cr_api = client.get(f"/api/credits/{BID}").json()
-check("J4 credits API (session data)", "credits" in cr_api, str(cr_api)[:120])
+check("J5 credits API (session data)", "credits" in cr_api, str(cr_api)[:120])
 
 print(f"\n{'=' * 76}\nRESULT: {PASS} pass / {FAIL} fail")
 if FAILED:

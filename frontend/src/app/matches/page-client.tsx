@@ -14,6 +14,7 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import {
   CASTES,
   CASTE_SUBCASTES,
@@ -23,12 +24,13 @@ import {
   EDUCATIONS,
   EDUCATION_TELUGU,
   HEIGHTS,
-  JOBS,
-  MARITAL_STATUSES,
+  MARITAL_STATUS_FILTER_OPTIONS,
+  CHILDREN_FILTER_OPTIONS,
+  isNeverMarriedStatus,
   NAKSHATRAS,
   RASIS,
   RELIGIONS,
-  SALARIES,
+  SALARIES_DETAILED,
   TS_DISTRICTS,
   AP_DISTRICTS,
   WORK_TYPES,
@@ -39,9 +41,11 @@ import {
   sortUniqueOptions,
 } from "@/lib/telugu-data";
 import { SITE_CONFIG } from "@/lib/site-config";
+import { DEFAULT_MATCH_FILTERS, parseMatchFilters } from "@/lib/match-filter-query.mjs";
+import { mergeMatchPages } from "@/lib/match-results.mjs";
 import QuickLead from "@/components/QuickLead";
-import AuthGate from "@/components/AuthGate";
-import { apiGet, apiPost, getToken, authHeaders } from "@/lib/api";
+import { useSession } from "@/lib/auth";
+import { apiDisplayMessage, apiFetch, apiGet, apiPost, authHeaders, readApiJson } from "@/lib/api";
 import { firstName } from "@/lib/names";
 import TopPicks from "@/components/TopPicks";
 import { Duo, duo } from "@/lib/duo";
@@ -52,7 +56,73 @@ import QuickUnlockModal from "@/components/QuickUnlockModal";
 import WhatsAppProposalModal from "@/components/WhatsAppProposalModal";
 
 type Row = Record<string, any>;
-const SAVED_SEARCHES_KEY = "tsap_saved_searches_v5";
+type SaveNotice = { tone: "success" | "error"; text: string; needsLogin?: boolean; canRetry?: boolean; showShortlist?: boolean };
+type SavedSearchItem = { search_id: string; name: string; filters: Row; alert?: boolean; alert_consent_at?: string; new_matches?: number; created_at?: string };
+type SavedSearchNotice = { tone: "success" | "error"; text: string; canRetry?: boolean };
+
+function maritalFilterValues(value: unknown): string[] {
+  return String(value ?? "").split(",").map((status) => status.trim()).filter(Boolean);
+}
+
+function hasChildrenRelevantMaritalFilter(value: unknown): boolean {
+  return maritalFilterValues(value).some((status) => !isNeverMarriedStatus(status));
+}
+
+function isMaritalFilterOptionSelected(selected: unknown, optionValue: string): boolean {
+  const values = maritalFilterValues(selected);
+  return isNeverMarriedStatus(optionValue)
+    ? values.some(isNeverMarriedStatus)
+    : values.some((status) => status.toLowerCase() === optionValue.toLowerCase());
+}
+
+function recordedCheckBadge(profile: Row, te: boolean) {
+  const raw = String(profile?.verification || profile?.verification_level || "").toLowerCase();
+  const level = ["phone", "photo", "id"].includes(raw)
+    ? raw
+    : profile?.id_verified ? "id" : profile?.photo_verified ? "photo" : profile?.phone_verified ? "phone" : "";
+  if (level === "phone") return { icon: "📱", label: te ? "ఫోన్ OTP" : "Phone OTP", title: te ? "OTP ఈ phone number వినియోగాన్ని మాత్రమే నిర్ధారిస్తుంది." : "OTP confirms access to this phone number only." };
+  if (level === "photo") return { icon: "📷", label: te ? "ఫోటో review" : "Photo review", title: te ? "సమర్పించిన ఫోటో review మాత్రమే; identity లేదా liveness check కాదు." : "Review of the submitted photo only; not an identity or liveness check." };
+  if (level === "id") return { icon: "🪪", label: te ? "ID review" : "ID review", title: te ? "ప్రభుత్వ ID review status మాత్రమే; ఇతర profile వివరాలు నిర్ధారించబడవు." : "Government ID review status only; other profile details are not verified." };
+  return null;
+}
+const MATCH_PAGE_SIZE = 24;
+const SALARY_CEILING_FILTERS = [
+  { value: 0, en: "Any", te: "ఏదైనా" },
+  { value: 500_000, en: "Up to ₹5 Lakhs", te: "₹5 లక్షల వరకు" },
+  { value: 1_000_000, en: "Up to ₹10 Lakhs", te: "₹10 లక్షల వరకు" },
+  { value: 2_000_000, en: "Up to ₹20 Lakhs", te: "₹20 లక్షల వరకు" },
+  { value: 5_000_000, en: "Up to ₹50 Lakhs", te: "₹50 లక్షల వరకు" },
+  { value: 10_000_000, en: "Up to ₹1 Crore", te: "₹1 కోటి వరకు" },
+] as const;
+
+function salaryAmountLabel(amount: number, te: boolean): string {
+  if (amount <= 0) return te ? "ఏదైనా" : "Any";
+  const lakhs = amount / 100_000;
+  if (lakhs >= 100) {
+    const crores = lakhs / 100;
+    const formatted = Number.isInteger(crores) ? String(crores) : crores.toFixed(1);
+    return `₹${formatted}${te ? " కోట్లు" : "Cr"}`;
+  }
+  const formatted = Number.isInteger(lakhs) ? String(lakhs) : lakhs.toFixed(1);
+  return `₹${formatted}${te ? " లక్షలు" : "L"}`;
+}
+
+function summarizeSavedSearch(filters: Row, te: boolean): string {
+  const parts: string[] = [];
+  if (filters.gender) parts.push(`${te ? "లింగం" : "Gender"}: ${filters.gender}`);
+  if (filters.age_min > 18 || filters.age_max < 60) parts.push(`${te ? "వయస్సు" : "Age"}: ${filters.age_min}–${filters.age_max}`);
+  if (filters.religion) parts.push(`${te ? "మతం" : "Religion"}: ${filters.religion}`);
+  if (filters.caste) parts.push(`${te ? "కులం" : "Community"}: ${String(filters.caste).split(",").slice(0, 2).join(", ")}`);
+  if (filters.sub_caste) parts.push(`${te ? "ఉపకులం" : "Sub-caste"}: ${String(filters.sub_caste).split(",").slice(0, 2).join(", ")}`);
+  if (filters.district) parts.push(`${te ? "జిల్లా" : "District"}: ${String(filters.district).split(",").slice(0, 2).join(", ")}`);
+  if (filters.education) parts.push(`${te ? "విద్య" : "Education"}: ${String(filters.education).split(",").slice(0, 2).join(", ")}`);
+  if (filters.job) parts.push(`${te ? "వృత్తి" : "Work"}: ${String(filters.job).split(",").slice(0, 2).join(", ")}`);
+  if (filters.marital_status) parts.push(`${te ? "వైవాహిక స్థితి" : "Marital status"}: ${filters.marital_status}`);
+  if (filters.rasi) parts.push(`${te ? "రాశి" : "Rasi"}: ${filters.rasi}`);
+  if (filters.star) parts.push(`${te ? "నక్షత్రం" : "Nakshatra"}: ${String(filters.star).split(",").slice(0, 2).join(", ")}`);
+  if (filters.q) parts.push(te ? "కీవర్డ్ శోధన" : "Keyword search");
+  return parts.slice(0, 4).join(" · ") || (te ? "శోధన ఫిల్టర్లు" : "Search filters");
+}
 
 const SORTS = [
   { v: "new", l: "🆕 Recently added", lTe: "🆕 ఇటీవల జోడించినవి" },
@@ -60,31 +130,7 @@ const SORTS = [
   { v: "boosted", l: "📣 Promoted", lTe: "📣 ప్రమోట్ చేసినవి" },
 ];
 
-const DEFAULT_FILTERS: Row = {
-  gender: "",
-  q: "",
-  caste: "",
-  sub_caste: "",
-  district: "",
-  state: "",
-  job: "",
-  education: "",
-  salary_min: 0,
-  salary_max: 0,
-  marital_status: "",
-  children: "",
-  religion: "",
-  age_min: 18,
-  age_max: 60,
-  star: "",
-  rasi: "",
-  dosham: "",
-  verified_only: false,
-  photo_only: false,
-  nri_only: false,
-  height_min: "",
-  height_max: "",
-};
+const DEFAULT_FILTERS: Row = DEFAULT_MATCH_FILTERS;
 
 const ALL_DISTRICTS_COMBINED = sortUniqueOptions([
   ...TS_DISTRICTS,
@@ -103,17 +149,51 @@ const isSecondMarriage = isSecondMarriageStatus;
 export default function MatchesPage() {
   const { lang } = useLang();
   const te = lang === "te";
-  const unlockBot = (id: string) => SITE_CONFIG.unlockBot(id);
+  const { tsapId: myTsapId, token: sessionToken, ready: sessionReady } = useSession();
+  const displayProfileValue = (value: unknown) => {
+    const text = String(value ?? "").trim();
+    return te ? text : apiDisplayMessage({ message_en: text }, false, "");
+  };
+  const displayMaritalStatus = (value: unknown) => {
+    const normalized = String(value ?? "").trim().toLowerCase();
+    if (!te) {
+      if (["pelli kaledu", "never married", "single"].includes(normalized)) return "Never married";
+      if (["vivaha bandham", "married"].includes(normalized)) return "Married";
+      if (["widow", "widower", "widowed", "vithanthuvu", "vidava"].includes(normalized)) return "Widowed";
+      if (["awaiting divorce", "divorce pending"].includes(normalized)) return "Divorce pending";
+      if (["divorced", "separated"].includes(normalized)) return normalized.replace(/^\\w/, (letter) => letter.toUpperCase());
+    }
+    return displayProfileValue(value);
+  };
 
   const [filters, setFilters] = useState<Row>(DEFAULT_FILTERS);
   const [sort, setSort] = useState<string>("new");
   const [rows, setRows] = useState<Row[]>([]);
   const [total, setTotal] = useState<number>(0);
+  const [nextOffset, setNextOffset] = useState(0);
   const [loading, setLoading] = useState<boolean>(true);
+  const [searchPending, setSearchPending] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [loadMoreError, setLoadMoreError] = useState(false);
   const [requestError, setRequestError] = useState<boolean>(false);
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
-  const [myTsapId, setMyTsapId] = useState<string>("");
   const [savedIds, setSavedIds] = useState<string[]>([]);
+  const [savedLoaded, setSavedLoaded] = useState(false);
+  const [savedLoadAttempt, setSavedLoadAttempt] = useState(0);
+  const [savingId, setSavingId] = useState("");
+  const [saveNotice, setSaveNotice] = useState<SaveNotice | null>(null);
+  const [savedSearches, setSavedSearches] = useState<SavedSearchItem[]>([]);
+  const [savedSearchesLoaded, setSavedSearchesLoaded] = useState(false);
+  const [savedSearchesLoadError, setSavedSearchesLoadError] = useState(false);
+  const [savedSearchLoadAttempt, setSavedSearchLoadAttempt] = useState(0);
+  const [savedSearchPanelOpen, setSavedSearchPanelOpen] = useState(false);
+  const [saveSearchDialogOpen, setSaveSearchDialogOpen] = useState(false);
+  const [saveSearchName, setSaveSearchName] = useState("");
+  const [savingSearch, setSavingSearch] = useState(false);
+  const [savedSearchNotice, setSavedSearchNotice] = useState<SavedSearchNotice | null>(null);
+  const [confirmDeleteSearchId, setConfirmDeleteSearchId] = useState("");
+  const [deletingSearchId, setDeletingSearchId] = useState("");
+  const [turningOffAlertId, setTurningOffAlertId] = useState("");
   const [sheet, setSheet] = useState<boolean>(false);
   const [unlockTarget, setUnlockTarget] = useState<Row | null>(null);
   const [proposalTarget, setProposalTarget] = useState<Row | null>(null);
@@ -121,41 +201,124 @@ export default function MatchesPage() {
   // In-filter search state
   const [casteSearch, setCasteSearch] = useState("");
   const [districtSearch, setDistrictSearch] = useState("");
+  const [educationSearch, setEducationSearch] = useState("");
   const [mobileFilterTab, setMobileFilterTab] = useState<"basic" | "caste" | "location" | "career" | "astro">("basic");
 
   const reqId = useRef(0);
+  const matchesAbortRef = useRef<AbortController | null>(null);
 
-  // Read URL query params on mount
+  // Hydrate every supported filter from the submitted search URL on mount.
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const sp = new URLSearchParams(window.location.search);
-    const initial: Row = { ...DEFAULT_FILTERS };
-    sp.forEach((v, k) => {
-      if (k === "age_min" || k === "age_max" || k === "salary_min") {
-        initial[k] = parseInt(v) || initial[k];
-      } else if (k === "verified_only" || k === "photo_only" || k === "nri_only") {
-        initial[k] = v === "true";
-      } else {
-        initial[k] = v;
-      }
-    });
+    const initial: Row = parseMatchFilters(window.location.search);
+    if (!hasChildrenRelevantMaritalFilter(initial.marital_status)) initial.children = "";
     setFilters(initial);
   }, []);
+
+  // Shortlist state belongs to the authenticated account, never localStorage.
+  // This avoids a heart icon that only looked saved until navigation/reload and
+  // keeps private member preferences out of a second browser-side data store.
+  useEffect(() => {
+    if (!sessionReady) return;
+    let active = true;
+    if (!myTsapId || !sessionToken) {
+      setSavedIds([]);
+      setSaveNotice(null);
+      setSavedLoaded(true);
+      return () => { active = false; };
+    }
+
+    setSavedLoaded(false);
+    setSaveNotice(null);
+    apiGet<{ saved?: Array<{ profile?: { tsap_id?: string } }> }>(
+      `/api/saved/${encodeURIComponent(myTsapId)}`,
+    ).then(({ ok, data, needsLogin }) => {
+      if (!active) return;
+      if (!ok || !Array.isArray(data?.saved)) {
+        setSaveNotice({
+          tone: "error",
+          text: needsLogin
+            ? (te ? "మీ shortlist చూడటానికి మళ్లీ login చేయండి." : "Sign in again to load your shortlist.")
+            : (te ? "Shortlist లోడ్ కాలేదు. మళ్లీ ప్రయత్నించండి." : "Could not load your shortlist. Please retry."),
+          needsLogin,
+          canRetry: !needsLogin,
+        });
+        return;
+      }
+      setSavedIds(data.saved.map((item) => String(item.profile?.tsap_id || "").trim()).filter(Boolean));
+      setSavedLoaded(true);
+    }).catch(() => {
+      if (!active) return;
+      setSaveNotice({
+        tone: "error",
+        text: te ? "Shortlist లోడ్ కాలేదు. మళ్లీ ప్రయత్నించండి." : "Could not load your shortlist. Please retry.",
+        canRetry: true,
+      });
+    });
+
+    return () => { active = false; };
+  }, [myTsapId, savedLoadAttempt, sessionReady, sessionToken, te]);
+
+  useEffect(() => {
+    if (!sessionReady) return;
+    let active = true;
+    if (!myTsapId || !sessionToken) {
+      setSavedSearches([]);
+      setSavedSearchesLoaded(true);
+      setSavedSearchesLoadError(false);
+      setSavedSearchNotice(null);
+      return () => { active = false; };
+    }
+
+    setSavedSearchesLoaded(false);
+    setSavedSearchesLoadError(false);
+    setSavedSearches([]);
+    setSavedSearchNotice(null);
+    apiGet<{ searches?: SavedSearchItem[] }>(`/api/saved-searches/${encodeURIComponent(myTsapId)}`)
+      .then(({ ok, data, needsLogin, errorTelugu }) => {
+        if (!active) return;
+        if (!ok || !Array.isArray(data?.searches)) {
+          setSavedSearchesLoadError(true);
+          setSavedSearchNotice({
+            tone: "error",
+            text: errorTelugu || (needsLogin
+              ? (te ? "సేవ్ చేసిన searches చూడటానికి మళ్లీ login చేయండి." : "Sign in again to load saved searches.")
+              : (te ? "Saved searches లోడ్ కాలేదు. మళ్లీ ప్రయత్నించండి." : "Could not load saved searches. Please retry.")),
+            canRetry: !needsLogin,
+          });
+          return;
+        }
+        setSavedSearchesLoadError(false);
+        setSavedSearches(data.searches);
+      })
+      .catch(() => {
+        if (!active) return;
+        setSavedSearchesLoadError(true);
+        setSavedSearchNotice({
+          tone: "error",
+          text: te ? "Saved searches లోడ్ కాలేదు. మళ్లీ ప్రయత్నించండి." : "Could not load saved searches. Please retry.",
+          canRetry: true,
+        });
+      })
+      .finally(() => { if (active) setSavedSearchesLoaded(true); });
+
+    return () => { active = false; };
+  }, [myTsapId, savedSearchLoadAttempt, sessionReady, sessionToken, te]);
 
   const [prefLoading, setPrefLoading] = useState(false);
   const [prefApplied, setPrefApplied] = useState(false);
 
   const applySavedPreferences = async () => {
     try {
-      const myId = typeof window !== "undefined" ? (localStorage.getItem("tsap_id") || localStorage.getItem("tsap_last_id") || "") : "";
-      if (!myId) {
-        alert("మీరు మీ ప్రిఫరెన్సెస్ లోడ్ చేయడానికి ముందుగా లాగిన్ అవ్వండి లేదా రిజిస్టర్ అవ్వండి.");
+      const myId = myTsapId;
+      if (!sessionReady || !sessionToken || !myId) {
+        alert(te ? "మీరు సేవ్ చేసిన ప్రాధాన్యతలను లోడ్ చేయడానికి ముందుగా లాగిన్ అవ్వండి లేదా నమోదు చేసుకోండి." : "Sign in or register to load your saved preferences.");
         return;
       }
       setPrefLoading(true);
       // 🛡️ P0 security fix: /api/profile/preferences now requires the owner's token.
       const res = await fetch(`/api/profile/preferences?tsap_id=${encodeURIComponent(myId)}`, { headers: authHeaders() });
-      const data = await res.json();
+      const data = await readApiJson(res);
       if (res.ok && data?.preferences) {
         const p = data.preferences;
         setFilters((prev) => ({
@@ -168,6 +331,7 @@ export default function MatchesPage() {
           age_min: p.age_min || 18,
           age_max: p.age_max || 60,
           marital_status: (p.marital_statuses || []).join(","),
+          children: "",
         }));
         setPrefApplied(true);
       }
@@ -179,7 +343,38 @@ export default function MatchesPage() {
   };
 
   const setF = (key: string, val: any) => {
-    setFilters((prev) => ({ ...prev, [key]: val }));
+    setFilters((prev) => {
+      if (key === "marital_status") {
+        return {
+          ...prev,
+          marital_status: val,
+          ...(hasChildrenRelevantMaritalFilter(val) ? {} : { children: "" }),
+        };
+      }
+      return { ...prev, [key]: val };
+    });
+  };
+
+  const setRangeFilter = (key: "salary_min" | "salary_max" | "height_min" | "height_max", value: number | string) => {
+    setFilters((prev) => {
+      const next = { ...prev, [key]: value };
+      if (key === "salary_min" || key === "salary_max") {
+        const min = Number(next.salary_min || 0);
+        const max = Number(next.salary_max || 0);
+        if (min > 0 && max > 0 && min > max) {
+          if (key === "salary_min") next.salary_max = 0;
+          else next.salary_min = 0;
+        }
+      } else {
+        const minIndex = HEIGHTS.indexOf(String(next.height_min || ""));
+        const maxIndex = HEIGHTS.indexOf(String(next.height_max || ""));
+        if (minIndex >= 0 && maxIndex >= 0 && minIndex > maxIndex) {
+          if (key === "height_min") next.height_max = value;
+          else next.height_min = value;
+        }
+      }
+      return next;
+    });
   };
 
   const isMultiSelected = (field: string, val: string) => {
@@ -222,6 +417,11 @@ export default function MatchesPage() {
     return sortUniqueOptions(subs);
   }, [filters.caste]);
 
+  const visibleSubcastes = useMemo(() => {
+    const selected = String(filters.sub_caste || "").split(",").map((value) => value.trim()).filter(Boolean);
+    return sortUniqueOptions([...availableSubcastes, ...selected]);
+  }, [availableSubcastes, filters.sub_caste]);
+
   // Filtered Castes & Districts in Search List
   const filteredCastesList = useMemo(() => {
     if (!casteSearch) return CASTES;
@@ -236,6 +436,14 @@ export default function MatchesPage() {
     return base.filter((d) => d.toLowerCase().includes(q) || (DISTRICT_TELUGU[d] || "").toLowerCase().includes(q));
   }, [filters.state, districtSearch]);
 
+  const filteredEducationsList = useMemo(() => {
+    if (!educationSearch) return EDUCATIONS;
+    const q = educationSearch.trim().toLowerCase();
+    return EDUCATIONS.filter((education) =>
+      education.toLowerCase().includes(q) || (EDUCATION_TELUGU[education] || "").toLowerCase().includes(q),
+    );
+  }, [educationSearch]);
+
   const selectAllTS = () => {
     setF("state", "TS");
     setF("district", TS_DISTRICTS.join(","));
@@ -247,13 +455,27 @@ export default function MatchesPage() {
   };
 
   // Active filter tags for chip bar
-  const activeChips = useMemo(() => {
+  const activeChips = (() => {
     const chips: { key: string; label: string; clear: () => void }[] = [];
     if (filters.gender) {
       chips.push({
         key: "gender",
         label: filters.gender === "Bride" ? (te ? "👰 వధువులు" : "👰 Brides") : (te ? "🤵 వరులు" : "🤵 Grooms"),
         clear: () => setF("gender", ""),
+      });
+    }
+    if (filters.q) {
+      chips.push({
+        key: "keyword",
+        label: `🔍 ${String(filters.q).trim()}`,
+        clear: () => setF("q", ""),
+      });
+    }
+    if (filters.religion) {
+      chips.push({
+        key: "religion",
+        label: `${te ? "🕊️ మతం" : "🕊️ Religion"}: ${filters.religion}`,
+        clear: () => setF("religion", ""),
       });
     }
     if (filters.caste) {
@@ -263,7 +485,7 @@ export default function MatchesPage() {
           if (c.trim()) {
             chips.push({
               key: `caste_${c}`,
-              label: `💍 ${CASTE_TELUGU[c.trim()] || c.trim()}`,
+              label: `💍 ${te ? (CASTE_TELUGU[c.trim()] || c.trim()) : c.trim()}`,
               clear: () => toggleMulti("caste", c.trim()),
             });
           }
@@ -289,7 +511,7 @@ export default function MatchesPage() {
           if (d.trim()) {
             chips.push({
               key: `dist_${d}`,
-              label: `📍 ${DISTRICT_TELUGU[d.trim()] || d.trim()}`,
+              label: `📍 ${te ? (DISTRICT_TELUGU[d.trim()] || d.trim()) : d.trim()}`,
               clear: () => toggleMulti("district", d.trim()),
             });
           }
@@ -309,6 +531,13 @@ export default function MatchesPage() {
         clear: () => setF("marital_status", ""),
       });
     }
+    if (filters.children) {
+      chips.push({
+        key: "children",
+        label: `👶 ${filters.children}`,
+        clear: () => setF("children", ""),
+      });
+    }
     if (filters.education) {
       String(filters.education)
         .split(",")
@@ -316,7 +545,7 @@ export default function MatchesPage() {
           if (e.trim()) {
             chips.push({
               key: `edu_${e}`,
-              label: `🎓 ${EDUCATION_TELUGU[e.trim()] || e.trim()}`,
+              label: `🎓 ${te ? (EDUCATION_TELUGU[e.trim()] || e.trim()) : e.trim()}`,
               clear: () => toggleMulti("education", e.trim()),
             });
           }
@@ -338,7 +567,7 @@ export default function MatchesPage() {
     if (filters.verified_only) {
       chips.push({
         key: "verified",
-        label: te ? "తనిఖీ నమోదు చేసినవి" : "With a recorded check",
+        label: te ? "ఫోన్ OTP / ఫోటో / ID సమీక్ష నమోదు" : "Phone OTP, photo or government ID review recorded",
         clear: () => setF("verified_only", false),
       });
     }
@@ -368,19 +597,83 @@ export default function MatchesPage() {
     }
     if (filters.salary_min > 0) {
       chips.push({
-        key: "salary",
-        label: `💰 ₹${filters.salary_min}L+`,
+        key: "salary_min",
+        label: `💰 ${salaryAmountLabel(Number(filters.salary_min), te)}+`,
         clear: () => setF("salary_min", 0),
       });
     }
+    if (filters.salary_max > 0) {
+      chips.push({
+        key: "salary_max",
+        label: `💰 ${te ? "వరకు" : "Up to"} ${salaryAmountLabel(Number(filters.salary_max), te)}`,
+        clear: () => setF("salary_max", 0),
+      });
+    }
+    if (filters.height_min || filters.height_max) {
+      chips.push({
+        key: "height",
+        label: `📏 ${filters.height_min ? heightLabel(String(filters.height_min)) : (te ? "ఏదైనా" : "Any")} – ${filters.height_max ? heightLabel(String(filters.height_max)) : (te ? "ఏదైనా" : "Any")}`,
+        clear: () => { setF("height_min", ""); setF("height_max", ""); },
+      });
+    }
+    if (filters.rasi) {
+      const rasiNames = String(filters.rasi).split(",").map((value) => RASIS.find((item) => item.en.toLowerCase() === value.trim().toLowerCase())?.display || value.trim());
+      chips.push({
+        key: "rasi",
+        label: `🌙 ${rasiNames.join(", ")}`,
+        clear: () => setF("rasi", ""),
+      });
+    }
+    if (filters.star) {
+      String(filters.star).split(",").forEach((star) => {
+        if (star.trim()) {
+          const match = NAKSHATRAS.find((item) => item.en.toLowerCase() === star.trim().toLowerCase());
+          chips.push({
+            key: `star_${star}`,
+            label: `⭐ ${te && match ? `${match.te} (${match.en})` : star.trim()}`,
+            clear: () => toggleMulti("star", star.trim()),
+          });
+        }
+      });
+    }
+    if (filters.dosham) {
+      chips.push({
+        key: "dosham",
+        label: `🪔 ${te ? "దోషం" : "Dosham"}: ${filters.dosham}`,
+        clear: () => setF("dosham", ""),
+      });
+    }
     return chips;
-  }, [filters, te]);
+  })();
 
-  // Fetch matches from API
-  const fetchMatches = useCallback(async () => {
+  const hasSearchCriteria = Object.entries(filters).some(([key, value]) => {
+    if (key === "age_min" || key === "age_max") return value !== DEFAULT_FILTERS[key];
+    if (typeof value === "boolean") return value;
+    return value !== "" && value !== null && value !== undefined && value !== 0;
+  });
+
+  // Fetch a small first page so mobile does not render a wall of 100 profile cards.
+  // Additional pages are requested only when the member asks to continue.
+  const fetchMatches = useCallback(async (offset = 0, append = false) => {
     const curId = ++reqId.current;
-    setLoading(true);
-    setRequestError(false);
+    matchesAbortRef.current?.abort();
+    const controller = new AbortController();
+    matchesAbortRef.current = controller;
+    const timeoutId = setTimeout(() => controller.abort(), 15_000);
+    if (append) {
+      setLoadingMore(true);
+      setLoadMoreError(false);
+    } else {
+      setLoading(true);
+      setSearchPending(true);
+      setLoadingMore(false);
+      setLoadMoreError(false);
+      setRequestError(false);
+      setRows([]);
+      setTotal(0);
+      setNextOffset(0);
+    }
+
     try {
       const q = new URLSearchParams();
       Object.entries(filters).forEach(([k, v]) => {
@@ -389,57 +682,295 @@ export default function MatchesPage() {
         }
       });
       q.set("sort", sort);
-      q.set("limit", "100");
+      q.set("limit", String(MATCH_PAGE_SIZE));
+      q.set("offset", String(offset));
 
-      const r = await fetch(`/api/search?${q.toString()}`, { headers: authHeaders() });
+      const r = await fetch(`/api/search?${q.toString()}`, { headers: authHeaders(), signal: controller.signal });
       if (!r.ok) throw new Error("Failed to fetch matches");
-      const data = await r.json();
+      const data = await readApiJson(r);
       const results = Array.isArray(data.results)
         ? data.results
         : Array.isArray(data.profiles)
           ? data.profiles
           : [];
+      const resultTotal = typeof data.total === "number" ? data.total : offset + results.length;
       if (curId === reqId.current) {
-        setRows(results);
-        setTotal(typeof data.total === "number" ? data.total : results.length);
+        setRows((previous) => append ? mergeMatchPages(previous, results) : results);
+        setTotal(resultTotal);
+        setNextOffset(results.length === 0 ? resultTotal : offset + results.length);
       }
     } catch {
       if (curId === reqId.current) {
-        // Never substitute invented/demo profiles for real search results.
-        setRows([]);
-        setTotal(0);
-        setRequestError(true);
+        if (append) {
+          setLoadMoreError(true);
+        } else {
+          // Never substitute invented/demo profiles for real search results.
+          setRows([]);
+          setTotal(0);
+          setNextOffset(0);
+          setRequestError(true);
+        }
+      }
+    } finally {
+      clearTimeout(timeoutId);
+      if (curId === reqId.current) {
+        if (!append) {
+          setLoading(false);
+          setSearchPending(false);
+        }
+        setLoadingMore(false);
+        if (matchesAbortRef.current === controller) matchesAbortRef.current = null;
       }
     }
-    if (curId === reqId.current) setLoading(false);
   }, [filters, sort]);
 
   useEffect(() => {
-    const t = setTimeout(fetchMatches, 300);
-    return () => clearTimeout(t);
+    setSearchPending(true);
+    setLoadingMore(false);
+    setLoadMoreError(false);
+    const t = setTimeout(() => { void fetchMatches(0, false); }, 300);
+    return () => {
+      clearTimeout(t);
+      reqId.current += 1;
+      matchesAbortRef.current?.abort();
+      matchesAbortRef.current = null;
+    };
   }, [fetchMatches]);
 
   const clearAllFilters = () => {
     setFilters(DEFAULT_FILTERS);
   };
 
-  const toggleSave = (row: Row) => {
-    const id = row.tsap_id;
-    setSavedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  const beginSaveSearch = () => {
+    if (!sessionReady || !myTsapId || !sessionToken) return;
+    setSavedSearchNotice(null);
+    setSaveSearchName(`${te ? "నా శోధన" : "My search"} ${savedSearches.length + 1}`);
+    setSaveSearchDialogOpen(true);
   };
 
-  const shareText = (row: Row) =>
-    `🙏 ${SITE_CONFIG.brandName} profile — ${firstName(row.full_name)} (${row.tsap_id})\n` +
-    `👉 ${row.age}y • ${row.caste} • ${row.education} • ${row.job}\n` +
-    `📍 ${row.district}, ${stateFullName(row.state, te)} • 💰 ${row.salary}\n` +
-    `Full details: ${SITE_CONFIG.siteUrl || "https://manavivaha.in"}/search/${row.tsap_id}`;
+  const saveCurrentSearch = async () => {
+    const name = saveSearchName.trim();
+    if (!name || name.length < 2) {
+      setSavedSearchNotice({ tone: "error", text: te ? "పేరును కనీసం 2 అక్షరాలతో నమోదు చేయండి." : "Enter a search name with at least 2 characters." });
+      return;
+    }
+    if (savedSearches.length >= 20) {
+      setSavedSearchNotice({ tone: "error", text: te ? "గరిష్ఠంగా 20 saved searches మాత్రమే ఉంచవచ్చు." : "You can keep up to 20 saved searches." });
+      return;
+    }
+    if (!sessionReady || !myTsapId || !sessionToken) {
+      setSavedSearchNotice({ tone: "error", text: te ? "ఈ search‌ను save చేయడానికి login చేయండి." : "Sign in to save this search." });
+      return;
+    }
+
+    setSavingSearch(true);
+    setSavedSearchNotice(null);
+    try {
+      const { ok, data, needsLogin, errorTelugu } = await apiFetch<{ success?: boolean; search?: SavedSearchItem }>("/api/saved-searches", {
+        method: "POST",
+        retries: 0,
+        body: {
+          tsap_id: myTsapId,
+          name,
+          filters,
+          alert: false,
+        },
+      });
+      if (!ok || !data?.success || !data.search?.search_id) {
+        setSavedSearchNotice({
+          tone: "error",
+          text: errorTelugu || (needsLogin
+            ? (te ? "మళ్లీ login చేసి ప్రయత్నించండి." : "Sign in again and retry.")
+            : apiDisplayMessage(data, te, te ? "Search‌ను save చేయలేకపోయాం." : "Could not save this search.")),
+        });
+        return;
+      }
+      setSavedSearches((current) => [data.search!, ...current.filter((item) => item.search_id !== data.search!.search_id)]);
+      setSaveSearchDialogOpen(false);
+      setSavedSearchPanelOpen(true);
+      setSavedSearchNotice({
+        tone: "success",
+        text: te ? "Search మీ ఖాతాలో మాత్రమే save అయ్యింది. Notifications ఆఫ్‌లో ఉన్నాయి." : "Search saved privately to your account. Notifications are off.",
+      });
+    } catch {
+      setSavedSearchNotice({ tone: "error", text: te ? "Search‌ను save చేయలేకపోయాం. మళ్లీ ప్రయత్నించండి." : "Could not save this search. Please try again." });
+    } finally {
+      setSavingSearch(false);
+    }
+  };
+
+  const applySavedSearch = (savedSearch: SavedSearchItem) => {
+    const params = new URLSearchParams();
+    Object.entries(savedSearch.filters || {}).forEach(([key, value]) => {
+      if (Object.prototype.hasOwnProperty.call(DEFAULT_FILTERS, key) && value !== null && value !== undefined && value !== "") {
+        params.set(key, String(value));
+      }
+    });
+    const next = parseMatchFilters(params) as Row;
+    if (!hasChildrenRelevantMaritalFilter(next.marital_status)) next.children = "";
+    setFilters(next);
+    setSort("new");
+    setSavedSearchPanelOpen(false);
+    setConfirmDeleteSearchId("");
+    if (typeof window !== "undefined") {
+      const urlParams = new URLSearchParams();
+      Object.entries(next).forEach(([key, value]) => {
+        if (value === "" || value === null || value === undefined || value === false || value === 0) return;
+        if ((key === "age_min" || key === "age_max") && value === DEFAULT_FILTERS[key]) return;
+        urlParams.set(key, String(value));
+      });
+      const query = urlParams.toString();
+      window.history.replaceState(null, "", `${window.location.pathname}${query ? `?${query}` : ""}${window.location.hash}`);
+    }
+  };
+
+  const turnOffSavedSearchAlerts = async (savedSearch: SavedSearchItem) => {
+    if (!myTsapId || !sessionToken || !savedSearch.search_id) return;
+    setTurningOffAlertId(savedSearch.search_id);
+    setSavedSearchNotice(null);
+    try {
+      const { ok, data, errorTelugu } = await apiFetch<{ alert_enabled?: boolean }>(
+        `/api/saved-searches/${encodeURIComponent(myTsapId)}/${encodeURIComponent(savedSearch.search_id)}`,
+        { method: "PUT", body: { alert: false } },
+      );
+      if (!ok || data?.alert_enabled !== false) {
+        setSavedSearchNotice({ tone: "error", text: errorTelugu || (te ? "Notifications ఆఫ్ చేయలేకపోయాం." : "Could not turn off notifications.") });
+        return;
+      }
+      setSavedSearches((current) => current.map((item) => item.search_id === savedSearch.search_id ? { ...item, alert: false } : item));
+      setSavedSearchNotice({ tone: "success", text: te ? "ఈ search‌కు notifications ఆఫ్ చేశారు." : "Notifications are off for this search." });
+    } catch {
+      setSavedSearchNotice({ tone: "error", text: te ? "Notifications ఆఫ్ చేయలేకపోయాం. మళ్లీ ప్రయత్నించండి." : "Could not turn off notifications. Please retry." });
+    } finally {
+      setTurningOffAlertId("");
+    }
+  };
+
+  const deleteSavedSearch = async (savedSearch: SavedSearchItem) => {
+    if (!myTsapId || !sessionToken || !savedSearch.search_id) return;
+    if (confirmDeleteSearchId !== savedSearch.search_id) {
+      setConfirmDeleteSearchId(savedSearch.search_id);
+      return;
+    }
+    setDeletingSearchId(savedSearch.search_id);
+    setSavedSearchNotice(null);
+    try {
+      const { ok, data, errorTelugu } = await apiFetch<{ success?: boolean }>(
+        `/api/saved-searches/${encodeURIComponent(myTsapId)}/${encodeURIComponent(savedSearch.search_id)}`,
+        { method: "DELETE", retries: 0 },
+      );
+      if (!ok || !data?.success) {
+        setSavedSearchNotice({ tone: "error", text: errorTelugu || (te ? "Search‌ను delete చేయలేకపోయాం." : "Could not delete this search.") });
+        return;
+      }
+      setSavedSearches((current) => current.filter((item) => item.search_id !== savedSearch.search_id));
+      setConfirmDeleteSearchId("");
+      setSavedSearchNotice({ tone: "success", text: te ? "Saved search తొలగించబడింది." : "Saved search deleted." });
+    } catch {
+      setSavedSearchNotice({ tone: "error", text: te ? "Search‌ను delete చేయలేకపోయాం. మళ్లీ ప్రయత్నించండి." : "Could not delete this search. Please retry." });
+    } finally {
+      setDeletingSearchId("");
+    }
+  };
+
+  const toggleSave = async (row: Row) => {
+    const id = String(row.tsap_id || "").trim();
+    if (!id) return;
+    if (!sessionReady || !myTsapId || !sessionToken) {
+      setSaveNotice({
+        tone: "error",
+        text: te ? "ప్రొఫైల్‌ను shortlist చేయడానికి ముందుగా login చేయండి." : "Sign in to add profiles to your shortlist.",
+        needsLogin: true,
+      });
+      return;
+    }
+    if (!savedLoaded) {
+      setSaveNotice({
+        tone: "error",
+        text: te ? "మీ shortlist ఇంకా సిద్ధంగా లేదు. మళ్లీ ప్రయత్నించండి." : "Your shortlist is still loading. Please retry.",
+        canRetry: true,
+      });
+      return;
+    }
+
+    setSavingId(id);
+    setSaveNotice(null);
+    try {
+      const { ok, data, needsLogin, errorTelugu } = await apiPost<Row>("/api/save", {
+        tsap_id: myTsapId,
+        target_id: id,
+      });
+      if (needsLogin) {
+        setSaveNotice({
+          tone: "error",
+          text: te ? "Shortlist నవీకరించడానికి మళ్లీ login చేయండి." : "Sign in again to update your shortlist.",
+          needsLogin: true,
+        });
+        return;
+      }
+      if (!ok || !data?.success || typeof data.saved !== "boolean") {
+        setSaveNotice({
+          tone: "error",
+          text: errorTelugu || apiDisplayMessage(data, te, te ? "Shortlist నవీకరించలేకపోయాం." : "Could not update your shortlist."),
+        });
+        return;
+      }
+
+      setSavedIds((previous) => data.saved
+        ? (previous.includes(id) ? previous : [...previous, id])
+        : previous.filter((savedId) => savedId !== id));
+      setSaveNotice({
+        tone: "success",
+        text: apiDisplayMessage(data, te, te ? "Shortlist నవీకరించబడింది." : "Shortlist updated."),
+        showShortlist: true,
+      });
+    } catch {
+      setSaveNotice({
+        tone: "error",
+        text: te ? "Shortlist నవీకరించలేకపోయాం. మళ్లీ ప్రయత్నించండి." : "Could not update your shortlist. Please try again.",
+      });
+    } finally {
+      setSavingId("");
+    }
+  };
+
+  const shareText = (row: Row) => {
+    const details = [
+      row.age ? `${row.age} ${te ? "సం." : "years"}` : "",
+      displayProfileValue(row.caste),
+      displayProfileValue(row.education),
+      displayProfileValue(row.job),
+      displayProfileValue(row.district),
+      row.state ? stateFullName(row.state, te) : "",
+      displayProfileValue(row.salary),
+    ].filter(Boolean);
+    const brand = te ? "మన వివాహ (Mana Vivaha)" : "Mana Vivaha (మన వివాహ)";
+    return [
+      `🙏 ${brand} ${te ? "ప్రొఫైల్" : "profile"} — ${firstName(row.full_name)} (${row.tsap_id})`,
+      details.join(" • "),
+      te ? "సభ్యులు అందించిన వివరాలు; స్వతంత్రంగా నిర్ధారించండి." : "Member-submitted details; verify independently.",
+      `${te ? "పూర్తి వివరాలు" : "Full details"}: ${SITE_CONFIG.siteUrl}/search/${row.tsap_id}`,
+    ].filter(Boolean).join("\n");
+  };
 
   const shareWhatsApp = (row: Row) => window.open(`https://wa.me/?text=${encodeURIComponent(shareText(row))}`, "_blank");
 
   /* ---------- Profile Card Component ---------- */
   const Card = ({ row }: { row: Row }) => {
-    const isSaved = savedIds.includes(row.tsap_id);
+    const profileId = String(row.tsap_id || "");
+    const isSaved = savedIds.includes(profileId);
+    const isSaving = savingId === profileId;
     const photo = row.photo_url || (Array.isArray(row.photo_urls) && row.photo_urls[0]) || "";
+    const caste = te ? (CASTE_TELUGU[row.caste] || row.caste || "") : displayProfileValue(row.caste);
+    const subCaste = displayProfileValue(row.sub_caste);
+    const education = displayProfileValue(row.education);
+    const job = displayProfileValue(row.job);
+    const district = te ? (DISTRICT_TELUGU[row.district] || row.district || "") : displayProfileValue(row.district);
+    const salary = displayProfileValue(row.salary);
+    const maritalStatus = displayMaritalStatus(row.marital_status);
+    const children = displayProfileValue(row.children);
+    const star = displayProfileValue(row.star);
+    const rasi = displayProfileValue(row.rasi);
 
     return (
       <div className="relative bg-white rounded-3xl border border-gold/30 shadow-sm hover:border-gold/60 hover:shadow-md transition overflow-hidden flex flex-col justify-between">
@@ -459,20 +990,18 @@ export default function MatchesPage() {
             {/* Avatar / Photo */}
             <div className="relative shrink-0">
               {photo ? (
-                <img src={photo} alt={firstName(row.full_name)} className="w-20 h-24 sm:w-24 sm:h-28 rounded-2xl object-cover border border-gold/40 shadow-xs" />
+                <Image src={photo} alt={firstName(row.full_name)} width={96} height={112} unoptimized className="w-20 h-24 sm:w-24 sm:h-28 rounded-2xl object-cover border border-gold/40 shadow-xs" />
               ) : (
                 <div className="w-20 h-24 sm:w-24 sm:h-28 rounded-2xl bg-amber-50/80 border border-gold/40 flex flex-col items-center justify-center text-3xl shadow-inner text-maroon">
                   <span>{row.gender === "Groom" || row.gender === "Male" ? "🤵" : row.gender === "Bride" || row.gender === "Female" ? "👰" : "💍"}</span>
                   <span className="text-[10px] font-bold mt-1 text-slate-500">🔒 Photo Lock</span>
                 </div>
               )}
-              {row.is_verified && (
-                <span role="img" aria-label={te ? "ఒక verification check నమోదు చేయబడింది" : "A verification check is recorded"} className="absolute -bottom-1.5 -right-1 bg-emerald-600 text-white rounded-full p-1 shadow" title={te ? "నమోదైన తనిఖీ మాత్రమే; అన్ని profile వివరాలను ధృవీకరించదు" : "A recorded check only; it does not verify all profile details"}>
-                  <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                  </svg>
+              {row.is_verified && (() => { const check = recordedCheckBadge(row, te); return check ? (
+                <span aria-label={check.label} className="absolute -bottom-1.5 left-1 max-w-[calc(100%-0.5rem)] truncate rounded-full bg-slate-900/90 px-1.5 py-0.5 text-[8px] font-bold text-white shadow" title={check.title}>
+                  {check.icon} {check.label}
                 </span>
-              )}
+              ) : null; })()}
             </div>
 
             {/* Meta & Badges */}
@@ -488,20 +1017,31 @@ export default function MatchesPage() {
                 </Link>
 
                 <button
-                  onClick={() => toggleSave(row)}
-                  className={`shrink-0 p-1.5 rounded-full transition ${isSaved ? "text-rose-600 bg-rose-50" : "text-slate-400 hover:text-rose-500"}`}
-                  title={isSaved ? "Saved" : "Shortlist"}
+                  type="button"
+                  onClick={() => { void toggleSave(row); }}
+                  disabled={!sessionReady || (!!sessionToken && !savedLoaded) || !!savingId}
+                  aria-label={isSaving
+                    ? (te ? "Shortlist నవీకరిస్తున్నాము" : "Updating shortlist")
+                    : !sessionReady || (!!sessionToken && !savedLoaded)
+                      ? (te ? "Shortlist స్థితి లోడ్ అవుతోంది" : "Loading shortlist status")
+                      : !sessionToken || !myTsapId
+                        ? (te ? "ప్రొఫైల్‌ను shortlist చేయడానికి login చేయండి" : "Log in to save this profile")
+                        : (te ? "ఈ ప్రొఫైల్‌ను shortlist చేయండి" : "Shortlist profile")}
+                  aria-pressed={isSaved}
+                  aria-busy={isSaving || (!!sessionToken && !savedLoaded)}
+                  title={isSaved ? (te ? "Shortlist‌లో ఉంది" : "In shortlist") : (te ? "Shortlist‌లో చేర్చండి" : "Add to shortlist")}
+                  className={`inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-full text-lg transition disabled:cursor-wait disabled:opacity-60 ${isSaved ? "bg-rose-50 text-rose-600" : "text-slate-400 hover:bg-rose-50 hover:text-rose-500"}`}
                 >
-                  {isSaved ? "❤️" : "🤍"}
+                  {isSaving || (!!sessionToken && !savedLoaded) ? "…" : isSaved ? "❤️" : "🤍"}
                 </button>
               </div>
 
-              {(row.caste || row.sub_caste || row.age || row.height) && (
+              {(caste || subCaste || row.age || displayProfileValue(row.height)) && (
                 <p className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 break-words text-xs font-bold text-maroon">
-                  {row.caste && <span>💍 {CASTE_TELUGU[row.caste] || row.caste}</span>}
-                  {row.sub_caste && <span className="text-slate-500">({row.sub_caste})</span>}
-                  {row.age && <span>🎂 {row.age} yrs</span>}
-                  {row.height && <span>{row.height}</span>}
+                  {caste && <span>💍 {caste}</span>}
+                  {subCaste && <span className="text-slate-500">({subCaste})</span>}
+                  {row.age && <span>🎂 {row.age} {te ? "సం." : "years"}</span>}
+                  {displayProfileValue(row.height) && <span>{displayProfileValue(row.height)}</span>}
                 </p>
               )}
 
@@ -510,25 +1050,25 @@ export default function MatchesPage() {
               {isSecondMarriage(row.marital_status) && (
                 <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
                   <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-rose-50 text-rose-800 border border-rose-200">
-                    {secondMarriageLabel(row.marital_status, te)}
+                    {te ? secondMarriageLabel(row.marital_status, true) : secondMarriageLabel(maritalStatus, false)}
                   </span>
-                  {row.children && row.children !== "None" && (
+                  {children && children !== "None" && (
                     <span className="text-[9.5px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-900 border border-amber-200">
-                      👶 {row.children}
+                      👶 {children}
                     </span>
                   )}
                 </div>
               )}
 
-              {(row.education || row.job) && (
+              {(education || job) && (
                 <p className="break-words text-xs font-medium leading-relaxed text-slate-700">
-                  {[row.education, row.job].filter(Boolean).join(" • ")}
+                  {[education, job].filter(Boolean).join(" • ")}
                 </p>
               )}
 
-              {(row.district || row.state || row.salary) && (
+              {(district || row.state || salary) && (
                 <p className="break-words text-[11.5px] leading-relaxed text-slate-500">
-                  {[row.district ? `📍 ${DISTRICT_TELUGU[row.district] || row.district}` : "", row.state ? stateFullName(row.state, te) : "", row.salary ? `💰 ${row.salary}` : ""].filter(Boolean).join(" • ")}
+                  {[district ? `📍 ${district}` : "", row.state ? stateFullName(row.state, te) : "", salary ? `💰 ${salary}` : ""].filter(Boolean).join(" • ")}
                 </p>
               )}
               <div className="flex flex-wrap items-center gap-1.5 break-words pt-0.5 font-mono text-[11px] text-slate-500">
@@ -541,14 +1081,14 @@ export default function MatchesPage() {
           {/* Optional profile details: factual only, never a compatibility percentage */}
           <div className="border-t border-slate-100 pt-2 text-xs">
             <div className="flex flex-wrap items-center gap-1.5">
-              {row.star && <span className="rounded-full border border-amber-300 bg-amber-100 px-2.5 py-0.5 text-[11px] font-bold text-amber-900">⭐ {row.star}</span>}
-              {row.rasi && <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[10.5px] font-semibold text-slate-700">{row.rasi}</span>}
+              {star && <span className="rounded-full border border-amber-300 bg-amber-100 px-2.5 py-0.5 text-[11px] font-bold text-amber-900">⭐ {star}</span>}
+              {rasi && <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[10.5px] font-semibold text-slate-700">{rasi}</span>}
             </div>
             {Array.isArray(row.observations) && row.observations.length > 0 ? (
               <div className="mt-2">
                 <p className="text-[10px] font-bold text-slate-500">{te ? "రెండు profiles లో నమోదు చేసిన వివరాలు (స్వతంత్రంగా నిర్ధారించండి)" : "Details listed by both profiles (verify independently)"}</p>
                 <ul className="mt-1 space-y-1 text-[11px] leading-5 text-slate-600">
-                  {row.observations.slice(0, 3).map((item: string, i: number) => <li key={i}>• {item}</li>)}
+                  {row.observations.slice(0, 3).map((item: string, i: number) => <li key={i}>• {te ? item : apiDisplayMessage({ message_en: item }, false, "This detail is not available in English.")}</li>)}
                 </ul>
               </div>
             ) : null}
@@ -556,7 +1096,7 @@ export default function MatchesPage() {
               <div className="mt-2 rounded-lg bg-slate-50 p-2">
                 <p className="text-[10px] font-bold text-slate-500">{te ? "మీరు సేవ్ చేసిన preference checks (compatibility verdict కాదు)" : "Your saved preference checks (not a compatibility verdict)"}</p>
                 <ul className="mt-1 space-y-1 text-[11px] leading-5 text-slate-600">
-                  {row.preference_checks.slice(0, 2).map((item: any, i: number) => <li key={`${item.key}-${i}`}>• {item.note}</li>)}
+                  {row.preference_checks.slice(0, 2).map((item: any, i: number) => <li key={`${item.key}-${i}`}>• {te ? (item.note_te || item.note) : apiDisplayMessage({ message_en: item.note_en, message: item.note }, false, "Saved preference details are not available in English.")}</li>)}
                 </ul>
               </div>
             ) : null}
@@ -569,31 +1109,28 @@ export default function MatchesPage() {
             href={`/search/${row.tsap_id}`}
             className="flex-1 min-w-[70px] text-center py-2.5 px-2 rounded-xl border border-maroon/30 text-maroon bg-white hover:bg-cream text-xs font-bold transition shadow-xs"
           >
-            👁️ వివరాలు
+            {te ? "👁️ వివరాలు" : "👁️ View profile"}
           </Link>
 
           <Link
             href={`/biodata?id=${row.tsap_id}`}
             className="py-2.5 px-2.5 rounded-xl border border-amber-300 bg-amber-50 hover:bg-amber-100 text-maroon text-xs font-black transition shadow-xs flex items-center justify-center shrink-0"
-            title="HD కలర్ బయోడేటా డౌన్‌లోడ్"
+            title={te ? "HD కలర్ బయోడేటా డౌన్‌లోడ్" : "Download a high-resolution biodata card"}
           >
-            🎴 బయోడేటా
+            {te ? "🎴 బయోడేటా" : "🎴 Biodata"}
           </Link>
 
           <button
             onClick={() => setUnlockTarget(row)}
             className="flex-1 min-w-[100px] text-center py-2.5 px-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black shadow-md hover-lift transition"
           >
-            📞 సంప్రదించండి
+            {te ? "📞 సంప్రదించండి" : "📞 Contact"}
           </button>
-          <a href={unlockBot(row.tsap_id)} target="_blank" rel="noreferrer" className="hidden" aria-hidden="true">
-            Full details + Number
-          </a>
 
           <button
             onClick={() => setProposalTarget(row)}
             className="w-10 h-10 rounded-xl bg-[#25D366] text-white flex items-center justify-center text-base hover:brightness-105 transition shadow-xs shrink-0"
-            title="WhatsApp లో సంబంధం వివరాలు షేర్ చేయండి"
+            title={te ? "WhatsApp లో సంబంధం వివరాలు షేర్ చేయండి" : "Share profile details on WhatsApp"}
           >
             💬
           </button>
@@ -616,7 +1153,7 @@ export default function MatchesPage() {
               }`}
             >
               <span>👑</span>
-              <span>{te ? "తనిఖీ నమోదు చేసినవి" : "Recorded check"}</span>
+              <span>{te ? "ఫోన్ OTP / ఫోటో / ID సమీక్ష" : "Phone, photo or government ID check"}</span>
             </button>
 
             <button
@@ -626,7 +1163,7 @@ export default function MatchesPage() {
               }`}
             >
               <span>📸</span>
-              <span>With Photo</span>
+              <span>{te ? "ఫోటో ఉన్నవి" : "With photo"}</span>
             </button>
 
             <button
@@ -639,7 +1176,7 @@ export default function MatchesPage() {
               }`}
             >
               <span>🎯</span>
-              <span>{prefLoading ? "లోడ్ అవుతోంది…" : prefApplied ? "✓ నా ప్రిఫరెన్సెస్ అప్లై అయ్యాయి" : "🎯 నా సేవ్ చేసిన ప్రిఫరెన్సెస్"}</span>
+              <span>{prefLoading ? (te ? "లోడ్ అవుతోంది…" : "Loading…") : prefApplied ? (te ? "✓ నా ప్రిఫరెన్సెస్ అప్లై అయ్యాయి" : "✓ Preferences applied") : (te ? "🎯 నా సేవ్ చేసిన ప్రిఫరెన్సెస్" : "🎯 Apply saved preferences")}</span>
             </button>
 
             <button
@@ -649,7 +1186,7 @@ export default function MatchesPage() {
               }`}
             >
               <span>👰</span>
-              <span>వధువులు (Brides)</span>
+              <span>{te ? "వధువులు" : "Brides"}</span>
             </button>
 
             <button
@@ -659,16 +1196,16 @@ export default function MatchesPage() {
               }`}
             >
               <span>🤵</span>
-              <span>వరులు (Grooms)</span>
+              <span>{te ? "వరులు" : "Grooms"}</span>
             </button>
 
             <button
-              onClick={() => setF("marital_status", filters.marital_status === "Pelli Kaledu" ? "" : "Pelli Kaledu")}
+              onClick={() => setF("marital_status", isMaritalFilterOptionSelected(filters.marital_status, "Pelli Kaledu") ? "" : "Pelli Kaledu")}
               className={`px-3 py-1.5 rounded-full text-xs font-bold shrink-0 transition border ${
-                filters.marital_status === "Pelli Kaledu" ? "bg-maroon text-white border-maroon shadow-xs" : "bg-white text-slate-700 border-slate-200 hover:border-maroon"
+                isMaritalFilterOptionSelected(filters.marital_status, "Pelli Kaledu") ? "bg-maroon text-white border-maroon shadow-xs" : "bg-white text-slate-700 border-slate-200 hover:border-maroon"
               }`}
             >
-              💍 Never Married
+              {te ? "💍 పెళ్లి కాలేదు" : "💍 Never married"}
             </button>
 
             <button
@@ -677,7 +1214,7 @@ export default function MatchesPage() {
                 filters.marital_status === "Divorced" ? "bg-rose-700 text-white border-rose-700 shadow-xs" : "bg-white text-slate-700 border-slate-200 hover:border-rose-700"
               }`}
             >
-              ❤️ Second Marriage
+              {te ? "❤️ రెండో వివాహం" : "❤️ Second marriage"}
             </button>
 
             <button
@@ -689,7 +1226,7 @@ export default function MatchesPage() {
               }`}
             >
               <span>🏡</span>
-              <span>Housewife / గృహిణి</span>
+              <span>{te ? "గృహిణి" : "Homemaker"}</span>
             </button>
 
             <button
@@ -753,7 +1290,7 @@ export default function MatchesPage() {
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="font-black text-sm text-slate-900 flex items-center gap-1.5">
                 <span>🌪️</span>
-                <span>అధునాతన ఫిల్టర్లు (Filters)</span>
+                <span>{te ? "అధునాతన ఫిల్టర్లు" : "Filters"}</span>
                 {activeChips.length > 0 && (
                   <span className="bg-maroon text-white text-[11px] font-bold px-2 py-0.5 rounded-full">
                     {activeChips.length}
@@ -762,32 +1299,30 @@ export default function MatchesPage() {
               </div>
               {activeChips.length > 0 && (
                 <button onClick={clearAllFilters} className="text-xs font-bold text-rose-600 hover:underline">
-                  రీసెట్ (Reset All)
+                  {te ? "రీసెట్" : "Reset all"}
                 </button>
               )}
             </div>
 
             {/* Children Filter */}
-            {filters.marital_status && filters.marital_status !== "Pelli Kaledu" && (
+            {hasChildrenRelevantMaritalFilter(filters.marital_status) && (
               <div className="border-t border-slate-100 pt-3 space-y-1.5">
-                <label className="text-xs font-black text-slate-800">👶 పిల్లలు (Children):</label>
+                <label className="text-xs font-black text-slate-800">👶 {te ? "పిల్లలు" : "Children"}:</label>
                 <select
                   value={filters.children || ""}
                   onChange={(e) => setF("children", e.target.value)}
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs font-bold"
                 >
-                  <option value="">అన్నీ (All)</option>
-                  <option value="None">పిల్లలు లేరు (None)</option>
-                  <option value="1">1 బాబు / పాప (1 Child)</option>
-                  <option value="2">2 పిల్లలు (2 Children)</option>
-                  <option value="3+">3+ పిల్లలు (3+ Children)</option>
+                  {CHILDREN_FILTER_OPTIONS.map((option) => (
+                    <option key={option.value || "all"} value={option.value}>{te ? option.te : option.en}</option>
+                  ))}
                 </select>
               </div>
             )}
 
             {/* Keyword Search */}
             <div>
-              <label className="block text-xs font-black text-slate-800 mb-1">🔍 పేరు / ఐడీ / కీవర్డ్:</label>
+              <label className="block text-xs font-black text-slate-800 mb-1">🔍 {te ? "పేరు / ఐడీ / కీవర్డ్" : "Name / ID / keyword"}:</label>
               <input
                 type="text"
                 placeholder="TSAP ID, Name, Gothram..."
@@ -799,12 +1334,12 @@ export default function MatchesPage() {
 
             {/* Gender Toggle */}
             <div className="border-t border-slate-100 pt-3">
-              <label className="block text-xs font-black text-slate-800 mb-1.5">వధువు / వరుడు (Gender):</label>
+              <label className="block text-xs font-black text-slate-800 mb-1.5">{te ? "వధువు / వరుడు" : "Gender"}:</label>
               <div className="grid grid-cols-3 gap-1.5">
                 {[
-                  { v: "", l: "అన్నీ (All)" },
-                  { v: "Bride", l: "👰 వధువు" },
-                  { v: "Groom", l: "🤵 వరుడు" },
+                  { v: "", l: te ? "అన్నీ" : "All" },
+                  { v: "Bride", l: te ? "👰 వధువు" : "👰 Bride" },
+                  { v: "Groom", l: te ? "🤵 వరుడు" : "🤵 Groom" },
                 ].map((g) => (
                   <button
                     key={g.v}
@@ -819,18 +1354,31 @@ export default function MatchesPage() {
               </div>
             </div>
 
+            <div className="border-t border-slate-100 pt-3 space-y-1">
+              <label htmlFor="desktop-religion-filter" className="block text-xs font-black text-slate-800">🕊️ {te ? "మతం" : "Religion"}</label>
+              <select
+                id="desktop-religion-filter"
+                value={filters.religion || ""}
+                onChange={(e) => setF("religion", e.target.value)}
+                className="min-h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm"
+              >
+                <option value="">{te ? "అన్ని మతాలు" : "All religions"}</option>
+                {RELIGIONS.map((religion) => <option key={religion} value={religion}>{religion}</option>)}
+              </select>
+            </div>
+
             {/* Caste Multi-Select with Search */}
             <div className="border-t border-slate-100 pt-3 space-y-2">
               <div className="flex items-center justify-between">
-                <label className="text-xs font-black text-slate-800">💍 కులం (Caste):</label>
+                <label className="text-xs font-black text-slate-800">💍 {te ? "కులం" : "Caste"}:</label>
                 {filters.caste && (
                   <button onClick={() => setF("caste", "")} className="text-[11px] text-maroon font-bold">
-                    క్లియర్
+                    {te ? "క్లియర్" : "Clear"}
                   </button>
                 )}
               </div>
 
-              {/* Popular Caste Quick Buttons */}
+              {/* Caste Quick Filters */}
               <div className="flex flex-wrap gap-1">
                 {["Reddy", "Kamma", "Kapu", "Brahmin", "Arya Vysya", "Padmashali", "Velama", "Yadav", "Goud"].map((c) => {
                   const on = isMultiSelected("caste", c);
@@ -843,7 +1391,7 @@ export default function MatchesPage() {
                         on ? "bg-maroon text-white border-maroon" : "bg-amber-50/70 border-gold/40 text-maroon hover:bg-gold/20"
                       }`}
                     >
-                      {CASTE_TELUGU[c] || c}
+                      {te ? (CASTE_TELUGU[c] || c) : c}
                     </button>
                   );
                 })}
@@ -851,7 +1399,7 @@ export default function MatchesPage() {
 
               <input
                 type="text"
-                placeholder="🔍 కులం వెతకండి (Telugu / Eng)..."
+                placeholder={te ? "🔍 కులం వెతకండి..." : "🔍 Search communities..."}
                 value={casteSearch}
                 onChange={(e) => setCasteSearch(e.target.value)}
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-maroon"
@@ -869,9 +1417,9 @@ export default function MatchesPage() {
                     >
                       <div className="flex items-center gap-2">
                         <input type="checkbox" checked={checked} onChange={() => toggleMulti("caste", c)} className="accent-[#7A0C2E] rounded" />
-                        <span className="font-bold text-maroon telugu">{CASTE_TELUGU[c] || c}</span>
+                        <span className="font-bold text-maroon telugu">{te ? (CASTE_TELUGU[c] || c) : c}</span>
                       </div>
-                      <span className="text-[11px] text-slate-500 font-medium">({c})</span>
+                      {te && <span className="text-[11px] text-slate-500 font-medium">({c})</span>}
                     </label>
                   );
                 })}
@@ -880,7 +1428,7 @@ export default function MatchesPage() {
               {/* Subcastes */}
               {availableSubcastes.length > 0 && (
                 <div className="bg-amber-50/70 p-2.5 rounded-2xl border border-gold/30">
-                  <label className="block text-[11px] font-black text-maroon mb-1">🪔 ఉపకులాలు (Sub-Castes):</label>
+                  <label className="block text-[11px] font-black text-maroon mb-1">🪔 {te ? "ఉపకులాలు" : "Sub-castes"}:</label>
                   <div className="max-h-28 overflow-y-auto space-y-1 pr-1">
                     {availableSubcastes.map((sc) => {
                       const checked = isMultiSelected("sub_caste", sc);
@@ -899,10 +1447,10 @@ export default function MatchesPage() {
             {/* District Multi-Select */}
             <div className="border-t border-slate-100 pt-3 space-y-2">
               <div className="flex items-center justify-between">
-                <label className="text-xs font-black text-slate-800">📍 జిల్లా / ప్రాంతం (District):</label>
+                <label className="text-xs font-black text-slate-800">📍 {te ? "జిల్లా / ప్రాంతం" : "District / area"}:</label>
                 {filters.district && (
                   <button onClick={() => setF("district", "")} className="text-[11px] text-maroon font-bold">
-                    క్లియర్
+                    {te ? "క్లియర్" : "Clear"}
                   </button>
                 )}
               </div>
@@ -910,7 +1458,7 @@ export default function MatchesPage() {
               {/* State switch */}
               <div className="flex gap-1">
                 {[
-                  { v: "", l: "అన్నీ" },
+                  { v: "", l: te ? "అన్నీ" : "All" },
                   { v: "TS", l: `🏛️ TS (${TS_DISTRICTS.length})` },
                   { v: "AP", l: `🌊 AP (${AP_DISTRICTS.length})` },
                 ].map((st) => (
@@ -936,7 +1484,7 @@ export default function MatchesPage() {
 
               <input
                 type="text"
-                placeholder="🔍 జిల్లా వెతకండి..."
+                placeholder={te ? "🔍 జిల్లా వెతకండి..." : "🔍 Search districts..."}
                 value={districtSearch}
                 onChange={(e) => setDistrictSearch(e.target.value)}
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-maroon"
@@ -954,19 +1502,112 @@ export default function MatchesPage() {
                     >
                       <div className="flex items-center gap-2">
                         <input type="checkbox" checked={checked} onChange={() => toggleMulti("district", d)} className="accent-[#7A0C2E] rounded" />
-                        <span className="font-bold text-slate-800 telugu">{DISTRICT_TELUGU[d] || d}</span>
+                        <span className="font-bold text-slate-800 telugu">{te ? (DISTRICT_TELUGU[d] || d) : d}</span>
                       </div>
-                      <span className="text-[11px] text-slate-500 font-medium">({d})</span>
+                      {te && <span className="text-[11px] text-slate-500 font-medium">({d})</span>}
                     </label>
                   );
                 })}
               </div>
             </div>
 
+            <div className="border-t border-slate-100 pt-3 space-y-3">
+              <h3 className="text-xs font-black text-slate-800">💼 {te ? "వృత్తి & విద్య" : "Career & education"}</h3>
+              <div className="max-h-32 overflow-y-auto space-y-1">
+                {["Housewife / Homemaker (గృహిణి)", "Not Working / Student", ...WORK_TYPES].map((workType) => {
+                  const checked = isMultiSelected("job", workType);
+                  return (
+                    <label key={workType} className="flex min-h-11 items-center gap-2 rounded-lg px-2 text-xs hover:bg-slate-50 cursor-pointer">
+                      <input type="checkbox" checked={checked} onChange={() => toggleMulti("job", workType)} className="accent-[#7A0C2E] rounded" />
+                      <span>{workType === "Housewife / Homemaker (గృహిణి)" ? (te ? "గృహిణి" : "Housewife / homemaker") : workType}</span>
+                    </label>
+                  );
+                })}
+              </div>
+              <input
+                type="search"
+                value={educationSearch}
+                onChange={(e) => setEducationSearch(e.target.value)}
+                placeholder={te ? "విద్యార్హతను వెతకండి..." : "Search education..."}
+                className="min-h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm"
+              />
+              <div className="max-h-32 overflow-y-auto space-y-1">
+                {filteredEducationsList.map((education) => {
+                  const checked = isMultiSelected("education", education);
+                  return (
+                    <label key={education} className="flex min-h-11 items-center gap-2 rounded-lg px-2 text-xs hover:bg-slate-50 cursor-pointer">
+                      <input type="checkbox" checked={checked} onChange={() => toggleMulti("education", education)} className="accent-[#7A0C2E] rounded" />
+                      <span>{te ? (EDUCATION_TELUGU[education] || education) : education}</span>
+                    </label>
+                  );
+                })}
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <label className="block space-y-1 text-[11px] font-bold text-slate-700">
+                  <span>{te ? "కనీస వార్షిక ఆదాయం" : "Minimum annual income"}</span>
+                  <select value={String(filters.salary_min || 0)} onChange={(e) => setRangeFilter("salary_min", Number(e.target.value))} className="min-h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-2 text-xs">
+                    <option value="0">{te ? "పరిమితి లేదు" : "No minimum"}</option>
+                    {SALARIES_DETAILED.filter((salary) => salary.minLakhs > 0).map((salary) => <option key={salary.id} value={String(Math.round(salary.minLakhs * 100_000))}>{te ? salary.te : salary.en}</option>)}
+                  </select>
+                </label>
+                <label className="block space-y-1 text-[11px] font-bold text-slate-700">
+                  <span>{te ? "గరిష్ఠ వార్షిక ఆదాయం" : "Maximum annual income"}</span>
+                  <select value={String(filters.salary_max || 0)} onChange={(e) => setRangeFilter("salary_max", Number(e.target.value))} className="min-h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-2 text-xs">
+                    {SALARY_CEILING_FILTERS.map((option) => <option key={option.value} value={option.value}>{te ? option.te : option.en}</option>)}
+                  </select>
+                </label>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <label className="block space-y-1 text-[11px] font-bold text-slate-700">
+                  <span>{te ? "కనీస ఎత్తు" : "Minimum height"}</span>
+                  <select value={filters.height_min || ""} onChange={(e) => setRangeFilter("height_min", e.target.value)} className="min-h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-2 text-xs">
+                    <option value="">{te ? "పరిమితి లేదు" : "No minimum"}</option>
+                    {HEIGHTS.map((height) => <option key={height} value={height}>{heightLabel(height)}</option>)}
+                  </select>
+                </label>
+                <label className="block space-y-1 text-[11px] font-bold text-slate-700">
+                  <span>{te ? "గరిష్ఠ ఎత్తు" : "Maximum height"}</span>
+                  <select value={filters.height_max || ""} onChange={(e) => setRangeFilter("height_max", e.target.value)} className="min-h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-2 text-xs">
+                    <option value="">{te ? "పరిమితి లేదు" : "No maximum"}</option>
+                    {HEIGHTS.map((height) => <option key={height} value={height}>{heightLabel(height)}</option>)}
+                  </select>
+                </label>
+              </div>
+            </div>
+
+            <div className="border-t border-slate-100 pt-3 space-y-3">
+              <h3 className="text-xs font-black text-slate-800">🌙 {te ? "జ్యోతిష్య వివరాలు (ఐచ్ఛికం)" : "Astrology details (optional)"}</h3>
+              <label className="block space-y-1 text-xs font-bold text-slate-700">
+                <span>{te ? "రాశి" : "Rasi"}</span>
+                <select value={filters.rasi || ""} onChange={(e) => setF("rasi", e.target.value)} className="min-h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm">
+                  <option value="">{te ? "అన్ని రాశులు" : "All rasis"}</option>
+                  {RASIS.map((rasi) => <option key={rasi.en} value={rasi.en}>{te ? `${rasi.te} (${rasi.en})` : rasi.display}</option>)}
+                </select>
+              </label>
+              <div className="space-y-1">
+                <label className="block text-xs font-bold text-slate-700">{te ? "నక్షత్రం" : "Nakshatra"}</label>
+                <div className="max-h-32 overflow-y-auto space-y-1 rounded-xl border border-slate-100 p-2">
+                  {NAKSHATRAS.map((star) => (
+                    <label key={star.en} className="flex min-h-9 items-center gap-2 text-xs cursor-pointer">
+                      <input type="checkbox" checked={isMultiSelected("star", star.en)} onChange={() => toggleMulti("star", star.en)} className="accent-[#7A0C2E] rounded" />
+                      <span>{te ? `${star.te} (${star.en})` : star.en}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+              <label className="block space-y-1 text-xs font-bold text-slate-700">
+                <span>{te ? "దోషం (సభ్యుడు నమోదు చేసిన పదం)" : "Dosham (member-entered text)"}</span>
+                <input type="text" maxLength={80} value={filters.dosham || ""} onChange={(e) => setF("dosham", e.target.value)} placeholder={te ? "ప్రొఫైల్‌లో ఉన్న పదాన్ని నమోదు చేయండి" : "Enter text shown in a profile"} className="min-h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm" />
+              </label>
+              <p className="rounded-xl bg-amber-50 p-2.5 text-[10px] leading-relaxed text-amber-900">
+                {te ? "ఇవి సభ్యులు ఇచ్చిన వివరాలు మాత్రమే; అనుకూలత స్కోరు లేదా ఫలిత సూచన కాదు. తెలియని వివరాలను 'లేదు'గా పరిగణించము." : "Member-provided details only; not a compatibility score or prediction. Unknown details are not treated as 'none'."}
+              </p>
+            </div>
+
             {/* Age Range Slider */}
             <div className="border-t border-slate-100 pt-3 space-y-1.5">
               <div className="flex items-center justify-between text-xs">
-                <span className="font-black text-slate-800">🎂 వయస్సు (Age Range):</span>
+                <span className="font-black text-slate-800">🎂 {te ? "వయస్సు పరిధి" : "Age range"}:</span>
                 <span className="font-bold text-maroon">
                   {filters.age_min} - {filters.age_max} yrs
                 </span>
@@ -997,16 +1638,18 @@ export default function MatchesPage() {
             {/* Header / Summary Bar */}
             <div className="bg-white rounded-2xl border border-gold/30 p-3.5 sm:p-4 shadow-xs flex flex-wrap items-center justify-between gap-3">
               <div>
-                <h1 className="text-base sm:text-lg font-black text-slate-900">
-                  🔍 {loading
+                <h1 aria-live="polite" aria-atomic="true" className="text-base sm:text-lg font-black text-slate-900">
+                  🔍 {loading || searchPending
                     ? (te ? "వెతుకుతున్నాము…" : "Searching…")
                     : requestError
                       ? (te ? "ప్రొఫైళ్లను లోడ్ చేయలేకపోయాం" : "Could not load profiles")
-                      : (te ? `${total} సరిపోలే ప్రొఫైల్స్ లభించాయి` : `${total} matching profiles found`)}
+                      : rows.length > 0 && rows.length < total
+                        ? (te ? `${total} ప్రొఫైల్స్‌లో ${rows.length} చూపిస్తున్నాం` : `Showing ${rows.length} of ${total} matching profiles`)
+                        : (te ? `${total} సరిపోలే ప్రొఫైల్స్ లభించాయి` : `${total} matching profiles found`)}
                 </h1>
                 <p className="text-xs text-slate-500">
                   {filters.verified_only
-                    ? (te ? "కనీసం ఒక verification check నమోదు చేసిన profiles" : "Profiles with at least one recorded verification check")
+                    ? (te ? "ఫోన్ OTP, ఫోటో review లేదా ప్రభుత్వ ID review లో కనీసం ఒకటి నమోదు అయింది" : "At least one phone OTP, photo review or government-ID review is recorded")
                     : (te ? "మీ ప్రాధాన్యతలకు సరిపోయే ప్రొఫైల్స్" : "Profiles matching your preferences")}
                 </p>
               </div>
@@ -1015,9 +1658,9 @@ export default function MatchesPage() {
                 {/* Mobile Filter Trigger Button */}
                 <button
                   onClick={() => setSheet(true)}
-                  className="lg:hidden px-3.5 py-2 rounded-xl maroon-gradient text-white text-xs font-bold flex items-center gap-1.5 shadow-sm"
+                  className="lg:hidden flex min-h-11 items-center gap-1.5 rounded-xl maroon-gradient px-3.5 py-2 text-xs font-bold text-white shadow-sm"
                 >
-                  <span>🌪️ ఫిల్టర్లు</span>
+                  <span>🌪️ {te ? "ఫిల్టర్లు" : "Filters"}</span>
                   {activeChips.length > 0 && <span className="bg-gold text-maroon px-1.5 rounded-full text-[10px] font-black">{activeChips.length}</span>}
                 </button>
 
@@ -1025,7 +1668,7 @@ export default function MatchesPage() {
                 <select
                   value={sort}
                   onChange={(e) => setSort(e.target.value)}
-                  className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-maroon"
+                  className="min-h-11 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-maroon"
                 >
                   {SORTS.map((s) => (
                     <option key={s.v} value={s.v}>
@@ -1036,6 +1679,167 @@ export default function MatchesPage() {
               </div>
             </div>
 
+            {saveNotice && (
+              <div
+                role={saveNotice.tone === "error" ? "alert" : "status"}
+                aria-live={saveNotice.tone === "error" ? "assertive" : "polite"}
+                className={`flex flex-wrap items-center justify-between gap-2 rounded-xl border px-3 py-2.5 text-sm ${saveNotice.tone === "error" ? "border-amber-200 bg-amber-50 text-amber-950" : "border-emerald-200 bg-emerald-50 text-emerald-950"}`}
+              >
+                <span className="min-w-0 flex-1">{saveNotice.text}</span>
+                <div className="flex flex-wrap items-center gap-2">
+                  {saveNotice.needsLogin && (
+                    <Link href="/login" className="rounded-lg border border-current px-3 py-1.5 text-xs font-bold underline-offset-2 hover:underline">
+                      {te ? "Login" : "Log in"}
+                    </Link>
+                  )}
+                  {saveNotice.showShortlist && (
+                    <Link href="/requests" className="rounded-lg border border-current px-3 py-1.5 text-xs font-bold underline-offset-2 hover:underline">
+                      {te ? "Shortlist చూడండి" : "View shortlist"}
+                    </Link>
+                  )}
+                  {saveNotice.canRetry && (
+                    <button
+                      type="button"
+                      onClick={() => { setSaveNotice(null); setSavedLoadAttempt((attempt) => attempt + 1); }}
+                      className="rounded-lg border border-current px-3 py-1.5 text-xs font-bold underline-offset-2 hover:underline"
+                    >
+                      {te ? "మళ్లీ ప్రయత్నించండి" : "Retry"}
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setSaveNotice(null)}
+                    aria-label={te ? "సందేశాన్ని మూసివేయండి" : "Dismiss message"}
+                    className="grid min-h-11 min-w-11 place-items-center rounded-full hover:bg-black/5"
+                  >
+                    ×
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <section aria-labelledby="saved-searches-heading" className="rounded-2xl border border-indigo-100 bg-white p-3.5 shadow-xs sm:p-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <h2 id="saved-searches-heading" className="text-sm font-black text-slate-900">🔖 {te ? "సేవ్ చేసిన శోధనలు" : "Saved searches"}</h2>
+                  <p className="mt-1 text-xs leading-relaxed text-slate-600">
+                    {te ? "మీ ఖాతాకు మాత్రమే. కొత్త saved searches‌కు notifications స్వయంగా ఆన్ కావు." : "Private to your account. Notifications are never enabled for a new saved search."}
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  {!sessionReady ? (
+                    <button type="button" disabled className="min-h-11 rounded-xl border border-slate-200 px-3 text-xs font-bold text-slate-400">
+                      {te ? "ఖాతా లోడ్ అవుతోంది…" : "Loading account…"}
+                    </button>
+                  ) : myTsapId && sessionToken ? (
+                    <button
+                      type="button"
+                      onClick={beginSaveSearch}
+                      disabled={!hasSearchCriteria || savingSearch || savedSearches.length >= 20}
+                      title={!hasSearchCriteria ? (te ? "ముందుగా కనీసం ఒక ఫిల్టర్ ఎంచుకోండి" : "Choose at least one filter first") : undefined}
+                      className="min-h-11 rounded-xl maroon-gradient px-3.5 text-xs font-bold text-white shadow-sm disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {te ? "ప్రస్తుత శోధనను సేవ్ చేయండి" : "Save current search"}
+                    </button>
+                  ) : (
+                    <Link href="/login?next=%2Fmatches" className="inline-flex min-h-11 items-center rounded-xl border border-maroon/30 px-3.5 text-xs font-bold text-maroon">
+                      {te ? "సేవ్ చేయడానికి login" : "Sign in to save"}
+                    </Link>
+                  )}
+                  <button
+                    type="button"
+                    aria-expanded={savedSearchPanelOpen}
+                    aria-controls="saved-search-panel"
+                    onClick={() => setSavedSearchPanelOpen((open) => !open)}
+                    className="min-h-11 rounded-xl border border-slate-200 bg-slate-50 px-3.5 text-xs font-bold text-slate-800"
+                  >
+                    {savedSearchPanelOpen ? (te ? "మూసివేయండి" : "Hide") : (te ? "నా searches" : "Manage")}
+                    {sessionReady && myTsapId && sessionToken ? ` (${savedSearches.length}/20)` : ""}
+                  </button>
+                </div>
+              </div>
+
+              {savedSearchNotice && (
+                <div role={savedSearchNotice.tone === "error" ? "alert" : "status"} aria-live={savedSearchNotice.tone === "error" ? "assertive" : "polite"} className={`mt-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border px-3 py-2.5 text-xs ${savedSearchNotice.tone === "error" ? "border-amber-200 bg-amber-50 text-amber-950" : "border-emerald-200 bg-emerald-50 text-emerald-950"}`}>
+                  <span className="min-w-0 flex-1">{savedSearchNotice.text}</span>
+                  {savedSearchNotice.canRetry && (
+                    <button type="button" onClick={() => { setSavedSearchNotice(null); setSavedSearchLoadAttempt((attempt) => attempt + 1); }} className="min-h-11 rounded-lg border border-current px-3 font-bold">
+                      {te ? "మళ్లీ ప్రయత్నించండి" : "Retry"}
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {savedSearchPanelOpen && (
+                <div id="saved-search-panel" className="mt-3 space-y-2 border-t border-slate-100 pt-3">
+                  {!sessionReady || !savedSearchesLoaded ? (
+                    <p role="status" className="text-sm text-slate-500">{te ? "Saved searches లోడ్ అవుతున్నాయి…" : "Loading saved searches…"}</p>
+                  ) : !myTsapId || !sessionToken ? (
+                    <div className="rounded-xl bg-slate-50 p-3 text-sm text-slate-700">
+                      <p>{te ? "Saved searches మీ ఖాతాలోనే ఉంటాయి. వాటిని చూడటానికి login చేయండి." : "Saved searches are private to your account. Sign in to view them."}</p>
+                      <Link href="/login?next=%2Fmatches" className="mt-2 inline-flex min-h-11 items-center font-bold text-maroon underline">{te ? "Login" : "Sign in"}</Link>
+                    </div>
+                  ) : savedSearchesLoadError ? (
+                    <p role="alert" className="rounded-xl bg-amber-50 p-3 text-sm text-amber-950">{te ? "Saved searches లోడ్ కాలేదు. పై Retry బటన్ ఉపయోగించండి." : "Saved searches could not be loaded. Use the Retry button above."}</p>
+                  ) : savedSearches.length === 0 ? (
+                    <p className="rounded-xl bg-slate-50 p-3 text-sm text-slate-600">{te ? "ఇంకా saved searches లేవు. ప్రస్తుత ఫిల్టర్లను సేవ్ చేయవచ్చు." : "No saved searches yet. Save the current filters to return to them later."}</p>
+                  ) : savedSearches.map((savedSearch) => {
+                    const legacyAlertNeedsConsent = savedSearch.alert === true && !savedSearch.alert_consent_at;
+                    const alertsEnabled = savedSearch.alert === true && Boolean(savedSearch.alert_consent_at);
+                    const previewCount = Math.max(0, Number(savedSearch.new_matches) || 0);
+                    const previewText = alertsEnabled
+                      ? (te ? `${previewCount} కొత్త matches` : `${previewCount} new matches`)
+                      : (previewCount >= 5 ? (te ? "5+ ప్రొఫైల్స్ సరిపోతున్నాయి" : "5+ matching profiles") : (te ? `${previewCount} ప్రొఫైల్స్ సరిపోతున్నాయి` : `${previewCount} matching profiles`));
+                    return (
+                      <article key={savedSearch.search_id} className="rounded-xl border border-slate-200 bg-slate-50/70 p-3">
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div className="min-w-0 flex-1">
+                            <h3 className="break-words text-sm font-bold text-slate-900">{savedSearch.name}</h3>
+                            <p className="mt-1 text-xs leading-relaxed text-slate-600">{summarizeSavedSearch(savedSearch.filters || {}, te)}</p>
+                            <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px]">
+                              <span className="rounded-full bg-white px-2.5 py-1 font-semibold text-slate-700">{previewText}</span>
+                              <span className={`rounded-full px-2.5 py-1 font-bold ${alertsEnabled ? "bg-amber-100 text-amber-900" : "bg-emerald-100 text-emerald-900"}`}>
+                                {alertsEnabled
+                                  ? (te ? "Notifications ఆన్" : "Notifications on")
+                                  : legacyAlertNeedsConsent
+                                    ? (te ? "సమ్మతి ధృవీకరణ వరకు alerts నిలిపివేశారు" : "Alerts paused pending recorded consent")
+                                    : (te ? "Notifications ఆఫ్" : "Notifications off")}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <button type="button" onClick={() => applySavedSearch(savedSearch)} className="min-h-11 rounded-lg bg-indigo-700 px-3 text-xs font-bold text-white">{te ? "వర్తింపజేయి" : "Apply"}</button>
+                            {savedSearch.alert === true && (
+                              <button type="button" onClick={() => void turnOffSavedSearchAlerts(savedSearch)} disabled={turningOffAlertId === savedSearch.search_id} className="min-h-11 rounded-lg border border-amber-300 bg-white px-3 text-xs font-bold text-amber-900 disabled:opacity-50">
+                                {turningOffAlertId === savedSearch.search_id
+                                  ? (te ? "ఆఫ్ చేస్తోంది…" : "Turning off…")
+                                  : alertsEnabled
+                                    ? (te ? "Alerts ఆఫ్" : "Turn off alerts")
+                                    : (te ? "పాత alert సెట్టింగ్ తొలగించండి" : "Clear legacy alert setting")}
+                              </button>
+                            )}
+                            <button type="button" onClick={() => void deleteSavedSearch(savedSearch)} disabled={deletingSearchId === savedSearch.search_id} className="min-h-11 rounded-lg border border-rose-200 bg-white px-3 text-xs font-bold text-rose-700 disabled:opacity-50">
+                              {deletingSearchId === savedSearch.search_id ? (te ? "తొలగిస్తోంది…" : "Deleting…") : confirmDeleteSearchId === savedSearch.search_id ? (te ? "తొలగింపు నిర్ధారించండి" : "Confirm delete") : (te ? "తొలగించు" : "Delete")}
+                            </button>
+                          </div>
+                        </div>
+                        {confirmDeleteSearchId === savedSearch.search_id && (
+                          <div className="mt-2 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-rose-100 bg-white p-2 text-xs text-slate-700">
+                            <span>{alertsEnabled
+                              ? (te ? "తొలగిస్తే ఈ saved search‌కు వచ్చే alerts కూడా ఆగుతాయి." : "Deleting also stops future alerts for this saved search.")
+                              : legacyAlertNeedsConsent
+                                ? (te ? "ఈ పాత search‌కు స్పష్టమైన alert సమ్మతి నమోదు కాలేదు; search మాత్రమే తొలగించబడుతుంది." : "No explicit alert consent is recorded for this legacy search; this search will be deleted.")
+                                : (te ? "ఈ saved search మాత్రమే తొలగించబడుతుంది." : "Only this saved search will be deleted.")}</span>
+                            <button type="button" onClick={() => setConfirmDeleteSearchId("")} className="min-h-11 rounded-lg px-3 font-bold text-slate-700 underline">{te ? "రద్దు" : "Cancel"}</button>
+                          </div>
+                        )}
+                      </article>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
+
             {/* Active Filter Chips Bar */}
             {activeChips.length > 0 && (
               <div className="flex flex-wrap items-center gap-1.5">
@@ -1045,13 +1849,18 @@ export default function MatchesPage() {
                     className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-amber-50 text-maroon border border-gold/40 shadow-xs"
                   >
                     <span>{chip.label}</span>
-                    <button onClick={chip.clear} className="hover:text-rose-600 ml-1 font-bold">
+                    <button
+                      type="button"
+                      onClick={chip.clear}
+                      aria-label={te ? `${chip.label} ఫిల్టర్ తొలగించండి` : `Remove ${chip.label} filter`}
+                      className="ml-1 inline-flex min-h-11 min-w-11 items-center justify-center rounded-full font-bold hover:text-rose-600"
+                    >
                       ✕
                     </button>
                   </span>
                 ))}
                 <button onClick={clearAllFilters} className="text-xs font-bold text-rose-600 underline ml-2">
-                  అన్నీ తొలగించు (Clear All)
+                  {te ? "అన్నీ తొలగించు" : "Clear all"}
                 </button>
               </div>
             )}
@@ -1061,17 +1870,17 @@ export default function MatchesPage() {
               <div className="flex items-center gap-2.5">
                 <span className="text-xl">🔒</span>
                 <div>
-                  <span className="font-bold text-maroon">ఫోన్ నంబర్ల గోప్యతా నియమం: </span>
-                  <span className="text-slate-700">మొదటి 3 కాంటాక్ట్ రిక్వెస్ట్స్ ఉచితం. డైరెక్ట్ నంబర్లు ఇవ్వము (ఇరువైపులా అంగీకారం లేదా ప్లాన్ ఉన్నప్పుడే నంబర్లు లభిస్తాయి — ₹99 → 5 profiles).</span>
+                  <span className="font-bold text-maroon">{te ? "ఫోన్ నంబర్ల గోప్యతా నియమం: " : "Phone privacy: "}</span>
+                  <span className="text-slate-700">{te ? "మొదటి 3 కాంటాక్ట్ అభ్యర్థనలు ఉచితం. నేరుగా నంబర్లు చూపించము; యజమాని సమ్మతి మరియు ప్లాన్ నియమాలు వర్తిస్తాయి." : "The first 3 contact requests are free. Phone numbers are not shown directly; sharing follows the profile owner’s consent and plan rules."}</span>
                 </div>
               </div>
               <Link href="/pricing" className="px-3.5 py-1.5 rounded-xl gold-gradient text-maroon font-bold text-xs shrink-0 self-start sm:self-auto shadow-xs">
-                ప్లాన్స్ చూడండి →
+                {te ? "ప్లాన్లు చూడండి →" : "View plans →"}
               </Link>
             </div>
 
             {/* Matches Cards Grid */}
-            {loading ? (
+            {loading || searchPending ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {[1, 2, 3, 4].map((i) => (
                   <div key={i} className="bg-white rounded-3xl border border-gold/20 p-5 space-y-4 animate-pulse">
@@ -1098,12 +1907,12 @@ export default function MatchesPage() {
             ) : rows.length === 0 ? (
               <div className="bg-white rounded-3xl border border-gold/30 p-8 text-center space-y-3">
                 <div className="text-4xl">🔍 💍</div>
-                <h3 className="text-base font-black text-slate-900">మీ ఫిల్టర్లకు సరిపోయే ప్రొఫైల్స్ ప్రస్తుతానికి లేవు</h3>
-                <p className="text-xs text-slate-600 telugu">
-                  దయచేసి కులం లేదా జిల్లా ఫిల్టర్లను కాస్త సడలించి మళ్లీ ప్రయత్నించండి.
+                <h3 className="text-base font-black text-slate-900">{te ? "మీ ఫిల్టర్లకు సరిపోయే ప్రొఫైల్స్ ప్రస్తుతం లేవు" : "No profiles match your filters yet"}</h3>
+                <p className="text-xs text-slate-600">
+                  {te ? "కమ్యూనిటీ లేదా జిల్లా ఫిల్టర్లను సడలించి మళ్లీ ప్రయత్నించండి." : "Broaden your community or district filters and try again."}
                 </p>
                 <button onClick={clearAllFilters} className="px-5 py-2.5 rounded-xl maroon-gradient text-white text-xs font-bold shadow-md">
-                  అన్ని ఫిల్టర్లను రీసెట్ చేయండి
+                  {te ? "అన్ని ఫిల్టర్లను రీసెట్ చేయండి" : "Reset all filters"}
                 </button>
               </div>
             ) : (
@@ -1111,6 +1920,29 @@ export default function MatchesPage() {
                 {rows.map((row) => (
                   <Card key={row.tsap_id || row.id} row={row} />
                 ))}
+              </div>
+            )}
+
+            {!loading && !searchPending && !requestError && rows.length > 0 && nextOffset < total && (
+              <div className="flex flex-col items-center gap-2 py-2 text-center">
+                {loadMoreError && (
+                  <p role="alert" className="text-sm text-rose-700">
+                    {te ? "మరిన్ని ప్రొఫైల్స్ లోడ్ కాలేదు." : "More profiles could not be loaded."}
+                  </p>
+                )}
+                <button
+                  type="button"
+                  onClick={() => { void fetchMatches(nextOffset, true); }}
+                  disabled={loadingMore}
+                  aria-busy={loadingMore}
+                  className="min-h-12 min-w-48 rounded-xl border border-maroon/25 bg-white px-5 py-3 text-sm font-bold text-maroon shadow-sm transition hover:bg-rose-50 disabled:cursor-wait disabled:opacity-60"
+                >
+                  {loadingMore
+                    ? (te ? "లోడ్ అవుతోంది…" : "Loading more…")
+                    : loadMoreError
+                      ? (te ? "మళ్లీ ప్రయత్నించండి" : "Retry loading more")
+                      : (te ? `మరిన్ని ${Math.min(MATCH_PAGE_SIZE, total - nextOffset)} ప్రొఫైల్స్` : `Load ${Math.min(MATCH_PAGE_SIZE, total - nextOffset)} more profiles`)}
+                </button>
               </div>
             )}
           </div>
@@ -1125,9 +1957,14 @@ export default function MatchesPage() {
             <div className="p-4 border-b border-slate-100 flex items-center justify-between">
               <div className="font-black text-sm text-slate-900 flex items-center gap-1.5">
                 <span>🌪️</span>
-                <span>అధునాతన ఫిల్టర్లు (Advanced Filters)</span>
+                <span>{te ? "అధునాతన ఫిల్టర్లు" : "Advanced filters"}</span>
               </div>
-              <button onClick={() => setSheet(false)} className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-700 font-bold">
+              <button
+                type="button"
+                onClick={() => setSheet(false)}
+                aria-label={te ? "ఫిల్టర్ ప్యానెల్ మూసివేయండి" : "Close filter panel"}
+                className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full bg-slate-100 font-bold text-slate-700"
+              >
                 ✕
               </button>
             </div>
@@ -1135,16 +1972,16 @@ export default function MatchesPage() {
             {/* Tabbed Navigation */}
             <div className="flex border-b border-slate-100 overflow-x-auto no-scrollbar bg-slate-50">
               {[
-                { k: "basic", l: "ప్రాథమిక (Basic)" },
-                { k: "caste", l: "కులం (Caste)" },
-                { k: "location", l: "ప్రాంతం (Location)" },
-                { k: "career", l: "ఉద్యోగం (Career)" },
-                { k: "astro", l: "జ్యోతిషం (Astro)" },
+                { k: "basic", l: te ? "ప్రాథమిక" : "Basics" },
+                { k: "caste", l: te ? "కులం" : "Community" },
+                { k: "location", l: te ? "ప్రాంతం" : "Location" },
+                { k: "career", l: te ? "ఉద్యోగం" : "Career" },
+                { k: "astro", l: te ? "జ్యోతిషం" : "Astrology" },
               ].map((t) => (
                 <button
                   key={t.k}
                   onClick={() => setMobileFilterTab(t.k as any)}
-                  className={`px-4 py-2.5 text-xs font-bold shrink-0 border-b-2 transition ${
+                  className={`min-h-11 shrink-0 border-b-2 px-4 py-2.5 text-xs font-bold transition ${
                     mobileFilterTab === t.k ? "border-maroon text-maroon bg-white" : "border-transparent text-slate-600"
                   }`}
                 >
@@ -1158,12 +1995,12 @@ export default function MatchesPage() {
               {mobileFilterTab === "basic" && (
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-xs font-bold text-slate-800 mb-1">వధువు / వరుడు:</label>
+                    <label className="block text-xs font-bold text-slate-800 mb-1">{te ? "వధువు / వరుడు" : "Gender"}:</label>
                     <div className="grid grid-cols-3 gap-2">
                       {[
-                        { v: "", l: "అన్నీ (All)" },
-                        { v: "Bride", l: "👰 వధువు" },
-                        { v: "Groom", l: "🤵 వరుడు" },
+                        { v: "", l: te ? "అన్నీ" : "All" },
+                        { v: "Bride", l: te ? "👰 వధువు" : "👰 Bride" },
+                        { v: "Groom", l: te ? "🤵 వరుడు" : "🤵 Groom" },
                       ].map((g) => (
                         <button
                           key={g.v}
@@ -1179,25 +2016,30 @@ export default function MatchesPage() {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-slate-800 mb-1">వైవాహిక స్థితి:</label>
+                    <label className="block text-xs font-bold text-slate-800 mb-1">{te ? "వైవాహిక స్థితి" : "Marital status"}:</label>
                     <div className="grid grid-cols-2 gap-2">
-                      {["Pelli Kaledu", "Divorced", "Widow", "Widower"].map((ms) => (
-                        <button
-                          key={ms}
-                          onClick={() => setF("marital_status", filters.marital_status === ms ? "" : ms)}
-                          className={`py-2 px-3 rounded-xl text-xs font-bold border text-center ${
-                            filters.marital_status === ms ? "bg-maroon text-white border-maroon" : "bg-slate-50 text-slate-700 border-slate-200"
-                          }`}
-                        >
-                          {ms === "Pelli Kaledu" ? "Never Married" : ms}
-                        </button>
-                      ))}
+                      {MARITAL_STATUS_FILTER_OPTIONS.map((option) => {
+                        const selected = isMaritalFilterOptionSelected(filters.marital_status, option.value);
+                        return (
+                          <button
+                            key={option.value}
+                            type="button"
+                            aria-pressed={selected}
+                            onClick={() => setF("marital_status", selected ? "" : option.value)}
+                            className={`min-h-11 py-2 px-3 rounded-xl text-xs font-bold border text-center ${
+                              selected ? "bg-maroon text-white border-maroon" : "bg-slate-50 text-slate-700 border-slate-200"
+                            }`}
+                          >
+                            {te ? option.te : option.en}
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
 
                   <div>
                     <div className="flex justify-between text-xs font-bold mb-1">
-                      <span>వయస్సు పరిధి:</span>
+                      <span>{te ? "వయస్సు పరిధి" : "Age range"}:</span>
                       <span className="text-maroon">
                         {filters.age_min} - {filters.age_max} yrs
                       </span>
@@ -1226,9 +2068,20 @@ export default function MatchesPage() {
 
               {mobileFilterTab === "caste" && (
                 <div className="space-y-3">
+                  <label className="block space-y-1">
+                    <span className="block text-xs font-bold text-slate-800">{te ? "మతం" : "Religion"}</span>
+                    <select
+                      value={filters.religion || ""}
+                      onChange={(e) => setF("religion", e.target.value)}
+                      className="min-h-11 w-full bg-white border border-slate-200 rounded-xl px-3 text-sm"
+                    >
+                      <option value="">{te ? "అన్ని మతాలు" : "All religions"}</option>
+                      {RELIGIONS.map((religion) => <option key={religion} value={religion}>{religion}</option>)}
+                    </select>
+                  </label>
                   <input
                     type="text"
-                    placeholder="🔍 కులం వెతకండి..."
+                    placeholder={te ? "🔍 కులం వెతకండి..." : "🔍 Search communities..."}
                     value={casteSearch}
                     onChange={(e) => setCasteSearch(e.target.value)}
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs"
@@ -1237,16 +2090,32 @@ export default function MatchesPage() {
                     {filteredCastesList.map((c) => {
                       const checked = isMultiSelected("caste", c);
                       return (
-                        <label key={c} className="flex items-center justify-between p-2 rounded-xl text-xs bg-slate-50 cursor-pointer">
+                        <label key={c} className="flex min-h-11 items-center justify-between p-2 rounded-xl text-xs bg-slate-50 cursor-pointer">
                           <div className="flex items-center gap-2">
                             <input type="checkbox" checked={checked} onChange={() => toggleMulti("caste", c)} className="accent-[#7A0C2E] rounded" />
-                            <span className="font-bold text-slate-800">{CASTE_TELUGU[c] || c}</span>
+                            <span className="font-bold text-slate-800">{te ? (CASTE_TELUGU[c] || c) : c}</span>
                           </div>
                           <span className="text-slate-500 text-[11px]">({c})</span>
                         </label>
                       );
                     })}
                   </div>
+                  {visibleSubcastes.length > 0 && (
+                    <div className="space-y-2 border-t border-slate-100 pt-3">
+                      <label className="block text-xs font-bold text-slate-800">{te ? "ఉపకులం" : "Sub-caste"}</label>
+                      <div className="max-h-40 overflow-y-auto space-y-1">
+                        {visibleSubcastes.map((subCaste) => {
+                          const checked = isMultiSelected("sub_caste", subCaste);
+                          return (
+                            <label key={subCaste} className="flex min-h-11 items-center gap-2 rounded-xl bg-slate-50 p-2 text-xs cursor-pointer">
+                              <input type="checkbox" checked={checked} onChange={() => toggleMulti("sub_caste", subCaste)} className="accent-[#7A0C2E] rounded" />
+                              <span className="font-medium text-slate-800">{subCaste}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -1254,7 +2123,7 @@ export default function MatchesPage() {
                 <div className="space-y-3">
                   <div className="flex gap-2">
                     {[
-                      { v: "", l: "అన్నీ" },
+                      { v: "", l: te ? "అన్నీ" : "All" },
                       { v: "TS", l: `🏛️ TS (${TS_DISTRICTS.length})` },
                       { v: "AP", l: `🌊 AP (${AP_DISTRICTS.length})` },
                     ].map((st) => (
@@ -1271,7 +2140,7 @@ export default function MatchesPage() {
                   </div>
                   <input
                     type="text"
-                    placeholder="🔍 జిల్లా వెతకండి..."
+                    placeholder={te ? "🔍 జిల్లా వెతకండి..." : "🔍 Search districts..."}
                     value={districtSearch}
                     onChange={(e) => setDistrictSearch(e.target.value)}
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs"
@@ -1280,10 +2149,10 @@ export default function MatchesPage() {
                     {filteredDistrictsList.map((d) => {
                       const checked = isMultiSelected("district", d);
                       return (
-                        <label key={d} className="flex items-center justify-between p-2 rounded-xl text-xs bg-slate-50 cursor-pointer">
+                        <label key={d} className="flex min-h-11 items-center justify-between p-2 rounded-xl text-xs bg-slate-50 cursor-pointer">
                           <div className="flex items-center gap-2">
                             <input type="checkbox" checked={checked} onChange={() => toggleMulti("district", d)} className="accent-[#7A0C2E] rounded" />
-                            <span className="font-bold text-slate-800">{DISTRICT_TELUGU[d] || d}</span>
+                            <span className="font-bold text-slate-800">{te ? (DISTRICT_TELUGU[d] || d) : d}</span>
                           </div>
                           <span className="text-slate-500 text-[11px]">({d})</span>
                         </label>
@@ -1295,32 +2164,133 @@ export default function MatchesPage() {
 
               {mobileFilterTab === "career" && (
                 <div className="space-y-3">
-                  <label className="block text-xs font-bold text-slate-800">వృత్తి / ఉద్యోగ రంగం:</label>
+                  <label className="block text-xs font-bold text-slate-800">{te ? "వృత్తి / ఉద్యోగ రంగం" : "Occupation / industry"}:</label>
                   <div className="grid grid-cols-2 gap-2">
                     {["Housewife / Homemaker (గృహిణి)", "Not Working / Student", ...WORK_TYPES].map((wt) => {
                       const checked = isMultiSelected("job", wt);
                       return (
-                        <label key={wt} className="flex items-center gap-2 p-2 rounded-xl text-xs bg-slate-50 cursor-pointer">
+                        <label key={wt} className="flex min-h-11 items-center gap-2 p-2 rounded-xl text-xs bg-slate-50 cursor-pointer">
                           <input type="checkbox" checked={checked} onChange={() => toggleMulti("job", wt)} className="accent-[#7A0C2E] rounded" />
-                          <span className="truncate">{wt}</span>
+                          <span className="truncate">{wt === "Housewife / Homemaker (గృహిణి)" ? (te ? "గృహిణి" : "Housewife / homemaker") : wt}</span>
                         </label>
                       );
                     })}
+                  </div>
+                  <div className="space-y-2 border-t border-slate-100 pt-3">
+                    <label className="block text-xs font-bold text-slate-800">{te ? "విద్యార్హత" : "Education"}</label>
+                    <input
+                      type="search"
+                      value={educationSearch}
+                      onChange={(e) => setEducationSearch(e.target.value)}
+                      placeholder={te ? "విద్యార్హతను వెతకండి..." : "Search education..."}
+                      className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm"
+                    />
+                    <div className="max-h-40 overflow-y-auto space-y-1">
+                      {filteredEducationsList.map((education) => {
+                        const checked = isMultiSelected("education", education);
+                        return (
+                          <label key={education} className="flex min-h-11 items-center gap-2 rounded-xl bg-slate-50 p-2 text-xs cursor-pointer">
+                            <input type="checkbox" checked={checked} onChange={() => toggleMulti("education", education)} className="accent-[#7A0C2E] rounded" />
+                            <span>{te ? (EDUCATION_TELUGU[education] || education) : education}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 border-t border-slate-100 pt-3">
+                    <label className="block space-y-1 text-xs font-bold text-slate-800">
+                      <span>{te ? "కనీస వార్షిక ఆదాయం" : "Minimum annual income"}</span>
+                      <select
+                        value={String(filters.salary_min || 0)}
+                        onChange={(e) => setRangeFilter("salary_min", Number(e.target.value))}
+                        className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium"
+                      >
+                        <option value="0">{te ? "పరిమితి లేదు" : "No minimum"}</option>
+                        {SALARIES_DETAILED.filter((salary) => salary.minLakhs > 0).map((salary) => (
+                          <option key={salary.id} value={String(Math.round(salary.minLakhs * 100_000))}>
+                            {te ? salary.te : salary.en}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="block space-y-1 text-xs font-bold text-slate-800">
+                      <span>{te ? "గరిష్ఠ వార్షిక ఆదాయం" : "Maximum annual income"}</span>
+                      <select
+                        value={String(filters.salary_max || 0)}
+                        onChange={(e) => setRangeFilter("salary_max", Number(e.target.value))}
+                        className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium"
+                      >
+                        {SALARY_CEILING_FILTERS.map((option) => (
+                          <option key={option.value} value={option.value}>{te ? option.te : option.en}</option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 border-t border-slate-100 pt-3">
+                    <label className="block space-y-1 text-xs font-bold text-slate-800">
+                      <span>{te ? "కనీస ఎత్తు" : "Minimum height"}</span>
+                      <select
+                        value={filters.height_min || ""}
+                        onChange={(e) => setRangeFilter("height_min", e.target.value)}
+                        className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium"
+                      >
+                        <option value="">{te ? "పరిమితి లేదు" : "No minimum"}</option>
+                        {HEIGHTS.map((height) => <option key={height} value={height}>{heightLabel(height)}</option>)}
+                      </select>
+                    </label>
+                    <label className="block space-y-1 text-xs font-bold text-slate-800">
+                      <span>{te ? "గరిష్ఠ ఎత్తు" : "Maximum height"}</span>
+                      <select
+                        value={filters.height_max || ""}
+                        onChange={(e) => setRangeFilter("height_max", e.target.value)}
+                        className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium"
+                      >
+                        <option value="">{te ? "పరిమితి లేదు" : "No maximum"}</option>
+                        {HEIGHTS.map((height) => <option key={height} value={height}>{heightLabel(height)}</option>)}
+                      </select>
+                    </label>
                   </div>
                 </div>
               )}
 
               {mobileFilterTab === "astro" && (
                 <div className="space-y-3">
-                  <label className="block text-xs font-bold text-slate-800">నక్షత్రం ఎంచుకోండి:</label>
+                  <label className="block space-y-1 text-xs font-bold text-slate-800">
+                    <span>{te ? "రాశి" : "Rasi"}</span>
+                    <select
+                      value={filters.rasi || ""}
+                      onChange={(e) => setF("rasi", e.target.value)}
+                      className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium"
+                    >
+                      <option value="">{te ? "అన్ని రాశులు" : "All rasis"}</option>
+                      {RASIS.map((rasi) => <option key={rasi.en} value={rasi.en}>{te ? `${rasi.te} (${rasi.en})` : rasi.display}</option>)}
+                    </select>
+                  </label>
+                  <label className="block space-y-1 text-xs font-bold text-slate-800">
+                    <span>{te ? "దోషం (ప్రొఫైల్‌లో నమోదు చేసిన పదం)" : "Dosham (member-entered text)"}</span>
+                    <input
+                      type="text"
+                      maxLength={80}
+                      value={filters.dosham || ""}
+                      onChange={(e) => setF("dosham", e.target.value)}
+                      placeholder={te ? "ప్రొఫైల్‌లో ఉన్న పదాన్ని నమోదు చేయండి" : "Enter text shown in a profile"}
+                      className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium"
+                    />
+                  </label>
+                  <p className="rounded-xl bg-amber-50 p-3 text-[11px] leading-relaxed text-amber-900">
+                    {te
+                      ? "ఈ వివరాలు సభ్యులు స్వయంగా ఇచ్చినవి. ఇవి అనుకూలత స్కోరు లేదా వివాహ ఫలితాన్ని సూచించవు."
+                      : "These are member-provided details, not a compatibility score or prediction. Missing information remains unknown."}
+                  </p>
+                  <label className="block text-xs font-bold text-slate-800">{te ? "నక్షత్రం ఎంచుకోండి" : "Select a nakshatra"}:</label>
                   <div className="max-h-60 overflow-y-auto space-y-1">
                     {NAKSHATRAS.map((st) => {
                       const checked = isMultiSelected("star", st.en);
                       return (
-                        <label key={st.en} className="flex items-center gap-2 p-2 rounded-xl text-xs bg-slate-50 cursor-pointer">
+                        <label key={st.en} className="flex min-h-11 items-center gap-2 p-2 rounded-xl text-xs bg-slate-50 cursor-pointer">
                           <input type="checkbox" checked={checked} onChange={() => toggleMulti("star", st.en)} className="accent-[#7A0C2E] rounded" />
                           <span>
-                            ⭐ {st.te} ({st.en})
+                            ⭐ {te ? `${st.te} (${st.en})` : st.en}
                           </span>
                         </label>
                       );
@@ -1333,12 +2303,61 @@ export default function MatchesPage() {
             {/* Modal Bottom Actions */}
             <div className="p-4 border-t border-slate-100 flex items-center gap-3 bg-white">
               <button onClick={clearAllFilters} className="flex-1 py-3 rounded-xl border border-slate-200 text-slate-700 text-xs font-bold">
-                రీసెట్ చేయండి
+                {te ? "రీసెట్ చేయండి" : "Reset"}
               </button>
               <button onClick={() => setSheet(false)} className="flex-2 py-3 rounded-xl maroon-gradient text-white text-xs font-bold shadow-md">
-                ఫిల్టర్లు వర్తింపజేయండి ({total})
+                {te ? `ఫిల్టర్లు వర్తింపజేయండి (${total})` : `Apply filters (${total})`}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {saveSearchDialogOpen && (
+        <div className="fixed inset-0 z-[100] flex items-end justify-center bg-slate-950/55 p-0 sm:items-center sm:p-4">
+          <div role="dialog" aria-modal="true" aria-labelledby="save-search-dialog-title" className="w-full max-w-md rounded-t-3xl bg-white p-5 shadow-2xl sm:rounded-3xl">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h2 id="save-search-dialog-title" className="text-lg font-black text-slate-900">{te ? "ఈ శోధనను సేవ్ చేయండి" : "Save this search"}</h2>
+                <p className="mt-1 text-sm text-slate-600">{te ? "ఈ పేరు మీ ఖాతాలో ప్రైవేట్‌గా ఉంటుంది." : "This name and its filters are saved privately to your account."}</p>
+              </div>
+              <button type="button" onClick={() => setSaveSearchDialogOpen(false)} aria-label={te ? "మూసివేయండి" : "Close dialog"} className="grid min-h-11 min-w-11 place-items-center rounded-full bg-slate-100 text-lg">×</button>
+            </div>
+            <form
+              className="mt-4 space-y-4"
+              onSubmit={(event) => { event.preventDefault(); void saveCurrentSearch(); }}
+            >
+              <label className="block space-y-1.5 text-sm font-bold text-slate-800">
+                <span>{te ? "శోధన పేరు" : "Search name"}</span>
+                <input
+                  type="text"
+                  required
+                  minLength={2}
+                  maxLength={40}
+                  autoFocus
+                  value={saveSearchName}
+                  onChange={(event) => setSaveSearchName(event.target.value)}
+                  placeholder={te ? "ఉదా: హైదరాబాద్‌లో ఉద్యోగులు" : "e.g. Professionals in Hyderabad"}
+                  className="min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-maroon/30"
+                />
+              </label>
+              <div className="rounded-xl border border-emerald-100 bg-emerald-50 p-3 text-xs leading-relaxed text-emerald-950">
+                {te
+                  ? "ఈ saved search మీ ఖాతాలో మాత్రమే ఉంటుంది. Notifications, WhatsApp సందేశాలు లేదా ఇతర alerts పంపబడవు."
+                  : "This saved search stays in your account. It will not enable notifications, WhatsApp messages, or other alerts."}
+              </div>
+              {savedSearchNotice?.tone === "error" && (
+                <p role="alert" className="text-sm font-semibold text-rose-700">{savedSearchNotice.text}</p>
+              )}
+              <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                <button type="button" onClick={() => setSaveSearchDialogOpen(false)} disabled={savingSearch} className="min-h-11 rounded-xl border border-slate-200 px-4 text-sm font-bold text-slate-700 disabled:opacity-50">
+                  {te ? "రద్దు" : "Cancel"}
+                </button>
+                <button type="submit" disabled={savingSearch || !saveSearchName.trim() || savedSearches.length >= 20} className="min-h-11 rounded-xl maroon-gradient px-4 text-sm font-bold text-white disabled:opacity-50">
+                  {savingSearch ? (te ? "సేవ్ చేస్తోంది…" : "Saving…") : (te ? "ప్రైవేట్‌గా సేవ్ చేయండి" : "Save privately")}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

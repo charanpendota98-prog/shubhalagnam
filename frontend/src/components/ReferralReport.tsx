@@ -5,7 +5,7 @@
  * Partners + users, earning sort, CSV sheet download.
  */
 import { useCallback, useEffect, useState } from "react";
-import { authHeaders } from "@/lib/api";
+import { apiDisplayMessage, authHeaders, readApiJson } from "@/lib/api";
 import { Duo } from "@/lib/duo";
 import { useLang } from "@/lib/lang";
 
@@ -20,6 +20,9 @@ const H = () => ({ ...authHeaders(true), "Content-Type": "application/json" });
 export default function ReferralReport() {
   const { lang } = useLang();
   const te = lang === "te";
+  const displayDynamicText = (value: unknown, fallback = "Not available in English") => te
+    ? String(value ?? "")
+    : apiDisplayMessage({ message_en: value }, false, fallback);
   const [data, setData] = useState<Row | null>(null);
   const [q, setQ] = useState("");
   const [flash, setFlash] = useState("");
@@ -36,10 +39,10 @@ export default function ReferralReport() {
     try {
       const r = await fetch(withToken("/api/admin/referrals/pay-full"),
         { method: "POST", headers: H(), body: JSON.stringify({ code: id, utr: utr.trim() }) });
-      const d = await r.json();
-      setFlash(d.message_telugu || d.detail || "done");
+      const d = await readApiJson(r);
+      setFlash(apiDisplayMessage(d, te, te ? "చెల్లింపు స్థితిని నవీకరించలేకపోయాం." : "Could not update the payment status."));
       if (d?.success) void load();
-    } catch { setFlash("API error"); }
+    } catch { setFlash(te ? "API లోపం" : "API error. Please try again."); }
     setBusy(false);
   };
 
@@ -48,20 +51,20 @@ export default function ReferralReport() {
     setOpenId(id); setLedger(null); setLedgerBusy(true);
     try {
       const d = await fetch(withToken(`/api/admin/referrals/ledger?code=${encodeURIComponent(id)}`),
-        { headers: authHeaders(true) }).then((r) => r.json());
+        { headers: authHeaders(true) }).then((r) => readApiJson(r));
       if (d?.success) setLedger(d);
-      else setFlash(d.detail || "Ledger fail");
-    } catch { setFlash("API error"); }
+      else setFlash(apiDisplayMessage(d, te, te ? "Ledger లోడ్ చేయలేకపోయాం." : "Could not load the ledger."));
+    } catch { setFlash(te ? "API లోపం" : "API error. Please try again."); }
     setLedgerBusy(false);
   };
 
   const load = useCallback(async () => {
     try {
-      const d = await fetch(withToken("/api/admin/referrals/report"), { headers: authHeaders(true) }).then((r) => r.json());
+      const d = await fetch(withToken("/api/admin/referrals/report"), { headers: authHeaders(true) }).then((r) => readApiJson(r));
       if (d?.success) { setData(d); setFlash(""); }
-      else setFlash(d.detail || "Load fail");
-    } catch { setFlash("API error"); }
-  }, []);
+      else setFlash(apiDisplayMessage(d, te, te ? "రిఫరల్ రిపోర్ట్ లోడ్ కాలేదు." : "Could not load the referral report."));
+    } catch { setFlash(te ? "API లోపం" : "API error. Please try again."); }
+  }, [te]);
   useEffect(() => { void load(); }, [load]);
 
   const rows: Row[] = (data?.rows || []).filter((r: Row) => {
@@ -124,11 +127,11 @@ export default function ReferralReport() {
                         {" "}— {te ? "చూసి కింద payout queue లో UTR తో approve చెయ్యండి." : "check and approve below in payout queue with UTR."}
                       </div>
                     </div>
-                  ) : <div className="text-[11px] text-gray-500">Ledger load kaledu.</div>}
+                  ) : <div className="text-[11px] text-gray-500">{te ? "Ledger లోడ్ కాలేదు." : "Could not load the ledger."}</div>}
               </div>
             ) : null}
             <div className="text-gray-600">
-              {r.district}{r.state ? `, ${r.state}` : ""} · {r.registrations} joins · {r.paid_count} paid
+              {r.district ? displayDynamicText(r.district, "Location in original language") : ""}{r.state ? `, ${displayDynamicText(r.state, "Location in original language")}` : ""} · {r.registrations} joins · {r.paid_count} paid
               {Number(r.pending_payout) ? ` · ⏳ ₹${r.pending_payout} pending` : ""} · paid out ₹{r.paid_out}
               {r.phonepe ? ` · 📱 ${r.phonepe}` : ""}
             </div>

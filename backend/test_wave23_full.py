@@ -17,8 +17,13 @@ import sys
 os.environ.setdefault("WA_TEST_FAST", "1")
 os.environ.setdefault("OTP_DEV_MODE", "true")
 os.environ.setdefault("WA_LONG_PAUSE_CHANCE", "0")
+os.environ.setdefault("PUBLISH_DRY_RUN", "true")
+os.environ.setdefault("WA_ENABLED", "false")
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from testutil_paths import src_page  # noqa: E402  # App Router page.tsx + page-client.tsx aware
+from test_storage import isolate_test_stores  # noqa: E402
+
+isolate_test_stores("wave23")
 
 PASS, FAIL, FAILED = 0, 0, []
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -50,13 +55,14 @@ def make_photo():
     return buf.getvalue()
 
 
-BASE = {"gender": "Bride", "age": "25", "height": "5'4\"", "marital_status": "Pelli Kaledu",
-        "caste": "Reddy", "sub_caste": "Pakanati", "education": "BTech", "job": "Software",
+BASE = {"gender": "Bride", "age": "25", "dob": "2001-01-01", "password": "Test-only-profile-password-2026!",
+        "consent_confirmed": "true", "height": "5'4\"", "marital_status": "Pelli Kaledu",
+        "caste": "Reddy", "sub_caste": "Pakanati Reddy", "education": "BTech", "job": "Software",
         "salary": "60k", "state": "TS", "district": "Hyderabad", "phone": "9230000023",
         "full_name": "Wave Secure", "gothram": "Bharadwaj", "star": "Rohini", "religion": "Hindu"}
 
 section("A. OTP bypass closed")
-from fastapi.testclient import TestClient
+from testutil_client import TestClient
 import main as M
 import hardening as H
 
@@ -66,7 +72,8 @@ _old_key = H.API_KEY
 try:
     c = TestClient(M.app)
     M.VERIFIED_PHONES.discard("9230000023")
-    jr = c.post("/api/register", data={**BASE, "phone_verified": "true"})
+    jr = c.post("/api/register", data={**BASE, "phone_verified": "true", "is_verified": "true",
+                                      "is_approved": "true", "plan": "VIP", "credits": "9999"})
     check("A1 register 200", jr.status_code == 200, jr.status_code)
     u = next((x for x in M.DB_USERS if x.get("phone") == "9230000023"), {})
     check("A2 form phone_verified=true IGNORED (no OTP = not verified)",
@@ -91,8 +98,7 @@ try:
     if evil.status_code == 200:
         _url = evil.json().get("url", "")
         check("B5 sanitized name (no dots/slashes)", ".." not in _url and _url.startswith("/photos/"), _url)
-    check("B6 no evil file outside photos", not os.path.exists("/tmp/evil-w23-test.jpg")
-          and not os.path.exists("/tmp/photos/../evil-w23-test.jpg"))
+    check("B6 no evil file outside photos", not os.path.exists(os.path.join(os.path.dirname(M.PHOTO_MEDIA_DIR), "evil-w23-test.jpg")))
     # owner guard (enforced)
     os.environ["WA_TEST_FAST"] = "0"
     H.API_KEY = ""
@@ -125,7 +131,9 @@ _unguarded = []
 for pos, method, path in _admin_routes:
     ln = _msrc[:pos].count("\n")
     body = "\n".join(_lines[ln:ln + 45])
-    if "require_admin" not in body and "_admin_guard" not in body and "is_admin" not in body:
+    if not any(guard in body for guard in (
+        "require_admin", "_admin_guard", "is_admin", "_control_owner_session_guard"
+    )):
         _unguarded.append(path)
 check("C1 ALL admin routes guarded", not _unguarded, _unguarded)
 check("C2 admin route count sane (>=50)", len(_admin_routes) >= 50, len(_admin_routes))
@@ -148,9 +156,25 @@ check("D1 JSON-LD id sanitized (<>\" stripped)", 'replace(/[<>"\']/g' in _psrc a
 _n = sum(1 for _f in [os.path.join(dp, f) for dp, _, fs in os.walk(os.path.join(ROOT, "frontend", "src"))
                       for f in fs if f.endswith(".tsx")]
          if "dangerouslySetInnerHTML" in open(_f, encoding="utf-8").read())
-check("D2 max 2 dangerouslySetInnerHTML (sanitized CMS + JSON-LD SEO)", _n <= 2, _n)  # R10: homepage JSON-LD (static, no user input) +1
-check("D3 register ignores is_approved/credits fields", '"is_approved"' not in _msrc.split("async def register")[1][:6000]
-      or True)  # informational
+_home_page = src_page("frontend/src/app/page.tsx")
+_safe_jsonld_path = os.path.join(ROOT, "frontend", "src", "lib", "safe-json-ld.ts")
+with open(_safe_jsonld_path, encoding="utf-8") as _safe_jsonld_file:
+    _safe_jsonld_source = _safe_jsonld_file.read()
+check("D2 exactly three audited inline HTML sinks", _n == 3, _n)
+_escape_slash = chr(92)
+_expected_jsonld_escape_rows = tuple(
+    f'  "{key}": "{_escape_slash * 2}u{code}",' for key, code in
+    (("<", "003c"), (">", "003e"), ("&", "0026"))
+)
+check("D2b dynamic JSON-LD escapes HTML/script delimiters",
+      "serializeJsonLd(jsonLd)" in _home_page
+      and "serializeJsonLd({" in _psrc
+      and all(row in _safe_jsonld_source.splitlines() for row in _expected_jsonld_escape_rows)
+      and "SCRIPT_UNSAFE_CHARS[char]" in _safe_jsonld_source
+      and "replace(/[<>&]/g" in _safe_jsonld_source)
+check("D3 registration ignores client approval/plan/credit fields",
+      u.get("is_approved") is False and u.get("is_verified") is False
+      and u.get("plan") == "FREE" and int(u.get("credits", 0) or 0) == 3)
 import inspect as _insp
 _ulock = _insp.getsource(M.api_unlock)
 check("D4 unlock keeps require_owner", "require_owner" in _ulock)

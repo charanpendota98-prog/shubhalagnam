@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { apiGet } from "@/lib/api";
+import { apiDisplayMessage, apiGet } from "@/lib/api";
 import { useLang } from "@/lib/lang";
 
 type Profile = {
@@ -51,7 +51,10 @@ export default function ProfileRail({ kind, profileId }: { kind: "recent" | "sim
       <div className="scrollbar-hide -mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-2">
         {loading
           ? [0, 1, 2, 3].map((x) => <div key={x} className="h-48 w-36 shrink-0 animate-pulse rounded-2xl bg-slate-200" />)
-          : profiles.map((p) => (
+          : profiles.map((p) => {
+            const caste = te ? p.caste : apiDisplayMessage({ message_en: p.caste }, false, "");
+            const district = te ? p.district : apiDisplayMessage({ message_en: p.district }, false, "");
+            return (
             <Link href={`/search/${encodeURIComponent(p.tsap_id)}`} key={p.tsap_id}
               className="group w-36 shrink-0 snap-start overflow-hidden rounded-2xl border border-gold/30 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-lg focus-brand">
               <div className="relative h-24 bg-gradient-to-br from-rose-100 to-amber-50">
@@ -63,11 +66,12 @@ export default function ProfileRail({ kind, profileId }: { kind: "recent" | "sim
               </div>
               <div className="p-2.5">
                 <p className="truncate text-[12px] font-extrabold text-ink">{p.full_name || p.tsap_id}</p>
-                <p className="mt-0.5 truncate text-[10px] text-slate-600">{[p.age ? `${p.age}y` : "", p.caste].filter(Boolean).join(" • ")}</p>
-                {p.district ? <p className="truncate text-[10px] text-slate-500">📍 {p.district}</p> : null}
+                <p className="mt-0.5 truncate text-[10px] text-slate-600">{[p.age ? `${p.age}y` : "", caste].filter(Boolean).join(" • ")}</p>
+                {district ? <p className="truncate text-[10px] text-slate-500">📍 {district}</p> : null}
               </div>
             </Link>
-          ))}
+            );
+          })}
       </div>
     </section>
   );

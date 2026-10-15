@@ -10,8 +10,8 @@ export type TrustInfo = {
 };
 
 const LABELS = {
-  en: { id: "ID review recorded", photo: "Photo review recorded", phone: "Phone OTP recorded", none: "Verification not recorded", completeness: "profile fields entered" },
-  te: { id: "ID సమీక్ష నమోదు", photo: "ఫోటో సమీక్ష నమోదు", phone: "ఫోన్ OTP నమోదు", none: "ధృవీకరణ నమోదు కాలేదు", completeness: "ప్రొఫైల్ fields నమోదు" },
+  en: { id: "Government ID review recorded", photo: "Photo review recorded", phone: "Phone OTP recorded", none: "No phone, photo or ID check recorded", completeness: "profile fields entered" },
+  te: { id: "ప్రభుత్వ ID సమీక్ష నమోదు", photo: "ఫోటో సమీక్ష నమోదు", phone: "ఫోన్ OTP నమోదు", none: "ఫోన్, ఫోటో లేదా ID తనిఖీ నమోదు కాలేదు", completeness: "ప్రొఫైల్ fields నమోదు" },
 };
 
 export default function TrustBadge({ trust, completeness, compact = false }: { trust?: TrustInfo | null; completeness?: number; compact?: boolean }) {

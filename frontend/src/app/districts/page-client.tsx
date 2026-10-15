@@ -97,12 +97,13 @@ export default function DistrictsPage() {
         <div className="max-w-6xl mx-auto text-center space-y-4 relative z-10">
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-gold/20 border border-gold/40 text-amber-200 text-xs font-black tracking-wide uppercase shadow-sm">
             <span>🏛️</span>
-            <span>తెలంగాణ & ఆంధ్రప్రదేశ్ సమగ్ర జిల్లా వైవాహిక నెట్‌వర్క్</span>
+            <span>{te ? "తెలంగాణ & ఆంధ్రప్రదేశ్ సమగ్ర జిల్లా వైవాహిక నెట్‌వర్క్" : "District-based matchmaking across Telangana and Andhra Pradesh"}</span>
           </div>
 
           <h1 className="text-2xl sm:text-4xl md:text-5xl font-black tracking-tight leading-tight telugu text-white">
-            మీ సొంత జిల్లా & మండలంలోనే... <br className="hidden sm:inline" />
-            <span className="text-amber-300">పరిపూర్ణ వివాహ సంబంధాలు</span>
+            {te ? <>మీ సొంత జిల్లా & మండలంలోనే... <br className="hidden sm:inline" />
+              <span className="text-amber-300">వివాహ సంబంధాలను కనుగొనండి</span></> : <>Find meaningful matches<br className="hidden sm:inline" />
+              <span className="text-amber-300">in your district and region</span></>}
           </h1>
 
           <p className="max-w-3xl mx-auto text-xs sm:text-sm md:text-base text-rose-100/90 leading-relaxed font-medium">
@@ -144,7 +145,7 @@ export default function DistrictsPage() {
             <span className="absolute left-3.5 top-3 text-slate-400">🔍</span>
             <input
               type="text"
-              placeholder={te ? "జిల్లా పేరు వెతకండి (ఉదా: హైదరాబాద్, Vizag, Guntur)..." : "Search district (e.g. Hyderabad, Warangal)..."}
+              placeholder={te ? "జిల్లా పేరుతో వెతకండి" : "Search by district name"}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full bg-slate-50 border border-slate-200 rounded-2xl pl-10 pr-4 py-2.5 text-xs sm:text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-maroon"
@@ -179,8 +180,8 @@ export default function DistrictsPage() {
                         {reg.tag}
                       </span>
                     </div>
-                    <h3 className="font-black text-base text-navy telugu">{reg.titleTe}</h3>
-                    <p className="text-xs text-slate-600 leading-relaxed">{reg.descTe}</p>
+                    <h3 className={`font-black text-base text-navy ${te ? "telugu" : ""}`} lang={te ? "te-IN" : "en-IN"}>{te ? reg.titleTe : reg.titleEn}</h3>
+                    <p className={`text-xs text-slate-600 leading-relaxed ${te ? "telugu" : ""}`} lang={te ? "te-IN" : "en-IN"}>{te ? reg.descTe : reg.descEn}</p>
 
                     {/* Quick District Pills */}
                     <div className="flex flex-wrap gap-1.5 pt-2">
@@ -200,7 +201,7 @@ export default function DistrictsPage() {
                     href={`/matches?district=${encodeURIComponent(reg.districts.join(","))}`}
                     className="w-full text-center py-2.5 rounded-xl maroon-gradient text-white font-bold text-xs shadow-xs hover:brightness-110 transition flex items-center justify-center gap-1.5"
                   >
-                    <span>ఈ ప్రాంత సంబంధాలు చూడండి</span>
+                    <span>{te ? "ఈ ప్రాంత సంబంధాలు చూడండి" : "View matches in this region"}</span>
                     <span>→</span>
                   </Link>
                 </div>
@@ -243,13 +244,13 @@ export default function DistrictsPage() {
                           : "bg-purple-50 text-purple-800 border border-purple-200"
                       }`}
                     >
-                      {d.state === "TS" ? "🔴 తెలంగాణ" : d.state === "AP" ? "🔵 ఆంధ్రప్రదేశ్" : "🌐 NRI / ఇతర"}
+                      {d.state === "TS" ? (te ? "🔴 తెలంగాణ" : "🔴 Telangana") : d.state === "AP" ? (te ? "🔵 ఆంధ్రప్రదేశ్" : "🔵 Andhra Pradesh") : (te ? "🌐 NRI / ఇతర" : "🌐 NRI / Other")}
                     </span>
                     <span className="text-[10.5px] font-mono text-slate-400">📍 {te ? "ప్రాంతం" : "Location"}</span>
                   </div>
 
-                  <h4 className="font-black text-base text-navy mt-2 telugu">{d.te}</h4>
-                  <p className="text-xs font-semibold text-slate-500">{d.en}</p>
+                  <h4 className={`font-black text-base text-navy mt-2 ${te ? "telugu" : ""}`} lang={te ? "te-IN" : "en-IN"}>{te ? d.te : d.en}</h4>
+                  {te && <p className="text-xs font-semibold text-slate-500">{d.en}</p>}
                 </div>
 
                 <div className="pt-2 border-t border-slate-100 flex items-center gap-2">
@@ -257,7 +258,7 @@ export default function DistrictsPage() {
                     href={`/matches?district=${encodeURIComponent(d.en)}`}
                     className="flex-1 text-center py-2 px-3 rounded-xl bg-amber-50 hover:bg-amber-100 text-maroon font-bold text-xs border border-gold/40 transition shadow-xs"
                   >
-                    💘 సంబంధాలు చూడండి
+                    {te ? "💘 సంబంధాలు చూడండి" : "💘 View matches"}
                   </Link>
 
                   <Link
@@ -265,7 +266,7 @@ export default function DistrictsPage() {
                     className="py-2 px-3 rounded-xl maroon-gradient text-white font-bold text-xs shadow-xs hover:brightness-110 transition"
                     title="Register from this district"
                   >
-                    📝 నమోదు
+                    {te ? "📝 నమోదు" : "📝 Register"}
                   </Link>
                 </div>
               </div>
@@ -277,10 +278,10 @@ export default function DistrictsPage() {
         <div className="maroon-gradient rounded-3xl p-6 sm:p-8 text-white shadow-xl flex flex-col md:flex-row items-center justify-between gap-4 text-center md:text-left">
           <div className="space-y-1.5">
             <h3 className="text-lg sm:text-xl font-black text-amber-200">
-              మీ జిల్లాలో సరైన సంబంధం వెతుకుతున్నారా?
+              {te ? "మీ జిల్లాలో సరైన సంబంధం వెతుకుతున్నారా?" : "Looking for a match in your district?"}
             </h3>
             <p className="text-xs sm:text-sm text-rose-100 max-w-xl">
-              ఈరోజే మన వివాహ వేదికపై ఉచితంగా నమోదు చేసుకోండి. మీ కులం, గోత్రం మరియు ప్రాంతానికి సరిపోయే ఉత్తమ సంబంధాలను పొందండి.
+              {te ? "ఈరోజే మన వివాహ వేదికపై ఉచితంగా నమోదు చేసుకోండి. మీ కులం, గోత్రం మరియు ప్రాంతానికి సరిపోయే సంబంధాలను కనుగొనండి." : "Register for free with Mana Vivaha and explore profiles that match your community, gothram, and location."}
             </p>
           </div>
 
@@ -288,7 +289,7 @@ export default function DistrictsPage() {
             href="/register"
             className="px-6 py-3 rounded-2xl gold-gradient text-maroon font-black text-xs sm:text-sm shadow-lg hover-lift shrink-0"
           >
-            📝 ఉచిత నమోదు (Register Free)
+            {te ? "📝 ఉచిత నమోదు" : "📝 Register free"}
           </Link>
         </div>
       </div>

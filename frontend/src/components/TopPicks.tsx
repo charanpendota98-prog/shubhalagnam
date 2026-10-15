@@ -2,7 +2,7 @@
 /** Owner-only profile list; no compatibility score or preference-count ranking is shown. */
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { apiGet } from "@/lib/api";
+import { apiDisplayMessage, apiGet } from "@/lib/api";
 import { firstName } from "@/lib/names";
 import { useLang } from "@/lib/lang";
 
@@ -46,7 +46,11 @@ export default function TopPicks() {
       </div>
       <p className="mt-1 text-[11px] text-slate-600">{te ? "ఇది compatibility నిర్ణయం కాదు. Profile వివరాలు సభ్యులు అందించినవి." : "This is not a compatibility verdict. Profile details are member-provided."}</p>
       <div className="mt-3 flex gap-3 overflow-x-auto pb-1">
-        {rows.map((r: Row) => (
+        {rows.map((r: Row) => {
+          const terms = [r.caste, r.district]
+            .map((term) => te ? String(term || "") : apiDisplayMessage({ message_en: term }, false, ""))
+            .filter(Boolean);
+          return (
           <Link key={r.tsap_id} href={`/search/${r.tsap_id}`}
             className="w-[190px] shrink-0 rounded-2xl border border-gold/25 bg-white p-3">
             <div className="flex min-h-5 items-center gap-2">
@@ -55,10 +59,11 @@ export default function TopPicks() {
               {r.is_nri ? <span className="text-[11px]" title={te ? "సభ్యుడు తెలిపిన విదేశీ స్థానం" : "Listed overseas location"}>✈️</span> : null}
             </div>
             <p className="mt-1 truncate text-[13px] font-bold">{firstName(r.full_name) === "—" ? r.tsap_id : firstName(r.full_name)}{r.age ? ` • ${r.age}y` : ""}</p>
-            <p className="truncate text-[11px] text-gray-600">{[r.caste, r.district].filter(Boolean).join(" • ")}</p>
+            <p className="truncate text-[11px] text-gray-600">{terms.join(" • ")}</p>
             <p className="font-mono text-[10px] text-gray-400">{r.tsap_id}</p>
           </Link>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
