@@ -43,7 +43,6 @@ export default function CasteClient({ caste, role, district, chan, otherChan }: 
   const roleEn = role === "bride" ? "Bride" : "Groom";
   const where = district ? `${district.name}, ${stateFullName(district.state, te)}` : te ? "Telangana + Andhra Pradesh" : "Telangana + Andhra Pradesh";
   const sameCasteOtherRole = buildSlug(caste.key, role === "bride" ? "groom" : "bride", district?.slug);
-  const whatsappJoin = getWAChannelLink(chan?.key);
 
   return (
     <div className="min-h-dvh">

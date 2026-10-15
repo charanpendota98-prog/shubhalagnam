@@ -106,7 +106,6 @@ const TEXT = {
 
 export default function Home() {
   const { lang } = useLang();
-  const channelDirectory = useChannelDirectoryLinks();
   const L = TEXT[lang as Lang];
   const te = lang === "te";
   const [stats, setStats] = useState<HomeStats>(FALLBACK);
