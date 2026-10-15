@@ -1,5 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Arena's browser preview is served from a sandboxed *.e2b.app origin; allow
+  // that host family so Next.js dev assets and HMR work inside the preview.
+  allowedDevOrigins: ["*.e2b.app"],
+
   // Type errors must fail production builds; silently shipping broken UI is unsafe.
   typescript: { ignoreBuildErrors: false },
 
@@ -50,8 +54,9 @@ const nextConfig = {
     // script/frame this app loads (`PayBox.tsx` injects
     // checkout.razorpay.com at runtime for the payment widget); there is no
     // next/image remote-domain usage, no Google Fonts/Analytics/GTM, and the
-    // two `dangerouslySetInnerHTML` call sites are both JSON-LD
-    // (`application/ld+json`) structured-data blocks, not script execution.
+    // three `dangerouslySetInnerHTML` sites are one fixed language bootstrap
+    // plus two JSON-LD blocks. Dynamic JSON-LD uses the shared script-safe
+    // serializer; it is data, not executable application code.
     // `'unsafe-inline'` is kept for script/style because this app has no
     // nonce-based CSP plumbing yet (Next.js's own hydration bootstrap +
     // several inline `<style>`/`<script type="application/ld+json">` blocks

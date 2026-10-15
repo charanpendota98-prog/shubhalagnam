@@ -7,7 +7,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { Duo } from "@/lib/duo";
 import { useLang } from "@/lib/lang";
+import Link from "next/link";
 import { apiGet, apiPost, getAdminKey, setAdminKey } from "@/lib/api";
+import ProtectedImage from "@/components/ProtectedImage";
 
 type Item = {
   kind: string; tsap_id: string; name: string; url: string;
@@ -35,7 +37,7 @@ export default function AdminPhotosPage() {
 
   const load = useCallback(async () => {
     setMsg("");
-    const { ok, data, errorTelugu } = await apiGet<{ count?: number; queue?: Item[] }>("/api/admin/photos/pending");
+    const { ok, data, errorTelugu } = await apiGet<{ count?: number; queue?: Item[] }>("/api/admin/photos/pending", true);
     if (!ok) { setMsg(errorTelugu); setItems([]); return; }
     setItems(data?.queue || []);
   }, []);
@@ -48,15 +50,20 @@ export default function AdminPhotosPage() {
     const { ok, errorTelugu } = await apiPost("/api/admin/photos/review", {
       tsap_id: it.tsap_id, kind: it.kind, decision,
       reason: r.en, reason_te: r.te,
-    });
+    }, true);
     setBusy("");
     if (!ok) { setMsg(errorTelugu); return; }
     setItems((xs) => xs.filter((x) => !(x.tsap_id === it.tsap_id && x.kind === it.kind)));
   };
 
   return (
-    <main className="mx-auto max-w-5xl px-4 py-8">
-      <h1 className="text-2xl font-extrabold text-maroon">📸 <Duo en="Photo Review Queue" te="ఫోటో పరిశీలన" /></h1>
+    <div className="mx-auto max-w-5xl px-4 py-8">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <h1 className="text-2xl font-extrabold text-maroon">📸 <Duo en="Photo Review Queue" te="ఫోటో పరిశీలన" /></h1>
+        <Link href="/admin" className="inline-flex min-h-10 items-center justify-center rounded-xl border border-maroon/20 px-3 py-2 text-xs font-bold text-maroon hover:bg-rose-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-maroon focus-visible:ring-offset-2">
+          {te ? "← అడ్మిన్ డాష్‌బోర్డ్" : "← Admin dashboard"}
+        </Link>
+      </div>
       <p className="text-[12px] text-gray-600 telugu">{te ? "Technical checks pass అయిన photos మాత్రమే ఇక్కడ — wrong-person/group/celebrity ని reject చెయ్యండి." : "Only photos that passed technical checks — reject wrong-person/group/celebrity."}</p>
 
       <div className="mt-3 flex gap-2 items-center">
@@ -80,8 +87,8 @@ export default function AdminPhotosPage() {
           return (
             <div key={k} className="rounded-2xl border border-gold/30 bg-white p-3 card-shadow">
               <div className="flex gap-3">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={it.url} alt={`${it.kind} review`} className="w-28 h-36 object-cover rounded-xl border border-slate-200" />
+                <ProtectedImage src={it.url} alt={`${it.kind} review image unavailable`} admin
+                  className="w-28 h-36 object-cover rounded-xl border border-slate-200" />
                 <div className="flex-1 min-w-0">
                   <div className="font-bold text-[13px]">{it.kind === "selfie" ? "🤳 Selfie" : "📸 Photo"} · {it.name}</div>
                   <div className="font-mono text-[11px] text-gray-500">{it.tsap_id}</div>
@@ -109,6 +116,6 @@ export default function AdminPhotosPage() {
           );
         })}
       </div>
-    </main>
+    </div>
   );
 }

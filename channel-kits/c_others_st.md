@@ -1,26 +1,29 @@
 # 💍 Other ST Communities Matrimony | ఇతర ST కులాలు — వధువులు + వరులు
 
-- **Key:** `c_others_st`  •  **Tier:** L3_CASTE  •  **Wave:** 3  •  **Status:** create ⬜
-- **Username:** `@manavivaha_others_st` (already taken? → @tsap_others_st, @manavivaha_others_st_community)
-- **Link:** https://t.me/manavivaha_others_st
+- **Key:** `c_others_st`  •  **Tier:** L3_CASTE  •  **Wave:** 3
+- **Routing configuration:** No posting destination configured
+- **Configured username:** `Not configured; do not guess`
+- **Public Telegram link:** Not configured; use an owner-provided invite URL (availability not checked)
+> Use only an explicitly configured username or owner-provided invite. Blank destinations are intentional; do not invent or probe alternatives.
+> `setup_channels.py --apply` is a mutating operation: it may change metadata, upload artwork, create an invite, send and pin a welcome message. It is not a smoke test; run only with separate, explicit operator approval for the exact destination and intended changes.
 - **Hashtags:** #OthersSt #Bride #Groom #TS #AP
-- **DP image:** `/home/user/matrimony-site/backend/channel_assets/c_others_st.png`
+- **DP image:** `backend/channel_assets/c_others_st.png`
 
 ## 1) Channel create (phone → New Channel)
 
 Name: `💍 Other ST Communities Matrimony | ఇతర ST కులాలు — వధువులు + వరులు`
 
-Username: `manavivaha_others_st`
+Username: `Not configured; do not guess`
 
 Description:
 
 ```
-ఇతర ST కులాలు — Other ST Communities (Brides + Grooms). Sub-castes: Koya • Koitur • Gond • Rajgond • Naikpod. నిజమైన profiles, 3 requests FREE, ₹99లో 5. Register FREE: manavivaha.in | Bot: @telugumatrimony1_bot
+ఇతర ST కులాలు — Other ST Communities (Brides + Grooms). Sub-castes: Koya • Koitur • Gond • Rajgond • Naikpod. Profiles are member-submitted; details are not independently verified. Register FREE: manavivaha.in
 ```
 
-## 2) Bot ni admin cheyyi
+## 2) Bot access (off by default)
 
-Channel → Manage → Administrators → Add Admin → `@telugumatrimony1_bot` → ✅ Post Messages, ✅ Edit Messages, ✅ Delete Messages, ✅ Manage Video Chats, ✅ Change Channel Info
+Posting is disabled for this listing unless an exact destination is explicitly configured. Do not add the bot as an administrator or grant permissions by default. If a future, owner-approved workflow requires bot access, verify the exact destination and grant only the minimum permissions needed for that specific operation.
 
 ## 3) 📌 Pinned welcome post (idi pin cheyyi)
 
@@ -28,31 +31,29 @@ Channel → Manage → Administrators → Add Admin → `@telugumatrimony1_bot` 
 🙏 *💍 Other ST Communities Matrimony | ఇతర ST కులాలు — వధువులు + వరులు*
 ━━━━━━━━━━━━━━━━━━
 *ఇతర ST కులాలు*
-👥 ఈ channel లో: *Koya • Koitur • Gond • Rajgond • Naikpod • Chenchu • Bagata • Konda Reddi • Savara • Andh*
+👥 ఈ channel categories: *Koya • Koitur • Gond • Rajgond • Naikpod • Chenchu • Bagata • Konda Reddi • Savara • Andh*
 
 ఇక్కడ ఏం దొరుకుతుంది:
-✅ రోజూ కొత్త *నిజమైన profiles* (ఫోటో గోప్యం — చూడాలంటే site లో)
-✅ విద్య • ఉద్యోగం • జీతం • జిల్లా • జాతకం వివరాలతో full details
-✅ *వేద గుణమేళనం* (కుండలి match) score + రజ్జు/వేధ దోషం హెచ్చరిక
-✅ ఫోన్ నంబర్ — రెండు వైపులా ఒప్పుకున్న తర్వాతే share అవుతుంది
+ℹ️ Members అందించిన profile వివరాలు — వ్యక్తిగత వివరాలను స్వయంగా ధృవీకరించుకోండి
+🔒 ఫోటో visibility privacy settings మీద ఆధారపడి ఉంటుంది
+ℹ️ *వేద గుణమేళనం* ఒక జ్యోతిష్య గణన మాత్రమే; వివాహ నిర్ణయానికి హామీ కాదు
+✅ Contact details share కావడం owner acceptance మరియు service settings మీద ఆధారపడి ఉంటుంది
 
-ఎలా use చేయాలి (3 steps):
-1️⃣ మీకు నచ్చిన profile చూడండి (ID ఉంటుంది: TSAP-F-2025-1042)
-2️⃣ @telugumatrimony1_bot కి *ID పంపండి* → మా WhatsApp నుంచి మీ profile వాళ్లకి వెళ్తుంది
-3️⃣ వాళ్లు OK అంటే నంబర్లు exchange — తర్వాత మీరే మాట్లాడుకోవచ్చు
+ఎలా use చేయాలి:
+1️⃣ Profile details చూడడానికి https://manavivaha.in/search లో member ID వెతకండి.
+2️⃣ Website లో sign in చేసి, profile page నుంచి interest request పంపండి: https://manavivaha.in/matches
+3️⃣ Profile owner అంగీకరించి privacy settings అనుమతించినప్పుడు మాత్రమే contact share కావచ్చు; వివరాలను independently verify చేయండి.
 
 🆓 *మొదటి 3 requests FREE* • తర్వాత ₹99లో 5, ₹199లో 12
 
-⚠️ *చట్టాలు (తప్పక చదవండి):*
-🚫 ఇక్కడ *chatting లేదు* — spam, మోసం, డబ్బు అడగడం కూడా లేదు
-💰 Advance/registration/visa డబ్బు ఎవరు అడిగినా *100% మోసం* → వెంటనే report చేయండి
-🚫 బయట numbers/business promos పెట్టొద్దు → remove + ban
-🚨 మోసం జరిగితే: /safety లో report (మీ పేరు ఎక్కడా కనిపించదు)
+⚠️ *భద్రత:*
+🚫 In-site chatting లేదు; unsolicited money requests పట్ల జాగ్రత్తగా ఉండండి
+💰 Advance/visa డబ్బు అడిగితే independently verify చేసి అవసరమైతే report చేయండి
+🚨 Report: %s/safety
 
-🌐 Register FREE (3 నిమిషాలు): https://manavivaha.in
-🔗 మా website: https://manavivaha.in
-📢 Official: @TSAP_MATRIMONY | All channels: #OthersSt #Bride #Groom #TS #AP/channels
-
+🌐 Register: https://manavivaha.in/register
+📢 Configured channel listings: https://manavivaha.in/channels
+#OthersSt #Bride #Groom #TS #AP
 ```
 
 ## 4) Rules post
@@ -60,30 +61,30 @@ Channel → Manage → Administrators → Add Admin → `@telugumatrimony1_bot` 
 ```
 📜 *CHANNEL RULES — 💍 Others St Matrimony | ఇతర ST కులాలు వివాహాలు*
 ━━━━━━━━━━━━━━━━━━
-1️⃣ Only Mana Vivaha admin posts — members message చెయ్యకుండా చూడగలరు
-2️⃣ Profile details upload చెయ్యాలి అంటే *@telugumatrimony1_bot* కి phone/photo పంపండి
-3️⃣ ఎవరికీ *advance money* పంపొద్దు — డబ్బు అడిగితే వెంటనే screenshot → report
-4️⃣ Caste/religion గురించి discriminative comments, personal abuses → instant ban
-5️⃣ బయట links, promos, business ads → delete + ban
-6️⃣ నంబర్లు channel లో పెట్టొద్దు (privacy) — accept అయ్యాక WhatsApp లో వస్తుంది
-7️⃣ Chatting లేదు — comment లో 'interest' అని అనొద్దు, @telugumatrimony1_bot కి ID పంపండి
+1️⃣ Channel posting, comments, moderation and response may vary; no timing is promised
+2️⃣ Profile కోసం website లో register చేయండి; phone/photo ను public channel లో పెట్టొద్దు
+3️⃣ ఎవరికీ *advance money* పంపొద్దు — డబ్బు అడిగితే screenshot భద్రపరచి report చేయండి
+4️⃣ Personal abuse కనిపిస్తే report చేయండి; review తర్వాత చర్య ఉండవచ్చు
+5️⃣ బయట links, promos లేదా unsolicited business ads ను report చేయండి
+6️⃣ నంబర్లు channel లో పెట్టొద్దు; contact share owner consent మరియు privacy settings పై ఆధారపడి ఉంటుంది
+7️⃣ Interest request కోసం website లో sign in చేసి profile page లోని సూచనలను అనుసరించండి
 
-🙏 మనం ఒక కుటుంబం లాంటి వాళ్ళం — గౌరవంగా ఉందాం. Report: https://manavivaha.in/safety
+🙏 గౌరవంగా ఉండండి. Scam అనుమానం ఉంటే independently verify చేసి report చేయండి: https://manavivaha.in/safety
 ```
 
 ## 5) WhatsApp / status లో share text
 
 ```
 💍 *💍 Other ST Communities Matrimony | ఇతర ST కులాలు — వధువులు + వరులు*
-TS + AP తెలుగు మ్యాట్రిమోని — రోజూ కొత్త సంబంధాలు
+TS + AP Telugu matrimony directory. Member-submitted profile details are not independently verified.
 
-✅ 3 requests FREE
-✅ ఫోటో గోప్యం (privacy guaranteed)
-✅ ఫోన్ నంబర్ — రెండు వైపులు ఒప్పుకున్న తర్వాతే
-✅ వేద గుణమేళనం score ప్రతి profile కి
+• First 3 interest requests are free; check the website for current plans.
+• Photo visibility follows the member's privacy settings.
+• Contact details may be shared only after owner acceptance and where privacy settings/service configuration allow.
+• Vedha gunamelanam is an informational calculation, not a match or marriage guarantee.
 
-👉 Join: https://t.me/manavivaha_others_st
-🌐 Register FREE: https://manavivaha.in
+👉 See configured channel links in the directory: https://manavivaha.in/channels
+🌐 Register: https://manavivaha.in
 
 #ManaVivaha #TeluguMatrimony #PelliChoopulu
 ```

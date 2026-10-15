@@ -21,7 +21,7 @@ export type ChannelRef = {
   link: string;
   deepLink: string;
   desc: string;
-  live: boolean;
+  routingEligible: boolean;
   name: string;
   hashtags: string[];
   wave?: number;
@@ -38,7 +38,7 @@ export type CasteInfo = {
   link: string;
   deepLink: string;
   desc: string;
-  live: boolean;
+  routingEligible: boolean;
   hashtags: string[];
 };
 
@@ -46,7 +46,7 @@ const CH_BY_KEY: Map<string, any> = new Map(ALL_CHANNELS.map((c: any) => [c.key,
 
 function channelRef(c: any): ChannelRef {
   return { key: c.key, username: c.username, link: c.link, deepLink: c.deepLink, desc: c.desc,
-           live: !!c.live, name: c.name, hashtags: c.hashtags || [], wave: c.wave };
+           routingEligible: !!c.routingEligible, name: c.name, hashtags: c.hashtags || [], wave: c.wave };
 }
 
 /** Caste + role ki correct channel — split unte caste×gender, lekapote mixed channel. */
@@ -105,7 +105,7 @@ export const CASTES: CasteInfo[] = casteKeysInOrder().map((key) => {
     link: base.link,
     deepLink: base.deepLink,
     desc: base.desc,
-    live: base.live,
+    routingEligible: base.routingEligible,
     hashtags: base.hashtags,
   };
 }).filter(Boolean) as CasteInfo[];
@@ -121,7 +121,7 @@ export const DISTRICTS: DistrictInfo[] = [
   { slug: "karimnagar", name: "Karimnagar", state: "TS" },
   { slug: "khammam", name: "Khammam", state: "TS" },
   { slug: "nizamabad", name: "Nizamabad", state: "TS" },
-  { slug: "mahbubnagar", name: "Mahbubnagar", state: "TS" },
+  { slug: "mahbubnagar", name: "Mahabubnagar", state: "TS" },
   { slug: "medak", name: "Medak", state: "TS" },
   { slug: "adilabad", name: "Adilabad", state: "TS" },
   { slug: "suryapet", name: "Suryapet", state: "TS" },

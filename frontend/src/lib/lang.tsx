@@ -1,6 +1,8 @@
 "use client";
 /** Global Telugu ⇄ English preference shared by every client page. */
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { usePathname } from "next/navigation";
+import { getLocalizedPageMetadata } from "@/lib/metadata-i18n";
 
 export type Lang = "te" | "en";
 const STORE_KEY = "tsap_lang";
@@ -23,6 +25,35 @@ function applyDocumentLanguage(lang: Lang) {
 
 type Ctx = { lang: Lang; setLang: (lang: Lang) => void; t: (te: string, en: string) => string };
 const LangCtx = createContext<Ctx | null>(null);
+
+function LocalizedHeadMetadata({ lang }: { lang: Lang }) {
+  const pathname = usePathname();
+
+  useEffect(() => {
+    if (!pathname) return;
+    const copy = getLocalizedPageMetadata(pathname, lang);
+    if (!copy) return; // Preserve profile-specific and other server-generated metadata.
+
+    document.title = copy.title;
+    const setMeta = (attribute: "name" | "property", key: string, content: string) => {
+      let element = document.head.querySelector<HTMLMetaElement>(`meta[${attribute}="${key}"]`);
+      if (!element) {
+        element = document.createElement("meta");
+        element.setAttribute(attribute, key);
+        document.head.appendChild(element);
+      }
+      element.content = content;
+    };
+    setMeta("name", "description", copy.description);
+    setMeta("property", "og:title", copy.title);
+    setMeta("property", "og:description", copy.description);
+    setMeta("property", "og:locale", lang === "en" ? "en_IN" : "te_IN");
+    setMeta("name", "twitter:title", copy.title);
+    setMeta("name", "twitter:description", copy.description);
+  }, [lang, pathname]);
+
+  return null;
+}
 
 export function LangProvider({ children }: { children: React.ReactNode }) {
   const [lang, setLangState] = useState<Lang>("te");
@@ -62,7 +93,12 @@ export function LangProvider({ children }: { children: React.ReactNode }) {
     t: (te, en) => (lang === "te" ? te : en),
   }), [lang, setLang]);
 
-  return <LangCtx.Provider value={value}>{children}</LangCtx.Provider>;
+  return (
+    <LangCtx.Provider value={value}>
+      {children}
+      <LocalizedHeadMetadata lang={lang} />
+    </LangCtx.Provider>
+  );
 }
 
 export function useLang(): Ctx {

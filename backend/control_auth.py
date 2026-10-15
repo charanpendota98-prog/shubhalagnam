@@ -32,10 +32,13 @@ def _now() -> int:
     return int(time.time())
 
 
+CONTROL_PASSWORD_ITERATIONS = 600_000
+
+
 def _hash_password(password: str, salt: Optional[str] = None) -> str:
     salt = salt or secrets.token_hex(16)
-    digest = hashlib.pbkdf2_hmac("sha256", password.encode(), bytes.fromhex(salt), 210_000)
-    return f"pbkdf2_sha256$210000${salt}${digest.hex()}"
+    digest = hashlib.pbkdf2_hmac("sha256", password.encode(), bytes.fromhex(salt), CONTROL_PASSWORD_ITERATIONS)
+    return f"pbkdf2_sha256${CONTROL_PASSWORD_ITERATIONS}${salt}${digest.hex()}"
 
 
 def _verify_password(password: str, encoded: str) -> bool:
@@ -60,7 +63,7 @@ def _accounts() -> Dict[str, Dict[str, str]]:
     """Read accounts from env on each login so secret rotation needs no rebuild.
 
     CONTROL_ACCOUNTS_JSON is preferred. The explicit variables are convenient.
-    If no accounts are configured in env, default staff accounts are provided for operations.
+    If no accounts are configured in env, authentication fails closed.
     """
     raw = os.getenv("CONTROL_ACCOUNTS_JSON", "").strip()
     parsed: Dict[str, Any] = {}
@@ -82,24 +85,8 @@ def _accounts() -> Dict[str, Dict[str, str]]:
                            "password": os.getenv("CONTROL_WORKER_PASSWORD", "")},
             }
         else:
-            # Default secure hashed accounts for operations & worker panel
-            return {
-                "owner": {
-                    "username": "admin",
-                    "role": "owner",
-                    "password_hash": "pbkdf2_sha256$210000$602a4d6ec437f5f716317264dcd6d554$b9b2c37b115718d6571e97efc0331c81460b578ce38c896438a334e74acd23a2",
-                },
-                "owner_alias": {
-                    "username": "owner",
-                    "role": "owner",
-                    "password_hash": "pbkdf2_sha256$210000$602a4d6ec437f5f716317264dcd6d554$b9b2c37b115718d6571e97efc0331c81460b578ce38c896438a334e74acd23a2",
-                },
-                "worker": {
-                    "username": "worker",
-                    "role": "worker",
-                    "password_hash": "pbkdf2_sha256$210000$62ab5338dbb6193aeb58c673fcba48e2$df597b63e0255fa403feb9f55995c5f526c5caf01a05677faeef9db3b30c830b",
-                },
-            }
+            # Fail closed. Operations access exists only when explicitly provisioned.
+            return {}
     out: Dict[str, Dict[str, str]] = {}
     allow_plain = os.getenv("CONTROL_ALLOW_PLAINTEXT_BOOTSTRAP", "").lower() in {"1", "true", "yes"}
     for role, item in parsed.items():

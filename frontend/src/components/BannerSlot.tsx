@@ -1,4 +1,6 @@
 "use client";
+
+import { apiDisplayMessage, readApiJson } from "@/lib/api";
 /**
  * 📣 WAVE 15 — CMS announcement banners (admin-managed, per-page).
  * Usage: <BannerSlot page="home" /> — page: home/pricing/matches/all…
@@ -14,7 +16,7 @@ export default function BannerSlot({ page }: { page: string }) {
   const [items, setItems] = useState<Banner[]>([]);
   useEffect(() => {
     fetch(`/api/cms/banners?page=${encodeURIComponent(page)}`)
-      .then((r) => r.json()).then((d) => {
+      .then((r) => readApiJson(r)).then((d) => {
         if (d?.success) setItems(d.banners || []);
       }).catch(() => {});
   }, [page]);
@@ -22,7 +24,9 @@ export default function BannerSlot({ page }: { page: string }) {
   return (
     <div className="space-y-2">
       {items.map((b) => {
-        const text = te ? (b.text_te || b.text_en) : (b.text_en || b.text_te);
+        const text = te
+          ? (b.text_te || b.text_en)
+          : apiDisplayMessage({ message_en: b.text_en }, false, "This announcement is available in Telugu only.");
         const body = (
           <span className="text-xs font-bold">📣 {text}</span>
         );

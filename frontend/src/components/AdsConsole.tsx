@@ -4,7 +4,7 @@
  * Campaign queue (UTR approve → LIVE) + pause/reject + revenue stats.
  */
 import { useEffect, useState } from "react";
-import { authHeaders } from "@/lib/api";
+import { apiDisplayMessage, authHeaders, readApiJson } from "@/lib/api";
 import { useLang } from "@/lib/lang";
 
 type Row = Record<string, any>;
@@ -19,6 +19,9 @@ const withToken = (url: string) => {
 export default function AdsConsole() {
   const { lang } = useLang();
   const te = lang === "te";
+  const displayDynamicText = (value: unknown, fallback = "Not available in English") => te
+    ? String(value ?? "")
+    : apiDisplayMessage({ message_en: value }, false, fallback);
   const [items, setItems] = useState<Row[]>([]);
   const [status, setStatus] = useState("pending");
   const [stats, setStats] = useState<Row | null>(null);
@@ -29,9 +32,9 @@ export default function AdsConsole() {
 
   const load = async (st: string) => {
     try {
-      const d = await fetch(withToken(`/api/admin/ads${st ? `?status=${st}` : ""}`), { headers: authHeaders(true) }).then((r) => r.json());
+      const d = await fetch(withToken(`/api/admin/ads${st ? `?status=${st}` : ""}`), { headers: authHeaders(true) }).then((r) => readApiJson(r));
       if (d.success) setItems(d.campaigns || []);
-      const s = await fetch(withToken("/api/admin/ads/stats"), { headers: authHeaders(true) }).then((r) => r.json());
+      const s = await fetch(withToken("/api/admin/ads/stats"), { headers: authHeaders(true) }).then((r) => readApiJson(r));
       if (s.success) setStats(s);
     } catch { /* ignore */ }
   };
@@ -43,7 +46,7 @@ export default function AdsConsole() {
     const r = await fetch(withToken(`/api/admin/ads/${id}/approve`),
       { method: "POST", headers: { ...authHeaders(true), "Content-Type": "application/json" },
         body: JSON.stringify({ utr: u }) });
-    const d = await r.json();
+    const d = await readApiJson(r);
     setFlash(d.message_telugu || d.detail || "done");
     void load(status);
   };
@@ -64,7 +67,7 @@ export default function AdsConsole() {
     const r = await fetch(withToken(`/api/admin/ads/${id}/update`),
       { method: "POST", headers: { ...authHeaders(true), "Content-Type": "application/json" },
         body: JSON.stringify(body) });
-    const d = await r.json();
+    const d = await readApiJson(r);
     setFlash(d.message_telugu || d.detail || "done");
     if (r.ok) setEditing("");
     void load(status);
@@ -73,7 +76,7 @@ export default function AdsConsole() {
     const r = await fetch(withToken(`/api/admin/ads/${id}/action`),
       { method: "POST", headers: { ...authHeaders(true), "Content-Type": "application/json" },
         body: JSON.stringify({ action }) });
-    const d = await r.json();
+    const d = await readApiJson(r);
     setFlash(d.message_telugu || d.detail || "done");
     void load(status);
   };
@@ -105,7 +108,7 @@ export default function AdsConsole() {
           aria-label="Status" className="rounded-full border px-3 py-1.5 text-xs">
           <option value="pending">pending</option><option value="active">active</option>
           <option value="paused">paused</option><option value="expired">expired</option>
-          <option value="rejected">rejected</option><option value="">anni</option>
+          <option value="rejected">{te ? "తిరస్కరించబడింది" : "Rejected"}</option><option value="">{te ? "అన్నీ" : "All statuses"}</option>
         </select>
       </div>
       <div className="mt-2 overflow-x-auto">
@@ -118,14 +121,14 @@ export default function AdsConsole() {
             {items.map((c) => (
               <tr key={c.id} className="border-b align-top">
                 <td className="p-2">
-                  <div className="font-bold">{c.title}</div>
+                  <div className="font-bold">{apiDisplayMessage({ message_en: c.title_en, message: c.title }, te, te ? "శీర్షిక లేదు" : "Campaign title not available in English")}</div>
                   <div className="font-mono text-[10px] text-gray-500">{c.id} · vendor {c.vendor_id}</div>
-                  {c.offer ? <div className="text-[11px] text-green-700">🎁 {c.offer}</div> : null}
+                  {c.offer ? <div className="text-[11px] text-green-700">🎁 {apiDisplayMessage({ message_en: c.offer_en, message: c.offer }, te, te ? "వివరాలు లేవు" : "Offer details not available in English")}</div> : null}
                   <div className={`mt-1 inline-block rounded-full px-2 py-0.5 text-[10px] ${c.status === "active" ? "bg-green-100 text-green-700" : "bg-orange-100 text-orange-700"}`}>{c.status}{c.end ? ` → ${String(c.end).slice(0, 10)}` : ""}</div>
                 </td>
                 <td className="p-2">
                   <b>{c.level}</b>
-                  <div className="text-[10px] text-gray-500">{c.level === "district" ? (c.districts || []).join(", ") : c.level === "state" ? c.state : "TS+AP"}</div>
+                  <div className="text-[10px] text-gray-500">{c.level === "district" ? (c.districts || []).map((district: unknown) => displayDynamicText(district, "Location in original language")).join(", ") : c.level === "state" ? displayDynamicText(c.state, "Location in original language") : "TS+AP"}</div>
                 </td>
                 <td className="p-2 text-[10px]">
                   <div>{c.image_url || c.banner_url ? "🖼️ photo/banner" : "—"} {c.video_url ? "🎬 video" : ""}</div>

@@ -1,451 +1,174 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ALL_CHANNELS, CHANNEL_STATS, Channel } from "@/lib/channels";
 import Reveal from "@/components/Reveal";
-import { useCountUp } from "@/components/Skeletons";
-import AdSlot from "@/components/AdSlot";
-import OffersBanner from "@/components/OffersBanner";
-import BannerSlot from "@/components/BannerSlot";
 import SectionHeading from "@/components/SectionHeading";
-import { FinalCta, StoriesStrip, TeaserStrip } from "@/components/HomeGrowth";
-import DailyStrip from "@/components/DailyStrip";
-import ShowcaseStrip from "@/components/ShowcaseStrip";
 import ProfilesOfTheDay from "@/components/ProfilesOfTheDay";
+import HomeVendorsShowcase from "@/components/HomeVendorsShowcase";
+import CinematicHero from "@/components/CinematicHero";
 import { SITE_CONFIG } from "@/lib/site-config";
+import { serializeJsonLd } from "@/lib/safe-json-ld";
 import { apiGet } from "@/lib/api";
 import { useLang, type Lang } from "@/lib/lang";
-import CinematicHero from "@/components/CinematicHero";
-import RealWeddingsFilm from "@/components/RealWeddingsFilm";
-import HomeVendorsShowcase from "@/components/HomeVendorsShowcase";
-import HeroQuickSearch from "@/components/HeroQuickSearch";
-import WhyChooseUs from "@/components/WhyChooseUs";
-import DistrictAdBanner from "@/components/DistrictAdBanner";
-import HomeSecondMarriageSection from "@/components/HomeSecondMarriageSection";
-import { waLink } from "@/lib/wa";
-import { TelegramIcon, WhatsAppIcon } from "@/components/BrandIcons";
 
-const BOT = SITE_CONFIG.officialChannelUrl;
-const PROMO_HERO_WEDDING = "/promo/hero-wedding.jpg"; // vibeTitle banner asset
-const PROMO_BRIDE_CARD = "/promo/bride-card.jpg"; // card photo asset
-const handleInstallApp = () => {
-  if (typeof window !== "undefined") {
-    window.dispatchEvent(new Event("tsap:install-show"));
-  }
-};
-
-/* ------------------------------------------------------------------ */
-/* 🌊 WAVE 30 — live home numbers (NO DUMMY) + Telugu/English toggle  */
-/* ------------------------------------------------------------------ */
-type PlanStat = { code: string; price: number; profiles: number; label: string; telugu: string; badge: string };
-type HomeStats = {
-  channels_total: number; channels_live: number;
-  channels_by_tier: Record<string, number>;
-  castes_covered: number; free_first: number;
-  plans: PlanStat[];
-  renewal: { price: number; profiles: number };
-  bureau: { code: string; price: number; profiles: number; label: string; telugu: string; perks: string[] }[];
-  referral: { per_pay: number; milestones: { paid: number; title: string; telugu: string }[] };
-};
+type PlanStat = { code: string; price: number; profiles: number };
+type HomeStats = { free_first: number; plans: PlanStat[] };
 
 const FALLBACK: HomeStats = {
-  channels_total: CHANNEL_STATS.total, channels_live: 2,
-  channels_by_tier: { L1_REGION: 5, L2_RELIGION: 11, L3_CASTE: 27, L4_SPECIAL: 8 },
-  castes_covered: 43, free_first: 3,
+  free_first: 3,
   plans: [
-    { code: "FREE", price: 0, profiles: 3, label: "FREE", telugu: "FREE → 3 profiles", badge: "Start" },
-    { code: "S_99", price: 99, profiles: 5, label: "Sambandham", telugu: "₹99 → 5 profiles", badge: "Entry" },
-    { code: "S_199", price: 199, profiles: 12, label: "Family", telugu: "₹199 → 12 profiles", badge: "Popular" },
-    { code: "S_299", price: 299, profiles: 25, label: "Premium", telugu: "₹299 → 25 profiles", badge: "Best value" },
-    { code: "S_499", price: 499, profiles: 50, label: "VIP", telugu: "₹499 → 50 profiles", badge: "VIP" },
+    { code: "S_99", price: 99, profiles: 5 },
+    { code: "S_199", price: 199, profiles: 12 },
+    { code: "S_299", price: 299, profiles: 25 },
+    { code: "S_499", price: 499, profiles: 50 },
   ],
-  renewal: { price: 99, profiles: 8 },
-  bureau: [
-    { code: "BUREAU_999", price: 999, profiles: 25, label: "Bureau Starter", telugu: "₹999 → 25 profiles (B2B)", perks: ["25 profiles", "Monthly engaged report", "Bulk register"] },
-  ],
-  referral: { per_pay: 50, milestones: [{ paid: 25, title: "💎 PLATINUM Referrer", telugu: "25 paying referrals — 💎 verified badge + homepage" }] },
 };
 
-function planOf(hs: HomeStats, code: string): PlanStat {
-  return hs.plans.find((p) => p.code === code) || FALLBACK.plans.find((p) => p.code === code)!;
+const PLAN_CODES = ["S_99", "S_199", "S_299", "S_499"] as const;
+
+function planOf(stats: HomeStats, code: string): PlanStat {
+  return stats.plans.find((plan) => plan.code === code) ?? FALLBACK.plans.find((plan) => plan.code === code)!;
 }
 
-/* ---------------- Telugu / English copy (ONE language at a time) ---------------- */
 const TEXT = {
   te: {
-    liveBadge: (live: number, total: number) => `${total}+ ఛానళ్లలో మీ ప్రొఫైల్ — LIVE`,
-    heroTitle: "మీ ఇంటి దగ్గరే సంబంధాలు",
-    heroSubA: "తెలంగాణ + ఆంధ్రప్రదేశ్ తెలుగు మ్యాట్రిమోనీ",
-    heroSubB: (castes: number, total: number) => `Region • Religion • ${castes} Castes • Special — ${total} channels, ఒక్క రిజిస్టర్‌తో మీ ప్రొఫైల్ సరిపోయే అన్ని చోట్లకీ ఆటోమేటిక్‌గా వెళ్తుంది.`,
-    heroSubC: (free: number) => `₹99 కే సంబంధం — మొదటి ${free} ప్రొఫైళ్లు FREE.`,
-    registerCta: "ఉచిత నమోదు — FREE",
-    botCta: "Telegram లో చేరండి",
-    installApp: "App లాగా install చేసుకోండి",
-    vibeTitle: "మీ ఇంటి శుభకార్యానికి — సరైన సంబంధం ఇక్కడే",
-    trust: ["OTP + DOB వెరిఫైడ్", "ఫోటో-ప్రైవేట్ మోడ్", "యాక్సెప్ట్ తర్వాతే నంబర్", "వాటర్‌మార్క్ + ఫ్రాడ్ అలర్ట్స్"],
-    idSearchPh: "Profile ID తో వెతకండి — MV1001",
-    idSearchBtn: "వెతకండి",
-    cardWhy: "ఎందుకు సెట్ అవుతారు?",
-    cardTags: ["O+", "Rohini", "Bharadwaj"],
-    cardWhy1: "✓ Reddy Bharadwaj గోత్రం + Rohini నక్షత్రం — క్లియర్",
-    cardWhy2: "✓ BTech + Software Engineer (8 LPA) — సెటిల్డ్",
-    cardWhy3: "✓ Hyderabad లోనే ఉద్యోగం — same city",
-    cardInterest: "❤️ Interest పంపు",
-    cardNumber: "📞 Number (1 credit)",
-    ticker: (total: number, castes: number, free: number) => [
-      `${total} channels — Region • Religion • Caste • Special`,
-      `₹99 కే సంబంధం — మొదటి ${free} నంబర్లు FREE`,
-      "Photo-Private • DOB Verified • Watermark protected",
-      "Telegram + WhatsApp channels లో post",
-      `${castes} castes: Reddy నుంచి Madiga, Lambada, Boya వరకు`,
-      "హిందూ కులాల కోసం ప్రత్యేక ఛానళ్లు",
-      "Referral — ప్రతి profile కి ₹50",
-    ],
-    statChannels: "Channels (network)",
-    statChannelsSub: (t: Record<string, number>) => `${t.L1_REGION ?? 5} Region • ${t.L2_RELIGION ?? 11} Religion • ${t.L3_CASTE ?? 27} Caste • ${t.L4_SPECIAL ?? 8} Special`,
-    statCastes: "కులాలు (covered)",
-    statCastesSub: "Reddy నుంచి SC/ST వరకు",
-    statChat: "No chatting",
-    statChatT: "చాటింగ్ లేదు — direct contact",
-    statChatS: "Safe WhatsApp delivery",
-    statPrice: (p99: PlanStat) => `₹${p99.price}→${p99.profiles}`,
-    statPriceL: (p199: PlanStat, p299: PlanStat) => `Profiles (₹${p199.price}→${p199.profiles}, ₹${p299.price}→${p299.profiles})`,
-    statPriceS: (free: number) => `మొదటి ${free} requests FREE`,
     howEyebrow: "ఎలా పనిచేస్తుంది",
-    howTitle: "4 దశల్లో ఆటోమేటిక్ సంబంధం",
-    howSub: "Register అయ్యాక మీ profile అవసరమైన channels లో దానంతట అదే post అవుతుంది. మీరు manual గా ఏదీ చెయ్యక్కర్లేదు.",
-    howSteps: (total: number) => [
-      { n: "01", t: "Register", d: "Personal, family, caste/astro, education, location + photo. 5 easy steps, mobile లోనే.", icon: "📝" },
-      { n: "02", t: "Card + ID ready", d: "Profile card ఆటోమేటిక్‌గా generate అవుతుంది — అన్ని details, QR, watermark తో.", icon: "🎴" },
-      { n: "03", t: "Channels లో మీ profile", d: `మీ caste + state + job బట్టి ${total} channels నుంచి సరిపోయేవి — Telegram + WhatsApp.`, icon: "📢" },
-      { n: "04", t: "Interest పంపు → number exchange", d: "నచ్చిన profile కి 💌 Interest పంపు (1 credit). Accept అయితే రెండు numbers WhatsApp లో ఆటోమేటిక్.", icon: "💌" },
+    howTitle: "పరిచయం ప్రారంభించడానికి 3 దశలు",
+    howSub: "సభ్యులు అందించిన వివరాలను పరిశీలించి Interest పంపండి. Owner accept తర్వాత account views లో contact details కనిపిస్తాయి; WhatsApp delivery నిర్ధారణ కాదు.",
+    howSteps: () => [
+      { n: "01", t: "ప్రొఫైల్ నమోదు", d: "మీ ప్రాథమిక వివరాలు, ఫోటో గోప్యతా ఎంపికను నమోదు చేయండి.", icon: "📝" },
+      { n: "02", t: "వివరాలు పరిశీలించండి", d: "సభ్యులు అందించిన ప్రొఫైల్ సమాచారం, చూపించిన review స్థితులను స్వతంత్రంగా పరిశీలించండి.", icon: "🔎" },
+      { n: "03", t: "ఆసక్తి తెలియజేయండి", d: "Owner accept తర్వాత accepted-request account views లో contact details కనిపిస్తాయి; WhatsApp delivery హామీ లేదు.", icon: "💌" },
     ],
-    reqEyebrow: "అధికారిక సంప్రదింపు విధానం",
-    reqTitle: "గౌరవప్రదమైన అనుసంధానం • ఇంట్రెస్ట్ → వాట్సాప్ నంబర్ మార్పిడి",
-    reqSub: "సురక్షితమైన మరియు నమ్మకమైన కమ్యూనికేషన్ విధానం. ఇరు కుటుంబాలు పరస్పరం అంగీకరించిన తర్వాత మాత్రమే సంప్రదింపు వివరాలు మార్పిడి చేయబడతాయి.",
-    reqAction: "💌 రిక్వెస్ట్‌లు",
-    reqSteps: (free: number, p99: PlanStat) => [
-      { i: "💌", t: "1. Interest పంపండి (1 credit)", d: `ప్రొఫైల్ చూసి "Interest పంపు" ఎంచుకోండి — మొదటి ${free} రిక్వెస్ట్‌లు ఉచితం, తర్వాత ₹${p99.price} → ${p99.profiles} సంబంధాలు.` },
-      { i: "📲", t: "2. వాట్సాప్‌లో మీ ప్రొఫైల్ వివరాలు", d: `మా అధికారిక వాట్సాప్ ద్వారా వారికి మీ ప్రొఫైల్ కార్డ్ మరియు వివరాలు గౌరవంగా అందజేయబడతాయి.` },
-      { i: "✅", t: "3. అంగీకారం తర్వాత నంబర్ మార్పిడి", d: "వారు అంగీకరించిన వెంటనే — ఇరు కుటుంబాల నంబర్లు అధికారికంగా వాట్సాప్‌లో మార్పిడి చేయబడతాయి." },
-      { i: "↩️", t: "4. ఒకవేళ తిరస్కరిస్తే క్రెడిట్ రీఫండ్", d: "ఒకవేళ సంబంధం కుదరకపోతే మీ క్రెడిట్ తక్షణమే తిరిగి మీ ఖాతాకు జమ అవుతుంది (100% సేఫ్ రీఫండ్ పాలసీ)." },
+    pricingEyebrow: "ప్లాన్‌లు",
+    pricingTitle: (price: number) => `పారదర్శక ధరలు — ₹${price} నుంచి`,
+    planNames: ["సంబంధం", "ఫ్యామిలీ", "ప్రీమియం", "విఐపి"],
+    planCredits: (p99: PlanStat, p199: PlanStat, p299: PlanStat, p499: PlanStat) => [
+      `${p99.profiles} interest requests`,
+      `${p199.profiles} interest requests`,
+      `${p299.profiles} interest requests`,
+      `${p499.profiles} interest requests`,
     ],
-    reqChips: ["🚫 0 chatting", "🔒 Consent first", "↩️ Decline = refund", "✅ Safe delivery"],
-    priceStrip: (p: PlanStat, tag: string) => ({ p: `₹${p.price}`, n: `${p.profiles} profiles`, s: tag }),
-    priceTags: ["₹20/profile — entry", "₹17/profile — popular", "₹12/profile — best value"],
-    chEyebrow: "ఛానల్ నెట్‌వర్క్",
-    chTitle: (total: number) => `${total} ఛానళ్లు — మీ ప్రొఫైల్ అన్నిచోట్లకు`,
-    chSub: "Region + Religion + Caste + Special. ఒక్క approve = అన్ని related channels లో post.",
-    chAction: (total: number) => `అన్ని ${total} ఛానళ్లు`,
-    flowTitle: "📢 ఒక్క నమోదు — అన్ని సరైన ఛానళ్లలో ప్రొఫైల్",
-    flow: [
-      { t: "1. మీ వివరాలు", d: "5 సులభమైన స్టెప్స్ + ఫోటో" },
-      { t: "2. సరైన ఛానల్ ఎంపిక", d: "కులం × రాష్ట్రం × వృత్తి బట్టి" },
-      { t: "3. Telegram + WhatsApp", d: "మీ profile card పోస్ట్" },
-      { t: "4. మీకు నోటిఫికేషన్", d: "ఎవరైనా interest పంపితే వెంటనే మీకు తెలుస్తుంది" },
+    pricingFree: (free: number) => `నమోదు ఉచితం. మొదటి ${free} interest requests కూడా ఉచితం.`,
+    pricingLink: "పూర్తి ధరలు, add-ons మరియు నిబంధనలు చూడండి",
+    faqEyebrow: "సహాయం",
+    faqTitle: "తరచుగా అడిగే ప్రశ్నలు",
+    faq: (free: number, p99: PlanStat, p199: PlanStat, p299: PlanStat, p499: PlanStat) => [
+      { q: "నమోదుకు ఎంత ఖర్చు?", a: `నమోదు ఉచితం; మొదటి ${free} interest requests కూడా ఉచితం. తర్వాత ₹${p99.price}కి ${p99.profiles}, ₹${p199.price}కి ${p199.profiles}, ₹${p299.price}కి ${p299.profiles}, లేదా ₹${p499.price}కి ${p499.profiles} requests ఉన్న ప్లాన్‌లు అందుబాటులో ఉన్నాయి.` },
+      { q: "Contact వివరాలు ఎప్పుడు లభిస్తాయి?", a: "Owner accept చేసిన తర్వాత accepted-request account views లో contact details కనిపిస్తాయి; configured WhatsApp notification లో ఉండవచ్చు, కానీ delivery/read నిర్ధారణ కాదు." },
+      { q: "Phone OTP లేదా review badge ఏమి నిర్ధారిస్తుంది?", a: "Phone OTP ఆ నంబర్‌కు access‌ను మాత్రమే సూచిస్తుంది. Photo review, ID review వేర్వేరు checks; ఏదీ వ్యక్తి గుర్తింపుకు హామీ కాదు. వివరాలను స్వతంత్రంగా నిర్ధారించండి." },
+      { q: "నా ఫోటోను ఎవరు చూడగలరు?", a: "ఫోటో కనిపించడం మీ profile privacy setting‌పై ఆధారపడి ఉంటుంది. ఫోటోను జోడించే ముందు ఆ setting‌ను పరిశీలించండి; online‌లో పంచిన చిత్రాల కాపీలను పూర్తిగా నియంత్రించడం సాధ్యం కాదు." },
     ],
-    casteEyebrow: "కులాల వారీగా",
-    casteTitle: (n: number) => `${n} కుల ఛానళ్లు — 1 కులం = 1 ఛానల్`,
-    casteSub: "Bride + Groom ఇద్దరూ ఒకే channel లో — #Bride / #Groom hashtag తో filter చేసుకోవచ్చు. మీ కులం channel busy అయ్యే కొద్దీ కొత్త matches ఎక్కువ వస్తాయి.",
-    casteAction: "కులాల జాబితా",
-    casteMore: (n: number) => `+ ఇంకా ${n} castes (Boya, Kuruba, Uppara, Vaddera, Rajaka, Viswakarma, Kummara, Gandla, Devanga, Koya, Gond, SC/ST sub-castes...) —`,
-    casteFull: "పూర్తి జాబితా చూడండి",
-    spEyebrow: "ప్రత్యేక విభాగం",
-    spTitle: "ప్రతి ఒక్కరికీ సముచిత గౌరవం — ప్రత్యేక వేదిక",
-    spSub: "పునర్వివాహం, దివ్యాంగులు, 35+ వయస్సు, ప్రభుత్వ ఉద్యోగులు, డాక్టర్లు, విదేశీ NRI — ప్రతి ఒక్కరికీ ప్రత్యేకమైన గౌరవప్రదమైన ఛానల్స్.",
-    pricingEyebrow: "సభ్యత్వ ప్యాకేజీలు",
-    pricingTitle: "పారదర్శక ధరలు — ₹99 కే సంబంధాల వివరాలు",
-    pricingSub: (free: number, p99: PlanStat, p199: PlanStat, p299: PlanStat, p499: PlanStat) =>
-      `నమోదు ఉచితం. మొదటి ${free} ఇంట్రెస్ట్ రిక్వెస్ట్‌లు ఉచితం. ఆ తర్వాత ₹${p99.price} → ${p99.profiles} ప్రొఫైల్స్, ₹${p199.price} → ${p199.profiles}, ₹${p299.price} → ${p299.profiles}, ₹${p499.price} → ${p499.profiles}. తిరస్కరిస్తే క్రెడిట్ రీఫండ్ పాలసీ అమలులో ఉంటుంది.`,
-    planTags: ["ప్రారంభ ప్లాన్", "ఎంట్రీ • ₹20/సంబంధం", "చాలామంది ఎంపిక • ₹17/సంబంధం", "ఉత్తమ విలువ • ₹12/సంబంధం", "విఐపి • ₹10/సంబంధం"],
-    planNames: ["ఉచిత ప్లాన్", "సంబంధం ప్లాన్", "ఫ్యామిలీ ప్లాన్", "ప్రీమియం ప్లాన్", "విఐపి ప్లాన్"],
-    planCredits: (free: number, p99: PlanStat, p199: PlanStat, p299: PlanStat, p499: PlanStat) => [
-      `మొదటి ${free} ప్రొఫైల్స్ ఉచితం`, `${p99.profiles} ప్రొఫైల్స్ • 30 రోజులు`, `${p199.profiles} ప్రొఫైల్స్ • 45 రోజులు`,
-      `${p299.profiles} ప్రొఫైల్స్ • 60 రోజులు`, `${p499.profiles} ప్రొఫైల్స్ • 90 రోజులు`,
-    ],
-    planFeatures: [
-      ["3 ఇంట్రెస్ట్ రిక్వెస్ట్‌లు ఉచితం", "వాట్సాప్‌లో మీ ప్రొఫైల్ డెలివరీ", "అన్ని సంబంధిత ఛానళ్లలో పోస్టింగ్", "ప్రొఫైల్ ఐడి సెర్చ్ సౌకర్యం", "ఫోటో ప్రైవేట్ గోప్యతా మోడ్"],
-      ["5 డైరెక్ట్ సంప్రదింపు అన్‌లాక్స్", "⚡ 7-రోజుల ప్రొఫైల్ బూస్ట్ (ఛానల్ టాప్)", "అంగీకారం తర్వాత నంబర్ మార్పిడి", "తిరస్కరణ జరిగితే క్రెడిట్ రీఫండ్", "రెఫరల్ ద్వారా ₹50 సంపాదన"],
-      ["12 డైరెక్ట్ సంప్రదింపు అన్‌లాక్స్", "✅ ఫోటో-వెరిఫైడ్ బ్యాడ్జ్", "🔮 ఉచిత వేద గుణమేళనం PDF రిపోర్ట్ (1)", "రోజువారీ సరికొత్త సంబంధాల జాబితా", "ఫ్యామిలీ రిలేషన్షిప్ అసిస్టెన్స్"],
-      ["25 డైరెక్ట్ సంప్రదింపు అన్‌లాక్స్", "⚡ 30-రోజుల ప్రాధాన్యత బూస్ట్", "👀 ప్రొఫైల్ వీక్షకుల పూర్తి జాబితా (60 రోజులు)", "✅ అధికారిక వెరిఫైడ్ బ్యాడ్జ్", "ప్రత్యేక తెలుగు కస్టమర్ కేర్ సపోర్ట్"],
-      ["50 డైరెక్ట్ సంప్రదింపు అన్‌లాక్స్", "🎯 మ్యాచ్‌మేకర్ అసిస్ట్ (మా టీమ్ ప్రత్యక్ష సహాయం)", "⚡ 90-రోజుల విఐపి బూస్ట్", "💍 వివాహ వెండర్లపై ప్రత్యేక తగ్గింపులు", "ప్రాధాన్యత వాట్సాప్ సహాయం"],
-    ],
-    planCtaFree: "ఉచితంగా ప్రారంభించండి",
-    planCtaPay: (price: string) => `${price} తో ప్లాన్ ప్రారంభించండి`,
-    planSecure: "సురక్షిత చెల్లింపులు • 100% రీఫండ్ పాలసీ",
-    addonTitle: "🎁 అదనపు సేవలు (Add-ons)",
-    addonTag: "ఎప్పుడైనా ఎంచుకోవచ్చు",
-    renewalLine: (r: { price: number; profiles: number }, b: { price: number; profiles: number }) =>
-      `🔁 రెన్యూవల్ ఆఫర్: ప్రస్తుత సభ్యులకు ₹${r.price} → ${r.profiles} సంబంధాలు • 🏢 బ్యూరో సభ్యత్వం: ₹${b.price}/నెలకి → ${b.profiles} ప్రొఫైల్స్ + మంత్లీ రిపోర్ట్`,
-    addonCta1: "ప్లాన్లు & సర్వీసులు ఎంచుకోండి →",
-    addonCta2: "👀 ప్రొఫైల్ వీక్షకుల జాబితా",
-    refTitle: "🏆 రెఫరల్ ప్రోగ్రామ్ — కుటుంబ బహుమతి",
-    refSub: (per: number) => `మీ మిత్రులు లేదా బంధువులకు మన వివాహ వేదికను సిఫార్సు చేయండి. వారు సభ్యత్వం పొందిన ప్రతిసారి మీకు ₹${per} నేరుగా మీ UPI ఖాతాకు అందుతాయి. మ్యారేజ్ బ్యూరోల కొరకు ప్రత్యేక డాష్‌బోర్డ్ కలదు.`,
-    refCards: (per: number, ms: string) => [{ k: "ప్రతి సక్సెస్ కి", v: `₹${per}` }, { k: "25 రెఫరల్స్ బోనస్", v: ms }, { k: "చెల్లింపు విధానం", v: "వారపు నేరు UPI" }],
-    refCta1: "నా రెఫరల్ కోడ్ →",
-    refCta2: "🎁 ఇప్పుడే ప్రారంభించండి",
-    burTitle: "🏢 మ్యారేజ్ బ్యూరో & బ్రోకర్ భాగస్వామ్యం (B2B)",
-    burSub: "మీరు ఇప్పటికే మ్యారేజ్ బ్యూరో నిర్వహిస్తున్నారా? మన ధృవీకరించబడిన ప్రొఫైల్స్ ఉపయోగించుకోండి & ప్రత్యేక కమీషన్ పొందండి.",
-    burName: (b: { label: string; price: number }) => `${b.label} — ₹${b.price}/నెలకి`,
-    burOpen: "B2B భాగస్వామ్యం అందుబాటులో ఉంది",
-    burDash: "బ్యూరో డాష్‌బోర్డ్ →",
-    faqEyebrow: "సందేహాలు & సమాధానాలు",
-    faqTitle: "తరచూ అడిగే ప్రశ్నలు — పూర్తి వివరణ",
-    ctaTitle: "ఈరోజే ఉచితంగా నమోదు చేసుకోండి",
-    ctaSub: (total: number, free: number, p99: PlanStat, p199: PlanStat, p299: PlanStat, p499: PlanStat) =>
-      `ఉచిత నమోదు → ప్రొఫైల్ కార్డ్ సిద్ధం → ${total} ఛానళ్ల నెట్‌వర్క్‌లో ప్రదర్శన → మొదటి ${free} ఇంట్రెస్ట్ రిక్వెస్ట్‌లు పూర్తిగా ఉచితం. ఆ తర్వాత మీ అవసరాన్ని బట్టి ₹${p99.price} నుండి ₹${p499.price} ప్లాన్లు అందుబాటులో ఉన్నాయి.`,
-    ctaReg: "ఉచిత ప్రారంభ నమోదు",
-    ctaBot: "టెలిగ్రామ్ ఛానల్‌లో చేరండి",
-    trustTitle: "🛡️ విశ్వసనీయత & పూర్తి భద్రత",
-    trustSub: "మీ సంప్రదింపు వివరాలు ఎల్లప్పుడూ గోప్యంగా ఉంటాయి — ఇరు కుటుంబాలు అంగీకరించిన తర్వాత మాత్రమే నంబర్లు మార్పిడి అవుతాయి.",
-    trustAvg: (n: number | undefined) => `సగటు Trust Score (${n === undefined ? "—" : n} ప్రొఫైల్స్)`,
-    trustAvgD: "Verify + complete profile ఉంటే score పెరుగుతుంది — matches కూడా ఎక్కువ వస్తాయి.",
-    trustNum: "🔒 నంబర్ policy",
-    trustNumD: "మీ ఫోన్ నంబర్ ఎప్పుడూ ఎవరికీ నేరుగా కనిపించదు (98••••••45 గానే చూపిస్తుంది).",
-    trustFree: (free: number, p99: PlanStat) => `FREE: ${free} ప్రొఫైల్స్ + ${free} interests · ₹${p99.price} లో → ${p99.profiles} ప్రొఫైల్స్`,
-    trustAbuse: "🧱 మోసం నుండి రక్షణ",
-    trustAuth: "లాగిన్ భద్రత",
-    trustAuthD: (enforced: boolean) => (enforced ? "OTP verified" : "OTP verified"),
-    trustLive: "మీ ప్రొఫైల్ పూర్తిగా నింపితే — ఈ trust board లో మీరు top లో కనిపించే అవకాశం ఎక్కువ.",
-    vendorEyebrow: "పెళ్లి వెండర్లు",
-    vendorTitle: "🏪 పెళ్లికి కావాల్సినవన్నీ — ఒకేచోట",
-    vendorSub: "Catering • Photography • Decorations • Function Hall • Tent House • Pandit • Jewellery • Makeup • DJ • Invitations • Cars • Planner. Verified vendors, direct WhatsApp, best rates.",
-    vendorAll: "అన్ని 18 categories →",
-    vendorPromoT: "మీ business కూడా promote చెయ్యాలనుందా? 🏪",
-    vendorPromoS: (total: number) => `₹149 నుంచి — ${total} channels + WhatsApp lanes + website banner + leads direct మీ WhatsApp కి.`,
-    vendorPromoC: "Advertise చెయ్యండి →",
-    faq: (total: number, p99: PlanStat, p199: PlanStat, p299: PlanStat, p499: PlanStat) => [
-      { q: "నమోదు చేసుకోవడానికి ఏమైనా రుసుము చెల్లించాలా?", a: `నమోదు పూర్తిగా ఉచితం (100% Complimentary). మొదటి 3 ఇంట్రెస్ట్ రిక్వెస్ట్‌లు కూడా ఉచితంగా లభిస్తాయి. ఆ తర్వాత అవసరాన్ని బట్టి ₹${p99.price} నుండి ₹${p499.price} వరకు సరసమైన ప్లాన్లు అందుబాటులో ఉన్నాయి.` },
-      { q: "సంప్రదింపుల విధానం ఎలా ఉంటుంది?", a: `అనవసర చాటింగ్ లేకుండా, గౌరవప్రదమైన "💌 ఇంట్రెస్ట్ పంపు" ద్వారా మీ ప్రొఫైల్ వివరాలు అవతలి కుటుంబానికి వాట్సాప్‌లో అందజేయబడతాయి. వారు అంగీకరించిన వెంటనే ఇరు కుటుంబాల అధికారిక సంప్రదింపు నంబర్లు మార్పిడి అవుతాయి. ఒకవేళ తిరస్కరిస్తే మీ క్రెడిట్ తక్షణమే తిరిగి మీ ఖాతాకు జమ చేయబడుతుంది.` },
-      { q: "ఫోన్ నంబర్లు నేరుగా అందరికీ కనిపిస్తాయా?", a: "భద్రత మరియు గోప్యత దృష్ట్యా ఫోన్ నంబర్లు ఎల్లప్పుడూ లాక్ చేయబడి ఉంటాయి. ఇరు కుటుంబాలు పరస్పరం అంగీకరించిన తర్వాతే అధికారిక వాట్సాప్ ద్వారా నంబర్లు మార్పిడి చేయబడతాయి. దీనివల్ల అపరిచితుల కాల్స్ మరియు ప్రైవసీ ఉల్లంఘనలు పూర్తిగా నిరోధించబడతాయి." },
-      { q: "ఫోటోల భద్రత మరియు గోప్యతా నియమాలు ఏమిటి?", a: "ప్రొఫైల్ ఫోటోలకు ఆటోమేటిక్ వాటర్‌మార్క్ భద్రత ఉంటుంది. అలాగే 'ఫోటో ప్రైవేట్ మోడ్' ద్వారా అనుమతి పొందిన కుటుంబాలకు మాత్రమే ఫోటోలు స్పష్టంగా కనిపించేలా సెట్ చేసుకోవచ్చు." },
-      { q: "ప్రొఫైల్ ఏయే ఛానళ్లలో ప్రదర్శించబడుతుంది?", a: `మీ కులం, ప్రాంతం, మరియు వృత్తి ఆధారంగా మొత్తం ${total} ప్రత్యేక ఛానళ్ల నుండి అత్యంత సరిపోయే ఛానళ్లలో మీ ప్రొఫైల్ కార్డు గౌరవప్రదంగా ప్రదర్శించబడుతుంది.` },
-      { q: "నకిలీ ప్రొఫైల్స్ మరియు భద్రతా చర్యలు ఎలా ఉంటాయి?", a: "OTP మరియు DOB వెరిఫికేషన్, ఫోటో క్లారిటీ తనిఖీ మరియు 3-లేయర్ మోడరేషన్ ద్వారా ప్రతి ప్రొఫైల్ సమగ్రంగా ధృవీకరించబడుతుంది. అనుమానాస్పద ప్రొఫైల్స్‌పై తక్షణమే నిఘా మరియు తొలగింపు చర్యలు ఉంటాయి." },
-    ],
+    safety: "Phone OTP ఫోన్ నంబర్‌కు access‌ను మాత్రమే సూచిస్తుంది; వ్యక్తి గుర్తింపును కాదు. Owner acceptance తర్వాత account views లో contact access వస్తుంది; notification delivery/read నిర్ధారణ కాదు.",
+    safetyLink: "భద్రతా మార్గదర్శిని",
+    ctaTitle: "మీ వివాహ పరిచయం ఇక్కడ ప్రారంభించండి",
+    ctaSub: "ఉచితంగా నమోదు చేసి, సభ్యులు అందించిన ప్రొఫైల్ వివరాలను మీరే పరిశీలించండి.",
+    register: "ఉచితంగా నమోదు",
+    browse: "సంబంధాలు చూడండి",
   },
   en: {
-    liveBadge: (live: number, total: number) => `Your profile — LIVE across ${total}+ channels`,
-    heroTitle: "Perfect matches, close to home",
-    heroSubA: "Telangana + Andhra Pradesh Telugu Matrimony",
-    heroSubB: (castes: number, total: number) => `Region • Religion • ${castes} Castes • Special — ${total} channels. One registration puts your profile everywhere it fits.`,
-    heroSubC: (free: number) => `₹99 Sambandham — first ${free} profiles FREE.`,
-    registerCta: "Register FREE",
-    botCta: "Join on Telegram",
-    installApp: "Install as app",
-    vibeTitle: "For your family wedding — the right match is here",
-    trust: ["OTP + DOB verified", "Photo-private mode", "Number only after accept", "Watermark + fraud alerts"],
-    idSearchPh: "Search by Profile ID — MV1001",
-    idSearchBtn: "Search",
-    cardWhy: "Why they match?",
-    cardTags: ["O+", "Rohini", "Bharadwaj"],
-    cardWhy1: "✓ Reddy Bharadwaj gothram + Rohini star — clear",
-    cardWhy2: "✓ BTech + Software Engineer (8 LPA) — settled",
-    cardWhy3: "✓ Works in Hyderabad — same city",
-    cardInterest: "❤️ Send Interest",
-    cardNumber: "📞 Number (1 credit)",
-    ticker: (total: number, castes: number, free: number) => [
-      `${total} channels — Region • Religion • Caste • Special`,
-      `₹99 Sambandham — first ${free} profiles FREE`,
-      "Photo-Private • DOB Verified • Watermark protected",
-      "Telegram + WhatsApp channels లో post",
-      `${castes} castes: Reddy to Madiga, Lambada, Boya`,
-      "Dedicated channels for Hindu communities",
-      "Referral — ₹50 per profile",
-    ],
-    statChannels: "Channels (network)",
-    statChannelsSub: (t: Record<string, number>) => `${t.L1_REGION ?? 5} Region • ${t.L2_RELIGION ?? 11} Religion • ${t.L3_CASTE ?? 27} Caste • ${t.L4_SPECIAL ?? 8} Special`,
-    statCastes: "Castes covered",
-    statCastesSub: "Reddy to SC/ST",
-    statChat: "No chatting",
-    statChatT: "No chatting — direct contact",
-    statChatS: "Safe WhatsApp delivery",
-    statPrice: (p99: PlanStat) => `₹${p99.price}→${p99.profiles}`,
-    statPriceL: (p199: PlanStat, p299: PlanStat) => `Profiles (₹${p199.price}→${p199.profiles}, ₹${p299.price}→${p299.profiles})`,
-    statPriceS: (free: number) => `First ${free} requests FREE`,
     howEyebrow: "How it works",
-    howTitle: "Sambandham in 4 automatic steps",
-    howSub: "Once you register, your profile automatically posts to the right channels. You never have to post anything manually.",
-    howSteps: (total: number) => [
-      { n: "01", t: "Register", d: "Personal, family, caste/astro, education, location + photo. 5 easy steps on mobile.", icon: "📝" },
-      { n: "02", t: "Card + ID ready", d: "Profile card is auto-generated — all details, QR and watermark.", icon: "🎴" },
-      { n: "03", t: "Post to channels", d: `Best-fit channels from ${total}, based on your caste + state + job — Telegram + WhatsApp.`, icon: "📢" },
-      { n: "04", t: "Send interest → number exchange", d: "Send 💌 Interest (1 credit) to profiles you like. On accept, both numbers exchange automatically on WhatsApp.", icon: "💌" },
+    howTitle: "Three steps to make an introduction",
+    howSub: "Review member-submitted details and send an interest. After owner acceptance, account views show contact details; WhatsApp delivery is not confirmed.",
+    howSteps: () => [
+      { n: "01", t: "Create a profile", d: "Add your basic details and choose your photo-privacy setting.", icon: "📝" },
+      { n: "02", t: "Review the details", d: "Review member-submitted profile information and any separately recorded checks.", icon: "🔎" },
+      { n: "03", t: "Send an interest", d: "After owner acceptance, contact details appear in accepted-request account views; WhatsApp delivery is not confirmed.", icon: "💌" },
     ],
-    reqEyebrow: "Consent-Driven Matchmaking",
-    reqTitle: "Dignified Connection — Interest → WhatsApp Contact Exchange",
-    reqSub: "Safe, dignified, and consent-driven communication. Contact details are securely exchanged only after mutual family acceptance.",
-    reqAction: "💌 Requests",
-    reqSteps: (free: number, p99: PlanStat) => [
-      { i: "💌", t: "1. Send Interest (1 credit)", d: `Choose a matching profile and tap "Send Interest" — first ${free} requests are FREE, then ₹${p99.price} → ${p99.profiles} matches.` },
-      { i: "📲", t: "2. Your Profile Delivered on WhatsApp", d: `Your verified biodata card is respectfully shared with the bride/groom family via WhatsApp.` },
-      { i: "✅", t: "3. Mutual Accept → Numbers Exchanged", d: "Once both families accept — verified phone numbers are exchanged automatically for direct phone/video calls." },
-      { i: "↩️", t: "4. Full Refund on Decline", d: "If an interest is declined, your request credit is instantly refunded to your balance (100% money-back policy)." },
+    pricingEyebrow: "Plans",
+    pricingTitle: (price: number) => `Clear pricing — from ₹${price}`,
+    planNames: ["Sambandham", "Family", "Premium", "VIP"],
+    planCredits: (p99: PlanStat, p199: PlanStat, p299: PlanStat, p499: PlanStat) => [
+      `${p99.profiles} interest requests`,
+      `${p199.profiles} interest requests`,
+      `${p299.profiles} interest requests`,
+      `${p499.profiles} interest requests`,
     ],
-    reqChips: ["🚫 0 chatting", "🔒 Consent first", "↩️ Decline = refund", "✅ Safe delivery"],
-    priceStrip: (p: PlanStat, tag: string) => ({ p: `₹${p.price}`, n: `${p.profiles} profiles`, s: tag }),
-    priceTags: ["₹20/profile — entry", "₹17/profile — popular", "₹12/profile — best value"],
-    chEyebrow: "Channel network",
-    chTitle: (total: number) => `${total} channels — your profile reaches everywhere it fits`,
-    chSub: "Region + Religion + Caste + Special. One approval = posted to all matching channels.",
-    chAction: (total: number) => `All ${total} channels`,
-    flowTitle: "📢 One registration — posted to every matching channel",
-    flow: [
-      { t: "1. Your details", d: "5 easy steps + photo" },
-      { t: "2. Right channel picked", d: "Based on caste × state × occupation" },
-      { t: "3. Telegram + WhatsApp", d: "Profile card posted" },
-      { t: "4. You get notified", d: "The moment someone sends interest" },
+    pricingFree: (free: number) => `Registration is free and includes the first ${free} interest requests.`,
+    pricingLink: "View full pricing, add-ons and terms",
+    faqEyebrow: "Help",
+    faqTitle: "Frequently asked questions",
+    faq: (free: number, p99: PlanStat, p199: PlanStat, p299: PlanStat, p499: PlanStat) => [
+      { q: "How much does registration cost?", a: `Registration is free and includes the first ${free} interest requests. Paid plans include ${p99.profiles} requests for ₹${p99.price}, ${p199.profiles} for ₹${p199.price}, ${p299.profiles} for ₹${p299.price}, or ${p499.profiles} for ₹${p499.price}.` },
+      { q: "When do I get contact access?", a: "After owner acceptance, contact details appear in accepted-request account views. A configured WhatsApp notification may include them; queue/send status does not confirm delivery or reading." },
+      { q: "What does phone OTP or a review badge confirm?", a: "Phone OTP indicates access to that number only. Photo review and ID review are separate checks; none guarantees a person’s identity. Verify details independently." },
+      { q: "Who can see my photo?", a: "Photo visibility depends on your profile privacy setting. Review that setting before adding a photo; copies shared online cannot be fully controlled." },
     ],
-    casteEyebrow: "Caste-wise",
-    casteTitle: (n: number) => `${n} caste channels — 1 caste = 1 channel`,
-    casteSub: "Brides + grooms in one channel — filter with #Bride / #Groom hashtags. The busier your caste channel gets, the more matches you see.",
-    casteAction: "See caste list",
-    casteMore: (n: number) => `+ ${n} more castes (Boya, Kuruba, Uppara, Vaddera, Rajaka, Viswakarma, Kummara, Gandla, Devanga, Koya, Gond, SC/ST sub-castes...) —`,
-    casteFull: "see full list",
-    spEyebrow: "Special respect",
-    spTitle: "A separate space for everyone — with dignity",
-    spSub: "2nd marriage, differently abled, 35+, govt jobs, doctors, NRI — a dedicated channel for each.",
-    pricingEyebrow: "Pricing",
-    pricingTitle: "Simple — ₹99 Sambandham",
-    pricingSub: (free: number, p99: PlanStat, p199: PlanStat, p299: PlanStat, p499: PlanStat) =>
-      `Register FREE. First ${free} interest requests FREE. Then ₹${p99.price} → ${p99.profiles} profiles, ₹${p199.price} → ${p199.profiles}, ₹${p299.price} → ${p299.profiles}, ₹${p499.price} → ${p499.profiles}. ₹/profile drops every tier — credit refund on decline.`,
-    planTags: ["Start here", "Entry • ₹20/profile", "Most popular • ₹17/profile", "Best value • ₹12/profile", "VIP • ₹10/profile"],
-    planNames: ["FREE", "Sambandham", "Family", "Premium", "VIP"],
-    planCredits: (free: number, p99: PlanStat, p199: PlanStat, p299: PlanStat, p499: PlanStat) => [
-      `First ${free} profiles FREE`, `${p99.profiles} profiles • 30 days`, `${p199.profiles} profiles • 45 days`,
-      `${p299.profiles} profiles • 60 days`, `${p499.profiles} profiles • 90 days`,
-    ],
-    planFeatures: [
-      ["3 interest requests FREE", "Your profile shared on WhatsApp", "Profile posted in channels", "ID search always open", "Photo-private mode"],
-      ["5 interest requests", "⚡ 7-day profile boost (channel top)", "Number exchange on accept", "Credit refund on decline", "Earn ₹50 via referral"],
-      ["12 interest requests", "✅ Photo-verified badge", "🔮 Free వేద గుణమేళనం రిపోర్ట్ (1)", "Daily fresh matches digest", "Family bureau assist"],
-      ["25 interest requests", "⚡ 30-day boost (top of channel)", "👀 Who-viewed-me 60 days", "✅ Verified badge", "Dedicated Telugu support"],
-      ["50 interest requests", "🎯 Matchmaker assist (our team calls)", "⚡ 90-day boost", "💍 Wedding vendor discounts", "Priority WhatsApp support"],
-    ],
-    planCtaFree: "Start FREE",
-    planCtaPay: (price: string) => `Pay ${price} & start`,
-    planSecure: "Razorpay secure • refund policy",
-    addonTitle: "🎁 Add-ons — extra value beyond credits",
-    addonTag: "per-item • anytime",
-    renewalLine: (r: { price: number; profiles: number }, b: { price: number; profiles: number }) =>
-      `🔁 Renewal offer: existing customers ₹${r.price} → ${r.profiles} profiles (first-time ₹99 → 5) • 🏢 Bureau: ₹${b.price}/mo → ${b.profiles} profiles + monthly report`,
-    addonCta1: "Buy plans + add-ons →",
-    addonCta2: "👀 See who viewed you",
-    refTitle: "🏆 Earn — Referral Program",
-    refSub: (per: number) => `You don't need to be looking for a match to join this program — anyone can! Share your link, and you earn ₹${per} every time someone joins and pays through it. Special dashboard for bureaus/brokers too.`,
-    refCards: (per: number, ms: string) => [{ k: "Per pay", v: `₹${per}` }, { k: "25 referrals", v: ms }, { k: "Payout", v: "Weekly UPI" }],
-    refCta1: "My referral code →",
-    refCta2: "🎁 Join now",
-    burTitle: "🏢 Bureau / Broker B2B",
-    burSub: "Already running a marriage bureau? Share our profiles + earn commission.",
-    burName: (b: { label: string; price: number }) => `${b.label} — ₹${b.price}/mo`,
-    burOpen: "B2B open",
-    burDash: "Bureau dashboard →",
-    faqEyebrow: "Questions",
-    faqTitle: "Frequently asked — clear answers",
-    ctaTitle: "Start now — it's FREE",
-    ctaSub: (total: number, free: number, p99: PlanStat, p199: PlanStat, p299: PlanStat, p499: PlanStat) =>
-      `Register FREE → profile card ready → posted across ${total} channels → first ${free} interest requests FREE. Then ₹${p99.price} → ${p99.profiles} profiles, ₹${p199.price} → ${p199.profiles}, ₹${p299.price} → ${p299.profiles}, ₹${p499.price} → ${p499.profiles} (VIP).`,
-    ctaReg: "Register FREE",
-    ctaBot: "Join on Telegram",
-    trustTitle: "🛡️ Trust & Safety",
-    trustSub: "Your phone number is never shown publicly — exchanged only after both sides accept.",
-    trustAvg: (n: number | undefined) => `Average trust score (${n === undefined ? "—" : n} profiles)`,
-    trustAvgD: "Verified + complete profiles score higher — and get more matches.",
-    trustNum: "🔒 Number policy",
-    trustNumD: "Your phone number is never shown directly to anyone (always masked as 98••••••45).",
-    trustFree: (free: number, p99: PlanStat) => `Free: ${free} profiles + ${free} interests · Paid: ₹${p99.price} → ${p99.profiles} profiles`,
-    trustAbuse: "🧱 Fraud protection",
-    trustAuth: "Login security",
-    trustAuthD: (enforced: boolean) => (enforced ? "OTP verified" : "OTP verified"),
-    trustLive: "Complete your profile fully to have a better chance of showing up top on this trust board.",
-    vendorEyebrow: "Wedding Vendors",
-    vendorTitle: "🏪 Everything for your wedding — one place",
-    vendorSub: "Catering • Photography • Decorations • Function Hall • Tent House • Pandit • Jewellery • Makeup • DJ • Invitations • Cars • Planner. Verified vendors, direct WhatsApp, best rates.",
-    vendorAll: "All 18 categories →",
-    vendorPromoT: "Want to promote your business too? 🏪",
-    vendorPromoS: (total: number) => `From ₹149 — ${total} channels + WhatsApp lanes + website banner + leads straight to your WhatsApp.`,
-    vendorPromoC: "Advertise →",
-    faq: (total: number, p99: PlanStat, p199: PlanStat, p299: PlanStat, p499: PlanStat) => [
-      { q: "How much money to register?", a: `Registration is 100% FREE. First 3 interest requests are FREE too. Then ₹${p99.price} for ${p99.profiles} profiles, ₹${p199.price} for ${p199.profiles}, ₹${p299.price} for ${p299.profiles}, ₹${p499.price} for ${p499.profiles} profiles (₹10–20/profile).` },
-      { q: "Is there chatting? How do we talk?", a: `No chatting — that's it. Send "💌 Interest" (1 credit) to a profile you like. Your profile + details reach them on WhatsApp. If they Accept, both numbers auto-exchange on WhatsApp — talk directly. On Decline your credit is refunded (our trust policy).` },
-      { q: "When is the number visible? Do you share directly?", a: "The number stays locked when you send interest. Numbers exchange only after they Accept — only when both agree. So spam calls, fake IDs and fraud are all blocked. Top matrimony sites use this same consent logic; we just do it fast on WhatsApp." },
-      { q: "Is my photo visible in public?", a: "With Photo-Private ON it shows blurred in public — watermarked on WhatsApp/Telegram cards too. Clear photos only after interest accept. Watermark + report system acts on screenshot misuse." },
-      { q: "Which channels will my profile be posted to?", a: `Best-fit channels (max 5) from ${total}, based on your caste + state + job — Region + Caste-wise (bride/groom separate) + Religion + Special channels, all covered.` },
-      { q: "Does it come on WhatsApp too?", a: "Yes — after the Telegram post it also goes to WhatsApp channels/groups. Interest arrivals also notify you on WhatsApp with a profile card." },
-      { q: "What about fraud/fake profiles?", a: "DOB + OTP verify, photo watermark, 3 reports → auto hide, fraud alerts in our safety channel. Report advance-money demands immediately — action within 24h. Declined credits are refunded." },
-    ],
+    safety: "Phone OTP indicates access to a phone number, not identity. Owner acceptance grants contact access in account views; notification delivery or reading is not confirmed.",
+    safetyLink: "Safety guide",
+    ctaTitle: "Start your matrimony introduction",
+    ctaSub: "Register for free and review member-submitted profile details at your own pace.",
+    register: "Register free",
+    browse: "Browse profiles",
   },
 };
-
-/** 📊 stat value — number ayithe count-up animation (suspense/attention) */
-function StatValue({ value, countUp }: { value: string | number; countUp: boolean }) {
-  const n = typeof value === "number" ? value : parseInt(String(value).replace(/\D/g, ""), 10) || 0;
-  const animated = useCountUp(countUp ? n : 0, 900);
-  if (!countUp || !n) return <>{value}</>;
-  return <>{animated}</>;
-}
 
 export default function Home() {
   const { lang } = useLang();
   const L = TEXT[lang as Lang];
   const te = lang === "te";
-  const [hs, setHs] = useState<HomeStats>(FALLBACK);
-  const [trustBoard, setTrustBoard] = useState<{ count: number; average_trust: number; board: Record<string, unknown>[] } | null>(null);
-  const [posture, setPosture] = useState<Record<string, unknown> | null>(null);
-
-  useEffect(() => {
-    void apiGet<HomeStats>("/api/meta/home-stats").then(({ ok, data }) => { if (ok && data) setHs(data); });
-    void apiGet<{ count: number; average_trust: number; board: Record<string, unknown>[] }>("/api/trust/board?limit=6")
-      .then(({ ok, data }) => { if (ok && data) setTrustBoard(data); });
-    void apiGet<Record<string, unknown>>("/api/security/posture")
-      .then(({ ok, data }) => { if (ok && data) setPosture(data); });
-  }, []);
-
-  const p99 = planOf(hs, "S_99"), p199 = planOf(hs, "S_199"), p299 = planOf(hs, "S_299"), p499 = planOf(hs, "S_499");
-  const bureau0 = hs.bureau[0] || FALLBACK.bureau[0];
-  const ms25 = hs.referral.milestones.find((m) => m.paid === 25)?.title || "💎 PLATINUM Referrer";
-
-  const [searchId, setSearchId] = useState("");
+  const [stats, setStats] = useState<HomeStats>(FALLBACK);
   const [openFaq, setOpenFaq] = useState<number | null>(0);
 
-  const regionChannels: Channel[] = useMemo(() => ALL_CHANNELS.filter((c) => c.tier === "L1_REGION"), []);
-  const religionChannels: Channel[] = useMemo(() => ALL_CHANNELS.filter((c) => c.tier === "L2_RELIGION"), []);
-  const casteChannels: Channel[] = useMemo(() => ALL_CHANNELS.filter((c) => c.tier === "L3_CASTE"), []);
-  const specialChannels: Channel[] = useMemo(() => ALL_CHANNELS.filter((c) => c.tier === "L4_SPECIAL"), []);
-  const liveChannels = ALL_CHANNELS.filter((c) => c.live);
+  useEffect(() => {
+    let mounted = true;
+    void apiGet<{ free_first?: unknown; plans?: unknown }>("/api/meta/home-stats").then(({ ok, data }) => {
+      if (!mounted || !ok || !data || !Array.isArray(data.plans)) return;
+      const incoming = new Map<string, PlanStat>();
+      for (const raw of data.plans) {
+        if (!raw || typeof raw !== "object") continue;
+        const candidate = raw as Record<string, unknown>;
+        const code = String(candidate.code ?? "");
+        const price = Number(candidate.price);
+        const profiles = Number(candidate.profiles ?? candidate.credits);
+        if (PLAN_CODES.includes(code as (typeof PLAN_CODES)[number])
+          && Number.isFinite(price) && price >= 0
+          && Number.isFinite(profiles) && profiles >= 0) {
+          incoming.set(code, { code, price, profiles });
+        }
+      }
+      const plans = FALLBACK.plans.map((fallback) => incoming.get(fallback.code) ?? fallback);
+      const freeFirstRaw = Number(data.free_first);
+      const free_first = Number.isInteger(freeFirstRaw) && freeFirstRaw >= 0 && freeFirstRaw <= 50
+        ? freeFirstRaw
+        : FALLBACK.free_first;
+      setStats({ free_first, plans });
+    });
+    return () => { mounted = false; };
+  }, []);
 
+  const p99 = planOf(stats, "S_99");
+  const p199 = planOf(stats, "S_199");
+  const p299 = planOf(stats, "S_299");
+  const p499 = planOf(stats, "S_499");
+  const planCredits = L.planCredits(p99, p199, p299, p499);
+  const paidPlans = [p99, p199, p299, p499].map((plan, index) => ({
+    ...plan,
+    name: L.planNames[index],
+    credits: planCredits[index],
+  }));
+  const FAQs = L.faq(stats.free_first, p99, p199, p299, p499);
 
-  const PLANS = [
-    { name: L.planNames[0], price: "₹0", tag: L.planTags[0], credits: L.planCredits(hs.free_first, p99, p199, p299, p499)[0], features: (L.planFeatures[0] as string[]).map((f) => f.replace("channel network లో post", `${hs.channels_total} channel network`).replace("channel network", `${hs.channels_total} channels`)) },
-    { name: L.planNames[1], price: `₹${p99.price}`, tag: L.planTags[1], credits: L.planCredits(hs.free_first, p99, p199, p299, p499)[1], features: L.planFeatures[1] as string[] },
-    { name: L.planNames[2], price: `₹${p199.price}`, tag: L.planTags[2], popular: true, credits: L.planCredits(hs.free_first, p99, p199, p299, p499)[2], features: L.planFeatures[2] as string[] },
-    { name: L.planNames[3], price: `₹${p299.price}`, tag: L.planTags[3], credits: L.planCredits(hs.free_first, p99, p199, p299, p499)[3], features: L.planFeatures[3] as string[] },
-    { name: L.planNames[4], price: `₹${p499.price}`, tag: L.planTags[4], credits: L.planCredits(hs.free_first, p99, p199, p299, p499)[4], features: L.planFeatures[4] as string[] },
-  ];
-
-  const FAQS = L.faq(hs.channels_total, p99, p199, p299, p499);
-
-  /* 🔎 JSON-LD — Google rich results (Organization + WebSite search + FAQ) */
   const jsonLd = {
     "@context": "https://schema.org",
     "@graph": [
       {
         "@type": "Organization",
         "@id": `${SITE_CONFIG.siteUrl}/#org`,
-        name: SITE_CONFIG.brandName,
-        alternateName: SITE_CONFIG.legalName,
+        name: te ? "మన వివాహ" : "Mana Vivaha",
+        alternateName: te ? "Mana Vivaha" : "మన వివాహ",
         url: SITE_CONFIG.siteUrl,
         logo: `${SITE_CONFIG.siteUrl}/icons/icon-512.png`,
-        email: SITE_CONFIG.supportEmail,
-        areaServed: ["Telangana", "Andhra Pradesh"],
+        ...(SITE_CONFIG.supportEmail ? { email: SITE_CONFIG.supportEmail } : {}),
         knowsLanguage: ["te", "en"],
       },
       {
         "@type": "WebSite",
         "@id": `${SITE_CONFIG.siteUrl}/#site`,
         url: SITE_CONFIG.siteUrl,
-        name: `${SITE_CONFIG.brandName} — Telugu Matrimony`,
-        inLanguage: ["te", "en"],
+        name: te ? "మన వివాహ — తెలుగు మ్యాట్రిమోనీ" : "Mana Vivaha — Telugu Matrimony",
+        inLanguage: te ? "te-IN" : "en-IN",
         publisher: { "@id": `${SITE_CONFIG.siteUrl}/#org` },
         potentialAction: {
           "@type": "SearchAction",
@@ -455,9 +178,10 @@ export default function Home() {
       },
       {
         "@type": "FAQPage",
-        mainEntity: FAQS.slice(0, 8).map((f: { q: string; a: string }) => ({
-          "@type": "Question", name: f.q,
-          acceptedAnswer: { "@type": "Answer", text: f.a },
+        mainEntity: FAQs.map((item) => ({
+          "@type": "Question",
+          name: item.q,
+          acceptedAnswer: { "@type": "Answer", text: item.a },
         })),
       },
     ],
@@ -465,805 +189,129 @@ export default function Home() {
 
   return (
     <div className="home-page bg-cream">
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd(jsonLd) }} />
 
-      {/* ================= 🎬 CINEMATIC VIDEO HERO (top-matrimony feel) ================= */}
       <CinematicHero />
-
-      {/* ================= 🔍 QUICK MATCH FINDER + LIVE PULSE ================= */}
-      <section className="relative -mt-6 z-10 max-w-6xl mx-auto px-4">
-        <HeroQuickSearch />
-      </section>
-
-
-
-      {/* ================= 🌟 PROFILES OF THE DAY (SPOTLIGHT) ================= */}
       <ProfilesOfTheDay />
 
-      {/* ================= 💍 SECOND MARRIAGE & REMARRIAGE PORTAL ================= */}
-      <HomeSecondMarriageSection />
-
-      {/* ================= 🌸 NEXT-GEN TELUGU MATRIMONY STUDIOS & TOOLS ================= */}
-      <section className="max-w-7xl mx-auto px-4 py-8">
-        <Reveal>
-          <div className="text-center max-w-3xl mx-auto mb-6">
-            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-gold/20 border border-gold/40 text-maroon text-xs font-bold mb-2">
-              ✨ తెలుగు సాంప్రదాయ డిజిటల్ స్టూడియోలు • Smart Matrimony Tools
-            </div>
-            <h2 className="text-2xl sm:text-3xl font-extrabold text-maroon">
-              {lang === "te" ? "వివాహ ప్రయాణానికి అవసరమైన సమగ్ర సాధనాలు" : "Authentic Telugu Matrimony & Wedding Studios"}
-            </h2>
-            <p className="text-xs sm:text-sm text-gray-700 mt-2">
-              {lang === "te"
-                ? "లగ్న పత్రిక తయారీ నుండి సంబంధాల పోలిక, పెళ్లి చూపుల గైడ్ మరియు ఉచిత బయోడేటా వరకు ప్రతిదీ ఒకేచోట అందుబాటులో ఉంది."
-                : "From royal Lagna Patrika creation and side-by-side match comparison to Pelli Choopulu etiquette and HD biodatas."}
-            </p>
-          </div>
-        </Reveal>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-          {/* Card 1: Lagna Patrika */}
-          <Reveal delay={50}>
-            <Link
-              href="/lagna-patrika"
-              className="group block bg-white rounded-3xl p-6 shadow-md hover:shadow-xl border-2 border-gold/30 hover:border-maroon/60 transition duration-300 relative overflow-hidden"
-            >
-              <div className="text-3xl mb-3">📜</div>
-              <div className="inline-block px-2.5 py-0.5 rounded-full bg-amber-100 text-maroon font-bold text-[10px] uppercase tracking-wider mb-2">
-                4 రాయల్ థీమ్స్ • HD JPG
-              </div>
-              <h3 className="text-lg font-bold text-maroon group-hover:text-maroon-dark">
-                {lang === "te" ? "శుభ లగ్న పత్రిక స్టూడియో" : "Lagna Patrika Studio"}
-              </h3>
-              <p className="text-xs text-gray-600 mt-1 leading-relaxed">
-                {lang === "te"
-                  ? "సంస్కృత శ్లోకాలు, ముహూర్తం వివరాలు, ఇరువైపుల పెద్దల పేర్లతో రాయల్ తెలుగు లగ్న పత్రిక ఉచితంగా తయారు చేసుకోండి."
-                  : "Generate royal traditional Telugu Lagna Patrika cards with Sanskrit slokas and instant WhatsApp delivery."}
-              </p>
-              <div className="mt-4 text-xs font-bold text-maroon flex items-center gap-1 group-hover:translate-x-1 transition">
-                <span>లగ్న పత్రిక సృష్టించండి</span>
-                <span>→</span>
-              </div>
-            </Link>
-          </Reveal>
-
-          {/* Card 2: Profile Compare Studio */}
-          <Reveal delay={100}>
-            <Link
-              href="/compare"
-              className="group block bg-white rounded-3xl p-6 shadow-md hover:shadow-xl border-2 border-gold/30 hover:border-maroon/60 transition duration-300 relative overflow-hidden"
-            >
-              <div className="text-3xl mb-3">⚖️</div>
-              <div className="inline-block px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold text-[10px] uppercase tracking-wider mb-2">
-                Side-by-Side Matrix
-              </div>
-              <h3 className="text-lg font-bold text-maroon group-hover:text-maroon-dark">
-                {lang === "te" ? "సంబంధాల పోలిక స్టూడియో" : "Profile Comparison Matrix"}
-              </h3>
-              <p className="text-xs text-gray-600 mt-1 leading-relaxed">
-                {lang === "te"
-                  ? "2 లేదా 3 సంబంధాలను పక్కపక్కనే పెట్టి చదువు, ఉద్యోగం, జీతం, గోత్రం మరియు గుణమేళనం సరిపోల్చి తల్లిదండ్రులకు షేర్ చేయండి."
-                  : "Compare 2-3 candidate profiles side-by-side across Astro, salary, education, and share a comparison deck on WhatsApp."}
-              </p>
-              <div className="mt-4 text-xs font-bold text-maroon flex items-center gap-1 group-hover:translate-x-1 transition">
-                <span>సంబంధాలు పోల్చండి</span>
-                <span>→</span>
-              </div>
-            </Link>
-          </Reveal>
-
-          {/* Card 3: Pelli Choopulu Guide */}
-          <Reveal delay={150}>
-            <Link
-              href="/pelli-choopulu"
-              className="group block bg-white rounded-3xl p-6 shadow-md hover:shadow-xl border-2 border-gold/30 hover:border-maroon/60 transition duration-300 relative overflow-hidden"
-            >
-              <div className="text-3xl mb-3">☕</div>
-              <div className="inline-block px-2.5 py-0.5 rounded-full bg-rose-100 text-rose-800 font-bold text-[10px] uppercase tracking-wider mb-2">
-                ఆచారాలు & ప్రశ్నలు
-              </div>
-              <h3 className="text-lg font-bold text-maroon group-hover:text-maroon-dark">
-                {lang === "te" ? "పెళ్లి చూపుల సమగ్ర గైడ్" : "Pelli Choopulu Etiquette Guide"}
-              </h3>
-              <p className="text-xs text-gray-600 mt-1 leading-relaxed">
-                {lang === "te"
-                  ? "పెళ్లి చూపుల సాంప్రదాయ మర్యాదలు, పెద్దల చెక్‌లిస్ట్, అభ్యర్థుల ప్రైవేట్ 1-on-1 సంభాషణ ప్రశ్నలు మరియు సలహాలు."
-                  : "Traditional Telugu Pelli Choopulu protocols, hospitality tips, parent talking points, and candidate 1-on-1 questions."}
-              </p>
-              <div className="mt-4 text-xs font-bold text-maroon flex items-center gap-1 group-hover:translate-x-1 transition">
-                <span>గైడ్ చదవండి</span>
-                <span>→</span>
-              </div>
-            </Link>
-          </Reveal>
-
-          {/* Card 4: Biodata Maker */}
-          <Reveal delay={200}>
-            <Link
-              href="/biodata"
-              className="group block bg-white rounded-3xl p-6 shadow-md hover:shadow-xl border-2 border-gold/30 hover:border-maroon/60 transition duration-300 relative overflow-hidden"
-            >
-              <div className="text-3xl mb-3">🎴</div>
-              <div className="inline-block px-2.5 py-0.5 rounded-full bg-purple-100 text-purple-800 font-bold text-[10px] uppercase tracking-wider mb-2">
-                1 నిమిషంలో FREE HD JPG
-              </div>
-              <h3 className="text-lg font-bold text-maroon group-hover:text-maroon-dark">
-                {lang === "te" ? "తెలుగు బయోడేటా మేకర్" : "Telugu Marriage Biodata Studio"}
-              </h3>
-              <p className="text-xs text-gray-600 mt-1 leading-relaxed">
-                {lang === "te"
-                  ? "సులభంగా మీ జాతకం, కుటుంబ వివరాలు, ఫోటోతో కూడిన HD వివాహ బయోడేటా కార్డ్ తయారు చేసుకోండి."
-                  : "Create high-definition marriage biodata cards in Telugu with dynamic QR and share instantly on WhatsApp."}
-              </p>
-              <div className="mt-4 text-xs font-bold text-maroon flex items-center gap-1 group-hover:translate-x-1 transition">
-                <span>బయోడేటా రూపొందించండి</span>
-                <span>→</span>
-              </div>
-            </Link>
-          </Reveal>
-
-          {/* Card 5: TS & AP Districts Hub */}
-          <Reveal delay={250}>
-            <Link
-              href="/districts"
-              className="group block bg-white rounded-3xl p-6 shadow-md hover:shadow-xl border-2 border-gold/30 hover:border-maroon/60 transition duration-300 relative overflow-hidden"
-            >
-              <div className="text-3xl mb-3">🏛️</div>
-              <div className="inline-block px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-800 font-bold text-[10px] uppercase tracking-wider mb-2">
-                59 జిల్లాలు • TS & AP
-              </div>
-              <h3 className="text-lg font-bold text-maroon group-hover:text-maroon-dark">
-                {lang === "te" ? "జిల్లా సమగ్ర సంబంధాల హబ్" : "TS & AP Districts Hub"}
-              </h3>
-              <p className="text-xs text-gray-600 mt-1 leading-relaxed">
-                {lang === "te"
-                  ? "హైదరాబాద్, విజయవాడ, వైజాగ్, వరంగల్ సహా రెండు తెలుగు రాష్ట్రాల 59 జిల్లాల సంబంధాలను నేరుగా వెతకండి."
-                  : "Browse verified profiles filtered across all 59 districts of Telangana and Andhra Pradesh."}
-              </p>
-              <div className="mt-4 text-xs font-bold text-maroon flex items-center gap-1 group-hover:translate-x-1 transition">
-                <span>జిల్లాల వారీగా చూడండి</span>
-                <span>→</span>
-              </div>
-            </Link>
-          </Reveal>
-
-          {/* Card 6: Muhurtham Calendar */}
-          <Reveal delay={300}>
-            <Link
-              href="/muhurtham"
-              className="group block bg-white rounded-3xl p-6 shadow-md hover:shadow-xl border-2 border-gold/30 hover:border-maroon/60 transition duration-300 relative overflow-hidden"
-            >
-              <div className="text-3xl mb-3">🗓️</div>
-              <div className="inline-block px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900 font-bold text-[10px] uppercase tracking-wider mb-2">
-                2026 - 2027 పంచాంగం
-              </div>
-              <h3 className="text-lg font-bold text-maroon group-hover:text-maroon-dark">
-                {lang === "te" ? "వివాహ శుభ ముహూర్తాలు" : "Vivaha Muhurtham Calendar"}
-              </h3>
-              <p className="text-xs text-gray-600 mt-1 leading-relaxed">
-                {lang === "te"
-                  ? "తెలుగు సంవత్సరం మరియు మాసాల వారీగా సుముహూర్తాలు, తిథి, నక్షత్రాలు, లగ్న వివరాలు ఒకేచోట చూడండి."
-                  : "Explore auspicious Telugu marriage dates, thithi, nakshatram, and lagna timings for 2026-2027."}
-              </p>
-              <div className="mt-4 text-xs font-bold text-maroon flex items-center gap-1 group-hover:translate-x-1 transition">
-                <span>ముహూర్తాలు చూడండి</span>
-                <span>→</span>
-              </div>
-            </Link>
-          </Reveal>
-        </div>
-      </section>
-
-      {/* ================= 💎 WHY CHOOSE US (premium trust band) ================= */}
-      <WhyChooseUs />
-
-      {/* ================= STATS (LIVE) ================= */}
-      <section className="max-w-7xl mx-auto px-4 py-8">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          {[
-            { v: hs.channels_total, l: L.statChannels, s: L.statChannelsSub(hs.channels_by_tier), num: true },
-            { v: hs.castes_covered, l: L.statCastes, s: L.statCastesSub, num: true },
-            { v: L.statChat, l: L.statChatT, s: L.statChatS, num: false },
-            { v: L.statPrice(p99), l: L.statPriceL(p199, p299), s: L.statPriceS(hs.free_first), num: false },
-          ].map((s, i) => (
-            <Reveal key={s.l} delay={i * 80}>
-              <div className="bg-white rounded-2xl p-4 card-shadow border border-gold/20 h-full">
-                <div className="text-2xl md:text-3xl font-bold text-maroon"><StatValue value={s.v} countUp={s.num} /></div>
-                <div className="text-[13px] font-bold text-ink mt-1">{s.l}</div>
-                <div className="text-[11px] text-gray-500 mt-0.5">{s.s}</div>
-              </div>
-            </Reveal>
-          ))}
-        </div>
-      </section>
-
-      {/* ================= HOW IT WORKS ================= */}
-      <section className="max-w-7xl mx-auto px-4 py-8">
+      <section className="mx-auto max-w-7xl px-4 py-8" aria-label={L.howTitle}>
         <Reveal>
           <SectionHeading
             eyebrow={L.howEyebrow}
             title={L.howTitle}
             subtitle={L.howSub}
-            telugu={lang === "te"}
+            telugu={te}
           />
         </Reveal>
-        <div className="mt-6 grid md:grid-cols-4 gap-4">
-          {L.howSteps(hs.channels_total).map((s, i) => (
-            <Reveal key={s.n} delay={i * 90}>
-              <div className="relative bg-white rounded-2xl p-5 card-shadow border border-gold/20 h-full hover-lift">
-                <div className="text-3xl" aria-hidden>{s.icon}</div>
-                <div className="mt-2 text-[11px] font-bold text-gold-deep tracking-widest">STEP {s.n}</div>
-                <div className="font-bold text-maroon text-[15px] mt-1">{s.t}</div>
-                <div className="text-[12px] text-gray-600 mt-1.5 leading-relaxed">{s.d}</div>
-              </div>
+        <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {L.howSteps().map((step, index) => (
+            <Reveal key={step.n} delay={index * 60}>
+              <article className="h-full rounded-3xl border border-gold/25 bg-white p-5 shadow-sm sm:p-6">
+                <div className="text-2xl" aria-hidden="true">{step.icon}</div>
+                <p className="mt-2 text-[11px] font-bold tracking-widest text-gold-deep">{te ? "దశ" : "STEP"} {step.n}</p>
+                <h3 className="mt-1 text-base font-bold text-maroon">{step.t}</h3>
+                <p className="mt-1.5 text-sm leading-relaxed text-gray-600">{step.d}</p>
+              </article>
             </Reveal>
           ))}
         </div>
       </section>
 
-      {/* ================= REQUEST MODEL (CHATTING LEDU) ================= */}
-      <section className="max-w-7xl mx-auto px-4 py-8">
-        <div className="rounded-3xl cream-gradient border border-gold/30 p-5 md:p-8">
+      {SITE_CONFIG.features.showPricing && (
+        <section className="mx-auto max-w-7xl px-4 py-8" aria-label={te ? "ధరల సారాంశం" : "Pricing summary"}>
           <Reveal>
-            <SectionHeading
-              eyebrow={L.reqEyebrow}
-              title={L.reqTitle}
-              subtitle={L.reqSub}
-              telugu={lang === "te"}
-              action={{ href: "/requests", label: L.reqAction }}
-            />
-          </Reveal>
-
-          <div className="mt-6 grid md:grid-cols-2 gap-5 items-start">
-            {/* LEFT: 4 steps */}
-            <div className="space-y-3">
-              {L.reqSteps(hs.free_first, p99).map((x, i) => (
-                <Reveal key={x.t} delay={i * 80}>
-                  <div className="bg-white rounded-2xl p-4 card-shadow border border-gold/20 flex gap-3 hover-lift">
-                    <div className="text-2xl leading-none" aria-hidden>{x.i}</div>
-                    <div>
-                      <div className="font-bold text-maroon text-[14px]">{x.t}</div>
-                      <div className="text-[12px] text-gray-600 mt-1 leading-relaxed">{x.d}</div>
-                    </div>
-                  </div>
-                </Reveal>
-              ))}
-              <Reveal delay={320}>
-                <div className="flex flex-wrap gap-2 text-[11px] font-bold">
-                  {L.reqChips.map((chip, i) => (
-                    <span key={chip} className={`px-3 py-1 rounded-full ${i === 0 ? "bg-maroon text-white" : i === 3 ? "bg-gold text-maroon" : "bg-white text-maroon border border-maroon/30"}`}>{chip}</span>
-                  ))}
-                </div>
-              </Reveal>
+            <div className="mx-auto max-w-3xl">
+              <SectionHeading
+                eyebrow={L.pricingEyebrow}
+                title={L.pricingTitle(p99.price)}
+                subtitle={L.pricingFree(stats.free_first)}
+                telugu={te}
+                align="center"
+              />
             </div>
-
-            {/* RIGHT: WhatsApp mockup (real message we send) */}
-            <Reveal delay={140}>
-              <div className="rounded-3xl overflow-hidden card-shadow-lg border border-black/10 bg-[#0b141a]">
-                <div className="bg-[#202c33] px-4 py-3 flex items-center gap-3">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={SITE_CONFIG.logoImage} alt="మన వివాహ" width={36} height={36} className="w-9 h-9 rounded-full object-cover shrink-0" />
-                  <div className="min-w-0 flex-1">
-                    <div className="text-white text-[13px] font-bold truncate telugu">మన వివాహ</div>
-                    <div className="text-[10px] text-emerald-300 truncate">🟢 online • verified business</div>
-                  </div>
-                  <div className="shrink-0 flex flex-col items-end gap-1">
-                    <span className="text-[9px] px-2 py-0.5 rounded-full bg-white/10 text-gray-300 font-bold whitespace-nowrap">{te ? "నమూనా" : "Sample"}</span>
-                    <span className="text-[9px] text-gray-400 whitespace-nowrap">🔒 {te ? "సురక్షితం" : "secured"}</span>
-                  </div>
-                </div>
-                <div className="p-3 space-y-2 dotted-bg">
-                  <div className="bg-[#005c4b] text-white text-[12px] rounded-xl rounded-tl-sm p-3 leading-relaxed max-w-[95%]">
-                    <div className="font-bold">{te ? "💌 MANA VIVAHA — మీ profile కి INTEREST వచ్చింది!" : "💌 MANA VIVAHA — INTEREST on your profile!"}</div>
-                    <div className="opacity-90 mt-1">{te ? <>ఒక person మీ profile చూసి <b>&quot;interesting గా ఉన్నారు&quot;</b> అని request పెట్టారు 👇</> : <>Someone saw your profile and sent a request saying <b>&quot;you look interesting&quot;</b> 👇</>}</div>
-                    <div className="mt-2 pl-1 border-l-2 border-white/30">
-                      👤 <b>Kiran Kumar Reddy</b> (29y)<br />
-                      🎓 MBBS MD • 💼 Doctor, Apollo<br />
-                      📍 Nalgonda, TS • 💍 Reddy<br />
-                      ⭐ <b>82% match</b>
-                    </div>
-                    <div className="mt-2 opacity-90">{te ? "✅ Accept చేస్తే → వాళ్ల number మీకు WhatsApp లో" : "✅ On accept → their number comes to your WhatsApp"}</div>
-                    <div className="text-[10px] opacity-70 mt-2 text-right">11:42 ✓✓</div>
-                  </div>
-                  <div className="bg-[#202c33] text-white text-[12px] rounded-xl p-3 max-w-[80%]">
-{te ? "Profile card + photo ఇక్కడే వస్తుంది 🎴" : "Profile card + photo arrives here 🎴"}
-                    <div className="text-[10px] opacity-70 mt-1">attachment: KAM001.png</div>
-                  </div>
-                  <div className="flex gap-2 pt-1">
-                    <button className="flex-1 bg-emerald-600 text-white text-[12px] font-bold rounded-xl py-2">✅ Accept</button>
-                    <button className="flex-1 bg-white/10 text-white text-[12px] font-bold rounded-xl py-2">❌ Decline (refund)</button>
-                  </div>
-                  <div className="text-[10px] text-gray-400 text-center pt-1">
-                    🛡️ {te ? "మీ number safe గా ఉంటుంది — accept చేస్తేనే exchange" : "Your number stays safe — exchanged only on accept"}
-                  </div>
-                </div>
-              </div>
-            </Reveal>
-          </div>
-
-          {/* Pricing strip (LIVE) */}
-          <div className="mt-6 grid grid-cols-3 gap-3">
-            {[L.priceStrip(p99, L.priceTags[0]), L.priceStrip(p199, L.priceTags[1]), L.priceStrip(p299, L.priceTags[2])].map((x, i) => (
-              <Reveal key={x.p} delay={i * 70}>
-                <div className="bg-white rounded-2xl p-3 text-center card-shadow border border-gold/25">
-                  <div className="text-xl font-bold text-maroon">{x.p}</div>
-                  <div className="text-[12px] font-bold text-ink">{x.n}</div>
-                  <div className="text-[10px] text-gray-500">{x.s}</div>
-                </div>
+          </Reveal>
+          <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {paidPlans.map((plan, index) => (
+              <Reveal key={plan.code} delay={index * 45}>
+                <article className="h-full rounded-3xl border border-gold/30 bg-white p-5 text-center shadow-sm sm:p-6">
+                  <h3 className="text-base font-bold text-maroon">{plan.name}</h3>
+                  <p className="mt-2 text-2xl font-extrabold text-maroon">₹{plan.price}</p>
+                  <p className="mt-1 text-sm leading-relaxed text-gray-600">{plan.credits}</p>
+                </article>
               </Reveal>
             ))}
           </div>
-        </div>
-      </section>
-
-      {/* ================= CHANNELS: REGION + RELIGION ================= */}
-      <section className="max-w-7xl mx-auto px-4 py-8">
-        <Reveal>
-          <SectionHeading
-            eyebrow={L.chEyebrow}
-            title={L.chTitle(hs.channels_total)}
-            subtitle={L.chSub}
-            telugu={lang === "te"}
-            action={{ href: "/channels", label: L.chAction(hs.channels_total) }}
-          />
-        </Reveal>
-
-        <div className="mt-5 grid grid-cols-2 md:grid-cols-5 gap-3">
-          {[...regionChannels, ...religionChannels].slice(0, 10).map((ch, i) => (
-            <Reveal key={ch.key} delay={i * 50}>
-              <div
-                className={`flex flex-col justify-between rounded-2xl p-3.5 text-white card-shadow h-full ${
-                  ch.key.startsWith("ts") ? "maroon-gradient" : ch.tier === "L2_RELIGION" ? "navy-gradient" : "maroon-gradient"
-                }`}
-              >
-                <div>
-                  <div className="text-[13px] font-bold leading-tight">{ch.name}</div>
-                  <div className="text-[11px] opacity-85 mt-1">
-                    🟢 {lang === "te" ? "LIVE ఛానల్" : "LIVE Channel"}
-                  </div>
-                </div>
-
-                <div className="mt-3 flex items-center gap-1.5 pt-2 border-t border-white/20">
-                  <a
-                    href={ch.link || `https://t.me/TSAP_${ch.key.toUpperCase()}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="flex-1 inline-flex items-center justify-center gap-1 bg-[#229ED9] text-white py-1.5 px-2 rounded-xl text-[10px] font-bold shadow-soft hover:brightness-110 active:scale-95 transition"
-                    title="Join on Telegram"
-                  >
-                    <TelegramIcon className="w-3 h-3" mono />
-                    <span>Telegram</span>
-                  </a>
-                  <a
-                    href={waLink(ch.key)}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="flex-1 inline-flex items-center justify-center gap-1 bg-[#25D366] text-white py-1.5 px-2 rounded-xl text-[10px] font-bold shadow-soft hover:brightness-110 active:scale-95 transition"
-                    title="Join on WhatsApp"
-                  >
-                    <WhatsAppIcon className="w-3 h-3" mono />
-                    <span>WhatsApp</span>
-                  </a>
-                </div>
-              </div>
-            </Reveal>
-          ))}
-        </div>
-
-        {/* Channel post flow explainer */}
-        <Reveal>
-          <div className="mt-5 bg-white rounded-2xl p-5 card-shadow border border-gold/25">
-            <div className="font-bold text-maroon text-[15px]">{L.flowTitle}</div>
-            <div className="mt-3 grid md:grid-cols-4 gap-3 text-[12px]">
-              {L.flow.map((f) => (
-                <div key={f.t} className="bg-cream rounded-xl p-3">
-                  <div className="font-bold text-maroon">{f.t}</div>
-                  <div className="text-gray-600 mt-1">{f.d}</div>
-                </div>
-              ))}
-            </div>
-            <div className="mt-3 bg-navy text-white rounded-xl p-3 text-[11px]">
-              {te
-                ? <>ఉదా: Reddy + TS + Software job → <span className="text-gold font-bold">TS Bride/Groom + Reddy + Software</span> ఛానళ్లలో ప్రొఫైల్ కనిపిస్తుంది</>
-                : <>e.g. Reddy + TS + Software job → profile shows in <span className="text-gold font-bold">TS Bride/Groom + Reddy + Software</span> channels</>}
-            </div>
+          <div className="mt-4 flex justify-center">
+            <Link href="/pricing" className="inline-flex min-h-11 items-center justify-center rounded-full border border-maroon/30 bg-white px-5 py-2.5 text-center text-sm font-bold text-maroon transition hover:bg-rose-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-maroon focus-visible:ring-offset-2">
+              {L.pricingLink} <span aria-hidden="true" className="ml-1">→</span>
+            </Link>
           </div>
-        </Reveal>
-      </section>
+        </section>
+      )}
 
-      {/* ================= CASTES ================= */}
-      <section className="max-w-7xl mx-auto px-4 py-8">
-        <Reveal>
-          <SectionHeading
-            eyebrow={L.casteEyebrow}
-            title={L.casteTitle(hs.channels_by_tier.L3_CASTE ?? 27)}
-            subtitle={L.casteSub}
-            telugu={lang === "te"}
-            action={{ href: "/castes", label: L.casteAction }}
-          />
-        </Reveal>
-        <div className="mt-5 grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
-          {casteChannels.slice(0, 24).map((c, i) => {
-            const cleanName = c.name.replace(/^💍 /, "").replace(" Matrimony", "").replace(" | TS-AP", "").split("|")[0].trim();
-            return (
-              <Reveal key={c.key} delay={i * 20}>
-                <Link
-                  href={`/matches?caste=${encodeURIComponent(cleanName.split("•")[0].trim())}`}
-                  className="block bg-white rounded-2xl p-3.5 border border-gold/25 hover:border-gold hover-lift h-full shadow-sm transition"
-                >
-                  <div className="flex items-start justify-between gap-1">
-                    <div className="text-[13px] font-bold text-[#7A0C2E] leading-tight">
-                      {cleanName}
-                    </div>
-                  </div>
-                  <div className="text-[10px] text-emerald-700 font-bold mt-2 flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                    100% LIVE
-                  </div>
-                </Link>
+      {SITE_CONFIG.features.showFaq && (
+        <section className="mx-auto max-w-4xl px-4 py-8" aria-label={L.faqTitle}>
+          <Reveal>
+            <SectionHeading eyebrow={L.faqEyebrow} title={L.faqTitle} align="center" />
+          </Reveal>
+          <div className="mt-5 space-y-2.5">
+            {FAQs.map((item, index) => (
+              <Reveal key={item.q} delay={index * 35}>
+                <article className="overflow-hidden rounded-2xl border border-gold/25 bg-white shadow-sm">
+                  <h3>
+                    <button
+                      type="button"
+                      onClick={() => setOpenFaq(openFaq === index ? null : index)}
+                      aria-expanded={openFaq === index}
+                      className="flex min-h-12 w-full items-center justify-between gap-3 px-4 py-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-maroon sm:px-5"
+                    >
+                      <span className="text-sm font-bold text-maroon">{item.q}</span>
+                      <span aria-hidden="true" className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full maroon-gradient text-sm text-white transition-transform ${openFaq === index ? "rotate-45" : ""}`}>+</span>
+                    </button>
+                  </h3>
+                  {openFaq === index && (
+                    <p className="px-4 pb-4 text-sm leading-relaxed text-gray-700 sm:px-5">{item.a}</p>
+                  )}
+                </article>
               </Reveal>
-            );
-          })}
-        </div>
-        <div className="mt-4 text-[13px] text-gray-700 flex items-center justify-between flex-wrap gap-2">
-          <span>{L.casteMore(Math.max(0, casteChannels.length - 24))}</span>
-          <Link href="/castes" className="font-extrabold text-[#7A0C2E] underline underline-offset-4 hover:text-[#9B1138]">
-            {L.casteFull} →
+            ))}
+          </div>
+        </section>
+      )}
+
+      <section className="mx-auto max-w-7xl px-4 py-3" aria-label={te ? "భద్రత మరియు గోప్యత" : "Safety and privacy"}>
+        <div className="flex flex-col gap-3 rounded-2xl border border-rose-200 bg-white px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+          <p className="max-w-4xl text-sm leading-relaxed text-slate-700">{L.safety}</p>
+          <Link href="/safety" className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-full border border-maroon/25 px-4 py-2 text-xs font-bold text-maroon transition hover:bg-rose-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-maroon focus-visible:ring-offset-2">
+            {L.safetyLink} <span aria-hidden="true" className="ml-1">→</span>
           </Link>
         </div>
       </section>
 
-      {/* ================= SPECIAL CATEGORIES ================= */}
-      <section className="max-w-7xl mx-auto px-4 py-8">
-        <Reveal>
-          <SectionHeading
-            eyebrow={L.spEyebrow}
-            title={L.spTitle}
-            subtitle={L.spSub}
-            telugu={lang === "te"}
-          />
-        </Reveal>
-        <div className="mt-5 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-          {specialChannels.map((sp, i) => (
-            <Reveal key={sp.key} delay={i * 40}>
-              <Link
-                href="/channels?tier=L4_SPECIAL"
-                className="block bg-white rounded-2xl p-4 card-shadow border border-gold/20 h-full hover-lift"
-              >
-                <div className="text-xl" aria-hidden>{sp.name.split(" ")[0]}</div>
-                <div className="font-bold text-[13px] text-maroon mt-1.5">
-                  {sp.name.replace(/^[^\s]+\s/, "")}
-                </div>
-                <div className="text-[11px] text-gray-600 mt-1 line-clamp-2">{sp.desc}</div>
-                <div className="text-[10px] mt-2 font-bold text-emerald-700">
-                  LIVE ✅
-                </div>
-              </Link>
-            </Reveal>
-          ))}
-        </div>
-      </section>
-
-      {/* ================= 🪔 TRADITIONAL LAGNA PATRIKA STUDIO ================= */}
-      <section className="max-w-7xl mx-auto px-4 py-6">
-        <Reveal>
-          <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-[#FFFDF0] via-[#FFF9D6] to-[#FFE6A7] border-2 border-gold/40 p-6 sm:p-10 shadow-xl">
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
-              <div className="md:col-span-8 space-y-3">
-                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-maroon/10 border border-maroon/30 text-maroon text-xs font-bold">
-                  <span>🪔</span>
-                  <span>{te ? "ఉచిత డిజిటల్ లగ్న పత్రిక స్టూడియో" : "100% Free Traditional Lagna Patrika"}</span>
-                </div>
-                <h3 className="text-2xl sm:text-3xl font-extrabold text-maroon">
-                  {te ? "💍 శుభ లగ్న పత్రికను 1 నిమిషంలో తయారుచేసుకోండి" : "Generate Auspicious Lagna Patrika in 1 Minute"}
-                </h3>
-                <p className="text-xs sm:text-sm text-gray-700 leading-relaxed max-w-xl">
-                  {te
-                    ? "పెళ్లి కుదిరిన జంటల కొరకు వేద మంత్రాలు, శుభ ముహూర్తం, రాశి-నక్షత్రం మరియు వేదిక వివరాలతో కూడిన సాంప్రదాయ ఆహ్వాన పత్రిక. WhatsApp లో బంధుమిత్రులకు నేరుగా షేర్ చేయండి."
-                    : "Create authentic Telugu Lagna Patrika with Sanskrit slokas, muhurtham timings & HD photo export ready for WhatsApp."}
-                </p>
-                <div className="flex flex-wrap items-center gap-3 pt-2">
-                  <Link
-                    href="/lagna-patrika"
-                    className="inline-flex items-center gap-2 px-6 py-3 bg-maroon hover:bg-maroon-dark text-white rounded-full text-xs font-bold shadow-lg hover-lift transition"
-                  >
-                    <span>📜 {te ? "లగ్న పత్రిక తయారుచేయండి" : "Open Lagna Patrika Studio"}</span>
-                  </Link>
-                  <Link
-                    href="/biodata"
-                    className="inline-flex items-center gap-2 px-5 py-3 bg-white/90 hover:bg-white border border-gold/40 text-maroon rounded-full text-xs font-bold shadow-sm transition"
-                  >
-                    <span>🎴 {te ? "ఉచిత వివాహ బయోడేటా" : "Free Biodata Maker"}</span>
-                  </Link>
-                </div>
-              </div>
-
-              <div className="md:col-span-4 text-center">
-                <div className="inline-block p-4 bg-white/90 rounded-2xl shadow-lg border border-gold/40 transform md:rotate-2 hover:rotate-0 transition duration-300">
-                  <div className="text-3xl mb-1">🪔 📜 💍</div>
-                  <div className="text-sm font-extrabold text-maroon">॥ శ్రీరస్తు • శుభమస్తు ॥</div>
-                  <div className="text-[11px] text-gray-600 mt-1">4 రాయల్ గోల్డ్ థీమ్స్ • HD డౌన్‌లోడ్</div>
-                  <div className="mt-3 px-3 py-1 bg-gold/20 text-maroon rounded-full text-[10px] font-bold">
-                    WhatsApp ఆహ్వానం రెడీ
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </Reveal>
-      </section>
-
-      {/* ================= 💐 REAL WEDDINGS FILM REEL & STORIES ================= */}
-      <RealWeddingsFilm />
-
-      {/* ================= SPONSORED PROMO & FESTIVAL OFFERS ================= */}
-      <section className="max-w-7xl mx-auto px-4 py-2">
-        <OffersBanner />
-      </section>
-
-      {/* ================= 🏪 WEDDING SERVICES & VERIFIED VENDORS (VendorStrip /api/vendors/ads) ================= */}
+      {/* The optional vendor marketplace follows the member trust/pricing journey rather than interrupting it. */}
       <HomeVendorsShowcase />
 
-      {/* ================= PRICING ================= */}
-      {SITE_CONFIG.features.showPricing && (
-      <section className="max-w-7xl mx-auto px-4 py-8">
+      <section className="mx-auto max-w-7xl px-4 py-6 sm:py-8">
         <Reveal>
-          <SectionHeading
-            eyebrow={L.pricingEyebrow}
-            title={L.pricingTitle}
-            subtitle={L.pricingSub(hs.free_first, p99, p199, p299, p499)}
-            telugu={lang === "te"}
-            align="center"
-          />
-        </Reveal>
-        <div className="mt-6 grid sm:grid-cols-2 lg:grid-cols-5 gap-4">
-          {PLANS.map((p, i) => (
-            <Reveal key={p.name} delay={i * 90}>
-              <div
-                className={`relative rounded-3xl p-5 h-full ${
-                  (p as { popular?: boolean }).popular
-                    ? "bg-white border-2 border-gold card-shadow-lg"
-                    : "bg-white border border-gold/20 card-shadow"
-                }`}
-              >
-                {(p as { popular?: boolean }).popular && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 text-[10px] gold-gradient text-maroon px-3 py-1 rounded-full font-bold shadow-gold">
-                    POPULAR
-                  </div>
-                )}
-                <div className="text-[11px] font-bold text-gold-deep tracking-widest uppercase">{p.tag}</div>
-                <div className="font-bold text-maroon text-lg mt-1">{p.name}</div>
-                <div className="mt-2 flex items-end gap-1">
-                  <span className="text-3xl font-bold text-maroon">{p.price}</span>
-                  <span className="text-[11px] text-gray-500 mb-1">one-time</span>
-                </div>
-                <div className="text-[11px] text-gray-600 mt-1">{p.credits}</div>
-                <div className="mt-3 space-y-1.5">
-                  {p.features.map((f) => (
-                    <div key={f} className="text-[12px] flex gap-2">
-                      <span className="text-green-600 font-bold">✓</span>
-                      <span className="text-gray-700">{f}</span>
-                    </div>
-                  ))}
-                </div>
-                <Link
-                  href="/register"
-                  className={`block text-center mt-4 py-3 rounded-full text-[13px] font-bold ${
-                    (p as { popular?: boolean }).popular ? "gold-gradient text-maroon" : "maroon-gradient text-white"
-                  }`}
-                >
-                  {p.price === "₹0" ? L.planCtaFree : L.planCtaPay(p.price)}
+          <div className="relative overflow-hidden rounded-3xl maroon-gradient p-5 text-white sm:p-8">
+            <div className="pointer-events-none absolute -right-10 -top-14 h-48 w-48 rounded-full bg-gold/20 blur-3xl" aria-hidden="true" />
+            <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="max-w-2xl">
+                <h2 className="text-xl font-extrabold leading-snug sm:text-2xl">{L.ctaTitle}</h2>
+                <p className="mt-2 text-sm leading-relaxed text-white/90">{L.ctaSub}</p>
+              </div>
+              <div className="flex shrink-0 flex-wrap gap-2">
+                <Link href="/register" className="inline-flex min-h-11 items-center justify-center rounded-full gold-gradient px-5 py-2.5 text-sm font-bold text-maroon shadow-gold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-maroon">
+                  {L.register} <span aria-hidden="true" className="ml-1">→</span>
                 </Link>
-                <div className="mt-2 text-[10px] text-center text-gray-400">{L.planSecure}</div>
-              </div>
-            </Reveal>
-          ))}
-        </div>
-
-        {/* 🎁 ADD-ONS */}
-        <Reveal delay={120}>
-          <div className="mt-6 rounded-3xl bg-white border border-gold/30 card-shadow p-5">
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="font-bold text-maroon">{L.addonTitle}</div>
-              <span className="text-[10px] font-bold bg-cream border border-gold/40 px-2 py-0.5 rounded-full">{L.addonTag}</span>
-            </div>
-            <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-3">
-              {[
-                { p: "₹49", t: lang === "te" ? "Profile Boost" : "Profile Boost", d: lang === "te" ? "7 days channel top లో" : "7 days at channel top" },
-                { p: "₹49", t: lang === "te" ? "Who viewed me" : "Who viewed me", d: lang === "te" ? "30 days — names తో" : "30 days — with names" },
-                { p: "₹99", t: lang === "te" ? "వేద గుణమేళనం రిపోర్ట్" : "వేద గుణమేళనం రిపోర్ట్", d: lang === "te" ? "Full kundli match (Telugu)" : "Full kundli match (Telugu)" },
-                { p: "₹199", t: lang === "te" ? "Photo verify badge" : "Photo verify badge", d: lang === "te" ? "ప్రొఫైల్ నమ్మకాన్ని పెంచుతుంది" : "Builds profile trust" },
-              ].map((a) => (
-                <div key={a.t} className="rounded-2xl bg-cream border border-gold/25 p-3">
-                  <div className="text-lg font-bold text-maroon">{a.p}</div>
-                  <div className="text-[12px] font-bold text-ink">{a.t}</div>
-                  <div className="text-[10px] text-gray-600">{a.d}</div>
-                </div>
-              ))}
-            </div>
-            <div className="mt-3 text-[11px] text-gray-600">
-              {L.renewalLine(hs.renewal, bureau0)}
-            </div>
-            <div className="mt-3 flex flex-wrap gap-2">
-              <Link href="/requests" className="text-[12px] font-bold maroon-gradient text-white px-4 py-2 rounded-full">{L.addonCta1}</Link>
-              <Link href="/requests" className="text-[12px] font-bold border border-maroon/30 text-maroon px-4 py-2 rounded-full">{L.addonCta2}</Link>
-            </div>
-          </div>
-        </Reveal>
-      </section>
-      )}
-
-      {/* ================= REFERRAL + BUREAU ================= */}
-      <section className="max-w-7xl mx-auto px-4 py-8 grid md:grid-cols-2 gap-5">
-        <Reveal>
-          <div className="bg-white rounded-3xl p-6 card-shadow border border-gold/20 h-full">
-            <div className="font-bold text-maroon text-[16px]">{L.refTitle}</div>
-            <div className="text-[12px] text-gray-600 mt-1.5 telugu">
-              {L.refSub(hs.referral.per_pay)}
-            </div>
-            <div className="mt-4 grid grid-cols-3 gap-2.5 text-center">
-              {L.refCards(hs.referral.per_pay, ms25).map((x) => (
-                <div key={x.k} className="bg-cream rounded-xl p-3">
-                  <div className="font-bold text-maroon text-[15px]">{x.v}</div>
-                  <div className="text-[10px] text-gray-500 mt-0.5">{x.k}</div>
-                </div>
-              ))}
-            </div>
-            <div className="mt-4 flex gap-2">
-              <Link href="/referral" className="px-4 py-2.5 maroon-gradient text-white rounded-full text-[12px] font-bold">
-                {L.refCta1}
-              </Link>
-              <Link href="/referral/register" className="px-4 py-2.5 border border-gold text-maroon rounded-full text-[12px] font-bold">
-                {L.refCta2}
-              </Link>
-            </div>
-          </div>
-        </Reveal>
-
-        <Reveal delay={100}>
-          <div className="navy-gradient rounded-3xl p-6 text-white h-full">
-            <div className="font-bold text-gold text-[16px]">{L.burTitle}</div>
-            <div className="text-[12px] opacity-85 mt-1.5 telugu">
-              {L.burSub}
-            </div>
-            <div className="mt-4 bg-white/10 rounded-2xl p-4">
-              <div className="font-bold text-[15px]">{L.burName(bureau0)}</div>
-              <div className="text-[12px] opacity-85 mt-1.5 space-y-1">
-                {bureau0.perks.map((perk) => (
-                  <div key={perk}>✓ {perk}</div>
-                ))}
-              </div>
-            </div>
-            <div className="mt-4 flex flex-wrap gap-2">
-              <Link href="/bureau" className="px-4 py-2.5 bg-white text-navy rounded-full text-[12px] font-bold">
-                {L.burDash}
-              </Link>
-              <span className="px-4 py-2.5 bg-gold text-navy rounded-full text-[12px] font-bold">
-                {L.burOpen}
-              </span>
-            </div>
-          </div>
-        </Reveal>
-      </section>
-
-      {/* ================= FAQ ================= */}
-      {SITE_CONFIG.features.showFaq && (
-      <section className="max-w-4xl mx-auto px-4 py-8">
-        <Reveal>
-          <SectionHeading
-            eyebrow={L.faqEyebrow}
-            title={L.faqTitle}
-            align="center"
-          />
-        </Reveal>
-        <div className="mt-6 space-y-3">
-          {FAQS.map((f, i) => (
-            <Reveal key={f.q} delay={i * 40}>
-              <div className="bg-white rounded-2xl border border-gold/20 card-shadow overflow-hidden">
-                <button
-                  onClick={() => setOpenFaq(openFaq === i ? null : i)}
-                  aria-expanded={openFaq === i}
-                  className="w-full flex items-center justify-between gap-3 px-5 py-4 text-left focus-brand"
-                >
-                  <span className="font-bold text-[13.5px] text-maroon">{f.q}</span>
-                  <span
-                    className={`w-7 h-7 shrink-0 rounded-full maroon-gradient text-white flex items-center justify-center text-sm transition-transform ${
-                      openFaq === i ? "rotate-45" : ""
-                    }`}
-                    aria-hidden
-                  >
-                    +
-                  </span>
-                </button>
-                <div className={`faq-body px-5 ${openFaq === i ? "open" : ""}`}>
-                  <div className="pb-4 text-[12.5px] text-gray-700 leading-relaxed telugu">{f.a}</div>
-                </div>
-              </div>
-            </Reveal>
-          ))}
-        </div>
-      </section>
-      )}
-
-      {/* ================= FINAL CTA ================= */}
-      <section className="max-w-7xl mx-auto px-4 py-10">
-        <Reveal>
-          <div className="maroon-gradient rounded-[2rem] p-8 md:p-10 text-white relative overflow-hidden">
-            <div className="absolute -top-16 -right-16 w-64 h-64 rounded-full bg-gold/20 blur-3xl" />
-            <div className="relative md:flex items-center justify-between gap-6">
-              <div>
-                <h2 className="text-2xl md:text-3xl font-bold leading-snug">
-                  {L.ctaTitle}
-                </h2>
-                <p className="mt-2 text-[13px] opacity-90 telugu max-w-xl">
-                  {L.ctaSub(hs.channels_total, hs.free_first, p99, p199, p299, p499)}
-                </p>
-                <div className="mt-4 flex flex-wrap gap-3">
-                  <Link
-                    href="/register"
-                    className="px-6 py-3.5 rounded-full gold-gradient text-maroon text-sm font-bold shadow-gold"
-                  >
-                    🚀 {L.ctaReg}
-                  </Link>
-                  <a
-                    href={BOT}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="px-6 py-3.5 rounded-full bg-white/15 border border-white/30 text-white text-sm font-bold"
-                  >
-                    ✈️ {L.ctaBot}
-                  </a>
-                </div>
-              </div>
-              <div className="mt-6 md:mt-0 text-center shrink-0">
-                <div className="text-[11px] opacity-80">ID search</div>
-                <div className="font-mono text-gold text-lg">{SITE_CONFIG.domain}/search</div>
-                <div className="text-[11px] opacity-80 mt-2">Telegram</div>
-                <div className="font-mono text-gold text-lg">{SITE_CONFIG.officialChannel}</div>
+                <Link href="/matches" className="inline-flex min-h-11 items-center justify-center rounded-full border border-white/50 bg-white/10 px-5 py-2.5 text-sm font-bold text-white transition hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-maroon">
+                  {L.browse}
+                </Link>
               </div>
             </div>
           </div>
         </Reveal>
       </section>
-    {/* 🛡️ WAVE 9 — Trust & security (live numbers) */}
-    <section className="max-w-7xl mx-auto px-4 py-8">
-      <SectionHeading title={L.trustTitle}
-        subtitle={L.trustSub} />
-      <div className="mt-5 grid gap-4 md:grid-cols-3">
-        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
-          <p className="text-2xl font-extrabold text-emerald-900">{trustBoard ? `${trustBoard.average_trust}/100` : "—"}</p>
-          <p className="text-[13px] font-semibold text-emerald-900">{L.trustAvg(trustBoard?.count)}</p>
-          <p className="mt-1 text-[12px] text-emerald-800">{L.trustAvgD}</p>
-        </div>
-        <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4">
-          <p className="text-[13px] font-bold text-rose-900">{L.trustNum}</p>
-          <p className="mt-1 text-[12px] text-rose-800">{String(posture?.numbers_policy || L.trustNumD)}</p>
-          <p className="mt-2 text-[12px] font-semibold text-rose-900">{L.trustFree(hs.free_first, p99)}</p>
-        </div>
-        <div className="rounded-2xl border border-sky-200 bg-sky-50 p-4">
-          <p className="text-[13px] font-bold text-sky-900">{L.trustAbuse}</p>
-          <ul className="mt-1 space-y-1 text-[12px] text-sky-900">
-            <li>🔐 {L.trustAuth}: {L.trustAuthD(!!posture?.auth_enforced)}</li>
-            <li>💳 {te ? "సురక్షిత payment — డబుల్ చార్జ్ కాదు" : "Secure payment — no double charging"}</li>
-            <li>📜 {te ? "నంబర్ ఇచ్చినప్పుడు record ఉంటుంది" : "Number sharing is always recorded"}</li>
-          </ul>
-        </div>
-      </div>
-      {trustBoard?.board?.length ? (
-        <div className="mt-4 flex flex-wrap gap-2">
-          {trustBoard.board.map((b) => (
-            <Link key={String(b.tsap_id)} href={`/search/${b.tsap_id}`}
-              className="rounded-full border border-gold/40 bg-white px-3 py-1.5 text-[11px] font-semibold text-maroon hover:bg-cream">
-              {String(b.badge_telugu || "⭐")} {String(b.tsap_id)} · {String(b.trust_score)}/100
-            </Link>
-          ))}
-        </div>
-      ) : null}
-      <p className="mt-3 text-[12px] text-gray-600">
-        {L.trustLive}
-      </p>
-    </section>
-      <FinalCta />
     </div>
   );
 }

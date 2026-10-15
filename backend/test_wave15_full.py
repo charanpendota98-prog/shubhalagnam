@@ -12,15 +12,24 @@
 
 Run:  WA_TEST_FAST=1 python3 test_wave15_full.py   (backend/ nunchi)
 """
+import atexit
 import os
 import re
 import sys
+import tempfile
 
 os.environ.setdefault("WA_TEST_FAST", "1")
 os.environ.setdefault("OTP_DEV_MODE", "true")
 os.environ.setdefault("WA_LONG_PAUSE_CHANCE", "0")
 os.environ.setdefault("WHATSAPP_MODE", "off")
+# Never let this scenario test read, delete, or overwrite the application's CMS store.
+_TEST_CMS_DIR = tempfile.TemporaryDirectory(prefix="mana-vivaha-cms-test-")
+atexit.register(_TEST_CMS_DIR.cleanup)
+os.environ["MANA_VIVAHA_CMS_FILE"] = os.path.join(_TEST_CMS_DIR.name, "cms-test.json")
+os.environ["MANA_VIVAHA_CHANMAP_FILE"] = os.path.join(_TEST_CMS_DIR.name, "chanmap-test.json")
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from test_storage import isolate_test_stores  # noqa: E402
+isolate_test_stores("wave15")
 
 PASS, FAIL, FAILED = 0, 0, []
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -62,30 +71,32 @@ section("A. CMS PURE")
 # ═══════════════════════════════════════════════════════════════════════════
 r = CMS.upsert_page("about-test", "About EN", "గురించి", "Body EN", "బాడీ TE",
                     photos=["/x.jpg", "bad", "https://a/b.png"], tags="Info, TRUST, info")
-check("A1 page create + photo/tag clean", r["success"] and r["page"]["photos"] == ["/x.jpg", "https://a/b.png"]
-      and r["page"]["tags"] == ["info", "trust"], r.get("page"))
+check("A1 new page defaults to draft + photo/tag clean", r["success"] and not r["page"]["published"]
+      and r["page"]["photos"] == ["/x.jpg", "https://a/b.png"]
+      and r["page"]["tags"] == ["info", "trust"] and CMS.list_pages(True) == [], r.get("page"))
 r = CMS.upsert_page("Bad Slug!", "T", "")
 check("A2 bad slug reject", r["success"] is False, r)
 r = CMS.upsert_page("about-test", "About EN2", "", published=False)
 check("A3 same slug update + unpublish", r["success"] and CMS.get_page("about-test")["title_en"] == "About EN2"
       and CMS.list_pages(True) == [], r)
 s = CMS.upsert_story("", "GroomA", "BrideB", "/couple.jpg", "EN story", "TE story", "Hyd", "2026-01-01",
-                     tags=["hyd"])
+                     tags=["hyd"], published=True)
 check("A4 story create ST-id", s["success"] and s["story"]["id"].startswith("ST-"), s)
 s2 = CMS.upsert_story("", "", "BrideB")
 check("A5 story names required", s2["success"] is False, s2)
 check("A6 stories tag filter", len(CMS.list_stories("hyd")) == 1 and CMS.list_stories("zzz") == [])
-b = CMS.upsert_banner("", "Offer EN", "ఆఫర్", "/pricing", ["home", "pricing"])
+b = CMS.upsert_banner("", "Offer EN", "ఆఫర్", "/pricing", ["home", "pricing"], active=True)
 check("A7 banner create BN-id", b["success"] and b["banner"]["id"].startswith("BN-"), b)
 check("A8 banners page filter", len(CMS.list_banners("home")) == 1 and CMS.list_banners("matches") == [])
 d = CMS.delete_item("page", "about-test")
 check("A9 delete page", d["success"] and CMS.get_page("about-test") is None, d)
 d = CMS.delete_item("page", "nope")
 check("A10 delete missing fail", d["success"] is False, d)
-sd = CMS.seed_cms()
-check("A11 seed pages+stories", sd["success"] and CMS.get_page("about-us") is not None
-      and len(CMS.STORIES) >= 1, sd)
-check("A12 tags + stats", "info" in CMS.all_tags() and CMS.cms_stats()["pages"] >= 2, CMS.cms_stats())
+check("A11 production CMS demo-seed helper removed", not hasattr(CMS, "seed_cms"))
+_stats = CMS.cms_stats()
+check("A12 tags + stats reflect only explicit test records",
+      "hyd" in CMS.all_tags() and _stats["pages"] == 0 and _stats["stories"] == 1 and _stats["banners"] == 1,
+      _stats)
 
 # ═══════════════════════════════════════════════════════════════════════════
 section("B. CMS API")
@@ -102,13 +113,14 @@ tg_api = client.get("/api/cms/tags").json()
 check("B5 public tags", tg_api["success"] and "hyd" in tg_api["tags"], tg_api)
 cp = client.post("/api/admin/cms/pages", json={"slug": "w15-test", "title_en": "W15", "title_te": "టెస్ట్",
                                                "body_te": "ok"}, headers=HDR_ADMIN).json()
-check("B6 admin page create", cp["success"] and cp["page"]["slug"] == "w15-test", cp)
+check("B6 admin page create defaults to unpublished draft", cp["success"]
+      and cp["page"]["slug"] == "w15-test" and cp["page"]["published"] is False, cp)
 cp2 = client.post("/api/admin/cms/pages", json={"slug": "bad slug", "title_en": "x"}, headers=HDR_ADMIN)
 check("B7 admin bad slug 400", cp2.status_code == 400, cp2.status_code)
 cs = client.post("/api/admin/cms/stories", json={"groom": "A", "bride": "B"}, headers=HDR_ADMIN).json()
-check("B8 admin story create", cs["success"], cs)
+check("B8 admin story create defaults to unpublished draft", cs["success"] and cs["story"]["published"] is False, cs)
 cb = client.post("/api/admin/cms/banners", json={"text_en": "Hi", "pages": ["home"]}, headers=HDR_ADMIN).json()
-check("B9 admin banner create", cb["success"], cb)
+check("B9 admin banner create defaults to hidden", cb["success"] and cb["banner"]["active"] is False, cb)
 cd = client.post("/api/admin/cms/delete", json={"kind": "page", "id": "w15-test"}, headers=HDR_ADMIN).json()
 check("B10 admin delete", cd["success"], cd)
 _saved = os.environ.pop("WA_TEST_FAST", None)
@@ -118,20 +130,26 @@ if _saved is not None:
     os.environ["WA_TEST_FAST"] = _saved
 full = client.get("/api/admin/cms", headers=HDR_ADMIN).json()
 check("B12 admin full dump + stats", full["success"] and full["stats"]["stories"] >= 2, full.get("stats"))
+seed_retired = client.post("/api/admin/cms/seed", headers=HDR_ADMIN)
+check("B13 CMS demo-seed endpoint is retired", seed_retired.status_code == 410, seed_retired.status_code)
 
 # ═══════════════════════════════════════════════════════════════════════════
 section("C. CHANMAP PURE")
 # ═══════════════════════════════════════════════════════════════════════════
 eff = CHAN.effective()
-check("C1 effective 52", len(eff) == 52, len(eff))
-check("C2 default t.me guess", next(e for e in eff if e["key"] == "ts_bride")["telegram"] == "https://t.me/TSBRIDE")
-sl = CHAN.set_link("ts_bride", "https://t.me/TSBRIDE", "https://whatsapp.com/channel/xyz123", True, "owner gave")
-check("C3 set_link ok", sl["success"] and CHAN.public_links()["ts_bride"]["whatsapp"].endswith("xyz123"), sl)
+check("C1 effective count matches canonical registry", len(eff) == CHAN.coverage()["total"] == 64, len(eff))
+check("C2 no Telegram invite is guessed from a registry username",
+      next(e for e in eff if e["key"] == "ts_bride")["telegram"] == "")
+valid_wa = "https://whatsapp.com/channel/0029VbDpD0N5kg74TpAbIz1R"
+sl = CHAN.set_link("ts_bride", "https://t.me/TSBRIDE", valid_wa, True, "owner gave")
+check("C3 set_link ok", sl["success"] and CHAN.public_links()["ts_bride"]["whatsapp"] == valid_wa, sl)
+sl = CHAN.set_link("ts_bride", "https://t.me/TSBRIDE", "https://wa.me/919999999999", True)
+check("C3b support chat is not accepted as a channel invite", sl["success"] is False, sl)
 sl = CHAN.set_link("ts_bride", "not-a-url")
 check("C4 bad URL reject", sl["success"] is False, sl)
 sl = CHAN.set_link("nope_key", "https://t.me/x")
 check("C5 bad key reject", sl["success"] is False, sl)
-imp = CHAN.import_bulk("TS Brides | https://t.me/TSBRIDE | https://whatsapp.com/channel/aaa\n"
+imp = CHAN.import_bulk("TS Brides | https://t.me/TSBRIDE | https://whatsapp.com/channel/0029VbDpD0N5kg74TpAbIz1R\n"
                        "ZZZ Unknown 12345 | https://t.me/zzzunknown", auto_apply=False)
 check("C6 import 1 match + 1 manual",
       imp["success"] and len(imp["matched"]) == 1 and imp["matched"][0]["key"] == "ts_bride"
@@ -143,7 +161,7 @@ check("C7 import auto-apply saves",
 imp3 = CHAN.import_bulk("")
 check("C8 empty import fail", imp3["success"] is False, imp3)
 cov = CHAN.coverage()
-check("C9 coverage shape", cov["success"] and cov["total"] == 52 and "L3_CASTE" in cov["by_tier"]
+check("C9 coverage shape", cov["success"] and cov["total"] == 64 and "L3_CASTE" in cov["by_tier"]
       and isinstance(cov["critical_gaps"], list), cov)
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -152,7 +170,7 @@ section("D. CHANMAP API")
 mp = client.get("/api/admin/channels/map?q=ts_bride", headers=HDR_ADMIN).json()
 check("D1 map search", mp["success"] and mp["count"] >= 1 and mp["channels"][0]["key"] == "ts_bride", mp)
 lk = client.post("/api/admin/channels/link", json={"key": "ap_bride", "telegram": "https://t.me/APBRIDE",
-                                                   "whatsapp": "https://whatsapp.com/channel/bbb"},
+                                                   "whatsapp": "https://whatsapp.com/channel/0029VbDpD0N5kg74TpAbIz1R"},
                  headers=HDR_ADMIN).json()
 check("D2 link save API", lk["success"], lk)
 pub = client.get("/api/channels/join").json()
@@ -161,7 +179,7 @@ im = client.post("/api/admin/channels/import", json={"text": "AP Grooms | https:
                                                      "auto_apply": True}, headers=HDR_ADMIN).json()
 check("D4 import API apply", im["success"] and im["applied"] == ["ap_groom"], im)
 cv = client.get("/api/admin/channels/coverage", headers=HDR_ADMIN).json()
-check("D5 coverage API", cv["success"] and cv["total"] == 52, cv)
+check("D5 coverage API", cv["success"] and cv["total"] == 64, cv)
 _saved = os.environ.pop("WA_TEST_FAST", None)
 na = client.post("/api/admin/channels/link", json={"key": "x"})
 check("D6 no key 403", na.status_code == 403, na.status_code)

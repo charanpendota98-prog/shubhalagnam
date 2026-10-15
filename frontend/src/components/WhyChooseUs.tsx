@@ -13,28 +13,28 @@ const COPY = {
   te: {
     eyebrow: "ఎందుకు మన వివాహ",
     title: "నమ్మకం, గోప్యత, గౌరవం — మూడూ ఒకేచోట",
-    sub: "తెలంగాణ & ఆంధ్రప్రదేశ్ కుటుంబాల నమ్మకమైన వేదిక — OTP ధృవీకరించిన ప్రొఫైల్స్. మీ వివరాలు సురక్షితం, మీ ఎంపిక మీ చేతిలో.",
+    sub: "తెలంగాణ & ఆంధ్రప్రదేశ్ కుటుంబాల కోసం. Phone OTP status, సభ్యులు అందించిన profile వివరాలు, మరియు contact-sharing controls‌ను స్పష్టంగా చూపిస్తాం. పరిచయాల వివరాలను స్వతంత్రంగా నిర్ధారించుకోండి.",
     features: [
-      { icon: "🛡️", t: "ధృవీకరించిన ప్రొఫైల్స్", d: "OTP + వయసు ధృవీకరణ — నకిలీ ప్రొఫైల్స్‌కి చోటు లేదు." },
-      { icon: "🔒", t: "ఫోటో గోప్యత", d: "మీ ఫోటోలు మీ అనుమతితోనే కనిపిస్తాయి — వాటర్‌మార్క్ రక్షణ." },
-      { icon: "🤝", t: "నేరుగా పరిచయం", d: "చాటింగ్ లేదు. రెండు వైపులా ఇష్టపడితేనే నంబర్ ఇచ్చిపుచ్చుకోవడం." },
-      { icon: "💰", t: "సరసమైన ధరలు", d: "₹29 నుంచి · మొదటి 3 ప్రొఫైల్స్ ఉచితం · దాచిన ఛార్జీలు లేవు." },
+      { icon: "📱", t: "Phone OTP status", d: "OTP ఆ phone number‌కు access‌ను నిర్ధారిస్తుంది; వ్యక్తి గుర్తింపును కాదు." },
+      { icon: "🔒", t: "ఫోటో గోప్యత", d: "Photo visibility‌ను మీరు ఎంచుకోండి; బయట share చేసిన కాపీలను service నియంత్రించలేదు." },
+      { icon: "🤝", t: "సమ్మతితో contact access", d: "In-app chat లేదు. Owner accept చేసిన తర్వాత accepted-request account views లో contact details కనిపిస్తాయి; notification delivery హామీ లేదు." },
+      { icon: "💰", t: "స్పష్టమైన ధరలు", d: "ఉచిత ప్లాన్‌లో 3 interest requests + profile card; paid plans ₹99 నుంచి. Add-ons వేరు కావచ్చు." },
     ],
     cta: "ఇప్పుడే మొదలుపెట్టండి",
-    badge: "ధృవీకరించిన ప్రొఫైల్స్ నెట్‌వర్క్",
+    badge: "సభ్యుల సమ్మతితో పరిచయాలు",
   },
   en: {
     eyebrow: "Why Mana Vivaha",
     title: "Trust, privacy and respect — all in one place",
-    sub: "A trusted platform for Telangana & Andhra Pradesh families — OTP-verified profiles. Your details stay safe, your choice stays yours.",
+    sub: "For families in Telangana and Andhra Pradesh. We show phone OTP status, member-provided profile details, and contact-sharing controls. Independently verify people you meet.",
     features: [
-      { icon: "🛡️", t: "Verified profiles", d: "OTP + age verification — no room for fake profiles." },
-      { icon: "🔒", t: "Photo privacy", d: "Your photos show only with your consent — watermark protected." },
-      { icon: "🤝", t: "Direct introduction", d: "No chatting. Numbers exchange only when both sides agree." },
-      { icon: "💰", t: "Fair pricing", d: "From ₹29 · first 3 profiles free · no hidden charges." },
+      { icon: "📱", t: "Phone OTP status", d: "OTP confirms access to a phone number, not a person’s identity." },
+      { icon: "🔒", t: "Photo privacy", d: "Choose photo visibility; copies shared outside the service are beyond our control." },
+      { icon: "🤝", t: "Consent-based contact access", d: "No in-app chat. Owner acceptance grants contact access in accepted-request account views; notification delivery is not guaranteed." },
+      { icon: "💰", t: "Clear pricing", d: "Free plan: 3 interest requests + profile card. Paid plans start at ₹99; add-ons may cost extra." },
     ],
     cta: "Get started now",
-    badge: "Verified profiles network",
+    badge: "Introductions with member consent",
   },
 };
 
@@ -45,19 +45,32 @@ export default function WhyChooseUs() {
   return (
     <section className="mx-auto max-w-7xl px-4 py-10">
       <div className="grid items-center gap-8 lg:grid-cols-2">
-        {/* image side */}
+        {/* Illustrative privacy panel; do not imply that stock/generated people are members. */}
         <Reveal>
           <div className="relative">
             <div className="absolute -inset-3 rounded-[2.2rem] bg-gradient-to-tr from-maroon/10 via-gold/20 to-transparent blur-xl" />
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/promo/app-couple.jpg"
-              alt={lang === "en" ? "A happy Telugu couple using Mana Vivaha" : "మన వివాహ వాడుతున్న సంతోషకరమైన జంట"}
-              className="relative w-full rounded-[2rem] border border-gold/30 object-cover shadow-brandLg"
-              loading="lazy"
-            />
-            <div className="absolute -bottom-4 left-4 flex items-center gap-2 rounded-2xl bg-white/95 px-4 py-2.5 shadow-brand backdrop-blur">
-              <span className="text-lg">💞</span>
+            <div className="relative min-h-[300px] overflow-hidden rounded-[2rem] border border-gold/40 bg-gradient-to-br from-[#7A0C2E] via-[#4a0826] to-[#17223c] p-5 text-white shadow-brandLg sm:min-h-[400px] sm:p-8">
+              <div className="pointer-events-none absolute -right-10 -top-12 h-48 w-48 rounded-full bg-amber-300/20 blur-3xl" />
+              <div className="pointer-events-none absolute -bottom-16 -left-12 h-48 w-48 rounded-full bg-rose-300/15 blur-3xl" />
+              <div className="relative flex items-center gap-3">
+                <span className="grid h-12 w-12 place-items-center rounded-2xl border border-white/20 bg-white/10 text-2xl">💍</span>
+                <div>
+                  <div className="font-bold">Mana Vivaha</div>
+                  <div className="text-xs text-amber-100">మన వివాహ · Matrimony</div>
+                </div>
+              </div>
+              <div className="relative mx-auto my-8 flex max-w-sm items-center justify-center gap-3 sm:my-10 sm:gap-5" aria-hidden="true">
+                <div className="grid h-16 w-16 place-items-center rounded-2xl border border-white/25 bg-white/10 text-3xl shadow-lg sm:h-20 sm:w-20">👤</div>
+                <div className="text-2xl text-amber-200">♡</div>
+                <div className="grid h-16 w-16 place-items-center rounded-2xl border border-white/25 bg-white/10 text-3xl shadow-lg sm:h-20 sm:w-20">👤</div>
+              </div>
+              <div className="relative rounded-2xl border border-white/15 bg-black/15 p-4 sm:p-5">
+                <div className="text-lg font-bold sm:text-xl">{lang === "en" ? "You choose what to share" : "ఏమి పంచుకోవాలో మీరే ఎంచుకోండి"}</div>
+                <p className="mt-1 text-sm leading-relaxed text-white/80">{lang === "en" ? "Review member-provided details; owner acceptance grants contact access in your account, not confirmed message delivery." : "సభ్యులు అందించిన వివరాలను పరిశీలించండి; owner accept చేస్తే account లో contact access వస్తుంది, కానీ సందేశం చేరిందని నిర్ధారణ కాదు."}</p>
+              </div>
+            </div>
+            <div className="absolute -bottom-4 left-4 flex items-center gap-2 rounded-2xl bg-white/95 px-4 py-2.5 shadow-brand">
+              <span className="text-lg">🤝</span>
               <span className="text-[12px] font-bold text-maroon telugu">{L.badge}</span>
             </div>
           </div>

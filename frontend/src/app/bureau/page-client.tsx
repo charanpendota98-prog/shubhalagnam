@@ -1,4 +1,6 @@
 "use client";
+
+import { readApiJson } from "@/lib/api";
 /**
  * 🏢 BUREAU (B2B) — live plans from backend, zero dummy.
  * Wave 31: mock stats + fake clients deleted; tiers = /api/meta/home-stats bureau truth.
@@ -6,15 +8,16 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useLang } from "@/lib/lang";
+import PayBox from "@/components/PayBox";
 
 type BureauPlan = {
   code: string; price: number; profiles: number; validity_days: number;
-  label: string; telugu: string; badge: string; per_profile: number; perks?: string[];
+  label: string; telugu: string; badge: string; per_profile: number; perks?: string[]; perksTe?: string[];
 };
 
 const FALLBACK: BureauPlan[] = [
-  { code: "BUREAU_999", price: 999, profiles: 25, validity_days: 30, label: "Bureau Starter", telugu: "₹999 → 25 profiles (B2B)", badge: "Bureau/Agents", per_profile: 40, perks: ["25 profiles", "Monthly engaged report", "Bulk register"] },
-  { code: "BUREAU_2999", price: 2999, profiles: 100, validity_days: 30, label: "Bureau Pro", telugu: "₹2999 → 100 profiles (B2B)", badge: "Bureau Pro", per_profile: 30, perks: ["100 profiles", "Agent dashboard + client management", "Priority channel posting"] },
+  { code: "BUREAU_999", price: 999, profiles: 25, validity_days: 30, label: "Bureau Starter", telugu: "₹999 → 25 interest requests (B2B)", badge: "Bureau/Agents", per_profile: 40, perks: ["25 interest requests", "30-day credit validity"], perksTe: ["25 interest requests", "30 రోజుల credit validity"] },
+  { code: "BUREAU_2999", price: 2999, profiles: 100, validity_days: 30, label: "Bureau Pro", telugu: "₹2999 → 100 interest requests (B2B)", badge: "Bureau Pro", per_profile: 30, perks: ["100 interest requests", "30-day credit validity"], perksTe: ["100 interest requests", "30 రోజుల credit validity"] },
 ];
 
 export default function BureauPage() {
@@ -24,7 +27,7 @@ export default function BureauPage() {
 
   useEffect(() => {
     fetch("/api/meta/home-stats")
-      .then((r) => r.json())
+      .then((r) => readApiJson(r))
       .then((d) => { if (Array.isArray(d?.bureau) && d.bureau.length) setPlans(d.bureau); })
       .catch(() => {});
   }, []);
@@ -32,28 +35,28 @@ export default function BureauPage() {
   const T = {
     title: te ? "బ్యూరో / ఏజెంట్ ప్లాన్లు" : "Bureau / Agent plans",
     sub: te
-      ? "మ్యారేజ్ బ్యూరోలు & ఏజెంట్ల కోసం — మీ clients ని bulk గా register చేసి, monthly report తో manage చెయ్యండి."
-      : "For marriage bureaus & agents — bulk-register your clients and manage them with a monthly report.",
-    perMonth: te ? "/నెల" : "/mo",
-    profiles: te ? "profiles" : "profiles",
-    perProfile: te ? "/profile" : "/profile",
+      ? "బ్యూరోలు / ఏజెంట్ల కోసం B2B request-credit packages. Partner link వేరుగా నమోదు చేసుకోవచ్చు; ఈ package bulk registration, monthly report లేదా channel posting ను అందించదు."
+      : "B2B request-credit packages for bureaus and agents. Register separately for a partner link; these packages do not provide bulk registration, monthly reports, or channel posting.",
+    perMonth: te ? "ఒకసారి" : "one-time",
+    profiles: te ? "interest requests" : "interest requests",
+    perProfile: te ? "/request" : "/request",
     days: te ? "రోజులు validity" : "days validity",
-    choose: te ? "ఈ plan తీసుకోండి" : "Choose this plan",
+    choose: te ? "B2B package చెల్లించండి" : "Pay for B2B package",
     howTitle: te ? "ఎలా పని చేస్తుంది?" : "How it works?",
     steps: te ? [
-      "మీ bureau short code తో clients ని register చెయ్యండి (bulk register).",
-      "ప్రతి client profile మీ dashboard లో — interests, credits, status అన్నీ.",
-      "నెలాఖరున monthly engaged report — ఏ clients active, ఏవి renewals.",
-      "Clients pay చేస్తే మీ commission + priority channel posting.",
+      "Referral partner ID / link కోసం విడిగా నమోదు చేసుకోండి.",
+      "మీ link ద్వారా వచ్చే వ్యక్తులు తమ profile/account ను స్వయంగా సృష్టిస్తారు; ఈ package bulk registration లేదా dashboard reports ఇవ్వదు.",
+      "B2B package ను కొనుగోలు చేస్తే, ఆ account కు 25 లేదా 100 interest-request credits 30 రోజుల validity తో జమ అవుతాయి.",
+      "Referral cash reward వేరే eligibility, exclusions, manual payout review కు లోబడి ఉంటుంది; హామీ కాదు.",
     ] : [
-      "Register clients with your bureau short code (bulk register).",
-      "Every client profile in your dashboard — interests, credits, status.",
-      "Monthly engaged report — which clients are active, which need renewal.",
-      "When clients pay, your commission + priority channel posting.",
+      "Register separately for a referral partner ID and link.",
+      "People who use your link create their own profiles/accounts; this package does not include bulk registration or dashboard reports.",
+      "A B2B purchase adds 25 or 100 interest-request credits to the purchasing account, valid for 30 days.",
+      "Referral cash rewards have separate eligibility, exclusions, and manual payout review; they are not guaranteed.",
     ],
     note: te
-      ? "Bureau plans లో client phone numbers మీకు direct గా కనిపించవు — consent (accept) తర్వాతే exchange. Privacy అందరికీ same."
-      : "Bureau plans never show client phone numbers directly — exchange only after consent (accept). Same privacy for all.",
+      ? "B2B package contact access ను ఇవ్వదు లేదా owner consent ను దాటవేయదు. Profile owner accept చేసిన తర్వాతే accepted-request account views లో contact details కనిపిస్తాయి; notification delivery హామీ లేదు."
+      : "A B2B package does not grant contact access or bypass owner consent. Contact details appear in accepted-request account views only after the profile owner accepts; notification delivery is not guaranteed.",
   };
 
   return (
@@ -70,14 +73,8 @@ export default function BureauPage() {
         <p className="text-center text-[13px] text-gray-600 max-w-2xl mx-auto -mt-3 mb-6">{T.sub}</p>
 
         <div className={`grid gap-4 ${plans.length > 1 ? "md:grid-cols-2" : ""} max-w-4xl mx-auto`}>
-          {plans.map((p, i) => (
-            <div key={p.code}
-              className={`bg-white rounded-[1.5rem] p-6 card-shadow relative ${i === 1 ? "border-2 border-[#D4AF37]" : "border border-gray-100"}`}>
-              {i === 1 && (
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-[#D4AF37] text-[#7A0C2E] text-[10px] px-3 py-1 rounded-full font-bold">
-                  {te ? "ఎక్కువ మంది తీసుకునేది" : "MOST POPULAR"}
-                </div>
-              )}
+          {plans.map((p) => (
+            <div key={p.code} className="bg-white rounded-[1.5rem] border border-gray-100 p-6 card-shadow relative">
               <div className="flex justify-between items-start">
                 <div>
                   <div className="font-bold text-[16px]">{p.label}</div>
@@ -93,14 +90,12 @@ export default function BureauPage() {
               </div>
               <div className="mt-1 text-[13px] font-bold">{p.profiles} {T.profiles} • {p.validity_days} {T.days}</div>
               <ul className="mt-4 text-[13px] space-y-2 text-gray-700">
-                {(p.perks || []).map((perk) => (
+                {(te && p.perksTe ? p.perksTe : p.perks || []).map((perk) => (
                   <li key={perk}>✅ {perk}</li>
                 ))}
               </ul>
-              <Link href="/referral/register"
-                className={`block text-center w-full mt-5 py-3 rounded-full font-bold text-sm ${i === 1 ? "maroon-gradient text-white" : "border border-[#7A0C2E] text-[#7A0C2E]"}`}>
-                {T.choose} — ₹{p.price}
-              </Link>
+              <div className="mt-5"><PayBox planCode={p.code} price={p.price} label={T.choose} /></div>
+              <Link href="/register" className="mt-2 block text-center text-xs font-bold text-[#7A0C2E] underline">{te ? "Account లేదా Profile ID లేదా? Register చేయండి" : "Need an account or Profile ID? Register"}</Link>
             </div>
           ))}
         </div>

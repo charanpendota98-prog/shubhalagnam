@@ -1,13 +1,17 @@
 "use client";
 
+
+import { readApiJson } from "@/lib/api";
 /**
  * 🎯 DISTRICT & STATE TARGETED AD BANNER
  * Dynamically fetches and renders localized advertisements tailored to the user's
  * selected district (e.g. Warangal, Visakhapatnam, Hyderabad) or state (TS / AP / All).
  */
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import { useLang } from "@/lib/lang";
 import { WhatsAppIcon } from "@/components/BrandIcons";
+import { whatsappPhoneLink } from "@/lib/wa";
 
 type Ad = {
   id: string;
@@ -25,6 +29,41 @@ type Ad = {
   districts?: string[];
   state?: string;
 };
+
+function safeAdvertiserUrl(value?: string): string {
+  const raw = String(value || "").trim();
+  if (!raw || raw.startsWith("//") || /[\u0000-\u001f\u007f]/.test(raw)) return "";
+  if (raw.startsWith("/") && !raw.startsWith("/\\")) return raw;
+  try {
+    const url = new URL(raw);
+    if (url.protocol !== "https:" || url.username || url.password || url.port) return "";
+    return url.toString();
+  } catch {
+    return "";
+  }
+}
+
+function isWhatsAppContactUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    if (url.protocol !== "https:" || url.username || url.password || url.port) return false;
+    const hostname = url.hostname.toLowerCase();
+    if (hostname === "wa.me") return /^\+?\d{8,15}$/.test(url.pathname.replace(/^\//, ""));
+    if (hostname === "api.whatsapp.com") {
+      return url.pathname === "/send" && /^\+?\d{8,15}$/.test(url.searchParams.get("phone") || "");
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+function safeTelLink(value?: string): string {
+  const raw = String(value || "").trim();
+  if (!raw || /[\u0000-\u001f\u007f]/.test(raw)) return "";
+  const digits = raw.replace(/\D/g, "");
+  return digits.length >= 8 && digits.length <= 15 ? `tel:${digits}` : "";
+}
 
 export default function DistrictAdBanner({
   slot = "matches_sidebar",
@@ -56,7 +95,7 @@ export default function DistrictAdBanner({
 
         const r = await fetch(`/api/ads/list?${params.toString()}`);
         if (!r.ok) return;
-        const d = await r.json();
+        const d = await readApiJson(r);
         if (!cancelled && d.ok && d.ads?.length) {
           setAds(d.ads);
         }
@@ -81,18 +120,28 @@ export default function DistrictAdBanner({
   return (
     <div className={`space-y-3 ${className}`}>
       {ads.map((ad) => {
-        const waNumber = ad.whatsapp || ad.phone || "9876543210";
-        const waText = encodeURIComponent(
-          `నమస్తే, మన వివాహ (Mana Vivaha) లో మీ ప్రకటన చూసి సంప్రదిస్తున్నాను: ${ad.title}`
-        );
-        const waUrl = ad.link || `https://wa.me/91${waNumber.replace(/[^0-9]/g, "")}?text=${waText}`;
+        const waText = `నమస్తే, మన వివాహ (Mana Vivaha) లో మీ ప్రకటన చూసి సంప్రదిస్తున్నాను: ${ad.title}`;
+        const suppliedLink = safeAdvertiserUrl(ad.link);
+        const directWhatsAppLink = suppliedLink && isWhatsAppContactUrl(suppliedLink) ? suppliedLink : "";
+        const configuredWhatsApp = ad.whatsapp ? whatsappPhoneLink(ad.whatsapp, waText) || "" : "";
+        const whatsappUrl = directWhatsAppLink || configuredWhatsApp;
+        const advertiserUrl = suppliedLink && !directWhatsAppLink ? suppliedLink : "";
+        const phoneUrl = safeTelLink(ad.phone);
+        const destination = whatsappUrl || advertiserUrl || phoneUrl;
+        const destinationKind = whatsappUrl ? "whatsapp" : advertiserUrl ? "link" : phoneUrl ? "phone" : "none";
+        const destinationLabel = destinationKind === "whatsapp"
+          ? (te ? "WhatsApp ద్వారా వివరాలు" : "WhatsApp")
+          : destinationKind === "link"
+          ? (te ? "ప్రకటన వివరాలు" : "View advertiser link")
+          : destinationKind === "phone"
+          ? (te ? "వ్యాపారానికి కాల్ చేయండి" : "Call business")
+          : "";
 
-        const locationBadge =
-          ad.level === "district" && ad.districts?.length
-            ? `📍 ${ad.districts.slice(0, 2).join(", ")} లోకల్ సేవలు`
-            : ad.level === "state"
-            ? `🏛️ ${ad.state === "TS" ? "తెలంగాణ రాష్ట్రవ్యాప్తంగా" : "ఆంధ్రప్రదేశ్ రాష్ట్రవ్యాప్తంగా"}`
-            : "👑 TS & AP ప్రసిద్ధ సేవలు";
+        const locationBadge = ad.level === "district" && ad.districts?.length
+          ? `${te ? "📍 ప్రకటన ప్రదర్శన" : "📍 Ad placement"} · ${ad.districts.slice(0, 2).join(", ")}`
+          : ad.level === "state"
+          ? `${te ? "🏛️ రాష్ట్ర ప్రకటన ప్రదర్శన" : "🏛️ State ad placement"} · ${ad.state === "TS" ? "TS" : "AP"}`
+          : (te ? "🗺️ TS + AP ప్రకటన ప్రదర్శన" : "🗺️ TS + AP ad placement");
 
         if (compact) {
           return (
@@ -104,23 +153,25 @@ export default function DistrictAdBanner({
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-gold/15 text-maroon">
                   {locationBadge}
                 </span>
-                <span className="text-[9px] font-bold text-gray-400">Sponsored</span>
+                <span className="text-[9px] font-bold text-gray-400">{te ? "ప్రాయోజిత ప్రకటన" : "Sponsored"}</span>
               </div>
               <div className="mt-1.5 flex items-center justify-between gap-3">
                 <div className="min-w-0 flex-1">
                   <p className="font-bold text-[13px] text-maroon truncate">{ad.title}</p>
                   <p className="text-[11px] text-gray-600 truncate">{ad.offer}</p>
                 </div>
-                <a
-                  href={waUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  onClick={() => handleAdClick(ad.id)}
-                  className="shrink-0 flex items-center gap-1 bg-[#25D366] text-white font-bold text-[11px] px-3 py-1.5 rounded-xl shadow-sm hover:brightness-110 active:scale-95 transition"
-                >
-                  <WhatsAppIcon className="w-3.5 h-3.5" mono />
-                  <span>{te ? "సంప్రదించండి" : "Enquire"}</span>
-                </a>
+                {destination ? (
+                  <a
+                    href={destination}
+                    target={destination.startsWith("https://") ? "_blank" : undefined}
+                    rel={destination.startsWith("https://") ? "noopener noreferrer" : undefined}
+                    onClick={() => handleAdClick(ad.id)}
+                    className={`shrink-0 flex items-center gap-1 font-bold text-[11px] px-3 py-1.5 rounded-xl shadow-sm hover:brightness-110 active:scale-95 transition ${destinationKind === "whatsapp" ? "bg-[#25D366] text-white" : "bg-[#7A0C2E] text-white"}`}
+                  >
+                    {destinationKind === "whatsapp" ? <WhatsAppIcon className="w-3.5 h-3.5" mono /> : null}
+                    <span>{destinationLabel}</span>
+                  </a>
+                ) : null}
               </div>
             </div>
           );
@@ -133,9 +184,12 @@ export default function DistrictAdBanner({
           >
             <div className="flex items-start gap-3 min-w-0 flex-1">
               {ad.image_url ? (
-                <img
+                <Image
                   src={ad.image_url}
                   alt={ad.title}
+                  width={64}
+                  height={64}
+                  unoptimized
                   className="w-16 h-16 rounded-xl object-cover border border-gold/20 shrink-0"
                 />
               ) : (
@@ -148,8 +202,8 @@ export default function DistrictAdBanner({
                   <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-gold/15 text-maroon">
                     {locationBadge}
                   </span>
-                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
-                    ✓ Verified
+                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-900">
+                    {te ? "ప్రాయోజిత ప్రకటన" : "Sponsored"}
                   </span>
                 </div>
                 <h4 className="font-extrabold text-[14px] text-navy leading-snug">
@@ -162,26 +216,18 @@ export default function DistrictAdBanner({
             </div>
 
             <div className="flex items-center gap-2 w-full sm:w-auto justify-end pt-1 sm:pt-0 border-t sm:border-t-0 border-gray-100">
-              <a
-                href={waUrl}
-                target="_blank"
-                rel="noreferrer"
-                onClick={() => handleAdClick(ad.id)}
-                className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 bg-[#25D366] text-white font-bold text-[12px] px-4 py-2 rounded-xl shadow-soft hover:brightness-110 active:scale-95 transition"
-              >
-                <WhatsAppIcon className="w-4 h-4" mono />
-                <span>{te ? "వివరాలు / బుకింగ్" : "Book / Enquire"}</span>
-              </a>
-              {ad.phone && (
+              {destination ? (
                 <a
-                  href={`tel:${ad.phone}`}
+                  href={destination}
+                  target={destination.startsWith("https://") ? "_blank" : undefined}
+                  rel={destination.startsWith("https://") ? "noopener noreferrer" : undefined}
                   onClick={() => handleAdClick(ad.id)}
-                  className="flex items-center justify-center border border-navy/20 text-navy font-bold text-[12px] px-3 py-2 rounded-xl hover:bg-gray-50"
-                  title="Call Vendor"
+                  className={`flex-1 sm:flex-none flex items-center justify-center gap-1.5 font-bold text-[12px] px-4 py-2 rounded-xl shadow-soft hover:brightness-110 active:scale-95 transition ${destinationKind === "whatsapp" ? "bg-[#25D366] text-white" : "bg-[#7A0C2E] text-white"}`}
                 >
-                  📞
+                  {destinationKind === "whatsapp" ? <WhatsAppIcon className="w-4 h-4" mono /> : null}
+                  <span>{destinationLabel}</span>
                 </a>
-              )}
+              ) : null}
             </div>
           </div>
         );

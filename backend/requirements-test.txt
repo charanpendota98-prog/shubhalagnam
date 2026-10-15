@@ -1,0 +1,5 @@
+# TestClient's supported HTTP transport for Starlette 1.7+.
+# Install alongside production/runtime dependencies to avoid the deprecated httpx adapter warning.
+-r requirements.txt
+httpx2==2.13.1
+PyYAML==6.0.3

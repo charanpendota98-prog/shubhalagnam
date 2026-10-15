@@ -4,18 +4,17 @@
 User demand (100% workable, top sites kanna advanced):
 
   1. Channel post lo NUMBER ❌ FULL-NAME ❌ SURNAME ❌ — masked teaser matrame.
-     Number kosam → manalni contact / premium kattali.
-  2. CREDITS model: credits tho number reveal; ayipothe malli pay.
-  3. ₹500 assisted service: admin panel lo buyer ID → perfect matches load →
-     filters → select → 📩 Telegram / 💬 WhatsApp personal send.
-  4. STRICT entitlement: pampina profiles mathrame reveal — extra emi kadu.
-  5. 📋 Copy-list: `NAME -- NUMBER` admin 1-click copy (manual paste kosam).
+  2. Credits are for interest requests; contact details require the profile owner's acceptance.
+  3. ₹500 assisted service: admin panel lo buyer ID → approved profiles and explicit filters →
+     select → 📩 Telegram / 💬 WhatsApp personal send; no compatibility score or perfect-match claim.
+  4. STRICT consent gate: an accepted interest is required before any contact reveal.
+  5. 📋 Copy-list: approved, member-provided profile summaries only; no contact details.
 
 Design (emi break avvakunda):
   • Pure functions + in-memory stores (repo convention: DB_USERS lanti lists).
-  • JSON persist (unlocks12.json) — restart ayina entitlements/orders potavu.
-  • Public outputs (caption / bot card / copy-preview) lo number eppudu ledu —
-    full number ONLY: POST /api/unlock (logged) + admin copy-list + paid DM.
+  • JSON persist (unlocks12.json) — restart ayina consent records/orders potavu.
+  • Contact details are never included in assisted shortlist deliveries or copy-lists.
+  • Full numbers are revealed only after an accepted interest through POST /api/unlock.
 """
 from __future__ import annotations
 
@@ -33,16 +32,15 @@ PHONE_RE = re.compile(r"(?<![\d•])[6-9]\d{9}(?!\d)")
 
 ASSISTED_PRICE = 500          # ₹500 assisted match service
 ASSISTED_DEFAULT_COUNT = 5    # default ga 5 profiles personal ga
-UNLOCK_CREDITS = 1            # self-service: 1 credit = 1 number reveal
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-PERSIST_FILE = os.path.join(BASE_DIR, "unlocks12.json")
+PERSIST_FILE = os.environ.get("MANA_VIVAHA_SMART12_FILE", os.path.join(BASE_DIR, "unlocks12.json"))
 
 # ---------------------------------------------------------------------------
 # STORES (in-memory + JSON persist)
 # ---------------------------------------------------------------------------
-# viewer_id -> {target_id: {"via": "credit"|"assisted"|"admin_gift"|"interest",
-#                           "at": iso, "credits_charged": n, "order_id": str}}
+# viewer_id -> {target_id: consent-backed contact access metadata only.
+# Assisted shortlists are orders, not contact entitlements.
 UNLOCKS: Dict[str, Dict[str, Dict]] = {}
 REVEAL_LOG: List[Dict] = []     # audit: evaru, e number, eppudu, ela
 ORDERS: List[Dict] = []         # ₹500 assisted orders
@@ -69,7 +67,15 @@ def _restore() -> None:
             return
         with open(PERSIST_FILE, encoding="utf-8") as f:
             data = json.load(f) or {}
-        UNLOCKS.update(data.get("unlocks", {}))
+        # Drop legacy assisted/admin-gift unlock entries: payment or staff action is not consent.
+        restored = data.get("unlocks", {}) or {}
+        for viewer_id, targets in restored.items():
+            if not isinstance(targets, dict):
+                continue
+            clean_targets = {target_id: meta for target_id, meta in targets.items()
+                             if isinstance(meta, dict) and meta.get("via") == "mutual_consent"}
+            if clean_targets:
+                UNLOCKS[str(viewer_id)] = clean_targets
         ORDERS.extend(data.get("orders", []))
         REVEAL_LOG.extend(data.get("reveal_log", []))
         for o in ORDERS:
@@ -119,7 +125,7 @@ def first_masked(full_name: str) -> str:
 
 
 def mask_phone(phone: str) -> str:
-    """9848012345 → 98••••••45 (interest.py తో same format)."""
+    """Mask a supplied phone number consistently with interest.py."""
     d = "".join(ch for ch in str(phone or "") if ch.isdigit())
     if len(d) < 4:
         return "🔒 •••••"
@@ -136,88 +142,90 @@ def assert_no_leak(text: str) -> Dict:
 # 2. MASKED CHANNEL CAPTIONS (number ❌ name ❌ surname ❌)
 # ---------------------------------------------------------------------------
 
-def build_masked_caption(profile: Dict, tsap_id: str = "TSAP-F-2025-XXXX",
-                         score: int = 92) -> str:
-    """📢 Telegram channel post v2 — teaser మాత్రమే + unlock CTA."""
-    from channels_config import route_profile, BOT_USERNAME, SITE  # lazy: cycle safe
-    r = route_profile(profile or {})
-    reasons = "\n".join(f"• {x['telugu']}" for x in r["reasons"][:4])
-    g = profile.get("gender", "")
-    icon = "👰" if g == "Bride" else ("🤵" if g == "Groom" else "💍")
+def build_masked_caption(profile: Dict, tsap_id: str = "", score: int | None = None) -> str:
+    """Public profile teaser. `score` is accepted for legacy callers but never displayed."""
+    from channels_config import route_profile, SITE  # lazy: cycle safe
+    profile = profile or {}
+    routed = route_profile(profile)
+    notes = "\n".join(f"• {item['telugu']}" for item in routed["reasons"][:4])
+    route_block = f"\n📣 Destination selection (not a compatibility score):\n{notes}\n" if notes else ""
+    rid = str(tsap_id or profile.get("tsap_id") or "").strip()
+    id_line = f"🆔 {rid}\n" if rid else ""
+    profile_link = f"🔍 Full profile: {SITE}/search/{rid}" if rid else f"📝 Register: {SITE}/register"
+    gender = str(profile.get("gender") or "").lower()
+    icon = "👰" if gender.startswith("b") else ("🤵" if gender.startswith("g") else "💍")
     return (
-        f"🆔 {tsap_id} | ⭐ {score}% BEST MATCH\n"
-        f"{icon} {first_name_of(profile.get('full_name', ''))} • {profile.get('age', '—')}y • "
-        f"{profile.get('height', '—')} • {profile.get('caste', '—')}\n"
-        f"🎓 {profile.get('education', '—')} • 💼 {profile.get('job', '—')} • "
-        f"📍 {profile.get('district', '—')}\n"
-        f"🌟 {profile.get('gothram', '—')} గోత్రం • {profile.get('star', '—')} nakshatram\n"
-        f"\n✅ ఎందుకు set అవుతారు:\n{reasons}\n"
-        f"\n{r['hashtags']}\n"
+        f"{id_line}"
+        f"{icon} {first_name_of(profile.get('full_name', ''))} • {profile.get('age') or '—'}y • "
+        f"{profile.get('height') or '—'} • {profile.get('caste') or '—'}\n"
+        f"🎓 {profile.get('education') or '—'} • 💼 {profile.get('job') or '—'} • "
+        f"📍 {profile.get('district') or '—'}, {profile.get('state') or '—'}\n"
+        f"🌟 {profile.get('gothram') or '—'} గోత్రం • {profile.get('star') or '—'} nakshatram\n"
+        f"{route_block}"
+        f"{routed['hashtags']}\n"
         f"━━━━━━━━━━━━━━━\n"
-        f"🔒 Number lock లో ఉంది — unlock చెయ్యండి:\n"
-        f"📱 Unlock (Telegram): {BOT_USERNAME} → /unlock {tsap_id} (1 credit)\n"
-        f"🔍 Full profile: {SITE}/search/{tsap_id}\n"
-        f"📝 Register 3 min lo: {SITE}/register\n"
-        f"⚠️ మోసం జాగ్రత్త — advance money ఎవరికీ ivvakandi!"
+        f"🔒 Contact details are not public. They become available in accepted-request account views only after profile-owner acceptance; notification delivery is not guaranteed.\n"
+        f"{profile_link}\n"
+        f"⚠️ Do not send advance money; report suspicious requests."
     )
 
 
-def build_masked_whatsapp(profile: Dict, tsap_id: str = "TSAP-F-2025-XXXX",
-                          score: int = 92) -> str:
-    """💬 WhatsApp channel/group post v2 (*bold* format, masked)."""
-    from channels_config import route_profile, BOT_USERNAME, SITE  # lazy
-    r = route_profile(profile or {})
-    reasons = "\n".join(f"✅ {x['telugu']}" for x in r["reasons"][:3])
+def build_masked_whatsapp(profile: Dict, tsap_id: str = "", score: int | None = None) -> str:
+    """WhatsApp teaser; never presents a profile as a compatibility result."""
+    from channels_config import route_profile, SITE  # lazy
+    profile = profile or {}
+    routed = route_profile(profile)
+    notes = "\n".join(f"• {item['telugu']}" for item in routed["reasons"][:3])
+    route_block = f"\n*Destination selection (not a compatibility score):*\n{notes}\n" if notes else ""
+    rid = str(tsap_id or profile.get("tsap_id") or "").strip()
+    id_line = f"🆔 *{rid}*\n" if rid else ""
+    profile_link = f"🔍 Profile: {SITE}/search/{rid}" if rid else f"📝 Register: {SITE}/register"
     return (
-        f"💍 *MANA VIVAHA* — TS-AP Telugu Matrimony\n"
-        f"🆔 *{tsap_id}*  |  ⭐ *{score}% BEST MATCH*\n"
+        f"💍 *MANA VIVAHA* — Telugu Matrimony\n"
+        f"{id_line}"
         f"━━━━━━━━━━━━━━━━\n"
-        f"👤 *{first_name_of(profile.get('full_name', ''))}* ({profile.get('age', '—')} yrs)\n"
-        f"📍 {profile.get('district', '—')}, {profile.get('state', 'TS')}\n"
-        f"💍 Caste: {profile.get('caste', '—')}  |  గోత్రం: {profile.get('gothram', '—')}\n"
-        f"🎓 {profile.get('education', '—')}  |  💼 {profile.get('job', '—')}\n"
-        f"🌟 Star: {profile.get('star', '—')}  |  రాశి: {profile.get('rasi', '—')}\n"
+        f"👤 *{first_name_of(profile.get('full_name', ''))}* ({profile.get('age') or '—'} yrs)\n"
+        f"📍 {profile.get('district') or '—'}, {profile.get('state') or '—'}\n"
+        f"💍 Community: {profile.get('caste') or '—'}  |  Gothram: {profile.get('gothram') or '—'}\n"
+        f"🎓 {profile.get('education') or '—'}  |  💼 {profile.get('job') or '—'}\n"
+        f"🌟 Star: {profile.get('star') or '—'}  |  Rasi: {profile.get('rasi') or '—'}\n"
+        f"{route_block}"
         f"━━━━━━━━━━━━━━━━\n"
-        f"*ఎందుకు best match:*\n{reasons}\n"
-        f"━━━━━━━━━━━━━━━━\n"
-        f"{r['hashtags']}\n"
-        f"🔒 Number lock — Telegram లో /unlock {tsap_id} (1 credit)\n"
-        f"🔍 Profile: {SITE}/search/{tsap_id}\n"
-        f"Telegram: {BOT_USERNAME}  •  ⚠️ Advance money అడిగితే report చెయ్యండి"
+        f"{routed['hashtags']}\n"
+        f"🔒 Contact details require profile-owner acceptance; accepted-request account views show them. External notification delivery is not guaranteed.\n"
+        f"{profile_link}\n"
+        f"⚠️ Do not send advance money; report suspicious requests."
     )
-
 
 # ---------------------------------------------------------------------------
-# 3. ENTITLEMENTS — evariki, e profiles, eppudu (STRICT: sent-vi mathrame)
+# 3. CONSENT-BACKED CONTACT ACCESS (payment/service grants are not entitlements)
 # ---------------------------------------------------------------------------
 
 def is_entitled(viewer_id: str, target_id: str) -> bool:
     return target_id in UNLOCKS.get(viewer_id or "", {})
 
 
-def grant_unlock(viewer_id: str, target_id: str, via: str = "admin_gift",
-                 order_id: str = "", credits_charged: int = 0) -> Dict:
-    """Admin/assisted grant — credit cut లేదు, entitlement మాత్రమే."""
+def grant_unlock(viewer_id: str, target_id: str, via: str = "mutual_consent",
+                 order_id: str = "", credits_charged: int = 0,
+                 consent_granted: bool = False) -> Dict:
+    """Record a consent-backed contact entitlement; payment/admin grants are rejected."""
+    if not consent_granted or via != "mutual_consent":
+        return {"success": False, "reason": "consent_required", "viewer_id": viewer_id,
+                "target_id": target_id, "via": via}
     box = UNLOCKS.setdefault(viewer_id, {})
     first = target_id not in box
     box[target_id] = {"via": via, "at": _now_iso(), "order_id": order_id,
                       "credits_charged": credits_charged}
     _persist()
-    return {"viewer_id": viewer_id, "target_id": target_id, "via": via,
+    return {"success": True, "viewer_id": viewer_id, "target_id": target_id, "via": via,
             "first_time": first}
 
 
 _UNLOCK_LOCKS: Dict[str, threading.Lock] = defaultdict(threading.Lock)
 
 
-def unlock_number(viewer: Dict, target: Dict) -> Dict:
-    """
-    Self-service reveal:
-      entitled ayithe → FREE reveal (already paid/granted)
-      kakapothe credits > 0 → 1 cut → reveal + entitlement record
-      0 credits → paywall
-    Full number + audit log — ee function nunchi matrame bayataki vastundi.
-    """
+def unlock_number(viewer: Dict, target: Dict, *, consent_granted: bool = False) -> Dict:
+    """Reveal a contact only after an accepted interest request; never charge credits for a phone number."""
     viewer_id = (viewer or {}).get("tsap_id", "")
     target_id = (target or {}).get("tsap_id", "")
     if not viewer_id or not target_id:
@@ -228,42 +236,36 @@ def unlock_number(viewer: Dict, target: Dict) -> Dict:
         return {"success": True, "phone": phone, "phone_masked": mask_phone(phone),
                 "charged": 0, "credits_left": viewer.get("credits", 0),
                 "via": "self", "message_telugu": "✅ మీ number ye idi 🙂"}
-    if is_entitled(viewer_id, target_id):
-        phone = str(target.get("phone", ""))
-        REVEAL_LOG.append({"viewer": viewer_id, "target": target_id, "via": "entitled",
-                           "charged": 0, "at": _now_iso()})
-        _persist()
-        return {"success": True, "phone": phone, "phone_masked": mask_phone(phone),
-                "charged": 0, "credits_left": viewer.get("credits", 0), "via": "entitled",
-                "message_telugu": "✅ Already unlocked — మళ్లీ free గా chupisthunnam"}
-    # WAVE 24 DOUBLE-SPEND LOCK: concurrent unlocks same credit ni rendu sarlu kharchu cheyyakudadu.
-    with _UNLOCK_LOCKS[viewer_id]:
-        credits = int(viewer.get("credits", 0) or 0)
-        if credits < UNLOCK_CREDITS:
-            return {"success": False, "reason": "no_credits",
-                    "phone_masked": mask_phone(target.get("phone", "")),
-                    "credits_left": 0,
-                    "message_telugu": "⚠️ Credits ayipoyayi! ₹99 = 5 credits (leda ₹500 assisted — మన team meeke perfect 5 profiles pampisthundi). Pay చేసి మళ్లీ try చెయ్యండి 🙏",
-                    "pay_options": [{"label": "₹99 — 5 credits", "credits": 5},
-                                    {"label": "₹500 — assisted 5 profiles (personal)", "credits": 0,
-                                     "note": "admin pathavi"}]}
-        viewer["credits"] = credits - UNLOCK_CREDITS
-        grant_unlock(viewer_id, target_id, via="credit", credits_charged=UNLOCK_CREDITS)
-        phone = str(target.get("phone", ""))
-        REVEAL_LOG.append({"viewer": viewer_id, "target": target_id, "via": "credit",
-                           "charged": UNLOCK_CREDITS, "at": _now_iso()})
-        _persist()
-        return {"success": True, "phone": phone, "phone_masked": mask_phone(phone),
-                "charged": UNLOCK_CREDITS, "credits_left": viewer["credits"], "via": "credit",
-                "message_telugu": f"✅ Number unlock అయ్యింది! (1 credit cut — migilindi: {viewer['credits']})"}
+    if not consent_granted:
+        return {"success": False, "reason": "consent_required",
+                "phone_masked": mask_phone(target.get("phone", "")),
+                "credits_left": int(viewer.get("credits", 0) or 0),
+                "message_telugu": "🔒 Contact details కోసం ముందుగా interest పంపండి. Profile owner accept చేసిన తర్వాత accepted-request account views లో అందుబాటులోకి వస్తాయి; credits తో consent bypass చేయలేరు."}
+    if not is_entitled(viewer_id, target_id):
+        grant_unlock(viewer_id, target_id, via="mutual_consent", credits_charged=0,
+                     consent_granted=True)
+    phone = str(target.get("phone", ""))
+    REVEAL_LOG.append({"viewer": viewer_id, "target": target_id, "via": "mutual_consent",
+                       "charged": 0, "at": _now_iso()})
+    _persist()
+    return {"success": True, "phone": phone, "phone_masked": mask_phone(phone),
+            "charged": 0, "credits_left": int(viewer.get("credits", 0) or 0),
+            "via": "mutual_consent",
+            "message_telugu": "✅ Profile owner accept చేశారు. Accepted-request account view లో contact details అందుబాటులో ఉన్నాయి."}
 
 
-def my_unlocks(viewer_id: str, users: List[Dict]) -> Dict:
-    """మీ unlocked profiles — MASKED list (full number per-unlock మాత్రమే)."""
+def my_unlocks(viewer_id: str, users: List[Dict],
+               accepted_targets: Optional[set] = None) -> Dict:
+    """Return only consent-backed, currently accepted contact pairs (phones remain masked)."""
     box = UNLOCKS.get(viewer_id or "", {})
     by_id = {u.get("tsap_id"): u for u in (users or [])}
+    accepted = {str(x).upper() for x in accepted_targets} if accepted_targets is not None else None
     items = []
     for tid, meta in box.items():
+        if meta.get("via") != "mutual_consent":
+            continue
+        if accepted is not None and str(tid).upper() not in accepted:
+            continue
         u = by_id.get(tid, {})
         items.append({"tsap_id": tid, "name_masked": first_name_of(u.get("full_name", "")),
                       "age": u.get("age", "—"), "caste": u.get("caste", "—"),
@@ -279,8 +281,10 @@ def my_unlocks(viewer_id: str, users: List[Dict]) -> Dict:
 
 def create_order(buyer_id: str, amount: int = ASSISTED_PRICE, note: str = "") -> Dict:
     global _ORDER_SEQ
+    if int(amount or 0) != ASSISTED_PRICE:
+        raise ValueError(f"Assisted shortlist order amount must be ₹{ASSISTED_PRICE}.")
     _ORDER_SEQ += 1
-    order = {"id": f"ORD-{_ORDER_SEQ:04d}", "buyer_id": buyer_id, "amount": amount,
+    order = {"id": f"ORD-{_ORDER_SEQ:04d}", "buyer_id": buyer_id, "amount": ASSISTED_PRICE,
              "status": "requested", "utr": "", "profile_ids": [],
              "via": [], "created_at": _now_iso(), "paid_at": "", "delivered_at": "",
              "note": note}
@@ -297,6 +301,12 @@ def mark_order_paid(order_id: str, utr: str) -> Dict:
     o = get_order(order_id)
     if not o:
         return {"success": False, "message_telugu": "⚠️ Order దొరకలేదు"}
+    if o.get("status") != "requested":
+        return {"success": False, "reason": "order_not_payable",
+                "message_telugu": f"⚠️ Order status {o.get('status')} — payment state మార్చలేము"}
+    if int(o.get("amount", 0) or 0) != ASSISTED_PRICE:
+        return {"success": False, "reason": "amount_mismatch",
+                "message_telugu": f"⚠️ Assisted service ధర ₹{ASSISTED_PRICE} మాత్రమే"}
     if not (utr or "").strip():
         return {"success": False,
                 "message_telugu": "⚠️ UTR/reference lekunda paid cheyyakoodadu (audit కి)"}
@@ -309,68 +319,81 @@ def mark_order_paid(order_id: str, utr: str) -> Dict:
 
 
 def attach_order_profiles(order_id: str, profile_ids: List[str]) -> Dict:
-    """Paid order కి profiles attach → buyer కి entitlements (STRICT: ఇవి mathrame)."""
+    """Attach a paid shortlist to its order; this does not grant contact access."""
     o = get_order(order_id)
     if not o:
         return {"success": False, "message_telugu": "⚠️ Order దొరకలేదు"}
     if o["status"] not in ("paid", "delivered"):
         return {"success": False,
-                "message_telugu": "⚠️ Mundhu payment (UTR) confirm చెయ్యండి — appude profiles attach"}
+                "message_telugu": "⚠️ Mundhu payment (UTR) confirm చెయ్యండి — appude shortlist attach"}
     clean = [p for p in dict.fromkeys(profile_ids or []) if p]
+    if not clean or len(clean) > ASSISTED_DEFAULT_COUNT:
+        return {"success": False, "reason": "shortlist_limit",
+                "message_telugu": f"⚠️ ఒక order లో 1 నుంచి {ASSISTED_DEFAULT_COUNT} profiles మాత్రమే shortlist చేయండి"}
+    if o["status"] == "delivered" and set(clean) != set(o.get("profile_ids", [])):
+        return {"success": False, "reason": "order_already_delivered",
+                "message_telugu": "⚠️ Delivered order shortlist మార్చలేము"}
     o["profile_ids"] = clean
-    for pid in clean:
-        grant_unlock(o["buyer_id"], pid, via="assisted", order_id=order_id)
+    o["shortlist_attached_at"] = _now_iso()
     _persist()
     return {"success": True, "order_id": order_id, "buyer_id": o["buyer_id"],
-            "attached": len(clean),
-            "message_telugu": f"✅ {len(clean)} profiles {o['buyer_id']} కి unlock అయ్యాయి (ఇవి mathrame — extra లేదు)"}
+            "attached": len(clean), "contact_access": "owner_acceptance_required",
+            "message_telugu": f"✅ {len(clean)} shortlisted profiles attach అయ్యాయి. Contact details కోసం profile-owner acceptance తప్పనిసరి."}
 
 
 # ---------------------------------------------------------------------------
-# 5. PERSONAL PACK + COPY-LIST (paid buyer ke — full numbers)
+# 5. PROFILE-SUMMARY PACK + COPY-LIST (contact details always withheld)
 # ---------------------------------------------------------------------------
 
 def build_copy_list(buyer: Dict, targets: List[Dict], order_id: str = "") -> str:
-    """
-    📋 Admin 1-click copy — `NAME -- NUMBER` lines (manual paste kosam):
-      👰 Mee kosam 5 profiles (₹500 paid ✅):
-      1. Sravani K. -- 9848012345 (TSAP-F-2042 · Kamma · 26)
-    """
+    """Shortlist copy text with contact details withheld pending each owner's acceptance."""
     bname = first_masked((buyer or {}).get("full_name", ""))
-    lines = [f"💍 మన వివాహ — {bname} గారు, మీ కోసం {len(targets)} profiles "
-             f"(₹{ASSISTED_PRICE} paid ✅{f' · {order_id}' if order_id else ''}):", ""]
+    service = (f"₹{ASSISTED_PRICE} paid service · {order_id}" if order_id
+               else "complimentary admin shortlist")
+    lines = [f"💍 మన వివాహ — {bname} గారు, మీ shortlisted profiles ({service}):", ""]
     for i, t in enumerate(targets or [], 1):
         icon = "👰" if t.get("gender") == "Bride" else ("🤵" if t.get("gender") == "Groom" else "💍")
         lines.append(f"{i}. {icon} {first_masked(t.get('full_name', ''))} -- "
-                     f"{t.get('phone', '—')} ({t.get('tsap_id', '—')} · "
-                     f"{t.get('caste', '—')} · {t.get('age', '—')}y · "
+                     f"{t.get('tsap_id', '—')} ({t.get('caste', '—')} · {t.get('age', '—')}y · "
                      f"{t.get('district', '—')})")
-    lines += ["", "🙏 Nachina వాళ్లకి interest పంపండి — leda మేము matladistham (10AM–7PM).",
-              "⚠️ ఈ numbers vere వాళ్లకి forward చెయ్యకండి — meekosame unlock చేశాం."]
-    return "\n".join(lines)
+    lines += ["", "🔒 Phone numbers are not included. Send an interest request in the app; the profile owner must accept before contact details are shared.",
+              "⚠️ Respect each member's privacy and do not try to obtain contact details outside the consent flow."]
+    text = "\n".join(lines)
+    if not assert_no_leak(text)["ok"]:
+        raise ValueError("A phone-like number was detected in the assisted shortlist output.")
+    return text
 
 
 def build_personal_card(target: Dict, buyer_name: str = "") -> str:
-    """Paid buyer DM card (Telegram/WhatsApp) — full number తో (consent-paid)."""
+    """Buyer DM card with profile summary only; phone is withheld until owner acceptance."""
     t = target or {}
     icon = "👰" if t.get("gender") == "Bride" else ("🤵" if t.get("gender") == "Groom" else "💍")
     g = "Ammayi" if t.get("gender") == "Bride" else ("Abbayi" if t.get("gender") == "Groom" else "")
-    return (
+    from channels_config import SITE  # lazy import
+    text = (
         f"{icon} {t.get('tsap_id', '—')} — {first_masked(t.get('full_name', ''))} ({g} {t.get('age', '—')}y)\n"
         f"💍 {t.get('caste', '—')} · {t.get('gothram', '—')} గోత్రం · 🌟 {t.get('star', '—')}\n"
         f"🎓 {t.get('education', '—')} · 💼 {t.get('job', '—')} · 💰 {t.get('salary', '—')}\n"
         f"📍 {t.get('district', '—')}, {t.get('state', 'TS')}\n"
-        f"📞 Number: {t.get('phone', '—')}\n"
-        f"🔍 Full: /search {t.get('tsap_id', '')}"
+        "🔒 Contact details hidden — send an interest request; owner acceptance is required.\n"
+        f"🔍 Profile: {SITE}/search/{t.get('tsap_id', '')}"
     )
+    if not assert_no_leak(text)["ok"]:
+        raise ValueError("A phone-like number was detected in the assisted profile card.")
+    return text
 
 
 def build_personal_pack(buyer: Dict, targets: List[Dict], order_id: str = "") -> List[str]:
-    """DM sequence: header + 1 msg per profile (Telegram limit-safe chunks)."""
+    """DM sequence: shortlist intro + profile summaries; never disclose member phone numbers."""
     bname = first_masked((buyer or {}).get("full_name", ""))
-    header = (f"💍 మన వివాహ — {bname} గారు, నమస్తే! 🙏\n"
-              f"₹{ASSISTED_PRICE} payment వచ్చింది ✅ — meekosam handpicked "
-              f"{len(targets)} profiles 👇 (numbers meekosame unlock){f' · {order_id}' if order_id else ''}")
+    if order_id:
+        header = (f"💍 మన వివాహ — {bname} గారు, నమస్తే! 🙏\n"
+                  f"₹{ASSISTED_PRICE} service order {order_id} confirm అయ్యింది. మీ shortlist లో {len(targets)} profiles ఉన్నాయి.\n"
+                  "Contact details కోసం ప్రతి profile owner acceptance అవసరం.")
+    else:
+        header = (f"💍 మన వివాహ — {bname} గారు, నమస్తే! 🙏\n"
+                  f"మీ admin-curated shortlist లో {len(targets)} profiles ఉన్నాయి.\n"
+                  "Contact details కోసం ప్రతి profile owner acceptance అవసరం.")
     return [header] + [build_personal_card(t, bname) for t in (targets or [])]
 
 
@@ -383,11 +406,16 @@ async def deliver_personal(buyer: Dict, targets: List[Dict], via: str = "both",
     """
     Buyer personal Telegram DM + WhatsApp ki profiles.
     Tokens/links lekapothe → dry-run preview (crash ledu, admin copy-list tho pampachu).
-    Returns per-target status + copy_list (admin fallback).
+    Returns delivery status + a contact-safe copy-list (admin fallback).
     """
     import bot_pool  # lazy
     msgs = build_personal_pack(buyer, targets, order_id)
     copy_list = build_copy_list(buyer, targets, order_id)
+    if any(not assert_no_leak(message)["ok"] for message in msgs):
+        return {"ok": False, "via": via, "messages": 0,
+                "telegram": {"wanted": False, "sent": 0, "failed": "privacy_guard"},
+                "whatsapp": {"wanted": False, "queued": 0, "failed": "privacy_guard"},
+                "copy_list": "", "message_telugu": "🔒 Privacy guard: contact data detected; shortlist was not sent."}
     via = (via or "both").lower()
     want_tg = via in ("telegram", "both")
     want_wa = via in ("whatsapp", "both")
@@ -437,11 +465,10 @@ async def deliver_personal(buyer: Dict, targets: List[Dict], via: str = "both",
 
 
 # ---------------------------------------------------------------------------
-# 7. FIRST-NAME DISPLAY + SAME-SURNAME GUARD (WAVE 13)
+# 7. FIRST-NAME DISPLAY + optional last-name-token comparison
 # ---------------------------------------------------------------------------
-# Public chotla FIRST NAME kanipisthundi (nammakam + privacy balance),
-# surname eppudu hidden. Kani backend lo SAME SURNAME ayithe match vaddu
-# (okka inti-peru — pelli kudadhu, sampradayam). Gothram guard lanti logic.
+# Public display uses the first name. A name's final token is not necessarily a
+# surname and must never block interest or determine marriage eligibility.
 
 def first_name_of(full_name: str) -> str:
     """'Lakshmi Reddy' → 'Lakshmi' — public display (surname hidden)."""
@@ -461,34 +488,26 @@ def norm_surname(s: str) -> str:
 
 
 def same_surname_check(a: Dict, b: Dict) -> Dict:
-    """
-    Same-surname → blocked (pelli kudadhu).
-    Okariki surname lekapothe → block kadu + unknown_side warning (gothram pattern).
-    """
-    sa = norm_surname(surname_of((a or {}).get("full_name", "")))
-    sb = norm_surname(surname_of((b or {}).get("full_name", "")))
-    if not sa or not sb:
-        missing = "a" if not sa else ("b" if not sb else "both")
-        return {"same": False, "blocked": False, "unknown_side": True, "missing": missing,
-                "reason": "surname_unknown",
-                "verdict_telugu": "⚠️ ఒకరికి ఇంటి-పేరు (surname) లేదు — admin/pandit confirm చెయ్యండి"}
-    same = (sa == sb)
-    nm = surname_of(a.get("full_name", ""))
-    return {"same": same, "blocked": same, "a_surname": nm,
-            "b_surname": surname_of(b.get("full_name", "")),
-            "reason": "same_surname" if same else "surname_ok",
-            "verdict_telugu": ("🚫 ఒక్క ఇంటి-పేరు (%s) — పెళ్లి కూడదు (సంప్రదాయం). Vere profiles చూడండి 🙏" % nm
-                               if same else "✅ Inti-పేరు వేరు — surname paranga OK")}
+    """Compare final name tokens only; they may not be surnames and never block a pair."""
+    first = surname_of((a or {}).get("full_name", ""))
+    second = surname_of((b or {}).get("full_name", ""))
+    one, two = norm_surname(first), norm_surname(second)
+    same = (one == two) if one and two else None
+    if same is True:
+        note = "రెండు పేర్ల చివరి పదం ఒకేలా ఉంది. ఇది name-token comparison మాత్రమే; వివాహ నిర్ణయం కాదు."
+        reason = "same_final_name_token"
+    elif same is False:
+        note = "పేర్ల చివరి పదాలు వేర్వేరుగా ఉన్నాయి. ఇది name-token comparison మాత్రమే; సంప్రదాయ తీర్పు కాదు."
+        reason = "different_final_name_token"
+    else:
+        note = "పోల్చడానికి రెండు పేర్లలోనూ చివరి పదం అందుబాటులో లేదు."
+        reason = "name_token_unavailable"
+    return {"same": same, "blocked": False, "a_name_token": first, "b_name_token": second,
+            "reason": reason, "note_telugu": note,
+            "notice": "A final name token is not necessarily a surname and does not determine eligibility."}
 
 
 def filter_same_surname(me: Dict, pool: list) -> Dict:
-    """Pool నుంచి same-surname profiles teesey (suggestions/matches కోసం)."""
-    kept, skipped = [], []
-    for u in (pool or []):
-        if (u or {}).get("tsap_id") == (me or {}).get("tsap_id"):
-            kept.append(u)
-            continue
-        c = same_surname_check(me, u)
-        (skipped if c.get("blocked") else kept).append(u)
-    ids = [u.get("tsap_id") for u in skipped]
-    return {"kept": kept, "skipped_ids": ids, "skipped_count": len(ids)}
+    """Legacy filter name: keep all profiles; name tokens do not determine eligibility."""
+    kept = list(pool or [])
+    return {"kept": kept, "skipped_ids": [], "skipped_count": 0}

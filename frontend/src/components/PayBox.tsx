@@ -2,10 +2,10 @@
 /**
  * 💳 WAVE 14 — SAFE-PAY BOX (pricing → order → Razorpay/manual-UPI → verify)
  * Amount SERVER computes — client amount nammamu. Secret eppudu frontend ki radhu.
- * Props: planCode (S_29..S_499), price (display), label.
+ * Props: planCode (S_99..S_499), price (display), label.
  */
 import { useState } from "react";
-import { authHeaders } from "@/lib/api";
+import { apiDisplayMessage, authHeaders, readApiJson} from "@/lib/api";
 import { useLang } from "@/lib/lang";
 
 declare global { interface Window { Razorpay?: any } }
@@ -22,9 +22,10 @@ function loadRazorpay(): Promise<boolean> {
   });
 }
 
-export default function PayBox({ planCode, price, label }: { planCode: string; price: number; label: string }) {
+export default function PayBox({ planCode, price, label, purpose = "credits", tsapId = "" }: { planCode: string; price: number; label: string; purpose?: "credits" | "boost"; tsapId?: string }) {
   const { lang } = useLang();
   const te = lang === "te";
+  const displayLabel = te ? label : apiDisplayMessage(label, false, "Payment");
   const [open, setOpen] = useState(false);
   const [offer, setOffer] = useState("");
   const [order, setOrder] = useState<any>(null);
@@ -41,13 +42,16 @@ export default function PayBox({ planCode, price, label }: { planCode: string; p
     if (!code) { setPromo(te ? "ముందు offer code ఇవ్వండి" : "Enter offer code first"); return; }
     setPromoBusy(true);
     try {
-      const d = await fetch(`/api/promo/apply?code=${encodeURIComponent(code)}&purpose=credits&plan=${encodeURIComponent(planCode)}&user=${encodeURIComponent(myId())}`).then((r) => r.json());
-      setPromo(d.success ? String(d.message_telugu || "OK") : String(d.detail || "Invalid code"));
+      const d = await fetch(`/api/promo/apply?code=${encodeURIComponent(code)}&purpose=${encodeURIComponent(purpose)}&plan=${encodeURIComponent(planCode)}&user=${encodeURIComponent(myId())}`).then((r) => readApiJson(r));
+      setPromo(apiDisplayMessage(d, te, d.success
+        ? (te ? "Offer code applied." : "Offer code applied.")
+        : (te ? "చెల్లుబాటు అయ్యే offer code కాదు." : "This offer code is not valid.")));
     } catch { setPromo(te ? "Network problem" : "Network problem"); }
     setPromoBusy(false);
   };
 
   const myId = () => {
+    if (tsapId.trim()) return tsapId.trim().toUpperCase();
     try { return localStorage.getItem("tsap_id") || ""; } catch { return ""; }
   };
 
@@ -58,12 +62,16 @@ export default function PayBox({ planCode, price, label }: { planCode: string; p
     try {
       const r = await fetch("/api/pay/order", {
         method: "POST", headers: { ...authHeaders(), "Content-Type": "application/json" },
-        body: JSON.stringify({ tsap_id: id, purpose: "credits", ref: planCode, offer_code: offer.trim().toUpperCase() }),
+        body: JSON.stringify({ tsap_id: id, purpose, ref: planCode, offer_code: offer.trim().toUpperCase() }),
       });
-      const d = await r.json();
-      if (!r.ok) { setMsg(d.detail || d.message_telugu || "Order fail"); setBusy(false); return; }
+      const d = await readApiJson(r);
+      if (!r.ok) {
+        setMsg(apiDisplayMessage(d, te, te ? "Order సృష్టించలేకపోయాం. మళ్లీ ప్రయత్నించండి." : "The order could not be created. Please try again."));
+        setBusy(false);
+        return;
+      }
       setOrder(d.pay_order);
-      setMsg(d.message_telugu || "");
+      setMsg(apiDisplayMessage(d, te, ""));
     } catch { setMsg(te ? "Network problem — మళ్లీ try చెయ్యండి" : "Network problem — retry"); }
     setBusy(false);
   };
@@ -77,8 +85,10 @@ export default function PayBox({ planCode, price, label }: { planCode: string; p
         method: "POST", headers: { ...authHeaders(), "Content-Type": "application/json" },
         body: JSON.stringify({ order_id: order.id, utr: utr.trim() }),
       });
-      const d = await r.json();
-      setMsg(r.ok ? (d.message_telugu || (te ? "✅ UTR వచ్చింది!" : "✅ UTR received!")) : (d.detail || d.message_telugu || (te ? "Claim fail" : "Claim failed")));
+      const d = await readApiJson(r);
+      setMsg(apiDisplayMessage(d, te, r.ok
+        ? (te ? "✅ UTR నమోదు అయింది." : "✅ UTR submitted.")
+        : (te ? "UTR claim విఫలమైంది. మళ్లీ ప్రయత్నించండి." : "The UTR could not be submitted. Please try again.")));
       if (r.ok) { setOrder({ ...order, status: "claimed" }); setUtr(""); }
     } catch { setMsg(te ? "Network problem — మళ్లీ try చెయ్యండి" : "Network problem — retry"); }
     setClaimBusy(false);
@@ -87,8 +97,17 @@ export default function PayBox({ planCode, price, label }: { planCode: string; p
   const payNow = async () => {
     if (!order || busy) return;
     setBusy(true);
+    if (order.mode === "manual_upi") {
+      if (!order.upi_id) {
+        setMsg(te ? "చెల్లింపు వివరాలు అందుబాటులో లేవు. డబ్బు పంపవద్దు; తర్వాత మళ్లీ ప్రయత్నించండి." : "Payment destination is not configured. Do not send money; try again later.");
+      } else {
+        setMsg(te ? `💳 ₹${order.final_amount} ను చూపించిన వ్యాపారి UPI ID కి చెల్లించి, statement లోని UTR నమోదు చేయండి. Admin verify చేసిన తర్వాతే order పూర్తి అవుతుంది. (Order: ${order.id})` : `Pay ₹${order.final_amount} to the configured merchant UPI ID shown below, then enter the UTR from your statement. The order completes only after admin verification. (Order: ${order.id})`);
+      }
+      setBusy(false);
+      return;
+    }
     if (order.mode !== "razorpay" || !order.key_id) {
-      setMsg(te ? `💳 ${order.upi_id || "manavivaha@upi"} కి ₹${order.final_amount} pay చేసి — కింద UTR (12 digits) ఇవ్వండి. Admin bank statement verify చేసి confirm చేస్తాడు 🙏 (Order: ${order.id})` : `💳 Pay ₹${order.final_amount} to ${order.upi_id || "manavivaha@upi"} — enter UTR (12 digits) below. Admin verifies the bank statement and confirms 🙏 (Order: ${order.id})`);
+      setMsg(te ? "చెల్లింపు provider అందుబాటులో లేదు. డబ్బు పంపవద్దు; తర్వాత మళ్లీ ప్రయత్నించండి." : "No payment provider is available. Do not send money; try again later.");
       setBusy(false);
       return;
     }
@@ -100,8 +119,10 @@ export default function PayBox({ planCode, price, label }: { planCode: string; p
       order_id: order.rzp_order_id,
       amount: order.checkout_amount_paise,
       currency: "INR",
-      name: "మన వివాహ",
-      description: order.label || label,
+      name: te ? "మన వివాహ" : "Mana Vivaha",
+      description: te
+        ? (order.label || label)
+        : apiDisplayMessage({ message_en: order.label_en, message: order.label || displayLabel }, false, displayLabel),
       handler: async (resp: any) => {
         setBusy(true);
         try {
@@ -112,9 +133,15 @@ export default function PayBox({ planCode, price, label }: { planCode: string; p
               razorpay_payment_id: resp.razorpay_payment_id, razorpay_signature: resp.razorpay_signature,
             }),
           });
-          const d = await r.json();
-          if (r.ok) { setDone(d.message_telugu || "✅ Payment success!"); setOrder(null); }
-          else setMsg(d.detail || (te ? "Verify fail — amount cut అయితే support కి payment ID పంపండి" : "Verify failed — if amount was cut, send payment ID to support"));
+          const d = await readApiJson(r);
+          if (r.ok) {
+            setDone(apiDisplayMessage(d, te, te ? "✅ చెల్లింపు నిర్ధారించబడింది." : "✅ Payment confirmed."));
+            setOrder(null);
+          } else {
+            setMsg(apiDisplayMessage(d, te, te
+              ? "చెల్లింపును నిర్ధారించలేకపోయాం. మొత్తం డెబిట్ అయితే payment IDతో support ను సంప్రదించండి."
+              : "Payment could not be verified. If money was debited, contact support with the payment ID."));
+          }
         } catch { setMsg(te ? "Verify error — payment ID తో support ని contact చెయ్యండి" : "Verify error — contact support with payment ID"); }
         setBusy(false);
       },
@@ -130,8 +157,9 @@ export default function PayBox({ planCode, price, label }: { planCode: string; p
     try {
       rzp.on("payment.failed", (resp: any) => {
         setBusy(false);
-        const why = resp?.error?.description || "";
-        setMsg(te ? `\u274c Payment fail \u0c05\u0c2f\u0c4d\u0c2f\u0c3f\u0c02\u0c26\u0c3f${why ? ` (${why})` : ""} - \u0c21\u0c2c\u0c4d\u0c2c\u0c41\u0c32\u0c41 cut \u0c05\u0c35\u0c4d\u0c35\u0c32\u0c47\u0c26\u0c41, \u0c2e\u0c33\u0c4d\u0c32\u0c40 try \u0c1a\u0c46\u0c2f\u0c4d\u0c2f\u0c02\u0c21\u0c3f` : `\u274c Payment failed${why ? ` (${why})` : ""} - no money cut, please retry`);
+        const rawWhy = resp?.error?.description || "";
+        const why = te ? rawWhy : apiDisplayMessage(rawWhy, false, "");
+        setMsg(te ? `\u274c Payment fail \u0c05\u0c2f\u0c2f\u0c3f\u0c02\u0c26\u0c3f${why ? ` (${why})` : ""} - \u0c21\u0c2c\u0c2c\u0c41 cut \u0c05\u0c35\u0c4d\u0c35\u0c32\u0c47\u0c26\u0c41, \u0c2e\u0c33\u0c4d\u0c32\u0c40 try \u0c1a\u0c46\u0c2f\u0c4d\u0c2f\u0c02\u0c21\u0c3f` : `\u274c Payment failed${why ? ` (${why})` : ""} - no money was debited, please retry`);
       });
     } catch { /* older checkout.js - ignore */ }
     rzp.open();
@@ -143,7 +171,7 @@ export default function PayBox({ planCode, price, label }: { planCode: string; p
     return (
       <button onClick={() => setOpen(true)}
         className="w-full rounded-xl bg-[#7A0C2E] text-white px-4 py-2.5 font-bold text-sm hover:bg-[#5f0923]">
-        💳 {label} — Pay ₹{price}
+        💳 {displayLabel} — Pay ₹{price}
       </button>
     );
 
@@ -152,7 +180,7 @@ export default function PayBox({ planCode, price, label }: { planCode: string; p
       {!order ? (
         <>
           <div className="flex gap-2">
-            <input value={offer} onChange={(e) => { setOffer(e.target.value); setPromo(""); }} placeholder="Offer code (DIWALI25…)"
+            <input value={offer} onChange={(e) => { setOffer(e.target.value); setPromo(""); }} placeholder={te ? "Offer code ఉంటే నమోదు చేయండి" : "Enter an offer code if you have one"}
               className="flex-1 rounded-lg border px-3 py-2 text-xs font-mono uppercase" aria-label="Offer code" />
             <button onClick={previewPromo} disabled={promoBusy}
               className="rounded-lg border border-green-700 text-green-700 px-3 py-2 text-xs font-bold disabled:opacity-50">
@@ -173,7 +201,7 @@ export default function PayBox({ planCode, price, label }: { planCode: string; p
             {order.discount ? <span className="ml-1 text-green-700">(−₹{order.discount} {order.offer_code})</span> : null}
             <span className="ml-1 font-normal text-gray-500">• {te ? "24h valid" : "valid 24h"}</span>
           </div>
-          {order.mode !== "razorpay" && (
+          {order.mode === "manual_upi" && order.upi_id && (
             <div className="text-[11px] bg-white rounded-lg p-2.5 border space-y-2">
               <div className="flex items-center justify-between">
                 <span className="font-bold text-maroon text-xs">🔒 {te ? "సురక్షిత ఆన్‌లైన్ చెల్లింపు" : "Secure Online Payment"}</span>
@@ -196,7 +224,7 @@ export default function PayBox({ planCode, price, label }: { planCode: string; p
               </div>
 
               <a
-                href={`upi://pay?pa=${encodeURIComponent(order.upi_id || "9394483300@ybl")}&pn=${encodeURIComponent("Mana Vivaha")}&am=${order.final_amount}&cu=INR&tn=${encodeURIComponent(`ManaVivaha ${order.id}`)}`}
+                href={`upi://pay?pa=${encodeURIComponent(order.upi_id)}&pn=${encodeURIComponent("Mana Vivaha")}&am=${order.final_amount}&cu=INR&tn=${encodeURIComponent(`ManaVivaha ${order.id}`)}`}
                 className="w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg bg-[#7A0C2E] hover:bg-[#911239] text-white font-bold text-xs transition shadow-xs"
               >
                 <span>📲</span>

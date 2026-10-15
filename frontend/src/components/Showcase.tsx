@@ -6,7 +6,7 @@
  * Rotation suggestion: last week caste tarvata next caste. Post → caste channels.
  */
 import { useEffect, useMemo, useState } from "react";
-import { authHeaders } from "@/lib/api";
+import { apiDisplayMessage, authHeaders, readApiJson } from "@/lib/api";
 import { useLang } from "@/lib/lang";
 
 type Row = Record<string, any>;
@@ -22,6 +22,9 @@ const withToken = (url: string) => {
 export default function Showcase() {
   const { lang } = useLang();
   const te = lang === "te";
+  const displayApiText = (value: unknown, fallback = "Not available in English") => te
+    ? String(value ?? "")
+    : apiDisplayMessage({ message_en: value }, false, fallback);
   const [caste, setCaste] = useState("");
   const [castes, setCastes] = useState<string[]>([]);
   const [suggestion, setSuggestion] = useState("");
@@ -34,12 +37,12 @@ export default function Showcase() {
 
   const loadCastes = async () => {
     try {
-      const r = await fetch("/api/search/facets?limit=60").then((x) => x.json());
+      const r = await fetch("/api/search/facets?limit=60").then((x) => readApiJson(x));
       const cs = ((r?.facets?.castes || r?.facets?.caste || []) as string[]).filter(Boolean);
       if (cs.length) { setCastes(cs.sort()); if (!caste) setCaste(cs[0]); }
     } catch { /* ignore */ }
   };
-  useEffect(() => { void loadCastes(); fetch("/api/showcase").then((r) => r.json()).then((d) => {
+  useEffect(() => { void loadCastes(); fetch("/api/showcase").then((r) => readApiJson(r)).then((d) => {
     if (d?.success && d.caste) setCur(d);
   }).catch(() => { }); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -49,13 +52,13 @@ export default function Showcase() {
     setLoading(true); setFlash("");
     try {
       const r = await fetch(withToken(`/api/admin/showcase/candidates?caste=${encodeURIComponent(cc)}&limit=60`), { headers: authHeaders(true) });
-      const d = await r.json();
+      const d = await readApiJson(r);
       if (d.success) {
         setRows(d.candidates || []); setSuggestion(d.next_caste_suggestion || ""); setSel({});
         if (d.current_week?.ids) setSel(Object.fromEntries(d.current_week.ids.map((x: string) => [x, true])));
-        setFlash(te ? `✅ ${d.count} ${cc} profiles (photos + score first)` : `✅ ${d.count} ${cc} profiles`);
-      } else setFlash(d.detail || "fail");
-    } catch { setFlash(te ? "⚠️ API error" : "⚠️ API error"); }
+        setFlash(`✅ ${d.count} ${displayApiText(cc, "Community name in the original language")} profiles · reviewed public photos first`);
+      } else setFlash(apiDisplayMessage(d, te, te ? "లోడ్ చేయలేకపోయాం." : "Could not load profiles. Please try again."));
+    } catch { setFlash(te ? "⚠️ API లోపం" : "⚠️ API error. Please try again."); }
     finally { setLoading(false); }
   };
 
@@ -72,21 +75,26 @@ export default function Showcase() {
         method: "POST", headers: { ...authHeaders(true), "Content-Type": "application/json" },
         body: JSON.stringify({ caste, profile_ids: selIds, post_to_channels: post }),
       });
-      const d = await r.json();
-      if (d.success) { setFlash(d.message_telugu || `✅ ${d.selected?.length} set · ${d.posted?.length} posted · next: ${d.next_caste}`); setCur({ caste: d.caste, matches: [] }); }
-      else setFlash(d.detail || "fail");
-    } catch { setFlash(te ? "⚠️ API error" : "⚠️ API error"); }
+      const d = await readApiJson(r);
+      if (d.success) {
+        const nextCommunity = displayApiText(d.next_caste, "Not available in English");
+        setFlash(apiDisplayMessage(d, te, te
+          ? `✅ ${d.selected?.length ?? 0} profiles ఎంచుకున్నారు · ${d.posted?.length ?? 0} పోస్టు చేశారు · తర్వాత: ${d.next_caste || "—"}`
+          : `✅ Selected ${d.selected?.length ?? 0} profiles · posted ${d.posted?.length ?? 0} · next: ${nextCommunity || "—"}`));
+        setCur({ caste: d.caste, matches: [] });
+      } else setFlash(apiDisplayMessage(d, te, te ? "చర్య విఫలమైంది." : "The action failed. Please try again."));
+    } catch { setFlash(te ? "⚠️ API లోపం" : "⚠️ API error. Please try again."); }
   };
 
   return (
     <div>
       <p className="telugu mt-2 text-xs text-gray-500">
-        {te ? <>వారానికి <b>ఒక కులం</b> — ఆ caste best profiles ఎంచుకుని showcase set చెయ్యండి → వారి caste channels లో post. Homepage లో అందరికీ కనిపిస్తుంది.</> : <>One caste per week — pick that caste&apos;s best profiles → showcase set → posted to their caste channels. Shows on homepage.</>}
+        {te ? <>వారానికి <b>ఒక community</b> — చూపించదలచిన profiles ను review చేసి, showcase గా ఎంచుకోండి. Homepage లో కనిపించేలా సెట్ చేయవచ్చు.</> : <>Review and select the profiles you want to feature for one community each week. The showcase can appear on the homepage.</>}
       </p>
 
       {cur?.caste ? (
         <div className="mt-2 rounded-xl bg-emerald-50 border border-emerald-200 p-2 text-xs">
-          🎊 {te ? "ఈ వారం" : "This week"}: <b>{cur.caste}</b>
+          🎊 {te ? "ఈ వారం" : "This week"}: <b>{displayApiText(cur.caste, "Community name in the original language")}</b>
         </div>
       ) : null}
 
@@ -94,12 +102,12 @@ export default function Showcase() {
         <select value={caste} onChange={(e) => setCaste(e.target.value)} aria-label="Caste"
           className="rounded-xl border border-[#7A0C2E]/30 px-3 py-2 text-sm">
           {castes.length === 0 && <option value="">—</option>}
-          {castes.map((c) => <option key={c} value={c}>{c}</option>)}
+          {castes.map((c) => <option key={c} value={c}>{displayApiText(c, "Community name in the original language")}</option>)}
         </select>
         {suggestion && (
           <button onClick={() => { setCaste(suggestion); void load(suggestion); }}
             className="rounded-xl border border-[#B8860B] bg-[#FFF8E7] px-3 py-2 text-xs font-bold text-[#8B6914]">
-            🔄 {te ? `వచ్చే వారం: ${suggestion} (rotation)` : `Next: ${suggestion}`}
+            🔄 {te ? `వచ్చే వారం: ${suggestion} (rotation)` : `Next: ${displayApiText(suggestion, "Community name in the original language")}`}
           </button>
         )}
         <button onClick={() => void load()} disabled={loading}
@@ -125,7 +133,7 @@ export default function Showcase() {
               <tr key={x.tsap_id} className={`border-t ${sel[x.tsap_id] ? "bg-emerald-50" : ""}`}>
                 <td className="p-2 text-center"><input type="checkbox" checked={!!sel[x.tsap_id]} onChange={() => toggle(x.tsap_id)} aria-label={`Select ${x.tsap_id}`} className="h-4 w-4 accent-[#7A0C2E]" /></td>
                 <td className="p-2"><div className="font-bold">{x.full_name}</div><div className="font-mono text-[10px] text-gray-500">{x.tsap_id}</div></td>
-                <td className="p-2">{x.gender === "Bride" ? "👰" : "🤵"} {x.age}y · {x.district}<div className="text-[10px] text-gray-500">{x.job} · {x.education}</div></td>
+                <td className="p-2">{x.gender === "Bride" ? "👰" : "🤵"} {x.age}y · {displayApiText(x.district, "Location not available in English")}<div className="text-[10px] text-gray-500">{displayApiText(x.job, "Occupation not available in English")} · {displayApiText(x.education, "Education not available in English")}</div></td>
                 <td className="p-2">{x.has_photo ? "✅" : "—"}</td>
               </tr>
             ))}

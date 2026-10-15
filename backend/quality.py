@@ -1,10 +1,10 @@
 """
-⭐ WAVE 9 — PROFILE QUALITY + TRUST + SAVED SEARCHES + CONSENT LEDGER
+⭐ PROFILE COMPLETENESS + VERIFICATION FACTS + SAVED SEARCHES + CONSENT LEDGER
 ====================================================================
-  • profile_completeness()  → form lo em miss ayyindo % + Telugu tips (register/complete-profile fix)
-  • trust_score()           → verification + activity + completeness composite (badge)
+  • profile_completeness()  → form lo em miss ayyindo % + Telugu tips (not an identity/trust score)
+  • verification evidence  → separate recorded checks; never a numeric trust judgment
   • saved searches          → "ee filters తో కొత్త profiles వస్తే WhatsApp alert" (advanced feature)
-  • consent ledger          → numbers eppudu evariki exchange అయ్యాయి (audit trail, disputes ki)
+  • consent ledger          → owner acceptance/contact-access events (not proof of notification delivery)
   • interest templates      → Telugu ready-made messages (users ki easy + spam takkuva)
   • facets                  → search UI chips ki caste/district/education counts
 """
@@ -16,9 +16,17 @@ import re
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from hardening import clean, req_int, req_text, validation_error
 
-STATE_DIR = os.path.dirname(os.path.abspath(__file__))
+def _has_verification_evidence(user: Dict[str, Any]) -> bool:
+    u = user or {}
+    return bool(u.get("phone_verified") or u.get("selfie_verified")
+                or u.get("photo_status") == "approved" or u.get("id_verified"))
+
+from hardening import clean, req_int, req_text, validation_error
+from matchpro import detect_nri
+from models import is_never_married_status
+
+STATE_DIR = os.environ.get("MANA_VIVAHA_STATE_DIR", os.path.dirname(os.path.abspath(__file__)))
 SAVED_STATE_FILE = os.path.join(STATE_DIR, "saved_searches_state.json")
 CONSENT_STATE_FILE = os.path.join(STATE_DIR, "consent_ledger_state.json")
 
@@ -47,8 +55,16 @@ def _save(path: str, data: Any) -> None:
 
 load_saved_searches = lambda: _load(SAVED_STATE_FILE, SAVED_SEARCHES)      # noqa: E731
 save_saved_searches = lambda: _save(SAVED_STATE_FILE, SAVED_SEARCHES[-2000:])  # noqa: E731
-load_consent_ledger = lambda: _load(CONSENT_STATE_FILE, CONSENT_LEDGER)   # noqa: E731
-save_consent_ledger = lambda: _save(CONSENT_STATE_FILE, CONSENT_LEDGER[-5000:])  # noqa: E731
+
+
+def load_consent_ledger() -> None:
+    _load(CONSENT_STATE_FILE, CONSENT_LEDGER)
+    CONSENT_LEDGER[:] = CONSENT_LEDGER[-5000:]
+
+
+def save_consent_ledger() -> None:
+    CONSENT_LEDGER[:] = CONSENT_LEDGER[-5000:]
+    _save(CONSENT_STATE_FILE, CONSENT_LEDGER)
 
 
 # ---------------------------------------------------------------------------
@@ -91,6 +107,19 @@ COMPLETENESS_FIELDS: List[Dict[str, Any]] = [
     {"key": "phone_verified", "w": 5, "label": "Phone verify (OTP)", "group": "contact"},
 ]
 
+COMPLETENESS_LABELS_EN = {
+    "full_name": "Full name", "gender": "Bride or groom", "age": "Age", "dob": "Date of birth",
+    "height": "Height", "marital_status": "Marital status", "photo_urls": "Profile photos",
+    "caste": "Community", "sub_caste": "Sub-community", "gothram": "Gothram", "star": "Nakshatram",
+    "rasi": "Rasi", "education": "Education", "college": "College or university", "job": "Occupation",
+    "company": "Company", "salary": "Income range", "work_location": "Work location",
+    "father_name": "Father's name", "mother_name": "Mother's name", "father_occupation": "Father's occupation",
+    "mother_occupation": "Mother's occupation", "brothers": "Brothers", "sisters": "Sisters",
+    "native_place": "Native place", "about_myself": "About you", "about_family": "About your family",
+    "expectations": "Partner preferences", "state": "State", "district": "District",
+    "current_city": "Current city", "email": "Email (optional)", "phone_verified": "Phone verification (OTP)",
+}
+
 TOTAL_WEIGHT = sum(f["w"] for f in COMPLETENESS_FIELDS)
 
 
@@ -109,23 +138,28 @@ def profile_completeness(user: Dict[str, Any]) -> Dict[str, Any]:
     """% + ఏం miss ayyindo + Telugu tips (register clarity + profile improve fix)."""
     got = sum(f["w"] for f in COMPLETENESS_FIELDS if _filled(user, f))
     percent = int(round(got * 100 / TOTAL_WEIGHT)) if TOTAL_WEIGHT else 0
-    missing = [{"key": f["key"], "label": f["label"], "group": f["group"], "weight": f["w"]}
+    missing = [{"key": f["key"], "label": f["label"],
+                "label_en": COMPLETENESS_LABELS_EN.get(f["key"], f["key"].replace("_", " ").title()),
+                "group": f["group"], "weight": f["w"]}
                for f in COMPLETENESS_FIELDS if not _filled(user, f)]
     important = [m for m in missing if m["weight"] >= 5 and not m.get("optional")][:5]
     if percent >= 90:
-        level, telugu = "excellent", "🌟 Excellent — మీ profile complete గా ఉంది, matches ఎక్కువ వస్తాయి"
+        level, telugu, english = "excellent", "✅ Profile‌లోని చాలా వివరాలు నింపబడ్డాయి; member-entered వివరాలను స్వతంత్రంగా నిర్ధారించండి.", "✅ Most profile fields are complete. Independently verify member-provided details."
     elif percent >= 70:
-        level, telugu = "good", "✅ Good — konchem fields add చేస్తే ఇంకా మంచి matches"
+        level, telugu, english = "good", "📝 Profile‌ను మరింత పూర్తి చేయడానికి చూపించిన ఖాళీ fields పరిశీలించండి.", "📝 Review the suggested fields to complete your profile further."
     elif percent >= 45:
-        level, telugu = "average", "🟡 Average — photo + about_myself add చేస్తే 3x responses (matrimony survey)"
+        level, telugu, english = "average", "📝 Profile వివరాలు ఇంకా జోడించవచ్చు; ఫలితాలు లేదా responses‌కు హామీ లేదు.", "📝 You can add more profile details. Outcomes or responses are not guaranteed."
     else:
-        level, telugu = "low", "🔴 Incomplete — ee profile కి matches తక్కువ వస్తాయి, ippude fill చెయ్యండి"
+        level, telugu, english = "low", "📝 Profile వివరాలు నింపడానికి చూపించిన fields‌ను పరిశీలించండి.", "📝 Review the suggested fields to add more profile details."
     return {
-        "percent": percent, "level": level, "verdict_telugu": telugu,
+        "percent": percent, "level": level, "verdict_telugu": telugu, "verdict_en": english,
         "missing": missing[:12], "missing_count": len(missing),
+        "missing_en": [{**m, "label": m["label_en"]} for m in missing[:12]],
         "important_telugu": [f"➕ {m['label']} add చెయ్యండి" for m in important],
+        "important_en": [f"➕ Add {m['label_en']} to your profile." for m in important],
         "sections": _section_breakdown(user),
-        "bonus_telugu": "📸 Photo ఉన్న profiles కి 5x views · ✅ OTP verify ఉంటే trust badge · 📝 about_myself ఉంటే better matches",
+        "bonus_telugu": "📸 Photo visibility privacy settings పై ఆధారపడి ఉంటుంది. Phone OTP ఆ number access‌ను మాత్రమే నిర్ధారిస్తుంది; profile వివరాలు సభ్యుడు అందిస్తారు.",
+        "bonus_en": "📸 Photo visibility depends on your privacy settings. Phone OTP confirms access to the number only; profile details are supplied by the member.",
     }
 
 
@@ -142,108 +176,111 @@ def _section_breakdown(user: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
 
 
 # ---------------------------------------------------------------------------
-# 2. TRUST SCORE
+# 2. LEGACY TRUST-SCORE SHIM
 # ---------------------------------------------------------------------------
 def trust_score(user: Dict[str, Any], interests: Optional[List[Dict[str, Any]]] = None,
                 reports_against: int = 0, blocks_against: int = 0) -> Dict[str, Any]:
-    """Composite trust: verify + completeness + activity − complaints."""
+    """Deprecated compatibility shim: expose verification/completeness facts only.
+
+    Verification, profile completeness, activity, reports, and blocks are not
+    collapsed into a numeric trustworthiness judgment.
+    """
     u = user or {}
-    factors: List[Dict[str, Any]] = []
-    score = 0
-
-    verified = bool(u.get("is_verified") or u.get("phone_verified"))
-    score += 25 if verified else 0
-    factors.append({"key": "phone_verified", "points": 25 if verified else 0, "max": 25,
-                    "telugu": "✅ Phone verified" if verified else "❌ Phone verify చెయ్యండి (25 pts)"})
-
-    comp = profile_completeness(u)["percent"]
-    comp_points = int(round(comp * 0.25))            # max 25
-    score += comp_points
-    factors.append({"key": "completeness", "points": comp_points, "max": 25,
-                    "telugu": f"📝 Profile completeness {comp}%"})
-
-    has_photo = bool(u.get("photo_urls"))
-    score += 15 if has_photo else 0
-    factors.append({"key": "photo", "points": 15 if has_photo else 0, "max": 15,
-                    "telugu": "📸 Photo ఉంది" if has_photo else "📸 Photo add చెయ్యండి (15 pts)"})
-
-    about = len(str(u.get("about_myself") or ""))
-    about_points = 10 if about >= 80 else (6 if about >= 30 else 0)
-    score += about_points
-    factors.append({"key": "about", "points": about_points, "max": 10,
-                    "telugu": "📄 About section బాగుంది" if about_points == 10 else "📄 'మీ gurinchi' kochem రాయండి (10 pts)"})
-
-    src = "site"
-    act_points = 0
-    if interests is not None:
-        replied = [i for i in interests if i.get("status") in ("accepted", "declined")]
-        act_points = min(10, 2 * len(replied))
-        factors.append({"key": "activity", "points": act_points, "max": 10,
-                        "telugu": f"💬 {len(replied)} requests కి reply iccharu"})
-    else:
-        factors.append({"key": "activity", "points": 0, "max": 10,
-                        "telugu": "💬 Requests కి reply isthe trust perugutundi"})
-    score += act_points
-
-    penalty = min(20, 5 * int(reports_against or 0) + 3 * int(blocks_against or 0))
-    if penalty:
-        factors.append({"key": "complaints", "points": -penalty, "max": 0,
-                        "telugu": f"⚠️ {reports_against} report / {blocks_against} block — {penalty} pts deduct"})
-    score -= penalty
-
-    score = max(0, min(100, score))
-    if score >= 80:
-        level, badge = "gold", "🥇 High trust — verified + complete profile"
-    elif score >= 60:
-        level, badge = "silver", "🥈 Good trust profile"
-    elif score >= 35:
-        level, badge = "bronze", "🥉 Basic — verify + photo add చెయ్యండి"
-    else:
-        level, badge = "new", "🆕 కొత్త profile — trust peragadaniki steps kinda ఉన్నాయి"
-    tips = [f["telugu"] for f in factors if f["max"] and f["points"] < f["max"]]
-    return {"score": score, "level": level, "badge_telugu": badge, "factors": factors,
-            "next_steps_telugu": tips[:4], "source": src}
+    return {
+        "calculated": False,
+        "verification_evidence": {
+            "phone_verified": bool(u.get("phone_verified")),
+            "photo_reviewed": bool(u.get("selfie_verified") or u.get("photo_status") == "approved"),
+            "id_reviewed": bool(u.get("id_verified")),
+        },
+        "profile_completeness_percent": profile_completeness(u).get("percent", 0),
+        "notice": "No trust score is calculated. Verify identity and member-provided details independently.",
+    }
 
 
 # ---------------------------------------------------------------------------
 # 3. SAVED SEARCHES (+ new-match alerts)
 # ---------------------------------------------------------------------------
-FILTER_KEYS = ["gender", "caste", "district", "state", "job", "education", "marital_status", "religion",
-               "age_min", "age_max", "salary_min", "salary_max", "height_min", "height_max",
-               "verified_only", "photo_only", "dosham", "star", "q", "sort"]
+FILTER_KEYS = [
+    "gender", "caste", "sub_caste", "district", "state", "job", "education",
+    "marital_status", "children", "religion", "age_min", "age_max", "salary_min",
+    "salary_max", "height_min", "height_max", "verified_only", "photo_only", "nri_only",
+    "dosham", "star", "rasi", "q",
+]
+MULTI_FILTER_KEYS = {
+    "caste", "sub_caste", "district", "state", "job", "education", "marital_status",
+    "religion", "star", "rasi", "dosham",
+}
+BOOLEAN_FILTER_KEYS = {"verified_only", "photo_only", "nri_only"}
+
+
+def _filter_bool(value: Any, field: str) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, int) and value in (0, 1):
+        return bool(value)
+    text = str(value or "").strip().lower()
+    if text in ("1", "true", "yes", "on"):
+        return True
+    if text in ("0", "false", "no", "off", ""):
+        return False
+    validation_error(field, "⚠️ Filter value must be true or false")
 
 
 def normalize_filters(raw: Dict[str, Any]) -> Dict[str, Any]:
+    """Keep saved-search filters typed, bounded, and aligned with /api/search."""
+    raw = raw if isinstance(raw, dict) else {}
     out: Dict[str, Any] = {}
-    for k in FILTER_KEYS:
-        v = (raw or {}).get(k)
-        if v in (None, "", [], False):
+    for key in FILTER_KEYS:
+        value = raw.get(key)
+        if value is None or value == "" or value == []:
             continue
-        if k in ("age_min", "age_max"):
-            out[k] = req_int(v, k, 18, 70, default=18 if k == "age_min" else 70)
-        elif k in ("salary_min", "salary_max"):
-            out[k] = req_int(v, k, 0, 100_000_000, default=None)
-        elif k in ("height_min", "height_max"):
-            out[k] = clean(v, 12, k)
-        elif k in ("verified_only", "photo_only"):
-            out[k] = bool(v)
+        if key in BOOLEAN_FILTER_KEYS:
+            enabled = _filter_bool(value, key)
+            if enabled:
+                out[key] = True
+            continue
+        if key in ("age_min", "age_max"):
+            out[key] = req_int(value, key, 18, 70, default=18 if key == "age_min" else 70)
+        elif key in ("salary_min", "salary_max"):
+            amount = req_int(value, key, 0, 100_000_000, default=None)
+            if amount:
+                out[key] = amount
+        elif key in ("height_min", "height_max"):
+            cleaned = clean(value, 12, key)
+            if cleaned:
+                out[key] = cleaned
         else:
-            out[k] = clean(v, 60, k)
-    if out.get("age_min") and out.get("age_max") and out["age_min"] > out["age_max"]:
+            max_length = 500 if key in MULTI_FILTER_KEYS else 80 if key == "dosham" else 60
+            cleaned = clean(value, max_length, key)
+            if cleaned:
+                out[key] = cleaned
+    if int(out.get("age_min", 18)) > int(out.get("age_max", 60)):
         validation_error("age_min", "⚠️ age_min < age_max ఉండాలి")
     if out.get("salary_min") and out.get("salary_max") and out["salary_min"] > out["salary_max"]:
         validation_error("salary_min", "⚠️ salary_min < salary_max ఉండాలి")
     return out
 
 
-def save_search(tsap_id: str, name: str, filters: Dict[str, Any], alert: bool = True) -> Dict[str, Any]:
+def save_search(tsap_id: str, name: str, filters: Dict[str, Any], alert: bool = False) -> Dict[str, Any]:
     norm = normalize_filters(filters)
     if not norm:
         validation_error("filters", "⚠️ కొన్ని filters పెట్టండి — appudu save cheyyagalam")
+    if len(saved_for(tsap_id)) >= 20:
+        validation_error("searches", "⚠️ ఒక ఖాతాకు గరిష్ఠంగా 20 saved searches మాత్రమే ఉంచవచ్చు")
     name = req_text(name, "search name", 2, 40, required=False) or "My search"
-    sid = f"SRCH-{len(SAVED_SEARCHES) + 1:05d}"
-    rec = {"search_id": sid, "tsap_id": tsap_id, "name": name, "filters": norm, "alert": bool(alert),
-           "created_at": datetime.utcnow().isoformat(), "last_alert_at": "", "alerts_sent": 0,
+    existing_ids = set()
+    for saved in SAVED_SEARCHES:
+        try:
+            existing_ids.add(int(str(saved.get("search_id", "")).removeprefix("SRCH-")))
+        except (TypeError, ValueError):
+            continue
+    sid = f"SRCH-{max(existing_ids, default=0) + 1:05d}"
+    alert_enabled = _filter_bool(alert, "alert")
+    consent_at = datetime.utcnow().isoformat() if alert_enabled else ""
+    rec = {"search_id": sid, "tsap_id": tsap_id, "name": name, "filters": norm, "alert": alert_enabled,
+           "alert_consent_at": consent_at, "created_at": datetime.utcnow().isoformat(),
+           "last_alert_at": "", "alerts_sent": 0,
            "last_seen_ids": []}
     SAVED_SEARCHES.append(rec)
     save_saved_searches()
@@ -264,6 +301,18 @@ def delete_search(tsap_id: str, search_id: str) -> bool:
     return changed
 
 
+def set_search_alert(tsap_id: str, search_id: str, alert: Any) -> Optional[Dict[str, Any]]:
+    enabled = _filter_bool(alert, "alert")
+    rec = next((row for row in SAVED_SEARCHES
+                if row.get("tsap_id") == tsap_id and row.get("search_id") == search_id), None)
+    if rec is None:
+        return None
+    rec["alert"] = enabled
+    rec["alert_consent_at"] = datetime.utcnow().isoformat() if enabled else ""
+    save_saved_searches()
+    return rec
+
+
 def _height_cm(value: Any) -> int:
     """'5.6' / 5'6" / '168 cm' → cm (unknown = 0)."""
     s = str(value or "").strip().lower()
@@ -282,62 +331,189 @@ def _height_cm(value: Any) -> int:
     return int(m.group(1)) * 30 if m else 0
 
 
+def _filter_terms(value: Any) -> List[str]:
+    if isinstance(value, (list, tuple, set)):
+        raw = [str(item or "") for item in value]
+    else:
+        raw = str(value or "").split(",")
+    seen = set()
+    result = []
+    for item in raw:
+        term = item.strip().casefold()
+        if term and term not in seen:
+            seen.add(term)
+            result.append(term)
+    return result
+
+
+def _salary_amount(user: Dict[str, Any]) -> int:
+    raw = str((user or {}).get("salary") or "").casefold().replace("l", "00000").replace("k", "000")
+    digits = "".join(ch for ch in raw if ch.isdigit())
+    try:
+        return int(digits) if digits else 0
+    except Exception:
+        return 0
+
+
+def _matches_marital_filter(profile_status: Any, selected: str) -> bool:
+    actual = str(profile_status or "").strip().casefold()
+    if is_never_married_status(selected):
+        return is_never_married_status(actual)
+    if is_never_married_status(actual):
+        return False
+    if selected in ("divorced", "vidakuulu"):
+        return any(term in actual for term in ("divorc", "vidak", "విడాకు"))
+    if selected in ("widow", "widower", "widowed", "vidhava", "vidhurudu"):
+        return any(term in actual for term in ("widow", "vidh", "వితంతు", "విధురు"))
+    if selected in ("awaiting divorce", "separated"):
+        return any(term in actual for term in ("awaiting", "separat", "విడాకుల", "నిరీక్షణ"))
+    return bool(selected and selected in actual)
+
+
+def _children_count(value: Any) -> Optional[int]:
+    raw = str(value or "").strip().casefold()
+    if raw in ("none", "no", "no children", "0", "పిల్లలు లేరు"):
+        return 0
+    match = re.search(r"\d+", raw)
+    return int(match.group()) if match else None
+
+
 def matches_filters(user: Dict[str, Any], filters: Dict[str, Any]) -> bool:
+    """Match one profile using the same user-visible semantics as /api/search."""
     u = user or {}
     f = filters or {}
-    def lc(v):
-        return str(v or "").lower()
-    if f.get("gender") and lc(u.get("gender")) != lc(f["gender"]):
+
+    gender = str(f.get("gender") or "").strip().casefold()
+    if gender:
+        gender = {"male": "groom", "female": "bride"}.get(gender, gender)
+        actual_gender = {"male": "groom", "female": "bride"}.get(
+            str(u.get("gender") or "").strip().casefold(), str(u.get("gender") or "").strip().casefold()
+        )
+        if actual_gender != gender:
+            return False
+
+    caste_terms = _filter_terms(f.get("caste"))
+    if caste_terms and not any(
+        term in str(u.get("caste") or "").casefold() or term in str(u.get("sub_caste") or "").casefold()
+        for term in caste_terms
+    ):
         return False
-    if f.get("caste") and lc(f["caste"]) not in lc(u.get("caste")) and lc(f["caste"]) not in lc(u.get("sub_caste")):
+    sub_caste_terms = _filter_terms(f.get("sub_caste"))
+    if sub_caste_terms and not any(term in str(u.get("sub_caste") or "").casefold() for term in sub_caste_terms):
         return False
-    if f.get("district") and lc(f["district"]) not in lc(u.get("district")) and lc(f["district"]) not in lc(u.get("current_city")):
+    district_terms = _filter_terms(f.get("district"))
+    if district_terms and not any(
+        term in str(u.get("district") or "").casefold() or term in str(u.get("current_city") or "").casefold()
+        for term in district_terms
+    ):
         return False
-    if f.get("state") and str(u.get("state", "")).upper() != str(f["state"]).upper():
+    state_terms = {term.upper() for term in _filter_terms(f.get("state"))}
+    if state_terms and str(u.get("state") or "").strip().upper() not in state_terms:
         return False
-    if f.get("job") and lc(f["job"]) not in lc(u.get("job")) and lc(f["job"]) not in lc(u.get("work_type")):
+
+    job_terms = _filter_terms(f.get("job"))
+    if job_terms:
+        job = str(u.get("job") or "").casefold()
+        work_type = str(u.get("work_type") or "").casefold()
+        homemaker_terms = ("housewife", "homemaker", "గృహిణి", "not working")
+        if not any(
+            term in job or term in work_type or (
+                any(alias in term for alias in homemaker_terms)
+                and (not job.strip() or any(alias in job for alias in (*homemaker_terms, "student", "none", "no job")))
+            )
+            for term in job_terms
+        ):
+            return False
+    education_terms = _filter_terms(f.get("education"))
+    if education_terms and not any(term in str(u.get("education") or "").casefold() for term in education_terms):
         return False
-    if f.get("education") and lc(f["education"]) not in lc(u.get("education")):
+
+    marital_terms = _filter_terms(f.get("marital_status"))
+    second_marriage_markers = ("second_marriage", "second marriage", "remarriage", "punarvivaham", "punar vivaham")
+    second_marriage = any(marker in term for term in marital_terms for marker in second_marriage_markers)
+    if second_marriage:
+        if is_never_married_status(u.get("marital_status")) or not str(u.get("marital_status") or "").strip():
+            return False
+    elif marital_terms and not any(_matches_marital_filter(u.get("marital_status"), term) for term in marital_terms):
         return False
-    if f.get("marital_status") and lc(u.get("marital_status")) != lc(f["marital_status"]):
+
+    religion_terms = _filter_terms(f.get("religion"))
+    if religion_terms and str(u.get("religion") or "").strip().casefold() not in religion_terms:
         return False
-    if f.get("religion") and lc(u.get("religion", "Hindu")) != lc(f["religion"]):
+    if f.get("verified_only") and not _has_verification_evidence(u):
         return False
-    if f.get("verified_only") and not (u.get("is_verified") or u.get("phone_verified")):
+    if f.get("photo_only"):
+        photos = u.get("photo_urls") if isinstance(u.get("photo_urls"), list) else []
+        photos = list(photos) + [u.get("photo_url")]
+        has_photo = any(str(photo or "").strip() for photo in photos)
+        if (u.get("photo_status") != "approved" or u.get("photo_private")
+                or u.get("privacy_mode") == "private" or not has_photo):
+            return False
+    if f.get("nri_only"):
+        nri = bool(u.get("is_nri")) or bool(detect_nri(
+            str(u.get("country") or ""), str(u.get("work_location") or ""),
+            str(u.get("current_city") or ""), str(u.get("state") or ""),
+        ).get("is_nri"))
+        if not nri:
+            return False
+
+    dosham_terms = _filter_terms(f.get("dosham"))
+    if dosham_terms and not any(term in str(u.get("dosham") or "").casefold() for term in dosham_terms):
         return False
-    if f.get("photo_only") and not u.get("photo_urls"):
+    star_terms = _filter_terms(f.get("star"))
+    if star_terms and not any(term in str(u.get("star") or "").casefold() for term in star_terms):
         return False
-    if f.get("dosham") and lc(u.get("dosham")) != lc(f["dosham"]):
+    rasi_terms = _filter_terms(f.get("rasi"))
+    if rasi_terms and not any(term in str(u.get("rasi") or "").casefold() for term in rasi_terms):
         return False
-    if f.get("star") and lc(f["star"]) not in lc(u.get("star")):
-        return False
+
+    children_terms = _filter_terms(f.get("children"))
+    children_ignored = bool(marital_terms) and all(is_never_married_status(term) for term in marital_terms)
+    if children_terms and not children_ignored:
+        raw_children = str(u.get("children") or "").strip().casefold()
+        child_count = _children_count(raw_children)
+        if is_never_married_status(u.get("marital_status")):
+            return False
+        def _children_match(selected: str) -> bool:
+            if selected in ("none", "no", "no children", "0", "పిల్లలు లేరు"):
+                return child_count == 0
+            if selected in ("with_children", "has_children", "yes", "పిల్లలు ఉన్నారు"):
+                return child_count is not None and child_count > 0
+            if selected.endswith("+") and selected[:-1].isdigit():
+                return child_count is not None and child_count >= int(selected[:-1])
+            if selected.isdigit():
+                return child_count == int(selected)
+            return selected in raw_children
+        if not any(_children_match(term) for term in children_terms):
+            return False
+
     try:
         age = int(u.get("age") or 0)
     except Exception:
         age = 0
-    if f.get("age_min") and age and age < int(f["age_min"]):
+    age_min = int(f.get("age_min", 18) or 18)
+    age_max = int(f.get("age_max", 60) or 60)
+    if not age or age < age_min or age > age_max:
         return False
-    if f.get("age_max") and age and age > int(f["age_max"]):
-        return False
-    if f.get("salary_min") or f.get("salary_max"):
-        raw = lc(u.get("salary")).replace("l", "00000").replace("k", "000")
-        digits = "".join(ch for ch in raw if ch.isdigit())
-        sal = int(digits) if digits else 0
-        if f.get("salary_min") and sal and sal < int(f["salary_min"]):
-            return False
-        if f.get("salary_max") and sal and sal > int(f["salary_max"]):
+
+    salary_min, salary_max = int(f.get("salary_min") or 0), int(f.get("salary_max") or 0)
+    if salary_min or salary_max:
+        salary = _salary_amount(u)
+        if not salary or (salary_min and salary < salary_min) or (salary_max and salary > salary_max):
             return False
     if f.get("height_min") or f.get("height_max"):
         cm = _height_cm(u.get("height"))
-        if cm:
-            if f.get("height_min") and cm < _height_cm(f["height_min"]):
-                return False
-            if f.get("height_max") and cm > _height_cm(f["height_max"]):
-                return False
+        if not cm or (f.get("height_min") and cm < _height_cm(f["height_min"])) or (
+                f.get("height_max") and cm > _height_cm(f["height_max"])):
+            return False
+
     if f.get("q"):
-        q = lc(f["q"])
-        blob = " ".join(lc(u.get(k)) for k in ("full_name", "district", "caste", "job", "education", "current_city"))
-        if q not in blob:
+        query = str(f["q"]).strip().casefold()
+        blob = " ".join(str(u.get(key) or "").casefold() for key in (
+            "tsap_id", "full_name", "district", "current_city", "caste", "sub_caste",
+            "job", "education", "gothram",
+        ))
+        if query and query not in blob:
             return False
     return True
 
@@ -367,17 +543,16 @@ def mark_alerted(rec: Dict[str, Any], ids: List[str]) -> None:
 
 
 # ---------------------------------------------------------------------------
-# 4. CONSENT LEDGER (numbers eppudu exchange అయ్యాయి — audit trail)
+# 4. CONSENT LEDGER (owner acceptance/contact-access events; not delivery proof)
 # ---------------------------------------------------------------------------
 def log_consent(action: str, actor_id: str, other_id: str, request_id: str = "",
-                exchanged: bool = False, note: str = "") -> Dict[str, Any]:
+                contact_access_granted: bool = False, note: str = "") -> Dict[str, Any]:
     rec = {"at": datetime.utcnow().isoformat(), "action": action, "actor_id": actor_id,
-           "other_id": other_id, "request_id": request_id, "numbers_exchanged": bool(exchanged),
-           "note": clean(note, 160, "consent_note"), "lawful_basis": "user_consent (both parties)",
-           "retention_days": 1095}
+           "other_id": other_id, "request_id": request_id,
+           "contact_access_granted": bool(contact_access_granted),
+           "note": clean(note, 160, "consent_note")}
     CONSENT_LEDGER.append(rec)
-    if len(CONSENT_LEDGER) % 5 == 0:
-        save_consent_ledger()
+    save_consent_ledger()
     return rec
 
 
@@ -401,7 +576,7 @@ TEMPLATES: List[Dict[str, str]] = [
     {"id": "parents", "label": "👨‍👩‍👧 Parents tarvupuna (మీ ఇంట్లో వాళ్లకి చెప్పండి)",
      "text": "నమస్తే, మేము మీ కోసం chustunnam (parents side నుంచి) — మీ ఇంట్లో andaritho matladi చెప్పండి, తర్వాత direct matladukovachu."},
     {"id": "simple", "label": "✍️ Simple / straight forward",
-     "text": "Hello, మీ profile nachhindi. Interest ఉంటే accept చెయ్యండి — మన numbers exchange అవుతాయి, తర్వాత matladukundam."},
+     "text": "Hello, మీ profile నచ్చింది. Interest request పంపాను; మీరు accept చేస్తే contact details మీ accepted-request account view లో కనిపిస్తాయి. Message delivery నిర్ధారణ కాదు."},
 ]
 
 

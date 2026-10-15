@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import ChannelsPageClient from "./page-client";
 
 export const metadata: Metadata = {
-  title: "కుల & మత వారీగా ఛానెల్స్ — Telegram + WhatsApp",
-  description: "మన వివాహ 42 Hindu Telegram & WhatsApp ఛానెల్స్ — Region, Hindu caste-wise (27 కుల-వారీ ఛానెల్స్), Special channels. మీ ప్రొఫైల్ సరైన ఛానెల్‌లో పోస్ట్ అవుతుంది.",
-  alternates: { canonical: "https://manavivaha.in/channels" },
+  title: "Channel Directory — Telegram & WhatsApp | Mana Vivaha",
+  description: "Explore Mana Vivaha directory listings across regional, religion, community and special categories. Telegram and configured WhatsApp links are shown where available; external availability and post delivery are not guaranteed.",
+  alternates: { canonical: "/channels" },
 };
 
 export default function ChannelsPage() {

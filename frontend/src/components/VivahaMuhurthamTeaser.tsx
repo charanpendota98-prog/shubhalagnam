@@ -1,37 +1,37 @@
 "use client";
 
 /**
- * 🗓️ VIVAHA MUHURTHAM TEASER STRIP — మన వివాహ వేద పంచాంగ ముహూర్తాలు
+ * 🗓️ VIVAHA MUHURTHAM TEASER — reference calendar entries
  * ====================================================================
- * Auspicious Telugu Vivaha Muhurthams 2026-2027 showcase:
- * - Upcoming peak marriage muhurtham dates with Lagnam & Nakshatram
- * - 1-Click WhatsApp sharing & Full Muhurtham calendar link
+ * Reference calendar entries for 2026-2027; date/time accuracy is not
+ * independently validated here. Encourage local confirmation before use.
  */
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { useLang } from "@/lib/lang";
-import { VIVAHA_MUHURTHAMS_2026_2027, MuhurthamDate } from "@/lib/muhurtham-data";
+import { VIVAHA_MUHURTHAMS_2026_2027, MuhurthamDate, formatMuhurthamDate, formatMuhurthamMonth, formatMuhurthamTime } from "@/lib/muhurtham-data";
 
 export default function VivahaMuhurthamTeaser() {
   const { lang } = useLang();
   const te = lang === "te";
 
-  // Take the next 4 peak muhurthams
-  const peakDates = VIVAHA_MUHURTHAMS_2026_2027.filter((m) => m.notes.includes("శ్రేష్టం") || m.notes.includes("అత్యుత్తమం")).slice(0, 4);
+  // Use the viewer's local date after hydration to avoid server/client timezone mismatch.
+  const [today, setToday] = useState("");
+  useEffect(() => {
+    const now = new Date();
+    setToday(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`);
+  }, []);
+  const upcomingDates = VIVAHA_MUHURTHAMS_2026_2027.filter((m) => !today || m.date >= today).slice(0, 4);
 
   const shareWa = (m: MuhurthamDate) => {
-    const text = `💍 మన వివాహ (Mana Vivaha) — వివాహ సుముహూర్తం 📅\n` +
-      `🗓️ తేదీ: ${m.teluguDate}\n` +
-      `🌙 మాసం: ${m.teluguMonth}\n` +
-      `⭐ నక్షత్రం: ${m.nakshatram}\n` +
-      `👑 లగ్నం: ${m.lagnam}\n` +
-      `⏰ సమయం: ${m.timeRange}\n` +
-      `✨ విశేషం: ${m.notes}\n\n` +
-      `మన వివాహ సంబంధాల కోసం: ${window.location.origin}/matches`;
-    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
+    const text = te
+      ? `💍 మన వివాహ — ముహూర్త తేదీ సూచిక 📅\n🗓️ తేదీ: ${formatMuhurthamDate(m, true)}\n🌙 మాసం: ${formatMuhurthamMonth(m, true)}\n⭐ నక్షత్రం: ${m.nakshatram}\n👑 లగ్నం: ${m.lagnam}\n⏰ సమయం: ${formatMuhurthamTime(m, true)}\n⚠️ ఇది reference సమాచారం మాత్రమే; booking ముందు స్థానికంగా నిర్ధారించండి.\n\nప్రొఫైళ్లు: ${window.location.origin}/matches`
+      : `💍 Mana Vivaha — Muhurtham date reference 📅\nDate: ${formatMuhurthamDate(m, false)}\nMonth: ${formatMuhurthamMonth(m, false)}\nNakshatra: ${m.nakshatram}\nLagnam: ${m.lagnam}\nTime: ${formatMuhurthamTime(m, false)}\n⚠️ Reference information only; confirm locally before booking.\n\nProfiles: ${window.location.origin}/matches`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank", "noopener,noreferrer");
   };
 
   return (
-    <section className="max-w-7xl mx-auto px-4 py-6" aria-label="Auspicious Vivaha Muhurthams">
+    <section className="max-w-7xl mx-auto px-4 py-6" aria-label={te ? "వివాహ ముహూర్త సూచిక తేదీలు" : "Muhurtham reference dates"}>
       <div className="relative rounded-[2.5rem] bg-gradient-to-r from-[#7A0C2E] via-[#5c0822] to-[#3b0415] text-white p-6 sm:p-9 shadow-2xl border-2 border-gold/40 overflow-hidden">
         
         {/* Background Ambient Gold Sparkles */}
@@ -43,15 +43,15 @@ export default function VivahaMuhurthamTeaser() {
           <div>
             <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full text-[11px] font-black uppercase bg-gold/20 text-[#f6d98a] border border-gold/40 backdrop-blur-md">
               <span>🪔</span>
-              <span>{te ? "వేద పంచాంగ వివాహ ముహూర్తాలు 2026-2027" : "VEDIC VIVAHA MUHURTHAMS 2026-2027"}</span>
+              <span>{te ? "వివాహ ముహూర్తాల సూచిక క్యాలెండర్ 2026-2027" : "VIVAHA MUHURTHAM REFERENCE · 2026-2027"}</span>
             </div>
             <h2 className="text-2xl sm:text-3xl font-black text-white mt-2 telugu">
-              {te ? "రాబోయే పవిత్ర వివాహ సుముహూర్తాలు 💍" : "Upcoming Auspicious Marriage Muhurthams 💍"}
+              {te ? "రాబోయే ముహూర్త తేదీలు 💍" : "Upcoming Muhurtham Dates 💍"}
             </h2>
             <p className="text-xs sm:text-sm text-white/80 mt-1 max-w-2xl leading-relaxed telugu">
               {te
-                ? "శ్రీ క్రోధి & విశ్వావసు నామ సంవత్సరాల వేద పంచాంగ వివాహ ముహూర్తాలు — శుభ లగ్నాలు, అనుకూల నక్షత్రాలు మరియు తిథులు."
-                : "Vedic Panchangam marriage dates — auspicious lagnams, nakshatras and thithis verified by Vedic scholars."}
+                ? "ఇవి reference తేదీలు/సమయాలు మాత్రమే; ఈ క్యాలెండర్‌ను మేము స్వతంత్రంగా నిర్ధారించలేదు. ప్రదేశం, పంచాంగం, కుటుంబ ఆచారాల ప్రకారం మారవచ్చు — booking ముందు స్థానిక నిపుణుడితో నిర్ధారించండి."
+                : "Reference dates and times only; this calendar has not been independently validated. They can vary by place, panchangam, and family tradition—confirm locally before booking."}
             </p>
           </div>
 
@@ -66,47 +66,42 @@ export default function VivahaMuhurthamTeaser() {
 
         {/* Muhurtham Cards Grid */}
         <div className="relative grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-6">
-          {peakDates.map((m) => (
+          {upcomingDates.map((m) => (
             <div
               key={m.date}
               className="group relative rounded-2xl bg-white/10 hover:bg-white/15 border border-white/20 hover:border-gold/60 p-4 backdrop-blur-md shadow-lg transition-all duration-300 flex flex-col justify-between"
             >
               <div>
                 {/* Month & Season Pill */}
-                <div className="flex items-center justify-between text-[11px] font-bold text-[#f6d98a]">
-                  <span>🌙 {m.teluguMonth}</span>
-                  <span className="bg-emerald-500/30 text-emerald-300 border border-emerald-400/30 text-[10px] px-2 py-0.5 rounded-full">
-                    {m.season}
-                  </span>
+                <div className="flex items-center text-[11px] font-bold text-[#f6d98a]">
+                  <span>🌙 {formatMuhurthamMonth(m, te)}</span>
                 </div>
 
                 {/* Gregorian & Telugu Date */}
                 <div className="mt-2 text-lg font-black text-white telugu">
-                  {m.teluguDate}
+                  {formatMuhurthamDate(m, te)}
                 </div>
 
                 {/* Lagnam & Nakshatram */}
                 <div className="mt-3 space-y-1.5 text-xs text-white/90">
                   <div className="flex items-center gap-1.5">
-                    <span className="text-[#f6d98a]">👑 లగ్నం:</span>
+                    <span className="text-[#f6d98a]">{te ? "👑 లగ్నం:" : "👑 Lagnam:"}</span>
                     <span className="font-bold">{m.lagnam}</span>
                   </div>
                   <div className="flex items-center gap-1.5">
-                    <span className="text-[#f6d98a]">⭐ నక్షత్రం:</span>
+                    <span className="text-[#f6d98a]">{te ? "⭐ నక్షత్రం:" : "⭐ Nakshatra:"}</span>
                     <span className="font-bold">{m.nakshatram}</span>
                   </div>
                   <div className="flex items-center gap-1.5 text-[11px] text-white/70">
-                    <span>⏰ సమయం:</span>
-                    <span>{m.timeRange}</span>
+                    <span>{te ? "⏰ సమయం:" : "⏰ Time:"}</span>
+                    <span>{formatMuhurthamTime(m, te)}</span>
                   </div>
                 </div>
               </div>
 
               {/* Card Footer: WhatsApp Share button */}
-              <div className="mt-4 pt-3 border-t border-white/15 flex items-center justify-between">
-                <span className="text-[10px] text-amber-200/80 truncate max-w-[140px]">
-                  ✨ {m.notes}
-                </span>
+              <div className="mt-4 pt-3 border-t border-white/15 flex items-center justify-between gap-2">
+                <span className="text-[10px] text-amber-100/90">{te ? "స్థానికంగా నిర్ధారించండి" : "Confirm locally"}</span>
                 <button
                   type="button"
                   onClick={() => shareWa(m)}

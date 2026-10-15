@@ -9,9 +9,9 @@ Exhaustive verification of:
 5. Admin Paid vs Unpaid Profile Categorization & Follow-up Actions
 6. Admin Manual Plan Activation (Badge, Credits, Plan Code, Ledger)
 7. Referral Engine, Dynamic QR Codes & Viral Standee / Earnings Posters
-8. 3-Year Inactivity Retention & Archive Engine
+8. Configured Profile-Age Retention & Archive Engine
 9. Matrimony Matching & Astrological Rules (Gothram Guard, 36-Guna, Nakshatra, Rasi)
-10. Brand Integrity (మన వివాహ / Mana Vivaha) & Support Contact (+916304996088)
+10. Brand integrity and optional, configuration-backed support contact
 """
 import os
 import re
@@ -23,9 +23,13 @@ from datetime import datetime, timedelta
 os.environ.setdefault("TSAP_AUTH_MODE", "off")
 sys.path.insert(0, os.path.dirname(__file__))
 
+from test_storage import isolate_test_stores
+
+isolate_test_stores("audit-full-system")
+
 import hardening
 import main
-from fastapi.testclient import TestClient
+from testutil_client import TestClient
 from PIL import Image, ImageDraw
 
 client = TestClient(main.app)
@@ -101,6 +105,7 @@ def run_deep_audit():
         "caste": "Reddy",
         "district": "Hyderabad",
         "state": "TS",
+        "religion": "Hindu",
         "phone": "9848123456",
         "password": "Password123!",
         "marital_status": "Pelli Kaledu",
@@ -120,6 +125,7 @@ def run_deep_audit():
         "caste": "Reddy",
         "district": "Hyderabad",
         "state": "TS",
+        "religion": "Hindu",
         "phone": "9848987654",
         "password": "Password123!",
         "marital_status": "Pelli Kaledu",
@@ -154,7 +160,8 @@ def run_deep_audit():
     tiny_img.save(tiny_buf, format="JPEG")
     tiny_buf.seek(0)
     
-    res_tiny = client.post("/api/photo/upload", files={"file": ("tiny.jpg", tiny_buf, "image/jpeg")})
+    res_tiny = client.post("/api/photo/upload", files={"file": ("tiny.jpg", tiny_buf, "image/jpeg")},
+                           headers={"X-Admin-Key": admin_key})
     is_tiny_rejected = res_tiny.status_code in (400, 422)
     report("Reject Low-Res / Tiny Images (<350px)", is_tiny_rejected, f"Response: {res_tiny.status_code}")
 
@@ -168,7 +175,8 @@ def run_deep_audit():
     valid_img.save(valid_buf, format="JPEG", quality=95)
     valid_buf.seek(0)
     
-    res_valid_p = client.post("/api/photo/upload", files={"file": ("valid.jpg", valid_buf, "image/jpeg")})
+    res_valid_p = client.post("/api/photo/upload", files={"file": ("valid.jpg", valid_buf, "image/jpeg")},
+                              headers={"X-Admin-Key": admin_key})
     report("Accept High-Resolution Real Photos", res_valid_p.status_code == 200, "Validated and saved successfully")
 
     # ---------------------------------------------------------
@@ -224,9 +232,9 @@ def run_deep_audit():
            f"Byte length: {len(res_poster.content)}")
 
     # ---------------------------------------------------------
-    # 7. 3-Year Inactivity Retention Policy
+    # 7. Configured profile-age retention policy (default: 3 years from creation)
     # ---------------------------------------------------------
-    print("\n--- SECTION 7: 3-YEAR INACTIVITY RETENTION & ARCHIVE ENGINE ---")
+    print("\n--- SECTION 7: CONFIGURED PROFILE-AGE RETENTION & ARCHIVE ENGINE ---")
     res_ret_prev = client.get("/api/admin/retention/preview", headers={"X-Admin-Key": admin_key})
     report("3-Year Retention Policy Engine Preview", res_ret_prev.status_code == 200 and "policy_years" in res_ret_prev.json(),
            f"Policy Years: {res_ret_prev.json().get('policy_years', 3)}")
@@ -247,8 +255,12 @@ def run_deep_audit():
     # 9. Brand & Support Contact Invariants
     # ---------------------------------------------------------
     print("\n--- SECTION 9: BRAND UNIFORMITY & HELPLINE INTEGRITY ---")
-    support_phone = os.getenv("NEXT_PUBLIC_SUPPORT_PHONE", "6304996088")
-    report("Support Helpline Alignment (6304996088)", "6304996088" in support_phone, f"Active support phone: {support_phone}")
+    legal_response = client.get("/api/legal/acceptance")
+    report("Unverified legal acceptance record is not publicly exposed",
+           legal_response.status_code == 410
+           and "ip_address" not in legal_response.json()
+           and "contact_number" not in legal_response.json(),
+           "Owner-supplied legal evidence must be reviewed out of band")
     report("User Facing Brand: Mana Vivaha (మన వివాహ)", True, "Brand verified across apps, cards, and manifests")
 
     # ---------------------------------------------------------

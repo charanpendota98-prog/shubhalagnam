@@ -23,6 +23,7 @@ import json
 import os
 import re
 import secrets
+import threading
 import time
 from collections import deque
 from datetime import datetime, timedelta
@@ -108,7 +109,7 @@ print(f"[HARDENING] auth={'ENFORCED' if auth_enforced() else 'dev/test bypass'} 
 
 # ---------------------------------------------------------------------------
 # 1. AUTH TOKENS (HMAC-SHA256, stateless)
-#    token = base64url(payload).base64url(sig)   payload = tsap_id|exp|nonce
+#    token = base64url(payload).base64url(sig)   payload = tsap_id|exp|scope|tv|nonce
 # ---------------------------------------------------------------------------
 def _b64e(raw: bytes) -> str:
     return base64.urlsafe_b64encode(raw).decode().rstrip("=")
@@ -121,46 +122,119 @@ def _b64d(txt: str) -> bytes:
 
 # ---------------------------------------------------------------------------
 # 1b. TOKEN REVOCATION ("logout everywhere" / force-logout a compromised
-#     account) — Phase 14 fix. Tokens are stateless HMAC (no server-side
-#     session table), so by default a token stays valid until its natural
-#     TTL (720h / 30 days) expiry — there was no way to invalidate one early
-#     even after e.g. a password reset, a user-initiated "log out of all
-#     devices", or an admin responding to a reported/compromised account.
-#     This matters concretely: the critical IDOR fixed earlier this audit
-#     pass leaked live tokens for a window before the fix landed, and those
-#     pre-fix tokens would otherwise remain valid for up to 30 more days.
+#     account) — Phase 14 fix. Before that change, tokens were stateless HMAC
+#     with no server-side session table, so a token stayed valid until its
+#     natural TTL (720h / 30 days) even after a password reset or compromise.
+#     The per-user version counter below enables early revocation without
+#     tracking individual sessions.
 #
 #     Design: a per-user monotonic "token version" counter, persisted to a
-#     small JSON file (gitignored runtime state, same convention as this
-#     repo's other *_state.json files). sign_token() stamps the *current*
-#     version into every new token's payload; verify_token() rejects any
-#     token whose stamped version is behind the live counter. Bumping one
-#     user's counter by 1 instantly invalidates every token issued to them
-#     before that moment — across every device/session — in O(1), without
-#     needing to track or blacklist individual tokens.
+#     small JSON file. Production requires TSAP_TOKEN_VERSIONS_FILE to point
+#     inside the durable state volume, so container replacement cannot undo a
+#     revocation. Local development defaults to this module's gitignored file;
+#     tests point it to disposable state. sign_token() stamps the current
+#     version into every token; verify_token() rejects older versions. The file
+#     is validated on load, atomically replaced with private permissions, and
+#     write failures do not report a successful revocation.
 # ---------------------------------------------------------------------------
-_TOKEN_VERSIONS_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "token_versions.json")
+_TOKEN_VERSIONS_CONFIG = os.getenv("TSAP_TOKEN_VERSIONS_FILE", "").strip()
+if PRODUCTION and not _TOKEN_VERSIONS_CONFIG:
+    raise RuntimeError("TSAP_TOKEN_VERSIONS_FILE must point to durable storage in production")
+TOKEN_VERSIONS_PATH = os.path.abspath(
+    _TOKEN_VERSIONS_CONFIG or os.path.join(os.path.dirname(os.path.abspath(__file__)), "token_versions.json")
+)
+if os.path.isdir(TOKEN_VERSIONS_PATH):
+    raise RuntimeError("TSAP_TOKEN_VERSIONS_FILE must name a JSON file, not a directory")
+if PRODUCTION:
+    _state_config = os.getenv("MANA_VIVAHA_STATE_DIR", "").strip()
+    if not _state_config or not os.path.isabs(_state_config):
+        raise RuntimeError("MANA_VIVAHA_STATE_DIR must be configured before loading token revocation state")
+    try:
+        _token_state_in_state_dir = os.path.commonpath((
+            os.path.realpath(_state_config), os.path.realpath(TOKEN_VERSIONS_PATH)
+        )) == os.path.realpath(_state_config)
+    except ValueError:
+        _token_state_in_state_dir = False
+    if not _token_state_in_state_dir:
+        raise RuntimeError("TSAP_TOKEN_VERSIONS_FILE must be inside MANA_VIVAHA_STATE_DIR")
+_TOKEN_VERSIONS_PATH = TOKEN_VERSIONS_PATH
 _TOKEN_VERSIONS: Dict[str, int] = {}
+_TOKEN_VERSIONS_LOCK = threading.RLock()
+_TOKEN_VERSIONS_MAX_BYTES = 16 * 1024 * 1024
 
 
 def _load_token_versions() -> None:
+    """Load the durable revocation index; corrupt/unreadable state must fail closed."""
     try:
-        with open(_TOKEN_VERSIONS_PATH, "r", encoding="utf-8") as f:
-            data = json.load(f) or {}
-        if isinstance(data, dict):
-            _TOKEN_VERSIONS.update({str(k): int(v) for k, v in data.items() if str(v).lstrip("-").isdigit()})
-    except Exception:
-        pass
+        with open(TOKEN_VERSIONS_PATH, "rb") as handle:
+            raw = handle.read(_TOKEN_VERSIONS_MAX_BYTES + 1)
+    except FileNotFoundError:
+        # A brand-new isolated environment has no revocations yet.
+        return
+    except OSError as exc:
+        raise RuntimeError("Token-version state cannot be read; refusing to ignore revocations") from exc
+    if os.name == "posix":
+        try:
+            os.chmod(TOKEN_VERSIONS_PATH, 0o600)
+        except OSError as exc:
+            raise RuntimeError("Token-version state permissions cannot be restricted") from exc
+    if len(raw) > _TOKEN_VERSIONS_MAX_BYTES:
+        raise RuntimeError("Token-version state exceeds the safety limit; refusing to ignore revocations")
+    try:
+        data = json.loads(raw.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise RuntimeError("Token-version state is corrupt; refusing to ignore revocations") from exc
+    if not isinstance(data, dict):
+        raise RuntimeError("Token-version state must be a JSON object; refusing to ignore revocations")
+
+    loaded: Dict[str, int] = {}
+    for key, value in data.items():
+        if not isinstance(key, str) or not key.strip():
+            raise RuntimeError("Token-version state contains an invalid profile ID")
+        if isinstance(value, bool):
+            raise RuntimeError("Token-version state contains an invalid version")
+        if isinstance(value, int):
+            version = value
+        elif isinstance(value, str) and value.isdigit():
+            version = int(value)
+        else:
+            raise RuntimeError("Token-version state contains an invalid version")
+        tid = key.strip().upper()
+        if version < 0 or tid in loaded:
+            raise RuntimeError("Token-version state contains a negative or duplicate version")
+        loaded[tid] = version
+    with _TOKEN_VERSIONS_LOCK:
+        _TOKEN_VERSIONS.update(loaded)
 
 
 def _save_token_versions() -> None:
+    """Atomically persist the complete revocation index with private permissions."""
+    parent = os.path.dirname(TOKEN_VERSIONS_PATH)
+    os.makedirs(parent, mode=0o700, exist_ok=True)
+    tmp = f"{TOKEN_VERSIONS_PATH}.tmp.{os.getpid()}.{secrets.token_hex(8)}"
+    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
     try:
-        tmp = _TOKEN_VERSIONS_PATH + ".tmp"
-        with open(tmp, "w", encoding="utf-8") as f:
-            json.dump(_TOKEN_VERSIONS, f)
-        os.replace(tmp, _TOKEN_VERSIONS_PATH)
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            json.dump(_TOKEN_VERSIONS, handle, ensure_ascii=True, separators=(",", ":"), sort_keys=True)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(tmp, TOKEN_VERSIONS_PATH)
+        try:
+            dir_fd = os.open(parent, os.O_RDONLY)
+            try:
+                os.fsync(dir_fd)
+            finally:
+                os.close(dir_fd)
+        except OSError:
+            # Some filesystems do not support directory fsync; atomic replace
+            # and fsync of the file still protect the state contents.
+            pass
     except Exception:
-        pass
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise
 
 
 _load_token_versions()
@@ -168,7 +242,9 @@ _load_token_versions()
 
 def token_version(tsap_id: str) -> int:
     """Current live token-version for this user (0 if never revoked)."""
-    return int(_TOKEN_VERSIONS.get(str(tsap_id or "").strip().upper(), 0))
+    tid = str(tsap_id or "").strip().upper()
+    with _TOKEN_VERSIONS_LOCK:
+        return int(_TOKEN_VERSIONS.get(tid, 0))
 
 
 def revoke_all_tokens(tsap_id: str) -> int:
@@ -176,13 +252,22 @@ def revoke_all_tokens(tsap_id: str) -> int:
     version so every token issued before this call stops verifying,
     immediately. Call this on password reset, a user-initiated "log out
     everywhere", or an admin response to a compromised/reported account.
-    Returns the new version number."""
+    The new version is returned only after its durable write succeeds."""
     tid = str(tsap_id or "").strip().upper()
     if not tid:
         return 0
-    _TOKEN_VERSIONS[tid] = token_version(tid) + 1
-    _save_token_versions()
-    return _TOKEN_VERSIONS[tid]
+    with _TOKEN_VERSIONS_LOCK:
+        previous = int(_TOKEN_VERSIONS.get(tid, 0))
+        _TOKEN_VERSIONS[tid] = previous + 1
+        try:
+            _save_token_versions()
+        except Exception:
+            if previous:
+                _TOKEN_VERSIONS[tid] = previous
+            else:
+                _TOKEN_VERSIONS.pop(tid, None)
+            raise
+        return _TOKEN_VERSIONS[tid]
 
 
 def sign_token(tsap_id: str, ttl_seconds: int = TOKEN_TTL_SECONDS, scope: str = "user") -> str:
@@ -611,5 +696,5 @@ def posture() -> Dict[str, Any]:
         "token_ttl_hours": TOKEN_TTL_SECONDS // 3600,
         "headers": sorted(list(SECURITY_HEADERS.keys()) + [HSTS_HEADER]),
         "idempotency_entries": seen_count(),
-        "numbers_policy": "🔒 phone numbers public API లో ఎప్పుడు లేదు — interest accept తో మాత్రమే exchange (consent)",
+        "numbers_policy": "🔒 Phone numbers public profile/search లో లేవు. Owner acceptance accepted-request account views లో contact access ఇస్తుంది; notification delivery నిర్ధారణ కాదు.",
     }

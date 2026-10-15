@@ -7,7 +7,7 @@ explainable, proactive. ఇక్కడ అది లేదు (daily_matches = 
 per-user smart కాదు; retention.run = 3-year data cleanup).
 
 ఈ module existing engines ni reuse చేస్తుంది (duplicate logic లేదు):
-  • topmatch.find_top_matches_v2  → 11-factor explainable score
+  • topmatch.find_top_matches_v2  → factual comparisons and recency-only ordering
   • quality.profile_completeness   → profile nudge
   • interest.safe_user / mask_phone → privacy (raw phone ఎప్పుడూ బయటకి రాదు)
 
@@ -23,7 +23,7 @@ Public API:
 from __future__ import annotations
 
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
 import topmatch
@@ -39,19 +39,27 @@ MAX_MATCHES = 6
 # --------------------------------------------------------------------------- #
 # helpers
 # --------------------------------------------------------------------------- #
+def _naive_utc(value: datetime) -> datetime:
+    """Normalize aware timestamps to naive UTC for consistent stored-time comparisons."""
+    if value.tzinfo is not None:
+        return value.astimezone(timezone.utc).replace(tzinfo=None)
+    return value
+
+
 def _now(now: Optional[datetime] = None) -> datetime:
-    return now or datetime.utcnow()
+    return _naive_utc(now) if now is not None else datetime.utcnow()
 
 
 def _parse_dt(v: Any) -> Optional[datetime]:
-    """created_at/at (ISO string or datetime) → datetime; junk → None."""
+    """created_at/at (ISO string or datetime) → naive UTC; junk → None."""
     if isinstance(v, datetime):
-        return v
+        return _naive_utc(v)
     s = str(v or "").strip()
     if not s:
         return None
     try:
-        return datetime.fromisoformat(s.replace("Z", ""))
+        parsed = datetime.fromisoformat(s.replace("Z", "+00:00"))
+        return _naive_utc(parsed)
     except Exception:
         return None
 
@@ -120,11 +128,10 @@ def daily_briefing(user: Dict, profiles: List[Dict], interests: Optional[List[Di
                    now: Optional[datetime] = None) -> Dict[str, Any]:
     """🧠 Per-user "ఈ రోజు మీ కోసం" smart digest.
 
-    Returns privacy-safe, explainable, actionable briefing:
-      • matches[]      — top NEW/mutual matches (safe_user, no phone), each with
-                         score, why (strengths), is_new, is_mutual, action
-      • mutual{}       — interests received + profile views (who noticed you)
-      • nudge{}        — profile-completeness push (add photo → more matches)
+    Returns privacy-safe briefing:
+      • matches[]      — candidate profiles ordered by saved preferences and recency
+      • mutual{}       — actual interests received + profile views (not predicted interest)
+      • nudge{}        — profile-completeness guidance without response guarantees
       • summary_telugu / summary_en — one-line digest header
     """
     user = user if isinstance(user, dict) else {}
@@ -160,9 +167,9 @@ def daily_briefing(user: Dict, profiles: List[Dict], interests: Optional[List[Di
             continue
         pool.append(p)
 
-    # ---- score + rank via existing 11-factor engine ----
+    # Order by profile creation time only; no preference tally or score is generated.
     try:
-        ranked = topmatch.find_top_matches_v2(user, pool, limit=limit * 3, min_score=55)
+        ranked = topmatch.find_top_matches_v2(user, pool, limit=limit * 3)
     except Exception:
         ranked = []
 
@@ -170,29 +177,17 @@ def daily_briefing(user: Dict, profiles: List[Dict], interests: Optional[List[Di
     for r in ranked:
         prof = r.get("profile") or {}
         pid = str(prof.get("tsap_id", "")).upper()
-        mutual = r.get("mutual") or {}
-        is_mutual = bool(mutual.get("both_like"))
         is_new = _is_new(prof, now) and pid not in viewed
-        # rank: mutual first, then new, then score
         matches.append({
-            "profile": safe_user(prof),               # 🔒 privacy-safe (phone_masked only)
+            "profile": safe_user(prof),
             "tsap_id": pid,
-            "score": r.get("score", 0),
-            "grade": r.get("grade", ""),
-            "verdict_telugu": r.get("verdict_telugu", ""),
-            "why": (r.get("strengths") or [])[:3],     # explainable reasons
+            "observations": (r.get("observations") or [])[:3],
+            "preferences": r.get("preferences", []),
             "is_new": is_new,
-            "is_mutual": is_mutual,
-            "mutual_note": mutual.get("note", ""),
-            "action": ("💞 Mutual — వెంటనే interest పంపండి" if is_mutual
-                       else "✨ కొత్త సంబంధం — profile చూడండి" if is_new
-                       else "👀 మీ కోసం సిఫార్సు — interest పంపండి"),
-            "_sort": (2 if is_mutual else 0) + (1 if is_new else 0),
+            "action": "✨ Recently added profile — review the member-provided details." if is_new
+                      else "Review the member-provided details and decide for yourself.",
         })
-    matches.sort(key=lambda m: (-m["_sort"], -m["score"]))
-    for m in matches:
-        m.pop("_sort", None)
-    matches = matches[:limit]
+    matches = matches[:max(0, int(limit or 0))]
 
     # ---- mutual alerts: who noticed YOU (received interests + profile views) ----
     received = [i for i in interests
@@ -225,10 +220,9 @@ def daily_briefing(user: Dict, profiles: List[Dict], interests: Optional[List[Di
             for i in received[-5:]
         ],
         "viewer_peeks": viewer_peeks,
-        "note_telugu": (f"🔥 {len(received)} కొత్త interestలు + {len(my_views)} ప్రొఫైల్ వ్యూస్ — "
-                        f"మీ ప్రొఫైల్ కి మంచి స్పందన ఉంది!"
+        "note_telugu": (f"ఇప్పటివరకు {len(received)} pending interest requests, {len(my_views)} profile views నమోదయ్యాయి."
                         if (received or my_views) else
-                        "ఇంకా ఎవరూ చూడలేదు — కింద ఉన్న చిట్కాలు పాటించండి 👇"),
+                        "ఇంకా interest request లేదా profile view నమోదు కాలేదు."),
     }
 
     # ---- profile nudge (completeness) ----
@@ -244,19 +238,16 @@ def daily_briefing(user: Dict, profiles: List[Dict], interests: Optional[List[Di
     }
 
     n_new = sum(1 for m in matches if m["is_new"])
-    n_mutual = sum(1 for m in matches if m["is_mutual"])
     summary_telugu = (
-        f"🧠 ఈ రోజు మీ కోసం {len(matches)} సంబంధాలు"
-        + (f" — {n_mutual} మ్యూచువల్ 💞" if n_mutual else "")
-        + (f", {n_new} కొత్తవి ✨" if n_new else "")
-        + (f" • {mutual_block['interests_received']} మంది మీకు interest పంపారు"
+        f"🧠 పరిశీలించడానికి {len(matches)} profiles"
+        + (f", {n_new} ఇటీవల జోడించినవి ✨" if n_new else "")
+        + (f" • {mutual_block['interests_received']} మంది interest పంపారు"
            if mutual_block["interests_received"] else "")
     )
     summary_en = (
-        f"🧠 {len(matches)} matches for you today"
-        + (f" — {n_mutual} mutual" if n_mutual else "")
-        + (f", {n_new} new" if n_new else "")
-        + (f" • {mutual_block['interests_received']} sent you interest"
+        f"🧠 {len(matches)} profiles to review"
+        + (f", {n_new} recently added" if n_new else "")
+        + (f" • {mutual_block['interests_received']} sent you an interest"
            if mutual_block["interests_received"] else "")
     )
 
@@ -292,39 +283,32 @@ def assistant_tips(user: Dict, briefing: Dict) -> List[Dict[str, Any]]:
     # P1 — profile incomplete → biggest lever
     if int(nudge.get("percent", 0)) < 70:
         tips.append({"priority": 1, "kind": "complete_profile",
-                     "telugu": nudge.get("verdict_telugu") or "🔴 ప్రొఫైల్ పూర్తి చేయండి — 3x ఎక్కువ మ్యాచ్‌లు",
-                     "en": "Complete your profile — 3x more matches",
+                     "telugu": nudge.get("verdict_telugu") or "ప్రొఫైల్‌లో చూపించిన ఖాళీ fields‌ను పరిశీలించండి.",
+                     "en": "Review the missing fields in your profile. Filling them does not guarantee matches or replies.",
                      "cta": "/me", "detail": (nudge.get("important_telugu") or [])[:3]})
     # P2 — no photo
     if not user.get("photo_url") and not user.get("has_photo"):
         tips.append({"priority": 1, "kind": "add_photo",
-                     "telugu": "📸 ఫోటో జోడించండి — ఫోటో ఉన్న ప్రొఫైల్‌కి 5x వ్యూస్",
-                     "en": "Add a photo — 5x more views", "cta": "/me"})
-    # P3 — mutual matches waiting → act now (highest conversion)
-    mutual_matches = [m for m in matches if m.get("is_mutual")]
-    if mutual_matches:
-        tips.append({"priority": 2, "kind": "send_interest_mutual",
-                     "telugu": f"💞 {len(mutual_matches)} మ్యూచువల్ మ్యాచ్‌లు — వెంటనే interest పంపండి (rare!)",
-                     "en": f"{len(mutual_matches)} mutual matches — send interest now",
-                     "cta": "/matches", "ids": [m.get("tsap_id") for m in mutual_matches[:3]]})
+                     "telugu": "📸 ఫోటో జోడించడం ఐచ్ఛికం; visibility మీ privacy settings ప్రకారం ఉంటుంది.",
+                     "en": "Adding a photo is optional; visibility follows your privacy settings.", "cta": "/me"})
     # P4 — interests received → respond
     if int(mutual.get("interests_received", 0)) > 0:
         tips.append({"priority": 2, "kind": "respond_interests",
                      "telugu": f"🔥 {mutual['interests_received']} మంది మీకు interest పంపారు — స్పందించండి",
                      "en": f"{mutual['interests_received']} sent you interest — respond",
                      "cta": "/requests"})
-    # P5 — new matches to explore
+    # P5 — recently added profiles to review
     new_matches = [m for m in matches if m.get("is_new")]
     if new_matches:
         tips.append({"priority": 3, "kind": "explore_new",
-                     "telugu": f"✨ {len(new_matches)} కొత్త సంబంధాలు ఈ రోజు — చూడండి",
-                     "en": f"{len(new_matches)} new matches today — explore",
+                     "telugu": f"✨ {len(new_matches)} profiles ఇటీవల జోడించబడ్డాయి — పరిశీలించండి",
+                     "en": f"{len(new_matches)} profiles were recently added — review them",
                      "cta": "/matches", "ids": [m.get("tsap_id") for m in new_matches[:3]]})
-    # P6 — not verified → trust badge
-    if not (user.get("phone_verified") or user.get("is_verified")):
+    # P6 — show the recorded phone-verification state separately (not a trust judgment)
+    if not user.get("phone_verified"):
         tips.append({"priority": 3, "kind": "verify",
-                     "telugu": "🛡️ నంబర్ వెరిఫై చేయండి — trust badge తో ఎక్కువ స్పందన",
-                     "en": "Verify your number — trust badge, more responses", "cta": "/verify"})
+                     "telugu": "🛡️ OTP తో phone ధృవీకరించండి; ఇది identity verification కాదు",
+                     "en": "Verify your phone with OTP; this does not verify identity", "cta": "/login"})
     # fallback — everything good
     if not tips:
         tips.append({"priority": 4, "kind": "all_good",
@@ -350,18 +334,24 @@ def delivery_text(briefing: Dict, user: Dict, lang: str = "te") -> str:
     top = matches[0]
     tp = top.get("profile", {})
     site = os.getenv("PUBLIC_SITE_URL") or os.getenv("SITE_URL") or "https://manavivaha.in"
+    profile_name = str(tp.get("full_name") or "").strip().split()
+    profile_label = profile_name[0] if profile_name else "Profile"
+    user_name = str(user.get("full_name") or user.get("name") or "").strip().split()
+    greeting = user_name[0] if user_name else ""
+    details = [str(value) for value in (tp.get("age"), tp.get("caste")) if value not in (None, "", "—")]
+    observations = top.get("observations") or []
     if lang == "en":
-        head = f"🧠 Hi {name}, {len(matches)} new matches for you today on Mana Vivaha"
-        line = (f"Top pick: {tp.get('full_name','a profile')} ({tp.get('age','')}, "
-                f"{tp.get('caste','')}) — {top.get('score',0)}% compatible. "
-                f"{top.get('verdict_telugu','')}")
-        cta = f"👉 See all: {site}/matches"
+        head = f"Hello {greeting}, {len(matches)} profiles are available to review on Mana Vivaha."
+        line = f"Profile: {profile_label}" + (f" ({', '.join(details)})" if details else "")
+        if observations:
+            line += "\nDetails listed in the profiles: " + "; ".join(str(item) for item in observations[:2])
+        cta = f"👉 Review profiles: {site}/matches"
     else:
-        head = f"🧠 నమస్తే {name} గారూ, ఈ రోజు మీ కోసం {len(matches)} కొత్త సంబంధాలు"
-        line = (f"టాప్ పిక్: {tp.get('full_name','ఒక ప్రొఫైల్')} ({tp.get('age','')}, "
-                f"{tp.get('caste','')}) — {top.get('score',0)}% సరిపోతుంది. "
-                f"{top.get('verdict_telugu','')}")
-        cta = f"👉 అన్నీ చూడండి: {site}/matches"
+        head = f"నమస్తే {greeting} గారూ, పరిశీలించడానికి {len(matches)} profiles ఉన్నాయి."
+        line = f"ప్రొఫైల్: {profile_label}" + (f" ({', '.join(details)})" if details else "")
+        if observations:
+            line += "\nప్రొఫైళ్లలో ఉన్న వివరాలు: " + "; ".join(str(item) for item in observations[:2])
+        cta = f"👉 వివరాలు పరిశీలించండి: {site}/matches"
     mutual = briefing.get("mutual", {}) or {}
     extra = ""
     if int(mutual.get("interests_received", 0)) > 0:

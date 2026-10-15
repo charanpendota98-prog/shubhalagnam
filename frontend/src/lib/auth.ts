@@ -1,11 +1,11 @@
 /**
- * 🔐 WAVE 9 — auth helpers (OTP login + demo login + token state)
+ * 🔐 Auth helpers (OTP/password login + token state); demo sign-in is retired.
  * Private API (inbox/credits/views/saved/blocks/referral) ki token kavali — IDOR fix.
  */
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { apiPost, clearAuth, getToken, setToken, TSAP_KEY } from "./api";
+import { apiPost, clearAuth, getToken, getTsapId, setToken } from "./api";
 
 export type Session = { tsapId: string; token: string; ready: boolean };
 
@@ -15,7 +15,7 @@ export function useSession(): Session {
   const [ready, setReady] = useState(false);
   useEffect(() => {
     try {
-      setTsapId(localStorage.getItem(TSAP_KEY) || "");
+      setTsapId(getTsapId());
       setTok(getToken());
     } catch { /* ignore */ }
     setReady(true);
@@ -34,7 +34,7 @@ export function logout() {
 
 /** OTP pampu (login) */
 export function sendOtp(phone: string) {
-  return apiPost<{ success: boolean; dev_code?: string; message_telugu?: string }>("/api/otp/send", { phone });
+  return apiPost<{ success: boolean; message_telugu?: string }>("/api/otp/send", { phone });
 }
 
 /** OTP verify → token + tsap_id */
@@ -43,11 +43,6 @@ export function verifyOtp(phone: string, code: string) {
     "/api/otp/verify",
     { phone, code },
   );
-}
-
-/** Demo/seed profile ki token (preview/demo ki) */
-export function demoLogin(tsapId: string) {
-  return apiPost<{ success: boolean; auth_token?: string; message_telugu?: string }>("/api/auth/demo-token", { tsap_id: tsapId });
 }
 
 /** Login state verify (token valid aa?) */

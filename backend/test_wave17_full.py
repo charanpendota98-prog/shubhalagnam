@@ -20,6 +20,9 @@ os.environ.setdefault("OTP_DEV_MODE", "true")
 os.environ.setdefault("WA_LONG_PAUSE_CHANCE", "0")
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+from test_storage import isolate_test_stores  # noqa: E402
+isolate_test_stores("wave17")
+
 PASS, FAIL, FAILED = 0, 0, []
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ABOUT_OK = ("Nenu software engineer ni, Hyderabad lo untanu. Manchi family values, "
@@ -42,7 +45,7 @@ def check(name, cond, extra=None):
 
 
 from PIL import Image, ImageDraw, ImageFilter  # noqa: E402
-from fastapi.testclient import TestClient  # noqa: E402
+from testutil_client import TestClient  # noqa: E402
 import main  # noqa: E402
 from interest import safe_user  # noqa: E402
 from photo_validate import validate_photo  # noqa: E402
@@ -119,9 +122,10 @@ BASE = {"height": "5'5\"", "education": "BTech", "job": "Software", "salary": "6
 
 
 def reg(name, phone, **over):
-    d = dict(BASE, gender="Bride", age="26", phone=phone, full_name=name,
-             marital_status="Pelli Kaledu", family_status="Middle Class",
-             about_myself=ABOUT_OK)
+    d = dict(BASE, gender="Bride", age="26", dob="2000-01-15", password="photo-test-password",
+             phone=phone, full_name=name, marital_status="Pelli Kaledu",
+             family_status="Middle Class", about_myself=ABOUT_OK, photo_private="false",
+             consent_confirmed="true", photo_consent_confirmed="true")
     d.update(over)
     return client.post("/api/register", data=d)
 
@@ -173,6 +177,9 @@ r = client.post("/api/admin/photos/review",
                 json={"tsap_id": TID, "kind": "selfie", "decision": "approved"})
 check("C8 selfie approve → badge",
       r.json().get("success") is True and next(x for x in main.DB_USERS if x.get("tsap_id") == TID).get("selfie_verified") is True)
+reviewed_profile = next(x for x in main.DB_USERS if x.get("tsap_id") == TID)
+reviewed_profile["is_approved"] = True
+reviewed_profile["status"] = "approved"
 
 # ═══════════════════════════════════════════════════════════════════════════
 section("D–E. REGISTER GUARDS + GATING")
@@ -192,13 +199,15 @@ check("D5 phone in about 400", r.status_code == 400, r.status_code)
 r = reg("Wave Seventeen Mailleak", "9963222208", about_myself=ABOUT_OK + " mail a@b.com here")
 check("D6 email in about 400", r.status_code == 400, r.status_code)
 su = safe_user(next(x for x in main.DB_USERS if x.get("tsap_id") == T2))
-check("E1 pending photo_url hidden", su.get("photo_url") in ("", None) and su.get("photo_status") == "rejected", su.get("photo_url"))
+check("E1 rejected review status stays private", su.get("photo_url") in ("", None) and "photo_status" not in su,
+      {"photo_url": su.get("photo_url"), "photo_status_public": su.get("photo_status")})
 su = safe_user(next(x for x in main.DB_USERS if x.get("tsap_id") == TID))
 check("E2 approved photo visible + selfie badge",
       su.get("photo_url", "").startswith("/photos/") and su.get("selfie_verified") is True,
       (su.get("photo_url"), su.get("selfie_verified")))
 pf = client.get(f"/api/search/{TID}").json().get("profile", {})
-check("E3 profile pub selfie+photo", pf.get("selfie_verified") is True and pf.get("photo_status") == "approved",
+check("E3 profile shows photo evidence but keeps review state private",
+      pf.get("selfie_verified") is True and "photo_status" not in pf,
       {k: pf.get(k) for k in ("selfie_verified", "photo_status")})
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -207,18 +216,19 @@ section("F. FRONTEND STATIC + PWA")
 F = os.path.join(ROOT, "frontend")
 reg_src = src_page("frontend/src/app/register/page.tsx")
 check("F1 family pills canonical", "Upper Middle Class" in reg_src and "Rich / Affluent (Elite)" in reg_src)
-check("F2 about mandatory+counter", "Minimum 50 characters" in reg_src and "minimum 50 characters" in reg_src)
-check("F3 about contact guard", "[6-9]" in reg_src and "పెట్టకండి" in reg_src)
+check("F2 about guidance+counter", "Minimum 50 characters" in reg_src and "characters (minimum 50" in reg_src)
+check("F3 about contact guard", "[6-9]" in reg_src and "ఫోన్ నంబర్లు ఇవ్వకండి" in reg_src)
 check("F4 PhotoFlow on success", "PhotoFlow" in reg_src and "<PhotoFlow tsapId={tsap}" in reg_src)
 pf_src = src_page("frontend/src/components/PhotoFlow.tsx")
-check("F5 PhotoFlow states", all(x in pf_src for x in
-      ("Add photo for better responses", "Upload in progress", "Photo not approved",
-       "Add new photo", "I will do this later", "Photo approved", "validation in progress")))
+check("F5 PhotoFlow states and truthful privacy copy", all(x in pf_src for x in
+      ("Photo is waiting for staff review", "Refresh review status", "Replace photo",
+       "Upload another photo", "This is not identity verification", "Photo review complete")))
 vf_src = src_page("frontend/src/app/verify/page.tsx")
 check("F6 verify selfie page", "Verify with a live selfie" in vf_src and "/api/verify/selfie" in vf_src)
 ap_src = src_page("frontend/src/app/admin/photos/page.tsx")
-adm_src = src_page("frontend/src/app/admin/page.tsx")
-check("F7 admin review UI+tab", "/api/admin/photos/review" in ap_src and '"photos"' in adm_src)
+admin_dashboard_src = src_page("frontend/src/components/control/Dashboard.tsx")
+check("F7 admin review UI+dashboard link", "/api/admin/photos/review" in ap_src
+      and 'href="/admin/photos"' in admin_dashboard_src and "photos_pending" in admin_dashboard_src)
 lg_src = src_page("frontend/src/app/login/page.tsx")
 check("F8 keep-logged-in checkbox", "Keep me logged in" in lg_src and "sessionStorage" in
       src_page("frontend/src/lib/api.ts"))

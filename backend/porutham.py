@@ -1,10 +1,11 @@
 """
-మన వివాహ — 10-PORUTHAM (KUNDLI MATCH) ENGINE 🔮
-==================================================
-Top matrimony sites (Bharat Matrimony, Shaadi) ee feature ni PAID ga ammutunnayi.
-Manam free ga compute chesi, cards/requests lo chupistham — ee trust factor valla conversions perugutayi.
+మన వివాహ — 10-PORUTHAM REFERENCE ENGINE 🔮
+==========================================
+This module implements ten rule-based traditional reference checks from supplied star details.
+It does not predict compatibility, marriage outcomes, or user suitability.
 
-Ee module: Telugu traditional 10-porutham tables batti approximate match score.
+Ee module: ten rule-based traditional Porutham checks with item-level outcomes.
+It does not assign a compatibility score, percentage, star rating, or match verdict.
 
 10 PORUTHAMS (traditional order):
   1. Rasi Porutham        — 6/8 (shashtashtaka) dosham check
@@ -100,6 +101,8 @@ RAJJU_GROUPS = {
 }
 RAJJU_TELUGU = {"Pada": "పాద రజ్జు", "Kati": "కటి రజ్జు", "Nabhi": "నాభి రజ్జు",
                 "Kantha": "కంఠ రజ్జు", "Siro": "శిరో రజ్జు"}
+RAJJU_ENGLISH = {"Pada": "Pada", "Kati": "Kati", "Nabhi": "Nabhi",
+                 "Kantha": "Kantha", "Siro": "Shiro"}
 
 # ------------------------------------------------------------------ VEDHA (⚠️ critical)
 VEDHA_PAIRS = [(0, 17), (1, 16), (2, 15), (3, 14), (5, 21), (6, 20), (7, 19), (8, 18),
@@ -174,8 +177,8 @@ def _vedha(a: int, b: int) -> bool:
 
 def compute_porutham(bride: Dict, groom: Dict) -> Dict:
     """
-    Bride + groom (star/rasi fields unna profiles) → 10-porutham result.
-    Returns: score (0-10), verdict, per-item list, dosha flags, Telugu summary.
+    Bride + groom (star/rasi fields unna profiles) → ten check outcomes.
+    Returns per-item pass/review facts and dosha flags, not an overall score or verdict.
     """
     b_star_raw, g_star_raw = bride.get("star") or bride.get("moola_nakshatram") or "", \
         groom.get("star") or groom.get("moola_nakshatram") or ""
@@ -191,72 +194,90 @@ def compute_porutham(bride: Dict, groom: Dict) -> Dict:
     if b_star is None or g_star is None:
         return {
             "available": False,
-            "reason": "నక్షత్రం (Star) వివరాలు ప్రొఫైల్స్‌లో లేవు — గుణమేళనం లెక్కించలేకపోయాం",
-            "score": 0, "max_score": 10, "verdict": "వివరాలు లేవు",
-            "items": [], "doshas": [],
-            "advice_telugu": "రిజిస్ట్రేషన్‌లో నక్షత్రం (Star / Nakshatram) నమోదు చేయండి — అప్పుడు వేద గుణమేళనం స్వయంచాలకంగా వస్తుంది.",
+            "reason": "నక్షత్రం (Star) వివరాలు ప్రొఫైల్స్‌లో లేవు — గుణమేళనం లెక్కించలేదు",
+            "reason_en": "Required nakshatra details are missing from one or both profiles; no Porutham checks were calculated.",
+            "passed_checks": None, "total_checks": 10,
+            "items": [], "doshas": [], "doshas_en": [],
+            "advice_telugu": "రెండు ప్రొఫైల్స్‌లో అవసరమైన నక్షత్ర వివరాలు నమోదు చేసిన తర్వాత మాత్రమే ఈ సాంప్రదాయ checks లెక్కించవచ్చు.",
+            "advice_en": "These ten traditional rules can be calculated only after the required nakshatra details are available for both profiles.",
         }
 
     # 1. Rasi (shashtashtaka 6/8 dosham)
     dist = ((b_rasi - g_rasi) % 12) + 1
     rasi_ok = dist not in (6, 8)
-    items.append({"no": 1, "name": "రాశి పొంతన", "telugu": "రాశి పొంతన", "pass": rasi_ok,
+    items.append({"no": 1, "name": "రాశి పొంతన", "name_en": "Rasi compatibility", "telugu": "రాశి పొంతన", "pass": rasi_ok,
                   "note": ("రాశుల మధ్య దూరం బాగుంది (షష్టాష్టక దోషం లేదు)" if rasi_ok else
-                           f"రాశి {dist}వ స్థానం — షష్టాష్టక (6/8) దోషం, పరిహారం అవసరం")})
+                           f"రాశి {dist}వ స్థానం — షష్టాష్టక (6/8) దోషం, పరిహారం అవసరం"),
+                  "note_en": ("The rasi distance does not fall in the listed 6/8 positions." if rasi_ok else
+                              f"The rasi distance is {dist}; this falls in the listed 6/8-position Shashtashtaka rule.")})
 
     # 2. Nakshatra / Dina
     nak_count = _count(g_star, b_star)
     nak_ok = not _vedha(b_star, g_star)
-    items.append({"no": 2, "name": "నక్షత్ర / దిన గుణం", "telugu": "దిన గుణం", "pass": nak_ok,
-                  "note": (f"నక్షత్ర దూరం {nak_count} — అనుకూలం" if nak_ok else "నక్షత్ర వేధ ఉంది (క్రింద చూడండి)")})
+    items.append({"no": 2, "name": "నక్షత్ర / దిన గుణం", "name_en": "Nakshatra / Dina", "telugu": "దిన గుణం", "pass": nak_ok,
+                  "note": (f"నక్షత్ర దూరం {nak_count} — అనుకూలం" if nak_ok else "నక్షత్ర వేధ ఉంది (క్రింద చూడండి)"),
+                  "note_en": (f"Nakshatra distance: {nak_count}; no listed Vedha pair was found." if nak_ok else
+                              "A listed nakshatra Vedha pair was found.")})
 
     # 3. Gana
     bg, gg = GANA.get(b_star, "Manushya"), GANA.get(g_star, "Manushya")
     gana_score = GANA_MATRIX.get((bg, gg), 1)
-    items.append({"no": 3, "name": "గణ మైత్రి", "telugu": "గణ మైత్రి", "pass": gana_score >= 1,
+    items.append({"no": 3, "name": "గణ మైత్రి", "name_en": "Gana compatibility", "telugu": "గణ మైత్రి", "pass": gana_score >= 1,
                   "note": f"వధువు: {bg} • వరుడు: {gg} — " + ("బాగుంది" if gana_score == 2 else
-                                                            ("పర్వాలేదు" if gana_score == 1 else "రాక్షస గణం — సరిపోదు"))})
+                                                            ("పర్వాలేదు" if gana_score == 1 else "రాక్షస గణం — సరిపోదు")),
+                  "note_en": f"Bride: {bg} • Groom: {gg} — " + ("marked favorable by this rule." if gana_score == 2 else
+                                                                  ("mixed under this rule." if gana_score == 1 else "not marked favorable by this rule."))})
 
     # 4. Yoni
     by, gy = YONI[b_star], YONI[g_star]
     enemy = (by, gy) in YONI_ENEMIES or (gy, by) in YONI_ENEMIES
     yoni_ok = not enemy
-    items.append({"no": 4, "name": "యోని పొంతన", "telugu": "యోని పొంతన", "pass": yoni_ok,
-                  "note": f"{by} ↔ {gy}" + (" — శత్రు యోనులు (కలహం రిస్క్)" if enemy else " — అనుకూలం")})
+    items.append({"no": 4, "name": "యోని పొంతన", "name_en": "Yoni compatibility", "telugu": "యోని పొంతన", "pass": yoni_ok,
+                  "note": f"{by} ↔ {gy}" + (" — శత్రు యోనులు (కలహం రిస్క్)" if enemy else " — అనుకూలం"),
+                  "note_en": f"{by} ↔ {gy} — " + ("listed as an opposing yoni pair." if enemy else "not listed as an opposing yoni pair.")})
 
     # 5. Rajju (critical)
     br, gr = _rajju(b_star), _rajju(g_star)
     rajju_ok = br != gr
-    items.append({"no": 5, "name": "రజ్జు శుద్ధి", "telugu": "రజ్జు శుద్ధి", "pass": rajju_ok,
+    items.append({"no": 5, "name": "రజ్జు శుద్ధి", "name_en": "Rajju", "telugu": "రజ్జు శుద్ధి", "pass": rajju_ok,
                   "note": (f"{RAJJU_TELUGU.get(br, br)} ≠ {RAJJU_TELUGU.get(gr, gr)} — రజ్జు శుద్ధి ఉంది ✅" if rajju_ok
-                           else f"ఇద్దరికీ {RAJJU_TELUGU.get(br, br)} — రజ్జు దోషం ⚠️ (పురోహితులను సంప్రదించండి)")})
+                           else f"ఇద్దరికీ {RAJJU_TELUGU.get(br, br)} — రజ్జు దోషం ⚠️ (పురోహితులను సంప్రదించండి)"),
+                  "note_en": (f"The profiles fall in different Rajju groups: {RAJJU_ENGLISH.get(br, br)} and {RAJJU_ENGLISH.get(gr, gr)}." if rajju_ok else
+                              f"Both profiles fall in the {RAJJU_ENGLISH.get(br, br)} Rajju group; consult a qualified family adviser if this tradition is relevant to you.")})
 
     # 6. Vedha (critical)
     vedha = _vedha(b_star, g_star)
-    items.append({"no": 6, "name": "వేధ పరిశీలన", "telugu": "వేధ పరిశీలన", "pass": not vedha,
+    items.append({"no": 6, "name": "వేధ పరిశీలన", "name_en": "Vedha", "telugu": "వేధ పరిశీలన", "pass": not vedha,
                   "note": ("వేధ లేదు — శుభప్రదం ✅" if not vedha else
-                           f"{NAKSHATRA_TELUGU[b_star]} ↔ {NAKSHATRA_TELUGU[g_star]} — వేధ దోషం ఉంది ⚠️")})
+                           f"{NAKSHATRA_TELUGU[b_star]} ↔ {NAKSHATRA_TELUGU[g_star]} — వేధ దోషం ఉంది ⚠️"),
+                  "note_en": ("No listed Vedha pair was found." if not vedha else
+                              f"The listed Vedha pair is {NAKSHATRAS[b_star].title()} ↔ {NAKSHATRAS[g_star].title()}.")})
 
     # 7. Mahendra
     m_count = _count(b_star, g_star)
     mahendra_ok = m_count in (4, 7, 10, 13, 16, 19, 22, 25)
-    items.append({"no": 7, "name": "మాహేంద్ర పొంతన", "telugu": "మాహేంద్ర పొంతన", "pass": mahendra_ok,
-                  "note": f"Count {m_count} — " + ("అనుకూలం (సంతాన భాగ్యం & ఐశ్వర్యం)" if mahendra_ok else "సాధారణం")})
+    items.append({"no": 7, "name": "మాహేంద్ర పొంతన", "name_en": "Mahendra", "telugu": "మాహేంద్ర పొంతన", "pass": mahendra_ok,
+                  "note": f"Count {m_count} — " + ("అనుకూలం (సంతాన భాగ్యం & ఐశ్వర్యం)" if mahendra_ok else "సాధారణం"),
+                  "note_en": f"Count {m_count} — " + ("meets the distance values listed for this rule." if mahendra_ok else "does not meet the distance values listed for this rule.")})
 
     # 8. Stree Deergha
     sd_count = _count(g_star, b_star)
     sd_ok = sd_count >= 13
-    items.append({"no": 8, "name": "స్త్రీ దీర్ఘం", "telugu": "స్త్రీ దీర్ఘం", "pass": sd_ok,
-                  "note": f"Count {sd_count} — " + ("అనుకూలం (దీర్ఘ సుమంగళి)" if sd_ok else "13+ ఉండాలి — సాధారణం")})
+    items.append({"no": 8, "name": "స్త్రీ దీర్ఘం", "name_en": "Stree Deergha", "telugu": "స్త్రీ దీర్ఘం", "pass": sd_ok,
+                  "note": f"Count {sd_count} — " + ("అనుకూలం (దీర్ఘ సుమంగళి)" if sd_ok else "13+ ఉండాలి — సాధారణం"),
+                  "note_en": f"Count {sd_count} — " + ("meets the listed 13-or-more criterion." if sd_ok else "does not meet the listed 13-or-more criterion.")})
 
     # 9. Vashya
     bv = VASHYA_BY_RASI.get(b_rasi, [])
     gv = VASHYA_BY_RASI.get(g_rasi, [])
     vashya_ok = bool(set(bv) & set(gv)) or any((a, c) in VASHYA_FRIENDS or (c, a) in VASHYA_FRIENDS
                                               for a in bv for c in gv)
-    items.append({"no": 9, "name": "వశ్య పొంతన", "telugu": "వశ్య పొంతన", "pass": vashya_ok,
+    items.append({"no": 9, "name": "వశ్య పొంతన", "name_en": "Vashya", "telugu": "వశ్య పొంతన", "pass": vashya_ok,
                   "note": f"{RASI_TELUGU[b_rasi]} ↔ {RASI_TELUGU[g_rasi]} — "
-                          + ("అనుకూలం" if vashya_ok else "సాధారణం")})
+                          + ("అనుకూలం" if vashya_ok else "సాధారణం"),
+                  "note_en": f"{RASIS[b_rasi].title()} ↔ {RASIS[g_rasi].title()} — "
+                            + ("the listed Vashya groups overlap or are paired as friends." if vashya_ok else
+                               "the listed Vashya groups are not marked as overlapping or friendly.")})
 
     # 10. Rasi Adhipathi
     b_lord = RASI_LORDS[b_rasi] if b_rasi is not None else "?"
@@ -267,45 +288,42 @@ def compute_porutham(bride: Dict, groom: Dict) -> Dict:
                ("Mercury (Budha)", "Venus (Shukra)"), ("Venus (Shukra)", "Mercury (Budha)"),
                ("Moon (Chandra)", "Sun (Surya)"), ("Sun (Surya)", "Moon (Chandra)")}
     lord_ok = b_lord == g_lord or (b_lord, g_lord) in friends
-    items.append({"no": 10, "name": "రాశ్యాధిపతి మైత్రి", "telugu": "రాశ్యాధిపతి మైత్రి", "pass": lord_ok,
-                  "note": f"{b_lord} ↔ {g_lord} — " + ("మిత్ర గ్రహాలు ✅" if lord_ok else "శత్రు/సమ గ్రహాలు")})
+    items.append({"no": 10, "name": "రాశ్యాధిపతి మైత్రి", "name_en": "Rasi lord relationship", "telugu": "రాశ్యాధిపతి మైత్రి", "pass": lord_ok,
+                  "note": f"{b_lord} ↔ {g_lord} — " + ("మిత్ర గ్రహాలు ✅" if lord_ok else "శత్రు/సమ గ్రహాలు"),
+                  "note_en": f"{b_lord} ↔ {g_lord} — " + ("listed as friendly in the rule table." if lord_ok else "not listed as friendly in the rule table.")})
 
-    score = len([i for i in items if i["pass"]])
+    passed_checks = sum(1 for item in items if item["pass"] is True)
     doshas = [i["name"] for i in items if not i["pass"] and i["no"] in (5, 6)]
     critical_miss = bool([i for i in items if not i["pass"] and i["no"] in (5, 6)])
-    if score >= 8 and not critical_miss:
-        verdict, stars = "⭐ అద్భుత కలయిక — వేద గుణమేళనం చాలా బాగుంది", 5
-    elif score >= 6 and not critical_miss:
-        verdict, stars = "✅ మంచి సంబంధం — ప్రధాన గుణాలు కలుస్తున్నాయి", 4
-    elif critical_miss:
-        verdict, stars = "⚠️ రజ్జు/వేధ దోషం — వేద పురోహితులతో సంప్రదించండి", 2
-    else:
-        verdict, stars = "🟡 మధ్యస్థ కలయిక — పెద్దల ఆశీస్సులతో ముందుకు వెళ్లండి", 3
 
     return {
         "available": True,
         "bride_star": NAKSHATRA_TELUGU[b_star], "groom_star": NAKSHATRA_TELUGU[g_star],
         "bride_star_en": NAKSHATRAS[b_star].title(), "groom_star_en": NAKSHATRAS[g_star].title(),
         "bride_rasi": RASI_TELUGU[b_rasi], "groom_rasi": RASI_TELUGU[g_rasi],
-        "score": score, "max_score": 10,
-        "percent": int(score * 10),
-        "stars": stars,
-        "verdict": verdict,
+        "bride_rasi_en": RASIS[b_rasi].title(), "groom_rasi_en": RASIS[g_rasi].title(),
+        "passed_checks": passed_checks, "total_checks": len(items),
         "items": items,
         "doshas": doshas,
+        "doshas_en": [item["name_en"] for item in items if not item["pass"] and item["no"] in (5, 6)],
         "advice_telugu": (
-            "ఇది వేద జ్యోతిష గుణమేళనం ప్రాథమిక సరిపోలిక. తుది నిర్ణయానికి వధూవరుల జాతక చక్రాలు, దశాభుక్తులను పురోహితుల వద్ద సరిచూసుకోండి."
-            + (" ⚠️ రజ్జు/వేధ దోషం ఉంది — పరిహారం పరిశీలించండి." if critical_miss else "")
+            "ఇవి అందించిన నక్షత్ర వివరాలపై ఈ అమరిక లెక్కించిన పది నియమాల ఫలితాలు మాత్రమే; పూర్తి జాతకం లేదా వివాహ సిఫార్సు కాదు. ప్రతి అంశాన్ని విడిగా పరిశీలించి, సంప్రదాయం గురించి అర్హులైన సలహాదారుతో చర్చించండి."
+            + (" రజ్జు/వేధ అంశాలను విడిగా సమీక్షించండి." if critical_miss else "")
+        ),
+        "advice_en": (
+            "These are outcomes from ten listed rules applied to the supplied nakshatra details. This is not a complete horoscope or a marriage recommendation. Review each item separately and consult a qualified adviser if these traditions are relevant to you."
+            + (" Rajju or Vedha items are marked for review." if critical_miss else "")
         ),
     }
 
 
 def porutham_line(bride: Dict, groom: Dict) -> str:
-    """WhatsApp/card message లో చూపించడానికి ఒక్క line (short)."""
-    r = compute_porutham(bride, groom)
-    if not r.get("available"):
-        return "🔮 గుణమేళనం: నక్షత్ర వివరాలు లేవు (నమోదులో పూరించండి)"
-    return f"🔮 గుణమేళనం: {r['score']}/10 {r['verdict'].split('—')[0].strip()}"
+    """One factual summary line; never call check counts a compatibility score."""
+    result = compute_porutham(bride, groom)
+    if not result.get("available"):
+        return "🔮 Porutham checks లెక్కించలేదు — అవసరమైన నక్షత్ర వివరాలు అందుబాటులో లేవు."
+    return (f"🔮 {result['passed_checks']} of {result['total_checks']} Porutham checks marked pass; "
+            "review each item separately (not a compatibility verdict).")
 
 
 if __name__ == "__main__":  # demo: python porutham.py

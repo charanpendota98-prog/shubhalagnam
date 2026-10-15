@@ -27,7 +27,7 @@ export default function AuthGate({ title = "", note = "", admin = false }: { tit
         </Link>
       </div>
       <p className="mt-2 text-xs text-amber-700">
-        {te ? "🔒 Phone numbers ఎప్పుడూ public గా కనిపించవు — interest accept అయితేనే exchange (consent)." : "🔒 Phone numbers never show publicly — exchange only on interest accept (consent)."}
+        {te ? "🔒 Public profile/search లో phone numbers కనిపించవు. Owner accept చేసిన తర్వాత accepted-request account views లో contact access వస్తుంది; notification delivery హామీ లేదు." : "🔒 Phone numbers are not shown in public profile/search. Owner acceptance grants contact access in accepted-request account views; notification delivery is not guaranteed."}
       </p>
     </div>
   );

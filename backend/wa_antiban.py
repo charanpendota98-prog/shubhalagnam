@@ -18,7 +18,7 @@ Anti-ban rules (anni env tho tune cheyyochu):
  12. KILL SWITCH       — WA_PAUSED=true leda /api/wa/pause → ventane aagutundi
 
 Env:
-  WA_ENABLED           true|false        (default true)
+  WA_ENABLED           true|false        (default false; opt in only after target checks)
   WA_MIN_GAP           120               (seconds — minimum gap)
   WA_MAX_GAP           170               (seconds — maximum gap)
   WA_MIN_GAP_INTEREST  60                (interest messages — fast lane, still random)
@@ -45,22 +45,22 @@ from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional, Tuple
 
 IST = timezone(timedelta(hours=5, minutes=30))
-STATE_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "wa_state.json")
+STATE_FILE = os.environ.get("MANA_VIVAHA_WA_STATE_FILE", os.path.join(os.path.dirname(os.path.abspath(__file__)), "wa_state.json"))
 
 # Same message ni repeat ga pampakunda — greeting/CTA variants (rotation)
 GREETING_VARIANTS = [
     "💍 *MANA VIVAHA* — TS-AP Telugu Matrimony",
     "💍 *MANA VIVAHA* • Telugu Matrimony (TS/AP)",
     "💍 *MANA VIVAHA* — మీ Telugu సంబంధం",
-    "💍 *MANA VIVAHA* • 100% Telugu Matrimony",
-    "💍 *MANA VIVAHA* — Nammakamaina Telugu Matrimony",
+    "💍 *MANA VIVAHA* — Member-submitted Telugu matrimony profiles",
+    "💍 *MANA VIVAHA* — Telugu matrimony for Telangana + Andhra Pradesh",
 ]
 CTA_VARIANTS = [
-    "📝 FREE register (3 min): {site}/register\n🤖 Bot: {bot}",
-    "📝 మీ profile FREE గా పెట్టండి: {site}/register\n🤖 Bot: {bot}",
-    "📝 3 nimishallo FREE register: {site}/register\n🤖 Bot: {bot}",
-    "📝 FREE గా join అవ్వండి: {site}/register\n🤖 Bot: {bot}",
-    "📝 మీ details FREE గా ఇవ్వండి: {site}/register\n🤖 Bot: {bot}",
+    "📝 Free profile registration: {site}/register",
+    "📝 మీ profile FREE గా పెట్టండి: {site}/register",
+    "📝 మొదటి 3 interest requests ఉచితం: {site}/register",
+    "📝 FREE గా join అవ్వండి: {site}/register",
+    "📝 మీ details FREE గా ఇవ్వండి: {site}/register",
 ]
 
 
@@ -147,7 +147,7 @@ class WhatsAppAntiban:
     def cfg(self) -> Dict:
         warmup_days = _env_int("WA_WARMUP_DAYS", 4)
         return {
-            "enabled": _env_bool("WA_ENABLED", True),
+            "enabled": _env_bool("WA_ENABLED", False),
             "min_gap": _env_float("WA_MIN_GAP", 120.0),
             "max_gap": _env_float("WA_MAX_GAP", 170.0),
             "min_gap_interest": _env_float("WA_MIN_GAP_INTEREST", 60.0),
@@ -383,14 +383,17 @@ class WhatsAppAntiban:
 ENGINE = WhatsAppAntiban()
 
 
-def variantize(text: str, site: str, bot: str) -> str:
-    """Same message repeat avvakunda greeting + CTA rotation (anti-spam fingerprint)."""
+def variantize(text: str, site: str, bot: str = "") -> str:
+    """Rotate safe copy; include a bot contact only when explicitly configured."""
     if "MANA VIVAHA" in text:
         text = text.replace("💍 *MANA VIVAHA* — TS-AP Telugu Matrimony", random.choice(GREETING_VARIANTS), 1)
     import re
-    pattern = re.compile(r"📝 [^\n]*\{?site\}?/register\n🤖 Bot: [^\n]*")
-    repl = random.choice(CTA_VARIANTS).format(site=site, bot=bot)
-    text2 = pattern.sub(lambda m: repl, text, count=1)
+    pattern = re.compile(r"(?m)^📝[^\n]*/register(?:\n🤖 Bot:[^\n]*)?")
+    repl = random.choice(CTA_VARIANTS).format(site=site)
+    configured_bot = str(bot or "").strip()
+    if configured_bot:
+        repl += f"\n🤖 Bot: {configured_bot}"
+    text2 = pattern.sub(repl, text, count=1)
     return text2 if text2 != text else text
 
 
@@ -399,7 +402,8 @@ if __name__ == "__main__":  # quick demo: python wa_antiban.py
     e = WhatsAppAntiban()
     print(json.dumps(e.stats(), indent=2, ensure_ascii=False))
     print("\n-- simulated 8 gaps (random 120–170 + breaks) --")
+    # Exercise timing state only; this marker is local and is not an external destination.
     for i in range(8):
         g = e._current_gap(1)
         print(f"  msg {i+1}: gap {g/60:.2f} min ({int(g)}s)")
-        e.record_send(target="@manavivaha_reddy", ok=True, priority=1)
+        e.record_send(target="local-only-test-target", ok=True, priority=1)

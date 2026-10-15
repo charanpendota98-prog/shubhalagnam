@@ -1,87 +1,97 @@
+"""Explicitly opt-in, read-only Telegram channel smoke check.
+
+Default behavior is a local dry run: no network call is made and the script does
+not read BOT_TOKEN or targets. To check external status at one point in time, an
+operator must explicitly set ALLOW_READ_ONLY_TELEGRAM_CHECK=1, provide BOT_TOKEN
+in the process environment, and list exactly two TEST_CHANNELS destinations.
+
+The opt-in path calls only getMe, getChat, and getChatMember. It never sends a
+message, creates an invite, edits a channel, reads a demo token, or uses profile
+or payment fixtures. It does not try alternate usernames. A successful check is
+only evidence for the selected destinations at the time of that check.
 """
-Test Bot Posting to Live Channels TSBRIDE, TSGROOM1
-Run: python test_channels.py
-"""
-import os, sys
-try:
-    from dotenv import load_dotenv
-    load_dotenv()
-except ImportError:
-    pass
+from __future__ import annotations
 
-BOT_TOKEN = os.getenv("BOT_TOKEN", "0000000000:TEST-FAKE-TOKEN-DO-NOT-USE")
+import json
+import os
+import re
+import urllib.error
+import urllib.parse
+import urllib.request
 
-# Try to import requests, fallback to curl
-try:
-    import requests
-    def send_message(chat_id, text):
-        url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
-        r = requests.post(url, data={"chat_id": chat_id, "text": text, "parse_mode": "Markdown"})
-        print(f"Send to {chat_id}: {r.status_code} {r.text[:200]}")
-        return r.json()
+READ_ONLY_METHODS = frozenset({"getMe", "getChat", "getChatMember"})
 
-    def send_photo(chat_id, photo_path, caption):
-        url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendPhoto"
-        with open(photo_path, 'rb') as f:
-            r = requests.post(url, data={"chat_id": chat_id, "caption": caption, "parse_mode": "Markdown"}, files={"photo": f})
-        print(f"Photo to {chat_id}: {r.status_code} {r.text[:200]}")
-        return r.json()
 
-except ImportError:
-    print("requests not installed, using curl fallback")
-    import subprocess, json
-    def send_message(chat_id, text):
-        cmd = f"curl -s -X POST https://api.telegram.org/bot{BOT_TOKEN}/sendMessage -d chat_id={chat_id} -d text='{text}'"
-        print(f"Would run: {cmd}")
-        return {}
+def telegram_read(token: str, method: str, parameters: dict | None = None) -> dict:
+    """Call an allowlisted read-only Telegram Bot API method without logging its secret URL."""
+    if method not in READ_ONLY_METHODS:
+        raise ValueError("Only allowlisted read-only Telegram methods are permitted.")
+    if not token:
+        raise ValueError("A bot token is required after explicit read-only opt-in.")
 
-    def send_photo(chat_id, photo_path, caption):
-        print(f"Would send photo {photo_path} to {chat_id}")
-        return {}
-
-if __name__=="__main__":
-    print("Testing Bot @telugumatrimony1_bot")
-    print(f"Token: {BOT_TOKEN[:10]}...")
-
-    # Test getMe
+    payload = urllib.parse.urlencode(parameters or {}).encode("utf-8")
+    request = urllib.request.Request(
+        f"https://api.telegram.org/bot{token}/{method}",
+        data=payload,
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+        method="POST",
+    )
     try:
-        import requests
-        r = requests.get(f"https://api.telegram.org/bot{BOT_TOKEN}/getMe")
-        print("getMe:", r.json())
-    except Exception as e:
-        print(f"getMe failed (network may be blocked in sandbox): {e}")
-        print("But token is valid, will work on Oracle VM with internet")
+        with urllib.request.urlopen(request, timeout=15) as response:
+            result = json.loads(response.read().decode("utf-8"))
+    except (urllib.error.URLError, TimeoutError, json.JSONDecodeError, OSError) as exc:
+        # Never print the request URL: the bot token is part of that URL.
+        raise RuntimeError(f"Telegram read-only request failed ({type(exc).__name__}).") from None
+    if not isinstance(result, dict) or not result.get("ok"):
+        description = result.get("description", "Telegram returned an unsuccessful response") if isinstance(result, dict) else "Unexpected Telegram response"
+        raise RuntimeError(str(description)[:180])
+    value = result.get("result")
+    return value if isinstance(value, dict) else {}
 
-    # Test messages to live channels
-    channels = ["@TSBRIDE", "@TSGROOM1"]
 
-    test_caption = """
-🎉 *TSAP Matrimony Bot LIVE!* 🔥
+def main() -> int:
+    if os.getenv("ALLOW_READ_ONLY_TELEGRAM_CHECK") != "1":
+        print("Dry run: no Telegram request made. External checks require explicit ALLOW_READ_ONLY_TELEGRAM_CHECK=1.")
+        return 0
 
-👰 TSAP-F-2025-1042 • 24y • Reddy • BTech • Software @ Hyd • Nalgonda (TS)
+    token = (os.getenv("BOT_TOKEN") or "").strip()
+    targets = [value.strip() for value in (os.getenv("TEST_CHANNELS") or "").split(",") if value.strip()]
+    if not token:
+        print("Read-only check not run: BOT_TOKEN is not set in the process environment.")
+        return 2
+    if len(targets) != 2:
+        print("Read-only check not run: exactly two explicit TEST_CHANNELS destinations are required.")
+        return 2
+    if len({target.casefold() for target in targets}) != 2:
+        print("Read-only check not run: destinations must be distinct.")
+        return 2
+    if any(not (re.fullmatch(r"@[A-Za-z0-9_]{5,32}", target)
+                   or re.fullmatch(r"-100[0-9]{5,20}", target)) for target in targets):
+        print("Read-only check not run: use explicit @username or -100… channel ID destinations.")
+        return 2
 
-⭐ 92% Match • ✅ Verified
+    try:
+        identity = telegram_read(token, "getMe")
+        bot_id = int(identity["id"])
+        print("External bot identity lookup succeeded at check time.")
+        for target in targets:
+            chat = telegram_read(token, "getChat", {"chat_id": target})
+            member = telegram_read(token, "getChatMember", {"chat_id": target, "user_id": bot_id})
+            if not chat:
+                raise RuntimeError("Telegram returned no chat details for an explicitly supplied destination.")
+            status = str(member.get("status") or "unknown")
+            admin = status in {"administrator", "creator"}
+            print(
+                f"Checked {target} at this time: getChat succeeded; "
+                f"bot status={status}; admin={str(admin).lower()}."
+            )
+    except (KeyError, TypeError, ValueError, RuntimeError) as exc:
+        print(f"Read-only Telegram check incomplete: {exc}")
+        return 1
 
-📞 Number: Pay tarvata 🔒
-🤖 Bot: @telugumatrimony1_bot (First 3 FREE!)
-🔍 ID Search: tsapmatrimony.com/search/TSAP-F-2025-1042
+    print("Read-only check complete. No messages were sent; this does not prove future availability or delivery.")
+    return 0
 
-#Reddy #TS #Bride #Age24 #BTech #Hyderabad
 
-━━━━━━━━━━━━━━━
-👆 Nachinda? Number kavala? 👇
-🤖 Bot: @telugumatrimony1_bot
-📂 Caste: @tsap_reddy @tsap_kamma
-⚠️ Number Bot lo pay tarvata matrame!
-"""
-
-    for ch in channels:
-        print(f"\n--- Testing {ch} ---")
-        try:
-            send_message(ch, test_caption)
-        except Exception as e:
-            print(f"Failed to send to {ch}: {e} — will work on Oracle VM")
-
-    print("\nDone! If network blocked in sandbox, deploy to Oracle VM and run again.")
-    print("Channels LIVE: https://t.me/TSBRIDE , https://t.me/TSGROOM1")
-    print("Bot LIVE: https://t.me/telugumatrimony1_bot")
+if __name__ == "__main__":
+    raise SystemExit(main())

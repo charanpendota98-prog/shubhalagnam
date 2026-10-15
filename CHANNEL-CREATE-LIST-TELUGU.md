@@ -1,95 +1,109 @@
 # 📱 CHANNEL CREATE LIST — ఇది చూసి ఒక్కొక్కటి create చేయండి
 
-**మొత్తం 52 channels** — కానీ ఒకేసారి అన్నీ వద్దు. **దశ (wave) ప్రకారం** చేయండి.
-ప్రతి channel ki: **Name copy → Username copy → Description paste → @telugumatrimony1_bot ni admin**
+**మొత్తం 64 configured listings** — setup చేసే ముందు operator ownership/access ని స్వతంత్రంగా నిర్ధారించండి.
+ఈ registry external availability లేదా bot permissions ను తనిఖీ చేయదు. Username పని చేయకపోతే ఆపి, owner-approved replacement ను verify చేయండి; ఊహించి alternate వాడకండి.
+
+ప్రతి channel కి: **Name copy → configured username check → Description paste → bot permissions verify**
 
 ## ⚡ ఒక్కో channel ki 4 నిమిషాలు (phone lo)
 1. Telegram → ☰ → **New Channel** → Name (క్రింద టేబుల్ నుంచి copy) → **Public** → Username (copy)
 2. Description paste (kit file లో ఉంది — `channel-kits/<key>.md`) → Create
-3. Channel → **Administrators** → Add Admin → `@telugumatrimony1_bot` → Change Info + Post + Edit + Pin ✅
-4. `python setup_channels.py --apply --key <key>` → title/desc/DP/📌 pinned అన్నీ ఆటో సెట్
+3. Do not add the bot as an administrator by default. Posting is disabled unless an exact destination is configured and owner-approved; only then grant the minimum permissions required.
+4. `--apply` is a separate, mutating setup operation; it may change metadata, upload artwork, create an invite, send, and pin. It is not a smoke test and needs explicit operator approval.
 
-**Username already taken అయితే?** → పక్కన fallback username వాడండి (అదే పని చేస్తుంది).
+## 🌊 Wave 1 — మొదటి దశ (వెంటనే చేయండి) (16 listings)
 
-## 🌊 Wave 1 — మొదటి దశ (వెంటనే చేయండి) (20 channels)
+| # | Name (copy) | Configured username (verify first) | Routing flag (not uptime) |
+|---|---|---|---|
+| 1 | `📢 మన వివాహ Official \| మన వివాహ — TS-AP` | `@TSAP_MATRIMONY` | No posting destination configured |
+| 2 | `👰 AP Brides \| ఆంధ్రా వధువులు` | `@APBRIDE` | No posting destination configured |
+| 3 | `🤵 AP Grooms \| ఆంధ్రా వరులు` | `@APGROOM1` | No posting destination configured |
+| 4 | `👰 TS Brides \| తెలంగాణ వధువులు` | `@TSBRIDE` | No posting destination configured |
+| 5 | `🤵 TS Grooms \| తెలంగాణ వరులు` | `@TSGROOM1` | No posting destination configured |
+| 6 | `👰 Kamma Brides \| కమ్మ వధువులు` | `Not configured; do not guess` | No posting destination configured |
+| 7 | `🤵 Kamma Grooms \| కమ్మ వరులు` | `Not configured; do not guess` | No posting destination configured |
+| 8 | `👰 Kapu • Balija • Telaga Brides \| కాపు • బలిజ • తెలగ వధువులు` | `Not configured; do not guess` | No posting destination configured |
+| 9 | `🤵 Kapu • Balija • Telaga Grooms \| కాపు • బలిజ • తెలగ వరులు` | `Not configured; do not guess` | No posting destination configured |
+| 10 | `👰 Reddy Brides \| రెడ్డి వధువులు` | `Not configured; do not guess` | No posting destination configured |
+| 11 | `🤵 Reddy Grooms \| రెడ్డి వరులు` | `Not configured; do not guess` | No posting destination configured |
+| 12 | `👰 Christian Brides \| Christian వధువులు` | `Not configured; do not guess` | No posting destination configured |
+| 13 | `🤵 Christian Grooms \| Christian వరులు` | `Not configured; do not guess` | No posting destination configured |
+| 14 | `🕉️ Hindu Matrimony \| హిందూ వివాహాలు` | `Not configured; do not guess` | No posting destination configured |
+| 15 | `👰 Muslim Brides \| Muslim వధువులు` | `Not configured; do not guess` | No posting destination configured |
+| 16 | `🤵 Muslim Grooms \| Muslim వరులు` | `Not configured; do not guess` | No posting destination configured |
 
-| # | Name (copy) | Username (copy) | Fallback | Status |
-|---|---|---|---|---|
-| 1 | `📢 TSAP Matrimony Official \| మన వివాహ — TS-AP` | `@TSAP_MATRIMONY` | @manavivaha, @manavivaha_official | ⬜ create |
-| 2 | `👰 AP Brides \| ఆంధ్రా వధువులు` | `@APBRIDE` | @manavivaha_ap_bride, @apbride1 | ⬜ create |
-| 3 | `🤵 AP Grooms \| ఆంధ్రా వరులు` | `@APGROOM1` | @manavivaha_ap_groom, @apgroom | ⬜ create |
-| 4 | `👰 TS Brides \| తెలంగాణ వధువులు` | `@TSBRIDE` | @manavivaha_ts_bride, @tsbrides | ✅ LIVE |
-| 5 | `🤵 TS Grooms \| తెలంగాణ వరులు` | `@TSGROOM1` | @manavivaha_ts_groom, @tsgroom | ✅ LIVE |
-| 6 | `👰 Kamma Brides \| కమ్మ వధువులు` | `@manavivaha_kamma_bride` | @tsap_kamma_bride, @mv_kamma_brd | ⬜ create |
-| 7 | `🤵 Kamma Grooms \| కమ్మ వరులు` | `@manavivaha_kamma_groom` | @tsap_kamma_groom, @mv_kamma_grm | ⬜ create |
-| 8 | `👰 Kapu • Balija • Telaga Brides \| కాపు • బలిజ • తెలగ వధువులు` | `@manavivaha_kapu_bride` | @tsap_kapu_bride, @mv_kapu_brd | ⬜ create |
-| 9 | `🤵 Kapu • Balija • Telaga Grooms \| కాపు • బలిజ • తెలగ వరులు` | `@manavivaha_kapu_groom` | @tsap_kapu_groom, @mv_kapu_grm | ⬜ create |
-| 10 | `👰 Reddy Brides \| రెడ్డి వధువులు` | `@manavivaha_reddy_bride` | @tsap_reddy_bride, @mv_reddy_brd | ⬜ create |
-| 11 | `🤵 Reddy Grooms \| రెడ్డి వరులు` | `@manavivaha_reddy_groom` | @tsap_reddy_groom, @mv_reddy_grm | ⬜ create |
-| 12 | `✝️ AP Christian Brides \| ఆంధ్రా క్రైస్తవ వధువులు` | `@manavivaha_christian_ap_bride` | @apchristianbride, @mv_christ_ap_brd | ⬜ create |
-| 13 | `✝️ AP Christian Grooms \| ఆంధ్రా క్రైస్తవ వరులు` | `@manavivaha_christian_ap_groom` | @apchristiangroom, @mv_christ_ap_grm | ⬜ create |
-| 14 | `✝️ Telangana Christian Brides \| తెలంగాణ క్రైస్తవ వధువులు` | `@manavivaha_christian_ts_bride` | @tschristianbride, @mv_christ_ts_brd | ⬜ create |
-| 15 | `✝️ Telangana Christian Grooms \| తెలంగాణ క్రైస్తవ వరులు` | `@manavivaha_christian_ts_groom` | @tschristiangroom, @mv_christ_ts_grm | ⬜ create |
-| 16 | `🕉️ Hindu Matrimony \| హిందూ వివాహాలు` | `@manavivaha_hindu` | @manavivaha_hindus, @tsap_hindu | ⬜ create |
-| 17 | `☪️ AP Muslim Brides \| ఆంధ్రా ముస్లిం వధువులు` | `@manavivaha_muslim_ap_bride` | @apmuslimbride, @mv_muslim_ap_brd | ⬜ create |
-| 18 | `☪️ AP Muslim Grooms \| ఆంధ్రా ముస్లిం వరులు` | `@manavivaha_muslim_ap_groom` | @apmuslimgroom, @mv_muslim_ap_grm | ⬜ create |
-| 19 | `☪️ Telangana Muslim Brides \| తెలంగాణ ముస్లిం వధువులు` | `@manavivaha_muslim_ts_bride` | @tsmuslimbride, @mv_muslim_ts_brd | ⬜ create |
-| 20 | `☪️ Telangana Muslim Grooms \| తెలంగాణ ముస్లిం వరులు` | `@manavivaha_muslim_ts_groom` | @tsmuslimgroom, @mv_muslim_ts_grm | ⬜ create |
+### Wave-1 operator checks (only after confirming exact ownership/access)
 
-### ✅ Wave-1 ayyaka ee command run cheyyandi
+`--check` makes explicit read-only Telegram API calls; it is not a message-delivery test. Review results before any separate setup mutation.
 
 ```bash
-export BOT_TOKEN=xxxx
-python setup_channels.py --apply --wave 1 --mark-live
-python setup_channels.py --check          # anni perfect ఉన్నాయా చూడండి
+read -rsp 'Bot token: ' BOT_TOKEN && export BOT_TOKEN; echo
+python setup_channels.py --check --wave 1
+# After separate, explicit approval only: python setup_channels.py --apply --wave 1
+unset BOT_TOKEN
 ```
 
-## 🌊 Wave 2 — రెండో దశ (17 channels)
+## 🌊 Wave 2 — రెండో దశ (18 listings)
 
-| # | Name (copy) | Username (copy) | Fallback | Status |
-|---|---|---|---|---|
-| 1 | `🌍 NRI Telugu Matrimony \| విదేశీ సంబంధాలు` | `@manavivaha_nri` | @manavivaha_global, @manavivaha_usa | ⬜ create |
-| 2 | `👰 Brahmin Brides \| బ్రాహ్మణ వధువులు` | `@manavivaha_brahmin_bride` | @tsap_brahmin_bride, @mv_brahmin_brd | ⬜ create |
-| 3 | `🤵 Brahmin Grooms \| బ్రాహ్మణ వరులు` | `@manavivaha_brahmin_groom` | @tsap_brahmin_groom, @mv_brahmin_grm | ⬜ create |
-| 4 | `👰 Madiga Brides \| మాదిగ వధువులు` | `@manavivaha_madiga_bride` | @tsap_madiga_bride, @mv_madiga_brd | ⬜ create |
-| 5 | `🤵 Madiga Grooms \| మాదిగ వరులు` | `@manavivaha_madiga_groom` | @tsap_madiga_groom, @mv_madiga_grm | ⬜ create |
-| 6 | `👰 Mala Brides \| మాల వధువులు` | `@manavivaha_mala_bride` | @tsap_mala_bride, @mv_mala_brd | ⬜ create |
-| 7 | `🤵 Mala Grooms \| మాల వరులు` | `@manavivaha_mala_groom` | @tsap_mala_groom, @mv_mala_grm | ⬜ create |
-| 8 | `💍 Munnuru Kapu Matrimony \| మున్నూరు కాపు — వధువులు + వరులు` | `@manavivaha_munnuru_kapu` | @tsap_munnuru_kapu, @manavivaha_munnuru_kapu_community | ⬜ create |
-| 9 | `👰 Velama Brides \| వెలమ వధువులు` | `@manavivaha_velama_bride` | @tsap_velama_bride, @mv_velama_brd | ⬜ create |
-| 10 | `🤵 Velama Grooms \| వెలమ వరులు` | `@manavivaha_velama_groom` | @tsap_velama_groom, @mv_velama_grm | ⬜ create |
-| 11 | `💍 Viswabrahmana (Viswakarma) Matrimony \| విశ్వబ్రాహ్మణ — వధువులు + వరులు` | `@manavivaha_viswabrahmana` | @tsap_viswabrahmana, @manavivaha_viswabrahmana_community | ⬜ create |
-| 12 | `👰 Arya Vysya • Komati Brides \| వైశ్య • కోమటి వధువులు` | `@manavivaha_vysya_bride` | @tsap_vysya_bride, @mv_vysya_brd | ⬜ create |
-| 13 | `🤵 Arya Vysya • Komati Grooms \| వైశ్య • కోమటి వరులు` | `@manavivaha_vysya_groom` | @tsap_vysya_groom, @mv_vysya_grm | ⬜ create |
-| 14 | `👰 Yadava • Goud • Golla Brides \| యాదవ • గౌడ • గొల్ల వధువులు` | `@manavivaha_yadava_goud_bride` | @tsap_yadava_goud_bride, @mv_yadava_goud_brd | ⬜ create |
-| 15 | `🤵 Yadava • Goud • Golla Grooms \| యాదవ • గౌడ • గొల్ల వరులు` | `@manavivaha_yadava_goud_groom` | @tsap_yadava_goud_groom, @mv_yadava_goud_grm | ⬜ create |
-| 16 | `🕊️ Other Religions \| ఇతర మత వివాహాలు` | `@manavivaha_other_religions` | @manavivaha_others, @manavivaha_minority | ⬜ create |
-| 17 | `💍 Second Marriage \| రెండో పెళ్లి` | `@manavivaha_second` | @tsap_second, @manavivaha_remarriage | ⬜ create |
+| # | Name (copy) | Configured username (verify first) | Routing flag (not uptime) |
+|---|---|---|---|
+| 1 | `🌍 NRI Telugu Matrimony \| విదేశీ సంబంధాలు` | `Not configured; do not guess` | No posting destination configured |
+| 2 | `👰 Brahmin Brides \| బ్రాహ్మణ వధువులు` | `Not configured; do not guess` | No posting destination configured |
+| 3 | `🤵 Brahmin Grooms \| బ్రాహ్మణ వరులు` | `Not configured; do not guess` | No posting destination configured |
+| 4 | `👰 Madiga Brides \| మాదిగ వధువులు` | `Not configured; do not guess` | No posting destination configured |
+| 5 | `🤵 Madiga Grooms \| మాదిగ వరులు` | `Not configured; do not guess` | No posting destination configured |
+| 6 | `👰 Mala Brides \| మాల వధువులు` | `Not configured; do not guess` | No posting destination configured |
+| 7 | `🤵 Mala Grooms \| మాల వరులు` | `Not configured; do not guess` | No posting destination configured |
+| 8 | `👰 Munnuru Kapu Brides \| మున్నూరు కాపు వధువులు` | `Not configured; do not guess` | No posting destination configured |
+| 9 | `🤵 Munnuru Kapu Grooms \| మున్నూరు కాపు వరులు` | `Not configured; do not guess` | No posting destination configured |
+| 10 | `👰 Velama Brides \| వెలమ వధువులు` | `Not configured; do not guess` | No posting destination configured |
+| 11 | `🤵 Velama Grooms \| వెలమ వరులు` | `Not configured; do not guess` | No posting destination configured |
+| 12 | `👰 Viswabrahmana (Viswakarma) Brides \| విశ్వబ్రాహ్మణ వధువులు` | `Not configured; do not guess` | No posting destination configured |
+| 13 | `🤵 Viswabrahmana (Viswakarma) Grooms \| విశ్వబ్రాహ్మణ వరులు` | `Not configured; do not guess` | No posting destination configured |
+| 14 | `👰 Arya Vysya • Komati Brides \| వైశ్య • కోమటి వధువులు` | `Not configured; do not guess` | No posting destination configured |
+| 15 | `🤵 Arya Vysya • Komati Grooms \| వైశ్య • కోమటి వరులు` | `Not configured; do not guess` | No posting destination configured |
+| 16 | `👰 Yadava • Golla Brides \| యాదవ • గొల్ల వధువులు` | `Not configured; do not guess` | No posting destination configured |
+| 17 | `🤵 Yadava • Golla Grooms \| యాదవ • గొల్ల వరులు` | `Not configured; do not guess` | No posting destination configured |
+| 18 | `💍 Second Marriage \| రెండో పెళ్లి` | `Not configured; do not guess` | No posting destination configured |
 
-## 🌊 Wave 3 — మూడో దశ (15 channels)
+## 🌊 Wave 3 — మూడో దశ (30 listings)
 
-| # | Name (copy) | Username (copy) | Fallback | Status |
-|---|---|---|---|---|
-| 1 | `💍 Lambada • Banjara (ST) Matrimony \| లంబాడ • బంజార — వధువులు + వరులు` | `@manavivaha_lambada_banjara` | @tsap_lambada_banjara, @manavivaha_lambada_banjara_community | ⬜ create |
-| 2 | `💍 Mudiraj • Tenugollu Matrimony \| ముదిరాజ • తెనుగొల్ల — వధువులు + వరులు` | `@manavivaha_mudiraj` | @tsap_mudiraj, @manavivaha_mudiraj_community | ⬜ create |
-| 3 | `💍 Other BC Communities Matrimony \| ఇతర BC కులాలు — వధువులు + వరులు` | `@manavivaha_others_bc` | @tsap_others_bc, @manavivaha_others_bc_community | ⬜ create |
-| 4 | `💍 Other SC Communities Matrimony \| ఇతర SC కులాలు — వధువులు + వరులు` | `@manavivaha_others_sc` | @tsap_others_sc, @manavivaha_others_sc_community | ⬜ create |
-| 5 | `💍 Other ST Communities Matrimony \| ఇతర ST కులాలు — వధువులు + వరులు` | `@manavivaha_others_st` | @tsap_others_st, @manavivaha_others_st_community | ⬜ create |
-| 6 | `💍 Padmashali • Devanga (Weavers) Matrimony \| పద్మశాలి • దేవాంగ — వధువులు + వరులు` | `@manavivaha_padmashali_weavers` | @tsap_padmashali_weavers, @manavivaha_padmashali_weavers_community | ⬜ create |
-| 7 | `💍 Raju • Kshatriya Matrimony \| రాజు • క్షత్రియ — వధువులు + వరులు` | `@manavivaha_raju_kshatriya` | @tsap_raju_kshatriya, @manavivaha_raju_kshatriya_community | ⬜ create |
-| 8 | `💞 Inter-Faith & Love \| ప్రేమ వివాహాలు` | `@manavivaha_interfaith` | @manavivaha_intercaste, @manavivaha_mixedmarriage | ⬜ create |
-| 9 | `🤝 Bureau / Broker Network \| బ్రోకర్ల నెట్‌వర్క్` | `@manavivaha_bureau` | @tsap_bureau, @manavivaha_brokers | ⬜ create |
-| 10 | `♿ Differently-Abled \| ప్రత్యేక సామర్థ్యం` | `@manavivaha_able` | @tsap_handicapped, @manavivaha_differentlyabled | ⬜ create |
-| 11 | `🩺 Doctors & Teachers Matrimony \| వైద్యులు + ఉపాధ్యాయులు` | `@manavivaha_professionals` | @manavivaha_doctors, @tsap_doctors | ⬜ create |
-| 12 | `🚨 Fraud Alerts \| మోసం జాగ్రత్త` | `@manavivaha_alerts` | @tsap_alerts | ⬜ create |
-| 13 | `🏛️ Govt Jobs Matrimony \| ప్రభుత్వ ఉద్యోగులు` | `@manavivaha_govt` | @tsap_govt, @manavivaha_govtjobs | ⬜ create |
-| 14 | `💻 Software Matrimony \| సాఫ్ట్‌వేర్ ఉద్యోగులు` | `@manavivaha_software` | @tsap_software, @manavivaha_it | ⬜ create |
-| 15 | `🏆 Success Stories \| విజయ గాథలు` | `@manavivaha_success` | @tsap_success | ⬜ create |
+| # | Name (copy) | Configured username (verify first) | Routing flag (not uptime) |
+|---|---|---|---|
+| 1 | `👰 Goud Brides \| గౌడ వధువులు` | `Not configured; do not guess` | No posting destination configured |
+| 2 | `🤵 Goud Grooms \| గౌడ వరులు` | `Not configured; do not guess` | No posting destination configured |
+| 3 | `👰 Kummari Brides \| కుమ్మరి వధువులు` | `Not configured; do not guess` | No posting destination configured |
+| 4 | `🤵 Kummari Grooms \| కుమ్మరి వరులు` | `Not configured; do not guess` | No posting destination configured |
+| 5 | `👰 Kuruma Brides \| కురుమ వధువులు` | `Not configured; do not guess` | No posting destination configured |
+| 6 | `🤵 Kuruma Grooms \| కురుమ వరులు` | `Not configured; do not guess` | No posting destination configured |
+| 7 | `👰 Lambada • Banjara (ST) Brides \| లంబాడ • బంజార వధువులు` | `Not configured; do not guess` | No posting destination configured |
+| 8 | `🤵 Lambada • Banjara (ST) Grooms \| లంబాడ • బంజార వరులు` | `Not configured; do not guess` | No posting destination configured |
+| 9 | `👰 Mudiraj • Tenugollu Brides \| ముదిరాజ • తెనుగొల్ల వధువులు` | `Not configured; do not guess` | No posting destination configured |
+| 10 | `🤵 Mudiraj • Tenugollu Grooms \| ముదిరాజ • తెనుగొల్ల వరులు` | `Not configured; do not guess` | No posting destination configured |
+| 11 | `👰 Other BC Communities Brides \| ఇతర BC కులాలు వధువులు` | `Not configured; do not guess` | No posting destination configured |
+| 12 | `🤵 Other BC Communities Grooms \| ఇతర BC కులాలు వరులు` | `Not configured; do not guess` | No posting destination configured |
+| 13 | `👰 Other SC Communities Brides \| ఇతర SC కులాలు వధువులు` | `Not configured; do not guess` | No posting destination configured |
+| 14 | `🤵 Other SC Communities Grooms \| ఇతర SC కులాలు వరులు` | `Not configured; do not guess` | No posting destination configured |
+| 15 | `💍 Other ST Communities Matrimony \| ఇతర ST కులాలు — వధువులు + వరులు` | `Not configured; do not guess` | No posting destination configured |
+| 16 | `👰 Padmashali • Devanga (Weavers) Brides \| పద్మశాలి • దేవాంగ వధువులు` | `Not configured; do not guess` | No posting destination configured |
+| 17 | `🤵 Padmashali • Devanga (Weavers) Grooms \| పద్మశాలి • దేవాంగ వరులు` | `Not configured; do not guess` | No posting destination configured |
+| 18 | `👰 Perika Brides \| పెరిక వధువులు` | `Not configured; do not guess` | No posting destination configured |
+| 19 | `🤵 Perika Grooms \| పెరిక వరులు` | `Not configured; do not guess` | No posting destination configured |
+| 20 | `👰 Rajaka Brides \| రజక వధువులు` | `Not configured; do not guess` | No posting destination configured |
+| 21 | `🤵 Rajaka Grooms \| రజక వరులు` | `Not configured; do not guess` | No posting destination configured |
+| 22 | `👰 Raju • Kshatriya Brides \| రాజు • క్షత్రియ వధువులు` | `Not configured; do not guess` | No posting destination configured |
+| 23 | `🤵 Raju • Kshatriya Grooms \| రాజు • క్షత్రియ వరులు` | `Not configured; do not guess` | No posting destination configured |
+| 24 | `🤝 Bureau / Broker Network \| బ్రోకర్ల నెట్‌వర్క్` | `Not configured; do not guess` | No posting destination configured |
+| 25 | `♿ Differently-Abled \| ప్రత్యేక సామర్థ్యం` | `Not configured; do not guess` | No posting destination configured |
+| 26 | `🩺 Doctors & Teachers Matrimony \| వైద్యులు + ఉపాధ్యాయులు` | `Not configured; do not guess` | No posting destination configured |
+| 27 | `🚨 Fraud Alerts \| మోసం జాగ్రత్త` | `Not configured; do not guess` | No posting destination configured |
+| 28 | `🏛️ Govt Jobs Matrimony \| ప్రభుత్వ ఉద్యోగులు` | `Not configured; do not guess` | No posting destination configured |
+| 29 | `💻 Software Matrimony \| సాఫ్ట్‌వేర్ ఉద్యోగులు` | `Not configured; do not guess` | No posting destination configured |
+| 30 | `🏆 Success Stories \| విజయ గాథలు` | `Not configured; do not guess` | No posting destination configured |
 
 ## 🎯 ముఖ్యమైన సూచనలు
 
-- **Wave-1 = 17 channels** (Official + 4 main + 6 castes × bride/groom) — ఇవి ముందు చేయండి
-- ఒకేసారి 20+ channels create చేయకండి (Telegram 'Too Many Attempts' ఇస్తుంది) → 10 చేసి 1 గంట ఆగండి
-- **@TSBRIDE / @TSGROOM1** ఇప్పటికే ఉన్నాయి — వాటికి bot admin ఉందో ఒకసారి check చేయండి
-- AP channels: `@APBRIDE`, `@APGROOM1` (India motham lo ఎవరూ తీసుకోకుండా ముందే పెట్టేయండి)
-- Caste channels: top 6 castes → Reddy, Kamma, Kapu, Velama, Vysya, Brahmin (bride + groom separate)
+- Wave sizes and usernames above come from the registry; they are not proof of an existing public channel.
+- Do not send messages or enable automatic publishing until the operator verifies the exact destination and access.
+- `--check` performs explicit read-only Telegram API requests only when an operator supplies a real bot token; it does not prove future availability or delivery.
+- `--apply` is mutating and can send/pin a welcome message. It is not a smoke test and requires separate, explicit operator approval.

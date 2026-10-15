@@ -87,7 +87,7 @@ try:
     section("C. joins name + commission")
     nb = {"tsap_id": "TSAP-F-2021-7", "full_name": "Commission Join", "phone": "9210000023"}
     referral.attach_referral(nb, pid, [])
-    referral.process_referral_payment(nb, pid, 99, [], payment_id="pw21c")
+    referral.process_referral_payment(nb, pid, 99, [], payment_id="pw21c", plan_code="S_99")
     d = RP19.partner_public(pid, [nb])
     j = d["joins"][0]
     check("C1 partner join first-name only (privacy)", j["name"] == "Commission", j)
@@ -96,7 +96,7 @@ try:
             "referral_code": "ROWN21", "referral_stats": {}}
     nb2 = {"tsap_id": "TSAP-F-2021-5", "full_name": "User Join", "phone": "9210000025"}
     referral.attach_referral(nb2, "ROWN21", [uref])
-    referral.process_referral_payment(nb2, "ROWN21", 199, [uref, nb2], payment_id="pw21u")
+    referral.process_referral_payment(nb2, "ROWN21", 199, [uref, nb2], payment_id="pw21u", plan_code="S_199")
     dash = referral.referral_dashboard(uref, [uref, nb2])
     rr = dash["recent_registrations"][0]
     check("C3 user dash join name+commission", rr["name"] == "User Join" and rr["commission"] == 50

@@ -21,7 +21,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const title = `${caste.name} ${role === "bride" ? "Bride" : "Groom"} ${district ? district.name : "TS/AP"} Matrimony`;
   return {
     title,
-    description: `${caste.name} ${role} profiles ${where} — మన వివాహ (Manavivaha). ${caste.name} ${role === "bride" ? "brides" : "grooms"} Telegram channel లో verified profiles, WhatsApp లో interest పంపండి, ₹99 → 5 profiles. మొదటి 3 requests FREE. Chatting లేదు — consent based contact.`,
+    description: `${caste.name} ${role} profiles ${where} — మన వివాహ (Manavivaha). Member-submitted listings, consent-based contact options, ₹99 → 5 profiles; first 3 requests are free. Profile details are not independently verified.`,
     keywords: [
       `${caste.name.toLowerCase()} matrimony`, `${caste.name.toLowerCase()} bride ${district?.name || "hyderabad"}`,
       `${caste.name.toLowerCase()} groom`, `${caste.name.toLowerCase()} sambandham`,
@@ -45,12 +45,11 @@ export default async function CasteLandingPage({ params }: Params) {
       role={role}
       district={district ? { slug: district.slug, name: district.name, state: district.state } : null}
       chan={chan ? {
-        key: chan.key, name: chan.name, username: chan.username, link: chan.link, deepLink: chan.deepLink,
-        desc: chan.desc, live: chan.live, wave: chan.wave, hashtags: chan.hashtags,
+        key: chan.key, name: chan.name,
+        desc: chan.desc, routingEligible: chan.routingEligible, wave: chan.wave, hashtags: chan.hashtags,
       } : null}
       otherChan={otherChan ? {
-        key: otherChan.key, name: otherChan.name, username: otherChan.username,
-        link: otherChan.link, live: otherChan.live,
+        key: otherChan.key, name: otherChan.name,
       } : null}
     />
   );

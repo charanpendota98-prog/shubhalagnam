@@ -8,7 +8,7 @@ export default function NotFound() {
   const { lang } = useLang();
   const te = lang === "te";
   return (
-    <main className="mx-auto max-w-xl px-4 py-16 text-center">
+    <div className="mx-auto max-w-xl px-4 py-16 text-center">
       <p className="text-5xl">🔍</p>
       <h1 className="mt-3 text-2xl font-extrabold text-[#7A0C2E]">
         {te ? "ఈ page దొరకలేదు (404)" : "This page was not found (404)"}
@@ -31,6 +31,6 @@ export default function NotFound() {
           {te ? "📢 Channels" : "📢 Channels"}
         </Link>
       </div>
-    </main>
+    </div>
   );
 }

@@ -8,84 +8,58 @@ export type Channel = {
   username: string;
   link: string;
   deepLink: string;
+  whatsappLink: string;
   desc: string;
   hashtags: string[];
   wave: number;
-  live: boolean;
+  routingEligible: boolean;
+  externalStatusChecked: boolean;
 };
 
-export const CHANNEL_STATS = {"total": 52, "live": 52, "to_create": 0, "by_tier": {"L0_OFFICIAL": 1, "L1_REGION": 5, "L2_RELIGION": 5, "L4_SPECIAL": 8, "L3_CASTE": 33}, "bot": "@telugumatrimony1_bot", "site": "https://manavivaha.in"} as const;
+export const CHANNEL_STATS = {"total": 53, "routing_eligible": 0, "not_routing_eligible": 53, "by_tier": {"L1_REGION": 5, "L2_RELIGION": 4, "L3_CASTE": 44}, "site": "https://manavivaha.in", "external_status_checked": false} as const;
 
 export const CHANNEL_TIERS = [
   {
-    "key": "L0_OFFICIAL",
-    "label": "Official Hub",
-    "icon": "📢",
-    "hint": "Top-3 daily, success stories, safety alerts",
-    "count": 1
-  },
-  {
     "key": "L1_REGION",
-    "label": "Main 4 Channels",
+    "label": "Regions",
     "icon": "📍",
-    "hint": "TS Bride • TS Groom • AP Bride • AP Groom (+ NRI)",
+    "hint": "Telangana, Andhra Pradesh and NRI directory entries",
     "count": 5
   },
   {
     "key": "L2_RELIGION",
     "label": "Community",
     "icon": "🕊️",
-    "hint": "Hindu hub plus Muslim and Christian Bride/Groom channels",
-    "count": 5
+    "hint": "Religion and community directory entries",
+    "count": 4
   },
   {
     "key": "L3_CASTE",
-    "label": "Caste-wise",
+    "label": "Community-wise",
     "icon": "💍",
-    "hint": "Caste ప్రకారం — top 18 castes కి bride/groom separate, మిగిలిన 25 castes కి mixed",
-    "count": 33
-  },
-  {
-    "key": "L4_SPECIAL",
-    "label": "Special",
-    "icon": "⭐",
-    "hint": "2nd marriage, able, govt, IT, doctors, 35+, bureau",
-    "count": 8
+    "hint": "Selected community directory entries",
+    "count": 44
   }
 ] as const;
 
 export const ALL_CHANNELS: Channel[] = [
-  {
-    "key": "official",
-    "tier": "L0_OFFICIAL",
-    "name": "📢 మన వివాహ Official | మన వివాహ — TS-AP",
-    "username": "@TSAP_MATRIMONY",
-    "link": "https://t.me/TSAP_MATRIMONY",
-    "deepLink": "https://t.me/telugumatrimony1_bot?start=ch_tsap_matrimony",
-    "desc": "మన వివాహ — TS/AP తెలుగు మ్యాట్రిమోని. రోజూ టాప్-3 సంబంధాలు, విజయ గాథలు, మోసం హెచ్చరికలు. 3 requests FREE, ₹99లో 5.",
-    "hashtags": [
-      "#ManaVivaha",
-      "#TSAPMatrimony",
-      "#99keSambandham"
-    ],
-    "wave": 1,
-    "live": true
-  },
   {
     "key": "ts_bride",
     "tier": "L1_REGION",
     "name": "👰 TS Brides | తెలంగాణ వధువులు",
     "username": "@TSBRIDE",
     "link": "https://t.me/TSBRIDE",
-    "deepLink": "https://t.me/telugumatrimony1_bot?start=ch_tsbride",
-    "desc": "👰 TS Brides — తెలంగాణ వధువులు. అన్ని కులాలు, అన్ని జిల్లాలు, రోజూ కొత్త profiles + వేద గుణమేళనం వివరాలు. 3 FREE requests, ₹99లో 5.",
+    "deepLink": "",
+    "whatsappLink": "",
+    "desc": "👰 TS Brides — తెలంగాణ వధువులు. Regional directory for member-submitted profiles. Personal details are not independently verified; availability and posting frequency may vary.",
     "hashtags": [
       "#TSBride",
       "#Telangana",
       "#Ammaayi"
     ],
     "wave": 1,
-    "live": true
+    "routingEligible": false,
+    "externalStatusChecked": false
   },
   {
     "key": "ts_groom",
@@ -93,15 +67,17 @@ export const ALL_CHANNELS: Channel[] = [
     "name": "🤵 TS Grooms | తెలంగాణ వరులు",
     "username": "@TSGROOM1",
     "link": "https://t.me/TSGROOM1",
-    "deepLink": "https://t.me/telugumatrimony1_bot?start=ch_tsgroom1",
-    "desc": "🤵 TS Grooms — తెలంగాణ వరులు. అన్ని కులాలు, అన్ని జిల్లాలు, రోజూ కొత్త profiles + వేద గుణమేళనం వివరాలు. 3 FREE requests, ₹99లో 5.",
+    "deepLink": "",
+    "whatsappLink": "",
+    "desc": "🤵 TS Grooms — తెలంగాణ వరులు. Regional directory for member-submitted profiles. Personal details are not independently verified; availability and posting frequency may vary.",
     "hashtags": [
       "#TSGroom",
       "#Telangana",
       "#Abbaayi"
     ],
     "wave": 1,
-    "live": true
+    "routingEligible": false,
+    "externalStatusChecked": false
   },
   {
     "key": "ap_bride",
@@ -109,14 +85,16 @@ export const ALL_CHANNELS: Channel[] = [
     "name": "👰 AP Brides | ఆంధ్రా వధువులు",
     "username": "@APBRIDE",
     "link": "https://t.me/APBRIDE",
-    "deepLink": "https://t.me/telugumatrimony1_bot?start=ch_apbride",
-    "desc": "👰 AP Brides — ఆంధ్రా వధువులు. అన్ని కులాలు, అన్ని జిల్లాలు, రోజూ కొత్త profiles + వేద గుణమేళనం వివరాలు. 3 FREE requests, ₹99లో 5.",
+    "deepLink": "",
+    "whatsappLink": "",
+    "desc": "👰 AP Brides — ఆంధ్రా వధువులు. Regional directory for member-submitted profiles. Personal details are not independently verified; availability and posting frequency may vary.",
     "hashtags": [
       "#APBride",
       "#AndhraPradesh"
     ],
     "wave": 1,
-    "live": true
+    "routingEligible": false,
+    "externalStatusChecked": false
   },
   {
     "key": "ap_groom",
@@ -124,176 +102,43 @@ export const ALL_CHANNELS: Channel[] = [
     "name": "🤵 AP Grooms | ఆంధ్రా వరులు",
     "username": "@APGROOM1",
     "link": "https://t.me/APGROOM1",
-    "deepLink": "https://t.me/telugumatrimony1_bot?start=ch_apgroom1",
-    "desc": "🤵 AP Grooms — ఆంధ్రా వరులు. అన్ని కులాలు, అన్ని జిల్లాలు, రోజూ కొత్త profiles + వేద గుణమేళనం వివరాలు. 3 FREE requests, ₹99లో 5.",
+    "deepLink": "",
+    "whatsappLink": "",
+    "desc": "🤵 AP Grooms — ఆంధ్రా వరులు. Regional directory for member-submitted profiles. Personal details are not independently verified; availability and posting frequency may vary.",
     "hashtags": [
       "#APGroom",
       "#AndhraPradesh"
     ],
     "wave": 1,
-    "live": true
+    "routingEligible": false,
+    "externalStatusChecked": false
   },
   {
     "key": "nri_global",
     "tier": "L1_REGION",
     "name": "🌍 NRI Telugu Matrimony | విదేశీ సంబంధాలు",
-    "username": "@manavivaha_nri",
-    "link": "https://t.me/manavivaha_nri",
-    "deepLink": "https://t.me/telugumatrimony1_bot?start=ch_manavivaha_nri",
-    "desc": "🌍 NRI Telugu Matrimony — విదేశీ సంబంధాలు. అన్ని కులాలు, అన్ని జిల్లాలు, రోజూ కొత్త profiles + వేద గుణమేళనం వివరాలు. 3 FREE requests, ₹99లో 5.",
+    "username": "",
+    "link": "",
+    "deepLink": "",
+    "whatsappLink": "",
+    "desc": "🌍 NRI Telugu Matrimony — విదేశీ సంబంధాలు. Regional directory for member-submitted profiles. Personal details are not independently verified; availability and posting frequency may vary.",
     "hashtags": [
       "#NRI",
       "#TeluguAbroad",
       "#GlobalTelugu"
     ],
     "wave": 2,
-    "live": true
-  },
-  {
-    "key": "hindu",
-    "tier": "L2_RELIGION",
-    "name": "🕉️ Hindu Matrimony | హిందూ వివాహాలు",
-    "username": "@manavivaha_hindu",
-    "link": "https://t.me/manavivaha_hindu",
-    "deepLink": "https://t.me/telugumatrimony1_bot?start=ch_manavivaha_hindu",
-    "desc": "🕉️ Hindu Matrimony — హిందూ వివాహాలు. వధువులు + వరులు, అన్ని జిల్లాలు. 3 FREE requests, ₹99లో 5.",
-    "hashtags": [
-      "#Hindu",
-      "#TeluguMatrimony"
-    ],
-    "wave": 1,
-    "live": true
-  },
-  {
-    "key": "second_marriage",
-    "tier": "L4_SPECIAL",
-    "name": "💍 Second Marriage | రెండో పెళ్లి",
-    "username": "@manavivaha_second",
-    "link": "https://t.me/manavivaha_second",
-    "deepLink": "https://t.me/telugumatrimony1_bot?start=ch_manavivaha_second",
-    "desc": "💍 Second Marriage — రెండో పెళ్లి. ఈ కేటగిరీ ప్రత్యేక profiles మాత్రమే — వేరే ఎక్కడా దొరకవు.",
-    "hashtags": [
-      "#SecondMarriage",
-      "#Remarriage",
-      "#Respect"
-    ],
-    "wave": 2,
-    "live": true
-  },
-  {
-    "key": "differently_abled",
-    "tier": "L4_SPECIAL",
-    "name": "♿ Differently-Abled | ప్రత్యేక సామర్థ్యం",
-    "username": "@manavivaha_able",
-    "link": "https://t.me/manavivaha_able",
-    "deepLink": "https://t.me/telugumatrimony1_bot?start=ch_manavivaha_able",
-    "desc": "♿ Differently-Abled — ప్రత్యేక సామర్థ్యం. ఈ కేటగిరీ ప్రత్యేక profiles మాత్రమే — వేరే ఎక్కడా దొరకవు.",
-    "hashtags": [
-      "#DifferentlyAbled",
-      "#SpecialCare"
-    ],
-    "wave": 3,
-    "live": true
-  },
-  {
-    "key": "govt_jobs",
-    "tier": "L4_SPECIAL",
-    "name": "🏛️ Govt Jobs Matrimony | ప్రభుత్వ ఉద్యోగులు",
-    "username": "@manavivaha_govt",
-    "link": "https://t.me/manavivaha_govt",
-    "deepLink": "https://t.me/telugumatrimony1_bot?start=ch_manavivaha_govt",
-    "desc": "🏛️ Govt Jobs Matrimony — ప్రభుత్వ ఉద్యోగులు. ఈ కేటగిరీ ప్రత్యేక profiles మాత్రమే — వేరే ఎక్కడా దొరకవు.",
-    "hashtags": [
-      "#GovtJob",
-      "#GovtTeacher"
-    ],
-    "wave": 3,
-    "live": true
-  },
-  {
-    "key": "software_it",
-    "tier": "L4_SPECIAL",
-    "name": "💻 Software Matrimony | సాఫ్ట్‌వేర్ ఉద్యోగులు",
-    "username": "@manavivaha_software",
-    "link": "https://t.me/manavivaha_software",
-    "deepLink": "https://t.me/telugumatrimony1_bot?start=ch_manavivaha_software",
-    "desc": "💻 Software Matrimony — సాఫ్ట్‌వేర్ ఉద్యోగులు. ఈ కేటగిరీ ప్రత్యేక profiles మాత్రమే — వేరే ఎక్కడా దొరకవు.",
-    "hashtags": [
-      "#Software",
-      "#IT",
-      "#Hyderabad"
-    ],
-    "wave": 3,
-    "live": true
-  },
-  {
-    "key": "doctors_teachers",
-    "tier": "L4_SPECIAL",
-    "name": "🩺 Doctors & Teachers Matrimony | వైద్యులు + ఉపాధ్యాయులు",
-    "username": "@manavivaha_professionals",
-    "link": "https://t.me/manavivaha_professionals",
-    "deepLink": "https://t.me/telugumatrimony1_bot?start=ch_manavivaha_professionals",
-    "desc": "🩺 Doctors & Teachers Matrimony — వైద్యులు + ఉపాధ్యాయులు. ఈ కేటగిరీ ప్రత్యేక profiles మాత్రమే — వేరే ఎక్కడా దొరకవు.",
-    "hashtags": [
-      "#Doctors",
-      "#Teachers",
-      "#Healthcare"
-    ],
-    "wave": 3,
-    "live": true
-  },
-  {
-    "key": "success_stories",
-    "tier": "L4_SPECIAL",
-    "name": "🏆 Success Stories | విజయ గాథలు",
-    "username": "@manavivaha_success",
-    "link": "https://t.me/manavivaha_success",
-    "deepLink": "https://t.me/telugumatrimony1_bot?start=ch_manavivaha_success",
-    "desc": "🏆 Success Stories — విజయ గాథలు. ఈ కేటగిరీ ప్రత్యేక profiles మాత్రమే — వేరే ఎక్కడా దొరకవు.",
-    "hashtags": [
-      "#SuccessStory",
-      "#ManaVivaha"
-    ],
-    "wave": 3,
-    "live": true
-  },
-  {
-    "key": "fraud_alerts",
-    "tier": "L4_SPECIAL",
-    "name": "🚨 Fraud Alerts | మోసం జాగ్రత్త",
-    "username": "@manavivaha_alerts",
-    "link": "https://t.me/manavivaha_alerts",
-    "deepLink": "https://t.me/telugumatrimony1_bot?start=ch_manavivaha_alerts",
-    "desc": "🚨 Fraud Alerts — మోసం జాగ్రత్త. ఈ కేటగిరీ ప్రత్యేక profiles మాత్రమే — వేరే ఎక్కడా దొరకవు.",
-    "hashtags": [
-      "#FraudAlert",
-      "#StaySafe"
-    ],
-    "wave": 3,
-    "live": true
-  },
-  {
-    "key": "bureau_network",
-    "tier": "L4_SPECIAL",
-    "name": "🤝 Bureau / Broker Network | బ్రోకర్ల నెట్‌వర్క్",
-    "username": "@manavivaha_bureau",
-    "link": "https://t.me/manavivaha_bureau",
-    "deepLink": "https://t.me/telugumatrimony1_bot?start=ch_manavivaha_bureau",
-    "desc": "🤝 Bureau / Broker Network — బ్రోకర్ల నెట్‌వర్క్. ఈ కేటగిరీ ప్రత్యేక profiles మాత్రమే — వేరే ఎక్కడా దొరకవు.",
-    "hashtags": [
-      "#Bureau",
-      "#Referral50"
-    ],
-    "wave": 3,
-    "live": true
+    "routingEligible": false,
+    "externalStatusChecked": false
   },
   {
     "key": "muslim_bride",
     "tier": "L2_RELIGION",
     "name": "👰 Muslim Brides | Muslim వధువులు",
-    "username": "@manavivaha_muslim_bride",
-    "link": "https://t.me/manavivaha_muslim_bride",
-    "deepLink": "https://t.me/telugumatrimony1_bot?start=ch_manavivaha_muslim_bride",
+    "username": "",
+    "link": "https://t.me/+e0P4TAGx4XxiMWFl",
+    "deepLink": "",
+    "whatsappLink": "https://whatsapp.com/channel/0029VbEMkZZDDmFUKnTbB31b",
     "desc": "muslim వివాహాలు — వధువులు + వరులు, TS + AP. #Muslim #Bride #TS",
     "hashtags": [
       "#Muslim",
@@ -302,15 +147,17 @@ export const ALL_CHANNELS: Channel[] = [
       "#AP"
     ],
     "wave": 1,
-    "live": true
+    "routingEligible": false,
+    "externalStatusChecked": false
   },
   {
     "key": "muslim_groom",
     "tier": "L2_RELIGION",
     "name": "🤵 Muslim Grooms | Muslim వరులు",
-    "username": "@manavivaha_muslim_groom",
-    "link": "https://t.me/manavivaha_muslim_groom",
-    "deepLink": "https://t.me/telugumatrimony1_bot?start=ch_manavivaha_muslim_groom",
+    "username": "",
+    "link": "https://t.me/+81zEc2fHMSMxMTBl",
+    "deepLink": "",
+    "whatsappLink": "https://whatsapp.com/channel/0029VbEPpCj0lwgqyXF6vV1a",
     "desc": "muslim వివాహాలు — వధువులు + వరులు, TS + AP. #Muslim #Groom #TS",
     "hashtags": [
       "#Muslim",
@@ -319,15 +166,17 @@ export const ALL_CHANNELS: Channel[] = [
       "#AP"
     ],
     "wave": 1,
-    "live": true
+    "routingEligible": false,
+    "externalStatusChecked": false
   },
   {
     "key": "christian_bride",
     "tier": "L2_RELIGION",
     "name": "👰 Christian Brides | Christian వధువులు",
-    "username": "@manavivaha_christian_bride",
-    "link": "https://t.me/manavivaha_christian_bride",
-    "deepLink": "https://t.me/telugumatrimony1_bot?start=ch_manavivaha_christian_bride",
+    "username": "",
+    "link": "https://t.me/+TVXi2Bzl3F5lMjE9",
+    "deepLink": "",
+    "whatsappLink": "https://whatsapp.com/channel/0029Vb8ikeUHgZWViQMiJQ2h",
     "desc": "christian వివాహాలు — వధువులు + వరులు, TS + AP. #Christian #Bride #TS",
     "hashtags": [
       "#Christian",
@@ -336,15 +185,17 @@ export const ALL_CHANNELS: Channel[] = [
       "#AP"
     ],
     "wave": 1,
-    "live": true
+    "routingEligible": false,
+    "externalStatusChecked": false
   },
   {
     "key": "christian_groom",
     "tier": "L2_RELIGION",
     "name": "🤵 Christian Grooms | Christian వరులు",
-    "username": "@manavivaha_christian_groom",
-    "link": "https://t.me/manavivaha_christian_groom",
-    "deepLink": "https://t.me/telugumatrimony1_bot?start=ch_manavivaha_christian_groom",
+    "username": "",
+    "link": "https://t.me/+Fs4NLy-bNu9kYWE1",
+    "deepLink": "",
+    "whatsappLink": "https://whatsapp.com/channel/0029Vb9U1HC84OmDO5Q7HM0I",
     "desc": "christian వివాహాలు — వధువులు + వరులు, TS + AP. #Christian #Groom #TS",
     "hashtags": [
       "#Christian",
@@ -353,16 +204,18 @@ export const ALL_CHANNELS: Channel[] = [
       "#AP"
     ],
     "wave": 1,
-    "live": true
+    "routingEligible": false,
+    "externalStatusChecked": false
   },
   {
     "key": "c_reddy_bride",
     "tier": "L3_CASTE",
     "name": "👰 Reddy Brides | రెడ్డి వధువులు",
-    "username": "@manavivaha_reddy_bride",
-    "link": "https://t.me/manavivaha_reddy_bride",
-    "deepLink": "https://t.me/telugumatrimony1_bot?start=ch_manavivaha_reddy_bride",
-    "desc": "రెడ్డి — Reddy (Brides). Sub-castes: Reddy • Pakanati Reddy • Motati Reddy • Gudati Reddy • Deshathi Reddy. నిజమైన profiles, 3 requests FREE, ₹99లో 5.",
+    "username": "",
+    "link": "https://t.me/+DdStvgCtmb83M2Y1",
+    "deepLink": "",
+    "whatsappLink": "https://whatsapp.com/channel/0029VbDpD0N5kg74TpAbIz1R",
+    "desc": "రెడ్డి — Reddy (Brides). Sub-castes: Reddy • Pakanati Reddy • Motati Reddy • Gudati Reddy • Deshathi Reddy. Profiles are member-submitted; details are not independently verified.",
     "hashtags": [
       "#Reddy",
       "#Bride",
@@ -370,16 +223,18 @@ export const ALL_CHANNELS: Channel[] = [
       "#AP"
     ],
     "wave": 1,
-    "live": true
+    "routingEligible": false,
+    "externalStatusChecked": false
   },
   {
     "key": "c_reddy_groom",
     "tier": "L3_CASTE",
     "name": "🤵 Reddy Grooms | రెడ్డి వరులు",
-    "username": "@manavivaha_reddy_groom",
-    "link": "https://t.me/manavivaha_reddy_groom",
-    "deepLink": "https://t.me/telugumatrimony1_bot?start=ch_manavivaha_reddy_groom",
-    "desc": "రెడ్డి — Reddy (Grooms). Sub-castes: Reddy • Pakanati Reddy • Motati Reddy • Gudati Reddy • Deshathi Reddy. నిజమైన profiles, 3 requests FREE, ₹99లో 5.",
+    "username": "",
+    "link": "https://t.me/+bvcPm7h34VpmYTU1",
+    "deepLink": "",
+    "whatsappLink": "https://whatsapp.com/channel/0029Vb900wSEFeXrEfkBNQ0S",
+    "desc": "రెడ్డి — Reddy (Grooms). Sub-castes: Reddy • Pakanati Reddy • Motati Reddy • Gudati Reddy • Deshathi Reddy. Profiles are member-submitted; details are not independently verified.",
     "hashtags": [
       "#Reddy",
       "#Groom",
@@ -387,16 +242,18 @@ export const ALL_CHANNELS: Channel[] = [
       "#AP"
     ],
     "wave": 1,
-    "live": true
+    "routingEligible": false,
+    "externalStatusChecked": false
   },
   {
     "key": "c_kamma_bride",
     "tier": "L3_CASTE",
     "name": "👰 Kamma Brides | కమ్మ వధువులు",
-    "username": "@manavivaha_kamma_bride",
-    "link": "https://t.me/manavivaha_kamma_bride",
-    "deepLink": "https://t.me/telugumatrimony1_bot?start=ch_manavivaha_kamma_bride",
-    "desc": "కమ్మ — Kamma (Brides). Sub-castes: Kamma • Chowdary • Choudary. నిజమైన profiles, 3 requests FREE, ₹99లో 5.",
+    "username": "",
+    "link": "https://t.me/+oQcIdTKMlINmZWY1",
+    "deepLink": "",
+    "whatsappLink": "https://whatsapp.com/channel/0029VbDlfav2ZjChEwBJTB0g",
+    "desc": "కమ్మ — Kamma (Brides). Sub-castes: Kamma • Chowdary • Choudary. Profiles are member-submitted; details are not independently verified.",
     "hashtags": [
       "#Kamma",
       "#Bride",
@@ -404,16 +261,18 @@ export const ALL_CHANNELS: Channel[] = [
       "#AP"
     ],
     "wave": 1,
-    "live": true
+    "routingEligible": false,
+    "externalStatusChecked": false
   },
   {
     "key": "c_kamma_groom",
     "tier": "L3_CASTE",
     "name": "🤵 Kamma Grooms | కమ్మ వరులు",
-    "username": "@manavivaha_kamma_groom",
-    "link": "https://t.me/manavivaha_kamma_groom",
-    "deepLink": "https://t.me/telugumatrimony1_bot?start=ch_manavivaha_kamma_groom",
-    "desc": "కమ్మ — Kamma (Grooms). Sub-castes: Kamma • Chowdary • Choudary. నిజమైన profiles, 3 requests FREE, ₹99లో 5.",
+    "username": "",
+    "link": "https://t.me/+Y9O_Y8323JA5YjY1",
+    "deepLink": "",
+    "whatsappLink": "https://whatsapp.com/channel/0029Vb8r6ZJFXUueNw3SQU3r",
+    "desc": "కమ్మ — Kamma (Grooms). Sub-castes: Kamma • Chowdary • Choudary. Profiles are member-submitted; details are not independently verified.",
     "hashtags": [
       "#Kamma",
       "#Groom",
@@ -421,16 +280,18 @@ export const ALL_CHANNELS: Channel[] = [
       "#AP"
     ],
     "wave": 1,
-    "live": true
+    "routingEligible": false,
+    "externalStatusChecked": false
   },
   {
     "key": "c_kapu_bride",
     "tier": "L3_CASTE",
     "name": "👰 Kapu • Balija • Telaga Brides | కాపు • బలిజ • తెలగ వధువులు",
-    "username": "@manavivaha_kapu_bride",
-    "link": "https://t.me/manavivaha_kapu_bride",
-    "deepLink": "https://t.me/telugumatrimony1_bot?start=ch_manavivaha_kapu_bride",
-    "desc": "కాపు • బలిజ • తెలగ — Kapu • Balija • Telaga (Brides). Sub-castes: Kapu • Ontari • Turupu Kapu • Palli Kapu • Balija. నిజమైన profiles, 3 requests FREE, ₹99లో 5.",
+    "username": "",
+    "link": "https://t.me/+2ZrBXtORoOo5NTU9",
+    "deepLink": "",
+    "whatsappLink": "https://whatsapp.com/channel/0029VbDyehn30LKVqYhOfn0L",
+    "desc": "కాపు • బలిజ • తెలగ — Kapu • Balija • Telaga (Brides). Sub-castes: Kapu • Ontari • Turupu Kapu • Palli Kapu • Balija. Profiles are member-submitted; details are not independently verified.",
     "hashtags": [
       "#Kapu",
       "#Bride",
@@ -438,16 +299,18 @@ export const ALL_CHANNELS: Channel[] = [
       "#AP"
     ],
     "wave": 1,
-    "live": true
+    "routingEligible": false,
+    "externalStatusChecked": false
   },
   {
     "key": "c_kapu_groom",
     "tier": "L3_CASTE",
     "name": "🤵 Kapu • Balija • Telaga Grooms | కాపు • బలిజ • తెలగ వరులు",
-    "username": "@manavivaha_kapu_groom",
-    "link": "https://t.me/manavivaha_kapu_groom",
-    "deepLink": "https://t.me/telugumatrimony1_bot?start=ch_manavivaha_kapu_groom",
-    "desc": "కాపు • బలిజ • తెలగ — Kapu • Balija • Telaga (Grooms). Sub-castes: Kapu • Ontari • Turupu Kapu • Palli Kapu • Balija. నిజమైన profiles, 3 requests FREE, ₹99లో 5.",
+    "username": "",
+    "link": "https://t.me/+S6KxwVibmQU0YmZl",
+    "deepLink": "",
+    "whatsappLink": "https://whatsapp.com/channel/0029Vb8le7LLCoX4ClqFvi1J",
+    "desc": "కాపు • బలిజ • తెలగ — Kapu • Balija • Telaga (Grooms). Sub-castes: Kapu • Ontari • Turupu Kapu • Palli Kapu • Balija. Profiles are member-submitted; details are not independently verified.",
     "hashtags": [
       "#Kapu",
       "#Groom",
@@ -455,16 +318,18 @@ export const ALL_CHANNELS: Channel[] = [
       "#AP"
     ],
     "wave": 1,
-    "live": true
+    "routingEligible": false,
+    "externalStatusChecked": false
   },
   {
     "key": "c_velama_bride",
     "tier": "L3_CASTE",
     "name": "👰 Velama Brides | వెలమ వధువులు",
-    "username": "@manavivaha_velama_bride",
-    "link": "https://t.me/manavivaha_velama_bride",
-    "deepLink": "https://t.me/telugumatrimony1_bot?start=ch_manavivaha_velama_bride",
-    "desc": "వెలమ — Velama (Brides). Sub-castes: Velama • Padma Velama • Koppula Velama. నిజమైన profiles, 3 requests FREE, ₹99లో 5.",
+    "username": "",
+    "link": "https://t.me/+zKQU94Dcl8E2YWY1",
+    "deepLink": "",
+    "whatsappLink": "https://whatsapp.com/channel/0029Vb98bMQBFLgUhEG7cq37",
+    "desc": "వెలమ — Velama (Brides). Sub-castes: Velama • Padma Velama • Koppula Velama. Profiles are member-submitted; details are not independently verified.",
     "hashtags": [
       "#Velama",
       "#Bride",
@@ -472,16 +337,18 @@ export const ALL_CHANNELS: Channel[] = [
       "#AP"
     ],
     "wave": 2,
-    "live": true
+    "routingEligible": false,
+    "externalStatusChecked": false
   },
   {
     "key": "c_velama_groom",
     "tier": "L3_CASTE",
     "name": "🤵 Velama Grooms | వెలమ వరులు",
-    "username": "@manavivaha_velama_groom",
-    "link": "https://t.me/manavivaha_velama_groom",
-    "deepLink": "https://t.me/telugumatrimony1_bot?start=ch_manavivaha_velama_groom",
-    "desc": "వెలమ — Velama (Grooms). Sub-castes: Velama • Padma Velama • Koppula Velama. నిజమైన profiles, 3 requests FREE, ₹99లో 5.",
+    "username": "",
+    "link": "https://t.me/+NnMufdM31dc0ZTE1",
+    "deepLink": "",
+    "whatsappLink": "https://whatsapp.com/channel/0029Vb9KeAeD38CUvyswkO3O",
+    "desc": "వెలమ — Velama (Grooms). Sub-castes: Velama • Padma Velama • Koppula Velama. Profiles are member-submitted; details are not independently verified.",
     "hashtags": [
       "#Velama",
       "#Groom",
@@ -489,16 +356,18 @@ export const ALL_CHANNELS: Channel[] = [
       "#AP"
     ],
     "wave": 2,
-    "live": true
+    "routingEligible": false,
+    "externalStatusChecked": false
   },
   {
     "key": "c_brahmin_bride",
     "tier": "L3_CASTE",
     "name": "👰 Brahmin Brides | బ్రాహ్మణ వధువులు",
-    "username": "@manavivaha_brahmin_bride",
-    "link": "https://t.me/manavivaha_brahmin_bride",
-    "deepLink": "https://t.me/telugumatrimony1_bot?start=ch_manavivaha_brahmin_bride",
-    "desc": "బ్రాహ్మణ — Brahmin (Brides). Sub-castes: Vaidiki Brahmin • Niyogi Brahmin • Sistla • Dravida Brahmin • Iyer. నిజమైన profiles, 3 requests FREE, ₹99లో 5.",
+    "username": "",
+    "link": "https://t.me/+tWfcyC7StAw1ZTU1",
+    "deepLink": "",
+    "whatsappLink": "https://whatsapp.com/channel/0029VbDba8OLSmbk24oJaf3O",
+    "desc": "బ్రాహ్మణ — Brahmin (Brides). Sub-castes: Vaidiki Brahmin • Niyogi Brahmin • Sistla • Dravida Brahmin • Iyer. Profiles are member-submitted; details are not independently verified.",
     "hashtags": [
       "#Brahmin",
       "#Bride",
@@ -506,16 +375,18 @@ export const ALL_CHANNELS: Channel[] = [
       "#AP"
     ],
     "wave": 2,
-    "live": true
+    "routingEligible": false,
+    "externalStatusChecked": false
   },
   {
     "key": "c_brahmin_groom",
     "tier": "L3_CASTE",
     "name": "🤵 Brahmin Grooms | బ్రాహ్మణ వరులు",
-    "username": "@manavivaha_brahmin_groom",
-    "link": "https://t.me/manavivaha_brahmin_groom",
-    "deepLink": "https://t.me/telugumatrimony1_bot?start=ch_manavivaha_brahmin_groom",
-    "desc": "బ్రాహ్మణ — Brahmin (Grooms). Sub-castes: Vaidiki Brahmin • Niyogi Brahmin • Sistla • Dravida Brahmin • Iyer. నిజమైన profiles, 3 requests FREE, ₹99లో 5.",
+    "username": "",
+    "link": "https://t.me/+9LByJC4Y-5VmM2Q9",
+    "deepLink": "",
+    "whatsappLink": "https://whatsapp.com/channel/0029VbEKbbYEgGfQi0Y1ao1g",
+    "desc": "బ్రాహ్మణ — Brahmin (Grooms). Sub-castes: Vaidiki Brahmin • Niyogi Brahmin • Sistla • Dravida Brahmin • Iyer. Profiles are member-submitted; details are not independently verified.",
     "hashtags": [
       "#Brahmin",
       "#Groom",
@@ -523,16 +394,18 @@ export const ALL_CHANNELS: Channel[] = [
       "#AP"
     ],
     "wave": 2,
-    "live": true
+    "routingEligible": false,
+    "externalStatusChecked": false
   },
   {
     "key": "c_vysya_bride",
     "tier": "L3_CASTE",
     "name": "👰 Arya Vysya • Komati Brides | వైశ్య • కోమటి వధువులు",
-    "username": "@manavivaha_vysya_bride",
-    "link": "https://t.me/manavivaha_vysya_bride",
-    "deepLink": "https://t.me/telugumatrimony1_bot?start=ch_manavivaha_vysya_bride",
-    "desc": "వైశ్య • కోమటి — Arya Vysya • Komati (Brides). Sub-castes: Arya Vysya • Komati • Komti • Vaishya • Sadhu Chetty. నిజమైన profiles, 3 requests FREE, ₹99లో 5.",
+    "username": "",
+    "link": "https://t.me/+ZEoszjmdKmYzMjI1",
+    "deepLink": "",
+    "whatsappLink": "https://whatsapp.com/channel/0029Vb90m6u42DcfPpwvg33K",
+    "desc": "వైశ్య • కోమటి — Arya Vysya • Komati (Brides). Sub-castes: Arya Vysya • Komati • Komti • Vaishya • Sadhu Chetty. Profiles are member-submitted; details are not independently verified.",
     "hashtags": [
       "#Vysya",
       "#Bride",
@@ -540,16 +413,18 @@ export const ALL_CHANNELS: Channel[] = [
       "#AP"
     ],
     "wave": 2,
-    "live": true
+    "routingEligible": false,
+    "externalStatusChecked": false
   },
   {
     "key": "c_vysya_groom",
     "tier": "L3_CASTE",
     "name": "🤵 Arya Vysya • Komati Grooms | వైశ్య • కోమటి వరులు",
-    "username": "@manavivaha_vysya_groom",
-    "link": "https://t.me/manavivaha_vysya_groom",
-    "deepLink": "https://t.me/telugumatrimony1_bot?start=ch_manavivaha_vysya_groom",
-    "desc": "వైశ్య • కోమటి — Arya Vysya • Komati (Grooms). Sub-castes: Arya Vysya • Komati • Komti • Vaishya • Sadhu Chetty. నిజమైన profiles, 3 requests FREE, ₹99లో 5.",
+    "username": "",
+    "link": "https://t.me/+mhviMJhWFTNhZjBl",
+    "deepLink": "",
+    "whatsappLink": "https://whatsapp.com/channel/0029VbDl75K7dmeeZMZA2926",
+    "desc": "వైశ్య • కోమటి — Arya Vysya • Komati (Grooms). Sub-castes: Arya Vysya • Komati • Komti • Vaishya • Sadhu Chetty. Profiles are member-submitted; details are not independently verified.",
     "hashtags": [
       "#Vysya",
       "#Groom",
@@ -557,16 +432,18 @@ export const ALL_CHANNELS: Channel[] = [
       "#AP"
     ],
     "wave": 2,
-    "live": true
+    "routingEligible": false,
+    "externalStatusChecked": false
   },
   {
     "key": "c_yadava_goud_bride",
     "tier": "L3_CASTE",
-    "name": "👰 Yadava • Goud • Golla Brides | యాదవ • గౌడ • గొల్ల వధువులు",
-    "username": "@manavivaha_yadava_goud_bride",
-    "link": "https://t.me/manavivaha_yadava_goud_bride",
-    "deepLink": "https://t.me/telugumatrimony1_bot?start=ch_manavivaha_yadava_goud_bride",
-    "desc": "యాదవ • గౌడ • గొల్ల — Yadava • Goud • Golla (Brides). Sub-castes: Yadav • Yadava • Golla • Kuruma • Kuruba. నిజమైన profiles, 3 requests FREE, ₹99లో 5.",
+    "name": "👰 Yadava • Golla Brides | యాదవ • గొల్ల వధువులు",
+    "username": "",
+    "link": "https://t.me/+kFpsLfat96Y0OWI1",
+    "deepLink": "",
+    "whatsappLink": "https://whatsapp.com/channel/0029Vb8fFvdHVvTcadiqkp2D",
+    "desc": "యాదవ • గొల్ల — Yadava • Golla (Brides). Sub-castes: Yadav • Yadava • Golla • Golla (Yadava). Profiles are member-submitted; details are not independently verified.",
     "hashtags": [
       "#YadavaGoud",
       "#Bride",
@@ -574,16 +451,18 @@ export const ALL_CHANNELS: Channel[] = [
       "#AP"
     ],
     "wave": 2,
-    "live": true
+    "routingEligible": false,
+    "externalStatusChecked": false
   },
   {
     "key": "c_yadava_goud_groom",
     "tier": "L3_CASTE",
-    "name": "🤵 Yadava • Goud • Golla Grooms | యాదవ • గౌడ • గొల్ల వరులు",
-    "username": "@manavivaha_yadava_goud_groom",
-    "link": "https://t.me/manavivaha_yadava_goud_groom",
-    "deepLink": "https://t.me/telugumatrimony1_bot?start=ch_manavivaha_yadava_goud_groom",
-    "desc": "యాదవ • గౌడ • గొల్ల — Yadava • Goud • Golla (Grooms). Sub-castes: Yadav • Yadava • Golla • Kuruma • Kuruba. నిజమైన profiles, 3 requests FREE, ₹99లో 5.",
+    "name": "🤵 Yadava • Golla Grooms | యాదవ • గొల్ల వరులు",
+    "username": "",
+    "link": "https://t.me/+P4MPYpsRG1Y0Y2U9",
+    "deepLink": "",
+    "whatsappLink": "https://whatsapp.com/channel/0029VbDn2nT7j6g3fdTXgq3A",
+    "desc": "యాదవ • గొల్ల — Yadava • Golla (Grooms). Sub-castes: Yadav • Yadava • Golla • Golla (Yadava). Profiles are member-submitted; details are not independently verified.",
     "hashtags": [
       "#YadavaGoud",
       "#Groom",
@@ -591,16 +470,18 @@ export const ALL_CHANNELS: Channel[] = [
       "#AP"
     ],
     "wave": 2,
-    "live": true
+    "routingEligible": false,
+    "externalStatusChecked": false
   },
   {
     "key": "c_mala_bride",
     "tier": "L3_CASTE",
     "name": "👰 Mala Brides | మాల వధువులు",
-    "username": "@manavivaha_mala_bride",
-    "link": "https://t.me/manavivaha_mala_bride",
-    "deepLink": "https://t.me/telugumatrimony1_bot?start=ch_manavivaha_mala_bride",
-    "desc": "మాల — Mala (Brides). Sub-castes: Mala • Mala Ayawaru • Mala Dasari. నిజమైన profiles, 3 requests FREE, ₹99లో 5.",
+    "username": "",
+    "link": "https://t.me/+CCxqPaDSGxUwZjY1",
+    "deepLink": "",
+    "whatsappLink": "https://whatsapp.com/channel/0029VbDtETF65yD6fNeGlf2A",
+    "desc": "మాల — Mala (Brides). Sub-castes: Mala • Mala Ayawaru • Mala Dasari. Profiles are member-submitted; details are not independently verified.",
     "hashtags": [
       "#Mala",
       "#Bride",
@@ -608,16 +489,18 @@ export const ALL_CHANNELS: Channel[] = [
       "#AP"
     ],
     "wave": 2,
-    "live": true
+    "routingEligible": false,
+    "externalStatusChecked": false
   },
   {
     "key": "c_mala_groom",
     "tier": "L3_CASTE",
     "name": "🤵 Mala Grooms | మాల వరులు",
-    "username": "@manavivaha_mala_groom",
-    "link": "https://t.me/manavivaha_mala_groom",
-    "deepLink": "https://t.me/telugumatrimony1_bot?start=ch_manavivaha_mala_groom",
-    "desc": "మాల — Mala (Grooms). Sub-castes: Mala • Mala Ayawaru • Mala Dasari. నిజమైన profiles, 3 requests FREE, ₹99లో 5.",
+    "username": "",
+    "link": "https://t.me/+NLoRFKT5yJE5N2Fl",
+    "deepLink": "",
+    "whatsappLink": "https://whatsapp.com/channel/0029Vb8uW65EwEjvgTserz3x",
+    "desc": "మాల — Mala (Grooms). Sub-castes: Mala • Mala Ayawaru • Mala Dasari. Profiles are member-submitted; details are not independently verified.",
     "hashtags": [
       "#Mala",
       "#Groom",
@@ -625,16 +508,18 @@ export const ALL_CHANNELS: Channel[] = [
       "#AP"
     ],
     "wave": 2,
-    "live": true
+    "routingEligible": false,
+    "externalStatusChecked": false
   },
   {
     "key": "c_madiga_bride",
     "tier": "L3_CASTE",
     "name": "👰 Madiga Brides | మాదిగ వధువులు",
-    "username": "@manavivaha_madiga_bride",
-    "link": "https://t.me/manavivaha_madiga_bride",
-    "deepLink": "https://t.me/telugumatrimony1_bot?start=ch_manavivaha_madiga_bride",
-    "desc": "మాదిగ — Madiga (Brides). Sub-castes: Madiga • Madiga Dasu • Mashteen • Madiga Dasari. నిజమైన profiles, 3 requests FREE, ₹99లో 5.",
+    "username": "",
+    "link": "https://t.me/+32QEp-PKOBVhODY1",
+    "deepLink": "",
+    "whatsappLink": "https://whatsapp.com/channel/0029Vb94k5RKAwEkRYeW7m1C",
+    "desc": "మాదిగ — Madiga (Brides). Sub-castes: Madiga • Madiga Dasu • Mashteen • Madiga Dasari. Profiles are member-submitted; details are not independently verified.",
     "hashtags": [
       "#Madiga",
       "#Bride",
@@ -642,16 +527,18 @@ export const ALL_CHANNELS: Channel[] = [
       "#AP"
     ],
     "wave": 2,
-    "live": true
+    "routingEligible": false,
+    "externalStatusChecked": false
   },
   {
     "key": "c_madiga_groom",
     "tier": "L3_CASTE",
     "name": "🤵 Madiga Grooms | మాదిగ వరులు",
-    "username": "@manavivaha_madiga_groom",
-    "link": "https://t.me/manavivaha_madiga_groom",
-    "deepLink": "https://t.me/telugumatrimony1_bot?start=ch_manavivaha_madiga_groom",
-    "desc": "మాదిగ — Madiga (Grooms). Sub-castes: Madiga • Madiga Dasu • Mashteen • Madiga Dasari. నిజమైన profiles, 3 requests FREE, ₹99లో 5.",
+    "username": "",
+    "link": "https://t.me/+_oenYepHzlQzYjdl",
+    "deepLink": "",
+    "whatsappLink": "https://whatsapp.com/channel/0029VbDwFWs60eBX0hvdW93T",
+    "desc": "మాదిగ — Madiga (Grooms). Sub-castes: Madiga • Madiga Dasu • Mashteen • Madiga Dasari. Profiles are member-submitted; details are not independently verified.",
     "hashtags": [
       "#Madiga",
       "#Groom",
@@ -659,16 +546,18 @@ export const ALL_CHANNELS: Channel[] = [
       "#AP"
     ],
     "wave": 2,
-    "live": true
+    "routingEligible": false,
+    "externalStatusChecked": false
   },
   {
     "key": "c_viswabrahmana_bride",
     "tier": "L3_CASTE",
     "name": "👰 Viswabrahmana (Viswakarma) Brides | విశ్వబ్రాహ్మణ వధువులు",
-    "username": "@manavivaha_viswabrahmana_bride",
-    "link": "https://t.me/manavivaha_viswabrahmana_bride",
-    "deepLink": "https://t.me/telugumatrimony1_bot?start=ch_manavivaha_viswabrahmana_bride",
-    "desc": "విశ్వబ్రాహ్మణ — Viswabrahmana (Viswakarma) (Brides). Sub-castes: Viswakarma • Viswabrahmin • Viswabrahmana • Kamsali • Kammari. నిజమైన profiles, 3 requests FREE, ₹99లో 5.",
+    "username": "",
+    "link": "https://t.me/+lkhMUXqcHdI4M2M1",
+    "deepLink": "",
+    "whatsappLink": "https://whatsapp.com/channel/0029Vb8MKAKBA1f7VLuIaX2Y",
+    "desc": "విశ్వబ్రాహ్మణ — Viswabrahmana (Viswakarma) (Brides). Sub-castes: Viswakarma • Viswabrahmin • Viswabrahmana • Kamsali • Kammari. Profiles are member-submitted; details are not independently verified.",
     "hashtags": [
       "#Viswabrahmana",
       "#Bride",
@@ -676,16 +565,18 @@ export const ALL_CHANNELS: Channel[] = [
       "#AP"
     ],
     "wave": 2,
-    "live": true
+    "routingEligible": false,
+    "externalStatusChecked": false
   },
   {
     "key": "c_viswabrahmana_groom",
     "tier": "L3_CASTE",
     "name": "🤵 Viswabrahmana (Viswakarma) Grooms | విశ్వబ్రాహ్మణ వరులు",
-    "username": "@manavivaha_viswabrahmana_groom",
-    "link": "https://t.me/manavivaha_viswabrahmana_groom",
-    "deepLink": "https://t.me/telugumatrimony1_bot?start=ch_manavivaha_viswabrahmana_groom",
-    "desc": "విశ్వబ్రాహ్మణ — Viswabrahmana (Viswakarma) (Grooms). Sub-castes: Viswakarma • Viswabrahmin • Viswabrahmana • Kamsali • Kammari. నిజమైన profiles, 3 requests FREE, ₹99లో 5.",
+    "username": "",
+    "link": "https://t.me/+qBJlaAISvXM4YWU9",
+    "deepLink": "",
+    "whatsappLink": "https://whatsapp.com/channel/0029VbDdWlb8aKvK4Rddz32k",
+    "desc": "విశ్వబ్రాహ్మణ — Viswabrahmana (Viswakarma) (Grooms). Sub-castes: Viswakarma • Viswabrahmin • Viswabrahmana • Kamsali • Kammari. Profiles are member-submitted; details are not independently verified.",
     "hashtags": [
       "#Viswabrahmana",
       "#Groom",
@@ -693,16 +584,18 @@ export const ALL_CHANNELS: Channel[] = [
       "#AP"
     ],
     "wave": 2,
-    "live": true
+    "routingEligible": false,
+    "externalStatusChecked": false
   },
   {
     "key": "c_munnuru_kapu_bride",
     "tier": "L3_CASTE",
     "name": "👰 Munnuru Kapu Brides | మున్నూరు కాపు వధువులు",
-    "username": "@manavivaha_munnuru_kapu_bride",
-    "link": "https://t.me/manavivaha_munnuru_kapu_bride",
-    "deepLink": "https://t.me/telugumatrimony1_bot?start=ch_manavivaha_munnuru_kapu_bride",
-    "desc": "మున్నూరు కాపు — Munnuru Kapu (Brides). Sub-castes: Munnuru Kapu • Munnuru. నిజమైన profiles, 3 requests FREE, ₹99లో 5.",
+    "username": "",
+    "link": "https://t.me/+G9i5zZ1AXfJkNzE1",
+    "deepLink": "",
+    "whatsappLink": "https://whatsapp.com/channel/0029VbECYss60eBcdKqXag3D",
+    "desc": "మున్నూరు కాపు — Munnuru Kapu (Brides). Sub-castes: Munnuru Kapu • Munnuru. Profiles are member-submitted; details are not independently verified.",
     "hashtags": [
       "#MunnuruKapu",
       "#Bride",
@@ -710,16 +603,18 @@ export const ALL_CHANNELS: Channel[] = [
       "#AP"
     ],
     "wave": 2,
-    "live": true
+    "routingEligible": false,
+    "externalStatusChecked": false
   },
   {
     "key": "c_munnuru_kapu_groom",
     "tier": "L3_CASTE",
     "name": "🤵 Munnuru Kapu Grooms | మున్నూరు కాపు వరులు",
-    "username": "@manavivaha_munnuru_kapu_groom",
-    "link": "https://t.me/manavivaha_munnuru_kapu_groom",
-    "deepLink": "https://t.me/telugumatrimony1_bot?start=ch_manavivaha_munnuru_kapu_groom",
-    "desc": "మున్నూరు కాపు — Munnuru Kapu (Grooms). Sub-castes: Munnuru Kapu • Munnuru. నిజమైన profiles, 3 requests FREE, ₹99లో 5.",
+    "username": "",
+    "link": "https://t.me/+8aF99CIpwwo5M2Fl",
+    "deepLink": "",
+    "whatsappLink": "https://whatsapp.com/channel/0029VbD3XJa4CrfknKw76i0e",
+    "desc": "మున్నూరు కాపు — Munnuru Kapu (Grooms). Sub-castes: Munnuru Kapu • Munnuru. Profiles are member-submitted; details are not independently verified.",
     "hashtags": [
       "#MunnuruKapu",
       "#Groom",
@@ -727,16 +622,18 @@ export const ALL_CHANNELS: Channel[] = [
       "#AP"
     ],
     "wave": 2,
-    "live": true
+    "routingEligible": false,
+    "externalStatusChecked": false
   },
   {
     "key": "c_raju_kshatriya_bride",
     "tier": "L3_CASTE",
     "name": "👰 Raju • Kshatriya Brides | రాజు • క్షత్రియ వధువులు",
-    "username": "@manavivaha_raju_kshatriya_bride",
-    "link": "https://t.me/manavivaha_raju_kshatriya_bride",
-    "deepLink": "https://t.me/telugumatrimony1_bot?start=ch_manavivaha_raju_kshatriya_bride",
-    "desc": "రాజు • క్షత్రియ — Raju • Kshatriya (Brides). Sub-castes: Raju • Rajulu • Kshatriya • Vanniyar. నిజమైన profiles, 3 requests FREE, ₹99లో 5.",
+    "username": "",
+    "link": "https://t.me/+m5LPLPhkIpw4ZGI9",
+    "deepLink": "",
+    "whatsappLink": "https://whatsapp.com/channel/0029VbEEoWhJJhzenO8voU1e",
+    "desc": "రాజు • క్షత్రియ — Raju • Kshatriya (Brides). Sub-castes: Raju • Rajulu • Kshatriya • Vanniyar. Profiles are member-submitted; details are not independently verified.",
     "hashtags": [
       "#RajuKshatriya",
       "#Bride",
@@ -744,16 +641,18 @@ export const ALL_CHANNELS: Channel[] = [
       "#AP"
     ],
     "wave": 3,
-    "live": true
+    "routingEligible": false,
+    "externalStatusChecked": false
   },
   {
     "key": "c_raju_kshatriya_groom",
     "tier": "L3_CASTE",
     "name": "🤵 Raju • Kshatriya Grooms | రాజు • క్షత్రియ వరులు",
-    "username": "@manavivaha_raju_kshatriya_groom",
-    "link": "https://t.me/manavivaha_raju_kshatriya_groom",
-    "deepLink": "https://t.me/telugumatrimony1_bot?start=ch_manavivaha_raju_kshatriya_groom",
-    "desc": "రాజు • క్షత్రియ — Raju • Kshatriya (Grooms). Sub-castes: Raju • Rajulu • Kshatriya • Vanniyar. నిజమైన profiles, 3 requests FREE, ₹99లో 5.",
+    "username": "",
+    "link": "https://t.me/+szuO6inGJ3MyZTFl",
+    "deepLink": "",
+    "whatsappLink": "https://whatsapp.com/channel/0029VbDnKz45q08XGV69LJ0f",
+    "desc": "రాజు • క్షత్రియ — Raju • Kshatriya (Grooms). Sub-castes: Raju • Rajulu • Kshatriya • Vanniyar. Profiles are member-submitted; details are not independently verified.",
     "hashtags": [
       "#RajuKshatriya",
       "#Groom",
@@ -761,52 +660,284 @@ export const ALL_CHANNELS: Channel[] = [
       "#AP"
     ],
     "wave": 3,
-    "live": true
+    "routingEligible": false,
+    "externalStatusChecked": false
   },
   {
-    "key": "c_padmashali_weavers",
+    "key": "c_padmashali_weavers_bride",
     "tier": "L3_CASTE",
-    "name": "💍 Padmashali • Devanga (Weavers) Matrimony | పద్మశాలి • దేవాంగ — వధువులు + వరులు",
-    "username": "@manavivaha_padmashali_weavers",
-    "link": "https://t.me/manavivaha_padmashali_weavers",
-    "deepLink": "https://t.me/telugumatrimony1_bot?start=ch_manavivaha_padmashali_weavers",
-    "desc": "పద్మశాలి • దేవాంగ — Padmashali • Devanga (Weavers) (Brides + Grooms). Sub-castes: Padmashali • Padmasali • Sali • Pattusali • Thogata. నిజమైన profiles, 3 requests FREE, ₹99లో 5.",
+    "name": "👰 Padmashali • Devanga (Weavers) Brides | పద్మశాలి • దేవాంగ వధువులు",
+    "username": "",
+    "link": "https://t.me/+WHy86f07cdFiMDY1",
+    "deepLink": "",
+    "whatsappLink": "https://whatsapp.com/channel/0029Vb8tDgi8Pgs8bBhmwK3H",
+    "desc": "పద్మశాలి • దేవాంగ — Padmashali • Devanga (Weavers) (Brides). Sub-castes: Padmashali • Padmasali • Sali • Pattusali • Thogata. Profiles are member-submitted; details are not independently verified.",
     "hashtags": [
       "#PadmashaliWeavers",
       "#Bride",
+      "#TS",
+      "#AP"
+    ],
+    "wave": 3,
+    "routingEligible": false,
+    "externalStatusChecked": false
+  },
+  {
+    "key": "c_padmashali_weavers_groom",
+    "tier": "L3_CASTE",
+    "name": "🤵 Padmashali • Devanga (Weavers) Grooms | పద్మశాలి • దేవాంగ వరులు",
+    "username": "",
+    "link": "https://t.me/+pxZfSVa1rOEzN2Fl",
+    "deepLink": "",
+    "whatsappLink": "https://whatsapp.com/channel/0029Vb9ASfp2phHTNpBVIn1U",
+    "desc": "పద్మశాలి • దేవాంగ — Padmashali • Devanga (Weavers) (Grooms). Sub-castes: Padmashali • Padmasali • Sali • Pattusali • Thogata. Profiles are member-submitted; details are not independently verified.",
+    "hashtags": [
+      "#PadmashaliWeavers",
       "#Groom",
       "#TS",
       "#AP"
     ],
     "wave": 3,
-    "live": true
+    "routingEligible": false,
+    "externalStatusChecked": false
   },
   {
-    "key": "c_mudiraj",
+    "key": "c_mudiraj_bride",
     "tier": "L3_CASTE",
-    "name": "💍 Mudiraj • Tenugollu Matrimony | ముదిరాజ • తెనుగొల్ల — వధువులు + వరులు",
-    "username": "@manavivaha_mudiraj",
-    "link": "https://t.me/manavivaha_mudiraj",
-    "deepLink": "https://t.me/telugumatrimony1_bot?start=ch_manavivaha_mudiraj",
-    "desc": "ముదిరాజ • తెనుగొల్ల — Mudiraj • Tenugollu (Brides + Grooms). Sub-castes: Mudiraj • Mudiraju • Mutrasi • Tenugollu. నిజమైన profiles, 3 requests FREE, ₹99లో 5.",
+    "name": "👰 Mudiraj • Tenugollu Brides | ముదిరాజ • తెనుగొల్ల వధువులు",
+    "username": "",
+    "link": "https://t.me/+XebU3qM_WR84YTdl",
+    "deepLink": "",
+    "whatsappLink": "https://whatsapp.com/channel/0029VbD5Jy27Noa6foFiXS40",
+    "desc": "ముదిరాజ • తెనుగొల్ల — Mudiraj • Tenugollu (Brides). Sub-castes: Mudiraj • Mudiraju • Mutrasi • Tenugollu. Profiles are member-submitted; details are not independently verified.",
     "hashtags": [
       "#Mudiraj",
       "#Bride",
+      "#TS",
+      "#AP"
+    ],
+    "wave": 3,
+    "routingEligible": false,
+    "externalStatusChecked": false
+  },
+  {
+    "key": "c_mudiraj_groom",
+    "tier": "L3_CASTE",
+    "name": "🤵 Mudiraj • Tenugollu Grooms | ముదిరాజ • తెనుగొల్ల వరులు",
+    "username": "",
+    "link": "https://t.me/+BMpylXf9XxcyZDBl",
+    "deepLink": "",
+    "whatsappLink": "https://whatsapp.com/channel/0029VbDrXXxATRSsOCpkZD2J",
+    "desc": "ముదిరాజ • తెనుగొల్ల — Mudiraj • Tenugollu (Grooms). Sub-castes: Mudiraj • Mudiraju • Mutrasi • Tenugollu. Profiles are member-submitted; details are not independently verified.",
+    "hashtags": [
+      "#Mudiraj",
       "#Groom",
       "#TS",
       "#AP"
     ],
     "wave": 3,
-    "live": true
+    "routingEligible": false,
+    "externalStatusChecked": false
+  },
+  {
+    "key": "c_goud_bride",
+    "tier": "L3_CASTE",
+    "name": "👰 Goud Brides | గౌడ వధువులు",
+    "username": "",
+    "link": "https://t.me/+oF8K9j6BCzE2YjVl",
+    "deepLink": "",
+    "whatsappLink": "https://whatsapp.com/channel/0029VbE4EXK42DciVXYopI2h",
+    "desc": "గౌడ — Goud (Brides). Sub-castes: Goud • Gouda • Ediga • Gamalla • Idiga. Profiles are member-submitted; details are not independently verified.",
+    "hashtags": [
+      "#Goud",
+      "#Bride",
+      "#TS",
+      "#AP"
+    ],
+    "wave": 3,
+    "routingEligible": false,
+    "externalStatusChecked": false
+  },
+  {
+    "key": "c_goud_groom",
+    "tier": "L3_CASTE",
+    "name": "🤵 Goud Grooms | గౌడ వరులు",
+    "username": "",
+    "link": "https://t.me/+HmRI0uILZ-NkY2Y9",
+    "deepLink": "",
+    "whatsappLink": "https://whatsapp.com/channel/0029Vb8opZw6hENsqAzGtY3R",
+    "desc": "గౌడ — Goud (Grooms). Sub-castes: Goud • Gouda • Ediga • Gamalla • Idiga. Profiles are member-submitted; details are not independently verified.",
+    "hashtags": [
+      "#Goud",
+      "#Groom",
+      "#TS",
+      "#AP"
+    ],
+    "wave": 3,
+    "routingEligible": false,
+    "externalStatusChecked": false
+  },
+  {
+    "key": "c_kuruma_bride",
+    "tier": "L3_CASTE",
+    "name": "👰 Kuruma Brides | కురుమ వధువులు",
+    "username": "",
+    "link": "https://t.me/+W_8aTJ-3B-hhOGFl",
+    "deepLink": "",
+    "whatsappLink": "https://whatsapp.com/channel/0029Vb939bo5q08lIoSzFk0B",
+    "desc": "కురుమ — Kuruma (Brides). Sub-castes: Kuruma • Kuruba • Kuruba (Golla) • Kuruva • Gorrela. Profiles are member-submitted; details are not independently verified.",
+    "hashtags": [
+      "#Kuruma",
+      "#Bride",
+      "#TS",
+      "#AP"
+    ],
+    "wave": 3,
+    "routingEligible": false,
+    "externalStatusChecked": false
+  },
+  {
+    "key": "c_kuruma_groom",
+    "tier": "L3_CASTE",
+    "name": "🤵 Kuruma Grooms | కురుమ వరులు",
+    "username": "",
+    "link": "https://t.me/+YOoCmdgS_3thY2Jl",
+    "deepLink": "",
+    "whatsappLink": "https://whatsapp.com/channel/0029Vb8fDPRGU3BFVKlVOU3X",
+    "desc": "కురుమ — Kuruma (Grooms). Sub-castes: Kuruma • Kuruba • Kuruba (Golla) • Kuruva • Gorrela. Profiles are member-submitted; details are not independently verified.",
+    "hashtags": [
+      "#Kuruma",
+      "#Groom",
+      "#TS",
+      "#AP"
+    ],
+    "wave": 3,
+    "routingEligible": false,
+    "externalStatusChecked": false
+  },
+  {
+    "key": "c_rajaka_bride",
+    "tier": "L3_CASTE",
+    "name": "👰 Rajaka Brides | రజక వధువులు",
+    "username": "",
+    "link": "https://t.me/+uHfkj71Js_c1ZWJl",
+    "deepLink": "",
+    "whatsappLink": "https://whatsapp.com/channel/0029Vb9UvFM1SWszlk3KXM2U",
+    "desc": "రజక — Rajaka (Brides). Sub-castes: Rajaka • Chakali • Vannar. Profiles are member-submitted; details are not independently verified.",
+    "hashtags": [
+      "#Rajaka",
+      "#Bride",
+      "#TS",
+      "#AP"
+    ],
+    "wave": 3,
+    "routingEligible": false,
+    "externalStatusChecked": false
+  },
+  {
+    "key": "c_rajaka_groom",
+    "tier": "L3_CASTE",
+    "name": "🤵 Rajaka Grooms | రజక వరులు",
+    "username": "",
+    "link": "https://t.me/+4BStez9IoSAyNmQ1",
+    "deepLink": "",
+    "whatsappLink": "",
+    "desc": "రజక — Rajaka (Grooms). Sub-castes: Rajaka • Chakali • Vannar. Profiles are member-submitted; details are not independently verified.",
+    "hashtags": [
+      "#Rajaka",
+      "#Groom",
+      "#TS",
+      "#AP"
+    ],
+    "wave": 3,
+    "routingEligible": false,
+    "externalStatusChecked": false
+  },
+  {
+    "key": "c_kummari_bride",
+    "tier": "L3_CASTE",
+    "name": "👰 Kummari Brides | కుమ్మరి వధువులు",
+    "username": "",
+    "link": "https://t.me/+IilG4JDaWm9iMmE1",
+    "deepLink": "",
+    "whatsappLink": "https://whatsapp.com/channel/0029VbDhazI0wajxHXSCDh1t",
+    "desc": "కుమ్మరి — Kummari (Brides). Sub-castes: Kummari • Kummara • Kulala • Kumbhara. Profiles are member-submitted; details are not independently verified.",
+    "hashtags": [
+      "#Kummari",
+      "#Bride",
+      "#TS",
+      "#AP"
+    ],
+    "wave": 3,
+    "routingEligible": false,
+    "externalStatusChecked": false
+  },
+  {
+    "key": "c_kummari_groom",
+    "tier": "L3_CASTE",
+    "name": "🤵 Kummari Grooms | కుమ్మరి వరులు",
+    "username": "",
+    "link": "https://t.me/+Z9UFsOSSY2szMjFl",
+    "deepLink": "",
+    "whatsappLink": "https://whatsapp.com/channel/0029VbDizeQG8l55W64bVj2V",
+    "desc": "కుమ్మరి — Kummari (Grooms). Sub-castes: Kummari • Kummara • Kulala • Kumbhara. Profiles are member-submitted; details are not independently verified.",
+    "hashtags": [
+      "#Kummari",
+      "#Groom",
+      "#TS",
+      "#AP"
+    ],
+    "wave": 3,
+    "routingEligible": false,
+    "externalStatusChecked": false
+  },
+  {
+    "key": "c_perika_bride",
+    "tier": "L3_CASTE",
+    "name": "👰 Perika Brides | పెరిక వధువులు",
+    "username": "",
+    "link": "https://t.me/+7BHlq1k9R7NhYWQ1",
+    "deepLink": "",
+    "whatsappLink": "https://whatsapp.com/channel/0029VbDV28JIyPtYs0DDQ92f",
+    "desc": "పెరిక — Perika (Brides). Sub-castes: Perika. Profiles are member-submitted; details are not independently verified.",
+    "hashtags": [
+      "#Perika",
+      "#Bride",
+      "#TS",
+      "#AP"
+    ],
+    "wave": 3,
+    "routingEligible": false,
+    "externalStatusChecked": false
+  },
+  {
+    "key": "c_perika_groom",
+    "tier": "L3_CASTE",
+    "name": "🤵 Perika Grooms | పెరిక వరులు",
+    "username": "",
+    "link": "https://t.me/+MXvizI45UNFmOTE1",
+    "deepLink": "",
+    "whatsappLink": "https://whatsapp.com/channel/0029Vb8ceI13gvWdFcRSYW3y",
+    "desc": "పెరిక — Perika (Grooms). Sub-castes: Perika. Profiles are member-submitted; details are not independently verified.",
+    "hashtags": [
+      "#Perika",
+      "#Groom",
+      "#TS",
+      "#AP"
+    ],
+    "wave": 3,
+    "routingEligible": false,
+    "externalStatusChecked": false
   },
   {
     "key": "c_lambada_banjara_bride",
     "tier": "L3_CASTE",
     "name": "👰 Lambada • Banjara (ST) Brides | లంబాడ • బంజార వధువులు",
-    "username": "@manavivaha_lambada_banjara_bride",
-    "link": "https://t.me/manavivaha_lambada_banjara_bride",
-    "deepLink": "https://t.me/telugumatrimony1_bot?start=ch_manavivaha_lambada_banjara_bride",
-    "desc": "లంబాడ • బంజార — Lambada • Banjara (ST) (Brides). Sub-castes: Lambada • Lambadi • Banjara • Lambani • Sugali. నిజమైన profiles, 3 requests FREE, ₹99లో 5.",
+    "username": "",
+    "link": "https://t.me/+T7ybZrw8VYQ5NTRl",
+    "deepLink": "",
+    "whatsappLink": "https://whatsapp.com/channel/0029VbD3CW6HVvTbgyWWvX3r",
+    "desc": "లంబాడ • బంజార — Lambada • Banjara (ST) (Brides). Sub-castes: Lambada • Lambadi • Banjara • Lambani • Sugali. Profiles are member-submitted; details are not independently verified.",
     "hashtags": [
       "#LambadaBanjara",
       "#Bride",
@@ -814,16 +945,18 @@ export const ALL_CHANNELS: Channel[] = [
       "#AP"
     ],
     "wave": 3,
-    "live": true
+    "routingEligible": false,
+    "externalStatusChecked": false
   },
   {
     "key": "c_lambada_banjara_groom",
     "tier": "L3_CASTE",
     "name": "🤵 Lambada • Banjara (ST) Grooms | లంబాడ • బంజార వరులు",
-    "username": "@manavivaha_lambada_banjara_groom",
-    "link": "https://t.me/manavivaha_lambada_banjara_groom",
-    "deepLink": "https://t.me/telugumatrimony1_bot?start=ch_manavivaha_lambada_banjara_groom",
-    "desc": "లంబాడ • బంజార — Lambada • Banjara (ST) (Grooms). Sub-castes: Lambada • Lambadi • Banjara • Lambani • Sugali. నిజమైన profiles, 3 requests FREE, ₹99లో 5.",
+    "username": "",
+    "link": "https://t.me/+jOPvVBAKURgyY2Fl",
+    "deepLink": "",
+    "whatsappLink": "https://whatsapp.com/channel/0029Vb902btGE56gSl4iV10H",
+    "desc": "లంబాడ • బంజార — Lambada • Banjara (ST) (Grooms). Sub-castes: Lambada • Lambadi • Banjara • Lambani • Sugali. Profiles are member-submitted; details are not independently verified.",
     "hashtags": [
       "#LambadaBanjara",
       "#Groom",
@@ -831,16 +964,18 @@ export const ALL_CHANNELS: Channel[] = [
       "#AP"
     ],
     "wave": 3,
-    "live": true
+    "routingEligible": false,
+    "externalStatusChecked": false
   },
   {
     "key": "c_others_bc_bride",
     "tier": "L3_CASTE",
     "name": "👰 Other BC Communities Brides | ఇతర BC కులాలు వధువులు",
-    "username": "@manavivaha_others_bc_bride",
-    "link": "https://t.me/manavivaha_others_bc_bride",
-    "deepLink": "https://t.me/telugumatrimony1_bot?start=ch_manavivaha_others_bc_bride",
-    "desc": "ఇతర BC కులాలు — Other BC Communities (Brides). Sub-castes: Kummara • Kulala • Salivahana • Gandla • Telikula. నిజమైన profiles, 3 requests FREE, ₹99లో 5.",
+    "username": "",
+    "link": "https://t.me/+Y4lpZRyN2ZxiNmI1",
+    "deepLink": "",
+    "whatsappLink": "https://whatsapp.com/channel/0029VbDz6odI7Be7YAuc1e3w",
+    "desc": "ఇతర BC కులాలు — Other BC Communities (Brides). Sub-castes: Salivahana • Gandla • Telikula • Uppara • Sagara. Profiles are member-submitted; details are not independently verified.",
     "hashtags": [
       "#OthersBc",
       "#Bride",
@@ -848,16 +983,18 @@ export const ALL_CHANNELS: Channel[] = [
       "#AP"
     ],
     "wave": 3,
-    "live": true
+    "routingEligible": false,
+    "externalStatusChecked": false
   },
   {
     "key": "c_others_bc_groom",
     "tier": "L3_CASTE",
     "name": "🤵 Other BC Communities Grooms | ఇతర BC కులాలు వరులు",
-    "username": "@manavivaha_others_bc_groom",
-    "link": "https://t.me/manavivaha_others_bc_groom",
-    "deepLink": "https://t.me/telugumatrimony1_bot?start=ch_manavivaha_others_bc_groom",
-    "desc": "ఇతర BC కులాలు — Other BC Communities (Grooms). Sub-castes: Kummara • Kulala • Salivahana • Gandla • Telikula. నిజమైన profiles, 3 requests FREE, ₹99లో 5.",
+    "username": "",
+    "link": "https://t.me/+iyf8LbsJyCo3ZGFl",
+    "deepLink": "",
+    "whatsappLink": "https://whatsapp.com/channel/0029VbE9dOxDDmFZvsPGd31I",
+    "desc": "ఇతర BC కులాలు — Other BC Communities (Grooms). Sub-castes: Salivahana • Gandla • Telikula • Uppara • Sagara. Profiles are member-submitted; details are not independently verified.",
     "hashtags": [
       "#OthersBc",
       "#Groom",
@@ -865,16 +1002,18 @@ export const ALL_CHANNELS: Channel[] = [
       "#AP"
     ],
     "wave": 3,
-    "live": true
+    "routingEligible": false,
+    "externalStatusChecked": false
   },
   {
     "key": "c_others_sc_bride",
     "tier": "L3_CASTE",
     "name": "👰 Other SC Communities Brides | ఇతర SC కులాలు వధువులు",
-    "username": "@manavivaha_others_sc_bride",
-    "link": "https://t.me/manavivaha_others_sc_bride",
-    "deepLink": "https://t.me/telugumatrimony1_bot?start=ch_manavivaha_others_sc_bride",
-    "desc": "ఇతర SC కులాలు — Other SC Communities (Brides). Sub-castes: Adi Andhra • Adi Dravida • Arundhatiya • Relli • Arwa Mala. నిజమైన profiles, 3 requests FREE, ₹99లో 5.",
+    "username": "",
+    "link": "https://t.me/+UfRB95ZYdSBhZmQ1",
+    "deepLink": "",
+    "whatsappLink": "https://whatsapp.com/channel/0029Vb8oMp4J93we9t58Sr0m",
+    "desc": "ఇతర SC కులాలు — Other SC Communities (Brides). Sub-castes: Adi Andhra • Adi Dravida • Arundhatiya • Relli • Arwa Mala. Profiles are member-submitted; details are not independently verified.",
     "hashtags": [
       "#OthersSc",
       "#Bride",
@@ -882,16 +1021,18 @@ export const ALL_CHANNELS: Channel[] = [
       "#AP"
     ],
     "wave": 3,
-    "live": true
+    "routingEligible": false,
+    "externalStatusChecked": false
   },
   {
     "key": "c_others_sc_groom",
     "tier": "L3_CASTE",
     "name": "🤵 Other SC Communities Grooms | ఇతర SC కులాలు వరులు",
-    "username": "@manavivaha_others_sc_groom",
-    "link": "https://t.me/manavivaha_others_sc_groom",
-    "deepLink": "https://t.me/telugumatrimony1_bot?start=ch_manavivaha_others_sc_groom",
-    "desc": "ఇతర SC కులాలు — Other SC Communities (Grooms). Sub-castes: Adi Andhra • Adi Dravida • Arundhatiya • Relli • Arwa Mala. నిజమైన profiles, 3 requests FREE, ₹99లో 5.",
+    "username": "",
+    "link": "https://t.me/+3w08vTaC3O42N2U9",
+    "deepLink": "",
+    "whatsappLink": "https://whatsapp.com/channel/0029VbDNWfI002TDBUfbFp2A",
+    "desc": "ఇతర SC కులాలు — Other SC Communities (Grooms). Sub-castes: Adi Andhra • Adi Dravida • Arundhatiya • Relli • Arwa Mala. Profiles are member-submitted; details are not independently verified.",
     "hashtags": [
       "#OthersSc",
       "#Groom",
@@ -899,47 +1040,35 @@ export const ALL_CHANNELS: Channel[] = [
       "#AP"
     ],
     "wave": 3,
-    "live": true
-  },
-  {
-    "key": "c_others_st",
-    "tier": "L3_CASTE",
-    "name": "💍 Other ST Communities Matrimony | ఇతర ST కులాలు — వధువులు + వరులు",
-    "username": "@manavivaha_others_st",
-    "link": "https://t.me/manavivaha_others_st",
-    "deepLink": "https://t.me/telugumatrimony1_bot?start=ch_manavivaha_others_st",
-    "desc": "ఇతర ST కులాలు — Other ST Communities (Brides + Grooms). Sub-castes: Koya • Koitur • Gond • Rajgond • Naikpod. నిజమైన profiles, 3 requests FREE, ₹99లో 5.",
-    "hashtags": [
-      "#OthersSt",
-      "#Bride",
-      "#Groom",
-      "#TS",
-      "#AP"
-    ],
-    "wave": 3,
-    "live": true
+    "routingEligible": false,
+    "externalStatusChecked": false
   }
 ];
 
 // Hindu-only register form dropdown — registry castes + Open
 export const CASTE_OPTIONS: string[] = [
-  "Reddy",
+  "Arya Vysya • Komati",
+  "Brahmin",
+  "Goud",
   "Kamma",
   "Kapu • Balija • Telaga",
-  "Velama",
-  "Brahmin",
-  "Arya Vysya • Komati",
-  "Yadava • Goud • Golla",
-  "Mala",
-  "Madiga",
-  "Viswabrahmana (Viswakarma)",
-  "Munnuru Kapu",
-  "Raju • Kshatriya",
-  "Padmashali • Devanga (Weavers)",
-  "Mudiraj • Tenugollu",
+  "Kummari",
+  "Kuruma",
   "Lambada • Banjara (ST)",
+  "Madiga",
+  "Mala",
+  "Mudiraj • Tenugollu",
+  "Munnuru Kapu",
+  "Open",
   "Other BC Communities",
   "Other SC Communities",
   "Other ST Communities",
-  "Open"
+  "Padmashali • Devanga (Weavers)",
+  "Perika",
+  "Rajaka",
+  "Raju • Kshatriya",
+  "Reddy",
+  "Velama",
+  "Viswabrahmana (Viswakarma)",
+  "Yadava • Golla"
 ];

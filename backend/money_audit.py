@@ -14,7 +14,7 @@ import os
 from datetime import datetime
 from typing import Dict, List, Optional
 
-AUDIT_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "money_audit26.jsonl")
+AUDIT_FILE = os.environ.get("MANA_VIVAHA_MONEY_AUDIT_FILE", os.path.join(os.path.dirname(os.path.abspath(__file__)), "money_audit26.jsonl"))
 MAX_KEEP = 10000  # file rotate cap (lines)
 
 

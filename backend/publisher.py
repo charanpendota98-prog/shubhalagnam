@@ -16,8 +16,8 @@ Features:
 
 ENV:
   BOT_TOKEN                 — telegram bot token
-  AUTO_POST_ON_REGISTER     — "true" ayithe register avvagane post (default true)
-  PUBLISH_DRY_RUN           — "true" ayithe real post cheyyadu (default: tokens lekapothe auto-true)
+  AUTO_POST_ON_REGISTER     — explicit opt-in before automatic publishing (default false)
+  PUBLISH_DRY_RUN           — "true" prevents real posts (default true; live sends require explicit opt-in)
   WHATSAPP_MODE             — off | cloud_api | bridge   (default off)
   WHATSAPP_TOKEN            — Meta Cloud API token
   WHATSAPP_PHONE_ID         — Meta Cloud API phone number id
@@ -53,7 +53,7 @@ from channels_config import (
 )
 from wa_antiban import ENGINE as WA_ENGINE, variantize as wa_variantize
 
-LOG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "publish_log.jsonl")
+LOG_FILE = os.environ.get("MANA_VIVAHA_PUBLISH_LOG_FILE", os.path.join(os.path.dirname(os.path.abspath(__file__)), "publish_log.jsonl"))
 
 # In-memory state (real lo Redis/DB)
 PUBLISH_QUEUE: List[Dict] = []
@@ -95,10 +95,17 @@ def _env_bool(name: str, default: bool) -> bool:
 def config() -> Dict:
     token = os.getenv("BOT_TOKEN", "").strip()
     wa_mode = os.getenv("WHATSAPP_MODE", "off").strip().lower()
-    dry_default = not token  # token lekapothe default dry-run (crash avvakudadu)
+    # Fail closed even if a valid bot token is present. Operators must explicitly
+    # disable dry-run and enable publishing after checking the exact destinations.
+    dry_default = True
+    auto_publish_after_approval = _env_bool(
+        "AUTO_POST_ON_APPROVAL", _env_bool("AUTO_POST_ON_REGISTER", False)
+    )
     return {
         "bot_token": token,
-        "auto_post_on_register": _env_bool("AUTO_POST_ON_REGISTER", True),
+        # Keep the legacy key for clients, but new registrations are held until approval.
+        "auto_post_on_approval": auto_publish_after_approval,
+        "auto_post_on_register": auto_publish_after_approval,
         "dry_run": _env_bool("PUBLISH_DRY_RUN", dry_default),
         "wa_mode": wa_mode if wa_mode in ("off", "cloud_api", "bridge") else "off",
         "wa_token": os.getenv("WHATSAPP_TOKEN", "").strip(),
@@ -115,7 +122,9 @@ def publish_status() -> Dict:
     c = config()
     st = channel_stats()
     return {
-        "telegram": {"configured": bool(c["bot_token"]), "live_channels": st["live"]},
+        "telegram": {"configured": bool(c["bot_token"]),
+                     "routing_eligible_count": st["routing_eligible"],
+                     "external_status_checked": False},
         "whatsapp": {
             "mode": c["wa_mode"],
             "cloud_api_ready": bool(c["wa_token"] and c["wa_phone_id"] and c["wa_to"]),
@@ -123,22 +132,27 @@ def publish_status() -> Dict:
             "targets": len(c["wa_to"]) + len(c["wa_bridge_targets"]),
         },
         "dry_run": c["dry_run"],
-        "auto_post_on_register": c["auto_post_on_register"],
+        "order": "telegram → whatsapp",
+        "order_note": "Telegram is attempted before WhatsApp is queued; a queued notification does not confirm external delivery.",
+        "auto_post_on_approval": c["auto_post_on_approval"],
+        "auto_post_on_register": c["auto_post_on_register"],  # legacy alias
         "whatsapp_queue": wa_queue_stats(),
         "bots": bot_pool.bot_health(),
         "whatsapp_instances": wa_pool.wa_health(),
         "dead_letters": len(WA_DEAD),
-        "order": "telegram → whatsapp (random gap) · okati fail అయితే పక్క bot/number కి failover",
+        "note": "Publishing defaults to dry-run/off. Verify each owner-controlled destination and required permissions before explicitly enabling live delivery.",
         "queued": len(PUBLISH_QUEUE),
         "published_total": len([x for x in PUBLISH_LOG if x.get("ok")]),
-        "registry": {"total": st["total"], "live": st["live"], "to_create": st["to_create"]},
+        "registry": {"total": st["total"], "routing_eligible": st["routing_eligible"],
+                     "not_routing_eligible": st["not_routing_eligible"],
+                     "external_status_checked": False},
     }
 
 
 # ---------------------------------------------------------------------------
 # MESSAGE BUILDERS
 # ---------------------------------------------------------------------------
-def build_whatsapp_text(profile: Dict, tsap_id: str, score: int = 92) -> str:
+def build_whatsapp_text(profile: Dict, tsap_id: str, score: int | None = None) -> str:
     """WhatsApp formatting (*bold* — Telegram ** కాదు). 🔒 WAVE 12 MASKED (name/number లేదు)."""
     from smart12 import build_masked_whatsapp  # lazy: cycle-safe
     return build_masked_whatsapp(profile or {}, tsap_id, score)
@@ -490,7 +504,7 @@ def wa_worker_running() -> bool:
 # ---------------------------------------------------------------------------
 # MAIN PUBLISH
 # ---------------------------------------------------------------------------
-async def publish_profile(profile: Dict, tsap_id: str, score: int = 92,
+async def publish_profile(profile: Dict, tsap_id: str, score: int | None = None,
                           photo_path: Optional[str] = None) -> Dict:
     """
     One profile → Telegram LIVE channels + WhatsApp (mode batti).
@@ -498,11 +512,12 @@ async def publish_profile(profile: Dict, tsap_id: str, score: int = 92,
     """
     cfg = config()
     targets = post_targets(profile)
-    caption = build_caption(profile, tsap_id, score)
-    wa_text = build_whatsapp_text(profile, tsap_id, score)
+    # ``score`` is a deprecated legacy argument and intentionally ignored.
+    caption = build_caption(profile, tsap_id)
+    wa_text = build_whatsapp_text(profile, tsap_id)
 
     tg_results = []
-    for chat in targets["ready"]:
+    for chat in targets["routing_candidates"]:
         key = (tsap_id, chat)
         if key in _SEEN:
             tg_results.append({"channel": chat, "ok": True, "skipped": "duplicate"})
@@ -527,14 +542,14 @@ async def publish_profile(profile: Dict, tsap_id: str, score: int = 92,
     entry = {
         "tsap_id": tsap_id,
         "name": profile.get("full_name", ""),
-        "score": score,
         "at": datetime.utcnow().isoformat(),
         "telegram": tg_results,
         "whatsapp": {"mode": cfg["wa_mode"], "results": wa_results,
                      "antiban": {"gap": f"{int(WA_ENGINE.cfg()['min_gap'])}–{int(WA_ENGINE.cfg()['max_gap'])}s random",
                                  "sent_today": WA_ENGINE.daily_count(),
                                  "warmup_cap": WA_ENGINE.warmup_cap()}},
-        "pending_channels": targets["pending"],
+        "not_routing_eligible": targets["not_routing_eligible"],
+        "external_status_checked": False,
         "hashtags": targets["hashtags"],
         "ok": all(x.get("ok") for x in tg_results) if tg_results else False,
         "dry_run": cfg["dry_run"],
@@ -565,12 +580,13 @@ def read_log(limit: int = 50) -> List[Dict]:
 # ---------------------------------------------------------------------------
 # QUEUE (register endpoint block avvakunda background lo post)
 # ---------------------------------------------------------------------------
-def enqueue(profile: Dict, tsap_id: str, score: int = 92, photo_path: Optional[str] = None) -> Dict:
-    job = {"profile": profile, "tsap_id": tsap_id, "score": score,
+def enqueue(profile: Dict, tsap_id: str, score: int | None = None, photo_path: Optional[str] = None) -> Dict:
+    """Queue a profile post; deprecated ``score`` argument is ignored and never stored."""
+    job = {"profile": profile, "tsap_id": tsap_id,
            "photo_path": photo_path, "queued_at": datetime.utcnow().isoformat()}
     PUBLISH_QUEUE.append(job)
     return {"queued": True, "position": len(PUBLISH_QUEUE), "tsap_id": tsap_id,
-            "targets": post_targets(profile)["ready"]}
+            "targets": post_targets(profile)["routing_candidates"]}
 
 
 async def _worker_loop(interval: float = 2.0):
@@ -578,7 +594,7 @@ async def _worker_loop(interval: float = 2.0):
         if PUBLISH_QUEUE:
             job = PUBLISH_QUEUE.pop(0)
             try:
-                await publish_profile(job["profile"], job["tsap_id"], job["score"], job["photo_path"])
+                await publish_profile(job["profile"], job["tsap_id"], photo_path=job["photo_path"])
             except Exception as e:
                 _append_log_file({"tsap_id": job["tsap_id"], "ok": False, "error": str(e)[:200],
                                   "at": datetime.utcnow().isoformat()})
@@ -604,30 +620,10 @@ def worker_running() -> bool:
 
 
 # ---------------------------------------------------------------------------
-# TEST CLI — python publisher.py
+# READ-ONLY STATUS CLI — python publisher.py
 # ---------------------------------------------------------------------------
 if __name__ == "__main__":
-    demo = {"full_name": "Lakshmi Reddy", "gender": "Bride", "state": "TS", "caste": "Reddy",
-            "age": 24, "height": "5'4\"", "blood_group": "O+", "education": "BTech",
-            "education_detail": "CSE", "job": "Software Engineer", "company": "TCS",
-            "salary": "8L", "work_location": "Hyderabad", "district": "Nalgonda",
-            "gothram": "Bharadwaj", "star": "Rohini", "rasi": "Vrishabha",
-            "father_name": "Ramesh Reddy", "family_type": "Nuclear", "native_place": "Miryalaguda"}
-
-    async def _main():
-        print("STATUS:", json.dumps(publish_status(), indent=2))
-        print("\n--- TELEGRAM CAPTION ---")
-        print(build_caption(demo, "TSAP-F-2025-5775", 92))
-        print("\n--- WHATSAPP TEXT ---")
-        print(build_whatsapp_text(demo, "TSAP-F-2025-5775", 92))
-        print("\n--- PUBLISH (dry-run) ---")
-        print(json.dumps(await publish_profile(demo, "TSAP-F-2025-5775", 92), indent=2, ensure_ascii=False))
-        print("\n--- WHATSAPP ANTI-BAN RULES ---")
-        print(json.dumps(WA_ENGINE.stats(), indent=2, ensure_ascii=False))
-        print("\n--- next 6 random gaps (whatsapp) ---")
-        for i in range(6):
-            g = WA_ENGINE._current_gap(1)
-            print(f"   post {i+1}: {g/60:.2f} min ({int(g)}s) — manishi la random")
-            WA_ENGINE.record_send(target="@manavivaha_reddy", ok=True, priority=1)
-
-    asyncio.run(_main())
+    print("STATUS:", json.dumps(publish_status(), indent=2, ensure_ascii=False))
+    print("\nNo sample profile is created and no channel post is sent by this command.")
+    print("\n--- WHATSAPP ANTI-BAN STATUS ---")
+    print(json.dumps(WA_ENGINE.stats(), indent=2, ensure_ascii=False))

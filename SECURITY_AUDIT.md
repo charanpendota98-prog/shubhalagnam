@@ -1,12 +1,24 @@
-# SECURITY_AUDIT.md — Phase 0/12 spot-check (CRITICAL FOUND + FIXED this pass)
+# Security audit — consolidated findings
 
-**Status: a critical, full-account-takeover-capable IDOR was found and fixed
-this pass (see "CRITICAL — fixed this pass" below), on top of the backend
-dependency CVE remediation and the CORS wildcard-with-credentials fix also
-done this pass. Remaining OWASP Top 10 follow-ups: broader XSS sink audit
-beyond the two sites already checked, path-traversal check on photo uploads.**
+**Current status (rechecked 2026-10-12):** this audit records the IDOR and
+CORS fixes, dependency remediation, and later scoped security checks. This
+pass added durable, fail-closed token-version persistence and privacy-bounded
+visitor analytics, with regression coverage. The focused photo-upload
+path-traversal check is covered by Wave 23; a complete review of every
+file-processing boundary is still required. Broader XSS taint/sink analysis
+also remains open. The production release gate is in
+[`PRODUCTION_READINESS.md`](PRODUCTION_READINESS.md); this file is not a release
+approval.
 
-## 🔴 CRITICAL — fixed this pass: unauthenticated IDOR leaking live session tokens (full account takeover)
+> **Credential redaction notice:** the current working copy redacts a
+> session-token-like value, phone number, and password hash from the historical
+> exploit example. The base Git commit already contains that evidence, so the
+> repository history may still expose it. Treat any related account credential
+> as potentially compromised; the owner should invalidate/re-provision it and
+> decide on history cleanup through the authorized repository process. No values
+> are repeated here, and Git history was not rewritten in this pass.
+
+## CRITICAL — historical IDOR finding; remediation recorded (full account takeover risk)
 
 **Found by:** auditing every route handler that takes a `tsap_id` for a
 missing `require_owner(...)` call (the project's own, already-proven IDOR
@@ -48,9 +60,9 @@ Two sibling endpoints had the identical defect:
 backend before the fix:
 ```
 $ curl -s localhost:8000/api/profile/MV5060 | jq '.profile.auth_token, .profile.phone, .profile.password_hash'
-"TVY1MDYwfDE3OTM0MzI5OTV8dXNlcnxlMGFkY2FlOA.Vepfofol2OZs-ZXLTU9FNo-sbdF4EMQi27cv3XZudNA"
-"9999988888"
-"pbkdf2$38ef5a94164a57988090cb7deaf9cb8b$77648541483cf044d5a1..."
+"[redacted session token]"
+"[redacted phone number]"
+"[redacted password hash]"
 
 $ curl -s -X POST localhost:8000/api/profile/update -d '{"tsap_id":"MV5060","full_name":"HACKED BY ATTACKER"}'
 # → 200 OK, profile actually renamed, zero auth required
@@ -97,7 +109,7 @@ $ curl -s -X POST localhost:8000/api/profile/update -d '{"tsap_id":"MV5060","ful
 - `npx tsc --noEmit` and a full `next build` both pass cleanly on the
   frontend changes.
 
-## CORS wildcard-with-credentials (P0) — fixed this pass
+## CORS wildcard-with-credentials (P0) — remediation recorded
 
 **Found while** reviewing the global middleware stack for the headers work
 below. `app.add_middleware(CORSMiddleware, allow_origins=_CORS_ORIGINS,
@@ -135,7 +147,7 @@ Full regression suite re-run, zero regressions.
 
 **Files:** `backend/main.py`.
 
-## Content-Security-Policy (P1) — added this pass
+## Content-Security-Policy (P1) — addition recorded
 
 Was completely missing (only HSTS/X-Frame-Options/X-Content-Type-Options
 existed). Built a real allowlist from an actual audit of this app's external
@@ -160,86 +172,86 @@ covered by the allowlist — found none (all `/_next/static/*`, self-origin).
 
 | Area | Status | Evidence |
 |---|---|---|
-| Password hashing | PASS WITH NOTES | PBKDF2-HMAC-SHA256, 120k iterations, random salt. Below OWASP-2023's ~600k recommendation for PBKDF2 alone — raise in a future pass, not P0. |
-| Session tokens | PASS WITH NOTES | HMAC-SHA256 signed, embedded expiry, `hmac.compare_digest` (timing-safe). Stateless → cannot be server-revoked before natural expiry (30d default). No token-blacklist/"logout everywhere" mechanism exists. |
+| Password hashing | PASS WITH MIGRATION NOTE | New member and staff-password hashes use PBKDF2-HMAC-SHA256 with 600k iterations and random salts. Legacy member hashes remain verifiable at their stamped/legacy cost; existing staff hashes preserve their encoded cost until an operator re-provisions them with the updated hash utility. |
+| Session tokens | PASS WITH DEPLOYMENT NOTES | HMAC-SHA256 signed, embedded expiry, and `hmac.compare_digest`; per-user monotonic versions support password-reset, logout-everywhere, and admin force-logout. Production requires `TSAP_TOKEN_VERSIONS_FILE` inside the durable volume; unreadable/corrupt state and failed writes fail closed. Back up/restore this JSON with the state volume. One JSON-backed worker only; use a transactional shared store before horizontal scaling. |
 | Admin/owner auth | PASS | Constant-time key comparison; app **refuses to boot in production** without a 32+ char `ADMIN_KEY` and a real `TSAP_AUTH_SECRET`. |
 | Admin authorization enforcement | PASS | 100% of `/api/admin/*`, `/api/owner/*`, `/api/moderation/*` routes in `main.py` have a programmatically-verified guard. |
 | Cookies (control panel) | PASS | `httponly=True`, `secure=<production>`, `samesite=strict`. |
 | CSRF | PASS WITH NOTES | User API uses header-based bearer tokens (not ambient cookies) for mutating calls — inherently CSRF-resistant. Admin cookie path relies on `samesite=strict` as its primary CSRF mitigation; no secondary CSRF-token scheme. Acceptable, not P0. |
 | Rate limiting | PASS | Login lockout (5 attempts/15min), OTP lockout, sliding-window limiter on OTP/register/interest/webhook endpoints. |
-| File upload validation | PASS | Content-based validation via PIL (`Image.open`+`.load()`, not extension/MIME trust), format whitelist, size bounds, resolution/brightness/blur/glare/photo-of-photo heuristics. Not yet re-verified this pass: on-disk filename handling / path-traversal surface for the validated bytes. |
-| Dependency vulnerabilities (frontend) | **Fixed this pass** | `npm audit`: was 1 critical (Next.js RCE) + 1 high (ReDoS) → now 0. |
-| Dependency vulnerabilities (backend) | **Fixed this pass (see below)** | `pip-audit` ran against `requirements.txt`: 13 packages flagged with 150+ CVE/PYSEC advisories → after fixes, 2 packages with residual advisories remain, both low-reachability and documented. |
+| Visitor analytics | PASS WITH PRIVACY SCOPE | Process-local HMAC pseudonym; no stored raw IP/user-agent/client ID; origin-only referrer and allowlisted UTM fields; 30-day maximum and 10,000-event cap; response omits visitor IDs/internal totals. Separate infrastructure/provider logs may have independent retention and need operator review. |
+| File upload validation | PASS WITH SCOPED NOTES | Content-based validation via PIL (`Image.open`+`.load()`, not extension/MIME trust), format whitelist, size bounds, resolution/brightness/blur/glare/photo-of-photo heuristics. Wave 23 now checks upload path traversal, no server-path leakage, and isolated media storage. This is scoped test coverage, not a review of every file-processing/deployment boundary. |
+| Dependency vulnerabilities (frontend) | PASS WITH DEV-ONLY EXCEPTION | `npm audit --omit=dev`: 0. Full `npm audit`: 5 high findings in the `eslint-config-next` / `@next/eslint-plugin-next` development-tool dependency chain (`braces`/`micromatch`/`fast-glob`); no compatible patched Next 16 config is published. |
+| Dependency vulnerabilities (backend) | PASS | Current `pip-audit -r backend/requirements.txt`: no known vulnerabilities; `pip check` reports no broken requirements. FastAPI/Starlette/Pydantic and aiogram/aiohttp were upgraded and regression-tested. |
 | SQL injection | N/A | No SQL database is in use anywhere in the backend (see `DATABASE_AUDIT.md`) — this class of vulnerability does not apply today. Will become relevant if/when a Postgres migration happens. |
-| XSS (stored/reflected/DOM) | PASS WITH NOTES (partial) | The 2 `dangerouslySetInnerHTML` call sites in the frontend were checked: both are JSON-LD structured data, one from static hardcoded FAQ content, the other already had a prior sanitization fix (WAVE 23) stripping `<>"'` from the URL-derived value before embedding. No broader output-encoding sweep across all components done this pass — follow-up. |
+| XSS (stored/reflected/DOM) | PASS WITH SCOPED NOTES | Three `dangerouslySetInnerHTML` sites remain: a fixed language bootstrap and two JSON-LD payloads. Dynamic JSON-LD in the homepage/profile routes now uses `serializeJsonLd`, escaping `<`, `>`, and `&` before inline embedding; the profile identifier is additionally bounded/sanitized. The `printBiodata()` popup output was separately escaped. This is not a full taint-analysis of every rendering path. |
 | IDOR on profile data | **CRITICAL — found & fixed this pass** | `GET /api/profile/{tsap_id}`, `POST /api/profile/update`, `POST /api/user/delete-account`, `GET`/`POST /api/profile/preferences` had **zero authentication** — see the dedicated section above. This was full account takeover (live session token leak), not just a data-masking gap. `/api/search/{id}` (the public ID-search feature) and `/api/matches/{id}` were separately verified safe — both only ever return `phone_masked`, never raw `phone`/`password_hash`/`auth_token`, by design. |
 | CORS configuration | **CRITICAL — found & fixed this pass** | `allow_origin_regex=r".*"` + `allow_credentials=True` allowed any website to make credentialed cross-origin requests — see dedicated section above. |
 | Security headers (CSP/X-Frame-Options/etc.) | **Fixed this pass** | `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`, `Cross-Origin-Opener-Policy` were already present on both frontend and backend (an earlier pass's claim that "only HSTS" existed was incomplete/incorrect — corrected here). `Content-Security-Policy` was genuinely missing and has now been added (production only) — see dedicated section above. |
-| Secrets in repo | PASS | `.env.example` present (placeholders only); `.gitignore` covers `data_db.json` and other runtime state; no hardcoded production secrets found in the files touched this pass. Full repo-wide secret-scan not yet run. |
+| Sensitive-looking credentials in Git | ACTION REQUIRED | The current working copy of this audit is redacted, and the current-worktree secret-pattern scan found no high-confidence key, token, or password-hash matches. The base Git commit still contains the historical session-token-like value, phone number, and password hash; their validity/association is unknown. Treat related credentials as potentially exposed; the owner must invalidate/re-provision as appropriate and decide on authorized history cleanup. |
 
 ## Fixed this pass
-- **Critical CVE** in pinned Next.js (16.3.5 → 16.3.8) — see `CHANGELOG.md`.
-- **Backend dependency CVE remediation** (`pip-audit` against
-  `backend/requirements.txt`) — see full detail below.
+- **Next.js security patch**: 16.3.5 → 16.3.8; Tailwind 4.3.3 migration and aligned lint config included. Updated Next's optional `sharp` dependency from 0.35.4 to patched 0.35.5 after a newly reported image-processing advisory; production npm audit is now clean. The dev-only lint-plugin advisory remains documented above.
+- **Backend dependency CVE remediation**: updated FastAPI/Starlette/Pydantic and aiogram/aiohttp; current runtime and test dependency audits plus `pip check` pass.
+- **Inline JSON-LD script safety**: added a shared serializer that emits `<`, `>`, and `&` as Unicode JSON escapes; homepage and profile JSON-LD now use it, with a breakout regression check.
+- **Registration E2E isolation**: test-only secrets and disposable DB/media storage; no fabricated photos, payment references, paid activations, or changes to production rate limits.
+- **Payment/test-mode fail-closed guard**: paid test fixtures require an explicit isolated-test flag plus test mode; previews do not auto-activate purchases. Production startup now rejects auth-bypass flags, disabled rate limits, and test payment fixtures.
+- **Factual-match/privacy fixes**: owner-only top-match rows now include their real profile IDs for links; gothram comparison only accepts active approved profiles, respects blocks, and does not return raw gothram values. Text comparisons never block or rank members.
+- **Durable token revocation**: production now requires the revocation counter on the mounted persistent root; corrupt/unreadable files fail startup, failed writes do not claim success, and counters are backed up with runtime JSON. Added cross-process, corruption, write-failure, Compose, storage, and backup regression checks.
+- **Visitor analytics minimization**: derive a process-local HMAC pseudonym from server request context; reject caller-supplied IDs/IP/UA, reduce referrers to origin, allowlist campaign fields, cap and expire stored events, and omit IDs/totals from the public response. Privacy text now documents restart clearing and separate infrastructure logs.
 
-## Backend dependency CVE audit (`pip-audit`) — done this pass
+## Dependency audit — current verification (2026-10-12)
 
-**Method:** ran `pip-audit -r backend/requirements.txt`, which flagged 13
-packages with 150+ CVE/PYSEC advisories. Before patch-bumping anything, each
-flagged package was checked for *actual usage* via repo-wide grep (imports,
-dynamic `importlib`/`__import__`, Dockerfile, docker-compose, shell scripts)
-to separate real attack surface from dead weight — per the standing rule to
-never blindly upgrade/rewrite without first understanding what's actually
-reachable.
+### Backend
 
-**Finding: 8 of the 13 flagged packages are 100% dead code** — zero
-references anywhere in the repository (not even in comments, except one
-aspirational code comment naming `celery`/`apscheduler` as a *future*
-scheduler option that was never built):
-`python-jose[cryptography]`, `passlib[bcrypt]`, `rembg`, `onnxruntime`
-(transitive, via rembg), `sentence-transformers`, `transformers` (transitive,
-via sentence-transformers), `celery`, `apscheduler`. This also confirms the
-earlier finding that auth in this app is hand-rolled PBKDF2+HMAC, not
-`jose`/`passlib` — those libraries were installed but never wired in.
+Runtime dependencies remain pinned to FastAPI 0.142.2, Starlette 1.7.0,
+Pydantic 2.13.5, aiogram 3.31.0, and aiohttp 3.14.4. The 2026-10-12
+`pip-audit` runs for both runtime and test requirements reported **no known
+vulnerabilities**; the recorded `pip check` reported no broken requirements.
+The pinned test requirements include the HTTPX compatibility adapter and
+PyYAML for static Compose checks. Focused regressions run in this pass passed:
+visitor/growth **118/118**, Wave 9 hardening **210/210**, privacy contacts
+**123/123**, contact configuration **8/8**, token-revocation persistence
+**4/4**, required-photo policy **6/6**, copy truth **13/13**, deploy hardening
+**20/20**, production storage gate **11/11**, and Wave 40 deployment assertions
+**64/64**. Wave 40's high-confidence secret-pattern scan covers current
+worktree files, not Git history. The payment-oriented Wave 34 script stopped at
+its first order-creation assertion because no owner-configured provider or
+merchant VPA is present; the API returned its expected unavailable response.
+No synthetic UTR, recipient, or webhook was supplied. External payment, OTP,
+messaging, production data, and deployment remain unvalidated.
 
-**Fix applied:** removed all 8 dead packages from `backend/requirements.txt`
-outright (their transitive-only companion `ecdsa` also disappears). This is
-strictly safer than upgrading them in place — a package that is never
-imported can't be exploited regardless of version, and removing it also
-shrinks install time / image size / future audit noise. Verified safe via a
-clean `pip install` of the trimmed file (no resolution errors) and the full
-test-script regression suite (see Testing below).
+### Frontend
 
-**Fix applied — real/used packages**, each bumped to the newest version
-still compatible with this app's pinned `pydantic==2.5.3` (deliberately not
-bumping pydantic itself this pass — it is pinned by numerous model
-definitions throughout `main.py` and a pydantic 2.7+ bump is a larger,
-separate-justification change):
+Next.js and `eslint-config-next` are locked to 16.3.8; Tailwind CSS is 4.3.3,
+and the Next optional `sharp` dependency is locked to patched 0.35.5. On
+2026-10-12, `npm run lint`, `npx tsc --noEmit`, and the production build all
+passed; the build generated 50 application routes. `npm audit --omit=dev`
+reported **0 production dependency vulnerabilities**. The last full `npm audit`
+reported **5 high, development-only findings** through the current Next ESLint
+plugin chain (`braces`, `micromatch`, `fast-glob`). The registry's suggested
+fix downgrades `eslint-config-next` to 14.2.35, incompatible with this Next 16 /
+ESLint 9 setup; that breaking downgrade was not applied. `npm ci` also warns
+ESLint 9 is out of support. An isolated ESLint 10.12.0 trial failed in
+`eslint-plugin-react`'s `react/display-name` rule (`contextOrFilename.getFilename
+is not a function`), so the passing ESLint 9 version was retained. Revisit when
+an aligned, compatible patched lint chain is available.
 
-| Package | Before | After | Why this exact version |
-|---|---|---|---|
-| `fastapi` | 0.110.0 | 0.121.0 | Lowest fastapi version that both allows `starlette<0.50.0` (needed for the starlette fix below) **and** still accepts `pydantic==2.5.3` (fastapi 0.126+ hard-requires `pydantic>=2.7.0`). |
-| `starlette` | 0.36.3 (transitive) | 0.49.1 (pinned explicitly) | Fixes every starlette CVE that doesn't require a starlette 1.x major bump (1943, 1941, 1942). starlette 0.36.3 had **no** patched version available within fastapi 0.110's own `<0.37.0` constraint — the only way to patch it at all was the fastapi bump above. |
-| `aiohttp` | 3.9.3 | 3.9.5 | `aiogram==3.4.1` (the only production consumer, in `telegram_bot.py`) pins `aiohttp~=3.9.0`, i.e. `>=3.9.0,<3.10.0`. 3.9.5 is the newest release inside that compatible range and fixes 2 of the flagged CVEs (PYSEC-2026-1102, -1098). |
-| `Pillow` | 10.2.0 | 12.3.0 | Latest; fixes all flagged Pillow CVEs. Verified end-to-end against the real `photo_validate.py` structural-check pipeline (blur/glare/brightness/contrast) with a synthetic JPEG — produced correct, unchanged output shape. Pillow is used across `card_pro.py`, `card_generator.py`, `photo_validate.py`, `referral_card.py`, `vendor_kit.py` — all rely only on long-stable PIL APIs (`Image.open`, `ImageStat`, `ImageFilter`), no deprecated-API usage found. |
-| `python-multipart` | 0.0.9 | 0.0.32 | Latest; fixes all flagged advisories. Used for file-upload form parsing — exercised indirectly by the photo-upload tests in the regression suite, all still pass. |
-| `python-dotenv` | 1.0.1 | 1.2.2 | Latest; fixes the one flagged advisory. Low-risk (only parses `.env` at boot). |
+### Remaining validation limits
 
-**Residual, accepted-and-documented (not fixed this pass):**
+The production build generated all 50 application routes. In this pass, a
+separate temporary frontend/backend development preview returned HTTP 200 for
+`/`, `/privacy`, `/api/plans`, `/api/inventory`, and proxied `/api/track`; the
+empty isolated inventory returned zero and tracking exposed only `success` and
+`channel`. This dev preview used the development/test auth bypass and is not a
+production-auth check. A Playwright Chromium download was attempted again but
+`cdn.playwright.dev` TLS connections reset, and no system browser is installed;
+headless mobile/browser-layout checks remain incomplete. Real payment/OTP/
+messaging providers and configured external links were not validated;
+preview integrations remained off/dry-run. These local checks do not establish
+production readiness.
 
-| Package | Residual CVEs | Why not fully fixed | Real-world reachability |
-|---|---|---|---|
-| `starlette` 0.49.1 | PYSEC-2026-161, -2280/-2281, -248/-249 | Fixes require starlette **1.x**, which needs `fastapi>=0.135` and `pydantic>=2.7.0` — a bigger, cascading bump (pydantic underpins every request/response model in a 200+ route app) that needs its own dedicated regression pass, not a drive-by bundled into this dependency-hygiene pass. | Every HTTP request passes through starlette, so this is the single most "reachable" residual item in the whole audit — **top candidate for the next dependency-upgrade session**, with pydantic 2.7+ compat testing as its own scoped task. |
-| `aiohttp` 3.9.5 | ~15 remaining PYSEC advisories needing aiohttp 3.10.11–3.14.3 | `aiogram==3.4.1` caps aiohttp at `<3.10.0`. Reaching a fully-patched aiohttp requires upgrading `aiogram` itself (newest aiogram 3.x still only allows `aiohttp<3.11`; even the latest aiogram line doesn't reach the aiohttp versions needed for the newest CVEs) — a Telegram-bot-library upgrade that needs its own bot-flow testing (webhooks, message handlers, antiban throttling), out of scope for a dependency-hygiene pass. | Lower than starlette: `aiohttp` here is used only for outbound/inbound traffic to Telegram's own Bot API in `telegram_bot.py`, not for parsing arbitrary public-internet input — materially smaller attack surface than a public-facing web framework. |
-
-**Testing performed before accepting these changes:**
-1. Established baseline: both full regression scripts (`test_100_developer_checks.py` → 110/110, `test_100_registrations_e2e.py` → 100/100) pass on the *original* dependency set.
-2. Applied the dependency changes in a clean, from-scratch virtualenv (`pip install` with no resolver errors).
-3. Restarted the backend process on the new dependencies; re-ran both full regression scripts → still 110/110 and 100/100.
-4. Ran all remaining 44 standalone `test_*.py` scripts; 13 report non-zero exit. **Verified these are 100% pre-existing** by running the exact same 13 files against a parallel venv built from the original, unmodified `requirements.txt` — byte-for-byte identical pass/fail results. All 13 check frontend `.tsx` source-file content (e.g. `"useLang" in page_source`) and are unrelated to backend Python dependencies — zero regressions introduced by this change.
-5. Directly exercised the Pillow-dependent `photo_validate.validate_photo()` function with a synthetic image end-to-end to confirm the structural photo-quality checks still execute correctly under Pillow 12.3.0.
-
-## 🔴 Phase 13 finding — stored XSS → full account takeover via "Print Biodata" (fixed this pass)
+## Phase 13 historical finding — stored XSS risk via "Print Biodata" (remediation recorded)
 
 **Severity: P0 (critical).** While doing the broader `dangerouslySetInnerHTML`
 sweep below, found a *third*, previously-unaudited raw-HTML-injection site
@@ -416,31 +428,29 @@ check rather than a spot check:
 
 ## Phase 14 — token revocation ("logout everywhere" + incident-response remediation)
 
-**Closes the #1 residual risk flagged after the Phase 12 critical IDOR fix.**
-Auth tokens here are stateless HMAC (`tsap_id|exp|scope|nonce`, 30-day TTL) —
-there was no server-side session table, so there was no way to invalidate a
-specific token before its natural expiry. Concretely, this meant: (a) any
-token an attacker scraped during the Phase 12 IDOR window would keep working
-for up to 30 more days even after that bug was patched, (b) a user who
-changed their password (because they suspected compromise) didn't actually
-get their old sessions logged out, and (c) there was no "log out of all
-devices" self-service option and no admin "force-logout this reported
-account" tool.
+**Historical background (before the Phase 14 fix):** tokens were stateless HMAC
+(`tsap_id|exp|scope|nonce`, 30-day TTL) with no server-side session table, so
+there was no way to invalidate one before expiry. A token exposed during the
+Phase 12 IDOR window could therefore remain valid after that bug was patched;
+password changes also did not invalidate existing sessions, and there were no
+self-service or admin force-logout tools. The remediation and current
+persistence limits are recorded below.
 
-**Design (`backend/hardening.py`):** added a per-user, monotonically
-increasing **token version** counter, persisted to a small gitignored JSON
-file (`backend/token_versions.json`, same convention as this repo's other
-`*_state.json` runtime files — added to `.gitignore`). `sign_token()` now
-stamps the *current* version into every new token's payload
-(`tsap_id|exp|scope|tv|nonce`); `verify_token()` rejects any token whose
-stamped version is behind the live counter for that user. Bumping one
-user's counter via `revoke_all_tokens(tsap_id)` invalidates **every** token
-issued to them before that moment, on every device/session, in O(1) —
-no need to track or blacklist individual tokens. Old-format tokens signed
-before this feature shipped (4 fields, no `tv`) are treated as version 0,
-so they're still subject to revocation if `revoke_all_tokens()` is ever
-called for that user — full backward compatibility, zero breakage for
-tokens already in the wild.
+**Design (`backend/hardening.py`):** per-user, monotonically increasing
+token-version counters are stored at `TSAP_TOKEN_VERSIONS_FILE`. Production
+requires this path to be configured inside the durable state volume; the
+standalone Compose file places it beside the other backed-up JSON state.
+Local development keeps a gitignored backend-local default, and tests use a
+disposable file. State loading validates the JSON and fails closed if it is
+corrupt or unreadable. Revocation atomically replaces the file with mode
+`0600`; a failed write rolls back the in-memory increment and raises rather
+than claiming success. `sign_token()` stamps the current version into each
+token (`tsap_id|exp|scope|tv|nonce`), while `verify_token()` rejects older
+versions. Updating one user's counter is O(1) in memory, but persisting the
+flat JSON index rewrites the counter file. Old 4-field tokens are treated as
+version 0 and remain subject to revocation. The production stack intentionally
+runs one backend worker; a transactional/shared store is required before
+horizontal scaling.
 
 **Wired in three places:**
 1. `POST /api/auth/reset` (password reset) now calls `revoke_all_tokens()`
@@ -455,60 +465,58 @@ tokens already in the wild.
    incident-response tool to kill every session for a specific reported or
    compromised account without needing that user's credentials.
 
-**One-time remediation, executed this pass:** added
-`backend/ops_revoke_all_tokens.py`, an explicit (not automatic-on-startup —
-that would force-logout everyone on every routine restart, which is too
-disruptive) ops script that bumps every existing user's token version once.
-Ran it against this environment's current user table (83 users) to
-retroactively invalidate every token that existed before this patch,
-including anything that may have been scraped during the earlier Phase 12
-IDOR window. Confirmed via live test: a token minted before the bulk-revoke
-now gets `401` everywhere; a fresh registration/login minted after the
-revoke works normally (`200`).
+**One-time remediation record (historical; not current production evidence):**
+`backend/ops_revoke_all_tokens.py` is an explicit operator-run script, not an
+on-startup action (which would force-logout everyone at each routine restart).
+An earlier audit note reported running it against an 83-user table and then
+restarting a backend, but that historical count and result were not
+re-established against an authorized production volume in this pass. For any
+real rollout, run the script inside the backend container (or with the exact
+same `TSAP_DB_FILE` and `TSAP_TOKEN_VERSIONS_FILE` durable-volume paths),
+inspect the dry-run output, perform the authorized operation, and restart all
+backend workers immediately. The script no longer claims a demo/seed fallback.
 
-**Verification:** live end-to-end test — registered a real user, confirmed
-its token worked, called `/api/auth/logout-everywhere`, confirmed the old
-token now returns `401` on `/api/profile/update` while the freshly-returned
-token still returns `200`; separately verified `/api/admin/users/{id}/
-force-logout` with the derived dev admin key produces the same effect;
-verified an old-format (pre-feature, 4-field) synthetic token keeps working
-until revoked, then stops, proving backward compatibility; ran
-`ops_revoke_all_tokens.py --dry-run` then for real against the live 83-user
-table, restarted the backend, and confirmed pre-revoke tokens are rejected
-while post-revoke registrations/logins work; full `test_100_developer_checks.py`
-(110/110) and `test_100_registrations_e2e.py` (100/100) regression suites
-passing throughout.
-**Files:** `backend/hardening.py`, `backend/main.py`, `backend/
-ops_revoke_all_tokens.py` (new), `.gitignore`.
+**Verification:** historical notes above describe earlier endpoint/manual
+checks and must not be read as current production proof. Current regression
+coverage in `backend/test_token_revocation_persistence.py` passes **4/4**:
+revocation survives a new process, state files have private POSIX mode, a
+failed write does not claim/apply a revocation, production requires an explicit
+state path, and corrupt state fails closed. The updated production storage and
+backup tests verify the path is inside the durable volume and that the token
+counter JSON round-trips with satellite state. The payment-oriented Wave 34 harness passed its single fail-closed assertion
+and explicitly skipped the remaining provider-dependent cases because no
+owner-configured merchant/provider is available. No UTR, recipient, or webhook
+was supplied. External payment integration remains unverified.
+**Files:** `backend/hardening.py`, `backend/main.py`,
+`backend/ops_revoke_all_tokens.py`, Compose/storage tests, and `.gitignore`.
 
-## Next steps (Phase 12/13 sweep — still open)
-1. ~~Broader `dangerouslySetInnerHTML` / raw-HTML-injection sweep~~ — **done
-   this pass**, repo-wide (`grep -rn "dangerouslySetInnerHTML\|\.innerHTML\s*=\|document\.write(\|eval(\|new Function("`
-   across `frontend/src`): the 2 pre-existing `dangerouslySetInnerHTML`
-   sites (JSON-LD on the homepage + profile page) are confirmed safe —
-   one serializes only hardcoded site-config/FAQ constants, the other
-   already strips `< > " '` from the URL-sourced id before use (a prior
-   WAVE 23 fix). Found and fixed one new site the earlier sweep's grep
-   pattern missed: `document.write()` in `printBiodata()` — see the
-   critical finding above. No `eval(`/`new Function(`/raw `.innerHTML =`
-   sites exist anywhere in the frontend. Root-caused and fixed at the input
-   layer too — see the critical finding above (`/api/profile/update` was
-   bypassing registration's `clean()` sanitization entirely).
-2. ~~Add the same `clean()` sanitization to `POST /api/control/profiles/add`~~
-   — **done this pass** too, see the critical finding above.
-3. ~~Decide + implement a token-revocation story~~ — **done this pass**, see
-   "Phase 14 — token revocation" above (per-user token-version counter +
-   logout-everywhere + admin force-logout + one-time bulk remediation of
-   every pre-existing token). Still-open refinement: the revocation check
-   is O(1) per request but the version table itself is a flat JSON file —
-   fine at this scale, would want a real datastore (Redis/Postgres) before
-   this matters at higher user counts.
-4. Scoped follow-up: bump `pydantic` to 2.7+ and `fastapi` to 0.135+ to reach
-   starlette 1.x and close the remaining starlette CVEs — needs its own
-   dedicated regression pass given how central pydantic models are to this
-   codebase.
-5. Scoped follow-up: evaluate an `aiogram` major-version upgrade (bot-flow
-   regression testing required) to unlock a fully-patched `aiohttp`.
-6. Scoped follow-up: nonce-based CSP (remove `'unsafe-inline'` from
-   `script-src`/`style-src`) — needs per-request nonce plumbing through
-   Next.js middleware, a larger change than this pass's allowlist-only CSP.
+## Phase 12/13 remediation history and remaining follow-ups
+
+1. ~~Broader `dangerouslySetInnerHTML` / raw-HTML-injection sweep~~ — completed
+   across `frontend/src`. Three inline sinks remain: a fixed language bootstrap
+   and two JSON-LD payloads. Homepage and profile JSON-LD now pass through
+   `serializeJsonLd`, which escapes HTML-significant delimiters; the profile
+   identifier is additionally sanitized. The `printBiodata()` popup output was
+   separately escaped. No `eval(`/`new Function(`/raw `.innerHTML =` sites were
+   found in that scan. This is still not a complete static taint analysis.
+2. ~~Add `clean()` sanitization to `POST /api/control/profiles/add`~~ — done;
+   profile updates use the same bounded/validated text handling.
+3. ~~Implement token revocation~~ — done with per-user token versions,
+   logout-everywhere, admin force-logout, and an explicit operator procedure.
+   Production stores the JSON index on the durable volume and includes it in
+   state backups; verify the real-volume migration/revocation at release time.
+   Use a transactional shared store before scaling beyond one worker.
+4. ~~Upgrade the API stack~~ — FastAPI 0.142.2, Starlette 1.7.0, and Pydantic
+   2.13.5 are pinned and regression-tested; runtime and test dependency audits
+   report no known vulnerabilities.
+5. ~~Update Telegram HTTP dependencies~~ — aiogram 3.31.0 and aiohttp 3.14.4
+   are pinned and locally regression-tested. External Telegram delivery and
+   deployed bot permissions remain unverified here.
+6. Remaining hardening: nonce-based CSP (remove `'unsafe-inline'` from
+   `script-src`/`style-src`) requires per-request nonce plumbing through
+   Next.js. Current production CSP is an improvement but does not eliminate
+   inline-script allowances.
+7. Remaining validation: no completed Playwright mobile/browser visual run,
+   and no live payment, OTP, messaging-provider, or external-destination
+   validation. See the limits above; local green checks are not launch
+   certification.

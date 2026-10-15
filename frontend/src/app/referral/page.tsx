@@ -1,115 +1,84 @@
 "use client";
 /**
- * 🤝 ADVANCED REFERRAL & EARNINGS PLATFORM — మన వివాహ 2.0
- * ==============================================================
- * 100% Data Tracking · Deferred ₹50/Payment · Instant In-Place Code Generator ·
- * Live Earnings Calculator · Real Referee Details Table · 1-Tap WhatsApp Kit ·
- * UPI Instant Withdrawals · Live Social Proof & Leaderboard.
+ * Referral dashboard for genuine referral links, confirmed eligible rewards,
+ * payout requests, and accurate share materials.
  */
-import { useEffect, useState, useCallback, useMemo, useRef } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { toJpeg } from "html-to-image";
 import QRCode from "qrcode";
 import { useLang } from "@/lib/lang";
-import { Duo, duo } from "@/lib/duo";
-import { authHeaders } from "@/lib/api";
+import { Duo } from "@/lib/duo";
+import { apiDisplayMessage, authHeaders, readApiJson } from "@/lib/api";
 import { WhatsAppIcon, TelegramIcon } from "@/components/BrandIcons";
 
 type Dash = any;
 
 const SHOP_TEMPLATES: Record<string, {
   id: string;
-  label: string;
-  badge: string;
+  labelTe: string;
+  labelEn: string;
   hookTe: string;
   hookEn: string;
   subTe: string;
   subEn: string;
-  points: string[];
+  pointsTe: string[];
+  pointsEn: string[];
 }> = {
   general: {
-    id: "general",
-    label: "🏪 సాధారణ షాప్ & కౌంటర్",
-    badge: "1-MIN REGISTRATION",
-    hookTe: "⚡ కేవలం 1-నిమిషంలో ఉచిత రిజిస్ట్రేషన్!",
-    hookEn: "1-MINUTE FREE TELUGU MATRIMONY REGISTRATION",
-    subTe: "📱 ఈ QR కోడ్‌ని కెమెరా / PhonePe / GPay తో స్కాన్ చేయండి!",
-    subEn: "Scan QR with any Camera / PhonePe / GPay to browse verified Telugu matches",
-    points: [
-      "ధృవీకరించబడిన వధువు & వరుల సంబంధాలు",
-      "100% ఫోటో & ఫోన్ నంబర్ గోప్యతా రక్షణ",
-      "కేవలం ₹99 కే ప్లాన్స్ — వేల రూపాయల భారం లేదు!",
-    ],
+    id: "general", labelTe: "🏪 సాధారణ షాప్ & కౌంటర్", labelEn: "🏪 General shop or counter",
+    hookTe: "మన వివాహను కుటుంబాలకు పరిచయం చేయండి",
+    hookEn: "Share Mana Vivaha with families",
+    subTe: "📱 కెమెరాతో QR కోడ్ స్కాన్ చేయండి",
+    subEn: "Scan the QR code with your camera",
+    pointsTe: ["ఉచిత నమోదు • 3 ఆసక్తి అభ్యర్థనలు", "వినియోగదారు ప్లాన్‌లు ₹99 నుంచి", "యజమాని అంగీకారం తర్వాతే సంప్రదింపు వివరాలు"],
+    pointsEn: ["Free registration • 3 interest requests", "Consumer plans from ₹99", "Contact details after owner acceptance"],
   },
   xerox: {
-    id: "xerox",
-    label: "🖨️ జిరాక్స్ & మీసేవ సెంటర్",
-    badge: "BIODATA & REGISTRATION",
-    hookTe: "⚡ ఉచిత మ్యాట్రిమోనీ బయోడేటా & 1-నిమిషం రిజిస్ట్రేషన్!",
-    hookEn: "FREE HD BIODATA & INSTANT REGISTRATION DESK",
-    subTe: "📱 QR స్కాన్ చేసి వెంటనే సంబంధాలు చూడండి లేదా బయోడేటా తీసుకోండి!",
-    subEn: "Scan QR to generate printable HD Marriage Biodata in 1-min",
-    points: [
-      "ఉచిత HD కలర్ బయోడేటా JPG & PDF డౌన్‌లోడ్",
-      "తెలంగాణ & ఏపీలోని అన్ని కులాల సంబంధాలు",
-      "నంబర్ ప్రైవసీ లాక్ & తక్షణ మ్యాచ్ అప్‌డేట్స్",
-    ],
+    id: "xerox", labelTe: "🖨️ జిరాక్స్ & మీ సేవా కేంద్రం", labelEn: "🖨️ Print or service centre",
+    hookTe: "పెళ్లి సంబంధం చూస్తున్న కుటుంబాలకు ఈ లింక్ ఇవ్వండి",
+    hookEn: "Share this link with families looking for matrimony profiles",
+    subTe: "📱 QR కోడ్ స్కాన్ చేసి నమోదు పేజీ చూడండి",
+    subEn: "Scan the QR code to open the registration page",
+    pointsTe: ["ఉచిత నమోదు • 3 ఆసక్తి అభ్యర్థనలు", "వినియోగదారు ప్లాన్‌లు ₹99 నుంచి", "యజమాని అంగీకారం తర్వాతే సంప్రదింపు వివరాలు"],
+    pointsEn: ["Free registration • 3 interest requests", "Consumer plans from ₹99", "Contact details after owner acceptance"],
   },
   studio: {
-    id: "studio",
-    label: "📸 ఫోటో స్టూడియో & ల్యాబ్",
-    badge: "STUDIO PHOTO MATRIMONY",
-    hookTe: "⚡ మీ ఫోటోతో 1-నిమిషంలో పెళ్లి సంబంధాల నమోదు!",
-    hookEn: "PHOTO STUDIO MATRIMONY — INSTANT TELUGU MATCHES",
-    subTe: "📱 QR స్కాన్ చేసి మీ ప్రొఫైల్ నమోదు చేయండి — మ్యాచెస్ పొందండి!",
-    subEn: "Scan QR with your phone to upload photo and find matches",
-    points: [
-      "హై-రిజల్యూషన్ ఫోటో బయోడేటా కార్డ్స్",
-      "నక్షత్రం, రాశి & జాతక చక్రం గుణమేళనం",
-      "సాఫ్ట్‌వేర్, గవర్నమెంట్ & బిజినెస్ సంబంధాలు",
-    ],
+    id: "studio", labelTe: "📸 ఫోటో స్టూడియో & ల్యాబ్", labelEn: "📸 Photo studio or lab",
+    hookTe: "మీ కస్టమర్లకు వివాహ ప్రొఫైల్ వేదికను పరిచయం చేయండి",
+    hookEn: "Introduce the matrimony platform to your customers",
+    subTe: "📱 నమోదు కోసం QR కోడ్ స్కాన్ చేయండి",
+    subEn: "Scan the QR code to register",
+    pointsTe: ["ఉచిత నమోదు • 3 ఆసక్తి అభ్యర్థనలు", "వినియోగదారు ప్లాన్‌లు ₹99 నుంచి", "యజమాని అంగీకారం తర్వాతే సంప్రదింపు వివరాలు"],
+    pointsEn: ["Free registration • 3 interest requests", "Consumer plans from ₹99", "Contact details after owner acceptance"],
   },
   tea: {
-    id: "tea",
-    label: "☕ టీ స్టాల్, కేఫ్ & హోటల్",
-    badge: "TEA TIME MATRIMONY",
-    hookTe: "⚡ వేడి వేడి టీ తాగుతూ... 1-నిమిషంలో పెళ్లి సంబంధాలు!",
-    hookEn: "1-MINUTE INSTANT TELUGU MATRIMONY SEARCH",
-    subTe: "📱 మీ మొబైల్ కెమెరాతో QR స్కాన్ చేసి సంబంధాలు చూడండి!",
-    subEn: "Scan QR on your phone to explore verified matches instantly",
-    points: [
-      "1 నిమిషంలో సులభమైన ఉచిత రిజిస్ట్రేషన్",
-      "33 TS & 26 AP జిల్లాల సంబంధాలు",
-      "దళారులు లేని నేరుగా కుటుంబాలతో సంభాషణ",
-    ],
+    id: "tea", labelTe: "☕ టీ స్టాల్, కేఫ్ & హోటల్", labelEn: "☕ Tea stall, café, or hotel",
+    hookTe: "మీ పరిచయాల్లో పెళ్లి సంబంధం చూస్తున్న వారికి పంపండి",
+    hookEn: "Share with people in your community who are looking for a match",
+    subTe: "📱 కెమెరాతో QR కోడ్ స్కాన్ చేయండి",
+    subEn: "Scan the QR code with your camera",
+    pointsTe: ["ఉచిత నమోదు • 3 ఆసక్తి అభ్యర్థనలు", "వినియోగదారు ప్లాన్‌లు ₹99 నుంచి", "యజమాని అంగీకారం తర్వాతే సంప్రదింపు వివరాలు"],
+    pointsEn: ["Free registration • 3 interest requests", "Consumer plans from ₹99", "Contact details after owner acceptance"],
   },
   tailor: {
-    id: "tailor",
-    label: "🪡 టైలరింగ్ & బ్యూటీ పార్లర్",
-    badge: "BRIDAL & GROOM DESK",
-    hookTe: "⚡ పెళ్లి చూపుల ముస్తాబు & సరైన సంబంధాలు — 1-నిమిషంలో!",
-    hookEn: "BRIDAL & GROOM MATRIMONY CORNER",
-    subTe: "📱 QR స్కాన్ చేసి ఉత్తమ వధువు/వరుల ప్రొఫైల్స్ పొందండి!",
-    subEn: "Scan QR to discover top-rated brides & grooms in 1-min",
-    points: [
-      "సాఫ్ట్‌వేర్, గవర్నమెంట్ & వ్యాపార సంబంధాలు",
-      "100% నంబర్ & ఫోటో గోప్యతా భద్రత",
-      "అత్యంత అందుబాటు ధరల్లో ప్లాన్స్ (కేవలం ₹99)",
-    ],
+    id: "tailor", labelTe: "🪡 టైలరింగ్ & బ్యూటీ పార్లర్", labelEn: "🪡 Tailor or beauty salon",
+    hookTe: "తెలుగు వివాహ ప్రొఫైల్ వేదికను షేర్ చేయండి",
+    hookEn: "Share a Telugu matrimony profile platform",
+    subTe: "📱 QR కోడ్ స్కాన్ చేసి నమోదు వివరాలు చూడండి",
+    subEn: "Scan the QR code to view registration details",
+    pointsTe: ["ఉచిత నమోదు • 3 ఆసక్తి అభ్యర్థనలు", "వినియోగదారు ప్లాన్‌లు ₹99 నుంచి", "యజమాని అంగీకారం తర్వాతే సంప్రదింపు వివరాలు"],
+    pointsEn: ["Free registration • 3 interest requests", "Consumer plans from ₹99", "Contact details after owner acceptance"],
   },
   story: {
-    id: "story",
-    label: "📱 WhatsApp Status Story",
-    badge: "WHATSAPP STATUS FLYER",
-    hookTe: "⚡ 1-నిమిషంలో రిజిస్ట్రేషన్ • ధృవీకరించిన సంబంధాలు!",
-    hookEn: "SCAN QR TO FIND YOUR PERFECT TELUGU MATCH!",
-    subTe: "📱 PhonePe / GPay / కెమెరాతో QR స్కాన్ చేయండి!",
-    subEn: "Scan with PhonePe, GPay or Camera to register free in 1-min!",
-    points: [
-      "1-నిమిషంలో ఉచిత రిజిస్ట్రేషన్",
-      "ధృవీకరించబడిన ప్రొఫైల్స్",
-      "100% సేఫ్ & ప్రైవేట్",
-    ],
+    id: "story", labelTe: "📱 WhatsApp స్టేటస్ కథనం", labelEn: "📱 WhatsApp status story",
+    hookTe: "మన వివాహ referral link ను షేర్ చేయండి",
+    hookEn: "Share your Mana Vivaha referral link",
+    subTe: "📱 QR కోడ్ స్కాన్ చేసి నమోదు పేజీకి వెళ్లండి",
+    subEn: "Scan the QR code to open registration",
+    pointsTe: ["ఉచిత నమోదు • 3 ఆసక్తి అభ్యర్థనలు", "వినియోగదారు ప్లాన్‌లు ₹99 నుంచి", "యజమాని అంగీకారం తర్వాతే సంప్రదింపు వివరాలు"],
+    pointsEn: ["Free registration • 3 interest requests", "Consumer plans from ₹99", "Contact details after owner acceptance"],
   },
 };
 
@@ -123,15 +92,13 @@ export default function ReferralPage() {
   const [board, setBoard] = useState<any[]>([]);
   const [you, setYou] = useState<any>(null);
   const [terms, setTerms] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState<"overview" | "shop_poster" | "status_poster" | "friends" | "share" | "payouts" | "calculator" | "leaderboard" | "terms">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "shop_poster" | "status_poster" | "friends" | "share" | "payouts" | "leaderboard" | "terms">("overview");
   const [msgIdx, setMsgIdx] = useState(0);
   const [err, setErr] = useState("");
   const [searchErr, setSearchErr] = useState("");
   const [searching, setSearching] = useState(false);
   
-  // Status Poster generator state
-  const [posterFormat, setPosterFormat] = useState<"story" | "banner">("story");
-  const [posterAmount, setPosterAmount] = useState<number>(50);
+  // Optional label printed on the locally generated referral poster.
   const [posterCustomName, setPosterCustomName] = useState<string>("");
 
   // Shop Sticker & QR Poster State
@@ -140,17 +107,6 @@ export default function ReferralPage() {
   const [shopTemplate, setShopTemplate] = useState<"general" | "xerox" | "studio" | "tea" | "tailor" | "story">("general");
   const [qrCodeUrl, setQrCodeUrl] = useState<string>("");
   const shopPosterRef = useRef<HTMLDivElement>(null);
-
-  // Quick Partner Form inside page
-  const [quickName, setQuickName] = useState("");
-  const [quickPhone, setQuickPhone] = useState("");
-  const [quickPhonepe, setQuickPhonepe] = useState("");
-  const [quickDistrict, setQuickDistrict] = useState("Hyderabad");
-  const [quickLoading, setQuickLoading] = useState(false);
-  const [quickSuccess, setQuickSuccess] = useState<any>(null);
-
-  // Calculator state
-  const [calcCount, setCalcCount] = useState<number>(10);
 
   // Payout Drawer state
   const [pay, setPay] = useState({ open: false, amount: "", upi: "", method: "upi" });
@@ -183,15 +139,15 @@ export default function ReferralPage() {
     if (!id) return;
     setErr("");
     fetch(`/api/referral/${encodeURIComponent(id)}`, { headers: authHeaders() })
-      .then((r) => r.json())
+      .then((r) => readApiJson(r))
       .then((d) => {
         if (d.ok) setDash(d);
-        else setErr(d.detail || (te ? "డేటా లోడ్ కాలేదు — మీ ID సరిచూసుకోండి" : "Failed to load dashboard"));
+        else setErr(apiDisplayMessage(d, te, te ? "డేటా లోడ్ కాలేదు. మీ ID సరిచూసుకోండి." : "Could not load the dashboard. Check your partner ID."));
       })
       .catch(() => setErr(te ? "కనెక్షన్ సమస్య — కొద్దిసేపటి తర్వాత మళ్లీ ప్రయత్నించండి" : "Network error — please retry"));
 
     fetch(`/api/referral/${encodeURIComponent(id)}/payouts`, { headers: authHeaders() })
-      .then((r) => r.json())
+      .then((r) => readApiJson(r))
       .then((d) => {
         if (d.success) setDash((prev: Dash) => (prev ? { ...prev, payouts_live: d.payouts, payout_meta: d } : prev));
       })
@@ -204,7 +160,7 @@ export default function ReferralPage() {
 
   useEffect(() => {
     fetch("/api/referral/terms")
-      .then((r) => r.json())
+      .then((r) => readApiJson(r))
       .then(setTerms)
       .catch(() => {});
   }, []);
@@ -212,7 +168,7 @@ export default function ReferralPage() {
   const loadBoard = useCallback((period: string) => {
     const meQ = tsapId ? `&me=${encodeURIComponent(tsapId)}` : "";
     fetch(`/api/referral/leaderboard?period=${period}&limit=10${meQ}`)
-      .then((r) => r.json())
+      .then((r) => readApiJson(r))
       .then((d) => {
         setBoard(d.leaderboard || []);
         setYou(d.you || null);
@@ -231,48 +187,17 @@ export default function ReferralPage() {
     setSearchErr("");
     try {
       const res = await fetch(`/api/referral/lookup?q=${encodeURIComponent(phoneSearch.trim())}`);
-      const data = await res.json();
+      const data = await readApiJson(res);
       if (res.ok && data.success && data.tsap_id) {
         setTsapId(data.tsap_id);
         localStorage.setItem("tsap_last_id", data.tsap_id);
       } else {
-        setSearchErr(data.detail || (te ? "ఈ నంబర్‌తో ప్రొఫైల్ దొరకలేదు" : "Profile not found with this number"));
+        setSearchErr(apiDisplayMessage(data, te, te ? "ఈ నంబర్‌తో ప్రొఫైల్ దొరకలేదు." : "A profile was not found for this number."));
       }
     } catch {
       setSearchErr(te ? "వెతకడం విఫలమైంది" : "Lookup failed");
     } finally {
       setSearching(false);
-    }
-  };
-
-  const handleQuickJoin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!quickName.trim() || !quickPhone.trim()) return;
-    setQuickLoading(true);
-    try {
-      const res = await fetch("/api/referral/partner/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: quickName.trim(),
-          phone: quickPhone.trim(),
-          phonepe: quickPhonepe.trim() || quickPhone.trim(),
-          district: quickDistrict,
-          state: "TS",
-        }),
-      });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        setQuickSuccess(data);
-        setTsapId(data.partner_id);
-        localStorage.setItem("tsap_last_id", data.partner_id);
-      } else {
-        alert(data.message_telugu || data.detail || "Registration failed");
-      }
-    } catch {
-      alert(te ? "కనెక్షన్ సమస్య" : "Connection error");
-    } finally {
-      setQuickLoading(false);
     }
   };
 
@@ -282,10 +207,12 @@ export default function ReferralPage() {
     setTimeout(() => setCopied(""), 2000);
   };
 
+  const minPayout = Number(dash?.commission_rules?.min_payout ?? 50);
+
   const submitPayout = async () => {
     const amount = parseInt(pay.amount || "0", 10);
-    if (!amount || amount < 50) {
-      setPayRes({ success: false, reason: te ? "కనీస విత్‌డ్రా మొత్తం ₹50 (1 రిఫరల్ చాలు)" : "Minimum withdrawal is ₹50 (just 1 referral)" });
+    if (!amount || amount < minPayout) {
+      setPayRes({ success: false, reason: te ? `కనీస payout అభ్యర్థన ₹${minPayout}.` : `The minimum payout request is ₹${minPayout}.` });
       return;
     }
     if (!pay.upi.trim()) {
@@ -297,7 +224,7 @@ export default function ReferralPage() {
     try {
       const url = `/api/referral/payout?tsap_id=${encodeURIComponent(tsapId)}&amount=${amount}&method=${pay.method}&upi_id=${encodeURIComponent(pay.upi)}`;
       const r = await fetch(url, { method: "POST", headers: authHeaders() });
-      const d = await r.json();
+      const d = await readApiJson(r);
       setPayRes(d);
       if (d.success) {
         setPay({ ...pay, open: false, amount: "", upi: "" });
@@ -312,34 +239,27 @@ export default function ReferralPage() {
 
   const s = dash?.stats || {};
   const tier = dash?.tier || { key: "BRONZE", icon: "🥉", perks: [] };
-  const next = dash?.next_milestone;
   const link = dash?.link || (dash?.code ? `https://manavivaha.in/r/${dash.code}` : "");
   const kit = dash?.share_kit || {};
-  const msgs: string[] = kit.whatsapp_messages || [
-    `నమస్కారం! మన తెలుగు వారి కోసం ప్రత్యేకంగా రూపొందించిన వివాహ వేదిక "మన వివాహ".\nనా లింక్ ద్వారా రిజిస్టర్ అయితే ఉచితంగా ప్రొఫైల్స్ మరియు +1 బోనస్ క్రెడిట్ వస్తుంది: ${link}\nకచ్చితంగా ప్రయత్నించండి! 🙏`,
-    `మన వివాహ (Mana Vivaha) — ₹99 కే పవిత్ర సంబంధం!\nనా రిఫరల్ కోడ్ [${dash?.code || "..."}] తో రిజిస్టర్ చేసుకోండి.\nలింక్: ${link}\nధన్యవాదాలు! 💍`,
-    `మీ కుటుంబంలో పెళ్లి సంబంధాలు చూస్తున్నారా? మన వివాహ వేదికలో రిజిస్టర్ చేసుకోండి: ${link}\nఫోటో భద్రత మరియు ప్రత్యక్ష టెలిగ్రామ్/వాట్సాప్ ఛానల్స్ కలవు! 🌺`
+  const referralRulesLink = "https://manavivaha.in/referral";
+  const fallbackMessages = te ? [
+    `🙏 మన వివాహ (Mana Vivaha)\nఉచిత నమోదు • 3 ఆసక్తి అభ్యర్థనలు\nనా referral link: ${link}\nనిబంధనలు: ${referralRulesLink}`,
+    `మన వివాహలో నమోదు చేసుకోండి: ${link}\nచెల్లుబాటు అయ్యే referral ద్వారా కొత్త సభ్యుడికి +1, పరిచయం చేసిన సభ్యుడికి +2 ఆసక్తి అభ్యర్థన క్రెడిట్‌లు లభిస్తాయి; ఇవి నగదు కాదు.\nనిబంధనలు: ${referralRulesLink}`,
+    `₹50 బహుమతి మొదటి అర్హత కలిగిన వినియోగదారు ప్లాన్ చెల్లింపుపై ఒక్కసారి మాత్రమే లభించవచ్చు. మినహాయింపులు, అర్హత మరియు మాన్యువల్ సమీక్ష వర్తిస్తాయి: ${referralRulesLink}`,
+  ] : [
+    `🙏 Mana Vivaha (మన వివాహ)\nFree registration • 3 interest requests\nMy referral link: ${link}\nTerms: ${referralRulesLink}`,
+    `Join Mana Vivaha: ${link}\nA valid referral grants +1 interest-request credit to the new member and +2 to the referrer; these credits are not cash.\nTerms: ${referralRulesLink}`,
+    `A one-time ₹50 reward may apply to the first qualifying consumer-plan payment only. Exclusions, eligibility checks, and manual review apply: ${referralRulesLink}`,
   ];
+  const messageCandidate = te
+    ? (kit.whatsapp_messages_te || kit.whatsapp_messages || fallbackMessages)
+    : (kit.whatsapp_messages_en || fallbackMessages);
+  const localizedMessages: string[] = Array.isArray(messageCandidate) ? messageCandidate : fallbackMessages;
 
   const friendsList = dash?.recent_registrations || [];
 
-  // Calculator values
-  const estimatedEarnings = useMemo(() => calcCount * 50, [calcCount]);
-  const estimatedTier = useMemo(() => {
-    if (calcCount >= 50) return { name: "💎 ELITE PARTNER", bonus: "+ ₹1,000 Cash Bonus", icon: "💎" };
-    if (calcCount >= 25) return { name: "👑 PLATINUM PARTNER", bonus: "+ Verified Bureau Badge", icon: "👑" };
-    if (calcCount >= 10) return { name: "🌟 GOLD PARTNER", bonus: "+ Priority Support", icon: "🌟" };
-    if (calcCount >= 3) return { name: "🥈 SILVER PARTNER", bonus: "+ Fast Payouts", icon: "🥈" };
-    return { name: "🥉 BRONZE STARTER", bonus: "₹50 per paid referral", icon: "🥉" };
-  }, [calcCount]);
 
-  const statusCaption = useMemo(() => {
-    const code = dash?.code || quickSuccess?.partner_id || "MV";
-    const refLink = link || `https://manavivaha.in/r/${code}`;
-    return `నాకు మన వివాహ ద్వారా ₹${posterAmount} రెఫరల్ క్యాష్ వచ్చింది! మీరు కూడా సంబంధం చూస్తున్నారా? ఈ లింక్‌తో ఉచితంగా రిజిస్టర్ అవ్వండి: ${refLink}`;
-  }, [posterAmount, dash?.code, quickSuccess?.partner_id, link]);
-
-  const refCodeActive = dash?.code || quickSuccess?.partner_id || tsapId || "MV";
+  const refCodeActive = dash?.code || tsapId || "MV";
   const refRegistrationUrl = `https://manavivaha.in/register?ref=${refCodeActive}`;
 
   useEffect(() => {
@@ -372,13 +292,13 @@ export default function ReferralPage() {
       a.click();
     } catch (e) {
       console.error(e);
-      alert("పోస్టర్ డౌన్‌లోడ్ చేయడంలో సమస్య ఏర్పడింది.");
+      alert(te ? "పోస్టర్‌ను డౌన్‌లోడ్ చేయలేకపోయాం. మళ్లీ ప్రయత్నించండి." : "Could not download the poster. Please try again.");
     }
     setShopPosterDownloading(false);
   };
 
   return (
-    <main className="min-h-dvh bg-[#FFF8E7] pb-36">
+    <div className="min-h-dvh bg-[#FFF8E7] pb-36">
       
       {/* ================= HERO SECTION ================= */}
       <section className="maroon-gradient text-white relative overflow-hidden">
@@ -389,7 +309,7 @@ export default function ReferralPage() {
             <div className="space-y-3 max-w-2xl">
               <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full text-xs font-black uppercase bg-gradient-to-r from-amber-400 to-yellow-300 text-maroon shadow-md border border-white/40">
                 <span>🎁</span>
-                <span>{te ? "ప్రతి రిజిస్ట్రేషన్‌కు +2 క్రెడిట్స్ • చెల్లింపుపై ₹50 నగదు కమీషన్" : "+2 FREE CREDITS PER SIGNUP • ₹50 CASH ON PLAN PURCHASE"}</span>
+                <span>{te ? "Referral attach పై +2 request credits • అర్హమైన first plan పై ఒక్కసారి ₹50" : "+2 request credits on valid referral attachment • one-time ₹50 for a qualifying first plan"}</span>
               </div>
 
               <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black tracking-tight leading-tight">
@@ -398,65 +318,25 @@ export default function ReferralPage() {
 
               <p className="text-xs sm:text-sm text-amber-100 leading-relaxed">
                 {te
-                  ? "మీ రిఫరల్ లింక్ ద్వారా బంధువులు లేదా స్నేహితులు రిజిస్టర్ అవ్వగానే మీకు +2 ఉచిత కాంటాక్ట్ అన్‌లాక్ క్రెడిట్స్ లభిస్తాయి! అలాగే వారు ₹99 లేదా ఏదైనా ప్లాన్ తీసుకున్న వెంటనే మీ వాలెట్‌కు ₹50 తక్షణ నగదు జమ అవుతుంది (UPI ద్వారా నేరుగా బ్యాంక్‌కి విత్‌డ్రా చేసుకోవచ్చు)."
-                  : "When your friends or relatives register with your link, you instantly get +2 free contact unlock credits! Plus, when they take any plan (₹99+), you earn flat ₹50 cash in your wallet, withdrawable directly via UPI to your bank account!"}
+                  ? "Valid referral attach అయినప్పుడు referrer కు +2, కొత్త user కు +1 interest-request credits వస్తాయి; ఇవి cash కావు. Referrer కు ₹50 reward ఒక్కసారి మాత్రమే—referee మొదటి S_99/S_199/S_299/S_499 consumer-plan payment కనీసం ₹99 అయినప్పుడు అర్హత ఉండవచ్చు. మినహాయింపులు వర్తిస్తాయి; payout request admin review లో ఉంటుంది."
+                  : "A valid referral attachment grants +2 interest-request credits to the referrer and +1 to the new user; these are not cash. The referrer may qualify for ₹50 once, only on the referee’s first S_99/S_199/S_299/S_499 consumer-plan payment of at least ₹99. Exclusions apply; payout requests receive manual review."}
               </p>
-
-              {/* Ticker of Recent Platform Earnings */}
-              <div className="pt-2">
-                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-black/30 backdrop-blur-md border border-white/20 text-[11px] text-amber-200">
-                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping shrink-0" />
-                  <span className="font-bold">Live Payouts:</span>
-                  <span className="truncate">Ravi Teja received ₹50 via UPI · Sita M. received ₹150 via PhonePe · Kalyan K. ₹50</span>
-                </div>
-              </div>
             </div>
 
-            {/* In-Place 10-Second Code Generator for New Users */}
-            {!tsapId && !quickSuccess ? (
-              <div className="bg-white/95 backdrop-blur-md text-gray-900 rounded-3xl p-5 border-2 border-amber-300 shadow-2xl w-full lg:max-w-sm space-y-3">
-                <div className="flex items-center gap-2">
-                  <span className="text-xl">⚡</span>
+            {!tsapId ? (
+              <div className="w-full lg:max-w-sm rounded-3xl border border-amber-200 bg-white/95 p-5 text-gray-900 shadow-2xl">
+                <div className="flex items-start gap-3">
+                  <span aria-hidden="true" className="text-2xl">🤝</span>
                   <div>
-                    <h3 className="text-xs font-black text-maroon uppercase tracking-wider">
-                      {te ? "10 సెకన్లలో మీ రెఫరల్ లింక్ పొందండి" : "Get Your Referral Code in 10s"}
-                    </h3>
-                    <p className="text-[10px] text-gray-500">{te ? "పెళ్లి వివరాలు అక్కర్లేదు — పేరు & ఫోన్ చాలు" : "No matrimony bio needed — just name & phone"}</p>
+                    <h2 className="text-sm font-black text-maroon">{te ? "రెఫరల్ భాగస్వామిగా చేరండి" : "Become a referral partner"}</h2>
+                    <p className="mt-1 text-xs leading-relaxed text-slate-600">
+                      {te ? "అక్షర క్రమంలో ఉన్న రాష్ట్రం/జిల్లా ఎంపికలతో పూర్తి నమోదు పేజీని ఉపయోగించండి. నమోదు ఒక్కటే cash reward ఇవ్వదు." : "Use the dedicated registration form with consistent state and district choices. Registration alone does not earn a cash reward."}
+                    </p>
+                    <Link href="/referral/register" className="mt-3 inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-[#7A0C2E] px-4 py-2.5 text-center text-xs font-black text-white hover:bg-[#5d0924] focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2">
+                      {te ? "భాగస్వామి నమోదు ప్రారంభించండి" : "Start partner registration"} <span aria-hidden="true" className="ml-1">→</span>
+                    </Link>
                   </div>
                 </div>
-
-                <form onSubmit={handleQuickJoin} className="space-y-2.5">
-                  <input
-                    type="text"
-                    required
-                    placeholder={te ? "మీ పేరు (Your Name)" : "Your Full Name"}
-                    value={quickName}
-                    onChange={(e) => setQuickName(e.target.value)}
-                    className="w-full px-3.5 py-2 rounded-xl border border-gray-300 text-xs outline-none focus:border-maroon focus:ring-1 focus:ring-maroon"
-                  />
-                  <input
-                    type="tel"
-                    required
-                    placeholder={te ? "10 అంకెల మొబైల్ (WhatsApp No)" : "10-digit WhatsApp Mobile"}
-                    value={quickPhone}
-                    onChange={(e) => setQuickPhone(e.target.value.replace(/\D/g, "").slice(0, 10))}
-                    className="w-full px-3.5 py-2 rounded-xl border border-gray-300 text-xs outline-none focus:border-maroon focus:ring-1 focus:ring-maroon"
-                  />
-                  <input
-                    type="text"
-                    placeholder={te ? "PhonePe / GPay UPI ID (విత్‌డ్రా కోసం)" : "UPI ID for Payouts (Optional)"}
-                    value={quickPhonepe}
-                    onChange={(e) => setQuickPhonepe(e.target.value)}
-                    className="w-full px-3.5 py-2 rounded-xl border border-gray-300 text-xs outline-none focus:border-maroon focus:ring-1 focus:ring-maroon"
-                  />
-                  <button
-                    type="submit"
-                    disabled={quickLoading}
-                    className="w-full py-2.5 rounded-xl gold-gradient text-maroon font-black text-xs shadow-gold hover:brightness-105 active:scale-95 transition disabled:opacity-50"
-                  >
-                    {quickLoading ? "..." : (te ? "🚀 నా రెఫరల్ లింక్ సృష్టించండి (FREE)" : "🚀 Generate My Referral Link (FREE)")}
-                  </button>
-                </form>
               </div>
             ) : null}
 
@@ -503,6 +383,8 @@ export default function ReferralPage() {
           </div>
         )}
 
+        {dash ? (
+          <>
         {/* TOP SUMMARY METRICS & WALLET BANNER */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           
@@ -529,41 +411,41 @@ export default function ReferralPage() {
               }`}
             >
               {dash?.wallet_can_withdraw
-                ? (te ? "💸 విత్‌డ్రా అభ్యర్థన (UPI)" : "💸 Withdraw Payout (UPI)")
-                : (te ? `ఇంకా ₹${Math.max(0, 50 - (s.wallet || 0))} కావాలి (1 రిఫరల్ = ₹50)` : `₹${Math.max(0, 50 - (s.wallet || 0))} more needed (1 ref = ₹50)`)}
+                ? (te ? "💸 Payout అభ్యర్థన (UPI)" : "💸 Request payout (UPI)")
+                : (te ? `Payout request కోసం ఇంకా ₹${Math.max(0, minPayout - (s.wallet || 0))} కావాలి` : `₹${Math.max(0, minPayout - (s.wallet || 0))} more needed for the minimum payout request`)}
             </button>
           </div>
 
-          {/* Lifetime Earned */}
+          {/* Confirmed eligible rewards */}
           <div className="bg-white rounded-3xl p-5 border border-gold/30 shadow-sm flex flex-col justify-between">
-            <span className="text-xs text-gray-500 font-bold">💰 {te ? "మొత్తం సంపాదన" : "Lifetime Earned"}</span>
+            <span className="text-xs text-gray-500 font-bold">💰 {te ? "నమోదైన అర్హమైన referral rewards" : "Recorded qualifying referral rewards"}</span>
             <div className="text-2xl sm:text-3xl font-black text-emerald-700 mt-2">
-              ₹{s.lifetime_earned ?? 0}
+              ₹{s.qualifying_rewards_total ?? 0}
             </div>
             <span className="text-[11px] text-gray-500 mt-1">
-              {te ? `మొత్తం చెల్లించబడింది: ₹${s.paid_out ?? 0}` : `Total Settled: ₹${s.paid_out ?? 0}`}
+              {te ? `నిజంగా చెల్లించినవి: ₹${s.paid_out ?? 0}` : `Settled payouts recorded: ₹${s.paid_out ?? 0}`}
             </span>
           </div>
 
-          {/* Paid Referrals */}
+          {/* Eligible first-plan rewards */}
           <div className="bg-white rounded-3xl p-5 border border-gold/30 shadow-sm flex flex-col justify-between">
-            <span className="text-xs text-gray-500 font-bold">🎉 {te ? "చెల్లించిన రెఫరల్స్ (₹50)" : "Paid Referrals (₹50)"}</span>
+            <span className="text-xs text-gray-500 font-bold">🎉 {te ? "అర్హమైన first-plan rewards" : "Qualifying first-plan rewards"}</span>
             <div className="text-2xl sm:text-3xl font-black text-navy mt-2">
               {s.paid_count ?? 0}
             </div>
             <span className="text-[11px] text-gray-500 mt-1">
-              {te ? `మొత్తం రిజిస్ట్రేషన్లు: ${s.registrations ?? 0}` : `Total Signups: ${s.registrations ?? 0}`}
+              {te ? `మొత్తం referral registrations: ${s.registrations ?? 0}` : `Total referral registrations: ${s.registrations ?? 0}`}
             </span>
           </div>
 
-          {/* Pipeline */}
+          {/* Referral registrations without a recorded eligible reward — no money projection. */}
           <div className="bg-white rounded-3xl p-5 border border-gold/30 shadow-sm flex flex-col justify-between">
-            <span className="text-xs text-gray-500 font-bold">⏳ {te ? "పైప్‌లైన్ (వస్తున్న డబ్బు)" : "Pipeline (Expected)"}</span>
+            <span className="text-xs text-gray-500 font-bold">⏳ {te ? "అర్హమైన reward నమోదు కాని referrals" : "Referrals without a recorded eligible reward"}</span>
             <div className="text-2xl sm:text-3xl font-black text-amber-600 mt-2">
-              ₹{s.pending_value ?? 0}
+              {s.pending_friends ?? 0}
             </div>
             <span className="text-[11px] text-gray-500 mt-1">
-              {te ? `${s.pending_friends ?? 0} మంది పేమెంట్ పెండింగ్` : `${s.pending_friends ?? 0} friends awaiting payment`}
+              {te ? "ఇది భవిష్యత్ ఆదాయం కాదు; qualifying payment నమోదైనప్పుడే reward లెక్కించబడుతుంది." : "This is not projected income; a reward is counted only when a qualifying payment is recorded."}
             </span>
           </div>
 
@@ -588,36 +470,36 @@ export default function ReferralPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="block text-[11px] font-bold text-gray-700 mb-1">
-                  {te ? "విత్‌డ్రా మొత్తం (కనీసం ₹50 — 1 రిఫరల్)" : "Withdrawal Amount (Min ₹50)"}
+                  {te ? `విత్‌డ్రా మొత్తం (కనీసం ₹${minPayout})` : `Withdrawal amount (minimum ₹${minPayout})`}
                 </label>
                 <input
                   type="number"
-                  min="50"
-                  max={s.wallet || 50}
+                  min={minPayout}
+                  max={s.wallet || minPayout}
                   value={pay.amount}
                   onChange={(e) => setPay({ ...pay, amount: e.target.value })}
                   className="w-full px-4 py-2 rounded-xl border border-gray-300 text-xs focus:border-maroon outline-none"
-                  placeholder="Amount (e.g. 50)"
+                  placeholder={te ? "మొత్తం (₹)" : "Amount (₹)"}
                 />
               </div>
 
               <div>
                 <label className="block text-[11px] font-bold text-gray-700 mb-1">
-                  {te ? "మీ Google Pay / PhonePe / Paytm UPI ID" : "Your UPI ID (e.g. name@okhdfcbank)"}
+                  {te ? "మీ UPI ID" : "Your UPI ID"}
                 </label>
                 <input
                   type="text"
                   value={pay.upi}
                   onChange={(e) => setPay({ ...pay, upi: e.target.value })}
                   className="w-full px-4 py-2 rounded-xl border border-gray-300 text-xs focus:border-maroon outline-none"
-                  placeholder="yourname@okicici"
+                  placeholder={te ? "UPI ID నమోదు చేయండి" : "Enter your UPI ID"}
                 />
               </div>
             </div>
 
             <div className="flex items-center justify-between pt-2">
               <span className="text-[11px] text-gray-500">
-                {te ? "⏱️ అడ్మిన్ ఆమోదించిన 24-48 గంటల్లో UTR నంబర్‌తో జమ చేయబడుతుంది." : "⏱️ Settled within 24-48 hours with official UTR."}
+                {te ? "ఈ అభ్యర్థన admin review లో ఉంటుంది; processing time కు హామీ లేదు." : "This request receives manual admin review; no processing time is guaranteed."}
               </span>
 
               <button
@@ -632,7 +514,7 @@ export default function ReferralPage() {
 
             {payRes && (
               <div className={`p-3 rounded-xl text-xs font-semibold ${payRes.success ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"}`}>
-                {payRes.message_telugu || payRes.reason || payRes.detail}
+                {apiDisplayMessage(payRes, te, te ? "Payout అభ్యర్థనను పూర్తి చేయలేకపోయాం." : "The payout request could not be completed.")}
               </div>
             )}
           </div>
@@ -667,7 +549,7 @@ export default function ReferralPage() {
           </div>
 
           <div className="p-3 bg-amber-50/70 rounded-2xl border border-amber-200/80 font-mono text-xs text-maroon break-all select-all">
-            {link || "https://manavivaha.in/r/..."}
+            {link || (te ? "రెఫరల్ ID లోడ్ అవుతున్నప్పుడు వేచి ఉండండి" : "Loading your referral link…")}
           </div>
         </div>
 
@@ -676,8 +558,7 @@ export default function ReferralPage() {
           {[
             { id: "overview", label: te ? "📊 అవలోకనం" : "📊 Overview" },
             { id: "shop_poster", label: te ? "🏪 షాప్ స్టిక్కర్ & QR పోస్టర్" : "🏪 Shop Sticker & QR Poster" },
-            { id: "status_poster", label: te ? "🖼️ వాట్సాప్ స్టేటస్ పోస్టర్" : "🖼️ Status Poster" },
-            { id: "calculator", label: te ? "🧮 సంపాదన కాలిక్యులేటర్" : "🧮 Calculator" },
+            { id: "status_poster", label: te ? "🖼️ referral పోస్టర్" : "🖼️ Referral Poster" },
             { id: "friends", label: te ? `👥 నా రెఫరల్స్ (${friendsList.length})` : `👥 Referred Friends (${friendsList.length})` },
             { id: "share", label: te ? "📲 వాట్సాప్ షేర్ కిట్" : "📲 Share Kit" },
             { id: "payouts", label: te ? "🧾 విత్‌డ్రా హిస్టరీ" : "🧾 Payout History" },
@@ -705,12 +586,11 @@ export default function ReferralPage() {
               <div>
                 <h3 className="text-xl font-black text-maroon flex items-center gap-2">
                   <span>🏪</span>
-                  <span>{te ? "షాప్ & స్టిక్కర్ QR పోస్టర్ స్టూడియో (Printable Standee)" : "Shop & Sticker QR Poster Studio"}</span>
+                  <span>{te ? "షాప్ & స్టిక్కర్ QR పోస్టర్" : "Shop & Sticker QR Poster"}</span>
                 </h3>
                 <p className="text-xs text-slate-500 mt-1">
-                  {te
-                    ? "ఈ పోస్టర్‌ను ప్రింట్ చేసి దుకాణాలు, జిరాక్స్ సెంటర్లు, ఫంక్షన్ హాళ్లలో స్టిక్కర్‌లా అతికించండి లేదా వాట్సాప్‌లో షేర్ చేయండి. ఎవరైనా స్కాన్ చేసి చేరితే మీకు నేరుగా ₹50 నగదు!"
-                    : "Print this QR poster as a sticker/standee for shops, xerox centers, or share on WhatsApp. Earn ₹50 cash per paid referral!"}
+                  {te ? "మీ referral QR ను పోస్టర్‌గా డౌన్‌లోడ్ చేసి షేర్ చేయండి. ₹50 reward నియమాలు, మినహాయింపులు మరియు payout review వివరాలు terms లో ఉన్నాయి."
+                    : "Download and share your referral QR poster. See the terms for the one-time qualifying-plan reward, exclusions, and payout review."}
                 </p>
               </div>
 
@@ -722,7 +602,7 @@ export default function ReferralPage() {
                   disabled={shopPosterDownloading}
                   className="px-4 sm:px-5 py-2.5 rounded-2xl gold-gradient text-maroon font-black text-xs shadow-md hover:brightness-105 transition flex items-center gap-1.5 disabled:opacity-50"
                 >
-                  {shopPosterDownloading ? "డౌన్‌లోడ్…" : "📸 HD పోస్టర్ డౌన్‌లోడ్ (JPG)"}
+                  {shopPosterDownloading ? (te ? "డౌన్‌లోడ్ అవుతోంది…" : "Downloading…") : (te ? "📸 పోస్టర్ డౌన్‌లోడ్ (JPG)" : "📸 Download poster (JPG)")}
                 </button>
                 <button
                   type="button"
@@ -733,15 +613,16 @@ export default function ReferralPage() {
                   <span>{te ? "ప్రింట్" : "Print"}</span>
                 </button>
                 <a
-                  href={`https://wa.me/?text=${encodeURIComponent(
-                    `🙏 *మన వివాహ (MANA VIVAHA) — తెలుగు వివాహ వేదిక*\n⚡ *కేవలం 1-నిమిషంలో ఉచిత రిజిస్ట్రేషన్!*\n💍 ధృవీకరించబడిన తెలుగు సంబంధాలు • కేవలం ₹99 కే ప్లాన్స్!\n📲 నా రిఫరల్ లింక్ ద్వారా ఇప్పుడే ఉచితంగా చేరండి:\n👉 https://manavivaha.in/register?ref=${refCodeActive}\n\n(లేదా QR కోడ్ స్కాన్ చేయండి)`
+                  href={`https://wa.me/?text=${encodeURIComponent(te
+                    ? `🙏 మన వివాహ (Mana Vivaha)\nఉచిత నమోదు • 3 ఆసక్తి అభ్యర్థనలు • వినియోగదారు ప్లాన్‌లు ₹99 నుంచి.\nనా referral link: ${refRegistrationUrl}\nబహుమతి అర్హత మరియు మినహాయింపులు: https://manavivaha.in/referral`
+                    : `🙏 Mana Vivaha (మన వివాహ)\nFree registration • 3 interest requests • consumer plans from ₹99.\nMy referral link: ${refRegistrationUrl}\nReward eligibility and exclusions: https://manavivaha.in/referral`
                   )}`}
                   target="_blank"
-                  rel="noreferrer"
+                  rel="noopener noreferrer"
                   className="px-4 py-2.5 rounded-2xl bg-[#25D366] text-white font-black text-xs shadow-md hover:brightness-105 transition flex items-center gap-1.5"
                 >
                   <WhatsAppIcon className="w-4 h-4 fill-white" />
-                  <span>వాట్సాప్ షేర్</span>
+                  <span>{te ? "WhatsApp ద్వారా పంచుకోండి" : "Share on WhatsApp"}</span>
                 </a>
               </div>
             </div>
@@ -751,7 +632,7 @@ export default function ReferralPage() {
               <div className="lg:col-span-4 space-y-4 bg-amber-50/50 p-5 rounded-3xl border border-gold/30 text-xs">
                 {/* Business / Shop Template Picker */}
                 <div>
-                  <label className="font-bold text-slate-800 block mb-1">🏢 షాప్ / ప్రచార రకం (Shop Template):</label>
+                  <label className="font-bold text-slate-800 block mb-1">🏢 {te ? "దుకాణం / పంచుకునే నమూనా" : "Shop or sharing template"}</label>
                   <div className="grid grid-cols-2 gap-1.5">
                     {Object.values(SHOP_TEMPLATES).map((t) => (
                       <button
@@ -764,19 +645,19 @@ export default function ReferralPage() {
                             : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
                         }`}
                       >
-                        {t.label}
+                        {te ? t.labelTe : t.labelEn}
                       </button>
                     ))}
                   </div>
                 </div>
 
                 <div>
-                  <label className="font-bold text-slate-800 block mb-1">🎨 పోస్టర్ థీమ్ (Poster Theme):</label>
+                  <label className="font-bold text-slate-800 block mb-1">🎨 {te ? "పోస్టర్ రంగు థీమ్" : "Poster colour theme"}</label>
                   <div className="grid grid-cols-3 gap-1.5">
                     {[
-                      { v: "maroon", l: "రాయల్ మెరూన్" },
-                      { v: "gold", l: "టెంపుల్ గోల్డ్" },
-                      { v: "navy", l: "రాయల్ నేవీ" },
+                      { v: "maroon", te: "రాయల్ మెరూన్", en: "Royal maroon" },
+                      { v: "gold", te: "టెంపుల్ గోల్డ్", en: "Temple gold" },
+                      { v: "navy", te: "రాయల్ నేవీ", en: "Royal navy" },
                     ].map((t) => (
                       <button
                         key={t.v}
@@ -788,19 +669,19 @@ export default function ReferralPage() {
                             : "bg-white text-slate-700 border-slate-200"
                         }`}
                       >
-                        {t.l}
+                        {te ? t.te : t.en}
                       </button>
                     ))}
                   </div>
                 </div>
 
                 <div>
-                  <label className="font-bold text-slate-800 block mb-1">🏷️ షాప్ / సెంటర్ పేరు (Business Name):</label>
+                  <label className="font-bold text-slate-800 block mb-1">🏷️ {te ? "దుకాణం / వ్యాపారం పేరు" : "Business or shop name"}</label>
                   <input
                     type="text"
                     value={posterCustomName}
                     onChange={(e) => setPosterCustomName(e.target.value)}
-                    placeholder="ఉదా: శ్రీ సాయి జిరాక్స్ సెంటర్ / రమేష్"
+                    placeholder={te ? "మీ వ్యాపారం లేదా దుకాణం పేరు" : "Your business or shop name"}
                     className="w-full p-2.5 border border-slate-200 rounded-xl bg-white focus:outline-none focus:border-maroon"
                   />
                 </div>
@@ -808,12 +689,13 @@ export default function ReferralPage() {
                 <div className="bg-white p-3.5 rounded-2xl border border-gold/30 space-y-2 text-slate-700">
                   <div className="font-black text-maroon flex items-center gap-1.5">
                     <span>💡</span>
-                    <span>షాప్ స్టిక్కర్ వ్యూహం (Marketing Tips):</span>
+                    <span>{te ? "Referral నియమాలు" : "Referral terms"}</span>
                   </div>
                   <ul className="space-y-1 text-[11px] list-disc list-inside">
-                    <li>ఈ పోస్టర్‌ని కౌంటర్ లేదా గ్లాస్ డోర్‌పై అతికించండి.</li>
-                    <li>కస్టమర్లు స్కాన్ చేసి చేరితే మీకు +2 క్రెడిట్స్ మరియు ₹50 నగదు!</li>
-                    <li>WhatsApp గ్రూపులలో HD JPG ఇమేజ్ షేర్ చేయండి.</li>
+                    <li>Share this QR only with people who may want to register.</li>
+                    <li>Valid referral attachment: +2 request credits to the referrer and +1 to the new user; not cash.</li>
+                    <li>₹50 is a one-time possible reward only on the first qualifying S_99/S_199/S_299/S_499 consumer-plan payment of at least ₹99.</li>
+                    <li>Add-ons, assisted services, boosts, gifts, renewals, complimentary grants and B2B/non-consumer payments are excluded. Payout requests receive manual review.</li>
                   </ul>
                 </div>
               </div>
@@ -821,8 +703,7 @@ export default function ReferralPage() {
               {/* Printable Canvas Column (8 cols) */}
               <div className="lg:col-span-8 flex flex-col items-center">
                 <div className="text-xs font-bold text-slate-500 mb-2 flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                  <span>ప్రింటబుల్ HD షాప్ స్టిక్కర్ పోస్టర్ ({SHOP_TEMPLATES[shopTemplate]?.label})</span>
+                  <span>{te ? SHOP_TEMPLATES[shopTemplate]?.labelTe : SHOP_TEMPLATES[shopTemplate]?.labelEn}</span>
                 </div>
 
                 {/* The Poster Target */}
@@ -845,24 +726,21 @@ export default function ReferralPage() {
 
                   {/* Brand Header */}
                   <div className="border-b-2 border-dashed border-amber-300 pb-3 space-y-1">
-                    <div className="flex items-center justify-center gap-1.5 text-xs font-black text-amber-900 tracking-wider">
-                      <span>🙏 || శ్రీరస్తు — శుభమస్తు || 🙏</span>
+                    <div className="flex items-center justify-center gap-3">
+                      <Image src="/brand/logo-square-256.png" alt="Mana Vivaha logo" width={48} height={48} className="h-12 w-12 rounded-xl object-contain" />
+                      <div className="text-left">
+                        <div className="text-xl sm:text-2xl font-black text-[#7A0C2E] tracking-tight">Mana Vivaha • మన వివాహ</div>
+                        <p className="text-xs font-bold text-slate-600">{te ? "తెలుగు వివాహ ప్రొఫైల్ వేదిక" : "Telugu matrimony profiles"}</p>
+                      </div>
                     </div>
-                    <div className="text-2xl sm:text-3xl font-black text-[#7A0C2E] tracking-tight uppercase">
-                      మన వివాహ (MANA VIVAHA)
-                    </div>
-                    <p className="text-xs font-bold text-slate-600 telugu">
-                      తెలుగువారి అత్యంత విశ్వసనీయ & పవిత్ర వివాహ వేదిక 💍
-                    </p>
                   </div>
 
-                  {/* 1-Minute Registration Dynamic Hook */}
+                  {/* Referral invitation */}
                   <div className="bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-400 text-[#5C0822] rounded-2xl p-2.5 shadow-sm">
                     <div className="text-sm sm:text-base font-black uppercase tracking-wide">
-                      {SHOP_TEMPLATES[shopTemplate]?.hookTe || "⚡ కేవలం 1-నిమిషంలో ఉచిత రిజిస్ట్రేషన్!"}
-                    </div>
-                    <div className="text-[11px] font-extrabold mt-0.5">
-                      {SHOP_TEMPLATES[shopTemplate]?.hookEn || "1-MINUTE FREE TELUGU MATRIMONY REGISTRATION"}
+                      {te
+                        ? (SHOP_TEMPLATES[shopTemplate]?.hookTe || "మన వివాహ referral link ను పంచుకోండి")
+                        : (SHOP_TEMPLATES[shopTemplate]?.hookEn || "Share your Mana Vivaha referral link")}
                     </div>
                   </div>
 
@@ -870,26 +748,24 @@ export default function ReferralPage() {
                   <div className="bg-white p-4 rounded-3xl border-2 border-gold shadow-md inline-block mx-auto space-y-2">
                     <div className="w-48 h-48 sm:w-56 sm:h-56 mx-auto flex items-center justify-center">
                       {qrCodeUrl ? (
-                        <img src={qrCodeUrl} alt="Scan QR" className="w-full h-full object-contain" />
+                        <Image src={qrCodeUrl} alt="Scan QR" width={224} height={224} unoptimized className="w-full h-full object-contain" />
                       ) : (
                         <div className="w-48 h-48 bg-slate-100 flex items-center justify-center text-xs">QR</div>
                       )}
                     </div>
                     <div className="inline-block px-4 py-1.5 rounded-full maroon-gradient text-white text-[11px] font-black shadow-xs">
-                      {SHOP_TEMPLATES[shopTemplate]?.subTe || "📱 కెమెరా / PhonePe / GPay తో స్కాన్ చేయండి"}
-                    </div>
-                    <div className="text-[10px] text-slate-500 font-bold">
-                      {SHOP_TEMPLATES[shopTemplate]?.subEn || "Scan to browse verified Telugu matches"}
+                      {te
+                        ? (SHOP_TEMPLATES[shopTemplate]?.subTe || "📱 QR కోడ్ స్కాన్ చేయండి")
+                        : (SHOP_TEMPLATES[shopTemplate]?.subEn || "Scan the QR code to open registration")}
                     </div>
                   </div>
 
                   {/* Marketing Highlights */}
                   <div className="space-y-1.5 text-xs text-slate-800 text-left bg-amber-50/70 p-3.5 rounded-2xl border border-gold/30">
-                    {(SHOP_TEMPLATES[shopTemplate]?.points || [
-                      "ధృవీకరించబడిన వధువు & వరుల సంబంధాలు",
-                      "100% ఫోటో & ఫోన్ నంబర్ గోప్యతా రక్షణ",
-                      "కేవలం ₹99 కే ప్లాన్స్ — వేల రూపాయల భారం లేదు!",
-                    ]).map((pt, i) => (
+                    {(te
+                      ? (SHOP_TEMPLATES[shopTemplate]?.pointsTe || ["ఉచిత నమోదు • 3 ఆసక్తి అభ్యర్థనలు", "వినియోగదారు ప్లాన్‌లు ₹99 నుంచి", "యజమాని అంగీకారం తర్వాతే సంప్రదింపు వివరాలు"])
+                      : (SHOP_TEMPLATES[shopTemplate]?.pointsEn || ["Free registration • 3 interest requests", "Consumer plans from ₹99", "Contact details after owner acceptance"])
+                    ).map((pt, i) => (
                       <div key={i} className="flex items-center gap-2">
                         <span className="text-emerald-600 font-bold">✓</span>
                         <span className="font-bold">{pt}</span>
@@ -900,12 +776,12 @@ export default function ReferralPage() {
                   {/* Referral Attribution Footer */}
                   <div className="pt-2 border-t border-slate-200 flex items-center justify-between text-[11px] text-slate-600">
                     <div>
-                      <span className="font-bold block text-maroon">సిఫార్సు కోడ్: {refCodeActive}</span>
-                      {posterCustomName && <span className="font-semibold text-slate-500">సెంటర్: {posterCustomName}</span>}
+                      <span className="font-bold block text-maroon">Referral code: {refCodeActive}</span>
+                      {posterCustomName && <span className="font-semibold text-slate-500">{te ? "కేంద్రం:" : "Business:"} {posterCustomName}</span>}
                     </div>
                     <div className="text-right">
-                      <span className="font-bold text-slate-900 block">📞 6304996088</span>
-                      <span className="text-[10px] text-slate-500">manavivaha.in</span>
+                      <span className="font-bold text-slate-900 block">manavivaha.in</span>
+                      <span className="text-[10px] text-slate-500">Free registration • 3 interest requests</span>
                     </div>
                   </div>
                 </div>
@@ -914,165 +790,32 @@ export default function ReferralPage() {
           </div>
         )}
 
-        {/* ================= TAB: WHATSAPP STATUS & EARNINGS POSTER GENERATOR ================= */}
+        {/* ================= TAB: REFERRAL INFORMATION POSTER ================= */}
         {activeTab === "status_poster" && (
-          <div className="bg-white rounded-3xl p-6 sm:p-8 border border-gold/40 shadow-sm space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div>
-                <h3 className="text-xl font-extrabold text-maroon flex items-center gap-2">
-                  <span>🖼️</span>
-                  <span>{te ? "వాట్సాప్ స్టేటస్ & ఎర్నింగ్స్ ప్రూఫ్ పోస్టర్" : "WhatsApp Status & Earnings Proof Poster"}</span>
-                </h3>
-                <p className="text-xs text-gray-500 mt-1">
-                  {te
-                    ? "మీ సంపాదన మరియు రెఫరల్ కోడ్‌తో కూడిన హై-రిజల్యూషన్ కార్డ్ ఆటోమేటిక్‌గా తయారవుతుంది. దీన్ని వాట్సాప్ స్టేటస్‌లో పెట్టి సులభంగా మరిన్ని రెఫరల్స్ పొందండి!"
-                    : "Automatically generated high-resolution card with your earnings and referral QR code to share on WhatsApp Status."}
-                </p>
-              </div>
-
-              {/* Format Switcher */}
-              <div className="flex items-center gap-1.5 p-1 bg-amber-50 rounded-2xl border border-gold/40 shrink-0">
-                <button
-                  type="button"
-                  onClick={() => setPosterFormat("story")}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition ${
-                    posterFormat === "story" ? "maroon-gradient text-white shadow-xs" : "text-gray-600 hover:text-maroon"
-                  }`}
-                >
-                  📱 {te ? "స్టేటస్ (Story)" : "Status (Story)"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPosterFormat("banner")}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition ${
-                    posterFormat === "banner" ? "maroon-gradient text-white shadow-xs" : "text-gray-600 hover:text-maroon"
-                  }`}
-                >
-                  💻 {te ? "సోషల్ బ్యానర్" : "Social Banner"}
-                </button>
-              </div>
+          <div className="bg-white rounded-3xl p-6 sm:p-8 border border-gold/40 shadow-sm space-y-5">
+            <div>
+              <h3 className="text-xl font-extrabold text-maroon">🖼️ {te ? "Referral QR పోస్టర్" : "Referral QR Poster"}</h3>
+              <p className="mt-2 text-sm text-gray-600 leading-relaxed">
+                {te
+                  ? "ఈ పోస్టర్ referral link ను పంచుకోవడానికి మాత్రమే. ఇది సంపాదన లేదా payout రసీదు కాదు. ₹50 reward అర్హత నియమాలు మరియు మినహాయింపులు చూడండి."
+                  : "This poster shares your referral link; it is not proof of earnings or payout. Review the ₹50 reward eligibility and exclusions before sharing."}
+              </p>
             </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-              
-              {/* Controls Column (5 cols) */}
-              <div className="lg:col-span-5 space-y-5 bg-amber-50/50 p-5 rounded-3xl border border-amber-200/80">
-                
-                {/* Amount presets */}
-                <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-1.5">
-                    💰 {te ? "పోస్టర్‌పై చూపించాల్సిన మొత్తం (Amount):" : "Amount to display on poster:"}
-                  </label>
-                  <div className="grid grid-cols-3 gap-2">
-                    {[50, 100, 250, 500, 1000, 2500].map((amt) => (
-                      <button
-                        key={amt}
-                        type="button"
-                        onClick={() => setPosterAmount(amt)}
-                        className={`py-2 rounded-xl text-xs font-black transition border ${
-                          posterAmount === amt
-                            ? "bg-[#7A0C2E] text-white border-[#7A0C2E] shadow-sm"
-                            : "bg-white text-gray-700 border-gold/40 hover:bg-amber-100/50"
-                        }`}
-                      >
-                        ₹{amt}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Custom Name */}
-                <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-1">
-                    ✍️ {te ? "మీ పేరు (Partner Name):" : "Your Name:"}
-                  </label>
-                  <input
-                    type="text"
-                    value={posterCustomName}
-                    onChange={(e) => setPosterCustomName(e.target.value)}
-                    placeholder={dash?.name || quickName || "మీ పేరు"}
-                    className="w-full px-4 py-2.5 rounded-xl border border-gold/40 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-maroon font-bold text-navy"
-                  />
-                </div>
-
-                {/* Status Captions Kit */}
-                <div className="space-y-2 pt-2 border-t border-amber-200">
-                  <span className="text-xs font-bold text-maroon block">
-                    💬 {te ? "స్టేటస్ కింద పెట్టే తెలుగు క్యాప్షన్:" : "WhatsApp Status Caption:"}
-                  </span>
-                  <div className="p-3 bg-white rounded-2xl border border-gold/30 text-xs text-gray-700 space-y-2">
-                    <p className="font-semibold text-gray-800">
-                      “{statusCaption}”
-                    </p>
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          navigator.clipboard?.writeText(statusCaption);
-                          setCopied("caption");
-                          setTimeout(() => setCopied(""), 2000);
-                        }}
-                        className="px-3 py-1.5 rounded-lg bg-amber-100 hover:bg-amber-200 text-maroon font-bold text-[11px] transition"
-                      >
-                        {copied === "caption" ? "✅ కాపీ అయింది!" : "📋 కాపీ క్యాప్షన్"}
-                      </button>
-                      <a
-                        href={`https://api.whatsapp.com/send?text=${encodeURIComponent(statusCaption)}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] transition flex items-center gap-1"
-                      >
-                        <WhatsAppIcon className="w-3.5 h-3.5 fill-current" />
-                        <span>వాట్సాప్‌లో షేర్</span>
-                      </a>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Instant Download Button */}
-                <div className="space-y-2 pt-2">
-                  <a
-                    href={`/api/referral/earnings-card?code=${encodeURIComponent(dash?.code || quickSuccess?.partner_id || "PARTNER")}&name=${encodeURIComponent(posterCustomName || dash?.name || quickName || "Partner")}&amount=${posterAmount}&paid_count=${s.paid_count || 1}&tier=${encodeURIComponent(tier?.key || "BRONZE")}&format=${posterFormat}`}
-                    download={`manavivaha-earnings-${dash?.code || "mv"}-${posterFormat}.png`}
-                    className="w-full py-3 rounded-2xl maroon-gradient text-white text-xs font-black shadow-md hover:shadow-lg transition flex items-center justify-center gap-2 text-center"
-                  >
-                    <span>📥</span>
-                    <span>{te ? "HD పోస్టర్ డౌన్‌లోడ్ చేయండి (PNG)" : "Download HD Poster (PNG)"}</span>
-                  </a>
-                  <p className="text-[10px] text-gray-500 text-center">
-                    {te ? "గ్యాలరీలో సేవ్ చేసుకొని మీ వాట్సాప్ / ఇన్‌స్టాగ్రామ్ స్టేటస్‌లో పెట్టండి 📲" : "Save to gallery & share to WhatsApp / Instagram story"}
-                  </p>
-                </div>
-
+            {tsapId ? (
+              <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+                <Image src={`/api/referral/${encodeURIComponent(tsapId)}/poster.png?style=status`}
+                  alt="Mana Vivaha referral QR poster" width={512} height={768} unoptimized className="mx-auto max-h-[70vh] w-auto max-w-full rounded-2xl border border-amber-200 object-contain" />
+                <a href={`/api/referral/${encodeURIComponent(tsapId)}/poster.png?style=status`} download
+                  className="inline-flex min-h-11 items-center justify-center rounded-xl bg-[#7A0C2E] px-5 py-3 text-sm font-bold text-white hover:bg-[#5e0824]">
+                  {te ? "📥 Referral పోస్టర్ డౌన్‌లోడ్" : "📥 Download referral poster"}
+                </a>
               </div>
-
-              {/* Live Preview Column (7 cols) */}
-              <div className="lg:col-span-7 flex flex-col items-center">
-                <div className="text-xs font-bold text-gray-500 mb-2 flex items-center gap-2">
-                  <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                  <span>{te ? "లైవ్ పోస్టర్ ప్రివ్యూ (Live Generated Card)" : "Live Generated Card Preview"}</span>
-                </div>
-
-                <div className="relative rounded-3xl overflow-hidden shadow-2xl border-4 border-amber-300 max-w-sm w-full bg-slate-900 group">
-                  <img
-                    src={`/api/referral/earnings-card?code=${encodeURIComponent(dash?.code || quickSuccess?.partner_id || "PARTNER")}&name=${encodeURIComponent(posterCustomName || dash?.name || quickName || "Partner")}&amount=${posterAmount}&paid_count=${s.paid_count || 1}&tier=${encodeURIComponent(tier?.key || "BRONZE")}&format=${posterFormat}&t=${posterAmount}`}
-                    alt="Referral Earnings Proof Card"
-                    className="w-full h-auto object-contain block"
-                    loading="lazy"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-4">
-                    <a
-                      href={`/api/referral/earnings-card?code=${encodeURIComponent(dash?.code || quickSuccess?.partner_id || "PARTNER")}&name=${encodeURIComponent(posterCustomName || dash?.name || quickName || "Partner")}&amount=${posterAmount}&paid_count=${s.paid_count || 1}&tier=${encodeURIComponent(tier?.key || "BRONZE")}&format=${posterFormat}`}
-                      target="_blank"
-                      className="w-full py-2 bg-amber-400 text-maroon rounded-xl font-bold text-xs text-center shadow"
-                    >
-                      🔍 {te ? "పూర్తి పరిమాణంలో చూడండి" : "View Full Size"}
-                    </a>
-                  </div>
-                </div>
-              </div>
-
-            </div>
+            ) : (
+              <p className="rounded-xl bg-amber-50 p-4 text-sm text-amber-900">{te ? "ముందుగా మీ referral ID లోడ్ చేయండి." : "Load your referral ID to view its poster."}</p>
+            )}
+            <Link href="/referral" className="text-sm font-semibold text-[#7A0C2E] underline underline-offset-2">
+              {te ? "పూర్తి referral terms" : "View full referral terms"}
+            </Link>
           </div>
         )}
 
@@ -1098,98 +841,38 @@ export default function ReferralPage() {
                   <span className="w-6 h-6 rounded-full bg-maroon text-white font-bold flex items-center justify-center shrink-0 text-xs">2</span>
                   <div>
                     <b className="text-maroon block mb-0.5">{te ? "స్నేహితుడు రిజిస్టర్ అవుతాడు" : "Friend Registers (FREE)"}</b>
-                    {te ? "వారు ఉచితంగా రిజిస్టర్ అయి 3 మ్యాచెస్ పొందుతారు (+1 బోనస్ క్రెడిట్)." : "They register free, get 3 free profiles (+1 referee bonus credit)."}
+                    {te ? "ఉచిత నమోదు తో 3 interest requests ఉంటాయి. Valid referral attach అయితే కొత్త user కు అదనంగా +1 request credit వస్తుంది; ఇది cash కాదు." : "Free registration includes 3 interest requests. A valid referral attachment adds +1 request credit to the new user; it is not cash."}
                   </div>
                 </div>
 
                 <div className="flex items-start gap-3 p-3 bg-amber-50/60 rounded-2xl border border-amber-100">
                   <span className="w-6 h-6 rounded-full bg-maroon text-white font-bold flex items-center justify-center shrink-0 text-xs">3</span>
                   <div>
-                    <b className="text-maroon block mb-0.5">{te ? "మొదటి పేమెంట్ = ₹50 మీ వాలెట్‌కు" : "First Payment = ₹50 to Your Wallet"}</b>
-                    {te ? "వారు ఎప్పుడైనా ₹99 (లేదా ఏదైనా ప్లాన్) చెల్లించగానే, తక్షణమే మీ వాలెట్‌కు ₹50 జమ అవుతుంది." : "Whenever they pay ₹99 (or any plan), ₹50 lands straight into your wallet!"}
+                    <b className="text-maroon block mb-0.5">{te ? "అర్హమైన first-plan payment పై ఒక్కసారి ₹50" : "One-time ₹50 on a qualifying first-plan payment"}</b>
+                    {te ? "Referee మొదటి S_99/S_199/S_299/S_499 consumer-plan payment కనీసం ₹99 అయినప్పుడు మాత్రమే referrer కు ఒక్కసారి ₹50 అర్హత ఉండవచ్చు. మినహాయింపులు వర్తిస్తాయి; payout manual review లో ఉంటుంది." : "The referrer may qualify once when the referee’s first S_99/S_199/S_299/S_499 consumer-plan payment is at least ₹99. Exclusions apply and payout requests receive manual review."}
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Who Can Earn Card */}
+            {/* Referral credit and payout rules */}
             <div className="bg-white rounded-3xl p-6 border border-gold/30 shadow-sm space-y-4">
               <h3 className="font-extrabold text-maroon text-base">
-                🌟 {te ? "ఎవరెవరు సంపాదించవచ్చు?" : "Who Can Earn?"}
+                🔎 {te ? "క్రెడిట్స్ మరియు payout" : "Credits and payout"}
               </h3>
-              <div className="grid grid-cols-2 gap-2.5 text-center">
-                {[
-                  { icon: "🎓", role: te ? "విద్యార్థులు" : "Students", desc: te ? "పాకెట్ మనీ కోసం" : "For pocket money" },
-                  { icon: "🏡", role: te ? "గృహిణులు" : "Homemakers", desc: te ? "ఇంట్లోనే కూర్చుని" : "From home" },
-                  { icon: "💼", role: te ? "ఉద్యోగస్తులు" : "Professionals", desc: te ? "సైడ్ ఇన్‌కమ్‌గా" : "As side income" },
-                  { icon: "🤝", role: te ? "వివాహ బ్యూరోలు" : "Matchmakers", desc: te ? "అదనపు ఆదాయం" : "Extra commission" },
-                ].map((item) => (
-                  <div key={item.role} className="p-3 bg-slate-50 rounded-2xl border border-slate-100">
-                    <div className="text-2xl">{item.icon}</div>
-                    <div className="font-bold text-xs text-maroon mt-1">{item.role}</div>
-                    <div className="text-[10px] text-gray-500">{item.desc}</div>
-                  </div>
-                ))}
-              </div>
-              <div className="p-3 bg-emerald-50 rounded-2xl border border-emerald-200 text-xs text-emerald-800 text-center font-bold">
-                {te ? "💡 10 మంది పే చేస్తే = ₹500 నేరుగా మీ UPI బ్యాంక్ ఖాతాకు!" : "💡 10 Paid Referrals = ₹500 direct to your UPI account!"}
+              <div className="space-y-3 text-xs leading-relaxed text-gray-700">
+                <div className="rounded-2xl border border-amber-100 bg-amber-50/60 p-4">
+                  <b className="text-maroon">{te ? "Valid referral attach" : "Valid referral attachment"}</b>
+                  <p className="mt-1">{te ? "Referrer కు +2, కొత్త user కు +1 interest-request credits. ఇవి cash లేదా contact unlocks కావు." : "The referrer gets +2 and the new user +1 interest-request credits. These are not cash or contact unlocks."}</p>
+                </div>
+                <div className="rounded-2xl border border-emerald-100 bg-emerald-50/60 p-4">
+                  <b className="text-maroon">{te ? "ఒక్కసారి ₹50 reward" : "One-time ₹50 reward"}</b>
+                  <p className="mt-1">{te ? "మొదటి qualifying S_99/S_199/S_299/S_499 consumer-plan payment కనీసం ₹99 అయితే మాత్రమే. Add-ons, assisted services, boosts, gifts, renewals, complimentary grants మరియు B2B/non-consumer payments మినహాయింపు." : "Only if the first qualifying S_99/S_199/S_299/S_499 consumer-plan payment is at least ₹99. Add-ons, assisted services, boosts, gifts, renewals, complimentary grants and B2B/non-consumer payments are excluded."}</p>
+                </div>
+                <p className="text-gray-500">{te ? "Payout requests require at least the stated wallet minimum and manual admin review; no fixed processing time is promised." : "Payout requests require the stated wallet minimum and manual admin review; no fixed processing time is promised."}</p>
               </div>
             </div>
 
-          </div>
-        )}
-
-        {/* ================= TAB 2: INTERACTIVE EARNINGS CALCULATOR ================= */}
-        {activeTab === "calculator" && (
-          <div className="bg-white rounded-3xl p-6 sm:p-8 border border-gold/40 shadow-sm space-y-6">
-            <div className="text-center space-y-1">
-              <h3 className="text-xl font-extrabold text-maroon">
-                🧮 {te ? "లైవ్ సంపాదన కాలిక్యులేటర్" : "Live Earnings Calculator"}
-              </h3>
-              <p className="text-xs text-gray-500">
-                {te ? "మీరు ఎంత మందిని రిఫర్ చేస్తే ఎంత సంపాదించవచ్చో క్రింద స్లైడర్ ద్వారా పరిశీలించండి:" : "Slide to see your potential earnings:"}
-              </p>
-            </div>
-
-            <div className="max-w-xl mx-auto space-y-6">
-              <div className="bg-amber-50/70 p-6 rounded-3xl border border-amber-200 text-center space-y-3">
-                <span className="text-xs font-bold text-gray-600 block">
-                  {te ? "చెల్లించిన రిఫరల్స్ సంఖ్య:" : "Number of Paying Referrals:"}
-                </span>
-                <div className="text-4xl font-black text-navy">{calcCount} <span className="text-lg font-normal text-gray-500">{te ? "స్నేహితులు" : "Friends"}</span></div>
-
-                <input
-                  type="range"
-                  min="1"
-                  max="100"
-                  step="1"
-                  value={calcCount}
-                  onChange={(e) => setCalcCount(parseInt(e.target.value, 10))}
-                  className="w-full accent-[#7A0C2E] cursor-pointer"
-                />
-
-                <div className="flex justify-between text-[11px] font-bold text-gray-400">
-                  <span>1 Friend (₹50)</span>
-                  <span>25 Friends (₹1,250)</span>
-                  <span>50 Friends (₹2,500)</span>
-                  <span>100 Friends (₹5,000)</span>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="p-5 bg-gradient-to-br from-emerald-50 to-emerald-100/50 rounded-3xl border border-emerald-300 text-center">
-                  <span className="text-xs font-bold text-emerald-800 block">{te ? "మీకు వచ్చే కమీషన్ (₹50/Friend)" : "Your Cash Earnings"}</span>
-                  <div className="text-3xl sm:text-4xl font-black text-emerald-700 mt-1">₹{estimatedEarnings}</div>
-                  <span className="text-[10px] text-emerald-600 block mt-1">100% Instant UPI Payout</span>
-                </div>
-
-                <div className="p-5 bg-gradient-to-br from-amber-50 to-amber-100/50 rounded-3xl border border-gold/60 text-center">
-                  <span className="text-xs font-bold text-maroon block">{te ? "మీ భాగస్వామి స్థాయి (Tier)" : "Partner Tier & Bonus"}</span>
-                  <div className="text-lg sm:text-xl font-extrabold text-maroon mt-1">{estimatedTier.icon} {estimatedTier.name}</div>
-                  <span className="text-[11px] text-amber-800 font-bold block mt-1">{estimatedTier.bonus}</span>
-                </div>
-              </div>
-            </div>
           </div>
         )}
 
@@ -1202,7 +885,7 @@ export default function ReferralPage() {
                   👥 {te ? "మీ రిఫరల్ ద్వారా చేరిన సభ్యుల జాబితా" : "Your Referred Friends List"}
                 </h3>
                 <p className="text-xs text-gray-500 mt-0.5">
-                  {te ? "మీ లింక్ ద్వారా నమోదైన ప్రతి వ్యక్తి స్టేటస్ మరియు ₹50 flat కమీషన్ వివరాలు క్రింద చూడండి." : "Real-time details of members who joined with your code with ₹50 flat reward."}
+                  {te ? "Referral నమోదులు మరియు qualifying first-plan reward స్థితి ఇక్కడ చూడండి." : "Review referral registrations and the status of qualifying first-plan rewards."}
                 </p>
               </div>
               <span className="text-xs font-bold bg-amber-100 text-amber-800 px-3 py-1 rounded-full">
@@ -1217,7 +900,7 @@ export default function ReferralPage() {
                   {te ? "ఇంకా ఎవరూ మీ లింక్‌తో నమోదు కాలేదు" : "No referrals registered yet"}
                 </div>
                 <p className="text-xs text-gray-500 max-w-sm mx-auto">
-                  {te ? "మీ వాట్సాప్ స్టేటస్ లేదా గ్రూపులలో లింక్ షేర్ చేయండి. మొదటి రిఫరల్‌తో సంపాదన ప్రారంభించండి!" : "Share your link on WhatsApp to start getting referrals!"}
+                  {te ? "మీ referral link ను ఆసక్తి ఉన్న కుటుంబాలతో పంచుకోండి. Reward అనేది terms లోని అర్హతలపై ఆధారపడి ఉంటుంది." : "Share your referral link with interested families. Any reward depends on the eligibility terms."}
                 </p>
                 <button
                   type="button"
@@ -1244,7 +927,7 @@ export default function ReferralPage() {
                           <span className="font-mono text-[10px] text-gray-400 bg-white px-2 py-0.5 rounded border">ID: {r.tsap_id}</span>
                         </div>
                         <div className="text-[11px] text-gray-500 mt-0.5">
-                          {r.caste} · 🏡 {r.district} · 📅 {String(r.joined || "").slice(0, 10)}
+                          {[te ? r.caste : apiDisplayMessage({ message_en: r.caste }, false, ""), te ? r.district : apiDisplayMessage({ message_en: r.district }, false, "")].filter(Boolean).join(" · ")}{r.joined ? ` · 📅 ${String(r.joined).slice(0, 10)}` : ""}
                         </div>
                       </div>
                     </div>
@@ -1253,9 +936,12 @@ export default function ReferralPage() {
                       <span className={`text-xs font-bold px-3 py-1 rounded-full ${
                         r.paid
                           ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
+                          : r.reward_reversed || r.status_text_en?.startsWith("↩")
+                          ? "bg-rose-50 text-rose-800 border border-rose-200"
                           : "bg-amber-100 text-amber-800 border border-amber-300"
                       }`}>
-                        {r.paid ? `💰 ₹${r.commission || 50} జమయింది ✅` : (te ? "⏳ పేమెంట్ పెండింగ్ (⏳ pay pending)" : "⏳ pay pending")}
+                        {te ? (r.status_text_te || (r.paid ? "✅ అర్హమైన reward wallet లో నమోదైంది" : "⏳ అర్హత ఉన్న payment నమోదు కాలేదు"))
+                    : apiDisplayMessage({ message_en: r.status_text_en }, false, r.paid ? "✅ Eligible reward recorded" : "⏳ No qualifying payment recorded")}
                       </span>
                     </div>
                   </div>
@@ -1283,6 +969,7 @@ export default function ReferralPage() {
                   <a
                     href={`/api/referral/${tsapId}/poster.png?style=square`}
                     target="_blank"
+                    rel="noopener noreferrer"
                     className="px-3 py-1.5 rounded-xl border border-gold text-maroon font-bold hover:bg-gold-soft"
                   >
                     🖼️ {te ? "QR పోస్టర్" : "QR Poster"}
@@ -1290,6 +977,7 @@ export default function ReferralPage() {
                   <a
                     href={`/api/referral/${tsapId}/poster.png?style=status`}
                     target="_blank"
+                    rel="noopener noreferrer"
                     className="px-3 py-1.5 rounded-xl bg-navy text-white font-bold hover:bg-navy/90"
                   >
                     📱 {te ? "స్టేటస్ పోస్టర్" : "Status Poster"}
@@ -1300,7 +988,7 @@ export default function ReferralPage() {
 
             {/* Message Template Switcher */}
             <div className="flex gap-2">
-              {msgs.map((_, i) => (
+              {localizedMessages.map((_, i) => (
                 <button
                   key={i}
                   type="button"
@@ -1316,15 +1004,15 @@ export default function ReferralPage() {
 
             {/* Selected Message Box */}
             <div className="p-4 bg-amber-50/70 rounded-2xl border border-amber-200 text-xs text-gray-800 whitespace-pre-wrap leading-relaxed">
-              {msgs[msgIdx]}
+              {localizedMessages[msgIdx]}
             </div>
 
             {/* 1-Tap Action Buttons */}
             <div className="flex flex-wrap gap-3">
               <a
-                href={kit.whatsapp_share_variants?.[msgIdx] || `https://api.whatsapp.com/send?text=${encodeURIComponent(msgs[msgIdx])}`}
+                href={(te ? kit.whatsapp_share_variants_te : kit.whatsapp_share_variants_en)?.[msgIdx] || `https://wa.me/?text=${encodeURIComponent(localizedMessages[msgIdx] || "")}`}
                 target="_blank"
-                rel="noreferrer"
+                rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-[#25D366] text-white font-extrabold text-xs shadow-md hover:brightness-105 active:scale-95 transition"
               >
                 <WhatsAppIcon className="w-4 h-4" mono />
@@ -1332,9 +1020,9 @@ export default function ReferralPage() {
               </a>
 
               <a
-                href={kit.telegram_share || `https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(msgs[msgIdx])}`}
+                href={(te ? kit.telegram_share_te : kit.telegram_share_en) || `https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(localizedMessages[msgIdx] || "")}`}
                 target="_blank"
-                rel="noreferrer"
+                rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-[#229ED9] text-white font-extrabold text-xs shadow-md hover:brightness-105 active:scale-95 transition"
               >
                 <TelegramIcon className="w-4 h-4" mono />
@@ -1343,10 +1031,10 @@ export default function ReferralPage() {
 
               <button
                 type="button"
-                onClick={() => copy(msgs[msgIdx], "msg")}
+                onClick={() => copy(localizedMessages[msgIdx] || "", "msg")}
                 className="px-5 py-3 rounded-2xl border border-gray-300 text-gray-700 font-bold text-xs hover:bg-gray-50 active:scale-95 transition"
               >
-                📋 {copied === "msg" ? "కాపీ అయింది! ✅" : "టెక్స్ట్ కాపీ"}
+                📋 {copied === "msg" ? (te ? "కాపీ అయింది! ✅" : "Copied! ✅") : (te ? "సందేశాన్ని కాపీ చేయండి" : "Copy message")}
               </button>
             </div>
           </div>
@@ -1361,7 +1049,7 @@ export default function ReferralPage() {
 
             {(!dash?.payouts?.length && !dash?.payouts_live?.length) ? (
               <div className="text-center py-10 text-xs text-gray-500">
-                {te ? "ఇంకా ఎలాంటి విత్‌డ్రా అభ్యర్థనలు లేవు. మీ వాలెట్ ₹100 చేరుకోగానే విత్‌డ్రా చేసుకోవచ్చు." : "No withdrawal requests yet. You can withdraw as soon as your wallet reaches ₹100."}
+                {te ? `ఇంకా payout అభ్యర్థనలు లేవు. కనీసం ₹${minPayout} wallet balance ఉన్నప్పుడు request పెట్టవచ్చు; admin review వర్తిస్తుంది.` : `No payout requests yet. A request is available at a wallet balance of at least ₹${minPayout}; manual review applies.`}
               </div>
             ) : (
               <div className="space-y-2.5">
@@ -1382,7 +1070,7 @@ export default function ReferralPage() {
                           isPaid ? "bg-emerald-100 text-emerald-800 border border-emerald-300" :
                           p.status === "rejected" ? "bg-rose-100 text-rose-800" : "bg-amber-100 text-amber-800"
                         }`}>
-                          {isPaid ? "✅ PAID" : p.status}
+                          {isPaid ? "✅ PAID" : te ? (p.status || "—") : apiDisplayMessage({ message_en: p.status }, false, "Pending")}
                         </span>
                       </div>
                     </div>
@@ -1401,8 +1089,8 @@ export default function ReferralPage() {
                 <h3 className="font-extrabold text-maroon text-base">
                   🏆 {te ? "టాప్ రెఫరర్స్ లీడర్‌బోర్డ్" : "Top Referrers Leaderboard"}
                 </h3>
-                <p className="text-xs text-emerald-700 font-bold mt-0.5">
-                  🎁 {te ? "వారపు టాప్-1 విజేతకు ₹1000 అదనపు నగదు బహుమతి!" : "Weekly Top-1 Referrer gets ₹1000 Extra Cash Prize!"}
+                <p className="text-xs text-gray-500 mt-0.5">
+                  {te ? "Leaderboard అర్హమైన first-plan rewards ఆధారంగా ఉంటుంది; అదనపు prize లేదా cash bonus లేదు." : "Ranks use recorded qualifying first-plan rewards; no additional prize or cash bonus is offered."}
                 </p>
               </div>
 
@@ -1440,8 +1128,8 @@ export default function ReferralPage() {
                   </div>
 
                   <div className="text-right">
-                    <span className="font-extrabold text-maroon block">{item.paid_count || 0} Paid Referrals</span>
-                    <span className="text-[10px] text-emerald-600 font-bold">₹{(item.paid_count || 0) * 50} Earned</span>
+                    <span className="font-extrabold text-maroon block">{item.paid_count || item.paid || 0} qualifying first-plan rewards</span>
+                  <span className="text-[10px] text-gray-500 font-bold">Dashboard recognition only</span>
                   </div>
                 </div>
               ))}
@@ -1453,16 +1141,22 @@ export default function ReferralPage() {
         {activeTab === "terms" && (
           <div className="bg-white rounded-3xl p-6 border border-gold/30 shadow-sm space-y-4">
             <h3 className="font-extrabold text-maroon text-base">
-              📜 {te ? "రెఫరల్ నియమ నిబంధనలు (100% పారదర్శకత)" : "Referral Program Rules & Policy"}
+              📜 {te ? "రెఫరల్ నియమ నిబంధనలు" : "Referral Program Rules & Policy"}
             </h3>
             <div className="space-y-2.5 text-xs text-gray-700 leading-relaxed">
-              {(terms?.rules_telugu || [
-                "1. ఉచిత నమోదు — ఎవరైనా రిజిస్టర్ అవ్వగానే మొదటి 3 ప్రొఫైల్స్ ఉచితంగా చూడవచ్చు.",
-                "2. మీ స్నేహితుడు ₹99 లేదా ఏదైనా ప్లాన్ మొదటిసారి చెల్లించిన వెంటనే మీ వాలెట్‌కు ₹50 జమ అవుతుంది.",
-                "3. ఎంత మందినైనా రిఫర్ చేయవచ్చు — పరిమితులు లేవు.",
-                "4. వాలెట్ బ్యాలెన్స్ ₹50 దాటగానే (ఒక్క రిఫరల్ తోనే) తక్షణమే UPI ద్వారా విత్‌డ్రా అభ్యర్థన సమర్పించవచ్చు.",
-                "5. ఫేక్ ప్రొఫైల్స్ మరియు బాట్ అకౌంట్లు అనుమతించబడవు; నిజమైన వినియోగదారుల పేమెంట్లపై మాత్రమే కమీషన్ లభిస్తుంది."
-              ]).map((rule: string, i: number) => (
+              {(te ? (terms?.rules_telugu || [
+                "నమోదు ఉచితం; 3 ఆసక్తి అభ్యర్థన క్రెడిట్‌లు ఉంటాయి. ఇవి సంప్రదింపు వివరాలు తెరవవు.",
+                "రిఫరర్‌కు ₹50 ఒకసారి మాత్రమే లభించవచ్చు: కొత్త సభ్యుడి మొదటి అర్హత కలిగిన S_99/S_199/S_299/S_499 వినియోగదారు ప్లాన్ చెల్లింపు కనీసం ₹99 ఉండాలి.",
+                "యాడ్-ఆన్‌లు, సహాయక సేవలు, బూస్ట్‌లు, బహుమతులు, పునరుద్ధరణలు, ఉచిత క్రెడిట్‌లు మరియు B2B / వినియోగదారు కాని చెల్లింపులు మినహాయింపు.",
+                "చెల్లుబాటు అయ్యే రిఫరల్‌తో రిఫరర్‌కు +2, కొత్త సభ్యుడికి +1 ఆసక్తి అభ్యర్థన క్రెడిట్ లభిస్తుంది; ఇవి నగదు కాదు.",
+                "పేఅవుట్ అభ్యర్థనలకు కనీస వాలెట్ నిల్వ మరియు మాన్యువల్ నిర్వాహక సమీక్ష అవసరం; సమయం హామీ కాదు."
+              ]) : (terms?.rules_en || [
+                "Registration is free and includes 3 interest-request credits; these do not unlock contact details.",
+                "A referrer may receive ₹50 once if the new member’s first qualifying S_99/S_199/S_299/S_499 consumer-plan payment is at least ₹99.",
+                "Add-ons, assisted services, boosts, gifts, renewals, complimentary grants, and B2B or other non-consumer payments are excluded.",
+                "A valid referral grants +2 interest-request credits to the referrer and +1 to the new member; credits are not cash.",
+                "Payout requests require the minimum wallet balance and manual review; processing time is not guaranteed."
+              ])).map((rule: string, i: number) => (
                 <div key={i} className="p-3 bg-slate-50 rounded-2xl border border-slate-100">
                   {rule}
                 </div>
@@ -1471,7 +1165,15 @@ export default function ReferralPage() {
           </div>
         )}
 
+          </>
+        ) : (
+          <div className="rounded-2xl border border-amber-200 bg-white p-5 text-sm leading-relaxed text-slate-700 shadow-sm" role="status">
+            {tsapId
+              ? (te ? "మీ referral dashboard లోడ్ అవుతోంది. కొద్దిసేపు వేచి ఉండండి." : "Loading your referral dashboard. Please wait a moment.")
+              : (te ? "వ్యక్తిగత referral dashboard చూడటానికి పై భాగంలో మీ TSAP ID లేదా మొబైల్‌తో వెతకండి. Partner ID ఉంటే partner నమోదు పేజీలో dashboard తెరవండి." : "Search above with your TSAP ID or mobile to view your personal referral dashboard. For a partner ID, open the partner registration page and use its dashboard lookup.")}
+          </div>
+        )}
       </div>
-    </main>
+    </div>
   );
 }

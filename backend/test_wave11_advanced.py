@@ -3,7 +3,7 @@
 ===============================================================
 Cover:
   A. gothram guard (pure engine)
-  B. interest block + match/score + top-matches skip + /api/gothram/check
+  B. consented registration + factual comparison + owner-only top-matches + public-safe gothram check
   C. success stories (submit → approve → list + like + share)
   D. support FAQ (list + search)
   E. daily streak (claim + double-guard + gap-reset + milestones)
@@ -24,7 +24,12 @@ os.environ.setdefault("WA_TEST_FAST", "1")
 os.environ.setdefault("OTP_DEV_MODE", "true")
 os.environ.setdefault("WA_LONG_PAUSE_CHANCE", "0")
 os.environ.setdefault("WHATSAPP_MODE", "off")
+os.environ.setdefault("PUBLISH_DRY_RUN", "true")
+os.environ.setdefault("WA_ENABLED", "false")
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from test_storage import isolate_test_stores  # noqa: E402
+
+isolate_test_stores("wave11-advanced")
 
 PASS, FAIL, FAILED = 0, 0, []
 PHONE_RE = re.compile(r"(?<![\d•])[6-9]\d{9}(?!\d)")
@@ -57,7 +62,7 @@ A11.STORIES.clear()
 A11.PUSH_SUBS.clear()
 A11.PUSH_QUEUE.clear()
 
-from fastapi.testclient import TestClient
+from testutil_client import TestClient
 import hardening as H
 import main
 
@@ -71,82 +76,103 @@ a = {"gothram": "Bharadwaj"}
 b_same = {"gothram": "  bharadwaj "}
 b_diff = {"gothram": "Koundinya"}
 b_none: dict = {}
-check("A1 same gothram (case/space proof) → blocked", A11.gothram_check(a, b_same)["blocked"] is True)
-check("A2 verdict telugu (🚫 + pelli kudadhu)",
-      "🚫" in A11.gothram_check(a, b_same)["verdict_telugu"] and "కూడదు" in A11.gothram_check(a, b_same)["verdict_telugu"])
-check("A3 reason same_gothram", A11.gothram_check(a, b_same)["reason"] == "same_gothram")
-check("A4 veru gothram → OK, blocked False",
-      A11.gothram_check(a, b_diff)["blocked"] is False and "✅" in A11.gothram_check(a, b_diff)["verdict_telugu"])
-check("A5 okariki lekapothe block kadu + warning",
-      A11.gothram_check(a, b_none)["blocked"] is False and A11.gothram_check(a, b_none).get("unknown_side") is True)
+check("A1 same member-entered gothram text is informational, not a block",
+      A11.gothram_check(a, b_same)["same"] is True and A11.gothram_check(a, b_same)["blocked"] is False)
+check("A2 note clearly says text comparison, not a marriage decision",
+      "text comparison మాత్రమే" in A11.gothram_check(a, b_same)["note_telugu"]
+      and "వివాహ నిర్ణయం కాదు" in A11.gothram_check(a, b_same)["note_telugu"])
+check("A3 reason same_text", A11.gothram_check(a, b_same)["reason"] == "same_text")
+check("A4 different text is informational, not an approval verdict",
+      A11.gothram_check(a, b_diff)["same"] is False
+      and A11.gothram_check(a, b_diff)["blocked"] is False
+      and "తీర్పు కాదు" in A11.gothram_check(a, b_diff)["note_telugu"])
+check("A5 missing member-entered text is reported as unavailable, not blocked",
+      A11.gothram_check(a, b_none)["same"] is None
+      and A11.gothram_check(a, b_none)["blocked"] is False
+      and A11.gothram_check(a, b_none)["reason"] == "details_unavailable")
 check("A6 'Bharadwaja Gothram' suffix normalize → same",
       A11.norm_gothram("Bharadwaja Gothram") == A11.norm_gothram("bharadwaj"), A11.norm_gothram("Bharadwaja Gothram"))
 f = A11.filter_same_gothram(a, [{"tsap_id": "X1", "gothram": "Bharadwaj"},
                               {"tsap_id": "X2", "gothram": "Kasyapa"},
                               {"tsap_id": "X3"}])
-check("A7 filter: 1 skip + 2 kept", f["skipped_count"] == 1 and len(f["kept"]) == 2, f["skipped_ids"])
-check("A8 skipped_ids lo X1", f["skipped_ids"] == ["X1"])
+check("A7 legacy filter keeps all profiles and skips none",
+      f["skipped_count"] == 0 and len(f["kept"]) == 3)
+check("A8 no member is filtered by a gothram text comparison", f["skipped_ids"] == [])
 
 # ═══════════════════════════════════════════════════════════════════════════
-section("B. INTEREST BLOCK + SCORE + TOP-MATCHES + CHECK API")
+section("B. INTEREST POLICY + FACTUAL COMPARISON + OWNER-ONLY TOP-MATCHES")
 # ═══════════════════════════════════════════════════════════════════════════
-client.post("/api/demo/seed")
 import random as _r11
-_PH = lambda: "9911%06d" % _r11.randint(0, 999999)  # R10: unique per run (demo seed fixed phones tho dup vaddhu)
-BB = {"gender": "Bride", "age": "25", "height": "5'4\"", "marital_status": "Pelli Kaledu", "caste": "Reddy",
-      "education": "BTech", "job": "Software", "salary": "60k", "state": "TS", "district": "Hyderabad",
-      "phone": _PH(), "full_name": "Wave Eleven Bride", "gothram": "Bharadwaj", "star": "Rohini", "religion": "Hindu"}
-BG_SAME = dict(BB, gender="Groom", age="29", phone=_PH(), full_name="Wave Eleven Groom Same",
-               gothram="bharadwaj", height="5'9\"")
-BG_DIFF = dict(BB, gender="Groom", age="30", phone=_PH(), full_name="Wave Eleven Groom Diff",
-               gothram="Koundinya", height="5'10\"")
-bride = client.post("/api/register", data=BB).json()
-g_same = client.post("/api/register", data=BG_SAME).json()
-g_diff = client.post("/api/register", data=BG_DIFF).json()
+_PH = lambda: "9911%06d" % _r11.randint(0, 999999)
+BB = {"gender": "Bride", "age": "25", "dob": "2001-04-03", "password": "Wave11-test-only-password-2026!",
+      "consent_confirmed": "true", "height": "5'4\"", "marital_status": "Pelli Kaledu", "caste": "Reddy",
+      "sub_caste": "Pakanati Reddy", "education": "BTech", "job": "Software", "salary": "60k",
+      "state": "TS", "district": "Hyderabad", "phone": _PH(), "full_name": "Wave Eleven Bride",
+      "gothram": "Bharadwaj", "star": "Rohini", "religion": "Hindu"}
+BG_SAME = dict(BB, gender="Groom", age="29", dob="1997-04-03", phone=_PH(),
+               full_name="Wave Eleven Groom Same", gothram="bharadwaj", height="5'9\"")
+BG_DIFF = dict(BB, gender="Groom", age="30", dob="1996-04-03", phone=_PH(),
+               full_name="Wave Eleven Groom Diff", gothram="Koundinya", height="5'10\"")
+bride_resp = client.post("/api/register", data=BB)
+same_resp = client.post("/api/register", data=BG_SAME)
+diff_resp = client.post("/api/register", data=BG_DIFF)
+bride, g_same, g_diff = (r.json() if r.status_code == 200 else {}
+                         for r in (bride_resp, same_resp, diff_resp))
 BID, BTOK = bride.get("tsap_id", ""), bride.get("auth_token", "")
 G1, G1TOK = g_same.get("tsap_id", ""), g_same.get("auth_token", "")
 G2 = g_diff.get("tsap_id", "")
-check("B0 3 users register ayyaru", all([BID, G1, G2]), (BID, G1, G2))
-for _u in main.DB_USERS:
-    if _u.get("tsap_id") in (BID, G1, G2):
-        _u["is_approved"] = True   # admin approve simulate (top-matches lo kanipinchadaniki)
+check("B0 3 consented test profiles register", all(r.status_code == 200 for r in (bride_resp, same_resp, diff_resp))
+      and all([BID, G1, G2]), [(r.status_code, r.text[:80]) for r in (bride_resp, same_resp, diff_resp)])
+_pending_gothram = client.get(f"/api/gothram/check?a={BID}&b={G1}")
+check("B0a unapproved profiles cannot be probed for gothram", _pending_gothram.status_code == 404)
+_approval_results = [client.post(f"/api/admin/approve/{profile_id}", headers=HDR_ADMIN)
+                     for profile_id in (BID, G1, G2)]
+check("B0b profiles explicitly approved through owner route",
+      all(response.status_code == 200 for response in _approval_results),
+      [response.status_code for response in _approval_results])
 
 r = client.post("/api/interest/send", json={"from_id": BID, "to_id": G1},
                 headers={"X-Tsap-Token": BTOK})
-check("B1 same-gothram interest → 400 block", r.status_code == 400, r.status_code)
-j = r.json()
-check("B2 reason same_gothram + telugu", j.get("reason") == "same_gothram" and "🚫" in j.get("message_telugu", ""), j)
-check("B3 block ayina credit cut kadu", next(u for u in main.DB_USERS if u["tsap_id"] == BID).get("credits", 0) >= 3,
-      next(u for u in main.DB_USERS if u["tsap_id"] == BID).get("credits"))
+check("B1 same-gothram text alone does not block an interest",
+      r.status_code == 200 and r.json().get("success") is True, (r.status_code, r.text[:160]))
 
 r = client.post("/api/interest/send", json={"from_id": BID, "to_id": G2},
                 headers={"X-Tsap-Token": BTOK})
-check("B4 veru-gothram interest → same_gothram block kadu",
-      r.json().get("reason") != "same_gothram", (r.status_code, r.json().get("reason")))
+check("B2 different-gothram interest is also accepted when other rules pass",
+      r.status_code == 200 and r.json().get("success") is True, (r.status_code, r.text[:160]))
 
 r = client.get(f"/api/gothram/check?a={BID}&b={G1}")
-check("B5 /api/gothram/check same → blocked True",
-      r.status_code == 200 and r.json().get("blocked") is True, r.json())
+check("B3 same text is reported informationally, without raw gothram values",
+      r.status_code == 200 and r.json().get("same") is True
+      and r.json().get("blocked") is False and "a_gothram" not in r.json()
+      and "b_gothram" not in r.json() and "వివాహ నిర్ణయం కాదు" in r.json().get("note_telugu", ""), r.json())
 r = client.get(f"/api/gothram/check?a={BID}&b={G2}")
-check("B6 /api/gothram/check diff → blocked False", r.json().get("blocked") is False, r.json())
+check("B4 different text stays informational", r.json().get("same") is False and r.json().get("blocked") is False, r.json())
 r = client.get("/api/gothram/check?a=NOPE&b=NOPE2")
-check("B7 unknown IDs → 404", r.status_code == 404, r.status_code)
+check("B5 unknown IDs → 404", r.status_code == 404, r.status_code)
 
-r = client.get(f"/api/match/score?a={BID}&b={G1}")
-check("B8 match/score lo gothram block verdict",
-      r.status_code == 200 and r.json().get("gothram", {}).get("blocked") is True,
-      r.json().get("gothram"))
+r = client.get(f"/api/match/score?a={BID}&b={G1}", headers={"X-Tsap-Token": BTOK})
+match_json = r.json()
+check("B6 legacy match route returns factual observations, not a compatibility score",
+      r.status_code == 200 and match_json.get("compatibility_score_calculated") is False
+      and "observations" in match_json and "score" not in match_json
+      and "match_score" not in match_json and "compatibility_score" not in match_json, match_json)
 
-r = client.get(f"/api/top-matches/{BID}?limit=30&min_score=0")
+r = client.get(f"/api/top-matches/{BID}?limit=30&min_score=0", headers={"X-Tsap-Token": BTOK})
 tj = r.json()
 ids = [x.get("tsap_id") for x in tj.get("results", [])]
-check("B9 top-matches nunchi same-gothram G1 exclude", G1 not in ids, (tj.get("gothram_skipped"), G1 in ids))
-check("B10 gothram_skipped count >= 1", tj.get("gothram_skipped", 0) >= 1, tj.get("gothram_skipped"))
-r2 = client.get(f"/api/top-matches/{BID}?limit=30&min_score=0&include_same_gothram=1")
+check("B7 owner top-matches returns IDs and does not filter same gothram",
+      r.status_code == 200 and G1 in ids and G2 in ids
+      and tj.get("compatibility_score_calculated") is False
+      and tj.get("min_score_ignored") is True, (r.status_code, ids, tj.get("message_telugu")))
+r2 = client.get(f"/api/top-matches/{BID}?limit=30&min_score=0&include_same_gothram=0",
+                headers={"X-Tsap-Token": BTOK})
 ids2 = [x.get("tsap_id") for x in r2.json().get("results", [])]
-check("B11 opt-in (?include_same_gothram=1) tho G1 kanipistundi", G1 in ids2, len(ids2))
-check("B12 results lo boosted/voice/gothram_ok keys",
-      all(k in (tj.get("results", [{}])[0] or {}) for k in ("boosted", "voice_url", "has_voice", "gothram_ok")) if tj.get("results") else True)
+check("B8 legacy gothram exclusion flag cannot change eligibility", G1 in ids2 and G1 in ids)
+check("B9 top-matches rows contain real IDs and no synthetic score/reasons",
+      bool(tj.get("results")) and all(row.get("tsap_id") in {G1, G2}
+      and not any(key in row for key in ("score", "match_score", "trust_score", "compatibility_score", "reasons"))
+      for row in tj.get("results", [])), tj.get("results"))
 
 # ═══════════════════════════════════════════════════════════════════════════
 section("C. SUCCESS STORIES")
@@ -313,8 +339,10 @@ check("I2 prices 49/99/199", [packs[k]["price"] for k in ("B_1", "B_3", "B_7")] 
 r = client.post("/api/boost/buy", json={"tsap_id": G2, "pack": "BOGUS"}, headers=HDR_ADMIN)
 check("I3 bogus pack → 400/401", r.status_code in (400, 401), r.status_code)
 r = client.post("/api/boost/buy", json={"tsap_id": G2, "pack": "B_1"})
-check("I4 dev auto: paid + boosted True",
-      r.json().get("order", {}).get("status") == "paid" and r.json().get("boosted") is True, r.json())
+check("I4 explicit isolated-test payment fixture is marked and boosts the profile",
+      r.json().get("order", {}).get("status") == "paid"
+      and r.json().get("order", {}).get("development_fixture") is True
+      and r.json().get("boosted") is True, r.json())
 until1 = r.json().get("boost_until", "")
 r = client.post("/api/boost/buy", json={"tsap_id": G2, "pack": "B_3"})
 check("I5 extend: boost_until perugutundi", r.json().get("boost_until", "") > until1, r.json().get("boost_until"))
@@ -340,15 +368,19 @@ check("J3 parse channel ref", TB.parse_start_ref("/start ch_reddy") == {"raw": "
 check("J4 parse referral ref", TB.parse_start_ref("/start ref_1042")["kind"] == "referral")
 check("J5 parse profile ref (TSAP-)", TB.parse_start_ref("/start TSAP-F-1042")["kind"] == "profile")
 check("J6 parse plain /start", TB.parse_start_ref("/start")["kind"] == "plain")
-check("J7 help_text lo /search + /myid + Telugu",
-      "/search" in TB.help_text() and "/myid" in TB.help_text() and "₹99" in TB.help_text())
+_bot_help = TB.help_text()
+check("J7 help text has commands, Telugu, and safe current-pricing/payment guidance",
+      "/search" in _bot_help and "/myid" in _bot_help
+      and any("\u0c00" <= char <= "\u0c7f" for char in _bot_help)
+      and "current prices/terms" in _bot_help
+      and "payment references" in _bot_help.lower())
 card = TB.format_id_search({"tsap_id": "TSAP-F-1", "full_name": "T", "gender": "Bride", "age": 24,
                             "caste": "Reddy", "education": "BTech", "job": "SW", "district": "Hyd",
                             "state": "TS", "star": "Rohini", "gothram": "Bharadwaj",
                             "phone": "9848012345"})
 check("J8 ID card lo number leak ledu", "9848012345" not in card and "TSAP-F-1" in card, card[:120])
-check("J9 approve keyboard callback approve_X", TB.get_approve_kb("TSAP-F-1").inline_keyboard[0][0].callback_data == "approve_TSAP-F-1")
-check("J10 reject callback kooda undi", TB.get_approve_kb("X").inline_keyboard[0][1].callback_data == "reject_X")
+check("J9 retired local registration exposes no approve/auto-post keyboard", not hasattr(TB, "get_approve_kb"))
+check("J10 bot does not retain locally submitted/demo profiles", not hasattr(TB, "user_profiles"))
 n_handlers = len(TB.dp.message.handlers) + len(TB.dp.callback_query.handlers)
 check("J11 handlers >= 10 (start/help/myid/cancel/search/photo/contact/caste+callbacks)", n_handlers >= 10, n_handlers)
 

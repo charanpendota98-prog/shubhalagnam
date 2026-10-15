@@ -6,11 +6,11 @@
 import { useEffect, useRef, useState } from "react";
 
 /**
- * సంఖ్యలు count-up చెయ్యడానికి (52 channels, 43 castes...) — professional touch.
+ * Live registry and catalogue counts use their current source-of-truth values.
  *
- * R14 FIX: మొదట్లో `useState(0)` పెట్టడం వల్ల ప్రతి page load లో నిజమైన సంఖ్య (52, 43...)
+ * Counts are read from the current registry/catalogue rather than demo totals.
  * ఇప్పటికే target గా వచ్చినా కూడా ఒక్క ఫ్రేమ్ పాటు "0" ఫ్లాష్ అయ్యేది (SSR/initial paint లో
- * తప్పుడు "0 Channels, 0 కులాలు" కనిపించేది). ఇప్పుడు initial state నే నేరుగా `target`
+ * తప్పుడు "0 Channels, 0 community options" కనిపించేది). ఇప్పుడు initial state నే నేరుగా `target`
  * గా పెట్టేసాం — కరెక్ట్ విలువ మొదటి పెయింట్ నుంచే కనిపిస్తుంది (0 ఫ్లాష్ ఉండదు).
  * Animation ఇక మీదట target నిజంగా మారినప్పుడు మాత్రమే (ఉదా: API నుంచి fresh live
  * numbers వచ్చినప్పుడు fallback నుంచి కొత్త విలువకి) పాత విలువ నుంచి కొత్త విలువకి smooth గా run అవుతుంది.

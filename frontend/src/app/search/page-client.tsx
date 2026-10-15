@@ -28,8 +28,8 @@ export default function SearchIndexPage() {
         </h1>
         <p className="mt-1 text-sm text-gray-600">
           <Duo
-            en="Example: RED001, KAP001, VEL001"
-            te="ఉదాహరణ: RED001, KAP001, VEL001"
+            en="Enter the real Profile ID shared by the member."
+            te="సభ్యుడు మీకు ఇచ్చిన నిజమైన Profile ID నమోదు చేయండి."
           />
         </p>
         <div className="mt-4 flex gap-2">
@@ -37,7 +37,7 @@ export default function SearchIndexPage() {
             value={id}
             onChange={(e) => setId(e.target.value.toUpperCase())}
             onKeyDown={(e) => e.key === "Enter" && go()}
-            placeholder="RED001"
+            placeholder="Profile ID"
             inputMode="text"
             autoCapitalize="characters"
             className="flex-1 px-4 py-3 rounded-xl border border-gold/40 bg-cream text-maroon font-bold text-base focus-brand outline-none"

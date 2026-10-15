@@ -1,90 +1,27 @@
-# 💾 BACKUP + RESTORE GUIDE (Telugu) — Mana Vivaha
+# Mana Vivaha — Backup & Restore Safety Notes
 
-> **Bhayam vaddu.** Data anni simple files lo untundi. Crash ayina, server
-> maripoyina — backup zip + code + `.env` unte site **5–10 mins lo malli ready**.
+> **Production status remains NO-GO until an operator completes an encrypted off-host backup and an isolated restore drill for both application state and uploaded media.** This page describes the limits of the in-app ZIP; it is not a disaster-recovery guarantee.
 
----
+## What the in-app ZIP contains
 
-## 1. Data EKKADA store avutundi?
+The authenticated backup endpoint exports the core database and configured JSON/JSONL application-state files. It can be useful for an operator-managed restore, but its coverage depends on the configured paths at the time of export.
 
-| Data | File (server lo) | Vivaranam |
-|---|---|---|
-| 👥 Users (register ayina profiles) | `backend/data_db.json` | **CORE — chala important** |
-| 💌 Interests/requests | `backend/data_db.json` (lopale) | Core lopale untundi |
-| 💰 Payments/orders | `backend/data_db.json` (lopale) | Core lopale untundi |
-| 📋 Number unlocks | `backend/unlocks12.json` | Credits count |
-| 💳 Razorpay orders | `backend/paypro14.json` | Online payments |
-| 🤝 Referral wallet | `backend/referral_state.json` | ₹50 rewards |
-| 📢 Channel mapping | `backend/chanmap15.json` | Telegram/WhatsApp links |
-| 🔔 Push subs | `backend/push_state.json` | Bell subscribers |
-| 📲 WA queue | `backend/wa_state.json` | WhatsApp messages |
-| 📸 CMS/stories/ads | `backend/cms15.json`, `stories_state.json`, `ads13.json` | Website content |
+The ZIP does **not** include uploaded profile photos, cards, voice introductions, jathakams, vendor/referral posters, the production `.env`/secrets, the source code, or a copy of the Docker volume. Treat the ZIP as sensitive personal data: store it encrypted with restricted access and retention.
 
-Anni **JSON text files** — database server avasaram ledu. `backend/` folder lopale.
+A local startup snapshot is on the same host/volume. It is not an off-site backup and cannot protect against host, disk, or volume loss.
 
----
+## Production backup requirements
 
-## 2. Backup DOWNLOAD cheyyadam (weekly once cheyandi!)
+The standalone production Compose configuration stores JSON state and media under the named `appdata` volume. Before accepting real member or payment data, the operator must:
 
-1. Browser lo open: `https://mee-site.com/owner`
-2. Admin key vesi **View** → kinda **💾 Backup / Restore** card
-3. **⬇️ బ్యాకప్ download** → `mana-vivaha-backup.zip` vastundi
-4. Ee zip ni **2 chotla dachukondi**: mee laptop + Google Drive
+1. Inventory the existing host's database/state files and uploaded media. Do not replace existing data with a newly created empty volume.
+2. Back up the complete persistent volume—including media—to an encrypted, access-controlled off-host destination.
+3. Restore that backup to an isolated disposable environment and compare the resulting records and media before changing the live deployment.
+4. Document a rollback that keeps the same source-of-truth volume. Never run `docker compose down -v` against production data.
+5. Keep application ZIPs and host-volume backups separate from `.env.production` and provider credentials; provision secrets using the operator's secret manager or restricted host-only storage.
 
-> Server prathi restart ki **automatic snapshot** kuda teeskuntundi
-> (`backend/backups/startup-*.zip`, last 10 untayi). Kani adi server lone
-> untundi — **manual download mee daggara pettukovadam BEST.**
+## Using the application ZIP
 
----
+Only an authorized operator should export/import through the restricted owner/admin interface. Restore rejects incomplete core schemas, malformed/duplicate profile identity rows, and unmarked empty stores before changing files. If any core collection (including registrations or payments) would shrink, the first request is refused with HTTP 409; the owner UI requires a second explicit confirmation. A private same-volume pre-restore snapshot is created before writes, satellite files are installed before the core database, and a missing configured core DB is never represented as an empty placeholder backup. This snapshot is still not an off-host backup. Prefer a disposable staging environment, confirm the target paths and verified backup first, and do not treat a successful HTTP response as a tested disaster-recovery plan. The application ZIP cannot restore missing uploaded media or secrets.
 
-## 3. Crash / server poyindi? RESTORE steps
-
-**Kottha server (leda same server fix ayyaka):**
-
-```
-Step 1: Code malli pettandi (git clone — developer chestharu)
-Step 2: backend/ folder loki backup zip nunchi *.json/*.jsonl copy cheyandi
-        (leda /owner page lo ⬆️ Restore(zip) tho upload cheyandi)
-Step 3: .env file (API keys) malli pettandi — adi backup lo UNDADU!
-Step 4: backend restart → site live ✅
-```
-
-**Restore 2 rakalu:**
-- **Easy:** `/owner` page → ⬆️ Restore (zip) → file select → done (old data ki
-  auto `pre-restore-*.zip` snapshot kuda untundi — tappu file pettina venakki vachochu)
-- **Manual:** zip open chesi files ni `backend/` loki copy + restart
-
----
-
-## 4. Admin panel MALLI setup ante?
-
-Admin panel = **code + data + keys**, 3 parts:
-
-| Part | Ela vastundi? |
-|---|---|
-| Code (admin pages) | Git nunchi (developer) — `arena/...` branch |
-| Data (users/payments) | Backup zip nunchi restore |
-| Keys (`.env`: Razorpay, Telegram, admin key) | **Mee daggara unna `.env` copy nunchi** |
-
-⚠️ **`.env` file backup zip lo UNDADU** (security kosam) — daanini separate ga
-safe chotla dachukondi. Adi lekunte payments/bot panicheyyavu.
-
----
-
-## 5. Telegram/WhatsApp channels IPPUDU ivvala?
-
-**Avasaram LEDU ippudu.** Admin panel lo **Channels** section lo eppudaina
-links add cheyochu. Links lenappudu system **dry-run mode** lo perfect ga
-nadustundi (posts queue avutayi, links vachaka live avutayi). `/owner` page lo
-**📢 Channels** card lo gap kanipistundi — adi fill ayyaka anni live.
-
----
-
-## 6. Checklist (nela ki okasari)
-
-- [ ] `/owner` nunchi backup zip download → laptop + Drive
-- [ ] `.env` copy safe ga unda chudandi
-- [ ] `/owner` page anni greenENA chudandi (revenue, users, system)
-- [ ] Razorpay test payment okati vesi chudandi
-
-**Anni perfect ga unte — tension vaddu, site safe! 🙏**
+For current commands, migration safeguards, and release gates, use [`PRODUCTION-DEPLOY.md`](PRODUCTION-DEPLOY.md) and [`PRODUCTION_READINESS.md`](PRODUCTION_READINESS.md). Keep the repository private and do not paste backup archives, member data, passwords, API keys, or secret files into chat or source control.

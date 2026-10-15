@@ -25,6 +25,8 @@ os.environ.setdefault("WA_TEST_FAST", "1")
 os.environ.setdefault("OTP_DEV_MODE", "true")
 os.environ.setdefault("WA_LONG_PAUSE_CHANCE", "0")
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from test_storage import isolate_test_stores  # noqa: E402
+isolate_test_stores("wave36")
 
 PASS, FAIL, FAILED = 0, 0, []
 
@@ -136,15 +138,16 @@ try:
     check("R4 bad plan -> 400", pp.status_code == 400, pp.status_code)
 
     # =======================================================================
-    # R5 - match score
+    # R5 - factual profile comparison
     # =======================================================================
-    section("R5 - match score")
-    ms = client.get(f"/api/match/score?a={U1['tsap_id']}&b={U2['tsap_id']}").json()
-    check("R5 score + breakdown", isinstance(ms.get("score"), int) and len(ms.get("breakdown", [])) >= 4,
-          ms.get("score"))
-    check("R5 verdicts present", all(isinstance(ms.get(k), dict) and "verdict_telugu" in ms[k]
-          for k in ("gothram", "surname", "age_rule")), list(ms.keys())[:12])
-    check("R5 gothram differ ok", ms["gothram"].get("blocked") is False, ms["gothram"])
+    section("R5 - factual profile comparison")
+    ms_response = client.get(f"/api/match/score?a={U1['tsap_id']}&b={U2['tsap_id']}")
+    ms = ms_response.json()
+    check("R5 comparison has observations/differences", ms_response.status_code == 200
+          and isinstance(ms.get("observations"), list) and isinstance(ms.get("differences"), list), list(ms.keys()))
+    check("R5 no synthetic score, grade, verdict, or trust score",
+          not ({"score", "match_score", "compatibility_score", "trust_score", "grade", "verdict"} & set(ms)))
+    check("R5 comparison carries a neutral notice", "not a compatibility" in ms.get("notice", "").lower(), ms.get("notice"))
     m404 = client.get(f"/api/match/score?a={U1['tsap_id']}&b=TSAP-X-0000")
     check("R5 unknown -> 404", m404.status_code == 404, m404.status_code)
 
@@ -177,7 +180,9 @@ try:
     # =======================================================================
     section("R7 - smoke shapes")
     g = client.get(f"/api/gothram/check?a={U1['tsap_id']}&b={U2['tsap_id']}").json()
-    check("R7 gothram verdict", "verdict_telugu" in g and g.get("blocked") is False, g)
+    check("R7 gothram text comparison never blocks or gives a marriage verdict",
+          "note_telugu" in g and g.get("blocked") is False
+          and g.get("notice", "").find("not a compatibility") >= 0 and "verdict_telugu" not in g, g)
     dd = client.get(f"/api/astro/dosha/{U1['tsap_id']}").json()
     check("R7 dosha shape", dd.get("level") in ("clear", "medium", "high") and "verdict_telugu" in dd, dd)
     sk = client.get(f"/api/share/kit/{U1['tsap_id']}").json()

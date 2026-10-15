@@ -12,11 +12,19 @@ import os
 import re
 import sys
 import threading
+from datetime import datetime, timedelta
 
 os.environ.setdefault("WA_TEST_FAST", "1")
 os.environ.setdefault("OTP_DEV_MODE", "true")
 os.environ.setdefault("WA_LONG_PAUSE_CHANCE", "0")
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from test_storage import isolate_test_stores  # noqa: E402
+isolate_test_stores("wave27")
+
+_PAYMENT_ENV_KEYS = ("PAY_UPI_ID", "RAZORPAY_KEY_ID", "RAZORPAY_KEY_SECRET", "RAZORPAY_KEY", "RAZORPAY_SECRET")
+_PAYMENT_ENV_ORIGINAL = {key: os.environ.get(key) for key in _PAYMENT_ENV_KEYS}
+for _key in _PAYMENT_ENV_KEYS:
+    os.environ.pop(_key, None)
 
 PASS, FAIL, FAILED = 0, 0, []
 
@@ -39,7 +47,7 @@ import main as M
 import hardening as H
 import referral
 import paypro as PP
-from fastapi.testclient import TestClient
+from testutil_client import TestClient
 
 c = TestClient(M.app, raise_server_exceptions=False)
 ADMIN = {"X-Admin-Key": H.ADMIN_KEY}
@@ -71,7 +79,7 @@ try:
     referral.attach_referral(nb, "RACE2", M.DB_USERS)
     outs2 = []
     ts = [threading.Thread(target=lambda i=i: outs2.append(
-        referral.process_referral_payment(nb, "RACE2", 99, M.DB_USERS, payment_id=f"rc-{i}")))
+        referral.process_referral_payment(nb, "RACE2", 99, M.DB_USERS, payment_id=f"rc-{i}", plan_code="S_99")))
         for i in range(6)]
     [t.start() for t in ts]
     [t.join() for t in ts]
@@ -88,26 +96,31 @@ try:
     check("A5 attach exactly-once", sum(1 for r in outs3 if r.get("ok")) == 1)
     check("A6 bonus once", int(u3.get("credits", 0)) == referral.REFEREE_BONUS_CREDITS)
     # A7 register race → unique IDs
-    def _form(ph):
-        return {"gender": "male", "age": 27, "height": "5'8", "marital_status": "Pelli Kaledu",
+    def _form(ph, full_name="Race Reg", gender="Groom"):
+        return {"gender": gender, "age": 27, "dob": "1999-01-15", "password": "test-profile-password",
+                "height": "5'8\"", "marital_status": "Pelli Kaledu", "religion": "Hindu",
                 "caste": "Reddy", "education": "BTech", "job": "Software", "salary": "10L",
-                "state": "TS", "district": "Hyd", "phone": ph, "full_name": "Race Reg"}
+                "state": "TS", "district": "Hyderabad", "phone": ph, "full_name": full_name}
     import random as _random27
     _r27 = _random27.randint(10, 99)  # R10: per-run unique phone space (persisted phones = correct 409 dup-phone)
     regs = []
     ts = [threading.Thread(target=lambda i=i: regs.append(
-        c.post("/api/register", data=_form(f"9271{_r27}{i:04d}")))) for i in range(6)]  # 10 digits total
+        c.post("/api/register", data=_form(f"9271{_r27}{i:04d}", full_name=f"Race Reg Candidate {chr(65 + i)}")))) for i in range(6)]  # 10 digits total
     [t.start() for t in ts]
     [t.join() for t in ts]
     rids = [r.json().get("tsap_id") for r in regs if r.status_code == 200]
-    check("A7 all registered", len(rids) == 6, [r.status_code for r in regs])
+    check("A7 all registered", len(rids) == 6,
+          [(r.status_code, r.text[:120]) for r in regs])
     check("A8 IDs unique", len(set(rids)) == 6, rids)
     # A9 interest race → single deduct
-    frm = {"tsap_id": "TSAP-M-2711-5", "full_name": "Race Frm", "phone": "9271100005",
-           "gender": "male", "age": 27, "credits": 3, "gothram": "GB", "caste": "Kamma"}
-    tot = {"tsap_id": "TSAP-F-2711-6", "full_name": "Race To", "phone": "9271100006",
-           "gender": "female", "age": 24, "gothram": "GA", "caste": "Reddy"}
-    M.DB_USERS.extend([frm, tot])
+    frm_response = c.post("/api/register", data=_form("9282700005", "Race Frm", "Groom"))
+    tot_response = c.post("/api/register", data=_form("9282700006", "Race To", "Bride"))
+    frm = M._find_user(frm_response.json().get("tsap_id", "")) or {}
+    tot = M._find_user(tot_response.json().get("tsap_id", "")) or {}
+    frm.update({"is_approved": True, "is_active": True, "status": "approved", "credits": 3})
+    tot.update({"is_approved": True, "is_active": True, "status": "approved"})
+    check("A9 setup registered approved profiles", frm_response.status_code == 200
+          and tot_response.status_code == 200 and bool(frm.get("tsap_id")) and bool(tot.get("tsap_id")))
     t5 = H.sign_token(frm["tsap_id"])
     outs5 = []
     ts = [threading.Thread(target=lambda: outs5.append(c.post(
@@ -119,8 +132,11 @@ try:
           [r.status_code for r in outs5])
     check("A10 single deduct", int(frm.get("credits", -1)) == 2, frm.get("credits"))
     # A11 otp race
-    M.DB_OTPS["9271100099"] = {"code": "7777", "expires": "2099-01-01T00:00:00", "tries": 0,
-                               "sent_at": "2020-01-01T00:00:00", "purpose": "login", "history": []}
+    otp_phone = "9271100099"
+    M.DB_OTPS[otp_phone] = {"code_hash": M._otp_digest("7777"),
+                            "expires": (datetime.utcnow() + timedelta(minutes=10)).isoformat(),
+                            "tries": 0, "sent_at": datetime.utcnow().isoformat(),
+                            "purpose": "login", "history": []}
     outs6 = []
     ts = [threading.Thread(target=lambda: outs6.append(c.post(
         "/api/otp/verify", json={"phone": "9271100099", "code": "7777"}))) for _ in range(4)]
@@ -130,7 +146,7 @@ try:
 
     section("B. no-crash data shapes")
     M.DB_USERS.append({"tsap_id": "TSAP-X-NOGENDER", "full_name": "No Gender"})
-    r = c.post("/api/register", data=_form("9271100100"))
+    r = c.post("/api/register", data=_form("9282700100", "No Gender Registration"))
     check("B1 register with genderless user in DB → 200", r.status_code == 200,
           (r.status_code, r.text[:100]))
     M.DB_USERS[:] = [u for u in M.DB_USERS if u.get("tsap_id") != "TSAP-X-NOGENDER"]
@@ -174,14 +190,19 @@ try:
     b = {"tsap_id": "TSAP-F-2711-8", "full_name": "J Join", "phone": "9271100008", "credits": 0}
     M.DB_USERS.extend([a, b])
     check("D1 attach", referral.attach_referral(b, "JR7", M.DB_USERS).get("ok"))
+    order_count_before = len(PP.PAY_ORDERS)
     o = PP.create_pay_order(b["tsap_id"], "credits", "S_199")
-    check("D2 order", o.get("success"))
-    oid = o["pay_order"]["id"]
-    check("D3 claim", PP.claim_utr(oid, b["tsap_id"], "427111111111").get("success"))
-    check("D4 confirm", PP.confirm_manual(oid, "").get("success"))
-    check("D5 credits 13 (1 join bonus + 12 S_199)", int(b.get("credits", 0)) == 13, b.get("credits"))
-    check("D6 wallet 50", float(referral.stats_of(a)["wallet"]) == 50.0)
-    check("D7 never negative", int(a.get("credits", 0)) >= 0 and int(b.get("credits", 0)) >= 0
+    check("D2 order fails closed without a real provider or merchant destination",
+          o.get("success") is False and "unavailable" in o.get("message_telugu", "").lower()
+          and len(PP.PAY_ORDERS) == order_count_before, o)
+    claim = PP.claim_utr("missing-order", b["tsap_id"], "")
+    confirm = PP.confirm_manual("missing-order", "")
+    check("D3 unconfigured order cannot be claimed or manually confirmed",
+          claim.get("success") is False and confirm.get("success") is False)
+    check("D4 referral join bonus is retained without adding payment credits",
+          int(b.get("credits", 0)) == referral.REFEREE_BONUS_CREDITS, b.get("credits"))
+    check("D5 unpaid join earns no payment commission", float(referral.stats_of(a)["wallet"]) == 0.0)
+    check("D6 never negative", int(a.get("credits", 0)) >= 0 and int(b.get("credits", 0)) >= 0
           and float(referral.stats_of(a)["wallet"]) >= 0)
 finally:
     M.DB_USERS[:] = _users
@@ -190,6 +211,11 @@ finally:
     PP._persist()
     referral.PAYOUTS[:] = _pouts
     referral.save_state()
+    for _key, _value in _PAYMENT_ENV_ORIGINAL.items():
+        if _value is None:
+            os.environ.pop(_key, None)
+        else:
+            os.environ[_key] = _value
 
 print(f"\n{'=' * 60}\n🌊 WAVE 27 RESULT: {PASS} passed, {FAIL} failed")
 if FAILED:

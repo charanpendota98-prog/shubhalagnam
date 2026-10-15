@@ -5,17 +5,17 @@ import Link from "next/link";
 import { SITE_CONFIG } from "@/lib/site-config";
 import { useLang } from "@/lib/lang";
 
-const LAST_UPDATED = "14 Sep 2026";
+const LAST_UPDATED = "12 Oct 2026";
 
 export default function RefundPage() {
   const { lang } = useLang();
   const te = lang === "te";
   return (
-    <main className="max-w-3xl mx-auto px-4 py-8 pb-36">
+    <div className="max-w-3xl mx-auto px-4 py-8 pb-36">
       <h1 className="text-2xl md:text-3xl font-extrabold text-[#7A0C2E] telugu">
         {te ? "💸 Refund & Cancellation Policy (వాపసు విధానం)" : "💸 Refund & Cancellation Policy"}
       </h1>
-      <div className="text-xs text-gray-500 mt-1">Last updated: {LAST_UPDATED} • {SITE_CONFIG.legalName} ({SITE_CONFIG.domain})</div>
+      <div className="text-xs text-gray-500 mt-1">{te ? "చివరిగా నవీకరించిన తేదీ" : "Last updated"}: {LAST_UPDATED}{SITE_CONFIG.legalName ? ` • ${SITE_CONFIG.legalName}` : ""} • {SITE_CONFIG.domain}</div>
 
       <div className="mt-5 rounded-2xl bg-[#FFF8E1] border border-[#B8860B]/30 p-4 text-sm telugu text-[#7A0C2E]">
         {te ? (
@@ -35,21 +35,19 @@ export default function RefundPage() {
             <>
               <li><b>Zero usage (7 days):</b> Register అయి ₹ pay చేసి, <b>ఒక్క request కూడా</b> పంపకపోతే —
                 payment date నుంచి <b>7 రోజుల</b> లోపు అడిగితే <b>100% refund</b> (same payment method కి).</li>
-              <li><b>Decline / no response:</b> మీ request ని target వాళ్లు decline చేస్తే లేదా{" "}
-                <b>7 రోజుల</b> లో respond అవ్వకపోతే — ఆ <b>1 credit మళ్లీ మీ account కి</b> refund అవుతుంది
-                (ఇది automatic గా జరుగుతుంది).</li>
-              <li><b>Duplicate / wrong payment:</b> ఒకటే order రెండు సార్లు pay అయితే, verify చేసి 3–5 working days లో refund.</li>
-              <li><b>Technical failure:</b> మీ payment success అయింది కానీ credits add అవ్వకపోతే — screenshot పంపండి, 24h లో fix లేదా refund.</li>
+              <li><b>Decline / no response:</b> target decline చేస్తే లేదా <b>7 రోజుల</b> లో స్పందన లేక request expire అయితే,
+                ఖర్చయిన <b>1 request credit</b> account‌కు ఒకసారి తిరిగి వస్తుంది. ఇది payment amount cash refund కాదు.</li>
+              <li><b>Duplicate / wrong payment:</b> ఒకే order‌కు రెండుసార్లు చెల్లిస్తే, order/payment IDs‌తో support‌ను సంప్రదించండి; review తర్వాత పరిష్కారం తెలియజేస్తాం.</li>
+              <li><b>Technical failure:</b> payment success అయినా credits రాకపోతే, payment/order ID‌తో support‌ను సంప్రదించండి; resolution సమయం మారవచ్చు.</li>
             </>
           ) : (
             <>
               <li><b>Zero usage (7 days):</b> registered and paid ₹ but sent <b>not even one request</b> —
                 ask within <b>7 days</b> of payment date for <b>100% refund</b> (to the same payment method).</li>
-              <li><b>Decline / no response:</b> if the target declines your request or doesn&apos;t
-                respond within <b>7 days</b> — that <b>1 credit is refunded to your account</b>
-                (this happens automatically).</li>
-              <li><b>Duplicate / wrong payment:</b> if one order gets paid twice, we verify and refund in 3–5 working days.</li>
-              <li><b>Technical failure:</b> payment succeeded but credits weren&apos;t added — send a screenshot, fixed or refunded in 24h.</li>
+              <li><b>Decline / no response:</b> if the target declines or the request expires after <b>7 days</b> without a response,
+                the spent <b>request credit is returned to your account once</b>. This is not a cash refund of the payment.</li>
+              <li><b>Duplicate / wrong payment:</b> if you paid twice for one order, contact support with both payment/order IDs; we will review and share the outcome.</li>
+              <li><b>Technical failure:</b> if payment succeeded but credits were not added, share your payment/order ID with support so it can be reviewed; resolution time may vary.</li>
             </>
           )}
         </ul>
@@ -83,19 +81,29 @@ export default function RefundPage() {
         <ol>
           {te ? (
             <>
-              <li>WhatsApp/Phone: <b>{SITE_CONFIG.supportPhoneDisplay}</b> లేదా email: <b>{SITE_CONFIG.supportEmail}</b></li>
+              <li>
+                {SITE_CONFIG.supportLink ? <>WhatsApp: <a href={SITE_CONFIG.supportLink} target="_blank" rel="noopener noreferrer" className="underline">configured support contact</a> • </> : null}
+                {SITE_CONFIG.supportPhoneDisplay ? <>{te ? "ఫోన్" : "Phone"}: <b>{SITE_CONFIG.supportPhoneDisplay}</b> • </> : null}
+                {SITE_CONFIG.supportEmail ? <>{te ? "ఈమెయిల్" : "Email"}: <a href={`mailto:${SITE_CONFIG.supportEmail}`} className="underline">{SITE_CONFIG.supportEmail}</a></> : null}
+                {!SITE_CONFIG.supportConfigured ? "ఈ deployment లో verified support contact configure కాలేదు; sensitive payment వివరాలను guessed address కు పంపకండి." : null}
+              </li>
               <li>పంపాల్సినవి: Profile ID • payment date • amount • Razorpay payment ID • reason (1 line)</li>
-              <li>Verify చేసి <b>2 working days</b> లో approve/decline తెలియజేస్తాం.</li>
-              <li>Approve అయితే <b>5–7 working days</b> లో మీ bank/UPI కి credited అవుతుంది (bank timing బట్టి).</li>
-              <li>Refund confirmation email మీకు పంపిస్తాం.</li>
+              <li>మీ అభ్యర్థనను సమీక్షించి, అందుబాటులో ఉన్న contact channel ద్వారా నిర్ణయాన్ని తెలియజేస్తాం; response సమయం మారవచ్చు.</li>
+              <li>Approve అయితే, refund processing మరియు bank/UPI credit సమయం payment provider‌పై ఆధారపడుతుంది.</li>
+              <li>మీ payment/order ID‌ను భద్రపరచుకోండి; receipt లేదా refund status అందుబాటులో లేకపోతే క్రింద కనిపించే configured support channel ను వాడండి. Channel లేకపోతే guessed address కు sensitive payment details పంపకండి.</li>
             </>
           ) : (
             <>
-              <li>WhatsApp/Phone: <b>{SITE_CONFIG.supportPhoneDisplay}</b> or email: <b>{SITE_CONFIG.supportEmail}</b></li>
+              <li>
+                {SITE_CONFIG.supportLink ? <>WhatsApp: <a href={SITE_CONFIG.supportLink} target="_blank" rel="noopener noreferrer" className="underline">configured support contact</a> • </> : null}
+                {SITE_CONFIG.supportPhoneDisplay ? <>{te ? "ఫోన్" : "Phone"}: <b>{SITE_CONFIG.supportPhoneDisplay}</b> • </> : null}
+                {SITE_CONFIG.supportEmail ? <>{te ? "ఈమెయిల్" : "Email"}: <a href={`mailto:${SITE_CONFIG.supportEmail}`} className="underline">{SITE_CONFIG.supportEmail}</a></> : null}
+                {!SITE_CONFIG.supportConfigured ? "No support contact is configured for this deployment; do not send sensitive payment details to guessed addresses." : null}
+              </li>
               <li>Send: Profile ID • payment date • amount • Razorpay payment ID • reason (1 line)</li>
-              <li>We verify and inform approve/decline within <b>2 working days</b>.</li>
-              <li>On approval, credited to your bank/UPI in <b>5–7 working days</b> (depends on bank timing).</li>
-              <li>Refund confirmation email is sent to you.</li>
+              <li>We review the request and share an outcome through an available contact channel; response time may vary.</li>
+              <li>If approved, refund processing and bank/UPI credit timing depend on the payment provider.</li>
+              <li>Keep your payment/order ID. If a receipt or refund status is unavailable, use a configured support channel shown below; if none is shown, do not send sensitive payment details to guessed addresses.</li>
             </>
           )}
         </ol>
@@ -105,15 +113,15 @@ export default function RefundPage() {
         <ul>
           {te ? (
             <>
-              <li>Plan cancel చెయ్యాలంటే — support కి చెప్పండి. మిగిలిన credits <b>validity వరకు</b> వాడుకోవచ్చు.</li>
-              <li><b>Auto-renewal లేదు</b> — మీ plan automatic గా renew అవ్వదు, reminder messages మాత్రమే వస్తాయి.</li>
-              <li>Account delete చెయ్యాలంటే — /privacy లో చెప్పిన privacy section లో process ఉంది (data delete + credits forfeit).</li>
+              <li>Plan cancellation request కోసం క్రింద owner-configured support contact కనిపిస్తే దాన్ని వాడండి; లేకపోతే guessed channel కు sensitive details పంపకండి. మిగిలిన credits <b>validity వరకు</b> వాడుకోవచ్చు.</li>
+              <li><b>Auto-renewal లేదు</b> — plan స్వయంగా renew కాదు; తదుపరి purchase ముందు checkout terms మళ్లీ పరిశీలించండి.</li>
+              <li>Profile ను public search నుంచి దాచడానికి My Account control వాడండి. Stored-data erasure కోసం /privacy లో verified contact కనిపిస్తే దాన్ని వాడండి; contact లేకపోతే guessed address కు sensitive details పంపకండి. అన్ని data వెంటనే erase అవుతాయని లేదా credits refund అవుతాయని హామీ లేదు.</li>
             </>
           ) : (
             <>
-              <li>To cancel a plan — tell support. Remaining credits can be used till <b>validity</b>.</li>
-              <li><b>No auto-renewal</b> — your plan never renews automatically; only reminder messages come.</li>
-              <li>To delete your account — process is in the privacy section of /privacy (data delete + credits forfeit).</li>
+              <li>Use an owner-configured support channel shown below to request plan cancellation; if none is shown, do not send sensitive details to guessed channels. Remaining credits can be used until their <b>validity</b> ends.</li>
+              <li><b>No auto-renewal.</b> A plan does not renew by itself; review the checkout terms before any later purchase.</li>
+              <li>Use My Account to hide your profile from public search. Use an owner-configured contact shown in /privacy for a stored-data erasure request; if none is shown, do not send sensitive details to a guessed address. Immediate erasure of all records or a refund of credits is not promised.</li>
             </>
           )}
         </ul>
@@ -123,15 +131,15 @@ export default function RefundPage() {
         <ul>
           {te ? (
             <>
-              <li>ప్రతి payment కి receipt email/WhatsApp లో వస్తుంది.</li>
-              <li><b>GST invoice</b> కావాలంటే payment తర్వాత 24 గంటల్లో అడగండి (GSTIN ఉంటే పంపండి) — మన team పంపిస్తుంది.</li>
-              <li>Prices అన్నీ INR లో, taxes తో సహా (చూపించిన price final).</li>
+              <li>మీ order/payment ID‌ను భద్రపరచుకోండి. Receipt అందుబాటు payment method‌పై ఆధారపడుతుంది; receipt కనిపించకపోతే configured support contact‌ను సంప్రదించండి.</li>
+              <li><b>GST invoice</b> అవసరమైతే, owner-configured support contact కనిపించినప్పుడే దాన్ని వాడండి. అడిగితే మాత్రమే GSTIN పంపండి; guessed address కు tax/payment details పంపకండి. Invoice అర్హత, format, timing operator registration మరియు applicable tax rules పై ఆధారపడతాయి.</li>
+              <li>ధరలు INR‌లో చూపిస్తాం. చెల్లించే ముందు checkout లో కనిపించే final amount‌ను పరిశీలించండి.</li>
             </>
           ) : (
             <>
-              <li>Receipt for every payment comes on email/WhatsApp.</li>
-              <li>Need a <b>GST invoice</b>? Ask within 24 hours of payment (send GSTIN if you have one) — our team sends it.</li>
-              <li>All prices in INR, inclusive of taxes (shown price is final).</li>
+              <li>Keep your order/payment ID. Receipt availability depends on the payment method; contact the configured support channel if it is missing.</li>
+              <li>For a <b>GST invoice</b> request, use an owner-configured support channel if one is shown. Share your GSTIN only if requested through that channel; do not send tax or payment details to a guessed address. Invoice eligibility, format, and timing depend on the operator&apos;s registration and applicable tax rules.</li>
+              <li>Prices are shown in INR. Review the final amount shown at checkout before paying.</li>
             </>
           )}
         </ul>
@@ -141,13 +149,13 @@ export default function RefundPage() {
         <ul>
           {te ? (
             <>
-              <li>ముందు మన support కి చెప్పండి — 90% cases 48h లో resolve అవుతాయి.</li>
+              <li>Dispute ఉంటే, order/payment ID మరియు సమస్య వివరాలతో క్రింద కనిపించే configured support channel ను వాడండి; channel లేకపోతే guessed address కు sensitive details పంపకండి. Review సమయం మారవచ్చు.</li>
               <li>Bank chargeback initiate చేస్తే, మన records (payment ID + service usage) పంపిస్తాం.</li>
               <li>Fraudulent chargebacks అయితే account temporary suspend అవ్వచ్చు.</li>
             </>
           ) : (
             <>
-              <li>Tell our support first — 90% of cases resolve in 48h.</li>
+              <li>For a dispute, use a configured support channel shown below with your order/payment ID and a short description. If none is shown, do not send sensitive details to a guessed address; review time may vary.</li>
               <li>If you initiate a bank chargeback, we submit our records (payment ID + service usage).</li>
               <li>Fraudulent chargebacks may lead to temporary account suspension.</li>
             </>
@@ -156,24 +164,25 @@ export default function RefundPage() {
       </Section>
 
       <div className="mt-8 rounded-2xl border border-gray-200 bg-white p-5 text-xs text-gray-700">
-        <div className="font-bold text-[#7A0C2E]">📞 {te ? "Contact (refunds & payments)" : "Contact (refunds & payments)"}</div>
+        <div className="font-bold text-[#7A0C2E]">📞 {te ? "వాపసులు, చెల్లింపుల సంప్రదింపు" : "Refund and payment contact"}</div>
         <div className="mt-2 space-y-1">
-          <div>Authorized Signatory: <b>{SITE_CONFIG.owner.name}</b> (Owner ID: <span className="font-mono text-[#7A0C2E] font-bold">{SITE_CONFIG.owner.id}</span>)</div>
-          <div>WhatsApp / Phone: <a href={`tel:${SITE_CONFIG.owner.contactNumber}`} className="font-bold text-emerald-700 hover:underline">{SITE_CONFIG.owner.contactNumber}</a></div>
-          <div>Email: <a href={`mailto:${SITE_CONFIG.owner.email}`} className="font-bold text-emerald-700 hover:underline">{SITE_CONFIG.owner.email}</a></div>
-          <div>Website: <b>https://{SITE_CONFIG.domain}</b> • Telegram: {SITE_CONFIG.officialChannel}</div>
-          <div>Business: {SITE_CONFIG.legalName}, Hyderabad, Telangana, India</div>
-          <div>{te ? "Working hours: Mon–Sat, 9 AM – 8 PM IST (response 24h లోపు)" : "Working hours: Mon–Sat, 9 AM – 8 PM IST (response within 24h)"}</div>
+          {SITE_CONFIG.owner.name ? <div>{te ? "వ్యాపార సంప్రదింపు" : "Business contact"}: <b>{SITE_CONFIG.owner.name}</b></div> : null}
+          {SITE_CONFIG.supportLink ? <div>{te ? "WhatsApp" : "WhatsApp"}: <a href={SITE_CONFIG.supportLink} target="_blank" rel="noopener noreferrer" className="font-bold text-emerald-700 hover:underline">{te ? "కాన్ఫిగర్ చేసిన contact తెరవండి" : "Open configured support contact"}</a></div> : null}
+          {SITE_CONFIG.supportPhoneDisplay ? <div>{te ? "ఫోన్" : "Phone"}: <a href={`tel:${SITE_CONFIG.supportPhoneDisplay.replace(/[^\d+]/g, "")}`} className="font-bold text-emerald-700 hover:underline">{SITE_CONFIG.supportPhoneDisplay}</a></div> : null}
+          {SITE_CONFIG.owner.email ? <div>{te ? "ఈమెయిల్" : "Email"}: <a href={`mailto:${SITE_CONFIG.owner.email}`} className="font-bold text-emerald-700 hover:underline">{SITE_CONFIG.owner.email}</a></div> : null}
+          <div>{te ? "వెబ్‌సైట్" : "Website"}: <b>https://{SITE_CONFIG.domain}</b> • <Link href="/channels" className="underline">{te ? "కాన్ఫిగర్ చేసిన ఛానల్ జాబితా" : "Configured channel listings"}</Link> {te ? "(బాహ్య లభ్యతను తనిఖీ చేయలేదు)" : "(external availability is not checked)"}</div>
+          {SITE_CONFIG.owner.location ? <div>{te ? "వ్యాపార స్థానం" : "Business location"}: {SITE_CONFIG.owner.location}</div> : null}
+          {SITE_CONFIG.supportConfigured ? <div>{te ? "సహాయం కోసం పై configured contact details ఉపయోగించండి; response సమయం మారవచ్చు." : "Use the configured contact details above for assistance; response time may vary."}</div> : <div role="status">{te ? "ఈ deployment లో verified support contact configure కాలేదు. Public launch కు ముందు operator contact ఇవ్వాలి." : "No support contact is configured for this deployment. The operator must configure and verify one before public launch."}</div>}
         </div>
       </div>
 
       <div className="mt-6 flex flex-wrap gap-3 text-xs">
-        <Link href="/pricing" className="underline text-[#7A0C2E] font-bold">💰 Pricing</Link>
-        <Link href="/terms" className="underline text-[#7A0C2E] font-bold">📄 Terms</Link>
-        <Link href="/privacy" className="underline text-[#7A0C2E] font-bold">🔒 Privacy</Link>
-        <Link href="/safety" className="underline text-[#7A0C2E] font-bold">🛡️ Safety</Link>
+        <Link href="/pricing" className="underline text-[#7A0C2E] font-bold">💰 {te ? "ధరలు" : "Pricing"}</Link>
+        <Link href="/terms" className="underline text-[#7A0C2E] font-bold">📄 {te ? "నిబంధనలు" : "Terms"}</Link>
+        <Link href="/privacy" className="underline text-[#7A0C2E] font-bold">🔒 {te ? "గోప్యత" : "Privacy"}</Link>
+        <Link href="/safety" className="underline text-[#7A0C2E] font-bold">🛡️ {te ? "భద్రత" : "Safety"}</Link>
       </div>
-    </main>
+    </div>
   );
 }
 

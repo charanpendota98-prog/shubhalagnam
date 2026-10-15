@@ -7,8 +7,7 @@
 import { useEffect, useState } from "react";
 import { Duo, duo } from "@/lib/duo";
 import { useLang } from "@/lib/lang";
-import Link from "next/link";
-import { apiGet, apiPost, TSAP_KEY } from "@/lib/api";
+import { apiDisplayMessage, apiGet, apiPost, TSAP_KEY } from "@/lib/api";
 import FeaturedStories from "@/components/FeaturedStories";
 
 type Story = {
@@ -49,9 +48,11 @@ export default function StoriesClient() {
     if (!tid) { setMsg(te ? "🔒 ముందు login/register చెయ్యండి — అప్పుడు story పంపొచ్చు" : "🔒 Login/register first — then you can send a story"); return; }
     if (form.text.trim().length < 20) { setMsg(te ? "⚠️ Story కొంచెం పెద్దగా రాయండి (20+ letters)" : "⚠️ Write a slightly longer story (20+ letters)"); return; }
     setSending(true);
-    const r = await apiPost<{ message_telugu?: string }>("/api/stories/submit", { tsap_id: tid, ...form });
+    const r = await apiPost<{ message_telugu?: string; message_en?: string }>("/api/stories/submit", { tsap_id: tid, ...form });
     setSending(false);
-    setMsg(r.ok ? (r.data?.message_telugu || (te ? "✅ Story వచ్చింది!" : "✅ Story received!")) : (r.errorTelugu || (te ? "⚠️ మళ్లీ try" : "⚠️ Retry")));
+    setMsg(apiDisplayMessage(r.data, te, r.ok
+      ? (te ? "✅ మీ కథనం అందింది!" : "✅ Your story was received.")
+      : (te ? "⚠️ కథనాన్ని పంపలేకపోయాం. మళ్లీ ప్రయత్నించండి." : "⚠️ The story could not be submitted. Please try again.")));
     if (r.ok) setForm({ text: "", couple_names: "", partner_id: "", district: "" });
   }
 
@@ -66,27 +67,28 @@ export default function StoriesClient() {
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-8 pb-36">
-      <h1 className="text-3xl font-extrabold text-rose-900">💑 <Duo en="Success Stories" te="విజయగాథలు" /></h1>
+      <h1 className="text-3xl font-extrabold text-rose-900">💑 <Duo en="Member Stories" te="సభ్యుల కథలు" /></h1>
       <div className="mt-4"><FeaturedStories limit={6} /></div>
       <h2 className="mt-8 text-xl font-extrabold text-rose-900">💬 <Duo en="Community stories" te="మీ కథలు" /></h2>
       <p className="mt-1 text-gray-600">
-{te ? <>మన వివాహ ద్వారా కలిసిన జంటలు 🎉 — మీకు కూడా ఇలాంటి సంబంధం కావాలంటే{" "}
-        <Link href="/register" className="font-semibold text-rose-700 underline">3 min లో register</Link> (మొదటి 3 FREE).</> : <>Couples united through మన వివాహ 🎉 — if you want such a match too{" "}
-        <Link href="/register" className="font-semibold text-rose-700 underline">register in 3 min</Link> (first 3 FREE).</>}
+        {te ? "సభ్యులు పంపిన కథలు పరిశీలన తర్వాత, అందుబాటులో ఉన్నప్పుడు ఇక్కడ కనిపిస్తాయి. నమోదు తర్వాత మొదటి 3 interest requests FREE." : "Member-submitted stories appear here after review, when available. The first 3 interest requests are free after registration."}
       </p>
 
       {loading && <p className="mt-6 text-gray-500">⏳ Stories loading…</p>}
       {!loading && stories.length === 0 && (
         <div className="mt-6 rounded-2xl border border-dashed border-rose-300 bg-rose-50 p-6 text-center">
-          <p className="text-lg font-semibold text-rose-900">{te ? "🆕 మొదటి story మీరు అవ్వండి!" : "🆕 Be the first story!"}</p>
-          <p className="mt-1 text-sm text-gray-600">{te ? "పెళ్లి అయిన జంటలు కింద form లో story పంపండి — approve అయ్యాక ఇక్కడ + channels లో కనిపిస్తుంది." : "Married couples, send your story in the form below — after approval it shows here + in channels."}</p>
+          <p className="text-lg font-semibold text-rose-900">{te ? "🆕 మీ కథనాన్ని పంచుకోండి" : "🆕 Share a story if you wish"}</p>
+          <p className="mt-1 text-sm text-gray-600">{te ? "పంపిన కథనం moderation తర్వాత ప్రచురణకు ఎంపిక కావచ్చు; ప్రచురణ సమయం లేదా ఇతర channels లో post హామీ కాదు." : "A submitted story may be selected for publication after moderation; timing and cross-channel posting are not guaranteed."}</p>
         </div>
       )}
       <div className="mt-6 space-y-4">
         {stories.map((s) => (
           <article key={s.story_id} className="rounded-2xl border border-rose-100 bg-white p-5 shadow-sm">
-            <p className="font-bold text-rose-900">💑 {s.couple_names || "మన వివాహ జంట"}{s.district ? ` · ${s.district}` : ""}</p>
-            <p className="mt-2 whitespace-pre-wrap text-gray-700">“{s.text}”</p>
+            <p className="break-words font-bold text-rose-900">💬 {s.couple_names || (te ? "సభ్యుల కథనం" : "Member story")}{s.district ? ` · ${te ? s.district : apiDisplayMessage({ message_en: s.district }, false, "")}` : ""}</p>
+            {s.couple_names ? <p className="mt-0.5 text-[11px] text-gray-500">{te ? "సభ్యులు తెలిపిన పేరు" : "Name supplied with the story"}</p> : null}
+            <p lang={te ? "te-IN" : "en-IN"} className={`mt-2 whitespace-pre-wrap text-gray-700 ${te ? "telugu" : ""}`}>
+              “{te ? s.text : apiDisplayMessage({ message_en: s.text }, false, "This story was submitted in another language. Switch to Telugu to read the original.")}”
+            </p>
             <div className="mt-3 flex items-center justify-between">
               <button
                 onClick={() => like(s.story_id)}
@@ -104,17 +106,17 @@ export default function StoriesClient() {
 
       <div className="mt-10 rounded-2xl border border-emerald-200 bg-emerald-50/60 p-5">
         <h2 className="text-xl font-bold text-emerald-900">{te ? "📝 మీ story పంపండి" : "📝 Send your story"}</h2>
-        <p className="text-sm text-gray-600">{te ? "పెళ్లి అయిందా? జంట పేరు + 2 lines + photo link (optional) — admin approve (24h) తర్వాత public." : "Married? Couple names + 2 lines + photo link (optional) — public after admin approval (24h)."}</p>
+        <p className="text-sm leading-relaxed text-gray-600">{te ? "మీరు పంచుకోవాలనుకునే వివరాలనే ఇవ్వండి. ప్రచురణకు ముందు moderation ఉంటుంది; సమయం హామీ కాదు. Moderation గుర్తింపు, సంబంధం లేదా పెళ్లి వివరాలను స్వతంత్రంగా నిర్ధారించదు." : "Share only details you are comfortable publishing. Stories are moderated before possible publication; no review time is guaranteed. Moderation does not independently verify identity, relationship, or wedding details."}</p>
         <div className="mt-3 grid gap-2 sm:grid-cols-2">
           <input value={form.couple_names} onChange={(e) => setForm({ ...form, couple_names: e.target.value })}
-            placeholder={te ? "జంట పేరు (Ex: Raju ❤️ Lakshmi)" : "Couple names (Ex: Raju ❤️ Lakshmi)"} aria-label={te ? "జంట పేరు" : "Couple names"}
+            placeholder={te ? "ప్రచురించడానికి జంట పేర్లు (ఐచ్ఛికం; సమ్మతితో)" : "Names to publish (optional; with consent)"} aria-label={te ? "ప్రచురించడానికి జంట పేర్లు" : "Names to publish"}
             className="rounded-xl border px-3 py-2 text-sm outline-none focus:border-emerald-500" />
           <input value={form.district} onChange={(e) => setForm({ ...form, district: e.target.value })}
-            placeholder="District (Ex: Nalgonda)" aria-label="District"
+            placeholder={te ? "జిల్లా" : "District"} aria-label={te ? "జిల్లా" : "District"}
             className="rounded-xl border px-3 py-2 text-sm outline-none focus:border-emerald-500" />
         </div>
         <textarea value={form.text} onChange={(e) => setForm({ ...form, text: e.target.value })}
-          placeholder={te ? "మీ story (20+ letters) — ఎలా కలిశారు, ఎప్పుడు పెళ్లి…" : "Your story (20+ letters) — how you met, when married…"} aria-label={te ? "మీ story" : "Your story"}
+          placeholder={te ? "మీరు పంచుకోవడానికి అంగీకరించే వివరాలను రాయండి" : "Write the details you consent to share"} aria-label={te ? "మీ కథనం" : "Your story"}
           rows={3} className="mt-2 w-full rounded-xl border px-3 py-2 text-sm outline-none focus:border-emerald-500" />
         <input value={form.partner_id} onChange={(e) => setForm({ ...form, partner_id: e.target.value })}
           placeholder="Partner Profile ID (optional)" aria-label="Partner Profile ID"

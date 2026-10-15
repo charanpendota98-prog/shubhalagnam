@@ -4,7 +4,6 @@
  * ==============================================================
  * • Password Login & SMS/WhatsApp OTP Login
  * • Forgot Password with instant OTP Reset flow
- * • Quick Demo 1-Click Access for instant evaluation
  * • Resend OTP countdown timer & crisp error messages
  */
 import { useState, useEffect } from "react";
@@ -13,7 +12,7 @@ import { Duo } from "@/lib/duo";
 import { useLang } from "@/lib/lang";
 import { useRouter } from "next/navigation";
 import { rememberSession, sendOtp, verifyOtp } from "@/lib/auth";
-import { apiPost } from "@/lib/api";
+import { apiDisplayMessage, apiPost } from "@/lib/api";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -28,7 +27,6 @@ export default function LoginPage() {
   const [stage, setStage] = useState<"phone" | "otp">("phone");
   const [msg, setMsg] = useState("");
   const [msgType, setMsgType] = useState<"err" | "ok" | "info">("info");
-  const [devCode, setDevCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [keep, setKeep] = useState(true);
 
@@ -75,15 +73,15 @@ export default function LoginPage() {
     }
     setBusy(true);
     showFeedback("");
-    const { ok, data, errorTelugu } = await apiPost<{ auth_token?: string; tsap_id?: string; message_telugu?: string }>(
+    const { ok, data, error } = await apiPost<{ auth_token?: string; tsap_id?: string; message_telugu?: string; message_en?: string; message?: string }>(
       "/api/auth/login-password", { phone: p, password }
     );
     setBusy(false);
     if (!ok) {
-      showFeedback(errorTelugu || (te ? "లాగిన్ విఫలమైంది. పాస్‌వర్డ్ సరిచూసుకోండి." : "Login failed. Check credentials."), "err");
+      showFeedback(error || (te ? "లాగిన్ విఫలమైంది. పాస్‌వర్డ్ సరిచూసుకోండి." : "Login failed. Check your credentials."), "err");
       return;
     }
-    showFeedback(data?.message_telugu || (te ? "✅ లాగిన్ విజయవంతమైంది! మీ ఖాతాలోకి వెళ్తున్నారు..." : "✅ Login successful! Redirecting..."), "ok");
+    showFeedback(apiDisplayMessage(data, te, te ? "✅ లాగిన్ విజయవంతమైంది! మీ ఖాతాలోకి వెళ్తున్నారు..." : "✅ Login successful. Redirecting…"), "ok");
     go(String(data?.tsap_id || ""), String(data?.auth_token || ""), true);
   }
 
@@ -95,17 +93,16 @@ export default function LoginPage() {
     }
     setBusy(true);
     showFeedback("");
-    const { ok, data, errorTelugu } = await sendOtp(p);
+    const { ok, data, error } = await sendOtp(p);
     setBusy(false);
     if (!ok) {
-      showFeedback(errorTelugu || (te ? "OTP పంపడంలో సమస్య ఏర్పడింది." : "Failed to send OTP."), "err");
+      showFeedback(error || (te ? "OTP పంపడంలో సమస్య ఏర్పడింది." : "Could not send the OTP. Please try again."), "err");
       return;
     }
-    const d = (data || {}) as { dev_code?: string; message_telugu?: string };
+    const d = data || {};
     setStage("otp");
-    setDevCode(d.dev_code || "");
     setCountdown(30);
-    showFeedback(d.message_telugu || (te ? "📱 OTP పంపించాం — మీ SMS/WhatsApp తనిఖీ చేయండి" : "📱 OTP sent — please check your SMS/WhatsApp"), "ok");
+    showFeedback(apiDisplayMessage(d, te, te ? "📱 OTP పంపించాం — మీ SMS/WhatsApp తనిఖీ చేయండి" : "📱 OTP sent. Check your SMS or WhatsApp."), "ok");
   }
 
   async function onVerify() {
@@ -116,14 +113,14 @@ export default function LoginPage() {
     }
     setBusy(true);
     showFeedback("");
-    const { ok, data, errorTelugu } = await verifyOtp(digits(), c);
+    const { ok, data, error } = await verifyOtp(digits(), c);
     setBusy(false);
     if (!ok) {
-      showFeedback(errorTelugu || (te ? "తప్పుడు OTP. మళ్లీ ప్రయత్నించండి." : "Invalid OTP code."), "err");
+      showFeedback(error || (te ? "తప్పుడు OTP. మళ్లీ ప్రయత్నించండి." : "Invalid OTP. Please try again."), "err");
       return;
     }
-    const d = (data || {}) as { auth_token?: string; tsap_id?: string; has_account?: boolean; message_telugu?: string };
-    showFeedback(d.message_telugu || (te ? "✅ లాగిన్ విజయవంతమైంది!" : "✅ Login successful!"), "ok");
+    const d = (data || {}) as { auth_token?: string; tsap_id?: string; has_account?: boolean; message_telugu?: string; message_en?: string; message?: string };
+    showFeedback(apiDisplayMessage(d, te, te ? "✅ లాగిన్ విజయవంతమైంది!" : "✅ Login successful."), "ok");
     go(String(d.tsap_id || ""), String(d.auth_token || ""), !!d.has_account);
   }
 
@@ -135,18 +132,17 @@ export default function LoginPage() {
     }
     setBusy(true);
     showFeedback("");
-    const { ok, data, errorTelugu } = await apiPost<{ dev_code?: string; message_telugu?: string }>(
+    const { ok, data, error } = await apiPost<{ message_telugu?: string; message_en?: string; message?: string }>(
       "/api/auth/forgot", { phone: p }
     );
     setBusy(false);
     if (!ok) {
-      showFeedback(errorTelugu || (te ? "రీసెట్ OTP పంపడంలో సమస్య ఏర్పడింది." : "Failed to send reset OTP."), "err");
+      showFeedback(error || (te ? "రీసెట్ OTP పంపడంలో సమస్య ఏర్పడింది." : "Could not send the password-reset OTP. Please try again."), "err");
       return;
     }
     setFStage("reset");
     setCountdown(30);
-    setDevCode((data as { dev_code?: string })?.dev_code || "");
-    showFeedback(data?.message_telugu || (te ? "📱 పాస్‌వర్డ్ రీసెట్ OTP పంపించాం" : "📱 Password reset OTP sent"), "ok");
+    showFeedback(apiDisplayMessage(data, te, te ? "📱 పాస్‌వర్డ్ రీసెట్ OTP పంపించాం" : "📱 Password-reset OTP sent."), "ok");
   }
 
   async function onReset() {
@@ -158,35 +154,26 @@ export default function LoginPage() {
       showFeedback(te ? "⚠️ కొత్త పాస్‌వర్డ్ కనీసం 6 అక్షరాలు ఉండాలి" : "⚠️ New password must be at least 6 characters", "err");
       return;
     }
-    if (confirmPw && newPw !== confirmPw) {
+    if (newPw !== confirmPw) {
       showFeedback(te ? "⚠️ పాస్‌వర్డ్‌లు సరిపోలడం లేదు" : "⚠️ Passwords do not match", "err");
       return;
     }
     setBusy(true);
     showFeedback("");
-    const { ok, data, errorTelugu } = await apiPost<{ auth_token?: string; tsap_id?: string; message_telugu?: string }>(
+    const { ok, data, error } = await apiPost<{ auth_token?: string; tsap_id?: string; message_telugu?: string; message_en?: string; message?: string }>(
       "/api/auth/reset", { phone: digits(), code: code.trim(), new_password: newPw.trim() }
     );
     setBusy(false);
     if (!ok) {
-      showFeedback(errorTelugu || (te ? "పాస్‌వర్డ్ రీసెట్ విఫలమైంది." : "Password reset failed."), "err");
+      showFeedback(error || (te ? "పాస్‌వర్డ్ రీసెట్ విఫలమైంది." : "Password reset failed. Please try again."), "err");
       return;
     }
-    showFeedback(data?.message_telugu || (te ? "✅ పాస్‌వర్డ్ విజయవంతంగా మార్చబడింది! లాగిన్ అవుతున్నారు..." : "✅ Password changed successfully! Logging in..."), "ok");
+    showFeedback(apiDisplayMessage(data, te, te ? "✅ పాస్‌వర్డ్ విజయవంతంగా మార్చబడింది! లాగిన్ అవుతున్నారు..." : "✅ Password changed successfully. Signing in…"), "ok");
     go(String(data?.tsap_id || ""), String(data?.auth_token || ""), true);
   }
 
-  // Quick Demo Login for instant user testing
-  const quickDemoLogin = (demoPhone: string, demoPw: string) => {
-    setPhone(demoPhone);
-    setPassword(demoPw);
-    setTab("password");
-    setForgot(false);
-    showFeedback(te ? "డెమో వివరాలు నింపబడ్డాయి — 'Login' క్లిక్ చేయండి" : "Demo credentials filled — click 'Login'", "info");
-  };
-
   return (
-    <main className="min-h-dvh bg-gradient-to-b from-[#FFFDF9] via-[#FAF5EE] to-[#F5ECE0] py-10 px-4 flex flex-col justify-center items-center">
+    <div className="min-h-dvh bg-gradient-to-b from-[#FFFDF9] via-[#FAF5EE] to-[#F5ECE0] py-10 px-4 flex flex-col justify-center items-center">
       <div className="w-full max-w-md">
         
         {/* Brand Header */}
@@ -268,7 +255,7 @@ export default function LoginPage() {
                     maxLength={10}
                     disabled={fStage === "reset"}
                     onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 10))}
-                    placeholder="98480 12345"
+                    placeholder={te ? "నమోదు చేసిన మొబైల్ నంబర్" : "Registered mobile number"}
                     className="w-full pl-12 pr-4 py-3 rounded-xl border border-slate-200 text-base font-semibold focus:border-maroon focus:ring-1 focus:ring-maroon outline-none disabled:bg-slate-50"
                   />
                 </div>
@@ -284,16 +271,11 @@ export default function LoginPage() {
                       id="f-otp"
                       inputMode="numeric"
                       value={code}
-                      maxLength={6}
-                      onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
-                      placeholder="1234"
+                      maxLength={4}
+                      onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                      placeholder={te ? "OTP కోడ్ నమోదు చేయండి" : "Enter OTP code"}
                       className="w-full text-center tracking-[0.4em] py-3 rounded-xl border border-slate-200 text-xl font-bold font-mono focus:border-maroon focus:ring-1 focus:ring-maroon outline-none"
                     />
-                    {devCode && (
-                      <p className="mt-1 text-xs text-emerald-700 font-mono">
-                        {te ? <>డెమో OTP: <b>{devCode}</b></> : <>Demo OTP: <b>{devCode}</b></>}
-                      </p>
-                    )}
                   </div>
 
                   <div>
@@ -357,7 +339,7 @@ export default function LoginPage() {
                   disabled={busy}
                   className="w-full py-3.5 rounded-2xl maroon-gradient text-white font-bold text-sm shadow-md hover-lift disabled:opacity-50"
                 >
-                  {busy ? "OTP పంపుతున్నారు…" : te ? "📩 రీసెట్ OTP పంపు" : "📩 Send Reset OTP"}
+                  {busy ? (te ? "OTP పంపుతున్నారు…" : "Sending OTP…") : te ? "📩 రీసెట్ OTP పంపు" : "📩 Send Reset OTP"}
                 </button>
               ) : (
                 <div className="space-y-2">
@@ -366,7 +348,7 @@ export default function LoginPage() {
                     disabled={busy}
                     className="w-full py-3.5 rounded-2xl maroon-gradient text-white font-bold text-sm shadow-md hover-lift disabled:opacity-50"
                   >
-                    {busy ? "సేవ్ చేస్తున్నారు…" : te ? "✅ పాస్‌వర్డ్ రీసెట్ చేసి లాగిన్ అవ్వండి" : "✅ Reset Password & Login"}
+                    {busy ? (te ? "సేవ్ చేస్తున్నారు…" : "Saving…") : te ? "✅ పాస్‌వర్డ్ రీసెట్ చేసి లాగిన్ అవ్వండి" : "✅ Reset Password & Login"}
                   </button>
                   <div className="flex justify-between items-center text-xs text-slate-500 pt-1">
                     <button
@@ -413,7 +395,7 @@ export default function LoginPage() {
                         else void onVerify();
                       }
                     }}
-                    placeholder="98480 12345"
+                    placeholder={te ? "నమోదు చేసిన మొబైల్ నంబర్" : "Registered mobile number"}
                     className="w-full pl-12 pr-4 py-3 rounded-xl border border-slate-200 text-base font-semibold focus:border-maroon focus:ring-1 focus:ring-maroon outline-none disabled:bg-slate-50"
                   />
                 </div>
@@ -472,7 +454,7 @@ export default function LoginPage() {
                       🔢 {te ? "4 అంకెల OTP కోడ్" : "4-digit OTP Code"}
                     </label>
                     <button
-                      onClick={() => { setStage("phone"); setCode(""); setDevCode(""); }}
+                      onClick={() => { setStage("phone"); setCode(""); }}
                       className="text-[11px] text-maroon hover:underline font-bold"
                     >
                       {te ? "నెంబర్ మార్చు" : "Change Number"}
@@ -482,19 +464,14 @@ export default function LoginPage() {
                     id="login-otp"
                     inputMode="numeric"
                     value={code}
-                    maxLength={6}
-                    onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
+                    maxLength={4}
+                    onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 4))}
                     onKeyDown={(e) => {
                       if (e.key === "Enter") void onVerify();
                     }}
-                    placeholder="1234"
+                    placeholder={te ? "OTP కోడ్ నమోదు చేయండి" : "Enter OTP code"}
                     className="w-full text-center tracking-[0.4em] py-3 rounded-xl border border-slate-200 text-2xl font-bold font-mono focus:border-maroon focus:ring-1 focus:ring-maroon outline-none"
                   />
-                  {devCode && (
-                    <p className="mt-1.5 text-xs text-emerald-700 font-mono text-center">
-                      {te ? <>డెమో OTP: <b>{devCode}</b></> : <>Demo OTP: <b>{devCode}</b></>}
-                    </p>
-                  )}
                   <div className="flex justify-between items-center text-xs text-slate-500 mt-2">
                     <span>{te ? "SMS లేదా WhatsApp ద్వారా OTP వస్తుంది" : "OTP sent via SMS / WhatsApp"}</span>
                     {countdown > 0 ? (
@@ -545,7 +522,7 @@ export default function LoginPage() {
                     disabled={busy}
                     className="w-full py-3.5 rounded-2xl maroon-gradient text-white font-bold text-sm shadow-md hover-lift disabled:opacity-50"
                   >
-                    {busy ? "లాగిన్ అవుతున్నారు…" : "🔑 Login"}
+                    {busy ? (te ? "లాగిన్ అవుతున్నారు…" : "Signing in…") : "🔑 Login"}
                   </button>
                 ) : stage === "phone" ? (
                   <button
@@ -553,7 +530,7 @@ export default function LoginPage() {
                     disabled={busy}
                     className="w-full py-3.5 rounded-2xl maroon-gradient text-white font-bold text-sm shadow-md hover-lift disabled:opacity-50"
                   >
-                    {busy ? "OTP పంపుతున్నారు…" : te ? "📲 OTP కోడ్ పంపు" : "📲 Send OTP Code"}
+                    {busy ? (te ? "OTP పంపుతున్నారు…" : "Sending OTP…") : te ? "📲 OTP కోడ్ పంపు" : "📲 Send OTP Code"}
                   </button>
                 ) : (
                   <button
@@ -561,37 +538,13 @@ export default function LoginPage() {
                     disabled={busy}
                     className="w-full py-3.5 rounded-2xl maroon-gradient text-white font-bold text-sm shadow-md hover-lift disabled:opacity-50"
                   >
-                    {busy ? "ధృవీకరిస్తున్నారు…" : "✅ Verify & Login"}
+                    {busy ? (te ? "ధృవీకరిస్తున్నారు…" : "Verifying…") : "✅ Verify & Login"}
                   </button>
                 )}
               </div>
             </div>
           )}
 
-          {/* Quick Demo Credentials for Reviewers */}
-          <div className="mt-6 pt-4 border-t border-slate-100">
-            <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2 text-center">
-              ⚡ {te ? "1-క్లిక్ త్వరిత డెమో లాగిన్" : "1-Click Quick Demo Login"}
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => quickDemoLogin("9848011111", "pass123")}
-                className="px-2.5 py-2 rounded-xl bg-slate-50 border border-slate-200 hover:border-gold text-[11px] font-bold text-slate-700 hover:text-maroon transition-all flex items-center justify-center gap-1.5"
-              >
-                <span>👰</span>
-                <span>{te ? "వధువు డెమో" : "Bride Demo"}</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => quickDemoLogin("9848022222", "pass123")}
-                className="px-2.5 py-2 rounded-xl bg-slate-50 border border-slate-200 hover:border-gold text-[11px] font-bold text-slate-700 hover:text-maroon transition-all flex items-center justify-center gap-1.5"
-              >
-                <span>🤵</span>
-                <span>{te ? "వరుడు డెమో" : "Groom Demo"}</span>
-              </button>
-            </div>
-          </div>
         </div>
 
         {/* Register Free CTA Footer */}
@@ -599,21 +552,21 @@ export default function LoginPage() {
           <p className="text-xs text-slate-600">
             {te ? "ఇంకా ఖాతా లేదా?" : "Don't have an account yet?"}{" "}
             <Link href="/register" className="font-extrabold text-[#7A0C2E] hover:underline inline-flex items-center gap-1">
-              <span>ఉచిత నమోదు (Register Free)</span>
+              <span>{te ? "ఉచిత నమోదు" : "Register Free"}</span>
               <span>→</span>
             </Link>
           </p>
 
-          <div className="flex justify-center items-center gap-4 text-[11px] text-slate-500 pt-2">
-            <span className="flex items-center gap-1">🔒 100% గోప్యత</span>
-            <span>•</span>
-            <span className="flex items-center gap-1">🛡️ ఫోన్ నంబర్ రక్షణ</span>
-            <span>•</span>
-            <span className="flex items-center gap-1">🚫 స్పామ్ ఉండదు</span>
+          <div className="flex flex-wrap justify-center items-center gap-x-4 gap-y-2 text-[11px] text-slate-500 pt-2">
+            <span className="flex items-center gap-1">🔒 {te ? "గోప్యతకు ప్రాధాన్యం" : "Privacy-minded"}</span>
+            <span aria-hidden="true">•</span>
+            <span className="flex items-center gap-1">🛡️ {te ? "ఫోన్ నంబర్ రక్షణ" : "Phone number privacy"}</span>
+            <span aria-hidden="true">•</span>
+            <span className="flex items-center gap-1">🚫 {te ? "స్పామ్ ఉండదు" : "No spam"}</span>
           </div>
         </div>
 
       </div>
-    </main>
+    </div>
   );
 }

@@ -82,7 +82,7 @@ try:
           a.get("ok") and str(newbie.get("referred_by", "")).lower() == pid.lower(), a)
     check("B2 referee bonus flag", a.get("bonus_credits", 0) >= 1 or newbie.get("referred_by") == pid, a)
     M.DB_USERS.append(newbie)
-    p = referral.process_referral_payment(newbie, pid, 99, M.DB_USERS, payment_id="pay_w20")
+    p = referral.process_referral_payment(newbie, pid, 99, M.DB_USERS, payment_id="pay_w20", plan_code="S_99")
     check("B3 first payment → commission success", p.get("success"), p)
     st = RP19.get_partner(pid).get("referral_stats", {})
     check("B4 wallet ₹50 credited", float(st.get("wallet", 0)) >= 50, st.get("wallet"))

@@ -92,8 +92,8 @@ def vendor_poster(vendor: Dict, style: str = "square", out_path: Optional[str] =
         y = _center(d, y, _txt(vendor.get("price_range"))[:40], _font(32), BRAND_MAROON, W)
     if vendor.get("experience_years"):
         y = _center(d, y, "%s yrs experience" % _txt(vendor.get("experience_years")), _font(28), BRAND_NAVY, W)
-    if vendor.get("verified"):
-        y = _center(d, y, "MANA VIVAHA VERIFIED PARTNER", _font(30), (20, 120, 60), W)
+    if vendor.get("manual_verified"):
+        y = _center(d, y, "LISTING REVIEWED BY STAFF", _font(30), (20, 120, 60), W)
     about = str(vendor.get("about") or "").strip()
     if about and (not qr_ready or y < box_guess):
         y += 6
@@ -102,12 +102,28 @@ def vendor_poster(vendor: Dict, style: str = "square", out_path: Optional[str] =
         if len(_ab) > 70:
             y = _center(d, y, _ab[70:140], _font(24), (90, 90, 90), W)
 
-    # QR + phone box
-    phone = "".join(ch for ch in str(vendor.get("whatsapp") or vendor.get("phone") or "") if ch.isdigit())
+    # QR points only to an explicitly supplied WhatsApp destination; otherwise it
+    # opens the vendor listing. Never infer a WhatsApp account from a call number.
+    phone = "".join(ch for ch in str(vendor.get("phone") or "") if ch.isdigit())
+    wa_phone = "".join(ch for ch in str(vendor.get("whatsapp") or "") if ch.isdigit())
+    if vendor.get("whatsapp_explicit") is not True:
+        wa_phone = ""
+    elif len(wa_phone) == 10:
+        wa_phone = "91" + wa_phone
+    elif not (len(wa_phone) == 12 and wa_phone.startswith("91")):
+        wa_phone = ""
+    is_share_kit = str(vendor.get("package", "")).upper() in {"V_SINGLE_POST", "V_STATUS_BLAST"}
+    detail_url = "" if is_share_kit else "https://%s/vendors/%s" % (site, vendor.get("id", ""))
+    # For share kits, QR contains only the vendor-supplied WhatsApp number; never
+    # point to a public listing that this package does not provide.
+    qr_target = ("https://wa.me/%s" % wa_phone
+                 if len(wa_phone) == 12 and wa_phone.startswith("91") else detail_url)
     try:
+        if not qr_target:
+            raise ValueError("No public link is configured for this share-kit poster")
         import qrcode
         qr = qrcode.QRCode(box_size=10, border=2)
-        qr.add_data("https://wa.me/91%s?text=%s" % (phone, "నమస్తే! మన వివాహ listing చూశాను"))
+        qr.add_data(qr_target)
         qr.make()
         qr_img = qr.make_image(fill_color="black", back_color="white").convert("RGB")
         size = 260 if style != "status" else 300
@@ -119,13 +135,27 @@ def vendor_poster(vendor: Dict, style: str = "square", out_path: Optional[str] =
 
     d.rounded_rectangle([60, box_y, W - 60, box_y + (300 if style != "status" else 340)],
                         radius=28, outline=BRAND_GOLD, width=4)
-    d.text((100, box_y + 26), "BOOKING / ENQUIRY:", font=_font(30), fill=BRAND_MAROON)
-    d.text((100, box_y + 76), "+91 %s" % phone, font=_font(52), fill=BRAND_NAVY)
-    _qr_w = (260 if style != "status" else 300) + 60 if qr_ready else 0
-    d.text((100, box_y + 152), "WhatsApp చెయ్యండి - మన వివాహ\nmember అని చెప్పండి",
-           font=_font(24), fill=(90, 90, 90), spacing=6)
-    if not qr_ready:
-        d.text((100, box_y + 190), "%s/vendors" % site, font=_font(26), fill=BRAND_NAVY)
+    d.text((100, box_y + 26), "CONTACT / DETAILS:", font=_font(30), fill=BRAND_MAROON)
+    if phone:
+        d.text((100, box_y + 76), "+91 %s" % phone, font=_font(52), fill=BRAND_NAVY)
+        contact_y = box_y + 152
+        contact_label = "Call the business number" if not wa_phone else "WhatsApp number provided by vendor"
+    elif detail_url:
+        d.text((100, box_y + 76), "Open vendor listing", font=_font(38), fill=BRAND_NAVY)
+        contact_y = box_y + 138
+        contact_label = "Scan to view listing and contact options"
+    else:
+        d.text((100, box_y + 76), "Contact the business directly", font=_font(30), fill=BRAND_NAVY)
+        contact_y = box_y + 138
+        contact_label = "Use the phone or WhatsApp number supplied by the vendor"
+    if wa_phone:
+        contact_label = "WhatsApp link supplied by vendor"
+    d.text((100, contact_y), contact_label, font=_font(24), fill=(90, 90, 90))
+    if not qr_ready and detail_url:
+        d.text((100, contact_y + 42), detail_url, font=_font(24), fill=BRAND_NAVY)
+    elif not qr_ready:
+        d.text((100, contact_y + 42), "Use the printed contact details; no listing link is included.",
+               font=_font(22), fill=BRAND_NAVY)
     d.text((60, H - 96), "%s/vendors | Vendor ID %s" % (site, vendor.get("id", "")),
            font=_font(24), fill=(120, 120, 120))
     d.rectangle([0, H - 40, W, H], fill=BRAND_NAVY)

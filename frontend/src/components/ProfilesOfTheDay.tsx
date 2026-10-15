@@ -1,355 +1,240 @@
 "use client";
-/**
- * 🌟 PROFILES OF THE DAY & SPOTLIGHT SHOWCASE (WAVE 42)
- * =========================================================
- * High-visibility, high-converting showcase for paid promoted profiles.
- * Users pay (₹99 / ₹199 / ₹499) → Admin approves → Shown with verified badge,
- * high-res photo, video preview player, custom pitch, and direct action buttons.
- */
+
+
+import { apiDisplayMessage, readApiJson } from "@/lib/api";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useLang } from "@/lib/lang";
-import { Duo, duo } from "@/lib/duo";
+import { duo } from "@/lib/duo";
 import Reveal from "@/components/Reveal";
 import SectionHeading from "@/components/SectionHeading";
 
 export type SpotlightProfile = {
   promo_id: string;
   tsap_id: string;
-  full_name: string;
-  gender: "Bride" | "Groom" | string;
-  age: number;
-  caste: string;
+  full_name?: string;
+  gender?: string;
+  age?: number | string | null;
+  caste?: string;
   subcaste?: string;
-  district: string;
+  district?: string;
   education?: string;
   job?: string;
   income?: string;
   height?: string;
   marital_status?: string;
-  badge_text: string;
-  headline: string;
-  pitch_text: string;
+  badge_text?: string;
+  badge_text_te?: string;
+  headline?: string;
+  pitch_text?: string;
   photo_url?: string;
   video_url?: string;
   media_type?: string;
-  amount_paid?: number;
   views_count?: number;
 };
 
-const DEFAULT_SPOTLIGHTS: SpotlightProfile[] = [
-  {
-    promo_id: "SPOT-001",
-    tsap_id: "MV1001",
-    full_name: "శ్రావణి రెడ్డి (Sravani Reddy)",
-    gender: "Bride",
-    age: 25,
-    caste: "Reddy",
-    subcaste: "Motati",
-    district: "Hyderabad / Nalgonda",
-    education: "B.Tech CSE",
-    job: "Senior Software Engineer (16 LPA)",
-    height: "5 ft 4 in",
-    badge_text: "⭐ నేటి విశేష సంబంధం",
-    headline: "సాఫ్ట్‌వేర్ ప్రొఫెషనల్ · సంప్రదాయ కుటుంబం",
-    pitch_text: "ఉన్నత విద్యావంతురాలు, సంస్కారవంతమైన కుటుంబ నేపథ్యం. సాఫ్ట్‌వేర్ రంగంలో స్థిరపడిన వరుడు కావలెను.",
-    photo_url: "/promo/bride-card.jpg",
-  },
-  {
-    promo_id: "SPOT-002",
-    tsap_id: "MV1002",
-    full_name: "రాజేష్ చౌదరి (Rajesh Chowdary)",
-    gender: "Groom",
-    age: 28,
-    caste: "Kamma",
-    district: "Vijayawada / USA",
-    education: "MS in Data Science (USA)",
-    job: "Data Architect, Microsoft (H1B)",
-    height: "5 ft 10 in",
-    badge_text: "✈️ NRI SPOTLIGHT",
-    headline: "యూఎస్ స్థిరపడిన ప్రొఫెషనల్ · కృష్ణా జిల్లా",
-    pitch_text: "అమెరికాలో మంచి ఉద్యోగంలో స్థిరపడిన వరుడు. విద్యావంతురాలైన సంప్రదాయ వధువు కావలెను.",
-    photo_url: "/promo/groom-kamma.jpg",
-  },
-  {
-    promo_id: "SPOT-003",
-    tsap_id: "MV1003",
-    full_name: "దివ్య తేజస్వి (Divya Tejaswi)",
-    gender: "Bride",
-    age: 24,
-    caste: "Kapu",
-    district: "Visakhapatnam",
-    education: "MBBS, MD General Medicine",
-    job: "Resident Doctor, Apollo Hospitals",
-    height: "5 ft 5 in",
-    badge_text: "🩺 DOCTOR ALLIANCE",
-    headline: "డాక్టర్ వధువు · విశాఖపట్నం సంప్రదాయ కుటుంబం",
-    pitch_text: "మెడికల్ లేదా సివిల్స్/ఐటీ రంగంలో స్థిరపడిన అనుకూలమైన వరుని కోసం చూస్తున్నాము.",
-    photo_url: "/promo/bride-kapu.jpg",
-  },
-];
+function getVideoSource(raw?: string) {
+  if (!raw) return null;
+  try {
+    const url = new URL(raw);
+    if (url.protocol !== "https:") return null;
+    const host = url.hostname.toLowerCase().replace(/^www\./, "");
+    if (!["youtu.be", "youtube.com", "m.youtube.com", "youtube-nocookie.com"].includes(host)) return null;
+    const id = host === "youtu.be"
+      ? url.pathname.split("/").filter(Boolean)[0]
+      : url.searchParams.get("v") || url.pathname.match(/\/(?:embed|shorts)\/([\w-]{11})/)?.[1];
+    return id && /^[\w-]{11}$/.test(id)
+      ? { kind: "embed" as const, src: `https://www.youtube-nocookie.com/embed/${id}?autoplay=1` }
+      : null;
+  } catch {
+    return null;
+  }
+}
 
 export default function ProfilesOfTheDay() {
   const { lang } = useLang();
   const te = lang === "te";
-  const [profiles, setProfiles] = useState<SpotlightProfile[]>(DEFAULT_SPOTLIGHTS);
-  const [activeVideo, setActiveVideo] = useState<string | null>(null);
-  const [sentInterest, setSentInterest] = useState<Record<string, boolean>>({});
-  // R14 FIX: DEFAULT_SPOTLIGHTS (illustrative sample cards) reuses tsap_ids like
-  // MV1001 that a DIFFERENT real/demo person owns on /search/[id] — clicking
-  // "వివరాలు" ముందు వేరే పేరు/ఫోటో చూపించేది, users కి fake గా అనిపించేది.
-  // isFallback true అయినప్పుడు (real paid spotlight data ఇంకా రాలేదు) — Sample
-  // బ్యాడ్జ్ చూపించి, CTA లు /register కి పంపిస్తాం, mismatched profile కి కాదు.
-  const isFallback = profiles === DEFAULT_SPOTLIGHTS;
+  const [profiles, setProfiles] = useState<SpotlightProfile[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [activeVideo, setActiveVideo] = useState<{ kind: "embed" | "video"; src: string } | null>(null);
 
   useEffect(() => {
-    fetch("/api/spotlight/active?limit=6")
-      .then((r) => r.json())
-      .then((d) => {
-        if (d?.success && Array.isArray(d.items) && d.items.length > 0) {
-          setProfiles(d.items);
-        }
+    const controller = new AbortController();
+    fetch("/api/spotlight/active?limit=6", { cache: "no-store", signal: controller.signal })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("Spotlight request failed");
+        return readApiJson(response);
       })
-      .catch(() => {});
+      .then((data) => {
+        const items = Array.isArray(data?.items) ? data.items : [];
+        setProfiles(items.filter((item: any) => item?.promo_id && item?.tsap_id));
+        setLoadError(false);
+      })
+      .catch((error) => {
+        if (error?.name !== "AbortError") setLoadError(true);
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
+      });
+    return () => controller.abort();
   }, []);
 
-  const handleInterest = (promoId: string, tsapId: string) => {
-    setSentInterest((prev) => ({ ...prev, [promoId]: true }));
-    fetch(`/api/spotlight/track/${promoId}?kind=interest`, { method: "POST" }).catch(() => {});
+  useEffect(() => {
+    if (!activeVideo) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setActiveVideo(null);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [activeVideo]);
+
+  const trackClick = (promoId: string) => {
+    fetch(`/api/spotlight/track/${encodeURIComponent(promoId)}?kind=click`, { method: "POST" }).catch(() => {});
   };
 
-  const handleTrackClick = (promoId: string) => {
-    fetch(`/api/spotlight/track/${promoId}?kind=click`, { method: "POST" }).catch(() => {});
-  };
+  // Keep the homepage focused when no approved placement is active. The full
+  // spotlight route remains available from navigation for profile promotion.
+  if (!loading && (loadError || profiles.length === 0)) return null;
 
   return (
-    <section className="relative max-w-7xl mx-auto px-4 py-10" aria-label="Profiles of the Day">
-      {/* Decorative background glow */}
-      <div className="absolute inset-0 pointer-events-none -z-10 overflow-hidden">
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[350px] bg-gradient-to-r from-amber-100/60 via-rose-100/50 to-gold-soft/40 blur-3xl rounded-full" />
+    <section className="relative mx-auto max-w-7xl overflow-hidden px-4 py-10" aria-label={te ? "ప్రమోట్ చేసిన ప్రొఫైళ్లు" : "Sponsored profile spotlights"}>
+      <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden" aria-hidden="true">
+        <div className="absolute left-1/2 top-1/2 h-[350px] w-[min(600px,100vw)] -translate-x-1/2 -translate-y-1/2 rounded-full bg-gradient-to-r from-amber-100/60 via-rose-100/50 to-gold-soft/40 blur-3xl" />
       </div>
 
       <Reveal>
-        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-6">
+        <div className="mb-6 flex min-w-0 flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <SectionHeading
-            eyebrow={duo("⭐ Verified Spotlights", "⭐ నేటి విశేష సంబంధాలు")}
-            title={duo("Profiles of the Day 🌟", "ఈ రోజు ప్రత్యేక ప్రొఫైళ్లు (Spotlight) 🌟")}
+            eyebrow={duo("⭐ Sponsored profiles", "⭐ ప్రమోట్ చేసిన ప్రొఫైళ్లు")}
+            title={duo("Sponsored profile placements", "స్పాన్సర్డ్ ప్రొఫైల్ ప్రమోషన్లు")}
             subtitle={duo(
-              "Top verified profiles promoted by families for faster alliance matches.",
-              "త్వరిత వివాహ సంబంధం కోసం కుటుంబాలు ప్రత్యేకంగా ప్రమోట్ చేసిన ధృవీకరించిన ప్రొఫైళ్లు."
+              "Sponsored profiles appear after payment and media review. Profile details are member-submitted and are not independently verified.",
+              "చెల్లింపు, మీడియా సమీక్ష తర్వాత ప్రమోట్ చేసిన ప్రొఫైళ్లు కనిపిస్తాయి. వివరాలు సభ్యులు అందించినవి; స్వతంత్రంగా నిర్ధారించినవి కావు."
             )}
             telugu
           />
-
-          <Link
-            href="/spotlight"
-            className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-full gold-gradient text-[#5c0821] font-black text-xs sm:text-sm shadow-gold hover:scale-105 active:scale-95 transition-all whitespace-nowrap self-start sm:self-auto border border-[#B8860B]/40"
-          >
-            <span>⚡ {te ? "మీ ప్రొఫైల్ ని ప్రమోట్ చేసుకోండి (₹99)" : "Promote Your Profile (₹99)"}</span>
-            <span>→</span>
+          <Link href="/spotlight" className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-full border border-[#B8860B]/40 gold-gradient px-5 py-2.5 text-center text-xs font-black text-[#5c0821] shadow-gold transition hover:brightness-105 active:scale-[.98] sm:w-auto sm:shrink-0 sm:text-sm">
+            <span>{te ? "మీ ప్రొఫైల్ ప్రమోట్ చేయండి" : "Promote your profile"}</span>
+            <span aria-hidden="true">→</span>
           </Link>
         </div>
       </Reveal>
 
-      {/* Profile Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {profiles.map((p, idx) => {
-          const isBride = p.gender === "Bride";
-          const hasVideo = !!p.video_url;
-          const photo = p.photo_url || (isBride ? "/promo/cine-3.jpg" : "/promo/cine-1.jpg");
-
-          return (
-            <Reveal key={p.promo_id || idx} delay={idx * 80}>
-              <div className="group relative bg-white/95 backdrop-blur-sm rounded-3xl overflow-hidden border border-amber-300/60 shadow-lg hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 flex flex-col h-full">
-                
-                {/* Media Container: Photo / Video */}
-                <div className="relative h-64 bg-slate-900 overflow-hidden">
-                  <img
-                    src={photo}
-                    alt={p.full_name}
-                    className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-500"
-                    loading="lazy"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-transparent" />
-
-                  {/* Top Badge */}
-                  <div className="absolute top-3 left-3 right-3 flex items-center justify-between gap-2">
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-300 text-maroon shadow-md border border-white/40">
-                      <span>✨</span>
-                      <span>{p.badge_text || (te ? "నేటి ప్రత్యేక ప్రొఫైల్" : "PROFILE OF THE DAY")}</span>
-                    </span>
-
-                    <span className="bg-black/60 backdrop-blur-md text-white text-[10px] font-bold px-2.5 py-1 rounded-full border border-white/20">
-                      {isFallback ? (te ? "నమూనా (Sample)" : "Sample") : `ID: ${p.tsap_id}`}
-                    </span>
-                  </div>
-
-                  {/* Video Play Button Overlay if video is present */}
-                  {hasVideo && (
-                    <button
-                      type="button"
-                      onClick={() => setActiveVideo(p.video_url || null)}
-                      className="absolute inset-0 m-auto w-14 h-14 rounded-full bg-maroon/80 hover:bg-maroon text-white flex items-center justify-center text-xl shadow-2xl border-2 border-gold hover:scale-110 active:scale-95 transition-all"
-                      aria-label="Play video intro"
-                    >
-                      ▶
-                    </button>
-                  )}
-
-                  {/* Bottom Image Details (Name + Age + Verified) */}
-                  <div className="absolute bottom-3 left-3 right-3 text-white">
-                    {/* 📱💻 FIX: min-w-0 lekapothe peru (full name) photo మీద overlay లో
-                        truncate avvakunda phone/laptop rendu lo kanipinchakunda (cut/missing)
-                        poyedi — ippudu peru eppudu neatga "…" tho కనిపిస్తుంది. */}
-                    <div className="flex items-center gap-2">
-                      <h3 className="min-w-0 flex-1 truncate font-extrabold text-lg sm:text-xl drop-shadow">
-                        {p.full_name}
-                      </h3>
-                      <span className="shrink-0 text-emerald-400 text-sm font-bold drop-shadow" title="Verified Profile">
-                        ✓
+      {loading ? (
+        <div className="rounded-2xl border border-amber-200 bg-white/80 p-8 text-center text-sm text-slate-600" role="status">
+          {te ? "ప్రొఫైళ్లు లోడ్ అవుతున్నాయి…" : "Loading featured profiles…"}
+        </div>
+      ) : loadError ? (
+        <div className="rounded-2xl border border-amber-200 bg-white/80 p-8 text-center text-sm text-slate-700" role="status">
+          <p>{te ? "ప్రస్తుతం స్పాట్‌లైట్ ప్రొఫైళ్లు లోడ్ కాలేదు." : "Spotlight profiles could not be loaded right now."}</p>
+          <button type="button" onClick={() => window.location.reload()} className="mt-3 rounded-lg border border-maroon px-4 py-2 font-bold text-maroon">
+            {te ? "మళ్లీ ప్రయత్నించండి" : "Retry"}
+          </button>
+        </div>
+      ) : profiles.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-amber-300 bg-white/80 p-8 text-center text-sm text-slate-700">
+          <p>{te ? "ప్రస్తుతం ఆమోదించిన స్పాట్‌లైట్ ప్రొఫైళ్లు లేవు." : "There are no approved spotlight profiles right now."}</p>
+          <p className="mt-1 text-xs leading-relaxed text-slate-500">{te ? "ఇవి సభ్యులు సమర్పించిన వివరాలు. స్పాట్‌లైట్ సమీక్ష వ్యక్తి గుర్తింపును స్వతంత్రంగా నిర్ధారించదు." : "These are member-submitted details. Spotlight review does not independently verify a person's identity."}</p>
+        </div>
+      ) : (
+        <div className="grid min-w-0 grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
+          {profiles.map((profile, index) => {
+            const name = profile.full_name?.trim() || profile.tsap_id;
+            const video = getVideoSource(profile.video_url);
+            const englishText = (value: unknown) => apiDisplayMessage({ message_en: value }, false, "");
+            const attributes = [profile.caste, profile.subcaste, profile.district].filter(Boolean);
+            const displayAttributes = te ? attributes : attributes.map(englishText).filter(Boolean);
+            const displayBadge = te
+              ? (profile.badge_text_te || "స్పాన్సర్డ్ ప్రొఫైల్")
+              : englishText(profile.badge_text) || "Sponsored profile";
+            const displayHeadline = te ? profile.headline : englishText(profile.headline);
+            const displayPitch = te ? profile.pitch_text : englishText(profile.pitch_text);
+            const displayEducation = te ? profile.education : englishText(profile.education);
+            const displayJob = te ? profile.job : englishText(profile.job);
+            const displayDistrict = te ? profile.district : englishText(profile.district);
+            const displayHeight = te ? profile.height : englishText(profile.height);
+            const age = Number(profile.age);
+            return (
+              <Reveal key={profile.promo_id} delay={Math.min(index * 60, 240)}>
+                <article className="group flex h-full min-w-0 flex-col overflow-hidden rounded-3xl border border-amber-200/80 bg-white shadow-lg transition hover:-translate-y-1 hover:shadow-xl">
+                  <div className="relative h-60 bg-gradient-to-br from-rose-100 via-amber-50 to-slate-100 sm:h-64">
+                    {profile.photo_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={profile.photo_url} alt={te ? `${name} ప్రొఫైల్ ఫోటో` : `${name} profile photo`} className="h-full w-full object-cover object-top" loading="lazy" />
+                    ) : (
+                      <div className="flex h-full flex-col items-center justify-center gap-2 text-maroon" aria-label={te ? "ఫోటో అందుబాటులో లేదు" : "Photo not provided"}>
+                        <span className="text-5xl" aria-hidden="true">💍</span>
+                        <span className="text-xs font-semibold">{te ? "ఫోటో ఇవ్వలేదు" : "Photo not provided"}</span>
+                      </div>
+                    )}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent" aria-hidden="true" />
+                    <div className="absolute left-3 right-3 top-3 flex min-w-0 items-start justify-between gap-2">
+                      <span className="max-w-[75%] break-words rounded-full border border-white/40 bg-amber-300 px-3 py-1 text-[10px] font-black uppercase leading-relaxed text-maroon shadow">
+                        {displayBadge}
                       </span>
+                      <span className="max-w-[45%] break-all rounded-full border border-white/20 bg-black/60 px-2.5 py-1 font-mono text-[10px] font-bold text-white">{profile.tsap_id}</span>
                     </div>
-                    <div className="text-xs text-amber-200 font-medium">
-                      {p.age} Yrs · {p.height || "5 ft 8 in"} · {p.caste} {p.subcaste ? `(${p.subcaste})` : ""}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Content Body */}
-                <div className="p-5 flex-1 flex flex-col justify-between space-y-4">
-                  {/* Headline & Pitch */}
-                  <div className="space-y-2">
-                    <div className="inline-block px-2.5 py-1 rounded-lg bg-amber-50 border border-amber-200 text-maroon font-bold text-xs leading-tight">
-                      📍 {p.headline || `${p.job || "Professional"} from ${p.district}`}
-                    </div>
-
-                    <p className="text-xs sm:text-sm text-gray-700 leading-relaxed italic bg-slate-50 p-3 rounded-2xl border border-slate-100">
-                      &ldquo;{p.pitch_text}&rdquo;
-                    </p>
-
-                    {/* Key Attributes Grid */}
-                    <div className="grid grid-cols-2 gap-2 text-[11px] pt-1">
-                      <div className="bg-white border border-gray-100 p-2 rounded-xl">
-                        <span className="text-gray-400 block text-[10px]">{te ? "విద్య / ఉద్యోగం" : "Edu & Job"}</span>
-                        <span className="font-semibold text-gray-800 truncate block">{p.job || p.education || "Professional"}</span>
-                      </div>
-                      <div className="bg-white border border-gray-100 p-2 rounded-xl">
-                        <span className="text-gray-400 block text-[10px]">{te ? "ప్రాంతం" : "Location"}</span>
-                        <span className="font-semibold text-gray-800 truncate block">🏡 {p.district}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Actions */}
-                  <div className="pt-2 border-t border-gray-100 space-y-2">
-                    <div className="flex gap-2">
-                      {isFallback ? (
-                        <Link
-                          href="/register"
-                          className="flex-1 py-2.5 px-3 rounded-xl text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-1.5 cursor-pointer maroon-gradient text-white hover:brightness-110 active:scale-95"
-                        >
-                          <span>💍</span>
-                          <span>{te ? "ఉచితంగా రిజిస్టర్ చేసుకోండి" : "Register FREE"}</span>
-                        </Link>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => handleInterest(p.promo_id, p.tsap_id)}
-                          disabled={sentInterest[p.promo_id]}
-                          className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-1.5 cursor-pointer ${
-                            sentInterest[p.promo_id]
-                              ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
-                              : "maroon-gradient text-white hover:brightness-110 active:scale-95"
-                          }`}
-                        >
-                          <span>{sentInterest[p.promo_id] ? "✅" : "💍"}</span>
-                          <span>
-                            {sentInterest[p.promo_id]
-                              ? (te ? "సంబంధం కోరాం" : "Interest Sent")
-                              : (te ? "ఉచిత సంబంధం పంపండి" : "Send Free Interest")}
-                          </span>
-                        </button>
-                      )}
-
-                      <Link
-                        href={isFallback ? "/spotlight" : `/search/${p.tsap_id}`}
-                        onClick={() => handleTrackClick(p.promo_id)}
-                        className="py-2.5 px-3 rounded-xl text-xs font-bold border border-gold text-maroon hover:bg-gold-soft transition-colors flex items-center justify-center cursor-pointer"
-                      >
-                        {isFallback ? (te ? "మీ ప్రొఫైల్ ప్రమోట్ చేయండి →" : "Promote Yours →") : (te ? "వివరాలు →" : "View →")}
-                      </Link>
-                    </div>
-
-                    {hasVideo && (
-                      <button
-                        type="button"
-                        onClick={() => setActiveVideo(p.video_url || null)}
-                        className="w-full py-1.5 text-[11px] font-bold text-amber-800 bg-amber-50 hover:bg-amber-100 rounded-lg transition-colors flex items-center justify-center gap-1 cursor-pointer"
-                      >
-                        <span>🎥</span>
-                        <span>{te ? "వీడియో ఇంట్రో చూడండి" : "Watch Video Pitch"}</span>
+                    {video && (
+                      <button type="button" onClick={() => setActiveVideo(video)} className="absolute left-1/2 top-1/2 flex h-12 w-12 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-2 border-white bg-maroon/90 text-xl text-white shadow-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white" aria-label={te ? "ప్రొఫైల్ వీడియో ప్లే చేయండి" : "Play profile video"}>
+                        ▶
                       </button>
                     )}
+                    <div className="absolute bottom-3 left-3 right-3 min-w-0 text-white">
+                      <h3 className="break-words text-lg font-extrabold drop-shadow sm:text-xl">{name}</h3>
+                      <p className="mt-1 break-words text-xs font-medium text-amber-100">
+                        {Number.isFinite(age) && age > 0 ? `${age} ${te ? "సం." : "yrs"}` : null}
+                        {displayHeight ? ` · ${displayHeight}` : null}
+                        {displayAttributes.length ? ` · ${displayAttributes.join(" · ")}` : null}
+                      </p>
+                    </div>
                   </div>
-                </div>
-              </div>
-            </Reveal>
-          );
-        })}
-      </div>
 
-      {/* Video Modal Player */}
+                  <div className="flex flex-1 flex-col gap-4 p-4 sm:p-5">
+                    <div className="min-w-0 space-y-2">
+                      {displayHeadline && <h4 className="break-words rounded-xl border border-amber-100 bg-amber-50 px-3 py-2 text-sm font-bold leading-relaxed text-maroon">{displayHeadline}</h4>}
+                      {displayPitch && <p className="break-words rounded-2xl border border-slate-100 bg-slate-50 p-3 text-sm leading-relaxed text-slate-700">{displayPitch}</p>}
+                      <dl className="grid grid-cols-1 gap-2 text-xs sm:grid-cols-2">
+                        {(displayEducation || displayJob) && (
+                          <div className="min-w-0 rounded-xl border border-slate-100 p-2.5">
+                            <dt className="text-[10px] text-slate-500">{te ? "విద్య / ఉద్యోగం" : "Education / work"}</dt>
+                            <dd className="break-words font-semibold text-slate-800">{[displayEducation, displayJob].filter(Boolean).join(" · ")}</dd>
+                          </div>
+                        )}
+                        {displayDistrict && (
+                          <div className="min-w-0 rounded-xl border border-slate-100 p-2.5">
+                            <dt className="text-[10px] text-slate-500">{te ? "ప్రాంతం" : "Location"}</dt>
+                            <dd className="break-words font-semibold text-slate-800">{displayDistrict}</dd>
+                          </div>
+                        )}
+                      </dl>
+                    </div>
+
+                    <div className="mt-auto border-t border-slate-100 pt-3">
+                      <Link href={`/search/${encodeURIComponent(profile.tsap_id)}`} onClick={() => trackClick(profile.promo_id)} className="flex min-h-11 w-full items-center justify-center rounded-xl bg-maroon px-4 py-2.5 text-sm font-bold text-white transition hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-maroon">
+                        {te ? "పూర్తి ప్రొఫైల్ చూడండి" : "View full profile"}
+                      </Link>
+                    </div>
+                  </div>
+                </article>
+              </Reveal>
+            );
+          })}
+        </div>
+      )}
+
       {activeVideo && (
-        <div
-          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
-          onClick={() => setActiveVideo(null)}
-        >
-          <div
-            className="relative w-full max-w-2xl bg-black rounded-3xl overflow-hidden shadow-2xl border border-gold/40"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between p-3 bg-slate-900 text-white">
-              <span className="text-xs font-bold text-amber-300">🌟 {te ? "ప్రొఫైల్ వీడియో ఇంట్రో" : "Profile Video Intro"}</span>
-              <button
-                type="button"
-                onClick={() => setActiveVideo(null)}
-                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white font-bold flex items-center justify-center text-sm cursor-pointer"
-              >
-                ✕
-              </button>
+        <div role="dialog" aria-modal="true" aria-label={te ? "ప్రొఫైల్ వీడియో" : "Profile video"} className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-3 sm:p-5" onClick={() => setActiveVideo(null)}>
+          <div className="w-full max-w-3xl overflow-hidden rounded-2xl border border-amber-300 bg-slate-950 shadow-2xl" onClick={(event) => event.stopPropagation()}>
+            <div className="flex items-center justify-between gap-3 bg-slate-900 px-4 py-3 text-white">
+              <h2 className="text-sm font-bold">{te ? "ప్రొఫైల్ వీడియో" : "Profile video"}</h2>
+              <button type="button" onClick={() => setActiveVideo(null)} className="min-h-10 min-w-10 rounded-lg bg-white/10 text-lg font-bold hover:bg-white/20" aria-label={te ? "వీడియో మూసివేయండి" : "Close video"}>×</button>
             </div>
             <div className="aspect-video w-full bg-black">
-              {activeVideo.includes("youtube.com") || activeVideo.includes("youtu.be") ? (
-                <iframe
-                  src={`${activeVideo}?autoplay=1`}
-                  title="Profile Video"
-                  className="w-full h-full border-0"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                />
+              {activeVideo.kind === "embed" ? (
+                <iframe src={activeVideo.src} title={te ? "స్పాట్‌లైట్ ప్రొఫైల్ వీడియో" : "Spotlight profile video"} className="h-full w-full border-0" allow="autoplay; encrypted-media; picture-in-picture" allowFullScreen />
               ) : (
-                <video
-                  key={activeVideo}
-                  src={activeVideo}
-                  controls
-                  autoPlay
-                  playsInline
-                  muted
-                  preload="auto"
-                  className="w-full h-full"
-                  onLoadedData={(e) => {
-                    // 📱 R11 FIX: video asalu kaniponchatledu bug — mobile autoplay
-                    // muted tho matrame reliable ga fire avuthundi. Load ayyaka
-                    // user ki sound kavali ante 1 tap tho unmute chesthundi (video
-                    // controls lo already unmute button untundi kabatti ikkada
-                    // extra UI avasaram ledu — ee handler play() ni force chestundi
-                    // (kondaru mobile browsers lo autoplay attribute silent ga fail avutundi).
-                    const v = e.currentTarget;
-                    v.play().catch(() => {
-                      /* autoplay blocked — user tap chesi controls tho play cheyyochu */
-                    });
-                  }}
-                />
+                <video src={activeVideo.src} controls autoPlay playsInline className="h-full w-full" />
               )}
             </div>
           </div>

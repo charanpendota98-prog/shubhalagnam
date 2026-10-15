@@ -53,7 +53,8 @@ POOL = [
 ]
 INTS = [{"from_id": "BRIDE-1", "to_id": "GROOM-1", "status": "pending", "created_at": NOW.isoformat()}]
 VIEWS = [{"tsap_id": "GROOM-1", "viewer_id": "BRIDE-2", "at": NOW.isoformat()},
-         {"tsap_id": "GROOM-1", "viewer_id": "BRIDE-3", "at": NOW.isoformat()}]
+         {"tsap_id": "GROOM-1", "viewer_id": "BRIDE-3", "at": NOW.isoformat()},
+         {"tsap_id": "BRIDE-3", "viewer_id": "GROOM-1", "at": NOW.isoformat()}]
 
 print("=== 1. DAILY BRIEFING SHAPE ===")
 b = matchbot.daily_briefing(ME, POOL, INTS, VIEWS, [], limit=3, now=NOW)
@@ -69,15 +70,18 @@ print("\n=== 2. RANKING — NEW + MUTUAL ===")
 ids = [m["tsap_id"] for m in b["matches"]]
 check("BRIDE-1 (new+mutual) in top", "BRIDE-1" in ids, ids)
 check("new matches ranked first", ids[0] in ("BRIDE-1", "BRIDE-3"), ids[0])
-check("each match has score/grade/is_new/is_mutual/why",
-      all({"score", "grade", "is_new", "is_mutual", "why"} <= set(m) for m in b["matches"]))
-# sort contract: NEW matches before older; within each is_new group score descending
+check("each match exposes profile facts and no synthetic score/reasons",
+      all({"profile", "tsap_id", "observations", "preferences", "is_new", "action"} <= set(m)
+          and not ({"score", "match_score", "compatibility_score", "trust_score", "grade", "is_mutual", "why"} & set(m))
+          for m in b["matches"]))
+# Recency is the only candidate order; profile views affect the new-label only.
 ms = b["matches"]
-new_flags = [m["is_new"] for m in ms]
-check("all-new precede any-old", new_flags == sorted(new_flags, reverse=True), new_flags)
-for grp in (True, False):
-    scores = [m["score"] for m in ms if m["is_new"] == grp]
-    check(f"score desc within is_new={grp}", scores == sorted(scores, reverse=True), scores)
+check("candidate order follows created_at, not an invented score",
+      [m["tsap_id"] for m in ms] == ["BRIDE-1", "BRIDE-3", "BRIDE-2"],
+      [m["tsap_id"] for m in ms])
+check("recently added label uses date and prior-view facts",
+      ms[0]["is_new"] is True and ms[1]["is_new"] is False and ms[2]["is_new"] is False,
+      [m["is_new"] for m in ms])
 
 print("\n=== 3. PRIVACY — NO RAW PHONE ===")
 blob = json.dumps(b, ensure_ascii=False)

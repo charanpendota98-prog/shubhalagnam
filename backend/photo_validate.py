@@ -1,15 +1,14 @@
 """
-📸 WAVE 17 — PHOTO VALIDATION PIPELINE (top-matrimony standard, PIL-only, no numpy/cv2)
-=======================================================================================
-Top sites (BharatMatrimony/Shaadi) do TWO layers:
-  1) AUTOMATIC technical checks  → instant reject with reason (resolution/blur/dark/glare/fake)
-  2) HUMAN moderation queue      → admin approve/reject (photo-of-photo, wrong person, groups...)
-
-Ee module = layer 1 (deterministic, explainable). Layer 2 = /api/admin/photos/* queue.
+📸 PROFILE PHOTO VALIDATION — deterministic image checks plus a separate human review queue.
+===========================================================================================
+This module checks decoded format, size, dimensions, brightness, texture, sharpness,
+glare, and a narrow dark-frame heuristic. It cannot determine who is pictured,
+count faces, establish consent, or verify legal identity. Staff review suitability
+before approval; that review is not an identity-verification result.
 
 Checks (order):
-  FORMAT → SIZE → DIMENSIONS → BRIGHTNESS → FLAT(fakeness) → BLUR → GLARE → FRAME(photo-of-photo)
-Returns: {ok, reason, en, te, checks{...}} — reason codes stable for frontend i18n.
+  FORMAT → SIZE → DIMENSIONS → BRIGHTNESS → FLAT/LOW_TEXTURE → BLUR → GLARE → FRAME_HEURISTIC
+Returns {ok, reason, en, te, checks}; reason codes are used by the upload UI.
 """
 from __future__ import annotations
 
@@ -20,6 +19,8 @@ from PIL import Image, ImageFilter, ImageStat
 MIN_SIDE = 350          # min(w,h) — kindaki ante LOW_RES (screenshot 5 standard)
 MIN_BYTES = 4 * 1024
 MAX_BYTES = 5 * 1024 * 1024
+MAX_SIDE = 12_000
+MAX_PIXELS = 50_000_000
 DARK_MEAN = 42          # kinda = TOO_DARK
 BRIGHT_MEAN = 228       # paina = TOO_BRIGHT (white/overexposed)
 FLAT_STD = 11           # kinda = FLAT (single-color / blank / fake)
@@ -35,12 +36,14 @@ REASONS = {
     "TOO_BIG": ("Photo larger than 5 MB", "ఫోటో 5MB కన్నా పెద్దది — చిన్న ఫోటో పంపండి"),
     "TOO_SMALL_FILE": ("Photo file is empty/corrupt", "ఫోటో ఖాళీ/పాడైంది — మళ్లీ upload చెయ్యండి"),
     "LOW_RES": ("Image resolution too low", "ఫోటో resolution చాలా తక్కువ — high-quality original photo పెట్టండి (min 350px)"),
+    "IMAGE_DIMENSIONS": ("Image dimensions are too large", "ఫోటో dimensions చాలా ఎక్కువగా ఉన్నాయి — చిన్న resolution ఉన్న copy పంపండి"),
+    "ANIMATED": ("Animated images are not supported", "Animated చిత్రం వద్దు — ఒకే ఫ్రేమ్ ఉన్న అసలు ఫోటో పంపండి"),
     "TOO_DARK": ("Photo is too dark", "ఫోటో చాలా చీకటిగా ఉంది — వెలుతురులో తీసిన ఫోటో పంపండి"),
     "TOO_BRIGHT": ("Photo is overexposed/blank", "ఫోటో తెల్లగా/మసకga ఉంది — సరైన ఫోటో పంపండి"),
-    "FLAT": ("Not a real photo", "ఇది నిజమైన ఫోటోలా లేదు — మీ original ఫోటో పంపండి"),
+    "FLAT": ("Image appears blank or nearly uniform", "ఫోటో ఖాళీగా లేదా ఒకే రంగులో ఉంది — స్పష్టమైన అసలు ఫోటోను పంపండి"),
     "BLURRY": ("Photo is blurry", "ఫోటో blur గా ఉంది — clear/sharp ఫోటో పంపండి"),
     "GLARE": ("Flash/glare detected — photo of a photo?", "ఫోటోపై flash/glare ఉంది — screen/photo ని తీసినది కాకుండా ORIGINAL ఫోటో పంపండి"),
-    "PHOTO_OF_PHOTO": ("Photo of a photo detected", "వేరే ఫోటోని తీసినట్లుంది (frame కనిపిస్తోంది) — ORIGINAL image upload చెయ్యండి"),
+    "PHOTO_OF_PHOTO": ("Possible photo-of-photo frame detected", "వేరే ఫోటో చుట్టూ frame ఉన్నట్లుంది — మీ original image‌ను upload చేయండి"),
 }
 
 
@@ -70,14 +73,20 @@ def validate_photo(data: bytes, filename: str = "", *, selfie: bool = False) -> 
         return _fail("TOO_BIG", checks)
     try:
         img = Image.open(io.BytesIO(data))
+        image_format = img.format
+        if image_format not in ("JPEG", "PNG", "WEBP"):
+            return _fail("BAD_FORMAT", checks)
+        w, h = img.size
+        checks.update({"format": image_format, "w": w, "h": h,
+                       "kb": round(len(data) / 1024, 1)})
+        # Reject oversized decode work before loading pixel data; uploads are untrusted.
+        if w <= 0 or h <= 0 or max(w, h) > MAX_SIDE or w * h > MAX_PIXELS:
+            return _fail("IMAGE_DIMENSIONS", checks)
+        if int(getattr(img, "n_frames", 1) or 1) > 1:
+            return _fail("ANIMATED", checks)
         img.load()
     except Exception:
         return _fail("BAD_FORMAT", checks)
-    if img.format not in ("JPEG", "PNG", "WEBP", "MPO"):
-        return _fail("BAD_FORMAT", checks)
-    w, h = img.size
-    checks.update({"format": img.format, "w": w, "h": h,
-                   "kb": round(len(data) / 1024, 1)})
     if min(w, h) < (300 if selfie else MIN_SIDE):
         return _fail("LOW_RES", checks)
     gray = img.convert("L") if img.mode != "L" else img
@@ -95,9 +104,10 @@ def validate_photo(data: bytes, filename: str = "", *, selfie: bool = False) -> 
     # Glare: overexposed pixel share (flash / screen moiré-hotspots)
     small = gray.copy()
     small.thumbnail((200, 200), Image.BILINEAR)
-    spx = list(small.getdata())
-    hot = sum(1 for p in spx if p >= 250)
-    glare_pct = hot * 100.0 / (len(spx) or 1)
+    histogram = small.histogram()
+    pixel_count = sum(histogram)
+    hot = sum(histogram[250:])
+    glare_pct = hot * 100.0 / (pixel_count or 1)
     checks["glare_pct"] = round(glare_pct, 1)
     if glare_pct > GLARE_PCT:
         return _fail("GLARE", checks)

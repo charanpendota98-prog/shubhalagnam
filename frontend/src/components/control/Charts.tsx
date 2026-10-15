@@ -80,14 +80,14 @@ export function Donut({
   const total = Math.max(1, normSegments.reduce((s, x) => s + x.value, 0));
   const r = size / 2 - 10;
   const c = 2 * Math.PI * r;
-  let offset = 0;
   return (
     <div className="flex items-center gap-4">
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
         <g transform={`rotate(-90 ${size / 2} ${size / 2})`}>
-          {normSegments.map((s) => {
+          {normSegments.map((s, index) => {
             const len = (s.value / total) * c;
-            const el = (
+            const offset = normSegments.slice(0, index).reduce((sum, segment) => sum + (segment.value / total) * c, 0);
+            return (
               <circle
                 key={s.label}
                 cx={size / 2}
@@ -101,8 +101,6 @@ export function Donut({
                 className="transition-all duration-700"
               />
             );
-            offset += len;
-            return el;
           })}
         </g>
         <text x="50%" y="50%" textAnchor="middle" dy="0.35em" className="fill-slate-800 text-lg font-black">

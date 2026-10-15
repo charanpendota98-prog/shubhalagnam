@@ -31,6 +31,8 @@ services:
       - DATABASE_URL=postgresql://${POSTGRES_USER:-tsap}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-tsap_matrimony}
       - REDIS_URL=redis://redis:6379
       - BOT_TOKEN=${BOT_TOKEN}
+      - CHANNELS=${CHANNELS:-}
+      - TELEGRAM_CHANNEL_DESTINATIONS_JSON=${TELEGRAM_CHANNEL_DESTINATIONS_JSON:-}
       - WA_MAX_ATTEMPTS=${WA_MAX_ATTEMPTS}
       - BOT_TOKEN_ALERT=${BOT_TOKEN_ALERT}
       - BOT_TOKEN_BACKUP=${BOT_TOKEN_BACKUP}
@@ -38,14 +40,16 @@ services:
       - RAZORPAY_KEY_SECRET=${RAZORPAY_KEY_SECRET}
       - RAZORPAY_WEBHOOK_SECRET=${RAZORPAY_WEBHOOK_SECRET}
       - RAZORPAY_VERIFY_CAPTURE=${RAZORPAY_VERIFY_CAPTURE:-1}
-      - PAY_UPI_ID=${PAY_UPI_ID:-manavivaha@upi}
+      - PAY_UPI_ID=${PAY_UPI_ID:-}
       - VAPID_PUBLIC_KEY=${VAPID_PUBLIC_KEY}
       - VAPID_PRIVATE_KEY=${VAPID_PRIVATE_KEY}
+      - VAPID_SUBJECT=${VAPID_SUBJECT:-}
+      - SUPPORT_EMAIL=${SUPPORT_EMAIL:-}
       - ADMIN_CHAT_ID=${ADMIN_CHAT_ID}
       - SITE_URL=${SITE_URL:-https://manavivaha.in}
       # Auto-publish (Telegram + WhatsApp)
-      - AUTO_POST_ON_REGISTER=${AUTO_POST_ON_REGISTER:-true}
-      - PUBLISH_DRY_RUN=${PUBLISH_DRY_RUN:-false}
+      - AUTO_POST_ON_REGISTER=${AUTO_POST_ON_REGISTER:-false}
+      - PUBLISH_DRY_RUN=${PUBLISH_DRY_RUN:-true}
       - PUBLISH_RETRIES=${PUBLISH_RETRIES:-3}
       - PUBLISH_RATE_LIMIT=${PUBLISH_RATE_LIMIT:-1.2}
       # WhatsApp: off | cloud_api | bridge
@@ -57,7 +61,7 @@ services:
       - WHATSAPP_BRIDGE_TARGETS=${WHATSAPP_BRIDGE_TARGETS}
       - PUBLIC_BASE_URL=${PUBLIC_BASE_URL:-https://manavivaha.in}
       # 🛡️ WhatsApp anti-ban (random 120–170s gap, caps, quiet hours, warmup)
-      - WA_ENABLED=${WA_ENABLED:-true}
+      - WA_ENABLED=${WA_ENABLED:-false}
       - WA_MIN_GAP=${WA_MIN_GAP:-120}
       - WA_MAX_GAP=${WA_MAX_GAP:-170}
       - WA_MIN_GAP_INTEREST=${WA_MIN_GAP_INTEREST:-60}
@@ -77,13 +81,12 @@ services:
       - INTEREST_MAX_PER_DAY=${INTEREST_MAX_PER_DAY:-20}
       - INTEREST_EXPIRY_DAYS=${INTEREST_EXPIRY_DAYS:-7}
       - INTEREST_REFUND_ON_DECLINE=${INTEREST_REFUND_ON_DECLINE:-true}
-      - PAYMENT_AUTO_APPROVE=${PAYMENT_AUTO_APPROVE:-true}
-      - DEMO_SEED_ENABLED=${DEMO_SEED_ENABLED:-true}
+      - PAYMENT_AUTO_APPROVE=${PAYMENT_AUTO_APPROVE:-false}
+      - DEMO_SEED_ENABLED=${DEMO_SEED_ENABLED:-false}
       # 🌱 Growth: namaste welcome + lead capture + launch inventory
       - ADMIN_WHATSAPP_NUMBER=${ADMIN_WHATSAPP_NUMBER}
-      - SUPPORT_PHONE=${SUPPORT_PHONE:-9100000000}
-      - LAUNCH_SEED_COUNT=${LAUNCH_SEED_COUNT:-60}
-      - LAUNCH_TARGET_PROFILES=${LAUNCH_TARGET_PROFILES:-360}
+      - SUPPORT_PHONE=${SUPPORT_PHONE:-}
+      - LAUNCH_SEED_COUNT=${LAUNCH_SEED_COUNT:-0}
     depends_on:
       - postgres
       - redis
@@ -94,6 +97,13 @@ services:
     environment:
       # /api/* rewrite → backend (browser lo localhost reference undadu)
       - BACKEND_URL=http://backend:8000
+      - NEXT_PUBLIC_SUPPORT_PHONE=${NEXT_PUBLIC_SUPPORT_PHONE:-}
+      - NEXT_PUBLIC_SUPPORT_WHATSAPP=${NEXT_PUBLIC_SUPPORT_WHATSAPP:-}
+      - NEXT_PUBLIC_SUPPORT_EMAIL=${NEXT_PUBLIC_SUPPORT_EMAIL:-}
+      - NEXT_PUBLIC_BUSINESS_CONTACT_NAME=${NEXT_PUBLIC_BUSINESS_CONTACT_NAME:-}
+      - NEXT_PUBLIC_BUSINESS_LOCATION=${NEXT_PUBLIC_BUSINESS_LOCATION:-}
+      - NEXT_PUBLIC_GRIEVANCE_OFFICER=${NEXT_PUBLIC_GRIEVANCE_OFFICER:-}
+      - NEXT_PUBLIC_LEGAL_NAME=${NEXT_PUBLIC_LEGAL_NAME:-}
     volumes:
       - ./frontend:/app
       - /app/node_modules
@@ -109,6 +119,8 @@ services:
       - ./backend:/app
     environment:
       - BOT_TOKEN=${BOT_TOKEN}
+      - CHANNELS=${CHANNELS:-}
+      - TELEGRAM_CHANNEL_DESTINATIONS_JSON=${TELEGRAM_CHANNEL_DESTINATIONS_JSON:-}
       - ADMIN_CHAT_ID=${ADMIN_CHAT_ID}
     depends_on:
       - backend

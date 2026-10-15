@@ -2,9 +2,9 @@ import { Metadata } from "next";
 import PelliChoopuluGuide from "@/components/PelliChoopuluGuide";
 
 export const metadata: Metadata = {
-  title: "సాంప్రదాయ పెళ్లి చూపుల మార్గదర్శిని | Pelli Choopulu Guide | మన వివాహ",
+  title: "Pelli Choopulu: A Family Introduction Guide",
   description:
-    "మన వివాహ - Complete traditional Telugu Pelli Choopulu customs, etiquette, parent checklist, candidate 1-on-1 questions, and WhatsApp advice cards.",
+    "A practical guide to Telugu Pelli Choopulu customs, family etiquette, questions, and safety considerations.",
   alternates: { canonical: "https://manavivaha.in/pelli-choopulu" },
 };
 

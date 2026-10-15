@@ -1,157 +1,74 @@
-# 💍 Mana Vivaha (TSAP Matrimony)
+# Mana Vivaha • మన వివాహ
 
-**TS-AP No.1 Telugu Matrimony** — ₹99 ke Sambandham • Modati 3 FREE
-Website: https://manavivaha.in • Bot: [@telugumatrimony1_bot](https://t.me/telugumatrimony1_bot)
+Mana Vivaha is a Telugu matrimony service for members in Telangana and Andhra Pradesh. The site uses member-submitted profile details; verification status is shown separately and is not implied by plan purchase or profile publication.
 
-Custom-built platform (Next.js 14 + FastAPI + Postgres + Redis + aiogram + Docker) —
-**83 Telegram channels** (4 main + caste × bride/groom), advanced 5-step register, full-detail profile card, Telegram + WhatsApp auto-post.
+## Current product rules
 
----
+- **Free start:** registration includes 3 interest-request credits.
+- **Consumer plans:** ₹99 → 5 requests, ₹199 → 12, ₹299 → 25, ₹499 → 50. The lowest paid consumer plan is ₹99. Credit validity and included features are shown on `/pricing` and come from `backend/interest.py`.
+- **Vendor packages are separate:** `V_SINGLE_POST` ₹149 is one-day private, share-ready promo material—not a directory listing. `V_BASIC` ₹499 for 30 days is the first directory-listing package. Neither price promises external posting, reach, views, or leads.
+- **Contact privacy:** purchasing credits does not reveal a phone number. Contact details are shared only after the profile owner accepts and applicable privacy settings allow it.
+- **Referral:** a valid referral attachment grants request credits (not cash). A referrer may qualify for ₹50 once, only on the referred member's first qualifying paid S_99/S_199/S_299/S_499 consumer-plan payment of at least ₹99. Add-ons, renewals, complimentary grants, assisted services, boosts, and B2B/bureau payments are excluded. Payout requests are reviewed manually; eligibility and timing are not guaranteed.
+- **Catalogues:** the current location lists contain 33 Telangana and 28 Andhra Pradesh district options. Registration and profile editing support `Other / self-described` community names; the community lists are not an official or exhaustive classification.
+- **Channel directory:** the registry contains 64 configured entries (1 official, 5 regional, 5 religion, 45 selected-community, 8 special). Routing flags and link syntax do not prove external availability, bot permissions, or delivery; no external channel check is implied.
+- **Live data:** generated profiles, demo credentials, and seed accounts are not production data sources. Synthetic test records belong under `backend/test_fixtures/` only.
 
-## ⚡ Quick start (local)
+The implementation source of truth is `backend/interest.py` (plans/add-ons), `backend/referral.py` (reward eligibility), `backend/location_catalog.py` and `backend/community_catalog.py` (backend catalogues), `frontend/src/lib/telugu-data.ts` (frontend catalogues), and `backend/channels_config.py` (channel registry).
 
-```bash
-cp .env.example .env         # BOT_TOKEN, SITE_URL etc fill chey
-export COMPOSE_HTTP_TIMEOUT=300
-sudo -E docker-compose up -d --build postgres redis backend frontend bot
+For the verified current-state product audit, target architecture, proposed future relational schema, consent/matchmaking flows, responsive QA matrix, trust rules, pricing guardrails, component map, and SEO roadmap, see [`MANAVIVAHA_PRODUCT_BLUEPRINT.md`](MANAVIVAHA_PRODUCT_BLUEPRINT.md). The blueprint clearly distinguishes shipped code from proposed work and is not a production-readiness claim.
 
-# Website   → http://localhost:3000
-# API docs  → http://localhost:8000/docs
-# Channels  → http://localhost:3000/channels
-```
-
-WhatsApp (optional, groups/community ki post):
-```bash
-docker-compose up -d whatsapp-bridge
-# http://localhost:3001/qr → WhatsApp scan → .env: WHATSAPP_MODE=bridge
-```
-
-**Launch inventory (360 profiles + growth engine):**
+## Local development
 
 ```bash
-cd backend
-python seed_launch_db.py --count 360 --out launch_profiles.json     # generate
-python seed_launch_db.py --count 360 --load http://localhost:8000   # API ki load
-python setup_channels.py --plan           # 📢 52 channels plan + checklist
-python setup_channels.py --kit --wave 1   # wave-1 kits (17 channels) → channel-kits/
-BOT_TOKEN=xxx python setup_channels.py --apply --wave 1   # title/desc/DP/pinned auto set
-# .env: LAUNCH_SEED_COUNT=360 · ADMIN_WHATSAPP_NUMBER=91XXXXXXXXXX · LAUNCH_TARGET_PROFILES=360
-# Dashboard: http://localhost:3000/growth   (visits → leads → profiles + anti-ban status)
+cp .env.example .env
+# Add real service credentials locally; never commit them or paste them into chat.
+docker compose up --build
 ```
 
-## 🧪 Tests
+Typical local URLs, if those services are enabled:
+
+- Web: `http://localhost:3000`
+- API docs: `http://localhost:8000/docs`
+- Channel directory: `http://localhost:3000/channels`
+
+The optional WhatsApp bridge requires its own opt-in configuration and account pairing. Do not use it for unsolicited messages. External account, link, and delivery status must be checked with the respective providers.
+
+## Validation commands
 
 ```bash
-python3 backend/
-  wa_antiban.py           ← 🛡️ WhatsApp anti-ban engine (random 120–170s gap, caps, warmup, typing)
-  interest.py             ← 💌 Interest/request engine (chatting LEDU) + credits + WhatsApp texts
-  porutham.py             ← 🔮 10-porutham (kundli match) engine — Telugu verdict + dosha alerts
-  test_interest_antiban.py← 83 tests (anti-ban + interest + porutham + views + add-ons)
-  growth.py               ← 📈 Growth engine (namaste welcome, visitor/lead capture, share kit, inventory)
-  test_growth_namaste_leads.py ← 109 tests (namaste + leads + share kit + launch inventory + anti-ban + 💰 pricing parity)
-  topmatch.py             ← 🧠 Match Score 2.0 (11 weights, explainable breakdown, mutual +8% bonus, Telugu verdict)
-  test_topmatch.py        ← 61 tests (weights, breakdown, mutual, top-matches, APIs, OG images)
-  safety.py               ← 🛡️ Trust & Safety (report → auto-flag, block, verification levels, moderation queue, Telugu tips)
-  preview.py              ← 🖼️ OG/social preview images (profile, porutham report, site) — WhatsApp reach booster
-  test_safety_preview.py  ← 70 tests (reports, auto-hide, moderation, block, verify, tips, OG PNGs, APIs)
-  seed_launch_db.py       ← 🚀 Launch inventory generator (360 realistic profiles: caste/star/district correct)
-  test_channels_router.py     # 61/61 — registry + router (4 main + caste×bride/groom)
-  setup_channels.py           # 📢 channel setup automation (plan/photos/check/apply/mark-live) — Bot API
-  channel_content.py          # Telugu content engine (perfect title/desc/📌 pinned post/rules/share text)
-  test_channels_setup.py      # 78/78 — caste×gender, content limits, DP images, FakeBot apply flow
-python3 backend/publisher.py                # dry-run post preview
-cd frontend && npm run build                # 12/12 pages
+# Backend (run the commands from the repository root)
+(
+  cd backend
+  python -m pip install -r requirements-test.txt
+  python -m unittest test_catalog_ordering -v
+  # Static Compose/storage checks; these do not run Docker.
+  python test_production_storage_gate.py
+  python test_wave39_install_backup.py
+  python test_wave40_deploy.py
+  python test_registration_photo_required.py
+)
+
+# Frontend lint, TypeScript, and production build
+(
+  cd frontend
+  npm ci
+  npm run lint
+  npx tsc --noEmit
+  npm run build
+)
 ```
 
-## 📂 Structure
+`backend/verify_live_flow.py` performs GET-only endpoint checks against local or explicitly configured staging URLs; it does not create accounts or mutate production data. `backend/test_channels.py` is a no-network dry run by default; its optional Telegram path is read-only and requires explicit operator opt-in. Neither local tests nor repository configuration prove external uptime or delivery. Inspect scenario-test setup before running scripts; they are not all safe to invoke through indiscriminate test discovery.
 
-```
-backend/
-  channels_config.py      ← 65-channel registry + auto-router (SINGLE SOURCE OF TRUTH)
-  create_channels.py      ← creation CLI (--wave / --key / --check / --mark-live)
-  publisher.py            ← Telegram + WhatsApp auto-publisher (retry, queue, dry-run)
-  card_pro.py             ← full-detail neat profile card (Pillow + QR + watermark)
-  main.py                 ← FastAPI (register, search, matches, credits, channels, publish, otp, leads, growth)
-  growth.py               ← 📈 Namaste welcome + visitor/lead capture + share kit + inventory gauge
-  channel_content.py      ← 📢 Telugu channel content (titles, descriptions, 📌 pinned welcome, rules, share)
-  setup_channels.py       ← ⚡ channel setup automation (plan / photos / check / apply / mark-live)
-  topmatch.py / safety.py / preview.py  ← 🧠 Match Score 2.0 • 🛡️ reports/block/verify • 🖼️ OG preview images
-  telegram_bot.py         ← aiogram bot (approve → auto-post → deep links)
-  gen_frontend_channels.py / gen_master_list.py   ← registry → frontend + docs (auto-gen)
-frontend/
-  src/lib/site-config.ts  ← ⭐ CUSTOMIZE IKKADE (brand, prices, features, contacts)
-  src/components/         ← SiteHeader, SiteFooter, StickyCTA, Reveal, SectionHeading
-  src/app/                ← home, register (smart wizard), channels, matches (score v2 panel), requests 💌, porutham 💍, safety 🛡️, castes (SEO), referral, bureau, admin, growth 📈, offline
-  public/manifest.webmanifest + sw.js + icons/  ← 📲 PWA (installable, offline shell)
-  src/lib/seo-pages.ts    ← 🔎 289 programmatic SEO pages (caste × role × district)
-whatsapp-bridge/          ← optional Baileys service (groups/newsletter posting)
-docker-compose.yml        ← postgres, redis, backend, frontend, bot, wa-bridge (+nginx profile)
-nginx.conf                ← host nginx config (manavivaha.in, /api proxy, SSL via certbot)
-```
+## Repository map
 
-## 📚 Docs
-| Doc | Enti |
-|---|---|
-| [CHANNELS-MASTER-LIST-TELUGU.md](CHANNELS-MASTER-LIST-TELUGU.md) | 65 channels final list + waves + bot router rules |
-| [WEBSITE-STRATEGY-AND-100-PERCENT-GAPS.md](WEBSITE-STRATEGY-AND-100-PERCENT-GAPS.md) | Custom vs WordPress + auto-post flow + 30 gaps (P0→P3) |
-| [WEBSITE-CUSTOMIZATION-GUIDE.md](WEBSITE-CUSTOMIZATION-GUIDE.md) | Enti ekkada marchali — brand/pricing/features/colors + verify steps |
-| [WHATSAPP-ANTIBAN-AND-REQUESTS.md](WHATSAPP-ANTIBAN-AND-REQUESTS.md) | 🛡️ Anti-ban playbook (120–170s random gap, caps, warmup, recovery) + 💌 requests model + APIs |
-| [WAVE5-MATCH-SCORE-TRUST-PWA.md](WAVE5-MATCH-SCORE-TRUST-PWA.md) | 🧠 Match Score 2.0 (11 weights, explainable, mutual) • 🛡️ Trust & Safety (report/block/verify/moderation) • 💍 porutham report • 🖼️ OG preview images • 📲 PWA |
-| [PLAN-ADVANCED-STRATEGY.md](PLAN-ADVANCED-STRATEGY.md) | 👑 Pricing ladder (₹99→5, ₹199→12, ₹299→25, ₹499→50 VIP), revenue math, 30-day plan, strategies, KPIs |
-| [CHANNELS-SMART-STRUCTURE-TELUGU.md](CHANNELS-SMART-STRUCTURE-TELUGU.md) | 🎯 NEW smart structure — **52 channels**: Muslim 4 + Christian 4 (TS/AP × bride/groom), 18 caste CLUSTERS (Viswabrahmana 5-12 sub-castes okate channel), wave plan, correct names |
-| [CHANNELS-PERFECT-SETUP-TELUGU.md](CHANNELS-PERFECT-SETUP-TELUGU.md) | 📢 52 channels — 4 main (TS/AP × Bride/Groom), caste prakaram (18 castes × bride/groom), waves, content standards, setup automation, growth playbook |
-| [PRICING-AUDIT-TELUGU.md](PRICING-AUDIT-TELUGU.md) | 💰 Pricing audit + final ladder (₹29 → ₹499), 3 fixes (webhook bug, micro tier, legal pages), unit economics, revenue roadmap |
-| [FAILOVER-BOTS-WHATSAPP-TELUGU.md](FAILOVER-BOTS-WHATSAPP-TELUGU.md) | 🔁 Enni bots (3) + enni WhatsApp numbers (3) kavali, okati fail aithe inkokati ela pampistundi, 83 channel names, one-by-one to-do |
-| [CHANNEL-CREATE-LIST-TELUGU.md](CHANNEL-CREATE-LIST-TELUGU.md) | 📱 Phone lo channel create cheyyadaniki copy-paste list (name + username + fallbacks, wave order lo) |
-| [CHANNELS-SETUP-CHECKLIST.md](CHANNELS-SETUP-CHECKLIST.md) | 📋 auto-generated copy-paste checklist (prathi channel: name/username/desc/📌 pinned post) |
-| [GROWTH-NAMASTE-LEADS-INVENTORY.md](GROWTH-NAMASTE-LEADS-INVENTORY.md) | 📈 Namaste welcome automation • lead capture funnel • 360-profile launch inventory • community networks playbook • pricing audit + parity guard |
-| [ULTIMATE-TSAP-MASTER-PLAN-TELUGU.md](ULTIMATE-TSAP-MASTER-PLAN-TELUGU.md) | Master business plan |
-| [REFERRAL-2-TELUGU.md](REFERRAL-2-TELUGU.md) | 🤝 **Referral 2.0 — "ఎవరికైనా ₹50"**: ఏదైనా plan (₹29+) మొదటి payment కి ₹50 flat · repeat 10% (max ₹100) · 5 tiers (+3%→+20%) · auto milestones (3→1cr, 10→₹250+3cr, 25→₹500+10cr, 50→₹1200+25cr) · payout min ₹100 (3 days, UTR) · fraud guards · 5 Telugu messages + QR poster · instant WhatsApp updates |
-| [FREE-VS-PAID-CLARITY-TELUGU.md](FREE-VS-PAID-CLARITY-TELUGU.md) | 🔒 **FREE vs PAID clarity — "3 profiles ఇస్తాం, numbers ఇవ్వము"**: 3 profiles + 3 interests FREE, phone numbers ఎప్పుడూ public కాదు (98••••••45 mask) · numbers ONLY interest-accept (consent, WhatsApp exchange) · paid ₹99→5/₹199→12/₹299→25/₹499→50 · GET /api/free-plan clarity API · search/matches/inbox లో full-number leaks fix · test_privacy_contacts.py 53 checks ✅ |
-| [VENDOR-ADS-TELUGU.md](VENDOR-ADS-TELUGU.md) | 🏪 **Wedding Vendor Ads — "పెళ్లి సంబంధం వాళ్లందరికీ ప్రచారం"**: 18 categories (catering/photography/decorations/hall/pandit/makeup…), packages ₹149→₹3999, vendor dashboard (impressions/clicks/leads), enquiries direct vendor WhatsApp ki, Telugu promo posts + QR posters, admin activate/revenue |
-| [REFERRAL-SHORT-CODE-BUREAU-OFFER.md](REFERRAL-SHORT-CODE-BUREAU-OFFER.md) | Referral ₹50 + bureau B2B |
+- `backend/main.py` — FastAPI routes and application workflows.
+- `backend/interest.py`, `backend/credits.py`, `backend/paypro.py` — consumer plans, credit handling, and payment validation.
+- `backend/referral.py` — referral credits, one-time qualifying reward, exclusions, and payout review.
+- `backend/location_catalog.py`, `backend/community_catalog.py`, `backend/community_catalog.json` — canonical district/community/subcommunity data and compatibility rules.
+- `backend/channels_config.py` — channel registry; `backend/gen_frontend_channels.py` regenerates `frontend/src/lib/channels.ts`.
+- `frontend/src/app/` — Next.js pages and user journeys.
+- `frontend/src/lib/` — shared catalogues, channel links, site configuration, and frontend helpers.
+- `backend/test_fixtures/` — isolated synthetic data for tests only.
 
-## 🔑 API (main)
-```
-POST /api/register              → ID + card + top-3 matches + auto-post queue
-GET  /api/channels              → 52 channels (tiers, live/pending, join + deep links + DP)
-GET  /api/channels/photo/{key}.png      → 🖼️ channel DP (512x512 — Telegram setChatPhoto + website)
-GET  /api/channels/{key}/kit            → desc + 📌 pinned post + rules + WhatsApp share text (copy-paste)
-GET  /api/channels/setup-plan           → wave order plan + caste×gender coverage + config health
-POST /api/channels/route        → profile → ee channels ki post avutundi (preview)
-POST /api/publish/preview       → caption + WhatsApp text + targets (post cheyyakunda)
-GET  /api/publish/status        → Telegram/WhatsApp readiness + dry-run
-GET  /api/publish/log           → publish audit log
-POST /api/publish/now/{id}      → manual re-post (admin)
-GET  /api/search/{id}           → ID search (always open)
-POST /api/otp/send|verify       → phone verification (10 min, max 5 tries)
-POST /api/photo/upload          → photo upload (real file, 5MB cap, phone lo compress)
-GET  /api/search                → advanced filters (gender/caste/district/age/salary/porutham sort)
-POST /api/interest/send         → 💌 request (1 credit → mana WhatsApp nunchi profile share)
-GET  /api/interest/inbox|sent   → request dashboard (accept/decline)
-POST /api/interest/respond      → accept (numbers exchange) / decline (credit refund)
-GET  /api/porutham              → 10-porutham kundli match (Telugu verdict)
-GET  /api/match/score?a=&b=     → 🧠 Match Score 2.0 (11 components breakdown + mutual + Telugu verdict)
-GET  /api/top-matches/{id}      → top matches (mutual bonus tho ranked)
-POST /api/report · GET /api/moderation/queue · POST /api/moderation/resolve/{id}  → 🛡️ trust & safety
-POST /api/block · /api/unblock · GET /api/blocks/{id}                          → 🚫 block list
-POST /api/verify/request · GET /api/verification/{id}                          → ✅ phone/photo/ID badge
-GET  /api/og/profile/{id}.png · /api/og/porutham/{b}/{g}.png · /api/og/site.png → 🖼️ WhatsApp preview images
-GET  /api/safety/tips           → 6 Telugu safety tips + categories + verify levels
-POST /api/view · GET /api/views/{id}    → who-viewed-me (₹49 unlock)
-POST /api/save · GET /api/saved/{id}    → shortlist ❤️
-GET  /api/share/kit/{id}        → card + caption + hashtags (reach engine)
-POST /api/track                 → visitor beacon (whole-site tracking)
-POST /api/leads/quick           → 📱 phone-first lead (30-sec entry) + WhatsApp follow-up
-GET  /api/leads · /api/leads/stats      → lead queue + traffic/conversion dashboard
-POST /api/leads/followup/{id}   → follow-up WhatsApp pampu
-GET  /api/inventory             → 300–400 profiles launch gauge
-POST /api/admin/bulk-profiles   → launch inventory load ({generate: 360})
-GET  /api/digest/preview        → daily digest text (9 AM post ki)
-GET  /api/wa/status|pause|resume|reset_day → 🛡️ anti-ban control
-```
-
-## ⚠️ Safety
-- `BOT_TOKEN` chala sari chat lo share ayyindi → **BotFather lo /revoke chesi** new token `.env` lo pettu (git lo commit cheyyaku — `.gitignore` lo undi).
-- Number pay tarvata matrame chupinchali; photo-private → blur; card ki watermark + QR.
-- WhatsApp: spam cheyyaku (roju 5–10 posts/group) — ban risk. Opt-in matrame.
+Root-level planning and launch documents are historical notes and may contain superseded pricing, channel, or referral assumptions. Use the current product rules above and the source-of-truth modules—not old planning text—for implementation or customer-facing claims.

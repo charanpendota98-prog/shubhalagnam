@@ -5,7 +5,7 @@
    Varna 1 · Vashya 2 · Tara 3 · Yoni 2 · Graha-Maitri 5 · Gana 6 · Bhakoot 7 · Nadi 8 = 36
 2. DOSHA SCREENING — kuja/self-declared, moola/gandanta, nadi/bhakoot dosha flags.
    (Full jathakam ki birth-chart kavali — screening honest ga "pandit review" cheptundi.)
-3. JATHAKAM upload + PANDIT verify queue (admin) → verified badge.
+3. JATHAKAM upload + PANDIT review queue (admin) → jathakam review status only.
 
 Tables: classical Parashara convention. Unknown star/rasi → honest "data లేదు"
 (guess cheyyamu — mistakes vaddu).
@@ -18,7 +18,7 @@ from datetime import datetime
 from typing import Dict, List, Optional
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-PERSIST_FILE = os.path.join(BASE_DIR, "astro13.json")
+PERSIST_FILE = os.environ.get("MANA_VIVAHA_ASTRO_FILE", os.path.join(BASE_DIR, "astro13.json"))
 
 # ---------------------------------------------------------------------------
 # 27 NAKSHATRAS — index 0..26 (Ashwini start)
@@ -196,8 +196,8 @@ def guna_milan(bride_star: str, bride_rasi: str, groom_star: str, groom_rasi: st
             missing.append("abbayi star")
         if gr is None:
             missing.append("abbayi rasi")
-        return {"available": False, "total_36": 0,
-                "verdict_telugu": f"⚠️ {', '.join(missing)} లేదు — profile లో star+రాశి పెడితే 36-guna చూపిస్తాం 🙏",
+        return {"available": False, "total_36": None, "percent": None,
+                "verdict_telugu": f"⚠️ {', '.join(missing)} వివరాలు లేవు — అవసరమైన star/rasi వివరాలు వచ్చిన తర్వాత మాత్రమే 36-guna లెక్కించవచ్చు.",
                 "missing": missing}
     B, G = NAKSHATRAS[bs], NAKSHATRAS[gs]
     kootas: List[Dict] = []
@@ -426,8 +426,8 @@ def verify_jathakam(jid: str, ok: bool, note: str = "") -> Dict:
     j["verified_at"] = _now()
     _persist()
     return {"success": True, "jathakam": j,
-            "message_telugu": ("✅ Jathakam verify అయ్యింది — profile కి 🪐 badge" if ok
-                               else "❌ Jathakam reject — మళ్లీ upload cheyamani చెప్పండి")}
+            "message_telugu": ("✅ Jathakam review status recorded" if ok
+                               else "❌ Jathakam review rejected — re-upload if requested")}
 
 
 def astro_stats(users: List[Dict]) -> Dict:

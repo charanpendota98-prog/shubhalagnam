@@ -1,0 +1,19 @@
+# The image installs cleanly from package-lock and builds its own .next output.
+node_modules/
+.next/
+out/
+build/
+dist/
+coverage/
+playwright-report/
+test-results/
+
+# Do not copy local secrets, local overrides, or editor/OS clutter into the image.
+.env
+.env.*
+!.env.example
+.git/
+.DS_Store
+*.log
+npm-debug.log*
+*.tsbuildinfo

@@ -6,7 +6,7 @@
  * - Retention: preview (3+ years profiles) → run (archive + delete)
  */
 import { useEffect, useState } from "react";
-import { authHeaders } from "@/lib/api";
+import { authHeaders, readApiJson} from "@/lib/api";
 import { useLang } from "@/lib/lang";
 
 type Row = Record<string, any>;
@@ -30,7 +30,7 @@ export default function DataTools() {
     setBusy(true);
     try {
       const r = await fetch(withToken("/api/admin/retention/preview"), { headers: authHeaders(true) });
-      const d = await r.json();
+      const d = await readApiJson(r);
       if (d.success) { setRet(d); setFlash(""); } else setFlash(d.detail || "fail");
     } catch { setFlash(te ? "⚠️ API error" : "⚠️ API error"); }
     finally { setBusy(false); }
@@ -44,7 +44,7 @@ export default function DataTools() {
       const r = await fetch(withToken("/api/admin/retention/run"), {
         method: "POST", headers: { ...authHeaders(true), "Content-Type": "application/json" }, body: JSON.stringify({}),
       });
-      const d = await r.json();
+      const d = await readApiJson(r);
       setFlash(d.message_telugu || (d.success ? `✅ deleted: ${d.deleted} · skipped: ${d.skipped} · archive saved` : d.detail || "fail"));
       void loadPreview();
     } catch { setFlash(te ? "⚠️ API error" : "⚠️ API error"); }
@@ -84,7 +84,7 @@ export default function DataTools() {
       {/* RETENTION */}
       <h3 className="mt-8 font-bold text-[#7A0C2E]">🗑️ {te ? "3 సంవత్సరాల Retention" : "3-Year Retention"}</h3>
       <p className="telugu mt-1 text-xs text-gray-500">
-        {te ? <>3 సంవత్సరాలు దాటిన profiles <b>ఆటోమేటిక్‌గా</b> archive చేసి delete అవుతాయి (రోజూ check). Money/plan active ఉన్నవి skip — <b>data poyedam ledu</b> (backup ముందు).</> : <>Profiles older than 3 years are archived + auto-deleted (daily check). Money/active profiles skipped — <b>nothing lost</b> (backup first).</>}
+        {te ? <>Profile create చేసిన తేదీ నుంచి 3 సంవత్సరాలు దాటిన అర్హమైన records ను archive చేసి active store నుంచి తొలగిస్తాం. ఆ archive కు automatic purge deadline ప్రస్తుతం లేదు; ఇది పూర్తి erasure కాదు. Balance, pending payout, active plan లేదా boost ఉన్నవి skip అవుతాయి.</> : <>Eligible records older than three years from profile creation are archived before removal from active stores. Archives currently have no automatic purge deadline, so this is not complete erasure. Records with a balance, pending payout, active plan, or boost are skipped.</>}
       </p>
       {ret ? (
         <div className="mt-3 grid gap-3 sm:grid-cols-3">

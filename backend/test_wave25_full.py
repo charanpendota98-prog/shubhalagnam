@@ -23,6 +23,8 @@ os.environ.setdefault("WA_TEST_FAST", "1")
 os.environ.setdefault("OTP_DEV_MODE", "true")
 os.environ.setdefault("WA_LONG_PAUSE_CHANCE", "0")
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from test_storage import isolate_test_stores  # noqa: E402
+isolate_test_stores("wave25")
 
 PASS, FAIL, FAILED = 0, 0, []
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -74,14 +76,14 @@ try:
               "phone": f"925000001{i}"}
         M.DB_USERS.append(nb)
         referral.attach_referral(nb, "REF25", M.DB_USERS)
-        r = referral.process_referral_payment(nb, "REF25", 99, M.DB_USERS, payment_id=f"pay25-{i}")
+        r = referral.process_referral_payment(nb, "REF25", 99, M.DB_USERS, payment_id=f"pay25-{i}", plan_code="S_99")
         assert r.get("success"), r
     st = referral.stats_of(ref)
     check("A8 3 pays → wallet exactly 150", float(st["wallet"]) == 150, st["wallet"])
     check("A9 milestone hit record (badge) undi", 3 in st.get("milestones_hit", []), st.get("milestones_hit"))
     # repeat payment → no commission
     nb0 = M.DB_USERS[1]
-    rr = referral.process_referral_payment(nb0, "REF25", 499, M.DB_USERS, payment_id="pay25-repeat")
+    rr = referral.process_referral_payment(nb0, "REF25", 499, M.DB_USERS, payment_id="pay25-repeat", plan_code="S_499")
     check("A10 repeat → success False + reason", rr.get("success") is False
           and rr.get("reason") == "no_repeat_commission", rr)
     check("A11 repeat tarvata wallet 150 ye", float(referral.stats_of(ref)["wallet"]) == 150)
@@ -95,7 +97,7 @@ try:
         nb = {"tsap_id": f"TSAP-F-2025-{20 + i}", "full_name": f"Ej{i}", "phone": f"925000002{i}"}
         M.DB_USERS.append(nb)
         referral.attach_referral(nb, "ERN25", M.DB_USERS)
-        referral.process_referral_payment(nb, "ERN25", 99, M.DB_USERS, payment_id=f"epay-{i}")
+        referral.process_referral_payment(nb, "ERN25", 99, M.DB_USERS, payment_id=f"epay-{i}", plan_code="S_99")
     check("B1 wallet 100 (2x50)", float(referral.stats_of(me)["wallet"]) == 100)
     pr = referral.payout_request(me, 100, method="upi", upi_id="earner@okhdfcbank")
     check("B2 payout request ok", pr.get("ok"), pr)
@@ -117,7 +119,7 @@ try:
         nb = {"tsap_id": f"TSAP-F-2025-{30 + i}", "full_name": f"Rj{i}", "phone": f"925000003{i}"}
         M.DB_USERS.append(nb)
         referral.attach_referral(nb, "ERN25", M.DB_USERS)
-        referral.process_referral_payment(nb, "ERN25", 99, M.DB_USERS, payment_id=f"rpay-{i}")
+        referral.process_referral_payment(nb, "ERN25", 99, M.DB_USERS, payment_id=f"rpay-{i}", plan_code="S_99")
     pr2 = referral.payout_request(me, 100, method="upi", upi_id="earner@okhdfcbank")
     rj = referral.payout_action(pr2["request"]["id"], "reject", M.DB_USERS, reason="wrong_upi")
     check("B10 reject → wallet malli 100", rj.get("ok") and float(referral.stats_of(me)["wallet"]) == 100)

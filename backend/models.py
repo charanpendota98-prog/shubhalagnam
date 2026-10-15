@@ -6,6 +6,30 @@ from pydantic import BaseModel, Field
 from typing import Dict, Any, Optional, List
 from datetime import datetime
 from enum import Enum
+import re
+import unicodedata
+
+
+_NEVER_MARRIED_ALIASES = {
+    "pelli kaledu", "pelli kaaledu", "pelli kaledu / first marriage",
+    "never married", "never married / first marriage", "never married first marriage",
+    "unmarried", "not married", "single", "first marriage",
+    "పెళ్లి కాలేదు", "పెళ్లికాలేదు",
+}
+
+
+def is_never_married_status(value: object) -> bool:
+    """Recognize first-marriage labels consistently across registration and profile views."""
+    normalized = unicodedata.normalize("NFKC", str(value or "")).casefold().strip()
+    normalized = re.sub(r"[_\u2010-\u2015-]+", " ", normalized)
+    normalized = re.sub(r"\s*/\s*", " / ", normalized)
+    normalized = re.sub(r"\s+", " ", normalized).strip()
+    return (
+        normalized in _NEVER_MARRIED_ALIASES
+        or ("pelli" in normalized and "kaledu" in normalized)
+        or "కాలేదు" in normalized
+        or ("never" in normalized and "married" in normalized)
+    )
 
 class Gender(str, Enum):
     Bride = "Bride"
@@ -106,8 +130,8 @@ class UserDB(BaseModel):
     state: State
     district: str
     mandal: str
-    phone_encrypted: str
-    phone_last4: str
+    phone_masked: str = "🔒 •••••"
+    contact_locked: bool = True
     referral_code: str
     referred_by: Optional[str] = ""  # who referred this user
     photo_urls: List[str]
@@ -116,7 +140,7 @@ class UserDB(BaseModel):
     is_approved: bool = False
     privacy_mode: str = "public"  # public / private
     credits: int = 3
-    plan: str = "FREE"  # FREE, S_29, S_99, S_199, S_299, S_499, BUREAU_999, BUREAU_2999
+    plan: str = "FREE"  # FREE, S_99, S_199, S_299, S_499, BUREAU_999, BUREAU_2999
     plan_expiry: Optional[datetime] = None
     source_channel: Optional[str] = ""  # deep link source
     created_at: datetime = Field(default_factory=datetime.utcnow)
@@ -124,8 +148,7 @@ class UserDB(BaseModel):
 
 class MatchResult(BaseModel):
     matched_user_id: str
-    score: int
-    reasons: List[str]  # personalized Telugu reasons
+    observations: List[str] = Field(default_factory=list)
     is_paid_unlock: bool = False
     is_sent: bool = False
 
@@ -156,7 +179,7 @@ class PaymentDB(BaseModel):
 class ChannelPost(BaseModel):
     id: int
     user_tsap_id: str
-    channel_username: str  # @ts_brides, @tsap_reddy, @tsap_second
+    channel_username: str  # Exact configured Telegram username, when supplied
     telegram_message_id: Optional[int] = None
     posted_at: datetime = Field(default_factory=datetime.utcnow)
     post_type: str = "NEW"  # NEW, BOOST, TOP_OF_DAY
@@ -170,15 +193,18 @@ class RegisterResponse(BaseModel):
     # 🔐 WAVE 9 — auth token (private API IDOR fix) + privacy/clarity fields
     auth_token: str = ""
     phone_masked: str = ""
+    phone_verified: bool = False
+    is_approved: bool = False
     duplicate_phone: bool = False
     quality: Optional[Dict[str, Any]] = None
     message_plan_telugu: str = ""
     next_steps: List[str]
     auto_post_queue: List[str]
     top_3_matches: List[MatchResult]
-    # Auto-publish (Telegram + WhatsApp) — register avvagane
+    # Candidate destinations and approval-gated publish queue status; queue does not confirm delivery.
     publish_queued: bool = False
     publish_targets: List[str] = []
+    publish_reason: str = "awaiting_profile_approval"
     namaste_queued: bool = False
     welcome_status: Optional[Dict[str, Any]] = None
     share_kit: Optional[Dict[str, Any]] = None
@@ -192,5 +218,7 @@ class SearchResponse(BaseModel):
     profile: UserDB
     can_view_number: bool
     credits_needed: int
-    reasons: List[str]
+    observations: List[str] = Field(default_factory=list)
+    differences: List[str] = Field(default_factory=list)
+    preference_checks: List[Dict[str, Any]] = Field(default_factory=list)
     is_photo_blur: bool

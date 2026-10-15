@@ -1,3 +1,7 @@
+# Historical implementation log — not current verification
+
+> Archived 2026-09-16 notes from a different branch. Example profile IDs and test data below are historical fixtures, not live member records. Reported pass counts, build output, process IDs, and “live proof” are not current evidence of deployment or external service health. The old mention of a `test_channels` live-network run is not a current smoke-test instruction. For current safe checks use `README.md` and `TEST-2-CHANNELS-NORMAL.md`.
+
 # 🌊 WAVE 16 — PRO REGISTER UX (screenshot-standard + Duo Telugu)
 
 **Date:** 2026-09-16 · **Branch:** `arena/01a0aaf1-matrimony-site` (branch-only, NO merge) ·
@@ -43,11 +47,11 @@ E. frontend static 11 checks · F. **node-executed** `heightLabel`: 5'6"→168cm
 
 wave9 203 · wave10 74 · wave11 87 · wave12 75 · wave13 105 · wave14 106 · wave15 54 · **wave16 30** ·
 channels_setup 84 · privacy 53 · redundancy 53 · referral 145 · safety 70 · topmatch 61 · vendors 130 ·
-channels_router 60 · growth 138 · antiban 84 · (+test_channels live-network script exit 0).
+channels_router 60 · growth 138 · antiban 84 · (historical script output; not a current external check).
 
 ⚠️ Note: batch must NOT force `WHATSAPP_MODE=off` (wave10 bridge tests control it; proven pre-existing via stash A/B, not Wave16).
 
-## BUILD + LIVE PROOF (2026-09-16)
+## Historical local checks (not current production verification) (2026-09-16)
 
 - `tsc --noEmit` clean · `npm run build` green.
 - `GET /register` 200, SSR contains `Select your height` + `Select religion` (pills hydrate client-side).

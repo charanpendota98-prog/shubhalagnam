@@ -1,7 +1,7 @@
 """
 🚀 WAVE 11 — ULTRA ADVANCED engines (Top matrimony sites kanna ekkuva)
 =====================================================================
- 1. 🛡️ gothram guard      → same-gothram auto-block (interest + matches + score)
+ 1. 🪔 gothram text compare → informational only; never filters interest or eligibility
  2. 💑 success stories     → submit → admin approve → public list + channel share text
  3. 💬 support FAQ         → Telugu Q&A search (widget + bot rendu vadathayi)
  4. 🔥 daily streak        → rojoo login ki bonus credits (retention engine)
@@ -19,10 +19,11 @@ import os
 import re
 from datetime import date, datetime, timedelta
 from typing import Any, Dict, List, Optional
+from urllib.parse import urlsplit
 
 from hardening import clean, req_text, validation_error
 
-STATE_DIR = os.path.dirname(os.path.abspath(__file__))
+STATE_DIR = os.environ.get("MANA_VIVAHA_APP_STATE_DIR", os.path.dirname(os.path.abspath(__file__)))
 STORIES_FILE = os.path.join(STATE_DIR, "stories_state.json")
 PUSH_FILE = os.path.join(STATE_DIR, "push_state.json")
 
@@ -75,7 +76,7 @@ def save_push() -> None:
 
 
 # ---------------------------------------------------------------------------
-# 1. 🛡️ GOTHRAM GUARD — same gothram = pelli kudadhu (Telugu custom MUST)
+# 1. Member-entered gothram text comparison (no eligibility decision)
 # ---------------------------------------------------------------------------
 def norm_gothram(value: Any) -> str:
     """' bharadwaj ' / 'Bharadwaja' → 'bharadwaj' (compare-safe)."""
@@ -90,50 +91,32 @@ def norm_gothram(value: Any) -> str:
 
 
 def gothram_check(a: Dict[str, Any], b: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Rendu profiles madhya gothram check.
-    • iddari gothram telisi, okate ayithe → blocked=True (interest/match aagali)
-    • okariki teliyakunte → warning matrame (block kadu — data ledu kabatti)
-    """
+    """Compare supplied gothram text without making a marriage or eligibility decision."""
     ga_raw = str((a or {}).get("gothram", "") or "").strip()
     gb_raw = str((b or {}).get("gothram", "") or "").strip()
     ga, gb = norm_gothram(ga_raw), norm_gothram(gb_raw)
-    if ga and gb and ga == gb:
-        return {
-            "same": True, "blocked": True,
-            "a_gothram": ga_raw, "b_gothram": gb_raw,
-            "reason": "same_gothram",
-            "verdict_telugu": (
-                f"🚫 Same గోత్రం ({ga_raw}) — పెళ్లి కూడదు (మన సంప్రదాయం). "
-                "Vere profiles చూడండి — exception కావాలి అంటే support కి చెప్పండి."),
-        }
-    if (ga and not gb) or (gb and not ga):
-        return {
-            "same": False, "blocked": False, "unknown_side": True,
-            "a_gothram": ga_raw, "b_gothram": gb_raw,
-            "reason": "gothram_unknown",
-            "verdict_telugu": "⚠️ ఒకరికి గోత్రం లేదు — peddavaallatho confirm చేసుకోండి (same గోత్రం అయితే పెళ్లి కూడదు).",
-        }
+    same = (ga == gb) if ga and gb else None
+    if same is True:
+        reason = "same_text"
+        note = "ఇద్దరూ నమోదు చేసిన గోత్ర వివరాలు ఒకేలా ఉన్నాయి. ఇది text comparison మాత్రమే; వివాహ నిర్ణయం కాదు."
+    elif same is False:
+        reason = "different_text"
+        note = "నమోదు చేసిన గోత్ర వివరాలు వేర్వేరుగా ఉన్నాయి. ఇది text comparison మాత్రమే; సంప్రదాయ తీర్పు కాదు."
+    else:
+        reason = "details_unavailable"
+        note = "ఒకటి లేదా రెండు గోత్ర వివరాలు అందుబాటులో లేవు; పోల్చలేకపోయాం."
     return {
-        "same": False, "blocked": False,
+        "same": same, "blocked": False,
         "a_gothram": ga_raw, "b_gothram": gb_raw,
-        "reason": "ok" if (ga and gb) else "both_unknown",
-        "verdict_telugu": (f"✅ గోత్రం వేరు ({ga_raw} ≠ {gb_raw}) — సంబంధం కి OK"
-                           if (ga and gb) else "ℹ️ గోత్రం details లేదు — profile complete చెయ్యండి"),
+        "reason": reason, "note_telugu": note,
+        "notice": "Member-entered text comparison only; not a compatibility or marriage verdict.",
     }
 
 
 def filter_same_gothram(me: Dict[str, Any], pool: List[Dict[str, Any]]) -> Dict[str, Any]:
-    """pool నుంచి same-గోత్రం profiles teesi, count తో return."""
-    mine = norm_gothram((me or {}).get("gothram"))
-    kept, skipped = [], []
-    for u in pool or []:
-        g = norm_gothram(u.get("gothram"))
-        if mine and g and mine == g:
-            skipped.append(u.get("tsap_id"))
-        else:
-            kept.append(u)
-    return {"kept": kept, "skipped_ids": skipped, "skipped_count": len(skipped)}
+    """Legacy filter name: keep all profiles; a text match is not an eligibility rule."""
+    kept = list(pool or [])
+    return {"kept": kept, "skipped_ids": [], "skipped_count": 0}
 
 
 # ---------------------------------------------------------------------------
@@ -197,13 +180,17 @@ def like_story(story_id: str) -> Dict[str, Any]:
 
 
 def story_share_text(story: Dict[str, Any]) -> str:
-    """Channel/WhatsApp forward text (numbers లేదు — privacy safe)."""
-    names = story.get("couple_names") or "మన వివాహ జంట"
-    dist = f" ({story['district']})" if story.get("district") else ""
+    """Share copy that labels member-provided story details and review limits."""
+    names = clean(story.get("couple_names", ""), 80, "couple_names")
+    district = clean(story.get("district", ""), 40, "district")
+    title = "Member-submitted story" + (f" ({district})" if district else "")
+    name_line = f"Names supplied by the submitter: {names}\\n" if names else ""
+    body = clean(story.get("text", ""), 220, "story")
     return (
-        f"💑 SUCCESS STORY{dist} 💑\n{names} — మన వివాహ ద్వారా కలిశారు! 🎉\n"
-        f"\"{story.get('text','')[:220]}\"\n\n"
-        f"మీకు కూడా ఇలాంటి సంబంధం కావాలి అంటే → manavivaha.in (₹99 కే సంబంధం, మొదటి 3 FREE) 🙏")
+        f"💬 {title}\\n{ name_line }{body}\\n\\n"
+        "Reviewed for publication; identity and relationship details have not been independently verified. "
+        "Please check details for yourself.\\n"
+        "Current plans and terms: https://manavivaha.in/pricing")
 
 
 # ---------------------------------------------------------------------------
@@ -211,40 +198,40 @@ def story_share_text(story: Dict[str, Any]) -> str:
 # ---------------------------------------------------------------------------
 SUPPORT_FAQS: List[Dict[str, Any]] = [
     {"id": "price", "q": "₹99 ఎందుకు? Free లో ఏం వస్తుంది?",
-     "a": "మొదటి 3 profiles + 3 interests FREE. ₹99 → 5 profiles unlock (numbers accept తర్వాత). Decline అయితే credit refund — loss లేదు.",
+     "a": "Free లో 3 interest requests + profile card వస్తాయి. ₹99 → 5 interest requests (30 రోజులు). ఒక్క request‌కు ఒక credit; owner accept చేసిన తర్వాత accepted-request account views లో contact details కనిపిస్తాయి. Notification delivery హామీ లేదు. Declined request credit return account policy ప్రకారం; 7-day expiry పై ఒక request credit మాత్రమే తిరిగి వస్తుంది, cash refund కాదు.",
      "keys": ["price", "99", "free", "cost", "dabbulu", "rate", "plan"]},
     {"id": "numbers", "q": "Phone numbers ఎప్పుడు vastayi?",
-     "a": "Numbers ఎప్పుడు public కాదు. మీరు interest పంపి, avatali వాళ్లు ACCEPT చేస్తే iddariki numbers WhatsApp లో automatic గా vastayi.",
+     "a": "Public profile/search లో numbers కనిపించవు. మీరు interest పంపి profile owner accept చేసిన తర్వాత accepted-request account views లో contact details అందుబాటులోకి వస్తాయి. Configured notification/WhatsApp delivery హామీ లేదు.",
      "keys": ["number", "phone", "contact", "mobile"]},
     {"id": "register", "q": "Register ఎలా? Entha time?",
-     "a": "3 min: /register లో details → OTP verify → photo → ID వస్తుంది. Bot లో కూడా @telugumatrimony1_bot /start చెయ్యొచ్చు.",
+     "a": "/register లో profile వివరాలు నమోదు చేసి, అక్కడ చూపిన verification మరియు consent సూచనలు అనుసరించండి. Required fields మారవచ్చు. Phone OTP ఉంటే అది phone access check మాత్రమే; ప్రతి profile వివరాన్ని లేదా వ్యక్తి గుర్తింపును ధృవీకరించదు.",
      "keys": ["register", "join", "signup", "account", "create"]},
     {"id": "photo_private", "q": "Photo private గా pettukovacha (ammayilu)?",
-     "a": "అవును! Photo-private ON చేస్తే మీ photo blur లో ఉంటుంది — interest accept చేసినవాళ్లకే clear photo. 100% safe.",
+     "a": "Photo-private setting తో public profile/card లో photo ప్రదర్శన నియంత్రించవచ్చు. ఈ setting screenshots లేదా ఇతరుల కాపీలను నిరోధించదు; share చేయకూడని చిత్రాలను upload చేయవద్దు.",
      "keys": ["photo", "private", "blur", "safe", "ammayi", "hide"]},
     {"id": "gothram", "q": "Same గోత్రం అయితే?",
-     "a": "Same గోత్రం అయితే interest automatic గా block అవుతుంది — పెళ్లి కూడదు కాబట్టి. Warning కూడా చూపిస్తాం.",
+     "a": "సైట్‌లో నమోదు చేసిన గోత్ర వచనాన్ని పోల్చే సమాచారం మాత్రమే చూపవచ్చు. ఇది interest eligibility rule లేదా వివాహ నిర్ణయం కాదు; మీ కుటుంబ సంప్రదాయం ప్రకారం స్వతంత్రంగా తెలుసుకోండి.",
      "keys": ["gothram", "gotram"]},
     {"id": "porutham", "q": "వేద గుణమేళనం / జాతక పొంతన చూస్తారా?",
-     "a": "అవును — జన్మ నక్షత్రం + రాశి ఇవ్వండి, వేద గుణమేళనం స్కోరు + తెలుగు విశ్లేషణ ఇస్తాం (/porutham). సంబంధం వివరాల్లో కూడా గుణమేళనం లైన్ వస్తుంది.",
+     "a": "/porutham లో అందుబాటులో ఉన్న జన్మ నక్షత్రం/రాశి వివరాలతో informational calculation చూపవచ్చు. ఇది వ్యక్తి గుర్తింపు, సంబంధ నాణ్యత, లేదా వివాహ ఫలితాన్ని నిర్ధారించదు; నిర్ణయానికి హామీ కాదు.",
      "keys": ["porutham", "jathakam", "jatakam", "star", "rasi", "nakshatra", "horoscope", "gunamelanam", "ponthana"]},
     {"id": "refund", "q": "Refund policy ఏంటి?",
-     "a": "Matches రాకపోతే 7 days లో refund — /refund లో details చూడండి. Decline అయిన interest credit మీకు automatic refund.",
+     "a": "ప్రస్తుత eligibility, timing మరియు credit-return నియమాలు /refund పేజీ, మీ account లో చూపిన terms లో చూడండి. Declined/expired request కు credit తిరిగి వస్తుందా అనేది అక్కడ చూపిన policy ప్రకారం ఉంటుంది; credit return అనేది cash refund కాదు.",
      "keys": ["refund", "return", "money back", "cancel"]},
     {"id": "fake", "q": "Fake profiles untaya? Report ఎలా?",
-     "a": "OTP verify + photo check + 2 reports = auto-hide. Fake అనిపిస్తే profile లో Report button నొక్కండి → మన team 24h లో action, మీరు safe.",
+     "a": "Profile లోని Report button ద్వారా వివరాలు పంపండి. కొన్ని report thresholds చేరితే profile తాత్కాలికంగా auto-flag/hide కావచ్చు; ప్రతి report‌ను review చేస్తాం కానీ fixed action time లేదా 100% safety guarantee లేదు.",
      "keys": ["fake", "fraud", "report", "scam", "mosam", "block"]},
     {"id": "bureau", "q": "నేను broker/bureau — ఎలా join అవ్వాలి?",
-     "a": "/bureau లో register → referral code వస్తుంది → మీకు ₹50 per paid user + dashboard. Bureaus కి ₹999 white-label plan ఉంది.",
+     "a": "/bureau లో అందుబాటులో ఉన్న referral/B2B సేవలు మరియు వాటి నియమాలు చూడండి. ₹50 reward అర్హత ఉంటే అది referred user తొలి qualifying S_99/S_199/S_299/S_499 consumer-plan payment (కనీసం ₹99) పై ఒక్కసారి మాత్రమే; exclusions మరియు manual payout review వర్తిస్తాయి.",
      "keys": ["bureau", "broker", "agent", "commission"]},
     {"id": "vendor", "q": "పెళ్లి vendors (catering/photo) ads ఎలా ఇవ్వాలి?",
-     "a": "/vendors లో register → ₹149 నుంచి packages → admin approve → మీకు direct customer leads WhatsApp కి.",
+     "a": "/vendors లో packages/ధరలు చూడండి. Registration, payment verification మరియు admin approval తర్వాత listing ప్రచురించవచ్చు; customer enquiry లేదా WhatsApp delivery హామీ కాదు.",
      "keys": ["vendor", "ad", "catering", "photo", "decoration", "business"]},
     {"id": "whatsapp", "q": "WhatsApp లో matches vastaya?",
-     "a": "అవును! Register avvagane 3 profiles WhatsApp కి + రోజు 9AM daily matches (paid) + saved-search alerts. Telegram channels కూడా join అవ్వండి.",
+     "a": "WhatsApp notification లేదా support availability అనేది real business contact, service configuration, recipient consent మరియు provider availability పై ఆధారపడుతుంది. Register చేసినంత మాత్రాన profiles/daily matches WhatsApp లో పంపబడతాయని హామీ లేదు. Contact configure కానప్పుడు support CTA చూపించము.",
      "keys": ["whatsapp", "telegram", "channel", "daily", "message"]},
-    {"id": "support_human", "q": "Manishitho matladali — support number?",
-     "a": "Bot లో /help type చెయ్యండి leda website /safety page లో contact — మన team 10AM–7PM Telugu లో reply ఇస్తుంది.",
+    {"id": "support_human", "q": "Manishitho matladali — support contact?",
+     "a": "Website లో /safety మరియు /refund పేజీలలో ప్రదర్శించే contact options మాత్రమే ఉపయోగించండి. Real WhatsApp contact configure చేయకపోతే WhatsApp support link చూపించము. Response times హామీ కాదు.",
      "keys": ["support", "help", "contact", "human", "call", "number kavali"]},
 ]
 
@@ -327,7 +314,50 @@ def claim_daily(user: Dict[str, Any], today: str = "") -> Dict[str, Any]:
 # 5. 🔔 WEB PUSH — browser closed ayina alerts (VAPID ready, graceful degrade)
 # ---------------------------------------------------------------------------
 def vapid_public_key() -> str:
-    return str(os.getenv("VAPID_PUBLIC_KEY", "") or "")
+    return str(os.getenv("VAPID_PUBLIC_KEY", "") or "").strip()
+
+
+def vapid_contact_subject() -> str:
+    """Return only an owner-configured VAPID contact URL; never invent a mailto address."""
+    subject = str(os.getenv("VAPID_SUBJECT", "") or "").strip()
+    if not subject:
+        support_email = str(os.getenv("SUPPORT_EMAIL", "") or "").strip()
+        if re.fullmatch(r"[^@\s<>]+@[^@\s<>]+\.[^@\s<>]+", support_email):
+            subject = f"mailto:{support_email}"
+    if subject.lower().startswith("mailto:"):
+        address = subject[7:].strip()
+        return subject if re.fullmatch(r"[^@\s<>]+@[^@\s<>]+\.[^@\s<>]+", address) else ""
+    try:
+        parsed = urlsplit(subject)
+    except ValueError:
+        return ""
+    if (parsed.scheme == "https" and parsed.hostname and not parsed.username
+            and not parsed.password and not any(ch.isspace() for ch in subject)):
+        return subject
+    return ""
+
+
+def vapid_delivery_ready() -> bool:
+    public_key = vapid_public_key().rstrip("=")
+    private_key = str(os.getenv("VAPID_PRIVATE_KEY", "") or "").strip()
+    if not (public_key and private_key and vapid_contact_subject()):
+        return False
+    try:
+        from cryptography.hazmat.primitives import serialization
+        from py_vapid import Vapid
+        from py_vapid.utils import b64urlencode
+        from pywebpush import webpush  # type: ignore
+
+        key_pair = Vapid.from_string(private_key)
+        derived_public = key_pair.public_key.public_bytes(
+            encoding=serialization.Encoding.X962,
+            format=serialization.PublicFormat.UncompressedPoint,
+        )
+        return callable(webpush) and b64urlencode(derived_public) == public_key
+    except (ImportError, TypeError, ValueError, OSError):
+        return False
+    except Exception:
+        return False
 
 
 def push_subscribe(tsap_id: str, endpoint: str, keys: Optional[Dict[str, str]] = None,
@@ -343,7 +373,8 @@ def push_subscribe(tsap_id: str, endpoint: str, keys: Optional[Dict[str, str]] =
         old["updated_at"] = datetime.utcnow().isoformat()
         save_push()
         return {"success": True, "sub_id": old["sub_id"], "renewed": True,
-                "message_telugu": "🔔 Match alerts ON — కొత్త matches వస్తే notification వస్తుంది"}
+                "message_telugu": "🔔 Match alerts ON — కొత్త matches వస్తే notification వస్తుంది",
+                "message_en": "Push alerts are enabled on this browser. Delivery depends on browser, device, and server support."}
     sid = f"PUSH-{len(PUSH_SUBS) + 1:05d}"
     rec = {"sub_id": sid, "tsap_id": tid, "endpoint": ep,
            "keys": {"p256dh": clean(keys.get("p256dh", ""), 200, "p256dh"),
@@ -353,7 +384,8 @@ def push_subscribe(tsap_id: str, endpoint: str, keys: Optional[Dict[str, str]] =
     PUSH_SUBS.append(rec)
     save_push()
     return {"success": True, "sub_id": sid, "renewed": False,
-            "message_telugu": "🔔 Match alerts ON — browser close చేసిన కొత్త matches notification వస్తుంది!"}
+            "message_telugu": "🔔 Match alerts ON — browser close చేసిన కొత్త matches notification వస్తుంది!",
+            "message_en": "Push alerts are enabled on this browser. Delivery depends on browser, device, and server support."}
 
 
 def push_unsubscribe(tsap_id: str = "", endpoint: str = "") -> Dict[str, Any]:
@@ -366,7 +398,8 @@ def push_unsubscribe(tsap_id: str = "", endpoint: str = "") -> Dict[str, Any]:
     if removed:
         save_push()
     return {"success": True, "removed": removed,
-            "message_telugu": "🔕 Alerts off చేశాం" if removed else "ℹ️ Active alerts లేవు"}
+            "message_telugu": "🔕 Alerts off చేశాం" if removed else "ℹ️ Active alerts లేవు",
+            "message_en": "Push alerts turned off." if removed else "No active push alert subscription was found."}
 
 
 def subs_for(tsap_id: str) -> List[Dict[str, Any]]:
@@ -383,39 +416,46 @@ def push_notify(tsap_id: str, title: str, body: str, url: str = "/matches") -> D
     targets = subs_for(req_text(tsap_id, "tsap_id", 4, 30))
     if not targets:
         return {"success": False, "reason": "no_subscription", "queued": 0,
-                "message_telugu": "🔔 ఈ user alerts ON చెయ్యలేదు — matches page లో 🔔 button నొక్కితే ON అవుతుంది"}
+                "message_telugu": "🔔 ఈ user alerts ON చెయ్యలేదు — matches page లో 🔔 button నొక్కితే ON అవుతుంది",
+                "message_en": "Push alerts are not enabled for this account. Turn them on from the matches page."}
     payload = {"title": title, "body": body, "url": clean(url, 200, "url"),
                "icon": "/icons/icon-192.png", "tag": f"mv-{tsap_id}",
                "at": datetime.utcnow().isoformat()}
-    # real send attempt (optional dep — lekapothe preview mode)
-    sent, failed = 0, 0
-    vapid_priv = str(os.getenv("VAPID_PRIVATE_KEY", "") or "")
-    if vapid_priv and vapid_public_key():
+    # Real sends require an owner-configured VAPID subject as well as both keys.
+    # Without the complete configuration, retain only an honest preview record.
+    sent, failed, attempted = 0, 0, 0
+    vapid_priv = str(os.getenv("VAPID_PRIVATE_KEY", "") or "").strip()
+    vapid_subject = vapid_contact_subject()
+    if vapid_priv and vapid_public_key() and vapid_subject and vapid_delivery_ready():
         try:
             from pywebpush import webpush  # type: ignore
-            for s in targets:
+        except ImportError:
+            pass
+        else:
+            for sub in targets:
+                attempted += 1
                 try:
-                    webpush(subscription_info={"endpoint": s["endpoint"], "keys": s.get("keys", {})},
+                    webpush(subscription_info={"endpoint": sub["endpoint"], "keys": sub.get("keys", {})},
                             data=json.dumps(payload), vapid_private_key=vapid_priv,
-                            vapid_claims={"sub": "mailto:support@manavivaha.in"})
+                            vapid_claims={"sub": vapid_subject})
                     sent += 1
                 except Exception:
                     failed += 1
-                    s["fail_count"] = int(s.get("fail_count", 0)) + 1
+                    sub["fail_count"] = int(sub.get("fail_count", 0)) + 1
             save_push()
-        except ImportError:
-            pass
+    mode = "live" if attempted else "preview"
     qid = f"PQ-{len(PUSH_QUEUE) + 1:05d}"
     PUSH_QUEUE.append({"queue_id": qid, "tsap_id": tsap_id, "payload": payload,
-                       "targets": len(targets), "sent": sent, "failed": failed,
-                       "mode": "live" if sent else "preview",
-                       "at": datetime.utcnow().isoformat()})
+                       "targets": len(targets), "attempted": attempted, "sent": sent, "failed": failed,
+                       "mode": mode, "at": datetime.utcnow().isoformat()})
     save_push()
-    return {"success": True, "queued": len(targets), "sent": sent, "failed": failed,
-            "mode": "live" if sent else "preview",
+    return {"success": True, "queued": len(targets), "attempted": attempted,
+            "sent": sent, "failed": failed, "mode": mode,
             "payload_preview": payload,
-            "message_telugu": ("🔔 Notification pampam!" if sent
-                               else "🔔 Queue లో pettam (VAPID keys set చెయ్యగానే live అవుతుంది)")}
+            "message_telugu": ("🔔 Push send attempt చేశాము; device delivery confirm కాదు." if attempted
+                               else "🔔 VAPID keys మరియు owner-configured contact లేకపోవడంతో preview queue లో ఉంచాం."),
+            "message_en": ("A push send was attempted; device delivery is not confirmed." if attempted
+                           else "The alert remains in the preview queue because VAPID delivery is not configured.")}
 
 
 # ---------------------------------------------------------------------------
@@ -463,7 +503,7 @@ def claim_complete_bonus(user: Dict[str, Any], percent: int) -> Dict[str, Any]:
 # ---------------------------------------------------------------------------
 BOOST_PACKS = {
     "B_1": {"code": "B_1", "days": 1, "price": 49, "label": "⚡ 24h Boost — ₹49"},
-    "B_3": {"code": "B_3", "days": 3, "price": 99, "label": "⚡ 3-day Boost — ₹99 (popular)"},
+    "B_3": {"code": "B_3", "days": 3, "price": 99, "label": "⚡ 3-day Boost — ₹99"},
     "B_7": {"code": "B_7", "days": 7, "price": 199, "label": "⚡ 7-day Super Boost — ₹199"},
 }
 
