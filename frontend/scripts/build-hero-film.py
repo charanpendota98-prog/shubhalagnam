@@ -130,19 +130,24 @@ def main() -> int:
         return 1
 
     poster_path = os.path.join(PROMO, "hero-bg-ultra.jpg")
+    # Sized for a decorative background: sharp enough full-bleed, small enough
+    # that the hero never costs much on a phone connection.
+    #
+    # Measured: VP9/WebM was ~60% BIGGER than H.264 on this footage (soft
+    # gradients + fine particle motion encode badly in VP9), so H.264 MP4 is
+    # shipped alone rather than adding a heavier "modern" source.
     targets = [
-        # Sized for a decorative background: sharp enough full-bleed, small
-        # enough that the hero never pays for it on a phone connection.
-        (os.path.join(PROMO, "wedding-film.mp4"), "1280:-2", "32", "slow"),
-        (os.path.join(PROMO, "wedding-film-mobile.mp4"), "854:-2", "35", "slow"),
+        (os.path.join(PROMO, "wedding-film.mp4"), "1280:-2", "32", "libx264",
+         ["-preset", "slow", "-g", "60", "-movflags", "+faststart", "-profile:v", "main"]),
+        (os.path.join(PROMO, "wedding-film-mobile.mp4"), "854:-2", "35", "libx264",
+         ["-preset", "slow", "-g", "60", "-movflags", "+faststart", "-profile:v", "main"]),
     ]
 
     writers = []
-    for path, scale, crf, preset in targets:
+    for path, scale, crf, codec, extra in targets:
         gen = imageio_ffmpeg.write_frames(
-            path, SIZE, fps=FPS, quality=None, codec="libx264",
-            output_params=["-vf", f"scale={scale}", "-crf", crf, "-preset", preset,
-                           "-g", "60", "-movflags", "+faststart", "-profile:v", "main"],
+            path, SIZE, fps=FPS, quality=None, codec=codec,
+            output_params=["-vf", f"scale={scale}", "-crf", crf, *extra],
         )
         gen.send(None)  # seed
         writers.append(gen)
@@ -166,7 +171,7 @@ def main() -> int:
                 pass
 
     print(f"rendered {total} frames ({total / FPS:.1f}s at {FPS}fps)")
-    for path, _scale, crf, _preset in targets:
+    for path, _scale, crf, _codec, _extra in targets:
         print(f"film    -> {os.path.relpath(path, ROOT)} "
               f"({os.path.getsize(path) // 1024} KB, crf {crf})")
     return 0

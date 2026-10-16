@@ -21,9 +21,12 @@ type Chan = {
   desc?: string; routingEligible?: boolean; wave?: number; hashtags?: string[];
 };
 
-export default function CasteClient({ caste, role, district, chan, otherChan }: {
+type FaqItem = { id: string; q: string; a: string };
+
+export default function CasteClient({ caste, role, district, chan, otherChan, faqEn, faqTe }: {
   caste: Caste; role: "bride" | "groom"; district: District | null;
   chan: Chan | null; otherChan: Chan | null;
+  faqEn?: FaqItem[]; faqTe?: FaqItem[];
 }) {
   const { lang } = useLang();
   const te = lang === "te";
@@ -231,38 +234,23 @@ export default function CasteClient({ caste, role, district, chan, otherChan }: 
       <section className="max-w-5xl mx-auto px-4 pb-10">
         <div className="bg-white rounded-2xl p-5 card-shadow border border-gold/20">
           <h2 className="text-lg font-bold text-maroon">{caste.name} {role} — FAQ</h2>
-          <div className="mt-3 space-y-3 text-[13px]">
-            <div>
-              <div className="font-bold text-ink">{te ? "Charge ఎంత?" : "How much does it cost?"}</div>
-              <div className="text-gray-600">
-                {te ? "Register FREE. మొదటి 3 interest requests FREE. తర్వాత ₹99 → 5 interest requests (₹20/request), ₹499 → 50 (₹10/request)."
-                    : "Registration is FREE. First 3 interest requests FREE. Then ₹99 → 5 interest requests (₹20/request), ₹499 → 50 (₹10/request)."}
-              </div>
-            </div>
-            <div>
-              <div className="font-bold text-ink">{te ? "Chatting ఉందా?" : "Is there chatting?"}</div>
-              <div className="text-gray-600">
-                {te ? "ఈ పేజీలో chatting లేదు. Interest notification delivery హామీ లేదు. Owner accept చేసిన తర్వాత accepted-request account views లో contact details కనిపిస్తాయి; decline credit return account policy ప్రకారం ఉంటుంది."
-                    : "There is no in-site chat. Notification delivery is not guaranteed. Owner acceptance grants contact access in accepted-request account views; decline credit returns follow account policy."}
-              </div>
-            </div>
-            <div>
-              <div className="font-bold text-ink">{te ? "నా profile ఎక్కడ post అవుతుంది?" : "Where does my profile get posted?"}</div>
-              <div className="text-gray-600">
-                {te ? <>Profile ఆమోదం తర్వాత, publishing service configured అయి channel access ఉంటే {myChanLabel} వంటి సంబంధిత destination కు post queue కావచ్చు. Delivery హామీ కాదు; availability ఆటోమేటిక్‌గా check చేయబడదు.</>
-                    : <>After profile approval, a post may be queued for relevant destinations such as {myChanLabel} if publishing is configured and has channel access. Delivery is not guaranteed, and availability is not checked automatically.</>}
-              </div>
-            </div>
-            <div>
-              <div className="font-bold text-ink">
-                {te ? <>{caste.name} వేద గుణమేళనం / జాతక పొంతన ఉందా?</> : <>Is there {caste.name} Vedic Gunamelanam check?</>}
-              </div>
-              <div className="text-gray-600">
-                {te ? "అవును — వేద గుణమేళనం (రాశి, నక్షత్ర, గణ, యోని, రజ్జు, వేధ…) రిపోర్ట్ ఉచితంగా /porutham లో చూడొచ్చు."
-                    : "Yes — the Vedic Gunamelanam (rasi, nakshatra, gana, yoni, rajju, vedha…) report is free to view in /porutham."}
-              </div>
-            </div>
+          {/* Same copy the server emitted as FAQPage JSON-LD, in the reader's language. */}
+          <div className="mt-3 divide-y divide-gold/15">
+            {(te ? faqTe : faqEn)?.map((item) => (
+              <details key={item.id} className="group py-3">
+                <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 text-[13px] font-bold text-ink">
+                  <span className={te ? "telugu" : ""}>{item.q}</span>
+                  <span className="shrink-0 text-maroon transition group-open:rotate-45" aria-hidden="true">+</span>
+                </summary>
+                <p className={`mt-2 text-[13px] leading-relaxed text-gray-600 ${te ? "telugu" : ""}`}>{item.a}</p>
+              </details>
+            ))}
           </div>
+          <p className="mt-3 text-[11px] text-gray-500">
+            {te
+              ? "ఈ సమాధానాలు సైట్ నిబంధనలకు అనుగుణంగా ఉంటాయి; ఖచ్చితమైన ధరలు, refund విధానం /pricing, /refund పేజీలలో చూడండి."
+              : "These answers follow current site rules; exact pricing and refund terms are shown on /pricing and /refund."}
+          </p>
         </div>
       </section>
     </div>

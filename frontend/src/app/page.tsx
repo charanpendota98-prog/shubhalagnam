@@ -5,6 +5,7 @@ import Link from "next/link";
 import Reveal from "@/components/Reveal";
 import { Badge, Button, Card, CardBody } from "@/components/ui";
 import ProfilesOfTheDay from "@/components/ProfilesOfTheDay";
+import HomeStories from "@/components/HomeStories";
 import HomeVendorsShowcase from "@/components/HomeVendorsShowcase";
 import CinematicHero from "@/components/CinematicHero";
 import { SITE_CONFIG } from "@/lib/site-config";
@@ -241,6 +242,9 @@ export default function Home() {
       </section>
 
       <ProfilesOfTheDay />
+
+      {/* Approved member stories only — hides itself when there are none. */}
+      <HomeStories />
 
       <section className="hp-shell hp-section" aria-label={L.howTitle}>
         <Reveal>
