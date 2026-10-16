@@ -95,6 +95,12 @@ type SpotlightItem = {
   media_type?: string; payment_mode?: string; payment_ref?: string; payment_status?: string; status: string;
   amount_due?: number; payment_verified_at?: string; submitted_at: string; moderator_notes?: string;
 };
+/** Member story in the moderation queue (admin payload: identifiers included). */
+type StoryItem = {
+  story_id: string; tsap_id?: string; couple_names?: string; text?: string;
+  photo_url?: string; district?: string; status: string; likes?: number;
+  created_at?: string; reviewed_at?: string; review_note?: string;
+};
 type PayoutItem = {
   id: string; tsap_id: string; partner_id?: string; name?: string; amount: number;
   method: string; upi_id?: string; account?: string; ifsc?: string;
@@ -133,7 +139,8 @@ const T = {
     tabOverview: "📊 అవలోకనం", tabQueue: "👥 ప్రొఫైల్ క్యూ", tabCastes: "🏛️ కులాలు & కమ్యూనిటీలు",
     tabAddProfile: "➕ ప్రొఫైల్ చేర్చండి", tabAds: "📢 జిల్లా & రాష్ట్ర ప్రకటనలు",
     tabVendors: "🏪 పెళ్లి సేవలు & వెండర్లు",
-    tabSpotlight: "🌟 స్పాట్‌లైట్ / Profiles of Day", tabReferrals: "🤝 రెఫరల్స్ & పేఅవుట్స్", tabReports: "🚩 రిపోర్ట్‌లు",
+    tabSpotlight: "🌟 స్పాట్‌లైట్ / Profiles of Day", tabStories: "💑 సభ్యుల కథలు",
+    tabReferrals: "🤝 రెఫరల్స్ & పేఅవుట్స్", tabReports: "🚩 రిపోర్ట్‌లు",
     tabRevenue: "💰 రాబడి", tabAudit: "📝 ఆడిట్ లాగ్",
     tabChannels: "📡 టెలిగ్రామ్ & వాట్సాప్ ఛానెల్స్", tabNumbers: "📱 వాట్సాప్ & ఫోన్ నంబర్లు",
     photoQueue: "📸 ఫోటో సమీక్ష", profilesTot: "మొత్తం ప్రొఫైళ్లు", pendingTot: "పరిశీలనలో ఉన్నవి", approvedTot: "ఆమోదించినవి",
@@ -156,7 +163,8 @@ const T = {
     tabOverview: "📊 Overview", tabQueue: "👥 Profile Queue", tabCastes: "🏛️ Caste Hubs",
     tabAddProfile: "➕ Add Profile", tabAds: "📢 Targeted Ads",
     tabVendors: "🏪 Wedding Vendors",
-    tabSpotlight: "🌟 Spotlight / Profiles of Day", tabReferrals: "🤝 Referrals & Payouts", tabReports: "🚩 Reports",
+    tabSpotlight: "🌟 Spotlight / Profiles of Day", tabStories: "💑 Member Stories",
+    tabReferrals: "🤝 Referrals & Payouts", tabReports: "🚩 Reports",
     tabRevenue: "💰 Revenue", tabAudit: "📝 Audit Log",
     tabChannels: "📡 Channels (TG/WA)", tabNumbers: "📱 WhatsApp & Phone Numbers",
     photoQueue: "📸 Photo review", profilesTot: "Total Profiles", pendingTot: "Pending Approval", approvedTot: "Approved",
@@ -208,6 +216,7 @@ export default function Dashboard() {
     | "ads"
     | "vendors"
     | "spotlight"
+    | "stories"
     | "referrals"
     | "reports"
     | "revenue"
@@ -219,6 +228,9 @@ export default function Dashboard() {
   const [qStatus, setQStatus] = useState<"pending" | "approved" | "rejected" | "all">("pending");
   const [spotlights, setSpotlights] = useState<SpotlightItem[]>([]);
   const [spStatus, setSpStatus] = useState<string>("all");
+  const [storyQueue, setStoryQueue] = useState<StoryItem[]>([]);
+  const [storyStatus, setStoryStatus] = useState<string>("pending");
+  const [storyNotes, setStoryNotes] = useState<Record<string, string>>({});
   const [spPaymentNotes, setSpPaymentNotes] = useState<Record<string, string>>({});
   const [spMediaNotes, setSpMediaNotes] = useState<Record<string, string>>({});
   const [payouts, setPayouts] = useState<PayoutItem[]>([]);
@@ -466,6 +478,40 @@ export default function Dashboard() {
       setSpotlights(d.items || []);
     } catch { setSpotlights([]); }
   }, []);
+
+  const loadStories = useCallback(async (st: string) => {
+    try {
+      const d = await jget(`/api/control/stories?status=${st}`);
+      setStoryQueue(d.stories || []);
+    } catch { setStoryQueue([]); }
+  }, []);
+
+  const storyAction = async (story: StoryItem, action: "approve" | "reject") => {
+    if (!me) return;
+    const note = (storyNotes[story.story_id] || "").trim();
+    if (action === "reject" && !note) {
+      flash(te ? "తిరస్కరణకు ఒక కారణం రాయండి." : "Write a reason before rejecting a story.");
+      return;
+    }
+    if (action === "approve" && !window.confirm(
+      te ? "ఈ కథను ప్రచురించాలని నిర్ధారించండి. ఇది గుర్తింపు లేదా సంబంధ ధృవీకరణ కాదు."
+         : "Confirm publishing this story. This is not identity or relationship verification.",
+    )) return;
+    setBusyId(story.story_id);
+    try {
+      const r = await fetch(`/api/control/stories/${encodeURIComponent(story.story_id)}/action`, {
+        method: "POST", credentials: "include",
+        headers: { "Content-Type": "application/json", "X-Control-CSRF": me.csrf },
+        body: JSON.stringify({ action, note }),
+      });
+      const d = await readApiJson(r);
+      if (!r.ok) throw new Error(d.detail || "fail");
+      flash(d.message || L.done);
+      setStoryNotes((current) => ({ ...current, [story.story_id]: "" }));
+      loadStories(storyStatus);
+    } catch (e: any) { flash(e?.message || L.failed); }
+    finally { setBusyId(""); }
+  };
 
   const loadPayouts = useCallback(async (st: string) => {
     try {
@@ -753,6 +799,7 @@ export default function Dashboard() {
   useEffect(() => { if (tab === "queue") loadQueue(qStatus); }, [tab, qStatus, loadQueue]);
   useEffect(() => { if (tab === "reports") loadReports(); }, [tab, loadReports]);
   useEffect(() => { if (tab === "spotlight") loadSpotlights(spStatus); }, [tab, spStatus, loadSpotlights]);
+  useEffect(() => { if (tab === "stories") loadStories(storyStatus); }, [tab, storyStatus, loadStories]);
   useEffect(() => { if (tab === "referrals") loadPayouts(pStatus); }, [tab, pStatus, loadPayouts]);
   useEffect(() => { if (tab === "castes") { loadCastes(); loadDemandMatrix(); } }, [tab, loadCastes, loadDemandMatrix]);
   useEffect(() => { if (tab === "vendors") loadVendors(); }, [tab, loadVendors]);
@@ -1256,6 +1303,7 @@ export default function Dashboard() {
     { k: "ads" as const, label: L.tabAds },
     { k: "vendors" as const, label: L.tabVendors },
     { k: "spotlight" as const, label: L.tabSpotlight },
+    { k: "stories" as const, label: L.tabStories },
     { k: "referrals" as const, label: L.tabReferrals },
     { k: "reports" as const, label: `${L.tabReports} (${t.open_reports})` },
     { k: "revenue" as const, label: L.tabRevenue },
@@ -3206,6 +3254,93 @@ export default function Dashboard() {
         {/* =========================================================================
             TAB 10: 🤝 REFERRAL PAYOUT REVIEW CONSOLE
             ========================================================================= */}
+        {/* Member Stories Tab — the queue behind the homepage story strip */}
+        {tab === "stories" && owner && (
+          <section className="space-y-4">
+            <div className="rounded-2xl border border-gold/30 bg-white p-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <h2 className="text-sm font-black text-maroon">
+                  {te ? "సభ్యుల కథలు — ప్రచురణ సమీక్ష" : "Member stories — publication review"}
+                </h2>
+                <div className="flex flex-wrap gap-2">
+                  {["pending", "approved", "rejected"].map((value) => (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => setStoryStatus(value)}
+                      aria-pressed={storyStatus === value}
+                      className={`min-h-9 rounded-full border px-3 text-xs font-bold ${
+                        storyStatus === value
+                          ? "border-maroon bg-maroon text-white"
+                          : "border-gold/40 bg-cream text-maroon"
+                      }`}
+                    >
+                      {value === "pending" ? (te ? "సమీక్షలో" : "Pending")
+                        : value === "approved" ? (te ? "ప్రచురితం" : "Approved")
+                        : (te ? "తిరస్కరించినవి" : "Rejected")}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <p className="mt-2 text-[11px] leading-relaxed text-slate-500">
+                {te
+                  ? "ఆమోదం అనేది ప్రచురణ నిర్ణయం మాత్రమే: ఇది గుర్తింపు, సంబంధం లేదా సమ్మతిని ధృవీకరించదు. పేర్లు సభ్యుడు ఇచ్చినవే. సందేహం ఉంటే తిరస్కరించండి."
+                  : "Approval is a publication decision only: it does not verify identity, relationship or consent. Names are whatever the submitter supplied. When in doubt, reject."}
+              </p>
+            </div>
+
+            {storyQueue.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-gold/40 bg-white p-8 text-center text-sm text-slate-600">
+                {te ? "ఈ స్థితిలో ఏ కథలూ లేవు." : "No stories in this state."}
+              </div>
+            ) : (
+              storyQueue.map((story) => (
+                <article key={story.story_id} className="rounded-2xl border border-gold/25 bg-white p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="text-xs font-black text-maroon">{story.story_id}</div>
+                    <div className="text-[11px] text-slate-500">
+                      {story.couple_names ? `${story.couple_names} · ` : ""}
+                      {story.district || (te ? "జిల్లా లేదు" : "no district")}
+                      {story.tsap_id ? ` · ${story.tsap_id}` : ""}
+                    </div>
+                  </div>
+                  <p className="mt-2 whitespace-pre-wrap text-[13px] leading-relaxed text-slate-700">{story.text}</p>
+                  {story.review_note ? (
+                    <p className="mt-2 text-[11px] text-slate-500">
+                      {te ? "గత సమీక్ష గమనిక: " : "Last review note: "}{story.review_note}
+                    </p>
+                  ) : null}
+                  <input
+                    value={storyNotes[story.story_id] || ""}
+                    onChange={(e) => setStoryNotes((current) => ({ ...current, [story.story_id]: e.target.value }))}
+                    placeholder={te ? "సమీక్ష గమనిక (తిరస్కరణకు తప్పనిసరి)" : "Review note (required to reject)"}
+                    aria-label={te ? "సమీక్ష గమనిక" : "Review note"}
+                    className="mt-3 min-h-11 w-full rounded-xl border border-gold/30 bg-cream px-3 text-[13px]"
+                  />
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      disabled={busyId === story.story_id}
+                      onClick={() => storyAction(story, "approve")}
+                      className="min-h-11 rounded-full bg-maroon px-4 text-xs font-black text-white disabled:opacity-60"
+                    >
+                      {te ? "ప్రచురించు" : "Approve & publish"}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={busyId === story.story_id}
+                      onClick={() => storyAction(story, "reject")}
+                      className="min-h-11 rounded-full border border-slate-300 px-4 text-xs font-black text-slate-700 disabled:opacity-60"
+                    >
+                      {te ? "తిరస్కరించు" : "Reject"}
+                    </button>
+                  </div>
+                </article>
+              ))
+            )}
+          </section>
+        )}
+
         {tab === "referrals" && financeAccess && (
           <div className="space-y-6">
             <div className="bg-white rounded-3xl p-5 sm:p-6 border border-gold/30 shadow-sm space-y-4">

@@ -965,6 +965,46 @@ def control_spotlight_action(promo_id: str, payload: dict, request: Request):
         raise HTTPException(400, str(e))
 
 
+@app.get("/api/control/stories")
+def control_stories(request: Request, status: str = "pending", limit: int = 50):
+    """Owner-only member-story moderation queue (control session, not admin key)."""
+    item = CONTROL_AUTH.require(request, roles=_CONTROL_OWNER_ROLES)
+    status = (status or "").strip().lower()
+    if status and status not in ("pending", "approved", "rejected"):
+        raise HTTPException(400, "status: pending/approved/rejected (khali = anni)")
+    limit = clamp_int(limit, "limit", 1, 200, 50)
+    rows = [x for x in A11.STORIES if not status or x.get("status") == status]
+    rows = list(reversed(rows[-limit:]))
+    CONTROL_AUTH.audit("control_stories", item["username"], request, status=status or "all", count=len(rows))
+    return {
+        "success": True, "status": status or "all", "count": len(rows), "stories": rows,
+        "review_note": "Approval is a publication decision only. Identity and relationship "
+                       "details are not verified, and names are whatever the submitter supplied.",
+    }
+
+
+@app.post("/api/control/stories/{story_id}/action")
+def control_story_action(story_id: str, payload: dict, request: Request):
+    """Owner-only approve/reject for a member story (CSRF protected)."""
+    item = _control_write_guard(request, roles=_CONTROL_OWNER_ROLES)
+    d = payload or {}
+    action = str(d.get("action", "")).strip().lower()
+    note = str(d.get("note", "")).strip()
+    try:
+        updated = A11.review_story(story_id, action, note)
+        CONTROL_AUTH.audit("control_story_action", item["username"], request,
+                           story_id=story_id, story_action=action, note=note[:60])
+        out = {"success": True, "story": updated,
+               "message": f"Story {action}d successfully",
+               "publication_note": "Approval publishes the story as submitted; it does not "
+                                   "verify identity, relationship or consent."}
+        if action == "approve":
+            out["share_text"] = A11.story_share_text(updated)
+        return out
+    except Exception as e:
+        raise HTTPException(400, str(e))
+
+
 @app.get("/api/control/payouts/queue")
 def control_payouts_queue(request: Request, status: str = "requested"):
     """Finance-only queue of referral payout requests and payment details."""
@@ -8011,11 +8051,24 @@ def story_submit(payload: dict, request: Request = None):
             "message_telugu": "💑 మీ story review కోసం పంపబడింది. Approve అయితే /stories page‌లో కనిపిస్తుంది; review సమయం, ప్రచురణ హామీ కాదు."}
 
 
+def _public_story(rec: dict) -> dict:
+    """Public story view: a submitter's profile identifiers never leave the server.
+
+    The admin queue keeps them because moderators need to know who submitted a
+    story; the public feed only needs the story, the names the submitter chose
+    to give, and the district.
+    """
+    row = dict(rec or {})
+    for key in ("tsap_id", "partner_id"):
+        row.pop(key, None)
+    return row
+
+
 @app.get("/api/stories")
 def stories_list(limit: int = 20):
     """Public member-submitted stories that were approved for display; approval is not verification."""
     rows = A11.approved_stories(clamp_int(limit, "limit", 1, 50, 20))
-    return {"success": True, "count": len(rows), "stories": rows,
+    return {"success": True, "count": len(rows), "stories": [_public_story(row) for row in rows],
             "publication_note": "Stories are member-submitted and moderated for publication; identity and relationship details are not independently verified."}
 
 
