@@ -10,14 +10,16 @@
     "test:security": "node --test scripts/safe-media-path.test.mjs scripts/match-filter-query.test.mjs scripts/match-results.test.mjs",
     "test:design": "node --test scripts/design-system.test.mjs",
     "test:a11y": "node --test scripts/a11y-static.test.mjs",
-    "test:static": "npm run test:design && npm run test:a11y && npm run test:matching && npm run test:saved-search && npm run test:compare && npm run test:ops",
+    "test:static": "npm run test:design && npm run test:a11y && npm run test:matching && npm run test:saved-search && npm run test:compare && npm run test:ops && npm run test:community && npm run test:hub",
     "test:visual": "node scripts/run-playwright.mjs tests/visual.spec.ts",
     "test:axe": "node scripts/run-playwright.mjs tests/a11y.spec.ts",
     "lint": "eslint src && npm run check:links && npm run test:static && npm run test:security",
     "test:matching": "node --test scripts/match-reasons.test.mjs",
     "test:saved-search": "node scripts/saved-search-summary.test.mjs",
     "test:compare": "node scripts/compare-insights.test.mjs",
-    "test:ops": "node scripts/ops-insights.test.mjs"
+    "test:ops": "node scripts/ops-insights.test.mjs",
+    "test:community": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/community-catalog.test.mjs",
+    "test:hub": "node scripts/community-hub.test.mjs"
   },
   "dependencies": {
     "@types/qrcode": "^1.5.6",

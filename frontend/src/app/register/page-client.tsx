@@ -17,6 +17,8 @@ import Image from "next/image";
 import { useSearchParams } from "next/navigation";
 import Reveal from "@/components/Reveal";
 import { SITE_CONFIG } from "@/lib/site-config";
+import { CASTES as SEO_COMMUNITY_HUBS } from "@/lib/seo-pages";
+import { communityHubPath } from "@/lib/community-hub.mjs";
 import { getLang, useLang } from "@/lib/lang";
 import { apiDisplayMessage, readApiJson } from "@/lib/api";
 import { ProfilePhotoError, prepareProfilePhoto, profilePhotoErrorMessage } from "@/lib/photo-upload";
@@ -1227,6 +1229,22 @@ function Wizard() {
   if (result) {
     const tsap = result.tsap_id || result.user_id || "";
     const cardUrl = tsap ? result.card_url || `/cards/${tsap}.png` : "";
+    // The community the member just registered under, resolved to its own
+    // hub page when one exists — registration and groups stay connected.
+    const communityName = String(
+      (f.caste === "Other / self-described" ? f.caste_custom : f.caste) || "",
+    ).trim();
+    const hub = communityHubPath({
+      community: communityName,
+      gender: f.gender,
+      hubs: SEO_COMMUNITY_HUBS,
+      fallback: "/castes",
+    });
+    const hubRoleLabel = hub.role === "bride"
+      ? (te ? "వధువుల" : "brides")
+      : hub.role === "groom"
+        ? (te ? "వరుల" : "grooms")
+        : "";
     const phoneVerified = result.phone_verified === true;
     const profileApproved = result.is_approved === true;
     return (
@@ -1318,6 +1336,47 @@ function Wizard() {
                 <span>🎯</span>
                 <span>{T("నా ప్రిఫరెన్సెస్ సెట్ చేయండి →", "Set my preferences →")}</span>
               </Link>
+            </div>
+
+            {/* Community hub: the groups belong to the community they just joined. */}
+            <div className="rounded-2xl border border-gold/40 bg-gradient-to-r from-rose-50 via-amber-50 to-rose-50 p-4 space-y-2">
+              <div className="flex items-center gap-2">
+                <span className="text-xl" aria-hidden="true">🤝</span>
+                <span className="font-black text-sm text-maroon">
+                  {hub.matched && communityName
+                    ? T(`${communityName} కమ్యూనిటీ గ్రూపులు`, `${communityName} community groups`)
+                    : T("మీ కమ్యూనిటీ గ్రూపులు", "Community groups")}
+                </span>
+              </div>
+              <p className="text-[11px] leading-relaxed text-slate-600">
+                {hub.matched && communityName
+                  ? T(
+                      `ఈ కమ్యూనిటీ ${hubRoleLabel ? hubRoleLabel + " " : ""}గ్రూపులు Telegram / WhatsApp లో ఉన్నాయి — చేరడం ఐచ్ఛికం. చేరినంత మాత్రాన మీ ప్రొఫైల్ లేదా సంప్రదింపు వివరాలు బయటకు వెళ్ళవు; గ్రూపు లభ్యత మరియు నిర్వహణకు మేము హామీ ఇవ్వము.`,
+                      `This community runs optional Telegram / WhatsApp groups${hubRoleLabel ? " for " + hubRoleLabel : ""}. Joining does not publish your profile or contact details, and we do not guarantee a group is available or how it is run.`,
+                    )
+                  : T(
+                      "కమ్యూనిటీ గ్రూపులు Telegram / WhatsApp లో ఐచ్ఛికంగా ఉంటాయి. మీ కమ్యూనిటీకి గ్రూపు ఉంటే ఇక్కడ దొరుకుతుంది; లభ్యత మరియు నిర్వహణకు మేము హామీ ఇవ్వము.",
+                      "Community groups on Telegram / WhatsApp are optional. If your community has one, you will find it here; we do not guarantee availability or how a group is run.",
+                    )}
+              </p>
+              <div className="flex flex-wrap gap-2 pt-0.5">
+                <Link
+                  href={hub.href}
+                  className="inline-flex min-h-11 items-center gap-1.5 rounded-xl bg-[#7A0C2E] px-4 py-2 text-xs font-black text-white shadow-sm"
+                >
+                  <span aria-hidden="true">🤝</span>
+                  <span>{hub.matched
+                    ? T("నా కమ్యూనిటీ గ్రూపుకు వెళ్లండి →", "Open my community group →")
+                    : T("కమ్యూనిటీ గ్రూపులు చూడండి →", "Browse community groups →")}</span>
+                </Link>
+                <Link
+                  href="/channels"
+                  className="inline-flex min-h-11 items-center gap-1.5 rounded-xl border border-maroon/30 bg-white px-4 py-2 text-xs font-bold text-maroon"
+                >
+                  <span aria-hidden="true">📡</span>
+                  <span>{T("అన్ని ఛానెళ్లు", "All channels")}</span>
+                </Link>
+              </div>
             </div>
 
             {/* Photo Flow upload */}

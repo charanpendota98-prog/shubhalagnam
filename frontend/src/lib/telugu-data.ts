@@ -723,11 +723,67 @@ export const CASTES_DETAILED: CasteInfo[] = [
   },
   {
     en: "SC Others", te: "ఎస్సీ ఇతర", display: "ఎస్సీ ఇతర కులాలు (SC Others)",
-    subcastes: ["Samban", "Dandasi", "Bindla", "Chamar", "SC Others (Any)"]
+    subcastes: ["Samban", "Dandasi", "Bindla", "Chamar", "Bhovi", "Thoti", "SC Others (Any)"]
   },
   {
     en: "ST Others", te: "ఎస్టీ ఇతర", display: "ఎస్టీ ఇతర తెగలు (ST Others)",
-    subcastes: ["Chenchu", "Bagata", "Konda Reddi", "Savara", "Andh", "Yanadi", "Yerukula", "ST Others (Any)"]
+    subcastes: ["Chenchu", "Bagata", "Konda Reddi", "Savara", "Andh", "Yanadi", "Yerukula", "Kolam", "Pardhan", "Konda Dora", "ST Others (Any)"]
+  },
+  // ── Communities that were selectable at registration but missing from the
+  // ── catalogue (so they never appeared in search filters).
+  {
+    en: "Dasari", te: "దాసరి", display: "దాసరి (Dasari)",
+    subcastes: ["Dasari", "Dasari (Any)"]
+  },
+  {
+    en: "Jalari", te: "జాలరి", display: "జాలరి (Jalari)",
+    subcastes: ["Jalari", "Neyyala", "Vadde Jalari", "Jalari (Any)"]
+  },
+  {
+    en: "Jogi", te: "జోగి", display: "జోగి (Jogi)",
+    subcastes: ["Jogi", "Jogini", "Jogi (Any)"]
+  },
+  {
+    en: "Vadabalija", te: "వాడబలిజ", display: "వాడబలిజ (Vadabalija)",
+    subcastes: ["Vadabalija", "Agnikula Kshatriya", "Palli", "Vadabalija (Any)"]
+  },
+  // ── Communities commonly searched in Telangana / Andhra Pradesh that had no
+  // ── entry at all.
+  {
+    en: "Marwari", te: "మార్వాడి", display: "మార్వాడి (Marwari)",
+    subcastes: ["Agarwal", "Bania", "Gupta", "Jaiswal", "Khandelwal", "Maheshwari", "Oswal", "Porwal", "Marwari (Any)"]
+  },
+  {
+    en: "Gujarati", te: "గుజరాతీ", display: "గుజరాతీ (Gujarati)",
+    subcastes: ["Patel", "Shah", "Modh", "Kutchhi", "Vaishnav", "Gujarati (Any)"]
+  },
+  {
+    en: "Punjabi", te: "పంజాబీ", display: "పంజాబీ (Punjabi)",
+    subcastes: ["Arora", "Khatri", "Bhatia", "Saini", "Punjabi (Any)"]
+  },
+  {
+    en: "Marathi", te: "మరాఠీ", display: "మరాఠీ (Marathi)",
+    subcastes: ["Maratha", "Kunbi", "Deshastha Brahmin", "Kokanastha Brahmin", "Marathi (Any)"]
+  },
+  {
+    en: "Vokkaliga", te: "వొక్కలిగ", display: "వొక్కలిగ (Vokkaliga)",
+    subcastes: ["Gowda", "Reddy Vokkaliga", "Vokkaliga (Any)"]
+  },
+  {
+    en: "Nair", te: "నాయర్", display: "నాయర్ (Nair)",
+    subcastes: ["Nair", "Menon", "Nambiar", "Panicker", "Nair (Any)"]
+  },
+  {
+    en: "Nadar", te: "నాడార్", display: "నాడార్ (Nadar)",
+    subcastes: ["Nadar", "Hindu Nadar", "Nadar (Any)"]
+  },
+  {
+    en: "Odia", te: "ఒడియా", display: "ఒడియా (Odia)",
+    subcastes: ["Khandayat", "Odia Brahmin", "Karan", "Odia (Any)"]
+  },
+  {
+    en: "Bengali", te: "బెంగాలీ", display: "బెంగాలీ (Bengali)",
+    subcastes: ["Bengali Brahmin", "Kayastha", "Baidya", "Bengali (Any)"]
   },
   {
     en: "Intercaste", te: "కుల పట్టింపు లేదు", display: "కుల పట్టింపు లేదు (Caste No Bar / Intercaste)",
@@ -761,6 +817,10 @@ export const CASTE_SUBCASTES: Record<string, string[]> = (() => {
   CASTES_DETAILED.forEach((c) => { map[c.en] = c.subcastes; });
   // backwards compat aliases
   map["Vysya"] = map["Arya Vysya"];
+  map["Valmiki"] = map["Boya"];
+  map["Kshatriya"] = map["Raju"];
+  map["Agnikula Kshatriya"] = map["Vadabalija"];
+  map["Vadde"] = map["Vaddera"];
   map["Viswakarma"] = map["Viswabrahmin"];
   map["Yadav"] = map["Yadava"];
   map["Mangali"] = map["Nayee Brahmin"];
@@ -771,7 +831,8 @@ export const RELIGIONS = ["Hindu", "Muslim", "Christian", "Sikh", "Jain", "Buddh
 
 /** Locally bundled fallback while the community list API is unavailable. */
 export const COMMUNITIES_BY_RELIGION: Record<string, string[]> = {
-  Hindu: sortUniqueOptions([...CASTES, "Dasari", "Jalari", "Jogi", "Vadabalija", "Mangali", "Viswakarma", "Vysya", "Yadav", OTHER_COMMUNITY_OPTION]),
+  Hindu: sortUniqueOptions([...CASTES, "Agnikula Kshatriya", "Dasari", "Jalari", "Jogi", "Kshatriya",
+    "Mangali", "Vadabalija", "Valmiki", "Viswakarma", "Vysya", "Yadav", OTHER_COMMUNITY_OPTION]),
   Muslim: sortUniqueOptions(["Ansari", "Bohra", "Dudekula", "Khoja", "Labab", "Mapila", "Memons", "Mughal", "Pathan", "Qureshi", "Sheikh", "Syed", "Other Muslim", OTHER_COMMUNITY_OPTION]),
   Christian: sortUniqueOptions(["Baptist", "CSI", "Lutheran", "Marthoma", "Methodist", "Orthodox", "Pentecostal", "Roman Catholic", "Seventh-day Adventist", "Other Christian", OTHER_COMMUNITY_OPTION]),
   Sikh: sortUniqueOptions(["Jat", "Khatri", "Ramgarhia", "Other Sikh", OTHER_COMMUNITY_OPTION]),

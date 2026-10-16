@@ -9,7 +9,7 @@
  */
 
 import Image from "next/image";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLang, type Lang } from "@/lib/lang";
 import HomeMatchSearch from "@/components/HomeMatchSearch";
 import { Button } from "@/components/ui";
@@ -37,25 +37,50 @@ export default function CinematicHero() {
   const L = COPY[(lang as Lang) in COPY ? (lang as Lang) : "te"];
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [filmSrc, setFilmSrc] = useState("");
+  const [userPaused, setUserPaused] = useState(false);
+  const [filmPlaying, setFilmPlaying] = useState(false);
 
-  // Keep the wedding film decorative: only play it when it is visible and
-  // motion is allowed. A static, optimized poster remains available otherwise.
+  const metered = () => {
+    const connection = (navigator as Navigator & {
+      connection?: { saveData?: boolean; effectiveType?: string };
+    }).connection;
+    return Boolean(connection?.saveData) || /2g/.test(String(connection?.effectiveType || ""));
+  };
+
+  // Pick the encode that suits the device: the small file on phones or on a
+  // metered connection, the full one on anything else. The poster is identical
+  // for both, so switching never causes a visible jump.
+  useEffect(() => {
+    const smallScreen = window.matchMedia("(max-width: 767px)");
+    const pick = () => {
+      setFilmSrc(metered() || smallScreen.matches
+        ? "/promo/wedding-film-mobile.mp4"
+        : "/promo/wedding-film.mp4");
+    };
+    pick();
+    smallScreen.addEventListener("change", pick);
+    return () => smallScreen.removeEventListener("change", pick);
+  }, []);
+
+  // Keep the wedding film decorative: only play it when it is visible, motion
+  // is allowed and the connection is not metered. The static, optimized poster
+  // remains available (and is what reduced-motion visitors always see).
   useEffect(() => {
     const video = videoRef.current;
-    if (!video) return;
+    if (!video || !filmSrc) return;
 
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const smallScreen = window.matchMedia("(max-width: 767px)");
-    const connection = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection;
     let isVisible = !("IntersectionObserver" in window);
     let disposed = false;
 
     const syncPlayback = () => {
-      if (disposed || reducedMotion.matches || smallScreen.matches || connection?.saveData
+      if (disposed || userPaused || reducedMotion.matches || metered()
           || document.visibilityState !== "visible" || !isVisible) {
         video.pause();
         return;
       }
+      if (!video.src) video.src = filmSrc;
       if (video.readyState === HTMLMediaElement.HAVE_NOTHING) video.load();
       void video.play().catch(() => {
         // Autoplay can be blocked by browser policy; the optimized poster is the fallback.
@@ -70,19 +95,19 @@ export default function CinematicHero() {
       : null;
     observer?.observe(video);
     reducedMotion.addEventListener("change", syncPlayback);
-    smallScreen.addEventListener("change", syncPlayback);
     document.addEventListener("visibilitychange", syncPlayback);
+    video.addEventListener("play", () => setFilmPlaying(true));
+    video.addEventListener("pause", () => setFilmPlaying(false));
     syncPlayback();
 
     return () => {
       disposed = true;
       observer?.disconnect();
       reducedMotion.removeEventListener("change", syncPlayback);
-      smallScreen.removeEventListener("change", syncPlayback);
       document.removeEventListener("visibilitychange", syncPlayback);
       video.pause();
     };
-  }, []);
+  }, [filmSrc, userPaused]);
 
   // The canvas is a purely decorative effect. Avoid its animation on small
   // screens, when the hero is off-screen, or when reduced motion is requested.
@@ -192,10 +217,7 @@ export default function CinematicHero() {
           disablePictureInPicture
           aria-hidden="true"
           className="hero-video h-full w-full object-cover object-[62%_center] sm:object-center pointer-events-none select-none"
-        >
-          <source src="/promo/wedding-film.mp4" type="video/mp4" />
-          <source src="/promo/wedding-story-film.mp4" type="video/mp4" />
-        </video>
+        />
       </div>
 
       {/* Golden Akshathalu Canvas Overlay */}
@@ -222,6 +244,22 @@ export default function CinematicHero() {
 
       {/* Soft hand-off from the film into the cream page body below. */}
       <div className="hp-hero-fade" aria-hidden="true" />
+
+      {/* WCAG 2.2.2: moving background longer than five seconds needs a pause.
+          The control only appears once the film has actually started. */}
+      {filmPlaying || userPaused ? (
+        <button
+          type="button"
+          onClick={() => setUserPaused((paused: boolean) => !paused)}
+          aria-pressed={userPaused}
+          className="hero-film-toggle"
+        >
+          <span aria-hidden="true">{userPaused ? "\u25B6" : "\u23F8"}</span>
+          <span>{userPaused
+            ? (lang === "te" ? "నేపథ్య వీడియో ప్రారంభించండి" : "Play background video")
+            : (lang === "te" ? "నేపథ్య వీడియో ఆపండి" : "Pause background video")}</span>
+        </button>
+      ) : null}
 
       {/* Layered jewel-tone light keeps the photo vivid while text remains legible. */}
       <div className="pointer-events-none absolute -top-16 left-[-4rem] z-[2] h-72 w-72 rounded-full bg-rose-400/25 blur-[110px]" />
