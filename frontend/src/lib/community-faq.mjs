@@ -6,29 +6,17 @@
  * only emitted when the caller supplies one, and no answer promises an outcome.
  *
  * Pure and dependency-free so it can be unit-tested and reused by the schema
- * builder and the visible FAQ block.
+ * builder and the visible FAQ block. The rules that other pages also quote
+ * come from faq-facts.mjs so the wording cannot drift between pages.
  */
 
-const NOT_VERIFIED_EN = "Profile details are member-submitted and are not independently verified. A phone OTP, where it is used, only checks access to that phone — it does not verify a person's identity, caste, income or intent. Review details yourself and use the Report button on a profile.";
-const NOT_VERIFIED_TE = "ప్రొఫైల్ వివరాలు సభ్యులు అందించినవి; స్వతంత్రంగా ధృవీకరించబడవు. ఎక్కడైనా phone OTP ఉంటే అది ఆ ఫోన్ యాక్సెస్‌ను మాత్రమే చూస్తుంది — వ్యక్తి గుర్తింపు, కులం, ఆదాయం లేదా ఉద్దేశాన్ని నిర్ధారించదు. వివరాలను మీరే పరిశీలించి, profile లోని Report బటన్ వాడండి.";
-
-const CONTACT_EN = "Phone numbers are never shown publicly or in search results. After you send an interest request and the profile owner accepts it, contact details appear in your accepted-request account views. A configured WhatsApp notification is not guaranteed to be delivered.";
-const CONTACT_TE = "ఫోన్ నంబర్లు public గా గానీ search లో గానీ కనిపించవు. మీరు interest పంపి, profile owner accept చేసిన తర్వాత accepted-request account views లో contact details కనిపిస్తాయి. WhatsApp notification delivery హామీ లేదు.";
-
-const COST_EN = "Registration is free and includes the first 3 interest requests. Paid plans start at ₹99 for 5 interest requests with 30-day credit validity. One credit is used per request; add-ons are priced separately.";
-const COST_TE = "నమోదు ఉచితం, మొదటి 3 interest requests ఉచితం. ₹99 ప్లాన్‌లో 5 interest requests, 30 రోజుల credit validity ఉంటాయి. ఒక request కు ఒక credit; add-ons ధరలు విడిగా ఉంటాయి.";
+import { fact } from "./faq-facts.mjs";
 
 const OFFICIAL_EN = "No. Mana Vivaha is an independent listing platform, not an official {community} organisation or community body. Community Telegram/WhatsApp groups are optional and a link appears only when an admin or the group owner has added one.";
 const OFFICIAL_TE = "కాదు. మన వివాహ ఒక స్వతంత్ర లిస్టింగ్ వేదిక; ఇది అధికారిక {community} సంస్థ కాదు. కమ్యూనిటీ Telegram/WhatsApp గ్రూపులు ఐచ్ఛికం — admin లేదా group owner లింక్ ఇచ్చినప్పుడు మాత్రమే అది కనిపిస్తుంది.";
 
-const GUARANTEE_EN = "No. This is an introduction platform: you review member-submitted details and send interest. Marriages are arranged by families, not by the site, and no match, score or listing guarantees an outcome.";
-const GUARANTEE_TE = "కాదు. ఇది పరిచయ వేదిక: సభ్యులు అందించిన వివరాలు చూసి మీరు interest పంపుతారు. వివాహాలు కుటుంబాలు నిర్ణయిస్తాయి, సైట్ కాదు; ఏ match, score లేదా listing ఫలితానికి హామీ కాదు.";
-
 const SEARCH_EN = "Yes. Open search and filter by community{district} — saved searches can alert you when new matches appear, and shortlists are private to your account.";
 const SEARCH_TE = "అవును. Search లో community{district} ఫిల్టర్ వాడండి — saved searches ద్వారా కొత్త matches వచ్చినప్పుడు అలర్ట్ పొందవచ్చు, shortlists మీ ఖాతాలోనే ప్రైవేట్ గా ఉంటాయి.";
-
-const CHAT_EN = "There is no in-site chat. Interest notification delivery is not guaranteed. Owner acceptance grants contact access in accepted-request account views; decline credit returns follow account policy.";
-const CHAT_TE = "ఈ సైట్‌లో chatting లేదు. Interest notification delivery హామీ లేదు. Owner accept చేసిన తర్వాత accepted-request account views లో contact details కనిపిస్తాయి; decline అయితే credit return account policy ప్రకారం ఉంటుంది.";
 
 const PUBLISH_EN = "After profile approval, a post may be queued for relevant destinations such as the {community} {role} community if publishing is configured and has channel access. Delivery is not guaranteed, and availability is not checked automatically.";
 const PUBLISH_TE = "Profile ఆమోదం తర్వాత, publishing configured అయి channel access ఉంటే {community} {role} వంటి సంబంధిత destinations కు post queue కావచ్చు. Delivery హామీ కాదు; availability ఆటోమేటిక్‌గా check చేయబడదు.";
@@ -80,17 +68,17 @@ export function communityFaq(options = {}) {
     {
       id: "verification",
       q: te ? `${community} ప్రొఫైళ్లు ధృవీకరించబడ్డాయా?` : `Are the ${community} profiles verified?`,
-      a: te ? NOT_VERIFIED_TE : NOT_VERIFIED_EN,
+      a: fact("notVerified", te),
     },
     {
       id: "contact",
       q: te ? "Contact details ఎప్పుడు వస్తాయి?" : "When do I get contact details?",
-      a: te ? CONTACT_TE : CONTACT_EN,
+      a: fact("contact", te),
     },
     {
       id: "cost",
       q: te ? "ఖర్చు ఎంత? Free లో ఏమి వస్తుంది?" : "How much does it cost, and what is free?",
-      a: te ? COST_TE : COST_EN,
+      a: fact("cost", te),
     },
     {
       id: "official",
@@ -102,7 +90,7 @@ export function communityFaq(options = {}) {
     {
       id: "guarantee",
       q: te ? "పెళ్లి ఖాయమా? మీరు సంబంధాలు కుదురుస్తారా?" : "Do you arrange or guarantee marriages?",
-      a: te ? GUARANTEE_TE : GUARANTEE_EN,
+      a: fact("guarantee", te),
     },
     {
       id: "search",
@@ -114,7 +102,7 @@ export function communityFaq(options = {}) {
     {
       id: "chat",
       q: te ? "ఈ సైట్‌లో chatting ఉందా?" : "Is there in-site chatting?",
-      a: te ? CHAT_TE : CHAT_EN,
+      a: fact("noChat", te),
     },
     {
       id: "publish",
