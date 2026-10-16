@@ -8,7 +8,13 @@
     "start": "next start",
     "check:links": "node scripts/check-links.mjs",
     "test:security": "node --test scripts/safe-media-path.test.mjs scripts/match-filter-query.test.mjs scripts/match-results.test.mjs",
-    "lint": "eslint src && npm run check:links && npm run test:security"
+    "test:design": "node --test scripts/design-system.test.mjs",
+    "test:a11y": "node --test scripts/a11y-static.test.mjs",
+    "test:static": "npm run test:design && npm run test:a11y && npm run test:matching",
+    "test:visual": "node scripts/run-playwright.mjs tests/visual.spec.ts",
+    "test:axe": "node scripts/run-playwright.mjs tests/a11y.spec.ts",
+    "lint": "eslint src && npm run check:links && npm run test:static && npm run test:security",
+    "test:matching": "node --test scripts/match-reasons.test.mjs"
   },
   "dependencies": {
     "@types/qrcode": "^1.5.6",
@@ -20,6 +26,7 @@
     "react-dom": "^18"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.14.0",
     "@playwright/test": "^1.63.0",
     "@tailwindcss/postcss": "4.3.3",
     "@types/node": "20.19.43",

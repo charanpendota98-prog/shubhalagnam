@@ -42,6 +42,8 @@ import {
 } from "@/lib/telugu-data";
 import { SITE_CONFIG } from "@/lib/site-config";
 import { DEFAULT_MATCH_FILTERS, parseMatchFilters } from "@/lib/match-filter-query.mjs";
+import { REASON_DISCLAIMER, matchReasons, relaxSuggestions, widenedAgeLabel } from "@/lib/match-reasons.mjs";
+import ProfileRail from "@/components/ProfileRail";
 import { mergeMatchPages } from "@/lib/match-results.mjs";
 import QuickLead from "@/components/QuickLead";
 import { useSession } from "@/lib/auth";
@@ -50,7 +52,6 @@ import { firstName } from "@/lib/names";
 import TopPicks from "@/components/TopPicks";
 import { Duo, duo } from "@/lib/duo";
 import { useLang } from "@/lib/lang";
-import ProfileRail from "@/components/ProfileRail";
 import DistrictAdBanner from "@/components/DistrictAdBanner";
 import QuickUnlockModal from "@/components/QuickUnlockModal";
 import WhatsAppProposalModal from "@/components/WhatsAppProposalModal";
@@ -741,6 +742,12 @@ export default function MatchesPage() {
     setFilters(DEFAULT_FILTERS);
   };
 
+  // One-tap widening from the empty state: merging the patch is enough,
+  // the debounced fetch effect re-runs on the new filter state.
+  const applyFilterPatch = (patch: Record<string, string | number | boolean>) => {
+    setFilters((previous) => ({ ...previous, ...patch }));
+  };
+
   const beginSaveSearch = () => {
     if (!sessionReady || !myTsapId || !sessionToken) return;
     setSavedSearchNotice(null);
@@ -1044,6 +1051,27 @@ export default function MatchesPage() {
                   {displayProfileValue(row.height) && <span>{displayProfileValue(row.height)}</span>}
                 </p>
               )}
+              {(() => {
+                // Facts only: each chip restates a filter this member set and
+                // the value the profile actually carries. No score, no guess.
+                const reasons = matchReasons(row, filters, { limit: 2 });
+                if (reasons.length === 0) return null;
+                return (
+                  <ul className="mt-1 flex flex-wrap gap-1" aria-label={te ? "ఈ ప్రొఫైల్ ఎందుకు కనిపిస్తుంది" : "Why this profile appears"}>
+                    {reasons.map((reason) => (
+                      <li key={reason.id} className="max-w-full">
+                        <span
+                          title={te ? reason.te : reason.en}
+                          className="inline-flex max-w-full items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-maroon ring-1 ring-gold/40"
+                        >
+                          <span aria-hidden="true">{reason.icon}</span>
+                          <span className="truncate">{te ? reason.te : reason.en}</span>
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                );
+              })()}
 
               {/* 💍 Second Marriage detail (ONLY for genuine 2nd marriage profiles — 1st marriage
                   / Pelli Kaledu / Never Married ki idi ఎప్పుడూ కనిపించదు) */}
@@ -1879,7 +1907,18 @@ export default function MatchesPage() {
               </Link>
             </div>
 
+            {/* Signed-in members can pick up where they left off. Private to the account. */}
+            {!!sessionToken && !!myTsapId && !loading && (
+              <ProfileRail kind="recent" viewerId={myTsapId} />
+            )}
+
             {/* Matches Cards Grid */}
+            {!loading && !searchPending && !requestError && rows.length > 0 && (
+              <p className="rounded-2xl border border-gold/30 bg-white/70 px-3.5 py-2 text-[11px] leading-relaxed text-slate-600">
+                <span className="font-bold text-maroon">{te ? "ఎందుకు ఇవి: " : "Why these: "}</span>
+                <span className="telugu">{te ? REASON_DISCLAIMER.te : REASON_DISCLAIMER.en}</span>
+              </p>
+            )}
             {loading || searchPending ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {[1, 2, 3, 4].map((i) => (
@@ -1905,12 +1944,35 @@ export default function MatchesPage() {
                 </button>
               </div>
             ) : rows.length === 0 ? (
-              <div className="bg-white rounded-3xl border border-gold/30 p-8 text-center space-y-3">
+              <div className="bg-white rounded-3xl border border-gold/30 p-6 text-center space-y-4 sm:p-8">
                 <div className="text-4xl">🔍 💍</div>
                 <h3 className="text-base font-black text-slate-900">{te ? "మీ ఫిల్టర్లకు సరిపోయే ప్రొఫైల్స్ ప్రస్తుతం లేవు" : "No profiles match your filters yet"}</h3>
                 <p className="text-xs text-slate-600">
-                  {te ? "కమ్యూనిటీ లేదా జిల్లా ఫిల్టర్లను సడలించి మళ్లీ ప్రయత్నించండి." : "Broaden your community or district filters and try again."}
+                  {te ? "కింది వాటిలో ఒక ఫిల్టర్‌ను సడలించి మళ్లీ ప్రయత్నించండి." : "Relax one filter below and try again."}
                 </p>
+                {(() => {
+                  const suggestions = relaxSuggestions(filters, { limit: 3 });
+                  if (suggestions.length === 0) return null;
+                  return (
+                    <div className="space-y-2">
+                      <p className="text-[11px] font-bold text-maroon">{te ? "ఒక్క నొక్కుతో సడలించండి" : "One tap to widen"}</p>
+                      <div className="flex flex-wrap justify-center gap-2">
+                        {suggestions.map((suggestion) => (
+                          <button
+                            key={suggestion.id}
+                            type="button"
+                            onClick={() => applyFilterPatch(suggestion.patch)}
+                            className="inline-flex min-h-11 items-center gap-1.5 rounded-full border border-gold/50 bg-amber-50 px-3.5 py-2 text-xs font-bold text-maroon transition hover:bg-amber-100"
+                          >
+                            <span aria-hidden="true">{suggestion.icon}</span>
+                            <span>{te ? suggestion.te : suggestion.en}</span>
+                            {suggestion.id === "age" && <span className="font-mono">({widenedAgeLabel(filters)})</span>}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
                 <button onClick={clearAllFilters} className="px-5 py-2.5 rounded-xl maroon-gradient text-white text-xs font-bold shadow-md">
                   {te ? "అన్ని ఫిల్టర్లను రీసెట్ చేయండి" : "Reset all filters"}
                 </button>

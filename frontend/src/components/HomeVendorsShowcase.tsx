@@ -11,6 +11,8 @@ import Link from "next/link";
 import { useLang } from "@/lib/lang";
 import { WhatsAppIcon } from "@/components/BrandIcons";
 import { safeWhatsAppPhoneLink } from "@/lib/wa";
+import { Button, EmptyState } from "@/components/ui";
+import { CardSkeletonList } from "@/components/Skeletons";
 
 type Vendor = {
   id: string;
@@ -155,8 +157,19 @@ export default function HomeVendorsShowcase() {
         </div>
 
         {/* Vendors Grid */}
-        {loading ? <p className="py-6 text-center text-sm text-gray-500" role="status">{te ? "వెండర్లు లోడ్ అవుతున్నారు…" : "Loading vendor listings…"}</p>
-          : filteredVendors.length === 0 ? <div className="py-6 text-center text-sm text-gray-600">{te ? "ప్రస్తుతం listing ఏదీ లేదు. డైరెక్టరీని చూడండి లేదా మీ business జోడించండి." : "No vendor listings are available right now. View the directory or add your business."}</div>
+        {loading ? <CardSkeletonList n={3} />
+          : filteredVendors.length === 0 ? (
+            <EmptyState
+              icon="🏪"
+              title={te ? "ప్రస్తుతం listing ఏదీ లేదు" : "No vendor listings right now"}
+              description={te ? "డైరెక్టరీని చూడండి లేదా మీ business జోడించండి." : "View the full directory, or add your own business."}
+              action={
+                <Button href="/vendors" variant="outline">
+                  {te ? "అన్ని సేవలు చూడండి" : "View all services"}
+                </Button>
+              }
+            />
+          )
           : <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-2">
           {filteredVendors.map((v) => {
             const englishValue = (value: unknown) => apiDisplayMessage({ message_en: value }, false, "");

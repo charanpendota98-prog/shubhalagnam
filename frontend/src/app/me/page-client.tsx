@@ -1265,6 +1265,30 @@ function EditProfilePanel({ myId }: { myId: string }) {
     phone: T("ఫోన్ నంబర్", "Phone number"), about_myself: T("నా గురించి", "About me"), photo_url: T("ఫోటో", "Photo"),
   };
 
+  /** Missing fields that have a control on this page can be focused directly. */
+  const FOCUSABLE_FIELDS = new Set([
+    "full_name", "dob", "height", "marital_status", "sub_caste", "gothram", "star", "rasi",
+    "education", "job", "company", "salary", "work_location", "district", "father_name",
+    "mother_name", "native_place", "expectations", "about_myself", "photo_url",
+  ]);
+
+  const nextSteps = missing
+    .filter((field) => fieldLabels[field] || field)
+    .slice(0, 6)
+    .map((field) => ({
+      field,
+      label: fieldLabels[field] || String(field).replaceAll("_", " "),
+      focusable: FOCUSABLE_FIELDS.has(field),
+    }));
+
+  const focusField = (field: string) => {
+    const control = document.getElementById(`me-${field}`);
+    if (!control) return;
+    control.scrollIntoView({ behavior: "smooth", block: "center" });
+    // preventScroll avoids fighting the smooth scroll we just started.
+    (control as HTMLElement).focus({ preventScroll: true });
+  };
+
   const loadProfile = useCallback(async () => {
     setLoading(true);
     try {
@@ -1369,12 +1393,54 @@ function EditProfilePanel({ myId }: { myId: string }) {
           />
         </div>
 
-        {missing.length > 0 && (
-          <div className="text-xs text-slate-700 bg-white/80 rounded-xl p-2.5 border border-gold/20">
-            <span className="font-bold text-maroon">💡 {T("జోడించాల్సిన ముఖ్య వివరాలు:", "Suggested details to add:")} </span>
-            <span className="text-slate-600">{missing.slice(0, 4).map((field) => fieldLabels[field] || String(field).replaceAll("_", " ")).join(", ")}</span>
+        {nextSteps.length > 0 && (
+          <div className="bg-white/80 rounded-xl p-3 border border-gold/20 space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs font-bold text-maroon">
+                💡 {T("తదుపరి చర్యలు", "Suggested next steps")}
+              </p>
+              <span className="text-[10px] font-bold text-slate-500">
+                {T(`${nextSteps.length} మిగిలాయి`, `${nextSteps.length} remaining`)}
+              </span>
+            </div>
+            <ul className="flex flex-wrap gap-1.5">
+              {nextSteps.map((step) => (
+                <li key={step.field}>
+                  {step.focusable ? (
+                    <button
+                      type="button"
+                      onClick={() => focusField(step.field)}
+                      className="inline-flex min-h-11 items-center gap-1 rounded-full border border-gold/50 bg-amber-50 px-3 py-1.5 text-[11px] font-bold text-maroon transition hover:bg-amber-100"
+                    >
+                      <span aria-hidden="true">✏️</span>
+                      <span>{step.label}</span>
+                    </button>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-600">
+                      <span aria-hidden="true">ℹ️</span>
+                      <span>{step.label}</span>
+                    </span>
+                  )}
+                </li>
+              ))}
+            </ul>
+            <p className="text-[10px] leading-relaxed text-slate-500">
+              {T(
+                "ఇవి ఐచ్ఛికం. నొక్కితే ఆ ఫీల్డ్ దగ్గరికి వెళ్తుంది; మీరు save చేసే వరకు ఏమీ మారదు, ఎవరితోనూ పంచుకోదు.",
+                "These are optional. Tapping jumps to that field — nothing changes and nothing is shared until you save.",
+              )}
+            </p>
           </div>
         )}
+
+        <div className="flex flex-wrap gap-2">
+          <Link href="/matches" className="inline-flex min-h-11 items-center rounded-full maroon-gradient px-4 py-2 text-xs font-bold text-white">
+            {T("సంబంధాలను వెతకండి →", "Browse matches →")}
+          </Link>
+          <Link href="/safety" className="inline-flex min-h-11 items-center rounded-full border border-maroon/30 px-4 py-2 text-xs font-bold text-maroon">
+            {T("భద్రతా మార్గదర్శిని", "Safety guide")}
+          </Link>
+        </div>
       </div>
 
       <Msg m={msg} />
@@ -1389,7 +1455,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
             <div>
               <label className="font-bold text-slate-800 block mb-1">{T("పూర్తి పేరు", "Full name")}:</label>
-              <input
+              <input id={`me-full_name`}
                 type="text"
                 value={profile.full_name || ""}
                 onChange={(e) => setField("full_name", e.target.value)}
@@ -1398,7 +1464,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
             </div>
             <div>
               <label className="font-bold text-slate-800 block mb-1">{T("పుట్టిన తేదీ", "Date of birth")}:</label>
-              <input
+              <input id={`me-dob`}
                 type="date"
                 value={profile.dob ? String(profile.dob).slice(0, 10) : ""}
                 onChange={(e) => setField("dob", e.target.value)}
@@ -1407,7 +1473,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
             </div>
             <div>
               <label className="font-bold text-slate-800 block mb-1">{T("ఎత్తు", "Height")}:</label>
-              <select
+              <select id={`me-height`}
                 value={profile.height || ""}
                 onChange={(e) => setField("height", e.target.value)}
                 className="w-full p-2.5 border border-slate-200 rounded-xl bg-white focus:outline-none focus:border-maroon"
@@ -1422,7 +1488,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
             </div>
             <div>
               <label className="font-bold text-slate-800 block mb-1">{te ? "వైవాహిక స్థితి" : "Marital status"}:</label>
-              <select
+              <select id={`me-marital_status`}
                 value={profile.marital_status || ""}
                 onChange={(e) => setField("marital_status", e.target.value)}
                 className="w-full p-2.5 border border-slate-200 rounded-xl bg-white focus:outline-none focus:border-maroon"
@@ -1483,7 +1549,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
             </div>
             <div>
               <label className="font-bold text-slate-800 block mb-1">{T("ఉపకులం", "Sub-community")}:</label>
-              <input
+              <input id={`me-sub_caste`}
                 type="text"
                 value={profile.sub_caste || ""}
                 onChange={(e) => setField("sub_caste", e.target.value)}
@@ -1493,7 +1559,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
             </div>
             <div>
               <label className="font-bold text-slate-800 block mb-1">{T("గోత్రం", "Gothram")}:</label>
-              <input
+              <input id={`me-gothram`}
                 type="text"
                 value={profile.gothram || ""}
                 onChange={(e) => setField("gothram", e.target.value)}
@@ -1503,7 +1569,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
             </div>
             <div>
               <label className="font-bold text-slate-800 block mb-1">{T("నక్షత్రం", "Nakshatram")}:</label>
-              <select
+              <select id={`me-star`}
                 value={profile.star || ""}
                 onChange={(e) => setField("star", e.target.value)}
                 className="w-full p-2.5 border border-slate-200 rounded-xl bg-white focus:outline-none focus:border-maroon"
@@ -1518,7 +1584,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
             </div>
             <div>
               <label className="font-bold text-slate-800 block mb-1">{T("రాశి", "Rasi")}:</label>
-              <select
+              <select id={`me-rasi`}
                 value={profile.rasi || ""}
                 onChange={(e) => setField("rasi", e.target.value)}
                 className="w-full p-2.5 border border-slate-200 rounded-xl bg-white focus:outline-none focus:border-maroon"
@@ -1533,7 +1599,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
             </div>
             <div>
               <label className="font-bold text-slate-800 block mb-1">{T("కుజ దోషం", "Manglik / dosham")}:</label>
-              <select
+              <select id={`me-dosham`}
                 value={profile.dosham || ""}
                 onChange={(e) => setField("dosham", e.target.value)}
                 className="w-full p-2.5 border border-slate-200 rounded-xl bg-white focus:outline-none focus:border-maroon"
@@ -1555,7 +1621,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
             <div>
               <label className="font-bold text-slate-800 block mb-1">{T("విద్యార్హత", "Education")}:</label>
-              <select
+              <select id={`me-education`}
                 value={profile.education || ""}
                 onChange={(e) => setField("education", e.target.value)}
                 className="w-full p-2.5 border border-slate-200 rounded-xl bg-white focus:outline-none focus:border-maroon"
@@ -1570,7 +1636,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
             </div>
             <div>
               <label className="font-bold text-slate-800 block mb-1">{T("ఉద్యోగం / హోదా", "Occupation / job title")}:</label>
-              <input
+              <input id={`me-job`}
                 type="text"
                 value={profile.job || ""}
                 onChange={(e) => setField("job", e.target.value)}
@@ -1580,7 +1646,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
             </div>
             <div>
               <label className="font-bold text-slate-800 block mb-1">{T("కంపెనీ", "Company / employer")}:</label>
-              <input
+              <input id={`me-company`}
                 type="text"
                 value={profile.company || ""}
                 onChange={(e) => setField("company", e.target.value)}
@@ -1590,7 +1656,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
             </div>
             <div>
               <label className="font-bold text-slate-800 block mb-1">{T("వార్షిక వేతనం", "Annual salary")}:</label>
-              <select
+              <select id={`me-salary`}
                 value={profile.salary || ""}
                 onChange={(e) => setField("salary", e.target.value)}
                 className="w-full p-2.5 border border-slate-200 rounded-xl bg-white focus:outline-none focus:border-maroon"
@@ -1605,7 +1671,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
             </div>
             <div>
               <label className="font-bold text-slate-800 block mb-1">{T("పని చేసే నగరం", "Work location")}:</label>
-              <input
+              <input id={`me-work_location`}
                 type="text"
                 value={profile.work_location || ""}
                 onChange={(e) => setField("work_location", e.target.value)}
@@ -1615,7 +1681,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
             </div>
             <div>
               <label className="font-bold text-slate-800 block mb-1">{T("జిల్లా", "District")}:</label>
-              <input
+              <input id={`me-district`}
                 type="text"
                 value={profile.district || ""}
                 onChange={(e) => setField("district", e.target.value)}
@@ -1634,7 +1700,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 text-xs">
             <div>
               <label className="font-bold text-slate-800 block mb-1">{T("తండ్రి పేరు & వృత్తి", "Father’s name and occupation")}:</label>
-              <input
+              <input id={`me-father_name`}
                 type="text"
                 value={profile.father_name || ""}
                 onChange={(e) => setField("father_name", e.target.value)}
@@ -1644,7 +1710,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
             </div>
             <div>
               <label className="font-bold text-slate-800 block mb-1">{T("తల్లి పేరు & వృత్తి", "Mother’s name and occupation")}:</label>
-              <input
+              <input id={`me-mother_name`}
                 type="text"
                 value={profile.mother_name || ""}
                 onChange={(e) => setField("mother_name", e.target.value)}
@@ -1654,7 +1720,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
             </div>
             <div>
               <label className="font-bold text-slate-800 block mb-1">{T("సొంత ఊరు", "Native place")}:</label>
-              <input
+              <input id={`me-native_place`}
                 type="text"
                 value={profile.native_place || ""}
                 onChange={(e) => setField("native_place", e.target.value)}
@@ -1664,7 +1730,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
             </div>
             <div>
               <label className="font-bold text-slate-800 block mb-1">{T("అన్నదమ్ములు", "Brothers")}:</label>
-              <input
+              <input id={`me-brothers`}
                 type="text"
                 value={profile.brothers ?? ""}
                 onChange={(e) => setField("brothers", e.target.value)}
@@ -1674,7 +1740,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
             </div>
             <div>
               <label className="font-bold text-slate-800 block mb-1">{T("అక్కచెల్లెళ్లు", "Sisters")}:</label>
-              <input
+              <input id={`me-sisters`}
                 type="text"
                 value={profile.sisters ?? ""}
                 onChange={(e) => setField("sisters", e.target.value)}
@@ -1684,7 +1750,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
             </div>
             <div>
               <label className="font-bold text-slate-800 block mb-1">{T("వర్ణం", "Complexion")}:</label>
-              <select
+              <select id={`me-complexion`}
                 value={profile.complexion || ""}
                 onChange={(e) => setField("complexion", e.target.value)}
                 className="w-full p-2.5 border border-slate-200 rounded-xl bg-white focus:outline-none focus:border-maroon"
@@ -1698,7 +1764,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
             </div>
             <div>
               <label className="font-bold text-slate-800 block mb-1">{T("కుటుంబ రకం", "Family type")}:</label>
-              <select
+              <select id={`me-family_type`}
                 value={profile.family_type || ""}
                 onChange={(e) => setField("family_type", e.target.value)}
                 className="w-full p-2.5 border border-slate-200 rounded-xl bg-white focus:outline-none focus:border-maroon"
@@ -1710,7 +1776,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
             </div>
             <div>
               <label className="font-bold text-slate-800 block mb-1">{T("కుటుంబ స్థాయి", "Family financial status")}:</label>
-              <select
+              <select id={`me-family_status`}
                 value={profile.family_status || ""}
                 onChange={(e) => setField("family_status", e.target.value)}
                 className="w-full p-2.5 border border-slate-200 rounded-xl bg-white focus:outline-none focus:border-maroon"
@@ -1723,7 +1789,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
             </div>
             <div>
               <label className="font-bold text-slate-800 block mb-1">{T("మాతృభాష", "Mother tongue")}:</label>
-              <input
+              <input id={`me-mother_tongue`}
                 type="text"
                 value={profile.mother_tongue || ""}
                 onChange={(e) => setField("mother_tongue", e.target.value)}
@@ -1733,7 +1799,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
             </div>
             <div className="sm:col-span-2 lg:col-span-3">
               <label className="font-bold text-slate-800 block mb-1">{T("భాగస్వామి నుంచి కోరుకునేవి", "Partner expectations")}:</label>
-              <textarea
+              <textarea id={`me-expectations`}
                 rows={2}
                 value={profile.expectations || ""}
                 onChange={(e) => setField("expectations", e.target.value)}
@@ -1743,7 +1809,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
             </div>
             <div className="sm:col-span-2 lg:col-span-3">
               <label className="font-bold text-slate-800 block mb-1">{T("ఫోటో లింక్", "Photo link")}:</label>
-              <input
+              <input id={`me-photo_url`}
                 type="text"
                 value={profile.photo_url || ""}
                 onChange={(e) => setField("photo_url", e.target.value)}
@@ -1753,7 +1819,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
             </div>
             <div className="sm:col-span-2 lg:col-span-3">
               <label className="font-bold text-slate-800 block mb-1">{T("నా గురించి", "About me")}:</label>
-              <textarea
+              <textarea id={`me-about_myself`}
                 rows={3}
                 value={profile.about_myself || ""}
                 onChange={(e) => setField("about_myself", e.target.value)}

@@ -34,3 +34,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# design-system QA artifacts (screenshots, traces, playwright output)
+/artifacts/
+/playwright-report/
+/test-results/

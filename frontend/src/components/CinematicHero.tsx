@@ -8,11 +8,11 @@
  * • Responsive typography and spacing for phone through desktop widths.
  */
 
-import Link from "next/link";
 import Image from "next/image";
 import { useEffect, useRef } from "react";
 import { useLang, type Lang } from "@/lib/lang";
 import HomeMatchSearch from "@/components/HomeMatchSearch";
+import { Button } from "@/components/ui";
 
 
 const COPY = {
@@ -220,6 +220,9 @@ export default function CinematicHero() {
         }}
       />
 
+      {/* Soft hand-off from the film into the cream page body below. */}
+      <div className="hp-hero-fade" aria-hidden="true" />
+
       {/* Layered jewel-tone light keeps the photo vivid while text remains legible. */}
       <div className="pointer-events-none absolute -top-16 left-[-4rem] z-[2] h-72 w-72 rounded-full bg-rose-400/25 blur-[110px]" />
       <div className="pointer-events-none absolute top-1/4 right-[-4rem] z-[2] h-80 w-80 rounded-full bg-teal-300/25 blur-[110px]" />
@@ -235,8 +238,8 @@ export default function CinematicHero() {
               
               {/* Auspicious Eyebrow Badge */}
               <div className="flex flex-wrap items-center gap-2">
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-400/50 bg-[#2b0918] px-3 py-1 text-[11px] sm:text-xs font-black uppercase tracking-wider text-amber-300 shadow-sm">
-                  <span>🪔</span>
+                <span className="hp-hero-badge">
+                  <span aria-hidden="true">🪔</span>
                   <span>{L.kicker}</span>
                 </span>
 
@@ -251,25 +254,26 @@ export default function CinematicHero() {
                 </span>
               </h1>
 
-              <div className="h-1 w-16 rounded-full bg-gradient-to-r from-amber-200 via-yellow-400 to-transparent shadow-sm" aria-hidden="true" />
+              <div className="hp-hero-rule" aria-hidden="true" />
 
               {/* One clear account-creation action; browsing happens in the search card. */}
               <div className="flex items-center pt-1">
-                <Link
+                <Button
                   href="/register"
-                  className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-gradient-to-r from-amber-300 via-amber-200 to-yellow-400 px-6 py-3 text-sm font-bold leading-snug text-rose-950 shadow-[0_10px_30px_rgba(245,158,11,0.28)] transition hover:brightness-105 active:scale-[.99] sm:px-7 sm:text-base focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-amber-100"
+                  variant="primary"
+                  size="lg"
+                  iconRight={<span aria-hidden="true" className="text-base">→</span>}
                 >
-                  <span>{L.ctaReg}</span>
-                  <span aria-hidden className="text-base">→</span>
-                </Link>
+                  {L.ctaReg}
+                </Button>
               </div>
 
               <div className="pt-1">
-                <span className="inline-flex max-w-full items-center gap-2 rounded-2xl border border-amber-200/50 bg-[#240914]/85 px-4 py-2.5 text-xs font-bold leading-relaxed text-amber-100 shadow-lg backdrop-blur-sm sm:text-sm">
-                  <span className="shrink-0 text-amber-300" aria-hidden="true">✦</span>
+                <p className="hp-hero-note">
+                  <span className="hp-hero-note__icon" aria-hidden="true">✦</span>
                   <span>{L.pricePill}</span>
-                </span>
-                <p className="mt-1.5 text-[10px] leading-relaxed text-white/75 sm:text-xs">
+                </p>
+                <p className="hp-hero-disclaimer">
                   {lang === "te" ? "చిత్రాలు సూచన కోసం మాత్రమే — సభ్యుల ప్రొఫైల్ ఫోటోలు కావు." : "Illustrative visuals only—not member profile photos."}
                 </p>
               </div>
@@ -278,7 +282,9 @@ export default function CinematicHero() {
           </div>
 
           <div className="lg:col-span-5 xl:col-span-5">
-            <HomeMatchSearch />
+            <div className="hp-hero-panel">
+              <HomeMatchSearch />
+            </div>
           </div>
         </div>
       </div>

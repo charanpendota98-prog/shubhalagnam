@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowRight, MapPin, Search, ShieldCheck } from "lucide-react";
 import { useLang } from "@/lib/lang";
+import { Button, Field } from "@/components/ui";
 
 type Gender = "Bride" | "Groom" | "";
 type Region = "" | "TS" | "AP" | "NRI";
@@ -88,44 +89,54 @@ export default function HomeMatchSearch() {
         </fieldset>
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <label className="block min-w-0">
-            <span className="mb-1.5 block text-xs font-bold text-slate-700">{te ? "వయస్సు పరిధి" : "Age range"}</span>
-            <select
-              value={ageRange}
-              onChange={(event) => setAgeRange(event.target.value as (typeof AGE_RANGES)[number]["value"])}
-              className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none transition focus:border-[#7A0C2E] focus:ring-2 focus:ring-[#7A0C2E]/15"
-            >
-              {AGE_RANGES.map((option) => (
-                <option key={option.value} value={option.value}>{te ? option.te : option.en}</option>
-              ))}
-            </select>
-          </label>
+          <Field id="home-age" label={te ? "వయస్సు పరిధి" : "Age range"}>
+            {({ controlId }) => (
+              <select
+                id={controlId}
+                value={ageRange}
+                onChange={(event) => setAgeRange(event.target.value as (typeof AGE_RANGES)[number]["value"])}
+                className="ds-control"
+              >
+                {AGE_RANGES.map((option) => (
+                  <option key={option.value} value={option.value}>{te ? option.te : option.en}</option>
+                ))}
+              </select>
+            )}
+          </Field>
 
-          <label className="block min-w-0">
-            <span className="mb-1.5 flex items-center gap-1.5 text-xs font-bold text-slate-700">
-              <MapPin size={13} aria-hidden="true" /> {te ? "ప్రాంతం" : "Region"}
-            </span>
-            <select
-              value={region}
-              onChange={(event) => setRegion(event.target.value as Region)}
-              className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none transition focus:border-[#7A0C2E] focus:ring-2 focus:ring-[#7A0C2E]/15"
-            >
-              <option value="">{te ? "అన్ని ప్రాంతాలు" : "All regions"}</option>
-              <option value="TS">{te ? "తెలంగాణ" : "Telangana"}</option>
-              <option value="AP">{te ? "ఆంధ్రప్రదేశ్" : "Andhra Pradesh"}</option>
-              <option value="NRI">NRI / {te ? "అంతర్జాతీయం" : "International"}</option>
-            </select>
-          </label>
+          <Field
+            id="home-region"
+            label={
+              <span className="inline-flex items-center gap-1.5">
+                <MapPin size={13} aria-hidden="true" /> {te ? "ప్రాంతం" : "Region"}
+              </span>
+            }
+          >
+            {({ controlId }) => (
+              <select
+                id={controlId}
+                value={region}
+                onChange={(event) => setRegion(event.target.value as Region)}
+                className="ds-control"
+              >
+                <option value="">{te ? "అన్ని ప్రాంతాలు" : "All regions"}</option>
+                <option value="TS">{te ? "తెలంగాణ" : "Telangana"}</option>
+                <option value="AP">{te ? "ఆంధ్రప్రదేశ్" : "Andhra Pradesh"}</option>
+                <option value="NRI">NRI / {te ? "అంతర్జాతీయం" : "International"}</option>
+              </select>
+            )}
+          </Field>
         </div>
 
-        <button
+        <Button
           type="submit"
-          className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#7A0C2E] px-4 py-3 text-sm font-bold text-white shadow-[0_8px_22px_rgba(122,12,46,.2)] transition hover:bg-[#5C0822] active:scale-[.99] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#7A0C2E]"
+          variant="secondary"
+          block
+          iconLeft={<Search size={16} aria-hidden="true" />}
+          iconRight={<ArrowRight size={16} aria-hidden="true" />}
         >
-          <Search size={16} aria-hidden="true" />
           {te ? "సంబంధాలు చూడండి" : "Browse profiles"}
-          <ArrowRight size={16} aria-hidden="true" />
-        </button>
+        </Button>
       </form>
 
       <div className="mt-3 flex items-start gap-2 border-t border-slate-100 pt-3">
