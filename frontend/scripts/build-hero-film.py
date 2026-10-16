@@ -24,9 +24,13 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PROMO = os.path.join(ROOT, "public", "promo")
 FRAMES = os.path.join(PROMO, "film")
 
-FPS = 30
-HOLD = 4.2          # seconds each still is on screen
-FADE = 1.1          # cross-dissolve length, seconds
+# Shorter and slower-spoken than a 16-second loop: the hero is a background,
+# so it only has to establish a mood once. 24 fps and ~2.6 s per still keep the
+# whole film around ten seconds, which is what makes the file small enough to
+# ship to a phone without a second thought.
+FPS = 24
+HOLD = 2.6          # seconds each still is on screen
+FADE = 0.8          # cross-dissolve length, seconds
 SIZE = (1376, 768)  # native size of the generated stills
 
 # (file, zoom start, zoom end, pan start (x, y), pan end (x, y))
@@ -138,9 +142,9 @@ def main() -> int:
     # shipped alone rather than adding a heavier "modern" source.
     targets = [
         (os.path.join(PROMO, "wedding-film.mp4"), "1280:-2", "32", "libx264",
-         ["-preset", "slow", "-g", "60", "-movflags", "+faststart", "-profile:v", "main"]),
+         ["-preset", "slow", "-g", "48", "-movflags", "+faststart", "-profile:v", "main"]),
         (os.path.join(PROMO, "wedding-film-mobile.mp4"), "854:-2", "35", "libx264",
-         ["-preset", "slow", "-g", "60", "-movflags", "+faststart", "-profile:v", "main"]),
+         ["-preset", "slow", "-g", "48", "-movflags", "+faststart", "-profile:v", "main"]),
     ]
 
     writers = []

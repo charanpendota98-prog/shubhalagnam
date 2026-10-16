@@ -10,13 +10,19 @@ Story arc from 4 real ceremony stills:
   story-4  garland exchange at sunset (together forever)
 
 Each scene gets slow Ken-Burns motion (zoom + pan) and scenes are joined with
-smooth crossfades. Output = animated WebP (autoplays + loops natively in the
-browser like a background video, no <video> element needed).
+smooth crossfades. Output = H.264 MP4 + a static JPEG poster.
+
+The film used to be written as an animated WebP so it could play inside an
+<img> tag. That file weighed 6.9 MB — a browser has to download all of it
+before anything moves, and the same frames as H.264 are ~1.1 MB that start
+playing long before the download finishes. The animated WebP is gone; the
+poster carries the first frame so the section still paints instantly.
 
 Regen:  cd frontend && python3 scripts/make_story_film.py
 """
 from PIL import Image
 import os
+import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 PROMO = os.path.join(HERE, "..", "public", "promo")
@@ -91,17 +97,41 @@ for si in range(n):
         b = nxt[k]
         out.append(Image.blend(a, b, ease((k + 1) / FADE)))
 
-duration_ms = int(1000 / FPS)
-out_path = os.path.join(PROMO, "wedding-story-film.webp")
-out[0].save(
-    out_path,
-    save_all=True,
-    append_images=out[1:],
-    duration=duration_ms,
-    loop=0,
-    format="WEBP",
-    quality=55,
-    method=6,
-)
-total_s = len(out) / FPS
-print(f"✅ wrote {out_path}  ({len(out)} frames, ~{total_s:.1f}s, {OUT_W}x{OUT_H})")
+def main() -> int:
+    try:
+        import imageio_ffmpeg
+    except ImportError:
+        print("imageio-ffmpeg is required: pip install imageio-ffmpeg", file=sys.stderr)
+        return 1
+
+    poster_path = os.path.join(PROMO, "wedding-story-poster.jpg")
+    out_path = os.path.join(PROMO, "wedding-story-film.mp4")
+
+    out[0].save(poster_path, "JPEG", quality=78, optimize=True, progressive=True)
+
+    writer = imageio_ffmpeg.write_frames(
+        out_path, (OUT_W, OUT_H), fps=FPS, quality=None, codec="libx264",
+        output_params=["-crf", "32", "-preset", "slow", "-g", str(FPS * 2),
+                       "-movflags", "+faststart", "-profile:v", "main"],
+    )
+    writer.send(None)  # seed
+    try:
+        for frame in out:
+            writer.send(frame.tobytes())
+    finally:
+        try:
+            writer.close()
+        except Exception:  # noqa: BLE001
+            pass
+
+    total_s = len(out) / FPS
+    print(f"✅ wrote {os.path.relpath(out_path, HERE)}  "
+          f"({len(out)} frames, ~{total_s:.1f}s, {OUT_W}x{OUT_H}, "
+          f"{os.path.getsize(out_path) // 1024} KB)")
+    print(f"✅ wrote {os.path.relpath(poster_path, HERE)}  "
+          f"({os.path.getsize(poster_path) // 1024} KB)")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

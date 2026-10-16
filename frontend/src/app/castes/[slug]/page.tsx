@@ -5,10 +5,11 @@
  */
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { parseSlug, channelForCaste } from "@/lib/seo-pages";
+import { buildSlug, channelForCaste, parseSlug } from "@/lib/seo-pages";
 import { SITE_CONFIG } from "@/lib/site-config";
 import { serializeJsonLd } from "@/lib/safe-json-ld";
 import { communityBreadcrumb, communityFaq, communityFaqSchema } from "@/lib/community-faq.mjs";
+import Breadcrumbs, { type Crumb } from "@/components/Breadcrumbs";
 import CasteClient from "./caste-client";
 
 type Params = { params: Promise<{ slug: string }> };
@@ -54,6 +55,16 @@ export default async function CasteLandingPage({ params }: Params) {
   const otherRole = role === "bride" ? "groom" : "bride";
   const otherChan = channelForCaste(caste.key, otherRole);
   const path = `/castes/${slug}`;
+  const communityHref = `/castes/${buildSlug(caste.key, role)}`;
+  const roleLabel = role === "bride" ? "Brides" : "Grooms";
+  const TRAIL: Crumb[] = [
+    { en: "Home", te: "హోమ్", href: "/" },
+    { en: "Communities", te: "కమ్యూనిటీలు", href: "/castes" },
+    { en: `${caste.name} ${roleLabel}`, te: `${caste.name} ${role === "bride" ? "వధువులు" : "వరులు"}`, href: communityHref },
+  ];
+  if (district) {
+    TRAIL.push({ en: district.name, te: district.name, href: path });
+  }
   const faqEn = communityFaq({ community: caste.name, role, district: district?.name });
   const faqTe = communityFaq({ community: caste.name, role, district: district?.name, te: true });
   return (
@@ -72,6 +83,7 @@ export default async function CasteLandingPage({ params }: Params) {
           })),
         }}
       />
+      <Breadcrumbs trail={TRAIL} />
       <CasteClient
       caste={caste}
       role={role}

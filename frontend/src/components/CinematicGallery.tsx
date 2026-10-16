@@ -160,7 +160,7 @@ export default function CinematicGallery() {
                 controls
                 playsInline
                 preload="metadata"
-                poster="/promo/wedding-story-film.webp"
+                poster="/promo/wedding-story-poster.jpg"
                 onError={() => setFilmError(true)}
                 onCanPlay={() => setFilmError(false)}
                 aria-label={te ? "సూచన కోసం రూపొందించిన వివాహ వేడుకల వీడియో" : "Illustrative wedding film player"}

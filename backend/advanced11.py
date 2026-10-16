@@ -125,6 +125,22 @@ def filter_same_gothram(me: Dict[str, Any], pool: List[Dict[str, Any]]) -> Dict[
 STORY_MIN, STORY_MAX = 20, 600
 
 
+def story_summary(tsap_id: str) -> Dict[str, Any]:
+    """How many stories this member has already shared.
+
+    Counts only. Story bodies and submitter identifiers stay here so the
+    review queue and the public feed cannot drift apart.
+    """
+    tid = str(tsap_id or "").strip().upper()
+    mine = [s for s in STORIES if str(s.get("tsap_id", "")).strip().upper() == tid]
+    return {
+        "total": len(mine),
+        "pending": sum(1 for s in mine if str(s.get("status")) == "pending"),
+        "approved": sum(1 for s in mine if str(s.get("status")) == "approved"),
+        "rejected": sum(1 for s in mine if str(s.get("status")) == "rejected"),
+    }
+
+
 def submit_story(tsap_id: str, text: str, partner_id: str = "", couple_names: str = "",
                  photo_url: str = "", district: str = "") -> Dict[str, Any]:
     tid = req_text(tsap_id, "tsap_id", 4, 30)

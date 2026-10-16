@@ -161,6 +161,23 @@ for pg in PAGES:
         continue
     src = src_page(fp)
     if not ("useLang" in src or "Duo" in src or "duo(" in src):
+        # A route is allowed to keep a server shell for metadata and render a
+        # sibling client component; the language mechanism then lives there.
+        folder = os.path.dirname(fp)
+        try:
+            siblings = sorted(n for n in os.listdir(folder) if n.endswith("-client.tsx"))
+        except OSError:
+            siblings = []
+        delegated = [src_page(os.path.join(folder, n)) for n in siblings]
+        # A shell may also render a shared component directly (the control
+        # dashboard is one component reused by several admin routes).
+        for spec in re.findall(r'from "(@/[^"]+)"', src):
+            target = os.path.join(SRC, spec[2:])
+            for candidate in (target + ".tsx", os.path.join(target, "index.tsx")):
+                if os.path.exists(candidate):
+                    delegated.append(src_page(candidate))
+        src = " ".join(delegated) or src
+    if not ("useLang" in src or "Duo" in src or "duo(" in src):
         missing.append((pg, "no lang mechanism"))
 check("N2.1 all client pages lang-aware", not missing, missing[:6])
 

@@ -83,9 +83,9 @@ check("Telugu names unnai (TS Brides → తెలంగాణ వధువు�
 
 print("=== 2. CASTE × BRIDE/GROOM (caste prakaram) ===")
 rep = C.caste_split_report()
-check("37 clusters have separate bride/groom listings", rep["split_clusters"] == 37 and rep["caste_gender_channels"] == 74,
+check("38 clusters have separate bride/groom listings", rep["split_clusters"] == 38 and rep["caste_gender_channels"] == 76,
       (rep["split_clusters"], rep["caste_gender_channels"]))
-check("one remaining cluster uses a shared listing", rep["mixed_caste_channels"] == 1, rep["mixed_caste_channels"])
+check("no cluster uses a shared listing", rep["mixed_caste_channels"] == 0, rep["mixed_caste_channels"])
 check("127 sub-castes cover (clusters lo members)", rep["sub_castes_covered"] >= 120, rep["sub_castes_covered"])
 _w1_clusters = [r["cluster"] for r in rep["by_wave"][1]]
 check("wave-1 lo top 3 clusters (reddy/kamma/kapu)", set(_w1_clusters) == {"reddy", "kamma", "kapu"}, _w1_clusters)
@@ -97,8 +97,12 @@ for caste in ("reddy", "mala", "madiga", "kapu", "yadava_goud"):
     pair = C.SPLIT_MAP.get(caste)
     check("SPLIT_MAP[%s] bride+groom" % caste, bool(pair) and pair["Bride"] in C.CHANNELS and pair["Groom"] in C.CHANNELS)
 check("Split cluster ki single channel ledu (duplicate ledu)", "reddy" not in C.CHANNELS and "mala" not in C.CHANNELS)
-check("Shared cluster listing exists for Other ST", "c_others_st" in C.CHANNELS
-      and C.CHANNELS["c_others_st"]["tier"] == "L3_CASTE")
+check("Other ST has bride and groom listings like every other cluster",
+      "c_others_st_bride" in C.CHANNELS and "c_others_st_groom" in C.CHANNELS
+      and C.CHANNELS["c_others_st_bride"]["tier"] == "L3_CASTE"
+      and C.is_public_channel("c_others_st_bride")
+      and C.is_public_channel("c_others_st_groom")
+      and "c_others_st" not in C.CHANNELS)
 check("Viswabrahmana sub-castes appear in both gender-specific listings",
       {"Kamsali", "Kammari", "Kanchari", "Vadla", "Ausula", "Vadrangi", "Silpi"} <=
       set(C.CHANNELS["c_viswabrahmana_bride"]["members"])
@@ -145,7 +149,7 @@ check("DP text English (server lo Telugu font ledu)", CC.dp_text("c_reddy_bride"
 
 print("=== 4. REGISTRY INTEGRITY ===")
 usernames = [v["username"].lower() for v in C.CHANNELS.values() if v.get("username")]
-check("102 configured listings match the frontend registry", len(C.CHANNELS) == 102, len(C.CHANNELS))
+check("103 configured listings match the frontend registry", len(C.CHANNELS) == 103, len(C.CHANNELS))
 check("Configured primary usernames are unique + Telegram-valid", len(set(usernames)) == len(usernames)
       and not [u for u in usernames if not re.fullmatch(r"[a-z0-9_]{5,32}", u)])
 check("Generated religion/caste entries have no guessed username",
@@ -194,14 +198,14 @@ except (IndexError, KeyError, TypeError, ValueError):
 check("Bundled frontend fallback contains only public rows and explicit links",
       _bundled_urls_match)
 check("By tier counts match canonical registry", C.channel_stats()["by_tier"] ==
-      {"L0_OFFICIAL": 1, "L1_REGION": 5, "L2_RELIGION": 13, "L3_CASTE": 75, "L4_SPECIAL": 8},
+      {"L0_OFFICIAL": 1, "L1_REGION": 5, "L2_RELIGION": 13, "L3_CASTE": 76, "L4_SPECIAL": 8},
       C.channel_stats()["by_tier"])
 check("No source-code live-key patch path remains", "LIVE_KEYS_EXTRA" not in open(SC.REGISTRY).read()
       and not hasattr(SC, "write_live_keys"))
 
 print("=== 5. SETUP PLAN (wave order) ===")
 plan = C.setup_plan()
-check("Plan includes all configured listings", len(plan) == 102, len(plan))
+check("Plan includes all configured listings", len(plan) == 103, len(plan))
 check("Plan wave order lo sorted", [r["wave"] for r in plan] == sorted(r["wave"] for r in plan))
 w1 = C.setup_plan(1)
 check("Wave-1 has 24 configured listings", len(w1) == 24, len(w1))
@@ -426,8 +430,8 @@ try:
          patch.object(main, "_find_user", return_value=_spotlight_profile):
         _deactivated_spotlights = main._current_public_spotlights(6)
     check("Spotlight public feed hides deactivated profiles immediately", _deactivated_spotlights == [])
-    check("GET /api/channels exposes 91 public listings; routing remains disabled",
-          d["stats"]["total"] == 91 and d["stats"]["routing_eligible"] == 0, d["stats"])
+    check("GET /api/channels exposes 93 public listings; routing remains disabled",
+          d["stats"]["total"] == 93 and d["stats"]["routing_eligible"] == 0, d["stats"])
     public_channels = [channel for tier_rows in d["channels_by_tier"].values() for channel in tier_rows]
     check("Public channel API omits excluded categories, malformed targets and external-status claims",
           all("fallbacks" not in channel and "live" not in channel
@@ -463,7 +467,7 @@ try:
 
     sp = c.get("/api/channels/setup-plan").json()
     check("GET /api/channels/setup-plan includes only public listings",
-          len(sp["plan"]) == 91
+          len(sp["plan"]) == 93
           and not (C.PUBLIC_DIRECTORY_EXCLUDED_KEYS & {row["key"] for row in sp["plan"]})
           and all("fallbacks" not in row and "live" not in row
                   and "routing_eligible" in row and row["external_status_checked"] is False
@@ -502,7 +506,7 @@ try:
         main.CHAN.OVERRIDES.update(original_overrides)
 
     tier = c.get("/api/channels?tier=L3_CASTE").json()
-    check("Tier filter works (L3 74 public listings)", tier["count"] == 74, tier["count"])
+    check("Tier filter works (L3 76 public listings)", tier["count"] == 76, tier["count"])
     check("Hidden channel kit and photo endpoints both return 404",
           all(c.get(f"/api/channels/{key}/kit").status_code == 404
               and c.get(f"/api/channels/photo/{key}.png").status_code == 404
@@ -521,7 +525,7 @@ if FAIL:
     sys.exit(1)
 if SKIP:
     print("SKIPPED:", SKIP)
-print("🏆 CHANNELS SETUP (102 internal entries; 91 public listings; safe destinations) — executed tests pass")
+print("🏆 CHANNELS SETUP (103 internal entries; 93 public listings; safe destinations) — executed tests pass")
 
 # Isolated test data/assets/kits are removed by the registered atexit cleanup,
 # including when the suite exits early after a failure.

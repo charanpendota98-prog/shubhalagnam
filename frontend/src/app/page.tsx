@@ -13,6 +13,7 @@ import { serializeJsonLd } from "@/lib/safe-json-ld";
 import { apiGet } from "@/lib/api";
 import { useLang, type Lang } from "@/lib/lang";
 import { ArrowRight, EyeOff, Gift, ShieldCheck, UserCheck } from "lucide-react";
+import WeddingStoryHero from "@/components/WeddingStoryHero";
 
 /** Trust-rail icons — decorative only; the copy below states the actual rules. */
 const TRUST_ICONS = [Gift, UserCheck, EyeOff, ShieldCheck] as const;
@@ -178,32 +179,11 @@ export default function Home() {
     return Number.isFinite(value) ? Math.round(value) : null;
   };
 
+  // Site-wide Organization + WebSite nodes live in the root layout so every
+  // page carries them; the homepage adds only its own FAQ markup.
   const jsonLd = {
     "@context": "https://schema.org",
     "@graph": [
-      {
-        "@type": "Organization",
-        "@id": `${SITE_CONFIG.siteUrl}/#org`,
-        name: te ? "మన వివాహ" : "Mana Vivaha",
-        alternateName: te ? "Mana Vivaha" : "మన వివాహ",
-        url: SITE_CONFIG.siteUrl,
-        logo: `${SITE_CONFIG.siteUrl}/icons/icon-512.png`,
-        ...(SITE_CONFIG.supportEmail ? { email: SITE_CONFIG.supportEmail } : {}),
-        knowsLanguage: ["te", "en"],
-      },
-      {
-        "@type": "WebSite",
-        "@id": `${SITE_CONFIG.siteUrl}/#site`,
-        url: SITE_CONFIG.siteUrl,
-        name: te ? "మన వివాహ — తెలుగు మ్యాట్రిమోనీ" : "Mana Vivaha — Telugu Matrimony",
-        inLanguage: te ? "te-IN" : "en-IN",
-        publisher: { "@id": `${SITE_CONFIG.siteUrl}/#org` },
-        potentialAction: {
-          "@type": "SearchAction",
-          target: { "@type": "EntryPoint", urlTemplate: `${SITE_CONFIG.siteUrl}/search/{search_term_string}` },
-          "query-input": "required name=search_term_string",
-        },
-      },
       {
         "@type": "FAQPage",
         mainEntity: FAQs.map((item) => ({
@@ -242,6 +222,12 @@ export default function Home() {
       </section>
 
       <ProfilesOfTheDay />
+
+      {/* 🎬 A short wedding story — the ceremony film, played as MP4 with a
+          static poster (the old animated WebP cost ~7 MB and never streamed).
+          Decorative: it is skipped by screen readers and never blocks the
+          registration path below it. */}
+      <WeddingStoryHero />
 
       {/* Approved member stories only — hides itself when there are none. */}
       <HomeStories />

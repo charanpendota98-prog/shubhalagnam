@@ -1,4 +1,5 @@
 "use client";
+import StoryNudge from "@/components/StoryNudge";
 
 /**
  * 💑 WAVE 11 — Success Stories (trust + viral).
@@ -102,6 +103,10 @@ export default function StoriesClient() {
             </div>
           </article>
         ))}
+      </div>
+
+      <div className="mt-10">
+        <StoryNudge />
       </div>
 
       <div className="mt-10 rounded-2xl border border-emerald-200 bg-emerald-50/60 p-5">

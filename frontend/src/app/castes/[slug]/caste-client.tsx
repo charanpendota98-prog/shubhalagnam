@@ -2,7 +2,7 @@
 
 /** /castes/[slug] body — neat Telugu / clean English via toggle (SEO shell stays server). */
 import Link from "next/link";
-import { CASTES, buildSlug } from "@/lib/seo-pages";
+import { CASTES, DISTRICTS, buildSlug } from "@/lib/seo-pages";
 import { ALL_CHANNELS, CHANNEL_STATS } from "@/lib/channels";
 import { TelegramIcon, WhatsAppIcon } from "@/components/BrandIcons";
 import { useLang } from "@/lib/lang";
@@ -213,6 +213,8 @@ export default function CasteClient({ caste, role, district, chan, otherChan, fa
 
           <RelatedCastes te={te} casteKey={caste.key} role={role} districtSlug={district?.slug} />
 
+          <DistrictLinks te={te} casteKey={caste.key} role={role} activeSlug={district?.slug} />
+
           <div className="bg-white rounded-2xl p-5 card-shadow border border-gold/20">
             <div className="font-bold text-maroon text-[14px]">
               {te ? "పారదర్శక ధరలు (Direct Connect Pricing)" : "Transparent Pricing (Direct Connect)"}
@@ -253,6 +255,40 @@ export default function CasteClient({ caste, role, district, chan, otherChan, fa
           </p>
         </div>
       </section>
+    </div>
+  );
+}
+
+/**
+ * Every community page links into its district pages. Those pages existed but
+ * nothing pointed at them, so a crawler never reached "Reddy brides Warangal".
+ */
+function DistrictLinks({ te, casteKey, role, activeSlug }: {
+  te: boolean; casteKey: string; role: "bride" | "groom"; activeSlug?: string;
+}) {
+  return (
+    <div className="bg-white rounded-2xl p-5 card-shadow border border-gold/20">
+      <div className="font-bold text-maroon text-[14px]">
+        {te ? "జిల్లాల వారీగా వెతకండి" : "Browse by district"}
+      </div>
+      <div className="mt-2 flex flex-wrap gap-1.5">
+        {DISTRICTS.map((d) => (
+          <Link key={d.slug} href={`/castes/${buildSlug(casteKey, role, d.slug)}`}
+            aria-current={d.slug === activeSlug ? "page" : undefined}
+            className={`text-[11px] rounded-full px-2.5 py-1 border ${
+              d.slug === activeSlug
+                ? "bg-maroon text-white border-maroon"
+                : "bg-cream border-gold/25 hover:border-gold/60"
+            }`}>
+            {d.name}
+          </Link>
+        ))}
+      </div>
+      <p className="mt-3 text-[11px] leading-relaxed text-gray-500">
+        {te
+          ? "జిల్లాలో ఎన్ని ప్రొఫైళ్లు ఉన్నాయో మారుతూ ఉంటుంది; search లో ప్రస్తుత లభ్యత కనిపిస్తుంది."
+          : "How many profiles a district has changes daily; search shows what is currently available."}
+      </p>
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import type { MetadataRoute } from "next";
-import { allSeoSlugs } from "@/lib/seo-pages";
+import { allSeoSlugs, districtSeoSlugs } from "@/lib/seo-pages";
 import { BLOG_ARTICLES } from "@/lib/blog";
 
 const SITE = process.env.SITE_URL || "https://manavivaha.in";
@@ -52,6 +52,16 @@ export default function sitemap(): MetadataRoute.Sitemap {
     priority: 0.7,
   }));
 
+  // The same pages narrowed to a district. They exist for every community and
+  // are linked from each community page; the sitemap lists them for the
+  // communities with the most demand so crawling starts where it pays off.
+  const districtSeo = districtSeoSlugs(8).map((slug) => ({
+    url: `${SITE}/castes/${slug}`,
+    lastModified: now,
+    changeFrequency: "weekly" as const,
+    priority: 0.55,
+  }));
+
   const blog = BLOG_ARTICLES.map((article) => ({
     url: `${SITE}/blog/${article.slug}`,
     lastModified: new Date(article.updated),
@@ -59,5 +69,5 @@ export default function sitemap(): MetadataRoute.Sitemap {
     priority: 0.78,
   }));
 
-  return [...base, ...seo, ...blog];
+  return [...base, ...seo, ...districtSeo, ...blog];
 }

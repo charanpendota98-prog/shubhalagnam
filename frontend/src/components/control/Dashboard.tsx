@@ -23,6 +23,7 @@ import { SITE_CONFIG } from "@/lib/site-config";
 import { whatsappPhoneLink, whatsappShareLink } from "@/lib/wa";
 import { BarList, Donut, Sparkline } from "./Charts";
 import OpsInsights from "./OpsInsights";
+import ChannelCoverage from "./ChannelCoverage";
 import ChannelsConsole from "@/components/ChannelsConsole";
 import WANumbersConsole from "@/components/WANumbersConsole";
 import {
@@ -2759,6 +2760,7 @@ export default function Dashboard() {
               <span>📡</span>
               <span>{tr("టెలిగ్రామ్ & వాట్సాప్ ఛానెల్‌ల నిర్వహణ", "Telegram and WhatsApp channels")}</span>
             </h3>
+            <ChannelCoverage />
             <ChannelsConsole />
           </div>
         )}

@@ -965,7 +965,39 @@ def control_spotlight_action(promo_id: str, payload: dict, request: Request):
         raise HTTPException(400, str(e))
 
 
+@app.get("/api/control/channels/coverage")
+def control_channels_coverage(request: Request):
+    """Owner view of how many channel destinations are actually configured.
+
+    Counts configuration, not availability: a configured link is a link an
+    operator saved, never proof that the Telegram or WhatsApp destination is
+    live or that the bot can post to it.
+    """
+    item = CONTROL_AUTH.require(request, roles=_CONTROL_OWNER_ROLES)
+    cov = CHAN.coverage()
+    pending: list[str] = []
+    for tier, row in (cov.get("by_tier") or {}).items():
+        for key in row.get("pending_keys", [])[:8]:
+            pending.append(f"{tier}:{key}")
+    CONTROL_AUTH.audit("control_channels_coverage", item["username"], request,
+                       total=cov.get("total", 0), routing_eligible=cov.get("routing_eligible", 0))
+    return {
+        "success": True,
+        "total": cov.get("total", 0),
+        "routing_eligible": cov.get("routing_eligible", 0),
+        "with_whatsapp": cov.get("with_whatsapp", 0),
+        "customized": cov.get("customized", 0),
+        "by_tier": cov.get("by_tier", {}),
+        "critical_gaps": cov.get("critical_gaps", []),
+        "pending_sample": pending,
+        "external_status_checked": False,
+        "note": "Counts are configuration only. No external availability, bot permission "
+                "or reachability is checked, and a blank destination is never filled in.",
+    }
+
+
 @app.get("/api/control/stories")
+
 def control_stories(request: Request, status: str = "pending", limit: int = 50):
     """Owner-only member-story moderation queue (control session, not admin key)."""
     item = CONTROL_AUTH.require(request, roles=_CONTROL_OWNER_ROLES)
@@ -8032,6 +8064,113 @@ def gothram_check(a: str, b: str):
             "reason": comparison.get("reason", "details_unavailable"),
             "note_telugu": comparison.get("note_telugu", ""),
             "notice": comparison.get("notice", "Member-entered text comparison only; not a compatibility verdict.")}
+
+
+# A story nudge is shown to members who have been here long enough, or who have a
+# mutual connection, to have something real to share. It is a prompt, never a
+# claim: nothing here says a match happened, that anyone was verified, or that a
+# submitted story will be published.
+STORY_PROMPT_MIN_DAYS = 30
+
+
+@app.get("/api/stories/prompt")
+def story_prompt(request: Request, tsap_id: str = ""):
+    """Owner-only context for the "share your story" nudge.
+
+    Answers only what the member's own record can answer: how long the profile
+    has existed, whether an interest was mutually accepted, and what happened
+    to stories they already sent. An unknown registration date stays unknown
+    instead of being counted as time served.
+    """
+    tid = str(tsap_id or "").strip().upper()
+    require_owner(request, tid)
+    u = _find_user(tid)
+    if not u:
+        raise HTTPException(404, "మీ profile దొరకలేదు — ముందు register చెయ్యండి")
+
+    raw_created = str(u.get("created_at", "") or "")
+    try:
+        member_days = (datetime.utcnow() - datetime.fromisoformat(raw_created.replace("Z", ""))).days
+        days_known = member_days >= 0
+    except Exception:
+        member_days, days_known = 0, False
+
+    accepted = 0
+    for _row in DB_INTERESTS:
+        if str(_row.get("status", "")).strip().lower() != "accepted":
+            continue
+        if tid in {str(_row.get("from_id", "")).strip().upper(), str(_row.get("to_id", "")).strip().upper()}:
+            accepted += 1
+
+    summary = A11.story_summary(tid)
+    if summary["pending"]:
+        reason = "already_pending"
+    elif summary["approved"]:
+        reason = "already_approved"
+    elif accepted >= 1:
+        reason = "accepted_interest"
+    elif days_known and member_days >= STORY_PROMPT_MIN_DAYS:
+        reason = "member_long_enough"
+    else:
+        reason = "not_yet"
+
+    can_submit = reason in {"accepted_interest", "member_long_enough"}
+    prompt = {
+        "not_yet": (
+            "💑 మీ story ఇంకా పంపలేదు",
+            "You have not shared your story yet",
+            "Members who have used the service for a while, or whose interest was accepted on "
+            "both sides, get an invite to share theirs. Nothing is published without review.",
+        ),
+        "member_long_enough": (
+            f"💑 {member_days} రోజులుగా మన వివాహలో ఉన్నారు — మీ story పంపండి",
+            f"You have been here {member_days} days — share your story",
+            "Members who have been here a while sometimes share how it went. It is optional, "
+            "and it is reviewed before anything appears on the stories page.",
+        ),
+        "accepted_interest": (
+            "💑 మీ interest ఒకరితో accept అయింది — జరిగింది చెప్పండి",
+            "An interest was accepted on both sides — tell us how it went",
+            "Only shares what your own account records: an accepted interest. Nothing about the "
+            "conversation, the outcome or the other member is assumed or published.",
+        ),
+        "already_pending": (
+            "⏳ మీ story review లో ఉంది",
+            "Your story is in review",
+            "Review timing is not guaranteed, and review is not a promise to publish. You will "
+            "see it on the stories page only if it is approved.",
+        ),
+        "already_approved": (
+            "✅ మీ story stories page లో ఉంది — ధన్యవాదాలు",
+            "Your story is on the stories page — thank you",
+            "Shared stories keep only the words, names and district the member chose to give.",
+        ),
+    }[reason]
+
+    return {
+        "success": True,
+        "tsap_id": tid,
+        "member_days": member_days if days_known else None,
+        "days_known": days_known,
+        "min_days": STORY_PROMPT_MIN_DAYS,
+        "accepted_interests": accepted,
+        "stories": summary,
+        "can_submit": can_submit,
+        "reason": reason,
+        "title_telugu": prompt[0],
+        "title_en": prompt[1],
+        "note_en": prompt[2],
+        "note_telugu": {
+            "not_yet": "కొంత కాలం పాటు వాడిన వారికి, లేదా interest రెండు వైపులా accept అయిన వారికి ఈ ఆహ్వానం కనిపిస్తుంది. Review లేకుండా ఏదీ ప్రచురించబడదు.",
+            "member_long_enough": "ఇది ఐచ్ఛికం. Review తర్వాతే stories page లో కనిపిస్తుంది — ప్రచురణ హామీ కాదు.",
+            "accepted_interest": "మీ account లో ఉన్నదే చూపిస్తాం: accept అయిన interest. సంభాషణ, ఫలితం, ఇతర సభ్యుల వివరాలు ఊహించి రాయము.",
+            "already_pending": "Review సమయం హామీ కాదు; approve అయితేనే stories page లో కనిపిస్తుంది.",
+            "already_approved": "Story లో మీరు ఇచ్చిన మాటలు, పేర్లు, జిల్లా మాత్రమే ఉంటాయి.",
+        }[reason],
+        "share_url": "/stories",
+        "verified_claim": False,
+        "external_status_checked": False,
+    }
 
 
 @app.post("/api/stories/submit")

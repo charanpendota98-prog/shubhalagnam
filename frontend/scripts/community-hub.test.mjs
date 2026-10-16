@@ -218,8 +218,10 @@ check("hubAliases keeps a hub's own names stronger than borrowed ones", () => {
   assert(!strong.includes("balija"), "borrowed names must not be strong");
 });
 
-/** Registry keys that exist but are deliberately kept out of the public directory. */
-const NON_PUBLIC_HUBS = ["others_st"];
+/** Registry keys that exist but are deliberately kept out of the public directory.
+ *  Empty since the ST Others community was published (split bride/groom like the
+ *  rest); the knob stays for any future community that needs holding back. */
+const NON_PUBLIC_HUBS = [];
 
 check("aliases never map a community onto an unrelated one", () => {
   for (const [from, to] of Object.entries(HUB_ALIASES)) {

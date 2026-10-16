@@ -42,8 +42,11 @@ SITE = "https://manavivaha.in"
 # These category entries remain in the private operator registry so configured
 # usernames/invite URLs are preserved, but they are intentionally not part of
 # the public channel directory at the owner's request.
+# ("c_others_st" used to sit here too: the ST Others community was held back
+# until it had enough members. It is published now and split bride/groom like
+# the rest, so ST members can find their group from the directory.)
 PUBLIC_DIRECTORY_EXCLUDED_KEYS = frozenset({
-    "official", "hindu", "c_others_st",
+    "official", "hindu",
     "bureau_network", "differently_abled", "doctors_teachers", "fraud_alerts",
     "govt_jobs", "second_marriage", "software_it", "success_stories",
 })
@@ -290,7 +293,7 @@ CASTE_CLUSTERS: List[Dict] = [
                             "Bhatraju", "Kalinga", "Bondili", "Meru", "Are Katika", "Nakaralu", "Krishna Balija"]},
     {"key": "others_sc", "en": "Other SC Communities", "te": "ఇతర SC కులాలు", "category": "SC", "split": True,
      "wave": 3, "members": ["Adi Andhra", "Adi Dravida", "Arundhatiya", "Relli", "Arwa Mala", "Samban", "Dandasi"]},
-    {"key": "others_st", "en": "Other ST Communities", "te": "ఇతర ST కులాలు", "category": "ST", "split": False,
+    {"key": "others_st", "en": "Other ST Communities", "te": "ఇతర ST కులాలు", "category": "ST", "split": True,
      "wave": 3, "members": ["Koya", "Koitur", "Gond", "Rajgond", "Naikpod", "Chenchu", "Bagata", "Konda Reddi",
                             "Savara", "Andh"]},
     # ---------------------------------------------------------------------

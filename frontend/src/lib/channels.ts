@@ -16,7 +16,7 @@ export type Channel = {
   externalStatusChecked: boolean;
 };
 
-export const CHANNEL_STATS = {"total": 91, "routing_eligible": 0, "not_routing_eligible": 91, "by_tier": {"L1_REGION": 5, "L2_RELIGION": 12, "L3_CASTE": 74}, "site": "https://manavivaha.in", "external_status_checked": false} as const;
+export const CHANNEL_STATS = {"total": 93, "routing_eligible": 0, "not_routing_eligible": 93, "by_tier": {"L1_REGION": 5, "L2_RELIGION": 12, "L3_CASTE": 76}, "site": "https://manavivaha.in", "external_status_checked": false} as const;
 
 export const CHANNEL_TIERS = [
   {
@@ -38,7 +38,7 @@ export const CHANNEL_TIERS = [
     "label": "Community-wise",
     "icon": "💍",
     "hint": "Selected community directory entries",
-    "count": 74
+    "count": 76
   }
 ] as const;
 
@@ -1187,6 +1187,44 @@ export const ALL_CHANNELS: Channel[] = [
     "desc": "ఇతర SC కులాలు — Other SC Communities (Grooms). Sub-castes: Adi Andhra • Adi Dravida • Arundhatiya • Relli • Arwa Mala. Profiles are member-submitted; details are not independently verified.",
     "hashtags": [
       "#OthersSc",
+      "#Groom",
+      "#TS",
+      "#AP"
+    ],
+    "wave": 3,
+    "routingEligible": false,
+    "externalStatusChecked": false
+  },
+  {
+    "key": "c_others_st_bride",
+    "tier": "L3_CASTE",
+    "name": "👰 Other ST Communities Brides | ఇతర ST కులాలు వధువులు",
+    "username": "",
+    "link": "",
+    "deepLink": "",
+    "whatsappLink": "",
+    "desc": "ఇతర ST కులాలు — Other ST Communities (Brides). Sub-castes: Koya • Koitur • Gond • Rajgond • Naikpod. Profiles are member-submitted; details are not independently verified.",
+    "hashtags": [
+      "#OthersSt",
+      "#Bride",
+      "#TS",
+      "#AP"
+    ],
+    "wave": 3,
+    "routingEligible": false,
+    "externalStatusChecked": false
+  },
+  {
+    "key": "c_others_st_groom",
+    "tier": "L3_CASTE",
+    "name": "🤵 Other ST Communities Grooms | ఇతర ST కులాలు వరులు",
+    "username": "",
+    "link": "",
+    "deepLink": "",
+    "whatsappLink": "",
+    "desc": "ఇతర ST కులాలు — Other ST Communities (Grooms). Sub-castes: Koya • Koitur • Gond • Rajgond • Naikpod. Profiles are member-submitted; details are not independently verified.",
+    "hashtags": [
+      "#OthersSt",
       "#Groom",
       "#TS",
       "#AP"
