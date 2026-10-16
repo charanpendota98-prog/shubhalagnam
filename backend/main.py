@@ -10123,6 +10123,7 @@ def api_compare_profiles(payload: dict, request: Request = None):
         raise HTTPException(400, "Profile IDs must be different")
 
     found_profiles = []
+    raw_profiles = []
     for profile_id in normalized:
         matched = next((u for u in DB_USERS
                         if str(u.get("tsap_id", "")).strip().upper() == profile_id), None)
@@ -10131,12 +10132,34 @@ def api_compare_profiles(payload: dict, request: Request = None):
             raise HTTPException(404, "One or more approved member profiles are unavailable")
         if viewer_id and safety.is_blocked(viewer_id, profile_id, DB_BLOCKS):
             raise HTTPException(404, "One or more approved member profiles are unavailable")
+        raw_profiles.append(matched)
         found_profiles.append(safe_user(matched))
+
+    # Explainable side-by-side help, never a compatibility score: the same
+    # member-entered facts and saved expectations used on the profile page.
+    comparisons: Dict[str, Any] = {}
+    if viewer:
+        for raw in raw_profiles:
+            pid = str(raw.get("tsap_id", "")).strip().upper()
+            if not pid or pid == str(viewer.get("tsap_id", "")).strip().upper():
+                continue
+            result = topmatch.score_match_v2(viewer, raw)
+            comparisons[pid] = {
+                "preference_checks": result.get("preferences", []),
+                "field_checks": result.get("breakdown", []),
+                "observations": result.get("observations", []),
+                "notice": result.get("notice", ""),
+                "notice_telugu": result.get("notice_telugu", ""),
+            }
 
     return {
         "success": True,
         "count": len(found_profiles),
         "profiles": found_profiles,
+        "comparisons": comparisons,
+        "has_saved_expectations": any(
+            bool((row or {}).get("preference_checks")) for row in comparisons.values()
+        ),
         "message_telugu": f"✅ {len(found_profiles)} member profiles పోలికకు సిద్ధంగా ఉన్నాయి",
     }
 
