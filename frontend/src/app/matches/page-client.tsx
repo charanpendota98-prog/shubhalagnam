@@ -1721,7 +1721,7 @@ export default function MatchesPage() {
                     </Link>
                   )}
                   {saveNotice.showShortlist && (
-                    <Link href="/requests" className="rounded-lg border border-current px-3 py-1.5 text-xs font-bold underline-offset-2 hover:underline">
+                    <Link href="/shortlist" className="rounded-lg border border-current px-3 py-1.5 text-xs font-bold underline-offset-2 hover:underline">
                       {te ? "Shortlist చూడండి" : "View shortlist"}
                     </Link>
                   )}

@@ -1,6 +1,6 @@
 # Advanced search + onboarding — explainable results, honest next steps
 
-Updated: 2026-10-15 · Scope: `/matches`, `/me`, `ProfileRail`, and one new shared module.
+Updated: 2026-10-15 · Scope: `/matches`, `/me`, `ProfileRail`, the new `/shortlist` workspace, `backend/main.py`, and one new shared module.
 
 Both features follow the blueprint's explainable-matchmaking rules (§5): facts
 only, nothing inferred, no ranking change, no compatibility score.
@@ -108,3 +108,35 @@ suggestion cap.
 - The recently-viewed rail uses an existing owner-gated endpoint and renders
   nothing for signed-out visitors.
 - No PII is written to `localStorage` by any of this work.
+
+---
+
+## 8. Shortlist workspace + private notes
+
+**New route `/shortlist`** (`ShortlistWorkspace.tsx`) — one place to review saved
+profiles and keep a private reminder on each. Built on the design-system
+primitives, with skeleton loading, a retryable error state, and an empty state
+that points back to browsing.
+
+**Backend** (`backend/main.py`):
+
+- `POST /api/saved/{tsap_id}/{saved_id}/note` — owner-gated
+  (`require_owner`), sanitized with the same `clean()` pass used for profile
+  text, capped at 280 characters, and persisted. An empty note clears it.
+- `GET /api/saved/{tsap_id}` now returns `note` and `note_at` alongside the
+  profile.
+- **Persistence fix:** shortlist add/remove never called the store, so every
+  entry was lost on restart. Both directions now persist through
+  `_persist_core_state()`.
+
+**Privacy:** notes are stored on the owner's shortlist row and returned only to
+that account — never to the profile owner or another member. The page is
+`robots: noindex`, is gated by `AuthGate` for signed-out visitors, and writes
+nothing to `localStorage` beyond the session id the app already keeps. Note
+drafts live in component state until they are saved.
+
+**Tests:** `backend/test_shortlist_notes.py` — **9/9** (`python
+test_shortlist_notes.py`), covering owner read/write, another member's write
+being rejected, unauthenticated writes rejected, a note requiring an existing
+shortlist entry, markup stripping, the 280-character cap, clearing, and
+persistence of both the note and the removal.

@@ -46,6 +46,7 @@ The optional WhatsApp bridge requires its own opt-in configuration and account p
   python test_wave39_install_backup.py
   python test_wave40_deploy.py
   python test_registration_photo_required.py
+  python test_shortlist_notes.py
 )
 
 # Frontend lint, TypeScript, and production build

@@ -5847,9 +5847,14 @@ def toggle_save(payload: dict, request: Request = None):
     existing = next((x for x in DB_SAVES if x["tsap_id"] == tsap_id and x["saved_id"] == saved_id), None)
     if existing:
         DB_SAVES.remove(existing)
+        # 🧊 WAVE 41: the shortlist used to live only in memory, so every entry
+        # disappeared on restart. Persist both directions like the payment state.
+        _persist_core_state()
         return {"success": True, "saved": False, "message_telugu": "Shortlist నుంచి teesesaaru",
                 "total_saved": len([x for x in DB_SAVES if x["tsap_id"] == tsap_id])}
-    DB_SAVES.append({"tsap_id": tsap_id, "saved_id": saved_id, "at": datetime.utcnow().isoformat()})
+    DB_SAVES.append({"tsap_id": tsap_id, "saved_id": saved_id, "at": datetime.utcnow().isoformat(),
+                     "note": "", "note_at": ""})
+    _persist_core_state()
     return {"success": True, "saved": True, "message_telugu": "❤️ Shortlist లో save అయ్యింది",
             "total_saved": len([x for x in DB_SAVES if x["tsap_id"] == tsap_id])}
 
@@ -5863,6 +5868,7 @@ def saved_list(tsap_id: str, request: Request = None):
         u = _find_user(r["saved_id"])
         if u:
             out.append({"saved_at": r["at"], "profile": safe_user(u),
+                        "note": str(r.get("note") or ""), "note_at": str(r.get("note_at") or ""),
                         "porutham": None})
     # porutham with me (star unte)
     me = _find_user(tsap_id)
@@ -5875,6 +5881,33 @@ def saved_list(tsap_id: str, request: Request = None):
                              "doshas": r.get("doshas", [])} if r.get("available") else None
     return {"tsap_id": tsap_id, "count": len(out), "saved": out[::-1],
             "message_telugu": f"❤️ {len(out)} profiles shortlist లో ఉన్నాయి"}
+
+
+# Members keep their own private reminders on a shortlisted profile. The note is
+# only ever readable by the owner (owner-gated read and write), is sanitized with
+# the same `clean()` pass used for profile text, and is capped so it can never be
+# used as a general-purpose storage field.
+SHORTLIST_NOTE_MAX = 280
+
+
+@app.post("/api/saved/{tsap_id}/{saved_id}/note")
+def saved_note_set(tsap_id: str, saved_id: str, payload: dict = Body(default={}), request: Request = None):
+    """📝 Private note on a shortlisted profile — owner-only, sanitized, capped."""
+    tsap_id = clean(tsap_id, 30, "tsap_id")
+    saved_id = clean(saved_id, 30, "saved_id")
+    require_owner(request, tsap_id)   # 🛡️ IDOR: mee note matrame
+    if not tsap_id or not saved_id:
+        raise HTTPException(400, "tsap_id + saved_id కావాలి")
+    record = next((x for x in DB_SAVES if x["tsap_id"] == tsap_id and x["saved_id"] == saved_id), None)
+    if not record:
+        raise HTTPException(404, "Shortlist లో ఈ profile లేదు")
+    raw = payload.get("note") if isinstance(payload, dict) else ""
+    note = clean(raw if isinstance(raw, str) else "", SHORTLIST_NOTE_MAX, "note")
+    record["note"] = note
+    record["note_at"] = datetime.utcnow().isoformat()
+    _persist_core_state()
+    return {"success": True, "saved_id": saved_id, "note": note, "note_at": record["note_at"],
+            "message_telugu": "నోట్ save అయ్యింది" if note else "నోట్ తీసివేశారు"}
 
 
 

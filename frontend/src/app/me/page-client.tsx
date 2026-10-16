@@ -1437,6 +1437,9 @@ function EditProfilePanel({ myId }: { myId: string }) {
           <Link href="/matches" className="inline-flex min-h-11 items-center rounded-full maroon-gradient px-4 py-2 text-xs font-bold text-white">
             {T("సంబంధాలను వెతకండి →", "Browse matches →")}
           </Link>
+          <Link href="/shortlist" className="inline-flex min-h-11 items-center rounded-full border border-maroon/30 px-4 py-2 text-xs font-bold text-maroon">
+            {T("❤️ నా షార్ట్‌లిస్ట్", "❤️ My shortlist")}
+          </Link>
           <Link href="/safety" className="inline-flex min-h-11 items-center rounded-full border border-maroon/30 px-4 py-2 text-xs font-bold text-maroon">
             {T("భద్రతా మార్గదర్శిని", "Safety guide")}
           </Link>
