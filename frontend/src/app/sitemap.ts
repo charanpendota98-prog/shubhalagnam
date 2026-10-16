@@ -24,6 +24,17 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { path: "/bureau", priority: 0.6, freq: "monthly" },
     { path: "/castes", priority: 0.9, freq: "weekly" },
     { path: "/blog", priority: 0.85, freq: "weekly" },
+    { path: "/biodata", priority: 0.8, freq: "monthly" },
+    { path: "/compare", priority: 0.7, freq: "monthly" },
+    { path: "/districts", priority: 0.8, freq: "weekly" },
+    { path: "/lagna-patrika", priority: 0.8, freq: "monthly" },
+    { path: "/muhurtham", priority: 0.8, freq: "weekly" },
+    { path: "/pelli-choopulu", priority: 0.75, freq: "monthly" },
+    { path: "/porutham", priority: 0.75, freq: "monthly" },
+    { path: "/safety", priority: 0.7, freq: "monthly" },
+    { path: "/second-marriage", priority: 0.8, freq: "weekly" },
+    { path: "/spotlight", priority: 0.6, freq: "weekly" },
+    { path: "/stories", priority: 0.7, freq: "weekly" },
   ];
 
   const base = routes.map((r) => ({
