@@ -16,10 +16,12 @@ priority support, report, or other perk is promised by tier.
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import random
 import re
+import secrets
 import string
 import threading
 from collections import defaultdict
@@ -398,6 +400,13 @@ def _attach_referral_locked(user: Dict, code: str, all_users: List[Dict]) -> Dic
     st["credits_earned"] = int(st.get("credits_earned", 0) or 0) + REFERRER_REG_CREDITS
     st["total"] = st["registrations"]
     ref["referral_stats"] = st
+    # 💎 If this registration came from a per-person invite link, close that loop
+    # so the referrer can see "sent → opened → joined" for one named person.
+    try:
+        invite_mark_join(_code_of(ref), user.get("referral_invite_token", ""),
+                         user.get("tsap_id", ""), all_users)
+    except Exception:
+        pass
     # 🎁 referee (kotha user) bonus — andariki
     user["credits"] = int(user.get("credits", 0) or 0) + REFEREE_BONUS_CREDITS
     user.setdefault("credit_history", []).append(
@@ -535,6 +544,11 @@ def _process_referral_payment_locked(referred_user: Dict, referrer_code: str, pl
     new_tier = tier_of(st["paid_count"])
     st["tier"] = new_tier["key"]
     ref["referral_tier"] = new_tier["key"]
+    # 💎 Per-person invite stage → rewarded (same one-time rule, one row).
+    try:
+        invite_mark_paid(str(referred_user.get("tsap_id", "")), commission, all_users)
+    except Exception:
+        pass
 
     # referee ki thank-you + referrer ki notification (Telugu)
     msg_ref = ("✅ Eligible first consumer-plan payment record అయింది: %s (₹%d). "
@@ -1269,3 +1283,684 @@ def _mask_mid(text: str, keep: int) -> str:
     if len(t) <= keep:
         return t[:1] + "***" if t else ""
     return t[:keep] + "***"
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 💎 ADVANCED REFERRAL SUITE
+# ---------------------------------------------------------------------------
+# Four things a referrer keeps asking for, answered only from their own data:
+#
+#   1. wallet_statement()  — a real statement: every entry, a running balance,
+#      and an identity check (earned − reversed − pending − paid = wallet).
+#   2. earnings_explainer() — per-friend "why": what stage each referral is at,
+#      what it earned, and exactly what would have to happen next.
+#   3. invites              — one tracked invite per person you send to, with
+#      its own link, its own message, and its own stage (sent → clicked →
+#      joined → rewarded). Nothing is sent by the server: the app hands back a
+#      wa.me/telegram/sms link and the member presses send.
+#   4. insights             — which channel and message actually worked for
+#      this member, who to follow up with, and what to do next. Small samples
+#      are labelled as indicative, never dressed up as a forecast.
+# ═══════════════════════════════════════════════════════════════════════════
+
+INVITE_CHANNELS = ("whatsapp", "telegram", "sms", "copy")
+INVITE_TOKEN_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+INVITE_TOKEN_LEN = 8
+MAX_INVITES_PER_DAY = 40          # anti-spam: a person cannot be mass-mailed from one wallet
+INVITE_FOLLOWUP_DAYS = 3         # "sent, no click, 3 days" → worth a gentle re-send
+INVITE_DEDUPE_HOURS = 24         # same phone within a day returns the same invite
+_PHONE_SALT = os.environ.get("MANA_VIVAHA_REFERRAL_SALT", "mana-vivaha-referral-v1")
+
+LEDGER_LABELS = {
+    "commission":     ("First-plan referral reward", "మొదటి ప్లాన్ రిఫరల్ రివార్డ్"),
+    "milestone":      ("Milestone reward", "మైల్‌స్టోన్ రివార్డ్"),
+    "reversal":       ("Refund / chargeback clawback", "రిఫండ్ క్లాబ్యాక్"),
+    "payout_request": ("Payout requested (review)", "పేఅవుట్ అభ్యర్థన (సమీక్ష)"),
+    "payout_paid":    ("Payout paid", "పేఅవుట్ చెల్లించబడింది"),
+    "payout_reject":  ("Payout returned to wallet", "పేఅవుట్ వాలెట్‌కు తిరిగి"),
+}
+
+
+def _phone_digits(value: str) -> str:
+    return re.sub(r"\D", "", str(value or ""))
+
+
+def _phone_key(digits: str) -> str:
+    if not digits:
+        return ""
+    return hashlib.sha256((_PHONE_SALT + digits).encode("utf-8")).hexdigest()[:20]
+
+
+def mask_phone(digits: str) -> str:
+    """9876543210 → 98•••••10 (we never hand a full number back to a browser)."""
+    d = _phone_digits(digits)
+    if len(d) < 6:
+        return "•" * len(d)
+    return d[:2] + "•" * (len(d) - 4) + d[-2:]
+
+
+def _invite_token(existing: Optional[set] = None) -> str:
+    for _ in range(12):
+        tok = "".join(secrets.choice(INVITE_TOKEN_ALPHABET) for _ in range(INVITE_TOKEN_LEN))
+        if not existing or tok not in existing:
+            return tok
+    return "".join(secrets.choice(INVITE_TOKEN_ALPHABET) for _ in range(INVITE_TOKEN_LEN + 4))
+
+
+def _invites_of(user: Dict) -> List[Dict]:
+    st = stats_of(user)
+    return st.setdefault("invites", [])
+
+
+def _invite_stage(inv: Dict) -> str:
+    if inv.get("paid_at"):
+        return "rewarded"
+    if inv.get("joined_tsap"):
+        return "joined"
+    if int(inv.get("clicks", 0) or 0) > 0:
+        return "clicked"
+    return "sent"
+
+
+def _invite_label(inv: Dict) -> Dict[str, str]:
+    stage = _invite_stage(inv)
+    labels = {
+        "sent":     ("Link ready — not opened yet", "లింక్ సిద్ధం — ఇంకా తెరవలేదు"),
+        "clicked":  ("Opened the link", "లింక్ తెరిచారు"),
+        "joined":   ("Registered — waiting for a qualifying plan", "నమోదు అయ్యారు — అర్హమైన ప్లాన్ కోసం వేచి ఉంది"),
+        "rewarded": ("Rewarded — first qualifying plan paid", "రివార్డ్ వచ్చింది — మొదటి అర్హమైన ప్లాన్ చెల్లింపు"),
+    }
+    en, te = labels[stage]
+    return {"stage": stage, "stage_en": en, "stage_te": te}
+
+
+def _invite_next(inv: Dict) -> Dict[str, str]:
+    stage = _invite_stage(inv)
+    if stage == "sent":
+        return {"next_en": "Send the message, or share the link again after a few days.",
+                "next_te": "సందేశం పంపండి; కొన్ని రోజుల తర్వాత లింక్ మళ్లీ పంచుకోండి."}
+    if stage == "clicked":
+        return {"next_en": "They opened the link but have not registered. A short reminder helps.",
+                "next_te": "లింక్ తెరిచారు కానీ నమోదు కాలేదు. చిన్న రిమైండర్ సాయం చేస్తుంది."}
+    if stage == "joined":
+        return {"next_en": "Registered. A reward needs their first eligible S_99/S_199/S_299/S_499 plan payment — nothing is earned before that.",
+                "next_te": "నమోదు అయ్యారు. రివార్డ్ కు వారి మొదటి అర్హమైన S_99/S_199/S_299/S_499 ప్లాన్ చెల్లింపు అవసరం — అంతకు ముందు ఏదీ లభించదు."}
+    return {"next_en": "Done. Refer someone new — one reward per person, once.",
+            "next_te": "పూర్తి. కొత్తవారిని పరిచయం చేయండి — ఒక్కొక్కరికి ఒక్కసారి మాత్రమే."}
+
+
+def _invite_link(code: str, token: str) -> str:
+    return f"{SITE_URL}/r/{code}?inv={token}" if token else f"{SITE_URL}/r/{code}"
+
+
+def _public_invite(inv: Dict) -> Dict:
+    """Browser-safe invite row: no stored phone digits, just a masked hint."""
+    row = dict(inv)
+    row.pop("phone_key", None)
+    row["phone_masked"] = mask_phone(inv.get("phone_last4_hint", "") or inv.get("phone", ""))
+    row.pop("phone", None)
+    row.pop("phone_last4_hint", None)
+    row.update(_invite_label(inv))
+    row.update(_invite_next(inv))
+    row["sent_days_ago"] = _days_since(inv.get("sent_at", ""))
+    row["needs_followup"] = (_invite_stage(inv) == "sent"
+                             and (row["sent_days_ago"] or 0) >= INVITE_FOLLOWUP_DAYS)
+    return row
+
+
+def _money(value) -> str:
+    """50.0 → "50", 12.5 → "12.5" — statements read as money, not as floats."""
+    try:
+        v = round(float(value or 0), 2)
+    except Exception:
+        return "0"
+    return str(int(v)) if float(v).is_integer() else str(v)
+
+
+def _days_since(stamp: str) -> Optional[int]:
+    try:
+        then = datetime.fromisoformat(str(stamp).replace("Z", ""))
+    except Exception:
+        return None
+    return max(0, (datetime.utcnow() - then).days)
+
+
+def invite_create(user: Dict, name: str, phone: str = "", channel: str = "whatsapp",
+                  variant: int = 0, all_users: Optional[List[Dict]] = None) -> Dict:
+    """Create one tracked invite for one named person.
+
+    Nothing is delivered by the server. The caller gets a ready wa.me /
+    telegram / sms link with a personalised, policy-accurate message and a
+    link carrying this invite's own token, so the funnel can be shown back to
+    the referrer per person.
+    """
+    ensure_referrer_profile(user, all_users or [])
+    st = stats_of(user)
+    invites = _invites_of(user)
+
+    friend = " ".join(str(name or "").split()).strip()
+    if len(friend) < 2 or len(friend) > 40:
+        return {"ok": False, "reason": "bad_name",
+                "message_en": "Enter the name you want on the message (2–40 characters).",
+                "message_telugu": "సందేశంలో ఉండే పేరు ఇవ్వండి (2–40 అక్షరాలు)."}
+    if not re.fullmatch(r"[^\x00-\x1f<>{}]{2,40}", friend):
+        return {"ok": False, "reason": "bad_name",
+                "message_en": "That name has characters we cannot put in a message.",
+                "message_telugu": "ఈ పేరులో సందేశానికి పనికిరాని అక్షరాలు ఉన్నాయి."}
+
+    digits = _phone_digits(phone)
+    if digits and len(digits) != 10:
+        return {"ok": False, "reason": "bad_phone",
+                "message_en": "Enter a 10-digit mobile number, or leave it empty to send by name.",
+                "message_telugu": "10 అంకెల మొబైల్ నంబర్ ఇవ్వండి, లేదా ఖాళీగా వదిలి పేరుతో పంపండి."}
+
+    today = _today()
+    sent_today = sum(1 for i in invites if str(i.get("sent_at", ""))[:10] == today)
+    if sent_today >= MAX_INVITES_PER_DAY:
+        return {"ok": False, "reason": "daily_limit", "limit": MAX_INVITES_PER_DAY,
+                "message_en": f"You can create up to {MAX_INVITES_PER_DAY} invites a day. Try again tomorrow.",
+                "message_telugu": f"ఒక రోజులో గరిష్ఠం {MAX_INVITES_PER_DAY} ఆహ్వానాలు. రేపు మళ్లీ ప్రయత్నించండి."}
+
+    key = _phone_key(digits)
+    if key:
+        for inv in invites:
+            age_days = _days_since(inv.get("sent_at", ""))
+            # `age_days` is 0 for "sent today" — compare explicitly, never with
+            # `or`, which would turn today's 0 into a fallback value.
+            if inv.get("phone_key") == key and age_days is not None and age_days < 1:
+                inv["send_count"] = int(inv.get("send_count", 1) or 1) + 1
+                inv["last_sent_at"] = _now()
+                save_state()
+                return {"ok": True, "invite": _public_invite(inv), "resent": True,
+                        "share": _invite_share_links(inv),
+                        "message_en": "That number already has an invite today — the same link is ready to send again.",
+                        "message_telugu": "ఈ నంబర్‌కు ఈ రోజు ఇప్పటికే ఆహ్వానం ఉంది — అదే లింక్ మళ్లీ పంపవచ్చు."}
+
+    channel = str(channel or "whatsapp").lower()
+    if channel not in INVITE_CHANNELS:
+        return {"ok": False, "reason": "bad_channel",
+                "message_en": "Choose WhatsApp, Telegram, SMS or copy-link.",
+                "message_telugu": "WhatsApp, Telegram, SMS లేదా లింక్ కాపీ ఎంచుకోండి."}
+
+    kit = share_kit(user)
+    try:
+        variant = int(variant or 0)
+    except Exception:
+        variant = 0
+    variants_te = kit.get("whatsapp_messages_te") or []
+    variants_en = kit.get("whatsapp_messages_en") or []
+    if not variants_te:
+        variant = 0
+    else:
+        variant = max(0, min(variant, len(variants_te) - 1))
+
+    token = _invite_token({str(i.get("token")) for i in invites})
+    code = _code_of(user)
+    link = _invite_link(code, token)
+    # Personalisation is a greeting only — the policy lines inside the variant
+    # are left exactly as the share kit generated them.
+    msg_te = f"{friend} గారు,\n\n" + (variants_te[variant] if variants_te else link)
+    msg_en = f"Hi {friend},\n\n" + (variants_en[variant] if variants_en else link)
+
+    inv = {
+        "token": token,
+        "name": friend,
+        "phone_key": key,
+        "phone_last4_hint": digits[-4:] if digits else "",
+        "channel": channel,
+        "variant": variant,
+        "link": link,
+        "message_te": msg_te,
+        "message_en": msg_en,
+        "sent_at": _now(),
+        "last_sent_at": _now(),
+        "send_count": 1,
+        "clicks": 0,
+        "clicked_at": "",
+        "joined_tsap": "",
+        "joined_at": "",
+        "paid_at": "",
+        "reward": 0,
+    }
+    invites.append(inv)
+    save_state()
+    return {"ok": True, "invite": _public_invite(inv), "resent": False,
+            "share": _invite_share_links(inv),
+            "daily_used": sent_today + 1, "daily_limit": MAX_INVITES_PER_DAY,
+            "message_en": "Invite ready. Open the WhatsApp/Telegram link and press send — we never message anyone on your behalf.",
+            "message_telugu": "ఆహ్వానం సిద్ధం. WhatsApp/Telegram లింక్ తెరిచి మీరే పంపండి — మీ తరపున మేము ఎవరికీ సందేశం పంపము."}
+
+
+def _invite_share_links(inv: Dict) -> Dict:
+    """Delivery is the member's own tap; these links only pre-fill their app."""
+    from urllib.parse import quote
+    link = inv.get("link", "")
+    msg_te = inv.get("message_te", "")
+    msg_en = inv.get("message_en", "")
+    hint = inv.get("phone_last4_hint", "")
+    base = {}
+    if hint:
+        # A full number is never stored, so this cannot be a direct send: the
+        # member still picks the contact in their own WhatsApp.
+        base["whatsapp_te"] = "https://wa.me/?text=" + quote(msg_te, safe="")
+        base["whatsapp_en"] = "https://wa.me/?text=" + quote(msg_en, safe="")
+    else:
+        base["whatsapp_te"] = "https://wa.me/?text=" + quote(msg_te, safe="")
+        base["whatsapp_en"] = "https://wa.me/?text=" + quote(msg_en, safe="")
+    base["telegram_te"] = "https://t.me/share/url?url=%s&text=%s" % (quote(link, safe=""), quote(msg_te, safe=""))
+    base["telegram_en"] = "https://t.me/share/url?url=%s&text=%s" % (quote(link, safe=""), quote(msg_en, safe=""))
+    base["sms_te"] = "sms:?&body=" + quote(msg_te, safe="")
+    base["sms_en"] = "sms:?&body=" + quote(msg_en, safe="")
+    base["link"] = link
+    return base
+
+
+def invite_list(user: Dict, limit: int = 100) -> Dict:
+    """Every invite with its stage, age and the honest next step."""
+    invites = _invites_of(user)
+    rows = [_public_invite(i) for i in invites]
+    rows.sort(key=lambda r: str(r.get("sent_at", "")), reverse=True)
+    rows = rows[:max(1, min(int(limit or 100), 300))]
+    counts = {"sent": 0, "clicked": 0, "joined": 0, "rewarded": 0}
+    for r in rows:
+        counts[r["stage"]] = counts.get(r["stage"], 0) + 1
+    return {"success": True, "invites": rows, "total": len(invites), "counts": counts,
+            "followups": [r for r in rows if r.get("needs_followup")][:5],
+            "daily_limit": MAX_INVITES_PER_DAY,
+            "note_en": "Invites are tracked per person. Stages come from real link opens and registrations — nothing is assumed.",
+            "note_te": "ఆహ్వానాలు ఒక్కొక్కరికి వేర్వేరుగా ట్రాక్ అవుతాయి. దశలు నిజమైన లింక్ ఓపెన్‌లు మరియు నమోదుల ఆధారంగా ఉంటాయి."}
+
+
+def invite_find(code: str, token: str, all_users: List[Dict]) -> Optional[Dict]:
+    tok = str(token or "").strip().upper()
+    if not tok:
+        return None
+    ref = find_referrer(str(code or ""), all_users or [])
+    if not ref:
+        return None
+    for inv in _invites_of(ref):
+        if str(inv.get("token", "")).upper() == tok:
+            return inv
+    return None
+
+
+def invite_record_click(code: str, token: str, all_users: List[Dict]) -> bool:
+    inv = invite_find(code, token, all_users)
+    if not inv:
+        return False
+    inv["clicks"] = int(inv.get("clicks", 0) or 0) + 1
+    inv["clicked_at"] = _now()
+    save_state()
+    return True
+
+
+def invite_mark_join(code: str, token: str, tsap_id: str, all_users: List[Dict]) -> bool:
+    inv = invite_find(code, token, all_users)
+    if not inv:
+        return False
+    inv["joined_tsap"] = str(tsap_id or "")
+    inv["joined_at"] = _now()
+    save_state()
+    return True
+
+
+def invite_mark_paid(tsap_id: str, amount: float, all_users: List[Dict]) -> bool:
+    """Called when a referred member's first qualifying payment is rewarded."""
+    uid = str(tsap_id or "")
+    if not uid:
+        return False
+    for ref in (all_users or []):
+        invites = (ref.get("referral_stats") or {}).get("invites") or []
+        for inv in invites:
+            if str(inv.get("joined_tsap", "")) == uid and not inv.get("paid_at"):
+                inv["paid_at"] = _now()
+                inv["reward"] = round(float(amount or 0), 2)
+                save_state()
+                return True
+    # A join can also arrive without an invite token (shared code only), in
+    # which case there is simply nothing per-person to update.
+    return False
+
+
+# ------------------------------------------------------------------ statement
+def wallet_statement(user: Dict, types: Optional[List[str]] = None,
+                     limit: int = 100) -> Dict:
+    """Wallet as a statement: every entry, running balance, and a check.
+
+    The identity `earned − reversed − pending − paid_out = wallet` is computed
+    and returned as `reconciles`. If it is ever false, the UI says so instead
+    of quietly showing a number nobody can explain.
+    """
+    st = stats_of(user)
+    want = {str(t) for t in (types or [])} if types else None
+    rows = []
+    balance = 0.0
+    for entry in (st.get("ledger", []) or []):
+        kind = str(entry.get("type", ""))
+        signed = float(entry.get("amount", 0) or 0)
+        if want and kind not in want:
+            continue
+        balance = round(balance + signed, 2)
+        label_en, label_te = LEDGER_LABELS.get(kind, (kind.title() or "Entry", kind))
+        rows.append({
+            "id": entry.get("id", ""),
+            "at": entry.get("at", ""),
+            "type": kind,
+            "label_en": label_en,
+            "label_te": label_te,
+            "amount": round(signed, 2),
+            "balance_after": balance,
+            "from": entry.get("from", ""),
+            "from_name": entry.get("from_name", ""),
+            "plan_code": entry.get("plan_code", ""),
+            "plan_amount": entry.get("plan_amount", ""),
+            "utr": entry.get("utr", ""),
+            "note": entry.get("note", ""),
+        })
+
+    rows.reverse()                      # newest first
+    rows = rows[:max(1, min(int(limit or 100), 500))]
+
+    ledger = st.get("ledger", []) or []
+    earned = round(sum(float(e.get("amount", 0) or 0) for e in ledger
+                       if e.get("type") in ("commission", "milestone")
+                       and not e.get("reversed")), 2)
+    reversed_total = round(sum(float(e.get("amount", 0) or 0) for e in ledger
+                               if e.get("type") == "commission" and e.get("reversed")), 2)
+    returned = round(sum(float(e.get("amount", 0) or 0) for e in ledger
+                         if e.get("type") == "payout_reject"), 2)
+    pending = round(float(st.get("pending_payout", 0) or 0), 2)
+    paid_out = round(float(st.get("paid_out", 0) or 0), 2)
+    wallet = round(float(st.get("wallet", 0) or 0), 2)
+    expected = round(earned + returned - reversed_total - pending - paid_out, 2)
+
+    return {
+        "success": True,
+        "wallet": wallet,
+        "entries": rows,
+        "totals": {
+            "earned": earned, "reversed": -reversed_total, "returned": returned,
+            "pending_payout": pending, "paid_out": paid_out,
+            "lifetime_earned": round(float(st.get("lifetime_earned", 0) or 0), 2),
+        },
+        "identity": {
+            "formula_en": f"₹{_money(earned)} earned − ₹{_money(reversed_total)} reversed + ₹{_money(returned)} returned "
+                          f"− ₹{_money(pending)} requested − ₹{_money(paid_out)} paid out = ₹{_money(expected)}",
+            "formula_te": f"₹{_money(earned)} సంపాదన − ₹{_money(reversed_total)} రివర్స్ + ₹{_money(returned)} తిరిగి "
+                          f"− ₹{_money(pending)} అభ్యర్థన − ₹{_money(paid_out)} చెల్లింపు = ₹{_money(expected)}",
+            "expected_wallet": expected,
+            "actual_wallet": wallet,
+            "reconciles": abs(expected - wallet) <= 0.01,
+        },
+        "min_payout": MIN_PAYOUT,
+        "can_request_payout": wallet >= MIN_PAYOUT,
+        "note_en": "Manual admin review applies to every payout; processing time is not guaranteed.",
+        "note_te": "ప్రతి పేఅవుట్‌కు మాన్యువల్ సమీక్ష వర్తిస్తుంది; సమయం హామీ కాదు.",
+    }
+
+
+# ------------------------------------------------------------------ explainer
+def earnings_explainer(user: Dict, all_users: List[Dict]) -> Dict:
+    """Per-friend earnings story: what happened, what it earned, what is next."""
+    st = stats_of(user)
+    code = _code_of(user)
+    eligible = qualifying_commission_entries(st)
+    by_friend = {str(e.get("from")): e for e in eligible if e.get("from")}
+    reversed_rows = [e for e in (st.get("ledger", []) or [])
+                     if e.get("type") == "commission" and e.get("reversed")]
+
+    rows = []
+    for u in (all_users or []):
+        if str(u.get("referred_by", "") or "").upper() != code:
+            continue
+        uid = str(u.get("tsap_id", ""))
+        entry = by_friend.get(uid)
+        reversed_entry = next((e for e in reversed_rows if str(e.get("from")) == uid), None)
+        if entry:
+            stage = "rewarded"
+            why_en = (f"First eligible {entry.get('plan_code', 'consumer')} plan payment of "
+                      f"₹{entry.get('plan_amount', '')} — the one-time ₹{FIRST_PAY_COMMISSION} reward was credited.")
+            why_te = (f"మొదటి అర్హమైన {entry.get('plan_code', 'consumer')} ప్లాన్ చెల్లింపు "
+                      f"₹{entry.get('plan_amount', '')} — ఒకసారి ₹{FIRST_PAY_COMMISSION} రివార్డ్ జమైంది.")
+            next_en = "Nothing more from this friend — repeat payments earn no additional commission."
+            next_te = "ఈ స్నేహితుడి నుంచి ఇంకేమీ లేదు — మళ్లీ చెల్లింపులకు అదనపు కమిషన్ ఉండదు."
+            reward = FIRST_PAY_COMMISSION
+            credited_at = entry.get("at", "")
+        elif reversed_entry:
+            stage = "reversed"
+            why_en = f"The reward was reversed after a refund/chargeback ({reversed_entry.get('reversed_reason', 'refund')})."
+            why_te = f"రిఫండ్/ఛార్జ్‌బ్యాక్ తర్వాత రివార్డ్ రివర్స్ అయింది ({reversed_entry.get('reversed_reason', 'refund')})."
+            next_en = "Only a fresh eligible first-plan payment can qualify again; nothing is owed now."
+            next_te = "మళ్లీ కొత్త అర్హమైన మొదటి ప్లాన్ చెల్లింపే అర్హత ఇస్తుంది; ఇప్పుడు ఏదీ రాదు."
+            reward = 0
+            credited_at = ""
+        else:
+            stage = "waiting"
+            why_en = "Registered, but no eligible first consumer-plan payment yet."
+            why_te = "నమోదు అయ్యారు, కానీ ఇంకా అర్హమైన మొదటి వినియోగదారు ప్లాన్ చెల్లింపు లేదు."
+            next_en = ("A reward needs their first paid S_99/S_199/S_299/S_499 plan "
+                       f"(₹{MIN_QUALIFYING_AMOUNT}+). Add-ons, boosts, renewals and B2B plans do not qualify.")
+            next_te = (f"రివార్డ్ కు వారి మొదటి S_99/S_199/S_299/S_499 ప్లాన్ చెల్లింపు (₹{MIN_QUALIFYING_AMOUNT}+) అవసరం. "
+                       "యాడ్-ఆన్‌లు, బూస్ట్‌లు, పునరుద్ధరణలు, B2B ప్లాన్‌లు అర్హం కావు.")
+            reward = 0
+            credited_at = ""
+        rows.append({
+            "tsap_id": uid,
+            "name": u.get("full_name") or u.get("name", "Friend"),
+            "stage": stage,
+            "reward": reward,
+            "credited_at": credited_at,
+            "joined_at": u.get("referred_at") or u.get("created_at", ""),
+            "plan_code": entry.get("plan_code", "") if entry else "",
+            "plan_amount": entry.get("plan_amount", "") if entry else "",
+            "why_en": why_en, "why_te": why_te,
+            "next_en": next_en, "next_te": next_te,
+            "timeline": [
+                {"at": u.get("referred_at") or u.get("created_at", ""),
+                 "label_en": "Registered with your code", "label_te": "మీ కోడ్‌తో నమోదు"},
+                {"at": credited_at,
+                 "label_en": f"Eligible first-plan payment → ₹{FIRST_PAY_COMMISSION}",
+                 "label_te": f"అర్హమైన మొదటి ప్లాన్ చెల్లింపు → ₹{FIRST_PAY_COMMISSION}"},
+            ] if stage == "rewarded" else [
+                {"at": u.get("referred_at") or u.get("created_at", ""),
+                 "label_en": "Registered with your code", "label_te": "మీ కోడ్‌తో నమోదు"},
+                {"at": "", "label_en": "Waiting for an eligible first plan payment",
+                 "label_te": "అర్హమైన మొదటి ప్లాన్ చెల్లింపు కోసం వేచి ఉంది"},
+            ] if stage == "waiting" else [
+                {"at": u.get("referred_at") or u.get("created_at", ""),
+                 "label_en": "Registered with your code", "label_te": "మీ కోడ్‌తో నమోదు"},
+                {"at": (reversed_entry or {}).get("reversed_at", ""),
+                 "label_en": "Reward reversed after refund", "label_te": "రిఫండ్ తర్వాత రివార్డ్ రివర్స్"},
+            ],
+        })
+
+    # Invites that never became registrations are part of the story too.
+    for inv in _invites_of(user):
+        if inv.get("joined_tsap"):
+            continue
+        rows.append({
+            "tsap_id": "", "name": inv.get("name", "Invite"),
+            "stage": "invited",
+            "reward": 0, "credited_at": "", "joined_at": "",
+            "plan_code": "", "plan_amount": "",
+            "why_en": f"Invite {inv.get('token', '')} was {'opened' if int(inv.get('clicks', 0)) else 'not opened yet'}.",
+            "why_te": f"ఆహ్వానం {inv.get('token', '')} {'తెరిచారు' if int(inv.get('clicks', 0)) else 'ఇంకా తెరవలేదు'}.",
+            "next_en": "Registration is required before anything can be earned.",
+            "next_te": "ఏదైనా రావాలంటే ముందు నమోదు అవ్వాలి.",
+            "timeline": [{"at": inv.get("sent_at", ""),
+                          "label_en": "Invite created", "label_te": "ఆహ్వానం సృష్టించబడింది"}],
+        })
+
+    rows.sort(key=lambda r: (r.get("stage") != "waiting", str(r.get("credited_at", ""))), reverse=True)
+
+    gross = len(eligible) * FIRST_PAY_COMMISSION
+    wallet = round(float(st.get("wallet", 0) or 0), 2)
+    pending = round(float(st.get("pending_payout", 0) or 0), 2)
+    paid_out = round(float(st.get("paid_out", 0) or 0), 2)
+    reversed_total = round(sum(float(e.get("amount", 0) or 0) for e in reversed_rows), 2)
+    return {
+        "success": True,
+        "rows": rows,
+        "counts": {
+            "registered": sum(1 for r in rows if r["stage"] in ("waiting", "rewarded", "reversed")),
+            "rewarded": len(eligible),
+            "waiting": sum(1 for r in rows if r["stage"] == "waiting"),
+            "reversed": len(reversed_rows),
+            "invited_only": sum(1 for r in rows if r["stage"] == "invited"),
+        },
+        "totals": {
+            "reward_per_friend": FIRST_PAY_COMMISSION,
+            "rewards_count": len(eligible),
+            "gross_earned": gross,
+            "reversed": -reversed_total,
+            "pending_payout": pending,
+            "paid_out": paid_out,
+            "wallet": wallet,
+        },
+        "formula_en": (f"{len(eligible)} × ₹{FIRST_PAY_COMMISSION} = ₹{_money(gross)} earned"
+                       + (f" · −₹{_money(reversed_total)} reversed" if reversed_total else "")
+                       + f" · ₹{_money(pending)} payout requested · ₹{_money(paid_out)} paid out · wallet ₹{_money(wallet)}"),
+        "formula_te": (f"{len(eligible)} × ₹{FIRST_PAY_COMMISSION} = ₹{_money(gross)} సంపాదన"
+                       + (f" · −₹{_money(reversed_total)} రివర్స్" if reversed_total else "")
+                       + f" · ₹{_money(pending)} పేఅవుట్ అభ్యర్థన · ₹{_money(paid_out)} చెల్లించారు · వాలెట్ ₹{_money(wallet)}"),
+        "note_en": ("Only realised rewards are counted. Registrations alone are never shown as "
+                    "money you will receive — a reward needs that person's first eligible paid plan."),
+        "note_te": ("నిజంగా వచ్చిన రివార్డ్‌లే లెక్కలోకి వస్తాయి. నమోదులను రాబోయే డబ్బుగా చూపము — "
+                    "రివార్డ్ కు ఆ వ్యక్తి మొదటి అర్హమైన ప్లాన్ చెల్లింపు అవసరం."),
+    }
+
+
+# ------------------------------------------------------------------ insights
+def referral_insights(user: Dict, all_users: List[Dict]) -> Dict:
+    """What actually worked for this member — from their own numbers only."""
+    st = stats_of(user)
+    invites = _invites_of(user)
+    explainer = earnings_explainer(user, all_users)
+    cstats = click_stats(_code_of(user))
+
+    by_channel: Dict[str, Dict[str, int]] = {}
+    for inv in invites:
+        row = by_channel.setdefault(str(inv.get("channel", "copy")),
+                                    {"sent": 0, "clicked": 0, "joined": 0, "rewarded": 0})
+        row["sent"] += 1
+        if int(inv.get("clicks", 0) or 0):
+            row["clicked"] += 1
+        if inv.get("joined_tsap"):
+            row["joined"] += 1
+        if inv.get("paid_at"):
+            row["rewarded"] += 1
+    channels = [{"channel": k, **v} for k, v in sorted(by_channel.items(),
+                                                       key=lambda kv: (-kv[1]["joined"], -kv[1]["clicked"]))]
+
+    best_channel = None
+    if channels and (channels[0]["joined"] or channels[0]["clicked"]):
+        top = channels[0]
+        best_channel = {
+            "channel": top["channel"],
+            "reason_en": f"{top['clicked']} of {top['sent']} invites sent by {top['channel']} were opened "
+                         f"and {top['joined']} led to a registration.",
+            "reason_te": f"{top['channel']} ద్వారా పంపిన {top['sent']} ఆహ్వానాల్లో {top['clicked']} తెరిచారు, "
+                         f"{top['joined']} నమోదుకు దారితీశాయి.",
+        }
+
+    clicks = int(cstats.get("clicks", 0) or 0)
+    regs = int(st.get("registrations", 0) or 0)
+    paid_count = len({str(e.get("from")) for e in qualifying_commission_entries(st)})
+    small_sample = clicks < 10 or regs < 5
+    conversion = {
+        "clicks": clicks,
+        "registrations": regs,
+        "rewarded": paid_count,
+        "click_to_join_pct": round(regs / clicks * 100, 1) if clicks else None,
+        "join_to_reward_pct": round(paid_count / regs * 100, 1) if regs else None,
+        "sample_size_note_en": ("Small sample — treat these percentages as indicative, not as a forecast."
+                                if small_sample else
+                                "Based on your own tracked clicks and registrations."),
+        "sample_size_note_te": ("చిన్న సాంపుల్ — ఈ శాతాలు సూచిక మాత్రమే, అంచనా కాదు."
+                                if small_sample else
+                                "మీ ట్రాక్ అయిన క్లిక్‌లు మరియు నమోదుల ఆధారంగా."),
+        "small_sample": small_sample,
+    }
+
+    followups = []
+    for inv in invites:
+        if _invite_stage(inv) != "sent":
+            continue
+        days = _days_since(inv.get("sent_at", "")) or 0
+        if days >= INVITE_FOLLOWUP_DAYS:
+            followups.append({
+                "token": inv.get("token", ""),
+                "name": inv.get("name", ""),
+                "days": days,
+                "share": _invite_share_links(inv),
+                "reason_en": f"Sent {days} days ago and not opened yet.",
+                "reason_te": f"{days} రోజుల క్రితం పంపారు, ఇంకా తెరవలేదు.",
+            })
+    followups.sort(key=lambda f: -int(f.get("days", 0)))
+    followups = followups[:5]
+
+    actions: List[Dict] = []
+    if followups:
+        actions.append({
+            "title_en": "Re-send the invites that were never opened",
+            "title_te": "తెరవని ఆహ్వానాలను మళ్లీ పంపండి",
+            "why_en": f"{len(followups)} invite(s) are older than {INVITE_FOLLOWUP_DAYS} days with no open.",
+            "why_te": f"{len(followups)} ఆహ్వానాలు {INVITE_FOLLOWUP_DAYS} రోజుల కంటే పాతవి, తెరవలేదు.",
+            "href": "/referral",
+        })
+    if explainer["counts"]["waiting"]:
+        actions.append({
+            "title_en": "Explain the plan to friends who registered but have not paid",
+            "title_te": "నమోదైనా చెల్లింపు చేయని వారికి ప్లాన్ వివరించండి",
+            "why_en": f"{explainer['counts']['waiting']} friend(s) are registered. A reward needs their first eligible plan payment — never promise one.",
+            "why_te": f"{explainer['counts']['waiting']} మంది నమోదు అయ్యారు. రివార్డ్ కు వారి మొదటి అర్హమైన ప్లాన్ చెల్లింపు అవసరం — హామీ ఇవ్వకండి.",
+            "href": "/pricing",
+        })
+    if float(st.get("wallet", 0) or 0) >= MIN_PAYOUT:
+        actions.append({
+            "title_en": "Your wallet is above the payout minimum",
+            "title_te": "మీ వాలెట్ పేఅవుట్ కనిష్ఠం దాటింది",
+            "why_en": f"₹{st.get('wallet')} available; the minimum request is ₹{MIN_PAYOUT}. Review is manual and timing is not guaranteed.",
+            "why_te": f"₹{st.get('wallet')} అందుబాటులో ఉంది; కనిష్ఠం ₹{MIN_PAYOUT}. సమీక్ష మాన్యువల్, సమయం హామీ కాదు.",
+            "href": "/referral",
+        })
+    opened_not_joined = sum(1 for inv in invites
+                            if _invite_stage(inv) == "clicked" and not inv.get("joined_tsap"))
+    if opened_not_joined:
+        actions.append({
+            "title_en": "Remind the people who opened your link but have not registered",
+            "title_te": "లింక్ తెరిచినా నమోదు కాని వారికి గుర్తు చేయండి",
+            "why_en": f"{opened_not_joined} invite(s) were opened without a registration — a short, pressure-free reminder is all that is warranted.",
+            "why_te": f"{opened_not_joined} ఆహ్వానాలు తెరిచారు కానీ నమోదు కాలేదు — ఒత్తిడి లేని చిన్న గుర్తుచేత సరిపోతుంది.",
+            "href": "/referral",
+        })
+    if not invites:
+        actions.append({
+            "title_en": "Send your first tracked invite",
+            "title_te": "మీ మొదటి ట్రాక్ అయిన ఆహ్వానం పంపండి",
+            "why_en": "Per-person invites show who opened your link and who joined — far more useful than a broadcast.",
+            "why_te": "ఒక్కొక్కరికి పంపిన ఆహ్వానాలతో ఎవరు తెరిచారు, ఎవరు చేరారు తెలుస్తుంది.",
+            "href": "/referral",
+        })
+    if not actions:
+        # Never leave the panel empty: a referrer with invites but no signal yet
+        # still has something honest to do.
+        actions.append({
+            "title_en": "Put your QR poster where families gather",
+            "title_te": "కుటుంబాలు కలిసే చోట మీ QR పోస్టర్ ఉంచండి",
+            "why_en": "A poster reaches people you would not message directly. Download one from the poster tab — no numbers, no promises.",
+            "why_te": "నేరుగా సందేశం పంపని వారికి పోస్టర్ చేరుతుంది. పోస్టర్ ట్యాబ్ నుంచి డౌన్‌లోడ్ చేయండి — ఎటువంటి హామీలు లేవు.",
+            "href": "/referral",
+        })
+
+    return {
+        "success": True,
+        "channels": channels,
+        "best_channel": best_channel,
+        "conversion": conversion,
+        "followups": followups,
+        "next_actions": actions,
+        "invite_counts": invite_list(user, limit=300)["counts"],
+        "note_en": "Everything here is computed from your own tracked invites. No other member's data is used.",
+        "note_te": "ఇవన్నీ మీ ఆహ్వానాల డేటా నుంచే లెక్కించబడ్డాయి. ఇతరుల డేటా వాడలేదు.",
+    }

@@ -754,6 +754,7 @@ function Wizard() {
   const [photoPreparing, setPhotoPreparing] = useState(false);
   const [showPw, setShowPw] = useState(false);
   const [refLocked, setRefLocked] = useState("");
+  const [refInvite, setRefInvite] = useState("");
   const [refInfo, setRefInfo] = useState<any>(null);
   const [result, setResult] = useState<any>(null);
   const topRef = useRef<HTMLDivElement>(null);
@@ -923,12 +924,22 @@ function Wizard() {
     } catch {
       /* ignore */
     }
+    // 💎 Per-person invite token from /r/<code>?inv=TOKEN — kept with the code so
+    // the referrer can see which of their people actually joined.
+    let inv = (params?.get("inv") || "").trim().toUpperCase();
+    try {
+      if (inv) sessionStorage.setItem("tsap_ref_invite", inv);
+      else inv = sessionStorage.getItem("tsap_ref_invite") || "";
+    } catch {
+      /* ignore */
+    }
+    if (inv) setRefInvite(inv);
     if (!ref) return;
     setRefLocked(ref);
     setF((prev) => ({ ...prev, referral_code: ref }));
     if (!sessionStorage.getItem("tsap_click_fired")) {
       sessionStorage.setItem("tsap_click_fired", "1");
-      fetch(`/api/referral/click/${encodeURIComponent(ref)}?source=register_direct`, { method: "POST" })
+      fetch(`/api/referral/click/${encodeURIComponent(ref)}?source=register_direct${inv ? `&inv=${encodeURIComponent(inv)}` : ""}`, { method: "POST" })
         .then((r) => readApiJson(r))
         .then((d) => {
           if (d?.valid_code && d?.referrer_name) setRefInfo({ ok: true, referrer_name: d.referrer_name, bonus_credits: d.bonus_credits });
@@ -1173,6 +1184,7 @@ function Wizard() {
       if (!photoFile) throw new Error(T("నమోదుకు ముందు స్పష్టమైన ప్రొఫైల్ ఫోటోను జోడించండి", "A clear profile photo is required before registration"));
       fd.append("photo_file", photoFile, photoFile.name);
       if (refLocked) fd.append("referral_code", refLocked);
+      if (refLocked && refInvite) fd.append("referral_invite", refInvite);
 
       const r = await fetch("/api/register", { method: "POST", body: fd });
       const d = await readApiJson(r);

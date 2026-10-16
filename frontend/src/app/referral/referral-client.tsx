@@ -12,6 +12,7 @@ import { useLang } from "@/lib/lang";
 import { Duo } from "@/lib/duo";
 import { apiDisplayMessage, authHeaders, readApiJson } from "@/lib/api";
 import { WhatsAppIcon, TelegramIcon } from "@/components/BrandIcons";
+import ReferralPro from "@/components/ReferralPro";
 
 type Dash = any;
 
@@ -92,7 +93,7 @@ export default function ReferralPage() {
   const [board, setBoard] = useState<any[]>([]);
   const [you, setYou] = useState<any>(null);
   const [terms, setTerms] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState<"overview" | "shop_poster" | "status_poster" | "friends" | "share" | "payouts" | "leaderboard" | "terms">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "shop_poster" | "status_poster" | "friends" | "share" | "payouts" | "leaderboard" | "pro" | "terms">("overview");
   const [msgIdx, setMsgIdx] = useState(0);
   const [err, setErr] = useState("");
   const [searchErr, setSearchErr] = useState("");
@@ -563,6 +564,7 @@ export default function ReferralPage() {
             { id: "share", label: te ? "📲 వాట్సాప్ షేర్ కిట్" : "📲 Share Kit" },
             { id: "payouts", label: te ? "🧾 విత్‌డ్రా హిస్టరీ" : "🧾 Payout History" },
             { id: "leaderboard", label: te ? "🏆 లీడర్‌బోర్డ్" : "🏆 Leaderboard" },
+            { id: "pro", label: te ? "💎 వాలెట్ & పంపడం" : "💎 Wallet & Sending" },
             { id: "terms", label: te ? "📜 నిబంధనలు" : "📜 Terms & Rules" },
           ].map((tab) => (
             <button type="button"
@@ -1078,6 +1080,24 @@ export default function ReferralPage() {
                 })}
               </div>
             )}
+          </div>
+        )}
+
+        {/* ================= TAB: 💎 WALLET & SENDING (ADVANCED) ================= */}
+        {activeTab === "pro" && (
+          <div className="space-y-3">
+            <div className="bg-white rounded-3xl p-4 sm:p-5 border border-gold/40 shadow-sm">
+              <h3 className="text-lg font-black text-maroon flex items-center gap-2">
+                <span>💎</span>
+                <span>{te ? "వాలెట్ స్టేట్‌మెంట్ · ఎలా లెక్కించాం · ఒక్కొక్కరికి పంపడం" : "Wallet statement · how it adds up · per-person sending"}</span>
+              </h3>
+              <p className="mt-1 text-xs text-slate-500">
+                {te
+                  ? "అన్నీ మీ సొంత లెడ్జర్ మరియు ఆహ్వానాల నుంచే. రాబోయే డబ్బుగా ఏదీ చూపబడదు; ప్రతి పేఅవుట్‌కు మాన్యువల్ సమీక్ష వర్తిస్తుంది."
+                  : "Everything here comes from your own ledger and invites. Nothing is shown as money you have not earned, and every payout is manually reviewed."}
+              </p>
+            </div>
+            <ReferralPro tsapId={tsapId} />
           </div>
         )}
 

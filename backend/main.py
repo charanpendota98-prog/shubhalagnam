@@ -2457,6 +2457,7 @@ async def register(
     phone: str = Form(...),
     password: str = Form(""),
     referral_code: str = Form(""),
+    referral_invite: str = Form(""),   # 💎 per-person invite token from /r/<code>?inv=TOKEN
     photo_private: bool = Form(True),
     expectations: str = Form(""),
     # Advanced fields - optional for backward compat
@@ -2875,9 +2876,17 @@ async def register(
     referral_result = {"ok": False, "reason": "no_code"}
     if referral_code:
         try:
+            # attach_referral() reads this to close the loop on a per-person invite.
+            user["referral_invite_token"] = str(referral_invite or "").strip().upper()[:16]
             referral_result = attach_referral(user, referral_code, DB_USERS)
         except Exception as e:
             referral_result = {"ok": False, "reason": "error", "error": str(e)[:120]}
+        finally:
+            # Keep a token only when the referral actually locked; otherwise the
+            # field would be a stray identifier with no meaning.
+            if referral_result.get("ok"):
+                user["referred_by_invite"] = user.get("referral_invite_token", "")
+            user.pop("referral_invite_token", None)
     # ee user ki sontha referral code (share cheyyadaniki)
     my_referral = ensure_referrer_profile(user, DB_USERS)
     user["referred_by_final"] = user.get("referred_by") or referral_code
@@ -4115,6 +4124,106 @@ def referral_home(tsap_id: str, request: Request = None):
     return d
 
 
+@app.get("/api/referral/{tsap_id}/wallet")
+def referral_wallet(tsap_id: str, request: Request = None, types: str = "", limit: int = 100):
+    """💎 Wallet statement — every entry with a running balance and an identity check."""
+    user = _user_or_404(tsap_id)
+    require_owner(request, tsap_id)
+    parts = [t for t in re.split(r"[^a-z_]+", (types or "").lower()) if t]
+    return REFERRAL.wallet_statement(user, types=parts or None,
+                                     limit=clamp_int(limit, "limit", 1, 500, 100))
+
+
+@app.get("/api/referral/{tsap_id}/wallet.csv")
+def referral_wallet_csv(tsap_id: str, request: Request = None):
+    """💎 The same statement as a CSV a member can keep or hand to their CA.
+
+    Identical numbers to the JSON statement — including the reconciliation —
+    so an exported file can never tell a different story from the screen.
+    """
+    import csv
+    import io
+
+    user = _user_or_404(tsap_id)
+    require_owner(request, tsap_id)
+    data = REFERRAL.wallet_statement(user, types=None, limit=500)
+    buf = io.StringIO()
+    writer = csv.writer(buf)
+    writer.writerow(["date", "type", "description", "amount_inr", "balance_after_inr",
+                     "from_profile", "plan", "reference"])
+    for row in data.get("entries", []):
+        writer.writerow([
+            row.get("at", ""), row.get("type", ""), row.get("label_en", ""),
+            row.get("amount", 0), row.get("balance_after", 0),
+            row.get("from_name", "") or row.get("from", ""),
+            ("%s %s" % (row.get("plan_code", ""), row.get("plan_amount", ""))).strip(),
+            row.get("utr", "") or row.get("id", ""),
+        ])
+    identity = data.get("identity", {})
+    writer.writerow([])
+    writer.writerow(["reconciles", "yes" if identity.get("reconciles") else "no"])
+    writer.writerow(["identity", identity.get("formula_en", "")])
+    writer.writerow(["note", data.get("note_en", "")])
+    body = buf.getvalue()
+    return Response(
+        content=body,
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition":
+                 f'attachment; filename="manavivaha-referral-wallet-{str(tsap_id).upper()}.csv"'},
+    )
+
+
+@app.get("/api/referral/{tsap_id}/earnings")
+def referral_earnings(tsap_id: str, request: Request = None):
+    """💎 Per-friend earnings explainer — stage, why, and what would have to happen next."""
+    user = _user_or_404(tsap_id)
+    require_owner(request, tsap_id)
+    return REFERRAL.earnings_explainer(user, DB_USERS)
+
+
+@app.get("/api/referral/{tsap_id}/insights")
+def referral_insights_api(tsap_id: str, request: Request = None):
+    """💎 What actually worked for this referrer — own data only, small samples labelled."""
+    user = _user_or_404(tsap_id)
+    require_owner(request, tsap_id)
+    return REFERRAL.referral_insights(user, DB_USERS)
+
+
+@app.get("/api/referral/{tsap_id}/invites")
+def referral_invites(tsap_id: str, request: Request = None, limit: int = 100):
+    """💎 Per-person invites with their stage (sent → opened → joined → rewarded)."""
+    user = _user_or_404(tsap_id)
+    require_owner(request, tsap_id)
+    return REFERRAL.invite_list(user, limit=clamp_int(limit, "limit", 1, 300, 100))
+
+
+@app.post("/api/referral/{tsap_id}/invite")
+def referral_invite_create(tsap_id: str, payload: dict, request: Request = None):
+    """💎 Create one tracked invite for one person.
+
+    Nothing is delivered server-side: the response carries a wa.me / telegram /
+    sms link with a personalised, policy-accurate message, and the member taps
+    send in their own app.
+    """
+    user = _user_or_404(tsap_id)
+    require_owner(request, tsap_id)
+    d = payload or {}
+    res = REFERRAL.invite_create(
+        user,
+        name=str(d.get("name", "")),
+        phone=str(d.get("phone", "")),
+        channel=str(d.get("channel", "whatsapp")),
+        variant=d.get("variant", 0),
+        all_users=DB_USERS,
+    )
+    if not res.get("ok"):
+        return JSONResponse(status_code=400,
+                            content={"success": False, "reason": res.get("reason"),
+                                     "message_en": res.get("message_en", ""),
+                                     "message_telugu": res.get("message_telugu", "")})
+    return {"success": True, **res}
+
+
 @app.get("/api/referral/{tsap_id}/share-kit")
 def referral_share(tsap_id: str):
     """📲 5 ready WhatsApp messages + Telegram + SMS + poster text (Telugu)."""
@@ -4143,9 +4252,15 @@ def referral_poster(tsap_id: str, style: str = "square"):
 
 
 @app.post("/api/referral/click/{code}")
-def referral_click(code: str, source: str = "link"):
-    """/r/<code> link click — funnel tracking (clicks → registrations → payments)."""
+def referral_click(code: str, source: str = "link", inv: str = ""):
+    """/r/<code> link click — funnel tracking (clicks → registrations → payments).
+
+    `inv` is a per-person invite token: when present, that one invite is marked
+    opened so the referrer can see which of their people actually looked.
+    """
     st = track_click(code, source)
+    if inv:
+        REFERRAL.invite_record_click(code, inv, DB_USERS)
     known = validate_referral(code, DB_USERS)
     kind = "user"
     try:
