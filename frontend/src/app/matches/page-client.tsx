@@ -43,6 +43,7 @@ import {
 import { SITE_CONFIG } from "@/lib/site-config";
 import { DEFAULT_MATCH_FILTERS, parseMatchFilters } from "@/lib/match-filter-query.mjs";
 import { REASON_DISCLAIMER, matchReasons, relaxSuggestions, widenedAgeLabel } from "@/lib/match-reasons.mjs";
+import { summarizeSavedSearch } from "@/lib/saved-search-summary.mjs";
 import ProfileRail from "@/components/ProfileRail";
 import { mergeMatchPages } from "@/lib/match-results.mjs";
 import QuickLead from "@/components/QuickLead";
@@ -106,23 +107,6 @@ function salaryAmountLabel(amount: number, te: boolean): string {
   }
   const formatted = Number.isInteger(lakhs) ? String(lakhs) : lakhs.toFixed(1);
   return `₹${formatted}${te ? " లక్షలు" : "L"}`;
-}
-
-function summarizeSavedSearch(filters: Row, te: boolean): string {
-  const parts: string[] = [];
-  if (filters.gender) parts.push(`${te ? "లింగం" : "Gender"}: ${filters.gender}`);
-  if (filters.age_min > 18 || filters.age_max < 60) parts.push(`${te ? "వయస్సు" : "Age"}: ${filters.age_min}–${filters.age_max}`);
-  if (filters.religion) parts.push(`${te ? "మతం" : "Religion"}: ${filters.religion}`);
-  if (filters.caste) parts.push(`${te ? "కులం" : "Community"}: ${String(filters.caste).split(",").slice(0, 2).join(", ")}`);
-  if (filters.sub_caste) parts.push(`${te ? "ఉపకులం" : "Sub-caste"}: ${String(filters.sub_caste).split(",").slice(0, 2).join(", ")}`);
-  if (filters.district) parts.push(`${te ? "జిల్లా" : "District"}: ${String(filters.district).split(",").slice(0, 2).join(", ")}`);
-  if (filters.education) parts.push(`${te ? "విద్య" : "Education"}: ${String(filters.education).split(",").slice(0, 2).join(", ")}`);
-  if (filters.job) parts.push(`${te ? "వృత్తి" : "Work"}: ${String(filters.job).split(",").slice(0, 2).join(", ")}`);
-  if (filters.marital_status) parts.push(`${te ? "వైవాహిక స్థితి" : "Marital status"}: ${filters.marital_status}`);
-  if (filters.rasi) parts.push(`${te ? "రాశి" : "Rasi"}: ${filters.rasi}`);
-  if (filters.star) parts.push(`${te ? "నక్షత్రం" : "Nakshatra"}: ${String(filters.star).split(",").slice(0, 2).join(", ")}`);
-  if (filters.q) parts.push(te ? "కీవర్డ్ శోధన" : "Keyword search");
-  return parts.slice(0, 4).join(" · ") || (te ? "శోధన ఫిల్టర్లు" : "Search filters");
 }
 
 const SORTS = [
@@ -806,7 +790,7 @@ export default function MatchesPage() {
     }
   };
 
-  const applySavedSearch = (savedSearch: SavedSearchItem) => {
+  const applySavedSearch = useCallback((savedSearch: SavedSearchItem) => {
     const params = new URLSearchParams();
     Object.entries(savedSearch.filters || {}).forEach(([key, value]) => {
       if (Object.prototype.hasOwnProperty.call(DEFAULT_FILTERS, key) && value !== null && value !== undefined && value !== "") {
@@ -829,7 +813,31 @@ export default function MatchesPage() {
       const query = urlParams.toString();
       window.history.replaceState(null, "", `${window.location.pathname}${query ? `?${query}` : ""}${window.location.hash}`);
     }
-  };
+  }, []);
+
+  // 🔔 Deep link from a WhatsApp alert or the saved-search workspace:
+  // /matches?search=<id> applies that saved search once, then drops the param.
+  const [deepLinkApplied, setDeepLinkApplied] = useState("");
+  useEffect(() => {
+    if (!savedSearchesLoaded || deepLinkApplied) return;
+    if (typeof window === "undefined") return;
+    const requested = new URLSearchParams(window.location.search).get("search");
+    if (!requested) return;
+    setDeepLinkApplied(requested);
+    const match = savedSearches.find((row) => String(row.search_id) === requested);
+    if (match) {
+      applySavedSearch(match);
+      setSavedSearchNotice({
+        tone: "success",
+        text: `${te ? "మీ saved search వర్తించబడింది" : "Applied your saved search"}: ${match.name || (te ? "సేవ్ చేసిన శోధన" : "Saved search")}`,
+      });
+    } else {
+      setSavedSearchNotice({
+        tone: "error",
+        text: te ? "ఆ saved search ఇక లేదు — మీ saved searches నుంచి ఒకటి ఎంచుకోండి." : "That saved search no longer exists — pick one from your saved searches.",
+      });
+    }
+  }, [savedSearchesLoaded, savedSearches, deepLinkApplied, te, applySavedSearch]);
 
   const turnOffSavedSearchAlerts = async (savedSearch: SavedSearchItem) => {
     if (!myTsapId || !sessionToken || !savedSearch.search_id) return;
@@ -1811,7 +1819,11 @@ export default function MatchesPage() {
                     <p role="alert" className="rounded-xl bg-amber-50 p-3 text-sm text-amber-950">{te ? "Saved searches లోడ్ కాలేదు. పై Retry బటన్ ఉపయోగించండి." : "Saved searches could not be loaded. Use the Retry button above."}</p>
                   ) : savedSearches.length === 0 ? (
                     <p className="rounded-xl bg-slate-50 p-3 text-sm text-slate-600">{te ? "ఇంకా saved searches లేవు. ప్రస్తుత ఫిల్టర్లను సేవ్ చేయవచ్చు." : "No saved searches yet. Save the current filters to return to them later."}</p>
-                  ) : savedSearches.map((savedSearch) => {
+                  ) : (<>
+                    <Link href="/saved-searches" className="inline-flex min-h-11 items-center rounded-xl border border-slate-300 bg-white px-3 text-xs font-bold text-slate-800">
+                      {te ? "🔔 Alerts, కొత్తవి నిర్వహించండి" : "🔔 Manage alerts and what is new"}
+                    </Link>
+                    {savedSearches.map((savedSearch) => {
                     const legacyAlertNeedsConsent = savedSearch.alert === true && !savedSearch.alert_consent_at;
                     const alertsEnabled = savedSearch.alert === true && Boolean(savedSearch.alert_consent_at);
                     const previewCount = Math.max(0, Number(savedSearch.new_matches) || 0);
@@ -1863,7 +1875,8 @@ export default function MatchesPage() {
                         )}
                       </article>
                     );
-                  })}
+                      })}
+                    </>)}
                 </div>
               )}
             </section>
