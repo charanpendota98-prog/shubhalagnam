@@ -83,7 +83,7 @@ check("Telugu names unnai (TS Brides → తెలంగాణ వధువు�
 
 print("=== 2. CASTE × BRIDE/GROOM (caste prakaram) ===")
 rep = C.caste_split_report()
-check("22 clusters have separate bride/groom listings", rep["split_clusters"] == 22 and rep["caste_gender_channels"] == 44,
+check("37 clusters have separate bride/groom listings", rep["split_clusters"] == 37 and rep["caste_gender_channels"] == 74,
       (rep["split_clusters"], rep["caste_gender_channels"]))
 check("one remaining cluster uses a shared listing", rep["mixed_caste_channels"] == 1, rep["mixed_caste_channels"])
 check("127 sub-castes cover (clusters lo members)", rep["sub_castes_covered"] >= 120, rep["sub_castes_covered"])
@@ -145,7 +145,7 @@ check("DP text English (server lo Telugu font ledu)", CC.dp_text("c_reddy_bride"
 
 print("=== 4. REGISTRY INTEGRITY ===")
 usernames = [v["username"].lower() for v in C.CHANNELS.values() if v.get("username")]
-check("64 configured listings match the frontend registry", len(C.CHANNELS) == 64, len(C.CHANNELS))
+check("102 configured listings match the frontend registry", len(C.CHANNELS) == 102, len(C.CHANNELS))
 check("Configured primary usernames are unique + Telegram-valid", len(set(usernames)) == len(usernames)
       and not [u for u in usernames if not re.fullmatch(r"[a-z0-9_]{5,32}", u)])
 check("Generated religion/caste entries have no guessed username",
@@ -194,17 +194,17 @@ except (IndexError, KeyError, TypeError, ValueError):
 check("Bundled frontend fallback contains only public rows and explicit links",
       _bundled_urls_match)
 check("By tier counts match canonical registry", C.channel_stats()["by_tier"] ==
-      {"L0_OFFICIAL": 1, "L1_REGION": 5, "L2_RELIGION": 5, "L3_CASTE": 45, "L4_SPECIAL": 8},
+      {"L0_OFFICIAL": 1, "L1_REGION": 5, "L2_RELIGION": 13, "L3_CASTE": 75, "L4_SPECIAL": 8},
       C.channel_stats()["by_tier"])
 check("No source-code live-key patch path remains", "LIVE_KEYS_EXTRA" not in open(SC.REGISTRY).read()
       and not hasattr(SC, "write_live_keys"))
 
 print("=== 5. SETUP PLAN (wave order) ===")
 plan = C.setup_plan()
-check("Plan includes all configured listings", len(plan) == 64, len(plan))
+check("Plan includes all configured listings", len(plan) == 102, len(plan))
 check("Plan wave order lo sorted", [r["wave"] for r in plan] == sorted(r["wave"] for r in plan))
 w1 = C.setup_plan(1)
-check("Wave-1 has 16 configured listings", len(w1) == 16, len(w1))
+check("Wave-1 has 24 configured listings", len(w1) == 24, len(w1))
 check("Wave-1 lo official mundu", w1[0]["key"] == "official", w1[0]["key"])
 check("Wave-1 has main, combined religion, and caste-gender listings",
       {"ts_bride", "ts_groom", "ap_bride", "ap_groom", "muslim_bride", "muslim_groom",
@@ -347,7 +347,7 @@ try:
           and "https://t.me/" + " |" not in body)
     check("Checklist lo pinned post + description", "📌 Pin this post" in body and "Description" in body)
     kits = SC.write_kits(wave=1)
-    check("Wave-1 kits match configured wave size", len(kits) == 16, len(kits))
+    check("Wave-1 kits match configured wave size", len(kits) == 24, len(kits))
     kit = open([k for k in kits if k.endswith("c_reddy_bride.md")][0]).read()
     check("Kit lo 6 steps (create/access guidance/pin/rules/share/command)",
           all(x in kit for x in ("New Channel", "Bot access (off by default)", "Pinned welcome", "Rules post", "--apply --key c_reddy_bride")))
@@ -426,8 +426,8 @@ try:
          patch.object(main, "_find_user", return_value=_spotlight_profile):
         _deactivated_spotlights = main._current_public_spotlights(6)
     check("Spotlight public feed hides deactivated profiles immediately", _deactivated_spotlights == [])
-    check("GET /api/channels exposes 53 public listings; routing remains disabled",
-          d["stats"]["total"] == 53 and d["stats"]["routing_eligible"] == 0, d["stats"])
+    check("GET /api/channels exposes 91 public listings; routing remains disabled",
+          d["stats"]["total"] == 91 and d["stats"]["routing_eligible"] == 0, d["stats"])
     public_channels = [channel for tier_rows in d["channels_by_tier"].values() for channel in tier_rows]
     check("Public channel API omits excluded categories, malformed targets and external-status claims",
           all("fallbacks" not in channel and "live" not in channel
@@ -463,7 +463,7 @@ try:
 
     sp = c.get("/api/channels/setup-plan").json()
     check("GET /api/channels/setup-plan includes only public listings",
-          len(sp["plan"]) == 53
+          len(sp["plan"]) == 91
           and not (C.PUBLIC_DIRECTORY_EXCLUDED_KEYS & {row["key"] for row in sp["plan"]})
           and all("fallbacks" not in row and "live" not in row
                   and "routing_eligible" in row and row["external_status_checked"] is False
@@ -471,7 +471,7 @@ try:
     check("setup-plan local copy checks pass while destinations remain unconfigured",
           sp["config_problems"] == [] and sp["stats"]["routing_eligible"] == 0)
     check("setup-plan wave filter counts only public listings",
-          len(c.get("/api/channels/setup-plan?wave=1").json()["plan"]) == 14)
+          len(c.get("/api/channels/setup-plan?wave=1").json()["plan"]) == 22)
 
     # Exercise admin/runtime link overrides without persisting or editing the tracked link map.
     import copy
@@ -502,7 +502,7 @@ try:
         main.CHAN.OVERRIDES.update(original_overrides)
 
     tier = c.get("/api/channels?tier=L3_CASTE").json()
-    check("Tier filter works (L3 44 public listings)", tier["count"] == 44, tier["count"])
+    check("Tier filter works (L3 74 public listings)", tier["count"] == 74, tier["count"])
     check("Hidden channel kit and photo endpoints both return 404",
           all(c.get(f"/api/channels/{key}/kit").status_code == 404
               and c.get(f"/api/channels/photo/{key}.png").status_code == 404
@@ -521,7 +521,7 @@ if FAIL:
     sys.exit(1)
 if SKIP:
     print("SKIPPED:", SKIP)
-print("🏆 CHANNELS SETUP (64 internal entries; 53 public listings; safe destinations) — executed tests pass")
+print("🏆 CHANNELS SETUP (102 internal entries; 91 public listings; safe destinations) — executed tests pass")
 
 # Isolated test data/assets/kits are removed by the registered atexit cleanup,
 # including when the suite exits early after a failure.

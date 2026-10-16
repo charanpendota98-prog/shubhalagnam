@@ -204,13 +204,22 @@ CHANNELS = {
                        "route": "manual"},
 }
 
-# TS + AP Muslim and Christian listings are generated below as four combined
-# directory entries. No Telegram username is assumed for these categories.
+# Religion directory entries generated below. These mirror the religions a
+# member can select at registration; no Telegram username is assumed for any of
+# them, so every entry stays unlinked until an owner configures a destination.
 for _key, _religion, _gender, _icon, _te in (
     ("muslim_bride", "Muslim", "Bride", "☪️", "ముస్లిం వధువులు"),
     ("muslim_groom", "Muslim", "Groom", "☪️", "ముస్లిం వరులు"),
     ("christian_bride", "Christian", "Bride", "✝️", "క్రైస్తవ వధువులు"),
     ("christian_groom", "Christian", "Groom", "✝️", "క్రైస్తవ వరులు"),
+    ("sikh_bride", "Sikh", "Bride", "🪯", "సిక్కు వధువులు"),
+    ("sikh_groom", "Sikh", "Groom", "🪯", "సిక్కు వరులు"),
+    ("jain_bride", "Jain", "Bride", "🕉️", "జైన వధువులు"),
+    ("jain_groom", "Jain", "Groom", "🕉️", "జైన వరులు"),
+    ("buddhist_bride", "Buddhist", "Bride", "☸️", "బౌద్ధ వధువులు"),
+    ("buddhist_groom", "Buddhist", "Groom", "☸️", "బౌద్ధ వరులు"),
+    ("other_religion_bride", "Other", "Bride", "🕊️", "ఇతర వధువులు"),
+    ("other_religion_groom", "Other", "Groom", "🕊️", "ఇతర వరులు"),
 ):
     _plural = "Brides" if _gender == "Bride" else "Grooms"
     CHANNELS[_key] = {

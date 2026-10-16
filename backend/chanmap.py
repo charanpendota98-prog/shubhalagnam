@@ -155,9 +155,21 @@ def set_link(key: str, telegram_link: str = "", whatsapp_link: str = "",
             "message_telugu": f"✅ {key} links save అయ్యాయి", "message_en": f"Links saved for {key}. External availability is not verified."}
 
 
+def _norm_match(value: str) -> str:
+    """Lower-case, drop emoji/punctuation and collapse whitespace."""
+    return " ".join(re.sub(r"[^a-z0-9 ]", " ", str(value or "").lower()).split())
+
+
 def _score(label: str, entry: Dict) -> float:
     """Fuzzy match score (0–1): name + username + key tokens."""
-    lab = re.sub(r"[^a-z0-9 ]", " ", str(label or "").lower())
+    lab = _norm_match(label)
+    # A label that is the channel's own title (or the part before the "|"
+    # separator) is an exact match. Returning 1.0 keeps a label such as
+    # "AP Grooms" from losing a fuzzy tie-break to another "* Grooms" channel
+    # and silently writing a link to the wrong destination.
+    title = _norm_match(str(entry.get("name", "")).split("|")[0])
+    if lab and lab == title:
+        return 1.0
     hay = f"{entry.get('name','')} {entry.get('username','')} {entry.get('key','')}".lower()
     hay = re.sub(r"[^a-z0-9 ]", " ", hay)
     lt = [w for w in lab.split() if len(w) > 2]
@@ -169,6 +181,11 @@ def _score(label: str, entry: Dict) -> float:
     return 0.7 * base + 0.3 * seq
 
 
+# How far the best fuzzy candidate must lead the runner-up before a bulk
+# import may save it without a person confirming.
+AUTO_APPLY_MARGIN = 0.15
+
+
 def import_bulk(text: str, auto_apply: bool = False, threshold: float = 0.45) -> Dict:
     """
     Bulk paste parse:
@@ -178,6 +195,7 @@ def import_bulk(text: str, auto_apply: bool = False, threshold: float = 0.45) ->
     """
     entries = effective()
     matched, unmatched, applied = [], [], []
+    held = 0
     lines = [l.strip() for l in str(text or "").splitlines() if l.strip() and not l.strip().startswith("#")]
     if not lines:
         return {"success": False, "message_telugu": "⚠️ Lines లేవు — `Label | tg-link | wa-link` format లో paste చెయ్యండి",
@@ -208,16 +226,23 @@ def import_bulk(text: str, auto_apply: bool = False, threshold: float = 0.45) ->
             unmatched.append({"label": label, "telegram": tg, "whatsapp": wa,
                               "hint": "; ".join(invalid)})
             continue
-        best, score = None, 0.0
-        for e in entries:
-            sc = _score(label, e)
-            if sc > score:
-                best, score = e, sc
+        ranked = sorted(((_score(label, e), e) for e in entries),
+                        key=lambda pair: pair[0], reverse=True)
+        best, score = (ranked[0][1], ranked[0][0]) if ranked else (None, 0.0)
+        runner_up = ranked[1][0] if len(ranked) > 1 else 0.0
+        # Saving a destination is only safe when the match is unambiguous: an
+        # exact title match, or a clear lead over the next candidate. Anything
+        # closer than that is held for a person to confirm.
+        confident = score >= 1.0 or (score >= threshold and score - runner_up >= AUTO_APPLY_MARGIN)
         if best and score >= threshold and (tg or wa):
             row = {"label": label, "key": best["key"], "name": best["name"],
                    "score": round(score, 2), "telegram": tg, "whatsapp": wa}
+            if auto_apply and not confident:
+                row["needs_review"] = True
             matched.append(row)
-            if auto_apply:
+            if auto_apply and not confident:
+                held += 1
+            elif auto_apply:
                 r = set_link(best["key"], tg or best["telegram"], wa or best["whatsapp"],
                              True, f"bulk import ({label[:60]})")
                 if r.get("success"):
@@ -227,8 +252,8 @@ def import_bulk(text: str, auto_apply: bool = False, threshold: float = 0.45) ->
                               "hint": f"best guess: {best['key']} ({round(score,2)})" if best else "no guess"})
     _persist()
     return {"success": True, "matched": matched, "unmatched": unmatched, "applied": applied,
-            "message_telugu": f"✅ {len(matched)} match • {len(unmatched)} manual కావాలి" + (f" • {len(applied)} save" if auto_apply else ""),
-            "message_en": f"{len(matched)} matched; {len(unmatched)} need manual review" + (f"; {len(applied)} saved" if auto_apply else "") + "."}
+            "message_telugu": f"✅ {len(matched)} match • {len(unmatched)} manual కావాలి" + (f" • {len(applied)} save" + (f" • {held} review కోసం ఆపివేశాం" if held else "") if auto_apply else ""),
+            "message_en": f"{len(matched)} matched; {len(unmatched)} need manual review" + (f"; {len(applied)} saved" + (f"; {held} held for review (too close to call)" if held else "") + "." if auto_apply else ".")}
 
 
 CRITICAL_KEYS = ["official", "ts_bride", "ts_groom", "ap_bride", "ap_groom", "nri_global",

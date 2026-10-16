@@ -16,7 +16,7 @@ export type Channel = {
   externalStatusChecked: boolean;
 };
 
-export const CHANNEL_STATS = {"total": 83, "routing_eligible": 0, "not_routing_eligible": 83, "by_tier": {"L1_REGION": 5, "L2_RELIGION": 4, "L3_CASTE": 74}, "site": "https://manavivaha.in", "external_status_checked": false} as const;
+export const CHANNEL_STATS = {"total": 91, "routing_eligible": 0, "not_routing_eligible": 91, "by_tier": {"L1_REGION": 5, "L2_RELIGION": 12, "L3_CASTE": 74}, "site": "https://manavivaha.in", "external_status_checked": false} as const;
 
 export const CHANNEL_TIERS = [
   {
@@ -31,7 +31,7 @@ export const CHANNEL_TIERS = [
     "label": "Community",
     "icon": "🕊️",
     "hint": "Religion and community directory entries",
-    "count": 4
+    "count": 12
   },
   {
     "key": "L3_CASTE",
@@ -199,6 +199,158 @@ export const ALL_CHANNELS: Channel[] = [
     "desc": "christian వివాహాలు — వధువులు + వరులు, TS + AP. #Christian #Groom #TS",
     "hashtags": [
       "#Christian",
+      "#Groom",
+      "#TS",
+      "#AP"
+    ],
+    "wave": 1,
+    "routingEligible": false,
+    "externalStatusChecked": false
+  },
+  {
+    "key": "sikh_bride",
+    "tier": "L2_RELIGION",
+    "name": "👰 Sikh Brides | Sikh వధువులు",
+    "username": "",
+    "link": "",
+    "deepLink": "",
+    "whatsappLink": "",
+    "desc": "sikh వివాహాలు — వధువులు + వరులు, TS + AP. #Sikh #Bride #TS",
+    "hashtags": [
+      "#Sikh",
+      "#Bride",
+      "#TS",
+      "#AP"
+    ],
+    "wave": 1,
+    "routingEligible": false,
+    "externalStatusChecked": false
+  },
+  {
+    "key": "sikh_groom",
+    "tier": "L2_RELIGION",
+    "name": "🤵 Sikh Grooms | Sikh వరులు",
+    "username": "",
+    "link": "",
+    "deepLink": "",
+    "whatsappLink": "",
+    "desc": "sikh వివాహాలు — వధువులు + వరులు, TS + AP. #Sikh #Groom #TS",
+    "hashtags": [
+      "#Sikh",
+      "#Groom",
+      "#TS",
+      "#AP"
+    ],
+    "wave": 1,
+    "routingEligible": false,
+    "externalStatusChecked": false
+  },
+  {
+    "key": "jain_bride",
+    "tier": "L2_RELIGION",
+    "name": "👰 Jain Brides | Jain వధువులు",
+    "username": "",
+    "link": "",
+    "deepLink": "",
+    "whatsappLink": "",
+    "desc": "jain వివాహాలు — వధువులు + వరులు, TS + AP. #Jain #Bride #TS",
+    "hashtags": [
+      "#Jain",
+      "#Bride",
+      "#TS",
+      "#AP"
+    ],
+    "wave": 1,
+    "routingEligible": false,
+    "externalStatusChecked": false
+  },
+  {
+    "key": "jain_groom",
+    "tier": "L2_RELIGION",
+    "name": "🤵 Jain Grooms | Jain వరులు",
+    "username": "",
+    "link": "",
+    "deepLink": "",
+    "whatsappLink": "",
+    "desc": "jain వివాహాలు — వధువులు + వరులు, TS + AP. #Jain #Groom #TS",
+    "hashtags": [
+      "#Jain",
+      "#Groom",
+      "#TS",
+      "#AP"
+    ],
+    "wave": 1,
+    "routingEligible": false,
+    "externalStatusChecked": false
+  },
+  {
+    "key": "buddhist_bride",
+    "tier": "L2_RELIGION",
+    "name": "👰 Buddhist Brides | Buddhist వధువులు",
+    "username": "",
+    "link": "",
+    "deepLink": "",
+    "whatsappLink": "",
+    "desc": "buddhist వివాహాలు — వధువులు + వరులు, TS + AP. #Buddhist #Bride #TS",
+    "hashtags": [
+      "#Buddhist",
+      "#Bride",
+      "#TS",
+      "#AP"
+    ],
+    "wave": 1,
+    "routingEligible": false,
+    "externalStatusChecked": false
+  },
+  {
+    "key": "buddhist_groom",
+    "tier": "L2_RELIGION",
+    "name": "🤵 Buddhist Grooms | Buddhist వరులు",
+    "username": "",
+    "link": "",
+    "deepLink": "",
+    "whatsappLink": "",
+    "desc": "buddhist వివాహాలు — వధువులు + వరులు, TS + AP. #Buddhist #Groom #TS",
+    "hashtags": [
+      "#Buddhist",
+      "#Groom",
+      "#TS",
+      "#AP"
+    ],
+    "wave": 1,
+    "routingEligible": false,
+    "externalStatusChecked": false
+  },
+  {
+    "key": "other_religion_bride",
+    "tier": "L2_RELIGION",
+    "name": "👰 Other Religion Brides | Other_Religion వధువులు",
+    "username": "",
+    "link": "",
+    "deepLink": "",
+    "whatsappLink": "",
+    "desc": "other_religion వివాహాలు — వధువులు + వరులు, TS + AP. #Other #Bride #TS",
+    "hashtags": [
+      "#Other",
+      "#Bride",
+      "#TS",
+      "#AP"
+    ],
+    "wave": 1,
+    "routingEligible": false,
+    "externalStatusChecked": false
+  },
+  {
+    "key": "other_religion_groom",
+    "tier": "L2_RELIGION",
+    "name": "🤵 Other Religion Grooms | Other_Religion వరులు",
+    "username": "",
+    "link": "",
+    "deepLink": "",
+    "whatsappLink": "",
+    "desc": "other_religion వివాహాలు — వధువులు + వరులు, TS + AP. #Other #Groom #TS",
+    "hashtags": [
+      "#Other",
       "#Groom",
       "#TS",
       "#AP"
