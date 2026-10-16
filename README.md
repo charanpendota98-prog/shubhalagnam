@@ -47,6 +47,8 @@ The optional WhatsApp bridge requires its own opt-in configuration and account p
   python test_wave40_deploy.py
   python test_registration_photo_required.py
   python test_shortlist_notes.py
+  python test_compare_preferences.py
+  python test_control_analytics.py
 )
 
 # Frontend lint, TypeScript, and production build
@@ -56,6 +58,15 @@ The optional WhatsApp bridge requires its own opt-in configuration and account p
   npm run lint          # eslint + link check + design-system & a11y static gates + security script tests
   npx tsc --noEmit
   npm run build
+)
+
+# Frontend pure-logic suites (also run by `npm run lint`)
+(
+  cd frontend
+  npm run test:matching      # explainable match reasons + relax suggestions
+  npm run test:saved-search  # saved-search summaries
+  npm run test:compare       # compare differences + expectation tallies
+  npm run test:ops           # operations insight formatting
 )
 
 # Design-system, accessibility and match-explanation gates only

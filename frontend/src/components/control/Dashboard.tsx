@@ -22,6 +22,7 @@ import { apiDisplayMessage, readApiJson} from "@/lib/api";
 import { SITE_CONFIG } from "@/lib/site-config";
 import { whatsappPhoneLink, whatsappShareLink } from "@/lib/wa";
 import { BarList, Donut, Sparkline } from "./Charts";
+import OpsInsights from "./OpsInsights";
 import ChannelsConsole from "@/components/ChannelsConsole";
 import WANumbersConsole from "@/components/WANumbersConsole";
 import {
@@ -2517,6 +2518,9 @@ export default function Dashboard() {
                 <Donut items={an.top_states} />
               </div>
             </div>
+
+            {/* 📊 Ops insights: queue aging, funnel, engagement, trend */}
+            <OpsInsights analytics={an} series={(an.signups?.series || []).map((d: any) => Number(d.count) || 0)} />
           </div>
         )}
 

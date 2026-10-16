@@ -549,6 +549,53 @@ def control_analytics(request: Request):
     open_reports = sum(1 for r in DB_REPORTS if str(r.get("status", "open")) == "open")
     photos_pending = sum(1 for u in DB_USERS if str(u.get("photo_status", "none")) == "pending")
 
+    # ⏳ Queue aging — an operations count, never a member-level list. How long
+    # pending profiles have been waiting is the most actionable number here.
+    AGING_BUCKETS = [("under_24h", 0, 24), ("1_3_days", 24, 72),
+                     ("3_7_days", 72, 168), ("over_7_days", 168, None)]
+    aging = [{"label": label, "count": 0} for label, _, _ in AGING_BUCKETS]
+    oldest_hours = 0.0
+    pending_with_date = 0
+    for u in DB_USERS:
+        if str(u.get("status", "pending")) != "pending":
+            continue
+        created = _parse(u.get("created_at"))
+        if not created:
+            continue
+        pending_with_date += 1
+        hours = max(0.0, (now - created).total_seconds() / 3600.0)
+        oldest_hours = max(oldest_hours, hours)
+        for index, (_label, low, high) in enumerate(AGING_BUCKETS):
+            if hours >= low and (high is None or hours < high):
+                aging[index]["count"] += 1
+                break
+
+    # 📉 Funnel — where members stall. Aggregate counts only, in descending
+    # order; a later step can never exceed an earlier one because every step is
+    # a subset of the members counted in the step before it.
+    photo_ids = {str(u.get("tsap_id", "")).upper() for u in DB_USERS
+                 if str(u.get("photo_status", "none")) not in {"none", ""}}
+    approved_ids = {str(u.get("tsap_id", "")).upper() for u in DB_USERS
+                    if u.get("is_approved") or str(u.get("status")) == "approved"}
+    interest_senders = {str(r.get("from_id", "")).upper() for r in DB_INTERESTS}
+    funnel = [
+        {"step": "registered", "count": total},
+        {"step": "photo_added", "count": len(photo_ids)},
+        {"step": "approved", "count": len(approved_ids)},
+        {"step": "sent_first_interest", "count": len(interest_senders & approved_ids)},
+    ]
+
+    # 💬 Engagement — request outcomes are reported as what members did, never
+    # as an outcome or success signal about a person.
+    interest_status: dict = {}
+    for row in DB_INTERESTS:
+        key = str(row.get("status", "pending")).strip().lower() or "pending"
+        interest_status[key] = interest_status.get(key, 0) + 1
+    saved_total = len(SAVED_SEARCHES)
+    alerts_on = sum(1 for row in SAVED_SEARCHES
+                    if row.get("alert") is True and str(row.get("alert_consent_at") or "").strip())
+    trend_previous = sum(d["count"] for d in days[-14:-7])
+
     result = {
         "success": True, "role": item["role"], "generated_at": now.isoformat(),
         "totals": {
@@ -564,6 +611,22 @@ def control_analytics(request: Request):
         "queue_health": {
             "pending": pending, "photos_pending": photos_pending, "open_reports": open_reports,
         },
+        "queue_aging": {
+            "buckets": aging,
+            "oldest_pending_hours": round(oldest_hours, 1),
+            "pending_with_date": pending_with_date,
+        },
+        "funnel": funnel,
+        "engagement": {
+            "interests_total": len(DB_INTERESTS),
+            "interest_status": [{"label": key, "count": value}
+                                for key, value in sorted(interest_status.items(), key=lambda kv: -kv[1])],
+            "saved_searches": saved_total,
+            "saved_search_alerts_on": alerts_on,
+            "shortlist_entries": len(DB_SAVES),
+        },
+        "trend": {"last_7d": signups_7d, "previous_7d": trend_previous,
+                  "delta": (signups_7d - trend_previous)},
     }
     if finance_access:
         # Finance totals are aggregate-only; no per-user payment details are returned.
