@@ -106,8 +106,13 @@ try:
     rows = {j["tsap_id"]: j for j in L.get("joins", [])}
     check("C3 paid join shows commission", rows.get("TSAP-F-2020-0002", {}).get("paid") is True
           and rows["TSAP-F-2020-0002"]["commission"] >= 50, rows.get("TSAP-F-2020-0002"))
-    check("C4 unpaid join pending status", rows.get("TSAP-F-2020-0003", {}).get("paid") is False
-          and "pending" in rows["TSAP-F-2020-0003"]["status"].lower(), rows.get("TSAP-F-2020-0003"))
+    # 🐞 R13: an unpaid join is not "pending" — nothing is in flight. The ledger must say
+    #    plainly that no qualifying reward exists yet and what eligibility depends on.
+    check("C4 unpaid join: no reward recorded + eligibility stated",
+          rows.get("TSAP-F-2020-0003", {}).get("paid") is False
+          and int(rows["TSAP-F-2020-0003"].get("commission", 0) or 0) == 0
+          and "No qualifying reward recorded" in rows["TSAP-F-2020-0003"].get("status", ""),
+          rows.get("TSAP-F-2020-0003"))
     lg2 = c.get("/api/admin/referrals/ledger?code=NOPEZZ999", headers=H)
     check("C5 unknown code 404", lg2.status_code == 404, lg2.status_code)
     lg3 = c.get(f"/api/admin/referrals/ledger?code={pid}")
@@ -130,7 +135,7 @@ reg = read("src/app/register/page.tsx")
 check("D1 register fires click (register_direct)", "register_direct" in reg and "/api/referral/click/" in reg)
 check("D2 sessionStorage dedupe", 'tsap_click_fired' in reg)
 check("D3 localStorage restore", 'tsap_ref_from_link' in reg)
-check("D4 referrer banner with name", "referrer_name" in reg and "ద్వారా వచ్చారు" in reg)
+check("D4 referrer banner with name", "referrer_name" in reg and "Referred by" in reg)
 check("D5 manual code input + live validate", 'aria-label="Referral code"' in reg and "/api/referral/validate/" in reg)
 
 rp = read("src/app/r/[code]/page.tsx")

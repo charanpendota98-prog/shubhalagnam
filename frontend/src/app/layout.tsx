@@ -7,6 +7,7 @@ import PWA from "@/components/PWA";
 import SupportWidget from "@/components/SupportWidget";
 import BackToTop from "@/components/BackToTop";
 import { LangProvider } from "@/lib/lang";
+import { serializeJsonLd } from "@/lib/safe-json-ld";
 
 const SITE = process.env.SITE_URL || "https://manavivaha.in";
 
@@ -136,7 +137,7 @@ export default function RootLayout({
       <body className="antialiased min-h-dvh flex flex-col">
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(SITE_JSON_LD) }}
+          dangerouslySetInnerHTML={{ __html: serializeJsonLd(SITE_JSON_LD) }}
         />
         <LangProvider>
           <a href="#main-content" className="skip-link">Skip to main content</a>

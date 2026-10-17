@@ -919,7 +919,7 @@ def control_report_resolve(report_id: str, payload: dict, request: Request):
     if not ok:
         raise HTTPException(400, msg)
     CONTROL_AUTH.audit("control_report_resolve", item["username"], request,
-                       report_id=report_id, action=action, note=note)
+                       report_id=report_id, moderation_action=action, note=note)
     try:
         DBSTORE.save(DBSTORE.snapshot(DB_USERS, DB_INTERESTS, DB_PAYMENTS, DB_OTPS,
                                       VERIFIED_PHONES, DB_VIEWS, DB_SAVES, DB_DIGEST), force=True)
@@ -959,7 +959,7 @@ def control_spotlight_action(promo_id: str, payload: dict, request: Request):
             notes=notes,
             override_days=override_days
         )
-        CONTROL_AUTH.audit("control_spotlight_action", item["username"], request, promo_id=promo_id, action=action)
+        CONTROL_AUTH.audit("control_spotlight_action", item["username"], request, promo_id=promo_id, spotlight_action=action)
         return {"success": True, "item": updated, "message": f"Spotlight promotion {action}d successfully"}
     except Exception as e:
         raise HTTPException(400, str(e))
@@ -1057,7 +1057,7 @@ def control_payout_action(request_id: str, payload: dict, request: Request):
     res = payout_action(request_id, action, DB_USERS, utr=utr, reason=reason)
     if not res.get("ok"):
         raise HTTPException(400, res.get("reason") or res.get("message_telugu") or "Payout action failed")
-    CONTROL_AUTH.audit("control_payout_action", item["username"], request, request_id=request_id, action=action)
+    CONTROL_AUTH.audit("control_payout_action", item["username"], request, request_id=request_id, payout_action=action)
     return {"success": True, **res}
 
 
@@ -1168,7 +1168,7 @@ def control_matchmaker(
             continue
         if salary_min and _sal_val(c.get("salary", 0)) < salary_min:
             continue
-        if photo_only and not (c.get("photo_url") or c.get("photo_urls")):
+        if photo_only and not _has_profile_photo(c):
             continue
         if verified_only and not safety.has_verification_evidence(c):
             continue
@@ -1321,7 +1321,7 @@ def control_directory(
         "paid_count": sum(1 for u in DB_USERS if u.get("is_premium") or str(u.get("plan", "FREE")).upper() not in ("FREE", "", "NONE")),
         "unpaid_count": sum(1 for u in DB_USERS if not (u.get("is_premium") or str(u.get("plan", "FREE")).upper() not in ("FREE", "", "NONE"))),
         "verified_count": sum(1 for u in DB_USERS if safety.has_verification_evidence(u)),
-        "photo_count": sum(1 for u in DB_USERS if u.get("photo_url") or u.get("photo_urls")),
+        "photo_count": sum(1 for u in DB_USERS if _has_profile_photo(u)),
         "pending_count": sum(1 for u in DB_USERS if str(u.get("status", "pending")) == "pending"),
     }
 
@@ -1360,9 +1360,9 @@ def control_directory(
 
     # 5. Photo filter
     if photo_filter == "with_photo":
-        items = [u for u in items if u.get("photo_url") or u.get("photo_urls")]
+        items = [u for u in items if _has_profile_photo(u)]
     elif photo_filter == "no_photo":
-        items = [u for u in items if not (u.get("photo_url") or u.get("photo_urls"))]
+        items = [u for u in items if not _has_profile_photo(u)]
 
     # 6. Marital filter
     if marital_filter == "first_marriage":
@@ -1887,7 +1887,7 @@ def control_ads_action(cid: str, payload: dict, request: Request):
         raise HTTPException(400, "Invalid action")
     if not res.get("success"):
         raise HTTPException(400, res.get("message_telugu") or "Failed")
-    CONTROL_AUTH.audit("control_ad_action", item["username"], request, cid=cid, action=action)
+    CONTROL_AUTH.audit("control_ad_action", item["username"], request, cid=cid, ad_action=action)
     return res
 
 
@@ -1929,6 +1929,26 @@ try:
     app.mount("/voice", StaticFiles(directory=VOICE_MEDIA_DIR), name="voice")        # 🎙️ WAVE 11
 except Exception as _e:
     print("[STATIC] mount skip:", _e)
+
+
+def _has_profile_photo(profile: object) -> bool:
+    """Truthful "this profile really has a photo" check 🖼️
+
+    `photo_urls` is a list, and a profile registered without an upload used to be stored
+    as `[""]` — a non-empty list, so `u.get("photo_urls")` was truthy and photo-less
+    profiles were counted and filtered as if they had a photo (admin `photo_count`,
+    `with_photo` / `no_photo` filters, public search `photo_only`). An empty string is
+    not a photo, so only values with real content count.
+    """
+    if not isinstance(profile, dict):
+        return False
+    values = [profile.get("photo_url")]
+    raw = profile.get("photo_urls")
+    if isinstance(raw, list):
+        values.extend(raw)
+    elif raw:
+        values.append(raw)
+    return any(isinstance(value, str) and value.strip() for value in values)
 
 
 def _media_filename(value: object, prefix: str) -> str:
@@ -2824,7 +2844,7 @@ async def register(
             "referred_by": "",                    # attach_referral() validate chesi lock chestundi (kinda)
             "referred_by_raw": referral_code,     # form lo vachina code (audit)
             "photo_url": photo_url,
-            "photo_urls": [photo_url],
+            "photo_urls": [photo_url] if photo_url else [],
             "photo_status": "pending",
             "photo_checks": photo_verdict["checks"],
             "photo_uploaded_at": photo_uploaded_at,
@@ -3780,6 +3800,11 @@ def smart_matches_alerts(tsap_id: Optional[str] = None, caste: Optional[str] = N
     }
 
 
+def _approved_profile_404() -> HTTPException:
+    """🌐 Telugu-first 404 for approved-member routes (English gloss kept for operators)."""
+    return HTTPException(404, "⚠️ Approved member profile not found — ఆమోదించబడిన ప్రొఫైల్ దొరకలేదు. TSAP ID check చెయ్యండి.")
+
+
 @app.get("/api/matches/{tsap_id}")
 def get_matches(tsap_id: str, min_score: int = 70, limit: int = 20, caste_filter: Optional[str] = None,
                 education: Optional[str] = None, district: Optional[str] = None, salary_min: int = 0,
@@ -3790,7 +3815,7 @@ def get_matches(tsap_id: str, min_score: int = 70, limit: int = 20, caste_filter
     clean_id = str(tsap_id or "").strip().upper()
     user = _find_user(clean_id)
     if not _is_approved_profile(user):
-        raise HTTPException(404, "Approved member profile not found")
+        raise _approved_profile_404()
     require_owner(request, clean_id)
 
     # Keep old query parameters bounded for clients, but deliberately do not use a score threshold.
@@ -4024,7 +4049,9 @@ def leaderboard(period: str = "all", limit: int = 10, me: str = ""):
     board, you = get_leaderboard(DB_USERS, limit=limit, period=period, me=(me or "").strip(), full=True)
     return {"success": True, "period": period, "leaderboard": board, "total_users": len(DB_USERS),
             "you": you,
-            "reward_note": "Leaderboard is for recognition; no additional cash prize is promised."}
+            "reward_note": "Leaderboard is for recognition; no additional cash prize is promised.",
+            # 🏆 Telugu lo kuda ade honest line — leaderboard recognition eh, cash prize kaadu.
+            "prize_telugu": "ఈ leaderboard గుర్తింపు కోసం మాత్రమే. దీని వల్ల అదనపు నగదు బహుమతి లేదా హామీ ఏదీ లేదు."}
 
 
 # ═══════════════════ 🤝 REFERRAL 2.0 — DASHBOARD / SHARE / PAYOUT ═══════════════════
@@ -5913,13 +5940,16 @@ def api_generate_lagna_patrika(payload: dict):
     Returns structured Sanskrit slokas, muhurtham details, and WhatsApp ready invitation text.
     """
     d = payload or {}
-    bride_name = d.get("bride_name", "చిరంజీవి సౌభాగ్యవతి")
-    bride_gothram = d.get("bride_gothram", "జనకుల")
+    # ✅ One route, one contract: names are required, everything else has a traditional default.
+    bride_name = str(d.get("bride_name", "") or "").strip()
+    groom_name = str(d.get("groom_name", "") or "").strip()
+    if not bride_name or not groom_name:
+        raise HTTPException(400, "⚠️ వధూవరుల పేర్లు తప్పనిసరిగా ఇవ్వాలి")
+    bride_gothram = str(d.get("bride_gothram", "") or "").strip() or "జనకుల"
     bride_parents = d.get("bride_parents", "తల్లిదండ్రులు")
     bride_native = d.get("bride_native", "విజయవాడ")
 
-    groom_name = d.get("groom_name", "చిరంజీవి")
-    groom_gothram = d.get("groom_gothram", "కాశ్యపస")
+    groom_gothram = str(d.get("groom_gothram", "") or "").strip() or "కాశ్యపస"
     groom_parents = d.get("groom_parents", "తల్లిదండ్రులు")
     groom_native = d.get("groom_native", "హైదరాబాద్")
 
@@ -5960,6 +5990,14 @@ def api_generate_lagna_patrika(payload: dict):
             "inviter": inviter,
         },
         "whatsapp_share_text": wa_text,
+        # Compatibility aliases for clients that read the flat keys.
+        "whatsapp_text": wa_text,
+        "whatsapp_url": "https://wa.me/?text=" + urllib.parse.quote(wa_text),
+        "bride_name": bride_name,
+        "groom_name": groom_name,
+        "muhurtham_date": muhurtham_date,
+        "muhurtham_time": muhurtham_time,
+        "venue": venue,
         "message_telugu": "🌸 శుభ లగ్న పత్రిక విజయవంతంగా రూపొందించబడింది",
     }
 
@@ -7311,7 +7349,7 @@ def api_top_matches(tsap_id: str, limit: int = 10, min_score: int = 65, include_
     require_owner(request, tsap_id)  # 🌊 WAVE 23 — naa match ranking naake (privacy)
     me = _find_user(tsap_id)
     if not _is_approved_profile(me):
-        raise HTTPException(404, "Approved member profile not found")
+        raise _approved_profile_404()
     pool = [u for u in DB_USERS if _is_approved_profile(u)
             and not safety.is_blocked(tsap_id, u.get("tsap_id", ""), DB_BLOCKS)
             and str(u.get("tsap_id", "")) != str(me.get("tsap_id", ""))]
@@ -9978,7 +10016,7 @@ def api_bot_matches(tsap_id: str, limit: int = 3, request: Request = None):
     require_owner(request, normalized_id)
     me = _find_user(normalized_id)
     if not _is_approved_profile(me):
-        raise HTTPException(404, "Approved member profile not found")
+        raise _approved_profile_404()
     pool = [u for u in DB_USERS if _is_approved_profile(u)
             and str(u.get("tsap_id", "")).upper() != normalized_id
             and not safety.is_blocked(normalized_id, u.get("tsap_id", ""), DB_BLOCKS)]
@@ -10531,36 +10569,6 @@ def api_compare_profiles(payload: dict, request: Request = None):
             bool((row or {}).get("preference_checks")) for row in comparisons.values()
         ),
         "message_telugu": f"✅ {len(found_profiles)} member profiles పోలికకు సిద్ధంగా ఉన్నాయి",
-    }
-
-
-@app.post("/api/lagna-patrika/generate")
-def api_lagna_patrika_generate(payload: dict):
-    """Validates and processes Lagna Patrika generation payload."""
-    d = payload or {}
-    bride_name = d.get("bride_name", "").strip()
-    groom_name = d.get("groom_name", "").strip()
-    muhurtham_date = d.get("muhurtham_date", "").strip()
-    muhurtham_time = d.get("muhurtham_time", "").strip()
-    venue = d.get("venue", "").strip()
-    theme = d.get("theme", "royal_gold")
-
-    if not bride_name or not groom_name:
-        raise HTTPException(400, "⚠️ వధూవరుల పేర్లు తప్పనిసరిగా ఇవ్వాలి")
-
-    wa_text = f"📜 *మన వివాహ — శుభ లగ్న పత్రిక* 🌸\n\nచిరంజీవి *{groom_name}* మరియు చిరంజీవి సౌభాగ్యవతి *{bride_name}* ల వివాహ మహోత్సవ శుభ ముహూర్తం:\n📅 తేది: {muhurtham_date} | సమయం: {muhurtham_time}\n🏛️ కళ్యాణ వేదిక: {venue}\n\nబంధుమిత్రులందరూ విచ్చేసి నూతన వధూవరులను ఆశీర్వదించగలరు.\n✨ మన వివాహ | manavivaha.in"
-
-    return {
-        "success": True,
-        "bride_name": bride_name,
-        "groom_name": groom_name,
-        "muhurtham_date": muhurtham_date,
-        "muhurtham_time": muhurtham_time,
-        "venue": venue,
-        "theme": theme,
-        "whatsapp_text": wa_text,
-        "whatsapp_url": f"https://wa.me/?text={urllib.parse.quote(wa_text)}",
-        "message_telugu": "✅ లగ్న పత్రిక విజయవంతంగా రూపొందించబడింది",
     }
 
 

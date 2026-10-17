@@ -132,8 +132,11 @@ def publish_status() -> Dict:
             "targets": len(c["wa_to"]) + len(c["wa_bridge_targets"]),
         },
         "dry_run": c["dry_run"],
-        "order": "telegram → whatsapp",
-        "order_note": "Telegram is attempted before WhatsApp is queued; a queued notification does not confirm external delivery.",
+        # 🔁 Failover line: primary fail aite next bot / next WA instance try avthundi.
+        "order": "telegram → whatsapp (failover: primary fail → backup bot, then next WhatsApp instance)",
+        "order_note": ("Telegram is attempted before WhatsApp is queued. On failure the bot pool moves to the "
+                       "next bot and the WhatsApp pool to the next available instance; a queued notification "
+                       "does not confirm external delivery."),
         "auto_post_on_approval": c["auto_post_on_approval"],
         "auto_post_on_register": c["auto_post_on_register"],  # legacy alias
         "whatsapp_queue": wa_queue_stats(),

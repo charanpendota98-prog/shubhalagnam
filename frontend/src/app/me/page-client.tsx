@@ -7,6 +7,7 @@
  * • Real-time DB sync and instant match ranking upgrade
  */
 import { useCallback, useEffect, useRef, useState } from "react";
+import TrustBadge from "@/components/TrustBadge";
 import Link from "next/link";
 import Image from "next/image";
 import AuthGate from "@/components/AuthGate";
@@ -1380,7 +1381,14 @@ function EditProfilePanel({ myId }: { myId: string }) {
             </p>
           </div>
 
-          <div className="shrink-0 flex items-center gap-2">
+          <div className="shrink-0 flex flex-wrap items-center gap-2">
+            {/* Recorded-check status sits next to the completeness meter, so the
+                two facts are never read as one score. */}
+            <TrustBadge
+              trust={{ verification_level: (profile?.verification || "none") as "none" | "phone" | "photo" | "id" }}
+              completeness={score}
+              compact
+            />
             <span
               className={`px-3 py-1 rounded-full text-xs font-black ${
                 score >= 90 ? "bg-emerald-100 text-emerald-800 border border-emerald-300" : "bg-amber-100 text-amber-900 border border-amber-300"

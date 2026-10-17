@@ -14,6 +14,12 @@ import { apiGet } from "@/lib/api";
 import { useLang, type Lang } from "@/lib/lang";
 import { ArrowRight, EyeOff, Gift, ShieldCheck, UserCheck } from "lucide-react";
 import WeddingStoryHero from "@/components/WeddingStoryHero";
+import HeroQuickSearch from "@/components/HeroQuickSearch";
+import DailyStrip from "@/components/DailyStrip";
+import ShowcaseStrip from "@/components/ShowcaseStrip";
+import AdSlot from "@/components/AdSlot";
+import HomePoruthamWidget from "@/components/HomePoruthamWidget";
+import { TeaserStrip, ReligionsStrip } from "@/components/HomeGrowth";
 
 /** Trust-rail icons — decorative only; the copy below states the actual rules. */
 const TRUST_ICONS = [Gift, UserCheck, EyeOff, ShieldCheck] as const;
@@ -203,6 +209,10 @@ export default function Home() {
 
       <CinematicHero />
 
+      {/* 🔎 Quick filters straight from the home screen. Same member-entered facts the
+          search page uses (community, region, age range) — no invented matches. */}
+      <HeroQuickSearch />
+
       {/* The same rules the FAQ states, repeated where a first-time visitor
           actually looks — no new numbers, no new promises. */}
       <section className="hp-shell" aria-label={te ? "ముఖ్య నిబంధనలు" : "Key terms at a glance"}>
@@ -223,6 +233,10 @@ export default function Home() {
 
       <ProfilesOfTheDay />
 
+      {/* Both strips render nothing when there is no approved data to show. */}
+      <DailyStrip />
+      <ShowcaseStrip />
+
       {/* 🎬 A short wedding story — the ceremony film, played as MP4 with a
           static poster (the old animated WebP cost ~7 MB and never streamed).
           Decorative: it is skipped by screen readers and never blocks the
@@ -231,6 +245,14 @@ export default function Home() {
 
       {/* Approved member stories only — hides itself when there are none. */}
       <HomeStories />
+
+      {/* 🪔 Ten rule-based Porutham checks from the stars the visitor supplies —
+          reference only, never a compatibility score or a marriage recommendation. */}
+      <HomePoruthamWidget />
+
+      {/* 🔒 Blurred previews with a register CTA — a peek that keeps full details
+          (and photos) behind the free-registration path. */}
+      <TeaserStrip />
 
       <section className="hp-shell hp-section" aria-label={L.howTitle}>
         <Reveal>
@@ -337,8 +359,18 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Community hubs for every faith — self-description stays available
+          during registration for anything not listed. */}
+      <ReligionsStrip />
+
       {/* The optional vendor marketplace follows the member trust/pricing journey rather than interrupting it. */}
       <HomeVendorsShowcase />
+
+      {/* 📢 Paid placement slot — falls back to a compact house promo when no campaign
+          is running. Paid promotions never appear inside matching or profile flows. */}
+      <div className="hp-shell hp-section--tight">
+        <AdSlot slot="home_hero" />
+      </div>
 
       <section className="hp-shell hp-section--tight pb-4">
         <Reveal>

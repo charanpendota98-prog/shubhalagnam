@@ -209,8 +209,13 @@ check("N5.1 home-stats 200", r.status_code == 200, (r.status_code, r.text[:120])
 r = c.get("/api/inventory")
 try:
     d = r.json()
-    check("N5.2 inventory structural", r.status_code == 200 and d.get("launch_target") == 360
-          and "total_profiles" in d, str(d)[:150])
+    # 🐞 R13: launch-target seeding was retired with the no-demo policy, so /api/inventory
+    #    reports real counts only and must never advertise a synthetic target again.
+    check("N5.2 inventory structural (real counts, no invented launch target)",
+          r.status_code == 200 and d.get("success") is True
+          and all(k in d for k in ("total_profiles", "approved_profiles", "pending_profiles",
+                                   "brides", "grooms", "castes_covered", "districts_covered"))
+          and "launch_target" not in d, str(d)[:150])
 except Exception as e:  # noqa: BLE001
     check("N5.2 inventory structural", False, repr(e)[:150])
 r = c.get("/api/channels")
@@ -253,7 +258,9 @@ _SLANG = ("cheyy", "ayithe", "aithe", "kanipinch", "dorak", "ivvamu", "ivvandi",
           "adigithe", "parvaledu", "jagratha", "kutumbam", "Ippudu", "ippudu",
           "Eppudu", "eppudu", "Enduku", "enduku", "andariki", "okate",
           "ventane", "kaledu", "istam", "Emaina", "Mundu", "kaadu")
-_CODE_OK = ('"keys"', "'keys'", '"reason"', "'reason'", '"code"', "'code'",
+# "label" is exempt: plan labels are product names (Sambandham/Family/Premium/VIP) and the
+# Telugu UI renders its own script names, so these strings are identifiers, not Telugu copy.
+_CODE_OK = ('"keys"', "'keys'", '"reason"', "'reason'", '"code"', "'code'", '"label"',
             "marital_status", "req_choice", ".get(", '["', "gothram", "rasi",
             "dosham", "porutham", "in (", "startswith", "check(", "assert ")
 _bad = []

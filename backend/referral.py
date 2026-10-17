@@ -551,11 +551,16 @@ def _process_referral_payment_locked(referred_user: Dict, referrer_code: str, pl
         pass
 
     # referee ki thank-you + referrer ki notification (Telugu)
-    msg_ref = ("✅ Eligible first consumer-plan payment record అయింది: %s (₹%d). "
-               "మీ referral wallet కు ఒక్కసారి ₹%d జమైంది. Balance: ₹%s | Dashboard tier: %s %s. "
-               "Tier badges వల్ల అదనపు cash లేదా credits రావు."
-               % (referred_user.get("tsap_id", "friend"), amount, commission,
-                  st["wallet"], new_tier["icon"], new_tier["key"]))
+    # 💎 Next badge line: "ఇంకా N eligible rewards" — recognition mathi, cash promise kaadu.
+    _nxt = bonus.get("next") or {}
+    _nxt_line = ("ఇంకా %d eligible reward%s వస్తే %s badge వస్తుంది (badge మాత్రమే — అదనపు cash/credits లేవు). "
+                 % (_nxt.get("need", 0), "s" if int(_nxt.get("need", 0) or 0) != 1 else "",
+                    _nxt.get("title", ""))) if _nxt.get("need") else ""
+    msg_ref = ("✅ Eligible first consumer-plan payment record అయింది: %s (₹%s). "
+               "మీ referral wallet కు ఒక్కసారి ₹%s జమైంది. Balance: ₹%s | Dashboard tier: %s %s. "
+               "Tier badges వల్ల అదనపు cash లేదా credits రావు. %s"
+               % (referred_user.get("tsap_id", "friend"), _money(amount), _money(commission),
+                  _money(st["wallet"]), new_tier["icon"], new_tier["key"], _nxt_line)).strip()
     save_state()
     return {
         "success": True, "referrer_id": ref.get("tsap_id"), "referrer_code": _code_of(ref),
@@ -1235,7 +1240,7 @@ def referrer_commission_text(referrer, referee, result):
     friend_name = _name_of(referee, "స్నేహితుడు")
     lines = [
         f"🎉 శుభవార్త {ref_name} గారు! *{friend_name}* గారి మొదటి eligible consumer-plan payment పై ₹{amt} referral reward మీ wallet లో నమోదు అయింది.",
-        f"ఇది bank/UPI payout కాదు. ప్రస్తుత wallet: ₹{st.get('wallet', 0)}.",
+        f"ఇది bank/UPI payout కాదు. ప్రస్తుత wallet: ₹{_money(st.get('wallet', 0))}.",
         f"Tier: {tier} ({st.get('paid_count', 0)} qualifying referrals); tier label కు అదనపు cash లేదా commission లేదు.",
         f"Payout కోసం కనీసం ₹{MIN_PAYOUT} wallet balance తో request పెట్టండి. Request admin review లో ఉంటుంది; fixed processing time హామీ లేదు.",
         f"నియమాలు: {SITE_URL}/referral",
@@ -1250,8 +1255,10 @@ def referrer_commission_text(referrer, referee, result):
 
 def referee_welcome_text(referee, referrer):
     """Welcome the referred user; keep request credits distinct from the cash reward."""
+    friend_name = _name_of(referrer, "స్నేహితుడు")
     return (
-        "🤝 మీ referral code నమోదు సమయంలో attach అయింది — మీకు +1 interest-request credit వచ్చింది. "
+        f"🤝 మీ friend {friend_name} ఇచ్చిన referral code నమోదు సమయంలో attach అయింది — "
+        "మీకు +1 interest-request credit వచ్చింది. "
         "మీరు కూడా మీ code share చేస్తే valid referral attachment పై referrer కి +2 request credits రావచ్చు. "
         f"ఇవి ₹50 cash reward కి వేరు. మీ code: {_code_of(referee)}. "
         "Referrer కు ₹50 ఒక్కసారి మాత్రమే, మీ first eligible S_99/S_199/S_299/S_499 consumer-plan payment పై అర్హత ఉండవచ్చు; add-ons, renewals, assisted services, boosts, gifts, complimentary మరియు B2B payments అర్హం కావు. "

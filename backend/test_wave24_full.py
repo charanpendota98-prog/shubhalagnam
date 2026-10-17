@@ -20,6 +20,10 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from test_storage import isolate_test_stores  # noqa: E402
 isolate_test_stores("wave24")
 
+# 💳 Test-only merchant UPI id: pay-order flows need a configured destination. Manual UPI
+# mode still requires an operator to verify the submitted reference — no money moves in tests.
+os.environ.setdefault("PAY_UPI_ID", "mana-vivaha-tests@upi")
+
 PASS, FAIL, FAILED = 0, 0, []
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -88,8 +92,14 @@ try:
     [t.start() for t in ts]
     [t.join() for t in ts]
     check("B1 both calls answered", len(outs) == 2)
-    check("B2 exactly 1 charged (no double-spend)", sum(1 for r in outs if r.get("charged")) == 1, outs)
-    check("B3 credits exactly 0 (never negative)", viewer["credits"] == 0, viewer["credits"])
+    # 🐞 R13: contact details are consent-only now — a credit can buy an interest request,
+    #    never a phone number. So the race must charge nothing at all (no double-spend and
+    #    no credit-bypass of owner acceptance).
+    check("B2 zero credits charged (phone numbers are never sold)",
+          all(int(r.get("charged", 0) or 0) == 0 for r in outs), outs)
+    check("B2b both racers got the same consent gate (no partial state)",
+          {r.get("reason") for r in outs} == {"consent_required"}, [r.get("reason") for r in outs])
+    check("B3 credits untouched and never negative", viewer["credits"] == 1, viewer["credits"])
     S12.UNLOCKS.clear()
     S12.UNLOCKS.update(_u_snap)
     S12.REVEAL_LOG[:] = _r_snap

@@ -26,6 +26,10 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from test_storage import isolate_test_stores  # noqa: E402
 isolate_test_stores("wave25")
 
+# 💳 Test-only merchant UPI id: pay-order flows need a configured destination. Manual UPI
+# mode still requires an operator to verify the submitted reference — no money moves in tests.
+os.environ.setdefault("PAY_UPI_ID", "mana-vivaha-tests@upi")
+
 PASS, FAIL, FAILED = 0, 0, []
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -229,10 +233,13 @@ with open(os.path.join(ROOT, "frontend/src/components/PayBox.tsx"), encoding="ut
 check("H1 PayBox claim API", "/api/pay/claim" in pb)
 check("H2 PayBox rzp order_id checkout", "order_id: order.rzp_order_id" in pb)
 check("H3 PayBox 12-digit UTR check", "d{12}" in pb)
-with open(os.path.join(ROOT, "frontend/src/app/referral/page.tsx"), encoding="utf-8") as f:
-    rp = f.read()
+# App Router split: referral UI lives in page.tsx + referral-client.tsx — read both.
+from testutil_paths import src_page  # noqa: E402
+rp = src_page("frontend/src/app/referral/page.tsx")
 check("H4 no 10% copy", "10%" not in rp)
-check("H5 flat-50 copy", "₹50 flat" in rp)  # R10: copy updated (anyone-can-earn rewrite)
+# 💎 R13: copy is "one-time ₹50" now (flat, never a percentage, never per repeat payment).
+check("H5 flat one-time ₹50 copy (no percentage, no repeat)",
+      "One-time ₹50" in rp and "10%" not in rp)
 check("H6 PAID badge render", "payout_paid" in rp and "✅ PAID" in rp)
 with open(os.path.join(ROOT, "frontend/src/components/PayConsole.tsx"), encoding="utf-8") as f:
     pc = f.read()
@@ -259,8 +266,10 @@ try:
     u1["referred_by"] = rrp["partner_id"]
     u1["has_paid"] = True
     pub = RP19B.partner_public(rrp["partner_id"], [u1])
-    jn = (pub.get("joins") or [{}])[0].get("name", "")
-    check("I2 partner joins first-name only", jn == "Sweep", jn)
+    jn = (pub.get("joins") or [{}])[0]
+    # 🔒 R13: public partner feed is anonymous — no names on an unauthenticated endpoint.
+    check("I2 partner joins feed is anonymous (no name/phone/ID leaked)",
+          jn.get("join_no") == 1 and not any(k in jn for k in ("name", "phone", "tsap_id")), jn)
     RP19B.PARTNERS[:] = _pp
     RP19B._save()
     from fastapi.testclient import TestClient as TC2

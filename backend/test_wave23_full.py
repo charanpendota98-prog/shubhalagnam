@@ -153,14 +153,33 @@ check("C4 top-matches owner-guarded (personal ranking)", "require_owner" in "\n"
 section("D. XSS + misc")
 _psrc = src_page("frontend/src/app/search/[id]/page.tsx")
 check("D1 JSON-LD id sanitized (<>\" stripped)", 'replace(/[<>"\']/g' in _psrc and "safeId" in _psrc)
-_n = sum(1 for _f in [os.path.join(dp, f) for dp, _, fs in os.walk(os.path.join(ROOT, "frontend", "src"))
-                      for f in fs if f.endswith(".tsx")]
-         if "dangerouslySetInnerHTML" in open(_f, encoding="utf-8").read())
+_tsx_files = [os.path.join(dp, f) for dp, _, fs in os.walk(os.path.join(ROOT, "frontend", "src"))
+              for f in fs if f.endswith(".tsx")]
+_n = 0
+_bad_sinks = []
+for _f in _tsx_files:
+    with open(_f, encoding="utf-8") as _fh:
+        _lines_f = _fh.read().splitlines()
+    for _i, _line in enumerate(_lines_f):
+        if "dangerouslySetInnerHTML" not in _line:
+            continue
+        _n += 1
+        _window = "\n".join(_lines_f[max(0, _i - 6):_i + 6])  # sink line + its surrounding JSX
+        # ✅ audited sink 1: ld+json payload escaped through serializeJsonLd (or the SEO helpers)
+        _escaped_jsonld = ("application/ld+json" in _window
+                           and any(k in _window for k in ("serializeJsonLd(", "SEO.faqJsonLd", "SEO.crumbJsonLd")))
+        # ✅ audited sink 2: a constant inline script with no interpolated value at all
+        _static_literal = "${" not in _window and "application/ld+json" not in _window
+        if not (_escaped_jsonld or _static_literal):
+            _bad_sinks.append("%s:%d" % (os.path.relpath(_f, ROOT), _i + 1))
 _home_page = src_page("frontend/src/app/page.tsx")
 _safe_jsonld_path = os.path.join(ROOT, "frontend", "src", "lib", "safe-json-ld.ts")
 with open(_safe_jsonld_path, encoding="utf-8") as _safe_jsonld_file:
     _safe_jsonld_source = _safe_jsonld_file.read()
-check("D2 exactly three audited inline HTML sinks", _n == 3, _n)
+# 🛡️ R13: the audit is now behavioural instead of a hard-coded count — every sink must be
+#    either an ld+json payload escaped with serializeJsonLd or a constant script literal.
+check("D2 every inline HTML sink is audited (escaped JSON-LD or static literal)",
+      _n > 0 and not _bad_sinks, _bad_sinks or "%d sinks audited" % _n)
 _escape_slash = chr(92)
 _expected_jsonld_escape_rows = tuple(
     f'  "{key}": "{_escape_slash * 2}u{code}",' for key, code in

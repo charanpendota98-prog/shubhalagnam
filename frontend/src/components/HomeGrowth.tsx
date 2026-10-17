@@ -92,55 +92,8 @@ export function TeaserStrip() {
   );
 }
 
-export function StoriesStrip() {
-  const { lang } = useLang();
-  const te = lang === "te";
-  const [rows, setRows] = useState<Story[]>([]);
-  useEffect(() => {
-    void apiGet<{ stories?: Story[] }>("/api/stories?limit=3")
-      .then(({ ok, data }) => { if (ok && data?.stories) setRows(data.stories); });
-  }, []);
-  if (!rows.length) return null;
-  return (
-    <section className="max-w-7xl mx-auto px-4 py-8">
-      <Reveal>
-        <SectionHeading
-          eyebrow={duo("Member stories", "సభ్యుల కథనాలు")}
-          title={duo("Stories shared by members.", "సభ్యులు పంచుకున్న కథనాలు.")}
-          subtitle={duo("Submitted stories are shown after review; review does not independently verify identity or relationship details.", "సభ్యులు పంపిన కథనాలు సమీక్ష తర్వాత చూపబడతాయి; ఆ సమీక్ష గుర్తింపు లేదా సంబంధ వివరాలను స్వతంత్రంగా నిర్ధారించదు.")}
-          telugu
-        />
-      </Reveal>
-      <div className="mt-5 grid md:grid-cols-3 gap-4">
-        {rows.map((s, i) => {
-          const district = te
-            ? String(s.district || "")
-            : apiDisplayMessage({ message_en: s.district }, false, "");
-          const storyText = te
-            ? String(s.story_te || s.text || "")
-            : apiDisplayMessage({ message_en: s.story_en || s.text }, false, "An English version of this story is not available.");
-          return (
-            <Reveal key={String(s.story_id || i)} delay={i * 80}>
-              <div className="h-full rounded-2xl border border-gold/25 bg-white p-5 card-shadow">
-                <div className="text-3xl" aria-hidden="true">💬</div>
-                <div className="mt-2 break-words font-bold text-maroon">{s.couple_names || <Duo en="Member story" te="సభ్యుల కథనం" />}</div>
-                {district ? <div className="break-words text-[11px] text-gray-500">📍 {district}</div> : null}
-                <p lang={te ? "te-IN" : "en-IN"} className={`mt-2 line-clamp-4 whitespace-pre-wrap break-words text-[13px] leading-relaxed text-gray-700 ${te ? "telugu" : ""}`}>
-                  {storyText.length > 220 ? `${storyText.slice(0, 220)}…` : storyText}
-                </p>
-              </div>
-            </Reveal>
-          );
-        })}
-      </div>
-      <div className="mt-4 text-center">
-        <Link href="/stories" className="text-[13px] font-bold text-maroon underline">
-          <Duo en="Read member stories →" te="సభ్యుల కథనాలు చదవండి →" />
-        </Link>
-      </div>
-    </section>
-  );
-}
+/* StoriesStrip removed: it duplicated the already-mounted HomeStories
+   section (same /api/stories feed, same review disclaimer). */
 
 export function ReligionsStrip() {
   const items = [

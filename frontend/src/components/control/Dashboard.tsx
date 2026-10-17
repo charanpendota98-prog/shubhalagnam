@@ -26,6 +26,23 @@ import OpsInsights from "./OpsInsights";
 import ChannelCoverage from "./ChannelCoverage";
 import ChannelsConsole from "@/components/ChannelsConsole";
 import WANumbersConsole from "@/components/WANumbersConsole";
+import ReferralReport from "@/components/ReferralReport";
+import DataTools from "@/components/DataTools";
+import DailyMatches from "@/components/DailyMatches";
+import AdsConsole from "@/components/AdsConsole";
+import AstroConsole from "@/components/AstroConsole";
+import ContentConsole from "@/components/ContentConsole";
+import OffersConsole from "@/components/OffersConsole";
+import PayConsole from "@/components/PayConsole";
+import MatchSend from "@/components/MatchSend";
+import Showcase from "@/components/Showcase";
+import {
+  ModerationQueue,
+  StoriesQueue,
+  LeadsPanel,
+  PublishPanel,
+  PersonalizedDigestPanel,
+} from "@/components/AdminOps";
 import {
   CASTES,
   CASTE_SUBCASTES,
@@ -214,6 +231,8 @@ export default function Dashboard() {
     | "channels"
     | "numbers"
     | "addProfile"
+    | "tools"
+    | "consoles"
     | "ads"
     | "vendors"
     | "spotlight"
@@ -1301,6 +1320,8 @@ export default function Dashboard() {
     { k: "channels" as const, label: L.tabChannels },
     { k: "numbers" as const, label: L.tabNumbers },
     { k: "addProfile" as const, label: L.tabAddProfile },
+    { k: "tools" as const, label: tr("🧰 డేటా టూల్స్ & డైలీ మ్యాచ్‌లు", "🧰 Data tools & daily matches") },
+    { k: "consoles" as const, label: tr("🎛️ కన్సోల్స్", "🎛️ Consoles") },
     { k: "ads" as const, label: L.tabAds },
     { k: "vendors" as const, label: L.tabVendors },
     { k: "spotlight" as const, label: L.tabSpotlight },
@@ -2950,6 +2971,33 @@ export default function Dashboard() {
           </div>
         )}
 
+        {/* Data tools + daily featured matches (owner only) */}
+        {tab === "tools" && owner && (
+          <div className="space-y-6">
+            <DailyMatches />
+            <DataTools />
+            <ModerationQueue />
+            <StoriesQueue />
+            <LeadsPanel />
+            <PublishPanel />
+            <PersonalizedDigestPanel />
+          </div>
+        )}
+
+        {/* Consoles (owner only): campaigns, astro, content, offers, payments,
+            the weekly showcase and the assisted match-and-send service. */}
+        {tab === "consoles" && owner && (
+          <div className="space-y-6">
+            <Showcase />
+            <MatchSend />
+            <ContentConsole />
+            <OffersConsole />
+            <PayConsole />
+            <AdsConsole />
+            <AstroConsole />
+          </div>
+        )}
+
         {/* Targeted Ads Tab */}
         {tab === "ads" && owner && (
           <div className="space-y-5">
@@ -3515,6 +3563,12 @@ export default function Dashboard() {
                   })}
                 </div>
               )}
+            </div>
+
+            {/* 🤝 Full referral report — every referrer, their wallet state and per-join ledger.
+                Admin-only data (names/phones live here, never in the public partner feed). */}
+            <div className="bg-white rounded-3xl p-4 sm:p-5 border border-gold/30 shadow-sm">
+              <ReferralReport />
             </div>
           </div>
         )}

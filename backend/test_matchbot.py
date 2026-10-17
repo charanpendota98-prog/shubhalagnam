@@ -142,9 +142,16 @@ check("empty delivery ok", isinstance(matchbot.delivery_text({}, {}, "te"), str)
 print("\n=== 10. ENDPOINTS (dev harness) ===")
 try:
     os.environ["TSAP_AUTH_MODE"] = "off"
-    os.environ["DEMO_SEED_ENABLED"] = "true"
-    os.environ["LAUNCH_SEED_COUNT"] = "60"
+    # 🐞 R13: demo seeding was removed with the no-demo policy — DEMO_SEED_ENABLED /
+    #   LAUNCH_SEED_COUNT are no longer read by any production code, so the suite builds
+    #   its own isolated fixtures (POOL) inside an isolated store instead.
+    os.environ.pop("DEMO_SEED_ENABLED", None)
+    os.environ.pop("LAUNCH_SEED_COUNT", None)
+    from test_storage import isolate_test_stores
+    isolate_test_stores("matchbot")
     import main as M
+    M.DB_USERS.clear()
+    M.DB_USERS.extend(dict(p) for p in POOL)
     from fastapi.testclient import TestClient
     from hardening import sign_token
     c = TestClient(M.app, raise_server_exceptions=False)

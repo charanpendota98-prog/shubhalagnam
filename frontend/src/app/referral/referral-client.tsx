@@ -13,6 +13,7 @@ import { Duo } from "@/lib/duo";
 import { apiDisplayMessage, authHeaders, readApiJson } from "@/lib/api";
 import { WhatsAppIcon, TelegramIcon } from "@/components/BrandIcons";
 import ReferralPro from "@/components/ReferralPro";
+import LiveMatrimonyTicker from "@/components/LiveMatrimonyTicker";
 
 type Dash = any;
 
@@ -374,6 +375,11 @@ export default function ReferralPage() {
           {searchErr && <div className="mt-2 text-xs text-rose-300 font-semibold">{searchErr}</div>}
         </div>
       </section>
+
+      {/* Plain-language reward terms, visible before anyone starts sharing. */}
+      <div className="max-w-6xl mx-auto px-4 mt-4">
+        <LiveMatrimonyTicker />
+      </div>
 
       {/* ================= MAIN CONTAINER ================= */}
       <div className="max-w-6xl mx-auto px-4 mt-6 space-y-6">

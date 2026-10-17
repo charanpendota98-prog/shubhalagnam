@@ -9,6 +9,7 @@
 import { useState, useMemo } from "react";
 import Link from "next/link";
 import Reveal from "@/components/Reveal";
+import VivahaMuhurthamTeaser from "@/components/VivahaMuhurthamTeaser";
 import SectionHeading from "@/components/SectionHeading";
 import { useLang } from "@/lib/lang";
 import { VIVAHA_MUHURTHAMS_2026_2027, MuhurthamDate, formatMuhurthamDate, formatMuhurthamLagnam, formatMuhurthamMonth, formatMuhurthamNakshatra, formatMuhurthamThithi, formatMuhurthamTime } from "@/lib/muhurtham-data";
@@ -237,6 +238,9 @@ export default function MuhurthamPage() {
             </Link>
           </div>
         </div>
+
+        {/* Reference-date teaser — the same published calendar, compact. */}
+        <VivahaMuhurthamTeaser />
 
       </div>
     </div>
