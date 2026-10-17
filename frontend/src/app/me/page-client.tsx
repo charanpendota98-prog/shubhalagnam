@@ -16,6 +16,7 @@ import PushBell from "@/components/PushBell";
 import PayBox from "@/components/PayBox";
 import MatchAssistant from "@/components/MatchAssistant";
 import StoryNudge from "@/components/StoryNudge";
+import MemberActivity from "@/components/MemberActivity";
 import { apiDisplayMessage, apiGet, apiPost, authHeaders, readApiJson} from "@/lib/api";
 // 🛡️ P0 security fix: /api/profile/{id} (GET+update) and /api/user/delete-account
 // now require the owner's X-Tsap-Token server-side (was a zero-auth IDOR that
@@ -159,6 +160,11 @@ export default function MePage() {
           {/* 💑 Story nudge — only when the member's own record justifies it */}
           <div className="mt-4">
             <StoryNudge />
+          </div>
+
+          {/* 📊 WAVE 43 — this account's own activity (never a forecast) */}
+          <div className="mt-4">
+            <MemberActivity tsapId={myId} />
           </div>
 
           <div className="mt-4 flex gap-2 overflow-x-auto pb-1 no-scrollbar">

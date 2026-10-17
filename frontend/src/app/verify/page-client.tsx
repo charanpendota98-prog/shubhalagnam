@@ -10,6 +10,7 @@ import { useSearchParams } from "next/navigation";
 import { Duo, duo } from "@/lib/duo";
 import { useLang } from "@/lib/lang";
 import { apiDisplayMessage, getToken, TSAP_KEY, readApiJson } from "@/lib/api";
+import VerificationProgress from "@/components/VerificationProgress";
 
 export default function VerifyPage() {
   const { lang } = useLang();
@@ -122,6 +123,9 @@ export default function VerifyPage() {
                "అప్‌లోడ్‌లకు సాంకేతిక తనిఖీలు, వేరుగా staff review ఉంటాయి. నమోదైన తనిఖీ అన్ని profile వివరాలను నిర్ధారించదు; స్పందనలకూ హామీ కాదు.")}
         </p>
       </section>
+
+      {/* 🧾 WAVE 43 — what is recorded, what is not, and what to do next */}
+      <VerificationProgress tsapId={tsapId} />
     </div>
   );
 }

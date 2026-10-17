@@ -654,6 +654,102 @@ check("N12 one shared helper decides what counts as a homemaker occupation",
       and "export function occupationsForGender" in data_src)
 
 # ===========================================================================
+section("O. member intelligence (explainable, fact-only, owner-private)")
+# ===========================================================================
+import member_intel  # noqa: E402
+
+r = client.get("/api/verification/%s/progress" % BID, headers=BH)
+progress = r.json() if r.status_code == 200 else {}
+check("O1 verification progress is owner-only and lists every check",
+      r.status_code == 200 and len(progress.get("checks") or []) == 3, r.status_code)
+check("O2 each check says what it records AND what it does not",
+      all(c.get("records_en") and c.get("does_not_en") for c in (progress.get("checks") or [])))
+check("O3 no check is presented as trust or identity proof",
+      all("not" in str(c.get("does_not_en", "")).lower() for c in (progress.get("checks") or [])))
+check("O4 section counts describe details provided, never a trust score",
+      "not a quality or trust score" in str(progress.get("detail_note_en") or ""),
+      progress.get("provided_fields"))
+check("O5 verification progress is private to the owner",
+      anon.get("/api/verification/%s/progress" % BID).status_code in (401, 403))
+
+r = client.get("/api/matches/%s/insights/%s" % (GID, BID), headers=GH)
+insights = r.json() if r.status_code == 200 else {}
+check("O6 profile insights answer for the owner with shared facts",
+      r.status_code == 200 and isinstance(insights.get("shared"), list), r.status_code)
+check("O7 insights never calculate a compatibility score",
+      insights.get("compatibility_score_calculated") is False
+      and insights.get("ranking_basis") == "member_entered_facts_only")
+check("O8 unknowns are listed as unknown instead of being guessed",
+      all(str(row.get("state") or "").startswith("not_provided") for row in (insights.get("unknown") or [])))
+check("O8b a matching saved search explains which filters fitted",
+      all(isinstance(s.get("filter_detail"), list) for s in (insights.get("saved_searches") or [])))
+check("O9 insights are owner-private",
+      anon.get("/api/matches/%s/insights/%s" % (GID, BID)).status_code in (401, 403))
+check("O10 insights on a hidden/unapproved profile stay 404",
+      client.get("/api/matches/%s/insights/%s" % (GID, "TSAP-NOPE-0000"), headers=GH).status_code == 404)
+
+r = client.get("/api/interest/coach?from_id=%s&to_id=%s" % (GID, BID), headers=GH)
+coach = r.json() if r.status_code == 200 else {}
+check("O11 the interest coach answers before a credit is spent",
+      r.status_code == 200 and "can_send" in coach, r.status_code)
+check("O12 the coach states the credits, the daily limit and what the owner receives",
+      isinstance(coach.get("credits"), int) and coach.get("daily_limit")
+      and len(coach.get("what_owner_receives") or []) >= 3)
+check("O13 the coach promises no reply and no guaranteed delivery",
+      "never confirmed" in str(coach.get("delivery_note_en") or "").lower()
+      and any("not guaranteed" in str(step.get("en") or "").lower() or "no response" in str(step.get("en") or "").lower()
+              for step in (coach.get("next_steps") or [])))
+check("O14 suggested notes are built from member-entered facts only",
+      isinstance(coach.get("suggested_notes"), list) and len(coach.get("suggested_notes") or []) >= 1)
+check("O15 the coach refuses to advise on another member's request",
+      anon.get("/api/interest/coach?from_id=%s&to_id=%s" % (GID, BID)).status_code in (401, 403))
+
+sent = client.post("/api/interest/send", json={"from_id": GID, "to_id": BID, "note": "Namaste."}, headers=GH)
+request_id = (sent.json() or {}).get("request_id") if sent.status_code == 200 else ""
+r = client.get("/api/interest/%s/timeline" % request_id, headers=GH) if request_id else None
+timeline = (r.json() if r and r.status_code == 200 else {}) if r else {}
+check("O16 a sent request has a timeline with real timestamps",
+      bool(request_id) and r is not None and r.status_code == 200
+      and bool(timeline.get("steps")) and bool(timeline["steps"][0].get("at")),
+      request_id or sent.status_code)
+check("O17 the timeline never invents a delivery or reading time",
+      "never confirmed" in str(timeline.get("delivery_note_en") or "").lower()
+      and timeline.get("total_steps") == 4)
+_outsider = member_headers(SECOND["tsap_id"])
+# `client` carries an owner/admin session (admin may read anything), so the
+# negative check uses the clean client with another member's token.
+_owner_code = client.get("/api/interest/%s/timeline" % request_id, headers=BH).status_code if request_id else 0
+_outsider_code = anon.get("/api/interest/%s/timeline" % request_id, headers=_outsider).status_code if request_id else 0
+check("O18 a stranger cannot read someone else's timeline (the owner of the request can)",
+      _owner_code == 200 and _outsider_code in (401, 403), "%s/%s" % (_owner_code, _outsider_code))
+
+r = client.get("/api/me/%s/activity" % GID, headers=GH)
+activity = r.json() if r.status_code == 200 else {}
+check("O19 member activity reports this account's own counts",
+      r.status_code == 200 and isinstance(activity.get("sent"), dict), r.status_code)
+check("O20 a tiny sample says so instead of posing as a forecast",
+      activity.get("small_sample") is True and activity.get("sample_size", 0) <= 5)
+check("O21 activity stays private to the member",
+      anon.get("/api/me/%s/activity" % GID).status_code in (401, 403))
+
+# Pure-module behaviour (no HTTP): the honest rules hold at the function level too.
+_progress = member_intel.verification_progress({"tsap_id": "X", "phone_verified": True, "full_name": "A"})
+check("O22 a recorded OTP shows as recorded and ID stays unrecorded",
+      [c["state"] for c in _progress["checks"]] == ["recorded", "not_recorded", "not_recorded"])
+_activity = member_intel.member_activity(
+    {"tsap_id": "ME", "credits": 2},
+    [{"from_id": "ME", "to_id": "A", "status": "accepted", "created_at": "2026-10-01T09:00:00",
+      "status_at": "2026-10-02T09:00:00"},
+     {"from_id": "ME", "to_id": "B", "status": "pending", "created_at": "2026-10-01T09:00:00"}],
+)
+check("O23 counts and real response times are computed from stored timestamps",
+      _activity["sent"]["total"] == 2 and _activity["sent"]["accepted"] == 1
+      and _activity["median_response_hours"] == 24.0 and _activity["response_rate_percent"] == 50.0,
+      (_activity["median_response_hours"], _activity["response_rate_percent"]))
+check("O24 a response rate is flagged as a small sample, not a promise",
+      _activity["small_sample"] is True and "not a forecast" in _activity["note_en"])
+
+# ===========================================================================
 print("\n=== RESULT: %d pass / %d fail ===" % (len(PASS), len(FAIL)))
 if FAIL:
     print("FAILED:")

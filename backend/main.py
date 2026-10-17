@@ -127,6 +127,7 @@ from quality import (
     log_consent, consent_for, load_saved_searches, load_consent_ledger, CONSENT_LEDGER,
     SAVED_SEARCHES,
 )
+import member_intel
 from interest import (
     PLANS as INTEREST_PLANS, plan_list, get_plan, plan_by_amount, apply_payment,
     can_send_interest, create_interest, respond_interest, expire_old,
@@ -5792,6 +5793,79 @@ def interest_status(request_id: str, request: Request):
             "notification_queue": queue_state or {"status_recorded": False, "delivery_confirmed": False},
             "note": "WhatsApp queue status does not confirm external delivery or reading.",
             "note_telugu": "WhatsApp queue స్థితి మాత్రమే; external delivery లేదా message చదివినట్లు నిర్ధారణ కాదు."}
+
+
+# ============================================================================
+#  🧠 MEMBER INTELLIGENCE (WAVE 43) — explainable, fact-only, owner-private
+# ============================================================================
+@app.get("/api/verification/{tsap_id}/progress")
+def api_verification_progress(tsap_id: str, request: Request = None):
+    """Every recorded check for this profile, what it means, and the next step."""
+    require_owner(request, tsap_id)
+    user = _find_user(tsap_id)
+    if not user:
+        raise HTTPException(404, "Profile dorakaledu")
+    return member_intel.verification_progress(user)
+
+
+@app.get("/api/matches/{viewer_id}/insights/{profile_id}")
+def api_profile_insights(viewer_id: str, profile_id: str, request: Request = None):
+    """Why a profile appears: shared facts, differences, unknowns, saved-search overlap."""
+    require_owner(request, viewer_id)
+    viewer = _find_user(viewer_id)
+    if not viewer:
+        raise HTTPException(404, "Mee profile dorakaledu")
+    profile = _find_user(profile_id)
+    if not profile or not _is_approved_profile(profile):
+        raise _approved_profile_404()
+    try:
+        searches = quality.saved_for(viewer_id)
+    except Exception:
+        searches = []
+    return member_intel.profile_insights(viewer, profile, searches)
+
+
+@app.get("/api/interest/coach")
+def api_interest_coach(from_id: str = "", to_id: str = "", request: Request = None):
+    """What sending this request really does — checked before any credit is spent."""
+    from_id, to_id = from_id.strip().upper(), to_id.strip().upper()
+    if not from_id or not to_id:
+        validation_error("from_id", "⚠️ from_id and to_id are required")
+    require_owner(request, from_id)
+    sender = _find_user(from_id)
+    if not sender:
+        raise HTTPException(404, "Mee profile dorakaledu")
+    owner = _find_user(to_id)
+    if not owner or not _is_approved_profile(owner):
+        raise _approved_profile_404()
+    blocked = safety.is_blocked(from_id, to_id, DB_BLOCKS)
+    return member_intel.interest_coach(
+        sender, owner, DB_INTERESTS, blocked=blocked,
+        plans=plan_list(), daily_limit=INTEREST_MAX_PER_DAY,
+    )
+
+
+@app.get("/api/interest/{request_id}/timeline")
+def api_interest_timeline(request_id: str, request: Request = None):
+    """Status steps with the timestamps that were actually recorded."""
+    rec = next((i for i in DB_INTERESTS if i.get("request_id") == request_id), None)
+    if not rec:
+        raise HTTPException(404, "Request not found")
+    try:
+        require_owner(request, rec.get("from_id", ""))
+    except HTTPException:
+        require_owner(request, rec.get("to_id", ""))
+    return member_intel.request_timeline(rec)
+
+
+@app.get("/api/me/{tsap_id}/activity")
+def api_member_activity(tsap_id: str, request: Request = None):
+    """This member's own request counts and response times — no forecasts."""
+    require_owner(request, tsap_id)
+    user = _find_user(tsap_id)
+    if not user:
+        raise HTTPException(404, "Mee profile dorakaledu")
+    return member_intel.member_activity(user, DB_INTERESTS)
 
 
 # ---------------------------------------------------------------- WhatsApp control
