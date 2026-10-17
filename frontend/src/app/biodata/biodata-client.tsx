@@ -525,7 +525,7 @@ export default function BiodataPage() {
               >
                 {te ? "📁 ఫోటో అప్‌లోడ్ చేయండి" : "📁 Upload photo"}
               </button>
-              <input ref={photoInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} />
+              <input aria-label={te ? "ఫోటో ఎంచుకోండి" : "Choose photo"} ref={photoInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} />
             </div>
           </div>
         </div>
@@ -539,7 +539,7 @@ export default function BiodataPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 text-xs">
               <div>
                 <label className="font-bold text-slate-700 block mb-1">{te ? "పూర్తి పేరు" : "Full name"}</label>
-                <input
+                <input aria-label={te ? "పూర్తి పేరు" : "Full name"}
                   type="text"
                   value={data.fullName}
                   onChange={(e) => setData({ ...data, fullName: e.target.value })}
@@ -548,7 +548,7 @@ export default function BiodataPage() {
               </div>
               <div>
                 <label className="font-bold text-slate-700 block mb-1">{te ? "పుట్టిన తేదీ" : "Date of birth"}</label>
-                <input
+                <input aria-label={te ? "పుట్టిన తేదీ" : "Date of birth"}
                   type="text"
                   value={data.dob}
                   onChange={(e) => setData({ ...data, dob: e.target.value })}
@@ -557,7 +557,7 @@ export default function BiodataPage() {
               </div>
               <div>
                 <label className="font-bold text-slate-700 block mb-1">{te ? "పుట్టిన సమయం" : "Time of birth"}</label>
-                <input
+                <input aria-label={te ? "పుట్టిన సమయం" : "Time of birth"}
                   type="text"
                   value={data.tob}
                   onChange={(e) => setData({ ...data, tob: e.target.value })}
@@ -566,7 +566,7 @@ export default function BiodataPage() {
               </div>
               <div>
                 <label className="font-bold text-slate-700 block mb-1">{te ? "ఎత్తు" : "Height"}</label>
-                <input
+                <input aria-label={te ? "ఎత్తు" : "Height"}
                   type="text"
                   value={data.height}
                   onChange={(e) => setData({ ...data, height: e.target.value })}
@@ -579,7 +579,7 @@ export default function BiodataPage() {
                 <>
                   <div>
                     <label className="font-bold text-slate-700 block mb-1">{te ? "కులం" : "Community"}</label>
-                    <input
+                    <input aria-label={te ? "కులం" : "Community"}
                       type="text"
                       value={data.caste}
                       onChange={(e) => setData({ ...data, caste: e.target.value })}
@@ -588,7 +588,7 @@ export default function BiodataPage() {
                   </div>
                   <div>
                     <label className="font-bold text-slate-700 block mb-1">{te ? "ఉపకులం" : "Sub-community"}</label>
-                    <input
+                    <input aria-label={te ? "ఉపకులం" : "Sub-community"}
                       type="text"
                       value={data.subCaste}
                       onChange={(e) => setData({ ...data, subCaste: e.target.value })}
@@ -597,7 +597,7 @@ export default function BiodataPage() {
                   </div>
                   <div>
                     <label className="font-bold text-slate-700 block mb-1">{te ? "గోత్రం" : "Gothram"}</label>
-                    <input
+                    <input aria-label={te ? "గోత్రం" : "Gothram"}
                       type="text"
                       value={data.gothram}
                       onChange={(e) => setData({ ...data, gothram: e.target.value })}
@@ -606,7 +606,7 @@ export default function BiodataPage() {
                   </div>
                   <div>
                     <label className="font-bold text-slate-700 block mb-1">{te ? "నక్షత్రం" : "Nakshatra"}</label>
-                    <input
+                    <input aria-label={te ? "నక్షత్రం" : "Nakshatra"}
                       type="text"
                       value={data.star}
                       onChange={(e) => setData({ ...data, star: e.target.value })}
@@ -615,7 +615,7 @@ export default function BiodataPage() {
                   </div>
                   <div>
                     <label className="font-bold text-slate-700 block mb-1">{te ? "రాశి" : "Moon sign"}</label>
-                    <input
+                    <input aria-label={te ? "రాశి" : "Moon sign"}
                       type="text"
                       value={data.rasi}
                       onChange={(e) => setData({ ...data, rasi: e.target.value })}
@@ -629,7 +629,7 @@ export default function BiodataPage() {
                 <>
                   <div>
                     <label className="font-bold text-slate-700 block mb-1">{te ? "ఫిర్కా / శాఖ" : "Sect / maslak"}</label>
-                    <input
+                    <input aria-label={te ? "ఫిర్కా / శాఖ" : "Sect / maslak"}
                       type="text"
                       value={data.islamicSect}
                       onChange={(e) => setData({ ...data, islamicSect: e.target.value })}
@@ -638,7 +638,7 @@ export default function BiodataPage() {
                   </div>
                   <div>
                     <label className="font-bold text-slate-700 block mb-1">{te ? "జమాత్ / శాఖ" : "Jamath / community"}</label>
-                    <input
+                    <input aria-label={te ? "జమాత్ / శాఖ" : "Jamath / community"}
                       type="text"
                       value={data.islamicJamath}
                       onChange={(e) => setData({ ...data, islamicJamath: e.target.value })}
@@ -647,7 +647,7 @@ export default function BiodataPage() {
                   </div>
                   <div>
                     <label className="font-bold text-slate-700 block mb-1">{te ? "నమాజ్ / దీన్ ఆచరణ" : "Prayer / faith practice"}</label>
-                    <input
+                    <input aria-label={te ? "నమాజ్ / దీన్ ఆచరణ" : "Prayer / faith practice"}
                       type="text"
                       value={data.namazStatus}
                       onChange={(e) => setData({ ...data, namazStatus: e.target.value })}
@@ -661,7 +661,7 @@ export default function BiodataPage() {
                 <>
                   <div>
                     <label className="font-bold text-slate-700 block mb-1">{te ? "తెగ / డినామినేషన్" : "Denomination"}</label>
-                    <input
+                    <input aria-label={te ? "తెగ / డినామినేషన్" : "Denomination"}
                       type="text"
                       value={data.christianDenomination}
                       onChange={(e) => setData({ ...data, christianDenomination: e.target.value })}
@@ -670,7 +670,7 @@ export default function BiodataPage() {
                   </div>
                   <div>
                     <label className="font-bold text-slate-700 block mb-1">{te ? "చర్చి పేరు" : "Church / parish"}</label>
-                    <input
+                    <input aria-label={te ? "చర్చి పేరు" : "Church / parish"}
                       type="text"
                       value={data.churchName}
                       onChange={(e) => setData({ ...data, churchName: e.target.value })}
@@ -679,7 +679,7 @@ export default function BiodataPage() {
                   </div>
                   <div>
                     <label className="font-bold text-slate-700 block mb-1">{te ? "బాప్టిజం / విశ్వాస స్థితి" : "Baptism / faith status"}</label>
-                    <input
+                    <input aria-label={te ? "బాప్టిజం / విశ్వాస స్థితి" : "Baptism / faith status"}
                       type="text"
                       value={data.baptismStatus}
                       onChange={(e) => setData({ ...data, baptismStatus: e.target.value })}
@@ -691,7 +691,7 @@ export default function BiodataPage() {
 
               <div>
                 <label className="font-bold text-slate-700 block mb-1">{te ? "విద్య" : "Education"}</label>
-                <input
+                <input aria-label={te ? "విద్య" : "Education"}
                   type="text"
                   value={data.education}
                   onChange={(e) => setData({ ...data, education: e.target.value })}
@@ -700,7 +700,7 @@ export default function BiodataPage() {
               </div>
               <div>
                 <label className="font-bold text-slate-700 block mb-1">{te ? "ఉద్యోగం / హోదా" : "Job / title"}</label>
-                <input
+                <input aria-label={te ? "ఉద్యోగం / హోదా" : "Job / title"}
                   type="text"
                   value={data.job}
                   onChange={(e) => setData({ ...data, job: e.target.value })}
@@ -709,7 +709,7 @@ export default function BiodataPage() {
               </div>
               <div>
                 <label className="font-bold text-slate-700 block mb-1">{te ? "వార్షిక ఆదాయం" : "Annual income"}</label>
-                <input
+                <input aria-label={te ? "వార్షిక ఆదాయం" : "Annual income"}
                   type="text"
                   value={data.salary}
                   onChange={(e) => setData({ ...data, salary: e.target.value })}
@@ -718,7 +718,7 @@ export default function BiodataPage() {
               </div>
               <div>
                 <label className="font-bold text-slate-700 block mb-1">{te ? "తండ్రి పేరు / వృత్తి" : "Father's name / occupation"}</label>
-                <input
+                <input aria-label={te ? "తండ్రి పేరు / వృత్తి" : "Father's name / occupation"}
                   type="text"
                   value={data.fatherName}
                   onChange={(e) => setData({ ...data, fatherName: e.target.value })}
@@ -727,7 +727,7 @@ export default function BiodataPage() {
               </div>
               <div>
                 <label className="font-bold text-slate-700 block mb-1">{te ? "తల్లి పేరు / వృత్తి" : "Mother's name / occupation"}</label>
-                <input
+                <input aria-label={te ? "తల్లి పేరు / వృత్తి" : "Mother's name / occupation"}
                   type="text"
                   value={data.motherName}
                   onChange={(e) => setData({ ...data, motherName: e.target.value })}
@@ -736,7 +736,7 @@ export default function BiodataPage() {
               </div>
               <div>
                 <label className="font-bold text-slate-700 block mb-1">{te ? "సంప్రదింపు ఫోన్ నంబర్" : "Contact phone number"}</label>
-                <input
+                <input aria-label={te ? "సంప్రదింపు ఫోన్ నంబర్" : "Contact phone number"}
                   type="text"
                   value={data.phone}
                   onChange={(e) => setData({ ...data, phone: e.target.value })}

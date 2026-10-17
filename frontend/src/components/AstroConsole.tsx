@@ -90,7 +90,7 @@ export default function AstroConsole() {
             aria-label="Bride ID" className="min-w-[200px] flex-1 rounded-xl border px-3 py-2 font-mono text-sm" />
           <input value={groom} onChange={(e) => setGroom(e.target.value.toUpperCase())} placeholder="Groom Profile ID"
             aria-label="Groom ID" className="min-w-[200px] flex-1 rounded-xl border px-3 py-2 font-mono text-sm" />
-          <button onClick={() => void checkGuna()} className="rounded-xl bg-[#7A0C2E] px-5 py-2 text-sm font-bold text-white">🔍 {te ? "గుణాలు చూడండి" : "Calculate reference"}</button>
+          <button type="button" onClick={() => void checkGuna()} className="rounded-xl bg-[#7A0C2E] px-5 py-2 text-sm font-bold text-white">🔍 {te ? "గుణాలు చూడండి" : "Calculate reference"}</button>
         </div>
         {flash ? <div className="mt-2 rounded-xl bg-[#0F1F3C] p-2 text-xs text-white">{flash}</div> : null}
         {guna?.available ? (
@@ -153,8 +153,8 @@ export default function AstroConsole() {
                       <div className="flex gap-1">
                         <input value={note[j.id] || ""} onChange={(e) => setNote({ ...note, [j.id]: e.target.value })}
                           placeholder={te ? "Review గమనిక" : "Review note"} aria-label={te ? "Review గమనిక" : "Review note"} className="w-28 rounded-lg border px-2 py-1" />
-                        <button aria-label={te ? "Review స్థితిని నమోదు చేయండి" : "Record review status"} title={te ? "Review status నమోదు" : "Record review status"} onClick={() => void verify(j.id, true)} className="rounded-full bg-green-600 px-3 py-1 text-white">✅</button>
-                        <button aria-label={te ? "పత్రం review ను తిరస్కరించండి" : "Reject document review"} title={te ? "తిరస్కరించండి" : "Reject review"} onClick={() => void verify(j.id, false)} className="rounded-full bg-red-500 px-3 py-1 text-white">❌</button>
+                        <button type="button" aria-label={te ? "Review స్థితిని నమోదు చేయండి" : "Record review status"} title={te ? "Review status నమోదు" : "Record review status"} onClick={() => void verify(j.id, true)} className="rounded-full bg-green-600 px-3 py-1 text-white">✅</button>
+                        <button type="button" aria-label={te ? "పత్రం review ను తిరస్కరించండి" : "Reject document review"} title={te ? "తిరస్కరించండి" : "Reject review"} onClick={() => void verify(j.id, false)} className="rounded-full bg-red-500 px-3 py-1 text-white">❌</button>
                       </div>
                     ) : <span className="text-gray-500">{apiDisplayMessage({ message_en: j.note_en, message: j.note }, te, "—")}</span>}
                   </td>

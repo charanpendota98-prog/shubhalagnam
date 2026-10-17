@@ -256,7 +256,7 @@ export default function RequestsPage() {
                 placeholder={te ? "మీ రిజిస్టర్ చేసిన Profile ID" : "Your registered Profile ID"}
                 className="mt-1 w-full max-w-[224px] sm:w-56 px-3 py-2 rounded-xl text-ink font-mono text-sm outline-none focus-brand" aria-label={te ? "మీ Profile ID" : "Your Profile ID"} />
             </div>
-            <button onClick={() => saveId(myId)} className="gold-gradient text-maroon font-bold text-sm px-4 py-2.5 rounded-xl hover-lift">
+            <button type="button" onClick={() => saveId(myId)} className="gold-gradient text-maroon font-bold text-sm px-4 py-2.5 rounded-xl hover-lift">
               {te ? "నా dashboard చూడు" : "Load my dashboard"}
             </button>
             <div className="ml-auto bg-white/10 border border-white/20 rounded-xl px-4 py-2">
@@ -293,7 +293,7 @@ export default function RequestsPage() {
             { k: "viewers", l: `👀 Viewers${views?.total_views ? ` (${views.total_views})` : ""}` },
             { k: "plans", l: "💳 Plans & Credits" },
           ].map((t) => (
-            <button
+            <button type="button"
               key={t.k}
               onClick={() => setTab(t.k as any)}
               className={`px-4 py-2 rounded-xl text-[13px] font-bold border transition ${
@@ -350,10 +350,10 @@ export default function RequestsPage() {
                       <div className="mt-3 flex flex-wrap gap-2">
                         {it.actions?.includes("accept") ? (
                           <>
-                            <button onClick={() => respond(it.request_id, "accept")} disabled={busy} className="bg-emerald-600 text-white font-bold text-[13px] px-4 py-2.5 rounded-xl hover:bg-emerald-700 transition shadow-sm flex items-center gap-1.5">
+                            <button type="button" onClick={() => respond(it.request_id, "accept")} disabled={busy} className="bg-emerald-600 text-white font-bold text-[13px] px-4 py-2.5 rounded-xl hover:bg-emerald-700 transition shadow-sm flex items-center gap-1.5">
                               <span>✅</span> {te ? "ఆమోదించు (Accept & Share Number)" : "Accept & Share Number"}
                             </button>
-                            <button onClick={() => respond(it.request_id, "decline")} disabled={busy} className="bg-white border border-rose-300 text-rose-700 font-bold text-[13px] px-4 py-2.5 rounded-xl hover:bg-rose-50 transition">
+                            <button type="button" onClick={() => respond(it.request_id, "decline")} disabled={busy} className="bg-white border border-rose-300 text-rose-700 font-bold text-[13px] px-4 py-2.5 rounded-xl hover:bg-rose-50 transition">
                               <span>❌</span> {te ? "తిరస్కరించు" : "Decline request"}
                             </button>
                           </>
@@ -433,7 +433,7 @@ export default function RequestsPage() {
                         const tag = te ? t.tag : (t.tag_en || t.id);
                         return (
                           <button key={t.id} type="button" onClick={() => setNote(text.slice(0, 280))}
-                            className="rounded-full border border-gold/40 bg-cream px-2.5 py-1 text-[10px] font-semibold text-maroon hover:bg-gold/20"
+                            className="rounded-full border border-gold/40 bg-cream px-2.5 py-1 text-[10px] font-semibold text-maroon hover:bg-gold/20 min-h-11"
                             title={text}>
                             {tag}: {text.slice(0, 22)}…
                           </button>
@@ -452,7 +452,7 @@ export default function RequestsPage() {
                     className="mt-1 w-full px-3 py-2.5 rounded-xl border border-gold/40 text-sm outline-none focus-brand" aria-label="Text area" />
                   <div className="text-[10px] text-gray-500 mt-1">{note.length}/280 • {te ? "number/email పెట్టకు (privacy policy)" : "no number/email (privacy policy)"}</div>
                 </div>
-                <button onClick={sendInterest} disabled={busy} className="w-full maroon-gradient text-white font-bold py-3 rounded-xl hover-lift disabled:opacity-60">
+                <button type="button" onClick={sendInterest} disabled={busy} className="w-full maroon-gradient text-white font-bold py-3 rounded-xl hover-lift disabled:opacity-60">
                   {busy ? (te ? "పంపిస్తున్నాం…" : "Sending…") : te ? "💌 Interest పంపు" : "💌 Send interest"}
                 </button>
                 <div className="text-[11px] text-gray-500">
@@ -474,7 +474,7 @@ export default function RequestsPage() {
                   <div className="text-[12px] text-emerald-900 mt-2">
                     📲 {te ? "WhatsApp notification:" : "WhatsApp notification:"} {lastSend.whatsapp?.owner_queued ? (te ? "queue లో చేరింది; delivery హామీ లేదు" : "queued; delivery is not guaranteed") : (te ? "queue కాలేదు" : "not queued")}
                   </div>
-                  <button onClick={() => setShowOwnerMsg(!showOwnerMsg)} className="mt-3 text-[12px] font-bold text-emerald-800 underline">
+                  <button type="button" onClick={() => setShowOwnerMsg(!showOwnerMsg)} className="mt-3 text-[12px] font-bold text-emerald-800 underline">
                     {showOwnerMsg ? (te ? "Message దాచి పెట్టు" : "Hide message") : (te ? "వాళ్లకి వెళ్లే message చూడు (preview)" : "Preview their message")}
                   </button>
                   {showOwnerMsg && (
@@ -559,7 +559,7 @@ export default function RequestsPage() {
                   className="w-full px-3 py-2.5 rounded-xl border border-gold/40 font-mono text-sm outline-none focus-brand" aria-label={te ? "వధువు Profile ID" : "Bride Profile ID"} />
                 <input value={porB} onChange={(e) => setPorB(e.target.value.toUpperCase())} placeholder={te ? "వరుడు Profile ID" : "Groom Profile ID"}
                   className="w-full px-3 py-2.5 rounded-xl border border-gold/40 font-mono text-sm outline-none focus-brand" aria-label={te ? "వరుడు Profile ID" : "Groom Profile ID"} />
-                <button onClick={checkPorutham} disabled={busy} className="w-full maroon-gradient text-white font-bold py-3 rounded-xl hover-lift disabled:opacity-60">
+                <button type="button" onClick={checkPorutham} disabled={busy} className="w-full maroon-gradient text-white font-bold py-3 rounded-xl hover-lift disabled:opacity-60">
                   {te ? "🔮 Porutham checks చూడండి" : "🔮 View Porutham checks"}
                 </button>
                 <div className="text-[11px] text-gray-500">{te ? "ఇది పరిమిత సాంప్రదాయ reference మాత్రమే; మొత్తం compatibility score, వివాహ సిఫార్సు లేదా ఫలిత అంచనా ఇవ్వదు. వివరాలను విడిగా నిర్ధారించండి." : "A limited traditional reference only; it does not provide an overall compatibility score, marriage recommendation, or outcome prediction. Verify details independently."}</div>
@@ -660,11 +660,11 @@ export default function RequestsPage() {
                       <div className="text-[12px] font-bold text-amber-700 mt-1">🔮 Porutham checks marked pass: {x.porutham.checks_passed} of {x.porutham.checks_total} — review individual rules; not a compatibility verdict.</div>
                     ) : null}
                   </div>
-                  <button onClick={() => { setToId(x.profile.tsap_id); setTab("send"); }} className="text-[12px] font-bold maroon-gradient text-white px-3 py-2 rounded-xl">
+                  <button type="button" onClick={() => { setToId(x.profile.tsap_id); setTab("send"); }} className="text-[12px] font-bold maroon-gradient text-white px-3 py-2 rounded-xl">
                     {te ? "💌 Interest పంపు" : "💌 Send interest"}
                   </button>
                   <Link href={`/search/${x.profile.tsap_id}`} className="text-[12px] font-bold text-maroon underline">Profile →</Link>
-                  <button onClick={() => removeSaved(x.profile.tsap_id)} className="text-[12px] text-gray-500 underline">Remove</button>
+                  <button type="button" onClick={() => removeSaved(x.profile.tsap_id)} className="text-[12px] text-gray-500 underline">Remove</button>
                 </div>
               </Reveal>
             ))}
@@ -801,7 +801,7 @@ function TrackRequest({ requestId }: { requestId: string }) {
   };
   return (
     <>
-      <button onClick={() => void toggle()} className="text-[12px] font-bold text-sky-700 underline">
+      <button type="button" onClick={() => void toggle()} className="text-[12px] font-bold text-sky-700 underline">
         📍 {te ? "Track" : "Track"}
       </button>
       {open && (

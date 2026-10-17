@@ -167,7 +167,7 @@ export default function WhatsAppProposalModal({ isOpen, onClose, profile }: Prop
               </p>
             </div>
           </div>
-          <button
+          <button type="button"
             onClick={onClose}
             aria-label="Close"
             className="w-8 h-8 rounded-full bg-white/20 text-white hover:bg-white/30 flex items-center justify-center font-bold text-sm transition"

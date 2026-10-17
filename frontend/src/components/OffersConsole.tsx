@@ -72,10 +72,10 @@ export default function OffersConsole() {
           : <>Festival offer codes apply the advertised discount to eligible purchases. The server enforces validity dates and usage limits.</>}
       </p>
       <div className="flex gap-2 my-2">
-        <button onClick={() => void seed()} className="rounded-xl bg-[#7A0C2E] text-white px-4 py-2 text-xs font-bold">
+        <button type="button" onClick={() => void seed()} className="rounded-xl bg-[#7A0C2E] text-white px-4 py-2 text-xs font-bold">
           🪔 {te ? "పండుగ ఆఫర్‌లను ప్రారంభించండి" : "Enable available festival offers"}
         </button>
-        <button onClick={() => void load()} className="text-xs underline ml-auto">↻ refresh</button>
+        <button type="button" onClick={() => void load()} className="text-xs underline ml-auto">↻ refresh</button>
       </div>
       {flash && <div className="mb-2 rounded-xl bg-[#0F1F3C] text-white text-xs p-2">{flash}</div>}
       <div className="rounded-xl border p-3 text-xs space-y-2 bg-rose-50/40">
@@ -90,7 +90,7 @@ export default function OffersConsole() {
           <input value={f.valid_to} onChange={(e) => setF({ ...f, valid_to: e.target.value })} placeholder="to YYYY-MM-DD" className="rounded-lg border px-2 py-1.5" aria-label="Valid to" />
           <input value={f.max_uses} onChange={(e) => setF({ ...f, max_uses: e.target.value })} placeholder="max uses" inputMode="numeric" className="rounded-lg border px-2 py-1.5" aria-label="Max uses" />
         </div>
-        <button onClick={() => void create()} className="rounded-lg bg-green-700 text-white px-4 py-1.5 text-xs font-bold">✅ Create offer</button>
+        <button type="button" onClick={() => void create()} className="rounded-lg bg-green-700 text-white px-4 py-1.5 text-xs font-bold">✅ Create offer</button>
       </div>
       <div className="mt-2 space-y-2">
         {items.map((o) => (
@@ -101,8 +101,8 @@ export default function OffersConsole() {
             <span className="text-green-700 font-bold">{o.pct_off ? `${o.pct_off}%` : `₹${o.flat_off}`} OFF</span>
             <span className="text-gray-500">{(o.applies_to || []).join(",")} {o.valid_to ? `• till ${o.valid_to}` : ""} • used {o.used || 0}/{o.max_uses || 0}</span>
             <span className="ml-auto flex gap-1">
-              <button onClick={() => void toggle(o.code)} className="rounded-lg bg-gray-800 text-white px-3 py-1 text-[11px] font-bold">ON/OFF</button>
-              <button onClick={() => void del(o.code)} className="rounded-lg border border-rose-300 px-2 py-1 text-[11px] font-bold text-rose-700">🗑️</button>
+              <button type="button" onClick={() => void toggle(o.code)} className="rounded-lg bg-gray-800 text-white px-3 py-1 text-[11px] font-bold">ON/OFF</button>
+              <button type="button" aria-label={te ? "ఆఫర్‌ను తొలగించండి" : "Delete offer"} onClick={() => void del(o.code)} className="rounded-lg border border-rose-300 px-2 py-1 text-[11px] font-bold text-rose-700">🗑️</button>
             </span>
           </div>
         ))}

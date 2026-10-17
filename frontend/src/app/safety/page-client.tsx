@@ -197,11 +197,11 @@ export default function SafetyPage() {
               rows={3} placeholder={te ? "ఏం జరిగింది? వివరించండి." : "Describe what happened."} className={`input-mobile ${te ? "telugu" : ""}`} aria-label={te ? "ఏం జరిగింది" : "What happened"} />
           </div>
           <div className="mt-3 flex flex-wrap gap-2">
-            <button onClick={submitReport} disabled={busy}
+            <button type="button" onClick={submitReport} disabled={busy}
               className="px-5 py-3 rounded-2xl bg-rose-700 text-white font-bold text-[13px] disabled:opacity-60">
               {busy ? (te ? "పంపిస్తున్నాం…" : "Sending…") : te ? "🚩 Report పంపు" : "🚩 Send report"}
             </button>
-            <button onClick={() => doBlock(report.target_id)} disabled={!report.target_id || !myId}
+            <button type="button" onClick={() => doBlock(report.target_id)} disabled={!report.target_id || !myId}
               className="px-5 py-3 rounded-2xl border border-rose-300 text-rose-700 font-bold text-[13px] disabled:opacity-50">
               {te ? "🚫 Block చెయ్యి (వెంటనే)" : "🚫 Block now"}
             </button>
@@ -258,7 +258,7 @@ export default function SafetyPage() {
                 <div key={b.blocked} className="flex items-center gap-2 bg-cream rounded-xl px-3 py-2">
                   <span className="font-mono text-[12px] flex-1">{b.blocked}</span>
                   <span className="text-[10px] text-gray-500">{String(b.at).slice(0, 10)}</span>
-                  <button onClick={() => doUnblock(b.blocked)} className="text-[11px] font-bold text-maroon underline">unblock</button>
+                  <button type="button" onClick={() => doUnblock(b.blocked)} className="text-[11px] font-bold text-maroon underline">unblock</button>
                 </div>
               ))}
             </div>

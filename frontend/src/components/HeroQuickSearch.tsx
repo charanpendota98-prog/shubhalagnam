@@ -280,7 +280,7 @@ export default function HeroQuickSearch() {
             {/* Dropdown Popover */}
             {casteSearchOpen && (
               <div className="absolute left-0 right-0 top-full mt-1 z-50 bg-white rounded-2xl border-2 border-gold shadow-2xl p-2 max-h-64 flex flex-col animate-fade">
-                <input
+                <input aria-label={te ? "🔍 కులం లేదా ఉపకులం వెతకండి" : "🔍 Search communities or sub-communities"}
                   type="text"
                   placeholder={te ? "🔍 కులం లేదా ఉపకులం వెతకండి" : "🔍 Search communities or sub-communities"}
                   value={casteQuery}
@@ -325,7 +325,7 @@ export default function HeroQuickSearch() {
             <label className="block text-[11px] font-extrabold text-gray-800 mb-1.5 telugu">
               🎂 {te ? "వయస్సు" : "Age range"}
             </label>
-            <select
+            <select aria-label={te ? "వయస్సు" : "Age"}
               value={ageIdx}
               onChange={(e) => setAgeIdx(parseInt(e.target.value, 10))}
               className="w-full px-3.5 py-3 bg-amber-50/60 border border-gold/50 rounded-xl text-xs font-bold text-navy focus:outline-none focus:ring-2 focus:ring-maroon cursor-pointer shadow-xs"
@@ -360,7 +360,7 @@ export default function HeroQuickSearch() {
             {/* Dropdown Popover */}
             {districtSearchOpen && (
               <div className="absolute left-0 right-0 top-full mt-1 z-50 bg-white rounded-2xl border-2 border-gold shadow-2xl p-2 max-h-64 flex flex-col animate-fade">
-                <input
+                <input aria-label={te ? "🔍 జిల్లా పేరు టైప్ చేయండి..." : "🔍 Search district / city..."}
                   type="text"
                   placeholder={te ? "🔍 జిల్లా పేరు టైప్ చేయండి..." : "🔍 Search district / city..."}
                   value={districtQuery}

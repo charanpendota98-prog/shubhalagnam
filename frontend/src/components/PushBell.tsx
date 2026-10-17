@@ -118,17 +118,17 @@ export default function PushBell({ myId }: { myId: string }) {
       </div>
       <div className="mt-3 flex flex-wrap gap-2">
         {!on ? (
-          <button onClick={() => void enable()} disabled={busy}
+          <button type="button" onClick={() => void enable()} disabled={busy}
             className="rounded-xl bg-[#7A0C2E] px-4 py-2 text-[12px] font-bold text-white disabled:opacity-50">
             {busy ? "…" : te ? "🔔 అలర్ట్‌లను ఆన్ చేయండి" : "🔔 Turn alerts on"}
           </button>
         ) : (
           <>
-            <button onClick={() => void test()} disabled={busy}
+            <button type="button" onClick={() => void test()} disabled={busy}
               className="rounded-xl bg-green-600 px-4 py-2 text-[12px] font-bold text-white disabled:opacity-50">
               {busy ? "…" : te ? "📲 Test notification" : "📲 Test notification"}
             </button>
-            <button onClick={() => void disable()} disabled={busy}
+            <button type="button" onClick={() => void disable()} disabled={busy}
               className="rounded-xl border border-slate-300 px-4 py-2 text-[12px] font-bold text-slate-600 disabled:opacity-50">
               {te ? "🔕 OFF chey" : "Turn OFF"}
             </button>

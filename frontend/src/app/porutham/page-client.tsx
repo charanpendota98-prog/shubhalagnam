@@ -163,7 +163,7 @@ function PoruthamInner() {
         <div className="bg-white rounded-[1.5rem] border border-gold/25 p-4 print:hidden">
           <div className="flex gap-2">
             {([["id", te ? "🎫 Profile ID తో" : "🎫 With Profile ID"], ["star", te ? "⭐ Star తో (register అవ్వకుండా)" : "⭐ By star (no register)"]] as const).map(([v, l]) => (
-              <button key={v} onClick={() => setMode(v)} className={`chip ${mode === v ? "chip-on" : ""}`}>{l}</button>
+              <button type="button" key={v} onClick={() => setMode(v)} className={`chip ${mode === v ? "chip-on" : ""}`}>{l}</button>
             ))}
           </div>
 
@@ -171,14 +171,14 @@ function PoruthamInner() {
             <div className="mt-3 grid md:grid-cols-3 gap-3">
               <div>
                 <label className="text-[12px] font-bold">👰 Bride Profile ID</label>
-                <input value={bride} onChange={(e) => setBride(e.target.value.toUpperCase())} placeholder={te ? "వధువు Profile ID" : "Bride Profile ID"} className="input-mobile font-mono" />
+                <input aria-label="👰 Bride Profile ID" value={bride} onChange={(e) => setBride(e.target.value.toUpperCase())} placeholder={te ? "వధువు Profile ID" : "Bride Profile ID"} className="input-mobile font-mono" />
               </div>
               <div>
                 <label className="text-[12px] font-bold">🤵 Groom Profile ID</label>
-                <input value={groom} onChange={(e) => setGroom(e.target.value.toUpperCase())} placeholder={te ? "వరుడు Profile ID" : "Groom Profile ID"} className="input-mobile font-mono" />
+                <input aria-label="🤵 Groom Profile ID" value={groom} onChange={(e) => setGroom(e.target.value.toUpperCase())} placeholder={te ? "వరుడు Profile ID" : "Groom Profile ID"} className="input-mobile font-mono" />
               </div>
               <div className="flex items-end">
-                <button onClick={() => calcById(bride, groom)} disabled={busy}
+                <button type="button" onClick={() => calcById(bride, groom)} disabled={busy}
                   className="w-full py-3.5 rounded-2xl maroon-gradient text-white font-bold text-[13px] disabled:opacity-60">
                   {busy ? "Calculate…" : te ? "💍 గుణమేళనం చూడు" : "💍 See Gunamelanam"}
                 </button>
@@ -188,7 +188,7 @@ function PoruthamInner() {
             <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-3">
               <div>
                 <label className="text-[12px] font-bold">{te ? "వధువు నక్షత్రం" : "Bride nakshatra"}</label>
-                <select
+                <select aria-label={te ? "వధువు నక్షత్రం" : "Bride nakshatra"}
                   value={bStar}
                   onChange={(e) => {
                     const s = e.target.value;
@@ -203,14 +203,14 @@ function PoruthamInner() {
               </div>
               <div>
                 <label className="text-[12px] font-bold">{te ? "వధువు రాశి" : "Bride rasi"}</label>
-                <select value={bRasi} onChange={(e) => setBRasi(e.target.value)} className="input-mobile">
+                <select aria-label={te ? "వధువు రాశి" : "Bride rasi"} value={bRasi} onChange={(e) => setBRasi(e.target.value)} className="input-mobile">
                   <option value="">— auto —</option>
                   {RASIS.map((r) => <option key={r.en} value={r.en}>{te ? `${r.te} (${r.en})` : r.en}</option>)}
                 </select>
               </div>
               <div>
                 <label className="text-[12px] font-bold">{te ? "వరుని నక్షత్రం" : "Groom nakshatra"}</label>
-                <select
+                <select aria-label={te ? "వరుని నక్షత్రం" : "Groom nakshatra"}
                   value={gStar}
                   onChange={(e) => {
                     const s = e.target.value;
@@ -225,13 +225,13 @@ function PoruthamInner() {
               </div>
               <div>
                 <label className="text-[12px] font-bold">{te ? "వరుని రాశి" : "Groom rasi"}</label>
-                <select value={gRasi} onChange={(e) => setGRasi(e.target.value)} className="input-mobile">
+                <select aria-label={te ? "వరుని రాశి" : "Groom rasi"} value={gRasi} onChange={(e) => setGRasi(e.target.value)} className="input-mobile">
                   <option value="">— auto —</option>
                   {RASIS.map((r) => <option key={r.en} value={r.en}>{te ? `${r.te} (${r.en})` : r.en}</option>)}
                 </select>
               </div>
               <div className="col-span-2 md:col-span-4">
-                <button onClick={calcByStar} disabled={busy}
+                <button type="button" onClick={calcByStar} disabled={busy}
                   className="w-full py-3.5 rounded-2xl maroon-gradient text-white font-bold text-[13px] disabled:opacity-60">
                   {busy ? "Calculate…" : te ? "💍 గుణమేళనం చూడు (నక్షత్రంతో)" : "💍 See Gunamelanam (by star)"}
                 </button>
@@ -241,10 +241,10 @@ function PoruthamInner() {
           {myId && mode === "id" && (
             <div className="mt-2 text-[11px] text-gray-600">
 {te ? <>మీ ID: <b className="font-mono">{myId}</b> —{" "}
-              <button onClick={() => calcById(myId, groom || bride)} className="text-maroon font-bold underline">
+              <button type="button" onClick={() => calcById(myId, groom || bride)} className="text-maroon font-bold underline">
                 నా ID ని వేరే profile తో compare చెయ్యి
               </button></> : <>Your ID: <b className="font-mono">{myId}</b> —{" "}
-              <button onClick={() => calcById(myId, groom || bride)} className="text-maroon font-bold underline">
+              <button type="button" onClick={() => calcById(myId, groom || bride)} className="text-maroon font-bold underline">
                 compare my ID with another profile
               </button></>}
             </div>
@@ -259,7 +259,7 @@ function PoruthamInner() {
           <div className="mt-2 grid md:grid-cols-3 gap-2">
             <input value={gA} onChange={(e) => setGA(e.target.value.toUpperCase())} placeholder="Profile ID - A" className="input-mobile font-mono" aria-label="Profile ID A" />
             <input value={gB} onChange={(e) => setGB(e.target.value.toUpperCase())} placeholder="Profile ID - B" className="input-mobile font-mono" aria-label="Profile ID B" />
-            <button onClick={() => void checkGothram()} disabled={gBusy}
+            <button type="button" onClick={() => void checkGothram()} disabled={gBusy}
               className="py-3 rounded-2xl maroon-gradient text-white font-bold text-[13px] disabled:opacity-60">
               {gBusy ? "…" : te ? "🛡️ Check" : "🛡️ Check"}
             </button>
@@ -339,9 +339,9 @@ function PoruthamInner() {
                   <span>📜</span>
                   <span>{te ? "10 checks reference PDF డౌన్‌లోడ్" : "Download 10-check reference PDF"}</span>
                 </a>
-                <button onClick={() => window.print()} className="px-4 py-3 rounded-2xl maroon-gradient text-white font-bold text-[12px]">🖨️ Print View</button>
-                <button onClick={shareWa} title={te ? "బాహ్య WhatsApp share తెరుస్తుంది; availability తనిఖీ చేయబడదు" : "Opens external WhatsApp sharing; availability is not checked"} className="px-4 py-3 rounded-2xl bg-[#25D366] text-white font-bold text-[12px]">{te ? "WhatsApp లో షేర్" : "Share via WhatsApp"}</button>
-                {!res._byStar && <button onClick={shareImg} className="px-4 py-3 rounded-2xl border border-maroon/25 text-maroon font-bold text-[12px]">{te ? "🖼️ నివేదిక చిత్రం" : "🖼️ Report image"}</button>}
+                <button type="button" onClick={() => window.print()} className="px-4 py-3 rounded-2xl maroon-gradient text-white font-bold text-[12px]">🖨️ Print View</button>
+                <button type="button" onClick={shareWa} title={te ? "బాహ్య WhatsApp share తెరుస్తుంది; availability తనిఖీ చేయబడదు" : "Opens external WhatsApp sharing; availability is not checked"} className="px-4 py-3 rounded-2xl bg-[#25D366] text-white font-bold text-[12px]">{te ? "WhatsApp లో షేర్" : "Share via WhatsApp"}</button>
+                {!res._byStar && <button type="button" onClick={shareImg} className="px-4 py-3 rounded-2xl border border-maroon/25 text-maroon font-bold text-[12px]">{te ? "🖼️ నివేదిక చిత్రం" : "🖼️ Report image"}</button>}
                 <Link href="/requests" className="px-4 py-3 rounded-2xl border border-maroon/25 text-maroon font-bold text-[12px]">{te ? "💌 Interest పంపు" : "💌 Send interest"}</Link>
               </div>
               )}

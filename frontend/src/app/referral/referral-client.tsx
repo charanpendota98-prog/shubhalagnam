@@ -348,7 +348,7 @@ export default function ReferralPage() {
           <div className="mt-6 pt-5 border-t border-white/20 flex flex-wrap items-center justify-between gap-3">
             <form onSubmit={handleLookup} className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
               <span className="text-xs font-bold text-amber-200">🔍 {te ? "పాత లింక్ లేదా ప్రొఫైల్ వెతకండి:" : "Lookup Existing Code:"}</span>
-              <input
+              <input aria-label={te ? "10 అంకెల మొబైల్ లేదా TSAP ID" : "10-digit Phone or TSAP ID"}
                 type="text"
                 placeholder={te ? "10 అంకెల మొబైల్ లేదా TSAP ID" : "10-digit Phone or TSAP ID"}
                 value={phoneSearch}
@@ -358,7 +358,7 @@ export default function ReferralPage() {
               <button
                 type="submit"
                 disabled={searching}
-                className="px-4 py-1.5 rounded-xl bg-gold text-maroon font-bold text-xs hover:brightness-105 disabled:opacity-50"
+                className="px-4 py-1.5 rounded-xl bg-gold text-maroon font-bold text-xs hover:brightness-105 disabled:opacity-50 min-h-11"
               >
                 {searching ? "..." : (te ? "వెతకండి" : "Search")}
               </button>
@@ -467,8 +467,9 @@ export default function ReferralPage() {
               </h3>
               <button
                 type="button"
+                aria-label={te ? "మూసివేయండి" : "Close"}
                 onClick={() => setPay({ ...pay, open: false })}
-                className="text-gray-400 hover:text-gray-700 text-sm font-bold"
+                className="text-gray-400 hover:text-gray-700 text-sm font-bold min-h-11 min-w-11"
               >
                 ✕
               </button>
@@ -479,7 +480,7 @@ export default function ReferralPage() {
                 <label className="block text-[11px] font-bold text-gray-700 mb-1">
                   {te ? `విత్‌డ్రా మొత్తం (కనీసం ₹${minPayout})` : `Withdrawal amount (minimum ₹${minPayout})`}
                 </label>
-                <input
+                <input aria-label={te ? "మొత్తం (₹)" : "Amount (₹)"}
                   type="number"
                   min={minPayout}
                   max={s.wallet || minPayout}
@@ -494,7 +495,7 @@ export default function ReferralPage() {
                 <label className="block text-[11px] font-bold text-gray-700 mb-1">
                   {te ? "మీ UPI ID" : "Your UPI ID"}
                 </label>
-                <input
+                <input aria-label={te ? "UPI ID నమోదు చేయండి" : "Enter your UPI ID"}
                   type="text"
                   value={pay.upi}
                   onChange={(e) => setPay({ ...pay, upi: e.target.value })}
@@ -685,7 +686,7 @@ export default function ReferralPage() {
 
                 <div>
                   <label className="font-bold text-slate-800 block mb-1">🏷️ {te ? "దుకాణం / వ్యాపారం పేరు" : "Business or shop name"}</label>
-                  <input
+                  <input aria-label={te ? "మీ వ్యాపారం లేదా దుకాణం పేరు" : "Your business or shop name"}
                     type="text"
                     value={posterCustomName}
                     onChange={(e) => setPosterCustomName(e.target.value)}

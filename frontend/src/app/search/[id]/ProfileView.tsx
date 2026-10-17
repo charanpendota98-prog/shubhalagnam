@@ -382,7 +382,7 @@ export default function ProfileView() {
             onKeyDown={(e) => { if (e.key === "Enter") void load(searchId.trim()); }}
             placeholder={te ? "Profile ID" : "Search by Profile ID"} aria-label={te ? "Profile ID వెతకండి" : "Profile ID search"}
             className="flex-1 bg-transparent text-sm outline-none" />
-          <button onClick={() => void load(searchId.trim())} className="rounded-xl bg-[#7A0C2E] px-3 py-1.5 text-[12px] font-bold text-white">{te ? "చూడు" : "View"}</button>
+          <button type="button" onClick={() => void load(searchId.trim())} className="rounded-xl bg-[#7A0C2E] px-3 py-1.5 text-[12px] font-bold text-white min-h-11">{te ? "చూడు" : "View"}</button>
         </div>
       </div>
 
@@ -552,11 +552,11 @@ export default function ProfileView() {
               </div>
             ) : null}
             <div className="mt-4 flex flex-wrap gap-2">
-              <button onClick={() => void sendInterest()} disabled={sending}
+              <button type="button" onClick={() => void sendInterest()} disabled={sending}
                 className="rounded-xl bg-[#7A0C2E] px-4 py-2.5 text-sm font-bold text-white disabled:opacity-60">
                 {sending ? (te ? "పంపిస్తున్నాం…" : "Sending…") : te ? "💌 Interest పంపండి (FREE 3)" : "💌 Send interest (FREE 3)"}
               </button>
-              <button onClick={() => void sendInterest("traditional")} disabled={sending}
+              <button type="button" onClick={() => void sendInterest("traditional")} disabled={sending}
                 className="rounded-xl border border-[#7A0C2E] px-4 py-2.5 text-sm font-bold text-[#7A0C2E]">
                 {te ? "🙏 Template తో పంపు" : "🙏 Send with template"}
               </button>
@@ -566,7 +566,7 @@ export default function ProfileView() {
                 </a>
               ) : (
                 <>
-                <button onClick={() => void doUnlock()} disabled={unlocking}
+                <button type="button" onClick={() => void doUnlock()} disabled={unlocking}
                   className="rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-60">
                   {unlocking ? (te ? "చెక్ చేస్తున్నాం…" : "Checking access…") : (te ? "📞 అంగీకారం తర్వాత contact చూడండి" : "📞 Contact after acceptance")}
                 </button>
@@ -606,21 +606,21 @@ export default function ProfileView() {
               <span>🎴</span>
               <span>{te ? "HD కలర్ బయోడేటా JPG" : "HD Color Biodata JPG"}</span>
             </Link>
-            <button onClick={printBiodata} className="rounded-xl border border-amber-400 bg-amber-50 hover:bg-amber-100 px-4 py-2 text-sm font-bold text-[#7A0C2E] transition shadow-xs">
+            <button type="button" onClick={printBiodata} className="rounded-xl border border-amber-400 bg-amber-50 hover:bg-amber-100 px-4 py-2 text-sm font-bold text-[#7A0C2E] transition shadow-xs">
               📄 {te ? "ప్రింట్ బయోడేటా" : "Print Biodata"}
             </button>
-            <button onClick={() => void toggleSave()}
+            <button type="button" onClick={() => void toggleSave()}
               className={`rounded-xl px-4 py-2 text-sm font-bold ${savedNow ? "bg-rose-100 text-rose-700" : "border border-slate-300 text-slate-700"}`}>
               {savedNow ? (te ? "❤️ షార్ట్‌లిస్ట్‌లో ఉంది" : "❤️ In shortlist") : (te ? "🤍 షార్ట్‌లిస్ట్" : "🤍 Shortlist")}
             </button>
-            <button onClick={() => setShowProposalModal(true)} className="rounded-xl bg-green-600 hover:bg-green-700 px-4 py-2 text-sm font-bold text-white transition flex items-center gap-1.5 shadow-xs">
+            <button type="button" onClick={() => setShowProposalModal(true)} className="rounded-xl bg-green-600 hover:bg-green-700 px-4 py-2 text-sm font-bold text-white transition flex items-center gap-1.5 shadow-xs">
               <span>💬</span>
               <span>{te ? "వాట్సాప్ ప్రపోజల్ షేర్" : "WhatsApp Proposal Share"}</span>
             </button>
-            <button onClick={() => void doBlock()} disabled={blocked} className="rounded-xl border border-rose-300 px-4 py-2 text-sm font-bold text-rose-700 disabled:opacity-50">
+            <button type="button" onClick={() => void doBlock()} disabled={blocked} className="rounded-xl border border-rose-300 px-4 py-2 text-sm font-bold text-rose-700 disabled:opacity-50">
               🚫 {te ? "బ్లాక్ చేయండి" : "Block"}
             </button>
-            <button onClick={() => void doReport()} disabled={reported} className="rounded-xl border border-amber-300 px-4 py-2 text-sm font-bold text-amber-800 disabled:opacity-50">
+            <button type="button" onClick={() => void doReport()} disabled={reported} className="rounded-xl border border-amber-300 px-4 py-2 text-sm font-bold text-amber-800 disabled:opacity-50">
               🚩 {te ? "రిపోర్ట్ చేయండి" : "Report"}
             </button>
             <Link href="/safety" className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-bold text-slate-700">🛡️ {te ? "భద్రతా సూచనలు" : "Safety tips"}</Link>

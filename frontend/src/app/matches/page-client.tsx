@@ -1169,14 +1169,14 @@ export default function MatchesPage() {
             {te ? "🎴 బయోడేటా" : "🎴 Biodata"}
           </Link>
 
-          <button
+          <button type="button"
             onClick={() => setUnlockTarget(row)}
             className="flex-1 min-w-[100px] text-center py-2.5 px-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black shadow-md hover-lift transition"
           >
             {te ? "📞 సంప్రదించండి" : "📞 Contact"}
           </button>
 
-          <button
+          <button type="button"
             onClick={() => setProposalTarget(row)}
             className="w-10 h-10 rounded-xl bg-[#25D366] text-white flex items-center justify-center text-base hover:brightness-105 transition shadow-xs shrink-0"
             title={te ? "WhatsApp లో సంబంధం వివరాలు షేర్ చేయండి" : "Share profile details on WhatsApp"}
@@ -1195,7 +1195,7 @@ export default function MatchesPage() {
         <div className="max-w-7xl mx-auto px-4 py-2.5">
           <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1">
             {/* Quick Presets */}
-            <button
+            <button type="button"
               onClick={() => setF("verified_only", !filters.verified_only)}
               className={`px-3 py-1.5 rounded-full text-xs font-bold shrink-0 transition flex items-center gap-1 border ${
                 filters.verified_only ? "bg-emerald-600 text-white border-emerald-600 shadow-xs" : "bg-white text-slate-700 border-slate-200 hover:border-emerald-600"
@@ -1205,7 +1205,7 @@ export default function MatchesPage() {
               <span>{te ? "ఫోన్ OTP / ఫోటో / ID సమీక్ష" : "Phone, photo or government ID check"}</span>
             </button>
 
-            <button
+            <button type="button"
               onClick={() => setF("photo_only", !filters.photo_only)}
               className={`px-3 py-1.5 rounded-full text-xs font-bold shrink-0 transition flex items-center gap-1 border ${
                 filters.photo_only ? "bg-amber-500 text-white border-amber-500 shadow-xs" : "bg-white text-slate-700 border-slate-200 hover:border-amber-500"
@@ -1215,7 +1215,7 @@ export default function MatchesPage() {
               <span>{te ? "ఫోటో ఉన్నవి" : "With photo"}</span>
             </button>
 
-            <button
+            <button type="button"
               onClick={applySavedPreferences}
               disabled={prefLoading}
               className={`px-3.5 py-1.5 rounded-full text-xs font-black shrink-0 transition flex items-center gap-1.5 ${
@@ -1228,7 +1228,7 @@ export default function MatchesPage() {
               <span>{prefLoading ? (te ? "లోడ్ అవుతోంది…" : "Loading…") : prefApplied ? (te ? "✓ నా ప్రిఫరెన్సెస్ అప్లై అయ్యాయి" : "✓ Preferences applied") : (te ? "🎯 నా సేవ్ చేసిన ప్రిఫరెన్సెస్" : "🎯 Apply saved preferences")}</span>
             </button>
 
-            <button
+            <button type="button"
               onClick={() => setF("gender", filters.gender === "Bride" ? "" : "Bride")}
               className={`px-3 py-1.5 rounded-full text-xs font-bold shrink-0 transition flex items-center gap-1 border ${
                 filters.gender === "Bride" ? "bg-rose-700 text-white border-rose-700 shadow-xs" : "bg-white text-slate-700 border-slate-200 hover:border-rose-700"
@@ -1238,7 +1238,7 @@ export default function MatchesPage() {
               <span>{te ? "వధువులు" : "Brides"}</span>
             </button>
 
-            <button
+            <button type="button"
               onClick={() => setF("gender", filters.gender === "Groom" ? "" : "Groom")}
               className={`px-3 py-1.5 rounded-full text-xs font-bold shrink-0 transition flex items-center gap-1 border ${
                 filters.gender === "Groom" ? "bg-indigo-700 text-white border-indigo-700 shadow-xs" : "bg-white text-slate-700 border-slate-200 hover:border-indigo-700"
@@ -1248,7 +1248,7 @@ export default function MatchesPage() {
               <span>{te ? "వరులు" : "Grooms"}</span>
             </button>
 
-            <button
+            <button type="button"
               onClick={() => setF("marital_status", isMaritalFilterOptionSelected(filters.marital_status, "Pelli Kaledu") ? "" : "Pelli Kaledu")}
               className={`px-3 py-1.5 rounded-full text-xs font-bold shrink-0 transition border ${
                 isMaritalFilterOptionSelected(filters.marital_status, "Pelli Kaledu") ? "bg-maroon text-white border-maroon shadow-xs" : "bg-white text-slate-700 border-slate-200 hover:border-maroon"
@@ -1257,7 +1257,7 @@ export default function MatchesPage() {
               {te ? "💍 పెళ్లి కాలేదు" : "💍 Never married"}
             </button>
 
-            <button
+            <button type="button"
               onClick={() => setF("marital_status", filters.marital_status === "Divorced" ? "" : "Divorced")}
               className={`px-3 py-1.5 rounded-full text-xs font-bold shrink-0 transition border ${
                 filters.marital_status === "Divorced" ? "bg-rose-700 text-white border-rose-700 shadow-xs" : "bg-white text-slate-700 border-slate-200 hover:border-rose-700"
@@ -1267,7 +1267,7 @@ export default function MatchesPage() {
             </button>
 
             {!isGroomGender(filters.gender) && (
-              <button
+              <button type="button"
                 onClick={() => toggleMulti("job", "Housewife / Homemaker (గృహిణి)")}
                 className={`px-3 py-1.5 rounded-full text-xs font-bold shrink-0 transition flex items-center gap-1 border ${
                   isMultiSelected("job", "Housewife / Homemaker (గృహిణి)")
@@ -1280,7 +1280,7 @@ export default function MatchesPage() {
               </button>
             )}
 
-            <button
+            <button type="button"
               onClick={() => toggleMulti("job", "Software / IT / Tech")}
               className={`px-3 py-1.5 rounded-full text-xs font-bold shrink-0 transition border ${
                 isMultiSelected("job", "Software / IT / Tech") ? "bg-navy text-white border-navy shadow-xs" : "bg-white text-slate-700 border-slate-200 hover:border-navy"
@@ -1289,7 +1289,7 @@ export default function MatchesPage() {
               💻 Software / IT
             </button>
 
-            <button
+            <button type="button"
               onClick={() => toggleMulti("job", "Govt / PSU")}
               className={`px-3 py-1.5 rounded-full text-xs font-bold shrink-0 transition border ${
                 isMultiSelected("job", "Govt / PSU") ? "bg-maroon text-white border-maroon shadow-xs" : "bg-white text-slate-700 border-slate-200 hover:border-maroon"
@@ -1298,7 +1298,7 @@ export default function MatchesPage() {
               🏛️ Govt Jobs
             </button>
 
-            <button
+            <button type="button"
               onClick={() => setF("state", filters.state === "TS" ? "" : "TS")}
               className={`px-3 py-1.5 rounded-full text-xs font-bold shrink-0 transition border ${
                 filters.state === "TS" ? "bg-maroon text-white border-maroon shadow-xs" : "bg-white text-slate-700 border-slate-200"
@@ -1307,7 +1307,7 @@ export default function MatchesPage() {
               📍 Telangana ({TS_DISTRICTS.length})
             </button>
 
-            <button
+            <button type="button"
               onClick={() => setF("state", filters.state === "AP" ? "" : "AP")}
               className={`px-3 py-1.5 rounded-full text-xs font-bold shrink-0 transition border ${
                 filters.state === "AP" ? "bg-maroon text-white border-maroon shadow-xs" : "bg-white text-slate-700 border-slate-200"
@@ -1316,7 +1316,7 @@ export default function MatchesPage() {
               🌊 Andhra Pradesh ({AP_DISTRICTS.length})
             </button>
 
-            <button
+            <button type="button"
               onClick={() => setF("nri_only", !filters.nri_only)}
               className={`px-3 py-1.5 rounded-full text-xs font-bold shrink-0 transition border ${
                 filters.nri_only ? "bg-indigo-700 text-white border-indigo-700 shadow-xs" : "bg-white text-slate-700 border-slate-200"
@@ -1326,7 +1326,7 @@ export default function MatchesPage() {
             </button>
 
             {activeChips.length > 0 && (
-              <button onClick={clearAllFilters} className="px-3 py-1.5 rounded-full text-xs font-bold shrink-0 text-rose-600 bg-rose-50 border border-rose-200 hover:bg-rose-100 transition">
+              <button type="button" onClick={clearAllFilters} className="px-3 py-1.5 rounded-full text-xs font-bold shrink-0 text-rose-600 bg-rose-50 border border-rose-200 hover:bg-rose-100 transition min-h-11">
                 ✕ Clear All
               </button>
             )}
@@ -1349,7 +1349,7 @@ export default function MatchesPage() {
                 )}
               </div>
               {activeChips.length > 0 && (
-                <button onClick={clearAllFilters} className="text-xs font-bold text-rose-600 hover:underline">
+                <button type="button" onClick={clearAllFilters} className="text-xs font-bold text-rose-600 hover:underline">
                   {te ? "రీసెట్" : "Reset all"}
                 </button>
               )}
@@ -1359,7 +1359,7 @@ export default function MatchesPage() {
             {hasChildrenRelevantMaritalFilter(filters.marital_status) && (
               <div className="border-t border-slate-100 pt-3 space-y-1.5">
                 <label className="text-xs font-black text-slate-800">👶 {te ? "పిల్లలు" : "Children"}:</label>
-                <select
+                <select aria-label={te ? "పిల్లలు" : "Children"}
                   value={filters.children || ""}
                   onChange={(e) => setF("children", e.target.value)}
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs font-bold"
@@ -1374,7 +1374,7 @@ export default function MatchesPage() {
             {/* Keyword Search */}
             <div>
               <label className="block text-xs font-black text-slate-800 mb-1">🔍 {te ? "పేరు / ఐడీ / కీవర్డ్" : "Name / ID / keyword"}:</label>
-              <input
+              <input aria-label="TSAP ID, Name, Gothram..."
                 type="text"
                 placeholder="TSAP ID, Name, Gothram..."
                 value={filters.q}
@@ -1392,7 +1392,7 @@ export default function MatchesPage() {
                   { v: "Bride", l: te ? "👰 వధువు" : "👰 Bride" },
                   { v: "Groom", l: te ? "🤵 వరుడు" : "🤵 Groom" },
                 ].map((g) => (
-                  <button
+                  <button type="button"
                     key={g.v}
                     onClick={() => setF("gender", g.v)}
                     className={`py-1.5 rounded-xl text-xs font-bold border text-center transition ${
@@ -1423,7 +1423,7 @@ export default function MatchesPage() {
               <div className="flex items-center justify-between">
                 <label className="text-xs font-black text-slate-800">💍 {te ? "కులం" : "Caste"}:</label>
                 {filters.caste && (
-                  <button onClick={() => setF("caste", "")} className="text-[11px] text-maroon font-bold">
+                  <button type="button" onClick={() => setF("caste", "")} className="text-[11px] text-maroon font-bold">
                     {te ? "క్లియర్" : "Clear"}
                   </button>
                 )}
@@ -1448,7 +1448,7 @@ export default function MatchesPage() {
                 })}
               </div>
 
-              <input
+              <input aria-label={te ? "🔍 కులం వెతకండి..." : "🔍 Search communities..."}
                 type="text"
                 placeholder={te ? "🔍 కులం వెతకండి..." : "🔍 Search communities..."}
                 value={casteSearch}
@@ -1500,7 +1500,7 @@ export default function MatchesPage() {
               <div className="flex items-center justify-between">
                 <label className="text-xs font-black text-slate-800">📍 {te ? "జిల్లా / ప్రాంతం" : "District / area"}:</label>
                 {filters.district && (
-                  <button onClick={() => setF("district", "")} className="text-[11px] text-maroon font-bold">
+                  <button type="button" onClick={() => setF("district", "")} className="text-[11px] text-maroon font-bold">
                     {te ? "క్లియర్" : "Clear"}
                   </button>
                 )}
@@ -1513,7 +1513,7 @@ export default function MatchesPage() {
                   { v: "TS", l: `🏛️ TS (${TS_DISTRICTS.length})` },
                   { v: "AP", l: `🌊 AP (${AP_DISTRICTS.length})` },
                 ].map((st) => (
-                  <button
+                  <button type="button"
                     key={st.v}
                     onClick={() => setF("state", st.v)}
                     className={`flex-1 py-1 text-[10.5px] font-bold rounded-lg border text-center transition ${
@@ -1533,7 +1533,7 @@ export default function MatchesPage() {
                 </button>
               </div>
 
-              <input
+              <input aria-label={te ? "🔍 జిల్లా వెతకండి..." : "🔍 Search districts..."}
                 type="text"
                 placeholder={te ? "🔍 జిల్లా వెతకండి..." : "🔍 Search districts..."}
                 value={districtSearch}
@@ -1575,7 +1575,7 @@ export default function MatchesPage() {
                   );
                 })}
               </div>
-              <input
+              <input aria-label={te ? "విద్యార్హతను వెతకండి..." : "Search education..."}
                 type="search"
                 value={educationSearch}
                 onChange={(e) => setEducationSearch(e.target.value)}
@@ -1640,7 +1640,7 @@ export default function MatchesPage() {
                 <div className="max-h-32 overflow-y-auto space-y-1 rounded-xl border border-slate-100 p-2">
                   {NAKSHATRAS.map((star) => (
                     <label key={star.en} className="flex min-h-9 items-center gap-2 text-xs cursor-pointer">
-                      <input type="checkbox" checked={isMultiSelected("star", star.en)} onChange={() => toggleMulti("star", star.en)} className="accent-[#7A0C2E] rounded" />
+                      <input aria-label={te ? "నక్షత్రం" : "Nakshatra"} type="checkbox" checked={isMultiSelected("star", star.en)} onChange={() => toggleMulti("star", star.en)} className="accent-[#7A0C2E] rounded" />
                       <span>{te ? `${star.te} (${star.en})` : star.en}</span>
                     </label>
                   ))}
@@ -1664,7 +1664,7 @@ export default function MatchesPage() {
                 </span>
               </div>
               <div className="flex items-center gap-2">
-                <input
+                <input aria-label={te ? "కనిష్ఠ వయస్సు" : "Minimum age"}
                   type="range"
                   min="18"
                   max="60"
@@ -1672,7 +1672,7 @@ export default function MatchesPage() {
                   onChange={(e) => setF("age_min", Math.min(Number(e.target.value), filters.age_max))}
                   className="flex-1 accent-[#7A0C2E]"
                 />
-                <input
+                <input aria-label={te ? "గరిష్ఠ వయస్సు" : "Maximum age"}
                   type="range"
                   min="18"
                   max="60"
@@ -1707,7 +1707,7 @@ export default function MatchesPage() {
 
               <div className="flex items-center gap-2">
                 {/* Mobile Filter Trigger Button */}
-                <button
+                <button type="button"
                   onClick={() => setSheet(true)}
                   className="lg:hidden flex min-h-11 items-center gap-1.5 rounded-xl maroon-gradient px-3.5 py-2 text-xs font-bold text-white shadow-sm"
                 >
@@ -1716,7 +1716,7 @@ export default function MatchesPage() {
                 </button>
 
                 {/* Sort dropdown */}
-                <select
+                <select aria-label={te ? "క్రమబద్ధీకరణ" : "Sort by"}
                   value={sort}
                   onChange={(e) => setSort(e.target.value)}
                   className="min-h-11 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-maroon"
@@ -1752,7 +1752,7 @@ export default function MatchesPage() {
                     <button
                       type="button"
                       onClick={() => { setSaveNotice(null); setSavedLoadAttempt((attempt) => attempt + 1); }}
-                      className="rounded-lg border border-current px-3 py-1.5 text-xs font-bold underline-offset-2 hover:underline"
+                      className="rounded-lg border border-current px-3 py-1.5 text-xs font-bold underline-offset-2 hover:underline min-h-11"
                     >
                       {te ? "మళ్లీ ప్రయత్నించండి" : "Retry"}
                     </button>
@@ -1915,7 +1915,7 @@ export default function MatchesPage() {
                     </button>
                   </span>
                 ))}
-                <button onClick={clearAllFilters} className="text-xs font-bold text-rose-600 underline ml-2">
+                <button type="button" onClick={clearAllFilters} className="text-xs font-bold text-rose-600 underline ml-2">
                   {te ? "అన్నీ తొలగించు" : "Clear all"}
                 </button>
               </div>
@@ -1967,7 +1967,7 @@ export default function MatchesPage() {
                 <div className="text-4xl">📡</div>
                 <h3 className="text-base font-black text-slate-900">{te ? "సంబంధాలను లోడ్ చేయడంలో సమస్య" : "We couldn't load profiles"}</h3>
                 <p className="text-xs text-slate-600">{te ? "మీ కనెక్షన్‌ను తనిఖీ చేసి మళ్లీ ప్రయత్నించండి." : "Check your connection and try again."}</p>
-                <button onClick={() => void fetchMatches()} className="px-5 py-2.5 rounded-xl maroon-gradient text-white text-xs font-bold shadow-md">
+                <button type="button" onClick={() => void fetchMatches()} className="px-5 py-2.5 rounded-xl maroon-gradient text-white text-xs font-bold shadow-md">
                   {te ? "మళ్లీ ప్రయత్నించండి" : "Try again"}
                 </button>
               </div>
@@ -2001,7 +2001,7 @@ export default function MatchesPage() {
                     </div>
                   );
                 })()}
-                <button onClick={clearAllFilters} className="px-5 py-2.5 rounded-xl maroon-gradient text-white text-xs font-bold shadow-md">
+                <button type="button" onClick={clearAllFilters} className="px-5 py-2.5 rounded-xl maroon-gradient text-white text-xs font-bold shadow-md">
                   {te ? "అన్ని ఫిల్టర్లను రీసెట్ చేయండి" : "Reset all filters"}
                 </button>
               </div>
@@ -2068,7 +2068,7 @@ export default function MatchesPage() {
                 { k: "career", l: te ? "ఉద్యోగం" : "Career" },
                 { k: "astro", l: te ? "జ్యోతిషం" : "Astrology" },
               ].map((t) => (
-                <button
+                <button type="button"
                   key={t.k}
                   onClick={() => setMobileFilterTab(t.k as any)}
                   className={`min-h-11 shrink-0 border-b-2 px-4 py-2.5 text-xs font-bold transition ${
@@ -2092,7 +2092,7 @@ export default function MatchesPage() {
                         { v: "Bride", l: te ? "👰 వధువు" : "👰 Bride" },
                         { v: "Groom", l: te ? "🤵 వరుడు" : "🤵 Groom" },
                       ].map((g) => (
-                        <button
+                        <button type="button"
                           key={g.v}
                           onClick={() => setF("gender", g.v)}
                           className={`py-2 rounded-xl text-xs font-bold border text-center ${
@@ -2135,7 +2135,7 @@ export default function MatchesPage() {
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <input
+                      <input aria-label={te ? "కనిష్ఠ వయస్సు" : "Minimum age"}
                         type="range"
                         min="18"
                         max="60"
@@ -2143,7 +2143,7 @@ export default function MatchesPage() {
                         onChange={(e) => setF("age_min", Number(e.target.value))}
                         className="flex-1 accent-[#7A0C2E]"
                       />
-                      <input
+                      <input aria-label={te ? "గరిష్ఠ వయస్సు" : "Maximum age"}
                         type="range"
                         min="18"
                         max="60"
@@ -2169,7 +2169,7 @@ export default function MatchesPage() {
                       {RELIGIONS.map((religion) => <option key={religion} value={religion}>{religion}</option>)}
                     </select>
                   </label>
-                  <input
+                  <input aria-label={te ? "🔍 కులం వెతకండి..." : "🔍 Search communities..."}
                     type="text"
                     placeholder={te ? "🔍 కులం వెతకండి..." : "🔍 Search communities..."}
                     value={casteSearch}
@@ -2198,7 +2198,7 @@ export default function MatchesPage() {
                           const checked = isMultiSelected("sub_caste", subCaste);
                           return (
                             <label key={subCaste} className="flex min-h-11 items-center gap-2 rounded-xl bg-slate-50 p-2 text-xs cursor-pointer">
-                              <input type="checkbox" checked={checked} onChange={() => toggleMulti("sub_caste", subCaste)} className="accent-[#7A0C2E] rounded" />
+                              <input aria-label={te ? "ఉపకులం" : "Sub-caste"} type="checkbox" checked={checked} onChange={() => toggleMulti("sub_caste", subCaste)} className="accent-[#7A0C2E] rounded" />
                               <span className="font-medium text-slate-800">{subCaste}</span>
                             </label>
                           );
@@ -2217,7 +2217,7 @@ export default function MatchesPage() {
                       { v: "TS", l: `🏛️ TS (${TS_DISTRICTS.length})` },
                       { v: "AP", l: `🌊 AP (${AP_DISTRICTS.length})` },
                     ].map((st) => (
-                      <button
+                      <button type="button"
                         key={st.v}
                         onClick={() => setF("state", st.v)}
                         className={`flex-1 py-1.5 text-xs font-bold rounded-xl border text-center ${
@@ -2228,7 +2228,7 @@ export default function MatchesPage() {
                       </button>
                     ))}
                   </div>
-                  <input
+                  <input aria-label={te ? "🔍 జిల్లా వెతకండి..." : "🔍 Search districts..."}
                     type="text"
                     placeholder={te ? "🔍 జిల్లా వెతకండి..." : "🔍 Search districts..."}
                     value={districtSearch}
@@ -2268,7 +2268,7 @@ export default function MatchesPage() {
                   </div>
                   <div className="space-y-2 border-t border-slate-100 pt-3">
                     <label className="block text-xs font-bold text-slate-800">{te ? "విద్యార్హత" : "Education"}</label>
-                    <input
+                    <input aria-label={te ? "విద్యార్హతను వెతకండి..." : "Search education..."}
                       type="search"
                       value={educationSearch}
                       onChange={(e) => setEducationSearch(e.target.value)}
@@ -2392,10 +2392,10 @@ export default function MatchesPage() {
 
             {/* Modal Bottom Actions */}
             <div className="p-4 border-t border-slate-100 flex items-center gap-3 bg-white">
-              <button onClick={clearAllFilters} className="flex-1 py-3 rounded-xl border border-slate-200 text-slate-700 text-xs font-bold">
+              <button type="button" onClick={clearAllFilters} className="flex-1 py-3 rounded-xl border border-slate-200 text-slate-700 text-xs font-bold">
                 {te ? "రీసెట్ చేయండి" : "Reset"}
               </button>
-              <button onClick={() => setSheet(false)} className="flex-2 py-3 rounded-xl maroon-gradient text-white text-xs font-bold shadow-md">
+              <button type="button" onClick={() => setSheet(false)} className="flex-2 py-3 rounded-xl maroon-gradient text-white text-xs font-bold shadow-md">
                 {te ? `ఫిల్టర్లు వర్తింపజేయండి (${total})` : `Apply filters (${total})`}
               </button>
             </div>

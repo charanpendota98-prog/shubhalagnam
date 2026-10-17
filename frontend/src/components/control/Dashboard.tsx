@@ -1282,7 +1282,7 @@ export default function Dashboard() {
     return (
       <main className="min-h-dvh bg-cream p-8 text-center">
         <p className="text-rose-700 font-bold">{err}</p>
-        <button onClick={loadCore} className="mt-4 rounded-xl maroon-gradient px-4 py-2 text-white font-bold">{L.refresh}</button>
+        <button type="button" onClick={loadCore} className="mt-4 rounded-xl maroon-gradient px-4 py-2 text-white font-bold">{L.refresh}</button>
       </main>
     );
   }
@@ -1419,7 +1419,7 @@ export default function Dashboard() {
         {/* Tab Strip */}
         <div className="mx-auto flex max-w-7xl gap-1.5 overflow-x-auto px-4 pb-2.5 pt-1 scrollbar-none">
           {tabs.map((x) => (
-            <button
+            <button type="button"
               key={x.k}
               onClick={() => setTab(x.k)}
               className={`shrink-0 rounded-2xl px-4 py-2 text-xs font-black transition-all ${
@@ -1522,7 +1522,7 @@ export default function Dashboard() {
                       className="w-full px-4 py-2.5 rounded-2xl border-2 border-gold/50 text-sm font-bold font-mono focus:border-maroon focus:outline-none bg-amber-50/40"
                     />
                   </div>
-                  <button
+                  <button type="button"
                     onClick={() => runMatchmaker()}
                     disabled={mmLoading}
                     className="px-5 py-2.5 rounded-2xl maroon-gradient text-white font-extrabold text-xs shadow-md hover-lift disabled:opacity-50 whitespace-nowrap"
@@ -1638,7 +1638,7 @@ export default function Dashboard() {
                           </a>
                         </>
                       )}
-                      <button
+                      <button type="button"
                         onClick={() => {
                           setProposalBatchModal({
                             open: true,
@@ -1657,7 +1657,7 @@ export default function Dashboard() {
                         <span>{tr("WhatsApp ప్రపోజల్", "WhatsApp proposal")}</span>
                       </button>
 
-                      <button
+                      <button type="button"
                         onClick={() => {
                           setPrintSheetModal({
                             open: true,
@@ -1672,7 +1672,7 @@ export default function Dashboard() {
                         <span>{tr("ప్రింట్ షీట్", "Print sheet")}</span>
                       </button>
 
-                      <button
+                      <button type="button"
                         onClick={() => {
                           const topMatch = matchedResults[0];
                           const isBride = candidate.gender === "Bride";
@@ -1696,7 +1696,7 @@ export default function Dashboard() {
                         <span>{tr("జాతక చెకర్", "Horoscope check")}</span>
                       </button>
 
-                      <button
+                      <button type="button"
                         onClick={() => openCounselorModal(candidate)}
                         className="px-3 py-1.5 rounded-xl bg-indigo-50 text-indigo-900 border border-indigo-200 font-extrabold text-[11px] shadow-xs flex items-center gap-1 hover:bg-indigo-100 transition"
                         title={tr("కౌన్సిలర్ నోట్స్ & కాల్ లాగ్స్", "Counsellor notes and call log")}
@@ -1705,7 +1705,7 @@ export default function Dashboard() {
                         <span>{tr("CRM నోట్స్", "CRM notes")}</span>
                       </button>
 
-                      <button
+                      <button type="button"
                         onClick={() => toggleSelectProfile(candidate)}
                         className={`px-3 py-1.5 rounded-xl text-[11px] font-bold border transition ${
                           isProfileSelected(candidate.tsap_id)
@@ -1726,7 +1726,7 @@ export default function Dashboard() {
             <div className="bg-white rounded-3xl p-4 border border-gold/30 shadow-xs space-y-3">
               <div className="flex items-center justify-between text-xs font-black text-slate-700">
                 <span>{tr("🎯 సరిపోయే సంబంధాల ఫిల్టర్‌లు", "🎯 Match filters")}</span>
-                <button
+                <button type="button"
                   onClick={() => {
                     setMmFilters({
                       caste: "", district: "", state: "", education: "",
@@ -1743,7 +1743,7 @@ export default function Dashboard() {
 
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 text-xs">
                 {/* Caste Select */}
-                <select
+                <select aria-label={tr("సంఘం", "Community")}
                   value={mmFilters.caste}
                   onChange={(e) => {
                     setMmFilters({ ...mmFilters, caste: e.target.value });
@@ -1757,7 +1757,7 @@ export default function Dashboard() {
                 </select>
 
                 {/* District Select */}
-                <select
+                <select aria-label={tr("జిల్లా", "District")}
                   value={mmFilters.district}
                   onChange={(e) => setMmFilters({ ...mmFilters, district: e.target.value })}
                   className="px-2.5 py-2 rounded-xl border border-slate-200 bg-slate-50 font-medium"
@@ -1785,7 +1785,7 @@ export default function Dashboard() {
                 />
 
                 {/* Filter Apply Action */}
-                <button
+                <button type="button"
                   onClick={() => runMatchmaker()}
                   className="px-3 py-2 rounded-xl maroon-gradient text-white font-extrabold text-xs shadow-xs"
                 >
@@ -1801,7 +1801,7 @@ export default function Dashboard() {
                   🎯 {tr("సరిపోలిన ప్రొఫైళ్లు", "Filtered profiles")} ({matchedResults.length})
                 </span>
                 {matchedResults.length > 0 && (
-                  <button
+                  <button type="button"
                     onClick={selectAllMatches}
                     className="text-xs font-bold text-maroon hover:underline ml-2"
                   >
@@ -1875,6 +1875,7 @@ export default function Dashboard() {
                           <div className="pt-1 shrink-0">
                             <input
                               type="checkbox"
+                              aria-label={tr("ప్రొఫైల్ ఎంచుకోండి", "Select profile")}
                               checked={isSelected}
                               onChange={() => toggleSelectProfile(row)}
                               className="w-5 h-5 rounded accent-[#7A0C2E] cursor-pointer"
@@ -2013,7 +2014,7 @@ export default function Dashboard() {
                               </a>
                             )}
 
-                            <button
+                            <button type="button"
                               onClick={() => toggleSelectProfile(row)}
                               className={`px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition shadow-xs ${
                                 isSelected
@@ -2137,7 +2138,7 @@ export default function Dashboard() {
 
                 {/* Keyword Search & CSV Export */}
                 <div className="flex items-center gap-2 flex-wrap">
-                  <input
+                  <input aria-label={tr("పేరు, ఫోన్ నంబర్, ID లేదా కమ్యూనిటీ…", "Name, phone, ID, or community…")}
                     type="text"
                     value={dirSearch}
                     onChange={(e) => setDirSearch(e.target.value)}
@@ -2145,13 +2146,13 @@ export default function Dashboard() {
                     placeholder={tr("పేరు, ఫోన్ నంబర్, ID లేదా కమ్యూనిటీ…", "Name, phone, ID, or community…")}
                     className="px-4 py-2 rounded-2xl border border-slate-300 text-xs font-bold focus:border-maroon focus:outline-none w-52 sm:w-64"
                   />
-                  <button
+                  <button type="button"
                     onClick={() => loadDirectory()}
                     className="px-4 py-2 rounded-2xl maroon-gradient text-white font-extrabold text-xs shadow-md"
                   >
                     🔍 {tr("శోధించండి", "Search")}
                   </button>
-                  <button
+                  <button type="button"
                     onClick={() => {
                       setPrintSheetModal({
                         open: true,
@@ -2165,7 +2166,7 @@ export default function Dashboard() {
                     <span>🖨️</span>
                     <span>{tr("ప్రింట్ షీట్", "Print sheet")}</span>
                   </button>
-                  <button
+                  <button type="button"
                     onClick={exportProfilesCsv}
                     className="px-3.5 py-2 rounded-2xl bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold text-xs shadow-sm flex items-center gap-1.5 transition active:scale-95"
                     title="Export all directory profiles to CSV"
@@ -2203,14 +2204,14 @@ export default function Dashboard() {
 
                 {dirDateRange === "custom" && (
                   <div className="flex items-center gap-2 ml-2 flex-wrap">
-                    <input
+                    <input aria-label={tr("తేదీ నుండి", "Date from")}
                       type="date"
                       value={dirDateFrom}
                       onChange={(e) => setDirDateFrom(e.target.value)}
                       className="px-2.5 py-1 text-xs border border-slate-300 rounded-lg"
                     />
                     <span className="text-xs text-slate-400">{tr("నుండి", "to")}</span>
-                    <input
+                    <input aria-label={tr("తేదీ వరకు", "Date to")}
                       type="date"
                       value={dirDateTo}
                       onChange={(e) => setDirDateTo(e.target.value)}
@@ -2257,7 +2258,7 @@ export default function Dashboard() {
                 {/* Payment Status Filter */}
                 <div>
                   <label className="text-[10px] font-bold text-slate-500 block mb-0.5">💰 {tr("చెల్లింపు స్థితి:", "Payment status:")}</label>
-                  <select
+                  <select aria-label={tr("చెల్లింపు స్థితి", "Payment status")}
                     value={dirPayment}
                     onChange={(e) => setDirPayment(e.target.value)}
                     className="w-full px-2.5 py-1.5 rounded-xl border border-slate-200 bg-slate-50 font-medium"
@@ -2271,7 +2272,7 @@ export default function Dashboard() {
                 {/* Recorded-check filter; not an identity verdict */}
                 <div>
                   <label className="text-[10px] font-bold text-slate-500 block mb-0.5">{te ? "🛡️ నమోదైన చెక్ (OTP / ఫోటో / ID):" : "🛡️ Recorded check (OTP / photo / ID):"}</label>
-                  <select
+                  <select aria-label={te ? "🛡️ నమోదైన చెక్ (OTP / ఫోటో / ID):" : "🛡️ Recorded check (OTP / photo / ID):"}
                     value={dirCheckStatus}
                     onChange={(e) => setDirCheckStatus(e.target.value)}
                     className="w-full px-2.5 py-1.5 rounded-xl border border-slate-200 bg-slate-50 font-medium"
@@ -2285,7 +2286,7 @@ export default function Dashboard() {
                 {/* Marital Status Filter */}
                 <div>
                   <label className="text-[10px] font-bold text-slate-500 block mb-0.5">💍 {tr("వైవాహిక స్థితి:", "Marital status:")}</label>
-                  <select
+                  <select aria-label={tr("వైవాహిక స్థితి", "Marital status")}
                     value={dirMarital}
                     onChange={(e) => setDirMarital(e.target.value)}
                     className="w-full px-2.5 py-1.5 rounded-xl border border-slate-200 bg-slate-50 font-medium"
@@ -2299,7 +2300,7 @@ export default function Dashboard() {
                 {/* Photo Filter */}
                 <div>
                   <label className="text-[10px] font-bold text-slate-500 block mb-0.5">📸 {tr("ఫోటో:", "Photo:")}</label>
-                  <select
+                  <select aria-label={tr("ఫోటో స్థితి", "Photo status")}
                     value={dirPhoto}
                     onChange={(e) => setDirPhoto(e.target.value)}
                     className="w-full px-2.5 py-1.5 rounded-xl border border-slate-200 bg-slate-50 font-medium"
@@ -2313,7 +2314,7 @@ export default function Dashboard() {
                 {/* Gender Filter */}
                 <div>
                   <label className="text-[10px] font-bold text-slate-500 block mb-0.5">👰/🤵 {tr("లింగం:", "Gender:")}</label>
-                  <select
+                  <select aria-label={tr("లింగం", "Gender")}
                     value={dirGender}
                     onChange={(e) => setDirGender(e.target.value)}
                     className="w-full px-2.5 py-1.5 rounded-xl border border-slate-200 bg-slate-50 font-medium"
@@ -2327,7 +2328,7 @@ export default function Dashboard() {
                 {/* District Filter */}
                 <div>
                   <label className="text-[10px] font-bold text-slate-500 block mb-0.5">🏡 {tr("జిల్లా:", "District:")}</label>
-                  <select
+                  <select aria-label={tr("జిల్లా", "District")}
                     value={dirDistrict}
                     onChange={(e) => setDirDistrict(e.target.value)}
                     className="w-full px-2.5 py-1.5 rounded-xl border border-slate-200 bg-slate-50 font-medium"
@@ -2384,6 +2385,7 @@ export default function Dashboard() {
                             <td className="p-3.5 text-center">
                               <input
                                 type="checkbox"
+                                aria-label={tr("ప్రొఫైల్ ఎంచుకోండి", "Select profile")}
                                 checked={isSelected}
                                 onChange={() => toggleSelectProfile(p)}
                                 className="w-4 h-4 rounded accent-[#7A0C2E] cursor-pointer"
@@ -2476,7 +2478,7 @@ export default function Dashboard() {
                               )}
 
                               {/* Matchmaker */}
-                              <button
+                              <button type="button"
                                 onClick={() => {
                                   setLookupQuery(p.tsap_id);
                                   runMatchmaker(p.tsap_id);
@@ -2489,7 +2491,7 @@ export default function Dashboard() {
                               </button>
 
                               {/* WhatsApp Proposal Generator */}
-                              <button
+                              <button type="button"
                                 onClick={() => {
                                   setProposalBatchModal({
                                     open: true,
@@ -2508,7 +2510,7 @@ export default function Dashboard() {
                               </button>
 
                               {/* Counselor CRM Call Notes */}
-                              <button
+                              <button type="button"
                                 onClick={() => openCounselorModal(p)}
                                 className="px-2.5 py-1.5 rounded-lg bg-indigo-50 text-indigo-900 border border-indigo-200 font-bold text-[11px] hover:bg-indigo-100 transition shadow-xs"
                                 title={tr("కౌన్సిలర్ కాల్ నోట్స్ & CRM హిస్టరీ", "Counsellor call notes and CRM history")}
@@ -2517,7 +2519,7 @@ export default function Dashboard() {
                               </button>
 
                               {/* Manual plan-credit activation; approval and verification remain separate. */}
-                              <button
+                              <button type="button"
                                 onClick={() => {
                                   resetGrantForm();
                                   setUpgradeModal({
@@ -2599,7 +2601,7 @@ export default function Dashboard() {
           <div className="space-y-4">
             <div className="flex gap-2">
               {(owner ? (["pending", "approved", "rejected", "all"] as const) : (["pending"] as const)).map((s) => (
-                <button
+                <button type="button"
                   key={s}
                   onClick={() => setQStatus(s)}
                   className={`px-4 py-1.5 rounded-full text-xs font-bold capitalize transition ${
@@ -2806,7 +2808,7 @@ export default function Dashboard() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-slate-700 mb-1">{tr("పూర్తి పేరు", "Full name")} *</label>
-                  <input
+                  <input aria-label="Enter member's name"
                     required
                     value={newProf.full_name}
                     onChange={(e) => setNewProf({ ...newProf, full_name: e.target.value })}
@@ -2816,7 +2818,7 @@ export default function Dashboard() {
                 </div>
                 <div>
                   <label className="block text-slate-700 mb-1">{tr("లింగం", "Gender")} *</label>
-                  <select
+                  <select aria-label={tr("లింగం", "Gender")}
                     required
                     value={newProf.gender}
                     onChange={(e) => setNewProf({ ...newProf, gender: e.target.value })}
@@ -2832,7 +2834,7 @@ export default function Dashboard() {
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 <div>
                   <label className="block text-slate-700 mb-1">{tr("వయస్సు (ఐచ్ఛికం)", "Age (optional)")}</label>
-                  <input
+                  <input aria-label={tr("వయస్సు (ఐచ్ఛికం)", "Age (optional)")}
                     type="number"
                     min={newProf.gender === "Groom" ? 21 : 18}
                     max={100}
@@ -2845,7 +2847,7 @@ export default function Dashboard() {
                 </div>
                 <div>
                   <label className="block text-slate-700 mb-1">{tr("మతం", "Religion")} *</label>
-                  <select
+                  <select aria-label={tr("మతం", "Religion")}
                     required
                     value={newProf.religion}
                     onChange={(e) => setNewProf({ ...newProf, religion: e.target.value, caste: "", caste_custom: "", sub_caste: "", sub_caste_custom: "" })}
@@ -2857,7 +2859,7 @@ export default function Dashboard() {
                 </div>
                 <div>
                   <label className="block text-slate-700 mb-1">{tr("కులం / కమ్యూనిటీ", "Caste / community")} *</label>
-                  <select
+                  <select aria-label={tr("సంఘం", "Community")}
                     required
                     disabled={!newProf.religion}
                     value={newProf.caste}
@@ -2872,24 +2874,24 @@ export default function Dashboard() {
                 {newProf.caste === "Other / self-described" && (
                   <div>
                     <label className="block text-slate-700 mb-1">{tr("సభ్యుడు తెలిపిన కమ్యూనిటీ", "Member-provided community")} *</label>
-                    <input required maxLength={100} value={newProf.caste_custom} onChange={(e) => setNewProf({ ...newProf, caste_custom: e.target.value })} className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm" placeholder="Member-provided community name" />
+                    <input aria-label="Member-provided community name" required maxLength={100} value={newProf.caste_custom} onChange={(e) => setNewProf({ ...newProf, caste_custom: e.target.value })} className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm" placeholder="Member-provided community name" />
                   </div>
                 )}
                 <div>
                   <label className="block text-slate-700 mb-1">{tr("ఉప-కమ్యూనిటీ (ఐచ్ఛికం)", "Sub-community (optional)")}</label>
                   {adminSubcasteOpts.length ? (
-                    <select value={newProf.sub_caste} onChange={(e) => setNewProf({ ...newProf, sub_caste: e.target.value, sub_caste_custom: "" })} className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm">
+                    <select aria-label={tr("ఉప-కమ్యూనిటీ (ఐచ్ఛికం)", "Sub-community (optional)")} value={newProf.sub_caste} onChange={(e) => setNewProf({ ...newProf, sub_caste: e.target.value, sub_caste_custom: "" })} className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm">
                       <option value="">{tr("ఎంచుకోండి (ఐచ్ఛికం)", "Select (optional)")}</option>
                       {adminSubcasteOpts.map((sub) => <option key={sub} value={sub}>{sub}</option>)}
                     </select>
                   ) : (
-                    <input maxLength={100} value={newProf.sub_caste} onChange={(e) => setNewProf({ ...newProf, sub_caste: e.target.value })} className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm" placeholder="Optional member-provided subgroup" />
+                    <input aria-label="Optional member-provided subgroup" maxLength={100} value={newProf.sub_caste} onChange={(e) => setNewProf({ ...newProf, sub_caste: e.target.value })} className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm" placeholder="Optional member-provided subgroup" />
                   )}
-                  {newProf.sub_caste === "Other / self-described" && <input required maxLength={100} value={newProf.sub_caste_custom} onChange={(e) => setNewProf({ ...newProf, sub_caste_custom: e.target.value })} className="mt-2 w-full px-3 py-2 rounded-xl border border-slate-300 text-sm" placeholder="Member-provided subgroup name" />}
+                  {newProf.sub_caste === "Other / self-described" && <input aria-label="Member-provided subgroup name" required maxLength={100} value={newProf.sub_caste_custom} onChange={(e) => setNewProf({ ...newProf, sub_caste_custom: e.target.value })} className="mt-2 w-full px-3 py-2 rounded-xl border border-slate-300 text-sm" placeholder="Member-provided subgroup name" />}
                 </div>
                 <div>
                   <label className="block text-slate-700 mb-1">{tr("రాష్ట్రం / ప్రాంతం", "State / region")} *</label>
-                  <select
+                  <select aria-label={tr("రాష్ట్రం", "State")}
                     required
                     value={newProf.state}
                     onChange={(e) => setNewProf({ ...newProf, state: e.target.value, district: "" })}
@@ -2903,7 +2905,7 @@ export default function Dashboard() {
                 </div>
                 <div>
                   <label className="block text-slate-700 mb-1">{tr("జిల్లా / స్థానం", "District / location")} *</label>
-                  <select
+                  <select aria-label={tr("జిల్లా", "District")}
                     required
                     disabled={!newProf.state}
                     value={newProf.district}
@@ -2921,7 +2923,7 @@ export default function Dashboard() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-slate-700 mb-1">{tr("విద్య", "Education")}</label>
-                  <input
+                  <input aria-label={tr("విద్య", "Education")}
                     value={newProf.education}
                     onChange={(e) => setNewProf({ ...newProf, education: e.target.value })}
                     className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm font-medium"
@@ -2930,7 +2932,7 @@ export default function Dashboard() {
                 </div>
                 <div>
                   <label className="block text-slate-700 mb-1">{tr("వృత్తి", "Occupation")}</label>
-                  <input
+                  <input aria-label={tr("వృత్తి", "Occupation")}
                     value={newProf.job}
                     onChange={(e) => setNewProf({ ...newProf, job: e.target.value })}
                     className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm font-medium"
@@ -2941,7 +2943,7 @@ export default function Dashboard() {
 
               <div>
                 <label className="block text-slate-700 mb-1">📞 {tr("ఫోన్ నంబర్", "Phone number")} *</label>
-                <input
+                <input aria-label="10-digit member phone"
                   required
                   value={newProf.phone}
                   onChange={(e) => setNewProf({ ...newProf, phone: e.target.value })}
@@ -3517,7 +3519,7 @@ export default function Dashboard() {
 
                             <div className="flex gap-2">
                               {/* Approve & Settle Payout */}
-                              <button
+                              <button type="button"
                                 onClick={() => {
                                   const customUtr = prompt(tr("నిజమైన బ్యాంక్ / UPI రసీదులోని UTR నమోదు చేయండి. నిర్ధారించని చెల్లింపును ఆమోదించవద్దు:", "Enter the UTR from the actual bank / UPI receipt. Do not approve an unverified payment:"), "");
                                   if (customUtr?.trim()) payoutAction(po.id, "approve", customUtr.trim());
@@ -3530,7 +3532,8 @@ export default function Dashboard() {
                               </button>
 
                               {/* Reject Button */}
-                              <button
+                              <button type="button"
+                                aria-label={te ? "చెల్లింపును తిరస్కరించండి" : "Reject payout"}
                                 onClick={() => {
                                   const reason = prompt(tr("తిరస్కరణకు కారణం నమోదు చేయండి:", "Enter a reason for rejection:"), "");
                                   if (reason?.trim()) payoutAction(po.id, "reject", "", reason.trim());
@@ -3655,7 +3658,7 @@ export default function Dashboard() {
                 </span>
 
                 <div className="flex items-center bg-slate-100 rounded-xl p-0.5 text-[11px] font-bold">
-                  <button
+                  <button type="button"
                     onClick={() => setNotepadFormat("simple")}
                     className={`px-2.5 py-1 rounded-lg transition ${
                       notepadFormat === "simple" ? "bg-white text-maroon shadow-xs" : "text-slate-600"
@@ -3663,7 +3666,7 @@ export default function Dashboard() {
                   >
                     {tr("పేరు — నంబర్ (సాధారణం)", "Name — number (simple)")}
                   </button>
-                  <button
+                  <button type="button"
                     onClick={() => setNotepadFormat("detailed")}
                     className={`px-2.5 py-1 rounded-lg transition ${
                       notepadFormat === "detailed" ? "bg-white text-maroon shadow-xs" : "text-slate-600"
@@ -3673,7 +3676,7 @@ export default function Dashboard() {
                   </button>
                 </div>
 
-                <button
+                <button type="button"
                   onClick={() => setIsNotepadMinimized(!isNotepadMinimized)}
                   className="text-xs text-slate-500 hover:text-maroon underline font-bold"
                 >
@@ -3685,7 +3688,7 @@ export default function Dashboard() {
               <div className="flex items-center gap-2 flex-wrap">
                 
                 {/* Recipient WhatsApp Phone Input */}
-                <input
+                <input aria-label={tr("స్వీకర్త WhatsApp నంబర్", "Recipient WhatsApp number")}
                   type="text"
                   value={recipientPhone}
                   onChange={(e) => setRecipientPhone(e.target.value)}
@@ -3694,7 +3697,7 @@ export default function Dashboard() {
                 />
 
                 {/* 1. Copy Notepad List Button */}
-                <button
+                <button type="button"
                   onClick={copyNotepadToClipboard}
                   className="px-3.5 py-2 rounded-xl bg-slate-800 text-white font-extrabold text-xs shadow-xs hover:bg-slate-900 active:scale-95 transition flex items-center gap-1"
                   title="Copy formatted contact list to clipboard"
@@ -3704,7 +3707,7 @@ export default function Dashboard() {
                 </button>
 
                 {/* 2. WhatsApp Button: Profiles ONLY (Privacy Safe) */}
-                <button
+                <button type="button"
                   onClick={() => shareWhatsApp(false)}
                   className="px-3.5 py-2 rounded-xl bg-amber-500 text-white font-extrabold text-xs shadow-xs hover:bg-amber-600 active:scale-95 transition flex items-center gap-1"
                   title="Share profile cards without exposing phone numbers"
@@ -3714,7 +3717,7 @@ export default function Dashboard() {
                 </button>
 
                 {/* 3. WhatsApp Button: Profiles + PHONE NUMBERS */}
-                <button
+                <button type="button"
                   onClick={() => shareWhatsApp(true)}
                   className="px-3.5 py-2 rounded-xl bg-[#25D366] text-white font-black text-xs shadow-xs hover:brightness-105 active:scale-95 transition flex items-center gap-1.5"
                   title="Share profile cards WITH full phone numbers"
@@ -3724,7 +3727,7 @@ export default function Dashboard() {
                 </button>
 
                 {/* 4. Telegram Share Button */}
-                <button
+                <button type="button"
                   onClick={shareTelegram}
                   className="px-3 py-2 rounded-xl bg-[#229ED9] text-white font-extrabold text-xs shadow-xs hover:brightness-105 active:scale-95 transition"
                   title="Broadcast to Telegram Channel"
@@ -3733,7 +3736,8 @@ export default function Dashboard() {
                 </button>
 
                 {/* Clear Selection */}
-                <button
+                <button type="button"
+                  aria-label={te ? "ఎంపికలను తొలగించండి" : "Clear selection"}
                   onClick={() => setSelectedProfiles([])}
                   className="px-2.5 py-2 rounded-xl border border-slate-300 text-slate-500 font-bold text-xs hover:bg-slate-100"
                   title="Clear selected list"
@@ -3755,19 +3759,20 @@ export default function Dashboard() {
                   <textarea
                     rows={3}
                     readOnly
+                    aria-label={tr("రూపొందించిన నోట్", "Generated note")}
                     value={generatedNotepadText}
-                    className="w-full p-2.5 rounded-xl bg-slate-50 border border-slate-200 font-mono text-xs text-slate-800 focus:outline-none select-all"
+                    className="w-full p-2.5 rounded-xl bg-slate-50 border border-slate-200 font-mono text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#7A0C2E]/40 select-all"
                   />
                 </div>
 
                 <div className="space-y-1">
                   <span className="text-[11px] font-bold text-slate-500 block">✍️ {tr("అదనపు గమనిక", "Additional note")}</span>
-                  <textarea
+                  <textarea aria-label={tr("ఉదా: సభ్యులు అందించిన వివరాలను కుటుంబంతో పరిశీలించండి; జాతక సూచికను విడిగా నిర్ధారించండి…", "e.g. Review member-provided details with the family; verify any horoscope reference separately…")}
                     rows={3}
                     value={notepadNote}
                     onChange={(e) => setNotepadNote(e.target.value)}
                     placeholder={tr("ఉదా: సభ్యులు అందించిన వివరాలను కుటుంబంతో పరిశీలించండి; జాతక సూచికను విడిగా నిర్ధారించండి…", "e.g. Review member-provided details with the family; verify any horoscope reference separately…")}
-                    className="w-full p-2.5 rounded-xl bg-white border border-slate-200 text-xs text-slate-800 focus:border-maroon focus:outline-none"
+                    className="w-full p-2.5 rounded-xl bg-white border border-slate-200 text-xs text-slate-800 focus:border-maroon focus:outline-none focus:ring-2 focus:ring-[#7A0C2E]/40"
                   />
                 </div>
               </div>
@@ -3791,7 +3796,7 @@ export default function Dashboard() {
                   </p>
                 </div>
               </div>
-              <button
+              <button aria-label={te ? "మూసివేయండి" : "Close"} type="button"
                 onClick={() => setUpgradeModal(null)}
                 className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center font-bold"
               >
@@ -3878,7 +3883,7 @@ export default function Dashboard() {
             {/* Payment Mode Selector */}
             <div className="space-y-1.5 pt-1">
               <label className="text-xs font-bold text-slate-700 block">2. {tr("చెల్లింపు మూలం", "Payment source")}:</label>
-              <select
+              <select aria-label={tr("చెల్లింపు విధానం", "Payment mode")}
                 value={grantPayMode}
                 onChange={(e) => {
                   const mode = e.target.value;
@@ -3890,7 +3895,7 @@ export default function Dashboard() {
                     setGrantAmount(({ S_99: 99, S_199: 199, S_299: 299, S_499: 499 } as Record<string, number>)[grantPlanCode] || 0);
                   }
                 }}
-                className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-bold focus:border-maroon focus:outline-none"
+                className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-bold focus:border-maroon focus:outline-none focus:ring-2 focus:ring-[#7A0C2E]/40"
               >
                 <option value="">{tr("చెల్లింపు మూలాన్ని ఎంచుకోండి", "Select payment source")}</option>
                 <option value="UPI_QR">📱 {tr("UPI / QR చెల్లింపు", "UPI / QR payment")}</option>
@@ -3906,12 +3911,12 @@ export default function Dashboard() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
                 <div>
                   <label className="text-[11px] font-bold text-slate-600 block mb-0.5">UTR / {tr("లావాదేవీ నంబర్ (ఐచ్ఛికం)", "transaction reference (optional")}):</label>
-                  <input
+                  <input aria-label={tr("చెల్లింపు రిఫరెన్స్ ఉంటే నమోదు చేయండి", "Enter the payment reference, if available")}
                     type="text"
                     value={grantUtr}
                     onChange={(e) => setGrantUtr(e.target.value)}
                     placeholder={tr("చెల్లింపు రిఫరెన్స్ ఉంటే నమోదు చేయండి", "Enter the payment reference, if available")}
-                    className="w-full px-3 py-1.5 border border-slate-300 rounded-xl text-xs font-mono focus:border-maroon focus:outline-none"
+                    className="w-full px-3 py-1.5 border border-slate-300 rounded-xl text-xs font-mono focus:border-maroon focus:outline-none focus:ring-2 focus:ring-[#7A0C2E]/40"
                   />
                 </div>
                 <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] text-slate-700">
@@ -3997,8 +4002,9 @@ export default function Dashboard() {
               <textarea
                 rows={5}
                 readOnly
+                aria-label={tr("WhatsApp సందేశం", "WhatsApp message")}
                 value={activatedSuccessModal.waMessage}
-                className="w-full p-2.5 bg-white border border-slate-200 rounded-xl text-xs text-slate-800 font-sans leading-relaxed focus:outline-none"
+                className="w-full p-2.5 bg-white border border-slate-200 rounded-xl text-xs text-slate-800 font-sans leading-relaxed focus:outline-none focus:ring-2 focus:ring-[#7A0C2E]/40"
               />
             </div>
 
@@ -4046,7 +4052,7 @@ export default function Dashboard() {
                 unoptimized
                 className="max-w-full max-h-[500px] object-contain"
               />
-              <button
+              <button aria-label={te ? "మూసివేయండి" : "Close"}
                 type="button"
                 onClick={() => setPreviewPhotoModal(null)}
                 className="absolute top-3 right-3 bg-black/60 hover:bg-black text-white rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold backdrop-blur-xs transition"
@@ -4085,7 +4091,7 @@ export default function Dashboard() {
                   </p>
                 </div>
               </div>
-              <button
+              <button aria-label={te ? "మూసివేయండి" : "Close"} type="button"
                 onClick={() => setProposalBatchModal(null)}
                 className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center font-bold"
               >
@@ -4122,23 +4128,23 @@ export default function Dashboard() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="text-[11px] font-bold text-slate-600 block mb-1">📞 {tr("పంపాల్సిన WhatsApp నంబర్:", "WhatsApp recipient number:")}</label>
-                <input
+                <input aria-label={tr("సభ్యుడు అందించిన 10 అంకెల నంబర్", "10-digit number provided by the member")}
                   type="text"
                   value={proposalBatchModal.recipientPhone}
                   onChange={(e) => setProposalBatchModal({ ...proposalBatchModal, recipientPhone: e.target.value })}
                   placeholder={tr("సభ్యుడు అందించిన 10 అంకెల నంబర్", "10-digit number provided by the member")}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-mono font-bold focus:border-emerald-600 focus:outline-none"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-mono font-bold focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-[#7A0C2E]/40"
                 />
               </div>
 
               <div>
                 <label className="text-[11px] font-bold text-slate-600 block mb-1">📝 {tr("ప్రత్యేక సూచనలు / గమనిక (ఐచ్ఛికం):", "Custom note (optional):")}</label>
-                <input
+                <input aria-label={tr("ఉదా: సంప్రదింపు సమయం లేదా అదనపు సూచనను నమోదు చేయండి", "e.g. Add a preferred contact time or other note")}
                   type="text"
                   value={proposalBatchModal.customNote}
                   onChange={(e) => setProposalBatchModal({ ...proposalBatchModal, customNote: e.target.value })}
                   placeholder={tr("ఉదా: సంప్రదింపు సమయం లేదా అదనపు సూచనను నమోదు చేయండి", "e.g. Add a preferred contact time or other note")}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs focus:border-emerald-600 focus:outline-none"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-[#7A0C2E]/40"
                 />
               </div>
             </div>
@@ -4168,6 +4174,7 @@ export default function Dashboard() {
               <textarea
                 rows={9}
                 readOnly
+                aria-label={tr("ప్రతిపాదన సందేశం", "Proposal message")}
                 value={buildProposalText(
                   proposalBatchModal.candidate,
                   proposalBatchModal.targetMatches,
@@ -4245,7 +4252,7 @@ export default function Dashboard() {
                   <span>🖨️</span>
                   <span>{tr("ప్రింట్ చేయండి / PDF సేవ్ చేయండి", "Print / save PDF")}</span>
                 </button>
-                <button
+                <button aria-label={te ? "మూసివేయండి" : "Close"} type="button"
                   onClick={() => setPrintSheetModal(null)}
                   className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center font-bold"
                 >
@@ -4373,7 +4380,7 @@ export default function Dashboard() {
                   </p>
                 </div>
               </div>
-              <button
+              <button aria-label={te ? "మూసివేయండి" : "Close"} type="button"
                 onClick={() => setCounselorModal(null)}
                 className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center font-bold"
               >
@@ -4428,10 +4435,10 @@ export default function Dashboard() {
             {/* Stage Selector */}
             <div className="space-y-1">
               <label className="text-xs font-bold text-slate-700 block">1. {tr("సంప్రదింపు దశ:", "Contact stage:")}</label>
-              <select
+              <select aria-label={tr("దశ", "Stage")}
                 value={counselorModal.newStage}
                 onChange={(e) => setCounselorModal({ ...counselorModal, newStage: e.target.value })}
-                className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-bold focus:border-indigo-600 focus:outline-none"
+                className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-bold focus:border-indigo-600 focus:outline-none focus:ring-2 focus:ring-[#7A0C2E]/40"
               >
                 <option value="new_lead">🌟 {tr("కొత్త లీడ్", "New lead")}</option>
                 <option value="call_scheduled">📞 {tr("కాల్ షెడ్యూల్ అయింది", "Call scheduled")}</option>
@@ -4448,23 +4455,23 @@ export default function Dashboard() {
             <div className="space-y-2">
               <div>
                 <label className="text-xs font-bold text-slate-700 block mb-1">2. {tr("సంభాషణ గమనికలు:", "Conversation notes:")}</label>
-                <textarea
+                <textarea aria-label={tr("సంభాషణలో జరిగినదాన్ని, సభ్యుడు తెలిపిన ప్రాధాన్యతలను మరియు తదుపరి చర్యను నమోదు చేయండి…", "Record what was discussed, the member’s stated preferences, and the next action…")}
                   rows={3}
                   value={counselorModal.newNote}
                   onChange={(e) => setCounselorModal({ ...counselorModal, newNote: e.target.value })}
                   placeholder={tr("సంభాషణలో జరిగినదాన్ని, సభ్యుడు తెలిపిన ప్రాధాన్యతలను మరియు తదుపరి చర్యను నమోదు చేయండి…", "Record what was discussed, the member’s stated preferences, and the next action…")}
-                  className="w-full p-2.5 border border-slate-300 rounded-xl text-xs focus:border-indigo-600 focus:outline-none"
+                  className="w-full p-2.5 border border-slate-300 rounded-xl text-xs focus:border-indigo-600 focus:outline-none focus:ring-2 focus:ring-[#7A0C2E]/40"
                 />
               </div>
 
               <div>
                 <label className="text-[11px] font-bold text-slate-600 block mb-0.5">📅 {tr("తదుపరి సంప్రదింపు సమయం:", "Next follow-up date / time:")}</label>
-                <input
+                <input aria-label={tr("తేదీ, సమయాన్ని నమోదు చేయండి (YYYY-MM-DD HH:MM)", "Enter date and time (YYYY-MM-DD HH:MM)")}
                   type="text"
                   value={counselorModal.callbackAt}
                   onChange={(e) => setCounselorModal({ ...counselorModal, callbackAt: e.target.value })}
                   placeholder={tr("తేదీ, సమయాన్ని నమోదు చేయండి (YYYY-MM-DD HH:MM)", "Enter date and time (YYYY-MM-DD HH:MM)")}
-                  className="w-full px-3 py-1.5 border border-slate-300 rounded-xl text-xs focus:border-indigo-600 focus:outline-none"
+                  className="w-full px-3 py-1.5 border border-slate-300 rounded-xl text-xs focus:border-indigo-600 focus:outline-none focus:ring-2 focus:ring-[#7A0C2E]/40"
                 />
               </div>
             </div>
@@ -4528,7 +4535,7 @@ export default function Dashboard() {
                   </p>
                 </div>
               </div>
-              <button
+              <button aria-label={te ? "మూసివేయండి" : "Close"} type="button"
                 onClick={() => setAstroCheckModal(null)}
                 className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center font-bold"
               >
@@ -4540,23 +4547,23 @@ export default function Dashboard() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-purple-50/50 p-3.5 rounded-2xl border border-purple-200">
               <div>
                 <label className="text-xs font-bold text-slate-700 block mb-1">{te ? "🤵 వరుడు TSAP ID:" : "🤵 Groom TSAP ID:"}</label>
-                <input
+                <input aria-label={te ? "🤵 వరుడు TSAP ID:" : "🤵 Groom TSAP ID:"}
                   type="text"
                   value={astroCheckModal.boyId}
                   onChange={(e) => setAstroCheckModal({ ...astroCheckModal, boyId: e.target.value.toUpperCase() })}
                   placeholder={te ? "ఇప్పటికే ఉన్న వరుడు ప్రొఫైల్ ID" : "Existing groom profile ID"}
-                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-mono font-bold focus:border-purple-600 focus:outline-none"
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-mono font-bold focus:border-purple-600 focus:outline-none focus:ring-2 focus:ring-[#7A0C2E]/40"
                 />
               </div>
 
               <div>
                 <label className="text-xs font-bold text-slate-700 block mb-1">{te ? "👰 వధువు TSAP ID:" : "👰 Bride TSAP ID:"}</label>
-                <input
+                <input aria-label={te ? "👰 వధువు TSAP ID:" : "👰 Bride TSAP ID:"}
                   type="text"
                   value={astroCheckModal.girlId}
                   onChange={(e) => setAstroCheckModal({ ...astroCheckModal, girlId: e.target.value.toUpperCase() })}
                   placeholder={te ? "ఇప్పటికే ఉన్న వధువు ప్రొఫైల్ ID" : "Existing bride profile ID"}
-                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-mono font-bold focus:border-purple-600 focus:outline-none"
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-mono font-bold focus:border-purple-600 focus:outline-none focus:ring-2 focus:ring-[#7A0C2E]/40"
                 />
               </div>
 

@@ -1615,14 +1615,14 @@ function Wizard() {
               <button
                 type="button"
                 onClick={resumeDraft}
-                className="px-3 py-1.5 rounded-xl maroon-gradient text-white text-xs font-bold hover:brightness-105 transition"
+                className="px-3 py-1.5 rounded-xl maroon-gradient text-white text-xs font-bold hover:brightness-105 transition min-h-11"
               >
                 {T("కొనసాగించండి", "Resume")}
               </button>
               <button
                 type="button"
                 onClick={clearDraft}
-                className="px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-slate-700 text-xs font-bold hover:bg-slate-50 transition"
+                className="px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-slate-700 text-xs font-bold hover:bg-slate-50 transition min-h-11"
               >
                 {T("కొత్తగా ప్రారంభించండి", "Start new")}
               </button>
@@ -1797,7 +1797,7 @@ function Wizard() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-slate-50/70 p-3 rounded-2xl border border-slate-200">
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-slate-800">{T("విద్యార్హత", "Education")} (Optional)</label>
-                  <select
+                  <select aria-label={te ? "విద్యార్హత" : "Education"}
                     value={f.education}
                     onChange={(e) => set("education", e.target.value)}
                     className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-medium"
@@ -1813,7 +1813,7 @@ function Wizard() {
 
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-slate-800">{T("ఉద్యోగం / హోదా", "Job title")} (Optional)</label>
-                  <select
+                  <select aria-label={te ? "ఉద్యోగం" : "Occupation"}
                     value={f.job}
                     onChange={(e) => set("job", e.target.value)}
                     className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-medium"
@@ -1840,7 +1840,7 @@ function Wizard() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-slate-800">{T("రాష్ట్రం", "State")} *</label>
-                  <select
+                  <select aria-label={te ? "రాష్ట్రం" : "State"}
                     value={f.state}
                     onChange={(e) => {
                       set("state", e.target.value);
@@ -1889,7 +1889,7 @@ function Wizard() {
                       {showPw ? "Hide" : "Show"}
                     </button>
                   </label>
-                  <input
+                  <input aria-label="కనీసం 6 అక్షరాలు (min 6 chars)"
                     type={showPw ? "text" : "password"}
                     value={f.password || ""}
                     onChange={(e) => set("password", e.target.value)}
@@ -2080,7 +2080,7 @@ function Wizard() {
                   <button
                     type="button"
                     onClick={() => executeSubmit(true)}
-                    className="text-xs font-bold text-maroon bg-amber-50 px-3 py-1 rounded-full border border-gold/30 hover:bg-gold/20"
+                    className="text-xs font-bold text-maroon bg-amber-50 px-3 py-1 rounded-full border border-gold/30 hover:bg-gold/20 min-h-11"
                   >
                     {T("⚡ ఇప్పుడే సబ్మిట్ చేయండి", "⚡ Submit now")}
                   </button>
@@ -2145,7 +2145,7 @@ function Wizard() {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div className="space-y-1.5">
                         <label className="text-xs font-bold text-slate-800">{T("ఎత్తు", "Height")} *</label>
-                        <select
+                        <select aria-label={te ? "ఎత్తు" : "Height"}
                           value={f.height}
                           onChange={(e) => set("height", e.target.value)}
                           className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-medium"
@@ -2161,7 +2161,7 @@ function Wizard() {
 
                       <div className="space-y-1.5">
                         <label className="text-xs font-bold text-slate-800">{T("వైవాహిక స్థితి", "Marital status")} *</label>
-                        <select
+                        <select aria-label={te ? "వైవాహిక స్థితి" : "Marital status"}
                           value={f.marital_status}
                           onChange={(e) => {
                             setF((prev) => ({ ...prev, marital_status: e.target.value, children: "" }));
@@ -2184,7 +2184,7 @@ function Wizard() {
                     {f.marital_status && !isNeverMarriedStatus(f.marital_status) && (
                       <div className="space-y-1.5">
                         <label className="text-xs font-bold text-slate-800">{T("పిల్లలు", "Children")} *</label>
-                        <select
+                        <select aria-label={te ? "పిల్లలు" : "Children"}
                           value={f.children}
                           onChange={(e) => set("children", e.target.value)}
                           className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-medium"
@@ -2300,7 +2300,7 @@ function Wizard() {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div className="space-y-1.5">
                         <label className="text-xs font-bold text-slate-800">{T("నక్షత్రం", "Nakshatram")}</label>
-                        <select
+                        <select aria-label={T("నక్షత్రం", "Nakshatram")}
                           value={f.star || ""}
                           onChange={(e) => set("star", e.target.value)}
                           className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-medium"
@@ -2316,7 +2316,7 @@ function Wizard() {
 
                       <div className="space-y-1.5">
                         <label className="text-xs font-bold text-slate-800">{T("రాశి", "Rasi")}</label>
-                        <select
+                        <select aria-label={T("రాశి", "Rasi")}
                           value={f.rasi || ""}
                           onChange={(e) => set("rasi", e.target.value)}
                           className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-medium"
@@ -2341,7 +2341,7 @@ function Wizard() {
                         the "Homemaker / గృహిణి" sector. */}
                     <div className="space-y-1.5">
                       <label className="text-xs font-bold text-slate-800">{T("వృత్తి / ఉద్యోగ రంగం", "Work sector")} *</label>
-                      <select
+                      <select aria-label={te ? "వృత్తి రంగం" : "Work sector"}
                         value={f.work_type}
                         onChange={(e) => set("work_type", e.target.value)}
                         className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-medium"
@@ -2360,7 +2360,7 @@ function Wizard() {
 
                     <div className="space-y-1.5">
                       <label className="text-xs font-bold text-slate-800">{T("విద్యార్హత", "Education")} *</label>
-                      <select
+                      <select aria-label={te ? "విద్యార్హత" : "Education"}
                         value={f.education}
                         onChange={(e) => set("education", e.target.value)}
                         className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-medium"
@@ -2425,7 +2425,7 @@ function Wizard() {
 
                     <div className="space-y-1.5">
                       <label className="text-xs font-bold text-slate-800">{T("వార్షిక వేతనం", "Annual salary")} *</label>
-                      <select
+                      <select aria-label={te ? "ఆదాయం" : "Income"}
                         value={f.salary}
                         onChange={(e) => set("salary", e.target.value)}
                         className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-medium"
@@ -2448,7 +2448,7 @@ function Wizard() {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div className="space-y-1.5">
                         <label className="text-xs font-bold text-slate-800">{T("రాష్ట్రం", "State")} *</label>
-                        <select
+                        <select aria-label={te ? "రాష్ట్రం" : "State"}
                           value={f.state}
                           onChange={(e) => {
                             set("state", e.target.value);
@@ -2542,7 +2542,7 @@ function Wizard() {
                           {T("కనీసం 50 అక్షరాలు", "Minimum 50 characters")}
                         </span>
                       </label>
-                      <textarea
+                      <textarea aria-label={te ? "మీ కుటుంబం, వ్యక్తిత్వం మరియు అంచనాల గురించి రాయండి… (ఫోన్ నంబర్లు లేదా ఈమెయిల్ ఇవ్వకండి)" : "Describe your family, personality, and expectations. Do not include phone numbers or email addresses."}
                         rows={3}
                         value={f.about_myself || ""}
                         onChange={(e) => set("about_myself", e.target.value)}

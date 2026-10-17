@@ -247,23 +247,23 @@ export default function PartnerRegisterPage() {
         <section className="mt-4 rounded-2xl border border-gold/30 bg-white p-4 card-shadow space-y-3">
           <div>
             <label className="text-[13px] font-bold">👤 {duo("Your name", "మీ పేరు")} *</label>
-            <input value={f.name} onChange={(e) => set("name", e.target.value)} placeholder={te ? "మీ పేరు" : "Your name"}
+            <input aria-label={te ? "మీ పేరు" : "Your name"} value={f.name} onChange={(e) => set("name", e.target.value)} placeholder={te ? "మీ పేరు" : "Your name"}
               autoComplete="name" className="input-mobile mt-1" />
           </div>
           <div>
             <label className="text-[13px] font-bold">📞 {duo("Mobile", "మొబైల్")} *</label>
-            <input value={f.phone} onChange={(e) => set("phone", e.target.value.replace(/\D/g, "").slice(0, 10))}
+            <input aria-label={te ? "10 అంకెల మొబైల్ నంబర్" : "10-digit mobile number"} value={f.phone} onChange={(e) => set("phone", e.target.value.replace(/\D/g, "").slice(0, 10))}
               inputMode="numeric" autoComplete="tel" placeholder={te ? "10 అంకెల మొబైల్ నంబర్" : "10-digit mobile number"} className="input-mobile mt-1" />
           </div>
           <div>
             <label className="text-[13px] font-bold">🏠 {duo("Address", "చిరునామా")}</label>
-            <input value={f.address} onChange={(e) => set("address", e.target.value)} placeholder="Village/Town, Mandal"
+            <input aria-label="Village/Town, Mandal" value={f.address} onChange={(e) => set("address", e.target.value)} placeholder="Village/Town, Mandal"
               className="input-mobile mt-1" />
           </div>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <label className="text-[13px] font-bold">🗺️ {duo("State", "రాష్ట్రం")} *</label>
-              <select value={f.state} onChange={(e) => { set("state", e.target.value); set("district", ""); }}
+              <select aria-label={te ? "రాష్ట్రం" : "State"} value={f.state} onChange={(e) => { set("state", e.target.value); set("district", ""); }}
                 className="input-mobile mt-1" required>
                 <option value="">{te ? "రాష్ట్రం ఎంచుకోండి" : "Select a state"}</option>
                 {STATES.map((state) => <option key={state.value} value={state.value}>{state.label}</option>)}
@@ -272,12 +272,12 @@ export default function PartnerRegisterPage() {
             <div>
               <label className="text-[13px] font-bold">📍 {duo("District", "జిల్లా")} *</label>
               {dists.length ? (
-                <select value={f.district} onChange={(e) => set("district", e.target.value)} className="input-mobile mt-1" required>
+                <select aria-label={te ? "జిల్లా" : "District"} value={f.district} onChange={(e) => set("district", e.target.value)} className="input-mobile mt-1" required>
                   <option value="">{te ? "జిల్లా ఎంచుకోండి" : "Select a district"}</option>
                   {dists.map((d) => <option key={d} value={d}>{d}</option>)}
                 </select>
               ) : (
-                <input value={f.district} onChange={(e) => set("district", e.target.value)} placeholder={te ? "మీ జిల్లా" : "Your district"}
+                <input aria-label={te ? "మీ జిల్లా" : "Your district"} value={f.district} onChange={(e) => set("district", e.target.value)} placeholder={te ? "మీ జిల్లా" : "Your district"}
                   required className="input-mobile mt-1" />
               )}
             </div>
@@ -313,7 +313,7 @@ export default function PartnerRegisterPage() {
       <section className="mt-5 rounded-2xl border border-slate-200 bg-white p-4">
         <h2 className="text-sm font-bold">📊 <Duo en="My partner dashboard" te="నా భాగస్వామి డాష్‌బోర్డ్" /></h2>
         <div className="mt-2 flex gap-2">
-          <input value={lookup} onChange={(e) => setLookup(e.target.value.toUpperCase())} placeholder={te ? "Partner ID" : "Partner ID"}
+          <input aria-label={te ? "Partner ID" : "Partner ID"} value={lookup} onChange={(e) => setLookup(e.target.value.toUpperCase())} placeholder={te ? "Partner ID" : "Partner ID"}
             className="flex-1 rounded-xl border border-slate-300 px-3 py-2 text-sm" />
           <button type="button" onClick={loadDash} className="rounded-xl border border-[#7A0C2E] px-4 py-2 text-sm font-bold text-maroon">
             {te ? "చూడు" : "View"}
@@ -361,7 +361,7 @@ export default function PartnerRegisterPage() {
               <div className="rounded-2xl border border-amber-200 bg-amber-50/70 p-4 space-y-3">
                 <h3 className="text-sm font-bold text-maroon">🔐 {duo("Verify partner mobile to view wallet", "Wallet చూడటానికి partner మొబైల్ verify చేయండి")}</h3>
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_auto]">
-                  <input type="tel" inputMode="numeric" autoComplete="tel" value={phoneForAccess}
+                  <input aria-label={te ? "నమోదైన 10 అంకెల మొబైల్" : "Registered 10-digit mobile"} type="tel" inputMode="numeric" autoComplete="tel" value={phoneForAccess}
                     onChange={(e) => setPhoneForAccess(e.target.value.replace(/\D/g, "").slice(0, 10))}
                     placeholder={te ? "నమోదైన 10 అంకెల మొబైల్" : "Registered 10-digit mobile"}
                     className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" />
@@ -372,7 +372,7 @@ export default function PartnerRegisterPage() {
                 </div>
                 {otpSent ? (
                   <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_auto]">
-                    <input type="text" inputMode="numeric" autoComplete="one-time-code" maxLength={4} value={otpCode}
+                    <input aria-label={te ? "4 అంకెల OTP" : "4-digit OTP"} type="text" inputMode="numeric" autoComplete="one-time-code" maxLength={4} value={otpCode}
                       onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, "").slice(0, 4))}
                       placeholder={te ? "4 అంకెల OTP" : "4-digit OTP"}
                       className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" />

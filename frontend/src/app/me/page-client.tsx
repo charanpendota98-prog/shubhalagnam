@@ -136,9 +136,9 @@ export default function MePage() {
         </div>
 
         <div className="flex items-center gap-2">
-          <button
+          <button type="button"
             onClick={() => setShowDeleteModal(true)}
-            className="px-3 py-1.5 rounded-full border border-slate-200 hover:border-rose-300 bg-white hover:bg-rose-50 text-slate-600 hover:text-rose-700 text-xs font-bold transition flex items-center gap-1 shadow-xs"
+            className="px-3 py-1.5 rounded-full border border-slate-200 hover:border-rose-300 bg-white hover:bg-rose-50 text-slate-600 hover:text-rose-700 text-xs font-bold transition flex items-center gap-1 shadow-xs min-h-11"
             title={te ? "వివాహం కుదిరింది / ప్రొఫైల్‌ను పబ్లిక్ శోధన నుంచి దాచండి" : "Mark as married or hide the profile from public search"}
           >
             <span>💍</span>
@@ -169,7 +169,7 @@ export default function MePage() {
 
           <div className="mt-4 flex gap-2 overflow-x-auto pb-1 no-scrollbar">
             {TABS.map(([v, en, t]) => (
-              <button
+              <button type="button"
                 key={v}
                 onClick={() => setTab(v)}
                 className={`whitespace-nowrap rounded-full px-4 py-2 text-xs font-bold transition ${
@@ -198,7 +198,7 @@ export default function MePage() {
             <p className="text-xs text-slate-500 font-medium">
               {te ? "మీకు వివాహం నిశ్చయమైందా లేదా ప్రొఫైల్‌ను పబ్లిక్ శోధన నుంచి దాచాలనుకుంటున్నారా?" : "Are you getting married, or would you like to hide your profile from public search?"}
             </p>
-            <button
+            <button type="button"
               onClick={() => setShowDeleteModal(true)}
               className="px-4 py-2 rounded-xl text-xs font-bold text-slate-500 hover:text-rose-700 hover:bg-rose-50 border border-slate-200 hover:border-rose-200 transition inline-flex items-center gap-1.5"
             >
@@ -248,9 +248,10 @@ export default function MePage() {
                       <p className="text-xs text-slate-500 font-mono">ID: {myId}</p>
                     </div>
                   </div>
-                  <button
+                  <button type="button"
+                    aria-label={te ? "మూసివేయండి" : "Close"}
                     onClick={() => setShowDeleteModal(false)}
-                    className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center font-bold"
+                    className="w-11 h-11 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center font-bold"
                   >
                     ✕
                   </button>
@@ -337,7 +338,7 @@ export default function MePage() {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
                       <div>
                         <label className="text-[10px] font-bold text-slate-600 block mb-0.5">{te ? "భాగస్వామి పేరు (ఐచ్ఛికం)" : "Partner name (optional)"}:</label>
-                        <input
+                        <input aria-label={te ? "భాగస్వామి పేరు" : "Partner name"}
                           type="text"
                           value={partnerName}
                           onChange={(e) => setPartnerName(e.target.value)}
@@ -347,7 +348,7 @@ export default function MePage() {
                       </div>
                       <div>
                         <label className="text-[10px] font-bold text-slate-600 block mb-0.5">{te ? "భాగస్వామి ప్రొఫైల్ ID (ఐచ్ఛికం)" : "Partner profile ID (optional)"}:</label>
-                        <input
+                        <input aria-label="Profile ID"
                           type="text"
                           value={partnerId}
                           onChange={(e) => setPartnerId(e.target.value)}
@@ -364,7 +365,7 @@ export default function MePage() {
                   <label className="text-[11px] font-bold text-slate-600 block mb-1">
                     {te ? "మీ అనుభవం లేదా అభిప్రాయం (ఐచ్ఛికం):" : "Your feedback or review (optional):"}
                   </label>
-                  <textarea
+                  <textarea aria-label={te ? "మన వివాహ సేవలు మీకు ఎలా అనిపించాయి? ఇతర వధూవరులకు సందేశం ఇవ్వండి…" : "How was your experience with Mana Vivaha? Share a note with other members…"}
                     rows={2}
                     value={deleteFeedback}
                     onChange={(e) => setDeleteFeedback(e.target.value)}
@@ -671,7 +672,7 @@ function PartnerPreferencesPanel({ myId }: { myId: string }) {
                   setCastes([myProfile.caste]);
                   setDistricts(["Hyderabad", "Ranga Reddy", "Medchal-Malkajgiri"]);
                 }}
-                className="px-3 py-1.5 rounded-xl text-xs font-black bg-white border border-amber-300 text-maroon shadow-xs hover:bg-amber-100 transition flex items-center gap-1"
+                className="px-3 py-1.5 rounded-xl text-xs font-black bg-white border border-amber-300 text-maroon shadow-xs hover:bg-amber-100 transition flex items-center gap-1 min-h-11"
               >
                 <span>💍</span>
                 <span>{te ? `నా కమ్యూనిటీ (${myProfile.caste}) + హైదరాబాద్` : `My community (${myProfile.caste}) + Hyderabad`}</span>
@@ -685,7 +686,7 @@ function PartnerPreferencesPanel({ myId }: { myId: string }) {
                 onClick={() => {
                   setJobs(["Housewife / Homemaker (గృహిణి)", "Not Working / Looking for Job"]);
                 }}
-                className="px-3 py-1.5 rounded-xl text-xs font-black bg-white border border-rose-300 text-rose-800 shadow-xs hover:bg-rose-50 transition flex items-center gap-1"
+                className="px-3 py-1.5 rounded-xl text-xs font-black bg-white border border-rose-300 text-rose-800 shadow-xs hover:bg-rose-50 transition flex items-center gap-1 min-h-11"
               >
                 <span>🏡</span>
                 <span>{te ? "గృహిణి ప్రొఫైల్‌లు మాత్రమే" : "Housewife / homemaker profiles"}</span>
@@ -699,7 +700,7 @@ function PartnerPreferencesPanel({ myId }: { myId: string }) {
                 setJobs(["Software / IT Professional"]);
                 setDistricts(["Hyderabad", "Ranga Reddy", "Medchal-Malkajgiri"]);
               }}
-              className="px-3 py-1.5 rounded-xl text-xs font-black bg-white border border-blue-300 text-blue-800 shadow-xs hover:bg-blue-50 transition flex items-center gap-1"
+              className="px-3 py-1.5 rounded-xl text-xs font-black bg-white border border-blue-300 text-blue-800 shadow-xs hover:bg-blue-50 transition flex items-center gap-1 min-h-11"
             >
               <span>💻</span>
               <span>{te ? "సాఫ్ట్‌వేర్ / IT నిపుణులు" : "Software / IT professionals"}</span>
@@ -710,7 +711,7 @@ function PartnerPreferencesPanel({ myId }: { myId: string }) {
               onClick={() => {
                 setJobs(["Govt Employee / PSU", "Govt Employee (Central / State)", "Bank Officer / PO / Manager", "IAS / IPS / Civil Services / Group 1"]);
               }}
-              className="px-3 py-1.5 rounded-xl text-xs font-black bg-white border border-emerald-300 text-emerald-800 shadow-xs hover:bg-emerald-50 transition flex items-center gap-1"
+              className="px-3 py-1.5 rounded-xl text-xs font-black bg-white border border-emerald-300 text-emerald-800 shadow-xs hover:bg-emerald-50 transition flex items-center gap-1 min-h-11"
             >
               <span>🏛️</span>
               <span>{te ? "ప్రభుత్వ ఉద్యోగులు" : "Government employees"}</span>
@@ -723,7 +724,7 @@ function PartnerPreferencesPanel({ myId }: { myId: string }) {
                 setEducations(["MS (USA / Abroad)", "B.Tech / B.E.", "M.Tech / M.E."]);
                 setJobs(["NRI / Working Abroad", "Software / IT Professional"]);
               }}
-              className="px-3 py-1.5 rounded-xl text-xs font-black bg-white border border-indigo-300 text-indigo-800 shadow-xs hover:bg-indigo-50 transition flex items-center gap-1"
+              className="px-3 py-1.5 rounded-xl text-xs font-black bg-white border border-indigo-300 text-indigo-800 shadow-xs hover:bg-indigo-50 transition flex items-center gap-1 min-h-11"
             >
               <span>🌍</span>
               <span>{te ? "NRI సంబంధాలు (USA / విదేశాలు)" : "NRI matches (USA / abroad)"}</span>
@@ -735,7 +736,7 @@ function PartnerPreferencesPanel({ myId }: { myId: string }) {
                 setCasteNoBar(true);
                 setCastes([]);
               }}
-              className="px-3 py-1.5 rounded-xl text-xs font-black bg-white border border-purple-300 text-purple-800 shadow-xs hover:bg-purple-50 transition flex items-center gap-1"
+              className="px-3 py-1.5 rounded-xl text-xs font-black bg-white border border-purple-300 text-purple-800 shadow-xs hover:bg-purple-50 transition flex items-center gap-1 min-h-11"
             >
               <span>💖</span>
               <span>{te ? "కుల పరిమితి లేదు" : "Any community"}</span>
@@ -757,7 +758,7 @@ function PartnerPreferencesPanel({ myId }: { myId: string }) {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
             <div>
               <label className="font-bold text-slate-800 block mb-1">{te ? "కనీస వయస్సు" : "Minimum age"}:</label>
-              <select
+              <select aria-label={te ? "కనిష్ఠ వయస్సు" : "Minimum age"}
                 value={ageMin}
                 onChange={(e) => setAgeMin(Number(e.target.value))}
                 className="w-full p-2.5 border border-slate-200 rounded-xl bg-white font-bold text-slate-800 focus:outline-none focus:border-maroon"
@@ -771,7 +772,7 @@ function PartnerPreferencesPanel({ myId }: { myId: string }) {
             </div>
             <div>
               <label className="font-bold text-slate-800 block mb-1">{te ? "గరిష్ట వయస్సు" : "Maximum age"}:</label>
-              <select
+              <select aria-label={te ? "గరిష్ఠ వయస్సు" : "Maximum age"}
                 value={ageMax}
                 onChange={(e) => setAgeMax(Number(e.target.value))}
                 className="w-full p-2.5 border border-slate-200 rounded-xl bg-white font-bold text-slate-800 focus:outline-none focus:border-maroon"
@@ -785,7 +786,7 @@ function PartnerPreferencesPanel({ myId }: { myId: string }) {
             </div>
             <div>
               <label className="font-bold text-slate-800 block mb-1">{te ? "కనీస ఎత్తు" : "Minimum height"}:</label>
-              <select
+              <select aria-label={te ? "కనిష్ఠ ఎత్తు" : "Minimum height"}
                 value={heightMin}
                 onChange={(e) => setHeightMin(e.target.value)}
                 className="w-full p-2.5 border border-slate-200 rounded-xl bg-white font-bold text-slate-800 focus:outline-none focus:border-maroon"
@@ -799,7 +800,7 @@ function PartnerPreferencesPanel({ myId }: { myId: string }) {
             </div>
             <div>
               <label className="font-bold text-slate-800 block mb-1">{te ? "గరిష్ట ఎత్తు" : "Maximum height"}:</label>
-              <select
+              <select aria-label={te ? "గరిష్ఠ ఎత్తు" : "Maximum height"}
                 value={heightMax}
                 onChange={(e) => setHeightMax(e.target.value)}
                 className="w-full p-2.5 border border-slate-200 rounded-xl bg-white font-bold text-slate-800 focus:outline-none focus:border-maroon"
@@ -852,7 +853,7 @@ function PartnerPreferencesPanel({ myId }: { myId: string }) {
           {!casteNoBar && (
             <div className="space-y-2">
               <div className="flex items-center gap-2">
-                <input
+                <input aria-label={te ? "🔍 సంఘం లేదా ఉపసంఘం పేరుతో వెతకండి" : "🔍 Search communities or sub-communities"}
                   type="text"
                   value={casteSearch}
                   onChange={(e) => setCasteSearch(e.target.value)}
@@ -943,7 +944,7 @@ function PartnerPreferencesPanel({ myId }: { myId: string }) {
                     "MCA",
                   ])
                 }
-                className="text-[11px] font-bold text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200 hover:bg-emerald-100"
+                className="text-[11px] font-bold text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200 hover:bg-emerald-100 min-h-11"
               >
                 {te ? "+ ప్రొఫెషనల్ / IT డిగ్రీలు" : "+ Professional and IT degrees"}
               </button>
@@ -1007,7 +1008,7 @@ function PartnerPreferencesPanel({ myId }: { myId: string }) {
                   <button
                     type="button"
                     onClick={() => setJobs(["Housewife / Homemaker (గృహిణి)", "Not Working / Looking for Job"])}
-                    className="text-[11px] font-black text-rose-800 bg-rose-50 px-2.5 py-1 rounded-full border border-rose-200 hover:bg-rose-100"
+                    className="text-[11px] font-black text-rose-800 bg-rose-50 px-2.5 py-1 rounded-full border border-rose-200 hover:bg-rose-100 min-h-11"
                   >
                     {te ? "🏡 గృహిణి మాత్రమే" : "🏡 Housewife / homemaker only"}
                   </button>
@@ -1021,7 +1022,7 @@ function PartnerPreferencesPanel({ myId }: { myId: string }) {
                         "Teacher / Lecturer / Professor",
                       ])
                     }
-                    className="text-[11px] font-black text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200 hover:bg-emerald-100"
+                    className="text-[11px] font-black text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200 hover:bg-emerald-100 min-h-11"
                   >
                     {te ? "💼 ఉద్యోగం చేసే వధువులు" : "💼 Working brides"}
                   </button>
@@ -1038,7 +1039,7 @@ function PartnerPreferencesPanel({ myId }: { myId: string }) {
                       "Business Owner / Industrialist / Builder",
                     ])
                   }
-                  className="text-[11px] font-bold text-amber-800 bg-amber-50 px-2.5 py-1 rounded-full border border-amber-200 hover:bg-amber-100"
+                  className="text-[11px] font-bold text-amber-800 bg-amber-50 px-2.5 py-1 rounded-full border border-amber-200 hover:bg-amber-100 min-h-11"
                 >
                   {te ? "+ ప్రముఖ వృత్తులు" : "+ Popular occupations"}
                 </button>
@@ -1086,7 +1087,7 @@ function PartnerPreferencesPanel({ myId }: { myId: string }) {
             <label className="font-bold text-slate-800 block text-xs mb-1">
               {te ? "కనీస వార్షిక ఆదాయం" : "Minimum annual income"}:
             </label>
-            <select
+            <select aria-label={te ? "కనిష్ఠ ఆదాయం" : "Minimum income"}
               value={minSalary}
               onChange={(e) => setMinSalary(e.target.value)}
               className="w-full sm:w-72 p-2.5 border border-slate-200 rounded-xl bg-white text-xs font-bold text-slate-800 focus:outline-none focus:border-maroon"
@@ -1115,21 +1116,21 @@ function PartnerPreferencesPanel({ myId }: { myId: string }) {
                 onClick={() =>
                   setDistricts(["Hyderabad", "Ranga Reddy", "Medchal-Malkajgiri", "Sangareddy"])
                 }
-                className="text-[11px] font-bold text-slate-800 bg-amber-50 px-2.5 py-1 rounded-full border border-amber-200 hover:bg-amber-100"
+                className="text-[11px] font-bold text-slate-800 bg-amber-50 px-2.5 py-1 rounded-full border border-amber-200 hover:bg-amber-100 min-h-11"
               >
                 {te ? "హైదరాబాద్ మెట్రో" : "Hyderabad metro"}
               </button>
               <button
                 type="button"
                 onClick={() => setDistricts([...TS_DISTRICTS])}
-                className="text-[11px] font-bold text-indigo-800 bg-indigo-50 px-2.5 py-1 rounded-full border border-indigo-200 hover:bg-indigo-100"
+                className="text-[11px] font-bold text-indigo-800 bg-indigo-50 px-2.5 py-1 rounded-full border border-indigo-200 hover:bg-indigo-100 min-h-11"
               >
                 {te ? "తెలంగాణ అన్నీ" : "All Telangana"}
               </button>
               <button
                 type="button"
                 onClick={() => setDistricts([...AP_DISTRICTS])}
-                className="text-[11px] font-bold text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200 hover:bg-emerald-100"
+                className="text-[11px] font-bold text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200 hover:bg-emerald-100 min-h-11"
               >
                 {te ? "ఆంధ్రప్రదేశ్ అన్నీ" : "All Andhra Pradesh"}
               </button>
@@ -1146,7 +1147,7 @@ function PartnerPreferencesPanel({ myId }: { myId: string }) {
           </div>
 
           <div className="space-y-2">
-            <input
+            <input aria-label={te ? "🔍 జిల్లాను వెతకండి (ఉదా: Hyderabad, Warangal, Guntur)…" : "🔍 Search districts (e.g. Hyderabad, Warangal, Guntur)…"}
               type="text"
               value={districtSearch}
               onChange={(e) => setDistrictSearch(e.target.value)}
@@ -1215,7 +1216,7 @@ function PartnerPreferencesPanel({ myId }: { myId: string }) {
 
             <div>
               <label className="font-bold text-slate-800 block mb-1.5">{te ? "ఆహారపు అలవాటు" : "Diet"}:</label>
-              <select
+              <select aria-label={te ? "ఆహార అలవాటు" : "Diet preference"}
                 value={diet}
                 onChange={(e) => setDiet(e.target.value)}
                 className="w-full p-2.5 border border-slate-200 rounded-xl bg-white font-bold text-slate-800 focus:outline-none focus:border-maroon"
@@ -1537,7 +1538,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
             <div>
               <label className="font-bold text-slate-800 block mb-1">{T("కులం / కమ్యూనిటీ", "Community")}:</label>
-              <select
+              <select aria-label={te ? "సంఘం" : "Community"}
                 value={casteSelectValue}
                 onChange={(e) => {
                   const next = e.target.value;
@@ -1904,7 +1905,7 @@ function StreakPanel({ myId }: { myId: string }) {
         <span className="rounded-full bg-amber-50 border border-amber-300 px-3 py-1">🏆 {te ? "గరిష్ఠం" : "Best"}: {st?.best ?? "—"}</span>
         <span className="rounded-full bg-emerald-50 border border-emerald-300 px-3 py-1">🎁 {te ? "తదుపరి" : "Next"}: +{st?.next_bonus ?? "?"} {te ? "క్రెడిట్‌లు" : "credits"}</span>
       </div>
-      <button
+      <button type="button"
         onClick={() => void claim()}
         disabled={busy || !!st?.claimed_today}
         className="mt-4 rounded-2xl bg-[#7A0C2E] px-6 py-3 text-sm font-bold text-white disabled:opacity-50"
@@ -2089,7 +2090,7 @@ function JathakamPanel({ myId }: { myId: string }) {
       )}
       <div className="pt-2">
         <label className="text-xs font-bold text-slate-700 block mb-1">{te ? "జాతక పత్రం అప్‌లోడ్" : "Upload a birth chart"}:</label>
-        <input type="file" accept="image/*,application/pdf" onChange={handleJathakamUpload} className="mx-auto block max-w-full text-xs" />
+        <input type="file" aria-label={te ? "జాతకం ఫైల్ ఎంచుకోండి" : "Choose horoscope file"} accept="image/*,application/pdf" onChange={handleJathakamUpload} className="mx-auto block max-w-full text-xs" />
         {uploading && <div className="mt-1 text-xs text-slate-500" role="status">{te ? "అప్‌లోడ్ అవుతోంది…" : "Uploading…"}</div>}
         <Msg m={msg} />
       </div>

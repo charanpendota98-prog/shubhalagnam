@@ -67,7 +67,7 @@ export default function AdminPhotosPage() {
       <p className="text-[12px] text-gray-600 telugu">{te ? "Technical checks pass అయిన photos మాత్రమే ఇక్కడ — wrong-person/group/celebrity ని reject చెయ్యండి." : "Only photos that passed technical checks — reject wrong-person/group/celebrity."}</p>
 
       <div className="mt-3 flex gap-2 items-center">
-        <input value={key} onChange={(e) => setKey(e.target.value)} placeholder="Admin key"
+        <input aria-label="Admin key" value={key} onChange={(e) => setKey(e.target.value)} placeholder="Admin key"
           type="password" className="rounded-xl border border-slate-300 px-3 py-2 text-sm w-64" />
         <button type="button" onClick={() => { setAdminKey(key); void load(); }}
           className="rounded-xl bg-maroon text-white px-4 py-2 text-sm font-bold maroon-gradient">Unlock</button>
@@ -105,7 +105,7 @@ export default function AdminPhotosPage() {
                       ❌ Reject
                     </button>
                   </div>
-                  <select value={reasonIdx[k] || 0}
+                  <select aria-label={te ? "సమీక్ష కారణం" : "Review reason"} value={reasonIdx[k] || 0}
                     onChange={(e) => setReasonIdx((m) => ({ ...m, [k]: Number(e.target.value) }))}
                     className="mt-2 w-full rounded-lg border border-slate-300 text-[11px] px-2 py-1.5">
                     {REJECT_REASONS.map((r, i) => <option key={r.en} value={i}>❌ {r.en}</option>)}

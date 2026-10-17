@@ -81,7 +81,7 @@ export default function QuickLead({ source = "site", compact = false }: { source
             <div className="font-bold text-[14px]">{te ? "రిజిస్ట్రేషన్ సహాయం కావాలా?" : "Need help with registration?"}</div>
             <div className="text-[11px] opacity-90 telugu">{te ? "Follow-up అభ్యర్థన పంపండి. సంప్రదింపు/సమయం అందుబాటుపై ఆధారపడుతుంది." : "Request a follow-up. Contact and timing depend on availability."}</div>
           </div>
-          <button onClick={() => setOpen(true)} className="shrink-0 gold-gradient text-maroon font-bold text-[13px] px-4 py-2.5 rounded-xl">
+          <button type="button" onClick={() => setOpen(true)} className="shrink-0 gold-gradient text-maroon font-bold text-[13px] px-4 py-2.5 rounded-xl">
             Start
           </button>
         </div>
@@ -89,7 +89,7 @@ export default function QuickLead({ source = "site", compact = false }: { source
         <div className="space-y-2.5">
           <div className="flex items-center justify-between">
             <div className="font-bold text-[14px]">{te ? "📱 సంప్రదింపు అభ్యర్థన" : "📱 Contact request"}</div>
-            <button onClick={() => setOpen(false)} className="text-[12px] opacity-80">✕</button>
+            <button type="button" aria-label={te ? "మూసివేయండి" : "Close"} onClick={() => setOpen(false)} className="text-[12px] opacity-80">✕</button>
           </div>
           <input value={form.phone} inputMode="tel" autoComplete="tel" placeholder={te ? "Mobile number (10 అంకెలు) *" : "Mobile number (10 digits) *"}
             onChange={(e) => setForm({ ...form, phone: e.target.value.replace(/\D/g, "").slice(0, 10) })}
@@ -99,7 +99,7 @@ export default function QuickLead({ source = "site", compact = false }: { source
             className="input-mobile !bg-white/95" aria-label={te ? "మీ పేరు" : "Your name"} />
           <div className="flex gap-2">
             {["Bride", "Groom"].map((g) => (
-              <button key={g} onClick={() => setForm({ ...form, gender: g })}
+              <button type="button" key={g} onClick={() => setForm({ ...form, gender: g })}
                 className={`chip flex-1 justify-center ${form.gender === g ? "chip-on-gold" : "!bg-white/95 !text-maroon"}`}>
                 {g === "Bride" ? "👰 Bride" : "🤵 Groom"}
               </button>
@@ -123,7 +123,7 @@ export default function QuickLead({ source = "site", compact = false }: { source
               onChange={(event) => setContactConsent(event.target.checked)} className="mt-0.5 h-4 w-4 shrink-0 accent-amber-400" />
             <span>{te ? "ఈ registration సహాయం అభ్యర్థన గురించి phone లేదా WhatsApp ద్వారా సంప్రదించడానికి అంగీకరిస్తున్నాను. ప్రచార సందేశాలకు కాదు; సమయం హామీ కాదు." : "I agree to be contacted by phone or WhatsApp about this registration-assistance request only. No promotional messages; timing is not guaranteed."}</span>
           </label>
-          <button onClick={submit} disabled={busy || !contactConsent}
+          <button type="button" onClick={submit} disabled={busy || !contactConsent}
             className="w-full py-3.5 rounded-2xl gold-gradient text-maroon font-bold text-[15px] disabled:cursor-not-allowed disabled:opacity-60">
             {busy ? (te ? "నమోదు అవుతోంది…" : "Submitting…") : te ? "✅ Follow-up అభ్యర్థన పంపండి" : "✅ Request follow-up"}
           </button>

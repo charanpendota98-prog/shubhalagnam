@@ -395,7 +395,7 @@ export default function SiteHeader() {
                 <UserCircle2 className="w-[15px] h-[15px]" strokeWidth={2.25} aria-hidden="true" />
                 {tsapId.length > 14 ? `${tsapId.slice(0, 9)}…${tsapId.slice(-4)}` : tsapId}
               </Link>
-              <button
+              <button type="button"
                 onClick={() => { logout(); setLoggedOutToken(token); router.replace("/"); }}
                 className="ml-1 rounded-full bg-emerald-200 p-1 hover:bg-emerald-300 inline-flex items-center justify-center"
                 aria-label="Logout"
@@ -417,7 +417,7 @@ export default function SiteHeader() {
           >
             <span>{te ? "ఉచిత నమోదు" : "Free Register"}</span>
           </Link>
-          <button
+          <button type="button"
             aria-label={te ? "మెనూ" : "Menu"}
             aria-expanded={open}
             aria-controls="mobile-menu"

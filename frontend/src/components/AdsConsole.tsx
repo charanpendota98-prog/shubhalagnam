@@ -137,7 +137,7 @@ export default function AdsConsole() {
                 <td className="p-2"><b className="text-[#7A0C2E]">₹{c.amount}</b><div className="text-[10px] text-gray-500">{c.days}d · ₹{c.per_day}/d</div></td>
                 <td className="p-2 text-[10px]">👁️ {c.impressions} · 🖱️ {c.clicks}</td>
                 <td className="p-2">
-                  <button onClick={() => (editing === c.id ? setEditing("") : startEdit(c))}
+                  <button type="button" onClick={() => (editing === c.id ? setEditing("") : startEdit(c))}
                     className="mb-1 rounded-full bg-blue-600 px-3 py-1 text-white">✏️ Edit</button>
                   {editing === c.id ? (
                     <div className="mb-2 rounded-xl border bg-blue-50/50 p-2 space-y-1 min-w-[220px]">
@@ -154,7 +154,7 @@ export default function AdsConsole() {
                         <input value={ed.end || ""} onChange={(e) => setEd({ ...ed, end: e.target.value })} placeholder="end YYYY-MM-DD" aria-label="End" className="w-full rounded border px-2 py-1" />
                       </div>
                       <input value={ed.link || ""} onChange={(e) => setEd({ ...ed, link: e.target.value })} placeholder="link" aria-label="Link" className="w-full rounded border px-2 py-1" />
-                      <button onClick={() => void saveEdit(c.id)} className="rounded-full bg-green-600 px-3 py-1 text-white">💾 Save</button>
+                      <button type="button" onClick={() => void saveEdit(c.id)} className="rounded-full bg-green-600 px-3 py-1 text-white">💾 Save</button>
                     </div>
                   ) : null}
                   {c.status === "pending" ? (
@@ -162,16 +162,16 @@ export default function AdsConsole() {
                       <input value={utr[c.id] || ""} onChange={(e) => setUtr({ ...utr, [c.id]: e.target.value })}
                         placeholder="UTR" aria-label="UTR" className="w-28 rounded-lg border px-2 py-1" />
                       <div className="flex gap-1">
-                        <button onClick={() => void approve(c.id)} className="rounded-full bg-green-600 px-3 py-1 text-white">✅ Live</button>
-                        <button onClick={() => void act(c.id, "reject")} className="rounded-full bg-red-500 px-3 py-1 text-white">❌</button>
+                        <button type="button" onClick={() => void approve(c.id)} className="rounded-full bg-green-600 px-3 py-1 text-white">✅ Live</button>
+                        <button type="button" aria-label={te ? "ప్రకటనను తిరస్కరించండి" : "Reject campaign"} onClick={() => void act(c.id, "reject")} className="rounded-full bg-red-500 px-3 py-1 text-white">❌</button>
                       </div>
                     </div>
                   ) : (
                     <div className="flex gap-1">
                       {c.status === "active"
-                        ? <button onClick={() => void act(c.id, "pause")} className="rounded-full bg-gray-200 px-3 py-1">⏸️</button>
-                        : <button onClick={() => void act(c.id, "resume")} className="rounded-full bg-green-600 px-3 py-1 text-white">▶️</button>}
-                      <button onClick={() => void act(c.id, "expire")} className="rounded-full bg-gray-200 px-3 py-1">⏳</button>
+                        ? <button type="button" aria-label={te ? "ప్రకటనను నిలిపివేయండి" : "Pause campaign"} onClick={() => void act(c.id, "pause")} className="rounded-full bg-gray-200 px-3 py-1">⏸️</button>
+                        : <button type="button" aria-label={te ? "ప్రకటనను పునఃప్రారంభించండి" : "Resume campaign"} onClick={() => void act(c.id, "resume")} className="rounded-full bg-green-600 px-3 py-1 text-white">▶️</button>}
+                      <button type="button" aria-label={te ? "ప్రకటనను ముగించండి" : "Expire campaign"} onClick={() => void act(c.id, "expire")} className="rounded-full bg-gray-200 px-3 py-1">⏳</button>
                     </div>
                   )}
                 </td>

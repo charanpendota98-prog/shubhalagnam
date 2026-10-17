@@ -113,6 +113,70 @@ const RULES = {
       .filter((tag) => /aria-hidden="true"/.test(tag) && !/\bdisabled\b/.test(tag) && !/\btabIndex=\{-1\}/.test(tag))
       .length,
 
+  /**
+   * An icon-only control must still have a name a screen reader can read.
+   * A button whose entire content is an emoji or an <svg>/icon component, with
+   * no aria-label/aria-labelledby/title, is announced as just "button".
+   */
+  "button-without-name": (source) => {
+    let count = 0;
+    let index = 0;
+    while (index !== -1) {
+      index = source.indexOf("<button", index);
+      if (index === -1) break;
+      const next = source[index + 7];
+      if (next !== undefined && !/[\s\n>]/.test(next)) {
+        index += 1;
+        continue;
+      }
+      const tag = tagAt(source, index);
+      const tagEnd = index + tag.length;
+      const close = source.indexOf("</button>", tagEnd);
+      const inner = close === -1 ? "" : source.slice(tagEnd, close);
+      index = close === -1 ? tagEnd : close + 9;
+      if (!inner.trim()) continue;
+      if (/\b(aria-label|aria-labelledby|title)=/.test(tag)) continue;
+      // Dynamic content can render text — assume it does.
+      if (/\{[^{}]*[A-Za-z\u0C00-\u0C7F][^{}]*\}/.test(inner)) continue;
+      const literal = inner.replace(/<[^>]+>/g, "");
+      if (/[A-Za-z0-9\u0C00-\u0C7F]/.test(literal)) continue;
+      // <Duo en="…" te="…" /> renders real text.
+      if (/<Duo\b/.test(inner)) continue;
+      count += 1;
+    }
+    return count;
+  },
+
+  /**
+   * A form control must have a name a screen reader can announce: an
+   * aria-label / aria-labelledby / title / id (paired with htmlFor), a
+   * <label> wrapper, or a placeholder used as the visible hint.
+   */
+  "control-without-name": (source) => {
+    // <label> … </label> ranges: a control inside one is already associated.
+    const labelSpans = [];
+    let scan = 0;
+    while (scan !== -1) {
+      scan = source.indexOf("<label", scan);
+      if (scan === -1) break;
+      const close = source.indexOf("</label>", scan);
+      labelSpans.push([scan, close === -1 ? source.length : close]);
+      scan = close === -1 ? scan + 6 : close + 8;
+    }
+    let count = 0;
+    const matcher = /<(input|select|textarea)[\s]/g;
+    let match;
+    while ((match = matcher.exec(source)) !== null) {
+      const index = match.index;
+      const tag = tagAt(source, index);
+      const insideLabel = labelSpans.some(([a, b]) => index >= a && index <= b);
+      const named = /\b(aria-label|aria-labelledby|title|id|placeholder)=/.test(tag);
+      if (!insideLabel && !named && !/type=\{?["']?hidden/.test(tag)) count += 1;
+      matcher.lastIndex = index + tag.length;
+    }
+    return count;
+  },
+
   /** role="button" on a non-button element must be keyboard reachable. */
   "role-button-without-tabindex": (source) =>
     findTags(source, "div")
