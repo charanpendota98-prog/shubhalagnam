@@ -2644,6 +2644,7 @@ async def register(
     height = req_text(height, "height", 0, 12, required=False)
     education = req_text(education, "education", 0, 60, required=False)
     job = req_text(job, "job", 0, 100, required=False)
+    _reject_groom_homemaker(gender, job, work_type)
     salary = req_text(salary, "salary", 0, 40, required=False)
     state = req_choice(state, "state", ["TS", "AP", "Other"])
     district = req_text(district, "district", 2, 80, required=True)
@@ -3613,6 +3614,11 @@ def update_user_profile(payload: dict, request: Request):
         if k in payload and payload[k] is not None:
             user[k] = payload[k]
 
+    # 🏡 A Groom can never be *set* to the "Housewife / గృహిణి" occupation,
+    # whichever client sends the update. Existing stored values are left alone so
+    # a member with older data can always come back and correct it.
+    _reject_groom_homemaker(user.get("gender"), payload.get("job"), payload.get("work_type"))
+
     # 🛡️ P0 FIX (Phase 13): registration already runs every free-text field
     # through clean() (strips HTML tags + javascript:/onerror=/<script
     # patterns — see "register:" sanitize loop above) but THIS endpoint was
@@ -3803,6 +3809,32 @@ def smart_matches_alerts(tsap_id: Optional[str] = None, caste: Optional[str] = N
 def _approved_profile_404() -> HTTPException:
     """🌐 Telugu-first 404 for approved-member routes (English gloss kept for operators)."""
     return HTTPException(404, "⚠️ Approved member profile not found — ఆమోదించబడిన ప్రొఫైల్ దొరకలేదు. TSAP ID check చెయ్యండి.")
+
+
+# 🏡 "Housewife / Homemaker (గృహిణి)" describes a woman's work. A Groom profile
+# must never carry it — the UI hides the option per gender, and this guard keeps
+# stale clients, cached pages and direct API calls from storing it anyway.
+_HOMEMAKER_TERMS = ("housewife", "homemaker", "\u0c17\u0c43\u0c39\u0c3f\u0c23\u0c3f")
+
+
+def _is_homemaker_occupation(value: object) -> bool:
+    text = str(value or "").strip().lower()
+    return any(term in text for term in _HOMEMAKER_TERMS)
+
+
+def _reject_groom_homemaker(gender: object, job: object = "", work_type: object = "") -> None:
+    """Block the one occupation that can only ever belong to a bride."""
+    if str(gender or "").strip().lower() != "groom":
+        return
+    if _is_homemaker_occupation(job) or _is_homemaker_occupation(work_type):
+        raise HTTPException(
+            400,
+            "\u26a0\ufe0f Housewife / Homemaker (\u0c17\u0c43\u0c39\u0c3f\u0c23\u0c3f) does not apply to a Groom profile — "
+            "\u0c35\u0c30\u0c41\u0c21\u0c3f \u0c2a\u0c4d\u0c30\u0c4a\u0c2b\u0c48\u0c32\u0c4d\u0c15\u0c41 \u2018\u0c17\u0c43\u0c39\u0c3f\u0c23\u0c3f / Housewife\u2019 "
+            "\u0c0e\u0c02\u0c2a\u0c3f\u0c15 \u0c35\u0c30\u0c4d\u0c24\u0c3f\u0c02\u0c1a\u0c26\u0c41. "
+            "Choose the work that describes this member — "
+            "\u0c0e \u0c35\u0c4d\u0c2f\u0c15\u0c4d\u0c24\u0c3f\u0c15\u0c3f \u0c38\u0c30\u0c2f\u0c47 \u0c09\u0c26\u0c4d\u0c2f\u0c4b\u0c17\u0c02 \u0c0e\u0c02\u0c1a\u0c41\u0c15\u0c4b\u0c02\u0c21\u0c3f.",
+        )
 
 
 @app.get("/api/matches/{tsap_id}")

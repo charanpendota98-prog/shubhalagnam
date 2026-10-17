@@ -554,6 +554,106 @@ for _name in STORM_SCRIPTS:
           bool(_tree.body) and len(_functions) >= 1, len(_functions))
 
 # ===========================================================================
+section("N. gender-correct occupations (a Groom never gets 'Housewife')")
+# ===========================================================================
+from datetime import date, timedelta  # noqa: E402
+
+_admin_headers = {"X-Admin-Key": hardening.ADMIN_KEY}
+_dob_groom = (date.today() - timedelta(days=365 * 30)).isoformat()
+_dob_bride = (date.today() - timedelta(days=365 * 25)).isoformat()
+
+
+def _register(gender: str, phone: str, **overrides):
+    payload = {
+        # Plain, letter-only names: the API rejects digits in a member name.
+        "full_name": overrides.pop("full_name", "Sai Charan Reddy" if gender == "Groom" else "Sravani Reddy"),
+        "gender": gender,
+        "religion": "Hindu",
+        "consent_confirmed": "true",
+        "dob": _dob_groom if gender == "Groom" else _dob_bride,
+        "height": "5'6\"",
+        "caste": "Reddy",
+        "marital_status": "Pelli Kaledu",
+        "state": "TS",
+        "district": "Hyderabad",
+        "education": "B.Tech / B.E",
+        "job": "Software Engineer",
+        "work_type": "Software / IT / Tech",
+        "salary": "₹8 - 12 Lakhs / year",
+        "phone": phone,
+        "password": "Password123!",
+        "about_myself": "Family-oriented member who values traditions and clear, honest communication with families.",
+    }
+    payload.update(overrides)
+    return client.post("/api/register", data=payload)
+
+
+# 1. A completely filled groom registration must succeed — no phantom error.
+r = _register("Groom", "9350010001", full_name="Venkatesh Rao")
+check("N1 a fully filled Groom registration is accepted (no missing-field error)",
+      r.status_code == 200 and bool((r.json() or {}).get("tsap_id")),
+      "%s %s" % (r.status_code, str(r.json())[:120]))
+
+# 2. The one occupation that describes a woman's work is refused for a groom.
+r = _register("Groom", "9350010002", full_name="Karthik Varma", job="Housewife / Homemaker (గృహిణి)")
+check("N2 Groom + 'Housewife / గృహిణి' job is refused with a helpful message",
+      r.status_code == 400 and "does not apply to a Groom" in r.text, r.status_code)
+
+# 3. ...and refused through the work-sector field too.
+r = _register("Groom", "9350010003", full_name="Suresh Goud", work_type="Homemaker / Not Working")
+check("N3 Groom + 'Homemaker / Not Working' sector is refused",
+      r.status_code == 400 and "does not apply to a Groom" in r.text, r.status_code)
+
+# 4. A Bride may still choose it.
+r = _register("Bride", "9350010004", full_name="Lakshmi Devi", job="Housewife / Homemaker (గృహిణి)",
+              work_type="Homemaker / Not Working", salary="None / Not Applicable")
+check("N4 Bride + 'Housewife / గృహిణి' is still accepted",
+      r.status_code == 200, "%s %s" % (r.status_code, str(r.json())[:120]))
+
+# 5. The same rule holds on profile edit.
+groom_id = (client.post("/api/register", data={
+    "full_name": "Ravi Teja Sharma", "gender": "Groom", "religion": "Hindu",
+    "consent_confirmed": "true", "dob": _dob_groom, "height": "5'8\"", "caste": "Kamma",
+    "marital_status": "Pelli Kaledu", "state": "TS", "district": "Khammam",
+    "education": "B.Tech / B.E", "job": "Software Engineer", "work_type": "Software / IT / Tech",
+    "salary": "₹8 - 12 Lakhs / year", "phone": "9350010005", "password": "Password123!",
+}).json() or {}).get("tsap_id")
+_owner = {"Authorization": "Bearer %s" % hardening.sign_token(groom_id),
+          "X-TSAP-Token": hardening.sign_token(groom_id)}
+r = client.post("/api/profile/update", json={"tsap_id": groom_id, "job": "Housewife / Homemaker (గృహిణి)"}, headers=_owner)
+check("N5 a Groom cannot be edited into 'Housewife / గృహిణి'",
+      r.status_code == 400 and "does not apply to a Groom" in r.text, r.status_code)
+r = client.post("/api/profile/update", json={"tsap_id": groom_id, "job": "Senior Software Engineer"}, headers=_owner)
+check("N6 the same profile still accepts a normal occupation edit",
+      r.status_code == 200, "%s %s" % (r.status_code, str(r.json())[:100]))
+
+# 6. A search that mixes the two returns an empty page, never an error.
+r = client.get("/api/search?gender=Groom&job=Housewife")
+_rows = (r.json() or {}).get("profiles") or []
+check("N7 a Groom + Housewife search answers 200 and never returns a bride or an error",
+      r.status_code == 200
+      and all(str(row.get("gender", "")).lower() == "groom" for row in _rows),
+      "%s rows=%d" % (r.status_code, len(_rows)))
+
+# 7. The forms themselves must not offer the option to a groom.
+register_src = read("src/app/register/page-client.tsx")
+check("N8 the registration form hides the homemaker option for grooms",
+      "isGroomGender(f.gender)" in register_src and "workTypesForGender(f.gender)" in register_src)
+check("N9 the registration form renders the work-sector field it validates",
+      'set("work_type"' in register_src and "Select work sector" in register_src)
+matches_src = read("src/app/matches/page-client.tsx")
+check("N10 the matches filter drops the homemaker chip when searching for a groom",
+      "isGroomGender(filters.gender)" in matches_src)
+hero_src = read("src/components/HeroQuickSearch.tsx")
+check("N11 the home quick search never offers 'Housewife' for a groom",
+      'gender === "Groom" && qc.label === "Housewife"' in hero_src)
+data_src = read("src/lib/telugu-data.ts")
+check("N12 one shared helper decides what counts as a homemaker occupation",
+      "export function isHomemakerOccupation" in data_src
+      and "export function workTypesForGender" in data_src
+      and "export function occupationsForGender" in data_src)
+
+# ===========================================================================
 print("\n=== RESULT: %d pass / %d fail ===" % (len(PASS), len(FAIL)))
 if FAIL:
     print("FAILED:")

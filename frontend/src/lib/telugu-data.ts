@@ -292,6 +292,46 @@ export const WORK_TYPES_DETAILED: WorkTypeItem[] = [
 
 export const WORK_TYPES: string[] = WORK_TYPES_DETAILED.map((w) => w.en);
 
+/**
+ * 👩 "Housewife / గృహిణి" describes a woman's work, so it is offered only on
+ * Bride profiles. A Groom must never be asked to pick it — and a search for a
+ * Groom must never offer it as a filter that can only return zero profiles.
+ */
+const HOMEMAKER_TERMS = ["housewife", "homemaker", "గృహిణి"];
+
+export function isHomemakerOccupation(value?: string | null): boolean {
+  const text = String(value || "").toLowerCase();
+  return HOMEMAKER_TERMS.some((term) => text.includes(term));
+}
+
+/** True when the profile being created/edited is a groom's. */
+export function isGroomGender(gender?: string | null): boolean {
+  return String(gender || "").trim().toLowerCase() === "groom";
+}
+
+/** Occupation list with the homemaker option removed for grooms. */
+export function occupationsForGender(gender?: string | null): string[] {
+  return isGroomGender(gender) ? JOBS.filter((job) => !isHomemakerOccupation(job)) : JOBS;
+}
+
+/**
+ * Work sectors for a profile. For grooms the "Homemaker / Not Working" sector is
+ * replaced by a plain "Not Working / Looking for Job" option, so nobody has to
+ * pick a label that does not describe them.
+ */
+export const GROOM_NOT_WORKING: WorkTypeItem = {
+  id: "NotWorkingGroom",
+  en: "Not Working / Looking for Job",
+  te: "ప్రస్తుతం పని చేయడం లేదు / ఉద్యోగం వెతుకుతున్నారు",
+  display: "🧾 ప్రస్తుతం పని లేదు (Not Working)",
+  icon: "🧾",
+};
+
+export function workTypesForGender(gender?: string | null): WorkTypeItem[] {
+  if (!isGroomGender(gender)) return WORK_TYPES_DETAILED;
+  return WORK_TYPES_DETAILED.filter((item) => !isHomemakerOccupation(item.en)).concat([GROOM_NOT_WORKING]);
+}
+
 export const WORK_TYPE_TELUGU: Record<string, string> = (() => {
   const map: Record<string, string> = {};
   WORK_TYPES_DETAILED.forEach((w) => {

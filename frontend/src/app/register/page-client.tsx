@@ -22,7 +22,7 @@ import { communityHubPath } from "@/lib/community-hub.mjs";
 import { getLang, useLang } from "@/lib/lang";
 import { apiDisplayMessage, readApiJson } from "@/lib/api";
 import { ProfilePhotoError, prepareProfilePhoto, profilePhotoErrorMessage } from "@/lib/photo-upload";
-import { stateFullName } from "@/lib/telugu-data";
+import { stateFullName, isGroomGender, isHomemakerOccupation, workTypesForGender } from "@/lib/telugu-data";
 import PhotoFlow from "@/components/PhotoFlow";
 import ProtectedImage from "@/components/ProtectedImage";
 import { TelegramIcon, WhatsAppIcon } from "@/components/BrandIcons";
@@ -771,6 +771,22 @@ function Wizard() {
     setErrs([]);
   };
 
+  /**
+   * 👩 Switching to Groom clears any "Housewife / గృహిణి" career entry, because
+   * that label describes a woman's work and can never belong to a groom profile.
+   */
+  const setGender = (value: string) => {
+    setF((prev) => {
+      const next: Record<string, unknown> = { ...prev, gender: value };
+      if (isGroomGender(value)) {
+        if (isHomemakerOccupation(prev.job)) next.job = "";
+        if (isHomemakerOccupation(prev.work_type)) next.work_type = "";
+      }
+      return next;
+    });
+    setErrs([]);
+  };
+
   useEffect(() => {
     if (!photoFile) {
       setPhotoPreview("");
@@ -1064,6 +1080,10 @@ function Wizard() {
       if (!f.education) e.push(T("విద్యార్హత ఎంచుకోండి (Select education)", "Select education"));
       if (!f.job) e.push(T("ఉద్యోగం / హోదా ఎంచుకోండి (Select occupation)", "Select occupation"));
       if (!f.salary) e.push(T("వార్షిక వేతనం ఎంచుకోండి (Select annual salary range)", "Select annual salary range"));
+      // 🏡 "Housewife / గృహిణి" describes a woman's work — never valid on a Groom.
+      if (isGroomGender(f.gender) && (isHomemakerOccupation(f.job) || isHomemakerOccupation(f.work_type))) {
+        e.push(T("వరుడి ప్రొఫైల్‌కు ‘గృహిణి / Housewife’ ఎంపిక వర్తించదు; ఈ వ్యక్తికి సరిపోయే ఉద్యోగం ఎంచుకోండి.", "‘Housewife / Homemaker’ does not apply to a Groom profile — choose the work that describes this person."));
+      }
     }
     if (s === 4) {
       if (!f.state) e.push(T("రాష్ట్రం / ప్రాంతం ఎంచుకోండి (Select state)", "Select state"));
@@ -1659,7 +1679,7 @@ function Wizard() {
                     <button
                       key={g.v}
                       type="button"
-                      onClick={() => set("gender", g.v)}
+                      onClick={() => setGender(g.v)}
                       aria-pressed={f.gender === g.v}
                       className={`rounded-2xl border-2 p-3 text-center transition-all ${
                         f.gender === g.v
@@ -1799,7 +1819,10 @@ function Wizard() {
                     className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-medium"
                   >
                     <option value="">{T("ఉద్యోగం ఎంచుకోండి", "Select occupation")} (Optional)</option>
-                    <option value="Housewife / Homemaker (గృహిణి)">{te ? "🏡 గృహిణి" : "🏡 Housewife / homemaker"}</option>
+                    {/* 🏡 Homemaker describes a woman's work — never offered for a Groom. */}
+                    {!isGroomGender(f.gender) && (
+                      <option value="Housewife / Homemaker (గృహిణి)">{te ? "🏡 గృహిణి" : "🏡 Housewife / homemaker"}</option>
+                    )}
                     <option value="Software Engineer">💻 Software Engineer / IT</option>
                     <option value="Govt Employee (Central / State)">🏛️ Govt Employee / PSU</option>
                     <option value="Bank Officer / PO / Manager">🏦 Bank Officer / Finance</option>
@@ -2078,7 +2101,7 @@ function Wizard() {
                           <button
                             key={g.v}
                             type="button"
-                            onClick={() => set("gender", g.v)}
+                            onClick={() => setGender(g.v)}
                             className={`rounded-2xl border-2 p-3.5 text-center transition-all ${
                               f.gender === g.v
                                 ? "border-maroon bg-maroon-soft shadow-sm ring-2 ring-maroon/20"
@@ -2313,6 +2336,28 @@ function Wizard() {
                 {/* ---------------- STEP 3: CAREER & EDUCATION ---------------- */}
                 {step === 3 && (
                   <div className="space-y-4">
+                    {/* వృత్తి రంగం — this field is validated and stored, so it must be
+                        selectable here. The list is gender-aware: a Groom never sees
+                        the "Homemaker / గృహిణి" sector. */}
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-slate-800">{T("వృత్తి / ఉద్యోగ రంగం", "Work sector")} *</label>
+                      <select
+                        value={f.work_type}
+                        onChange={(e) => set("work_type", e.target.value)}
+                        className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-medium"
+                      >
+                        <option value="">{T("వృత్తి రంగం ఎంచుకోండి", "Select work sector")}</option>
+                        {workTypesForGender(f.gender).map((wt) => (
+                          <option key={wt.id} value={wt.en}>
+                            {te ? wt.display : wt.en}
+                          </option>
+                        ))}
+                      </select>
+                      <p className="text-[11px] text-slate-500">
+                        {T("ఇది ప్రొఫైల్‌లో చూపే వృత్తి విభాగం; ఉద్యోగ హోదాను తర్వాత నమోదు చేయండి.", "This is the sector shown on the profile; enter the exact job title below.")}
+                      </p>
+                    </div>
+
                     <div className="space-y-1.5">
                       <label className="text-xs font-bold text-slate-800">{T("విద్యార్హత", "Education")} *</label>
                       <select
@@ -2335,7 +2380,9 @@ function Wizard() {
                       </label>
                       <div className="flex flex-wrap gap-1.5">
                         {[
-                          { l: te ? "🏡 గృహిణి" : "🏡 Housewife / homemaker", v: "Housewife / Homemaker (గృహిణి)" },
+                          ...(isGroomGender(f.gender)
+                            ? []
+                            : [{ l: te ? "🏡 గృహిణి" : "🏡 Housewife / homemaker", v: "Housewife / Homemaker (గృహిణి)" }]),
                           { l: "💻 Software Engineer", v: "Software Engineer" },
                           { l: "🏛️ Govt Employee", v: "Govt Employee (Central / State)" },
                           { l: "🩺 Doctor", v: "Doctor / Physician" },

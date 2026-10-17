@@ -39,6 +39,8 @@ import {
   isSecondMarriageStatus,
   secondMarriageLabel,
   sortUniqueOptions,
+  isGroomGender,
+  isHomemakerOccupation,
 } from "@/lib/telugu-data";
 import { SITE_CONFIG } from "@/lib/site-config";
 import { DEFAULT_MATCH_FILTERS, parseMatchFilters } from "@/lib/match-filter-query.mjs";
@@ -335,6 +337,17 @@ export default function MatchesPage() {
           marital_status: val,
           ...(hasChildrenRelevantMaritalFilter(val) ? {} : { children: "" }),
         };
+      }
+      // 🏡 Searching for a Groom can never return a homemaker profile, so the
+      // filter is dropped the moment Groom is chosen instead of silently
+      // emptying the results.
+      if (key === "gender" && isGroomGender(val)) {
+        const jobs = String(prev.job || "")
+          .split(",")
+          .map((entry) => entry.trim())
+          .filter(Boolean)
+          .filter((entry) => !isHomemakerOccupation(entry));
+        return { ...prev, gender: val, job: jobs.join(",") };
       }
       return { ...prev, [key]: val };
     });
@@ -1253,17 +1266,19 @@ export default function MatchesPage() {
               {te ? "❤️ రెండో వివాహం" : "❤️ Second marriage"}
             </button>
 
-            <button
-              onClick={() => toggleMulti("job", "Housewife / Homemaker (గృహిణి)")}
-              className={`px-3 py-1.5 rounded-full text-xs font-bold shrink-0 transition flex items-center gap-1 border ${
-                isMultiSelected("job", "Housewife / Homemaker (గృహిణి)")
-                  ? "bg-rose-700 text-white border-rose-700 shadow-xs"
-                  : "bg-white text-slate-700 border-slate-200 hover:border-rose-700"
-              }`}
-            >
-              <span>🏡</span>
-              <span>{te ? "గృహిణి" : "Homemaker"}</span>
-            </button>
+            {!isGroomGender(filters.gender) && (
+              <button
+                onClick={() => toggleMulti("job", "Housewife / Homemaker (గృహిణి)")}
+                className={`px-3 py-1.5 rounded-full text-xs font-bold shrink-0 transition flex items-center gap-1 border ${
+                  isMultiSelected("job", "Housewife / Homemaker (గృహిణి)")
+                    ? "bg-rose-700 text-white border-rose-700 shadow-xs"
+                    : "bg-white text-slate-700 border-slate-200 hover:border-rose-700"
+                }`}
+              >
+                <span>🏡</span>
+                <span>{te ? "గృహిణి" : "Homemaker"}</span>
+              </button>
+            )}
 
             <button
               onClick={() => toggleMulti("job", "Software / IT / Tech")}
@@ -1550,7 +1565,7 @@ export default function MatchesPage() {
             <div className="border-t border-slate-100 pt-3 space-y-3">
               <h3 className="text-xs font-black text-slate-800">💼 {te ? "వృత్తి & విద్య" : "Career & education"}</h3>
               <div className="max-h-32 overflow-y-auto space-y-1">
-                {["Housewife / Homemaker (గృహిణి)", "Not Working / Student", ...WORK_TYPES].map((workType) => {
+                {(isGroomGender(filters.gender) ? ["Not Working / Student", ...WORK_TYPES] : ["Housewife / Homemaker (గృహిణి)", "Not Working / Student", ...WORK_TYPES]).map((workType) => {
                   const checked = isMultiSelected("job", workType);
                   return (
                     <label key={workType} className="flex min-h-11 items-center gap-2 rounded-lg px-2 text-xs hover:bg-slate-50 cursor-pointer">
@@ -2241,7 +2256,7 @@ export default function MatchesPage() {
                 <div className="space-y-3">
                   <label className="block text-xs font-bold text-slate-800">{te ? "వృత్తి / ఉద్యోగ రంగం" : "Occupation / industry"}:</label>
                   <div className="grid grid-cols-2 gap-2">
-                    {["Housewife / Homemaker (గృహిణి)", "Not Working / Student", ...WORK_TYPES].map((wt) => {
+                    {(isGroomGender(filters.gender) ? ["Not Working / Student", ...WORK_TYPES] : ["Housewife / Homemaker (గృహిణి)", "Not Working / Student", ...WORK_TYPES]).map((wt) => {
                       const checked = isMultiSelected("job", wt);
                       return (
                         <label key={wt} className="flex min-h-11 items-center gap-2 p-2 rounded-xl text-xs bg-slate-50 cursor-pointer">

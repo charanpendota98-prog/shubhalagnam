@@ -147,6 +147,8 @@ export default function HeroQuickSearch() {
 
   const selectQuickChip = (chipLabel: string) => {
     if (chipLabel === "Housewife") {
+      // 🏡 The chip is only rendered for Bride searches, so it never has to
+      // silently flip the gender the visitor picked.
       setGender("Bride");
       router.push("/matches?gender=Bride&job=Housewife%20%2F%20Homemaker%20(%E0%B0%97%E0%B1%83%E0%B0%B9%E0%B0%BF%E0%B0%A3%E0%B0%BF)");
     } else if (chipLabel === "Software") {
@@ -428,7 +430,9 @@ export default function HeroQuickSearch() {
         {/* Quick Filter Caste Chips */}
         <div className="pt-2 flex items-center gap-1.5 flex-wrap">
           <span className="text-[11px] font-bold text-gray-500 telugu">{te ? "త్వరిత ఎంపిక:" : "Quick Filter:"}</span>
-          {QUICK_CHIPS.map((qc) => (
+          {QUICK_CHIPS
+            .filter((qc) => !(gender === "Groom" && qc.label === "Housewife"))
+            .map((qc) => (
             <button
               key={qc.label}
               type="button"
