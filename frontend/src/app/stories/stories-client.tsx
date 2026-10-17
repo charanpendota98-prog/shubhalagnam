@@ -1,4 +1,5 @@
 "use client";
+import StoryNudge from "@/components/StoryNudge";
 
 /**
  * 💑 WAVE 11 — Success Stories (trust + viral).
@@ -90,7 +91,7 @@ export default function StoriesClient() {
               “{te ? s.text : apiDisplayMessage({ message_en: s.text }, false, "This story was submitted in another language. Switch to Telugu to read the original.")}”
             </p>
             <div className="mt-3 flex items-center justify-between">
-              <button
+              <button type="button"
                 onClick={() => like(s.story_id)}
                 disabled={liked.has(s.story_id)}
                 aria-label={te ? `${s.likes} likes, like చెయ్యండి` : `${s.likes} likes, like it`}
@@ -102,6 +103,10 @@ export default function StoriesClient() {
             </div>
           </article>
         ))}
+      </div>
+
+      <div className="mt-10">
+        <StoryNudge />
       </div>
 
       <div className="mt-10 rounded-2xl border border-emerald-200 bg-emerald-50/60 p-5">
@@ -121,7 +126,7 @@ export default function StoriesClient() {
         <input value={form.partner_id} onChange={(e) => setForm({ ...form, partner_id: e.target.value })}
           placeholder="Partner Profile ID (optional)" aria-label="Partner Profile ID"
           className="mt-2 w-full rounded-xl border px-3 py-2 text-sm outline-none focus:border-emerald-500" />
-        <button onClick={submit} disabled={sending}
+        <button type="button" onClick={submit} disabled={sending}
           className="mt-3 rounded-xl bg-emerald-700 px-5 py-2 font-bold text-white hover:bg-emerald-800 disabled:opacity-60">
           {sending ? (te ? "⏳ పంపిస్తున్నా…" : "⏳ Sending…") : te ? "💑 Story పంపు" : "💑 Send story"}
         </button>

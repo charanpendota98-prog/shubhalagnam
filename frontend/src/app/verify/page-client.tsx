@@ -10,6 +10,7 @@ import { useSearchParams } from "next/navigation";
 import { Duo, duo } from "@/lib/duo";
 import { useLang } from "@/lib/lang";
 import { apiDisplayMessage, getToken, TSAP_KEY, readApiJson } from "@/lib/api";
+import VerificationProgress from "@/components/VerificationProgress";
 
 export default function VerifyPage() {
   const { lang } = useLang();
@@ -92,11 +93,11 @@ export default function VerifyPage() {
             ) : status === "pending" ? (
               <div className="mt-3 rounded-xl bg-amber-50 border border-amber-300 p-3 text-[13px] telugu">
                 ⏳ <b>{duo("Selfie under review", "సెల్ఫీ పరిశీలనలో ఉంది")}</b> — {duo("you get the badge once admin approves", "అడ్మిన్ ఆమోదించగానే బ్యాడ్జ్ వస్తుంది")}
-                <button onClick={() => void load()} className="ml-2 font-bold text-maroon underline">↻</button>
+                <button type="button" aria-label={te ? "సమీక్ష స్థితిని మళ్లీ తనిఖీ చేయండి" : "Refresh review status"} onClick={() => void load()} className="ml-2 font-bold text-maroon underline">↻</button>
               </div>
             ) : (
               <>
-                <input ref={fileRef} type="file" accept="image/*" capture="user" className="hidden"
+                <input aria-label={te ? "సెల్ఫీ ఎంచుకోండి" : "Choose selfie"} ref={fileRef} type="file" accept="image/*" capture="user" className="hidden"
                   onChange={(e) => void upload(e.target.files?.[0])} />
                 <button disabled={busy || !tsapId} onClick={() => fileRef.current?.click()}
                   className="mt-3 w-full rounded-xl border-2 border-maroon/40 bg-white p-3 flex items-center gap-3 hover:border-maroon disabled:opacity-50 text-left">
@@ -122,6 +123,9 @@ export default function VerifyPage() {
                "అప్‌లోడ్‌లకు సాంకేతిక తనిఖీలు, వేరుగా staff review ఉంటాయి. నమోదైన తనిఖీ అన్ని profile వివరాలను నిర్ధారించదు; స్పందనలకూ హామీ కాదు.")}
         </p>
       </section>
+
+      {/* 🧾 WAVE 43 — what is recorded, what is not, and what to do next */}
+      <VerificationProgress tsapId={tsapId} />
     </div>
   );
 }

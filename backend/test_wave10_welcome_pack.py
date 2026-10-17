@@ -53,8 +53,10 @@ from testutil_client import TestClient  # noqa: E402
 client = TestClient(main.app, raise_server_exceptions=False)
 PASS, FAIL, FAILED = 0, 0, []
 PHONE_RE = re.compile(r"(?<![\d•])[6-9]\d{9}(?!\d)")
+# One fewer than the original eleven: the ST Others community was published, so
+# "c_others_st" is no longer held back from the public directory.
 EXCLUDED = {
-    "official", "hindu", "c_others_st", "bureau_network", "differently_abled",
+    "official", "hindu", "bureau_network", "differently_abled",
     "doctors_teachers", "fraud_alerts", "govt_jobs", "second_marriage",
     "software_it", "success_stories",
 }
@@ -80,7 +82,7 @@ def has_telugu(text: str) -> bool:
 
 
 section("A. Public directory exclusions preserve the private operator registry")
-check("A1 exactly the requested 11 categories are excluded",
+check("A1 exactly the requested 10 categories are excluded",
       CC.PUBLIC_DIRECTORY_EXCLUDED_KEYS == EXCLUDED, sorted(CC.PUBLIC_DIRECTORY_EXCLUDED_KEYS))
 check("A2 excluded rows remain internal but are not public",
       all(key in CC.CHANNELS and not CC.is_public_channel(key) for key in EXCLUDED))

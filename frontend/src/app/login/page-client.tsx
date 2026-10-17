@@ -203,7 +203,7 @@ export default function LoginPage() {
 
           {/* Mode Switcher */}
           <div className="flex bg-slate-100 p-1 rounded-2xl mb-5">
-            <button
+            <button type="button"
               onClick={() => { setTab("password"); showFeedback(""); setForgot(false); }}
               className={`flex-1 py-2.5 text-xs sm:text-sm font-bold rounded-xl transition-all ${
                 tab === "password" && !forgot
@@ -213,7 +213,7 @@ export default function LoginPage() {
             >
               🔑 {te ? "పాస్‌వర్డ్ లాగిన్" : "Password"}
             </button>
-            <button
+            <button type="button"
               onClick={() => { setTab("otp"); showFeedback(""); setForgot(false); }}
               className={`flex-1 py-2.5 text-xs sm:text-sm font-bold rounded-xl transition-all ${
                 tab === "otp" && !forgot
@@ -233,7 +233,7 @@ export default function LoginPage() {
                   <span>🔄</span>
                   {te ? "పాస్‌వర్డ్ రీసెట్ (OTP ద్వారా)" : "Reset Password via OTP"}
                 </span>
-                <button
+                <button type="button"
                   onClick={() => { setForgot(false); setFStage("phone"); showFeedback(""); }}
                   className="text-xs text-slate-500 hover:text-maroon underline font-medium"
                 >
@@ -334,7 +334,7 @@ export default function LoginPage() {
 
               {/* Reset Action Button */}
               {fStage === "phone" ? (
-                <button
+                <button type="button"
                   onClick={onForgotSend}
                   disabled={busy}
                   className="w-full py-3.5 rounded-2xl maroon-gradient text-white font-bold text-sm shadow-md hover-lift disabled:opacity-50"
@@ -343,7 +343,7 @@ export default function LoginPage() {
                 </button>
               ) : (
                 <div className="space-y-2">
-                  <button
+                  <button type="button"
                     onClick={onReset}
                     disabled={busy}
                     className="w-full py-3.5 rounded-2xl maroon-gradient text-white font-bold text-sm shadow-md hover-lift disabled:opacity-50"
@@ -351,7 +351,7 @@ export default function LoginPage() {
                     {busy ? (te ? "సేవ్ చేస్తున్నారు…" : "Saving…") : te ? "✅ పాస్‌వర్డ్ రీసెట్ చేసి లాగిన్ అవ్వండి" : "✅ Reset Password & Login"}
                   </button>
                   <div className="flex justify-between items-center text-xs text-slate-500 pt-1">
-                    <button
+                    <button type="button"
                       onClick={() => setFStage("phone")}
                       className="text-slate-600 hover:text-maroon underline"
                     >
@@ -360,7 +360,7 @@ export default function LoginPage() {
                     {countdown > 0 ? (
                       <span>{te ? `${countdown}s లో రీసెండ్ చేయవచ్చు` : `Resend in ${countdown}s`}</span>
                     ) : (
-                      <button
+                      <button type="button"
                         onClick={onForgotSend}
                         className="text-maroon font-bold underline"
                       >
@@ -453,7 +453,7 @@ export default function LoginPage() {
                     <label htmlFor="login-otp" className="block text-xs font-bold text-slate-700">
                       🔢 {te ? "4 అంకెల OTP కోడ్" : "4-digit OTP Code"}
                     </label>
-                    <button
+                    <button type="button"
                       onClick={() => { setStage("phone"); setCode(""); }}
                       className="text-[11px] text-maroon hover:underline font-bold"
                     >
@@ -477,7 +477,7 @@ export default function LoginPage() {
                     {countdown > 0 ? (
                       <span className="font-mono text-slate-400">{countdown}s</span>
                     ) : (
-                      <button
+                      <button type="button"
                         onClick={onSend}
                         className="text-maroon font-bold underline"
                       >
@@ -517,7 +517,7 @@ export default function LoginPage() {
               {/* Submit Action */}
               <div>
                 {tab === "password" ? (
-                  <button
+                  <button type="button"
                     onClick={onPasswordLogin}
                     disabled={busy}
                     className="w-full py-3.5 rounded-2xl maroon-gradient text-white font-bold text-sm shadow-md hover-lift disabled:opacity-50"
@@ -525,7 +525,7 @@ export default function LoginPage() {
                     {busy ? (te ? "లాగిన్ అవుతున్నారు…" : "Signing in…") : "🔑 Login"}
                   </button>
                 ) : stage === "phone" ? (
-                  <button
+                  <button type="button"
                     onClick={onSend}
                     disabled={busy}
                     className="w-full py-3.5 rounded-2xl maroon-gradient text-white font-bold text-sm shadow-md hover-lift disabled:opacity-50"
@@ -533,7 +533,7 @@ export default function LoginPage() {
                     {busy ? (te ? "OTP పంపుతున్నారు…" : "Sending OTP…") : te ? "📲 OTP కోడ్ పంపు" : "📲 Send OTP Code"}
                   </button>
                 ) : (
-                  <button
+                  <button type="button"
                     onClick={onVerify}
                     disabled={busy}
                     className="w-full py-3.5 rounded-2xl maroon-gradient text-white font-bold text-sm shadow-md hover-lift disabled:opacity-50"

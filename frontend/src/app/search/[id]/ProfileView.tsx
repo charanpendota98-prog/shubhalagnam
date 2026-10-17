@@ -25,6 +25,9 @@ import ProfileRail from "@/components/ProfileRail";
 import QuickUnlockModal from "@/components/QuickUnlockModal";
 import WhatsAppProposalModal from "@/components/WhatsAppProposalModal";
 import VoiceBiodataPlayer from "@/components/VoiceBiodataPlayer";
+import RequestCoach from "@/components/RequestCoach";
+import ProfileInsights from "@/components/ProfileInsights";
+import RequestTimeline from "@/components/RequestTimeline";
 
 type Row = Record<string, any>;
 
@@ -74,6 +77,8 @@ export default function ProfileView() {
   const [showProposalModal, setShowProposalModal] = useState(false);
   const [voiceUrl, setVoiceUrl] = useState("");
   const [chart, setChart] = useState<Row | null>(null);
+  const [interestNote, setInterestNote] = useState("");
+  const [sentRequestId, setSentRequestId] = useState("");
 
   useEffect(() => {
     const id = (searchId || idFromUrl || "").trim();
@@ -167,13 +172,21 @@ export default function ProfileView() {
     });
   }, [idFromUrl]);
 
-  const sendInterest = async (templateId?: string) => {
+  const sendInterest = async (templateId?: string, noteOverride?: string) => {
     setSending(true); setMsg(null);
+    const noteToSend = (noteOverride ?? (interestNote || "")).trim();
     const { ok, data: d, status, errorTelugu: eTel, needsLogin: nl } = await apiPost<Row>("/api/interest/send",
-      { from_id: myTsapId, to_id: searchId, channel: "search_page", ...(templateId ? { template_id: templateId } : {}) });
+      { from_id: myTsapId, to_id: searchId, channel: "search_page",
+        ...(noteToSend ? { note: noteToSend } : {}),
+        ...(templateId ? { template_id: templateId } : {}) });
     setSending(false);
     if (nl) { setNeedsLogin(true); return; }
-    if (ok) setMsg({ ok: true, text: localizedApiMessage(d, "Interest పంపించారు. Owner అంగీకారం తర్వాత account views లో contact details కనిపిస్తాయి; notification delivery హామీ లేదు.", "Interest sent. Contact details appear in account views after owner acceptance; notification delivery is not confirmed.") });
+    if (ok) {
+      const rid = String((d as Row | null)?.request_id || "");
+      if (rid) setSentRequestId(rid);
+      setInterestNote("");
+      setMsg({ ok: true, text: localizedApiMessage(d, "Interest పంపించారు. Owner అంగీకారం తర్వాత account views లో contact details కనిపిస్తాయి; notification delivery హామీ లేదు.", "Interest sent. Contact details appear in account views after owner acceptance; notification delivery is not confirmed.") });
+        }
     else if (status === 402) setMsg({ ok: false, text: te ? "⚠️ Credits అయిపోయాయి — ₹99 → 5 interest requests. Contact sharing acceptance తర్వాతే." : "⚠️ Credits are depleted — ₹99 → 5 interest requests. Contact sharing follows acceptance." });
     else if (status === 404) setMsg({ ok: false, text: te ? "మీ Profile ID register చెయ్యలేదు — ముందు FREE register చెయ్యండి." : "Your Profile ID is not registered — FREE register first." });
     else setMsg({ ok: false, text: eTel });
@@ -369,7 +382,7 @@ export default function ProfileView() {
             onKeyDown={(e) => { if (e.key === "Enter") void load(searchId.trim()); }}
             placeholder={te ? "Profile ID" : "Search by Profile ID"} aria-label={te ? "Profile ID వెతకండి" : "Profile ID search"}
             className="flex-1 bg-transparent text-sm outline-none" />
-          <button onClick={() => void load(searchId.trim())} className="rounded-xl bg-[#7A0C2E] px-3 py-1.5 text-[12px] font-bold text-white">{te ? "చూడు" : "View"}</button>
+          <button type="button" onClick={() => void load(searchId.trim())} className="rounded-xl bg-[#7A0C2E] px-3 py-1.5 text-[12px] font-bold text-white min-h-11">{te ? "చూడు" : "View"}</button>
         </div>
       </div>
 
@@ -506,6 +519,13 @@ export default function ProfileView() {
             </section>
           ) : null}
 
+          {myTsapId && searchId && myTsapId !== searchId ? (
+            <RequestCoach fromId={myTsapId} toId={searchId} onPickNote={(text) => setInterestNote(text)} />
+          ) : null}
+          {myTsapId && searchId && myTsapId !== searchId ? (
+            <ProfileInsights viewerId={myTsapId} profileId={searchId} />
+          ) : null}
+
           {/* 🔒 Contact access is gated by profile-owner acceptance */}
           <section className="mt-4 rounded-3xl border-2 border-rose-300 bg-rose-50 p-5">
             <h2 className="text-lg font-extrabold text-[#7A0C2E]">
@@ -532,11 +552,11 @@ export default function ProfileView() {
               </div>
             ) : null}
             <div className="mt-4 flex flex-wrap gap-2">
-              <button onClick={() => void sendInterest()} disabled={sending}
+              <button type="button" onClick={() => void sendInterest()} disabled={sending}
                 className="rounded-xl bg-[#7A0C2E] px-4 py-2.5 text-sm font-bold text-white disabled:opacity-60">
                 {sending ? (te ? "పంపిస్తున్నాం…" : "Sending…") : te ? "💌 Interest పంపండి (FREE 3)" : "💌 Send interest (FREE 3)"}
               </button>
-              <button onClick={() => void sendInterest("traditional")} disabled={sending}
+              <button type="button" onClick={() => void sendInterest("traditional")} disabled={sending}
                 className="rounded-xl border border-[#7A0C2E] px-4 py-2.5 text-sm font-bold text-[#7A0C2E]">
                 {te ? "🙏 Template తో పంపు" : "🙏 Send with template"}
               </button>
@@ -546,7 +566,7 @@ export default function ProfileView() {
                 </a>
               ) : (
                 <>
-                <button onClick={() => void doUnlock()} disabled={unlocking}
+                <button type="button" onClick={() => void doUnlock()} disabled={unlocking}
                   className="rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-60">
                   {unlocking ? (te ? "చెక్ చేస్తున్నాం…" : "Checking access…") : (te ? "📞 అంగీకారం తర్వాత contact చూడండి" : "📞 Contact after acceptance")}
                 </button>
@@ -558,6 +578,25 @@ export default function ProfileView() {
             </div>
           </section>
 
+          {myTsapId && myTsapId !== searchId ? (
+            <section className="mx-auto mt-4 max-w-3xl px-4" aria-label={te ? "పంపే సందేశం" : "Message to send"}>
+              <label className="block text-[11px] font-bold text-slate-700" htmlFor="interest-note">
+                {te ? "✍️ పంపే సందేశం (optional — మీరు నమోదు చేసిన వివరాల ఆధారంగానే సూచనలు)" : "✍️ Message to send (optional — suggestions come only from entered details)"}
+              </label>
+              <textarea
+                id="interest-note"
+                value={interestNote}
+                onChange={(event) => setInterestNote(event.target.value.slice(0, 280))}
+                rows={3}
+                maxLength={280}
+                placeholder={te ? "ఉదా: మీ profile చూశాను — వివరాలు నాకు సరిపోయాయి." : "e.g. I read your profile and the details suit what I am looking for."}
+                className="mt-1.5 w-full rounded-2xl border border-slate-300 bg-white p-3 text-[13px] text-slate-800 focus:border-[#7A0C2E] focus:outline-none"
+              />
+            </section>
+          ) : null}
+
+          {sentRequestId ? <RequestTimeline requestId={sentRequestId} /> : null}
+
           {/* actions */}
           <section className="mt-4 flex flex-wrap gap-2">
             <Link
@@ -567,21 +606,21 @@ export default function ProfileView() {
               <span>🎴</span>
               <span>{te ? "HD కలర్ బయోడేటా JPG" : "HD Color Biodata JPG"}</span>
             </Link>
-            <button onClick={printBiodata} className="rounded-xl border border-amber-400 bg-amber-50 hover:bg-amber-100 px-4 py-2 text-sm font-bold text-[#7A0C2E] transition shadow-xs">
+            <button type="button" onClick={printBiodata} className="rounded-xl border border-amber-400 bg-amber-50 hover:bg-amber-100 px-4 py-2 text-sm font-bold text-[#7A0C2E] transition shadow-xs">
               📄 {te ? "ప్రింట్ బయోడేటా" : "Print Biodata"}
             </button>
-            <button onClick={() => void toggleSave()}
+            <button type="button" onClick={() => void toggleSave()}
               className={`rounded-xl px-4 py-2 text-sm font-bold ${savedNow ? "bg-rose-100 text-rose-700" : "border border-slate-300 text-slate-700"}`}>
               {savedNow ? (te ? "❤️ షార్ట్‌లిస్ట్‌లో ఉంది" : "❤️ In shortlist") : (te ? "🤍 షార్ట్‌లిస్ట్" : "🤍 Shortlist")}
             </button>
-            <button onClick={() => setShowProposalModal(true)} className="rounded-xl bg-green-600 hover:bg-green-700 px-4 py-2 text-sm font-bold text-white transition flex items-center gap-1.5 shadow-xs">
+            <button type="button" onClick={() => setShowProposalModal(true)} className="rounded-xl bg-green-600 hover:bg-green-700 px-4 py-2 text-sm font-bold text-white transition flex items-center gap-1.5 shadow-xs">
               <span>💬</span>
               <span>{te ? "వాట్సాప్ ప్రపోజల్ షేర్" : "WhatsApp Proposal Share"}</span>
             </button>
-            <button onClick={() => void doBlock()} disabled={blocked} className="rounded-xl border border-rose-300 px-4 py-2 text-sm font-bold text-rose-700 disabled:opacity-50">
+            <button type="button" onClick={() => void doBlock()} disabled={blocked} className="rounded-xl border border-rose-300 px-4 py-2 text-sm font-bold text-rose-700 disabled:opacity-50">
               🚫 {te ? "బ్లాక్ చేయండి" : "Block"}
             </button>
-            <button onClick={() => void doReport()} disabled={reported} className="rounded-xl border border-amber-300 px-4 py-2 text-sm font-bold text-amber-800 disabled:opacity-50">
+            <button type="button" onClick={() => void doReport()} disabled={reported} className="rounded-xl border border-amber-300 px-4 py-2 text-sm font-bold text-amber-800 disabled:opacity-50">
               🚩 {te ? "రిపోర్ట్ చేయండి" : "Report"}
             </button>
             <Link href="/safety" className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-bold text-slate-700">🛡️ {te ? "భద్రతా సూచనలు" : "Safety tips"}</Link>

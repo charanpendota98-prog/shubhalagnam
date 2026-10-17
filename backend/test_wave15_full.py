@@ -137,9 +137,14 @@ check("B13 CMS demo-seed endpoint is retired", seed_retired.status_code == 410, 
 section("C. CHANMAP PURE")
 # ═══════════════════════════════════════════════════════════════════════════
 eff = CHAN.effective()
-check("C1 effective count matches canonical registry", len(eff) == CHAN.coverage()["total"] == 64, len(eff))
+check("C1 effective count matches canonical registry", len(eff) == CHAN.coverage()["total"] == 103, len(eff))
+_by_key = {e["key"]: e for e in eff}
+# ts_bride carries an operator-configured default; a channel with no
+# configured destination must stay empty instead of getting a t.me/… link
+# derived from its key or username.
 check("C2 no Telegram invite is guessed from a registry username",
-      next(e for e in eff if e["key"] == "ts_bride")["telegram"] == "")
+      _by_key["ts_bride"]["telegram"] == "https://t.me/TSBRIDE"
+      and all(not _by_key[key]["telegram"] for key in ("c_boya_valmiki_bride", "sikh_groom")))
 valid_wa = "https://whatsapp.com/channel/0029VbDpD0N5kg74TpAbIz1R"
 sl = CHAN.set_link("ts_bride", "https://t.me/TSBRIDE", valid_wa, True, "owner gave")
 check("C3 set_link ok", sl["success"] and CHAN.public_links()["ts_bride"]["whatsapp"] == valid_wa, sl)
@@ -161,7 +166,7 @@ check("C7 import auto-apply saves",
 imp3 = CHAN.import_bulk("")
 check("C8 empty import fail", imp3["success"] is False, imp3)
 cov = CHAN.coverage()
-check("C9 coverage shape", cov["success"] and cov["total"] == 64 and "L3_CASTE" in cov["by_tier"]
+check("C9 coverage shape", cov["success"] and cov["total"] == 103 and "L3_CASTE" in cov["by_tier"]
       and isinstance(cov["critical_gaps"], list), cov)
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -179,7 +184,7 @@ im = client.post("/api/admin/channels/import", json={"text": "AP Grooms | https:
                                                      "auto_apply": True}, headers=HDR_ADMIN).json()
 check("D4 import API apply", im["success"] and im["applied"] == ["ap_groom"], im)
 cv = client.get("/api/admin/channels/coverage", headers=HDR_ADMIN).json()
-check("D5 coverage API", cv["success"] and cv["total"] == 64, cv)
+check("D5 coverage API", cv["success"] and cv["total"] == 103, cv)
 _saved = os.environ.pop("WA_TEST_FAST", None)
 na = client.post("/api/admin/channels/link", json={"key": "x"})
 check("D6 no key 403", na.status_code == 403, na.status_code)

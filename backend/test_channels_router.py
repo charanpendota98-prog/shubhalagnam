@@ -20,14 +20,14 @@ def check(name: str, cond: bool, extra: str = ""):
 def run():
     print("\n=== 1. REGISTRY HEALTH ===")
     stats = C.channel_stats()
-    check("Total configured listings = 64", stats["total"] == 64, str(stats["total"]))
+    check("Total configured listings = 103", stats["total"] == 103, str(stats["total"]))
     check("Default registry has no configured destinations; external status stays unchecked",
           stats["routing_eligible"] == 0 and stats["external_status_checked"] is False, str(stats))
     check("L0 official = 1", stats["by_tier"]["L0_OFFICIAL"] == 1)
     check("L1 region = 5", stats["by_tier"]["L1_REGION"] == 5, str(stats["by_tier"]))
-    check("L2 religion = 5 (Hindu + combined Muslim/Christian listings)",
-          stats["by_tier"]["L2_RELIGION"] == 5, str(stats["by_tier"]["L2_RELIGION"]))
-    check("L3 = 45 community-gender listings", stats["by_tier"]["L3_CASTE"] == 45, str(stats["by_tier"]["L3_CASTE"]))
+    check("L2 religion = 13 (Hindu + bride/groom listings for every selectable religion)",
+          stats["by_tier"]["L2_RELIGION"] == 13, str(stats["by_tier"]["L2_RELIGION"]))
+    check("L3 = 76 community-gender listings", stats["by_tier"]["L3_CASTE"] == 76, str(stats["by_tier"]["L3_CASTE"]))
     check("L4 special = 8", stats["by_tier"]["L4_SPECIAL"] == 8, str(stats["by_tier"]["L4_SPECIAL"]))
 
     usernames = [str(v.get("username") or "").lower() for v in C.CHANNELS.values() if v.get("username")]

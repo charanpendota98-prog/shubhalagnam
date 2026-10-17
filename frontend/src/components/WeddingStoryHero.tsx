@@ -31,9 +31,21 @@ export default function WeddingStoryHero() {
   return <section ref={ref} className="wedding-story" aria-label="The wedding comes to life">
     <div className="wedding-story__sticky">
       <div className="wedding-story__scene" style={sceneStyle} onPointerDown={e => { setDragging(true); lastX.current = e.clientX; (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); }} onPointerMove={e => { if (!dragging) return; const delta = e.clientX - lastX.current; lastX.current = e.clientX; setRotation(r => Math.max(-16, Math.min(16, r + delta * .16))); }} onPointerUp={() => setDragging(false)} onPointerCancel={() => setDragging(false)}>
-        {/* real cinematic wedding film — autoplays + loops (mandapam → thali → talambralu → together) */}
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img className="wedding-story__film" src="/promo/wedding-story-film.webp" alt="Telugu wedding ceremony film" aria-hidden="true" draggable={false} />
+        {/* Real cinematic wedding film — autoplays + loops (mandapam → thali →
+            talambralu → together). It streams as MP4 instead of the old
+            animated WebP poster: the same film at roughly a sixth of the
+            bytes, and it starts before the whole file has downloaded. */}
+        <video
+          className="wedding-story__film"
+          poster="/promo/wedding-story-poster.jpg"
+          autoPlay
+          muted
+          loop
+          playsInline
+          aria-hidden="true"
+        >
+          <source src="/promo/wedding-story-film.mp4" type="video/mp4" />
+        </video>
         <div className="wedding-story__shade" />
         <div className="wedding-story__glow wedding-story__glow--one" />
         <div className="wedding-story__glow wedding-story__glow--two" />

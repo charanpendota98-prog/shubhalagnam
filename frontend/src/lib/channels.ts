@@ -16,7 +16,7 @@ export type Channel = {
   externalStatusChecked: boolean;
 };
 
-export const CHANNEL_STATS = {"total": 53, "routing_eligible": 0, "not_routing_eligible": 53, "by_tier": {"L1_REGION": 5, "L2_RELIGION": 4, "L3_CASTE": 44}, "site": "https://manavivaha.in", "external_status_checked": false} as const;
+export const CHANNEL_STATS = {"total": 93, "routing_eligible": 0, "not_routing_eligible": 93, "by_tier": {"L1_REGION": 5, "L2_RELIGION": 12, "L3_CASTE": 76}, "site": "https://manavivaha.in", "external_status_checked": false} as const;
 
 export const CHANNEL_TIERS = [
   {
@@ -31,14 +31,14 @@ export const CHANNEL_TIERS = [
     "label": "Community",
     "icon": "🕊️",
     "hint": "Religion and community directory entries",
-    "count": 4
+    "count": 12
   },
   {
     "key": "L3_CASTE",
     "label": "Community-wise",
     "icon": "💍",
     "hint": "Selected community directory entries",
-    "count": 44
+    "count": 76
   }
 ] as const;
 
@@ -199,6 +199,158 @@ export const ALL_CHANNELS: Channel[] = [
     "desc": "christian వివాహాలు — వధువులు + వరులు, TS + AP. #Christian #Groom #TS",
     "hashtags": [
       "#Christian",
+      "#Groom",
+      "#TS",
+      "#AP"
+    ],
+    "wave": 1,
+    "routingEligible": false,
+    "externalStatusChecked": false
+  },
+  {
+    "key": "sikh_bride",
+    "tier": "L2_RELIGION",
+    "name": "👰 Sikh Brides | Sikh వధువులు",
+    "username": "",
+    "link": "",
+    "deepLink": "",
+    "whatsappLink": "",
+    "desc": "sikh వివాహాలు — వధువులు + వరులు, TS + AP. #Sikh #Bride #TS",
+    "hashtags": [
+      "#Sikh",
+      "#Bride",
+      "#TS",
+      "#AP"
+    ],
+    "wave": 1,
+    "routingEligible": false,
+    "externalStatusChecked": false
+  },
+  {
+    "key": "sikh_groom",
+    "tier": "L2_RELIGION",
+    "name": "🤵 Sikh Grooms | Sikh వరులు",
+    "username": "",
+    "link": "",
+    "deepLink": "",
+    "whatsappLink": "",
+    "desc": "sikh వివాహాలు — వధువులు + వరులు, TS + AP. #Sikh #Groom #TS",
+    "hashtags": [
+      "#Sikh",
+      "#Groom",
+      "#TS",
+      "#AP"
+    ],
+    "wave": 1,
+    "routingEligible": false,
+    "externalStatusChecked": false
+  },
+  {
+    "key": "jain_bride",
+    "tier": "L2_RELIGION",
+    "name": "👰 Jain Brides | Jain వధువులు",
+    "username": "",
+    "link": "",
+    "deepLink": "",
+    "whatsappLink": "",
+    "desc": "jain వివాహాలు — వధువులు + వరులు, TS + AP. #Jain #Bride #TS",
+    "hashtags": [
+      "#Jain",
+      "#Bride",
+      "#TS",
+      "#AP"
+    ],
+    "wave": 1,
+    "routingEligible": false,
+    "externalStatusChecked": false
+  },
+  {
+    "key": "jain_groom",
+    "tier": "L2_RELIGION",
+    "name": "🤵 Jain Grooms | Jain వరులు",
+    "username": "",
+    "link": "",
+    "deepLink": "",
+    "whatsappLink": "",
+    "desc": "jain వివాహాలు — వధువులు + వరులు, TS + AP. #Jain #Groom #TS",
+    "hashtags": [
+      "#Jain",
+      "#Groom",
+      "#TS",
+      "#AP"
+    ],
+    "wave": 1,
+    "routingEligible": false,
+    "externalStatusChecked": false
+  },
+  {
+    "key": "buddhist_bride",
+    "tier": "L2_RELIGION",
+    "name": "👰 Buddhist Brides | Buddhist వధువులు",
+    "username": "",
+    "link": "",
+    "deepLink": "",
+    "whatsappLink": "",
+    "desc": "buddhist వివాహాలు — వధువులు + వరులు, TS + AP. #Buddhist #Bride #TS",
+    "hashtags": [
+      "#Buddhist",
+      "#Bride",
+      "#TS",
+      "#AP"
+    ],
+    "wave": 1,
+    "routingEligible": false,
+    "externalStatusChecked": false
+  },
+  {
+    "key": "buddhist_groom",
+    "tier": "L2_RELIGION",
+    "name": "🤵 Buddhist Grooms | Buddhist వరులు",
+    "username": "",
+    "link": "",
+    "deepLink": "",
+    "whatsappLink": "",
+    "desc": "buddhist వివాహాలు — వధువులు + వరులు, TS + AP. #Buddhist #Groom #TS",
+    "hashtags": [
+      "#Buddhist",
+      "#Groom",
+      "#TS",
+      "#AP"
+    ],
+    "wave": 1,
+    "routingEligible": false,
+    "externalStatusChecked": false
+  },
+  {
+    "key": "other_religion_bride",
+    "tier": "L2_RELIGION",
+    "name": "👰 Other Religion Brides | Other_Religion వధువులు",
+    "username": "",
+    "link": "",
+    "deepLink": "",
+    "whatsappLink": "",
+    "desc": "other_religion వివాహాలు — వధువులు + వరులు, TS + AP. #Other #Bride #TS",
+    "hashtags": [
+      "#Other",
+      "#Bride",
+      "#TS",
+      "#AP"
+    ],
+    "wave": 1,
+    "routingEligible": false,
+    "externalStatusChecked": false
+  },
+  {
+    "key": "other_religion_groom",
+    "tier": "L2_RELIGION",
+    "name": "🤵 Other Religion Grooms | Other_Religion వరులు",
+    "username": "",
+    "link": "",
+    "deepLink": "",
+    "whatsappLink": "",
+    "desc": "other_religion వివాహాలు — వధువులు + వరులు, TS + AP. #Other #Groom #TS",
+    "hashtags": [
+      "#Other",
       "#Groom",
       "#TS",
       "#AP"
@@ -1042,23 +1194,643 @@ export const ALL_CHANNELS: Channel[] = [
     "wave": 3,
     "routingEligible": false,
     "externalStatusChecked": false
+  },
+  {
+    "key": "c_others_st_bride",
+    "tier": "L3_CASTE",
+    "name": "👰 Other ST Communities Brides | ఇతర ST కులాలు వధువులు",
+    "username": "",
+    "link": "",
+    "deepLink": "",
+    "whatsappLink": "",
+    "desc": "ఇతర ST కులాలు — Other ST Communities (Brides). Sub-castes: Koya • Koitur • Gond • Rajgond • Naikpod. Profiles are member-submitted; details are not independently verified.",
+    "hashtags": [
+      "#OthersSt",
+      "#Bride",
+      "#TS",
+      "#AP"
+    ],
+    "wave": 3,
+    "routingEligible": false,
+    "externalStatusChecked": false
+  },
+  {
+    "key": "c_others_st_groom",
+    "tier": "L3_CASTE",
+    "name": "🤵 Other ST Communities Grooms | ఇతర ST కులాలు వరులు",
+    "username": "",
+    "link": "",
+    "deepLink": "",
+    "whatsappLink": "",
+    "desc": "ఇతర ST కులాలు — Other ST Communities (Grooms). Sub-castes: Koya • Koitur • Gond • Rajgond • Naikpod. Profiles are member-submitted; details are not independently verified.",
+    "hashtags": [
+      "#OthersSt",
+      "#Groom",
+      "#TS",
+      "#AP"
+    ],
+    "wave": 3,
+    "routingEligible": false,
+    "externalStatusChecked": false
+  },
+  {
+    "key": "c_boya_valmiki_bride",
+    "tier": "L3_CASTE",
+    "name": "👰 Boya • Valmiki Brides | బోయ • వాల్మీకి వధువులు",
+    "username": "",
+    "link": "",
+    "deepLink": "",
+    "whatsappLink": "",
+    "desc": "బోయ • వాల్మీకి — Boya • Valmiki (Brides). Sub-castes: Boya • Boyar • Bedar • Valmiki • Nishadhi. Profiles are member-submitted; details are not independently verified.",
+    "hashtags": [
+      "#BoyaValmiki",
+      "#Bride",
+      "#TS",
+      "#AP"
+    ],
+    "wave": 4,
+    "routingEligible": false,
+    "externalStatusChecked": false
+  },
+  {
+    "key": "c_boya_valmiki_groom",
+    "tier": "L3_CASTE",
+    "name": "🤵 Boya • Valmiki Grooms | బోయ • వాల్మీకి వరులు",
+    "username": "",
+    "link": "",
+    "deepLink": "",
+    "whatsappLink": "",
+    "desc": "బోయ • వాల్మీకి — Boya • Valmiki (Grooms). Sub-castes: Boya • Boyar • Bedar • Valmiki • Nishadhi. Profiles are member-submitted; details are not independently verified.",
+    "hashtags": [
+      "#BoyaValmiki",
+      "#Groom",
+      "#TS",
+      "#AP"
+    ],
+    "wave": 4,
+    "routingEligible": false,
+    "externalStatusChecked": false
+  },
+  {
+    "key": "c_vaddera_bride",
+    "tier": "L3_CASTE",
+    "name": "👰 Vaddera • Odde Brides | వడ్డెర • ఒడ్డె వధువులు",
+    "username": "",
+    "link": "",
+    "deepLink": "",
+    "whatsappLink": "",
+    "desc": "వడ్డెర • ఒడ్డె — Vaddera • Odde (Brides). Sub-castes: Vaddera • Vaddi • Odde • Oddilu • Vadde. Profiles are member-submitted; details are not independently verified.",
+    "hashtags": [
+      "#Vaddera",
+      "#Bride",
+      "#TS",
+      "#AP"
+    ],
+    "wave": 4,
+    "routingEligible": false,
+    "externalStatusChecked": false
+  },
+  {
+    "key": "c_vaddera_groom",
+    "tier": "L3_CASTE",
+    "name": "🤵 Vaddera • Odde Grooms | వడ్డెర • ఒడ్డె వరులు",
+    "username": "",
+    "link": "",
+    "deepLink": "",
+    "whatsappLink": "",
+    "desc": "వడ్డెర • ఒడ్డె — Vaddera • Odde (Grooms). Sub-castes: Vaddera • Vaddi • Odde • Oddilu • Vadde. Profiles are member-submitted; details are not independently verified.",
+    "hashtags": [
+      "#Vaddera",
+      "#Groom",
+      "#TS",
+      "#AP"
+    ],
+    "wave": 4,
+    "routingEligible": false,
+    "externalStatusChecked": false
+  },
+  {
+    "key": "c_nayee_brahmin_bride",
+    "tier": "L3_CASTE",
+    "name": "👰 Nayee Brahmin • Mangali Brides | నాయీ బ్రాహ్మణ • మంగలి వధువులు",
+    "username": "",
+    "link": "",
+    "deepLink": "",
+    "whatsappLink": "",
+    "desc": "నాయీ బ్రాహ్మణ • మంగలి — Nayee Brahmin • Mangali (Brides). Sub-castes: Nayee Brahmin • Nayi-Brahmin • Mangali • Mangala • Nhavi. Profiles are member-submitted; details are not independently verified.",
+    "hashtags": [
+      "#NayeeBrahmin",
+      "#Bride",
+      "#TS",
+      "#AP"
+    ],
+    "wave": 4,
+    "routingEligible": false,
+    "externalStatusChecked": false
+  },
+  {
+    "key": "c_nayee_brahmin_groom",
+    "tier": "L3_CASTE",
+    "name": "🤵 Nayee Brahmin • Mangali Grooms | నాయీ బ్రాహ్మణ • మంగలి వరులు",
+    "username": "",
+    "link": "",
+    "deepLink": "",
+    "whatsappLink": "",
+    "desc": "నాయీ బ్రాహ్మణ • మంగలి — Nayee Brahmin • Mangali (Grooms). Sub-castes: Nayee Brahmin • Nayi-Brahmin • Mangali • Mangala • Nhavi. Profiles are member-submitted; details are not independently verified.",
+    "hashtags": [
+      "#NayeeBrahmin",
+      "#Groom",
+      "#TS",
+      "#AP"
+    ],
+    "wave": 4,
+    "routingEligible": false,
+    "externalStatusChecked": false
+  },
+  {
+    "key": "c_gandla_telikula_bride",
+    "tier": "L3_CASTE",
+    "name": "👰 Gandla • Telikula Brides | గాండ్ల • తెలికుల వధువులు",
+    "username": "",
+    "link": "",
+    "deepLink": "",
+    "whatsappLink": "",
+    "desc": "గాండ్ల • తెలికుల — Gandla • Telikula (Brides). Sub-castes: Gandla • Ganika • Telikula • Telaga (Gandla). Profiles are member-submitted; details are not independently verified.",
+    "hashtags": [
+      "#GandlaTelikula",
+      "#Bride",
+      "#TS",
+      "#AP"
+    ],
+    "wave": 4,
+    "routingEligible": false,
+    "externalStatusChecked": false
+  },
+  {
+    "key": "c_gandla_telikula_groom",
+    "tier": "L3_CASTE",
+    "name": "🤵 Gandla • Telikula Grooms | గాండ్ల • తెలికుల వరులు",
+    "username": "",
+    "link": "",
+    "deepLink": "",
+    "whatsappLink": "",
+    "desc": "గాండ్ల • తెలికుల — Gandla • Telikula (Grooms). Sub-castes: Gandla • Ganika • Telikula • Telaga (Gandla). Profiles are member-submitted; details are not independently verified.",
+    "hashtags": [
+      "#GandlaTelikula",
+      "#Groom",
+      "#TS",
+      "#AP"
+    ],
+    "wave": 4,
+    "routingEligible": false,
+    "externalStatusChecked": false
+  },
+  {
+    "key": "c_uppara_sagara_bride",
+    "tier": "L3_CASTE",
+    "name": "👰 Uppara • Sagara Brides | ఉప్పర • సాగర వధువులు",
+    "username": "",
+    "link": "",
+    "deepLink": "",
+    "whatsappLink": "",
+    "desc": "ఉప్పర • సాగర — Uppara • Sagara (Brides). Sub-castes: Uppara • Sagara • Uppara (Sagara). Profiles are member-submitted; details are not independently verified.",
+    "hashtags": [
+      "#UpparaSagara",
+      "#Bride",
+      "#TS",
+      "#AP"
+    ],
+    "wave": 4,
+    "routingEligible": false,
+    "externalStatusChecked": false
+  },
+  {
+    "key": "c_uppara_sagara_groom",
+    "tier": "L3_CASTE",
+    "name": "🤵 Uppara • Sagara Grooms | ఉప్పర • సాగర వరులు",
+    "username": "",
+    "link": "",
+    "deepLink": "",
+    "whatsappLink": "",
+    "desc": "ఉప్పర • సాగర — Uppara • Sagara (Grooms). Sub-castes: Uppara • Sagara • Uppara (Sagara). Profiles are member-submitted; details are not independently verified.",
+    "hashtags": [
+      "#UpparaSagara",
+      "#Groom",
+      "#TS",
+      "#AP"
+    ],
+    "wave": 4,
+    "routingEligible": false,
+    "externalStatusChecked": false
+  },
+  {
+    "key": "c_bestha_gangaputra_bride",
+    "tier": "L3_CASTE",
+    "name": "👰 Bestha • Gangaputra Brides | బెస్త • గంగపుత్ర వధువులు",
+    "username": "",
+    "link": "",
+    "deepLink": "",
+    "whatsappLink": "",
+    "desc": "బెస్త • గంగపుత్ర — Bestha • Gangaputra (Brides). Sub-castes: Bestha • Bestalu • Gangaputra • Gangavar • Jalari (Bestha). Profiles are member-submitted; details are not independently verified.",
+    "hashtags": [
+      "#BesthaGangaputra",
+      "#Bride",
+      "#TS",
+      "#AP"
+    ],
+    "wave": 4,
+    "routingEligible": false,
+    "externalStatusChecked": false
+  },
+  {
+    "key": "c_bestha_gangaputra_groom",
+    "tier": "L3_CASTE",
+    "name": "🤵 Bestha • Gangaputra Grooms | బెస్త • గంగపుత్ర వరులు",
+    "username": "",
+    "link": "",
+    "deepLink": "",
+    "whatsappLink": "",
+    "desc": "బెస్త • గంగపుత్ర — Bestha • Gangaputra (Grooms). Sub-castes: Bestha • Bestalu • Gangaputra • Gangavar • Jalari (Bestha). Profiles are member-submitted; details are not independently verified.",
+    "hashtags": [
+      "#BesthaGangaputra",
+      "#Groom",
+      "#TS",
+      "#AP"
+    ],
+    "wave": 4,
+    "routingEligible": false,
+    "externalStatusChecked": false
+  },
+  {
+    "key": "c_gavara_bride",
+    "tier": "L3_CASTE",
+    "name": "👰 Gavara Brides | గవర వధువులు",
+    "username": "",
+    "link": "",
+    "deepLink": "",
+    "whatsappLink": "",
+    "desc": "గవర — Gavara (Brides). Sub-castes: Gavara • Gavara (Balija) • Gavara Komati. Profiles are member-submitted; details are not independently verified.",
+    "hashtags": [
+      "#Gavara",
+      "#Bride",
+      "#TS",
+      "#AP"
+    ],
+    "wave": 4,
+    "routingEligible": false,
+    "externalStatusChecked": false
+  },
+  {
+    "key": "c_gavara_groom",
+    "tier": "L3_CASTE",
+    "name": "🤵 Gavara Grooms | గవర వరులు",
+    "username": "",
+    "link": "",
+    "deepLink": "",
+    "whatsappLink": "",
+    "desc": "గవర — Gavara (Grooms). Sub-castes: Gavara • Gavara (Balija) • Gavara Komati. Profiles are member-submitted; details are not independently verified.",
+    "hashtags": [
+      "#Gavara",
+      "#Groom",
+      "#TS",
+      "#AP"
+    ],
+    "wave": 4,
+    "routingEligible": false,
+    "externalStatusChecked": false
+  },
+  {
+    "key": "c_jangam_lingayat_bride",
+    "tier": "L3_CASTE",
+    "name": "👰 Jangam • Lingayat Brides | జంగం • లింగాయత వధువులు",
+    "username": "",
+    "link": "",
+    "deepLink": "",
+    "whatsappLink": "",
+    "desc": "జంగం • లింగాయత — Jangam • Lingayat (Brides). Sub-castes: Jangam • Jangama • Lingayat • Lingayath • Veerashaiva. Profiles are member-submitted; details are not independently verified.",
+    "hashtags": [
+      "#JangamLingayat",
+      "#Bride",
+      "#TS",
+      "#AP"
+    ],
+    "wave": 4,
+    "routingEligible": false,
+    "externalStatusChecked": false
+  },
+  {
+    "key": "c_jangam_lingayat_groom",
+    "tier": "L3_CASTE",
+    "name": "🤵 Jangam • Lingayat Grooms | జంగం • లింగాయత వరులు",
+    "username": "",
+    "link": "",
+    "deepLink": "",
+    "whatsappLink": "",
+    "desc": "జంగం • లింగాయత — Jangam • Lingayat (Grooms). Sub-castes: Jangam • Jangama • Lingayat • Lingayath • Veerashaiva. Profiles are member-submitted; details are not independently verified.",
+    "hashtags": [
+      "#JangamLingayat",
+      "#Groom",
+      "#TS",
+      "#AP"
+    ],
+    "wave": 4,
+    "routingEligible": false,
+    "externalStatusChecked": false
+  },
+  {
+    "key": "c_medari_bride",
+    "tier": "L3_CASTE",
+    "name": "👰 Medari • Medara Brides | మేదరి • మేదర వధువులు",
+    "username": "",
+    "link": "",
+    "deepLink": "",
+    "whatsappLink": "",
+    "desc": "మేదరి • మేదర — Medari • Medara (Brides). Sub-castes: Medari • Medara • Medarlu. Profiles are member-submitted; details are not independently verified.",
+    "hashtags": [
+      "#Medari",
+      "#Bride",
+      "#TS",
+      "#AP"
+    ],
+    "wave": 4,
+    "routingEligible": false,
+    "externalStatusChecked": false
+  },
+  {
+    "key": "c_medari_groom",
+    "tier": "L3_CASTE",
+    "name": "🤵 Medari • Medara Grooms | మేదరి • మేదర వరులు",
+    "username": "",
+    "link": "",
+    "deepLink": "",
+    "whatsappLink": "",
+    "desc": "మేదరి • మేదర — Medari • Medara (Grooms). Sub-castes: Medari • Medara • Medarlu. Profiles are member-submitted; details are not independently verified.",
+    "hashtags": [
+      "#Medari",
+      "#Groom",
+      "#TS",
+      "#AP"
+    ],
+    "wave": 4,
+    "routingEligible": false,
+    "externalStatusChecked": false
+  },
+  {
+    "key": "c_dasari_bride",
+    "tier": "L3_CASTE",
+    "name": "👰 Dasari Brides | దాసరి వధువులు",
+    "username": "",
+    "link": "",
+    "deepLink": "",
+    "whatsappLink": "",
+    "desc": "దాసరి — Dasari (Brides). Sub-castes: Dasari • Dasari (Mala) • Dasari (Madiga). Profiles are member-submitted; details are not independently verified.",
+    "hashtags": [
+      "#Dasari",
+      "#Bride",
+      "#TS",
+      "#AP"
+    ],
+    "wave": 4,
+    "routingEligible": false,
+    "externalStatusChecked": false
+  },
+  {
+    "key": "c_dasari_groom",
+    "tier": "L3_CASTE",
+    "name": "🤵 Dasari Grooms | దాసరి వరులు",
+    "username": "",
+    "link": "",
+    "deepLink": "",
+    "whatsappLink": "",
+    "desc": "దాసరి — Dasari (Grooms). Sub-castes: Dasari • Dasari (Mala) • Dasari (Madiga). Profiles are member-submitted; details are not independently verified.",
+    "hashtags": [
+      "#Dasari",
+      "#Groom",
+      "#TS",
+      "#AP"
+    ],
+    "wave": 4,
+    "routingEligible": false,
+    "externalStatusChecked": false
+  },
+  {
+    "key": "c_koya_gond_bride",
+    "tier": "L3_CASTE",
+    "name": "👰 Koya • Gond Brides | కోయ • గోండ వధువులు",
+    "username": "",
+    "link": "",
+    "deepLink": "",
+    "whatsappLink": "",
+    "desc": "కోయ • గోండ — Koya • Gond (Brides). Sub-castes: Koya • Koitur • Gond • Rajgond • Dorla. Profiles are member-submitted; details are not independently verified.",
+    "hashtags": [
+      "#KoyaGond",
+      "#Bride",
+      "#TS",
+      "#AP"
+    ],
+    "wave": 4,
+    "routingEligible": false,
+    "externalStatusChecked": false
+  },
+  {
+    "key": "c_koya_gond_groom",
+    "tier": "L3_CASTE",
+    "name": "🤵 Koya • Gond Grooms | కోయ • గోండ వరులు",
+    "username": "",
+    "link": "",
+    "deepLink": "",
+    "whatsappLink": "",
+    "desc": "కోయ • గోండ — Koya • Gond (Grooms). Sub-castes: Koya • Koitur • Gond • Rajgond • Dorla. Profiles are member-submitted; details are not independently verified.",
+    "hashtags": [
+      "#KoyaGond",
+      "#Groom",
+      "#TS",
+      "#AP"
+    ],
+    "wave": 4,
+    "routingEligible": false,
+    "externalStatusChecked": false
+  },
+  {
+    "key": "c_adi_andhra_bride",
+    "tier": "L3_CASTE",
+    "name": "👰 Adi Andhra Brides | ఆది ఆంధ్ర వధువులు",
+    "username": "",
+    "link": "",
+    "deepLink": "",
+    "whatsappLink": "",
+    "desc": "ఆది ఆంధ్ర — Adi Andhra (Brides). Sub-castes: Adi Andhra • Adi Dravida • Adi Karnataka. Profiles are member-submitted; details are not independently verified.",
+    "hashtags": [
+      "#AdiAndhra",
+      "#Bride",
+      "#TS",
+      "#AP"
+    ],
+    "wave": 4,
+    "routingEligible": false,
+    "externalStatusChecked": false
+  },
+  {
+    "key": "c_adi_andhra_groom",
+    "tier": "L3_CASTE",
+    "name": "🤵 Adi Andhra Grooms | ఆది ఆంధ్ర వరులు",
+    "username": "",
+    "link": "",
+    "deepLink": "",
+    "whatsappLink": "",
+    "desc": "ఆది ఆంధ్ర — Adi Andhra (Grooms). Sub-castes: Adi Andhra • Adi Dravida • Adi Karnataka. Profiles are member-submitted; details are not independently verified.",
+    "hashtags": [
+      "#AdiAndhra",
+      "#Groom",
+      "#TS",
+      "#AP"
+    ],
+    "wave": 4,
+    "routingEligible": false,
+    "externalStatusChecked": false
+  },
+  {
+    "key": "c_north_indian_bride",
+    "tier": "L3_CASTE",
+    "name": "👰 Marwari • Gujarati • Punjabi Brides | మార్వాడీ • గుజరాతీ • పంజాబీ వధువులు",
+    "username": "",
+    "link": "",
+    "deepLink": "",
+    "whatsappLink": "",
+    "desc": "మార్వాడీ • గుజరాతీ • పంజాబీ — Marwari • Gujarati • Punjabi (Brides). Sub-castes: Marwari • Marwadi • Gujarati • Gujjar • Punjabi. Profiles are member-submitted; details are not independently verified.",
+    "hashtags": [
+      "#NorthIndian",
+      "#Bride",
+      "#TS",
+      "#AP"
+    ],
+    "wave": 4,
+    "routingEligible": false,
+    "externalStatusChecked": false
+  },
+  {
+    "key": "c_north_indian_groom",
+    "tier": "L3_CASTE",
+    "name": "🤵 Marwari • Gujarati • Punjabi Grooms | మార్వాడీ • గుజరాతీ • పంజాబీ వరులు",
+    "username": "",
+    "link": "",
+    "deepLink": "",
+    "whatsappLink": "",
+    "desc": "మార్వాడీ • గుజరాతీ • పంజాబీ — Marwari • Gujarati • Punjabi (Grooms). Sub-castes: Marwari • Marwadi • Gujarati • Gujjar • Punjabi. Profiles are member-submitted; details are not independently verified.",
+    "hashtags": [
+      "#NorthIndian",
+      "#Groom",
+      "#TS",
+      "#AP"
+    ],
+    "wave": 4,
+    "routingEligible": false,
+    "externalStatusChecked": false
+  },
+  {
+    "key": "c_other_states_bride",
+    "tier": "L3_CASTE",
+    "name": "👰 Marathi • Odia • Bengali Brides | మరాఠీ • ఒడియా • బెంగాలీ వధువులు",
+    "username": "",
+    "link": "",
+    "deepLink": "",
+    "whatsappLink": "",
+    "desc": "మరాఠీ • ఒడియా • బెంగాలీ — Marathi • Odia • Bengali (Brides). Sub-castes: Marathi • Maharashtrian • Odia • Oriya • Bengali. Profiles are member-submitted; details are not independently verified.",
+    "hashtags": [
+      "#OtherStates",
+      "#Bride",
+      "#TS",
+      "#AP"
+    ],
+    "wave": 4,
+    "routingEligible": false,
+    "externalStatusChecked": false
+  },
+  {
+    "key": "c_other_states_groom",
+    "tier": "L3_CASTE",
+    "name": "🤵 Marathi • Odia • Bengali Grooms | మరాఠీ • ఒడియా • బెంగాలీ వరులు",
+    "username": "",
+    "link": "",
+    "deepLink": "",
+    "whatsappLink": "",
+    "desc": "మరాఠీ • ఒడియా • బెంగాలీ — Marathi • Odia • Bengali (Grooms). Sub-castes: Marathi • Maharashtrian • Odia • Oriya • Bengali. Profiles are member-submitted; details are not independently verified.",
+    "hashtags": [
+      "#OtherStates",
+      "#Groom",
+      "#TS",
+      "#AP"
+    ],
+    "wave": 4,
+    "routingEligible": false,
+    "externalStatusChecked": false
+  },
+  {
+    "key": "c_neighbour_south_bride",
+    "tier": "L3_CASTE",
+    "name": "👰 Vokkaliga • Nair • Nadar Brides | వొక్కలిగ • నాయర్ • నాదార్ వధువులు",
+    "username": "",
+    "link": "",
+    "deepLink": "",
+    "whatsappLink": "",
+    "desc": "వొక్కలిగ • నాయర్ • నాదార్ — Vokkaliga • Nair • Nadar (Brides). Sub-castes: Vokkaliga • Gowda (Vokkaliga) • Nair • Nadar • Nadar (Tamil). Profiles are member-submitted; details are not independently verified.",
+    "hashtags": [
+      "#NeighbourSouth",
+      "#Bride",
+      "#TS",
+      "#AP"
+    ],
+    "wave": 4,
+    "routingEligible": false,
+    "externalStatusChecked": false
+  },
+  {
+    "key": "c_neighbour_south_groom",
+    "tier": "L3_CASTE",
+    "name": "🤵 Vokkaliga • Nair • Nadar Grooms | వొక్కలిగ • నాయర్ • నాదార్ వరులు",
+    "username": "",
+    "link": "",
+    "deepLink": "",
+    "whatsappLink": "",
+    "desc": "వొక్కలిగ • నాయర్ • నాదార్ — Vokkaliga • Nair • Nadar (Grooms). Sub-castes: Vokkaliga • Gowda (Vokkaliga) • Nair • Nadar • Nadar (Tamil). Profiles are member-submitted; details are not independently verified.",
+    "hashtags": [
+      "#NeighbourSouth",
+      "#Groom",
+      "#TS",
+      "#AP"
+    ],
+    "wave": 4,
+    "routingEligible": false,
+    "externalStatusChecked": false
   }
 ];
 
 // Hindu-only register form dropdown — registry castes + Open
 export const CASTE_OPTIONS: string[] = [
+  "Adi Andhra",
   "Arya Vysya • Komati",
+  "Bestha • Gangaputra",
+  "Boya • Valmiki",
   "Brahmin",
+  "Dasari",
+  "Gandla • Telikula",
+  "Gavara",
   "Goud",
+  "Jangam • Lingayat",
   "Kamma",
   "Kapu • Balija • Telaga",
+  "Koya • Gond",
   "Kummari",
   "Kuruma",
   "Lambada • Banjara (ST)",
   "Madiga",
   "Mala",
+  "Marathi • Odia • Bengali",
+  "Marwari • Gujarati • Punjabi",
+  "Medari • Medara",
   "Mudiraj • Tenugollu",
   "Munnuru Kapu",
+  "Nayee Brahmin • Mangali",
   "Open",
   "Other BC Communities",
   "Other SC Communities",
@@ -1068,7 +1840,10 @@ export const CASTE_OPTIONS: string[] = [
   "Rajaka",
   "Raju • Kshatriya",
   "Reddy",
+  "Uppara • Sagara",
+  "Vaddera • Odde",
   "Velama",
   "Viswabrahmana (Viswakarma)",
+  "Vokkaliga • Nair • Nadar",
   "Yadava • Golla"
 ];

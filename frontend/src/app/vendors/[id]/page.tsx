@@ -197,8 +197,8 @@ export default function VendorDetailPage() {
             </div>
           </div>
           <div className="mt-4 flex gap-2 text-[12px]">
-            <button onClick={() => setTab("customer")} className={`px-3 py-1.5 rounded-full font-bold ${tab === "customer" ? "bg-white text-maroon" : "bg-white/10"}`}>{te ? "👰 Customer view" : "👰 Customer view"}</button>
-            <button onClick={() => setTab("owner")} className={`px-3 py-1.5 rounded-full font-bold ${tab === "owner" ? "bg-white text-maroon" : "bg-white/10"}`}>📊 Vendor dashboard</button>
+            <button type="button" onClick={() => setTab("customer")} className={`px-3 py-1.5 rounded-full font-bold ${tab === "customer" ? "bg-white text-maroon" : "bg-white/10"}`}>{te ? "👰 Customer view" : "👰 Customer view"}</button>
+            <button type="button" onClick={() => setTab("owner")} className={`px-3 py-1.5 rounded-full font-bold ${tab === "owner" ? "bg-white text-maroon" : "bg-white/10"}`}>📊 Vendor dashboard</button>
           </div>
         </div>
       </section>
@@ -262,7 +262,7 @@ export default function VendorDetailPage() {
                       <input className="input-mobile" placeholder={te ? "మీ అవసరాన్ని వివరించండి" : "Describe what you need"} value={lead.message} onChange={(e) => setLead({ ...lead, message: e.target.value })} aria-label={te ? "మీ అవసరం" : "Your requirements"} />
                     </div>
                     {leadRes?.success === false && <div className="mt-2 text-[12px] text-rose-700">⚠️ {leadRes.message_display}</div>}
-                    <button onClick={sendLead} disabled={busy}
+                    <button type="button" onClick={sendLead} disabled={busy}
                       className="mt-3 w-full maroon-gradient text-white font-bold text-[13px] py-3 rounded-2xl disabled:opacity-60">
                       {busy ? (te ? "⏳ పంపిస్తున్నాం…" : "⏳ Sending…") : te ? "📩 Enquiry పంపండి" : "📩 Send enquiry"}
                     </button>
@@ -368,7 +368,7 @@ export default function VendorDetailPage() {
                   <div className="text-[12px] font-bold text-maroon">{te ? "📝 Share-ready promo draft (ఇక్కడి నుంచి post కాదు)" : "📝 Share-ready promo draft (not posted by this site)"}</div>
                   <pre className="mt-2 bg-cream rounded-xl p-3 text-[11px] whitespace-pre-wrap" lang={te ? "te-IN" : "en-IN"}>{promoDraft}</pre>
                   <div className="mt-2 flex flex-wrap gap-2">
-                    <button onClick={() => copy(promoDraft, "tg")} className="gold-gradient text-maroon font-bold text-[11px] px-3 py-2 rounded-xl">
+                    <button type="button" onClick={() => copy(promoDraft, "tg")} className="gold-gradient text-maroon font-bold text-[11px] px-3 py-2 rounded-xl">
                       {copied === "tg" ? "copied ✓" : "📋 Post copy"}
                     </button>
                     <a href={`/api/vendors/${id}/poster.png?style=square`} download={`${id}-poster.png`}

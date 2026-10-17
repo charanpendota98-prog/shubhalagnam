@@ -101,23 +101,23 @@ export default function PayConsole() {
       )}
       <div className="flex gap-2 my-2">
         {([["", te ? "అన్నీ" : "all"], ["created", "pending"], ["claimed", te ? "UTR వచ్చింది" : "UTR received"], ["paid", "paid"], ["refunded", "refunded"], ["expired", "expired"]] as string[][]).map(([v, l]) => (
-          <button key={v} onClick={() => setStatus(v)}
+          <button type="button" key={v} onClick={() => setStatus(v)}
             className={`px-3 py-1 rounded-full text-xs font-bold ${status === v ? "maroon-gradient text-white" : "bg-gray-100"}`}>{l}</button>
         ))}
-        <button onClick={() => void load()} className="ml-auto text-xs underline">↻ refresh</button>
+        <button type="button" onClick={() => void load()} className="ml-auto text-xs underline">↻ refresh</button>
       </div>
       {flash && <div className="mb-2 rounded-xl bg-[#0F1F3C] text-white text-xs p-2">{flash}</div>}
       <div className="mb-2 flex flex-wrap items-center gap-2 text-xs">
-        <button onClick={() => void loadAudit()} className="rounded-full bg-[#0F1F3C] px-3 py-1.5 font-bold text-white">\U0001F9FE Money audit</button>
+        <button type="button" onClick={() => void loadAudit()} className="rounded-full bg-[#0F1F3C] px-3 py-1.5 font-bold text-white">\U0001F9FE Money audit</button>
         <input value={clawId} onChange={(e) => setClawId(e.target.value)} placeholder="TSAP-ID (clawback)"
           className="w-40 rounded-lg border px-2 py-1.5 font-mono" aria-label="Profile ID" />
         <input value={clawAmt} onChange={(e) => setClawAmt(e.target.value)} placeholder="\u20B9 amt"
           className="w-20 rounded-lg border px-2 py-1.5 font-mono" aria-label="amount" />
-        <button onClick={() => void clawback()} className="rounded-full bg-amber-100 px-3 py-1.5 font-bold text-amber-800">\u21A9\uFE0F Commission clawback</button>
+        <button type="button" onClick={() => void clawback()} className="rounded-full bg-amber-100 px-3 py-1.5 font-bold text-amber-800">\u21A9\uFE0F Commission clawback</button>
       </div>
       {showAudit && (
         <div className="mb-2 max-h-[160px] space-y-1 overflow-auto rounded-xl border p-2 text-[11px]">
-          <div className="flex items-center"><b>\U0001F9FE Audit (latest 30)</b><button onClick={() => setShowAudit(false)} className="ml-auto underline">close</button></div>
+          <div className="flex items-center"><b>\U0001F9FE Audit (latest 30)</b><button type="button" onClick={() => setShowAudit(false)} className="ml-auto underline">close</button></div>
           {audit.map((e: any, i: number) => (
             <div key={i} className="rounded-lg bg-gray-50 px-2 py-1 font-mono">{displayDynamicText(e.event, "Event label unavailable in English")} \u2022 {e.actor} \u2022 {displayDynamicText(JSON.stringify(e.data || {}), "Audit details unavailable in English").slice(0, 90)} \u2022 {String(e.at || "").slice(0, 19).replace("T", " ")}</div>
           ))}
@@ -145,7 +145,7 @@ export default function PayConsole() {
               <div className="mt-2 flex gap-2">
                 <input value={utr[o.id] ?? o.claim_utr ?? ""} onChange={(e) => setUtr({ ...utr, [o.id]: e.target.value })}
                   placeholder="UTR (12-digit)" className="flex-1 rounded-lg border px-3 py-1.5 text-xs font-mono" aria-label="UTR" />
-                <button onClick={() => void confirm(o.id)}
+                <button type="button" onClick={() => void confirm(o.id)}
                   className="rounded-lg bg-green-700 text-white px-4 py-1.5 text-xs font-bold">✅ Confirm + fulfill</button>
               </div>
             )}
@@ -158,7 +158,7 @@ export default function PayConsole() {
                   placeholder="reason (customer_request)" className="min-w-[140px] flex-1 rounded-lg border px-2 py-1.5 text-xs" aria-label="refund reason" />
                 <input value={rf[o.id + ":n"] || ""} onChange={(e) => setRf({ ...rf, [o.id + ":n"]: e.target.value })}
                   placeholder={o.mode === "razorpay" ? "note (optional)" : "return proof UTR (mandatory)"} className="min-w-[140px] flex-1 rounded-lg border px-2 py-1.5 text-xs" aria-label="refund note" />
-                <button onClick={() => void refund(o.id, o.mode)}
+                <button type="button" onClick={() => void refund(o.id, o.mode)}
                   className="rounded-lg bg-red-600 px-4 py-1.5 text-xs font-bold text-white">\u21A9\uFE0F Refund</button>
               </div>
             )}

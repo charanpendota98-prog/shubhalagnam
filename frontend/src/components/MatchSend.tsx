@@ -230,7 +230,7 @@ export default function MatchSend() {
           placeholder="Buyer Profile ID"
           aria-label="Buyer Profile ID"
           className="min-w-[260px] flex-1 rounded-xl border border-[#7A0C2E]/30 px-3 py-2 font-mono text-sm" />
-        <button onClick={() => void load()} disabled={loading}
+        <button type="button" onClick={() => void load()} disabled={loading}
           className="rounded-xl bg-[#7A0C2E] px-5 py-2 text-sm font-bold text-white disabled:opacity-60">
           {loading ? "⏳ Loading…" : "📋 Load profiles"}
         </button>
@@ -256,7 +256,7 @@ export default function MatchSend() {
                   <div className="mt-2 flex gap-2">
                     <input value={tgChat} onChange={(e) => setTgChat(e.target.value)} placeholder="Buyer /myid (chat id)"
                       aria-label="Buyer Telegram chat id" className="w-40 rounded-lg border px-2 py-1 text-xs" />
-                    <button onClick={() => void linkTg()} className="rounded-lg bg-[#0F1F3C] px-3 py-1 text-xs font-bold text-white">🔗 Link</button>
+                    <button type="button" onClick={() => void linkTg()} className="rounded-lg bg-[#0F1F3C] px-3 py-1 text-xs font-bold text-white">🔗 Link</button>
                   </div>
                 </>
               ) : (
@@ -269,7 +269,7 @@ export default function MatchSend() {
               <div className="rounded-2xl border p-4 text-xs">
                 <div className="font-bold text-[#7A0C2E]">💳 ₹500 Assisted order</div>
                 <div className="mt-2 flex flex-wrap gap-2">
-                  <button onClick={() => void createOrder()} className="rounded-lg bg-[#7A0C2E] px-3 py-1.5 font-bold text-white">➕ New ₹500 order</button>
+                  <button type="button" onClick={() => void createOrder()} className="rounded-lg bg-[#7A0C2E] px-3 py-1.5 font-bold text-white">➕ New ₹500 order</button>
                   <select value={orderId} onChange={(e) => setOrderId(e.target.value)}
                     aria-label="Order select" className="rounded-lg border px-2 py-1.5">
                     <option value="">— order (optional) —</option>
@@ -281,7 +281,7 @@ export default function MatchSend() {
                 <div className="mt-2 flex gap-2">
                   <input value={utr} onChange={(e) => setUtr(e.target.value)} placeholder="UTR / ref no"
                     aria-label="UTR" className="w-44 rounded-lg border px-2 py-1.5" />
-                  <button onClick={() => void markPaid()} className="rounded-lg bg-green-600 px-3 py-1.5 font-bold text-white">✅ Paid</button>
+                  <button type="button" onClick={() => void markPaid()} className="rounded-lg bg-green-600 px-3 py-1.5 font-bold text-white">✅ Paid</button>
                 </div>
                 <p className="mt-1 text-[11px] text-gray-500">{te ? "Order లేకుండా పంపితే complimentary shortlist మాత్రమే; phone numbers/contact access ఇవ్వదు." : "Without an order this is a complimentary shortlist only; it never grants phone or contact access."}</p>
               </div>
@@ -325,7 +325,7 @@ export default function MatchSend() {
               <select value={fNri} onChange={(e) => setFNri(e.target.value)} aria-label="NRI" className="rounded-lg border px-2 py-1">
                 <option value="">{te ? "✈️ NRI: అన్నీ" : "✈️ NRI: all"}</option><option value="only">✈️ NRI ONLY</option><option value="exclude">{te ? "NRI వద్దు" : "No NRI"}</option>
               </select>
-              <button onClick={() => void load()} disabled={loading}
+              <button type="button" onClick={() => void load()} disabled={loading}
                 className="rounded-lg bg-[#7A0C2E] px-3 py-1 font-bold text-white disabled:opacity-60">
                 🔃 Filters apply
               </button>
@@ -334,8 +334,8 @@ export default function MatchSend() {
             </div>
             <div className="mt-2 flex items-center gap-2 text-xs">
               <b className="text-[#7A0C2E]">{filtered.length}/{results.length} profiles</b>{data.filters_skipped ? <span className="text-gray-500"> · 🔍 {data.filters_skipped} server-filter skip</span> : null}
-              <button onClick={() => selectAll(true)} className="rounded-full bg-gray-200 px-3 py-1">{te ? "☑️ అన్నీ select" : "☑️ select all"}</button>
-              <button onClick={() => selectAll(false)} className="rounded-full bg-gray-200 px-3 py-1">⬜ clear</button>
+              <button type="button" onClick={() => selectAll(true)} className="rounded-full bg-gray-200 px-3 py-1">{te ? "☑️ అన్నీ select" : "☑️ select all"}</button>
+              <button type="button" onClick={() => selectAll(false)} className="rounded-full bg-gray-200 px-3 py-1">⬜ clear</button>
               <b>Selected: {selIds.length}/5</b>
             </div>
           </div>
@@ -388,11 +388,11 @@ export default function MatchSend() {
                 <option value="telegram">📩 Telegram DM</option>
                 <option value="whatsapp">💬 WhatsApp</option>
               </select>
-              <button onClick={() => void deliver()} disabled={!selIds.length || selIds.length > 5}
+              <button type="button" onClick={() => void deliver()} disabled={!selIds.length || selIds.length > 5}
                 className="rounded-xl bg-[#7A0C2E] px-5 py-2 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50">
                 🚀 {te ? "వ్యక్తిగతంగా పంపండి" : "Send personally"}
               </button>
-              <button onClick={() => void refreshCopy()} className="rounded-xl border border-[#7A0C2E] px-4 py-2 text-xs font-bold text-[#7A0C2E]">
+              <button type="button" onClick={() => void refreshCopy()} className="rounded-xl border border-[#7A0C2E] px-4 py-2 text-xs font-bold text-[#7A0C2E]">
                 📋 Copy-list refresh
               </button>
             </div>
@@ -410,7 +410,7 @@ export default function MatchSend() {
               <div className="mt-2">
                 <div className="flex items-center justify-between">
                   <b className="text-xs text-[#7A0C2E]">📋 Shortlist copy (no phone numbers)</b>
-                  <button onClick={copyNow} className="rounded-lg bg-[#0F1F3C] px-3 py-1 text-xs font-bold text-white">
+                  <button type="button" onClick={copyNow} className="rounded-lg bg-[#0F1F3C] px-3 py-1 text-xs font-bold text-white">
                     {copied ? "✅ Copied!" : "📋 Copy"}
                   </button>
                 </div>

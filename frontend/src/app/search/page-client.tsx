@@ -33,7 +33,7 @@ export default function SearchIndexPage() {
           />
         </p>
         <div className="mt-4 flex gap-2">
-          <input
+          <input aria-label="Profile ID"
             value={id}
             onChange={(e) => setId(e.target.value.toUpperCase())}
             onKeyDown={(e) => e.key === "Enter" && go()}
@@ -42,7 +42,7 @@ export default function SearchIndexPage() {
             autoCapitalize="characters"
             className="flex-1 px-4 py-3 rounded-xl border border-gold/40 bg-cream text-maroon font-bold text-base focus-brand outline-none"
           />
-          <button
+          <button type="button"
             onClick={go}
             className="px-5 py-3 rounded-xl maroon-gradient text-white font-bold text-sm"
           >

@@ -7,8 +7,62 @@ import PWA from "@/components/PWA";
 import SupportWidget from "@/components/SupportWidget";
 import BackToTop from "@/components/BackToTop";
 import { LangProvider } from "@/lib/lang";
+import { serializeJsonLd } from "@/lib/safe-json-ld";
 
 const SITE = process.env.SITE_URL || "https://manavivaha.in";
+
+/**
+ * Site-wide structured data (Organization + WebSite).
+ *
+ * Kept language-neutral on purpose: the layout is a server component and has
+ * no access to the visitor's language toggle, so both names are declared
+ * instead of guessing one. A contact point is emitted only when the owner has
+ * actually configured one — an unconfigured support channel is left out rather
+ * than filled with a placeholder.
+ */
+const SUPPORT_EMAIL = String(process.env.NEXT_PUBLIC_SUPPORT_EMAIL || "").trim();
+const SUPPORT_PHONE = String(process.env.NEXT_PUBLIC_SUPPORT_PHONE || "").trim();
+const CONTACT_POINT =
+  SUPPORT_EMAIL || SUPPORT_PHONE
+    ? {
+        "@type": "ContactPoint",
+        contactType: "customer support",
+        availableLanguage: ["te", "en"],
+        areaServed: "IN",
+        ...(SUPPORT_EMAIL ? { email: SUPPORT_EMAIL } : {}),
+        ...(SUPPORT_PHONE ? { telephone: SUPPORT_PHONE } : {}),
+      }
+    : null;
+
+const SITE_JSON_LD = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": `${SITE}/#org`,
+      name: "Mana Vivaha",
+      alternateName: "మన వివాహ",
+      url: SITE,
+      logo: `${SITE}/icons/icon-512.png`,
+      knowsLanguage: ["te", "en"],
+      ...(CONTACT_POINT ? { contactPoint: CONTACT_POINT } : {}),
+    },
+    {
+      "@type": "WebSite",
+      "@id": `${SITE}/#site`,
+      url: SITE,
+      name: "Mana Vivaha — Telugu Matrimony",
+      alternateName: "మన వివాహ — తెలుగు మ్యాట్రిమోనీ",
+      inLanguage: ["te-IN", "en-IN"],
+      publisher: { "@id": `${SITE}/#org` },
+      potentialAction: {
+        "@type": "SearchAction",
+        target: { "@type": "EntryPoint", urlTemplate: `${SITE}/search/{search_term_string}` },
+        "query-input": "required name=search_term_string",
+      },
+    },
+  ],
+};
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE),
@@ -81,6 +135,10 @@ export default function RootLayout({
         />
       </head>
       <body className="antialiased min-h-dvh flex flex-col">
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: serializeJsonLd(SITE_JSON_LD) }}
+        />
         <LangProvider>
           <a href="#main-content" className="skip-link">Skip to main content</a>
           <SiteHeader />

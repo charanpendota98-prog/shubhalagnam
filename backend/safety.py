@@ -240,7 +240,8 @@ def moderation_queue(reports: Optional[List[Dict]] = None, users: Optional[List[
 def resolve_report(report_id: str, action: str, note: str = "",
                    reports: Optional[List[Dict]] = None, users: Optional[List[Dict]] = None) -> Tuple[bool, str, Dict]:
     reports = DB_REPORTS if reports is None else reports
-    rec = next((r for r in reports if r["id"] == report_id), None)
+    # 🛡️ Legacy/partial rows must not crash the moderation queue with a 500.
+    rec = next((r for r in reports if isinstance(r, dict) and str(r.get("id", "")) == str(report_id)), None)
     if not rec:
         return False, "Report దొరకలేదు: %s" % report_id, {}
     action = str(action or "").strip().lower()
@@ -251,7 +252,8 @@ def resolve_report(report_id: str, action: str, note: str = "",
     rec["action_telugu"] = ACTION_RULES[action]
     rec["resolved_at"] = datetime.utcnow().isoformat()
     rec["admin_note"] = str(note)[:300]
-    tgt = next((u for u in (users or []) if u.get("tsap_id") == rec["target_id"]), None)
+    target_id = str(rec.get("target_id", "") or "")
+    tgt = next((u for u in (users or []) if target_id and u.get("tsap_id") == target_id), None)
     if tgt is not None:
         if action == "hide":
             tgt["is_approved"] = False
@@ -264,7 +266,9 @@ def resolve_report(report_id: str, action: str, note: str = "",
             tgt["warnings"] = int(tgt.get("warnings", 0)) + 1
     # same target ki migilina open reports ni kooda close chey (oke action tho)
     for r in reports:
-        if r["target_id"] == rec["target_id"] and r["status"] == "open":
+        if not isinstance(r, dict) or not target_id:
+            continue
+        if str(r.get("target_id", "") or "") == target_id and str(r.get("status", "")) == "open":
             r["status"] = "resolved"
             r["action"] = action
             r["resolved_at"] = datetime.utcnow().isoformat()

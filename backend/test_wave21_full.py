@@ -90,8 +90,12 @@ try:
     referral.process_referral_payment(nb, pid, 99, [], payment_id="pw21c", plan_code="S_99")
     d = RP19.partner_public(pid, [nb])
     j = d["joins"][0]
-    check("C1 partner join first-name only (privacy)", j["name"] == "Commission", j)
-    check("C2 partner join commission ₹50", j["paid"] and j["commission"] == 50, j)
+    # 🔒 R13: the public partner feed is anonymous now — no name, phone, TSAP ID or
+    #    per-referral cash amount rides along on an unauthenticated endpoint.
+    check("C1 partner join feed is anonymous (no name/phone/ID leaked)",
+          j.get("join_no") == 1 and not any(k in j for k in ("name", "phone", "tsap_id")), j)
+    check("C2 partner join shows reward state only (paid flag, no amount)", j.get("paid") is True
+          and "commission" not in j and "amount" not in j, j)
     uref = {"tsap_id": "TSAP-M-2021-6", "full_name": "Ref Owner", "phone": "9210000024",
             "referral_code": "ROWN21", "referral_stats": {}}
     nb2 = {"tsap_id": "TSAP-F-2021-5", "full_name": "User Join", "phone": "9210000025"}
@@ -130,13 +134,18 @@ def read(rel):
 
 
 rp = read("src/app/referral/page.tsx")
-check("E1 joins show full name + commission", "r.name" in rp and "r.commission" in rp and "⏳ pay pending" in rp)
+# 🧾 R13: own-referral rows show first name + reward *status* (no per-referral cash column).
+check("E1 joins show name + reward status (no invented commission)",
+      "r.name" in rp and "r.paid" in rp and "No qualifying payment recorded" in rp)
 pp = read("src/app/referral/register/page.tsx")
-check("E2 partner joins name + commission", "j.commission" in pp and "⏳ pending" in pp)
+# 🔒 R13: the public partner feed is anonymous — join number + reward state only.
+check("E2 partner joins anonymous (join_no + reward state)",
+      "j.join_no" in pp and "j.paid" in pp and "Anonymous referral activity" in pp)
 ar = read("src/components/ReferralReport.tsx")
 check("E3 admin pay-full button + endpoint", "Pay ₹" in ar and "zero" in ar and "/api/admin/referrals/pay-full" in ar)
 wc = read("src/components/WANumbersConsole.tsx")
-check("E4 WA queue strip (live/queue/sent/gaps)", all(k in wc for k in ("sender live", "sent_total", "failed_total", "min_gap_otp")))
+check("E4 WA queue strip (worker/queue/sent/gaps)",
+      all(k in wc for k in ("worker_running", "sent_total", "failed_total", "min_gap_otp")))
 reg = read("src/app/register/page.tsx")
 check("E5 autofill chain intact", all(k in reg for k in ("register_direct", "tsap_ref_from_link", "tsap_click_fired")))
 import inspect as _insp

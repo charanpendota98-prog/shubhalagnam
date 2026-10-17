@@ -105,12 +105,12 @@ export default function Showcase() {
           {castes.map((c) => <option key={c} value={c}>{displayApiText(c, "Community name in the original language")}</option>)}
         </select>
         {suggestion && (
-          <button onClick={() => { setCaste(suggestion); void load(suggestion); }}
+          <button type="button" onClick={() => { setCaste(suggestion); void load(suggestion); }}
             className="rounded-xl border border-[#B8860B] bg-[#FFF8E7] px-3 py-2 text-xs font-bold text-[#8B6914]">
             🔄 {te ? `వచ్చే వారం: ${suggestion} (rotation)` : `Next: ${displayApiText(suggestion, "Community name in the original language")}`}
           </button>
         )}
-        <button onClick={() => void load()} disabled={loading}
+        <button type="button" onClick={() => void load()} disabled={loading}
           className="rounded-xl bg-[#7A0C2E] px-5 py-2 text-sm font-bold text-white disabled:opacity-60">
           {loading ? "⏳" : te ? "🎊 Profiles load" : "Load profiles"}
         </button>
@@ -142,10 +142,10 @@ export default function Showcase() {
       </div>
 
       <div className="mt-3 flex flex-wrap gap-2">
-        <button onClick={() => void apply(true)} className="rounded-xl bg-[#7A0C2E] px-5 py-2.5 text-sm font-bold text-white">
+        <button type="button" onClick={() => void apply(true)} className="rounded-xl bg-[#7A0C2E] px-5 py-2.5 text-sm font-bold text-white">
           🎊 {te ? "ఈ వారం showcase గా set + caste channels లో post" : "Set weekly showcase + post"}
         </button>
-        <button onClick={() => void apply(false)} className="rounded-xl border border-[#7A0C2E] px-4 py-2.5 text-xs font-bold text-[#7A0C2E]">
+        <button type="button" onClick={() => void apply(false)} className="rounded-xl border border-[#7A0C2E] px-4 py-2.5 text-xs font-bold text-[#7A0C2E]">
           {te ? "set మాత్రమే (post వద్దు)" : "Set only"}
         </button>
       </div>

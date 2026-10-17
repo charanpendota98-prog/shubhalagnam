@@ -17,10 +17,12 @@ import Image from "next/image";
 import { useSearchParams } from "next/navigation";
 import Reveal from "@/components/Reveal";
 import { SITE_CONFIG } from "@/lib/site-config";
+import { CASTES as SEO_COMMUNITY_HUBS } from "@/lib/seo-pages";
+import { communityHubPath } from "@/lib/community-hub.mjs";
 import { getLang, useLang } from "@/lib/lang";
 import { apiDisplayMessage, readApiJson } from "@/lib/api";
 import { ProfilePhotoError, prepareProfilePhoto, profilePhotoErrorMessage } from "@/lib/photo-upload";
-import { stateFullName } from "@/lib/telugu-data";
+import { stateFullName, isGroomGender, isHomemakerOccupation, workTypesForGender } from "@/lib/telugu-data";
 import PhotoFlow from "@/components/PhotoFlow";
 import ProtectedImage from "@/components/ProtectedImage";
 import { TelegramIcon, WhatsAppIcon } from "@/components/BrandIcons";
@@ -752,6 +754,7 @@ function Wizard() {
   const [photoPreparing, setPhotoPreparing] = useState(false);
   const [showPw, setShowPw] = useState(false);
   const [refLocked, setRefLocked] = useState("");
+  const [refInvite, setRefInvite] = useState("");
   const [refInfo, setRefInfo] = useState<any>(null);
   const [result, setResult] = useState<any>(null);
   const topRef = useRef<HTMLDivElement>(null);
@@ -765,6 +768,22 @@ function Wizard() {
 
   const set = (k: string, v: any) => {
     setF((prev) => ({ ...prev, [k]: v }));
+    setErrs([]);
+  };
+
+  /**
+   * 👩 Switching to Groom clears any "Housewife / గృహిణి" career entry, because
+   * that label describes a woman's work and can never belong to a groom profile.
+   */
+  const setGender = (value: string) => {
+    setF((prev) => {
+      const next: Record<string, unknown> = { ...prev, gender: value };
+      if (isGroomGender(value)) {
+        if (isHomemakerOccupation(prev.job)) next.job = "";
+        if (isHomemakerOccupation(prev.work_type)) next.work_type = "";
+      }
+      return next;
+    });
     setErrs([]);
   };
 
@@ -921,12 +940,22 @@ function Wizard() {
     } catch {
       /* ignore */
     }
+    // 💎 Per-person invite token from /r/<code>?inv=TOKEN — kept with the code so
+    // the referrer can see which of their people actually joined.
+    let inv = (params?.get("inv") || "").trim().toUpperCase();
+    try {
+      if (inv) sessionStorage.setItem("tsap_ref_invite", inv);
+      else inv = sessionStorage.getItem("tsap_ref_invite") || "";
+    } catch {
+      /* ignore */
+    }
+    if (inv) setRefInvite(inv);
     if (!ref) return;
     setRefLocked(ref);
     setF((prev) => ({ ...prev, referral_code: ref }));
     if (!sessionStorage.getItem("tsap_click_fired")) {
       sessionStorage.setItem("tsap_click_fired", "1");
-      fetch(`/api/referral/click/${encodeURIComponent(ref)}?source=register_direct`, { method: "POST" })
+      fetch(`/api/referral/click/${encodeURIComponent(ref)}?source=register_direct${inv ? `&inv=${encodeURIComponent(inv)}` : ""}`, { method: "POST" })
         .then((r) => readApiJson(r))
         .then((d) => {
           if (d?.valid_code && d?.referrer_name) setRefInfo({ ok: true, referrer_name: d.referrer_name, bonus_credits: d.bonus_credits });
@@ -1051,6 +1080,10 @@ function Wizard() {
       if (!f.education) e.push(T("విద్యార్హత ఎంచుకోండి (Select education)", "Select education"));
       if (!f.job) e.push(T("ఉద్యోగం / హోదా ఎంచుకోండి (Select occupation)", "Select occupation"));
       if (!f.salary) e.push(T("వార్షిక వేతనం ఎంచుకోండి (Select annual salary range)", "Select annual salary range"));
+      // 🏡 "Housewife / గృహిణి" describes a woman's work — never valid on a Groom.
+      if (isGroomGender(f.gender) && (isHomemakerOccupation(f.job) || isHomemakerOccupation(f.work_type))) {
+        e.push(T("వరుడి ప్రొఫైల్‌కు ‘గృహిణి / Housewife’ ఎంపిక వర్తించదు; ఈ వ్యక్తికి సరిపోయే ఉద్యోగం ఎంచుకోండి.", "‘Housewife / Homemaker’ does not apply to a Groom profile — choose the work that describes this person."));
+      }
     }
     if (s === 4) {
       if (!f.state) e.push(T("రాష్ట్రం / ప్రాంతం ఎంచుకోండి (Select state)", "Select state"));
@@ -1171,6 +1204,7 @@ function Wizard() {
       if (!photoFile) throw new Error(T("నమోదుకు ముందు స్పష్టమైన ప్రొఫైల్ ఫోటోను జోడించండి", "A clear profile photo is required before registration"));
       fd.append("photo_file", photoFile, photoFile.name);
       if (refLocked) fd.append("referral_code", refLocked);
+      if (refLocked && refInvite) fd.append("referral_invite", refInvite);
 
       const r = await fetch("/api/register", { method: "POST", body: fd });
       const d = await readApiJson(r);
@@ -1227,6 +1261,22 @@ function Wizard() {
   if (result) {
     const tsap = result.tsap_id || result.user_id || "";
     const cardUrl = tsap ? result.card_url || `/cards/${tsap}.png` : "";
+    // The community the member just registered under, resolved to its own
+    // hub page when one exists — registration and groups stay connected.
+    const communityName = String(
+      (f.caste === "Other / self-described" ? f.caste_custom : f.caste) || "",
+    ).trim();
+    const hub = communityHubPath({
+      community: communityName,
+      gender: f.gender,
+      hubs: SEO_COMMUNITY_HUBS,
+      fallback: "/castes",
+    });
+    const hubRoleLabel = hub.role === "bride"
+      ? (te ? "వధువుల" : "brides")
+      : hub.role === "groom"
+        ? (te ? "వరుల" : "grooms")
+        : "";
     const phoneVerified = result.phone_verified === true;
     const profileApproved = result.is_approved === true;
     return (
@@ -1318,6 +1368,47 @@ function Wizard() {
                 <span>🎯</span>
                 <span>{T("నా ప్రిఫరెన్సెస్ సెట్ చేయండి →", "Set my preferences →")}</span>
               </Link>
+            </div>
+
+            {/* Community hub: the groups belong to the community they just joined. */}
+            <div className="rounded-2xl border border-gold/40 bg-gradient-to-r from-rose-50 via-amber-50 to-rose-50 p-4 space-y-2">
+              <div className="flex items-center gap-2">
+                <span className="text-xl" aria-hidden="true">🤝</span>
+                <span className="font-black text-sm text-maroon">
+                  {hub.matched && communityName
+                    ? T(`${communityName} కమ్యూనిటీ గ్రూపులు`, `${communityName} community groups`)
+                    : T("మీ కమ్యూనిటీ గ్రూపులు", "Community groups")}
+                </span>
+              </div>
+              <p className="text-[11px] leading-relaxed text-slate-600">
+                {hub.matched && communityName
+                  ? T(
+                      `ఈ కమ్యూనిటీ ${hubRoleLabel ? hubRoleLabel + " " : ""}గ్రూపులు Telegram / WhatsApp లో ఉన్నాయి — చేరడం ఐచ్ఛికం. చేరినంత మాత్రాన మీ ప్రొఫైల్ లేదా సంప్రదింపు వివరాలు బయటకు వెళ్ళవు; గ్రూపు లభ్యత మరియు నిర్వహణకు మేము హామీ ఇవ్వము.`,
+                      `This community runs optional Telegram / WhatsApp groups${hubRoleLabel ? " for " + hubRoleLabel : ""}. Joining does not publish your profile or contact details, and we do not guarantee a group is available or how it is run.`,
+                    )
+                  : T(
+                      "కమ్యూనిటీ గ్రూపులు Telegram / WhatsApp లో ఐచ్ఛికంగా ఉంటాయి. మీ కమ్యూనిటీకి గ్రూపు ఉంటే ఇక్కడ దొరుకుతుంది; లభ్యత మరియు నిర్వహణకు మేము హామీ ఇవ్వము.",
+                      "Community groups on Telegram / WhatsApp are optional. If your community has one, you will find it here; we do not guarantee availability or how a group is run.",
+                    )}
+              </p>
+              <div className="flex flex-wrap gap-2 pt-0.5">
+                <Link
+                  href={hub.href}
+                  className="inline-flex min-h-11 items-center gap-1.5 rounded-xl bg-[#7A0C2E] px-4 py-2 text-xs font-black text-white shadow-sm"
+                >
+                  <span aria-hidden="true">🤝</span>
+                  <span>{hub.matched
+                    ? T("నా కమ్యూనిటీ గ్రూపుకు వెళ్లండి →", "Open my community group →")
+                    : T("కమ్యూనిటీ గ్రూపులు చూడండి →", "Browse community groups →")}</span>
+                </Link>
+                <Link
+                  href="/channels"
+                  className="inline-flex min-h-11 items-center gap-1.5 rounded-xl border border-maroon/30 bg-white px-4 py-2 text-xs font-bold text-maroon"
+                >
+                  <span aria-hidden="true">📡</span>
+                  <span>{T("అన్ని ఛానెళ్లు", "All channels")}</span>
+                </Link>
+              </div>
             </div>
 
             {/* Photo Flow upload */}
@@ -1524,14 +1615,14 @@ function Wizard() {
               <button
                 type="button"
                 onClick={resumeDraft}
-                className="px-3 py-1.5 rounded-xl maroon-gradient text-white text-xs font-bold hover:brightness-105 transition"
+                className="px-3 py-1.5 rounded-xl maroon-gradient text-white text-xs font-bold hover:brightness-105 transition min-h-11"
               >
                 {T("కొనసాగించండి", "Resume")}
               </button>
               <button
                 type="button"
                 onClick={clearDraft}
-                className="px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-slate-700 text-xs font-bold hover:bg-slate-50 transition"
+                className="px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-slate-700 text-xs font-bold hover:bg-slate-50 transition min-h-11"
               >
                 {T("కొత్తగా ప్రారంభించండి", "Start new")}
               </button>
@@ -1588,7 +1679,7 @@ function Wizard() {
                     <button
                       key={g.v}
                       type="button"
-                      onClick={() => set("gender", g.v)}
+                      onClick={() => setGender(g.v)}
                       aria-pressed={f.gender === g.v}
                       className={`rounded-2xl border-2 p-3 text-center transition-all ${
                         f.gender === g.v
@@ -1706,7 +1797,7 @@ function Wizard() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-slate-50/70 p-3 rounded-2xl border border-slate-200">
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-slate-800">{T("విద్యార్హత", "Education")} (Optional)</label>
-                  <select
+                  <select aria-label={te ? "విద్యార్హత" : "Education"}
                     value={f.education}
                     onChange={(e) => set("education", e.target.value)}
                     className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-medium"
@@ -1722,13 +1813,16 @@ function Wizard() {
 
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-slate-800">{T("ఉద్యోగం / హోదా", "Job title")} (Optional)</label>
-                  <select
+                  <select aria-label={te ? "ఉద్యోగం" : "Occupation"}
                     value={f.job}
                     onChange={(e) => set("job", e.target.value)}
                     className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-medium"
                   >
                     <option value="">{T("ఉద్యోగం ఎంచుకోండి", "Select occupation")} (Optional)</option>
-                    <option value="Housewife / Homemaker (గృహిణి)">{te ? "🏡 గృహిణి" : "🏡 Housewife / homemaker"}</option>
+                    {/* 🏡 Homemaker describes a woman's work — never offered for a Groom. */}
+                    {!isGroomGender(f.gender) && (
+                      <option value="Housewife / Homemaker (గృహిణి)">{te ? "🏡 గృహిణి" : "🏡 Housewife / homemaker"}</option>
+                    )}
                     <option value="Software Engineer">💻 Software Engineer / IT</option>
                     <option value="Govt Employee (Central / State)">🏛️ Govt Employee / PSU</option>
                     <option value="Bank Officer / PO / Manager">🏦 Bank Officer / Finance</option>
@@ -1746,7 +1840,7 @@ function Wizard() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-slate-800">{T("రాష్ట్రం", "State")} *</label>
-                  <select
+                  <select aria-label={te ? "రాష్ట్రం" : "State"}
                     value={f.state}
                     onChange={(e) => {
                       set("state", e.target.value);
@@ -1795,7 +1889,7 @@ function Wizard() {
                       {showPw ? "Hide" : "Show"}
                     </button>
                   </label>
-                  <input
+                  <input aria-label="కనీసం 6 అక్షరాలు (min 6 chars)"
                     type={showPw ? "text" : "password"}
                     value={f.password || ""}
                     onChange={(e) => set("password", e.target.value)}
@@ -1986,7 +2080,7 @@ function Wizard() {
                   <button
                     type="button"
                     onClick={() => executeSubmit(true)}
-                    className="text-xs font-bold text-maroon bg-amber-50 px-3 py-1 rounded-full border border-gold/30 hover:bg-gold/20"
+                    className="text-xs font-bold text-maroon bg-amber-50 px-3 py-1 rounded-full border border-gold/30 hover:bg-gold/20 min-h-11"
                   >
                     {T("⚡ ఇప్పుడే సబ్మిట్ చేయండి", "⚡ Submit now")}
                   </button>
@@ -2007,7 +2101,7 @@ function Wizard() {
                           <button
                             key={g.v}
                             type="button"
-                            onClick={() => set("gender", g.v)}
+                            onClick={() => setGender(g.v)}
                             className={`rounded-2xl border-2 p-3.5 text-center transition-all ${
                               f.gender === g.v
                                 ? "border-maroon bg-maroon-soft shadow-sm ring-2 ring-maroon/20"
@@ -2051,7 +2145,7 @@ function Wizard() {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div className="space-y-1.5">
                         <label className="text-xs font-bold text-slate-800">{T("ఎత్తు", "Height")} *</label>
-                        <select
+                        <select aria-label={te ? "ఎత్తు" : "Height"}
                           value={f.height}
                           onChange={(e) => set("height", e.target.value)}
                           className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-medium"
@@ -2067,7 +2161,7 @@ function Wizard() {
 
                       <div className="space-y-1.5">
                         <label className="text-xs font-bold text-slate-800">{T("వైవాహిక స్థితి", "Marital status")} *</label>
-                        <select
+                        <select aria-label={te ? "వైవాహిక స్థితి" : "Marital status"}
                           value={f.marital_status}
                           onChange={(e) => {
                             setF((prev) => ({ ...prev, marital_status: e.target.value, children: "" }));
@@ -2090,7 +2184,7 @@ function Wizard() {
                     {f.marital_status && !isNeverMarriedStatus(f.marital_status) && (
                       <div className="space-y-1.5">
                         <label className="text-xs font-bold text-slate-800">{T("పిల్లలు", "Children")} *</label>
-                        <select
+                        <select aria-label={te ? "పిల్లలు" : "Children"}
                           value={f.children}
                           onChange={(e) => set("children", e.target.value)}
                           className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-medium"
@@ -2206,7 +2300,7 @@ function Wizard() {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div className="space-y-1.5">
                         <label className="text-xs font-bold text-slate-800">{T("నక్షత్రం", "Nakshatram")}</label>
-                        <select
+                        <select aria-label={T("నక్షత్రం", "Nakshatram")}
                           value={f.star || ""}
                           onChange={(e) => set("star", e.target.value)}
                           className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-medium"
@@ -2222,7 +2316,7 @@ function Wizard() {
 
                       <div className="space-y-1.5">
                         <label className="text-xs font-bold text-slate-800">{T("రాశి", "Rasi")}</label>
-                        <select
+                        <select aria-label={T("రాశి", "Rasi")}
                           value={f.rasi || ""}
                           onChange={(e) => set("rasi", e.target.value)}
                           className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-medium"
@@ -2242,9 +2336,31 @@ function Wizard() {
                 {/* ---------------- STEP 3: CAREER & EDUCATION ---------------- */}
                 {step === 3 && (
                   <div className="space-y-4">
+                    {/* వృత్తి రంగం — this field is validated and stored, so it must be
+                        selectable here. The list is gender-aware: a Groom never sees
+                        the "Homemaker / గృహిణి" sector. */}
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-slate-800">{T("వృత్తి / ఉద్యోగ రంగం", "Work sector")} *</label>
+                      <select aria-label={te ? "వృత్తి రంగం" : "Work sector"}
+                        value={f.work_type}
+                        onChange={(e) => set("work_type", e.target.value)}
+                        className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-medium"
+                      >
+                        <option value="">{T("వృత్తి రంగం ఎంచుకోండి", "Select work sector")}</option>
+                        {workTypesForGender(f.gender).map((wt) => (
+                          <option key={wt.id} value={wt.en}>
+                            {te ? wt.display : wt.en}
+                          </option>
+                        ))}
+                      </select>
+                      <p className="text-[11px] text-slate-500">
+                        {T("ఇది ప్రొఫైల్‌లో చూపే వృత్తి విభాగం; ఉద్యోగ హోదాను తర్వాత నమోదు చేయండి.", "This is the sector shown on the profile; enter the exact job title below.")}
+                      </p>
+                    </div>
+
                     <div className="space-y-1.5">
                       <label className="text-xs font-bold text-slate-800">{T("విద్యార్హత", "Education")} *</label>
-                      <select
+                      <select aria-label={te ? "విద్యార్హత" : "Education"}
                         value={f.education}
                         onChange={(e) => set("education", e.target.value)}
                         className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-medium"
@@ -2264,7 +2380,9 @@ function Wizard() {
                       </label>
                       <div className="flex flex-wrap gap-1.5">
                         {[
-                          { l: te ? "🏡 గృహిణి" : "🏡 Housewife / homemaker", v: "Housewife / Homemaker (గృహిణి)" },
+                          ...(isGroomGender(f.gender)
+                            ? []
+                            : [{ l: te ? "🏡 గృహిణి" : "🏡 Housewife / homemaker", v: "Housewife / Homemaker (గృహిణి)" }]),
                           { l: "💻 Software Engineer", v: "Software Engineer" },
                           { l: "🏛️ Govt Employee", v: "Govt Employee (Central / State)" },
                           { l: "🩺 Doctor", v: "Doctor / Physician" },
@@ -2307,7 +2425,7 @@ function Wizard() {
 
                     <div className="space-y-1.5">
                       <label className="text-xs font-bold text-slate-800">{T("వార్షిక వేతనం", "Annual salary")} *</label>
-                      <select
+                      <select aria-label={te ? "ఆదాయం" : "Income"}
                         value={f.salary}
                         onChange={(e) => set("salary", e.target.value)}
                         className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-medium"
@@ -2330,7 +2448,7 @@ function Wizard() {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div className="space-y-1.5">
                         <label className="text-xs font-bold text-slate-800">{T("రాష్ట్రం", "State")} *</label>
-                        <select
+                        <select aria-label={te ? "రాష్ట్రం" : "State"}
                           value={f.state}
                           onChange={(e) => {
                             set("state", e.target.value);
@@ -2424,7 +2542,7 @@ function Wizard() {
                           {T("కనీసం 50 అక్షరాలు", "Minimum 50 characters")}
                         </span>
                       </label>
-                      <textarea
+                      <textarea aria-label={te ? "మీ కుటుంబం, వ్యక్తిత్వం మరియు అంచనాల గురించి రాయండి… (ఫోన్ నంబర్లు లేదా ఈమెయిల్ ఇవ్వకండి)" : "Describe your family, personality, and expectations. Do not include phone numbers or email addresses."}
                         rows={3}
                         value={f.about_myself || ""}
                         onChange={(e) => set("about_myself", e.target.value)}

@@ -77,7 +77,10 @@ class CopyTruthTests(unittest.TestCase):
         growth = (ROOT / "frontend/src/components/HomeGrowth.tsx").read_text(encoding="utf-8")
         self.assertNotIn("member-submitted details", hero)
         self.assertNotIn("do not guarantee identity", hero)
-        self.assertNotIn("చిత్రాలు సూచన కోసం మాత్రమే", hero)
+        # The hero stays concise, but the one line it must keep is the
+        # illustrative-imagery disclaimer: the film and poster are not
+        # photographs of members, so saying so is required, not clutter.
+        self.assertIn("Illustrative visuals only", hero)
         self.assertIn("member-submitted", spotlight)
         self.assertIn("does not independently verify", spotlight)
         self.assertIn("Member-submitted previews", growth)

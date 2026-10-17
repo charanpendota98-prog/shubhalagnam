@@ -83,14 +83,31 @@ try:
         for fn in fns:
             if fn.endswith((".tsx", ".ts")):
                 blob += open(os.path.join(dp, fn), encoding="utf-8").read() + "\n"
-    ORPHANS = ["/api/boost/packs", "/api/boost/buy", "/api/top-matches/",
-               "/api/match/score", "/api/astro/dosha/", "/api/astro/jathakam/upload",
-               "/api/interest/status/", "/api/promo/apply", "/api/share/kit/",
+    ORPHANS = ["/api/boost/packs", "/api/top-matches/",
+               "/api/astro/dosha/", "/api/astro/jathakam/upload",
+               "/api/interest/status/", "/api/promo/apply",
                "/api/streak/", "/api/streak/claim", "/api/unlocks/",
                "/api/voice/upload", "/api/voice/", "/api/gothram/check",
                "/api/astro/chart/"]
     missing = [u for u in ORPHANS if u not in blob]
     check("R1 all orphans wired", not missing, missing)
+
+    # 🌿 R13 — three routes are intentionally *not* called by the UI any more. Each is kept
+    #    server-side for API compatibility and has a wired successor; the check below proves
+    #    the replacement is reachable instead of pretending the legacy URL is the live one.
+    LEGACY_ROUTES = {
+        "/api/boost/buy": ("/api/pay/order", "boost packs are bought through PayPro orders"),
+        "/api/match/score": ("/api/top-matches/", "factual comparison list, never a compatibility score"),
+        "/api/share/kit/": ("/api/referral/", "share kit is served by the referral dashboard"),
+    }
+    unwired = ["%s -> %s (%s)" % (legacy, succ, why)
+               for legacy, (succ, why) in LEGACY_ROUTES.items() if succ not in blob]
+    check("R1b every retired route has its replacement wired", not unwired, unwired)
+    # Blueprint §5: no invented compatibility percentage may ever be rendered.
+    check("R1c UI never calls the retired match-score route", "/api/match/score" not in blob)
+    _msrc = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "main.py"), encoding="utf-8").read()
+    gone = [route for route in LEGACY_ROUTES if route.rstrip("/") not in _msrc]
+    check("R1d retired routes still exist server-side for API compatibility", not gone, gone)
     check("R1b /me page exists", os.path.exists(os.path.join(FRONT, "app", "me", "page.tsx")))
     check("R1c TopPicks + RasiChart exist",
           os.path.exists(os.path.join(FRONT, "components", "TopPicks.tsx"))

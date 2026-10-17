@@ -3,14 +3,26 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import Reveal from "@/components/Reveal";
-import SectionHeading from "@/components/SectionHeading";
+import { Badge, Button, Card, CardBody } from "@/components/ui";
 import ProfilesOfTheDay from "@/components/ProfilesOfTheDay";
+import HomeStories from "@/components/HomeStories";
 import HomeVendorsShowcase from "@/components/HomeVendorsShowcase";
 import CinematicHero from "@/components/CinematicHero";
 import { SITE_CONFIG } from "@/lib/site-config";
 import { serializeJsonLd } from "@/lib/safe-json-ld";
 import { apiGet } from "@/lib/api";
 import { useLang, type Lang } from "@/lib/lang";
+import { ArrowRight, EyeOff, Gift, ShieldCheck, UserCheck } from "lucide-react";
+import WeddingStoryHero from "@/components/WeddingStoryHero";
+import HeroQuickSearch from "@/components/HeroQuickSearch";
+import DailyStrip from "@/components/DailyStrip";
+import ShowcaseStrip from "@/components/ShowcaseStrip";
+import AdSlot from "@/components/AdSlot";
+import HomePoruthamWidget from "@/components/HomePoruthamWidget";
+import { TeaserStrip, ReligionsStrip } from "@/components/HomeGrowth";
+
+/** Trust-rail icons — decorative only; the copy below states the actual rules. */
+const TRUST_ICONS = [Gift, UserCheck, EyeOff, ShieldCheck] as const;
 
 type PlanStat = { code: string; price: number; profiles: number };
 type HomeStats = { free_first: number; plans: PlanStat[] };
@@ -66,6 +78,13 @@ const TEXT = {
     ctaSub: "ఉచితంగా నమోదు చేసి, సభ్యులు అందించిన ప్రొఫైల్ వివరాలను మీరే పరిశీలించండి.",
     register: "ఉచితంగా నమోదు",
     browse: "సంబంధాలు చూడండి",
+    trust: (free: number) => [
+      `నమోదు ఉచితం — మొదటి ${free} interest requests ఉచితం`,
+      "Profile owner accept చేసిన తర్వాతే contact వివరాలు",
+      "ఫోటో గోప్యత — మీ privacy setting ప్రకారం",
+      "Phone OTP అంటే నంబర్‌కు access; గుర్తింపు హామీ కాదు",
+    ],
+    perRequest: (value: number) => `ఒక్కో request ≈ ₹${value}`,
   },
   en: {
     howEyebrow: "How it works",
@@ -101,6 +120,13 @@ const TEXT = {
     ctaSub: "Register for free and review member-submitted profile details at your own pace.",
     register: "Register free",
     browse: "Browse profiles",
+    trust: (free: number) => [
+      `Registration is free — first ${free} interest requests included`,
+      "Contact details only after the profile owner accepts",
+      "Photo visibility follows your privacy setting",
+      "Phone OTP shows access to a number, not proof of identity",
+    ],
+    perRequest: (value: number) => `≈ ₹${value} per request`,
   },
 };
 
@@ -149,33 +175,21 @@ export default function Home() {
     credits: planCredits[index],
   }));
   const FAQs = L.faq(stats.free_first, p99, p199, p299, p499);
+  const trustItems = L.trust(stats.free_first);
 
+  // Derived from the same plan figures shown above — an arithmetic rounding of
+  // published prices, not a new claim or a price promise.
+  const perRequest = (plan: PlanStat): number | null => {
+    if (!(plan.profiles > 0) || !(plan.price > 0)) return null;
+    const value = plan.price / plan.profiles;
+    return Number.isFinite(value) ? Math.round(value) : null;
+  };
+
+  // Site-wide Organization + WebSite nodes live in the root layout so every
+  // page carries them; the homepage adds only its own FAQ markup.
   const jsonLd = {
     "@context": "https://schema.org",
     "@graph": [
-      {
-        "@type": "Organization",
-        "@id": `${SITE_CONFIG.siteUrl}/#org`,
-        name: te ? "మన వివాహ" : "Mana Vivaha",
-        alternateName: te ? "Mana Vivaha" : "మన వివాహ",
-        url: SITE_CONFIG.siteUrl,
-        logo: `${SITE_CONFIG.siteUrl}/icons/icon-512.png`,
-        ...(SITE_CONFIG.supportEmail ? { email: SITE_CONFIG.supportEmail } : {}),
-        knowsLanguage: ["te", "en"],
-      },
-      {
-        "@type": "WebSite",
-        "@id": `${SITE_CONFIG.siteUrl}/#site`,
-        url: SITE_CONFIG.siteUrl,
-        name: te ? "మన వివాహ — తెలుగు మ్యాట్రిమోనీ" : "Mana Vivaha — Telugu Matrimony",
-        inLanguage: te ? "te-IN" : "en-IN",
-        publisher: { "@id": `${SITE_CONFIG.siteUrl}/#org` },
-        potentialAction: {
-          "@type": "SearchAction",
-          target: { "@type": "EntryPoint", urlTemplate: `${SITE_CONFIG.siteUrl}/search/{search_term_string}` },
-          "query-input": "required name=search_term_string",
-        },
-      },
       {
         "@type": "FAQPage",
         mainEntity: FAQs.map((item) => ({
@@ -187,90 +201,142 @@ export default function Home() {
     ],
   };
 
+  const tg = te ? "telugu" : "";
+
   return (
     <div className="home-page bg-cream">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd(jsonLd) }} />
 
       <CinematicHero />
+
+      {/* 🔎 Quick filters straight from the home screen. Same member-entered facts the
+          search page uses (community, region, age range) — no invented matches. */}
+      <HeroQuickSearch />
+
+      {/* The same rules the FAQ states, repeated where a first-time visitor
+          actually looks — no new numbers, no new promises. */}
+      <section className="hp-shell" aria-label={te ? "ముఖ్య నిబంధనలు" : "Key terms at a glance"}>
+        <ul className="hp-trust">
+          {trustItems.map((item, index) => {
+            const Icon = TRUST_ICONS[index] ?? ShieldCheck;
+            return (
+              <li key={item} className="hp-trust__item">
+                <span className="hp-trust__icon" aria-hidden="true">
+                  <Icon strokeWidth={2} />
+                </span>
+                <span className={`hp-trust__text ${tg}`}>{item}</span>
+              </li>
+            );
+          })}
+        </ul>
+      </section>
+
       <ProfilesOfTheDay />
 
-      <section className="mx-auto max-w-7xl px-4 py-8" aria-label={L.howTitle}>
+      {/* Both strips render nothing when there is no approved data to show. */}
+      <DailyStrip />
+      <ShowcaseStrip />
+
+      {/* 🎬 A short wedding story — the ceremony film, played as MP4 with a
+          static poster (the old animated WebP cost ~7 MB and never streamed).
+          Decorative: it is skipped by screen readers and never blocks the
+          registration path below it. */}
+      <WeddingStoryHero />
+
+      {/* Approved member stories only — hides itself when there are none. */}
+      <HomeStories />
+
+      {/* 🪔 Ten rule-based Porutham checks from the stars the visitor supplies —
+          reference only, never a compatibility score or a marriage recommendation. */}
+      <HomePoruthamWidget />
+
+      {/* 🔒 Blurred previews with a register CTA — a peek that keeps full details
+          (and photos) behind the free-registration path. */}
+      <TeaserStrip />
+
+      <section className="hp-shell hp-section" aria-label={L.howTitle}>
         <Reveal>
-          <SectionHeading
-            eyebrow={L.howEyebrow}
-            title={L.howTitle}
-            subtitle={L.howSub}
-            telugu={te}
-          />
+          <Badge>{L.howEyebrow}</Badge>
+          <h2 className={`hp-title ${tg}`}>{L.howTitle}</h2>
+          <p className={`hp-sub ${tg}`}>{L.howSub}</p>
         </Reveal>
-        <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="hp-steps">
           {L.howSteps().map((step, index) => (
             <Reveal key={step.n} delay={index * 60}>
-              <article className="h-full rounded-3xl border border-gold/25 bg-white p-5 shadow-sm sm:p-6">
-                <div className="text-2xl" aria-hidden="true">{step.icon}</div>
-                <p className="mt-2 text-[11px] font-bold tracking-widest text-gold-deep">{te ? "దశ" : "STEP"} {step.n}</p>
-                <h3 className="mt-1 text-base font-bold text-maroon">{step.t}</h3>
-                <p className="mt-1.5 text-sm leading-relaxed text-gray-600">{step.d}</p>
-              </article>
+              <Card as="article" tone="brand" interactive className="hp-stretch">
+                <CardBody>
+                  <div className="hp-step__top">
+                    <span className="hp-step__icon" aria-hidden="true">{step.icon}</span>
+                    <span className="hp-step__num">{te ? "దశ" : "STEP"} {step.n}</span>
+                  </div>
+                  <h3 className={`hp-step__title ${tg}`}>{step.t}</h3>
+                  <p className={`hp-step__text ${tg}`}>{step.d}</p>
+                </CardBody>
+              </Card>
             </Reveal>
           ))}
         </div>
       </section>
 
       {SITE_CONFIG.features.showPricing && (
-        <section className="mx-auto max-w-7xl px-4 py-8" aria-label={te ? "ధరల సారాంశం" : "Pricing summary"}>
+        <section className="hp-shell hp-section" aria-label={te ? "ధరల సారాంశం" : "Pricing summary"}>
           <Reveal>
-            <div className="mx-auto max-w-3xl">
-              <SectionHeading
-                eyebrow={L.pricingEyebrow}
-                title={L.pricingTitle(p99.price)}
-                subtitle={L.pricingFree(stats.free_first)}
-                telugu={te}
-                align="center"
-              />
+            <div className="hp-center">
+              <Badge>{L.pricingEyebrow}</Badge>
+              <h2 className={`hp-title ${tg}`}>{L.pricingTitle(p99.price)}</h2>
+              <p className={`hp-sub ${tg}`}>{L.pricingFree(stats.free_first)}</p>
             </div>
           </Reveal>
-          <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
-            {paidPlans.map((plan, index) => (
-              <Reveal key={plan.code} delay={index * 45}>
-                <article className="h-full rounded-3xl border border-gold/30 bg-white p-5 text-center shadow-sm sm:p-6">
-                  <h3 className="text-base font-bold text-maroon">{plan.name}</h3>
-                  <p className="mt-2 text-2xl font-extrabold text-maroon">₹{plan.price}</p>
-                  <p className="mt-1 text-sm leading-relaxed text-gray-600">{plan.credits}</p>
-                </article>
-              </Reveal>
-            ))}
+          <div className="hp-price-grid">
+            {paidPlans.map((plan, index) => {
+              const unit = perRequest(plan);
+              return (
+                <Reveal key={plan.code} delay={index * 45}>
+                  <Card as="article" tone="brand" interactive className="hp-stretch hp-price">
+                    <CardBody>
+                      <h3 className={`hp-price__name ${tg}`}>{plan.name}</h3>
+                      <p className="hp-price__amount">₹{plan.price}</p>
+                      <p className="hp-price__credits">{plan.credits}</p>
+                      {unit !== null && <p className="hp-price__unit">{L.perRequest(unit)}</p>}
+                    </CardBody>
+                  </Card>
+                </Reveal>
+              );
+            })}
           </div>
-          <div className="mt-4 flex justify-center">
-            <Link href="/pricing" className="inline-flex min-h-11 items-center justify-center rounded-full border border-maroon/30 bg-white px-5 py-2.5 text-center text-sm font-bold text-maroon transition hover:bg-rose-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-maroon focus-visible:ring-offset-2">
-              {L.pricingLink} <span aria-hidden="true" className="ml-1">→</span>
-            </Link>
+          <div className="mt-6 flex justify-center">
+            <Button href="/pricing" variant="outline" iconRight={<ArrowRight size={15} aria-hidden="true" />}>
+              {L.pricingLink}
+            </Button>
           </div>
         </section>
       )}
 
       {SITE_CONFIG.features.showFaq && (
-        <section className="mx-auto max-w-4xl px-4 py-8" aria-label={L.faqTitle}>
+        <section className="hp-shell hp-section" aria-label={L.faqTitle}>
           <Reveal>
-            <SectionHeading eyebrow={L.faqEyebrow} title={L.faqTitle} align="center" />
+            <div className="hp-center">
+              <Badge>{L.faqEyebrow}</Badge>
+              <h2 className={`hp-title ${tg}`}>{L.faqTitle}</h2>
+            </div>
           </Reveal>
-          <div className="mt-5 space-y-2.5">
+          <div className="hp-faq">
             {FAQs.map((item, index) => (
               <Reveal key={item.q} delay={index * 35}>
-                <article className="overflow-hidden rounded-2xl border border-gold/25 bg-white shadow-sm">
+                <article className="hp-faq__item" data-open={openFaq === index}>
                   <h3>
                     <button
                       type="button"
                       onClick={() => setOpenFaq(openFaq === index ? null : index)}
                       aria-expanded={openFaq === index}
-                      className="flex min-h-12 w-full items-center justify-between gap-3 px-4 py-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-maroon sm:px-5"
+                      className="hp-faq__q"
                     >
-                      <span className="text-sm font-bold text-maroon">{item.q}</span>
-                      <span aria-hidden="true" className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full maroon-gradient text-sm text-white transition-transform ${openFaq === index ? "rotate-45" : ""}`}>+</span>
+                      <span>{item.q}</span>
+                      <span className="hp-faq__icon" aria-hidden="true">+</span>
                     </button>
                   </h3>
                   {openFaq === index && (
-                    <p className="px-4 pb-4 text-sm leading-relaxed text-gray-700 sm:px-5">{item.a}</p>
+                    <p className="hp-faq__a">{item.a}</p>
                   )}
                 </article>
               </Reveal>
@@ -279,34 +345,55 @@ export default function Home() {
         </section>
       )}
 
-      <section className="mx-auto max-w-7xl px-4 py-3" aria-label={te ? "భద్రత మరియు గోప్యత" : "Safety and privacy"}>
-        <div className="flex flex-col gap-3 rounded-2xl border border-rose-200 bg-white px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
-          <p className="max-w-4xl text-sm leading-relaxed text-slate-700">{L.safety}</p>
-          <Link href="/safety" className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-full border border-maroon/25 px-4 py-2 text-xs font-bold text-maroon transition hover:bg-rose-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-maroon focus-visible:ring-offset-2">
-            {L.safetyLink} <span aria-hidden="true" className="ml-1">→</span>
-          </Link>
+      <section className="hp-shell hp-section--tight" aria-label={te ? "భద్రత మరియు గోప్యత" : "Safety and privacy"}>
+        <div className="hp-safety">
+          <div className="hp-safety__lead">
+            <span className="hp-safety__icon" aria-hidden="true">
+              <ShieldCheck strokeWidth={2} />
+            </span>
+            <p className={`hp-safety__text ${tg}`}>{L.safety}</p>
+          </div>
+          <Button href="/safety" variant="outline" className="shrink-0" iconRight={<ArrowRight size={15} aria-hidden="true" />}>
+            {L.safetyLink}
+          </Button>
         </div>
       </section>
+
+      {/* Community hubs for every faith — self-description stays available
+          during registration for anything not listed. */}
+      <ReligionsStrip />
 
       {/* The optional vendor marketplace follows the member trust/pricing journey rather than interrupting it. */}
       <HomeVendorsShowcase />
 
-      <section className="mx-auto max-w-7xl px-4 py-6 sm:py-8">
+      {/* 📢 Paid placement slot — falls back to a compact house promo when no campaign
+          is running. Paid promotions never appear inside matching or profile flows. */}
+      <div className="hp-shell hp-section--tight">
+        <AdSlot slot="home_hero" />
+      </div>
+
+      <section className="hp-shell hp-section--tight pb-4">
         <Reveal>
-          <div className="relative overflow-hidden rounded-3xl maroon-gradient p-5 text-white sm:p-8">
-            <div className="pointer-events-none absolute -right-10 -top-14 h-48 w-48 rounded-full bg-gold/20 blur-3xl" aria-hidden="true" />
-            <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-              <div className="max-w-2xl">
-                <h2 className="text-xl font-extrabold leading-snug sm:text-2xl">{L.ctaTitle}</h2>
-                <p className="mt-2 text-sm leading-relaxed text-white/90">{L.ctaSub}</p>
+          <div className="hp-cta">
+            <div className="hp-cta__dots" aria-hidden="true" />
+            <div className="hp-cta__glow" aria-hidden="true" />
+            <div className="hp-cta__inner">
+              <div className="min-w-0">
+                <h2 className={`hp-cta__title ${tg}`}>{L.ctaTitle}</h2>
+                <p className={`hp-cta__sub ${tg}`}>{L.ctaSub}</p>
               </div>
-              <div className="flex shrink-0 flex-wrap gap-2">
-                <Link href="/register" className="inline-flex min-h-11 items-center justify-center rounded-full gold-gradient px-5 py-2.5 text-sm font-bold text-maroon shadow-gold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-maroon">
-                  {L.register} <span aria-hidden="true" className="ml-1">→</span>
-                </Link>
-                <Link href="/matches" className="inline-flex min-h-11 items-center justify-center rounded-full border border-white/50 bg-white/10 px-5 py-2.5 text-sm font-bold text-white transition hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-maroon">
+              <div className="hp-cta__actions">
+                <Button
+                  href="/register"
+                  variant="primary"
+                  size="lg"
+                  iconRight={<ArrowRight size={16} aria-hidden="true" />}
+                >
+                  {L.register}
+                </Button>
+                <Button href="/matches" variant="light" size="lg">
                   {L.browse}
-                </Link>
+                </Button>
               </div>
             </div>
           </div>

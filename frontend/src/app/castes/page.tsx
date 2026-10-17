@@ -4,6 +4,7 @@
  */
 import type { Metadata } from "next";
 import CastesClient from "./castes-client";
+import { FinalCta } from "@/components/HomeGrowth";
 
 export const metadata: Metadata = {
   title: "Telugu Community Matrimony Directory | Mana Vivaha",
@@ -15,5 +16,10 @@ export const metadata: Metadata = {
 };
 
 export default function CastesHub() {
-  return <CastesClient />;
+  return (
+    <>
+      <CastesClient />
+      <FinalCta />
+    </>
+  );
 }

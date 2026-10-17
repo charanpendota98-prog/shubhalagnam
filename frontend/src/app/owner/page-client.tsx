@@ -156,11 +156,11 @@ export default function OwnerPage() {
         <input value={key} onChange={(e) => setKey(e.target.value)} type="password"
           placeholder={te ? "Admin key" : "Admin key"} aria-label="Admin key"
           className="flex-1 rounded-2xl border px-3 py-2 font-mono text-sm" />
-        <button onClick={() => void load(key)} disabled={busy || !key}
+        <button type="button" onClick={() => void load(key)} disabled={busy || !key}
           className="rounded-2xl bg-[#7A0C2E] px-5 py-2 text-sm font-bold text-white disabled:opacity-50">
           {busy ? "…" : te ? "చూడు" : "View"}
         </button>
-        {d && <button onClick={() => void load(key)} className="rounded-2xl border px-4 py-2 text-sm">↻</button>}
+        {d && <button type="button" aria-label={te ? "మళ్లీ లోడ్ చేయండి" : "Refresh"} onClick={() => void load(key)} className="rounded-2xl border px-4 py-2 text-sm">↻</button>}
       </div>
       {err && <p className="mt-2 rounded-2xl border border-amber-300 bg-amber-50 p-2 text-[13px] font-bold text-amber-900">{err}</p>}
       {d && <p className="mt-1 font-mono text-[10px] text-slate-400">at {String(d.at || "").slice(0, 19).replace("T", " ")}</p>}
@@ -257,7 +257,7 @@ export default function OwnerPage() {
           <Card title="💾 Backup / Restore">
             <p className="text-[12px] leading-relaxed text-slate-600">{te ? "ఈ ZIP‌లో core database మరియు configure చేసిన JSON/JSONL application state మాత్రమే ఉంటాయి. Profile photos, cards, voice introductions, jathakams, posters, .env/secrets లేదా Docker volume ఇందులో ఉండవు. ఇది encrypted off-site backup కాదు. Restore వల్ల records తగ్గితే రెండో confirmation అడుగుతుంది; restore‌కు ముందు same-volume snapshot తీసుకుంటుంది, కానీ అది off-site backup‌కు ప్రత్యామ్నాయం కాదు. Production recovery కోసం మొత్తం data volume మరియు media‌ను encrypted off-host backup చేసి, isolated environment‌లో restore పరీక్షించాలి." : "This ZIP contains the core database and configured JSON/JSONL application state only. It excludes profile photos, cards, voice introductions, jathakams, posters, .env/secrets, and the Docker volume. It is not an encrypted off-site backup. A restore that would reduce active records requires a second confirmation, and a same-volume pre-restore snapshot is attempted first; neither replaces an off-site backup. For production recovery, back up the complete data volume and media off-host with encryption, then test a restore in an isolated environment."}</p>
             <div className="mt-2 flex flex-wrap items-center gap-2">
-              <button onClick={() => void downloadBackup()} disabled={bbusy} className="rounded-2xl bg-[#7A0C2E] px-4 py-2 text-[13px] font-bold text-white disabled:opacity-50">⬇️ {te ? "బ్యాకప్ download" : "Download backup"}</button>
+              <button type="button" onClick={() => void downloadBackup()} disabled={bbusy} className="rounded-2xl bg-[#7A0C2E] px-4 py-2 text-[13px] font-bold text-white disabled:opacity-50">⬇️ {te ? "బ్యాకప్ download" : "Download backup"}</button>
               <label className="cursor-pointer rounded-2xl border border-[#7A0C2E] px-4 py-2 text-[13px] font-bold text-[#7A0C2E]">⬆️ {te ? "Restore (zip)" : "Restore (zip)"}
                 <input type="file" accept=".zip" className="hidden" onChange={(e) => { void restoreBackup(e.target.files?.[0]); e.target.value = ""; }} />
               </label>

@@ -5,6 +5,15 @@ import Link from "next/link";
 import { WhatsAppIcon } from "@/components/BrandIcons";
 import { useLang } from "@/lib/lang";
 import { apiDisplayMessage, apiPost } from "@/lib/api";
+import {
+  buildCompareMatrix,
+  differenceRows,
+  isMissingValue,
+  preferenceNotes,
+  rankByPreferences,
+  tallyLabel,
+  tallyPreferences,
+} from "@/lib/compare-insights.mjs";
 
 type ProfileCard = {
   tsap_id: string;
@@ -26,7 +35,15 @@ type ProfileCard = {
   photo_url?: string;
 };
 
-type CompareResponse = { success?: boolean; profiles?: ProfileCard[] };
+type PreferenceCheck = { key: string; label?: string; status: string; note?: string };
+type Comparison = { preference_checks?: PreferenceCheck[]; field_checks?: unknown[]; observations?: string[] };
+
+type CompareResponse = {
+  success?: boolean;
+  profiles?: ProfileCard[];
+  comparisons?: Record<string, Comparison>;
+  has_saved_expectations?: boolean;
+};
 
 const EMPTY_IDS = ["", "", ""] as const;
 const ID_PATTERN = /^[A-Z0-9-]{3,32}$/;
@@ -41,19 +58,66 @@ function initials(name: string): string {
   return parts.slice(0, 2).map((part) => Array.from(part)[0] || "").join("") || "•";
 }
 
+/** Value used for comparison only: placeholders collapse to "" so they never
+ *  count as a difference. */
+function compareValue(profile: ProfileCard, key: string): string {
+  if (key === "caste") return [profile.caste, profile.sub_caste].filter(Boolean).join(" · ");
+  if (key === "district") return [profile.district, profile.state].filter(Boolean).join(", ");
+  const text = String((profile as Record<string, unknown>)[key] ?? "").trim();
+  return isMissingValue(text) ? "" : text;
+}
+
 export default function ProfileCompareStudio() {
   const { lang } = useLang();
   const te = lang === "te";
   const [ids, setIds] = useState<string[]>([...EMPTY_IDS]);
   const [showThird, setShowThird] = useState(false);
   const [profiles, setProfiles] = useState<ProfileCard[]>([]);
+  const [comparisons, setComparisons] = useState<Record<string, Comparison>>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [needsLogin, setNeedsLogin] = useState(false);
   const [copyMessage, setCopyMessage] = useState("");
+  const [onlyDifferences, setOnlyDifferences] = useState(false);
+  const [order, setOrder] = useState<"entered" | "preferences">("entered");
 
   const activeIds = showThird ? ids.slice(0, 3) : ids.slice(0, 2);
-  const activeProfiles = profiles.slice(0, showThird ? 3 : 2);
+  const baseProfiles = profiles.slice(0, showThird ? 3 : 2);
+
+  const ranking = useMemo(() => rankByPreferences(baseProfiles, comparisons), [baseProfiles, comparisons]);
+  const hasExpectations = ranking.some((row) => row.total > 0);
+
+  const activeProfiles = useMemo(() => {
+    if (order !== "preferences" || !hasExpectations) return baseProfiles;
+    return ranking
+      .map((row) => baseProfiles.find((profile) => String(profile.tsap_id) === row.tsap_id))
+      .filter((profile): profile is ProfileCard => Boolean(profile));
+  }, [baseProfiles, ranking, order, hasExpectations]);
+
+  const detailRows: { label: string; key: string }[] = [
+    { label: te ? "వయస్సు" : "Age", key: "age" },
+    { label: te ? "ఎత్తు" : "Height", key: "height" },
+    { label: te ? "కులం / ఉపకులం" : "Caste / subcaste", key: "caste" },
+    { label: te ? "గోత్రం" : "Gothram", key: "gothram" },
+    { label: te ? "నక్షత్రం" : "Star", key: "star" },
+    { label: te ? "రాశి" : "Rasi", key: "rasi" },
+    { label: te ? "విద్య" : "Education", key: "education" },
+    { label: te ? "వృత్తి" : "Profession", key: "job" },
+    { label: te ? "జీతం" : "Income", key: "salary" },
+    { label: te ? "వైవాహిక స్థితి" : "Marital status", key: "marital_status" },
+    { label: te ? "ప్రాంతం" : "Location", key: "district" },
+  ];
+
+  const matrix = useMemo(
+    () => buildCompareMatrix(detailRows, activeProfiles, (profile, key) => compareValue(profile as ProfileCard, key)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [activeProfiles, te],
+  );
+  const differences = useMemo(() => differenceRows(matrix), [matrix]);
+  const differingKeys = useMemo(() => new Set(differences.map((row) => row.key)), [differences]);
+  const visibleRows = onlyDifferences
+    ? detailRows.filter((row) => differingKeys.has(row.key))
+    : detailRows;
 
   const shareText = useMemo(() => {
     if (activeProfiles.length < 2) return "";
@@ -115,6 +179,8 @@ export default function ProfileCompareStudio() {
     setNeedsLogin(false);
     setCopyMessage("");
     setProfiles([]);
+    setComparisons({});
+    setOrder("entered");
     const result = await apiPost<CompareResponse>("/api/matches/compare-profiles", { profile_ids: requested });
     setLoading(false);
 
@@ -130,6 +196,7 @@ export default function ProfileCompareStudio() {
       return;
     }
     setProfiles(returned);
+    setComparisons(result.data?.comparisons && typeof result.data.comparisons === "object" ? result.data.comparisons : {});
   };
 
   const copySummary = async () => {
@@ -147,19 +214,6 @@ export default function ProfileCompareStudio() {
     if (!text) return te ? "వివరాలు ఇవ్వలేదు" : "Not provided";
     return te ? text : apiDisplayMessage({ message_en: text }, false, "Not provided");
   };
-  const detailRows: { label: string; key: keyof ProfileCard }[] = [
-    { label: te ? "వయస్సు" : "Age", key: "age" },
-    { label: te ? "ఎత్తు" : "Height", key: "height" },
-    { label: te ? "కులం / ఉపకులం" : "Caste / subcaste", key: "caste" },
-    { label: te ? "గోత్రం" : "Gothram", key: "gothram" },
-    { label: te ? "నక్షత్రం" : "Star", key: "star" },
-    { label: te ? "రాశి" : "Rasi", key: "rasi" },
-    { label: te ? "విద్య" : "Education", key: "education" },
-    { label: te ? "వృత్తి" : "Profession", key: "job" },
-    { label: te ? "జీతం" : "Income", key: "salary" },
-    { label: te ? "వైవాహిక స్థితి" : "Marital status", key: "marital_status" },
-    { label: te ? "ప్రాంతం" : "Location", key: "district" },
-  ];
 
   return (
     <main className="min-h-dvh bg-[#FDFBF7] px-4 py-8 sm:px-6 sm:py-12 lg:px-8">
@@ -193,6 +247,7 @@ export default function ProfileCompareStudio() {
               onClick={() => {
                 setShowThird((visible) => !visible);
                 setProfiles([]);
+                setComparisons({});
                 setError("");
               }}
               className="min-h-10 rounded-xl border border-maroon/20 bg-maroon/5 px-3 py-2 text-sm font-semibold text-maroon hover:bg-maroon/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-maroon"
@@ -256,43 +311,111 @@ export default function ProfileCompareStudio() {
 
         {activeProfiles.length > 0 && (
           <section aria-label={te ? "పోల్చిన profiles" : "Compared profiles"}>
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-gray-200 bg-white p-3">
+              <label className="flex min-h-11 items-center gap-2 text-sm font-semibold text-gray-800">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4"
+                  checked={onlyDifferences}
+                  onChange={(event) => setOnlyDifferences(event.target.checked)}
+                />
+                {te ? `తేడాలు మాత్రమే చూపించు (${differences.length})` : `Only show what differs (${differences.length})`}
+              </label>
+              {hasExpectations && (
+                <label className="flex min-h-11 items-center gap-2 text-sm font-semibold text-gray-800">
+                  <span className="sr-only">{te ? "క్రమం" : "Order"}</span>
+                  <select
+                    value={order}
+                    onChange={(event) => setOrder(event.target.value === "preferences" ? "preferences" : "entered")}
+                    className="min-h-11 rounded-xl border border-gray-300 bg-white px-3 text-sm text-gray-900 outline-none focus:border-maroon focus:ring-2 focus:ring-maroon/20"
+                  >
+                    <option value="entered">{te ? "మీరు నమోదు చేసిన క్రమం" : "Order you entered"}</option>
+                    <option value="preferences">{te ? "ఎక్కువ expectations సరిపోయినవి ముందు" : "Most expectations met first"}</option>
+                  </select>
+                </label>
+              )}
+            </div>
+
+            {onlyDifferences && differences.length === 0 && (
+              <p role="status" className="mb-4 rounded-2xl bg-slate-50 px-4 py-3 text-sm text-gray-700">
+                {te ? "ఈ profiles మధ్య తేడా ఉన్న వివరాలు లేవు — అన్ని అడిగిన వివరాలు ఒకేలా ఉన్నాయి లేదా ఇవ్వలేదు." : "These profiles state the same values everywhere — nothing differs among the details shown."}
+              </p>
+            )}
+
             <div className={`grid grid-cols-1 gap-4 ${activeProfiles.length === 3 ? "lg:grid-cols-3" : "md:grid-cols-2"}`}>
-              {activeProfiles.map((profile, index) => (
-                <article key={profile.tsap_id} className="min-w-0 overflow-hidden rounded-3xl border border-gold/30 bg-white shadow-sm">
-                  <div className="flex items-center gap-3 border-b border-gray-100 p-4 sm:p-5">
-                    {profile.photo_url ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={profile.photo_url} alt="" className="h-14 w-14 shrink-0 rounded-2xl border border-gray-200 object-cover" />
-                    ) : (
-                      <div aria-hidden="true" className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-maroon/5 text-lg font-bold text-maroon">
-                        {initials(valueOrLabel(profile.full_name, "Member"))}
+              {activeProfiles.map((profile, index) => {
+                const checks = comparisons[String(profile.tsap_id)]?.preference_checks || [];
+                const tally = tallyPreferences(checks);
+                const notes = preferenceNotes(checks);
+                return (
+                  <article key={profile.tsap_id} className="min-w-0 overflow-hidden rounded-3xl border border-gold/30 bg-white shadow-sm">
+                    <div className="flex items-center gap-3 border-b border-gray-100 p-4 sm:p-5">
+                      {profile.photo_url ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={profile.photo_url} alt="" className="h-14 w-14 shrink-0 rounded-2xl border border-gray-200 object-cover" />
+                      ) : (
+                        <div aria-hidden="true" className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-maroon/5 text-lg font-bold text-maroon">
+                          {initials(valueOrLabel(profile.full_name, "Member"))}
+                        </div>
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-bold uppercase tracking-wide text-maroon">{te ? `సంబంధం ${index + 1}` : `Profile ${index + 1}`}</p>
+                        <h2 className="mt-0.5 break-words text-lg font-bold text-gray-900">{valueOrLabel(profile.full_name, te ? "సభ్యుల ప్రొఫైల్" : "Member profile")}</h2>
+                        <p className="mt-0.5 break-all font-mono text-xs text-gray-600">{profile.tsap_id}</p>
+                      </div>
+                    </div>
+                    <dl className="divide-y divide-gray-100 px-4 sm:px-5">
+                      {visibleRows.map((row) => {
+                        let value: unknown = (profile as Record<string, unknown>)[row.key];
+                        if (row.key === "caste") value = [profile.caste, profile.sub_caste].filter(Boolean).join(" · ");
+                        if (row.key === "district") value = [profile.district, profile.state].filter(Boolean).join(", ");
+                        return (
+                          <div key={row.key} className="grid grid-cols-[minmax(6.5rem,0.7fr)_minmax(0,1.3fr)] gap-3 py-3 text-sm">
+                            <dt className="text-gray-500">
+                              {row.label}
+                              {differingKeys.has(row.key) && (
+                                <span className="ml-1 font-bold text-maroon" title={te ? "ఈ వివరంలో తేడా ఉంది" : "These profiles differ here"}>
+                                  •
+                                </span>
+                              )}
+                            </dt>
+                            <dd className="break-words font-medium text-gray-900">{renderValue(value)}</dd>
+                          </div>
+                        );
+                      })}
+                    </dl>
+                    {tally.total > 0 && (
+                      <div className="border-t border-gray-100 bg-amber-50/60 px-4 py-3 sm:px-5">
+                        <p className="text-xs font-bold text-amber-900">{tallyLabel(tally, te)}</p>
+                        <ul className="mt-2 space-y-1.5">
+                          {notes.map((note) => (
+                            <li key={note.key} className="flex gap-2 text-[11px] leading-relaxed text-gray-700">
+                              <span aria-hidden="true" className={note.met ? "text-emerald-700" : "text-gray-500"}>
+                                {note.met ? "✔" : "✖"}
+                              </span>
+                              <span>
+                                <span className="font-semibold">{note.label}: </span>
+                                {note.note}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
                       </div>
                     )}
-                    <div className="min-w-0 flex-1">
-                      <p className="text-xs font-bold uppercase tracking-wide text-maroon">{te ? `సంబంధం ${index + 1}` : `Profile ${index + 1}`}</p>
-                      <h2 className="mt-0.5 break-words text-lg font-bold text-gray-900">{valueOrLabel(profile.full_name, te ? "సభ్యుల ప్రొఫైల్" : "Member profile")}</h2>
-                      <p className="mt-0.5 break-all font-mono text-xs text-gray-600">{profile.tsap_id}</p>
-                    </div>
-                  </div>
-                  <dl className="divide-y divide-gray-100 px-4 sm:px-5">
-                    {detailRows.map((row) => {
-                      let value: unknown = profile[row.key];
-                      if (row.key === "caste") value = [profile.caste, profile.sub_caste].filter(Boolean).join(" · ");
-                      if (row.key === "district") value = [profile.district, profile.state].filter(Boolean).join(", ");
-                      return (
-                        <div key={row.key} className="grid grid-cols-[minmax(6.5rem,0.7fr)_minmax(0,1.3fr)] gap-3 py-3 text-sm">
-                          <dt className="text-gray-500">{row.label}</dt>
-                          <dd className="break-words font-medium text-gray-900">{renderValue(value)}</dd>
-                        </div>
-                      );
-                    })}
-                  </dl>
-                </article>
-              ))}
+                  </article>
+                );
+              })}
             </div>
             <p className="mt-4 rounded-2xl bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-900">
               {te ? "ఇక్కడ compatibility లేదా జాతక స్కోర్లు లెక్కించము. వివరాలు profile యజమాని అందించిన సమాచారం మాత్రమే; నిర్ణయానికి ముందు నేరుగా నిర్ధారించండి." : "This page does not calculate compatibility or horoscope scores. Details are member-provided; verify important information directly before making decisions."}
             </p>
+            {order === "preferences" && hasExpectations && (
+              <p className="mt-2 rounded-2xl bg-slate-50 px-4 py-3 text-xs leading-5 text-gray-700">
+                {te
+                  ? "ఈ క్రమం మీరు సేవ్ చేసిన expectations లో ఎన్ని సరిపోతున్నాయో లెక్క మాత్రమే — అది స్కోర్ కాదు, శాతం కాదు, ఫలితానికి హామీ కాదు."
+                  : "This order is only a count of how many of your saved expectations each profile meets. It is not a score, a percentage, or a prediction."}
+              </p>
+            )}
             <div className="mt-4 flex flex-wrap gap-2">
               <button type="button" onClick={() => void copySummary()} className="min-h-10 rounded-full border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-800 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-maroon">
                 {te ? "సారాంశం కాపీ చేయండి" : "Copy summary"}
@@ -304,7 +427,7 @@ export default function ProfileCompareStudio() {
               <button type="button" onClick={() => window.print()} className="min-h-10 rounded-full bg-maroon px-4 py-2 text-sm font-bold text-white hover:bg-maroon-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-maroon focus-visible:ring-offset-2 print:hidden">
                 {te ? "ప్రింట్" : "Print"}
               </button>
-              <button type="button" onClick={() => { setProfiles([]); setIds([...EMPTY_IDS]); setError(""); }} className="min-h-10 rounded-full border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-maroon">
+              <button type="button" onClick={() => { setProfiles([]); setComparisons({}); setIds([...EMPTY_IDS]); setError(""); }} className="min-h-10 rounded-full border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-maroon">
                 {te ? "Clear" : "Clear comparison"}
               </button>
             </div>

@@ -9,6 +9,7 @@
 import { useState, useMemo } from "react";
 import Link from "next/link";
 import Reveal from "@/components/Reveal";
+import VivahaMuhurthamTeaser from "@/components/VivahaMuhurthamTeaser";
 import SectionHeading from "@/components/SectionHeading";
 import { useLang } from "@/lib/lang";
 import { VIVAHA_MUHURTHAMS_2026_2027, MuhurthamDate, formatMuhurthamDate, formatMuhurthamLagnam, formatMuhurthamMonth, formatMuhurthamNakshatra, formatMuhurthamThithi, formatMuhurthamTime } from "@/lib/muhurtham-data";
@@ -83,7 +84,7 @@ export default function MuhurthamPage() {
             </p>
 
             <div className="mt-6 flex flex-wrap gap-3">
-              <button
+              <button type="button"
                 onClick={printDates}
                 className="gold-gradient text-maroon font-bold px-5 py-3 rounded-2xl text-xs hover-lift shadow-md flex items-center gap-2"
               >
@@ -114,7 +115,7 @@ export default function MuhurthamPage() {
         {/* Month Filter Tabs */}
         <div className="mt-6 flex flex-wrap gap-2 items-center print:hidden">
           {MONTHS_FILTER.map((m) => (
-            <button
+            <button type="button"
               key={m.key}
               onClick={() => setSelectedMonth(m.key)}
               className={`px-4 py-2.5 rounded-2xl text-xs font-black transition-all ${
@@ -130,7 +131,7 @@ export default function MuhurthamPage() {
 
         {/* Search input */}
         <div className="mt-4 print:hidden max-w-md">
-          <input
+          <input aria-label={te ? "🔍 నక్షత్రం, లగ్నం లేదా నెలను వెతకండి" : "🔍 Search by nakshatra, lagnam, or month"}
             type="text"
             placeholder={te ? "🔍 నక్షత్రం, లగ్నం లేదా నెలను వెతకండి" : "🔍 Search by nakshatra, lagnam, or month"}
             value={search}
@@ -183,7 +184,7 @@ export default function MuhurthamPage() {
 
                 {/* Card Action Buttons */}
                 <div className="mt-5 flex items-center gap-2 print:hidden">
-                  <button
+                  <button type="button"
                     onClick={() => shareWa(m)}
                     className="flex-1 bg-[#25D366] hover:bg-[#20bd5a] text-white font-bold py-2.5 px-3 rounded-xl text-xs shadow-soft hover-lift flex items-center justify-center gap-1.5 transition"
                   >
@@ -237,6 +238,9 @@ export default function MuhurthamPage() {
             </Link>
           </div>
         </div>
+
+        {/* Reference-date teaser — the same published calendar, compact. */}
+        <VivahaMuhurthamTeaser />
 
       </div>
     </div>

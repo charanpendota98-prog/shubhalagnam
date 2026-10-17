@@ -72,7 +72,7 @@ export default function DataTools() {
       <p className="telugu mt-1 text-xs text-gray-500">{te ? "అన్ని data Excel లో open అయ్యే CSV files — ఒక క్లిక్ డౌన్‌లోడ్." : "All data as Excel-ready CSV — one-click download."}</p>
       <div className="mt-3 grid gap-3 sm:grid-cols-2">
         {exports.map((e) => (
-          <button key={e.path} onClick={() => dl(e.path)}
+          <button type="button" key={e.path} onClick={() => dl(e.path)}
             className="rounded-2xl border border-[#7A0C2E]/20 bg-white p-4 text-left shadow-sm hover:border-[#7A0C2E]/50">
             <div className="font-bold text-[#7A0C2E]">{e.icon} {e.label}</div>
             <div className="mt-1 text-[11px] text-gray-500">{e.note}</div>
@@ -100,11 +100,11 @@ export default function DataTools() {
         </div>
       )}
       <div className="mt-3 flex flex-wrap gap-2">
-        <button onClick={() => void runRetention()} disabled={busy || !toDelete.length}
+        <button type="button" onClick={() => void runRetention()} disabled={busy || !toDelete.length}
           className="rounded-xl bg-[#7A0C2E] px-5 py-2.5 text-sm font-bold text-white disabled:opacity-50">
           🗑️ {te ? "ఇప్పుడే run చెయ్యి (archive + delete)" : "Run now (archive + delete)"}
         </button>
-        <button onClick={() => void loadPreview()} disabled={busy}
+        <button type="button" onClick={() => void loadPreview()} disabled={busy}
           className="rounded-xl border border-[#7A0C2E] px-4 py-2.5 text-xs font-bold text-[#7A0C2E]">🔄 {te ? "ప్రివ్యూ రిఫ్రెష్" : "Refresh preview"}</button>
       </div>
       {flash ? <div className="mt-3 rounded-xl bg-[#0F1F3C] p-3 text-xs text-white">{flash}</div> : null}
