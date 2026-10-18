@@ -9,11 +9,6 @@ import { apiDisplayMessage, authHeaders, readApiJson } from "@/lib/api";
 import { useLang } from "@/lib/lang";
 
 type Row = Record<string, any>;
-const adminToken = () => { try { return localStorage.getItem("tsap_admin_token") || ""; } catch { return ""; } };
-const withToken = (url: string) => {
-  const tk = adminToken();
-  return tk ? `${url}${url.includes("?") ? "&" : "?"}token=${encodeURIComponent(tk)}` : url;
-};
 
 export default function PayConsole() {
   const { lang } = useLang();
@@ -34,8 +29,8 @@ export default function PayConsole() {
 
   const load = useCallback(async () => {
     try {
-      const d = await fetch(withToken(`/api/admin/payments${status ? `?status=${status}` : ""}`),
-        { headers: authHeaders(true) }).then((r) => readApiJson(r));
+      const d = await fetch(`/api/admin/payments${status ? `?status=${status}` : ""}`,
+      { headers: authHeaders(true) }).then((r) => readApiJson(r));
       if (d.success) { setItems(d.orders || []); setStats(d.stats || null); }
       else setFlash(apiDisplayMessage(d, te, te ? "చెల్లింపుల వివరాలు లోడ్ కాలేదు." : "Could not load payment details."));
     } catch { setFlash(te ? "నెట్‌వర్క్ సమస్య" : "Network problem. Please try again."); }
@@ -45,7 +40,7 @@ export default function PayConsole() {
   const confirm = async (id: string) => {
     const u = (utr[id] ?? items.find((x: any) => x.id === id)?.claim_utr ?? "").trim();
     if (!/^\d{12}$/.test(u)) { setFlash(te ? "⚠️ UTR = 12 digits (bank statement తో match చెయ్యండి, audit కి mandatory)" : "⚠️ UTR = 12 digits (match with bank statement, mandatory for audit)"); return; }
-    const r = await fetch(withToken(`/api/admin/payments/${id}/confirm`),
+    const r = await fetch(`/api/admin/payments/${id}/confirm`,
       { method: "POST", headers: { ...authHeaders(true), "Content-Type": "application/json" },
         body: JSON.stringify({ utr: u }) });
     const d = await readApiJson(r);
@@ -58,7 +53,7 @@ export default function PayConsole() {
     const note = (rf[id + ":n"] || "").trim();
     if (mode !== "razorpay" && !note) { setFlash(te ? "Manual refund ki return-proof note mandatory (UTR/memo) - audit" : "Manual refund needs return-proof note (UTR/memo) - audit"); return; }
     if (!window.confirm(te ? `${id} REFUND? (money back + benefits reverse + commission clawback)` : `${id} REFUND? (money back + benefits reversed + commission clawback)`)) return;
-    const r = await fetch(withToken(`/api/admin/payments/${id}/refund`),
+    const r = await fetch(`/api/admin/payments/${id}/refund`,
       { method: "POST", headers: { ...authHeaders(true), "Content-Type": "application/json" },
         body: JSON.stringify({ reason, note }) });
     const d = await readApiJson(r);
@@ -68,7 +63,7 @@ export default function PayConsole() {
 
   const loadAudit = async () => {
     try {
-      const d = await fetch(withToken("/api/admin/audit?limit=30"), { headers: authHeaders(true) }).then((r) => readApiJson(r));
+      const d = await fetch("/api/admin/audit?limit=30", { headers: authHeaders(true) }).then((r) => readApiJson(r));
       if (d.success) { setAudit(d.events || []); setShowAudit(true); }
       else setFlash(apiDisplayMessage(d, te, te ? "Audit లోడ్ కాలేదు." : "Could not load the audit log."));
     } catch { setFlash(te ? "నెట్‌వర్క్ సమస్య" : "Network problem. Please try again."); }
@@ -76,7 +71,7 @@ export default function PayConsole() {
 
   const clawback = async () => {
     if (!clawId.trim()) { setFlash(te ? "Profile ID ఇవ్వండి" : "Give Profile ID"); return; }
-    const r = await fetch(withToken(`/api/admin/refund/${clawId.trim().toUpperCase()}?amount=${encodeURIComponent(clawAmt || "0")}&reason=admin_clawback`),
+    const r = await fetch(`/api/admin/refund/${clawId.trim().toUpperCase()}?amount=${encodeURIComponent(clawAmt || "0")}&reason=admin_clawback`,
       { method: "POST", headers: authHeaders(true) });
     const d = await readApiJson(r);
     setFlash(apiDisplayMessage(d, te, te ? "కమిషన్ సర్దుబాటు అభ్యర్థన పూర్తయింది." : "Commission adjustment request completed."));
@@ -101,23 +96,23 @@ export default function PayConsole() {
       )}
       <div className="flex gap-2 my-2">
         {([["", te ? "అన్నీ" : "all"], ["created", "pending"], ["claimed", te ? "UTR వచ్చింది" : "UTR received"], ["paid", "paid"], ["refunded", "refunded"], ["expired", "expired"]] as string[][]).map(([v, l]) => (
-          <button key={v} onClick={() => setStatus(v)}
+          <button type="button" key={v} onClick={() => setStatus(v)}
             className={`px-3 py-1 rounded-full text-xs font-bold ${status === v ? "maroon-gradient text-white" : "bg-gray-100"}`}>{l}</button>
         ))}
-        <button onClick={() => void load()} className="ml-auto text-xs underline">↻ refresh</button>
+        <button type="button" onClick={() => void load()} className="ml-auto text-xs underline">↻ refresh</button>
       </div>
       {flash && <div className="mb-2 rounded-xl bg-[#0F1F3C] text-white text-xs p-2">{flash}</div>}
       <div className="mb-2 flex flex-wrap items-center gap-2 text-xs">
-        <button onClick={() => void loadAudit()} className="rounded-full bg-[#0F1F3C] px-3 py-1.5 font-bold text-white">\U0001F9FE Money audit</button>
+        <button type="button" onClick={() => void loadAudit()} className="rounded-full bg-[#0F1F3C] px-3 py-1.5 font-bold text-white">\U0001F9FE Money audit</button>
         <input value={clawId} onChange={(e) => setClawId(e.target.value)} placeholder="TSAP-ID (clawback)"
           className="w-40 rounded-lg border px-2 py-1.5 font-mono" aria-label="Profile ID" />
         <input value={clawAmt} onChange={(e) => setClawAmt(e.target.value)} placeholder="\u20B9 amt"
           className="w-20 rounded-lg border px-2 py-1.5 font-mono" aria-label="amount" />
-        <button onClick={() => void clawback()} className="rounded-full bg-amber-100 px-3 py-1.5 font-bold text-amber-800">\u21A9\uFE0F Commission clawback</button>
+        <button type="button" onClick={() => void clawback()} className="rounded-full bg-amber-100 px-3 py-1.5 font-bold text-amber-800">\u21A9\uFE0F Commission clawback</button>
       </div>
       {showAudit && (
         <div className="mb-2 max-h-[160px] space-y-1 overflow-auto rounded-xl border p-2 text-[11px]">
-          <div className="flex items-center"><b>\U0001F9FE Audit (latest 30)</b><button onClick={() => setShowAudit(false)} className="ml-auto underline">close</button></div>
+          <div className="flex items-center"><b>\U0001F9FE Audit (latest 30)</b><button type="button" onClick={() => setShowAudit(false)} className="ml-auto underline">close</button></div>
           {audit.map((e: any, i: number) => (
             <div key={i} className="rounded-lg bg-gray-50 px-2 py-1 font-mono">{displayDynamicText(e.event, "Event label unavailable in English")} \u2022 {e.actor} \u2022 {displayDynamicText(JSON.stringify(e.data || {}), "Audit details unavailable in English").slice(0, 90)} \u2022 {String(e.at || "").slice(0, 19).replace("T", " ")}</div>
           ))}
@@ -145,7 +140,7 @@ export default function PayConsole() {
               <div className="mt-2 flex gap-2">
                 <input value={utr[o.id] ?? o.claim_utr ?? ""} onChange={(e) => setUtr({ ...utr, [o.id]: e.target.value })}
                   placeholder="UTR (12-digit)" className="flex-1 rounded-lg border px-3 py-1.5 text-xs font-mono" aria-label="UTR" />
-                <button onClick={() => void confirm(o.id)}
+                <button type="button" onClick={() => void confirm(o.id)}
                   className="rounded-lg bg-green-700 text-white px-4 py-1.5 text-xs font-bold">✅ Confirm + fulfill</button>
               </div>
             )}
@@ -158,7 +153,7 @@ export default function PayConsole() {
                   placeholder="reason (customer_request)" className="min-w-[140px] flex-1 rounded-lg border px-2 py-1.5 text-xs" aria-label="refund reason" />
                 <input value={rf[o.id + ":n"] || ""} onChange={(e) => setRf({ ...rf, [o.id + ":n"]: e.target.value })}
                   placeholder={o.mode === "razorpay" ? "note (optional)" : "return proof UTR (mandatory)"} className="min-w-[140px] flex-1 rounded-lg border px-2 py-1.5 text-xs" aria-label="refund note" />
-                <button onClick={() => void refund(o.id, o.mode)}
+                <button type="button" onClick={() => void refund(o.id, o.mode)}
                   className="rounded-lg bg-red-600 px-4 py-1.5 text-xs font-bold text-white">\u21A9\uFE0F Refund</button>
               </div>
             )}

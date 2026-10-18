@@ -14,6 +14,7 @@ State: JSON files (postgres vachhaka DB ki move — pattern quality.py lage).
 """
 from __future__ import annotations
 
+import copy
 import json
 import os
 import re
@@ -22,6 +23,8 @@ from typing import Any, Dict, List, Optional
 from urllib.parse import urlsplit
 
 from hardening import clean, req_text, validation_error
+from atomic_store import atomic_json_dump
+
 
 STATE_DIR = os.environ.get("MANA_VIVAHA_APP_STATE_DIR", os.path.dirname(os.path.abspath(__file__)))
 STORIES_FILE = os.path.join(STATE_DIR, "stories_state.json")
@@ -43,12 +46,12 @@ def _load(path: str, target: List[Dict[str, Any]]) -> None:
         pass
 
 
-def _save(path: str, data: Any) -> None:
+def _save(path: str, data: Any) -> bool:
     try:
-        with open(path, "w", encoding="utf-8") as fh:
-            json.dump(data, fh, ensure_ascii=False)
+        atomic_json_dump(path, data, ensure_ascii=False)
+        return True
     except Exception:
-        pass
+        return False
 
 
 load_stories = lambda: _load(STORIES_FILE, STORIES)            # noqa: E731
@@ -71,8 +74,8 @@ def load_push() -> None:
         pass
 
 
-def save_push() -> None:
-    _save(PUSH_FILE, _push_state())
+def save_push() -> bool:
+    return _save(PUSH_FILE, _push_state())
 
 
 # ---------------------------------------------------------------------------
@@ -125,6 +128,22 @@ def filter_same_gothram(me: Dict[str, Any], pool: List[Dict[str, Any]]) -> Dict[
 STORY_MIN, STORY_MAX = 20, 600
 
 
+def story_summary(tsap_id: str) -> Dict[str, Any]:
+    """How many stories this member has already shared.
+
+    Counts only. Story bodies and submitter identifiers stay here so the
+    review queue and the public feed cannot drift apart.
+    """
+    tid = str(tsap_id or "").strip().upper()
+    mine = [s for s in STORIES if str(s.get("tsap_id", "")).strip().upper() == tid]
+    return {
+        "total": len(mine),
+        "pending": sum(1 for s in mine if str(s.get("status")) == "pending"),
+        "approved": sum(1 for s in mine if str(s.get("status")) == "approved"),
+        "rejected": sum(1 for s in mine if str(s.get("status")) == "rejected"),
+    }
+
+
 def submit_story(tsap_id: str, text: str, partner_id: str = "", couple_names: str = "",
                  photo_url: str = "", district: str = "") -> Dict[str, Any]:
     tid = req_text(tsap_id, "tsap_id", 4, 30)
@@ -144,7 +163,9 @@ def submit_story(tsap_id: str, text: str, partner_id: str = "", couple_names: st
         "reviewed_at": "", "review_note": "",
     }
     STORIES.append(rec)
-    save_stories()
+    if not save_stories():
+        STORIES.remove(rec)
+        raise RuntimeError("persistence_failed: story could not be saved safely")
     return rec
 
 
@@ -156,10 +177,14 @@ def review_story(story_id: str, action: str, note: str = "") -> Dict[str, Any]:
     if act not in ("approve", "reject"):
         validation_error("action", "⚠️ action approve / reject మాత్రమే")
     assert rec is not None
+    previous = copy.deepcopy(rec)
     rec["status"] = "approved" if act == "approve" else "rejected"
     rec["reviewed_at"] = datetime.utcnow().isoformat()
     rec["review_note"] = clean(note, 160, "review_note")
-    save_stories()
+    if not save_stories():
+        rec.clear()
+        rec.update(previous)
+        raise RuntimeError("persistence_failed: story review could not be saved safely")
     return rec
 
 
@@ -174,8 +199,12 @@ def like_story(story_id: str) -> Dict[str, Any]:
     if not rec:
         validation_error("story_id", "⚠️ Story దొరకలేదు (approve అయ్యాక మాత్రమే like)")
     assert rec is not None
+    previous = copy.deepcopy(rec)
     rec["likes"] = int(rec.get("likes", 0)) + 1
-    save_stories()
+    if not save_stories():
+        rec.clear()
+        rec.update(previous)
+        raise RuntimeError("persistence_failed: story like could not be saved safely")
     return {"story_id": story_id, "likes": rec["likes"]}
 
 
@@ -213,7 +242,7 @@ SUPPORT_FAQS: List[Dict[str, Any]] = [
      "a": "సైట్‌లో నమోదు చేసిన గోత్ర వచనాన్ని పోల్చే సమాచారం మాత్రమే చూపవచ్చు. ఇది interest eligibility rule లేదా వివాహ నిర్ణయం కాదు; మీ కుటుంబ సంప్రదాయం ప్రకారం స్వతంత్రంగా తెలుసుకోండి.",
      "keys": ["gothram", "gotram"]},
     {"id": "porutham", "q": "వేద గుణమేళనం / జాతక పొంతన చూస్తారా?",
-     "a": "/porutham లో అందుబాటులో ఉన్న జన్మ నక్షత్రం/రాశి వివరాలతో informational calculation చూపవచ్చు. ఇది వ్యక్తి గుర్తింపు, సంబంధ నాణ్యత, లేదా వివాహ ఫలితాన్ని నిర్ధారించదు; నిర్ణయానికి హామీ కాదు.",
+     "a": "/porutham లో owner-upload చేసిన నిజమైన జాతక పత్రం యొక్క evidence-review స్థితి మాత్రమే చూపిస్తాము. కేవలం నక్షత్రం/రాశి వివరాల నుంచి calculation, score, పూర్తి chart లేదా వివాహ తీర్పు తయారు చేయము; అసలైన పత్రాన్ని qualified astrologer తో స్వతంత్రంగా పరిశీలించండి.",
      "keys": ["porutham", "jathakam", "jatakam", "star", "rasi", "nakshatra", "horoscope", "gunamelanam", "ponthana"]},
     {"id": "refund", "q": "Refund policy ఏంటి?",
      "a": "ప్రస్తుత eligibility, timing మరియు credit-return నియమాలు /refund పేజీ, మీ account లో చూపిన terms లో చూడండి. Declined/expired request కు credit తిరిగి వస్తుందా అనేది అక్కడ చూపిన policy ప్రకారం ఉంటుంది; credit return అనేది cash refund కాదు.",
@@ -366,12 +395,17 @@ def push_subscribe(tsap_id: str, endpoint: str, keys: Optional[Dict[str, str]] =
     ep = req_text(endpoint, "endpoint", 10, 500)
     keys = keys or {}
     old = next((s for s in PUSH_SUBS if s.get("endpoint") == ep), None)
+    old_before = copy.deepcopy(old) if old is not None else None
     if old:
         old["tsap_id"] = tid
         old["keys"] = {"p256dh": clean(keys.get("p256dh", ""), 200, "p256dh"),
                        "auth": clean(keys.get("auth", ""), 200, "auth")}
         old["updated_at"] = datetime.utcnow().isoformat()
-        save_push()
+        if not save_push():
+            old.clear()
+            old.update(old_before)
+            return {"success": False, "reason": "persistence_failed",
+                    "message_telugu": "⚠️ Push subscription could not be saved safely. Please try again."}
         return {"success": True, "sub_id": old["sub_id"], "renewed": True,
                 "message_telugu": "🔔 Match alerts ON — కొత్త matches వస్తే notification వస్తుంది",
                 "message_en": "Push alerts are enabled on this browser. Delivery depends on browser, device, and server support."}
@@ -382,21 +416,27 @@ def push_subscribe(tsap_id: str, endpoint: str, keys: Optional[Dict[str, str]] =
            "ua": clean(ua, 160, "ua"), "created_at": datetime.utcnow().isoformat(),
            "updated_at": datetime.utcnow().isoformat(), "fail_count": 0}
     PUSH_SUBS.append(rec)
-    save_push()
+    if not save_push():
+        PUSH_SUBS.remove(rec)
+        return {"success": False, "reason": "persistence_failed",
+                "message_telugu": "⚠️ Push subscription could not be saved safely. Please try again."}
     return {"success": True, "sub_id": sid, "renewed": False,
             "message_telugu": "🔔 Match alerts ON — browser close చేసిన కొత్త matches notification వస్తుంది!",
             "message_en": "Push alerts are enabled on this browser. Delivery depends on browser, device, and server support."}
 
 
 def push_unsubscribe(tsap_id: str = "", endpoint: str = "") -> Dict[str, Any]:
+    previous = copy.deepcopy(PUSH_SUBS)
     before = len(PUSH_SUBS)
     if endpoint:
         PUSH_SUBS[:] = [s for s in PUSH_SUBS if s.get("endpoint") != endpoint]
     elif tsap_id:
         PUSH_SUBS[:] = [s for s in PUSH_SUBS if s.get("tsap_id") != tsap_id]
     removed = before - len(PUSH_SUBS)
-    if removed:
-        save_push()
+    if removed and not save_push():
+        PUSH_SUBS[:] = previous
+        return {"success": False, "reason": "persistence_failed",
+                "message_telugu": "⚠️ Push unsubscribe could not be saved safely. Please try again."}
     return {"success": True, "removed": removed,
             "message_telugu": "🔕 Alerts off చేశాం" if removed else "ℹ️ Active alerts లేవు",
             "message_en": "Push alerts turned off." if removed else "No active push alert subscription was found."}
@@ -423,6 +463,8 @@ def push_notify(tsap_id: str, title: str, body: str, url: str = "/matches") -> D
                "at": datetime.utcnow().isoformat()}
     # Real sends require an owner-configured VAPID subject as well as both keys.
     # Without the complete configuration, retain only an honest preview record.
+    subs_before = copy.deepcopy(PUSH_SUBS)
+    queue_before = len(PUSH_QUEUE)
     sent, failed, attempted = 0, 0, 0
     vapid_priv = str(os.getenv("VAPID_PRIVATE_KEY", "") or "").strip()
     vapid_subject = vapid_contact_subject()
@@ -442,13 +484,17 @@ def push_notify(tsap_id: str, title: str, body: str, url: str = "/matches") -> D
                 except Exception:
                     failed += 1
                     sub["fail_count"] = int(sub.get("fail_count", 0)) + 1
-            save_push()
     mode = "live" if attempted else "preview"
     qid = f"PQ-{len(PUSH_QUEUE) + 1:05d}"
     PUSH_QUEUE.append({"queue_id": qid, "tsap_id": tsap_id, "payload": payload,
                        "targets": len(targets), "attempted": attempted, "sent": sent, "failed": failed,
                        "mode": mode, "at": datetime.utcnow().isoformat()})
-    save_push()
+    if not save_push():
+        PUSH_SUBS[:] = subs_before
+        del PUSH_QUEUE[queue_before:]
+        return {"success": False, "reason": "persistence_failed", "queued": 0,
+                "message_telugu": "⚠️ Push alert could not be recorded safely. Please try again.",
+                "message_en": "The push alert could not be recorded safely. Please try again."}
     return {"success": True, "queued": len(targets), "attempted": attempted,
             "sent": sent, "failed": failed, "mode": mode,
             "payload_preview": payload,

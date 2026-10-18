@@ -1,16 +1,17 @@
-"""
-🪐 WAVE 13 — PEDDA ASTROLOGY SYSTEM (మన వివాహ)
-=================================================
-1. 36-GUNA (Ashtakoota) real vedic math — nakshatra + rasi nunchi:
-   Varna 1 · Vashya 2 · Tara 3 · Yoni 2 · Graha-Maitri 5 · Gana 6 · Bhakoot 7 · Nadi 8 = 36
-2. DOSHA SCREENING — kuja/self-declared, moola/gandanta, nadi/bhakoot dosha flags.
-   (Full jathakam ki birth-chart kavali — screening honest ga "pandit review" cheptundi.)
-3. JATHAKAM upload + PANDIT review queue (admin) → jathakam review status only.
+"""Astrology evidence boundary for Mana Vivaha.
 
-Tables: classical Parashara convention. Unknown star/rasi → honest "data లేదు"
-(guess cheyyamu — mistakes vaddu).
+Member-entered star/rasi fields are retained as unverified profile metadata.
+The former star-only 36-guna and dosha calculators are intentionally disabled:
+no total, koota table, dosha flag, percentage, chart, or verdict is produced
+without an owner-supplied Jathakam and an appropriate recorded review.
+
+This module still owns the neutral label tables, evidence upload/review queue,
+and admin distribution counts. Those records are not an interpretation or a
+marriage recommendation.
 """
 from __future__ import annotations
+from atomic_store import atomic_json_dump
+
 
 import json
 import os
@@ -180,150 +181,26 @@ def rasi_name(i: int) -> str:
 # ASHTAKOOTA — 36 guna (bride nak/rasi × groom nak/rasi)
 # ---------------------------------------------------------------------------
 def guna_milan(bride_star: str, bride_rasi: str, groom_star: str, groom_rasi: str) -> Dict:
+    """Fail closed: profile star/rasi fields are not a Jathakam.
+
+    The old rule calculator is intentionally not available through this legacy
+    import.  A future provider may add a separately authenticated, reviewed
+    chart interpretation path; until then no 36-guna total, percentage, koota,
+    dosha, or verdict is fabricated.
     """
-    Returns {available, total_36, percent, verdict, verdict_telugu, kootas[8],
-             doshas[], note}. Star/rasi teliyakapothe available=False (honest).
-    """
-    bs, br = star_index(bride_star), rasi_index(bride_rasi)
-    gs, gr = star_index(groom_star), rasi_index(groom_rasi)
-    if bs is None or br is None or gs is None or gr is None:
-        missing = []
-        if bs is None:
-            missing.append("ammayi star")
-        if br is None:
-            missing.append("ammayi rasi")
-        if gs is None:
-            missing.append("abbayi star")
-        if gr is None:
-            missing.append("abbayi rasi")
-        return {"available": False, "total_36": None, "percent": None,
-                "verdict_telugu": f"⚠️ {', '.join(missing)} వివరాలు లేవు — అవసరమైన star/rasi వివరాలు వచ్చిన తర్వాత మాత్రమే 36-guna లెక్కించవచ్చు.",
-                "missing": missing}
-    B, G = NAKSHATRAS[bs], NAKSHATRAS[gs]
-    kootas: List[Dict] = []
-    doshas: List[str] = []
-
-    # 1. VARNA (1) — groom varna >= bride varna
-    gv, bv = RASI_VARNA[gr], RASI_VARNA[br]
-    v_score = 1.0 if gv >= bv else 0.0
-    kootas.append({"koota": "Varna", "max": 1, "score": v_score,
-                   "detail": f"{RASI_VARNA_NAME[gr]} (అబ్బాయి) vs {RASI_VARNA_NAME[br]} (అమ్మాయి)",
-                   "telugu": "✅ వర్ణ గుణమేళనం" if v_score else "⚠️ వర్ణ బలం తక్కువ — పెద్దల సలహా అవసరం"})
-
-    # 2. VASHYA (2) — rasi groups
-    gg, bg = RASI_VASHYA[gr], RASI_VASHYA[br]
-    if gg == bg:
-        va_score = 2.0
-    elif {gg, bg} == {"chara", "sthira"}:
-        va_score = 1.0
-    elif {gg, bg} == {"sthira", "ubhaya"}:
-        va_score = 1.0
-    else:
-        va_score = 0.5
-    kootas.append({"koota": "Vashya", "max": 2, "score": va_score,
-                   "detail": f"{gg} vs {bg}",
-                   "telugu": "✅ వశ్య పొంతన" if va_score >= 1 else "⚠️ వశ్యం తక్కువ"})
-
-    # 3. TARA (3) — ammayi star nunchi abbayi star (9-cycle; 3,5,7 shubha)
-    dist = (gs - bs) % 27 + 1
-    tara = dist % 9
-    t_score = 3.0 if tara in (3, 5, 7) else 0.0
-    if tara == 1:
-        doshas.append("జన్మ తార దోషం — శాంతి పరిహారం అవసరం")
-    kootas.append({"koota": "Tara", "max": 3, "score": t_score,
-                   "detail": f"distance {dist} → tara {tara if tara else 9}",
-                   "telugu": "✅ తారా బలం (శుభ తార)" if t_score else "⚠️ తారా బలం తక్కువ"})
-
-    # 4. YONI (2) — animals
-    yb, yg = B[2], G[2]
-    enemy = any({yb, yg} == set(p) for p in YONI_ENEMY)
-    if enemy:
-        y_score = 0.0
-        doshas.append(f"యోని వైర దోషం ({YONI_TE.get(yb, yb)} × {YONI_TE.get(yg, yg)})")
-    elif yb == yg:
-        y_score = 2.0
-    else:
-        y_score = 1.0
-    kootas.append({"koota": "Yoni", "max": 2, "score": y_score,
-                   "detail": f"{YONI_TE.get(yb, yb)} vs {YONI_TE.get(yg, yg)}",
-                   "telugu": "✅ యోని పొంతన" if y_score >= 1 else "🚫 యోని వైరం — పురోహితులను సంప్రదించండి"})
-
-    # 5. GRAHA MAITRI (5) — rasi lords friendship
-    lb, lg = RASI_LORD[br], RASI_LORD[gr]
-    b_f = lg in FRIENDS.get(lb, set())
-    g_f = lb in FRIENDS.get(lg, set())
-    b_e = lg in ENEMIES.get(lb, set())
-    g_e = lb in ENEMIES.get(lg, set())
-    if b_f and g_f:
-        m_score = 5.0
-    elif (b_f or g_f) and not (b_e or g_e):
-        m_score = 4.0
-    elif not (b_e or g_e):
-        m_score = 3.0
-    elif (b_e and g_e):
-        m_score = 0.0
-        doshas.append(f"Graha-vairam ({lb} × {lg})")
-    else:
-        m_score = 1.0
-    kootas.append({"koota": "Graha Maitri", "max": 5, "score": m_score,
-                   "detail": f"{lb} (అమ్మాయి రాశి lord) × {lg} (అబ్బాయి రాశి lord)",
-                   "telugu": "✅ Graha-maitri బాగుంది" if m_score >= 3 else "⚠️ Graha-maitri తక్కువ"})
-
-    # 6. GANA (6) — temperament
-    nb, ng = B[1], G[1]
-    if nb == ng:
-        n_score = 6.0
-    elif {nb, ng} == {"deva", "manushya"}:
-        n_score = 5.0
-    else:
-        n_score = 1.0
-        doshas.append(f"Gana dosha ({GANA_TE.get(nb)} × {GANA_TE.get(ng)}) — పరిహారం ఉంది")
-    kootas.append({"koota": "Gana", "max": 6, "score": n_score,
-                   "detail": f"{GANA_TE.get(nb)} vs {GANA_TE.get(ng)}",
-                   "telugu": "✅ గణ మైత్రి" if n_score >= 5 else "⚠️ గణ దోషం — పరిహారం పరిశీలించండి"})
-
-    # 7. BHAKOOT (7) — abbayi rasi ammayi rasi nunchi (6-8, 5-9, 2-12 dosha)
-    rdist = (gr - br) % 12 + 1
-    if rdist == 7:
-        bh_score = 7.0
-    elif rdist in (1, 3, 4, 10, 11):
-        bh_score = 4.0 if rdist in (3, 4, 10, 11) else 3.0
-    else:
-        bh_score = 0.0
-        kind = {6: "Shashtashtaka (6-8)", 8: "Shashtashtaka (6-8)", 5: "Navama-Panchama (5-9)",
-                9: "Navama-Panchama (5-9)", 2: "Dvidwadasha (2-12)", 12: "Dvidwadasha (2-12)"}.get(rdist, "")
-        doshas.append(f"Bhakoot dosha {kind} — pandit పరిహారం must")
-    kootas.append({"koota": "Bhakoot", "max": 7, "score": bh_score,
-                   "detail": f"rasi distance {rdist}",
-                   "telugu": "✅ భకూట పొంతన" if bh_score >= 3 else "🚫 భకూట దోషం — పురోహితులను సంప్రదించండి"})
-
-    # 8. NADI (8) — veru nadi must
-    db, dg = B[3], G[3]
-    if db != dg:
-        d_score = 8.0
-    else:
-        d_score = 0.0
-        doshas.append(f"Nadi dosha (రెండు {NADI_TE.get(db)}) — పరిహారం lekunda వద్దు")
-    kootas.append({"koota": "Nadi", "max": 8, "score": d_score,
-                   "detail": f"{NADI_TE.get(db)} vs {NADI_TE.get(dg)}",
-                   "telugu": "✅ నాడీ శుద్ధి (భిన్న నాడి)" if d_score else "🚫 నాడీ దోషం — పురోహితులను సంప్రదించండి"})
-
-    total = round(sum(k["score"] for k in kootas), 1)
-    if total >= 32:
-        verdict, ved = "uttama", "🌟 ఉత్తమ గుణమేళనం — 32+ గుణాలు! పెళ్లి కి శ్రేష్టమైన పొంతన 💍"
-    elif total >= 24:
-        verdict, ved = "మంచి", "✅ మంచి గుణమేళనం — ముందుకు వెళ్ళవచ్చు"
-    elif total >= 18:
-        verdict, ved = "madhyama", "⚠️ మధ్యస్థ గుణమేళనం — పెద్దల ఆశీస్సులు, పరిహారంతో ముందుకు"
-    else:
-        verdict, ved = "తక్కువ", "🚫 గుణాలు తక్కువ — పురోహితుల సలహా తప్పనిసరి"
-    if doshas:
-        ved += f" · Doshalu: {len(doshas)} (కింద చూడండి)"
-    return {"available": True, "total_36": total, "percent": round(total / 36 * 100, 1),
-            "verdict": verdict, "verdict_telugu": ved, "kootas": kootas, "doshas": doshas,
-            "bride": {"star": star_name(bs), "rasi": rasi_name(br)},
-            "groom": {"star": star_name(gs), "rasi": rasi_name(gr)},
-            "note_telugu": "📿 Classical Ashtakoota paddhati — final nirnayam మీ family pandit తో 🙏"}
+    return {
+        "available": False,
+        "calculation_available": False,
+        "status": "jathakam_review_required",
+        "evidence_required": True,
+        "evidence_source": "owner_uploaded_jathakam_review",
+        "total_36": None,
+        "percent": None,
+        "kootas": [],
+        "doshas": [],
+        "reason_en": "No 36-guna result is calculated from member-entered star/rasi fields.",
+        "reason_telugu": "సభ్యుడు నమోదు చేసిన star/rasi వివరాల నుంచి 36-guna ఫలితం లెక్కించము.",
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -334,41 +211,23 @@ def _norm_dosham(v: str) -> str:
 
 
 def dosha_screening(profile: Dict) -> Dict:
-    """
-    Profile ki dosha unda/leda — honest screening:
-      • self-declared dosham field (Kuja/Manglik/Chevvai/No...)
-      • Moola star / gandanta stars (Ashlesha, Magha, Mula, Jyeshtha-tail...) — flag
-      • birth_time lekapothe kuja confirm cheyyalem → pandit review
-    """
+    """Return evidence status only; never screen a dosha from profile fields."""
     p = profile or {}
-    flags: List[Dict] = []
-    decl = _norm_dosham(p.get("dosham", ""))
-    if decl and decl not in ("no", "no dosham", "none", "nill", "ledhu", "ledu", "—", "-"):
-        flags.append({"dosha": "declared", "level": "high",
-                      "telugu": f"🚫 Profile లో దోషం ఉంది ({p.get('dosham')}) — పరిహారం details అడగండి"})
-    si = star_index(p.get("star", ""))
-    sname = star_name(si) if si is not None else ""
-    if sname == "Mula":
-        flags.append({"dosha": "moola", "level": "high",
-                      "telugu": "⚠️ Moola nakshatram (gandanta) — pandit పరిహారం salaha must"})
-    elif sname in ("Ashlesha", "Magha", "Jyeshtha", "Revati"):
-        flags.append({"dosha": "gandanta_watch", "level": "medium",
-                      "telugu": f"⚠️ {sname} — gandanta zone star, jathakam full గా చూడండి"})
-    if str(p.get("moola_nakshatram", "No")).lower() in ("yes", "true", "1", "avunu"):
-        flags.append({"dosha": "moola_declared", "level": "high",
-                      "telugu": "⚠️ Moola-nakshatram (declared) — pandit confirm చెయ్యాలి"})
-    kuja_status = "unknown"
-    if any(k in decl for k in ("kuja", "manglik", "chevvai", "mangal")):
-        kuja_status = "declared"
-    elif not p.get("birth_time"):
-        kuja_status = "needs_chart"
-    level = "clear" if not flags else ("high" if any(f["level"] == "high" for f in flags) else "medium")
-    return {"level": level, "flags": flags, "kuja": kuja_status,
-            "star": sname or str(p.get("star", "—")), "rasi": str(p.get("rasi", "—")),
-            "verdict_telugu": ("✅ Dosha emi kanipinchaledu (screening)" if level == "clear"
-                               else f"⚠️ {len(flags)} dosha flag(s) — కింద చూడండి + pandit verify"),
-            "jathakam_verified": bool(p.get("jathakam_verified")),
-            "note_telugu": "📿 Idi screening మాత్రమే — పెళ్లి nirnayam కి full jathakam + pandit must 🙏"}
+    return {
+        "available": False,
+        "calculation_available": False,
+        "status": "jathakam_review_required",
+        "evidence_required": True,
+        "level": "unavailable",
+        "flags": [],
+        "kuja": "unavailable",
+        "star": "—",
+        "rasi": "—",
+        "verdict_telugu": "ఆధారం verify అయ్యే వరకు dosha ఫలితం చూపించము.",
+        "reason_en": "No dosha screening is generated from unverified profile fields. A real chart and qualified review are required.",
+        "reason_telugu": "Verify కాని profile వివరాల నుంచి dosha screening తయారు చేయము. నిజమైన chart మరియు qualified review అవసరం.",
+        "jathakam_verified": bool(p.get("jathakam_verified")),
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -382,12 +241,12 @@ def _now() -> str:
     return datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S")
 
 
-def _persist() -> None:
+def _persist() -> bool:
     try:
-        with open(PERSIST_FILE, "w", encoding="utf-8") as f:
-            json.dump({"jathakams": JATHAKAMS[-500:]}, f, ensure_ascii=False)
+        atomic_json_dump(PERSIST_FILE, {"jathakams": JATHAKAMS[-500:]}, ensure_ascii=False)
+        return True
     except Exception:
-        pass
+        return False
 
 
 def _restore() -> None:
@@ -413,18 +272,72 @@ def submit_jathakam(tsap_id: str, filename: str, kind: str = "photo") -> Dict:
     j = {"id": f"J-{_J_SEQ:04d}", "tsap_id": tsap_id, "file": filename, "kind": kind,
          "status": "pending", "note": "", "at": _now(), "verified_at": ""}
     JATHAKAMS.append(j)
-    _persist()
-    return j
+    if not _persist():
+        JATHAKAMS.pop()
+        _J_SEQ -= 1
+        return {"success": False, "message_telugu": "Jathakam could not be saved safely; please try again."}
+    return {"success": True, **j}
+
+
+def jathakam_status(tsap_id: str) -> Dict:
+    """Return an owner-safe evidence state, never a chart or astrology result.
+
+    A submitted document is evidence that a document was supplied, not proof of
+    identity or correctness.  Keeping this state separate from member-entered
+    star/rasi fields prevents an incomplete profile from becoming a fabricated
+    horoscope result in a client or a future integration.
+    """
+    owner = str(tsap_id or "").strip().upper()
+    rows = [row for row in JATHAKAMS if str(row.get("tsap_id", "")).strip().upper() == owner]
+    rows = list(reversed(rows))
+    latest = rows[0] if rows else None
+    if not latest:
+        state = "unavailable"
+        message_en = "No horoscope document has been submitted for this profile."
+        message_telugu = "ఈ ప్రొఫైల్‌కు జాతక పత్రం ఇంకా సమర్పించలేదు."
+    elif latest.get("status") == "pending":
+        state = "pending_review"
+        message_en = "The horoscope document was received and is pending review. No chart or compatibility result is available."
+        message_telugu = "జాతక పత్రం అందింది; review పెండింగ్‌లో ఉంది. Chart లేదా compatibility ఫలితం అందుబాటులో లేదు."
+    elif latest.get("status") == "verified":
+        state = "review_recorded"
+        message_en = "A document review status is recorded. It is not an authenticity certificate and does not generate a complete chart."
+        message_telugu = "పత్రం review స్థితి నమోదు అయింది. ఇది authenticity certificate కాదు; పూర్తి chart ను తయారు చేయదు."
+    else:
+        state = "rejected"
+        message_en = "The submitted horoscope document was rejected for review; no astrology result was generated."
+        message_telugu = "సమర్పించిన జాతక పత్రం review కు తిరస్కరించబడింది; ఏ జ్యోతిష్య ఫలితమూ తయారు చేయలేదు."
+
+    public_records = [
+        {"id": row.get("id"), "kind": row.get("kind"), "status": row.get("status"),
+         "at": row.get("at"), "verified_at": row.get("verified_at"), "note": row.get("note", "")}
+        for row in rows[:10]
+    ]
+    return {
+        "success": True,
+        "tsap_id": owner,
+        "state": state,
+        "calculation_available": False,
+        "records": public_records,
+        "message_en": message_en,
+        "message_telugu": message_telugu,
+        "note_en": "Only an appropriately reviewed real chart may support a professional interpretation; missing data is never guessed.",
+        "note_telugu": "తగిన review పొందిన అసలైన chart మాత్రమే professional interpretation కు ఆధారం కావచ్చు; లేని వివరాలను ఊహించము.",
+    }
 
 
 def verify_jathakam(jid: str, ok: bool, note: str = "") -> Dict:
     j = next((x for x in JATHAKAMS if x.get("id") == jid), None)
     if not j:
         return {"success": False, "message_telugu": "⚠️ Jathakam దొరకలేదు"}
+    previous = dict(j)
     j["status"] = "verified" if ok else "rejected"
-    j["note"] = note
+    j["note"] = str(note or "")[:500]
     j["verified_at"] = _now()
-    _persist()
+    if not _persist():
+        j.clear()
+        j.update(previous)
+        return {"success": False, "message_telugu": "Jathakam status could not be saved safely; try again."}
     return {"success": True, "jathakam": j,
             "message_telugu": ("✅ Jathakam review status recorded" if ok
                                else "❌ Jathakam review rejected — re-upload if requested")}

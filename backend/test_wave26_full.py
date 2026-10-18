@@ -20,6 +20,10 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from test_storage import isolate_test_stores  # noqa: E402
 isolate_test_stores("wave26")
 
+# 💳 Test-only merchant UPI id: pay-order flows need a configured destination. Manual UPI
+# mode still requires an operator to verify the submitted reference — no money moves in tests.
+os.environ.setdefault("PAY_UPI_ID", "mana-vivaha-tests@upi")
+
 PASS, FAIL, FAILED = 0, 0, []
 
 
@@ -38,13 +42,20 @@ def check(name, cond, extra=None):
         print(f"  ❌ {name}" + (f"  → {extra}" if extra else ""))
 
 
-section("A. engine None-safe")
+section("A. retired synthetic-score shim (None-safe, no invented %)")
 import matching_engine as ME
 
-check("A1 empty users → int score", isinstance(ME.calculate_match_score({}, {}), int))
-check("A2 score 0-100", 0 <= ME.calculate_match_score({}, {}) <= 100)
-check("A3 None ages → neutral", ME.calculate_age_score(None, None, "") == 12)
-check("A4 None jobs → neutral", ME.calculate_job_score(None, None) == 6)
+# 🐞 R13: synthetic compatibility scoring was retired on purpose (blueprint §5 — no
+#   invented compatibility %, grade, or ranking reason). The shim must stay importable
+#   for legacy callers and must never crash, but it returns None instead of a number.
+check("A1 empty users → no synthetic score", ME.calculate_match_score({}, {}) is None)
+check("A2 shim never returns a 0-100 number", not isinstance(ME.calculate_match_score({}, {}), (int, float)))
+check("A3 None ages → no score", ME.calculate_age_score(None, None, "") is None)
+check("A4 None jobs → no score", ME.calculate_job_score(None, None) is None)
+check("A4b caste/location/education/height/marital shims retired",
+      all(fn(None, None) is None for fn in (ME.calculate_caste_score, ME.calculate_location_score,
+                                            ME.calculate_education_score, ME.calculate_height_score,
+                                            ME.calculate_marital_score)))
 check("A5 reasons minimal → list", isinstance(ME.generate_personalized_reasons({}, {}, 50), list))
 check("A6 find_top ageless pool → no crash",
       isinstance(ME.find_top_matches({"tsap_id": "A", "gender": "Groom"},

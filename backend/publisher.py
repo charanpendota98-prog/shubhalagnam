@@ -38,6 +38,7 @@ import json
 import os
 import random
 import time
+from atomic_store import atomic_append_line
 from datetime import datetime
 from typing import Dict, List, Optional
 
@@ -132,8 +133,11 @@ def publish_status() -> Dict:
             "targets": len(c["wa_to"]) + len(c["wa_bridge_targets"]),
         },
         "dry_run": c["dry_run"],
-        "order": "telegram → whatsapp",
-        "order_note": "Telegram is attempted before WhatsApp is queued; a queued notification does not confirm external delivery.",
+        # 🔁 Failover line: primary fail aite next bot / next WA instance try avthundi.
+        "order": "telegram → whatsapp (failover: primary fail → backup bot, then next WhatsApp instance)",
+        "order_note": ("Telegram is attempted before WhatsApp is queued. On failure the bot pool moves to the "
+                       "next bot and the WhatsApp pool to the next available instance; a queued notification "
+                       "does not confirm external delivery."),
         "auto_post_on_approval": c["auto_post_on_approval"],
         "auto_post_on_register": c["auto_post_on_register"],  # legacy alias
         "whatsapp_queue": wa_queue_stats(),
@@ -561,8 +565,7 @@ async def publish_profile(profile: Dict, tsap_id: str, score: int | None = None,
 
 def _append_log_file(entry: Dict):
     try:
-        with open(LOG_FILE, "a", encoding="utf-8") as f:
-            f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+        atomic_append_line(LOG_FILE, json.dumps(entry, ensure_ascii=False) + "\n")
     except Exception:
         pass
 

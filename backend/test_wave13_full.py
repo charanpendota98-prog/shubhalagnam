@@ -192,73 +192,45 @@ check("D11 nadi 9-9-9", nadis.count("adi") == 9 and nadis.count("madhya") == 9 a
 check("D12 12 rasis + lords", len(AST.RASIS) == 12 and len(AST.RASI_LORD) == 12)
 
 # ═══════════════════════════════════════════════════════════════════════════
-section("E. 36-GUNA MATH (known answers)")
+section("E. ASTROLOGY EVIDENCE GATE")
 # ═══════════════════════════════════════════════════════════════════════════
+# Star/rasi labels are retained as member-entered metadata only.  No legacy
+# calculator may turn them into a 36-guna total, dosha flag, or verdict.
 g = AST.guna_milan("Rohini", "Vrishabha", "Mrigasira", "Vrishabha")
-check("E1 available + 8 kootas", g.get("available") and len(g.get("kootas", [])) == 8, g.get("total_36"))
-check("E2 total = sum(kootas)", abs(g["total_36"] - round(sum(k["score"] for k in g["kootas"]), 1)) < 0.01)
-check("E3 total 0..36", 0 <= g["total_36"] <= 36)
-mx = {k["koota"]: k["score"] for k in g["kootas"]}
-# Rohini(antya) vs Mrigasira(madhya) → nadi veru = 8
-check("E4 nadi veru → 8", mx.get("Nadi") == 8.0, mx)
-# Rohini vs Rohini → nadi same = 0, gana same = 6, yoni same = 2, tara dist1 → 0
-g2 = AST.guna_milan("Rohini", "Vrishabha", "Rohini", "Vrishabha")
-m2 = {k["koota"]: k["score"] for k in g2["kootas"]}
-check("E5 same-star: nadi 0 + gana 6 + yoni 2 + tara 0",
-      m2.get("Nadi") == 0.0 and m2.get("Gana") == 6.0 and m2.get("Yoni") == 2.0 and m2.get("Tara") == 0.0, m2)
-check("E6 same-star doshas list", len(g2.get("doshas", [])) >= 1, g2.get("doshas"))
-# Yoni enemy: cow (Uttara) × tiger (Chitra) → 0
-g3 = AST.guna_milan("Uttara Phalguni", "Simha", "Chitra", "Tula")
-m3 = {k["koota"]: k["score"] for k in g3["kootas"]}
-check("E7 yoni vairam (cow×tiger) → 0", m3.get("Yoni") == 0.0, m3)
-# Bhakoot 6-8: Mesha(0) → Kanya(5): dist 6 → 0
-g4 = AST.guna_milan("Ashwini", "Mesha", "Hasta", "Kanya")
-m4 = {k["koota"]: k["score"] for k in g4["kootas"]}
-check("E8 bhakoot 6-8 → 0 + dosha", m4.get("Bhakoot") == 0.0 and any("Bhakoot" in d for d in g4["doshas"]), (m4, g4["doshas"]))
-# Bhakoot 7: Mesha → Tula dist 7 → 7
-g5 = AST.guna_milan("Ashwini", "Mesha", "Swati", "Tula")
-m5 = {k["koota"]: k["score"] for k in g5["kootas"]}
-check("E9 bhakoot 7th → 7", m5.get("Bhakoot") == 7.0, m5)
-# Graha maitri mutual friends: Simha(Sun) × Dhanu(Jupiter): Sun-Jupiter mutual → 5
-g6 = AST.guna_milan("Magha", "Simha", "Mula", "Dhanu")
-m6 = {k["koota"]: k["score"] for k in g6["kootas"]}
-check("E10 maitri mutual (Sun×Jupiter) → 5", m6.get("Graha Maitri") == 5.0, m6)
-# missing data → honest unavailable
-g7 = AST.guna_milan("", "", "Rohini", "Vrishabha")
-check("E11 data lekapothe available False", g7.get("available") is False and "star" in str(g7.get("missing")))
-check("E12 verdict bands", g.get("verdict") in ("uttama", "manchi", "madhyama", "takkuva") and "🪐" not in g.get("verdict_telugu", "") or True)
-# determinism: malli adigithe same total
-g1b = AST.guna_milan("Rohini", "Vrishabha", "Mrigasira", "Vrishabha")
-check("E13 deterministic", g1b["total_36"] == g["total_36"])
+check("E1 guna result unavailable without reviewed Jathakam",
+      g.get("available") is False and g.get("calculation_available") is False
+      and g.get("status") == "jathakam_review_required")
+check("E2 no fabricated guna totals, kootas, or doshas",
+      g.get("total_36") is None and g.get("percent") is None
+      and g.get("kootas") == [] and g.get("doshas") == [])
+check("E3 missing and present star/rasi inputs use the same safe contract",
+      AST.guna_milan("", "", "Rohini", "Vrishabha").get("status") == "jathakam_review_required")
 
 # ═══════════════════════════════════════════════════════════════════════════
-section("F. DOSHA SCREENING + JATHAKAM (engine)")
+section("F. DOSHA EVIDENCE + JATHAKAM QUEUE")
 # ═══════════════════════════════════════════════════════════════════════════
 d1 = AST.dosha_screening({"star": "Rohini", "rasi": "Vrishabha", "dosham": "No"})
-check("F1 clean → clear", d1["level"] == "clear", d1)
-d2 = AST.dosha_screening({"star": "Rohini", "dosham": "Kuja Dosham"})
-check("F2 declared kuja → high flag", d2["level"] == "high" and d2["kuja"] == "declared", d2["flags"])
-d3 = AST.dosha_screening({"star": "Moola", "dosham": "No"})
-check("F3 Moola star → high", d3["level"] == "high" and any(f["dosha"] == "moola" for f in d3["flags"]))
-d4 = AST.dosha_screening({"star": "Rohini", "dosham": "No", "moola_nakshatram": "Yes"})
-check("F4 moola declared → high", d4["level"] == "high")
-d5 = AST.dosha_screening({"star": "Rohini", "dosham": "No"})
-check("F5 kuja needs_chart (birth_time ledu)", d5["kuja"] == "needs_chart")
+check("F1 dosha screening is unavailable from profile fields",
+      d1["available"] is False and d1["calculation_available"] is False
+      and d1["status"] == "jathakam_review_required")
+check("F2 no profile-derived dosha flags or verdict",
+      d1["flags"] == [] and d1["level"] == "unavailable" and d1["kuja"] == "unavailable")
 j = AST.submit_jathakam(BID, "f.jpg", "photo")
-check("F6 jathakam submit pending", j["status"] == "pending" and j["id"].startswith("J-"), j)
+check("F3 jathakam submit pending", j["status"] == "pending" and j["id"].startswith("J-"), j)
 v = AST.verify_jathakam(j["id"], True, "pandit ok")
-check("F7 verify → verified", v["success"] and AST.JATHAKAMS[-1]["status"] == "verified")
+check("F4 review status records without creating a chart", v["success"] and AST.JATHAKAMS[-1]["status"] == "verified")
 v2 = AST.verify_jathakam("J-9999", True)
-check("F8 tappu ID → fail", v2["success"] is False)
+check("F5 invalid review ID fails safely", v2["success"] is False)
 st = AST.astro_stats([{"star": "Rohini", "rasi": "Vrishabha", "dosham": "Kuja"},
                       {"star": "Moola", "rasi": "Dhanu", "dosham": "No", "jathakam_verified": True}])
-check("F9 stats counts", st["dosha_declared"] == 1 and st["jathakam_verified"] == 1 and st["total"] == 2, st)
+check("F6 admin stats count recorded fields, not generated results",
+      st["dosha_declared"] == 1 and st["jathakam_verified"] == 1 and st["total"] == 2, st)
 
 # ═══════════════════════════════════════════════════════════════════════════
 section("G. ASTRO API")
 # ═══════════════════════════════════════════════════════════════════════════
 ga = client.get(f"/api/astro/guna?bride_id={BID}&groom_id={G2}").json()
-check("G1 guna API available", ga.get("available") is True and ga.get("total_36", 0) > 0, ga.get("total_36"))
+check("G1 guna API fails closed without a reviewed real chart", ga.get("available") is False and ga.get("calculation_available") is False and ga.get("status") == "jathakam_review_required", ga)
 check("G2 guna bride/groom echo", ga.get("bride_id") == BID and ga.get("groom_id") == G2)
 ga_swap = client.get(f"/api/astro/guna?bride_id={G2}&groom_id={BID}").json()
 check("G3 gender auto-swap", ga_swap.get("bride_id") == BID and ga_swap.get("total_36") == ga.get("total_36"))

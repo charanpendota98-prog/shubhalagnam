@@ -5,8 +5,11 @@
  */
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { parseSlug, channelForCaste } from "@/lib/seo-pages";
+import { buildSlug, channelForCaste, parseSlug } from "@/lib/seo-pages";
 import { SITE_CONFIG } from "@/lib/site-config";
+import { serializeJsonLd } from "@/lib/safe-json-ld";
+import { communityBreadcrumb, communityFaq, communityFaqSchema } from "@/lib/community-faq.mjs";
+import Breadcrumbs, { type Crumb } from "@/components/Breadcrumbs";
 import CasteClient from "./caste-client";
 
 type Params = { params: Promise<{ slug: string }> };
@@ -28,6 +31,18 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
       `telugu matrimony ${district?.name || "telangana"}`, "Telugu matrimony", "manavivaha",
     ],
     alternates: { canonical: `${SITE_CONFIG.siteUrl}/castes/${slug}` },
+    openGraph: {
+      type: "website",
+      url: `${SITE_CONFIG.siteUrl}/castes/${slug}`,
+      siteName: "Mana Vivaha (మన వివాహ)",
+      title,
+      description: `${caste.name} ${role} profiles ${where} — member-submitted listings, consent-based contact options, first 3 interest requests free. Profile details are not independently verified.`,
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description: `${caste.name} ${role} profiles ${where} — member-submitted listings on Mana Vivaha. Details are not independently verified.`,
+    },
   };
 }
 
@@ -39,8 +54,37 @@ export default async function CasteLandingPage({ params }: Params) {
   const chan = channelForCaste(caste.key, role);
   const otherRole = role === "bride" ? "groom" : "bride";
   const otherChan = channelForCaste(caste.key, otherRole);
+  const path = `/castes/${slug}`;
+  const communityHref = `/castes/${buildSlug(caste.key, role)}`;
+  const roleLabel = role === "bride" ? "Brides" : "Grooms";
+  const TRAIL: Crumb[] = [
+    { en: "Home", te: "హోమ్", href: "/" },
+    { en: "Communities", te: "కమ్యూనిటీలు", href: "/castes" },
+    { en: `${caste.name} ${roleLabel}`, te: `${caste.name} ${role === "bride" ? "వధువులు" : "వరులు"}`, href: communityHref },
+  ];
+  if (district) {
+    TRAIL.push({ en: district.name, te: district.name, href: path });
+  }
+  const faqEn = communityFaq({ community: caste.name, role, district: district?.name });
+  const faqTe = communityFaq({ community: caste.name, role, district: district?.name, te: true });
   return (
-    <CasteClient
+    <>
+      {/* Structured data mirrors exactly what the page renders — no hidden FAQ. */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(communityFaqSchema(faqEn)) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: serializeJsonLd(communityBreadcrumb({
+            siteUrl: SITE_CONFIG.siteUrl, path,
+            community: caste.name, role, district: district?.name,
+          })),
+        }}
+      />
+      <Breadcrumbs trail={TRAIL} />
+      <CasteClient
       caste={caste}
       role={role}
       district={district ? { slug: district.slug, name: district.name, state: district.state } : null}
@@ -51,6 +95,9 @@ export default async function CasteLandingPage({ params }: Params) {
       otherChan={otherChan ? {
         key: otherChan.key, name: otherChan.name,
       } : null}
-    />
+      faqEn={faqEn}
+      faqTe={faqTe}
+      />
+    </>
   );
 }

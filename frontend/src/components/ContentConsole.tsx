@@ -10,11 +10,6 @@ import ProtectedImage from "@/components/ProtectedImage";
 import { useLang } from "@/lib/lang";
 
 type Row = Record<string, any>;
-const adminToken = () => { try { return localStorage.getItem("tsap_admin_token") || ""; } catch { return ""; } };
-const withToken = (url: string) => {
-  const tk = adminToken();
-  return tk ? `${url}${url.includes("?") ? "&" : "?"}token=${encodeURIComponent(tk)}` : url;
-};
 const H = () => ({ ...authHeaders(true), "Content-Type": "application/json" });
 
 export default function ContentConsole() {
@@ -30,7 +25,7 @@ export default function ContentConsole() {
 
   const load = async () => {
     try {
-      const d = await fetch(withToken("/api/admin/cms"), { headers: authHeaders(true) }).then((r) => readApiJson(r));
+      const d = await fetch("/api/admin/cms", { headers: authHeaders(true) }).then((r) => readApiJson(r));
       if (d?.success) setData(d);
       else setFlash(d.detail || "Load fail");
     } catch { setFlash("Network problem"); }
@@ -38,7 +33,7 @@ export default function ContentConsole() {
   useEffect(() => { void load(); }, []);
 
   const post = async (url: string, body: Row) => {
-    const r = await fetch(withToken(url), { method: "POST", headers: H(), body: JSON.stringify(body) });
+    const r = await fetch(url, { method: "POST", headers: H(), body: JSON.stringify(body) });
     const d = await readApiJson(r);
     setFlash(d.message_telugu || d.detail || "done");
     if (r.ok) void load();
@@ -53,7 +48,7 @@ export default function ContentConsole() {
       fd.append("file", file);
       const headers = authHeaders(true);
       delete headers["Content-Type"];
-      const r = await fetch(withToken("/api/photo/upload"), { method: "POST", headers, body: fd });
+      const r = await fetch("/api/photo/upload", { method: "POST", headers, body: fd });
       const d = await readApiJson(r);
       if (d?.photo_url || d?.url) { cb(d.photo_url || d.url); setFlash(te ? "📸 Photo upload అయ్యింది" : "📸 Photo uploaded"); }
       else setFlash((d?.detail?.te || d?.detail?.message_telugu || d?.detail) || (te ? "Upload fail — URL paste చెయ్యండి" : "Upload failed — paste URL"));
@@ -81,12 +76,12 @@ export default function ContentConsole() {
             <div className="text-[11px] text-gray-500">{l}</div>
           </div>
         ))}
-        <button onClick={() => void load()} className="rounded-xl bg-gray-100 text-xs font-bold p-2">↻ Refresh</button>
+        <button type="button" onClick={() => void load()} className="rounded-xl bg-gray-100 text-xs font-bold p-2">↻ Refresh</button>
       </div>
       {flash && <div className="mb-2 rounded-xl bg-[#0F1F3C] text-white text-xs p-2">{flash}</div>}
       <div className="flex gap-2 my-2">
         {[["pages", "📄 Pages"], ["stories", "💑 Stories"], ["banners", "📣 Banners"]].map(([v, l]) => (
-          <button key={v} onClick={() => setSub(v)}
+          <button type="button" key={v} onClick={() => setSub(v)}
             className={`px-4 py-1.5 rounded-full text-xs font-bold ${sub === v ? "maroon-gradient text-white" : "bg-gray-100"}`}>{l}</button>
         ))}
       </div>
@@ -108,7 +103,7 @@ export default function ContentConsole() {
               <input type="checkbox" checked={!!pg.published} onChange={(e) => setPg({ ...pg, published: e.target.checked })} />
               Publish immediately (unchecked saves a draft)
             </label>
-            <button onClick={() => void post("/api/admin/cms/pages", { ...pg, photos: pg.photos.split(",").map((x: string) => x.trim()).filter(Boolean) })}
+            <button type="button" onClick={() => void post("/api/admin/cms/pages", { ...pg, photos: pg.photos.split(",").map((x: string) => x.trim()).filter(Boolean) })}
               className="rounded-lg bg-green-700 text-white px-4 py-1.5 text-xs font-bold">💾 Save page</button>
           </div>
           {pages.map((p) => (
@@ -118,9 +113,9 @@ export default function ContentConsole() {
               <span>{p.title_en} • {p.title_te}</span>
               <span className="text-gray-400">{(p.tags || []).map((t: string) => `#${t}`).join(" ")}</span>
               <span className="ml-auto flex gap-1">
-                <button onClick={() => setPg({ slug: p.slug, title_en: p.title_en, title_te: p.title_te, body_en: p.body_en, body_te: p.body_te, photos: (p.photos || []).join(","), tags: (p.tags || []).join(","), published: !!p.published })} className="rounded-lg bg-blue-600 text-white px-3 py-1 text-[11px] font-bold">✏️</button>
-                <button onClick={() => void post("/api/admin/cms/pages", { ...p, published: !p.published })} className="rounded-lg bg-gray-800 text-white px-3 py-1 text-[11px] font-bold">ON/OFF</button>
-                <button onClick={() => void post("/api/admin/cms/delete", { kind: "page", id: p.slug })} className="rounded-lg bg-red-600 text-white px-3 py-1 text-[11px] font-bold">🗑️</button>
+                <button type="button" aria-label={te ? "పేజీని సవరించండి" : "Edit page"} onClick={() => setPg({ slug: p.slug, title_en: p.title_en, title_te: p.title_te, body_en: p.body_en, body_te: p.body_te, photos: (p.photos || []).join(","), tags: (p.tags || []).join(","), published: !!p.published })} className="rounded-lg bg-blue-600 text-white px-3 py-1 text-[11px] font-bold">✏️</button>
+                <button type="button" onClick={() => void post("/api/admin/cms/pages", { ...p, published: !p.published })} className="rounded-lg bg-gray-800 text-white px-3 py-1 text-[11px] font-bold">ON/OFF</button>
+                <button type="button" aria-label={te ? "పేజీని తొలగించండి" : "Delete page"} onClick={() => void post("/api/admin/cms/delete", { kind: "page", id: p.slug })} className="rounded-lg bg-red-600 text-white px-3 py-1 text-[11px] font-bold">🗑️</button>
               </span>
             </div>
           ))}
@@ -150,7 +145,7 @@ export default function ContentConsole() {
               <input type="checkbox" checked={!!st.published} onChange={(e) => setSt({ ...st, published: e.target.checked })} />
               Publish immediately (unchecked saves a draft)
             </label>
-            <button onClick={() => void post("/api/admin/cms/stories", st)} className="rounded-lg bg-green-700 text-white px-4 py-1.5 text-xs font-bold">💾 Save story</button>
+            <button type="button" onClick={() => void post("/api/admin/cms/stories", st)} className="rounded-lg bg-green-700 text-white px-4 py-1.5 text-xs font-bold">💾 Save story</button>
           </div>
           {stories.map((s) => (
             <div key={s.id} className="rounded-xl border p-2.5 text-xs flex flex-wrap items-center gap-2">
@@ -159,8 +154,8 @@ export default function ContentConsole() {
               <span className="font-bold">💑 {s.groom} ♥ {s.bride}</span>
               <span className="text-gray-500">{s.district} {(s.tags || []).map((t: string) => `#${t}`).join(" ")}</span>
               <span className="ml-auto flex gap-1">
-                <button onClick={() => void post("/api/admin/cms/stories", { ...s, tags: (s.tags || []).join(","), published: !s.published })} className="rounded-lg bg-gray-800 text-white px-3 py-1 text-[11px] font-bold">{s.published ? "ON" : "OFF"}</button>
-                <button onClick={() => void post("/api/admin/cms/delete", { kind: "story", id: s.id })} className="rounded-lg bg-red-600 text-white px-3 py-1 text-[11px] font-bold">🗑️</button>
+                <button type="button" onClick={() => void post("/api/admin/cms/stories", { ...s, tags: (s.tags || []).join(","), published: !s.published })} className="rounded-lg bg-gray-800 text-white px-3 py-1 text-[11px] font-bold">{s.published ? "ON" : "OFF"}</button>
+                <button type="button" aria-label={te ? "స్టోరీని తొలగించండి" : "Delete story"} onClick={() => void post("/api/admin/cms/delete", { kind: "story", id: s.id })} className="rounded-lg bg-red-600 text-white px-3 py-1 text-[11px] font-bold">🗑️</button>
               </span>
             </div>
           ))}
@@ -181,7 +176,7 @@ export default function ContentConsole() {
               <input type="checkbox" checked={!!bn.active} onChange={(e) => setBn({ ...bn, active: e.target.checked })} />
               Show this banner immediately (unchecked saves it hidden)
             </label>
-            <button onClick={() => void post("/api/admin/cms/banners", { ...bn, pages: bn.pages.split(",").map((x: string) => x.trim()).filter(Boolean) })} className="rounded-lg bg-green-700 text-white px-4 py-1.5 text-xs font-bold">💾 Save banner</button>
+            <button type="button" onClick={() => void post("/api/admin/cms/banners", { ...bn, pages: bn.pages.split(",").map((x: string) => x.trim()).filter(Boolean) })} className="rounded-lg bg-green-700 text-white px-4 py-1.5 text-xs font-bold">💾 Save banner</button>
           </div>
           {banners.map((b) => (
             <div key={b.id} className="rounded-xl border p-2.5 text-xs flex flex-wrap items-center gap-2">
@@ -189,8 +184,8 @@ export default function ContentConsole() {
               <span className="font-bold">{b.text_en} • {b.text_te}</span>
               <span className="text-gray-500">{(b.pages || []).join(",")} {b.link ? `→ ${b.link}` : ""}</span>
               <span className="ml-auto flex gap-1">
-                <button onClick={() => void post("/api/admin/cms/banners", { ...b, active: !b.active })} className="rounded-lg bg-gray-800 text-white px-3 py-1 text-[11px] font-bold">{b.active ? "ON" : "OFF"}</button>
-                <button onClick={() => void post("/api/admin/cms/delete", { kind: "banner", id: b.id })} className="rounded-lg bg-red-600 text-white px-3 py-1 text-[11px] font-bold">🗑️</button>
+                <button type="button" onClick={() => void post("/api/admin/cms/banners", { ...b, active: !b.active })} className="rounded-lg bg-gray-800 text-white px-3 py-1 text-[11px] font-bold">{b.active ? "ON" : "OFF"}</button>
+                <button type="button" aria-label={te ? "బ్యానర్‌ను తొలగించండి" : "Delete banner"} onClick={() => void post("/api/admin/cms/delete", { kind: "banner", id: b.id })} className="rounded-lg bg-red-600 text-white px-3 py-1 text-[11px] font-bold">🗑️</button>
               </span>
             </div>
           ))}

@@ -358,7 +358,7 @@ export default function QuickUnlockModal({
         
         {/* Header Ribbon */}
         <div className="maroon-gradient p-5 text-white relative">
-          <button
+          <button aria-label={te ? "మూసివేయండి" : "Close"} type="button"
             onClick={onClose}
             className="absolute top-4 right-4 w-8 h-8 rounded-full bg-black/25 hover:bg-black/40 flex items-center justify-center text-white font-black text-sm transition"
           >
@@ -479,7 +479,7 @@ export default function QuickUnlockModal({
                   <p className="text-xs text-slate-700">
                     {te ? "సురక్షిత చెల్లింపు చెక్అవుట్ తెరవబడుతుంది. చెల్లింపు తర్వాత సర్వర్ ధృవీకరిస్తుంది." : "Secure checkout will open. Payment is credited only after server-side verification."}
                   </p>
-                  <button onClick={handleRazorpayPayment} disabled={busy}
+                  <button type="button" onClick={handleRazorpayPayment} disabled={busy}
                     className="w-full py-3 rounded-xl bg-[#7A0C2E] text-white font-bold text-sm disabled:opacity-50">
                     {busy ? (te ? "దయచేసి వేచి ఉండండి…" : "Please wait…") : (te ? `Razorpay ద్వారా ₹${payOrder.final_amount} చెల్లించండి` : `Pay ₹${payOrder.final_amount} with Razorpay`)}
                   </button>
@@ -517,7 +517,7 @@ export default function QuickUnlockModal({
                         <input id="quick-unlock-utr" type="text" inputMode="numeric" maxLength={12} value={utr}
                           onChange={(e) => setUtr(e.target.value.replace(/\D/g, "").slice(0, 12))}
                           placeholder="12-digit UTR" className="min-w-0 flex-1 bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-mono font-bold text-slate-800" />
-                        <button onClick={handleSubmitUtr} disabled={utrBusy || utr.length !== 12}
+                        <button type="button" onClick={handleSubmitUtr} disabled={utrBusy || utr.length !== 12}
                           className="px-4 py-2 rounded-xl bg-emerald-600 text-white font-bold text-xs disabled:opacity-50">
                           {utrBusy ? "⏳…" : te ? "సమర్పించు" : "Submit UTR"}
                         </button>
@@ -540,7 +540,7 @@ export default function QuickUnlockModal({
                   : `${currentPkg.credits} interest-request credits were added to your account. Close this window to continue and send an interest.`}
               </p>
               <p className="text-xs text-emerald-800">{te ? "Owner acceptance తర్వాత contact details accepted-request account views లో కనిపిస్తాయి; notification delivery హామీ లేదు." : "After owner acceptance, contact details appear in accepted-request account views; notification delivery is not guaranteed."}</p>
-              <button onClick={onClose} className="w-full rounded-xl bg-emerald-700 px-4 py-3 text-sm font-bold text-white">{te ? "కొనసాగించండి" : "Continue"}</button>
+              <button type="button" onClick={onClose} className="w-full rounded-xl bg-emerald-700 px-4 py-3 text-sm font-bold text-white">{te ? "కొనసాగించండి" : "Continue"}</button>
             </div>
           ) : (
             /* Choose request-credit plan */
@@ -605,7 +605,7 @@ export default function QuickUnlockModal({
 
               {/* Promo Code Input */}
               <div className="flex gap-2 pt-1">
-                <input
+                <input aria-label={te ? "Promo code (optional)" : "Promo code (optional)"}
                   type="text"
                   placeholder={te ? "Promo code (optional)" : "Promo code (optional)"}
                   value={promoCode}
@@ -615,7 +615,7 @@ export default function QuickUnlockModal({
                   }}
                   className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-mono uppercase font-bold text-slate-800"
                 />
-                <button
+                <button type="button"
                   onClick={applyPromo}
                   disabled={promoBusy || !promoCode.trim()}
                   className="px-3 py-2 rounded-xl border border-gold/60 bg-amber-50 hover:bg-amber-100 text-maroon font-black text-xs disabled:opacity-50 transition"
@@ -636,7 +636,7 @@ export default function QuickUnlockModal({
               )}
 
               {/* Primary Action Button */}
-              <button
+              <button type="button"
                 onClick={handleCreateOrder}
                 disabled={busy}
                 className="w-full py-3 px-4 rounded-2xl maroon-gradient hover:brightness-105 active:scale-98 text-white font-black text-sm shadow-lg flex items-center justify-center gap-2 transition"

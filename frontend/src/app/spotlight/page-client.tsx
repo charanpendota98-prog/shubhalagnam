@@ -222,7 +222,7 @@ export default function SpotlightPromotionPage() {
                   <label className="block text-xs font-bold text-gray-700 mb-1">
                     2. {te ? "మీ రిజిస్టర్డ్ TSAP ID" : "Your Registered TSAP ID"} <span className="text-red-500">*</span>
                   </label>
-                  <input
+                  <input aria-label={te ? "రిజిస్టర్ చేసిన Profile ID" : "Registered Profile ID"}
                     type="text"
                     required
                     placeholder={te ? "రిజిస్టర్ చేసిన Profile ID" : "Registered Profile ID"}

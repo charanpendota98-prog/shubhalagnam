@@ -8,6 +8,8 @@ import { useLang } from "@/lib/lang";
 import { duo } from "@/lib/duo";
 import Reveal from "@/components/Reveal";
 import SectionHeading from "@/components/SectionHeading";
+import { Button, EmptyState } from "@/components/ui";
+import { CardSkeletonList } from "@/components/Skeletons";
 
 export type SpotlightProfile = {
   promo_id: string;
@@ -122,21 +124,24 @@ export default function ProfilesOfTheDay() {
       </Reveal>
 
       {loading ? (
-        <div className="rounded-2xl border border-amber-200 bg-white/80 p-8 text-center text-sm text-slate-600" role="status">
-          {te ? "ప్రొఫైళ్లు లోడ్ అవుతున్నాయి…" : "Loading featured profiles…"}
-        </div>
+        <CardSkeletonList n={3} />
       ) : loadError ? (
-        <div className="rounded-2xl border border-amber-200 bg-white/80 p-8 text-center text-sm text-slate-700" role="status">
-          <p>{te ? "ప్రస్తుతం స్పాట్‌లైట్ ప్రొఫైళ్లు లోడ్ కాలేదు." : "Spotlight profiles could not be loaded right now."}</p>
-          <button type="button" onClick={() => window.location.reload()} className="mt-3 rounded-lg border border-maroon px-4 py-2 font-bold text-maroon">
-            {te ? "మళ్లీ ప్రయత్నించండి" : "Retry"}
-          </button>
-        </div>
+        <EmptyState
+          icon="⚠️"
+          title={te ? "స్పాట్‌లైట్ ప్రొఫైళ్లు లోడ్ కాలేదు" : "Spotlight profiles did not load"}
+          description={te ? "ప్రస్తుతం ఈ విభాగం అందుబాటులో లేదు. కొద్దిసేపటి తర్వాత మళ్లీ ప్రయత్నించండి." : "This section is unavailable right now. Please try again in a moment."}
+          action={
+            <Button variant="outline" onClick={() => window.location.reload()}>
+              {te ? "మళ్లీ ప్రయత్నించండి" : "Retry"}
+            </Button>
+          }
+        />
       ) : profiles.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-amber-300 bg-white/80 p-8 text-center text-sm text-slate-700">
-          <p>{te ? "ప్రస్తుతం ఆమోదించిన స్పాట్‌లైట్ ప్రొఫైళ్లు లేవు." : "There are no approved spotlight profiles right now."}</p>
-          <p className="mt-1 text-xs leading-relaxed text-slate-500">{te ? "ఇవి సభ్యులు సమర్పించిన వివరాలు. స్పాట్‌లైట్ సమీక్ష వ్యక్తి గుర్తింపును స్వతంత్రంగా నిర్ధారించదు." : "These are member-submitted details. Spotlight review does not independently verify a person's identity."}</p>
-        </div>
+        <EmptyState
+          icon="💍"
+          title={te ? "ఆమోదించిన స్పాట్‌లైట్ ప్రొఫైళ్లు లేవు" : "No approved spotlight profiles right now"}
+          description={te ? "సభ్యులు సమర్పించిన వివరాలను స్పాట్‌లైట్ సమీక్ష స్వతంత్రంగా నిర్ధారించదు." : "Spotlight review does not independently verify member-submitted details."}
+        />
       ) : (
         <div className="grid min-w-0 grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
           {profiles.map((profile, index) => {

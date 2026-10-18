@@ -169,7 +169,7 @@ export default function PayBox({ planCode, price, label, purpose = "credits", ts
 
   if (!open)
     return (
-      <button onClick={() => setOpen(true)}
+      <button type="button" onClick={() => setOpen(true)}
         className="w-full rounded-xl bg-[#7A0C2E] text-white px-4 py-2.5 font-bold text-sm hover:bg-[#5f0923]">
         💳 {displayLabel} — Pay ₹{price}
       </button>
@@ -182,11 +182,11 @@ export default function PayBox({ planCode, price, label, purpose = "credits", ts
           <div className="flex gap-2">
             <input value={offer} onChange={(e) => { setOffer(e.target.value); setPromo(""); }} placeholder={te ? "Offer code ఉంటే నమోదు చేయండి" : "Enter an offer code if you have one"}
               className="flex-1 rounded-lg border px-3 py-2 text-xs font-mono uppercase" aria-label="Offer code" />
-            <button onClick={previewPromo} disabled={promoBusy}
+            <button type="button" onClick={previewPromo} disabled={promoBusy}
               className="rounded-lg border border-green-700 text-green-700 px-3 py-2 text-xs font-bold disabled:opacity-50">
               {promoBusy ? "⏳…" : te ? "🎟️ Check" : "🎟️ Check"}
             </button>
-            <button onClick={createOrder} disabled={busy}
+            <button type="button" onClick={createOrder} disabled={busy}
               className="rounded-lg bg-[#7A0C2E] text-white px-4 py-2 text-xs font-bold disabled:opacity-50">
               {busy ? "⏳…" : "Order →"}
             </button>
@@ -241,7 +241,7 @@ export default function PayBox({ planCode, price, label, purpose = "credits", ts
                     <input value={utr} onChange={(e) => setUtr(e.target.value.replace(/\D/g, "").slice(0, 12))}
                       placeholder="12-digit UTR" inputMode="numeric"
                       className="flex-1 rounded-lg border px-3 py-2 font-mono text-xs" aria-label="12-digit UTR" />
-                    <button onClick={submitClaim} disabled={claimBusy || utr.length < 12}
+                    <button type="button" onClick={submitClaim} disabled={claimBusy || utr.length < 12}
                       className="rounded-lg bg-green-700 hover:bg-green-800 text-white px-3 py-2 font-bold text-xs disabled:opacity-50 transition shadow-xs">
                       {claimBusy ? "⏳…" : te ? "సమర్పించు" : "Submit UTR"}
                     </button>
@@ -250,15 +250,15 @@ export default function PayBox({ planCode, price, label, purpose = "credits", ts
               )}
             </div>
           )}
-          <button onClick={payNow} disabled={busy}
+          <button type="button" onClick={payNow} disabled={busy}
             className="w-full rounded-lg bg-[#7A0C2E] hover:bg-[#911239] text-white px-4 py-2.5 text-xs font-black shadow-md transition disabled:opacity-50">
             {order.mode === "razorpay" ? (te ? "💳 Razorpay ఆన్‌లైన్ పే (Cards/UPI/NetBanking)" : "💳 Pay with Razorpay (Cards/UPI/NetBanking)") : te ? "💳 ఆన్‌లైన్ పేమెంట్ పూర్తి చేయండి" : "💳 Complete Payment"}
           </button>
-          <button onClick={() => { setOrder(null); setMsg(""); }} className="text-[11px] underline text-gray-500">{te ? "← Offer మార్చాలి" : "← Change offer"}</button>
+          <button type="button" onClick={() => { setOrder(null); setMsg(""); }} className="text-[11px] underline text-gray-500">{te ? "← Offer మార్చాలి" : "← Change offer"}</button>
         </>
       )}
       {msg && <p className="text-[11px] font-bold text-gray-700">{msg}</p>}
-      <button onClick={() => { setOpen(false); setOrder(null); setMsg(""); }} className="text-[11px] underline text-gray-400">close</button>
+      <button type="button" onClick={() => { setOpen(false); setOrder(null); setMsg(""); }} className="text-[11px] underline text-gray-400">close</button>
     </div>
   );
 }

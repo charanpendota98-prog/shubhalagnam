@@ -169,8 +169,7 @@ p2 = preview.og_porutham_png(prof, dict(prof, tsap_id="TSAP-M-7777", gender="Gro
                             {"available": True, "passed_checks": 1, "total_checks": 2, "items": [
                                 {"no": 1, "name": "Rasi Porutham", "pass": True}, {"no": 5, "name": "Rajju Porutham", "pass": False}]},
                             os.path.join(preview.PREVIEW_DIR, "test-porutham.png"))
-check("porutham OG generate", bool(p2) and os.path.exists(p2))
-check("porutham OG size", Image.open(p2).size == (1200, 630))
+check("retired Porutham OG helper creates no file", p2 is None)
 p3 = preview.og_generic_png("Reddy Bride Hyderabad", "24 profiles • 3 FREE requests",
                             os.path.join(preview.PREVIEW_DIR, "test-site.png"), "sitepage")
 check("generic OG generate", bool(p3) and os.path.exists(p3))
@@ -247,7 +246,7 @@ try:
         check("GET /api/og/profile/{id}.png 200", og.status_code == 200 and og.content[:4] == b"\x89PNG", og.status_code)
         check("OG cache header (WhatsApp crawler friendly)", "max-age" in (og.headers.get("cache-control") or ""))
         ogp = c.get("/api/og/porutham/%s/%s.png" % (b["tsap_id"], g["tsap_id"]))
-        check("GET /api/og/porutham/{b}/{g}.png 200", ogp.status_code == 200 and ogp.content[:4] == b"\x89PNG", ogp.status_code)
+        check("GET /api/og/porutham/{b}/{g}.png fails closed", ogp.status_code == 410 and "retired" in ogp.text.lower(), ogp.status_code)
 except Exception as e:  # pragma: no cover
     check("TestClient suite", False, repr(e))
 

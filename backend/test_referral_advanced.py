@@ -91,9 +91,13 @@ R.attach_referral(_f2, me["referral_code"], users)
 _r3 = R.attach_referral(_f3, me["referral_code"], users)
 check("3+ same-phone joins → multi_account_review flag (block ledu)", _r3["ok"] is True
       and any("multi_account_review" in f for f in R.stats_of(me)["flags"]), R.stats_of(me)["flags"][-3:])
-check("Terms lo 'conditions levu' line", "ఎవ్వరు ఎన్ని అయినా" in R.referral_terms_telugu()["no_conditions_telugu"])
-check("Terms: okate phone lo kooda allowed ani cheppindi",
-any("ఒకటే phone" in r for r in R.referral_terms_telugu()["rules_telugu"]))
+_telugu_terms = R.referral_terms_telugu()
+check("Terms lo 'no fixed referral-count cap' line (kani eligibility/review untayi)",
+      "cap లేదు" in _telugu_terms["no_conditions_telugu"]
+      and "review" in _telugu_terms["no_conditions_telugu"], _telugu_terms["no_conditions_telugu"][:60])
+check("Terms: duplicate/self-referral block kaadu — review matrame (soft rule)",
+      any("duplicate" in r and "review" in r and "బ్లాక్" not in r
+          for r in _telugu_terms["rules_telugu"]))
 check("Daily/lifetime caps SOFT (block undi kaadu)",
       R.DAILY_PAYING_SOFT_CAP >= 50 and R.LIFETIME_SOFT_CAP >= 500)
 check("Validate endpoint message lo peru + credit", "Ravi Kumar" in R.validate_referral(me["referral_code"], users)["message_telugu"])
@@ -214,9 +218,11 @@ print("=== 7. DASHBOARD + SHARE KIT + POSTER ===")
 d = R.referral_dashboard(me, users)
 check("Dashboard stats shape (clicks/registrations/paid/wallet)",
       all(k in d["stats"] for k in ("clicks", "registrations", "paid_count", "wallet", "conversion_pct", "lifetime_earned")))
-check("Commission rules Telugu (first ₹50 / repeat ₹0 / badges)",
-      "50" in d["commission_rules"]["first_payment"] and "0" in d["commission_rules"]["repeat_payment"]
-      and "badges" in d["commission_rules"]["tier_extra"])
+_cr = d["commission_rules"]
+check("Commission rules (first ₹50 / repeat ₹0 / badge-only tiers)",
+      "50" in _cr["first_payment"] and "0" in _cr["repeat_payment"]
+      and "badge" in _cr["tier_extra"].lower()
+      and "commission" in _cr["tier_extra"].lower(), _cr["tier_extra"])
 check("Tiermilestones + next milestone dashboard lo", len(d["milestones"]) == 4 and d["next_milestone"] is not None)
 check("Ledger + payouts dashboard lo", len(d["ledger"]) >= 1 and len(d["payouts"]) >= 1)
 check("Recent registrations (paid flag)", any(r["paid"] for r in d["recent_registrations"]))
@@ -317,11 +323,18 @@ with TestClient(main.app) as c:
     # 🧪 E2E: register with ref → pay → referrer wallet
     # 🐞 FIX (R12): fixed phone → duplicate-register fail in re-runs; unique per run
     _run_phone = "98%08d" % (int(time.time()) % 100000000)
+    from testutil_photos import TEST_PROFILE_PHOTO  # noqa: E402  # synthetic bytes, test-only
     reg = c.post("/api/register", data={
         "gender": "Bride", "age": 26, "height": "5'3\"", "marital_status": "Pelli Kaledu",
         "caste": "Reddy", "district": "Nalgonda", "state": "TS", "full_name": "Referral Test Bride",
         "phone": _run_phone, "job": "Teacher", "education": "BEd", "salary": "40k",
-        "referral_code": mcode})
+        # 🐞 R13: /api/register ippudu password + dob + religion + rendu consents + oka profile
+        #   photo kooda adugutundi. Ivi lekunda pampithe response {"detail": ...} vastundi —
+        #   tsap_id assalu undadu (photo ni testutil_client.TestClient auto-attach chestundi).
+        "password": "ReferralTest123!", "dob": "1999-06-15",
+        "religion": "Hindu", "consent_confirmed": "true", "photo_consent_confirmed": "true",
+        "referral_code": mcode},
+        files={"photo_file": ("profile.jpg", TEST_PROFILE_PHOTO, "image/jpeg")})
     rj = reg.json()
     check("Register + referral lock (my_code + joined bonus)", reg.status_code == 200
           and rj["referral"]["joined_with"]["ok"] is True
@@ -351,9 +364,10 @@ with TestClient(main.app) as c:
     check("Referrer wallet +50", round(R.stats_of(me_api)["wallet"] - wallet_before, 2) == 50.0)
     check("Referrer ki commission WhatsApp text generate ayyindi",
           bool(wh["referral_commission"].get("referrer_message")) or wh["referral_commission"].get("referrer_notified"))
+    _ref_msg = str(wh["referral_commission"].get("referrer_message", "")).lower()
     check("Commission text lo wallet balance + tier",
-          "Wallet balance" in str(wh["referral_commission"].get("referrer_message", ""))
-          or wh["referral_commission"].get("referrer_notified"))
+          ("wallet" in _ref_msg and "tier" in _ref_msg)
+          or wh["referral_commission"].get("referrer_notified"), _ref_msg[:60])
 
     # payout API
     R.stats_of(me_api)["wallet"] = 300.0

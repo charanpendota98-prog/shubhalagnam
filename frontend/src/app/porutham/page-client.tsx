@@ -1,430 +1,336 @@
 "use client";
 
-
-import { apiDisplayMessage, readApiJson } from "@/lib/api";
-/**
- * /porutham — limited traditional reference report
- * Shows the ten backend rule checks item-by-item when the required star details exist.
- * It does not produce a compatibility score, star rating, or marriage verdict.
- */
-import { Suspense, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { Duo } from "@/lib/duo";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useLang } from "@/lib/lang";
-import { useSearchParams } from "next/navigation";
-import { NAKSHATRAS, NAK_TO_RASI, RASIS } from "@/lib/telugu-data";
-import RasiChart from "@/components/RasiChart";
+import { authHeaders, getToken, readApiJson } from "@/lib/api";
 
-type Res = Record<string, any>;
+type ReviewRecord = {
+  id: string;
+  kind: "pdf" | "photo" | string;
+  status: "pending" | "verified" | "rejected" | string;
+  at?: string;
+  verified_at?: string;
+  note?: string;
+};
 
-function PoruthamInner() {
+type JathakamStatus = {
+  success?: boolean;
+  tsap_id?: string;
+  state?: "unavailable" | "pending_review" | "review_recorded" | "rejected" | string;
+  calculation_available?: boolean;
+  records?: ReviewRecord[];
+  message_en?: string;
+  message_telugu?: string;
+  note_en?: string;
+  note_telugu?: string;
+};
+
+const COPY = {
+  en: {
+    eyebrow: "Evidence-first astrology",
+    title: "Real Jathakam review — never a guessed horoscope",
+    intro: "A star selector or a ten-check table is not a Jathakam. This workspace accepts an owner-uploaded birth-chart document and shows only its review state. It does not invent a lagna, planetary placements, doshas, score, verdict, or marriage prediction.",
+    uploadTitle: "Submit your real birth-chart document",
+    uploadCopy: "Upload the PDF or clear photo issued for the person whose profile you own. A document is queued for review; uploading it does not certify identity, accuracy, or authenticity.",
+    idLabel: "Your Profile ID",
+    idPlaceholder: "e.g. MV-1234",
+    choose: "Choose a PDF or image",
+    upload: "Upload for review",
+    loading: "Loading review state…",
+    noId: "Enter the Profile ID from your own account, or open this page from My profile.",
+    unavailable: "No horoscope document has been submitted for this profile.",
+    pending: "Document received. Review is pending. No chart, Porutham result, dosha result, score, or verdict is shown while the evidence is unverified.",
+    recorded: "A document review status is recorded. This is not an authenticity certificate and does not create a complete chart automatically. Ask a qualified astrologer to interpret the original document.",
+    rejected: "The submitted document was not accepted for review. No astrology result was generated. Upload a clearer or corrected document only if you are authorised to do so.",
+    statusTitle: "Evidence status",
+    statusLabel: "Status",
+    pendingLabel: "Pending review",
+    recordedLabel: "Review recorded",
+    rejectedLabel: "Rejected",
+    unavailableLabel: "Not submitted",
+    noCalculation: "Automatic horoscope calculations are unavailable here until a qualified review supplies an actual chart. We will never fill missing birth time, place, or planetary data by guessing.",
+    pairTitle: "Compare two Jathakams",
+    pairCopy: "A compatibility score is intentionally not available from profile stars alone. Both people must provide their own authentic documents and receive an appropriate professional review before any family discussion.",
+    pairCta: "Open the review workspace",
+    trustTitle: "What this protects",
+    trust: [
+      "Member-entered star or rasi fields remain unverified input, not a horoscope result.",
+      "No sample, demo, dummy, fabricated, or inferred chart is shown.",
+      "A review status is separate from identity verification and is never a marriage guarantee.",
+      "Uploaded documents stay tied to the owner account; do not upload another person’s private document without permission.",
+    ],
+    account: "Manage this from My profile",
+    register: "Create a profile",
+    safety: "Read privacy and safety",
+    fileTooLarge: "The file must be 8 MB or smaller.",
+    chooseFile: "Choose a PDF or image first.",
+    uploadError: "The document could not be submitted safely. Please try again.",
+    network: "A network problem occurred. Please try again.",
+  },
+  te: {
+    eyebrow: "ఆధారాలపై నిజమైన జ్యోతిషం",
+    title: "నిజమైన జాతక సమీక్ష — ఊహించిన జాతకం కాదు",
+    intro: "కేవలం నక్షత్రం ఎంచుకోవడం లేదా పది checks చూపించడం జాతకం కాదు. మీ స్వంత ప్రొఫైల్‌కు చెందిన అసలైన జాతక పత్రాన్ని అప్‌లోడ్ చేసి, దాని review స్థితిని మాత్రమే ఇక్కడ చూపిస్తాం. లగ్నం, గ్రహస్థానాలు, దోషాలు, స్కోర్, తీర్పు లేదా వివాహ అంచనాను మేము కల్పించము.",
+    uploadTitle: "మీ అసలైన జాతక పత్రాన్ని సమర్పించండి",
+    uploadCopy: "మీ స్వంత ప్రొఫైల్‌కు చెందిన జాతక PDF లేదా స్పష్టమైన ఫోటోను అప్‌లోడ్ చేయండి. పత్రం review queue లోకి వెళుతుంది; upload చేయడం identity, ఖచ్చితత్వం లేదా నిజత్వానికి సర్టిఫికేట్ కాదు.",
+    idLabel: "మీ Profile ID",
+    idPlaceholder: "ఉదా: MV-1234",
+    choose: "PDF లేదా చిత్రాన్ని ఎంచుకోండి",
+    upload: "Review కోసం అప్‌లోడ్ చేయండి",
+    loading: "Review స్థితి లోడ్ అవుతోంది…",
+    noId: "మీ account లోని Profile ID ఇవ్వండి లేదా My profile నుంచి ఈ పేజీని తెరవండి.",
+    unavailable: "ఈ ప్రొఫైల్‌కు జాతక పత్రం ఇంకా సమర్పించలేదు.",
+    pending: "పత్రం అందింది. Review పెండింగ్‌లో ఉంది. ఆధారం verify అయ్యే వరకు chart, Porutham, dosha, score లేదా తీర్పు చూపించము.",
+    recorded: "పత్రం review స్థితి నమోదు అయింది. ఇది authenticity certificate కాదు; పూర్తి chart ను automatic గా తయారు చేయదు. అసలైన పత్రాన్ని అర్హత ఉన్న జ్యోతిష్య నిపుణుడితో పరిశీలించండి.",
+    rejected: "సమర్పించిన పత్రం review కు అంగీకరించబడలేదు. ఏ జ్యోతిష్య ఫలితమూ తయారు చేయలేదు. మీరు అనుమతితో ఉంటే మాత్రమే స్పష్టమైన లేదా సరిచేసిన పత్రాన్ని మళ్లీ పంపండి.",
+    statusTitle: "ఆధార స్థితి",
+    statusLabel: "స్థితి",
+    pendingLabel: "Review పెండింగ్",
+    recordedLabel: "Review నమోదు అయింది",
+    rejectedLabel: "తిరస్కరించబడింది",
+    unavailableLabel: "సమర్పించలేదు",
+    noCalculation: "అర్హత ఉన్న review ద్వారా అసలైన chart అందే వరకు automatic horoscope calculations ఇక్కడ అందుబాటులో ఉండవు. జన్మ సమయం, ప్రదేశం లేదా గ్రహ వివరాలు తెలియకపోతే మేము ఊహించి నింపము.",
+    pairTitle: "రెండు జాతకాలను పోల్చడం",
+    pairCopy: "ప్రొఫైల్ నక్షత్రాల ఆధారంగా compatibility score ఉద్దేశపూర్వకంగా అందుబాటులో లేదు. ఇద్దరూ తమ అసలైన పత్రాలను సమర్పించి, తగిన నిపుణుల review పొందిన తర్వాతే కుటుంబ చర్చ జరగాలి.",
+    pairCta: "Review workspace తెరవండి",
+    trustTitle: "ఇది ఎందుకు సురక్షితం",
+    trust: [
+      "సభ్యులు నమోదు చేసిన star లేదా rasi వివరాలు verify కాని input మాత్రమే; జాతక ఫలితం కాదు.",
+      "Sample, demo, dummy, fabricated లేదా ఊహించిన chart చూపించము.",
+      "Review స్థితి identity verification కు వేరు; వివాహ హామీ ఎప్పుడూ కాదు.",
+      "అప్‌లోడ్ చేసిన పత్రం owner account కు మాత్రమే సంబంధించినది; అనుమతి లేకుండా మరొకరి private document పంపవద్దు.",
+    ],
+    account: "My profile లో నిర్వహించండి",
+    register: "ప్రొఫైల్ సృష్టించండి",
+    safety: "గోప్యత మరియు భద్రత చదవండి",
+    fileTooLarge: "ఫైల్ 8 MB లేదా అంతకంటే తక్కువగా ఉండాలి.",
+    chooseFile: "ముందు PDF లేదా చిత్రాన్ని ఎంచుకోండి.",
+    uploadError: "పత్రాన్ని సురక్షితంగా సమర్పించలేకపోయాం. మళ్లీ ప్రయత్నించండి.",
+    network: "నెట్‌వర్క్ సమస్య. మళ్లీ ప్రయత్నించండి.",
+  },
+} as const;
+
+type Copy = (typeof COPY)["en"] | (typeof COPY)["te"];
+
+function statusText(state: string | undefined, copy: Copy) {
+  if (state === "pending_review") return copy.pendingLabel;
+  if (state === "review_recorded") return copy.recordedLabel;
+  if (state === "rejected") return copy.rejectedLabel;
+  return copy.unavailableLabel;
+}
+
+function statusTone(state: string | undefined) {
+  if (state === "pending_review") return "border-amber-200 bg-amber-50 text-amber-950";
+  if (state === "review_recorded") return "border-sky-200 bg-sky-50 text-sky-950";
+  if (state === "rejected") return "border-rose-200 bg-rose-50 text-rose-950";
+  return "border-slate-200 bg-slate-50 text-slate-900";
+}
+
+export default function PoruthamPageClient() {
   const { lang } = useLang();
   const te = lang === "te";
-  const sp = useSearchParams();
-  const [bride, setBride] = useState("");
-  const [groom, setGroom] = useState("");
-  const [myId, setMyId] = useState("");
-  const [bStar, setBStar] = useState("");
-  const [gStar, setGStar] = useState("");
-  const [bRasi, setBRasi] = useState("");
-  const [gRasi, setGRasi] = useState("");
-  const [mode, setMode] = useState<"id" | "star">("id");
-  const [res, setRes] = useState<Res | null>(null);
+  const copy = te ? COPY.te : COPY.en;
+  const [profileId, setProfileId] = useState("");
+  const [status, setStatus] = useState<JathakamStatus | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState("");
-  const [imgOk, setImgOk] = useState(true);
-  const [gA, setGA] = useState("");
-  const [gB, setGB] = useState("");
-  const [gRes, setGRes] = useState<{ note: string } | null>(null);
-  const [gBusy, setGBusy] = useState(false);
-  const [chartB, setChartB] = useState<Res | null>(null);
-  const [chartG, setChartG] = useState<Res | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  useEffect(() => {
-    const mine = (localStorage.getItem("tsap_id") || "").toUpperCase();
-    if (mine) setMyId(mine);
-    const qb = (sp.get("bride") || "").toUpperCase();
-    const qg = (sp.get("groom") || "").toUpperCase();
-    if (qb) setBride(qb);
-    if (qg) setGroom(qg);
-    else if (mine) setGroom(mine);
-  }, [sp]);
-
-  const calcById = useCallback(async (b: string, g: string) => {
-    if (!b || !g) { setErr(te ? "రెండు Profile IDs ఇవ్వండి (bride + groom)" : "Enter both Profile IDs (bride + groom)"); return; }
-    setBusy(true); setErr(""); setChartB(null); setChartG(null);
-    try {
-      const d = await fetch(`/api/porutham?bride=${encodeURIComponent(b)}&groom=${encodeURIComponent(g)}`).then((r) => readApiJson(r));
-      if (d.detail) {
-        setErr(apiDisplayMessage(d, te, te ? "గుణమేళనం లెక్కించలేకపోయాం. మళ్లీ ప్రయత్నించండి." : "Could not calculate the Porutham reference. Please try again."));
-        setRes(null);
-      } else {
-        setRes({ ...d, _bride: b, _groom: g }); setImgOk(true);
-        try {
-          const [cb, cg] = await Promise.all([
-            fetch(`/api/astro/chart/${encodeURIComponent(b)}`).then((r) => readApiJson(r)),
-            fetch(`/api/astro/chart/${encodeURIComponent(g)}`).then((r) => readApiJson(r)),
-          ]);
-          if (cb?.success) setChartB(cb);
-          if (cg?.success) setChartG(cg);
-        } catch { /* charts optional */ }
-      }
-    } catch { setErr(te ? "Network problem — మళ్లీ try చెయ్యండి" : "Network problem — retry"); }
-    setBusy(false);
-  }, [te]);
-
-  const checkGothram = async () => {
-    if (!gA.trim() || !gB.trim()) {
-      setGRes({ note: te ? "రెండు ప్రొఫైల్ IDలను నమోదు చేయండి." : "Enter both profile IDs." });
+  const loadStatus = useCallback(async (id: string) => {
+    const normalized = id.trim().toUpperCase();
+    if (!normalized) {
+      setStatus(null);
       return;
     }
-    setGBusy(true);
+    setLoading(true);
     try {
-      const d = await fetch(`/api/gothram/check?a=${encodeURIComponent(gA.trim().toUpperCase())}&b=${encodeURIComponent(gB.trim().toUpperCase())}`).then((r) => readApiJson(r));
-      if (d.detail || !d.success) {
-        setGRes({ note: apiDisplayMessage(d, te, te ? "గోత్ర వివరాలను పోల్చలేకపోయాం." : "Could not compare the gothram details.") });
-      } else if (te) {
-        setGRes({ note: d.note_telugu || "నమోదు చేసిన వివరాలను పోల్చలేకపోయాం." });
+      const response = await fetch(`/api/astro/jathakam/${encodeURIComponent(normalized)}`, { headers: authHeaders() });
+      const data = await readApiJson<JathakamStatus>(response);
+      if (response.ok && data.success) {
+        setStatus(data);
+        setMessage(null);
       } else {
-        setGRes({ note: d.same === true
-          ? "The entered gothram text matches. This is a text comparison only—not a marriage decision."
-          : d.same === false
-            ? "The entered gothram text differs. This is a text comparison only—not a traditional ruling."
-            : "One or both gothram details are unavailable; no comparison could be made." });
+        setStatus(null);
+        setMessage({ ok: false, text: data.message_en && !te ? data.message_en : data.message_telugu || copy.noId });
       }
     } catch {
-      setGRes({ note: te ? "నెట్‌వర్క్ సమస్య. మళ్లీ ప్రయత్నించండి." : "A network problem occurred. Please try again." });
+      setStatus(null);
+      setMessage({ ok: false, text: copy.network });
+    } finally {
+      setLoading(false);
     }
-    setGBusy(false);
-  };
+  }, [copy.network, copy.noId, te]);
 
-  const calcByStar = async () => {
-    if (!bStar || !gStar) { setErr(te ? "వధువు, వరుడు ఇద్దరి నక్షత్రాలను ఎంచుకోండి." : "Select a nakshatra for both profiles."); return; }
-    setBusy(true); setErr("");
+  useEffect(() => {
     try {
-      const d = await fetch("/api/porutham", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ bride_star: bStar, bride_rasi: bRasi, groom_star: gStar, groom_rasi: gRasi }),
-      }).then((r) => readApiJson(r));
-      if (d.detail) {
-        setErr(apiDisplayMessage(d, te, te ? "గుణమేళనం లెక్కించలేకపోయాం. వివరాలను పరిశీలించండి." : "Could not calculate the Porutham reference. Review the supplied details."));
-        setRes(null);
-      } else {
-        setRes({ ...d, _bride: bStar, _groom: gStar, _byStar: true });
+      const stored = localStorage.getItem("tsap_id") || "";
+      if (stored) {
+        setProfileId(stored.toUpperCase());
+        void loadStatus(stored);
       }
-    } catch { setErr(te ? "నెట్‌వర్క్ సమస్య. మళ్లీ ప్రయత్నించండి." : "A network problem occurred. Please try again."); }
-    setBusy(false);
+    } catch {
+      // Private browsing can reject storage; the manual ID field still works.
+    }
+  }, [loadStatus]);
+
+  const onIdBlur = () => {
+    const normalized = profileId.trim().toUpperCase();
+    setProfileId(normalized);
+    if (normalized) {
+      try { localStorage.setItem("tsap_id", normalized); } catch { /* ignore */ }
+      void loadStatus(normalized);
+    }
   };
 
-  const shareWa = () => {
-    if (!res) return;
-    const brand = te ? "మన వివాహ (Mana Vivaha)" : "Mana Vivaha (మన వివాహ)";
-    const brideStar = te ? (res.bride_star || res._bride) : apiDisplayMessage({ message_en: res.bride_star_en }, false, res._byStar ? res._bride : "Not available in English");
-    const groomStar = te ? (res.groom_star || res._groom) : apiDisplayMessage({ message_en: res.groom_star_en }, false, res._byStar ? res._groom : "Not available in English");
-    const txt = te
-      ? `${brand} — గుణమేళనం సూచిక\n${res.bride?.full_name || res._bride} • ${brideStar}\n${res.groom?.full_name || res._groom} • ${groomStar}\nసరిపోతాయని గుర్తించిన అంశాలు: ${res.passed_checks ?? 0} / ${res.total_checks ?? 10}\nఇది అనుకూలత స్కోరు లేదా వివాహ సిఫార్సు కాదు. ప్రతి అంశాన్ని విడిగా పరిశీలించండి.\n${window.location.origin}/porutham`
-      : `${brand} — Porutham reference\n${res.bride?.full_name || res._bride} • ${brideStar}\n${res.groom?.full_name || res._groom} • ${groomStar}\nChecks marked pass: ${res.passed_checks ?? 0} of ${res.total_checks ?? 10}\nReview each item separately. This is not a compatibility score or marriage recommendation.\n${window.location.origin}/porutham`;
-    window.open(`https://wa.me/?text=${encodeURIComponent(txt)}`, "_blank", "noopener,noreferrer");
+  const upload = async () => {
+    const normalized = profileId.trim().toUpperCase();
+    if (!normalized) {
+      setMessage({ ok: false, text: copy.noId });
+      return;
+    }
+    if (!selectedFile) {
+      setMessage({ ok: false, text: copy.chooseFile });
+      fileInputRef.current?.focus();
+      return;
+    }
+    if (selectedFile.size > 8 * 1024 * 1024) {
+      setMessage({ ok: false, text: copy.fileTooLarge });
+      return;
+    }
+    setBusy(true);
+    setMessage(null);
+    const form = new FormData();
+    form.append("tsap_id", normalized);
+    form.append("file", selectedFile);
+    try {
+      const headers: Record<string, string> = {};
+      const token = getToken();
+      if (token) headers["X-Tsap-Token"] = token;
+      const response = await fetch("/api/astro/jathakam/upload", { method: "POST", headers, body: form });
+      const data = await readApiJson<JathakamStatus & { jathakam_id?: string }>(response);
+      if (!response.ok || !data.success) {
+        setMessage({ ok: false, text: te ? data.message_telugu || copy.uploadError : data.message_en || copy.uploadError });
+      } else {
+        setMessage({ ok: true, text: te ? data.message_telugu || copy.pending : data.message_en || copy.pending });
+        setSelectedFile(null);
+        if (fileInputRef.current) fileInputRef.current.value = "";
+        await loadStatus(normalized);
+      }
+    } catch {
+      setMessage({ ok: false, text: copy.network });
+    } finally {
+      setBusy(false);
+    }
   };
 
-  const shareImg = () => {
-    if (!res?._bride || !res?._groom || res._byStar) return;
-    const url = `${window.location.origin}/api/og/porutham/${encodeURIComponent(res._bride)}/${encodeURIComponent(res._groom)}.png`;
-    window.open(url, "_blank", "noopener,noreferrer");
-  };
-
-  const items: Res[] = res?.items || [];
-  const brideStarLabel = te ? res?.bride_star : apiDisplayMessage({ message_en: res?.bride_star_en }, false, "");
-  const groomStarLabel = te ? res?.groom_star : apiDisplayMessage({ message_en: res?.groom_star_en }, false, "");
-  const brideRasiLabel = te ? res?.bride_rasi : apiDisplayMessage({ message_en: res?.bride_rasi_en }, false, "");
-  const groomRasiLabel = te ? res?.groom_rasi : apiDisplayMessage({ message_en: res?.groom_rasi_en }, false, "");
+  const currentState = status?.state || "unavailable";
+  const explanation = currentState === "pending_review"
+    ? copy.pending
+    : currentState === "review_recorded"
+      ? copy.recorded
+      : currentState === "rejected"
+        ? copy.rejected
+        : copy.unavailable;
 
   return (
-    <div className="min-h-dvh bg-cream pb-36">
-      <section className="maroon-gradient text-white print:!bg-white print:!text-maroon">
-        <div className="max-w-4xl mx-auto px-4 py-8">
-          <div className="text-[11px] font-bold bg-white/10 border border-white/20 rounded-full px-3 py-1 inline-block">
-            💍 <Duo en="Jyothishyam (Astrology) • Vedic Gunamelanam" te="వేద జ్యోతిషం • వివాహ గుణమేళనం & జాతక పొంతన" />
-          </div>
-          <h1 className="mt-3 text-2xl md:text-3xl font-bold"><Duo en="Jyothishyam — Ten-check Porutham Reference" te="జ్యోతిషం — పది నియమ-ఆధారిత పొంతన checks" /></h1>
-          <p className="mt-2 text-[13px] md:text-sm opacity-90 telugu max-w-3xl">
-{te ? <>నక్షత్ర వివరాల ఆధారంగా backend లెక్కించే పది సాంప్రదాయ checks మరియు వాటి వివరణ. ఇది పూర్తి జాతక విశ్లేషణ, వ్యక్తిత్వ అంచనా లేదా వివాహ ఫలిత హామీ కాదు; కుటుంబం/అర్హులైన సలహాదారులతో వివరాలు నిర్ధారించండి.</> : <>Ten traditional checks calculated by the backend from supplied star details. This is a limited reference, not a complete horoscope, a personality assessment, or a prediction of marriage outcomes; verify details with family and a qualified adviser.</>}
-          </p>
-          <div className="mt-3 flex flex-wrap gap-2 text-[11px]">
-            <span className="bg-white/10 border border-white/20 rounded-full px-3 py-1.5">{te ? "📄 10 అంశాల సూచిక / PDF" : "📄 10-check reference / PDF"}</span>
-            <span className="bg-white/10 border border-white/20 rounded-full px-3 py-1.5">{te ? "🖼️ పంచుకోదగిన ఫలిత చిత్రం" : "🖼️ Shareable result image"}</span>
-            <span className="bg-white/10 border border-white/20 rounded-full px-3 py-1.5">{te ? "ℹ️ పరిమిత నియమ-ఆధారిత సూచిక" : "ℹ️ Limited rule-based reference"}</span>
+    <main className="min-h-dvh bg-[#fffaf0] pb-20">
+      <section className="overflow-hidden bg-gradient-to-br from-[#5c0822] via-[#7a0c2e] to-[#0f766e] text-white">
+        <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 sm:py-14 lg:px-8">
+          <span className="inline-flex rounded-full border border-white/25 bg-white/10 px-3 py-1 text-[11px] font-extrabold uppercase tracking-[.16em] text-amber-100">🪐 {copy.eyebrow}</span>
+          <h1 className="mt-4 max-w-4xl text-3xl font-black leading-tight sm:text-5xl">{copy.title}</h1>
+          <p className="mt-4 max-w-3xl text-sm leading-7 text-white/85 sm:text-base">{copy.intro}</p>
+          <div className="mt-5 flex flex-wrap gap-2 text-xs font-bold text-white/90">
+            <span className="rounded-full border border-white/20 bg-white/10 px-3 py-2">✓ Evidence required</span>
+            <span className="rounded-full border border-white/20 bg-white/10 px-3 py-2">✓ No fabricated chart</span>
+            <span className="rounded-full border border-white/20 bg-white/10 px-3 py-2">✓ Pending states stay pending</span>
           </div>
         </div>
       </section>
 
-      <div className="max-w-4xl mx-auto px-4 py-5 space-y-4">
-        {/* ---------- input card ---------- */}
-        <div className="bg-white rounded-[1.5rem] border border-gold/25 p-4 print:hidden">
-          <div className="flex gap-2">
-            {([["id", te ? "🎫 Profile ID తో" : "🎫 With Profile ID"], ["star", te ? "⭐ Star తో (register అవ్వకుండా)" : "⭐ By star (no register)"]] as const).map(([v, l]) => (
-              <button key={v} onClick={() => setMode(v)} className={`chip ${mode === v ? "chip-on" : ""}`}>{l}</button>
-            ))}
+      <div className="mx-auto grid max-w-6xl gap-5 px-4 py-6 sm:px-6 lg:grid-cols-[minmax(0,1.35fr)_minmax(19rem,.65fr)] lg:px-8 lg:py-8">
+        <section className="rounded-[1.75rem] border border-amber-200 bg-white p-5 shadow-[0_18px_55px_rgba(92,8,34,.08)] sm:p-7" aria-labelledby="jathakam-upload-title">
+          <div className="flex items-start gap-3">
+            <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-amber-50 text-2xl" aria-hidden="true">📜</span>
+            <div>
+              <h2 id="jathakam-upload-title" className="text-xl font-extrabold text-[#5c0822] sm:text-2xl">{copy.uploadTitle}</h2>
+              <p className="mt-2 text-sm leading-6 text-slate-600">{copy.uploadCopy}</p>
+            </div>
           </div>
 
-          {mode === "id" ? (
-            <div className="mt-3 grid md:grid-cols-3 gap-3">
-              <div>
-                <label className="text-[12px] font-bold">👰 Bride Profile ID</label>
-                <input value={bride} onChange={(e) => setBride(e.target.value.toUpperCase())} placeholder={te ? "వధువు Profile ID" : "Bride Profile ID"} className="input-mobile font-mono" />
-              </div>
-              <div>
-                <label className="text-[12px] font-bold">🤵 Groom Profile ID</label>
-                <input value={groom} onChange={(e) => setGroom(e.target.value.toUpperCase())} placeholder={te ? "వరుడు Profile ID" : "Groom Profile ID"} className="input-mobile font-mono" />
-              </div>
-              <div className="flex items-end">
-                <button onClick={() => calcById(bride, groom)} disabled={busy}
-                  className="w-full py-3.5 rounded-2xl maroon-gradient text-white font-bold text-[13px] disabled:opacity-60">
-                  {busy ? "Calculate…" : te ? "💍 గుణమేళనం చూడు" : "💍 See Gunamelanam"}
-                </button>
-              </div>
+          <div className="mt-6 grid gap-4 sm:grid-cols-[minmax(0,.8fr)_minmax(0,1.2fr)]">
+            <label className="block text-sm font-bold text-slate-800" htmlFor="jathakam-profile-id">
+              {copy.idLabel}
+              <input
+                id="jathakam-profile-id"
+                value={profileId}
+                onChange={(event) => setProfileId(event.target.value.toUpperCase())}
+                onBlur={onIdBlur}
+                placeholder={copy.idPlaceholder}
+                autoComplete="off"
+                className="mt-2 min-h-12 w-full rounded-xl border border-slate-300 bg-white px-3 font-mono text-base outline-none focus:border-[#7a0c2e] focus:ring-2 focus:ring-[#7a0c2e]/20"
+              />
+            </label>
+            <div>
+              <label className="block text-sm font-bold text-slate-800" htmlFor="jathakam-file">{copy.choose}</label>
+              <input
+                ref={fileInputRef}
+                id="jathakam-file"
+                type="file"
+                accept=".pdf,image/jpeg,image/png,image/webp,application/pdf"
+                onChange={(event) => { setSelectedFile(event.target.files?.[0] || null); setMessage(null); }}
+                className="mt-2 block min-h-12 w-full rounded-xl border border-dashed border-[#c58a9d] bg-rose-50/40 px-3 py-3 text-sm text-slate-700 file:mr-3 file:rounded-lg file:border-0 file:bg-[#7a0c2e] file:px-3 file:py-2 file:font-bold file:text-white"
+              />
+              <p className="mt-2 text-xs text-slate-500">PDF, JPG, PNG or WebP · max 8 MB</p>
             </div>
-          ) : (
-            <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-3">
-              <div>
-                <label className="text-[12px] font-bold">{te ? "వధువు నక్షత్రం" : "Bride nakshatra"}</label>
-                <select
-                  value={bStar}
-                  onChange={(e) => {
-                    const s = e.target.value;
-                    setBStar(s);
-                    if (s && NAK_TO_RASI[s]) setBRasi(NAK_TO_RASI[s]);
-                  }}
-                  className="input-mobile"
-                >
-                  <option value="">— select —</option>
-                  {NAKSHATRAS.map((n) => <option key={n.en} value={n.en}>{te ? `${n.te} (${n.en})` : n.en}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="text-[12px] font-bold">{te ? "వధువు రాశి" : "Bride rasi"}</label>
-                <select value={bRasi} onChange={(e) => setBRasi(e.target.value)} className="input-mobile">
-                  <option value="">— auto —</option>
-                  {RASIS.map((r) => <option key={r.en} value={r.en}>{te ? `${r.te} (${r.en})` : r.en}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="text-[12px] font-bold">{te ? "వరుని నక్షత్రం" : "Groom nakshatra"}</label>
-                <select
-                  value={gStar}
-                  onChange={(e) => {
-                    const s = e.target.value;
-                    setGStar(s);
-                    if (s && NAK_TO_RASI[s]) setGRasi(NAK_TO_RASI[s]);
-                  }}
-                  className="input-mobile"
-                >
-                  <option value="">— select —</option>
-                  {NAKSHATRAS.map((n) => <option key={n.en} value={n.en}>{te ? `${n.te} (${n.en})` : n.en}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="text-[12px] font-bold">{te ? "వరుని రాశి" : "Groom rasi"}</label>
-                <select value={gRasi} onChange={(e) => setGRasi(e.target.value)} className="input-mobile">
-                  <option value="">— auto —</option>
-                  {RASIS.map((r) => <option key={r.en} value={r.en}>{te ? `${r.te} (${r.en})` : r.en}</option>)}
-                </select>
-              </div>
-              <div className="col-span-2 md:col-span-4">
-                <button onClick={calcByStar} disabled={busy}
-                  className="w-full py-3.5 rounded-2xl maroon-gradient text-white font-bold text-[13px] disabled:opacity-60">
-                  {busy ? "Calculate…" : te ? "💍 గుణమేళనం చూడు (నక్షత్రంతో)" : "💍 See Gunamelanam (by star)"}
-                </button>
-              </div>
-            </div>
-          )}
-          {myId && mode === "id" && (
-            <div className="mt-2 text-[11px] text-gray-600">
-{te ? <>మీ ID: <b className="font-mono">{myId}</b> —{" "}
-              <button onClick={() => calcById(myId, groom || bride)} className="text-maroon font-bold underline">
-                నా ID ని వేరే profile తో compare చెయ్యి
-              </button></> : <>Your ID: <b className="font-mono">{myId}</b> —{" "}
-              <button onClick={() => calcById(myId, groom || bride)} className="text-maroon font-bold underline">
-                compare my ID with another profile
-              </button></>}
-            </div>
-          )}
-          {err && <div className="mt-3 bg-rose-50 border border-rose-200 text-rose-800 rounded-xl px-3 py-2 text-[12px]">{err}</div>}
-        </div>
-
-        {/* ---------- member-entered gothram comparison ---------- */}
-        <div className="bg-white rounded-[1.5rem] border border-gold/25 p-4 print:hidden">
-          <div className="font-bold text-maroon text-[14px]">{te ? "🛡️ ప్రొఫైల్‌లో ఇచ్చిన గోత్ర వివరాలను పోల్చండి" : "🛡️ Compare member-entered gothram details"}</div>
-          <p className="mt-1 text-[11px] text-slate-600">{te ? "ఇది నమోదు చేసిన పదాల పోలిక మాత్రమే; కుటుంబ సంప్రదాయం లేదా వివాహ నిర్ణయంపై తీర్పు కాదు." : "This compares the entered text only; it is not a ruling on family tradition or a marriage decision."}</p>
-          <div className="mt-2 grid md:grid-cols-3 gap-2">
-            <input value={gA} onChange={(e) => setGA(e.target.value.toUpperCase())} placeholder="Profile ID - A" className="input-mobile font-mono" aria-label="Profile ID A" />
-            <input value={gB} onChange={(e) => setGB(e.target.value.toUpperCase())} placeholder="Profile ID - B" className="input-mobile font-mono" aria-label="Profile ID B" />
-            <button onClick={() => void checkGothram()} disabled={gBusy}
-              className="py-3 rounded-2xl maroon-gradient text-white font-bold text-[13px] disabled:opacity-60">
-              {gBusy ? "…" : te ? "🛡️ Check" : "🛡️ Check"}
-            </button>
           </div>
-          {gRes?.note && (
-            <p role="status" className="mt-2 rounded-xl border border-slate-200 bg-slate-50 p-2 text-[12px] font-medium text-slate-700">
-              {gRes.note}
-            </p>
-          )}
-        </div>
 
-        {/* ---------- report ---------- */}
-        {res && (
-          <>
-            <div className="bg-white rounded-[1.5rem] border border-gold/25 p-5">
-              <div className="flex flex-col md:flex-row md:items-center gap-4">
-                <div className="min-w-0 flex-1 text-center md:text-left">
-                  {res.available ? (
-                    <>
-                      <div className="text-[17px] font-bold text-maroon telugu">{te ? "Porutham checks లెక్కించబడ్డాయి" : "Porutham checks calculated"}</div>
-                      <div className="mt-1 inline-flex rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-[12px] font-bold text-amber-950">
-                        {te ? `${res.passed_checks ?? 0} / ${res.total_checks ?? 10} checks pass గా గుర్తింపు` : `${res.passed_checks ?? 0} of ${res.total_checks ?? 10} checks marked pass`}
-                      </div>
-                    </>
-                  ) : (
-                    <div className="text-[13px] text-slate-700">{te ? "తగిన నక్షత్ర వివరాలు లేవు — Porutham లెక్కించలేదు" : "Required star details are missing; Porutham was not calculated."}</div>
-                  )}
-                  {res.available && (
-                    <div className="mt-2 text-[12px] text-gray-700">
-                      👰 {res.bride?.full_name || res._bride} — <b>{brideStarLabel || "—"}</b>, {brideRasiLabel || "—"}<br />
-                      🤵 {res.groom?.full_name || res._groom} — <b>{groomStarLabel || "—"}</b>, {groomRasiLabel || "—"}
-                    </div>
-                  )}
-                  {(te ? res.doshas : (res.doshas_en || []).map((item: string) => apiDisplayMessage({ message_en: item }, false, "")).filter(Boolean))?.length ? (
-                    <div className="mt-2 inline-block bg-rose-50 border border-rose-200 text-rose-800 rounded-xl px-3 py-1.5 text-[11px] font-bold">
-                      {te
-                        ? <>⚠️ సమీక్షించాల్సిన అంశాలు: {res.doshas.join(" + ")} — కుటుంబ పెద్దలు లేదా అర్హులైన సలహాదారుతో చర్చించండి.</>
-                        : <>⚠️ Items marked for review: {(res.doshas_en || []).map((item: string) => apiDisplayMessage({ message_en: item }, false, "")).filter(Boolean).join(" + ") || "See the individual checks."} — consult a qualified adviser if relevant.</>}
-                    </div>
-                  ) : null}
-                </div>
-              </div>
+          <button type="button" onClick={() => void upload()} disabled={busy || loading} className="mt-5 inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-gradient-to-r from-[#5c0822] via-[#7a0c2e] to-[#b47b08] px-5 py-3 text-sm font-extrabold text-white shadow-md transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto">
+            {busy ? copy.loading : `📤 ${copy.upload}`}
+          </button>
+          {message ? <p role={message.ok ? "status" : "alert"} className={`mt-4 rounded-xl border p-3 text-sm leading-6 ${message.ok ? "border-emerald-200 bg-emerald-50 text-emerald-900" : "border-rose-200 bg-rose-50 text-rose-900"}`}>{message.text}</p> : null}
+        </section>
 
-              {res.available && items.length > 0 && (
-                <div className="mt-4 grid md:grid-cols-2 gap-2">
-                  {items.map((it) => (
-                    <div key={it.no} className={`rounded-2xl p-3 border ${it.pass ? "bg-emerald-50/60 border-emerald-200" : "bg-rose-50/60 border-rose-200"}`}>
-                      <div className="flex items-center gap-2">
-                        <span className={`w-6 h-6 rounded-full text-white text-[12px] font-bold flex items-center justify-center ${it.pass ? "bg-emerald-600" : "bg-rose-600"}`}>
-                          {it.pass ? "✓" : "✗"}
-                        </span>
-                        <span className="text-[13px] font-bold text-ink">{it.no}. {te ? it.name : (it.name_en || `Porutham check ${it.no}`)}</span>
-                        {te ? <span className="text-[11px] text-gray-500 telugu">{it.telugu}</span> : null}
-                      </div>
-                      <div className={`mt-1 text-[11px] text-gray-700 leading-relaxed ${te ? "telugu" : ""}`}>
-                        {te ? it.note : apiDisplayMessage({ message_en: it.note_en }, false, "Rule explanation is not available in English.")}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              <div className={`mt-3 bg-cream rounded-2xl p-3 text-[11px] text-gray-700 leading-relaxed ${te ? "telugu" : ""}`}>
-                🕉️ {te
-                  ? (res.advice_telugu || res.reason || "వివరాలు అందుబాటులో లేవు.")
-                  : apiDisplayMessage({ message_en: res.advice_en || res.reason_en }, false, "This is a limited reference. Review each item separately; it is not a marriage recommendation.")}
-              </div>
-
-              {res.available && (
-              <div className="mt-4 flex flex-wrap gap-2 print:hidden">
-                <a
-                  href={res._byStar ? `/api/astro/report/download?bride_star=${encodeURIComponent(bStar)}&bride_rasi=${encodeURIComponent(bRasi)}&groom_star=${encodeURIComponent(gStar)}&groom_rasi=${encodeURIComponent(gRasi)}` : `/api/astro/report/download?bride_id=${encodeURIComponent(bride)}&groom_id=${encodeURIComponent(groom)}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="px-4 py-3 rounded-2xl gold-gradient text-maroon font-black text-[12px] shadow-gold hover-lift flex items-center gap-1.5"
-                >
-                  <span>📜</span>
-                  <span>{te ? "10 checks reference PDF డౌన్‌లోడ్" : "Download 10-check reference PDF"}</span>
-                </a>
-                <button onClick={() => window.print()} className="px-4 py-3 rounded-2xl maroon-gradient text-white font-bold text-[12px]">🖨️ Print View</button>
-                <button onClick={shareWa} title={te ? "బాహ్య WhatsApp share తెరుస్తుంది; availability తనిఖీ చేయబడదు" : "Opens external WhatsApp sharing; availability is not checked"} className="px-4 py-3 rounded-2xl bg-[#25D366] text-white font-bold text-[12px]">{te ? "WhatsApp లో షేర్" : "Share via WhatsApp"}</button>
-                {!res._byStar && <button onClick={shareImg} className="px-4 py-3 rounded-2xl border border-maroon/25 text-maroon font-bold text-[12px]">{te ? "🖼️ నివేదిక చిత్రం" : "🖼️ Report image"}</button>}
-                <Link href="/requests" className="px-4 py-3 rounded-2xl border border-maroon/25 text-maroon font-bold text-[12px]">{te ? "💌 Interest పంపు" : "💌 Send interest"}</Link>
-              </div>
-              )}
-            </div>
-
-            {/* ---------- rasi charts ---------- */}
-            {(chartB || chartG) && (
-              <div className="grid md:grid-cols-2 gap-3 print:hidden">
-                {chartB && <RasiChart houses={chartB.houses} moonHouse={chartB.moon_house} star={chartB.star} rasi={chartB.rasi} title={`👰 ${res._bride}`} />}
-                {chartG && <RasiChart houses={chartG.houses} moonHouse={chartG.moon_house} star={chartG.star} rasi={chartG.rasi} title={`🤵 ${res._groom}`} />}
-              </div>
-            )}
-
-            {/* ---------- report image preview ---------- */}
-            {res.available && !res._byStar && imgOk && (
-              <div className="bg-white rounded-[1.5rem] border border-gold/25 p-4 print:hidden">
-                <div className="font-bold text-maroon text-[14px]">{te ? "🖼️ WhatsApp లో షేర్ చేయడానికి గుణమేళనం ఇమేజ్" : "🖼️ Gunamelanam image ready to share on WhatsApp"}</div>
-                <div className="text-[11px] text-gray-600 mt-1">
-                  {te ? "ఇమేజ్‌లో backend ఇచ్చిన పది checks వివరాలు మాత్రమే ఉంటాయి. WhatsApp ద్వారా పంచుకోవాలా వద్దా అనేది మీ నిర్ణయం; బాహ్య లభ్యత తనిఖీ చేయబడదు." : "The image contains the backend's ten checks. Sharing via WhatsApp is optional; external availability is not checked."}
-                </div>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={`/api/og/porutham/${encodeURIComponent(res._bride)}/${encodeURIComponent(res._groom)}.png`}
-                  onError={() => setImgOk(false)}
-                  alt={te ? "గుణమేళనం సూచిక నివేదిక" : "Porutham reference report"}
-                  className="mt-3 w-full rounded-2xl border border-gold/30"
-                />
-              </div>
-            )}
-          </>
-        )}
-
-        {/* ---------- glossary ---------- */}
-        <div className="bg-white rounded-[1.5rem] border border-gold/25 p-5 print:hidden">
-          <div className="font-bold text-maroon text-[15px]">{te ? "📚 ఈ పది నియమ-ఆధారిత checks గురించి (సమాచారం కోసం మాత్రమే)" : "📚 About these ten rule-based checks (informational only)"}</div>
-          <div className={`mt-3 grid md:grid-cols-2 gap-2 text-[11px] text-gray-700 leading-relaxed ${te ? "telugu" : ""}`}>
-            {(te ? [
-              ["రాశి పొంతన", "ఈ లెక్కలో రాశుల మధ్య 6/8 స్థాన నియమాన్ని తనిఖీ చేస్తుంది."],
-              ["నక్షత్ర / దిన గుణం", "నక్షత్రాల మధ్య నిర్వచించిన వేధ జంట ఉందో పరిశీలిస్తుంది."],
-              ["గణ మైత్రి", "ఎంచుకున్న నక్షత్రాల గణ వర్గాలను పట్టికతో పోలుస్తుంది."],
-              ["యోని పొంతన", "నక్షత్రాలకు కేటాయించిన యోని వర్గాలు వ్యతిరేక జంటలో ఉన్నాయో చూస్తుంది."],
-              ["రజ్జు శుద్ధి", "రెండు నక్షత్రాలు ఒకే రజ్జు సమూహంలో ఉన్నాయో తనిఖీ చేస్తుంది."],
-              ["వేధ పరిశీలన", "నిర్వచించిన నక్షత్ర వేధ జంటలో ఈ నక్షత్రాలు ఉన్నాయో చూస్తుంది."],
-              ["మాహేంద్ర పొంతన", "ఈ నియమంలో జాబితా చేసిన నక్షత్ర దూరాలను పరిశీలిస్తుంది."],
-              ["స్త్రీ దీర్ఘం", "వరుని నక్షత్రం నుంచి వధువు నక్షత్రం వరకు దూరం 13 లేదా అంతకంటే ఎక్కువ ఉందో చూస్తుంది."],
-              ["వశ్య పొంతన", "రాశులకు ఇచ్చిన వశ్య వర్గాలు లేదా స్నేహ జంటలను పోలుస్తుంది."],
-              ["రాశ్యాధిపతి మైత్రి", "రాశి అధిపతుల సంబంధాన్ని ఈ నియమ పట్టికతో పోలుస్తుంది."],
-            ] : [
-              ["Rasi compatibility", "Checks whether the rasi distance falls in the listed 6/8 positions."],
-              ["Nakshatra / Dina", "Checks for a Vedha pair defined in the reference table."],
-              ["Gana compatibility", "Compares the selected nakshatras’ gana categories with the rule table."],
-              ["Yoni compatibility", "Checks whether the assigned yoni categories form a listed opposing pair."],
-              ["Rajju", "Checks whether both nakshatras fall in the same Rajju group."],
-              ["Vedha", "Checks whether the selected nakshatras form a listed Vedha pair."],
-              ["Mahendra", "Checks the nakshatra distances listed for this rule."],
-              ["Stree Deergha", "Checks whether the count from the groom’s nakshatra to the bride’s is at least 13."],
-              ["Vashya", "Compares the rasi Vashya groups and listed friendly pairs."],
-              ["Rasi lord relationship", "Checks the planetary-lord relationship in the rule table."],
-            ]).map(([title, description]) => (
-              <div key={title} className="bg-cream rounded-xl p-2.5 border border-gold/20">
-                <div className="font-bold text-maroon">{title}</div>
-                <div className="mt-0.5">{description}</div>
-              </div>
-            ))}
+        <section className={`rounded-[1.75rem] border p-5 shadow-sm sm:p-6 ${statusTone(currentState)}`} aria-labelledby="jathakam-status-title" aria-live="polite">
+          <div className="flex items-center justify-between gap-3">
+            <h2 id="jathakam-status-title" className="text-lg font-extrabold">{copy.statusTitle}</h2>
+            {loading ? <span className="text-xs font-semibold opacity-70">{copy.loading}</span> : null}
           </div>
-          <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-[11px] text-gray-600">
-            {te ? "ఈ automated reference లో పురోహితుల సంప్రదింపు లేదా పూర్తి జాతక విశ్లేషణ చేర్చలేదు." : "This automated reference does not include an astrologer consultation or a complete horoscope analysis."}
+          <div className="mt-4 rounded-2xl border border-current/15 bg-white/55 p-4">
+            <p className="text-[11px] font-extrabold uppercase tracking-[.14em] opacity-70">{copy.statusLabel}</p>
+            <p className="mt-1 text-xl font-black">{statusText(currentState, copy)}</p>
+            {status?.tsap_id ? <p className="mt-1 font-mono text-xs opacity-70">{status.tsap_id}</p> : null}
           </div>
-        </div>
+          <p className="mt-4 text-sm leading-6">{explanation}</p>
+          <p className="mt-4 border-t border-current/15 pt-4 text-xs font-semibold leading-5">{copy.noCalculation}</p>
+          {status?.records?.length ? (
+            <ul className="mt-4 space-y-2 text-xs opacity-80">
+              {status.records.slice(0, 3).map((record) => <li key={record.id}>• {record.kind === "pdf" ? "PDF" : "Image"} · {record.id} · {record.at ? new Date(record.at).toLocaleDateString() : ""}</li>)}
+            </ul>
+          ) : null}
+        </section>
       </div>
-    </div>
-  );
-}
 
-function PoruthamLoading() {
-  const { lang } = useLang();
-  return <div className="min-h-dvh bg-cream p-8 text-center text-[13px]">{lang === "te" ? "వేద గుణమేళనం లోడ్ అవుతోంది…" : "Loading the Porutham reference…"}</div>;
-}
+      <div className="mx-auto grid max-w-6xl gap-5 px-4 sm:px-6 lg:grid-cols-2 lg:px-8">
+        <section className="rounded-[1.75rem] border border-slate-200 bg-white p-5 sm:p-6" aria-labelledby="jathakam-pair-title">
+          <p className="text-[11px] font-extrabold uppercase tracking-[.16em] text-[#8b5364]">No shortcut</p>
+          <h2 id="jathakam-pair-title" className="mt-2 text-xl font-extrabold text-[#5c0822]">{copy.pairTitle}</h2>
+          <p className="mt-3 text-sm leading-6 text-slate-600">{copy.pairCopy}</p>
+          <Link href="#jathakam-upload-title" className="mt-5 inline-flex min-h-11 items-center rounded-xl border border-[#7a0c2e]/25 px-4 py-2.5 text-sm font-bold text-[#7a0c2e]">{copy.pairCta} →</Link>
+        </section>
+        <section className="rounded-[1.75rem] border border-emerald-200 bg-emerald-50/60 p-5 sm:p-6" aria-labelledby="jathakam-trust-title">
+          <h2 id="jathakam-trust-title" className="text-xl font-extrabold text-emerald-950">{copy.trustTitle}</h2>
+          <ul className="mt-3 space-y-3 text-sm leading-6 text-emerald-950">{copy.trust.map((item) => <li key={item} className="flex gap-2"><span aria-hidden="true">✓</span><span>{item}</span></li>)}</ul>
+        </section>
+      </div>
 
-export default function PoruthamPage() {
-  return (
-    <Suspense fallback={<PoruthamLoading />}>
-      <PoruthamInner />
-    </Suspense>
+      <div className="mx-auto mt-6 flex max-w-6xl flex-wrap gap-3 px-4 sm:px-6 lg:px-8">
+        <Link href="/me" className="inline-flex min-h-11 items-center justify-center rounded-xl bg-[#7a0c2e] px-4 py-2.5 text-sm font-bold text-white">🪐 {copy.account}</Link>
+        <Link href="/register" className="inline-flex min-h-11 items-center justify-center rounded-xl border border-[#7a0c2e]/25 bg-white px-4 py-2.5 text-sm font-bold text-[#7a0c2e]">{copy.register}</Link>
+        <Link href="/safety" className="inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-bold text-slate-700">🔒 {copy.safety}</Link>
+      </div>
+    </main>
   );
 }

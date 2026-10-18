@@ -200,6 +200,14 @@ covered by the allowlist — found none (all `/_next/static/*`, self-origin).
 - **Durable token revocation**: production now requires the revocation counter on the mounted persistent root; corrupt/unreadable files fail startup, failed writes do not claim success, and counters are backed up with runtime JSON. Added cross-process, corruption, write-failure, Compose, storage, and backup regression checks.
 - **Visitor analytics minimization**: derive a process-local HMAC pseudonym from server request context; reject caller-supplied IDs/IP/UA, reduce referrers to origin, allowlist campaign fields, cap and expire stored events, and omit IDs/totals from the public response. Privacy text now documents restart clearing and separate infrastructure logs.
 
+## Latest continuation verification — 2026-10-18
+
+- The runtime persistence audit now covers the remaining setup/report writers and append-only money/control/publisher ledgers through `backend/atomic_store.py`; serializers run before destination replacement, files are private, and directory fsync follows atomic replacement. Retention uses collision-resistant archive names, rolls live-list deletion back when the core save fails, and returns a failure instead of claiming success.
+- Owner media uploads are bounded, server-named, atomically written, and durably associated with the profile before success. Voice upload now requires an authenticated owner or admin path; selfie/jathakam metadata failures remove the newly written file instead of leaving an untracked success.
+- Frontend mutation retries are opt-in, empty/non-JSON API responses are normalized safely, bilingual structured errors no longer render as `[object Object]`, expired sessions clear stale credentials, and admin CSVs use authenticated Blob downloads. Direct query-string admin token helpers were removed from the admin consoles.
+- Verification after these edits: Python compilation/compileall, atomic-store checks, direct backend scripts **68/68**, corrected route fuzz **356 probes with 0 HTTP 5xx**, pytest **16 passed**, frontend lint/static/security, TypeScript, production build, and npm production audit **0 vulnerabilities**. Full npm audit still reports 5 high development-only findings in the upstream ESLint chain; no production dependency finding is present.
+- This remains a local verification record, not production authorization: provider, host, storage-volume, backup restore, browser/device, and real-member validation remain required.
+
 ## Dependency audit — current verification (2026-10-12)
 
 ### Backend
@@ -223,7 +231,7 @@ messaging, production data, and deployment remain unvalidated.
 
 ### Frontend
 
-Next.js and `eslint-config-next` are locked to 16.3.8; Tailwind CSS is 4.3.3,
+Next.js and `eslint-config-next` are locked to 16.4.2; Tailwind CSS is 4.3.3,
 and the Next optional `sharp` dependency is locked to patched 0.35.5. On
 2026-10-12, `npm run lint`, `npx tsc --noEmit`, and the production build all
 passed; the build generated 50 application routes. `npm audit --omit=dev`
@@ -520,3 +528,11 @@ was supplied. External payment integration remains unverified.
    and no live payment, OTP, messaging-provider, or external-destination
    validation. See the limits above; local green checks are not launch
    certification.
+
+## 2026-10-18 continuation — persistence and money-boundary hardening
+
+A second deep pass focused on state integrity rather than adding surface features. Payment fulfillment now snapshots and restores the profile/core store when benefit persistence fails; payment orders, manual claims, Razorpay verification/webhooks, offer usage, and refund reversal do not claim success after a failed local commit. Ad campaign mutations and tracking counters fail closed and restore their prior values if the ads store cannot be written. Referral wallet/payout, partner, assisted-order, consent-unlock, photo-review, and admin moderation/plan flows now return a storage error instead of reporting a false success.
+
+The admin jathakam verification path now commits the astrology queue and profile badge as a checked cross-store operation; a failed core save restores the queue status and profile flag. The admin photo content route also returns 404 when the database points to a missing media file rather than producing a Starlette 500.
+
+Regression evidence: the complete direct backend sweep is **67/67**; focused pytest is **16 passed**; frontend lint/static/security and the Next 16.4.2 production build pass; route fuzz remains **356 probes, zero exceptions, zero HTTP 5xx**. No real payment provider, OTP provider, host, storage volume, backup, or device was used, so those remain release gates.

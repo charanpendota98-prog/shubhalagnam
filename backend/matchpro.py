@@ -146,14 +146,18 @@ def detect_nri(country: str = "", work_location: str = "", current_city: str = "
 # ---------------------------------------------------------------------------
 # 4. RELIGION → CASTES (alphabetical)
 # ---------------------------------------------------------------------------
+# Every Hindu community the registration form offers must appear here too —
+# backend/test_catalog_ordering.py keeps the two lists identical.
 HINDU_CASTES = [
-    "Adi Andhra", "Are Katika", "Arya Vysya", "Balija", "Bestha", "Bhatraju", "Bondili", "Boya",
-    "Brahmin", "Dasari", "Devanga", "Gandla", "Gavara", "Gond", "Goud", "Intercaste", "Jalari",
-    "Jangam", "Jogi", "Kalinga", "Kamma", "Kapu", "Koppula Velama", "Koya", "Kummara", "Kuruba",
-    "Lambada", "Lingayat", "Madiga", "Mala", "Mangali", "Medari", "Meru", "Mudiraj", "Munnuru Kapu",
-    "Nayee Brahmin", "Other / self-described", "Padmashali", "Perika", "Rajaka", "Raju", "Reddy",
-    "SC Others", "Srisayana", "ST Others", "Telaga", "Togata", "Uppara", "Vadabalija", "Vaddera",
-    "Velama", "Viswabrahmin", "Viswakarma", "Vysya", "Yadav", "Yadava",
+    "Adi Andhra", "Agnikula Kshatriya", "Are Katika", "Arya Vysya", "Balija", "Bengali", "Bestha",
+    "Bhatraju", "Bondili", "Boya", "Brahmin", "Dasari", "Devanga", "Gandla", "Gavara", "Gond",
+    "Goud", "Gujarati", "Intercaste", "Jalari", "Jangam", "Jogi", "Kalinga", "Kamma", "Kapu",
+    "Koppula Velama", "Koya", "Kshatriya", "Kummara", "Kuruba", "Lambada", "Lingayat", "Madiga",
+    "Mala", "Mangali", "Marathi", "Marwari", "Medari", "Meru", "Mudiraj", "Munnuru Kapu", "Nadar",
+    "Nair", "Nayee Brahmin", "Odia", "Other / self-described", "Padmashali", "Perika", "Punjabi",
+    "Rajaka", "Raju", "Reddy", "SC Others", "Srisayana", "ST Others", "Telaga", "Togata", "Uppara",
+    "Vadabalija", "Vaddera", "Valmiki", "Velama", "Viswabrahmin", "Viswakarma", "Vokkaliga",
+    "Vysya", "Yadav", "Yadava",
 ]
 MUSLIM_GROUPS = ["Ansari", "Bohra", "Dudekula", "Khoja", "Labab", "Mapila", "Memons",
                  "Mughal", "Pathan", "Qureshi", "Sheikh", "Syed", "Other Muslim", "Other / self-described"]

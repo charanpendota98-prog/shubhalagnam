@@ -9,11 +9,6 @@ import { apiDisplayMessage, authHeaders, readApiJson } from "@/lib/api";
 import { useLang } from "@/lib/lang";
 
 type Row = Record<string, any>;
-const adminToken = () => { try { return localStorage.getItem("tsap_admin_token") || ""; } catch { return ""; } };
-const withToken = (url: string) => {
-  const tk = adminToken();
-  return tk ? `${url}${url.includes("?") ? "&" : "?"}token=${encodeURIComponent(tk)}` : url;
-};
 const H = () => ({ ...authHeaders(true), "Content-Type": "application/json" });
 const audienceLabel = (c: Row, te: boolean) => c.audience === "bride"
   ? (te ? "👰 వధువు" : "👰 Bride")
@@ -49,12 +44,12 @@ export default function ChannelsConsole() {
 
   const load = useCallback(async (searchQuery: string) => {
     try {
-      const d = await fetch(withToken(`/api/admin/channels/map${searchQuery ? `?q=${encodeURIComponent(searchQuery)}` : ""}`),
-        { headers: authHeaders(true) }).then((r) => readApiJson(r));
+      const d = await fetch(`/api/admin/channels/map${searchQuery ? `?q=${encodeURIComponent(searchQuery)}` : ""}`,
+      { headers: authHeaders(true) }).then((r) => readApiJson(r));
       if (d?.success) setItems(d.channels || []);
-      const c = await fetch(withToken("/api/admin/channels/coverage"), { headers: authHeaders(true) }).then((r) => readApiJson(r));
+      const c = await fetch("/api/admin/channels/coverage", { headers: authHeaders(true) }).then((r) => readApiJson(r));
       if (c?.success) setCov(c);
-      const p = await fetch(withToken("/api/admin/poster"), { headers: authHeaders(true) }).then((r) => readApiJson(r));
+      const p = await fetch("/api/admin/poster", { headers: authHeaders(true) }).then((r) => readApiJson(r));
       if (p?.success) {
         setPoster(p);
         if (p.gaps) setGaps({ min_gap: String(p.gaps.min_gap ?? 120), max_gap: String(p.gaps.max_gap ?? 170) });
@@ -64,19 +59,19 @@ export default function ChannelsConsole() {
   useEffect(() => { void load(""); }, [load]);
 
   const save = async (key: string) => {
-    const r = await fetch(withToken("/api/admin/channels/link"), { method: "POST", headers: H(), body: JSON.stringify({ key, ...ed }) });
+    const r = await fetch("/api/admin/channels/link", { method: "POST", headers: H(), body: JSON.stringify({ key, ...ed }) });
     const d = await readApiJson(r);
     setFlash(apiDisplayMessage(d, te, r.ok ? (te ? "పరివర్తన పూర్తయింది." : "Action completed.") : (te ? "లింక్‌ను సేవ్ చేయలేకపోయాం." : "Could not save the links.")));
     if (r.ok) { setEditing(""); void load(q); }
   };
   const doImport = async (auto: boolean) => {
-    const r = await fetch(withToken("/api/admin/channels/import"), { method: "POST", headers: H(), body: JSON.stringify({ text: bulk, auto_apply: auto }) });
+    const r = await fetch("/api/admin/channels/import", { method: "POST", headers: H(), body: JSON.stringify({ text: bulk, auto_apply: auto }) });
     const d = await readApiJson(r);
     setFlash(apiDisplayMessage(d, te, r.ok ? (te ? "పరివర్తన పూర్తయింది." : "Import completed.") : (te ? "ఇంపోర్ట్ చేయలేకపోయాం." : "Could not import the channel links.")));
     if (d?.success) { setPreview(d); if (auto) { setBulk(""); void load(q); } }
   };
   const pauseResume = async (pause: boolean) => {
-    const r = await fetch(withToken(pause ? "/api/wa/pause?reason=admin-console" : "/api/wa/resume"), { method: "POST", headers: authHeaders(true) });
+    const r = await fetch(pause ? "/api/wa/pause?reason=admin-console" : "/api/wa/resume", { method: "POST", headers: authHeaders(true) });
     const d = await readApiJson(r);
     setFlash(d.ok
       ? (pause ? (te ? "⏸️ పోస్టర్ పంపిణీ నిలిపివేయబడింది." : "⏸️ Posting paused.") : (te ? "▶️ పోస్టింగ్ మళ్లీ ప్రారంభమైంది." : "▶️ Posting resumed."))
@@ -84,7 +79,7 @@ export default function ChannelsConsole() {
     void load(q);
   };
   const saveGaps = async () => {
-    const r = await fetch(withToken("/api/admin/poster/gaps"), { method: "POST", headers: H(), body: JSON.stringify({ min_gap: gaps.min_gap, max_gap: gaps.max_gap }) });
+    const r = await fetch("/api/admin/poster/gaps", { method: "POST", headers: H(), body: JSON.stringify({ min_gap: gaps.min_gap, max_gap: gaps.max_gap }) });
     const d = await readApiJson(r);
     setFlash(apiDisplayMessage(d, te, r.ok ? (te ? "పరివర్తన పూర్తయింది." : "Settings saved.") : (te ? "సెట్టింగ్‌లను సేవ్ చేయలేకపోయాం." : "Could not save the settings.")));
     void load(q);
@@ -124,10 +119,10 @@ export default function ChannelsConsole() {
             <span>–</span>
             <input value={gaps.max_gap} onChange={(e) => setGaps({ ...gaps, max_gap: e.target.value })} className="w-20 rounded-lg border px-2 py-1" aria-label="Max gap" inputMode="numeric" />
             <span className="text-gray-500">sec</span>
-            <button onClick={() => void saveGaps()} className="rounded-lg bg-blue-700 text-white px-3 py-1 font-bold">💾 Gaps</button>
+            <button type="button" onClick={() => void saveGaps()} className="rounded-lg bg-blue-700 text-white px-3 py-1 font-bold">💾 Gaps</button>
             {poster.paused
-              ? <button onClick={() => void pauseResume(false)} className="rounded-lg bg-green-700 text-white px-3 py-1 font-bold">▶️ Resume</button>
-              : <button onClick={() => void pauseResume(true)} className="rounded-lg bg-gray-700 text-white px-3 py-1 font-bold">⏸️ Pause</button>}
+              ? <button type="button" onClick={() => void pauseResume(false)} className="rounded-lg bg-green-700 text-white px-3 py-1 font-bold">▶️ Resume</button>
+              : <button type="button" onClick={() => void pauseResume(true)} className="rounded-lg bg-gray-700 text-white px-3 py-1 font-bold">⏸️ Pause</button>}
           </div>
         </div>
       )}
@@ -138,8 +133,8 @@ export default function ChannelsConsole() {
         <textarea value={bulk} onChange={(e) => setBulk(e.target.value)} rows={3} placeholder={"Label | https://t.me/<owner-provided-username> | https://whatsapp.com/channel/<owner-provided-channel-id>\nPaste verified, owner-provided links only; leave unknown destinations blank."}
           className="w-full rounded-lg border px-2 py-1.5 font-mono" aria-label="Bulk import" />
         <div className="flex gap-2">
-          <button onClick={() => void doImport(false)} className="rounded-lg bg-blue-600 text-white px-4 py-1.5 font-bold">🔍 Preview match</button>
-          <button onClick={() => void doImport(true)} className="rounded-lg bg-green-700 text-white px-4 py-1.5 font-bold">✅ Apply all matched</button>
+          <button type="button" onClick={() => void doImport(false)} className="rounded-lg bg-blue-600 text-white px-4 py-1.5 font-bold">🔍 Preview match</button>
+          <button type="button" onClick={() => void doImport(true)} className="rounded-lg bg-green-700 text-white px-4 py-1.5 font-bold">✅ Apply all matched</button>
         </div>
         {preview && (
           <div className="grid md:grid-cols-2 gap-2">
@@ -169,7 +164,7 @@ export default function ChannelsConsole() {
         <select value={tier} onChange={e => setTier(e.target.value)} className="rounded-full border px-3 py-1.5 text-xs" aria-label="Tier">
           <option value="all">All groups</option><option value="L1_REGION">Regions</option><option value="L2_RELIGION">Religion</option><option value="L3_CASTE">Caste</option><option value="L4_SPECIAL">Special</option>
         </select>
-        <button onClick={() => void load(q)} className="rounded-full bg-[#7A0C2E] text-white px-4 py-1.5 text-xs font-bold">🔍</button>
+        <button type="button" aria-label={te ? "వెతకండి" : "Search channels"} onClick={() => void load(q)} className="rounded-full bg-[#7A0C2E] text-white px-4 py-1.5 text-xs font-bold">🔍</button>
       </div>
       <p className="mb-2 text-[11px] text-gray-500">{items.filter(c => (audience === "all" || c.audience === audience) && (tier === "all" || c.tier === tier)).length}{te ? " channels shown · ప్రతి community/gender channel ను విడిగా గుర్తించాం." : " channels shown · each community and gender split is labelled separately."}</p>
       <div className="space-y-1.5 max-h-[420px] overflow-auto pr-1">
@@ -185,7 +180,7 @@ export default function ChannelsConsole() {
               <span className="ml-auto flex gap-1">
                 {c.telegram && <a href={c.telegram} target="_blank" rel="noreferrer" className="rounded-lg bg-sky-600 text-white px-2.5 py-1 text-[11px] font-bold">✈️ Telegram</a>}
                 {c.whatsapp && <a href={c.whatsapp} target="_blank" rel="noreferrer" className="rounded-lg bg-green-600 text-white px-2.5 py-1 text-[11px] font-bold">💬 WhatsApp</a>}
-                <button onClick={() => { setEditing(editing === c.key ? "" : c.key); setEd({ telegram: c.telegram, whatsapp: c.whatsapp, active: c.active, note: c.note }); }}
+                <button type="button" onClick={() => { setEditing(editing === c.key ? "" : c.key); setEd({ telegram: c.telegram, whatsapp: c.whatsapp, active: c.active, note: c.note }); }}
                   className="rounded-lg bg-blue-600 text-white px-3 py-1 text-[11px] font-bold">✏️ Links</button>
               </span>
             </div>
@@ -202,7 +197,7 @@ export default function ChannelsConsole() {
                     <input type="checkbox" checked={!!ed.active} onChange={(e) => setEd({ ...ed, active: e.target.checked })} /> Active
                   </label>
                   <input value={ed.note || ""} onChange={(e) => setEd({ ...ed, note: e.target.value })} placeholder="note" className="flex-1 rounded border px-2 py-1" aria-label="Note" />
-                  <button onClick={() => void save(c.key)} className="rounded-lg bg-green-700 text-white px-3 py-1 font-bold">💾</button>
+                  <button type="button" aria-label={te ? "ఛానెల్ సేవ్ చేయండి" : "Save channel"} onClick={() => void save(c.key)} className="rounded-lg bg-green-700 text-white px-3 py-1 font-bold">💾</button>
                 </div>
               </div>
             )}

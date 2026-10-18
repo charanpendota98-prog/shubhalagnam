@@ -49,7 +49,7 @@ just recommended — see `CHANGELOG.md` for exact diffs and test evidence.
 
 | Layer | Technology | Version | Notes |
 |---|---|---|---|
-| Frontend framework | Next.js (App Router) | 16.3.8 (bumped from 16.3.5 this pass — critical CVE) | Turbopack dev/build |
+| Frontend framework | Next.js (App Router) | 16.4.2 (updated from 16.3.8 in the latest verification pass) | Turbopack dev/build |
 | Frontend language | TypeScript, React 18 | — | `tsc --noEmit` clean |
 | Styling | Tailwind CSS | — | custom design tokens (maroon/gold brand) in `tailwind.config.ts` |
 | Backend framework | FastAPI | 0.110.0 | single `main.py` (8,864 lines) + ~35 feature modules |
@@ -101,9 +101,12 @@ deferred to avoid unnecessary churn per "do not introduce unnecessary changes").
   `vendor_state.json`, `stories_state.json`, `consent_ledger_state.json`,
   `retention_log.json`, `saved_searches_state.json`, `spotlight_promotions.json`,
   `wa_pool_state.json`, `channel_setup_state.json`, `push_state.json`, etc. Each
-  module manages its own load/save independently; discipline varies (`backup39.py`
-  and `wa_antiban.py` also do atomic tmp+rename; most of the smaller state files
-  were not individually re-audited this pass — flagged as follow-up).
+  module manages its own load/save independently. The latest persistence pass
+  routes runtime JSON snapshots through `backend/atomic_store.py` (serialize
+  before creating a private temp file, flush/fsync, atomic replace, directory
+  fsync); append-only audit ledgers use its private fsyncing append helper. The
+  remaining media writes use unique server-generated names and the same atomic
+  byte writer, while `db_store.py` retains its dedicated equivalent.
 - `postgres` and `redis` containers remain in the development `docker-compose.yml`,
   but nothing in `backend/*.py` connects to them. The standalone production
   `docker-compose.prod.yml` deliberately omits both so deployment does not imply
@@ -235,13 +238,14 @@ Ran, this pass, against the live app:
   full matching/admin-directory/astrology E2E flow passed.**
 
 Both were re-run **after** this pass's code changes to confirm no regression.
-**Caveat (P2, QA Architect):** these are hand-rolled scripts using
-`fastapi.testclient.TestClient` with assertion-by-print, not a pytest suite —
-they don't integrate with `pytest`/CI tooling (confirmed: running them under
-`pytest` throws an `INTERNALERROR` because they call `sys.exit(0)` at import
-time). They are genuinely useful as manual regression gates but are not
-currently automatable in a CI pipeline without modification. Tracked in
-`TEST_PLAN.md`.
+**Current test-entrypoint policy:** the 67 hand-rolled backend integration scripts
+remain authoritative subprocess programs using `fastapi.testclient.TestClient`
+(the direct sweep passed **67/67**). `conftest.py` now gives those scripts a
+no-import pytest collector so their deliberate module-level `sys.exit()` calls
+cannot abort collection; the side-effect-free atomic persistence checks run as
+normal pytest tests (**4 passed**). This keeps both CI-friendly collection and
+the richer isolated direct-script regressions without pretending that printed
+subprocess checks are ordinary pytest functions.
 
 ---
 
@@ -251,12 +255,24 @@ See `CHANGELOG.md` for full detail. Summary:
 1. **P0 — Fixed:** two endpoints bypassing atomic JSON persistence
    (`backend/main.py`, `/api/profile/preferences` + `/api/profile/update`).
 2. **P0 — Fixed:** critical RCE CVE in pinned Next.js version (16.3.5 → 16.3.8);
-   `npm audit --omit=dev` reports 0 production vulnerabilities. Full audit currently retains 5 high, dev-only findings in the Next ESLint plugin chain; its offered fix is an incompatible Next 14 lint-config downgrade, so it remains documented rather than forced.
-3. **P2 — Fixed:** sitemap/robots contradiction for `/requests`.
-4. Full regression verified: `tsc --noEmit` clean, production build clean,
-   both existing backend test suites 110/110 and 100/100 passing, live
-   register → update-preferences → update-profile → **restart** → verify-data-
-   survived smoke test passed end-to-end.
+   the current lock is now on Next.js/eslint-config-next 16.4.2 and
+   `npm audit --omit=dev` reports 0 production vulnerabilities. Full audit
+   retains 5 high, dev-only findings in the Next ESLint plugin chain; its offered
+   fix is an incompatible Next 14 lint-config downgrade, so it remains documented
+   rather than forced.
+3. **P1 — Fixed:** remaining runtime JSON/report writers now use the shared
+   crash-safe writer; retention archive names are collision-resistant and a
+   failed core save rolls the in-memory deletion back and returns 503. Upload
+   state is committed transactionally, voice uploads require owner/admin auth,
+   and all bounded media writes use unique atomic files.
+4. **P1 — Fixed:** mutation retries are opt-in (GET only by default), API body
+   parsing handles empty/non-JSON responses, and CSV/browser exports use
+   authenticated Blob downloads instead of credential-bearing URLs.
+5. **P2 — Fixed:** sitemap/robots contradiction for `/requests` and pytest
+   collection failure caused by executable integration scripts.
+6. Full regression verified: frontend lint/static/security, TypeScript,
+   production build, corrected route fuzz (**356 probes, 0 5xx**), direct
+   backend sweep (**67/67**), and pytest collection (**4 passed**).
 
 ---
 
@@ -267,10 +283,19 @@ See `CHANGELOG.md` for full detail. Summary:
 | P1 | Document + plan (not yet execute) Postgres migration | Database/Migration Architect |
 | P1 | Complete exhaustive `ROUTE_MAP.md` (all 47 frontend routes × redirect/canonical/auth-guard matrix) | Solution Architect |
 | P1 | Full `SECURITY_AUDIT.md` pass: IDOR check on profile/search endpoints, upload filename handling, dependency audit on backend (`pip-audit`) | AppSec |
-| P2 | Audit remaining 16 JSON state files individually for atomic-write discipline | Data Integrity Engineer |
 | P2 | Raise PBKDF2 iteration count; document stateless-token revocation gap | Password/Auth Security |
-| P2 | Convert `test_*.py` scripts into a real pytest/CI-runnable suite | QA Automation |
 | P3 | Move 50+ root-level planning `.md` files into `docs/planning/` | Code Quality |
 
 This backlog will be worked top-down (P0 → P1 → P2 → P3) in subsequent passes,
 continuing the audit→fix→test→re-audit loop per domain, as mandated.
+
+## Continuation verification — 2026-10-18 (transactional boundary pass)
+
+The follow-up audit closed the previously identified cross-store persistence gaps:
+
+- `backend/paypro.py` now treats payment-ledger writes as fallible, rolls back order/offer state on failure, persists verified credits/boost benefits before success, and restores the user, assisted order, or ad campaign when the final payment commit fails. Manual UTR, Razorpay verify, webhook, refund, offer-cap, and duplicate paths are fail-closed rather than silently returning success.
+- `backend/ads.py` now checks every campaign create/approve/update/action, impression, click, lead, and expiry write; invalid edits and failed writes restore the prior campaign object.
+- Cross-store admin operations now commit before reporting success: profile moderation, control-panel plan grants, admin plan grants, astro/jathakam verification, photo review, contact unlock, referral payouts, partner records, and assisted orders have explicit rollback/error paths.
+- Focused boundary coverage expanded to **16 pytest tests**, including payment fulfillment/final-ledger rollback, ads rollback, consent-unlock rollback, referral payout rollback, astro profile/queue rollback, media rollback, and retention rollback.
+
+Verification after this pass: direct backend integration sweep **67/67**, explicit pytest **16 passed**, frontend lint/static/security **passed**, frontend production build **passed** with 52 routes, `compileall` **passed**, and `git diff --check` **passed**. Provider-backed payment tests remain intentionally skipped without owner-configured credentials; this is not a production settlement validation.

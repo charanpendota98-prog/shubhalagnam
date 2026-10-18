@@ -4,7 +4,10 @@ Only explicitly entered and published content is served. Synthetic test data mus
 an isolated temporary CMS store; there is no production/demo seeding path.
 """
 from __future__ import annotations
+from atomic_store import atomic_json_dump
 
+
+import copy
 import json
 import os
 import re
@@ -26,13 +29,14 @@ def _now() -> str:
     return datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S")
 
 
-def _persist() -> None:
+def _persist() -> bool:
     try:
-        with open(PERSIST_FILE, "w", encoding="utf-8") as f:
-            json.dump({"pages": PAGES[-200:], "stories": STORIES[-300:], "banners": BANNERS[-100:]},
-                      f, ensure_ascii=False)
+        atomic_json_dump(PERSIST_FILE,
+                         {"pages": PAGES[-200:], "stories": STORIES[-300:], "banners": BANNERS[-100:]},
+                         ensure_ascii=False)
+        return True
     except Exception:
-        pass
+        return False
 
 
 def _restore() -> None:
@@ -90,6 +94,7 @@ def upsert_page(slug: str, title_en: str, title_te: str, body_en: str = "", body
     if not str(title_en or "").strip():
         return {"success": False, "message_telugu": "⚠️ English title కావాలి"}
     p = next((x for x in PAGES if x.get("slug") == slug), None)
+    previous = copy.deepcopy(p) if p is not None else None
     data = {"slug": slug, "title_en": str(title_en).strip()[:200], "title_te": str(title_te or "").strip()[:200],
             "body_en": str(body_en or "")[:20000], "body_te": str(body_te or "")[:20000],
             "photos": _photos(photos), "tags": _tags(tags), "published": bool(published),
@@ -101,7 +106,14 @@ def upsert_page(slug: str, title_en: str, title_te: str, body_en: str = "", body
         data["created_at"] = _now()
         PAGES.append(data)
         msg = f"✅ Page /p/{slug} ready!"
-    _persist()
+    if not _persist():
+        if p is None:
+            PAGES.remove(data)
+        else:
+            p.clear()
+            p.update(previous)
+        return {"success": False, "reason": "persistence_failed",
+                "message_telugu": "⚠️ Page could not be saved safely. Please try again."}
     return {"success": True, "page": next(x for x in PAGES if x.get("slug") == slug), "message_telugu": msg}
 
 
@@ -121,11 +133,14 @@ def upsert_story(sid: str = "", groom: str = "", bride: str = "", photo: str = "
     global _SEQ
     if not str(groom or "").strip() or not str(bride or "").strip():
         return {"success": False, "message_telugu": "⚠️ Groom + bride names కావాలి"}
+    sequence_before = _SEQ["ST"]
     if sid:
         s = next((x for x in STORIES if x.get("id") == sid), None)
         if not s:
             return {"success": False, "message_telugu": "⚠️ Story దొరకలేదు"}
+        previous = copy.deepcopy(s)
     else:
+        previous = None
         _SEQ["ST"] += 1
         s = {"id": f"ST-{_SEQ['ST']:04d}", "created_at": _now()}
         STORIES.append(s)
@@ -136,7 +151,15 @@ def upsert_story(sid: str = "", groom: str = "", bride: str = "", photo: str = "
               "district": str(district or "").strip()[:40], "wedding_date": str(wedding_date or "")[:10],
               "tags": _tags(tags) or s.get("tags", []), "published": bool(published),
               "updated_at": _now()})
-    _persist()
+    if not _persist():
+        _SEQ["ST"] = sequence_before
+        if previous is None:
+            STORIES.remove(s)
+        else:
+            s.clear()
+            s.update(previous)
+        return {"success": False, "reason": "persistence_failed",
+                "message_telugu": "⚠️ Success story could not be saved safely. Please try again."}
     return {"success": True, "story": s, "message_telugu": f"✅ Success story {sid} ready! 💑"}
 
 
@@ -153,11 +176,14 @@ def upsert_banner(bid: str = "", text_en: str = "", text_te: str = "", link: str
     global _SEQ
     if not str(text_en or "").strip():
         return {"success": False, "message_telugu": "⚠️ Banner text (English) కావాలి"}
+    sequence_before = _SEQ["BN"]
     if bid:
         b = next((x for x in BANNERS if x.get("id") == bid), None)
         if not b:
             return {"success": False, "message_telugu": "⚠️ Banner దొరకలేదు"}
+        previous = copy.deepcopy(b)
     else:
+        previous = None
         _SEQ["BN"] += 1
         b = {"id": f"BN-{_SEQ['BN']:04d}", "created_at": _now()}
         BANNERS.append(b)
@@ -167,7 +193,15 @@ def upsert_banner(bid: str = "", text_en: str = "", text_te: str = "", link: str
     b.update({"text_en": str(text_en).strip()[:300], "text_te": str(text_te or "").strip()[:300],
               "link": str(link or "").strip()[:300], "pages": pg, "active": bool(active),
               "order": int(order or 0), "updated_at": _now()})
-    _persist()
+    if not _persist():
+        _SEQ["BN"] = sequence_before
+        if previous is None:
+            BANNERS.remove(b)
+        else:
+            b.clear()
+            b.update(previous)
+        return {"success": False, "reason": "persistence_failed",
+                "message_telugu": "⚠️ Banner could not be saved safely. Please try again."}
     return {"success": True, "banner": b, "message_telugu": f"✅ Banner {bid} ready!"}
 
 
@@ -184,11 +218,15 @@ def delete_item(kind: str, iid: str) -> Dict:
     if store is None:
         return {"success": False, "message_telugu": "⚠️ kind: page/story/banner"}
     key = "slug" if str(kind).lower() == "page" else "id"
+    previous = copy.deepcopy(store)
     before = len(store)
     store[:] = [x for x in store if str(x.get(key, "")) != str(iid or "")]
     if len(store) == before:
         return {"success": False, "message_telugu": "⚠️ Item దొరకలేదు"}
-    _persist()
+    if not _persist():
+        store[:] = previous
+        return {"success": False, "reason": "persistence_failed",
+                "message_telugu": "⚠️ CMS item could not be deleted safely. Please try again."}
     return {"success": True, "message_telugu": f"✅ {iid} delete అయ్యింది"}
 
 

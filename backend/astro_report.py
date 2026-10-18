@@ -1,4 +1,4 @@
-"""Compatibility wrapper for the current, limited ten-check Porutham PDF."""
+"""Retired compatibility wrapper; reviewed-evidence reports are not yet available."""
 from __future__ import annotations
 
 from typing import Any, Dict

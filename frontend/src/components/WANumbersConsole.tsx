@@ -10,11 +10,6 @@ import { Duo } from "@/lib/duo";
 import { useLang } from "@/lib/lang";
 
 type Row = Record<string, any>;
-const adminToken = () => { try { return localStorage.getItem("tsap_admin_token") || ""; } catch { return ""; } };
-const withToken = (url: string) => {
-  const tk = adminToken();
-  return tk ? `${url}${url.includes("?") ? "&" : "?"}token=${encodeURIComponent(tk)}` : url;
-};
 const H = () => ({ ...authHeaders(true), "Content-Type": "application/json" });
 
 const LANE_META: Record<string, { icon: string; te: string; en: string }> = {
@@ -35,10 +30,10 @@ export default function WANumbersConsole() {
 
   const load = useCallback(async () => {
     try {
-      const d = await fetch(withToken("/api/admin/wa/numbers"), { headers: authHeaders(true) }).then((r) => readApiJson(r));
+      const d = await fetch("/api/admin/wa/numbers", { headers: authHeaders(true) }).then((r) => readApiJson(r));
       if (d?.success) { setData(d); setFlash(""); }
       else setFlash(apiDisplayMessage(d, te, te ? "నంబర్ జాబితాను లోడ్ చేయలేకపోయాం." : "Could not load the number list."));
-      const qst = await fetch(withToken("/api/admin/poster"), { headers: authHeaders(true) }).then((r) => readApiJson(r));
+      const qst = await fetch("/api/admin/poster", { headers: authHeaders(true) }).then((r) => readApiJson(r));
       if (qst?.success) setQueue(qst);
       else setFlash(apiDisplayMessage(qst, te, te ? "Queue స్థితిని లోడ్ చేయలేకపోయాం." : "Could not load queue status."));
     } catch { setFlash(te ? "API లోపం. మళ్లీ ప్రయత్నించండి." : "API error. Please try again."); }
@@ -48,7 +43,7 @@ export default function WANumbersConsole() {
   const act = async (method: string, url: string, body?: Row) => {
     setBusy(true); setFlash("");
     try {
-      const r = await fetch(withToken(url), { method, headers: H(), body: body ? JSON.stringify(body) : undefined });
+      const r = await fetch(url, { method, headers: H(), body: body ? JSON.stringify(body) : undefined });
       const d = await readApiJson(r);
       setFlash(apiDisplayMessage(d, te, d.success
         ? (te ? "✅ పని పూర్తయింది." : "✅ Action completed.")
@@ -63,7 +58,7 @@ export default function WANumbersConsole() {
     <div className="mt-4 rounded-2xl border border-gold/30 bg-white p-4">
       <div className="flex items-center justify-between">
         <h3 className="font-bold text-[#7A0C2E]">📱 <Duo en="WhatsApp Numbers (OTP / Channels / Personal)" te="వాట్సాప్ నంబర్లు" /></h3>
-        <button onClick={() => void load()} className="text-xs underline">↻ refresh</button>
+        <button type="button" onClick={() => void load()} className="text-xs underline">↻ refresh</button>
       </div>
       <p className="text-[11px] text-gray-600 telugu">{te ? "ఇక్కడ చూపేది local sender configuration / worker queue స్థితి మాత్రమే; WhatsApp reachability, channel admin హక్కులు లేదా సందేశం చేరిందని ఇది పరీక్షించదు. మీకు అధికారం ఉన్న business numbers, bridge endpoints మాత్రమే నమోదు చేయండి." : "This panel shows local sender configuration and worker/queue state only; it does not test WhatsApp reachability, channel admin rights, or message delivery. Add only business numbers and bridge endpoints you are authorized to use."}</p>
       {flash ? <p className="mt-1 text-[12px] font-medium text-maroon">{flash}</p> : null}
@@ -95,11 +90,11 @@ export default function WANumbersConsole() {
                 {n.last_error ? <span className="text-rose-700"> · {(te ? String(n.last_error) : apiDisplayMessage({ message_en: n.last_error }, false, "Error details are not available in English.")).slice(0, 60)}</span> : null}
               </div>
               <div className="mt-2 flex gap-2">
-                <button disabled={busy} onClick={() => void act("POST", `/api/admin/wa/numbers/${n.name}`, { paused: !n.paused })}
+                <button type="button" disabled={busy} onClick={() => void act("POST", `/api/admin/wa/numbers/${n.name}`, { paused: !n.paused })}
                   className="rounded-lg border border-slate-300 px-3 py-1.5 font-bold">
                   {n.paused ? "▶️ Resume" : "⏸️ Pause"}
                 </button>
-                <button disabled={busy} onClick={() => { if (confirm(te ? `${n.name} తీసెయ్యాలా?` : `Remove ${n.name}?`)) void act("DELETE", `/api/admin/wa/numbers/${n.name}`); }}
+                <button type="button" aria-label={te ? `${n.name} నంబర్‌ను తొలగించండి` : `Remove ${n.name}`} disabled={busy} onClick={() => { if (confirm(te ? `${n.name} తీసెయ్యాలా?` : `Remove ${n.name}?`)) void act("DELETE", `/api/admin/wa/numbers/${n.name}`); }}
                   className="rounded-lg border border-rose-300 px-3 py-1.5 font-bold text-rose-700">🗑️</button>
               </div>
             </div>
@@ -115,23 +110,23 @@ export default function WANumbersConsole() {
       <div className="mt-3 rounded-xl bg-cream/60 border border-gold/20 p-3">
         <div className="text-[12px] font-bold text-maroon">+ {` `}<Duo en="Add number" te="నంబర్ జోడించండి" /></div>
         <div className="mt-2 grid grid-cols-2 md:grid-cols-3 gap-2">
-          <input value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} placeholder={te ? "Instance పేరు" : "Instance name"}
+          <input aria-label={te ? "Instance పేరు" : "Instance name"} value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} placeholder={te ? "Instance పేరు" : "Instance name"}
             className="rounded-lg border border-slate-300 px-2 py-1.5 text-[12px]" />
-          <input value={f.url} onChange={(e) => setF({ ...f, url: e.target.value })} placeholder={te ? "అధికారిక bridge endpoint URL" : "Authorized bridge endpoint URL"}
+          <input aria-label={te ? "అధికారిక bridge endpoint URL" : "Authorized bridge endpoint URL"} value={f.url} onChange={(e) => setF({ ...f, url: e.target.value })} placeholder={te ? "అధికారిక bridge endpoint URL" : "Authorized bridge endpoint URL"}
             className="rounded-lg border border-slate-300 px-2 py-1.5 text-[12px] col-span-2" />
-          <select value={f.lane} onChange={(e) => setF({ ...f, lane: e.target.value })}
+          <select aria-label={te ? "లేన్" : "Lane"} value={f.lane} onChange={(e) => setF({ ...f, lane: e.target.value })}
             className="rounded-lg border border-slate-300 px-2 py-1.5 text-[12px]">
             {(["otp", "channels", "personal", "both"] as const).map((l) => (
               <option key={l} value={l}>{LANE_META[l].icon} {te ? LANE_META[l].te : LANE_META[l].en}</option>
             ))}
           </select>
-          <input value={f.daily_cap} onChange={(e) => setF({ ...f, daily_cap: e.target.value })} placeholder={te ? "రోజువారీ పరిమితి" : "Daily cap"}
+          <input aria-label={te ? "రోజువారీ పరిమితి" : "Daily cap"} value={f.daily_cap} onChange={(e) => setF({ ...f, daily_cap: e.target.value })} placeholder={te ? "రోజువారీ పరిమితి" : "Daily cap"}
             inputMode="numeric" className="rounded-lg border border-slate-300 px-2 py-1.5 text-[12px]" />
-          <input value={f.number} onChange={(e) => setF({ ...f, number: e.target.value })} placeholder={te ? "మీకు అధికారం ఉన్న WhatsApp నంబర్ (country code తో)" : "Authorized WhatsApp number with country code"}
+          <input aria-label={te ? "మీకు అధికారం ఉన్న WhatsApp నంబర్ (country code తో)" : "Authorized WhatsApp number with country code"} value={f.number} onChange={(e) => setF({ ...f, number: e.target.value })} placeholder={te ? "మీకు అధికారం ఉన్న WhatsApp నంబర్ (country code తో)" : "Authorized WhatsApp number with country code"}
             inputMode="numeric" className="rounded-lg border border-slate-300 px-2 py-1.5 text-[12px]" />
-          <input value={f.token} onChange={(e) => setF({ ...f, token: e.target.value })} placeholder="bridge token (optional)"
+          <input aria-label="bridge token (optional)" value={f.token} onChange={(e) => setF({ ...f, token: e.target.value })} placeholder="bridge token (optional)"
             className="rounded-lg border border-slate-300 px-2 py-1.5 text-[12px] col-span-2" />
-          <button disabled={busy} onClick={() => void act("POST", "/api/admin/wa/numbers", { ...f, daily_cap: Number(f.daily_cap) || 60 })}
+          <button type="button" disabled={busy} onClick={() => void act("POST", "/api/admin/wa/numbers", { ...f, daily_cap: Number(f.daily_cap) || 60 })}
             className="rounded-lg maroon-gradient text-white px-3 py-1.5 text-[12px] font-bold disabled:opacity-50">
             ✅ Add
           </button>

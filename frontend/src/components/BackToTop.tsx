@@ -25,7 +25,7 @@ export default function BackToTop() {
   if (pathname?.startsWith("/register")) return null;
   if (!show) return null;
   return (
-    <button
+    <button type="button"
       onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
       aria-label={te ? "పైకి వెళ్లు" : "Back to top"}
       title={te ? "పైకి వెళ్లు" : "Back to top"}

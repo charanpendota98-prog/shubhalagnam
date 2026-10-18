@@ -120,7 +120,7 @@ export default function DistrictsPage() {
               { id: "AP", l: te ? `🔵 ఆంధ్రప్రదేశ్ (${AP_DISTRICT_COUNT} జిల్లాలు)` : `🔵 Andhra Pradesh (${AP_DISTRICT_COUNT})`, count: AP_DISTRICT_COUNT },
               { id: "Other", l: te ? `✈️ ఇతర ప్రాంతాలు (${OTHER_LOCATION_COUNT})` : `✈️ Other & NRI locations (${OTHER_LOCATION_COUNT})`, count: OTHER_LOCATION_COUNT },
             ].map((tab) => (
-              <button
+              <button type="button"
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id as any)}
                 className={`px-4 py-2 rounded-2xl text-xs sm:text-sm font-bold transition shadow-sm ${
@@ -143,7 +143,7 @@ export default function DistrictsPage() {
         <div className="bg-white rounded-3xl p-4 sm:p-5 border border-gold/30 card-shadow flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="relative w-full sm:w-96">
             <span className="absolute left-3.5 top-3 text-slate-400">🔍</span>
-            <input
+            <input aria-label={te ? "జిల్లా పేరుతో వెతకండి" : "Search by district name"}
               type="text"
               placeholder={te ? "జిల్లా పేరుతో వెతకండి" : "Search by district name"}
               value={searchQuery}

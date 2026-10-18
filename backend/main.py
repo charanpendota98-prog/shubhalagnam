@@ -13,9 +13,10 @@ if _backend_dir not in sys.path:
 from fastapi import FastAPI, HTTPException, Request, UploadFile, File, Form, Body
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, Response
+from atomic_store import atomic_json_dump, atomic_write_bytes
 from typing import Any, Dict, List, Optional
 from contextlib import asynccontextmanager
-import os, random, json, re, hashlib, hmac, urllib.parse, time, secrets
+import os, random, json, re, hashlib, hmac, urllib.parse, time, secrets, copy
 from urllib.parse import quote
 import threading
 from collections import defaultdict
@@ -124,9 +125,10 @@ def _test_payment_fixtures_enabled() -> bool:
 from quality import (
     profile_completeness, templates as quality_templates, facets as search_facets,
     save_search, saved_for, delete_search, set_search_alert, new_matches_for, mark_alerted, matches_filters,
-    log_consent, consent_for, load_saved_searches, load_consent_ledger, CONSENT_LEDGER,
+    log_consent, consent_for, load_saved_searches, load_consent_ledger, save_consent_ledger, CONSENT_LEDGER,
     SAVED_SEARCHES,
 )
+import member_intel
 from interest import (
     PLANS as INTEREST_PLANS, plan_list, get_plan, plan_by_amount, apply_payment,
     can_send_interest, create_interest, respond_interest, expire_old,
@@ -135,12 +137,11 @@ from interest import (
     MAX_PER_DAY as INTEREST_MAX_PER_DAY, EXPIRY_DAYS as INTEREST_EXPIRY_DAYS,
     REFUND_ON_DECLINE as INTEREST_REFUND_ON_DECLINE, mask_phone,
 )
-from porutham import compute_porutham, porutham_line, norm_nakshatra, norm_rasi
 import topmatch, safety, preview, bot_pool, wa_pool
 import matchbot  # 🧠 Smart Match Assistant — personalized daily briefing + tips
 import digest_engine  # 📬 personalized daily digest engine (generate queue, gated send)
 import smart12 as S12  # 🔒 WAVE 12: masked captions + unlock/entitlement + ₹500 assisted
-import astro as AST      # 🪐 WAVE 13: 36-guna + dosha + jathakam
+import astro as AST      # 🪐 WAVE 13: astrology evidence + Jathakam review
 import ads as ADS        # 📢 WAVE 13: vendor ad campaigns
 import matchpro as MP      # factual age/location helpers; no compatibility ranking
 from community_catalog import subcastes_for as community_subcastes_for
@@ -549,6 +550,53 @@ def control_analytics(request: Request):
     open_reports = sum(1 for r in DB_REPORTS if str(r.get("status", "open")) == "open")
     photos_pending = sum(1 for u in DB_USERS if str(u.get("photo_status", "none")) == "pending")
 
+    # ⏳ Queue aging — an operations count, never a member-level list. How long
+    # pending profiles have been waiting is the most actionable number here.
+    AGING_BUCKETS = [("under_24h", 0, 24), ("1_3_days", 24, 72),
+                     ("3_7_days", 72, 168), ("over_7_days", 168, None)]
+    aging = [{"label": label, "count": 0} for label, _, _ in AGING_BUCKETS]
+    oldest_hours = 0.0
+    pending_with_date = 0
+    for u in DB_USERS:
+        if str(u.get("status", "pending")) != "pending":
+            continue
+        created = _parse(u.get("created_at"))
+        if not created:
+            continue
+        pending_with_date += 1
+        hours = max(0.0, (now - created).total_seconds() / 3600.0)
+        oldest_hours = max(oldest_hours, hours)
+        for index, (_label, low, high) in enumerate(AGING_BUCKETS):
+            if hours >= low and (high is None or hours < high):
+                aging[index]["count"] += 1
+                break
+
+    # 📉 Funnel — where members stall. Aggregate counts only, in descending
+    # order; a later step can never exceed an earlier one because every step is
+    # a subset of the members counted in the step before it.
+    photo_ids = {str(u.get("tsap_id", "")).upper() for u in DB_USERS
+                 if str(u.get("photo_status", "none")) not in {"none", ""}}
+    approved_ids = {str(u.get("tsap_id", "")).upper() for u in DB_USERS
+                    if u.get("is_approved") or str(u.get("status")) == "approved"}
+    interest_senders = {str(r.get("from_id", "")).upper() for r in DB_INTERESTS}
+    funnel = [
+        {"step": "registered", "count": total},
+        {"step": "photo_added", "count": len(photo_ids)},
+        {"step": "approved", "count": len(approved_ids)},
+        {"step": "sent_first_interest", "count": len(interest_senders & approved_ids)},
+    ]
+
+    # 💬 Engagement — request outcomes are reported as what members did, never
+    # as an outcome or success signal about a person.
+    interest_status: dict = {}
+    for row in DB_INTERESTS:
+        key = str(row.get("status", "pending")).strip().lower() or "pending"
+        interest_status[key] = interest_status.get(key, 0) + 1
+    saved_total = len(SAVED_SEARCHES)
+    alerts_on = sum(1 for row in SAVED_SEARCHES
+                    if row.get("alert") is True and str(row.get("alert_consent_at") or "").strip())
+    trend_previous = sum(d["count"] for d in days[-14:-7])
+
     result = {
         "success": True, "role": item["role"], "generated_at": now.isoformat(),
         "totals": {
@@ -564,6 +612,22 @@ def control_analytics(request: Request):
         "queue_health": {
             "pending": pending, "photos_pending": photos_pending, "open_reports": open_reports,
         },
+        "queue_aging": {
+            "buckets": aging,
+            "oldest_pending_hours": round(oldest_hours, 1),
+            "pending_with_date": pending_with_date,
+        },
+        "funnel": funnel,
+        "engagement": {
+            "interests_total": len(DB_INTERESTS),
+            "interest_status": [{"label": key, "count": value}
+                                for key, value in sorted(interest_status.items(), key=lambda kv: -kv[1])],
+            "saved_searches": saved_total,
+            "saved_search_alerts_on": alerts_on,
+            "shortlist_entries": len(DB_SAVES),
+        },
+        "trend": {"last_7d": signups_7d, "previous_7d": trend_previous,
+                  "delta": (signups_7d - trend_previous)},
     }
     if finance_access:
         # Finance totals are aggregate-only; no per-user payment details are returned.
@@ -624,6 +688,7 @@ def control_profile_action(tsap_id: str, payload: dict, request: Request):
     if action == "reject" and not note:
         raise HTTPException(400, "A rejection reason is required")
 
+    user_before = copy.deepcopy(user)
     publication: dict = {"queued": False, "targets": [], "reason": "not_applicable"}
     if action == "approve":
         user["is_approved"] = True
@@ -633,24 +698,41 @@ def control_profile_action(tsap_id: str, payload: dict, request: Request):
             user["post_hashtags"] = route.get("hashtags", [])
         except Exception:
             user["post_hashtags"] = []
-        publication = _queue_approved_profile_publication(user)
         user["posted_channels"] = []  # queued targets are not published results
+        # Commit the privacy-sensitive approval before any external publication
+        # queue side effect. A failed core save must never report approval.
+        if not _persist_core_state():
+            user.clear()
+            user.update(user_before)
+            raise HTTPException(503, "Profile moderation could not be saved safely. Please try again.")
+        publication = _queue_approved_profile_publication(user)
+        if not _persist_core_state():
+            # Approval is already durable; discard only non-authoritative queue
+            # metadata so a restart cannot claim delivery that was not recorded.
+            for key in ("publish_queued", "publish_targets", "publish_status"):
+                if key in user_before:
+                    user[key] = user_before[key]
+                else:
+                    user.pop(key, None)
     elif action == "reject":
         user["is_approved"] = False
         user["status"] = "rejected"
         user["reject_note"] = note
         user["publish_queued"] = False
+        if not _persist_core_state():
+            user.clear()
+            user.update(user_before)
+            raise HTTPException(503, "Profile moderation could not be saved safely. Please try again.")
     else:
         user["status"] = "pending"
+        if not _persist_core_state():
+            user.clear()
+            user.update(user_before)
+            raise HTTPException(503, "Profile moderation could not be saved safely. Please try again.")
 
     targets = publication.get("targets", [])
     CONTROL_AUTH.audit("control_profile_" + action, item["username"], request,
                        tsap_id=tsap_id, queue_targets=len(targets), queued=bool(publication.get("queued")), note=note)
-    try:
-        DBSTORE.save(DBSTORE.snapshot(DB_USERS, DB_INTERESTS, DB_PAYMENTS, DB_OTPS,
-                                      VERIFIED_PHONES, DB_VIEWS, DB_SAVES, DB_DIGEST), force=True)
-    except Exception:
-        pass
     if action == "approve":
         message = (f"✅ Approved — publish job queued for {len(targets)} configured destinations; delivery is not confirmed"
                    if publication.get("queued") else f"✅ Approved — not queued ({publication.get('reason')})")
@@ -687,6 +769,10 @@ def control_profile_upgrade(tsap_id: str, payload: dict, request: Request):
     user = _find_user(tsap_id)
     if not user:
         raise HTTPException(404, f"Profile ID '{tsap_id}' not found")
+    user_refs_before = list(DB_USERS)
+    users_before = copy.deepcopy(DB_USERS)
+    payments_before = copy.deepcopy(DB_PAYMENTS)
+    pay_orders_before = copy.deepcopy(PP.PAY_ORDERS)
 
     user["plan"] = plan_code
     user["is_premium"] = True
@@ -747,14 +833,17 @@ def control_profile_upgrade(tsap_id: str, payload: dict, request: Request):
         "Plan activation does not verify identity or approve a profile. Contact details require profile-owner acceptance.\n"
         "Payment / complimentary status: " + ("complimentary grant" if is_comped else "recorded payment")
     )
+    if not _persist_core_state() or not PP._persist():
+        _restore_user_snapshot(users_before, user_refs_before)
+        DB_PAYMENTS[:] = payments_before
+        PP.PAY_ORDERS[:] = pay_orders_before
+        # Best-effort restoration of the two ledgers after an injected/storage failure.
+        _persist_core_state()
+        PP._persist()
+        raise HTTPException(503, "Plan grant could not be saved safely. Please try again.")
     CONTROL_AUTH.audit("control_profile_upgrade", item["username"], request,
                        tsap_id=tsap_id, plan=plan_code, amount=amount, comped=is_comped,
                        credits_added=expected_credits)
-    try:
-        DBSTORE.save(DBSTORE.snapshot(DB_USERS, DB_INTERESTS, DB_PAYMENTS, DB_OTPS,
-                                      VERIFIED_PHONES, DB_VIEWS, DB_SAVES, DB_DIGEST), force=True)
-    except Exception:
-        pass
 
     return {
         "success": True, "tsap_id": user.get("tsap_id"), "full_name": user.get("full_name"),
@@ -856,7 +945,7 @@ def control_report_resolve(report_id: str, payload: dict, request: Request):
     if not ok:
         raise HTTPException(400, msg)
     CONTROL_AUTH.audit("control_report_resolve", item["username"], request,
-                       report_id=report_id, action=action, note=note)
+                       report_id=report_id, moderation_action=action, note=note)
     try:
         DBSTORE.save(DBSTORE.snapshot(DB_USERS, DB_INTERESTS, DB_PAYMENTS, DB_OTPS,
                                       VERIFIED_PHONES, DB_VIEWS, DB_SAVES, DB_DIGEST), force=True)
@@ -896,8 +985,80 @@ def control_spotlight_action(promo_id: str, payload: dict, request: Request):
             notes=notes,
             override_days=override_days
         )
-        CONTROL_AUTH.audit("control_spotlight_action", item["username"], request, promo_id=promo_id, action=action)
+        CONTROL_AUTH.audit("control_spotlight_action", item["username"], request, promo_id=promo_id, spotlight_action=action)
         return {"success": True, "item": updated, "message": f"Spotlight promotion {action}d successfully"}
+    except Exception as e:
+        raise HTTPException(400, str(e))
+
+
+@app.get("/api/control/channels/coverage")
+def control_channels_coverage(request: Request):
+    """Owner view of how many channel destinations are actually configured.
+
+    Counts configuration, not availability: a configured link is a link an
+    operator saved, never proof that the Telegram or WhatsApp destination is
+    live or that the bot can post to it.
+    """
+    item = CONTROL_AUTH.require(request, roles=_CONTROL_OWNER_ROLES)
+    cov = CHAN.coverage()
+    pending: list[str] = []
+    for tier, row in (cov.get("by_tier") or {}).items():
+        for key in row.get("pending_keys", [])[:8]:
+            pending.append(f"{tier}:{key}")
+    CONTROL_AUTH.audit("control_channels_coverage", item["username"], request,
+                       total=cov.get("total", 0), routing_eligible=cov.get("routing_eligible", 0))
+    return {
+        "success": True,
+        "total": cov.get("total", 0),
+        "routing_eligible": cov.get("routing_eligible", 0),
+        "with_whatsapp": cov.get("with_whatsapp", 0),
+        "customized": cov.get("customized", 0),
+        "by_tier": cov.get("by_tier", {}),
+        "critical_gaps": cov.get("critical_gaps", []),
+        "pending_sample": pending,
+        "external_status_checked": False,
+        "note": "Counts are configuration only. No external availability, bot permission "
+                "or reachability is checked, and a blank destination is never filled in.",
+    }
+
+
+@app.get("/api/control/stories")
+
+def control_stories(request: Request, status: str = "pending", limit: int = 50):
+    """Owner-only member-story moderation queue (control session, not admin key)."""
+    item = CONTROL_AUTH.require(request, roles=_CONTROL_OWNER_ROLES)
+    status = (status or "").strip().lower()
+    if status and status not in ("pending", "approved", "rejected"):
+        raise HTTPException(400, "status: pending/approved/rejected (khali = anni)")
+    limit = clamp_int(limit, "limit", 1, 200, 50)
+    rows = [x for x in A11.STORIES if not status or x.get("status") == status]
+    rows = list(reversed(rows[-limit:]))
+    CONTROL_AUTH.audit("control_stories", item["username"], request, status=status or "all", count=len(rows))
+    return {
+        "success": True, "status": status or "all", "count": len(rows), "stories": rows,
+        "review_note": "Approval is a publication decision only. Identity and relationship "
+                       "details are not verified, and names are whatever the submitter supplied.",
+    }
+
+
+@app.post("/api/control/stories/{story_id}/action")
+def control_story_action(story_id: str, payload: dict, request: Request):
+    """Owner-only approve/reject for a member story (CSRF protected)."""
+    item = _control_write_guard(request, roles=_CONTROL_OWNER_ROLES)
+    d = payload or {}
+    action = str(d.get("action", "")).strip().lower()
+    note = str(d.get("note", "")).strip()
+    try:
+        updated = A11.review_story(story_id, action, note)
+        CONTROL_AUTH.audit("control_story_action", item["username"], request,
+                           story_id=story_id, story_action=action, note=note[:60])
+        out = {"success": True, "story": updated,
+               "message": f"Story {action}d successfully",
+               "publication_note": "Approval publishes the story as submitted; it does not "
+                                   "verify identity, relationship or consent."}
+        if action == "approve":
+            out["share_text"] = A11.story_share_text(updated)
+        return out
     except Exception as e:
         raise HTTPException(400, str(e))
 
@@ -921,8 +1082,9 @@ def control_payout_action(request_id: str, payload: dict, request: Request):
     reason = str(d.get("reason", "")).strip()
     res = payout_action(request_id, action, DB_USERS, utr=utr, reason=reason)
     if not res.get("ok"):
-        raise HTTPException(400, res.get("reason") or res.get("message_telugu") or "Payout action failed")
-    CONTROL_AUTH.audit("control_payout_action", item["username"], request, request_id=request_id, action=action)
+        status_code = 503 if res.get("reason") == "persistence_failed" else 400
+        raise HTTPException(status_code, res.get("message_telugu") or "Payout action failed")
+    CONTROL_AUTH.audit("control_payout_action", item["username"], request, request_id=request_id, payout_action=action)
     return {"success": True, **res}
 
 
@@ -1033,7 +1195,7 @@ def control_matchmaker(
             continue
         if salary_min and _sal_val(c.get("salary", 0)) < salary_min:
             continue
-        if photo_only and not (c.get("photo_url") or c.get("photo_urls")):
+        if photo_only and not _has_profile_photo(c):
             continue
         if verified_only and not safety.has_verification_evidence(c):
             continue
@@ -1046,35 +1208,10 @@ def control_matchmaker(
     results = []
     for m in matches:
         p = m.pop("profile", {})
-        # Genuine traditional astrology reference (Ashtakoota / Porutham only).
-        # Never substitute a guessed result when star/rasi details are unavailable.
+        # Astrology output is deliberately unavailable here. Search must not turn
+        # member-entered star/rasi fields into a compatibility number or a chart.
+        # The real-document review flow lives at /porutham and is owner-gated.
         guna_res = None
-        b_cand, g_cand = (me, p) if str(me.get("gender", "")).lower() in ["bride", "female"] else (p, me)
-        if p.get("star") and me.get("star"):
-            try:
-                g_calc = AST.guna_milan(b_cand.get("star", ""), b_cand.get("rasi", ""), g_cand.get("star", ""), g_cand.get("rasi", ""))
-                if g_calc and g_calc.get("available"):
-                    guna_res = {
-                        "available": True,
-                        "total_36": g_calc.get("total_36"),
-                        "basis": "ashtakoota_36",
-                        "doshas": g_calc.get("doshas", []),
-                    }
-            except Exception:
-                guna_res = None
-        if not guna_res and compute_porutham:
-            try:
-                porutham_result = compute_porutham(b_cand, g_cand)
-                if porutham_result and porutham_result.get("available"):
-                    guna_res = {
-                        "available": True,
-                        "passed_checks": porutham_result.get("passed_checks"),
-                        "total_checks": porutham_result.get("total_checks"),
-                        "basis": "porutham_10",
-                        "doshas": porutham_result.get("doshas", []),
-                    }
-            except Exception:
-                pass
 
         # Facts listed by both members; no inferred match reasons or suitability verdict.
         observations = list(m.get("observations") or [])[:4]
@@ -1101,11 +1238,12 @@ def control_matchmaker(
             "photo_url": p.get("photo_url") or (p.get("photo_urls", [None])[0] if isinstance(p.get("photo_urls"), list) and p.get("photo_urls") else None),
             "is_verified": safety.has_verification_evidence(p),
             "verification": safety.verification_badge(p)["level"],
-            "ashtakoota_total_36": guna_res.get("total_36") if guna_res and guna_res.get("basis") == "ashtakoota_36" else None,
-            "porutham_checks_passed": guna_res.get("passed_checks") if guna_res and guna_res.get("basis") == "porutham_10" else None,
-            "porutham_checks_total": guna_res.get("total_checks") if guna_res and guna_res.get("basis") == "porutham_10" else None,
-            "gunamelanam_basis": guna_res.get("basis") if guna_res else None,
-            "gunamelanam_doshas": guna_res.get("doshas", []) if guna_res else [],
+            "ashtakoota_total_36": None,
+            "porutham_checks_passed": None,
+            "porutham_checks_total": None,
+            "gunamelanam_basis": None,
+            "gunamelanam_doshas": [],
+            "jathakam_status": "review_required",
             "observations": observations,
             "details_summary": details_summary,
             "recommendation_telugu": "ℹ️ సభ్యులు అందించిన వివరాలను పరిశీలించి, కుటుంబంతో మాట్లాడి మీ నిర్ణయం తీసుకోండి; ఇది match verdict కాదు.",
@@ -1186,7 +1324,7 @@ def control_directory(
         "paid_count": sum(1 for u in DB_USERS if u.get("is_premium") or str(u.get("plan", "FREE")).upper() not in ("FREE", "", "NONE")),
         "unpaid_count": sum(1 for u in DB_USERS if not (u.get("is_premium") or str(u.get("plan", "FREE")).upper() not in ("FREE", "", "NONE"))),
         "verified_count": sum(1 for u in DB_USERS if safety.has_verification_evidence(u)),
-        "photo_count": sum(1 for u in DB_USERS if u.get("photo_url") or u.get("photo_urls")),
+        "photo_count": sum(1 for u in DB_USERS if _has_profile_photo(u)),
         "pending_count": sum(1 for u in DB_USERS if str(u.get("status", "pending")) == "pending"),
     }
 
@@ -1225,9 +1363,9 @@ def control_directory(
 
     # 5. Photo filter
     if photo_filter == "with_photo":
-        items = [u for u in items if u.get("photo_url") or u.get("photo_urls")]
+        items = [u for u in items if _has_profile_photo(u)]
     elif photo_filter == "no_photo":
-        items = [u for u in items if not (u.get("photo_url") or u.get("photo_urls"))]
+        items = [u for u in items if not _has_profile_photo(u)]
 
     # 6. Marital filter
     if marital_filter == "first_marriage":
@@ -1322,7 +1460,7 @@ def control_directory(
 
 @app.get("/api/control/astro-check")
 def control_astro_check(boy_id: str, girl_id: str, request: Request):
-    """Admin-only calculation of genuine traditional Porutham reference checks."""
+    """Admin-only astrology evidence status; never a star-only calculation."""
     item = CONTROL_AUTH.require(request, roles=_CONTROL_OWNER_ROLES)
     u_boy = _find_user(boy_id.strip().upper())
     u_girl = _find_user(girl_id.strip().upper())
@@ -1331,23 +1469,21 @@ def control_astro_check(boy_id: str, girl_id: str, request: Request):
     if not u_girl:
         raise HTTPException(404, f"Girl profile '{girl_id}' not found")
 
-    # Compute Porutham
-    por_res = compute_porutham(u_girl, u_boy) if compute_porutham else {}
-    
+    # Do not turn member-entered star/rasi values into an astrology result.
+    # The control screen can record the evidence state, but never manufactures a
+    # chart, score, or Porutham verdict.
+    por_res = _jathakam_result_unavailable(u_girl.get("tsap_id", ""), u_boy.get("tsap_id", ""))
+
     # Same Gothram Check
     boy_gothram = str(u_boy.get("gothram") or "").strip()
     girl_gothram = str(u_girl.get("gothram") or "").strip()
     same_gothram = (boy_gothram.casefold() == girl_gothram.casefold()) if boy_gothram and girl_gothram else None
-    if por_res.get("available") and por_res.get("passed_checks") is not None:
-        porutham_text = f"🎯 *Porutham checks marked pass:* {por_res['passed_checks']} of {por_res.get('total_checks', 10)} — ప్రతి అంశాన్ని విడిగా పరిశీలించండి."
-        verdict_text = "ℹ️ Overall compatibility score లేదా marriage verdict రూపొందించలేదు."
-    else:
-        porutham_text = f"🎯 *Porutham లెక్కించలేదు:* {por_res.get('reason') or 'అవసరమైన నక్షత్ర వివరాలు అందుబాటులో లేవు.'}"
-        verdict_text = "ℹ️ Porutham ఫలితం అందుబాటులో లేదు; score లేదా verdict సృష్టించలేదు."
+    porutham_text = "🎯 *Porutham లెక్కించలేదు:* నిజమైన జాతక పత్రం మరియు తగిన professional review అవసరం."
+    verdict_text = "ℹ️ Profile star/rasi fields నుంచి score, chart లేదా marriage verdict సృష్టించలేదు."
 
     # Format a shareable reference report without filling missing data with guessed results.
     wa_lines = [
-        "🪔 *మన వివాహ — సాంప్రదాయ Porutham సూచిక నివేదిక*",
+        "🪔 *మన వివాహ — Astrology evidence status*",
         "═══════════════════════════",
         f"🤵 *వరుడు:* {u_boy.get('full_name') or u_boy.get('tsap_id') or '—'} ({u_boy.get('tsap_id') or '—'}) • నక్షత్రం: {u_boy.get('star') or '—'} • రాశి: {u_boy.get('rasi') or '—'} • గోత్రం: {boy_gothram or '—'}",
         f"👰 *వధువు:* {u_girl.get('full_name') or u_girl.get('tsap_id') or '—'} ({u_girl.get('tsap_id') or '—'}) • నక్షత్రం: {u_girl.get('star') or '—'} • రాశి: {u_girl.get('rasi') or '—'} • గోత్రం: {girl_gothram or '—'}",
@@ -1655,14 +1791,20 @@ def control_vendor_action(vendor_id: str, payload: dict, request: Request):
             raise HTTPException(400, "A clear rejection reason is required")
         result = reject_vendor(vendor_id, reason)
     elif action == "expire":
+        previous = copy.deepcopy(vendor)
         vendor["status"] = "expired"
-        vendors_save_state()
-        result = {"ok": True, "vendor": vendor,
-                  "message_telugu": "⏳ %s listing expire చేశాం" % vendor.get("business_name", "Vendor")}
+        if not vendors_save_state().get("ok"):
+            vendor.clear()
+            vendor.update(previous)
+            result = {"ok": False, "reason": "persistence_failed",
+                      "message_telugu": "⚠️ Vendor expiry could not be saved safely. Please try again."}
+        else:
+            result = {"ok": True, "vendor": vendor,
+                      "message_telugu": "⏳ %s listing expire చేశాం" % vendor.get("business_name", "Vendor")}
     else:
         raise HTTPException(400, "Action must be approve, reject, or expire")
     if not result.get("ok"):
-        status_code = 404 if result.get("reason") == "not_found" else 400
+        status_code = 404 if result.get("reason") == "not_found" else 503 if result.get("reason") == "persistence_failed" else 400
         raise HTTPException(status_code, str(result.get("reason") or "Vendor action failed"))
     CONTROL_AUTH.audit("control_vendor_action", item["username"], request,
                        vendor_id=vendor_id, decision=action,
@@ -1752,7 +1894,7 @@ def control_ads_action(cid: str, payload: dict, request: Request):
         raise HTTPException(400, "Invalid action")
     if not res.get("success"):
         raise HTTPException(400, res.get("message_telugu") or "Failed")
-    CONTROL_AUTH.audit("control_ad_action", item["username"], request, cid=cid, action=action)
+    CONTROL_AUTH.audit("control_ad_action", item["username"], request, cid=cid, ad_action=action)
     return res
 
 
@@ -1794,6 +1936,26 @@ try:
     app.mount("/voice", StaticFiles(directory=VOICE_MEDIA_DIR), name="voice")        # 🎙️ WAVE 11
 except Exception as _e:
     print("[STATIC] mount skip:", _e)
+
+
+def _has_profile_photo(profile: object) -> bool:
+    """Truthful "this profile really has a photo" check 🖼️
+
+    `photo_urls` is a list, and a profile registered without an upload used to be stored
+    as `[""]` — a non-empty list, so `u.get("photo_urls")` was truthy and photo-less
+    profiles were counted and filtered as if they had a photo (admin `photo_count`,
+    `with_photo` / `no_photo` filters, public search `photo_only`). An empty string is
+    not a photo, so only values with real content count.
+    """
+    if not isinstance(profile, dict):
+        return False
+    values = [profile.get("photo_url")]
+    raw = profile.get("photo_urls")
+    if isinstance(raw, list):
+        values.extend(raw)
+    elif raw:
+        values.append(raw)
+    return any(isinstance(value, str) and value.strip() for value in values)
 
 
 def _media_filename(value: object, prefix: str) -> str:
@@ -1999,12 +2161,10 @@ async def _startup_publisher():
     # 🗑️ WAVE 40 — 3-year retention: restore tarvata ventane okasari + roju oosari
     # (money-safe: wallet/plan/boost active unna profiles skip; archive mundu — data poyedam ledu)
     try:
-        _ret = RETENTION.run(DB_USERS, DB_INTERESTS, DB_VIEWS, DB_SAVES)
+        _ret = _retention_cycle()
         if _ret.get("deleted"):
             print(f"[RETENTION] {_ret['deleted']} profiles (3+ years) archived+deleted → {_ret.get('archive','')}")
-        _retention_save()
-        _reindex_users()
-        RETENTION.start_daily(lambda: (RETENTION.run(DB_USERS, DB_INTERESTS, DB_VIEWS, DB_SAVES), _retention_save(), _reindex_users()))
+        RETENTION.start_daily(lambda: _retention_cycle())
     except Exception as e:
         print("[RETENTION] startup skip:", str(e)[:80])
     # Profiles are loaded only from the configured database or real registration flows.
@@ -2191,13 +2351,51 @@ def _persist_core_state():
         return False
 
 
-def _retention_save():
-    """🗑️ WAVE 40 — retention delete ayyaka force save (debounce ledu)."""
+def _restore_user_snapshot(before_values: List[Dict], before_refs: Optional[List[Dict]] = None) -> None:
+    """Restore DB_USERS in place so cross-module references cannot retain a failed mutation."""
+    refs = before_refs or []
+    if refs and len(refs) == len(before_values):
+        for ref, previous in zip(refs, before_values):
+            ref.clear()
+            ref.update(previous)
+        DB_USERS[:] = refs
+    else:
+        DB_USERS[:] = before_values
+    _reindex_users()
+
+
+def _retention_save() -> bool:
+    """🗑️ WAVE 40 — persist a retention change before reporting success."""
     try:
-        DBSTORE.save(DBSTORE.snapshot(DB_USERS, DB_INTERESTS, DB_PAYMENTS, DB_OTPS,
-                                      VERIFIED_PHONES, DB_VIEWS, DB_SAVES, DB_DIGEST), force=True)
+        saved = DBSTORE.save(DBSTORE.snapshot(DB_USERS, DB_INTERESTS, DB_PAYMENTS, DB_OTPS,
+                                             VERIFIED_PHONES, DB_VIEWS, DB_SAVES, DB_DIGEST), force=True)
+        if not saved:
+            print("[RETENTION] save returned false")
+        return bool(saved)
     except Exception as e:
         print("[RETENTION] save fail:", str(e)[:80])
+        return False
+
+
+def _retention_cycle(years: Optional[int] = None) -> dict:
+    """Archive, delete, and durably commit retention as one reversible operation.
+
+    The retention module mutates the live lists after creating its archive. If the
+    core snapshot cannot be committed, restore those list contents immediately so
+    a failed admin request or scheduled run cannot silently delete active records.
+    """
+    before = (list(DB_USERS), list(DB_INTERESTS), list(DB_VIEWS), list(DB_SAVES))
+    result = RETENTION.run(DB_USERS, DB_INTERESTS, DB_VIEWS, DB_SAVES, years=years)
+    if result.get("deleted"):
+        if not _retention_save():
+            DB_USERS[:] = before[0]
+            DB_INTERESTS[:] = before[1]
+            DB_VIEWS[:] = before[2]
+            DB_SAVES[:] = before[3]
+            _reindex_users()
+            raise RuntimeError("retention archive was created but the active database could not be saved")
+        _reindex_users()
+    return result
 DB_POSTS = []
 DB_REFERRALS = []
 
@@ -2322,6 +2520,7 @@ async def register(
     phone: str = Form(...),
     password: str = Form(""),
     referral_code: str = Form(""),
+    referral_invite: str = Form(""),   # 💎 per-person invite token from /r/<code>?inv=TOKEN
     photo_private: bool = Form(True),
     expectations: str = Form(""),
     # Advanced fields - optional for backward compat
@@ -2488,6 +2687,7 @@ async def register(
     height = req_text(height, "height", 0, 12, required=False)
     education = req_text(education, "education", 0, 60, required=False)
     job = req_text(job, "job", 0, 100, required=False)
+    _reject_groom_homemaker(gender, job, work_type)
     salary = req_text(salary, "salary", 0, 40, required=False)
     state = req_choice(state, "state", ["TS", "AP", "Other"])
     district = req_text(district, "district", 2, 80, required=True)
@@ -2609,8 +2809,7 @@ async def register(
         registration_photo_path = os.path.join(PHOTO_MEDIA_DIR, photo_name)
         try:
             os.makedirs(PHOTO_MEDIA_DIR, exist_ok=True)
-            with open(registration_photo_path, "xb") as photo_output:
-                photo_output.write(photo_data)
+            atomic_write_bytes(registration_photo_path, photo_data)
         except Exception as exc:
             raise HTTPException(500, "The photo could not be saved. Please try again.") from exc
         photo_url = f"/photos/{photo_name}"
@@ -2688,7 +2887,7 @@ async def register(
             "referred_by": "",                    # attach_referral() validate chesi lock chestundi (kinda)
             "referred_by_raw": referral_code,     # form lo vachina code (audit)
             "photo_url": photo_url,
-            "photo_urls": [photo_url],
+            "photo_urls": [photo_url] if photo_url else [],
             "photo_status": "pending",
             "photo_checks": photo_verdict["checks"],
             "photo_uploaded_at": photo_uploaded_at,
@@ -2740,9 +2939,17 @@ async def register(
     referral_result = {"ok": False, "reason": "no_code"}
     if referral_code:
         try:
+            # attach_referral() reads this to close the loop on a per-person invite.
+            user["referral_invite_token"] = str(referral_invite or "").strip().upper()[:16]
             referral_result = attach_referral(user, referral_code, DB_USERS)
         except Exception as e:
             referral_result = {"ok": False, "reason": "error", "error": str(e)[:120]}
+        finally:
+            # Keep a token only when the referral actually locked; otherwise the
+            # field would be a stray identifier with no meaning.
+            if referral_result.get("ok"):
+                user["referred_by_invite"] = user.get("referral_invite_token", "")
+            user.pop("referral_invite_token", None)
     # ee user ki sontha referral code (share cheyyadaniki)
     my_referral = ensure_referrer_profile(user, DB_USERS)
     user["referred_by_final"] = user.get("referred_by") or referral_code
@@ -3449,6 +3656,11 @@ def update_user_profile(payload: dict, request: Request):
         if k in payload and payload[k] is not None:
             user[k] = payload[k]
 
+    # 🏡 A Groom can never be *set* to the "Housewife / గృహిణి" occupation,
+    # whichever client sends the update. Existing stored values are left alone so
+    # a member with older data can always come back and correct it.
+    _reject_groom_homemaker(user.get("gender"), payload.get("job"), payload.get("work_type"))
+
     # 🛡️ P0 FIX (Phase 13): registration already runs every free-text field
     # through clean() (strips HTML tags + javascript:/onerror=/<script
     # patterns — see "register:" sanitize loop above) but THIS endpoint was
@@ -3636,6 +3848,37 @@ def smart_matches_alerts(tsap_id: Optional[str] = None, caste: Optional[str] = N
     }
 
 
+def _approved_profile_404() -> HTTPException:
+    """🌐 Telugu-first 404 for approved-member routes (English gloss kept for operators)."""
+    return HTTPException(404, "⚠️ Approved member profile not found — ఆమోదించబడిన ప్రొఫైల్ దొరకలేదు. TSAP ID check చెయ్యండి.")
+
+
+# 🏡 "Housewife / Homemaker (గృహిణి)" describes a woman's work. A Groom profile
+# must never carry it — the UI hides the option per gender, and this guard keeps
+# stale clients, cached pages and direct API calls from storing it anyway.
+_HOMEMAKER_TERMS = ("housewife", "homemaker", "\u0c17\u0c43\u0c39\u0c3f\u0c23\u0c3f")
+
+
+def _is_homemaker_occupation(value: object) -> bool:
+    text = str(value or "").strip().lower()
+    return any(term in text for term in _HOMEMAKER_TERMS)
+
+
+def _reject_groom_homemaker(gender: object, job: object = "", work_type: object = "") -> None:
+    """Block the one occupation that can only ever belong to a bride."""
+    if str(gender or "").strip().lower() != "groom":
+        return
+    if _is_homemaker_occupation(job) or _is_homemaker_occupation(work_type):
+        raise HTTPException(
+            400,
+            "\u26a0\ufe0f Housewife / Homemaker (\u0c17\u0c43\u0c39\u0c3f\u0c23\u0c3f) does not apply to a Groom profile — "
+            "\u0c35\u0c30\u0c41\u0c21\u0c3f \u0c2a\u0c4d\u0c30\u0c4a\u0c2b\u0c48\u0c32\u0c4d\u0c15\u0c41 \u2018\u0c17\u0c43\u0c39\u0c3f\u0c23\u0c3f / Housewife\u2019 "
+            "\u0c0e\u0c02\u0c2a\u0c3f\u0c15 \u0c35\u0c30\u0c4d\u0c24\u0c3f\u0c02\u0c1a\u0c26\u0c41. "
+            "Choose the work that describes this member — "
+            "\u0c0e \u0c35\u0c4d\u0c2f\u0c15\u0c4d\u0c24\u0c3f\u0c15\u0c3f \u0c38\u0c30\u0c2f\u0c47 \u0c09\u0c26\u0c4d\u0c2f\u0c4b\u0c17\u0c02 \u0c0e\u0c02\u0c1a\u0c41\u0c15\u0c4b\u0c02\u0c21\u0c3f.",
+        )
+
+
 @app.get("/api/matches/{tsap_id}")
 def get_matches(tsap_id: str, min_score: int = 70, limit: int = 20, caste_filter: Optional[str] = None,
                 education: Optional[str] = None, district: Optional[str] = None, salary_min: int = 0,
@@ -3646,7 +3889,7 @@ def get_matches(tsap_id: str, min_score: int = 70, limit: int = 20, caste_filter
     clean_id = str(tsap_id or "").strip().upper()
     user = _find_user(clean_id)
     if not _is_approved_profile(user):
-        raise HTTPException(404, "Approved member profile not found")
+        raise _approved_profile_404()
     require_owner(request, clean_id)
 
     # Keep old query parameters bounded for clients, but deliberately do not use a score threshold.
@@ -3880,7 +4123,9 @@ def leaderboard(period: str = "all", limit: int = 10, me: str = ""):
     board, you = get_leaderboard(DB_USERS, limit=limit, period=period, me=(me or "").strip(), full=True)
     return {"success": True, "period": period, "leaderboard": board, "total_users": len(DB_USERS),
             "you": you,
-            "reward_note": "Leaderboard is for recognition; no additional cash prize is promised."}
+            "reward_note": "Leaderboard is for recognition; no additional cash prize is promised.",
+            # 🏆 Telugu lo kuda ade honest line — leaderboard recognition eh, cash prize kaadu.
+            "prize_telugu": "ఈ leaderboard గుర్తింపు కోసం మాత్రమే. దీని వల్ల అదనపు నగదు బహుమతి లేదా హామీ ఏదీ లేదు."}
 
 
 # ═══════════════════ 🤝 REFERRAL 2.0 — DASHBOARD / SHARE / PAYOUT ═══════════════════
@@ -3980,6 +4225,106 @@ def referral_home(tsap_id: str, request: Request = None):
     return d
 
 
+@app.get("/api/referral/{tsap_id}/wallet")
+def referral_wallet(tsap_id: str, request: Request = None, types: str = "", limit: int = 100):
+    """💎 Wallet statement — every entry with a running balance and an identity check."""
+    user = _user_or_404(tsap_id)
+    require_owner(request, tsap_id)
+    parts = [t for t in re.split(r"[^a-z_]+", (types or "").lower()) if t]
+    return REFERRAL.wallet_statement(user, types=parts or None,
+                                     limit=clamp_int(limit, "limit", 1, 500, 100))
+
+
+@app.get("/api/referral/{tsap_id}/wallet.csv")
+def referral_wallet_csv(tsap_id: str, request: Request = None):
+    """💎 The same statement as a CSV a member can keep or hand to their CA.
+
+    Identical numbers to the JSON statement — including the reconciliation —
+    so an exported file can never tell a different story from the screen.
+    """
+    import csv
+    import io
+
+    user = _user_or_404(tsap_id)
+    require_owner(request, tsap_id)
+    data = REFERRAL.wallet_statement(user, types=None, limit=500)
+    buf = io.StringIO()
+    writer = csv.writer(buf)
+    writer.writerow(["date", "type", "description", "amount_inr", "balance_after_inr",
+                     "from_profile", "plan", "reference"])
+    for row in data.get("entries", []):
+        writer.writerow([
+            row.get("at", ""), row.get("type", ""), row.get("label_en", ""),
+            row.get("amount", 0), row.get("balance_after", 0),
+            row.get("from_name", "") or row.get("from", ""),
+            ("%s %s" % (row.get("plan_code", ""), row.get("plan_amount", ""))).strip(),
+            row.get("utr", "") or row.get("id", ""),
+        ])
+    identity = data.get("identity", {})
+    writer.writerow([])
+    writer.writerow(["reconciles", "yes" if identity.get("reconciles") else "no"])
+    writer.writerow(["identity", identity.get("formula_en", "")])
+    writer.writerow(["note", data.get("note_en", "")])
+    body = buf.getvalue()
+    return Response(
+        content=body,
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition":
+                 f'attachment; filename="manavivaha-referral-wallet-{str(tsap_id).upper()}.csv"'},
+    )
+
+
+@app.get("/api/referral/{tsap_id}/earnings")
+def referral_earnings(tsap_id: str, request: Request = None):
+    """💎 Per-friend earnings explainer — stage, why, and what would have to happen next."""
+    user = _user_or_404(tsap_id)
+    require_owner(request, tsap_id)
+    return REFERRAL.earnings_explainer(user, DB_USERS)
+
+
+@app.get("/api/referral/{tsap_id}/insights")
+def referral_insights_api(tsap_id: str, request: Request = None):
+    """💎 What actually worked for this referrer — own data only, small samples labelled."""
+    user = _user_or_404(tsap_id)
+    require_owner(request, tsap_id)
+    return REFERRAL.referral_insights(user, DB_USERS)
+
+
+@app.get("/api/referral/{tsap_id}/invites")
+def referral_invites(tsap_id: str, request: Request = None, limit: int = 100):
+    """💎 Per-person invites with their stage (sent → opened → joined → rewarded)."""
+    user = _user_or_404(tsap_id)
+    require_owner(request, tsap_id)
+    return REFERRAL.invite_list(user, limit=clamp_int(limit, "limit", 1, 300, 100))
+
+
+@app.post("/api/referral/{tsap_id}/invite")
+def referral_invite_create(tsap_id: str, payload: dict, request: Request = None):
+    """💎 Create one tracked invite for one person.
+
+    Nothing is delivered server-side: the response carries a wa.me / telegram /
+    sms link with a personalised, policy-accurate message, and the member taps
+    send in their own app.
+    """
+    user = _user_or_404(tsap_id)
+    require_owner(request, tsap_id)
+    d = payload or {}
+    res = REFERRAL.invite_create(
+        user,
+        name=str(d.get("name", "")),
+        phone=str(d.get("phone", "")),
+        channel=str(d.get("channel", "whatsapp")),
+        variant=d.get("variant", 0),
+        all_users=DB_USERS,
+    )
+    if not res.get("ok"):
+        return JSONResponse(status_code=400,
+                            content={"success": False, "reason": res.get("reason"),
+                                     "message_en": res.get("message_en", ""),
+                                     "message_telugu": res.get("message_telugu", "")})
+    return {"success": True, **res}
+
+
 @app.get("/api/referral/{tsap_id}/share-kit")
 def referral_share(tsap_id: str):
     """📲 5 ready WhatsApp messages + Telegram + SMS + poster text (Telugu)."""
@@ -4008,15 +4353,26 @@ def referral_poster(tsap_id: str, style: str = "square"):
 
 
 @app.post("/api/referral/click/{code}")
-def referral_click(code: str, source: str = "link"):
-    """/r/<code> link click — funnel tracking (clicks → registrations → payments)."""
+def referral_click(code: str, source: str = "link", inv: str = ""):
+    """/r/<code> link click — funnel tracking (clicks → registrations → payments).
+
+    `inv` is a per-person invite token: when present, that one invite is marked
+    opened so the referrer can see which of their people actually looked.
+    """
     st = track_click(code, source)
+    if not st.get("ok"):
+        raise HTTPException(503, "Referral click could not be recorded safely. Please try again.")
+    if inv and not REFERRAL.invite_record_click(code, inv, DB_USERS):
+        raise HTTPException(503, "Invite click could not be recorded safely. Please try again.")
     known = validate_referral(code, DB_USERS)
     kind = "user"
     try:
         if RP19.get_partner(code):
-            RP19.record_click(code)
+            if not RP19.record_click(code):
+                raise HTTPException(503, "Partner click could not be recorded safely. Please try again.")
             kind = "partner"
+    except HTTPException:
+        raise
     except Exception:
         pass
     return {"success": True, **st, "valid_code": known.get("ok", False),
@@ -4042,7 +4398,8 @@ def referral_payout(tsap_id: str, amount: int, method: str = "upi", upi_id: str 
     bank = {"account_no": account_no, "ifsc": ifsc, "holder": holder} if method == "bank" else None
     res = payout_request(user, amount, method=method, upi_id=upi_id, bank=bank)
     if not res.get("ok"):
-        return JSONResponse(status_code=400, content={"success": False, **res})
+        status_code = 503 if res.get("reason") == "persistence_failed" else 400
+        return JSONResponse(status_code=status_code, content={"success": False, **res})
     return {"success": True, **res}
 
 
@@ -4122,7 +4479,8 @@ def referral_partner_payout(payload: dict, request: Request):
                          upi_id=str(d.get("upi_id", "")), bank=d.get("bank"),
                          note="partner:" + p["partner_id"])
     if not res.get("ok"):
-        raise HTTPException(400, res.get("message_telugu"))
+        status_code = 503 if res.get("reason") == "persistence_failed" else 400
+        raise HTTPException(status_code, res.get("message_telugu"))
     return {"success": True, **res}
 
 
@@ -4316,8 +4674,8 @@ async def daily_matches_set(payload: dict, request: Request):
     data = _load_daily()
     data[today] = ids
     try:
-        with open(DAILY_FILE, "w", encoding="utf-8") as f:
-            json.dump({k: v for k, v in sorted(data.items())[-60:]}, f, ensure_ascii=False, default=str)
+        atomic_json_dump(DAILY_FILE, {k: v for k, v in sorted(data.items())[-60:]},
+                         ensure_ascii=False, default=str)
     except Exception as e:
         print("[DAILY] save fail:", str(e)[:80])
     return {"success": True, "date": today, "selected": ids,
@@ -4452,8 +4810,8 @@ async def showcase_set(payload: dict, request: Request):
     data[wk] = {"caste": caste, "ids": ids, "set_at": datetime.utcnow().isoformat(),
                 "next_caste": _caste_rotation(all_castes, caste)}
     try:
-        with open(SHOWCASE_FILE, "w", encoding="utf-8") as f:
-            json.dump(dict(sorted(data.items())[-104:]), f, ensure_ascii=False, default=str)
+        atomic_json_dump(SHOWCASE_FILE, dict(sorted(data.items())[-104:]),
+                         ensure_ascii=False, default=str)
     except Exception as e:
         print("[SHOWCASE] save fail:", str(e)[:80])
     return {"success": True, "week": wk, "caste": caste, "selected": ids,
@@ -4599,9 +4957,10 @@ def admin_retention_run(payload: dict, request: Request):
     """🗑️ Admin — retention run NOW (archive → delete → save)."""
     require_admin(request)
     years = int((payload or {}).get("years", 0) or 0) or None
-    res = RETENTION.run(DB_USERS, DB_INTERESTS, DB_VIEWS, DB_SAVES, years=years)
-    if res.get("deleted"):
-        _retention_save()
+    try:
+        res = _retention_cycle(years)
+    except RuntimeError as exc:
+        raise HTTPException(503, str(exc)) from exc
     return {"success": True, **res}
 
 
@@ -4706,7 +5065,8 @@ def admin_payout_action(request_id: str, action: str, utr: str = "", reason: str
         return _g
     res = payout_action(request_id, action, DB_USERS, utr=utr, reason=reason)
     if not res.get("ok"):
-        return JSONResponse(status_code=400, content={"success": False, **res})
+        status_code = 503 if res.get("reason") == "persistence_failed" else 400
+        return JSONResponse(status_code=status_code, content={"success": False, **res})
     _rq = res.get("request", {}) or {}
     MAUD.audit("payout_" + str(_rq.get("status", action)), "admin",
                {"request_id": request_id, "amount": _rq.get("amount"), "utr": _rq.get("utr", ""),
@@ -4723,7 +5083,8 @@ def admin_pay_wallet_full(payload: dict, request: Request):
     res = pay_wallet_full(str(d.get("code", "")), DB_USERS, utr=str(d.get("utr", "")),
                           method=str(d.get("method", "upi")), note=str(d.get("note", "")))
     if not res.get("ok"):
-        raise HTTPException(400, res.get("message_telugu"))
+        status_code = 503 if res.get("reason") == "persistence_failed" else 400
+        raise HTTPException(status_code, res.get("message_telugu"))
     _rq = res.get("request", {}) or {}
     MAUD.audit("wallet_paid_full", "admin", {"code": str(d.get("code", "")), "amount": _rq.get("amount"),
                                              "utr": _rq.get("utr", "")})
@@ -4744,6 +5105,8 @@ def admin_refund(tsap_id: str, amount: int = 0, reason: str = "refund", token: s
     if not user.get("referred_by"):
         return {"success": True, "reason": "no_referral", "message_telugu": "ఈ user కి referral లేదు"}
     res = reverse_referral_payment(user, amount, DB_USERS, reason=reason)
+    if res.get("reason") == "persistence_failed":
+        raise HTTPException(503, res.get("message_telugu"))
     if res.get("success"):
         MAUD.audit("refunded", "admin", {"tsap_id": tsap_id, "amount": amount,
                                          "reversed": res.get("reversed"), "reason": reason})
@@ -4775,13 +5138,18 @@ def admin_approve(tsap_id: str, request: Request):
     user = next((u for u in DB_USERS if u["tsap_id"] == tsap_id), None)
     if not user:
         raise HTTPException(404, "⚠️ Dorakaledu — ID check చెయ్యండి")
+    user_before = copy.deepcopy(user)
     user["is_approved"] = True
     user["status"] = "approved"
 
     route = route_profile(user)
     user["post_hashtags"] = route["hashtags"]
-    publication = _queue_approved_profile_publication(user)
     user["posted_channels"] = []
+    if not _persist_core_state():
+        user.clear()
+        user.update(user_before)
+        raise HTTPException(503, "Profile approval could not be saved safely. Please try again.")
+    publication = _queue_approved_profile_publication(user)
     caption = build_caption(user, tsap_id)
     targets = publication.get("targets", [])
 
@@ -4803,12 +5171,17 @@ def admin_make_premium(tsap_id: str, gift_credits: int = 10, request: Request = 
     if not user:
         raise HTTPException(404, "⚠️ Dorakaledu — ID check చెయ్యండి")
     gift_credits = req_int(gift_credits, "gift_credits", 1, 500)
-    user["credits"] = int(user.get("credits", 0) or 0) + gift_credits
+    previous_credits = int(user.get("credits", 0) or 0)
+    previous_history = list(user.get("credit_history") or [])
+    user["credits"] = previous_credits + gift_credits
     user.setdefault("credit_history", []).append({
         "at": datetime.utcnow().isoformat(), "change": gift_credits,
         "reason": "admin_gift_interest_requests", "by": "admin",
     })
-    _persist_core_state()
+    if not _persist_core_state():
+        user["credits"] = previous_credits
+        user["credit_history"] = previous_history
+        raise HTTPException(503, "Credit gift could not be saved safely. Please try again.")
     return {"success": True, "tsap_id": user.get("tsap_id"), "new_credits": user["credits"],
             "credits_added": gift_credits,
             "message_telugu": f"🎁 {gift_credits} interest-request credits జోడించబడ్డాయి. ఇది paid plan లేదా identity verification కాదు."}
@@ -4832,6 +5205,9 @@ def api_admin_grant_plan(payload: dict, request: Request = None):
     if plan_code not in paid_codes:
         raise HTTPException(400, "Only the current S_99/S_199/S_299/S_499 plans can be activated here")
     plan = INTEREST_PLANS[plan_code]
+    user_refs_before = list(DB_USERS)
+    users_before = copy.deepcopy(DB_USERS)
+    payments_before = copy.deepcopy(DB_PAYMENTS)
     credits_to_add = int(plan["profiles"])
     if d.get("credits") is not None and int(d["credits"]) != credits_to_add:
         raise HTTPException(400, f"{plan_code} includes exactly {credits_to_add} interest-request credits")
@@ -4873,13 +5249,12 @@ def api_admin_grant_plan(payload: dict, request: Request = None):
         except Exception:
             pass
 
+    if not _persist_core_state():
+        _restore_user_snapshot(users_before, user_refs_before)
+        DB_PAYMENTS[:] = payments_before
+        raise HTTPException(503, "Plan grant could not be saved safely. Please try again.")
     MAUD.audit("admin_grant_plan", role, {"tsap_id": user.get("tsap_id"), "plan": plan_code,
                                            "credits": credits_to_add, "comped": is_comped})
-    try:
-        DBSTORE.save(DBSTORE.snapshot(DB_USERS, DB_INTERESTS, DB_PAYMENTS, DB_OTPS,
-                                      VERIFIED_PHONES, DB_VIEWS, DB_SAVES, DB_DIGEST), force=True)
-    except Exception:
-        pass
 
     return {
         "success": True, "tsap_id": user.get("tsap_id"), "full_name": user.get("full_name"),
@@ -5283,6 +5658,7 @@ async def interest_send(payload: dict, request: Request = None):
             return JSONResponse(status_code=400, content={"success": False, "reason": reason,
                                                           "message_telugu": reason})
 
+        sender_before = copy.deepcopy(frm)
         comparison = {}
         observations = []
         try:
@@ -5298,21 +5674,17 @@ async def interest_send(payload: dict, request: Request = None):
             return JSONResponse(status_code=402, content={"success": False, "plans": plan_list(),
                                                           "message_telugu": deduct.get("message_telugu", "Credits లేదు")})
         DB_INTERESTS.append(rec)
-        _persist_core_state()
+        if not _persist_core_state():
+            if rec in DB_INTERESTS:
+                DB_INTERESTS.remove(rec)
+            frm.clear()
+            frm.update(sender_before)
+            raise HTTPException(503, "Interest request could not be saved safely. Please try again.")
 
     # ── WhatsApp: owner ki requester profile (+ card image) | requester ki confirmation ──
+    # Astrology is intentionally absent from interest notifications. An interest
+    # request must never carry an unverified score, dosha flag, or horoscope claim.
     owner_text = interest_to_owner_text(frm, to, rec)
-    # 🔮 porutham line (star details unte) — owner message + response rendu chotla
-    try:
-        p_line = porutham_line(to, frm) if (frm.get("gender") == "Groom") else porutham_line(frm, to)
-        por = compute_porutham(frm, to) if frm.get("gender") == "Groom" else compute_porutham(to, frm)
-        if por.get("available"):
-            owner_text += f"\n{porutham_line(to, frm) if frm.get('gender')=='Groom' else porutham_line(frm, to)}"
-            rec["porutham_checks_passed"] = por.get("passed_checks")
-            rec["porutham_checks_total"] = por.get("total_checks")
-            rec["porutham_doshas"] = por.get("doshas", [])
-    except Exception:
-        pass
     notify_text = interest_notify_text(frm, to, rec)
     owner_phone = to.get("phone", "")
     frm_phone = frm.get("phone", "")
@@ -5404,6 +5776,9 @@ async def interest_respond(payload: dict, request: Request = None):
     if rec["to_id"] != tsap_id:
         raise HTTPException(403, "Ee request meeku కాదు")
     requester = _find_user(rec["from_id"])
+    rec_before = copy.deepcopy(rec)
+    requester_before = copy.deepcopy(requester) if requester is not None else None
+    consent_before = copy.deepcopy(CONSENT_LEDGER)
     res = respond_interest(rec, owner, requester or {}, action)
     if not res.get("success"):
         return JSONResponse(status_code=400, content=res)
@@ -5425,14 +5800,34 @@ async def interest_respond(payload: dict, request: Request = None):
         }
         res["contact"] = {"name": requester.get("full_name"), "phone": requester.get("phone", "")}
         # This records the access grant from owner acceptance, not message delivery.
-        log_consent("interest_accepted", owner.get("tsap_id", ""), requester.get("tsap_id", ""),
-                    request_id=request_id, contact_access_granted=True,
-                    note="Owner acceptance enabled contact access in accepted-request views.")
+        try:
+            log_consent("interest_accepted", owner.get("tsap_id", ""), requester.get("tsap_id", ""),
+                        request_id=request_id, contact_access_granted=True,
+                        note="Owner acceptance enabled contact access in accepted-request views.")
+        except RuntimeError as exc:
+            if str(exc).startswith("persistence_failed"):
+                rec.clear()
+                rec.update(rec_before)
+                if requester is not None and requester_before is not None:
+                    requester.clear()
+                    requester.update(requester_before)
+                raise HTTPException(503, "Consent event could not be saved safely. Please try again.")
+            raise
         res["consent_record_telugu"] = "📜 Owner acceptance వల్ల accepted-request account views లో contact access ఇచ్చిన event నమోదు అయింది; message delivery proof కాదు."
     elif action == "decline":
-        log_consent("interest_declined", owner.get("tsap_id", ""), (requester or {}).get("tsap_id", ""),
-                    request_id=request_id, contact_access_granted=False,
-                    note="Request declined; contact access not granted.")
+        try:
+            log_consent("interest_declined", owner.get("tsap_id", ""), (requester or {}).get("tsap_id", ""),
+                        request_id=request_id, contact_access_granted=False,
+                        note="Request declined; contact access not granted.")
+        except RuntimeError as exc:
+            if str(exc).startswith("persistence_failed"):
+                rec.clear()
+                rec.update(rec_before)
+                if requester is not None and requester_before is not None:
+                    requester.clear()
+                    requester.update(requester_before)
+                raise HTTPException(503, "Consent event could not be saved safely. Please try again.")
+            raise
         if rec.get("credit_refunded"):
             requester and requester.update({"credits": int(requester.get("credits", 0)) + 1})
         if requester:
@@ -5446,7 +5841,15 @@ async def interest_respond(payload: dict, request: Request = None):
         if requester:
             requester.update({"credits": int(requester.get("credits", 0)) + 1})
 
-    _persist_core_state()
+    if not _persist_core_state():
+        rec.clear()
+        rec.update(rec_before)
+        if requester is not None and requester_before is not None:
+            requester.clear()
+            requester.update(requester_before)
+        CONSENT_LEDGER[:] = consent_before
+        save_consent_ledger()
+        raise HTTPException(503, "Interest response could not be saved safely. Please try again.")
     return {"success": True, "request": rec, "whatsapp": wa, "result": res,
             "message_telugu": res.get("message"), "credits": owner.get("credits", 0)}
 
@@ -5483,6 +5886,79 @@ def interest_status(request_id: str, request: Request):
             "notification_queue": queue_state or {"status_recorded": False, "delivery_confirmed": False},
             "note": "WhatsApp queue status does not confirm external delivery or reading.",
             "note_telugu": "WhatsApp queue స్థితి మాత్రమే; external delivery లేదా message చదివినట్లు నిర్ధారణ కాదు."}
+
+
+# ============================================================================
+#  🧠 MEMBER INTELLIGENCE (WAVE 43) — explainable, fact-only, owner-private
+# ============================================================================
+@app.get("/api/verification/{tsap_id}/progress")
+def api_verification_progress(tsap_id: str, request: Request = None):
+    """Every recorded check for this profile, what it means, and the next step."""
+    require_owner(request, tsap_id)
+    user = _find_user(tsap_id)
+    if not user:
+        raise HTTPException(404, "Profile dorakaledu")
+    return member_intel.verification_progress(user)
+
+
+@app.get("/api/matches/{viewer_id}/insights/{profile_id}")
+def api_profile_insights(viewer_id: str, profile_id: str, request: Request = None):
+    """Why a profile appears: shared facts, differences, unknowns, saved-search overlap."""
+    require_owner(request, viewer_id)
+    viewer = _find_user(viewer_id)
+    if not viewer:
+        raise HTTPException(404, "Mee profile dorakaledu")
+    profile = _find_user(profile_id)
+    if not profile or not _is_approved_profile(profile):
+        raise _approved_profile_404()
+    try:
+        searches = quality.saved_for(viewer_id)
+    except Exception:
+        searches = []
+    return member_intel.profile_insights(viewer, profile, searches)
+
+
+@app.get("/api/interest/coach")
+def api_interest_coach(from_id: str = "", to_id: str = "", request: Request = None):
+    """What sending this request really does — checked before any credit is spent."""
+    from_id, to_id = from_id.strip().upper(), to_id.strip().upper()
+    if not from_id or not to_id:
+        validation_error("from_id", "⚠️ from_id and to_id are required")
+    require_owner(request, from_id)
+    sender = _find_user(from_id)
+    if not sender:
+        raise HTTPException(404, "Mee profile dorakaledu")
+    owner = _find_user(to_id)
+    if not owner or not _is_approved_profile(owner):
+        raise _approved_profile_404()
+    blocked = safety.is_blocked(from_id, to_id, DB_BLOCKS)
+    return member_intel.interest_coach(
+        sender, owner, DB_INTERESTS, blocked=blocked,
+        plans=plan_list(), daily_limit=INTEREST_MAX_PER_DAY,
+    )
+
+
+@app.get("/api/interest/{request_id}/timeline")
+def api_interest_timeline(request_id: str, request: Request = None):
+    """Status steps with the timestamps that were actually recorded."""
+    rec = next((i for i in DB_INTERESTS if i.get("request_id") == request_id), None)
+    if not rec:
+        raise HTTPException(404, "Request not found")
+    try:
+        require_owner(request, rec.get("from_id", ""))
+    except HTTPException:
+        require_owner(request, rec.get("to_id", ""))
+    return member_intel.request_timeline(rec)
+
+
+@app.get("/api/me/{tsap_id}/activity")
+def api_member_activity(tsap_id: str, request: Request = None):
+    """This member's own request counts and response times — no forecasts."""
+    require_owner(request, tsap_id)
+    user = _find_user(tsap_id)
+    if not user:
+        raise HTTPException(404, "Mee profile dorakaledu")
+    return member_intel.member_activity(user, DB_INTERESTS)
 
 
 # ---------------------------------------------------------------- WhatsApp control
@@ -5546,20 +6022,29 @@ def bots_health(request: Request = None):
 @app.post("/api/wa/pause")
 def wa_pause(reason: str = "manual", request: Request = None):
     require_admin(request)   # 🛡️ WAVE 9: admin key lekunda 403 (PII/money/)
-    return {"ok": True, **WA_ENGINE.pause(reason)}
+    result = WA_ENGINE.pause(reason)
+    if not result.get("ok", True):
+        raise HTTPException(503, "WhatsApp pause state could not be saved safely. Please try again.")
+    return result
 
 
 @app.post("/api/wa/resume")
 def wa_resume(request: Request = None):
     require_admin(request)   # 🛡️ WAVE 9: admin key lekunda 403 (PII/money/)
-    return {"ok": True, **WA_ENGINE.resume()}
+    result = WA_ENGINE.resume()
+    if not result.get("ok", True):
+        raise HTTPException(503, "WhatsApp resume state could not be saved safely. Please try again.")
+    return result
 
 
 @app.post("/api/wa/reset_day")
 def wa_reset_day(request: Request = None):
     """Test tip: ee రోజు counters reset (caps fresh). Production లో వద్దు."""
     require_admin(request)   # 🛡️ WAVE 9: admin key lekunda 403 (PII/money/)
-    return {"ok": True, **WA_ENGINE.reset_today()}
+    result = WA_ENGINE.reset_today()
+    if not result.get("ok", True):
+        raise HTTPException(503, "WhatsApp day reset could not be saved safely. Please try again.")
+    return result
 
 
 @app.get("/api/admin/wa/numbers")
@@ -5581,9 +6066,13 @@ def admin_wa_number_add(payload: dict, request: Request):
     d = payload or {}
     if not str(d.get("url", "")).strip():
         raise HTTPException(400, "Bridge URL ఇవ్వండి (http://wa-otp:3000 lanti)")
-    return wa_pool.get_pool().add_instance(
+    result = wa_pool.get_pool().add_instance(
         str(d.get("name", "")), str(d.get("url", "")), str(d.get("lane", "both")),
         int(d.get("daily_cap", 60) or 60), str(d.get("token", "")), str(d.get("number", "")))
+    if not result.get("success"):
+        raise HTTPException(503 if result.get("reason") == "persistence_failed" else 400,
+                            result.get("message_telugu"))
+    return result
 
 
 @app.post("/api/admin/wa/numbers/{name}")
@@ -5594,7 +6083,8 @@ def admin_wa_number_update(name: str, payload: dict, request: Request):
     kw = {k: d[k] for k in ("url", "lane", "daily_cap", "token", "number", "paused") if k in d}
     res = wa_pool.get_pool().update_instance(name, **kw)
     if not res.get("success"):
-        raise HTTPException(404, res.get("message_telugu"))
+        raise HTTPException(503 if res.get("reason") == "persistence_failed" else 404,
+                            res.get("message_telugu"))
     return res
 
 
@@ -5604,7 +6094,8 @@ def admin_wa_number_delete(name: str, request: Request):
     require_admin(request)
     res = wa_pool.get_pool().remove_instance(name)
     if not res.get("success"):
-        raise HTTPException(404, res.get("message_telugu"))
+        raise HTTPException(503 if res.get("reason") == "persistence_failed" else 404,
+                            res.get("message_telugu"))
     return res
 
 
@@ -5616,44 +6107,42 @@ def retired_demo_seed(request: Request = None):
     raise HTTPException(410, "Demo profile seeding is retired")
 
 
+def _jathakam_result_unavailable(bride_id: str = "", groom_id: str = "") -> Dict:
+    """Shared fail-closed response for retired star-only live calculations."""
+    evidence = {}
+    for label, value in (("bride", bride_id), ("groom", groom_id)):
+        if value:
+            evidence[label] = AST.jathakam_status(value).get("state")
+    return {
+        "available": False,
+        "calculation_available": False,
+        "status": "jathakam_required",
+        "evidence": evidence,
+        "reason_en": "No Porutham result is generated from star/rasi fields alone. Upload the authentic horoscope documents for both people and obtain an appropriate professional review; missing chart data is never guessed.",
+        "reason": "star/rasi వివరాల ఆధారంగా మాత్రమే Porutham ఫలితం తయారు చేయము. ఇద్దరి అసలైన జాతక పత్రాలను upload చేసి తగిన professional review పొందండి; లేని chart వివరాలను ఊహించము.",
+        "passed_checks": None, "total_checks": None, "items": [], "doshas": [], "doshas_en": [],
+    }
+
+
 @app.get("/api/porutham")
 def porutham_by_id(bride: str = "", groom: str = "", boy_star: str = "", girl_star: str = "",
                    groom_star: str = "", bride_star: str = "", star1: str = "", star2: str = "",
                    boy_rasi: str = "", girl_rasi: str = "", groom_rasi: str = "", bride_rasi: str = ""):
-    """
-    TSAP IDs లేదా direct Nakshatra/Rasi పేర్లతో 10-porutham (గుణమేళనం) లెక్కించుము.
-    Udaharanam:
-      /api/porutham?bride=MV1001&groom=MV1002
-      /api/porutham?boy_star=Rohini&girl_star=Mrigasira
-    """
-    # 1. Direct star/rasi check if provided
-    g_star = groom_star or boy_star or star2 or ""
-    b_star = bride_star or girl_star or star1 or ""
-    g_rasi_val = groom_rasi or boy_rasi or ""
-    b_rasi_val = bride_rasi or girl_rasi or ""
-
-    if g_star or b_star:
-        b_mock = {"star": b_star, "rasi": b_rasi_val, "gender": "Bride"}
-        g_mock = {"star": g_star, "rasi": g_rasi_val, "gender": "Groom"}
-        res = compute_porutham(b_mock, g_mock)
-        return {"bride": b_mock, "groom": g_mock, **res}
-
-    # 2. Look up by TSAP ID
+    """Retired live calculation route: return evidence-required state only."""
+    if any((boy_star, girl_star, groom_star, bride_star, star1, star2, boy_rasi, girl_rasi, groom_rasi, bride_rasi)):
+        return _jathakam_result_unavailable()
     b = _find_user(bride)
     g = _find_user(groom)
     if not b or not g or not _is_approved_profile(b) or not _is_approved_profile(g):
-        raise HTTPException(404, "Active approved Bride/Groom profile ID లేదా నక్షత్ర వివరాలు ఇవ్వండి")
-    res = compute_porutham(b, g)
-    return {"bride": safe_user(b), "groom": safe_user(g), **res}
+        raise HTTPException(404, "Active approved Bride/Groom profile IDs are required")
+    return _jathakam_result_unavailable(b.get("tsap_id", ""), g.get("tsap_id", ""))
 
 
 @app.post("/api/porutham")
 def porutham_raw(payload: dict):
-    """Star/రాశి direct గా isthe కూడా calculate చేస్తుంది (register cheyyakunda test కి)."""
+    """Retired star-only endpoint; never turns arbitrary input into a result."""
     d = payload or {}
-    b = {"star": d.get("bride_star", ""), "rasi": d.get("bride_rasi", "")}
-    g = {"star": d.get("groom_star", ""), "rasi": d.get("groom_rasi", "")}
-    return {"bride": b, "groom": g, **compute_porutham(b, g)}
+    return _jathakam_result_unavailable(str(d.get("bride_id", "")), str(d.get("groom_id", "")))
 
 
 @app.post("/api/lagna-patrika/generate")
@@ -5663,13 +6152,16 @@ def api_generate_lagna_patrika(payload: dict):
     Returns structured Sanskrit slokas, muhurtham details, and WhatsApp ready invitation text.
     """
     d = payload or {}
-    bride_name = d.get("bride_name", "చిరంజీవి సౌభాగ్యవతి")
-    bride_gothram = d.get("bride_gothram", "జనకుల")
+    # ✅ One route, one contract: names are required, everything else has a traditional default.
+    bride_name = str(d.get("bride_name", "") or "").strip()
+    groom_name = str(d.get("groom_name", "") or "").strip()
+    if not bride_name or not groom_name:
+        raise HTTPException(400, "⚠️ వధూవరుల పేర్లు తప్పనిసరిగా ఇవ్వాలి")
+    bride_gothram = str(d.get("bride_gothram", "") or "").strip() or "జనకుల"
     bride_parents = d.get("bride_parents", "తల్లిదండ్రులు")
     bride_native = d.get("bride_native", "విజయవాడ")
 
-    groom_name = d.get("groom_name", "చిరంజీవి")
-    groom_gothram = d.get("groom_gothram", "కాశ్యపస")
+    groom_gothram = str(d.get("groom_gothram", "") or "").strip() or "కాశ్యపస"
     groom_parents = d.get("groom_parents", "తల్లిదండ్రులు")
     groom_native = d.get("groom_native", "హైదరాబాద్")
 
@@ -5710,6 +6202,14 @@ def api_generate_lagna_patrika(payload: dict):
             "inviter": inviter,
         },
         "whatsapp_share_text": wa_text,
+        # Compatibility aliases for clients that read the flat keys.
+        "whatsapp_text": wa_text,
+        "whatsapp_url": "https://wa.me/?text=" + urllib.parse.quote(wa_text),
+        "bride_name": bride_name,
+        "groom_name": groom_name,
+        "muhurtham_date": muhurtham_date,
+        "muhurtham_time": muhurtham_time,
+        "venue": venue,
         "message_telugu": "🌸 శుభ లగ్న పత్రిక విజయవంతంగా రూపొందించబడింది",
     }
 
@@ -5847,9 +6347,14 @@ def toggle_save(payload: dict, request: Request = None):
     existing = next((x for x in DB_SAVES if x["tsap_id"] == tsap_id and x["saved_id"] == saved_id), None)
     if existing:
         DB_SAVES.remove(existing)
+        # 🧊 WAVE 41: the shortlist used to live only in memory, so every entry
+        # disappeared on restart. Persist both directions like the payment state.
+        _persist_core_state()
         return {"success": True, "saved": False, "message_telugu": "Shortlist నుంచి teesesaaru",
                 "total_saved": len([x for x in DB_SAVES if x["tsap_id"] == tsap_id])}
-    DB_SAVES.append({"tsap_id": tsap_id, "saved_id": saved_id, "at": datetime.utcnow().isoformat()})
+    DB_SAVES.append({"tsap_id": tsap_id, "saved_id": saved_id, "at": datetime.utcnow().isoformat(),
+                     "note": "", "note_at": ""})
+    _persist_core_state()
     return {"success": True, "saved": True, "message_telugu": "❤️ Shortlist లో save అయ్యింది",
             "total_saved": len([x for x in DB_SAVES if x["tsap_id"] == tsap_id])}
 
@@ -5863,18 +6368,39 @@ def saved_list(tsap_id: str, request: Request = None):
         u = _find_user(r["saved_id"])
         if u:
             out.append({"saved_at": r["at"], "profile": safe_user(u),
+                        "note": str(r.get("note") or ""), "note_at": str(r.get("note_at") or ""),
                         "porutham": None})
-    # porutham with me (star unte)
-    me = _find_user(tsap_id)
-    if me:
-        for o in out:
-            pu = _find_user(o["profile"]["tsap_id"])
-            r = compute_porutham(me, pu) if (pu and me.get("gender") == "Groom") else (
-                compute_porutham(pu or {}, me) if pu else {"available": False})
-            o["porutham"] = {"checks_passed": r.get("passed_checks"), "checks_total": r.get("total_checks"),
-                             "doshas": r.get("doshas", [])} if r.get("available") else None
+    # Saved profiles contain no astrology result. The Jathakam review flow is
+    # separate and never derives a score from profile fields.
     return {"tsap_id": tsap_id, "count": len(out), "saved": out[::-1],
             "message_telugu": f"❤️ {len(out)} profiles shortlist లో ఉన్నాయి"}
+
+
+# Members keep their own private reminders on a shortlisted profile. The note is
+# only ever readable by the owner (owner-gated read and write), is sanitized with
+# the same `clean()` pass used for profile text, and is capped so it can never be
+# used as a general-purpose storage field.
+SHORTLIST_NOTE_MAX = 280
+
+
+@app.post("/api/saved/{tsap_id}/{saved_id}/note")
+def saved_note_set(tsap_id: str, saved_id: str, payload: dict = Body(default={}), request: Request = None):
+    """📝 Private note on a shortlisted profile — owner-only, sanitized, capped."""
+    tsap_id = clean(tsap_id, 30, "tsap_id")
+    saved_id = clean(saved_id, 30, "saved_id")
+    require_owner(request, tsap_id)   # 🛡️ IDOR: mee note matrame
+    if not tsap_id or not saved_id:
+        raise HTTPException(400, "tsap_id + saved_id కావాలి")
+    record = next((x for x in DB_SAVES if x["tsap_id"] == tsap_id and x["saved_id"] == saved_id), None)
+    if not record:
+        raise HTTPException(404, "Shortlist లో ఈ profile లేదు")
+    raw = payload.get("note") if isinstance(payload, dict) else ""
+    note = clean(raw if isinstance(raw, str) else "", SHORTLIST_NOTE_MAX, "note")
+    record["note"] = note
+    record["note_at"] = datetime.utcnow().isoformat()
+    _persist_core_state()
+    return {"success": True, "saved_id": saved_id, "note": note, "note_at": record["note_at"],
+            "message_telugu": "నోట్ save అయ్యింది" if note else "నోట్ తీసివేశారు"}
 
 
 
@@ -5915,16 +6441,27 @@ async def photo_upload(file: UploadFile = File(...), tsap_id: str = Form(""), re
     name = f"{token}.{ext}"
     path = os.path.join(PHOTO_MEDIA_DIR, name)
     try:
-        with open(path, "xb") as f:
-            f.write(data)
+        atomic_write_bytes(path, data)
     except Exception as e:
         raise HTTPException(500, f"Photo save failed: {str(e)[:80]}")
     if _tid:
+        previous = {key: _owner.get(key) for key in ("photo_url", "photo_urls", "photo_status", "photo_checks", "photo_uploaded_at")}
         _owner["photo_url"] = f"/photos/{name}"
         _owner["photo_urls"] = [f"/photos/{name}"]
         _owner["photo_status"] = "pending"  # A human review is still required.
         _owner["photo_checks"] = verdict["checks"]
         _owner["photo_uploaded_at"] = datetime.utcnow().isoformat()
+        if not _persist_core_state():
+            for key, value in previous.items():
+                if value is None:
+                    _owner.pop(key, None)
+                else:
+                    _owner[key] = value
+            try:
+                os.remove(path)
+            except OSError:
+                pass
+            raise HTTPException(503, "Photo could not be saved safely. Please try again.")
     return {"success": True, "url": f"/photos/{name}", "bytes": len(data),
             "kb": round(len(data) / 1024, 1),
             "status": "pending", "checks": verdict["checks"],
@@ -5954,7 +6491,7 @@ async def verify_selfie(file: UploadFile = File(...), tsap_id: str = Form(""), r
     if not u:
         raise HTTPException(404, "Profile దొరకలేదు — ముందు register అవ్వండి")
     require_owner(request, u["tsap_id"])  # 🌊 WAVE 23 — vere vaalla peru tho selfie vaddu
-    data = await file.read()
+    data = await file.read(5 * 1024 * 1024 + 1)
     verdict = validate_photo(data, file.filename or "", selfie=True)
     if not verdict["ok"]:
         raise HTTPException(422, {"reason": verdict["reason"], "en": verdict["en"],
@@ -5962,12 +6499,27 @@ async def verify_selfie(file: UploadFile = File(...), tsap_id: str = Form(""), r
                                   "message_telugu": f"🤳 {verdict['te']}",
                                   "checks": verdict["checks"]})
     os.makedirs(PHOTO_MEDIA_DIR, exist_ok=True)
-    name = f"{u['tsap_id']}-selfie-" + datetime.utcnow().strftime("%y%m%d%H%M%S") + ".jpg"
-    with open(os.path.join(PHOTO_MEDIA_DIR, name), "wb") as f:
-        f.write(data)
+    name = f"{u['tsap_id']}-selfie-" + datetime.utcnow().strftime("%y%m%d%H%M%S") + "-" + secrets.token_hex(6) + ".jpg"
+    selfie_path = os.path.join(PHOTO_MEDIA_DIR, name)
+    try:
+        atomic_write_bytes(selfie_path, data)
+    except Exception as exc:
+        raise HTTPException(500, f"Selfie save failed: {str(exc)[:80]}") from exc
+    previous = {key: u.get(key) for key in ("selfie_url", "selfie_status", "selfie_checks")}
     u["selfie_url"] = f"/photos/{name}"
     u["selfie_status"] = "pending"
     u["selfie_checks"] = verdict["checks"]
+    if not _persist_core_state():
+        for key, value in previous.items():
+            if value is None:
+                u.pop(key, None)
+            else:
+                u[key] = value
+        try:
+            os.remove(selfie_path)
+        except OSError:
+            pass
+        raise HTTPException(503, "Selfie could not be saved safely. Please try again.")
     return {"success": True, "url": u["selfie_url"], "status": "pending", "checks": verdict["checks"],
             "message_telugu": "🤳 Selfie upload అయింది — staff review పూర్తయ్యాక status update అవుతుంది. ఇది అన్ని profile వివరాలను verify చేయదు."}
 
@@ -6010,6 +6562,8 @@ def admin_photo_content(tsap_id: str, request: Request, kind: str = "photo"):
     if not filename:
         raise HTTPException(404, "Pending review media not found")
     path = _media_file(PHOTO_MEDIA_DIR, filename)
+    if not os.path.isfile(path):
+        raise HTTPException(404, "Pending review media not found")
     return FileResponse(path, headers={"Cache-Control": "private, no-store",
                                        "X-Content-Type-Options": "nosniff"})
 
@@ -6028,6 +6582,7 @@ def admin_photos_review(payload: dict, request: Request):
         raise HTTPException(400, "kind=photo/selfie, decision=approved/rejected ఇవ్వండి")
     te_reason = str(d.get("reason_te", "") or d.get("reason", "")).strip()
     if kind == "photo":
+        previous = {key: u.get(key) for key in ("photo_status", "has_photo", "photo_urls", "photo_reason", "photo_reason_te")}
         u["photo_status"] = decision
         if decision == "approved":
             u["has_photo"] = True
@@ -6039,8 +6594,16 @@ def admin_photos_review(payload: dict, request: Request):
             u["photo_reason"] = str(d.get("reason", "Photo not approved") or "Photo not approved")
             u["photo_reason_te"] = te_reason or "ఈ ఫోటో approve కాలేదు — మీ clear original ఫోటో మళ్లీ పంపండి"
     else:
+        previous = {key: u.get(key) for key in ("selfie_status", "selfie_verified")}
         u["selfie_status"] = decision
         u["selfie_verified"] = (decision == "approved")
+    if not _persist_core_state():
+        for key, value in previous.items():
+            if value is None:
+                u.pop(key, None)
+            else:
+                u[key] = value
+        raise HTTPException(503, "Photo review could not be saved safely. Please try again.")
     return {"success": True, "tsap_id": u["tsap_id"], "kind": kind, "decision": decision,
             "message_telugu": ("✅ Approve అయ్యింది" if decision == "approved" else "❌ Reject అయ్యింది — user కి reason వెళ్లింది")}
 
@@ -6582,9 +7145,9 @@ def advanced_search(
                 row["observations"] = []
                 row["differences"] = []
                 row["preference_checks"] = []
-            src = compute_porutham(u, viewer) if viewer.get("gender") == "Groom" else compute_porutham(viewer, u)
-            row["porutham"] = {"checks_passed": src.get("passed_checks"), "checks_total": src.get("total_checks"),
-                               "doshas": src.get("doshas", [])} if src.get("available") else None
+            # Astrology is not inferred from search fields. Keep this separate
+            # from owner-uploaded Jathakam evidence and professional review.
+            row["jathakam_status"] = "review_required"
         out.append(row)
 
     if sort == "age":
@@ -7028,7 +7591,7 @@ def api_top_matches(tsap_id: str, limit: int = 10, min_score: int = 65, include_
     require_owner(request, tsap_id)  # 🌊 WAVE 23 — naa match ranking naake (privacy)
     me = _find_user(tsap_id)
     if not _is_approved_profile(me):
-        raise HTTPException(404, "Approved member profile not found")
+        raise _approved_profile_404()
     pool = [u for u in DB_USERS if _is_approved_profile(u)
             and not safety.is_blocked(tsap_id, u.get("tsap_id", ""), DB_BLOCKS)
             and str(u.get("tsap_id", "")) != str(me.get("tsap_id", ""))]
@@ -7247,16 +7810,8 @@ def api_og_profile(tsap_id: str):
 
 @app.get("/api/og/porutham/{bride}/{groom}.png")
 def api_og_porutham(bride: str, groom: str):
-    b, g = _find_user(bride), _find_user(groom)
-    if not _is_approved_profile(b) or not _is_approved_profile(g):
-        raise HTTPException(404, "Active approved profiles not found")
-    res = compute_porutham(b, g)
-    if not res.get("available"):
-        raise HTTPException(422, res.get("reason") or "Required star details are unavailable")
-    path = preview.og_porutham_png(b, g, res)
-    if not path or not os.path.exists(path):
-        raise HTTPException(500, "Preview generate avvaledu")
-    return FileResponse(path, media_type="image/png", headers={"Cache-Control": "public, max-age=3600"})
+    """Retired: do not create a shareable image from an incomplete chart."""
+    raise HTTPException(410, "Porutham preview images are retired; upload a real Jathakam for review")
 
 
 @app.get("/api/og/site.png")
@@ -7389,7 +7944,12 @@ def saved_search_create(payload: dict = Body(default={}), request: Request = Non
     alert_enabled = req_bool(d.get("alert", False))
     if alert_enabled and not req_bool(d.get("alert_consent_confirmed", False)):
         validation_error("alert_consent_confirmed", "⚠️ WhatsApp alerts కోసం స్పష్టమైన సమ్మతి అవసరం")
-    rec = save_search(tsap_id, d.get("name", ""), d.get("filters") or {}, alert=alert_enabled)
+    try:
+        rec = save_search(tsap_id, d.get("name", ""), d.get("filters") or {}, alert=alert_enabled)
+    except RuntimeError as exc:
+        if str(exc).startswith("persistence_failed"):
+            raise HTTPException(503, "Saved search could not be saved safely. Please try again.")
+        raise
     message_telugu = ("🔔 Search save అయ్యింది — మీరు alerts‌కు సమ్మతి ఇచ్చారు"
                       if alert_enabled else "🔒 Search మీ ఖాతాలో మాత్రమే save అయ్యింది; notifications ఆఫ్‌లో ఉన్నాయి")
     message_en = ("Search saved. Alerts were explicitly enabled."
@@ -7426,7 +7986,12 @@ def saved_search_update(tsap_id: str, search_id: str, payload: dict = Body(defau
     alert_enabled = req_bool(d.get("alert"))
     if alert_enabled and not req_bool(d.get("alert_consent_confirmed", False)):
         validation_error("alert_consent_confirmed", "⚠️ WhatsApp alerts కోసం స్పష్టమైన సమ్మతి అవసరం")
-    rec = set_search_alert(tsap_id, search_id, alert_enabled)
+    try:
+        rec = set_search_alert(tsap_id, search_id, alert_enabled)
+    except RuntimeError as exc:
+        if str(exc).startswith("persistence_failed"):
+            raise HTTPException(503, "Saved-search alert setting could not be saved safely. Please try again.")
+        raise
     if not rec:
         raise HTTPException(404, "Ee search dorakaledu")
     enabled = bool(rec.get("alert"))
@@ -7438,7 +8003,12 @@ def saved_search_update(tsap_id: str, search_id: str, payload: dict = Body(defau
 @app.delete("/api/saved-searches/{tsap_id}/{search_id}")
 def saved_search_delete(tsap_id: str, search_id: str, request: Request = None):
     require_owner(request, tsap_id)
-    ok = delete_search(tsap_id, search_id)
+    try:
+        ok = delete_search(tsap_id, search_id)
+    except RuntimeError as exc:
+        if str(exc).startswith("persistence_failed"):
+            raise HTTPException(503, "Saved search could not be deleted safely. Please try again.")
+        raise
     if not ok:
         raise HTTPException(404, "Ee search dorakaledu")
     return {"success": True, "message_telugu": "🗑️ Search delete అయ్యింది", "message_en": "Saved search deleted."}
@@ -7472,7 +8042,12 @@ def saved_search_alerts(tsap_id: str, request: Request = None):
         if wa_mode != "off":
             q = enqueue_whatsapp([u.get("phone", "")], txt, priority=1, kind="saved_search_alert")
         if q.get("queued"):
-            mark_alerted(r, [x["tsap_id"] for x in fresh])
+            try:
+                mark_alerted(r, [x["tsap_id"] for x in fresh])
+            except RuntimeError as exc:
+                if str(exc).startswith("persistence_failed"):
+                    raise HTTPException(503, "Saved-search alert state could not be saved safely. Please try again.")
+                raise
         details.append({"search_id": r["search_id"], "new_matches": len(fresh), "queued": bool(q.get("queued")),
                         "text": txt})
     alerts_queued = sum(1 for item in details if item.get("queued"))
@@ -7552,7 +8127,10 @@ def vendor_packages():
 @app.get("/api/vendors/ads")
 def vendor_ads(slot: str = "home_top_banner", limit: int = 2, track: bool = True):
     """📢 Ad rotation (paid-first weighted). Site home/strips లో vaadutunnam."""
-    return {"success": True, **ad_rotation(slot, limit=min(max(limit, 1), 6), track=track)}
+    result = ad_rotation(slot, limit=min(max(limit, 1), 6), track=track)
+    if not result.get("ok", True):
+        raise HTTPException(503, result.get("message_telugu", "Ad metrics could not be saved safely."))
+    return {"success": True, **result}
 
 
 @app.get("/api/vendors")
@@ -7708,6 +8286,8 @@ def vendor_lead_api(vendor_id: str, payload: Dict[str, Any] = Body(default={})):
     """Store an enquiry; WhatsApp notifications are queued only when explicitly configured."""
     res = vendor_lead(vendor_id, payload or {})
     if not res.get("ok"):
+        if res.get("reason") == "persistence_failed":
+            return JSONResponse(status_code=503, content={"success": False, **res})
         status_code = 404 if res.get("reason") in {"not_found", "not_active"} else 400
         return JSONResponse(status_code=status_code, content={"success": False, **res})
     try:
@@ -7774,13 +8354,20 @@ def admin_vendor_action(vendor_id: str, action: str, package: str = "", utr: str
         v = next((x for x in __import__("vendors").VENDORS if x.get("id") == vendor_id), None)
         if not v:
             raise HTTPException(404, "Vendor dorakaledi")
+        previous = copy.deepcopy(v)
         v["status"] = "expired"
-        vendors_save_state()
-        res = {"ok": True, "vendor": v, "message_telugu": "⏳ %s listing expire చేశాం" % v.get("business_name")}
+        if not vendors_save_state().get("ok"):
+            v.clear()
+            v.update(previous)
+            res = {"ok": False, "reason": "persistence_failed",
+                   "message_telugu": "⚠️ Vendor expiry could not be saved safely. Please try again."}
+        else:
+            res = {"ok": True, "vendor": v, "message_telugu": "⏳ %s listing expire చేశాం" % v.get("business_name")}
     else:
         return JSONResponse(status_code=400, content={"success": False, "reason": "bad_action"})
     if not res.get("ok"):
-        return JSONResponse(status_code=400, content={"success": False, **res})
+        status_code = 503 if res.get("reason") == "persistence_failed" else 400
+        return JSONResponse(status_code=status_code, content={"success": False, **res})
     return {"success": True, **res}
 
 
@@ -7898,6 +8485,113 @@ def gothram_check(a: str, b: str):
             "notice": comparison.get("notice", "Member-entered text comparison only; not a compatibility verdict.")}
 
 
+# A story nudge is shown to members who have been here long enough, or who have a
+# mutual connection, to have something real to share. It is a prompt, never a
+# claim: nothing here says a match happened, that anyone was verified, or that a
+# submitted story will be published.
+STORY_PROMPT_MIN_DAYS = 30
+
+
+@app.get("/api/stories/prompt")
+def story_prompt(request: Request, tsap_id: str = ""):
+    """Owner-only context for the "share your story" nudge.
+
+    Answers only what the member's own record can answer: how long the profile
+    has existed, whether an interest was mutually accepted, and what happened
+    to stories they already sent. An unknown registration date stays unknown
+    instead of being counted as time served.
+    """
+    tid = str(tsap_id or "").strip().upper()
+    require_owner(request, tid)
+    u = _find_user(tid)
+    if not u:
+        raise HTTPException(404, "మీ profile దొరకలేదు — ముందు register చెయ్యండి")
+
+    raw_created = str(u.get("created_at", "") or "")
+    try:
+        member_days = (datetime.utcnow() - datetime.fromisoformat(raw_created.replace("Z", ""))).days
+        days_known = member_days >= 0
+    except Exception:
+        member_days, days_known = 0, False
+
+    accepted = 0
+    for _row in DB_INTERESTS:
+        if str(_row.get("status", "")).strip().lower() != "accepted":
+            continue
+        if tid in {str(_row.get("from_id", "")).strip().upper(), str(_row.get("to_id", "")).strip().upper()}:
+            accepted += 1
+
+    summary = A11.story_summary(tid)
+    if summary["pending"]:
+        reason = "already_pending"
+    elif summary["approved"]:
+        reason = "already_approved"
+    elif accepted >= 1:
+        reason = "accepted_interest"
+    elif days_known and member_days >= STORY_PROMPT_MIN_DAYS:
+        reason = "member_long_enough"
+    else:
+        reason = "not_yet"
+
+    can_submit = reason in {"accepted_interest", "member_long_enough"}
+    prompt = {
+        "not_yet": (
+            "💑 మీ story ఇంకా పంపలేదు",
+            "You have not shared your story yet",
+            "Members who have used the service for a while, or whose interest was accepted on "
+            "both sides, get an invite to share theirs. Nothing is published without review.",
+        ),
+        "member_long_enough": (
+            f"💑 {member_days} రోజులుగా మన వివాహలో ఉన్నారు — మీ story పంపండి",
+            f"You have been here {member_days} days — share your story",
+            "Members who have been here a while sometimes share how it went. It is optional, "
+            "and it is reviewed before anything appears on the stories page.",
+        ),
+        "accepted_interest": (
+            "💑 మీ interest ఒకరితో accept అయింది — జరిగింది చెప్పండి",
+            "An interest was accepted on both sides — tell us how it went",
+            "Only shares what your own account records: an accepted interest. Nothing about the "
+            "conversation, the outcome or the other member is assumed or published.",
+        ),
+        "already_pending": (
+            "⏳ మీ story review లో ఉంది",
+            "Your story is in review",
+            "Review timing is not guaranteed, and review is not a promise to publish. You will "
+            "see it on the stories page only if it is approved.",
+        ),
+        "already_approved": (
+            "✅ మీ story stories page లో ఉంది — ధన్యవాదాలు",
+            "Your story is on the stories page — thank you",
+            "Shared stories keep only the words, names and district the member chose to give.",
+        ),
+    }[reason]
+
+    return {
+        "success": True,
+        "tsap_id": tid,
+        "member_days": member_days if days_known else None,
+        "days_known": days_known,
+        "min_days": STORY_PROMPT_MIN_DAYS,
+        "accepted_interests": accepted,
+        "stories": summary,
+        "can_submit": can_submit,
+        "reason": reason,
+        "title_telugu": prompt[0],
+        "title_en": prompt[1],
+        "note_en": prompt[2],
+        "note_telugu": {
+            "not_yet": "కొంత కాలం పాటు వాడిన వారికి, లేదా interest రెండు వైపులా accept అయిన వారికి ఈ ఆహ్వానం కనిపిస్తుంది. Review లేకుండా ఏదీ ప్రచురించబడదు.",
+            "member_long_enough": "ఇది ఐచ్ఛికం. Review తర్వాతే stories page లో కనిపిస్తుంది — ప్రచురణ హామీ కాదు.",
+            "accepted_interest": "మీ account లో ఉన్నదే చూపిస్తాం: accept అయిన interest. సంభాషణ, ఫలితం, ఇతర సభ్యుల వివరాలు ఊహించి రాయము.",
+            "already_pending": "Review సమయం హామీ కాదు; approve అయితేనే stories page లో కనిపిస్తుంది.",
+            "already_approved": "Story లో మీరు ఇచ్చిన మాటలు, పేర్లు, జిల్లా మాత్రమే ఉంటాయి.",
+        }[reason],
+        "share_url": "/stories",
+        "verified_claim": False,
+        "external_status_checked": False,
+    }
+
+
 @app.post("/api/stories/submit")
 def story_submit(payload: dict, request: Request = None):
     """Accept a member-shared story for moderation; submission is not identity verification."""
@@ -7906,26 +8600,50 @@ def story_submit(payload: dict, request: Request = None):
     u = _find_user(str(d.get("tsap_id", "")))
     if not u:
         raise HTTPException(404, "మీ profile దొరకలేదు — ముందు register చెయ్యండి")
-    rec = A11.submit_story(str(d.get("tsap_id", "")), str(d.get("text", "")),
-                           partner_id=str(d.get("partner_id", "")),
-                           couple_names=str(d.get("couple_names", "")),
-                           photo_url=str(d.get("photo_url", "")),
-                           district=str(d.get("district", "")))
+    try:
+        rec = A11.submit_story(str(d.get("tsap_id", "")), str(d.get("text", "")),
+                               partner_id=str(d.get("partner_id", "")),
+                               couple_names=str(d.get("couple_names", "")),
+                               photo_url=str(d.get("photo_url", "")),
+                               district=str(d.get("district", "")))
+    except RuntimeError as exc:
+        if str(exc).startswith("persistence_failed"):
+            raise HTTPException(503, "Story could not be saved safely. Please try again.")
+        raise
     return {"success": True, "story": rec,
             "message_telugu": "💑 మీ story review కోసం పంపబడింది. Approve అయితే /stories page‌లో కనిపిస్తుంది; review సమయం, ప్రచురణ హామీ కాదు."}
+
+
+def _public_story(rec: dict) -> dict:
+    """Public story view: a submitter's profile identifiers never leave the server.
+
+    The admin queue keeps them because moderators need to know who submitted a
+    story; the public feed only needs the story, the names the submitter chose
+    to give, and the district.
+    """
+    row = dict(rec or {})
+    for key in ("tsap_id", "partner_id"):
+        row.pop(key, None)
+    return row
 
 
 @app.get("/api/stories")
 def stories_list(limit: int = 20):
     """Public member-submitted stories that were approved for display; approval is not verification."""
     rows = A11.approved_stories(clamp_int(limit, "limit", 1, 50, 20))
-    return {"success": True, "count": len(rows), "stories": rows,
+    return {"success": True, "count": len(rows), "stories": [_public_story(row) for row in rows],
             "publication_note": "Stories are member-submitted and moderated for publication; identity and relationship details are not independently verified."}
 
 
 @app.post("/api/stories/{story_id}/like")
 def story_like(story_id: str):
-    return {"success": True, **A11.like_story(story_id)}
+    try:
+        result = A11.like_story(story_id)
+    except RuntimeError as exc:
+        if str(exc).startswith("persistence_failed"):
+            raise HTTPException(503, "Story like could not be saved safely. Please try again.")
+        raise
+    return {"success": True, **result}
 
 
 @app.post("/api/admin/stories/{story_id}/action")
@@ -7935,7 +8653,12 @@ def admin_story_action(story_id: str, payload: dict = None, request: Request = N
     d = payload or {}
     if not next((s for s in A11.STORIES if s.get("story_id") == story_id), None):
         raise HTTPException(404, "Story dorakaledu: %s" % story_id)
-    rec = A11.review_story(story_id, str(d.get("action", "")), str(d.get("note", "")))
+    try:
+        rec = A11.review_story(story_id, str(d.get("action", "")), str(d.get("note", "")))
+    except RuntimeError as exc:
+        if str(exc).startswith("persistence_failed"):
+            raise HTTPException(503, "Story review could not be saved safely. Please try again.")
+        raise
     out = {"success": True, "story": rec}
     if rec.get("status") == "approved":
         out["share_text"] = A11.story_share_text(rec)
@@ -7969,7 +8692,16 @@ def streak_claim(payload: dict, request: Request = None):
     u = _find_user(tsap_id)
     if not u:
         raise HTTPException(404, "Mee profile dorakaledu")
-    return {"success": True, "tsap_id": tsap_id, **A11.claim_daily(u)}
+    previous = {key: u.get(key) for key in ("streak_last", "streak_count", "streak_best", "credits")}
+    result = A11.claim_daily(u)
+    if result.get("success") and not _persist_core_state():
+        for key, value in previous.items():
+            if value is None:
+                u.pop(key, None)
+            else:
+                u[key] = value
+        raise HTTPException(503, "Daily bonus could not be saved safely. Please try again.")
+    return {"success": True, "tsap_id": tsap_id, **result}
 
 
 @app.get("/api/push/vapid")
@@ -7993,8 +8725,11 @@ def push_subscribe(payload: dict, request: Request = None):
     require_owner(request, tsap_id)
     if not _find_user(tsap_id):
         raise HTTPException(404, "Mee profile dorakaledu")
-    return A11.push_subscribe(tsap_id, str(d.get("endpoint", "")),
-                              d.get("keys") or {}, ua=str(d.get("ua", "")))
+    result = A11.push_subscribe(tsap_id, str(d.get("endpoint", "")),
+                                d.get("keys") or {}, ua=str(d.get("ua", "")))
+    if not result.get("success") and result.get("reason") == "persistence_failed":
+        raise HTTPException(503, result.get("message_telugu"))
+    return result
 
 
 @app.post("/api/push/unsubscribe")
@@ -8003,7 +8738,10 @@ def push_unsubscribe(payload: dict, request: Request = None):
     tsap_id = str(d.get("tsap_id", ""))
     if tsap_id:
         require_owner(request, tsap_id)
-    return A11.push_unsubscribe(tsap_id=tsap_id, endpoint=str(d.get("endpoint", "")))
+    result = A11.push_unsubscribe(tsap_id=tsap_id, endpoint=str(d.get("endpoint", "")))
+    if not result.get("success") and result.get("reason") == "persistence_failed":
+        raise HTTPException(503, result.get("message_telugu"))
+    return result
 
 
 @app.post("/api/push/notify/{tsap_id}")
@@ -8014,10 +8752,13 @@ def push_notify(tsap_id: str, payload: dict, request: Request = None):
     if not _find_user(tsap_id):
         raise HTTPException(404, "Profile dorakaledu")
     d = payload or {}
-    return {"tsap_id": tsap_id, **A11.push_notify(
+    result = A11.push_notify(
         tsap_id, str(d.get("title", "💍 మన వివాహ — కొత్త matches!")),
         str(d.get("body", "మీకు 2 కొత్త matches vachayi — చూడండి!")),
-        str(d.get("url", "/matches")))}
+        str(d.get("url", "/matches")))
+    if not result.get("success") and result.get("reason") == "persistence_failed":
+        raise HTTPException(503, result.get("message_telugu"))
+    return {"tsap_id": tsap_id, **result}
 
 
 @app.get("/api/admin/push/queue")
@@ -8034,11 +8775,18 @@ async def voice_upload(request: Request, file: UploadFile = File(...), tsap_id: 
     🎙️ Voice intro upload (30 sec) — phone recorder nunchi.
     MP3/WAV/OGG/M4A, max 2MB. Matches lo ▶️ play avutundi.
     """
-    tid = (tsap_id or "").strip()
+    tid = (tsap_id or "").strip().upper()
     if tid:
         require_owner(request, tid)  # 🛡️ WAVE 25: vere vaalla profile ki voice spam ban
-    u = _find_user(tid) if tid else None
-    data = await file.read()
+        u = _find_user(tid)
+        if not u:
+            raise HTTPException(404, "Profile dorakaledu")
+    else:
+        # An unowned upload is an anonymous storage/DoS vector, even if the file
+        # is a valid audio clip. CMS/media uploads need an explicit admin key.
+        require_admin(request)
+        u = None
+    data = await file.read(2 * 1024 * 1024 + 1)
     chk = A11.voice_validate(file.filename or "", len(data))
     if not chk.get("ok"):
         raise HTTPException(400, chk["error_telugu"])
@@ -8047,18 +8795,29 @@ async def voice_upload(request: Request, file: UploadFile = File(...), tsap_id: 
     # always server-generated at registration so this isn't reachable today,
     # but sanitize anyway rather than relying on that invariant forever.
     _safe_tid = re.sub(r"[^A-Z0-9-]", "", tid.strip().upper())[:24]
-    token = (_safe_tid or "tmp") + "-" + datetime.utcnow().strftime("%y%m%d%H%M%S")
+    token = (_safe_tid or "admin") + "-" + datetime.utcnow().strftime("%y%m%d%H%M%S") + "-" + secrets.token_hex(6)
     name = f"{token}.{chk['ext']}"
     path = os.path.join(VOICE_MEDIA_DIR, name)
     try:
-        with open(path, "wb") as f:
-            f.write(data)
+        atomic_write_bytes(path, data)
     except Exception as e:
         raise HTTPException(500, f"Voice save avvaledu: {str(e)[:80]}")
     url = f"/voice/{name}"
     if u is not None:
+        previous = {key: u.get(key) for key in ("voice_url", "voice_at")}
         u["voice_url"] = url
         u["voice_at"] = datetime.utcnow().isoformat()
+        if not _persist_core_state():
+            for key, value in previous.items():
+                if value is None:
+                    u.pop(key, None)
+                else:
+                    u[key] = value
+            try:
+                os.remove(path)
+            except OSError:
+                pass
+            raise HTTPException(503, "Voice intro could not be saved safely. Please try again.")
     return {"success": True, "url": url, "tsap_id": tid, "bytes": len(data),
             "message_telugu": f"🎙️ Voice intro upload అయ్యింది! Matches లో మీ voice vintaru ({round(len(data)/1024)} KB)"}
 
@@ -8083,7 +8842,15 @@ def complete_bonus(tsap_id: str, request: Request = None):
     if not u:
         raise HTTPException(404, "Mee profile dorakaledu")
     pct = profile_completeness(u)["percent"]
+    previous = {key: u.get(key) for key in ("complete_bonus_claimed", "credits")}
     res = A11.claim_complete_bonus(u, pct)
+    if res.get("success") and not _persist_core_state():
+        for key, value in previous.items():
+            if value is None:
+                u.pop(key, None)
+            else:
+                u[key] = value
+        raise HTTPException(503, "Profile bonus could not be saved safely. Please try again.")
     return {"success": res.get("success", False), "tsap_id": tsap_id,
             "completeness": pct, **res}
 
@@ -8109,12 +8876,20 @@ def boost_buy(payload: dict, request: Request):
         raise HTTPException(400, "Choose boost pack B_1, B_3, or B_7.")
 
     if _test_payment_fixtures_enabled():
+        previous = {"boost_until": user.get("boost_until"), "payment_count": len(DB_PAYMENTS)}
         effect = A11.apply_boost(user, pack_code)
         order_id = "DEV-BOOST-" + datetime.utcnow().strftime("%y%m%d%H%M%S") + str(len(DB_PAYMENTS) + 1).zfill(3)
         order = {"order_id": order_id, "tsap_id": tsap_id, "plan": pack_code,
                  "kind": "boost", "amount": A11.BOOST_PACKS[pack_code]["price"],
                  "at": datetime.utcnow().isoformat(), "status": "paid", "development_fixture": True}
         DB_PAYMENTS.append(order)
+        if not _persist_core_state():
+            if previous["boost_until"] is None:
+                user.pop("boost_until", None)
+            else:
+                user["boost_until"] = previous["boost_until"]
+            del DB_PAYMENTS[previous["payment_count"]:]
+            raise HTTPException(503, "Boost could not be saved safely. Please try again.")
         return {"success": True, "order": order, "boost_until": str(user.get("boost_until", "") or ""),
                 "boosted": A11.is_boosted(user), "message_telugu": effect.get("message_telugu", "Development boost applied.")}
 
@@ -8148,8 +8923,16 @@ def api_link_telegram(payload: dict, request: Request = None):
             raise HTTPException(400, "⚠️ Phone last-4 digits tappu — /link ID LAST4 (register చేసిన numberivi)")
     elif last4 and not str(u.get("phone", "")).endswith(last4):
         raise HTTPException(400, "⚠️ Phone last-4 digits tappu")
-    u["telegram_chat_id"] = str(d.get("chat_id", ""))
+    previous = {key: u.get(key) for key in ("telegram_chat_id", "telegram_linked_at")}
+    u["telegram_chat_id"] = str(d.get("chat_id", ""))[:120]
     u["telegram_linked_at"] = datetime.utcnow().isoformat()
+    if not _persist_core_state():
+        for key, value in previous.items():
+            if value is None:
+                u.pop(key, None)
+            else:
+                u[key] = value
+        raise HTTPException(503, "Telegram link could not be saved safely. Please try again.")
     return {"success": True, "tsap_id": u["tsap_id"],
             "message_telugu": f"✅ Link అయ్యింది! {u['tsap_id']} — ఇప్పుడు /unlock, /mylist vadachu"}
 
@@ -8186,6 +8969,8 @@ def api_unlock(payload: dict, request: Request = None):
         res["target"] = {"tsap_id": target["tsap_id"],
                          "name": S12.first_masked(target.get("full_name", "")),
                          "age": target.get("age"), "caste": target.get("caste")}
+    elif res.get("reason") == "persistence_failed":
+        raise HTTPException(503, res.get("message_telugu", "Contact access could not be saved safely."))
     return res
 
 
@@ -8220,8 +9005,11 @@ def api_assist_create(payload: dict, request: Request):
     buyer = _find_user(str(d.get("buyer_id", "")).upper())
     if not buyer:
         raise HTTPException(404, f"Buyer ID దొరకలేదు: {d.get('buyer_id', '')}")
-    order = S12.create_order(buyer["tsap_id"], S12.ASSISTED_PRICE,
-                             str(d.get("note", "")))
+    try:
+        order = S12.create_order(buyer["tsap_id"], S12.ASSISTED_PRICE,
+                                 str(d.get("note", "")))
+    except OSError:
+        raise HTTPException(503, "Assisted order could not be saved safely. Please try again.")
     return {"success": True, "order": order,
             "message_telugu": f"✅ Order {order['id']} — ₹{order['amount']} (UTR vachhaka paid చెయ్యండి)"}
 
@@ -8446,6 +9234,7 @@ async def api_match_deliver(payload: dict, request: Request):
             raise HTTPException(400, "Blocked profile ను shortlist చేయలేరు")
 
     order_id = str(d.get("order_id", "") or "").strip()
+    order_before = None
     via = str(d.get("via", "both") or "both").lower()
     if via not in {"both", "telegram", "whatsapp"}:
         raise HTTPException(400, "Delivery method must be telegram, whatsapp, or both")
@@ -8462,9 +9251,13 @@ async def api_match_deliver(payload: dict, request: Request):
         if order.get("status") == "delivered" and set(ids) != set(order.get("profile_ids", [])):
             raise HTTPException(409, "Delivered order లో shortlisted profile list మార్చలేరు")
         if order.get("status") == "paid":
+            order_before = copy.deepcopy(order)
             order["profile_ids"] = ids
             order["via"] = [via]
-            S12._persist()
+            if not S12._persist():
+                order.clear()
+                order.update(order_before)
+                raise HTTPException(503, "Assisted shortlist could not be saved safely. Please try again.")
 
     try:
         res = await S12.deliver_personal(buyer, sanitize_public_payload(targets), via=via, order_id=order_id)
@@ -8489,9 +9282,13 @@ async def api_match_deliver(payload: dict, request: Request):
         }
     if order_id and res.get("ok"):
         order = S12.get_order(order_id)
+        delivered_before = copy.deepcopy(order)
         order["status"] = "delivered"
         order["delivered_at"] = S12._now_iso()
-        S12._persist()
+        if not S12._persist():
+            order.clear()
+            order.update(delivered_before)
+            raise HTTPException(503, "Assisted delivery status could not be saved safely. Please contact support before retrying.")
     MAUD.audit("assisted_shortlist_delivery", role, {
         "buyer_id": buyer["tsap_id"], "profile_ids": ids, "order_id": order_id,
         "delivery_ok": bool(res.get("ok")), "contact_access": "owner_acceptance_required",
@@ -8518,68 +9315,44 @@ def api_admin_link_tg(payload: dict, request: Request):
 
 
 # ============================================================================
-# 🪐 WAVE 13 — ASTROLOGY (36-guna + dosha + jathakam/pandit)
+# 🪐 WAVE 13 — ASTROLOGY EVIDENCE (Jathakam upload + review status)
 # ============================================================================
 @app.get("/api/astro/guna")
 def api_guna(bride_id: str = "", groom_id: str = ""):
-    """🪐 36-guna jathakam గుణమేళనం — 2 profile IDs (gender auto-detect + swap)."""
+    """Return an honest unavailable state instead of a profile-field score.
+
+    The old endpoint calculated 36-guna from editable star/rasi fields. Those
+    fields are not a complete, verified birth chart, so a live request must not
+    turn them into a score or verdict. The pure reference tables remain in the
+    module for historical/test tooling, but this product endpoint is fail-closed.
+    """
     a = _find_user(bride_id.upper()) if bride_id else None
     b = _find_user(groom_id.upper()) if groom_id else None
     if not a or not b:
         raise HTTPException(404, "రెండు profile IDs ఇవ్వండి (bride_id + groom_id)")
-    bride, groom = a, b
     if a.get("gender") == "Groom" and b.get("gender") == "Bride":
         bride, groom = b, a
-    elif a.get("gender") == b.get("gender"):
+    elif a.get("gender") == "Bride" and b.get("gender") == "Groom":
+        bride, groom = a, b
+    else:
         raise HTTPException(400, "Bride + Groom రెండు వేరు genders ayi ఉండాలి")
-    res = AST.guna_milan(bride.get("star", ""), bride.get("rasi", ""),
-                          groom.get("star", ""), groom.get("rasi", ""))
-    res["bride_id"] = bride.get("tsap_id")
-    res["groom_id"] = groom.get("tsap_id")
-    return res
+    bride_state = AST.jathakam_status(bride.get("tsap_id", ""))
+    groom_state = AST.jathakam_status(groom.get("tsap_id", ""))
+    return {
+        "available": False,
+        "calculation_available": False,
+        "status": "jathakam_review_required",
+        "bride_id": bride.get("tsap_id"), "groom_id": groom.get("tsap_id"),
+        "evidence": {"bride": bride_state.get("state"), "groom": groom_state.get("state")},
+        "reason_en": "No 36-guna result is generated from member-entered star/rasi fields. Submit both real horoscope documents and obtain an appropriate professional review first.",
+        "reason": "సభ్యులు నమోదు చేసిన star/rasi వివరాల నుంచి 36-guna ఫలితం తయారు చేయము. ఇద్దరి నిజమైన జాతక పత్రాలను సమర్పించి తగిన professional review పొందండి.",
+    }
 
 
 @app.get("/api/astro/report/download")
 def api_download_astro_report(bride_id: str = "", groom_id: str = "", bride_star: str = "", bride_rasi: str = "", groom_star: str = "", groom_rasi: str = ""):
-    """Download a limited PDF reference containing the backend's ten Porutham checks."""
-    if bride_id or groom_id:
-        if not bride_id or not groom_id:
-            raise HTTPException(400, "Provide both bride and groom profile IDs")
-        first = _find_user(bride_id.strip().upper())
-        second = _find_user(groom_id.strip().upper())
-        if not first or not second:
-            raise HTTPException(404, "Bride/Groom profile not found")
-        first_gender = str(first.get("gender") or "").strip().casefold()
-        second_gender = str(second.get("gender") or "").strip().casefold()
-        if first_gender == "groom" and second_gender == "bride":
-            bride, groom = second, first
-        elif first_gender == "bride" and second_gender == "groom":
-            bride, groom = first, second
-        else:
-            raise HTTPException(400, "Provide one bride profile and one groom profile")
-    else:
-        if not bride_star.strip() or not groom_star.strip():
-            raise HTTPException(400, "Provide both star names or both profile IDs")
-        bride = {"star": bride_star.strip(), "rasi": bride_rasi.strip(), "gender": "Bride"}
-        groom = {"star": groom_star.strip(), "rasi": groom_rasi.strip(), "gender": "Groom"}
-
-    result = compute_porutham(bride, groom)
-    if not result.get("available"):
-        raise HTTPException(422, result.get("reason") or "Required star details are unavailable")
-    try:
-        import porutham_pdf
-        pdf_bytes = porutham_pdf.generate_porutham_pdf(bride, groom, result)
-    except (ImportError, ValueError) as exc:
-        raise HTTPException(503, "Porutham PDF reference is unavailable") from exc
-    except Exception as exc:
-        raise HTTPException(503, "Porutham PDF reference could not be generated") from exc
-
-    return Response(
-        content=pdf_bytes,
-        media_type="application/pdf",
-        headers={"Content-Disposition": 'attachment; filename="Porutham-reference.pdf"'},
-    )
-
+    """Retired: no PDF is generated from incomplete or unverified horoscope data."""
+    raise HTTPException(410, "Porutham PDF is unavailable until an appropriate real-chart review exists")
 
 def _astro_profile_or_404(tsap_id: str, request: Request = None) -> Dict:
     """Astrology routes expose only active public profiles or the authenticated owner's own record."""
@@ -8597,27 +9370,32 @@ def _astro_profile_or_404(tsap_id: str, request: Request = None) -> Dict:
 
 @app.get("/api/astro/dosha/{tsap_id}")
 def api_dosha(tsap_id: str, request: Request = None):
-    """🔍 Dosha screening — profile కి దోషం unda/leda (honest flags)."""
+    """Return pending/unavailable state; never infer dosha from profile fields."""
     u = _astro_profile_or_404(tsap_id, request)
-    res = AST.dosha_screening(u)
-    res["tsap_id"] = u["tsap_id"]
-    return res
+    evidence = AST.jathakam_status(u["tsap_id"])
+    return {
+        "success": True, "available": False, "calculation_available": False,
+        "status": "jathakam_review_required", "tsap_id": u["tsap_id"],
+        "evidence_state": evidence.get("state"), "flags": [], "verdict_telugu": "",
+        "message_en": "No dosha screening is generated from unverified profile fields. A real chart and qualified review are required.",
+        "message_telugu": "Verify కాని profile వివరాల నుంచి dosha screening తయారు చేయము. నిజమైన chart మరియు qualified review అవసరం.",
+    }
 
 
 @app.get("/api/astro/chart/{tsap_id}")
 def api_astro_chart(tsap_id: str, request: Request = None):
-    """🗺️ Rasi katam data — South-Indian fixed chart (Moon house = stored rasi).
-    Lagna + planets manaki teliyavu (birth time/place accurate ga lekapothe guess vaddhu)
-    kabatti honest Moon-only chart — migathadi ki jathakam upload → pandit review."""
+    """Return evidence status, never a star/rasi-only chart."""
     u = _astro_profile_or_404(tsap_id, request)
-    ri = AST.rasi_index(str(u.get("rasi", "") or ""))
-    houses = [{"house": i + 1, "rasi_en": AST.rasi_name(i), "moon": (ri == i)} for i in range(12)]
-    return {"success": True, "tsap_id": u["tsap_id"], "style": "south-indian",
-            "star": str(u.get("star", "") or ""), "rasi": str(u.get("rasi", "") or ""),
-            "rasi_known": ri is not None, "moon_house": (ri + 1) if ri is not None else None,
-            "houses": houses,
-            "note_telugu": ("🌙 Chandra rasi chart — rasi intlo Moon (చంద్రుడు) gurthu. Lagna/grahalu teliyali ante jathakam upload cheyandi (pandit garu chustaru)"
-                            if ri is not None else "ℹ️ Rasi ledu — profile lo rasi add cheyandi, chart automatic ga vastundi")}
+    evidence = AST.jathakam_status(u["tsap_id"])
+    return {
+        "success": False, "available": False, "calculation_available": False,
+        "status": "jathakam_review_required", "tsap_id": u["tsap_id"],
+        "evidence_state": evidence.get("state"), "style": None, "houses": [],
+        "message_en": "A complete chart is unavailable. Member-entered star/rasi fields are not converted into a horoscope.",
+        "message_telugu": "పూర్తి chart అందుబాటులో లేదు. సభ్యులు నమోదు చేసిన star/rasi వివరాలను జాతకంగా మార్చము.",
+        "note_en": "Upload the real document from the owner account; missing birth time, place, lagna, and planetary positions are never guessed.",
+        "note_telugu": "Owner account నుంచి నిజమైన పత్రాన్ని upload చేయండి; లేని birth time, place, lagna, గ్రహస్థానాలను ఊహించము.",
+    }
 
 
 @app.post("/api/astro/jathakam/upload")
@@ -8630,18 +9408,35 @@ async def api_jathakam_upload(file: UploadFile = File(...), tsap_id: str = Form(
     ext = (file.filename or "").split(".")[-1].lower()
     if ext not in {"jpg", "jpeg", "png", "webp", "pdf"}:
         raise HTTPException(400, "Jathakam photo (JPG/PNG) leda PDF మాత్రమే")
-    data = await file.read()
+    data = await file.read(8 * 1024 * 1024 + 1)
     if len(data) > 8 * 1024 * 1024:
         raise HTTPException(413, "File 8MB kanna ఎక్కువ — compress చేసి పంపండి")
     if len(data) < 1024:
         raise HTTPException(400, "File khaali — మళ్లీ upload చెయ్యండి")
     os.makedirs(JATHAKAM_MEDIA_DIR, exist_ok=True)
     name = f"{u['tsap_id']}-{datetime.utcnow().strftime('%y%m%d%H%M%S')}-{secrets.token_hex(4)}.{ext}"
-    with open(os.path.join(JATHAKAM_MEDIA_DIR, name), "xb") as f:
-        f.write(data)
+    atomic_write_bytes(os.path.join(JATHAKAM_MEDIA_DIR, name), data)
     j = AST.submit_jathakam(u["tsap_id"], name, "pdf" if ext == "pdf" else "photo")
+    if not j.get("success"):
+        try:
+            os.remove(os.path.join(JATHAKAM_MEDIA_DIR, name))
+        except OSError:
+            pass
+        raise HTTPException(503, j.get("message_telugu", "Jathakam could not be saved safely."))
     return {"success": True, "jathakam_id": j["id"],
+            "state": "pending_review", "calculation_available": False,
+            "message_en": f"The horoscope document was received ({j['id']}) and is pending review.",
             "message_telugu": f"✅ Jathakam వచ్చింది ({j['id']}) — pandit verify chesaka 🪐 badge వస్తుంది 🙏"}
+
+
+@app.get("/api/astro/jathakam/{tsap_id}")
+def api_jathakam_status(tsap_id: str, request: Request = None):
+    """Owner-only evidence state; never returns a generated chart or result."""
+    u = _find_user(tsap_id.strip().upper())
+    if not u:
+        raise HTTPException(404, "Profile dorakaledu")
+    require_owner(request, u["tsap_id"])
+    return AST.jathakam_status(u["tsap_id"])
 
 
 @app.get("/api/admin/astro/queue")
@@ -8678,15 +9473,29 @@ def api_astro_jathakam_file(jid: str, request: Request):
 def api_astro_verify(jid: str, payload: dict, request: Request):
     require_admin(request)
     d = payload or {}
-    res = AST.verify_jathakam(jid, bool(d.get("ok", True)), str(d.get("note", "")))
+    queued = next((item for item in AST.JATHAKAMS if item.get("id") == jid), None)
+    if not queued:
+        raise HTTPException(404, "⚠️ Jathakam దొరకలేదు")
+    u = _find_user(queued.get("tsap_id", ""))
+    if not u:
+        raise HTTPException(404, "Jathakam owner profile not found")
+    profile_before = copy.deepcopy(u)
+    astro_before = copy.deepcopy(queued)
+    res = AST.verify_jathakam(jid, req_bool(d.get("ok", True)), str(d.get("note", "")))
     if not res.get("success"):
-        raise HTTPException(404, res.get("message_telugu"))
+        raise HTTPException(503 if "safely" in str(res.get("message_telugu", "")).lower() else 404,
+                            res.get("message_telugu"))
     j = res["jathakam"]
-    u = _find_user(j["tsap_id"])
-    if u and j["status"] == "verified":
-        u["jathakam_verified"] = True
-    elif u:
-        u["jathakam_verified"] = False
+    u["jathakam_verified"] = (j["status"] == "verified")
+    if not _persist_core_state():
+        u.clear()
+        u.update(profile_before)
+        queued.clear()
+        queued.update(astro_before)
+        # AST was committed before the profile store. Restore that record so a
+        # failed cross-store commit cannot advertise a verification badge.
+        AST._persist()
+        raise HTTPException(503, "Jathakam verification could not be saved safely. Please try again.")
     return res
 
 
@@ -9549,8 +10358,12 @@ def api_admin_offer_toggle(code: str, request: Request):
     o = PP.get_offer(code)
     if not o:
         raise HTTPException(404, "Offer dorakaledu")
+    previous = copy.deepcopy(o)
     o["active"] = not o.get("active", True)
-    PP._persist()
+    if not PP._persist():
+        o.clear()
+        o.update(previous)
+        raise HTTPException(503, "Offer status could not be saved safely. Please try again.")
     return {"success": True, "offer": o,
             "message_telugu": f"✅ {o['code']} {'ON' if o['active'] else 'OFF'}"}
 
@@ -9575,7 +10388,7 @@ def api_bot_matches(tsap_id: str, limit: int = 3, request: Request = None):
     require_owner(request, normalized_id)
     me = _find_user(normalized_id)
     if not _is_approved_profile(me):
-        raise HTTPException(404, "Approved member profile not found")
+        raise _approved_profile_404()
     pool = [u for u in DB_USERS if _is_approved_profile(u)
             and str(u.get("tsap_id", "")).upper() != normalized_id
             and not safety.is_blocked(normalized_id, u.get("tsap_id", ""), DB_BLOCKS)]
@@ -9669,7 +10482,8 @@ def api_admin_cms_page(payload: dict, request: Request):
                           d.get("photos"), d.get("tags"), d.get("published", False),
                           int(d.get("order", 0) or 0))
     if not res.get("success"):
-        raise HTTPException(400, res.get("message_telugu"))
+        raise HTTPException(503 if res.get("reason") == "persistence_failed" else 400,
+                            res.get("message_telugu"))
     return res
 
 
@@ -9683,7 +10497,8 @@ def api_admin_cms_story(payload: dict, request: Request):
                            str(d.get("wedding_date", "") or ""), d.get("tags"),
                            d.get("published", False))
     if not res.get("success"):
-        raise HTTPException(400, res.get("message_telugu"))
+        raise HTTPException(503 if res.get("reason") == "persistence_failed" else 400,
+                            res.get("message_telugu"))
     return res
 
 
@@ -9695,7 +10510,8 @@ def api_admin_cms_banner(payload: dict, request: Request):
                             str(d.get("link", "") or ""), d.get("pages", "all"),
                             d.get("active", False), int(d.get("order", 0) or 0))
     if not res.get("success"):
-        raise HTTPException(400, res.get("message_telugu"))
+        raise HTTPException(503 if res.get("reason") == "persistence_failed" else 400,
+                            res.get("message_telugu"))
     return res
 
 
@@ -9705,7 +10521,8 @@ def api_admin_cms_delete(payload: dict, request: Request):
     d = payload or {}
     res = CMS.delete_item(str(d.get("kind", "")), str(d.get("id", "") or d.get("slug", "")))
     if not res.get("success"):
-        raise HTTPException(400, res.get("message_telugu"))
+        raise HTTPException(503 if res.get("reason") == "persistence_failed" else 400,
+                            res.get("message_telugu"))
     return res
 
 
@@ -9745,7 +10562,8 @@ def api_admin_chan_link(payload: dict, request: Request):
                         str(d.get("whatsapp", "") or ""), d.get("active", True),
                         str(d.get("note", "") or ""))
     if not res.get("success"):
-        raise HTTPException(400, res.get("message_telugu"))
+        raise HTTPException(503 if res.get("reason") == "persistence_failed" else 400,
+                            res.get("message_telugu"))
     return res
 
 
@@ -9756,7 +10574,8 @@ def api_admin_chan_import(payload: dict, request: Request):
     d = payload or {}
     res = CHAN.import_bulk(str(d.get("text", "") or ""), bool(d.get("auto_apply", False)))
     if not res.get("success"):
-        raise HTTPException(400, res.get("message_telugu"))
+        raise HTTPException(503 if res.get("reason") == "persistence_failed" else 400,
+                            res.get("message_telugu"))
     return res
 
 
@@ -10090,6 +10909,7 @@ def api_compare_profiles(payload: dict, request: Request = None):
         raise HTTPException(400, "Profile IDs must be different")
 
     found_profiles = []
+    raw_profiles = []
     for profile_id in normalized:
         matched = next((u for u in DB_USERS
                         if str(u.get("tsap_id", "")).strip().upper() == profile_id), None)
@@ -10098,43 +10918,35 @@ def api_compare_profiles(payload: dict, request: Request = None):
             raise HTTPException(404, "One or more approved member profiles are unavailable")
         if viewer_id and safety.is_blocked(viewer_id, profile_id, DB_BLOCKS):
             raise HTTPException(404, "One or more approved member profiles are unavailable")
+        raw_profiles.append(matched)
         found_profiles.append(safe_user(matched))
+
+    # Explainable side-by-side help, never a compatibility score: the same
+    # member-entered facts and saved expectations used on the profile page.
+    comparisons: Dict[str, Any] = {}
+    if viewer:
+        for raw in raw_profiles:
+            pid = str(raw.get("tsap_id", "")).strip().upper()
+            if not pid or pid == str(viewer.get("tsap_id", "")).strip().upper():
+                continue
+            result = topmatch.score_match_v2(viewer, raw)
+            comparisons[pid] = {
+                "preference_checks": result.get("preferences", []),
+                "field_checks": result.get("breakdown", []),
+                "observations": result.get("observations", []),
+                "notice": result.get("notice", ""),
+                "notice_telugu": result.get("notice_telugu", ""),
+            }
 
     return {
         "success": True,
         "count": len(found_profiles),
         "profiles": found_profiles,
+        "comparisons": comparisons,
+        "has_saved_expectations": any(
+            bool((row or {}).get("preference_checks")) for row in comparisons.values()
+        ),
         "message_telugu": f"✅ {len(found_profiles)} member profiles పోలికకు సిద్ధంగా ఉన్నాయి",
-    }
-
-
-@app.post("/api/lagna-patrika/generate")
-def api_lagna_patrika_generate(payload: dict):
-    """Validates and processes Lagna Patrika generation payload."""
-    d = payload or {}
-    bride_name = d.get("bride_name", "").strip()
-    groom_name = d.get("groom_name", "").strip()
-    muhurtham_date = d.get("muhurtham_date", "").strip()
-    muhurtham_time = d.get("muhurtham_time", "").strip()
-    venue = d.get("venue", "").strip()
-    theme = d.get("theme", "royal_gold")
-
-    if not bride_name or not groom_name:
-        raise HTTPException(400, "⚠️ వధూవరుల పేర్లు తప్పనిసరిగా ఇవ్వాలి")
-
-    wa_text = f"📜 *మన వివాహ — శుభ లగ్న పత్రిక* 🌸\n\nచిరంజీవి *{groom_name}* మరియు చిరంజీవి సౌభాగ్యవతి *{bride_name}* ల వివాహ మహోత్సవ శుభ ముహూర్తం:\n📅 తేది: {muhurtham_date} | సమయం: {muhurtham_time}\n🏛️ కళ్యాణ వేదిక: {venue}\n\nబంధుమిత్రులందరూ విచ్చేసి నూతన వధూవరులను ఆశీర్వదించగలరు.\n✨ మన వివాహ | manavivaha.in"
-
-    return {
-        "success": True,
-        "bride_name": bride_name,
-        "groom_name": groom_name,
-        "muhurtham_date": muhurtham_date,
-        "muhurtham_time": muhurtham_time,
-        "venue": venue,
-        "theme": theme,
-        "whatsapp_text": wa_text,
-        "whatsapp_url": f"https://wa.me/?text={urllib.parse.quote(wa_text)}",
-        "message_telugu": "✅ లగ్న పత్రిక విజయవంతంగా రూపొందించబడింది",
     }
 
 

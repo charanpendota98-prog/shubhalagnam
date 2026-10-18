@@ -6,6 +6,7 @@ not an identity check and does not promise reach, responses, or a match.
 from __future__ import annotations
 
 import json
+from atomic_store import atomic_json_dump
 import os
 import re
 from datetime import datetime, timedelta, timezone
@@ -64,8 +65,7 @@ def _load_spotlights() -> List[Dict[str, Any]]:
 
 def _save_spotlights(items: List[Dict[str, Any]]) -> bool:
     try:
-        with open(SPOTLIGHT_FILE, "w", encoding="utf-8") as f:
-            json.dump(items, f, ensure_ascii=False, indent=2, default=str)
+        atomic_json_dump(SPOTLIGHT_FILE, items, ensure_ascii=False, indent=2, default=str)
         return True
     except Exception as e:
         print("[SPOTLIGHT] save failed:", str(e))

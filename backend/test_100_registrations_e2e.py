@@ -35,6 +35,8 @@ sys.path.insert(0, os.path.dirname(__file__))
 from test_storage import isolate_test_stores  # noqa: E402
 
 isolate_test_stores("registrations-e2e")
+# This suite verifies the real fail-closed checkout path, not synthetic paid fixtures.
+os.environ["MANA_TEST_PAYMENT_FIXTURES"] = "false"
 
 import hardening  # noqa: E402
 import main  # noqa: E402
@@ -211,8 +213,10 @@ def run_e2e_stress_test():
             checkout = client.post("/api/credits/buy", json={"tsap_id": tsap_id, "plan_id": "S_99"}, headers=user_headers)
             assert checkout.status_code == 503 and not checkout.json().get("order")
 
-        # This suite deliberately creates no fabricated member photos or paid orders.
-        photo_url = None
+        # This suite creates no fabricated *paid* orders. Photos: registration requires a
+        # real photo, so the shared testutil_client.TestClient adapter attaches one synthetic
+        # test image to every /api/register call — each isolated fixture owns exactly one.
+        photo_url = "synthetic test photo (auto-attached by testutil_client.TestClient)"
         plan_code = "FREE"
 
         registered_users.append({
@@ -324,11 +328,14 @@ def run_e2e_stress_test():
     print(f"  ✓ Today's Signups (ఈరోజు రిజిస్ట్రేషన్లు): {today_count}")
     print(f"  ✓ Paid orders (expected zero without a provider): {paid_count}")
     print(f"  ✓ Free test profiles: {unpaid_count}")
-    print(f"  ✓ Uploaded test photos (expected zero): {photo_count}")
+    print(f"  ✓ Uploaded test photos (expected one per fixture): {photo_count}")
     assert today_count >= 100
     assert paid_count == 0
     assert unpaid_count >= 100
-    assert photo_count == 0
+    # 👇 Truthful count: one auto-attached synthetic photo per registered fixture —
+    #    not zero (the photo-required registration rule) and not more than one each
+    #    (guards against counting empty `photo_urls` placeholders as photos).
+    assert photo_count == len(registered_users)
 
     # -------------------------------------------------------------------------
     # PART 4: SMART MATCHMAKER BY ID ON MULTIPLE CANDIDATES

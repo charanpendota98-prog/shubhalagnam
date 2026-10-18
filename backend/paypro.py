@@ -12,8 +12,11 @@ Purposes: credits (consumer S_99..S_499 / separate bureau plans) · assisted sho
 Offers: festival promo codes (%/flat off, dates, applies_to, usage cap) — ADMIN lone create.
 """
 from __future__ import annotations
+from atomic_store import atomic_json_dump
+
 
 import hashlib
+import copy
 import hmac
 import json
 import os
@@ -75,12 +78,13 @@ def _now() -> str:
     return datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S")
 
 
-def _persist() -> None:
+def _persist() -> bool:
+    """Persist the payment ledger and report failure instead of claiming success."""
     try:
-        with open(PERSIST_FILE, "w", encoding="utf-8") as f:
-            json.dump({"orders": PAY_ORDERS[-1000:], "offers": OFFERS[-200:]}, f, ensure_ascii=False)
+        atomic_json_dump(PERSIST_FILE, {"orders": PAY_ORDERS[-1000:], "offers": OFFERS[-200:]}, ensure_ascii=False)
+        return True
     except Exception:
-        pass
+        return False
 
 
 def _restore() -> None:
@@ -159,7 +163,10 @@ def seed_festivals(valid_from: str = "", valid_to: str = "", max_uses: int = 100
                  used=0, active=True, created_at=_now())
         OFFERS.append(o)
         added.append(o["code"])
-    _persist()
+    if added and not _persist():
+        OFFERS[:] = [offer for offer in OFFERS if offer.get("code") not in added]
+        return {"success": False, "reason": "persistence_failed",
+                "message_telugu": "⚠️ Festival offers could not be saved safely. Please try again."}
     return {"success": True, "added": added,
             "message_telugu": f"✅ {len(added)} festival offers activate: {', '.join(added) or 'already unnai'}"}
 
@@ -182,7 +189,10 @@ def create_offer(code: str, title: str, pct_off: int = 0, flat_off: int = 0,
          "used_by": [], "min_amount": int(min_amount or 0),
          "festival": festival or "", "active": True, "created_at": _now()}
     OFFERS.append(o)
-    _persist()
+    if not _persist():
+        OFFERS.remove(o)
+        return {"success": False, "reason": "persistence_failed",
+                "message_telugu": "⚠️ Offer could not be saved safely. Please try again."}
     return {"success": True, "offer": o, "message_telugu": f"✅ Offer {code} ready"}
 
 
@@ -194,11 +204,15 @@ def delete_offer(code: str) -> Dict:
     """ADMIN: offer/promo delete (used history stays in pay orders)."""
     global OFFERS
     code = (code or "").strip().upper()
+    previous = OFFERS
     before = len(OFFERS)
     OFFERS = [o for o in OFFERS if str(o.get("code", "")).upper() != code]
     if len(OFFERS) == before:
         return {"success": False, "message_telugu": "⚠️ Offer code దొరకలేదు"}
-    _persist()
+    if not _persist():
+        OFFERS = previous
+        return {"success": False, "reason": "persistence_failed",
+                "message_telugu": "⚠️ Offer could not be deleted safely. Please try again."}
     return {"success": True, "message_telugu": f"🗑️ {code} delete అయ్యింది"}
 
 
@@ -249,14 +263,26 @@ def active_offers() -> List[Dict]:
     return out
 
 
-def _consume_offer(code: str, user_id: str = "") -> None:
+def _consume_offer(code: str, user_id: str = "") -> bool:
     with _OFFER_LOCK:  # 🌊 WAVE 34: concurrent verify → cap overshoot ban
         o = get_offer(code) if code else None
-        if o:
-            o["used"] = int(o.get("used", 0)) + 1
-            if user_id and str(user_id).strip().upper() not in [str(x).upper() for x in (o.get("used_by") or [])]:
-                o.setdefault("used_by", []).append(str(user_id).strip().upper())
-            _persist()
+        if not o:
+            return True
+        used_by = [str(x).upper() for x in (o.get("used_by") or [])]
+        normalized_user = str(user_id or "").strip().upper()
+        if int(o.get("used", 0) or 0) >= int(o.get("max_uses", 1) or 1):
+            return False
+        if o.get("usable_once", True) and normalized_user and normalized_user in used_by:
+            return False
+        previous = copy.deepcopy(o)
+        o["used"] = int(o.get("used", 0)) + 1
+        if normalized_user:
+            o.setdefault("used_by", []).append(normalized_user)
+        if not _persist():
+            o.clear()
+            o.update(previous)
+            return False
+        return True
 
 
 # ---------------------------------------------------------------------------
@@ -352,7 +378,11 @@ def create_pay_order(tsap_id: str, purpose: str, ref: str, offer_code: str = "")
         po["rzp_order_id"] = rz["rzp_order_id"]
         po["rzp_amount"] = rz["rzp_amount"]
     PAY_ORDERS.append(po)
-    _persist()
+    if not _persist():
+        PAY_ORDERS.remove(po)
+        _SEQ -= 1
+        return {"success": False, "reason": "persistence_failed",
+                "message_telugu": "⚠️ Payment order could not be saved safely. Please try again."}
     out = {"success": True, "pay_order": {k: po[k] for k in
            ("id", "purpose", "ref", "amount", "final_amount", "discount", "offer_code",
             "label", "mode", "status")},
@@ -443,18 +473,33 @@ def _fire_referral_commission(user: Dict, po: Dict, payment_id: str) -> None:
 
 
 def fulfill_order(po: Dict, payment_id: str, via: str) -> Dict:
-    """Actual fulfill (main.py users/callbacks తో — Users list inject via param? no: lazy main)."""
+    """Apply one verified benefit and make its owning store durable before success."""
     import main as MAIN  # lazy: circles avoid (paypro ← main import, runtime only)
     user = MAIN._find_user(po.get("tsap_id", ""))
     if not user:
         return {"ok": False, "message_telugu": "⚠️ User దొరకలేదు — amount hold (admin refund/credit)"}
     purpose, ref = po.get("purpose"), po.get("ref")
+
+    def persist_core_or_restore(before_users: List[Dict], before_refs: List[Dict]) -> bool:
+        if MAIN._persist_core_state():
+            return True
+        _restore_main_users(MAIN, before_users, before_refs)
+        return False
+
     if purpose == "credits":
+        before_refs = list(MAIN.DB_USERS)
+        before_users = copy.deepcopy(MAIN.DB_USERS)
         from interest import apply_payment
-        applied = apply_payment(user, _expected_amount("credits", ref)["amount"], ref)
+        expected = _expected_amount("credits", ref)
+        if not expected.get("ok"):
+            return {"ok": False, "message_telugu": "⚠️ Plan apply fail — admin chusthadu"}
+        applied = apply_payment(user, expected["amount"], ref)
         if not applied.get("ok"):
             return {"ok": False, "message_telugu": "⚠️ Plan apply fail — admin chusthadu"}
         _fire_referral_commission(user, po, payment_id)
+        if not persist_core_or_restore(before_users, before_refs):
+            return {"ok": False, "reason": "persistence_failed",
+                    "message_telugu": "⚠️ Payment benefit could not be saved safely. Please contact support; no duplicate credit was issued."}
         return {"ok": True, "credits": user.get("credits", 0), "plan": user.get("plan"),
                 "referral": po.get("referral"),
                 "message_telugu": f"✅ ₹{po['final_amount']} success — {applied.get('profiles_added', 0)} credits add! Balance: {user.get('credits', 0)} 🎉"}
@@ -473,11 +518,83 @@ def fulfill_order(po: Dict, payment_id: str, via: str) -> Dict:
         return {"ok": True,
                 "message_telugu": f"✅ Campaign {ref} LIVE — {r['campaign']['days']} days 🎉"}
     if purpose == "boost":
+        before_refs = list(MAIN.DB_USERS)
+        before_users = copy.deepcopy(MAIN.DB_USERS)
         import advanced11 as A11
         eff = A11.apply_boost(user, str(ref).upper())
+        if not persist_core_or_restore(before_users, before_refs):
+            return {"ok": False, "reason": "persistence_failed",
+                    "message_telugu": "⚠️ Boost could not be saved safely. Please try again."}
         return {"ok": True,
                 "message_telugu": f"✅ Boost ON! {eff.get('message_telugu', '')} ⚡"}
     return {"ok": False, "message_telugu": "⚠️ Unknown purpose"}
+
+
+def _restore_main_users(main_module, before_values: List[Dict], before_refs: Optional[List[Dict]] = None) -> None:
+    """Restore user dicts in place so request/test references cannot retain a grant."""
+    refs = before_refs if before_refs is not None else []
+    if refs and len(refs) == len(before_values):
+        for ref, previous in zip(refs, before_values):
+            ref.clear()
+            ref.update(previous)
+        main_module.DB_USERS[:] = refs
+    else:
+        main_module.DB_USERS[:] = before_values
+    if hasattr(main_module, "_reindex_users"):
+        main_module._reindex_users()
+
+
+def _snapshot_fulfillment_state(po: Dict) -> Dict:
+    """Capture every in-process store a payment fulfillment can touch."""
+    state: Dict = {}
+    try:
+        import main as MAIN
+        state["main_user_refs"] = list(MAIN.DB_USERS)
+        state["main_users"] = copy.deepcopy(MAIN.DB_USERS)
+    except Exception:
+        state["main_users"] = None
+    if po.get("purpose") == "ads":
+        try:
+            import ads as ADS
+            state["ads_campaigns"] = copy.deepcopy(ADS.CAMPAIGNS)
+            state["ads_seq"] = ADS._AD_SEQ
+        except Exception:
+            pass
+    if po.get("purpose") == "assisted":
+        try:
+            import smart12 as S12
+            state["assist_orders"] = copy.deepcopy(S12.ORDERS)
+            state["assist_seq"] = S12._ORDER_SEQ
+        except Exception:
+            pass
+    return state
+
+
+def _restore_fulfillment_state(state: Dict) -> None:
+    """Restore a failed cross-store fulfillment best-effort, preserving list identity."""
+    try:
+        import main as MAIN
+        if state.get("main_users") is not None:
+            _restore_main_users(MAIN, state["main_users"], state.get("main_user_refs"))
+            MAIN._persist_core_state()
+    except Exception:
+        pass
+    try:
+        import ads as ADS
+        if "ads_campaigns" in state:
+            ADS.CAMPAIGNS[:] = state["ads_campaigns"]
+            ADS._AD_SEQ = state["ads_seq"]
+            ADS._persist()
+    except Exception:
+        pass
+    try:
+        import smart12 as S12
+        if "assist_orders" in state:
+            S12.ORDERS[:] = state["assist_orders"]
+            S12._ORDER_SEQ = state["assist_seq"]
+            S12._persist()
+    except Exception:
+        pass
 
 
 def verify_payment(pay_order_id: str, rzp_order_id: str, payment_id: str,
@@ -500,8 +617,13 @@ def _verify_payment_locked(pay_order_id: str, rzp_order_id: str, payment_id: str
         return {"success": True, "duplicate": True, "receipt": po.get("receipt"),
                 "message_telugu": "✅ ఈ order already paid — double charge లేదు (idempotent) 🙂"}
     if order_expired(po):
+        previous = copy.deepcopy(po)
         po["status"] = "expired"
-        _persist()
+        if not _persist():
+            po.clear()
+            po.update(previous)
+            return {"success": False, "reason": "persistence_failed",
+                    "message_telugu": "⚠️ Order expiry could not be saved safely. Please try again."}
         return {"success": False, "reason": "expired",
                 "message_telugu": "⚠️ Order expire అయ్యింది (24h) — కొత్త order create చెయ్యండి"}
     if payment_id and payment_id in RECEIPTS:
@@ -520,9 +642,14 @@ def _verify_payment_locked(pay_order_id: str, rzp_order_id: str, payment_id: str
         # WAVE 34: uncaptured (authorized/failed) payment ki credits NEVER
         cap = _rzp_payment_status(payment_id)
         if not cap.get("captured"):
+            previous = copy.deepcopy(po)
             po["last_capture_check"] = {"at": _now(), "status": cap.get("status", ""),
                                         "error": cap.get("error", "")}
-            _persist()
+            if not _persist():
+                po.clear()
+                po.update(previous)
+                return {"success": False, "reason": "persistence_failed",
+                        "message_telugu": "⚠️ Capture status could not be saved safely. Please try again."}
             return {"success": False, "reason": "not_captured",
                     "rzp_status": cap.get("status", ""),
                     "message_telugu": "\u23F3 Payment inka bank side capture \u0C05\u0C35\u0C4D\u0C35\u0C32\u0C47\u0C26\u0C41 (status: %s) \u2014 2 \u0C28\u0C3F\u0C2E\u0C3F\u0C37\u0C3E\u0C32\u0C32\u0C4B \u0C2E\u0C33\u0C4D\u0C32\u0C40 try \u0C1A\u0C46\u0C2F\u0C4D\u0C2F\u0C02\u0C21\u0C3F (\u0C21\u0C2C\u0C4D\u0C2C\u0C41\u0C32\u0C41 safe, credits capture \u0C05\u0C2F\u0C4D\u0C2F\u0C3E\u0C15\u0C47 add)" % (cap.get("status") or "pending")}
@@ -530,12 +657,20 @@ def _verify_payment_locked(pay_order_id: str, rzp_order_id: str, payment_id: str
             return {"success": False, "reason": "amount_mismatch",
                     "message_telugu": "\U0001F6AB Razorpay amount (\u20B9%s) \u2260 order amount (\u20B9%s) \u2014 safe abort (support \u0C15\u0C3F payment ID \u0C2A\u0C02\u0C2A\u0C02\u0C21\u0C3F)" % (
                         int(cap.get("amount", 0)) // 100, po.get("final_amount", 0))}
+    po_before = copy.deepcopy(po)
+    fulfillment_before = _snapshot_fulfillment_state(po)
+    receipt_before = RECEIPTS.get(payment_id)
+    offer_before = copy.deepcopy(get_offer(po.get("offer_code", ""))) if po.get("offer_code") else None
     po["rzp_order_id"] = rzp_order_id
     po["payment_id"] = payment_id
     done = fulfill_order(po, payment_id, "razorpay")
     if not done.get("ok"):
+        po.clear()
+        po.update(po_before)
+        _restore_fulfillment_state(fulfillment_before)
         _persist()
-        return {"success": False, "message_telugu": done.get("message_telugu")}
+        return {"success": False, "reason": done.get("reason", "fulfillment_failed"),
+                "message_telugu": done.get("message_telugu")}
     po["status"] = "paid"
     po["paid_at"] = _now()
     receipt = {"pay_order_id": po["id"], "payment_id": payment_id, "amount": po["final_amount"],
@@ -543,9 +678,38 @@ def _verify_payment_locked(pay_order_id: str, rzp_order_id: str, payment_id: str
                "paid_at": po["paid_at"], "detail": done.get("message_telugu")}
     po["receipt"] = receipt
     RECEIPTS[payment_id] = receipt
-    if po.get("offer_code"):
-        _consume_offer(po["offer_code"], po.get("tsap_id", ""))
-    _persist()
+    if po.get("offer_code") and not _consume_offer(po["offer_code"], po.get("tsap_id", "")):
+        po.clear()
+        po.update(po_before)
+        if receipt_before is None:
+            RECEIPTS.pop(payment_id, None)
+        else:
+            RECEIPTS[payment_id] = receipt_before
+        _restore_fulfillment_state(fulfillment_before)
+        if offer_before is not None:
+            offer = get_offer(offer_before.get("code", ""))
+            if offer is not None:
+                offer.clear()
+                offer.update(offer_before)
+        _persist()
+        return {"success": False, "reason": "persistence_failed",
+                "message_telugu": "⚠️ Payment promotion could not be recorded safely. Please contact support before retrying."}
+    if not _persist():
+        po.clear()
+        po.update(po_before)
+        if receipt_before is None:
+            RECEIPTS.pop(payment_id, None)
+        else:
+            RECEIPTS[payment_id] = receipt_before
+        _restore_fulfillment_state(fulfillment_before)
+        if offer_before is not None:
+            offer = get_offer(offer_before.get("code", ""))
+            if offer is not None:
+                offer.clear()
+                offer.update(offer_before)
+        _persist()
+        return {"success": False, "reason": "persistence_failed",
+                "message_telugu": "⚠️ Payment could not be saved safely. Please contact support before retrying."}
     return {"success": True, "receipt": receipt, "message_telugu": receipt["detail"]}
 
 
@@ -581,20 +745,38 @@ def handle_razorpay_webhook(event: Dict) -> Dict:
             if name == "payment.authorized":
                 # 🌊 WAVE 34 PREMIUM: authorized ≠ captured — డబ్బులు inka bank దగ్గరే!
                 # Fulfill CHEYYAM (capture webhook / verify daggara fulfill avutundi).
+                previous = copy.deepcopy(po)
                 po["payment_id"] = payment_id or po.get("payment_id", "")
                 po["authorized_at"] = _now()
-                _persist()
+                if not _persist():
+                    po.clear()
+                    po.update(previous)
+                    return {"ok": False, "reason": "persistence_failed",
+                            "message_telugu": "⚠️ Payment authorization could not be saved safely."}
                 return {"ok": True, "pending_capture": True, "pay_order_id": po["id"],
                         "message_telugu": "⏳ Payment authorized — capture webhook kosam wait (credits capture అయ్యాకే)"}
             if order_expired(po):
+                previous = copy.deepcopy(po)
                 po["status"] = "expired"
-                _persist()
+                if not _persist():
+                    po.clear()
+                    po.update(previous)
+                    return {"ok": False, "reason": "persistence_failed",
+                            "message_telugu": "⚠️ Order expiry could not be saved safely."}
                 return {"ok": False, "reason": "expired"}
+            po_before = copy.deepcopy(po)
+            fulfillment_before = _snapshot_fulfillment_state(po)
+            receipt_before = RECEIPTS.get(payment_id)
+            offer_before = copy.deepcopy(get_offer(po.get("offer_code", ""))) if po.get("offer_code") else None
             po["payment_id"] = payment_id
             done = fulfill_order(po, payment_id, "razorpay_webhook")
             if not done.get("ok"):
+                po.clear()
+                po.update(po_before)
+                _restore_fulfillment_state(fulfillment_before)
                 _persist()
-                return {"ok": False, "message_telugu": done.get("message_telugu")}
+                return {"ok": False, "reason": done.get("reason", "fulfillment_failed"),
+                        "message_telugu": done.get("message_telugu")}
             po["status"] = "paid"
             po["paid_at"] = _now()
             receipt = {"pay_order_id": po["id"], "payment_id": payment_id, "amount": po["final_amount"],
@@ -602,9 +784,36 @@ def handle_razorpay_webhook(event: Dict) -> Dict:
                        "paid_at": po["paid_at"], "detail": done.get("message_telugu"), "via": "webhook"}
             po["receipt"] = receipt
             RECEIPTS[payment_id] = receipt
-            if po.get("offer_code"):
-                _consume_offer(po["offer_code"], po.get("tsap_id", ""))
-            _persist()
+            if po.get("offer_code") and not _consume_offer(po["offer_code"], po.get("tsap_id", "")):
+                po.clear()
+                po.update(po_before)
+                if receipt_before is None:
+                    RECEIPTS.pop(payment_id, None)
+                else:
+                    RECEIPTS[payment_id] = receipt_before
+                _restore_fulfillment_state(fulfillment_before)
+                if offer_before is not None:
+                    offer = get_offer(offer_before.get("code", ""))
+                    if offer is not None:
+                        offer.clear(); offer.update(offer_before)
+                _persist()
+                return {"ok": False, "reason": "persistence_failed",
+                        "message_telugu": "⚠️ Payment promotion could not be recorded safely."}
+            if not _persist():
+                po.clear()
+                po.update(po_before)
+                if receipt_before is None:
+                    RECEIPTS.pop(payment_id, None)
+                else:
+                    RECEIPTS[payment_id] = receipt_before
+                _restore_fulfillment_state(fulfillment_before)
+                if offer_before is not None:
+                    offer = get_offer(offer_before.get("code", ""))
+                    if offer is not None:
+                        offer.clear(); offer.update(offer_before)
+                _persist()
+                return {"ok": False, "reason": "persistence_failed",
+                        "message_telugu": "⚠️ Payment could not be saved safely."}
             return {"ok": True, "receipt": receipt}
     except Exception as e:
         return {"ok": False, "reason": "error", "error": str(e)[:100]}
@@ -624,8 +833,13 @@ def claim_utr(pay_order_id: str, tsap_id: str, utr: str) -> Dict:
         return {"success": True, "duplicate": True,
                 "message_telugu": "✅ Already paid — credits vachayi 🙂"}
     if order_expired(po):
+        previous = copy.deepcopy(po)
         po["status"] = "expired"
-        _persist()
+        if not _persist():
+            po.clear()
+            po.update(previous)
+            return {"success": False, "reason": "persistence_failed",
+                    "message_telugu": "⚠️ Order expiry could not be saved safely. Please try again."}
         return {"success": False, "reason": "expired",
                 "message_telugu": "⚠️ Order expire అయ్యింది — కొత్త order చెయ్యండి"}
     if po.get("status") not in ("created", "claimed"):
@@ -637,10 +851,15 @@ def claim_utr(pay_order_id: str, tsap_id: str, utr: str) -> Dict:
     if dup:
         return {"success": False, "reason": "utr_reused",
                 "message_telugu": "🚫 ఈ UTR already vere order (%s) లో use అయ్యింది" % dup}
+    previous = copy.deepcopy(po)
     po["claim_utr"] = utr.strip()
     po["claimed_at"] = _now()
     po["status"] = "claimed"
-    _persist()
+    if not _persist():
+        po.clear()
+        po.update(previous)
+        return {"success": False, "reason": "persistence_failed",
+                "message_telugu": "⚠️ Payment claim could not be saved safely. Please try again."}
     return {"success": True, "order_id": po["id"],
             "message_telugu": "✅ UTR వచ్చింది! Admin bank statement verify చేసి confirm చేస్తాడు (thwaralone credits add) 🙏"}
 
@@ -660,8 +879,13 @@ def _confirm_manual_locked(pay_order_id: str, utr: str) -> Dict:
         return {"success": True, "duplicate": True, "receipt": po.get("receipt"),
                 "message_telugu": "✅ Already paid — double credit ఇవ్వము"}
     if order_expired(po):
+        previous = copy.deepcopy(po)
         po["status"] = "expired"
-        _persist()
+        if not _persist():
+            po.clear()
+            po.update(previous)
+            return {"success": False, "reason": "persistence_failed",
+                    "message_telugu": "⚠️ Order expiry could not be saved safely. Please try again."}
         return {"success": False, "reason": "expired",
                 "message_telugu": "⚠️ Order expire అయ్యింది — user కొత్త order చెయ్యాలి"}
     if po.get("status") not in ("created", "claimed"):
@@ -679,20 +903,47 @@ def _confirm_manual_locked(pay_order_id: str, utr: str) -> Dict:
     if int(po.get("final_amount", 0) or 0) <= 0:
         return {"success": False, "reason": "bad_amount",
                 "message_telugu": "⚠️ Order amount tappu — కొత్త order చెయ్యండి"}
+    po_before = copy.deepcopy(po)
+    fulfillment_before = _snapshot_fulfillment_state(po)
+    receipt_before = None
+    offer_before = copy.deepcopy(get_offer(po.get("offer_code", ""))) if po.get("offer_code") else None
     po["utr"] = utr.strip()
     done = fulfill_order(po, "", "manual_utr")
     if not done.get("ok"):
+        po.clear()
+        po.update(po_before)
+        _restore_fulfillment_state(fulfillment_before)
         _persist()
-        return {"success": False, "message_telugu": done.get("message_telugu")}
+        return {"success": False, "reason": done.get("reason", "fulfillment_failed"),
+                "message_telugu": done.get("message_telugu")}
     po["status"] = "paid"
     po["paid_at"] = _now()
     receipt = {"pay_order_id": po["id"], "utr": po["utr"], "amount": po["final_amount"],
                "purpose": po["purpose"], "ref": po["ref"], "tsap_id": po["tsap_id"],
                "paid_at": po["paid_at"], "detail": done.get("message_telugu")}
     po["receipt"] = receipt
-    if po.get("offer_code"):
-        _consume_offer(po["offer_code"], po.get("tsap_id", ""))
-    _persist()
+    if po.get("offer_code") and not _consume_offer(po["offer_code"], po.get("tsap_id", "")):
+        po.clear()
+        po.update(po_before)
+        _restore_fulfillment_state(fulfillment_before)
+        if offer_before is not None:
+            offer = get_offer(offer_before.get("code", ""))
+            if offer is not None:
+                offer.clear(); offer.update(offer_before)
+        _persist()
+        return {"success": False, "reason": "persistence_failed",
+                "message_telugu": "⚠️ Payment promotion could not be recorded safely."}
+    if not _persist():
+        po.clear()
+        po.update(po_before)
+        _restore_fulfillment_state(fulfillment_before)
+        if offer_before is not None:
+            offer = get_offer(offer_before.get("code", ""))
+            if offer is not None:
+                offer.clear(); offer.update(offer_before)
+        _persist()
+        return {"success": False, "reason": "persistence_failed",
+                "message_telugu": "⚠️ Payment could not be saved safely. Please try again."}
     return {"success": True, "receipt": receipt, "message_telugu": receipt["detail"]}
 
 
@@ -738,15 +989,16 @@ def razorpay_refund(payment_id: str, amount_rs: int, note: str = "") -> Dict:
 
 
 def _reverse_fulfillment(po: Dict) -> Dict:
-    """Paid benefits venakki (credits deduct / boost off / campaign pause / assist mark).
-    Best-effort per purpose - em fail aina kooda record + continue."""
-    out = {"reversed": [], "notes": []}
+    """Reverse the paid benefit and durably commit its owning store before success."""
+    out = {"reversed": [], "notes": [], "ok": True}
     try:
         import main as MAIN  # lazy
         user = MAIN._find_user(po.get("tsap_id", ""))
     except Exception:
-        user = None
+        MAIN, user = None, None
     purpose, ref = po.get("purpose"), po.get("ref")
+    main_refs = list(MAIN.DB_USERS) if MAIN is not None else None
+    main_before = copy.deepcopy(MAIN.DB_USERS) if MAIN is not None else None
     try:
         if purpose == "credits" and user is not None:
             exp = _expected_amount("credits", ref)
@@ -762,31 +1014,53 @@ def _reverse_fulfillment(po: Dict) -> Dict:
                     out["reversed"].append("plan -> FREE")
             except Exception as e:
                 out["notes"].append("plan_keep: %s" % str(e)[:60])
+            if MAIN is None or not MAIN._persist_core_state():
+                out["ok"] = False
+                out["notes"].append("core_persistence_failed")
         elif purpose == "boost" and user is not None:
             if user.get("boost_until"):
                 user["boost_until"] = ""
                 out["reversed"].append("boost OFF")
+            if MAIN is None or not MAIN._persist_core_state():
+                out["ok"] = False
+                out["notes"].append("core_persistence_failed")
         elif purpose == "ads":
             try:
                 import ads as ADS  # lazy
                 r = ADS.campaign_action(ref, "pause", "refund %s" % po.get("id", ""))
-                out["reversed" if r.get("success") else "notes"].append(
-                    "campaign %s paused" % ref if r.get("success") else "campaign: %s" % r.get("message_telugu", "")[:60])
+                if r.get("success"):
+                    out["reversed"].append("campaign %s paused" % ref)
+                else:
+                    out["ok"] = False
+                    out["notes"].append("campaign: %s" % r.get("message_telugu", "")[:60])
             except Exception as e:
+                out["ok"] = False
                 out["notes"].append("campaign_err: %s" % str(e)[:60])
         elif purpose == "assisted":
             try:
                 import smart12 as S12  # lazy
                 o = S12.get_order(ref)
                 if o:
+                    previous = copy.deepcopy(o)
                     o["status"] = "refunded"
                     o["refund_note"] = "pay %s refund" % po.get("id", "")
-                    S12._persist()
-                    out["reversed"].append("assisted %s -> refunded" % ref)
+                    if not S12._persist():
+                        o.clear()
+                        o.update(previous)
+                        out["ok"] = False
+                        out["notes"].append("assisted_persistence_failed")
+                    else:
+                        out["reversed"].append("assisted %s -> refunded" % ref)
             except Exception as e:
+                out["ok"] = False
                 out["notes"].append("assisted_err: %s" % str(e)[:60])
     except Exception as e:
+        out["ok"] = False
         out["notes"].append("reverse_err: %s" % str(e)[:80])
+    if not out["ok"] and MAIN is not None and main_before is not None:
+        _restore_main_users(MAIN, main_before, main_refs)
+        # A failed persistence boundary is deliberately surfaced to the caller;
+        # do not claim that the rollback itself was durably written.
     return out
 
 
@@ -821,7 +1095,13 @@ def _refund_order_locked(pay_order_id: str, reason: str, admin_note: str) -> Dic
             return {"success": False, "reason": "note_required",
                     "message_telugu": "\u26a0\ufe0f Manual refund \u0c15\u0c3f note mandatory (return UTR / proof - audit \u0c15\u0c4b\u0c38\u0c02)"}
         refund_id, via = "MANUAL:" + (admin_note.strip()[:60]), "manual_upi"
+    po_before = copy.deepcopy(po)
+    fulfillment_before = _snapshot_fulfillment_state(po)
     rev = _reverse_fulfillment(po)
+    if not rev.get("ok"):
+        _restore_fulfillment_state(fulfillment_before)
+        return {"success": False, "reason": "reversal_persistence_failed", "refund_id": refund_id,
+                "message_telugu": "⚠️ Refund was not recorded because the benefit reversal could not be saved safely. Please retry after storage is healthy."}
     claw = {}
     try:
         import main as MAIN  # lazy
@@ -830,8 +1110,12 @@ def _refund_order_locked(pay_order_id: str, reason: str, admin_note: str) -> Dic
         if user is not None and user.get("referred_by"):
             claw = reverse_referral_payment(user, int(po.get("final_amount", 0) or 0),
                                             MAIN.DB_USERS, reason="refund:" + po["id"])
+            if claw.get("success") and not MAIN._persist_core_state():
+                raise OSError("core persistence failed after referral clawback")
     except Exception as e:
-        claw = {"success": False, "error": str(e)[:80]}
+        _restore_fulfillment_state(fulfillment_before)
+        return {"success": False, "reason": "clawback_persistence_failed", "refund_id": refund_id,
+                "message_telugu": "⚠️ Refund was not recorded because the referral reversal could not be saved safely. Please retry after storage is healthy."}
     po["status"] = "refunded"
     po["refunded_at"] = _now()
     po["refund_reason"] = reason
@@ -840,7 +1124,13 @@ def _refund_order_locked(pay_order_id: str, reason: str, admin_note: str) -> Dic
     po["refund_reversal"] = rev
     po["refund_clawback"] = {"success": bool((claw or {}).get("success")),
                              "reversed": (claw or {}).get("reversed", 0)}
-    _persist()
+    if not _persist():
+        po.clear()
+        po.update(po_before)
+        # The external refund may already exist; keep the local benefit reversal
+        # durable and surface a reconciliation state rather than claiming success.
+        return {"success": False, "reason": "persistence_failed", "refund_id": refund_id,
+                "message_telugu": "⚠️ Money refund was submitted, but the local refund ledger could not be saved. Do not retry blindly; reconcile this refund after storage is healthy."}
     return {"success": True, "order_id": po["id"], "refund_id": refund_id, "via": via,
             "reversed": rev.get("reversed", []), "clawback": po["refund_clawback"],
             "message_telugu": "\u2705 %s refund \u0c05\u0c2f\u0c4d\u0c2f\u0c3f\u0c02\u0c26\u0c3f (\u20b9%s, %s) - benefits reverse + commission clawback done" % (

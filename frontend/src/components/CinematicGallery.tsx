@@ -160,11 +160,11 @@ export default function CinematicGallery() {
                 controls
                 playsInline
                 preload="metadata"
-                poster="/promo/wedding-story-film.webp"
+                poster="/promo/wedding-story-poster.jpg"
                 onError={() => setFilmError(true)}
                 onCanPlay={() => setFilmError(false)}
                 aria-label={te ? "సూచన కోసం రూపొందించిన వివాహ వేడుకల వీడియో" : "Illustrative wedding film player"}
-                className="h-full w-full bg-black object-cover focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-inset focus-visible:ring-amber-400"
+                className="h-full w-full bg-black object-contain focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-inset focus-visible:ring-amber-400"
               >
                 <source src="/promo/wedding-story-film.mp4" type="video/mp4" />
               </video>

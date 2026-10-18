@@ -159,8 +159,8 @@ export function parseSlug(slug: string): { caste: CasteInfo; role: Role; distric
   return { caste, role, district };
 }
 
-/** Sitemap / generateStaticParams ki — anni combos (top castes × districts tho) */
-export function allSeoSlugs(limitDistrictsForTopCastes = 0): string[] {
+/** Sitemap / generateStaticParams ki — community × role, no district. */
+export function allSeoSlugs(): string[] {
   const out: string[] = [];
   for (const c of CASTES) {
     out.push(buildSlug(c.key, "bride"));
@@ -169,4 +169,26 @@ export function allSeoSlugs(limitDistrictsForTopCastes = 0): string[] {
   return out;
 }
 
+/**
+ * Community × role × district slugs for the first `limit` communities.
+ *
+ * These pages already exist and answer real searches ("Reddy brides in
+ * Warangal"), but nothing linked into them, so crawlers never found them.
+ * Only the communities the registry lists first are expanded: a district page
+ * is only worth a sitemap entry where the community itself has enough demand
+ * to make the page more than a doorway.
+ */
+export function districtSeoSlugs(limit = 0): string[] {
+  if (!Number.isFinite(limit) || limit <= 0) return [];
+  const out: string[] = [];
+  for (const c of CASTES.slice(0, Math.floor(limit))) {
+    for (const d of DISTRICTS) {
+      out.push(buildSlug(c.key, "bride", d.slug));
+      out.push(buildSlug(c.key, "groom", d.slug));
+    }
+  }
+  return out;
+}
+
 export const SEO_PAGE_COUNT = allSeoSlugs().length;
+export const SEO_DISTRICT_PAGE_COUNT = districtSeoSlugs(8).length;

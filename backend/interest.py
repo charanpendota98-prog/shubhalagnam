@@ -496,7 +496,7 @@ def interest_to_owner_text(requester: Dict, owner: Dict, rec: Dict) -> str:
         f"📍 {r['district']}, {r['state']}{'  •  💼 ' + r['work_location'] if r['work_location'] else ''}\n"
         f"💍 {r['caste']}{' / ' + r['sub_caste'] if r['sub_caste'] else ''}"
         f"{'  |  గోత్రం: ' + r['gothram'] if r['gothram'] else ''}\n"
-        f"🌟 నక్షత్రం: {r['star'] or '—'}  |  రాశి: {r['rasi'] or '—'}\n"
+        f"🌟 నక్షత్రం / రాశి (సభ్యుడు నమోదు చేసినవి; verify అయిన జాతకం కాదు): {r['star'] or '—'}  |  {r['rasi'] or '—'}\n"
         + (f"📝 *చూడటానికి profile వివరాలు (match verdict కాదు):*\n{observations}\n" if observations else "")
         + (f"📝 *సందేశం:* \"{rec['note']}\"\n" if rec.get("note") else "")
         + f"━━━━━━━━━━━━━━━━\n"

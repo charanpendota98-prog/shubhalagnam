@@ -98,6 +98,9 @@ class FrontendContactConfigurationTests(unittest.TestCase):
         terms = self.read("frontend/src/app/terms/page-client.tsx")
         footer = self.read("frontend/src/components/SiteFooter.tsx")
         home = self.read("frontend/src/app/page.tsx")
+        # Site-wide Organization/WebSite structured data lives in the root layout now;
+        # the homepage emits only its own FAQ graph.
+        layout = self.read("frontend/src/app/layout.tsx")
         self.assertIn("SITE_CONFIG.owner.email ?", privacy)
         self.assertIn("SITE_CONFIG.owner.location ?", privacy)
         self.assertIn("SITE_CONFIG.supportConfigured", privacy)
@@ -106,8 +109,10 @@ class FrontendContactConfigurationTests(unittest.TestCase):
         self.assertIn("SITE_CONFIG.supportConfigured", refund)
         self.assertIn("SITE_CONFIG.supportEmail ?", terms)
         self.assertIn("SITE_CONFIG.supportEmail ?", footer)
-        self.assertIn("...(SITE_CONFIG.supportEmail ? { email: SITE_CONFIG.supportEmail } : {})", home)
+        self.assertIn("...(SUPPORT_EMAIL ? { email: SUPPORT_EMAIL } : {})", layout)
+        self.assertIn("...(CONTACT_POINT ? { contactPoint: CONTACT_POINT } : {})", layout)
         self.assertNotIn("email: SITE_CONFIG.supportEmail,", home)
+        self.assertNotIn("email: SUPPORT_EMAIL,", layout)
         self.assertNotIn("areaServed", home)
         for source in (terms, privacy, refund):
             self.assertNotIn("Hyderabad, Telangana, India", source)

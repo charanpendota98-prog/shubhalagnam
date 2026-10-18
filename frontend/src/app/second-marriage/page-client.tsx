@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import HomeSecondMarriageSection from "@/components/HomeSecondMarriageSection";
 import Link from "next/link";
 import { apiDisplayMessage, apiGet } from "@/lib/api";
 import { SITE_CONFIG } from "@/lib/site-config";
@@ -218,6 +219,9 @@ export default function SecondMarriagePage() {
 
   return (
     <div className="min-h-dvh bg-[#FFFDF9] pb-20">
+
+      {/* Community guidance section for second-marriage introductions. */}
+      <HomeSecondMarriageSection />
       {/* ================= HERO HEADER ================= */}
       <section className="relative overflow-hidden bg-gradient-to-br from-[#4A0518] via-[#660B25] to-[#8C1438] text-white py-12 px-4 border-b-4 border-gold">
         {/* Decorative Background Circles */}
@@ -314,7 +318,7 @@ export default function SecondMarriagePage() {
             { id: "divorced", te: "⚖️ విడాకులు పొందినవారు", en: "⚖️ Divorced" },
             { id: "widow", te: "🌸 వితంతువు / విధురుడు", en: "🌸 Widowed" },
           ].map((tab) => (
-            <button
+            <button type="button"
               key={tab.id}
               onClick={() => handleTabClick(tab.id)}
               aria-pressed={activeTab === tab.id}
@@ -415,7 +419,7 @@ export default function SecondMarriagePage() {
             </div>
 
             {(gender || maritalFilter || childrenFilter || selectedCaste || selectedDistrict || ageMax < 55 || searchQuery) && (
-              <button
+              <button type="button"
                 onClick={resetAllFilters}
                 className="text-[11px] text-rose-600 hover:text-rose-800 font-bold flex items-center gap-1"
               >
@@ -455,7 +459,7 @@ export default function SecondMarriagePage() {
                 ? (te ? "నమూనా లేదా కల్పిత ప్రొఫైళ్లు చూపించము. తర్వాత మళ్లీ చూడండి." : "We do not substitute sample profiles. Please check again later.")
                 : (te ? "వడపోతలను సడలించి మళ్లీ ప్రయత్నించండి." : "Try broadening your filters.")}
             </p>
-            <button
+            <button type="button"
               onClick={resetAllFilters}
               className="px-6 py-2.5 rounded-xl maroon-gradient text-white font-bold text-xs shadow-md"
             >
@@ -550,7 +554,7 @@ export default function SecondMarriagePage() {
                             {row.full_name || row.tsap_id}
                           </Link>
 
-                          <button
+                          <button type="button"
                             onClick={() => toggleSave(row.tsap_id)}
                             className={`shrink-0 p-1.5 rounded-full transition ${
                               isSaved ? "text-rose-600 bg-rose-50" : "text-slate-400 hover:text-rose-500"
@@ -589,8 +593,8 @@ export default function SecondMarriagePage() {
                       </div>
                     )}
 
-                    {/* Horoscope Tags */}
                     <div className="flex flex-wrap items-center justify-between gap-2 pt-1 text-xs">
+                      {(star || rasi) && <span className="w-full text-[10px] font-semibold text-amber-900">{te ? "జాతక సూచనలు — సభ్యుడు నమోదు చేసినవి; పూర్తి/verify అయిన జాతకం కాదు" : "Astrology references — member-entered; not a complete or verified horoscope"}</span>}
                       <div className="flex items-center gap-1.5 flex-wrap">
                         {star && (
                           <span className="bg-amber-100 text-amber-900 font-bold px-2.5 py-0.5 rounded-full text-[10.5px]">

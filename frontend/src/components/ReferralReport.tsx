@@ -5,16 +5,11 @@
  * Partners + users, earning sort, CSV sheet download.
  */
 import { useCallback, useEffect, useState } from "react";
-import { apiDisplayMessage, authHeaders, readApiJson } from "@/lib/api";
+import { apiDisplayMessage, authHeaders, downloadAuthenticatedFile, readApiJson } from "@/lib/api";
 import { Duo } from "@/lib/duo";
 import { useLang } from "@/lib/lang";
 
 type Row = Record<string, any>;
-const adminToken = () => { try { return localStorage.getItem("tsap_admin_token") || ""; } catch { return ""; } };
-const withToken = (url: string) => {
-  const tk = adminToken();
-  return tk ? `${url}${url.includes("?") ? "&" : "?"}token=${encodeURIComponent(tk)}` : url;
-};
 const H = () => ({ ...authHeaders(true), "Content-Type": "application/json" });
 
 export default function ReferralReport() {
@@ -37,7 +32,7 @@ export default function ReferralReport() {
     if (!confirm(`₹${wallet} → ${id} PAID mark + wallet ₹0? (UTR: ${utr.trim()})`)) return;
     setBusy(true);
     try {
-      const r = await fetch(withToken("/api/admin/referrals/pay-full"),
+      const r = await fetch("/api/admin/referrals/pay-full",
         { method: "POST", headers: H(), body: JSON.stringify({ code: id, utr: utr.trim() }) });
       const d = await readApiJson(r);
       setFlash(apiDisplayMessage(d, te, te ? "చెల్లింపు స్థితిని నవీకరించలేకపోయాం." : "Could not update the payment status."));
@@ -50,7 +45,7 @@ export default function ReferralReport() {
     if (openId === id) { setOpenId(""); setLedger(null); return; }
     setOpenId(id); setLedger(null); setLedgerBusy(true);
     try {
-      const d = await fetch(withToken(`/api/admin/referrals/ledger?code=${encodeURIComponent(id)}`),
+      const d = await fetch(`/api/admin/referrals/ledger?code=${encodeURIComponent(id)}`,
         { headers: authHeaders(true) }).then((r) => readApiJson(r));
       if (d?.success) setLedger(d);
       else setFlash(apiDisplayMessage(d, te, te ? "Ledger లోడ్ చేయలేకపోయాం." : "Could not load the ledger."));
@@ -60,12 +55,17 @@ export default function ReferralReport() {
 
   const load = useCallback(async () => {
     try {
-      const d = await fetch(withToken("/api/admin/referrals/report"), { headers: authHeaders(true) }).then((r) => readApiJson(r));
+      const d = await fetch("/api/admin/referrals/report", { headers: authHeaders(true) }).then((r) => readApiJson(r));
       if (d?.success) { setData(d); setFlash(""); }
       else setFlash(apiDisplayMessage(d, te, te ? "రిఫరల్ రిపోర్ట్ లోడ్ కాలేదు." : "Could not load the referral report."));
     } catch { setFlash(te ? "API లోపం" : "API error. Please try again."); }
   }, [te]);
   useEffect(() => { void load(); }, [load]);
+
+  const downloadPartners = async () => {
+    const result = await downloadAuthenticatedFile("/api/admin/referrals/partners.csv", "referral_partners.csv");
+    if (!result.ok) setFlash(result.error || (te ? "డౌన్‌లోడ్ చేయలేకపోయాం." : "Download failed."));
+  };
 
   const rows: Row[] = (data?.rows || []).filter((r: Row) => {
     const s = `${r.id} ${r.name} ${r.district}`.toLowerCase();
@@ -76,11 +76,11 @@ export default function ReferralReport() {
     <div className="mt-4 rounded-2xl border border-gold/30 bg-white p-4">
       <div className="flex flex-wrap items-center gap-2">
         <h3 className="font-bold text-[#7A0C2E]">🤝 <Duo en="Referral Report — who earned what" te="రిఫరల్ రిపోర్ట్" /></h3>
-        <button onClick={() => void load()} className="text-xs underline">↻ refresh</button>
-        <a href={withToken("/api/admin/referrals/partners.csv")} download
+        <button type="button" onClick={() => void load()} className="text-xs underline">↻ refresh</button>
+        <button type="button" onClick={() => void downloadPartners()}
           className="ml-auto rounded-xl border border-emerald-500 px-3 py-1.5 text-xs font-bold text-emerald-700">
           📥 Partners sheet (CSV)
-        </a>
+        </button>
       </div>
       {data ? (
         <p className="text-[11px] text-gray-500">
@@ -88,19 +88,19 @@ export default function ReferralReport() {
         </p>
       ) : null}
       {flash ? <p className="text-[12px] text-maroon">{flash}</p> : null}
-      <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="🔍 id / name / district…"
+      <input aria-label="🔍 id / name / district…" value={q} onChange={(e) => setQ(e.target.value)} placeholder="🔍 id / name / district…"
         className="mt-2 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" />
       <div className="mt-2 max-h-[420px] overflow-auto space-y-2">
         {rows.map((r: Row) => (
           <div key={`${r.kind}:${r.id}`} className="rounded-xl border border-slate-200 p-2.5 text-[12px]">
             <div className="flex flex-wrap items-center gap-2">
               <b>{r.kind === "partner" ? "🤝" : "👤"} {String(r.name)} <span className="font-mono text-gray-500">· {String(r.id)}</span></b>
-              <button onClick={() => void openLedger(String(r.id))}
+              <button type="button" onClick={() => void openLedger(String(r.id))}
                 className="rounded-lg border border-[#7A0C2E]/40 px-2 py-0.5 text-[11px] font-bold text-maroon">
                 {openId === String(r.id) ? "▲ close" : "📒 ledger"}
               </button>
               {Number(r.wallet) > 0 ? (
-                <button disabled={busy} onClick={() => void payFull(String(r.id), Number(r.wallet))}
+                <button type="button" disabled={busy} onClick={() => void payFull(String(r.id), Number(r.wallet))}
                   className="rounded-lg bg-emerald-700 px-2 py-0.5 text-[11px] font-bold text-white disabled:opacity-50">
                   💸 Pay ₹{r.wallet} → zero
                 </button>

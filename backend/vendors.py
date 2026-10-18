@@ -14,7 +14,9 @@ Enti idi chestundi:
 
 Ee module lo pricing SINGLE SOURCE — maarchi ante ikkade maarchandi (site + docs anni API nunchi).
 """
+import copy
 import json
+from atomic_store import atomic_json_dump
 import os
 import random
 from datetime import datetime, timedelta
@@ -214,9 +216,9 @@ def _next_vendor_id() -> str:
 
 def save_state() -> Dict:
     try:
-        with open(STATE_FILE, "w", encoding="utf-8") as f:
-            json.dump({"at": _now(), "vendors": VENDORS[-800:], "leads": LEADS[-3000:],
-                       "stats": STATS_LOG[-5000:]}, f, ensure_ascii=False, indent=1)
+        atomic_json_dump(STATE_FILE,
+                         {"at": _now(), "vendors": VENDORS[-800:], "leads": LEADS[-3000:],
+                          "stats": STATS_LOG[-5000:]}, ensure_ascii=False, indent=1)
         return {"ok": True, "path": STATE_FILE, "vendors": len(VENDORS), "leads": len(LEADS)}
     except Exception as e:
         return {"ok": False, "error": str(e)[:140]}
@@ -385,7 +387,11 @@ def register_vendor(form: Dict, all_vendors: Optional[List[Dict]] = None) -> Dic
         "source": str(form.get("source", "website"))[:30],
     }
     all_vendors.append(vendor)
-    save_state()
+    if not save_state().get("ok"):
+        all_vendors.remove(vendor)
+        return {"ok": False, "reason": "persistence_failed",
+                "message_telugu": "⚠️ Vendor request could not be saved safely. Please try again.",
+                "message_en": "The vendor request could not be saved safely. Please try again."}
     merchant_upi = (os.getenv("VENDOR_UPI_ID", "").strip()
                     or os.getenv("PAYMENT_UPI_ID", "").strip()
                     or os.getenv("PAY_UPI_ID", "").strip())
@@ -450,6 +456,7 @@ def activate_vendor(vendor_id: str, package: str = "", utr: str = "",
         return {"ok": False, "reason": "bad_package"}
     pkg = PACKAGE_MAP[pkg_code]
     days = pkg["days"]
+    previous = copy.deepcopy(v)
     v["package"] = pkg_code
     v["package_price"] = pkg["price"]
     v["package_days"] = days
@@ -461,7 +468,11 @@ def activate_vendor(vendor_id: str, package: str = "", utr: str = "",
     v["expires_at"] = ((activated_at + timedelta(days=days)).isoformat()
                         if (not is_share_kit or pkg_code == "V_SINGLE_POST") else "")
     v["payment_ref"] = utr
-    save_state()
+    if not save_state().get("ok"):
+        v.clear()
+        v.update(previous)
+        return {"ok": False, "reason": "persistence_failed",
+                "message_telugu": "⚠️ Vendor activation could not be saved safely. Please try again."}
     if pkg_code == "V_SINGLE_POST":
         message = "✅ %s ఒకరోజు private share-ready promo kit review అయింది. Materials approval తర్వాత 1 రోజు అందుబాటులో ఉంటాయి; directory listing లేదా external post ఇందులో లేదు." % v["business_name"]
     elif is_share_kit:
@@ -478,15 +489,22 @@ def reject_vendor(vendor_id: str, reason: str = "") -> Dict:
     v = next((x for x in VENDORS if x.get("id") == vendor_id), None)
     if not v:
         return {"ok": False, "reason": "not_found"}
+    previous = copy.deepcopy(v)
     v["status"] = "rejected"
     v["reject_reason"] = reason[:160]
-    save_state()
+    if not save_state().get("ok"):
+        v.clear()
+        v.update(previous)
+        return {"ok": False, "reason": "persistence_failed",
+                "message_telugu": "⚠️ Vendor rejection could not be saved safely. Please try again."}
     return {"ok": True, "vendor": v, "message_telugu": "❌ %s reject అయ్యింది — %s" % (v["business_name"], reason or "details verify avvaledu")}
 
 
 def expire_due_vendors() -> Dict:
     """Kalam అయిన vendors ని auto-expire (worker/startup లో call)."""
     now = datetime.now()
+    refs_before = list(VENDORS)
+    values_before = copy.deepcopy(VENDORS)
     n = 0
     for v in VENDORS:
         if v.get("status") != "active":
@@ -499,7 +517,13 @@ def expire_due_vendors() -> Dict:
             v["status"] = "expired"
             n += 1
     if n:
-        save_state()
+        if not save_state().get("ok"):
+            for ref, previous in zip(refs_before, values_before):
+                ref.clear()
+                ref.update(previous)
+            VENDORS[:] = refs_before
+            return {"ok": False, "reason": "persistence_failed",
+                    "message_telugu": "⚠️ Vendor expiry could not be saved safely. Please try again."}
     return {"ok": True, "expired": n}
 
 
@@ -591,12 +615,19 @@ def ad_rotation(slot: str = "home_top_banner", limit: int = 2, track: bool = Tru
         if len(picked) >= limit:
             break
     if track:
+        impression_before = {v["id"]: int(v.get("impressions", 0)) for v in picked}
+        stats_before = len(STATS_LOG)
         for v in picked:
             v["impressions"] = int(v.get("impressions", 0)) + 1
             STATS_LOG.append({"at": _now(), "type": "impression", "slot": slot, "vendor_id": v["id"]})
-        if picked:
-            save_state()
-    return {"slot": slot, "count": len(picked), "ads": [ad_card(v) for v in picked],
+        if picked and not save_state().get("ok"):
+            for v in picked:
+                v["impressions"] = impression_before[v["id"]]
+            del STATS_LOG[stats_before:]
+            return {"ok": False, "reason": "persistence_failed",
+                    "message_telugu": "⚠️ Ad impression could not be recorded safely. Please try again.",
+                    "slot": slot, "count": 0, "ads": []}
+    return {"ok": True, "slot": slot, "count": len(picked), "ads": [ad_card(v) for v in picked],
             "note_telugu": "Packages వేర్వేరు: ఒకరోజు share-ready promo kit ₹149 నుంచి; directory-listing packages ₹499 నుంచి. ఏ ad slot లోనైనా placement లేదా views హామీ కాదు."}
 
 
@@ -616,9 +647,16 @@ def track_vendor_click(vendor_id: str, source: str = "") -> Dict:
         return {"ok": False, "reason": "not_found"}
     if not is_active_listing(v):
         return {"ok": False, "reason": "not_active"}
+    previous = copy.deepcopy(v)
+    stats_before = len(STATS_LOG)
     v["clicks"] = int(v.get("clicks", 0)) + 1
     STATS_LOG.append({"at": _now(), "type": "click", "vendor_id": vendor_id, "source": source[:40]})
-    save_state()
+    if not save_state().get("ok"):
+        v.clear()
+        v.update(previous)
+        del STATS_LOG[stats_before:]
+        return {"ok": False, "reason": "persistence_failed",
+                "message_telugu": "⚠️ Vendor click could not be recorded safely. Please try again."}
     return {"ok": True, "vendor_id": vendor_id, "clicks": v["clicks"]}
 
 
@@ -651,9 +689,16 @@ def vendor_lead(vendor_id: str, form: Dict) -> Dict:
         "message": str(form.get("message", ""))[:400], "at": _now(), "status": "new",
         "source": str(form.get("source", "website"))[:30],
     }
+    vendor_before = copy.deepcopy(v)
+    leads_before = len(LEADS)
     LEADS.append(lead)
     v["leads"] = int(v.get("leads", 0)) + 1
-    save_state()
+    if not save_state().get("ok"):
+        v.clear()
+        v.update(vendor_before)
+        del LEADS[leads_before:]
+        return {"ok": False, "reason": "persistence_failed",
+                "message_telugu": "⚠️ Enquiry could not be saved safely. Please try again."}
     return {"ok": True, "lead": lead, "vendor": public_vendor(v),
             "vendor_whatsapp_text": lead_to_vendor_text(v, lead),
             "customer_text_telugu": (

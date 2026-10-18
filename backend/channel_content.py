@@ -338,7 +338,7 @@ def share_text(key: str, ch: Dict | None = None, telegram_link: str = "") -> str
         "• First 3 interest requests are free; check the website for current plans.\n"
         "• Photo visibility follows the member's privacy settings.\n"
         "• Contact details become available in accepted-request account views after owner acceptance; external notification delivery is not guaranteed.\n"
-        "• Vedha gunamelanam is an informational calculation, not a match or marriage guarantee.\n\n"
+        "• Jathakam review is evidence-only: no star-only Gunamelanam calculation, match score, or marriage guarantee is provided.\n\n"
         "%s"
         "🌐 Register: %s\n\n"
         "#ManaVivaha #TeluguMatrimony #PelliChoopulu"

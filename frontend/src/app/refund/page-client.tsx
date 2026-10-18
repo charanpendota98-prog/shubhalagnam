@@ -62,7 +62,7 @@ export default function RefundPage() {
               <li>Fake / wrong details ఇచ్చి account block అయిన cases.</li>
               <li>Terms violate చేసి ban అయిన accounts (fraud, advance money అడగడం, harassment).</li>
               <li><b>Bureau / B2B plans</b> — monthly service కాబట్టి cycle start అయిన తర్వాత refund లేదు (cycle start అవ్వకపోతే 7 రోజుల లోపు adjust/refund).</li>
-              <li>Add-on services (boost / who-viewed / వేద గుణమేళనం report) — activate అయ్యాక refund లేదు.</li>
+              <li>Add-on services (boost / who-viewed) — activate అయ్యాక refund లేదు. Jathakam workspace పత్రం review స్థితిని మాత్రమే నమోదు చేస్తుంది; horoscope result లేదా వివాహ తీర్పును అమ్మదు.</li>
             </>
           ) : (
             <>
@@ -71,7 +71,7 @@ export default function RefundPage() {
               <li>Cases where the account was blocked for fake / wrong details.</li>
               <li>Accounts banned for violating terms (fraud, asking advance money, harassment).</li>
               <li><b>Bureau / B2B plans</b> — a monthly service, so no refund after the cycle starts (adjust/refund within 7 days if the cycle hasn&apos;t started).</li>
-              <li>Add-on services (boost / who-viewed / Vedic Gunamelanam report) — no refund after activation.</li>
+              <li>Add-on services (boost / who-viewed) — no refund after activation. The Jathakam workspace records document review state only; it does not sell a horoscope result or marriage verdict.</li>
             </>
           )}
         </ul>

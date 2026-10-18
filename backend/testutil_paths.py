@@ -39,12 +39,38 @@ def _norm(path: str) -> str:
 
 
 def page_variants(path: str) -> List[str]:
-    """page.tsx ki sambandhinchina anni source files (server + client) — existing ones only."""
+    """page.tsx ki sambandhinchina anni source files (server + client) — existing ones only.
+
+    App Router lo client part peru okela undadu — anduke rendu conventions:
+      • `<route>/page-client.tsx`   (register, pricing, search…)
+      • `<route>/<route>-client.tsx` (referral → referral-client.tsx, growth, stories…)
+      • `<route>/<feature>-client.tsx` (partner-register-client.tsx, kit-client.tsx…)
+    Anni client parts join cheste, test assertions nijamaina UI code chaduvutai.
+    """
     abs_p = _norm(path)
     out: List[str] = []
     if abs_p.endswith("/page.tsx") or abs_p.endswith(os.sep + "page.tsx"):
-        client = abs_p[: -len(".tsx")] + _CLIENT_SUFFIX  # …/page-client.tsx
-        for cand in (abs_p, client):
+        folder = os.path.dirname(abs_p)
+        route_name = os.path.basename(folder)
+        candidates = [
+            abs_p,
+            abs_p[: -len(".tsx")] + _CLIENT_SUFFIX,                        # …/page-client.tsx
+            os.path.join(folder, route_name + _CLIENT_SUFFIX),             # …/referral-client.tsx
+        ]
+        try:                                                              # …/kit-client.tsx etc.
+            candidates.extend(sorted(os.path.join(folder, name) for name in os.listdir(folder)
+                                     if name.endswith(_CLIENT_SUFFIX)))
+        except OSError:
+            pass
+        dynamic_dir = os.path.join(folder, route_name + _CLIENT_SUFFIX)
+        if os.path.isdir(dynamic_dir):
+            try:                                                          # [slug] lanti dynamic routes
+                candidates.extend(sorted(os.path.join(dynamic_dir, name)
+                                         for name in os.listdir(dynamic_dir)
+                                         if name.endswith(".tsx")))
+            except OSError:
+                pass
+        for cand in candidates:
             if os.path.exists(cand) and cand not in out:
                 out.append(cand)
         return out

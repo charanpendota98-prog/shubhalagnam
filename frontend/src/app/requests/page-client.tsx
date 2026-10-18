@@ -22,7 +22,7 @@ import { stateFullName } from "@/lib/telugu-data";
 
 type Plan = { code: string; price: number; profiles: number; label: string; telugu: string; badge: string; per_profile: number; perks?: string[] };
 type Addon = { code: string; price: number; label: string; label_en?: string; telugu: string; description_en?: string; kind: string };
-type Saved = { saved_at: string; profile: any; porutham?: { checks_passed: number | null; checks_total: number; doshas: string[] } | null };
+type Saved = { saved_at: string; profile: any };
 type Req = {
   request_id: string; from_id: string; to_id: string; status: string;
   note?: string; note_en?: string; observations?: string[]; created_at?: string; credit_refunded?: boolean;
@@ -53,7 +53,7 @@ export default function RequestsPage() {
   };
   const [needsLogin, setNeedsLogin] = useState(false);
   const [myId, setMyId] = useState("");
-  const [tab, setTab] = useState<"inbox" | "sent" | "send" | "plans" | "porutham" | "saved" | "viewers">("inbox");
+  const [tab, setTab] = useState<"inbox" | "sent" | "send" | "plans" | "saved" | "viewers">("inbox");
   const [credits, setCredits] = useState<number | null>(null);
   const [plans, setPlans] = useState<Plan[]>(PLANS_FALLBACK);
   const [inbox, setInbox] = useState<any>({ received: [], pending: 0, accepted: 0, declined: 0 });
@@ -73,9 +73,6 @@ export default function RequestsPage() {
   const [consent, setConsent] = useState<{ events?: any[]; total?: number } | null>(null);
   const [quality, setQuality] = useState<any>(null);
   const [views, setViews] = useState<any>(null);
-  const [por, setPor] = useState<any>(null);
-  const [porA, setPorA] = useState("");
-  const [porB, setPorB] = useState("");
 
   // ---- load my ID (localStorage / ?id=) + plans -------------------------
   useEffect(() => {
@@ -189,21 +186,6 @@ export default function RequestsPage() {
     setBusy(false);
   };
 
-  const checkPorutham = async () => {
-    if (!porA || !porB) return setToast({ kind: "err", text: te ? "రెండు Profile ID ఇవ్వండి (bride + groom)" : "Enter both Profile IDs (bride + groom)" });
-    setBusy(true);
-    try {
-      const d = await fetch(`/api/porutham?bride=${porA.trim().toUpperCase()}&groom=${porB.trim().toUpperCase()}`).then((r) => readApiJson(r));
-      setPor(d);
-      setToast({ kind: d.available ? "ok" : "info", text: d.available
-        ? `🔮 Porutham checks marked pass: ${d.passed_checks ?? 0} of ${d.total_checks ?? 10}. Review each item; this is not a compatibility score or marriage verdict.`
-        : apiDisplayMessage(d, te, te ? "తగిన నక్షత్ర వివరాలు లేవు." : "Required star details are unavailable."), });
-    } catch {
-      setToast({ kind: "err", text: te ? "గుణమేళనం లెక్కింపు విఫలమైంది" : "Porutham check failed" });
-    }
-    setBusy(false);
-  };
-
   const removeSaved = async (id: string) => {
     await fetch("/api/save", { method: "POST", headers: authHeaders(),
       body: JSON.stringify({ tsap_id: myId, saved_id: id }) });
@@ -256,7 +238,7 @@ export default function RequestsPage() {
                 placeholder={te ? "మీ రిజిస్టర్ చేసిన Profile ID" : "Your registered Profile ID"}
                 className="mt-1 w-full max-w-[224px] sm:w-56 px-3 py-2 rounded-xl text-ink font-mono text-sm outline-none focus-brand" aria-label={te ? "మీ Profile ID" : "Your Profile ID"} />
             </div>
-            <button onClick={() => saveId(myId)} className="gold-gradient text-maroon font-bold text-sm px-4 py-2.5 rounded-xl hover-lift">
+            <button type="button" onClick={() => saveId(myId)} className="gold-gradient text-maroon font-bold text-sm px-4 py-2.5 rounded-xl hover-lift">
               {te ? "నా dashboard చూడు" : "Load my dashboard"}
             </button>
             <div className="ml-auto bg-white/10 border border-white/20 rounded-xl px-4 py-2">
@@ -288,12 +270,11 @@ export default function RequestsPage() {
             { k: "inbox", l: te ? `📥 వచ్చిన requests${inbox.pending ? ` (${inbox.pending})` : ""}` : `📥 Received${inbox.pending ? ` (${inbox.pending})` : ""}` },
             { k: "sent", l: te ? `📤 పంపిన requests${sent.sent?.length ? ` (${sent.sent.length})` : ""}` : `📤 Sent${sent.sent?.length ? ` (${sent.sent.length})` : ""}` },
             { k: "send", l: te ? "💌 Interest పంపు" : "💌 Send interest" },
-            { k: "porutham", l: te ? "🔮 గుణమేళనం" : "🔮 Gunamelanam" },
             { k: "saved", l: `❤️ Saved${saved.count ? ` (${saved.count})` : ""}` },
             { k: "viewers", l: `👀 Viewers${views?.total_views ? ` (${views.total_views})` : ""}` },
             { k: "plans", l: "💳 Plans & Credits" },
           ].map((t) => (
-            <button
+            <button type="button"
               key={t.k}
               onClick={() => setTab(t.k as any)}
               className={`px-4 py-2 rounded-xl text-[13px] font-bold border transition ${
@@ -317,9 +298,6 @@ export default function RequestsPage() {
                     {chip(it.status)}
                     {it.credit_refunded && <span className="text-[10px] font-bold text-emerald-700">↩️ {te ? "1 క్రెడిట్ తిరిగి" : "1 credit returned"}</span>}
                     <span className="text-[11px] text-gray-500 font-mono">{it.request_id}</span>
-                    {(it as any).porutham_checks_passed != null ? (
-                      <span className="text-[11px] font-bold text-amber-700">🔮 Porutham checks marked pass: {(it as any).porutham_checks_passed} of {(it as any).porutham_checks_total ?? 10}</span>
-                    ) : null}
                     <span className="ml-auto text-[11px] text-gray-500">{it.requester_phone}</span>
                   </div>
                   <div className="mt-2 grid md:grid-cols-2 gap-3">
@@ -350,10 +328,10 @@ export default function RequestsPage() {
                       <div className="mt-3 flex flex-wrap gap-2">
                         {it.actions?.includes("accept") ? (
                           <>
-                            <button onClick={() => respond(it.request_id, "accept")} disabled={busy} className="bg-emerald-600 text-white font-bold text-[13px] px-4 py-2.5 rounded-xl hover:bg-emerald-700 transition shadow-sm flex items-center gap-1.5">
+                            <button type="button" onClick={() => respond(it.request_id, "accept")} disabled={busy} className="bg-emerald-600 text-white font-bold text-[13px] px-4 py-2.5 rounded-xl hover:bg-emerald-700 transition shadow-sm flex items-center gap-1.5">
                               <span>✅</span> {te ? "ఆమోదించు (Accept & Share Number)" : "Accept & Share Number"}
                             </button>
-                            <button onClick={() => respond(it.request_id, "decline")} disabled={busy} className="bg-white border border-rose-300 text-rose-700 font-bold text-[13px] px-4 py-2.5 rounded-xl hover:bg-rose-50 transition">
+                            <button type="button" onClick={() => respond(it.request_id, "decline")} disabled={busy} className="bg-white border border-rose-300 text-rose-700 font-bold text-[13px] px-4 py-2.5 rounded-xl hover:bg-rose-50 transition">
                               <span>❌</span> {te ? "తిరస్కరించు" : "Decline request"}
                             </button>
                           </>
@@ -433,7 +411,7 @@ export default function RequestsPage() {
                         const tag = te ? t.tag : (t.tag_en || t.id);
                         return (
                           <button key={t.id} type="button" onClick={() => setNote(text.slice(0, 280))}
-                            className="rounded-full border border-gold/40 bg-cream px-2.5 py-1 text-[10px] font-semibold text-maroon hover:bg-gold/20"
+                            className="rounded-full border border-gold/40 bg-cream px-2.5 py-1 text-[10px] font-semibold text-maroon hover:bg-gold/20 min-h-11"
                             title={text}>
                             {tag}: {text.slice(0, 22)}…
                           </button>
@@ -452,7 +430,7 @@ export default function RequestsPage() {
                     className="mt-1 w-full px-3 py-2.5 rounded-xl border border-gold/40 text-sm outline-none focus-brand" aria-label="Text area" />
                   <div className="text-[10px] text-gray-500 mt-1">{note.length}/280 • {te ? "number/email పెట్టకు (privacy policy)" : "no number/email (privacy policy)"}</div>
                 </div>
-                <button onClick={sendInterest} disabled={busy} className="w-full maroon-gradient text-white font-bold py-3 rounded-xl hover-lift disabled:opacity-60">
+                <button type="button" onClick={sendInterest} disabled={busy} className="w-full maroon-gradient text-white font-bold py-3 rounded-xl hover-lift disabled:opacity-60">
                   {busy ? (te ? "పంపిస్తున్నాం…" : "Sending…") : te ? "💌 Interest పంపు" : "💌 Send interest"}
                 </button>
                 <div className="text-[11px] text-gray-500">
@@ -474,7 +452,7 @@ export default function RequestsPage() {
                   <div className="text-[12px] text-emerald-900 mt-2">
                     📲 {te ? "WhatsApp notification:" : "WhatsApp notification:"} {lastSend.whatsapp?.owner_queued ? (te ? "queue లో చేరింది; delivery హామీ లేదు" : "queued; delivery is not guaranteed") : (te ? "queue కాలేదు" : "not queued")}
                   </div>
-                  <button onClick={() => setShowOwnerMsg(!showOwnerMsg)} className="mt-3 text-[12px] font-bold text-emerald-800 underline">
+                  <button type="button" onClick={() => setShowOwnerMsg(!showOwnerMsg)} className="mt-3 text-[12px] font-bold text-emerald-800 underline">
                     {showOwnerMsg ? (te ? "Message దాచి పెట్టు" : "Hide message") : (te ? "వాళ్లకి వెళ్లే message చూడు (preview)" : "Preview their message")}
                   </button>
                   {showOwnerMsg && (
@@ -548,98 +526,16 @@ export default function RequestsPage() {
           </div>
         )}
 
-        {/* PORUTHAM TOOL */}
-        {tab === "porutham" && (
-          <div className="grid md:grid-cols-2 gap-5">
-            <div className="bg-white rounded-2xl p-5 card-shadow border border-gold/20">
-              <SectionHeading eyebrow={duo("Traditional rule checks", "సాంప్రదాయ నియమ-ఆధారిత checks")} title={`🔮 ${duo("Porutham reference", "Porutham సూచన")}`}
-                subtitle={te ? "వధూవరుల ప్రొఫైల్ ID ఇవ్వండి — అందుబాటులో ఉన్న నక్షత్ర వివరాలపై పది నియమ-ఆధారిత అంశాలను విడిగా చూపిస్తాం." : "Enter bride + groom Profile IDs to view ten rule-based Porutham checks individually when star details are available."} telugu align="left" />
-              <div className="mt-4 space-y-3">
-                <input value={porA} onChange={(e) => setPorA(e.target.value.toUpperCase())} placeholder={te ? "వధువు Profile ID" : "Bride Profile ID"}
-                  className="w-full px-3 py-2.5 rounded-xl border border-gold/40 font-mono text-sm outline-none focus-brand" aria-label={te ? "వధువు Profile ID" : "Bride Profile ID"} />
-                <input value={porB} onChange={(e) => setPorB(e.target.value.toUpperCase())} placeholder={te ? "వరుడు Profile ID" : "Groom Profile ID"}
-                  className="w-full px-3 py-2.5 rounded-xl border border-gold/40 font-mono text-sm outline-none focus-brand" aria-label={te ? "వరుడు Profile ID" : "Groom Profile ID"} />
-                <button onClick={checkPorutham} disabled={busy} className="w-full maroon-gradient text-white font-bold py-3 rounded-xl hover-lift disabled:opacity-60">
-                  {te ? "🔮 Porutham checks చూడండి" : "🔮 View Porutham checks"}
-                </button>
-                <div className="text-[11px] text-gray-500">{te ? "ఇది పరిమిత సాంప్రదాయ reference మాత్రమే; మొత్తం compatibility score, వివాహ సిఫార్సు లేదా ఫలిత అంచనా ఇవ్వదు. వివరాలను విడిగా నిర్ధారించండి." : "A limited traditional reference only; it does not provide an overall compatibility score, marriage recommendation, or outcome prediction. Verify details independently."}</div>
-              </div>
+        {/* JATHAKAM REVIEW */}
+        <section className="mb-4 rounded-2xl border border-amber-200 bg-amber-50/70 p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <div className="font-bold text-[#5c0822]">🪐 {te ? "నిజమైన జాతక పత్రం review" : "Real Jathakam document review"}</div>
+              <p className="mt-1 max-w-2xl text-xs leading-relaxed text-slate-700">{te ? "Star-only score లేదా ఊహించిన chart చూపించము. మీ స్వంత పత్రాన్ని upload చేసి review స్థితిని మాత్రమే చూడండి." : "No star-only score or invented chart is shown. Upload your own document and see only its review state."}</p>
             </div>
-            <div className="space-y-3">
-              {por ? (
-                <div className="bg-white rounded-2xl p-5 card-shadow border border-gold/30">
-                  {por.available ? (
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                      <div className="min-w-0">
-                        <div className="font-bold text-[14px] text-maroon">{te ? "Porutham checks లెక్కించబడ్డాయి" : "Porutham checks calculated"}</div>
-                        <div className="mt-1 text-[11px] text-gray-500">
-                          {(te ? por.bride_star : por.bride_star_en) || por.bride?.star} ↔ {(te ? por.groom_star : por.groom_star_en) || por.groom?.star}
-                          • {(te ? por.bride_rasi : por.bride_rasi_en) || por.bride?.rasi} ↔ {(te ? por.groom_rasi : por.groom_rasi_en) || por.groom?.rasi}
-                        </div>
-                      </div>
-                      <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-center text-[12px] font-bold text-amber-950">
-                        {por.passed_checks ?? 0} of {por.total_checks ?? 10}<div className="text-[10px] font-medium">{te ? "checks pass గా గుర్తింపు" : "checks marked pass"}</div>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-[12px] text-amber-900">
-                      {apiDisplayMessage(por, te, te ? "తగిన నక్షత్ర వివరాలు లేవు; Porutham లెక్కించలేదు." : "Required star details are missing; Porutham was not calculated.")}
-                    </div>
-                  )}
-                  <div className="mt-3 space-y-1.5">
-                    {(por.items || []).map((x: any) => (
-                      <div key={x.no} className="text-[12px] flex gap-2">
-                        <span>{x.pass ? "✅" : "❌"}</span>
-                        <span className="font-bold text-ink w-40 shrink-0">{te ? x.name : apiDisplayMessage({ message_en: x.name_en, message: x.name }, false, "Traditional factor")}</span>
-                        <span className="text-gray-600">{te ? x.note : apiDisplayMessage({ message_en: x.note_en, message: x.note }, false, "Description not available in English.")}</span>
-                      </div>
-                    ))}
-                  </div>
-                  {(te ? por.doshas : (por.doshas_en || []).map((item: string) => apiDisplayMessage({ message_en: item }, false, "")).filter(Boolean))?.length ? (
-                    <div className="mt-3 text-[12px] bg-rose-50 border border-rose-200 text-rose-800 rounded-xl px-3 py-2">
-                      {te
-                        ? <>గమనిక: {por.doshas.join(", ")} — ఈ సంప్రదాయ అంశాలపై కుటుంబం/అర్హులైన సలహాదారులతో చర్చించండి; ఇది వివాహ తీర్పు కాదు.</>
-                        : <>Traditional reference flags: {(por.doshas_en || []).map((item: string) => apiDisplayMessage({ message_en: item }, false, "")).filter(Boolean).join(", ")} — discuss with family or a qualified adviser; this is not a marriage verdict.</>}
-                    </div>
-                  ) : null}
-                  <div className="mt-3 text-[11px] text-gray-500">
-                    {te ? (por.advice_telugu || por.reason) : apiDisplayMessage({ message_en: por.advice_en, message: por.reason_en }, false, "Review each traditional rule separately; this is not a marriage recommendation.")}
-                  </div>
-                </div>
-              ) : (
-                <div className="bg-cream border border-gold/30 rounded-2xl p-5">
-                  <div className="font-bold text-maroon">{te ? "వేద గుణమేళన అంశాలు ఏంటి?" : "What are Gunamelanam factors?"}</div>
-                  <ol className="mt-2 text-[12px] text-gray-700 space-y-1 list-decimal list-inside">
-                    {(te ? [
-                      "రాశి పొంతన (6/8 షష్టాష్టక నియమం)",
-                      "నక్షత్ర / దిన గుణం",
-                      "గణ మైత్రి (దేవ, మనుష్య, రాక్షస)",
-                      "యోని పొంతన (జంతు సంకేతాలు)",
-                      "రజ్జు బలం — సంప్రదాయ సమీక్ష అంశం",
-                      "వేధ విశ్లేషణ — సంప్రదాయ సమీక్ష అంశం",
-                      "మాహేంద్ర పొంతన",
-                      "స్త్రీ దీర్ఘం",
-                      "వశ్య పొంతన",
-                      "రాశి అధిపతి సంబంధం",
-                    ] : [
-                      "Rasi compatibility (listed 6/8 Shashtashtaka rule)",
-                      "Nakshatra / Dina",
-                      "Gana Maitri (Deva, Manushya, Rakshasa)",
-                      "Yoni compatibility (traditional animal symbols)",
-                      "Rajju — traditional review item",
-                      "Vedha — traditional review item",
-                      "Mahendra",
-                      "Stree Deergha",
-                      "Vashya",
-                      "Rasi lord relationship",
-                    ]).map((factor) => <li key={factor}>{factor}</li>)}
-                  </ol>
-                  <div className="mt-3 text-[11px] text-gray-600">{te ? <>మీ profile లో <b>Star (Nakshatram)</b> + <b>Rasi</b> fill చేసి ఉంటే automatic గా వస్తుంది.</> : <>If <b>Star (Nakshatram)</b> + <b>Rasi</b> are filled in your profile, it comes automatically.</>}</div>
-                </div>
-              )}
-            </div>
+            <Link href="/porutham" className="inline-flex min-h-11 items-center rounded-xl bg-[#7a0c2e] px-4 py-2.5 text-xs font-bold text-white">{te ? "జాతక review" : "Open Jathakam review"} →</Link>
           </div>
-        )}
+        </section>
 
         {/* SAVED / SHORTLIST */}
         {tab === "saved" && (
@@ -656,15 +552,12 @@ export default function RequestsPage() {
                     <div className="text-[12px] text-gray-600 mt-1">
                       {[profileField(x.profile.education), profileField(x.profile.job), profileField(x.profile.district) ? `📍 ${profileField(x.profile.district)}` : "", x.profile.state ? stateFullName(x.profile.state, te) : "", profileField(x.profile.caste) ? `💍 ${profileField(x.profile.caste)}` : ""].filter(Boolean).join(" • ")}
                     </div>
-                    {x.porutham?.checks_passed != null ? (
-                      <div className="text-[12px] font-bold text-amber-700 mt-1">🔮 Porutham checks marked pass: {x.porutham.checks_passed} of {x.porutham.checks_total} — review individual rules; not a compatibility verdict.</div>
-                    ) : null}
                   </div>
-                  <button onClick={() => { setToId(x.profile.tsap_id); setTab("send"); }} className="text-[12px] font-bold maroon-gradient text-white px-3 py-2 rounded-xl">
+                  <button type="button" onClick={() => { setToId(x.profile.tsap_id); setTab("send"); }} className="text-[12px] font-bold maroon-gradient text-white px-3 py-2 rounded-xl">
                     {te ? "💌 Interest పంపు" : "💌 Send interest"}
                   </button>
                   <Link href={`/search/${x.profile.tsap_id}`} className="text-[12px] font-bold text-maroon underline">Profile →</Link>
-                  <button onClick={() => removeSaved(x.profile.tsap_id)} className="text-[12px] text-gray-500 underline">Remove</button>
+                  <button type="button" onClick={() => removeSaved(x.profile.tsap_id)} className="text-[12px] text-gray-500 underline">Remove</button>
                 </div>
               </Reveal>
             ))}
@@ -801,7 +694,7 @@ function TrackRequest({ requestId }: { requestId: string }) {
   };
   return (
     <>
-      <button onClick={() => void toggle()} className="text-[12px] font-bold text-sky-700 underline">
+      <button type="button" onClick={() => void toggle()} className="text-[12px] font-bold text-sky-700 underline">
         📍 {te ? "Track" : "Track"}
       </button>
       {open && (

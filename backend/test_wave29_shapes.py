@@ -429,13 +429,15 @@ try:
         check("S6.6 vendor detail keys", vd.status_code in (200, 404), vd.status_code)
     por = c.get(f"/api/porutham?bride={B}&groom={G}")
     pj = por.json()
-    check("S6.7 porutham factual shape", por.status_code == 200 and pj.get("available") is True
-          and pj.get("total_checks") == 10 and isinstance(pj.get("items"), list),
+    check("S6.7 porutham evidence-required shape", por.status_code == 200
+          and pj.get("available") is False and pj.get("calculation_available") is False
+          and pj.get("status") == "jathakam_required" and pj.get("items") == [],
           (por.status_code, list(pj)[:12]))
-    check("S6.7 porutham no aggregate score/verdict",
-          not ({"score", "max_score", "percent", "stars", "verdict"} & set(pj)))
+    check("S6.7 porutham has no fabricated tally, score, or verdict",
+          pj.get("passed_checks") is None and pj.get("total_checks") is None
+          and not ({"score", "max_score", "percent", "stars", "verdict"} & set(pj)))
     og = c.get(f"/api/og/porutham/{B}/{G}.png")
-    check("S6.8 og png bytes", og.status_code == 200 and len(og.content) > 1000,
+    check("S6.8 retired og route fails closed", og.status_code == 410,
           (og.status_code, len(og.content)))
     cj = c.get("/api/channels/join")
     check("S6.9 channels join", cj.status_code in (200, 404), (cj.status_code, cj.text[:150]))

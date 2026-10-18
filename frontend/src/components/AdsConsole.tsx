@@ -8,13 +8,6 @@ import { apiDisplayMessage, authHeaders, readApiJson } from "@/lib/api";
 import { useLang } from "@/lib/lang";
 
 type Row = Record<string, any>;
-const adminToken = () => {
-  try { return localStorage.getItem("tsap_admin_token") || ""; } catch { return ""; }
-};
-const withToken = (url: string) => {
-  const tk = adminToken();
-  return tk ? `${url}${url.includes("?") ? "&" : "?"}token=${encodeURIComponent(tk)}` : url;
-};
 
 export default function AdsConsole() {
   const { lang } = useLang();
@@ -32,9 +25,9 @@ export default function AdsConsole() {
 
   const load = async (st: string) => {
     try {
-      const d = await fetch(withToken(`/api/admin/ads${st ? `?status=${st}` : ""}`), { headers: authHeaders(true) }).then((r) => readApiJson(r));
+      const d = await fetch(`/api/admin/ads${st ? `?status=${st}` : ""}`, { headers: authHeaders(true) }).then((r) => readApiJson(r));
       if (d.success) setItems(d.campaigns || []);
-      const s = await fetch(withToken("/api/admin/ads/stats"), { headers: authHeaders(true) }).then((r) => readApiJson(r));
+      const s = await fetch("/api/admin/ads/stats", { headers: authHeaders(true) }).then((r) => readApiJson(r));
       if (s.success) setStats(s);
     } catch { /* ignore */ }
   };
@@ -43,7 +36,7 @@ export default function AdsConsole() {
   const approve = async (id: string) => {
     const u = (utr[id] || "").trim();
     if (!u) { setFlash(te ? "⚠️ UTR లేకుండా approve చెయ్యకూడదు" : "⚠️ Cannot approve without UTR"); return; }
-    const r = await fetch(withToken(`/api/admin/ads/${id}/approve`),
+    const r = await fetch(`/api/admin/ads/${id}/approve`,
       { method: "POST", headers: { ...authHeaders(true), "Content-Type": "application/json" },
         body: JSON.stringify({ utr: u }) });
     const d = await readApiJson(r);
@@ -64,7 +57,7 @@ export default function AdsConsole() {
     if (ed.slots !== undefined) body.slots = String(ed.slots || "").split(",").map((x: string) => x.trim()).filter(Boolean);
     if (ed.start) body.start = ed.start;
     if (ed.end) body.end = ed.end;
-    const r = await fetch(withToken(`/api/admin/ads/${id}/update`),
+    const r = await fetch(`/api/admin/ads/${id}/update`,
       { method: "POST", headers: { ...authHeaders(true), "Content-Type": "application/json" },
         body: JSON.stringify(body) });
     const d = await readApiJson(r);
@@ -73,7 +66,7 @@ export default function AdsConsole() {
     void load(status);
   };
   const act = async (id: string, action: string) => {
-    const r = await fetch(withToken(`/api/admin/ads/${id}/action`),
+    const r = await fetch(`/api/admin/ads/${id}/action`,
       { method: "POST", headers: { ...authHeaders(true), "Content-Type": "application/json" },
         body: JSON.stringify({ action }) });
     const d = await readApiJson(r);
@@ -137,7 +130,7 @@ export default function AdsConsole() {
                 <td className="p-2"><b className="text-[#7A0C2E]">₹{c.amount}</b><div className="text-[10px] text-gray-500">{c.days}d · ₹{c.per_day}/d</div></td>
                 <td className="p-2 text-[10px]">👁️ {c.impressions} · 🖱️ {c.clicks}</td>
                 <td className="p-2">
-                  <button onClick={() => (editing === c.id ? setEditing("") : startEdit(c))}
+                  <button type="button" onClick={() => (editing === c.id ? setEditing("") : startEdit(c))}
                     className="mb-1 rounded-full bg-blue-600 px-3 py-1 text-white">✏️ Edit</button>
                   {editing === c.id ? (
                     <div className="mb-2 rounded-xl border bg-blue-50/50 p-2 space-y-1 min-w-[220px]">
@@ -154,7 +147,7 @@ export default function AdsConsole() {
                         <input value={ed.end || ""} onChange={(e) => setEd({ ...ed, end: e.target.value })} placeholder="end YYYY-MM-DD" aria-label="End" className="w-full rounded border px-2 py-1" />
                       </div>
                       <input value={ed.link || ""} onChange={(e) => setEd({ ...ed, link: e.target.value })} placeholder="link" aria-label="Link" className="w-full rounded border px-2 py-1" />
-                      <button onClick={() => void saveEdit(c.id)} className="rounded-full bg-green-600 px-3 py-1 text-white">💾 Save</button>
+                      <button type="button" onClick={() => void saveEdit(c.id)} className="rounded-full bg-green-600 px-3 py-1 text-white">💾 Save</button>
                     </div>
                   ) : null}
                   {c.status === "pending" ? (
@@ -162,16 +155,16 @@ export default function AdsConsole() {
                       <input value={utr[c.id] || ""} onChange={(e) => setUtr({ ...utr, [c.id]: e.target.value })}
                         placeholder="UTR" aria-label="UTR" className="w-28 rounded-lg border px-2 py-1" />
                       <div className="flex gap-1">
-                        <button onClick={() => void approve(c.id)} className="rounded-full bg-green-600 px-3 py-1 text-white">✅ Live</button>
-                        <button onClick={() => void act(c.id, "reject")} className="rounded-full bg-red-500 px-3 py-1 text-white">❌</button>
+                        <button type="button" onClick={() => void approve(c.id)} className="rounded-full bg-green-600 px-3 py-1 text-white">✅ Live</button>
+                        <button type="button" aria-label={te ? "ప్రకటనను తిరస్కరించండి" : "Reject campaign"} onClick={() => void act(c.id, "reject")} className="rounded-full bg-red-500 px-3 py-1 text-white">❌</button>
                       </div>
                     </div>
                   ) : (
                     <div className="flex gap-1">
                       {c.status === "active"
-                        ? <button onClick={() => void act(c.id, "pause")} className="rounded-full bg-gray-200 px-3 py-1">⏸️</button>
-                        : <button onClick={() => void act(c.id, "resume")} className="rounded-full bg-green-600 px-3 py-1 text-white">▶️</button>}
-                      <button onClick={() => void act(c.id, "expire")} className="rounded-full bg-gray-200 px-3 py-1">⏳</button>
+                        ? <button type="button" aria-label={te ? "ప్రకటనను నిలిపివేయండి" : "Pause campaign"} onClick={() => void act(c.id, "pause")} className="rounded-full bg-gray-200 px-3 py-1">⏸️</button>
+                        : <button type="button" aria-label={te ? "ప్రకటనను పునఃప్రారంభించండి" : "Resume campaign"} onClick={() => void act(c.id, "resume")} className="rounded-full bg-green-600 px-3 py-1 text-white">▶️</button>}
+                      <button type="button" aria-label={te ? "ప్రకటనను ముగించండి" : "Expire campaign"} onClick={() => void act(c.id, "expire")} className="rounded-full bg-gray-200 px-3 py-1">⏳</button>
                     </div>
                   )}
                 </td>

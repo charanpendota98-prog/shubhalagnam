@@ -11,11 +11,14 @@ from __future__ import annotations
 
 import json
 import os
+import threading
+from atomic_store import atomic_append_line, atomic_write_text
 from datetime import datetime
 from typing import Dict, List, Optional
 
 AUDIT_FILE = os.environ.get("MANA_VIVAHA_MONEY_AUDIT_FILE", os.path.join(os.path.dirname(os.path.abspath(__file__)), "money_audit26.jsonl"))
 MAX_KEEP = 10000  # file rotate cap (lines)
+_AUDIT_LOCK = threading.RLock()
 
 
 def _now() -> str:
@@ -27,17 +30,18 @@ def audit(event: str, actor: str = "admin", details: Optional[Dict] = None) -> D
     rec = {"at": _now(), "event": str(event or ""), "actor": str(actor or ""),
            "details": details or {}}
     try:
-        line = json.dumps(rec, ensure_ascii=False, default=str)
-        with open(AUDIT_FILE, "a", encoding="utf-8") as f:
-            f.write(line + "\n")
-        try:
-            if os.path.getsize(AUDIT_FILE) > 5 * 1024 * 1024:  # >5MB → rotate (recent half unch)
-                with open(AUDIT_FILE, encoding="utf-8") as f:
-                    lines = f.readlines()
-                with open(AUDIT_FILE, "w", encoding="utf-8") as f:
-                    f.writelines(lines[len(lines) // 2:])
-        except Exception:
-            pass
+        line = json.dumps(rec, ensure_ascii=False, default=str) + "\n"
+        with _AUDIT_LOCK:
+            # Keep append semantics for the JSONL ledger, but flush it before
+            # returning so a successful money action has a durable audit line.
+            atomic_append_line(AUDIT_FILE, line)
+            try:
+                if os.path.getsize(AUDIT_FILE) > 5 * 1024 * 1024:  # >5MB → rotate (recent half unch)
+                    with open(AUDIT_FILE, encoding="utf-8") as f:
+                        lines = f.readlines()
+                    atomic_write_text(AUDIT_FILE, "".join(lines[len(lines) // 2:]), mode=0o600)
+            except Exception:
+                pass
     except Exception:
         pass
     return rec
