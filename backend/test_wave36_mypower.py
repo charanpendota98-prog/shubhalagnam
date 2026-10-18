@@ -83,14 +83,30 @@ try:
         for fn in fns:
             if fn.endswith((".tsx", ".ts")):
                 blob += open(os.path.join(dp, fn), encoding="utf-8").read() + "\n"
-    ORPHANS = ["/api/boost/packs", "/api/boost/buy", "/api/top-matches/",
-               "/api/match/score", "/api/astro/dosha/", "/api/astro/jathakam/upload",
-               "/api/interest/status/", "/api/promo/apply", "/api/share/kit/",
+    ORPHANS = ["/api/boost/packs", "/api/top-matches/",
+               "/api/astro/jathakam/", "/api/astro/jathakam/upload",
+               "/api/interest/status/", "/api/promo/apply",
                "/api/streak/", "/api/streak/claim", "/api/unlocks/",
-               "/api/voice/upload", "/api/voice/", "/api/gothram/check",
-               "/api/astro/chart/"]
+               "/api/voice/upload", "/api/voice/"]
     missing = [u for u in ORPHANS if u not in blob]
     check("R1 all orphans wired", not missing, missing)
+
+    # 🌿 R13 — three routes are intentionally *not* called by the UI any more. Each is kept
+    #    server-side for API compatibility and has a wired successor; the check below proves
+    #    the replacement is reachable instead of pretending the legacy URL is the live one.
+    LEGACY_ROUTES = {
+        "/api/boost/buy": ("/api/pay/order", "boost packs are bought through PayPro orders"),
+        "/api/match/score": ("/api/top-matches/", "factual comparison list, never a compatibility score"),
+        "/api/share/kit/": ("/api/referral/", "share kit is served by the referral dashboard"),
+    }
+    unwired = ["%s -> %s (%s)" % (legacy, succ, why)
+               for legacy, (succ, why) in LEGACY_ROUTES.items() if succ not in blob]
+    check("R1b every retired route has its replacement wired", not unwired, unwired)
+    # Blueprint §5: no invented compatibility percentage may ever be rendered.
+    check("R1c UI never calls the retired match-score route", "/api/match/score" not in blob)
+    _msrc = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "main.py"), encoding="utf-8").read()
+    gone = [route for route in LEGACY_ROUTES if route.rstrip("/") not in _msrc]
+    check("R1d retired routes still exist server-side for API compatibility", not gone, gone)
     check("R1b /me page exists", os.path.exists(os.path.join(FRONT, "app", "me", "page.tsx")))
     check("R1c TopPicks + RasiChart exist",
           os.path.exists(os.path.join(FRONT, "components", "TopPicks.tsx"))
@@ -101,12 +117,13 @@ try:
     # =======================================================================
     section("R2 - rasi chart")
     c1 = client.get(f"/api/astro/chart/{U1['tsap_id']}").json()
-    check("R2 moon house Vrishabha=2", c1.get("moon_house") == 2 and c1.get("rasi_known"), c1)
-    check("R2 12 houses south-indian", len(c1.get("houses", [])) == 12 and c1.get("style") == "south-indian")
-    check("R2 moon flag on house 2", [h for h in c1["houses"] if h.get("moon")] == [
-        {"house": 2, "rasi_en": "Vrishabha", "moon": True}], c1["houses"][1])
+    check("R2 chart fails closed without a reviewed real document",
+          c1.get("success") is False and c1.get("available") is False
+          and c1.get("calculation_available") is False
+          and c1.get("status") == "jathakam_review_required", c1)
+    check("R2 no fabricated houses are returned", c1.get("houses") == [] and "moon_house" not in c1, c1)
     c3 = client.get(f"/api/astro/chart/{U3['tsap_id']}").json()
-    check("R2 unknown rasi honest", c3.get("rasi_known") is False and c3.get("moon_house") is None, c3)
+    check("R2 unknown rasi stays unavailable", c3.get("available") is False and c3.get("evidence_state") == "unavailable", c3)
     c404 = client.get("/api/astro/chart/TSAP-X-0000")
     check("R2 unknown -> 404", c404.status_code == 404, c404.status_code)
 
@@ -184,7 +201,9 @@ try:
           "note_telugu" in g and g.get("blocked") is False
           and g.get("notice", "").find("not a compatibility") >= 0 and "verdict_telugu" not in g, g)
     dd = client.get(f"/api/astro/dosha/{U1['tsap_id']}").json()
-    check("R7 dosha shape", dd.get("level") in ("clear", "medium", "high") and "verdict_telugu" in dd, dd)
+    check("R7 dosha fails closed without a reviewed chart",
+          dd.get("available") is False and dd.get("calculation_available") is False
+          and dd.get("status") == "jathakam_review_required" and "verdict_telugu" in dd, dd)
     sk = client.get(f"/api/share/kit/{U1['tsap_id']}").json()
     check("R7 share kit links", sk.get("whatsapp_share", "").startswith("https://wa.me/")
           and "caption" in sk, list(sk.keys())[:8])

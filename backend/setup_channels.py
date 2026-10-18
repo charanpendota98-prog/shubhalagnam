@@ -29,6 +29,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+from atomic_store import atomic_json_dump
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -411,7 +412,7 @@ def load_state() -> dict:
 
 def save_state(state: dict) -> None:
     state["updated_at"] = time.strftime("%Y-%m-%d %H:%M:%S")
-    json.dump(state, open(STATE_FILE, "w"), indent=2, ensure_ascii=False)
+    atomic_json_dump(STATE_FILE, state, indent=2, ensure_ascii=False)
 
 
 def check_bot_admin(bot: "BotAPI", chat_id, bot_id) -> dict:
@@ -622,8 +623,8 @@ def run_apply(bot: "BotAPI", wave: int | None = None, keys: list | None = None,
                "failed": [r["key"] for r in results if not r.get("ok")],
                "at": time.strftime("%Y-%m-%d %H:%M:%S")}
     os.makedirs(REPORT_DIR, exist_ok=True)
-    json.dump({"summary": summary, "results": results},
-              open(os.path.join(REPORT_DIR, "channel_setup_report.json"), "w"), indent=2, ensure_ascii=False)
+    atomic_json_dump(os.path.join(REPORT_DIR, "channel_setup_report.json"),
+                     {"summary": summary, "results": results}, indent=2, ensure_ascii=False)
     return summary
 
 
@@ -667,7 +668,8 @@ def run_check(bot: "BotAPI", wave: int | None = None, keys: list | None = None) 
                              and r.get("admin", {}).get("permissions_ok")]),
                "missing": [r["key"] for r in rows if not r["exists"]], "rows": rows}
     os.makedirs(REPORT_DIR, exist_ok=True)
-    json.dump(summary, open(os.path.join(REPORT_DIR, "channel_check_report.json"), "w"), indent=2, ensure_ascii=False)
+    atomic_json_dump(os.path.join(REPORT_DIR, "channel_check_report.json"),
+                     summary, indent=2, ensure_ascii=False)
     return summary
 
 

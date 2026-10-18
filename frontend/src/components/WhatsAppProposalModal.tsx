@@ -110,7 +110,7 @@ export default function WhatsAppProposalModal({ isOpen, onClose, profile }: Prop
           return shown ? `${label}: ${shown}` : "";
         })
         .filter(Boolean);
-      if (astroParts.length) lines.push(`${te ? "🌟 జాతక సూచనలు" : "🌟 Horoscope references"}: ${astroParts.join(" • ")}`);
+      if (astroParts.length) lines.push(`${te ? "🌟 జాతక సూచనలు (సభ్యుడు నమోదు చేసినవి; verify కాదు)" : "🌟 Horoscope references (member-entered; not verified)"}: ${astroParts.join(" • ")}`);
     }
 
     const maritalStatus = te ? displayField(profile.marital_status) : englishMaritalStatus(profile.marital_status);
@@ -167,7 +167,7 @@ export default function WhatsAppProposalModal({ isOpen, onClose, profile }: Prop
               </p>
             </div>
           </div>
-          <button
+          <button type="button"
             onClick={onClose}
             aria-label="Close"
             className="w-8 h-8 rounded-full bg-white/20 text-white hover:bg-white/30 flex items-center justify-center font-bold text-sm transition"
@@ -238,7 +238,7 @@ export default function WhatsAppProposalModal({ isOpen, onClose, profile }: Prop
                 onChange={(e) => setIncludeAstro(e.target.checked)}
                 className="rounded accent-[#7A0C2E]"
               />
-              <span>🌟 {te ? "గోత్రం/నక్షత్రం చేర్చు" : "Include Gothram/Star"}</span>
+              <span>🌟 {te ? "గోత్రం/నక్షత్రం చేర్చు (member-entered)" : "Include member-entered Gothram/Star"}</span>
             </label>
             <label className="flex items-center gap-1.5 cursor-pointer">
               <input

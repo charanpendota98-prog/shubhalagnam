@@ -17,8 +17,11 @@ Design (emi break avvakunda):
   • Full numbers are revealed only after an accepted interest through POST /api/unlock.
 """
 from __future__ import annotations
+from atomic_store import atomic_json_dump
+
 
 import json
+import copy
 import os
 import re
 import threading
@@ -51,13 +54,14 @@ def _now_iso() -> str:
     return datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S")
 
 
-def _persist() -> None:
+def _persist() -> bool:
+    """Persist assisted-service state and report failure to callers."""
     try:
-        with open(PERSIST_FILE, "w", encoding="utf-8") as f:
-            json.dump({"unlocks": UNLOCKS, "orders": ORDERS,
-                       "reveal_log": REVEAL_LOG[-500:]}, f, ensure_ascii=False)
+        atomic_json_dump(PERSIST_FILE, {"unlocks": UNLOCKS, "orders": ORDERS,
+                                        "reveal_log": REVEAL_LOG[-500:]}, ensure_ascii=False)
+        return True
     except Exception:
-        pass  # persist fail ayina memory flow aagadu
+        return False
 
 
 def _restore() -> None:
@@ -188,7 +192,7 @@ def build_masked_whatsapp(profile: Dict, tsap_id: str = "", score: int | None = 
         f"📍 {profile.get('district') or '—'}, {profile.get('state') or '—'}\n"
         f"💍 Community: {profile.get('caste') or '—'}  |  Gothram: {profile.get('gothram') or '—'}\n"
         f"🎓 {profile.get('education') or '—'}  |  💼 {profile.get('job') or '—'}\n"
-        f"🌟 Star: {profile.get('star') or '—'}  |  Rasi: {profile.get('rasi') or '—'}\n"
+        f"🌟 Star / Rasi (member-entered; not a verified chart): {profile.get('star') or '—'}  |  {profile.get('rasi') or '—'}\n"
         f"{route_block}"
         f"━━━━━━━━━━━━━━━━\n"
         f"{routed['hashtags']}\n"
@@ -212,11 +216,19 @@ def grant_unlock(viewer_id: str, target_id: str, via: str = "mutual_consent",
     if not consent_granted or via != "mutual_consent":
         return {"success": False, "reason": "consent_required", "viewer_id": viewer_id,
                 "target_id": target_id, "via": via}
+    had_viewer = viewer_id in UNLOCKS
+    previous_box = copy.deepcopy(UNLOCKS.get(viewer_id, {}))
     box = UNLOCKS.setdefault(viewer_id, {})
     first = target_id not in box
     box[target_id] = {"via": via, "at": _now_iso(), "order_id": order_id,
                       "credits_charged": credits_charged}
-    _persist()
+    if not _persist():
+        if had_viewer:
+            UNLOCKS[viewer_id] = previous_box
+        else:
+            UNLOCKS.pop(viewer_id, None)
+        return {"success": False, "reason": "persistence_failed",
+                "message_telugu": "⚠️ Contact access could not be saved safely. Please try again."}
     return {"success": True, "viewer_id": viewer_id, "target_id": target_id, "via": via,
             "first_time": first}
 
@@ -241,13 +253,25 @@ def unlock_number(viewer: Dict, target: Dict, *, consent_granted: bool = False) 
                 "phone_masked": mask_phone(target.get("phone", "")),
                 "credits_left": int(viewer.get("credits", 0) or 0),
                 "message_telugu": "🔒 Contact details కోసం ముందుగా interest పంపండి. Profile owner accept చేసిన తర్వాత accepted-request account views లో అందుబాటులోకి వస్తాయి; credits తో consent bypass చేయలేరు."}
+    unlocks_before = copy.deepcopy(UNLOCKS)
+    reveals_before = list(REVEAL_LOG)
     if not is_entitled(viewer_id, target_id):
-        grant_unlock(viewer_id, target_id, via="mutual_consent", credits_charged=0,
-                     consent_granted=True)
+        granted = grant_unlock(viewer_id, target_id, via="mutual_consent", credits_charged=0,
+                               consent_granted=True)
+        if not granted.get("success"):
+            return {"success": False, "reason": granted.get("reason", "persistence_failed"),
+                    "phone_masked": mask_phone(target.get("phone", "")),
+                    "message_telugu": granted.get("message_telugu", "Contact access could not be saved safely.")}
     phone = str(target.get("phone", ""))
     REVEAL_LOG.append({"viewer": viewer_id, "target": target_id, "via": "mutual_consent",
                        "charged": 0, "at": _now_iso()})
-    _persist()
+    if not _persist():
+        UNLOCKS.clear()
+        UNLOCKS.update(unlocks_before)
+        REVEAL_LOG[:] = reveals_before
+        return {"success": False, "reason": "persistence_failed",
+                "phone_masked": mask_phone(target.get("phone", "")),
+                "message_telugu": "⚠️ Contact access could not be saved safely. Please try again."}
     return {"success": True, "phone": phone, "phone_masked": mask_phone(phone),
             "charged": 0, "credits_left": int(viewer.get("credits", 0) or 0),
             "via": "mutual_consent",
@@ -289,7 +313,10 @@ def create_order(buyer_id: str, amount: int = ASSISTED_PRICE, note: str = "") ->
              "via": [], "created_at": _now_iso(), "paid_at": "", "delivered_at": "",
              "note": note}
     ORDERS.append(order)
-    _persist()
+    if not _persist():
+        ORDERS.remove(order)
+        _ORDER_SEQ -= 1
+        raise OSError("assisted order could not be persisted")
     return order
 
 
@@ -310,10 +337,15 @@ def mark_order_paid(order_id: str, utr: str) -> Dict:
     if not (utr or "").strip():
         return {"success": False,
                 "message_telugu": "⚠️ UTR/reference lekunda paid cheyyakoodadu (audit కి)"}
+    previous = copy.deepcopy(o)
     o["status"] = "paid"
     o["utr"] = utr.strip()
     o["paid_at"] = _now_iso()
-    _persist()
+    if not _persist():
+        o.clear()
+        o.update(previous)
+        return {"success": False, "reason": "persistence_failed",
+                "message_telugu": "⚠️ Assisted payment could not be saved safely. Please try again."}
     return {"success": True, "order": o,
             "message_telugu": f"✅ {order_id} paid (₹{o['amount']}) — ఇప్పుడు profiles attach + send చెయ్యొచ్చు"}
 
@@ -333,9 +365,14 @@ def attach_order_profiles(order_id: str, profile_ids: List[str]) -> Dict:
     if o["status"] == "delivered" and set(clean) != set(o.get("profile_ids", [])):
         return {"success": False, "reason": "order_already_delivered",
                 "message_telugu": "⚠️ Delivered order shortlist మార్చలేము"}
+    previous = copy.deepcopy(o)
     o["profile_ids"] = clean
     o["shortlist_attached_at"] = _now_iso()
-    _persist()
+    if not _persist():
+        o.clear()
+        o.update(previous)
+        return {"success": False, "reason": "persistence_failed",
+                "message_telugu": "⚠️ Shortlist could not be saved safely. Please try again."}
     return {"success": True, "order_id": order_id, "buyer_id": o["buyer_id"],
             "attached": len(clean), "contact_access": "owner_acceptance_required",
             "message_telugu": f"✅ {len(clean)} shortlisted profiles attach అయ్యాయి. Contact details కోసం profile-owner acceptance తప్పనిసరి."}
@@ -372,7 +409,7 @@ def build_personal_card(target: Dict, buyer_name: str = "") -> str:
     from channels_config import SITE  # lazy import
     text = (
         f"{icon} {t.get('tsap_id', '—')} — {first_masked(t.get('full_name', ''))} ({g} {t.get('age', '—')}y)\n"
-        f"💍 {t.get('caste', '—')} · {t.get('gothram', '—')} గోత్రం · 🌟 {t.get('star', '—')}\n"
+        f"💍 {t.get('caste', '—')} · {t.get('gothram', '—')} గోత్రం · 🌟 {t.get('star', '—')} (member-entered)\n"
         f"🎓 {t.get('education', '—')} · 💼 {t.get('job', '—')} · 💰 {t.get('salary', '—')}\n"
         f"📍 {t.get('district', '—')}, {t.get('state', 'TS')}\n"
         "🔒 Contact details hidden — send an interest request; owner acceptance is required.\n"

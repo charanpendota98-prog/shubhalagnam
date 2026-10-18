@@ -112,12 +112,12 @@ export default function VendorsPage() {
         {/* FILTERS */}
         <section className="mt-6 bg-white rounded-3xl border border-gold/30 card-shadow p-4">
           <div className="flex flex-wrap gap-2">
-            <button onClick={() => setCat("")}
+            <button type="button" onClick={() => setCat("")}
               className={`px-3 py-1.5 rounded-full text-[12px] font-bold border ${!cat ? "maroon-gradient text-white border-transparent" : "border-maroon/20 text-maroon"}`}>
               {te ? "అన్నీ" : "All"} ({data?.total ?? 0})
             </button>
             {cats.map((c) => (
-              <button key={c.key} onClick={() => setCat(cat === c.key ? "" : c.key)}
+              <button type="button" key={c.key} onClick={() => setCat(cat === c.key ? "" : c.key)}
                 className={`px-3 py-1.5 rounded-full text-[12px] font-bold border ${cat === c.key ? "maroon-gradient text-white border-transparent" : "border-maroon/20 text-maroon"}`}>
                 {c.icon} {categoryName(c)}{c.count ? ` · ${c.count}` : ""}
               </button>
@@ -134,7 +134,7 @@ export default function VendorsPage() {
           {districts.length > 0 && (
             <div className="mt-2 flex flex-wrap gap-1.5">
               {visibleDistricts.map((d) => (
-                <button key={d} onClick={() => setDistrict(d)}
+                <button type="button" key={d} onClick={() => setDistrict(d)}
                   className="px-2.5 py-1 rounded-full bg-maroon-soft text-maroon text-[11px] font-semibold">📍 {d}</button>
               ))}
             </div>
@@ -282,7 +282,7 @@ export default function VendorsPage() {
               <Link href="/vendors/register" className="gold-gradient text-maroon font-bold text-[12px] px-4 py-2.5 rounded-xl">
                 {te ? "🏪 ఇప్పుడే join అవ్వండి" : "🏪 Join now"}
               </Link>
-              <button onClick={() => copy("https://manavivaha.in/vendors", "link")}
+              <button type="button" onClick={() => copy("https://manavivaha.in/vendors", "link")}
                 className="bg-white/10 border border-white/25 font-bold text-[12px] px-4 py-2.5 rounded-xl">
                 {copied === "link" ? "copied ✓" : "🔗 link copy"}
               </button>

@@ -10,7 +10,7 @@ type Profile = {
 };
 type Response = { profiles?: Profile[] };
 
-export default function ProfileRail({ kind, profileId }: { kind: "recent" | "similar"; profileId?: string }) {
+export default function ProfileRail({ kind, profileId, viewerId = "" }: { kind: "recent" | "similar"; profileId?: string; viewerId?: string }) {
   const { lang } = useLang();
   const te = lang === "te";
   const [profiles, setProfiles] = useState<Profile[]>([]);
@@ -18,8 +18,8 @@ export default function ProfileRail({ kind, profileId }: { kind: "recent" | "sim
 
   useEffect(() => {
     let active = true;
-    const viewerId = (() => { try { return localStorage.getItem("tsap_id") || ""; } catch { return ""; } })();
-    const id = kind === "similar" ? profileId : viewerId;
+    const storedViewer = (() => { try { return localStorage.getItem("tsap_id") || ""; } catch { return ""; } })();
+    const id = kind === "similar" ? profileId : (viewerId || storedViewer);
     if (!id) { setLoading(false); return; }
     const path = kind === "similar"
       ? `/api/profiles/${encodeURIComponent(id)}/similar?limit=8`
@@ -29,7 +29,7 @@ export default function ProfileRail({ kind, profileId }: { kind: "recent" | "sim
       if (active) setLoading(false);
     });
     return () => { active = false; };
-  }, [kind, profileId]);
+  }, [kind, profileId, viewerId]);
 
   if (!loading && profiles.length === 0) return null;
   const title = kind === "recent"

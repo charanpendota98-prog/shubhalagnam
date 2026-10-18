@@ -93,9 +93,9 @@ export default function PWA() {
         </div>
         <div className="flex flex-col gap-1">
           {!iosMode && (
-            <button onClick={install} className="px-3 py-2 rounded-xl maroon-gradient text-white text-[11px] font-bold">Install</button>
+            <button type="button" onClick={install} className="px-3 py-2 rounded-xl maroon-gradient text-white text-[11px] font-bold">Install</button>
           )}
-          <button onClick={close} className="px-3 py-1 text-[10px] text-gray-500">{te ? "తర్వాత" : "later"}</button>
+          <button type="button" onClick={close} className="px-3 py-1 text-[10px] text-gray-500">{te ? "తర్వాత" : "later"}</button>
         </div>
       </div>
     </div>

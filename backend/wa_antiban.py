@@ -37,7 +37,9 @@ Env:
 """
 from __future__ import annotations
 
+import copy
 import json
+from atomic_store import atomic_json_dump
 import os
 import random
 import threading
@@ -121,14 +123,12 @@ class WhatsAppAntiban:
         except Exception:
             return self._blank()
 
-    def save(self) -> None:
+    def save(self) -> bool:
         try:
-            tmp = self.state_file + ".tmp"
-            with open(tmp, "w", encoding="utf-8") as f:
-                json.dump(self.state, f, ensure_ascii=False)
-            os.replace(tmp, self.state_file)
+            atomic_json_dump(self.state_file, self.state, ensure_ascii=False)
+            return True
         except Exception:
-            pass
+            return False
 
     @staticmethod
     def _now() -> datetime:
@@ -292,8 +292,9 @@ class WhatsAppAntiban:
 
     # ------------------------------------------------------------------ update
     def record_send(self, target: Optional[str] = None, ok: bool = True, detail: str = "",
-                    priority: int = 1, kind: str = "") -> None:
+                    priority: int = 1, kind: str = "") -> bool:
         with self._lock:
+            previous = copy.deepcopy(self.state)
             now = self._now()
             # 🔒 next gap ni ippude LOCK chey — prati check ki re-roll avvakudadu
             self.state["next_gap"] = round(self._current_gap(priority, kind), 1)
@@ -321,31 +322,43 @@ class WhatsAppAntiban:
                 self._event("cooldown_start", f"{c['fail_cooldown_min']} min (3 fails)")
             if int(self.state.get("sent_since_break", 0)) >= c["break_every"]:
                 self.state["sent_since_break"] = 0
-            self.save()
+            if not self.save():
+                self.state = previous
+                return False
+            return True
 
     def pause(self, reason: str = "manual") -> Dict:
+        previous = copy.deepcopy(self.state)
         self.state["paused"] = True
         self._event("paused", reason)
-        self.save()
-        return {"paused": True, "reason": reason}
+        if not self.save():
+            self.state = previous
+            return {"ok": False, "reason": "persistence_failed"}
+        return {"ok": True, "paused": True, "reason": reason}
 
     def resume(self) -> Dict:
+        previous = copy.deepcopy(self.state)
         self.state["paused"] = False
         self.state["cooldown_until"] = None
         self.state["consecutive_failures"] = 0
         self._event("resumed")
-        self.save()
-        return {"paused": False}
+        if not self.save():
+            self.state = previous
+            return {"ok": False, "reason": "persistence_failed"}
+        return {"ok": True, "paused": False}
 
     def reset_today(self) -> Dict:
         """Test/debug: ee రోజు counters reset (caps మళ్లీ fresh)."""
+        previous = copy.deepcopy(self.state)
         self.state.setdefault("days", {})[self._day()] = 0
         for t, v in list(self.state.get("targets", {}).items()):
             if v.get("day") == self._day():
                 v["count"] = 0
         self.state["sent_since_break"] = 0
-        self.save()
-        return {"reset": True, "day": self._day()}
+        if not self.save():
+            self.state = previous
+            return {"ok": False, "reason": "persistence_failed"}
+        return {"ok": True, "reset": True, "day": self._day()}
 
     # ------------------------------------------------------------------- stats
     def stats(self) -> Dict:

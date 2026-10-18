@@ -225,7 +225,8 @@ check("F5 PhotoFlow states and truthful privacy copy", all(x in pf_src for x in
        "Upload another photo", "This is not identity verification", "Photo review complete")))
 vf_src = src_page("frontend/src/app/verify/page.tsx")
 check("F6 verify selfie page", "Verify with a live selfie" in vf_src and "/api/verify/selfie" in vf_src)
-ap_src = src_page("frontend/src/app/admin/photos/page.tsx")
+# The route keeps a server shell for metadata; the moderation UI lives beside it.
+ap_src = src_page("frontend/src/app/admin/photos/photos-client.tsx")
 admin_dashboard_src = src_page("frontend/src/components/control/Dashboard.tsx")
 check("F7 admin review UI+dashboard link", "/api/admin/photos/review" in ap_src
       and 'href="/admin/photos"' in admin_dashboard_src and "photos_pending" in admin_dashboard_src)

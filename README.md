@@ -46,17 +46,46 @@ The optional WhatsApp bridge requires its own opt-in configuration and account p
   python test_wave39_install_backup.py
   python test_wave40_deploy.py
   python test_registration_photo_required.py
+  python test_shortlist_notes.py
+  python test_compare_preferences.py
+  python test_control_analytics.py
 )
 
 # Frontend lint, TypeScript, and production build
 (
   cd frontend
   npm ci
-  npm run lint
+  npm run lint          # eslint + link check + design-system & a11y static gates + security script tests
   npx tsc --noEmit
   npm run build
 )
+
+# Frontend pure-logic suites (also run by `npm run lint`)
+(
+  cd frontend
+  npm run test:matching      # explainable match reasons + relax suggestions
+  npm run test:saved-search  # saved-search summaries
+  npm run test:compare       # compare differences + expectation tallies
+  npm run test:ops           # operations insight formatting
+)
+
+# Design-system, accessibility and match-explanation gates only
+(
+  cd frontend
+  npm run test:static   # design + a11y + route chrome + media layout + pure-logic gates
+)
+
+# Optional browser QA — needs a Chromium binary; skips loudly without one
+(
+  cd frontend
+  npx playwright install chromium
+  npm run test:visual   # 8 viewports × 6 routes: overflow, screenshots, 44px targets
+  npm run test:axe      # axe WCAG 2.0/2.1 A+AA + keyboard focus visibility
+)
 ```
+
+See [`DESIGN-SYSTEM.md`](DESIGN-SYSTEM.md) for the token/primitives reference,
+the adoption status, and exactly what the QA suites do and do not cover.
 
 `backend/verify_live_flow.py` performs GET-only endpoint checks against local or explicitly configured staging URLs; it does not create accounts or mutate production data. `backend/test_channels.py` is a no-network dry run by default; its optional Telegram path is read-only and requires explicit operator opt-in. Neither local tests nor repository configuration prove external uptime or delivery. Inspect scenario-test setup before running scripts; they are not all safe to invoke through indiscriminate test discovery.
 

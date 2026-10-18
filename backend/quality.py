@@ -10,6 +10,7 @@
 """
 from __future__ import annotations
 
+import copy
 import json
 import os
 import re
@@ -22,6 +23,7 @@ def _has_verification_evidence(user: Dict[str, Any]) -> bool:
     return bool(u.get("phone_verified") or u.get("selfie_verified")
                 or u.get("photo_status") == "approved" or u.get("id_verified"))
 
+from atomic_store import atomic_json_dump
 from hardening import clean, req_int, req_text, validation_error
 from matchpro import detect_nri
 from models import is_never_married_status
@@ -45,12 +47,12 @@ def _load(path: str, target: List[Dict[str, Any]]) -> None:
         pass
 
 
-def _save(path: str, data: Any) -> None:
+def _save(path: str, data: Any) -> bool:
     try:
-        with open(path, "w", encoding="utf-8") as fh:
-            json.dump(data, fh, ensure_ascii=False)
+        atomic_json_dump(path, data, ensure_ascii=False)
+        return True
     except Exception:
-        pass
+        return False
 
 
 load_saved_searches = lambda: _load(SAVED_STATE_FILE, SAVED_SEARCHES)      # noqa: E731
@@ -62,9 +64,9 @@ def load_consent_ledger() -> None:
     CONSENT_LEDGER[:] = CONSENT_LEDGER[-5000:]
 
 
-def save_consent_ledger() -> None:
+def save_consent_ledger() -> bool:
     CONSENT_LEDGER[:] = CONSENT_LEDGER[-5000:]
-    _save(CONSENT_STATE_FILE, CONSENT_LEDGER)
+    return _save(CONSENT_STATE_FILE, CONSENT_LEDGER)
 
 
 # ---------------------------------------------------------------------------
@@ -283,7 +285,9 @@ def save_search(tsap_id: str, name: str, filters: Dict[str, Any], alert: bool = 
            "last_alert_at": "", "alerts_sent": 0,
            "last_seen_ids": []}
     SAVED_SEARCHES.append(rec)
-    save_saved_searches()
+    if not save_saved_searches():
+        SAVED_SEARCHES.remove(rec)
+        raise RuntimeError("persistence_failed: saved search could not be saved safely")
     return rec
 
 
@@ -292,12 +296,14 @@ def saved_for(tsap_id: str) -> List[Dict[str, Any]]:
 
 
 def delete_search(tsap_id: str, search_id: str) -> bool:
+    previous = copy.deepcopy(SAVED_SEARCHES)
     before = len(SAVED_SEARCHES)
     SAVED_SEARCHES[:] = [s for s in SAVED_SEARCHES
                          if not (s.get("tsap_id") == tsap_id and s.get("search_id") == search_id)]
     changed = len(SAVED_SEARCHES) != before
-    if changed:
-        save_saved_searches()
+    if changed and not save_saved_searches():
+        SAVED_SEARCHES[:] = previous
+        raise RuntimeError("persistence_failed: saved search could not be deleted safely")
     return changed
 
 
@@ -307,9 +313,13 @@ def set_search_alert(tsap_id: str, search_id: str, alert: Any) -> Optional[Dict[
                 if row.get("tsap_id") == tsap_id and row.get("search_id") == search_id), None)
     if rec is None:
         return None
+    previous = copy.deepcopy(rec)
     rec["alert"] = enabled
     rec["alert_consent_at"] = datetime.utcnow().isoformat() if enabled else ""
-    save_saved_searches()
+    if not save_saved_searches():
+        rec.clear()
+        rec.update(previous)
+        raise RuntimeError("persistence_failed: saved-search alert setting could not be saved safely")
     return rec
 
 
@@ -536,10 +546,14 @@ def new_matches_for(rec: Dict[str, Any], users: List[Dict[str, Any]], exclude: O
 
 
 def mark_alerted(rec: Dict[str, Any], ids: List[str]) -> None:
+    previous = copy.deepcopy(rec)
     rec["last_alert_at"] = datetime.utcnow().isoformat()
     rec["alerts_sent"] = int(rec.get("alerts_sent", 0)) + 1
     rec["last_seen_ids"] = list(dict.fromkeys(list(rec.get("last_seen_ids") or []) + list(ids)))[-200:]
-    save_saved_searches()
+    if not save_saved_searches():
+        rec.clear()
+        rec.update(previous)
+        raise RuntimeError("persistence_failed: saved-search alert delivery state could not be saved safely")
 
 
 # ---------------------------------------------------------------------------
@@ -552,7 +566,9 @@ def log_consent(action: str, actor_id: str, other_id: str, request_id: str = "",
            "contact_access_granted": bool(contact_access_granted),
            "note": clean(note, 160, "consent_note")}
     CONSENT_LEDGER.append(rec)
-    save_consent_ledger()
+    if not save_consent_ledger():
+        CONSENT_LEDGER.remove(rec)
+        raise RuntimeError("persistence_failed: consent event could not be saved safely")
     return rec
 
 

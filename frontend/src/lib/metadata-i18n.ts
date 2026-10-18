@@ -98,8 +98,8 @@ const ROUTE_COPY: Record<string, LocalizedCopy> = {
     en: { title: "Pelli Choopulu Guide", description: "A practical guide to questions, boundaries, and safety before, during, and after a first family introduction." },
   },
   "/porutham": {
-    te: { title: "వేద గుణమేళనం", description: "మీరు అందించిన జన్మ వివరాల ఆధారంగా గుణమేళనం నివేదికను రూపొందించండి. ఇది జ్యోతిష్య సమాచారం మాత్రమే; వివాహ నిర్ణయానికి హామీ కాదు." },
-    en: { title: "Vedic Porutham Report", description: "Generate a traditional compatibility report from the birth details you provide. It is informational and does not guarantee relationship outcomes." },
+    te: { title: "నిజమైన జాతక పత్రం సమీక్ష", description: "Owner-upload చేసిన అసలైన జాతక పత్రం యొక్క review స్థితిని మాత్రమే చూడండి. Star-only score, కల్పిత chart లేదా వివాహ తీర్పు తయారు చేయము." },
+    en: { title: "Real Jathakam Evidence Review", description: "Upload an owner-authorised horoscope document and view its review state. No star-only score, fabricated chart, or marriage verdict is generated." },
   },
   "/pricing": {
     te: { title: "ధరలు మరియు ప్లాన్లు", description: "₹99 నుండి ప్రారంభమయ్యే లిస్టింగ్ ఎంపికలు, క్రెడిట్‌లు మరియు ప్రస్తుత ప్లాన్ వివరాలు చూడండి." },

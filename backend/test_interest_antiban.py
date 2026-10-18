@@ -247,23 +247,19 @@ def test_porutham_views_addons():
         check("Nakshatra parse: Rohini", norm_nakshatra("Rohini") == 3)
         check("Nakshatra parse: Telugu రోహిణి", norm_nakshatra("రోహిణి") == 3)
         check("Rasi parse: vrushabha", norm_rasi("vrushabha") == 1)
-        # rules
+        # The parser remains useful for validating entered labels, but the
+        # legacy calculator must never turn those labels into a result.
         good = compute_porutham({"star": "Rohini"}, {"star": "Mrigasira"})
-        check("Porutham returns ten individual rule outcomes", good.get("available") is True and len(good.get("items", [])) == 10)
-        check("Porutham pass tally matches individual rule flags",
-              good.get("passed_checks") == sum(item.get("pass") is True for item in good.get("items", []))
-              and good.get("total_checks") == 10, good.get("passed_checks"))
-        english_copy = [good.get("advice_en", ""), *[item.get("name_en", "") + " " + item.get("note_en", "") for item in good.get("items", [])]]
-        check("Porutham exposes complete Telugu-free English explanations",
-              all(text.strip() and not any("\u0c00" <= char <= "\u0c7f" for char in text) for text in english_copy))
+        check("Legacy Porutham requires reviewed Jathakam evidence",
+              good.get("available") is False and good.get("calculation_available") is False
+              and good.get("status") == "jathakam_required")
+        check("Fail-closed Porutham has no fabricated tally or individual checks",
+              good.get("passed_checks") is None and good.get("total_checks") is None
+              and good.get("items") == [])
         check("Porutham omits aggregate score, percentage, stars, and verdict",
               not ({"score", "max_score", "percent", "stars", "verdict"} & set(good)))
-        rajju = compute_porutham({"star": "Ashwini"}, {"star": "Ashwini"})
-        check("Rajju dosham detect (same rajju)", any("రజ్జు" in str(d) for d in rajju["doshas"]), str(rajju["doshas"]))
-        vedha = compute_porutham({"star": "Ashwini"}, {"star": "Jyeshtha"})
-        check("Vedha dosham detect", any("వేధ" in str(d) for d in vedha["doshas"]), str(vedha["doshas"]))
         nodata = compute_porutham({}, {})
-        check("Star ledu aithe graceful message", nodata["available"] is False)
+        check("Missing evidence remains unavailable", nodata["available"] is False and nodata["items"] == [])
 
         # Use deterministic in-memory fixtures; production demo-seeding is retired.
         g, b = "TSAP-M-TEST-9001", "TSAP-F-TEST-9001"
@@ -283,10 +279,12 @@ def test_porutham_views_addons():
         M.DB_PAYMENTS.clear()
 
         pr = c.get(f"/api/porutham?bride={b}&groom={g}").json()
-        check("Porutham API (IDs tho) 10 items", len(pr["items"]) == 10, str(len(pr.get("items", []))))
-        check("Porutham API exposes factual pass tally and individual checks",
-              pr.get("available") is True and pr.get("total_checks") == 10
-              and pr.get("passed_checks") == sum(item.get("pass") is True for item in pr.get("items", [])))
+        check("Porutham API fails closed without reviewed Jathakam evidence",
+              pr.get("available") is False and pr.get("calculation_available") is False
+              and pr.get("status") == "jathakam_required" and pr.get("items") == [])
+        check("Porutham API returns no fabricated pass tally or individual checks",
+              pr.get("passed_checks") is None and pr.get("total_checks") is None
+              and pr.get("items") == [])
         check("Porutham API does not expose an aggregate verdict or score",
               not ({"score", "max_score", "percent", "stars", "verdict"} & set(pr)))
 
@@ -312,7 +310,7 @@ def test_porutham_views_addons():
         sv = c.post("/api/save", json={"tsap_id": g, "saved_id": b}).json()
         check("Shortlist save", sv["saved"] is True)
         sl = c.get(f"/api/saved/{g}").json()
-        check("Shortlist list + porutham", sl["count"] == 1 and sl["saved"][0]["porutham"] is not None)
+        check("Shortlist list keeps astrology result unavailable", sl["count"] == 1 and sl["saved"][0]["porutham"] is None)
         sv2 = c.post("/api/save", json={"tsap_id": g, "saved_id": b}).json()
         check("Shortlist toggle remove", sv2["saved"] is False)
 

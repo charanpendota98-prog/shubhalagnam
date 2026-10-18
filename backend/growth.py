@@ -53,7 +53,7 @@ def namaste_text(user: Dict, tsap_id: str) -> str:
         f"━━━━━━━━━━━━━━━━\n"
         f"👤 {u.get('full_name', '—')} ({u.get('age', '—')} yrs)\n"
         f"💍 {u.get('caste', '—')}{(' / ' + u['sub_caste']) if u.get('sub_caste') else ''} | గోత్రం: {u.get('gothram', '—')}\n"
-        f"🌟 Star: {u.get('star', '—')} | రాశి: {u.get('rasi', '—')}\n"
+        f"🌟 Star / రాశి (member-entered; verified chart కాదు): {u.get('star', '—')} | {u.get('rasi', '—')}\n"
         f"📏 Height: {u.get('height', '—')} | 🩸 {u.get('blood_group', '—') or '—'}\n"
         f"🎓 {u.get('education', '—')} {u.get('education_detail', '')}\n"
         f"💼 {u.get('job', '—')} {u.get('company', '')} | 💰 {u.get('salary', '—')}\n"
@@ -328,7 +328,7 @@ def share_kit(user: Dict, tsap_id: str, hashtags: Optional[List[str]] = None) ->
     caption = (
         f"💍 *{name}* — {u.get('age', '—')} yrs | {u.get('caste', '—')} | {u.get('district', '—')}, {u.get('state', 'TS')}\n"
         f"🎓 {u.get('education', '—')} {u.get('job', '')} | 💰 {u.get('salary', '—')}\n"
-        f"🌟 {u.get('star', '—')} / {u.get('rasi', '—')} | 🕉️ {u.get('gothram', '—')}\n"
+        f"🌟 {u.get('star', '—')} / {u.get('rasi', '—')} (member-entered; not a verified chart) | 🕉️ {u.get('gothram', '—')}\n"
         f"🆔 *{tsap_id}*\n"
         f"🔍 Details: {SITE}/search/{tsap_id}\n"
         f"📝 Mee profile FREE ga pettu: {SITE}/register\n"

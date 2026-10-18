@@ -84,7 +84,7 @@ export default function MatchAssistant() {
             {te ? "ఇటీవల ఆమోదించిన profiles · నిజమైన interestలు, profile views" : "Recently approved profiles · actual interests and profile views"}
           </p>
         </div>
-        <button
+        <button type="button"
           onClick={() => void load()}
           disabled={loading}
           className="shrink-0 rounded-full border border-gold/50 bg-white/10 px-3 py-1.5 text-[11px] font-bold text-gold hover:bg-white/20 transition disabled:opacity-50"

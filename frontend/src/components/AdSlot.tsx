@@ -77,7 +77,7 @@ export default function AdSlot({ slot, district = "", state = "", className = ""
     : apiDisplayMessage({ message_en: ad.offer_en || ad.offer }, false, "");
   return (
     <div className={`overflow-hidden rounded-2xl border border-[#D4AF37]/60 bg-white shadow-sm ${className}`}>
-      <button onClick={onClick} className="block w-full text-left">
+      <button type="button" onClick={onClick} className="block w-full text-left">
         {img ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={img} alt={adTitle} className="max-h-56 w-full object-cover" loading="lazy" />

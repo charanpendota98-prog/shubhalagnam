@@ -7,13 +7,15 @@
  * • Real-time DB sync and instant match ranking upgrade
  */
 import { useCallback, useEffect, useRef, useState } from "react";
+import TrustBadge from "@/components/TrustBadge";
 import Link from "next/link";
 import Image from "next/image";
 import AuthGate from "@/components/AuthGate";
-import RasiChart from "@/components/RasiChart";
 import PushBell from "@/components/PushBell";
 import PayBox from "@/components/PayBox";
 import MatchAssistant from "@/components/MatchAssistant";
+import StoryNudge from "@/components/StoryNudge";
+import MemberActivity from "@/components/MemberActivity";
 import { apiDisplayMessage, apiGet, apiPost, authHeaders, readApiJson} from "@/lib/api";
 // 🛡️ P0 security fix: /api/profile/{id} (GET+update) and /api/user/delete-account
 // now require the owner's X-Tsap-Token server-side (was a zero-auth IDOR that
@@ -133,9 +135,9 @@ export default function MePage() {
         </div>
 
         <div className="flex items-center gap-2">
-          <button
+          <button type="button"
             onClick={() => setShowDeleteModal(true)}
-            className="px-3 py-1.5 rounded-full border border-slate-200 hover:border-rose-300 bg-white hover:bg-rose-50 text-slate-600 hover:text-rose-700 text-xs font-bold transition flex items-center gap-1 shadow-xs"
+            className="px-3 py-1.5 rounded-full border border-slate-200 hover:border-rose-300 bg-white hover:bg-rose-50 text-slate-600 hover:text-rose-700 text-xs font-bold transition flex items-center gap-1 shadow-xs min-h-11"
             title={te ? "వివాహం కుదిరింది / ప్రొఫైల్‌ను పబ్లిక్ శోధన నుంచి దాచండి" : "Mark as married or hide the profile from public search"}
           >
             <span>💍</span>
@@ -154,9 +156,19 @@ export default function MePage() {
             <MatchAssistant />
           </div>
 
+          {/* 💑 Story nudge — only when the member's own record justifies it */}
+          <div className="mt-4">
+            <StoryNudge />
+          </div>
+
+          {/* 📊 WAVE 43 — this account's own activity (never a forecast) */}
+          <div className="mt-4">
+            <MemberActivity tsapId={myId} />
+          </div>
+
           <div className="mt-4 flex gap-2 overflow-x-auto pb-1 no-scrollbar">
             {TABS.map(([v, en, t]) => (
-              <button
+              <button type="button"
                 key={v}
                 onClick={() => setTab(v)}
                 className={`whitespace-nowrap rounded-full px-4 py-2 text-xs font-bold transition ${
@@ -185,7 +197,7 @@ export default function MePage() {
             <p className="text-xs text-slate-500 font-medium">
               {te ? "మీకు వివాహం నిశ్చయమైందా లేదా ప్రొఫైల్‌ను పబ్లిక్ శోధన నుంచి దాచాలనుకుంటున్నారా?" : "Are you getting married, or would you like to hide your profile from public search?"}
             </p>
-            <button
+            <button type="button"
               onClick={() => setShowDeleteModal(true)}
               className="px-4 py-2 rounded-xl text-xs font-bold text-slate-500 hover:text-rose-700 hover:bg-rose-50 border border-slate-200 hover:border-rose-200 transition inline-flex items-center gap-1.5"
             >
@@ -235,9 +247,10 @@ export default function MePage() {
                       <p className="text-xs text-slate-500 font-mono">ID: {myId}</p>
                     </div>
                   </div>
-                  <button
+                  <button type="button"
+                    aria-label={te ? "మూసివేయండి" : "Close"}
                     onClick={() => setShowDeleteModal(false)}
-                    className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center font-bold"
+                    className="w-11 h-11 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center font-bold"
                   >
                     ✕
                   </button>
@@ -324,7 +337,7 @@ export default function MePage() {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
                       <div>
                         <label className="text-[10px] font-bold text-slate-600 block mb-0.5">{te ? "భాగస్వామి పేరు (ఐచ్ఛికం)" : "Partner name (optional)"}:</label>
-                        <input
+                        <input aria-label={te ? "భాగస్వామి పేరు" : "Partner name"}
                           type="text"
                           value={partnerName}
                           onChange={(e) => setPartnerName(e.target.value)}
@@ -334,7 +347,7 @@ export default function MePage() {
                       </div>
                       <div>
                         <label className="text-[10px] font-bold text-slate-600 block mb-0.5">{te ? "భాగస్వామి ప్రొఫైల్ ID (ఐచ్ఛికం)" : "Partner profile ID (optional)"}:</label>
-                        <input
+                        <input aria-label="Profile ID"
                           type="text"
                           value={partnerId}
                           onChange={(e) => setPartnerId(e.target.value)}
@@ -351,7 +364,7 @@ export default function MePage() {
                   <label className="text-[11px] font-bold text-slate-600 block mb-1">
                     {te ? "మీ అనుభవం లేదా అభిప్రాయం (ఐచ్ఛికం):" : "Your feedback or review (optional):"}
                   </label>
-                  <textarea
+                  <textarea aria-label={te ? "మన వివాహ సేవలు మీకు ఎలా అనిపించాయి? ఇతర వధూవరులకు సందేశం ఇవ్వండి…" : "How was your experience with Mana Vivaha? Share a note with other members…"}
                     rows={2}
                     value={deleteFeedback}
                     onChange={(e) => setDeleteFeedback(e.target.value)}
@@ -658,7 +671,7 @@ function PartnerPreferencesPanel({ myId }: { myId: string }) {
                   setCastes([myProfile.caste]);
                   setDistricts(["Hyderabad", "Ranga Reddy", "Medchal-Malkajgiri"]);
                 }}
-                className="px-3 py-1.5 rounded-xl text-xs font-black bg-white border border-amber-300 text-maroon shadow-xs hover:bg-amber-100 transition flex items-center gap-1"
+                className="px-3 py-1.5 rounded-xl text-xs font-black bg-white border border-amber-300 text-maroon shadow-xs hover:bg-amber-100 transition flex items-center gap-1 min-h-11"
               >
                 <span>💍</span>
                 <span>{te ? `నా కమ్యూనిటీ (${myProfile.caste}) + హైదరాబాద్` : `My community (${myProfile.caste}) + Hyderabad`}</span>
@@ -672,7 +685,7 @@ function PartnerPreferencesPanel({ myId }: { myId: string }) {
                 onClick={() => {
                   setJobs(["Housewife / Homemaker (గృహిణి)", "Not Working / Looking for Job"]);
                 }}
-                className="px-3 py-1.5 rounded-xl text-xs font-black bg-white border border-rose-300 text-rose-800 shadow-xs hover:bg-rose-50 transition flex items-center gap-1"
+                className="px-3 py-1.5 rounded-xl text-xs font-black bg-white border border-rose-300 text-rose-800 shadow-xs hover:bg-rose-50 transition flex items-center gap-1 min-h-11"
               >
                 <span>🏡</span>
                 <span>{te ? "గృహిణి ప్రొఫైల్‌లు మాత్రమే" : "Housewife / homemaker profiles"}</span>
@@ -686,7 +699,7 @@ function PartnerPreferencesPanel({ myId }: { myId: string }) {
                 setJobs(["Software / IT Professional"]);
                 setDistricts(["Hyderabad", "Ranga Reddy", "Medchal-Malkajgiri"]);
               }}
-              className="px-3 py-1.5 rounded-xl text-xs font-black bg-white border border-blue-300 text-blue-800 shadow-xs hover:bg-blue-50 transition flex items-center gap-1"
+              className="px-3 py-1.5 rounded-xl text-xs font-black bg-white border border-blue-300 text-blue-800 shadow-xs hover:bg-blue-50 transition flex items-center gap-1 min-h-11"
             >
               <span>💻</span>
               <span>{te ? "సాఫ్ట్‌వేర్ / IT నిపుణులు" : "Software / IT professionals"}</span>
@@ -697,7 +710,7 @@ function PartnerPreferencesPanel({ myId }: { myId: string }) {
               onClick={() => {
                 setJobs(["Govt Employee / PSU", "Govt Employee (Central / State)", "Bank Officer / PO / Manager", "IAS / IPS / Civil Services / Group 1"]);
               }}
-              className="px-3 py-1.5 rounded-xl text-xs font-black bg-white border border-emerald-300 text-emerald-800 shadow-xs hover:bg-emerald-50 transition flex items-center gap-1"
+              className="px-3 py-1.5 rounded-xl text-xs font-black bg-white border border-emerald-300 text-emerald-800 shadow-xs hover:bg-emerald-50 transition flex items-center gap-1 min-h-11"
             >
               <span>🏛️</span>
               <span>{te ? "ప్రభుత్వ ఉద్యోగులు" : "Government employees"}</span>
@@ -710,7 +723,7 @@ function PartnerPreferencesPanel({ myId }: { myId: string }) {
                 setEducations(["MS (USA / Abroad)", "B.Tech / B.E.", "M.Tech / M.E."]);
                 setJobs(["NRI / Working Abroad", "Software / IT Professional"]);
               }}
-              className="px-3 py-1.5 rounded-xl text-xs font-black bg-white border border-indigo-300 text-indigo-800 shadow-xs hover:bg-indigo-50 transition flex items-center gap-1"
+              className="px-3 py-1.5 rounded-xl text-xs font-black bg-white border border-indigo-300 text-indigo-800 shadow-xs hover:bg-indigo-50 transition flex items-center gap-1 min-h-11"
             >
               <span>🌍</span>
               <span>{te ? "NRI సంబంధాలు (USA / విదేశాలు)" : "NRI matches (USA / abroad)"}</span>
@@ -722,7 +735,7 @@ function PartnerPreferencesPanel({ myId }: { myId: string }) {
                 setCasteNoBar(true);
                 setCastes([]);
               }}
-              className="px-3 py-1.5 rounded-xl text-xs font-black bg-white border border-purple-300 text-purple-800 shadow-xs hover:bg-purple-50 transition flex items-center gap-1"
+              className="px-3 py-1.5 rounded-xl text-xs font-black bg-white border border-purple-300 text-purple-800 shadow-xs hover:bg-purple-50 transition flex items-center gap-1 min-h-11"
             >
               <span>💖</span>
               <span>{te ? "కుల పరిమితి లేదు" : "Any community"}</span>
@@ -744,7 +757,7 @@ function PartnerPreferencesPanel({ myId }: { myId: string }) {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
             <div>
               <label className="font-bold text-slate-800 block mb-1">{te ? "కనీస వయస్సు" : "Minimum age"}:</label>
-              <select
+              <select aria-label={te ? "కనిష్ఠ వయస్సు" : "Minimum age"}
                 value={ageMin}
                 onChange={(e) => setAgeMin(Number(e.target.value))}
                 className="w-full p-2.5 border border-slate-200 rounded-xl bg-white font-bold text-slate-800 focus:outline-none focus:border-maroon"
@@ -758,7 +771,7 @@ function PartnerPreferencesPanel({ myId }: { myId: string }) {
             </div>
             <div>
               <label className="font-bold text-slate-800 block mb-1">{te ? "గరిష్ట వయస్సు" : "Maximum age"}:</label>
-              <select
+              <select aria-label={te ? "గరిష్ఠ వయస్సు" : "Maximum age"}
                 value={ageMax}
                 onChange={(e) => setAgeMax(Number(e.target.value))}
                 className="w-full p-2.5 border border-slate-200 rounded-xl bg-white font-bold text-slate-800 focus:outline-none focus:border-maroon"
@@ -772,7 +785,7 @@ function PartnerPreferencesPanel({ myId }: { myId: string }) {
             </div>
             <div>
               <label className="font-bold text-slate-800 block mb-1">{te ? "కనీస ఎత్తు" : "Minimum height"}:</label>
-              <select
+              <select aria-label={te ? "కనిష్ఠ ఎత్తు" : "Minimum height"}
                 value={heightMin}
                 onChange={(e) => setHeightMin(e.target.value)}
                 className="w-full p-2.5 border border-slate-200 rounded-xl bg-white font-bold text-slate-800 focus:outline-none focus:border-maroon"
@@ -786,7 +799,7 @@ function PartnerPreferencesPanel({ myId }: { myId: string }) {
             </div>
             <div>
               <label className="font-bold text-slate-800 block mb-1">{te ? "గరిష్ట ఎత్తు" : "Maximum height"}:</label>
-              <select
+              <select aria-label={te ? "గరిష్ఠ ఎత్తు" : "Maximum height"}
                 value={heightMax}
                 onChange={(e) => setHeightMax(e.target.value)}
                 className="w-full p-2.5 border border-slate-200 rounded-xl bg-white font-bold text-slate-800 focus:outline-none focus:border-maroon"
@@ -839,7 +852,7 @@ function PartnerPreferencesPanel({ myId }: { myId: string }) {
           {!casteNoBar && (
             <div className="space-y-2">
               <div className="flex items-center gap-2">
-                <input
+                <input aria-label={te ? "🔍 సంఘం లేదా ఉపసంఘం పేరుతో వెతకండి" : "🔍 Search communities or sub-communities"}
                   type="text"
                   value={casteSearch}
                   onChange={(e) => setCasteSearch(e.target.value)}
@@ -930,7 +943,7 @@ function PartnerPreferencesPanel({ myId }: { myId: string }) {
                     "MCA",
                   ])
                 }
-                className="text-[11px] font-bold text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200 hover:bg-emerald-100"
+                className="text-[11px] font-bold text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200 hover:bg-emerald-100 min-h-11"
               >
                 {te ? "+ ప్రొఫెషనల్ / IT డిగ్రీలు" : "+ Professional and IT degrees"}
               </button>
@@ -994,7 +1007,7 @@ function PartnerPreferencesPanel({ myId }: { myId: string }) {
                   <button
                     type="button"
                     onClick={() => setJobs(["Housewife / Homemaker (గృహిణి)", "Not Working / Looking for Job"])}
-                    className="text-[11px] font-black text-rose-800 bg-rose-50 px-2.5 py-1 rounded-full border border-rose-200 hover:bg-rose-100"
+                    className="text-[11px] font-black text-rose-800 bg-rose-50 px-2.5 py-1 rounded-full border border-rose-200 hover:bg-rose-100 min-h-11"
                   >
                     {te ? "🏡 గృహిణి మాత్రమే" : "🏡 Housewife / homemaker only"}
                   </button>
@@ -1008,7 +1021,7 @@ function PartnerPreferencesPanel({ myId }: { myId: string }) {
                         "Teacher / Lecturer / Professor",
                       ])
                     }
-                    className="text-[11px] font-black text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200 hover:bg-emerald-100"
+                    className="text-[11px] font-black text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200 hover:bg-emerald-100 min-h-11"
                   >
                     {te ? "💼 ఉద్యోగం చేసే వధువులు" : "💼 Working brides"}
                   </button>
@@ -1025,7 +1038,7 @@ function PartnerPreferencesPanel({ myId }: { myId: string }) {
                       "Business Owner / Industrialist / Builder",
                     ])
                   }
-                  className="text-[11px] font-bold text-amber-800 bg-amber-50 px-2.5 py-1 rounded-full border border-amber-200 hover:bg-amber-100"
+                  className="text-[11px] font-bold text-amber-800 bg-amber-50 px-2.5 py-1 rounded-full border border-amber-200 hover:bg-amber-100 min-h-11"
                 >
                   {te ? "+ ప్రముఖ వృత్తులు" : "+ Popular occupations"}
                 </button>
@@ -1073,7 +1086,7 @@ function PartnerPreferencesPanel({ myId }: { myId: string }) {
             <label className="font-bold text-slate-800 block text-xs mb-1">
               {te ? "కనీస వార్షిక ఆదాయం" : "Minimum annual income"}:
             </label>
-            <select
+            <select aria-label={te ? "కనిష్ఠ ఆదాయం" : "Minimum income"}
               value={minSalary}
               onChange={(e) => setMinSalary(e.target.value)}
               className="w-full sm:w-72 p-2.5 border border-slate-200 rounded-xl bg-white text-xs font-bold text-slate-800 focus:outline-none focus:border-maroon"
@@ -1102,21 +1115,21 @@ function PartnerPreferencesPanel({ myId }: { myId: string }) {
                 onClick={() =>
                   setDistricts(["Hyderabad", "Ranga Reddy", "Medchal-Malkajgiri", "Sangareddy"])
                 }
-                className="text-[11px] font-bold text-slate-800 bg-amber-50 px-2.5 py-1 rounded-full border border-amber-200 hover:bg-amber-100"
+                className="text-[11px] font-bold text-slate-800 bg-amber-50 px-2.5 py-1 rounded-full border border-amber-200 hover:bg-amber-100 min-h-11"
               >
                 {te ? "హైదరాబాద్ మెట్రో" : "Hyderabad metro"}
               </button>
               <button
                 type="button"
                 onClick={() => setDistricts([...TS_DISTRICTS])}
-                className="text-[11px] font-bold text-indigo-800 bg-indigo-50 px-2.5 py-1 rounded-full border border-indigo-200 hover:bg-indigo-100"
+                className="text-[11px] font-bold text-indigo-800 bg-indigo-50 px-2.5 py-1 rounded-full border border-indigo-200 hover:bg-indigo-100 min-h-11"
               >
                 {te ? "తెలంగాణ అన్నీ" : "All Telangana"}
               </button>
               <button
                 type="button"
                 onClick={() => setDistricts([...AP_DISTRICTS])}
-                className="text-[11px] font-bold text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200 hover:bg-emerald-100"
+                className="text-[11px] font-bold text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200 hover:bg-emerald-100 min-h-11"
               >
                 {te ? "ఆంధ్రప్రదేశ్ అన్నీ" : "All Andhra Pradesh"}
               </button>
@@ -1133,7 +1146,7 @@ function PartnerPreferencesPanel({ myId }: { myId: string }) {
           </div>
 
           <div className="space-y-2">
-            <input
+            <input aria-label={te ? "🔍 జిల్లాను వెతకండి (ఉదా: Hyderabad, Warangal, Guntur)…" : "🔍 Search districts (e.g. Hyderabad, Warangal, Guntur)…"}
               type="text"
               value={districtSearch}
               onChange={(e) => setDistrictSearch(e.target.value)}
@@ -1202,7 +1215,7 @@ function PartnerPreferencesPanel({ myId }: { myId: string }) {
 
             <div>
               <label className="font-bold text-slate-800 block mb-1.5">{te ? "ఆహారపు అలవాటు" : "Diet"}:</label>
-              <select
+              <select aria-label={te ? "ఆహార అలవాటు" : "Diet preference"}
                 value={diet}
                 onChange={(e) => setDiet(e.target.value)}
                 className="w-full p-2.5 border border-slate-200 rounded-xl bg-white font-bold text-slate-800 focus:outline-none focus:border-maroon"
@@ -1263,6 +1276,30 @@ function EditProfilePanel({ myId }: { myId: string }) {
     father_occupation: T("తండ్రి వృత్తి", "Father’s occupation"), mother_name: T("తల్లి పేరు", "Mother’s name"),
     native_place: T("సొంత ఊరు", "Native place"), state: T("రాష్ట్రం", "State"), district: T("జిల్లా", "District"),
     phone: T("ఫోన్ నంబర్", "Phone number"), about_myself: T("నా గురించి", "About me"), photo_url: T("ఫోటో", "Photo"),
+  };
+
+  /** Missing fields that have a control on this page can be focused directly. */
+  const FOCUSABLE_FIELDS = new Set([
+    "full_name", "dob", "height", "marital_status", "sub_caste", "gothram", "star", "rasi",
+    "education", "job", "company", "salary", "work_location", "district", "father_name",
+    "mother_name", "native_place", "expectations", "about_myself", "photo_url",
+  ]);
+
+  const nextSteps = missing
+    .filter((field) => fieldLabels[field] || field)
+    .slice(0, 6)
+    .map((field) => ({
+      field,
+      label: fieldLabels[field] || String(field).replaceAll("_", " "),
+      focusable: FOCUSABLE_FIELDS.has(field),
+    }));
+
+  const focusField = (field: string) => {
+    const control = document.getElementById(`me-${field}`);
+    if (!control) return;
+    control.scrollIntoView({ behavior: "smooth", block: "center" });
+    // preventScroll avoids fighting the smooth scroll we just started.
+    (control as HTMLElement).focus({ preventScroll: true });
   };
 
   const loadProfile = useCallback(async () => {
@@ -1350,7 +1387,14 @@ function EditProfilePanel({ myId }: { myId: string }) {
             </p>
           </div>
 
-          <div className="shrink-0 flex items-center gap-2">
+          <div className="shrink-0 flex flex-wrap items-center gap-2">
+            {/* Recorded-check status sits next to the completeness meter, so the
+                two facts are never read as one score. */}
+            <TrustBadge
+              trust={{ verification_level: (profile?.verification || "none") as "none" | "phone" | "photo" | "id" }}
+              completeness={score}
+              compact
+            />
             <span
               className={`px-3 py-1 rounded-full text-xs font-black ${
                 score >= 90 ? "bg-emerald-100 text-emerald-800 border border-emerald-300" : "bg-amber-100 text-amber-900 border border-amber-300"
@@ -1369,12 +1413,60 @@ function EditProfilePanel({ myId }: { myId: string }) {
           />
         </div>
 
-        {missing.length > 0 && (
-          <div className="text-xs text-slate-700 bg-white/80 rounded-xl p-2.5 border border-gold/20">
-            <span className="font-bold text-maroon">💡 {T("జోడించాల్సిన ముఖ్య వివరాలు:", "Suggested details to add:")} </span>
-            <span className="text-slate-600">{missing.slice(0, 4).map((field) => fieldLabels[field] || String(field).replaceAll("_", " ")).join(", ")}</span>
+        {nextSteps.length > 0 && (
+          <div className="bg-white/80 rounded-xl p-3 border border-gold/20 space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs font-bold text-maroon">
+                💡 {T("తదుపరి చర్యలు", "Suggested next steps")}
+              </p>
+              <span className="text-[10px] font-bold text-slate-500">
+                {T(`${nextSteps.length} మిగిలాయి`, `${nextSteps.length} remaining`)}
+              </span>
+            </div>
+            <ul className="flex flex-wrap gap-1.5">
+              {nextSteps.map((step) => (
+                <li key={step.field}>
+                  {step.focusable ? (
+                    <button
+                      type="button"
+                      onClick={() => focusField(step.field)}
+                      className="inline-flex min-h-11 items-center gap-1 rounded-full border border-gold/50 bg-amber-50 px-3 py-1.5 text-[11px] font-bold text-maroon transition hover:bg-amber-100"
+                    >
+                      <span aria-hidden="true">✏️</span>
+                      <span>{step.label}</span>
+                    </button>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-600">
+                      <span aria-hidden="true">ℹ️</span>
+                      <span>{step.label}</span>
+                    </span>
+                  )}
+                </li>
+              ))}
+            </ul>
+            <p className="text-[10px] leading-relaxed text-slate-500">
+              {T(
+                "ఇవి ఐచ్ఛికం. నొక్కితే ఆ ఫీల్డ్ దగ్గరికి వెళ్తుంది; మీరు save చేసే వరకు ఏమీ మారదు, ఎవరితోనూ పంచుకోదు.",
+                "These are optional. Tapping jumps to that field — nothing changes and nothing is shared until you save.",
+              )}
+            </p>
           </div>
         )}
+
+        <div className="flex flex-wrap gap-2">
+          <Link href="/matches" className="inline-flex min-h-11 items-center rounded-full maroon-gradient px-4 py-2 text-xs font-bold text-white">
+            {T("సంబంధాలను వెతకండి →", "Browse matches →")}
+          </Link>
+          <Link href="/shortlist" className="inline-flex min-h-11 items-center rounded-full border border-maroon/30 px-4 py-2 text-xs font-bold text-maroon">
+            {T("❤️ నా షార్ట్‌లిస్ట్", "❤️ My shortlist")}
+          </Link>
+          <Link href="/saved-searches" className="inline-flex min-h-11 items-center rounded-full border border-maroon/30 px-4 py-2 text-xs font-bold text-maroon">
+            {T("🔔 నా saved searches", "🔔 My saved searches")}
+          </Link>
+          <Link href="/safety" className="inline-flex min-h-11 items-center rounded-full border border-maroon/30 px-4 py-2 text-xs font-bold text-maroon">
+            {T("భద్రతా మార్గదర్శిని", "Safety guide")}
+          </Link>
+        </div>
       </div>
 
       <Msg m={msg} />
@@ -1389,7 +1481,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
             <div>
               <label className="font-bold text-slate-800 block mb-1">{T("పూర్తి పేరు", "Full name")}:</label>
-              <input
+              <input id={`me-full_name`}
                 type="text"
                 value={profile.full_name || ""}
                 onChange={(e) => setField("full_name", e.target.value)}
@@ -1398,7 +1490,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
             </div>
             <div>
               <label className="font-bold text-slate-800 block mb-1">{T("పుట్టిన తేదీ", "Date of birth")}:</label>
-              <input
+              <input id={`me-dob`}
                 type="date"
                 value={profile.dob ? String(profile.dob).slice(0, 10) : ""}
                 onChange={(e) => setField("dob", e.target.value)}
@@ -1407,7 +1499,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
             </div>
             <div>
               <label className="font-bold text-slate-800 block mb-1">{T("ఎత్తు", "Height")}:</label>
-              <select
+              <select id={`me-height`}
                 value={profile.height || ""}
                 onChange={(e) => setField("height", e.target.value)}
                 className="w-full p-2.5 border border-slate-200 rounded-xl bg-white focus:outline-none focus:border-maroon"
@@ -1422,7 +1514,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
             </div>
             <div>
               <label className="font-bold text-slate-800 block mb-1">{te ? "వైవాహిక స్థితి" : "Marital status"}:</label>
-              <select
+              <select id={`me-marital_status`}
                 value={profile.marital_status || ""}
                 onChange={(e) => setField("marital_status", e.target.value)}
                 className="w-full p-2.5 border border-slate-200 rounded-xl bg-white focus:outline-none focus:border-maroon"
@@ -1445,7 +1537,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
             <div>
               <label className="font-bold text-slate-800 block mb-1">{T("కులం / కమ్యూనిటీ", "Community")}:</label>
-              <select
+              <select aria-label={te ? "సంఘం" : "Community"}
                 value={casteSelectValue}
                 onChange={(e) => {
                   const next = e.target.value;
@@ -1483,7 +1575,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
             </div>
             <div>
               <label className="font-bold text-slate-800 block mb-1">{T("ఉపకులం", "Sub-community")}:</label>
-              <input
+              <input id={`me-sub_caste`}
                 type="text"
                 value={profile.sub_caste || ""}
                 onChange={(e) => setField("sub_caste", e.target.value)}
@@ -1493,7 +1585,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
             </div>
             <div>
               <label className="font-bold text-slate-800 block mb-1">{T("గోత్రం", "Gothram")}:</label>
-              <input
+              <input id={`me-gothram`}
                 type="text"
                 value={profile.gothram || ""}
                 onChange={(e) => setField("gothram", e.target.value)}
@@ -1503,7 +1595,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
             </div>
             <div>
               <label className="font-bold text-slate-800 block mb-1">{T("నక్షత్రం", "Nakshatram")}:</label>
-              <select
+              <select id={`me-star`}
                 value={profile.star || ""}
                 onChange={(e) => setField("star", e.target.value)}
                 className="w-full p-2.5 border border-slate-200 rounded-xl bg-white focus:outline-none focus:border-maroon"
@@ -1518,7 +1610,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
             </div>
             <div>
               <label className="font-bold text-slate-800 block mb-1">{T("రాశి", "Rasi")}:</label>
-              <select
+              <select id={`me-rasi`}
                 value={profile.rasi || ""}
                 onChange={(e) => setField("rasi", e.target.value)}
                 className="w-full p-2.5 border border-slate-200 rounded-xl bg-white focus:outline-none focus:border-maroon"
@@ -1532,8 +1624,8 @@ function EditProfilePanel({ myId }: { myId: string }) {
               </select>
             </div>
             <div>
-              <label className="font-bold text-slate-800 block mb-1">{T("కుజ దోషం", "Manglik / dosham")}:</label>
-              <select
+              <label className="font-bold text-slate-800 block mb-1">{T("కుజ దోషం (సభ్యుడు నమోదు చేసిన reference)", "Manglik / dosham (member-entered reference)")}:</label>
+              <select id={`me-dosham`}
                 value={profile.dosham || ""}
                 onChange={(e) => setField("dosham", e.target.value)}
                 className="w-full p-2.5 border border-slate-200 rounded-xl bg-white focus:outline-none focus:border-maroon"
@@ -1555,7 +1647,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
             <div>
               <label className="font-bold text-slate-800 block mb-1">{T("విద్యార్హత", "Education")}:</label>
-              <select
+              <select id={`me-education`}
                 value={profile.education || ""}
                 onChange={(e) => setField("education", e.target.value)}
                 className="w-full p-2.5 border border-slate-200 rounded-xl bg-white focus:outline-none focus:border-maroon"
@@ -1570,7 +1662,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
             </div>
             <div>
               <label className="font-bold text-slate-800 block mb-1">{T("ఉద్యోగం / హోదా", "Occupation / job title")}:</label>
-              <input
+              <input id={`me-job`}
                 type="text"
                 value={profile.job || ""}
                 onChange={(e) => setField("job", e.target.value)}
@@ -1580,7 +1672,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
             </div>
             <div>
               <label className="font-bold text-slate-800 block mb-1">{T("కంపెనీ", "Company / employer")}:</label>
-              <input
+              <input id={`me-company`}
                 type="text"
                 value={profile.company || ""}
                 onChange={(e) => setField("company", e.target.value)}
@@ -1590,7 +1682,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
             </div>
             <div>
               <label className="font-bold text-slate-800 block mb-1">{T("వార్షిక వేతనం", "Annual salary")}:</label>
-              <select
+              <select id={`me-salary`}
                 value={profile.salary || ""}
                 onChange={(e) => setField("salary", e.target.value)}
                 className="w-full p-2.5 border border-slate-200 rounded-xl bg-white focus:outline-none focus:border-maroon"
@@ -1605,7 +1697,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
             </div>
             <div>
               <label className="font-bold text-slate-800 block mb-1">{T("పని చేసే నగరం", "Work location")}:</label>
-              <input
+              <input id={`me-work_location`}
                 type="text"
                 value={profile.work_location || ""}
                 onChange={(e) => setField("work_location", e.target.value)}
@@ -1615,7 +1707,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
             </div>
             <div>
               <label className="font-bold text-slate-800 block mb-1">{T("జిల్లా", "District")}:</label>
-              <input
+              <input id={`me-district`}
                 type="text"
                 value={profile.district || ""}
                 onChange={(e) => setField("district", e.target.value)}
@@ -1634,7 +1726,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 text-xs">
             <div>
               <label className="font-bold text-slate-800 block mb-1">{T("తండ్రి పేరు & వృత్తి", "Father’s name and occupation")}:</label>
-              <input
+              <input id={`me-father_name`}
                 type="text"
                 value={profile.father_name || ""}
                 onChange={(e) => setField("father_name", e.target.value)}
@@ -1644,7 +1736,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
             </div>
             <div>
               <label className="font-bold text-slate-800 block mb-1">{T("తల్లి పేరు & వృత్తి", "Mother’s name and occupation")}:</label>
-              <input
+              <input id={`me-mother_name`}
                 type="text"
                 value={profile.mother_name || ""}
                 onChange={(e) => setField("mother_name", e.target.value)}
@@ -1654,7 +1746,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
             </div>
             <div>
               <label className="font-bold text-slate-800 block mb-1">{T("సొంత ఊరు", "Native place")}:</label>
-              <input
+              <input id={`me-native_place`}
                 type="text"
                 value={profile.native_place || ""}
                 onChange={(e) => setField("native_place", e.target.value)}
@@ -1664,7 +1756,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
             </div>
             <div>
               <label className="font-bold text-slate-800 block mb-1">{T("అన్నదమ్ములు", "Brothers")}:</label>
-              <input
+              <input id={`me-brothers`}
                 type="text"
                 value={profile.brothers ?? ""}
                 onChange={(e) => setField("brothers", e.target.value)}
@@ -1674,7 +1766,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
             </div>
             <div>
               <label className="font-bold text-slate-800 block mb-1">{T("అక్కచెల్లెళ్లు", "Sisters")}:</label>
-              <input
+              <input id={`me-sisters`}
                 type="text"
                 value={profile.sisters ?? ""}
                 onChange={(e) => setField("sisters", e.target.value)}
@@ -1684,7 +1776,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
             </div>
             <div>
               <label className="font-bold text-slate-800 block mb-1">{T("వర్ణం", "Complexion")}:</label>
-              <select
+              <select id={`me-complexion`}
                 value={profile.complexion || ""}
                 onChange={(e) => setField("complexion", e.target.value)}
                 className="w-full p-2.5 border border-slate-200 rounded-xl bg-white focus:outline-none focus:border-maroon"
@@ -1698,7 +1790,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
             </div>
             <div>
               <label className="font-bold text-slate-800 block mb-1">{T("కుటుంబ రకం", "Family type")}:</label>
-              <select
+              <select id={`me-family_type`}
                 value={profile.family_type || ""}
                 onChange={(e) => setField("family_type", e.target.value)}
                 className="w-full p-2.5 border border-slate-200 rounded-xl bg-white focus:outline-none focus:border-maroon"
@@ -1710,7 +1802,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
             </div>
             <div>
               <label className="font-bold text-slate-800 block mb-1">{T("కుటుంబ స్థాయి", "Family financial status")}:</label>
-              <select
+              <select id={`me-family_status`}
                 value={profile.family_status || ""}
                 onChange={(e) => setField("family_status", e.target.value)}
                 className="w-full p-2.5 border border-slate-200 rounded-xl bg-white focus:outline-none focus:border-maroon"
@@ -1723,7 +1815,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
             </div>
             <div>
               <label className="font-bold text-slate-800 block mb-1">{T("మాతృభాష", "Mother tongue")}:</label>
-              <input
+              <input id={`me-mother_tongue`}
                 type="text"
                 value={profile.mother_tongue || ""}
                 onChange={(e) => setField("mother_tongue", e.target.value)}
@@ -1733,7 +1825,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
             </div>
             <div className="sm:col-span-2 lg:col-span-3">
               <label className="font-bold text-slate-800 block mb-1">{T("భాగస్వామి నుంచి కోరుకునేవి", "Partner expectations")}:</label>
-              <textarea
+              <textarea id={`me-expectations`}
                 rows={2}
                 value={profile.expectations || ""}
                 onChange={(e) => setField("expectations", e.target.value)}
@@ -1743,7 +1835,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
             </div>
             <div className="sm:col-span-2 lg:col-span-3">
               <label className="font-bold text-slate-800 block mb-1">{T("ఫోటో లింక్", "Photo link")}:</label>
-              <input
+              <input id={`me-photo_url`}
                 type="text"
                 value={profile.photo_url || ""}
                 onChange={(e) => setField("photo_url", e.target.value)}
@@ -1753,7 +1845,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
             </div>
             <div className="sm:col-span-2 lg:col-span-3">
               <label className="font-bold text-slate-800 block mb-1">{T("నా గురించి", "About me")}:</label>
-              <textarea
+              <textarea id={`me-about_myself`}
                 rows={3}
                 value={profile.about_myself || ""}
                 onChange={(e) => setField("about_myself", e.target.value)}
@@ -1812,7 +1904,7 @@ function StreakPanel({ myId }: { myId: string }) {
         <span className="rounded-full bg-amber-50 border border-amber-300 px-3 py-1">🏆 {te ? "గరిష్ఠం" : "Best"}: {st?.best ?? "—"}</span>
         <span className="rounded-full bg-emerald-50 border border-emerald-300 px-3 py-1">🎁 {te ? "తదుపరి" : "Next"}: +{st?.next_bonus ?? "?"} {te ? "క్రెడిట్‌లు" : "credits"}</span>
       </div>
-      <button
+      <button type="button"
         onClick={() => void claim()}
         disabled={busy || !!st?.claimed_today}
         className="mt-4 rounded-2xl bg-[#7A0C2E] px-6 py-3 text-sm font-bold text-white disabled:opacity-50"
@@ -1940,72 +2032,81 @@ function VoicePanel({ myId }: { myId: string }) {
 function JathakamPanel({ myId }: { myId: string }) {
   const { lang } = useLang();
   const te = lang === "te";
-  const [dosha, setDosha] = useState<Row | null>(null);
-  const [chart, setChart] = useState<Row | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [status, setStatus] = useState<Row | null>(null);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
-  useEffect(() => {
-    apiGet<Row>(`/api/astro/dosha/${encodeURIComponent(myId)}`).then((r) => {
-      if (r.ok && r.data) setDosha(r.data);
-    });
-    apiGet<Row>(`/api/astro/chart/${encodeURIComponent(myId)}`).then((r) => {
-      if (r.ok && r.data?.success) setChart(r.data);
-    });
+  const loadStatus = useCallback(async () => {
+    if (!myId) return;
+    const result = await apiGet<Row>(`/api/astro/jathakam/${encodeURIComponent(myId)}`);
+    if (result.ok && result.data) setStatus(result.data);
   }, [myId]);
+
+  useEffect(() => { void loadStatus(); }, [loadStatus]);
 
   const handleJathakamUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (file.size > 8 * 1024 * 1024) {
+      setMsg({ ok: false, text: te ? "ఫైల్ 8 MB లోపు ఉండాలి." : "The file must be 8 MB or smaller." });
+      return;
+    }
     setUploading(true);
     const fd = new FormData();
     fd.append("tsap_id", myId);
     fd.append("file", file);
     try {
-      const res = await fetch("/api/astro/jathakam/upload", { method: "POST", body: fd });
+      const headers = authHeaders();
+      delete headers["Content-Type"];
+      const res = await fetch("/api/astro/jathakam/upload", { method: "POST", headers, body: fd });
       const d = await readApiJson(res);
-      if (res.ok && d.success) setMsg({ ok: true, text: te ? "జాతక పత్రం అప్‌లోడ్ అయింది! ✅" : "Birth chart uploaded successfully." });
-      else setMsg({ ok: false, text: apiDisplayMessage(d, te, te ? "అప్‌లోడ్ విఫలమైంది. మళ్లీ ప్రయత్నించండి." : "Upload failed. Please try again.") });
+      if (res.ok && d.success) {
+        setMsg({ ok: true, text: te ? d.message_telugu || "జాతక పత్రం review queue లోకి వెళ్లింది." : d.message_en || "The horoscope document is pending review." });
+        await loadStatus();
+      } else {
+        setMsg({ ok: false, text: apiDisplayMessage(d, te, te ? "అప్‌లోడ్ విఫలమైంది. మళ్లీ ప్రయత్నించండి." : "Upload failed. Please try again.") });
+      }
     } catch {
       setMsg({ ok: false, text: te ? "నెట్‌వర్క్ సమస్య. మళ్లీ ప్రయత్నించండి." : "A network error occurred. Please try again." });
     }
     setUploading(false);
   };
 
+  const state = status?.state || "unavailable";
+  const stateText = state === "pending_review"
+    ? (te ? "Review పెండింగ్" : "Pending review")
+    : state === "review_recorded"
+      ? (te ? "Review నమోదు అయింది" : "Review recorded")
+      : state === "rejected"
+        ? (te ? "తిరస్కరించబడింది" : "Rejected")
+        : (te ? "పత్రం సమర్పించలేదు" : "No document submitted");
+  const explanation = state === "pending_review"
+    ? (te ? "పత్రం అందింది. Verify అయ్యే వరకు chart, score లేదా dosha ఫలితాన్ని చూపించము." : "The document was received. No chart, score, or dosha result is shown while it is unverified.")
+    : state === "review_recorded"
+      ? (te ? "Review స్థితి మాత్రమే నమోదు అయింది; ఇది authenticity certificate కాదు, పూర్తి chart ను automatic గా తయారు చేయదు." : "Only a review status is recorded; it is not an authenticity certificate and does not generate a complete chart automatically.")
+      : state === "rejected"
+        ? (te ? "ఏ జ్యోతిష్య ఫలితమూ తయారు చేయలేదు. అవసరమైతే అనుమతితో స్పష్టమైన పత్రాన్ని మళ్లీ పంపండి." : "No astrology result was generated. Re-upload a clearer document only when authorised.")
+        : (te ? "నిజమైన PDF లేదా ఫోటోను అప్‌లోడ్ చేసిన తర్వాతే review ప్రారంభమవుతుంది." : "Review starts only after you upload a real PDF or photo.");
+
   return (
     <section className="rounded-3xl border border-amber-200 bg-white p-5 text-center space-y-3">
-      <div className="text-4xl">🪐</div>
-      <h2 className="text-base font-extrabold text-[#7A0C2E]">{te ? "వేద జాతకం & రాశి చక్రం" : "Vedic birth chart and rasi"}</h2>
-      <RasiChart
-        houses={chart?.houses}
-        moonHouse={chart?.moon_house}
-        star={chart?.star}
-        rasi={chart?.rasi}
-        title={te ? "నా చంద్ర రాశి చక్రం" : "My Moon-sign chart"}
-        note={chart ? (te ? chart.note_telugu : chart.rasi_known
-          ? "This Moon-sign chart uses the rasi in your profile. It does not infer an ascendant or planetary placements."
-          : "Add your rasi in Edit Profile to highlight the Moon's house.") : undefined}
-      />
-      {dosha && (
-        <div className="rounded-2xl border border-amber-200 bg-amber-50/70 p-3 text-left text-xs text-slate-700">
-          <h3 className="font-bold text-slate-900">{te ? "జాతక స్క్రీనింగ్" : "Astrology screening"}</h3>
-          <p className="mt-1">{te ? dosha.verdict_telugu || "జాతక స్క్రీనింగ్ సమాచారం." : dosha.level === "clear"
-            ? "No dosha flags were returned by this basic screening."
-            : `${Array.isArray(dosha.flags) ? dosha.flags.length : 0} item(s) were flagged for review. Please consult a qualified astrologer.`}</p>
-          <p className="mt-1 text-slate-600">{te ? dosha.note_telugu : "This is an informational screening, not a compatibility decision. Have the full chart reviewed by a qualified astrologer."}</p>
-        </div>
-      )}
+      <div className="text-4xl" aria-hidden="true">🪐</div>
+      <h2 className="text-base font-extrabold text-[#7A0C2E]">{te ? "నిజమైన జాతక పత్రం review" : "Real Jathakam document review"}</h2>
+      <p className="text-xs leading-relaxed text-slate-600">{te ? "Star-only లెక్కలు లేదా ఊహించిన chart చూపించము. మీ స్వంత జాతక పత్రాన్ని అప్‌లోడ్ చేసి review స్థితిని మాత్రమే చూడండి." : "We do not show star-only calculations or an invented chart. Upload your own horoscope document and see only its review state."}</p>
+      <div className="rounded-2xl border border-amber-200 bg-amber-50/70 p-3 text-left">
+        <div className="text-[10px] font-extrabold uppercase tracking-wide text-amber-800">{te ? "ఆధార స్థితి" : "Evidence status"}</div>
+        <div className="mt-1 text-sm font-extrabold text-slate-900">{stateText}</div>
+        <p className="mt-1 text-xs leading-relaxed text-slate-700">{explanation}</p>
+      </div>
       <div className="pt-2">
-        <label className="text-xs font-bold text-slate-700 block mb-1">{te ? "జాతక పత్రం అప్‌లోడ్" : "Upload a birth chart"}:</label>
-        <input type="file" accept="image/*,application/pdf" onChange={handleJathakamUpload} className="mx-auto block max-w-full text-xs" />
+        <label className="mb-1 block text-xs font-bold text-slate-700">{te ? "జాతక PDF / ఫోటో అప్‌లోడ్" : "Upload horoscope PDF / photo"}:</label>
+        <input type="file" aria-label={te ? "జాతకం ఫైల్ ఎంచుకోండి" : "Choose horoscope file"} accept="image/jpeg,image/png,image/webp,application/pdf" onChange={handleJathakamUpload} className="mx-auto block max-w-full text-xs" />
         {uploading && <div className="mt-1 text-xs text-slate-500" role="status">{te ? "అప్‌లోడ్ అవుతోంది…" : "Uploading…"}</div>}
         <Msg m={msg} />
       </div>
-      <div className="flex justify-center gap-2 pt-2">
-        <Link href="/porutham" className="px-5 py-2.5 rounded-2xl maroon-gradient text-white font-bold text-xs shadow-md">
-          {te ? "ఉచిత గుణమేళనం చూడండి" : "Check compatibility"}
-        </Link>
-      </div>
+      <Link href="/porutham" className="inline-flex min-h-11 items-center justify-center rounded-2xl maroon-gradient px-5 py-2.5 text-xs font-bold text-white shadow-md">
+        {te ? "పూర్తి జాతక review తెరవండి" : "Open full Jathakam review"} →
+      </Link>
     </section>
   );
 }

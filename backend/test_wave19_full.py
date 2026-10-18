@@ -134,8 +134,11 @@ try:
     check("B7 dashboard ok", d.get("success") and d.get("partner_id") == pid)
     rep = refpartners.admin_report([])
     check("B8 admin report has partner", rep.get("success") and any(x.get("id") == pid for x in rep.get("rows", [])))
-    csvp = os.path.join(os.path.dirname(os.path.abspath(__file__)), "referral_partners.csv")
-    check("B9 CSV sheet has partner row", os.path.exists(csvp) and pid in open(csvp, encoding="utf-8").read())
+    # 🐞 R13: isolate_test_stores() redirects the partner sheet to a temp dir, so the
+    #    check must follow refpartners.CSV_FILE instead of a path next to this test file.
+    csvp = refpartners.CSV_FILE
+    check("B9 CSV sheet has partner row",
+          os.path.exists(csvp) and pid in open(csvp, encoding="utf-8").read(), csvp)
     check("B10 validate ok", refpartners.get_partner(pid) is not None, pid)
     check("B11 validate bad fails", refpartners.get_partner("nosuchxx999") is None)
 finally:
@@ -193,7 +196,10 @@ def read(rel):
     return src_page(os.path.join("frontend", rel))
 
 preg = read("src/app/referral/register/page.tsx")
-check("E1 partner form (name/phone/phonepe/address)", all(k in preg for k in ["phonepe", "address", "district"]))
+# 🔒 R13: payout identifiers are collected only through the partner's authenticated
+#    payout request, so the public form must not ask for a PhonePe number at all.
+check("E1 partner form (name/phone/address/state/district — no payout identifier)",
+      all(k in preg for k in ["address", "district", "state"]) and "phonepe" not in preg.lower())
 check("E2 partner success ID+link+copy", all(k in preg for k in ["partner_id", "Link copy"]))
 check("E3 partner dashboard lookup", "partner/dashboard" in preg or "My partner dashboard" in preg)
 
@@ -209,8 +215,10 @@ check("E7 MatchSend server qs (religion/state/nri)", all(k in ms for k in ["reli
 check("E8 MatchSend job/salary + apply", "Min salary" in ms and "Filters apply" in ms)
 
 adminp = read("src/app/admin/page.tsx")
-check("E9 admin wires WA console", "WANumbersConsole" in adminp)
-check("E10 admin wires referral report", "ReferralReport" in adminp)
+# The /admin route is a thin server wrapper; the real control UI is this component.
+adminc = read("src/components/control/Dashboard.tsx")
+check("E9 admin wires WA console", "WANumbersConsole" in adminc)
+check("E10 admin wires referral report", "ReferralReport" in adminc)
 
 ofc = read("src/components/OffersConsole.tsx")
 check("E11 offers delete button", "DELETE" in ofc and "🗑️" in ofc)

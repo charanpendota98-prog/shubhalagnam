@@ -8,11 +8,11 @@
  * • Responsive typography and spacing for phone through desktop widths.
  */
 
-import Link from "next/link";
 import Image from "next/image";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLang, type Lang } from "@/lib/lang";
 import HomeMatchSearch from "@/components/HomeMatchSearch";
+import { Button } from "@/components/ui";
 
 
 const COPY = {
@@ -37,28 +37,68 @@ export default function CinematicHero() {
   const L = COPY[(lang as Lang) in COPY ? (lang as Lang) : "te"];
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [filmSrc, setFilmSrc] = useState("/promo/wedding-film-mobile.mp4");
+  const [userPaused, setUserPaused] = useState(false);
+  const [filmPlaying, setFilmPlaying] = useState(false);
+  const [filmReady, setFilmReady] = useState(false);
+  const [filmFailed, setFilmFailed] = useState(false);
 
-  // Keep the wedding film decorative: only play it when it is visible and
-  // motion is allowed. A static, optimized poster remains available otherwise.
+  const metered = () => {
+    const connection = (navigator as Navigator & {
+      connection?: { saveData?: boolean; effectiveType?: string };
+    }).connection;
+    return Boolean(connection?.saveData) || /2g/.test(String(connection?.effectiveType || ""));
+  };
+
+  // Pick the encode that suits the device: the small file on phones or on a
+  // metered connection, the full one on anything else. The poster is identical
+  // for both, so switching never causes a visible jump.
+  useEffect(() => {
+    const smallScreen = window.matchMedia("(max-width: 767px)");
+    const pick = () => {
+      setFilmSrc(metered() || smallScreen.matches
+        ? "/promo/wedding-film-mobile.mp4"
+        : "/promo/wedding-film.mp4");
+    };
+    pick();
+    smallScreen.addEventListener("change", pick);
+    return () => smallScreen.removeEventListener("change", pick);
+  }, []);
+
+  // Keep the wedding film decorative: play it only when it is visible, motion
+  // is allowed and the connection is not metered. The poster remains a stable,
+  // complete fallback when autoplay, loading, or the device policy says no.
   useEffect(() => {
     const video = videoRef.current;
-    if (!video) return;
+    if (!video || !filmSrc) return;
 
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const smallScreen = window.matchMedia("(max-width: 767px)");
-    const connection = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection;
     let isVisible = !("IntersectionObserver" in window);
     let disposed = false;
+    setFilmReady(false);
+    setFilmFailed(false);
 
+    const onPlay = () => setFilmPlaying(true);
+    const onPause = () => setFilmPlaying(false);
+    const onReady = () => { setFilmReady(true); setFilmFailed(false); };
+    const onError = () => {
+      setFilmFailed(true);
+      setFilmReady(false);
+      video.pause();
+    };
     const syncPlayback = () => {
-      if (disposed || reducedMotion.matches || smallScreen.matches || connection?.saveData
+      if (disposed || userPaused || reducedMotion.matches || metered()
           || document.visibilityState !== "visible" || !isVisible) {
         video.pause();
         return;
       }
-      if (video.readyState === HTMLMediaElement.HAVE_NOTHING) video.load();
+      if (video.src !== new URL(filmSrc, window.location.href).href) {
+        video.src = filmSrc;
+        video.load();
+      }
       void video.play().catch(() => {
-        // Autoplay can be blocked by browser policy; the optimized poster is the fallback.
+        // Autoplay can be blocked by browser policy; keep the poster and expose
+        // a play control once the media reports that it is ready.
       });
     };
 
@@ -70,19 +110,27 @@ export default function CinematicHero() {
       : null;
     observer?.observe(video);
     reducedMotion.addEventListener("change", syncPlayback);
-    smallScreen.addEventListener("change", syncPlayback);
     document.addEventListener("visibilitychange", syncPlayback);
+    video.addEventListener("play", onPlay);
+    video.addEventListener("pause", onPause);
+    video.addEventListener("canplay", onReady);
+    video.addEventListener("loadeddata", onReady);
+    video.addEventListener("error", onError);
     syncPlayback();
 
     return () => {
       disposed = true;
       observer?.disconnect();
       reducedMotion.removeEventListener("change", syncPlayback);
-      smallScreen.removeEventListener("change", syncPlayback);
       document.removeEventListener("visibilitychange", syncPlayback);
+      video.removeEventListener("play", onPlay);
+      video.removeEventListener("pause", onPause);
+      video.removeEventListener("canplay", onReady);
+      video.removeEventListener("loadeddata", onReady);
+      video.removeEventListener("error", onError);
       video.pause();
     };
-  }, []);
+  }, [filmSrc, userPaused]);
 
   // The canvas is a purely decorative effect. Avoid its animation on small
   // screens, when the hero is off-screen, or when reduced motion is requested.
@@ -188,14 +236,13 @@ export default function CinematicHero() {
           loop
           muted
           playsInline
-          preload="none"
+          preload="metadata"
           disablePictureInPicture
           aria-hidden="true"
-          className="hero-video h-full w-full object-cover object-[62%_center] sm:object-center pointer-events-none select-none"
-        >
-          <source src="/promo/wedding-film.mp4" type="video/mp4" />
-          <source src="/promo/wedding-story-film.mp4" type="video/mp4" />
-        </video>
+          onCanPlay={() => { setFilmReady(true); setFilmFailed(false); }}
+          onError={() => { setFilmFailed(true); setFilmReady(false); }}
+          className={`hero-video h-full w-full object-cover object-center sm:object-center pointer-events-none select-none ${filmFailed ? "opacity-0" : ""}`}
+        />
       </div>
 
       {/* Golden Akshathalu Canvas Overlay */}
@@ -220,6 +267,31 @@ export default function CinematicHero() {
         }}
       />
 
+      {/* Soft hand-off from the film into the cream page body below. */}
+      <div className="hp-hero-fade" aria-hidden="true" />
+
+      {/* WCAG 2.2.2: moving background longer than five seconds needs a pause.
+          The control only appears once the film has actually started. */}
+      {filmReady && !filmFailed ? (
+        <button
+          type="button"
+          onClick={() => {
+            if (filmPlaying && !userPaused) setUserPaused(true);
+            else {
+              setUserPaused(false);
+              void videoRef.current?.play().catch(() => undefined);
+            }
+          }}
+          aria-pressed={userPaused}
+          className="hero-film-toggle"
+        >
+          <span aria-hidden="true">{filmPlaying && !userPaused ? "\u23F8" : "\u25B6"}</span>
+          <span>{filmPlaying && !userPaused
+            ? (lang === "te" ? "నేపథ్య వీడియో ఆపండి" : "Pause background video")
+            : (lang === "te" ? "నేపథ్య వీడియో ప్రారంభించండి" : "Play background video")}</span>
+        </button>
+      ) : null}
+
       {/* Layered jewel-tone light keeps the photo vivid while text remains legible. */}
       <div className="pointer-events-none absolute -top-16 left-[-4rem] z-[2] h-72 w-72 rounded-full bg-rose-400/25 blur-[110px]" />
       <div className="pointer-events-none absolute top-1/4 right-[-4rem] z-[2] h-80 w-80 rounded-full bg-teal-300/25 blur-[110px]" />
@@ -235,8 +307,8 @@ export default function CinematicHero() {
               
               {/* Auspicious Eyebrow Badge */}
               <div className="flex flex-wrap items-center gap-2">
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-400/50 bg-[#2b0918] px-3 py-1 text-[11px] sm:text-xs font-black uppercase tracking-wider text-amber-300 shadow-sm">
-                  <span>🪔</span>
+                <span className="hp-hero-badge">
+                  <span aria-hidden="true">🪔</span>
                   <span>{L.kicker}</span>
                 </span>
 
@@ -251,25 +323,26 @@ export default function CinematicHero() {
                 </span>
               </h1>
 
-              <div className="h-1 w-16 rounded-full bg-gradient-to-r from-amber-200 via-yellow-400 to-transparent shadow-sm" aria-hidden="true" />
+              <div className="hp-hero-rule" aria-hidden="true" />
 
               {/* One clear account-creation action; browsing happens in the search card. */}
               <div className="flex items-center pt-1">
-                <Link
+                <Button
                   href="/register"
-                  className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-gradient-to-r from-amber-300 via-amber-200 to-yellow-400 px-6 py-3 text-sm font-bold leading-snug text-rose-950 shadow-[0_10px_30px_rgba(245,158,11,0.28)] transition hover:brightness-105 active:scale-[.99] sm:px-7 sm:text-base focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-amber-100"
+                  variant="primary"
+                  size="lg"
+                  iconRight={<span aria-hidden="true" className="text-base">→</span>}
                 >
-                  <span>{L.ctaReg}</span>
-                  <span aria-hidden className="text-base">→</span>
-                </Link>
+                  {L.ctaReg}
+                </Button>
               </div>
 
               <div className="pt-1">
-                <span className="inline-flex max-w-full items-center gap-2 rounded-2xl border border-amber-200/50 bg-[#240914]/85 px-4 py-2.5 text-xs font-bold leading-relaxed text-amber-100 shadow-lg backdrop-blur-sm sm:text-sm">
-                  <span className="shrink-0 text-amber-300" aria-hidden="true">✦</span>
+                <p className="hp-hero-note">
+                  <span className="hp-hero-note__icon" aria-hidden="true">✦</span>
                   <span>{L.pricePill}</span>
-                </span>
-                <p className="mt-1.5 text-[10px] leading-relaxed text-white/75 sm:text-xs">
+                </p>
+                <p className="hp-hero-disclaimer">
                   {lang === "te" ? "చిత్రాలు సూచన కోసం మాత్రమే — సభ్యుల ప్రొఫైల్ ఫోటోలు కావు." : "Illustrative visuals only—not member profile photos."}
                 </p>
               </div>
@@ -278,7 +351,9 @@ export default function CinematicHero() {
           </div>
 
           <div className="lg:col-span-5 xl:col-span-5">
-            <HomeMatchSearch />
+            <div className="hp-hero-panel">
+              <HomeMatchSearch />
+            </div>
           </div>
         </div>
       </div>

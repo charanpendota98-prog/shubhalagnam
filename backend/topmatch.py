@@ -85,7 +85,7 @@ def _preference_comparisons(user: Dict[str, Any], candidate: Dict[str, Any]) -> 
                 "note": "Candidate community matches the saved same-community preference." if met
                         else "Candidate community differs from the saved same-community preference.",
             })
-    elif norm_caste not in {"any", "no bar", "no preference"} and candidate_caste:
+    elif norm_caste and norm_caste not in {"any", "no bar", "no preference"} and candidate_caste:
         met = candidate_caste == norm_caste
         rows.append({
             "key": "caste", "label": "Community preference", "status": "met" if met else "not_met",

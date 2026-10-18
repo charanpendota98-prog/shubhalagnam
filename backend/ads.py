@@ -15,8 +15,11 @@ Track: impressions + clicks + leads (vendor dashboard + admin revenue).
 Media: photo/banner upload (image_url) + video link (YouTube) + offer text.
 """
 from __future__ import annotations
+from atomic_store import atomic_json_dump
+
 
 import json
+import copy
 import os
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional
@@ -89,12 +92,13 @@ def _iso(dt: datetime) -> str:
     return dt.strftime("%Y-%m-%dT%H:%M:%S")
 
 
-def _persist() -> None:
+def _persist() -> bool:
+    """Persist campaign state and report failure so callers can roll back."""
     try:
-        with open(PERSIST_FILE, "w", encoding="utf-8") as f:
-            json.dump({"campaigns": CAMPAIGNS[-1000:]}, f, ensure_ascii=False)
+        atomic_json_dump(PERSIST_FILE, {"campaigns": CAMPAIGNS[-1000:]}, ensure_ascii=False)
+        return True
     except Exception:
-        pass
+        return False
 
 
 def _restore() -> None:
@@ -186,7 +190,12 @@ def create_campaign(vendor_id: str, title: str, level: str, days: int,
          "impressions": 0, "clicks": 0, "leads": 0,
          "created_at": _iso(_now())}
     CAMPAIGNS.append(c)
-    _persist()
+    if not _persist():
+        CAMPAIGNS.remove(c)
+        _AD_SEQ -= 1
+        return {"success": False, "reason": "persistence_failed",
+                "message_telugu": "⚠️ Campaign could not be saved safely. Please try again.",
+                "message_en": "The campaign could not be saved safely. Please try again."}
     return {"success": True, "campaign": c,
             "message_telugu": f"✅ Campaign {c['id']} — ₹{c['total'] if 'total' in c else c['amount']} pay చేసి UTR పంపండి, admin approve చేస్తాడు 🙏",
             "message_en": f"Campaign {c['id']} is recorded for ₹{c['total'] if 'total' in c else c['amount']}. Submit the payment reference for admin review; approval is not automatic."}
@@ -212,10 +221,15 @@ def approve_campaign(cid: str, utr: str, days_override: int = 0) -> Dict:
         return {"success": False, "message_telugu": "⚠️ Campaign days చెల్లుబాటు కావాలి"}
     if days < RATES["min_days"] or days > RATES["max_days"]:
         return {"success": False, "message_telugu": f"⚠️ Campaign days {RATES['min_days']}–{RATES['max_days']} మధ్య ఉండాలి"}
+    previous = copy.deepcopy(c)
     start = _now()
     c.update({"status": "active", "utr": utr.strip(), "days": days,
               "start": _iso(start), "end": _iso(start + timedelta(days=days))})
-    _persist()
+    if not _persist():
+        c.clear()
+        c.update(previous)
+        return {"success": False, "reason": "persistence_failed",
+                "message_telugu": "⚠️ Campaign approval could not be saved safely. Please try again."}
     return {"success": True, "campaign": c,
             "message_telugu": f"✅ {cid} LIVE — {days} days ({c['start'][:10]} → {c['end'][:10]})"}
 
@@ -228,6 +242,7 @@ def update_campaign(cid: str, patch: Dict) -> Dict:
     if not c:
         return {"success": False, "message_telugu": "⚠️ Campaign దొరకలేదు"}
     d = patch or {}
+    previous = copy.deepcopy(c)
     clean_link = None
     if "link" in d and d.get("link") is not None:
         valid_link, clean_link = _safe_click_url(d.get("link"))
@@ -248,12 +263,14 @@ def update_campaign(cid: str, patch: Dict) -> Dict:
         try:
             datetime.fromisoformat(str(d["start"])[:19]); c["start"] = str(d["start"])[:19]
         except ValueError:
+            c.clear(); c.update(previous)
             return {"success": False, "message_telugu": "⚠️ start date format tappu (YYYY-MM-DD)"}
     ndays = d.get("days")
     if ndays:
         try:
             c["days"] = max(1, int(ndays))
         except (ValueError, TypeError):
+            c.clear(); c.update(previous)
             return {"success": False, "message_telugu": "⚠️ days number ఇవ్వండి"}
         if c.get("status") == "active" and c.get("start"):
             try:
@@ -265,8 +282,13 @@ def update_campaign(cid: str, patch: Dict) -> Dict:
         try:
             datetime.fromisoformat(str(d["end"])[:19]); c["end"] = str(d["end"])[:19]
         except ValueError:
+            c.clear(); c.update(previous)
             return {"success": False, "message_telugu": "⚠️ end date format tappu (YYYY-MM-DD)"}
-    _persist()
+    if not _persist():
+        c.clear()
+        c.update(previous)
+        return {"success": False, "reason": "persistence_failed",
+                "message_telugu": "⚠️ Campaign update could not be saved safely. Please try again."}
     return {"success": True, "campaign": c,
             "message_telugu": f"✅ {cid} update అయ్యింది ({(c.get('start') or '?')[:10]} → {(c.get('end') or '?')[:10]} • {c.get('days')} days)"}
 
@@ -289,9 +311,14 @@ def campaign_action(cid: str, action: str, reason: str = "") -> Dict:
         return {"success": False, "message_telugu": "⚠️ చెల్లింపు reference లేని campaign ను resume చేయలేము"}
     if action == "reject" and len(str(reason or "").strip()) < 5:
         return {"success": False, "message_telugu": "⚠️ Reject చేయడానికి కారణం నమోదు చేయండి"}
+    previous = copy.deepcopy(c)
     c["status"] = {"reject": "rejected", "pause": "paused", "resume": "active", "expire": "expired"}[action]
     c["admin_note"] = str(reason or "").strip()[:500]
-    _persist()
+    if not _persist():
+        c.clear()
+        c.update(previous)
+        return {"success": False, "reason": "persistence_failed",
+                "message_telugu": "⚠️ Campaign action could not be saved safely. Please try again."}
     return {"success": True, "campaign": c, "message_telugu": f"✅ {cid} → {c['status']}"}
 
 
@@ -304,7 +331,8 @@ def _is_live(c: Dict) -> bool:
         return False
     if _now() > end:
         c["status"] = "expired"   # auto-expiry
-        _persist()
+        if not _persist():
+            c["status"] = "active"
         return False
     return True
 
@@ -360,8 +388,11 @@ def serve(slot: str, district: str = "", state: str = "") -> Dict:
     # Sort by priority score DESC, then least impressions ASC
     cands.sort(key=lambda x: (-_scope_priority(x, district, state), x.get("impressions", 0), x.get("id", "")))
     ad = cands[0]
-    ad["impressions"] = int(ad.get("impressions", 0)) + 1
-    _persist()
+    previous_impressions = int(ad.get("impressions", 0) or 0)
+    ad["impressions"] = previous_impressions + 1
+    if not _persist():
+        ad["impressions"] = previous_impressions
+        return {"ok": False, "reason": "persistence_failed"}
     payload = {k: ad.get(k) for k in
                ("id", "vendor_id", "title", "offer", "image_url", "banner_url", "video_url",
                 "phone", "whatsapp", "category", "level", "districts", "state")}
@@ -378,9 +409,13 @@ def serve_list(slot: str = "matches_sidebar", district: str = "", state: str = "
         return {"ok": False, "ads": [], "count": 0}
     cands.sort(key=lambda x: (-_scope_priority(x, district, state), x.get("impressions", 0), x.get("id", "")))
     chosen = cands[:limit]
+    previous_impressions = {ad["id"]: int(ad.get("impressions", 0) or 0) for ad in chosen}
     for ad in chosen:
-        ad["impressions"] = int(ad.get("impressions", 0)) + 1
-    _persist()
+        ad["impressions"] = previous_impressions[ad["id"]] + 1
+    if not _persist():
+        for ad in chosen:
+            ad["impressions"] = previous_impressions[ad["id"]]
+        return {"ok": False, "ads": [], "count": 0, "reason": "persistence_failed"}
     return {
         "ok": True,
         "count": len(chosen),
@@ -396,8 +431,11 @@ def track_click(cid: str) -> Dict:
     c = get_campaign(cid)
     if not c or not _is_live(c):
         return {"ok": False, "reason": "not_active"}
-    c["clicks"] = int(c.get("clicks", 0)) + 1
-    _persist()
+    previous = int(c.get("clicks", 0) or 0)
+    c["clicks"] = previous + 1
+    if not _persist():
+        c["clicks"] = previous
+        return {"ok": False, "reason": "persistence_failed"}
     return {"ok": True, "clicks": c["clicks"]}
 
 
@@ -405,8 +443,11 @@ def track_lead(cid: str) -> Dict:
     c = get_campaign(cid)
     if not c or not _is_live(c):
         return {"ok": False, "reason": "not_active"}
-    c["leads"] = int(c.get("leads", 0)) + 1
-    _persist()
+    previous = int(c.get("leads", 0) or 0)
+    c["leads"] = previous + 1
+    if not _persist():
+        c["leads"] = previous
+        return {"ok": False, "reason": "persistence_failed"}
     return {"ok": True, "leads": c["leads"]}
 
 

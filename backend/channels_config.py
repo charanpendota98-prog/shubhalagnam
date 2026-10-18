@@ -42,8 +42,11 @@ SITE = "https://manavivaha.in"
 # These category entries remain in the private operator registry so configured
 # usernames/invite URLs are preserved, but they are intentionally not part of
 # the public channel directory at the owner's request.
+# ("c_others_st" used to sit here too: the ST Others community was held back
+# until it had enough members. It is published now and split bride/groom like
+# the rest, so ST members can find their group from the directory.)
 PUBLIC_DIRECTORY_EXCLUDED_KEYS = frozenset({
-    "official", "hindu", "c_others_st",
+    "official", "hindu",
     "bureau_network", "differently_abled", "doctors_teachers", "fraud_alerts",
     "govt_jobs", "second_marriage", "software_it", "success_stories",
 })
@@ -204,13 +207,22 @@ CHANNELS = {
                        "route": "manual"},
 }
 
-# TS + AP Muslim and Christian listings are generated below as four combined
-# directory entries. No Telegram username is assumed for these categories.
+# Religion directory entries generated below. These mirror the religions a
+# member can select at registration; no Telegram username is assumed for any of
+# them, so every entry stays unlinked until an owner configures a destination.
 for _key, _religion, _gender, _icon, _te in (
     ("muslim_bride", "Muslim", "Bride", "☪️", "ముస్లిం వధువులు"),
     ("muslim_groom", "Muslim", "Groom", "☪️", "ముస్లిం వరులు"),
     ("christian_bride", "Christian", "Bride", "✝️", "క్రైస్తవ వధువులు"),
     ("christian_groom", "Christian", "Groom", "✝️", "క్రైస్తవ వరులు"),
+    ("sikh_bride", "Sikh", "Bride", "🪯", "సిక్కు వధువులు"),
+    ("sikh_groom", "Sikh", "Groom", "🪯", "సిక్కు వరులు"),
+    ("jain_bride", "Jain", "Bride", "🕉️", "జైన వధువులు"),
+    ("jain_groom", "Jain", "Groom", "🕉️", "జైన వరులు"),
+    ("buddhist_bride", "Buddhist", "Bride", "☸️", "బౌద్ధ వధువులు"),
+    ("buddhist_groom", "Buddhist", "Groom", "☸️", "బౌద్ధ వరులు"),
+    ("other_religion_bride", "Other", "Bride", "🕊️", "ఇతర వధువులు"),
+    ("other_religion_groom", "Other", "Groom", "🕊️", "ఇతర వరులు"),
 ):
     _plural = "Brides" if _gender == "Bride" else "Grooms"
     CHANNELS[_key] = {
@@ -278,12 +290,52 @@ CASTE_CLUSTERS: List[Dict] = [
      "wave": 3, "members": ["Salivahana", "Gandla", "Telikula", "Uppara", "Sagara", "Vaddera", "Odde",
                             "Mangali", "Nayi-Brahmin", "Boya", "Valmiki", "Srisayana", "Segidi", "Gavara",
                             "Bestha", "Gangaputra", "Jalari", "Vadabalija", "Jangam", "Jogi", "Dasari",
-                            "Bhatraju", "Kalinga"]},
+                            "Bhatraju", "Kalinga", "Bondili", "Meru", "Are Katika", "Nakaralu", "Krishna Balija"]},
     {"key": "others_sc", "en": "Other SC Communities", "te": "ఇతర SC కులాలు", "category": "SC", "split": True,
      "wave": 3, "members": ["Adi Andhra", "Adi Dravida", "Arundhatiya", "Relli", "Arwa Mala", "Samban", "Dandasi"]},
-    {"key": "others_st", "en": "Other ST Communities", "te": "ఇతర ST కులాలు", "category": "ST", "split": False,
+    {"key": "others_st", "en": "Other ST Communities", "te": "ఇతర ST కులాలు", "category": "ST", "split": True,
      "wave": 3, "members": ["Koya", "Koitur", "Gond", "Rajgond", "Naikpod", "Chenchu", "Bagata", "Konda Reddi",
                             "Savara", "Andh"]},
+    # ---------------------------------------------------------------------
+    # Added so every community offered at registration can reach a group page
+    # of its own instead of only the generic directory. No destination links
+    # are invented for them — they stay blank until an owner configures one.
+    # ---------------------------------------------------------------------
+    {"key": "boya_valmiki", "en": "Boya • Valmiki", "te": "బోయ • వాల్మీకి", "category": "ST", "split": True,
+     "wave": 4, "members": ["Boya", "Boyar", "Bedar", "Valmiki", "Nishadhi"]},
+    {"key": "vaddera", "en": "Vaddera • Odde", "te": "వడ్డెర • ఒడ్డె", "category": "BC", "split": True,
+     "wave": 4, "members": ["Vaddera", "Vaddi", "Odde", "Oddilu", "Vadde"]},
+    {"key": "nayee_brahmin", "en": "Nayee Brahmin • Mangali", "te": "నాయీ బ్రాహ్మణ • మంగలి", "category": "BC",
+     "split": True, "wave": 4, "members": ["Nayee Brahmin", "Nayi-Brahmin", "Mangali", "Mangala", "Nhavi"]},
+    {"key": "gandla_telikula", "en": "Gandla • Telikula", "te": "గాండ్ల • తెలికుల", "category": "BC",
+     "split": True, "wave": 4, "members": ["Gandla", "Ganika", "Telikula", "Telaga (Gandla)"]},
+    {"key": "uppara_sagara", "en": "Uppara • Sagara", "te": "ఉప్పర • సాగర", "category": "BC", "split": True,
+     "wave": 4, "members": ["Uppara", "Sagara", "Uppara (Sagara)"]},
+    {"key": "bestha_gangaputra", "en": "Bestha • Gangaputra", "te": "బెస్త • గంగపుత్ర", "category": "BC",
+     "split": True, "wave": 4, "members": ["Bestha", "Bestalu", "Gangaputra", "Gangavar", "Jalari (Bestha)"]},
+    {"key": "gavara", "en": "Gavara", "te": "గవర", "category": "BC", "split": True,
+     "wave": 4, "members": ["Gavara", "Gavara (Balija)", "Gavara Komati"]},
+    {"key": "jangam_lingayat", "en": "Jangam • Lingayat", "te": "జంగం • లింగాయత", "category": "BC",
+     "split": True, "wave": 4, "members": ["Jangam", "Jangama", "Lingayat", "Lingayath", "Veerashaiva"]},
+    {"key": "medari", "en": "Medari • Medara", "te": "మేదరి • మేదర", "category": "BC", "split": True,
+     "wave": 4, "members": ["Medari", "Medara", "Medarlu"]},
+    {"key": "dasari", "en": "Dasari", "te": "దాసరి", "category": "BC", "split": True,
+     "wave": 4, "members": ["Dasari", "Dasari (Mala)", "Dasari (Madiga)"]},
+    {"key": "koya_gond", "en": "Koya • Gond", "te": "కోయ • గోండ", "category": "ST", "split": True,
+     "wave": 4, "members": ["Koya", "Koitur", "Gond", "Rajgond", "Dorla"]},
+    {"key": "adi_andhra", "en": "Adi Andhra", "te": "ఆది ఆంధ్ర", "category": "SC", "split": True,
+     "wave": 4, "members": ["Adi Andhra", "Adi Dravida", "Adi Karnataka"]},
+    # Communities from other regions that members can register under. Grouped
+    # by region rather than given thin single-community channels.
+    {"key": "north_indian", "en": "Marwari • Gujarati • Punjabi", "te": "మార్వాడీ • గుజరాతీ • పంజాబీ",
+     "category": "OC", "split": True, "wave": 4,
+     "members": ["Marwari", "Marwadi", "Gujarati", "Gujjar", "Punjabi", "Sikh (Punjabi)"]},
+    {"key": "other_states", "en": "Marathi • Odia • Bengali", "te": "మరాఠీ • ఒడియా • బెంగాలీ",
+     "category": "OC", "split": True, "wave": 4,
+     "members": ["Marathi", "Maharashtrian", "Odia", "Oriya", "Bengali", "Bengali (Bangla)"]},
+    {"key": "neighbour_south", "en": "Vokkaliga • Nair • Nadar", "te": "వొక్కలిగ • నాయర్ • నాదార్",
+     "category": "OC", "split": True, "wave": 4,
+     "members": ["Vokkaliga", "Gowda (Vokkaliga)", "Nair", "Nadar", "Nadar (Tamil)"]},
 ]
 
 SPLIT_MAP: Dict[str, Dict[str, str]] = {}      # cluster key -> {"Bride": key, "Groom": key}

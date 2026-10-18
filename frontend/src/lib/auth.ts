@@ -52,9 +52,10 @@ export function useAuthCheck() {
     setState((s) => ({ ...s, checking: true }));
     const token = getToken();
     if (!token) { setState({ checking: false, valid: false, tsapId: "" }); return; }
-    const { ok, data } = await apiPost<{ valid?: boolean; tsap_id?: string }>("/api/auth/verify", {});
-    const d = (data || {}) as { valid?: boolean; tsap_id?: string };
-    setState({ checking: false, valid: ok && !!d.valid, tsapId: String(d.tsap_id || "") });
+    const result = await apiPost<{ valid?: boolean; tsap_id?: string }>("/api/auth/verify", {});
+    if (result.status === 401) clearAuth();
+    const d = (result.data || {}) as { valid?: boolean; tsap_id?: string };
+    setState({ checking: false, valid: result.ok && !!d.valid, tsapId: String(d.tsap_id || "") });
   }, []);
   useEffect(() => { void check(); }, [check]);
   return { ...state, recheck: check };

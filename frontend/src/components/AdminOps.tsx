@@ -10,11 +10,6 @@ import { useLang } from "@/lib/lang";
 import { whatsappPhoneLink } from "@/lib/wa";
 
 type Row = Record<string, any>;
-const adminToken = () => { try { return localStorage.getItem("tsap_admin_token") || ""; } catch { return ""; } };
-const withToken = (url: string) => {
-  const tk = adminToken();
-  return tk ? `${url}${url.includes("?") ? "&" : "?"}token=${encodeURIComponent(tk)}` : url;
-};
 const H = () => ({ ...authHeaders(true), "Content-Type": "application/json" });
 const ACTION_LABELS: Record<string, { te: string; en: string }> = {
   verify: { te: "✅ ధృవీకరణ బ్యాడ్జ్", en: "✅ Verify badge" },
@@ -42,7 +37,7 @@ export function ModerationQueue() {
 
   const load = useCallback(async () => {
     try {
-      const d = await fetch(withToken("/api/moderation/queue?limit=50"), { headers: authHeaders(true) }).then((r) => readApiJson(r));
+      const d = await fetch("/api/moderation/queue?limit=50", { headers: authHeaders(true) }).then((r) => readApiJson(r));
       if (d.items) { setItems(d.items); setOpen(d.open ?? d.items.length); if (d.actions?.length) setActions(d.actions); }
       else setFlash(apiDisplayMessage(d, te, te ? "లోడ్ కాలేదు — admin key తనిఖీ చేయండి." : "Could not load reports. Check your admin key.") || (te ? "లోడ్ కాలేదు." : "Could not load reports."));
     } catch { setFlash(te ? "నెట్‌వర్క్ సమస్య. మళ్లీ ప్రయత్నించండి." : "Network problem. Please try again."); }
@@ -51,7 +46,7 @@ export function ModerationQueue() {
 
   const resolve = async (id: string, action: string) => {
     if ((action === "ban" || action === "hide") && !window.confirm(te ? `${id} → ${actionLabel(action, true)}?` : `Confirm ${actionLabel(action, false).replace(/^\S+\s/, "").toLowerCase()} for ${id}?`)) return;
-    const r = await fetch(withToken(`/api/moderation/resolve/${id}`),
+    const r = await fetch(`/api/moderation/resolve/${id}`,
       { method: "POST", headers: H(), body: JSON.stringify({ action, note: note[id] || "" }) });
     const d = await readApiJson(r);
     setFlash(d.success ? (te ? `✅ ${id} → ${actionLabel(action, true)}` : `✅ ${id} → ${actionLabel(action, false)}`) : apiDisplayMessage(d, te, te ? "చర్యను పూర్తి చేయలేకపోయాం." : "Could not complete the action."));
@@ -84,7 +79,7 @@ export function ModerationQueue() {
               <input value={note[r.report_id] || ""} onChange={(e) => setNote({ ...note, [r.report_id]: e.target.value })}
                 placeholder={te ? "నిర్వాహక గమనిక (ఆడిట్ కోసం)" : "Admin note (for audit)"} className="min-w-[140px] flex-1 rounded-lg border px-2 py-2 text-base sm:text-sm" aria-label={te ? "నిర్వాహక గమనిక" : "Admin note"} />
               {actions.map((a) => (
-                <button key={a} onClick={() => void resolve(r.report_id, a)}
+                <button type="button" key={a} onClick={() => void resolve(r.report_id, a)}
                   className={`rounded-full px-3 py-1.5 font-bold ${a === r.suggested_action ? "bg-[#7A0C2E] text-white" : a === "ban" ? "bg-red-100 text-red-700" : "bg-gray-100"}`}>
                   {actionLabel(a, te)}
                 </button>
@@ -110,7 +105,7 @@ export function StoriesQueue() {
 
   const load = useCallback(async () => {
     try {
-      const d = await fetch(withToken(`/api/admin/stories?status=${st}&limit=50`), { headers: authHeaders(true) }).then((r) => readApiJson(r));
+      const d = await fetch(`/api/admin/stories?status=${st}&limit=50`, { headers: authHeaders(true) }).then((r) => readApiJson(r));
       if (d.success) setItems(d.stories || []);
       else setFlash(apiDisplayMessage(d, te, te ? "కథలను లోడ్ చేయలేకపోయాం." : "Could not load stories."));
     } catch { setFlash(te ? "నెట్‌వర్క్ సమస్య. మళ్లీ ప్రయత్నించండి." : "Network problem. Please try again."); }
@@ -118,7 +113,7 @@ export function StoriesQueue() {
   useEffect(() => { void load(); }, [load]);
 
   const act = async (id: string, action: string) => {
-    const r = await fetch(withToken(`/api/admin/stories/${id}/action`),
+    const r = await fetch(`/api/admin/stories/${id}/action`,
       { method: "POST", headers: H(), body: JSON.stringify({ action, note: note[id] || "" }) });
     const d = await readApiJson(r);
     const statusLabel = d.story?.status === "approved" ? (te ? "ఆమోదించబడింది" : "approved") : d.story?.status === "rejected" ? (te ? "తిరస్కరించబడింది" : "rejected") : d.story?.status;
@@ -131,17 +126,17 @@ export function StoriesQueue() {
     <div>
       <div className="my-2 flex gap-2">
         {[["pending", te ? "పెండింగ్" : "Pending"], ["approved", te ? "ఆమోదించబడినవి" : "Approved"], ["rejected", te ? "తిరస్కరించబడినవి" : "Rejected"]].map(([v, l]) => (
-          <button key={v} onClick={() => setSt(v)}
+          <button type="button" key={v} onClick={() => setSt(v)}
             className={`rounded-full px-3 py-1 text-xs font-bold ${st === v ? "maroon-gradient text-white" : "bg-gray-100"}`}>{l}</button>
         ))}
-        <button onClick={() => void load()} className="ml-auto min-h-10 px-2 text-xs underline">↻ {te ? "రిఫ్రెష్" : "Refresh"}</button>
+        <button type="button" onClick={() => void load()} className="ml-auto min-h-10 px-2 text-xs underline">↻ {te ? "రిఫ్రెష్" : "Refresh"}</button>
       </div>
       {flash && <div className="mb-2 rounded-xl bg-[#0F1F3C] p-2 text-xs text-white">{flash}</div>}
       {share && (
         <div className="mb-2 rounded-xl border border-green-200 bg-green-50 p-2 text-xs">
           <div className="font-bold text-green-800">{te ? "📢 ఆమోదించబడింది — ఈ పాఠ్యాన్ని సమ్మతితో మాత్రమే పంచుకోండి:" : "📢 Approved — share this copy only with consent:"}</div>
           <pre className="mt-1 whitespace-pre-wrap">{share}</pre>
-          <button onClick={() => { navigator.clipboard?.writeText(share); setFlash(te ? "📋 కాపీ అయింది" : "📋 Copied"); }} className="mt-1 rounded-full bg-green-700 px-3 py-1 font-bold text-white">📋 {te ? "కాపీ చేయండి" : "Copy"}</button>
+          <button type="button" onClick={() => { navigator.clipboard?.writeText(share); setFlash(te ? "📋 కాపీ అయింది" : "📋 Copied"); }} className="mt-1 rounded-full bg-green-700 px-3 py-1 font-bold text-white">📋 {te ? "కాపీ చేయండి" : "Copy"}</button>
         </div>
       )}
       <div className="space-y-2 max-h-[420px] overflow-auto pr-1">
@@ -159,8 +154,8 @@ export function StoriesQueue() {
               <div className="mt-2 flex flex-wrap gap-1.5">
                 <input value={note[s.story_id] || ""} onChange={(e) => setNote({ ...note, [s.story_id]: e.target.value })}
                   placeholder={te ? "గమనిక (ఐచ్ఛికం)" : "Note (optional)"} className="min-w-[140px] flex-1 rounded-lg border px-2 py-2 text-base sm:text-sm" aria-label={te ? "గమనిక" : "Note"} />
-                <button onClick={() => void act(s.story_id, "approve")} className="min-h-10 rounded-full bg-green-600 px-4 py-1.5 font-bold text-white">✅ {te ? "ఆమోదించండి" : "Approve"}</button>
-                <button onClick={() => void act(s.story_id, "reject")} className="min-h-10 rounded-full bg-red-500 px-4 py-1.5 font-bold text-white">❌ {te ? "తిరస్కరించండి" : "Reject"}</button>
+                <button type="button" onClick={() => void act(s.story_id, "approve")} className="min-h-10 rounded-full bg-green-600 px-4 py-1.5 font-bold text-white">✅ {te ? "ఆమోదించండి" : "Approve"}</button>
+                <button type="button" onClick={() => void act(s.story_id, "reject")} className="min-h-10 rounded-full bg-red-500 px-4 py-1.5 font-bold text-white">❌ {te ? "తిరస్కరించండి" : "Reject"}</button>
               </div>
             )}
           </div>
@@ -182,7 +177,7 @@ export function LeadsPanel() {
 
   const load = useCallback(async () => {
     try {
-      const d = await fetch(withToken(`/api/leads${st ? `?status=${st}` : ""}&limit=100`), { headers: authHeaders(true) }).then((r) => readApiJson(r));
+      const d = await fetch(`/api/leads${st ? `?status=${st}` : ""}&limit=100`, { headers: authHeaders(true) }).then((r) => readApiJson(r));
       if (d.items) { setItems(d.items); setTotal(d.total ?? d.items.length); }
       else setFlash(apiDisplayMessage(d, te, te ? "లీడ్స్‌ను లోడ్ చేయలేకపోయాం." : "Could not load leads."));
     } catch { setFlash(te ? "నెట్‌వర్క్ సమస్య. మళ్లీ ప్రయత్నించండి." : "Network problem. Please try again."); }
@@ -190,7 +185,7 @@ export function LeadsPanel() {
   useEffect(() => { void load(); }, [load]);
 
   const followup = async (id: string) => {
-    const r = await fetch(withToken(`/api/leads/followup/${id}`), { method: "POST", headers: authHeaders(true) });
+    const r = await fetch(`/api/leads/followup/${id}`, { method: "POST", headers: authHeaders(true) });
     const d = await readApiJson(r);
     setFlash(d.success ? (te ? `✅ ${id} → WhatsApp క్యూలో సంప్రదింపు నమోదు అయింది.` : `✅ ${id} → follow-up added to the WhatsApp queue.`) : apiDisplayMessage(d, te, te ? "ఫాలో-అప్‌ను జోడించలేకపోయాం." : "Could not add the follow-up."));
     void load();
@@ -201,10 +196,10 @@ export function LeadsPanel() {
       <p className="telugu mt-2 text-xs text-gray-500">{te ? "కొత్త లీడ్స్‌ను పరిశీలించి ఫాలో-అప్ స్థితిని నమోదు చేయండి. ఫోన్/WhatsApp లింక్ అందుబాటులో ఉన్నప్పుడే చూపబడుతుంది." : "Review new leads and record follow-up status. Phone and WhatsApp links appear only when available."} ({total})</p>
       <div className="my-2 flex gap-2">
         {[["", te ? "అన్నీ" : "All"], ["new", te ? "కొత్తవి" : "New"], ["contacted", te ? "సంప్రదించినవి" : "Contacted"], ["converted", te ? "మార్చబడినవి" : "Converted"]].map(([v, l]) => (
-          <button key={v} onClick={() => setSt(v)}
+          <button type="button" key={v} onClick={() => setSt(v)}
             className={`rounded-full px-3 py-1 text-xs font-bold ${st === v ? "maroon-gradient text-white" : "bg-gray-100"}`}>{l}</button>
         ))}
-        <button onClick={() => void load()} className="ml-auto min-h-10 px-2 text-xs underline">↻ {te ? "రిఫ్రెష్" : "Refresh"}</button>
+        <button type="button" onClick={() => void load()} className="ml-auto min-h-10 px-2 text-xs underline">↻ {te ? "రిఫ్రెష్" : "Refresh"}</button>
       </div>
       {flash && <div className="mb-2 rounded-xl bg-[#0F1F3C] p-2 text-xs text-white">{flash}</div>}
       <div className="space-y-2 max-h-[420px] overflow-auto pr-1">
@@ -218,7 +213,7 @@ export function LeadsPanel() {
               <span className="ml-auto text-gray-400">{te ? "ఫాలో-అప్‌లు:" : "Follow-ups:"} {l.touches ?? 1} • {String(l.at || "").slice(0, 16).replace("T", " ")}</span>
             </div>
             {l.status !== "converted" && (
-              <button onClick={() => void followup(l.id)} className="mt-2 min-h-10 rounded-full bg-green-600 px-4 py-1.5 font-bold text-white">💬 {te ? "WhatsApp ఫాలో-అప్" : "WhatsApp follow-up"}</button>
+              <button type="button" onClick={() => void followup(l.id)} className="mt-2 min-h-10 rounded-full bg-green-600 px-4 py-1.5 font-bold text-white">💬 {te ? "WhatsApp ఫాలో-అప్" : "WhatsApp follow-up"}</button>
             )}
           </div>
         ))}
@@ -240,9 +235,9 @@ export function PublishPanel() {
 
   const load = useCallback(async () => {
     try {
-      const d = await fetch(withToken("/api/publish/status"), { headers: authHeaders(true) }).then((r) => readApiJson(r));
+      const d = await fetch("/api/publish/status", { headers: authHeaders(true) }).then((r) => readApiJson(r));
       if (d.success) setPub(d);
-      const w = await fetch(withToken("/api/wa/dead?limit=20"), { headers: authHeaders(true) }).then((r) => readApiJson(r));
+      const w = await fetch("/api/wa/dead?limit=20", { headers: authHeaders(true) }).then((r) => readApiJson(r));
       if (w.items) { setDead(w.items); setDeadCount(w.count ?? w.items.length); }
       else if (w.detail) setFlash(apiDisplayMessage(w, te, te ? "విఫలమైన సందేశాలను లోడ్ చేయలేకపోయాం." : "Could not load failed messages."));
     } catch { setFlash(te ? "నెట్‌వర్క్ సమస్య. మళ్లీ ప్రయత్నించండి." : "Network problem. Please try again."); }
@@ -250,21 +245,21 @@ export function PublishPanel() {
   useEffect(() => { void load(); }, [load]);
 
   const requeue = async () => {
-    const r = await fetch(withToken("/api/wa/dead/requeue?limit=20"), { method: "POST", headers: authHeaders(true) });
+    const r = await fetch("/api/wa/dead/requeue?limit=20", { method: "POST", headers: authHeaders(true) });
     const d = await readApiJson(r);
     setFlash(apiDisplayMessage(d, te, te ? "మళ్లీ queue చేయడం పూర్తయింది; delivery నిర్ధారించబడలేదు." : "Requeue completed; message delivery is not confirmed."));
     void load();
   };
   const republish = async () => {
     if (!tsap.trim()) { setFlash(te ? "ప్రొఫైల్ ID నమోదు చేయండి." : "Enter a profile ID."); return; }
-    const r = await fetch(withToken(`/api/publish/now/${tsap.trim().toUpperCase()}`), { method: "POST", headers: authHeaders(true) });
+    const r = await fetch(`/api/publish/now/${tsap.trim().toUpperCase()}`, { method: "POST", headers: authHeaders(true) });
     const d = await readApiJson(r);
     setFlash(d.success
       ? (te ? `✅ మళ్లీ పోస్ట్ క్యూలో చేర్చాం → ${(d.targets || []).length} లక్ష్యాలు` : `✅ Repost queued for ${(d.targets || []).length} destinations.`)
       : apiDisplayMessage(d, te, te ? "ప్రొఫైల్‌ను మళ్లీ పోస్ట్ చేయలేకపోయాం." : "Could not queue the profile repost."));
   };
   const digest = async () => {
-    const r = await fetch(withToken("/api/publish/digest"), { method: "POST", headers: authHeaders(true) });
+    const r = await fetch("/api/publish/digest", { method: "POST", headers: authHeaders(true) });
     const d = await readApiJson(r);
     setFlash(d.success
       ? (te ? "✅ డైజెస్ట్ Telegram + WhatsApp క్యూలో చేర్చబడింది." : "✅ Digest added to the Telegram and WhatsApp queues.")
@@ -288,14 +283,14 @@ export function PublishPanel() {
       <div className="my-2 flex flex-wrap items-center gap-2 text-xs">
         <input value={tsap} onChange={(e) => setTsap(e.target.value)} placeholder={te ? "ప్రొఫైల్ ID" : "Enter profile ID"}
           className="min-h-10 rounded-lg border px-3 py-2 text-base font-mono sm:text-sm" aria-label={te ? "ప్రొఫైల్ ID" : "Profile ID"} />
-        <button onClick={() => void republish()} className="min-h-10 rounded-full bg-[#7A0C2E] px-4 py-1.5 font-bold text-white">🔁 {te ? "ప్రొఫైల్‌ను మళ్లీ పోస్ట్ చేయండి" : "Repost profile"}</button>
-        <button onClick={() => void digest()} className="min-h-10 rounded-full bg-[#0F1F3C] px-4 py-1.5 font-bold text-white">🌅 {te ? "డైజెస్ట్ పంపండి" : "Send digest now"}</button>
-        <button onClick={() => void load()} className="ml-auto min-h-10 px-2 underline">↻ {te ? "రిఫ్రెష్" : "Refresh"}</button>
+        <button type="button" onClick={() => void republish()} className="min-h-10 rounded-full bg-[#7A0C2E] px-4 py-1.5 font-bold text-white">🔁 {te ? "ప్రొఫైల్‌ను మళ్లీ పోస్ట్ చేయండి" : "Repost profile"}</button>
+        <button type="button" onClick={() => void digest()} className="min-h-10 rounded-full bg-[#0F1F3C] px-4 py-1.5 font-bold text-white">🌅 {te ? "డైజెస్ట్ పంపండి" : "Send digest now"}</button>
+        <button type="button" onClick={() => void load()} className="ml-auto min-h-10 px-2 underline">↻ {te ? "రిఫ్రెష్" : "Refresh"}</button>
       </div>
       <div className="rounded-xl border p-3 text-xs">
         <div className="flex items-center gap-2">
           <b>💀 {te ? "విఫలమైన సందేశాలు" : "Failed messages"} ({deadCount})</b>
-          <button onClick={() => void requeue()} disabled={!dead.length} className="ml-auto min-h-10 rounded-full bg-green-600 px-3 py-1 font-bold text-white disabled:opacity-40">♻️ {te ? "అన్నింటినీ మళ్లీ క్యూలో పెట్టండి" : "Requeue all"}</button>
+          <button type="button" onClick={() => void requeue()} disabled={!dead.length} className="ml-auto min-h-10 rounded-full bg-green-600 px-3 py-1 font-bold text-white disabled:opacity-40">♻️ {te ? "అన్నింటినీ మళ్లీ క్యూలో పెట్టండి" : "Requeue all"}</button>
         </div>
         <p className="mt-1 text-[11px] text-gray-500">{te ? "మూడు ప్రయత్నాల తర్వాత విఫలమైతే, bridge/QR సమస్యను సరిచేసి మళ్లీ క్యూలో పెట్టండి." : "After three failed attempts, fix the bridge or QR connection before requeuing."}</p>
         <div className="mt-2 max-h-[180px] space-y-1 overflow-auto">
@@ -321,7 +316,7 @@ export function PersonalizedDigestPanel() {
   const load = async () => {
     setBusy(true);
     try {
-      const r = await fetch(withToken(`/api/digest/personal/preview?lang=${te ? "te" : "en"}`), { headers: authHeaders(true) });
+      const r = await fetch(`/api/digest/personal/preview?lang=${te ? "te" : "en"}`, { headers: authHeaders(true) });
       const d = await readApiJson(r);
       if (d.success) setPrev(d);
       else setFlash(apiDisplayMessage(d, te, te ? "ప్రివ్యూను లోడ్ చేయలేకపోయాం." : "Could not load the preview."));
@@ -333,7 +328,7 @@ export function PersonalizedDigestPanel() {
   const run = async () => {
     setBusy(true); setFlash("");
     try {
-      const r = await fetch(withToken("/api/digest/personal/run"), { method: "POST", headers: H(), body: JSON.stringify({ lang: te ? "te" : "en" }) });
+      const r = await fetch("/api/digest/personal/run", { method: "POST", headers: H(), body: JSON.stringify({ lang: te ? "te" : "en" }) });
       const d = await readApiJson(r);
       if (d.success) {
         const s = d.send || {};
@@ -367,7 +362,7 @@ export function PersonalizedDigestPanel() {
           </span>
         )}
         <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-bold text-gray-600">{te ? "WhatsApp మోడ్" : "WhatsApp mode"}: {localizedCode(prev?.wa_mode, te, te ? "తెలియదు" : "Unknown")}</span>
-        <button onClick={() => void load()} disabled={busy} className="ml-auto min-h-10 px-2 underline disabled:opacity-40" aria-label={te ? "ప్రివ్యూను రిఫ్రెష్ చేయండి" : "Refresh preview"}>↻ {te ? "రిఫ్రెష్" : "Refresh"}</button>
+        <button type="button" onClick={() => void load()} disabled={busy} className="ml-auto min-h-10 px-2 underline disabled:opacity-40" aria-label={te ? "ప్రివ్యూను రిఫ్రెష్ చేయండి" : "Refresh preview"}>↻ {te ? "రిఫ్రెష్" : "Refresh"}</button>
       </div>
       <p className="mt-1 text-[11px] text-gray-500">
         {te
@@ -394,7 +389,7 @@ export function PersonalizedDigestPanel() {
         </div>
       )}
       <div className="mt-2 flex flex-wrap gap-2">
-        <button onClick={() => void run()} disabled={busy}
+        <button type="button" onClick={() => void run()} disabled={busy}
           className="rounded-full bg-[#7A0C2E] px-4 py-1.5 font-bold text-white disabled:opacity-40">
           {te ? "📬 డైజెస్ట్ క్యూను రూపొందించండి" : "📬 Generate digest queue"}
         </button>

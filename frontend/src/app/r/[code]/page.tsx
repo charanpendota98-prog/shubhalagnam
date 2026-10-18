@@ -7,15 +7,20 @@ import { readApiJson } from "@/lib/api";
  * tarvata /register?ref=CODE ki redirect (auto-lock + referee bonus credit).
  */
 import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useLang } from "@/lib/lang";
 
 export default function ReferralLandingPage() {
   const { lang } = useLang();
   const te = lang === "te";
   const params = useParams();
+  const search = useSearchParams();
   const router = useRouter();
   const code = String(params?.code || "").toUpperCase();
+  // 💎 `inv` is one person's invite token. Carrying it through the click and
+  // into registration is what lets a referrer see "sent → opened → joined"
+  // for a named person instead of a single anonymous counter.
+  const inv = String(search?.get("inv") || "").trim().toUpperCase().slice(0, 16);
   const [info, setInfo] = useState<any>(null);
   const [checked, setChecked] = useState(false);
 
@@ -23,12 +28,13 @@ export default function ReferralLandingPage() {
     if (!code) return;
     localStorage.setItem("tsap_ref_from_link", code);          // backup (register page kooda chaduvutundi)
     try { sessionStorage.setItem("tsap_click_fired", code); } catch { /* ignore */ }  // 🌊 W20 dedupe
-    fetch(`/api/referral/click/${code}?source=link`, { method: "POST" })
+    const inviteQuery = inv ? `&inv=${encodeURIComponent(inv)}` : "";
+    fetch(`/api/referral/click/${code}?source=link${inviteQuery}`, { method: "POST" })
       .then((r) => readApiJson(r))
       .then((d) => setInfo(d))
       .catch(() => { })
       .finally(() => setChecked(true));
-  }, [code]);
+  }, [code, inv]);
 
   const valid = info?.valid_code;
   const name = info?.referrer_name;
@@ -37,10 +43,11 @@ export default function ReferralLandingPage() {
   useEffect(() => {
     if (!checked) return;
     if (valid !== false) {
-      const t = setTimeout(() => router.replace(`/register?ref=${code}`), 1600);
+      const t = setTimeout(() => router.replace(
+        `/register?ref=${code}${inv ? `&inv=${encodeURIComponent(inv)}` : ""}`), 1600);
       return () => clearTimeout(t);
     }
-  }, [checked, valid, code, router]);
+  }, [checked, valid, code, inv, router]);
 
   return (
     <div className="min-h-dvh bg-[#FFF8E7] flex items-center justify-center p-4">
@@ -66,7 +73,7 @@ export default function ReferralLandingPage() {
               <div>{te ? "✅ Approval తర్వాత configured destination కు post queue కావచ్చు; delivery హామీ కాదు" : "✅ After approval, a post may be queued for a configured destination; delivery is not guaranteed"}</div>
               <div>{te ? "✅ Private-photo setting ను గౌరవించే outputs లో photo దాచబడుతుంది; owner accept చేసిన తర్వాత accepted-request account views లో contact access వస్తుంది. Notification delivery హామీ లేదు." : "✅ The private-photo setting suppresses photos only in outputs that honor it; owner acceptance grants contact access in accepted-request account views. Notification delivery is not guaranteed."}</div>
             </div>
-            <a href={`/register?ref=${code}`}
+            <a href={`/register?ref=${code}${inv ? `&inv=${encodeURIComponent(inv)}` : ""}`}
               className="mt-5 block w-full py-3 maroon-gradient text-white rounded-full font-bold text-sm">
               {te ? "🚀 Register చెయ్యండి (ref auto-lock)" : "🚀 Register with this referral code"}
             </a>

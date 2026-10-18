@@ -12,7 +12,9 @@ The scheduler runs shortly after startup and then once per day. A separate
 privacy/erasure request must be handled through the published privacy contact.
 """
 import json
+from atomic_store import atomic_json_dump
 import os
+import secrets
 from datetime import datetime, timedelta
 
 RETENTION_YEARS = int(os.getenv("RETENTION_YEARS", "3"))
@@ -85,7 +87,8 @@ def run(users, interests, views, saves, years=None, dry_run=False):
     # 1) ARCHIVE before active-store removal; this is not permanent data erasure.
     os.makedirs(BACKUP_DIR, exist_ok=True)
     stamp = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
-    arc_path = os.path.join(BACKUP_DIR, f"retention-archive-{stamp}.json")
+    # A second run in the same second must never overwrite the first archive.
+    arc_path = os.path.join(BACKUP_DIR, f"retention-archive-{stamp}-{secrets.token_hex(4)}.json")
     archive = {
         "archived_at": datetime.utcnow().isoformat(), "retention_years": years,
         "profiles": [u for u in users if u.get("tsap_id") in ids],
@@ -93,8 +96,7 @@ def run(users, interests, views, saves, years=None, dry_run=False):
         "views": [v for v in views if v.get("tsap_id") in ids or v.get("viewer_id") in ids],
         "saves": [s for s in saves if s.get("tsap_id") in ids or s.get("saved_id") in ids],
     }
-    with open(arc_path, "w", encoding="utf-8") as f:
-        json.dump(archive, f, ensure_ascii=False, default=str, indent=1)
+    atomic_json_dump(arc_path, archive, ensure_ascii=False, default=str, indent=1)
 
     # 2) DELETE (in-place lists — main DB references same objects)
     keep_users = [u for u in users if u.get("tsap_id") not in ids]
@@ -115,8 +117,7 @@ def run(users, interests, views, saves, years=None, dry_run=False):
     except Exception:
         log = []
     log += [{"tsap_id": x["tsap_id"], "name": x.get("name", ""), "deleted_at": datetime.utcnow().isoformat()} for x in p["to_delete"]]
-    with open(LOG_FILE, "w", encoding="utf-8") as f:
-        json.dump(log[-20000:], f, ensure_ascii=False, default=str)
+    atomic_json_dump(LOG_FILE, log[-20000:], ensure_ascii=False, default=str)
 
     return {"success": True, "deleted": len(ids), "skipped": len(p["skipped_active"]),
             "archive": arc_path, "remaining_users": len(users), **{k: v for k, v in p.items() if k not in ("to_delete",)}}

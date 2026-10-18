@@ -1,0 +1,9 @@
+{
+  "button-without-type": {},
+  "img-without-alt": {},
+  "positive-tabindex": {},
+  "aria-hidden-focusable": {},
+  "button-without-name": {},
+  "control-without-name": {},
+  "role-button-without-tabindex": {}
+}

@@ -4,6 +4,12 @@
 
 **NO-GO for public production from this worktree.** Local lint, builds, regression tests, a temporary isolated preview, and static Compose assertions pass. They do not establish an authorized production host, data migration, disaster recovery, real provider operation, DNS/TLS, or release approval. Do not describe this checkout as launched, fully production-ready, or externally verified.
 
+## Latest local verification — 2026-10-18
+
+- Next.js and `eslint-config-next` are now locked to **16.4.2**; `npm run lint`, `npx tsc --noEmit`, and `npm run build` passed. The build generated 52 routes; link/static/security gates and the new API-client regression checks passed.
+- Backend syntax/compileall, atomic persistence checks, the full direct executable integration sweep (**68/68 scripts**), corrected route fuzz (**356 probes, 0 HTTP 5xx**), and pytest (**16 passed, 1 dependency deprecation warning**) passed. Browser/axe checks remain unavailable because Chromium is not installed in this sandbox.
+- The crash-safe persistence pass covers runtime JSON reports and audit ledgers, transactional retention rollback, bounded transactional media uploads, and authenticated Blob exports. These are code-path protections, not evidence of a durable production volume or provider operation.
+
 ## Improvements now present in the repository
 
 - `docker-compose.prod.yml` is standalone and must not be layered over the development Compose file. It uses one backend worker, keeps the API off the host network, binds the frontend to host loopback for Caddy, and maps runtime JSON/state/media paths into a named volume.
@@ -59,3 +65,18 @@ The preview and local tests use disposable state and do not prove that external 
 5. Complete responsive/accessibility/security/performance review, record results, obtain operator approval, and deploy only the reviewed commit.
 
 See [`PRODUCTION-DEPLOY.md`](PRODUCTION-DEPLOY.md) for the current release checklist. Keep the repository private; never run `docker compose down -v` against live data or put secrets/backup archives in Git or chat.
+
+## Latest local verification — 2026-10-18 continuation
+
+The advanced persistence-boundary pass is green locally:
+
+| Gate | Result |
+|---|---:|
+| Backend direct integration scripts | **67/67 passed** |
+| Focused pytest (including rollback boundaries) | **16 passed** |
+| Corrected route fuzz | **356 probes; 0 exceptions; 0 HTTP 5xx** |
+| Frontend lint, links, static/a11y/security suites | **passed** |
+| Frontend production build (Next.js 16.4.2) | **passed; 52 routes** |
+| Python compileall / diff check | **passed** |
+
+This continuation fixed checked persistence and rollback for payment fulfillment/refund boundaries, ad campaign/tracking writes, referral payouts/partner state, assisted orders, consent-backed unlocks, profile moderation/plan grants, photo review, and the astro queue/profile badge. The browser visual/axe gates remain blocked by the unavailable Chromium binary, and the non-fatal React 18 deprecation warning under Next 16.4.2 remains. These are local verification results only; production readiness still requires authorized provider, host, storage, backup/restore, migration, observability, and real-device validation.

@@ -10,7 +10,7 @@ Exhaustive verification of:
 6. Admin Manual Plan Activation (Badge, Credits, Plan Code, Ledger)
 7. Referral Engine, Dynamic QR Codes & Viral Standee / Earnings Posters
 8. Configured Profile-Age Retention & Archive Engine
-9. Matrimony Matching & Astrological Rules (Gothram Guard, 36-Guna, Nakshatra, Rasi)
+9. Matrimony Matching & Astrology Evidence Boundaries (Gothram text comparison, Jathakam review)
 10. Brand integrity and optional, configuration-backed support contact
 """
 import os
@@ -244,12 +244,19 @@ def run_deep_audit():
     # ---------------------------------------------------------
     print("\n--- SECTION 8: ASTROLOGY & MATCHMAKING INVARIANTS ---")
     res_gothram = client.get(f"/api/gothram/check?a={tsap_g}&b={tsap_b}")
-    report("Same Gothram Marriage Prevention Guard", res_gothram.status_code == 200 and res_gothram.json().get("blocked") is True,
-           f"Verdict: {res_gothram.json().get('verdict_telugu')}")
+    gothram_safe = res_gothram.status_code == 404
+    if res_gothram.status_code == 200:
+        gothram_body = res_gothram.json()
+        gothram_safe = gothram_body.get("blocked") is False and "notice" in gothram_body
+    report("Gothram comparison stays informational and non-blocking", gothram_safe,
+           "Only approved profiles may expose a text comparison; no eligibility verdict")
 
     res_guna = client.get(f"/api/astro/guna?bride_id={tsap_b}&groom_id={tsap_g}")
-    report("Vedic 36-Guna Astro Calculation Engine", res_guna.status_code == 200 and "total_36" in res_guna.json(),
-           f"Score: {res_guna.json().get('total_36')}/36 (Stars: {res_guna.json().get('bride', {}).get('star')} & {res_guna.json().get('groom', {}).get('star')})")
+    report("Astrology evidence gate fails closed", res_guna.status_code == 200
+           and res_guna.json().get("available") is False
+           and res_guna.json().get("calculation_available") is False
+           and res_guna.json().get("status") == "jathakam_review_required",
+           "No star-only 36-guna result is generated")
 
     # ---------------------------------------------------------
     # 9. Brand & Support Contact Invariants

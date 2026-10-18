@@ -19,6 +19,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
 from fastapi import HTTPException, Request
+from atomic_store import atomic_append_line
 
 _LOCK = threading.RLock()
 _SESSIONS: Dict[str, Dict[str, Any]] = {}
@@ -111,8 +112,7 @@ def audit(action: str, actor: str = "system", request: Optional[Request] = None,
     path = os.getenv("CONTROL_AUDIT_FILE", "").strip()
     if path:
         try:
-            with open(path, "a", encoding="utf-8") as fh:
-                fh.write(json.dumps(event, ensure_ascii=False) + "\n")
+            atomic_append_line(path, json.dumps(event, ensure_ascii=False) + "\n")
         except OSError:
             pass
 

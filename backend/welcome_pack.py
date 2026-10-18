@@ -54,6 +54,7 @@ def safe_profile_summary(p: Dict[str, Any]) -> Dict[str, Any]:
         "state": p.get("state", ""),
         "star": p.get("star", ""),
         "rasi": p.get("rasi", ""),
+        "astrology_note": "Member-entered reference only; not a verified horoscope.",
         "verification": verification,
         "photo_private": bool(p.get("photo_private") or p.get("privacy_mode") == "private"),
         "phone_masked": str(p.get("phone_masked", "") or ""),

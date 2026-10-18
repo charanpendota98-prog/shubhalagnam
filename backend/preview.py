@@ -4,12 +4,15 @@ MANA VIVAHA — SOCIAL PREVIEW / OG IMAGE ENGINE 🖼️
 WhatsApp / Telegram / Facebook lo link pampinappudu profile/page preview kanipistundi.
 External platforms control their own rendering and delivery; no click-through claim is made.
 
-Ee module 3 images generate chestundi (Pillow, DejaVu fonts — English text, because
+Ee module 2 active image types generate chestundi (Pillow, DejaVu fonts — English text, because
 Telugu font server lo install kaakapote boxes vasthayi; HTML pages lo Telugu perfect ga vastundi):
 
-  1. `og_profile_png(user)`      — profile link preview (1200x630): name, ID, age, caste, job, district
-  2. `og_porutham_png(b, g, res)` — individual ten-rule outcomes (no aggregate score or verdict)
-  3. `og_generic_png(title, sub)` — site/caste/SEO page preview
+  1. `og_profile_png(user)` — profile link preview (1200x630): name, ID, age, caste, job, district
+  2. `og_generic_png(title, sub)` — site/caste/SEO page preview
+
+The former Porutham share-image helper is intentionally retired and always
+returns no file; a limited star-only reference must not become a shareable
+horoscope claim.
 
 Files `PREVIEW_DIR` (default /tmp/previews) lo save avutayi → main.py static mount chestundi.
 """
@@ -129,57 +132,14 @@ def og_profile_png(user: Dict, out_path: Optional[str] = None) -> Optional[str]:
 
 
 def og_porutham_png(bride: Dict, groom: Dict, result: Dict, out_path: Optional[str] = None) -> Optional[str]:
-    """Render actual ten-rule outcomes as a limited reference, never as an aggregate score."""
-    if not PIL_OK or not (result or {}).get("available"):
-        return None
-    r = result or {}
-    b, g = bride or {}, groom or {}
-    W, H = 1200, 630
-    img = Image.new("RGB", (W, H), CREAM)
-    d = ImageDraw.Draw(img)
-    d.rectangle([0, 0, W, 120], fill=MAROON)
-    d.text((50, 24), "TEN-CHECK PORUTHAM REFERENCE", font=_font(40, True), fill=GOLD)
-    d.text((50, 76), "Limited rule-based reference • not a complete horoscope", font=_font(22), fill=CREAM)
+    """Retired fail-closed helper.
 
-    items = list(r.get("items") or [])[:10]
-    passed = sum(1 for item in items if item.get("pass") is True)
-    b_label = "Bride: %s (%s)" % (b.get("tsap_id", "—"), r.get("bride_star_en", "—"))
-    g_label = "Groom: %s (%s)" % (g.get("tsap_id", "—"), r.get("groom_star_en", "—"))
-    d.text((60, 145), _fit(d, b_label, _font(24, True), 1080), font=_font(24, True), fill=INK)
-    d.text((60, 182), _fit(d, g_label, _font(24, True), 1080), font=_font(24, True), fill=INK)
-    count_label = f"Checks marked pass: {passed} of {len(items)}"
-    d.text((60, 222), count_label, font=_font(27, True), fill=MAROON)
-
-    check_names = {
-        1: "Rasi", 2: "Nakshatra / Dina", 3: "Gana", 4: "Yoni", 5: "Rajju",
-        6: "Vedha", 7: "Mahendra", 8: "Stree Deergha", 9: "Vashya", 10: "Rasi Adhipathi",
-    }
-    for index, item in enumerate(items):
-        number = item.get("no")
-        try:
-            number = int(number)
-        except (TypeError, ValueError):
-            number = 0
-        ok = item.get("pass") is True
-        mark = "MARKED PASS" if ok else "REVIEW"
-        color = (16, 122, 74) if ok else (180, 95, 25)
-        column, row = index // 5, index % 5
-        x = 60 + column * 555
-        y = 274 + row * 43
-        d.rounded_rectangle([x, y, x + 118, y + 31], radius=8, fill=color)
-        d.text((x + 8, y + 6), mark, font=_font(15, True), fill=WHITE)
-        name = check_names.get(number, f"Porutham check {number}")
-        d.text((x + 130, y + 3), _fit(d, name, _font(20), 390), font=_font(20), fill=INK)
-
-    d.text((60, 502), "Pass count is a tally only — not a compatibility score or marriage verdict.",
-           font=_font(18, True), fill=MAROON)
-    d.text((60, 527), "Not a complete horoscope or marriage recommendation. Verify details independently.",
-           font=_font(17), fill=INK)
-    _brand_bar(d, W, H, "LIMITED RULE-BASED REFERENCE", img=img)
-    out_path = out_path or os.path.join(PREVIEW_DIR, "porutham-%s-%s.png" % (b.get("tsap_id", "A"), g.get("tsap_id", "B")))
-    os.makedirs(os.path.dirname(out_path), exist_ok=True)
-    img.save(out_path, "PNG", optimize=True)
-    return out_path
+    Shareable Porutham artwork could turn a limited star-only rule table into a
+    misleading horoscope result.  The public route is retired and this legacy
+    helper intentionally creates no file, even when a caller supplies a crafted
+    ``available`` payload.
+    """
+    return None
 
 
 def og_generic_png(title: str, subtitle: str, out_path: Optional[str] = None, name: str = "site") -> Optional[str]:

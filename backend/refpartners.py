@@ -11,6 +11,7 @@ Partner dict = referrer-compatible (referral_code/stats/wallet) → find_referre
 attach_referral/process_referral_payment anni automatic ga pani chestayi.
 """
 from __future__ import annotations
+from atomic_store import atomic_json_dump
 
 import csv
 import json
@@ -43,11 +44,12 @@ def _load() -> None:
         PARTNERS = []
 
 
-def _save() -> None:
+def _save() -> bool:
     try:
-        json.dump(PARTNERS, open(JSON_FILE, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
+        atomic_json_dump(JSON_FILE, PARTNERS, ensure_ascii=False, indent=1)
+        return True
     except Exception:
-        pass
+        return False
 
 
 def _csv_append(p: Dict[str, Any]) -> None:
@@ -143,18 +145,28 @@ def register_partner(name: str, phone: str, phonepe: str = "", address: str = ""
                             "wallet": 0, "lifetime_earned": 0, "pending_payout": 0,
                             "paid_out": 0, "ledger": [], "flags": []}}
     PARTNERS.append(p)
-    _save()
+    if not _save():
+        PARTNERS.remove(p)
+        return {"success": False, "reason": "persistence_failed",
+                "message_telugu": "⚠️ Partner registration could not be saved safely. Please try again."}
     _csv_append(p)
     return {"success": True, "partner_id": pid, "link": p["link"],
             "message_telugu": f"🎉 Partner ID ready: {pid}. Referral reward ₹50 ఒక్కసారి మాత్రమే: referred user first qualifying S_99/S_199/S_299/S_499 consumer-plan payment (minimum ₹99) పై. Add-ons, renewals, assisted services, boosts, gifts, complimentary grants, B2B/non-consumer payments అర్హం కావు. Payout admin review లో ఉంటుంది."}
 
 
-def record_click(pid: str) -> None:
+def record_click(pid: str) -> bool:
     p = get_partner(pid)
-    if p:
-        p["clicks"] = int(p.get("clicks", 0)) + 1
-        p.get("referral_stats", {})["clicks"] = p["clicks"]
-        _save()
+    if not p:
+        return False
+    previous = {"clicks": p.get("clicks", 0),
+                "stats_clicks": (p.get("referral_stats") or {}).get("clicks", 0)}
+    p["clicks"] = int(p.get("clicks", 0)) + 1
+    p.setdefault("referral_stats", {})["clicks"] = p["clicks"]
+    if not _save():
+        p["clicks"] = previous["clicks"]
+        p.setdefault("referral_stats", {})["clicks"] = previous["stats_clicks"]
+        return False
+    return True
 
 
 def partner_public(pid: str, users: Optional[List[Dict]] = None) -> Dict[str, Any]:

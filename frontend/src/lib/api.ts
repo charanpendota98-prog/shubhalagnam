@@ -56,8 +56,25 @@ export function apiDisplayMessage(payload: unknown, telugu: boolean, fallback = 
 }
 
 export async function readApiJson<T = any>(response: Response): Promise<T> {
-  const payload = await response.json() as T;
-  return normalizeApiPayload(payload, response.ok);
+  // Some legitimate endpoints answer 204 or an upstream proxy can return a
+  // non-JSON error page. `response.json()` would throw and turn a recoverable
+  // API error into an unhandled promise rejection in every caller. Consume the
+  // body once, parse defensively, and preserve a small object shape callers can
+  // safely inspect (`success`, `detail`).
+  const text = await response.text();
+  if (!text.trim()) {
+    return normalizeApiPayload({ success: response.ok, status: response.status }, response.ok) as T;
+  }
+  try {
+    const payload = JSON.parse(text) as T;
+    return normalizeApiPayload(payload, response.ok) as T;
+  } catch {
+    return {
+      success: false,
+      status: response.status,
+      detail: response.ok ? "The server returned an unreadable response." : `Request failed (HTTP ${response.status}).`,
+    } as T;
+  }
 }
 
 function normalizeApiPayload<T>(value: T, successfulResponse: boolean): T {
@@ -153,7 +170,12 @@ export function setAdminKey(key: string) {
 
 export function clearAuth() {
   if (typeof window === "undefined") return;
-  try { localStorage.removeItem(TOKEN_KEY); sessionStorage.removeItem(TOKEN_KEY); } catch { /* ignore */ }
+  try {
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(TSAP_KEY);
+    sessionStorage.removeItem(TOKEN_KEY);
+    sessionStorage.removeItem(TSAP_KEY);
+  } catch { /* ignore */ }
 }
 
 type Opts = {
@@ -167,7 +189,12 @@ type Opts = {
 };
 
 export async function apiFetch<T = unknown>(path: string, opts: Opts = {}): Promise<ApiResult<T>> {
-  const { method = "GET", body, form, admin = false, timeoutMs = 12000, retries = 1, cache } = opts;
+  const { method = "GET", body, form, admin = false, timeoutMs = 12000, retries: requestedRetries, cache } = opts;
+  // Never replay a mutation automatically. A lost response after a successful
+  // POST could otherwise duplicate registration, payment, interest, payout, or
+  // moderation actions. GET remains retryable; callers may explicitly opt a
+  // proven-idempotent write into retries with `retries: 1`.
+  const retries = requestedRetries ?? (method === "GET" ? 1 : 0);
   // This shared client attaches member/admin credentials. Reject absolute,
   // protocol-relative, and malformed paths before reading credentials or fetch().
   const safePath = typeof window === "undefined"
@@ -211,10 +238,11 @@ export async function apiFetch<T = unknown>(path: string, opts: Opts = {}): Prom
       if (data !== null) data = normalizeApiPayload(data, successfulResponse);
       const d = (data || {}) as Record<string, unknown>;
       const lang = selectedLanguage();
-      const rawMessage = String(d.message_telugu || d.detail || d.error || "");
-      const englishMessage = [d.message_en, d.error_en, d.detail_en, d.detail, d.error, d.message]
-        .map(cleanEnglishCandidate)
-        .find(Boolean) || "";
+      // FastAPI validation errors often put `{te, en}` inside `detail`.
+      // String(detail) would render as the literal `[object Object]`; use the
+      // same bilingual extractor as the rest of the client instead.
+      const rawMessage = apiDisplayMessage(data, true, "");
+      const englishMessage = apiDisplayMessage(data, false, "");
       const englishFallback = res.status === 401
         ? "Your session has expired or sign-in is required."
         : res.status === 403
@@ -283,6 +311,37 @@ export const apiGet = <T = unknown>(path: string, admin = false) => apiFetch<T>(
 /** POST shorthand */
 export const apiPost = <T = unknown>(path: string, body?: unknown, admin = false) =>
   apiFetch<T>(path, { method: "POST", body: body ?? {}, admin });
+
+/**
+ * Download a protected file without putting an admin/member credential in the
+ * URL. `opening a protected export URL with a query token leaks secrets to browser
+ * history, reverse-proxy logs, analytics and Referer headers; fetch + Blob keeps
+ * the existing X-Admin-Key/X-Tsap-Token header path instead.
+ */
+export async function downloadAuthenticatedFile(path: string, suggestedName = "download") {
+  if (typeof window === "undefined" || !isSafeSameOriginPath(path, window.location.origin)) {
+    return { ok: false, error: "Request blocked: unsafe download path." };
+  }
+  try {
+    const response = await fetch(path, { headers: authHeaders(true), credentials: "same-origin" });
+    if (!response.ok) {
+      const data = await readApiJson<Record<string, unknown>>(response);
+      return { ok: false, error: apiDisplayMessage(data, selectedLanguage() === "te", "Download could not be completed.") };
+    }
+    const blob = await response.blob();
+    const objectUrl = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = objectUrl;
+    anchor.download = suggestedName.replace(/[^A-Za-z0-9._-]/g, "_") || "download";
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1_000);
+    return { ok: true, error: "" };
+  } catch {
+    return { ok: false, error: selectedLanguage() === "en" ? "Download failed. Please try again." : "డౌన్‌లోడ్ చేయలేకపోయాం. మళ్లీ ప్రయత్నించండి." };
+  }
+}
 
 /** Local (offline) safe JSON read */
 export function readLocal<T>(key: string, fallback: T): T {

@@ -123,7 +123,7 @@ export default function DailyMatches() {
           placeholder={te ? "ID / పేరు / caste / district వెతకండి" : "Search ID, name, caste, or district"}
           className="min-w-[200px] flex-1 rounded-xl border border-[#7A0C2E]/30 px-3 py-2 text-sm"
         />
-        <button onClick={() => void load()} disabled={loading || saving}
+        <button type="button" onClick={() => void load()} disabled={loading || saving}
           className="rounded-xl border border-[#7A0C2E] px-4 py-2 text-xs font-bold text-[#7A0C2E] disabled:opacity-50">
           {loading ? (te ? "లోడ్ అవుతోంది…" : "Loading…") : (te ? "రిఫ్రెష్" : "Refresh")}
         </button>

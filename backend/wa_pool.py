@@ -25,7 +25,9 @@ ENV:
 """
 from __future__ import annotations
 
+import copy
 import json
+from atomic_store import atomic_json_dump
 import os
 import time
 from typing import Callable, Dict, List, Optional
@@ -138,7 +140,7 @@ class WAPool:
         except Exception:
             pass
 
-    def save_state(self) -> None:
+    def save_state(self) -> bool:
         try:
             payload = {"day": self.day, "updated_at": time.strftime("%Y-%m-%d %H:%M:%S"),
                        "config": [{"name": i.name, "url": i.url, "lane": i.lane,
@@ -147,10 +149,10 @@ class WAPool:
                        "instances": {i.name: {"sent_today": i.sent_today, "total_sent": i.total_sent,
                                               "status": i.status, "last_error": i.last_error}
                                      for i in self.instances}}
-            os.makedirs(os.path.dirname(self.state_file), exist_ok=True)
-            json.dump(payload, open(self.state_file, "w"), indent=2)
+            atomic_json_dump(self.state_file, payload, indent=2)
+            return True
         except Exception:
-            pass
+            return False
 
     def _roll_day(self) -> None:
         today = time.strftime("%Y-%m-%d", time.gmtime(self._clock()))
@@ -187,22 +189,32 @@ class WAPool:
                 "recommended": "3 numbers: OTP (fast) + Channels (posts) + Personal (DMs) + 1 both-backup (optional)",
                 "recent": self.last_delivery[-10:]}
 
-    def note_success(self, inst: WAInstance) -> None:
+    def note_success(self, inst: WAInstance) -> bool:
+        previous = copy.deepcopy(inst.__dict__)
         inst.sent_today += 1
         inst.total_sent += 1
         inst.status = "ok"
         inst.last_error = ""
         inst.last_used = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime(self._clock()))
-        self.save_state()
+        if not self.save_state():
+            inst.__dict__.clear()
+            inst.__dict__.update(previous)
+            return False
+        return True
 
-    def note_failure(self, inst: WAInstance, kind: str, error: str = "", retry_after: float = 0) -> None:
+    def note_failure(self, inst: WAInstance, kind: str, error: str = "", retry_after: float = 0) -> bool:
+        previous = copy.deepcopy(inst.__dict__)
         inst.fail_count += 1
         inst.last_error = (error or kind)[:180]
         inst.status = kind
         cool = float(retry_after or DEFAULT_COOLDOWNS.get(kind, 60))
         if cool > 0:
             inst.cooldown_until = self._clock() + cool
-        self.save_state()
+        if not self.save_state():
+            inst.__dict__.clear()
+            inst.__dict__.update(previous)
+            return False
+        return True
 
     @staticmethod
     def classify(res: Dict) -> tuple:
@@ -249,7 +261,10 @@ class WAPool:
             except Exception as e:
                 res = {"ok": False, "network_error": True, "error": "%s: %s" % (type(e).__name__, e)}
             if res.get("ok"):
-                self.note_success(inst)
+                if not self.note_success(inst):
+                    return {"ok": False, "instance": inst.name, "attempts": attempts,
+                            "error": "WhatsApp success could not be recorded safely",
+                            "reason": "persistence_failed"}
                 entry = {"at": time.strftime("%H:%M:%S"), "instance": inst.name,
                          "target": item.get("target"), "ok": True, "kind": item.get("kind"),
                          "fallback_used": bool(attempts)}
@@ -257,7 +272,10 @@ class WAPool:
                 return {"ok": True, "instance": inst.name, "attempts": attempts + [{"instance": inst.name, "ok": True}],
                         "fallback_used": bool(attempts), "result": res}
             kind, retry = self.classify(res)
-            self.note_failure(inst, kind, res.get("error") or "", retry)
+            if not self.note_failure(inst, kind, res.get("error") or "", retry):
+                return {"ok": False, "instance": inst.name, "attempts": attempts,
+                        "error": "WhatsApp failure could not be recorded safely",
+                        "reason": "persistence_failed"}
             attempts.append({"instance": inst.name, "ok": False, "kind": kind,
                              "error": (res.get("error") or "")[:160], "cooldown_s": int(retry)})
         self.last_delivery.append({"at": time.strftime("%H:%M:%S"), "ok": False,
@@ -275,7 +293,10 @@ class WAPool:
                     "message_telugu": f"⚠️ {name} already ఉంది — vere name ఇవ్వండి"}
         inst = WAInstance(name, url, lane, daily_cap, token, number)
         self.instances.append(inst)
-        self.save_state()
+        if not self.save_state():
+            self.instances.remove(inst)
+            return {"success": False, "reason": "persistence_failed",
+                    "message_telugu": "⚠️ WhatsApp number could not be saved safely. Please try again."}
         return {"success": True, "name": name, "lane": inst.lane,
                 "message_telugu": f"✅ {name} ({inst.lane}) add అయ్యింది"}
 
@@ -284,6 +305,7 @@ class WAPool:
         if not inst:
             return {"success": False, "reason": "not_found",
                     "message_telugu": "⚠️ Number దొరకలేదు"}
+        previous = copy.deepcopy(inst.__dict__)
         if "url" in kw and kw["url"] is not None:
             inst.url = str(kw["url"]).rstrip("/")
             inst.status = "ok" if inst.url else "no_url"
@@ -301,17 +323,25 @@ class WAPool:
                 inst.status = "ok" if inst.configured else "no_url"
         if inst.paused:
             inst.status = "paused"
-        self.save_state()
+        if not self.save_state():
+            inst.__dict__.clear()
+            inst.__dict__.update(previous)
+            return {"success": False, "reason": "persistence_failed",
+                    "message_telugu": "⚠️ WhatsApp number update could not be saved safely. Please try again."}
         return {"success": True, "name": name, "instance": inst.as_dict(),
                 "message_telugu": f"✅ {name} update అయ్యింది"}
 
     def remove_instance(self, name: str) -> Dict:
+        previous = list(self.instances)
         before = len(self.instances)
         self.instances = [i for i in self.instances if i.name != name]
         if len(self.instances) == before:
             return {"success": False, "reason": "not_found",
                     "message_telugu": "⚠️ Number దొరకలేదు"}
-        self.save_state()
+        if not self.save_state():
+            self.instances = previous
+            return {"success": False, "reason": "persistence_failed",
+                    "message_telugu": "⚠️ WhatsApp number could not be removed safely. Please try again."}
         return {"success": True, "message_telugu": f"🗑️ {name} teesesam"}
 
     def dead_letter(self, item: Dict, attempts: List[Dict]) -> Dict:

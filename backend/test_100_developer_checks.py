@@ -387,18 +387,21 @@ check(50, "Worker Photo Moderation Interface Operational", True)
 # ============================================================================
 print("\n--- 6. VEDIC ASTROLOGY & GUNAMELANAM CHECKS ---")
 
-# Ten traditional Porutham rule outcomes (separate from the 36-guna Ashtakoota endpoint).
+# Legacy calculator imports must fail closed; member-entered star/rasi is not a Jathakam.
 porutham_result = porutham.compute_porutham(
     {"star": "Rohini", "rasi": "Vrishabha"},
     {"star": "Mrigasira", "rasi": "Mithuna"}
 )
-check(51, "Ten-check Porutham returns available rule results", porutham_result.get("available") is True)
-check(52, "Porutham tally equals count of individual pass flags",
-      porutham_result.get("total_checks") == 10
-      and porutham_result.get("passed_checks") == sum(item.get("pass") is True for item in porutham_result.get("items", [])))
-check(53, "Porutham has ten item-level outcomes and no aggregate score/verdict",
-      len(porutham_result.get("items", [])) == 10
-      and not ({"score", "max_score", "percent", "stars", "verdict"} & set(porutham_result)))
+check(51, "Legacy Porutham helper requires reviewed Jathakam evidence",
+      porutham_result.get("available") is False
+      and porutham_result.get("calculation_available") is False
+      and porutham_result.get("status") == "jathakam_required")
+check(52, "Fail-closed Porutham has no fabricated tally or items",
+      porutham_result.get("total_checks") is None
+      and porutham_result.get("passed_checks") is None
+      and porutham_result.get("items") == [])
+check(53, "Fail-closed Porutham exposes no score/verdict",
+      not ({"score", "max_score", "percent", "stars", "verdict"} & set(porutham_result)))
 
 # A pair blocked by the member must not be probed through the public gothram comparison API.
 r_gothram_check = client.get(f"/api/gothram/check?a={bride_id}&b={groom_id}")
@@ -419,9 +422,15 @@ check(57, "Kuja / Manglik Dosha Analysis Endpoint Operational", r_dosha.status_c
 # Raasi Lord Compatibility Lookup
 check(58, "Graha Maitri & Rasi Adhipathi Table Integrity Verified", True)
 
-# Porutham API endpoint
+# Porutham API endpoint: the public contract is now evidence-required and fail-closed.
 r_porutham_api = client.get("/api/porutham?bride_star=Rohini&groom_star=Mrigasira")
-check(59, "Porutham Public API Endpoint Operational", r_porutham_api.status_code == 200 and r_porutham_api.json().get("available") == True)
+_porutham_body = r_porutham_api.json()
+check(59, "Porutham Public API Fails Closed Without Real Jathakam Evidence",
+      r_porutham_api.status_code == 200
+      and _porutham_body.get("available") is False
+      and _porutham_body.get("calculation_available") is False
+      and _porutham_body.get("status") == "jathakam_required"
+      and _porutham_body.get("items") == [])
 
 # Astrological Non-Discrimination Policy (Never auto-reject candidate by horoscope alone)
 check(60, "Horoscope Non-Discrimination Policy Enforced", True)
@@ -486,30 +495,43 @@ check(70, "Daily Curated Featured Profiles Endpoint Returns 200", r_top_match.st
 # ============================================================================
 print("\n--- 8. MONETIZATION & MANUAL PLAN UPGRADE CHECKS ---")
 
-# Plan order creation
-r_order = client.post("/api/credits/buy", json={
-    "tsap_id": bride_id,
-    "plan_id": "S_99",
-    "payment_mode": "manual_upi"
-}, headers=bride_headers)
-check(71, "Purchase Fails Closed Without a Real Checkout Provider or Merchant UPI ID",
-      r_order.status_code == 503 and not r_order.json().get("order"))
+# Plan order creation. This suite normally enables isolated payment fixtures for
+# unrelated purchase-flow checks, so explicitly turn them off here and enforce the
+# same authentication boundary used outside the disposable test harness.
+_payment_env_before = {name: os.environ.get(name) for name in ("MANA_TEST_PAYMENT_FIXTURES", "WA_TEST_FAST", "TSAP_AUTH_MODE")}
+os.environ["MANA_TEST_PAYMENT_FIXTURES"] = "false"
+os.environ["WA_TEST_FAST"] = "0"
+os.environ["TSAP_AUTH_MODE"] = "on"
+try:
+    r_order = client.post("/api/credits/buy", json={
+        "tsap_id": bride_id,
+        "plan_id": "S_99",
+        "payment_mode": "manual_upi"
+    }, headers=bride_headers)
+    check(71, "Purchase Fails Closed Without a Real Checkout Provider or Merchant UPI ID",
+          r_order.status_code == 503 and not r_order.json().get("order"))
 
-# Owner-only manual plan activation must reject unauthenticated callers; no fake payment proof is used.
-r_manual_activate = client.post("/api/admin/manual-plan-activate", json={
-    "tsap_id": bride_id,
-    "plan_id": "PREMIUM_499"
-})
-check(72, "Manual Plan Activation Requires Owner Authorization", r_manual_activate.status_code in [401, 403])
+    # Owner-only manual plan activation must reject unauthenticated callers; no fake payment proof is used.
+    r_manual_activate = client.post("/api/admin/manual-plan-activate", json={
+        "tsap_id": bride_id,
+        "plan_id": "PREMIUM_499"
+    })
+    check(72, "Manual Plan Activation Requires Owner Authorization", r_manual_activate.status_code in [401, 403])
 
-# A checkout that failed closed must not mark the free user verified/premium.
-r_user_after_plan = client.get(f"/api/profile/{bride_id}", headers=bride_headers)
-user_data_after = r_user_after_plan.json().get("profile", {}) or r_user_after_plan.json().get("user", {}) or r_user_after_plan.json()
-check(73, "Failed checkout leaves the account on the free plan",
-      r_user_after_plan.status_code == 200
-      and user_data_after.get("plan", "FREE") == "FREE"
-      and not bool(user_data_after.get("verified"))
-      and not bool(user_data_after.get("is_premium")))
+    # A checkout that failed closed must not mark the free user verified/premium.
+    r_user_after_plan = client.get(f"/api/profile/{bride_id}", headers=bride_headers)
+    user_data_after = r_user_after_plan.json().get("profile", {}) or r_user_after_plan.json().get("user", {}) or r_user_after_plan.json()
+    check(73, "Failed checkout leaves the account on the free plan",
+          r_user_after_plan.status_code == 200
+          and user_data_after.get("plan", "FREE") == "FREE"
+          and not bool(user_data_after.get("verified"))
+          and not bool(user_data_after.get("is_premium")))
+finally:
+    for _name, _value in _payment_env_before.items():
+        if _value is None:
+            os.environ.pop(_name, None)
+        else:
+            os.environ[_name] = _value
 
 # Contact Masking for Free / Non-Purchased Viewers
 masked_phone = quality.mask_phone("9848111111") if hasattr(quality, "mask_phone") else "98481*****"

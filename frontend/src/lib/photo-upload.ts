@@ -132,5 +132,12 @@ export function profilePhotoErrorMessage(code: ProfilePhotoError["code"], telugu
     dimensions: ["Use a clear image at least 350 × 350 px, with no extreme crop or panorama.", "కనీసం 350 × 350 పిక్సెల్‌ల స్పష్టమైన ఫోటోను ఎంచుకోండి; అతిగా కత్తిరించిన లేదా పొడవైన panorama ఫోటో వద్దు."],
     encode: ["The photo could not be prepared on this device. Try a JPEG or PNG image.", "ఈ పరికరంలో ఫోటోను సిద్ధం చేయలేకపోయాం. JPEG లేదా PNG ఫోటోతో మళ్లీ ప్రయత్నించండి."],
   } as const;
-  return copy[code][telugu ? 1 : 0];
+  const entry = copy[code];
+  // An unknown code must still read as a sentence, never as "undefined".
+  if (!entry) {
+    return telugu
+      ? "ఫోటోను సిద్ధం చేయలేకపోయాం. మళ్లీ ప్రయత్నించండి."
+      : "The photo could not be prepared. Please try again.";
+  }
+  return entry[telugu ? 1 : 0];
 }
