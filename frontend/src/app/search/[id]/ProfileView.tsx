@@ -523,6 +523,13 @@ export default function ProfileView() {
             <ProfileInsights viewerId={myTsapId} profileId={searchId} />
           ) : null}
 
+          {myTsapId && searchId && myTsapId !== searchId ? (
+            <RequestCoach fromId={myTsapId} toId={searchId} onPickNote={(text) => setInterestNote(text)} />
+          ) : null}
+          {myTsapId && searchId && myTsapId !== searchId ? (
+            <ProfileInsights viewerId={myTsapId} profileId={searchId} />
+          ) : null}
+
           {/* 🔒 Contact access is gated by profile-owner acceptance */}
           <section className="mt-4 rounded-3xl border-2 border-rose-300 bg-rose-50 p-5">
             <h2 className="text-lg font-extrabold text-[#7A0C2E]">
