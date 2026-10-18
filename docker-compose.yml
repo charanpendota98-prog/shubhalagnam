@@ -17,7 +17,9 @@ services:
       - "6379:6379"
 
   backend:
-    build: ./backend
+    build:
+      context: ./backend
+      target: dev
     command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
     volumes:
       - ./backend:/app
@@ -92,7 +94,9 @@ services:
       - redis
 
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      target: dev
     command: npm run dev -- -H 0.0.0.0 -p 3000
     environment:
       # /api/* rewrite → backend (browser lo localhost reference undadu)
@@ -113,7 +117,9 @@ services:
       - backend
 
   bot:
-    build: ./backend
+    build:
+      context: ./backend
+      target: dev
     command: python telegram_bot.py
     volumes:
       - ./backend:/app

@@ -98,7 +98,8 @@ from hardening import (
     require_vendor, vendor_token, admin_role, revoke_all_tokens,
     req_phone, req_int, req_choice, req_bool, req_bool_strict, validation_error, seen as idem_seen, abuse_count, clamp_int,
     ADMIN_KEY as TSAP_ADMIN_KEY, NAME_RE, PHONE_RE, dev_mode,
-    TOKEN_VERSIONS_PATH,
+    TOKEN_VERSIONS_PATH, TOKEN_TTL_SECONDS, MEMBER_COOKIE_SESSIONS, MEMBER_SESSION_COOKIE,
+    MEMBER_CSRF_COOKIE, member_cookie_is_used, member_csrf_valid,
 )
 
 _PRODUCTION_ENV_NAMES = {"production", "prod", "live"}
@@ -106,6 +107,42 @@ _PRODUCTION_ENV_NAMES = {"production", "prod", "live"}
 
 def _is_production_environment() -> bool:
     return str(os.getenv("APP_ENV", "")).strip().lower() in _PRODUCTION_ENV_NAMES
+
+
+def _set_member_session_cookie(response: Response, token: str) -> None:
+    """Issue a browser session without exposing the durable credential to JS."""
+    if not MEMBER_COOKIE_SESSIONS or not token:
+        return
+    response.set_cookie(
+        key=MEMBER_SESSION_COOKIE,
+        value=token,
+        max_age=TOKEN_TTL_SECONDS,
+        httponly=True,
+        secure=_is_production_environment(),
+        samesite="lax",
+        path="/",
+    )
+    response.set_cookie(
+        key=MEMBER_CSRF_COOKIE,
+        value=secrets.token_urlsafe(32),
+        max_age=TOKEN_TTL_SECONDS,
+        httponly=False,
+        secure=_is_production_environment(),
+        samesite="lax",
+        path="/",
+    )
+
+
+def _clear_member_session_cookie(response: Response) -> None:
+    if not MEMBER_COOKIE_SESSIONS:
+        return
+    response.delete_cookie(MEMBER_SESSION_COOKIE, path="/")
+    response.delete_cookie(MEMBER_CSRF_COOKIE, path="/")
+
+
+def _browser_auth_token(token: str) -> str:
+    """Keep bearer credentials out of JavaScript once cookie sessions are live."""
+    return "" if MEMBER_COOKIE_SESSIONS else token
 
 
 def _test_payment_fixtures_enabled() -> bool:
@@ -2397,6 +2434,38 @@ async def _startup_publisher():
 #    (page + API calls anni anonymous ga log: path, referrer, device, channel)
 # ---------------------------------------------------------------------------
 _SKIP_TRACK = ("/_next", "/static", "/favicon", "/cards/", "/photos/", "/health", "/robots", "/sitemap")
+_REQUEST_ID_RE = re.compile(r"^[A-Za-z0-9._-]{8,80}$")
+_BODY_LIMITS = {
+    "/api/register": 8 * 1024 * 1024,
+    "/api/photo/upload": 8 * 1024 * 1024,
+    "/api/verify/selfie": 8 * 1024 * 1024,
+}
+_CSRF_MEMBER_PREFIXES = (
+    "/api/interest", "/api/credits", "/api/views", "/api/saved", "/api/blocks",
+    "/api/consent", "/api/verification", "/api/profile", "/api/user", "/api/photo",
+    "/api/voice", "/api/astro", "/api/notifications", "/api/save", "/api/referral",
+    "/api/spotlight/apply", "/api/auth/logout-everywhere",
+)
+_CSRF_PUBLIC_EXACT = {
+    "/api/referral/partner/register",
+}
+_CSRF_PUBLIC_PREFIXES = (
+    "/api/referral/click/", "/api/spotlight/track/", "/api/vendors/", "/api/ads/",
+)
+
+
+def _member_mutation_requires_csrf(path: str) -> bool:
+    if path in _CSRF_PUBLIC_EXACT or path.startswith(_CSRF_PUBLIC_PREFIXES):
+        return False
+    return path.startswith(_CSRF_MEMBER_PREFIXES)
+
+
+def _request_id(request: Request) -> str:
+    """Use a bounded caller id for correlation, otherwise generate one safely."""
+    candidate = str(request.headers.get("x-request-id", "") or "").strip()
+    if _REQUEST_ID_RE.fullmatch(candidate):
+        return candidate
+    return "req_" + secrets.token_urlsafe(12).replace("-", "_").replace("~", "_")
 
 
 @app.middleware("http")
@@ -2429,16 +2498,51 @@ async def _security_middleware(request: Request, call_next):
     lekapote 404 (info disclosure closed).
     🐞 FIX (S07): private API responses ki Cache-Control: no-store (proxy/browser lo PII cache avvakunda).
     """
+    request_id = _request_id(request)
+    request.state.request_id = request_id
     _priv = (request.url.path.startswith(("/api/interest", "/api/credits", "/api/views", "/api/saved",
                                           "/api/blocks", "/api/referral", "/api/leads", "/api/admin",
                                           "/api/verification", "/api/consent", "/api/auth"))
              or bool(request.headers.get("x-tsap-token")) or bool(request.headers.get("x-admin-key")))
     try:
-        if request.method == "POST":
+        content_length = int(request.headers.get("content-length", "0") or 0)
+    except (TypeError, ValueError):
+        content_length = 0
+    body_limit = _BODY_LIMITS.get(request.url.path, 1 * 1024 * 1024)
+    if request.method in {"POST", "PUT", "PATCH"} and content_length > body_limit:
+        resp = JSONResponse(status_code=413, content={
+            "success": False,
+            "error": "request_too_large",
+            "request_id": request_id,
+            "message_telugu": "ఈ అభ్యర్థన చాలా పెద్దది — ఫోటో/వివరాలను పరిమితిలో ఉంచి మళ్లీ ప్రయత్నించండి.",
+            "message_en": "The request is too large. Reduce the upload or form data and try again.",
+        })
+        apply_security_headers(resp.headers)
+        resp.headers["X-Request-ID"] = request_id
+        return resp
+    if (request.method in {"POST", "PUT", "PATCH", "DELETE"}
+            and _member_mutation_requires_csrf(request.url.path)
+            and member_cookie_is_used(request) and not member_csrf_valid(request)):
+        resp = JSONResponse(status_code=403, content={
+            "success": False,
+            "error": "csrf_required",
+            "request_id": request_id,
+            "message_en": "A CSRF token is required for this browser session.",
+            "message_telugu": "ఈ browser session కోసం CSRF భద్రతా token అవసరం.",
+        })
+        apply_security_headers(resp.headers)
+        resp.headers["X-Request-ID"] = request_id
+        return resp
+    try:
+        should_rate_limit = request.method == "POST" or (
+            request.method == "GET" and request.url.path in {"/api/search", "/api/facets", "/api/promo/apply"}
+        )
+        if should_rate_limit:
             limited = rate_limit_hit(request)
             if limited:
                 resp = too_many(limited)
                 apply_security_headers(resp.headers)
+                resp.headers["X-Request-ID"] = request_id
                 return resp
     except Exception:
         pass
@@ -2447,6 +2551,7 @@ async def _security_middleware(request: Request, call_next):
             "success": False, "error": "docs_disabled",
             "message_telugu": "🔒 API docs public గా లేదు — admin key (X-Admin-Key) తో మాత్రమే చూడొచ్చు"})
         apply_security_headers(resp.headers)
+        resp.headers["X-Request-ID"] = request_id
         return resp
     _t0 = None
     try:
@@ -2470,7 +2575,9 @@ async def _security_middleware(request: Request, call_next):
         pass
     try:
         apply_security_headers(response.headers)
+        response.headers.setdefault("X-Request-ID", request_id)
         if _priv and request.method == "GET":
+            response.headers.setdefault("X-Robots-Tag", "noindex, nofollow, noarchive")
             response.headers.setdefault("Cache-Control", "no-store, no-cache, must-revalidate, private")
         if (request.headers.get("x-forwarded-proto") or "").lower() == "https":
             response.headers.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
@@ -2702,7 +2809,7 @@ def _registration_recovery_response(user: Dict[str, Any]) -> RegisterResponse:
     channels = user.get("auto_post_channels") if isinstance(user.get("auto_post_channels"), list) else []
     return RegisterResponse(
         tsap_id=tsap_id,
-        auth_token=sign_token(tsap_id),
+        auth_token=_browser_auth_token(sign_token(tsap_id)),
         phone_masked=mask_phone(str(user.get("phone") or "")),
         phone_verified=bool(user.get("phone_verified")),
         is_approved=bool(user.get("is_approved")),
@@ -2841,6 +2948,7 @@ async def register(
     phone_verified: bool = Form(False),  # ignored: client cannot attest server-side OTP verification
     consent_confirmed: bool = Form(False),
     photo_consent_confirmed: bool = Form(False),
+    response: Response = None,
 ):
     """
     Pin-to-Pin Register Flow:
@@ -2855,6 +2963,7 @@ async def register(
     """
     recovered = _early_registration_recovery(phone, password, registration_key)
     if recovered is not None:
+        _set_member_session_cookie(response, sign_token(str(getattr(recovered, "tsap_id", "") or "")))
         return recovered
 
     # 1. Validate & Smart Normalization
@@ -3427,9 +3536,10 @@ async def register(
             # member.  Do not claim a fully completed registration while the
             # referral/card/status enrichment is only in memory.
             raise HTTPException(503, "Registration was saved, but final profile processing could not be confirmed. Please retry the same form safely.")
+    _set_member_session_cookie(response, auth_token)
     return RegisterResponse(
         tsap_id=tsap_id,
-        auth_token=auth_token,
+        auth_token=_browser_auth_token(auth_token),
         phone_masked=mask_phone(phone),
         phone_verified=bool(user.get("phone_verified")),
         is_approved=bool(user.get("is_approved")),
@@ -7154,7 +7264,7 @@ def _pw_fail(phone: str) -> int:
 
 
 @app.post("/api/auth/login-password")
-def auth_login_password(payload: dict):
+def auth_login_password(payload: dict, response: Response = None):
     """🔑 Number + password login (OTP alternative). 5 wrong → 15 min lock."""
     d = payload or {}
     phone = "".join(ch for ch in str(d.get("phone", "")) if ch.isdigit())
@@ -7169,7 +7279,9 @@ def auth_login_password(payload: dict):
         raise HTTPException(401, f"❌ Number/Password tappu (migilindi: {max(left, 0)} tries) — leda OTP తో login చెయ్యండి")
     with _PW_LOCK:
         PW_LOCKS.pop(phone, None)
-    return {"success": True, "tsap_id": u["tsap_id"], "auth_token": sign_token(u["tsap_id"]),
+    auth_token = sign_token(u["tsap_id"])
+    _set_member_session_cookie(response, auth_token)
+    return {"success": True, "tsap_id": u["tsap_id"], "auth_token": _browser_auth_token(auth_token),
             "has_account": True, "profile": safe_user(u),
             "message_telugu": f"✅ Welcome back, {str(u.get('full_name', '')).split()[0] if str(u.get('full_name', '')).split() else ''}! 🙏"}
 
@@ -7186,14 +7298,14 @@ def auth_forgot(payload: dict):
 
 
 @app.post("/api/auth/reset")
-def auth_reset(payload: dict):
+def auth_reset(payload: dict, response: Response = None):
     # Consume the reset OTP, mutate credentials, and invalidate sessions as one
     # serialized authentication transition.
     with _OTP_VERIFY_LOCK:
-        return _auth_reset_locked(payload)
+        return _auth_reset_locked(payload, response)
 
 
-def _auth_reset_locked(payload: dict):
+def _auth_reset_locked(payload: dict, response: Response = None):
     """🔑 Reset password — OTP verify + కొత్త password set."""
     d = payload or {}
     phone = req_phone(d.get("phone", ""))
@@ -7269,7 +7381,9 @@ def _auth_reset_locked(payload: dict):
             else:
                 PW_LOCKS[phone] = previous_pw_lock
         raise HTTPException(503, "Password reset could not be saved safely. Please try again.")
-    return {"success": True, "tsap_id": u["tsap_id"], "auth_token": sign_token(u["tsap_id"]),
+    auth_token = sign_token(u["tsap_id"])
+    _set_member_session_cookie(response, auth_token)
+    return {"success": True, "tsap_id": u["tsap_id"], "auth_token": _browser_auth_token(auth_token),
             "message_telugu": "✅ Password మారింది — పాత sessions అన్నీ logout అయ్యాయి, ఇప్పుడు number + password తో login చెయ్యండి 🔑"}
 
 
@@ -7354,7 +7468,7 @@ def _otp_send_locked(payload: dict):
 
 
 @app.post("/api/otp/verify")
-def otp_verify(payload: dict):
+def otp_verify(payload: dict, response: Response = None):
     d = payload or {}
     phone = req_phone(d.get("phone", ""))
     code = str(d.get("code", "")).strip()
@@ -7434,11 +7548,13 @@ def otp_verify(payload: dict):
             raise HTTPException(503, "Phone verification could not be saved safely. Please try again.")
 
         tsap_id = (u or {}).get("tsap_id", "")
+        auth_token = sign_token(tsap_id) if tsap_id else ""
+        _set_member_session_cookie(response, auth_token)
         return {
             "success": True,
             "phone_verified": True,
             "tsap_id": tsap_id,
-            "auth_token": sign_token(tsap_id) if tsap_id else "",
+            "auth_token": _browser_auth_token(auth_token),
             "has_account": bool(u),
             "profile": safe_user(u) if u else None,
             "quality": profile_completeness(u) if u else None,
@@ -8425,7 +8541,7 @@ def retired_demo_token(payload: dict = Body(default={}), request: Request = None
 
 
 @app.post("/api/auth/logout-everywhere")
-def auth_logout_everywhere(payload: dict, request: Request):
+def auth_logout_everywhere(payload: dict, request: Request, response: Response):
     """🔐 Phase 14 — user-initiated "log out of all devices": invalidates
     EVERY token issued to this account so far (phone lost/stolen, suspected
     account compromise, or just routine hygiene), not just the current
@@ -8440,9 +8556,9 @@ def auth_logout_everywhere(payload: dict, request: Request):
         raise HTTPException(404, "Profile దొరకలేదు")
     require_owner(request, tsap_id)
     new_version = revoke_all_tokens(tsap_id)
+    _clear_member_session_cookie(response)
     return {"success": True, "tsap_id": tsap_id, "token_version": new_version,
-            "auth_token": sign_token(tsap_id),  # caller's own session keeps working
-            "message_telugu": "🔐 అన్ని devices నుండి logout అయ్యారు — ఈ session మాత్రం active గా ఉంటుంది"}
+            "message_telugu": "🔐 అన్ని devices నుండి logout అయ్యారు — అన్ని browser sessions కూడా ముగిశాయి"}
 
 
 @app.post("/api/admin/users/{tsap_id}/force-logout")

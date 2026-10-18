@@ -1,5 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Emit a minimal standalone server for the OCI Free Tier runtime image;
+  // build dependencies and the full source tree stay out of production.
+  output: "standalone",
+
   // Arena's browser preview is served from a sandboxed *.e2b.app origin; allow
   // that host family so Next.js dev assets and HMR work inside the preview.
   allowedDevOrigins: ["*.e2b.app"],

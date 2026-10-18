@@ -17,6 +17,10 @@ The implementation source of truth is `backend/interest.py` (plans/add-ons), `ba
 
 For the verified current-state product audit, target architecture, proposed future relational schema, consent/matchmaking flows, responsive QA matrix, trust rules, pricing guardrails, component map, and SEO roadmap, see [`MANAVIVAHA_PRODUCT_BLUEPRINT.md`](MANAVIVAHA_PRODUCT_BLUEPRINT.md). The blueprint clearly distinguishes shipped code from proposed work and is not a production-readiness claim.
 
+For the implementation-oriented OCI architecture, 1k-to-10m scale plan, Top 100 improvements, Top 50 critical fixes, AI/revenue/growth priorities, security roadmap, and 12-month CTO launch sequence, see [`OCI-FREE-TIER-TRANSFORMATION-PLAN.md`](OCI-FREE-TIER-TRANSFORMATION-PLAN.md). It is a build plan, not an assertion that the current JSON runtime is production-ready.
+
+Every push and pull request runs the repository quality gates in [`.github/workflows/ci.yml`](.github/workflows/ci.yml). The production image targets and no-go launch gates remain documented in [`PRODUCTION-DEPLOY.md`](PRODUCTION-DEPLOY.md).
+
 ## Local development
 
 ```bash

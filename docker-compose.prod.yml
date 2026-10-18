@@ -9,10 +9,25 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
+      target: prod
     command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]
     init: true
     restart: unless-stopped
     stop_grace_period: 45s
+    # Oracle Always Free Ampere budget: leave headroom for Caddy, backups, and
+    # the host. Tune only after measuring p95 latency and memory pressure.
+    cpus: "1.75"
+    mem_limit: 4g
+    mem_reservation: 768m
+    pids_limit: 256
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=256m
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     expose:
       - "8000"
     security_opt:
@@ -138,6 +153,7 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      target: runner
       args:
         BACKEND_URL: http://backend:8000
         NEXT_PUBLIC_SUPPORT_PHONE: ${NEXT_PUBLIC_SUPPORT_PHONE:-}
@@ -147,10 +163,22 @@ services:
         NEXT_PUBLIC_BUSINESS_LOCATION: ${NEXT_PUBLIC_BUSINESS_LOCATION:-}
         NEXT_PUBLIC_GRIEVANCE_OFFICER: ${NEXT_PUBLIC_GRIEVANCE_OFFICER:-}
         NEXT_PUBLIC_LEGAL_NAME: ${NEXT_PUBLIC_LEGAL_NAME:-}
-    command: ["npm", "run", "start", "--", "-p", "3000", "-H", "0.0.0.0"]
+    command: ["node", "server.js"]
     init: true
     restart: unless-stopped
     stop_grace_period: 30s
+    cpus: "1.00"
+    mem_limit: 1536m
+    mem_reservation: 256m
+    pids_limit: 128
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=128m
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     security_opt:
       - no-new-privileges:true
     cap_drop:
@@ -186,9 +214,27 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
+      target: prod
     command: ["python", "telegram_bot.py"]
     init: true
     restart: unless-stopped
+    stop_grace_period: 30s
+    cpus: "0.25"
+    mem_limit: 512m
+    mem_reservation: 128m
+    pids_limit: 64
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     depends_on:
       backend:
         condition: service_healthy

@@ -1,0 +1,73 @@
+# Review and parameterize OPERATOR_CIDR in the OCI NSG before applying.
+# This user-data installs host prerequisites only; it does not clone code, create
+# secrets, start Compose, or open the backend/database ports.
+# Target: Ubuntu 22.04 ARM64 on an OCI Ampere A1 Flex VM.
+#cloud-config
+package_update: true
+package_upgrade: true
+packages:
+  - ca-certificates
+  - curl
+  - git
+  - jq
+  - age
+  - ufw
+  - caddy
+  - gnupg
+  - unattended-upgrades
+
+users:
+  - default
+  - name: manaops
+    groups: [docker, sudo]
+    shell: /bin/bash
+    sudo: ["ALL=(ALL) NOPASSWD:ALL"]
+    lock_passwd: true
+
+write_files:
+  - path: /etc/sysctl.d/99-mana-vivaha-hardening.conf
+    owner: root:root
+    permissions: "0644"
+    content: |
+      net.ipv4.conf.all.accept_source_route = 0
+      net.ipv4.conf.default.accept_source_route = 0
+      net.ipv4.conf.all.accept_redirects = 0
+      net.ipv4.conf.default.accept_redirects = 0
+      net.ipv4.tcp_syncookies = 1
+      fs.protected_hardlinks = 1
+      fs.protected_symlinks = 1
+  - path: /etc/docker/daemon.json
+    owner: root:root
+    permissions: "0644"
+    content: |
+      {
+        "live-restore": true,
+        "log-driver": "json-file",
+        "log-opts": {"max-size": "10m", "max-file": "3" },
+        "userland-proxy": false
+      }
+  - path: /etc/mana-vivaha/README
+    owner: root:root
+    permissions: "0644"
+    content: |
+      Secrets belong in the operator secret manager, not cloud-init or this host file.
+      The application volume is mounted separately after an encrypted backup check.
+
+runcmd:
+  # Docker's official Ubuntu ARM64 repository supplies Compose v2/buildx;
+  # do not silently fall back to an unreviewed legacy Compose binary.
+  - [bash, -lc, "install -m 0755 -d /etc/apt/keyrings && curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc && chmod a+r /etc/apt/keyrings/docker.asc && echo \"deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo $VERSION_CODENAME) stable\" > /etc/apt/sources.list.d/docker.list && apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin"]
+  - [sysctl, --system]
+  - [systemctl, enable, --now, docker]
+  - [systemctl, enable, --now, caddy]
+  - [install, -d, -m, "0750", -o, manaops, -g, manaops, /opt/mana-vivaha, /var/lib/mana-vivaha, /var/backups/mana-vivaha]
+  - [ufw, --force, default, deny, incoming]
+  - [ufw, --force, default, allow, outgoing]
+  # Replace this source with the approved operator VPN/CIDR before applying.
+  - [ufw, allow, from, "OPERATOR_CIDR", to, any, port, "22", proto, tcp]
+  - [ufw, allow, "80/tcp"]
+  - [ufw, allow, "443/tcp"]
+  - [ufw, --force, enable]
+  - [systemctl, restart, docker]
+
+final_message: "Host bootstrap complete. Review OCI NSG, mount encrypted volume, provision secrets, and follow PRODUCTION-DEPLOY.md; no app was deployed."

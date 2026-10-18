@@ -4,7 +4,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Duo } from "@/lib/duo";
 import { useLang } from "@/lib/lang";
-import { apiDisplayMessage, getToken, readApiJson } from "@/lib/api";
+import { apiDisplayMessage, authHeaders, readApiJson } from "@/lib/api";
 import { prepareProfilePhoto, ProfilePhotoError, profilePhotoErrorMessage } from "@/lib/photo-upload";
 import ProtectedImage from "@/components/ProtectedImage";
 
@@ -27,9 +27,9 @@ export default function PhotoFlow({ tsapId }: { tsapId: string }) {
 
   const load = useCallback(async () => {
     try {
-      const token = getToken();
       const r = await fetch(`/api/photo/status/${encodeURIComponent(tsapId)}`, {
-        headers: token ? { "X-Tsap-Token": token } : {},
+        headers: authHeaders(),
+        credentials: "same-origin",
         cache: "no-store",
       });
       const payload = await readApiJson<Status & ApiError>(r).catch(() => ({} as Status & ApiError));
@@ -57,10 +57,10 @@ export default function PhotoFlow({ tsapId }: { tsapId: string }) {
       const fd = new FormData();
       fd.append("file", prepared, prepared.name);
       fd.append("tsap_id", tsapId);
-      const token = getToken();
       const r = await fetch("/api/photo/upload", {
         method: "POST",
-        headers: token ? { "X-Tsap-Token": token } : {},
+        headers: authHeaders(false, false),
+        credentials: "same-origin",
         body: fd,
       });
       const d = await readApiJson<ApiError>(r).catch(() => ({} as ApiError));

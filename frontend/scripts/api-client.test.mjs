@@ -30,10 +30,20 @@ test("logout clears the member id together with both token stores", () => {
 test("expired sessions clear both stale token and stale profile id", () => {
   const auth = fs.readFileSync(new URL("../src/lib/auth.ts", import.meta.url), "utf8");
   assert.match(auth, /if \(result\.status === 401\) clearAuth\(\)/);
+  assert.match(auth, /apiGet<\{ valid\?: boolean; tsap_id\?: string \}>\("\/api\/auth\/verify"\)/);
+  assert.doesNotMatch(auth, /apiPost<\{ valid\?: boolean; tsap_id\?: string \}>\("\/api\/auth\/verify"/);
 });
 
 test("protected downloads use auth headers rather than query-string credentials", () => {
   assert.match(source, /export async function downloadAuthenticatedFile/);
   assert.match(source, /fetch\(path, \{ headers: authHeaders\(true\), credentials: "same-origin" \}\)/);
   assert.doesNotMatch(source, /[?&]token=\$\{encodeURIComponent/);
+});
+
+test("member sessions prefer HttpOnly cookies and do not persist bearer tokens", () => {
+  const token = source.slice(source.indexOf("export function getToken"), source.indexOf("export function getCsrfToken"));
+  assert.match(token, /sessionStorage\.getItem\(TOKEN_KEY\)/);
+  assert.doesNotMatch(token.slice(0, token.indexOf("export function getTsapId")), /localStorage\.getItem\(TOKEN_KEY\)/);
+  assert.match(source, /credentials: "same-origin"/);
+  assert.match(source, /headers\["X-CSRF-Token"\]/);
 });

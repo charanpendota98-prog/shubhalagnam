@@ -20,7 +20,7 @@ import { SITE_CONFIG } from "@/lib/site-config";
 import { CASTES as SEO_COMMUNITY_HUBS } from "@/lib/seo-pages";
 import { communityHubPath } from "@/lib/community-hub.mjs";
 import { getLang, useLang } from "@/lib/lang";
-import { apiDisplayMessage, readApiJson } from "@/lib/api";
+import { apiDisplayMessage, getCsrfToken, readApiJson } from "@/lib/api";
 import { ProfilePhotoError, prepareProfilePhoto, profilePhotoErrorMessage } from "@/lib/photo-upload";
 import { stateFullName, isGroomGender, isHomemakerOccupation, workTypesForGender } from "@/lib/telugu-data";
 import PhotoFlow from "@/components/PhotoFlow";
@@ -1129,6 +1129,8 @@ function Wizard() {
       xhr.timeout = 120000;
       xhr.withCredentials = true;
       xhr.setRequestHeader("Accept", "application/json");
+      const csrf = getCsrfToken();
+      if (csrf) xhr.setRequestHeader("X-CSRF-Token", csrf);
       xhr.upload.onprogress = (event) => {
         if (event.lengthComputable) onProgress(Math.max(1, Math.min(95, Math.round((event.loaded / event.total) * 95))));
       };
@@ -1222,8 +1224,13 @@ function Wizard() {
       try {
         localStorage.removeItem(DRAFT_KEY);
         sessionStorage.removeItem("shubhalagnam_registration_request_v1");
-        if (d?.auth_token) {
-          localStorage.setItem("tsap_token", String(d.auth_token));
+        if (d?.tsap_id) {
+          // The server issues an HttpOnly session cookie. Keep only an
+          // optional short-lived tab fallback token; never persist a bearer
+          // credential. Production responses intentionally omit auth_token.
+          if (d?.auth_token) sessionStorage.setItem("tsap_token", String(d.auth_token));
+          else sessionStorage.removeItem("tsap_token");
+          localStorage.removeItem("tsap_token");
           localStorage.setItem("tsap_id", String(d.tsap_id || ""));
           localStorage.setItem("tsap_last_id", String(d.tsap_id || ""));
           const parsed = JSON.parse(localStorage.getItem("tsap_profiles") || "[]");

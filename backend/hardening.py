@@ -99,6 +99,12 @@ if PRODUCTION and SECRET_IS_DEV:
 # (matchsend + daily matches + showcase + profiles + photos). Money/data/exports → owner only.
 STAFF_KEY = os.getenv("STAFF_KEY", "").strip()
 
+# Browser member sessions are HttpOnly in production. The explicit opt-in keeps
+# the legacy header-only test harness isolated while the migration is rolled out.
+MEMBER_COOKIE_SESSIONS = PRODUCTION or _flag("MEMBER_COOKIE_SESSIONS") in ("1", "true", "yes", "on")
+MEMBER_SESSION_COOKIE = "mv_member_session"
+MEMBER_CSRF_COOKIE = "mv_member_csrf"
+
 # automation key (bots / bridge / cron) — optional; set TSAP_API_KEY in prod
 API_KEY = os.getenv("TSAP_API_KEY", "").strip()
 TOKEN_TTL_SECONDS = int(os.getenv("TSAP_TOKEN_TTL_HOURS", "720") or 720) * 3600
@@ -310,14 +316,39 @@ def verify_token(token: str) -> Optional[Dict[str, Any]]:
         return None
 
 
-def token_from_request(request: Request) -> Optional[Dict[str, Any]]:
+def _header_token(request: Request) -> str:
     h = request.headers if request is not None else {}
     raw = (h.get("x-tsap-token") or h.get("authorization") or "").strip()
     if raw.lower().startswith("bearer "):
         raw = raw[7:].strip()
+    return raw
+
+
+def token_from_request(request: Request) -> Optional[Dict[str, Any]]:
+    raw = _header_token(request)
+    if not raw and MEMBER_COOKIE_SESSIONS and request is not None:
+        raw = str(request.cookies.get(MEMBER_SESSION_COOKIE) or "").strip()
     if not raw:
         return None
     return verify_token(raw)
+
+
+def member_cookie_is_used(request: Request) -> bool:
+    """True only when auth came from the browser cookie, not a legacy header."""
+    return bool(MEMBER_COOKIE_SESSIONS and request is not None
+                and not _header_token(request)
+                and request.cookies.get(MEMBER_SESSION_COOKIE))
+
+
+def member_csrf_valid(request: Request) -> bool:
+    """Double-submit CSRF check for cookie-authenticated state changes."""
+    if not member_cookie_is_used(request):
+        return True
+    cookie_value = str(request.cookies.get(MEMBER_CSRF_COOKIE) or "")
+    header_value = str(request.headers.get("x-csrf-token") or "")
+    if not cookie_value or not header_value or len(cookie_value) > 160 or len(header_value) > 160:
+        return False
+    return hmac.compare_digest(cookie_value, header_value)
 
 
 def is_admin(request: Request) -> bool:
@@ -419,6 +450,8 @@ RL_RULES: Dict[str, Tuple[int, int]] = {          # route-prefix → (max hits, 
     "POST /api/pay/claim": (10, 600),
     "POST /api/pay/webhook": (120, 60),
     "POST /api/referral/payout": (10, 3600),
+    "GET /api/search": (120, 60),
+    "GET /api/facets": (120, 60),
     "GET /api/promo/apply": (30, 60),
 }
 RL_DEFAULT = (120, 60)
