@@ -356,9 +356,23 @@ def attach_referral(user: Dict, code: str, all_users: List[Dict]) -> Dict:
     """
     Register time lo referral ni **lock** chestundi + referee bonus credit isthundi.
     Guards: self-referral (same phone / same tsap), already-referred lock, code invalid.
+
+    The lock covers both sides of the ledger. Locking only the new user allowed
+    concurrent friends to overwrite one referrer's credit/stat increment.
     """
-    with _REF_LOCKS["attach:" + _ref_lock_key(user)]:
-        return _attach_referral_locked(user, code, all_users)
+    normalized_code = str(code or "").strip().upper()
+    ref = find_referrer(normalized_code, all_users or [])
+    user_key = "user:" + _ref_lock_key(user)
+    ref_key = "ref:" + (_code_of(ref) if ref else "invalid:" + normalized_code)
+    keys = sorted({"attach:" + user_key, "attach:" + ref_key})
+    locks = [_REF_LOCKS[key] for key in keys]
+    for lock in locks:
+        lock.acquire()
+    try:
+        return _attach_referral_locked(user, normalized_code, all_users)
+    finally:
+        for lock in reversed(locks):
+            lock.release()
 
 
 def _attach_referral_locked(user: Dict, code: str, all_users: List[Dict]) -> Dict:
@@ -461,9 +475,20 @@ def _fraud_flags(referrer: Dict, referred_user: Dict, all_users: List[Dict]) -> 
 def process_referral_payment(referred_user: Dict, referrer_code: str, plan_amount: int,
                              all_users: List[Dict], payment_id: str = "", plan_code: str = "") -> Dict:
     """Credit a referrer only for the referee's first qualifying consumer-plan payment."""
-    with _REF_LOCKS["commission:" + _ref_lock_key(referred_user)]:
+    ref = find_referrer(str(referrer_code or "").strip(), all_users or [])
+    keys = sorted({
+        "commission:user:" + _ref_lock_key(referred_user),
+        "commission:ref:" + (_code_of(ref) if ref else "invalid:" + str(referrer_code or "").strip().upper()),
+    })
+    locks = [_REF_LOCKS[key] for key in keys]
+    for lock in locks:
+        lock.acquire()
+    try:
         return _process_referral_payment_locked(referred_user, referrer_code, plan_amount,
                                                 all_users, payment_id, plan_code)
+    finally:
+        for lock in reversed(locks):
+            lock.release()
 
 
 def _process_referral_payment_locked(referred_user: Dict, referrer_code: str, plan_amount: int,
@@ -886,16 +911,54 @@ def payout_queue(status: str = "requested") -> Dict:
 
 
 # ------------------------------------------------------------------ clicks + funnel
-def track_click(code: str, source: str = "link") -> Dict:
-    """ /r/<code> click — funnel (clicks → registrations → payments) కి కావాలి. """
+def track_click(code: str, source: str = "link", dedupe_key: str = "") -> Dict:
+    """Record a bounded referral click, once per request/window identity.
+
+    Landing pages are frequently refreshed by crawlers, previews, and mobile
+    retries.  A stable dedupe key prevents those replays from inflating funnel
+    counts while preserving genuine clicks from different request windows.
+    """
     c = (code or "").strip().upper()
-    click = {"at": _now(), "code": c, "source": source}
+    if not re.fullmatch(r"[A-Z0-9_-]{1,80}", c):
+        return {"ok": False, "reason": "invalid_code",
+                "message_telugu": "⚠️ Referral code format is invalid."}
+    raw_source = str(source or "link").strip().lower()[:40] or "link"
+    source_value = raw_source if raw_source in {
+        "link", "telegram", "whatsapp", "channel", "share", "register_direct", "invite", "website", "test"
+    } else "other"
+    now = _now()
+    dedupe = str(dedupe_key or "").strip()[:128]
+    if dedupe:
+        # Keep the ledger bounded: keys older than ten minutes cannot suppress a
+        # new click, and only the key digest is durable.
+        digest = hashlib.sha256(dedupe.encode("utf-8")).hexdigest()
+        try:
+            current = datetime.fromisoformat(now)
+        except ValueError:
+            current = datetime.utcnow()
+        for prior in reversed(CLICKS):
+            if prior.get("dedupe_hash") != digest or prior.get("code") != c:
+                continue
+            try:
+                age = (current - datetime.fromisoformat(str(prior.get("at")))).total_seconds()
+            except (TypeError, ValueError):
+                age = 0
+            if 0 <= age <= 600:
+                return {"ok": True, "code": c,
+                        "clicks_total": sum(1 for x in CLICKS if x.get("code") == c),
+                        "duplicate": True}
+            break
+    click = {"at": now, "code": c, "source": source_value}
+    if dedupe:
+        click["dedupe_hash"] = hashlib.sha256(dedupe.encode("utf-8")).hexdigest()
     CLICKS.append(click)
     if not save_state().get("ok"):
         CLICKS.remove(click)
         return {"ok": False, "reason": "persistence_failed",
                 "message_telugu": "⚠️ Referral click could not be recorded safely."}
-    return {"ok": True, "code": c, "clicks_total": sum(1 for x in CLICKS if x["code"] == c)}
+    return {"ok": True, "code": c,
+            "clicks_total": sum(1 for x in CLICKS if x.get("code") == c),
+            "duplicate": False}
 
 
 def click_stats(code: str) -> Dict:

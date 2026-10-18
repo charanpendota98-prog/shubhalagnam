@@ -745,6 +745,9 @@ function Wizard() {
   const [errs, setErrs] = useState<string[]>([]);
   const [shake, setShake] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [submitProgress, setSubmitProgress] = useState(0);
+  const submitLockRef = useRef(false);
+  const registrationKeyRef = useRef("");
   const [draftFound, setDraftFound] = useState(false);
   const [savedAt, setSavedAt] = useState<string>("");
   const [photoFile, setPhotoFile] = useState<File | null>(null);
@@ -1001,6 +1004,8 @@ function Wizard() {
 
   const clearDraft = () => {
     localStorage.removeItem(DRAFT_KEY);
+    try { sessionStorage.removeItem("shubhalagnam_registration_request_v1"); } catch { /* ignore */ }
+    registrationKeyRef.current = "";
     setDraftFound(false);
     setF({ ...DEFAULT_FORM, referral_code: refLocked });
     setPhotoFile(null);
@@ -1111,89 +1116,72 @@ function Wizard() {
     return e;
   };
 
-  const executeSubmit = async (isQuick = false) => {
-    const errsList = isQuick
-      ? validateQuick()
-      : step === 5
-        ? [1, 2, 3, 4, 5].flatMap((stepNumber) => validateStep(stepNumber))
-        : validateStep(step);
-    if (!f.consent_confirmed) errsList.push(T("దయచేసి సమ్మతి ఇచ్చినట్లు నిర్ధారించండి", "Please confirm consent before creating the profile"));
-    if (errsList.length) {
-      setErrs(errsList);
-      setShake(true);
-      setTimeout(() => setShake(false), 400);
-      scrollTop();
-      return;
-    }
+  /**
+   * Multipart registration uses XHR rather than fetch so mobile users can see
+   * upload progress and retry the same durable request after a network drop.
+   * The server remains the source of truth; progress is never treated as
+   * registration success until the JSON response arrives.
+   */
+  const sendRegistration = (formData: FormData, onProgress: (value: number) => void) =>
+    new Promise<{ status: number; data: any }>((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open("POST", "/api/register", true);
+      xhr.timeout = 120000;
+      xhr.withCredentials = true;
+      xhr.setRequestHeader("Accept", "application/json");
+      xhr.upload.onprogress = (event) => {
+        if (event.lengthComputable) onProgress(Math.max(1, Math.min(95, Math.round((event.loaded / event.total) * 95))));
+      };
+      xhr.onload = () => {
+        onProgress(xhr.status >= 200 && xhr.status < 300 ? 100 : 95);
+        let data: any = {};
+        try { data = xhr.responseText ? JSON.parse(xhr.responseText) : {}; } catch {
+          data = { detail: xhr.status ? `Request failed (HTTP ${xhr.status}).` : "The server returned an unreadable response." };
+        }
+        resolve({ status: xhr.status, data });
+      };
+      xhr.onerror = () => reject(new Error(T("📡 ఇంటర్నెట్/సర్వర్ కనెక్షన్ లేదు — మళ్లీ ప్రయత్నించండి", "A network connection could not be established. Check your connection and try again.")));
+      xhr.ontimeout = () => reject(new Error(T("⏱️ అప్‌లోడ్‌కు ఎక్కువ సమయం పడుతోంది — మళ్లీ ప్రయత్నించండి", "The upload timed out. Your saved form is still here; please try again.")));
+      try {
+        xhr.send(formData);
+      } catch {
+        reject(new Error(T("📡 అప్‌లోడ్ ప్రారంభం కాలేదు — మళ్లీ ప్రయత్నించండి", "The upload could not start. Please try again.")));
+      }
+    });
 
-    setBusy(true);
-    setErrs([]);
+  const executeSubmit = async (isQuick = false) => {
+    if (submitLockRef.current || busy || result) return;
+    submitLockRef.current = true;
+    setSubmitProgress(0);
     try {
+      const errsList = isQuick
+        ? validateQuick()
+        : step === 5
+          ? [1, 2, 3, 4, 5].flatMap((stepNumber) => validateStep(stepNumber))
+          : validateStep(step);
+      if (!f.consent_confirmed) errsList.push(T("దయచేసి సమ్మతి ఇచ్చినట్లు నిర్ధారించండి", "Please confirm consent before creating the profile"));
+      if (errsList.length) {
+        setErrs(errsList);
+        setShake(true);
+        setTimeout(() => setShake(false), 400);
+        scrollTop();
+        return;
+      }
+
+      setBusy(true);
+      setErrs([]);
       const fd = new FormData();
       const strings = [
-        "gender",
-        "full_name",
-        "profile_for",
-        "dob",
-        "birth_time",
-        "height",
-        "marital_status",
-        "children",
-        "religion",
-        "mother_tongue",
-        "caste",
-        "sub_caste",
-        "gothram",
-        "star",
-        "rasi",
-        "moola_nakshatram",
-        "dosham",
-        "work_type",
-        "education",
-        "education_detail",
-        "job",
-        "company",
-        "salary",
-        "experience",
-        "work_location",
-        "father_name",
-        "father_occupation",
-        "mother_name",
-        "mother_occupation",
-        "brothers",
-        "brothers_married",
-        "sisters",
-        "sisters_married",
-        "family_type",
-        "family_status",
-        "family_values",
-        "native_place",
-        "state",
-        "district",
-        "nri_country",
-        "mandal",
-        "current_city",
-        "country",
-        "pincode",
-        "phone",
-        "email",
-        "password",
-        "about_myself",
-        "expectations",
-        "exp_age_min",
-        "exp_age_max",
-        "exp_job",
-        "exp_location",
-        "exp_caste",
-        "physical_status",
-        "body_type",
-        "complexion",
-        "blood_group",
-        "referral_code",
+        "gender", "full_name", "profile_for", "dob", "birth_time", "height", "marital_status", "children",
+        "religion", "mother_tongue", "caste", "sub_caste", "gothram", "star", "rasi", "moola_nakshatram",
+        "dosham", "work_type", "education", "education_detail", "job", "company", "salary", "experience",
+        "work_location", "father_name", "father_occupation", "mother_name", "mother_occupation", "brothers",
+        "brothers_married", "sisters", "sisters_married", "family_type", "family_status", "family_values",
+        "native_place", "state", "district", "nri_country", "mandal", "current_city", "country", "pincode",
+        "phone", "email", "password", "about_myself", "expectations", "exp_age_min", "exp_age_max", "exp_job",
+        "exp_location", "exp_caste", "physical_status", "body_type", "complexion", "blood_group", "referral_code",
       ];
-
       const payload: Record<string, any> = { ...f };
-
       strings.forEach((k) => fd.append(k, String(payload[k] ?? "")));
       fd.append("caste_custom", String(payload.caste_custom ?? ""));
       fd.append("sub_caste_custom", String(payload.sub_caste_custom ?? ""));
@@ -1203,12 +1191,27 @@ function Wizard() {
       fd.append("consent_confirmed", String(!!payload.consent_confirmed));
       if (!photoFile) throw new Error(T("నమోదుకు ముందు స్పష్టమైన ప్రొఫైల్ ఫోటోను జోడించండి", "A clear profile photo is required before registration"));
       fd.append("photo_file", photoFile, photoFile.name);
-      if (refLocked) fd.append("referral_code", refLocked);
+      if (refLocked) fd.set("referral_code", refLocked);
       if (refLocked && refInvite) fd.append("referral_invite", refInvite);
 
-      const r = await fetch("/api/register", { method: "POST", body: fd });
-      const d = await readApiJson(r);
-      if (!r.ok) {
+      // Keep one opaque key in session storage while the response is pending.
+      // If the radio/network drops after the server commits, the next click
+      // recovers the same account instead of creating a duplicate.
+      let registrationKey = registrationKeyRef.current;
+      try {
+        registrationKey = registrationKey || sessionStorage.getItem("shubhalagnam_registration_request_v1") || "";
+      } catch { /* private browsing: use memory only */ }
+      if (!registrationKey) {
+        registrationKey = typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+          ? crypto.randomUUID()
+          : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}-${Math.random().toString(36).slice(2)}`;
+        try { sessionStorage.setItem("shubhalagnam_registration_request_v1", registrationKey); } catch { /* memory fallback */ }
+      }
+      registrationKeyRef.current = registrationKey;
+      fd.append("registration_key", registrationKey);
+
+      const { status, data: d } = await sendRegistration(fd, setSubmitProgress);
+      if (status < 200 || status >= 300) {
         const msg = apiDisplayMessage(d, te, te
           ? "నమోదులో సమస్య ఏర్పడింది — దయచేసి మళ్లీ ప్రయత్నించండి"
           : "Registration could not be completed. Review your entries and try again.");
@@ -1216,23 +1219,34 @@ function Wizard() {
       }
 
       setResult(d);
-      localStorage.removeItem(DRAFT_KEY);
       try {
+        localStorage.removeItem(DRAFT_KEY);
+        sessionStorage.removeItem("shubhalagnam_registration_request_v1");
         if (d?.auth_token) {
           localStorage.setItem("tsap_token", String(d.auth_token));
           localStorage.setItem("tsap_id", String(d.tsap_id || ""));
           localStorage.setItem("tsap_last_id", String(d.tsap_id || ""));
-          const existing = JSON.parse(localStorage.getItem("tsap_profiles") || "[]");
-          localStorage.setItem("tsap_profiles", JSON.stringify([{ id: d.tsap_id, name: payload.full_name }, ...existing]));
+          const parsed = JSON.parse(localStorage.getItem("tsap_profiles") || "[]");
+          const existing = Array.isArray(parsed) ? parsed : [];
+          localStorage.setItem("tsap_profiles", JSON.stringify([
+            { id: d.tsap_id, name: payload.full_name },
+            ...existing.filter((profile: any) => profile?.id !== d.tsap_id),
+          ].slice(0, 10)));
         }
       } catch {
-        /* ignore */
+        // A storage-restricted browser must still see the success response and
+        // can use the displayed TSAP ID/password to sign in again.
       }
+      registrationKeyRef.current = "";
       scrollTop();
     } catch (e: any) {
       setErrs([e?.message || T("నమోదులో సమస్య ఏర్పడింది — దయచేసి మళ్లీ ప్రయత్నించండి", "Problem during registration — please retry")]);
+      scrollTop();
+    } finally {
+      setBusy(false);
+      setSubmitProgress(0);
+      submitLockRef.current = false;
     }
-    setBusy(false);
   };
 
   const next = () => {
@@ -1260,7 +1274,9 @@ function Wizard() {
   /* ================= SUCCESS SCREEN ================= */
   if (result) {
     const tsap = result.tsap_id || result.user_id || "";
-    const cardUrl = tsap ? result.card_url || `/cards/${tsap}.png` : "";
+    // Only render a server-confirmed card URL.  Constructing a guessed path
+    // would show a broken/fake artifact after a card-generation failure.
+    const cardUrl = tsap ? String(result.card_url || "") : "";
     // The community the member just registered under, resolved to its own
     // hub page when one exists — registration and groups stay connected.
     const communityName = String(
@@ -1279,6 +1295,9 @@ function Wizard() {
         : "";
     const phoneVerified = result.phone_verified === true;
     const profileApproved = result.is_approved === true;
+    // The API nests this under referral; refLocked is only an input hint, not
+    // proof that the code was valid or that a credit was attached.
+    const joined_with = result.referral?.joined_with;
     return (
       <div className="min-h-dvh py-8 px-4 bg-[#FAF7F2]">
         <div className="max-w-2xl mx-auto bg-white rounded-3xl border border-gold/40 shadow-2xl overflow-hidden animate-fade">
@@ -1320,14 +1339,14 @@ function Wizard() {
             </div>
 
             {/* Referral confirmation if attached */}
-            {(result.joined_with?.ok || refLocked) && (
+            {joined_with?.ok && (
               <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-3.5 flex items-center gap-3 text-xs text-emerald-900">
                 <span className="text-xl">🎁</span>
                 <div>
                   <span className="font-bold">{T("రిఫరల్ బోనస్ యాక్టివేట్ అయ్యింది! ", "Referral bonus activated! ")}</span>
                   <span>{T(
-                    `మీకు +${result.joined_with?.bonus_credits ?? 1} interest-request credit జోడించబడింది. ఇది cash కాదు, contact unlock కూడా కాదు; referrer కు వచ్చే షరతులతో కూడిన ₹50 reward వేరు.`,
-                    `You received +${result.joined_with?.bonus_credits ?? 1} interest-request credit. It is not cash or a contact unlock; the referrer's separate ₹50 reward is conditional.`,
+                    `మీకు +${joined_with?.bonus_credits ?? 1} interest-request credit జోడించబడింది. ఇది cash కాదు, contact unlock కూడా కాదు; referrer కు వచ్చే షరతులతో కూడిన ₹50 reward వేరు.`,
+                    `You received +${joined_with?.bonus_credits ?? 1} interest-request credit. It is not cash or a contact unlock; the referrer's separate ₹50 reward is conditional.`,
                   )}</span>
                 </div>
               </div>
@@ -1632,6 +1651,21 @@ function Wizard() {
         <p className="text-[10px] text-slate-500">{T("ఆటో-సేవ్ వివరాలు ఈ పరికరంలోని browser లో మాత్రమే ఉంటాయి. ఫోటో ఫైల్, పాస్‌వర్డ్, సమ్మతి నిల్వ చేయబడవు; మళ్లీ తెరిచినప్పుడు ఫోటోను ఎంచుకుని అనుమతిని నిర్ధారించండి.", "Draft details stay in this browser on this device. Photo files, passwords, and consent choices are not saved; reselect your photo and confirm permission when you resume.")}</p>
 
         {/* Validation Errors Box */}
+        {busy && (
+          <div className="rounded-2xl border border-maroon/20 bg-maroon/[0.03] p-3" role="status" aria-live="polite" aria-busy="true">
+            <div className="flex items-center justify-between gap-3 text-xs font-bold text-maroon">
+              <span>{T("ఫోటో మరియు ప్రొఫైల్ సురక్షితంగా అప్‌లోడ్ చేస్తున్నాం…", "Uploading your photo and profile securely…")}</span>
+              <span>{submitProgress}%</span>
+            </div>
+            <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-200" aria-hidden="true">
+              <div className="h-full rounded-full bg-maroon transition-[width] duration-200" style={{ width: `${Math.max(4, submitProgress)}%` }} />
+            </div>
+            <p className="mt-1 text-[11px] text-slate-600">
+              {T("విండో మూసేయకండి. విఫలమైతే మీ వివరాలు మరియు ఫోటో ఇక్కడే ఉంటాయి; మళ్లీ ప్రయత్నించవచ్చు.", "Keep this window open. If the upload fails, your details and photo remain here so you can retry safely.")}
+            </p>
+          </div>
+        )}
+
         {errs.length > 0 && (
           <div className="bg-rose-50 border border-rose-300 rounded-2xl p-4 space-y-1 shadow-xs animate-shake">
             <div className="text-xs font-black text-rose-800 flex items-center gap-1.5">
@@ -2080,7 +2114,8 @@ function Wizard() {
                   <button
                     type="button"
                     onClick={() => executeSubmit(true)}
-                    className="text-xs font-bold text-maroon bg-amber-50 px-3 py-1 rounded-full border border-gold/30 hover:bg-gold/20 min-h-11"
+                    disabled={busy || photoPreparing}
+                    className="text-xs font-bold text-maroon bg-amber-50 px-3 py-1 rounded-full border border-gold/30 hover:bg-gold/20 min-h-11 disabled:cursor-wait disabled:opacity-60"
                   >
                     {T("⚡ ఇప్పుడే సబ్మిట్ చేయండి", "⚡ Submit now")}
                   </button>
@@ -2577,7 +2612,8 @@ function Wizard() {
                     <button
                       type="button"
                       onClick={() => executeSubmit(true)}
-                      className="px-4 py-2.5 rounded-xl bg-amber-50 border border-gold/40 text-maroon text-xs font-bold hover:bg-gold/20 transition"
+                      disabled={busy || photoPreparing}
+                      className="px-4 py-2.5 rounded-xl bg-amber-50 border border-gold/40 text-maroon text-xs font-bold hover:bg-gold/20 transition disabled:cursor-wait disabled:opacity-60"
                     >
                       {T("⚡ ఇప్పుడే సబ్మిట్ చేయండి", "⚡ Submit now")}
                     </button>
@@ -2595,7 +2631,8 @@ function Wizard() {
                         type="button"
                         onClick={() => executeSubmit(false)}
                         disabled={busy || photoPreparing}
-                        className="px-6 py-2.5 rounded-xl gold-gradient text-maroon text-xs font-black shadow-gold hover:brightness-105 transition disabled:opacity-50"
+                        aria-busy={busy}
+                        className="px-6 py-2.5 rounded-xl gold-gradient text-maroon text-xs font-black shadow-gold hover:brightness-105 transition disabled:cursor-wait disabled:opacity-50"
                       >
                         {busy ? T("ఫోటోతో నమోదు జరుగుతోంది…", "Submitting photo and profile…") : photoPreparing ? T("ఫోటో సిద్ధమవుతోంది…", "Preparing photo…") : T("🎉 నమోదు పూర్తి చేయండి", "🎉 Complete registration")}
                       </button>

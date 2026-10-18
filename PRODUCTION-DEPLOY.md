@@ -105,7 +105,9 @@ docker compose --profile telegram --env-file .env.production -f docker-compose.p
 
 ## 4. TLS reverse proxy
 
-Install Caddy on the host and replace the example hostnames in `Caddyfile.example` with domains the operator owns and has verified in DNS. The frontend listens on host loopback only; Caddy should proxy to `127.0.0.1:3000`. The backend port is not published to the host. The control hostname is not a security boundary; server-side session and role checks remain mandatory.
+Install Caddy on the host and replace the example hostnames in `Caddyfile.example` with domains the operator owns and has verified in DNS.
+
+The backend deliberately ignores `X-Forwarded-For` unless `TRUSTED_PROXY_CIDRS` names the immediate reverse-proxy peer. Set that variable to the verified proxy/container CIDR(s) before launch; never set it to the public internet or an unverified broad range. This policy is used by both abuse limits and referral analytics, so a missing or invalid value fails closed to the direct peer address. The frontend listens on host loopback only; Caddy should proxy to `127.0.0.1:3000`. The backend port is not published to the host. The control hostname is not a security boundary; server-side session and role checks remain mandatory.
 
 ## 5. Staging smoke/recovery gate before public launch
 

@@ -96,7 +96,7 @@ from hardening import (
     apply_security_headers, posture as security_posture, abuse_snapshot, abuse_log,
     sign_token, verify_token, token_from_request, is_admin, is_automation, clean, req_text,
     require_vendor, vendor_token, admin_role, revoke_all_tokens,
-    req_phone, req_int, req_choice, req_bool, validation_error, seen as idem_seen, abuse_count, clamp_int,
+    req_phone, req_int, req_choice, req_bool, req_bool_strict, validation_error, seen as idem_seen, abuse_count, clamp_int,
     ADMIN_KEY as TSAP_ADMIN_KEY, NAME_RE, PHONE_RE, dev_mode,
     TOKEN_VERSIONS_PATH,
 )
@@ -379,7 +379,7 @@ import paypro as PP        # 🌊 WAVE 14: safe-pay + festival offers
 import cms as CMS            # 📝 WAVE 15: pages + stories + banners
 import chanmap as CHAN         # 📡 WAVE 15: channel links + import + coverage
 from interest import ADDONS, RENEWALS, is_addon, get_addon, get_renewal, plan_list_with_free, addon_list, renewal_offer, bureau_list
-from photo_validate import validate_photo  # 🌊 WAVE 17 — photo validation pipeline
+from photo_validate import validate_photo, sanitize_photo  # 🌊 WAVE 17 — photo validation pipeline
 from otp_channels import send_otp as otp_channel_send, CHANNEL_TELUGU  # 🌊 WAVE 18 — free OTP
 from channels_config import post_targets, caste_channel_links, channel_links, WA_OFFICIAL_LINK
 # 🎁 WAVE 10 — register avvagane "3 profiles + caste channel links" WhatsApp ki
@@ -727,11 +727,19 @@ def control_profile_action(tsap_id: str, payload: dict, request: Request):
         except Exception:
             user["post_hashtags"] = []
         user["posted_channels"] = []  # queued targets are not published results
+        # Approval is the first point at which reviewed, non-private media may
+        # enter a shareable card.  Rebuild from a transient validated path; the
+        # path itself is never persisted.
+        if not _regenerate_profile_card(user):
+            user.clear()
+            user.update(user_before)
+            raise HTTPException(503, "Profile card could not be regenerated safely. Please try again.")
         # Commit the privacy-sensitive approval before any external publication
         # queue side effect. A failed core save must never report approval.
         if not _persist_core_state():
             user.clear()
             user.update(user_before)
+            _regenerate_profile_card(user)
             raise HTTPException(503, "Profile moderation could not be saved safely. Please try again.")
         publication = _queue_approved_profile_publication(user)
         if not _persist_core_state():
@@ -2065,6 +2073,98 @@ def _media_file(directory: str, filename: str) -> str:
     return path
 
 
+_CARD_LOCK = threading.RLock()
+
+
+def _regenerate_profile_card(profile: Dict[str, Any]) -> bool:
+    """Serialize card replacement so concurrent upload/moderation cannot race the target file."""
+    with _CARD_LOCK:
+        return _regenerate_profile_card_locked(profile)
+
+
+def _regenerate_profile_card_locked(profile: Dict[str, Any]) -> bool:
+    """Build the card from the current moderation/privacy state.
+
+    Durable profiles contain only ``/photos/...`` web references.  Pillow gets
+    an internal path on a short-lived copy, never on the profile that is saved
+    or returned by an API.  Pending/private/rejected media therefore produces a
+    truthful monogram card, while approval can safely replace it with the
+    reviewed photo.
+    """
+    tsap_id = str(profile.get("tsap_id") or "").strip().upper()
+    if not tsap_id or not create_pro_card:
+        return False
+    try:
+        os.makedirs(CARD_MEDIA_DIR, exist_ok=True)
+    except Exception:
+        profile["card_generated"] = False
+        profile["card_url"] = ""
+        profile["card_error"] = "card_storage_unavailable"
+        return False
+    target = os.path.join(CARD_MEDIA_DIR, f"{tsap_id}.png")
+    temporary = f"{target}.tmp-{secrets.token_hex(8)}.png"
+    card_input = copy.deepcopy(profile)
+    card_input["photo_path"] = ""
+    card_input["photo_url"] = ""
+
+    is_public_photo = (
+        bool(profile.get("is_approved"))
+        and str(profile.get("photo_status") or "").lower() == "approved"
+        and not bool(profile.get("photo_private") or profile.get("privacy_mode") == "private")
+    )
+    if is_public_photo:
+        filename = _media_filename(profile.get("photo_url"), "/photos/")
+        if not filename:
+            profile["card_generated"] = False
+            profile["card_url"] = ""
+            profile["card_error"] = "approved_photo_missing"
+            try:
+                os.remove(target)
+            except OSError:
+                pass
+            return False
+        try:
+            card_input["photo_path"] = _media_file(PHOTO_MEDIA_DIR, filename)
+        except HTTPException:
+            # Never silently replace an approved photo with a monogram and then
+            # claim that the reviewed-photo card is live.
+            profile["card_generated"] = False
+            profile["card_url"] = ""
+            profile["card_error"] = "approved_photo_missing"
+            try:
+                os.remove(target)
+            except OSError:
+                pass
+            return False
+        else:
+            card_input["photo_url"] = ""  # internal path is the only image source
+
+    try:
+        create_pro_card(card_input, temporary)
+        os.replace(temporary, target)
+        profile["card_generated"] = True
+        profile["card_url"] = f"/cards/{tsap_id}.png"
+        profile["card_generated_at"] = datetime.utcnow().isoformat()
+        profile.pop("card_error", None)
+        return True
+    except Exception:
+        try:
+            os.remove(temporary)
+        except OSError:
+            pass
+        # Never leave an old photo-bearing card reachable after a privacy or
+        # moderation transition failed to rebuild.
+        try:
+            os.remove(target)
+        except OSError:
+            pass
+        profile["card_generated"] = False
+        profile["card_url"] = ""
+        # Keep storage topology out of durable/member-visible metadata.
+        profile["card_error"] = "card_generation_failed"
+        return False
+
+
 @app.get("/photos/{filename}")
 def guarded_profile_photo(filename: str, request: Request):
     """Serve approved public profile photos; keep private, pending, and selfie media gated."""
@@ -2306,8 +2406,10 @@ async def _track_visits_middleware(request: Request, call_next):
         is_trackable = (request.method == "GET" and path not in ("", "/")
                         and not any(path.startswith(x) for x in _SKIP_TRACK))
         if is_trackable:
-            fwd = request.headers.get("x-forwarded-for", "")
-            ip = (fwd.split(",")[0].strip() if fwd else (request.client.host if request.client else ""))
+            # Use the same trusted-proxy policy as abuse limits.  Tracking an
+            # attacker-supplied X-Forwarded-For value would poison analytics and
+            # make the registration abuse trail unreliable.
+            ip = client_ip(request)
             ua = request.headers.get("user-agent", "")
             ref = request.headers.get("referer", "")
             utm = request.url.query if "utm_" in str(request.url.query) else ""
@@ -2412,6 +2514,7 @@ DB_SAVES = []          # shortlist: {"tsap_id": owner, "saved_id": saved profile
 DB_DIGEST = []         # daily digest log
 DB_OTPS = {}           # {"phone": {"code_hash": HMAC, "expires": iso, "tries": n}}
 _OTP_VERIFY_LOCK = threading.Lock()  # one login verification per OTP, even under concurrent retries
+_OTP_SEND_LOCK = threading.Lock()  # one resend decision per phone, even under concurrent requests
 VERIFIED_PHONES = set()  # OTP-verified numbers (legacy checks)
 VERIFIED_PHONE_AT = {}  # recent verification timestamps for short-lived partner sessions
 DB_REPORTS = safety.DB_REPORTS      # safety reports (moderation queue)
@@ -2577,6 +2680,91 @@ _REGISTER_LOCK = threading.Lock()  # WAVE 27: concurrent register same-ID ban
 _INTEREST_LOCKS = defaultdict(threading.Lock)  # WAVE 27: per-sender lock (double-send ban)
 
 
+def _registration_request_hash(value: str) -> str:
+    """Hash a client retry key before it enters the durable profile record.
+
+    The raw key is a browser recovery capability, not member data.  Keeping only
+    a digest lets a lost registration response be safely replayed without making
+    the key (or a reusable bearer token) visible through profile endpoints.
+    """
+    return hashlib.sha256(str(value or "").encode("utf-8")).hexdigest() if value else ""
+
+
+def _registration_recovery_response(user: Dict[str, Any]) -> RegisterResponse:
+    """Return a safe success response for a same-key registration retry.
+
+    A mobile network can drop the original 2xx after the durable checkpoint. A
+    retry must not create a second account or force the member into a misleading
+    duplicate error. This deliberately does not rerun referral, card, or
+    notification side effects; those were part of the original request.
+    """
+    tsap_id = str(user.get("tsap_id") or "").strip().upper()
+    channels = user.get("auto_post_channels") if isinstance(user.get("auto_post_channels"), list) else []
+    return RegisterResponse(
+        tsap_id=tsap_id,
+        auth_token=sign_token(tsap_id),
+        phone_masked=mask_phone(str(user.get("phone") or "")),
+        phone_verified=bool(user.get("phone_verified")),
+        is_approved=bool(user.get("is_approved")),
+        duplicate_phone=False,
+        quality=profile_completeness(user),
+        card_url=str(user.get("card_url") or ""),
+        credits=int(user.get("credits", 3) or 0),
+        message_telugu="✅ మీ నమోదు ఇప్పటికే భద్రంగా ఉంది. కనెక్షన్ తిరిగి ప్రయత్నించినందుకు అదే ప్రొఫైల్‌ను తెరిచాం; కొత్త అకౌంట్ సృష్టించలేదు.",
+        message_plan_telugu="🔒 Contact details are private and become available only through the accepted-request account flow.",
+        next_steps=["Profile review (timing may vary)", "Complete remaining details in My Profile", "Use your profile ID to sign in or recover this session"],
+        auto_post_queue=[str(value) for value in channels],
+        top_3_matches=[],
+        publish_queued=bool(user.get("publish_queued")),
+        publish_targets=list(user.get("publish_targets") or []),
+        publish_reason=str(user.get("publish_reason") or "awaiting_profile_approval"),
+        namaste_queued=bool((user.get("welcome_status") or {}).get("queued")),
+        welcome_status=user.get("welcome_status") if isinstance(user.get("welcome_status"), dict) else None,
+        share_kit=share_kit(user, tsap_id),
+        share_text=build_share_text(user, tsap_id),
+        referral={
+            "my_code": user.get("referral_code", ""),
+            "my_alias": user.get("referral_alias", ""),
+            "my_link": user.get("referral_link", ""),
+            "joined_with": {"ok": bool(user.get("referred_by")), "reason": "recovered_registration"},
+            "dashboard": "/referral",
+        },
+        welcome_pack=None,
+    )
+
+
+def _early_registration_recovery(phone_value: str, password_value: str, registration_key_value: str):
+    """Recover a committed registration before requiring the upload again.
+
+    A browser refresh may lose the in-memory File object. The same key is still
+    safe to recover without re-uploading because it must match the normalized
+    phone and the stored password hash; it never authorizes a new profile.
+    """
+    key = clean(registration_key_value, 128, "registration_key")
+    if not key:
+        return None
+    if not re.fullmatch(r"[A-Za-z0-9_-]{16,128}", key):
+        raise HTTPException(400, "Registration retry key is invalid; please reload the form and try again")
+    try:
+        retry_phone = req_phone(phone_value, "phone")
+    except HTTPException:
+        return None
+    password = str(password_value or "").strip()
+    if not 6 <= len(password) <= 72:
+        return None
+    key_hash = _registration_request_hash(key)
+    with _REGISTER_LOCK:
+        key_user = next((u for u in DB_USERS
+                         if key_hash and hmac.compare_digest(str(u.get("registration_key_hash") or ""), key_hash)), None)
+        if key_user is None:
+            return None
+        if str(key_user.get("phone") or "") != retry_phone:
+            raise HTTPException(409, "This registration retry key is already bound to another profile. Start a new registration.")
+        if key_user.get("status") in {"deleted", "banned"} or not _check_password(password, str(key_user.get("password_hash") or "")):
+            raise HTTPException(409, "This registration retry key cannot recover the profile with those credentials. Please sign in or start a new registration.")
+        return _registration_recovery_response(key_user)
+
+
 @app.post("/api/register", response_model=RegisterResponse)
 async def register(
     gender: str = Form(...),
@@ -2649,6 +2837,7 @@ async def register(
     photo_url: str = Form(""),        # ignored: profile photos must be uploaded as a validated file
     photo_file: UploadFile | None = File(None),
     upload_token: str = Form(""),
+    registration_key: str = Form(""),  # opaque client retry key; never trusted as identity
     phone_verified: bool = Form(False),  # ignored: client cannot attest server-side OTP verification
     consent_confirmed: bool = Form(False),
     photo_consent_confirmed: bool = Form(False),
@@ -2664,6 +2853,10 @@ async def register(
     7. Return up to three recent profile comparisons using member-entered facts
     8. Return ID + card + profile summaries
     """
+    recovered = _early_registration_recovery(phone, password, registration_key)
+    if recovered is not None:
+        return recovered
+
     # 1. Validate & Smart Normalization
     if not req_bool(consent_confirmed):
         raise HTTPException(400, "Please confirm the profile-submission consent before registering")
@@ -2694,6 +2887,36 @@ async def register(
             "te": photo_verdict["te"],
             "checks": photo_verdict["checks"],
         })
+    try:
+        photo_data = sanitize_photo(photo_data, photo_verdict["checks"]["format"])
+        photo_verdict["checks"]["sanitized_bytes"] = len(photo_data)
+    except ValueError:
+        raise HTTPException(422, {
+            "reason": "PHOTO_SANITIZE_FAILED",
+            "message_en": "The photo could not be safely prepared. Please choose another image.",
+            "message_telugu": "ఫోటోను సురక్షితంగా సిద్ధం చేయలేకపోయాం — మరో అసలు ఫోటోను ఎంచుకోండి.",
+            "en": "The photo could not be safely prepared. Please choose another image.",
+            "te": "ఫోటోను సురక్షితంగా సిద్ధం చేయలేకపోయాం — మరో అసలు ఫోటోను ఎంచుకోండి.",
+            "checks": photo_verdict["checks"],
+        })
+
+    # The retry key is only an opaque client capability, not member data; it is
+    # bound to the durable profile below and cannot attest phone verification or identity.
+    registration_key = clean(registration_key, 128, "registration_key")
+    if registration_key and not re.fullmatch(r"[A-Za-z0-9_-]{16,128}", registration_key):
+        raise HTTPException(400, "Registration retry key is invalid; please reload the form and try again")
+    registration_key_hash = _registration_request_hash(registration_key)
+
+    # Referral inputs are bounded and allow-listed before they reach the referral
+    # ledger.  Invalid codes simply fail the optional referral attachment later;
+    # they cannot become an unbounded stored/logged string.
+    referral_code = clean(referral_code, 80, "referral_code").upper()
+    referral_invite = clean(referral_invite, 64, "referral_invite").upper()
+    if referral_code and not re.fullmatch(r"[A-Z0-9_-]{1,80}", referral_code):
+        raise HTTPException(400, "Referral code format is invalid")
+    if referral_invite and not re.fullmatch(r"[A-Z0-9_-]{1,64}", referral_invite):
+        raise HTTPException(400, "Referral invite format is invalid")
+
     # Never trust a caller-supplied external photo URL or preapproved status.
     photo_url = ""
     religion = req_choice(religion, "religion", MP.RELIGIONS)
@@ -2838,8 +3061,27 @@ async def register(
     # WAVE 27 — ID-gen + append atomic (double-submit → rendu veru IDs, duplicate ID never)
     with _REGISTER_LOCK:
         # 🛡️ R9 — duplicate phone REJECT (same phone cannot create multiple accounts)
-        _dup_phone = any(u.get("phone") == phone and not u.get("seed_source") for u in DB_USERS)
+        _existing_phone_user = next((u for u in DB_USERS
+                                     if u.get("phone") == phone and not u.get("seed_source")), None)
+        _existing_key_user = next((u for u in DB_USERS
+                                   if registration_key_hash
+                                   and hmac.compare_digest(str(u.get("registration_key_hash") or ""), registration_key_hash)), None)
+        if _existing_key_user is not None and _existing_key_user is not _existing_phone_user:
+            # A session-storage key cannot be replayed to bind a second phone
+            # or a second profile. This also closes the two-tab race where both
+            # tabs share one key but submit different forms.
+            raise HTTPException(409, "This registration retry key is already bound to another profile. Start a new registration.")
+        _dup_phone = _existing_phone_user is not None
         if _dup_phone:
+            # A browser retry after a lost response carries the same opaque key.
+            # Recover the already-created account instead of returning a false
+            # invitation to create another one.  A key never authorizes a
+            # different phone or profile.
+            if (_existing_phone_user.get("status") not in {"deleted", "banned"}
+                    and registration_key_hash
+                    and hmac.compare_digest(str(_existing_phone_user.get("registration_key_hash") or ""), registration_key_hash)
+                    and _check_password(password, str(_existing_phone_user.get("password_hash") or ""))):
+                return _registration_recovery_response(_existing_phone_user)
             abuse_log("duplicate_phone_register", phone[:3] + "****")
             abuse_count("duplicate_phone_registers")
             raise HTTPException(409, "📱 ఈ మొబైల్ నంబర్‌తో ప్రొఫైల్ ఇప్పటికే నమోదై ఉంది (already account exists with this mobile number). ఒకే వ్యక్తి ఒకే ప్రొఫైల్ నమోదు చేయగలరు — దయచేసి లాగిన్ అవ్వండి.")
@@ -2964,6 +3206,9 @@ async def register(
             "referral_code": my_ref_code,
             "referred_by": "",                    # attach_referral() validate chesi lock chestundi (kinda)
             "referred_by_raw": referral_code,     # form lo vachina code (audit)
+            # Store only the digest; the raw browser retry capability never enters
+            # the profile or any API response.
+            "registration_key_hash": registration_key_hash,
             "photo_url": photo_url,
             "photo_urls": [photo_url] if photo_url else [],
             "photo_status": "pending",
@@ -2975,6 +3220,7 @@ async def register(
             #    OTP verify ayithe matrame VERIFIED_PHONES lo untundi (bypass closed).
             "phone_verified": (phone in VERIFIED_PHONES),
             "is_approved": False,
+            "photo_private": bool(photo_private),
             "privacy_mode": "private" if photo_private else "public",
             "credits": 3,
             "plan": "FREE",
@@ -2984,6 +3230,12 @@ async def register(
             "expectations": expectations,
             "exp_filters": {"ageMin": exp_age_min, "ageMax": exp_age_max, "job": exp_job, "location": exp_location, "caste": exp_caste},
         }
+        # Generate the pending/monogram card before the first durable checkpoint
+        # so a lost response cannot leave the profile committed without its
+        # advertised card metadata.
+        card_path = os.path.join(CARD_MEDIA_DIR, f"{tsap_id}.png")
+        card_url = f"/cards/{tsap_id}.png"
+        _regenerate_profile_card(user)
         DB_USERS.append(user)
         _reindex_users()
         # A successful registration must be on durable storage before the API can
@@ -2993,25 +3245,16 @@ async def register(
                                              VERIFIED_PHONES, DB_VIEWS, DB_SAVES, DB_DIGEST), force=True):
             DB_USERS.remove(user)
             _reindex_users()
-            try:
-                os.remove(registration_photo_path)
-            except OSError:
-                pass
+            for artifact in (registration_photo_path, card_path):
+                try:
+                    os.remove(artifact)
+                except OSError:
+                    pass
             raise HTTPException(503, "Registration could not be saved safely. No registration was accepted; please retry.")
 
-    # 4. Card Gen — FULL DETAIL NEAT CARD (Pillow). Fail ayithe path matrame istundi.
-    card_path = os.path.join(CARD_MEDIA_DIR, f"{tsap_id}.png")  # filesystem (internal use)
-    card_url = f"/cards/{tsap_id}.png"               # web URL (browser/Telegram lo open avutundi)
-    try:
-        if create_pro_card:
-            os.makedirs(CARD_MEDIA_DIR, exist_ok=True)
-            # The image stays out of shareable cards until the photo is reviewed and approved.
-            create_pro_card(user, card_path)
-            user["card_generated"] = True
-            user["card_url"] = card_url
-    except Exception as e:
-        user["card_generated"] = False
-        user["card_error"] = str(e)[:160]
+    # 4. The pending/monogram card was generated and checkpointed with the
+    # profile above. Approval and photo moderation regenerate it from the
+    # reviewed media path; the local card_path is used only by internal queues.
 
     # 5. 🤝 REFERRAL 2.0 — validate + lock + referee bonus credit (self-referral block kooda)
     referral_result = {"ok": False, "reason": "no_code"}
@@ -3163,7 +3406,11 @@ async def register(
         if _k in user:
             user[_k] = clean(user.get(_k), _n, "register:" + _k)
     user["duplicate_phone"] = bool(_dup_phone)      # policy (v2.1): same phone multi-account OK — flag matrame
-    user["auth_token"] = sign_token(tsap_id)        # 🔐 private API ki login token
+    # A bearer token is a response credential, never profile data. Keep it out
+    # of the JSON snapshot even briefly so admin/export/recovery paths cannot
+    # accidentally persist or expose a reusable session.
+    auth_token = sign_token(tsap_id)
+    user.pop("auth_token", None)
     user["quality"] = profile_completeness(user)
     _ref_bonus = int(referral_result.get("bonus_credits", 0)) if referral_result.get("ok") else 0
     _base_credits = 3 if user.get("credits", 3) == 3 else max(3, int(user.get("credits", 3)))
@@ -3175,10 +3422,14 @@ async def register(
     with _REGISTER_LOCK:
         if not DBSTORE.save(DBSTORE.snapshot(DB_USERS, DB_INTERESTS, DB_PAYMENTS, DB_OTPS,
                                              VERIFIED_PHONES, DB_VIEWS, DB_SAVES, DB_DIGEST), force=True):
-            print("[DB] warning: post-registration metadata flush failed; durable profile checkpoint remains")
+            # The base profile checkpoint is already durable, so a retry with the
+            # same registration key will recover it rather than create a second
+            # member.  Do not claim a fully completed registration while the
+            # referral/card/status enrichment is only in memory.
+            raise HTTPException(503, "Registration was saved, but final profile processing could not be confirmed. Please retry the same form safely.")
     return RegisterResponse(
         tsap_id=tsap_id,
-        auth_token=user.get("auth_token", ""),
+        auth_token=auth_token,
         phone_masked=mask_phone(phone),
         phone_verified=bool(user.get("phone_verified")),
         is_approved=bool(user.get("is_approved")),
@@ -3685,7 +3936,8 @@ def get_user_profile_for_edit(tsap_id: str, request: Request):
 
     # 🛡️ Defense-in-depth: even for the verified owner, never echo the
     # password hash or a live bearer token back out of a GET response body.
-    safe_profile = {k: v for k, v in user.items() if k not in ("password_hash", "auth_token")}
+    safe_profile = {k: v for k, v in user.items()
+                    if k not in ("password_hash", "auth_token", "registration_key_hash")}
     safe_profile["is_verified"] = safety.has_verification_evidence(user)
     safe_profile["verified"] = safety.has_verification_evidence(user)
     safe_profile["phone_verified"] = bool(user.get("phone_verified"))
@@ -3718,6 +3970,7 @@ def update_user_profile(payload: dict, request: Request):
     # attacker-controlled) — ANY other user's profile field-by-field
     # overwrite cheyyagaligedi, zero auth. Ippudu owner token తప్పనిసరి.
     require_owner(request, tsap_id)
+    user_before = copy.deepcopy(user)
 
     updatable_fields = [
         "full_name", "dob", "birth_time", "height", "weight", "marital_status", "children", "caste",
@@ -3728,11 +3981,25 @@ def update_user_profile(payload: dict, request: Request):
         "exp_age_min", "exp_age_max", "exp_caste", "exp_education", "exp_job", "exp_location", "exp_salary",
         "family_type", "family_status", "family_values", "mother_tongue", "physical_status",
         "country", "citizenship", "visa_status", "is_nri",
-        "photo_url", "photo_urls", "photo_private", "blood_group", "complexion", "body_type"
+        # Photo bytes and media paths are changed only through the authenticated
+        # /api/photo/upload flow.  Accepting photo_url/photo_urls here would let
+        # an owner point their profile at another member's approved media.
+        "photo_private", "blood_group", "complexion", "body_type"
     ]
+    # Normalize before mutating the profile so an invalid string cannot leave a
+    # partially changed in-memory record behind a 400 response.
+    photo_private_value = None
+    if "photo_private" in payload and payload["photo_private"] is not None:
+        photo_private_value = req_bool_strict(payload["photo_private"], "photo_private")
     for k in updatable_fields:
-        if k in payload and payload[k] is not None:
+        if k in payload and payload[k] is not None and k != "photo_private":
             user[k] = payload[k]
+
+    # Keep the privacy boolean and its legacy mode in sync.  Do not let a JSON
+    # string such as "false" become truthy and silently make a photo private.
+    if photo_private_value is not None:
+        user["photo_private"] = photo_private_value
+        user["privacy_mode"] = "private" if photo_private_value else "public"
 
     # 🏡 A Groom can never be *set* to the "Housewife / గృహిణి" occupation,
     # whichever client sends the update. Existing stored values are left alone so
@@ -3787,14 +4054,23 @@ def update_user_profile(payload: dict, request: Request):
     missing = [k for k in core_keys if not bool(str(user.get(k) or "").strip())]
     user["completeness_score"] = min(100, int((len(filled) / len(core_keys)) * 100))
     
-    try:
-        # P0 FIX — same atomic-snapshot fix as save_partner_preferences() above
-        # (was a raw, non-atomic, structure-corrupting json.dump(DB_USERS, ...)).
-        DBSTORE.save(DBSTORE.snapshot(DB_USERS, DB_INTERESTS, DB_PAYMENTS, DB_OTPS,
-                                      VERIFIED_PHONES, DB_VIEWS, DB_SAVES, DB_DIGEST), force=True)
-    except Exception:
-        pass
-        
+    if "photo_private" in payload and payload["photo_private"] is not None:
+        # Privacy transitions must also rebuild the owner-visible card so a
+        # previously public photo is not retained in a stale artifact.
+        if not _regenerate_profile_card(user):
+            user.clear()
+            user.update(user_before)
+            _regenerate_profile_card(user)
+            raise HTTPException(503, "Privacy change could not be applied safely. Please try again.")
+
+    # Profile edits are durable state transitions.  Do not report success after
+    # an in-memory-only mutation that would disappear on restart.
+    if not _persist_core_state():
+        user.clear()
+        user.update(user_before)
+        _regenerate_profile_card(user)
+        raise HTTPException(503, "Profile changes could not be saved safely. Please try again.")
+
     return {
         "success": True,
         "message_telugu": "✅ మీ ప్రొఫైల్ వివరాలు విజయవంతంగా అప్‌డేట్ అయ్యాయి!",
@@ -4431,28 +4707,57 @@ def referral_poster(tsap_id: str, style: str = "square"):
 
 
 @app.post("/api/referral/click/{code}")
-def referral_click(code: str, source: str = "link", inv: str = ""):
+def referral_click(code: str, source: str = "link", inv: str = "", request: Request = None):
     """/r/<code> link click — funnel tracking (clicks → registrations → payments).
 
     `inv` is a per-person invite token: when present, that one invite is marked
     opened so the referrer can see which of their people actually looked.
     """
-    st = track_click(code, source)
-    if not st.get("ok"):
-        raise HTTPException(503, "Referral click could not be recorded safely. Please try again.")
-    if inv and not REFERRAL.invite_record_click(code, inv, DB_USERS):
-        raise HTTPException(503, "Invite click could not be recorded safely. Please try again.")
+    code = clean(code, 80, "referral_click:code").upper()
+    source = clean(source, 40, "referral_click:source").lower() or "link"
+    allowed_sources = {"link", "telegram", "whatsapp", "channel", "share", "register_direct", "invite", "website", "test"}
+    if source not in allowed_sources:
+        source = "other"
+    inv = clean(inv, 64, "referral_click:invite").upper()
+    if not code or not re.fullmatch(r"[A-Z0-9_-]{1,80}", code):
+        raise HTTPException(404, "Referral link not found")
+    if inv and not re.fullmatch(r"[A-Z0-9_-]{1,64}", inv):
+        raise HTTPException(400, "Invite link is invalid")
+
     known = validate_referral(code, DB_USERS)
     kind = "user"
+    partner = None
     try:
-        if RP19.get_partner(code):
-            if not RP19.record_click(code):
-                raise HTTPException(503, "Partner click could not be recorded safely. Please try again.")
-            kind = "partner"
-    except HTTPException:
-        raise
+        partner = RP19.get_partner(code)
     except Exception:
-        pass
+        partner = None
+    if not known.get("ok") and not partner:
+        # Do not let arbitrary codes inflate click analytics or consume an
+        # invite-click write before the optional code is even known.  Preserve
+        # the landing-page response shape so old clients can show an invalid
+        # referral without treating it as a server failure.
+        return {"success": True, "code": code, "valid_code": False,
+                "referrer_name": "", "bonus_credits": 0, "kind": "unknown",
+                "clicks_total": 0}
+
+    request_id = ""
+    if request is not None:
+        request_id = re.sub(r"[^A-Za-z0-9._:-]", "", request.headers.get("x-request-id", ""))[:96]
+    # Browser refreshes have no request ID, so use a short identity window. A
+    # caller-provided request ID is still bound to the code/token and cannot be
+    # replayed for another referral.
+    identity = client_ip(request) if request is not None else "unknown"
+    user_agent = str(request.headers.get("user-agent", ""))[:160] if request is not None else ""
+    dedupe_key = "|".join((request_id or f"window:{int(time.time() // 600)}", identity, user_agent, code, inv))
+    st = track_click(code, source, dedupe_key=dedupe_key)
+    if not st.get("ok"):
+        raise HTTPException(503, "Referral click could not be recorded safely. Please try again.")
+    if inv and not st.get("duplicate") and not REFERRAL.invite_record_click(code, inv, DB_USERS):
+        raise HTTPException(503, "Invite click could not be recorded safely. Please try again.")
+    if partner and not st.get("duplicate"):
+        if not RP19.record_click(code):
+            raise HTTPException(503, "Partner click could not be recorded safely. Please try again.")
+        kind = "partner"
     return {"success": True, **st, "valid_code": known.get("ok", False),
             "referrer_name": known.get("referrer_name", ""),
             "bonus_credits": known.get("bonus_credits", 0), "kind": kind}
@@ -5228,6 +5533,10 @@ def admin_approve(tsap_id: str, request: Request):
     user_before = copy.deepcopy(user)
     user["is_approved"] = True
     user["status"] = "approved"
+    if not _regenerate_profile_card(user):
+        user.clear()
+        user.update(user_before)
+        raise HTTPException(503, "Profile card could not be regenerated safely. Please try again.")
 
     route = route_profile(user)
     user["post_hashtags"] = route["hashtags"]
@@ -5235,6 +5544,7 @@ def admin_approve(tsap_id: str, request: Request):
     if not _persist_core_state():
         user.clear()
         user.update(user_before)
+        _regenerate_profile_card(user)
         raise HTTPException(503, "Profile approval could not be saved safely. Please try again.")
     publication = _queue_approved_profile_publication(user)
     caption = build_caption(user, tsap_id)
@@ -6567,6 +6877,17 @@ async def photo_upload(file: UploadFile = File(...), tsap_id: str = Form(""), re
                                   "te": verdict["te"],
                                   "message_telugu": f"📸 {verdict['te']}",
                                   "checks": verdict["checks"]})
+    try:
+        data = sanitize_photo(data, verdict["checks"]["format"])
+        verdict["checks"]["sanitized_bytes"] = len(data)
+    except ValueError:
+        raise HTTPException(422, {
+            "reason": "PHOTO_SANITIZE_FAILED",
+            "en": "The photo could not be safely prepared. Please choose another image.",
+            "te": "ఫోటోను సురక్షితంగా సిద్ధం చేయలేకపోయాం — మరో అసలు ఫోటోను ఎంచుకోండి.",
+            "message_telugu": "ఫోటోను సురక్షితంగా సిద్ధం చేయలేకపోయాం — మరో అసలు ఫోటోను ఎంచుకోండి.",
+            "checks": verdict["checks"],
+        })
     # Use the decoded image format, never the user-controlled filename extension.
     ext = {"JPEG": "jpg", "PNG": "png", "WEBP": "webp"}[verdict["checks"]["format"]]
     os.makedirs(PHOTO_MEDIA_DIR, exist_ok=True)
@@ -6579,18 +6900,19 @@ async def photo_upload(file: UploadFile = File(...), tsap_id: str = Form(""), re
     except Exception as e:
         raise HTTPException(500, f"Photo save failed: {str(e)[:80]}")
     if _tid:
-        previous = {key: _owner.get(key) for key in ("photo_url", "photo_urls", "photo_status", "photo_checks", "photo_uploaded_at")}
+        owner_before = copy.deepcopy(_owner)
         _owner["photo_url"] = f"/photos/{name}"
         _owner["photo_urls"] = [f"/photos/{name}"]
         _owner["photo_status"] = "pending"  # A human review is still required.
         _owner["photo_checks"] = verdict["checks"]
         _owner["photo_uploaded_at"] = datetime.utcnow().isoformat()
+        # A replacement upload must not leave the old photo-bearing card live.
+        # The pending card is rebuilt as a monogram until the new photo is reviewed.
+        _regenerate_profile_card(_owner)
         if not _persist_core_state():
-            for key, value in previous.items():
-                if value is None:
-                    _owner.pop(key, None)
-                else:
-                    _owner[key] = value
+            _owner.clear()
+            _owner.update(owner_before)
+            _regenerate_profile_card(_owner)
             try:
                 os.remove(path)
             except OSError:
@@ -6632,6 +6954,17 @@ async def verify_selfie(file: UploadFile = File(...), tsap_id: str = Form(""), r
                                   "te": verdict["te"],
                                   "message_telugu": f"🤳 {verdict['te']}",
                                   "checks": verdict["checks"]})
+    try:
+        data = sanitize_photo(data, verdict["checks"]["format"])
+        verdict["checks"]["sanitized_bytes"] = len(data)
+    except ValueError:
+        raise HTTPException(422, {
+            "reason": "PHOTO_SANITIZE_FAILED",
+            "en": "The selfie could not be safely prepared. Please choose another image.",
+            "te": "సెల్ఫీని సురక్షితంగా సిద్ధం చేయలేకపోయాం — మరో ఫోటోను ఎంచుకోండి.",
+            "message_telugu": "సెల్ఫీని సురక్షితంగా సిద్ధం చేయలేకపోయాం — మరో ఫోటోను ఎంచుకోండి.",
+            "checks": verdict["checks"],
+        })
     os.makedirs(PHOTO_MEDIA_DIR, exist_ok=True)
     name = f"{u['tsap_id']}-selfie-" + datetime.utcnow().strftime("%y%m%d%H%M%S") + "-" + secrets.token_hex(6) + ".jpg"
     selfie_path = os.path.join(PHOTO_MEDIA_DIR, name)
@@ -6714,6 +7047,7 @@ def admin_photos_review(payload: dict, request: Request):
     decision = str(d.get("decision", ""))
     if kind not in ("photo", "selfie") or decision not in ("approved", "rejected"):
         raise HTTPException(400, "kind=photo/selfie, decision=approved/rejected ఇవ్వండి")
+    user_before = copy.deepcopy(u)
     te_reason = str(d.get("reason_te", "") or d.get("reason", "")).strip()
     if kind == "photo":
         previous = {key: u.get(key) for key in ("photo_status", "has_photo", "photo_urls", "photo_reason", "photo_reason_te")}
@@ -6731,12 +7065,15 @@ def admin_photos_review(payload: dict, request: Request):
         previous = {key: u.get(key) for key in ("selfie_status", "selfie_verified")}
         u["selfie_status"] = decision
         u["selfie_verified"] = (decision == "approved")
+    if kind == "photo" and not _regenerate_profile_card(u):
+        u.clear()
+        u.update(user_before)
+        _regenerate_profile_card(u)
+        raise HTTPException(503, "Profile card could not be regenerated safely. Please try again.")
     if not _persist_core_state():
-        for key, value in previous.items():
-            if value is None:
-                u.pop(key, None)
-            else:
-                u[key] = value
+        u.clear()
+        u.update(user_before)
+        _regenerate_profile_card(u)
         raise HTTPException(503, "Photo review could not be saved safely. Please try again.")
     return {"success": True, "tsap_id": u["tsap_id"], "kind": kind, "decision": decision,
             "message_telugu": ("✅ Approve అయ్యింది" if decision == "approved" else "❌ Reject అయ్యింది — user కి reason వెళ్లింది")}
@@ -6750,6 +7087,7 @@ import hashlib as _hashlib
 import secrets as _secrets
 
 PW_LOCKS: Dict[str, Dict[str, Any]] = {}   # phone → {fails, locked_until}
+_PW_LOCK = threading.RLock()
 
 
 def _hash_password(pw: str) -> str:
@@ -6793,24 +7131,26 @@ def _check_password(pw: str, stored: str) -> bool:
 
 
 def _pw_locked(phone: str) -> str:
-    rec = PW_LOCKS.get(phone) or {}
-    try:
-        if rec.get("locked_until") and datetime.fromisoformat(rec["locked_until"]) > datetime.utcnow():
-            return rec["locked_until"]
-    except Exception:
-        pass
-    return ""
+    with _PW_LOCK:
+        rec = PW_LOCKS.get(phone) or {}
+        try:
+            if rec.get("locked_until") and datetime.fromisoformat(rec["locked_until"]) > datetime.utcnow():
+                return rec["locked_until"]
+        except Exception:
+            pass
+        return ""
 
 
 def _pw_fail(phone: str) -> int:
-    rec = PW_LOCKS.get(phone) or {"fails": 0}
-    rec["fails"] = int(rec.get("fails", 0)) + 1
-    if rec["fails"] >= 5:
-        rec["locked_until"] = (datetime.utcnow() + timedelta(minutes=15)).isoformat()
-        rec["fails"] = 0
-        abuse_log("pw_locked", phone[-4:])
-    PW_LOCKS[phone] = rec
-    return rec["fails"]
+    with _PW_LOCK:
+        rec = PW_LOCKS.get(phone) or {"fails": 0}
+        rec["fails"] = int(rec.get("fails", 0)) + 1
+        if rec["fails"] >= 5:
+            rec["locked_until"] = (datetime.utcnow() + timedelta(minutes=15)).isoformat()
+            rec["fails"] = 0
+            abuse_log("pw_locked", phone[-4:])
+        PW_LOCKS[phone] = rec
+        return rec["fails"]
 
 
 @app.post("/api/auth/login-password")
@@ -6827,7 +7167,8 @@ def auth_login_password(payload: dict):
     if not u or not u.get("password_hash") or not _check_password(pw, u["password_hash"]):
         left = 5 - _pw_fail(phone)
         raise HTTPException(401, f"❌ Number/Password tappu (migilindi: {max(left, 0)} tries) — leda OTP తో login చెయ్యండి")
-    PW_LOCKS.pop(phone, None)
+    with _PW_LOCK:
+        PW_LOCKS.pop(phone, None)
     return {"success": True, "tsap_id": u["tsap_id"], "auth_token": sign_token(u["tsap_id"]),
             "has_account": True, "profile": safe_user(u),
             "message_telugu": f"✅ Welcome back, {str(u.get('full_name', '')).split()[0] if str(u.get('full_name', '')).split() else ''}! 🙏"}
@@ -6846,6 +7187,13 @@ def auth_forgot(payload: dict):
 
 @app.post("/api/auth/reset")
 def auth_reset(payload: dict):
+    # Consume the reset OTP, mutate credentials, and invalidate sessions as one
+    # serialized authentication transition.
+    with _OTP_VERIFY_LOCK:
+        return _auth_reset_locked(payload)
+
+
+def _auth_reset_locked(payload: dict):
     """🔑 Reset password — OTP verify + కొత్త password set."""
     d = payload or {}
     phone = req_phone(d.get("phone", ""))
@@ -6858,6 +7206,7 @@ def auth_reset(payload: dict):
     rec = DB_OTPS.get(phone)
     if not rec or rec.get("purpose") != "reset":
         raise HTTPException(400, "மుందు password reset OTP పంపండి")
+    rec_before = copy.deepcopy(rec)
     try:
         if datetime.fromisoformat(rec["expires"]) < datetime.utcnow():
             DB_OTPS.pop(phone, None)
@@ -6870,25 +7219,56 @@ def auth_reset(payload: dict):
     rec["tries"] = int(rec.get("tries", 0)) + 1
     if rec["tries"] > 5:
         DB_OTPS.pop(phone, None)
+        if not _persist_core_state():
+            DB_OTPS[phone] = rec_before
+            raise HTTPException(503, "OTP lock state could not be saved safely. Please try again.")
         abuse_log("otp_locked", phone[-4:])
         raise HTTPException(429, "చాలా సార్లు ప్రయత్నించారు — కొత్త OTP తీసుకోండి")
     expected = str(rec.get("code_hash", ""))
     if not expected or not hmac.compare_digest(_otp_digest(code), expected):
+        if not _persist_core_state():
+            DB_OTPS[phone] = rec_before
+            raise HTTPException(503, "OTP attempt could not be saved safely. Please try again.")
         raise HTTPException(400, "❌ OTP తప్పు లేదా invalid — మళ్లీ ప్రయత్నించండి")
     u = next((x for x in DB_USERS if x.get("phone") == phone), None)
     if not u:
         raise HTTPException(404, "ఈ number తో account లేదు — ముందు register అవ్వండి")
+    user_before = copy.deepcopy(u)
+    was_verified = phone in VERIFIED_PHONES
+    previous_verified_at = VERIFIED_PHONE_AT.get(phone)
+    with _PW_LOCK:
+        previous_pw_lock = copy.deepcopy(PW_LOCKS.get(phone))
     u["password_hash"] = _hash_password(new_pw)
     u["phone_verified"] = True
     VERIFIED_PHONES.add(phone)
     DB_OTPS.pop(phone, None)
-    PW_LOCKS.pop(phone, None)
+    with _PW_LOCK:
+        PW_LOCKS.pop(phone, None)
     # 🔐 Phase 14: a password reset is a security event — invalidate every
     # token issued before this moment (any device/session that was logged
     # in with the old credentials, or any token an attacker may have
     # obtained, stops working immediately). The fresh token below is signed
     # *after* the bump so it carries the new version and keeps working.
     revoke_all_tokens(u["tsap_id"])
+    if not _persist_core_state():
+        u.clear()
+        u.update(user_before)
+        if rec_before:
+            DB_OTPS[phone] = rec_before
+        else:
+            DB_OTPS.pop(phone, None)
+        if not was_verified:
+            VERIFIED_PHONES.discard(phone)
+        if previous_verified_at is None:
+            VERIFIED_PHONE_AT.pop(phone, None)
+        else:
+            VERIFIED_PHONE_AT[phone] = previous_verified_at
+        with _PW_LOCK:
+            if previous_pw_lock is None:
+                PW_LOCKS.pop(phone, None)
+            else:
+                PW_LOCKS[phone] = previous_pw_lock
+        raise HTTPException(503, "Password reset could not be saved safely. Please try again.")
     return {"success": True, "tsap_id": u["tsap_id"], "auth_token": sign_token(u["tsap_id"]),
             "message_telugu": "✅ Password మారింది — పాత sessions అన్నీ logout అయ్యాయి, ఇప్పుడు number + password తో login చెయ్యండి 🔑"}
 
@@ -6902,6 +7282,13 @@ def _otp_digest(code: str) -> str:
 
 @app.post("/api/otp/send")
 def otp_send(payload: dict):
+    # Serialize the cooldown/history reservation and delivery result per phone;
+    # two concurrent resends must not both pass the same 60-second check.
+    with _OTP_SEND_LOCK:
+        return _otp_send_locked(payload)
+
+
+def _otp_send_locked(payload: dict):
     """Send a short-lived login/reset OTP through a configured delivery channel."""
     d = payload or {}
     phone = req_phone(d.get("phone", ""))
@@ -6951,6 +7338,11 @@ def otp_send(payload: dict):
         raise HTTPException(503, "OTP delivery is temporarily unavailable; please try again later")
 
     DB_OTPS[phone]["channel"] = str(delivery.get("channel", "configured"))[:40]
+    # Do not return 200 for an OTP that would disappear on restart.  The code
+    # itself is stored as a digest, and the delivery response never includes it.
+    if not _persist_core_state():
+        DB_OTPS.pop(phone, None)
+        raise HTTPException(503, "OTP could not be saved safely. Please try again.")
     return {
         "success": True,
         "phone": f"XXXXXX{phone[-4:]}",
@@ -6985,9 +7377,13 @@ def otp_verify(payload: dict):
             DB_OTPS.pop(phone, None)
             raise HTTPException(400, "OTP invalid లేదా expire అయ్యింది — మళ్లీ పంపండి")
 
+        previous_otp = copy.deepcopy(rec)
         rec["tries"] = int(rec.get("tries", 0)) + 1
         if rec["tries"] > 5:
             DB_OTPS.pop(phone, None)
+            if not _persist_core_state():
+                DB_OTPS[phone] = previous_otp
+                raise HTTPException(503, "OTP lock state could not be saved safely. Please try again.")
             abuse_log("otp_locked", phone[-4:])
             abuse_count("otp_locked")
             raise HTTPException(429, "చాలా సార్లు ప్రయత్నించారు — కొత్త OTP తీసుకోండి")
@@ -6995,6 +7391,9 @@ def otp_verify(payload: dict):
         expected = str(rec.get("code_hash", ""))
         valid = bool(expected) and hmac.compare_digest(_otp_digest(code), expected)
         if not valid:
+            if not _persist_core_state():
+                DB_OTPS[phone] = previous_otp
+                raise HTTPException(503, "OTP attempt could not be saved safely. Please try again.")
             return JSONResponse(status_code=400, content={
                 "success": False,
                 "error": "invalid_otp",
@@ -7002,12 +7401,38 @@ def otp_verify(payload: dict):
                 "tries_left": max(0, 5 - rec["tries"]),
             })
 
+        was_verified = phone in VERIFIED_PHONES
+        previous_verified_at = VERIFIED_PHONE_AT.get(phone)
+        u = next((x for x in DB_USERS if x.get("phone") == phone), None)
+        previous_phone_verified = u.get("phone_verified") if u else None
+
         VERIFIED_PHONES.add(phone)
         VERIFIED_PHONE_AT[phone] = int(time.time())
         DB_OTPS.pop(phone, None)
-        u = next((x for x in DB_USERS if x.get("phone") == phone), None)
         if u:
             u["phone_verified"] = True
+
+        # Phone verification is an authentication state transition, not a
+        # best-effort analytics write.  Persist it before issuing the token and
+        # restore every in-memory mutation if storage is unavailable.
+        if not _persist_core_state():
+            if previous_otp:
+                DB_OTPS[phone] = previous_otp
+            else:
+                DB_OTPS.pop(phone, None)
+            if not was_verified:
+                VERIFIED_PHONES.discard(phone)
+            if previous_verified_at is None:
+                VERIFIED_PHONE_AT.pop(phone, None)
+            else:
+                VERIFIED_PHONE_AT[phone] = previous_verified_at
+            if u:
+                if previous_phone_verified is None:
+                    u.pop("phone_verified", None)
+                else:
+                    u["phone_verified"] = previous_phone_verified
+            raise HTTPException(503, "Phone verification could not be saved safely. Please try again.")
+
         tsap_id = (u or {}).get("tsap_id", "")
         return {
             "success": True,

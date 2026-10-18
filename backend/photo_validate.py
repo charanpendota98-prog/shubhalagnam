@@ -65,6 +65,39 @@ def _laplacian_var(gray: Image.Image) -> float:
     return ImageStat.Stat(lap).var[0]
 
 
+def sanitize_photo(data: bytes, image_format: str) -> bytes:
+    """Re-encode an accepted image without EXIF/XMP or other user metadata.
+
+    Member photos may become public after moderation.  Saving the upload bytes
+    verbatim can disclose GPS coordinates, device identifiers, or editing
+    history through EXIF even when the profile API is privacy-safe.
+    """
+    try:
+        source = Image.open(io.BytesIO(data))
+        source.load()
+        if image_format == "JPEG":
+            clean = source.convert("RGB")
+            save_kwargs = {"format": "JPEG", "quality": 90, "optimize": True, "progressive": True}
+        elif image_format == "PNG":
+            # A fresh image object drops ``info``/text chunks and preserves alpha.
+            mode = "RGBA" if "A" in source.getbands() else "RGB"
+            clean = source.convert(mode)
+            save_kwargs = {"format": "PNG", "optimize": True}
+        elif image_format == "WEBP":
+            clean = source.convert("RGBA" if "A" in source.getbands() else "RGB")
+            save_kwargs = {"format": "WEBP", "quality": 90, "method": 6}
+        else:
+            raise ValueError("unsupported decoded format")
+        output = io.BytesIO()
+        clean.save(output, **save_kwargs)
+        sanitized = output.getvalue()
+        if not sanitized or len(sanitized) > MAX_BYTES:
+            raise ValueError("sanitized image exceeds size limit")
+        return sanitized
+    except Exception as exc:
+        raise ValueError("image could not be sanitized") from exc
+
+
 def validate_photo(data: bytes, filename: str = "", *, selfie: bool = False) -> dict:
     checks: dict = {"bytes": len(data or b"")}
     if not data or len(data) < MIN_BYTES:

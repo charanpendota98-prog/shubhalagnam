@@ -19,6 +19,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import hmac
+import ipaddress
 import json
 import os
 import re
@@ -372,10 +373,40 @@ ABUSE: Dict[str, Any] = {
     "duplicate_phone_registers": 0, "sanitized_inputs": 0, "events": deque(maxlen=200),
 }
 _RL_BUCKETS: Dict[str, Deque[float]] = {}
+_RL_LOCK = threading.RLock()
+
+# Never trust a caller-controlled X-Forwarded-For value by default.  A public
+# reverse proxy must be explicitly listed here (for example,
+# TRUSTED_PROXY_CIDRS=10.0.0.0/8,192.0.2.10/32) before its forwarded client
+# address is used for abuse limits or analytics.  Without this allow-list the
+# direct peer address is used, which is fail-closed against header spoofing.
+def _trusted_proxy_networks() -> Tuple[Any, ...]:
+    networks = []
+    for raw in str(os.getenv("TRUSTED_PROXY_CIDRS", "") or "").split(","):
+        value = raw.strip()
+        if not value:
+            continue
+        try:
+            networks.append(ipaddress.ip_network(value, strict=False))
+        except ValueError:
+            # A bad optional entry must not disable rate limiting.
+            continue
+    return tuple(networks)
+
+
+_TRUSTED_PROXY_NETWORKS = _trusted_proxy_networks()
+
+
 RL_RULES: Dict[str, Tuple[int, int]] = {          # route-prefix → (max hits, window seconds)
     "POST /api/otp/send": (5, 300),
     "POST /api/otp/verify": (15, 300),
+    "POST /api/auth/login-password": (20, 300),
+    "POST /api/auth/forgot": (5, 300),
+    "POST /api/auth/reset": (10, 300),
     "POST /api/register": (12, 3600),
+    "POST /api/profile/update": (30, 3600),
+    "POST /api/photo/upload": (20, 3600),
+    "POST /api/referral/click/": (30, 300),
     "POST /api/interest/send": (40, 3600),
     "POST /api/payment/webhook": (60, 60),
     "POST /api/leads/quick": (10, 600),
@@ -395,11 +426,37 @@ RL_DISABLED = _flag("TSAP_RATE_LIMIT") in ("0", "false", "no", "off")
 
 
 def client_ip(request: Request) -> str:
+    """Return a rate-limit identity without accepting spoofed proxy headers.
+
+    ``X-Forwarded-For`` is only meaningful when the immediate peer is one of
+    the explicitly configured trusted proxies.  Direct deployments and test
+    clients therefore use ``request.client.host`` even when an attacker sends
+    an arbitrary forwarding header.
+    """
     try:
-        fwd = request.headers.get("x-forwarded-for", "")
-        if fwd:
-            return fwd.split(",")[0].strip()
-        return request.client.host if request.client else "unknown"
+        peer = str(request.client.host if request and request.client else "unknown").strip()
+        if _TRUSTED_PROXY_NETWORKS:
+            try:
+                peer_ip = ipaddress.ip_address(peer)
+            except ValueError:
+                peer_ip = None
+            if peer_ip is not None and any(peer_ip in network for network in _TRUSTED_PROXY_NETWORKS):
+                forwarded = request.headers.get("x-forwarded-for", "") if request else ""
+                candidates = []
+                for candidate in str(forwarded).split(","):
+                    candidate = candidate.strip()
+                    try:
+                        candidate_ip = ipaddress.ip_address(candidate)
+                    except ValueError:
+                        continue
+                    candidates.append((candidate, candidate_ip))
+                # Walk from the proxy inward.  If the edge appends to a
+                # client-supplied chain, the right-most non-proxy address is
+                # still the real client rather than the spoofed first entry.
+                for candidate, candidate_ip in reversed(candidates):
+                    if not any(candidate_ip in network for network in _TRUSTED_PROXY_NETWORKS):
+                        return candidate
+        return peer or "unknown"
     except Exception:
         return "unknown"
 
@@ -417,20 +474,34 @@ def rate_limit_hit(request: Request, extra_key: str = "") -> Optional[Dict[str, 
     except Exception:
         pass
     rule_key = f"{request.method} {request.url.path}"
-    max_hits, window = RL_RULES.get(rule_key, RL_DEFAULT)
-    ident = f"{client_ip(request)}|{rule_key}|{extra_key}"
+    rule = RL_RULES.get(rule_key)
+    if rule is None:
+        # Dynamic routes (for example /api/referral/click/{code}) share an
+        # explicit prefix rule instead of silently falling back to the broad
+        # default burst limit.
+        for prefix, candidate_rule in RL_RULES.items():
+            if prefix.endswith("/") and rule_key.startswith(prefix):
+                rule = candidate_rule
+                break
+    max_hits, window = rule or RL_DEFAULT
+    identity = client_ip(request)
+    ident = f"{identity}|{rule_key}|{extra_key}"
     now = time.time()
-    bucket = _RL_BUCKETS.setdefault(ident, deque())
-    while bucket and bucket[0] < now - window:
-        bucket.popleft()
-    if len(bucket) >= max_hits:
-        retry = int(window - (now - bucket[0])) + 1
-        ABUSE["rate_limited"] += 1
-        ABUSE["rate_limit_by_route"][rule_key] = ABUSE["rate_limit_by_route"].get(rule_key, 0) + 1
-        abuse_log("rate_limit", rule_key, {"ip": client_ip(request), "retry_after": retry})
-        return {"limit": max_hits, "window_seconds": window, "retry_after": retry,
-                "message_telugu": f"⚠️ చాలా fast గా try chestunnaru — {retry} sec తర్వాత మళ్లీ try చెయ్యండి"}
-    bucket.append(now)
+    # The middleware runs concurrently under ASGI.  Protect the check-and-append
+    # pair, otherwise two requests can both observe the same bucket length and
+    # exceed the advertised limit during a burst.
+    with _RL_LOCK:
+        bucket = _RL_BUCKETS.setdefault(ident, deque())
+        while bucket and bucket[0] < now - window:
+            bucket.popleft()
+        if len(bucket) >= max_hits:
+            retry = int(window - (now - bucket[0])) + 1
+            ABUSE["rate_limited"] += 1
+            ABUSE["rate_limit_by_route"][rule_key] = ABUSE["rate_limit_by_route"].get(rule_key, 0) + 1
+            abuse_log("rate_limit", rule_key, {"ip": identity, "retry_after": retry})
+            return {"limit": max_hits, "window_seconds": window, "retry_after": retry,
+                    "message_telugu": f"⚠️ చాలా fast గా try chestunnaru — {retry} sec తర్వాత మళ్లీ try చెయ్యండి"}
+        bucket.append(now)
     return None
 
 
@@ -568,6 +639,21 @@ def req_bool(value: Any) -> bool:
     if isinstance(value, bool):
         return value
     return str(value or "").strip().lower() in ("1", "true", "yes", "on", "y")
+
+
+def req_bool_strict(value: Any, field: str = "boolean") -> bool:
+    """Normalize a boolean field without silently turning typos into false."""
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, int) and value in (0, 1):
+        return bool(value)
+    normalized = str(value).strip().lower() if value is not None else ""
+    if normalized in {"1", "true", "yes", "on", "y"}:
+        return True
+    if normalized in {"0", "false", "no", "off", "n"}:
+        return False
+    validation_error(field, f"{field} must be a boolean")
+    return False
 
 
 def validation_error(field: str, message: str) -> None:
