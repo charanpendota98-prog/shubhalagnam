@@ -297,7 +297,21 @@ def coverage() -> Dict:
             tier["pending_keys"].append(entry["key"])
     by_key = {entry["key"]: entry for entry in eff}
     gaps = [key for key in CRITICAL_KEYS if not (by_key.get(key) or {}).get("routing_eligible")]
+    # Community/religion rows are split by gender and are the rows for which an
+    # operator may expect a WhatsApp destination.  Keep this explicit rather
+    # than treating a missing Rajaka Grooms invite (or any other missing invite)
+    # as a guessed URL.  The full key list is returned so the owner can action
+    # the gap from the mapper.
+    whatsapp_gaps = sorted(
+        entry["key"] for entry in eff
+        if (entry["key"].startswith("c_")
+            or entry["key"].startswith(("muslim_", "christian_")))
+        and not entry["whatsapp"]
+    )
     eligible = sum(1 for entry in eff if entry["routing_eligible"])
+    whatsapp_gap_preview = list(whatsapp_gaps[:8])
+    if "c_rajaka_groom" in whatsapp_gaps and "c_rajaka_groom" not in whatsapp_gap_preview:
+        whatsapp_gap_preview.append("c_rajaka_groom")
     return {
         "success": True,
         "total": len(eff),
@@ -306,7 +320,9 @@ def coverage() -> Dict:
         "customized": sum(1 for entry in eff if entry["customized"]),
         "by_tier": by_tier,
         "critical_gaps": gaps,
+        "whatsapp_gaps": whatsapp_gaps,
         "external_status_checked": False,
         "message_telugu": f"📡 {len(eff)} listings • {eligible} registry routing flags (external availability/permissions unchecked)"
-                         + (f" • gaps: {', '.join(gaps)}" if gaps else ""),
+                         + (f" • gaps: {', '.join(gaps)}" if gaps else "")
+                         + (f" • WhatsApp config gaps: {', '.join(whatsapp_gap_preview)}" if whatsapp_gap_preview else ""),
     }

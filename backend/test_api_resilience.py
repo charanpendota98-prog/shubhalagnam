@@ -138,13 +138,15 @@ activation_payload = {
     "plan_id": "SAMBANDHAM_99",
     "amount": 99,
     "credits": 5,
+    "method": "CASH",
+    "utr": "CASH-20261018-99",
     "verified_badge": True,
     "note": "User paid via Cash / Direct PhonePe to office",
 }
 res_act = client.post(f"/api/admin/profiles/{uid_a}/activate-plan", json=activation_payload, headers=hdr_admin)
 check("Admin manual plan activate -> 200", res_act.status_code == 200, res_act.text)
 act_data = res_act.json()
-check("Plan updated to SAMBANDHAM_99", act_data.get("plan") == "SAMBANDHAM_99")
+check("Legacy plan alias maps to canonical S_99", act_data.get("plan") == "S_99")
 check("Plan payment does not grant verification", act_data.get("is_verified") is False)
 check("Plan activation does not bypass profile moderation",
       main._find_user(uid_a).get("is_approved") is False)

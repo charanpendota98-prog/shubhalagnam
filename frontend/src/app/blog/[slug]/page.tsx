@@ -1,15 +1,21 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { serializeJsonLd } from "@/lib/safe-json-ld";
 import { BLOG_ARTICLES, articleBySlug } from "@/lib/blog";
 import ArticleContent from "../ArticleContent";
 
 const SITE = (process.env.SITE_URL || "https://manavivaha.in").replace(/\/$/, "");
-export const generateStaticParams = () => BLOG_ARTICLES.map(({ slug }) => ({ slug }));
+const LEGACY_CHECKLIST_SLUG = "telugu-pelli-guide-checklist";
+const CANONICAL_CHECKLIST_SLUG = "telugu-pelli-sambandham-checklist";
+const canonicalSlug = (slug: string) => slug === LEGACY_CHECKLIST_SLUG ? CANONICAL_CHECKLIST_SLUG : slug;
+export const generateStaticParams = () => [
+  ...BLOG_ARTICLES.map(({ slug }) => ({ slug })),
+  { slug: LEGACY_CHECKLIST_SLUG },
+];
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
-  const article = articleBySlug(slug);
+  const article = articleBySlug(canonicalSlug(slug));
   if (!article) return {};
   return {
     title: article.title,
@@ -31,7 +37,9 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 
 export default async function ArticlePage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const article = articleBySlug(slug);
+  const resolvedSlug = canonicalSlug(slug);
+  if (resolvedSlug !== slug) redirect(`/blog/${resolvedSlug}`);
+  const article = articleBySlug(resolvedSlug);
   if (!article) notFound();
 
   const schema = {

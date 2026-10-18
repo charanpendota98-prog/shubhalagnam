@@ -619,10 +619,21 @@ def reverse_referral_payment(referred_user: Dict, plan_amount: int, all_users: L
     cands = _candidates()
     if not cands:
         return {"success": False, "reason": "no_commission_found"}
-    # 🎯 Same amount (ee payment ki sambandhinchina commission) ni mundu reverse cheyyadam —
-    #    ₹99 refund ki ₹99 commission, ₹199 refund ki ₹199 commission (audit correct ga)
-    exact = [e for e in cands if int(e.get("plan_amount", 0)) == int(plan_amount or 0)]
-    target = (exact or cands)[-1]
+    # The refund amount is part of the accounting identity. Never fall back to
+    # the latest commission when an operator omitted it or supplied a different
+    # plan amount: that can reverse an unrelated reward.
+    try:
+        requested_amount = int(plan_amount)
+    except (TypeError, ValueError):
+        requested_amount = 0
+    if requested_amount <= 0:
+        return {"success": False, "reason": "amount_required",
+                "message_telugu": "⚠️ Refund reversal కి original paid amount తప్పనిసరి"}
+    exact = [e for e in cands if int(e.get("plan_amount", 0)) == requested_amount]
+    if not exact:
+        return {"success": False, "reason": "no_commission_for_amount",
+                "message_telugu": "⚠️ ఈ amount కి matching commission దొరకలేదు — ఏ commission reverse కాలేదు"}
+    target = exact[-1]
     paid_back = int(target.get("amount", 0))
     target["reversed"] = True
     target["reversed_at"] = _now()

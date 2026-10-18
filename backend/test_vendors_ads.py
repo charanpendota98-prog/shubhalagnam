@@ -115,18 +115,18 @@ check("Different category ok", r2["ok"])
 check("Unknown package reject", V.register_vendor(dict(base, phone="9848088888", package="V_FAKE"))["reason"] == "invalid")
 
 print("=== 4. ACTIVATE / REJECT / EXPIRE ===")
-act = V.activate_vendor(r1["vendor_id"], utr="TEST-ONLY-UTR-123")
+act = V.activate_vendor(r1["vendor_id"], utr="TEST-ONLY-UTR-1231")
 expiry_at = datetime.fromisoformat(act["vendor"]["expires_at"])
 check("Activate → status active + future expires_at", act["ok"] and act["vendor"]["status"] == "active"
       and expiry_at > datetime.now())
 check("Payment activation does not fabricate a listing-details review", not act["vendor"].get("manual_verified", False))
 check("Expiry = package days (90)", act["days"] == 90)
-V.activate_vendor(r2["vendor_id"], utr="TEST-ONLY-UTR-999")
+V.activate_vendor(r2["vendor_id"], utr="TEST-ONLY-UTR-9991")
 check("Unknown vendor activate → not_found", V.activate_vendor("MVV-9999")["reason"] == "not_found")
 check("Bad package activate → bad_package", V.activate_vendor(r1["vendor_id"], package="V_NOPE")["reason"] == "bad_package")
 rkit = V.register_vendor(dict(base, business_name="Share Kit Catering", category="catering", phone="9848071111",
                               whatsapp="9848072222", package="V_SINGLE_POST"))
-kit_activation = V.activate_vendor(rkit["vendor_id"], utr="TEST-ONLY-KIT-UTR")
+kit_activation = V.activate_vendor(rkit["vendor_id"], utr="TEST-ONLY-KIT-UTR-1001")
 kit_vendor = next(v for v in V.VENDORS if v["id"] == rkit["vendor_id"])
 kit_expires = datetime.fromisoformat(kit_vendor["expires_at"])
 kit_activation_time = datetime.fromisoformat(kit_vendor["activated_at"])
@@ -153,7 +153,7 @@ v1 = next(v for v in V.VENDORS if v["id"] == r1["vendor_id"])
 v1["expires_at"] = "2020-01-01T00:00:00"
 ex = V.expire_due_vendors()
 check("Kalam ayyina listing auto-expire", ex["expired"] == 1 and v1["status"] == "expired", ex)
-V.activate_vendor(r1["vendor_id"], utr="TEST-ONLY-UTR-124")   # back to active for rest of tests
+V.activate_vendor(r1["vendor_id"], utr="TEST-ONLY-UTR-1241")   # back to active for rest of tests
 
 print("=== 5. DIRECTORY ===")
 d = V.vendors_directory()
@@ -345,7 +345,7 @@ with test_client_without_startup(main.app) as c:
           and "stats" in dash_response.json())
     check("GET unknown vendor → 404", c.get("/api/vendors/MVV-0000").status_code == 404)
     # Activate only this isolated fixture, then test public listing routes.
-    activated_api_vendor = V.activate_vendor(vid, utr="TEST-ONLY-UTR-API")
+    activated_api_vendor = V.activate_vendor(vid, utr="TEST-ONLY-UTR-2001")
     check("Isolated test vendor activation", activated_api_vendor.get("ok"))
     check("GET /api/vendors/{id} active detail + package",
           c.get("/api/vendors/%s" % vid).status_code == 200
@@ -380,7 +380,7 @@ with test_client_without_startup(main.app) as c:
                     headers={"X-Vendor-Token": kit_token_api}).status_code == 409
           and c.get("/api/vendors/%s" % kit_vid_api).status_code == 404
           and all(v["id"] != kit_vid_api for v in c.get("/api/vendors?limit=50").json()["vendors"]))
-    api_kit_activation = V.activate_vendor(kit_vid_api, utr="TEST-ONLY-KIT-UTR-API")
+    api_kit_activation = V.activate_vendor(kit_vid_api, utr="TEST-ONLY-KIT-UTR-2002")
     kit_api_response = c.get("/api/vendors/%s/kit" % kit_vid_api,
                              headers={"X-Vendor-Token": kit_token_api})
     check("Approved one-day share kit requires owner token and exposes its expiry",
@@ -444,13 +444,13 @@ with test_client_without_startup(main.app) as c:
           c.post("/api/control/vendors/%s/action" % control_vid,
                  json={"action": "approve", "utr": "fake"}, headers=owner_headers).status_code == 400)
     control_approved = c.post("/api/control/vendors/%s/action" % control_vid,
-                              json={"action": "approve", "utr": "TEST-ONLY-UTR"}, headers=owner_headers).json()
+                              json={"action": "approve", "utr": "TEST-ONLY-UTR-3001"}, headers=owner_headers).json()
     check("Owner can approve with isolated test-only payment-reference fixture",
           control_approved.get("success") and control_approved["vendor"]["status"] == "active"
-          and control_approved["vendor"]["payment_ref"] == "TEST-ONLY-UTR")
+          and control_approved["vendor"]["payment_ref"] == "TEST-ONLY-UTR-3001")
     check("Control route prevents repeated approval", c.post(
         "/api/control/vendors/%s/action" % control_vid,
-        json={"action": "approve", "utr": "TEST-ONLY-UTR-SECOND"}, headers=owner_headers
+        json={"action": "approve", "utr": "TEST-ONLY-UTR-3002"}, headers=owner_headers
     ).status_code == 409)
     c.cookies.delete(main.CONTROL_AUTH.COOKIE_NAME)
     main.CONTROL_AUTH._SESSIONS.pop(control_sid, None)

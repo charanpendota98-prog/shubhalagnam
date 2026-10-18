@@ -16,6 +16,7 @@ Ee module lo pricing SINGLE SOURCE — maarchi ante ikkade maarchandi (site + do
 """
 import copy
 import json
+import re
 from atomic_store import atomic_json_dump
 import os
 import random
@@ -456,6 +457,16 @@ def activate_vendor(vendor_id: str, package: str = "", utr: str = "",
         return {"ok": False, "reason": "bad_package"}
     pkg = PACKAGE_MAP[pkg_code]
     days = pkg["days"]
+    payment_ref = str(utr or "").strip()
+    if (not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9 ./_:-]{5,63}", payment_ref)
+            or not any(char.isdigit() for char in payment_ref)):
+        return {"ok": False, "reason": "payment_proof_required",
+                "message_telugu": "⚠️ Vendor activation కి traceable payment reference తప్పనిసరి"}
+    if any(str(existing.get("payment_ref", "")).strip().upper() == payment_ref.upper()
+           and str(existing.get("status", "")).lower() not in {"refunded", "reversed"}
+           for existing in all_vendors if existing is not v):
+        return {"ok": False, "reason": "duplicate_payment_reference",
+                "message_telugu": "⚠️ ఈ payment reference ఇప్పటికే vendor కి వాడబడింది"}
     previous = copy.deepcopy(v)
     v["package"] = pkg_code
     v["package_price"] = pkg["price"]
@@ -467,7 +478,7 @@ def activate_vendor(vendor_id: str, package: str = "", utr: str = "",
     v["activated_at"] = activated_at.isoformat()
     v["expires_at"] = ((activated_at + timedelta(days=days)).isoformat()
                         if (not is_share_kit or pkg_code == "V_SINGLE_POST") else "")
-    v["payment_ref"] = utr
+    v["payment_ref"] = payment_ref
     if not save_state().get("ok"):
         v.clear()
         v.update(previous)

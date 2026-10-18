@@ -93,7 +93,14 @@ type Analytics = {
   top_castes: { label: string; count: number }[];
   top_states: { label: string; count: number }[];
   top_districts: { label: string; count: number }[];
-  revenue?: { total: number; payments: number; attempts: number; plan_split: { label: string; count: number }[] };
+  revenue?: {
+    total: number; payments: number; attempts: number; refunded?: number;
+    plan_split: { label: string; count: number }[];
+    reconciliation?: {
+      core_records: number; checkout_records: number; unmirrored_checkout_records: number;
+      refunded_records: number; pending_orders: number; history_note?: string;
+    };
+  };
   audit?: { at: string; action: string; actor: string; ip: string; meta: Record<string, string> }[];
 };
 type QueueItem = {
@@ -318,6 +325,7 @@ export default function Dashboard() {
   const [directoryProfiles, setDirectoryProfiles] = useState<any[]>([]);
   const [dirTotal, setDirTotal] = useState(0);
   const [dirLoading, setDirLoading] = useState(false);
+  const [dirContactsRevealed, setDirContactsRevealed] = useState(false);
 
   // =========================================================================
   // 📝 3. MULTI-SELECTION & DYNAMIC NOTEPAD DOCK STATE
@@ -610,6 +618,7 @@ export default function Dashboard() {
       if (dirPhoto) qs.set("photo_filter", dirPhoto);
       if (dirMarital) qs.set("marital_filter", dirMarital);
       if (dirProfession && dirProfession !== "all") qs.set("profession_filter", dirProfession);
+      if (dirContactsRevealed) qs.set("include_contact", "true");
       qs.set("limit", "200");
 
       const d = await jget(`/api/control/directory?${qs.toString()}`);
@@ -623,7 +632,7 @@ export default function Dashboard() {
     } finally {
       setDirLoading(false);
     }
-  }, [dirSearch, dirGender, dirCaste, dirDistrict, dirStatus, dirDateRange, dirDateFrom, dirDateTo, dirPayment, dirCheckStatus, dirPhoto, dirMarital, dirProfession]);
+  }, [dirSearch, dirGender, dirCaste, dirDistrict, dirStatus, dirDateRange, dirDateFrom, dirDateTo, dirPayment, dirCheckStatus, dirPhoto, dirMarital, dirProfession, dirContactsRevealed]);
 
   // 💌 Dynamic WhatsApp Proposal Text Generator
   const buildProposalText = (
@@ -906,6 +915,15 @@ export default function Dashboard() {
     window.open(`https://t.me/share/url?url=${encodeURIComponent("https://manavivaha.in")}&text=${encodeURIComponent(msg)}`, "_blank", "noopener,noreferrer");
   };
 
+  // Spreadsheet programs interpret cells beginning with =, +, -, or @ as
+  // formulas. Directory values are member-entered, so neutralize those values
+  // before generating a downloadable CSV.
+  const csvCell = (value: unknown) => {
+    let text = String(value ?? "");
+    if (/^[=+\-@]/.test(text)) text = `'${text}`;
+    return `"${text.replace(/"/g, '""')}"`;
+  };
+
   const exportProfilesCsv = () => {
     const list = directoryProfiles.length > 0 ? directoryProfiles : matchedResults;
     if (list.length === 0) {
@@ -914,19 +932,19 @@ export default function Dashboard() {
     }
     const headers = ["Profile_ID", "Full_Name", "Gender", "Age", "Caste", "Sub_Caste", "Education", "Job", "District", "State", "Phone", "Plan", "Recorded_Check_Type"];
     const rows = list.map((p) => [
-      `"${p.tsap_id || ""}"`,
-      `"${(p.full_name || "").replace(/"/g, '""')}"`,
-      `"${p.gender || ""}"`,
-      `"${p.age || ""}"`,
-      `"${(p.caste || "").replace(/"/g, '""')}"`,
-      `"${(p.sub_caste || "").replace(/"/g, '""')}"`,
-      `"${(p.education || "").replace(/"/g, '""')}"`,
-      `"${(p.job || "").replace(/"/g, '""')}"`,
-      `"${(p.district || "").replace(/"/g, '""')}"`,
-      `"${p.state || ""}"`,
-      `"${p.phone || ""}"`,
-      `"${p.plan || "Free"}"`,
-      `"${(recordedCheckBadge(p, false)?.label || "None recorded").replace(/"/g, '""')}"`,
+      csvCell(p.tsap_id),
+      csvCell(p.full_name),
+      csvCell(p.gender),
+      csvCell(p.age),
+      csvCell(p.caste),
+      csvCell(p.sub_caste),
+      csvCell(p.education),
+      csvCell(p.job),
+      csvCell(p.district),
+      csvCell(p.state),
+      csvCell(p.phone),
+      csvCell(p.plan || "Free"),
+      csvCell(recordedCheckBadge(p, false)?.label || "None recorded"),
     ]);
     const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
     const encodedUri = encodeURI(csvContent);
@@ -1998,7 +2016,7 @@ export default function Dashboard() {
         )}
 
         {/* =========================================================================
-            TAB 2: 📇 FULL DIRECTORY & CONTACTS (UNMASKED SEARCH & BULK ACTIONS)
+            TAB 2: 📇 FULL DIRECTORY & CONTACTS (AUDITED DISCLOSURE & BULK ACTIONS)
             ========================================================================= */}
         {tab === "directory" && owner && (
           <div className="space-y-6">
@@ -2098,6 +2116,15 @@ export default function Dashboard() {
 
                 {/* Keyword Search & CSV Export */}
                 <div className="flex items-center gap-2 flex-wrap">
+                  <label className="inline-flex items-center gap-2 rounded-2xl border border-amber-300 bg-amber-50 px-3 py-2 text-[11px] font-bold text-amber-950">
+                    <input
+                      type="checkbox"
+                      checked={dirContactsRevealed}
+                      onChange={(e) => setDirContactsRevealed(e.target.checked)}
+                      className="h-4 w-4 accent-[#7A0C2E]"
+                    />
+                    <span>{tr("సమ్మతితో నంబర్లు చూపించు", "Reveal contacts for approved outreach")}</span>
+                  </label>
                   <input aria-label={tr("పేరు, ఫోన్ నంబర్, ID లేదా కమ్యూనిటీ…", "Name, phone, ID, or community…")}
                     type="text"
                     value={dirSearch}
@@ -3574,9 +3601,42 @@ export default function Dashboard() {
 
         {/* Revenue Tab (Owner only) */}
         {tab === "revenue" && financeAccess && an.revenue && (
-          <div className="bg-white rounded-3xl p-6 border border-gold/30 space-y-4">
-            <h3 className="font-black text-lg text-[#7A0C2E]">{tr(`💰 మొత్తం రాబడి: ₹${an.revenue.total}`, `💰 Total revenue: ₹${an.revenue.total}`)}</h3>
-            <div className="grid md:grid-cols-2 gap-5">
+          <div className="space-y-4">
+            <div className="rounded-3xl border border-gold/30 bg-white p-5 shadow-sm sm:p-6">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <h3 className="font-black text-lg text-[#7A0C2E]">{tr(`💰 మొత్తం రాబడి: ₹${an.revenue.total}`, `💰 Total revenue: ₹${an.revenue.total}`)}</h3>
+                  <p className="mt-1 text-xs leading-relaxed text-slate-600">
+                    {tr("Checkout ledger మరియు finance history order ID ద్వారా కలిపి చూపిస్తున్నాం.", "Checkout orders and finance history are merged by order ID.")}
+                  </p>
+                </div>
+                <span className="rounded-full bg-amber-50 px-3 py-1 text-[11px] font-bold text-amber-900">
+                  {tr("రాబడి మాత్రమే; verification కాదు", "Revenue is not identity verification")}
+                </span>
+              </div>
+              <div className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+                {[
+                  [tr("చెల్లించినవి", "Paid"), an.revenue.payments, "text-emerald-800"],
+                  [tr("ఆర్డర్ ప్రయత్నాలు", "Order records"), an.revenue.attempts, "text-slate-800"],
+                  [tr("రిఫండ్‌లు", "Refunded"), an.revenue.refunded ?? an.revenue.reconciliation?.refunded_records ?? 0, "text-rose-800"],
+                  [tr("పెండింగ్ ఆర్డర్లు", "Pending orders"), an.revenue.reconciliation?.pending_orders ?? 0, "text-amber-800"],
+                ].map(([label, value, color]) => (
+                  <div key={String(label)} className="rounded-2xl border border-slate-100 bg-slate-50 p-3">
+                    <div className="text-[11px] font-bold text-slate-500">{label}</div>
+                    <div className={`mt-1 text-2xl font-black ${color}`}>{value}</div>
+                  </div>
+                ))}
+              </div>
+              {an.revenue.reconciliation && an.revenue.reconciliation.unmirrored_checkout_records > 0 && (
+                <div className="mt-4 rounded-2xl border border-rose-300 bg-rose-50 p-3 text-xs font-bold leading-relaxed text-rose-900" role="alert">
+                  ⚠️ {tr(
+                    `${an.revenue.reconciliation.unmirrored_checkout_records} checkout records core finance history లో లేవు. Fulfillment/reconciliation చేయండి; మళ్లీ refund/credit చేయవద్దు.`,
+                    `${an.revenue.reconciliation.unmirrored_checkout_records} checkout records are not mirrored in core finance history. Reconcile before issuing another refund or credit.`,
+                  )}
+                </div>
+              )}
+            </div>
+            <div className="grid gap-5 rounded-3xl border border-gold/30 bg-white p-5 shadow-sm md:grid-cols-2 sm:p-6">
               <Donut items={an.revenue.plan_split} />
               <BarList items={an.revenue.plan_split} />
             </div>
@@ -3870,18 +3930,33 @@ export default function Dashboard() {
             {/* UTR & Notes */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
                 <div>
-                  <label className="text-[11px] font-bold text-slate-600 block mb-0.5">UTR / {tr("లావాదేవీ నంబర్ (ఐచ్ఛికం)", "transaction reference (optional")}):</label>
-                  <input aria-label={tr("చెల్లింపు రిఫరెన్స్ ఉంటే నమోదు చేయండి", "Enter the payment reference, if available")}
+                  <label className="text-[11px] font-bold text-slate-600 block mb-0.5">UTR / {tr("లావాదేవీ / రసీదు reference (అవసరం)", "transaction or receipt reference (required)")}:</label>
+                  <input aria-label={tr("చెల్లింపు reference", "Payment reference")}
+                    disabled={grantPayMode === "ADMIN_COMPLIMENTARY"}
                     type="text"
                     value={grantUtr}
                     onChange={(e) => setGrantUtr(e.target.value)}
-                    placeholder={tr("చెల్లింపు రిఫరెన్స్ ఉంటే నమోదు చేయండి", "Enter the payment reference, if available")}
+                    placeholder={tr("UTR / రసీదు / proof reference", "UTR, receipt, or proof reference")}
                     className="w-full px-3 py-1.5 border border-slate-300 rounded-xl text-xs font-mono focus:border-maroon focus:outline-none focus:ring-2 focus:ring-[#7A0C2E]/40"
                   />
                 </div>
                 <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] text-slate-700">
                   Interest-request credits: <b>{grantCredits || "Choose a plan"}</b> · fixed by plan
                 </div>
+              </div>
+
+              <div className="pt-1">
+                <label className="text-[11px] font-bold text-slate-600 block mb-0.5">
+                  {tr("అడ్మిన్ కారణం / అదనపు గమనిక", "Admin reason / audit note")} {grantPayMode === "ADMIN_COMPLIMENTARY" ? tr("(అవసరం)", "(required)") : tr("(ఐచ్ఛికం)", "(optional)")}
+                </label>
+                <textarea
+                  aria-label={tr("అడ్మిన్ కారణం", "Admin reason")}
+                  value={grantNotes}
+                  onChange={(e) => setGrantNotes(e.target.value.slice(0, 300))}
+                  placeholder={tr("ఉదా: సభ్యుని outreach support కోసం complimentary grant", "Why is this activation being granted or recorded?")}
+                  rows={2}
+                  className="w-full resize-y rounded-xl border border-slate-300 px-3 py-1.5 text-xs focus:border-maroon focus:outline-none focus:ring-2 focus:ring-[#7A0C2E]/40"
+                />
               </div>
 
             {/* Referral trigger */}
@@ -3910,7 +3985,7 @@ export default function Dashboard() {
               </button>
               <button
                 type="button"
-                disabled={busyId === upgradeModal.tsapId || !grantPlanCode || !grantPayMode || grantCredits < 1 || (grantPayMode !== "ADMIN_COMPLIMENTARY" && grantAmount <= 0)}
+                disabled={busyId === upgradeModal.tsapId || !grantPlanCode || !grantPayMode || grantCredits < 1 || (grantPayMode !== "ADMIN_COMPLIMENTARY" && (grantAmount <= 0 || !grantUtr.trim())) || (grantPayMode === "ADMIN_COMPLIMENTARY" && grantNotes.trim().length < 8)}
                 onClick={() => {
                   if (!grantPlanCode) return;
                   void upgradeProfile(

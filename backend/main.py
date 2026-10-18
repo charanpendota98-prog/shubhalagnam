@@ -631,15 +631,43 @@ def control_analytics(request: Request):
     }
     if finance_access:
         # Finance totals are aggregate-only; no per-user payment details are returned.
-        paid = [p for p in DB_PAYMENTS if str(p.get("status", "")).lower() in {"paid", "success", "captured", "completed"}]
-        revenue = sum(float(p.get("amount", 0) or 0) for p in paid)
+        # The checkout ledger and core DB historically used separate stores. Merge
+        # by order id so the dashboard cannot under-count PayBox transactions or
+        # double-count the mirrored row.
+        core_rows = list(DB_PAYMENTS)
+        core_keys = {str(row.get("pay_order_id") or row.get("order_id") or "")
+                     for row in core_rows if str(row.get("pay_order_id") or row.get("order_id") or "")}
+        checkout_rows = []
+        for order in PP.PAY_ORDERS:
+            order_key = str(order.get("id") or order.get("pay_order_id") or "")
+            if order_key and order_key not in core_keys and str(order.get("status", "")).lower() in {"paid", "refunded"}:
+                checkout_rows.append({
+                    "order_id": order_key,
+                    "amount": order.get("final_amount", order.get("amount", 0)),
+                    "status": order.get("status"),
+                    "paid_at": order.get("paid_at", ""),
+                    "purpose": order.get("purpose", ""),
+                })
+        finance_rows = core_rows + checkout_rows
+        paid = [p for p in finance_rows if str(p.get("status", "")).lower() in {"paid", "success", "captured", "completed"}]
+        refunded = [p for p in finance_rows if str(p.get("status", "")).lower() == "refunded"]
+        revenue = sum(float(p.get("amount", p.get("final_amount", 0)) or 0) for p in paid)
         plan_split: dict = {}
         for u in DB_USERS:
             pl = str(u.get("plan", "FREE") or "FREE")
             plan_split[pl] = plan_split.get(pl, 0) + 1
         result["revenue"] = {
-            "total": round(revenue, 2), "payments": len(paid), "attempts": len(DB_PAYMENTS),
+            "total": round(revenue, 2), "payments": len(paid), "attempts": len(finance_rows),
+            "refunded": len(refunded),
             "plan_split": [{"label": k, "count": v} for k, v in sorted(plan_split.items(), key=lambda x: -x[1])],
+            "reconciliation": {
+                "core_records": len(core_rows),
+                "checkout_records": len(PP.PAY_ORDERS),
+                "unmirrored_checkout_records": len(checkout_rows),
+                "refunded_records": len(refunded),
+                "pending_orders": sum(1 for o in PP.PAY_ORDERS if str(o.get("status")) in {"created", "claimed"}),
+                "history_note": "Checkout orders are merged by order ID; an unmirrored record requires operator reconciliation.",
+            },
         }
     if owner:
         result["audit"] = CONTROL_AUTH.audit_recent(30)
@@ -754,17 +782,50 @@ def control_profile_upgrade(tsap_id: str, payload: dict, request: Request):
         raise HTTPException(400, "Only the current S_99/S_199/S_299/S_499 plans can be activated here")
     plan = INTEREST_PLANS[plan_code]
     expected_credits = int(plan["profiles"])
-    if d.get("credits") is not None and int(d["credits"]) != expected_credits:
-        raise HTTPException(400, f"{plan_code} includes exactly {expected_credits} interest-request credits")
+    if d.get("credits") is not None:
+        try:
+            submitted_credits = int(d["credits"])
+        except (TypeError, ValueError):
+            raise HTTPException(400, "Plan credits must be a number")
+        if submitted_credits != expected_credits:
+            raise HTTPException(400, f"{plan_code} includes exactly {expected_credits} interest-request credits")
 
-    payment_mode = str(d.get("payment_mode", "UPI_QR") or "UPI_QR").strip()
-    is_comped = payment_mode.upper() == "ADMIN_COMPLIMENTARY"
+    payment_mode = str(d.get("payment_mode", "") or "").strip().upper()
+    allowed_payment_modes = {"UPI_QR", "PHONEPE", "GPAY", "BANK_TRANSFER", "CASH", "ADMIN_COMPLIMENTARY"}
+    if payment_mode not in allowed_payment_modes:
+        raise HTTPException(400, "Choose a recognized payment source before activating a plan")
+    is_comped = payment_mode == "ADMIN_COMPLIMENTARY"
     amount = 0 if is_comped else int(plan["price"])
-    if not is_comped and d.get("amount") is not None and int(d["amount"]) != amount:
+    try:
+        submitted_amount = int(d["amount"]) if d.get("amount") is not None else amount
+    except (TypeError, ValueError):
+        raise HTTPException(400, "Payment amount must be a number")
+    if not is_comped and submitted_amount != amount:
         raise HTTPException(400, f"{plan_code} price is ₹{amount}; amount mismatch")
     trigger_referral = bool(d.get("trigger_referral", True)) and not is_comped
-    utr = str(d.get("utr", "") or "").strip()
+    # A staff activation is an accounting action, not a free-form status toggle.
+    # Paid/manual modes need a non-placeholder UTR, receipt, or proof reference;
+    # complimentary grants require an explicit reason instead.
+    utr = str(d.get("utr", "") or d.get("payment_proof", "") or "").strip()
     notes = str(d.get("notes", "") or "").strip()
+    if is_comped:
+        if len(notes) < 8:
+            raise HTTPException(400, "A reason of at least 8 characters is required for a complimentary grant")
+        utr = ""
+    else:
+        if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9 ./_:-]{5,63}", utr) or not any(ch.isdigit() for ch in utr):
+            raise HTTPException(400, "A valid UTR, receipt, or payment-proof reference is required for paid activation")
+        duplicate_proof = any(
+            str(row.get("utr", "") or "").strip().upper() == utr.upper()
+            and str(row.get("status", "")).lower() not in {"refunded", "reversed"}
+            for row in DB_PAYMENTS
+        ) or any(
+            str(row.get("utr", "") or "").strip().upper() == utr.upper()
+            and str(row.get("status", "")).lower() not in {"refunded", "reversed"}
+            for row in PP.PAY_ORDERS
+        )
+        if duplicate_proof:
+            raise HTTPException(409, "This payment proof reference was already recorded; reconcile it before retrying")
 
     user = _find_user(tsap_id)
     if not user:
@@ -792,7 +853,12 @@ def control_profile_upgrade(tsap_id: str, payload: dict, request: Request):
 
     order_id = f"ORD_MANUAL_{int(time.time())}_{random.randint(100, 999)}"
     pay_order = {
+        "id": order_id,
+        "order_id": order_id,
         "pay_order_id": order_id,
+        "purpose": "credits",
+        "ref": plan_code,
+        "final_amount": amount,
         "tsap_id": user.get("tsap_id"),
         "full_name": user.get("full_name"),
         "phone": user.get("phone"),
@@ -801,6 +867,8 @@ def control_profile_upgrade(tsap_id: str, payload: dict, request: Request):
         "status": "comped" if is_comped else "paid",
         "paid_via": payment_mode,
         "utr": utr,
+        "payment_proof": utr,
+        "payment_proof_status": "operator_recorded" if not is_comped else "not_applicable_complimentary",
         "created_at": datetime.utcnow().isoformat(),
         "notes": notes,
         "operator": item["username"],
@@ -824,14 +892,14 @@ def control_profile_upgrade(tsap_id: str, payload: dict, request: Request):
         f"మన వివాహ లో మీ {plan_title} plan యాక్టివేట్ అయ్యింది.\n"
         f"🪙 {expected_credits} interest-request credits జోడించబడ్డాయి; గడువు {plan['validity_days']} రోజులు.\n"
         "Plan activation does not verify identity or approve a profile. Contact details require profile-owner acceptance.\n"
-        "Payment / complimentary status: " + ("complimentary grant" if is_comped else "recorded payment")
+        "Payment / complimentary status: " + ("complimentary grant — reason recorded" if is_comped else "payment proof recorded; provider confirmation is not implied")
     )
     wa_text_en = (
         f"💐 Hello {user.get('full_name')},\n\n"
         f"Your {plan_title} plan on Mana Vivaha has been activated.\n"
         f"🪙 {expected_credits} interest-request credits were added; the plan is valid for {plan['validity_days']} days.\n"
         "Plan activation does not verify identity or approve a profile. Contact details require profile-owner acceptance.\n"
-        "Payment / complimentary status: " + ("complimentary grant" if is_comped else "recorded payment")
+        "Payment / complimentary status: " + ("complimentary grant — reason recorded" if is_comped else "payment proof recorded; provider confirmation is not implied")
     )
     if not _persist_core_state() or not PP._persist():
         _restore_user_snapshot(users_before, user_refs_before)
@@ -843,7 +911,8 @@ def control_profile_upgrade(tsap_id: str, payload: dict, request: Request):
         raise HTTPException(503, "Plan grant could not be saved safely. Please try again.")
     CONTROL_AUTH.audit("control_profile_upgrade", item["username"], request,
                        tsap_id=tsap_id, plan=plan_code, amount=amount, comped=is_comped,
-                       credits_added=expected_credits)
+                       payment_mode=payment_mode, proof_recorded=bool(utr),
+                       reason_recorded=bool(notes), credits_added=expected_credits)
 
     return {
         "success": True, "tsap_id": user.get("tsap_id"), "full_name": user.get("full_name"),
@@ -1015,10 +1084,11 @@ def control_channels_coverage(request: Request):
         "customized": cov.get("customized", 0),
         "by_tier": cov.get("by_tier", {}),
         "critical_gaps": cov.get("critical_gaps", []),
+        "whatsapp_gaps": cov.get("whatsapp_gaps", []),
         "pending_sample": pending,
         "external_status_checked": False,
         "note": "Counts are configuration only. No external availability, bot permission "
-                "or reachability is checked, and a blank destination is never filled in.",
+                "or reachability is checked; blank WhatsApp destinations remain blank and are never guessed.",
     }
 
 
@@ -1303,12 +1373,16 @@ def control_directory(
     photo_filter: str = "all",
     marital_filter: str = "all",
     profession_filter: str = "all",
+    include_contact: bool = False,
     limit: int = 100,
     offset: int = 0,
 ):
-    """Owner-only searchable member directory, including protected contact and payment data."""
+    """Owner-only directory; contact disclosure is an explicit audited action."""
     item = CONTROL_AUTH.require(request, roles=_CONTROL_OWNER_ROLES)
     limit = max(1, min(int(limit), 500))
+    if include_contact:
+        CONTROL_AUTH.audit("control_directory_contact_view", item.get("username", "owner"), request,
+                          query=q[:80], returned_limit=limit, offset=offset)
     offset = max(0, int(offset))
 
     today_str = datetime.utcnow().strftime("%Y-%m-%d")
@@ -1435,7 +1509,11 @@ def control_directory(
             "education": u.get("education"),
             "job": u.get("job"),
             "salary": u.get("salary", ""),
-            "phone": u.get("phone", ""),
+            # Contact values stay masked unless the owner deliberately enables
+            # audited outreach disclosure for this directory load.
+            "phone": u.get("phone", "") if include_contact else "",
+            "phone_masked": mask_phone(u.get("phone", "")),
+            "contact_revealed": bool(include_contact),
             "status": str(u.get("status", "pending")),
             "plan": str(u.get("plan", "FREE") or "FREE"),
             "plan_name": {"S_99": "స్వాగతం (Silver)", "S_199": "శుభారంభం (Gold)", "S_299": "కళ్యాణం (Platinum)", "S_499": "కళ్యాణ వైభోగం (Diamond)", "S_999": "మంగళసూత్రం (VIP)"}.get(str(u.get("plan", "FREE")), str(u.get("plan", "FREE"))),
@@ -4967,11 +5045,18 @@ def admin_retention_run(payload: dict, request: Request):
 def _csv_response(header, rows, filename):
     import csv
     import io as _io
+    def safe_cell(value):
+        text = "" if value is None else str(value)
+        # Excel/Sheets execute member-entered cells beginning with these
+        # characters as formulas, even when csv.writer quotes them.
+        if text.startswith(("=", "+", "-", "@")):
+            text = "'" + text
+        return text
     buf = _io.StringIO()
     w = csv.writer(buf)
     w.writerow(header)
     for r in rows:
-        w.writerow([("" if v is None else str(v)) for v in r])
+        w.writerow([safe_cell(v) for v in r])
     return Response("\ufeff" + buf.getvalue(), media_type="text/csv; charset=utf-8",
                     headers={"Content-Disposition": f'attachment; filename="{filename}"'})
 
@@ -5104,6 +5189,8 @@ def admin_refund(tsap_id: str, amount: int = 0, reason: str = "refund", token: s
     user = _user_or_404(tsap_id)
     if not user.get("referred_by"):
         return {"success": True, "reason": "no_referral", "message_telugu": "ఈ user కి referral లేదు"}
+    if int(amount or 0) <= 0:
+        raise HTTPException(400, "An explicit original paid amount is required for referral refund reversal")
     res = reverse_referral_payment(user, amount, DB_USERS, reason=reason)
     if res.get("reason") == "persistence_failed":
         raise HTTPException(503, res.get("message_telugu"))
@@ -5208,15 +5295,46 @@ def api_admin_grant_plan(payload: dict, request: Request = None):
     user_refs_before = list(DB_USERS)
     users_before = copy.deepcopy(DB_USERS)
     payments_before = copy.deepcopy(DB_PAYMENTS)
+    pay_orders_before = copy.deepcopy(PP.PAY_ORDERS)
     credits_to_add = int(plan["profiles"])
-    if d.get("credits") is not None and int(d["credits"]) != credits_to_add:
-        raise HTTPException(400, f"{plan_code} includes exactly {credits_to_add} interest-request credits")
-    payment_method = str(d.get("method") or d.get("payment_method") or "admin_manual").strip()
-    is_comped = payment_method.upper() == "ADMIN_COMPLIMENTARY"
+    if d.get("credits") is not None:
+        try:
+            submitted_credits = int(d["credits"])
+        except (TypeError, ValueError):
+            raise HTTPException(400, "Plan credits must be a number")
+        if submitted_credits != credits_to_add:
+            raise HTTPException(400, f"{plan_code} includes exactly {credits_to_add} interest-request credits")
+    payment_method = str(d.get("method") or d.get("payment_method") or "").strip().upper()
+    allowed_payment_methods = {"UPI_QR", "PHONEPE", "GPAY", "BANK_TRANSFER", "CASH", "ADMIN_COMPLIMENTARY"}
+    if payment_method not in allowed_payment_methods:
+        raise HTTPException(400, "Choose a recognized payment source before activating a plan")
+    is_comped = payment_method == "ADMIN_COMPLIMENTARY"
     amount = 0 if is_comped else int(plan["price"])
-    if not is_comped and d.get("amount") is not None and int(d["amount"]) != amount:
+    try:
+        submitted_amount = int(d["amount"]) if d.get("amount") is not None else amount
+    except (TypeError, ValueError):
+        raise HTTPException(400, "Payment amount must be a number")
+    if not is_comped and submitted_amount != amount:
         raise HTTPException(400, f"{plan_code} price is ₹{amount}; amount mismatch")
-    notes = str(d.get("notes") or d.get("note") or f"Admin {'complimentary ' if is_comped else 'manual '}plan grant: {plan_code}").strip()
+    notes = str(d.get("notes") or d.get("note") or "").strip()
+    proof = str(d.get("utr") or d.get("payment_proof") or "").strip()
+    if is_comped:
+        if len(notes) < 8:
+            raise HTTPException(400, "A reason of at least 8 characters is required for a complimentary grant")
+        proof = ""
+    elif not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9 ./_:-]{5,63}", proof) or not any(ch.isdigit() for ch in proof):
+        raise HTTPException(400, "A valid UTR, receipt, or payment-proof reference is required for paid activation")
+    duplicate_proof = any(
+        str(row.get("utr", "") or "").strip().upper() == proof.upper()
+        and str(row.get("status", "")).lower() not in {"refunded", "reversed"}
+        for row in DB_PAYMENTS if proof
+    ) or any(
+        str(row.get("utr", "") or "").strip().upper() == proof.upper()
+        and str(row.get("status", "")).lower() not in {"refunded", "reversed"}
+        for row in PP.PAY_ORDERS if proof
+    )
+    if duplicate_proof:
+        raise HTTPException(409, "This payment proof reference was already recorded; reconcile it before retrying")
 
     user["plan"] = plan_code
     user["is_premium"] = True
@@ -5230,14 +5348,26 @@ def api_admin_grant_plan(payload: dict, request: Request = None):
         "by": role, "note": notes,
     })
 
-    order_id = f"ADM-GRANT-{int(time.time())}"
+    order_id = f"ADM-GRANT-{int(time.time())}-{random.randint(100, 999)}"
     payment_record = {
         "order_id": order_id, "user_id": user.get("tsap_id"), "tsap_id": user.get("tsap_id"),
-        "amount": amount, "plan": plan_code, "status": "comped" if is_comped else "paid",
-        "method": payment_method, "notes": notes, "created_at": datetime.utcnow().isoformat(),
+        "amount": amount, "plan": plan_code, "purpose": "credits",
+        "status": "comped" if is_comped else "paid",
+        "method": payment_method, "utr": proof, "payment_proof": proof,
+        "payment_proof_status": "operator_recorded" if not is_comped else "not_applicable_complimentary",
+        "notes": notes, "created_at": datetime.utcnow().isoformat(),
         "paid_at": "" if is_comped else datetime.utcnow().isoformat(), "fulfilled": True,
     }
     DB_PAYMENTS.append(payment_record)
+    PP.PAY_ORDERS.append({
+        "id": order_id, "pay_order_id": order_id, "tsap_id": user.get("tsap_id"),
+        "purpose": "credits", "ref": plan_code, "amount": amount,
+        "final_amount": amount, "discount": 0, "offer_code": "",
+        "status": "comped" if is_comped else "paid", "mode": payment_method,
+        "paid_via": payment_method, "utr": proof, "payment_id": order_id,
+        "created_at": payment_record["created_at"], "paid_at": payment_record["paid_at"],
+        "receipt": None, "operator": role,
+    })
 
     ref_msg = ""
     if not is_comped and bool(d.get("trigger_referral", True)) and user.get("referred_by"):
@@ -5249,9 +5379,12 @@ def api_admin_grant_plan(payload: dict, request: Request = None):
         except Exception:
             pass
 
-    if not _persist_core_state():
+    if not _persist_core_state() or not PP._persist():
         _restore_user_snapshot(users_before, user_refs_before)
         DB_PAYMENTS[:] = payments_before
+        PP.PAY_ORDERS[:] = pay_orders_before
+        _persist_core_state()
+        PP._persist()
         raise HTTPException(503, "Plan grant could not be saved safely. Please try again.")
     MAUD.audit("admin_grant_plan", role, {"tsap_id": user.get("tsap_id"), "plan": plan_code,
                                            "credits": credits_to_add, "comped": is_comped})
@@ -5260,6 +5393,7 @@ def api_admin_grant_plan(payload: dict, request: Request = None):
         "success": True, "tsap_id": user.get("tsap_id"), "full_name": user.get("full_name"),
         "plan": plan_code, "credits": user.get("credits"), "credits_added": credits_to_add,
         "plan_expiry": user.get("plan_expiry"), "comped": is_comped,
+        "is_verified": safety.has_verification_evidence(user),
         "verification": safety.verification_badge(user),
         "message_telugu": f"{user.get('tsap_id')} కి {plan['label']} (₹{plan['price']}) plan active అయ్యింది (+{credits_to_add} interest-request credits). Verification వేరుగా ఉంటుంది.{ref_msg}",
         "message": f"Activated {plan_code} for {user.get('tsap_id')} (+{credits_to_add} interest-request credits)",
@@ -9942,58 +10076,34 @@ def api_admin_manual_plan_activate_body(payload: dict, request: Request):
 
 @app.post("/api/admin/profiles/{tsap_id}/activate-plan")
 def api_admin_activate_plan(tsap_id: str, payload: dict, request: Request):
-    """ADMIN - Manual plan activation (when user pays cash / direct UPI / phone call)."""
+    """Compatibility alias for the audited current-plan grant workflow.
+
+    The old endpoint accepted arbitrary plan IDs, client-chosen credits, and a
+    missing payment proof. Keep the URL for existing operators, but route it
+    through the same bounded accounting path as the control portal.
+    """
     require_admin(request, staff_ok=False)
-    u = _find_user(tsap_id.upper())
-    if not u:
-        raise HTTPException(404, "Profile dorakaledu")
-    
     data = payload or {}
-    plan_id = str(data.get("plan_id", "SAMBANDHAM_99")).strip().upper()
-    amount = int(data.get("amount", 99) or 99)
-    credits_to_add = int(data.get("credits", 5) or 5)
-    note = clean(str(data.get("note", "Manual plan activation by Admin")), 200)
-
-    # Standard plans configuration
-    plan_names = {
-        "SAMBANDHAM_99": "₹99 Sambandham (5 Profiles)",
-        "VIP_199": "₹199 మన వివాహ VIP (15 Profiles)",
-        "PREMIUM_499": "₹499 Unlimited Elite",
-        "BUREAU_2999": "₹2999 Matchmaker Bureau",
-        "VIP_9999": "₹9999 Royal Lifetime VIP",
+    legacy_map = {
+        "SAMBANDHAM_99": "S_99",
+        "VIP_199": "S_199",
+        "PREMIUM_499": "S_499",
     }
-    plan_label = plan_names.get(plan_id, f"Plan {plan_id} (₹{amount})")
-
-    # Update user state
-    u["plan"] = plan_id
-    u["credits"] = int(u.get("credits", 0) or 0) + credits_to_add
-    # Payment activates plan benefits only. Moderation approval and verification
-    # are separate recorded workflows and are never granted by a plan purchase.
-    u["plan_activated_at"] = datetime.utcnow().isoformat()
-    u["plan_activated_by"] = "admin"
-
-    # Log audit entry
-    MAUD.audit("manual_plan_activated", "admin", {
-        "tsap_id": u.get("tsap_id"),
-        "plan_id": plan_id,
-        "amount": amount,
-        "credits_added": credits_to_add,
-        "note": note,
+    requested_plan = str(data.get("plan_id") or data.get("plan") or "").strip().upper()
+    plan_code = legacy_map.get(requested_plan, requested_plan)
+    if plan_code not in {"S_99", "S_199", "S_299", "S_499"}:
+        raise HTTPException(400, "This legacy URL supports only the current S_99/S_199/S_299/S_499 plans")
+    forwarded = dict(data)
+    forwarded.update({
+        "tsap_id": tsap_id,
+        "plan": plan_code,
+        "method": data.get("method") or data.get("payment_method") or data.get("payment_mode"),
+        "notes": data.get("notes") or data.get("note") or "",
+        "utr": data.get("utr") or data.get("payment_proof") or "",
     })
-
-    DBSTORE.save(DBSTORE.snapshot(DB_USERS, DB_INTERESTS, DB_PAYMENTS, DB_OTPS,
-                                  VERIFIED_PHONES, DB_VIEWS, DB_SAVES, DB_DIGEST), force=True)
-
-    return {
-        "success": True,
-        "tsap_id": u.get("tsap_id"),
-        "plan": u.get("plan"),
-        "plan_label": plan_label,
-        "credits": u.get("credits"),
-        "is_verified": safety.has_verification_evidence(u),
-        "verification": safety.verification_badge(u),
-        "message_telugu": f"🎉 {u.get('tsap_id')} కి {plan_label} ప్లాన్ యాక్టివేట్ అయ్యింది! +{credits_to_add} క్రెడిట్స్ జతచేయబడ్డాయి. Profile approval మరియు verification వేర్వేరు.",
-    }
+    # api_admin_grant_plan performs the recognized-mode, proof/reason, fixed
+    # amount/credit, duplicate-reference, and rollback checks.
+    return api_admin_grant_plan(forwarded, request)
 
 
 @app.post("/api/admin/profiles/{tsap_id}/id-verification")
@@ -10158,8 +10268,13 @@ def api_owner_summary(request: Request):
 
 
 @app.get("/api/pay/qr/{order_id}.png")
-def api_pay_qr_png(order_id: str):
-    """Generate a UPI QR only for an existing manual-UPI order with configured merchant details."""
+def api_pay_qr_png(order_id: str, token: str = ""):
+    """Generate a QR only with the per-order capability returned to its owner.
+
+    An order ID is not a secret: it can appear in support messages, browser
+    history, or logs. Requiring the high-entropy token prevents unauthenticated
+    enumeration of merchant UPI destinations and exact payment amounts.
+    """
     import io
     from urllib.parse import urlencode
     import qrcode
@@ -10168,6 +10283,9 @@ def api_pay_qr_png(order_id: str):
     po = PP.get_pay_order(order_id)
     if not po:
         raise HTTPException(404, "Payment order not found")
+    expected_token = str(po.get("qr_token", "") or "")
+    if not expected_token or not token or not hmac.compare_digest(token, expected_token):
+        raise HTTPException(403, "A valid payment-order QR token is required")
     cfg = PP.pay_config()
     if po.get("mode") != "manual_upi" or not cfg.get("upi_id"):
         raise HTTPException(409, "UPI QR is unavailable for this payment order")
@@ -10305,12 +10423,18 @@ def api_admin_offer_create(payload: dict, request: Request):
     applies = d.get("applies_to") or ["credits"]
     if isinstance(applies, str):
         applies = [a.strip() for a in applies.split(",") if a.strip()]
+    try:
+        pct_off = int(d.get("pct_off", 0) or 0)
+        flat_off = int(d.get("flat_off", 0) or 0)
+        max_uses = int(d.get("max_uses", 100) or 100)
+        min_amount = int(d.get("min_amount", 0) or 0)
+    except (TypeError, ValueError):
+        raise HTTPException(400, "Discount, max uses, and minimum amount must be numbers")
     res = PP.create_offer(str(d.get("code", "")), str(d.get("title", "")),
-                          pct_off=int(d.get("pct_off", 0) or 0), flat_off=int(d.get("flat_off", 0) or 0),
+                          pct_off=pct_off, flat_off=flat_off,
                           applies_to=applies, valid_from=str(d.get("valid_from", "") or ""),
                           valid_to=str(d.get("valid_to", "") or ""),
-                          max_uses=int(d.get("max_uses", 100) or 100),
-                          min_amount=int(d.get("min_amount", 0) or 0),
+                          max_uses=max_uses, min_amount=min_amount,
                           festival=str(d.get("festival", "") or ""))
     if not res.get("success"):
         raise HTTPException(400, res.get("message_telugu"))
@@ -10321,13 +10445,23 @@ def api_admin_offer_create(payload: dict, request: Request):
 def api_admin_offers_seed(payload: dict, request: Request):
     require_admin(request)
     d = payload or {}
-    return PP.seed_festivals(str(d.get("valid_from", "") or ""), str(d.get("valid_to", "") or ""),
-                             int(d.get("max_uses", 1000) or 1000))
+    try:
+        seed_max_uses = int(d.get("max_uses", 1000) or 1000)
+    except (TypeError, ValueError):
+        raise HTTPException(400, "Max uses must be a number")
+    res = PP.seed_festivals(str(d.get("valid_from", "") or ""), str(d.get("valid_to", "") or ""),
+                            seed_max_uses)
+    if not res.get("success"):
+        raise HTTPException(400, res.get("message_telugu"))
+    return res
 
 
 @app.get("/api/promo/apply")
-def api_promo_apply(code: str = "", purpose: str = "credits", plan: str = "S_99", user: str = ""):
+def api_promo_apply(request: Request, code: str = "", purpose: str = "credits", plan: str = "S_99", user: str = ""):
     """🎟️ Promo preview — pay కి ముందు discount chudu (public, no charge)."""
+    limited = rate_limit_hit(request, extra_key="promo-preview")
+    if limited:
+        raise HTTPException(429, limited.get("message_telugu"), headers={"Retry-After": str(limited.get("retry_after", 60))})
     from interest import get_plan
     try:
         amount = int(get_plan(plan).get("price", 0))
@@ -10335,7 +10469,12 @@ def api_promo_apply(code: str = "", purpose: str = "credits", plan: str = "S_99"
         amount = 0
     if amount <= 0:
         raise HTTPException(400, "Plan sari ledhu")
-    res = PP.validate_offer((code or "").strip(), purpose.strip().lower() or "credits", amount, user)
+    # Never trust a caller-supplied member ID for one-use eligibility. A
+    # signed member token may identify its own account; anonymous previews do
+    # not get to probe another account's usage history.
+    identity = token_from_request(request)
+    preview_user = str((identity or {}).get("tsap_id", "")).strip() if identity else ""
+    res = PP.validate_offer((code or "").strip(), purpose.strip().lower() or "credits", amount, preview_user)
     if not res.get("ok"):
         raise HTTPException(400, res.get("message_telugu"))
     return {"success": True, **res, "plan": plan, "amount": amount,
@@ -10800,7 +10939,7 @@ def api_blog_posts():
         "posts": [
             {"slug": "telugu-matrimony-profile-ela-create-cheyali", "title": "తెలుగు మ్యాట్రిమోనీ ప్రొఫైల్ ఎలా క్రియేట్ చేయాలి?", "read_time": "3 min"},
             {"slug": "online-matrimony-safety-telugu", "title": "ఆన్‌లైన్ పెళ్లి మార్గదర్శకాలు & గోప్యతా చిట్కాలు", "read_time": "4 min"},
-            {"slug": "telugu-pelli-guide-checklist", "title": "తెలుగు పెళ్లి పూర్తి చెక్‌లిస్ట్", "read_time": "5 min"},
+            {"slug": "telugu-pelli-sambandham-checklist", "legacy_slugs": ["telugu-pelli-guide-checklist"], "title": "తెలుగు పెళ్లి పూర్తి చెక్‌లిస్ట్", "read_time": "5 min"},
         ],
     }
 
@@ -10813,9 +10952,9 @@ def api_featured_caste_showcase():
 
 
 @app.get("/api/pay/qr/{order_id}")
-def api_pay_qr_alias(order_id: str):
+def api_pay_qr_alias(order_id: str, token: str = ""):
     """Alias for /api/pay/qr/{order_id}.png"""
-    return api_pay_qr_png(order_id)
+    return api_pay_qr_png(order_id, token=token)
 
 
 @app.get("/api/og/profile/{tsap_id}")
