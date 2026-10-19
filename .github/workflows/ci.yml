@@ -117,12 +117,41 @@ jobs:
               print("::error title=Responsive QA::The visual suite failed without a serialised test failure")
           PY
       - name: Run rendered WCAG and keyboard-focus checks
+        id: axe
         env:
           REQUIRE_VISUAL_TESTS: "1"
           PLAYWRIGHT_JSON_OUTPUT_FILE: artifacts/axe-results.json
         run: |
           mkdir -p artifacts
           npm run test:axe
+      - name: Surface accessibility failure diagnostics
+        if: ${{ always() && steps.axe.outcome == 'failure' }}
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          report = Path("artifacts/axe-results.json")
+          if not report.exists():
+              print("::error title=Accessibility QA::Playwright did not produce a JSON report")
+              raise SystemExit(0)
+          data = json.loads(report.read_text())
+          emitted = 0
+          for suite in data.get("suites", []):
+              for spec in suite.get("specs", []):
+                  for test in spec.get("tests", []):
+                      if test.get("status") not in {"unexpected", "flaky", "interrupted"}:
+                          continue
+                      title = " > ".join([*suite.get("titlePath", []), spec.get("title", "")]).strip(" >")
+                      results = test.get("results", [])
+                      errors = results[-1].get("errors", []) if results else []
+                      message = " ".join(str(error.get("message", "")) for error in errors).replace("\n", " ").strip()
+                      message = message[:3500] or "No Playwright error message was recorded"
+                      print(f"::error title=Accessibility QA::{title}: {message}")
+                      emitted += 1
+          if emitted == 0:
+              print("::error title=Accessibility QA::The axe suite failed without a serialised test failure")
+          PY
       - name: Upload browser QA diagnostics
         if: always()
         uses: actions/upload-artifact@v4
