@@ -168,7 +168,7 @@ export default function ProfilesOfTheDay() {
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={profile.photo_url} alt={te ? `${name} ప్రొఫైల్ ఫోటో` : `${name} profile photo`} className="h-full w-full object-cover object-top" loading="lazy" />
                     ) : (
-                      <div className="flex h-full flex-col items-center justify-center gap-2 text-maroon" aria-label={te ? "ఫోటో అందుబాటులో లేదు" : "Photo not provided"}>
+                      <div className="flex h-full flex-col items-center justify-center gap-2 text-maroon">
                         <span className="text-5xl" aria-hidden="true">💍</span>
                         <span className="text-xs font-semibold">{te ? "ఫోటో ఇవ్వలేదు" : "Photo not provided"}</span>
                       </div>

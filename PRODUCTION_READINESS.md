@@ -1,13 +1,14 @@
-# Production readiness — rechecked 2026-10-15
+# Production readiness — rechecked 2026-10-19
 
 ## Decision
 
 **NO-GO for public production from this worktree.** Local lint, builds, regression tests, a temporary isolated preview, and static Compose assertions pass. They do not establish an authorized production host, data migration, disaster recovery, real provider operation, DNS/TLS, or release approval. Do not describe this checkout as launched, fully production-ready, or externally verified.
 
-## Latest local verification — 2026-10-18
+## Latest local verification — 2026-10-19
 
-- Next.js and `eslint-config-next` are now locked to **16.4.2**; `npm run lint`, `npx tsc --noEmit`, and `npm run build` passed. The build generated 52 routes; link/static/security gates and the new API-client regression checks passed.
-- Backend syntax/compileall, atomic persistence checks, the full direct executable integration sweep (**68/68 scripts**), corrected route fuzz (**356 probes, 0 HTTP 5xx**), and pytest (**16 passed, 1 dependency deprecation warning**) passed. Browser/axe checks remain unavailable because Chromium is not installed in this sandbox.
+- Next.js and `eslint-config-next` are locked to **16.4.2**; `npm run lint`, `npx tsc --noEmit`, and `npm run build` passed. The build generated **53 routes**; link/static/security gates and API-client regressions passed.
+- Backend compilation and the full direct executable integration sweep passed: **69/69 scripts**. The focused request-safety suite passed **11/11** after adding production health privacy coverage. The browser/axe suites were invoked locally but skipped because Chromium is not installed; the strict remote Chromium run is now green.
+- Production public `/api/health` now returns liveness only; operational counts/payment mode/WhatsApp queue details are available only through authenticated `/api/admin/health`.
 - The crash-safe persistence pass covers runtime JSON reports and audit ledgers, transactional retention rollback, bounded transactional media uploads, and authenticated Blob exports. These are code-path protections, not evidence of a durable production volume or provider operation.
 
 ## Improvements now present in the repository
@@ -52,7 +53,7 @@ The preview and local tests use disposable state and do not prove that external 
 3. **Production infrastructure is unverified.** No authorized host, verified DNS/domain, TLS proxy, secret manager, deployment pipeline, monitoring, or release approval is connected to this session. Run Compose interpolation/build/health/restart checks on a staging host before release.
 4. **Provider configuration is owner-controlled and absent here.** Production needs real SMS or an owner-controlled OTP bridge, correctly provisioned owner/worker accounts, and—if charging is enabled—merchant credentials and sandbox-verified signature, amount/currency, duplicate/replay, refund, and reconciliation behavior. No business contact, merchant recipient, secret, payment reference, or channel destination is invented here. Keep live payments and outbound publishing off until operator sign-off.
 5. **Storage is single-node/file-based.** Continue with one backend worker only. Before horizontal scaling or high availability, migrate the system of record to a transactional database and redesign/test concurrency, sessions, rate limits, and background jobs.
-6. **Release QA remains incomplete.** The current local smoke checks do not establish visual responsiveness. Playwright's Chromium download failed because the browser CDN reset TLS connections and no system browser is installed; no headless/mobile visual run was completed. Complete keyboard/screen-reader and real-device mobile/desktop review, browser compatibility, performance/load, staging-provider, privacy/retention, incident, rollback, and media-restore drills.
+6. **Release QA remains incomplete.** The latest remote PR gate installed Chromium and passed responsive checks across the configured viewports/routes plus rendered axe and keyboard-focus checks. Local browser execution is still unavailable in this sandbox, and those CI checks do not replace real-device mobile/desktop review, browser compatibility, performance/load, staging-provider, privacy/retention, incident, rollback, and media-restore drills.
 7. **The worktree is not a reviewed release.** Review the full change set, run the final checks, merge through the authorized process, and deploy only the reviewed commit. Do not deploy this mutable worktree.
 8. **Historical credential exposure needs owner action.** A session-token-like value, phone number, and password hash exist in the base commit's security-audit evidence. The current file copy is redacted, but this work did not rewrite Git history or verify whether the historical account remains active. Treat related credentials as potentially exposed; the owner should rotate affected credentials, verify/revoke sessions using the durable token-version file on the actual production volume, and decide on authorized history cleanup before release.
 
@@ -79,4 +80,12 @@ The advanced persistence-boundary pass is green locally:
 | Frontend production build (Next.js 16.4.2) | **passed; 52 routes** |
 | Python compileall / diff check | **passed** |
 
-This continuation fixed checked persistence and rollback for payment fulfillment/refund boundaries, ad campaign/tracking writes, referral payouts/partner state, assisted orders, consent-backed unlocks, profile moderation/plan grants, photo review, and the astro queue/profile badge. The browser visual/axe gates remain blocked by the unavailable Chromium binary, and the non-fatal React 18 deprecation warning under Next 16.4.2 remains. These are local verification results only; production readiness still requires authorized provider, host, storage, backup/restore, migration, observability, and real-device validation.
+This continuation fixed checked persistence and rollback for payment fulfillment/refund boundaries, ad campaign/tracking writes, referral payouts/partner state, assisted orders, consent-backed unlocks, profile moderation/plan grants, photo review, and the astro queue/profile badge. The non-fatal React 18 deprecation warning under Next 16.4.2 remains. These are local verification results only; production readiness still requires authorized provider, host, storage, backup/restore, migration, observability, and real-device validation.
+
+## Deep verification — 2026-10-19 continuation
+
+- The isolated backend sweep passed **69/69 executable test scripts** with no tracked fixture changes. It included registration photo/durable-checkpoint tests, request safety, token revocation, storage/bootstrap gates, backup/restore, deploy hardening, abuse controls, privacy/contact consent, and Waves 9–43. The provider-dependent Wave 34 payment scenarios remained explicitly skipped because no owner-configured provider exists; no fake UTR, merchant recipient, webhook, or external message was generated.
+- The frontend passed `npm run lint`, link/static/a11y/security suites, `npx tsc --noEmit`, `npm run build` with **53 routes**, and `npm audit --omit=dev --audit-level=high` with **0 production dependency vulnerabilities**. `pip-audit` found no known vulnerabilities in the pinned runtime or test requirements.
+- Strict remote PR CI run `39275482509` passed all five required jobs, including Chromium responsive/accessibility QA, the hardened container/Compose contract, backend regression matrix, and secret/dependency visibility. This is CI evidence, not real-device or production-host evidence.
+- Full `npm audit` still reports **5 high-severity development-only findings** through the Next/ESLint lint dependency chain (`fast-glob` → `micromatch` → `braces`). The currently supported Next 16 lint stack has no compatible upstream remediation available in this checkout; the unsafe automatic fix would downgrade `eslint-config-next` across the supported setup. Keep this visible and revisit when the upstream chain releases a compatible fix.
+- No Docker engine, production host, DNS/TLS, real OTP/payment provider, live data volume, encrypted off-site backup, restore drill, migration, rollback, or external channel destination was accessed. The decision therefore remains **NO-GO for deployment** until the operator-run gates in this document are completed.

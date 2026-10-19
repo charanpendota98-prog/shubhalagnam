@@ -95,7 +95,9 @@ test("the registration action is available without scrolling on a phone", async 
   await page.goto("/", { waitUntil: "domcontentloaded" });
   await settle(page);
 
-  const register = page.locator('a[href="/register"]').first();
+  // The desktop header keeps its register link in the DOM but hides it on
+  // phones. Assert against the first rendered action, not that hidden copy.
+  const register = page.locator('a[href="/register"]:visible').first();
   await expect(register).toBeVisible();
 
   const box = await register.boundingBox();

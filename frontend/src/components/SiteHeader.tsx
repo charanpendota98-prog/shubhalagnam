@@ -223,12 +223,12 @@ export default function SiteHeader() {
           <img src={SITE_CONFIG.logoImage} alt="" width={44} height={44}
             className="w-10 h-10 lg:w-8 lg:h-8 rounded-xl lg:rounded-lg object-cover shadow-[0_5px_14px_rgba(122,12,46,.18)] ring-1 ring-maroon/10 shrink-0" />
           <div className="brand-lockup min-w-0">
-            <div className="brand-name" aria-label="Mana Vivaha">
+            <div className="brand-name">
               <span className="brand-name-primary">Mana</span>{" "}
               <span className="brand-name-accent">Vivaha</span>
               <span className="brand-spark" aria-hidden="true">✦</span>
             </div>
-            <div className="brand-name-telugu telugu" aria-label="మన వివాహ">
+            <div className="brand-name-telugu telugu">
               <span className="brand-name-primary">మన</span>{" "}
               <span className="brand-name-accent">వివాహ</span>
             </div>
