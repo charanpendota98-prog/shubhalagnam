@@ -70,6 +70,34 @@ check("expensive public reads have explicit route limits",
       H.RL_RULES.get("GET /api/search") == (120, 60)
       and H.RL_RULES.get("GET /api/facets") == (120, 60), H.RL_RULES)
 
+admin_health_denied = client.get("/api/admin/health")
+check("operational health is not public", admin_health_denied.status_code == 403,
+      admin_health_denied.status_code)
+admin_health = client.get("/api/admin/health", headers={"X-Admin-Key": H.ADMIN_KEY})
+check("admin health retains detailed diagnostics behind auth",
+      admin_health.status_code == 200
+      and "counts" in admin_health.json()
+      and "pay_mode" in admin_health.json(),
+      admin_health.text[:180])
+
+_original_app_env = os.environ.get("APP_ENV")
+os.environ["APP_ENV"] = "production"
+try:
+    production_health = client.get("/api/health")
+    production_body = production_health.json()
+    check("production health is a minimal public liveness response",
+          production_health.status_code == 200
+          and production_body.get("status") == "ok"
+          and "counts" not in production_body
+          and "pay_mode" not in production_body
+          and "wa_queue" not in production_body,
+          production_body)
+finally:
+    if _original_app_env is None:
+        os.environ.pop("APP_ENV", None)
+    else:
+        os.environ["APP_ENV"] = _original_app_env
+
 print(f"RESULT: {passed} passed / {failed} failed")
 if failed:
     raise SystemExit(1)

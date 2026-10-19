@@ -10354,21 +10354,51 @@ def api_meta_home_stats():
             "message_telugu": "✅ Homepage numbers అన్నీ live — backend నుంచి"}
 
 
-@app.get("/api/health")
-def api_health():
-    """🌊 WAVE 26 — EASY debug: server live? data ok? workers on? (no secrets)."""
+def _operational_health_payload() -> dict:
+    """Build the detailed health view for an authenticated operator only."""
     try:
         import publisher as _PUB
         wa_q = len(getattr(_PUB, "WA_QUEUE", []) or [])
     except Exception:
         wa_q = -1
-    return {"success": True, "service": "manavivaha-api", "version": "2.0-w26",
+    return {
+        "success": True,
+        "service": "manavivaha-api",
+        "version": "2.1-hardened",
+        "time": datetime.utcnow().isoformat(),
+        "pay_mode": PP.pay_config().get("mode", ""),
+        "counts": {
+            "users": len(DB_USERS),
+            "interests": len(DB_INTERESTS),
+            "payments": len(DB_PAYMENTS),
+            "orders": len(PP.PAY_ORDERS),
+        },
+        "wa_queue": wa_q,
+        "message_telugu": "✅ Server bane ఉంది",
+    }
+
+
+@app.get("/api/health")
+def api_health():
+    """Public liveness only; operational counts stay behind admin auth in production."""
+    if _is_production_environment():
+        return {
+            "success": True,
+            "service": "manavivaha-api",
+            "version": "2.1-hardened",
             "time": datetime.utcnow().isoformat(),
-            "pay_mode": PP.pay_config().get("mode", ""),
-            "counts": {"users": len(DB_USERS), "interests": len(DB_INTERESTS),
-                       "payments": len(DB_PAYMENTS), "orders": len(PP.PAY_ORDERS)},
-            "wa_queue": wa_q,
-            "message_telugu": "✅ Server bane ఉంది"}
+            "status": "ok",
+            "message_telugu": "✅ Server bane ఉంది",
+        }
+    # Local/test health keeps its detailed shape for diagnostics and regression suites.
+    return _operational_health_payload()
+
+
+@app.get("/api/admin/health")
+def api_admin_health(request: Request):
+    """Authenticated operational health; never expose counts/payment mode publicly."""
+    require_admin(request)
+    return _operational_health_payload()
 
 
 @app.get("/api/admin/audit")

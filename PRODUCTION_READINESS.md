@@ -1,13 +1,14 @@
-# Production readiness — rechecked 2026-10-15
+# Production readiness — rechecked 2026-10-19
 
 ## Decision
 
 **NO-GO for public production from this worktree.** Local lint, builds, regression tests, a temporary isolated preview, and static Compose assertions pass. They do not establish an authorized production host, data migration, disaster recovery, real provider operation, DNS/TLS, or release approval. Do not describe this checkout as launched, fully production-ready, or externally verified.
 
-## Latest local verification — 2026-10-18
+## Latest local verification — 2026-10-19
 
-- Next.js and `eslint-config-next` are now locked to **16.4.2**; `npm run lint`, `npx tsc --noEmit`, and `npm run build` passed. The build generated 52 routes; link/static/security gates and the new API-client regression checks passed.
-- Backend syntax/compileall, atomic persistence checks, the full direct executable integration sweep (**68/68 scripts**), corrected route fuzz (**356 probes, 0 HTTP 5xx**), and pytest (**16 passed, 1 dependency deprecation warning**) passed. Browser/axe checks remain unavailable because Chromium is not installed in this sandbox.
+- Next.js and `eslint-config-next` are locked to **16.4.2**; `npm run lint`, `npx tsc --noEmit`, and `npm run build` passed. The build generated **53 routes**; link/static/security gates and API-client regressions passed.
+- Backend compilation and the full direct executable integration sweep passed: **69/69 scripts**. The focused request-safety suite passed **11/11** after adding production health privacy coverage. The browser/axe suites were invoked locally but skipped because Chromium is not installed; CI now installs Chromium and runs them in strict mode.
+- Production public `/api/health` now returns liveness only; operational counts/payment mode/WhatsApp queue details are available only through authenticated `/api/admin/health`.
 - The crash-safe persistence pass covers runtime JSON reports and audit ledgers, transactional retention rollback, bounded transactional media uploads, and authenticated Blob exports. These are code-path protections, not evidence of a durable production volume or provider operation.
 
 ## Improvements now present in the repository

@@ -88,7 +88,7 @@ Start the stack only after the appropriate existing-data or one-time-bootstrap p
 docker compose --env-file .env.production -f docker-compose.prod.yml up -d --build
 ```
 
-After startup, confirm both services are healthy before enabling promotion or payments:
+After startup, confirm both services are healthy before enabling promotion or payments. In production, the public `/api/health` endpoint is intentionally minimal (liveness only); registration/payment/queue counts and payment mode are available only through the authenticated `/api/admin/health` route.
 
 ```bash
 docker compose --env-file .env.production -f docker-compose.prod.yml ps
