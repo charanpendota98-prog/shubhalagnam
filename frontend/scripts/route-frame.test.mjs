@@ -30,6 +30,7 @@ test("route chrome is responsive and keeps the page content in its own layer", (
   assert.match(css, /\.route-context__note\s*\{[\s\S]*?white-space:\s*nowrap/);
   assert.match(css, /@media \(max-width: 639px\)\s*\{[\s\S]*?\.route-context__note\s*\{\s*display:\s*none/);
   assert.match(css, /\.route-frame__content\s*\{/);
+  assert.match(frame, /<aside className="route-context" aria-label=/);
 });
 
 test("direct profile search uses shared form and action primitives", () => {

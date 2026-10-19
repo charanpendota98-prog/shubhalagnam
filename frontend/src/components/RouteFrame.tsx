@@ -79,7 +79,7 @@ export default function RouteFrame({ children }: { children: ReactNode }) {
   return (
     <div className="route-frame" data-route={key.slice(1) || "home"} data-private={isPrivate ? "true" : "false"}>
       {!isHome && (
-        <div className="route-context" aria-label={te ? "పేజీ context" : "Page context"}>
+        <aside className="route-context" aria-label={te ? "పేజీ context" : "Page context"}>
           <div className="route-context__inner">
             <span className="route-context__icon" aria-hidden="true">{meta.icon}</span>
             <span className="route-context__zone">{te ? meta.zoneTe : meta.zone}</span>
@@ -88,7 +88,7 @@ export default function RouteFrame({ children }: { children: ReactNode }) {
             <span className="route-context__note">{te ? meta.noteTe : meta.note}</span>
             <span className="route-context__live"><i aria-hidden="true" />{te ? "ఈ పేజీ" : "This page"}</span>
           </div>
-        </div>
+        </aside>
       )}
       <div className="route-frame__content">{children}</div>
     </div>
