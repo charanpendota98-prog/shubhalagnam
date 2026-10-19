@@ -79,7 +79,8 @@ export function CardSkeleton() {
 /** List of card skeletons */
 export function CardSkeletonList({ n = 4 }: { n?: number }) {
   return (
-    <div className="space-y-3" aria-busy="true" aria-label="Loading profiles">
+    <div className="space-y-3" aria-busy="true">
+      <span className="sr-only">Loading profiles</span>
       {Array.from({ length: n }).map((_, i) => <CardSkeleton key={i} />)}
     </div>
   );
