@@ -31,6 +31,8 @@ for (const route of ROUTES) {
       id: violation.id,
       impact: violation.impact,
       nodes: violation.nodes.length,
+      targets: violation.nodes.map((node) => node.target),
+      html: violation.nodes.map((node) => node.html.slice(0, 600)),
       help: violation.help,
     }));
     expect(summary, `axe violations on ${route}: ${JSON.stringify(summary, null, 2)}`).toEqual([]);
