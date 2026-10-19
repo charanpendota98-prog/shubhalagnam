@@ -81,13 +81,55 @@ jobs:
       - name: Install Chromium for strict browser tests
         run: npx playwright install --with-deps chromium
       - name: Run responsive viewport checks
+        id: visual
         env:
           REQUIRE_VISUAL_TESTS: "1"
-        run: npm run test:visual
+          PLAYWRIGHT_JSON_OUTPUT_FILE: artifacts/visual-results.json
+        run: |
+          mkdir -p artifacts
+          npm run test:visual
+      - name: Surface responsive failure diagnostics
+        if: ${{ always() && steps.visual.outcome == 'failure' }}
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          report = Path("artifacts/visual-results.json")
+          if not report.exists():
+              print("::error title=Responsive QA::Playwright did not produce a JSON report")
+              raise SystemExit(0)
+          data = json.loads(report.read_text())
+          emitted = 0
+          for suite in data.get("suites", []):
+              for spec in suite.get("specs", []):
+                  for result in spec.get("tests", []):
+                      if result.get("status") not in {"failed", "timedOut", "interrupted"}:
+                          continue
+                      title = " > ".join([*suite.get("titlePath", []), spec.get("title", "")]).strip(" >")
+                      errors = result.get("results", [])[-1].get("errors", []) if result.get("results") else []
+                      message = " ".join(str(error.get("message", "")) for error in errors).replace("\n", " ").strip()
+                      message = message[:3500] or "No Playwright error message was recorded"
+                      print(f"::error title=Responsive QA::{title}: {message}")
+                      emitted += 1
+          if emitted == 0:
+              print("::error title=Responsive QA::The visual suite failed without a serialised test failure")
+          PY
       - name: Run rendered WCAG and keyboard-focus checks
         env:
           REQUIRE_VISUAL_TESTS: "1"
-        run: npm run test:axe
+          PLAYWRIGHT_JSON_OUTPUT_FILE: artifacts/axe-results.json
+        run: |
+          mkdir -p artifacts
+          npm run test:axe
+      - name: Upload browser QA diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-qa-${{ github.sha }}
+          path: frontend/artifacts
+          if-no-files-found: ignore
+          retention-days: 7
 
   containers:
     name: Hardened OCI container build and Compose contract

@@ -57,7 +57,10 @@ if (!available) {
 
 const binary = path.join(frontendRoot, "node_modules", ".bin", "playwright");
 const runner = fs.existsSync(binary) ? binary : "npx";
-const argv = fs.existsSync(binary) ? ["test", ...args] : ["playwright", "test", ...args];
+const reporterArgs = process.env.PLAYWRIGHT_JSON_OUTPUT_FILE ? ["--reporter=json"] : [];
+const argv = fs.existsSync(binary)
+  ? ["test", ...args, ...reporterArgs]
+  : ["playwright", "test", ...args, ...reporterArgs];
 
 const result = spawnSync(runner, argv, { stdio: "inherit", cwd: frontendRoot, shell: false });
 process.exit(typeof result.status === "number" ? result.status : 1);
