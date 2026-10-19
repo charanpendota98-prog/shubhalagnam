@@ -136,7 +136,10 @@ export type ApiResult<T> = {
 
 export function getToken(): string {
   if (typeof window === "undefined") return "";
-  try { return localStorage.getItem(TOKEN_KEY) || sessionStorage.getItem(TOKEN_KEY) || ""; }
+  // New sessions are HttpOnly-cookie authenticated. A sessionStorage token is
+  // retained only as a short-lived migration/fallback credential; never keep a
+  // reusable member bearer token in persistent localStorage.
+  try { return sessionStorage.getItem(TOKEN_KEY) || ""; }
   catch { return ""; }
 }
 
@@ -146,16 +149,31 @@ export function getTsapId(): string {
   catch { return ""; }
 }
 
-// 🌊 WAVE 17 — keep=true (default) → localStorage (always logged in); false → sessionStorage
+// keep=true preserves the non-secret profile id, not the bearer token. The
+// server-issued HttpOnly cookie is the durable session; sessionStorage is a
+// bounded compatibility path for older/header-based deployments.
 export function setToken(token: string, tsapId?: string, keep = true) {
   if (typeof window === "undefined") return;
   try {
-    const store = keep ? localStorage : sessionStorage;
-    const other = keep ? sessionStorage : localStorage;
-    if (token) store.setItem(TOKEN_KEY, token);
-    if (tsapId) store.setItem(TSAP_KEY, tsapId);
-    try { other.removeItem(TOKEN_KEY); other.removeItem(TSAP_KEY); } catch { /* ignore */ }
+    if (token) sessionStorage.setItem(TOKEN_KEY, token);
+    else sessionStorage.removeItem(TOKEN_KEY);
+    if (tsapId) {
+      (keep ? localStorage : sessionStorage).setItem(TSAP_KEY, tsapId);
+    }
+    // Remove any legacy persistent bearer credential immediately after login.
+    localStorage.removeItem(TOKEN_KEY);
+    if (keep) sessionStorage.removeItem(TSAP_KEY);
   } catch { /* private mode */ }
+}
+
+export function getCsrfToken(): string {
+  if (typeof document === "undefined") return "";
+  try {
+    const item = document.cookie.split(";").map((part) => part.trim()).find((part) => part.startsWith("mv_member_csrf="));
+    return item ? decodeURIComponent(item.slice("mv_member_csrf=".length)) : "";
+  } catch {
+    return "";
+  }
 }
 
 export function getAdminKey(): string {
@@ -216,6 +234,8 @@ export async function apiFetch<T = unknown>(path: string, opts: Opts = {}): Prom
     if (key) headers["X-Admin-Key"] = key;
   }
   if (body !== undefined) headers["Content-Type"] = "application/json";
+  const csrf = getCsrfToken();
+  if (csrf) headers["X-CSRF-Token"] = csrf;
   headers["Accept-Language"] = selectedLanguage() === "en" ? "en" : "te";
 
   for (let attempt = 0; attempt <= retries; attempt++) {
@@ -227,6 +247,7 @@ export async function apiFetch<T = unknown>(path: string, opts: Opts = {}): Prom
         headers,
         body: form ? form : body !== undefined ? JSON.stringify(body) : undefined,
         signal: ctrl.signal,
+        credentials: "same-origin",
         cache,
       });
       clearTimeout(timer);
@@ -358,10 +379,13 @@ export function writeLocal(key: string, value: unknown) {
 }
 
 /** fetch() ki auth headers (token + admin key) — muttadi calls ki convenience */
-export function authHeaders(admin = false): Record<string, string> {
-  const h: Record<string, string> = { "Content-Type": "application/json" };
+export function authHeaders(admin = false, json = true): Record<string, string> {
+  const h: Record<string, string> = {};
+  if (json) h["Content-Type"] = "application/json";
   const token = getToken();
   if (token) h["X-Tsap-Token"] = token;
+  const csrf = getCsrfToken();
+  if (csrf) h["X-CSRF-Token"] = csrf;
   if (admin) {
     const key = getAdminKey();
     if (key) h["X-Admin-Key"] = key;

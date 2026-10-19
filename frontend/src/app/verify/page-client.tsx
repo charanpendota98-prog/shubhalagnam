@@ -9,7 +9,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Duo, duo } from "@/lib/duo";
 import { useLang } from "@/lib/lang";
-import { apiDisplayMessage, getToken, TSAP_KEY, readApiJson } from "@/lib/api";
+import { apiDisplayMessage, authHeaders, TSAP_KEY, readApiJson } from "@/lib/api";
 import VerificationProgress from "@/components/VerificationProgress";
 
 export default function VerifyPage() {
@@ -31,9 +31,9 @@ export default function VerifyPage() {
   const load = useCallback(async () => {
     if (!tsapId) return;
     try {
-      const token = getToken();
       const r = await fetch(`/api/photo/status/${encodeURIComponent(tsapId)}`, {
-        headers: token ? { "X-Tsap-Token": token } : {},
+        headers: authHeaders(),
+        credentials: "same-origin",
         cache: "no-store",
       });
       if (r.ok) {
@@ -52,10 +52,10 @@ export default function VerifyPage() {
       const fd = new FormData();
       fd.append("file", f);
       fd.append("tsap_id", tsapId);
-      const token = getToken();
       const r = await fetch("/api/verify/selfie", {
         method: "POST",
-        headers: token ? { "X-Tsap-Token": token } : {},
+        headers: authHeaders(false, false),
+        credentials: "same-origin",
         body: fd,
       });
       const d = await readApiJson(r).catch(() => ({}));

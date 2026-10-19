@@ -34,6 +34,7 @@ export default function PayBox({ planCode, price, label, purpose = "credits", ts
   const [done, setDone] = useState("");
   const [utr, setUtr] = useState("");
   const [claimBusy, setClaimBusy] = useState(false);
+  const [statusBusy, setStatusBusy] = useState(false);
   const [promo, setPromo] = useState("");
   const [promoBusy, setPromoBusy] = useState(false);
 
@@ -92,6 +93,24 @@ export default function PayBox({ planCode, price, label, purpose = "credits", ts
       if (r.ok) { setOrder({ ...order, status: "claimed" }); setUtr(""); }
     } catch { setMsg(te ? "Network problem — మళ్లీ try చెయ్యండి" : "Network problem — retry"); }
     setClaimBusy(false);
+  };
+
+  const refreshStatus = async () => {
+    if (!order || statusBusy) return;
+    setStatusBusy(true);
+    try {
+      const r = await fetch(`/api/pay/status/${encodeURIComponent(order.id)}`, { headers: authHeaders() });
+      const d = await readApiJson(r);
+      if (!r.ok) throw new Error(apiDisplayMessage(d, te, te ? "ఆర్డర్ status అందుబాటులో లేదు." : "The order status is unavailable."));
+      const next = d.order || {};
+      setOrder({ ...order, ...next, qr_token: order.qr_token || next.qr_token });
+      if (next.status === "paid") setDone(te ? "✅ Payment verified — credits added." : "✅ Payment verified — credits added.");
+      else setMsg(te ? `ℹ️ ప్రస్తుత order status: ${next.status || "pending"}` : `ℹ️ Current order status: ${next.status || "pending"}`);
+    } catch (e: any) {
+      setMsg(e?.message || (te ? "Status refresh విఫలమైంది." : "Status refresh failed."));
+    } finally {
+      setStatusBusy(false);
+    }
   };
 
   const payNow = async () => {
@@ -215,7 +234,7 @@ export default function PayBox({ planCode, price, label, purpose = "credits", ts
                 </span>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={`/api/pay/qr/${order.id}.png`}
+                  src={`/api/pay/qr/${encodeURIComponent(order.id)}.png?token=${encodeURIComponent(order.qr_token || "")}`}
                   alt="Scan and Pay via UPI"
                   width={140}
                   height={140}
@@ -250,6 +269,10 @@ export default function PayBox({ planCode, price, label, purpose = "credits", ts
               )}
             </div>
           )}
+          <button type="button" onClick={refreshStatus} disabled={statusBusy}
+            className="w-full rounded-lg border border-slate-300 bg-white px-4 py-2 text-xs font-bold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50">
+            {statusBusy ? (te ? "Status చూస్తున్నాం…" : "Checking status…") : (te ? "↻ Payment status refresh చేయండి" : "↻ Refresh payment status")}
+          </button>
           <button type="button" onClick={payNow} disabled={busy}
             className="w-full rounded-lg bg-[#7A0C2E] hover:bg-[#911239] text-white px-4 py-2.5 text-xs font-black shadow-md transition disabled:opacity-50">
             {order.mode === "razorpay" ? (te ? "💳 Razorpay ఆన్‌లైన్ పే (Cards/UPI/NetBanking)" : "💳 Pay with Razorpay (Cards/UPI/NetBanking)") : te ? "💳 ఆన్‌లైన్ పేమెంట్ పూర్తి చేయండి" : "💳 Complete Payment"}

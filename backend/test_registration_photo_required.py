@@ -131,12 +131,42 @@ def test_registration_stores_real_decoded_format_and_keeps_pending_photo_private
     filename = photo_url.rsplit("/", 1)[-1]
     photo_path = Path(main.PHOTO_MEDIA_DIR) / filename
     assert photo_path.is_file()
-    assert photo_path.read_bytes() == TEST_PROFILE_PHOTO
+    stored_photo = photo_path.read_bytes()
+    assert stored_photo != b""
+    assert validate_photo(stored_photo, "stored.jpg")["ok"]
+    # Accepted media is re-encoded before storage so public approval cannot
+    # disclose EXIF/GPS/device metadata from the original upload.
+    with Image.open(io.BytesIO(stored_photo)) as stored_image:
+        assert not stored_image.getexif()
     assert client.get(photo_url).status_code == 404  # pending means not public, even when user opts in
 
     owner_response = client.get(photo_url, headers={"X-Tsap-Token": response.json()["auth_token"]})
     assert owner_response.status_code == 200
     assert owner_response.headers["content-type"] == "image/jpeg"
+
+
+def test_registration_strips_embedded_image_metadata_before_storage():
+    source = Image.open(io.BytesIO(TEST_PROFILE_PHOTO)).convert("RGB")
+    metadata = Image.Exif()
+    metadata[0x010E] = "private device/location description"
+    metadata[0x0110] = "private camera model"
+    original = io.BytesIO()
+    source.save(original, format="JPEG", quality=88, exif=metadata)
+    original_bytes = original.getvalue()
+    assert Image.open(io.BytesIO(original_bytes)).getexif()
+
+    payload = form("9911001007")
+    payload["full_name"] = "Metadata Policy Member"
+    response = client.post(
+        "/api/register",
+        data=payload,
+        files={"photo_file": ("profile.jpg", original_bytes, "image/jpeg")},
+    )
+    assert response.status_code == 200, response.text[:240]
+    profile = main._find_user(response.json()["tsap_id"])
+    stored = Path(main.PHOTO_MEDIA_DIR) / profile["photo_url"].rsplit("/", 1)[-1]
+    with Image.open(stored) as sanitized:
+        assert not sanitized.getexif()
 
 
 def test_registration_fails_safely_if_durable_checkpoint_fails():

@@ -1,0 +1,16 @@
+[Unit]
+Description=Mana Vivaha encrypted OCI volume backup
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+User=manaops
+Group=manaops
+WorkingDirectory=/opt/mana-vivaha
+EnvironmentFile=/opt/mana-vivaha/.backup.env
+Environment=MANA_VIVAHA_BACKUP_APPROVED=YES
+ExecStart=/opt/mana-vivaha/scripts/backup-volume.sh
+# Install this unit only after the owner has approved unattended backups and
+# made .backup.env root-owned (0640, group manaops). The script still refuses
+# missing/invalid bucket, region, age, OCI CLI, or recipient configuration.

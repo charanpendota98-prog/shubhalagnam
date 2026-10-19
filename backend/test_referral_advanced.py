@@ -385,7 +385,7 @@ with TestClient(main.app) as c:
     check("API admin reject → wallet malli", rej2["success"] and rej2["request"]["status"] == "rejected")
 
     # refund clawback API
-    rf = c.post("/api/admin/refund/%s?reason=api_test" % new_id).json()
+    rf = c.post("/api/admin/refund/%s?amount=199&reason=api_test" % new_id).json()
     check("POST /api/admin/refund — clawback", rf["success"] and rf["reversed"] == 50)
 
     # 🔒 privacy: public dashboard + /payouts lo UPI/bank MASKED undali

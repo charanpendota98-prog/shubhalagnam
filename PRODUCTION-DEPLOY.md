@@ -1,12 +1,12 @@
 # Mana Vivaha — production deployment gate
 
-> **NO-GO for public production from this checkout (rechecked 2026-10-13).** The production bundle has a durable named volume, explicit runtime-store paths, one backend worker, loopback-only frontend exposure, and fail-closed storage validation. Production now also refuses to start on a missing, corrupt, incomplete, or unmarked-empty core registrations database; first-run empty initialization requires an explicit opt-in. These safeguards have only been tested against disposable local stores. No production host, real volume/database, verified domain, operator secret manager, real provider credentials, migration backup, off-host media backup, or Docker engine is connected to this session. The backend still uses a single-process JSON system of record; this is not a horizontally scalable or highly available database deployment.
+> **NO-GO for public production from this checkout (rechecked 2026-10-18).** The production bundle has a durable named volume, explicit runtime-store paths, one backend worker, non-root/read-only runtime targets, bounded container resources, loopback-only frontend exposure, and fail-closed storage validation. Production now also refuses to start on a missing, corrupt, incomplete, or unmarked-empty core registrations database; first-run empty initialization requires an explicit opt-in. These safeguards have only been tested against disposable local stores. No production host, real volume/database, verified domain, operator secret manager, real provider credentials, migration backup, off-host media backup, or Docker engine is connected to this session. The backend still uses a single-process JSON system of record; this is not a horizontally scalable or highly available database deployment.
 
 ## Deployment shape and limits
 
-`docker-compose.prod.yml` is now a **standalone** production stack. Do not combine it with the development `docker-compose.yml`: the latter bind-mounts source code and exposes development services. The production stack runs the frontend and one backend worker, stores runtime JSON and media under the named `appdata` volume, keeps the backend API off the host network, and binds the frontend to `127.0.0.1:3000` for the host Caddy reverse proxy. It intentionally does not start the unused PostgreSQL or Redis services from the development stack; the application has not been migrated to use either as its system of record.
+`docker-compose.prod.yml` is now a **standalone** production stack. Do not combine it with the development `docker-compose.yml`: the latter bind-mounts source code and exposes development services. The production stack builds the backend `prod` target (Python 3.11, non-root) and the frontend `runner` target (Next standalone, Node 20 Alpine, non-root), runs one backend worker, stores runtime JSON and media under the named `appdata` volume, keeps the backend API off the host network, and binds the frontend to `127.0.0.1:3000` for the host Caddy reverse proxy. Backend/frontend/bot containers use read-only roots, `tmpfs` scratch space, `no-new-privileges`, dropped capabilities, bounded CPU/RAM/PIDs, and rotated JSON logs. It intentionally does not start the unused PostgreSQL or Redis services from the development stack; the application has not been migrated to use either as its system of record.
 
-This layout protects state from ordinary container replacement on the same host. It does **not** protect against host/disk loss, provide multi-host failover, or permit safe horizontal backend scaling. Configure encrypted off-host volume backups and test restore before accepting real member or payment data. The application ZIP backs up JSON/JSONL state; it does not include uploaded media files, which require a separate backup of the persistent media volume.
+This layout protects state from ordinary container replacement on the same host. It does **not** protect against host/disk loss, provide multi-host failover, or permit safe horizontal backend scaling. Configure encrypted off-host volume backups and test restore before accepting real member or payment data. The application ZIP backs up JSON/JSONL state; it does not include uploaded media files, which require a separate backup of the persistent media volume. The reviewable OCI host/bootstrap, encrypted volume backup, and new-volume restore artifacts are in [`deploy/oci/`](deploy/oci/) and [`scripts/backup-volume.sh`](scripts/backup-volume.sh)/[`scripts/restore-volume.sh`](scripts/restore-volume.sh); each is guarded and does not authorize public launch by itself.
 
 ## 1. Protect current data before changing storage
 
@@ -17,7 +17,16 @@ Before starting this stack on any host:
 3. Map every existing JSON/JSONL and media store to the new volume **without replacing it with an empty volume**. In particular, preserve any prior `token_versions.json` values at `TSAP_TOKEN_VERSIONS_FILE` before cutover, or arrange an approved session-secret rotation if the prior state cannot be recovered. The configured volume name defaults to `mana-vivaha-appdata`; changing `MANA_VIVAHA_VOLUME_NAME` later creates a different, empty store.
 4. Keep the old storage untouched until the new volume has been checked against the backup and a rollback has been tested.
 5. Confirm `TSAP_DB_FILE` points at the verified existing `data_db.json` on the volume that will remain attached to the backend. A populated legacy JSON snapshot is accepted after structural checks; startup does not copy or migrate another volume automatically.
-6. For a **verified brand-new installation only**, use the separate one-shot initializer in Section 3 before starting the service. It requires explicit confirmation, verifies the target path is inside the durable volume, and refuses to overwrite any existing path. Normal server startup has no empty-database override, so a replacement empty volume will remain blocked.
+6. The new production backend runs as UID/GID `10001:10001`. A newly created named volume normally inherits the image directory ownership; for an existing volume, inspect first and perform a one-time maintenance migration before launch, without changing data contents:
+
+   ```bash
+   docker run --rm --user 0 -v mana-vivaha-appdata:/var/lib/manavivaha \
+     --entrypoint sh mana-vivaha-backend:reviewed \
+     -c 'chown -R 10001:10001 /var/lib/manavivaha'
+   ```
+
+   Replace the volume/image names with the reviewed project values. Verify ownership and archive the volume before this operation. Never solve a permission error with `chmod 777` or by making the production container root.
+7. For a **verified brand-new installation only**, use the separate one-shot initializer in Section 3 before starting the service. It requires explicit confirmation, verifies the target path is inside the durable volume, and refuses to overwrite any existing path. Normal server startup has no empty-database override, so a replacement empty volume will remain blocked.
 
 The backend refuses to start when the database is missing, corrupt/unreadable, missing required collections, malformed, or empty without the initialization marker. It does not truncate or auto-replace corrupt data. Duplicate/malformed registration rows also block production restore instead of being filtered and written back. Preserve the source volume and restore/repair only from a verified copy. Do not run `docker compose down -v`, delete the named volume, or change its name against live data.
 
@@ -39,7 +48,7 @@ cd backend
 .venv/bin/python provision_control.py
 ```
 
-Set `CONTROL_ACCOUNTS_JSON` from that output. Production rejects plaintext control passwords. Set `APP_ENV=production`, `OTP_DEV_MODE=false`, `PAYMENT_AUTO_APPROVE=false`, and `DEMO_SEED_ENABLED=false`.
+Set `CONTROL_ACCOUNTS_JSON` from that output. Production rejects plaintext control passwords. Set `APP_ENV=production`, `OTP_DEV_MODE=false`, `PAYMENT_AUTO_APPROVE=false`, and `DEMO_SEED_ENABLED=false`. In production, member authentication issues a Secure/SameSite/HttpOnly `mv_member_session` cookie plus a double-submit `mv_member_csrf` cookie; cookie-authenticated mutations require `X-CSRF-Token`. The frontend keeps only a short-lived sessionStorage migration fallback and removes legacy persistent bearer tokens. Verify this behavior through the TLS hostname before launch.
 
 A real OTP provider is required for production startup. Configure a verified SMS provider and template (or an owner-controlled WhatsApp OTP bridge) using the appropriate secret variables. Do not enable live payments until a real merchant account, webhook secret, amount/currency flow, and sandbox replay/failure behavior have been verified. Leave `PAYMENTS_LIVE=false` until that sign-off. Leave WhatsApp/channel publishing disabled until the owner confirms the exact sender and destinations.
 
@@ -54,6 +63,8 @@ Use Docker Compose v2. This sandbox does not have Docker installed, so the produ
 ```bash
 docker compose version
 docker compose --env-file .env.production -f docker-compose.prod.yml config --quiet
+# Build both hardened runtime targets; review the generated image users and sizes.
+docker compose --env-file .env.production -f docker-compose.prod.yml build --pull backend frontend
 ```
 
 Do **not** append `-f docker-compose.yml`. Before the first `up`:
@@ -105,7 +116,9 @@ docker compose --profile telegram --env-file .env.production -f docker-compose.p
 
 ## 4. TLS reverse proxy
 
-Install Caddy on the host and replace the example hostnames in `Caddyfile.example` with domains the operator owns and has verified in DNS. The frontend listens on host loopback only; Caddy should proxy to `127.0.0.1:3000`. The backend port is not published to the host. The control hostname is not a security boundary; server-side session and role checks remain mandatory.
+Install Caddy on the host and replace the example hostnames in `Caddyfile.example` with domains the operator owns and has verified in DNS.
+
+The backend deliberately ignores `X-Forwarded-For` unless `TRUSTED_PROXY_CIDRS` names the immediate reverse-proxy peer. Set that variable to the verified proxy/container CIDR(s) before launch; never set it to the public internet or an unverified broad range. This policy is used by both abuse limits and referral analytics, so a missing or invalid value fails closed to the direct peer address. The frontend listens on host loopback only; Caddy should proxy to `127.0.0.1:3000`. The backend port is not published to the host. The control hostname is not a security boundary; server-side session and role checks remain mandatory.
 
 ## 5. Staging smoke/recovery gate before public launch
 

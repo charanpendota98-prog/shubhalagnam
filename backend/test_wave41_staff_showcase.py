@@ -28,6 +28,12 @@ os.environ["STAFF_KEY"] = "staff-test-key-9876"
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 
+from test_storage import isolate_test_stores  # noqa: E402
+
+# Keep showcase state outside the checkout; this suite must never mutate the
+# tracked runtime fixture when it runs in CI or from a developer workstation.
+isolate_test_stores("wave41-staff-showcase")
+
 from fastapi.testclient import TestClient  # noqa: E402
 import main as M  # noqa: E402
 from hardening import ADMIN_KEY, STAFF_KEY  # noqa: E402

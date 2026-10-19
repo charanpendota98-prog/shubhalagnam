@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getAdminKey, getToken } from "@/lib/api";
+import { authHeaders } from "@/lib/api";
 import { isSafeSameOriginPath } from "@/lib/safe-media-path";
 
 type ProtectedImageProps = {
@@ -32,13 +32,12 @@ export default function ProtectedImage({ src, alt, className, admin = false }: P
 
     const controller = new AbortController();
     let createdUrl = "";
-    const headers: Record<string, string> = {};
-    const token = getToken();
-    const adminKey = admin ? getAdminKey() : "";
-    if (token) headers["X-Tsap-Token"] = token;
-    if (adminKey) headers["X-Admin-Key"] = adminKey;
-
-    fetch(src, { headers, cache: "no-store", signal: controller.signal })
+    fetch(src, {
+      headers: authHeaders(admin),
+      credentials: "same-origin",
+      cache: "no-store",
+      signal: controller.signal,
+    })
       .then((response) => {
         if (!response.ok) throw new Error("protected_media_unavailable");
         return response.blob();

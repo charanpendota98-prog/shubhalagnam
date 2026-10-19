@@ -287,8 +287,8 @@ check("E3 make_premium gifts interest-request credits only",
       and "verification" in r.json().get("message_telugu", "").lower() or r.status_code == 200,
       (before, after))
 for alias in ("/api/admin/grant-plan", "/api/admin/upgrade-user"):
-    r = client.post(alias, json={"tsap_id": GID, "plan": "S_199", "method": "ADMIN_COMPLIMENTARY"},
-                    headers=ADMIN)
+    r = client.post(alias, json={"tsap_id": GID, "plan": "S_199", "method": "ADMIN_COMPLIMENTARY",
+                              "notes": "E2E member support grant"}, headers=ADMIN)
     check("E4 %s grants a plan and records it as complimentary" % alias,
           r.status_code == 200, (r.status_code, r.text[:120]))
     check("E5 %s refuses an invented plan code" % alias,

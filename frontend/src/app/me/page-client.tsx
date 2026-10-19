@@ -2003,7 +2003,12 @@ function VoicePanel({ myId }: { myId: string }) {
     fd.append("tsap_id", myId);
     fd.append("file", file);
     try {
-      const res = await fetch("/api/voice/upload", { method: "POST", body: fd });
+      const res = await fetch("/api/voice/upload", {
+        method: "POST",
+        headers: authHeaders(false, false),
+        credentials: "same-origin",
+        body: fd,
+      });
       const d = await readApiJson(res);
       if (res.ok && d.success) setMsg({ ok: true, text: te ? "వాయిస్ బయోడేటా అప్‌లోడ్ అయింది! ✅" : "Voice bio uploaded successfully." });
       else setMsg({ ok: false, text: apiDisplayMessage(d, te, te ? "అప్‌లోడ్ విఫలమైంది. మళ్లీ ప్రయత్నించండి." : "Upload failed. Please try again.") });
@@ -2056,9 +2061,12 @@ function JathakamPanel({ myId }: { myId: string }) {
     fd.append("tsap_id", myId);
     fd.append("file", file);
     try {
-      const headers = authHeaders();
-      delete headers["Content-Type"];
-      const res = await fetch("/api/astro/jathakam/upload", { method: "POST", headers, body: fd });
+      const res = await fetch("/api/astro/jathakam/upload", {
+        method: "POST",
+        headers: authHeaders(false, false),
+        credentials: "same-origin",
+        body: fd,
+      });
       const d = await readApiJson(res);
       if (res.ok && d.success) {
         setMsg({ ok: true, text: te ? d.message_telugu || "జాతక పత్రం review queue లోకి వెళ్లింది." : d.message_en || "The horoscope document is pending review." });

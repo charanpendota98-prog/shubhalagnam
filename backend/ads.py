@@ -21,6 +21,7 @@ from atomic_store import atomic_json_dump
 import json
 import copy
 import os
+import re
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional
 from urllib.parse import urlsplit
@@ -213,8 +214,14 @@ def approve_campaign(cid: str, utr: str, days_override: int = 0) -> Dict:
     if c.get("status") != "pending":
         return {"success": False, "message_telugu": "⚠️ Pending campaign మాత్రమే approve చేయవచ్చు"}
     utr_value = str(utr or "").strip()
-    if len(utr_value) < 6 or len(utr_value) > 64:
-        return {"success": False, "message_telugu": "⚠️ Actual payment reference (6–64 characters) అవసరం"}
+    if (not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9 ./_:-]{5,63}", utr_value)
+            or not any(char.isdigit() for char in utr_value)):
+        return {"success": False, "message_telugu": "⚠️ Actual payment reference with a traceable number (6–64 characters) అవసరం"}
+    if any(str(existing.get("utr", "")).strip().upper() == utr_value.upper()
+           and str(existing.get("status", "")).lower() not in {"refunded", "reversed"}
+           for existing in CAMPAIGNS if existing is not c):
+        return {"success": False, "reason": "duplicate_payment_reference",
+                "message_telugu": "⚠️ ఈ payment reference ఇప్పటికే campaign కి వాడబడింది"}
     try:
         days = int(days_override or c.get("days") or RATES["min_days"])
     except (TypeError, ValueError):

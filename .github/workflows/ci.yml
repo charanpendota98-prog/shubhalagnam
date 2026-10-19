@@ -1,0 +1,121 @@
+name: quality-gates
+
+on:
+  push:
+    branches: [main, "arena/**"]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quality-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend regression matrix
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: backend/requirements-test.txt
+      - name: Install pinned test dependencies
+        run: python -m pip install -r backend/requirements-test.txt
+      - name: Compile application and tests
+        run: python -m py_compile backend/main.py backend/*.py
+      - name: Run every backend test script in an isolated process
+        working-directory: backend
+        shell: bash
+        run: |
+          set -euo pipefail
+          passed=0
+          for test_file in test_*.py; do
+            echo "=== ${test_file} ==="
+            python "${test_file}"
+            passed=$((passed + 1))
+          done
+          echo "${passed} backend test scripts passed"
+      - name: Verify tests did not mutate tracked runtime fixtures
+        run: git diff --exit-code -- backend/weekly_showcase.json
+
+  frontend:
+    name: Frontend lint, static gates, and production build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - run: npm run lint
+      - run: npx tsc --noEmit
+      - run: npm run build
+
+  containers:
+    name: Hardened OCI container build and Compose contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create non-production interpolation values
+        run: |
+          cat > ci.compose.env <<'EOF'
+          TSAP_API_KEY=ci-only-api-key
+          TSAP_AUTH_SECRET=ci-only-auth-secret
+          ADMIN_KEY=ci-only-admin-key
+          JWT_SECRET=ci-only-jwt-secret
+          CONTROL_ACCOUNTS_JSON={"owner":{"password_hash":"ci","role":"owner"}}
+          CORS_ORIGINS=https://ci.example.invalid
+          PUBLIC_SITE_URL=https://ci.example.invalid
+          EOF
+      - name: Validate production Compose targets
+        run: docker compose --env-file ci.compose.env -f docker-compose.prod.yml config --quiet
+      - name: Build backend production target
+        run: docker build --file backend/Dockerfile --target prod --tag mana-vivaha-ci-backend:sha-${GITHUB_SHA} backend
+      - name: Build frontend standalone runtime target
+        run: docker build --file frontend/Dockerfile --target runner --tag mana-vivaha-ci-frontend:sha-${GITHUB_SHA} frontend
+      - name: Verify runtime users are non-root
+        run: |
+          test "$(docker image inspect mana-vivaha-ci-backend:sha-${GITHUB_SHA} --format '{{.Config.User}}')" = app
+          test "$(docker image inspect mana-vivaha-ci-frontend:sha-${GITHUB_SHA} --format '{{.Config.User}}')" = nextjs
+
+  supply-chain:
+    name: Secret and dependency visibility checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - name: Report high-severity dependency advisories without hiding the artifact
+        run: npm audit --audit-level=high --json > ../npm-audit.json || true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: npm-audit-${{ github.sha }}
+          path: npm-audit.json
+          if-no-files-found: error
+          retention-days: 14
+      - name: Reject committed secret-like material
+        working-directory: .
+        run: |
+          set -euo pipefail
+          ! git grep -n -I -E 'rzp_live_[A-Za-z0-9]{6,}|AKIA[0-9A-Z]{10,}|-----BEGIN [A-Z ]+PRIVATE KEY-----|ghp_[A-Za-z0-9]{20,}' -- ':!frontend/package-lock.json'

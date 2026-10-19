@@ -496,7 +496,7 @@ export default function QuickUnlockModal({
                     </p>
                     <div className="flex flex-col items-center justify-center p-2 bg-[#FFFDF7] rounded-xl border border-gold/30">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={`/api/pay/qr/${payOrder.id}.png`} alt="UPI payment QR code" width={140} height={140}
+                      <img src={`/api/pay/qr/${encodeURIComponent(payOrder.id)}.png?token=${encodeURIComponent(payOrder.qr_token || "")}`} alt="UPI payment QR code" width={140} height={140}
                         className="w-32 h-32 rounded-lg border border-slate-200" />
                     </div>
                     <a href={`upi://pay?pa=${encodeURIComponent(payOrder.upi_id)}&pn=${encodeURIComponent("Mana Vivaha")}&am=${payOrder.final_amount}&cu=INR&tn=${encodeURIComponent(`ManaVivaha ${payOrder.id}`)}`}

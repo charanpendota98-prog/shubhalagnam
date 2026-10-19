@@ -4,6 +4,8 @@ from __future__ import annotations
 import os
 import sys
 from datetime import datetime, timedelta
+
+import pytest
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parents[1]
@@ -276,3 +278,150 @@ def test_referral_payout_rolls_back_wallet_when_state_save_fails(monkeypatch) ->
         assert REF.PAYOUTS == []
     finally:
         REF.PAYOUTS[:] = old_payouts
+
+
+def test_control_upgrade_requires_payment_proof_and_separate_comped_reason(monkeypatch) -> None:
+    user = {"tsap_id": "TST-CONTROL", "full_name": "Control User", "credits": 0,
+            "plan": "FREE", "credit_history": []}
+    old_users = list(M.DB_USERS)
+    old_payments = list(M.DB_PAYMENTS)
+    old_orders = list(PP.PAY_ORDERS)
+    M.DB_USERS[:] = [user]
+    M.DB_PAYMENTS[:] = []
+    M._reindex_users()
+    monkeypatch.setattr(M, "_control_write_guard", lambda request, roles: {"role": "owner", "username": "pytest-owner"})
+    monkeypatch.setattr(M.CONTROL_AUTH, "audit", lambda *args, **kwargs: None)
+    try:
+        with pytest.raises(Exception) as missing_proof:
+            M.control_profile_upgrade(user["tsap_id"], {
+                "plan": "S_99", "payment_mode": "UPI_QR", "amount": 99,
+            }, None)
+        assert getattr(missing_proof.value, "status_code", None) == 400
+        assert user["plan"] == "FREE"
+        assert M.DB_PAYMENTS == []
+
+        with pytest.raises(Exception) as missing_reason:
+            M.control_profile_upgrade(user["tsap_id"], {
+                "plan": "S_99", "payment_mode": "ADMIN_COMPLIMENTARY", "amount": 0,
+            }, None)
+        assert getattr(missing_reason.value, "status_code", None) == 400
+
+        result = M.control_profile_upgrade(user["tsap_id"], {
+            "plan": "S_99", "payment_mode": "UPI_QR", "amount": 99,
+            "utr": "123456789012", "notes": "bank statement checked",
+        }, None)
+        assert result["success"] is True
+        assert user["plan"] == "S_99"
+        assert any(row.get("utr") == "123456789012" and row.get("status") == "paid"
+                   for row in M.DB_PAYMENTS)
+        assert any(row.get("pay_order_id") == row.get("order_id")
+                   for row in PP.PAY_ORDERS if row.get("id") == row.get("pay_order_id"))
+    finally:
+        M.DB_USERS[:] = old_users
+        M.DB_PAYMENTS[:] = old_payments
+        PP.PAY_ORDERS[:] = old_orders
+        M._reindex_users()
+
+
+def test_razorpay_webhook_rejects_amount_and_currency_mismatch_before_fulfillment(monkeypatch) -> None:
+    user = {"tsap_id": "TST-WEBHOOK", "full_name": "Webhook User", "credits": 0,
+            "plan": "FREE", "credit_history": []}
+    old_users = list(M.DB_USERS)
+    old_payments = list(M.DB_PAYMENTS)
+    old_orders = list(PP.PAY_ORDERS)
+    M.DB_USERS[:] = [user]
+    M.DB_PAYMENTS.clear()
+    M._reindex_users()
+    order = {
+        "id": "pay_ord_WEBHOOK", "tsap_id": user["tsap_id"], "purpose": "credits",
+        "ref": "S_99", "amount": 99, "final_amount": 99, "status": "created",
+        "mode": "razorpay", "rzp_order_id": "rzp_WEBHOOK", "payment_id": "",
+        "created_at": datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S"), "paid_at": "",
+        "receipt": None,
+    }
+    PP.PAY_ORDERS[:] = [order]
+    monkeypatch.delenv("RAZORPAY_VERIFY_CAPTURE", raising=False)
+    monkeypatch.setenv("APP_ENV", "test")
+    try:
+        bad_amount = PP.handle_razorpay_webhook({
+            "event": "payment.captured",
+            "payload": {"payment": {"entity": {
+                "id": "pay_bad_amount", "order_id": "rzp_WEBHOOK", "amount": 9800, "currency": "INR", "status": "captured"
+            }}}
+        })
+        assert bad_amount["ok"] is False
+        assert bad_amount["reason"] == "amount_mismatch"
+        assert order["status"] == "created"
+        assert user["credits"] == 0
+
+        bad_currency = PP.handle_razorpay_webhook({
+            "event": "payment.captured",
+            "payload": {"payment": {"entity": {
+                "id": "pay_bad_currency", "order_id": "rzp_WEBHOOK", "amount": 9900, "currency": "USD", "status": "captured"
+            }}}
+        })
+        assert bad_currency["ok"] is False
+        assert bad_currency["reason"] == "currency_mismatch"
+        assert order["status"] == "created"
+
+        good = PP.handle_razorpay_webhook({
+            "event": "payment.captured",
+            "payload": {"payment": {"entity": {
+                "id": "pay_good", "order_id": "rzp_WEBHOOK", "amount": 9900, "currency": "INR", "status": "captured"
+            }}}
+        })
+        assert good["ok"] is True
+        assert order["status"] == "paid"
+        assert user["credits"] == 5
+        assert any(row.get("pay_order_id") == order["id"] and row.get("status") == "paid"
+                   for row in M.DB_PAYMENTS)
+    finally:
+        M.DB_USERS[:] = old_users
+        M.DB_PAYMENTS[:] = old_payments
+        PP.PAY_ORDERS[:] = old_orders
+        M._reindex_users()
+
+
+def test_control_directory_masks_contacts_until_audited_reveal(monkeypatch) -> None:
+    user = {"tsap_id": "TST-DIRECTORY", "full_name": "Directory User", "phone": "9876543210",
+            "created_at": datetime.utcnow().isoformat(), "status": "approved", "plan": "FREE"}
+    old_users = list(M.DB_USERS)
+    M.DB_USERS[:] = [user]
+    M._reindex_users()
+    monkeypatch.setattr(M.CONTROL_AUTH, "require", lambda request, roles: {"role": "owner", "username": "pytest-owner"})
+    audit_events = []
+    monkeypatch.setattr(M.CONTROL_AUTH, "audit", lambda *args, **kwargs: audit_events.append((args, kwargs)))
+    try:
+        masked = M.control_directory(None, q="9876543210", include_contact=False, limit=10)
+        row = masked["profiles"][0]
+        assert row["phone"] == ""
+        assert row["phone_masked"] == "98••••••10"
+        assert row["contact_revealed"] is False
+        revealed = M.control_directory(None, q="9876543210", include_contact=True, limit=10)
+        assert revealed["profiles"][0]["phone"] == "9876543210"
+        assert revealed["profiles"][0]["contact_revealed"] is True
+        assert any(event[0][0] == "control_directory_contact_view" for event in audit_events)
+    finally:
+        M.DB_USERS[:] = old_users
+        M._reindex_users()
+
+
+def test_admin_csv_neutralizes_formula_cells() -> None:
+    response = M._csv_response(["name", "note"], [["=HYPERLINK(\"https://evil\")", "+1-555"]], "test.csv")
+    body = response.body.decode("utf-8")
+    assert "'=HYPERLINK" in body
+    assert "'+1-555" in body
+
+
+def test_qr_image_requires_per_order_capability_token() -> None:
+    old_orders = list(PP.PAY_ORDERS)
+    PP.PAY_ORDERS[:] = [{
+        "id": "pay_ord_QR", "mode": "manual_upi", "final_amount": 99,
+        "qr_token": "one-time-qr-capability", "created_at": datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S"),
+    }]
+    try:
+        with pytest.raises(Exception) as denied:
+            M.api_pay_qr_png("pay_ord_QR")
+        assert getattr(denied.value, "status_code", None) == 403
+    finally:
+        PP.PAY_ORDERS[:] = old_orders

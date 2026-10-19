@@ -5,7 +5,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { apiPost, clearAuth, getToken, getTsapId, setToken } from "./api";
+import { apiGet, apiPost, clearAuth, getToken, getTsapId, setToken } from "./api";
 
 export type Session = { tsapId: string; token: string; ready: boolean };
 
@@ -28,8 +28,16 @@ export function rememberSession(tsapId: string, token: string, keep = true) {
   setToken(token, tsapId, keep);
 }
 
-export function logout() {
+export async function logout() {
+  const tsapId = getTsapId();
+  // Start revocation before clearing the local migration fallback. The server
+  // cookie is HttpOnly and must be explicitly expired/revoked, not just hidden
+  // by a client-side logout button.
+  const revoke = tsapId
+    ? apiPost("/api/auth/logout-everywhere", { tsap_id: tsapId })
+    : Promise.resolve();
   clearAuth();
+  try { await revoke; } catch { /* local logout still completes if offline */ }
 }
 
 /** OTP pampu (login) */
@@ -51,8 +59,11 @@ export function useAuthCheck() {
   const check = useCallback(async () => {
     setState((s) => ({ ...s, checking: true }));
     const token = getToken();
-    if (!token) { setState({ checking: false, valid: false, tsapId: "" }); return; }
-    const result = await apiPost<{ valid?: boolean; tsap_id?: string }>("/api/auth/verify", {});
+    const tsapId = getTsapId();
+    // A fresh session is represented by the HttpOnly cookie; the non-secret
+    // profile id is only a UI hint. Let the server decide validity.
+    if (!token && !tsapId) { setState({ checking: false, valid: false, tsapId: "" }); return; }
+    const result = await apiGet<{ valid?: boolean; tsap_id?: string }>("/api/auth/verify");
     if (result.status === 401) clearAuth();
     const d = (result.data || {}) as { valid?: boolean; tsap_id?: string };
     setState({ checking: false, valid: result.ok && !!d.valid, tsapId: String(d.tsap_id || "") });

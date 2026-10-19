@@ -12,6 +12,7 @@ type Coverage = {
   customized?: number;
   by_tier?: Record<string, { routing_eligible?: number; with_whatsapp?: number; pending_keys?: string[] }>;
   critical_gaps?: string[];
+  whatsapp_gaps?: string[];
   pending_sample?: string[];
   note?: string;
 };
@@ -106,6 +107,20 @@ export default function ChannelCoverage() {
           </p>
           <p className="mt-1 text-[11px] text-[#6B5A46] break-words">
             {(row?.critical_gaps || []).join(", ")}
+          </p>
+        </div>
+      )}
+
+      {(row?.whatsapp_gaps || []).length > 0 && (
+        <div className="rounded-2xl border border-[#E0B23A]/60 bg-[#FFF8E6] px-4 py-3">
+          <p className="text-[12px] font-black text-[#7A0C2E]">
+            {te ? "WhatsApp configuration gaps" : "WhatsApp configuration gaps"}
+          </p>
+          <p className="mt-1 text-[11px] text-[#6B5A46] break-words">
+            {te
+              ? "ఇచ్చిన invite లేని destinations ఖాళీగానే ఉంటాయి; guessed URL పెట్టలేదు: "
+              : "No supplied invite was invented for these destinations: "}
+            {(row?.whatsapp_gaps || []).join(", ")}
           </p>
         </div>
       )}

@@ -136,19 +136,21 @@ export default function SiteHeader() {
   const [sessionVerification, setSessionVerification] = useState<{ token: string; valid: boolean } | null>(null);
   const [loggedOutToken, setLoggedOutToken] = useState("");
   useEffect(() => {
-    if (!ready || !token) return;
+    if (!ready || (!token && !tsapId)) return;
+    const sessionHint = token || tsapId;
     let active = true;
     apiGet<{ valid?: boolean }>("/api/auth/verify").then(({ ok, data }) => {
       if (!active) return;
       setSessionVerification({
-        token,
+        token: sessionHint,
         valid: !!(ok && (data as { valid?: boolean } | null)?.valid),
       });
     });
     return () => { active = false; };
-  }, [ready, token]);
-  const sessionOk = ready && !!token && token !== loggedOutToken &&
-    sessionVerification?.token === token && sessionVerification.valid;
+  }, [ready, token, tsapId]);
+  const sessionHint = token || tsapId;
+  const sessionOk = ready && !!tsapId && sessionHint !== loggedOutToken &&
+    sessionVerification?.token === sessionHint && sessionVerification.valid;
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 12);

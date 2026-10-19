@@ -16,6 +16,7 @@ from atomic_store import atomic_json_dump
 
 
 import hashlib
+import secrets
 import copy
 import hmac
 import json
@@ -35,6 +36,8 @@ PAY_ORDERS: List[Dict] = []
 ORDER_EXPIRY_HOURS = 24          # pending order 24h lo pay kakapothe expire (stale confirm ban)
 UTR_RE = re.compile(r"^\d{12}$")  # UPI ref / bank UTR = 12 digits (PhonePe/GPay statement)
 _ORDER_LOCKS: Dict[str, threading.Lock] = defaultdict(threading.Lock)
+_ORDER_CREATE_LOCK = threading.Lock()  # prevent duplicate sequential IDs under concurrent checkout starts
+_PAY_LEDGER_LOCK = threading.RLock()  # serialize atomic snapshots of the shared payment ledger
 _OFFER_LOCK = threading.Lock()  # WAVE 34: offer consume race-proof (cap overshoot ban)
 
 
@@ -81,7 +84,8 @@ def _now() -> str:
 def _persist() -> bool:
     """Persist the payment ledger and report failure instead of claiming success."""
     try:
-        atomic_json_dump(PERSIST_FILE, {"orders": PAY_ORDERS[-1000:], "offers": OFFERS[-200:]}, ensure_ascii=False)
+        with _PAY_LEDGER_LOCK:
+            atomic_json_dump(PERSIST_FILE, {"orders": PAY_ORDERS[-1000:], "offers": OFFERS[-200:]}, ensure_ascii=False)
         return True
     except Exception:
         return False
@@ -153,13 +157,29 @@ FESTIVAL_PRESETS = [
 
 
 def seed_festivals(valid_from: str = "", valid_to: str = "", max_uses: int = 1000) -> Dict:
-    """Admin 1-click: preset festival codes activate (dates తో)."""
+    """Admin 1-click: bounded preset festival codes activate (dates తో)."""
+    try:
+        max_uses = int(max_uses)
+    except (TypeError, ValueError):
+        return {"success": False, "message_telugu": "⚠️ Max uses number గా ఇవ్వండి"}
+    if max_uses < 1 or max_uses > 1_000_000:
+        return {"success": False, "message_telugu": "⚠️ Max uses 1–1,000,000 మధ్య ఉండాలి"}
+    start = str(valid_from or "")[:10]
+    end = str(valid_to or "")[:10]
+    for label, value in (("valid_from", start), ("valid_to", end)):
+        if value:
+            try:
+                datetime.strptime(value, "%Y-%m-%d")
+            except (TypeError, ValueError):
+                return {"success": False, "message_telugu": f"⚠️ {label} YYYY-MM-DD format లో ఉండాలి"}
+    if start and end and start > end:
+        return {"success": False, "message_telugu": "⚠️ Offer end date start date తర్వాత ఉండాలి"}
     added = []
     have = {o.get("code") for o in OFFERS}
     for p in FESTIVAL_PRESETS:
         if p["code"] in have:
             continue
-        o = dict(p, valid_from=valid_from, valid_to=valid_to, max_uses=max_uses,
+        o = dict(p, valid_from=start, valid_to=end, max_uses=max_uses,
                  used=0, active=True, created_at=_now())
         OFFERS.append(o)
         added.append(o["code"])
@@ -175,19 +195,53 @@ def create_offer(code: str, title: str, pct_off: int = 0, flat_off: int = 0,
                  applies_to: Optional[List[str]] = None, valid_from: str = "",
                  valid_to: str = "", max_uses: int = 100, min_amount: int = 0,
                  festival: str = "", usable_once: bool = True) -> Dict:
+    """Create a bounded promotion without allowing a negative/zero checkout amount.
+
+    Offer configuration is money logic, not presentation data. Validate it here
+    so a malformed admin request cannot create a promotion that increases the
+    price, consumes indefinitely, applies to an unknown purpose, or silently
+    crosses its end date.
+    """
     code = str(code or "").strip().upper()
-    if len(code) < 3:
-        return {"success": False, "message_telugu": "⚠️ Code 3+ chars ఉండాలి"}
+    if not re.fullmatch(r"[A-Z0-9][A-Z0-9_-]{2,31}", code):
+        return {"success": False, "message_telugu": "⚠️ Code 3–32 chars: A-Z, 0-9, _ లేదా - మాత్రమే"}
     if any(o.get("code") == code for o in OFFERS):
         return {"success": False, "message_telugu": "⚠️ ఈ code already ఉంది"}
-    if not pct_off and not flat_off:
+    try:
+        pct = int(pct_off or 0)
+        flat = int(flat_off or 0)
+        uses = int(max_uses or 0)
+        minimum = int(min_amount or 0)
+    except (TypeError, ValueError):
+        return {"success": False, "message_telugu": "⚠️ Discount, minimum, max uses numbers గా ఇవ్వండి"}
+    if pct < 0 or pct > 100:
+        return {"success": False, "message_telugu": "⚠️ Percentage discount 0–100 మధ్య ఉండాలి"}
+    if flat < 0 or minimum < 0:
+        return {"success": False, "message_telugu": "⚠️ Flat discount/minimum negative గా ఉండకూడదు"}
+    if not pct and not flat:
         return {"success": False, "message_telugu": "⚠️ % leda flat discount ఇవ్వండి"}
-    o = {"code": code, "title": title or code, "pct_off": int(pct_off or 0),
-         "flat_off": int(flat_off or 0), "applies_to": applies_to or ["credits"],
-         "valid_from": valid_from or "", "valid_to": valid_to or "",
-         "max_uses": int(max_uses or 1), "used": 0, "usable_once": bool(usable_once),
-         "used_by": [], "min_amount": int(min_amount or 0),
-         "festival": festival or "", "active": True, "created_at": _now()}
+    if uses < 1 or uses > 1_000_000:
+        return {"success": False, "message_telugu": "⚠️ Max uses 1–1,000,000 మధ్య ఉండాలి"}
+    allowed_purposes = {"credits", "assisted", "ads", "boost"}
+    normalized_applies = sorted({str(item).strip().lower() for item in (applies_to or ["credits"]) if str(item).strip()})
+    if not normalized_applies or any(item not in allowed_purposes for item in normalized_applies):
+        return {"success": False, "message_telugu": "⚠️ applies_to లో credits/assisted/ads/boost మాత్రమే"}
+    for label, value in (("valid_from", valid_from), ("valid_to", valid_to)):
+        if value:
+            try:
+                datetime.strptime(str(value)[:10], "%Y-%m-%d")
+            except (TypeError, ValueError):
+                return {"success": False, "message_telugu": f"⚠️ {label} YYYY-MM-DD format లో ఉండాలి"}
+    start = str(valid_from or "")[:10]
+    end = str(valid_to or "")[:10]
+    if start and end and start > end:
+        return {"success": False, "message_telugu": "⚠️ Offer end date start date తర్వాత ఉండాలి"}
+    o = {"code": code, "title": str(title or code).strip()[:160] or code, "pct_off": pct,
+         "flat_off": flat, "applies_to": normalized_applies,
+         "valid_from": start, "valid_to": end,
+         "max_uses": uses, "used": 0, "usable_once": bool(usable_once),
+         "used_by": [], "min_amount": minimum,
+         "festival": str(festival or "").strip()[:80], "active": True, "created_at": _now()}
     OFFERS.append(o)
     if not _persist():
         OFFERS.remove(o)
@@ -361,26 +415,38 @@ def create_pay_order(tsap_id: str, purpose: str, ref: str, offer_code: str = "")
     cfg = pay_config()
     if cfg.get("mode") == "unconfigured":
         return {"success": False, "message_telugu": "Payment is unavailable until a real checkout provider or merchant UPI ID is configured."}
-    _SEQ += 1
-    po = {"id": f"pay_ord_{_SEQ:05d}", "tsap_id": tsap_id, "purpose": purpose.lower(),
+    # ID allocation is separate from persistence/network work. Never decrement
+    # the sequence on a failed attempt: another concurrent checkout may already
+    # have taken the next number, and gaps are safer than duplicate order IDs.
+    with _ORDER_CREATE_LOCK:
+        _SEQ += 1
+        order_id = f"pay_ord_{_SEQ:05d}"
+    po = {"id": order_id, "tsap_id": tsap_id, "purpose": purpose.lower(),
           "ref": ref, "amount": exp["amount"], "final_amount": off["final_amount"],
           "discount": off["discount"], "offer_code": off.get("code", ""),
           "label": exp["label"], "mode": cfg["mode"], "status": "created",
           "rzp_order_id": "", "rzp_amount": 0, "payment_id": "", "utr": "",
           "claim_utr": "", "claimed_at": "", "created_at": _now(),
+          # High-entropy capability for the QR image; order IDs alone are not
+          # sufficient to disclose a merchant amount/order reference.
+          "qr_token": secrets.token_urlsafe(32),
           "paid_at": "", "receipt": None}
     if cfg["mode"] == "razorpay":
         # 🌊 WAVE 25: RZP order server-side MUST succeed — lekapothe dangling order vaddu
         rz = _rzp_create_order(po["id"], po["final_amount"], po["label"])
         if not rz.get("ok"):
-            _SEQ -= 1
             return {"success": False, "message_telugu": rz.get("message_telugu")}
         po["rzp_order_id"] = rz["rzp_order_id"]
         po["rzp_amount"] = rz["rzp_amount"]
-    PAY_ORDERS.append(po)
-    if not _persist():
-        PAY_ORDERS.remove(po)
-        _SEQ -= 1
+    # The payment ledger is a single-process JSON store. Serialize the
+    # append+snapshot boundary as well as ID allocation so concurrent checkout
+    # starts cannot overwrite one another's order.
+    with _ORDER_CREATE_LOCK:
+        PAY_ORDERS.append(po)
+        saved = _persist()
+        if not saved:
+            PAY_ORDERS.remove(po)
+    if not saved:
         return {"success": False, "reason": "persistence_failed",
                 "message_telugu": "⚠️ Payment order could not be saved safely. Please try again."}
     out = {"success": True, "pay_order": {k: po[k] for k in
@@ -396,6 +462,7 @@ def create_pay_order(tsap_id: str, purpose: str, ref: str, offer_code: str = "")
         out["next_telugu"] = "💳 Razorpay checkout లో pay చేసి → /api/pay/verify కి పంపండి"
     else:
         out["pay_order"]["upi_id"] = cfg["upi_id"]
+        out["pay_order"]["qr_token"] = po["qr_token"]
         out["next_telugu"] = f"💳 {cfg['upi_id']} కి ₹{po['final_amount']} pay చేసి UTR admin కి పంపండి"
     return out
 
@@ -417,10 +484,19 @@ def _hmac_ok(rzp_order_id: str, payment_id: str, signature: str) -> bool:
 
 
 def _capture_check_enabled() -> bool:
-    """🌊 WAVE 34 PREMIUM: Razorpay-side capture confirm (prod recommended).
-    HMAC matrame authorized (not captured) payment ki kooda valid — kabatti
-    RAZORPAY_VERIFY_CAPTURE=1 ayithe /v1/payments/{id} lo captured+amount verify."""
-    return os.getenv("RAZORPAY_VERIFY_CAPTURE", "").strip().lower() in ("1", "true", "yes", "on")
+    """Require provider-side captured+amount confirmation for online payments.
+
+    Production defaults to the safe behavior even when an operator forgot the
+    optional variable. Explicit ``0`` is still available for a deliberately
+    isolated non-production test setup; it must never be the implicit default.
+    """
+    raw = os.getenv("RAZORPAY_VERIFY_CAPTURE", "").strip().lower()
+    production = os.getenv("APP_ENV", "").strip().lower() in {"prod", "production", "live"}
+    if production:
+        return True
+    if raw:
+        return raw in ("1", "true", "yes", "on")
+    return False
 
 
 def _rzp_payment_status(payment_id: str) -> Dict:
@@ -480,10 +556,13 @@ def fulfill_order(po: Dict, payment_id: str, via: str) -> Dict:
         return {"ok": False, "message_telugu": "⚠️ User దొరకలేదు — amount hold (admin refund/credit)"}
     purpose, ref = po.get("purpose"), po.get("ref")
 
+    before_payments = copy.deepcopy(MAIN.DB_PAYMENTS)
+
     def persist_core_or_restore(before_users: List[Dict], before_refs: List[Dict]) -> bool:
         if MAIN._persist_core_state():
             return True
         _restore_main_users(MAIN, before_users, before_refs)
+        MAIN.DB_PAYMENTS[:] = before_payments
         return False
 
     if purpose == "credits":
@@ -497,6 +576,7 @@ def fulfill_order(po: Dict, payment_id: str, via: str) -> Dict:
         if not applied.get("ok"):
             return {"ok": False, "message_telugu": "⚠️ Plan apply fail — admin chusthadu"}
         _fire_referral_commission(user, po, payment_id)
+        _upsert_core_payment_record(po, payment_id=payment_id, via=via)
         if not persist_core_or_restore(before_users, before_refs):
             return {"ok": False, "reason": "persistence_failed",
                     "message_telugu": "⚠️ Payment benefit could not be saved safely. Please contact support; no duplicate credit was issued."}
@@ -508,6 +588,10 @@ def fulfill_order(po: Dict, payment_id: str, via: str) -> Dict:
         r = S12.mark_order_paid(ref, payment_id or po.get("utr", "") or "RZPAY")
         if not r.get("success"):
             return {"ok": False, "message_telugu": r.get("message_telugu")}
+        _upsert_core_payment_record(po, payment_id=payment_id, via=via)
+        if not MAIN._persist_core_state():
+            return {"ok": False, "reason": "persistence_failed",
+                    "message_telugu": "⚠️ Assisted payment record could not be saved safely. Please try again."}
         return {"ok": True,
                 "message_telugu": f"✅ Assisted {ref} PAID — admin profiles select చేసి personal గా pampisthadu 🙏"}
     if purpose == "ads":
@@ -515,6 +599,10 @@ def fulfill_order(po: Dict, payment_id: str, via: str) -> Dict:
         r = ADS.approve_campaign(ref, payment_id or po.get("utr", "") or "RZPAY")
         if not r.get("success"):
             return {"ok": False, "message_telugu": r.get("message_telugu")}
+        _upsert_core_payment_record(po, payment_id=payment_id, via=via)
+        if not MAIN._persist_core_state():
+            return {"ok": False, "reason": "persistence_failed",
+                    "message_telugu": "⚠️ Ad payment record could not be saved safely. Please try again."}
         return {"ok": True,
                 "message_telugu": f"✅ Campaign {ref} LIVE — {r['campaign']['days']} days 🎉"}
     if purpose == "boost":
@@ -522,6 +610,7 @@ def fulfill_order(po: Dict, payment_id: str, via: str) -> Dict:
         before_users = copy.deepcopy(MAIN.DB_USERS)
         import advanced11 as A11
         eff = A11.apply_boost(user, str(ref).upper())
+        _upsert_core_payment_record(po, payment_id=payment_id, via=via)
         if not persist_core_or_restore(before_users, before_refs):
             return {"ok": False, "reason": "persistence_failed",
                     "message_telugu": "⚠️ Boost could not be saved safely. Please try again."}
@@ -551,6 +640,7 @@ def _snapshot_fulfillment_state(po: Dict) -> Dict:
         import main as MAIN
         state["main_user_refs"] = list(MAIN.DB_USERS)
         state["main_users"] = copy.deepcopy(MAIN.DB_USERS)
+        state["main_payments"] = copy.deepcopy(MAIN.DB_PAYMENTS)
     except Exception:
         state["main_users"] = None
     if po.get("purpose") == "ads":
@@ -576,6 +666,8 @@ def _restore_fulfillment_state(state: Dict) -> None:
         import main as MAIN
         if state.get("main_users") is not None:
             _restore_main_users(MAIN, state["main_users"], state.get("main_user_refs"))
+            if state.get("main_payments") is not None:
+                MAIN.DB_PAYMENTS[:] = state["main_payments"]
             MAIN._persist_core_state()
     except Exception:
         pass
@@ -595,6 +687,50 @@ def _restore_fulfillment_state(state: Dict) -> None:
             S12._persist()
     except Exception:
         pass
+
+
+def _upsert_core_payment_record(po: Dict, payment_id: str = "", via: str = "") -> Dict:
+    """Keep the durable core payment history in step with the pay-order ledger.
+
+    ``PAY_ORDERS`` is the checkout state machine, while ``DB_PAYMENTS`` powers
+    finance analytics, CSV exports, and backup/restore. Previously online and
+    manual PayBox orders could fulfill credits without ever entering the core
+    payment history, so revenue and exports silently under-counted real money.
+    """
+    import main as MAIN
+
+    order_id = str(po.get("id", ""))
+    existing = next((row for row in MAIN.DB_PAYMENTS
+                     if str(row.get("pay_order_id") or row.get("order_id") or "") == order_id), None)
+    record = {
+        "order_id": order_id,
+        "pay_order_id": order_id,
+        "user_id": po.get("tsap_id", ""),
+        "tsap_id": po.get("tsap_id", ""),
+        "amount": int(po.get("final_amount", 0) or 0),
+        "original_amount": int(po.get("amount", 0) or 0),
+        "discount": int(po.get("discount", 0) or 0),
+        "purpose": po.get("purpose", ""),
+        "kind": po.get("purpose", ""),
+        "plan": po.get("ref", "") if po.get("purpose") == "credits" else "",
+        "ref": po.get("ref", ""),
+        "status": "paid",
+        "method": po.get("mode", ""),
+        "paid_via": via or po.get("mode", ""),
+        "payment_id": payment_id or po.get("payment_id", ""),
+        "utr": po.get("utr", ""),
+        "offer_code": po.get("offer_code", ""),
+        "created_at": po.get("created_at", ""),
+        "paid_at": po.get("paid_at", "") or _now(),
+        "fulfilled": True,
+        "source": "paypro",
+    }
+    if existing is None:
+        MAIN.DB_PAYMENTS.append(record)
+    else:
+        existing.update(record)
+        record = existing
+    return record
 
 
 def verify_payment(pay_order_id: str, rzp_order_id: str, payment_id: str,
@@ -728,15 +864,55 @@ def handle_razorpay_webhook(event: Dict) -> Dict:
     Unknown events → ignore (200)."""
     try:
         name = str((event or {}).get("event", ""))
-        ent = ((event or {}).get("payload", {}) or {}).get("payment", {}) or {}
-        ent = (ent.get("entity", {}) or {}) if isinstance(ent, dict) else {}
-        rzp_order = str(ent.get("order_id", "") or "")
-        payment_id = str(ent.get("id", "") or "")
+        payload = (event or {}).get("payload", {}) or {}
+        payment_wrapper = payload.get("payment", {}) or {}
+        payment_ent = (payment_wrapper.get("entity", {}) or {}) if isinstance(payment_wrapper, dict) else {}
+        order_wrapper = payload.get("order", {}) or {}
+        order_ent = (order_wrapper.get("entity", {}) or {}) if isinstance(order_wrapper, dict) else {}
+        # Razorpay's `order.paid` payload is order-centric while captured and
+        # authorized events are payment-centric. Accept either shape, but never
+        # fulfill without a concrete payment ID and the provider order ID.
+        ent = payment_ent or order_ent
+        rzp_order = str(ent.get("order_id", "") or order_ent.get("id", "") or "")
+        payment_id = str(payment_ent.get("id", "") or "")
         if name not in ("payment.captured", "payment.authorized", "order.paid") or not rzp_order:
             return {"ok": True, "ignored": True}
+        if not payment_id:
+            return {"ok": False, "reason": "payment_id_missing",
+                    "message_telugu": "⚠️ Razorpay payment ID లేని webhook ను fulfill చేయలేదు"}
         po = next((o for o in PAY_ORDERS if o.get("rzp_order_id") == rzp_order), None)
         if not po:
             return {"ok": True, "ignored": True, "reason": "unknown_order"}
+        # A signed webhook proves origin, not that the amount/currency matches
+        # this order. Check both when the provider supplies them. Production
+        # payloads always contain amount; test-only fixtures may omit it.
+        supplied_amount = payment_ent.get("amount", order_ent.get("amount"))
+        if supplied_amount is None and os.getenv("APP_ENV", "").lower() in {"prod", "production"}:
+            return {"ok": False, "reason": "amount_missing",
+                    "message_telugu": "⚠️ Payment amount లేని webhook ను safe గా accept చేయలేదు"}
+        if supplied_amount is not None:
+            try:
+                if int(supplied_amount) != int(po.get("final_amount", 0) or 0) * 100:
+                    return {"ok": False, "reason": "amount_mismatch",
+                            "message_telugu": "🚫 Razorpay webhook amount ఈ order amount తో match కాలేదు"}
+            except (TypeError, ValueError):
+                return {"ok": False, "reason": "amount_invalid",
+                        "message_telugu": "⚠️ Razorpay webhook amount చెల్లదు"}
+        supplied_currency = str(payment_ent.get("currency", order_ent.get("currency", "")) or "").upper()
+        production = os.getenv("APP_ENV", "").strip().lower() in {"prod", "production", "live"}
+        if not supplied_currency and production:
+            return {"ok": False, "reason": "currency_missing",
+                    "message_telugu": "⚠️ Payment currency లేని webhook ను safe గా accept చేయలేదు"}
+        if supplied_currency and supplied_currency != "INR":
+            return {"ok": False, "reason": "currency_mismatch",
+                    "message_telugu": "🚫 INR కాని payment ను fulfill చేయలేదు"}
+        provider_status = str(payment_ent.get("status", order_ent.get("status", "")) or "").lower()
+        if name == "payment.captured" and provider_status and provider_status != "captured":
+            return {"ok": False, "reason": "not_captured",
+                    "message_telugu": "⏳ Payment captured status లేదు — credits add చేయలేదు"}
+        if name == "order.paid" and provider_status and provider_status not in {"paid", "captured"}:
+            return {"ok": False, "reason": "order_not_paid",
+                    "message_telugu": "⏳ Razorpay order paid status లేదు — credits add చేయలేదు"}
         with _ORDER_LOCKS[po["id"]]:
             if po.get("status") == "paid":
                 return {"ok": True, "duplicate": True, "receipt": po.get("receipt")}
@@ -1124,6 +1300,22 @@ def _refund_order_locked(pay_order_id: str, reason: str, admin_note: str) -> Dic
     po["refund_reversal"] = rev
     po["refund_clawback"] = {"success": bool((claw or {}).get("success")),
                              "reversed": (claw or {}).get("reversed", 0)}
+    # Mark the core finance history as refunded as well as the checkout ledger.
+    # Older orders may predate the core mirror, so upsert them here.
+    try:
+        import main as MAIN
+        core_record = _upsert_core_payment_record(po, payment_id=po.get("payment_id", ""), via=via)
+        core_record.update({
+            "status": "refunded", "refunded_at": po["refunded_at"],
+            "refund_id": refund_id, "refund_via": via,
+            "refund_reason": reason, "fulfilled": False,
+        })
+        if not MAIN._persist_core_state():
+            po["reconciliation_required"] = True
+            po["reconciliation_reason"] = "core_payment_history_save_failed"
+    except Exception:
+        po["reconciliation_required"] = True
+        po["reconciliation_reason"] = "core_payment_history_update_failed"
     if not _persist():
         po.clear()
         po.update(po_before)

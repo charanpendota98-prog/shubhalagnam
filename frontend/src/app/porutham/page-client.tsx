@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useLang } from "@/lib/lang";
-import { authHeaders, getToken, readApiJson } from "@/lib/api";
+import { authHeaders, readApiJson } from "@/lib/api";
 
 type ReviewRecord = {
   id: string;
@@ -206,10 +206,12 @@ export default function PoruthamPageClient() {
     form.append("tsap_id", normalized);
     form.append("file", selectedFile);
     try {
-      const headers: Record<string, string> = {};
-      const token = getToken();
-      if (token) headers["X-Tsap-Token"] = token;
-      const response = await fetch("/api/astro/jathakam/upload", { method: "POST", headers, body: form });
+      const response = await fetch("/api/astro/jathakam/upload", {
+        method: "POST",
+        headers: authHeaders(false, false),
+        credentials: "same-origin",
+        body: form,
+      });
       const data = await readApiJson<JathakamStatus & { jathakam_id?: string }>(response);
       if (!response.ok || !data.success) {
         setMessage({ ok: false, text: te ? data.message_telugu || copy.uploadError : data.message_en || copy.uploadError });

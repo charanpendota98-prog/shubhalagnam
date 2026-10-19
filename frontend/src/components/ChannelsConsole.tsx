@@ -107,6 +107,11 @@ export default function ChannelsConsole() {
           </div>
         </div>
       )}
+      {(cov?.whatsapp_gaps || []).length > 0 && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-2 text-[11px] text-amber-950">
+          <strong>WhatsApp configuration gaps:</strong> no supplied invite was invented. {(cov?.whatsapp_gaps || []).join(", ")}
+        </div>
+      )}
 
       {/* poster */}
       {poster && (
