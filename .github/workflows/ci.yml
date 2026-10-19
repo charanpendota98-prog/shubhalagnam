@@ -103,11 +103,12 @@ jobs:
           emitted = 0
           for suite in data.get("suites", []):
               for spec in suite.get("specs", []):
-                  for result in spec.get("tests", []):
-                      if result.get("status") not in {"failed", "timedOut", "interrupted"}:
+                  for test in spec.get("tests", []):
+                      if test.get("status") not in {"unexpected", "flaky", "interrupted"}:
                           continue
                       title = " > ".join([*suite.get("titlePath", []), spec.get("title", "")]).strip(" >")
-                      errors = result.get("results", [])[-1].get("errors", []) if result.get("results") else []
+                      results = test.get("results", [])
+                      errors = results[-1].get("errors", []) if results else []
                       message = " ".join(str(error.get("message", "")) for error in errors).replace("\n", " ").strip()
                       message = message[:3500] or "No Playwright error message was recorded"
                       print(f"::error title=Responsive QA::{title}: {message}")
