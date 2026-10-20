@@ -19,6 +19,8 @@ For the verified current-state product audit, target architecture, proposed futu
 
 For the implementation-oriented OCI architecture, 1k-to-10m scale plan, Top 100 improvements, Top 50 critical fixes, AI/revenue/growth priorities, security roadmap, and 12-month CTO launch sequence, see [`OCI-FREE-TIER-TRANSFORMATION-PLAN.md`](OCI-FREE-TIER-TRANSFORMATION-PLAN.md). It is a build plan, not an assertion that the current JSON runtime is production-ready.
 
+For researched open-source building blocks, license/maintenance decisions, privacy boundaries, and the phased Meilisearch/Qdrant/OpenTelemetry/Taskiq/OpenFeature/Umami/PostgreSQL plan, see [`OPEN_SOURCE_INTEGRATION_RESEARCH.md`](OPEN_SOURCE_INTEGRATION_RESEARCH.md). It also documents why the current release adopts only opt-in Prometheus metrics and keeps the JSON store authoritative.
+
 Every push and pull request runs the repository quality gates in [`.github/workflows/ci.yml`](.github/workflows/ci.yml). The production image targets and no-go launch gates remain documented in [`PRODUCTION-DEPLOY.md`](PRODUCTION-DEPLOY.md).
 
 ## Local development

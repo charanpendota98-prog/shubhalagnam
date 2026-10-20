@@ -101,6 +101,7 @@ from hardening import (
     TOKEN_VERSIONS_PATH, TOKEN_TTL_SECONDS, MEMBER_COOKIE_SESSIONS, MEMBER_SESSION_COOKIE,
     MEMBER_CSRF_COOKIE, member_cookie_is_used, member_csrf_valid,
 )
+import observability as OBS  # optional scrape surface; no PII labels
 
 _PRODUCTION_ENV_NAMES = {"production", "prod", "live"}
 
@@ -426,16 +427,23 @@ import advanced11 as A11
 
 @asynccontextmanager
 async def _app_lifespan(_application):
-    """Use FastAPI's lifespan contract for worker setup and final persistence flush."""
+    """Run startup gates before advertising readiness, then flush on shutdown."""
+    _application.state.ready = False
+    OBS.set_ready(False)
     await _startup_publisher()
     await _startup_backup39()
+    _application.state.ready = True
+    OBS.set_ready(True)
     try:
         yield
     finally:
+        _application.state.ready = False
+        OBS.set_ready(False)
         await _shutdown_flush_db()
 
 
 app = FastAPI(title="TSAP Matrimony API — Ultra Advanced", version="2.0", lifespan=_app_lifespan)
+app.state.ready = False
 
 
 # ---------------------------------------------------------------------------
@@ -2433,7 +2441,10 @@ async def _startup_publisher():
 # VISIT TRACKING MIDDLEWARE — "site ki vachina vallu antha DB lo save avvali"
 #    (page + API calls anni anonymous ga log: path, referrer, device, channel)
 # ---------------------------------------------------------------------------
-_SKIP_TRACK = ("/_next", "/static", "/favicon", "/cards/", "/photos/", "/health", "/robots", "/sitemap")
+_SKIP_TRACK = (
+    "/_next", "/static", "/favicon", "/cards/", "/photos/",
+    "/api/health", "/api/ready", "/metrics", "/health", "/robots", "/sitemap",
+)
 _REQUEST_ID_RE = re.compile(r"^[A-Za-z0-9._-]{8,80}$")
 _BODY_LIMITS = {
     "/api/register": 8 * 1024 * 1024,
@@ -2563,7 +2574,9 @@ async def _security_middleware(request: Request, call_next):
     try:
         if _t0 is not None:
             import time as _time
-            response.headers["X-Process-Time"] = "%.3f" % (_time.time() - _t0)
+            elapsed = _time.time() - _t0
+            response.headers["X-Process-Time"] = "%.3f" % elapsed
+            OBS.observe(request, response.status_code, elapsed)
     except Exception:
         pass
     try:
@@ -10376,6 +10389,49 @@ def _operational_health_payload() -> dict:
         "wa_queue": wa_q,
         "message_telugu": "✅ Server bane ఉంది",
     }
+
+
+@app.get("/api/ready")
+def api_ready():
+    """Readiness probe: startup gates must finish before traffic is promoted."""
+    if not bool(getattr(app.state, "ready", False)):
+        return JSONResponse(
+            status_code=503,
+            content={
+                "success": False,
+                "service": "manavivaha-api",
+                "status": "starting",
+                "message_en": "The service has not completed its startup checks.",
+                "message_telugu": "సర్వర్ startup checks ఇంకా పూర్తికాలేదు.",
+            },
+            headers={"Cache-Control": "no-store"},
+        )
+    return JSONResponse(
+        status_code=200,
+        content={
+            "success": True,
+            "service": "manavivaha-api",
+            "version": "2.1-hardened",
+            "status": "ready",
+            "message_en": "The service is ready for traffic.",
+            "message_telugu": "సర్వర్ traffic కోసం సిద్ధంగా ఉంది.",
+        },
+        headers={"Cache-Control": "no-store"},
+    )
+
+
+@app.get("/metrics")
+def prometheus_metrics(request: Request):
+    """Opt-in Prometheus scrape endpoint; disabled unless explicitly tokenized."""
+    candidate = request.headers.get("x-metrics-token", "")
+    authorization = request.headers.get("authorization", "")
+    if not candidate and authorization.lower().startswith("bearer "):
+        candidate = authorization[7:].strip()
+    if not OBS.configured() or not OBS.authorized(candidate):
+        # Do not advertise an operational endpoint when the owner has not enabled it.
+        raise HTTPException(status_code=404, detail="Not found")
+    payload, content_type = OBS.render()
+    return Response(content=payload, media_type=content_type, headers={"Cache-Control": "no-store"})
 
 
 @app.get("/api/health")

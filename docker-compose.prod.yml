@@ -48,6 +48,8 @@ services:
       CONTROL_SESSION_TTL_SECONDS: ${CONTROL_SESSION_TTL_SECONDS:-28800}
       CONTROL_AUDIT_FILE: /var/lib/manavivaha/state/control-audit.jsonl
       CORS_ORIGINS: ${CORS_ORIGINS:?CORS_ORIGINS is required}
+      # /metrics is 404 unless this operator-only token is explicitly set.
+      METRICS_TOKEN: ${METRICS_TOKEN:-}
       PUBLIC_SITE_URL: ${PUBLIC_SITE_URL:?PUBLIC_SITE_URL is required}
       SITE_URL: ${PUBLIC_SITE_URL:?PUBLIC_SITE_URL is required}
       PUBLIC_BASE_URL: ${PUBLIC_SITE_URL:?PUBLIC_SITE_URL is required}
