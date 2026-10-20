@@ -8,14 +8,18 @@
  *   POST /send-image  { target, caption, imagePath | imageUrl, typingMs? }
  *   POST /presence    { target, state: composing|paused }  → "type chesthunnattu" simulation
  *   GET  /status      { connected, groups, sent, uptimeSec }
- *   GET  /qr          → QR page (login scan cheyyadaniki)
+ *   GET  /auth/status → protected, metadata-only login state
+ *   GET  /auth/qr     → protected QR payload for the backend admin proxy
+ *   POST /auth/pairing-code { phone } → protected, rate-limited one-time code
+ *   GET  /qr          → legacy protected QR page (prefer the backend admin proxy)
  *
  * NOTE (anti-ban): delay logic Python side lo undi (backend/wa_antiban.py) — bridge ki
  * 'typingMs' vaste, aa time antha "composing" presence chupistundi (manishi la kanipistundi).
  *
  * Startup:
  *   docker-compose up -d whatsapp-bridge
- *   → logs lo QR vasthundi → WhatsApp lo scan → session save (./session volume)
+ *   → owner control portal lo QR/pairing flow use cheyyandi
+ *   → WhatsApp lo link ayyaka session save (isolated SESSION_DIR volume)
  *
  * Env:
  *   PORT=3001   SESSION_DIR=./session
@@ -23,7 +27,6 @@
 const express = require("express");
 const fs = require("fs");
 const path = require("path");
-const QRCode = require("qrcode");
 const pino = require("pino");
 const {
   default: makeWASocket,
@@ -33,15 +36,23 @@ const {
 } = require("@whiskeysockets/baileys");
 
 const PORT = process.env.PORT || 3001;
-const BRIDGE_TOKEN = (process.env.BRIDGE_TOKEN || "").trim();   // optional — multi-number lo okkokati
+const BRIDGE_TOKEN = (process.env.BRIDGE_TOKEN || "").trim();
 const BRIDGE_NAME = (process.env.BRIDGE_NAME || "wa1").trim();  // logs/status lo kanipisthundi
+const BRIDGE_REQUIRE_TOKEN = /^(1|true|yes|on)$/i.test(
+  String(process.env.BRIDGE_REQUIRE_TOKEN || (process.env.NODE_ENV === "production" ? "true" : "false"))
+);
 
-// Failover pool: mana backend X-Bridge-Token pampisthundi (set cheyyakapote open)
+// Every bridge management and send endpoint is protected when this is enabled.
+// Production must fail closed rather than silently running an unauthenticated
+// WhatsApp sender. Local development can explicitly opt out with false.
 function authOk(req) {
-  if (!BRIDGE_TOKEN) return true;
+  if (!BRIDGE_TOKEN) return !BRIDGE_REQUIRE_TOKEN;
   return (req.headers["x-bridge-token"] || "") === BRIDGE_TOKEN;
 }
-const requireAuth = (req, res, next) => (authOk(req) ? next() : res.status(401).json({ ok: false, error: "bridge token tappu" }));
+const requireAuth = (req, res, next) => (authOk(req) ? next() : res.status(401).json({ ok: false, error: "bridge authentication required" }));
+if (BRIDGE_REQUIRE_TOKEN && !BRIDGE_TOKEN) {
+  console.error("[WA] BRIDGE_TOKEN is required; management and send endpoints will remain unavailable");
+}
 const SESSION_DIR = process.env.SESSION_DIR || path.join(__dirname, "session");
 
 const app = express();
@@ -49,9 +60,15 @@ app.use(express.json({ limit: "2mb" }));
 app.use(requireAuth);   // X-Bridge-Token (set cheyyakapote open)
 
 let sock = null;
+let authState = null;
 let connected = false;
+let connectionState = "starting";
 let lastQR = null;
+let qrIssuedAt = 0;
 let groups = [];
+let lastAuthError = "";
+let lastPairingRequestAt = 0;
+const PAIRING_COOLDOWN_MS = Math.max(30_000, Number(process.env.PAIRING_COOLDOWN_MS || 60_000));
 let sentCount = 0;
 const startedAt = Date.now();
 
@@ -65,8 +82,18 @@ async function simulateTyping(jid, ms) {
     await new Promise((r) => setTimeout(r, wait));
     await sock.sendPresenceUpdate("paused", jid);
   } catch (e) {
-    console.log("[WA] presence skip:", e.message);
+    console.log("[WA] presence skip");
   }
+}
+
+function safeBridgeError() {
+  return "bridge request failed";
+}
+
+function normalizePhone(value) {
+  const raw = String(value || "").trim();
+  if (!/^\+?[1-9][0-9]{7,14}$/.test(raw)) return "";
+  return raw.replace(/^\+/, "");
 }
 
 async function loadImage({ imagePath, imageUrl }) {
@@ -81,6 +108,7 @@ async function loadImage({ imagePath, imageUrl }) {
 
 async function startSock() {
   const { state, saveCreds } = await useMultiFileAuthState(SESSION_DIR);
+  authState = state;
   const { version } = await fetchLatestBaileysVersion();
 
   sock = makeWASocket({
@@ -96,32 +124,37 @@ async function startSock() {
   sock.ev.on("connection.update", async (u) => {
     const { connection, lastDisconnect, qr } = u;
     if (qr) {
+      connectionState = "awaiting_qr";
       lastQR = qr;
-      const dataUrl = await QRCode.toDataURL(qr);
-      fs.writeFileSync(path.join(__dirname, "qr.html"),
-        `<html><body style="font-family:sans-serif;text-align:center;background:#FFF8E7">
-         <h2 style="color:#7A0C2E">Mana Vivaha — WhatsApp Login</h2>
-         <p>WhatsApp → Linked Devices → Link a Device → ee QR scan chey</p>
-         <img src="${dataUrl}" style="width:320px;border:6px solid #D4AF37;border-radius:16px"/>
-         <p style="color:#666;font-size:12px">Scan ayyaka ee page refresh chey</p></body></html>`);
-      console.log("[WA] QR ready → http://<server>:3001/qr  (qr.html)");
+      qrIssuedAt = Date.now();
+      // Keep the raw QR only in process memory. The owner application proxy
+      // retrieves it over the authenticated bridge connection and renders it.
+      console.log("[WA] QR ready (use the authenticated admin proxy; direct bridge access is disabled in production)");
     }
     if (connection === "open") {
       connected = true;
+      connectionState = "connected";
+      lastQR = null;
+      qrIssuedAt = 0;
+      lastAuthError = "";
       console.log("[WA] ✅ Connected to WhatsApp");
       try {
         const all = await sock.groupFetchAllParticipating();
         groups = Object.values(all).map((g) => ({ id: g.id, name: g.subject }));
         console.log(`[WA] ${groups.length} groups kanipisthunnayi`);
       } catch (e) {
-        console.log("[WA] group list error:", e.message);
+        console.log("[WA] group list unavailable");
       }
     }
     if (connection === "close") {
       connected = false;
       const code = lastDisconnect?.error?.output?.statusCode;
       const retry = code !== DisconnectReason.loggedOut;
-      console.log(`[WA] closed (code=${code}) retry=${retry}`);
+      connectionState = retry ? "reconnecting" : "logged_out";
+      lastAuthError = retry ? "" : "session logged out";
+      lastQR = null;
+      qrIssuedAt = 0;
+      console.log(`[WA] connection closed; retry=${retry}`);
       if (retry) setTimeout(startSock, 4000);
     }
   });
@@ -134,6 +167,51 @@ function normalizeTarget(target) {
   return `${digits}@s.whatsapp.net`;
 }
 
+app.get("/auth/status", (req, res) => {
+  res.set("Cache-Control", "no-store");
+  const registered = Boolean(authState?.creds?.registered);
+  res.json({
+    ok: true,
+    name: BRIDGE_NAME,
+    connected,
+    registered,
+    state: connectionState,
+    qr_available: Boolean(lastQR) && !connected,
+    pairing_available: !registered && Boolean(sock),
+    qr_age_seconds: lastQR && qrIssuedAt ? Math.max(0, Math.floor((Date.now() - qrIssuedAt) / 1000)) : null,
+    error_state: lastAuthError || "",
+  });
+});
+
+app.get("/auth/qr", (req, res) => {
+  res.set("Cache-Control", "no-store");
+  res.json({ ok: true, name: BRIDGE_NAME, connected, qr: connected ? "" : (lastQR || ""),
+    qr_age_seconds: lastQR && qrIssuedAt ? Math.max(0, Math.floor((Date.now() - qrIssuedAt) / 1000)) : null });
+});
+
+app.post("/auth/pairing-code", async (req, res) => {
+  res.set("Cache-Control", "no-store");
+  const phone = normalizePhone(req.body?.phone);
+  if (!phone) return res.status(400).json({ ok: false, error: "authorized phone number with country code required" });
+  if (!sock || !authState) return res.status(503).json({ ok: false, error: "bridge session is starting" });
+  if (authState.creds.registered || connected) return res.status(409).json({ ok: false, error: "bridge is already authenticated" });
+  const now = Date.now();
+  const remaining = PAIRING_COOLDOWN_MS - (now - lastPairingRequestAt);
+  if (remaining > 0) {
+    return res.status(429).set("Retry-After", String(Math.ceil(remaining / 1000)))
+      .json({ ok: false, error: "pairing code cooldown active" });
+  }
+  lastPairingRequestAt = now;
+  try {
+    const code = await sock.requestPairingCode(phone);
+    // Never log, persist, or include the phone number. The code exists only in
+    // this response and Baileys' in-memory session until WhatsApp links it.
+    res.json({ ok: true, pairing_code: String(code || "").slice(0, 32), expires_in_sec: 60 });
+  } catch (e) {
+    res.status(502).json({ ok: false, error: safeBridgeError() });
+  }
+});
+
 app.post("/send", async (req, res) => {
   const { target, text, typingMs } = req.body || {};
   if (!connected) return res.status(503).json({ ok: false, error: "WhatsApp not connected — QR scan chey" });
@@ -143,9 +221,9 @@ app.post("/send", async (req, res) => {
     await simulateTyping(jid, typingMs);
     const r = await sock.sendMessage(jid, { text });
     sentCount += 1;
-    res.json({ ok: true, id: r?.key?.id, target, sent: sentCount });
+    res.json({ ok: true, id: r?.key?.id, sent: sentCount });
   } catch (e) {
-    res.status(500).json({ ok: false, error: e.message });
+    res.status(500).json({ ok: false, error: safeBridgeError() });
   }
 });
 
@@ -156,9 +234,9 @@ app.post("/presence", async (req, res) => {
     const jid = normalizeTarget(target);
     await sock.presenceSubscribe(jid);
     await sock.sendPresenceUpdate(state === "paused" ? "paused" : "composing", jid);
-    res.json({ ok: true, target, state: state || "composing" });
+    res.json({ ok: true, state: state || "composing" });
   } catch (e) {
-    res.status(500).json({ ok: false, error: e.message });
+    res.status(500).json({ ok: false, error: safeBridgeError() });
   }
 });
 
@@ -173,9 +251,9 @@ app.post("/send-image", async (req, res) => {
     await simulateTyping(jid, typingMs);
     const r = await sock.sendMessage(jid, { image, caption: caption || "" });
     sentCount += 1;
-    res.json({ ok: true, id: r?.key?.id, target, withImage: true, sent: sentCount });
+    res.json({ ok: true, id: r?.key?.id, withImage: true, sent: sentCount });
   } catch (e) {
-    res.status(500).json({ ok: false, error: e.message });
+    res.status(500).json({ ok: false, error: safeBridgeError() });
   }
 });
 
@@ -190,12 +268,11 @@ app.get("/status", (req, res) => res.json({
 }));
 app.get("/groups", (req, res) => res.json({ connected, count: groups.length, groups }));
 app.get("/qr", (req, res) => {
-  const f = path.join(__dirname, "qr.html");
-  if (fs.existsSync(f) && !connected) return res.sendFile(f);
+  res.set("Cache-Control", "no-store");
   res.send(connected
     ? `<h2 style="color:green;font-family:sans-serif">✅ WhatsApp connected!</h2>`
-    : `<h2 style="font-family:sans-serif">QR inka ready ledu — 5 sec tarvata refresh chey</h2>`);
+    : `<h2 style="font-family:sans-serif">Use the authenticated owner application console for QR login.</h2>`);
 });
 
 app.listen(PORT, "0.0.0.0", () => console.log(`[WA] bridge listening on 0.0.0.0:${PORT}`));
-startSock().catch((e) => console.error("[WA] start error:", e));
+startSock().catch((e) => console.error("[WA] start error: bridge startup failed"));

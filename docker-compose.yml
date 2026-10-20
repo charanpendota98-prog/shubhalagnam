@@ -60,7 +60,13 @@ services:
       - WHATSAPP_PHONE_ID=${WHATSAPP_PHONE_ID}
       - WHATSAPP_TO=${WHATSAPP_TO}
       - WHATSAPP_BRIDGE_URL=${WHATSAPP_BRIDGE_URL}
+      - WHATSAPP_BRIDGE_TOKEN=${WHATSAPP_BRIDGE_TOKEN:-}
       - WHATSAPP_BRIDGE_TARGETS=${WHATSAPP_BRIDGE_TARGETS}
+      - WA_INSTANCES=${WA_INSTANCES:-[]}
+      - WA_INSTANCE_STATE=${WA_INSTANCE_STATE:-/app/wa_pool_state.json}
+      - WA_PAIRING_COOLDOWN_SECONDS=${WA_PAIRING_COOLDOWN_SECONDS:-60}
+      - WA_TARGET_HASH_SECRET=${WA_TARGET_HASH_SECRET:-}
+      - WA_TOKEN_ENCRYPTION_KEY=${WA_TOKEN_ENCRYPTION_KEY:-}
       - PUBLIC_BASE_URL=${PUBLIC_BASE_URL:-https://manavivaha.in}
       # 🛡️ WhatsApp anti-ban (random 120–170s gap, caps, quiet hours, warmup)
       - WA_ENABLED=${WA_ENABLED:-false}
@@ -133,11 +139,12 @@ services:
       - redis
 
   # OPTIONAL — WhatsApp bridge (Baileys). Start cheyyali ante: docker-compose up -d whatsapp-bridge
-  # QR scan cheyyali (http://<server>:3001/qr) → taruvata WHATSAPP_MODE=bridge set chey .env lo
+  # Bridge ports stay on the Compose network. Owner QR/pairing login goes through
+  # the authenticated application proxy; do not publish these ports to the host.
   whatsapp-bridge:
     build: ./whatsapp-bridge
-    ports:
-      - "3001:3001"
+    expose:
+      - "3001"
     volumes:
       - ./whatsapp-bridge/session:/app/session
     environment:
@@ -145,14 +152,15 @@ services:
       - SESSION_DIR=/app/session
       - BRIDGE_NAME=wa1
       - BRIDGE_TOKEN=${WA1_BRIDGE_TOKEN:-}
+      - BRIDGE_REQUIRE_TOKEN=true
+      - PAIRING_COOLDOWN_MS=${WA_PAIRING_COOLDOWN_MS:-60000}
     restart: unless-stopped
 
-  # OPTIONAL — 2nd WhatsApp number (failover + load split). Start: docker-compose up -d whatsapp-bridge2
-  # QR: http://<server>:3002/qr  → .env WA_INSTANCES lo http://whatsapp-bridge2:3000 add chey
+  # OPTIONAL — 2nd WhatsApp number (failover + load split). Its session is isolated.
   whatsapp-bridge2:
     build: ./whatsapp-bridge
-    ports:
-      - "3002:3001"
+    expose:
+      - "3001"
     volumes:
       - ./whatsapp-bridge/session2:/app/session
     environment:
@@ -160,13 +168,15 @@ services:
       - SESSION_DIR=/app/session
       - BRIDGE_NAME=wa2
       - BRIDGE_TOKEN=${WA2_BRIDGE_TOKEN:-}
+      - BRIDGE_REQUIRE_TOKEN=true
+      - PAIRING_COOLDOWN_MS=${WA_PAIRING_COOLDOWN_MS:-60000}
     restart: unless-stopped
 
-  # OPTIONAL — 3rd WhatsApp number (requests lane + backup). QR: http://<server>:3003/qr
+  # OPTIONAL — 3rd WhatsApp bridge (personal lane + backup). Its session is isolated.
   whatsapp-bridge3:
     build: ./whatsapp-bridge
-    ports:
-      - "3003:3001"
+    expose:
+      - "3001"
     volumes:
       - ./whatsapp-bridge/session3:/app/session
     environment:
@@ -174,6 +184,8 @@ services:
       - SESSION_DIR=/app/session
       - BRIDGE_NAME=wa3
       - BRIDGE_TOKEN=${WA3_BRIDGE_TOKEN:-}
+      - BRIDGE_REQUIRE_TOKEN=true
+      - PAIRING_COOLDOWN_MS=${WA_PAIRING_COOLDOWN_MS:-60000}
     restart: unless-stopped
 
   # OPTIONAL — docker nginx. Host nginx (certbot) unte idi vaddu (port conflict).

@@ -179,10 +179,14 @@ metadata = { robots: { index: false, follow: false } }`.
 | GET | `/api/admin/vendors/revenue/summary` | `admin_vendor_revenue` | admin, owner | 💰 Vendor revenue: active, pipeline, MRR, leads, renewals due. |
 | POST | `/api/admin/vendors/{vendor_id}/action` | `admin_vendor_action` | admin |  |
 | POST | `/api/admin/vendors/{vendor_id}/token` | `admin_vendor_token` | admin |  |
-| GET | `/api/admin/wa/numbers` | `admin_wa_numbers` | admin | 📱🌊 WAVE 19 ADMIN — 3 numbers health (otp/channels/personal lanes + orders + caps). |
-| POST | `/api/admin/wa/numbers` | `admin_wa_number_add` | admin | 📱 ADMIN — number add (name, bridge url, lane, cap, token, number). |
-| DELETE | `/api/admin/wa/numbers/{name}` | `admin_wa_number_delete` | admin | 📱 ADMIN — number remove. |
-| POST | `/api/admin/wa/numbers/{name}` | `admin_wa_number_update` | admin | 📱 ADMIN — number update/pause/resume (url/lane/cap/token/number/paused). |
+| GET | `/api/admin/wa/numbers` | `admin_wa_numbers` | owner | Owner-only lane/cap/failover health; never returns bridge tokens or auth material. |
+| POST | `/api/admin/wa/numbers` | `admin_wa_number_add` | owner | Configure an authorized OTP/channels/personal/both bridge instance with validation and audit. |
+| DELETE | `/api/admin/wa/numbers/{name}` | `admin_wa_number_delete` | owner | Remove a configured bridge instance; audited. |
+| POST | `/api/admin/wa/numbers/{name}` | `admin_wa_number_update` | owner | Update/pause/resume an instance; token values are never returned. |
+| GET | `/api/admin/wa/numbers/{name}/auth` and `/auth/status` | `admin_wa_auth_status` | owner | Metadata-only bridge authentication status, including QR age only. |
+| GET | `/api/admin/wa/numbers/{name}/auth/qr` | `admin_wa_auth_qr` | owner | No-store QR proxy; bridge port need not be public. |
+| POST | `/api/admin/wa/numbers/{name}/auth/pairing-code` | `admin_wa_pairing_code` | owner | Validated, cooldown/rate-limited pairing code proxy; code is never persisted or audited. |
+| GET | `/api/control/worker/ops` | `control_worker_ops` | owner, worker, moderator, support | Least-privilege queue/heartbeat/retry/dead-letter/paused snapshot with safe errors only. |
 | GET | `/api/admin/whoami` | `admin_whoami` | admin | 👤 WAVE 41 — current role: owner (full) \| staff (limited tabs). Frontend tab gating. |
 
 ## `/api/ads` — Ads / Sponsored Listings (5)
@@ -571,7 +575,7 @@ metadata = { robots: { index: false, follow: false } }`.
 | POST | `/api/publish/digest` | `publish_digest` | admin | Digest ని Telegram live channels + WhatsApp queue కి (anti-ban gap తో) pampu. |
 | GET | `/api/publish/log` | `publish_log_endpoint` | admin, admin(soft) | ఈ varaku publish అయిన profiles log (audit). 🔒 WAVE 9: public కి PII mask. |
 | POST | `/api/publish/now/{tsap_id}` | `publish_now` | admin | Manual re-post (admin) — already register అయిన profile ని మళ్లీ channels కి pampu. |
-| POST | `/api/publish/preview` | `publish_preview` | — | Post avvakunda — caption + WhatsApp text + targets chudu. |
+| POST | `/api/publish/preview` | `publish_preview` | public-safe / admin full | Public responses expose only a count; protected operator requests can preview message bodies and destinations. |
 | GET | `/api/publish/status` | `publish_status_endpoint` | admin, admin(soft) | Telegram + WhatsApp auto-publish status (dry-run? tokens unnai? enni targets?). |
 
 ## `/api/push` — Push notifications (4)

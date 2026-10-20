@@ -83,7 +83,7 @@ from growth import (namaste_text, admin_new_profile_text, lead_followup_text,
 from publisher import (dead_letters, requeue_dead,
     enqueue, publish_profile, publish_status, read_log, start_worker, worker_running,
     build_whatsapp_text, build_share_text, config as publish_config,
-    enqueue_whatsapp, wa_queue_stats, start_wa_worker, whatsapp_link, WA_QUEUE, WA_DEAD,
+    enqueue_whatsapp, wa_queue_stats, worker_ops_status, start_wa_worker, whatsapp_link, WA_QUEUE, WA_DEAD,
 )
 from wa_antiban import ENGINE as WA_ENGINE
 # 🛡️ WAVE 9 — hardening layer (auth tokens, admin key, rate limit, validation, abuse ledger)
@@ -101,8 +101,13 @@ from hardening import (
     TOKEN_VERSIONS_PATH, TOKEN_TTL_SECONDS, MEMBER_COOKIE_SESSIONS, MEMBER_SESSION_COOKIE,
     MEMBER_CSRF_COOKIE, member_cookie_is_used, member_csrf_valid,
 )
+import observability as OBS  # optional scrape surface; no PII labels
 
 _PRODUCTION_ENV_NAMES = {"production", "prod", "live"}
+_WA_PAIRING_COOLDOWNS: Dict[tuple[str, str], float] = {}
+_WA_PAIRING_INFLIGHT: set[tuple[str, str]] = set()
+_WA_PAIRING_LOCK = threading.RLock()
+_WA_PAIRING_COOLDOWN_SECONDS = max(30, int(os.getenv("WA_PAIRING_COOLDOWN_SECONDS", "60")))
 
 
 def _is_production_environment() -> bool:
@@ -426,16 +431,23 @@ import advanced11 as A11
 
 @asynccontextmanager
 async def _app_lifespan(_application):
-    """Use FastAPI's lifespan contract for worker setup and final persistence flush."""
+    """Run startup gates before advertising readiness, then flush on shutdown."""
+    _application.state.ready = False
+    OBS.set_ready(False)
     await _startup_publisher()
     await _startup_backup39()
+    _application.state.ready = True
+    OBS.set_ready(True)
     try:
         yield
     finally:
+        _application.state.ready = False
+        OBS.set_ready(False)
         await _shutdown_flush_db()
 
 
 app = FastAPI(title="TSAP Matrimony API — Ultra Advanced", version="2.0", lifespan=_app_lifespan)
+app.state.ready = False
 
 
 # ---------------------------------------------------------------------------
@@ -2433,7 +2445,10 @@ async def _startup_publisher():
 # VISIT TRACKING MIDDLEWARE — "site ki vachina vallu antha DB lo save avvali"
 #    (page + API calls anni anonymous ga log: path, referrer, device, channel)
 # ---------------------------------------------------------------------------
-_SKIP_TRACK = ("/_next", "/static", "/favicon", "/cards/", "/photos/", "/health", "/robots", "/sitemap")
+_SKIP_TRACK = (
+    "/_next", "/static", "/favicon", "/cards/", "/photos/",
+    "/api/health", "/api/ready", "/metrics", "/health", "/robots", "/sitemap",
+)
 _REQUEST_ID_RE = re.compile(r"^[A-Za-z0-9._-]{8,80}$")
 _BODY_LIMITS = {
     "/api/register": 8 * 1024 * 1024,
@@ -2563,7 +2578,9 @@ async def _security_middleware(request: Request, call_next):
     try:
         if _t0 is not None:
             import time as _time
-            response.headers["X-Process-Time"] = "%.3f" % (_time.time() - _t0)
+            elapsed = _time.time() - _t0
+            response.headers["X-Process-Time"] = "%.3f" % elapsed
+            OBS.observe(request, response.status_code, elapsed)
     except Exception:
         pass
     try:
@@ -5533,7 +5550,7 @@ def referral_payouts(tsap_id: str, request: Request = None):
 #    ADMIN_TOKEN env set cheste aa token lekunda evaru kooda cheyyaledu.
 #    (dev/preview lo env lekapote open — kaani response lo warning untundi)
 # ---------------------------------------------------------------------------
-def _admin_guard(token: str = ""):
+def _payout_token_guard(token: str = ""):
     expected = os.getenv("ADMIN_TOKEN", "").strip()
     if expected and token.strip() != expected:
         return JSONResponse(status_code=401, content={
@@ -5546,7 +5563,7 @@ def _admin_guard(token: str = ""):
 def admin_payout_list(status: str = "requested", token: str = "", request: Request = None):
     """👮 Admin — payout queue (approve/reject). ADMIN_TOKEN set అయితే token కావాలి."""
     require_admin(request)   # 🛡️ WAVE 9: admin key lekunda 403 (PII/money/)
-    _g = _admin_guard(token)
+    _g = _payout_token_guard(token)
     if _g:
         return _g
     res = payout_queue(status)
@@ -5560,7 +5577,7 @@ def admin_payout_list(status: str = "requested", token: str = "", request: Reque
 def admin_payout_action(request_id: str, action: str, utr: str = "", reason: str = "", token: str = "", request: Request = None):
     """✅ Approve (UTR required) leda ❌ Reject (wallet కి మళ్లీ credit)."""
     require_admin(request)   # 🛡️ WAVE 9: admin key lekunda 403 (PII/money/)
-    _g = _admin_guard(token)
+    _g = _payout_token_guard(token)
     if _g:
         return _g
     res = payout_action(request_id, action, DB_USERS, utr=utr, reason=reason)
@@ -5598,7 +5615,7 @@ def admin_refund(tsap_id: str, amount: int = 0, reason: str = "refund", token: s
     Customer refund adigithe idi kooda cheyyali — lekapote referrer double profit.
     """
     require_admin(request)   # 🛡️ WAVE 9: admin key lekunda 403 (PII/money/)
-    _g = _admin_guard(token)
+    _g = _payout_token_guard(token)
     if _g:
         return _g
     user = _user_or_404(tsap_id)
@@ -6003,16 +6020,22 @@ async def publish_now(tsap_id: str, request: Request = None):
     return {"success": True, **res}
 
 @app.post("/api/publish/preview")
-def publish_preview(payload: dict):
-    """Post avvakunda — caption + WhatsApp text + targets chudu."""
+def publish_preview(payload: dict, request: Request = None):
+    """Preview is public-safe by default; full message bodies require admin access."""
     profile = payload or {}
     tsap_id = str(profile.get("tsap_id") or "")
+    targets = post_targets(profile)
+    if not is_admin(request):
+        return {"success": True, "preview_available": False,
+                "target_count": len(targets.get("routing_candidates", [])),
+                "message": "Preview content is withheld outside the protected operator workflow."}
     return {
         "success": True,
+        "preview_available": True,
         "telegram_caption": build_caption(profile, tsap_id),
         "whatsapp_text": build_whatsapp_text(profile, tsap_id),
         "share_text": build_share_text(profile, tsap_id),
-        "targets": post_targets(profile),
+        "targets": targets,
     }
 
 @app.get("/api/channels/routing-eligible")
@@ -6516,14 +6539,67 @@ def api_member_activity(tsap_id: str, request: Request = None):
 
 
 # ---------------------------------------------------------------- WhatsApp control
+
+def _wa_owner(request: Request, write: bool = False) -> Dict[str, Any]:
+    """Allow the owner control session or the existing automation admin key.
+
+    Cookie-authenticated writes require the control CSRF token. The bridge token
+    itself is never accepted from the browser and is only used server-to-server.
+    """
+    session = CONTROL_AUTH.session(request)
+    if session:
+        if session.get("role") != "owner":
+            CONTROL_AUTH.audit("control_forbidden", session.get("username", "unknown"), request,
+                               required=["owner"], role=session.get("role", ""))
+            raise HTTPException(403, "Owner permission required")
+        if write and session.get("sid") != "api_key_session" and not CONTROL_AUTH.csrf_valid(request, session):
+            raise HTTPException(403, "Control CSRF validation failed")
+        return session
+    require_admin(request)
+    return {"role": "owner", "username": "api-admin", "sid": "api_key_session"}
+
+
+def _admin_guard(request: Request, write: bool = False) -> Dict[str, Any]:
+    """Named owner/admin guard retained for route-audit tooling and reviewers."""
+    return _wa_owner(request, write=write)
+
+
+def _wa_actor(request: Request, owner: Optional[Dict[str, Any]] = None) -> str:
+    item = owner or CONTROL_AUTH.session(request)
+    return str((item or {}).get("username") or "api-admin")[:80]
+
+
+def _wa_safe_failure(result: Dict[str, Any], fallback: str, not_found_status: int = 404) -> None:
+    reason = str(result.get("reason") or "")
+    if reason == "not_found":
+        raise HTTPException(not_found_status, fallback)
+    if reason in {"invalid_phone", "phone_not_authorized"}:
+        raise HTTPException(400, "The authorized phone number does not match this bridge instance.")
+    status = int(result.get("status") or 502)
+    if status < 400 or status > 599:
+        status = 502
+    raise HTTPException(status, fallback, headers={"Cache-Control": "no-store"})
+
+
 @app.get("/api/wa/status")
 def wa_status():
-    """Anti-ban live status: gap, caps, queue, quiet hours, cooldown + per-number instances."""
+    """Publicly safe WhatsApp operations summary; no URLs, recipients, bodies, or secrets."""
+    health = wa_pool.wa_health()
     return {"ok": True, **wa_queue_stats(),
-            "instances": wa_pool.wa_health(),
-            "per_number": {i["name"]: {"sent_today": i["sent_today"], "cap": i["daily_cap"],
-                                       "status": i["status"], "available": i["available"]}
-                           for i in wa_pool.wa_health()["instances"]}}
+            "instances": health,
+            "per_number": {i["name"]: {"lane": i.get("lane"), "cap": i.get("daily_cap"),
+                                       "status": i.get("status"), "auth_state": i.get("auth_state"),
+                                       "available": i.get("available"), "cooldown_s": i.get("cooldown_s", 0)}
+                           for i in health.get("instances", [])}}
+
+
+@app.get("/api/control/worker/ops")
+def control_worker_ops(request: Request):
+    """Least-privilege worker dashboard: operational counts and safe error categories only."""
+    item = CONTROL_AUTH.require(request, {"owner", "worker", "moderator", "support"})
+    result = worker_ops_status()
+    result["actor_role"] = item["role"]
+    return JSONResponse(content=result, headers={"Cache-Control": "no-store"})
 
 
 @app.get("/api/system/health")
@@ -6575,19 +6651,22 @@ def bots_health(request: Request = None):
 
 @app.post("/api/wa/pause")
 def wa_pause(reason: str = "manual", request: Request = None):
-    require_admin(request)   # 🛡️ WAVE 9: admin key lekunda 403 (PII/money/)
-    result = WA_ENGINE.pause(reason)
+    owner = _admin_guard(request, write=True)
+    pause_reason = str(reason or "manual")[:120]
+    result = WA_ENGINE.pause(pause_reason)
     if not result.get("ok", True):
         raise HTTPException(503, "WhatsApp pause state could not be saved safely. Please try again.")
+    CONTROL_AUTH.audit("wa_pause", _wa_actor(request, owner), request, reason=pause_reason)
     return result
 
 
 @app.post("/api/wa/resume")
 def wa_resume(request: Request = None):
-    require_admin(request)   # 🛡️ WAVE 9: admin key lekunda 403 (PII/money/)
+    owner = _admin_guard(request, write=True)
     result = WA_ENGINE.resume()
     if not result.get("ok", True):
         raise HTTPException(503, "WhatsApp resume state could not be saved safely. Please try again.")
+    CONTROL_AUTH.audit("wa_resume", _wa_actor(request, owner), request)
     return result
 
 
@@ -6603,54 +6682,130 @@ def wa_reset_day(request: Request = None):
 
 @app.get("/api/admin/wa/numbers")
 def admin_wa_numbers(request: Request):
-    """📱🌊 WAVE 19 ADMIN — 3 numbers health (otp/channels/personal lanes + orders + caps)."""
-    require_admin(request)
+    """📱🌊 OWNER — lane configuration and local sender health."""
+    owner = _admin_guard(request)
     h = wa_pool.wa_health()
-    return {"success": True, **h,
-            "lanes_telugu": {"otp": "🔑 OTP number (OTP lu మాత్రమే, fast 25–60s)",
-                             "channels": "📢 Channels number (posts, 120–170s gaps)",
-                             "personal": "💬 Personal number (interest/referral DMs, 60–120s)",
-                             "both": "🛟 Backup (purpose number down అయితే)"}}
+    return JSONResponse(content={"success": True, **h,
+            "lanes_telugu": {"otp": "🔑 OTPలు మాత్రమే", "channels": "📢 Channel posts",
+                             "personal": "💬 Consent-based interest/referral messaging",
+                             "both": "🛟 Purpose-lane backup/failover"},
+            "auth_boundary": "QR and pairing-code material is available only through the owner session and is never included here."},
+                        headers={"Cache-Control": "no-store"})
 
 
 @app.post("/api/admin/wa/numbers")
 def admin_wa_number_add(payload: dict, request: Request):
-    """📱 ADMIN — number add (name, bridge url, lane, cap, token, number)."""
-    require_admin(request)
+    """📱 OWNER — configure an authorized bridge instance."""
+    owner = _admin_guard(request, write=True)
     d = payload or {}
     if not str(d.get("url", "")).strip():
-        raise HTTPException(400, "Bridge URL ఇవ్వండి (http://wa-otp:3000 lanti)")
+        raise HTTPException(400, "Bridge URL is required")
     result = wa_pool.get_pool().add_instance(
         str(d.get("name", "")), str(d.get("url", "")), str(d.get("lane", "both")),
-        int(d.get("daily_cap", 60) or 60), str(d.get("token", "")), str(d.get("number", "")))
+        d.get("daily_cap", 60), str(d.get("token", "")), str(d.get("number", "")))
     if not result.get("success"):
-        raise HTTPException(503 if result.get("reason") == "persistence_failed" else 400,
-                            result.get("message_telugu"))
+        status = 503 if result.get("reason") == "persistence_failed" else 400
+        raise HTTPException(status, result.get("message_telugu") or "Bridge instance could not be saved")
+    CONTROL_AUTH.audit("wa_number_configured", _wa_actor(request, owner), request,
+                       instance=result.get("name", ""), lane=result.get("lane", ""),
+                       token_supplied=bool(str(d.get("token", ""))), number_configured=bool(str(d.get("number", ""))))
     return result
 
 
 @app.post("/api/admin/wa/numbers/{name}")
 def admin_wa_number_update(name: str, payload: dict, request: Request):
-    """📱 ADMIN — number update/pause/resume (url/lane/cap/token/number/paused)."""
-    require_admin(request)
+    """📱 OWNER — update/pause/resume an instance without returning its token."""
+    owner = _admin_guard(request, write=True)
     d = payload or {}
     kw = {k: d[k] for k in ("url", "lane", "daily_cap", "token", "number", "paused") if k in d}
     res = wa_pool.get_pool().update_instance(name, **kw)
     if not res.get("success"):
-        raise HTTPException(503 if res.get("reason") == "persistence_failed" else 404,
-                            res.get("message_telugu"))
+        status = 503 if res.get("reason") == "persistence_failed" else 400 if str(res.get("reason", "")).startswith("invalid_") else 404
+        raise HTTPException(status, res.get("message_telugu") or "Bridge instance could not be updated")
+    CONTROL_AUTH.audit("wa_number_configured", _wa_actor(request, owner), request,
+                       instance=name, changed=sorted(kw.keys()),
+                       token_rotated="token" in kw, number_configured="number" in kw)
     return res
 
 
 @app.delete("/api/admin/wa/numbers/{name}")
 def admin_wa_number_delete(name: str, request: Request):
-    """📱 ADMIN — number remove."""
-    require_admin(request)
+    """📱 OWNER — remove an instance configuration."""
+    owner = _admin_guard(request, write=True)
     res = wa_pool.get_pool().remove_instance(name)
     if not res.get("success"):
         raise HTTPException(503 if res.get("reason") == "persistence_failed" else 404,
-                            res.get("message_telugu"))
+                            res.get("message_telugu") or "Bridge instance not found")
+    CONTROL_AUTH.audit("wa_number_configuration_removed", _wa_actor(request, owner), request, instance=name)
     return res
+
+
+@app.get("/api/admin/wa/numbers/{name}/auth")
+@app.get("/api/admin/wa/numbers/{name}/auth/status")
+def admin_wa_auth_status(name: str, request: Request):
+    """Owner-only metadata status; no QR, pairing code, token, phone, or message body."""
+    owner = _admin_guard(request)
+    pool = wa_pool.get_pool()
+    instance = pool._instance(name)
+    before = getattr(instance, "bridge_connected", None) if instance else None
+    result = pool.auth_status(name)
+    after = result.get("connected") if result.get("success") else False
+    if instance and before is not None and before != after:
+        CONTROL_AUTH.audit("wa_bridge_auth_state_changed", _wa_actor(request, owner), request,
+                           instance=name, connected=bool(after))
+    if not result.get("success"):
+        _wa_safe_failure(result, "Bridge authentication status is unavailable.")
+    return JSONResponse(content=result, headers={"Cache-Control": "no-store"})
+
+
+@app.get("/api/admin/wa/numbers/{name}/auth/qr")
+def admin_wa_auth_qr(name: str, request: Request):
+    """Owner-only QR retrieval through the application boundary."""
+    owner = _admin_guard(request)
+    result = wa_pool.get_pool().auth_qr(name)
+    if not result.get("success"):
+        _wa_safe_failure(result, "QR is not available from this bridge.")
+    CONTROL_AUTH.audit("wa_qr_viewed", _wa_actor(request, owner), request, instance=name)
+    return JSONResponse(content=result, headers={"Cache-Control": "no-store"})
+
+
+def _validate_pairing_phone(value: object) -> str:
+    raw = str(value or "").strip()
+    if not re.fullmatch(r"\+?[1-9][0-9]{7,14}", raw):
+        raise HTTPException(400, "Enter the authorized WhatsApp phone number with country code.")
+    return raw.lstrip("+")
+
+
+@app.post("/api/admin/wa/numbers/{name}/auth/pairing-code")
+def admin_wa_pairing_code(name: str, payload: dict, request: Request):
+    """Owner-only, cooldown/rate-limited pairing request; the code is never persisted or audited."""
+    owner = _admin_guard(request, write=True)
+    phone = _validate_pairing_phone((payload or {}).get("phone"))
+    actor = _wa_actor(request, owner)
+    key = (actor, name)
+    now = time.time()
+    with _WA_PAIRING_LOCK:
+        previous = _WA_PAIRING_COOLDOWNS.get(key, 0.0)
+        if key in _WA_PAIRING_INFLIGHT or now - previous < _WA_PAIRING_COOLDOWN_SECONDS:
+            retry_after = max(1, int(_WA_PAIRING_COOLDOWN_SECONDS - (now - previous)))
+            raise HTTPException(429, "Pairing-code cooldown is active. Try again later.",
+                                headers={"Retry-After": str(retry_after), "Cache-Control": "no-store"})
+        _WA_PAIRING_INFLIGHT.add(key)
+    try:
+        result = wa_pool.get_pool().request_pairing_code(name, phone)
+        if not result.get("success"):
+            _wa_safe_failure(result, "Pairing code could not be requested.")
+    finally:
+        with _WA_PAIRING_LOCK:
+            _WA_PAIRING_INFLIGHT.discard(key)
+    with _WA_PAIRING_LOCK:
+        _WA_PAIRING_COOLDOWNS[key] = time.time()
+    # Deliberately record only the action and instance. No phone, code, token, or body.
+    CONTROL_AUTH.audit("wa_login_code_requested", actor, request, instance=name)
+    return JSONResponse(content={"success": True, "name": name,
+                                 "pairing_code": result.get("pairing_code", ""),
+                                 "message_en": "Pairing code ready. It is not stored by the application."},
+                        headers={"Cache-Control": "no-store"})
 
 
 @app.post("/api/demo/seed")
@@ -10378,6 +10533,49 @@ def _operational_health_payload() -> dict:
     }
 
 
+@app.get("/api/ready")
+def api_ready():
+    """Readiness probe: startup gates must finish before traffic is promoted."""
+    if not bool(getattr(app.state, "ready", False)):
+        return JSONResponse(
+            status_code=503,
+            content={
+                "success": False,
+                "service": "manavivaha-api",
+                "status": "starting",
+                "message_en": "The service has not completed its startup checks.",
+                "message_telugu": "సర్వర్ startup checks ఇంకా పూర్తికాలేదు.",
+            },
+            headers={"Cache-Control": "no-store"},
+        )
+    return JSONResponse(
+        status_code=200,
+        content={
+            "success": True,
+            "service": "manavivaha-api",
+            "version": "2.1-hardened",
+            "status": "ready",
+            "message_en": "The service is ready for traffic.",
+            "message_telugu": "సర్వర్ traffic కోసం సిద్ధంగా ఉంది.",
+        },
+        headers={"Cache-Control": "no-store"},
+    )
+
+
+@app.get("/metrics")
+def prometheus_metrics(request: Request):
+    """Opt-in Prometheus scrape endpoint; disabled unless explicitly tokenized."""
+    candidate = request.headers.get("x-metrics-token", "")
+    authorization = request.headers.get("authorization", "")
+    if not candidate and authorization.lower().startswith("bearer "):
+        candidate = authorization[7:].strip()
+    if not OBS.configured() or not OBS.authorized(candidate):
+        # Do not advertise an operational endpoint when the owner has not enabled it.
+        raise HTTPException(status_code=404, detail="Not found")
+    payload, content_type = OBS.render()
+    return Response(content=payload, media_type=content_type, headers={"Cache-Control": "no-store"})
+
+
 @app.get("/api/health")
 def api_health():
     """Public liveness only; operational counts stay behind admin auth in production."""
@@ -11298,10 +11496,10 @@ def api_admin_chan_coverage(request: Request):
 @app.get("/api/admin/poster")
 def api_admin_poster(request: Request):
     """Smart poster: queue + random-gap config + pause state (1 screen)."""
-    require_admin(request)
+    _admin_guard(request)
     st = wa_queue_stats()
     cfg = dict(WA_ENGINE.cfg())
-    return {"success": True,
+    return JSONResponse(content={"success": True,
             "paused": bool(WA_ENGINE.state.get("paused", False)),
             "queue": st.get("queue", st),
             "antiban": st.get("antiban", {}),
@@ -11310,13 +11508,14 @@ def api_admin_poster(request: Request):
                      "max_gap_interest": cfg.get("max_gap_interest"),
                      "min_gap_otp": cfg.get("min_gap_otp", 25),
                      "max_gap_otp": cfg.get("max_gap_otp", 60)},
-            "message_telugu": "📮 Smart poster — prati message కి random gap + jitter + coffee-breaks"}
+            "message_telugu": "📮 Smart poster — prati message కి random gap + jitter + coffee-breaks"},
+                        headers={"Cache-Control": "no-store"})
 
 
 @app.post("/api/admin/poster/gaps")
 def api_admin_poster_gaps(payload: dict, request: Request):
     """Jitter range tune (seconds). Safe bounds enforce."""
-    require_admin(request)
+    owner = _admin_guard(request, write=True)
     d = payload or {}
     try:
         mn = max(30, min(int(d.get("min_gap", 120)), 600))
@@ -11325,6 +11524,7 @@ def api_admin_poster_gaps(payload: dict, request: Request):
         raise HTTPException(400, "⚠️ gaps numbers ఇవ్వండి (seconds)")
     os.environ["WA_MIN_GAP"] = str(mn)
     os.environ["WA_MAX_GAP"] = str(mx)
+    CONTROL_AUTH.audit("wa_gap_configuration_changed", _wa_actor(request, owner), request, min_gap=mn, max_gap=mx)
     return {"success": True, "gaps": {"min_gap": mn, "max_gap": mx},
             "message_telugu": f"✅ Random gap {mn}–{mx} sec set అయ్యింది (server restart varaku; permanent కి env లో పెట్టండి)",
             "message_en": f"Random posting gaps set to {mn}–{mx} seconds for this server process; configure environment values to persist across restarts."}

@@ -38,6 +38,8 @@ Env:
 from __future__ import annotations
 
 import copy
+import hashlib
+import hmac
 import json
 from atomic_store import atomic_json_dump
 import os
@@ -87,6 +89,20 @@ def _env_bool(name: str, default: bool) -> bool:
     return str(v).strip().lower() in ("1", "true", "yes", "on")
 
 
+_TARGET_HASH_SECRET = (
+    os.getenv("WA_TARGET_HASH_SECRET")
+    or os.getenv("TSAP_AUTH_SECRET")
+    or os.getenv("JWT_SECRET")
+    or "local-wa-target-hash-key"
+).encode("utf-8")
+
+
+def _target_key(target: object) -> str:
+    """Stable per-recipient key for caps; never store the recipient itself."""
+    value = str(target or "").strip()
+    return "target_" + hmac.new(_TARGET_HASH_SECRET, value.encode("utf-8"), hashlib.sha256).hexdigest()[:32]
+
+
 class WhatsAppAntiban:
     """Thread-safe anti-ban state machine (async worker + API రెండు use chesthayi)."""
 
@@ -119,6 +135,25 @@ class WhatsAppAntiban:
                 d = json.load(f)
             base = self._blank()
             base.update(d)
+            # Migrate legacy raw recipient keys/events to redacted operational
+            # state before any subsequent atomic write.
+            old_targets = base.get("targets") or {}
+            migrated_targets = {}
+            needs_migration = False
+            for key, value in old_targets.items():
+                safe_key = key if str(key).startswith("target_") else _target_key(key)
+                needs_migration = needs_migration or safe_key != key
+                migrated_targets[safe_key] = value
+            base["targets"] = migrated_targets
+            old_events = [event for event in (base.get("events") or []) if isinstance(event, dict)]
+            base["events"] = [{"at": event.get("at"), "kind": event.get("kind"), "detail": "redacted"}
+                              for event in old_events][-100:]
+            needs_migration = needs_migration or any(event.get("detail") != "redacted" for event in old_events)
+            if needs_migration:
+                try:
+                    atomic_json_dump(self.state_file, base, ensure_ascii=False)
+                except Exception:
+                    pass
             return base
         except Exception:
             return self._blank()
@@ -138,8 +173,10 @@ class WhatsAppAntiban:
         return self._now().strftime("%Y-%m-%d")
 
     def _event(self, kind: str, detail: str = "") -> None:
+        # Detail may contain a target, provider response, or message fragment.
+        # Operational history records the event class only.
         self.state.setdefault("events", []).append(
-            {"at": self._now().isoformat(), "kind": kind, "detail": detail[:200]}
+            {"at": self._now().isoformat(), "kind": kind, "detail": "redacted"}
         )
         self.state["events"] = self.state["events"][-100:]
 
@@ -189,7 +226,8 @@ class WhatsAppAntiban:
         return int(self.state.get("days", {}).get(self._day(), 0))
 
     def target_state(self, target: str) -> Dict:
-        t = self.state.setdefault("targets", {}).get(target) or {}
+        key = _target_key(target)
+        t = self.state.setdefault("targets", {}).get(key) or {}
         if t.get("day") != self._day():
             t = {"day": self._day(), "count": 0, "last": t.get("last"), "fails": 0}
         return t
@@ -313,7 +351,7 @@ class WhatsAppAntiban:
                 ts["count"] = int(ts.get("count", 0)) + 1
                 ts["last"] = now.isoformat()
                 ts["fails"] = 0 if ok else int(ts.get("fails", 0)) + 1
-                self.state["targets"][target] = ts
+                self.state["targets"][_target_key(target)] = ts
             self.state["consecutive_failures"] = 0 if ok else int(self.state.get("consecutive_failures", 0)) + 1
             self._event("sent" if ok else "send_failed", f"{target or '-'} p{priority} {detail}")
             c = self.cfg()
@@ -385,10 +423,9 @@ class WhatsAppAntiban:
             "cooldown_until": self.state.get("cooldown_until"),
             "consecutive_failures": self.state.get("consecutive_failures", 0),
             "last_sent_at": self.state.get("last_sent_at"),
-            "targets_today": {k: v.get("count", 0) for k, v in (self.state.get("targets") or {}).items()
-                              if v.get("day") == self._day()},
-            "recent_events": (self.state.get("events") or [])[-10:],
-            "state_file": self.state_file,
+            "targets_today_count": sum(1 for v in (self.state.get("targets") or {}).values()
+                                    if v.get("day") == self._day()),
+            "recent_event_count": len(self.state.get("events") or []),
         }
 
 

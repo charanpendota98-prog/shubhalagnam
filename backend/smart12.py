@@ -487,7 +487,7 @@ async def deliver_personal(buyer: Dict, targets: List[Dict], via: str = "both",
                     wa["failed"] = "dry_run_whatsapp_off"
                 else:
                     for m in msgs:
-                        publisher.enqueue_whatsapp([wa["phone"]], m)
+                        publisher.enqueue_whatsapp([wa["phone"]], m, priority=0, kind="saved_search_alert")
                         wa["queued"] += 1
             except Exception as e:  # noqa: BLE001
                 wa["failed"] = type(e).__name__ + ": " + str(e)[:100]

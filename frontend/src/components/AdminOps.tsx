@@ -296,7 +296,7 @@ export function PublishPanel() {
         <div className="mt-2 max-h-[180px] space-y-1 overflow-auto">
           {dead.map((m: Row, i: number) => (
             <div key={i} className="rounded-lg bg-gray-50 px-2 py-1 font-mono text-[11px]">
-              {localizedCode(m.kind, te, te ? "సందేశం" : "Message")} {m.phone ? `· ${m.phone}` : ""} → {(m.targets || m.phones || []).join?.(", ") || m.to || ""} • {apiDisplayMessage({ message_en: m.error_en || m.last_error_en, error: m.error || m.last_error, message_telugu: m.error || m.last_error }, te, te ? "తెలియని లోపం" : "Error details unavailable").slice(0, 60)}
+              {localizedCode(m.kind, te, te ? "సందేశం" : "Message")} · {m.attempt_count ?? (m.attempts || []).length} {te ? "ప్రయత్నాలు" : "attempts"} · {te ? "గోప్యత కోసం recipient/body దాచాం" : "recipient and body withheld for privacy"}
             </div>
           ))}
           {!dead.length && <p className="text-gray-400">{te ? "✅ విఫలమైన సందేశాలు లేవు." : "✅ No failed messages."}</p>}

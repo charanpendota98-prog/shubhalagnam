@@ -26,6 +26,7 @@ import OpsInsights from "./OpsInsights";
 import ChannelCoverage from "./ChannelCoverage";
 import ChannelsConsole from "@/components/ChannelsConsole";
 import WANumbersConsole from "@/components/WANumbersConsole";
+import WorkerOpsPanel from "@/components/WorkerOpsPanel";
 import ReferralReport from "@/components/ReferralReport";
 import DataTools from "@/components/DataTools";
 import DailyMatches from "@/components/DailyMatches";
@@ -233,6 +234,7 @@ export default function Dashboard() {
     | "matchmaker"
     | "directory"
     | "overview"
+    | "workerOps"
     | "queue"
     | "castes"
     | "channels"
@@ -1296,6 +1298,7 @@ export default function Dashboard() {
   const t = an.totals;
   const safeWorkerTabs = [
     { k: "overview" as const, label: L.tabOverview },
+    { k: "workerOps" as const, label: tr("🛠️ వర్కర్ ఆపరేషన్స్", "🛠️ Worker operations") },
     { k: "queue" as const, label: `${L.tabQueue} (${t.pending})` },
     { k: "reports" as const, label: `${L.tabReports} (${t.open_reports})` },
   ];
@@ -1308,6 +1311,7 @@ export default function Dashboard() {
     { k: "matchmaker" as const, label: tr("⚡ స్మార్ట్ మ్యాచ్ మేకర్", "⚡ Smart Matchmaker") },
     { k: "directory" as const, label: `📇 డైరెక్టరీ & కాంటాక్ట్స్ (${t.profiles})` },
     { k: "overview" as const, label: L.tabOverview },
+    { k: "workerOps" as const, label: tr("🛠️ వర్కర్ ఆపరేషన్స్", "🛠️ Worker operations") },
     { k: "queue" as const, label: `${L.tabQueue} (${t.pending})` },
     { k: "castes" as const, label: L.tabCastes },
     { k: "channels" as const, label: L.tabChannels },
@@ -2539,6 +2543,10 @@ export default function Dashboard() {
         {/* =========================================================================
             OTHER EXISTING TABS (OVERVIEW, QUEUE, CASTES, ADD PROFILE, ADS, VENDORS, ETC.)
             ========================================================================= */}
+        {tab === "workerOps" && (owner || !financeAccess) && (
+          <WorkerOpsPanel />
+        )}
+
         {tab === "overview" && (
           <div className="space-y-6">
             {/* KPI Cards */}
@@ -2782,7 +2790,7 @@ export default function Dashboard() {
               <span>📱</span>
               <span>{tr("అధికారిక WhatsApp పంపేవారు & మద్దతు నంబర్లు", "WhatsApp senders and support numbers")}</span>
             </h3>
-            <WANumbersConsole />
+            <WANumbersConsole controlCsrf={me.csrf} />
           </div>
         )}
 

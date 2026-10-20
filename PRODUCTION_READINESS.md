@@ -1,14 +1,17 @@
-# Production readiness — rechecked 2026-10-19
+# Production readiness — rechecked 2026-10-20
 
 ## Decision
 
 **NO-GO for public production from this worktree.** Local lint, builds, regression tests, a temporary isolated preview, and static Compose assertions pass. They do not establish an authorized production host, data migration, disaster recovery, real provider operation, DNS/TLS, or release approval. Do not describe this checkout as launched, fully production-ready, or externally verified.
 
-## Latest local verification — 2026-10-19
+## Latest local verification — 2026-10-20
 
 - Next.js and `eslint-config-next` are locked to **16.4.2**; `npm run lint`, `npx tsc --noEmit`, and `npm run build` passed. The build generated **53 routes**; link/static/security gates and API-client regressions passed.
-- Backend compilation and the full direct executable integration sweep passed: **69/69 scripts**. The focused request-safety suite passed **11/11** after adding production health privacy coverage. The browser/axe suites were invoked locally but skipped because Chromium is not installed; the strict remote Chromium run is now green.
+- Backend compilation and the full direct executable integration sweep passed: **71/71 scripts**. The focused request-safety suite passed **11/11** after adding production health privacy coverage. The browser/axe suites were invoked locally but skipped because Chromium is not installed; the strict remote Chromium run is now green.
 - Production public `/api/health` now returns liveness only; operational counts/payment mode/WhatsApp queue details are available only through authenticated `/api/admin/health`.
+- `/api/ready` now reports `503` until the lifespan completes storage/database/provider startup checks, then returns a minimal `ready` response suitable for Caddy/OCI health promotion. Token-gated `/metrics` uses the Apache-2.0 Prometheus Python client with bounded method/route/status labels and is disabled unless `METRICS_TOKEN` is explicitly provisioned.
+- `OPEN_SOURCE_INTEGRATION_RESEARCH.md` records the reviewed Apache/MIT projects, license and maintenance decisions, privacy boundaries, tenant isolation rules, and phased Meilisearch/Qdrant/OpenTelemetry/Taskiq/OpenFeature/Umami/PostgreSQL migration plan. No third-party source was copied; the current change adopts only the low-risk Prometheus client and keeps the JSON store authoritative.
+- The owner WhatsApp operations console now proxies metadata-only auth status, no-store QR retrieval, and validated/cooldown-protected pairing-code requests through the authenticated backend. OTP, channels, personal/referral, and `both` backup lanes remain explicit; the pool refuses to route a dedicated lane through an unrelated number. Bridge tokens are sent only server-to-server and are AES-GCM protected in the pool state (legacy plaintext state is migrated on the next save when a 32+ character app/secret-manager key is present). Each bridge has an isolated auth directory, and the worker snapshot exposes only queue/heartbeat/retry/dead-letter/pause state plus bounded error categories. Focused WhatsApp security/RBAC coverage passes **34/34** (`backend/test_whatsapp_operations.py`).
 - The crash-safe persistence pass covers runtime JSON reports and audit ledgers, transactional retention rollback, bounded transactional media uploads, and authenticated Blob exports. These are code-path protections, not evidence of a durable production volume or provider operation.
 
 ## Improvements now present in the repository
@@ -23,6 +26,13 @@
 - Jathakam uploads and profile media use the configured media root. Registration requires a technically valid image; new photos stay private/pending suitability review, and approval is not represented as identity verification or proof that the applicant is pictured. Public visibility remains opt-in and approval/privacy-state gated. The production updater no longer switches branches/remotes, backs up plaintext `.env`, restores application data, or removes Compose orphans automatically; deployment is pinned to a reviewed commit and an operator backup acknowledgement.
 - Old payment/deployment notes that contained guessed recipients, obsolete Compose instructions, or unsupported readiness claims are now archived or replaced with explicit safety guidance.
 - Public support, operator/legal identity, location, and grievance contacts now default to absent and are injected only from explicit deployment configuration. Legal pages hide empty fields; JSON-LD omits an empty email, unsupported Hyderabad/area-served assertions and the fabricated legal-name default were removed. The unverified legal-acceptance API is retired (410) and its owner-summary object is removed. Web-push readiness requires the optional sender package, a valid matching VAPID key pair, and an owner-configured subject; no contact fallback is synthesized. Visitor analytics now use a process-local HMAC pseudonym, minimized page/referrer/campaign fields, a 30-day maximum and 10,000-event cap, and a response that exposes neither visitor IDs nor totals; the privacy notice distinguishes this from separate infrastructure/provider logs.
+
+## Latest focused verification — 2026-10-20
+
+- New readiness/observability regression: **9/9 passed**. Before lifespan completion `/api/ready` returns `503`; after readiness it returns a minimal `200`; `/metrics` stays `404` until an operator token is configured and then requires that token. The metrics assertions verify Prometheus exposition, bounded labels, no member identifiers, and no analytics events for health probes.
+- Full backend executable sweep passed **71/71 scripts** with no tracked fixture changes, including focused WhatsApp operations/secrecy/RBAC coverage **34/34**. Existing request-safety regression: **11/11 passed**. Existing deployment contract regression: **64/64 passed**.
+- Frontend lint, links, static/security suites (including the new observability proxy test), TypeScript, production build (**53 routes**), and production-only npm audit (**0 vulnerabilities**) passed. Python compilation, dependency audit, and `git diff --check` passed.
+- Chromium/axe, Docker image build, OCI host, provider, migration, backup/restore, and rollback gates remain environment-dependent and unverified in this workspace.
 
 ## Latest focused verification — 2026-10-15
 
