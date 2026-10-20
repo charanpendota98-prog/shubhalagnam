@@ -14,3 +14,7 @@ aiohttp==3.14.4
 pywebpush==2.5.0
 razorpay==1.4.1
 httpx==0.27.0
+# Prometheus metrics are opt-in at the HTTP boundary and never include PII.
+prometheus-client==0.26.0
+# AES-GCM protects bridge tokens when the local pool state is persisted.
+cryptography==50.0.2

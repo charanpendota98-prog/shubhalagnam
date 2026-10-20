@@ -22,6 +22,10 @@ const nextConfig = {
       { source: '/cards/:path*', destination: `${backend}/cards/:path*` },
       { source: '/photos/:path*', destination: `${backend}/photos/:path*` },
       { source: '/voice/:path*', destination: `${backend}/voice/:path*` },
+      // Metrics stay disabled unless the backend receives the operator token;
+      // proxying the path lets an internal OCI/Prometheus scrape work through
+      // the same private frontend boundary without publishing port 8000.
+      { source: '/metrics', destination: `${backend}/metrics` },
     ];
   },
 

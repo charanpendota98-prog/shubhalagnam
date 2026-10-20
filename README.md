@@ -19,6 +19,8 @@ For the verified current-state product audit, target architecture, proposed futu
 
 For the implementation-oriented OCI architecture, 1k-to-10m scale plan, Top 100 improvements, Top 50 critical fixes, AI/revenue/growth priorities, security roadmap, and 12-month CTO launch sequence, see [`OCI-FREE-TIER-TRANSFORMATION-PLAN.md`](OCI-FREE-TIER-TRANSFORMATION-PLAN.md). It is a build plan, not an assertion that the current JSON runtime is production-ready.
 
+For researched open-source building blocks, license/maintenance decisions, privacy boundaries, and the phased Meilisearch/Qdrant/OpenTelemetry/Taskiq/OpenFeature/Umami/PostgreSQL plan, see [`OPEN_SOURCE_INTEGRATION_RESEARCH.md`](OPEN_SOURCE_INTEGRATION_RESEARCH.md). It also documents why the current release adopts only opt-in Prometheus metrics and keeps the JSON store authoritative.
+
 Every push and pull request runs the repository quality gates in [`.github/workflows/ci.yml`](.github/workflows/ci.yml). The production image targets and no-go launch gates remain documented in [`PRODUCTION-DEPLOY.md`](PRODUCTION-DEPLOY.md).
 
 ## Local development
@@ -35,7 +37,7 @@ Typical local URLs, if those services are enabled:
 - API docs: `http://localhost:8000/docs`
 - Channel directory: `http://localhost:3000/channels`
 
-The optional WhatsApp bridge requires its own opt-in configuration and account pairing. Do not use it for unsolicited messages. External account, link, and delivery status must be checked with the respective providers.
+The optional WhatsApp bridge now supports separate owner-managed OTP, channel-post, personal/interest, and backup lanes with per-instance caps, cooldowns, failover, pause/resume, dead-letter handling, and an internal-only QR/pairing-code login proxy. Use only authorized numbers and consent-based operational messaging; do not use it for unsolicited or cold messages. QR contents, pairing codes, bridge tokens, session credentials, recipient numbers, and message bodies are withheld from public APIs, analytics, logs, and worker views. A local sender result never proves recipient delivery or reading; verify external account, link, permission, and delivery state with the provider.
 
 ## Validation commands
 
@@ -53,6 +55,7 @@ The optional WhatsApp bridge requires its own opt-in configuration and account p
   python test_shortlist_notes.py
   python test_compare_preferences.py
   python test_control_analytics.py
+  python test_whatsapp_operations.py  # owner auth, QR/pairing secrecy, lanes, RBAC
 )
 
 # Frontend lint, TypeScript, and production build
