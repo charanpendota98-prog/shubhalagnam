@@ -516,7 +516,7 @@ metadata = { robots: { index: false, follow: false } }`.
 
 | Method | Path | Function | Auth | Purpose |
 |---|---|---|---|---|
-| POST | `/api/payment/webhook` | `payment_webhook` | — |  |
+| POST | `/api/payment/webhook` | `payment_webhook` | — | Retired: deterministic HTTP 410; use signed `/api/pay/webhook`. |
 
 ## `/api/photo` — Photo upload & status (2)
 

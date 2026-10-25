@@ -134,8 +134,11 @@ try:
           and not Q.matches_filters({"photo_status": "approved", "photo_urls": ["/photo.jpg"], "photo_private": True}, {"photo_only": True}))
 
     section("S1 register+login shapes (register/login pages)")
-    r = reg(full_name="Shape Raja")
+    r = reg(full_name="Shape Raja", photo_private="false")
     G = r.json()["tsap_id"]
+    # Public referral validation is an approved-publication surface; make the
+    # isolated referrer explicit before checking its response shape.
+    user_of(G).update({"is_approved": True, "status": "approved", "is_active": True})
     b = reg(gender="female", full_name="Shape Rani", age=24)
     B = b.json()["tsap_id"]
     check("S1.1 register keys", all(k in r.json() for k in

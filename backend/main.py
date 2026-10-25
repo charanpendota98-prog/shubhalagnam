@@ -17,7 +17,6 @@ from atomic_store import atomic_json_dump, atomic_write_bytes
 from typing import Any, Dict, List, Optional
 from contextlib import asynccontextmanager
 import os, random, json, re, hashlib, hmac, urllib.parse, time, secrets, copy
-from urllib.parse import quote
 import threading
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
@@ -401,6 +400,25 @@ def _is_approved_profile(profile: Optional[Dict]) -> bool:
     if flag is not None:
         return flag is True or str(flag).strip().lower() in {"1", "true", "yes", "approved"}
     return status == "approved"
+
+
+def _is_public_referral_profile(profile: Optional[Dict]) -> bool:
+    """Referral assets are public marketing material only after approval and consent.
+
+    ``_is_approved_profile`` is deliberately not the only check: a member may
+    be approved for discovery while explicitly disabling referral promotion.
+    Unknown/legacy values fail closed only when they are an explicit privacy or
+    referral opt-out; existing approved profiles retain the historical default.
+    """
+    if not _is_approved_profile(profile):
+        return False
+    profile = profile or {}
+    if profile.get("referral_public") is False or profile.get("referral_private") is True:
+        return False
+    privacy = str(profile.get("privacy_mode") or "").strip().lower()
+    if privacy in {"private", "hidden", "deleted", "inactive"}:
+        return False
+    return True
 
 
 def _is_nri(u: Dict) -> bool:  # 🌊 WAVE 14 adapter: stored flag + detect_nri fallback
@@ -2550,7 +2568,11 @@ async def _security_middleware(request: Request, call_next):
         return resp
     try:
         should_rate_limit = request.method == "POST" or (
-            request.method == "GET" and request.url.path in {"/api/search", "/api/facets", "/api/promo/apply"}
+            request.method == "GET" and (
+                request.url.path in {"/api/search", "/api/facets", "/api/promo/apply"}
+                or request.url.path.startswith("/api/referral/")
+                or request.url.path.startswith("/api/og/profile/")
+            )
         )
         if should_rate_limit:
             limited = rate_limit_hit(request)
@@ -3040,6 +3062,9 @@ async def register(
     referral_invite = clean(referral_invite, 64, "referral_invite").upper()
     if referral_code and not re.fullmatch(r"[A-Z0-9_-]{1,80}", referral_code):
         raise HTTPException(400, "Referral code format is invalid")
+    # A phone is not a public referral identifier. Keep this marker local to
+    # the request so a rejected phone probe is neither stored nor echoed.
+    referral_phone_probe = referral_code.isdigit() and len(referral_code) >= 7
     if referral_invite and not re.fullmatch(r"[A-Z0-9_-]{1,64}", referral_invite):
         raise HTTPException(400, "Referral invite format is invalid")
 
@@ -3331,7 +3356,9 @@ async def register(
             "password_hash": _hash_password(password) if password else "",
             "referral_code": my_ref_code,
             "referred_by": "",                    # attach_referral() validate chesi lock chestundi (kinda)
-            "referred_by_raw": referral_code,     # form lo vachina code (audit)
+            # Do not persist an attempted phone-number directory probe. Valid
+            # opaque referral inputs remain auditable without copying contact data.
+            "referred_by_raw": "" if referral_phone_probe else referral_code,
             # Store only the digest; the raw browser retry capability never enters
             # the profile or any API response.
             "registration_key_hash": registration_key_hash,
@@ -3386,9 +3413,21 @@ async def register(
     referral_result = {"ok": False, "reason": "no_code"}
     if referral_code:
         try:
-            # attach_referral() reads this to close the loop on a per-person invite.
-            user["referral_invite_token"] = str(referral_invite or "").strip().upper()[:16]
-            referral_result = attach_referral(user, referral_code, DB_USERS)
+            # Registration is a public landing flow: only an approved opaque
+            # code/alias (or a partner ID) may attach. Internal referral helpers
+            # still support legacy phone inputs for controlled operations, but a
+            # caller cannot use this endpoint as a phone-directory oracle.
+            public_referral = _public_referral_validation(referral_code)
+            if not public_referral.get("ok"):
+                referral_result = {
+                    "ok": False,
+                    "reason": "not_found",
+                    "message_telugu": "⚠️ ఈ referral code దొరకలేదు — code సరిగా చూసుకోండి",
+                }
+            else:
+                # attach_referral() reads this to close the loop on a per-person invite.
+                user["referral_invite_token"] = str(referral_invite or "").strip().upper()[:16]
+                referral_result = attach_referral(user, referral_code, DB_USERS)
         except Exception as e:
             referral_result = {"ok": False, "reason": "error", "error": str(e)[:120]}
         finally:
@@ -3399,7 +3438,7 @@ async def register(
             user.pop("referral_invite_token", None)
     # ee user ki sontha referral code (share cheyyadaniki)
     my_referral = ensure_referrer_profile(user, DB_USERS)
-    user["referred_by_final"] = user.get("referred_by") or referral_code
+    user["referred_by_final"] = user.get("referred_by") or (referral_code if referral_result.get("ok") else "")
 
     # 5b. 🔔 Referrer ki instant WhatsApp update — "mee friend join ayyaru" (loop close)
     referral_notify = {"referrer_notified": False}
@@ -4224,9 +4263,16 @@ def delete_user_account(payload: dict, request: Request, tsap_id: Optional[str] 
     # token తప్పనిసరి.
     require_owner(request, clean_id)
 
-    reason = str(payload.get("reason", "married_via_manavivaha")).strip()
-    partner_name = str(payload.get("partner_name", "")).strip()
-    feedback = str(payload.get("feedback", "")).strip()
+    # Deletion is a cross-store consent transition. Keep rollback snapshots so
+    # a failed core checkpoint cannot leave the account hidden while contact
+    # grants/interests are only half-revoked.
+    user_before = copy.deepcopy(user)
+    interests_before = copy.deepcopy(DB_INTERESTS)
+    unlock_state = None
+
+    reason = clean(payload.get("reason", "married_via_manavivaha"), 80, "deletion_reason")
+    partner_name = clean(payload.get("partner_name", ""), 120, "partner_name")
+    feedback = clean(payload.get("feedback", ""), 1000, "deletion_feedback")
     
     is_married_here = reason in ("married_via_manavivaha", "found_match_here", "pelli_kudhirindi")
     is_married_offline = reason in ("married_elsewhere", "offline_match", "other_portal")
@@ -4239,6 +4285,34 @@ def delete_user_account(payload: dict, request: Request, tsap_id: Optional[str] 
     user["deletion_reason"] = reason
     user["deletion_feedback"] = feedback
     user["partner_name"] = partner_name
+
+    # Accepted contact consent ends when either account is deactivated. Keep the
+    # record as revoked for audit/history instead of silently deleting evidence.
+    for interest in DB_INTERESTS:
+        if not isinstance(interest, dict) or str(interest.get("status", "")).lower() != "accepted":
+            continue
+        parties = {str(interest.get("from_id", "")).upper(), str(interest.get("to_id", "")).upper()}
+        if clean_id in parties:
+            interest["status"] = "revoked"
+            interest["revoked_at"] = datetime.utcnow().isoformat()
+            interest["revoked_reason"] = "profile_deactivated"
+
+    try:
+        import smart12 as _SMART12
+        revoke_result = _SMART12.revoke_contact_access(clean_id)
+        if not revoke_result.get("success"):
+            user.clear()
+            user.update(user_before)
+            DB_INTERESTS[:] = interests_before
+            raise HTTPException(503, "Contact access could not be revoked safely. Please try again.")
+        unlock_state = revoke_result.get("snapshot")
+    except HTTPException:
+        raise
+    except Exception:
+        user.clear()
+        user.update(user_before)
+        DB_INTERESTS[:] = interests_before
+        raise HTTPException(503, "Contact access could not be revoked safely. Please try again.")
     
     if is_married_here:
         user["status"] = "married_fixed"
@@ -4248,13 +4322,22 @@ def delete_user_account(payload: dict, request: Request, tsap_id: Optional[str] 
         msg = f"💐 శుభాకాంక్షలు {user.get('full_name')} గారు! మీ వివాహం నిశ్చయమైనందుకు సంతోషం. మీ ప్రొఫైల్ active public search నుంచి దాచబడింది."
     else:
         msg = f"✅ {user.get('full_name')} గారు, మీ ప్రొఫైల్ active public search నుంచి దాచబడింది. Stored records erase request కోసం /privacy లోని contact ను సంప్రదించండి."
-    msg += " ముందే accepted request ద్వారా ఇచ్చిన contact access ఈ చర్యతో revoke కాదు; బయట save చేసిన copies ను తిరిగి తీసుకోలేము."
+    msg += " ఈ చర్యతో Mana Vivaha లో ముందుగా ఇచ్చిన contact access revoke అవుతుంది; బయట save చేసిన copies ను తిరిగి తీసుకోలేము."
 
-    try:
-        DBSTORE.save(DBSTORE.snapshot(DB_USERS, DB_INTERESTS, DB_PAYMENTS, DB_OTPS,
-                                      VERIFIED_PHONES, DB_VIEWS, DB_SAVES, DB_DIGEST), force=True)
-    except Exception:
-        pass
+    if not _persist_core_state():
+        user.clear()
+        user.update(user_before)
+        DB_INTERESTS[:] = interests_before
+        if unlock_state:
+            try:
+                import smart12 as _SMART12
+                if not _SMART12.restore_contact_access(unlock_state):
+                    raise HTTPException(503, "Deletion could not be rolled back safely; support intervention is required.")
+            except HTTPException:
+                raise
+            except Exception:
+                raise HTTPException(503, "Deletion could not be rolled back safely; support intervention is required.")
+        raise HTTPException(503, "Deletion could not be saved safely. Please try again.")
 
     return {
         "success": True,
@@ -4263,7 +4346,7 @@ def delete_user_account(payload: dict, request: Request, tsap_id: Optional[str] 
         "message_en": (("Congratulations. Your profile is hidden from active public search. For a separate data-erasure request, use the privacy contact on /privacy."
                         if is_married_here or is_married_offline else
                         "Your profile is hidden from active public search. This action does not erase all stored records; use the privacy contact on /privacy for an erasure request.")
-                       + " It does not revoke contact access already granted through accepted requests or recall copies already saved/shared."),
+                       + " Contact access previously granted inside Mana Vivaha is revoked; copies already saved or shared outside the service cannot be recalled."),
         "profile_visibility": "hidden",
         "is_married": is_married_here or is_married_offline,
         "congratulations": is_married_here
@@ -4434,165 +4517,25 @@ def deduct_credit_api(tsap_id: str, target_id: str = "", request: Request = None
                           "3️⃣ Accept అయిన request లో contact details చూడండి; WhatsApp notification delivery హామీ లేదు"],
         "pay_url": "/pricing"})
 
-@app.post("/api/payment/webhook")
-async def payment_webhook(user_id: str = "", amount: int = 0, razorpay_payment_id: str = "",
-                          referral_code: str = "", plan_code: str = "", signature_verified: bool = False,
-                          request: Request = None):
+@app.post("/api/payment/webhook", include_in_schema=False)
+async def payment_webhook(request: Request = None):
+    """Retired legacy payment callback.
+
+    Credits must only be fulfilled through the PayPro order state machine at
+    ``/api/pay/webhook``.  Keeping the old parameter-driven route alive, even
+    for an unconfigured/manual environment, creates an unsigned money-mutation
+    primitive.  Return a deterministic 410 instead of parsing caller-supplied
+    identity, amount, plan, or payment IDs.
     """
-    💰 Razorpay webhook → signature verify → payment fulfillment; one-time referral reward only for consumer plans.
-
-    🛡️ WAVE 9 FIXES:
-      • B01 `signature_verified=true` query bypass → ippudu admin/automation key tho matrame (free ₹499 plan hack closed)
-      • B02 real HMAC-SHA256 **raw body** verification (mundu dead code — NameError silent swallow)
-      • B03 prod lo RAZORPAY_WEBHOOK_SECRET lekapote unsigned webhook **reject** (fail-closed)
-      • B04 Razorpay JSON webhook body support (payload.payment.entity → user_id/amount/payment_id notes nunchi)
-      • B05 plan_code price != amount → 400 (₹1 + VIP plan mismatch hack)
-    """
-    raw_body = b""
-    try:
-        raw_body = await request.body()      # signature verify ki raw bytes kavali
-    except Exception:
-        raw_body = b""
-    body: Dict[str, Any] = {}
-    if raw_body:
-        try:
-            body = json.loads(raw_body.decode("utf-8")) or {}
-        except Exception:
-            body = {}
-    entity = {}
-    if isinstance(body, dict):
-        entity = (((body.get("payload") or {}).get("payment") or {}).get("entity") or {}) or {}
-    if entity:
-        _notes = entity.get("notes") or {}
-        user_id = user_id or str(_notes.get("user_id") or _notes.get("tsap_id") or "")
-        if not amount:
-            amount = int(int(entity.get("amount") or 0) // 100)      # paise → rupees
-        razorpay_payment_id = razorpay_payment_id or str(entity.get("id") or "")
-        referral_code = referral_code or str(_notes.get("referral_code") or "")
-        plan_code = plan_code or str(_notes.get("plan_code") or "")
-
-    user_id = req_text(user_id, "user_id", 3, 60)
-    user = next((u for u in DB_USERS if u["tsap_id"] == user_id), None)
-    if not user:
-        raise HTTPException(404, "⚠️ User దొరకలేదు — TSAP ID check చెయ్యండి")
-
-    sig_header = ""
-    try:
-        sig_header = (request.headers.get("x-razorpay-signature") or "").strip()
-    except Exception:
-        sig_header = ""
-    _wh_secret = os.getenv("RAZORPAY_WEBHOOK_SECRET", "").strip()
-    _bridge = is_admin(request) or is_automation(request)          # internal bridge (x-api-key/admin key)
-    _sig_ok = bool(_wh_secret) and verify_webhook_signature(sig_header, _wh_secret, raw_body)
-
-    if _wh_secret and not _sig_ok:
-        abuse_log("webhook_signature_fail", user_id)
-        abuse_count("webhook_rejected")
-        return JSONResponse(status_code=401, content={
-            "success": False, "error": "signature_invalid",
-            "message_telugu": "⚠️ Webhook signature verify కాలేదు — payment accept చెయ్యలేదు (RAZORPAY_WEBHOOK_SECRET chusukondi)"})
-    # 🛡️ fail-closed **gateway live** unnappudu matrame (Razorpay keys unte):
-    #    keys unte kaani secret ledu ante → unsigned webhook reject (misconfiguration).
-    #    Gateway inka configure avvakapote (keys ledu) → legacy/dev flow ki allow (abuse ledger lo log).
-    _gateway_live = bool((os.getenv("RAZORPAY_KEY_ID") or "").strip()) or \
-        str(os.getenv("PAYMENTS_LIVE", "")).strip().lower() in ("1", "true", "yes", "on")
-    if not _wh_secret and not dev_mode() and _gateway_live:
-        abuse_log("webhook_secret_missing", user_id)
-        abuse_count("webhook_rejected")
-        return JSONResponse(status_code=503, content={
-            "success": False, "error": "webhook_secret_missing",
-            "message_telugu": "⚠️ Payment gateway keys ఉన్నాయి కానీ webhook secret లేదు — safe side reject చేశాం (RAZORPAY_WEBHOOK_SECRET set చెయ్యండి)"})
-    if not _wh_secret and not _gateway_live:
-        abuse_log("webhook_unsigned_no_gateway", user_id)
-    if signature_verified and not _bridge:
-        abuse_log("webhook_fake_signature_flag", user_id)
-        abuse_count("admin_denied")
-        return JSONResponse(status_code=403, content={
-            "success": False, "error": "signature_verified_forbidden",
-            "message_telugu": "🔒 signature_verified flag client నుంచి ivvakoodadu — gateway signature మాత్రమే"})
-    if not razorpay_payment_id and not _sig_ok and not (_bridge and signature_verified):
-        return JSONResponse(status_code=400, content={
-            "success": False, "error": "payment_proof_missing",
-            "message_telugu": "⚠️ Payment proof లేదు — order id + payment id పంపండి"})
-
-    amount = req_int(amount, "amount", 1, 1_000_000)
-    razorpay_payment_id = clean(razorpay_payment_id, 60, "payment_id")
-    _code_in = (plan_code or "").strip().upper()
-    if _code_in:
-        _known = next((_p for _p in (list(INTEREST_PLANS.values()) + list(ADDONS.values()) + list(RENEWALS.values()))
-                       if str(_p.get("code", "")).upper() == _code_in), None)
-        if _known and int(_known.get("price", 0)) != int(amount):
-            abuse_log("webhook_amount_mismatch", f"{_code_in}:{amount}")
-            abuse_count("webhook_rejected")
-            return JSONResponse(status_code=400, content={
-                "success": False, "error": "amount_mismatch",
-                "expected_amount": _known.get("price"),
-                "message_telugu": f"⚠️ {_code_in} price ₹{_known.get('price')} — మీకు ₹{amount} వచ్చింది. Match avvatledu."})
-    if not dev_mode() and razorpay_payment_id and not razorpay_payment_id.startswith(("pay_", "order_", "upi_", "txn_")):
-        abuse_log("webhook_bad_payment_id", user_id)
-        return JSONResponse(status_code=400, content={
-            "success": False, "error": "bad_payment_id",
-            "message_telugu": "⚠️ Razorpay payment id format tappu (pay_xxxx laga ఉండాలి)"})
-    if razorpay_payment_id and idem_seen("pay:" + razorpay_payment_id):
-        abuse_log("webhook_replay", razorpay_payment_id)
-        abuse_count("webhook_replay")
-        return {"success": True, "duplicate": True, "user_id": user_id, "payment_id": razorpay_payment_id,
-                "message_telugu": "✅ ఈ payment ముందు already apply అయ్యింది — double credit ఇవ్వము (idempotent)",
-                "total_credits": user.get("credits", 0), "plan": user.get("plan", "FREE")}
-
-    applied = apply_payment(user, amount, plan_code)
-    if not applied["ok"]:
-        return JSONResponse(status_code=400, content={
-            "success": False, **applied,
-            "message_telugu": "⚠️ ఈ amount కి plan లేదు — /api/pricing chusi correct amount పంపండి",
-            "valid_amounts": [p["price"] for p in plan_list()] + [a["price"] for a in addon_list()]})
-
-    # 🧾 payment record (audit)
-    payment_record = {"at": datetime.utcnow().isoformat(), "tsap_id": user_id, "amount": amount,
-                      "plan": applied["plan"]["code"], "kind": applied["kind"],
-                      "payment_id": razorpay_payment_id, "referral_code": referral_code}
-    DB_PAYMENTS.append(payment_record)
-
-    # 🤝 Only a paid consumer request-plan purchase can earn the one-time referral reward.
-    referral_result = None
-    qualifying_plan_code = str(applied["plan"].get("code") or "").upper()
-    if applied.get("kind") == "plan" and qualifying_plan_code in QUALIFYING_PLAN_CODES and user.get("referred_by"):
-        referral_result = process_referral_payment(
-            user, user["referred_by"], amount, DB_USERS,
-            payment_id=razorpay_payment_id, plan_code=qualifying_plan_code,
-        )
-        payment_record["referral"] = {"success": bool(referral_result.get("success")),
-                                      "commission": referral_result.get("commission", 0),
-                                      "reason": referral_result.get("reason", "")}
-        if referral_result.get("success"):
-            try:
-                _r = next((u for u in DB_USERS if u.get("tsap_id") == referral_result.get("referrer_id")), None)
-                if _r:
-                    _rtxt = referrer_commission_text(_r, user, referral_result)
-                    _rphone = str(_r.get("phone") or "").strip()
-                    if _rphone and publish_config()["wa_mode"] != "off":
-                        _q = enqueue_whatsapp([_rphone], _rtxt, priority=0, kind="referral_commission")
-                        referral_result["referrer_notified"] = bool(_q.get("queued"))
-                    else:
-                        referral_result["referrer_message"] = _rtxt
-            except Exception as e:
-                referral_result["notify_error"] = str(e)[:120]
-
-    try:
-        DBSTORE.save(DBSTORE.snapshot(DB_USERS, DB_INTERESTS, DB_PAYMENTS, DB_OTPS,
-                                      VERIFIED_PHONES, DB_VIEWS, DB_SAVES, DB_DIGEST), force=True)
-    except Exception:
-        pass
-
-    return {
-        "success": True, "user_id": user_id, "amount": amount,
-        "plan": applied["plan"]["code"], "kind": applied["kind"],
-        "profiles_added": applied["profiles_added"], "total_credits": applied["credits"],
-        "plan_expiry": applied["expiry"], "perks": applied["plan"].get("perks", []),
-        "referral_commission": referral_result,
-        "gst_note": "Tax/GST invoice availability depends on the applicable billing record. Ask through the configured support contact; delivery timing is not guaranteed.",
-        "message_telugu": applied["message_telugu"],
-    }
+    abuse_log("legacy_webhook_retired", "/api/payment/webhook")
+    abuse_count("webhook_rejected")
+    return JSONResponse(status_code=410, content={
+        "success": False,
+        "error": "legacy_webhook_retired",
+        "message_en": "This payment callback is retired. Create an order and use the signed provider webhook.",
+        "message_telugu": "ఈ పాత payment callback నిలిపివేయబడింది. ముందుగా order create చేసి signed provider webhook మాత్రమే ఉపయోగించండి.",
+        "replacement": "/api/pay/webhook",
+    })
 
 @app.get("/api/referral/leaderboard")
 def leaderboard(period: str = "all", limit: int = 10, me: str = ""):
@@ -4612,38 +4555,59 @@ def leaderboard(period: str = "all", limit: int = 10, me: str = ""):
 # ═══════════════════ 🤝 REFERRAL 2.0 — DASHBOARD / SHARE / PAYOUT ═══════════════════
 
 @app.get("/api/referral/lookup")
-def referral_lookup(q: str = ""):
-    """Quick lookup by mobile phone number, TSAP ID, or referral code."""
-    query = str(q or "").strip()
+def referral_lookup(q: str = "", request: Request = None):
+    """Resolve a public referral code, or an owner-authenticated private lookup.
+
+    Phone fragments were previously a public directory. They are now exact
+    owner-authenticated lookups only; public callers may use an opaque referral
+    code/alias and only an approved, referral-enabled profile is returned.
+    """
+    query = clean(q, 80, "referral_lookup")
     if not query:
-        raise HTTPException(400, "Phone or TSAP ID query required")
+        raise HTTPException(400, "Referral code required")
     raw_upper = query.upper()
     digits_only = re.sub(r"[^0-9]", "", query)
-    clean_alpha = re.sub(r"[^a-zA-Z0-9]", "", query).upper()
-    
-    # 1. Match by phone (digits)
+    is_phone_query = bool(digits_only) and len(digits_only) >= 7 and not re.search(r"[A-Za-z]", query)
+    identity = token_from_request(request)
     target = None
-    if len(digits_only) >= 7:
-        target = next((u for u in DB_USERS if digits_only in re.sub(r"[^0-9]", "", str(u.get("phone", "")))), None)
-    # 2. Match by TSAP ID (exact or stripped)
-    if not target:
-        target = next((u for u in DB_USERS if str(u.get("tsap_id", "")).upper() == raw_upper or
-                       re.sub(r"[^a-zA-Z0-9]", "", str(u.get("tsap_id", ""))).upper() == clean_alpha), None)
-    # 3. Match by Referral Code
-    if not target:
-        target = next((u for u in DB_USERS if str(u.get("referral_code", "")).upper() == raw_upper or
-                       re.sub(r"[^a-zA-Z0-9]", "", str(u.get("referral_code", ""))).upper() == clean_alpha), None)
-        
-    if not target:
-        raise HTTPException(404, f"'{query}' నంబర్ లేదా ID తో ఏ ప్రొఫైల్ దొరకలేదు. దయచేసి రిజిస్టర్ అవ్వండి.")
-        
+    private_owner_lookup = False
+
+    if is_phone_query:
+        # Never reveal whether a phone exists to an unauthenticated caller.
+        if auth_enforced() and not identity:
+            raise HTTPException(401, "🔒 Referral lookup కోసం మీ account లోకి login చెయ్యండి")
+        if digits_only.startswith("91") and len(digits_only) == 12:
+            digits_only = digits_only[2:]
+        if digits_only.startswith("0") and len(digits_only) == 11:
+            digits_only = digits_only[1:]
+        if len(digits_only) != 10 or not PHONE_RE.match(digits_only):
+            raise HTTPException(404, "Referral profile not found")
+        target = next((u for u in DB_USERS
+                       if re.sub(r"[^0-9]", "", str(u.get("phone", ""))) == digits_only), None)
+        if not target:
+            raise HTTPException(404, "Referral profile not found")
+        require_owner(request, str(target.get("tsap_id", "")))
+        private_owner_lookup = True
+    else:
+        # Public resolution accepts only the referral code or its explicit
+        # legacy alias. TSAP IDs remain usable by the share image routes but do
+        # not become a public name-search directory.
+        target = next((u for u in DB_USERS
+                       if str(u.get("referral_code", "")).upper() == raw_upper
+                       or str(u.get("referral_alias", "")).upper() == raw_upper), None)
+        if not target or not _is_public_referral_profile(target):
+            raise HTTPException(404, "Referral profile not found")
+
     ensure_referrer_profile(target, DB_USERS)
+    if not private_owner_lookup and not _is_public_referral_profile(target):
+        raise HTTPException(404, "Referral profile not found")
     return {
         "success": True,
         "tsap_id": target.get("tsap_id"),
         "full_name": target.get("full_name") or target.get("name", ""),
         "referral_code": target.get("referral_code"),
         "referral_link": target.get("referral_link") or f"https://manavivaha.in/r/{target.get('referral_code')}",
+        "private_owner_lookup": private_owner_lookup,
     }
 
 
@@ -4672,6 +4636,51 @@ def _user_or_404(tsap_id: str) -> Dict:
     raise HTTPException(404, "User not found — ID లేదా రిఫరల్ కోడ్ సరిచూసుకోండి")
 
 
+def _public_referral_target(value: str) -> Dict:
+    """Resolve a referral asset target without allowing phone-number lookup."""
+    raw = clean(value, 80, "referral_asset_target").strip()
+    if not raw or re.fullmatch(r"\+?[0-9][0-9 .-]{6,}", raw):
+        raise HTTPException(404, "Referral profile not found")
+    compact = re.sub(r"[^A-Za-z0-9_-]", "", raw).upper()
+    target = next((u for u in DB_USERS if str(u.get("tsap_id", "")).upper() == raw.upper()
+                   or str(u.get("referral_code", "")).upper() == raw.upper()
+                   or str(u.get("referral_alias", "")).upper() == raw.upper()
+                   or re.sub(r"[^A-Za-z0-9_-]", "", str(u.get("tsap_id", ""))).upper() == compact), None)
+    if not target or not _is_public_referral_profile(target):
+        raise HTTPException(404, "Referral profile not found")
+    return target
+
+
+def _public_referral_validation(value: str) -> Dict:
+    """Validate only an approved opaque code/alias on public landing routes.
+
+    ``referral.validate_referral`` also supports legacy TSAP/phone inputs for
+    internal registration attachment. It must not be reused directly by public
+    validation/click endpoints because that would recreate the old phone
+    directory and disclose pending-profile names.
+    """
+    raw = clean(value, 80, "public_referral_code").strip().upper()
+    invalid = {"ok": False, "valid_code": False, "reason": "not_found", "code": raw,
+               "message_telugu": "⚠️ ఈ referral code దొరకలేదు — code సరిగా చూసుకోండి"}
+    if not raw or re.fullmatch(r"\+?[0-9][0-9 .-]{6,}", raw):
+        return invalid
+    target = next((u for u in DB_USERS
+                   if str(u.get("referral_code", "")).upper() == raw
+                   or str(u.get("referral_alias", "")).upper() == raw), None)
+    if target:
+        if not _is_public_referral_profile(target):
+            return invalid
+        return validate_referral(str(target.get("referral_code") or raw), DB_USERS)
+    # Partner IDs are opaque referral identifiers too. Preserve that public
+    # landing flow, while intentionally not accepting partner phone numbers.
+    try:
+        if RP19.get_partner(raw):
+            return validate_referral(raw, DB_USERS)
+    except Exception:
+        pass
+    return invalid
+
+
 @app.get("/api/referral/earnings-card")
 def referral_earnings_card_public(
     code: str = "",
@@ -4683,8 +4692,10 @@ def referral_earnings_card_public(
 ):
     """Legacy URL now returns a real referral QR poster; caller display fields are ignored."""
     # Do not let query parameters manufacture earnings, payout proof, tiers, or names.
-    owner = _user_or_404(code)
-    owner_id = str(owner.get("tsap_id") or owner.get("partner_id") or code)
+    # Use the same public eligibility boundary as the share/poster routes; the
+    # old _user_or_404 path also accepted a member phone number.
+    owner = _public_referral_target(code)
+    owner_id = str(owner.get("tsap_id") or code)
     return referral_poster(owner_id, "status" if format.lower() in ("story", "status") else "square")
 
 @app.get("/api/referral/terms")
@@ -4808,27 +4819,28 @@ def referral_invite_create(tsap_id: str, payload: dict, request: Request = None)
 
 @app.get("/api/referral/{tsap_id}/share-kit")
 def referral_share(tsap_id: str):
-    """📲 5 ready WhatsApp messages + Telegram + SMS + poster text (Telugu)."""
-    user = _user_or_404(tsap_id)
+    """📲 Public share copy only for an approved, referral-enabled profile."""
+    user = _public_referral_target(tsap_id)
     kit = referral_share_kit(user)
-    return {"success": True, **kit}
+    return {"success": True, **kit, "public_referral": True}
 
 
 @app.get("/api/referral/{tsap_id}/earnings-card.png")
 def referral_earnings_card_user(tsap_id: str, format: str = "story"):
-    """Legacy endpoint returns the user's referral QR poster, never an earnings proof."""
+    """Legacy endpoint returns a public referral QR poster only when eligible."""
     return referral_poster(tsap_id, "status" if format.lower() in ("story", "status") else "square")
 
 @app.get("/api/referral/{tsap_id}/poster.png")
 def referral_poster(tsap_id: str, style: str = "square"):
-    """🖼️ Referral poster (QR తో) — square (1080×1080) leda status (1080×1920)."""
-    user = _user_or_404(tsap_id)
+    """🖼️ Referral poster (QR తో) for an approved public referral profile."""
+    user = _public_referral_target(tsap_id)
     ensure_referrer_profile(user, DB_USERS)
     try:
         import referral_kit
         path = referral_kit.poster_card(user, style=("status" if style == "status" else "square"))
         return FileResponse(path, media_type="image/png",
-                            filename="manavivaha-referral-%s-%s.png" % (user.get("referral_code", "mv"), style))
+                            filename="manavivaha-referral-%s-%s.png" % (user.get("referral_code", "mv"), style),
+                            headers={"Cache-Control": "public, max-age=3600, immutable"})
     except Exception as e:
         raise HTTPException(500, "Poster generate avvaledu: %s" % str(e)[:120])
 
@@ -4851,7 +4863,7 @@ def referral_click(code: str, source: str = "link", inv: str = "", request: Requ
     if inv and not re.fullmatch(r"[A-Z0-9_-]{1,64}", inv):
         raise HTTPException(400, "Invite link is invalid")
 
-    known = validate_referral(code, DB_USERS)
+    known = _public_referral_validation(code)
     kind = "user"
     partner = None
     try:
@@ -4892,8 +4904,8 @@ def referral_click(code: str, source: str = "link", inv: str = "", request: Requ
 
 @app.get("/api/referral/validate/{code}")
 def referral_validate(code: str):
-    """Register form / landing page — 'ee code pani chestunda?' + bonus info."""
-    return {"success": True, **validate_referral(code, DB_USERS)}
+    """Register form / landing page — validate an approved opaque code only."""
+    return {"success": True, **_public_referral_validation(code)}
 
 
 @app.post("/api/referral/payout")
@@ -8599,12 +8611,14 @@ def api_blocks(tsap_id: str, request: Request = None):
 
 
 @app.post("/api/verify/request")
-def api_verify_request(payload: dict):
-    """Phone / Photo / ID verification level penchadam (photo/ID కి admin approve కావాలి — dev లో auto)."""
+def api_verify_request(payload: dict, request: Request = None):
+    """Refresh the caller's recorded verification evidence; never mutate another account."""
     d = payload or {}
-    u = _find_user(str(d.get("tsap_id", "")))
+    clean_id = clean(d.get("tsap_id", ""), 60, "tsap_id").strip().upper()
+    u = _find_user(clean_id)
     if not u:
         raise HTTPException(404, "Profile dorakaledu")
+    require_owner(request, clean_id)
     kind = str(d.get("kind", "")).lower()
     ok, msg, _ = safety.set_verification(u, kind)
     if not ok:
@@ -9784,6 +9798,12 @@ def api_unlock(payload: dict, request: Request = None):
         raise HTTPException(404, f"ID దొరకలేదు: {d.get('target_id', '')}")
     viewer_id = str(viewer.get("tsap_id", "")).upper()
     target_id = str(target.get("tsap_id", "")).upper()
+    target_status = str(target.get("status") or "").strip().lower()
+    if target_status in {"deleted", "married_fixed", "banned", "inactive", "hidden", "rejected"} or target.get("is_active") is False:
+        # Existing consent does not survive account deletion/withdrawal.
+        raise HTTPException(410, "Contact access is no longer available for this profile")
+    if str(viewer.get("status") or "").strip().lower() in {"deleted", "married_fixed", "banned", "inactive", "hidden"}:
+        raise HTTPException(410, "Your account is no longer active")
     consented = viewer_id == target_id or any(
         str(i.get("status", "")).lower() == "accepted"
         and {str(i.get("from_id", "")).upper(), str(i.get("to_id", "")).upper()} == {viewer_id, target_id}
@@ -10751,8 +10771,13 @@ def api_admin_profiles(
     limit: int = 30,
     offset: int = 0,
 ):
-    """ADMIN-ONLY profile queue — with date filtering, paid/unpaid status, and WhatsApp follow-up conversion."""
-    require_admin(request, staff_ok=True)
+    """Profile review queue with role-scoped contact handling.
+
+    Staff can review a profile but must never receive a raw phone number,
+    recipient URL, or message body. Owner-only operational actions should use a
+    server-side audited queue rather than copy/paste links.
+    """
+    role = require_admin(request, staff_ok=True)
     status = (status or "pending").strip().lower()
     if status not in ("pending", "approved", "banned", "all"):
         raise HTTPException(400, "status: pending/approved/banned/all")
@@ -10809,13 +10834,15 @@ def api_admin_profiles(
         plan_name = u.get("plan", "FREE")
         is_paid = str(plan_name).upper() not in ("FREE", "") or int(u.get("credits", 0) or 0) > 3
         
-        # Follow-up WhatsApp pre-filled text
-        wa_text = f"నమస్తే {fn} గారు, మన వివాహ లో మీ ప్రొఫైల్ ({u.get('tsap_id')}) నమోదు చేయబడింది. మీ profile details review చేయండి: https://manavivaha.in/matches. వివరాలు సభ్యులు అందించినవి; స్వతంత్రంగా నిర్ధారించండి."
-        wa_followup = f"https://wa.me/91{ph}?text={quote(wa_text)}" if ph else ""
-
+        # Never serialize a recipient URL/message body into a list response.
+        # Staff receives only a masked phone; an owner-only action endpoint can
+        # queue a consent-checked message server-side when that feature is enabled.
         rows.append({"tsap_id": u.get("tsap_id"), "full_name": u.get("full_name"), "gender": u.get("gender"),
                      "age": u.get("age"), "caste": u.get("caste"), "district": u.get("district"), "state": u.get("state"),
-                     "phone": ph, "phone_verified": bool(u.get("phone_verified")),
+                     "phone": ph if role == "owner" else "",
+                     "phone_masked": mask_phone(ph),
+                     "phone_access": "owner_only" if role == "owner" else "masked_staff",
+                     "phone_verified": bool(u.get("phone_verified")),
                      "photo_verified": bool(u.get("selfie_verified") or u.get("photo_status") == "approved"),
                      "verification_level": safety.verification_badge(u)["level"],
                      "is_verified": safety.has_verification_evidence(u), "id_verified": bool(u.get("id_verified")),
@@ -10825,7 +10852,9 @@ def api_admin_profiles(
                      "credits": u.get("credits", 0), "plan": plan_name, "is_paid_member": is_paid,
                      "has_photo": bool(u.get("photo_urls")), "photo_status": u.get("photo_status", "none"),
                      "created_at": u.get("created_at", ""), "card_url": u.get("card_url", ""),
-                     "wa_followup_url": wa_followup})
+                     "wa_followup_url": "",
+                     "wa_followup_available": bool(role == "owner" and ph),
+                     "message_body": ""})
 
     return {"success": True, "status": status, "total": total, "count": len(rows), "offset": offset, "limit": limit,
             "paid_status": paid_status, "date_filter": date_filter,

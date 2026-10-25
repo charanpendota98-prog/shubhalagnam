@@ -227,7 +227,7 @@ section("C. referral leftovers")
 # ===========================================================================
 r = client.get("/api/referral/lookup")
 check("C1 lookup requires a query", r.status_code == 400, r.status_code)
-r = client.get("/api/referral/lookup?q=%s" % BRIDE["phone"])
+r = client.get("/api/referral/lookup?q=%s" % BRIDE["phone"], headers=BH)
 check("C2 lookup finds a profile by phone (masked)", r.status_code == 200
       and str(r.json().get("tsap_id") or r.json().get("profile", {}).get("tsap_id", "")) == BID,
       r.text[:120])

@@ -68,7 +68,8 @@ try:
     check("A5 unknown code invalid", d3.get("success") and d3.get("valid_code") is False, d3)
     # user referrer
     uref = {"tsap_id": "TSAP-M-2020-0001", "full_name": "Ref User", "phone": "9100000022",
-            "referral_code": "REFU42", "referral_stats": {}}
+            "referral_code": "REFU42", "referral_stats": {},
+            "is_approved": True, "status": "approved", "is_active": True}
     M.DB_USERS.append(uref)
     d4 = c.post("/api/referral/click/REFU42?source=link").json()
     check("A6 user click kind=user + name", d4.get("kind") == "user" and "Ref User" in (d4.get("referrer_name") or ""), d4)

@@ -15,6 +15,7 @@ import sys
 os.environ.setdefault("TSAP_AUTH_MODE", "off")
 os.environ.setdefault("WA_TEST_FAST", "1")
 os.environ.setdefault("OTP_DEV_MODE", "true")
+os.environ.setdefault("STAFF_KEY", "api-resilience-staff-key")
 sys.path.insert(0, os.path.dirname(__file__))
 from test_storage import isolate_test_stores
 isolate_test_stores("api-resilience")
@@ -101,6 +102,9 @@ user_a = {
     "salary": "₹12 Lakhs / year",
     "about_myself": "I am a well-educated software professional looking for a suitable Telugu groom from a good family background.",
     "consent_confirmed": "true",
+    # Referral poster coverage uses an explicitly public fixture; registration
+    # defaults photos to private.
+    "photo_private": "false",
 }
 
 res_a = client.post("/api/register", data=user_a)
@@ -129,9 +133,32 @@ check("Admin found today registered profile", any(p["tsap_id"] == uid_a for p in
 res_admin_unpaid = client.get("/api/admin/profiles?paid_status=unpaid&status=all", headers=hdr_admin)
 check("Admin GET /api/admin/profiles?paid_status=unpaid 200", res_admin_unpaid.status_code == 200)
 
-# Check WhatsApp follow-up link is present
+# Owner rows retain owner-only phone access but never embed a copyable WhatsApp
+# URL or message body. A separate call below exercises the staff boundary.
 p_row = next((p for p in res_admin_today.json().get("profiles", []) if p["tsap_id"] == uid_a), {})
-check("WhatsApp follow-up link generated in admin row", "wa_followup_url" in p_row and "wa.me" in p_row.get("wa_followup_url", ""))
+check("Owner profile row does not embed WhatsApp follow-up material",
+      not p_row.get("wa_followup_url")
+      and not p_row.get("message_body")
+      and not p_row.get("whatsapp_url")
+      and not p_row.get("wa_message"))
+
+_saved_fast = os.environ.pop("WA_TEST_FAST", None)
+_saved_auth_mode = os.environ.pop("TSAP_AUTH_MODE", None)
+try:
+    staff_rows = client.get("/api/admin/profiles?date_filter=today&status=all",
+                            headers={"X-Admin-Key": os.environ["STAFF_KEY"]})
+    staff_row = next((p for p in staff_rows.json().get("profiles", []) if p.get("tsap_id") == uid_a), {})
+    check("Staff profile row redacts phone, WhatsApp URL, and message body",
+          staff_rows.status_code == 200
+          and not staff_row.get("phone")
+          and "9848012345" not in str(staff_row)
+          and not staff_row.get("wa_followup_url")
+          and not staff_row.get("message_body"), staff_row)
+finally:
+    if _saved_fast is not None:
+        os.environ["WA_TEST_FAST"] = _saved_fast
+    if _saved_auth_mode is not None:
+        os.environ["TSAP_AUTH_MODE"] = _saved_auth_mode
 
 print("\n=== 4. ADMIN MANUAL PLAN ACTIVATION ===")
 activation_payload = {
@@ -156,7 +183,15 @@ res_admin_paid = client.get("/api/admin/profiles?paid_status=paid&status=all", h
 check("User A now listed in paid_status=paid filter", any(p["tsap_id"] == uid_a for p in res_admin_paid.json().get("profiles", [])))
 
 print("\n=== 5. REFERRAL QR & POSTER ENGINE ===")
-# Poster endpoint for user A
+# Pending registrations remain hidden from profile previews.
+res_og_pending = client.get(f"/api/og/profile/{uid_a}")
+check("Pending profile OG preview stays hidden", res_og_pending.status_code == 404,
+      (res_og_pending.status_code, res_og_pending.text[:120]))
+
+# Public referral assets are an approved-publication surface, so approve the
+# isolated fixture before asking for its poster.
+res_approval = client.post(f"/api/admin/approve/{uid_a}", headers=hdr_admin)
+check("Approve isolated poster fixture", res_approval.status_code == 200, res_approval.text[:120])
 res_poster = client.get(f"/api/referral/{uid_a}/poster.png")
 check("GET /api/referral/{id}/poster.png -> 200 + image/png", res_poster.status_code == 200 and res_poster.headers.get("content-type") == "image/png")
 
@@ -168,11 +203,8 @@ res_qr = client.get("/api/pay/qr/ORD-TEST-101")
 check("GET /api/pay/qr rejects an unknown order without inventing a UPI destination",
       res_qr.status_code == 404)
 
-# Pending registrations remain hidden from profile previews. A separate, explicit
-# approved fixture verifies the alias without bypassing that publication gate.
-res_og_pending = client.get(f"/api/og/profile/{uid_a}")
-check("Pending profile OG preview stays hidden", res_og_pending.status_code == 404,
-      (res_og_pending.status_code, res_og_pending.text[:120]))
+# A separate, explicit approved fixture verifies the alias without bypassing
+# the publication gate.
 _og_fixture = {
     "tsap_id": "TSAP-F-2026-OG0001", "full_name": "OG Preview Test Fixture",
     "gender": "Bride", "age": 28, "caste": "Test fixture community",

@@ -25,7 +25,6 @@ import copy
 import os
 import re
 import threading
-from collections import defaultdict
 from datetime import datetime
 from typing import Dict, List, Optional
 
@@ -204,6 +203,10 @@ def build_masked_whatsapp(profile: Dict, tsap_id: str = "", score: int | None = 
 # ---------------------------------------------------------------------------
 # 3. CONSENT-BACKED CONTACT ACCESS (payment/service grants are not entitlements)
 # ---------------------------------------------------------------------------
+# The entitlement and reveal log share one JSON checkpoint. Serialize the
+# read-modify-persist transition so account deletion cannot race a new grant.
+_UNLOCK_STATE_LOCK = threading.RLock()
+
 
 def is_entitled(viewer_id: str, target_id: str) -> bool:
     return target_id in UNLOCKS.get(viewer_id or "", {})
@@ -216,24 +219,72 @@ def grant_unlock(viewer_id: str, target_id: str, via: str = "mutual_consent",
     if not consent_granted or via != "mutual_consent":
         return {"success": False, "reason": "consent_required", "viewer_id": viewer_id,
                 "target_id": target_id, "via": via}
-    had_viewer = viewer_id in UNLOCKS
-    previous_box = copy.deepcopy(UNLOCKS.get(viewer_id, {}))
-    box = UNLOCKS.setdefault(viewer_id, {})
-    first = target_id not in box
-    box[target_id] = {"via": via, "at": _now_iso(), "order_id": order_id,
-                      "credits_charged": credits_charged}
-    if not _persist():
-        if had_viewer:
-            UNLOCKS[viewer_id] = previous_box
-        else:
-            UNLOCKS.pop(viewer_id, None)
-        return {"success": False, "reason": "persistence_failed",
-                "message_telugu": "⚠️ Contact access could not be saved safely. Please try again."}
-    return {"success": True, "viewer_id": viewer_id, "target_id": target_id, "via": via,
-            "first_time": first}
+    with _UNLOCK_STATE_LOCK:
+        had_viewer = viewer_id in UNLOCKS
+        previous_box = copy.deepcopy(UNLOCKS.get(viewer_id, {}))
+        box = UNLOCKS.setdefault(viewer_id, {})
+        first = target_id not in box
+        box[target_id] = {"via": via, "at": _now_iso(), "order_id": order_id,
+                          "credits_charged": credits_charged}
+        if not _persist():
+            if had_viewer:
+                UNLOCKS[viewer_id] = previous_box
+            else:
+                UNLOCKS.pop(viewer_id, None)
+            return {"success": False, "reason": "persistence_failed",
+                    "message_telugu": "⚠️ Contact access could not be saved safely. Please try again."}
+        return {"success": True, "viewer_id": viewer_id, "target_id": target_id, "via": via,
+                "first_time": first}
 
 
-_UNLOCK_LOCKS: Dict[str, threading.Lock] = defaultdict(threading.Lock)
+def revoke_contact_access(profile_id: str) -> Dict:
+    """Revoke every persisted contact grant involving a deleted/hidden profile.
+
+    Deletion is a consent boundary: retaining an audit record is different from
+    retaining an active entitlement. Return a private rollback snapshot so the
+    caller can restore the in-memory state if its companion core transaction
+    cannot be committed.
+    """
+    target_id = str(profile_id or "").strip().upper()
+    if not target_id:
+        return {"success": False, "reason": "bad_profile_id"}
+    with _UNLOCK_STATE_LOCK:
+        before_unlocks = copy.deepcopy(UNLOCKS)
+        before_reveals = list(REVEAL_LOG)
+        removed = 0
+        for viewer_id in list(UNLOCKS):
+            grants = UNLOCKS.get(viewer_id) or {}
+            for granted_target in list(grants):
+                if (str(viewer_id).upper() == target_id
+                        or str(granted_target).upper() == target_id):
+                    grants.pop(granted_target, None)
+                    removed += 1
+            if not grants:
+                UNLOCKS.pop(viewer_id, None)
+        if removed:
+            REVEAL_LOG.append({"event": "contact_access_revoked", "profile_id": target_id,
+                               "removed": removed, "at": _now_iso()})
+            if not _persist():
+                UNLOCKS.clear()
+                UNLOCKS.update(before_unlocks)
+                REVEAL_LOG[:] = before_reveals
+                return {"success": False, "reason": "persistence_failed"}
+        return {"success": True, "removed": removed,
+                "snapshot": {"unlocks": before_unlocks, "reveal_log": before_reveals}}
+
+
+def restore_contact_access(snapshot: Optional[Dict]) -> bool:
+    """Restore a revoke snapshot during a failed cross-store deletion."""
+    if not isinstance(snapshot, dict):
+        return True
+    try:
+        with _UNLOCK_STATE_LOCK:
+            UNLOCKS.clear()
+            UNLOCKS.update(copy.deepcopy(snapshot.get("unlocks", {})))
+            REVEAL_LOG[:] = list(snapshot.get("reveal_log", []))
+            return _persist()
+    except Exception:
+        return False
 
 
 def unlock_number(viewer: Dict, target: Dict, *, consent_granted: bool = False) -> Dict:
@@ -253,29 +304,30 @@ def unlock_number(viewer: Dict, target: Dict, *, consent_granted: bool = False) 
                 "phone_masked": mask_phone(target.get("phone", "")),
                 "credits_left": int(viewer.get("credits", 0) or 0),
                 "message_telugu": "🔒 Contact details కోసం ముందుగా interest పంపండి. Profile owner accept చేసిన తర్వాత accepted-request account views లో అందుబాటులోకి వస్తాయి; credits తో consent bypass చేయలేరు."}
-    unlocks_before = copy.deepcopy(UNLOCKS)
-    reveals_before = list(REVEAL_LOG)
-    if not is_entitled(viewer_id, target_id):
-        granted = grant_unlock(viewer_id, target_id, via="mutual_consent", credits_charged=0,
-                               consent_granted=True)
-        if not granted.get("success"):
-            return {"success": False, "reason": granted.get("reason", "persistence_failed"),
+    with _UNLOCK_STATE_LOCK:
+        unlocks_before = copy.deepcopy(UNLOCKS)
+        reveals_before = list(REVEAL_LOG)
+        if not is_entitled(viewer_id, target_id):
+            granted = grant_unlock(viewer_id, target_id, via="mutual_consent", credits_charged=0,
+                                   consent_granted=True)
+            if not granted.get("success"):
+                return {"success": False, "reason": granted.get("reason", "persistence_failed"),
+                        "phone_masked": mask_phone(target.get("phone", "")),
+                        "message_telugu": granted.get("message_telugu", "Contact access could not be saved safely.")}
+        phone = str(target.get("phone", ""))
+        REVEAL_LOG.append({"viewer": viewer_id, "target": target_id, "via": "mutual_consent",
+                           "charged": 0, "at": _now_iso()})
+        if not _persist():
+            UNLOCKS.clear()
+            UNLOCKS.update(unlocks_before)
+            REVEAL_LOG[:] = reveals_before
+            return {"success": False, "reason": "persistence_failed",
                     "phone_masked": mask_phone(target.get("phone", "")),
-                    "message_telugu": granted.get("message_telugu", "Contact access could not be saved safely.")}
-    phone = str(target.get("phone", ""))
-    REVEAL_LOG.append({"viewer": viewer_id, "target": target_id, "via": "mutual_consent",
-                       "charged": 0, "at": _now_iso()})
-    if not _persist():
-        UNLOCKS.clear()
-        UNLOCKS.update(unlocks_before)
-        REVEAL_LOG[:] = reveals_before
-        return {"success": False, "reason": "persistence_failed",
-                "phone_masked": mask_phone(target.get("phone", "")),
-                "message_telugu": "⚠️ Contact access could not be saved safely. Please try again."}
-    return {"success": True, "phone": phone, "phone_masked": mask_phone(phone),
-            "charged": 0, "credits_left": int(viewer.get("credits", 0) or 0),
-            "via": "mutual_consent",
-            "message_telugu": "✅ Profile owner accept చేశారు. Accepted-request account view లో contact details అందుబాటులో ఉన్నాయి."}
+                    "message_telugu": "⚠️ Contact access could not be saved safely. Please try again."}
+        return {"success": True, "phone": phone, "phone_masked": mask_phone(phone),
+                "charged": 0, "credits_left": int(viewer.get("credits", 0) or 0),
+                "via": "mutual_consent",
+                "message_telugu": "✅ Profile owner accept చేశారు. Accepted-request account view లో contact details అందుబాటులో ఉన్నాయి."}
 
 
 def my_unlocks(viewer_id: str, users: List[Dict],
