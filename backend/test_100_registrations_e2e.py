@@ -161,6 +161,9 @@ def run_e2e_stress_test():
             "gender": gender,
             "religion": "Hindu",
             "consent_confirmed": "true",
+            # Public referral assets require an explicit public-photo choice;
+            # the registration default is private.
+            "photo_private": "false",
             "age": age,
             "dob": dob,
             "height": f"5'{random.randint(2, 11)}\"",

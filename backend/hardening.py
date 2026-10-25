@@ -453,6 +453,11 @@ RL_RULES: Dict[str, Tuple[int, int]] = {          # route-prefix → (max hits, 
     "GET /api/search": (120, 60),
     "GET /api/facets": (120, 60),
     "GET /api/promo/apply": (30, 60),
+    # Public referral/profile image surfaces are CPU- and enumeration-sensitive.
+    # Keep the exact lookup rule before the prefix rule below.
+    "GET /api/referral/lookup": (20, 60),
+    "GET /api/referral/": (60, 60),
+    "GET /api/og/profile/": (30, 60),
 }
 RL_DEFAULT = (120, 60)
 RL_DISABLED = _flag("TSAP_RATE_LIMIT") in ("0", "false", "no", "off")

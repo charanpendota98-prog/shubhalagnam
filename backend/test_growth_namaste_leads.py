@@ -453,26 +453,19 @@ def test_pricing_pages_and_payments():
     r_bad = I.apply_payment(u, 150)
     check("invalid amount ₹150 rejected", not r_bad["ok"] and u["credits"] == 12)
 
-    # ---- webhook endpoint (neeDHA bug: legacy plan_map) ----
+    # ---- legacy webhook retirement boundary ----
     with TestClient(main.app) as c:
-        # 🐞 FIX (R12): seed user TSAP-F-2025-1042 DB lo lekapothe (fresh DB / hygiene drops) — create
         _web_u = next((x for x in main.DB_USERS if x["tsap_id"] == "TSAP-F-2025-1042"), None)
         if _web_u is None:
             _web_u = {"tsap_id": "TSAP-F-2025-1042", "full_name": "Sita Reddy", "gender": "Bride",
                       "phone": "9848022222", "credits": 3, "plan": "FREE", "wallet": 0}
             main.DB_USERS.append(_web_u)
-        w = c.post("/api/payment/webhook?user_id=TSAP-F-2025-1042&amount=499&razorpay_payment_id=pay_T1").json()
-        check("webhook ₹499 → S_499 + 50 profiles", w["success"] and w["plan"] == "S_499"
-              and w["profiles_added"] == 50, w.get("plan"))
-        check("webhook lo legacy TRIAL_99/PREMIUM_299 vellavu", w["plan"] not in ("TRIAL_99", "PREMIUM_299", "VIP_999"))
-        check("webhook confirmation names interest requests accurately",
-              "interest requests" in w["message_telugu"].lower(), w["message_telugu"][:100])
-        check("webhook GST note + perks unnai", "gst_note" in w and isinstance(w.get("perks"), list))
-        w2 = c.post("/api/payment/webhook?user_id=TSAP-F-2025-1042&amount=150&razorpay_payment_id=pay_T2")
-        check("webhook tappu amount → 400 + correct amounts list", w2.status_code == 400
-              and 199 in w2.json().get("valid_amounts", []), w2.status_code)
-        w3 = c.post("/api/payment/webhook?user_id=TSAP-F-2025-1042&amount=99")
-        check("webhook payment proof lekapote reject", w3.status_code == 400)
+        credits_before = _web_u.get("credits", 0)
+        legacy = c.post("/api/payment/webhook?user_id=TSAP-F-2025-1042&amount=499&razorpay_payment_id=pay_T1")
+        check("legacy payment callback is retired with 410", legacy.status_code == 410, legacy.status_code)
+        check("retired callback cannot mutate the member", _web_u.get("credits", 0) == credits_before)
+        check("retired callback points to signed PayPro webhook",
+              legacy.json().get("replacement") == "/api/pay/webhook")
         plans_api = c.get("/api/plans").json()
     check("API /api/plans has no retired S_29/₹29 tier",
           all(p.get("code") != "S_29" and p.get("price") != 29 for p in plans_api["plans"]))

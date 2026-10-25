@@ -223,42 +223,23 @@ with patch.object(main, "otp_channel_send", side_effect=_test_otp_delivery):
 section("E. PAYMENT WEBHOOK (money: fake proof / replay / signature)")
 # ═══════════════════════════════════════════════════════════════════════════
 credits0 = main._find_user(U1).get("credits", 0)
-r = client.post("/api/payment/webhook", params={"user_id": U1, "amount": 0, "razorpay_payment_id": "pay_zero"})
-check("E1 amount 0 → 400 (plan ledu)", r.status_code == 400, r.text[:120])
-r = client.post("/api/payment/webhook", params={"user_id": U1, "amount": -99, "razorpay_payment_id": "pay_neg"})
-check("E2 negative amount → 400", r.status_code == 400)
-r = client.post("/api/payment/webhook", params={"user_id": U1, "amount": 7777, "razorpay_payment_id": "pay_bogus"})
-check("E3 plan ledu amount → 400 + valid_amounts", r.status_code == 400 and "valid_amounts" in r.text, r.text[:140])
-pay_id = "pay_w9test0001"
-r1 = client.post("/api/payment/webhook", params={"user_id": U1, "amount": 99, "razorpay_payment_id": pay_id})
-check("E4 valid payment apply (dev)", r1.status_code == 200 and r1.json().get("success"), r1.text[:140])
-credits1 = main._find_user(U1).get("credits", 0)
-check("E5 credits perigayi (+5 S_99)", credits1 == credits0 + 5, f"{credits0}→{credits1}")
-r2 = client.post("/api/payment/webhook", params={"user_id": U1, "amount": 99, "razorpay_payment_id": pay_id})
-credits2 = main._find_user(U1).get("credits", 0)
-check("E6 replay → duplicate True + double credit ledu", r2.json().get("duplicate") is True and credits2 == credits1,
-      f"{credits1}→{credits2}")
-check("E7 replay abuse ledger lo record", H.abuse_snapshot()["webhook_replay"] >= 1, H.abuse_snapshot()["webhook_replay"])
-check("E8 webhook proof ledu → 400", client.post("/api/payment/webhook", params={"user_id": U1, "amount": 99}).status_code == 400)
-os.environ["RAZORPAY_WEBHOOK_SECRET"] = "w9secret"
-r = client.post("/api/payment/webhook", params={"user_id": U1, "amount": 99, "razorpay_payment_id": "pay_sig1"})
-check("E9 secret set + signature ledu → 401", r.status_code == 401, r.status_code)
-r = client.post("/api/payment/webhook", params={"user_id": U1, "amount": 99, "razorpay_payment_id": "pay_sig1"},
-                headers={"X-Razorpay-Signature": "deadbeef"})
-check("E10 wrong signature → 401", r.status_code == 401, r.status_code)
-os.environ.pop("RAZORPAY_WEBHOOK_SECRET", None)
-# 🛡️ gateway live (keys unte) + secret ledu → fail-closed 503 ; keys lekapote legacy allow (abuse log)
-os.environ["RAZORPAY_KEY_ID"] = "rzp_test_dummy"
-os.environ["WA_TEST_FAST"] = "0"
-os.environ["TSAP_AUTH_ENFORCE"] = "0"
-r = client.post("/api/payment/webhook", params={"user_id": U1, "amount": 99, "razorpay_payment_id": "pay_gw1"})
-check("E11 gateway keys + secret ledu → 503 fail-closed", r.status_code == 503, f"{r.status_code} {r.text[:90]}")
-os.environ.pop("RAZORPAY_KEY_ID", None)
-r = client.post("/api/payment/webhook", params={"user_id": U1, "amount": 99, "razorpay_payment_id": "pay_gw2"})
-check("E12 keys lekapote legacy webhook allow (abuse ledger lo log)", r.status_code == 200 and r.json().get("success") is True,
-      f"{r.status_code} {r.text[:90]}")
-os.environ["WA_TEST_FAST"] = "1"
-os.environ.pop("TSAP_AUTH_ENFORCE", None)
+# The old query-parameter webhook was an unsigned money-mutation primitive and
+# is intentionally retired. The signed PayPro webhook is exercised in
+# test_wave25_full.py and the focused remediation tests.
+for label, params in (
+    ("E1 amount 0", {"user_id": U1, "amount": 0, "razorpay_payment_id": "pay_zero"}),
+    ("E2 negative amount", {"user_id": U1, "amount": -99, "razorpay_payment_id": "pay_neg"}),
+    ("E3 valid-looking legacy callback", {"user_id": U1, "amount": 99, "razorpay_payment_id": "pay_w9test0001"}),
+    ("E4 callback without proof", {"user_id": U1, "amount": 99}),
+):
+    retired = client.post("/api/payment/webhook", params=params)
+    check(f"{label} → retired 410", retired.status_code == 410, retired.status_code)
+check("E5 retired callback cannot change credits",
+      main._find_user(U1).get("credits", 0) == credits0)
+check("E6 retired callback identifies signed replacement",
+      retired.json().get("replacement") == "/api/pay/webhook")
+
+# ═══════════════════════════════════════════════════════════════════════════
 
 # ═══════════════════════════════════════════════════════════════════════════
 section("F. REGISTER VALIDATION + CLARITY (form best ga undali)")
@@ -511,8 +492,8 @@ check("N5 deduct fake number ledu (policy)",
       "98480xxxxx" not in client.post(f"/api/credits/deduct/{U1}").text)
 check("N6 credits/buy unknown plan rejected (no FREE fallback purchase)",
       client.post("/api/credits/buy", json={"tsap_id": U1, "plan": "NOPE"}).status_code == 400)
-check("N7 payment webhook junk params → 400/422 (500 kaadu)",
-      client.post("/api/payment/webhook", params={"user_id": U1, "amount": "abc"}).status_code in (400, 422))
+check("N7 payment webhook legacy path is retired",
+      client.post("/api/payment/webhook", params={"user_id": U1, "amount": "abc"}).status_code == 410)
 check("N8 demo/seed route retired with 410", client.post("/api/demo/seed", json={}).status_code == 410)
 check("N8b admin seed-launch route retired with 410", client.post("/api/admin/seed-launch", json={}).status_code == 410)
 check("N9 channels/route junk → success/handled", client.post("/api/channels/route", json={"tsap_id": U1, "channel": "NOPE"}).status_code in (200, 400))

@@ -281,7 +281,8 @@ with TestClient(main.app) as c:
     me_api = next((u for u in main.DB_USERS if u["tsap_id"] == "TSAP-M-2025-1042"), None)
     if me_api is None:
         me_api = {"tsap_id": "TSAP-M-2025-1042", "full_name": "Ravi Kumar", "gender": "Groom",
-                  "phone": "9848012345", "credits": 3, "plan": "FREE", "wallet": 0}
+                  "phone": "9848012345", "credits": 3, "plan": "FREE", "wallet": 0,
+                  "is_approved": True, "status": "approved", "is_active": True}
         main.DB_USERS.append(me_api)
     R.ensure_referrer_profile(me_api, main.DB_USERS)
     mcode = me_api["referral_code"]
@@ -357,17 +358,14 @@ with TestClient(main.app) as c:
           rj["referral"]["poster_url"].endswith("/poster.png")
           and "style=status" in rj["referral"]["poster_status_url"])
 
+    # The former parameter-driven callback is deliberately retired. Payment
+    # fulfillment, including referral commission, is covered by the signed
+    # PayPro webhook suite; this boundary must never mutate credits or wallets.
     wallet_before = R.stats_of(me_api)["wallet"]
-    wh = c.post("/api/payment/webhook?user_id=%s&amount=199&razorpay_payment_id=pay_REF1" % new_id).json()
-    check("Webhook → commission returned (₹50 first)", wh["success"]
-          and wh["referral_commission"]["commission"] == 50, wh["referral_commission"].get("commission"))
-    check("Referrer wallet +50", round(R.stats_of(me_api)["wallet"] - wallet_before, 2) == 50.0)
-    check("Referrer ki commission WhatsApp text generate ayyindi",
-          bool(wh["referral_commission"].get("referrer_message")) or wh["referral_commission"].get("referrer_notified"))
-    _ref_msg = str(wh["referral_commission"].get("referrer_message", "")).lower()
-    check("Commission text lo wallet balance + tier",
-          ("wallet" in _ref_msg and "tier" in _ref_msg)
-          or wh["referral_commission"].get("referrer_notified"), _ref_msg[:60])
+    legacy = c.post("/api/payment/webhook?user_id=%s&amount=199&razorpay_payment_id=pay_REF1" % new_id)
+    check("Legacy payment callback is retired", legacy.status_code == 410, legacy.status_code)
+    check("Retired callback cannot award referral commission",
+          R.stats_of(me_api)["wallet"] == wallet_before and legacy.json().get("error") == "legacy_webhook_retired")
 
     # payout API
     R.stats_of(me_api)["wallet"] = 300.0
@@ -384,9 +382,16 @@ with TestClient(main.app) as c:
     rej2 = c.post("/api/admin/payouts/%s/action?action=reject&reason=test" % po2["request"]["id"]).json()
     check("API admin reject → wallet malli", rej2["success"] and rej2["request"]["status"] == "rejected")
 
-    # refund clawback API
+    # Seed the referral accounting through its provider-independent accounting
+    # helper; the signed PayPro webhook exercises the production call path in
+    # test_wave25_full.py. Then verify the admin refund clawback boundary.
+    new_user = next(u for u in main.DB_USERS if u["tsap_id"] == new_id)
+    commission = R.process_referral_payment(new_user, mcode, 199, main.DB_USERS,
+                                            payment_id="pay_REF1", plan_code="S_199")
+    check("Provider-independent qualifying payment records ₹50 referral reward",
+          commission.get("success") and commission.get("commission") == 50, commission)
     rf = c.post("/api/admin/refund/%s?amount=199&reason=api_test" % new_id).json()
-    check("POST /api/admin/refund — clawback", rf["success"] and rf["reversed"] == 50)
+    check("POST /api/admin/refund — clawback", rf["success"] and rf["reversed"] == 50, rf)
 
     # 🔒 privacy: public dashboard + /payouts lo UPI/bank MASKED undali
     R.PAYOUTS.append({"id": "PRMASK1", "tsap_id": "TSAP-M-2025-1042", "amount": 150, "method": "upi",

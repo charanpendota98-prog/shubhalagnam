@@ -180,6 +180,11 @@ check("card generation never persists an internal photo path",
 # 4. Known referral clicks are counted once per short request identity window;
 # arbitrary codes are not written, and forwarding headers cannot rotate a direct
 # client's rate-limit identity.
+# Referral landing/clicks are a public publication surface; promote this
+# isolated fixture before exercising deduplication.
+first_user["is_approved"] = True
+first_user["status"] = "approved"
+first_user["is_active"] = True
 ref_code = first_user.get("referral_code", "")
 before_clicks = sum(1 for row in REFERRAL.CLICKS if row.get("code") == ref_code)
 click_a = client.post(f"/api/referral/click/{ref_code}?source=link", headers={

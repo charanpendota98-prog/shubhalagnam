@@ -31,6 +31,10 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PERSIST_FILE = os.environ.get("MANA_VIVAHA_PAYPRO_FILE", os.path.join(BASE_DIR, "paypro14.json"))
 
 PAY_ORDERS: List[Dict] = []
+# Durable payment-id index. ``RECEIPTS`` is kept as a fast in-process cache;
+# this index is restored from the payment ledger so a restart or a second worker
+# cannot reuse one provider payment for another order.
+PAYMENT_INDEX: Dict[str, Dict] = {}
 
 # 🌊 WAVE 25 — PIN-TO-PIN SECURE PAY
 ORDER_EXPIRY_HOURS = 24          # pending order 24h lo pay kakapothe expire (stale confirm ban)
@@ -85,7 +89,13 @@ def _persist() -> bool:
     """Persist the payment ledger and report failure instead of claiming success."""
     try:
         with _PAY_LEDGER_LOCK:
-            atomic_json_dump(PERSIST_FILE, {"orders": PAY_ORDERS[-1000:], "offers": OFFERS[-200:]}, ensure_ascii=False)
+            atomic_json_dump(PERSIST_FILE, {
+                "orders": PAY_ORDERS[-1000:],
+                "offers": OFFERS[-200:],
+                # Payment identifiers are an immutable fraud-prevention ledger;
+                # unlike display/order history they must not be truncated.
+                "payment_index": PAYMENT_INDEX,
+            }, ensure_ascii=False)
         return True
     except Exception:
         return False
@@ -95,16 +105,34 @@ def _restore() -> None:
     global _SEQ
     try:
         if os.path.exists(PERSIST_FILE):
-            d = json.load(open(PERSIST_FILE, encoding="utf-8")) or {}
+            with open(PERSIST_FILE, encoding="utf-8") as handle:
+                d = json.load(handle) or {}
             PAY_ORDERS.extend(d.get("orders", []))
             OFFERS.extend(d.get("offers", []))
+            restored_index = d.get("payment_index", {}) or {}
+            if isinstance(restored_index, dict):
+                PAYMENT_INDEX.update({str(k): v for k, v in restored_index.items() if isinstance(v, dict)})
             for o in PAY_ORDERS:
                 try:
                     _SEQ = max(_SEQ, int(str(o.get("id", "pay_ord_0")).split("_")[-1]))
                 except Exception:
                     pass
+                payment_id = str(o.get("payment_id") or "").strip()
+                receipt = o.get("receipt") if isinstance(o.get("receipt"), dict) else None
+                if payment_id and o.get("status") == "paid":
+                    PAYMENT_INDEX.setdefault(payment_id, receipt or {
+                        "pay_order_id": o.get("id", ""),
+                        "payment_id": payment_id,
+                        "amount": o.get("final_amount", 0),
+                        "tsap_id": o.get("tsap_id", ""),
+                    })
+            # Rehydrate the hot cache from the durable index.
+            RECEIPTS.update(PAYMENT_INDEX)
     except Exception:
-        pass
+        # A malformed payment ledger must not turn into an unsigned fallback;
+        # startup/payment configuration should surface the error through the
+        # normal health/backup gate instead of silently trusting caller input.
+        return
 
 
 _restore()
@@ -471,6 +499,43 @@ def get_pay_order(pid: str) -> Optional[Dict]:
     return next((o for o in PAY_ORDERS if o.get("id") == pid), None)
 
 
+def _payment_id_owner(payment_id: str) -> str:
+    """Return the durable order that owns a provider payment ID, if any."""
+    key = str(payment_id or "").strip()
+    if not key:
+        return ""
+    indexed = PAYMENT_INDEX.get(key)
+    if isinstance(indexed, dict):
+        return str(indexed.get("pay_order_id") or indexed.get("order_id") or "")
+    # Migration compatibility for ledgers written before PAYMENT_INDEX existed.
+    for order in PAY_ORDERS:
+        if str(order.get("payment_id") or "").strip() == key:
+            return str(order.get("id") or "")
+        receipt = order.get("receipt") if isinstance(order.get("receipt"), dict) else {}
+        if str(receipt.get("payment_id") or "").strip() == key:
+            return str(order.get("id") or "")
+    return ""
+
+
+def _remember_payment_receipt(payment_id: str, receipt: Dict) -> None:
+    key = str(payment_id or "").strip()
+    if key and isinstance(receipt, dict):
+        PAYMENT_INDEX[key] = copy.deepcopy(receipt)
+        RECEIPTS[key] = copy.deepcopy(receipt)
+
+
+def _restore_payment_receipt(payment_id: str, previous: Optional[Dict]) -> None:
+    key = str(payment_id or "").strip()
+    if not key:
+        return
+    if previous is None:
+        RECEIPTS.pop(key, None)
+        PAYMENT_INDEX.pop(key, None)
+    else:
+        RECEIPTS[key] = copy.deepcopy(previous)
+        PAYMENT_INDEX[key] = copy.deepcopy(previous)
+
+
 # ---------------------------------------------------------------------------
 # VERIFY + FULFILL (signature OK ayithe MATRAMe credits — idempotent)
 # ---------------------------------------------------------------------------
@@ -762,8 +827,12 @@ def _verify_payment_locked(pay_order_id: str, rzp_order_id: str, payment_id: str
                     "message_telugu": "⚠️ Order expiry could not be saved safely. Please try again."}
         return {"success": False, "reason": "expired",
                 "message_telugu": "⚠️ Order expire అయ్యింది (24h) — కొత్త order create చెయ్యండి"}
-    if payment_id and payment_id in RECEIPTS:
-        old = RECEIPTS[payment_id]
+    payment_owner = _payment_id_owner(payment_id)
+    if payment_owner and payment_owner != str(po.get("id", "")):
+        return {"success": False, "reason": "payment_already_used",
+                "message_telugu": "🚫 ఈ provider payment ఇప్పటికే మరో order కు జత అయింది."}
+    if payment_owner == str(po.get("id", "")) and payment_id:
+        old = PAYMENT_INDEX.get(payment_id) or RECEIPTS.get(payment_id)
         return {"success": True, "duplicate": True, "receipt": old,
                 "message_telugu": "✅ ఈ payment already use అయ్యింది — మళ్లీ credit ఇవ్వము 🙂"}
     if pay_config()["mode"] != "razorpay":
@@ -813,14 +882,11 @@ def _verify_payment_locked(pay_order_id: str, rzp_order_id: str, payment_id: str
                "purpose": po["purpose"], "ref": po["ref"], "tsap_id": po["tsap_id"],
                "paid_at": po["paid_at"], "detail": done.get("message_telugu")}
     po["receipt"] = receipt
-    RECEIPTS[payment_id] = receipt
+    _remember_payment_receipt(payment_id, receipt)
     if po.get("offer_code") and not _consume_offer(po["offer_code"], po.get("tsap_id", "")):
         po.clear()
         po.update(po_before)
-        if receipt_before is None:
-            RECEIPTS.pop(payment_id, None)
-        else:
-            RECEIPTS[payment_id] = receipt_before
+        _restore_payment_receipt(payment_id, receipt_before)
         _restore_fulfillment_state(fulfillment_before)
         if offer_before is not None:
             offer = get_offer(offer_before.get("code", ""))
@@ -833,10 +899,7 @@ def _verify_payment_locked(pay_order_id: str, rzp_order_id: str, payment_id: str
     if not _persist():
         po.clear()
         po.update(po_before)
-        if receipt_before is None:
-            RECEIPTS.pop(payment_id, None)
-        else:
-            RECEIPTS[payment_id] = receipt_before
+        _restore_payment_receipt(payment_id, receipt_before)
         _restore_fulfillment_state(fulfillment_before)
         if offer_before is not None:
             offer = get_offer(offer_before.get("code", ""))
@@ -916,8 +979,13 @@ def handle_razorpay_webhook(event: Dict) -> Dict:
         with _ORDER_LOCKS[po["id"]]:
             if po.get("status") == "paid":
                 return {"ok": True, "duplicate": True, "receipt": po.get("receipt")}
-            if payment_id and payment_id in RECEIPTS:
-                return {"ok": True, "duplicate": True, "receipt": RECEIPTS[payment_id]}
+            payment_owner = _payment_id_owner(payment_id)
+            if payment_owner and payment_owner != str(po.get("id", "")):
+                return {"ok": False, "reason": "payment_already_used",
+                        "message_telugu": "🚫 ఈ provider payment ఇప్పటికే మరో order కు జత అయింది."}
+            if payment_owner == str(po.get("id", "")) and payment_id:
+                return {"ok": True, "duplicate": True,
+                        "receipt": PAYMENT_INDEX.get(payment_id) or RECEIPTS.get(payment_id)}
             if name == "payment.authorized":
                 # 🌊 WAVE 34 PREMIUM: authorized ≠ captured — డబ్బులు inka bank దగ్గరే!
                 # Fulfill CHEYYAM (capture webhook / verify daggara fulfill avutundi).
@@ -959,14 +1027,11 @@ def handle_razorpay_webhook(event: Dict) -> Dict:
                        "purpose": po["purpose"], "ref": po["ref"], "tsap_id": po["tsap_id"],
                        "paid_at": po["paid_at"], "detail": done.get("message_telugu"), "via": "webhook"}
             po["receipt"] = receipt
-            RECEIPTS[payment_id] = receipt
+            _remember_payment_receipt(payment_id, receipt)
             if po.get("offer_code") and not _consume_offer(po["offer_code"], po.get("tsap_id", "")):
                 po.clear()
                 po.update(po_before)
-                if receipt_before is None:
-                    RECEIPTS.pop(payment_id, None)
-                else:
-                    RECEIPTS[payment_id] = receipt_before
+                _restore_payment_receipt(payment_id, receipt_before)
                 _restore_fulfillment_state(fulfillment_before)
                 if offer_before is not None:
                     offer = get_offer(offer_before.get("code", ""))
@@ -978,10 +1043,7 @@ def handle_razorpay_webhook(event: Dict) -> Dict:
             if not _persist():
                 po.clear()
                 po.update(po_before)
-                if receipt_before is None:
-                    RECEIPTS.pop(payment_id, None)
-                else:
-                    RECEIPTS[payment_id] = receipt_before
+                _restore_payment_receipt(payment_id, receipt_before)
                 _restore_fulfillment_state(fulfillment_before)
                 if offer_before is not None:
                     offer = get_offer(offer_before.get("code", ""))

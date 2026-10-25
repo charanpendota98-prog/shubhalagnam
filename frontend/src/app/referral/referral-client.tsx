@@ -188,7 +188,7 @@ export default function ReferralPage() {
     setSearching(true);
     setSearchErr("");
     try {
-      const res = await fetch(`/api/referral/lookup?q=${encodeURIComponent(phoneSearch.trim())}`);
+      const res = await fetch(`/api/referral/lookup?q=${encodeURIComponent(phoneSearch.trim())}`, { headers: authHeaders() });
       const data = await readApiJson(res);
       if (res.ok && data.success && data.tsap_id) {
         setTsapId(data.tsap_id);
