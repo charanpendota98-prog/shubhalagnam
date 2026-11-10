@@ -10657,19 +10657,23 @@ def prometheus_metrics(request: Request):
 
 
 @app.get("/api/health")
-def api_health():
-    """Public liveness only; operational counts stay behind admin auth in production."""
-    if _is_production_environment():
-        return {
-            "success": True,
-            "service": "manavivaha-api",
-            "version": "2.2-hardened",
-            "time": datetime.utcnow().isoformat(),
-            "status": "ok",
-            "message_telugu": "✅ Server bane ఉంది",
-        }
-    # Local/test health keeps its detailed shape for diagnostics and regression suites.
-    return _operational_health_payload()
+def api_health(request: Request):
+    """Public liveness only, in every environment.
+
+    Operational counts/payment mode stay behind admin auth (/api/admin/health)
+    or dev/test mode. Previously the detailed shape was exposed whenever
+    APP_ENV was unset - which is exactly how the live VM runs.
+    """
+    if dev_mode() or is_admin(request):
+        return _operational_health_payload()
+    return {
+        "success": True,
+        "service": "manavivaha-api",
+        "version": "2.2-hardened",
+        "time": datetime.utcnow().isoformat(),
+        "status": "ok",
+        "message_telugu": "✅ Server bane ఉంది",
+    }
 
 
 @app.get("/api/admin/health")

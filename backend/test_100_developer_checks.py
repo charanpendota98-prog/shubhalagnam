@@ -76,7 +76,10 @@ print("\n--- 1. SYSTEM HEALTH & ARCHITECTURE CHECKS ---")
 r = client.get("/api/health")
 check(1, "FastAPI Health Endpoint Returns 200 OK", r.status_code == 200)
 check(2, "Health Endpoint Service Name is 'manavivaha-api'", r.json().get("service") == "manavivaha-api")
-check(3, "Health Payload Contains Database & Counts Metrics", "counts" in r.json() and "users" in r.json()["counts"])
+# Public health is liveness-only in every environment; counts need the admin key.
+check(3, "Public Health Hides Counts; Admin Health Shows Them",
+      "counts" not in r.json()
+      and "users" in client.get("/api/health", headers={"X-Admin-Key": "dev-admin-key"}).json().get("counts", {}))
 check(4, "Route Registry Exceeds 320 Registered API Endpoints", len(app.routes) >= 320, f"Routes count: {len(app.routes)}")
 
 r_plans = client.get("/api/plans")
