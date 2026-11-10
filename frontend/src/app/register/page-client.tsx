@@ -759,6 +759,8 @@ function Wizard() {
   const [photoPreparing, setPhotoPreparing] = useState(false);
   const [showPw, setShowPw] = useState(false);
   const [refLocked, setRefLocked] = useState("");
+  const [passkeyPw, setPasskeyPw] = useState("");
+  const [passkeyBusy, setPasskeyBusy] = useState(false);
   const [refInvite, setRefInvite] = useState("");
   const [refInfo, setRefInfo] = useState<any>(null);
   const [result, setResult] = useState<any>(null);
@@ -1332,26 +1334,42 @@ function Wizard() {
             <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 my-4">
               <h3 className="text-sm font-bold text-slate-800 mb-2">🔑 {T("పాస్‌కీ సెటప్ (Passkey Setup)", "Passkey Setup")}</h3>
               <p className="text-xs text-slate-600 mb-3">{T("పాస్‌వర్డ్ లేకుండా సురక్షితంగా మీ ఫోన్ వేలిముద్ర/ఫేస్ లాక్ తో లాగిన్ అవ్వడానికి పాస్‌కీ సెటప్ చేయండి.", "Set up a passkey to sign in securely with your fingerprint or face without a password.")}</p>
-              <button 
-                onClick={async () => {
-                  const token = sessionStorage.getItem("tsap_token");
-                  if (!token) {
-                    alert(T("సెషన్ గడువు ముగిసింది. దయచేసి మళ్లీ లాగిన్ చేయండి.", "Session expired. Please sign in again."));
-                    return;
-                  }
-                  const pwd = window.prompt(te ? "పాస్‌కీ సెటప్ చేయడానికి మీ పాస్‌వర్డ్ ఎంటర్ చేయండి:" : "Please enter your password to set up a passkey:");
-                  if (!pwd) return;
-                  const res = await registerPasskey(tsap, token, pwd);
-                  if (res.success) {
-                    alert(T("✅ పాస్‌కీ విజయవంతంగా సెటప్ చేయబడింది!", "✅ Passkey setup successful!"));
-                  } else {
-                    alert(res.message);
-                  }
-                }}
-                className="bg-slate-800 text-white px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap"
-              >
-                {T("పాస్‌కీ సెటప్ చేయండి", "Register Passkey")}
-              </button>
+              <div className="flex flex-col sm:flex-row gap-2 max-w-sm">
+                <input 
+                  type="password" 
+                  value={passkeyPw} 
+                  onChange={(e) => setPasskeyPw(e.target.value)}
+                  placeholder={T("మీ పాస్‌వర్డ్ (Your Password)", "Your Password")}
+                  className="flex-1 bg-white border border-slate-200 rounded-xl px-3.5 py-2 text-sm focus:border-slate-800 outline-none"
+                  disabled={passkeyBusy}
+                />
+                <button 
+                  onClick={async () => {
+                    if (!passkeyPw) {
+                      alert(T("దయచేసి పాస్‌వర్డ్ ఎంటర్ చేయండి.", "Please enter your password."));
+                      return;
+                    }
+                    const token = sessionStorage.getItem("tsap_token");
+                    if (!token) {
+                      alert(T("సెషన్ గడువు ముగిసింది. దయచేసి మళ్లీ లాగిన్ చేయండి.", "Session expired. Please sign in again."));
+                      return;
+                    }
+                    setPasskeyBusy(true);
+                    const res = await registerPasskey(tsap, token, passkeyPw);
+                    setPasskeyBusy(false);
+                    if (res.success) {
+                      setPasskeyPw("");
+                      alert(T("✅ పాస్‌కీ విజయవంతంగా సెటప్ చేయబడింది!", "✅ Passkey setup successful!"));
+                    } else {
+                      alert(res.message);
+                    }
+                  }}
+                  disabled={passkeyBusy || !passkeyPw}
+                  className="bg-slate-800 text-white px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap disabled:opacity-50"
+                >
+                  {passkeyBusy ? T("సెటప్ అవుతోంది...", "Setting up...") : T("పాస్‌కీ సెటప్ చేయండి", "Register Passkey")}
+                </button>
+              </div>
             </div>
 
               <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 my-4">

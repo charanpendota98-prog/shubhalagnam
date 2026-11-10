@@ -12434,11 +12434,6 @@ def passkey_register_finish(payload: dict, request: Request):
         raise HTTPException(400, "Challenge expired")
         
     try:
-        request_origin = request.headers.get("origin", "")
-        if request_origin not in PASSKEY_ALLOWED_ORIGINS:
-            # Fallback to the first allowed origin to let the library check it, or just use the expected list
-            pass
-            
         verification = verify_registration_response(
             credential=credential_response,
             expected_challenge=session["challenge"],
