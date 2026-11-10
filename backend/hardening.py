@@ -53,7 +53,7 @@ except Exception:  # keeps isolated utility tests importable
 # ---------------------------------------------------------------------------
 # 0. CONFIG
 # ---------------------------------------------------------------------------
-APP_VERSION = "2.1-hardened"
+APP_VERSION = "2.2-hardened"
 
 
 def _flag(name: str, default: str = "") -> str:

@@ -2078,17 +2078,16 @@ async def _telugu_500_handler(request: Request, exc: Exception):
         "success": False, "error": "server_error", "ref": ref,
         "message_telugu": "⚠️ Konchem technical problem (ref: %s) — మళ్లీ try చెయ్యండి, kakapothe support కి ref code పంపండి 🙏" % ref})
 
-# Generated cards and uploaded photos contain member data. Do not mount their
-# storage directories as public StaticFiles: every filename would bypass profile,
-# privacy, owner, and moderator checks. Voice assets remain a separate public feature.
+# Generated cards, uploaded photos, and voice intros contain member data. Do not
+# mount their storage directories as public StaticFiles: every filename would
+# bypass profile, privacy, owner, and moderator checks. Voice intros are served
+# through the guarded /voice/{filename} route below, like photos and cards.
 try:
-    from fastapi.staticfiles import StaticFiles
     os.makedirs(CARD_MEDIA_DIR, exist_ok=True)
     os.makedirs(PHOTO_MEDIA_DIR, exist_ok=True)
     os.makedirs(VOICE_MEDIA_DIR, exist_ok=True)                                      # 🎙️ WAVE 11
-    app.mount("/voice", StaticFiles(directory=VOICE_MEDIA_DIR), name="voice")        # 🎙️ WAVE 11
 except Exception as _e:
-    print("[STATIC] mount skip:", _e)
+    print("[STATIC] media dir setup skip:", _e)
 
 
 def _has_profile_photo(profile: object) -> bool:
@@ -2302,6 +2301,40 @@ def guarded_profile_card(filename: str, request: Request):
                                                                  "X-Content-Type-Options": "nosniff"})
 
 
+@app.get("/voice/{filename}")
+def guarded_voice_intro(filename: str, request: Request):
+    """Serve a voice intro only for an active approved public profile, its owner, or staff.
+
+    Replaces the old public StaticFiles mount: a bare filename used to bypass
+    approval, privacy, deactivation and moderation state entirely.
+    """
+    if not re.fullmatch(r"[A-Za-z0-9._-]{1,180}", filename) or ".." in filename:
+        raise HTTPException(404, "Voice intro not found")
+    owners = [u for u in DB_USERS
+              if isinstance(u, dict) and _media_filename(u.get("voice_url"), "/voice/") == filename]
+    # Voice intros have no per-member privacy toggle: the product promise is that
+    # matches can hear them, so visibility follows profile approval/activity only
+    # (photo privacy flags govern photos, a separate feature).
+    has_public_voice = any(_is_approved_profile(u) for u in owners)
+    identity = token_from_request(request)
+    owner_ids = {str(u.get("tsap_id", "")).strip().upper() for u in owners}
+    viewer_id = str(identity.get("tsap_id", "")).strip().upper() if identity else ""
+    is_owner = bool(viewer_id and viewer_id in owner_ids)
+    # A block must hold even when the clip URL is already known to the viewer.
+    if viewer_id and not is_owner and any(
+            safety.is_blocked(viewer_id, oid, DB_BLOCKS) for oid in owner_ids if oid):
+        raise HTTPException(404, "Voice intro not found")
+    if not has_public_voice and not is_owner:
+        try:
+            require_admin(request, staff_ok=True)
+        except HTTPException:
+            # A uniform 404 avoids confirming whether a hidden/deactivated recording exists.
+            raise HTTPException(404, "Voice intro not found")
+    path = _media_file(VOICE_MEDIA_DIR, filename)
+    cache = "public, max-age=300" if has_public_voice else "private, no-store"
+    return FileResponse(path, headers={"Cache-Control": cache, "X-Content-Type-Options": "nosniff"})
+
+
 async def _startup_publisher():
     # Never bring an unconfigured operations plane online in production.
     if _is_production_environment():
@@ -2472,6 +2505,10 @@ _BODY_LIMITS = {
     "/api/register": 8 * 1024 * 1024,
     "/api/photo/upload": 8 * 1024 * 1024,
     "/api/verify/selfie": 8 * 1024 * 1024,
+    # Voice intro payloads are validated at 2 MB by A11.voice_validate; allow
+    # multipart framing headroom so the advertised 2 MB limit is reachable
+    # (the 1 MB default used to reject valid uploads before validation).
+    "/api/voice/upload": 4 * 1024 * 1024,
 }
 _CSRF_MEMBER_PREFIXES = (
     "/api/interest", "/api/credits", "/api/views", "/api/saved", "/api/blocks",
@@ -2533,10 +2570,15 @@ async def _security_middleware(request: Request, call_next):
     """
     request_id = _request_id(request)
     request.state.request_id = request_id
+    # Cookie/bearer-authenticated member responses carry PII too: mark them
+    # private no-store even when the path prefix list does not match.
     _priv = (request.url.path.startswith(("/api/interest", "/api/credits", "/api/views", "/api/saved",
                                           "/api/blocks", "/api/referral", "/api/leads", "/api/admin",
-                                          "/api/verification", "/api/consent", "/api/auth"))
-             or bool(request.headers.get("x-tsap-token")) or bool(request.headers.get("x-admin-key")))
+                                          "/api/verification", "/api/consent", "/api/auth",
+                                          "/api/profile", "/api/user"))
+             or bool(request.headers.get("x-tsap-token")) or bool(request.headers.get("x-admin-key"))
+             or bool(request.headers.get("authorization"))
+             or member_cookie_is_used(request))
     try:
         content_length = int(request.headers.get("content-length", "0") or 0)
     except (TypeError, ValueError):
@@ -4285,6 +4327,11 @@ def delete_user_account(payload: dict, request: Request, tsap_id: Optional[str] 
     user["deletion_reason"] = reason
     user["deletion_feedback"] = feedback
     user["partner_name"] = partner_name
+
+    # Voice intro access ends with deactivation: the guarded /voice route fails
+    # closed for inactive profiles, and /api/voice metadata 404s. The recording
+    # and pointer are preserved like other account records; erasure stays a
+    # separate explicit request.
 
     # Accepted contact consent ends when either account is deactivated. Keep the
     # record as revoked for audit/history instead of silently deleting evidence.
@@ -9662,15 +9709,28 @@ async def voice_upload(request: Request, file: UploadFile = File(...), tsap_id: 
             except OSError:
                 pass
             raise HTTPException(503, "Voice intro could not be saved safely. Please try again.")
+        # A successful replacement revokes the previous recording's access: no
+        # profile references its URL anymore, so the guarded /voice route fails
+        # closed (owner/staff only). The bytes are preserved; storage cleanup is
+        # a separate owner-approved operation, not an implicit side effect.
     return {"success": True, "url": url, "tsap_id": tid, "bytes": len(data),
             "message_telugu": f"🎙️ Voice intro upload అయ్యింది! Matches లో మీ voice vintaru ({round(len(data)/1024)} KB)"}
 
 
 @app.get("/api/voice/{tsap_id}")
-def voice_get(tsap_id: str):
+def voice_get(tsap_id: str, request: Request):
+    """Voice metadata mirrors profile visibility: hidden/deactivated/blocked targets fail closed."""
     u = _find_user(tsap_id)
     if not u:
         raise HTTPException(404, "Profile dorakaledu")
+    identity = token_from_request(request)
+    viewer_id = str(identity.get("tsap_id", "")).strip().upper() if identity else ""
+    target_id = str(u.get("tsap_id", "")).strip().upper()
+    is_owner = bool(viewer_id and viewer_id == target_id)
+    if not is_owner:
+        if not _is_approved_profile(u) or (viewer_id and safety.is_blocked(viewer_id, target_id, DB_BLOCKS)):
+            # Uniform 404: do not confirm whether a hidden/deactivated recording exists.
+            raise HTTPException(404, "Voice intro dorakaledu")
     url = str(u.get("voice_url", "") or "")
     return {"success": True, "tsap_id": tsap_id, "voice_url": url, "has_voice": bool(url),
             "uploaded_at": str(u.get("voice_at", "") or ""),
@@ -10539,7 +10599,7 @@ def _operational_health_payload() -> dict:
     return {
         "success": True,
         "service": "manavivaha-api",
-        "version": "2.1-hardened",
+        "version": "2.2-hardened",
         "time": datetime.utcnow().isoformat(),
         "pay_mode": PP.pay_config().get("mode", ""),
         "counts": {
@@ -10573,7 +10633,7 @@ def api_ready():
         content={
             "success": True,
             "service": "manavivaha-api",
-            "version": "2.1-hardened",
+            "version": "2.2-hardened",
             "status": "ready",
             "message_en": "The service is ready for traffic.",
             "message_telugu": "సర్వర్ traffic కోసం సిద్ధంగా ఉంది.",
@@ -10603,7 +10663,7 @@ def api_health():
         return {
             "success": True,
             "service": "manavivaha-api",
-            "version": "2.1-hardened",
+            "version": "2.2-hardened",
             "time": datetime.utcnow().isoformat(),
             "status": "ok",
             "message_telugu": "✅ Server bane ఉంది",
