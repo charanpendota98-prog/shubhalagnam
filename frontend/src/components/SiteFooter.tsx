@@ -131,6 +131,7 @@ export default function SiteFooter() {
           </div>
           <div className="mt-4 text-xs opacity-75">
             <div><Link href="/channels" className="underline underline-offset-2">{te ? "Configured channel listings" : "Configured channel listings"}</Link></div>
+            <div>Telegram: {SITE_CONFIG.officialChannel}</div>
             <div>Site: {SITE_CONFIG.domain}</div>
             {SITE_CONFIG.supportEmail ? <div>{te ? "సహాయ ఈమెయిల్" : "Support email"}: <a href={`mailto:${SITE_CONFIG.supportEmail}`} className="underline underline-offset-2">{SITE_CONFIG.supportEmail}</a></div> : null}
             {SITE_CONFIG.supportLink ? <div><a href={SITE_CONFIG.supportLink} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">{te ? "కాన్ఫిగర్ చేసిన WhatsApp సహాయం" : "Configured WhatsApp support"}</a></div> : null}
