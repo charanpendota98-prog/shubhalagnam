@@ -10,12 +10,12 @@ export function bufferEncode(value: ArrayBuffer): string {
     .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
 }
 
-export async function registerPasskey(tsapId: string, token: string): Promise<{ success: boolean; message?: string }> {
+export async function registerPasskey(tsapId: string, token: string, password: string): Promise<{ success: boolean; message?: string }> {
   try {
     const resBegin = await fetch("/api/auth/passkey/register/begin", {
       method: "POST",
       headers: { "Content-Type": "application/json", "X-Tsap-Token": token },
-      body: JSON.stringify({ tsap_id: tsapId })
+      body: JSON.stringify({ tsap_id: tsapId, password })
     });
     if (!resBegin.ok) return { success: false, message: "Failed to begin registration" };
     const { options, challenge_id } = await resBegin.json();
@@ -42,7 +42,7 @@ export async function registerPasskey(tsapId: string, token: string): Promise<{ 
     const resFinish = await fetch("/api/auth/passkey/register/finish", {
       method: "POST",
       headers: { "Content-Type": "application/json", "X-Tsap-Token": token },
-      body: JSON.stringify({ tsap_id: tsapId, challenge_id, response })
+      body: JSON.stringify({ tsap_id: tsapId, password, challenge_id, response })
     });
     
     const data = await resFinish.json();

@@ -1339,7 +1339,9 @@ function Wizard() {
                     alert(T("సెషన్ గడువు ముగిసింది. దయచేసి మళ్లీ లాగిన్ చేయండి.", "Session expired. Please sign in again."));
                     return;
                   }
-                  const res = await registerPasskey(tsap, token);
+                  const pwd = window.prompt(te ? "పాస్‌కీ సెటప్ చేయడానికి మీ పాస్‌వర్డ్ ఎంటర్ చేయండి:" : "Please enter your password to set up a passkey:");
+                  if (!pwd) return;
+                  const res = await registerPasskey(tsap, token, pwd);
                   if (res.success) {
                     alert(T("✅ పాస్‌కీ విజయవంతంగా సెటప్ చేయబడింది!", "✅ Passkey setup successful!"));
                   } else {

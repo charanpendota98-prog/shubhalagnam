@@ -12362,35 +12362,38 @@ if __name__ == "__main__":
 
 # 🔑 PASSKEY AUTHENTICATION (WAVE 22)
 _PASSKEY_CHALLENGES = {}  # challenge_id -> {"challenge": bytes, "tsap_id": str (optional)}
+import os
+PASSKEY_RP_ID = os.environ.get("PASSKEY_RP_ID", "localhost")
+PASSKEY_ALLOWED_ORIGINS = [o.strip() for o in os.environ.get("PASSKEY_ALLOWED_ORIGINS", "http://localhost").split(",") if o.strip()]
 
-def _get_rp_id(request: Request) -> str:
-    host = request.headers.get("host", "localhost")
-    return host.split(":")[0]
+def _verify_passkey_password(user: dict, password: str) -> None:
+    if not password:
+        raise HTTPException(400, "Password required to register a passkey")
+    if not user.get("password_hash") or not _check_password(password, user["password_hash"]):
+        raise HTTPException(401, "❌ పాస్‌వర్డ్ తప్పు (Wrong password)")
 
-def _get_origin(request: Request) -> str:
-    scheme = request.headers.get("x-forwarded-proto", request.url.scheme)
-    host = request.headers.get("host", "localhost")
-    return f"{scheme}://{host}"
+
 
 @app.post("/api/auth/passkey/register/begin")
 def passkey_register_begin(payload: dict, request: Request):
     tsap_id = str(payload.get("tsap_id", "")).strip().upper()
+    password = str(payload.get("password", ""))
     if not tsap_id:
         raise HTTPException(400, "Missing tsap_id")
     require_owner(request, tsap_id)
     user = next((u for u in DB_USERS if u["tsap_id"] == tsap_id), None)
     if not user:
         raise HTTPException(404, "User not found")
-    rp_id = _get_rp_id(request)
+    _verify_passkey_password(user, password)
     
     options = generate_registration_options(
-        rp_id=rp_id,
+        rp_id=PASSKEY_RP_ID,
         rp_name="Mana Vivaha",
         user_id=tsap_id.encode("utf-8"),
         user_name=user.get("phone") or user.get("email") or tsap_id,
         authenticator_selection=AuthenticatorSelectionCriteria(
             resident_key=ResidentKeyRequirement.REQUIRED,
-            user_verification=UserVerificationRequirement.PREFERRED,
+            user_verification=UserVerificationRequirement.REQUIRED,
         ),
         exclude_credentials=[
             {"id": base64url_to_bytes(pk["credential_id"]), "type": "public-key"}
@@ -12412,12 +12415,15 @@ def passkey_register_begin(payload: dict, request: Request):
 @app.post("/api/auth/passkey/register/finish")
 def passkey_register_finish(payload: dict, request: Request):
     tsap_id = str(payload.get("tsap_id", "")).strip().upper()
+    password = str(payload.get("password", ""))
     if not tsap_id:
         raise HTTPException(400, "Missing tsap_id")
     require_owner(request, tsap_id)
     user = next((u for u in DB_USERS if u["tsap_id"] == tsap_id), None)
     if not user:
         raise HTTPException(404, "User not found")
+    _verify_passkey_password(user, password)
+    
     challenge_id = payload.get("challenge_id")
     credential_response = payload.get("response")
     
@@ -12428,12 +12434,17 @@ def passkey_register_finish(payload: dict, request: Request):
         raise HTTPException(400, "Challenge expired")
         
     try:
+        request_origin = request.headers.get("origin", "")
+        if request_origin not in PASSKEY_ALLOWED_ORIGINS:
+            # Fallback to the first allowed origin to let the library check it, or just use the expected list
+            pass
+            
         verification = verify_registration_response(
             credential=credential_response,
             expected_challenge=session["challenge"],
-            expected_rp_id=_get_rp_id(request),
-            expected_origin=_get_origin(request),
-            require_user_verification=False,
+            expected_rp_id=PASSKEY_RP_ID,
+            expected_origin=PASSKEY_ALLOWED_ORIGINS,
+            require_user_verification=True,
         )
     except Exception as e:
         raise HTTPException(400, f"Registration failed: {str(e)}")
@@ -12458,10 +12469,9 @@ def passkey_register_finish(payload: dict, request: Request):
 
 @app.post("/api/auth/passkey/login/begin")
 def passkey_login_begin(request: Request):
-    rp_id = _get_rp_id(request)
     options = generate_authentication_options(
-        rp_id=rp_id,
-        user_verification=UserVerificationRequirement.PREFERRED,
+        rp_id=PASSKEY_RP_ID,
+        user_verification=UserVerificationRequirement.REQUIRED,
     )
     challenge_id = secrets.token_urlsafe(32)
     now = time.time()
@@ -12506,11 +12516,11 @@ def passkey_login_finish(payload: dict, request: Request, response: Response):
         verification = verify_authentication_response(
             credential=credential_response,
             expected_challenge=session["challenge"],
-            expected_rp_id=_get_rp_id(request),
-            expected_origin=_get_origin(request),
+            expected_rp_id=PASSKEY_RP_ID,
+            expected_origin=PASSKEY_ALLOWED_ORIGINS,
             credential_public_key=base64url_to_bytes(target_passkey["public_key"]),
             credential_current_sign_count=target_passkey["sign_count"],
-            require_user_verification=False,
+            require_user_verification=True,
         )
     except Exception as e:
         raise HTTPException(400, f"Authentication failed: {str(e)}")
