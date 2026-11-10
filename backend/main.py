@@ -471,6 +471,7 @@ import chanmap as CHAN         # 📡 WAVE 15: channel links + import + coverage
 from interest import ADDONS, RENEWALS, is_addon, get_addon, get_renewal, plan_list_with_free, addon_list, renewal_offer, bureau_list
 from photo_validate import validate_photo, sanitize_photo  # 🌊 WAVE 17 — photo validation pipeline
 from otp_channels import send_otp as otp_channel_send, CHANNEL_TELUGU  # 🌊 WAVE 18 — free OTP
+import email_channel  # 📧 WAVE 22 — email delivery (verification/OTP/reset), fail closed
 from channels_config import post_targets, caste_channel_links, channel_links, WA_OFFICIAL_LINK
 # 🎁 WAVE 10 — register avvagane "3 profiles + caste channel links" WhatsApp ki
 from welcome_pack import build_welcome_pack, pack_public, channels_count as wa_links_stats
@@ -3204,6 +3205,20 @@ async def register(
         marital_status = "Awaiting Divorce"
 
     phone = req_phone(phone, "phone")
+    # 📧 WAVE 22 — email normalize + validate. REG_EMAIL_REQUIRED=1 unte email
+    #    must (password recovery kosam); default 0 = optional (backward compat).
+    email = (email or "").strip().lower()
+    if email and not re.fullmatch(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}", email):
+        raise HTTPException(400, "📧 Email address సరిగా లేదు — మళ్లీ చూసుకోండి")
+    if os.getenv("REG_EMAIL_REQUIRED", "").strip() == "1" and not email:
+        raise HTTPException(400, "📧 Password recovery కోసం email అవసరం — మీ email ఇవ్వండి")
+    if email:
+        # Verified email already bound elsewhere → refuse pre-binding squatting.
+        _email_clash = next((x for x in DB_USERS
+                             if str(x.get("email", "")).strip().lower() == email
+                             and x.get("email_verified")), None)
+        if _email_clash:
+            raise HTTPException(409, "ఈ email already మరో account తో verify అయ్యింది — మరో email వాడండి")
     password = str(password or "").strip()
     if len(password) < 6:
         raise HTTPException(400, "🔑 Password minimum 6 characters")
@@ -3465,6 +3480,7 @@ async def register(
             "mandal": mandal,
             "current_city": current_city,
             "email": email,
+            "email_verified": False,   # 📧 WAVE 22 — verify-email code తోనే True అవుతుంది
             "phone_last4": phone[-4:],
             "phone": phone,
             "password_hash": _hash_password(password) if password else "",
@@ -3688,6 +3704,18 @@ async def register(
     # A bearer token is a response credential, never profile data. Keep it out
     # of the JSON snapshot even briefly so admin/export/recovery paths cannot
     # accidentally persist or expose a reusable session.
+    # 📧 WAVE 22 — email verification: durable checkpoint తర్వాత verify code.
+    #    Send fail ayina registration ఆగదు; member send-verify-email tho retry
+    #    cheyyavachu. Response lo status matrame — code eppatiki client ki raadu.
+    email_verify = {"required": bool(email), "sent": False}
+    if email and email_channel.EMAIL_MODE != "off":
+        try:
+            _ev = _email_otp_issue(email, "email_verify")
+            email_verify["sent"] = bool(_ev.get("ok"))
+        except HTTPException as _e:
+            email_verify["detail"] = str(_e.detail)[:100]
+        except Exception as _e:
+            email_verify["detail"] = str(_e)[:100]
     auth_token = sign_token(tsap_id)
     user.pop("auth_token", None)
     user["quality"] = profile_completeness(user)
@@ -3730,6 +3758,7 @@ async def register(
         publish_reason=pub.get("reason", ""),
         namaste_queued=bool(welcome.get("queued")),
         welcome_status=welcome,
+        email_verify=email_verify,
         welcome_pack=pack_public(welcome_pack),
         share_kit=share_kit(user, tsap_id),
         share_text=build_share_text(user, tsap_id),
@@ -7671,6 +7700,288 @@ def _auth_reset_locked(payload: dict, response: Response = None):
     _set_member_session_cookie(response, auth_token)
     return {"success": True, "tsap_id": u["tsap_id"], "auth_token": _browser_auth_token(auth_token),
             "message_telugu": "✅ Password మారింది — పాత sessions అన్నీ logout అయ్యాయి, ఇప్పుడు number + password తో login చెయ్యండి 🔑"}
+
+
+# 📧 WAVE 22 — EMAIL AUTH (verification + password recovery)
+# Approved scope (2026-11-11): email+password with verified-email recovery first,
+# passkeys next, no paid services. Fail closed: codes never returned to clients;
+# provider/send errors surface as 503.
+
+_EMAIL_KEY_PREFIX = "email:"
+_EMAIL_RE = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
+_EMAIL_CODE_LEN = 8   # email codes are 8 digits (defensible entropy; phone OTP stays 4)
+_EMAIL_IP_HITS: Dict[str, list] = {}
+_EMAIL_IP_LOCK = threading.Lock()
+_EMAIL_SEND_LOCK = threading.Lock()    # one email-code issue per address at a time
+_EMAIL_VERIFY_LOCK = threading.Lock()  # code consume is atomic (single-use under concurrency)
+
+
+def _email_ip_allow(ip: str, limit: int = 10) -> bool:
+    """Per-IP bound: max `limit` email-auth calls per hour (in-memory, single process)."""
+    now = datetime.utcnow()
+    cutoff = (now - timedelta(hours=1)).isoformat()
+    with _EMAIL_IP_LOCK:
+        hits = [t for t in _EMAIL_IP_HITS.get(ip, []) if t > cutoff]
+        if len(hits) >= limit:
+            _EMAIL_IP_HITS[ip] = hits
+            return False
+        hits.append(now.isoformat())
+        _EMAIL_IP_HITS[ip] = hits
+        return True
+
+
+def _email_daily_allow() -> None:
+    """Global daily send cap (default 90 < Resend free 100/day). Attempted sends
+    count even on rollback — conservative on purpose to protect the provider quota."""
+    today = datetime.utcnow().date().isoformat()
+    grec = DB_OTPS.get("_email_global") or {}
+    if str(grec.get("day", "")) != today:
+        grec = {"day": today, "count": 0}
+    cap = int(os.getenv("EMAIL_DAILY_CAP", "90") or "90")
+    if int(grec.get("count", 0)) >= cap:
+        raise HTTPException(429, "📧 ఈ రోజు email limit అయ్యింది — రేపు మళ్లీ ప్రయత్నించండి")
+    grec["count"] = int(grec.get("count", 0)) + 1
+    DB_OTPS["_email_global"] = grec
+
+
+def _email_otp_issue(addr: str, purpose: str) -> Dict[str, Any]:
+    """Issue an 8-digit email code with 60s cooldown + 5/hour per address.
+    Delivery failure rolls the record back (fail closed). Serialized so two
+    concurrent issues cannot both pass the same cooldown check."""
+    with _EMAIL_SEND_LOCK:
+        return _email_otp_issue_locked(addr, purpose)
+
+
+def _email_otp_issue_locked(addr: str, purpose: str) -> Dict[str, Any]:
+    addr = (addr or "").strip().lower()
+    if not addr or not _EMAIL_RE.fullmatch(addr):
+        raise HTTPException(400, "📧 Email address సరిగా లేదు")
+    _email_daily_allow()
+    key = _EMAIL_KEY_PREFIX + addr
+    now = datetime.utcnow()
+    prev = DB_OTPS.get(key)
+    rec_before = copy.deepcopy(prev) if prev else None
+    sent_at = str((prev or {}).get("sent_at", ""))
+    if sent_at:
+        try:
+            if (now - datetime.fromisoformat(sent_at)).total_seconds() < 60:
+                raise HTTPException(429, "OTP already పంపించాం — 1 నిమిషం ఆగి మళ్లీ ప్రయత్నించండి")
+        except HTTPException:
+            raise
+        except (TypeError, ValueError):
+            pass
+    hist = [t for t in ((prev or {}).get("history") or []) if isinstance(t, str)]
+    cutoff = (now - timedelta(hours=1)).isoformat()
+    hist = [t for t in hist if t > cutoff]
+    if len(hist) >= 5:
+        raise HTTPException(429, "చాలా సార్లు ప్రయత్నించారు — 1 గంట ఆగి మళ్లీ ప్రయత్నించండి")
+    code = f"{secrets.randbelow(10 ** _EMAIL_CODE_LEN):0{_EMAIL_CODE_LEN}d}"
+    DB_OTPS[key] = {
+        "code_hash": _otp_digest(code),
+        "expires": (now + timedelta(minutes=10)).isoformat(),
+        "tries": 0,
+        "sent_at": now.isoformat(),
+        "purpose": purpose,
+        "history": hist + [now.isoformat()],
+        "channel": "email",
+    }
+    if not _persist_core_state():
+        if rec_before:
+            DB_OTPS[key] = rec_before
+        else:
+            DB_OTPS.pop(key, None)
+        raise HTTPException(503, "OTP could not be saved safely. Please try again.")
+    if purpose == "email_verify":
+        text = email_channel.verify_email_text(code)
+        subject = email_channel.APP_NAME + " — email verification"
+    else:
+        text = email_channel.otp_email_text(code)
+        subject = email_channel.APP_NAME + " OTP"
+    sent = email_channel.send_email(addr, subject, text)
+    if not sent.get("ok"):
+        # Fail closed: rollback the issued record so a retry is not blocked by
+        # the cooldown of a code that never left the server.
+        if rec_before:
+            DB_OTPS[key] = rec_before
+        else:
+            DB_OTPS.pop(key, None)
+        if not _persist_core_state():
+            raise HTTPException(503, "Email service state could not be saved safely. Please try again.")
+        raise HTTPException(503, "📧 Email ఇప్పుడు పంపలేకపోయాం — కొద్దిసేపు ఆగి మళ్లీ ప్రయత్నించండి")
+    return {"ok": True, "channel": "email"}
+
+
+def _email_otp_check(key: str, code: str, purpose: str) -> None:
+    """Verify an email code (expiry, 5 tries, digest). Pops the record on success.
+    Raises HTTPException on any failure; counter changes are persisted.
+    Serialized: concurrent retries cannot both consume the same code."""
+    with _EMAIL_VERIFY_LOCK:
+        _email_otp_check_locked(key, code, purpose)
+
+
+def _email_otp_check_locked(key: str, code: str, purpose: str) -> None:
+    rec = DB_OTPS.get(key)
+    if not rec or rec.get("purpose") != purpose:
+        raise HTTPException(400, "ముందు email కి code పంపించండి")
+    rec_before = copy.deepcopy(rec)
+    try:
+        if datetime.fromisoformat(rec["expires"]) < datetime.utcnow():
+            DB_OTPS.pop(key, None)
+            raise HTTPException(400, "Code expire అయ్యింది — మళ్లీ పంపించండి")
+    except HTTPException:
+        raise
+    except (KeyError, TypeError, ValueError):
+        DB_OTPS.pop(key, None)
+        raise HTTPException(400, "Code invalid లేదా expire అయ్యింది — మళ్లీ పంపించండి")
+    rec["tries"] = int(rec.get("tries", 0)) + 1
+    if rec["tries"] > 5:
+        DB_OTPS.pop(key, None)
+        if not _persist_core_state():
+            DB_OTPS[key] = rec_before
+            raise HTTPException(503, "OTP lock state could not be saved safely. Please try again.")
+        raise HTTPException(429, "చాలా సార్లు ప్రయత్నించారు — కొత్త code తీసుకోండి")
+    expected = str(rec.get("code_hash", ""))
+    if not expected or not hmac.compare_digest(_otp_digest(code), expected):
+        if not _persist_core_state():
+            DB_OTPS[key] = rec_before
+            raise HTTPException(503, "OTP attempt could not be saved safely. Please try again.")
+        raise HTTPException(400, "❌ Code తప్పు లేదా invalid — మళ్లీ ప్రయత్నించండి")
+    DB_OTPS.pop(key, None)
+
+
+def _email_user(addr: str) -> Optional[Dict[str, Any]]:
+    """Find the user whose VERIFIED email matches (recovery/binding only)."""
+    addr = (addr or "").strip().lower()
+    if not addr:
+        return None
+    matches = [u for u in DB_USERS
+               if str(u.get("email", "")).strip().lower() == addr
+               and u.get("email_verified")]
+    if len(matches) > 1:
+        # Ambiguous recovery target — refuse rather than reset the wrong account.
+        abuse_log("email_ambiguous", addr.split("@")[0][:3])
+        return None
+    return matches[0] if matches else None
+
+
+@app.post("/api/auth/send-verify-email")
+def send_verify_email(payload: dict, request: Request):
+    """(Re)send the email verification code. Fresh password re-auth REQUIRED —
+    email binding must never ride on a session alone (session-forgery guard)."""
+    ip = request.client.host if request.client else "unknown"
+    if not _email_ip_allow(ip):
+        raise HTTPException(429, "చాలా సార్లు ప్రయత్నించారు — 1 గంట ఆగి మళ్లీ ప్రయత్నించండి")
+    d = payload or {}
+    tsap_id = str(d.get("tsap_id", "")).strip().upper()
+    password = str(d.get("password", ""))
+    u = next((x for x in DB_USERS if str(x.get("tsap_id", "")).upper() == tsap_id), None)
+    if not u:
+        raise HTTPException(404, "ఈ ID తో account లేదు")
+    if not _check_password(password, str(u.get("password_hash") or "")):
+        raise HTTPException(401, "❌ Password సరిగా లేదు")
+    addr = str(u.get("email", "")).strip().lower()
+    if not addr:
+        raise HTTPException(400, "ఈ account కి email లేదు")
+    if u.get("email_verified"):
+        return {"success": True, "already_verified": True,
+                "message_telugu": "✅ ఈ email already verify అయ్యింది"}
+    _email_otp_issue(addr, "email_verify")
+    return {"success": True, "sent": True,
+            "message_telugu": "📧 మీ email కి verification code పంపించాం (10 min valid)"}
+
+
+@app.post("/api/auth/verify-email")
+def verify_email(payload: dict, request: Request):
+    """Mark the account email verified with the emailed 8-digit code."""
+    ip = request.client.host if request.client else "unknown"
+    if not _email_ip_allow(ip):
+        raise HTTPException(429, "చాలా సార్లు ప్రయత్నించారు — 1 గంట ఆగి మళ్లీ ప్రయత్నించండి")
+    d = payload or {}
+    tsap_id = str(d.get("tsap_id", "")).strip().upper()
+    code = str(d.get("code", "")).strip()
+    if not re.fullmatch(r"\d{8}", code):
+        raise HTTPException(400, "Enter the eight-digit code")
+    u = next((x for x in DB_USERS if str(x.get("tsap_id", "")).upper() == tsap_id), None)
+    if not u:
+        raise HTTPException(404, "ఈ ID తో account లేదు")
+    addr = str(u.get("email", "")).strip().lower()
+    if not addr:
+        raise HTTPException(400, "ఈ account కి email లేదు")
+    if u.get("email_verified"):
+        return {"success": True, "already_verified": True,
+                "message_telugu": "✅ ఈ email already verify అయ్యింది"}
+    key = _EMAIL_KEY_PREFIX + addr
+    clash = next((x for x in DB_USERS if x is not u
+                  and str(x.get("email", "")).strip().lower() == addr
+                  and x.get("email_verified")), None)
+    if clash:
+        # Never let one verified email bind to two accounts (recovery ambiguity).
+        raise HTTPException(409, "ఈ email already మరో account కి verified — support కి చెప్పండి")
+    user_before = copy.deepcopy(u)
+    _email_otp_check(key, code, "email_verify")
+    u["email_verified"] = True
+    if not _persist_core_state():
+        u.clear()
+        u.update(user_before)
+        raise HTTPException(503, "Verification could not be saved safely. Please request a new code.")
+    return {"success": True, "email_verified": True,
+            "message_telugu": "✅ Email verify అయ్యింది — password మర్చిపోయినా ఇప్పుడు email tho reset cheyyavachu 🔑"}
+
+
+@app.post("/api/auth/forgot-email")
+def forgot_email(payload: dict, request: Request):
+    """Start password recovery via a VERIFIED email. Always a generic response —
+    never reveals whether the email belongs to an account."""
+    ip = request.client.host if request.client else "unknown"
+    if not _email_ip_allow(ip):
+        raise HTTPException(429, "చాలా సార్లు ప్రయత్నించారు — 1 గంట ఆగి మళ్లీ ప్రయత్నించండి")
+    d = payload or {}
+    addr = str(d.get("email", "")).strip().lower()
+    if not addr or not _EMAIL_RE.fullmatch(addr):
+        raise HTTPException(400, "📧 Email address సరిగా లేదు")
+    u = _email_user(addr)
+    if u:
+        _email_otp_issue(addr, "reset_email")
+    return {"success": True,
+            "message_telugu": "ఆ email తో verified account ఉంటే reset code పంపించాం (10 min valid). ఇన్‌బాక్స్ చూడండి 📧"}
+
+
+@app.post("/api/auth/reset-email")
+def reset_email(payload: dict, response: Response, request: Request):
+    """Complete password recovery via verified email. Mirrors the phone OTP reset:
+    fresh hash, every prior token revoked, new session issued."""
+    ip = request.client.host if request.client else "unknown"
+    if not _email_ip_allow(ip):
+        raise HTTPException(429, "చాలా సార్లు ప్రయత్నించారు — 1 గంట ఆగి మళ్లీ ప్రయత్నించండి")
+    d = payload or {}
+    addr = str(d.get("email", "")).strip().lower()
+    code = str(d.get("code", "")).strip()
+    new_pw = str(d.get("new_password", ""))
+    if not re.fullmatch(r"\d{8}", code):
+        raise HTTPException(400, "Enter the eight-digit code")
+    if len(new_pw) < 8 or len(new_pw) > 72:
+        raise HTTPException(400, "Password must be between 8 and 72 characters")
+    u = _email_user(addr)
+    if not u:
+        # Generic: account existence must not leak through a different error.
+        raise HTTPException(400, "❌ Code తప్పు లేదా invalid — మళ్లీ ప్రయత్నించండి")
+    key = _EMAIL_KEY_PREFIX + addr
+    user_before = copy.deepcopy(u)
+    _email_otp_check(key, code, "reset_email")
+    u["password_hash"] = _hash_password(new_pw)
+    # A password reset is a security event — every token issued before this
+    # moment stops working immediately; the fresh token below is signed after
+    # the bump so it carries the new version.
+    revoke_all_tokens(u["tsap_id"])
+    if not _persist_core_state():
+        u.clear()
+        u.update(user_before)
+        raise HTTPException(503, "Password reset could not be saved safely. Please request a new code.")
+    auth_token = sign_token(u["tsap_id"])
+    _set_member_session_cookie(response, auth_token)
+    return {"success": True, "tsap_id": u["tsap_id"],
+            "auth_token": _browser_auth_token(auth_token),
+            "message_telugu": "✅ Password మారింది — పాత sessions అన్నీ logout అయ్యాయి 🔑"}
 
 
 _OTP_HASH_KEY = os.getenv("TSAP_AUTH_SECRET", "").encode("utf-8") or secrets.token_bytes(32)

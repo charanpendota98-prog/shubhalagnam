@@ -213,6 +213,8 @@ class RegisterResponse(BaseModel):
     referral: Optional[Dict[str, Any]] = None
     # 🎁 WAVE 10 — register avvagane WhatsApp ki velle "3 profiles + caste channel links" pack
     welcome_pack: Optional[Dict[str, Any]] = None
+    # 📧 WAVE 22 — email verification status (code eppatiki client ki raadu; status matrame)
+    email_verify: Optional[Dict[str, Any]] = None
 
 class SearchResponse(BaseModel):
     profile: UserDB

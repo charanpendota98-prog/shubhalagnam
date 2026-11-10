@@ -66,6 +66,25 @@ def _telegram_send(phone: str, text: str, users: Optional[List[Dict]] = None) ->
         return {"ok": False, "detail": f"tg_err:{str(e)[:60]}"}
 
 
+def _email_send(phone: str, text: str, users: Optional[List[Dict]] = None) -> Dict[str, Any]:
+    """Email OTP to the member's VERIFIED email (WAVE 22). Needs email_verified=True."""
+    try:
+        for u in (users or []):
+            if str(u.get("phone", "")) == str(phone):
+                addr = str(u.get("email", "") or "").strip().lower()
+                if not addr or not u.get("email_verified"):
+                    return {"ok": False, "detail": "no_verified_email"}
+                try:
+                    from email_channel import send_email, APP_NAME
+                except Exception as e:
+                    return {"ok": False, "detail": f"email_import:{str(e)[:60]}"}
+                r = send_email(addr, APP_NAME + " OTP", text)
+                return {"ok": bool(r.get("ok")), "detail": str(r.get("detail", ""))}
+        return {"ok": False, "detail": "user_not_found"}
+    except Exception as e:
+        return {"ok": False, "detail": f"email_err:{str(e)[:60]}"}
+
+
 def _sms_send(phone: str, text: str) -> Dict[str, Any]:
     """SMS provider (MSG91/Fast2SMS) — env keys ఉంటే మాత్రమే (trial free)."""
     key = os.getenv("MSG91_KEY", "").strip() or os.getenv("FAST2SMS_KEY", "").strip()
@@ -107,6 +126,8 @@ def send_otp(phone: str, code: str, users: Optional[List[Dict]] = None) -> Dict[
             result = _wa_send(phone, text)
         elif ch in ("telegram", "tg"):
             result = _telegram_send(phone, text, users)
+        elif ch == "email":
+            result = _email_send(phone, text, users)
         elif ch == "sms":
             result = _sms_send(phone, text)
         else:
@@ -121,6 +142,7 @@ def send_otp(phone: str, code: str, users: Optional[List[Dict]] = None) -> Dict[
 CHANNEL_TELUGU = {
     "wa": "📲 WhatsApp లో OTP పంపించాం (FREE)",
     "telegram": "✈️ Telegram lo OTP pampinchaam (FREE)",
+    "email": "📧 Email lo OTP pampinchaam (FREE)",
     "sms": "📩 SMS lo OTP pampinchaam",
     "none": "⚠️ OTP channel configure కాలేదు — support కి చెప్పండి",
 }
