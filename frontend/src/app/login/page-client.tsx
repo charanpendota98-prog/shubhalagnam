@@ -125,15 +125,19 @@ export default function LoginPage() {
   }
 
   async function onForgotSend() {
-    const p = digits();
-    if (p.length !== 10) {
-      showFeedback(te ? "⚠️ 10 అంకెల మొబైల్ నంబర్ ఇవ్వండి" : "⚠️ Enter a 10-digit mobile number", "err");
+    const isEmail = phone.includes("@");
+    const p = isEmail ? phone.trim().toLowerCase() : digits();
+    if (!isEmail && p.length !== 10) {
+      showFeedback(te ? "⚠️ సరైన మొబైల్ నంబర్ లేదా ఈమెయిల్ ఇవ్వండి" : "⚠️ Enter a valid mobile number or email", "err");
       return;
     }
     setBusy(true);
     showFeedback("");
+    const endpoint = isEmail ? "/api/auth/forgot-email" : "/api/auth/forgot";
+    const payload = isEmail ? { email: p } : { phone: p };
+    
     const { ok, data, error } = await apiPost<{ message_telugu?: string; message_en?: string; message?: string }>(
-      "/api/auth/forgot", { phone: p }
+      endpoint, payload
     );
     setBusy(false);
     if (!ok) {
@@ -160,8 +164,15 @@ export default function LoginPage() {
     }
     setBusy(true);
     showFeedback("");
+    const isEmail = phone.includes("@");
+    const p = isEmail ? phone.trim().toLowerCase() : digits();
+    const endpoint = isEmail ? "/api/auth/reset-email" : "/api/auth/reset";
+    const payload = isEmail 
+      ? { email: p, code: code.trim(), new_password: newPw.trim() } 
+      : { phone: p, code: code.trim(), new_password: newPw.trim() };
+      
     const { ok, data, error } = await apiPost<{ auth_token?: string; tsap_id?: string; message_telugu?: string; message_en?: string; message?: string }>(
-      "/api/auth/reset", { phone: digits(), code: code.trim(), new_password: newPw.trim() }
+      endpoint, payload
     );
     setBusy(false);
     if (!ok) {
@@ -249,13 +260,13 @@ export default function LoginPage() {
                   <span className="absolute left-3.5 text-xs font-bold text-slate-400 select-none">+91</span>
                   <input
                     id="f-phone"
-                    inputMode="numeric"
+                    inputMode={forgot ? "text" : "numeric"}
                     autoComplete="tel"
                     value={phone}
-                    maxLength={10}
+                    maxLength={forgot ? 100 : 10}
                     disabled={fStage === "reset"}
-                    onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 10))}
-                    placeholder={te ? "నమోదు చేసిన మొబైల్ నంబర్" : "Registered mobile number"}
+                    onChange={(e) => setPhone(forgot ? e.target.value : e.target.value.replace(/\D/g, "").slice(0, 10))}
+                    placeholder={te ? "నమోదు చేసిన మొబైల్ నంబర్ లేదా ఈమెయిల్" : "Registered mobile number or email"}
                     className="w-full pl-12 pr-4 py-3 rounded-xl border border-slate-200 text-base font-semibold focus:border-maroon focus:ring-1 focus:ring-maroon outline-none disabled:bg-slate-50"
                   />
                 </div>
@@ -269,7 +280,7 @@ export default function LoginPage() {
                     </label>
                     <input
                       id="f-otp"
-                      inputMode="numeric"
+                      inputMode={forgot ? "text" : "numeric"}
                       value={code}
                       maxLength={4}
                       onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 4))}
@@ -382,12 +393,12 @@ export default function LoginPage() {
                   <span className="absolute left-3.5 text-xs font-bold text-slate-400 select-none">+91</span>
                   <input
                     id="login-phone"
-                    inputMode="numeric"
+                    inputMode={forgot ? "text" : "numeric"}
                     autoComplete="tel"
                     value={phone}
-                    maxLength={10}
+                    maxLength={forgot ? 100 : 10}
                     disabled={tab === "otp" && stage === "otp"}
-                    onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 10))}
+                    onChange={(e) => setPhone(forgot ? e.target.value : e.target.value.replace(/\D/g, "").slice(0, 10))}
                     onKeyDown={(e) => {
                       if (e.key === "Enter") {
                         if (tab === "password") void onPasswordLogin();
@@ -395,7 +406,7 @@ export default function LoginPage() {
                         else void onVerify();
                       }
                     }}
-                    placeholder={te ? "నమోదు చేసిన మొబైల్ నంబర్" : "Registered mobile number"}
+                    placeholder={te ? "నమోదు చేసిన మొబైల్ నంబర్ లేదా ఈమెయిల్" : "Registered mobile number or email"}
                     className="w-full pl-12 pr-4 py-3 rounded-xl border border-slate-200 text-base font-semibold focus:border-maroon focus:ring-1 focus:ring-maroon outline-none disabled:bg-slate-50"
                   />
                 </div>
@@ -462,7 +473,7 @@ export default function LoginPage() {
                   </div>
                   <input
                     id="login-otp"
-                    inputMode="numeric"
+                    inputMode={forgot ? "text" : "numeric"}
                     value={code}
                     maxLength={4}
                     onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 4))}

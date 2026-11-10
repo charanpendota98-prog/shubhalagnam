@@ -1323,6 +1323,28 @@ function Wizard() {
           </div>
 
           <div className="p-5 sm:p-6 space-y-5">
+
+            {result.email_verify?.required && !result.email_verify?.verified && (
+              <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 my-4">
+                <h3 className="text-sm font-bold text-blue-900 mb-2">📧 {te ? "ఈమెయిల్ వెరిఫికేషన్" : "Email Verification"}</h3>
+                <p className="text-xs text-blue-800 mb-3">{te ? "రికవరీ కోసం మీ ఈమెయిల్ కు 8 అంకెల కోడ్ పంపబడింది." : "An 8-digit code has been sent to your email."}</p>
+                <div className="flex gap-2">
+                  <input type="text" id="email-verify-code" placeholder="8-digit code" className="flex-1 bg-white border border-blue-200 rounded-xl px-3 py-2 text-sm focus:border-blue-500 outline-none" />
+                  <button onClick={async () => {
+                    const code = (document.getElementById("email-verify-code") as HTMLInputElement).value;
+                    const res = await fetch("/api/auth/verify-email", {
+                      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code })
+                    });
+                    const data = await res.json();
+                    if(data.success) { alert(data.message_telugu || "Verified!"); (document.getElementById("email-verify-code") as HTMLInputElement).value = ""; }
+                    else alert(data.detail || "Verification failed");
+                  }} className="bg-blue-600 text-white px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap">
+                    {te ? "వెరిఫై చేయండి" : "Verify"}
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Profile ID plus the actual approval and phone-verification state. */}
             <div className="bg-amber-50/80 border border-gold/50 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3">
               <div className="min-w-0">
@@ -1910,6 +1932,15 @@ function Wizard() {
 
               {/* 6. Phone & Password */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                
+                <TextField
+                  label={te ? "ఈమెయిల్ (Email)" : "Email (Optional)"}
+                  value={f.email || ""}
+                  onChange={(v) => set("email", v.trim().toLowerCase())}
+                  type="email"
+                  placeholder="your.email@example.com"
+                  hint={te ? "పాస్‌వర్డ్ రికవరీ కోసం" : "For password recovery"}
+                />
                 <TextField
                   label="10 అంకెల మొబైల్ (WhatsApp Number)"
                   value={f.phone}
@@ -2521,6 +2552,14 @@ function Wizard() {
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      
+                      <TextField
+                        label={te ? "ఈమెయిల్ (Email) - ఐచ్ఛికం" : "Email (Optional)"}
+                        value={f.email || ""}
+                        onChange={(v) => set("email", v.trim().toLowerCase())}
+                        type="email"
+                        placeholder="your.email@example.com"
+                      />
                       <TextField
                         label="10 అంకెల మొబైల్ (WhatsApp No)"
                         value={f.phone}
