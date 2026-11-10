@@ -1328,8 +1328,6 @@ function Wizard() {
 
           <div className="p-5 sm:p-6 space-y-5">
 
-            {result.email_verify?.required && !result.email_verify?.verified && (
-
             {/* Passkey Setup */}
             <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 my-4">
               <h3 className="text-sm font-bold text-slate-800 mb-2">🔑 {T("పాస్‌కీ సెటప్ (Passkey Setup)", "Passkey Setup")}</h3>
@@ -1372,6 +1370,7 @@ function Wizard() {
               </div>
             </div>
 
+            {result.email_verify?.required && !result.email_verify?.verified && (
               <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 my-4">
                 <h3 className="text-sm font-bold text-blue-900 mb-2">📧 {te ? "ఈమెయిల్ వెరిఫికేషన్" : "Email Verification"}</h3>
                 <p className="text-xs text-blue-800 mb-3">{te ? "రికవరీ కోసం మీ ఈమెయిల్ కు 8 అంకెల కోడ్ పంపబడింది." : "An 8-digit code has been sent to your email."}</p>
