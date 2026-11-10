@@ -107,7 +107,8 @@ export default function LoginPage() {
 
   async function onVerify() {
     const c = code.trim();
-    if (!c || c.length < 4) {
+    const expectedLen = phone.includes("@") ? 8 : 4;
+    if (!c || c.length < expectedLen) {
       showFeedback(te ? "⚠️ దయచేసి OTP కోడ్ నమోదు చేయండి" : "⚠️ Please enter the OTP code", "err");
       return;
     }
@@ -150,7 +151,8 @@ export default function LoginPage() {
   }
 
   async function onReset() {
-    if (code.trim().length < 4) {
+    const expectedLen = phone.includes("@") ? 8 : 4;
+    if (code.trim().length < expectedLen) {
       showFeedback(te ? "⚠️ OTP కోడ్ నమోదు చేయండి" : "⚠️ Enter the OTP code", "err");
       return;
     }
@@ -276,14 +278,14 @@ export default function LoginPage() {
                 <>
                   <div>
                     <label htmlFor="f-otp" className="block text-xs font-bold text-slate-700 mb-1">
-                      🔢 {te ? "OTP కోడ్ (4 అంకెలు)" : "4-digit OTP Code"}
+                      🔢 {te ? (phone.includes("@") ? "OTP కోడ్ (8 అంకెలు)" : "OTP కోడ్ (4 అంకెలు)") : (phone.includes("@") ? "8-digit OTP Code" : "4-digit OTP Code")}
                     </label>
                     <input
                       id="f-otp"
-                      inputMode={forgot ? "text" : "numeric"}
+                      inputMode="numeric"
                       value={code}
-                      maxLength={4}
-                      onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                      maxLength={phone.includes("@") ? 8 : 4}
+                      onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, phone.includes("@") ? 8 : 4))}
                       placeholder={te ? "OTP కోడ్ నమోదు చేయండి" : "Enter OTP code"}
                       className="w-full text-center tracking-[0.4em] py-3 rounded-xl border border-slate-200 text-xl font-bold font-mono focus:border-maroon focus:ring-1 focus:ring-maroon outline-none"
                     />
@@ -462,7 +464,7 @@ export default function LoginPage() {
                 <div>
                   <div className="flex justify-between items-center mb-1">
                     <label htmlFor="login-otp" className="block text-xs font-bold text-slate-700">
-                      🔢 {te ? "4 అంకెల OTP కోడ్" : "4-digit OTP Code"}
+                      🔢 {te ? (phone.includes("@") ? "8 అంకెల OTP కోడ్" : "4 అంకెల OTP కోడ్") : (phone.includes("@") ? "8-digit OTP Code" : "4-digit OTP Code")}
                     </label>
                     <button type="button"
                       onClick={() => { setStage("phone"); setCode(""); }}
@@ -473,10 +475,10 @@ export default function LoginPage() {
                   </div>
                   <input
                     id="login-otp"
-                    inputMode={forgot ? "text" : "numeric"}
+                    inputMode="numeric"
                     value={code}
-                    maxLength={4}
-                    onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                    maxLength={phone.includes("@") ? 8 : 4}
+                    onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, phone.includes("@") ? 8 : 4))}
                     onKeyDown={(e) => {
                       if (e.key === "Enter") void onVerify();
                     }}
