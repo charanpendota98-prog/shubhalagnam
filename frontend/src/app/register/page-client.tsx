@@ -21,6 +21,8 @@ import { CASTES as SEO_COMMUNITY_HUBS } from "@/lib/seo-pages";
 import { communityHubPath } from "@/lib/community-hub.mjs";
 import { getLang, useLang } from "@/lib/lang";
 import { apiDisplayMessage, getCsrfToken, readApiJson } from "@/lib/api";
+import { registerPasskey } from "@/lib/webauthn-client";
+
 import { ProfilePhotoError, prepareProfilePhoto, profilePhotoErrorMessage } from "@/lib/photo-upload";
 import { stateFullName, isGroomGender, isHomemakerOccupation, workTypesForGender } from "@/lib/telugu-data";
 import PhotoFlow from "@/components/PhotoFlow";
@@ -757,6 +759,8 @@ function Wizard() {
   const [photoPreparing, setPhotoPreparing] = useState(false);
   const [showPw, setShowPw] = useState(false);
   const [refLocked, setRefLocked] = useState("");
+  const [passkeyPw, setPasskeyPw] = useState("");
+  const [passkeyBusy, setPasskeyBusy] = useState(false);
   const [refInvite, setRefInvite] = useState("");
   const [refInfo, setRefInfo] = useState<any>(null);
   const [result, setResult] = useState<any>(null);
@@ -1323,6 +1327,71 @@ function Wizard() {
           </div>
 
           <div className="p-5 sm:p-6 space-y-5">
+
+            {/* Passkey Setup */}
+            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 my-4">
+              <h3 className="text-sm font-bold text-slate-800 mb-2">🔑 {T("పాస్‌కీ సెటప్ (Passkey Setup)", "Passkey Setup")}</h3>
+              <p className="text-xs text-slate-600 mb-3">{T("పాస్‌వర్డ్ లేకుండా సురక్షితంగా మీ ఫోన్ వేలిముద్ర/ఫేస్ లాక్ తో లాగిన్ అవ్వడానికి పాస్‌కీ సెటప్ చేయండి.", "Set up a passkey to sign in securely with your fingerprint or face without a password.")}</p>
+              <div className="flex flex-col sm:flex-row gap-2 max-w-sm">
+                <input 
+                  type="password" 
+                  value={passkeyPw} 
+                  onChange={(e) => setPasskeyPw(e.target.value)}
+                  placeholder={T("మీ పాస్‌వర్డ్ (Your Password)", "Your Password")}
+                  className="flex-1 bg-white border border-slate-200 rounded-xl px-3.5 py-2 text-sm focus:border-slate-800 outline-none"
+                  disabled={passkeyBusy}
+                />
+                <button 
+                  type="button"
+                  onClick={async () => {
+                    if (!passkeyPw) {
+                      alert(T("దయచేసి పాస్‌వర్డ్ ఎంటర్ చేయండి.", "Please enter your password."));
+                      return;
+                    }
+                    const token = sessionStorage.getItem("tsap_token");
+                    if (!token) {
+                      alert(T("సెషన్ గడువు ముగిసింది. దయచేసి మళ్లీ లాగిన్ చేయండి.", "Session expired. Please sign in again."));
+                      return;
+                    }
+                    setPasskeyBusy(true);
+                    const res = await registerPasskey(tsap, token, passkeyPw);
+                    setPasskeyBusy(false);
+                    if (res.success) {
+                      setPasskeyPw("");
+                      alert(T("✅ పాస్‌కీ విజయవంతంగా సెటప్ చేయబడింది!", "✅ Passkey setup successful!"));
+                    } else {
+                      alert(res.message);
+                    }
+                  }}
+                  disabled={passkeyBusy || !passkeyPw}
+                  className="bg-slate-800 text-white px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap disabled:opacity-50"
+                >
+                  {passkeyBusy ? T("సెటప్ అవుతోంది...", "Setting up...") : T("పాస్‌కీ సెటప్ చేయండి", "Register Passkey")}
+                </button>
+              </div>
+            </div>
+
+            {result.email_verify?.required && !result.email_verify?.verified && (
+              <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 my-4">
+                <h3 className="text-sm font-bold text-blue-900 mb-2">📧 {te ? "ఈమెయిల్ వెరిఫికేషన్" : "Email Verification"}</h3>
+                <p className="text-xs text-blue-800 mb-3">{te ? "రికవరీ కోసం మీ ఈమెయిల్ కు 8 అంకెల కోడ్ పంపబడింది." : "An 8-digit code has been sent to your email."}</p>
+                <div className="flex gap-2">
+                  <input type="text" id="email-verify-code" placeholder="8-digit code" className="flex-1 bg-white border border-blue-200 rounded-xl px-3 py-2 text-sm focus:border-blue-500 outline-none" />
+                  <button type="button" onClick={async () => {
+                    const code = (document.getElementById("email-verify-code") as HTMLInputElement).value;
+                    const res = await fetch("/api/auth/verify-email", {
+                      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ tsap_id: tsap, code })
+                    });
+                    const data = await res.json();
+                    if(data.success) { alert(data.message_telugu || "Verified!"); (document.getElementById("email-verify-code") as HTMLInputElement).value = ""; }
+                    else alert(data.detail || "Verification failed");
+                  }} className="bg-blue-600 text-white px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap">
+                    {te ? "వెరిఫై చేయండి" : "Verify"}
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Profile ID plus the actual approval and phone-verification state. */}
             <div className="bg-amber-50/80 border border-gold/50 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3">
               <div className="min-w-0">
@@ -1910,6 +1979,15 @@ function Wizard() {
 
               {/* 6. Phone & Password */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                
+                <TextField
+                  label={te ? "ఈమెయిల్ (Email)" : "Email (Optional)"}
+                  value={f.email || ""}
+                  onChange={(v) => set("email", v.trim().toLowerCase())}
+                  type="email"
+                  placeholder="your.email@example.com"
+                  hint={te ? "పాస్‌వర్డ్ రికవరీ కోసం" : "For password recovery"}
+                />
                 <TextField
                   label="10 అంకెల మొబైల్ (WhatsApp Number)"
                   value={f.phone}
@@ -2521,6 +2599,14 @@ function Wizard() {
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      
+                      <TextField
+                        label={te ? "ఈమెయిల్ (Email) - ఐచ్ఛికం" : "Email (Optional)"}
+                        value={f.email || ""}
+                        onChange={(v) => set("email", v.trim().toLowerCase())}
+                        type="email"
+                        placeholder="your.email@example.com"
+                      />
                       <TextField
                         label="10 అంకెల మొబైల్ (WhatsApp No)"
                         value={f.phone}

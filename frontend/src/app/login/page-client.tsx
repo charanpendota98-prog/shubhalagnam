@@ -12,6 +12,8 @@ import { Duo } from "@/lib/duo";
 import { useLang } from "@/lib/lang";
 import { useRouter } from "next/navigation";
 import { rememberSession, sendOtp, verifyOtp } from "@/lib/auth";
+import { loginPasskey } from "@/lib/webauthn-client";
+
 import { apiDisplayMessage, apiPost } from "@/lib/api";
 
 export default function LoginPage() {
@@ -107,7 +109,8 @@ export default function LoginPage() {
 
   async function onVerify() {
     const c = code.trim();
-    if (!c || c.length < 4) {
+    const expectedLen = phone.includes("@") ? 8 : 4;
+    if (!c || c.length < expectedLen) {
       showFeedback(te ? "⚠️ దయచేసి OTP కోడ్ నమోదు చేయండి" : "⚠️ Please enter the OTP code", "err");
       return;
     }
@@ -125,15 +128,19 @@ export default function LoginPage() {
   }
 
   async function onForgotSend() {
-    const p = digits();
-    if (p.length !== 10) {
-      showFeedback(te ? "⚠️ 10 అంకెల మొబైల్ నంబర్ ఇవ్వండి" : "⚠️ Enter a 10-digit mobile number", "err");
+    const isEmail = phone.includes("@");
+    const p = isEmail ? phone.trim().toLowerCase() : digits();
+    if (!isEmail && p.length !== 10) {
+      showFeedback(te ? "⚠️ సరైన మొబైల్ నంబర్ లేదా ఈమెయిల్ ఇవ్వండి" : "⚠️ Enter a valid mobile number or email", "err");
       return;
     }
     setBusy(true);
     showFeedback("");
+    const endpoint = isEmail ? "/api/auth/forgot-email" : "/api/auth/forgot";
+    const payload = isEmail ? { email: p } : { phone: p };
+    
     const { ok, data, error } = await apiPost<{ message_telugu?: string; message_en?: string; message?: string }>(
-      "/api/auth/forgot", { phone: p }
+      endpoint, payload
     );
     setBusy(false);
     if (!ok) {
@@ -146,7 +153,8 @@ export default function LoginPage() {
   }
 
   async function onReset() {
-    if (code.trim().length < 4) {
+    const expectedLen = phone.includes("@") ? 8 : 4;
+    if (code.trim().length < expectedLen) {
       showFeedback(te ? "⚠️ OTP కోడ్ నమోదు చేయండి" : "⚠️ Enter the OTP code", "err");
       return;
     }
@@ -160,8 +168,15 @@ export default function LoginPage() {
     }
     setBusy(true);
     showFeedback("");
+    const isEmail = phone.includes("@");
+    const p = isEmail ? phone.trim().toLowerCase() : digits();
+    const endpoint = isEmail ? "/api/auth/reset-email" : "/api/auth/reset";
+    const payload = isEmail 
+      ? { email: p, code: code.trim(), new_password: newPw.trim() } 
+      : { phone: p, code: code.trim(), new_password: newPw.trim() };
+      
     const { ok, data, error } = await apiPost<{ auth_token?: string; tsap_id?: string; message_telugu?: string; message_en?: string; message?: string }>(
-      "/api/auth/reset", { phone: digits(), code: code.trim(), new_password: newPw.trim() }
+      endpoint, payload
     );
     setBusy(false);
     if (!ok) {
@@ -243,20 +258,24 @@ export default function LoginPage() {
 
               <div>
                 <label htmlFor="f-phone" className="block text-xs font-bold text-slate-700 mb-1">
-                  📞 {te ? "రిజిస్టర్డ్ మొబైల్ నంబర్" : "Registered Mobile Number"}
+                  {phone.includes("@")
+                    ? (te ? "📧 రిజిస్టర్డ్ ఈమెయిల్" : "📧 Registered Email")
+                    : (te ? "📞 రిజిస్టర్డ్ మొబైల్ నంబర్" : "📞 Registered Mobile Number")}
                 </label>
                 <div className="relative flex items-center">
-                  <span className="absolute left-3.5 text-xs font-bold text-slate-400 select-none">+91</span>
+                  {!phone.includes("@") && (
+                    <span className="absolute left-3.5 text-xs font-bold text-slate-400 select-none">+91</span>
+                  )}
                   <input
                     id="f-phone"
-                    inputMode="numeric"
-                    autoComplete="tel"
+                    inputMode={forgot ? "text" : "numeric"}
+                    autoComplete={phone.includes("@") ? "email" : "tel"}
                     value={phone}
-                    maxLength={10}
+                    maxLength={forgot ? 100 : 10}
                     disabled={fStage === "reset"}
-                    onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 10))}
-                    placeholder={te ? "నమోదు చేసిన మొబైల్ నంబర్" : "Registered mobile number"}
-                    className="w-full pl-12 pr-4 py-3 rounded-xl border border-slate-200 text-base font-semibold focus:border-maroon focus:ring-1 focus:ring-maroon outline-none disabled:bg-slate-50"
+                    onChange={(e) => setPhone(forgot ? e.target.value : e.target.value.replace(/\D/g, "").slice(0, 10))}
+                    placeholder={te ? "నమోదు చేసిన మొబైల్ నంబర్ లేదా ఈమెయిల్" : "Registered mobile number or email"}
+                    className={`w-full ${phone.includes("@") ? "pl-4" : "pl-12"} pr-4 py-3 rounded-xl border border-slate-200 text-base font-semibold focus:border-maroon focus:ring-1 focus:ring-maroon outline-none disabled:bg-slate-50`}
                   />
                 </div>
               </div>
@@ -265,14 +284,14 @@ export default function LoginPage() {
                 <>
                   <div>
                     <label htmlFor="f-otp" className="block text-xs font-bold text-slate-700 mb-1">
-                      🔢 {te ? "OTP కోడ్ (4 అంకెలు)" : "4-digit OTP Code"}
+                      🔢 {te ? (phone.includes("@") ? "OTP కోడ్ (8 అంకెలు)" : "OTP కోడ్ (4 అంకెలు)") : (phone.includes("@") ? "8-digit OTP Code" : "4-digit OTP Code")}
                     </label>
                     <input
                       id="f-otp"
                       inputMode="numeric"
                       value={code}
-                      maxLength={4}
-                      onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                      maxLength={phone.includes("@") ? 8 : 4}
+                      onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, phone.includes("@") ? 8 : 4))}
                       placeholder={te ? "OTP కోడ్ నమోదు చేయండి" : "Enter OTP code"}
                       className="w-full text-center tracking-[0.4em] py-3 rounded-xl border border-slate-200 text-xl font-bold font-mono focus:border-maroon focus:ring-1 focus:ring-maroon outline-none"
                     />
@@ -382,12 +401,12 @@ export default function LoginPage() {
                   <span className="absolute left-3.5 text-xs font-bold text-slate-400 select-none">+91</span>
                   <input
                     id="login-phone"
-                    inputMode="numeric"
+                    inputMode={forgot ? "text" : "numeric"}
                     autoComplete="tel"
                     value={phone}
-                    maxLength={10}
+                    maxLength={forgot ? 100 : 10}
                     disabled={tab === "otp" && stage === "otp"}
-                    onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 10))}
+                    onChange={(e) => setPhone(forgot ? e.target.value : e.target.value.replace(/\D/g, "").slice(0, 10))}
                     onKeyDown={(e) => {
                       if (e.key === "Enter") {
                         if (tab === "password") void onPasswordLogin();
@@ -395,7 +414,7 @@ export default function LoginPage() {
                         else void onVerify();
                       }
                     }}
-                    placeholder={te ? "నమోదు చేసిన మొబైల్ నంబర్" : "Registered mobile number"}
+                    placeholder={te ? "నమోదు చేసిన మొబైల్ నంబర్ లేదా ఈమెయిల్" : "Registered mobile number or email"}
                     className="w-full pl-12 pr-4 py-3 rounded-xl border border-slate-200 text-base font-semibold focus:border-maroon focus:ring-1 focus:ring-maroon outline-none disabled:bg-slate-50"
                   />
                 </div>
@@ -451,7 +470,7 @@ export default function LoginPage() {
                 <div>
                   <div className="flex justify-between items-center mb-1">
                     <label htmlFor="login-otp" className="block text-xs font-bold text-slate-700">
-                      🔢 {te ? "4 అంకెల OTP కోడ్" : "4-digit OTP Code"}
+                      🔢 {te ? (phone.includes("@") ? "8 అంకెల OTP కోడ్" : "4 అంకెల OTP కోడ్") : (phone.includes("@") ? "8-digit OTP Code" : "4-digit OTP Code")}
                     </label>
                     <button type="button"
                       onClick={() => { setStage("phone"); setCode(""); }}
@@ -464,8 +483,8 @@ export default function LoginPage() {
                     id="login-otp"
                     inputMode="numeric"
                     value={code}
-                    maxLength={4}
-                    onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                    maxLength={phone.includes("@") ? 8 : 4}
+                    onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, phone.includes("@") ? 8 : 4))}
                     onKeyDown={(e) => {
                       if (e.key === "Enter") void onVerify();
                     }}
@@ -546,6 +565,29 @@ export default function LoginPage() {
           )}
 
         </div>
+
+
+          <div className="mt-4 pt-4 border-t border-slate-100 text-center">
+            <p className="text-xs text-slate-500 mb-3">{te ? "లేదా పాస్‌వర్డ్ లేకుండా లాగిన్ అవ్వండి" : "Or sign in without a password"}</p>
+            <button type="button"
+              onClick={async () => {
+                setBusy(true);
+                showFeedback("");
+                const res = await loginPasskey();
+                setBusy(false);
+                if (res.success) {
+                  showFeedback(res.message || "✅ Success", "ok");
+                  go(String(res.tsap_id || ""), String(res.auth_token || ""), true);
+                } else {
+                  showFeedback(res.message || "❌ Failed", "err");
+                }
+              }}
+              disabled={busy}
+              className="w-full py-3 rounded-2xl bg-slate-800 text-white font-bold text-sm shadow-sm hover:bg-slate-700 disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              <span>🔑</span> {te ? "Passkey తో లాగిన్ (వేలిముద్ర / ఫేస్ లాక్)" : "Sign in with Passkey"}
+            </button>
+          </div>
 
         {/* Register Free CTA Footer */}
         <div className="mt-6 text-center space-y-3">
