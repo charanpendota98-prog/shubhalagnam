@@ -244,6 +244,31 @@ def _one_day_kit_expiry(vendor: Dict) -> str:
     return cap.isoformat()
 
 
+def _quarantine_removed(reason: str, records: Dict) -> str:
+    """Preserve startup-removed vendor rows. Default location is OUTSIDE the
+    (public) repo, owner-only permissions. Returns "" on failure - callers MUST
+    defer cleanup in that case, never drop without durable preservation."""
+    try:
+        qdir = os.getenv("MANA_VIVAHA_QUARANTINE_DIR", "").strip() or os.path.join(
+            os.path.expanduser("~"), ".local", "share", "manavivaha", "quarantine")
+        os.makedirs(qdir, mode=0o700, exist_ok=True)
+        slug = re.sub(r"[^a-z0-9-]+", "-", reason.lower()).strip("-")[:40] or "vendors"
+        path = os.path.join(
+            qdir, "quarantine-%s-%s.json" % (datetime.utcnow().strftime("%Y%m%d-%H%M%S"), slug))
+        atomic_json_dump(path, {
+            "manifest": {
+                "reason": reason,
+                "at": datetime.utcnow().isoformat(),
+                "note": "Vendor rows removed at startup load, preserved for owner audit. Never loaded by the app.",
+            },
+            "records": records,
+        }, ensure_ascii=False, indent=1)
+        return path
+    except Exception as e:
+        print("[VENDORS] quarantine write failed:", str(e)[:120])
+        return ""
+
+
 def load_state() -> Dict:
     global VENDORS, LEADS, STATS_LOG
     try:
@@ -256,11 +281,12 @@ def load_state() -> Dict:
             str(v.get("id", "")) for v in raw_vendors
             if v.get("source") == "demo_seed" or v.get("demo") is True
         }
-        VENDORS = [v for v in raw_vendors if v.get("source") != "demo_seed" and v.get("demo") is not True]
-        normalized = len(VENDORS) != len(raw_vendors)
+        _removed_vendors = [v for v in raw_vendors if str(v.get("id", "")) in removed_demo_ids]
+        _kept_vendors = [v for v in raw_vendors if v.get("source") != "demo_seed" and v.get("demo") is not True]
+        normalized = len(_kept_vendors) != len(raw_vendors)
         # Legacy listing tiers used to imply vendor verification. Preserve only an
         # explicit staff-review flag, and discard unsupported rating/review scores.
-        for vendor in VENDORS:
+        for vendor in _kept_vendors:
             # Do not preserve the old generic verification badge in admin/public payloads.
             if "verified" in vendor:
                 vendor.pop("verified", None)
@@ -294,8 +320,24 @@ def load_state() -> Dict:
                 vendor["expires_at"] = ""
                 normalized = True
         raw_leads = list(data.get("leads", []))
-        LEADS = [lead for lead in raw_leads
-                 if lead.get("source") != "demo_seed" and str(lead.get("vendor_id", "")) not in removed_demo_ids]
+        _kept_leads = [lead for lead in raw_leads
+                       if lead.get("source") != "demo_seed" and str(lead.get("vendor_id", "")) not in removed_demo_ids]
+        _dropped_leads = [lead for lead in raw_leads if lead not in _kept_leads]
+        # Fail closed: no quarantine -> keep everything in memory, no save; retry next boot.
+        if _removed_vendors or _dropped_leads:
+            _qpath = _quarantine_removed("vendor-load-cleanup", {
+                "vendors": _removed_vendors, "leads": _dropped_leads})
+            if not _qpath:
+                print("[VENDORS] cleanup DEFERRED: quarantine unavailable; keeping all rows, no save")
+                VENDORS = raw_vendors
+                LEADS = raw_leads
+                STATS_LOG = list(data.get("stats", []))
+                return {"ok": True, "loaded": True, "vendors": len(VENDORS),
+                        "leads": len(LEADS), "cleanup_deferred": True}
+            print("[VENDORS] removed %d seed/demo vendor rows, %d leads (quarantined -> %s)" % (
+                len(_removed_vendors), len(_dropped_leads), _qpath))
+        VENDORS = _kept_vendors
+        LEADS = _kept_leads
         STATS_LOG = list(data.get("stats", []))
         if normalized or len(LEADS) != len(raw_leads):
             save_state()

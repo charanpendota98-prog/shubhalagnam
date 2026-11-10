@@ -386,6 +386,36 @@ def _is_synthetic_profile(profile: Optional[Dict]) -> bool:
     )
 
 
+def _startup_quarantine(reason: str, records: Dict) -> str:
+    """Preserve rows removed during startup hygiene instead of dropping them silently.
+
+    Writes a timestamped, never-loaded JSON manifest so an owner can audit or
+    recover records after the fact. The default location is OUTSIDE the repo
+    (which is public and could be committed accidentally), under the process
+    user's home with owner-only permissions. Returns "" on failure - callers
+    MUST treat that as "cannot clean up safely" and defer, never drop anyway.
+    """
+    try:
+        qdir = os.getenv("MANA_VIVAHA_QUARANTINE_DIR", "").strip() or os.path.join(
+            os.path.expanduser("~"), ".local", "share", "manavivaha", "quarantine")
+        os.makedirs(qdir, mode=0o700, exist_ok=True)
+        slug = re.sub(r"[^a-z0-9-]+", "-", reason.lower()).strip("-")[:40] or "startup"
+        path = os.path.join(
+            qdir, "quarantine-%s-%s.json" % (datetime.utcnow().strftime("%Y%m%d-%H%M%S"), slug))
+        atomic_json_dump(path, {
+            "manifest": {
+                "reason": reason,
+                "at": datetime.utcnow().isoformat(),
+                "note": "Rows removed by startup hygiene, preserved for owner audit. Never loaded by the app.",
+            },
+            "records": records,
+        }, ensure_ascii=False, indent=1)
+        return path
+    except Exception as e:
+        print("[DB] quarantine write failed:", str(e)[:120])
+        return ""
+
+
 def _is_approved_profile(profile: Optional[Dict]) -> bool:
     """Fail closed for public listings, including accounts explicitly deactivated by their owner."""
     if not isinstance(profile, dict) or profile.get("is_banned") or _is_synthetic_profile(profile):
@@ -2382,6 +2412,7 @@ async def _startup_publisher():
             # excluded before any operations or public endpoint can serialize them.
             _by_id, _seen_ph, _clean = {}, set(), []
             _removed_user_ids, _removed_phones = set(), set()
+            _removed_profiles: List[Dict] = []
             for _x in _u:
                 if not isinstance(_x, dict):
                     continue
@@ -2392,6 +2423,7 @@ async def _startup_publisher():
                         _removed_user_ids.add(_tid)
                     if _ph:
                         _removed_phones.add(_ph)
+                    _removed_profiles.append(_x)
                     continue
                 if not _tid or _tid in _by_id:
                     continue
@@ -2407,27 +2439,67 @@ async def _startup_publisher():
                     "production restore would discard %d profile rows; no database write was attempted" % _dropped
                 )
 
+            _cascade_dropped: Dict[str, List[Dict]] = {}
+            _hygiene_deferred = False
+
             def _kept_records(key):
                 rows = _snap.get(key, [])
-                return [row for row in rows if isinstance(row, dict) and not any(
-                    str(row.get(field, "")) in _removed_user_ids
-                    for field in ("tsap_id", "user_id", "from_id", "to_id", "target_id", "owner_id")
-                )]
+                kept, dropped_rows = [], []
+                for row in rows:
+                    if isinstance(row, dict) and not any(
+                        str(row.get(field, "")) in _removed_user_ids
+                        for field in ("tsap_id", "user_id", "from_id", "to_id", "target_id", "owner_id")
+                    ):
+                        kept.append(row)
+                    else:
+                        dropped_rows.append(row)
+                if dropped_rows:
+                    _cascade_dropped[key] = dropped_rows
+                return kept
 
-            DB_USERS.extend(_clean)
-            DB_INTERESTS.extend(_kept_records("interests"))
-            DB_PAYMENTS.extend(_kept_records("payments"))
-            DB_OTPS.update({k: v for k, v in (_snap.get("otps", {}) or {}).items() if str(k) not in _removed_phones})
-            for _ph in _snap.get("verified_phones", []):
-                if str(_ph) not in _removed_phones:
-                    VERIFIED_PHONES.add(_ph)
-            DB_VIEWS.extend(_kept_records("views"))
-            DB_SAVES.extend(_kept_records("saves"))
-            DB_DIGEST.extend(_kept_records("digest"))
+            _kept = {key: _kept_records(key)
+                     for key in ("interests", "payments", "views", "saves", "digest")}
+            # Fail closed: never drop rows without verified durable preservation.
+            # If the quarantine write fails, load ALL rows as-is and skip the
+            # persistence entirely - hygiene is retried on the next boot instead
+            # of silently deleting member-referenced records (2026-11-10 incident).
             if _dropped:
-                print("[DB] restore hygiene: removed %d duplicate or synthetic profile rows" % _dropped)
-                DBSTORE.save(DBSTORE.snapshot(DB_USERS, DB_INTERESTS, DB_PAYMENTS, DB_OTPS,
-                                              VERIFIED_PHONES, DB_VIEWS, DB_SAVES, DB_DIGEST), force=True)
+                _qpath = _startup_quarantine("restore-hygiene", {
+                    "profiles": _removed_profiles,
+                    "cascade": _cascade_dropped,
+                    "otps_removed": sorted(_removed_phones),
+                })
+                if not _qpath:
+                    _hygiene_deferred = True
+                    print("[DB] restore hygiene DEFERRED: quarantine unavailable; "
+                          "keeping all %d rows in memory, no cleanup, no save" % len(_u))
+                else:
+                    print("[DB] restore hygiene: removed %d duplicate or synthetic profile rows (quarantined -> %s)" % (
+                        _dropped, _qpath))
+            if _hygiene_deferred:
+                DB_USERS.extend(row for row in _u if isinstance(row, dict))
+                DB_INTERESTS.extend(_snap.get("interests", []))
+                DB_PAYMENTS.extend(_snap.get("payments", []))
+                DB_OTPS.update(_snap.get("otps", {}) or {})
+                for _ph in _snap.get("verified_phones", []):
+                    VERIFIED_PHONES.add(_ph)
+                DB_VIEWS.extend(_snap.get("views", []))
+                DB_SAVES.extend(_snap.get("saves", []))
+                DB_DIGEST.extend(_snap.get("digest", []))
+            else:
+                DB_USERS.extend(_clean)
+                DB_INTERESTS.extend(_kept["interests"])
+                DB_PAYMENTS.extend(_kept["payments"])
+                DB_OTPS.update({k: v for k, v in (_snap.get("otps", {}) or {}).items() if str(k) not in _removed_phones})
+                for _ph in _snap.get("verified_phones", []):
+                    if str(_ph) not in _removed_phones:
+                        VERIFIED_PHONES.add(_ph)
+                DB_VIEWS.extend(_kept["views"])
+                DB_SAVES.extend(_kept["saves"])
+                DB_DIGEST.extend(_kept["digest"])
+                if _dropped:
+                    DBSTORE.save(DBSTORE.snapshot(DB_USERS, DB_INTERESTS, DB_PAYMENTS, DB_OTPS,
+                                                  VERIFIED_PHONES, DB_VIEWS, DB_SAVES, DB_DIGEST), force=True)
             print("[DB] restored %d users, %d interests, %d payments from disk" % (
                 len(DB_USERS), len(DB_INTERESTS), len(DB_PAYMENTS)))
     except Exception as e:
