@@ -258,20 +258,24 @@ export default function LoginPage() {
 
               <div>
                 <label htmlFor="f-phone" className="block text-xs font-bold text-slate-700 mb-1">
-                  📞 {te ? "రిజిస్టర్డ్ మొబైల్ నంబర్" : "Registered Mobile Number"}
+                  {phone.includes("@")
+                    ? (te ? "📧 రిజిస్టర్డ్ ఈమెయిల్" : "📧 Registered Email")
+                    : (te ? "📞 రిజిస్టర్డ్ మొబైల్ నంబర్" : "📞 Registered Mobile Number")}
                 </label>
                 <div className="relative flex items-center">
-                  <span className="absolute left-3.5 text-xs font-bold text-slate-400 select-none">+91</span>
+                  {!phone.includes("@") && (
+                    <span className="absolute left-3.5 text-xs font-bold text-slate-400 select-none">+91</span>
+                  )}
                   <input
                     id="f-phone"
                     inputMode={forgot ? "text" : "numeric"}
-                    autoComplete="tel"
+                    autoComplete={phone.includes("@") ? "email" : "tel"}
                     value={phone}
                     maxLength={forgot ? 100 : 10}
                     disabled={fStage === "reset"}
                     onChange={(e) => setPhone(forgot ? e.target.value : e.target.value.replace(/\D/g, "").slice(0, 10))}
                     placeholder={te ? "నమోదు చేసిన మొబైల్ నంబర్ లేదా ఈమెయిల్" : "Registered mobile number or email"}
-                    className="w-full pl-12 pr-4 py-3 rounded-xl border border-slate-200 text-base font-semibold focus:border-maroon focus:ring-1 focus:ring-maroon outline-none disabled:bg-slate-50"
+                    className={`w-full ${phone.includes("@") ? "pl-4" : "pl-12"} pr-4 py-3 rounded-xl border border-slate-200 text-base font-semibold focus:border-maroon focus:ring-1 focus:ring-maroon outline-none disabled:bg-slate-50`}
                   />
                 </div>
               </div>

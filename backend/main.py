@@ -480,6 +480,7 @@ from webauthn import (
 )
 from webauthn.helpers.structs import (
     AuthenticatorSelectionCriteria,
+    PublicKeyCredentialDescriptor,
     ResidentKeyRequirement,
     UserVerificationRequirement,
 )
@@ -12396,7 +12397,7 @@ def passkey_register_begin(payload: dict, request: Request):
             user_verification=UserVerificationRequirement.REQUIRED,
         ),
         exclude_credentials=[
-            {"id": base64url_to_bytes(pk["credential_id"]), "type": "public-key"}
+            PublicKeyCredentialDescriptor(id=base64url_to_bytes(pk["credential_id"]))
             for pk in user.get("passkeys", [])
         ]
     )
