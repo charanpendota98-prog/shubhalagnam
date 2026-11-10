@@ -12399,7 +12399,13 @@ def passkey_register_begin(payload: dict, request: Request):
     )
     
     challenge_id = secrets.token_urlsafe(32)
-    _PASSKEY_CHALLENGES[challenge_id] = {"challenge": options.challenge, "tsap_id": tsap_id}
+    now = time.time()
+    _PASSKEY_CHALLENGES[challenge_id] = {"challenge": options.challenge, "tsap_id": tsap_id, "time": now}
+    
+    # opportunistic sweep
+    for k in list(_PASSKEY_CHALLENGES.keys()):
+        if now - _PASSKEY_CHALLENGES.get(k, {}).get("time", now) > 600:
+            _PASSKEY_CHALLENGES.pop(k, None)
     
     return {"success": True, "options": json.loads(options_to_json(options)), "challenge_id": challenge_id}
 
@@ -12416,8 +12422,10 @@ def passkey_register_finish(payload: dict, request: Request):
     credential_response = payload.get("response")
     
     session = _PASSKEY_CHALLENGES.pop(challenge_id, None)
-    if not session or session["tsap_id"] != user["tsap_id"]:
+    if not session or session.get("tsap_id") != user["tsap_id"]:
         raise HTTPException(400, "Invalid or expired session")
+    if time.time() - session.get("time", 0) > 600:
+        raise HTTPException(400, "Challenge expired")
         
     try:
         verification = verify_registration_response(
@@ -12430,13 +12438,21 @@ def passkey_register_finish(payload: dict, request: Request):
     except Exception as e:
         raise HTTPException(400, f"Registration failed: {str(e)}")
         
+    cred_id_b64 = bytes_to_base64url(verification.credential_id)
+    # Check uniqueness across all users
+    for u in DB_USERS:
+        for pk in u.get("passkeys", []):
+            if pk["credential_id"] == cred_id_b64:
+                raise HTTPException(409, "Passkey already registered to another account")
+
     passkey = {
-        "credential_id": bytes_to_base64url(verification.credential_id),
+        "credential_id": cred_id_b64,
         "public_key": bytes_to_base64url(verification.credential_public_key),
         "sign_count": verification.sign_count,
     }
     
     user.setdefault("passkeys", []).append(passkey)
+    DBSTORE.save(DBSTORE.snapshot(DB_USERS, DB_INTERESTS, DB_PAYMENTS, DB_OTPS, VERIFIED_PHONES, DB_VIEWS, DB_SAVES, DB_DIGEST), force=True)
     
     return {"success": True, "message_telugu": "✅ పాస్‌కీ విజయవంతంగా సెటప్ చేయబడింది"}
 
@@ -12448,7 +12464,14 @@ def passkey_login_begin(request: Request):
         user_verification=UserVerificationRequirement.PREFERRED,
     )
     challenge_id = secrets.token_urlsafe(32)
-    _PASSKEY_CHALLENGES[challenge_id] = {"challenge": options.challenge}
+    now = time.time()
+    _PASSKEY_CHALLENGES[challenge_id] = {"challenge": options.challenge, "time": now}
+    
+    # opportunistic sweep
+    for k in list(_PASSKEY_CHALLENGES.keys()):
+        if now - _PASSKEY_CHALLENGES.get(k, {}).get("time", now) > 600:
+            _PASSKEY_CHALLENGES.pop(k, None)
+            
     return {"success": True, "options": json.loads(options_to_json(options)), "challenge_id": challenge_id}
 
 @app.post("/api/auth/passkey/login/finish")
@@ -12459,6 +12482,8 @@ def passkey_login_finish(payload: dict, request: Request, response: Response):
     session = _PASSKEY_CHALLENGES.pop(challenge_id, None)
     if not session:
         raise HTTPException(400, "Invalid or expired session")
+    if time.time() - session.get("time", 0) > 600:
+        raise HTTPException(400, "Challenge expired")
         
     cred_id_b64 = credential_response.get("id")
     
@@ -12492,6 +12517,7 @@ def passkey_login_finish(payload: dict, request: Request, response: Response):
         
     # Update sign count
     target_passkey["sign_count"] = verification.new_sign_count
+    DBSTORE.save(DBSTORE.snapshot(DB_USERS, DB_INTERESTS, DB_PAYMENTS, DB_OTPS, VERIFIED_PHONES, DB_VIEWS, DB_SAVES, DB_DIGEST), force=True)
     
     # Authenticate user
     auth_token = sign_token(target_user["tsap_id"])
