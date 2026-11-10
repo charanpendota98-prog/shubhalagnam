@@ -12,6 +12,8 @@ import { Duo } from "@/lib/duo";
 import { useLang } from "@/lib/lang";
 import { useRouter } from "next/navigation";
 import { rememberSession, sendOtp, verifyOtp } from "@/lib/auth";
+import { loginPasskey } from "@/lib/webauthn-client";
+
 import { apiDisplayMessage, apiPost } from "@/lib/api";
 
 export default function LoginPage() {
@@ -559,6 +561,29 @@ export default function LoginPage() {
           )}
 
         </div>
+
+
+          <div className="mt-4 pt-4 border-t border-slate-100 text-center">
+            <p className="text-xs text-slate-500 mb-3">{te ? "లేదా పాస్‌వర్డ్ లేకుండా లాగిన్ అవ్వండి" : "Or sign in without a password"}</p>
+            <button type="button"
+              onClick={async () => {
+                setBusy(true);
+                showFeedback("");
+                const res = await loginPasskey();
+                setBusy(false);
+                if (res.success) {
+                  showFeedback(res.message || "✅ Success", "ok");
+                  go(String(res.tsap_id || ""), String(res.auth_token || ""), true);
+                } else {
+                  showFeedback(res.message || "❌ Failed", "err");
+                }
+              }}
+              disabled={busy}
+              className="w-full py-3 rounded-2xl bg-slate-800 text-white font-bold text-sm shadow-sm hover:bg-slate-700 disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              <span>🔑</span> {te ? "Passkey తో లాగిన్ (వేలిముద్ర / ఫేస్ లాక్)" : "Sign in with Passkey"}
+            </button>
+          </div>
 
         {/* Register Free CTA Footer */}
         <div className="mt-6 text-center space-y-3">

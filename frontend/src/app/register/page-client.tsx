@@ -21,6 +21,8 @@ import { CASTES as SEO_COMMUNITY_HUBS } from "@/lib/seo-pages";
 import { communityHubPath } from "@/lib/community-hub.mjs";
 import { getLang, useLang } from "@/lib/lang";
 import { apiDisplayMessage, getCsrfToken, readApiJson } from "@/lib/api";
+import { registerPasskey } from "@/lib/webauthn-client";
+
 import { ProfilePhotoError, prepareProfilePhoto, profilePhotoErrorMessage } from "@/lib/photo-upload";
 import { stateFullName, isGroomGender, isHomemakerOccupation, workTypesForGender } from "@/lib/telugu-data";
 import PhotoFlow from "@/components/PhotoFlow";
@@ -1325,6 +1327,31 @@ function Wizard() {
           <div className="p-5 sm:p-6 space-y-5">
 
             {result.email_verify?.required && !result.email_verify?.verified && (
+
+            {/* Passkey Setup */}
+            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 my-4">
+              <h3 className="text-sm font-bold text-slate-800 mb-2">🔑 {T("పాస్‌కీ సెటప్ (Passkey Setup)", "Passkey Setup")}</h3>
+              <p className="text-xs text-slate-600 mb-3">{T("పాస్‌వర్డ్ లేకుండా సురక్షితంగా మీ ఫోన్ వేలిముద్ర/ఫేస్ లాక్ తో లాగిన్ అవ్వడానికి పాస్‌కీ సెటప్ చేయండి.", "Set up a passkey to sign in securely with your fingerprint or face without a password.")}</p>
+              <button 
+                onClick={async () => {
+                  const token = sessionStorage.getItem("tsap_token");
+                  if (!token) {
+                    alert(T("సెషన్ గడువు ముగిసింది. దయచేసి మళ్లీ లాగిన్ చేయండి.", "Session expired. Please sign in again."));
+                    return;
+                  }
+                  const res = await registerPasskey(tsap, token);
+                  if (res.success) {
+                    alert(T("✅ పాస్‌కీ విజయవంతంగా సెటప్ చేయబడింది!", "✅ Passkey setup successful!"));
+                  } else {
+                    alert(res.message);
+                  }
+                }}
+                className="bg-slate-800 text-white px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap"
+              >
+                {T("పాస్‌కీ సెటప్ చేయండి", "Register Passkey")}
+              </button>
+            </div>
+
               <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 my-4">
                 <h3 className="text-sm font-bold text-blue-900 mb-2">📧 {te ? "ఈమెయిల్ వెరిఫికేషన్" : "Email Verification"}</h3>
                 <p className="text-xs text-blue-800 mb-3">{te ? "రికవరీ కోసం మీ ఈమెయిల్ కు 8 అంకెల కోడ్ పంపబడింది." : "An 8-digit code has been sent to your email."}</p>
@@ -1333,7 +1360,7 @@ function Wizard() {
                   <button onClick={async () => {
                     const code = (document.getElementById("email-verify-code") as HTMLInputElement).value;
                     const res = await fetch("/api/auth/verify-email", {
-                      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code })
+                      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ tsap_id: tsap, code })
                     });
                     const data = await res.json();
                     if(data.success) { alert(data.message_telugu || "Verified!"); (document.getElementById("email-verify-code") as HTMLInputElement).value = ""; }
