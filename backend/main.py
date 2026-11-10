@@ -471,6 +471,22 @@ import chanmap as CHAN         # 📡 WAVE 15: channel links + import + coverage
 from interest import ADDONS, RENEWALS, is_addon, get_addon, get_renewal, plan_list_with_free, addon_list, renewal_offer, bureau_list
 from photo_validate import validate_photo, sanitize_photo  # 🌊 WAVE 17 — photo validation pipeline
 from otp_channels import send_otp as otp_channel_send, CHANNEL_TELUGU  # 🌊 WAVE 18 — free OTP
+
+from webauthn import (
+    generate_registration_options,
+    verify_registration_response,
+    generate_authentication_options,
+    verify_authentication_response,
+)
+from webauthn.helpers.structs import (
+    AuthenticatorSelectionCriteria,
+    ResidentKeyRequirement,
+    UserVerificationRequirement,
+)
+from webauthn.helpers.options_to_json import options_to_json
+from webauthn.helpers import bytes_to_base64url, base64url_to_bytes
+import secrets
+
 import email_channel  # 📧 WAVE 22 — email delivery (verification/OTP/reset), fail closed
 from channels_config import post_targets, caste_channel_links, channel_links, WA_OFFICIAL_LINK
 # 🎁 WAVE 10 — register avvagane "3 profiles + caste channel links" WhatsApp ki
@@ -12341,3 +12357,151 @@ if __name__ == "__main__":
     import uvicorn
     _port = int(sys.argv[1]) if len(sys.argv) > 1 else 8000
     uvicorn.run(app, host="0.0.0.0", port=_port)
+
+
+
+# 🔑 PASSKEY AUTHENTICATION (WAVE 22)
+_PASSKEY_CHALLENGES = {}  # challenge_id -> {"challenge": bytes, "tsap_id": str (optional)}
+
+def _get_rp_id(request: Request) -> str:
+    host = request.headers.get("host", "localhost")
+    return host.split(":")[0]
+
+def _get_origin(request: Request) -> str:
+    scheme = request.headers.get("x-forwarded-proto", request.url.scheme)
+    host = request.headers.get("host", "localhost")
+    return f"{scheme}://{host}"
+
+@app.post("/api/auth/passkey/register/begin")
+def passkey_register_begin(payload: dict, request: Request):
+    tsap_id = str(payload.get("tsap_id", "")).strip().upper()
+    if not tsap_id:
+        raise HTTPException(400, "Missing tsap_id")
+    require_owner(request, tsap_id)
+    user = next((u for u in DB_USERS if u["tsap_id"] == tsap_id), None)
+    if not user:
+        raise HTTPException(404, "User not found")
+    rp_id = _get_rp_id(request)
+    
+    options = generate_registration_options(
+        rp_id=rp_id,
+        rp_name="Mana Vivaha",
+        user_id=tsap_id.encode("utf-8"),
+        user_name=user.get("phone") or user.get("email") or tsap_id,
+        authenticator_selection=AuthenticatorSelectionCriteria(
+            resident_key=ResidentKeyRequirement.REQUIRED,
+            user_verification=UserVerificationRequirement.PREFERRED,
+        ),
+        exclude_credentials=[
+            {"id": base64url_to_bytes(pk["credential_id"]), "type": "public-key"}
+            for pk in user.get("passkeys", [])
+        ]
+    )
+    
+    challenge_id = secrets.token_urlsafe(32)
+    _PASSKEY_CHALLENGES[challenge_id] = {"challenge": options.challenge, "tsap_id": tsap_id}
+    
+    return {"success": True, "options": json.loads(options_to_json(options)), "challenge_id": challenge_id}
+
+@app.post("/api/auth/passkey/register/finish")
+def passkey_register_finish(payload: dict, request: Request):
+    tsap_id = str(payload.get("tsap_id", "")).strip().upper()
+    if not tsap_id:
+        raise HTTPException(400, "Missing tsap_id")
+    require_owner(request, tsap_id)
+    user = next((u for u in DB_USERS if u["tsap_id"] == tsap_id), None)
+    if not user:
+        raise HTTPException(404, "User not found")
+    challenge_id = payload.get("challenge_id")
+    credential_response = payload.get("response")
+    
+    session = _PASSKEY_CHALLENGES.pop(challenge_id, None)
+    if not session or session["tsap_id"] != user["tsap_id"]:
+        raise HTTPException(400, "Invalid or expired session")
+        
+    try:
+        verification = verify_registration_response(
+            credential=credential_response,
+            expected_challenge=session["challenge"],
+            expected_rp_id=_get_rp_id(request),
+            expected_origin=_get_origin(request),
+            require_user_verification=False,
+        )
+    except Exception as e:
+        raise HTTPException(400, f"Registration failed: {str(e)}")
+        
+    passkey = {
+        "credential_id": bytes_to_base64url(verification.credential_id),
+        "public_key": bytes_to_base64url(verification.credential_public_key),
+        "sign_count": verification.sign_count,
+    }
+    
+    user.setdefault("passkeys", []).append(passkey)
+    
+    return {"success": True, "message_telugu": "✅ పాస్‌కీ విజయవంతంగా సెటప్ చేయబడింది"}
+
+@app.post("/api/auth/passkey/login/begin")
+def passkey_login_begin(request: Request):
+    rp_id = _get_rp_id(request)
+    options = generate_authentication_options(
+        rp_id=rp_id,
+        user_verification=UserVerificationRequirement.PREFERRED,
+    )
+    challenge_id = secrets.token_urlsafe(32)
+    _PASSKEY_CHALLENGES[challenge_id] = {"challenge": options.challenge}
+    return {"success": True, "options": json.loads(options_to_json(options)), "challenge_id": challenge_id}
+
+@app.post("/api/auth/passkey/login/finish")
+def passkey_login_finish(payload: dict, request: Request, response: Response):
+    challenge_id = payload.get("challenge_id")
+    credential_response = payload.get("response")
+    
+    session = _PASSKEY_CHALLENGES.pop(challenge_id, None)
+    if not session:
+        raise HTTPException(400, "Invalid or expired session")
+        
+    cred_id_b64 = credential_response.get("id")
+    
+    # Find user with this credential
+    target_user = None
+    target_passkey = None
+    for u in DB_USERS:
+        for pk in u.get("passkeys", []):
+            if pk["credential_id"] == cred_id_b64:
+                target_user = u
+                target_passkey = pk
+                break
+        if target_user:
+            break
+            
+    if not target_user or not target_passkey:
+        raise HTTPException(404, "Passkey not recognized")
+        
+    try:
+        verification = verify_authentication_response(
+            credential=credential_response,
+            expected_challenge=session["challenge"],
+            expected_rp_id=_get_rp_id(request),
+            expected_origin=_get_origin(request),
+            credential_public_key=base64url_to_bytes(target_passkey["public_key"]),
+            credential_current_sign_count=target_passkey["sign_count"],
+            require_user_verification=False,
+        )
+    except Exception as e:
+        raise HTTPException(400, f"Authentication failed: {str(e)}")
+        
+    # Update sign count
+    target_passkey["sign_count"] = verification.new_sign_count
+    
+    # Authenticate user
+    auth_token = sign_token(target_user["tsap_id"])
+    _set_member_session_cookie(response, auth_token)
+    return {
+        "success": True, 
+        "tsap_id": target_user["tsap_id"], 
+        "auth_token": _browser_auth_token(auth_token),
+        "has_account": True, 
+        "profile": safe_user(target_user),
+        "message_telugu": "✅ లాగిన్ విజయవంతమైంది"
+    }
+

@@ -3,3 +3,4 @@
 -r requirements.txt
 httpx2==2.13.1
 PyYAML==6.0.3
+webauthn>=3.0.0
