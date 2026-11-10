@@ -1342,6 +1342,7 @@ function Wizard() {
                   disabled={passkeyBusy}
                 />
                 <button 
+                  type="button"
                   onClick={async () => {
                     if (!passkeyPw) {
                       alert(T("దయచేసి పాస్‌వర్డ్ ఎంటర్ చేయండి.", "Please enter your password."));
@@ -1376,7 +1377,7 @@ function Wizard() {
                 <p className="text-xs text-blue-800 mb-3">{te ? "రికవరీ కోసం మీ ఈమెయిల్ కు 8 అంకెల కోడ్ పంపబడింది." : "An 8-digit code has been sent to your email."}</p>
                 <div className="flex gap-2">
                   <input type="text" id="email-verify-code" placeholder="8-digit code" className="flex-1 bg-white border border-blue-200 rounded-xl px-3 py-2 text-sm focus:border-blue-500 outline-none" />
-                  <button onClick={async () => {
+                  <button type="button" onClick={async () => {
                     const code = (document.getElementById("email-verify-code") as HTMLInputElement).value;
                     const res = await fetch("/api/auth/verify-email", {
                       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ tsap_id: tsap, code })
