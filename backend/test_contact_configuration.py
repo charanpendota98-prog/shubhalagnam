@@ -117,7 +117,12 @@ class FrontendContactConfigurationTests(unittest.TestCase):
         for source in (terms, privacy, refund):
             self.assertNotIn("Hyderabad, Telangana, India", source)
             self.assertNotIn("areaServed", source)
-            self.assertIn('const LAST_UPDATED = "12 Oct 2026";', source)
+        # Owner-approved wording dates (11 Nov 2026 decision): terms/refund keep the
+        # live 14 Sep 2026 wording unchanged; the privacy page carries the corrected
+        # disclosure wording approved on 11 Nov 2026.
+        self.assertIn('const LAST_UPDATED = "14 Sep 2026";', terms)
+        self.assertIn('const LAST_UPDATED = "14 Sep 2026";', refund)
+        self.assertIn('const LAST_UPDATED = "11 Nov 2026";', privacy)
 
     def test_visitor_analytics_are_pseudonymous_bounded_and_disclosed(self):
         growth = self.read("backend/growth.py")

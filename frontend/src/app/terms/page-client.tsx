@@ -4,9 +4,7 @@
 import Link from "next/link";
 import { SITE_CONFIG } from "@/lib/site-config";
 // Legal-copy fidelity: rendered count frozen at the value published on the live site (52).
-
 // CHANNEL_STATS.total is an auto-generated registry count with external_status_checked=false;
-
 // restore the dynamic const only after the live channel directory is verified.
 import { useLang } from "@/lib/lang";
 
@@ -198,13 +196,13 @@ export default function TermsPage() {
             <>
               <li>ఈ terms <b>Indian law</b> బట్టి, disputes కి <b>Hyderabad, Telangana</b> courts jurisdiction.</li>
               <li>Terms update అయితే ఈ page లో date మారుస్తాం — కొత్త features కి చిన్న additions జరుగుతాయి.</li>
-              <li>Dispute ఉంటే — ముందు <b>{SITE_CONFIG.supportEmail}</b> కి email చెయ్యండి (30 రోజుల్లో resolve చెయ్యడానికి try చేస్తాం).</li>
+              <li>{SITE_CONFIG.supportEmail ? <>Dispute ఉంటే — ముందు <b>{SITE_CONFIG.supportEmail}</b> కి email చెయ్యండి (30 రోజుల్లో resolve చెయ్యడానికి try చేస్తాం).</> : <>Dispute ఉంటే — ముందు support channel ద్వారా చెప్పండి (30 రోజుల్లో resolve చెయ్యడానికి try చేస్తాం).</>}</li>
             </>
           ) : (
             <>
               <li>These terms follow <b>Indian law</b>; disputes fall under <b>Hyderabad, Telangana</b> courts&apos; jurisdiction.</li>
               <li>When terms update, we change the date on this page — small additions come with new features.</li>
-              <li>If you have a dispute — first email <b>{SITE_CONFIG.supportEmail}</b> (we try to resolve within 30 days).</li>
+              <li>{SITE_CONFIG.supportEmail ? <>If you have a dispute — first email <b>{SITE_CONFIG.supportEmail}</b> (we try to resolve within 30 days).</> : <>If you have a dispute — first reach us through the support channel (we try to resolve within 30 days).</>}</li>
             </>
           )}
         </ul>

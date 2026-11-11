@@ -160,10 +160,11 @@ export default function RefundPage() {
         <div className="mt-2 space-y-1">
           <div>Authorized Signatory: <b>{SITE_CONFIG.owner.name}</b> (Owner ID: <span className="font-mono text-[#7A0C2E] font-bold">{SITE_CONFIG.owner.id}</span>)</div>
           <div>WhatsApp / Phone: <a href={`tel:${SITE_CONFIG.owner.contactNumber}`} className="font-bold text-emerald-700 hover:underline">{SITE_CONFIG.owner.contactNumber}</a></div>
-          <div>Email: <a href={`mailto:${SITE_CONFIG.owner.email}`} className="font-bold text-emerald-700 hover:underline">{SITE_CONFIG.owner.email}</a></div>
+          {SITE_CONFIG.owner.email ? <div>Email: <a href={`mailto:${SITE_CONFIG.owner.email}`} className="font-bold text-emerald-700 hover:underline">{SITE_CONFIG.owner.email}</a></div> : null}
           <div>Website: <b>https://{SITE_CONFIG.domain}</b> • Telegram: {SITE_CONFIG.officialChannel}</div>
-          <div>Business: {SITE_CONFIG.legalName}, Hyderabad, Telangana, India</div>
+          {SITE_CONFIG.owner.location ? <div>Business: {SITE_CONFIG.legalName}, {SITE_CONFIG.owner.location}</div> : null}
           <div>{te ? "Working hours: Mon–Sat, 9 AM – 8 PM IST (response 24h లోపు)" : "Working hours: Mon–Sat, 9 AM – 8 PM IST (response within 24h)"}</div>
+          {!SITE_CONFIG.supportConfigured ? <div role="status">{te ? "ఈ deployment లో verified support contact configure కాలేదు; sensitive payment వివరాలను guessed address కు పంపకండి." : "No support contact is configured for this deployment; do not send sensitive payment details to guessed addresses."}</div> : null}
         </div>
       </div>
 

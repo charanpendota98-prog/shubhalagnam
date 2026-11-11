@@ -5,7 +5,7 @@ import Link from "next/link";
 import { SITE_CONFIG } from "@/lib/site-config";
 import { useLang } from "@/lib/lang";
 
-const LAST_UPDATED = "14 Sep 2026";
+const LAST_UPDATED = "11 Nov 2026";
 
 export default function PrivacyPage() {
   const { lang } = useLang();
@@ -20,12 +20,12 @@ export default function PrivacyPage() {
       <div className="mt-5 rounded-2xl bg-[#FFF8E1] border border-[#B8860B]/30 p-4 text-sm telugu text-[#7A0C2E]">
         {te ? (
           <><b>Short గా:</b> మీ data ని <b>అమ్మము, rent కి ఇవ్వము</b>. Photos private mode తో చూపిస్తాం.
-            Numbers <b>రెండు వైపులా ఒప్పుక తర్వాతే</b> share అవుతాయి. ఎప్పుడైనా మీ data delete అడగొచ్చు —
-            30 రోజుల్లో తీస్తాం.</>
+            Numbers <b>రెండు వైపులా ఒప్పుక తర్వాతే</b> share అవుతాయి. ఎప్పుడైనా delete అడగొచ్చు —
+            అది మీ profile ని public search నుంచి hide చేస్తుంది; పూర్తి erasure కోసం క్రింద privacy/grievance contact కి erasure request పంపండి.</>
         ) : (
           <><b>In short:</b> we <b>never sell or rent</b> your data. Photos show per your private mode.
-            Numbers share only <b>after mutual accept</b>. You can ask to delete your data anytime —
-            removed within 30 days.</>
+            Numbers share only <b>after mutual accept</b>. You can ask to delete anytime —
+            this hides your profile from public search; for full erasure, send an erasure request to the privacy or grievance contact below.</>
         )}
       </div>
 
@@ -123,14 +123,14 @@ export default function PrivacyPage() {
             <>
               <li>Login session, language preference, saved filters కి <b>cookies</b> వాడుతాం.</li>
               <li><b>Tracking? వద్దు</b> — మీ data ని ad-tech companies కి ఇవ్వము.</li>
-              <li>Basic analytics (ఎన్ని pages చూశారు) — service improve చెయ్యడానికి మాత్రమే, personal గా trace చెయ్యము.</li>
+              <li>Basic analytics కోసం request path, referrer origin, approved campaign labels మరియు device category నమోదు కావచ్చు — service improve చెయ్యడానికి మాత్రమే. Request IP + browser user-agent నుంచి ఒక process-local HMAC identifier తయారవుతుంది; ఇది pseudonymous, anonymous కాదు. Raw IP మరియు full user-agent analytics events లో store చేయము. ఈ events memory-only — గరిష్ఠంగా 30 రోజులు ఉంటాయి, 10,000 cap ఉంటుంది, process restart తో clear అవుతాయి.</li>
               <li>Browser లో cookies disable చెయ్యొచ్చు (కానీ login/saved features పని చెయ్యవు).</li>
             </>
           ) : (
             <>
               <li>We use <b>cookies</b> for login session, language preference, and saved filters.</li>
               <li><b>Tracking? No</b> — we don&apos;t give your data to ad-tech companies.</li>
-              <li>Basic analytics (how many pages viewed) — only to improve service; never traced personally.</li>
+              <li>Basic analytics (pages viewed) may record request paths, referrer origins, approved campaign labels, and a coarse device category — only to improve the service. A <b>process-local HMAC identifier</b> derived from request IP and user-agent may link visits while the process runs; it is pseudonymous, not anonymous. Raw IP and full user-agent are not stored in analytics events. These events are memory-only, expire after 30 days, are capped at 10,000, and are cleared on process restart.</li>
               <li>You can disable cookies in the browser (but login/saved features won&apos;t work).</li>
             </>
           )}
@@ -143,13 +143,13 @@ export default function PrivacyPage() {
             <>
               <li>OTP verification, encrypted transport (HTTPS), access limited to authorized team members.</li>
               <li>Support team members కి కూడా <b>need-to-know</b> access మాత్రమే — logs audit చేస్తాం.</li>
-              <li>Data breach జరిగితే — 72 గంటల్లో affected users కి notify చేస్తాం (DPDP Act requirement).</li>
+              <li>Security incident జరిగితే — assessment తర్వాత applicable law ప్రకారం అవసరమైన notification/action తీసుకుంటాం; fixed deadline హామీ ఇవ్వము.</li>
             </>
           ) : (
             <>
               <li>OTP verification, encrypted transport (HTTPS), access limited to authorized team members.</li>
               <li>Support team members get <b>need-to-know</b> access only — we audit logs.</li>
-              <li>On a data breach — we notify affected users within 72 hours (DPDP Act requirement).</li>
+              <li>On a security incident — we assess and take any notification/action required by applicable law; this policy does not promise a fixed deadline.</li>
             </>
           )}
         </ul>
@@ -160,16 +160,16 @@ export default function PrivacyPage() {
           {te ? (
             <>
               <li><b>Active profile:</b> మీరు account ఉన్న వరకు.</li>
-              <li><b>Inactive (12 నెలలు login లేదు):</b> reminder పంపిస్తాం → 30 రోజుల తర్వాత profile hide.</li>
-              <li><b>Payment records:</b> 8 సంవత్సరాలు (tax/legal requirement).</li>
-              <li><b>Complaints/fraud evidence:</b> 3 సంవత్సరాలు (repeat fraud ఆపడానికి).</li>
+              <li><b>Automated cleanup job:</b> configured retention threshold దాటిన profiles ను archive చేసి active records నుంచి తొలగిస్తుంది. Default threshold 3 సంవత్సరాలు profile create చేసిన తేదీ నుంచి (last login నుంచి కాదు); balance/pending payout/active plan ఉన్న కొన్ని profiles skip అవుతాయి. Archive copy కి ప్రస్తుతం నిర్దిష్ట purge కాలం లేదు.</li>
+              <li><b>Visitor analytics:</b> memory-only events 30 రోజుల తర్వాత expire అవుతాయి; 10,000 cap దాటితే oldest entries తొలగిస్తాం; process restart తో clear అవుతాయి.</li>
+              <li><b>Payment, consent, support, safety records:</b> service, dispute handling, security లేదా applicable legal/accounting అవసరాల కోసం అవసరమైనంతకాలం ఉంచవచ్చు; ఇక్కడ fixed year-based deadline హామీ ఇవ్వము.</li>
             </>
           ) : (
             <>
               <li><b>Active profile:</b> as long as you hold an account.</li>
-              <li><b>Inactive (no login for 12 months):</b> we send a reminder → profile hides after 30 days.</li>
-              <li><b>Payment records:</b> 8 years (tax/legal requirement).</li>
-              <li><b>Complaints/fraud evidence:</b> 3 years (to stop repeat fraud).</li>
+              <li><b>Automated cleanup job:</b> profiles beyond the configured retention threshold are archived and removed from active records. The default threshold is 3 years <b>from profile creation</b>, not from last login; some profiles with balances, pending payouts, or active plans are skipped. The archive copy currently has no defined purge period.</li>
+              <li><b>Visitor analytics:</b> memory-only events expire after 30 days, drop the oldest entries beyond the 10,000 cap, and are cleared on process restart.</li>
+              <li><b>Payment, consent, support, and safety records:</b> may be retained as needed for service operation, dispute handling, security, or applicable legal/accounting duties; this policy does not promise fixed year-based deadlines.</li>
             </>
           )}
         </ul>
@@ -180,14 +180,14 @@ export default function PrivacyPage() {
           {te ? (
             <>
               <li><b>చూడటం / correct చెయ్యడం:</b> మీ profile ఎప్పుడైనా edit చెయ్యొచ్చు (support తో లేదా admin తో).</li>
-              <li><b>Delete:</b> account + data delete అడగొచ్చు — <b>30 రోజుల్లో</b> profile + photos + personal data తీస్తాం (payment records legal గా ఉంటాయి).</li>
+              <li><b>Delete:</b> account delete మీ profile ని public search నుంచి hide చేస్తుంది; అది అన్ని stored records ను erase చేయదు. పూర్తి erasure కోసం క్రింద privacy contact కి <b>erasure request</b> పంపండి — identity verify చేసి process చేస్తాం; fixed completion time హామీ లేదు.</li>
               <li><b>Consent withdraw:</b> channels/WhatsApp sharing ఆపించొచ్చు (కానీ అప్పుడు service reach తక్కువ అవుతుంది).</li>
               <li><b>Marketing opt-out:</b> &quot;STOP&quot; అనే message పంపండి లేదా support కి చెప్పండి.</li>
             </>
           ) : (
             <>
               <li><b>View / correct:</b> you can edit your profile anytime (with support or admin help).</li>
-              <li><b>Delete:</b> ask to delete account + data — profile + photos + personal data removed within <b>30 days</b> (payment records stay for legal reasons).</li>
+              <li><b>Delete:</b> deleting your account hides the profile from public search; it does not erase all stored records. For full erasure, send an <b>erasure request</b> to the privacy contact below — we verify identity and process it under applicable law; no fixed completion time is promised.</li>
               <li><b>Consent withdraw:</b> you can stop channels/WhatsApp sharing (but service reach drops then).</li>
               <li><b>Marketing opt-out:</b> send a &quot;STOP&quot; message or tell support.</li>
             </>
@@ -214,11 +214,12 @@ export default function PrivacyPage() {
       <div className="mt-8 rounded-2xl border border-gray-200 bg-white p-5 text-xs text-gray-700">
         <div className="font-bold text-[#7A0C2E]">🧑‍⚖️ {te ? "Grievance Officer (DPDP Act 2023)" : "Grievance Officer (DPDP Act 2023)"}</div>
         <div className="mt-2 space-y-1">
-          <div>Name: <b>{SITE_CONFIG.owner.name}</b> (Grievance Officer & Signatory)</div>
-          <div>Owner ID: <span className="font-mono font-bold text-[#7A0C2E]">{SITE_CONFIG.owner.id}</span></div>
-          <div>Email: <b>{SITE_CONFIG.owner.email}</b> • WhatsApp/Phone: <b>{SITE_CONFIG.owner.contactNumber}</b></div>
-          <div>Address: Hyderabad, Telangana, India</div>
+          {SITE_CONFIG.owner.name ? <div>Name: <b>{SITE_CONFIG.owner.name}</b> (Grievance Officer & Signatory)</div> : null}
+          {SITE_CONFIG.owner.id ? <div>Owner ID: <span className="font-mono font-bold text-[#7A0C2E]">{SITE_CONFIG.owner.id}</span></div> : null}
+          {SITE_CONFIG.owner.email ? <div>Email: <b>{SITE_CONFIG.owner.email}</b> • WhatsApp/Phone: <b>{SITE_CONFIG.owner.contactNumber}</b></div> : null}
+          {SITE_CONFIG.owner.location ? <div>Address: {SITE_CONFIG.owner.location}</div> : null}
           <div>{te ? "Response: 15 రోజుల్లో (complaint acknowledge 48h లోపు)" : "Response: within 15 days (complaint acknowledged within 48h)"}</div>
+          {!SITE_CONFIG.supportConfigured ? <div role="status">{te ? "ఈ deployment లో privacy/grievance contact configure కాలేదు. Public launch కు ముందు operator నిజమైన contact configure చేసి తనిఖీ చేయాలి." : "No privacy or grievance contact is configured for this deployment. The operator must configure and verify a real contact before public launch."}</div> : null}
         </div>
       </div>
 
