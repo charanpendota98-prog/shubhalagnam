@@ -1764,32 +1764,63 @@ label {
   animation: mvVeilB 32s ease-in-out infinite alternate;
 }
 
-/* Perspective floor: a CSS gradient grid, tilted back in 3D. */
+/* Perspective floor: a CSS gradient grid, tilted back in 3D.
+   The visible band is the bottom ~15% of the stage, i.e. the gutter below the
+   search card — grid lines never reach the copy column. The mask is doubled up
+   (vertical *and* horizontal) so the plane also dissolves before it touches the
+   side rails. */
 .mv-hero__floor {
   position: absolute;
   left: -25%;
   right: -25%;
-  bottom: -24%;
-  height: 84%;
+  bottom: -30%;
+  height: 46%;
   transform: rotateX(70deg) translateZ(-60px) translateY(0);
   transform-origin: 50% 100%;
   background:
-    linear-gradient(to right, rgba(255, 226, 150, 0.16) 1px, transparent 1px) 0 0 / 64px 64px,
-    linear-gradient(to top, rgba(255, 226, 150, 0.16) 1px, transparent 1px) 0 0 / 64px 64px;
-  mask-image: linear-gradient(to top, #000 0%, rgba(0, 0, 0, 0.65) 42%, transparent 82%);
-  -webkit-mask-image: linear-gradient(to top, #000 0%, rgba(0, 0, 0, 0.65) 42%, transparent 82%);
-  opacity: 0.5;
+    linear-gradient(to right, rgba(255, 226, 150, 0.14) 1px, transparent 1px) 0 0 / 64px 64px,
+    linear-gradient(to top, rgba(255, 226, 150, 0.14) 1px, transparent 1px) 0 0 / 64px 64px;
+  mask-image:
+    linear-gradient(to top, transparent 0%, rgba(0, 0, 0, 0.55) 34%, #000 68%, #000 100%),
+    linear-gradient(to right, transparent 0%, #000 26%, #000 74%, transparent 100%);
+  -webkit-mask-image:
+    linear-gradient(to top, transparent 0%, rgba(0, 0, 0, 0.55) 34%, #000 68%, #000 100%),
+    linear-gradient(to right, transparent 0%, #000 26%, #000 74%, transparent 100%);
+  mask-composite: intersect;
+  -webkit-mask-composite: source-in;
+  opacity: 0.42;
   animation: mvFloorDrift 40s linear infinite;
 }
 
 /* Garland arc + mandapam silhouette, drawn once as inline SVG. */
+/* Ornament band. It is a normal-flow block *after* `.mv-hero__inner`, with a
+   reserved height, so the garland + lamps can never overlap the copy column —
+   not at rest, not at any frame of the loop, not in the reduced-motion frame.
+   (This replaced an absolutely-positioned arch that crossed the headline and
+   the Telugu subtitle at every breakpoint.) */
+.mv-hero__basan {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  height: clamp(2.5rem, 7vw, 5.5rem);
+  /* Sits below the hero's own bottom padding, so there is a real gutter
+     between the last line of copy and the first pixel of ornament. */
+  margin-top: 0.35rem;
+  pointer-events: none;
+  overflow: hidden;
+  /* Fade the band's top edge out: the garland emerges from the light rather
+     than starting on a hard line. */
+  mask-image: linear-gradient(to bottom, transparent 0%, #000 26%, #000 100%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 26%, #000 100%);
+}
 .mv-hero__art {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
-  transform: translateZ(-140px) scale(1.04);
-  opacity: 0.85;
+  opacity: 0.72;
+  transform-origin: 50% 100%;
+  animation: mvGarlandSway 18s ease-in-out infinite alternate;
 }
 .mv-hero__art .mv-spark {
   transform-box: fill-box;
@@ -1821,6 +1852,35 @@ label {
 .mv-hero__motif:nth-child(7) { left: 78%; top: 18%; animation-duration: 20s; animation-delay: -7s; }
 .mv-hero__motif:nth-child(8) { left: 88%; top: 58%; animation-duration: 22s; animation-delay: -16s; }
 .mv-hero__motif:nth-child(9) { left: 95%; top: 38%; animation-duration: 19s; animation-delay: -12s; }
+
+/* Copy-side scrim. The halo + aurora veils are deliberately bright; this soft
+   maroon wash sits between them and the copy so the measured contrast of every
+   text run stays ≥ 4.5:1 on the worst frame of the loop (verified per frame at
+   390px and 1440px). It is a gradient, not a box: no edge, no "panel" look. */
+.mv-hero__scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background:
+    linear-gradient(101deg,
+      rgba(26, 2, 14, 0.34) 0%,
+      rgba(26, 2, 14, 0.26) 34%,
+      rgba(26, 2, 14, 0.15) 56%,
+      rgba(26, 2, 14, 0.04) 74%,
+      transparent 92%);
+  pointer-events: none;
+}
+@media (max-width: 1023px) {
+  /* On one column the whole stage is under copy, so the wash is vertical. */
+  .mv-hero__scrim {
+    background:
+      linear-gradient(180deg,
+        rgba(26, 2, 14, 0.3) 0%,
+        rgba(26, 2, 14, 0.24) 46%,
+        rgba(26, 2, 14, 0.14) 74%,
+        rgba(26, 2, 14, 0.05) 100%);
+  }
+}
 
 /* Film grain / vignette keeps flat gradients from banding on OLED phones. */
 .mv-hero__grain {
@@ -1893,7 +1953,7 @@ label {
   padding: 0.4rem 0.85rem;
   border: 1px solid rgba(255, 226, 150, 0.42);
   border-radius: 999px;
-  background: rgba(46, 4, 27, 0.34);
+  background: rgba(38, 3, 22, 0.62);
   -webkit-backdrop-filter: blur(8px);
   backdrop-filter: blur(8px);
   font-size: 0.7rem;
@@ -2000,28 +2060,10 @@ label {
 }
 .mv-hero__facts svg { flex: 0 0 auto; margin-top: 0.15rem; color: #f6d98a; }
 
-/* Scroll cue — decorative, hidden from AT. */
-.mv-hero__cue {
-  position: absolute;
-  left: 50%;
-  bottom: 0.55rem;
-  translate: -50% 0;
-  z-index: 3;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  font-size: 0.65rem;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.6);
-  animation: mvCue 2.6s ease-in-out infinite;
-}
-
 /* --- hero motion ---------------------------------------------------- */
 @keyframes mvHalo {
-  from { transform: scale(0.94); opacity: 0.65; }
-  to   { transform: scale(1.06); opacity: 0.95; }
+  from { transform: scale(0.94); opacity: 0.55; }
+  to   { transform: scale(1.06); opacity: 0.8; }
 }
 @keyframes mvVeilA {
   from { transform: translate3d(-3%, -2%, 0) scale(1); }
@@ -2037,6 +2079,13 @@ label {
   from { transform: rotateX(70deg) translateZ(-60px) translateY(0); }
   to   { transform: rotateX(70deg) translateZ(-60px) translateY(64px); }
 }
+/* ±0.2deg sway of the ornament band: at 1440px that is a 2.5px lift at the
+   band's top edge — the band sits ~40px below the last line of copy, so the
+   stroke still never comes near text. */
+@keyframes mvGarlandSway {
+  from { transform: rotate(-0.2deg); }
+  to   { transform: rotate(0.2deg); }
+}
 @keyframes mvSpark {
   0%, 100% { opacity: 0.25; transform: scale(0.85); }
   50%      { opacity: 1; transform: scale(1.15); }
@@ -2051,19 +2100,14 @@ label {
   from { background-position: 0% 50%; }
   to   { background-position: 100% 50%; }
 }
-@keyframes mvCue {
-  0%, 100% { transform: translateY(0); opacity: 0.5; }
-  50%      { transform: translateY(4px); opacity: 0.9; }
-}
-
 /* Off-screen or hidden tab: freeze every decorative layer. */
 .mv-hero[data-inview="false"] .mv-hero__halo,
 .mv-hero[data-inview="false"] .mv-hero__veil,
 .mv-hero[data-inview="false"] .mv-hero__floor,
 .mv-hero[data-inview="false"] .mv-hero__motif,
+.mv-hero[data-inview="false"] .mv-hero__art,
 .mv-hero[data-inview="false"] .mv-hero__art .mv-spark,
-.mv-hero[data-inview="false"] .mv-hero__title-gold,
-.mv-hero[data-inview="false"] .mv-hero__cue {
+.mv-hero[data-inview="false"] .mv-hero__title-gold {
   animation-play-state: paused;
 }
 
@@ -2072,21 +2116,27 @@ label {
   .mv-hero__veil,
   .mv-hero__floor,
   .mv-hero__motif,
+  .mv-hero__art,
   .mv-hero__art .mv-spark,
-  .mv-hero__title-gold,
-  .mv-hero__cue {
+  .mv-hero__title-gold {
     animation: none !important;
   }
   .mv-hero__motif { opacity: 0.4; transform: none; }
   .mv-hero__title-gold { background-position: 50% 50%; }
+  /* Static frame = the animated frame: halo at its resting scale, floor at its
+     resting tilt, lamps at a steady glow. Nothing shifts toward the copy. */
+  .mv-hero__halo { transform: scale(1); opacity: 0.8; }
+  .mv-hero__veil { transform: none; }
+  .mv-hero__floor { transform: rotateX(70deg) translateZ(-60px) translateY(0); }
+  .mv-hero__art { transform: none; }
+  .mv-hero__art .mv-spark { opacity: 0.6; transform: scale(1); }
 }
 
 /* Phones: fewer layers, smaller radii — same look, cheaper paint. */
 @media (max-width: 640px) {
-  .mv-hero__floor { height: 56%; opacity: 0.34; }
+  .mv-hero__floor { height: 38%; bottom: -26%; opacity: 0.3; }
   .mv-hero__veil { filter: blur(26px); }
   .mv-hero__motif:nth-child(n + 6) { display: none; }
-  .mv-hero__cue { display: none; }
 }
 
 @media (prefers-reduced-transparency: reduce) {

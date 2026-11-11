@@ -100,3 +100,54 @@ Manual 390 px / 360 px / 414 px / 1440 px checks: (a) vendor chips and account t
 * `playwright.config.ts` gained an optional `PLAYWRIGHT_CHROMIUM_PATH` so CI/sandboxes with a pre-installed Chromium can run the browser suites.
 
 **Do not merge — this goes through owner review first.**
+
+---
+
+## 4 · Follow-up fix: decorative artwork no longer crosses the copy
+
+**Reported:** on the home hero a decorative gold arc visibly struck through the Telugu subtitle at 390 px, and the same artwork passed through copy on desktop.
+
+**Cause.** The hero's ornament (`HeroArt`) was an absolutely-positioned SVG arch pinned to the *stage* box, while the copy column moves with the layout. The two were never registered to each other, so the curve crossed the headline on wide screens and the subtitle on phones — a diagonal strike-through, worst on the 390 px Telugu layout where the subtitle wraps to two lines.
+
+**Fix — the ornament moved out of the overlay and into reserved space.**
+
+* `HeroArt` is now a **garland swag + two corner lamps in their own flow band** (`.mv-hero__basan`), rendered *after* the copy block with a fixed height and the hero's own bottom padding between them. Line art can't be made safe as a full-bleed overlay, so it no longer is one: **text-to-ornament separation is now structural**, not a matter of tuning coordinates.
+* The band's top edge is masked so the garland emerges from the light instead of starting on a hard line, and the swag gets a ±0.2° sway (`transform` only). At 1440 px that is a 2.5 px lift, with ~40 px of clearance still left.
+* Removed the scroll cue that lived in that same space (it would have collided with the band), and its CSS/animation.
+* Background layers were re-confined too: the 3D floor grid is now a thin band under the search card with a two-axis mask, and the halo/noise sit below a new **`.mv-hero__scrim`** gradient wash.
+* **Contrast:** the scrim (plus a darker kicker pill) keeps every on-stage text run legible across the whole loop — measured worst case **5.98:1** at 390 px and **6.26:1** at 1440 px, all above 4.5:1. The kicker previously sat at 4.4:1 against the halo's bright phase.
+* Reduced motion still freezes everything; the static frame is now explicitly pinned to the animated frame's resting values (halo scale 1, floor at rest tilt, steady lamps, no sway).
+
+**Verified, every frame — not just frame 0.** New suite `frontend/tests/hero-artwork.spec.ts` (+ `tests/helpers/png.ts`, a dependency-free PNG reader) pauses and scrubs **every hero animation** across the loop (6 stops spanning 19.5 s), samples each stroked path/line/polyline in screen space at 2 px intervals, and asserts:
+
+1. **zero** strokes within 2 px of any text box — 0 crossings at 390 px and 1440 px, Telugu and English, all 6 frames;
+2. the ornament band's top is always **> 8 px below the lowest line of copy** (structural separation);
+3. every on-stage text run keeps **≥ 4.5:1** contrast against the real rendered pixels (copy hidden, stage screenshotted and decoded);
+4. the **reduced-motion static frame** passes all three, with all `mv*` animations confirmed frozen.
+
+Run against the previous commit (`aa1a69c`) the same suite **fails 8/8** (51 stroke hits at 390 px, 427 at 1440 px), so the test genuinely encodes the regression. Current branch: **8/8 pass**.
+
+![390px before/after](https://github.com/charanpendota98-prog/shubhalagnam/blob/arena/dd2118a6-shubhalagnam/docs/ui-2026-11/fix-hero-art-390.png?raw=true)
+
+*390 px, loop frozen at 7.8 s. **Left (before):** the gold arc cuts across “ఆసక్తి తెలియజేయండి.”, then disappears behind the search card. **Right (after):** nothing crosses the copy; the garland + lamps sit in their own band at the bottom.*
+
+![desktop before/after](https://github.com/charanpendota98-prog/shubhalagnam/blob/arena/dd2118a6-shubhalagnam/docs/ui-2026-11/fix-hero-art-1440.png?raw=true)
+
+*1440 px: same artwork, but the band is below the copy and above nothing that matters — no diagonal under the headline or the facts rail.*
+
+![reduced motion](https://github.com/charanpendota98-prog/shubhalagnam/blob/arena/dd2118a6-shubhalagnam/docs/ui-2026-11/fix-hero-art-390-reduced.png?raw=true)
+
+*Reduced-motion static frame at 390 px.*
+
+### Gates after the fix
+
+| Gate | Result |
+|---|---|
+| `npx tsc --noEmit` | pass |
+| `npm run lint` (eslint + links + static + security suites) | pass, 0 fail |
+| `npm run build` | pass |
+| `tests/visual.spec.ts` | **57 passed** |
+| `tests/hero-artwork.spec.ts` (new) | **8 passed** |
+| `tests/a11y.spec.ts` | **6 passed** |
+
+Still **not merged** — owner review first.
