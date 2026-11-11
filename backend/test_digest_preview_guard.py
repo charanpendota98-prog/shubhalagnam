@@ -37,10 +37,10 @@ def check(name, cond, detail=None):
     global passed, failed
     if cond:
         passed += 1
-        print(f"  â {name}")
+        print(f"  [PASS] {name}")
     else:
         failed += 1
-        print(f"  â {name} â DETAIL: {detail}")
+        print(f"  [FAIL] {name} - DETAIL: {detail}")
 
 print("\n=== DIGEST PREVIEW GUARD ===")
 main.DB_DIGEST[:] = []
