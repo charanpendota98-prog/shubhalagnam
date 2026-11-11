@@ -26,6 +26,7 @@ import os
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
+import auth_policy as AUTH_POLICY
 import topmatch
 from interest import safe_user, mask_phone
 from quality import profile_completeness
@@ -34,6 +35,20 @@ from quality import profile_completeness
 NEW_WITHIN_DAYS = int(os.getenv("MATCHBOT_NEW_DAYS", "14") or 14)
 # briefing లో గరిష్ట మ్యాచ్‌లు
 MAX_MATCHES = 6
+
+
+def _phone_otp_available() -> bool:
+    """True only when this deployment can actually deliver a phone OTP.
+
+    `auth_policy.capabilities()` is the single source of truth here — the same
+    call main.py uses to decide whether to issue a code (phone_otp=False in the
+    supported production deployment). Anything else (a Twilio key sitting in the
+    environment, say) is not evidence that delivery works.
+    """
+    try:
+        return bool(AUTH_POLICY.capabilities(os.environ).get("phone_otp"))
+    except Exception:
+        return False
 
 
 # --------------------------------------------------------------------------- #
@@ -304,8 +319,10 @@ def assistant_tips(user: Dict, briefing: Dict) -> List[Dict[str, Any]]:
                      "telugu": f"✨ {len(new_matches)} profiles ఇటీవల జోడించబడ్డాయి — పరిశీలించండి",
                      "en": f"{len(new_matches)} profiles were recently added — review them",
                      "cta": "/matches", "ids": [m.get("tsap_id") for m in new_matches[:3]]})
-    # P6 — show the recorded phone-verification state separately (not a trust judgment)
-    if not user.get("phone_verified"):
+    # P6 — recorded phone-verification state, shown only when this deployment can
+    # actually complete it. Phone OTP is gated on the same capability main.py uses
+    # to issue codes, so a member is never given a next step they cannot finish.
+    if not user.get("phone_verified") and _phone_otp_available():
         tips.append({"priority": 3, "kind": "verify",
                      "telugu": "🛡️ OTP తో phone ధృవీకరించండి; ఇది identity verification కాదు",
                      "en": "Verify your phone with OTP; this does not verify identity", "cta": "/login"})
