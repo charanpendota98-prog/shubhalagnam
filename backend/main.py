@@ -105,13 +105,13 @@ import auth_policy as AUTH_POLICY
 import observability as OBS  # optional scrape surface; no PII labels
 
 _PRODUCTION_ENV_NAMES = {"production", "prod", "live"}
-_WA_PAIRING_COOLDOWNS: Dict[tuple[str, str], float] = {}_WA_PAIRING_INFLIGHT: set[tuple[str, str]] = set()
+_WA_PAIRING_COOLDOWNS: Dict[tuple[str, str], float] = {}
+_WA_PAIRING_INFLIGHT: set[tuple[str, str]] = set()
 _WA_PAIRING_LOCK = threading.RLock()
 _WA_PAIRING_COOLDOWN_SECONDS = max(30, int(os.getenv("WA_PAIRING_COOLDOWN_SECONDS", "60")))
 
 
-def _is_production_environment() -> bool:
-    return str(os.getenv("APP_ENV", "")).strip().lower() in _PRODUCTION_ENV_NAMES
+def _is_production_environment() -> bool:    return str(os.getenv("APP_ENV", "")).strip().lower() in _PRODUCTION_ENV_NAMES
 
 
 def _set_member_session_cookie(response: Response, token: str) -> None:
@@ -199,13 +199,13 @@ def _production_storage_paths() -> list:
     import backup39 as BACKUP
     paths = [
         ("state directory", state_value, True),
-        ("core profiles/payments database", DBSTORE.DB_FILE, False),        ("token-revocation versions", TOKEN_VERSIONS_PATH, False),
+        ("core profiles/payments database", DBSTORE.DB_FILE, False),
+        ("token-revocation versions", TOKEN_VERSIONS_PATH, False),
         ("payment/offer state", PP.PERSIST_FILE, False),
         ("ad campaigns", ADS.PERSIST_FILE, False),
         ("astrology records", AST.PERSIST_FILE, False),
         ("CMS content", CMS.PERSIST_FILE, False),
-        ("channel overrides", CHAN.PERSIST_FILE, False),
-        ("consent ledger", QUALITY.CONSENT_STATE_FILE, False),
+        ("channel overrides", CHAN.PERSIST_FILE, False),        ("consent ledger", QUALITY.CONSENT_STATE_FILE, False),
         ("saved searches", QUALITY.SAVED_STATE_FILE, False),
         ("stories", A11.STORIES_FILE, False),
         ("push subscriptions", A11.PUSH_FILE, False),
@@ -251,12 +251,12 @@ def _is_synthetic_profile(profile: Optional[Dict]) -> bool:
 
 def _startup_quarantine(reason: str, records: Dict) -> str:
     """Preserve rows removed during startup hygiene instead of dropping them silently.
+
     Writes a timestamped, never-loaded JSON manifest so an owner can audit or
     recover records after the fact. The default location is OUTSIDE the repo
     (which is public and could be committed accidentally), under the process
     user's home with owner-only permissions. Returns "" on failure - callers
-    MUST treat that as "cannot clean up safely" and defer, never drop anyway.
-    """
+    MUST treat that as "cannot clean up safely" and defer, never drop anyway.    """
     try:
         qdir = os.getenv("MANA_VIVAHA_QUARANTINE_DIR", "").strip() or os.path.join(
             os.path.expanduser("~"), ".local", "share", "manavivaha", "quarantine")
@@ -2258,13 +2258,13 @@ async def _startup_publisher():
     ok = start_worker()
     st = publish_status()
     start_wa_worker()
-    wa = st["whatsapp_queue"]["antiban"]    print(f"[PUBLISHER] worker={ok} | telegram={'ready' if st['telegram']['configured'] else 'dry-run'} "
+    wa = st["whatsapp_queue"]["antiban"]
+    print(f"[PUBLISHER] worker={ok} | telegram={'ready' if st['telegram']['configured'] else 'dry-run'} "
           f"| whatsapp={st['whatsapp']['mode']} | routing_eligible={st['telegram']['routing_eligible_count']} (external status unchecked)")
     if not os.getenv("TSAP_API_KEY", "").strip():
         print("[AUTH] ⚠️ TSAP_API_KEY ledu — Telegram bot automation private API ki 401 (API+bot env lo same key pettandi)")
     print(f"[WHATSAPP-ANTIBAN] telegram mundu → whatsapp tarvata | gap={wa['random_gap']} | "
-          f"cap={wa['daily_cap']}/day (today {wa['warmup_cap_today']}) | hour {wa['active_hours_ist'][0]}–{wa['active_hours_ist'][1]} IST")
-    # 🌊 WAVE 22 — restart aina data povatledu: disk nunchi users/interests/payments restore
+          f"cap={wa['daily_cap']}/day (today {wa['warmup_cap_today']}) | hour {wa['active_hours_ist'][0]}–{wa['active_hours_ist'][1]} IST")    # 🌊 WAVE 22 — restart aina data povatledu: disk nunchi users/interests/payments restore
     try:
         _snap = DBSTORE.load()
         if not isinstance(_snap, dict) or (_is_production_environment() and not _snap):
@@ -7810,13 +7810,13 @@ def forgot_email(payload: dict, request: Request):
 
 
 @app.post("/api/auth/reset-email")
-def reset_email(payload: dict, response: Response, request: Request):    """Complete password recovery via verified email. Mirrors the phone OTP reset:
+def reset_email(payload: dict, response: Response, request: Request):
+    """Complete password recovery via verified email. Mirrors the phone OTP reset:
     fresh hash, every prior token revoked, new session issued."""
     ip = request.client.host if request.client else "unknown"
     if not _email_ip_allow(ip):
         raise HTTPException(429, "చాలా సార్లు ప్రయత్నించారు — 1 గంట ఆగి మళ్లీ ప్రయత్నించండి")
-    d = payload or {}
-    addr = str(d.get("email", "")).strip().lower()
+    d = payload or {}    addr = str(d.get("email", "")).strip().lower()
     code = str(d.get("code", "")).strip()
     new_pw = str(d.get("new_password", ""))
     if not re.fullmatch(r"\d{8}", code):
@@ -7862,12 +7862,12 @@ def otp_send(payload: dict):
     with _OTP_SEND_LOCK:
         return _otp_send_locked(payload)
 
+
 def _otp_send_locked(payload: dict):
     """Send a short-lived login/reset OTP through a configured delivery channel."""
     d = payload or {}
     phone = req_phone(d.get("phone", ""))
-    purpose = str(d.get("purpose", "login")).strip().lower()
-    if purpose not in {"login", "reset"}:
+    purpose = str(d.get("purpose", "login")).strip().lower()    if purpose not in {"login", "reset"}:
         raise HTTPException(400, "Unsupported OTP purpose")
 
     now = datetime.utcnow()
@@ -10867,13 +10867,13 @@ def auth_capabilities():
 @app.get("/api/ready")
 def api_ready():
     """Readiness probe: startup gates must finish before traffic is promoted."""
-    if not bool(getattr(app.state, "ready", False)):        return JSONResponse(
+    if not bool(getattr(app.state, "ready", False)):
+        return JSONResponse(
             status_code=503,
             content={
                 "success": False,
                 "service": "manavivaha-api",
-                "status": "starting",
-                "message_en": "The service has not completed its startup checks.",
+                "status": "starting",                "message_en": "The service has not completed its startup checks.",
                 "message_telugu": "సర్వర్ startup checks ఇంకా పూర్తికాలేదు.",
             },
             headers={"Cache-Control": "no-store"},

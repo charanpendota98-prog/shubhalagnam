@@ -1379,13 +1379,13 @@ function Wizard() {
                   : (te ? "కోడ్ పంపడం సాధ్యపడలేదు. మీ ఈమెయిల్ ఇంకా ధృవీకరించబడలేదు; పాస్‌వర్డ్‌ను భద్రంగా ఉంచండి." : "The code could not be sent. Your email is not verified yet; keep your password safe.")}</p>
                 <div className="flex gap-2">
                   <input type="text" id="email-verify-code" placeholder="8-digit code" className="flex-1 bg-white border border-blue-200 rounded-xl px-3 py-2 text-sm focus:border-blue-500 outline-none" />
-                  <button type="button" onClick={async () => {                    const code = (document.getElementById("email-verify-code") as HTMLInputElement).value;
+                  <button type="button" onClick={async () => {
+                    const code = (document.getElementById("email-verify-code") as HTMLInputElement).value;
                     const res = await fetch("/api/auth/verify-email", {
                       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ tsap_id: tsap, code })
                     });
                     const data = await res.json();
-                    if(data.success) { alert(data.message_telugu || "Verified!"); (document.getElementById("email-verify-code") as HTMLInputElement).value = ""; }
-                    else alert(data.detail || "Verification failed");
+                    if(data.success) { alert(data.message_telugu || "Verified!"); (document.getElementById("email-verify-code") as HTMLInputElement).value = ""; }                    else alert(data.detail || "Verification failed");
                   }} className="bg-blue-600 text-white px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap">
                     {te ? "వెరిఫై చేయండి" : "Verify"}
                   </button>
@@ -1408,12 +1408,12 @@ function Wizard() {
                 </span>
               </div>
             </div>
+
             {/* What you got card */}
             <div className="bg-amber-50/60 border border-gold/30 rounded-2xl p-3.5 text-xs text-slate-700 space-y-1">
               <div className="font-bold text-maroon">🎁 {T("మీ అకౌంట్ వివరాలు & కాంటాక్ట్ స్టేటస్:", "Your account and contact status:")}</div>
               <div>{T(<><b>3 requests</b> సిద్ధంగా ఉన్నాయి • phone numbers <b>🔒 locked</b> (గోప్యతా రక్షణతో).</>, <><b>3 requests</b> are ready • phone numbers are <b>🔒 locked</b> for privacy.</>)}</div>
             </div>
-
             {/* Referral confirmation if attached */}
             {joined_with?.ok && (
               <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-3.5 flex items-center gap-3 text-xs text-emerald-900">
@@ -1989,13 +1989,13 @@ function Wizard() {
                   hint={te ? "ఐచ్ఛికం. ధృవీకరించిన తర్వాతే రికవరీ; ఈమెయిల్ లేకపోతే పాస్‌వర్డ్ మర్చిపోయినప్పుడు ఆటోమేటిక్ రికవరీ లేదు." : "Optional. Verify it for recovery. Without verified email, a forgotten password has no automatic recovery while phone OTP is unavailable."}
                 />
                 <TextField
-                  label="10 అంకెల మొబైల్ (WhatsApp Number)"                  value={f.phone}
+                  label="10 అంకెల మొబైల్ (WhatsApp Number)"
+                  value={f.phone}
                   onChange={(v) => set("phone", v.replace(/\D/g, "").slice(0, 10))}
                   required
                   maxLength={10}
                   placeholder="10 అంకెల మొబైల్ నంబర్"
-                  hint="ధృవీకరణ & సంబంధాల అప్‌డేట్స్ కోసం"
-                />
+                  hint="ధృవీకరణ & సంబంధాల అప్‌డేట్స్ కోసం"                />
                 <div className="space-y-1.5 relative">
                   <label className="text-xs font-bold text-slate-800 flex items-center justify-between">
                     <span>{T("పాస్‌వర్డ్ (కనీసం 6 అక్షరాలు)", "Password (minimum 6 characters)")} <span className="text-rose-600 font-black">*</span></span>
@@ -2608,13 +2608,13 @@ function Wizard() {
                         hint={te ? "ధృవీకరించిన ఈమెయిల్ మాత్రమే పాస్‌వర్డ్ రికవరీకి ఉపయోగపడుతుంది." : "Only a verified email can be used for password recovery. Keep your password safe if you skip email."}
                       />
                       <TextField
-                        label="10 అంకెల మొబైల్ (WhatsApp No)"                        value={f.phone}
+                        label="10 అంకెల మొబైల్ (WhatsApp No)"
+                        value={f.phone}
                         onChange={(v) => set("phone", v.replace(/\D/g, "").slice(0, 10))}
                         required
                         maxLength={10}
                         placeholder="10 అంకెల మొబైల్ నంబర్"
-                      />
-                      <TextField
+                      />                      <TextField
                         label="పాస్‌వర్డ్ (Password)"
                         value={f.password}
                         onChange={(v) => set("password", v)}

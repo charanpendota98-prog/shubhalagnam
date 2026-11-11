@@ -1,10 +1,8 @@
-
 """Offline production checks only. Success does not approve or guarantee a restart.
 
 Use the exact intended runtime environment and interpreter. This never starts
 main, workers, email delivery, migrations or empty-database initialization.
-"""
-import os
+"""import os
 from auth_policy import auth_enforced
 from control_auth import _accounts
 from production_gates import configured_paths, validate_storage, validate_core_database, validate_operator_config
