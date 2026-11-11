@@ -16,11 +16,11 @@ export default function AuthGate({ title = "", note = "", admin = false }: { tit
       <p className="mt-1 text-sm text-amber-800">
         {note || (admin
           ? (te ? "Admin console కి X-Admin-Key కావాలి — /admin లో key పెట్టండి (team నుంచి తీసుకోండి)." : "Admin console needs X-Admin-Key — put the key in /admin (get it from team).")
-          : (te ? "మీ phone number తో OTP login చెయ్యండి — మీ data (inbox, credits, shortlist) మాత్రమే మీరు చూడగలరు. ఈ security, మీ privacy కోసం." : "OTP-login with your phone number — only you can see your data (inbox, credits, shortlist). This security is for your privacy."))}
+          : (te ? "మీ phone number తో login చెయ్యండి — మీ data (inbox, credits, shortlist) మాత్రమే మీరు చూడగలరు. ఈ security, మీ privacy కోసం." : "Login with your phone number — only you can see your data (inbox, credits, shortlist). This security is for your privacy."))}
       </p>
       <div className="mt-3 flex flex-wrap justify-center gap-2">
         <Link href="/login" className="rounded-xl bg-[#7A0C2E] px-4 py-2 text-sm font-semibold text-white hover:bg-[#5c0821]">
-          {te ? "📱 OTP తో login" : "📱 Login with OTP"}
+          {te ? "🔑 లాగిన్" : "🔑 Login"}
         </Link>
         <Link href="/register" className="rounded-xl border border-[#7A0C2E] px-4 py-2 text-sm font-semibold text-[#7A0C2E] hover:bg-rose-50">
           {te ? "🆓 కొత్త registration (FREE 3 profiles)" : "🆓 New registration (FREE 3 profiles)"}

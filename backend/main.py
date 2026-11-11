@@ -100,6 +100,8 @@ from hardening import (
     TOKEN_VERSIONS_PATH, TOKEN_TTL_SECONDS, MEMBER_COOKIE_SESSIONS, MEMBER_SESSION_COOKIE,
     MEMBER_CSRF_COOKIE, member_cookie_is_used, member_csrf_valid,
 )
+import production_gates as PRODUCTION_GATES
+import auth_policy as AUTH_POLICY
 import observability as OBS  # optional scrape surface; no PII labels
 
 _PRODUCTION_ENV_NAMES = {"production", "prod", "live"}
@@ -193,26 +195,8 @@ from location_catalog import (
 )
 
 
-def _validate_production_storage() -> dict:
-    """Fail closed unless every durable store/media path is on the mounted data root."""
-    root_value = os.getenv("MANA_VIVAHA_PERSISTENT_ROOT", "").strip()
+def _production_storage_paths() -> list:
     state_value = os.getenv("MANA_VIVAHA_STATE_DIR", "").strip()
-    if not root_value or not os.path.isabs(root_value):
-        raise RuntimeError("MANA_VIVAHA_PERSISTENT_ROOT must be an absolute durable-volume path")
-    if not state_value or not os.path.isabs(state_value):
-        raise RuntimeError("MANA_VIVAHA_STATE_DIR must be an absolute durable state path")
-
-    root = os.path.realpath(root_value)
-    state_root = os.path.realpath(state_value)
-    if root == "/" or root == "/tmp" or root.startswith("/tmp/"):
-        raise RuntimeError("Production persistence cannot use the container root or ephemeral /tmp")
-    try:
-        token_state_is_backed_up = os.path.commonpath((state_root, os.path.realpath(TOKEN_VERSIONS_PATH))) == state_root
-    except ValueError:
-        token_state_is_backed_up = False
-    if not token_state_is_backed_up:
-        raise RuntimeError("Production token-revocation state must be inside MANA_VIVAHA_STATE_DIR for durable backup")
-
     import backup39 as BACKUP
     paths = [
         ("state directory", state_value, True),
@@ -252,138 +236,19 @@ def _validate_production_storage() -> dict:
         ("referral poster output", os.getenv("REFERRAL_POSTER_DIR", "").strip(), True),
     ]
 
-    writable_dirs = {root}
-    for label, value, is_directory in paths:
-        if not value or not os.path.isabs(value):
-            raise RuntimeError(f"Production storage path for {label} must be absolute and configured")
-        resolved = os.path.realpath(value)
-        try:
-            within_root = os.path.commonpath((root, resolved)) == root
-        except ValueError:
-            within_root = False
-        if not within_root:
-            raise RuntimeError(f"Production storage path for {label} is outside the durable volume")
-        target_dir = resolved if is_directory else os.path.dirname(resolved)
-        os.makedirs(target_dir, mode=0o700, exist_ok=True)
-        writable_dirs.add(target_dir)
+    return paths
 
-    for directory in writable_dirs:
-        try:
-            probe = os.path.join(directory, ".mana-vivaha-write-check-" + secrets.token_hex(8))
-            fd = os.open(probe, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
-            os.close(fd)
-            os.unlink(probe)
-        except OSError as exc:
-            raise RuntimeError(f"Production data volume is not writable: {directory}") from exc
 
-    return {"root": root, "durable_paths": len(paths)}
+def _validate_production_storage() -> dict:
+    return PRODUCTION_GATES.validate_storage(_production_storage_paths(), TOKEN_VERSIONS_PATH)
 
 
 def _validate_production_core_database() -> dict:
-    """Validate the core registration store before any production workers start.
-
-    A missing/corrupt/incomplete store is never interpreted as an empty database.
-    A genuinely new installation must use the separate one-shot bootstrap command;
-    ordinary server startup can never initialize or authorize an empty replacement volume.
-    """
-    path = os.path.abspath(DBSTORE.DB_FILE)
-    collections = {
-        "users": list,
-        "interests": list,
-        "payments": list,
-        "otps": dict,
-        "verified_phones": list,
-        "views": list,
-        "saves": list,
-        "digest": list,
-    }
-
-    def _read_store() -> dict:
-        try:
-            with open(path, encoding="utf-8") as handle:
-                value = json.load(handle)
-        except Exception as exc:
-            raise RuntimeError(
-                "Production core database is unreadable or corrupt; preserve the file and restore a verified backup"
-            ) from exc
-        if not isinstance(value, dict):
-            raise RuntimeError("Production core database must be a JSON object; file was not modified")
-        missing = [key for key in collections if key not in value]
-        if missing:
-            raise RuntimeError(
-                "Production core database is missing required fields (%s); preserve it and migrate/restore a verified backup"
-                % ", ".join(missing)
-            )
-        wrong_types = [key for key, expected in collections.items() if not isinstance(value.get(key), expected)]
-        if wrong_types:
-            raise RuntimeError(
-                "Production core database has invalid collection types (%s); file was not modified"
-                % ", ".join(wrong_types)
-            )
-        if any(not isinstance(row, dict) for key in ("users", "interests", "payments", "views", "saves", "digest")
-               for row in value[key]):
-            raise RuntimeError("Production core database contains malformed rows; file was not modified")
-        if any(not isinstance(phone, str) for phone in value["verified_phones"]):
-            raise RuntimeError("Production core database contains malformed verified-phone values; file was not modified")
-        if any(not isinstance(phone, str) or not isinstance(record, dict)
-               for phone, record in value["otps"].items()):
-            raise RuntimeError("Production core database contains malformed OTP state; file was not modified")
-        return value
-
-    if not os.path.exists(path):
-        raise RuntimeError(
-            "Production core database is missing at %s; startup is blocked to protect registrations. "
-            "Restore the existing database, or use bootstrap_core_db.py --confirm-new-install only "
-            "for a verified brand-new installation" % path
-        )
-
-    payload = _read_store()
-    has_records = any(bool(payload[key]) for key in collections)
-    if not has_records and payload.get("storage_format") != DBSTORE.STORAGE_FORMAT:
-        raise RuntimeError(
-            "Production core database is empty and has no initialization marker; startup is blocked. "
-            "After a verified backup, use the one-shot --confirm-existing-empty command only if every collection is truly empty"
-        )
-
-    seen_ids = set()
-    seen_phones = set()
-    for row_number, profile in enumerate(payload["users"], start=1):
-        if not isinstance(profile, dict):
-            raise RuntimeError("Production profile row %d is malformed; no records were discarded" % row_number)
-        if _is_synthetic_profile(profile):
-            raise RuntimeError(
-                "Production database contains a demo/seed profile at row %d; review it offline without deleting real registrations"
-                % row_number
-            )
-        tsap_id = str(profile.get("tsap_id") or "").strip().upper()
-        if not tsap_id or tsap_id in seen_ids:
-            raise RuntimeError(
-                "Production database contains a missing/duplicate profile ID at row %d; no records were discarded"
-                % row_number
-            )
-        seen_ids.add(tsap_id)
-        phone = str(profile.get("phone") or "").strip()
-        if phone and phone in seen_phones:
-            raise RuntimeError(
-                "Production database contains a duplicate profile phone at row %d; no records were discarded"
-                % row_number
-            )
-        if phone:
-            seen_phones.add(phone)
-
-    return {"file": path, "users": len(payload["users"]), "has_records": has_records}
+    return PRODUCTION_GATES.validate_core_database(DBSTORE.DB_FILE)
 
 
 def _is_synthetic_profile(profile: Optional[Dict]) -> bool:
-    """Recognize legacy fixtures so they cannot enter member-facing data paths."""
-    if not isinstance(profile, dict):
-        return True
-    return bool(
-        profile.get("demo") is True or profile.get("is_demo") is True
-        or profile.get("seed_source") or profile.get("source") == "demo_seed"
-        or profile.get("profile_note") == "TSAP demo profile"
-        or profile.get("inventory_status") or profile.get("seed")
-    )
+    return PRODUCTION_GATES.is_synthetic_profile(profile)
 
 
 def _startup_quarantine(reason: str, records: Dict) -> str:
@@ -2391,24 +2256,8 @@ async def _startup_publisher():
         print("[DB] production persistence validated: users=%d records=%s file=%s" % (
             db_state["users"], "present" if db_state["has_records"] else "explicitly initialized empty",
             db_state["file"]))
-        # Refuse unsafe operator flags too: a copied test env must never turn
-        # auth off, disable rate limits, or auto-apply developer payment fixtures.
-        if not auth_enforced():
-            raise RuntimeError("Authentication bypass flags are forbidden in production")
-        if str(os.getenv("TSAP_RATE_LIMIT", "")).strip().lower() in {"0", "false", "no", "off"}:
-            raise RuntimeError("Rate limiting cannot be disabled in production")
-        if str(os.getenv("MANA_TEST_PAYMENT_FIXTURES", "")).strip().lower() in {"1", "true", "yes", "on"}:
-            raise RuntimeError("Test payment fixtures are forbidden in production")
-        if not os.getenv("TSAP_AUTH_SECRET", "").strip() or len(os.getenv("TSAP_AUTH_SECRET", "")) < 32:
-            raise RuntimeError("TSAP_AUTH_SECRET (32+ random chars) is required in production")
-        if not os.getenv("ADMIN_KEY", "").strip() or len(os.getenv("ADMIN_KEY", "")) < 32:
-            raise RuntimeError("ADMIN_KEY (32+ random chars) is required in production")
-        if not CONTROL_AUTH._accounts():
-            raise RuntimeError("No CONTROL owner/worker account configured in production")
-        otp_ready = bool(os.getenv("MSG91_KEY", "").strip() or os.getenv("FAST2SMS_KEY", "").strip())
-        otp_ready = otp_ready or (os.getenv("WHATSAPP_MODE", "").lower() == "bridge" and bool(os.getenv("WA_INSTANCES", "").strip() or os.getenv("WHATSAPP_BRIDGE_URL", "").strip()))
-        if not otp_ready:
-            raise RuntimeError("Production OTP provider is not configured (WhatsApp bridge or SMS provider required)")
+        PRODUCTION_GATES.validate_operator_config(os.environ, auth_enforced(), CONTROL_AUTH._accounts())
+
     ok = start_worker()
     st = publish_status()
     start_wa_worker()
@@ -7810,7 +7659,7 @@ def _email_otp_issue_locked(addr: str, purpose: str) -> Dict[str, Any]:
         raise HTTPException(503, "OTP could not be saved safely. Please try again.")
     if purpose == "email_verify":
         text = email_channel.verify_email_text(code)
-        subject = email_channel.APP_NAME + " — email verification"
+        subject = email_channel.APP_NAME + " - email verification"
     else:
         text = email_channel.otp_email_text(code)
         subject = email_channel.APP_NAME + " OTP"
@@ -7960,7 +7809,8 @@ def forgot_email(payload: dict, request: Request):
     if u:
         _email_otp_issue(addr, "reset_email")
     return {"success": True,
-            "message_telugu": "ఆ email తో verified account ఉంటే reset code పంపించాం (10 min valid). ఇన్‌బాక్స్ చూడండి 📧"}
+            "message_telugu": "రికవరీ అభ్యర్థన స్వీకరించాం. అర్హత ఉన్న ధృవీకరించిన ఖాతా ఉంటే ఈమెయిల్ కోడ్ కోసం ఇన్‌బాక్స్ చూడండి (10 min valid).",
+            "message_en": "Recovery requested. If this email belongs to an eligible verified account, check your inbox for a code (valid for 10 minutes)."}
 
 
 @app.post("/api/auth/reset-email")
@@ -8010,6 +7860,8 @@ def _otp_digest(code: str) -> str:
 
 @app.post("/api/otp/send")
 def otp_send(payload: dict):
+    if _is_production_environment() and not AUTH_POLICY.capabilities(os.environ)["phone_otp"]:
+        raise HTTPException(503, "Phone OTP is unavailable. Use your phone number and password, or recover with a previously verified email.")
     # Serialize the cooldown/history reservation and delivery result per phone;
     # two concurrent resends must not both pass the same 60-second check.
     with _OTP_SEND_LOCK:
@@ -8538,12 +8390,27 @@ def similar_profiles(tsap_id: str, limit: int = 8):
     }
 
 
+DIGEST_HISTORY_MAX = 200  # persisted digest history is bounded (availability guard)
+
+
+def _append_digest(entry: dict) -> None:
+    """Append to the durable digest history with a hard retention cap.
+
+    The history lives in the core DB, so an unbounded append is an
+    availability risk on small hosts (RAM + every full-file save + backups).
+    Trim in place so other references to DB_DIGEST stay valid.
+    """
+    DB_DIGEST.append(entry)
+    if len(DB_DIGEST) > DIGEST_HISTORY_MAX:
+        del DB_DIGEST[: len(DB_DIGEST) - DIGEST_HISTORY_MAX]
+
+
 @app.get("/api/digest/preview")
-def digest_preview():
-    """
+def digest_preview(request: Request = None):
+    """🛡️ ADMIN (route map contract) — daily digest text preview.
     📅 Daily 9AM digest — Telegram + WhatsApp ki pampadaniki ready text.
-    (Cron/scheduler ee endpoint ni pilichi post cheyyali — anti-ban queue lo veltundi)
-    """
+    Unauthenticated calls must not write to the durable digest history."""
+    require_admin(request)
     today = datetime.utcnow().strftime("%Y-%m-%d")
     approved_profiles = [u for u in DB_USERS if _is_approved_profile(u)]
     brides = [u for u in approved_profiles if u.get("gender") == "Bride"]
@@ -8564,7 +8431,7 @@ def digest_preview():
         f"📝 FREE register: {os.getenv('SITE_URL', 'https://manavivaha.in')}/register"
     )
     entry = {"at": datetime.utcnow().isoformat(), "brides": len(brides), "grooms": len(grooms)}
-    DB_DIGEST.append(entry)
+    _append_digest(entry)
     return {"success": True, "text": text, "brides": len(brides), "grooms": len(grooms),
             "top_castes": top,
             "how_to_post": "POST /api/publish/digest చెయ్యండి → Telegram + WhatsApp (anti-ban gap తో) వెళ్తుంది"}
@@ -8574,7 +8441,7 @@ def digest_preview():
 async def publish_digest(request: Request = None):
     """Digest ని Telegram live channels + WhatsApp queue కి (anti-ban gap తో) pampu."""
     require_admin(request)   # 🛡️ WAVE 9: admin key lekunda 403 (PII/money/)
-    prev = digest_preview()
+    prev = digest_preview(request)
     text = prev["text"].replace("*", "*")  # WhatsApp formatting ki same
     targets = cfg_live = [c["chat_id"] for c in live_channels() if c.get("chat_id")]
     res = enqueue_whatsapp(publish_config()["wa_bridge_targets"], text, priority=1, kind="digest")
@@ -8641,8 +8508,8 @@ def digest_personal_run(payload: dict = Body(default={}), request: Request = Non
     batch = _personal_digest_batch(lang, engaged_only)
 
     # log summary to the persisted digest history (kind=personal)
-    DB_DIGEST.append({"at": batch["at"], "kind": "personal", "lang": lang,
-                      "queued": batch["queued"], "counts": batch["counts"]})
+    _append_digest({"at": batch["at"], "kind": "personal", "lang": lang,
+                    "queued": batch["queued"], "counts": batch["counts"]})
 
     send_enabled = _digest_send_enabled()
     wa_on = publish_config()["wa_mode"] != "off"
@@ -11011,6 +10878,11 @@ def _operational_health_payload() -> dict:
         "wa_queue": wa_q,
         "message_telugu": "✅ Server bane ఉంది",
     }
+
+
+@app.get("/api/auth/capabilities")
+def auth_capabilities():
+    return JSONResponse(AUTH_POLICY.capabilities(os.environ), headers={"Cache-Control": "no-store"})
 
 
 @app.get("/api/ready")

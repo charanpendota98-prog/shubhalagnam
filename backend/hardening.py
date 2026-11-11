@@ -66,13 +66,8 @@ def dev_mode() -> bool:
 
 
 def auth_enforced() -> bool:
-    if _flag("TSAP_AUTH_MODE") in ("off", "dev", "test"):
-        return False
-    if _flag("TSAP_AUTH_ENFORCE") in ("0", "false", "no"):
-        return False
-    if _flag("WA_TEST_FAST") in ("1", "true", "yes", "on"):
-        return False
-    return True
+    from auth_policy import auth_enforced as policy_auth_enforced
+    return policy_auth_enforced(os.environ)
 
 
 SECRET = os.getenv("TSAP_AUTH_SECRET") or os.getenv("JWT_SECRET") or ""

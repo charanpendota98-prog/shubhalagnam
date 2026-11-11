@@ -665,7 +665,7 @@ export default function RequestsPage() {
       {needsLogin ? (
         <div className="mt-6">
           <AuthGate title={`🔒 ${duo("Login for your inbox / credits / shortlist", "ఇన్‌బాక్స్ / క్రెడిట్లు / షార్ట్‌లిస్ట్‌కు లాగిన్ చేయండి")}`}
-            note={te ? "ఈ private data సురక్షితంగా ఉంచాం (వేరే వాళ్లు మీ inbox చూడలేరు). Phone OTP login 10 seconds." : "This private data is kept secure (others can\u2019t see your inbox). Phone OTP login takes 10 seconds."} />
+            note={te ? "ఈ private data సురక్షితంగా ఉంచాం (వేరే వాళ్లు మీ inbox చూడలేరు)." : "This private data is kept secure (others can\u2019t see your inbox)."} />
         </div>
       ) : null}
     </div>

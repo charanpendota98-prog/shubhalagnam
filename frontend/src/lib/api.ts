@@ -284,7 +284,7 @@ export async function apiFetch<T = unknown>(path: string, opts: Opts = {}): Prom
       const localizedError = lang === "en"
         ? (englishMessage || cleanEnglishCandidate(rawMessage) || englishFallback)
         : (rawMessage || (res.status === 401
-          ? "🔒 Mee account ki OTP login cheyyandi"
+          ? "🔒 Mee account ki login cheyyandi"
           : res.status === 403
           ? "🔒 Ee data ki access ledu (admin key / owner matrame)"
           : res.status === 429

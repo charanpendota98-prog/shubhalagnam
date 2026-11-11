@@ -71,3 +71,16 @@ export function useAuthCheck() {
   useEffect(() => { void check(); }, [check]);
   return { ...state, recheck: check };
 }
+
+export type AuthCapabilities = {
+  password_login: boolean;
+  login_identifier: "phone";
+  phone_otp: boolean;
+  email_recovery_configured: boolean;
+  passkeys_configured: boolean;
+  email_optional_at_registration: boolean;
+};
+
+export function fetchAuthCapabilities() {
+  return apiGet<AuthCapabilities>("/api/auth/capabilities");
+}

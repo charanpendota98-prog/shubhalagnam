@@ -1374,7 +1374,9 @@ function Wizard() {
             {result.email_verify?.required && !result.email_verify?.verified && (
               <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 my-4">
                 <h3 className="text-sm font-bold text-blue-900 mb-2">📧 {te ? "ఈమెయిల్ వెరిఫికేషన్" : "Email Verification"}</h3>
-                <p className="text-xs text-blue-800 mb-3">{te ? "రికవరీ కోసం మీ ఈమెయిల్ కు 8 అంకెల కోడ్ పంపబడింది." : "An 8-digit code has been sent to your email."}</p>
+                <p className="text-xs text-blue-800 mb-3">{result.email_verify?.sent
+                  ? (te ? "రికవరీ కోసం మీ ఈమెయిల్‌కు 8 అంకెల కోడ్ పంపబడింది." : "An 8-digit code has been sent to your email.")
+                  : (te ? "కోడ్ పంపడం సాధ్యపడలేదు. మీ ఈమెయిల్ ఇంకా ధృవీకరించబడలేదు; పాస్‌వర్డ్‌ను భద్రంగా ఉంచండి." : "The code could not be sent. Your email is not verified yet; keep your password safe.")}</p>
                 <div className="flex gap-2">
                   <input type="text" id="email-verify-code" placeholder="8-digit code" className="flex-1 bg-white border border-blue-200 rounded-xl px-3 py-2 text-sm focus:border-blue-500 outline-none" />
                   <button type="button" onClick={async () => {
@@ -1403,7 +1405,7 @@ function Wizard() {
                   {profileApproved ? T("✓ ప్రొఫైల్ ఆమోదించబడింది", "✓ Profile approved") : T("సమీక్ష కోసం వేచి ఉంది", "Review pending")}
                 </span>
                 <span className={`px-3 py-1.5 text-xs font-bold rounded-full border ${phoneVerified ? "bg-emerald-50 text-emerald-800 border-emerald-200" : "bg-slate-100 text-slate-700 border-slate-200"}`}>
-                  {phoneVerified ? T("✓ ఫోన్ OTP ధృవీకరించబడింది", "✓ Phone OTP verified") : T("ఫోన్ OTP ధృవీకరణ పెండింగ్", "Phone OTP verification pending")}
+                  {phoneVerified ? T("✓ ఫోన్ OTP ధృవీకరించబడింది", "✓ Phone OTP verified") : T("ఫోన్ OTP ధృవీకరించబడలేదు", "Phone not OTP verified")}
                 </span>
               </div>
             </div>
@@ -1986,7 +1988,7 @@ function Wizard() {
                   onChange={(v) => set("email", v.trim().toLowerCase())}
                   type="email"
                   placeholder="your.email@example.com"
-                  hint={te ? "పాస్‌వర్డ్ రికవరీ కోసం" : "For password recovery"}
+                  hint={te ? "ఐచ్ఛికం. ధృవీకరించిన తర్వాతే రికవరీ; ఈమెయిల్ లేకపోతే పాస్‌వర్డ్ మర్చిపోయినప్పుడు ఆటోమేటిక్ రికవరీ లేదు." : "Optional. Verify it for recovery. Without verified email, a forgotten password has no automatic recovery while phone OTP is unavailable."}
                 />
                 <TextField
                   label="10 అంకెల మొబైల్ (WhatsApp Number)"
@@ -2606,6 +2608,7 @@ function Wizard() {
                         onChange={(v) => set("email", v.trim().toLowerCase())}
                         type="email"
                         placeholder="your.email@example.com"
+                        hint={te ? "ధృవీకరించిన ఈమెయిల్ మాత్రమే పాస్‌వర్డ్ రికవరీకి ఉపయోగపడుతుంది." : "Only a verified email can be used for password recovery. Keep your password safe if you skip email."}
                       />
                       <TextField
                         label="10 అంకెల మొబైల్ (WhatsApp No)"

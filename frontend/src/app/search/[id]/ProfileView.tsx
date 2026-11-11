@@ -392,7 +392,7 @@ export default function ProfileView() {
         </div>
       ) : null}
 
-      {needsLogin ? <div className="mt-4"><AuthGate note={te ? "Interest పంపడం, shortlist, block — ఈ actions కి OTP login కావాలి (మీ privacy కోసం)." : "Interest, shortlist, block — these actions need OTP login (for your privacy)."} /></div> : null}
+      {needsLogin ? <div className="mt-4"><AuthGate note={te ? "Interest పంపడం, shortlist, block — ఈ actions కి login కావాలి (మీ privacy కోసం)." : "Interest, shortlist, block — these actions need login (for your privacy)."} /></div> : null}
 
       {!loading && !err && data ? (
         <>
