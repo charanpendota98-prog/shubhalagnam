@@ -13,6 +13,7 @@
  * • Consent-gated contact flow; support destinations appear only when configured
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import Image from "next/image";
 import {
@@ -1771,7 +1772,7 @@ export default function MatchesPage() {
 
             <section aria-labelledby="saved-searches-heading" className="rounded-2xl border border-indigo-100 bg-white p-3.5 shadow-xs sm:p-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="min-w-0 flex-1">
+                <div className="min-w-0 flex-1 basis-52">
                   <h2 id="saved-searches-heading" className="text-sm font-black text-slate-900">🔖 {te ? "సేవ్ చేసిన శోధనలు" : "Saved searches"}</h2>
                   <p className="mt-1 text-xs leading-relaxed text-slate-600">
                     {te ? "మీ ఖాతాకు మాత్రమే. కొత్త saved searches‌కు notifications స్వయంగా ఆన్ కావు." : "Private to your account. Notifications are never enabled for a new saved search."}
@@ -2040,8 +2041,8 @@ export default function MatchesPage() {
       </div>
 
       {/* ---------- Mobile Filter Bottom-Sheet Modal ---------- */}
-      {sheet && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-end justify-center lg:hidden animate-fade">
+      {sheet && createPortal(
+        <div className="fixed inset-0 z-[80] bg-black/60 backdrop-blur-xs flex items-end justify-center lg:hidden animate-fade">
           <div className="bg-white w-full max-h-[85vh] rounded-t-3xl flex flex-col shadow-2xl overflow-hidden animate-slideUp">
             {/* Modal Header */}
             <div className="p-4 border-b border-slate-100 flex items-center justify-between">
@@ -2400,7 +2401,7 @@ export default function MatchesPage() {
               </button>
             </div>
           </div>
-        </div>
+        </div>, document.body
       )}
 
       {saveSearchDialogOpen && (

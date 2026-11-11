@@ -212,7 +212,7 @@ export default function SiteHeader() {
 
   return (
     <header
-      className={`brand-header sticky top-0 z-50 no-print border-b transition-shadow duration-300 ${
+      className={`brand-header sticky top-0 ${open ? "z-[70]" : "z-50"} no-print border-b transition-shadow duration-300 ${
         scrolled ? "border-gold/35 shadow-[0_8px_26px_rgba(74,12,34,.1)]" : "border-gold/20"
       }`}
     >
@@ -457,7 +457,7 @@ export default function SiteHeader() {
         data-open={open}
         className="mobile-menu xl:hidden"
       >
-        <div className="mobile-menu__panel glass border-t border-gold/25 px-4 pt-1 pb-4 overscroll-contain menu-scroll">
+        <div className="mobile-menu__panel bg-[#fffdf8] shadow-xl border-t border-gold/25 px-4 pt-1 pb-4 overscroll-contain menu-scroll">
           {groupTitle("Explore", "అన్వేషించండి")}
           <div className="space-y-1">
             {NAV_MOBILE_MAIN.map(menuLink)}
@@ -486,21 +486,6 @@ export default function SiteHeader() {
             <Link
               href="/register"
               className="inline-flex min-h-11 items-center justify-center rounded-xl maroon-gradient px-3 py-2.5 text-sm font-bold text-white"
-            >
-              {te ? "ఉచిత నమోదు" : "Register free"}
-            </Link>
-          </div>
-          <div className="mt-3 grid grid-cols-2 gap-2 border-t border-gold/25 pt-3">
-            <Link
-              href={sessionOk ? "/me" : "/login"}
-              className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-maroon/25 bg-white px-3 py-2.5 text-sm font-bold text-maroon"
-            >
-              {sessionOk ? <UserCircle2 className="h-4 w-4" aria-hidden="true" /> : <Smartphone className="h-4 w-4" aria-hidden="true" />}
-              {sessionOk ? (te ? "నా అకౌంట్" : "My account") : (te ? "లాగిన్" : "Log in")}
-            </Link>
-            <Link
-              href="/register"
-              className="inline-flex items-center justify-center rounded-xl maroon-gradient px-3 py-2.5 text-sm font-bold text-white"
             >
               {te ? "ఉచిత నమోదు" : "Register free"}
             </Link>

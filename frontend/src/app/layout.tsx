@@ -144,10 +144,10 @@ export default function RootLayout({
           <a href="#main-content" className="skip-link">Skip to main content</a>
           <SiteHeader />
           <main id="main-content" className="flex-1" tabIndex={-1}><RouteFrame>{children}</RouteFrame></main>
+          <SupportWidget />
           <SiteFooter />
           <StickyCTA />
           <PWA />
-          <SupportWidget />
           <BackToTop />
         </LangProvider>
       </body>

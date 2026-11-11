@@ -31,7 +31,7 @@ export default function OffersBanner() {
             {o.title} • <span className="font-mono">{o.code}</span>
           </span>
         ))}
-        <span className="ml-auto text-xs font-bold underline">{te ? "Plans చూడండి →" : "See plans →"}</span>
+        <span className="ml-auto basis-full pt-1 text-right text-xs font-bold underline sm:basis-auto sm:pt-0">{te ? "Plans చూడండి →" : "See plans →"}</span>
       </div>
     </Link>
   );

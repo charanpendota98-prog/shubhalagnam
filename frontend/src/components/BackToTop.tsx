@@ -29,7 +29,7 @@ export default function BackToTop() {
       onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
       aria-label={te ? "పైకి వెళ్లు" : "Back to top"}
       title={te ? "పైకి వెళ్లు" : "Back to top"}
-      className="no-print fixed bottom-20 left-4 z-50 flex h-11 w-11 items-center justify-center rounded-full maroon-gradient text-white text-lg shadow-xl transition hover:scale-105 sm:bottom-6"
+      className="no-print fixed bottom-6 left-4 z-50 hidden h-11 w-11 items-center justify-center rounded-full maroon-gradient text-white text-lg shadow-xl transition hover:scale-105 lg:flex"
     >
       ⬆️
     </button>
