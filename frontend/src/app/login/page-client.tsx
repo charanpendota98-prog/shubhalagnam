@@ -11,7 +11,7 @@ import Link from "next/link";
 import { Duo } from "@/lib/duo";
 import { useLang } from "@/lib/lang";
 import { useRouter } from "next/navigation";
-import { rememberSession, sendOtp, verifyOtp } from "@/lib/auth";
+import { rememberSession, sendOtp, verifyOtp, fetchAuthCapabilities, type AuthCapabilities } from "@/lib/auth";
 import { loginPasskey } from "@/lib/webauthn-client";
 
 import { apiDisplayMessage, apiPost } from "@/lib/api";
@@ -20,6 +20,18 @@ export default function LoginPage() {
   const router = useRouter();
   const { lang } = useLang();
   const te = lang === "te";
+
+  const [capabilities, setCapabilities] = useState<AuthCapabilities | null>(null);
+  const [capabilitiesError, setCapabilitiesError] = useState(false);
+  useEffect(() => {
+    let active = true;
+    fetchAuthCapabilities().then((result) => {
+      if (!active) return;
+      if (result.ok && result.data) setCapabilities(result.data);
+      else setCapabilitiesError(true);
+    }).catch(() => { if (active) setCapabilitiesError(true); });
+    return () => { active = false; };
+  }, []);
 
   const [tab, setTab] = useState<"password" | "otp">("password");
   const [phone, setPhone] = useState("");
@@ -70,7 +82,7 @@ export default function LoginPage() {
       return;
     }
     if (!password) {
-      showFeedback(te ? "⚠️ దయచేసి మీ పాస్‌వర్డ్ ఎంటర్ చేయండి (లేదా OTP లాగిన్ వాడండి)" : "⚠️ Please enter your password (or use OTP login)", "err");
+      showFeedback(te ? "⚠️ దయచేసి మీ పాస్‌వర్డ్ ఎంటర్ చేయండి" : "⚠️ Please enter your password", "err");
       return;
     }
     setBusy(true);
@@ -88,6 +100,7 @@ export default function LoginPage() {
   }
 
   async function onSend() {
+    if (!capabilities?.phone_otp) return;
     const p = digits();
     if (p.length !== 10) {
       showFeedback(te ? "⚠️ 10 అంకెల మొబైల్ నంబర్ ఇవ్వండి (6/7/8/9 తో ప్రారంభం)" : "⚠️ Enter 10-digit mobile number (starts 6/7/8/9)", "err");
@@ -129,6 +142,10 @@ export default function LoginPage() {
 
   async function onForgotSend() {
     const isEmail = phone.includes("@");
+    if (isEmail ? !capabilities?.email_recovery_configured : !capabilities?.phone_otp) {
+      showFeedback(te ? "అందుబాటులో ఉన్న ధృవీకరించిన ఈమెయిల్ రికవరీని వాడండి." : "Use previously verified email recovery when available. Phone OTP is unavailable.", "err");
+      return;
+    }
     const p = isEmail ? phone.trim().toLowerCase() : digits();
     if (!isEmail && p.length !== 10) {
       showFeedback(te ? "⚠️ సరైన మొబైల్ నంబర్ లేదా ఈమెయిల్ ఇవ్వండి" : "⚠️ Enter a valid mobile number or email", "err");
@@ -149,7 +166,7 @@ export default function LoginPage() {
     }
     setFStage("reset");
     setCountdown(30);
-    showFeedback(apiDisplayMessage(data, te, te ? "📱 పాస్‌వర్డ్ రీసెట్ OTP పంపించాం" : "📱 Password-reset OTP sent."), "ok");
+    showFeedback(apiDisplayMessage(data, te, te ? "అర్హత ఉన్న ధృవీకరించిన ఖాతాకు రికవరీ కోడ్ కోరబడింది." : "Recovery requested. If eligible, check your verified email for the code."), "ok");
   }
 
   async function onReset() {
@@ -158,8 +175,8 @@ export default function LoginPage() {
       showFeedback(te ? "⚠️ OTP కోడ్ నమోదు చేయండి" : "⚠️ Enter the OTP code", "err");
       return;
     }
-    if (newPw.trim().length < 6) {
-      showFeedback(te ? "⚠️ కొత్త పాస్‌వర్డ్ కనీసం 6 అక్షరాలు ఉండాలి" : "⚠️ New password must be at least 6 characters", "err");
+    if (newPw.length < 8 || newPw.length > 72) {
+      showFeedback(te ? "⚠️ కొత్త పాస్‌వర్డ్ 8-72 అక్షరాలు ఉండాలి" : "⚠️ New password must be at least 6 characters", "err");
       return;
     }
     if (newPw !== confirmPw) {
@@ -172,8 +189,8 @@ export default function LoginPage() {
     const p = isEmail ? phone.trim().toLowerCase() : digits();
     const endpoint = isEmail ? "/api/auth/reset-email" : "/api/auth/reset";
     const payload = isEmail 
-      ? { email: p, code: code.trim(), new_password: newPw.trim() } 
-      : { phone: p, code: code.trim(), new_password: newPw.trim() };
+      ? { email: p, code: code.trim(), new_password: newPw }
+      : { phone: p, code: code.trim(), new_password: newPw };
       
     const { ok, data, error } = await apiPost<{ auth_token?: string; tsap_id?: string; message_telugu?: string; message_en?: string; message?: string }>(
       endpoint, payload
@@ -216,6 +233,18 @@ export default function LoginPage() {
           {/* Top Gold Accent Bar */}
           <div className="absolute top-0 left-0 right-0 h-1.5 maroon-gradient" />
 
+          <div className="mb-5 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700" role="status">
+            <p className="font-bold text-maroon">{te ? "మొబైల్ నంబర్ + పాస్‌వర్డ్" : "Phone number + password"}</p>
+            <p className="mt-1">{capabilitiesError
+              ? (te ? "అదనపు లాగిన్ పద్ధతుల స్థితి తెలియడం లేదు. పాస్‌వర్డ్‌తో లాగిన్ ప్రయత్నించండి." : "We could not check other sign-in methods. You can still try your password.")
+              : !capabilities ? (te ? "లాగిన్ పద్ధతులు తనిఖీ చేస్తున్నాం..." : "Checking sign-in methods...")
+              : capabilities.phone_otp ? (te ? "ఫోన్ OTP అందుబాటులో ఉంది." : "Phone OTP is available.")
+              : (te ? "ఫోన్ OTP ప్రస్తుతం అందుబాటులో లేదు. ఫోన్ ధృవీకరించబడిందని భావించవద్దు." : "Phone OTP is currently unavailable. A phone number alone is not proof of verified ownership.")}</p>
+            {capabilities && <p className="mt-2 text-xs leading-relaxed">{capabilities.email_recovery_configured
+              ? (te ? "ముందే ధృవీకరించిన ఈమెయిల్‌తో పాస్‌వర్డ్ రికవరీ చేయవచ్చు. ఈమెయిల్ లేని ఖాతాకు పాస్‌వర్డ్ మర్చిపోతే ఆటోమేటిక్ రికవరీ లేదు." : "Password recovery uses a previously verified email. Without one, a forgotten password has no automatic recovery while phone OTP is unavailable.")
+              : (te ? "ఈమెయిల్ రికవరీ కూడా ప్రస్తుతం అందుబాటులో లేదు. మీ పాస్‌వర్డ్‌ను భద్రంగా ఉంచండి." : "Email recovery is not available right now. Keep your password safe; phone-only accounts have no automatic password recovery.")}</p>}
+          </div>
+
           {/* Mode Switcher */}
           <div className="flex bg-slate-100 p-1 rounded-2xl mb-5">
             <button type="button"
@@ -228,6 +257,7 @@ export default function LoginPage() {
             >
               🔑 {te ? "పాస్‌వర్డ్ లాగిన్" : "Password"}
             </button>
+            {capabilities?.phone_otp && (
             <button type="button"
               onClick={() => { setTab("otp"); showFeedback(""); setForgot(false); }}
               className={`flex-1 py-2.5 text-xs sm:text-sm font-bold rounded-xl transition-all ${
@@ -238,6 +268,7 @@ export default function LoginPage() {
             >
               📱 {te ? "OTP లాగిన్" : "Mobile OTP"}
             </button>
+            )}
           </div>
 
           {/* FORGOT PASSWORD VIEW */}
@@ -246,7 +277,7 @@ export default function LoginPage() {
               <div className="flex items-center justify-between pb-2 border-b border-slate-100">
                 <span className="text-xs font-bold text-maroon flex items-center gap-1.5">
                   <span>🔄</span>
-                  {te ? "పాస్‌వర్డ్ రీసెట్ (OTP ద్వారా)" : "Reset Password via OTP"}
+                  {te ? "ధృవీకరించిన ఈమెయిల్‌తో రికవరీ" : "Recover with verified email"}
                 </span>
                 <button type="button"
                   onClick={() => { setForgot(false); setFStage("phone"); showFeedback(""); }}
@@ -258,24 +289,24 @@ export default function LoginPage() {
 
               <div>
                 <label htmlFor="f-phone" className="block text-xs font-bold text-slate-700 mb-1">
-                  {phone.includes("@")
-                    ? (te ? "📧 రిజిస్టర్డ్ ఈమెయిల్" : "📧 Registered Email")
+                  {(!capabilities?.phone_otp || phone.includes("@"))
+                    ? (te ? "📧 ముందే ధృవీకరించిన ఈమెయిల్" : "📧 Previously verified email")
                     : (te ? "📞 రిజిస్టర్డ్ మొబైల్ నంబర్" : "📞 Registered Mobile Number")}
                 </label>
                 <div className="relative flex items-center">
-                  {!phone.includes("@") && (
+                  {capabilities?.phone_otp && !phone.includes("@") && (
                     <span className="absolute left-3.5 text-xs font-bold text-slate-400 select-none">+91</span>
                   )}
                   <input
                     id="f-phone"
                     inputMode={forgot ? "text" : "numeric"}
-                    autoComplete={phone.includes("@") ? "email" : "tel"}
+                    autoComplete={!capabilities?.phone_otp || phone.includes("@") ? "email" : "tel"}
                     value={phone}
                     maxLength={forgot ? 100 : 10}
                     disabled={fStage === "reset"}
                     onChange={(e) => setPhone(forgot ? e.target.value : e.target.value.replace(/\D/g, "").slice(0, 10))}
-                    placeholder={te ? "నమోదు చేసిన మొబైల్ నంబర్ లేదా ఈమెయిల్" : "Registered mobile number or email"}
-                    className={`w-full ${phone.includes("@") ? "pl-4" : "pl-12"} pr-4 py-3 rounded-xl border border-slate-200 text-base font-semibold focus:border-maroon focus:ring-1 focus:ring-maroon outline-none disabled:bg-slate-50`}
+                    placeholder={te ? "ముందే ధృవీకరించిన ఈమెయిల్" : "Previously verified email"}
+                    className={`w-full ${!capabilities?.phone_otp || phone.includes("@") ? "pl-4" : "pl-12"} pr-4 py-3 rounded-xl border border-slate-200 text-base font-semibold focus:border-maroon focus:ring-1 focus:ring-maroon outline-none disabled:bg-slate-50`}
                   />
                 </div>
               </div>
@@ -299,7 +330,7 @@ export default function LoginPage() {
 
                   <div>
                     <label htmlFor="f-newpw" className="block text-xs font-bold text-slate-700 mb-1">
-                      🔑 {te ? "కొత్త పాస్‌వర్డ్ (కనీసం 6 అక్షరాలు)" : "New Password (min 6 chars)"}
+                      🔑 {te ? "కొత్త పాస్‌వర్డ్ (8-72 అక్షరాలు)" : "New Password (8-72 chars)"}
                     </label>
                     <div className="relative">
                       <input
@@ -355,7 +386,7 @@ export default function LoginPage() {
               {fStage === "phone" ? (
                 <button type="button"
                   onClick={onForgotSend}
-                  disabled={busy}
+                  disabled={busy || (!capabilities?.email_recovery_configured && !capabilities?.phone_otp)}
                   className="w-full py-3.5 rounded-2xl maroon-gradient text-white font-bold text-sm shadow-md hover-lift disabled:opacity-50"
                 >
                   {busy ? (te ? "OTP పంపుతున్నారు…" : "Sending OTP…") : te ? "📩 రీసెట్ OTP పంపు" : "📩 Send Reset OTP"}
@@ -374,7 +405,7 @@ export default function LoginPage() {
                       onClick={() => setFStage("phone")}
                       className="text-slate-600 hover:text-maroon underline"
                     >
-                      {te ? "మొబైల్ మార్చండి" : "Change Mobile"}
+                      {te ? "ఈమెయిల్ మార్చండి" : "Change email"}
                     </button>
                     {countdown > 0 ? (
                       <span>{te ? `${countdown}s లో రీసెండ్ చేయవచ్చు` : `Resend in ${countdown}s`}</span>
@@ -414,7 +445,7 @@ export default function LoginPage() {
                         else void onVerify();
                       }
                     }}
-                    placeholder={te ? "నమోదు చేసిన మొబైల్ నంబర్ లేదా ఈమెయిల్" : "Registered mobile number or email"}
+                    placeholder={te ? "నమోదు చేసిన మొబైల్ నంబర్" : "Registered mobile number"}
                     className="w-full pl-12 pr-4 py-3 rounded-xl border border-slate-200 text-base font-semibold focus:border-maroon focus:ring-1 focus:ring-maroon outline-none disabled:bg-slate-50"
                   />
                 </div>
@@ -431,6 +462,7 @@ export default function LoginPage() {
                       type="button"
                       onClick={() => {
                         setForgot(true);
+                        if (!capabilities?.phone_otp) setPhone("");
                         setFStage("phone");
                         setCode("");
                         showFeedback("");
@@ -568,7 +600,7 @@ export default function LoginPage() {
 
 
           <div className="mt-4 pt-4 border-t border-slate-100 text-center">
-            <p className="text-xs text-slate-500 mb-3">{te ? "లేదా పాస్‌వర్డ్ లేకుండా లాగిన్ అవ్వండి" : "Or sign in without a password"}</p>
+            <p className="text-xs text-slate-500 mb-3">{te ? "ముందే సెటప్ చేసిన Passkey ఉన్నవారికి" : "For members who already set up a passkey"}</p>
             <button type="button"
               onClick={async () => {
                 setBusy(true);
@@ -582,11 +614,12 @@ export default function LoginPage() {
                   showFeedback(res.message || "❌ Failed", "err");
                 }
               }}
-              disabled={busy}
+              disabled={busy || !capabilities?.passkeys_configured}
               className="w-full py-3 rounded-2xl bg-slate-800 text-white font-bold text-sm shadow-sm hover:bg-slate-700 disabled:opacity-50 flex items-center justify-center gap-2"
             >
               <span>🔑</span> {te ? "Passkey తో లాగిన్ (వేలిముద్ర / ఫేస్ లాక్)" : "Sign in with Passkey"}
             </button>
+            {!capabilities?.passkeys_configured && <p className="mt-2 text-xs text-slate-500">{te ? "Passkey లాగిన్ ప్రస్తుతం అందుబాటులో లేదు." : "Passkey sign-in is not available right now."}</p>}
           </div>
 
         {/* Register Free CTA Footer */}
@@ -611,4 +644,4 @@ export default function LoginPage() {
       </div>
     </div>
   );
-}
+  }
