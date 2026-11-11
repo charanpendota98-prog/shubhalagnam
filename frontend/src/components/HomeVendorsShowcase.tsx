@@ -11,7 +11,7 @@ import Link from "next/link";
 import { useLang } from "@/lib/lang";
 import { WhatsAppIcon } from "@/components/BrandIcons";
 import { safeWhatsAppPhoneLink } from "@/lib/wa";
-import { Button, EmptyState } from "@/components/ui";
+import { Button, PillScroller } from "@/components/ui";
 import { CardSkeletonList } from "@/components/Skeletons";
 
 type Vendor = {
@@ -134,41 +134,53 @@ export default function HomeVendorsShowcase() {
           </div>
         </div>
 
-        {/* Category Filters */}
-        <div role="group" aria-label={te ? "వెండర్ category filters" : "Vendor category filters"}
-          tabIndex={0}
-          className="flex items-center gap-2 overflow-x-auto py-3 scrollbar-hide focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7A0C2E] focus-visible:ring-offset-2">
+        {/* Category Filters — one-line pills on a horizontally scrollable rail.
+            The rail (PillScroller) keeps every chip at its natural width and
+            shows an edge fade on whichever side still has more categories. */}
+        <PillScroller
+          label={te ? "వెండర్ category filters" : "Vendor category filters"}
+          className="py-3"
+          fadeFrom="var(--ds-surface-sunken)"
+        >
           {CATEGORY_CHIPS.map((c) => (
             <button
               key={c.key}
               type="button"
               aria-pressed={activeCat === c.key}
               onClick={() => setActiveCat(c.key)}
-              className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition whitespace-nowrap flex items-center gap-1.5 ${
-                activeCat === c.key
-                  ? "maroon-gradient text-white shadow-soft"
-                  : "bg-white text-gray-700 hover:bg-amber-50 border border-gold/30"
-              }`}
+              className={`pill whitespace-nowrap ${activeCat === c.key ? "pill--on" : "pill--quiet"}`}
             >
-              <span>{c.icon}</span>
+              <span aria-hidden="true">{c.icon}</span>
               <span>{te ? c.label_te : c.label_en}</span>
             </button>
           ))}
-        </div>
+        </PillScroller>
 
         {/* Vendors Grid */}
         {loading ? <CardSkeletonList n={3} />
           : filteredVendors.length === 0 ? (
-            <EmptyState
-              icon="🏪"
-              title={te ? "ప్రస్తుతం listing ఏదీ లేదు" : "No vendor listings right now"}
-              description={te ? "డైరెక్టరీని చూడండి లేదా మీ business జోడించండి." : "View the full directory, or add your own business."}
-              action={
-                <Button href="/vendors" variant="outline">
-                  {te ? "అన్ని సేవలు చూడండి" : "View all services"}
-                </Button>
-              }
-            />
+            /* Honest empty state: nothing is listed for this filter yet, and we
+               say exactly that instead of inventing vendor cards. The artwork
+               is drawn here, not a stock photo. */
+            <div className="mv-empty mt-2" role="status">
+              <svg className="mv-empty__art" width="74" height="74" viewBox="0 0 96 96" fill="none" aria-hidden="true">
+                <path d="M16 40h64l-6-14H22l-6 14Z" stroke="currentColor" strokeWidth="2.2" strokeLinejoin="round" />
+                <path d="M20 40v34h56V40" stroke="currentColor" strokeWidth="2.2" strokeLinejoin="round" />
+                <path d="M40 74V54h16v20" stroke="currentColor" strokeWidth="2" />
+                <path d="M16 40c0 4 3.6 7 8 7s8-3 8-7M32 40c0 4 3.6 7 8 7s8-3 8-7M48 40c0 4 3.6 7 8 7s8-3 8-7M64 40c0 4 3.6 7 8 7s8-3 8-7" stroke="currentColor" strokeWidth="1.4" opacity="0.55" />
+                <circle cx="48" cy="18" r="2.6" fill="#D4AF37" />
+              </svg>
+              <p className="ds-empty__title">{te ? "ఈ ఫిల్టర్‌కు ఇంకా listing ఏదీ లేదు" : "No listings for this filter yet"}</p>
+              <p className="ds-empty__text">
+                {te
+                  ? "వెండర్లు సమర్పించిన listings మాత్రమే ఇక్కడ కనిపిస్తాయి. మొత్తం డైరెక్టరీని చూడండి లేదా మీ వ్యాపారాన్ని జోడించండి."
+                  : "Only vendor-submitted listings appear here. View the whole directory, or add your own business."}
+              </p>
+              <div className="flex flex-wrap justify-center gap-2 pt-1">
+                <Button href="/vendors" variant="outline">{te ? "అన్ని సేవలు చూడండి" : "View all services"}</Button>
+                <Button href="/vendors/register" variant="light">{te ? "మీ business జోడించండి" : "Add your business"}</Button>
+              </div>
+            </div>
           )
           : <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-2">
           {filteredVendors.map((v) => {

@@ -75,12 +75,14 @@ class CopyTruthTests(unittest.TestCase):
         hero = (ROOT / "frontend/src/components/CinematicHero.tsx").read_text(encoding="utf-8")
         spotlight = (ROOT / "frontend/src/components/ProfilesOfTheDay.tsx").read_text(encoding="utf-8")
         growth = (ROOT / "frontend/src/components/HomeGrowth.tsx").read_text(encoding="utf-8")
-        self.assertNotIn("member-submitted details", hero)
+        # The hero is a search-first stage now: one lead line, one price line and
+        # three one-line facts. Long qualification sentences ("do not guarantee
+        # identity") belong to the FAQ/safety pages, not above the fold. The one
+        # qualification the hero MUST keep is the illustrative-artwork notice:
+        # the CSS/SVG artwork is not a photograph of any member.
         self.assertNotIn("do not guarantee identity", hero)
-        # The hero stays concise, but the one line it must keep is the
-        # illustrative-imagery disclaimer: the film and poster are not
-        # photographs of members, so saying so is required, not clutter.
-        self.assertIn("Illustrative visuals only", hero)
+        self.assertIn("Background artwork is illustrative only", hero)
+        self.assertIn("సభ్యుల ప్రొఫైల్ ఫోటోలు కావు", hero)
         self.assertIn("member-submitted", spotlight)
         self.assertIn("does not independently verify", spotlight)
         self.assertIn("Member-submitted previews", growth)

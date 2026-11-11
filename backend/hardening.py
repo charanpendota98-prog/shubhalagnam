@@ -708,7 +708,7 @@ def require_owner(request: Request, tsap_id: str) -> None:
         return
     ABUSE["auth_denied"] += 1
     abuse_log("auth_denied", request.url.path if request else "?", {"has_token": bool(ident)})
-    raise HTTPException(401, "🔒 మీ account కి login చెయ్యండి (OTP) — token lekapote ee data chudaleru")
+    raise HTTPException(401, "🔒 మీ account కి login చెయ్యండి — ఫోన్ నంబర్ మరియు పాస్‌వర్డ్ (OTP ఉపయోగించబడదు). Token లేకపోతే ఈ data చూడలేరు.")
 
 
 def require_admin(request: Request, staff_ok: bool = False) -> str:

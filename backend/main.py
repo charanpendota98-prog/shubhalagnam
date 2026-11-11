@@ -7453,11 +7453,11 @@ def auth_login_password(payload: dict, response: Response = None):
     if len(phone) != 10 or not pw:
         raise HTTPException(400, "10-digit number + password ఇవ్వండి")
     if _pw_locked(phone):
-        raise HTTPException(429, "🔒 5 sarlu tappu — 15 నిమిషాల్లో మళ్లీ try చెయ్యండి (leda OTP తో login)")
+        raise HTTPException(429, "🔒 5 సార్లు తప్పు — 15 నిమిషాల తర్వాత మళ్లీ ప్రయత్నించండి, లేదా ధృవీకరించిన ఈమెయిల్‌తో పాస్‌వర్డ్ రీసెట్ చేయండి. (ఫోన్ OTP అందుబాటులో లేదు.)")
     u = next((x for x in DB_USERS if x.get("phone") == phone), None)
     if not u or not u.get("password_hash") or not _check_password(pw, u["password_hash"]):
         left = 5 - _pw_fail(phone)
-        raise HTTPException(401, f"❌ Number/Password tappu (migilindi: {max(left, 0)} tries) — leda OTP తో login చెయ్యండి")
+        raise HTTPException(401, f"❌ నంబర్ లేదా పాస్‌వర్డ్ తప్పు (మిగిలిన ప్రయత్నాలు: {max(left, 0)}). పాస్‌వర్డ్ మర్చిపోతే ధృవీకరించిన ఈమెయిల్‌తో రీసెట్ చేయండి; ఫోన్ OTP అందుబాటులో లేదు.")
     with _PW_LOCK:
         PW_LOCKS.pop(phone, None)
     auth_token = sign_token(u["tsap_id"])

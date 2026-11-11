@@ -8,6 +8,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import TrustBadge from "@/components/TrustBadge";
+import { PillScroller } from "@/components/ui";
 import Link from "next/link";
 import Image from "next/image";
 import AuthGate from "@/components/AuthGate";
@@ -126,25 +127,28 @@ export default function MePage() {
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-6">
-      <div className="flex items-center justify-between border-b border-gold/30 pb-3">
-        <div>
-          <h1 className="text-2xl font-black text-[#7A0C2E]">
+      {/* Header: on phones the actions drop to their own row and wrap, so each
+          pill keeps its natural width instead of being crushed into a circle. */}
+      <div className="flex flex-col gap-2 border-b border-gold/30 pb-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <h1 className="text-xl font-black leading-snug text-[#7A0C2E] sm:text-2xl">
             <Duo en="🙋 My Account & Partner Preferences" te="🙋 నా ప్రొఫైల్ & కోరుకునే సంబంధం" />
           </h1>
-          {myId && <p className="font-mono text-xs font-bold text-slate-500 mt-0.5">ID: {myId}</p>}
+          {myId && <p className="mt-0.5 font-mono text-xs font-bold text-slate-500">ID: {myId}</p>}
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 sm:justify-end">
           <button type="button"
             onClick={() => setShowDeleteModal(true)}
-            className="px-3 py-1.5 rounded-full border border-slate-200 hover:border-rose-300 bg-white hover:bg-rose-50 text-slate-600 hover:text-rose-700 text-xs font-bold transition flex items-center gap-1 shadow-xs min-h-11"
+            className="pill pill--quiet min-h-11 whitespace-nowrap px-3.5 text-xs"
             title={te ? "వివాహం కుదిరింది / ప్రొఫైల్‌ను పబ్లిక్ శోధన నుంచి దాచండి" : "Mark as married or hide the profile from public search"}
           >
-            <span>💍</span>
-            <span>{te ? "వివాహం కుదిరింది / ప్రొఫైల్‌ను దాచు" : "Hide profile"}</span>
+            <span aria-hidden="true">💍</span>
+            <span>{te ? "ప్రొఫైల్ దాచు" : "Hide profile"}</span>
           </button>
-          <Link href="/referral" className="px-3.5 py-1.5 rounded-full gold-gradient text-maroon text-xs font-black shadow-xs hover:brightness-105 transition">
-            {te ? "🤝 రెఫరల్ & ₹50 రివార్డ్" : "🤝 Referrals & ₹50 reward"}
+          <Link href="/referral" className="pill pill--on-gold min-h-11 whitespace-nowrap px-3.5 text-xs font-black">
+            <span aria-hidden="true">🤝</span>
+            <span>{te ? "రెఫరల్ & ₹50" : "Referrals & ₹50"}</span>
           </Link>
         </div>
       </div>
@@ -166,21 +170,27 @@ export default function MePage() {
             <MemberActivity tsapId={myId} />
           </div>
 
-          <div className="mt-4 flex gap-2 overflow-x-auto pb-1 no-scrollbar">
+          {/* Account tab rail: every tab label stays on ONE line and the row
+              scrolls sideways. `PillScroller` handles natural pill widths,
+              edge fades, and arrow-key movement between tabs. */}
+          <PillScroller
+            label={te ? "అకౌంట్ విభాగాలు" : "Account sections"}
+            className="mt-4"
+            as="nav"
+          >
             {TABS.map(([v, en, t]) => (
               <button type="button"
                 key={v}
                 onClick={() => setTab(v)}
-                className={`whitespace-nowrap rounded-full px-4 py-2 text-xs font-bold transition ${
-                  tab === v ? "maroon-gradient text-white shadow-sm" : "border border-slate-200 bg-white text-slate-700 hover:bg-amber-50"
-                }`}
+                aria-current={tab === v ? "page" : undefined}
+                className={`pill whitespace-nowrap ${tab === v ? "pill--on" : "pill--quiet"}`}
               >
                 {te ? t : en}
               </button>
             ))}
-          </div>
+          </PillScroller>
 
-          <div className="mt-5">
+          <div className="mt-5 mv-panel" key={tab}>
             {tab === "preferences" && <PartnerPreferencesPanel myId={myId} />}
             {tab === "edit" && <EditProfilePanel myId={myId} />}
             {tab === "streak" && <StreakPanel myId={myId} />}
@@ -209,7 +219,12 @@ export default function MePage() {
         </>
       ) : (
         <div className="mt-6">
-          <AuthGate note={te ? "మీ ప్రొఫైల్ వివరాలు ఎడిట్ చేసుకోవడానికి లేదా చూడటానికి లాగిన్ అవ్వండి." : "Please login to view or edit your profile."} />
+          <AuthGate
+            title={te ? "🔒 మీ ప్రొఫైల్ చూడటానికి లాగిన్ అవ్వండి" : "🔒 Login to view your profile"}
+            note={te
+              ? "మీ ప్రొఫైల్ వివరాలు చూడటానికి లేదా ఎడిట్ చేయడానికి ఫోన్ నంబర్ మరియు పాస్‌వర్డ్‌తో లాగిన్ అవ్వండి — ఈ లాగిన్‌కు SMS/WhatsApp OTP ఉపయోగించబడదు."
+              : "Sign in with your phone number and password to view or edit your profile — no SMS/WhatsApp OTP is required."}
+          />
         </div>
       )}
 

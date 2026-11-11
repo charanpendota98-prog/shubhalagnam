@@ -303,9 +303,12 @@ hero_src = src_page("frontend/src/components/CinematicHero.tsx")
 check("N8.1 homepage has no simulated notification/profile-card preview",
       "notification preview" not in home_src.lower()
       and "illustrative profile-card preview" not in home_src.lower())
-check("N8.2 cinematic hero labels its decorative imagery as non-member photos",
-      "Illustrative visuals only—not member profile photos." in hero_src
+check("N8.2 cinematic hero labels its decorative artwork as non-member art",
+      "Background artwork is illustrative only" in hero_src
       and "సభ్యుల ప్రొఫైల్ ఫోటోలు కావు" in hero_src)
+check("N8.4 cinematic hero ships no video or stock photo bytes",
+      ".mp4" not in hero_src and "<video" not in hero_src
+      and "/promo/" not in hero_src and "mv-hero__stage" in hero_src)
 check("N8.3 no No.1 claims", "No.1" not in home_src
       and "No.1" not in src_page("frontend/src/app/layout.tsx")
       and "No.1" not in footer_src)

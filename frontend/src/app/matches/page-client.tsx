@@ -59,6 +59,7 @@ import { useLang } from "@/lib/lang";
 import DistrictAdBanner from "@/components/DistrictAdBanner";
 import QuickUnlockModal from "@/components/QuickUnlockModal";
 import WhatsAppProposalModal from "@/components/WhatsAppProposalModal";
+import { PillScroller } from "@/components/ui";
 
 type Row = Record<string, any>;
 type SaveNotice = { tone: "success" | "error"; text: string; needsLogin?: boolean; canRetry?: boolean; showShortlist?: boolean };
@@ -1193,12 +1194,13 @@ export default function MatchesPage() {
     <div className="min-h-dvh bg-[#FAF7F2] pb-24 sm:pb-28">
       {/* ---------- Sticky Top Quick-Pill Bar ---------- */}
       <div className="sticky top-16 z-30 bg-white/95 backdrop-blur-md border-b border-gold/25 shadow-xs">
-        <div className="max-w-7xl mx-auto px-4 py-2.5">
-          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1">
+        <div className="max-w-7xl mx-auto px-4 py-2">
+          {/* Quick preset rail — one line of pills, scrolls sideways. */}
+          <PillScroller label={te ? "త్వరిత ఫిల్టర్లు" : "Quick filters"} fadeFrom="var(--ds-surface)">
             {/* Quick Presets */}
             <button type="button"
               onClick={() => setF("verified_only", !filters.verified_only)}
-              className={`px-3 py-1.5 rounded-full text-xs font-bold shrink-0 transition flex items-center gap-1 border ${
+              className={`pill min-h-11 whitespace-nowrap px-3.5 text-xs font-bold transition flex items-center gap-1.5 border ${
                 filters.verified_only ? "bg-emerald-600 text-white border-emerald-600 shadow-xs" : "bg-white text-slate-700 border-slate-200 hover:border-emerald-600"
               }`}
             >
@@ -1208,7 +1210,7 @@ export default function MatchesPage() {
 
             <button type="button"
               onClick={() => setF("photo_only", !filters.photo_only)}
-              className={`px-3 py-1.5 rounded-full text-xs font-bold shrink-0 transition flex items-center gap-1 border ${
+              className={`pill min-h-11 whitespace-nowrap px-3.5 text-xs font-bold transition flex items-center gap-1.5 border ${
                 filters.photo_only ? "bg-amber-500 text-white border-amber-500 shadow-xs" : "bg-white text-slate-700 border-slate-200 hover:border-amber-500"
               }`}
             >
@@ -1219,7 +1221,7 @@ export default function MatchesPage() {
             <button type="button"
               onClick={applySavedPreferences}
               disabled={prefLoading}
-              className={`px-3.5 py-1.5 rounded-full text-xs font-black shrink-0 transition flex items-center gap-1.5 ${
+              className={`pill min-h-11 whitespace-nowrap px-3.5 text-xs font-black transition flex items-center gap-1.5 ${
                 prefApplied
                   ? "bg-emerald-600 text-white shadow-xs"
                   : "bg-gradient-to-r from-amber-500 to-rose-600 text-white shadow-xs hover:brightness-105"
@@ -1231,7 +1233,7 @@ export default function MatchesPage() {
 
             <button type="button"
               onClick={() => setF("gender", filters.gender === "Bride" ? "" : "Bride")}
-              className={`px-3 py-1.5 rounded-full text-xs font-bold shrink-0 transition flex items-center gap-1 border ${
+              className={`pill min-h-11 whitespace-nowrap px-3.5 text-xs font-bold transition flex items-center gap-1.5 border ${
                 filters.gender === "Bride" ? "bg-rose-700 text-white border-rose-700 shadow-xs" : "bg-white text-slate-700 border-slate-200 hover:border-rose-700"
               }`}
             >
@@ -1241,7 +1243,7 @@ export default function MatchesPage() {
 
             <button type="button"
               onClick={() => setF("gender", filters.gender === "Groom" ? "" : "Groom")}
-              className={`px-3 py-1.5 rounded-full text-xs font-bold shrink-0 transition flex items-center gap-1 border ${
+              className={`pill min-h-11 whitespace-nowrap px-3.5 text-xs font-bold transition flex items-center gap-1.5 border ${
                 filters.gender === "Groom" ? "bg-indigo-700 text-white border-indigo-700 shadow-xs" : "bg-white text-slate-700 border-slate-200 hover:border-indigo-700"
               }`}
             >
@@ -1251,7 +1253,7 @@ export default function MatchesPage() {
 
             <button type="button"
               onClick={() => setF("marital_status", isMaritalFilterOptionSelected(filters.marital_status, "Pelli Kaledu") ? "" : "Pelli Kaledu")}
-              className={`px-3 py-1.5 rounded-full text-xs font-bold shrink-0 transition border ${
+              className={`pill min-h-11 whitespace-nowrap px-3.5 text-xs font-bold transition border ${
                 isMaritalFilterOptionSelected(filters.marital_status, "Pelli Kaledu") ? "bg-maroon text-white border-maroon shadow-xs" : "bg-white text-slate-700 border-slate-200 hover:border-maroon"
               }`}
             >
@@ -1260,7 +1262,7 @@ export default function MatchesPage() {
 
             <button type="button"
               onClick={() => setF("marital_status", filters.marital_status === "Divorced" ? "" : "Divorced")}
-              className={`px-3 py-1.5 rounded-full text-xs font-bold shrink-0 transition border ${
+              className={`pill min-h-11 whitespace-nowrap px-3.5 text-xs font-bold transition border ${
                 filters.marital_status === "Divorced" ? "bg-rose-700 text-white border-rose-700 shadow-xs" : "bg-white text-slate-700 border-slate-200 hover:border-rose-700"
               }`}
             >
@@ -1270,7 +1272,7 @@ export default function MatchesPage() {
             {!isGroomGender(filters.gender) && (
               <button type="button"
                 onClick={() => toggleMulti("job", "Housewife / Homemaker (గృహిణి)")}
-                className={`px-3 py-1.5 rounded-full text-xs font-bold shrink-0 transition flex items-center gap-1 border ${
+                className={`pill min-h-11 whitespace-nowrap px-3.5 text-xs font-bold transition flex items-center gap-1.5 border ${
                   isMultiSelected("job", "Housewife / Homemaker (గృహిణి)")
                     ? "bg-rose-700 text-white border-rose-700 shadow-xs"
                     : "bg-white text-slate-700 border-slate-200 hover:border-rose-700"
@@ -1283,7 +1285,7 @@ export default function MatchesPage() {
 
             <button type="button"
               onClick={() => toggleMulti("job", "Software / IT / Tech")}
-              className={`px-3 py-1.5 rounded-full text-xs font-bold shrink-0 transition border ${
+              className={`pill min-h-11 whitespace-nowrap px-3.5 text-xs font-bold transition border ${
                 isMultiSelected("job", "Software / IT / Tech") ? "bg-navy text-white border-navy shadow-xs" : "bg-white text-slate-700 border-slate-200 hover:border-navy"
               }`}
             >
@@ -1292,7 +1294,7 @@ export default function MatchesPage() {
 
             <button type="button"
               onClick={() => toggleMulti("job", "Govt / PSU")}
-              className={`px-3 py-1.5 rounded-full text-xs font-bold shrink-0 transition border ${
+              className={`pill min-h-11 whitespace-nowrap px-3.5 text-xs font-bold transition border ${
                 isMultiSelected("job", "Govt / PSU") ? "bg-maroon text-white border-maroon shadow-xs" : "bg-white text-slate-700 border-slate-200 hover:border-maroon"
               }`}
             >
@@ -1301,7 +1303,7 @@ export default function MatchesPage() {
 
             <button type="button"
               onClick={() => setF("state", filters.state === "TS" ? "" : "TS")}
-              className={`px-3 py-1.5 rounded-full text-xs font-bold shrink-0 transition border ${
+              className={`pill min-h-11 whitespace-nowrap px-3.5 text-xs font-bold transition border ${
                 filters.state === "TS" ? "bg-maroon text-white border-maroon shadow-xs" : "bg-white text-slate-700 border-slate-200"
               }`}
             >
@@ -1310,7 +1312,7 @@ export default function MatchesPage() {
 
             <button type="button"
               onClick={() => setF("state", filters.state === "AP" ? "" : "AP")}
-              className={`px-3 py-1.5 rounded-full text-xs font-bold shrink-0 transition border ${
+              className={`pill min-h-11 whitespace-nowrap px-3.5 text-xs font-bold transition border ${
                 filters.state === "AP" ? "bg-maroon text-white border-maroon shadow-xs" : "bg-white text-slate-700 border-slate-200"
               }`}
             >
@@ -1319,7 +1321,7 @@ export default function MatchesPage() {
 
             <button type="button"
               onClick={() => setF("nri_only", !filters.nri_only)}
-              className={`px-3 py-1.5 rounded-full text-xs font-bold shrink-0 transition border ${
+              className={`pill min-h-11 whitespace-nowrap px-3.5 text-xs font-bold transition border ${
                 filters.nri_only ? "bg-indigo-700 text-white border-indigo-700 shadow-xs" : "bg-white text-slate-700 border-slate-200"
               }`}
             >
@@ -1327,11 +1329,11 @@ export default function MatchesPage() {
             </button>
 
             {activeChips.length > 0 && (
-              <button type="button" onClick={clearAllFilters} className="px-3 py-1.5 rounded-full text-xs font-bold shrink-0 text-rose-600 bg-rose-50 border border-rose-200 hover:bg-rose-100 transition min-h-11">
-                ✕ Clear All
+              <button type="button" onClick={clearAllFilters} className="pill min-h-11 whitespace-nowrap border border-rose-200 bg-rose-50 px-3.5 text-xs font-bold text-rose-600 transition hover:bg-rose-100">
+                ✕ {te ? "అన్నీ తీసేయండి" : "Clear all"}
               </button>
             )}
-          </div>
+          </PillScroller>
         </div>
       </div>
 

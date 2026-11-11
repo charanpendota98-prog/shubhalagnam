@@ -396,7 +396,7 @@ export default function ProfileView() {
 
       {!loading && !err && data ? (
         <>
-          <section className="mt-4 rounded-3xl border border-rose-200 bg-white p-5">
+          <section className="mv-card mt-4 rounded-3xl border border-rose-200 bg-white p-5 shadow-[0_18px_44px_-30px_rgba(122,12,46,.45)]">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <h1 className="text-2xl font-extrabold text-[#7A0C2E]">{myTsapId && profile.tsap_id === myTsapId ? (profile.full_name || (te ? "ప్రొఫైల్" : "Profile")) : firstName(profile.full_name)}</h1>
@@ -531,7 +531,7 @@ export default function ProfileView() {
           ) : null}
 
           {/* 🔒 Contact access is gated by profile-owner acceptance */}
-          <section className="mt-4 rounded-3xl border-2 border-rose-300 bg-rose-50 p-5">
+          <section className="mv-card mt-4 rounded-3xl border-2 border-rose-200 bg-gradient-to-b from-rose-50 to-white p-5">
             <h2 className="text-lg font-extrabold text-[#7A0C2E]">
               🔒 {te ? "ఫోన్ నంబర్ — •••••••••• (గోప్యతా రక్షణలో ఉంది)" : "Phone Number — •••••••••• (Protected & Locked)"}
             </h2>
@@ -540,10 +540,19 @@ export default function ProfileView() {
                 ? "🔒 Public profile/search లో phone number చూపించము. Owner accept చేసిన తర్వాత accepted-request account views లో contact details కనిపిస్తాయి; configured WhatsApp notification లో కూడా ఉండవచ్చు. Queue/send status delivery/read confirmation కాదు."
                 : "🔒 Phone numbers are not shown in public profile/search. After owner acceptance, contact details appear in accepted-request account views and may also be included in a configured WhatsApp notification. Queue/send status does not confirm delivery or reading."}
             </p>
-            <ol className="mt-3 space-y-1.5 text-[13px] text-rose-900 font-medium">
-              <li>1️⃣ {te ? "Interest పంపండి (మొదటి 3 అభ్యర్థనలు ఉచితం - FREE)" : "Send Interest (First 3 requests FREE)"}</li>
-              <li>2️⃣ {te ? "Owner accept చేసిన తర్వాత contact details account views లో కనిపిస్తాయి" : "Contact details appear in account views after owner acceptance"}</li>
-              <li>3️⃣ {te ? "Decline credit return మీ account policy ప్రకారం ఉంటుంది" : "Any decline credit return follows your account policy"}</li>
+            {/* Three-step request flow — the same three facts the FAQ states,
+                drawn as a connected track so the next action is obvious. */}
+            <ol className="mv-flow mt-4">
+              {[
+                te ? "Interest పంపండి — మొదటి 3 అభ్యర్థనలు ఉచితం" : "Send an interest — the first 3 requests are free",
+                te ? "Profile owner సమీక్షించి accept లేదా decline చేస్తారు" : "The profile owner reviews and accepts or declines",
+                te ? "Accept తర్వాతే contact వివరాలు మీ account views లో" : "Contact details appear in your account only after acceptance",
+              ].map((line, index) => (
+                <li key={line} className="mv-flow__step" data-on={index === 0 ? "true" : undefined}>
+                  <span className="mv-flow__dot" aria-hidden="true">{index + 1}</span>
+                  <span className={te ? "telugu" : ""}>{line}</span>
+                </li>
+              ))}
             </ol>
             {unlocked ? (
               <div className="mt-4 rounded-2xl bg-emerald-600 p-4 text-center text-white">
@@ -557,11 +566,11 @@ export default function ProfileView() {
             ) : null}
             <div className="mt-4 flex flex-wrap gap-2">
               <button type="button" onClick={() => void sendInterest()} disabled={sending}
-                className="rounded-xl bg-[#7A0C2E] px-4 py-2.5 text-sm font-bold text-white disabled:opacity-60">
+                className="mv-sheen min-h-12 rounded-xl bg-[#7A0C2E] px-5 py-2.5 text-sm font-bold text-white shadow-sm transition hover:brightness-110 disabled:opacity-60">
                 {sending ? (te ? "పంపిస్తున్నాం…" : "Sending…") : te ? "💌 Interest పంపండి (FREE 3)" : "💌 Send interest (FREE 3)"}
               </button>
               <button type="button" onClick={() => void sendInterest("traditional")} disabled={sending}
-                className="rounded-xl border border-[#7A0C2E] px-4 py-2.5 text-sm font-bold text-[#7A0C2E]">
+                className="min-h-12 rounded-xl border border-[#7A0C2E] px-5 py-2.5 text-sm font-bold text-[#7A0C2E] transition hover:bg-rose-50">
                 {te ? "🙏 Template తో పంపు" : "🙏 Send with template"}
               </button>
               {unlocked ? (

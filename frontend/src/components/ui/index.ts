@@ -13,3 +13,4 @@ export type { BadgeTone } from "./Badge";
 export { default as Field } from "./Field";
 export type { FieldRenderProps } from "./Field";
 export { default as EmptyState } from "./EmptyState";
+export { default as PillScroller } from "./PillScroller";
