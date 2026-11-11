@@ -126,7 +126,8 @@ export default function SiteFooter() {
               <div key={txt} className="flex items-start gap-1.5">
                 <CheckCircle2 className="w-3.5 h-3.5 mt-0.5 shrink-0 text-emerald-400" strokeWidth={2.25} aria-hidden="true" />
                 <span>{txt}</span>
-              </div>            ))}
+              </div>
+            ))}
           </div>
           <div className="mt-4 text-xs opacity-75">
             <div><Link href="/channels" className="underline underline-offset-2">{te ? "Configured channel listings" : "Configured channel listings"}</Link></div>

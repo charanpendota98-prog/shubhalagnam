@@ -111,7 +111,8 @@ _WA_PAIRING_LOCK = threading.RLock()
 _WA_PAIRING_COOLDOWN_SECONDS = max(30, int(os.getenv("WA_PAIRING_COOLDOWN_SECONDS", "60")))
 
 
-def _is_production_environment() -> bool:    return str(os.getenv("APP_ENV", "")).strip().lower() in _PRODUCTION_ENV_NAMES
+def _is_production_environment() -> bool:
+    return str(os.getenv("APP_ENV", "")).strip().lower() in _PRODUCTION_ENV_NAMES
 
 
 def _set_member_session_cookie(response: Response, token: str) -> None:
@@ -205,7 +206,8 @@ def _production_storage_paths() -> list:
         ("ad campaigns", ADS.PERSIST_FILE, False),
         ("astrology records", AST.PERSIST_FILE, False),
         ("CMS content", CMS.PERSIST_FILE, False),
-        ("channel overrides", CHAN.PERSIST_FILE, False),        ("consent ledger", QUALITY.CONSENT_STATE_FILE, False),
+        ("channel overrides", CHAN.PERSIST_FILE, False),
+        ("consent ledger", QUALITY.CONSENT_STATE_FILE, False),
         ("saved searches", QUALITY.SAVED_STATE_FILE, False),
         ("stories", A11.STORIES_FILE, False),
         ("push subscriptions", A11.PUSH_FILE, False),
@@ -256,7 +258,8 @@ def _startup_quarantine(reason: str, records: Dict) -> str:
     recover records after the fact. The default location is OUTSIDE the repo
     (which is public and could be committed accidentally), under the process
     user's home with owner-only permissions. Returns "" on failure - callers
-    MUST treat that as "cannot clean up safely" and defer, never drop anyway.    """
+    MUST treat that as "cannot clean up safely" and defer, never drop anyway.
+    """
     try:
         qdir = os.getenv("MANA_VIVAHA_QUARANTINE_DIR", "").strip() or os.path.join(
             os.path.expanduser("~"), ".local", "share", "manavivaha", "quarantine")
@@ -2264,7 +2267,8 @@ async def _startup_publisher():
     if not os.getenv("TSAP_API_KEY", "").strip():
         print("[AUTH] ⚠️ TSAP_API_KEY ledu — Telegram bot automation private API ki 401 (API+bot env lo same key pettandi)")
     print(f"[WHATSAPP-ANTIBAN] telegram mundu → whatsapp tarvata | gap={wa['random_gap']} | "
-          f"cap={wa['daily_cap']}/day (today {wa['warmup_cap_today']}) | hour {wa['active_hours_ist'][0]}–{wa['active_hours_ist'][1]} IST")    # 🌊 WAVE 22 — restart aina data povatledu: disk nunchi users/interests/payments restore
+          f"cap={wa['daily_cap']}/day (today {wa['warmup_cap_today']}) | hour {wa['active_hours_ist'][0]}–{wa['active_hours_ist'][1]} IST")
+    # 🌊 WAVE 22 — restart aina data povatledu: disk nunchi users/interests/payments restore
     try:
         _snap = DBSTORE.load()
         if not isinstance(_snap, dict) or (_is_production_environment() and not _snap):
@@ -7816,7 +7820,8 @@ def reset_email(payload: dict, response: Response, request: Request):
     ip = request.client.host if request.client else "unknown"
     if not _email_ip_allow(ip):
         raise HTTPException(429, "చాలా సార్లు ప్రయత్నించారు — 1 గంట ఆగి మళ్లీ ప్రయత్నించండి")
-    d = payload or {}    addr = str(d.get("email", "")).strip().lower()
+    d = payload or {}
+    addr = str(d.get("email", "")).strip().lower()
     code = str(d.get("code", "")).strip()
     new_pw = str(d.get("new_password", ""))
     if not re.fullmatch(r"\d{8}", code):
@@ -7867,7 +7872,8 @@ def _otp_send_locked(payload: dict):
     """Send a short-lived login/reset OTP through a configured delivery channel."""
     d = payload or {}
     phone = req_phone(d.get("phone", ""))
-    purpose = str(d.get("purpose", "login")).strip().lower()    if purpose not in {"login", "reset"}:
+    purpose = str(d.get("purpose", "login")).strip().lower()
+    if purpose not in {"login", "reset"}:
         raise HTTPException(400, "Unsupported OTP purpose")
 
     now = datetime.utcnow()
@@ -10873,7 +10879,8 @@ def api_ready():
             content={
                 "success": False,
                 "service": "manavivaha-api",
-                "status": "starting",                "message_en": "The service has not completed its startup checks.",
+                "status": "starting",
+                "message_en": "The service has not completed its startup checks.",
                 "message_telugu": "సర్వర్ startup checks ఇంకా పూర్తికాలేదు.",
             },
             headers={"Cache-Control": "no-store"},

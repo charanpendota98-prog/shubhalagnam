@@ -1385,7 +1385,8 @@ function Wizard() {
                       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ tsap_id: tsap, code })
                     });
                     const data = await res.json();
-                    if(data.success) { alert(data.message_telugu || "Verified!"); (document.getElementById("email-verify-code") as HTMLInputElement).value = ""; }                    else alert(data.detail || "Verification failed");
+                    if(data.success) { alert(data.message_telugu || "Verified!"); (document.getElementById("email-verify-code") as HTMLInputElement).value = ""; }
+                    else alert(data.detail || "Verification failed");
                   }} className="bg-blue-600 text-white px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap">
                     {te ? "వెరిఫై చేయండి" : "Verify"}
                   </button>
@@ -1414,6 +1415,7 @@ function Wizard() {
               <div className="font-bold text-maroon">🎁 {T("మీ అకౌంట్ వివరాలు & కాంటాక్ట్ స్టేటస్:", "Your account and contact status:")}</div>
               <div>{T(<><b>3 requests</b> సిద్ధంగా ఉన్నాయి • phone numbers <b>🔒 locked</b> (గోప్యతా రక్షణతో).</>, <><b>3 requests</b> are ready • phone numbers are <b>🔒 locked</b> for privacy.</>)}</div>
             </div>
+
             {/* Referral confirmation if attached */}
             {joined_with?.ok && (
               <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-3.5 flex items-center gap-3 text-xs text-emerald-900">
@@ -1995,7 +1997,8 @@ function Wizard() {
                   required
                   maxLength={10}
                   placeholder="10 అంకెల మొబైల్ నంబర్"
-                  hint="ధృవీకరణ & సంబంధాల అప్‌డేట్స్ కోసం"                />
+                  hint="ధృవీకరణ & సంబంధాల అప్‌డేట్స్ కోసం"
+                />
                 <div className="space-y-1.5 relative">
                   <label className="text-xs font-bold text-slate-800 flex items-center justify-between">
                     <span>{T("పాస్‌వర్డ్ (కనీసం 6 అక్షరాలు)", "Password (minimum 6 characters)")} <span className="text-rose-600 font-black">*</span></span>
@@ -2614,7 +2617,8 @@ function Wizard() {
                         required
                         maxLength={10}
                         placeholder="10 అంకెల మొబైల్ నంబర్"
-                      />                      <TextField
+                      />
+                      <TextField
                         label="పాస్‌వర్డ్ (Password)"
                         value={f.password}
                         onChange={(v) => set("password", v)}
