@@ -817,4 +817,4 @@ def posture() -> Dict[str, Any]:
         "headers": sorted(list(SECURITY_HEADERS.keys()) + [HSTS_HEADER]),
         "idempotency_entries": seen_count(),
         "numbers_policy": "🔒 Phone numbers public profile/search లో లేవు. Owner acceptance accepted-request account views లో contact access ఇస్తుంది; notification delivery నిర్ధారణ కాదు.",
-              }
+    }

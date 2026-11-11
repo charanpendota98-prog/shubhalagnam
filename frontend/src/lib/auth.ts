@@ -83,4 +83,4 @@ export type AuthCapabilities = {
 
 export function fetchAuthCapabilities() {
   return apiGet<AuthCapabilities>("/api/auth/capabilities");
-      }
+}

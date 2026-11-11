@@ -117,11 +117,10 @@ export default function SiteFooter() {
           </div>
           <div className="mt-3 space-y-2 text-xs opacity-85">
             {[
-              te ? "ఫోన్ OTP ధృవీకరణ" : "Phone OTP verification",
+              te ? "పాస్‌వర్డ్‌తో ఖాతా యాక్సెస్" : "Password-protected account access",
               te ? "పబ్లిక్ ఆమోదానికి ముందు ప్రొఫైల్ సమీక్ష" : "Profile review before public approval",
               te ? "ఐచ్ఛిక photo privacy settings • generated cards లో watermark" : "Optional photo privacy settings • generated cards may carry a watermark",
-              te ? "Owner accept తర్వాత accepted-request account views లో contact details; notification delivery హామీ లేదు" : "Contact details appear in accepted-request account views after owner acceptance; notification delivery is not guaranteed",
-              te ? "అనుమానాస్పద ప్రొఫైల్‌ను report చేయండి" : "Report suspicious profiles",
+              te ? "Owner accept తర్వాత accepted-request account views లో contact details; notification delivery హామీ లేదు" : "Contact details appear in accepted-request account views after owner acceptance; notification delivery is not guaranteed",              te ? "అనుమానాస్పద ప్రొఫైల్‌ను report చేయండి" : "Report suspicious profiles",
             ].map((txt) => (
               <div key={txt} className="flex items-start gap-1.5">
                 <CheckCircle2 className="w-3.5 h-3.5 mt-0.5 shrink-0 text-emerald-400" strokeWidth={2.25} aria-hidden="true" />
