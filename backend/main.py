@@ -8390,12 +8390,27 @@ def similar_profiles(tsap_id: str, limit: int = 8):
     }
 
 
+DIGEST_HISTORY_MAX = 200  # persisted digest history is bounded (availability guard)
+
+
+def _append_digest(entry: dict) -> None:
+    """Append to the durable digest history with a hard retention cap.
+
+    The history lives in the core DB, so an unbounded append is an
+    availability risk on small hosts (RAM + every full-file save + backups).
+    Trim in place so other references to DB_DIGEST stay valid.
+    """
+    DB_DIGEST.append(entry)
+    if len(DB_DIGEST) > DIGEST_HISTORY_MAX:
+        del DB_DIGEST[: len(DB_DIGEST) - DIGEST_HISTORY_MAX]
+
+
 @app.get("/api/digest/preview")
-def digest_preview():
-    """
+def digest_preview(request: Request = None):
+    """🛡️ ADMIN (route map contract) — daily digest text preview.
     📅 Daily 9AM digest — Telegram + WhatsApp ki pampadaniki ready text.
-    (Cron/scheduler ee endpoint ni pilichi post cheyyali — anti-ban queue lo veltundi)
-    """
+    Unauthenticated calls must not write to the durable digest history."""
+    require_admin(request)
     today = datetime.utcnow().strftime("%Y-%m-%d")
     approved_profiles = [u for u in DB_USERS if _is_approved_profile(u)]
     brides = [u for u in approved_profiles if u.get("gender") == "Bride"]
@@ -8416,7 +8431,7 @@ def digest_preview():
         f"📝 FREE register: {os.getenv('SITE_URL', 'https://manavivaha.in')}/register"
     )
     entry = {"at": datetime.utcnow().isoformat(), "brides": len(brides), "grooms": len(grooms)}
-    DB_DIGEST.append(entry)
+    _append_digest(entry)
     return {"success": True, "text": text, "brides": len(brides), "grooms": len(grooms),
             "top_castes": top,
             "how_to_post": "POST /api/publish/digest చెయ్యండి → Telegram + WhatsApp (anti-ban gap తో) వెళ్తుంది"}
@@ -8426,7 +8441,7 @@ def digest_preview():
 async def publish_digest(request: Request = None):
     """Digest ని Telegram live channels + WhatsApp queue కి (anti-ban gap తో) pampu."""
     require_admin(request)   # 🛡️ WAVE 9: admin key lekunda 403 (PII/money/)
-    prev = digest_preview()
+    prev = digest_preview(request)
     text = prev["text"].replace("*", "*")  # WhatsApp formatting ki same
     targets = cfg_live = [c["chat_id"] for c in live_channels() if c.get("chat_id")]
     res = enqueue_whatsapp(publish_config()["wa_bridge_targets"], text, priority=1, kind="digest")
@@ -8493,8 +8508,8 @@ def digest_personal_run(payload: dict = Body(default={}), request: Request = Non
     batch = _personal_digest_batch(lang, engaged_only)
 
     # log summary to the persisted digest history (kind=personal)
-    DB_DIGEST.append({"at": batch["at"], "kind": "personal", "lang": lang,
-                      "queued": batch["queued"], "counts": batch["counts"]})
+    _append_digest({"at": batch["at"], "kind": "personal", "lang": lang,
+                    "queued": batch["queued"], "counts": batch["counts"]})
 
     send_enabled = _digest_send_enabled()
     wa_on = publish_config()["wa_mode"] != "off"
