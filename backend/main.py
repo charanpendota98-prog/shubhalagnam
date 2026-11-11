@@ -7659,7 +7659,7 @@ def _email_otp_issue_locked(addr: str, purpose: str) -> Dict[str, Any]:
         raise HTTPException(503, "OTP could not be saved safely. Please try again.")
     if purpose == "email_verify":
         text = email_channel.verify_email_text(code)
-        subject = email_channel.APP_NAME + " — email verification"
+        subject = email_channel.APP_NAME + " - email verification"
     else:
         text = email_channel.otp_email_text(code)
         subject = email_channel.APP_NAME + " OTP"
