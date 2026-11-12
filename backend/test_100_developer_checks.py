@@ -545,7 +545,9 @@ r_unlock = client.post("/api/unlock", json={
     "viewer_id": bride_id,
     "target_id": groom_id
 }, headers=bride_headers)
-check(75, "Contact Unlock Is Blocked Until Mutual Owner Consent", r_unlock.status_code == 409 and not r_unlock.json().get("success"))
+# Check 40 blocked this pair earlier in the run: the tightened contract denies
+# reveal with 403 after a block (no prior acceptance can survive a block).
+check(75, "Contact Unlock Denied After Block (No Consent Survives)", r_unlock.status_code == 403 and not r_unlock.json().get("success"))
 
 # High Intent Leads Conversion Engine API
 r_leads = client.get("/api/control/high-intent-leads", cookies=CONTROL_COOKIES)
