@@ -7,6 +7,7 @@ import PWA from "@/components/PWA";
 import SupportWidget from "@/components/SupportWidget";
 import BackToTop from "@/components/BackToTop";
 import RouteFrame from "@/components/RouteFrame";
+import SiteAmbience from "@/components/SiteAmbience";
 import { LangProvider } from "@/lib/lang";
 import { serializeJsonLd } from "@/lib/safe-json-ld";
 
@@ -142,6 +143,7 @@ export default function RootLayout({
         />
         <LangProvider>
           <a href="#main-content" className="skip-link">Skip to main content</a>
+          <SiteAmbience />
           <SiteHeader />
           <main id="main-content" className="flex-1" tabIndex={-1}><RouteFrame>{children}</RouteFrame></main>
           <SupportWidget />

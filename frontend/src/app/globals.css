@@ -76,6 +76,8 @@ html {
 }
 
 body {
+  position: relative;
+  z-index: 1;
   width: 100%;
   min-width: 0;
   font-family: 'Poppins', 'Noto Sans Telugu', system-ui, sans-serif;
@@ -135,6 +137,7 @@ button:not(:disabled), a[href] { touch-action: manipulation; }
   box-shadow: 0 1px 3px rgba(122, 12, 46, .07);
 }
 .lang-toggle button {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -154,6 +157,13 @@ button:not(:disabled), a[href] { touch-action: manipulation; }
   overflow-wrap: normal !important;
   box-shadow: none;
   transition: color .16s ease, background-color .16s ease;
+}
+/* The pill stays visually compact (23px glyph row) but the touch target is a
+   real 44px: an invisible hit pad, not a bigger control. */
+.lang-toggle button::after {
+  content: "";
+  position: absolute;
+  inset: -11px 0;
 }
 .lang-toggle button.is-selected {
   background: #8b1238;
@@ -336,16 +346,41 @@ button:not(:disabled), a[href] { touch-action: manipulation; }
 }
 @media (prefers-reduced-motion: reduce) { .wedding-story { height: auto; min-height: 34rem; }.wedding-story__sticky { position: relative; min-height: 34rem; }.wedding-story__scene { transform: none !important; }.wedding-story__glow,.wedding-story__petals,.wedding-story__mandapam .fire { animation: none; }.wedding-story__copy { top: 50%; transform: translateY(-50%); } }
 
-/* ---------- Scroll reveal ---------- */
-.reveal {
+/* ---------- Scroll reveal (site-wide) ----------
+   One observer (`.mv-reveal` → `Reveal.tsx`) drives every section, card and
+   list item. Only opacity/transform move, the stagger is a CSS custom property
+   so a group can re-time itself without new JS. Before hydration the elements
+   are fully visible, so a slow/blocked script can never leave a blank page:
+   `.mv-js` is only set once the observer is actually running. */
+.reveal { opacity: 1; transform: none; }
+
+.mv-js .reveal {
+  opacity: 0;
+  transform: translate3d(0, 22px, 0);
+  transition:
+    opacity var(--ds-duration-reveal) var(--ds-ease-out-quint),
+    transform var(--ds-duration-reveal) var(--ds-ease-out-quint);
+  transition-delay: var(--reveal-delay, 0ms);
+  will-change: opacity, transform;
+}
+.mv-js .reveal.is-visible {
   opacity: 1;
   transform: none;
-  transition: opacity 0.4s ease, transform 0.4s ease;
+  will-change: auto;
 }
-.reveal.is-visible { opacity: 1; transform: none; }
+/* Variants: the same element type can rise, settle from the side, or scale. */
+.mv-js .reveal[data-reveal="fade"] { transform: none; }
+.mv-js .reveal[data-reveal="left"] { transform: translate3d(-26px, 0, 0); }
+.mv-js .reveal[data-reveal="right"] { transform: translate3d(26px, 0, 0); }
+.mv-js .reveal[data-reveal="zoom"] { transform: scale(0.965); }
 
 @media (prefers-reduced-motion: reduce) {
-  .reveal { opacity: 1; transform: none; transition: none; }
+  .mv-js .reveal,
+  .mv-js .reveal.is-visible {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
   .float, .animate-float, .animate-ticker { animation: none !important; }
   html { scroll-behavior: auto; }
 }
@@ -542,6 +577,24 @@ button:not(:disabled):active { transform: scale(0.97); }
   inset: 0 0 auto;
   height: 2px;
   background: linear-gradient(90deg, #6f0d2d 0%, #bd8a18 28%, #0f766e 51%, #f2d06b 74%, #8a1437 100%);
+}
+
+/* Sticky header, cinematic edition: the gold hairline already draws the eye, so
+   the only motion added is a soft glass fade on the wordmark when the page
+   scrolls under it. Compositor-only, and it never shifts layout. */
+.brand-header::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(255, 248, 231, 0) 0%, rgba(122, 12, 46, 0.05) 100%);
+  opacity: 0;
+  transition: opacity var(--ds-duration-base) var(--ds-ease);
+  pointer-events: none;
+}
+.brand-header.is-scrolled::after { opacity: 1; }
+@media (prefers-reduced-motion: reduce) {
+  .brand-header::after { transition: none; }
 }
 
 /* Header identity: bilingual wordmark in auspicious maroon, teal and gold. */
@@ -2143,6 +2196,294 @@ label {
   .mv-hero__kicker { background: #4a0a22; -webkit-backdrop-filter: none; backdrop-filter: none; }
   .mv-hero__search { background: #fffdf9; }
 }
+/* ============================================================
+   ROUTE INTRO — one cinematic opening band for every route
+   ------------------------------------------------------------
+   Rendered by `RouteFrame`, so /pricing, /safety, /vendors … open the same way
+   the homepage does: maroon depth panel, drifting gold light, staggered copy.
+   Pure CSS; transform/opacity only; frozen under reduced motion.
+   ============================================================ */
+.mv-intro {
+  position: relative;
+  isolation: isolate;
+  overflow: clip;
+  margin: 0;
+  padding: clamp(1.5rem, 4.5vw, 2.9rem) clamp(1rem, 4vw, 2.25rem);
+  background:
+    radial-gradient(120% 130% at 12% 0%, rgba(160, 20, 58, 0.95) 0%, rgba(122, 12, 46, 0.92) 42%, rgba(56, 6, 24, 1) 100%);
+  color: #fff;
+  border-bottom: 1px solid rgba(212, 175, 55, 0.38);
+}
+.mv-intro--compact { padding-block: clamp(1.1rem, 3vw, 1.9rem); }
+
+/* Slow gold light crossing the panel — the "camera" in the intro shot. */
+.mv-intro__glow {
+  position: absolute;
+  inset: -40% -20% auto -20%;
+  height: 140%;
+  z-index: 0;
+  background:
+    radial-gradient(closest-side at 22% 30%, rgba(255, 226, 150, 0.3), transparent 70%),
+    radial-gradient(closest-side at 78% 70%, rgba(15, 118, 110, 0.28), transparent 72%);
+  animation: mvIntroDrift 26s var(--ds-ease-in-out) infinite alternate;
+  pointer-events: none;
+}
+
+/* Hairline that draws itself in when the route opens. */
+.mv-intro__rule {
+  position: absolute;
+  left: clamp(1rem, 4vw, 2.25rem);
+  bottom: 0;
+  width: min(16rem, 42%);
+  height: 2px;
+  z-index: 1;
+  background: linear-gradient(90deg, #ffe9b0, rgba(212, 175, 55, 0.1));
+  transform-origin: 0 50%;
+  animation: mvIntroRule 900ms var(--ds-ease-out-quint) both;
+}
+
+/* Oversized ghost glyph in the corner: depth without an image asset. */
+.mv-intro__glyph {
+  position: absolute;
+  right: clamp(0.5rem, 3vw, 2rem);
+  top: 50%;
+  translate: 0 -50%;
+  z-index: 0;
+  font-size: clamp(5rem, 16vw, 11rem);
+  line-height: 1;
+  color: rgba(255, 233, 176, 0.1);
+  filter: blur(0.4px);
+  animation: mvIntroGlyph 30s var(--ds-ease-in-out) infinite alternate;
+  pointer-events: none;
+  user-select: none;
+}
+
+.mv-intro__body {
+  position: relative;
+  z-index: 2;
+  max-width: var(--ds-content-max);
+  margin-inline: auto;
+  display: grid;
+  gap: 0.55rem;
+}
+.mv-intro__eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: fit-content;
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #ffe9b0;
+}
+.mv-intro__eyebrow::before {
+  content: "";
+  width: 1.5rem;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(255, 233, 176, 0.2), #d4af37);
+}
+.mv-intro__title {
+  margin: 0;
+  font-size: clamp(1.45rem, 4.6vw, 2.35rem);
+  font-weight: 800;
+  line-height: 1.22;
+  letter-spacing: -0.01em;
+  color: #fff;
+  text-wrap: balance;
+}
+.mv-intro--compact .mv-intro__title { font-size: clamp(1.2rem, 3.4vw, 1.7rem); }
+.mv-intro__title.telugu { line-height: 1.34; }
+.mv-intro__lead {
+  margin: 0;
+  max-width: 46rem;
+  font-size: clamp(0.8rem, 2.4vw, 0.92rem);
+  line-height: 1.62;
+  color: rgba(255, 255, 255, 0.86);
+}
+.mv-intro__lead.telugu { line-height: 1.72; }
+.mv-intro__aside {
+  margin-top: 0.4rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+@keyframes mvIntroDrift {
+  from { transform: translate3d(-2%, -1%, 0) scale(1); opacity: 0.8; }
+  to   { transform: translate3d(3%, 2%, 0) scale(1.07); opacity: 1; }
+}
+@keyframes mvIntroRule {
+  from { transform: scaleX(0); opacity: 0; }
+  to   { transform: scaleX(1); opacity: 1; }
+}
+@keyframes mvIntroGlyph {
+  from { transform: translate3d(0, 0, 0) rotate(-3deg); }
+  to   { transform: translate3d(-1.5%, 2%, 0) rotate(3deg); }
+}
+
+@media (max-width: 640px) {
+  /* On phones the glyph sat exactly behind the headline; keep the depth but
+     move it into the corner and fade it further, so no glyph ever sits behind
+     Telugu letterforms. */
+  .mv-intro__glyph {
+    font-size: 4.2rem;
+    opacity: 0.55;
+    right: -0.35rem;
+    top: 0;
+    translate: 0 0;
+    transform-origin: 100% 0;
+  }
+  .mv-intro__glow { opacity: 0.9; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mv-intro__glow,
+  .mv-intro__glyph { animation: none !important; }
+  .mv-intro__rule { animation: none !important; transform: scaleX(1); }
+}
+
+/* The intro replaces the old breadcrumb strip's visual role, so the strip
+   below it is trimmed to a single quiet line. */
+.route-frame:has(> .mv-intro) .route-context { border-top: 0; }
+
+/* ============================================================
+   SITE AMBIENCE — the shared "film" layer
+   ------------------------------------------------------------
+   Fixed, decorative, behind everything (z-index 0 while content sits at 1).
+   Only transform/opacity animate, so it costs the compositor and nothing else.
+   Mounted by `SiteAmbience`, deferred to idle, absent on private consoles and
+   static under reduced motion.
+   ============================================================ */
+.mv-ambience {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  contain: strict;
+}
+
+/* Warm beam sweeping down from the top-left, like light through a doorway. */
+.mv-ambience__beam {
+  position: absolute;
+  inset: -30% -10% auto -10%;
+  height: 78%;
+  background: linear-gradient(
+    168deg,
+    rgba(212, 175, 55, 0.1) 0%,
+    rgba(212, 175, 55, 0.045) 34%,
+    transparent 64%
+  );
+  transform: rotate(-6deg);
+  transform-origin: 50% 0;
+  animation: mvBeamBreathe 24s var(--ds-ease-in-out) infinite alternate;
+}
+
+/* Two aurora veils drifting in opposite directions — the same pair the hero
+   uses, so the homepage stage reads as the strongest instance of one system. */
+.mv-ambience__veil {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(64px);
+  opacity: 0.5;
+  will-change: transform;
+}
+.mv-ambience__veil--a {
+  width: 52vw;
+  height: 46vw;
+  min-width: 22rem;
+  min-height: 20rem;
+  left: -14vw;
+  top: 4vh;
+  background: radial-gradient(circle at 40% 45%, rgba(160, 20, 58, 0.16), transparent 62%);
+  animation: mvAmbienceA 34s var(--ds-ease-in-out) infinite alternate;
+}
+.mv-ambience__veil--b {
+  width: 48vw;
+  height: 44vw;
+  min-width: 20rem;
+  min-height: 19rem;
+  right: -16vw;
+  top: 26vh;
+  background: radial-gradient(circle at 55% 50%, rgba(15, 118, 110, 0.14), transparent 62%);
+  animation: mvAmbienceB 41s var(--ds-ease-in-out) infinite alternate;
+}
+
+/* Light motes: six specks, pure transform/opacity, staggered by nth-child. */
+.mv-ambience__motes { position: absolute; inset: 0; }
+.mv-ambience__motes i {
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(255, 233, 176, 0.85) 0%, rgba(255, 233, 176, 0) 70%);
+  opacity: 0;
+  animation: mvAmbienceMote 26s linear infinite;
+}
+.mv-ambience__motes i:nth-child(1) { left: 12%; top: 18%; animation-duration: 27s; animation-delay: -3s; }
+.mv-ambience__motes i:nth-child(2) { left: 28%; top: 62%; animation-duration: 33s; animation-delay: -11s; }
+.mv-ambience__motes i:nth-child(3) { left: 46%; top: 34%; animation-duration: 29s; animation-delay: -17s; }
+.mv-ambience__motes i:nth-child(4) { left: 64%; top: 74%; animation-duration: 36s; animation-delay: -6s; }
+.mv-ambience__motes i:nth-child(5) { left: 82%; top: 24%; animation-duration: 31s; animation-delay: -21s; }
+.mv-ambience__motes i:nth-child(6) { left: 94%; top: 54%; animation-duration: 38s; animation-delay: -14s; }
+
+/* Scroll progress: one compositor property, no layout, no repaint. */
+.mv-ambience__progress {
+  --scroll-progress: 0;
+  position: fixed;
+  inset-inline: 0;
+  top: 0;
+  height: 2px;
+  transform: scaleX(var(--scroll-progress));
+  transform-origin: 0 50%;
+  background: linear-gradient(90deg, #d4af37 0%, #a0143a 55%, #7a0c2e 100%);
+  opacity: 0;
+  transition: opacity var(--ds-duration-base) var(--ds-ease);
+  will-change: transform;
+}
+.mv-ambience__progress[data-active="true"] { opacity: 0.9; }
+
+@keyframes mvBeamBreathe {
+  from { transform: rotate(-6deg) translate3d(0, 0, 0) scale(1); opacity: 0.75; }
+  to   { transform: rotate(-4deg) translate3d(2%, 3%, 0) scale(1.06); opacity: 1; }
+}
+@keyframes mvAmbienceA {
+  from { transform: translate3d(0, 0, 0) scale(1); }
+  to   { transform: translate3d(8vw, 6vh, 0) scale(1.14); }
+}
+@keyframes mvAmbienceB {
+  from { transform: translate3d(0, 0, 0) scale(1.08); }
+  to   { transform: translate3d(-7vw, -5vh, 0) scale(1); }
+}
+@keyframes mvAmbienceMote {
+  0%   { transform: translate3d(0, 16px, 0); opacity: 0; }
+  10%  { opacity: 0.7; }
+  80%  { opacity: 0.35; }
+  100% { transform: translate3d(18px, -160px, 0); opacity: 0; }
+}
+
+/* Phones: thinner blurs, fewer motes. The layer must stay nearly free. */
+@media (max-width: 640px) {
+  .mv-ambience__veil { filter: blur(42px); opacity: 0.4; }
+  .mv-ambience__motes i:nth-child(n + 5) { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mv-ambience__beam,
+  .mv-ambience__veil,
+  .mv-ambience__motes i {
+    animation: none !important;
+  }
+  .mv-ambience__motes { display: none; }
+  .mv-ambience__progress { transition: none; }
+}
+
+/* Respect the OS "reduce transparency" switch as well as reduced motion. */
+@media (prefers-reduced-transparency: reduce) {
+  .mv-ambience { display: none; }
+}
+
 
 /* ============================================================
    SECTION & CARD MOTION (homepage + shared surfaces)
@@ -2152,11 +2493,13 @@ label {
    prefers-reduced-motion.
    ============================================================ */
 :root {
-  --mv-ease: cubic-bezier(0.22, 1, 0.36, 1);
-  --mv-ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
-  --mv-dur-fast: 160ms;
-  --mv-dur: 280ms;
-  --mv-dur-slow: 480ms;
+  /* Legacy hero aliases — kept so existing hero CSS keeps working, but they now
+     resolve to the single site-wide motion scale declared above. */
+  --mv-ease: var(--ds-ease);
+  --mv-ease-in-out: var(--ds-ease-in-out);
+  --mv-dur-fast: var(--ds-duration-fast);
+  --mv-dur: var(--ds-duration-base);
+  --mv-dur-slow: var(--ds-duration-slow);
 }
 
 /* Tab panels fade + lift on change instead of snapping in. */
@@ -2517,7 +2860,11 @@ label {
   --ds-duration-fast: 150ms;
   --ds-duration-base: 250ms;
   --ds-duration-slow: 400ms;
+  --ds-duration-reveal: 620ms;
   --ds-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --ds-ease-in-out: cubic-bezier(0.45, 0, 0.25, 1);
+  --ds-ease-out-quint: cubic-bezier(0.16, 1, 0.3, 1);
+  --ds-stagger-step: 70ms;
   --ds-touch-min: 44px;
   --ds-content-max: 80rem;}
 

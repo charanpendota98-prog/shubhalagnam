@@ -213,7 +213,7 @@ export default function SiteHeader() {
   return (
     <header
       className={`brand-header sticky top-0 ${open ? "z-[70]" : "z-50"} no-print border-b transition-shadow duration-300 ${
-        scrolled ? "border-gold/35 shadow-[0_8px_26px_rgba(74,12,34,.1)]" : "border-gold/20"
+        scrolled ? "is-scrolled border-gold/35 shadow-[0_8px_26px_rgba(74,12,34,.1)]" : "border-gold/20"
       }`}
     >
       <div className="max-w-[1440px] mx-auto px-3 sm:px-4 h-16 lg:h-14 flex items-center justify-between gap-2">

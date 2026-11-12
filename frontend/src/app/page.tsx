@@ -272,7 +272,7 @@ export default function Home() {
         </Reveal>
         <div className="hp-steps">
           {L.howSteps().map((step, index) => (
-            <Reveal key={step.n} delay={index * 60}>
+            <Reveal key={step.n} index={index}>
               <Card as="article" tone="brand" interactive className="hp-stretch">
                 <CardBody>
                   <div className="hp-step__top">
@@ -301,7 +301,7 @@ export default function Home() {
             {paidPlans.map((plan, index) => {
               const unit = perRequest(plan);
               return (
-                <Reveal key={plan.code} delay={index * 45}>
+                <Reveal key={plan.code} index={index}>
                   <Card as="article" tone="brand" interactive className="hp-stretch hp-price">
                     <CardBody>
                       <h3 className={`hp-price__name ${tg}`}>{plan.name}</h3>
@@ -332,7 +332,7 @@ export default function Home() {
           </Reveal>
           <div className="hp-faq">
             {FAQs.map((item, index) => (
-              <Reveal key={item.q} delay={index * 35}>
+              <Reveal key={item.q} index={index}>
                 <article className="hp-faq__item" data-open={openFaq === index}>
                   <h3>
                     <button
