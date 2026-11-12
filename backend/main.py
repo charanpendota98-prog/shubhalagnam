@@ -10141,6 +10141,15 @@ def api_unlock(payload: dict, request: Request = None):
         raise HTTPException(410, "Contact access is no longer available for this profile")
     if str(viewer.get("status") or "").strip().lower() in {"deleted", "married_fixed", "banned", "inactive", "hidden"}:
         raise HTTPException(410, "Your account is no longer active")
+    blocked_pair = any(
+        {str(b.get("tsap_id") or b.get("owner", "")).upper(),
+         str(b.get("block_id") or b.get("blocked", "")).upper()} == {viewer_id, target_id}
+        for b in DB_BLOCKS
+    )
+    if blocked_pair:
+        # 🚫 Block breaks contact access immediately, either direction — even
+        # after a previously accepted interest. Safety outranks prior consent.
+        raise HTTPException(403, "🚫 ఈ profile తో contact access అందుబాటులో లేదు")
     consented = viewer_id == target_id or any(
         str(i.get("status", "")).lower() == "accepted"
         and {str(i.get("from_id", "")).upper(), str(i.get("to_id", "")).upper()} == {viewer_id, target_id}
