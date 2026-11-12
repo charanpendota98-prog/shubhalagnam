@@ -6,16 +6,33 @@
  * Add to Home Screen steps. Other components may open the guidance via the
  * `tsap:install-show` event when an explicit install control is available.
  */
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
 import { useLang } from "@/lib/lang";
+
+// 🔐 Auth screens lo install bar vaddhu — form fields ni cover chestundi.
+const AUTH_ROUTE_PREFIXES = ["/login", "/register", "/verify"];
+const isAuthRoute = (p: string) =>
+  AUTH_ROUTE_PREFIXES.some((x) => p === x || p.startsWith(x + "/"));
 
 export default function PWA() {
   const { lang } = useLang();
   const te = lang === "te";
+  const pathname = usePathname() || "";
+  const pathRef = useRef(pathname);
   const [show, setShow] = useState(false);
   const [promptEvent, setPromptEvent] = useState<any>(null);
   const [isIOS, setIsIOS] = useState(false);
   const [installed, setInstalled] = useState(false);
+
+  useEffect(() => {
+    pathRef.current = pathname;
+  }, [pathname]);
+
+  // Auth screen ki navigate ayite visible bar ni kuda hide cheyi.
+  useEffect(() => {
+    if (isAuthRoute(pathname)) setShow(false);
+  }, [pathname]);
 
   useEffect(() => {
     if ("serviceWorker" in navigator) {
@@ -30,7 +47,14 @@ export default function PWA() {
     const onPrompt = (e: Event) => {
       e.preventDefault();
       setPromptEvent(e);
-      if (!localStorage.getItem("tsap_pwa_dismissed")) setTimeout(() => setShow(true), 6000);
+      // Auto-show only away from auth screens: the bar overlaps the
+      // phone/password fields on mobile login (manual install events
+      // from explicit controls still work elsewhere).
+      setTimeout(() => {
+        if (!localStorage.getItem("tsap_pwa_dismissed") && !isAuthRoute(pathRef.current)) {
+          setShow(true);
+        }
+      }, 6000);
     };
     const onManual = () => setShow(true);
     const onInstalled = () => { setInstalled(true); setShow(false); };
@@ -69,7 +93,7 @@ export default function PWA() {
   const iosMode = isIOS && !promptEvent;
 
   return (
-    <div className="fixed bottom-36 left-3 right-3 md:bottom-4 md:left-auto md:right-4 md:w-[360px] z-40 no-print">
+    <div data-testid="pwa-install-bar" className="fixed bottom-36 left-3 right-3 md:bottom-4 md:left-auto md:right-4 md:w-[360px] z-40 no-print">
       <div className="bg-white rounded-2xl border border-gold/40 shadow-brand p-3 flex items-center gap-3 step-slide">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/icons/icon-192.png" alt="మన వివాహ app" className="w-11 h-11 rounded-xl border border-gold/30" />
