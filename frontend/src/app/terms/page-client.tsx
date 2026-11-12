@@ -3,9 +3,9 @@
 /** 📄 TERMS OF USE — neat Telugu / clean English via toggle. */
 import Link from "next/link";
 import { SITE_CONFIG } from "@/lib/site-config";
-// Legal-copy fidelity: rendered count frozen at the value published on the live site (52).
-// CHANNEL_STATS.total is an auto-generated registry count with external_status_checked=false;
-// restore the dynamic const only after the live channel directory is verified.
+// Legal copy avoids a hard-coded channel count: CHANNEL_STATS.total is auto-generated
+// with external_status_checked=false (live links unverified), so no number is stated
+// until the channel directory is verified live.
 import { useLang } from "@/lib/lang";
 
 const LAST_UPDATED = "14 Sep 2026";
@@ -30,7 +30,7 @@ export default function TermsPage() {
                 other-state/NRI Telugu families కి <b>profiles + channels + WhatsApp sharing</b> service.</li>
               <li>మనం <b>broker కాదు, marriage guarantee ఇవ్వము</b> — మన పని: correct profiles ని correct families కి చేర్చడం,
                 safe &amp; respect తో.</li>
-              <li>Website: {SITE_CONFIG.domain} • Telegram channels (52) • WhatsApp sharing • Telegram: {SITE_CONFIG.officialChannel}</li>
+              <li>Website: {SITE_CONFIG.domain} • Telegram channel directory • WhatsApp sharing • Telegram: {SITE_CONFIG.officialChannel}</li>
             </>
           ) : (
             <>
@@ -38,7 +38,7 @@ export default function TermsPage() {
                 for Telangana, Andhra Pradesh &amp; other-state/NRI Telugu families.</li>
               <li>We are <b>not brokers and give no marriage guarantee</b> — our job: bringing the right profiles to the right families,
                 safely &amp; respectfully.</li>
-              <li>Website: {SITE_CONFIG.domain} • Telegram channels (52) • WhatsApp sharing • Telegram: {SITE_CONFIG.officialChannel}</li>
+              <li>Website: {SITE_CONFIG.domain} • Telegram channel directory • WhatsApp sharing • Telegram: {SITE_CONFIG.officialChannel}</li>
             </>
           )}
         </ul>

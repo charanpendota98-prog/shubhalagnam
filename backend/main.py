@@ -943,7 +943,7 @@ def control_add_counselor_note(tsap_id: str, payload: dict, request: Request):
                        tsap_id=tsap_id, stage=stage)
     try:
         DBSTORE.save(DBSTORE.snapshot(DB_USERS, DB_INTERESTS, DB_PAYMENTS, DB_OTPS,
-                                      VERIFIED_PHONES, DB_VIEWS, DB_SAVES, DB_DIGEST), force=True)
+                                      VERIFIED_PHONES, DB_VIEWS, DB_SAVES, DB_DIGEST, DB_REPORTS, DB_BLOCKS), force=True)
     except Exception:
         pass
 
@@ -1005,7 +1005,7 @@ def control_report_resolve(report_id: str, payload: dict, request: Request):
                        report_id=report_id, moderation_action=action, note=note)
     try:
         DBSTORE.save(DBSTORE.snapshot(DB_USERS, DB_INTERESTS, DB_PAYMENTS, DB_OTPS,
-                                      VERIFIED_PHONES, DB_VIEWS, DB_SAVES, DB_DIGEST), force=True)
+                                      VERIFIED_PHONES, DB_VIEWS, DB_SAVES, DB_DIGEST, DB_REPORTS, DB_BLOCKS), force=True)
     except Exception:
         pass
     return {"success": True, "action": msg, "report": rec}
@@ -1800,7 +1800,7 @@ def control_add_profile(payload: dict, request: Request):
         DB_USERS.append(user)
         _reindex_users()
         if not DBSTORE.save(DBSTORE.snapshot(DB_USERS, DB_INTERESTS, DB_PAYMENTS, DB_OTPS,
-                                             VERIFIED_PHONES, DB_VIEWS, DB_SAVES, DB_DIGEST), force=True):
+                                             VERIFIED_PHONES, DB_VIEWS, DB_SAVES, DB_DIGEST, DB_REPORTS, DB_BLOCKS), force=True):
             DB_USERS.remove(user)
             _reindex_users()
             raise HTTPException(503, "Profile could not be saved safely; no profile was accepted. Please retry.")
@@ -2366,7 +2366,17 @@ async def _startup_publisher():
                 DB_DIGEST.extend(_kept["digest"])
                 if _dropped:
                     DBSTORE.save(DBSTORE.snapshot(DB_USERS, DB_INTERESTS, DB_PAYMENTS, DB_OTPS,
-                                                  VERIFIED_PHONES, DB_VIEWS, DB_SAVES, DB_DIGEST), force=True)
+                                                  VERIFIED_PHONES, DB_VIEWS, DB_SAVES, DB_DIGEST, DB_REPORTS, DB_BLOCKS), force=True)
+            # P1 fix: restore moderation queue + block list too (drop rows tied to
+            # removed synthetic profiles only, mirroring the hygiene above).
+            _rep_rows = [r for r in (_snap.get("reports", []) or [])
+                         if not isinstance(r, dict) or (str(r.get("reporter_id", "")) not in _removed_user_ids
+                                                        and str(r.get("target_id", "")) not in _removed_user_ids)]
+            _blk_rows = [b for b in (_snap.get("blocks", []) or [])
+                         if not isinstance(b, dict) or (str(b.get("owner", "")) not in _removed_user_ids
+                                                        and str(b.get("blocked", "")) not in _removed_user_ids)]
+            DB_REPORTS.extend(_rep_rows)
+            DB_BLOCKS.extend(_blk_rows)
             print("[DB] restored %d users, %d interests, %d payments from disk" % (
                 len(DB_USERS), len(DB_INTERESTS), len(DB_PAYMENTS)))
     except Exception as e:
@@ -2590,7 +2600,7 @@ async def _security_middleware(request: Request, call_next):
         # 🌊 WAVE 22 — mutation autosave (debounced 5s, 2xx only)
         if request.method in ("POST", "PUT", "PATCH", "DELETE") and 200 <= response.status_code < 300:
             DBSTORE.save(DBSTORE.snapshot(DB_USERS, DB_INTERESTS, DB_PAYMENTS, DB_OTPS,
-                                           VERIFIED_PHONES, DB_VIEWS, DB_SAVES, DB_DIGEST))
+                                           VERIFIED_PHONES, DB_VIEWS, DB_SAVES, DB_DIGEST, DB_REPORTS, DB_BLOCKS))
     except Exception:
         pass
     try:
@@ -2653,7 +2663,7 @@ def _persist_core_state():
     """Persist user, payment, referral, and consent state after money mutations."""
     try:
         return DBSTORE.save(DBSTORE.snapshot(DB_USERS, DB_INTERESTS, DB_PAYMENTS, DB_OTPS,
-                                             VERIFIED_PHONES, DB_VIEWS, DB_SAVES, DB_DIGEST), force=True)
+                                             VERIFIED_PHONES, DB_VIEWS, DB_SAVES, DB_DIGEST, DB_REPORTS, DB_BLOCKS), force=True)
     except Exception as exc:
         print("[DB] payment-state save failed:", str(exc)[:100])
         return False
@@ -2676,7 +2686,7 @@ def _retention_save() -> bool:
     """🗑️ WAVE 40 — persist a retention change before reporting success."""
     try:
         saved = DBSTORE.save(DBSTORE.snapshot(DB_USERS, DB_INTERESTS, DB_PAYMENTS, DB_OTPS,
-                                             VERIFIED_PHONES, DB_VIEWS, DB_SAVES, DB_DIGEST), force=True)
+                                             VERIFIED_PHONES, DB_VIEWS, DB_SAVES, DB_DIGEST, DB_REPORTS, DB_BLOCKS), force=True)
         if not saved:
             print("[RETENTION] save returned false")
         return bool(saved)
@@ -3391,7 +3401,7 @@ async def register(
         # return success. The generic request middleware is debounced for routine
         # writes; this explicit checkpoint closes that data-loss window.
         if not DBSTORE.save(DBSTORE.snapshot(DB_USERS, DB_INTERESTS, DB_PAYMENTS, DB_OTPS,
-                                             VERIFIED_PHONES, DB_VIEWS, DB_SAVES, DB_DIGEST), force=True):
+                                             VERIFIED_PHONES, DB_VIEWS, DB_SAVES, DB_DIGEST, DB_REPORTS, DB_BLOCKS), force=True):
             DB_USERS.remove(user)
             _reindex_users()
             for artifact in (registration_photo_path, card_path):
@@ -3594,7 +3604,7 @@ async def register(
     # write fails, so do not tell the user to retry and create a duplicate account.
     with _REGISTER_LOCK:
         if not DBSTORE.save(DBSTORE.snapshot(DB_USERS, DB_INTERESTS, DB_PAYMENTS, DB_OTPS,
-                                             VERIFIED_PHONES, DB_VIEWS, DB_SAVES, DB_DIGEST), force=True):
+                                             VERIFIED_PHONES, DB_VIEWS, DB_SAVES, DB_DIGEST, DB_REPORTS, DB_BLOCKS), force=True):
             # The base profile checkpoint is already durable, so a retry with the
             # same registration key will recover it rather than create a second
             # member.  Do not claim a fully completed registration while the
@@ -4027,7 +4037,7 @@ def save_partner_preferences(payload: dict, request: Request):
     # used everywhere else in this file.
     try:
         DBSTORE.save(DBSTORE.snapshot(DB_USERS, DB_INTERESTS, DB_PAYMENTS, DB_OTPS,
-                                      VERIFIED_PHONES, DB_VIEWS, DB_SAVES, DB_DIGEST), force=True)
+                                      VERIFIED_PHONES, DB_VIEWS, DB_SAVES, DB_DIGEST, DB_REPORTS, DB_BLOCKS), force=True)
     except Exception:
         pass
 
@@ -11262,7 +11272,7 @@ def api_admin_id_verification(tsap_id: str, payload: dict, request: Request):
     MAUD.audit("id_verified" if verified else "id_verification_revoked", "admin",
                {"tsap_id": user.get("tsap_id"), "method": method, "note": note})
     DBSTORE.save(DBSTORE.snapshot(DB_USERS, DB_INTERESTS, DB_PAYMENTS, DB_OTPS,
-                                  VERIFIED_PHONES, DB_VIEWS, DB_SAVES, DB_DIGEST), force=True)
+                                  VERIFIED_PHONES, DB_VIEWS, DB_SAVES, DB_DIGEST, DB_REPORTS, DB_BLOCKS), force=True)
     return {"success": True, "tsap_id": user.get("tsap_id"), "id_verified": verified,
             "method": user.get("id_verification_method", ""), "verified_at": user.get("id_verified_at", ""),
             "message_telugu": ("🪪 Government ID review status recorded; other profile details are not verified by this check." if verified
@@ -11513,6 +11523,10 @@ async def api_admin_backup_import(request: Request):
             DB_SAVES.extend(_snap.get("saves", []))
             DB_DIGEST.clear()
             DB_DIGEST.extend(_snap.get("digest", []))
+            DB_REPORTS.clear()
+            DB_REPORTS.extend(_snap.get("reports", []) or [])
+            DB_BLOCKS.clear()
+            DB_BLOCKS.extend(_snap.get("blocks", []) or [])
             core = True
     except Exception:
         core = False
@@ -11527,7 +11541,7 @@ async def _shutdown_flush_db():
     registrations/payments silent ga povatam block — matrimony data ante life data)."""
     try:
         ok = DBSTORE.save(DBSTORE.snapshot(DB_USERS, DB_INTERESTS, DB_PAYMENTS, DB_OTPS,
-                                           VERIFIED_PHONES, DB_VIEWS, DB_SAVES, DB_DIGEST), force=True)
+                                           VERIFIED_PHONES, DB_VIEWS, DB_SAVES, DB_DIGEST, DB_REPORTS, DB_BLOCKS), force=True)
         print("[DB] shutdown flush:", "saved" if ok else "skip")
     except Exception as e:
         print("[DB] shutdown flush fail:", str(e)[:120])
@@ -12331,7 +12345,7 @@ def passkey_register_finish(payload: dict, request: Request):
     }
     
     user.setdefault("passkeys", []).append(passkey)
-    DBSTORE.save(DBSTORE.snapshot(DB_USERS, DB_INTERESTS, DB_PAYMENTS, DB_OTPS, VERIFIED_PHONES, DB_VIEWS, DB_SAVES, DB_DIGEST), force=True)
+    DBSTORE.save(DBSTORE.snapshot(DB_USERS, DB_INTERESTS, DB_PAYMENTS, DB_OTPS, VERIFIED_PHONES, DB_VIEWS, DB_SAVES, DB_DIGEST, DB_REPORTS, DB_BLOCKS), force=True)
     
     return {"success": True, "message_telugu": "✅ పాస్‌కీ విజయవంతంగా సెటప్ చేయబడింది"}
 
@@ -12395,7 +12409,7 @@ def passkey_login_finish(payload: dict, request: Request, response: Response):
         
     # Update sign count
     target_passkey["sign_count"] = verification.new_sign_count
-    DBSTORE.save(DBSTORE.snapshot(DB_USERS, DB_INTERESTS, DB_PAYMENTS, DB_OTPS, VERIFIED_PHONES, DB_VIEWS, DB_SAVES, DB_DIGEST), force=True)
+    DBSTORE.save(DBSTORE.snapshot(DB_USERS, DB_INTERESTS, DB_PAYMENTS, DB_OTPS, VERIFIED_PHONES, DB_VIEWS, DB_SAVES, DB_DIGEST, DB_REPORTS, DB_BLOCKS), force=True)
     
     # Authenticate user
     auth_token = sign_token(target_user["tsap_id"])

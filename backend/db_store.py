@@ -97,7 +97,8 @@ def save(payload: dict, force: bool = False) -> bool:
                     pass
 
 
-def snapshot(users, interests, payments, otps, verified_phones, views, saves, digest) -> dict:
+def snapshot(users, interests, payments, otps, verified_phones, views, saves, digest,
+             reports=None, blocks=None) -> dict:
     # WAVE 24 — CAPS: file unbounded ga peragakudadu (views/saves/digest recent matrame)
     return {
         "storage_format": STORAGE_FORMAT,
@@ -110,4 +111,9 @@ def snapshot(users, interests, payments, otps, verified_phones, views, saves, di
         "views": (views or [])[-5000:],
         "saves": (saves or [])[-5000:],
         "digest": (digest or [])[-2000:],
+        # P1 fix: safety state must survive restarts IN FULL - moderation queue
+        # and block list are safety-critical; truncating them silently drops
+        # active protections, so no caps here (small records, low volume).
+        "reports": list(reports or []),
+        "blocks": list(blocks or []),
     }
