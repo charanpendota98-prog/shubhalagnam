@@ -370,7 +370,7 @@ export default function ProfileView() {
   return (
     <div className="mx-auto max-w-3xl px-4 py-6">
       <div className="flex items-center gap-2">
-        <Link href="/matches" className="text-[12px] font-bold text-[#7A0C2E]">← Matches</Link>
+        <Link href="/matches" className="inline-flex min-h-11 items-center text-[12px] font-bold text-[#7A0C2E]">← Matches</Link>
         <div className="flex flex-1 items-center gap-2 rounded-2xl border border-rose-200 bg-white px-3 py-2">
           <span>🔍</span>
           <input value={searchId} onChange={(e) => setSearchId(e.target.value.toUpperCase())}
@@ -383,10 +383,10 @@ export default function ProfileView() {
 
       {loading ? <ProfileSkeleton /> : null}
       {!loading && err ? (
-        <div className="mt-6 rounded-2xl border-2 border-amber-300 bg-amber-50 p-5 text-center">
+        <div className="mv-note mt-6 text-center">
           <p className="font-bold text-amber-900">{err}</p>
           <div className="mt-3 flex flex-wrap justify-center gap-2">
-            <Link href="/matches" className="rounded-xl bg-[#7A0C2E] px-4 py-2 text-sm font-bold text-white">{te ? "💞 Matches చూడు" : "💞 See matches"}</Link>
+            <Link href="/matches" className="mv-btn mv-btn--primary min-h-11">{te ? "💞 Matches చూడు" : "💞 See matches"}</Link>
             <Link href="/register" className="rounded-xl border border-[#7A0C2E] px-4 py-2 text-sm font-bold text-[#7A0C2E]">🆓 Register FREE</Link>
           </div>
         </div>
@@ -396,7 +396,7 @@ export default function ProfileView() {
 
       {!loading && !err && data ? (
         <>
-          <section className="mv-card mt-4 rounded-3xl border border-rose-200 bg-white p-5 shadow-[0_18px_44px_-30px_rgba(122,12,46,.45)]">
+          <section className="mv-surface mv-surface__body mv-card mt-4">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <h1 className="text-2xl font-extrabold text-[#7A0C2E]">{myTsapId && profile.tsap_id === myTsapId ? (profile.full_name || (te ? "ప్రొఫైల్" : "Profile")) : firstName(profile.full_name)}</h1>
@@ -473,7 +473,7 @@ export default function ProfileView() {
             {(Array.isArray(data.observations) && data.observations.length > 0)
               || (Array.isArray(data.differences) && data.differences.length > 0)
               || (Array.isArray(data.preference_checks) && data.preference_checks.length > 0) ? (
-              <section className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4" aria-labelledby="profile-facts-title">
+              <section className="mv-rowblock mt-4 !p-4" aria-labelledby="profile-facts-title">
                 <h2 id="profile-facts-title" className="text-sm font-extrabold text-slate-800">
                   {te ? "ప్రొఫైల్ వివరాలు పరిశీలించండి" : "Profile details to review"}
                 </h2>
@@ -502,7 +502,7 @@ export default function ProfileView() {
             ) : null}
           </section>
 
-          <section className="mt-4 rounded-3xl border border-slate-200 bg-slate-50 p-5" aria-labelledby="profile-jathakam-note-title">
+          <section className="mv-surface mv-surface--quiet mv-surface__body mt-4" aria-labelledby="profile-jathakam-note-title">
             <h2 id="profile-jathakam-note-title" className="text-base font-extrabold text-[#7A0C2E]">
               {te ? "🪐 జాతక సమాచారం" : "🪐 Jathakam information"}
             </h2>
@@ -523,15 +523,8 @@ export default function ProfileView() {
             <ProfileInsights viewerId={myTsapId} profileId={searchId} />
           ) : null}
 
-          {myTsapId && searchId && myTsapId !== searchId ? (
-            <RequestCoach fromId={myTsapId} toId={searchId} onPickNote={(text) => setInterestNote(text)} />
-          ) : null}
-          {myTsapId && searchId && myTsapId !== searchId ? (
-            <ProfileInsights viewerId={myTsapId} profileId={searchId} />
-          ) : null}
-
           {/* 🔒 Contact access is gated by profile-owner acceptance */}
-          <section className="mv-card mt-4 rounded-3xl border-2 border-rose-200 bg-gradient-to-b from-rose-50 to-white p-5">
+          <section className="mv-surface mv-surface__body mv-card mt-4 border-rose-200">
             <h2 className="text-lg font-extrabold text-[#7A0C2E]">
               🔒 {te ? "ఫోన్ నంబర్ — •••••••••• (గోప్యతా రక్షణలో ఉంది)" : "Phone Number — •••••••••• (Protected & Locked)"}
             </h2>
@@ -646,7 +639,7 @@ export default function ProfileView() {
           ) : null}
 
           {myTsapId && profile.tsap_id === myTsapId && Object.keys(quality?.sections || {}).length ? (
-            <section className="mt-4 rounded-3xl border border-slate-200 bg-white p-4">
+            <section className="mv-surface mv-surface__body mt-4">
               <h2 className="text-sm font-bold text-slate-800">📝 {te ? `మీ ప్రొఫైల్ వివరాలు: ${quality?.percent}%` : `Your profile fields: ${quality?.percent}%`}</h2>
               <p className="mt-1 text-[11px] text-slate-500">{te ? "ఇది నింపిన ఫీల్డ్‌ల శాతం మాత్రమే; గుర్తింపు లేదా జత సరిపోలిక స్కోరు కాదు." : "This measures completed fields only; it is not an identity or compatibility score."}</p>
               <div className="mt-2 grid grid-cols-2 gap-2 text-[12px] sm:grid-cols-4">

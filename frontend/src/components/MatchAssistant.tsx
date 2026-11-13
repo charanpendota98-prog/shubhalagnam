@@ -73,28 +73,28 @@ export default function MatchAssistant() {
   const pct = Number(nudge?.percent || 0);
 
   return (
-    <section className="rounded-2xl border border-gold/30 bg-white shadow-gold overflow-hidden">
+    <section className="mv-surface mv-card overflow-hidden">
       {/* header */}
-      <div className="maroon-gradient px-4 py-3 flex items-center justify-between gap-2">
-        <div>
-          <h2 className="text-base font-black text-gold leading-tight">
-            🧭 {te ? "పరిశీలించడానికి ప్రొఫైళ్లు" : "Profiles to review"}
+      <div className="mv-surface__head">
+        <div className="min-w-0">
+          <h2 className="mv-surface__title">
+            <span aria-hidden="true">🧭</span> {te ? "పరిశీలించడానికి ప్రొఫైళ్లు" : "Profiles to review"}
           </h2>
-          <p className="text-[11px] text-rose-100/90 font-medium mt-0.5">
+          <p className="mv-surface__sub">
             {te ? "ఇటీవల ఆమోదించిన profiles · నిజమైన interestలు, profile views" : "Recently approved profiles · actual interests and profile views"}
           </p>
         </div>
         <button type="button"
           onClick={() => void load()}
           disabled={loading}
-          className="shrink-0 rounded-full border border-gold/50 bg-white/10 px-3 py-1.5 text-[11px] font-bold text-gold hover:bg-white/20 transition disabled:opacity-50"
+          className="mv-surface__chip focus-brand"
           aria-label={te ? "రిఫ్రెష్ చేయండి" : "Refresh match briefing"}
         >
           {loading ? "…" : "↻"}
         </button>
       </div>
 
-      <div className="p-4 space-y-4">
+      <div className="mv-surface__body space-y-4">
         {loading && (
           <div className="space-y-3">
             {[0, 1, 2].map((i) => (
@@ -114,14 +114,14 @@ export default function MatchAssistant() {
 
             {/* mutual alert banner */}
             {(recv > 0 || views > 0) && (
-              <div className="rounded-xl bg-gradient-to-r from-rose-50 to-amber-50 border border-rose-200 px-3 py-2 flex flex-wrap items-center gap-x-3 gap-y-1">
+              <div className="mv-note flex flex-wrap items-center gap-x-3 gap-y-1">
                 {recv > 0 && (
-                  <span className="text-xs font-bold text-rose-700">
+                  <span className="mv-note__hot text-xs font-bold">
                     🔥 {recv} {te ? "మంది interest పంపారు" : "sent you interest"}
                   </span>
                 )}
                 {views > 0 && (
-                  <span className="text-xs font-bold text-amber-700">
+                  <span className="mv-note__cool text-xs font-bold">
                     👀 {views} {te ? "ప్రొఫైల్ వ్యూస్" : "profile views"}
                   </span>
                 )}
@@ -137,7 +137,7 @@ export default function MatchAssistant() {
                 {matches.map((m) => {
                   const p = (m.profile || {}) as Row;
                   return (
-                    <div key={m.tsap_id} className="rounded-xl border border-slate-200 p-3 flex gap-3 hover:border-gold/60 hover:shadow-gold transition">
+                    <div key={m.tsap_id} className="mv-row flex gap-3">
                       <Avatar p={p} />
                       <div className="min-w-0 flex-1">
                         <div className="flex items-start justify-between gap-2">
@@ -181,14 +181,14 @@ export default function MatchAssistant() {
                 })}
               </div>
             ) : (
-              <p className="rounded-xl bg-slate-50 border border-slate-200 px-3 py-3 text-center text-xs font-medium text-slate-500">
+              <p className="mv-empty-inline">
                 {te ? "ఇటీవల జోడించిన profiles లేవు. తర్వాత మళ్లీ చూడండి; profile పూర్తి చేయడం వల్ల results హామీ కాదు." : "No recently added profiles are available. Please check again later; profile completeness does not guarantee results."}
               </p>
             )}
 
             {/* completeness nudge */}
             {pct < 100 && (
-              <div className="rounded-xl border border-slate-200 p-3">
+              <div className="mv-rowblock">
                 <div className="flex items-center justify-between text-xs font-bold text-slate-700">
                   <span>{te ? "📈 ప్రొఫైల్ పూర్తి" : "📈 Profile completeness"}</span>
                   <span className="text-[#7A0C2E]">{pct}%</span>

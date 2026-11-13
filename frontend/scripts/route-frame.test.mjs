@@ -52,8 +52,17 @@ test("a route never gets two <h1>s: the band stands down where the page has its 
   // Pages that already render their own maroon hero + h1 are marked `intro:
   // "none"`; the band is only a hero for pages that have no hero of their own.
   const none = (frame.match(/intro: "none"/g) || []).length;
-  assert.ok(none >= 15, `expected the owning pages to opt out, got ${none}`);
-  for (const owned of ["/register", "/matches", "/search", "/vendors", "/safety", "/porutham"]) {
+  assert.ok(none >= 12, `expected the owning pages to opt out, got ${none}`);
+  // The member workspaces moved onto the shared band with Group 2, so they
+  // must now supply their opening from RouteFrame, not a local <h1>.
+  for (const banded of ["/me", "/matches", "/requests", "/shortlist", "/saved-searches"]) {
+    const index = frame.indexOf(`"${banded}":`);
+    assert.ok(index > 0, `${banded} missing`);
+    const entry = frame.slice(index, frame.indexOf("},", index));
+    assert.doesNotMatch(entry, /intro: "none"/, `${banded} now takes its <h1> from the shared band`);
+    assert.match(entry, /headlineTe: /, `${banded} needs Telugu headline copy`);
+  }
+  for (const owned of ["/register", "/search", "/vendors", "/safety", "/porutham"]) {
     const index = frame.indexOf(`"${owned}": {`);
     assert.ok(index > 0, `${owned} missing`);
     const entry = frame.slice(index, frame.indexOf("},", index));

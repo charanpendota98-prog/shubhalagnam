@@ -158,6 +158,15 @@ button:not(:disabled), a[href] { touch-action: manipulation; }
   box-shadow: none;
   transition: color .16s ease, background-color .16s ease;
 }
+/* Same idea for compact header links/glyphs: keep the visual size, expand the
+   hit area to 44px with an invisible pad. */
+.tap-pad::after {
+  content: "";
+  position: absolute;
+  inset: -12px -6px;
+  min-height: 44px;
+}
+
 /* The pill stays visually compact (23px glyph row) but the touch target is a
    real 44px: an invisible hit pad, not a bigger control. */
 .lang-toggle button::after {
@@ -2196,6 +2205,254 @@ label {
   .mv-hero__kicker { background: #4a0a22; -webkit-backdrop-filter: none; backdrop-filter: none; }
   .mv-hero__search { background: #fffdf9; }
 }
+/* ============================================================
+   MEMBER SURFACES — the shared card / panel language
+   ------------------------------------------------------------
+   One vocabulary for every account surface (/me, /matches, /search/[id],
+   /requests, /shortlist, /saved-searches): a cream surface with a maroon
+   header band, content on a warm body, and rows that lift on hover. Replaces
+   the previous mix of slate greys, rose/amber gradients and ad-hoc shadows so a
+   member moving between pages never feels they changed products.
+   All motion is transform/opacity on the shared duration tokens.
+   ============================================================ */
+.mv-surface {
+  border: 1px solid rgba(212, 175, 55, 0.34);
+  border-radius: 1.15rem;
+  background: #fffdf9;
+  box-shadow:
+    0 1px 2px rgba(42, 13, 24, 0.04),
+    0 18px 40px -26px rgba(122, 12, 46, 0.42);
+  overflow: clip;
+}
+.mv-surface--quiet { background: #fff; }
+
+/* Header band: maroon depth + a warm light, same family as the hero. */
+.mv-surface__head {
+  position: relative;
+  isolation: isolate;
+  padding: 0.7rem 1rem;
+  background:
+    radial-gradient(120% 160% at 8% 0%, rgba(160, 20, 58, 0.98) 0%, rgba(122, 12, 46, 0.96) 46%, rgba(74, 7, 30, 1) 100%);
+  color: #fff;
+  overflow: clip;
+}
+.mv-surface__head::after {
+  content: "";
+  position: absolute;
+  inset: -60% -10% auto -10%;
+  height: 160%;
+  z-index: -1;
+  background: radial-gradient(closest-side at 82% 30%, rgba(255, 226, 150, 0.22), transparent 70%);
+  animation: mvSurfaceDrift 22s var(--ds-ease-in-out) infinite alternate;
+  pointer-events: none;
+}
+.mv-surface__title {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 800;
+  line-height: 1.3;
+  color: #ffe9b0;
+}
+/* A standalone maroon panel head, used when the head is not paired with a
+   body (e.g. the partner-preferences banner). */
+.mv-surface--head {
+  border: 1px solid rgba(212, 175, 55, 0.35);
+  border-radius: 1rem;
+  background:
+    radial-gradient(120% 140% at 12% 0%, rgba(212, 175, 55, 0.16), transparent 62%),
+    linear-gradient(135deg, #7a0c2e, #5b0a22);
+  box-shadow: 0 22px 46px -34px rgba(91, 10, 34, 0.9);
+  color: #fff;
+}
+
+/* Same title, on a light body instead of the maroon head (4.5:1 both ways). */
+.mv-surface__title--ink { color: #7a0c2e; }
+.mv-surface__sub {
+  margin: 0.15rem 0 0;
+  font-size: 0.68rem;
+  line-height: 1.45;
+  color: rgba(255, 244, 236, 0.82);
+}
+/* The head is always a two-column grid: copy (which wraps) + a 44px action.
+   Telugu titles are long, so the text column is the one that gives way — the
+   chip never shrinks into a circle and never drops to its own line. */
+.mv-surface__head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 0.5rem;
+}
+.mv-surface__head > :first-child { min-width: 0; }
+
+/* Small chip used for in-head actions (refresh, filters). 44px hit area. */
+.mv-surface__chip {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  padding: 0 0.65rem;
+  border: 1px solid rgba(255, 233, 176, 0.45);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffe9b0;
+  font-size: 0.72rem;
+  font-weight: 800;
+  transition: background var(--ds-duration-fast) var(--ds-ease), transform var(--ds-duration-fast) var(--ds-ease);
+}
+.mv-surface__chip:hover { background: rgba(255, 255, 255, 0.22); }
+.mv-surface__chip:active { transform: scale(0.97); }
+.mv-surface__chip:disabled { opacity: 0.55; }
+
+.mv-surface__body { padding: 0.9rem 1rem 1.05rem; }
+@media (min-width: 640px) {
+  .mv-surface__head { padding: 0.85rem 1.25rem; }
+  .mv-surface__body { padding: 1.1rem 1.25rem 1.25rem; }
+}
+
+/* Row inside a surface: photo/avatar + text + action, hover lift on pointers. */
+.mv-row {
+  border: 1px solid rgba(31, 41, 55, 0.1);
+  border-radius: 0.85rem;
+  background: #fff;
+  padding: 0.7rem;
+  transition: border-color var(--ds-duration-base) var(--ds-ease), box-shadow var(--ds-duration-base) var(--ds-ease), transform var(--ds-duration-base) var(--ds-ease);
+}
+@media (hover: hover) and (pointer: fine) {
+  .mv-row:hover {
+    transform: translate3d(0, -2px, 0);
+    border-color: rgba(212, 175, 55, 0.65);
+    box-shadow: 0 14px 30px -20px rgba(122, 12, 46, 0.5);
+  }
+}
+.mv-rowblock {
+  border: 1px solid rgba(31, 41, 55, 0.1);
+  border-radius: 0.85rem;
+  background: #fff;
+  padding: 0.7rem;
+}
+
+/* Two-tone note strip: warm for "someone acted", cool for "someone looked".
+   Replaces the rose→amber gradient, which mixed two unrelated hues. */
+.mv-note {
+  border: 1px solid rgba(212, 175, 55, 0.42);
+  border-left: 3px solid var(--ds-gold);
+  border-radius: 0.7rem;
+  background: linear-gradient(94deg, rgba(255, 246, 220, 0.95), rgba(255, 253, 249, 0.9));
+  padding: 0.5rem 0.7rem;
+}
+.mv-note__hot { color: #9f1239; }
+.mv-note__cool { color: #0f5f59; }
+/* Cool variant of the whole strip: a plain "you can do this" confirmation,
+   not an alert. */
+.mv-note--cool {
+  border-color: rgba(15, 95, 89, 0.28);
+  border-left-color: #0f5f59;
+  background: linear-gradient(94deg, rgba(236, 251, 248, 0.95), rgba(253, 255, 255, 0.9));
+  color: #0b4f4a;
+}
+
+/* Honest empty state inside a surface: warm, quiet, never a fake card. */
+.mv-empty-inline {
+  margin: 0;
+  padding: 0.85rem 1rem;
+  border: 1px dashed rgba(212, 175, 55, 0.5);
+  border-radius: 0.85rem;
+  background: rgba(255, 248, 231, 0.7);
+  text-align: center;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.55;
+  color: #6f5b63;
+}
+
+/* Quiet informational chip (labels, "no chat", "contact after acceptance"). */
+.mv-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 1.75rem;
+  padding: 0.2rem 0.6rem;
+  border: 1px solid rgba(212, 175, 55, 0.45);
+  border-radius: 999px;
+  background: #fffaf3;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #6f5b63;
+}
+
+/* Compact member action button (44px, brand maroon, press feedback). */
+.mv-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  min-height: 2.75rem;
+  padding: 0 1rem;
+  border: 1px solid transparent;
+  border-radius: 0.75rem;
+  font-size: 0.82rem;
+  font-weight: 800;
+  transition:
+    transform var(--ds-duration-fast) var(--ds-ease),
+    background-color var(--ds-duration-fast) var(--ds-ease),
+    box-shadow var(--ds-duration-fast) var(--ds-ease);
+}
+.mv-btn--primary {
+  background: linear-gradient(135deg, #7a0c2e, #a0143a);
+  color: #fff;
+  box-shadow: 0 10px 22px -14px rgba(122, 12, 46, 0.85);
+}
+.mv-btn--primary:hover { background: linear-gradient(135deg, #8c0f35, #b01742); }
+.mv-btn--secondary {
+  border-color: rgba(122, 12, 46, 0.3);
+  background: #fff;
+  color: #7a0c2e;
+}
+.mv-btn--secondary:hover { background: #fdf3f6; }
+/* Contact + WhatsApp: kept distinct so "contact" never reads as the same
+   affordance as the share action beside it. */
+.mv-btn--gold {
+  background: linear-gradient(135deg, #d4af37, #f0d580);
+  color: #5b1020;
+  box-shadow: 0 10px 22px -16px rgba(122, 12, 46, 0.7);
+}
+.mv-btn--gold:hover { background: linear-gradient(135deg, #dcb945, #f6e0a1); }
+.mv-btn--contact {
+  background: #047857;
+  color: #fff;
+  box-shadow: 0 10px 22px -14px rgba(4, 120, 87, 0.9);
+}
+.mv-btn--contact:hover { background: #065f46; }
+/* WhatsApp share stays an outline so it never competes with the solid
+   "contact" action sitting beside it. */
+.mv-btn--wa {
+  border-color: rgba(31, 170, 82, 0.55);
+  background: #fff;
+  color: #146c37;
+}
+.mv-btn--wa:hover { background: #f1fbf4; }
+.mv-btn:active { transform: scale(0.98); }
+@media (prefers-reduced-motion: reduce) {
+  .mv-btn { transition: none; }
+  .mv-btn:active { transform: none; }
+}
+
+@keyframes mvSurfaceDrift {
+  from { transform: translate3d(-2%, 0, 0) scale(1); opacity: 0.75; }
+  to   { transform: translate3d(3%, 2%, 0) scale(1.08); opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mv-surface__head::after { animation: none !important; }
+  .mv-row, .mv-surface__chip { transition: none; }
+  .mv-row:hover { transform: none; }
+}
+
 /* ============================================================
    ROUTE INTRO — one cinematic opening band for every route
    ------------------------------------------------------------

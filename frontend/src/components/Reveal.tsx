@@ -69,6 +69,15 @@ export default function Reveal({
       return;
     }
 
+    // Already scrolled past (content that mounted after a fast scroll, or a
+    // browser restoring scroll): an observer would never fire, because the
+    // element is above the viewport and the user would have to scroll back up
+    // to a section they cannot see. Reveal it now — motion never hides content.
+    if (box.bottom <= 0) {
+      setVisible(true);
+      return;
+    }
+
     // Reveal as soon as any sliver enters the viewport — big sections are
     // almost never 8% visible in one go, and a section that stays invisible is
     // far worse than a section that animates a moment early.

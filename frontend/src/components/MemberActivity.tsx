@@ -32,7 +32,7 @@ function hours(hoursValue?: number | null): string {
 
 function Tile({ value, label }: { value: string | number; label: string }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-3 text-center">
+    <div className="mv-rowblock text-center">
       <div className="text-lg font-black text-[#7A0C2E]">{value}</div>
       <div className="mt-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">{label}</div>
     </div>
@@ -61,8 +61,8 @@ export default function MemberActivity({ tsapId }: { tsapId: string }) {
 
   return (
     <section className="px-4" aria-label={te ? "మీ కార్యకలాపాలు" : "Your activity"}>
-      <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-        <h2 className="text-base font-black text-[#7A0C2E]">
+      <div className="mv-surface mv-surface__body">
+        <h2 className="mv-surface__title mv-surface__title--ink">
           {te ? "📊 మీ కార్యకలాపాలు" : "📊 Your activity"}
         </h2>
 
@@ -78,7 +78,7 @@ export default function MemberActivity({ tsapId }: { tsapId: string }) {
         </div>
 
         <dl className="mt-3 grid grid-cols-2 gap-2">
-          <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-3">
+          <div className="mv-rowblock bg-[#fffaf3]">
             <dt className="text-[10px] font-bold uppercase tracking-wide text-slate-500">
               {te ? "సమాధాన రేటు" : "Response rate"}
             </dt>
@@ -86,7 +86,7 @@ export default function MemberActivity({ tsapId }: { tsapId: string }) {
               {typeof data.response_rate_percent === "number" ? `${data.response_rate_percent}%` : "-"}
             </dd>
           </div>
-          <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-3">
+          <div className="mv-rowblock bg-[#fffaf3]">
             <dt className="text-[10px] font-bold uppercase tracking-wide text-slate-500">
               {te ? "సగటు సమాధాన సమయం" : "Typical wait"}
             </dt>
@@ -95,14 +95,14 @@ export default function MemberActivity({ tsapId }: { tsapId: string }) {
         </dl>
 
         {data.small_sample && (
-          <p className="mt-2 rounded-2xl border border-amber-200 bg-amber-50 p-2.5 text-[11px] font-semibold text-amber-900">
+          <p className="mv-note mt-2 text-[11px] font-semibold text-[#6b4a12]">
             {te
               ? `ఇది చిన్న నమూనా — ${data.sample_size || 0} request(లు) మాత్రమే. ఇది భవిష్యత్తు అంచనా కాదు.`
               : `Small sample — only ${data.sample_size || 0} request(s) so far. This is not a forecast.`}
           </p>
         )}
 
-        <p className="mt-3 rounded-2xl bg-slate-50 p-3 text-[11px] leading-relaxed text-slate-600">
+        <p className="mt-3 rounded-xl bg-[#fffaf3] p-3 text-[11px] leading-relaxed text-slate-600">
           {te ? data.note_te : data.note_en}
         </p>
       </div>

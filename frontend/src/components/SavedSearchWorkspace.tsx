@@ -23,7 +23,7 @@ import { apiFetch, apiPost, authHeaders, readApiJson } from "@/lib/api";
 import { useLang } from "@/lib/lang";
 import AuthGate from "@/components/AuthGate";
 import { CardSkeletonList } from "@/components/Skeletons";
-import { Badge, Button, Card, CardBody, EmptyState } from "@/components/ui";
+import { Button, Card, CardBody, EmptyState } from "@/components/ui";
 import { isBroadSavedSearch, summarizeSavedSearch } from "@/lib/saved-search-summary.mjs";
 
 type Row = Record<string, any>;
@@ -206,19 +206,10 @@ export default function SavedSearchWorkspace() {
   }
 
   return (
-    <section className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6 sm:py-8" aria-labelledby="saved-searches-title">
-      <div className="mb-4 flex flex-col gap-3 sm:mb-6 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <Badge icon={<span aria-hidden="true">🔔</span>}>{te ? "సేవ్ చేసిన శోధనలు" : "Saved searches"}</Badge>
-          <h1 id="saved-searches-title" className="mt-2 text-xl font-extrabold text-maroon sm:text-2xl">
-            {te ? "నా saved searches" : "My saved searches"}
-          </h1>
-          <p className="mt-1 max-w-2xl text-xs leading-relaxed text-slate-600 sm:text-sm">
-            {te
-              ? "మీరు save చేసిన శోధనలు, వాటికి కొత్తగా వచ్చిన ప్రొఫైళ్లు, మరియు WhatsApp alerts — అన్నీ ఒకే చోట. Alerts పూర్తిగా మీ ఇష్టం; ఎప్పుడైనా ఆపేయవచ్చు."
-              : "Your saved searches, what is new for each, and WhatsApp alerts — all in one place. Alerts are entirely optional and can be turned off at any time."}
-          </p>
-        </div>
+    <section className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6 sm:py-8" aria-label={te ? "నా saved searches" : "My saved searches"}>
+      {/* The <h1>, lead and badge come from the shared intro band; the
+          workspace only carries its own action. */}
+      <div className="mb-4 flex justify-end sm:mb-6">
         <Link
           href="/matches"
           className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-full border border-maroon/30 px-4 py-2 text-xs font-bold text-maroon"
@@ -246,7 +237,7 @@ export default function SavedSearchWorkspace() {
       {loading ? (
         <CardSkeletonList n={3} />
       ) : loadError ? (
-        <Card>
+        <Card tone="brand" interactive className="mv-card">
           <CardBody>
             <p role="alert" className="text-sm text-amber-950">
               {te ? "Saved searches లోడ్ కాలేదు." : "Your saved searches could not be loaded."}
@@ -259,7 +250,7 @@ export default function SavedSearchWorkspace() {
           </CardBody>
         </Card>
       ) : searches.length === 0 ? (
-        <Card>
+        <Card tone="brand" interactive className="mv-card">
           <CardBody>
             <EmptyState
               title={te ? "ఇంకా saved searches లేవు" : "No saved searches yet"}

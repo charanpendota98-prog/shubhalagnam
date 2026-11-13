@@ -10,7 +10,9 @@ import { test, expect, type Page } from "@playwright/test";
  * Checked here:
  *  1. every route reports the same motion tokens (durations, easings, stagger);
  *  2. scroll-reveal elements become visible after scrolling — including the
- *     bottom of very long lists, where a naive threshold leaves content blank;
+ *     bottom of very long lists, where a naive threshold leaves content blank,
+ *     and content that mounts only after the viewport has already scrolled
+ *     past it (which an IntersectionObserver could never fire for);
  *  3. the ambience layer exists, sits behind content, and is inert
  *     (`pointer-events: none`, `aria-hidden`);
  *  4. reduced motion removes the ambience animation, keeps reveals visible and
