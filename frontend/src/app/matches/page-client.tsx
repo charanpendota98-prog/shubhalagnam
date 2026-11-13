@@ -59,6 +59,7 @@ import { useLang } from "@/lib/lang";
 import DistrictAdBanner from "@/components/DistrictAdBanner";
 import QuickUnlockModal from "@/components/QuickUnlockModal";
 import WhatsAppProposalModal from "@/components/WhatsAppProposalModal";
+import CategorizedMatchesBar from "@/components/CategorizedMatchesBar";
 import { PillScroller } from "@/components/ui";
 
 type Row = Record<string, any>;
@@ -1688,10 +1689,70 @@ export default function MatchesPage() {
                 />
               </div>
             </div>
+
+            {/* Ecosystem 3.0 Facets: Mother Tongue, Country/NRI, City, Verification Badge */}
+            <div className="border-t border-slate-100 pt-3 space-y-2.5 text-xs">
+              <div>
+                <label className="block font-black text-slate-800 mb-1">🗣️ {te ? "మాతృభాష" : "Mother tongue"}:</label>
+                <select
+                  aria-label={te ? "మాతృభాష" : "Mother tongue"}
+                  value={filters.mother_tongue || ""}
+                  onChange={(e) => setF("mother_tongue", e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-1.5 font-bold"
+                >
+                  <option value="">{te ? "ఏదైనా" : "Any"}</option>
+                  <option value="Telugu">{te ? "తెలుగు (Telugu)" : "Telugu"}</option>
+                  <option value="Kannada">Kannada</option>
+                  <option value="Tamil">Tamil</option>
+                  <option value="Hindi">Hindi</option>
+                  <option value="Urdu">Urdu</option>
+                </select>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block font-black text-slate-800 mb-1">🌍 {te ? "దేశం" : "Country"}:</label>
+                  <input
+                    aria-label={te ? "దేశం" : "Country"}
+                    value={filters.country || ""}
+                    onChange={(e) => setF("country", e.target.value)}
+                    placeholder="India / USA / UK"
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-1.5 font-semibold"
+                  />
+                </div>
+                <div>
+                  <label className="block font-black text-slate-800 mb-1">🏙️ {te ? "నగరం" : "City"}:</label>
+                  <input
+                    aria-label={te ? "నగరం" : "City"}
+                    value={filters.city || ""}
+                    onChange={(e) => setF("city", e.target.value)}
+                    placeholder="Hyderabad / Vizag"
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-1.5 font-semibold"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block font-black text-slate-800 mb-1">🪪 {te ? "ధృవీకరణ స్థాయి" : "Verification badge"}:</label>
+                <select
+                  aria-label={te ? "ధృవీకరణ స్థాయి" : "Verification badge"}
+                  value={filters.verification_level || ""}
+                  onChange={(e) => setF("verification_level", e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-1.5 font-bold"
+                >
+                  <option value="">{te ? "అన్ని ప్రొఫైల్‌లు" : "All profiles"}</option>
+                  <option value="phone">{te ? "📱 ఫోన్ OTP నమోదైనవి" : "📱 Phone OTP recorded"}</option>
+                  <option value="photo">{te ? "📷 ఫోటో సమీక్షించినవి" : "📷 Photo reviewed"}</option>
+                  <option value="selfie">{te ? "🤳 లైవ్ సెల్ఫీ సమీక్షించినవి" : "🤳 Live selfie reviewed"}</option>
+                  <option value="id">{te ? "🪪 ప్రభుత్వ ID సమీక్షించినవి" : "🪪 Govt ID reviewed"}</option>
+                  <option value="education">{te ? "🎓 విద్య ధృవీకరించినవి" : "🎓 Education verified"}</option>
+                  <option value="employment">{te ? "💼 ఉద్యోగం ధృవీకరించినవి" : "💼 Employment verified"}</option>
+                </select>
+              </div>
+            </div>
           </div>
 
           {/* ================= RIGHT COLUMN: MATCHES LIST (8 cols) ================= */}
           <div className="lg:col-span-8 space-y-4">
+            <CategorizedMatchesBar myTsapId={myTsapId} />
             {/* Header / Summary Bar */}
             <div className="mv-surface mv-surface__body mv-card flex flex-wrap items-center justify-between gap-3 !p-3.5 sm:!p-4">
               <div>

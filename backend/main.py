@@ -103,6 +103,7 @@ from hardening import (
 import production_gates as PRODUCTION_GATES
 import auth_policy as AUTH_POLICY
 import observability as OBS  # optional scrape surface; no PII labels
+import ecosystem3 as ECOSYSTEM3
 
 _PRODUCTION_ENV_NAMES = {"production", "prod", "live"}
 _WA_PAIRING_COOLDOWNS: Dict[tuple[str, str], float] = {}
@@ -209,6 +210,7 @@ def _production_storage_paths() -> list:
         ("channel overrides", CHAN.PERSIST_FILE, False),
         ("consent ledger", QUALITY.CONSENT_STATE_FILE, False),
         ("saved searches", QUALITY.SAVED_STATE_FILE, False),
+        ("ecosystem 3.0 state", ECOSYSTEM3._resolve_state_file(), False),
         ("stories", A11.STORIES_FILE, False),
         ("push subscriptions", A11.PUSH_FILE, False),
         ("money audit", MAUD.AUDIT_FILE, False),
@@ -2177,8 +2179,27 @@ def guarded_profile_photo(filename: str, request: Request):
     )
     identity = token_from_request(request)
     owner_ids = {str(u.get("tsap_id", "")).strip().upper() for u in owners}
-    is_owner = bool(identity and str(identity.get("tsap_id", "")).strip().upper() in owner_ids)
-    if not has_public_photo_reference and not is_owner:
+    viewer_id = str(identity.get("tsap_id", "")).strip().upper() if identity else ""
+    is_owner = bool(viewer_id and viewer_id in owner_ids)
+    # Enforce block relation even if a photo URL was previously cached or shared (MV-009).
+    if viewer_id and not is_owner and any(
+            safety.is_blocked(viewer_id, oid, DB_BLOCKS) for oid in owner_ids if oid):
+        raise HTTPException(404, "Photo not found")
+
+    # Allow expiring signed photo-access token or approved private-photo grant when viewer is not blocked.
+    has_signed_or_granted_access = False
+    if not selfie_owners and not has_public_photo_reference and not is_owner:
+        access_token = (request.query_params.get("access_token") or "").strip()
+        try:
+            import ecosystem3 as ECOSYSTEM3
+            if access_token and ECOSYSTEM3.verify_signed_photo_token(access_token, filename, viewer_id, owner_ids):
+                has_signed_or_granted_access = True
+            elif viewer_id and any(ECOSYSTEM3.has_photo_access(viewer_id, oid) for oid in owner_ids if oid):
+                has_signed_or_granted_access = True
+        except Exception:
+            has_signed_or_granted_access = False
+
+    if not has_public_photo_reference and not is_owner and not has_signed_or_granted_access:
         try:
             require_admin(request, staff_ok=True)
         except HTTPException:
@@ -2202,7 +2223,10 @@ def guarded_profile_card(filename: str, request: Request):
     is_private = bool(profile.get("photo_private") or profile.get("privacy_mode") == "private")
     has_public_card = _is_approved_profile(profile) and not is_private
     identity = token_from_request(request)
-    is_owner = bool(identity and str(identity.get("tsap_id", "")).strip().upper() == tsap_id)
+    viewer_id = str(identity.get("tsap_id", "")).strip().upper() if identity else ""
+    is_owner = bool(viewer_id and viewer_id == tsap_id)
+    if viewer_id and not is_owner and safety.is_blocked(viewer_id, tsap_id, DB_BLOCKS):
+        raise HTTPException(404, "Card not found")
     if not has_public_card and not is_owner:
         try:
             require_admin(request, staff_ok=True)
@@ -2558,7 +2582,7 @@ async def _security_middleware(request: Request, call_next):
         resp.headers["X-Request-ID"] = request_id
         return resp
     try:
-        should_rate_limit = request.method == "POST" or (
+        should_rate_limit = request.method in {"POST", "PUT", "PATCH", "DELETE"} or (
             request.method == "GET" and (
                 request.url.path in {"/api/search", "/api/facets", "/api/promo/apply"}
                 or request.url.path.startswith("/api/referral/")
@@ -6374,21 +6398,28 @@ def interest_sent(tsap_id: str, request: Request = None):
 
 @app.post("/api/interest/respond")
 async def interest_respond(payload: dict, request: Request = None):
-    """Record the owner's decision; acceptance grants in-service contact access, not delivery proof."""
+    """Record the owner's decision (accept/decline) or sender's withdrawal (MV-004)."""
     d = payload or {}
-    tsap_id = d.get("tsap_id", "")
+    tsap_id = str(d.get("tsap_id", "")).strip().upper()
     request_id = d.get("request_id", "")
     action = (d.get("action", "") or "").lower()
-    require_owner(request, tsap_id)   # 🛡️ IDOR: ee request owner ki matrame
-    owner = _find_user(tsap_id)
-    if not owner:
+    require_owner(request, tsap_id)   # 🛡️ IDOR: caller must own tsap_id
+    caller = _find_user(tsap_id)
+    if not caller:
         raise HTTPException(404, "⚠️ User దొరకలేదు — TSAP ID check చెయ్యండి")
     rec = next((i for i in DB_INTERESTS if i["request_id"] == request_id), None)
     if not rec:
         raise HTTPException(404, f"Request దొరకలేదు: {request_id}")
-    if rec["to_id"] != tsap_id:
-        raise HTTPException(403, "Ee request meeku కాదు")
-    requester = _find_user(rec["from_id"])
+    if action == "withdraw":
+        if str(rec.get("from_id", "")).upper() != tsap_id:
+            raise HTTPException(403, "ఈ request మీరు పంపినది కాదు — sender మాత్రమే withdraw చేయగలరు")
+        requester = caller
+        owner = _find_user(rec["to_id"]) or {}
+    else:
+        if str(rec.get("to_id", "")).upper() != tsap_id:
+            raise HTTPException(403, "Ee request meeku కాదు")
+        owner = caller
+        requester = _find_user(rec["from_id"])
     rec_before = copy.deepcopy(rec)
     requester_before = copy.deepcopy(requester) if requester is not None else None
     consent_before = copy.deepcopy(CONSENT_LEDGER)
@@ -6441,8 +6472,8 @@ async def interest_respond(payload: dict, request: Request = None):
                     requester.update(requester_before)
                 raise HTTPException(503, "Consent event could not be saved safely. Please try again.")
             raise
-        if rec.get("credit_refunded"):
-            requester and requester.update({"credits": int(requester.get("credits", 0)) + 1})
+        if rec.get("credit_refunded") and requester:
+            ECOSYSTEM3.refund_credit_bucket(requester, reason="interest_declined_refund", ref_id=request_id)
         if requester:
             txt = interest_declined_text(requester, owner, rec)
             decline_wa = enqueue_whatsapp([requester.get("phone", "")], txt, priority=0,
@@ -6450,9 +6481,25 @@ async def interest_respond(payload: dict, request: Request = None):
             wa = {"queued": bool(decline_wa.get("queued")), "delivery_confirmed": False,
                   "note": "Queue state only; external WhatsApp delivery was not checked."}
     elif action == "withdraw":
+        try:
+            log_consent("interest_withdrawn", requester.get("tsap_id", ""), (owner or {}).get("tsap_id", ""),
+                        request_id=request_id, contact_access_granted=False,
+                        note="Sender withdrew pending interest request before recipient decision.")
+        except RuntimeError as exc:
+            if str(exc).startswith("persistence_failed"):
+                rec.clear()
+                rec.update(rec_before)
+                if requester is not None and requester_before is not None:
+                    requester.clear()
+                    requester.update(requester_before)
+                raise HTTPException(503, "Consent event could not be saved safely. Please try again.")
+            raise
         rec["credit_refunded"] = True
         if requester:
-            requester.update({"credits": int(requester.get("credits", 0)) + 1})
+            ECOSYSTEM3.refund_credit_bucket(requester, reason="interest_withdrawn_refund", ref_id=request_id)
+            res["credits"] = requester.get("credits", 0)
+            res["refund"] = 1
+            res["message"] = "Request withdraw అయ్యింది — మీ credit refund అయ్యింది ✅"
 
     if not _persist_core_state():
         rec.clear()
@@ -6464,7 +6511,7 @@ async def interest_respond(payload: dict, request: Request = None):
         save_consent_ledger()
         raise HTTPException(503, "Interest response could not be saved safely. Please try again.")
     return {"success": True, "request": rec, "whatsapp": wa, "result": res,
-            "message_telugu": res.get("message"), "credits": owner.get("credits", 0)}
+            "message_telugu": res.get("message"), "credits": caller.get("credits", 0)}
 
 
 @app.get("/api/interest/status/{request_id}")
@@ -8063,7 +8110,9 @@ def advanced_search(
     marital_status: Optional[str] = None, children: Optional[str] = None,
     second_marriage: bool = False,
     verified_only: bool = False, photo_only: bool = False,
-    religion: Optional[str] = None, q: Optional[str] = None,
+    religion: Optional[str] = None, mother_tongue: Optional[str] = None,
+    country: Optional[str] = None, city: Optional[str] = None,
+    verification_level: Optional[str] = None, q: Optional[str] = None,
     sort: str = "new", viewer_id: Optional[str] = None, limit: int = 30, offset: int = 0,
     nri_only: bool = False, profession_first: bool = False,
     salary_max: int = 0, height_min: str = "", height_max: str = "", dosham: Optional[str] = None,
@@ -8205,6 +8254,31 @@ def advanced_search(
         religion_terms = [term.strip().casefold() for term in str(religion).split(",") if term.strip()]
         if religion_terms:
             items = [u for u in items if str(u.get("religion", "")).strip().casefold() in religion_terms]
+    if mother_tongue:
+        mt_terms = [term.strip().casefold() for term in str(mother_tongue).split(",") if term.strip()]
+        if mt_terms:
+            items = [u for u in items if any(t in str(u.get("mother_tongue", "")).strip().casefold() for t in mt_terms)]
+    if country:
+        c_terms = [term.strip().casefold() for term in str(country).split(",") if term.strip()]
+        if c_terms:
+            items = [u for u in items if any(
+                t in str(u.get("country", "")).strip().casefold()
+                or t in str(u.get("work_location", "")).strip().casefold()
+                for t in c_terms
+            )]
+    if city:
+        city_terms = [term.strip().casefold() for term in str(city).split(",") if term.strip()]
+        if city_terms:
+            items = [u for u in items if any(
+                t in str(u.get("current_city", "")).strip().casefold()
+                or t in str(u.get("work_location", "")).strip().casefold()
+                or t in str(u.get("district", "")).strip().casefold()
+                for t in city_terms
+            )]
+    if verification_level:
+        vl_terms = {term.strip().lower() for term in str(verification_level).split(",") if term.strip()}
+        if vl_terms:
+            items = [u for u in items if safety.verification_badge(u)["level"] in vl_terms]
     if nri_only:                                    # 🌊 WAVE 14 — NRI-only browse
         items = [u for u in items if _is_nri(u)]
     if verified_only:
@@ -8217,11 +8291,11 @@ def advanced_search(
                  ))]
     items = [u for u in items if age_min <= int(u.get("age", 0) or 0) <= age_max]
     if salary_max:
-        def _sal_max(u):
-            raw = str(u.get("salary", "")).lower().replace("l", "00000").replace("k", "000")
-            digits = "".join(ch for ch in raw if ch.isdigit())
-            return int(digits) if digits else 0
-        items = [u for u in items if 0 < _sal_max(u) <= salary_max]
+        def _sal_within_max(u):
+            lo_inr, hi_inr = ECOSYSTEM3.parse_salary_bounds_inr(u.get("salary", ""))
+            # A range like 8–12L matches salary_max=10L if its lower bound is <= salary_max
+            return hi_inr > 0 and lo_inr <= salary_max
+        items = [u for u in items if _sal_within_max(u)]
     if height_min or height_max:
         from quality import _height_cm
         lo_cm, hi_cm = _height_cm(height_min) if height_min else 0, _height_cm(height_max) if height_max else 999
@@ -8253,11 +8327,10 @@ def advanced_search(
         touched |= {i.get("from_id") for i in DB_INTERESTS if i.get("to_id") == viewer_id}
         items = [u for u in items if u.get("tsap_id") not in touched]
     if salary_min:
-        def _sal(u):
-            raw = str(u.get("salary", "")).lower().replace("l", "00000").replace("k", "000")
-            digits = "".join(ch for ch in raw if ch.isdigit())
-            return int(digits) if digits else 0
-        items = [u for u in items if _sal(u) >= salary_min]
+        def _sal_meets_min(u):
+            _, hi_inr = ECOSYSTEM3.parse_salary_bounds_inr(u.get("salary", ""))
+            return hi_inr >= salary_min
+        items = [u for u in items if _sal_meets_min(u)]
     if q:
         ql = q.casefold()
         searchable_fields = ("tsap_id", "full_name", "district", "current_city", "caste", "sub_caste",
@@ -8265,14 +8338,28 @@ def advanced_search(
         items = [u for u in items if any(ql in str(u.get(field, "")).casefold() for field in searchable_fields)]
 
     viewer = _find_user(viewer_id) if viewer_id else None
-    out = []
-    for u in items:
+
+    # Sort raw matched profiles BEFORE expensive serialization/comparison (MV-018)
+    if sort == "age":
+        items.sort(key=lambda u: int(u.get("age", 99) or 99))
+    elif sort == "boosted":
+        items.sort(key=lambda u: str(u.get("created_at", "")), reverse=True)
+        items.sort(key=lambda u: not A11.is_boosted(u))
+    else:
+        items.sort(key=lambda u: str(u.get("created_at", "")), reverse=True)
+
+    total_matched = len(items)
+    facets_payload = search_facets(items, 10) if with_facets else {}
+
+    # When profession_first rerank is inactive, only serialize the paginated slice!
+    target_slice = items if (profession_first and viewer) else items[offset:offset + limit]
+
+    def _serialize_search_row(u: dict) -> dict:
         row = safe_user(u)
         row["phone_verified"] = bool(u.get("phone_verified"))
         row["is_verified"] = safety.has_verification_evidence(u)
         row["id_verified"] = bool(u.get("id_verified"))
         row["has_photo"] = bool(row.get("photo_url"))
-        row["boosted"] = bool(u.get("boost_until"))
         row["marital_status"] = u.get("marital_status", "—")
         row["salary"] = sanitize_public_text(u.get("salary", "—"))
         row["company"] = sanitize_public_text(u.get("company", ""))
@@ -8281,7 +8368,6 @@ def advanced_search(
         row["is_nri"] = _is_nri(u)
         row["profession_label"] = sanitize_public_text(_prof_label(u))
         row["country"] = sanitize_public_text(u.get("country", ""))
-        row["_sort_created_at"] = u.get("created_at", "")
         row["boosted"] = A11.is_boosted(u)
         badge = safety.verification_badge(u)
         row["verification"] = badge["level"]
@@ -8296,34 +8382,28 @@ def advanced_search(
                 row["observations"] = []
                 row["differences"] = []
                 row["preference_checks"] = []
-            # Astrology is not inferred from search fields. Keep this separate
-            # from owner-uploaded Jathakam evidence and professional review.
             row["jathakam_status"] = "review_required"
-        out.append(row)
+        return row
 
-    if sort == "age":
-        out.sort(key=lambda x: int(x.get("age", 99) or 99))
-    elif sort == "boosted":
-        out.sort(key=lambda x: str(x.get("_sort_created_at", "")), reverse=True)
-        out.sort(key=lambda x: not x.get("boosted"))
-    else:
-        out.sort(key=lambda x: str(x.get("_sort_created_at", "")), reverse=True)
-    for row in out:
-        row.pop("_sort_created_at", None)
+    serialized = [_serialize_search_row(u) for u in target_slice]
     if profession_first and viewer:
-        out = MP.rerank_profession(viewer, out)
+        serialized = MP.rerank_profession(viewer, serialized)
+        results_page = serialized[offset:offset + limit]
+    else:
+        results_page = serialized
 
     return {
-        "total": len(out), "count": len(out[offset:offset + limit]), "offset": offset, "limit": limit,
+        "total": total_matched, "count": len(results_page), "offset": offset, "limit": limit,
         "sort": sort,
         "legacy_porutham_sort_ignored": legacy_porutham_sort_ignored,
         "filters": {"gender": gender, "caste": caste, "district": district, "state": state, "job": job,
                     "education": education, "age": [age_min, age_max], "salary_min": salary_min,
                     "marital_status": marital_status, "verified_only": verified_only, "photo_only": photo_only,
-                    "religion": religion, "q": q},
-        "results": out[offset:offset + limit],
-        "facets": search_facets(out, 10) if with_facets else {},
-        "message_telugu": f"🔎 {len(out)} profiles dorikayi (filters: caste={caste or 'Any'}, district={district or 'Any'}, age={age_min}-{age_max})",
+                    "religion": religion, "mother_tongue": mother_tongue, "country": country,
+                    "city": city, "verification_level": verification_level, "q": q},
+        "results": results_page,
+        "facets": facets_payload,
+        "message_telugu": f"🔎 {total_matched} profiles dorikayi (filters: caste={caste or 'Any'}, district={district or 'Any'}, age={age_min}-{age_max})",
     }
 
 
@@ -8864,6 +8944,7 @@ def api_report(payload: dict, request: Request = None):
                                          reports=DB_REPORTS, users=DB_USERS)
     if not ok:
         raise HTTPException(400, kind)
+    _persist_core_state()
     return {"success": True, "kind": kind, "report": rec,
             "auto_hidden": bool(rec.get("auto_flagged")),
             "ack_telugu": safety.report_ack_text(),
@@ -8872,18 +8953,19 @@ def api_report(payload: dict, request: Request = None):
 
 @app.get("/api/moderation/queue")
 def api_moderation_queue(limit: int = 50, request: Request = None):
-    require_admin(request)   # 🛡️ WAVE 9: admin key lekunda 403 (PII/money/)
+    require_admin(request, staff_ok=True)
     return safety.moderation_queue(DB_REPORTS, DB_USERS, limit)
 
 
 @app.post("/api/moderation/resolve/{report_id}")
 def api_moderation_resolve(report_id: str, payload: dict = None, request: Request = None):
-    require_admin(request)   # 🛡️ WAVE 9: admin key lekunda 403 (PII/money/)
+    require_admin(request, staff_ok=True)
     d = payload or {}
     ok, msg, rec = safety.resolve_report(report_id, str(d.get("action", "")), str(d.get("note", "")),
                                          reports=DB_REPORTS, users=DB_USERS)
     if not ok:
         raise HTTPException(400, msg)
+    _persist_core_state()
     return {"success": True, "action": msg, "report": rec, "queue": safety.report_stats(DB_REPORTS)}
 
 
@@ -8911,6 +8993,7 @@ def api_block(payload: dict, request: Request = None):
     if not ok:
         raise HTTPException(400, kind)
     rec.setdefault("block_id", you)                 # safety module 'blocked' key vadachu — rendu unchey
+    _persist_core_state()
     return {"success": True, "kind": kind, "block": rec,
             "total_blocks": len(safety.block_list(me, DB_BLOCKS)),
             "message_telugu": "🚫 Block చేశారు — వాళ్లు మీ profile chudalenu, interest కూడా pampalenru"}
@@ -8923,6 +9006,8 @@ def api_unblock(payload: dict, request: Request = None):
     you = clean(d.get("block_id") or d.get("blocked") or d.get("target_id"), 30, "block_id")  # WAVE 29: target_id alias (block tho consistency, silent no-op ban)
     require_owner(request, me)                     # 🛡️ WAVE 9: IDOR fix
     ok, msg = safety.unblock_user(me, you, DB_BLOCKS)
+    if ok:
+        _persist_core_state()
     return {"success": ok, "kind": msg, "total_blocks": len(safety.block_list(me, DB_BLOCKS)),
             "message_telugu": "✅ Unblock అయ్యింది — ఇప్పుడు interest కూడా పంపొచ్చు" if ok else "ఈ user block list లో లేదు"}
 
@@ -8947,6 +9032,7 @@ def api_verify_request(payload: dict, request: Request = None):
     ok, msg, _ = safety.set_verification(u, kind)
     if not ok:
         raise HTTPException(400, msg)
+    _persist_core_state()
     badge = safety.verification_badge(u)
     return {"success": True, "kind": msg, "verification": badge,
             "message_telugu": "✅ %s — %s" % (badge["telugu"], badge["next_step_telugu"])}
@@ -12431,4 +12517,453 @@ def passkey_login_finish(payload: dict, request: Request, response: Response):
         "profile": safe_user(target_user),
         "message_telugu": "✅ లాగిన్ విజయవంతమైంది"
     }
+
+
+# ============================================================================
+# ECOSYSTEM 3.0 ENDPOINTS — Multi-Badge Verification, Moderation Appeals,
+# Private Photo Access, FIFO Credit Ledger, Family Collaboration, Support,
+# Vendor Quotes/Reviews, Categorized Matchmaking & DPDP Data Export
+# ============================================================================
+
+@app.get("/api/verification/{tsap_id}/badges")
+def api_member_badges(tsap_id: str, request: Request = None):
+    tid = clean(tsap_id, 40, "tsap_id").upper()
+    u = _find_user(tid)
+    if not u:
+        raise HTTPException(404, "Profile not found")
+    # Publicly approved profiles expose earned badges only; pending submissions require owner/staff
+    data = ECOSYSTEM3.member_badges(u)
+    ident = token_from_request(request)
+    is_self = bool(ident and str(ident.get("tsap_id", "")).upper() == tid)
+    if not is_self and not is_admin(request):
+        data["submissions"] = []
+    return {"success": True, **data}
+
+
+@app.post("/api/verification/{tsap_id}/submit")
+def api_submit_verification_evidence(tsap_id: str, payload: dict, request: Request = None):
+    tid = clean(tsap_id, 40, "tsap_id").upper()
+    require_owner(request, tid)
+    u = _find_user(tid)
+    if not u:
+        raise HTTPException(404, "Profile not found")
+    d = payload or {}
+    ok, msg, rec = ECOSYSTEM3.submit_verification_evidence(
+        u,
+        badge_type=str(d.get("badge_type", "")),
+        summary=str(d.get("summary", "")),
+        document_type=str(d.get("document_type", "")),
+    )
+    if not ok:
+        raise HTTPException(400, msg)
+    return {
+        "success": True,
+        "status": msg,
+        "record": rec,
+        "message_en": "Submitted for manual staff review. Badges are granted only after verification.",
+        "message_telugu": "✅ మాన్యువల్ సమీక్ష కోసం నమోదు అయింది — బృందం పరిశీలించిన తర్వాతే బ్యాడ్జ్ వస్తుంది.",
+    }
+
+
+@app.get("/api/admin/verification/queue")
+def api_admin_verification_queue(status: str = "pending", request: Request = None):
+    require_admin(request, staff_ok=True)
+    items = ECOSYSTEM3.list_verification_queue(status)
+    return {"success": True, "count": len(items), "items": items}
+
+
+@app.post("/api/admin/verification/{record_id}/review")
+def api_admin_verification_review(record_id: str, payload: dict, request: Request = None):
+    role = require_admin(request, staff_ok=True)
+    d = payload or {}
+    ok, msg, rec = ECOSYSTEM3.review_verification_evidence(
+        record_id,
+        decision=str(d.get("decision", "")),
+        reviewer=str(d.get("reviewer") or role),
+        rejection_reason=str(d.get("rejection_reason", "")),
+        users=DB_USERS,
+    )
+    if not ok:
+        raise HTTPException(400, msg)
+    _persist_core_state()
+    return {"success": True, "decision": msg, "record": rec}
+
+
+@app.post("/api/safety/appeal")
+def api_submit_appeal(payload: dict, request: Request = None):
+    d = payload or {}
+    tid = clean(d.get("tsap_id", ""), 40, "tsap_id").upper()
+    require_owner(request, tid)
+    u = _find_user(tid)
+    if not u:
+        raise HTTPException(404, "Profile not found")
+    ok, msg, rec = ECOSYSTEM3.submit_appeal(u, str(d.get("reason", "")), str(d.get("context_note", "")))
+    if not ok:
+        raise HTTPException(400, msg)
+    return {
+        "success": True,
+        "kind": msg,
+        "appeal": rec,
+        "message_en": "Appeal recorded for human moderation review.",
+        "message_telugu": "✅ మీ అప్పీల్ మాన్యువల్ సమీక్ష కోసం నమోదు అయింది.",
+    }
+
+
+@app.get("/api/safety/appeals/{tsap_id}")
+def api_member_appeals(tsap_id: str, request: Request = None):
+    tid = clean(tsap_id, 40, "tsap_id").upper()
+    require_owner(request, tid)
+    items = ECOSYSTEM3.list_member_appeals(tid)
+    return {"success": True, "count": len(items), "items": items}
+
+
+@app.get("/api/admin/appeals")
+def api_admin_appeals(status: str = "open", request: Request = None):
+    require_admin(request, staff_ok=True)
+    items = ECOSYSTEM3.list_admin_appeals(status)
+    return {"success": True, "count": len(items), "items": items}
+
+
+@app.post("/api/admin/appeals/{appeal_id}/resolve")
+def api_admin_resolve_appeal(appeal_id: str, payload: dict, request: Request = None):
+    role = require_admin(request, staff_ok=True)
+    d = payload or {}
+    ok, msg, rec = ECOSYSTEM3.resolve_appeal(
+        appeal_id,
+        outcome=str(d.get("outcome", "")),
+        reviewer=str(d.get("reviewer") or role),
+        note=str(d.get("note", "")),
+        users=DB_USERS,
+    )
+    if not ok:
+        raise HTTPException(400, msg)
+    _persist_core_state()
+    return {"success": True, "outcome": msg, "appeal": rec}
+
+
+@app.post("/api/photo/access/request")
+def api_photo_access_request(payload: dict, request: Request = None):
+    d = payload or {}
+    vid = clean(d.get("viewer_id", ""), 40, "viewer_id").upper()
+    oid = clean(d.get("owner_id", ""), 40, "owner_id").upper()
+    require_owner(request, vid)
+    if not _find_user(vid) or not _find_user(oid):
+        raise HTTPException(404, "Profile not found")
+    if safety.is_blocked(vid, oid, DB_BLOCKS):
+        raise HTTPException(403, "Action unavailable")
+    ok, msg, rec = ECOSYSTEM3.request_photo_access(vid, oid, str(d.get("note", "")))
+    if not ok:
+        raise HTTPException(400, msg)
+    log_consent("photo_access_requested", vid, oid, note="Member requested private photo viewing permission.")
+    return {"success": True, "status": msg, "grant": rec}
+
+
+@app.post("/api/photo/access/respond")
+def api_photo_access_respond(payload: dict, request: Request = None):
+    d = payload or {}
+    oid = clean(d.get("owner_id", ""), 40, "owner_id").upper()
+    require_owner(request, oid)
+    ok, msg, rec = ECOSYSTEM3.respond_photo_access(
+        oid,
+        grant_id=clean(d.get("grant_id", ""), 40, "grant_id"),
+        decision=str(d.get("decision", "")),
+        days=int(d.get("days", 7) or 7),
+    )
+    if not ok:
+        raise HTTPException(400, msg)
+    log_consent(f"photo_access_{msg}", oid, str(rec.get("viewer_id", "")), note=f"Owner set private photo access to {msg}.")
+    return {"success": True, "status": msg, "grant": rec}
+
+
+@app.get("/api/photo/access/{tsap_id}")
+def api_photo_access_list(tsap_id: str, request: Request = None):
+    tid = clean(tsap_id, 40, "tsap_id").upper()
+    require_owner(request, tid)
+    return {"success": True, **ECOSYSTEM3.list_photo_access_for_member(tid)}
+
+
+@app.post("/api/photo/access/signed-url")
+def api_photo_signed_url(payload: dict, request: Request = None):
+    d = payload or {}
+    vid = clean(d.get("viewer_id", ""), 40, "viewer_id").upper()
+    oid = clean(d.get("owner_id", ""), 40, "owner_id").upper()
+    require_owner(request, vid)
+    owner = _find_user(oid)
+    if not owner or safety.is_blocked(vid, oid, DB_BLOCKS):
+        raise HTTPException(404, "Photo not found")
+    if vid != oid and not ECOSYSTEM3.has_photo_access(vid, oid):
+        raise HTTPException(403, "Photo access has not been granted by the profile owner.")
+    fn = _media_filename(owner.get("photo_url"), "/photos/")
+    if not fn:
+        raise HTTPException(404, "Photo not found")
+    tok = ECOSYSTEM3.create_signed_photo_token(fn, vid, oid, ttl_seconds=1800)
+    return {"success": True, "signed_url": f"/photos/{fn}?access_token={tok}", "expires_in_seconds": 1800}
+
+
+@app.get("/api/credits/{tsap_id}/ledger")
+def api_member_credit_ledger(tsap_id: str, request: Request = None):
+    tid = clean(tsap_id, 40, "tsap_id").upper()
+    require_owner(request, tid)
+    u = _find_user(tid)
+    if not u:
+        raise HTTPException(404, "Profile not found")
+    data = ECOSYSTEM3.member_credit_ledger(u)
+    _persist_core_state()
+    return {"success": True, **data}
+
+
+@app.get("/api/payments/{tsap_id}/receipts")
+def api_member_receipts(tsap_id: str, request: Request = None):
+    tid = clean(tsap_id, 40, "tsap_id").upper()
+    require_owner(request, tid)
+    u = _find_user(tid)
+    if not u:
+        raise HTTPException(404, "Profile not found")
+    paypro_orders = []
+    try:
+        paypro_orders = list((PP.STATE.get("orders") or {}).values()) if isinstance(PP.STATE.get("orders"), dict) else list(PP.STATE.get("orders") or [])
+    except Exception:
+        paypro_orders = []
+    receipts = ECOSYSTEM3.build_member_receipts(u, DB_PAYMENTS, paypro_orders)
+    return {"success": True, "tsap_id": tid, "count": len(receipts), "receipts": receipts}
+
+
+@app.post("/api/family/{tsap_id}/invite")
+def api_family_invite(tsap_id: str, payload: dict, request: Request = None):
+    tid = clean(tsap_id, 40, "tsap_id").upper()
+    require_owner(request, tid)
+    u = _find_user(tid)
+    if not u:
+        raise HTTPException(404, "Profile not found")
+    d = payload or {}
+    ok, msg, inv = ECOSYSTEM3.invite_family_member(
+        u,
+        collaborator_name=str(d.get("name", "")),
+        relation=str(d.get("relation", "parent")),
+        can_shortlist=bool(d.get("can_shortlist", True)),
+        can_suggest=bool(d.get("can_suggest", True)),
+        can_draft_preferences=bool(d.get("can_draft_preferences", False)),
+    )
+    if not ok:
+        raise HTTPException(400, msg)
+    log_consent("family_invite_created", tid, tid, note=f"Owner invited {inv['collaborator_name']} ({inv['relation']}).")
+    return {"success": True, "invite": inv}
+
+
+@app.post("/api/family/accept-invite")
+def api_family_accept_invite(payload: dict):
+    d = payload or {}
+    ok, msg, res = ECOSYSTEM3.accept_family_invite(str(d.get("invite_code", "")))
+    if not ok:
+        raise HTTPException(400, msg)
+    collab = res["collaborator"]
+    log_consent("family_invite_accepted", collab["owner_tsap_id"], collab["owner_tsap_id"],
+                note=f"Family collaborator {collab['name']} accepted invite.")
+    return {"success": True, **res}
+
+
+@app.get("/api/family/{tsap_id}")
+def api_family_hub(tsap_id: str, request: Request = None):
+    tid = clean(tsap_id, 40, "tsap_id").upper()
+    ident = token_from_request(request)
+    is_family_collab = bool(
+        ident and str(ident.get("scope", "")) == "family"
+        and str(ident.get("tsap_id", "")).startswith(f"family:{tid}:")
+    )
+    if not is_family_collab:
+        require_owner(request, tid)
+    if not _find_user(tid):
+        raise HTTPException(404, "Profile not found")
+    return {"success": True, **ECOSYSTEM3.family_hub_snapshot(tid)}
+
+
+@app.post("/api/family/{tsap_id}/revoke/{collaborator_id}")
+def api_family_revoke(tsap_id: str, collaborator_id: str, request: Request = None):
+    tid = clean(tsap_id, 40, "tsap_id").upper()
+    require_owner(request, tid)
+    ok, msg = ECOSYSTEM3.revoke_family_member(tid, collaborator_id)
+    if not ok:
+        raise HTTPException(404, msg)
+    log_consent("family_collaborator_revoked", tid, tid, note=f"Revoked collaborator {collaborator_id}.")
+    return {"success": True, "status": msg}
+
+
+@app.post("/api/family/{tsap_id}/suggest")
+def api_family_suggest_match(tsap_id: str, payload: dict, request: Request = None):
+    tid = clean(tsap_id, 40, "tsap_id").upper()
+    d = payload or {}
+    ident = token_from_request(request)
+    actor = "Owner"
+    if ident and str(ident.get("scope", "")) == "family" and str(ident.get("tsap_id", "")).startswith(f"family:{tid}:"):
+        collab_id = str(ident.get("tsap_id", "")).split(":")[-1]
+        snap = ECOSYSTEM3.family_hub_snapshot(tid)
+        active = next((c for c in snap["collaborators"] if c.get("collaborator_id") == collab_id and c.get("status") == "active"), None)
+        if not active or not active.get("permissions", {}).get("can_suggest", True):
+            raise HTTPException(403, "Collaborator access revoked or lacks suggest permission.")
+        actor = f"{active.get('name')} ({active.get('relation')})"
+    else:
+        require_owner(request, tid)
+    cid = clean(d.get("candidate_tsap_id", ""), 40, "candidate_tsap_id").upper()
+    if not _find_user(cid):
+        raise HTTPException(404, "Candidate profile not found")
+    ok, msg, rec = ECOSYSTEM3.suggest_match_for_family(tid, cid, actor, str(d.get("note", "")))
+    if not ok:
+        raise HTTPException(400, msg)
+    return {"success": True, "suggestion": rec}
+
+
+@app.post("/api/support/tickets")
+def api_create_support_ticket(payload: dict, request: Request = None):
+    d = payload or {}
+    tid = clean(d.get("tsap_id", ""), 40, "tsap_id").upper()
+    require_owner(request, tid)
+    u = _find_user(tid)
+    if not u:
+        raise HTTPException(404, "Profile not found")
+    ok, msg, rec = ECOSYSTEM3.create_support_ticket(
+        u,
+        category=str(d.get("category", "general")),
+        subject=str(d.get("subject", "")),
+        message=str(d.get("message", "")),
+    )
+    if not ok:
+        raise HTTPException(400, msg)
+    return {"success": True, "ticket": rec}
+
+
+@app.get("/api/support/tickets/{tsap_id}")
+def api_member_support_tickets(tsap_id: str, request: Request = None):
+    tid = clean(tsap_id, 40, "tsap_id").upper()
+    require_owner(request, tid)
+    items = ECOSYSTEM3.list_member_tickets(tid)
+    return {"success": True, "count": len(items), "tickets": items}
+
+
+@app.get("/api/admin/support/tickets")
+def api_admin_support_tickets(status: str = "open", request: Request = None):
+    require_admin(request, staff_ok=True)
+    items = ECOSYSTEM3.list_admin_tickets(status)
+    return {"success": True, "count": len(items), "tickets": items}
+
+
+@app.post("/api/admin/support/tickets/{ticket_id}/reply")
+def api_admin_reply_support_ticket(ticket_id: str, payload: dict, request: Request = None):
+    role = require_admin(request, staff_ok=True)
+    d = payload or {}
+    ok, msg, rec = ECOSYSTEM3.reply_support_ticket(
+        ticket_id,
+        reply_text=str(d.get("reply", "")),
+        responder=str(d.get("responder") or role),
+        status=str(d.get("status", "answered")),
+    )
+    if not ok:
+        raise HTTPException(400, msg)
+    return {"success": True, "ticket": rec}
+
+
+@app.post("/api/vendors/{vendor_id}/quote")
+def api_vendor_quote_request(vendor_id: str, payload: dict, request: Request = None):
+    d = payload or {}
+    tid = clean(d.get("tsap_id", ""), 40, "tsap_id").upper()
+    require_owner(request, tid)
+    member = _find_user(tid)
+    if not member:
+        raise HTTPException(404, "Member profile not found")
+    vid_clean = clean(vendor_id, 40, "vendor_id").upper()
+    v_row = next(
+        (x for x in getattr(VENDOR_STORE, "VENDORS", [])
+         if str(x.get("id", "")).upper() == vid_clean and vendor_is_active_listing(x)),
+        None,
+    )
+    if not v_row:
+        raise HTTPException(404, "Active vendor not found")
+    ok, msg, rec = ECOSYSTEM3.submit_vendor_quote_request(
+        member,
+        v_row,
+        event_date=str(d.get("event_date", "")),
+        city=str(d.get("city", "")),
+        guest_count=int(d.get("guest_count", 0) or 0),
+        budget_range=str(d.get("budget_range", "")),
+        notes=str(d.get("notes", "")),
+    )
+    if not ok:
+        raise HTTPException(400, msg)
+    return {"success": True, "quote": rec}
+
+
+@app.get("/api/vendors/{vendor_id}/reviews")
+def api_list_vendor_reviews(vendor_id: str):
+    return {"success": True, **ECOSYSTEM3.list_vendor_reviews(vendor_id)}
+
+
+@app.post("/api/vendors/{vendor_id}/reviews")
+def api_submit_vendor_review(vendor_id: str, payload: dict, request: Request = None):
+    d = payload or {}
+    tid = clean(d.get("tsap_id", ""), 40, "tsap_id").upper()
+    require_owner(request, tid)
+    member = _find_user(tid)
+    if not member:
+        raise HTTPException(404, "Member profile not found")
+    vid_clean = clean(vendor_id, 40, "vendor_id").upper()
+    v_row = next(
+        (x for x in getattr(VENDOR_STORE, "VENDORS", [])
+         if str(x.get("id", "")).upper() == vid_clean and vendor_is_active_listing(x)),
+        None,
+    )
+    if not v_row:
+        raise HTTPException(404, "Active vendor not found")
+    leads = getattr(VENDOR_STORE, "LEADS", [])
+    ok, msg, rec = ECOSYSTEM3.submit_verified_vendor_review(
+        member, vid_clean, int(d.get("rating", 0) or 0), str(d.get("review_text", "")), vendor_leads=leads
+    )
+    if not ok:
+        raise HTTPException(403, msg)
+    return {"success": True, "kind": msg, "review": rec}
+
+
+@app.get("/api/matches/{tsap_id}/categories")
+def api_categorized_matches(tsap_id: str, per_category: int = 12, request: Request = None):
+    tid = clean(tsap_id, 40, "tsap_id").upper()
+    require_owner(request, tid)
+    u = _find_user(tid)
+    if not u:
+        raise HTTPException(404, "Profile not found")
+    eligible = [
+        p for p in DB_USERS
+        if _is_approved_profile(p) and not safety.is_blocked(tid, str(p.get("tsap_id", "")), DB_BLOCKS)
+    ]
+    my_saved = [s for s in QUALITY.SAVED_SEARCHES if str(s.get("tsap_id", "")).upper() == tid]
+    raw = topmatch.categorize_matches_v3(u, eligible, saved_searches=my_saved, per_category_limit=per_category)
+    for cat in raw.get("categories", {}).values():
+        for row in cat.get("items", []):
+            if isinstance(row.get("profile"), dict):
+                row["profile"] = safe_user(row["profile"])
+    return {"success": True, "tsap_id": tid, **raw}
+
+
+@app.get("/api/me/{tsap_id}/data-export")
+def api_member_data_export(tsap_id: str, request: Request = None):
+    """DPDP-aligned self-service portability export of the member's own platform data."""
+    tid = clean(tsap_id, 40, "tsap_id").upper()
+    require_owner(request, tid)
+    u = _find_user(tid)
+    if not u:
+        raise HTTPException(404, "Profile not found")
+    log_consent("member_data_export", tid, tid, note="Member downloaded self-service JSON data export.")
+    export_payload = ECOSYSTEM3.build_member_data_export(
+        u,
+        interests=DB_INTERESTS,
+        payments=DB_PAYMENTS,
+        saved_searches=QUALITY.SAVED_SEARCHES,
+        consent_ledger=CONSENT_LEDGER,
+        blocks=DB_BLOCKS,
+    )
+    return JSONResponse(
+        content=export_payload,
+        headers={
+            "Content-Disposition": f'attachment; filename="mana-vivaha-data-{tid}.json"',
+            "Cache-Control": "private, no-store",
+        },
+    )
+
 

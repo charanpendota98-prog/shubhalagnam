@@ -216,7 +216,7 @@ export default function CastesClient() {
             <div className="mt-5 grid max-w-4xl grid-cols-2 gap-2 sm:grid-cols-4">
               {[
                 { value: EXTENDED_COMMUNITIES.length, en: "configured channel hubs", te: "రిజిస్ట్రీ కమ్యూనిటీ హబ్‌లు" },
-                { value: CHANNEL_STATS.by_tier.L3_CASTE, en: "listed channel entries", te: "లిస్టు చేసిన ఛానల్ ఎంట్రీలు" },
+                { value: CHANNEL_STATS.by_tier.L3_CASTE, en: "community-specific channel entries", te: "కమ్యూనిటీ-వారీ ఛానల్ ఎంట్రీలు" },
                 { value: CASTES_DETAILED.length, en: "registration options", te: "నమోదు ఎంపికలు" },
                 { value: "A–Z", en: "search and filter", te: "వెతకడం & వడపోత" },
               ].map((stat) => (

@@ -5,12 +5,14 @@ import { BLOG_ARTICLES } from "@/lib/blog";
 const SITE = process.env.SITE_URL || "https://manavivaha.in";
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const now = new Date();
+  // Deterministic content revision timestamp so crawlers are not misled by per-request Date() churn (MV-017).
+  const now = new Date("2026-11-13T00:00:00.000Z");
   const routes: { path: string; priority: number; freq: MetadataRoute.Sitemap[number]["changeFrequency"] }[] = [
     { path: "/", priority: 1.0, freq: "daily" },
     { path: "/register", priority: 0.95, freq: "weekly" },
     { path: "/pricing", priority: 0.95, freq: "weekly" },
     { path: "/channels", priority: 0.9, freq: "daily" },
+    { path: "/verify", priority: 0.8, freq: "monthly" },
     { path: "/terms", priority: 0.4, freq: "yearly" },
     { path: "/privacy", priority: 0.4, freq: "yearly" },
     { path: "/refund", priority: 0.5, freq: "monthly" },

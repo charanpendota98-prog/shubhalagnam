@@ -30,12 +30,18 @@ def can_view_number(user_credits: int) -> bool:
     return False
 
 def deduct_credit(user: Dict) -> Dict:
-    """Spend one credit to send an interest request; contact sharing remains consent-based."""
-    if user["credits"] <= 0:
-        return {"success": False, "message_telugu": "⚠️ Credits అయిపోయాయి. Interest requests కోసం ₹99 plan లో 5 credits ఉన్నాయి.", "credits": 0}
-    user["credits"] -= 1
-    # log transaction
-    return {"success": True, "credits": user["credits"], "message_telugu": f"✅ Interest request credit వాడబడింది. మిగిలిన credits: {user['credits']}"}
+    """Spend one credit (FIFO across active non-expired buckets) to send an interest request."""
+    try:
+        import ecosystem3 as ECOSYSTEM3
+        res = ECOSYSTEM3.consume_credit_fifo(user, reason="interest_request")
+        if not res.get("ok"):
+            return {"success": False, "message_telugu": "⚠️ Credits అయిపోయాయి. Interest requests కోసం ₹99 plan లో 5 credits ఉన్నాయి.", "credits": 0}
+        return {"success": True, "credits": user["credits"], "message_telugu": f"✅ Interest request credit వాడబడింది. మిగిలిన credits: {user['credits']}"}
+    except Exception:
+        if user.get("credits", 0) <= 0:
+            return {"success": False, "message_telugu": "⚠️ Credits అయిపోయాయి. Interest requests కోసం ₹99 plan లో 5 credits ఉన్నాయి.", "credits": 0}
+        user["credits"] -= 1
+        return {"success": True, "credits": user["credits"], "message_telugu": f"✅ Interest request credit వాడబడింది. మిగిలిన credits: {user['credits']}"}
 
 def add_credits(user: Dict, plan_key: str, payment_verified: bool = True) -> Dict:
     if not payment_verified:
@@ -44,10 +50,20 @@ def add_credits(user: Dict, plan_key: str, payment_verified: bool = True) -> Dic
     plan = PLANS.get(code)
     if not plan or code == "FREE":
         return {"success": False, "message": "Invalid paid plan code"}
-    user["credits"] = int(user.get("credits", 0)) + plan["credits"]
+    validity_days = int(plan["validity_days"])
+    try:
+        import ecosystem3 as ECOSYSTEM3
+        granted = ECOSYSTEM3.grant_credit_bucket(
+            user, plan["credits"], plan_code=code, validity_days=validity_days,
+            note=f"Paid plan {code} ({validity_days}d)",
+        )
+        exp_iso = granted.get("expires_at") or (datetime.utcnow() + timedelta(days=validity_days)).isoformat()
+    except Exception:
+        user["credits"] = int(user.get("credits", 0)) + plan["credits"]
+        exp_iso = (datetime.utcnow() + timedelta(days=validity_days)).isoformat()
     user["plan"] = code
     # 🌊 WAVE 26 — ISO string (datetime object → JSON save fail + restore TypeError)
-    user["plan_expiry"] = (datetime.utcnow() + timedelta(days=plan["validity_days"])).isoformat()
+    user["plan_expiry"] = exp_iso
     return {"success": True, "credits": user["credits"], "plan": code, "expiry": user["plan_expiry"], "message_telugu": f"🎉 {plan['credits']} credits add అయ్యాయి! Plan: {plan['name_telugu']}"}
 
 def add_referral_bonus(user: Dict, bonus_credits: int = 1) -> Dict:

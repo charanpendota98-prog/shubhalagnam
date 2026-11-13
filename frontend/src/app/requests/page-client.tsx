@@ -405,6 +405,16 @@ export default function RequestsPage() {
                     <Link href={`/search/${it.to_id}`} className="mv-btn mv-btn--secondary min-h-11">
                       {te ? "ప్రొఫైల్ →" : "Profile →"}
                     </Link>
+                    {it.status === "pending" && (
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => void respond(it.request_id, "withdraw")}
+                        className="mv-btn min-h-11 border border-rose-300 bg-rose-50 px-3 text-[12px] font-bold text-rose-800 hover:bg-rose-100 disabled:opacity-50"
+                      >
+                        ↩️ {te ? "రద్దు చేయి (1 క్రెడిట్ వాపసు)" : "Withdraw (Refund 1 Credit)"}
+                      </button>
+                    )}
                     <TrackRequest requestId={it.request_id} />
                   </div>
                 </div>

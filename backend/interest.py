@@ -216,8 +216,16 @@ def apply_payment(user: Dict, amount: int, plan_code: str = "") -> Dict:
         return {"ok": False, "error": "This add-on is not available for purchase."}
 
     profiles = int(plan.get("profiles", 0) or 0)
+    validity_days = int(plan.get("validity_days", 30)) if kind in ("plan", "renewal") else None
     if profiles:
-        user["credits"] = int(user.get("credits", 0)) + profiles
+        try:
+            import ecosystem3 as ECOSYSTEM3
+            ECOSYSTEM3.grant_credit_bucket(
+                user, profiles, plan_code=str(plan.get("code") or code or "PAID"),
+                validity_days=validity_days, note=f"Verified {kind} {plan.get('code') or code}",
+            )
+        except Exception:
+            user["credits"] = int(user.get("credits", 0)) + profiles
     if kind in ("plan", "renewal"):
         user["plan"] = plan["code"]
         user["plan_expiry"] = (datetime.utcnow() + timedelta(days=int(plan.get("validity_days", 30)))).isoformat()

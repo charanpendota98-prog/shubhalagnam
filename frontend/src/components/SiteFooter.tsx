@@ -85,7 +85,7 @@ export default function SiteFooter() {
                 : <>TS + AP Telugu Matrimony. ₹99 Sambandham — first 3 interest requests are free. Region • Religion • {CHANNEL_STATS.by_tier.L3_CASTE} community channel listings.</>}
           </div>
           <div className="mt-4 flex flex-wrap gap-2 text-[11px]">
-            <span className="px-2.5 py-1 rounded-full bg-white/10">{CHANNEL_STATS.total} channel listings</span>
+            <span className="px-2.5 py-1 rounded-full bg-white/10">{CHANNEL_STATS.total} total directory listings ({CHANNEL_STATS.by_tier.L3_CASTE} community)</span>
             <span className="px-2.5 py-1 rounded-full bg-white/10">Telegram + configured WhatsApp</span>
             <span className="px-2.5 py-1 rounded-full bg-white/10">{te ? "Photo privacy settings" : "Photo privacy settings"}</span>
           </div>

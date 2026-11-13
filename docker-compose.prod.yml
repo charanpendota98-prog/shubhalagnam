@@ -40,6 +40,7 @@ services:
       APP_ENV: production
       TSAP_AUTH_MODE: ${TSAP_AUTH_MODE:-on}
       TSAP_RATE_LIMIT: ${TSAP_RATE_LIMIT:-1}
+      TRUSTED_PROXY_CIDRS: ${TRUSTED_PROXY_CIDRS:-}
       TSAP_API_KEY: ${TSAP_API_KEY:?TSAP_API_KEY is required}
       TSAP_AUTH_SECRET: ${TSAP_AUTH_SECRET:?TSAP_AUTH_SECRET is required}
       ADMIN_KEY: ${ADMIN_KEY:?ADMIN_KEY is required}
@@ -53,6 +54,11 @@ services:
       PUBLIC_SITE_URL: ${PUBLIC_SITE_URL:?PUBLIC_SITE_URL is required}
       SITE_URL: ${PUBLIC_SITE_URL:?PUBLIC_SITE_URL is required}
       PUBLIC_BASE_URL: ${PUBLIC_SITE_URL:?PUBLIC_SITE_URL is required}
+      PASSKEY_RP_ID: ${PASSKEY_RP_ID:-}
+      PASSKEY_ALLOWED_ORIGINS: ${PASSKEY_ALLOWED_ORIGINS:-}
+      EMAIL_MODE: ${EMAIL_MODE:-off}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      MANA_VIVAHA_EMAIL_FROM: ${MANA_VIVAHA_EMAIL_FROM:-}
 
       # Durable JSON stores: all runtime state is placed under the named volume.
       MANA_VIVAHA_PERSISTENT_ROOT: /var/lib/manavivaha
@@ -81,6 +87,7 @@ services:
       WA_INSTANCE_STATE: /var/lib/manavivaha/state/wa_pool_state.json
       MANA_VIVAHA_WEEKLY_SHOWCASE_FILE: /var/lib/manavivaha/state/weekly_showcase.json
       MANA_VIVAHA_CHANNEL_SETUP_STATE_FILE: /var/lib/manavivaha/state/channel_setup_state.json
+      MANA_VIVAHA_ECOSYSTEM_FILE: /var/lib/manavivaha/state/ecosystem3_state.json
       MANA_VIVAHA_CHANNEL_REPORT_DIR: /var/lib/manavivaha/channel-reports
       MANA_VIVAHA_MEDIA_DIR: /var/lib/manavivaha/media
       VENDOR_POSTER_DIR: /var/lib/manavivaha/media/vendor-posters
