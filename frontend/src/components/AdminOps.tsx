@@ -8,6 +8,7 @@ import { useCallback, useEffect, useState } from "react";
 import { apiDisplayMessage, authHeaders, readApiJson } from "@/lib/api";
 import { useLang } from "@/lib/lang";
 import { whatsappPhoneLink } from "@/lib/wa";
+import EcosystemAdminQueues from "@/components/EcosystemAdminQueues";
 
 type Row = Record<string, any>;
 const H = () => ({ ...authHeaders(true), "Content-Type": "application/json" });
@@ -89,6 +90,7 @@ export function ModerationQueue() {
         ))}
         {!items.length && <p className="text-xs text-gray-400">{te ? "తెరిచి ఉన్న నివేదికలు లేవు ✅" : "No open reports ✅"}</p>}
       </div>
+      <EcosystemAdminQueues />
     </div>
   );
 }

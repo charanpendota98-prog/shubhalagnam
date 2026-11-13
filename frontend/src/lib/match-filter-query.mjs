@@ -28,6 +28,10 @@ export const DEFAULT_MATCH_FILTERS = {
   nri_only: false,
   height_min: "",
   height_max: "",
+  mother_tongue: "",
+  country: "",
+  city: "",
+  verification_level: "",
 };
 
 const NUMERIC_FIELDS = new Set(["age_min", "age_max", "salary_min", "salary_max"]);

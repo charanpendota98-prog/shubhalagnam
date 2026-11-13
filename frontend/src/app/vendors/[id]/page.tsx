@@ -11,6 +11,7 @@ import { useParams } from "next/navigation";
 import { useLang } from "@/lib/lang";
 import { apiDisplayMessage, readApiJson} from "@/lib/api";
 import { safeWhatsAppPhoneLink, whatsappPhoneLink } from "@/lib/wa";
+import VendorVerifiedReviews from "@/components/VendorVerifiedReviews";
 
 export default function VendorDetailPage() {
   const routeParams = useParams();
@@ -399,6 +400,8 @@ export default function VendorDetailPage() {
             </>}
           </div>
         )}
+
+        {tab === "customer" && <VendorVerifiedReviews vendorId={id} />}
       </div>
     </div>
   );

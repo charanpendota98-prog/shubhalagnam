@@ -5,11 +5,12 @@ import { readApiJson } from "@/lib/api";
  * 👑 WAVE 38 — /owner BUSINESS DASHBOARD (revenue + funnel + system).
  * HIDDEN route (public links levu — direct URL + admin key only, like /admin).
  */
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useLang } from "@/lib/lang";
 
 type Row = Record<string, any>;
-const KEY = "tsap_admin_key";
+const LEGACY_KEY_STORAGE = "tsap_admin_key";
 
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -33,27 +34,65 @@ export default function OwnerPage() {
   const { lang } = useLang();
   const te = lang === "te";
   const [key, setKey] = useState("");
+  const [controlCsrf, setControlCsrf] = useState("");
+  const [sessionUser, setSessionUser] = useState("");
   const [d, setD] = useState<Row | null>(null);
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
-  const load = useCallback(async (k: string) => {
-    if (!k) return;
+
+  const authRequestHeaders = useCallback((overrideKey?: string): Record<string, string> => {
+    const k = (overrideKey ?? key).trim();
+    const h: Record<string, string> = {};
+    if (k) h["x-admin-key"] = k;
+    if (controlCsrf) h["X-Control-CSRF"] = controlCsrf;
+    return h;
+  }, [key, controlCsrf]);
+
+  const load = useCallback(async (overrideKey?: string, hasCookieSession = false) => {
+    const k = (overrideKey ?? key).trim();
+    if (!k && !hasCookieSession && !sessionUser) return;
     setBusy(true); setErr("");
     try {
-      const r = await fetch("/api/owner/summary", { headers: { "x-admin-key": k } });
+      const r = await fetch("/api/owner/summary", {
+        credentials: "same-origin",
+        headers: k ? { "x-admin-key": k } : {},
+      });
       const j = await readApiJson(r);
-      if (r.status === 403) { setErr(te ? "🔑 Key తప్పు — correct admin key ఇవ్వండి" : "🔑 Wrong key — enter correct admin key"); setD(null); }
-      else if (j.success) { setD(j); try { localStorage.setItem(KEY, k); } catch { /* ignore */ } }
-      else { setErr(j.detail || "Load fail"); setD(null); }
+      if (r.status === 403 || r.status === 401) {
+        setErr(te
+          ? "🔒 Owner session లేదా సరైన admin key అవసరం — /control/login లో sign in అవ్వండి"
+          : "🔒 Owner session or valid admin key required — sign in via /control/login");
+        setD(null);
+      } else if (j.success) {
+        setD(j);
+      } else {
+        setErr(j.detail || "Load fail");
+        setD(null);
+      }
     } catch { setErr(te ? "Network problem" : "Network problem"); }
     setBusy(false);
-  }, [te]);
+  }, [key, sessionUser, te]);
 
   useEffect(() => {
-    try {
-      const k = localStorage.getItem(KEY) || "";
-      if (k) { setKey(k); void load(k); }
-    } catch { /* ignore */ }
+    // Security hardening (MV-007): purge any legacy plaintext admin key from localStorage.
+    try { localStorage.removeItem(LEGACY_KEY_STORAGE); } catch { /* ignore */ }
+    let cancelled = false;
+    (async () => {
+      try {
+        const meRes = await fetch("/api/control/me", { credentials: "same-origin" });
+        if (!meRes.ok) return;
+        const me = await readApiJson<Row>(meRes);
+        if (cancelled) return;
+        if (me?.role === "owner") {
+          setSessionUser(String(me.username || "owner"));
+          setControlCsrf(String(me.csrf || ""));
+          await load("", true);
+        }
+      } catch {
+        /* unauthenticated — wait for /control/login or one-time memory key */
+      }
+    })();
+    return () => { cancelled = true; };
   }, [load]);
 
   const [bmsg, setBmsg] = useState("");
@@ -62,8 +101,11 @@ export default function OwnerPage() {
   const downloadBackup = useCallback(async () => {
     setBbusy(true); setBmsg("");
     try {
-      const r = await fetch("/api/admin/backup/export", { headers: { "x-admin-key": key } });
-      if (!r.ok) { setBmsg(te ? "❌ Backup fail — key check cheyandi" : "❌ Backup failed — check key"); setBbusy(false); return; }
+      const r = await fetch("/api/admin/backup/export", {
+        credentials: "same-origin",
+        headers: authRequestHeaders(),
+      });
+      if (!r.ok) { setBmsg(te ? "❌ Backup fail — owner session లేదా key check cheyandi" : "❌ Backup failed — verify owner session"); setBbusy(false); return; }
       const blob = await r.blob();
       const a = document.createElement("a");
       a.href = URL.createObjectURL(blob);
@@ -72,7 +114,7 @@ export default function OwnerPage() {
       setBmsg(te ? "✅ Backup download ayindi — safe ga dachukondi" : "✅ Backup downloaded — keep it safe");
     } catch { setBmsg("❌ Network problem"); }
     setBbusy(false);
-  }, [key, te]);
+  }, [authRequestHeaders, te]);
 
   const restoreBackup = useCallback(async (f: File | undefined) => {
     if (!f) return;
@@ -80,8 +122,9 @@ export default function OwnerPage() {
     setBbusy(true); setBmsg("");
     const sendRestore = (confirmDestructive: boolean) => fetch("/api/admin/backup/import", {
       method: "POST",
+      credentials: "same-origin",
       headers: {
-        "x-admin-key": key,
+        ...authRequestHeaders(),
         "Content-Type": "application/zip",
         ...(confirmDestructive ? { "X-Confirm-Destructive-Restore": "true" } : {}),
       },
@@ -111,10 +154,10 @@ export default function OwnerPage() {
       setBmsg(j.success
         ? `✅ Restore ok — ${j.restored?.length ?? 0} files (${j.note || ""})`
         : `❌ ${detail || "Restore failed"}`);
-      if (j.success) void load(key);
+      if (j.success) void load(key, Boolean(sessionUser));
     } catch { setBmsg("❌ Network problem"); }
     finally { setBbusy(false); }
-  }, [key, te, load]);
+  }, [authRequestHeaders, key, sessionUser, te, load]);
 
   const rev: Row = d?.revenue || {};
   const users: Row = d?.users || {};
@@ -137,31 +180,52 @@ export default function OwnerPage() {
           <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full border text-xs font-bold ${d ? "bg-emerald-50 text-emerald-800 border-emerald-300" : "bg-amber-50 text-amber-900 border-amber-300"}`}>
             <span className={`w-2 h-2 rounded-full ${d ? "bg-emerald-500" : "bg-amber-500"}`}></span>
             {d
-              ? (te ? "అడ్మిన్ API యాక్సెస్ ఉంది" : "Admin API access active")
-              : (te ? "అడ్మిన్ కీ అవసరం" : "Admin key required")}
+              ? (sessionUser
+                  ? (te ? `HttpOnly Owner Session (${sessionUser})` : `HttpOnly Owner Session (${sessionUser})`)
+                  : (te ? "అడ్మిన్ API యాక్సెస్ ఉంది" : "Admin API access active"))
+              : (te ? "Owner సైన్-ఇన్ అవసరం" : "Owner sign-in required")}
           </span>
         </div>
       </div>
 
       <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-700">
-        <p className="font-bold text-slate-900">{te ? "గోప్యత & డేటా స్థితి" : "Privacy and data scope"}</p>
+        <p className="font-bold text-slate-900">{te ? "గోప్యత & సెషన్ భద్రత" : "Privacy and session security"}</p>
         <p className="mt-1 text-[12px] leading-relaxed">
           {te
-            ? "ఈ సారాంశం అడ్మిన్ API కీ అంగీకరించిన తర్వాత మాత్రమే లోడ్ అవుతుంది. ఇక్కడి గణాంకాలు అప్లికేషన్‌లో నమోదైన స్థితిని చూపుతాయి; చెల్లింపు, ఛానల్ లేదా బాహ్య సందేశాల డెలివరీని స్వతంత్రంగా నిర్ధారించవు."
-            : "The summary loads only after the admin API accepts the key. Counts reflect application-recorded state; they do not independently confirm payment, channel availability, or external message delivery."}
+            ? "ఈ కన్సోల్ HttpOnly Owner Session (/control/login) ద్వారా పనిచేస్తుంది మరియు browser localStorage లో admin key ని ఎప్పుడూ నిల్వ చేయదు. ఇక్కడి గణాంకాలు అప్లికేషన్‌లో నమోదైన స్థితిని చూపుతాయి; చెల్లింపు, ఛానల్ లేదా బాహ్య సందేశాల డెలివరీని స్వతంత్రంగా నిర్ధారించవు."
+            : "This console authenticates via the HttpOnly Owner Session (/control/login) and never stores admin keys in browser localStorage. Counts reflect application-recorded state; they do not independently confirm payment, channel availability, or external message delivery."}
         </p>
+        {!sessionUser && (
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <Link href="/control/login" className="inline-flex items-center rounded-xl bg-[#7A0C2E] px-4 py-2 text-xs font-bold text-white hover:bg-[#5c0922]">
+              🔐 {te ? "Owner Control Portal లో సైన్-ఇన్ చేయండి" : "Sign in via Owner Control Portal"}
+            </Link>
+            <span className="text-[11px] text-slate-500">
+              {te ? "లేదా ఒకసారి మాత్రమే memory key తో చూడండి (browser లో save అవ్వదు):" : "Or unlock once in memory only (never saved to browser storage):"}
+            </span>
+          </div>
+        )}
       </div>
 
-      <div className="mt-4 flex gap-2">
-        <input value={key} onChange={(e) => setKey(e.target.value)} type="password"
-          placeholder={te ? "Admin key" : "Admin key"} aria-label="Admin key"
-          className="flex-1 rounded-2xl border px-3 py-2 font-mono text-sm" />
-        <button type="button" onClick={() => void load(key)} disabled={busy || !key}
-          className="rounded-2xl bg-[#7A0C2E] px-5 py-2 text-sm font-bold text-white disabled:opacity-50">
-          {busy ? "…" : te ? "చూడు" : "View"}
-        </button>
-        {d && <button type="button" aria-label={te ? "మళ్లీ లోడ్ చేయండి" : "Refresh"} onClick={() => void load(key)} className="rounded-2xl border px-4 py-2 text-sm">↻</button>}
-      </div>
+      {!sessionUser && (
+        <div className="mt-4 flex gap-2">
+          <input value={key} onChange={(e) => setKey(e.target.value)} type="password" autoComplete="off"
+            placeholder={te ? "One-time emergency admin key (memory only)" : "One-time emergency admin key (memory only)"} aria-label="Admin key"
+            className="flex-1 rounded-2xl border px-3 py-2 font-mono text-sm" />
+          <button type="button" onClick={() => void load(key)} disabled={busy || !key}
+            className="rounded-2xl bg-[#7A0C2E] px-5 py-2 text-sm font-bold text-white disabled:opacity-50">
+            {busy ? "…" : te ? "చూడు" : "View"}
+          </button>
+          {d && <button type="button" aria-label={te ? "మళ్లీ లోడ్ చేయండి" : "Refresh"} onClick={() => void load(key, Boolean(sessionUser))} className="rounded-2xl border px-4 py-2 text-sm">↻</button>}
+        </div>
+      )}
+      {sessionUser && d && (
+        <div className="mt-3 flex justify-end">
+          <button type="button" aria-label={te ? "మళ్లీ లోడ్ చేయండి" : "Refresh"} onClick={() => void load("", true)} className="rounded-2xl border bg-white px-4 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50">
+            ↻ {te ? "రిఫ్రెష్" : "Refresh summary"}
+          </button>
+        </div>
+      )}
       {err && <p className="mt-2 rounded-2xl border border-amber-300 bg-amber-50 p-2 text-[13px] font-bold text-amber-900">{err}</p>}
       {d && <p className="mt-1 font-mono text-[10px] text-slate-400">at {String(d.at || "").slice(0, 19).replace("T", " ")}</p>}
 

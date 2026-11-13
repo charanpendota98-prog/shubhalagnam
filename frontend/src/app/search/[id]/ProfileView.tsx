@@ -27,6 +27,7 @@ import VoiceBiodataPlayer from "@/components/VoiceBiodataPlayer";
 import RequestCoach from "@/components/RequestCoach";
 import ProfileInsights from "@/components/ProfileInsights";
 import RequestTimeline from "@/components/RequestTimeline";
+import PrivatePhotoAccessCard from "@/components/PrivatePhotoAccessCard";
 
 type Row = Record<string, any>;
 
@@ -439,6 +440,8 @@ export default function ProfileView() {
                 <VoiceBiodataPlayer voiceUrl={voiceUrl} name={profile.full_name} role={profile.gender} />
               </div>
             ) : null}
+
+            <PrivatePhotoAccessCard profile={profile} myTsapId={myTsapId} />
 
             <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-2 text-[13px] text-slate-700 sm:grid-cols-3">
               {[

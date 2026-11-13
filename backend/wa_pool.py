@@ -128,6 +128,7 @@ def _error_summary(value: object) -> str:
 
 def _bridge_base_url(value: object) -> str:
     """Normalize a configured bridge URL without retaining query/credential material."""
+    import ipaddress
     raw = str(value or "").strip()
     if not raw:
         return ""
@@ -138,6 +139,15 @@ def _bridge_base_url(value: object) -> str:
         return ""
     if parsed.scheme not in {"http", "https"} or not parsed.hostname or parsed.username or parsed.password or parsed.query or parsed.fragment:
         return ""
+    host_lower = parsed.hostname.strip().lower()
+    if host_lower in {"0.0.0.0", "169.254.169.254", "metadata.google.internal", "fd00:ec2::254"}:
+        return ""
+    try:
+        ip_obj = ipaddress.ip_address(host_lower)
+        if ip_obj.is_link_local or ip_obj.is_unspecified or ip_obj.is_multicast:
+            return ""
+    except ValueError:
+        pass
     path = (parsed.path or "").rstrip("/")
     for suffix in ("/auth/pairing-code", "/auth/status", "/auth/qr", "/send-image",
                    "/presence", "/groups", "/health", "/status", "/send", "/auth"):

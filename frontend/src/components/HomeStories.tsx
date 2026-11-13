@@ -50,14 +50,8 @@ export default function HomeStories() {
     return () => controller.abort();
   }, []);
 
-    if (cards === null) {
-    return (
-      <div className="mx-auto max-w-7xl px-4 py-10" aria-busy="true">
-        <CardSkeletonList n={3} />
-      </div>
-    );
-  }
-  if (cards.length === 0) return null;
+  // Prevent CLS collapse on initial load when no moderated stories exist yet (MV-011).
+  if (!cards || cards.length === 0) return null;
 
   return (
     <section

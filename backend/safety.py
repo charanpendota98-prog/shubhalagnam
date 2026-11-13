@@ -72,17 +72,21 @@ def submit_report(reporter_id: str, target_id: str, category: str, detail: str =
         "action": "", "auto_flagged": False, "repeat_count": 1,
     }
     reports.append(rec)
-    # auto-flag rules
+    # auto-flag rules (MV-003): require multiple DISTINCT reporters so a single
+    # malicious account can never auto-hide another member by filing multiple categories.
     open_mine = [r for r in reports if r["target_id"] == target_id and r["status"] == "open"]
     highs = [r for r in open_mine if r["severity"] == "high"]
     distinct_reporters = len({r["reporter_id"] for r in open_mine})
-    if len(highs) >= 2 or distinct_reporters >= 3 or len(open_mine) >= 4:
+    distinct_high_reporters = len({r["reporter_id"] for r in highs})
+    if distinct_high_reporters >= 2 or distinct_reporters >= 3:
         rec["auto_flagged"] = True
         rec["auto_action"] = "profile_hidden_for_review"
         tgt = next((u for u in users if u.get("tsap_id") == target_id), None)
         if tgt is not None:
             tgt["is_approved"] = False
-            tgt["hidden_reason"] = "auto_flag: %d reports (severity high: %d)" % (len(open_mine), len(highs))
+            tgt["hidden_reason"] = "auto_flag: %d reports from %d distinct reporters (high: %d)" % (
+                len(open_mine), distinct_reporters, distinct_high_reporters
+            )
             tgt["hidden_at"] = datetime.utcnow().isoformat()
     return True, "new_report", rec
 
@@ -149,9 +153,9 @@ VERIFY_ENGLISH = {
     "id": "🪪 Government ID manually reviewed by staff",
 }
 VERIFY_NEXT_STEP_ENGLISH = {
-    "none": "Submit an OTP to confirm access to your phone number.",
+    "none": "Upload a photo, live selfie, or credential at /verify (Phone OTP is not required).",
     "phone": "Upload a photo or selfie for review at /verify.",
-    "photo": "Contact support about government ID review.",
+    "photo": "Submit Government ID, Education, or Employment evidence at /verify.",
     "id": "Manual ID review is complete.",
 }
 
@@ -194,9 +198,9 @@ def verification_badge(user: Dict) -> Dict:
     """Describe the highest completed check without converting it to a trust score."""
     lvl = _verified_level(user or {})
     next_step = {
-        "none": "ఫోన్ ధృవీకరణ కోసం OTP ను నమోదు చేయండి",
+        "none": "ఫోటో/సెల్ఫీ సమీక్ష కోసం /verify లో అప్‌లోడ్ చేయండి (ఫోన్ OTP లేకపోయినా నేరుగా /verify వాడవచ్చు)",
         "phone": "ఫోటో/సెల్ఫీ సమీక్ష కోసం /verify లో అప్‌లోడ్ చేయండి",
-        "photo": "ప్రభుత్వ ID సమీక్ష కోసం support ను సంప్రదించండి",
+        "photo": "ప్రభుత్వ ID / విద్య / ఉద్యోగ సమీక్ష కోసం /verify చూడండి",
         "id": "ID మాన్యువల్ సమీక్ష పూర్తయింది",
     }[lvl]
     return {

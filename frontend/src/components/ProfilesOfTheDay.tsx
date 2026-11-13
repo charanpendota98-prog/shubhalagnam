@@ -95,9 +95,9 @@ export default function ProfilesOfTheDay() {
     fetch(`/api/spotlight/track/${encodeURIComponent(promoId)}?kind=click`, { method: "POST" }).catch(() => {});
   };
 
-  // Keep the homepage focused when no approved placement is active. The full
-  // spotlight route remains available from navigation for profile promotion.
-  if (!loading && (loadError || profiles.length === 0)) return null;
+  // Keep the homepage focused and prevent CLS collapse when no approved placement
+  // is active: render the spotlight strip only once real placements arrive (MV-011).
+  if (loading || loadError || profiles.length === 0) return null;
 
   return (
     <section className="relative mx-auto max-w-7xl overflow-hidden px-4 py-10" aria-label={te ? "ప్రమోట్ చేసిన ప్రొఫైళ్లు" : "Sponsored profile spotlights"}>

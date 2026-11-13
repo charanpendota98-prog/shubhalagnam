@@ -10,7 +10,7 @@ export default function robots(): MetadataRoute.Robots {
         allow: "/",
         // Restricted routes are blocked. Public member/search pages declare noindex
         // in metadata so compliant crawlers can see that instruction.
-        disallow: ["/admin", "/admin/photos", "/control", "/growth", "/api/"],
+        disallow: ["/admin", "/admin/photos", "/control", "/owner", "/growth", "/api/"],
       },
     ],
     sitemap: `${SITE}/sitemap.xml`,

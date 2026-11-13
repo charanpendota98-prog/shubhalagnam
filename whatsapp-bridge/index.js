@@ -24,8 +24,11 @@
  * Env:
  *   PORT=3001   SESSION_DIR=./session
  */
+const crypto = require("crypto");
+const dns = require("dns").promises;
 const express = require("express");
 const fs = require("fs");
+const net = require("net");
 const path = require("path");
 const pino = require("pino");
 const {
@@ -41,13 +44,25 @@ const BRIDGE_NAME = (process.env.BRIDGE_NAME || "wa1").trim();  // logs/status l
 const BRIDGE_REQUIRE_TOKEN = /^(1|true|yes|on)$/i.test(
   String(process.env.BRIDGE_REQUIRE_TOKEN || (process.env.NODE_ENV === "production" ? "true" : "false"))
 );
+const ALLOWED_MEDIA_DIR = path.resolve(process.env.MEDIA_DIR || path.join(__dirname, "media"));
+const ALLOWED_IMAGE_HOSTS = new Set(
+  String(process.env.BRIDGE_ALLOWED_IMAGE_HOSTS || "backend")
+    .split(",")
+    .map((h) => h.trim().toLowerCase())
+    .filter(Boolean)
+);
+const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 
 // Every bridge management and send endpoint is protected when this is enabled.
 // Production must fail closed rather than silently running an unauthenticated
 // WhatsApp sender. Local development can explicitly opt out with false.
 function authOk(req) {
   if (!BRIDGE_TOKEN) return !BRIDGE_REQUIRE_TOKEN;
-  return (req.headers["x-bridge-token"] || "") === BRIDGE_TOKEN;
+  const candidate = String(req.headers["x-bridge-token"] || "");
+  const expectedBuf = Buffer.from(BRIDGE_TOKEN, "utf8");
+  const candidateBuf = Buffer.from(candidate, "utf8");
+  if (expectedBuf.length !== candidateBuf.length) return false;
+  return crypto.timingSafeEqual(expectedBuf, candidateBuf);
 }
 const requireAuth = (req, res, next) => (authOk(req) ? next() : res.status(401).json({ ok: false, error: "bridge authentication required" }));
 if (BRIDGE_REQUIRE_TOKEN && !BRIDGE_TOKEN) {
@@ -96,12 +111,86 @@ function normalizePhone(value) {
   return raw.replace(/^\+/, "");
 }
 
+function isBlockedIp(ip) {
+  const version = net.isIP(ip);
+  if (version === 4) {
+    const parts = ip.split(".").map(Number);
+    const [a, b] = parts;
+    if (a === 0 || a === 10 || a === 127) return true;
+    if (a === 169 && b === 254) return true; // cloud metadata / link-local
+    if (a === 172 && b >= 16 && b <= 31) return true;
+    if (a === 192 && b === 168) return true;
+    if (a === 100 && b >= 64 && b <= 127) return true;
+    return false;
+  }
+  if (version === 6) {
+    const lower = ip.toLowerCase();
+    if (lower === "::1" || lower === "::" || lower.startsWith("fe80:") || lower.startsWith("fc") || lower.startsWith("fd")) {
+      return true;
+    }
+    if (lower.startsWith("::ffff:")) {
+      return isBlockedIp(lower.slice(7));
+    }
+    return false;
+  }
+  return true;
+}
+
+async function validateImageUrl(rawUrl) {
+  let parsed;
+  try {
+    parsed = new URL(String(rawUrl));
+  } catch {
+    throw new Error("invalid imageUrl");
+  }
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+    throw new Error("unsupported imageUrl protocol");
+  }
+  if (parsed.username || parsed.password) {
+    throw new Error("credentials not allowed in imageUrl");
+  }
+  const hostname = parsed.hostname.toLowerCase();
+  if (hostname === "169.254.169.254" || hostname === "metadata.google.internal") {
+    throw new Error("metadata host blocked");
+  }
+  if (!ALLOWED_IMAGE_HOSTS.has(hostname)) {
+    if (net.isIP(hostname)) {
+      if (isBlockedIp(hostname)) throw new Error("private imageUrl IP blocked");
+    } else {
+      const records = await dns.lookup(hostname, { all: true });
+      if (!records.length || records.some((r) => isBlockedIp(r.address))) {
+        throw new Error("private imageUrl target blocked");
+      }
+    }
+  }
+  return parsed.toString();
+}
+
+function resolveSafeMediaPath(rawPath) {
+  const candidate = path.resolve(ALLOWED_MEDIA_DIR, String(rawPath));
+  const rel = path.relative(ALLOWED_MEDIA_DIR, candidate);
+  if (rel.startsWith("..") || path.isAbsolute(rel)) {
+    throw new Error("imagePath outside ALLOWED_MEDIA_DIR");
+  }
+  const stat = fs.lstatSync(candidate);
+  if (!stat.isFile() || stat.isSymbolicLink() || stat.size > MAX_IMAGE_BYTES) {
+    throw new Error("invalid media file");
+  }
+  return candidate;
+}
+
 async function loadImage({ imagePath, imageUrl }) {
-  if (imagePath && fs.existsSync(imagePath)) return fs.readFileSync(imagePath);
+  if (imagePath) {
+    const safePath = resolveSafeMediaPath(imagePath);
+    return fs.readFileSync(safePath);
+  }
   if (imageUrl) {
-    const res = await fetch(imageUrl);
+    const safeUrl = await validateImageUrl(imageUrl);
+    const res = await fetch(safeUrl, { redirect: "error", signal: AbortSignal.timeout(8000) });
     if (!res.ok) throw new Error(`imageUrl fetch failed: ${res.status}`);
-    return Buffer.from(await res.arrayBuffer());
+    const ab = await res.arrayBuffer();
+    if (ab.byteLength > MAX_IMAGE_BYTES) throw new Error("imageUrl exceeds limit");
+    return Buffer.from(ab);
   }
   return null;
 }

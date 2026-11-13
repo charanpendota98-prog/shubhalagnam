@@ -193,6 +193,8 @@ def find_top_matches_v2(
             continue
         if profile.get("is_approved") is False or profile.get("is_banned"):
             continue
+        if profile.get("is_active") is False or profile.get("deleted_at") or profile.get("married_fixed"):
+            continue
         if profile.get("tsap_id") and profile.get("tsap_id") == user.get("tsap_id"):
             continue
         comparison = score_match_v2(user, profile)
@@ -207,3 +209,105 @@ def find_top_matches_v2(
     # No preference tally or compatibility proxy influences ordering.
     ranked.sort(key=lambda row: (row[0], row[1]), reverse=True)
     return [row[2] for row in ranked[:max_rows]]
+
+
+def categorize_matches_v3(
+    user: Dict[str, Any],
+    profiles: Iterable[Dict[str, Any]],
+    saved_searches: Optional[Iterable[Dict[str, Any]]] = None,
+    per_category_limit: int = 12,
+) -> Dict[str, Any]:
+    """Build 6 transparent, explainable match categories without synthetic scores.
+
+    Distinguishes Hard Filters (opposite gender, active, approved, non-blocked)
+    from Soft Preferences (saved `exp_filters`, shared location, shared background).
+    Never emits forbidden score/grade/percent keys.
+    """
+    base_rows = find_top_matches_v2(user, profiles, limit=100)
+    cap = max(1, min(30, int(per_category_limit or 12)))
+
+    strong_pref: List[Dict[str, Any]] = []
+    location_matches: List[Dict[str, Any]] = []
+    similar_background: List[Dict[str, Any]] = []
+    saved_search_matches: List[Dict[str, Any]] = []
+
+    user_loc_tokens = {
+        _key(user.get(k))
+        for k in ("district", "state", "current_city", "work_location")
+        if _key(user.get(k))
+    }
+
+    my_searches = [s for s in (saved_searches or []) if isinstance(s, dict)]
+
+    for item in base_rows:
+        cand = item["profile"]
+        prefs = item["preferences"]
+        met_prefs = [p for p in prefs if p.get("status") == "met"]
+        unmet_prefs = [p for p in prefs if p.get("status") == "not_met"]
+
+        if met_prefs and not unmet_prefs:
+            strong_pref.append(item)
+
+        cand_locs = {
+            _key(cand.get(k))
+            for k in ("district", "state", "current_city", "work_location")
+            if _key(cand.get(k))
+        }
+        if user_loc_tokens and (user_loc_tokens & cand_locs):
+            location_matches.append(item)
+
+        if len(item["observations"]) >= 2:
+            similar_background.append(item)
+
+        for ss in my_searches:
+            f = ss.get("filters") if isinstance(ss.get("filters"), dict) else ss
+            ss_caste = _key(f.get("caste"))
+            ss_dist = _key(f.get("district"))
+            if ss_caste and ss_caste not in ("any", "") and _key(cand.get("caste")) != ss_caste:
+                continue
+            if ss_dist and ss_dist not in ("any", "") and _key(cand.get("district")) != ss_dist:
+                continue
+            if ss_caste or ss_dist:
+                saved_search_matches.append(item)
+                break
+
+    return sanitize_public_payload({
+        "notice": "Categorized using explicit preferences and member-entered facts only; no synthetic compatibility scores.",
+        "notice_telugu": "మీరు సేవ్ చేసిన preferences మరియు సభ్యులు ఇచ్చిన వాస్తవ వివరాల ఆధారంగా మాత్రమే విభజించబడింది; కృత్రిమ స్కోర్లు లేవు.",
+        "filter_model": {
+            "hard_filters_en": "Opposite gender, approved & active status, not blocked or hidden.",
+            "soft_preferences_en": "Saved age, community, profession, and location preferences shown transparently as met or differs.",
+        },
+        "categories": {
+            "strong_preference": {
+                "title_en": "Matches Your Saved Preferences",
+                "title_te": "మీరు సేవ్ చేసిన ప్రాధాన్యతలకు సరిపోయేవి",
+                "count": len(strong_pref[:cap]),
+                "items": strong_pref[:cap],
+            },
+            "recently_joined": {
+                "title_en": "Recently Joined Profiles",
+                "title_te": "ఇటీవల చేరిన ప్రొఫైల్స్",
+                "count": len(base_rows[:cap]),
+                "items": base_rows[:cap],
+            },
+            "location_matches": {
+                "title_en": "Same District / State / City",
+                "title_te": "మీ జిల్లా / రాష్ట్రం / నగరంలోని ప్రొఫైల్స్",
+                "count": len(location_matches[:cap]),
+                "items": location_matches[:cap],
+            },
+            "similar_preferences": {
+                "title_en": "Shared Community & Background Details",
+                "title_te": "ఒకే కమ్యూనిటీ / నేపథ్య వివరాలు ఉన్నవి",
+                "count": len(similar_background[:cap]),
+                "items": similar_background[:cap],
+            },
+            "saved_search_matches": {
+                "title_en": "Matching Your Saved Searches",
+                "title_te": "మీ సేవ్డ్ సెర్చ్ ఫిల్టర్లకు సరిపోయేవి",
+                "count": len(saved_search_matches[:cap]),
+                "items": saved_search_matches[:cap],
+            },
+        },
+    })

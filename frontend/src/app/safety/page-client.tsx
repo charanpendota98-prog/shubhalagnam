@@ -32,7 +32,9 @@ export default function SafetyPage() {
   const [busy, setBusy] = useState(false);
   const [blocks, setBlocks] = useState<any[]>([]);
   const [verify, setVerify] = useState<any>(null);
-  const [queue, setQueue] = useState<any>(null);
+  const [badges, setBadges] = useState<any[]>([]);
+  const [appeals, setAppeals] = useState<any[]>([]);
+  const [appealReason, setAppealReason] = useState("");
 
   const load = useCallback(async () => {
     try {
@@ -52,27 +54,43 @@ export default function SafetyPage() {
   const loadMine = useCallback(async (id: string) => {
     if (!id) return;
     try {
-      const [b, v, q] = await Promise.all([
-        fetch(`/api/blocks/${id}`, { headers: authHeaders() }).then((r) => { if (r.status === 401) setNeedsLogin(true); return r.json(); }),
-        fetch(`/api/verification/${id}`, { headers: authHeaders() }).then((r) => r.json()),
-        fetch("/api/moderation/queue", { headers: authHeaders(true) }).then((r) => r.json()),
+      const [b, v, bg, ap]: any[] = await Promise.all([
+        fetch(`/api/blocks/${encodeURIComponent(id)}`, { headers: authHeaders(), credentials: "same-origin" }).then((r) => {
+          if (r.status === 401) setNeedsLogin(true);
+          return r.ok ? r.json() : {};
+        }),
+        fetch(`/api/verification/${encodeURIComponent(id)}`, { headers: authHeaders(), credentials: "same-origin" }).then((r) => r.ok ? r.json() : {}),
+        fetch(`/api/verification/${encodeURIComponent(id)}/badges`, { headers: authHeaders(), credentials: "same-origin" }).then((r) => r.ok ? r.json() : {}),
+        fetch(`/api/safety/appeals/${encodeURIComponent(id)}`, { headers: authHeaders(), credentials: "same-origin" }).then((r) => r.ok ? r.json() : {}),
       ]);
-      setBlocks(b.items || []); setVerify(v.level ? v : null); setQueue(q);
+      setBlocks(b.items || []);
+      setVerify(v.level ? v : null);
+      setBadges(bg.badges || []);
+      setAppeals(ap.appeals || ap.items || []);
     } catch { /* ignore */ }
   }, []);
 
   useEffect(() => { if (myId) loadMine(myId); }, [myId, loadMine]);
 
   const submitReport = async () => {
+    if (!myId) {
+      setNeedsLogin(true);
+      setMsg({ ok: false, text: te ? "Report పంపడానికి ముందు మీ ఖాతాలో లాగిన్ అవ్వండి." : "Please sign in to your account before submitting a report." });
+      return;
+    }
     if (!report.target_id.trim()) { setMsg({ ok: false, text: te ? "ఎవరిని report చెయ్యాలి — Profile ID ఇవ్వండి" : "Whom to report — enter Profile ID" }); return; }
     setBusy(true);
     try {
-      const d = await fetch("/api/report", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...report, reporter_id: myId || "anonymous" }),
-      }).then((r) => r.json());
+      const r = await fetch("/api/report", {
+        method: "POST",
+        headers: authHeaders(),
+        credentials: "same-origin",
+        body: JSON.stringify({ ...report, reporter_id: myId }),
+      });
+      if (r.status === 401) { setNeedsLogin(true); setBusy(false); return; }
+      const d = await r.json();
       if (d.success) {
-        setMsg({ ok: true, text: (d.auto_hidden ? "🚨 Auto-flag: profile hide chesam review ki. " : "") + (d.ack_telugu || "Report andinai") });
+        setMsg({ ok: true, text: (d.auto_hidden ? "🚨 Multi-reporter safety hold triggered for review. " : "") + (d.ack_telugu || "Report recorded for review.") });
         setReport({ target_id: "", category: "fake_profile", detail: "" });
         loadMine(myId);
       } else {
@@ -83,30 +101,74 @@ export default function SafetyPage() {
   };
 
   const doBlock = async (blocked: string) => {
-    const d = await fetch("/api/block", {
-      method: "POST", headers: { "Content-Type": "application/json" },
+    if (!myId) { setNeedsLogin(true); return; }
+    const r = await fetch("/api/block", {
+      method: "POST",
+      headers: authHeaders(),
+      credentials: "same-origin",
       body: JSON.stringify({ owner: myId, blocked, reason: "safety" }),
-    }).then((r) => r.json());
+    });
+    if (r.status === 401) { setNeedsLogin(true); return; }
+    const d = await r.json();
     setMsg({ ok: !!d.success, text: d.message_telugu || d.detail || "" });
     loadMine(myId);
   };
 
   const doUnblock = async (blocked: string) => {
-    const d = await fetch("/api/unblock", {
-      method: "POST", headers: { "Content-Type": "application/json" },
+    if (!myId) { setNeedsLogin(true); return; }
+    const r = await fetch("/api/unblock", {
+      method: "POST",
+      headers: authHeaders(),
+      credentials: "same-origin",
       body: JSON.stringify({ owner: myId, blocked }),
-    }).then((r) => r.json());
+    });
+    if (r.status === 401) { setNeedsLogin(true); return; }
+    const d = await r.json();
     setMsg({ ok: !!d.success, text: d.message_telugu || "" });
     loadMine(myId);
   };
 
   const requestVerify = async (kind: string) => {
-    const d = await fetch("/api/verify/request", {
-      method: "POST", headers: { "Content-Type": "application/json" },
+    if (!myId) { setNeedsLogin(true); return; }
+    const r = await fetch("/api/verify/request", {
+      method: "POST",
+      headers: authHeaders(),
+      credentials: "same-origin",
       body: JSON.stringify({ tsap_id: myId, kind }),
-    }).then((r) => r.json());
+    });
+    if (r.status === 401) { setNeedsLogin(true); return; }
+    const d = await r.json();
     setMsg({ ok: !!d.success, text: d.message_telugu || d.detail || "" });
     loadMine(myId);
+  };
+
+  const submitAppeal = async () => {
+    if (!myId) { setNeedsLogin(true); return; }
+    if (appealReason.trim().length < 10) {
+      setMsg({ ok: false, text: te ? "కనీసం 10 అక్షరాలలో వివరాలు రాయండి." : "Please describe your appeal in at least 10 characters." });
+      return;
+    }
+    setBusy(true);
+    try {
+      const r = await fetch("/api/safety/appeal", {
+        method: "POST",
+        headers: authHeaders(),
+        credentials: "same-origin",
+        body: JSON.stringify({ tsap_id: myId, reason: appealReason }),
+      });
+      if (r.status === 401) { setNeedsLogin(true); setBusy(false); return; }
+      const d = await r.json();
+      if (r.ok && d.success) {
+        setAppealReason("");
+        setMsg({ ok: true, text: te ? d.message_telugu : d.message_en });
+        loadMine(myId);
+      } else {
+        setMsg({ ok: false, text: d.detail || "Appeal could not be submitted." });
+      }
+    } catch {
+      setMsg({ ok: false, text: "Network problem — retry" });
+    }
+    setBusy(false);
   };
 
   const sev = (s: string) => s === "high" ? "bg-rose-100 text-rose-800 border-rose-300"
@@ -126,15 +188,18 @@ export default function SafetyPage() {
             verified-badge profiles show first. 🚫 No chatting — no room for spam.</>}
           </p>
           <div className="mt-3 flex flex-wrap gap-2 text-[12px]">
-            <span className="bg-white/10 border border-white/20 rounded-full px-3 py-1.5">🔒 Reports anonymous</span>
-            <span className="bg-white/10 border border-white/20 rounded-full px-3 py-1.5">{te ? "⏱️ 24h లో action" : "⏱️ Action in 24h"}</span>
-            <span className="bg-white/10 border border-white/20 rounded-full px-3 py-1.5">🚫 3 reports → auto-hide</span>
-            <Link href="/register" className="gold-gradient text-maroon font-bold rounded-full px-3 py-1.5">FREE register</Link>
+            <span className="bg-white/10 border border-white/20 rounded-full px-3 py-1.5">🔒 Confidential reports</span>
+            <span className="bg-white/10 border border-white/20 rounded-full px-3 py-1.5">{te ? "👮 మాన్యువల్ సమీక్ష" : "👮 Human moderation review"}</span>
+            <span className="bg-white/10 border border-white/20 rounded-full px-3 py-1.5">{te ? "🛡️ Multi-reporter భద్రత" : "🛡️ Multi-reporter anti-abuse"}</span>
+            <Link href="/verify" className="gold-gradient text-maroon font-bold rounded-full px-3 py-1.5">{te ? "ప్రొఫైల్ ధృవీకరణ →" : "Verify Profile →"}</Link>
           </div>
         </div>
       </section>
 
       <div className="max-w-5xl mx-auto px-4 py-6 space-y-5">
+        {needsLogin && (
+          <AuthGate note={te ? "Report, Block, మరియు Moderation Appeal కోసం లాగిన్ అవసరం." : "Sign in to report, block, or submit a moderation appeal."} />
+        )}
         {msg && (
           <div className={`rounded-2xl px-4 py-3 text-[13px] border whitespace-pre-line ${msg.ok ? "bg-emerald-50 border-emerald-200 text-emerald-900" : "bg-rose-50 border-rose-200 text-rose-900"}`}>
             {msg.text}
@@ -159,7 +224,7 @@ export default function SafetyPage() {
         <div className="bg-white rounded-[1.5rem] border border-rose-200 p-5">
           <div className="font-bold text-rose-800 text-[16px]">{te ? "🚩 Report చెయ్యండి (100% anonymous)" : "🚩 Report (100% anonymous)"}</div>
           <div className="text-[12px] text-gray-600 mt-1">
-            {te ? "Fake profile / advance money / harassment / photo misuse — ఏదైనా report చెయ్యండి. మన team 24h లో చూసి action తీసుకుంటుంది." : "Fake profile / advance money / harassment / photo misuse — report anything. Our team reviews in 24h and acts."}
+            {te ? "Fake profile / advance money / harassment / photo misuse — మీ ఖాతాలో లాగిన్ అయి report చెయ్యండి. మా బృందం పరిశీలించి చర్య తీసుకుంటుంది." : "Fake profile / advance money / harassment / photo misuse — sign in to submit a confidential report for human moderation review."}
           </div>
           <div className="mt-4 grid md:grid-cols-3 gap-3">
             <div className="md:col-span-1">
@@ -208,20 +273,31 @@ export default function SafetyPage() {
         {/* ---- verification + blocks ---- */}
         <div className="grid md:grid-cols-2 gap-4">
           <div className="bg-white rounded-[1.5rem] border border-gold/25 p-5">
-            <div className="font-bold text-maroon text-[15px]">{te ? "✅ మీ verification level" : "✅ Your verification level"}</div>
+            <div className="font-bold text-maroon text-[15px]">{te ? "✅ మీ ధృవీకరణ బ్యాడ్జ్‌లు" : "✅ Your verification badges"}</div>
             {verify ? (
               <>
                 <div className="mt-2 text-[13px] text-gray-700">
-                  Level: <b>{verify.telugu}</b> • trust score <b>{verify.trust_score}/100</b>
+                  {te ? "ప్రస్తుత స్థితి:" : "Recorded status:"} <b>{te ? verify.telugu : (verify.english || verify.telugu)}</b>
                 </div>
-                <div className="mt-1 text-[12px] text-gray-600 telugu">Next step: {verify.next_step_telugu}</div>
-                <div className="mt-2 h-2 bg-gray-100 rounded-full overflow-hidden">
-                  <div className="h-2 gold-gradient" style={{ width: `${verify.trust_score}%` }} />
+                <div className="mt-1 text-[12px] text-gray-600 telugu">
+                  {te ? `తదుపరి అడుగు: ${verify.next_step_telugu}` : `Next step: ${verify.next_step_en || verify.next_step_telugu}`}
                 </div>
+                {badges.length > 0 && (
+                  <div className="mt-3 flex flex-wrap gap-1.5">
+                    {badges.map((b: any) => (
+                      <span key={b.badge_type} className="rounded-full bg-emerald-50 border border-emerald-200 px-2.5 py-1 text-[11px] font-bold text-emerald-900">
+                        ✓ {te ? b.label_te : b.label_en}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </>
-            ) : <div className="text-[12px] text-gray-500 mt-2">{te ? "Profile ID ఇవ్వండి — verification level చూడటానికి" : "Enter Profile ID — to see verification level"}</div>}
+            ) : <div className="text-[12px] text-gray-500 mt-2">{te ? "మీ ఖాతాలో లాగిన్ అయితే నమోదైన ధృవీకరణ బ్యాడ్జ్‌లు ఇక్కడ కనిపిస్తాయి." : "Sign in to view recorded verification badges on your profile."}</div>}
             <div className="mt-3 flex flex-wrap gap-2">
-              {levels.filter((l) => l.level !== "none").map((l) => (
+              <Link href="/verify" className="px-4 py-2 rounded-xl bg-maroon text-white font-bold text-[12px]">
+                {te ? "🤳 సెల్ఫీ / విద్య / ఉద్యోగ ధృవీకరణ →" : "🤳 Submit Selfie / Education / Employment →"}
+              </Link>
+              {levels.filter((l) => l.level !== "none" && l.level !== "phone").map((l) => (
                 <button key={l.level} type="button" onClick={() => requestVerify(l.level)} disabled={!myId}
                   className="px-3 py-2 rounded-xl border border-gold/40 text-maroon font-bold text-[12px] disabled:opacity-50">
                   {l.telugu}
@@ -229,7 +305,7 @@ export default function SafetyPage() {
               ))}
             </div>
             <div className="mt-2 text-[11px] text-gray-500">
-              {te ? <>Photo/ID verify చేస్తే మీ profile <b>top లో</b> కనిపిస్తుంది + interest acceptance rate పెంచుతుంది.</> : <>Verifying photo/ID puts your profile <b>on top</b> + raises interest acceptance rate.</>}
+              {te ? "బ్యాడ్జ్‌లు సమర్పించిన ఆధారాల బృంద సమీక్షను మాత్రమే సూచిస్తాయి; ఇవి numeric trust score లేదా identity హామీ కావు." : "Badges reflect staff review of submitted evidence only; they are not a numeric trust score or identity guarantee."}
             </div>
           </div>
 
@@ -248,31 +324,43 @@ export default function SafetyPage() {
           </div>
         </div>
 
-        {/* ---- moderation queue (admin view only) ---- */}
-        {queue && Array.isArray(queue.items) && (
-          <div className="bg-white rounded-[1.5rem] border border-gold/25 p-5">
-            <div className="flex items-center justify-between">
-              <div className="font-bold text-maroon text-[15px]">{te ? <>👮 రిపోర్ట్‌ల నిర్వహణ — {queue.open} pending</> : <>👮 Report management — {queue.open} pending</>}</div>
-              <div className="text-[11px] text-gray-500">{te ? <>high severity ముందు: {queue.items?.filter((i: any) => i.severity === "high").length || 0}</> : <>high severity first: {queue.items?.filter((i: any) => i.severity === "high").length || 0}</>}</div>
-            </div>
-            <div className="text-[11px] text-gray-600 mt-1 telugu">{queue.message_telugu}</div>
-            <div className="mt-3 space-y-2">
-              {(queue.items || []).slice(0, 8).map((it: any) => (
-                <div key={it.report_id} className="bg-cream rounded-2xl p-3">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${sev(it.severity)}`}>{it.severity}</span>
-                    <span className="font-mono text-[11px]">{it.report_id}</span>
-                    <span className="text-[12px] font-bold">{it.category_telugu}</span>
-                    <span className="text-[11px] text-gray-600">target: {it.target_id} ({it.reports_on_target} reports)</span>
-                    <span className="ml-auto text-[11px] text-maroon font-bold">suggested: {it.suggested_action}</span>
-                  </div>
-                  {it.detail && <div className="text-[11px] text-gray-700 mt-1 telugu">{it.detail}</div>}
+        {/* ---- Member Moderation Appeal ---- */}
+        <div className="bg-white rounded-[1.5rem] border border-gold/25 p-5">
+          <div className="font-bold text-maroon text-[15px]">
+            ⚖️ {te ? "మాడరేషన్ అప్పీల్ (ప్రొఫైల్ తాత్కాలికంగా దాచబడితే)" : "Moderation Appeal (if your profile was paused for review)"}
+          </div>
+          <p className="mt-1 text-[12px] text-gray-600">
+            {te
+              ? "మీ ప్రొఫైల్ పొరపాటున review కోసం దాచబడిందని భావిస్తే, ఇక్కడ వివరాలు పంపండి. మా బృందం మాన్యువల్‌గా పరిశీలిస్తుంది."
+              : "If your profile was placed under review and you want a human moderator to re-check your account, submit an appeal below."}
+          </p>
+          <div className="mt-3 flex flex-col sm:flex-row gap-2">
+            <input
+              value={appealReason}
+              onChange={(e) => setAppealReason(e.target.value)}
+              placeholder={te ? "మీ అప్పీల్ వివరాలు రాయండి…" : "Explain why your profile should be reinstated…"}
+              aria-label={te ? "మాడరేషన్ అప్పీల్ వివరణ" : "Moderation appeal reason"}
+              className="input-mobile flex-1"
+            />
+            <button type="button" onClick={submitAppeal} disabled={busy || !myId}
+              className="px-4 py-2.5 rounded-xl bg-maroon text-white font-bold text-[12px] disabled:opacity-50 shrink-0">
+              {te ? "అప్పీల్ పంపండి" : "Submit Appeal"}
+            </button>
+          </div>
+          {appeals.length > 0 && (
+            <div className="mt-3 space-y-1.5">
+              {appeals.map((ap: any) => (
+                <div key={ap.id} className="rounded-xl bg-cream px-3 py-2 text-[12px] flex flex-wrap items-center justify-between gap-2">
+                  <span className="font-mono font-bold text-maroon">{ap.id}</span>
+                  <span className="text-gray-700 flex-1">{ap.reason}</span>
+                  <span className="rounded-full border border-gold/40 bg-white px-2.5 py-0.5 text-[11px] font-bold">
+                    {ap.status}{ap.resolution ? ` • ${ap.resolution}` : ""}
+                  </span>
                 </div>
               ))}
-              {!(queue.items || []).length && <div className="text-[12px] text-gray-500">{te ? "Reports ఏమీ లేవు 👍" : "No reports 👍"}</div>}
             </div>
-          </div>
-        )}
+          )}
+        </div>
 
         <div className="text-[11px] text-gray-500 text-center">
 {te ? <>Emergency / police case అయితే వెంటనే 100 కి call చెయ్యండి • మన support: మన WhatsApp (profile లో) •

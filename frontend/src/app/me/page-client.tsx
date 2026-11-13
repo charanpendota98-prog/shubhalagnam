@@ -9,8 +9,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import TrustBadge from "@/components/TrustBadge";
 import { PillScroller } from "@/components/ui";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import Image from "next/image";
+
+const MemberEcosystemHub = dynamic(() => import("@/components/MemberEcosystemHub"), { ssr: false });
 import AuthGate from "@/components/AuthGate";
 import PushBell from "@/components/PushBell";
 import PayBox from "@/components/PayBox";
@@ -49,11 +52,15 @@ import {
 } from "@/lib/telugu-data";
 
 type Row = Record<string, any>;
-type Tab = "preferences" | "edit" | "streak" | "unlocks" | "boost" | "voice" | "jathakam" | "share" | "alerts";
+type Tab = "preferences" | "edit" | "family" | "ledger" | "privacy" | "support" | "streak" | "unlocks" | "boost" | "voice" | "jathakam" | "share" | "alerts";
 
 const TABS: [Tab, string, string][] = [
   ["preferences", "🎯 Partner Preferences", "🎯 కోరుకునే సంబంధం (ప్రిఫరెన్సెస్)"],
   ["edit", "✏️ Edit Profile", "✏️ నా ప్రొఫైల్ సవరణ (100%)"],
+  ["family", "👨‍👩‍👧 Family Hub", "👨‍👩‍👧 కుటుంబ సహకారం"],
+  ["ledger", "💳 Credits & Receipts", "💳 క్రెడిట్ లెడ్జర్ & రసీదులు"],
+  ["privacy", "🔒 Privacy & Export", "🔒 గోప్యత & డేటా ఎక్స్‌పోర్ట్"],
+  ["support", "🎫 Support", "🎫 సపోర్ట్ టికెట్లు"],
   ["streak", "🔥 Streak", "🔥 స్ట్రీక్"],
   ["unlocks", "📋 Unlocks", "📋 అన్‌లాక్‌లు"],
   ["boost", "⚡ Boost", "⚡ బూస్ట్"],
@@ -201,6 +208,9 @@ export default function MePage() {
           <div className="mt-5 mv-panel" key={tab}>
             {tab === "preferences" && <PartnerPreferencesPanel myId={myId} />}
             {tab === "edit" && <EditProfilePanel myId={myId} />}
+            {(tab === "family" || tab === "ledger" || tab === "privacy" || tab === "support") && (
+              <MemberEcosystemHub myId={myId} section={tab} />
+            )}
             {tab === "streak" && <StreakPanel myId={myId} />}
             {tab === "unlocks" && <UnlocksPanel myId={myId} />}
             {tab === "boost" && <BoostPanel myId={myId} />}
