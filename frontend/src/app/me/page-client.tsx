@@ -14,6 +14,7 @@ import Link from "next/link";
 import Image from "next/image";
 
 const MemberEcosystemHub = dynamic(() => import("@/components/MemberEcosystemHub"), { ssr: false });
+const Phase2MemberWorkspace = dynamic(() => import("@/components/Phase2MemberWorkspace"), { ssr: false });
 import AuthGate from "@/components/AuthGate";
 import PushBell from "@/components/PushBell";
 import PayBox from "@/components/PayBox";
@@ -52,7 +53,7 @@ import {
 } from "@/lib/telugu-data";
 
 type Row = Record<string, any>;
-type Tab = "preferences" | "edit" | "family" | "ledger" | "privacy" | "support" | "streak" | "unlocks" | "boost" | "voice" | "jathakam" | "share" | "alerts";
+type Tab = "preferences" | "edit" | "family" | "ledger" | "privacy" | "devices" | "support" | "streak" | "unlocks" | "boost" | "voice" | "jathakam" | "share" | "alerts";
 
 const TABS: [Tab, string, string][] = [
   ["preferences", "🎯 Partner Preferences", "🎯 కోరుకునే సంబంధం (ప్రిఫరెన్సెస్)"],
@@ -60,6 +61,7 @@ const TABS: [Tab, string, string][] = [
   ["family", "👨‍👩‍👧 Family Hub", "👨‍👩‍👧 కుటుంబ సహకారం"],
   ["ledger", "💳 Credits & Receipts", "💳 క్రెడిట్ లెడ్జర్ & రసీదులు"],
   ["privacy", "🔒 Privacy & Export", "🔒 గోప్యత & డేటా ఎక్స్‌పోర్ట్"],
+  ["devices", "🔐 Devices & Elder Links", "🔐 పరికరాలు & పెద్దల లింక్‌లు"],
   ["support", "🎫 Support", "🎫 సపోర్ట్ టికెట్లు"],
   ["streak", "🔥 Streak", "🔥 స్ట్రీక్"],
   ["unlocks", "📋 Unlocks", "📋 అన్‌లాక్‌లు"],
@@ -211,13 +213,14 @@ export default function MePage() {
             {(tab === "family" || tab === "ledger" || tab === "privacy" || tab === "support") && (
               <MemberEcosystemHub myId={myId} section={tab} />
             )}
+            {tab === "devices" && <Phase2MemberWorkspace myId={myId} mode="security_links" />}
             {tab === "streak" && <StreakPanel myId={myId} />}
             {tab === "unlocks" && <UnlocksPanel myId={myId} />}
             {tab === "boost" && <BoostPanel myId={myId} />}
             {tab === "voice" && <VoicePanel myId={myId} />}
             {tab === "jathakam" && <JathakamPanel myId={myId} />}
             {tab === "share" && <SharePanel />}
-            {tab === "alerts" && <AlertsPanel />}
+            {tab === "alerts" && <Phase2MemberWorkspace myId={myId} mode="alerts" />}
           </div>
 
           {/* Account Deletion Footer Trigger */}

@@ -58,5 +58,8 @@ push_state.json*
 saved_searches_state.json*
 consent_ledger_state.json*
 channel_setup_state.json*
+ecosystem3_state.json*
+phase2_state.json*
+identity_phase2.sqlite3*
 backups/
 publish_logs/
