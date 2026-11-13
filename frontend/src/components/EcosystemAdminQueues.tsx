@@ -10,20 +10,26 @@ export default function EcosystemAdminQueues() {
   const [verifs, setVerifs] = useState<any[]>([]);
   const [appeals, setAppeals] = useState<any[]>([]);
   const [tickets, setTickets] = useState<any[]>([]);
+  const [appointments, setAppointments] = useState<any[]>([]);
+  const [parity, setParity] = useState<any>(null);
   const [replyText, setReplyText] = useState<Record<string, string>>({});
   const [flash, setFlash] = useState("");
 
   const loadAll = useCallback(async () => {
     const h = authHeaders(true);
     try {
-      const [vr, ar, tr] = await Promise.all([
+      const [vr, ar, tr, apr, pr] = await Promise.all([
         fetch("/api/admin/verification/queue?status=pending_review", { headers: h, credentials: "same-origin" }),
         fetch("/api/admin/appeals?status=pending", { headers: h, credentials: "same-origin" }),
         fetch("/api/admin/support/tickets?status=open", { headers: h, credentials: "same-origin" }),
+        fetch("/api/admin/appointments?status=requested", { headers: h, credentials: "same-origin" }),
+        fetch("/api/admin/identity/reconcile", { headers: h, credentials: "same-origin" }),
       ]);
       if (vr.ok) setVerifs((await readApiJson(vr)).items || []);
       if (ar.ok) setAppeals((await readApiJson(ar)).appeals || []);
       if (tr.ok) setTickets((await readApiJson(tr)).tickets || []);
+      if (apr.ok) setAppointments((await readApiJson(apr)).appointments || []);
+      if (pr.ok) setParity(await readApiJson(pr));
     } catch {
       /* ignore */
     }
@@ -33,7 +39,20 @@ export default function EcosystemAdminQueues() {
     void loadAll();
   }, [loadAll]);
 
-  const reviewBadge = async (recordId: string, decision: "verified" | "rejected") => {
+  const syncIdentitySql = async () => {
+    const r = await fetch("/api/admin/identity/sync", {
+      method: "POST",
+      headers: authHeaders(true),
+      credentials: "same-origin",
+    });
+    if (r.ok) {
+      const d = await readApiJson(r);
+      setParity(d.reconcile || null);
+      setFlash(`✅ SQL Identity Sync complete (${d.sync?.synced ?? 0} synced)`);
+    }
+  };
+
+  const reviewBadge = async (recordId: string, decision: "approved" | "rejected") => {
     const r = await fetch(`/api/admin/verification/${encodeURIComponent(recordId)}/review`, {
       method: "POST",
       headers: { ...authHeaders(true), "Content-Type": "application/json" },
@@ -46,12 +65,12 @@ export default function EcosystemAdminQueues() {
     }
   };
 
-  const resolveAppeal = async (appealId: string, decision: "upheld_restore" | "rejected") => {
+  const resolveAppeal = async (appealId: string, decision: "upheld" | "denied") => {
     const r = await fetch(`/api/admin/appeals/${encodeURIComponent(appealId)}/resolve`, {
       method: "POST",
       headers: { ...authHeaders(true), "Content-Type": "application/json" },
       credentials: "same-origin",
-      body: JSON.stringify({ decision, note: replyText[appealId] || "" }),
+      body: JSON.stringify({ outcome: decision, note: replyText[appealId] || "" }),
     });
     if (r.ok) {
       setFlash(`✅ Appeal ${appealId} → ${decision}`);
@@ -74,9 +93,42 @@ export default function EcosystemAdminQueues() {
     }
   };
 
+  const updateAppt = async (aptId: string, status: "confirmed" | "completed" | "cancelled") => {
+    const r = await fetch(`/api/admin/appointments/${encodeURIComponent(aptId)}/status`, {
+      method: "POST",
+      headers: { ...authHeaders(true), "Content-Type": "application/json" },
+      credentials: "same-origin",
+      body: JSON.stringify({ status, staff_note: replyText[aptId] || "" }),
+    });
+    if (r.ok) {
+      setFlash(`✅ Appointment ${aptId} → ${status}`);
+      void loadAll();
+    }
+  };
+
   return (
     <div className="mt-6 space-y-5 border-t border-slate-200 pt-5">
       {flash && <div className="rounded-xl bg-emerald-900 px-3 py-2 text-xs font-bold text-white">{flash}</div>}
+
+      {/* Phase 2: Transactional Identity SQL Parity Card (Owner only) */}
+      {parity && (
+        <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <span className="font-extrabold text-[#7A0C2E]">🗄️ Phase 2 SQL Identity Parity:</span>{" "}
+            <span>JSON={parity.json_count} • SQL={parity.sql_count} • Active Sessions={parity.active_sessions}</span>{" "}
+            <span className={`font-bold ${parity.parity_ok ? "text-emerald-700" : "text-amber-700"}`}>
+              ({parity.parity_ok ? "PARITY OK ✓" : `${parity.missing_in_sql_count} unsynced`})
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => void syncIdentitySql()}
+            className="rounded-lg border border-[#7A0C2E] px-2.5 py-1 font-bold text-[#7A0C2E] bg-white"
+          >
+            ↻ Re-sync SQL Shadow Store
+          </button>
+        </div>
+      )}
 
       {/* 1. Multi-Badge Verification Queue */}
       <div>
@@ -93,7 +145,7 @@ export default function EcosystemAdminQueues() {
                   <span>{v.tsap_id} • {v.badge_type}</span>
                   <span className="text-gray-400">{String(v.submitted_at || "").slice(0, 16)}</span>
                 </div>
-                {v.evidence_note && <div className="text-gray-700">{v.evidence_note}</div>}
+                {v.summary && <div className="text-gray-700">{v.summary}</div>}
                 <div className="flex flex-wrap gap-1.5">
                   <input
                     value={replyText[v.id] || ""}
@@ -102,8 +154,8 @@ export default function EcosystemAdminQueues() {
                     aria-label="Verification review note"
                     className="flex-1 rounded-lg border px-2 py-1 text-xs"
                   />
-                  <button type="button" onClick={() => void reviewBadge(v.id, "verified")} className="rounded-lg bg-emerald-700 px-3 py-1 font-bold text-white">
-                    ✓ Verify
+                  <button type="button" onClick={() => void reviewBadge(v.id, "approved")} className="rounded-lg bg-emerald-700 px-3 py-1 font-bold text-white">
+                    ✓ Approve Badge
                   </button>
                   <button type="button" onClick={() => void reviewBadge(v.id, "rejected")} className="rounded-lg bg-rose-100 px-3 py-1 font-bold text-rose-800">
                     ✕ Reject
@@ -127,7 +179,7 @@ export default function EcosystemAdminQueues() {
             {appeals.map((a) => (
               <div key={a.id} className="rounded-xl border p-3 text-xs space-y-1.5">
                 <div className="font-bold">{a.id} • Profile: {a.tsap_id}</div>
-                <div className="text-gray-700">{a.statement}</div>
+                <div className="text-gray-700">{a.reason} {a.context_note ? `— ${a.context_note}` : ""}</div>
                 <div className="flex flex-wrap gap-1.5">
                   <input
                     value={replyText[a.id] || ""}
@@ -136,11 +188,11 @@ export default function EcosystemAdminQueues() {
                     aria-label="Appeal resolution note"
                     className="flex-1 rounded-lg border px-2 py-1 text-xs"
                   />
-                  <button type="button" onClick={() => void resolveAppeal(a.id, "upheld_restore")} className="rounded-lg bg-emerald-700 px-3 py-1 font-bold text-white">
+                  <button type="button" onClick={() => void resolveAppeal(a.id, "upheld")} className="rounded-lg bg-emerald-700 px-3 py-1 font-bold text-white">
                     Restore Profile
                   </button>
-                  <button type="button" onClick={() => void resolveAppeal(a.id, "rejected")} className="rounded-lg bg-gray-200 px-3 py-1 font-bold text-gray-800">
-                    Reject Appeal
+                  <button type="button" onClick={() => void resolveAppeal(a.id, "denied")} className="rounded-lg bg-gray-200 px-3 py-1 font-bold text-gray-800">
+                    Deny Appeal
                   </button>
                 </div>
               </div>
@@ -172,6 +224,40 @@ export default function EcosystemAdminQueues() {
                   />
                   <button type="button" onClick={() => void replyTicket(t.ticket_id)} className="rounded-lg bg-[#7A0C2E] px-3 py-1 font-bold text-white">
                     Send & Resolve
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* 4. Phase 2 Assisted Matchmaker Appointments Queue */}
+      <div>
+        <h3 className="text-xs font-extrabold uppercase tracking-wide text-[#7A0C2E]">
+          📅 {te ? "మ్యాచ్ మేకర్ కన్సల్టేషన్ అభ్యర్థనలు" : "Assisted Matchmaker Appointments"} ({appointments.length})
+        </h3>
+        {appointments.length === 0 ? (
+          <p className="mt-1 text-xs text-gray-400">{te ? "పెండింగ్ కన్సల్టేషన్లు లేవు ✅" : "No pending appointment requests ✅"}</p>
+        ) : (
+          <div className="mt-2 space-y-2">
+            {appointments.map((ap) => (
+              <div key={ap.appointment_id} className="rounded-xl border p-3 text-xs space-y-1.5">
+                <div className="font-bold">{ap.appointment_id} • {ap.tsap_id} ({ap.member_name}) • {ap.preferred_date} [{ap.preferred_slot}]</div>
+                {ap.family_notes && <div className="text-gray-700">{ap.family_notes}</div>}
+                <div className="flex flex-wrap gap-1.5">
+                  <input
+                    value={replyText[ap.appointment_id] || ""}
+                    onChange={(e) => setReplyText({ ...replyText, [ap.appointment_id]: e.target.value })}
+                    placeholder="Coordinator note / call window…"
+                    aria-label="Appointment coordinator note"
+                    className="flex-1 rounded-lg border px-2 py-1 text-xs"
+                  />
+                  <button type="button" onClick={() => void updateAppt(ap.appointment_id, "confirmed")} className="rounded-lg bg-emerald-700 px-3 py-1 font-bold text-white">
+                    Confirm Slot
+                  </button>
+                  <button type="button" onClick={() => void updateAppt(ap.appointment_id, "completed")} className="rounded-lg bg-[#7A0C2E] px-3 py-1 font-bold text-white">
+                    Mark Completed
                   </button>
                 </div>
               </div>

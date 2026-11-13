@@ -9,6 +9,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useLang } from "@/lib/lang";
 import PayBox from "@/components/PayBox";
+import BureauWorkspaceConsole from "@/components/BureauWorkspaceConsole";
 
 type BureauPlan = {
   code: string; price: number; profiles: number; validity_days: number;
@@ -115,6 +116,8 @@ export default function BureauPage() {
             </Link>
           </div>
         </div>
+
+        <BureauWorkspaceConsole />
       </div>
     </div>
   );

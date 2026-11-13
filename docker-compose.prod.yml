@@ -88,6 +88,8 @@ services:
       MANA_VIVAHA_WEEKLY_SHOWCASE_FILE: /var/lib/manavivaha/state/weekly_showcase.json
       MANA_VIVAHA_CHANNEL_SETUP_STATE_FILE: /var/lib/manavivaha/state/channel_setup_state.json
       MANA_VIVAHA_ECOSYSTEM_FILE: /var/lib/manavivaha/state/ecosystem3_state.json
+      MANA_VIVAHA_PHASE2_FILE: /var/lib/manavivaha/state/phase2_state.json
+      MANA_VIVAHA_IDENTITY_DB: /var/lib/manavivaha/state/identity_phase2.sqlite3
       MANA_VIVAHA_CHANNEL_REPORT_DIR: /var/lib/manavivaha/channel-reports
       MANA_VIVAHA_MEDIA_DIR: /var/lib/manavivaha/media
       VENDOR_POSTER_DIR: /var/lib/manavivaha/media/vendor-posters
