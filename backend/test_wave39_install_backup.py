@@ -90,16 +90,21 @@ for ic in ("icon-192.png", "icon-512.png", "icon-maskable-512.png", "apple-touch
 # ===========================================================================
 # P2 - AI photos
 # ===========================================================================
-section("P2 - cinematic hero media")
+section("P2 - cinematic hero (CSS/SVG depth stage, no media files)")
 hero = src_page("frontend/src/components/CinematicHero.tsx")
-for media in ("hero-bg-ultra.jpg", "wedding-film.mp4"):
-    fp = os.path.join(ROOT, "frontend", "public", "promo", media)
-    check(f"P2 {media} exists", os.path.exists(fp) and os.path.getsize(fp) > 50000,
-          os.path.getsize(fp) if os.path.exists(fp) else "missing")
-check("P2 cinematic hero poster and local film are wired", "/promo/hero-bg-ultra.jpg" in hero
-      and "wedding-film.mp4" in hero and "<CinematicHero />" in home)
+# The hero was migrated off the AI-generated photo/video album: it must now ship
+# zero video bytes and zero poster imagery, and keep the depth-stage markup.
+check("P2 hero mounts a CSS/SVG depth stage", "mv-hero__stage" in hero
+      and "mv-hero__halo" in hero and "mv-hero__veil" in hero)
+check("P2 hero ships no video or poster file",
+      ".mp4" not in hero and "<video" not in hero and "/promo/" not in hero)
+check("P2 hero pause/resume is observer-driven",
+      "data-inview" in hero and "IntersectionObserver" in hero)
+check("P2 homepage keeps the cinematic hero", "<CinematicHero />" in home)
 check("P2 homepage does not render the rejected celebrations gallery",
       "CinematicGallery" not in home and "A glimpse of Telugu celebrations" not in home)
+check("P2 homepage uses the content-first wedding story section",
+      "WeddingStorySection" in home and "WeddingStoryHero" not in home)
 
 # ===========================================================================
 # B1 - backup export

@@ -76,6 +76,8 @@ html {
 }
 
 body {
+  position: relative;
+  z-index: 1;
   width: 100%;
   min-width: 0;
   font-family: 'Poppins', 'Noto Sans Telugu', system-ui, sans-serif;
@@ -135,6 +137,7 @@ button:not(:disabled), a[href] { touch-action: manipulation; }
   box-shadow: 0 1px 3px rgba(122, 12, 46, .07);
 }
 .lang-toggle button {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -154,6 +157,22 @@ button:not(:disabled), a[href] { touch-action: manipulation; }
   overflow-wrap: normal !important;
   box-shadow: none;
   transition: color .16s ease, background-color .16s ease;
+}
+/* Same idea for compact header links/glyphs: keep the visual size, expand the
+   hit area to 44px with an invisible pad. */
+.tap-pad::after {
+  content: "";
+  position: absolute;
+  inset: -12px -6px;
+  min-height: 44px;
+}
+
+/* The pill stays visually compact (23px glyph row) but the touch target is a
+   real 44px: an invisible hit pad, not a bigger control. */
+.lang-toggle button::after {
+  content: "";
+  position: absolute;
+  inset: -11px 0;
 }
 .lang-toggle button.is-selected {
   background: #8b1238;
@@ -180,16 +199,17 @@ button:not(:disabled), a[href] { touch-action: manipulation; }
   .ticker-mask, .scrollbar-hide { max-width: 100%; }
   button, a[href], [role="button"] { min-height: 44px; }
 
-  /* Long Telugu/English labels must wrap inside cards instead of widening the viewport. */
-  h1, h2, h3, h4, p, li, label, dd, dt, a, button, span {
-    overflow-wrap: anywhere;
+  /* Long Telugu/English prose must wrap inside cards instead of widening the
+     viewport — but only *prose*. This rule used to blanket `overflow-wrap:
+     anywhere` over every heading, label, link, button and span, which let a
+     single Latin/Telugu word break mid-grapheme inside pills and tab labels.
+     `break-word` still rescues an unbreakable long token (a URL, an ID) while
+     keeping whole words intact everywhere else. Opt into the aggressive mode
+     per element with `.wrap-anywhere` only where it is genuinely needed. */
+  h1, h2, h3, h4, h5, h6, p, li, label, dd, dt, a, button, span, strong, em, td, th {
+    overflow-wrap: break-word;
   }
-  /* Utility pills often force desktop no-wrap; on phones that creates overflow. */
-  .whitespace-nowrap {
-    white-space: normal !important;
-    overflow-wrap: anywhere;
-    text-align: center;
-  }
+  .wrap-anywhere { overflow-wrap: anywhere; }
   .card-shadow, .card-shadow-lg, article { max-width: 100%; }
   table { max-width: 100%; }
   pre, code { white-space: pre-wrap; overflow-wrap: anywhere; }
@@ -335,16 +355,41 @@ button:not(:disabled), a[href] { touch-action: manipulation; }
 }
 @media (prefers-reduced-motion: reduce) { .wedding-story { height: auto; min-height: 34rem; }.wedding-story__sticky { position: relative; min-height: 34rem; }.wedding-story__scene { transform: none !important; }.wedding-story__glow,.wedding-story__petals,.wedding-story__mandapam .fire { animation: none; }.wedding-story__copy { top: 50%; transform: translateY(-50%); } }
 
-/* ---------- Scroll reveal ---------- */
-.reveal {
+/* ---------- Scroll reveal (site-wide) ----------
+   One observer (`.mv-reveal` → `Reveal.tsx`) drives every section, card and
+   list item. Only opacity/transform move, the stagger is a CSS custom property
+   so a group can re-time itself without new JS. Before hydration the elements
+   are fully visible, so a slow/blocked script can never leave a blank page:
+   `.mv-js` is only set once the observer is actually running. */
+.reveal { opacity: 1; transform: none; }
+
+.mv-js .reveal {
+  opacity: 0;
+  transform: translate3d(0, 22px, 0);
+  transition:
+    opacity var(--ds-duration-reveal) var(--ds-ease-out-quint),
+    transform var(--ds-duration-reveal) var(--ds-ease-out-quint);
+  transition-delay: var(--reveal-delay, 0ms);
+  will-change: opacity, transform;
+}
+.mv-js .reveal.is-visible {
   opacity: 1;
   transform: none;
-  transition: opacity 0.4s ease, transform 0.4s ease;
+  will-change: auto;
 }
-.reveal.is-visible { opacity: 1; transform: none; }
+/* Variants: the same element type can rise, settle from the side, or scale. */
+.mv-js .reveal[data-reveal="fade"] { transform: none; }
+.mv-js .reveal[data-reveal="left"] { transform: translate3d(-26px, 0, 0); }
+.mv-js .reveal[data-reveal="right"] { transform: translate3d(26px, 0, 0); }
+.mv-js .reveal[data-reveal="zoom"] { transform: scale(0.965); }
 
 @media (prefers-reduced-motion: reduce) {
-  .reveal { opacity: 1; transform: none; transition: none; }
+  .mv-js .reveal,
+  .mv-js .reveal.is-visible {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
   .float, .animate-float, .animate-ticker { animation: none !important; }
   html { scroll-behavior: auto; }
 }
@@ -541,6 +586,24 @@ button:not(:disabled):active { transform: scale(0.97); }
   inset: 0 0 auto;
   height: 2px;
   background: linear-gradient(90deg, #6f0d2d 0%, #bd8a18 28%, #0f766e 51%, #f2d06b 74%, #8a1437 100%);
+}
+
+/* Sticky header, cinematic edition: the gold hairline already draws the eye, so
+   the only motion added is a soft glass fade on the wordmark when the page
+   scrolls under it. Compositor-only, and it never shifts layout. */
+.brand-header::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(255, 248, 231, 0) 0%, rgba(122, 12, 46, 0.05) 100%);
+  opacity: 0;
+  transition: opacity var(--ds-duration-base) var(--ds-ease);
+  pointer-events: none;
+}
+.brand-header.is-scrolled::after { opacity: 1; }
+@media (prefers-reduced-motion: reduce) {
+  .brand-header::after { transition: none; }
 }
 
 /* Header identity: bilingual wordmark in auspicious maroon, teal and gold. */
@@ -959,6 +1022,12 @@ label {
   .home-page .grid-cols-3 {
     grid-template-columns: minmax(0, 1fr) !important;
   }
+  /* …but a segmented control is not a card grid: bride/groom must stay side by
+     side or the hero search reads as two stacked full-width buttons. */
+  .home-page .mv-hero .grid-cols-2,
+  .home-page .mv-hero .grid-cols-3 {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
   .home-page .cinematic-hero a {
     width: 100%;
     justify-content: center;
@@ -992,6 +1061,10 @@ label {
 }
 
 /* Late reduced-motion overrides must follow the cinematic component rules. */
+/* The homepage hero is now a CSS/SVG depth stage with no film or poster file
+   (`CinematicHero` renders `.mv-hero`). The former film classes below are kept
+   only so that any cached HTML referencing them still renders a stable box;
+   nothing in the app mounts them any more. */
 .hero-poster,
 .hero-video {
   position: absolute;
@@ -1003,18 +1076,11 @@ label {
   object-fit: cover;
   object-position: center;
   background: #5b0e32;
-  filter: saturate(1.26) contrast(1.05) brightness(1.18);
 }
-.hero-video { opacity: .98; transition: opacity .2s ease; }
 @media (max-width: 640px) {
-  /* The poster and film use one stable box on phones. No intrinsic-video
-     height can push the copy/search card down or leave a half-rendered strip. */
-  .cinematic-hero { min-height: clamp(38rem, 108svh, 48rem); }
-  /* Keep the complete 16:9 film visible on narrow portrait screens. The
-     gradient/background fills the intentional letterbox instead of cropping
-     faces or leaving a half-height video box. */
-  .hero-poster,
-  .hero-video { object-position: center center; object-fit: contain; }
+  /* Clip the hero background to one stable box on phones so no intrinsic media
+     height can push the search card down or leave a half-rendered strip. */
+  .cinematic-hero { min-height: auto; }
   .hero-film-toggle { max-width: calc(100% - 1.5rem); }
 }
 
@@ -1049,6 +1115,7 @@ label {
 }
 @media (prefers-reduced-motion: reduce) {
   .hero-video { display: none !important; }
+  .hero-poster { filter: none; }
   .cine-frame { opacity: 1 !important; transform: none !important; }
   .cine-film, .cine-petal, .cine-grain { display: none !important; }
   .cine-bar > i { transform: scaleX(1) !important; }
@@ -1534,6 +1601,1445 @@ label {
 }
 
 /* ============================================================
+   PILL RAILS — one horizontal chip row, everywhere
+   ------------------------------------------------------------
+   Root cause this section replaces (see the mobile block above):
+   a global `@media (max-width: 640px) { .whitespace-nowrap {
+   white-space: normal !important } }` used to defeat every
+   `whitespace-nowrap` pill on a phone. Chips inside
+   `flex + overflow-x-auto` rows then shrank to their
+   min-content width (~34px) and rendered one letter per line.
+   ------------------------------------------------------------------
+   Rules of the rail:
+   • the track is a flex row that never wraps and never squeezes
+     (`flex: 0 0 auto` on children) → pills keep their natural width;
+   • the track scrolls horizontally (`overflow-x: auto`), with
+     `overscroll-behavior-x: contain` so a swipe never drags the page;
+   • edge fades only on the side that has more content (data attrs set
+     by PillScroller after a rAF-coalesced measurement);
+   • 44px minimum hit height, `scroll-snap-type: x proximity` so pills
+     land on a clean boundary on fling;
+   • nothing here sets `white-space` on children — that stays the
+     caller's `whitespace-nowrap` utility, honoured at every width.
+   ============================================================ */
+.pill-rail {
+  position: relative;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.pill-track {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  padding-block: 0.35rem;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x proximity;
+  scroll-padding-inline: 0.25rem;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-x;
+}
+.pill-track::-webkit-scrollbar { display: none; }
+
+/* A pill keeps the width its content needs; the rail scrolls instead. */
+.pill-track > * {
+  flex: 0 0 auto;
+  scroll-snap-align: start;
+}
+
+/* Fades advertise the sideways scroll without a visible scrollbar. */
+.pill-track[data-edge-start="true"] {
+  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 var(--pill-fade-w, 28px));
+  mask-image: linear-gradient(to right, transparent 0, #000 var(--pill-fade-w, 28px));
+}
+.pill-track[data-edge-end="true"] {
+  -webkit-mask-image: linear-gradient(to left, transparent 0, #000 var(--pill-fade-w, 28px));
+  mask-image: linear-gradient(to left, transparent 0, #000 var(--pill-fade-w, 28px));
+}
+.pill-track[data-edge-start="true"][data-edge-end="true"] {
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    #000 var(--pill-fade-w, 28px),
+    #000 calc(100% - var(--pill-fade-w, 28px)),
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    #000 var(--pill-fade-w, 28px),
+    #000 calc(100% - var(--pill-fade-w, 28px)),
+    transparent 100%
+  );
+}
+
+/* The rail is one Tab stop; keep that focus obvious but tidy. */
+.pill-track:focus-visible {
+  outline: 3px solid var(--gold);
+  outline-offset: 4px;
+  border-radius: 999px;
+}
+
+/* Shared pill shape. Screenshotting/spacing is tuned for a 360px phone:
+   the label sits on ONE line with a 44px-tall hit area. */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  min-height: 44px;
+  padding: 0.5rem 0.95rem;
+  border-radius: 999px;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+  text-align: center;
+  transition:
+    background-color 0.18s ease,
+    border-color 0.18s ease,
+    color 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.18s ease;
+}
+.pill--quiet {
+  border: 1px solid rgba(212, 175, 55, 0.4);
+  background: #fff;
+  color: #4a2530;
+}
+.pill--quiet:hover { background: #fff8e7; border-color: rgba(122, 12, 46, 0.35); }
+.pill--on {
+  border: 1px solid transparent;
+  background: linear-gradient(135deg, #7a0c2e 0%, #a0143a 100%);
+  color: #fff;
+  box-shadow: 0 6px 18px rgba(122, 12, 46, 0.24);
+}
+.pill--on-gold {
+  border: 1px solid rgba(184, 145, 42, 0.6);
+  background: linear-gradient(135deg, #f6d98a 0%, #d4af37 100%);
+  color: #5c0822;
+  box-shadow: 0 6px 18px rgba(212, 175, 55, 0.28);
+}
+@media (hover: hover) and (pointer: fine) {
+  .pill--quiet:hover { transform: translateY(-1px); }
+}
+.pill:active { transform: scale(0.97); }
+@media (prefers-reduced-motion: reduce) {
+  .pill { transition: none; }
+  .pill:active { transform: none; }
+}
+
+/* ============================================================
+   CINEMATIC 3D HERO — "mandapam lights" (CSS + SVG only)
+   ------------------------------------------------------------
+   Design intent
+   -------------
+   A layered depth stage behind the search: a maroon-to-teal night
+   sky, a radiating halo, two drifting aurora veils, a perspective
+   grid floor, a slow petal field, and a garland arc drawn in SVG.
+   Depth comes from real `perspective` + `translateZ` on separate
+   layers, so parallax reads as 3D without a single video byte or a
+   WebGL context (mid-range Android GPUs handle rounded-gradient +
+   opacity transforms at 60fps; nothing here triggers layout).
+
+   Performance contract
+   --------------------
+   • only `transform` and `opacity` animate (compositor-only);
+   • every effect stops when the hero leaves the viewport
+     (`[data-inview="false"]` from an IntersectionObserver) or the tab
+     is hidden;
+   • `prefers-reduced-motion: reduce` freezes every layer at frame 0 —
+     the artwork still renders, it just stops moving;
+   • `prefers-reduced-transparency` drops the blurred glass panels.
+
+   Applied only to the homepage hero (`.mv-hero`), so no other route
+   inherits the cost.
+   ============================================================ */
+.mv-hero {
+  position: relative;
+  isolation: isolate;
+  overflow: clip;
+  color: #fff;
+  background:
+    radial-gradient(120% 80% at 15% 0%, #8d1436 0%, rgba(122, 12, 46, 0.9) 32%, transparent 68%),
+    radial-gradient(120% 90% at 88% 12%, rgba(15, 118, 110, 0.65) 0%, transparent 62%),
+    linear-gradient(168deg, #3d0418 0%, #5c0822 38%, #2a1136 74%, #0f1f3c 100%);
+  /* Warm paper hand-off to the cream body below the hero. */
+  border-bottom: 1px solid rgba(212, 175, 55, 0.35);
+}
+
+/* --- depth stage --------------------------------------------------- */
+.mv-hero__stage {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  perspective: 1100px;
+  perspective-origin: 50% 42%;
+  pointer-events: none;
+  contain: strict;
+}
+
+/* Radiating halo behind the headline block. */
+.mv-hero__halo {
+  position: absolute;
+  left: 50%;
+  top: 12%;
+  width: min(58rem, 150%);
+  aspect-ratio: 1;
+  translate: -50% 0;
+  border-radius: 999px;
+  background:
+    radial-gradient(circle, rgba(255, 226, 150, 0.28) 0%, rgba(212, 175, 55, 0.14) 34%, transparent 66%);
+  filter: blur(2px);
+  opacity: 0.9;
+  animation: mvHalo 14s ease-in-out infinite alternate;
+}
+
+/* Two aurora veils drifting in opposite directions. */
+.mv-hero__veil {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(38px);
+  mix-blend-mode: screen;
+  will-change: transform;
+}
+.mv-hero__veil--a {
+  left: -12%;
+  top: -18%;
+  width: 62%;
+  height: 86%;
+  background: radial-gradient(circle at 35% 40%, rgba(255, 170, 150, 0.5), transparent 62%);
+  animation: mvVeilA 26s ease-in-out infinite alternate;
+}
+.mv-hero__veil--b {
+  right: -14%;
+  bottom: -26%;
+  width: 66%;
+  height: 92%;
+  background: radial-gradient(circle at 60% 55%, rgba(94, 234, 212, 0.36), transparent 62%);
+  animation: mvVeilB 32s ease-in-out infinite alternate;
+}
+
+/* Perspective floor: a CSS gradient grid, tilted back in 3D.
+   The visible band is the bottom ~15% of the stage, i.e. the gutter below the
+   search card — grid lines never reach the copy column. The mask is doubled up
+   (vertical *and* horizontal) so the plane also dissolves before it touches the
+   side rails. */
+.mv-hero__floor {
+  position: absolute;
+  left: -25%;
+  right: -25%;
+  bottom: -30%;
+  height: 46%;
+  transform: rotateX(70deg) translateZ(-60px) translateY(0);
+  transform-origin: 50% 100%;
+  background:
+    linear-gradient(to right, rgba(255, 226, 150, 0.14) 1px, transparent 1px) 0 0 / 64px 64px,
+    linear-gradient(to top, rgba(255, 226, 150, 0.14) 1px, transparent 1px) 0 0 / 64px 64px;
+  mask-image:
+    linear-gradient(to top, transparent 0%, rgba(0, 0, 0, 0.55) 34%, #000 68%, #000 100%),
+    linear-gradient(to right, transparent 0%, #000 26%, #000 74%, transparent 100%);
+  -webkit-mask-image:
+    linear-gradient(to top, transparent 0%, rgba(0, 0, 0, 0.55) 34%, #000 68%, #000 100%),
+    linear-gradient(to right, transparent 0%, #000 26%, #000 74%, transparent 100%);
+  mask-composite: intersect;
+  -webkit-mask-composite: source-in;
+  opacity: 0.42;
+  animation: mvFloorDrift 40s linear infinite;
+}
+
+/* Garland arc + mandapam silhouette, drawn once as inline SVG. */
+/* Ornament band. It is a normal-flow block *after* `.mv-hero__inner`, with a
+   reserved height, so the garland + lamps can never overlap the copy column —
+   not at rest, not at any frame of the loop, not in the reduced-motion frame.
+   (This replaced an absolutely-positioned arch that crossed the headline and
+   the Telugu subtitle at every breakpoint.) */
+.mv-hero__basan {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  height: clamp(2.5rem, 7vw, 5.5rem);
+  /* Sits below the hero's own bottom padding, so there is a real gutter
+     between the last line of copy and the first pixel of ornament. */
+  margin-top: 0.35rem;
+  pointer-events: none;
+  overflow: hidden;
+  /* Fade the band's top edge out: the garland emerges from the light rather
+     than starting on a hard line. */
+  mask-image: linear-gradient(to bottom, transparent 0%, #000 26%, #000 100%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 26%, #000 100%);
+}
+.mv-hero__art {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0.72;
+  transform-origin: 50% 100%;
+  animation: mvGarlandSway 18s ease-in-out infinite alternate;
+}
+.mv-hero__art .mv-spark {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: mvSpark 5.5s ease-in-out infinite;
+}
+.mv-hero__art .mv-spark:nth-child(2) { animation-delay: -1.1s; }
+.mv-hero__art .mv-spark:nth-child(3) { animation-delay: -2.3s; }
+.mv-hero__art .mv-spark:nth-child(4) { animation-delay: -3.4s; }
+.mv-hero__art .mv-spark:nth-child(5) { animation-delay: -4.2s; }
+
+/* Petal / light-mote field: 9 divs, CSS-only float, no canvas. */
+.mv-hero__motif {
+  position: absolute;
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: radial-gradient(circle, #ffe9b0 0%, rgba(255, 233, 176, 0) 70%);
+  opacity: 0.75;
+  animation: mvMote 16s linear infinite;
+  will-change: transform, opacity;
+}
+.mv-hero__motif:nth-child(1) { left: 6%;  top: 24%; animation-duration: 17s; animation-delay: -2s; }
+.mv-hero__motif:nth-child(2) { left: 18%; top: 68%; animation-duration: 21s; animation-delay: -6s; }
+.mv-hero__motif:nth-child(3) { left: 31%; top: 12%; animation-duration: 19s; animation-delay: -11s; }
+.mv-hero__motif:nth-child(4) { left: 44%; top: 82%; animation-duration: 23s; animation-delay: -4s; }
+.mv-hero__motif:nth-child(5) { left: 58%; top: 30%; animation-duration: 18s; animation-delay: -9s; }
+.mv-hero__motif:nth-child(6) { left: 69%; top: 72%; animation-duration: 24s; animation-delay: -14s; }
+.mv-hero__motif:nth-child(7) { left: 78%; top: 18%; animation-duration: 20s; animation-delay: -7s; }
+.mv-hero__motif:nth-child(8) { left: 88%; top: 58%; animation-duration: 22s; animation-delay: -16s; }
+.mv-hero__motif:nth-child(9) { left: 95%; top: 38%; animation-duration: 19s; animation-delay: -12s; }
+
+/* Copy-side scrim. The halo + aurora veils are deliberately bright; this soft
+   maroon wash sits between them and the copy so the measured contrast of every
+   text run stays ≥ 4.5:1 on the worst frame of the loop (verified per frame at
+   390px and 1440px). It is a gradient, not a box: no edge, no "panel" look. */
+.mv-hero__scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background:
+    linear-gradient(101deg,
+      rgba(26, 2, 14, 0.34) 0%,
+      rgba(26, 2, 14, 0.26) 34%,
+      rgba(26, 2, 14, 0.15) 56%,
+      rgba(26, 2, 14, 0.04) 74%,
+      transparent 92%);
+  pointer-events: none;
+}
+@media (max-width: 1023px) {
+  /* On one column the whole stage is under copy, so the wash is vertical. */
+  .mv-hero__scrim {
+    background:
+      linear-gradient(180deg,
+        rgba(26, 2, 14, 0.3) 0%,
+        rgba(26, 2, 14, 0.24) 46%,
+        rgba(26, 2, 14, 0.14) 74%,
+        rgba(26, 2, 14, 0.05) 100%);
+  }
+}
+
+/* Film grain / vignette keeps flat gradients from banding on OLED phones. */
+.mv-hero__grain {
+  position: absolute;
+  inset: 0;
+  opacity: 0.16;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)' opacity='.5'/%3E%3C/svg%3E");
+  mix-blend-mode: soft-light;
+}
+
+/* Bottom hand-off so the fold into the cream page is a soft vignette. */
+.mv-hero__fade {
+  position: absolute;
+  inset-inline: 0;
+  bottom: -1px;
+  height: 7rem;
+  background: linear-gradient(to bottom, rgba(255, 248, 231, 0), #fff8e7 92%);
+  pointer-events: none;
+}
+
+/* --- content ------------------------------------------------------- */
+.mv-hero__inner {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  max-width: 82rem;
+  margin-inline: auto;
+  padding: clamp(1.5rem, 5vw, 4rem) 1rem clamp(2rem, 6vw, 4.5rem);
+}
+@media (min-width: 640px) {
+  .mv-hero__inner { padding-inline: 1.75rem; }
+}
+
+.mv-hero__grid {
+  display: grid;
+  gap: clamp(1.25rem, 3vw, 2.5rem);
+  align-items: start;
+}
+@media (min-width: 1024px) {
+  .mv-hero__grid {
+    grid-template-columns: minmax(0, 1.16fr) minmax(0, 0.84fr);
+    align-items: start;
+    column-gap: clamp(1.5rem, 3vw, 3rem);
+  }
+  /* Search card spans the right column; the support rail sits under the copy. */
+  .mv-hero__search { grid-column: 2; grid-row: 1 / span 2; align-self: center; }
+  .mv-hero__grid > div:first-child { grid-column: 1; grid-row: 1; }
+  .mv-hero__grid > div:last-child { grid-column: 1; grid-row: 2; }
+}
+
+/* Tight, intentional rhythm on phones: the search card starts within the
+   first screens of the page, which is the whole point of a search-first hero. */
+@media (max-width: 640px) {
+  .mv-hero__title { font-size: clamp(1.7rem, 7.6vw, 2.15rem); line-height: 1.16; }
+  .mv-hero__lead { margin-top: 0.6rem; font-size: 0.82rem; line-height: 1.55; }
+  .mv-hero__price { margin-top: 0.55rem; font-size: 0.68rem; }
+  .mv-hero__rule { margin-top: 0.7rem; width: 4rem; }
+  .mv-hero__kicker { font-size: 0.62rem; padding: 0.32rem 0.7rem; }
+  .mv-hero__inner { padding-top: 1.1rem; }
+  .mv-hero__grid { gap: 0.9rem; }
+}
+
+/* Bilingual eyebrow. */
+.mv-hero__kicker {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+  max-width: 100%;
+  padding: 0.4rem 0.85rem;
+  border: 1px solid rgba(255, 226, 150, 0.42);
+  border-radius: 999px;
+  background: rgba(38, 3, 22, 0.62);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #ffe9b0;
+}
+
+.mv-hero__title {
+  margin-top: 0.9rem;
+  /* 3.05rem cap: Telugu glyphs run ~15% wider than Latin, so a larger cap
+     forced "మీ వివాహ ప్రయాణం," onto two lines inside the copy column. */
+  font-size: clamp(1.85rem, 5.1vw, 2.95rem);
+  font-weight: 800;
+  line-height: 1.15;
+  letter-spacing: -0.015em;
+  color: #fff;
+  text-wrap: balance;
+}
+.mv-hero__title-gold {
+  display: inline-block;
+  background: linear-gradient(103deg, #ffe9b0 0%, #f6d98a 34%, #d4af37 62%, #ffeeb5 100%);
+  background-size: 220% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: mvGoldShift 9s ease-in-out infinite alternate;
+}
+.mv-hero__rule {
+  width: 5.5rem;
+  height: 2px;
+  margin-top: 1rem;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(255, 233, 176, 0), #ffe9b0 40%, rgba(255, 233, 176, 0.1));
+}
+.mv-hero__lead {
+  margin-top: 0.85rem;
+  max-width: 34rem;
+  font-size: clamp(0.85rem, 2.6vw, 0.95rem);
+  line-height: 1.65;
+  color: rgba(255, 255, 255, 0.82);
+}
+
+/* Published price line — one compact row, never a second headline. */
+.mv-hero__price {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.75rem;
+  padding: 0.35rem 0.8rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 226, 150, 0.32);
+  background: rgba(46, 4, 27, 0.3);
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.45;
+  color: #ffe9b0;
+}
+
+/* Search-first: the card reads as the brightest object on the page. */
+.mv-hero__search {
+  position: relative;
+  border-radius: 1.5rem;
+  background: rgba(255, 253, 249, 0.97);
+  box-shadow:
+    0 30px 70px -24px rgba(12, 2, 10, 0.6),
+    0 0 0 1px rgba(255, 226, 150, 0.5),
+    0 2px 0 rgba(255, 255, 255, 0.6) inset;
+  color: #1a1a1a;
+}
+.mv-hero__search::before {
+  /* A thin gold spotlight over the top edge, so the card "lifts" off the stage. */
+  content: "";
+  position: absolute;
+  inset-inline: 12%;
+  top: -1px;
+  height: 2px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, transparent, #ffe9b0, transparent);
+  opacity: 0.9;
+  pointer-events: none;
+}
+
+/* Trust rail under the search: honest, one-line-per-item facts. */
+.mv-hero__facts {
+  display: grid;
+  gap: 0.4rem 1.1rem;
+  margin-top: 0.85rem;
+  padding: 0;
+  list-style: none;
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.78);
+}
+@media (min-width: 560px) {
+  .mv-hero__facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+.mv-hero__facts li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.4rem;
+  min-width: 0;
+}
+.mv-hero__facts svg { flex: 0 0 auto; margin-top: 0.15rem; color: #f6d98a; }
+
+/* --- hero motion ---------------------------------------------------- */
+@keyframes mvHalo {
+  from { transform: scale(0.94); opacity: 0.55; }
+  to   { transform: scale(1.06); opacity: 0.8; }
+}
+@keyframes mvVeilA {
+  from { transform: translate3d(-3%, -2%, 0) scale(1); }
+  to   { transform: translate3d(5%, 4%, 0) scale(1.12); }
+}
+@keyframes mvVeilB {
+  from { transform: translate3d(3%, 2%, 0) scale(1.08); }
+  to   { transform: translate3d(-5%, -3%, 0) scale(1); }
+}
+/* Drift the whole grid plane instead of its background-position: transform
+   stays on the compositor, background-position would repaint every frame. */
+@keyframes mvFloorDrift {
+  from { transform: rotateX(70deg) translateZ(-60px) translateY(0); }
+  to   { transform: rotateX(70deg) translateZ(-60px) translateY(64px); }
+}
+/* ±0.2deg sway of the ornament band: at 1440px that is a 2.5px lift at the
+   band's top edge — the band sits ~40px below the last line of copy, so the
+   stroke still never comes near text. */
+@keyframes mvGarlandSway {
+  from { transform: rotate(-0.2deg); }
+  to   { transform: rotate(0.2deg); }
+}
+@keyframes mvSpark {
+  0%, 100% { opacity: 0.25; transform: scale(0.85); }
+  50%      { opacity: 1; transform: scale(1.15); }
+}
+@keyframes mvMote {
+  0%   { transform: translate3d(0, 12px, 0); opacity: 0; }
+  12%  { opacity: 0.85; }
+  88%  { opacity: 0.5; }
+  100% { transform: translate3d(14px, -140px, 0); opacity: 0; }
+}
+@keyframes mvGoldShift {
+  from { background-position: 0% 50%; }
+  to   { background-position: 100% 50%; }
+}
+/* Off-screen or hidden tab: freeze every decorative layer. */
+.mv-hero[data-inview="false"] .mv-hero__halo,
+.mv-hero[data-inview="false"] .mv-hero__veil,
+.mv-hero[data-inview="false"] .mv-hero__floor,
+.mv-hero[data-inview="false"] .mv-hero__motif,
+.mv-hero[data-inview="false"] .mv-hero__art,
+.mv-hero[data-inview="false"] .mv-hero__art .mv-spark,
+.mv-hero[data-inview="false"] .mv-hero__title-gold {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mv-hero__halo,
+  .mv-hero__veil,
+  .mv-hero__floor,
+  .mv-hero__motif,
+  .mv-hero__art,
+  .mv-hero__art .mv-spark,
+  .mv-hero__title-gold {
+    animation: none !important;
+  }
+  .mv-hero__motif { opacity: 0.4; transform: none; }
+  .mv-hero__title-gold { background-position: 50% 50%; }
+  /* Static frame = the animated frame: halo at its resting scale, floor at its
+     resting tilt, lamps at a steady glow. Nothing shifts toward the copy. */
+  .mv-hero__halo { transform: scale(1); opacity: 0.8; }
+  .mv-hero__veil { transform: none; }
+  .mv-hero__floor { transform: rotateX(70deg) translateZ(-60px) translateY(0); }
+  .mv-hero__art { transform: none; }
+  .mv-hero__art .mv-spark { opacity: 0.6; transform: scale(1); }
+}
+
+/* Phones: fewer layers, smaller radii — same look, cheaper paint. */
+@media (max-width: 640px) {
+  .mv-hero__floor { height: 38%; bottom: -26%; opacity: 0.3; }
+  .mv-hero__veil { filter: blur(26px); }
+  .mv-hero__motif:nth-child(n + 6) { display: none; }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .mv-hero__kicker { background: #4a0a22; -webkit-backdrop-filter: none; backdrop-filter: none; }
+  .mv-hero__search { background: #fffdf9; }
+}
+/* ============================================================
+   MEMBER SURFACES — the shared card / panel language
+   ------------------------------------------------------------
+   One vocabulary for every account surface (/me, /matches, /search/[id],
+   /requests, /shortlist, /saved-searches): a cream surface with a maroon
+   header band, content on a warm body, and rows that lift on hover. Replaces
+   the previous mix of slate greys, rose/amber gradients and ad-hoc shadows so a
+   member moving between pages never feels they changed products.
+   All motion is transform/opacity on the shared duration tokens.
+   ============================================================ */
+.mv-surface {
+  border: 1px solid rgba(212, 175, 55, 0.34);
+  border-radius: 1.15rem;
+  background: #fffdf9;
+  box-shadow:
+    0 1px 2px rgba(42, 13, 24, 0.04),
+    0 18px 40px -26px rgba(122, 12, 46, 0.42);
+  overflow: clip;
+}
+.mv-surface--quiet { background: #fff; }
+
+/* Header band: maroon depth + a warm light, same family as the hero. */
+.mv-surface__head {
+  position: relative;
+  isolation: isolate;
+  padding: 0.7rem 1rem;
+  background:
+    radial-gradient(120% 160% at 8% 0%, rgba(160, 20, 58, 0.98) 0%, rgba(122, 12, 46, 0.96) 46%, rgba(74, 7, 30, 1) 100%);
+  color: #fff;
+  overflow: clip;
+}
+.mv-surface__head::after {
+  content: "";
+  position: absolute;
+  inset: -60% -10% auto -10%;
+  height: 160%;
+  z-index: -1;
+  background: radial-gradient(closest-side at 82% 30%, rgba(255, 226, 150, 0.22), transparent 70%);
+  animation: mvSurfaceDrift 22s var(--ds-ease-in-out) infinite alternate;
+  pointer-events: none;
+}
+.mv-surface__title {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 800;
+  line-height: 1.3;
+  color: #ffe9b0;
+}
+/* A standalone maroon panel head, used when the head is not paired with a
+   body (e.g. the partner-preferences banner). */
+.mv-surface--head {
+  border: 1px solid rgba(212, 175, 55, 0.35);
+  border-radius: 1rem;
+  background:
+    radial-gradient(120% 140% at 12% 0%, rgba(212, 175, 55, 0.16), transparent 62%),
+    linear-gradient(135deg, #7a0c2e, #5b0a22);
+  box-shadow: 0 22px 46px -34px rgba(91, 10, 34, 0.9);
+  color: #fff;
+}
+
+/* Same title, on a light body instead of the maroon head (4.5:1 both ways). */
+.mv-surface__title--ink { color: #7a0c2e; }
+.mv-surface__sub {
+  margin: 0.15rem 0 0;
+  font-size: 0.68rem;
+  line-height: 1.45;
+  color: rgba(255, 244, 236, 0.82);
+}
+/* The head is always a two-column grid: copy (which wraps) + a 44px action.
+   Telugu titles are long, so the text column is the one that gives way — the
+   chip never shrinks into a circle and never drops to its own line. */
+.mv-surface__head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 0.5rem;
+}
+.mv-surface__head > :first-child { min-width: 0; }
+
+/* Small chip used for in-head actions (refresh, filters). 44px hit area. */
+.mv-surface__chip {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  padding: 0 0.65rem;
+  border: 1px solid rgba(255, 233, 176, 0.45);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffe9b0;
+  font-size: 0.72rem;
+  font-weight: 800;
+  transition: background var(--ds-duration-fast) var(--ds-ease), transform var(--ds-duration-fast) var(--ds-ease);
+}
+.mv-surface__chip:hover { background: rgba(255, 255, 255, 0.22); }
+.mv-surface__chip:active { transform: scale(0.97); }
+.mv-surface__chip:disabled { opacity: 0.55; }
+
+.mv-surface__body { padding: 0.9rem 1rem 1.05rem; }
+@media (min-width: 640px) {
+  .mv-surface__head { padding: 0.85rem 1.25rem; }
+  .mv-surface__body { padding: 1.1rem 1.25rem 1.25rem; }
+}
+
+/* Row inside a surface: photo/avatar + text + action, hover lift on pointers. */
+.mv-row {
+  border: 1px solid rgba(31, 41, 55, 0.1);
+  border-radius: 0.85rem;
+  background: #fff;
+  padding: 0.7rem;
+  transition: border-color var(--ds-duration-base) var(--ds-ease), box-shadow var(--ds-duration-base) var(--ds-ease), transform var(--ds-duration-base) var(--ds-ease);
+}
+@media (hover: hover) and (pointer: fine) {
+  .mv-row:hover {
+    transform: translate3d(0, -2px, 0);
+    border-color: rgba(212, 175, 55, 0.65);
+    box-shadow: 0 14px 30px -20px rgba(122, 12, 46, 0.5);
+  }
+}
+.mv-rowblock {
+  border: 1px solid rgba(31, 41, 55, 0.1);
+  border-radius: 0.85rem;
+  background: #fff;
+  padding: 0.7rem;
+}
+
+/* Two-tone note strip: warm for "someone acted", cool for "someone looked".
+   Replaces the rose→amber gradient, which mixed two unrelated hues. */
+.mv-note {
+  border: 1px solid rgba(212, 175, 55, 0.42);
+  border-left: 3px solid var(--ds-gold);
+  border-radius: 0.7rem;
+  background: linear-gradient(94deg, rgba(255, 246, 220, 0.95), rgba(255, 253, 249, 0.9));
+  padding: 0.5rem 0.7rem;
+}
+.mv-note__hot { color: #9f1239; }
+.mv-note__cool { color: #0f5f59; }
+/* Cool variant of the whole strip: a plain "you can do this" confirmation,
+   not an alert. */
+.mv-note--cool {
+  border-color: rgba(15, 95, 89, 0.28);
+  border-left-color: #0f5f59;
+  background: linear-gradient(94deg, rgba(236, 251, 248, 0.95), rgba(253, 255, 255, 0.9));
+  color: #0b4f4a;
+}
+
+/* Honest empty state inside a surface: warm, quiet, never a fake card. */
+.mv-empty-inline {
+  margin: 0;
+  padding: 0.85rem 1rem;
+  border: 1px dashed rgba(212, 175, 55, 0.5);
+  border-radius: 0.85rem;
+  background: rgba(255, 248, 231, 0.7);
+  text-align: center;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.55;
+  color: #6f5b63;
+}
+
+/* Quiet informational chip (labels, "no chat", "contact after acceptance"). */
+.mv-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 1.75rem;
+  padding: 0.2rem 0.6rem;
+  border: 1px solid rgba(212, 175, 55, 0.45);
+  border-radius: 999px;
+  background: #fffaf3;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #6f5b63;
+}
+
+/* Compact member action button (44px, brand maroon, press feedback). */
+.mv-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  min-height: 2.75rem;
+  padding: 0 1rem;
+  border: 1px solid transparent;
+  border-radius: 0.75rem;
+  font-size: 0.82rem;
+  font-weight: 800;
+  transition:
+    transform var(--ds-duration-fast) var(--ds-ease),
+    background-color var(--ds-duration-fast) var(--ds-ease),
+    box-shadow var(--ds-duration-fast) var(--ds-ease);
+}
+.mv-btn--primary {
+  background: linear-gradient(135deg, #7a0c2e, #a0143a);
+  color: #fff;
+  box-shadow: 0 10px 22px -14px rgba(122, 12, 46, 0.85);
+}
+.mv-btn--primary:hover { background: linear-gradient(135deg, #8c0f35, #b01742); }
+.mv-btn--secondary {
+  border-color: rgba(122, 12, 46, 0.3);
+  background: #fff;
+  color: #7a0c2e;
+}
+.mv-btn--secondary:hover { background: #fdf3f6; }
+/* Contact + WhatsApp: kept distinct so "contact" never reads as the same
+   affordance as the share action beside it. */
+.mv-btn--gold {
+  background: linear-gradient(135deg, #d4af37, #f0d580);
+  color: #5b1020;
+  box-shadow: 0 10px 22px -16px rgba(122, 12, 46, 0.7);
+}
+.mv-btn--gold:hover { background: linear-gradient(135deg, #dcb945, #f6e0a1); }
+.mv-btn--contact {
+  background: #047857;
+  color: #fff;
+  box-shadow: 0 10px 22px -14px rgba(4, 120, 87, 0.9);
+}
+.mv-btn--contact:hover { background: #065f46; }
+/* WhatsApp share stays an outline so it never competes with the solid
+   "contact" action sitting beside it. */
+.mv-btn--wa {
+  border-color: rgba(31, 170, 82, 0.55);
+  background: #fff;
+  color: #146c37;
+}
+.mv-btn--wa:hover { background: #f1fbf4; }
+.mv-btn:active { transform: scale(0.98); }
+@media (prefers-reduced-motion: reduce) {
+  .mv-btn { transition: none; }
+  .mv-btn:active { transform: none; }
+}
+
+@keyframes mvSurfaceDrift {
+  from { transform: translate3d(-2%, 0, 0) scale(1); opacity: 0.75; }
+  to   { transform: translate3d(3%, 2%, 0) scale(1.08); opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mv-surface__head::after { animation: none !important; }
+  .mv-row, .mv-surface__chip { transition: none; }
+  .mv-row:hover { transform: none; }
+}
+
+/* ============================================================
+   ROUTE INTRO — one cinematic opening band for every route
+   ------------------------------------------------------------
+   Rendered by `RouteFrame`, so /pricing, /safety, /vendors … open the same way
+   the homepage does: maroon depth panel, drifting gold light, staggered copy.
+   Pure CSS; transform/opacity only; frozen under reduced motion.
+   ============================================================ */
+.mv-intro {
+  position: relative;
+  isolation: isolate;
+  overflow: clip;
+  margin: 0;
+  padding: clamp(1.5rem, 4.5vw, 2.9rem) clamp(1rem, 4vw, 2.25rem);
+  background:
+    radial-gradient(120% 130% at 12% 0%, rgba(160, 20, 58, 0.95) 0%, rgba(122, 12, 46, 0.92) 42%, rgba(56, 6, 24, 1) 100%);
+  color: #fff;
+  border-bottom: 1px solid rgba(212, 175, 55, 0.38);
+}
+.mv-intro--compact { padding-block: clamp(1.1rem, 3vw, 1.9rem); }
+
+/* Slow gold light crossing the panel — the "camera" in the intro shot. */
+.mv-intro__glow {
+  position: absolute;
+  inset: -40% -20% auto -20%;
+  height: 140%;
+  z-index: 0;
+  background:
+    radial-gradient(closest-side at 22% 30%, rgba(255, 226, 150, 0.3), transparent 70%),
+    radial-gradient(closest-side at 78% 70%, rgba(15, 118, 110, 0.28), transparent 72%);
+  animation: mvIntroDrift 26s var(--ds-ease-in-out) infinite alternate;
+  pointer-events: none;
+}
+
+/* Hairline that draws itself in when the route opens. */
+.mv-intro__rule {
+  position: absolute;
+  left: clamp(1rem, 4vw, 2.25rem);
+  bottom: 0;
+  width: min(16rem, 42%);
+  height: 2px;
+  z-index: 1;
+  background: linear-gradient(90deg, #ffe9b0, rgba(212, 175, 55, 0.1));
+  transform-origin: 0 50%;
+  animation: mvIntroRule 900ms var(--ds-ease-out-quint) both;
+}
+
+/* Oversized ghost glyph in the corner: depth without an image asset. */
+.mv-intro__glyph {
+  position: absolute;
+  right: clamp(0.5rem, 3vw, 2rem);
+  top: 50%;
+  translate: 0 -50%;
+  z-index: 0;
+  font-size: clamp(5rem, 16vw, 11rem);
+  line-height: 1;
+  color: rgba(255, 233, 176, 0.1);
+  filter: blur(0.4px);
+  animation: mvIntroGlyph 30s var(--ds-ease-in-out) infinite alternate;
+  pointer-events: none;
+  user-select: none;
+}
+
+.mv-intro__body {
+  position: relative;
+  z-index: 2;
+  max-width: var(--ds-content-max);
+  margin-inline: auto;
+  display: grid;
+  gap: 0.55rem;
+}
+.mv-intro__eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: fit-content;
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #ffe9b0;
+}
+.mv-intro__eyebrow::before {
+  content: "";
+  width: 1.5rem;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(255, 233, 176, 0.2), #d4af37);
+}
+.mv-intro__title {
+  margin: 0;
+  font-size: clamp(1.45rem, 4.6vw, 2.35rem);
+  font-weight: 800;
+  line-height: 1.22;
+  letter-spacing: -0.01em;
+  color: #fff;
+  text-wrap: balance;
+}
+.mv-intro--compact .mv-intro__title { font-size: clamp(1.2rem, 3.4vw, 1.7rem); }
+.mv-intro__title.telugu { line-height: 1.34; }
+.mv-intro__lead {
+  margin: 0;
+  max-width: 46rem;
+  font-size: clamp(0.8rem, 2.4vw, 0.92rem);
+  line-height: 1.62;
+  color: rgba(255, 255, 255, 0.86);
+}
+.mv-intro__lead.telugu { line-height: 1.72; }
+.mv-intro__aside {
+  margin-top: 0.4rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+@keyframes mvIntroDrift {
+  from { transform: translate3d(-2%, -1%, 0) scale(1); opacity: 0.8; }
+  to   { transform: translate3d(3%, 2%, 0) scale(1.07); opacity: 1; }
+}
+@keyframes mvIntroRule {
+  from { transform: scaleX(0); opacity: 0; }
+  to   { transform: scaleX(1); opacity: 1; }
+}
+@keyframes mvIntroGlyph {
+  from { transform: translate3d(0, 0, 0) rotate(-3deg); }
+  to   { transform: translate3d(-1.5%, 2%, 0) rotate(3deg); }
+}
+
+@media (max-width: 640px) {
+  /* On phones the glyph sat exactly behind the headline; keep the depth but
+     move it into the corner and fade it further, so no glyph ever sits behind
+     Telugu letterforms. */
+  .mv-intro__glyph {
+    font-size: 4.2rem;
+    opacity: 0.55;
+    right: -0.35rem;
+    top: 0;
+    translate: 0 0;
+    transform-origin: 100% 0;
+  }
+  .mv-intro__glow { opacity: 0.9; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mv-intro__glow,
+  .mv-intro__glyph { animation: none !important; }
+  .mv-intro__rule { animation: none !important; transform: scaleX(1); }
+}
+
+/* The intro replaces the old breadcrumb strip's visual role, so the strip
+   below it is trimmed to a single quiet line. */
+.route-frame:has(> .mv-intro) .route-context { border-top: 0; }
+
+/* ============================================================
+   SITE AMBIENCE — the shared "film" layer
+   ------------------------------------------------------------
+   Fixed, decorative, behind everything (z-index 0 while content sits at 1).
+   Only transform/opacity animate, so it costs the compositor and nothing else.
+   Mounted by `SiteAmbience`, deferred to idle, absent on private consoles and
+   static under reduced motion.
+   ============================================================ */
+.mv-ambience {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  contain: strict;
+}
+
+/* Warm beam sweeping down from the top-left, like light through a doorway. */
+.mv-ambience__beam {
+  position: absolute;
+  inset: -30% -10% auto -10%;
+  height: 78%;
+  background: linear-gradient(
+    168deg,
+    rgba(212, 175, 55, 0.1) 0%,
+    rgba(212, 175, 55, 0.045) 34%,
+    transparent 64%
+  );
+  transform: rotate(-6deg);
+  transform-origin: 50% 0;
+  animation: mvBeamBreathe 24s var(--ds-ease-in-out) infinite alternate;
+}
+
+/* Two aurora veils drifting in opposite directions — the same pair the hero
+   uses, so the homepage stage reads as the strongest instance of one system. */
+.mv-ambience__veil {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(64px);
+  opacity: 0.5;
+  will-change: transform;
+}
+.mv-ambience__veil--a {
+  width: 52vw;
+  height: 46vw;
+  min-width: 22rem;
+  min-height: 20rem;
+  left: -14vw;
+  top: 4vh;
+  background: radial-gradient(circle at 40% 45%, rgba(160, 20, 58, 0.16), transparent 62%);
+  animation: mvAmbienceA 34s var(--ds-ease-in-out) infinite alternate;
+}
+.mv-ambience__veil--b {
+  width: 48vw;
+  height: 44vw;
+  min-width: 20rem;
+  min-height: 19rem;
+  right: -16vw;
+  top: 26vh;
+  background: radial-gradient(circle at 55% 50%, rgba(15, 118, 110, 0.14), transparent 62%);
+  animation: mvAmbienceB 41s var(--ds-ease-in-out) infinite alternate;
+}
+
+/* Light motes: six specks, pure transform/opacity, staggered by nth-child. */
+.mv-ambience__motes { position: absolute; inset: 0; }
+.mv-ambience__motes i {
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(255, 233, 176, 0.85) 0%, rgba(255, 233, 176, 0) 70%);
+  opacity: 0;
+  animation: mvAmbienceMote 26s linear infinite;
+}
+.mv-ambience__motes i:nth-child(1) { left: 12%; top: 18%; animation-duration: 27s; animation-delay: -3s; }
+.mv-ambience__motes i:nth-child(2) { left: 28%; top: 62%; animation-duration: 33s; animation-delay: -11s; }
+.mv-ambience__motes i:nth-child(3) { left: 46%; top: 34%; animation-duration: 29s; animation-delay: -17s; }
+.mv-ambience__motes i:nth-child(4) { left: 64%; top: 74%; animation-duration: 36s; animation-delay: -6s; }
+.mv-ambience__motes i:nth-child(5) { left: 82%; top: 24%; animation-duration: 31s; animation-delay: -21s; }
+.mv-ambience__motes i:nth-child(6) { left: 94%; top: 54%; animation-duration: 38s; animation-delay: -14s; }
+
+/* Scroll progress: one compositor property, no layout, no repaint. */
+.mv-ambience__progress {
+  --scroll-progress: 0;
+  position: fixed;
+  inset-inline: 0;
+  top: 0;
+  height: 2px;
+  transform: scaleX(var(--scroll-progress));
+  transform-origin: 0 50%;
+  background: linear-gradient(90deg, #d4af37 0%, #a0143a 55%, #7a0c2e 100%);
+  opacity: 0;
+  transition: opacity var(--ds-duration-base) var(--ds-ease);
+  will-change: transform;
+}
+.mv-ambience__progress[data-active="true"] { opacity: 0.9; }
+
+@keyframes mvBeamBreathe {
+  from { transform: rotate(-6deg) translate3d(0, 0, 0) scale(1); opacity: 0.75; }
+  to   { transform: rotate(-4deg) translate3d(2%, 3%, 0) scale(1.06); opacity: 1; }
+}
+@keyframes mvAmbienceA {
+  from { transform: translate3d(0, 0, 0) scale(1); }
+  to   { transform: translate3d(8vw, 6vh, 0) scale(1.14); }
+}
+@keyframes mvAmbienceB {
+  from { transform: translate3d(0, 0, 0) scale(1.08); }
+  to   { transform: translate3d(-7vw, -5vh, 0) scale(1); }
+}
+@keyframes mvAmbienceMote {
+  0%   { transform: translate3d(0, 16px, 0); opacity: 0; }
+  10%  { opacity: 0.7; }
+  80%  { opacity: 0.35; }
+  100% { transform: translate3d(18px, -160px, 0); opacity: 0; }
+}
+
+/* Phones: thinner blurs, fewer motes. The layer must stay nearly free. */
+@media (max-width: 640px) {
+  .mv-ambience__veil { filter: blur(42px); opacity: 0.4; }
+  .mv-ambience__motes i:nth-child(n + 5) { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mv-ambience__beam,
+  .mv-ambience__veil,
+  .mv-ambience__motes i {
+    animation: none !important;
+  }
+  .mv-ambience__motes { display: none; }
+  .mv-ambience__progress { transition: none; }
+}
+
+/* Respect the OS "reduce transparency" switch as well as reduced motion. */
+@media (prefers-reduced-transparency: reduce) {
+  .mv-ambience { display: none; }
+}
+
+
+/* ============================================================
+   SECTION & CARD MOTION (homepage + shared surfaces)
+   ------------------------------------------------------------
+   Compositor-only transitions, short durations, one shared easing so
+   the whole site feels like one product. Everything is opt-out via
+   prefers-reduced-motion.
+   ============================================================ */
+:root {
+  /* Legacy hero aliases — kept so existing hero CSS keeps working, but they now
+     resolve to the single site-wide motion scale declared above. */
+  --mv-ease: var(--ds-ease);
+  --mv-ease-in-out: var(--ds-ease-in-out);
+  --mv-dur-fast: var(--ds-duration-fast);
+  --mv-dur: var(--ds-duration-base);
+  --mv-dur-slow: var(--ds-duration-slow);
+}
+
+/* Tab panels fade + lift on change instead of snapping in. */
+.mv-panel {
+  animation: mvPanelIn var(--mv-dur) var(--mv-ease) both;
+}
+@keyframes mvPanelIn {
+  from { opacity: 0; transform: translate3d(0, 8px, 0); }
+  to   { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mv-panel { animation: none; }
+}
+
+/* Card micro-interaction: pointer devices only, never a layout shift. */
+@media (hover: hover) and (pointer: fine) {
+  .mv-card {
+    transition:
+      transform var(--mv-dur) var(--mv-ease),
+      box-shadow var(--mv-dur) var(--mv-ease),
+      border-color var(--mv-dur) var(--mv-ease);
+  }
+  .mv-card:hover {
+    transform: translate3d(0, -3px, 0);
+    box-shadow: 0 18px 44px -18px rgba(122, 12, 46, 0.35);
+  }
+}
+.mv-card:active { transform: scale(0.995); }
+@media (prefers-reduced-motion: reduce) {
+  .mv-card,
+  .mv-card:hover,
+  .mv-card:active { transition: none; transform: none; }
+}
+
+/* Sheen sweep for primary CTAs (no paid assets, pure gradient). */
+.mv-sheen {
+  position: relative;
+  overflow: hidden;
+}
+.mv-sheen::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  translate: -120% 0;
+  background: linear-gradient(115deg, transparent 38%, rgba(255, 255, 255, 0.42) 50%, transparent 62%);
+  pointer-events: none;
+}
+@media (hover: hover) and (pointer: fine) {
+  .mv-sheen:hover::after {
+    animation: mvSheen 720ms var(--mv-ease) 1;
+  }
+}
+@keyframes mvSheen {
+  to { translate: 120% 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mv-sheen::after { display: none; }
+}
+
+
+/* ============================================================
+   THE TELUGU WEDDING — content-first story section
+   ------------------------------------------------------------
+   Replaces the AI-photo film section on the homepage. One card,
+   four steps, original SVG art. Steps rise in with a short stagger
+   the first time the card scrolls into view; reduced motion shows
+   them immediately.
+   ============================================================ */
+.mv-story { padding-block: clamp(1.5rem, 4vw, 3rem); }
+
+.mv-story__card {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  border-radius: 1.75rem;
+  border: 1px solid rgba(212, 175, 55, 0.4);
+  background:
+    radial-gradient(120% 90% at 8% 0%, rgba(122, 12, 46, 0.05), transparent 55%),
+    linear-gradient(165deg, #fffdf8 0%, #fff8e7 52%, #fdf3e0 100%);
+  padding: clamp(1.1rem, 3.5vw, 2.25rem);
+  box-shadow: 0 22px 60px -34px rgba(122, 12, 46, 0.45);
+}
+.mv-story__glow {
+  position: absolute;
+  right: -6rem;
+  top: -6rem;
+  width: 18rem;
+  height: 18rem;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(212, 175, 55, 0.34), transparent 66%);
+  filter: blur(10px);
+  z-index: -1;
+  pointer-events: none;
+}
+
+.mv-story__eyebrow {
+  display: inline-block;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #8b5364;
+}
+
+.mv-story__steps {
+  display: grid;
+  gap: 0.75rem;
+  margin: 1.15rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+@media (min-width: 640px) {
+  .mv-story__steps { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (min-width: 1080px) {
+  .mv-story__steps { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+
+.mv-story__step {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-areas:
+    "icon num"
+    "body body";
+  align-items: start;
+  gap: 0.25rem 0.65rem;
+  border-radius: 1.1rem;
+  border: 1px solid rgba(212, 175, 55, 0.34);
+  background: rgba(255, 255, 255, 0.82);
+  padding: 0.9rem 0.95rem 1rem;
+  transition: border-color var(--mv-dur) var(--mv-ease), background-color var(--mv-dur) var(--mv-ease);
+}
+.mv-story__step > div { grid-area: body; }
+.mv-story__icon {
+  grid-area: icon;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 0.85rem;
+  background: linear-gradient(160deg, #fff6dc, #f7e6b8);
+  border: 1px solid rgba(212, 175, 55, 0.45);
+  color: #7a0c2e;
+}
+.mv-story__num {
+  grid-area: num;
+  justify-self: end;
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  color: #b8912a;
+}
+.mv-story__title {
+  margin-top: 0.15rem;
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: #7a0c2e;
+}
+.mv-story__body {
+  margin-top: 0.3rem;
+  font-size: 0.78rem;
+  line-height: 1.6;
+  color: #5a4a50;
+}
+.mv-story__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-top: 0.6rem;
+  min-height: 32px;
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: #0f766e;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+.mv-story__link:hover { color: #075e54; }
+@media (hover: hover) and (pointer: fine) {
+  .mv-story__step:hover { border-color: rgba(212, 175, 55, 0.75); background: #fff; }
+}
+
+/* Staggered entrance, once, on scroll-in (see WeddingStorySection). */
+.mv-story[data-lit="true"] .mv-story__step {
+  animation: mvStepIn var(--mv-dur-slow) var(--mv-ease) both;
+}
+@keyframes mvStepIn {
+  from { opacity: 0; transform: translate3d(0, 14px, 0); }
+  to   { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mv-story[data-lit="true"] .mv-story__step { animation: none; }
+}
+
+.mv-story__note {
+  margin-top: 0.9rem;
+  font-size: 0.7rem;
+  line-height: 1.55;
+  color: #7c6a70;
+}
+
+
+/* ============================================================
+   INTEREST / REQUEST FLOW — a three-step connected track
+   ------------------------------------------------------------
+   Replaces a plain ordered list on the profile page. The first dot is
+   filled (this is the action available now); the rest are outlined so the
+   flow reads as "you are here → what happens next", never as a promise
+   that acceptance is guaranteed.
+   ============================================================ */
+.mv-flow {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.mv-flow__step {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1.6rem minmax(0, 1fr);
+  align-items: start;
+  gap: 0.7rem;
+  padding-bottom: 0.85rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1.55;
+  color: #6b2a3f;
+}
+.mv-flow__step:last-child { padding-bottom: 0; }
+.mv-flow__step::before {
+  content: "";
+  position: absolute;
+  left: 0.78rem;
+  top: 1.5rem;
+  bottom: 0.1rem;
+  width: 2px;
+  border-radius: 999px;
+  background: linear-gradient(to bottom, rgba(122, 12, 46, 0.28), rgba(122, 12, 46, 0.08));
+}
+.mv-flow__step:last-child::before { display: none; }
+.mv-flow__dot {
+  display: grid;
+  place-items: center;
+  width: 1.6rem;
+  height: 1.6rem;
+  border-radius: 999px;
+  border: 1.5px solid rgba(122, 12, 46, 0.35);
+  background: #fff;
+  font-size: 0.7rem;
+  font-weight: 800;
+  color: #7a0c2e;
+}
+.mv-flow__step[data-on="true"] .mv-flow__dot {
+  border-color: transparent;
+  background: linear-gradient(135deg, #7a0c2e, #a0143a);
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(122, 12, 46, 0.28);
+}
+
+/* ============================================================
+   EMPTY STATES — honest, designed, never filled with fake content
+   ============================================================ */
+.mv-empty {
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  gap: 0.5rem;
+  justify-items: center;
+  padding: clamp(1.25rem, 4vw, 2rem);
+  border-radius: 1.25rem;
+  border: 1px dashed rgba(212, 175, 55, 0.55);
+  background:
+    radial-gradient(120% 90% at 50% 0%, rgba(212, 175, 55, 0.14), transparent 60%),
+    #fffdf8;
+  text-align: center;
+}
+.mv-empty__art {
+  color: #b8912a;
+}
+
+/* ============================================================
    DESIGN SYSTEM — tokens + primitives
    ------------------------------------------------------------
    The :root block below is generated from src/lib/design-tokens.ts
@@ -1611,7 +3117,11 @@ label {
   --ds-duration-fast: 150ms;
   --ds-duration-base: 250ms;
   --ds-duration-slow: 400ms;
+  --ds-duration-reveal: 620ms;
   --ds-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --ds-ease-in-out: cubic-bezier(0.45, 0, 0.25, 1);
+  --ds-ease-out-quint: cubic-bezier(0.16, 1, 0.3, 1);
+  --ds-stagger-step: 70ms;
   --ds-touch-min: 44px;
   --ds-content-max: 80rem;}
 

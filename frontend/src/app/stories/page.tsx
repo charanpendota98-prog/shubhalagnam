@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import StoriesClient from "./stories-client";
 import Breadcrumbs, { type Crumb } from "@/components/Breadcrumbs";
 import FaqBlock from "@/components/FaqBlock";
-import CinematicGallery from "@/components/CinematicGallery";
 import { buildPageSeo } from "@/lib/page-seo";
 
 export const metadata: Metadata = {
@@ -27,7 +26,6 @@ export default function StoriesPage() {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: SEO.crumbJsonLd }} />
       <Breadcrumbs trail={TRAIL} />
       <StoriesClient />
-      <CinematicGallery />
       <FaqBlock itemsEn={SEO.faqEn} itemsTe={SEO.faqTe} />
     </>
   );

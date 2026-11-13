@@ -13,9 +13,9 @@ const COPY = {
   te: {
     eyebrow: "ఎందుకు మన వివాహ",
     title: "నమ్మకం, గోప్యత, గౌరవం — మూడూ ఒకేచోట",
-    sub: "తెలంగాణ & ఆంధ్రప్రదేశ్ కుటుంబాల కోసం. Phone OTP status, సభ్యులు అందించిన profile వివరాలు, మరియు contact-sharing controls‌ను స్పష్టంగా చూపిస్తాం. పరిచయాల వివరాలను స్వతంత్రంగా నిర్ధారించుకోండి.",
+    sub: "తెలంగాణ & ఆంధ్రప్రదేశ్ కుటుంబాల కోసం. నమోదైన review స్థితులు, సభ్యులు అందించిన profile వివరాలు మరియు contact-sharing controls‌ను స్పష్టంగా చూపిస్తాం. పరిచయాల వివరాలను స్వతంత్రంగా నిర్ధారించుకోండి.",
     features: [
-      { icon: "📱", t: "Phone OTP status", d: "OTP ఆ phone number‌కు access‌ను నిర్ధారిస్తుంది; వ్యక్తి గుర్తింపును కాదు." },
+      { icon: "🪪", t: "నమోదైన review స్థితులు", d: "ఫోటో లేదా ప్రభుత్వ ID review నమోదు కావచ్చు; అవి వ్యక్తి గుర్తింపు లేదా ప్రొఫైల్ వివరాలకు హామీ కావు." },
       { icon: "🔒", t: "ఫోటో గోప్యత", d: "Photo visibility‌ను మీరు ఎంచుకోండి; బయట share చేసిన కాపీలను service నియంత్రించలేదు." },
       { icon: "🤝", t: "సమ్మతితో contact access", d: "In-app chat లేదు. Owner accept చేసిన తర్వాత accepted-request account views లో contact details కనిపిస్తాయి; notification delivery హామీ లేదు." },
       { icon: "💰", t: "స్పష్టమైన ధరలు", d: "ఉచిత ప్లాన్‌లో 3 interest requests + profile card; paid plans ₹99 నుంచి. Add-ons వేరు కావచ్చు." },
@@ -26,9 +26,9 @@ const COPY = {
   en: {
     eyebrow: "Why Mana Vivaha",
     title: "Trust, privacy and respect — all in one place",
-    sub: "For families in Telangana and Andhra Pradesh. We show phone OTP status, member-provided profile details, and contact-sharing controls. Independently verify people you meet.",
+    sub: "For families in Telangana and Andhra Pradesh. We show recorded review status, member-provided profile details, and contact-sharing controls. Independently verify people you meet.",
     features: [
-      { icon: "📱", t: "Phone OTP status", d: "OTP confirms access to a phone number, not a person’s identity." },
+      { icon: "🪪", t: "Recorded review status", d: "A photo or government-ID review may be recorded; it does not guarantee identity or other profile details." },
       { icon: "🔒", t: "Photo privacy", d: "Choose photo visibility; copies shared outside the service are beyond our control." },
       { icon: "🤝", t: "Consent-based contact access", d: "No in-app chat. Owner acceptance grants contact access in accepted-request account views; notification delivery is not guaranteed." },
       { icon: "💰", t: "Clear pricing", d: "Free plan: 3 interest requests + profile card. Paid plans start at ₹99; add-ons may cost extra." },

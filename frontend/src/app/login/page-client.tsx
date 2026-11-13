@@ -161,7 +161,7 @@ export default function LoginPage() {
     );
     setBusy(false);
     if (!ok) {
-      showFeedback(error || (te ? "రీసెట్ OTP పంపడంలో సమస్య ఏర్పడింది." : "Could not send the password-reset OTP. Please try again."), "err");
+      showFeedback(error || (te ? "ఈమెయిల్ ధృవీకరణ కోడ్ పంపడంలో సమస్య ఏర్పడింది. పాస్‌వర్డ్ రీసెట్ ఈమెయిల్ కోడ్‌తో మాత్రమే జరుగుతుంది; ఫోన్ OTP అందుబాటులో లేదు." : "Could not send the email verification code. Password reset uses an emailed code only; phone OTP is unavailable."), "err");
       return;
     }
     setFStage("reset");
@@ -172,7 +172,7 @@ export default function LoginPage() {
   async function onReset() {
     const expectedLen = phone.includes("@") ? 8 : 4;
     if (code.trim().length < expectedLen) {
-      showFeedback(te ? "⚠️ OTP కోడ్ నమోదు చేయండి" : "⚠️ Enter the OTP code", "err");
+      showFeedback(te ? "⚠️ ఈమెయిల్‌కు వచ్చిన ధృవీకరణ కోడ్ నమోదు చేయండి" : "⚠️ Enter the verification code sent to your email", "err");
       return;
     }
     if (newPw.length < 8 || newPw.length > 72) {
@@ -315,7 +315,9 @@ export default function LoginPage() {
                 <>
                   <div>
                     <label htmlFor="f-otp" className="block text-xs font-bold text-slate-700 mb-1">
-                      🔢 {te ? (phone.includes("@") ? "OTP కోడ్ (8 అంకెలు)" : "OTP కోడ్ (4 అంకెలు)") : (phone.includes("@") ? "8-digit OTP Code" : "4-digit OTP Code")}
+                      🔢 {phone.includes("@")
+                        ? (te ? "ఈమెయిల్ ధృవీకరణ కోడ్ (8 అంకెలు)" : "Email verification code (8 digits)")
+                        : (te ? "ధృవీకరణ కోడ్ (4 అంకెలు)" : "Verification code (4 digits)")}
                     </label>
                     <input
                       id="f-otp"
@@ -323,7 +325,7 @@ export default function LoginPage() {
                       value={code}
                       maxLength={phone.includes("@") ? 8 : 4}
                       onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, phone.includes("@") ? 8 : 4))}
-                      placeholder={te ? "OTP కోడ్ నమోదు చేయండి" : "Enter OTP code"}
+                      placeholder={te ? "ధృవీకరణ కోడ్ నమోదు చేయండి" : "Enter verification code"}
                       className="w-full text-center tracking-[0.4em] py-3 rounded-xl border border-slate-200 text-xl font-bold font-mono focus:border-maroon focus:ring-1 focus:ring-maroon outline-none"
                     />
                   </div>
@@ -389,7 +391,7 @@ export default function LoginPage() {
                   disabled={busy || (!capabilities?.email_recovery_configured && !capabilities?.phone_otp)}
                   className="w-full py-3.5 rounded-2xl maroon-gradient text-white font-bold text-sm shadow-md hover-lift disabled:opacity-50"
                 >
-                  {busy ? (te ? "OTP పంపుతున్నారు…" : "Sending OTP…") : te ? "📩 రీసెట్ OTP పంపు" : "📩 Send Reset OTP"}
+                  {busy ? (te ? "పంపుతున్నారు…" : "Sending…") : te ? "📩 ఈమెయిల్ రీసెట్ కోడ్ పంపు" : "📩 Email me a reset code"}
                 </button>
               ) : (
                 <div className="space-y-2">
@@ -414,7 +416,7 @@ export default function LoginPage() {
                         onClick={onForgotSend}
                         className="text-maroon font-bold underline"
                       >
-                        {te ? "మళ్లీ OTP పంపు" : "Resend OTP"}
+                        {te ? "కోడ్ మళ్లీ పంపు" : "Resend code"}
                       </button>
                     )}
                   </div>

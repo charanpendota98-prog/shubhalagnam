@@ -8,6 +8,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import TrustBadge from "@/components/TrustBadge";
+import { PillScroller } from "@/components/ui";
 import Link from "next/link";
 import Image from "next/image";
 import AuthGate from "@/components/AuthGate";
@@ -125,26 +126,37 @@ export default function MePage() {
   };
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-6">
-      <div className="flex items-center justify-between border-b border-gold/30 pb-3">
-        <div>
-          <h1 className="text-2xl font-black text-[#7A0C2E]">
-            <Duo en="🙋 My Account & Partner Preferences" te="🙋 నా ప్రొఫైల్ & కోరుకునే సంబంధం" />
-          </h1>
-          {myId && <p className="font-mono text-xs font-bold text-slate-500 mt-0.5">ID: {myId}</p>}
+    <div className="mx-auto max-w-4xl px-4 py-5">
+      {/* The page's <h1> is the shared RouteIntro band; this row is the account
+          toolbar. Actions wrap to their own line on phones so every pill keeps
+          its natural width instead of being crushed into a circle. */}
+      <div className="mv-toolbar flex flex-col gap-2 border-b border-gold/30 pb-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          {/* The section name already lives in the intro band above, so the
+              toolbar only carries the account's own identifier. */}
+          {myId ? (
+            <p className="font-mono text-xs font-bold text-slate-500">
+              {te ? "మీ ID" : "Your ID"}: {myId}
+            </p>
+          ) : (
+            <p className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-[#8A6A1F]">
+              {te ? "నా ఖాతా" : "My account"}
+            </p>
+          )}
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 sm:justify-end">
           <button type="button"
             onClick={() => setShowDeleteModal(true)}
-            className="px-3 py-1.5 rounded-full border border-slate-200 hover:border-rose-300 bg-white hover:bg-rose-50 text-slate-600 hover:text-rose-700 text-xs font-bold transition flex items-center gap-1 shadow-xs min-h-11"
+            className="pill pill--quiet min-h-11 whitespace-nowrap px-3.5 text-xs"
             title={te ? "వివాహం కుదిరింది / ప్రొఫైల్‌ను పబ్లిక్ శోధన నుంచి దాచండి" : "Mark as married or hide the profile from public search"}
           >
-            <span>💍</span>
-            <span>{te ? "వివాహం కుదిరింది / ప్రొఫైల్‌ను దాచు" : "Hide profile"}</span>
+            <span aria-hidden="true">💍</span>
+            <span>{te ? "ప్రొఫైల్ దాచు" : "Hide profile"}</span>
           </button>
-          <Link href="/referral" className="px-3.5 py-1.5 rounded-full gold-gradient text-maroon text-xs font-black shadow-xs hover:brightness-105 transition">
-            {te ? "🤝 రెఫరల్ & ₹50 రివార్డ్" : "🤝 Referrals & ₹50 reward"}
+          <Link href="/referral" className="pill pill--on-gold min-h-11 whitespace-nowrap px-3.5 text-xs font-black">
+            <span aria-hidden="true">🤝</span>
+            <span>{te ? "రెఫరల్ & ₹50" : "Referrals & ₹50"}</span>
           </Link>
         </div>
       </div>
@@ -166,21 +178,27 @@ export default function MePage() {
             <MemberActivity tsapId={myId} />
           </div>
 
-          <div className="mt-4 flex gap-2 overflow-x-auto pb-1 no-scrollbar">
+          {/* Account tab rail: every tab label stays on ONE line and the row
+              scrolls sideways. `PillScroller` handles natural pill widths,
+              edge fades, and arrow-key movement between tabs. */}
+          <PillScroller
+            label={te ? "అకౌంట్ విభాగాలు" : "Account sections"}
+            className="mt-4"
+            as="nav"
+          >
             {TABS.map(([v, en, t]) => (
               <button type="button"
                 key={v}
                 onClick={() => setTab(v)}
-                className={`whitespace-nowrap rounded-full px-4 py-2 text-xs font-bold transition ${
-                  tab === v ? "maroon-gradient text-white shadow-sm" : "border border-slate-200 bg-white text-slate-700 hover:bg-amber-50"
-                }`}
+                aria-current={tab === v ? "page" : undefined}
+                className={`pill whitespace-nowrap ${tab === v ? "pill--on" : "pill--quiet"}`}
               >
                 {te ? t : en}
               </button>
             ))}
-          </div>
+          </PillScroller>
 
-          <div className="mt-5">
+          <div className="mt-5 mv-panel" key={tab}>
             {tab === "preferences" && <PartnerPreferencesPanel myId={myId} />}
             {tab === "edit" && <EditProfilePanel myId={myId} />}
             {tab === "streak" && <StreakPanel myId={myId} />}
@@ -209,7 +227,12 @@ export default function MePage() {
         </>
       ) : (
         <div className="mt-6">
-          <AuthGate note={te ? "మీ ప్రొఫైల్ వివరాలు ఎడిట్ చేసుకోవడానికి లేదా చూడటానికి లాగిన్ అవ్వండి." : "Please login to view or edit your profile."} />
+          <AuthGate
+            title={te ? "🔒 మీ ప్రొఫైల్ చూడటానికి లాగిన్ అవ్వండి" : "🔒 Login to view your profile"}
+            note={te
+              ? "మీ ప్రొఫైల్ వివరాలు చూడటానికి లేదా ఎడిట్ చేయడానికి ఫోన్ నంబర్ మరియు పాస్‌వర్డ్‌తో లాగిన్ అవ్వండి — ఈ లాగిన్‌కు SMS/WhatsApp OTP ఉపయోగించబడదు."
+              : "Sign in with your phone number and password to view or edit your profile — no SMS/WhatsApp OTP is required."}
+          />
         </div>
       )}
 
@@ -596,7 +619,7 @@ function PartnerPreferencesPanel({ myId }: { myId: string }) {
 
   if (loading) {
     return (
-      <div className="rounded-3xl border border-gold/30 bg-white p-8 text-center text-sm font-bold text-slate-500">
+      <div className="mv-surface mv-surface__body text-center text-sm font-bold text-slate-500">
         {te ? "మీ భాగస్వామి ప్రాధాన్యతలు లోడ్ అవుతున్నాయి…" : "Loading your partner preferences…"}
       </div>
     );
@@ -605,24 +628,26 @@ function PartnerPreferencesPanel({ myId }: { myId: string }) {
   return (
     <div className="space-y-6">
       {/* Top Banner with Match Count */}
-      <div className="rounded-3xl bg-gradient-to-r from-amber-500 via-rose-600 to-[#7A0C2E] p-6 text-white shadow-lg">
+      {/* Panel head: the same maroon surface head used by every member card,
+          instead of a maroon→amber→rose gradient that fought the page. */}
+      <div className="mv-surface mv-surface--head p-6 text-white">
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="text-center sm:text-left">
-            <span className="inline-block bg-white/20 backdrop-blur-md px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider mb-2">
+            <span className="mb-2 inline-block rounded-full border border-white/25 bg-white/15 px-3 py-1 text-[10px] font-black uppercase tracking-wider">
               {te ? "🎯 స్మార్ట్ మ్యాచింగ్ ఫిల్టర్లు" : "🎯 Smart matching filters"}
             </span>
-            <h2 className="text-xl sm:text-2xl font-black">
+            <h2 className="text-xl font-black sm:text-2xl">
               {te ? "మీకు ఎలాంటి సంబంధం కావాలి?" : "What are you looking for in a match?"}
             </h2>
-            <p className="text-xs sm:text-sm text-amber-100 mt-1 max-w-xl">
+            <p className="mt-1 max-w-xl text-xs text-white/85 sm:text-sm">
               {te ? "మీ వయస్సు, కమ్యూనిటీ, విద్య, వృత్తి మరియు ప్రాంత ప్రాధాన్యతలను సేవ్ చేసుకోండి. సరిపోలే ప్రొఫైల్‌లను శోధనలో చూడండి." : "Save your preferred age, community, education, occupation, and locations. Use them to filter member-submitted profiles."}
             </p>
           </div>
 
-          <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/20 text-center shrink-0 min-w-[160px]">
-            <span className="text-xs text-amber-200 block font-bold">{te ? "సరిపోలిన ప్రొఫైల్‌లు" : "Matching profiles"}</span>
-            <span className="text-3xl font-black text-amber-300 block">{matchingCount}</span>
-            <span className="text-[11px] text-white/90">{te ? "మీ ప్రాధాన్యతలకు సరిపోయేవి" : "Based on your preferences"}</span>
+          <div className="min-w-[160px] shrink-0 rounded-2xl border border-white/20 bg-white/10 p-4 text-center">
+            <span className="block text-xs font-bold text-white/80">{te ? "సరిపోలిన ప్రొఫైల్‌లు" : "Matching profiles"}</span>
+            <span className="block text-3xl font-black text-[#f0d580]">{matchingCount}</span>
+            <span className="text-[11px] text-white/80">{te ? "మీ ప్రాధాన్యతలకు సరిపోయేవి" : "Based on your preferences"}</span>
           </div>
         </div>
 
@@ -642,7 +667,7 @@ function PartnerPreferencesPanel({ myId }: { myId: string }) {
             </div>
             <Link
               href="/matches"
-              className="px-4 py-2 rounded-xl bg-white text-[#7A0C2E] font-black text-xs hover:bg-amber-100 transition shadow"
+              className="mv-btn min-h-11 bg-white px-4 text-xs font-black text-[#7A0C2E] hover:bg-[#fff1ee]"
             >
               {te ? `👉 ${matchingCount} సరిపోలిన ప్రొఫైల్‌లను చూడండి` : `👉 View ${matchingCount} matching profiles`}
             </Link>
@@ -650,11 +675,11 @@ function PartnerPreferencesPanel({ myId }: { myId: string }) {
         )}
       </div>
 
-      <form onSubmit={handleSave} className="rounded-3xl border border-gold/40 bg-white p-6 shadow-sm space-y-6">
+      <form onSubmit={handleSave} className="mv-surface mv-surface__body space-y-6">
         <Msg m={msg} />
 
         {/* ⚡ SMART 1-CLICK MATCH PRESETS (త్వరిత ఎంపికలు) */}
-        <div className="rounded-2xl bg-gradient-to-r from-amber-50 via-rose-50 to-amber-50 border border-gold/40 p-4 space-y-2">
+        <div className="mv-note space-y-2 !p-4">
           <div className="flex items-center justify-between">
             <span className="text-xs font-black text-maroon flex items-center gap-1.5 uppercase tracking-wide">
               <span>⚡</span> <span>{te ? "స్మార్ట్ 1-క్లిక్ ఎంపికలు" : "Quick preference presets"}</span>
@@ -879,7 +904,7 @@ function PartnerPreferencesPanel({ myId }: { myId: string }) {
                       type="button"
                       key={c.en}
                       onClick={() => toggleCaste(c.en)}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
+                      className={`mv-btn min-h-11 px-3 py-1.5 text-xs font-bold ${
                         isSel
                           ? "bg-[#7A0C2E] text-white shadow-xs"
                           : "bg-white border border-slate-200 text-slate-700 hover:border-gold hover:bg-amber-50"
@@ -981,7 +1006,7 @@ function PartnerPreferencesPanel({ myId }: { myId: string }) {
                   type="button"
                   key={e}
                   onClick={() => toggleEducation(e)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
+                  className={`mv-btn min-h-11 px-3 py-1.5 text-xs font-bold ${
                     isSel
                       ? "bg-[#7A0C2E] text-white shadow-xs"
                       : "bg-white border border-slate-200 text-slate-700 hover:border-gold hover:bg-amber-50"
@@ -1064,7 +1089,7 @@ function PartnerPreferencesPanel({ myId }: { myId: string }) {
                   type="button"
                   key={j}
                   onClick={() => toggleJob(j)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
+                  className={`mv-btn min-h-11 px-3 py-1.5 text-xs font-bold ${
                     isSel
                       ? isHousewife
                         ? "bg-rose-700 text-white shadow-xs"
@@ -1163,7 +1188,7 @@ function PartnerPreferencesPanel({ myId }: { myId: string }) {
                     type="button"
                     key={d}
                     onClick={() => toggleDistrict(d)}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
+                    className={`mv-btn min-h-11 px-3 py-1.5 text-xs font-bold ${
                       isSel
                         ? "bg-[#7A0C2E] text-white shadow-xs"
                         : "bg-white border border-slate-200 text-slate-700 hover:border-gold hover:bg-amber-50"
@@ -1199,7 +1224,7 @@ function PartnerPreferencesPanel({ myId }: { myId: string }) {
                       type="button"
                       key={m.v}
                       onClick={() => toggleMarital(m.v)}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
+                      className={`mv-btn min-h-11 px-3 py-1.5 text-xs font-bold ${
                         isSel
                           ? "bg-[#7A0C2E] text-white shadow-xs"
                           : "bg-white border border-slate-200 text-slate-700 hover:border-gold hover:bg-amber-50"
@@ -1896,7 +1921,7 @@ function StreakPanel({ myId }: { myId: string }) {
     } else setMsg({ ok: false, text: apiDisplayMessage(data, te, errorTelugu || (te ? "మళ్లీ ప్రయత్నించండి." : "Please try again.")) });
   };
   return (
-    <section className="rounded-3xl border border-rose-200 bg-white p-5 text-center">
+    <section className="mv-surface mv-surface__body text-center">
       <p className="text-5xl">🔥</p>
       <p className="mt-2 text-4xl font-extrabold text-[#7A0C2E]">{st?.count ?? "—"}</p>
       <p className="text-[12px] text-slate-500">{te ? "రోజుల స్ట్రీక్" : "day streak"}</p>
@@ -1922,12 +1947,17 @@ function UnlocksPanel({ myId }: { myId: string }) {
   const te = lang === "te";
   const [list, setList] = useState<Row[]>([]);
   useEffect(() => {
-    apiGet<Row[]>(`/api/unlocks/${encodeURIComponent(myId)}`).then((r) => {
-      if (r.ok && r.data) setList(r.data);
+    apiGet<Row[] | { items?: Row[] }>(`/api/unlocks/${encodeURIComponent(myId)}`).then((r) => {
+      // The panel renders a list of unlocks; anything that is not a list is
+      // treated as "nothing unlocked yet" rather than crashing the account page.
+      const data: Row[] | { items?: Row[] } | null = r.ok ? r.data : null;
+      if (Array.isArray(data)) setList(data);
+      else if (data && Array.isArray((data as { items?: Row[] }).items)) setList((data as { items?: Row[] }).items as Row[]);
+      else setList([]);
     });
   }, [myId]);
   return (
-    <section className="rounded-3xl border border-amber-200 bg-white p-5">
+    <section className="mv-surface mv-surface__body">
       <h2 className="text-base font-extrabold text-[#7A0C2E]">{te ? "మీరు అన్‌లాక్ చేసిన profiles" : "Your unlocked profiles"}</h2>
       {list.length === 0 ? (
         <p className="mt-3 text-sm text-slate-500">{te ? "ఇంకా ఏ profile ని unlock చేయలేదు." : "No unlocked profiles yet."}</p>
@@ -1962,7 +1992,7 @@ function BoostPanel({ myId }: { myId: string }) {
   }, []);
 
   return (
-    <section className="min-w-0 space-y-4 rounded-3xl border border-gold/30 bg-white p-4 text-center sm:p-5">
+    <section className="mv-surface mv-surface__body min-w-0 space-y-4 text-center sm:!p-5">
       <div className="text-4xl" aria-hidden="true">⚡</div>
       <h2 className="text-base font-extrabold text-[#7A0C2E]">{te ? "ప్రొఫైల్ ప్రమోషన్" : "Profile promotion"}</h2>
       <p className="mx-auto max-w-xl text-xs leading-relaxed text-slate-600">
@@ -2019,7 +2049,7 @@ function VoicePanel({ myId }: { myId: string }) {
   };
 
   return (
-    <section className="rounded-3xl border border-indigo-200 bg-white p-5 text-center space-y-3">
+    <section className="mv-surface mv-surface__body space-y-3 text-center">
       <div className="text-4xl">🎙️</div>
       <h2 className="text-base font-extrabold text-[#7A0C2E]">{te ? "వాయిస్ బయోడేటా" : "Voice bio"}</h2>
       <p className="text-xs text-slate-600">{te ? "ఆడియో బయోడేటాను అప్‌లోడ్ చేసి మీ ప్రొఫైల్‌కు జోడించండి." : "Upload an audio bio to add it to your profile."}</p>
@@ -2097,11 +2127,11 @@ function JathakamPanel({ myId }: { myId: string }) {
         : (te ? "నిజమైన PDF లేదా ఫోటోను అప్‌లోడ్ చేసిన తర్వాతే review ప్రారంభమవుతుంది." : "Review starts only after you upload a real PDF or photo.");
 
   return (
-    <section className="rounded-3xl border border-amber-200 bg-white p-5 text-center space-y-3">
+    <section className="mv-surface mv-surface__body text-center space-y-3">
       <div className="text-4xl" aria-hidden="true">🪐</div>
       <h2 className="text-base font-extrabold text-[#7A0C2E]">{te ? "నిజమైన జాతక పత్రం review" : "Real Jathakam document review"}</h2>
       <p className="text-xs leading-relaxed text-slate-600">{te ? "Star-only లెక్కలు లేదా ఊహించిన chart చూపించము. మీ స్వంత జాతక పత్రాన్ని అప్‌లోడ్ చేసి review స్థితిని మాత్రమే చూడండి." : "We do not show star-only calculations or an invented chart. Upload your own horoscope document and see only its review state."}</p>
-      <div className="rounded-2xl border border-amber-200 bg-amber-50/70 p-3 text-left">
+      <div className="mv-note text-left">
         <div className="text-[10px] font-extrabold uppercase tracking-wide text-amber-800">{te ? "ఆధార స్థితి" : "Evidence status"}</div>
         <div className="mt-1 text-sm font-extrabold text-slate-900">{stateText}</div>
         <p className="mt-1 text-xs leading-relaxed text-slate-700">{explanation}</p>
@@ -2125,7 +2155,7 @@ function SharePanel() {
   const te = lang === "te";
 
   return (
-    <section className="rounded-3xl border border-emerald-200 bg-white p-5 text-center space-y-3">
+    <section className="mv-surface mv-surface__body space-y-3 text-center">
       <div className="text-4xl">📤</div>
       <h2 className="text-base font-extrabold text-[#7A0C2E]">{te ? "ప్రొఫైల్ షేరింగ్ & బయోడేటా" : "Profile sharing and biodata"}</h2>
       <div className="flex flex-wrap justify-center gap-3">
@@ -2145,7 +2175,7 @@ function AlertsPanel() {
   const { lang } = useLang();
   const te = lang === "te";
   return (
-    <section className="rounded-3xl border border-slate-200 bg-white p-5 text-center space-y-3">
+    <section className="mv-surface mv-surface__body space-y-3 text-center">
       <div className="text-4xl" aria-hidden="true">🔔</div>
       <h2 className="text-base font-extrabold text-[#7A0C2E]">{te ? "మ్యాచ్ అలర్ట్స్" : "Match alerts"}</h2>
       <p className="mx-auto max-w-lg text-xs leading-relaxed text-slate-600">

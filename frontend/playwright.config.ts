@@ -35,7 +35,19 @@ export default defineConfig({
     trace: "off",
     video: "off",
   },
-  projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
+  projects: [
+    {
+      name: "chromium",
+      use: {
+        ...devices["Desktop Chrome"],
+        // Allow a pre-installed Chromium (CI image, sandbox) to be used instead
+        // of Playwright's bundled build: PLAYWRIGHT_CHROMIUM_PATH=/path/to/chrome
+        ...(process.env.PLAYWRIGHT_CHROMIUM_PATH
+          ? { launchOptions: { executablePath: process.env.PLAYWRIGHT_CHROMIUM_PATH } }
+          : {}),
+      },
+    },
+  ],
   ...(startServer
     ? {
         webServer: {

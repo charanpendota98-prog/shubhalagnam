@@ -20,7 +20,7 @@ import { apiPost, authHeaders, readApiJson } from "@/lib/api";
 import { useLang } from "@/lib/lang";
 import AuthGate from "@/components/AuthGate";
 import { CardSkeletonList } from "@/components/Skeletons";
-import { Badge, Button, Card, CardBody, EmptyState, Field } from "@/components/ui";
+import { Button, Card, CardBody, EmptyState, Field } from "@/components/ui";
 
 type SavedProfile = {
   tsap_id?: string;
@@ -162,19 +162,10 @@ export default function ShortlistWorkspace() {
   }
 
   return (
-    <section className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6 sm:py-8" aria-labelledby="shortlist-title">
-      <div className="mb-4 flex flex-col gap-3 sm:mb-6 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <Badge icon={<span aria-hidden="true">❤️</span>}>{te ? "షార్ట్‌లిస్ట్" : "Shortlist"}</Badge>
-          <h1 id="shortlist-title" className="mt-2 text-xl font-extrabold text-maroon sm:text-2xl">
-            {te ? "మీ షార్ట్‌లిస్ట్" : "Your shortlist"}
-          </h1>
-          <p className="mt-1 max-w-2xl text-xs leading-relaxed text-slate-600 sm:text-sm">
-            {te
-              ? "మీరు save చేసిన ప్రొఫైళ్లు మరియు వాటిపై మీ సొంత నోట్స్. ఇవి మీకు మాత్రమే కనిపిస్తాయి — ఆ ప్రొఫైల్ యజమానికి లేదా ఇతర సభ్యులకు కాదు."
-              : "Profiles you saved, with your own private notes. Only you can see them — never the profile owner or other members."}
-          </p>
-        </div>
+    <section className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6 sm:py-8" aria-label={te ? "మీ షార్ట్‌లిస్ట్" : "Your shortlist"}>
+      {/* The <h1>, lead and badge come from the shared intro band; the
+          workspace only carries its own action. */}
+      <div className="mb-4 flex justify-end sm:mb-6">
         <Link
           href="/matches"
           className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-full border border-maroon/30 px-4 py-2 text-xs font-bold text-maroon"
@@ -237,7 +228,7 @@ export default function ShortlistWorkspace() {
               .join(" · ");
             return (
               <li key={id}>
-                <Card>
+                <Card tone="brand" interactive className="mv-card">
                   <CardBody>
                     <div className="flex flex-col gap-3 sm:flex-row">
                       <div className="flex items-start gap-3 sm:w-52 sm:shrink-0">

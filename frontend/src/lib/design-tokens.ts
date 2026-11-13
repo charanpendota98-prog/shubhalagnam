@@ -98,10 +98,20 @@ export const DESIGN_TOKENS = {
   "--ds-shadow-gold": "0 10px 24px -10px rgba(212, 175, 55, 0.85)",
 
   /* ---------- Motion ---------- */
+  /** Shared motion vocabulary: one duration scale, one easing family.
+   *  Every transition/animation on the site should pick from these so a page
+   *  never invents its own timing. */
   "--ds-duration-fast": "150ms",
   "--ds-duration-base": "250ms",
   "--ds-duration-slow": "400ms",
+  "--ds-duration-reveal": "620ms",
   "--ds-ease": "cubic-bezier(0.22, 1, 0.36, 1)",
+  /** Symmetric easing for loops and cross-fades. */
+  "--ds-ease-in-out": "cubic-bezier(0.45, 0, 0.25, 1)",
+  /** Long, decelerating curve for scroll-linked reveals and hero staging. */
+  "--ds-ease-out-quint": "cubic-bezier(0.16, 1, 0.3, 1)",
+  /** Delay between siblings in a staggered group. */
+  "--ds-stagger-step": "70ms",
 
   /* ---------- Layout ---------- */
   "--ds-touch-min": "44px",

@@ -99,7 +99,7 @@ export default function SiteFooter() {
                 const Icon = linkIcon[l.href];
                 return (
                   <div key={l.href}>
-                    <Link href={l.href} className="inline-flex items-center gap-1.5 opacity-75 hover:opacity-100 hover:text-gold transition">
+                    <Link href={l.href} className="inline-flex min-h-11 items-center gap-1.5 py-1 opacity-75 transition hover:text-gold hover:opacity-100">
                       {Icon && <Icon className="w-3.5 h-3.5 shrink-0" strokeWidth={2.25} aria-hidden="true" />}
                       {te ? l.teL : l.enL}
                     </Link>
@@ -130,7 +130,7 @@ export default function SiteFooter() {
             ))}
           </div>
           <div className="mt-4 text-xs opacity-75">
-            <div><Link href="/channels" className="underline underline-offset-2">{te ? "Configured channel listings" : "Configured channel listings"}</Link></div>
+            <div><Link href="/channels" className="inline-flex min-h-11 items-center py-1 underline underline-offset-2">{te ? "Configured channel listings" : "Configured channel listings"}</Link></div>
             <div>Telegram: {SITE_CONFIG.officialChannel}</div>
             <div>Site: {SITE_CONFIG.domain}</div>
             {SITE_CONFIG.supportEmail ? <div>{te ? "సహాయ ఈమెయిల్" : "Support email"}: <a href={`mailto:${SITE_CONFIG.supportEmail}`} className="underline underline-offset-2">{SITE_CONFIG.supportEmail}</a></div> : null}

@@ -213,7 +213,7 @@ export default function SiteHeader() {
   return (
     <header
       className={`brand-header sticky top-0 ${open ? "z-[70]" : "z-50"} no-print border-b transition-shadow duration-300 ${
-        scrolled ? "border-gold/35 shadow-[0_8px_26px_rgba(74,12,34,.1)]" : "border-gold/20"
+        scrolled ? "is-scrolled border-gold/35 shadow-[0_8px_26px_rgba(74,12,34,.1)]" : "border-gold/20"
       }`}
     >
       <div className="max-w-[1440px] mx-auto px-3 sm:px-4 h-16 lg:h-14 flex items-center justify-between gap-2">
@@ -393,13 +393,13 @@ export default function SiteHeader() {
           </div>
           {ready && tsapId && sessionOk ? (
             <span className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-2 text-[13px] font-semibold border border-emerald-300 bg-emerald-50 text-emerald-800 rounded-full">
-              <Link href="/me" className="inline-flex items-center gap-1.5 hover:underline">
+              <Link href="/me" className="tap-pad relative inline-flex items-center gap-1.5 hover:underline">
                 <UserCircle2 className="w-[15px] h-[15px]" strokeWidth={2.25} aria-hidden="true" />
                 {tsapId.length > 14 ? `${tsapId.slice(0, 9)}…${tsapId.slice(-4)}` : tsapId}
               </Link>
               <button type="button"
                 onClick={() => { logout(); setLoggedOutToken(token); router.replace("/"); }}
-                className="ml-1 rounded-full bg-emerald-200 p-1 hover:bg-emerald-300 inline-flex items-center justify-center"
+                className="tap-pad relative ml-1 inline-flex items-center justify-center rounded-full bg-emerald-200 p-1 hover:bg-emerald-300"
                 aria-label="Logout"
               >
                 <LogOut className="w-3 h-3" strokeWidth={2.5} aria-hidden="true" />

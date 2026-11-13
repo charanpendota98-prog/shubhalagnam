@@ -34,7 +34,7 @@ export default function PrivacyPage() {
           {te ? (
             <>
               <li><b>Profile:</b> పేరు, gender, DOB/age, height, marital status, caste, religion, district/state, education, job, salary range, gothram, nakshatram/rasi (మీ ఇష్టంతో), about, photo(s).</li>
-              <li><b>Contact:</b> mobile number (OTP verify), optional WhatsApp number, guardian contact (optional).</li>
+              <li><b>Contact:</b> mobile number, optional WhatsApp number, guardian contact (optional). Login is by phone number plus the password you set; phone OTP is not used.</li>
               <li><b>Activity:</b> profile views, requests, saves, channel posts, login times, device/browser (basic), IP (security కోసం).</li>
               <li><b>Payments:</b> payment ID, amount, plan — <b>card/UPI details మన దగ్గర store అవ్వవు</b> (Razorpay handle చేస్తుంది).</li>
               <li><b>Support:</b> మీరు పంపిన messages/screenshots (complaints resolve చెయ్యడానికి).</li>
@@ -42,7 +42,7 @@ export default function PrivacyPage() {
           ) : (
             <>
               <li><b>Profile:</b> name, gender, DOB/age, height, marital status, caste, religion, district/state, education, job, salary range, gothram, nakshatram/rasi (with your consent), about, photo(s).</li>
-              <li><b>Contact:</b> mobile number (OTP verified), optional WhatsApp number, guardian contact (optional).</li>
+              <li><b>Contact:</b> mobile number, optional WhatsApp number, guardian contact (optional). Login is by phone number plus your password; phone OTP is not used.</li>
               <li><b>Activity:</b> profile views, requests, saves, channel posts, login times, device/browser (basic), IP (for security).</li>
               <li><b>Payments:</b> payment ID, amount, plan — <b>card/UPI details are never stored by us</b> (handled by Razorpay).</li>
               <li><b>Support:</b> messages/screenshots you send (to resolve complaints).</li>
@@ -141,13 +141,13 @@ export default function PrivacyPage() {
         <ul>
           {te ? (
             <>
-              <li>OTP verification, encrypted transport (HTTPS), access limited to authorized team members.</li>
+              <li>Password-protected accounts, encrypted transport (HTTPS), access limited to authorized team members.</li>
               <li>Support team members కి కూడా <b>need-to-know</b> access మాత్రమే — logs audit చేస్తాం.</li>
               <li>Security incident జరిగితే — assessment తర్వాత applicable law ప్రకారం అవసరమైన notification/action తీసుకుంటాం; fixed deadline హామీ ఇవ్వము.</li>
             </>
           ) : (
             <>
-              <li>OTP verification, encrypted transport (HTTPS), access limited to authorized team members.</li>
+              <li>Password-protected accounts, encrypted transport (HTTPS), access limited to authorized team members.</li>
               <li>Support team members get <b>need-to-know</b> access only — we audit logs.</li>
               <li>On a security incident — we assess and take any notification/action required by applicable law; this policy does not promise a fixed deadline.</li>
             </>

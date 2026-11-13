@@ -154,7 +154,7 @@ export default function TermsPage() {
         <ul>
           {te ? (
             <>
-              <li>Profiles ని verify చెయ్యడానికి మనం best efforts పెడతాం (OTP, ID, photo) — కానీ <b>100% guarantee ఇవ్వలేము</b>.
+              <li>Profiles ని verify చెయ్యడానికి మనం best efforts పెడతాం (photo review, ID review) — కానీ <b>100% guarantee ఇవ్వలేము</b>.
                 మీరే కూడా verify చెయ్యాలి (meeting, documents, family background).</li>
               <li>వ్యక్తి వేరే వ్యక్తి మధ్య జరిగే matter, meetings, money dealings కి మనం <b>party కాదు, responsible కాదు</b>.</li>
               <li>మనం ఇచ్చే service maximum liability = <b>మీ last 3 months లో pay చేసిన amount</b> వరకే.</li>
@@ -162,7 +162,7 @@ export default function TermsPage() {
             </>
           ) : (
             <>
-              <li>We put best efforts into verifying profiles (OTP, ID, photo) — but <b>cannot give 100% guarantee</b>.
+              <li>We put best efforts into verifying profiles (photo review, ID review) — but <b>cannot give 100% guarantee</b>.
                 You must verify too (meeting, documents, family background).</li>
               <li>For matters, meetings, or money dealings between individuals, we are <b>not a party and not responsible</b>.</li>
               <li>Our maximum liability = <b>the amount you paid in the last 3 months</b>, at most.</li>

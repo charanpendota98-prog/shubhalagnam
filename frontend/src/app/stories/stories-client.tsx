@@ -68,7 +68,22 @@ export default function StoriesClient() {
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-8 pb-36">
-      <h1 className="text-3xl font-extrabold text-rose-900">💑 <Duo en="Member Stories" te="సభ్యుల కథలు" /></h1>
+      {/* Cinematic but content-first: the page header is a soft paper stage with
+          original SVG art, no stock imagery and no invented stories. */}
+      <header className="relative overflow-hidden rounded-3xl border border-gold/40 bg-gradient-to-br from-[#fffdf8] via-[#fff8e7] to-[#fdf0dd] p-5 sm:p-7">
+        <span aria-hidden="true" className="pointer-events-none absolute -right-10 -top-12 h-40 w-40 rounded-full bg-[radial-gradient(circle,rgba(212,175,55,.34),transparent_66%)] blur-[6px]" />
+        <p className="text-[10px] font-extrabold uppercase tracking-[.2em] text-[#8b5364]">
+          {te ? "సభ్యులు పంచుకున్న క్షణాలు" : "Moments members chose to share"}
+        </p>
+        <h1 className="mt-1 text-2xl font-extrabold text-[#7A0C2E] sm:text-3xl">
+          💑 <Duo en="Member Stories" te="సభ్యుల కథలు" />
+        </h1>
+        <p className={`mt-2 max-w-xl text-sm leading-relaxed text-slate-600 ${te ? "telugu" : ""}`}>
+          {te
+            ? "ఇక్కడ కనిపించేవి సభ్యులు స్వయంగా పంపి, సమీక్ష తర్వాత ప్రచురించిన కథలు మాత్రమే. కథలు లేనప్పుడు ఏమీ కనిపించవు — మేము కల్పిత కథలను చేర్చము."
+            : "Everything here was submitted by a member and published after review. When there are none, nothing is shown — we never fill this page with invented stories."}
+        </p>
+      </header>
       <div className="mt-4"><FeaturedStories limit={6} /></div>
       <h2 className="mt-8 text-xl font-extrabold text-rose-900">💬 <Duo en="Community stories" te="మీ కథలు" /></h2>
       <p className="mt-1 text-gray-600">
@@ -77,9 +92,22 @@ export default function StoriesClient() {
 
       {loading && <p className="mt-6 text-gray-500">⏳ Stories loading…</p>}
       {!loading && stories.length === 0 && (
-        <div className="mt-6 rounded-2xl border border-dashed border-rose-300 bg-rose-50 p-6 text-center">
-          <p className="text-lg font-semibold text-rose-900">{te ? "🆕 మీ కథనాన్ని పంచుకోండి" : "🆕 Share a story if you wish"}</p>
-          <p className="mt-1 text-sm text-gray-600">{te ? "పంపిన కథనం moderation తర్వాత ప్రచురణకు ఎంపిక కావచ్చు; ప్రచురణ సమయం లేదా ఇతర channels లో post హామీ కాదు." : "A submitted story may be selected for publication after moderation; timing and cross-channel posting are not guaranteed."}</p>
+        <div className="mv-empty mt-6" role="status">
+          {/* Honest empty state — designed artwork, zero placeholder stories. */}
+          <svg className="mv-empty__art" width="86" height="86" viewBox="0 0 96 96" fill="none" aria-hidden="true">
+            <path d="M22 62c0-11 7-19 15-19s15 8 15 19" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+            <path d="M44 62c0-9 6-16 13-16s13 7 13 16" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" opacity="0.6" />
+            <path d="M17 70h62" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+            <circle cx="37" cy="30" r="6" stroke="currentColor" strokeWidth="2.2" />
+            <circle cx="57" cy="34" r="5" stroke="currentColor" strokeWidth="2" opacity="0.65" />
+            <path d="M70 20c2.4 2.6 2.4 5.4 0 8-2.4-2.6-2.4-5.4 0-8Z" fill="#D4AF37" />
+          </svg>
+          <p className="ds-empty__title">{te ? "ఇంకా ప్రచురించిన కథలు లేవు" : "No stories published yet"}</p>
+          <p className="ds-empty__text">
+            {te
+              ? "సభ్యులు పంపిన కథలు సమీక్ష తర్వాత, అవి అందుబాటులో ఉన్నప్పుడు ఇక్కడ కనిపిస్తాయి. మీరు కూడా పంచుకోవచ్చు — ప్రచురణ సమయం హామీ కాదు."
+              : "Member-submitted stories appear here after review, once they are available. You can submit one below — publication timing is not guaranteed."}
+          </p>
         </div>
       )}
       <div className="mt-6 space-y-4">

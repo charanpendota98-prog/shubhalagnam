@@ -8,13 +8,13 @@ import ProfilesOfTheDay from "@/components/ProfilesOfTheDay";
 import HomeStories from "@/components/HomeStories";
 import HomeVendorsShowcase from "@/components/HomeVendorsShowcase";
 import CinematicHero from "@/components/CinematicHero";
+import HeroQuickSearch from "@/components/HeroQuickSearch";
 import { SITE_CONFIG } from "@/lib/site-config";
 import { serializeJsonLd } from "@/lib/safe-json-ld";
 import { apiGet } from "@/lib/api";
 import { useLang, type Lang } from "@/lib/lang";
 import { ArrowRight, EyeOff, Gift, ShieldCheck, UserCheck } from "lucide-react";
-import WeddingStoryHero from "@/components/WeddingStoryHero";
-import HeroQuickSearch from "@/components/HeroQuickSearch";
+import WeddingStorySection from "@/components/WeddingStorySection";
 import DailyStrip from "@/components/DailyStrip";
 import ShowcaseStrip from "@/components/ShowcaseStrip";
 import AdSlot from "@/components/AdSlot";
@@ -206,11 +206,9 @@ export default function Home() {
     <div className="home-page bg-cream">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd(jsonLd) }} />
 
+      {/* 🎬 Search-first cinematic hero. The profile search card is the brightest
+          element on the page; the staged artwork behind it is pure CSS/SVG. */}
       <CinematicHero />
-
-      {/* 🔎 Quick filters straight from the home screen. Same member-entered facts the
-          search page uses (community, region, age range) — no invented matches. */}
-      <HeroQuickSearch />
 
       {/* The same rules the FAQ states, repeated where a first-time visitor
           actually looks — no new numbers, no new promises. */}
@@ -230,17 +228,34 @@ export default function Home() {
         </ul>
       </section>
 
+      {/* 🔎 Deeper search: community + district + age, the same member-entered
+          facts the /matches filters read. Sits below the fold so the hero search
+          stays the single primary action. */}
+      <section className="hp-shell hp-section" aria-label={te ? "వివరమైన శోధన" : "Advanced profile search"} id="advanced-search">
+        <div className="hp-center">
+          <Badge>{te ? "వివరమైన శోధన" : "Advanced search"}</Badge>
+          <h2 className={`hp-title ${tg}`}>{te ? "కులం, జిల్లా, వయస్సుతో వెతకండి" : "Search by community, district and age"}</h2>
+          <p className={`hp-sub ${tg}`}>
+            {te
+              ? "సభ్యులు నమోదు చేసిన వివరాల ఆధారంగా మాత్రమే ఫలితాలు. ఏ ఫిల్టర్ లేకున్నా అన్ని సంబంధాలు చూపిస్తుంది."
+              : "Results follow the details members entered. Leave every filter empty to see all profiles."}
+          </p>
+        </div>
+        <div className="mt-5">
+          <HeroQuickSearch />
+        </div>
+      </section>
+
       <ProfilesOfTheDay />
 
       {/* Both strips render nothing when there is no approved data to show. */}
       <DailyStrip />
       <ShowcaseStrip />
 
-      {/* 🎬 A short wedding story — the ceremony film, played as MP4 with a
-          static poster (the old animated WebP cost ~7 MB and never streamed).
-          Decorative: it is skipped by screen readers and never blocks the
-          registration path below it. */}
-      <WeddingStoryHero />
+      {/* 💍 A content-first wedding guide in place of the old AI-photo film:
+          hand-drawn SVG art, the real ritual sequence, and links into the
+          pages that already cover each step. No video bytes, no stock photos. */}
+      <WeddingStorySection />
 
       {/* Approved member stories only — hides itself when there are none. */}
       <HomeStories />
@@ -257,7 +272,7 @@ export default function Home() {
         </Reveal>
         <div className="hp-steps">
           {L.howSteps().map((step, index) => (
-            <Reveal key={step.n} delay={index * 60}>
+            <Reveal key={step.n} index={index}>
               <Card as="article" tone="brand" interactive className="hp-stretch">
                 <CardBody>
                   <div className="hp-step__top">
@@ -286,7 +301,7 @@ export default function Home() {
             {paidPlans.map((plan, index) => {
               const unit = perRequest(plan);
               return (
-                <Reveal key={plan.code} delay={index * 45}>
+                <Reveal key={plan.code} index={index}>
                   <Card as="article" tone="brand" interactive className="hp-stretch hp-price">
                     <CardBody>
                       <h3 className={`hp-price__name ${tg}`}>{plan.name}</h3>
@@ -317,7 +332,7 @@ export default function Home() {
           </Reveal>
           <div className="hp-faq">
             {FAQs.map((item, index) => (
-              <Reveal key={item.q} delay={index * 35}>
+              <Reveal key={item.q} index={index}>
                 <article className="hp-faq__item" data-open={openFaq === index}>
                   <h3>
                     <button

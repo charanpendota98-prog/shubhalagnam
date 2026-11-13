@@ -15,6 +15,7 @@ import { authHeaders, apiPost, apiGet, apiDisplayMessage, getToken, readApiJson}
 import Link from "next/link";
 import Reveal from "@/components/Reveal";
 import SectionHeading from "@/components/SectionHeading";
+import { PillScroller } from "@/components/ui";
 import PayBox from "@/components/PayBox";
 import { Duo, duo } from "@/lib/duo";
 import { useLang } from "@/lib/lang";
@@ -211,48 +212,54 @@ export default function RequestsPage() {
 
   return (
     <div className="min-h-dvh pb-36">
-      {/* HERO */}
-      <section className="maroon-gradient text-white">
-        <div className="max-w-6xl mx-auto px-4 py-10">
+      {/* The page <h1> and lead come from the shared RouteIntro band; this
+          block states the rules plainly and holds the dashboard key. */}
+      <div className="mx-auto max-w-6xl px-4 pt-5">
+        <section className="mv-surface mv-surface__body" aria-label={te ? "ఎలా పని చేస్తుంది" : "How this works"}>
           <Reveal>
-            <div className="inline-flex items-center gap-2 bg-white/10 border border-white/20 rounded-full px-3 py-1 text-[11px] font-bold">
-              {te ? "🚫 Chatting లేదు • 💌 Interest request • 🔒 Acceptance తర్వాత contact sharing" : "🚫 No in-app chat • 💌 Interest request • 🔒 Contact sharing after acceptance"}
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="mv-chip">{te ? "🚫 Chatting లేదు" : "🚫 No in-app chat"}</span>
+              <span className="mv-chip">{te ? "💌 Interest request" : "💌 Interest request"}</span>
+              <span className="mv-chip">{te ? "🔒 Acceptance తర్వాత contact" : "🔒 Contact after acceptance"}</span>
             </div>
-            <h1 className="mt-3 text-2xl md:text-4xl font-bold"><Duo en="Requests Dashboard" te="రిక్వెస్ట్‌ల డాష్‌బోర్డ్" /></h1>
-            <p className="mt-2 text-[13px] md:text-sm opacity-90 telugu max-w-3xl">
-{te ? <>నచ్చిన profile కు <b>Interest పంపండి</b>. Notification అందుబాటు configured services పై ఆధారపడుతుంది; delivery హామీ లేదు.
-              Profile owner <b>accept చేసిన తర్వాత</b> accepted-request account views లో contact details కనిపిస్తాయి. Declined requests account లో చూపిన credit policy ను అనుసరిస్తాయి.
-              Paid credits consent ను bypass చేయవు; online పరిచయాల వివరాలను స్వతంత్రంగా నిర్ధారించండి.</> : <>Send <b>Interest</b> to a profile you like. Notification availability depends on configured services; delivery is not guaranteed.
-              If the profile owner <b>accepts</b>, contact details appear in accepted-request account views. Declined requests follow the credit policy shown in your account.
-              Paid credits cannot bypass consent; verify details independently.</>}
+            <h2 className="mv-surface__title mv-surface__title--ink mt-3">
+              {te ? "ఎలా పని చేస్తుంది" : "How this works"}
+            </h2>
+            <p className="mt-1.5 max-w-3xl text-[13px] leading-relaxed text-slate-600">
+              {te ? <>నచ్చిన profile కు <b>Interest పంపండి</b>. Notification అందుబాటు configured services పై ఆధారపడుతుంది; delivery హామీ లేదు.
+                Profile owner <b>accept చేసిన తర్వాత</b> accepted-request account views లో contact details కనిపిస్తాయి. Declined requests account లో చూపిన credit policy ను అనుసరిస్తాయి.
+                Paid credits consent ను bypass చేయవు; online పరిచయాల వివరాలను స్వతంత్రంగా నిర్ధారించండి.</> : <>Send <b>Interest</b> to a profile you like. Notification availability depends on configured services; delivery is not guaranteed.
+                If the profile owner <b>accepts</b>, contact details appear in accepted-request account views. Declined requests follow the credit policy shown in your account.
+                Paid credits cannot bypass consent; verify details independently.</>}
             </p>
           </Reveal>
 
-          <div className="mt-5 flex flex-wrap gap-3 items-end">
-            <div>
-              <label className="text-[11px] font-bold opacity-90">{te ? "మీ Profile ID" : "Your Profile ID"}</label>
+          <div className="mt-4 flex flex-wrap items-end gap-3">
+            <div className="min-w-0">
+              <label htmlFor="requests-profile-id" className="text-[11px] font-bold text-slate-600">{te ? "మీ Profile ID" : "Your Profile ID"}</label>
               <input
+                id="requests-profile-id"
                 value={myId}
                 onChange={(e) => setMyId(e.target.value.toUpperCase())}
                 onBlur={(e) => saveId(e.target.value)}
                 placeholder={te ? "మీ రిజిస్టర్ చేసిన Profile ID" : "Your registered Profile ID"}
-                className="mt-1 w-full max-w-[224px] sm:w-56 px-3 py-2 rounded-xl text-ink font-mono text-sm outline-none focus-brand" aria-label={te ? "మీ Profile ID" : "Your Profile ID"} />
+                className="mt-1 min-h-11 w-full max-w-[224px] rounded-xl border border-slate-300 bg-white px-3 py-2 font-mono text-sm text-[#1a1a1a] outline-none focus-brand sm:w-56" aria-label={te ? "మీ Profile ID" : "Your Profile ID"} />
             </div>
-            <button type="button" onClick={() => saveId(myId)} className="gold-gradient text-maroon font-bold text-sm px-4 py-2.5 rounded-xl hover-lift">
+            <button type="button" onClick={() => saveId(myId)} className="mv-btn mv-btn--primary">
               {te ? "నా dashboard చూడు" : "Load my dashboard"}
             </button>
-            <div className="ml-auto bg-white/10 border border-white/20 rounded-xl px-4 py-2">
-              <div className="text-[10px] opacity-80">Credits</div>
-              <div className="font-bold text-lg leading-none">{credits === null ? "—" : credits}</div>
+            <div className="ml-auto rounded-xl border border-gold/40 bg-[#fffaf3] px-4 py-2">
+              <div className="text-[10px] font-bold uppercase tracking-wide text-slate-500">{te ? "Credits" : "Credits"}</div>
+              <div className="text-lg font-bold leading-none text-maroon">{credits === null ? "—" : credits}</div>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
+      </div>
 
       <div className="max-w-6xl mx-auto px-4 py-6">
         {toast && (
           <div
-            className={`mb-4 rounded-2xl px-4 py-3 text-[13px] border card-shadow ${
+            className={`mb-4 rounded-2xl border px-4 py-3 text-[13px] ${
               toast.kind === "ok"
                 ? "bg-emerald-50 border-emerald-200 text-emerald-900"
                 : toast.kind === "err"
@@ -265,7 +272,7 @@ export default function RequestsPage() {
         )}
 
         {/* TABS */}
-        <div className="flex flex-wrap gap-2 mb-4">
+        <PillScroller label={te ? "రిక్వెస్ట్ విభాగాలు" : "Request sections"} className="mb-4" as="nav">
           {[
             { k: "inbox", l: te ? `📥 వచ్చిన requests${inbox.pending ? ` (${inbox.pending})` : ""}` : `📥 Received${inbox.pending ? ` (${inbox.pending})` : ""}` },
             { k: "sent", l: te ? `📤 పంపిన requests${sent.sent?.length ? ` (${sent.sent.length})` : ""}` : `📤 Sent${sent.sent?.length ? ` (${sent.sent.length})` : ""}` },
@@ -277,14 +284,16 @@ export default function RequestsPage() {
             <button type="button"
               key={t.k}
               onClick={() => setTab(t.k as any)}
-              className={`px-4 py-2 rounded-xl text-[13px] font-bold border transition ${
-                tab === t.k ? "bg-maroon text-white border-maroon" : "bg-white text-maroon border-maroon/20 hover-lift"
-              }`}
+              aria-current={tab === t.k ? "page" : undefined}
+              className={`pill whitespace-nowrap ${tab === t.k ? "pill--on" : "pill--quiet"}`}
             >
               {t.l}
             </button>
           ))}
-        </div>
+        </PillScroller>
+
+        {/* Panel transition on the shared motion token. */}
+        <div className="mv-panel" key={tab}>
 
         {/* INBOX */}
         {tab === "inbox" && (
@@ -293,12 +302,17 @@ export default function RequestsPage() {
             {myId && inbox.received?.length === 0 && <Empty text={te ? "ఇంకా requests రాలేదు. మీ profile ని 1 channel లో post చెయ్యండి — reach పెరుగుతుంది." : "No requests yet. Post your profile to 1 channel — reach grows."} />}
             {inbox.received?.map((it: Req) => (
               <Reveal key={it.request_id}>
-                <div className="bg-white rounded-2xl p-4 card-shadow border border-gold/20">
+                <div className="mv-surface mv-surface__body mv-card">
                   <div className="flex flex-wrap items-center gap-2">
                     {chip(it.status)}
                     {it.credit_refunded && <span className="text-[10px] font-bold text-emerald-700">↩️ {te ? "1 క్రెడిట్ తిరిగి" : "1 credit returned"}</span>}
                     <span className="text-[11px] text-gray-500 font-mono">{it.request_id}</span>
-                    <span className="ml-auto text-[11px] text-gray-500">{it.requester_phone}</span>
+                    {/* A phone number is only ever shown once the owner has
+                        accepted; on a pending request the column stays empty
+                        rather than hinting at data that does not exist yet. */}
+                    {it.status === "accepted" && it.requester_phone ? (
+                      <span className="ml-auto font-mono text-[11px] text-slate-600">{it.requester_phone}</span>
+                    ) : null}
                   </div>
                   <div className="mt-2 grid md:grid-cols-2 gap-3">
                     <div>
@@ -328,16 +342,21 @@ export default function RequestsPage() {
                       <div className="mt-3 flex flex-wrap gap-2">
                         {it.actions?.includes("accept") ? (
                           <>
-                            <button type="button" onClick={() => respond(it.request_id, "accept")} disabled={busy} className="bg-emerald-600 text-white font-bold text-[13px] px-4 py-2.5 rounded-xl hover:bg-emerald-700 transition shadow-sm flex items-center gap-1.5">
-                              <span>✅</span> {te ? "ఆమోదించు (Accept & Share Number)" : "Accept & Share Number"}
+                            <button type="button" onClick={() => respond(it.request_id, "accept")} disabled={busy} className="mv-btn mv-btn--contact min-h-11">
+                              <span aria-hidden="true">✅</span> {te ? "ఆమోదించు — నంబర్ పంచుకో" : "Accept & share number"}
                             </button>
-                            <button type="button" onClick={() => respond(it.request_id, "decline")} disabled={busy} className="bg-white border border-rose-300 text-rose-700 font-bold text-[13px] px-4 py-2.5 rounded-xl hover:bg-rose-50 transition">
-                              <span>❌</span> {te ? "తిరస్కరించు" : "Decline request"}
+                            <button type="button" onClick={() => respond(it.request_id, "decline")} disabled={busy} className="mv-btn mv-btn--secondary min-h-11 border-rose-300 text-rose-700 hover:bg-rose-50">
+                              <span aria-hidden="true">✕</span> {te ? "తిరస్కరించు" : "Decline"}
                             </button>
                           </>
                         ) : it.status === "accepted" ? (
-                          <div className="text-[12px] bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2 text-emerald-900 font-semibold flex items-center gap-2">
-                            <span>🎉</span> {te ? "ఆమోదించబడింది — request చేసిన వారి phone:" : "Accepted — requester phone:"} <b className="text-emerald-800 text-[13px]">{it.requester_phone}</b> {te ? "(external WhatsApp delivery హామీ లేదు)" : "(external WhatsApp delivery is not guaranteed)"}
+                          <div className="mv-note mv-note--cool flex flex-wrap items-baseline gap-x-2 gap-y-1 text-[12px] font-semibold">
+                            <span aria-hidden="true">🎉</span>
+                            <span>{te ? "ఆమోదించబడింది — వారి phone:" : "Accepted — their phone:"}</span>
+                            <b className="font-mono text-[13px] tracking-tight text-[#0b4f4a]">{it.requester_phone || "—"}</b>
+                            <span className="text-[11px] font-medium text-slate-600">
+                              {te ? "(external WhatsApp delivery హామీ లేదు)" : "(external WhatsApp delivery is not guaranteed)"}
+                            </span>
                           </div>
                         ) : (
                           <div className="text-[12px] text-gray-500 italic py-1">
@@ -362,7 +381,7 @@ export default function RequestsPage() {
             {myId && sent.sent?.length === 0 && <Empty text={te ? "ఇంకా ఎవరికీ interest పంపలేదు — 💌 'Interest పంపు' tab లో start చెయ్యండి." : "No interest sent yet — start in the 💌 'Send interest' tab."} />}
             {sent.sent?.map((it: Req) => (
               <Reveal key={it.request_id}>
-                <div className="bg-white rounded-2xl p-4 card-shadow border border-gold/20 flex flex-wrap items-center gap-3">
+                <div className="mv-surface mv-surface__body mv-card flex flex-wrap items-center gap-3">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
                       {chip(it.status)}
@@ -374,14 +393,20 @@ export default function RequestsPage() {
                       {[profileField(it.profile?.education), profileField(it.profile?.job), profileField(it.profile?.district) ? `📍 ${profileField(it.profile?.district)}` : "", it.profile?.state ? stateFullName(it.profile.state, te) : "", profileField(it.profile?.caste) ? `💍 ${profileField(it.profile?.caste)}` : ""].filter(Boolean).join(" • ")}
                     </div>
                   </div>
-                  <div className="text-right">
-                    <div className="text-[10px] text-gray-500">Contact</div>
-                    <div className={`text-[13px] font-bold ${it.status === "accepted" ? "text-emerald-700" : "text-gray-400"}`}>{it.contact}</div>
+                  <div className="text-left sm:text-right">
+                    <div className="text-[10px] font-bold uppercase tracking-wide text-gray-500">
+                      {te ? "సంప్రదింపు" : "Contact"}
+                    </div>
+                    <div className={`text-[13px] font-bold ${it.status === "accepted" ? "text-emerald-700" : "text-gray-400"}`}>
+                      {it.contact || (it.status === "accepted" ? "—" : te ? "ఆమోదం తర్వాత" : "After acceptance")}
+                    </div>
                   </div>
-                  <Link href={`/search/${it.to_id}`} className="text-[12px] font-bold text-maroon underline">
-                    Profile →
-                  </Link>
-                  <TrackRequest requestId={it.request_id} />
+                  <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
+                    <Link href={`/search/${it.to_id}`} className="mv-btn mv-btn--secondary min-h-11">
+                      {te ? "ప్రొఫైల్ →" : "Profile →"}
+                    </Link>
+                    <TrackRequest requestId={it.request_id} />
+                  </div>
                 </div>
               </Reveal>
             ))}
@@ -391,7 +416,7 @@ export default function RequestsPage() {
         {/* SEND */}
         {tab === "send" && (
           <div className="grid md:grid-cols-2 gap-5">
-            <div className="bg-white rounded-2xl p-5 card-shadow border border-gold/20">
+            <div className="mv-surface mv-surface__body">
               <SectionHeading eyebrow={duo("1 credit = 1 interest request", "1 క్రెడిట్ = 1 interest request")} title={`💌 ${duo("Send interest", "ఇంట్రెస్ట్ పంపండి")}`} subtitle={te ? "Profile ID ఇవ్వండి — notification availability configured services పై ఆధారపడుతుంది; contact sharing owner acceptance తర్వాతే." : "Enter a profile ID — notification availability depends on configuration; contact sharing follows owner acceptance."} telugu align="left" />
               <div className="mt-4 space-y-3">
                 <div>
@@ -543,7 +568,7 @@ export default function RequestsPage() {
             {saved.count === 0 && <Empty text={te ? "ఇంకా ఏమీ save చెయ్యలేదు — /matches లో ❤️ button press చెయ్యండి." : "Nothing saved yet — press the ❤️ button in /matches."} />}
             {saved.saved.map((x: Saved) => (
               <Reveal key={x.profile.tsap_id}>
-                <div className="bg-white rounded-2xl p-4 card-shadow border border-gold/20 flex flex-wrap items-center gap-3">
+                <div className="mv-surface mv-surface__body mv-card flex flex-wrap items-center gap-3">
                   <div className="min-w-0 flex-1">
                     <div className="font-bold text-[14px] text-maroon">
                       ❤️ {x.profile.full_name} ({x.profile.age}y)
@@ -572,7 +597,7 @@ export default function RequestsPage() {
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   {[["👀 Total views", views.total_views], ["🧑 Unique viewers", views.unique_viewers],
                     ["📅 Today", views.today], ["🔓 Who-viewed", views.whoviewed_unlocked ? "Unlocked ✅" : "Locked 🔒"]].map(([l, v]) => (
-                    <div key={String(l)} className="bg-white rounded-2xl p-4 card-shadow border border-gold/20">
+                    <div key={String(l)} className="mv-surface mv-surface__body mv-card">
                       <div className="text-[11px] text-gray-500">{l}</div>
                       <div className="text-xl font-bold text-maroon">{v as any}</div>
                     </div>
@@ -586,7 +611,7 @@ export default function RequestsPage() {
                     {myId ? <PayBox planCode="WHOVIEWED_49" price={49} label={te ? "వీక్షకుల పేర్లు అన్‌లాక్" : "Unlock viewer names"} tsapId={myId} /> : <span className="text-xs text-slate-600">{te ? "ముందుగా Profile ID నమోదు చేయండి" : "Enter your Profile ID first"}</span>}
                   </div>
                 )}
-                <div className="bg-white rounded-2xl p-4 card-shadow border border-gold/20">
+                <div className="mv-surface mv-surface__body mv-card">
                   {(views.viewers?.length ? views.viewers : views.viewers_masked || []).map((v: any, i: number) => (
                     <div key={i} className="text-[12px] py-1.5 border-b last:border-0 border-gray-100 flex flex-wrap gap-3">
                       <span className="font-bold text-maroon">{v.full_name || "🔒 Hidden member"}</span>
@@ -616,7 +641,7 @@ export default function RequestsPage() {
             <div className="mt-4 grid md:grid-cols-3 gap-4">
               {plans.map((p, i) => (
                 <Reveal key={p.code} delay={i * 80}>
-                  <div className={`bg-white rounded-2xl p-5 card-shadow border h-full ${p.code === "S_299" ? "border-gold" : "border-gold/20"}`}>
+                  <div className={`mv-surface mv-surface__body h-full ${p.code === "S_299" ? "border-gold" : ""}`}>
                     {p.badge && <div className="text-[10px] font-bold text-gold-deep tracking-widest uppercase">{p.badge}</div>}
                     <div className="text-2xl font-bold text-maroon mt-1">₹{p.price}</div>
                     <div className="font-bold text-[14px] text-ink">{p.profiles} interest requests</div>
@@ -646,7 +671,7 @@ export default function RequestsPage() {
               <SectionHeading eyebrow={duo("Add-ons", "అదనపువి")} title={`🎁 ${duo("Optional add-ons", "ఐచ్ఛిక అదనపు సేవలు")}`} subtitle={te ? "Per-item extras: profile boost, who-viewed access, manual photo-review request." : "Per-item extras: profile boost, who-viewed access, manual photo-review request."} telugu align="left" />
               <div className="mt-3 grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
                 {addons.map((a) => (
-                  <div key={a.code} className="bg-white rounded-2xl p-4 card-shadow border border-gold/25 flex flex-col">
+                  <div key={a.code} className="mv-surface mv-surface__body flex flex-col">
                     <div className="text-xl font-bold text-maroon">₹{a.price}</div>
                     <div className="text-[13px] font-bold text-ink">{te ? a.label : apiDisplayMessage({ message_en: a.label_en, message: a.label }, false, a.code)}</div>
                     <div className="text-[11px] text-gray-600 flex-1">{te ? a.telugu : (a.description_en || "")}</div>
@@ -661,6 +686,7 @@ export default function RequestsPage() {
             </div>
           </div>
         )}
+        </div>
       </div>
       {needsLogin ? (
         <div className="mt-6">
@@ -694,7 +720,7 @@ function TrackRequest({ requestId }: { requestId: string }) {
   };
   return (
     <>
-      <button type="button" onClick={() => void toggle()} className="text-[12px] font-bold text-sky-700 underline">
+      <button type="button" onClick={() => void toggle()} aria-expanded={open} className="mv-btn mv-btn--secondary min-h-11 border-sky-300 px-3 text-[12px] text-sky-800 hover:bg-sky-50">
         📍 {te ? "Track" : "Track"}
       </button>
       {open && (
@@ -712,7 +738,7 @@ function TrackRequest({ requestId }: { requestId: string }) {
 
 function Empty({ text }: { text: string }) {
   return (
-    <div className="bg-white rounded-2xl p-6 text-center card-shadow border border-gold/20">
+    <div className="mv-surface mv-surface__body text-center">
       <div className="text-3xl">💌</div>
       <div className="text-[13px] text-gray-600 mt-2">{text}</div>
     </div>

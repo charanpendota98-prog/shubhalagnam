@@ -1,362 +1,285 @@
 "use client";
 
 /**
- * 👑 MANA VIVAHA — RESPONSIVE CINEMATIC WEDDING HERO
- * ===================================================
- * • Local decorative wedding film with an optimized poster fallback.
- * • Clear bilingual brand, concise headline, and touch-friendly actions.
- * • Responsive typography and spacing for phone through desktop widths.
+ * 👑 MANA VIVAHA — CINEMATIC SEARCH-FIRST HERO
+ * ============================================
+ * The hero is a *stage*, not a banner: three parallax depth layers (night
+ * sky + halo, aurora veils + perspective floor, garland SVG + light motes)
+ * sit behind a single luminous search card. Search is the brightest, largest
+ * and highest-contrast element on the page — the profile search is the first
+ * thing a visitor can act on.
+ *
+ * Everything is CSS + inline SVG. No video file, no canvas, no WebGL, no
+ * third-party request, no paid asset. Only `transform`/`opacity` animate.
+ *
+ * Honesty rules kept from the previous hero:
+ *  • no member photos or invented profiles anywhere in the artwork
+ *  • the pricing line is the published figure (₹99 + first N interests free)
+ *  • the trust rail repeats the FAQ wording, never a new promise
+ *
+ * Accessibility / performance:
+ *  • decorative stage is `aria-hidden` and `pointer-events: none`
+ *  • the stage pauses when the hero scrolls out of view or the tab is hidden
+ *  • prefers-reduced-motion freezes every layer at its first frame
+ *  • the only interactive content is the search card + links, in DOM order
  */
 
-import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
+import { ArrowRight, Search, ShieldCheck, Users } from "lucide-react";
 import { useLang, type Lang } from "@/lib/lang";
 import HomeMatchSearch from "@/components/HomeMatchSearch";
-import { Button } from "@/components/ui";
-
 
 const COPY = {
   te: {
-    kicker: "తెలుగు కుటుంబాల కోసం · Mana Vivaha · మన వివాహ",
+    kicker: "తెలుగు కుటుంబాల కోసం · మన వివాహ",
     titleA: "మీ వివాహ ప్రయాణం,",
     titleB: "ఇక్కడ మొదలవుతుంది",
+    lead: "సభ్యులు అందించిన వివరాలను పరిశీలించి, నచ్చినప్పుడు ఆసక్తి తెలియజేయండి.",
     pricePill: "₹99 నుంచి · మొదటి 3 interest requests ఉచితం",
-    ctaReg: "ఉచిత ప్రొఫైల్ సృష్టించండి",
+    register: "ఉచిత ప్రొఫైల్ సృష్టించండి",
+    viewAll: "అన్ని సంబంధాలు",
+    ariaLabel: "మన వివాహ — తెలుగు వివాహ పరిచయ వేదిక",
+    facts: [
+      "Owner accept తర్వాతే contact వివరాలు",
+      "ఫోటో కనిపించడం మీ privacy setting ప్రకారం",
+      "ఫోన్ నంబర్ ఉంటే సరిపోదు — వివరాలు స్వయంగా నిర్ధారించండి",
+    ],
+    disclaimer: "నేపథ్య కళాకృతి సూచన కోసం మాత్రమే — సభ్యుల ప్రొఫైల్ ఫోటోలు కావు.",
   },
   en: {
-    kicker: "For Telugu families · Mana Vivaha · మన వివాహ",
+    kicker: "For Telugu families · Mana Vivaha",
     titleA: "Your Telugu matrimony journey",
     titleB: "starts here.",
-    pricePill: "From ₹99 · first 3 interest requests are free",
-    ctaReg: "Create your free profile",
+    lead: "Review member-submitted details, then send an interest when a family feels right.",
+    pricePill: "From ₹99 · first 3 interest requests free",
+    register: "Create your free profile",
+    viewAll: "Browse all profiles",
+    ariaLabel: "Mana Vivaha — Telugu matrimony search",
+    facts: [
+      "Contact details only after the profile owner accepts",
+      "Photo visibility follows your profile privacy setting",
+      "A phone number alone is not proof of identity — verify details yourself",
+    ],
+    disclaimer: "Background artwork is illustrative only — not member profile photos.",
   },
-};
+} as const;
+
+const FACTS_ICONS = [ShieldCheck, Users, ShieldCheck] as const;
+
+/**
+ * Decorative gold "mandapam base" — drawn in its OWN layout band, below the
+ * copy block, never as an overlay across it.
+ *
+ * The previous version floated a full-width arch inside the stage, which meant
+ * the curve swept straight through the Telugu headline and the subtitle at
+ * every window size. Line art can never be made safe that way: the copy column
+ * moves with the layout, the arc does not. So the ornament now owns reserved
+ * space — `.mv-hero__basan` sits in normal flow *after* the content and gets a
+ * fixed height — which guarantees real separation (the hero's own bottom
+ * padding plus the band's top offset) at 320 → 1920 px, at every animation
+ * frame, including the reduced-motion static frame.
+ *
+ * Everything here is `aria-hidden`, `pointer-events: none`, and animates only
+ * `transform`/`opacity`.
+ */
+
+/** Garland swag: sampled once so the bead ring sits exactly on the stroke. */
+const SWAG_STEPS = 40;
+const SWAG = Array.from({ length: SWAG_STEPS + 1 }, (_, i) => {
+  const t = i / SWAG_STEPS;
+  return {
+    // Rounded to 1 decimal so SSR and the client serialise identical strings.
+    x: Math.round((-40 + 1280 * t) * 10) / 10,
+    y: Math.round((14 + 62 * Math.sin(Math.PI * t)) * 10) / 10,
+  };
+});
+
+function HeroArt() {
+  return (
+    <div className="mv-hero__basan" aria-hidden="true">
+      <svg
+        className="mv-hero__art"
+        viewBox="0 0 1200 120"
+        preserveAspectRatio="none"
+        aria-hidden="true"
+        focusable="false"
+      >
+        <defs>
+          <linearGradient id="mvGoldLine" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stopColor="#ffe9b0" stopOpacity="0" />
+            <stop offset="22%" stopColor="#ffe9b0" stopOpacity="0.5" />
+            <stop offset="50%" stopColor="#ffe9b0" stopOpacity="0.8" />
+            <stop offset="78%" stopColor="#d4af37" stopOpacity="0.5" />
+            <stop offset="100%" stopColor="#ffe9b0" stopOpacity="0" />
+          </linearGradient>
+          <radialGradient id="mvLampGlow" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stopColor="#ffe9b0" stopOpacity="0.9" />
+            <stop offset="55%" stopColor="#f0b429" stopOpacity="0.28" />
+            <stop offset="100%" stopColor="#f0b429" stopOpacity="0" />
+          </radialGradient>
+        </defs>
+
+        {/* Two garland swags, hung between the corner lamps. `none` aspect +
+            non-scaling strokes keep the hairlines even at every width. */}
+        <polyline
+          points={SWAG.map((p) => `${p.x},${p.y}`).join(" ")}
+          fill="none"
+          stroke="url(#mvGoldLine)"
+          strokeWidth="1.4"
+          strokeLinecap="round"
+          vectorEffect="non-scaling-stroke"
+        />
+        <polyline
+          points={SWAG.map((p) => `${p.x},${p.y + 16}`).join(" ")}
+          fill="none"
+          stroke="url(#mvGoldLine)"
+          strokeWidth="1"
+          strokeLinecap="round"
+          vectorEffect="non-scaling-stroke"
+          opacity="0.5"
+        />
+
+        {/* Beads strung along the swag. */}
+        <g fill="#ffe9b0" opacity="0.4">
+          {SWAG.filter((_, i) => i % 2 === 0).map((p, i) => (
+            <circle key={i} cx={p.x} cy={p.y} r={i % 3 === 0 ? 1.9 : 1.1} />
+          ))}
+        </g>
+
+        {/* Corner lamps (kuthu vilakku), breathing via .mv-spark. */}
+        <circle className="mv-spark" cx="62" cy="42" r="52" fill="url(#mvLampGlow)" opacity="0.55" />
+        <circle className="mv-spark" cx="1138" cy="42" r="52" fill="url(#mvLampGlow)" opacity="0.55" />
+
+        {/* Tassels hanging from the swag's ends — the only downward strokes,
+            and they stop well inside the band. */}
+        <g stroke="url(#mvGoldLine)" strokeWidth="1" vectorEffect="non-scaling-stroke" opacity="0.6">
+          <line x1="196" y1="38" x2="196" y2="86" />
+          <line x1="1004" y1="38" x2="1004" y2="86" />
+        </g>
+        <g fill="#ffe9b0" opacity="0.5">
+          <circle cx="196" cy="90" r="2.2" />
+          <circle cx="1004" cy="90" r="2.2" />
+        </g>
+
+        {/* A last, very soft pool of light so the band reads as a lit floor
+            rather than a floating line. */}
+        <ellipse cx="600" cy="112" rx="520" ry="26" fill="url(#mvLampGlow)" opacity="0.18" />
+      </svg>
+    </div>
+  );
+}
 
 export default function CinematicHero() {
   const { lang } = useLang();
   const L = COPY[(lang as Lang) in COPY ? (lang as Lang) : "te"];
-  const videoRef = useRef<HTMLVideoElement | null>(null);
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const [filmSrc, setFilmSrc] = useState("/promo/wedding-film-mobile.mp4");
-  const [userPaused, setUserPaused] = useState(false);
-  const [filmPlaying, setFilmPlaying] = useState(false);
-  const [filmReady, setFilmReady] = useState(false);
-  const [filmFailed, setFilmFailed] = useState(false);
+  const heroRef = useRef<HTMLElement | null>(null);
+  const [inView, setInView] = useState(true);
 
-  const metered = () => {
-    const connection = (navigator as Navigator & {
-      connection?: { saveData?: boolean; effectiveType?: string };
-    }).connection;
-    return Boolean(connection?.saveData) || /2g/.test(String(connection?.effectiveType || ""));
-  };
-
-  // Pick the encode that suits the device: the small file on phones or on a
-  // metered connection, the full one on anything else. The poster is identical
-  // for both, so switching never causes a visible jump.
+  // Pause the decorative stage whenever it is off-screen or the tab is hidden.
+  // `animation-play-state` is the only thing that changes, so there is no
+  // layout/paint work on scroll — just a compositor pause.
   useEffect(() => {
-    const smallScreen = window.matchMedia("(max-width: 767px)");
-    const pick = () => {
-      setFilmSrc(metered() || smallScreen.matches
-        ? "/promo/wedding-film-mobile.mp4"
-        : "/promo/wedding-film.mp4");
-    };
-    pick();
-    smallScreen.addEventListener("change", pick);
-    return () => smallScreen.removeEventListener("change", pick);
-  }, []);
-
-  // Keep the wedding film decorative: play it only when it is visible, motion
-  // is allowed and the connection is not metered. The poster remains a stable,
-  // complete fallback when autoplay, loading, or the device policy says no.
-  useEffect(() => {
-    const video = videoRef.current;
-    if (!video || !filmSrc) return;
-
-    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
-    let isVisible = !("IntersectionObserver" in window);
-    let disposed = false;
-    setFilmReady(false);
-    setFilmFailed(false);
-
-    const onPlay = () => setFilmPlaying(true);
-    const onPause = () => setFilmPlaying(false);
-    const onReady = () => { setFilmReady(true); setFilmFailed(false); };
-    const onError = () => {
-      setFilmFailed(true);
-      setFilmReady(false);
-      video.pause();
-    };
-    const syncPlayback = () => {
-      if (disposed || userPaused || reducedMotion.matches || metered()
-          || document.visibilityState !== "visible" || !isVisible) {
-        video.pause();
-        return;
-      }
-      if (video.src !== new URL(filmSrc, window.location.href).href) {
-        video.src = filmSrc;
-        video.load();
-      }
-      void video.play().catch(() => {
-        // Autoplay can be blocked by browser policy; keep the poster and expose
-        // a play control once the media reports that it is ready.
-      });
-    };
-
-    const observer = "IntersectionObserver" in window
-      ? new IntersectionObserver(([entry]) => {
-          isVisible = !!entry?.isIntersecting;
-          syncPlayback();
-        }, { threshold: 0.05 })
-      : null;
-    observer?.observe(video);
-    reducedMotion.addEventListener("change", syncPlayback);
-    document.addEventListener("visibilitychange", syncPlayback);
-    video.addEventListener("play", onPlay);
-    video.addEventListener("pause", onPause);
-    video.addEventListener("canplay", onReady);
-    video.addEventListener("loadeddata", onReady);
-    video.addEventListener("error", onError);
-    syncPlayback();
-
-    return () => {
-      disposed = true;
-      observer?.disconnect();
-      reducedMotion.removeEventListener("change", syncPlayback);
-      document.removeEventListener("visibilitychange", syncPlayback);
-      video.removeEventListener("play", onPlay);
-      video.removeEventListener("pause", onPause);
-      video.removeEventListener("canplay", onReady);
-      video.removeEventListener("loadeddata", onReady);
-      video.removeEventListener("error", onError);
-      video.pause();
-    };
-  }, [filmSrc, userPaused]);
-
-  // The canvas is a purely decorative effect. Avoid its animation on small
-  // screens, when the hero is off-screen, or when reduced motion is requested.
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const connection = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection;
-    if (!canvas || reducedMotion.matches || connection?.saveData || window.innerWidth < 768) return;
-
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    let frameId = 0;
-    let visible = !("IntersectionObserver" in window);
-    let width = (canvas.width = window.innerWidth);
-    let height = (canvas.height = window.innerHeight);
-    const particles = Array.from({ length: 14 }, () => ({
-      x: Math.random() * width,
-      y: Math.random() * height,
-      size: Math.random() * 2 + 1,
-      speedY: Math.random() * 0.6 + 0.2,
-      speedX: Math.random() * 0.3 - 0.15,
-      opacity: Math.random() * 0.45 + 0.2,
-      color: Math.random() > 0.4 ? "#F59E0B" : "#FDE047",
-    }));
-
-    const stop = () => {
-      if (frameId) cancelAnimationFrame(frameId);
-      frameId = 0;
-    };
-    const shouldAnimate = () =>
-      visible && !reducedMotion.matches && !connection?.saveData
-      && document.visibilityState === "visible" && window.innerWidth >= 768;
-    const render = () => {
-      frameId = 0;
-      if (!shouldAnimate()) return;
-      ctx.clearRect(0, 0, width, height);
-      particles.forEach((particle) => {
-        particle.y += particle.speedY;
-        particle.x += particle.speedX;
-        if (particle.y > height) {
-          particle.y = -10;
-          particle.x = Math.random() * width;
-        }
-        ctx.beginPath();
-        ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
-        ctx.fillStyle = particle.color;
-        ctx.globalAlpha = particle.opacity;
-        ctx.shadowBlur = 5;
-        ctx.shadowColor = "#F59E0B";
-        ctx.fill();
-      });
-      frameId = requestAnimationFrame(render);
-    };
-    const start = () => {
-      if (shouldAnimate() && !frameId) frameId = requestAnimationFrame(render);
-      else if (!shouldAnimate()) stop();
-    };
-    const resize = () => {
-      width = canvas.width = window.innerWidth;
-      height = canvas.height = window.innerHeight;
-      start();
-    };
-    const observer = "IntersectionObserver" in window
-      ? new IntersectionObserver(([entry]) => {
-          visible = !!entry?.isIntersecting;
-          start();
-        })
-      : null;
-    observer?.observe(canvas);
-    window.addEventListener("resize", resize, { passive: true });
-    document.addEventListener("visibilitychange", start);
-    reducedMotion.addEventListener("change", start);
-    start();
-
-    return () => {
-      stop();
-      observer?.disconnect();
-      window.removeEventListener("resize", resize);
-      document.removeEventListener("visibilitychange", start);
-      reducedMotion.removeEventListener("change", start);
-    };
+    const node = heroRef.current;
+    if (!node) return;
+    if (!("IntersectionObserver" in window)) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => setInView(Boolean(entry?.isIntersecting)),
+      { rootMargin: "120px" },
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
   }, []);
 
   return (
     <section
-      className="cinematic-hero relative min-h-[600px] sm:min-h-[680px] lg:min-h-[720px] flex items-center overflow-hidden bg-gradient-to-br from-[#5b0e32] via-[#cf5a42] to-[#0f766e] text-white"
-      aria-label={lang === "te" ? "మన వివాహ — తెలుగు వివాహ పరిచయ వేదిక" : "Mana Vivaha — Telugu matrimony"}
+      ref={heroRef}
+      className="cinematic-hero mv-hero"
+      data-inview={inView ? "true" : "false"}
+      aria-label={L.ariaLabel}
     >
-      {/* ================= 1. LOCAL CINEMATIC WEDDING FILM BACKGROUND ================= */}
-      <div className="absolute inset-0 overflow-hidden" aria-hidden="true">
-        <Image
-          src="/promo/hero-bg-ultra.jpg"
-          alt=""
-          fill
-          priority
-          sizes="100vw"
-          className="hero-poster object-cover object-[62%_center] sm:object-center"
-        />
-        <video
-          ref={videoRef}
-          poster="/promo/hero-bg-ultra.jpg"
-          loop
-          muted
-          playsInline
-          preload="metadata"
-          disablePictureInPicture
-          aria-hidden="true"
-          onCanPlay={() => { setFilmReady(true); setFilmFailed(false); }}
-          onError={() => { setFilmFailed(true); setFilmReady(false); }}
-          className={`hero-video h-full w-full object-cover object-center sm:object-center pointer-events-none select-none ${filmFailed ? "opacity-0" : ""}`}
-        />
+      {/* ---- decorative depth stage (never announced, never hit-tested) ---- */}
+      <div className="mv-hero__stage" aria-hidden="true">
+        <span className="mv-hero__halo" />
+        <span className="mv-hero__veil mv-hero__veil--a" />
+        <span className="mv-hero__veil mv-hero__veil--b" />
+        <span className="mv-hero__floor" />
+        <span className="mv-hero__grain" />
+        <span className="mv-hero__scrim" />
+        {Array.from({ length: 9 }).map((_, index) => (
+          <span key={index} className="mv-hero__motif" />
+        ))}
       </div>
 
-      {/* Golden Akshathalu Canvas Overlay */}
-      <canvas
-        ref={canvasRef}
-        className="hidden sm:block pointer-events-none absolute inset-0 z-[2] opacity-50"
-      />
+      <div className="mv-hero__inner">
+        <div className="mv-hero__grid">
+          {/* ---------- copy column ---------- */}
+          <div className="min-w-0">
+            <p className="mv-hero__kicker anim-hero">
+              <span aria-hidden="true">🪔</span>
+              <span>{L.kicker}</span>
+            </p>
 
-      {/* Clean Asymmetric Overlay (Allows the video to shine on the right side) */}
-      <div
-        className="absolute inset-0 z-[1] pointer-events-none"
-        style={{
-          background:
-            "linear-gradient(105deg, rgba(122,12,46,0.38) 0%, rgba(160,20,58,0.26) 38%, rgba(0,109,106,0.10) 72%, rgba(15,31,60,0.02) 100%)",
-        }}
-      />
-      <div
-        className="absolute inset-0 z-[1] pointer-events-none"
-        style={{
-          background:
-            "linear-gradient(180deg, rgba(15,31,60,0.06) 0%, transparent 38%, rgba(122,12,46,0.10) 68%, rgba(46,4,27,0.42) 100%)",
-        }}
-      />
+            <h1 className="mv-hero__title anim-hero-1" lang={lang === "te" ? "te-IN" : "en-IN"}>
+              {L.titleA}
+              <br />
+              <span className="mv-hero__title-gold">{L.titleB}</span>
+            </h1>
 
-      {/* Soft hand-off from the film into the cream page body below. */}
-      <div className="hp-hero-fade" aria-hidden="true" />
+            <div className="mv-hero__rule anim-hero-2" aria-hidden="true" />
 
-      {/* WCAG 2.2.2: moving background longer than five seconds needs a pause.
-          The control only appears once the film has actually started. */}
-      {filmReady && !filmFailed ? (
-        <button
-          type="button"
-          onClick={() => {
-            if (filmPlaying && !userPaused) setUserPaused(true);
-            else {
-              setUserPaused(false);
-              void videoRef.current?.play().catch(() => undefined);
-            }
-          }}
-          aria-pressed={userPaused}
-          className="hero-film-toggle"
-        >
-          <span aria-hidden="true">{filmPlaying && !userPaused ? "\u23F8" : "\u25B6"}</span>
-          <span>{filmPlaying && !userPaused
-            ? (lang === "te" ? "నేపథ్య వీడియో ఆపండి" : "Pause background video")
-            : (lang === "te" ? "నేపథ్య వీడియో ప్రారంభించండి" : "Play background video")}</span>
-        </button>
-      ) : null}
+            <p className={`mv-hero__lead anim-hero-2 ${lang === "te" ? "telugu" : ""}`}>{L.lead}</p>
 
-      {/* Layered jewel-tone light keeps the photo vivid while text remains legible. */}
-      <div className="pointer-events-none absolute -top-16 left-[-4rem] z-[2] h-72 w-72 rounded-full bg-rose-400/25 blur-[110px]" />
-      <div className="pointer-events-none absolute top-1/4 right-[-4rem] z-[2] h-80 w-80 rounded-full bg-teal-300/25 blur-[110px]" />
-      <div className="pointer-events-none absolute bottom-[-5rem] left-[28%] z-[2] h-72 w-72 rounded-full bg-amber-400/25 blur-[100px]" />
+            <p className="mv-hero__price anim-hero-2">
+              <span aria-hidden="true" className="text-[#f6d98a]">✦</span> {L.pricePill}
+            </p>
 
-      {/* ================= 2. MAIN CONTAINER ================= */}
-      <div className="relative z-[3] mx-auto w-full max-w-7xl px-5 sm:px-7 lg:px-10 py-9 sm:py-12">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-center">
-          
-          {/* LEFT/SIDE CONTAINER: COMPACT & REFINED LUXURY PANEL */}
-          <div className="lg:col-span-7 xl:col-span-7 text-left">
-            <div className="max-w-2xl space-y-4 sm:space-y-5 text-shadow-hero">
-              
-              {/* Auspicious Eyebrow Badge */}
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="hp-hero-badge">
-                  <span aria-hidden="true">🪔</span>
-                  <span>{L.kicker}</span>
-                </span>
-
-              </div>
-
-              {/* Compact, Refined Royal Gold Headline */}
-              <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold leading-[1.18] tracking-tight text-white drop-shadow-[0_2px_18px_rgba(0,0,0,0.75)]">
-                {L.titleA}
-                <br />
-                <span className="bg-gradient-to-r from-amber-200 via-yellow-300 to-amber-400 bg-clip-text text-transparent">
-                  {L.titleB}
-                </span>
-              </h1>
-
-              <div className="hp-hero-rule" aria-hidden="true" />
-
-              {/* One clear account-creation action; browsing happens in the search card. */}
-              <div className="flex items-center pt-1">
-                <Button
-                  href="/register"
-                  variant="primary"
-                  size="lg"
-                  iconRight={<span aria-hidden="true" className="text-base">→</span>}
-                >
-                  {L.ctaReg}
-                </Button>
-              </div>
-
-              <div className="pt-1">
-                <p className="hp-hero-note">
-                  <span className="hp-hero-note__icon" aria-hidden="true">✦</span>
-                  <span>{L.pricePill}</span>
-                </p>
-                <p className="hp-hero-disclaimer">
-                  {lang === "te" ? "చిత్రాలు సూచన కోసం మాత్రమే — సభ్యుల ప్రొఫైల్ ఫోటోలు కావు." : "Illustrative visuals only—not member profile photos."}
-                </p>
-              </div>
-
+            {/* Account creation stays reachable without scrolling on a phone
+                (asserted by tests/visual.spec.ts). On wide screens it sits in
+                the support rail, under the facts. */}
+            <div className="mv-hero__actions mt-3 flex flex-wrap items-center gap-2.5 anim-hero-3 lg:hidden">
+              <a href="/register" className="pill pill--on-gold mv-sheen min-h-11 px-5 text-sm">
+                {L.register}
+                <ArrowRight size={16} aria-hidden="true" />
+              </a>
             </div>
           </div>
 
-          <div className="lg:col-span-5 xl:col-span-5">
-            <div className="hp-hero-panel">
-              <HomeMatchSearch />
+          {/* ---------- SEARCH: the brightest object on the page ---------- */}
+          <div className="mv-hero__search anim-hero-2 min-w-0 p-0.5">
+            <HomeMatchSearch />
+          </div>
+
+          {/* ---------- supporting column: secondary actions + honest facts ---------- */}
+          <div className="mv-hero__support min-w-0 lg:col-start-1 lg:row-start-2">
+            <div className="hidden flex-wrap items-center gap-2.5 lg:flex">
+              <a href="/register" className="pill pill--on-gold mv-sheen min-h-11 px-5 text-sm">
+                {L.register}
+                <ArrowRight size={16} aria-hidden="true" />
+              </a>
+              <a href="/matches" className="pill min-h-11 px-5 text-sm text-white/90" style={{ border: "1px solid rgba(255,255,255,.34)" }}>
+                <Search size={15} aria-hidden="true" />
+                {L.viewAll}
+              </a>
             </div>
+            <ul className="mv-hero__facts">
+              {L.facts.map((fact, index) => {
+                const Icon = FACTS_ICONS[index] ?? ShieldCheck;
+                return (
+                  <li key={fact}>
+                    <Icon size={13} strokeWidth={2.2} aria-hidden="true" />
+                    <span className={lang === "te" ? "telugu" : ""}>{fact}</span>
+                  </li>
+                );
+              })}
+            </ul>
           </div>
         </div>
+
+        <p className="mt-4 text-[11px] leading-relaxed text-white/55">{L.disclaimer}</p>
       </div>
+
+      {/* Ornament band: reserved space, strictly below all copy. */}
+      <HeroArt />
     </section>
   );
 }

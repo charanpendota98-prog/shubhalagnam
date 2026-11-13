@@ -59,6 +59,7 @@ import { useLang } from "@/lib/lang";
 import DistrictAdBanner from "@/components/DistrictAdBanner";
 import QuickUnlockModal from "@/components/QuickUnlockModal";
 import WhatsAppProposalModal from "@/components/WhatsAppProposalModal";
+import { PillScroller } from "@/components/ui";
 
 type Row = Record<string, any>;
 type SaveNotice = { tone: "success" | "error"; text: string; needsLogin?: boolean; canRetry?: boolean; showShortlist?: boolean };
@@ -1002,7 +1003,7 @@ export default function MatchesPage() {
     const rasi = displayProfileValue(row.rasi);
 
     return (
-      <div className="relative bg-white rounded-3xl border border-gold/30 shadow-sm hover:border-gold/60 hover:shadow-md transition overflow-hidden flex flex-col justify-between">
+      <div className="mv-surface mv-surface__body mv-card relative flex flex-col justify-between overflow-hidden !p-0">
         {/* 🏛️ TOP-RIGHT BADGES: state (Telangana/Andhra Pradesh) neatga + 2nd Marriage (only if applicable) */}
         <div className="absolute top-2.5 right-2.5 z-10 flex flex-col items-end gap-1">
           <span className="text-[9.5px] font-black px-2 py-0.5 rounded-full bg-navy/90 text-white shadow-sm backdrop-blur-sm whitespace-nowrap">
@@ -1153,18 +1154,19 @@ export default function MatchesPage() {
           </div>
         </div>
 
-        {/* Action Buttons */}
-        <div className="bg-slate-50 p-3 px-4 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
+        {/* Action Buttons — a 2×2 grid on phones so every target is ≥44px and
+            the Telugu labels never have to wrap inside a squeezed button. */}
+        <div className="grid grid-cols-2 gap-2 border-t border-slate-100 bg-slate-50 p-3 sm:grid-cols-4">
           <Link
             href={`/search/${row.tsap_id}`}
-            className="flex-1 min-w-[70px] text-center py-2.5 px-2 rounded-xl border border-maroon/30 text-maroon bg-white hover:bg-cream text-xs font-bold transition shadow-xs"
+            className="mv-btn mv-btn--secondary min-h-11"
           >
             {te ? "👁️ వివరాలు" : "👁️ View profile"}
           </Link>
 
           <Link
             href={`/biodata?id=${row.tsap_id}`}
-            className="py-2.5 px-2.5 rounded-xl border border-amber-300 bg-amber-50 hover:bg-amber-100 text-maroon text-xs font-black transition shadow-xs flex items-center justify-center shrink-0"
+            className="mv-btn min-h-11 border-amber-300 bg-amber-50 text-maroon hover:bg-amber-100"
             title={te ? "HD కలర్ బయోడేటా డౌన్‌లోడ్" : "Download a high-resolution biodata card"}
           >
             {te ? "🎴 బయోడేటా" : "🎴 Biodata"}
@@ -1172,17 +1174,19 @@ export default function MatchesPage() {
 
           <button type="button"
             onClick={() => setUnlockTarget(row)}
-            className="flex-1 min-w-[100px] text-center py-2.5 px-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black shadow-md hover-lift transition"
+            className="mv-btn mv-btn--contact min-h-11"
           >
             {te ? "📞 సంప్రదించండి" : "📞 Contact"}
           </button>
 
           <button type="button"
             onClick={() => setProposalTarget(row)}
-            className="w-10 h-10 rounded-xl bg-[#25D366] text-white flex items-center justify-center text-base hover:brightness-105 transition shadow-xs shrink-0"
+            className="mv-btn mv-btn--wa min-h-11"
+            aria-label={te ? "WhatsApp లో సంబంధం వివరాలు షేర్ చేయండి" : "Share profile details on WhatsApp"}
             title={te ? "WhatsApp లో సంబంధం వివరాలు షేర్ చేయండి" : "Share profile details on WhatsApp"}
           >
-            💬
+            <span aria-hidden="true">💬</span>
+            <span className="sm:sr-only">{te ? "WhatsApp షేర్" : "Share on WhatsApp"}</span>
           </button>
         </div>
       </div>
@@ -1193,12 +1197,13 @@ export default function MatchesPage() {
     <div className="min-h-dvh bg-[#FAF7F2] pb-24 sm:pb-28">
       {/* ---------- Sticky Top Quick-Pill Bar ---------- */}
       <div className="sticky top-16 z-30 bg-white/95 backdrop-blur-md border-b border-gold/25 shadow-xs">
-        <div className="max-w-7xl mx-auto px-4 py-2.5">
-          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1">
+        <div className="max-w-7xl mx-auto px-4 py-2">
+          {/* Quick preset rail — one line of pills, scrolls sideways. */}
+          <PillScroller label={te ? "త్వరిత ఫిల్టర్లు" : "Quick filters"} fadeFrom="var(--ds-surface)">
             {/* Quick Presets */}
             <button type="button"
               onClick={() => setF("verified_only", !filters.verified_only)}
-              className={`px-3 py-1.5 rounded-full text-xs font-bold shrink-0 transition flex items-center gap-1 border ${
+              className={`pill min-h-11 whitespace-nowrap px-3.5 text-xs font-bold transition flex items-center gap-1.5 border ${
                 filters.verified_only ? "bg-emerald-600 text-white border-emerald-600 shadow-xs" : "bg-white text-slate-700 border-slate-200 hover:border-emerald-600"
               }`}
             >
@@ -1208,7 +1213,7 @@ export default function MatchesPage() {
 
             <button type="button"
               onClick={() => setF("photo_only", !filters.photo_only)}
-              className={`px-3 py-1.5 rounded-full text-xs font-bold shrink-0 transition flex items-center gap-1 border ${
+              className={`pill min-h-11 whitespace-nowrap px-3.5 text-xs font-bold transition flex items-center gap-1.5 border ${
                 filters.photo_only ? "bg-amber-500 text-white border-amber-500 shadow-xs" : "bg-white text-slate-700 border-slate-200 hover:border-amber-500"
               }`}
             >
@@ -1219,7 +1224,7 @@ export default function MatchesPage() {
             <button type="button"
               onClick={applySavedPreferences}
               disabled={prefLoading}
-              className={`px-3.5 py-1.5 rounded-full text-xs font-black shrink-0 transition flex items-center gap-1.5 ${
+              className={`pill min-h-11 whitespace-nowrap px-3.5 text-xs font-black transition flex items-center gap-1.5 ${
                 prefApplied
                   ? "bg-emerald-600 text-white shadow-xs"
                   : "bg-gradient-to-r from-amber-500 to-rose-600 text-white shadow-xs hover:brightness-105"
@@ -1231,7 +1236,7 @@ export default function MatchesPage() {
 
             <button type="button"
               onClick={() => setF("gender", filters.gender === "Bride" ? "" : "Bride")}
-              className={`px-3 py-1.5 rounded-full text-xs font-bold shrink-0 transition flex items-center gap-1 border ${
+              className={`pill min-h-11 whitespace-nowrap px-3.5 text-xs font-bold transition flex items-center gap-1.5 border ${
                 filters.gender === "Bride" ? "bg-rose-700 text-white border-rose-700 shadow-xs" : "bg-white text-slate-700 border-slate-200 hover:border-rose-700"
               }`}
             >
@@ -1241,7 +1246,7 @@ export default function MatchesPage() {
 
             <button type="button"
               onClick={() => setF("gender", filters.gender === "Groom" ? "" : "Groom")}
-              className={`px-3 py-1.5 rounded-full text-xs font-bold shrink-0 transition flex items-center gap-1 border ${
+              className={`pill min-h-11 whitespace-nowrap px-3.5 text-xs font-bold transition flex items-center gap-1.5 border ${
                 filters.gender === "Groom" ? "bg-indigo-700 text-white border-indigo-700 shadow-xs" : "bg-white text-slate-700 border-slate-200 hover:border-indigo-700"
               }`}
             >
@@ -1251,7 +1256,7 @@ export default function MatchesPage() {
 
             <button type="button"
               onClick={() => setF("marital_status", isMaritalFilterOptionSelected(filters.marital_status, "Pelli Kaledu") ? "" : "Pelli Kaledu")}
-              className={`px-3 py-1.5 rounded-full text-xs font-bold shrink-0 transition border ${
+              className={`pill min-h-11 whitespace-nowrap px-3.5 text-xs font-bold transition border ${
                 isMaritalFilterOptionSelected(filters.marital_status, "Pelli Kaledu") ? "bg-maroon text-white border-maroon shadow-xs" : "bg-white text-slate-700 border-slate-200 hover:border-maroon"
               }`}
             >
@@ -1260,7 +1265,7 @@ export default function MatchesPage() {
 
             <button type="button"
               onClick={() => setF("marital_status", filters.marital_status === "Divorced" ? "" : "Divorced")}
-              className={`px-3 py-1.5 rounded-full text-xs font-bold shrink-0 transition border ${
+              className={`pill min-h-11 whitespace-nowrap px-3.5 text-xs font-bold transition border ${
                 filters.marital_status === "Divorced" ? "bg-rose-700 text-white border-rose-700 shadow-xs" : "bg-white text-slate-700 border-slate-200 hover:border-rose-700"
               }`}
             >
@@ -1270,7 +1275,7 @@ export default function MatchesPage() {
             {!isGroomGender(filters.gender) && (
               <button type="button"
                 onClick={() => toggleMulti("job", "Housewife / Homemaker (గృహిణి)")}
-                className={`px-3 py-1.5 rounded-full text-xs font-bold shrink-0 transition flex items-center gap-1 border ${
+                className={`pill min-h-11 whitespace-nowrap px-3.5 text-xs font-bold transition flex items-center gap-1.5 border ${
                   isMultiSelected("job", "Housewife / Homemaker (గృహిణి)")
                     ? "bg-rose-700 text-white border-rose-700 shadow-xs"
                     : "bg-white text-slate-700 border-slate-200 hover:border-rose-700"
@@ -1283,7 +1288,7 @@ export default function MatchesPage() {
 
             <button type="button"
               onClick={() => toggleMulti("job", "Software / IT / Tech")}
-              className={`px-3 py-1.5 rounded-full text-xs font-bold shrink-0 transition border ${
+              className={`pill min-h-11 whitespace-nowrap px-3.5 text-xs font-bold transition border ${
                 isMultiSelected("job", "Software / IT / Tech") ? "bg-navy text-white border-navy shadow-xs" : "bg-white text-slate-700 border-slate-200 hover:border-navy"
               }`}
             >
@@ -1292,7 +1297,7 @@ export default function MatchesPage() {
 
             <button type="button"
               onClick={() => toggleMulti("job", "Govt / PSU")}
-              className={`px-3 py-1.5 rounded-full text-xs font-bold shrink-0 transition border ${
+              className={`pill min-h-11 whitespace-nowrap px-3.5 text-xs font-bold transition border ${
                 isMultiSelected("job", "Govt / PSU") ? "bg-maroon text-white border-maroon shadow-xs" : "bg-white text-slate-700 border-slate-200 hover:border-maroon"
               }`}
             >
@@ -1301,7 +1306,7 @@ export default function MatchesPage() {
 
             <button type="button"
               onClick={() => setF("state", filters.state === "TS" ? "" : "TS")}
-              className={`px-3 py-1.5 rounded-full text-xs font-bold shrink-0 transition border ${
+              className={`pill min-h-11 whitespace-nowrap px-3.5 text-xs font-bold transition border ${
                 filters.state === "TS" ? "bg-maroon text-white border-maroon shadow-xs" : "bg-white text-slate-700 border-slate-200"
               }`}
             >
@@ -1310,7 +1315,7 @@ export default function MatchesPage() {
 
             <button type="button"
               onClick={() => setF("state", filters.state === "AP" ? "" : "AP")}
-              className={`px-3 py-1.5 rounded-full text-xs font-bold shrink-0 transition border ${
+              className={`pill min-h-11 whitespace-nowrap px-3.5 text-xs font-bold transition border ${
                 filters.state === "AP" ? "bg-maroon text-white border-maroon shadow-xs" : "bg-white text-slate-700 border-slate-200"
               }`}
             >
@@ -1319,7 +1324,7 @@ export default function MatchesPage() {
 
             <button type="button"
               onClick={() => setF("nri_only", !filters.nri_only)}
-              className={`px-3 py-1.5 rounded-full text-xs font-bold shrink-0 transition border ${
+              className={`pill min-h-11 whitespace-nowrap px-3.5 text-xs font-bold transition border ${
                 filters.nri_only ? "bg-indigo-700 text-white border-indigo-700 shadow-xs" : "bg-white text-slate-700 border-slate-200"
               }`}
             >
@@ -1327,18 +1332,18 @@ export default function MatchesPage() {
             </button>
 
             {activeChips.length > 0 && (
-              <button type="button" onClick={clearAllFilters} className="px-3 py-1.5 rounded-full text-xs font-bold shrink-0 text-rose-600 bg-rose-50 border border-rose-200 hover:bg-rose-100 transition min-h-11">
-                ✕ Clear All
+              <button type="button" onClick={clearAllFilters} className="pill min-h-11 whitespace-nowrap border border-rose-200 bg-rose-50 px-3.5 text-xs font-bold text-rose-600 transition hover:bg-rose-100">
+                ✕ {te ? "అన్నీ తీసేయండి" : "Clear all"}
               </button>
             )}
-          </div>
+          </PillScroller>
         </div>
       </div>
 
       <div className="max-w-7xl mx-auto px-4 py-4 sm:py-6">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
           {/* ================= DESKTOP FILTER SIDEBAR (4 cols) ================= */}
-          <div className="hidden lg:block lg:col-span-4 sticky top-20 bg-white rounded-3xl border border-gold/30 shadow-md p-5 space-y-4 max-h-[calc(100vh-100px)] overflow-y-auto scrollbar-thin">
+          <div className="mv-surface mv-surface__body sticky top-20 hidden max-h-[calc(100vh-100px)] space-y-4 overflow-y-auto scrollbar-thin lg:col-span-4 lg:block">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="font-black text-sm text-slate-900 flex items-center gap-1.5">
                 <span>🌪️</span>
@@ -1396,7 +1401,7 @@ export default function MatchesPage() {
                   <button type="button"
                     key={g.v}
                     onClick={() => setF("gender", g.v)}
-                    className={`py-1.5 rounded-xl text-xs font-bold border text-center transition ${
+                    className={`min-h-11 rounded-xl border py-1.5 text-center text-xs font-bold transition ${
                       filters.gender === g.v ? "bg-maroon text-white border-maroon shadow-xs" : "bg-slate-50 text-slate-700 border-slate-200 hover:border-maroon/30"
                     }`}
                   >
@@ -1439,7 +1444,7 @@ export default function MatchesPage() {
                       key={c}
                       type="button"
                       onClick={() => toggleMulti("caste", c)}
-                      className={`px-2 py-0.5 rounded-lg text-[10.5px] font-bold border transition ${
+                      className={`min-h-11 rounded-lg border px-2.5 text-[10.5px] font-bold transition ${
                         on ? "bg-maroon text-white border-maroon" : "bg-amber-50/70 border-gold/40 text-maroon hover:bg-gold/20"
                       }`}
                     >
@@ -1517,7 +1522,7 @@ export default function MatchesPage() {
                   <button type="button"
                     key={st.v}
                     onClick={() => setF("state", st.v)}
-                    className={`flex-1 py-1 text-[10.5px] font-bold rounded-lg border text-center transition ${
+                    className={`flex min-h-11 flex-1 items-center justify-center rounded-lg border text-center text-[10.5px] font-bold transition ${
                       filters.state === st.v ? "bg-maroon text-white border-maroon" : "bg-slate-50 text-slate-700 border-slate-200"
                     }`}
                   >
@@ -1527,7 +1532,7 @@ export default function MatchesPage() {
               </div>
 
               <div className="flex items-center justify-between text-[11px]">
-                <button type="button" onClick={filters.state === "AP" ? selectAllAP : selectAllTS} className="text-[#7A0C2E] font-bold hover:underline">
+                <button type="button" onClick={filters.state === "AP" ? selectAllAP : selectAllTS} className="inline-flex min-h-11 items-center text-[#7A0C2E] font-bold hover:underline">
                   {filters.state === "AP"
                     ? `✓ ${te ? "అన్ని" : "All"} ${AP_DISTRICTS.length} AP ${te ? "జిల్లాలు" : "districts"}`
                     : `✓ ${te ? "అన్ని" : "All"} ${TS_DISTRICTS.length} TS ${te ? "జిల్లాలు" : "districts"}`}
@@ -1688,9 +1693,9 @@ export default function MatchesPage() {
           {/* ================= RIGHT COLUMN: MATCHES LIST (8 cols) ================= */}
           <div className="lg:col-span-8 space-y-4">
             {/* Header / Summary Bar */}
-            <div className="bg-white rounded-2xl border border-gold/30 p-3.5 sm:p-4 shadow-xs flex flex-wrap items-center justify-between gap-3">
+            <div className="mv-surface mv-surface__body mv-card flex flex-wrap items-center justify-between gap-3 !p-3.5 sm:!p-4">
               <div>
-                <h1 aria-live="polite" aria-atomic="true" className="text-base sm:text-lg font-black text-slate-900">
+                <h2 aria-live="polite" aria-atomic="true" className="text-base font-black text-slate-900 sm:text-lg">
                   🔍 {loading || searchPending
                     ? (te ? "వెతుకుతున్నాము…" : "Searching…")
                     : requestError
@@ -1698,7 +1703,7 @@ export default function MatchesPage() {
                       : rows.length > 0 && rows.length < total
                         ? (te ? `${total} ప్రొఫైల్స్‌లో ${rows.length} చూపిస్తున్నాం` : `Showing ${rows.length} of ${total} matching profiles`)
                         : (te ? `${total} సరిపోలే ప్రొఫైల్స్ లభించాయి` : `${total} matching profiles found`)}
-                </h1>
+                </h2>
                 <p className="text-xs text-slate-500">
                   {filters.verified_only
                     ? (te ? "ఫోన్ OTP, ఫోటో review లేదా ప్రభుత్వ ID review లో కనీసం ఒకటి నమోదు అయింది" : "At least one phone OTP, photo review or government-ID review is recorded")
@@ -1770,7 +1775,7 @@ export default function MatchesPage() {
               </div>
             )}
 
-            <section aria-labelledby="saved-searches-heading" className="rounded-2xl border border-indigo-100 bg-white p-3.5 shadow-xs sm:p-4">
+            <section aria-labelledby="saved-searches-heading" className="mv-surface mv-surface__body sm:!p-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="min-w-0 flex-1 basis-52">
                   <h2 id="saved-searches-heading" className="text-sm font-black text-slate-900">🔖 {te ? "సేవ్ చేసిన శోధనలు" : "Saved searches"}</h2>
@@ -1923,7 +1928,7 @@ export default function MatchesPage() {
             )}
 
             {/* Clarity Banner - Numbers ivvamu */}
-            <div className="bg-gradient-to-r from-amber-50 to-rose-50 border border-gold/40 rounded-2xl p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+            <div className="mv-note flex flex-col gap-3 text-xs sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-center gap-2.5">
                 <span className="text-xl">🔒</span>
                 <div>
@@ -1931,7 +1936,7 @@ export default function MatchesPage() {
                   <span className="text-slate-700">{te ? "మొదటి 3 కాంటాక్ట్ అభ్యర్థనలు ఉచితం. నేరుగా నంబర్లు చూపించము; యజమాని సమ్మతి మరియు ప్లాన్ నియమాలు వర్తిస్తాయి." : "The first 3 contact requests are free. Phone numbers are not shown directly; sharing follows the profile owner’s consent and plan rules."}</span>
                 </div>
               </div>
-              <Link href="/pricing" className="px-3.5 py-1.5 rounded-xl gold-gradient text-maroon font-bold text-xs shrink-0 self-start sm:self-auto shadow-xs">
+              <Link href="/pricing" className="mv-btn mv-btn--gold min-h-11 shrink-0 self-start px-3.5 text-xs sm:self-auto">
                 {te ? "ప్లాన్లు చూడండి →" : "View plans →"}
               </Link>
             </div>
@@ -1964,7 +1969,7 @@ export default function MatchesPage() {
                 ))}
               </div>
             ) : requestError ? (
-              <div role="alert" className="bg-white rounded-3xl border border-rose-200 p-8 text-center space-y-3">
+              <div role="alert" className="mv-surface mv-surface__body space-y-3 text-center">
                 <div className="text-4xl">📡</div>
                 <h3 className="text-base font-black text-slate-900">{te ? "సంబంధాలను లోడ్ చేయడంలో సమస్య" : "We couldn't load profiles"}</h3>
                 <p className="text-xs text-slate-600">{te ? "మీ కనెక్షన్‌ను తనిఖీ చేసి మళ్లీ ప్రయత్నించండి." : "Check your connection and try again."}</p>
@@ -1973,7 +1978,7 @@ export default function MatchesPage() {
                 </button>
               </div>
             ) : rows.length === 0 ? (
-              <div className="bg-white rounded-3xl border border-gold/30 p-6 text-center space-y-4 sm:p-8">
+              <div className="mv-surface mv-surface__body space-y-4 text-center sm:!p-8">
                 <div className="text-4xl">🔍 💍</div>
                 <h3 className="text-base font-black text-slate-900">{te ? "మీ ఫిల్టర్లకు సరిపోయే ప్రొఫైల్స్ ప్రస్తుతం లేవు" : "No profiles match your filters yet"}</h3>
                 <p className="text-xs text-slate-600">
