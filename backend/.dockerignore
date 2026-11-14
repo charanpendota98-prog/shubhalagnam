@@ -61,5 +61,6 @@ channel_setup_state.json*
 ecosystem3_state.json*
 phase2_state.json*
 identity_phase2.sqlite3*
+enterprise_state.json*
 backups/
 publish_logs/

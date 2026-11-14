@@ -181,7 +181,7 @@ export default function VerifyPage() {
           </h2>
           <p className="mt-1 text-[12px] text-gray-600 telugu">
             {te
-              ? "ప్రతి బ్యాడ్జ్ వేరుగా మాన్యువల్ సమీక్ష ద్వారా నమోదు చేయబడుతుంది. మేము ఎప్పుడూ కృత్రిమ trust score లను చూపము మరియు పూర్తి ఆధార్/PAN నంబర్లను నిల్వ చేయము."
+              ? "ప్రతి బ్యాడ్జ్ వేరుగా మాన్యువల్ సమీక్ష ద్వారా నమోదు చేయబడుతుంది. మేము కృత్రిమ trust score ఊహించము మరియు పూర్తి ఆధార్/PAN నంబర్లను నిల్వ చేయము."
               : "Each badge is recorded independently after manual staff review. Mana Vivaha never calculates synthetic trust scores and never stores full Aadhaar/PAN numbers in plaintext."}
           </p>
         </div>

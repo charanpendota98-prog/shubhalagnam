@@ -106,8 +106,11 @@ import observability as OBS  # optional scrape surface; no PII labels
 import ecosystem3 as ECOSYSTEM3
 import identity_repo as IDENTITY_REPO
 import phase2_store as PHASE2
+import enterprise_sql as ESQL
+import enterprise_ops as EOPS
 from routers.ecosystem_router import build_ecosystem_router
 from routers.phase2_router import build_phase2_router
+from routers.enterprise_router import build_enterprise_router
 
 _PRODUCTION_ENV_NAMES = {"production", "prod", "live"}
 _WA_PAIRING_COOLDOWNS: Dict[tuple[str, str], float] = {}
@@ -217,6 +220,7 @@ def _production_storage_paths() -> list:
         ("ecosystem 3.0 state", ECOSYSTEM3._resolve_state_file(), False),
         ("phase 2 state", PHASE2.resolve_phase2_state_file(), False),
         ("phase 2 identity db", IDENTITY_REPO.resolve_identity_db_path(), False),
+        ("enterprise state", EOPS.resolve_enterprise_state_file(), False),
         ("stories", A11.STORIES_FILE, False),
         ("push subscriptions", A11.PUSH_FILE, False),
         ("money audit", MAUD.AUDIT_FILE, False),
@@ -2624,6 +2628,8 @@ async def _security_middleware(request: Request, call_next):
             elapsed = _time.time() - _t0
             response.headers["X-Process-Time"] = "%.3f" % elapsed
             OBS.observe(request, response.status_code, elapsed)
+            if request.url.path.startswith("/api/"):
+                EOPS.record_request_slo(response.status_code, elapsed * 1000.0)
     except Exception:
         pass
     try:
@@ -2697,6 +2703,9 @@ def _persist_core_state():
         if saved:
             try:
                 IDENTITY_REPO.sync_from_users(DB_USERS, token_version_fn=token_version)
+                ESQL.sync_interests_and_blocks(DB_INTERESTS, DB_BLOCKS)
+                ESQL.sync_payment_orders(DB_PAYMENTS)
+                ESQL.rebuild_search_projection(DB_USERS, ECOSYSTEM3.parse_salary_bounds_inr)
             except Exception:
                 pass
         return saved
@@ -3014,6 +3023,7 @@ async def register(
     phone_verified: bool = Form(False),  # ignored: client cannot attest server-side OTP verification
     consent_confirmed: bool = Form(False),
     photo_consent_confirmed: bool = Form(False),
+    request: Request = None,
     response: Response = None,
 ):
     """
@@ -3027,6 +3037,15 @@ async def register(
     7. Return up to three recent profile comparisons using member-entered facts
     8. Return ID + card + profile summaries
     """
+    if not registration_key and request is not None:
+        _hdr_idem = (
+            request.headers.get("idempotency-key")
+            or request.headers.get("x-idempotency-key")
+            or ""
+        ).strip()
+        if re.fullmatch(r"[A-Za-z0-9_-]{16,128}", _hdr_idem):
+            registration_key = _hdr_idem
+
     recovered = _early_registration_recovery(phone, password, registration_key)
     if recovered is not None:
         _set_member_session_cookie(response, sign_token(str(getattr(recovered, "tsap_id", "") or "")))
@@ -3446,6 +3465,14 @@ async def register(
                 except OSError:
                     pass
             raise HTTPException(503, "Registration could not be saved safely. No registration was accepted; please retry.")
+        try:
+            IDENTITY_REPO.sync_from_users(DB_USERS, token_version_fn=token_version)
+            ESQL.inspect_and_quarantine_image(tsap_id, photo_name, photo_data)
+            if registration_key:
+                ESQL.record_idempotency(registration_key, phone, tsap_id, {"tsap_id": tsap_id, "status": "registered"})
+            ESQL.rebuild_search_projection(DB_USERS, ECOSYSTEM3.parse_salary_bounds_inr)
+        except Exception:
+            pass
 
     # 4. The pending/monogram card was generated and checkpointed with the
     # profile above. Approval and photo moderation regenerate it from the
@@ -4317,6 +4344,11 @@ def delete_user_account(payload: dict, request: Request, tsap_id: Optional[str] 
     # (sequential IDs valla mass-delete script kuda possible). Ippudu owner
     # token తప్పనిసరి.
     require_owner(request, clean_id)
+    if EOPS.has_active_legal_hold(clean_id):
+        raise HTTPException(
+            423,
+            "This profile has an active legal/dispute hold; destructive deletion is paused until investigation concludes.",
+        )
 
     # Deletion is a cross-store consent transition. Keep rollback snapshots so
     # a failed core checkpoint cannot leave the account hidden while contact
@@ -12583,3 +12615,4 @@ _MODULAR_ROUTER_CTX = {
 
 app.include_router(build_ecosystem_router(_MODULAR_ROUTER_CTX))
 app.include_router(build_phase2_router(_MODULAR_ROUTER_CTX))
+app.include_router(build_enterprise_router(_MODULAR_ROUTER_CTX))

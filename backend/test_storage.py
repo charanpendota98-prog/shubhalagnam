@@ -44,6 +44,7 @@ def isolate_test_stores(suite: str = "backend-test") -> str:
         "MANA_VIVAHA_ECOSYSTEM_FILE": "quality-state/ecosystem3_state.json",
         "MANA_VIVAHA_PHASE2_FILE": "quality-state/phase2_state.json",
         "MANA_VIVAHA_IDENTITY_DB": "quality-state/identity_phase2.sqlite3",
+        "MANA_VIVAHA_ENTERPRISE_FILE": "quality-state/enterprise_state.json",
         "MANA_VIVAHA_CHANNEL_REPORT_DIR": "channel-reports",
         "PREVIEW_DIR": "previews",
     }

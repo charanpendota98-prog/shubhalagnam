@@ -175,6 +175,10 @@ def configured_paths(env):
     entries.extend([
         ('consent ledger', os.path.join(state, 'consent_ledger_state.json'), False),
         ('saved searches', os.path.join(state, 'saved_searches_state.json'), False),
+        ('ecosystem 3.0 state', os.path.abspath(env.get('MANA_VIVAHA_ECOSYSTEM_FILE', '').strip() or os.path.join(state if env.get('MANA_VIVAHA_STATE_DIR', '').strip() else base, 'ecosystem3_state.json')), False),
+        ('phase 2 state', os.path.abspath(env.get('MANA_VIVAHA_PHASE2_FILE', '').strip() or os.path.join(state if env.get('MANA_VIVAHA_STATE_DIR', '').strip() else base, 'phase2_state.json')), False),
+        ('phase 2 identity db', os.path.abspath(env.get('MANA_VIVAHA_IDENTITY_DB', '').strip() or os.path.join(state if env.get('MANA_VIVAHA_STATE_DIR', '').strip() else base, 'identity_phase2.sqlite3')), False),
+        ('enterprise state', os.path.abspath(env.get('MANA_VIVAHA_ENTERPRISE_FILE', '').strip() or os.path.join(state if env.get('MANA_VIVAHA_STATE_DIR', '').strip() else base, 'enterprise_state.json')), False),
         ('stories', os.path.join(val('MANA_VIVAHA_APP_STATE_DIR', base), 'stories_state.json'), False),
         ('push subscriptions', os.path.join(val('MANA_VIVAHA_APP_STATE_DIR', base), 'push_state.json'), False),
         ('control audit', env.get('CONTROL_AUDIT_FILE', '').strip(), False),

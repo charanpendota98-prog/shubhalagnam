@@ -228,12 +228,17 @@ check("F3 duo used in 15+ files", n_duo >= 15, n_duo)
 # ═══════════════════════════════════════════════════════════════════════════
 section("G. WIRING AUDIT (deep check — permanent)")
 # ═══════════════════════════════════════════════════════════════════════════
-broutes = set()
-for _f in os.listdir(os.path.dirname(os.path.abspath(__file__))):
-    if _f.endswith(".py"):
-        _t = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), _f), encoding="utf-8").read()
-        for _m in re.finditer(r'@app\.(get|post|put|delete|patch)\("([^"]+)"', _t):
-            broutes.add(_m.group(2))
+# FastAPI keeps include_router() registrations as lazy _IncludedRouter entries;
+# expand those router route lists as well as direct routes for an accurate audit.
+_broutes = []
+for _entry in main.app.routes:
+    _router = getattr(_entry, "original_router", None)
+    _broutes.extend(_router.routes if _router is not None else [_entry])
+broutes = {
+    getattr(route, "path", "")
+    for route in _broutes
+    if getattr(route, "path", "")
+}
 
 
 def _rok(path):

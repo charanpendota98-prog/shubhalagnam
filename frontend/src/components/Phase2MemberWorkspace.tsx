@@ -36,6 +36,10 @@ export default function Phase2MemberWorkspace({
   const [aptSlot, setAptSlot] = useState("evening_17_19");
   const [aptTopic, setAptTopic] = useState("profile_shortlist_guidance");
   const [aptNotes, setAptNotes] = useState("");
+  const [refunds, setRefunds] = useState<any[]>([]);
+  const [refundOrderId, setRefundOrderId] = useState("");
+  const [refundAmount, setRefundAmount] = useState(99);
+  const [refundReason, setRefundReason] = useState("");
 
   const loadData = useCallback(async () => {
     if (!myId) return;
@@ -57,14 +61,16 @@ export default function Phase2MemberWorkspace({
           }
         }
       } else {
-        const [sr, lr, ar] = await Promise.all([
+        const [sr, lr, ar, rr] = await Promise.all([
           fetch(`/api/me/${encodeURIComponent(myId)}/sessions`, { headers: h, credentials: "same-origin" }),
           fetch(`/api/me/${encodeURIComponent(myId)}/review-links`, { headers: h, credentials: "same-origin" }),
           fetch(`/api/appointments/${encodeURIComponent(myId)}`, { headers: h, credentials: "same-origin" }),
+          fetch(`/api/refunds/${encodeURIComponent(myId)}`, { headers: h, credentials: "same-origin" }),
         ]);
         if (sr.ok) setSessionInfo(await readApiJson(sr));
         if (lr.ok) setLinks((await readApiJson(lr)).links || []);
         if (ar.ok) setAppointments((await readApiJson(ar)).appointments || []);
+        if (rr.ok) setRefunds((await readApiJson(rr)).refunds || []);
       }
     } catch {
       /* ignore */
@@ -561,6 +567,93 @@ export default function Phase2MemberWorkspace({
                   <b>{a.appointment_id}</b> • {a.preferred_date} ({a.preferred_slot}) — <b className="uppercase">{a.status}</b>
                 </span>
                 {a.staff_note && <span className="text-emerald-800 font-semibold">{a.staff_note}</span>}
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* Phase 5 — Billing & Refund Review Desk */}
+      <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm space-y-3">
+        <div>
+          <h3 className="text-sm font-black text-[#7A0C2E]">
+            {te ? "బిల్లింగ్ & రీఫండ్ సమీక్ష (Phase 5 Ledger)" : "Billing & Refund Review Desk"}
+          </h3>
+          <p className="text-xs text-slate-600 mt-0.5">
+            {te
+              ? "డూప్లికేట్ చెల్లింపు లేదా బిల్లింగ్ సమస్య ఉంటే ఇక్కడ ఆడిట్ కేస్ తెరవండి."
+              : "Open an auditable billing or duplicate-payment review case tracked directly in our transactional SQL ledger."}
+          </p>
+        </div>
+        <div className="grid gap-2 sm:grid-cols-3">
+          <input
+            value={refundOrderId}
+            onChange={(e) => setRefundOrderId(e.target.value)}
+            placeholder={te ? "ఆర్డర్ ID (ఐచ్ఛికం)" : "Order / UPI Ref (optional)"}
+            aria-label="Payment order reference"
+            className="rounded-xl border border-slate-200 px-3 py-2 text-xs font-mono"
+          />
+          <input
+            type="number"
+            min={1}
+            max={50000}
+            value={refundAmount}
+            onChange={(e) => setRefundAmount(Number(e.target.value) || 99)}
+            aria-label="Refund amount in INR"
+            className="rounded-xl border border-slate-200 px-3 py-2 text-xs"
+          />
+          <input
+            value={refundReason}
+            onChange={(e) => setRefundReason(e.target.value)}
+            placeholder={te ? "సమస్య వివరణ (కనీసం 8 అక్షరాలు)" : "Describe billing issue (min 8 chars)"}
+            aria-label="Refund reason"
+            className="rounded-xl border border-slate-200 px-3 py-2 text-xs"
+          />
+        </div>
+        <button
+          type="button"
+          disabled={busy}
+          onClick={async () => {
+            setBusy(true);
+            setToast("");
+            try {
+              const r = await fetch("/api/refunds/request", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", ...authHeaders() },
+                credentials: "same-origin",
+                body: JSON.stringify({
+                  tsap_id: myId,
+                  order_id: refundOrderId,
+                  amount_inr: Number(refundAmount) || 99,
+                  kind: "refund",
+                  reason: refundReason,
+                }),
+              });
+              const d = await readApiJson(r);
+              if (r.ok && d.success) {
+                setRefundReason("");
+                setToast(te ? `✅ రీఫండ్ కేస్ (${d.refund?.refund_id}) నమోదైంది.` : `✅ Refund review case (${d.refund?.refund_id}) opened.`);
+                await loadData();
+              } else {
+                setToast(d?.detail || "Could not open refund case.");
+              }
+            } finally {
+              setBusy(false);
+            }
+          }}
+          className="rounded-xl bg-[#7A0C2E] px-4 py-2 text-xs font-bold text-white"
+        >
+          {te ? "రీఫండ్ సమీక్ష కోరండి" : "Submit Billing / Refund Case"}
+        </button>
+
+        {refunds.length > 0 && (
+          <div className="space-y-1.5 pt-2">
+            {refunds.map((rf) => (
+              <div key={rf.refund_id} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs flex flex-wrap justify-between gap-2">
+                <span>
+                  <b>{rf.refund_id}</b> • ₹{rf.amount_inr} — <b className="uppercase">{rf.status}</b>
+                </span>
+                {rf.staff_note && <span className="text-emerald-800 font-semibold">{rf.staff_note}</span>}
               </div>
             ))}
           </div>
