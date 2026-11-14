@@ -11707,6 +11707,10 @@ def api_offers_active():
 def api_admin_offer_create(payload: dict, request: Request):
     require_admin(request)
     d = payload or {}
+    # Every offer carries an explicit validity window; window-less offers
+    # (the pre-hardening pattern) can no longer be created.
+    if not str(d.get("valid_from", "") or "").strip() or not str(d.get("valid_to", "") or "").strip():
+        raise HTTPException(400, "Both valid_from and valid_to dates are required (YYYY-MM-DD). Every offer must have an explicit validity window.")
     applies = d.get("applies_to") or ["credits"]
     if isinstance(applies, str):
         applies = [a.strip() for a in applies.split(",") if a.strip()]
@@ -11766,6 +11770,17 @@ def api_promo_apply(request: Request, code: str = "", purpose: str = "credits", 
         raise HTTPException(400, res.get("message_telugu"))
     return {"success": True, **res, "plan": plan, "amount": amount,
             "message_telugu": f"🎉 {res.get('code')}: ₹{amount} → ₹{res['final_amount']} (−₹{res['discount']})"}
+
+
+@app.put("/api/admin/offers/{code}")
+def api_admin_offer_update(code: str, payload: dict, request: Request):
+    """🎟️ ADMIN — edit an existing offer (dates, discount, uses, active)."""
+    require_admin(request)
+    res = PP.update_offer(code, payload or {})
+    if not res.get("success"):
+        raise HTTPException(404 if "దొరకలేదు" in str(res.get("message_telugu", "")) else 400,
+                            res.get("message_telugu"))
+    return res
 
 
 @app.delete("/api/admin/offers/{code}")

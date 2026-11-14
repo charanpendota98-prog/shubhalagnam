@@ -390,6 +390,22 @@ check("J8 admin offers list", la.get("success") and la.get("count", 0) >= 6, la.
 pub = client.get("/api/offers/active").json()
 check("J9 public active (expired ledu)", pub.get("success") and "W14OLD" not in [o["code"] for o in pub["offers"]]
       and "DIWALI25" in [o["code"] for o in pub["offers"]], [o["code"] for o in pub["offers"]])
+nodates = client.post("/api/admin/offers", json={"code": "W14NODATE", "pct_off": 5}, headers=HDR_ADMIN)
+check("J10 create without validity dates rejected", nodates.status_code == 400, nodates.status_code)
+nodate2 = client.post("/api/admin/offers", json={"code": "W14NODATE", "pct_off": 5, "valid_from": "2026-01-01"}, headers=HDR_ADMIN)
+check("J11 create with only one date rejected", nodate2.status_code == 400, nodate2.status_code)
+up1 = client.put("/api/admin/offers/W14FLAT", json={"flat_off": 45, "valid_to": "2031-06-30"}, headers=HDR_ADMIN)
+check("J12 edit offer updates fields", up1.status_code == 200 and up1.json()["offer"]["flat_off"] == 45
+      and up1.json()["offer"]["valid_to"] == "2031-06-30", up1.status_code)
+up2 = client.put("/api/admin/offers/W14FLAT", json={"valid_to": ""}, headers=HDR_ADMIN)
+check("J13 edit cannot blank a validity date", up2.status_code == 400, up2.status_code)
+up3 = client.put("/api/admin/offers/W14FLAT", json={"pct_off": 140, "flat_off": 0}, headers=HDR_ADMIN)
+check("J14 edit discount validation holds", up3.status_code == 400, up3.status_code)
+up4 = client.put("/api/admin/offers/W14MISSING", json={"pct_off": 5}, headers=HDR_ADMIN)
+check("J15 edit unknown code 404", up4.status_code == 404, up4.status_code)
+hist = client.get("/api/admin/offers", headers=HDR_ADMIN).json()
+w14flat = next((o for o in hist["offers"] if o["code"] == "W14FLAT"), {})
+check("J16 edit preserves usage history", "used" in w14flat and "used_by" in w14flat, list(w14flat.keys()))
 
 # ═══════════════════════════════════════════════════════════════════════════
 section("K. ADS UPDATE (dates/districts)")

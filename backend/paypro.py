@@ -278,6 +278,69 @@ def create_offer(code: str, title: str, pct_off: int = 0, flat_off: int = 0,
     return {"success": True, "offer": o, "message_telugu": f"✅ Offer {code} ready"}
 
 
+def update_offer(code: str, changes: Dict) -> Dict:
+    """ADMIN: edit an existing offer in place. Usage history (used/used_by)
+    is preserved; the same money-logic validation as create_offer applies to
+    every field being changed. Dates stay mandatory after an edit."""
+    o = get_offer(code)
+    if not o:
+        return {"success": False, "message_telugu": "⚠️ Offer code దొరకలేదు"}
+    d = changes or {}
+    merged = dict(o)
+    if "title" in d:
+        merged["title"] = str(d.get("title") or "").strip()[:160] or o["code"]
+    if "festival" in d:
+        merged["festival"] = str(d.get("festival") or "").strip()[:80]
+    if "applies_to" in d:
+        applies = d.get("applies_to")
+        if isinstance(applies, str):
+            applies = [a.strip() for a in applies.split(",") if a.strip()]
+        normalized = sorted({str(a).strip().lower() for a in (applies or []) if str(a).strip()})
+        allowed = {"credits", "assisted", "ads", "boost"}
+        if not normalized or any(a not in allowed for a in normalized):
+            return {"success": False, "message_telugu": "⚠️ applies_to లో credits/assisted/ads/boost మాత్రమే"}
+        merged["applies_to"] = normalized
+    for key in ("pct_off", "flat_off", "max_uses", "min_amount"):
+        if key in d:
+            try:
+                merged[key] = int(d.get(key) or 0)
+            except (TypeError, ValueError):
+                return {"success": False, "message_telugu": "⚠️ Discount, minimum, max uses numbers గా ఇవ్వండి"}
+    for key in ("valid_from", "valid_to"):
+        if key in d:
+            value = str(d.get(key) or "")[:10]
+            if not value:
+                return {"success": False, "message_telugu": f"⚠️ {key} ఖాళీగా ఉండకూడదు - ప్రతి offer కు validity dates తప్పనిసరి"}
+            try:
+                datetime.strptime(value, "%Y-%m-%d")
+            except (TypeError, ValueError):
+                return {"success": False, "message_telugu": f"⚠️ {key} YYYY-MM-DD format లో ఉండాలి"}
+            merged[key] = value
+    if "active" in d:
+        merged["active"] = bool(d.get("active"))
+    if not merged.get("valid_from") or not merged.get("valid_to"):
+        return {"success": False, "message_telugu": "⚠️ ప్రతి offer కు valid_from మరియు valid_to తప్పనిసరి"}
+    if merged["valid_from"] > merged["valid_to"]:
+        return {"success": False, "message_telugu": "⚠️ Offer end date start date తర్వాత ఉండాలి"}
+    if not (0 <= int(merged.get("pct_off", 0)) <= 100):
+        return {"success": False, "message_telugu": "⚠️ Percentage discount 0–100 మధ్య ఉండాలి"}
+    if int(merged.get("flat_off", 0)) < 0 or int(merged.get("min_amount", 0)) < 0:
+        return {"success": False, "message_telugu": "⚠️ Flat discount/minimum negative గా ఉండకూడదు"}
+    if not int(merged.get("pct_off", 0)) and not int(merged.get("flat_off", 0)):
+        return {"success": False, "message_telugu": "⚠️ % leda flat discount ఇవ్వండి"}
+    if not (1 <= int(merged.get("max_uses", 0)) <= 1_000_000):
+        return {"success": False, "message_telugu": "⚠️ Max uses 1–1,000,000 మధ్య ఉండాలి"}
+    previous = dict(o)
+    o.clear()
+    o.update(merged)
+    if not _persist():
+        o.clear()
+        o.update(previous)
+        return {"success": False, "reason": "persistence_failed",
+                "message_telugu": "⚠️ Offer could not be saved safely. Please try again."}
+    return {"success": True, "offer": o, "message_telugu": f"✅ Offer {o['code']} update అయ్యింది"}
+
+
 def get_offer(code: str) -> Optional[Dict]:
     return next((o for o in OFFERS if o.get("code") == str(code or "").strip().upper()), None)
 
