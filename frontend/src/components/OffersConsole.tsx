@@ -18,7 +18,9 @@ export default function OffersConsole() {
     : apiDisplayMessage({ message_en: value }, false, fallback);
   const [items, setItems] = useState<Row[]>([]);
   const [flash, setFlash] = useState("");
-  const [f, setF] = useState<Row>({ code: "", title: "", pct_off: "10", flat_off: "", applies_to: "credits,assisted", valid_from: "", valid_to: "", max_uses: "100", min_amount: "", festival: "" });
+  const [editing, setEditing] = useState<string | null>(null);
+  const emptyForm: Row = { code: "", title: "", pct_off: "10", flat_off: "", applies_to: "credits,assisted", valid_from: "", valid_to: "", max_uses: "100", min_amount: "", festival: "" };
+  const [f, setF] = useState<Row>(emptyForm);
 
   const load = useCallback(async () => {
     try {
@@ -44,6 +46,25 @@ export default function OffersConsole() {
     const d = await readApiJson(r);
     setFlash(apiDisplayMessage(d, te, te ? "చర్య పూర్తయింది." : "Action completed."));
     if (r.ok) { setF({ ...f, code: "", title: "" }); void load(); }
+  };
+  const startEdit = (o: Row) => {
+    setEditing(o.code);
+    setF({
+      code: o.code, title: o.title || "", pct_off: String(o.pct_off ?? 0), flat_off: String(o.flat_off ?? ""),
+      applies_to: (o.applies_to || []).join(","), valid_from: o.valid_from || "", valid_to: o.valid_to || "",
+      max_uses: String(o.max_uses ?? 100), min_amount: String(o.min_amount ?? ""), festival: o.festival || "",
+    });
+  };
+  const cancelEdit = () => { setEditing(null); setF(emptyForm); };
+  const saveEdit = async () => {
+    const r = await fetch(`/api/admin/offers/${encodeURIComponent(editing || "")}`, { method: "PUT", headers: H(), body: JSON.stringify({
+      title: f.title || editing, pct_off: Number(f.pct_off || 0), flat_off: Number(f.flat_off || 0),
+      applies_to: f.applies_to, valid_from: f.valid_from, valid_to: f.valid_to,
+      max_uses: Number(f.max_uses || 100), min_amount: Number(f.min_amount || 0), festival: f.festival,
+    }) });
+    const d = await readApiJson(r);
+    setFlash(apiDisplayMessage(d, te, te ? "చర్య పూర్తయింది." : "Action completed."));
+    if (r.ok) { cancelEdit(); void load(); }
   };
   const del = async (code: string) => {
     if (!confirm(te ? `${code} — promo code ని permanent గా తీసెయ్యాలా?` : `${code} — permanently delete this promo code?`)) return;
@@ -74,9 +95,12 @@ export default function OffersConsole() {
       </div>
       {flash && <div className="mb-2 rounded-xl bg-[#0F1F3C] text-white text-xs p-2">{flash}</div>}
       <div className="rounded-xl border p-3 text-xs space-y-2 bg-rose-50/40">
-        <div className="font-bold text-[#7A0C2E]">➕ {te ? "కొత్త ఆఫర్" : "Create an offer"}</div>
+        <div className="font-bold text-[#7A0C2E] flex items-center justify-between">
+          <span>{editing ? `✏️ ${te ? "ఆఫర్ సవరించండి" : "Edit offer"}: ${editing}` : `➕ ${te ? "కొత్త ఆఫర్" : "Create an offer"}`}</span>
+          {editing && <button type="button" onClick={cancelEdit} className="text-[11px] underline">{te ? "రద్దు" : "Cancel"}</button>}
+        </div>
         <div className="grid md:grid-cols-4 gap-2">
-          <input value={f.code} onChange={(e) => setF({ ...f, code: e.target.value.toUpperCase() })} placeholder="Enter offer code" className="rounded-lg border px-2 py-1.5 font-mono" aria-label="Code" />
+          <input value={f.code} disabled={!!editing} onChange={(e) => setF({ ...f, code: e.target.value.toUpperCase() })} placeholder="Enter offer code" className="rounded-lg border px-2 py-1.5 font-mono disabled:opacity-50" aria-label="Code" />
           <input value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} placeholder="Title (🪔 Diwali Dhamaka)" className="rounded-lg border px-2 py-1.5" aria-label="Title" />
           <input value={f.pct_off} onChange={(e) => setF({ ...f, pct_off: e.target.value })} placeholder="% off" inputMode="numeric" className="rounded-lg border px-2 py-1.5" aria-label="Percent off" />
           <input value={f.flat_off} onChange={(e) => setF({ ...f, flat_off: e.target.value })} placeholder="₹ flat off" inputMode="numeric" className="rounded-lg border px-2 py-1.5" aria-label="Flat off" />
@@ -85,7 +109,9 @@ export default function OffersConsole() {
           <input value={f.valid_to} onChange={(e) => setF({ ...f, valid_to: e.target.value })} placeholder="to YYYY-MM-DD" className="rounded-lg border px-2 py-1.5" aria-label="Valid to" />
           <input value={f.max_uses} onChange={(e) => setF({ ...f, max_uses: e.target.value })} placeholder="max uses" inputMode="numeric" className="rounded-lg border px-2 py-1.5" aria-label="Max uses" />
         </div>
-        <button type="button" onClick={() => void create()} className="rounded-lg bg-green-700 text-white px-4 py-1.5 text-xs font-bold">✅ Create offer</button>
+        {editing
+          ? <button type="button" onClick={() => void saveEdit()} className="rounded-lg bg-[#0F1F3C] text-white px-4 py-1.5 text-xs font-bold">💾 {te ? "మార్పులు సేవ్ చేయండి" : "Save changes"}</button>
+          : <button type="button" onClick={() => void create()} className="rounded-lg bg-green-700 text-white px-4 py-1.5 text-xs font-bold">✅ Create offer</button>}
       </div>
       <div className="mt-2 space-y-2">
         {items.map((o) => (
@@ -96,6 +122,7 @@ export default function OffersConsole() {
             <span className="text-green-700 font-bold">{o.pct_off ? `${o.pct_off}%` : `₹${o.flat_off}`} OFF</span>
             <span className="text-gray-500">{(o.applies_to || []).join(",")} {o.valid_to ? `• till ${o.valid_to}` : ""} • used {o.used || 0}/{o.max_uses || 0}</span>
             <span className="ml-auto flex gap-1">
+              <button type="button" aria-label={te ? "ఆఫర్‌ను సవరించండి" : "Edit offer"} onClick={() => startEdit(o)} className="rounded-lg border border-slate-300 px-2 py-1 text-[11px] font-bold text-slate-700">✏️</button>
               <button type="button" onClick={() => void toggle(o.code)} className="rounded-lg bg-gray-800 text-white px-3 py-1 text-[11px] font-bold">ON/OFF</button>
               <button type="button" aria-label={te ? "ఆఫర్‌ను తొలగించండి" : "Delete offer"} onClick={() => void del(o.code)} className="rounded-lg border border-rose-300 px-2 py-1 text-[11px] font-bold text-rose-700">🗑️</button>
             </span>

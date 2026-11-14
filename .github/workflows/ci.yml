@@ -41,6 +41,18 @@ jobs:
             passed=$((passed + 1))
           done
           echo "${passed} backend test scripts passed"
+      - name: Run pytest suites in isolated processes
+        working-directory: backend
+        shell: bash
+        run: |
+          set -euo pipefail
+          passed=0
+          for test_file in tests/test_*.py; do
+            echo "=== ${test_file} ==="
+            python -m pytest "${test_file}" -q
+            passed=$((passed + 1))
+          done
+          echo "${passed} pytest suites passed"
       - name: Verify tests did not mutate tracked runtime fixtures
         run: git diff --exit-code -- backend/weekly_showcase.json
 

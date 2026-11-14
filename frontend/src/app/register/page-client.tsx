@@ -1572,32 +1572,10 @@ function Wizard() {
 
   return (
     <div className="min-h-dvh pb-28 sm:pb-36 bg-[#FAF7F2]" ref={topRef}>
-      {/* ---------- Top Header Bar ---------- */}
+      {/* ---------- Top Header Bar ----------
+          Brand/home context comes from the shared RouteFrame strip above;
+          this sticky bar keeps only the functional controls (mode + steps). */}
       <div className="sticky top-16 z-30 bg-white/95 backdrop-blur-md border-b border-gold/25 shadow-xs">
-        <div className="max-w-6xl mx-auto px-4 py-2.5 sm:py-3 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2 sm:gap-3">
-            <Link href="/" className="text-xs sm:text-sm font-bold text-maroon hover:underline">
-              ← {T("హోమ్", "Home")}
-            </Link>
-            <span className="text-slate-300">|</span>
-            <span className="text-xs sm:text-sm font-black text-navy">{SITE_CONFIG.brandName}</span>
-          </div>
-
-          {SITE_CONFIG.supportLink ? (
-            <a
-              href={SITE_CONFIG.supportLink}
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label={T("WhatsApp support తెరవండి", "Open WhatsApp support")}
-              title={T("బాహ్య WhatsApp సేవ లభ్యతను ఈ సైట్ తనిఖీ చేయదు", "External WhatsApp availability is not checked by this site")}
-              className="px-2.5 py-2 rounded-full bg-gradient-to-r from-emerald-600 to-green-500 border border-emerald-300 text-white text-[11px] font-bold flex items-center gap-1 hover:brightness-105 transition"
-            >
-              <span>💬</span>
-              <span>{T("WhatsApp సహాయం", "WhatsApp support")}</span>
-            </a>
-          ) : null}
-        </div>
-
         {/* Mode Selector Tabs (Quick vs Detailed) */}
         <div className="max-w-6xl mx-auto px-4 pb-2 pt-1">
           <div className="grid grid-cols-2 gap-2 bg-slate-100 p-1 rounded-2xl border border-slate-200">
@@ -1675,7 +1653,17 @@ function Wizard() {
 
       {/* ---------- Main Layout ---------- */}
       <div className="max-w-6xl mx-auto px-4 py-4 sm:py-6 space-y-4">
-        
+
+        {/* Page heading (the single h1 of the form view) */}
+        <header className="space-y-1">
+          <h1 className="text-xl sm:text-2xl font-black text-navy">
+            {T("మీ ఉచిత ప్రొఫైల్ సృష్టించండి", "Create your free profile")}
+          </h1>
+          <p className="text-xs sm:text-sm text-slate-600">
+            {T("మీ వివరాలు మీ నియంత్రణలోనే ఉంటాయి; review చేసే వరకు ఏదీ publish కాదు. మొదటి 3 interest requests ఉచితం.", "Your details stay in your hands; nothing is published until you review it. The first 3 interest requests are free.")}
+          </p>
+        </header>
+
         {/* Referral Welcome Banner */}
         {refLocked && (
           <div className="bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-400 text-[#5C0822] rounded-2xl p-3.5 sm:p-4 shadow-md border-2 border-white flex flex-col sm:flex-row sm:items-center justify-between gap-3">
