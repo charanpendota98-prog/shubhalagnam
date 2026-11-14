@@ -254,9 +254,9 @@ export default function VerifyPage() {
               <div className="space-y-1.5 pt-1">
                 {submissions.map((s: any) => (
                   <div key={s.id} className="rounded-xl bg-cream px-3 py-2 text-[11px] flex flex-wrap items-center justify-between gap-2">
-                    <span className="font-bold text-maroon uppercase">{s.badge_type}</span>
-                    <span className="text-gray-600">{s.document_type || "—"}</span>
-                    <span className="rounded-full bg-white border border-gold/40 px-2 py-0.5 font-bold">{s.status}</span>
+                    <span className="font-bold text-maroon uppercase shrink-0">{s.badge_type}</span>
+                    <span className="text-gray-600 min-w-0 flex-1 truncate">{s.document_type || "—"}</span>
+                    <span className="rounded-full bg-white border border-gold/40 px-2 py-0.5 font-bold shrink-0">{s.status}</span>
                   </div>
                 ))}
               </div>
