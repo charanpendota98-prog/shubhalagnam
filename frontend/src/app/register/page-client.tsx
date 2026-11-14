@@ -2011,7 +2011,7 @@ function Wizard() {
               {/* ₹99 Sambandham Nudge */}
               <div className="text-xs text-slate-600 bg-amber-50/50 border border-gold/20 rounded-xl p-2.5 flex items-center justify-between">
                 <span>{T(<>🌟 <b>₹99 Sambandham</b> ప్లాన్ కోసం ఆఫర్లు అందుబాటులో ఉన్నాయి</>, <>🌟 Offers are available for the <b>₹99 Sambandham</b> plan</>)}</span>
-                <Link href="/pricing" className="text-maroon font-bold underline text-xs">
+                <Link href="/pricing" className="text-maroon font-bold underline text-xs shrink-0">
                   {T("ప్లాన్లు →", "Plans →")}
                 </Link>
               </div>
@@ -2038,7 +2038,7 @@ function Wizard() {
                         .catch(() => {});
                     }
                   }}
-                  placeholder={T("Referral code ఇవ్వండి (ఐచ్ఛికం)", "Enter a referral code (optional)")}
+                  placeholder={T("Referral code (ఐచ్ఛికం)", "Referral code (optional)")}
                   disabled={!!refLocked}
                   className="w-full sm:w-48 px-3 py-1.5 bg-white border border-gold/40 rounded-xl uppercase font-mono font-bold text-xs"
                 />
@@ -2046,9 +2046,8 @@ function Wizard() {
 
             {/* Free vs Paid Clarity Box */}
             <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 text-xs text-slate-700 space-y-1.5 clarity">
-              <div className="font-black text-navy flex items-center justify-between">
+              <div className="font-black text-navy">
                 <span>{T("🔒 ఉచిత నమోదు & గోప్యత", "🔒 Free registration and privacy")}</span>
-                <span className="text-[10px] text-slate-500 font-mono">/api/free-plan</span>
               </div>
               <div className="text-slate-600 space-y-1">
                 <div><b>{T("FREE లో ఇచ్చేది:", "Included with FREE:")}</b> {T("ఉచిత రిజిస్ట్రేషన్, సభ్యులు అందించిన ప్రొఫైల్‌ల శోధన, 3 ఉచిత interest requests.", "Free registration, search across member-submitted profiles, and 3 free interest requests.")}</div>

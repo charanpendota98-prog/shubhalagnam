@@ -15,9 +15,9 @@ export default function BlogIndex() {
         <p className={`text-xs font-bold uppercase tracking-[.2em] text-gold ${te ? "telugu" : ""}`}>
           {te ? "మన వివాహ మార్గదర్శి" : "Mana Vivaha Guides"}
         </p>
-        <h1 className={`mt-2 max-w-3xl text-3xl font-extrabold leading-tight sm:text-5xl ${te ? "telugu" : ""}`}>
+        <h2 className={`mt-2 max-w-3xl text-3xl font-extrabold leading-tight sm:text-5xl ${te ? "telugu" : ""}`}>
           {te ? "తెలుగు వివాహ సలహాలు" : "Matrimony & Marriage Guides"}
-        </h1>
+        </h2>
         <p className={`mt-3 max-w-2xl text-sm leading-7 text-white/80 ${te ? "telugu" : ""}`}>
           {te
             ? "సరైన profile నుంచి safe meeting వరకు — కుటుంబాలకు సులభంగా అర్థమయ్యే, ఉపయోగకరమైన guides."

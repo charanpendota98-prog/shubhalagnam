@@ -63,7 +63,6 @@ export const SITE_CONFIG = {
     email: SUPPORT_EMAIL,
     location: BUSINESS_LOCATION,
     id: "TeNDDG5ywwZIg3",
-    ipAddress: "10.26.123.93",
     dateOfAcceptance: "2026-09-20 23:08:03 IST",
   },
 

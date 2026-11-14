@@ -88,6 +88,10 @@ export default function RouteFrame({ children }: { children: ReactNode }) {
   const te = lang === "te";
   const key = routeKey(pathname);
   const meta = { ...DEFAULT_META, ...(ROUTES[key] || {}) } as RouteMeta;
+  // Blog articles carry their own h1 (the article title); the generic blog intro
+  // band would add a second h1, so fall back to the slim context bar there.
+  const isBlogArticle = key === "/blog" && pathname.split("/").filter(Boolean).length > 1;
+  if (isBlogArticle) meta.intro = "none";
   const isHome = key === "/";
   const isPrivate = ["/admin", "/control", "/owner", "/growth"].includes(key);
 

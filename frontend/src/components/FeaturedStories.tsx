@@ -32,7 +32,12 @@ export default function FeaturedStories({ limit = 6 }: { limit?: number }) {
       .then((data) => {
         if (!active) return;
         if (data?.success) {
-          setItems(Array.isArray(data.stories) ? data.stories : []);
+          setItems(
+            (Array.isArray(data.stories) ? data.stories : []).filter((story: Story) =>
+              // Never render empty placeholder rows (no text and no couple names).
+              Boolean((story.story_en || "").trim() || (story.story_te || "").trim() || (story.groom || "").trim() || (story.bride || "").trim())
+            )
+          );
           if (Array.isArray(data.tags)) setTags(data.tags);
         }
       })

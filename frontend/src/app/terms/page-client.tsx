@@ -261,10 +261,6 @@ export default function TermsPage() {
             <div className="mt-0.5 font-mono font-semibold text-gray-800">{SITE_CONFIG.owner.dateOfAcceptance}</div>
           </div>
 
-          <div className="rounded-2xl bg-white/90 border border-emerald-100 p-3 shadow-2xs">
-            <div className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Registered IP Address</div>
-            <div className="mt-0.5 font-mono font-semibold text-gray-800">{SITE_CONFIG.owner.ipAddress}</div>
-          </div>
         </div>
 
         <div className="mt-3 text-[11px] text-gray-600 bg-emerald-50/50 rounded-xl p-2.5 border border-emerald-100">
