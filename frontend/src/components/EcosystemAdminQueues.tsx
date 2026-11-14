@@ -12,24 +12,48 @@ export default function EcosystemAdminQueues() {
   const [tickets, setTickets] = useState<any[]>([]);
   const [appointments, setAppointments] = useState<any[]>([]);
   const [parity, setParity] = useState<any>(null);
+  const [quarantine, setQuarantine] = useState<any[]>([]);
+  const [refunds, setRefunds] = useState<any[]>([]);
+  const [holds, setHolds] = useState<any[]>([]);
+  const [flags, setFlags] = useState<Record<string, any>>({});
+  const [drDrill, setDrDrill] = useState<any>(null);
+  const [holdTargetId, setHoldTargetId] = useState("");
+  const [holdReason, setHoldReason] = useState("");
+  const [aiInput, setAiInput] = useState("");
+  const [aiResult, setAiResult] = useState<any>(null);
+  const [evTitle, setEvTitle] = useState("");
+  const [evCity, setEvCity] = useState("Hyderabad");
+  const [evDate, setEvDate] = useState("2027-01-24");
+  const [evOrg, setEvOrg] = useState("");
+  const [orgSlug, setOrgSlug] = useState("");
+  const [orgName, setOrgName] = useState("");
+  const [orgCaste, setOrgCaste] = useState("");
   const [replyText, setReplyText] = useState<Record<string, string>>({});
   const [flash, setFlash] = useState("");
 
   const loadAll = useCallback(async () => {
     const h = authHeaders(true);
     try {
-      const [vr, ar, tr, apr, pr] = await Promise.all([
+      const [vr, ar, tr, apr, pr, qr, rfr, hlr, flr] = await Promise.all([
         fetch("/api/admin/verification/queue?status=pending_review", { headers: h, credentials: "same-origin" }),
         fetch("/api/admin/appeals?status=pending", { headers: h, credentials: "same-origin" }),
         fetch("/api/admin/support/tickets?status=open", { headers: h, credentials: "same-origin" }),
         fetch("/api/admin/appointments?status=requested", { headers: h, credentials: "same-origin" }),
         fetch("/api/admin/identity/reconcile", { headers: h, credentials: "same-origin" }),
+        fetch("/api/admin/media/quarantine?status=quarantined", { headers: h, credentials: "same-origin" }),
+        fetch("/api/admin/refunds?status=open", { headers: h, credentials: "same-origin" }),
+        fetch("/api/admin/legal-holds?status=active", { headers: h, credentials: "same-origin" }),
+        fetch("/api/admin/flags", { headers: h, credentials: "same-origin" }),
       ]);
       if (vr.ok) setVerifs((await readApiJson(vr)).items || []);
       if (ar.ok) setAppeals((await readApiJson(ar)).appeals || []);
       if (tr.ok) setTickets((await readApiJson(tr)).tickets || []);
       if (apr.ok) setAppointments((await readApiJson(apr)).appointments || []);
       if (pr.ok) setParity(await readApiJson(pr));
+      if (qr.ok) setQuarantine((await readApiJson(qr)).items || []);
+      if (rfr.ok) setRefunds((await readApiJson(rfr)).refunds || []);
+      if (hlr.ok) setHolds((await readApiJson(hlr)).holds || []);
+      if (flr.ok) setFlags((await readApiJson(flr)).flags || {});
     } catch {
       /* ignore */
     }
@@ -264,6 +288,325 @@ export default function EcosystemAdminQueues() {
             ))}
           </div>
         )}
+      </div>
+
+      {/* Phases 3–12 Enterprise Governance Console */}
+      <div className="rounded-2xl border border-slate-200 bg-white p-4 space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h3 className="text-sm font-black text-[#7A0C2E]">
+              {te ? "Phases 3–12 ఎంటర్‌ప్రైజ్ గవర్నెన్స్ & DR కన్సోల్" : "Phases 3–12 Enterprise Governance, Legal Holds & DR Console"}
+            </h3>
+            <p className="text-xs text-slate-600">
+              Media Quarantine: <b>{quarantine.length}</b> • Open Refunds: <b>{refunds.length}</b> • Active Legal Holds: <b>{holds.length}</b>
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={async () => {
+              const r = await fetch("/api/admin/dr/drill", {
+                method: "POST",
+                headers: authHeaders(true),
+                credentials: "same-origin",
+              });
+              const d = await readApiJson(r);
+              if (r.ok && d.drill) {
+                setDrDrill(d.drill);
+                setFlash(`✅ Non-destructive DR Drill passed (${d.drill.drill_id})`);
+              }
+            }}
+            className="rounded-xl bg-emerald-700 px-3.5 py-1.5 text-xs font-bold text-white"
+          >
+            Run Non-Destructive DR Drill
+          </button>
+        </div>
+
+        {drDrill && (
+          <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-3 text-xs">
+            <b>{drDrill.drill_id}</b> • SHA-256: <code>{drDrill.snapshot_sha256?.slice(0, 24)}…</code> • SQL Parity:{" "}
+            <b>{drDrill.sql_parity_ok ? "Verified" : "Mismatch"}</b> ({drDrill.duration_ms} ms)
+          </div>
+        )}
+
+        {/* Phase 5 Refunds Queue */}
+        {refunds.length > 0 && (
+          <div className="space-y-2">
+            <div className="text-xs font-bold text-slate-700">Open Billing / Refund Cases</div>
+            {refunds.map((rf) => (
+              <div key={rf.refund_id} className="rounded-xl border border-slate-200 p-2.5 text-xs flex flex-wrap items-center justify-between gap-2">
+                <span>
+                  <b>{rf.refund_id}</b> • {rf.tsap_id} • ₹{rf.amount_inr} — {rf.reason}
+                </span>
+                <div className="flex gap-1.5">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const r = await fetch(`/api/admin/refunds/${rf.refund_id}/resolve`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json", ...authHeaders(true) },
+                        credentials: "same-origin",
+                        body: JSON.stringify({ status: "approved", staff_note: "Verified ledger entry; approved." }),
+                      });
+                      if (r.ok) {
+                        setFlash(`✅ Refund ${rf.refund_id} approved`);
+                        await loadAll();
+                      }
+                    }}
+                    className="rounded-lg bg-emerald-700 px-2.5 py-1 font-bold text-white"
+                  >
+                    Approve
+                  </button>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const r = await fetch(`/api/admin/refunds/${rf.refund_id}/resolve`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json", ...authHeaders(true) },
+                        credentials: "same-origin",
+                        body: JSON.stringify({ status: "rejected", staff_note: "No matching duplicate charge." }),
+                      });
+                      if (r.ok) {
+                        setFlash(`Refund ${rf.refund_id} closed`);
+                        await loadAll();
+                      }
+                    }}
+                    className="rounded-lg bg-rose-700 px-2.5 py-1 font-bold text-white"
+                  >
+                    Reject
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Phase 7 Legal Holds */}
+        <div className="rounded-xl border border-slate-200 p-3 space-y-2">
+          <div className="text-xs font-bold text-slate-800">Phase 7 — Dispute Legal Holds (Blocks Destructive Purge)</div>
+          <div className="flex flex-col sm:flex-row gap-2">
+            <input
+              value={holdTargetId}
+              onChange={(e) => setHoldTargetId(e.target.value.toUpperCase())}
+              placeholder="TSAP ID"
+              aria-label="Legal hold TSAP ID"
+              className="rounded-lg border px-2.5 py-1.5 text-xs font-mono"
+            />
+            <input
+              value={holdReason}
+              onChange={(e) => setHoldReason(e.target.value)}
+              placeholder="Dispute / investigation reason (min 8 chars)"
+              aria-label="Legal hold reason"
+              className="rounded-lg border px-2.5 py-1.5 text-xs flex-1"
+            />
+            <button
+              type="button"
+              onClick={async () => {
+                const r = await fetch("/api/admin/legal-holds", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json", ...authHeaders(true) },
+                  credentials: "same-origin",
+                  body: JSON.stringify({ tsap_id: holdTargetId, reason: holdReason }),
+                });
+                if (r.ok) {
+                  setHoldTargetId("");
+                  setHoldReason("");
+                  setFlash("✅ Legal hold placed");
+                  await loadAll();
+                }
+              }}
+              className="rounded-lg bg-[#7A0C2E] px-3 py-1.5 text-xs font-bold text-white"
+            >
+              Place Hold
+            </button>
+          </div>
+          {holds.map((h) => (
+            <div key={h.hold_id} className="flex items-center justify-between rounded-lg bg-amber-50 px-3 py-1.5 text-xs">
+              <span><b>{h.hold_id}</b> • {h.tsap_id} — {h.reason}</span>
+              <button
+                type="button"
+                onClick={async () => {
+                  const r = await fetch(`/api/admin/legal-holds/${h.hold_id}/release`, {
+                    method: "POST",
+                    headers: authHeaders(true),
+                    credentials: "same-origin",
+                  });
+                  if (r.ok) await loadAll();
+                }}
+                className="font-bold text-[#7A0C2E] underline"
+              >
+                Release
+              </button>
+            </div>
+          ))}
+        </div>
+
+        {/* Phase 8 Feature Flags */}
+        <div className="rounded-xl border border-slate-200 p-3 space-y-2">
+          <div className="text-xs font-bold text-slate-800">Phase 8 — Governed Feature Flags (Default-Closed)</div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {Object.entries(flags).map(([k, v]: [string, any]) => (
+              <div key={k} className="flex items-center justify-between rounded-lg border px-3 py-1.5 text-xs">
+                <span className="font-mono">{k}</span>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const r = await fetch("/api/admin/flags", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json", ...authHeaders(true) },
+                      credentials: "same-origin",
+                      body: JSON.stringify({ flag: k, enabled: !v?.enabled, owner: v?.owner || "platform-ops" }),
+                    });
+                    if (r.ok) await loadAll();
+                  }}
+                  className={`rounded-full px-2.5 py-0.5 font-bold ${
+                    v?.enabled ? "bg-emerald-100 text-emerald-900" : "bg-slate-200 text-slate-700"
+                  }`}
+                >
+                  {v?.enabled ? "ON" : "OFF"}
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Phase 9 Advisory-Only AI Assist + Kill Switch */}
+        <div className="rounded-xl border border-slate-200 p-3 space-y-2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="text-xs font-bold text-slate-800">
+              Phase 9 — PII-Redacted AI Assist Triage (Human Authority Only)
+            </span>
+            <div className="flex gap-1.5">
+              <button
+                type="button"
+                onClick={async () => {
+                  await fetch("/api/admin/ai-assist/kill-switch", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json", ...authHeaders(true) },
+                    credentials: "same-origin",
+                    body: JSON.stringify({ enabled: true, reason: "Operator enabled advisory triage" }),
+                  });
+                  setFlash("✅ AI Assist advisory mode enabled");
+                }}
+                className="rounded-lg bg-emerald-700 px-2.5 py-1 text-[11px] font-bold text-white"
+              >
+                Enable Assist
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  await fetch("/api/admin/ai-assist/kill-switch", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json", ...authHeaders(true) },
+                    credentials: "same-origin",
+                    body: JSON.stringify({ enabled: false, reason: "Instant operator kill-switch" }),
+                  });
+                  setAiResult(null);
+                  setFlash("🛑 AI Assist global kill-switch engaged");
+                }}
+                className="rounded-lg bg-rose-700 px-2.5 py-1 text-[11px] font-bold text-white"
+              >
+                Kill Switch OFF
+              </button>
+            </div>
+          </div>
+          <div className="flex flex-col sm:flex-row gap-2">
+            <input
+              value={aiInput}
+              onChange={(e) => setAiInput(e.target.value)}
+              placeholder="Paste moderation or support note (phones/emails auto-redacted)…"
+              aria-label="AI triage input text"
+              className="rounded-lg border px-2.5 py-1.5 text-xs flex-1"
+            />
+            <button
+              type="button"
+              onClick={async () => {
+                const r = await fetch("/api/admin/ai-assist/triage", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json", ...authHeaders(true) },
+                  credentials: "same-origin",
+                  body: JSON.stringify({ kind: "moderation", text: aiInput, distinct_reporters: 1 }),
+                });
+                const d = await readApiJson(r);
+                if (r.ok) setAiResult(d.triage);
+                else setFlash(d?.detail || "AI Assist is disabled by kill-switch.");
+              }}
+              className="rounded-lg bg-[#7A0C2E] px-3 py-1.5 text-xs font-bold text-white"
+            >
+              Run Redacted Triage
+            </button>
+          </div>
+          {aiResult && (
+            <div className="rounded-lg bg-slate-50 p-2.5 text-xs space-y-1">
+              <div>
+                <b>Priority:</b> {aiResult.priority} • <b>Authority:</b> {aiResult.authority} •{" "}
+                <b>SOP:</b> {aiResult.recommended_human_sop}
+              </div>
+              <div className="text-slate-600">
+                <b>Redacted Preview:</b> {aiResult.redacted_summary}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Phase 3 Verified Community Event & Org Portal Publisher */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="rounded-xl border border-slate-200 p-3 space-y-2">
+            <div className="text-xs font-bold text-slate-800">Publish Verified Parichaya Vedika Event</div>
+            <input value={evTitle} onChange={(e) => setEvTitle(e.target.value)} placeholder="Event title" aria-label="Event title" className="w-full rounded-lg border px-2.5 py-1.5 text-xs" />
+            <div className="grid grid-cols-2 gap-2">
+              <input value={evCity} onChange={(e) => setEvCity(e.target.value)} placeholder="City" aria-label="Event city" className="rounded-lg border px-2.5 py-1.5 text-xs" />
+              <input type="date" value={evDate} onChange={(e) => setEvDate(e.target.value)} aria-label="Event date" className="rounded-lg border px-2.5 py-1.5 text-xs" />
+            </div>
+            <input value={evOrg} onChange={(e) => setEvOrg(e.target.value)} placeholder="Verified organizer" aria-label="Event organizer" className="w-full rounded-lg border px-2.5 py-1.5 text-xs" />
+            <button
+              type="button"
+              onClick={async () => {
+                const r = await fetch("/api/admin/events", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json", ...authHeaders(true) },
+                  credentials: "same-origin",
+                  body: JSON.stringify({ title_en: evTitle, city: evCity, event_date: evDate, organizer: evOrg }),
+                });
+                if (r.ok) {
+                  setEvTitle("");
+                  setEvOrg("");
+                  setFlash("✅ Verified community event published");
+                }
+              }}
+              className="rounded-lg bg-[#7A0C2E] px-3 py-1.5 text-xs font-bold text-white"
+            >
+              Publish Event
+            </button>
+          </div>
+
+          <div className="rounded-xl border border-slate-200 p-3 space-y-2">
+            <div className="text-xs font-bold text-slate-800">Create White-Label Organization Portal</div>
+            <div className="grid grid-cols-2 gap-2">
+              <input value={orgSlug} onChange={(e) => setOrgSlug(e.target.value.toLowerCase())} placeholder="slug (e.g. hyd-seva)" aria-label="Organization slug" className="rounded-lg border px-2.5 py-1.5 text-xs font-mono" />
+              <input value={orgCaste} onChange={(e) => setOrgCaste(e.target.value)} placeholder="Community filter" aria-label="Organization community filter" className="rounded-lg border px-2.5 py-1.5 text-xs" />
+            </div>
+            <input value={orgName} onChange={(e) => setOrgName(e.target.value)} placeholder="Verified Organization Name" aria-label="Organization name" className="w-full rounded-lg border px-2.5 py-1.5 text-xs" />
+            <button
+              type="button"
+              onClick={async () => {
+                const r = await fetch("/api/admin/orgs", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json", ...authHeaders(true) },
+                  credentials: "same-origin",
+                  body: JSON.stringify({ slug: orgSlug, org_name_en: orgName, community_filter: orgCaste }),
+                });
+                if (r.ok) {
+                  setOrgSlug("");
+                  setOrgName("");
+                  setFlash("✅ White-label organization portal published");
+                }
+              }}
+              className="rounded-lg bg-[#7A0C2E] px-3 py-1.5 text-xs font-bold text-white"
+            >
+              Publish Org Portal
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );

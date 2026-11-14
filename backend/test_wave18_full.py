@@ -176,7 +176,7 @@ check("E7 homepage keeps the selected hero and real spotlight module",
       and "CinematicGallery" not in pg_src and "WhyChooseUs" not in pg_src)
 check("E8 spotlight is live-data-only and hidden when no reviewed placement exists",
       'fetch("/api/spotlight/active?limit=6"' in spotlight_src
-      and "profiles.length === 0)) return null" in spotlight_src)
+      and "if (loading || loadError || profiles.length === 0) return null;" in spotlight_src)
 check("E9 homepage does not seed sample spotlight profiles",
       "setProfiles(items.filter" in spotlight_src and "demo" not in spotlight_src.lower())
 pv_src = src_page("frontend/src/app/search/[id]/ProfileView.tsx")

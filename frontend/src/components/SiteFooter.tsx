@@ -41,6 +41,7 @@ export default function SiteFooter() {
         { href: "/castes", teL: "సమాజాల వారీగా", enL: "Community directory" },
         { href: "/channels", teL: `${CHANNEL_STATS.total} channel directory listings`, enL: `${CHANNEL_STATS.total} channel directory listings` },
         { href: "/stories", teL: "విజయ గాథలు", enL: "Success stories" },
+        { href: "/events", teL: "పరిచయ వేదికలు & Bundles", enL: "Community Events & Bundles" },
         { href: "/safety", teL: "Trust & Safety Center", enL: "Trust & Safety Center" },
       ],
     },
@@ -52,6 +53,7 @@ export default function SiteFooter() {
         { href: "/refund", teL: "Refund & Cancellation", enL: "Refund & Cancellation" },
         { href: "/terms", teL: "సేవా నియమాలు", enL: "Terms of Use" },
         { href: "/privacy", teL: "గోప్యతా విధానం", enL: "Privacy Policy" },
+        { href: "/status", teL: "సిస్టమ్ స్థితి (Live Status)", enL: "System Status" },
       ],
     },
     {

@@ -218,10 +218,18 @@ import glob as _glob
 import re as _re
 
 _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-_bsrc = open(os.path.join(_ROOT, "backend/main.py"), encoding="utf-8").read()
-_broutes = set()
-for _m in _re.finditer(r'@app\.(?:get|post|put|delete)\("([^"]+)"', _bsrc):
-    _broutes.add(_re.sub(r"\{[^}]+\}", "*", _m.group(1)))
+# Inspect the mounted FastAPI route table so routes registered through
+# include_router() are included in frontend/backend contract checks.
+import main as _main_app
+_mounted_routes = []
+for _entry in _main_app.app.routes:
+    _router = getattr(_entry, "original_router", None)
+    _mounted_routes.extend(_router.routes if _router is not None else [_entry])
+_broutes = {
+    _re.sub(r"\{[^}]+\}", "*", getattr(_route, "path", ""))
+    for _route in _mounted_routes
+    if getattr(_route, "path", "")
+}
 check("H1 backend routes 200+", len(_broutes) >= 200, len(_broutes))
 _miss = []
 for _fp in _glob.glob(_ROOT + "/frontend/src/**/*.*", recursive=True):

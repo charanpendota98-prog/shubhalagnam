@@ -64,6 +64,7 @@ backend/astro13.json
 backend/ecosystem3_state.json*
 backend/phase2_state.json*
 backend/identity_phase2.sqlite3*
+backend/enterprise_state.json*
 
 backend/.venv/
 .venv/

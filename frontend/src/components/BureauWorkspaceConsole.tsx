@@ -30,6 +30,48 @@ export default function BureauWorkspaceConsole() {
   const [clientLabel, setClientLabel] = useState("");
   const [clientNotes, setClientNotes] = useState("");
   const [clientConsent, setClientConsent] = useState(false);
+  const [slaTier, setSlaTier] = useState("standard");
+  const [webhookUrl, setWebhookUrl] = useState("");
+  const [exportPreview, setExportPreview] = useState("");
+
+  const saveV2Settings = async () => {
+    setBusy(true);
+    setToast("");
+    try {
+      const r = await fetch(`/api/v2/bureaus/${encodeURIComponent(bureauId)}/settings`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Bureau-Key": bureauKey },
+        body: JSON.stringify({ sla_tier: slaTier, webhook_url: webhookUrl }),
+      });
+      const d = await readApiJson(r);
+      if (r.ok && d.success) {
+        setToast(te ? "✅ Bureau v2 API & Webhook సెట్టింగ్స్ సేవ్ అయ్యాయి." : "✅ Bureau v2 SLA & HTTPS CRM webhook settings saved.");
+      } else {
+        setToast(d?.detail || "Could not update v2 settings.");
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const downloadTenantExport = async () => {
+    setBusy(true);
+    setToast("");
+    try {
+      const r = await fetch(`/api/v2/bureaus/${encodeURIComponent(bureauId)}/export`, {
+        headers: { "X-Bureau-Key": bureauKey },
+      });
+      const d = await readApiJson(r);
+      if (r.ok && d?.schema) {
+        setExportPreview(JSON.stringify(d, null, 2));
+        setToast(te ? "✅ టెనెంట్ JSON ఎక్స్‌పోర్ట్ సిద్ధమైంది." : "✅ Scoped tenant portability bundle generated.");
+      } else {
+        setToast(d?.detail || "Could not export tenant bundle.");
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const createTenant = async () => {
     setBusy(true);
@@ -252,6 +294,57 @@ export default function BureauWorkspaceConsole() {
               ))}
             </div>
           )}
+
+          {/* Phase 10 — Versioned Partner API v2, SSRF-Safe CRM Webhook & Scoped Export */}
+          <div className="rounded-2xl border border-slate-200 p-3.5 space-y-2.5">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="font-bold text-[#7A0C2E]">
+                {te ? "Partner API v2 • CRM Webhook & Data Export" : "Partner API v2 • CRM Webhook & Tenant Export"}
+              </div>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => void downloadTenantExport()}
+                className="rounded-xl border border-[#7A0C2E] px-3 py-1 font-bold text-[#7A0C2E] hover:bg-amber-50"
+              >
+                {te ? "టెనెంట్ JSON ఎక్స్‌పోర్ట్" : "Export Scoped JSON"}
+              </button>
+            </div>
+            {ws.viewer_role === "owner" && (
+              <div className="flex flex-col sm:flex-row gap-2">
+                <select
+                  value={slaTier}
+                  onChange={(e) => setSlaTier(e.target.value)}
+                  aria-label="Bureau SLA tier"
+                  className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 font-bold"
+                >
+                  <option value="standard">Standard SLA Tier</option>
+                  <option value="priority_partner">Priority Partner SLA</option>
+                  <option value="dedicated_enterprise">Dedicated Enterprise SLA</option>
+                </select>
+                <input
+                  value={webhookUrl}
+                  onChange={(e) => setWebhookUrl(e.target.value)}
+                  placeholder="https://crm.partner.example/manavivaha-hook"
+                  aria-label="HTTPS partner CRM webhook URL"
+                  className="rounded-xl border border-slate-200 px-3 py-1.5 flex-1 font-mono"
+                />
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void saveV2Settings()}
+                  className="rounded-xl bg-[#7A0C2E] px-3.5 py-1.5 font-bold text-white"
+                >
+                  Save v2 Config
+                </button>
+              </div>
+            )}
+            {exportPreview && (
+              <pre className="max-h-40 overflow-auto rounded-xl bg-slate-900 text-amber-100 p-3 text-[11px]">
+                {exportPreview}
+              </pre>
+            )}
+          </div>
         </div>
       )}
     </section>
