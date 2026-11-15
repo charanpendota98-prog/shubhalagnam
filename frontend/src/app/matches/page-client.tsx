@@ -2120,7 +2120,8 @@ export default function MatchesPage() {
                 type="button"
                 onClick={() => setSheet(false)}
                 aria-label={te ? "ఫిల్టర్ ప్యానెల్ మూసివేయండి" : "Close filter panel"}
-                className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full bg-slate-100 font-bold text-slate-700"
+                style={{ minWidth: 44, minHeight: 44, flexShrink: 0 }}
+                className="inline-flex items-center justify-center rounded-full bg-slate-100 font-bold text-slate-700"
               >
                 ✕
               </button>

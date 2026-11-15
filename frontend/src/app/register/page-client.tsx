@@ -19,7 +19,7 @@ import Reveal from "@/components/Reveal";
 import { SITE_CONFIG } from "@/lib/site-config";
 import { CASTES as SEO_COMMUNITY_HUBS } from "@/lib/seo-pages";
 import { communityHubPath } from "@/lib/community-hub.mjs";
-import { getLang, useLang } from "@/lib/lang";
+import { useLang } from "@/lib/lang";
 import { apiDisplayMessage, getCsrfToken, readApiJson } from "@/lib/api";
 import { registerPasskey } from "@/lib/webauthn-client";
 
@@ -120,11 +120,12 @@ const REGISTRATION_ENGLISH_COPY: Record<string, string> = {
   "ఫోన్ నంబర్": "Phone number",
 };
 
-function registrationCopy(value: React.ReactNode, fallback = ""): React.ReactNode {
-  if (getLang() !== "en" || typeof value !== "string") return value;
+function translatedRegistrationCopy(lang: "en" | "te", value: React.ReactNode, fallback = ""): React.ReactNode {
+  if (lang !== "en" || typeof value !== "string") return value;
   const text = value.trim();
   if (!text) return text;
   if (REGISTRATION_ENGLISH_COPY[text]) return REGISTRATION_ENGLISH_COPY[text];
+  if (!/[\u0c00-\u0c7f]/.test(text)) return value;
   const parenthetical = [...text.matchAll(/\(([^()]*)\)/g)]
     .map((match) => match[1].trim())
     .reverse()
@@ -260,6 +261,8 @@ function ChipGroup({
   hint?: string;
   cols?: number;
 }) {
+  const { lang } = useLang();
+  const registrationCopy = (value: React.ReactNode, fallback = "") => translatedRegistrationCopy(lang, value, fallback);
   const [q, setQ] = useState("");
   const groupId = useId();
   const list = useMemo(() => {
@@ -279,7 +282,7 @@ function ChipGroup({
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder={registrationCopy("🔍 టైప్ చేసి వెతకండి / Type to search…") as string}
-          aria-label={getLang() === "te" ? `${String(label)} — ఎంపికలను వెతకండి` : `${String(registrationCopy(label, "Options"))} — search options`}
+          aria-label={lang === "te" ? `${String(label)} — ఎంపికలను వెతకండి` : `${String(registrationCopy(label, "Options"))} — search options`}
           className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-maroon/20 focus:border-maroon"
           inputMode="search"
         />
@@ -297,6 +300,7 @@ function ChipGroup({
 }
 
 function ConsentNotice({ checked, onChange }: { checked: boolean; onChange: (checked: boolean) => void }) {
+  const { lang } = useLang();
   return (
     <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700 space-y-1.5">
       <label htmlFor="registration-consent" className="flex items-start gap-2.5 cursor-pointer">
@@ -307,12 +311,12 @@ function ConsentNotice({ checked, onChange }: { checked: boolean; onChange: (che
           onChange={(event) => onChange(event.target.checked)}
           className="mt-0.5 h-4 w-4 shrink-0 accent-[#7A0C2E]"
         />
-        <span>{getLang() === "te"
+        <span>{lang === "te"
           ? "ఈ ప్రొఫైల్ నాది లేదా దాని వివరాలను సమర్పించడానికి నాకు అనుమతి ఉంది. సేవా నిబంధనలు మరియు గోప్యతా విధానం ప్రకారం వివరాలను ప్రాసెస్ చేయడానికి నేను అంగీకరిస్తున్నాను."
           : "I confirm that this profile is mine or that I have permission to submit it. I consent to processing under the Terms and Privacy Policy."}</span>
       </label>
       <div className="pl-6 text-[11px]">
-        {getLang() === "te" ? "చదవండి: " : "Read: "}<Link href="/terms" className="font-bold text-maroon underline">{getLang() === "te" ? "సేవా నిబంధనలు" : "Terms of Service"}</Link> · <Link href="/privacy" className="font-bold text-maroon underline">{getLang() === "te" ? "గోప్యతా విధానం" : "Privacy Policy"}</Link>
+        {lang === "te" ? "చదవండి: " : "Read: "}<Link href="/terms" className="font-bold text-maroon underline">{lang === "te" ? "సేవా నిబంధనలు" : "Terms of Service"}</Link> · <Link href="/privacy" className="font-bold text-maroon underline">{lang === "te" ? "గోప్యతా విధానం" : "Privacy Policy"}</Link>
       </div>
     </div>
   );
@@ -339,6 +343,8 @@ function SearchSelect({
   teMap?: Record<string, string>;
   disabled?: boolean;
 }) {
+  const { lang } = useLang();
+  const registrationCopy = (value: React.ReactNode, fallback = "") => translatedRegistrationCopy(lang, value, fallback);
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
   const fieldId = useId();
@@ -368,7 +374,7 @@ function SearchSelect({
     <div className="space-y-1.5 relative" ref={boxRef}>
       <label htmlFor={fieldId} id={`${fieldId}-label`} className="text-[13px] font-bold text-slate-800 flex items-center justify-between">
         <span>
-          {registrationCopy(label, "Details")} {required ? <><span aria-hidden="true" className="text-rose-600 font-black">*</span><span className="sr-only">{getLang() === "te" ? "తప్పనిసరి" : "Required"}</span></> : <span className="text-[11px] text-gray-400 font-normal">{registrationCopy("(ఐచ్ఛికం)")}</span>}
+          {registrationCopy(label, "Details")} {required ? <><span aria-hidden="true" className="text-rose-600 font-black">*</span><span className="sr-only">{lang === "te" ? "తప్పనిసరి" : "Required"}</span></> : <span className="text-[11px] text-gray-400 font-normal">{registrationCopy("(ఐచ్ఛికం)")}</span>}
         </span>
       </label>
       {hint && <div className="text-[11px] text-slate-500">{registrationCopy(hint, "")}</div>}
@@ -388,7 +394,7 @@ function SearchSelect({
         }`}
       >
         <span id={`${fieldId}-value`} className={value ? "text-slate-900 font-bold" : "text-slate-400"}>
-          {value ? (getLang() === "te" && teMap && teMap[value] ? `${teMap[value]} (${value})` : value) : registrationCopy(placeholder || "ఎంచుకోండి (Select)…", "Select…")}
+          {value ? (lang === "te" && teMap && teMap[value] ? `${teMap[value]} (${value})` : value) : registrationCopy(placeholder || "ఎంచుకోండి (Select)…", "Select…")}
         </span>
         <span className="text-slate-400 text-[10px]">▼</span>
       </button>
@@ -410,7 +416,7 @@ function SearchSelect({
             type="search"
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            aria-label={getLang() === "te" ? "అందుబాటులో ఉన్న ఎంపికలను వెతకండి" : "Search available options"}
+            aria-label={lang === "te" ? "అందుబాటులో ఉన్న ఎంపికలను వెతకండి" : "Search available options"}
             placeholder={registrationCopy("🔍 వెతకండి / Type to filter…") as string}
             className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-maroon mb-1"
           />
@@ -430,7 +436,7 @@ function SearchSelect({
                   value === o ? "bg-maroon-soft text-maroon font-bold" : "hover:bg-slate-50 text-slate-700"
                 }`}
               >
-                <span>{getLang() === "te" && teMap && teMap[o] ? `${teMap[o]} (${o})` : o}</span>
+                <span>{lang === "te" && teMap && teMap[o] ? `${teMap[o]} (${o})` : o}</span>
                 {value === o && <span className="text-maroon">✓</span>}
               </button>
             ))
@@ -455,6 +461,7 @@ function PillGroup({
   required?: boolean;
 }) {
   const groupId = useId();
+  const { lang } = useLang();
   return (
     <fieldset aria-required={required} className="min-w-0 space-y-1.5 border-0 p-0">
       <legend id={groupId} className="text-[13px] font-bold text-slate-800">
@@ -471,7 +478,7 @@ function PillGroup({
               value === o.v ? "bg-maroon text-white border-maroon shadow-xs" : "bg-white text-slate-700 border-slate-200"
             }`}
           >
-            {getLang() === "te" ? (o.te || o.v) : o.v}
+            {lang === "te" ? (o.te || o.v) : o.v}
           </button>
         ))}
       </div>
@@ -494,6 +501,8 @@ function SelectField({
   placeholder?: string;
   required?: boolean;
 }) {
+  const { lang } = useLang();
+  const registrationCopy = (value: React.ReactNode, fallback = "") => translatedRegistrationCopy(lang, value, fallback);
   const fieldId = useId();
   return (
     <div className="space-y-1.5">
@@ -541,6 +550,8 @@ function TextField({
   maxLength?: number;
   max?: string;
 }) {
+  const { lang } = useLang();
+  const registrationCopy = (value: React.ReactNode, fallback = "") => translatedRegistrationCopy(lang, value, fallback);
   const fieldId = useId();
   return (
     <div className="space-y-1.5">
@@ -1975,7 +1986,7 @@ function Wizard() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 
                 <TextField
-                  label={te ? "ఈమెయిల్ (Email)" : "Email (Optional)"}
+                  label={te ? "ఈమెయిల్" : "Email"}
                   value={f.email || ""}
                   onChange={(v) => set("email", v.trim().toLowerCase())}
                   type="email"
@@ -1997,16 +2008,18 @@ function Wizard() {
                     <button
                       type="button"
                       onClick={() => setShowPw(!showPw)}
-                      className="text-[11px] text-maroon font-bold"
+                      aria-label={showPw ? T("పాస్‌వర్డ్ దాచు", "Hide password") : T("పాస్‌వర్డ్ చూపించు", "Show password")}
+                      style={{ minWidth: 64, flexShrink: 0 }}
+                      className="min-h-11 whitespace-nowrap rounded-lg px-2 text-[11px] text-maroon font-bold"
                     >
-                      {showPw ? "Hide" : "Show"}
+                      {showPw ? T("దాచు", "Hide") : T("చూపించు", "Show")}
                     </button>
                   </label>
-                  <input aria-label="కనీసం 6 అక్షరాలు (min 6 chars)"
+                  <input aria-label={T("పాస్‌వర్డ్ (కనీసం 6 అక్షరాలు)", "Password (minimum 6 characters)")}
                     type={showPw ? "text" : "password"}
                     value={f.password || ""}
                     onChange={(e) => set("password", e.target.value)}
-                    placeholder="కనీసం 6 అక్షరాలు (min 6 chars)"
+                    placeholder={T("కనీసం 6 అక్షరాలు", "At least 6 characters")}
                     className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 font-medium focus:outline-none focus:border-maroon"
                   />
                 </div>
@@ -2594,7 +2607,7 @@ function Wizard() {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       
                       <TextField
-                        label={te ? "ఈమెయిల్ (Email) - ఐచ్ఛికం" : "Email (Optional)"}
+                        label={te ? "ఈమెయిల్" : "Email"}
                         value={f.email || ""}
                         onChange={(v) => set("email", v.trim().toLowerCase())}
                         type="email"
@@ -2808,17 +2821,18 @@ function Wizard() {
 /* R14: Keep the loading shell honest. It does not promise verification, privacy
  * defaults, or a support destination that has not been configured. */
 function RegisterFallback() {
+  const { lang } = useLang();
   return (
     <div className="min-h-dvh bg-[#FAF7F2] px-4 py-10">
       <div className="mx-auto max-w-lg text-center">
         <h1 className="text-xl font-extrabold text-maroon">
-          {getLang() === "te" ? "మన వివాహలో ఉచిత నమోదు" : "Free registration with Mana Vivaha"}
+          {lang === "te" ? "మన వివాహలో ఉచిత నమోదు" : "Free registration with Mana Vivaha"}
         </h1>
         <p className="mt-2 text-sm text-slate-700">
-          {getLang() === "te" ? "మీకు సౌకర్యంగా ఉన్న వివరాలతో ఉచితంగా ప్రొఫైల్ సృష్టించండి. ఫోటో గోప్యతా ఎంపికలను సమీక్షించండి; ప్రొఫైల్ యజమాని అంగీకరించిన తర్వాతే సంప్రదింపు వివరాలు అందుబాటులో ఉంటాయి." : "Create a profile for free using the details you choose to share. Review photo privacy options; contact details are available only after the profile owner accepts."}
+          {lang === "te" ? "మీకు సౌకర్యంగా ఉన్న వివరాలతో ఉచితంగా ప్రొఫైల్ సృష్టించండి. ఫోటో గోప్యతా ఎంపికలను సమీక్షించండి; ప్రొఫైల్ యజమాని అంగీకరించిన తర్వాతే సంప్రదింపు వివరాలు అందుబాటులో ఉంటాయి." : "Create a profile for free using the details you choose to share. Review photo privacy options; contact details are available only after the profile owner accepts."}
         </p>
         <ul className="mt-4 space-y-1.5 text-left text-[13px] text-slate-600 mx-auto max-w-sm">
-          {getLang() === "te" ? <>
+          {lang === "te" ? <>
             <li>✅ నమోదు ఉచితం</li>
             <li>✅ ప్రొఫైల్ వివరాలు సభ్యులు అందించినవి; స్వతంత్రంగా నిర్ధారించండి</li>
             <li>✅ వ్యక్తిగత వివరాలు పంచుకునే ముందు గోప్యతా నియంత్రణలను సమీక్షించండి</li>
@@ -2829,14 +2843,14 @@ function RegisterFallback() {
           </>}
         </ul>
         <div className="mt-6 w-10 h-10 border-4 border-maroon border-t-transparent rounded-full animate-spin mx-auto" aria-hidden="true" />
-        <p className="mt-2 text-xs font-bold text-maroon">{getLang() === "te" ? "నమోదు ఫారమ్ లోడ్ అవుతోంది…" : "Loading the registration form…"}</p>
-        <p className="mt-4 text-xs text-slate-500">{getLang() === "te" ? "ఫారమ్ కనిపించకపోతే పేజీని మళ్లీ లోడ్ చేయండి." : "If the form does not appear, reload the page."}</p>
+        <p className="mt-2 text-xs font-bold text-maroon">{lang === "te" ? "నమోదు ఫారమ్ లోడ్ అవుతోంది…" : "Loading the registration form…"}</p>
+        <p className="mt-4 text-xs text-slate-500">{lang === "te" ? "ఫారమ్ కనిపించకపోతే పేజీని మళ్లీ లోడ్ చేయండి." : "If the form does not appear, reload the page."}</p>
         {SITE_CONFIG.supportLink ? (
           <p className="mt-2 text-xs text-slate-500">
             <a href={SITE_CONFIG.supportLink} target="_blank" rel="noopener noreferrer" className="font-bold text-maroon underline">
-              {getLang() === "te" ? "WhatsApp సహాయం" : "WhatsApp support link"}
+              {lang === "te" ? "WhatsApp సహాయం" : "WhatsApp support link"}
             </a>
-            <span>{getLang() === "te" ? " — బాహ్య సేవ లభ్యతను ఈ పేజీ నిర్ధారించదు." : " — External service availability is not checked by this page."}</span>
+            <span>{lang === "te" ? " — బాహ్య సేవ లభ్యతను ఈ పేజీ నిర్ధారించదు." : " — External service availability is not checked by this page."}</span>
           </p>
         ) : null}
       </div>
