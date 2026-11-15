@@ -5,7 +5,7 @@ import { apiDisplayMessage, readApiJson } from "@/lib/api";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useLang } from "@/lib/lang";
-import { duo } from "@/lib/duo";
+import { useDuo } from "@/lib/duo";
 import Reveal from "@/components/Reveal";
 import SectionHeading from "@/components/SectionHeading";
 import { Button, EmptyState } from "@/components/ui";
@@ -54,6 +54,7 @@ function getVideoSource(raw?: string) {
 }
 
 export default function ProfilesOfTheDay() {
+  const duo = useDuo();
   const { lang } = useLang();
   const te = lang === "te";
   const [profiles, setProfiles] = useState<SpotlightProfile[]>([]);

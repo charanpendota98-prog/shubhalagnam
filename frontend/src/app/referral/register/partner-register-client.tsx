@@ -6,7 +6,7 @@
  */
 import { useState } from "react";
 import Link from "next/link";
-import { Duo, duo } from "@/lib/duo";
+import { Duo, useDuo } from "@/lib/duo";
 import { useLang } from "@/lib/lang";
 import { apiDisplayMessage, readApiJson} from "@/lib/api";
 import { DISTRICTS_BY_STATE } from "@/lib/telugu-data";
@@ -20,6 +20,7 @@ const STATES = [
 ];
 
 export default function PartnerRegisterPage() {
+  const duo = useDuo();
   const { lang } = useLang();
   const te = lang === "te";
   const [f, setF] = useState({ name: "", phone: "", address: "", state: "", district: "" });

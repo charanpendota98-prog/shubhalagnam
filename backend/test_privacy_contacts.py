@@ -426,7 +426,7 @@ with TestClient(main.app, raise_server_exceptions=False) as client:
     check("free-plan payload contains no member contact values", not leaks(free_plan), leaks(free_plan)[:4])
 
 print("=== 6. Frontend wiring ===")
-register_page = src_page("frontend/src/app/register/page.tsx")
+register_page = src_page("frontend/src/app/register/page-client.tsx")
 matches_page = src_page("frontend/src/app/matches/page-client.tsx")
 quick_unlock = src_page("frontend/src/components/QuickUnlockModal.tsx")
 pricing_page = src_page("frontend/src/app/pricing/page-client.tsx")

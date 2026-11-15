@@ -17,7 +17,7 @@ import SectionHeading from "@/components/SectionHeading";
 import { CardSkeletonList } from "@/components/Skeletons";
 import { useLang } from "@/lib/lang";
 import { serializeJsonLd } from "@/lib/safe-json-ld";
-import { duo } from "@/lib/duo";
+import { useDuo } from "@/lib/duo";
 import { storyCards, storyDisclaimer } from "@/lib/story-cards.mjs";
 
 type StoryCard = {
@@ -32,6 +32,7 @@ type StoryCard = {
 };
 
 export default function HomeStories() {
+  const duo = useDuo();
   const { lang } = useLang();
   const te = lang === "te";
   const [cards, setCards] = useState<StoryCard[] | null>(null);

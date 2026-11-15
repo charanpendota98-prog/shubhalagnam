@@ -21,3 +21,10 @@ export function Duo({ en, te, className = "" }: { en: string; te: string; classN
   const { lang } = useLang();
   return React.createElement("span", { className: className || undefined }, lang === "te" ? te : en);
 }
+
+/** Render-time strings must use the same context snapshot as their component.
+ * A module-global language may change while a streamed boundary hydrates. */
+export function useDuo(): (en: string, te: string) => string {
+  const { lang } = useLang();
+  return (en, te) => lang === "te" ? te : en;
+}

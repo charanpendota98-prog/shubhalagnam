@@ -11,7 +11,7 @@ import { apiDisplayMessage, readApiJson } from "@/lib/api";
  */
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Duo, duo } from "@/lib/duo";
+import { Duo, useDuo } from "@/lib/duo";
 import { useLang } from "@/lib/lang";
 import { safeWhatsAppPhoneLink } from "@/lib/wa";
 
@@ -20,6 +20,7 @@ type Vendor = any;
 const EMPTY_VENDOR_LIST: Vendor[] = [];
 
 export default function VendorsPage() {
+  const duo = useDuo();
   const { lang } = useLang();
   const te = lang === "te";
   const englishText = (value: unknown, fallback = "") => typeof value === "number"

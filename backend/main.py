@@ -3,6 +3,14 @@ TSAP Matrimony — FastAPI Backend — Pin-to-Pin Perfect Advanced
 All endpoints: Register, ID Search, Matches, Credits, Referral, Bureau, Admin, Payment, Channels auto-post
 """
 import sys, os
+# The production runner imports backend.main; legacy feature modules import
+# main lazily. Both names must resolve to this same application/store object.
+if __name__ in {"main", "backend.main"}:
+    _app_module = sys.modules[__name__]
+    _app_alias = "main" if __name__ == "backend.main" else "backend.main"
+    if _app_alias in sys.modules and sys.modules[_app_alias] is not _app_module:
+        raise RuntimeError("Conflicting application modules: refusing split stores")
+    sys.modules[_app_alias] = _app_module
 _backend_dir = os.path.dirname(os.path.abspath(__file__))
 _vendor_dir = os.path.join(_backend_dir, "vendor")
 if os.path.isdir(_vendor_dir) and _vendor_dir not in sys.path:
@@ -3158,22 +3166,7 @@ async def register(
     full_name = req_text(full_name, "full_name", 2, 60, required=True,
                          pattern=NAME_RE, pattern_msg="⚠️ Name లో letters మాత్రమే (2-60 chars)")
 
-    dob = req_text(dob, "dob", 10, 10, required=True)
-    try:
-        _dob_d = datetime.strptime(dob, "%Y-%m-%d").date()
-    except ValueError:
-        raise HTTPException(400, "Enter a valid date of birth in YYYY-MM-DD format")
-    if _dob_d.isoformat() != dob:
-        raise HTTPException(400, "Enter a valid date of birth in YYYY-MM-DD format")
-    _today_ist = datetime.now(timezone(timedelta(hours=5, minutes=30))).date()
-    if _dob_d > _today_ist:
-        raise HTTPException(400, "🎂 Date of birth cannot be in the future")
-    age = _today_ist.year - _dob_d.year - ((_today_ist.month, _today_ist.day) < (_dob_d.month, _dob_d.day))
-    minimum_age = 21 if gender == "Groom" else 18
-    if age < minimum_age:
-        raise HTTPException(400, f"⚠️ Minimum age is {minimum_age} for this profile")
-    if age > 100:
-        raise HTTPException(400, "Enter a valid date of birth")
+    dob, age = _validated_profile_birth(dob, gender)
 
     marital_options = ["Pelli Kaledu", "Divorced", "Awaiting Divorce", "Separated", "Widow" if gender == "Bride" else "Widower"]
     marital_status = req_choice(marital_status, "marital_status", marital_options, required=False, default="")
@@ -3201,13 +3194,7 @@ async def register(
     job = req_text(job, "job", 0, 100, required=False)
     _reject_groom_homemaker(gender, job, work_type)
     salary = req_text(salary, "salary", 0, 40, required=False)
-    state = req_choice(state, "state", ["TS", "AP", "Other"])
-    district = req_text(district, "district", 2, 80, required=True)
-    district = canonicalize_district(state, district)
-    if state == "TS" and district not in TS_DISTRICTS_LIST:
-        raise HTTPException(400, "District does not match the selected state")
-    if state == "AP" and district not in AP_DISTRICTS_LIST:
-        raise HTTPException(400, "District does not match the selected state")
+    state, district = _validated_profile_location(state, district)
 
     family_status = req_choice(family_status, "family_status",
                                ["Middle Class", "Upper Middle Class", "Rich / Affluent (Elite)",
@@ -4206,6 +4193,41 @@ def get_user_profile_for_edit(tsap_id: str, request: Request):
     }
 
 
+def _validated_profile_birth(value: Any, gender: str):
+    """One strict legal-age/date rule for registration and later edits, in IST."""
+    # req_text trims/truncates for ordinary text fields; a date must never
+    # accept a valid prefix of an invalid longer value.
+    if not isinstance(value, str) or not re.fullmatch(r"[0-9]{4}-[0-9]{2}-[0-9]{2}", value):
+        raise HTTPException(400, "Enter a valid date of birth in YYYY-MM-DD format")
+    dob = value
+    try:
+        birth = datetime.strptime(dob, "%Y-%m-%d").date()
+    except (ValueError, TypeError):
+        raise HTTPException(400, "Enter a valid date of birth in YYYY-MM-DD format")
+    if birth.isoformat() != dob:
+        raise HTTPException(400, "Enter a valid date of birth in YYYY-MM-DD format")
+    today = datetime.now(timezone(timedelta(hours=5, minutes=30))).date()
+    if birth > today:
+        raise HTTPException(400, "🎂 Date of birth cannot be in the future")
+    age = today.year - birth.year - ((today.month, today.day) < (birth.month, birth.day))
+    minimum_age = 21 if gender == "Groom" else 18
+    if age < minimum_age:
+        raise HTTPException(400, f"⚠️ Minimum age is {minimum_age} for this profile")
+    if age > 100:
+        raise HTTPException(400, "Enter a valid date of birth")
+    return dob, age
+
+
+def _validated_profile_location(state_value: Any, district_value: Any):
+    state = req_choice(state_value, "state", ["TS", "AP", "Other"])
+    district = req_text(district_value, "district", 2, 80, required=True)
+    district = canonicalize_district(state, district)
+    if ((state == "TS" and district not in TS_DISTRICTS_LIST)
+            or (state == "AP" and district not in AP_DISTRICTS_LIST)):
+        raise HTTPException(400, "District does not match the selected state")
+    return state, district
+
+
 @app.post("/api/profile/update")
 def update_user_profile(payload: dict, request: Request):
     """Allows user to update profile anytime, increasing completeness to 100%."""
@@ -4219,6 +4241,15 @@ def update_user_profile(payload: dict, request: Request):
     # overwrite cheyyagaligedi, zero auth. Ippudu owner token తప్పనిసరి.
     require_owner(request, tsap_id)
     user_before = copy.deepcopy(user)
+    # Validate the combined proposed values before touching the shared record.
+    birth_update = _validated_profile_birth(payload["dob"], user.get("gender", "")) if "dob" in payload else None
+    location_update = None
+    if "state" in payload or "district" in payload:
+        location_update = _validated_profile_location(
+            payload.get("state", user.get("state")),
+            payload.get("district", user.get("district")),
+        )
+    _reject_groom_homemaker(user.get("gender"), payload.get("job"), payload.get("work_type"))
 
     updatable_fields = [
         "full_name", "dob", "birth_time", "height", "weight", "marital_status", "children", "caste",
@@ -4281,17 +4312,11 @@ def update_user_profile(payload: dict, request: Request):
         if _k in payload and payload[_k] is not None and _k in user:
             user[_k] = clean(user.get(_k), _n, "profile_update:" + _k)
 
-    if payload.get("dob"):
-        try:
-            from datetime import datetime, date
-            dob_dt = datetime.strptime(str(payload["dob"])[:10], "%Y-%m-%d").date()
-            today = date.today()
-            age = today.year - dob_dt.year - ((today.month, today.day) < (dob_dt.month, dob_dt.day))
-            if age >= 18:
-                user["age"] = age
-        except Exception:
-            pass
-    
+    if birth_update is not None:
+        user["dob"], user["age"] = birth_update
+    if location_update is not None:
+        user["state"], user["district"] = location_update
+
     core_keys = [
         "full_name", "gender", "dob", "height", "marital_status", "caste", "sub_caste",
         "gothram", "star", "rasi", "education", "education_detail", "job", "company", "salary",

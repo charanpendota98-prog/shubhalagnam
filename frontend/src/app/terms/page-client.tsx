@@ -241,9 +241,11 @@ export default function TermsPage() {
           <div className="rounded-2xl bg-white/90 border border-emerald-100 p-3 shadow-2xs">
             <div className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Contact Number</div>
             <div className="mt-0.5 font-mono font-bold text-gray-900">
-              <a href={`tel:${SITE_CONFIG.owner.contactNumber}`} className="text-emerald-700 hover:underline">
-                {SITE_CONFIG.owner.contactNumber}
-              </a>
+              {SITE_CONFIG.owner.contactNumber ? (
+                <a href={`tel:${SITE_CONFIG.owner.contactNumber}`} className="text-emerald-700 hover:underline">
+                  {SITE_CONFIG.owner.contactNumber}
+                </a>
+              ) : <span>{te ? "ఫోన్ వివరాలు అందుబాటులో లేవు" : "Phone contact is not configured"}</span>}
             </div>
           </div>
 
