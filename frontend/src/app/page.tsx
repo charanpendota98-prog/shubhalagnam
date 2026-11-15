@@ -253,7 +253,7 @@ export default function Home() {
       <DailyStrip />
       <ShowcaseStrip />
 
-      {/* 💍 A content-first wedding guide in place of the old AI-photo film:
+      {/* 💍 A content-first wedding guide in place of the old promotional-photo film:
           hand-drawn SVG art, the real ritual sequence, and links into the
           pages that already cover each step. No video bytes, no stock photos. */}
       <WeddingEditorialNote />
