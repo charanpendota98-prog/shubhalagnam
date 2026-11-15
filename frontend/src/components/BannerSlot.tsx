@@ -8,18 +8,19 @@ import { apiDisplayMessage, readApiJson } from "@/lib/api";
 import { useEffect, useState } from "react";
 import { useLang } from "@/lib/lang";
 
-type Banner = { id: string; text_en: string; text_te: string; link: string };
+export type Banner = { id: string; text_en: string; text_te: string; link: string };
 
-export default function BannerSlot({ page }: { page: string }) {
+export default function BannerSlot({ page, initialBanners }: { page: string; initialBanners?: Banner[] }) {
   const { lang } = useLang();
   const te = lang === "te";
-  const [items, setItems] = useState<Banner[]>([]);
+  const [items, setItems] = useState<Banner[]>(initialBanners || []);
   useEffect(() => {
+    if (initialBanners !== undefined) return;
     fetch(`/api/cms/banners?page=${encodeURIComponent(page)}`)
       .then((r) => readApiJson(r)).then((d) => {
         if (d?.success) setItems(d.banners || []);
       }).catch(() => {});
-  }, [page]);
+  }, [page, initialBanners]);
   if (!items.length) return null;
   return (
     <div className="space-y-2">

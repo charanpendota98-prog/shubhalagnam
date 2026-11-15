@@ -1,6 +1,6 @@
 "use client";
 
-import { apiDisplayMessage, readApiJson } from "@/lib/api";
+import { apiDisplayMessage } from "@/lib/api";
 /**
  * 💰 PRICING — మన వివాహ (R13: BA-level minimal — sodi teesi, clean & premium)
  * ------------------------------------------------------------------
@@ -8,7 +8,6 @@ import { apiDisplayMessage, readApiJson } from "@/lib/api";
  *   FREE start → paid credits start at ₹99; contact sharing follows acceptance.
  * Data: GET /api/plans (backend interest.py PLANS — single source of truth)
  */
-import { useEffect, useState } from "react";
 import Link from "next/link";
 import { SITE_CONFIG } from "@/lib/site-config";
 import PayBox from "@/components/PayBox";
@@ -16,24 +15,11 @@ import OffersBanner from "@/components/OffersBanner";
 import BannerSlot from "@/components/BannerSlot";
 import { useLang } from "@/lib/lang";
 
-type Plan = {
+export type Plan = {
   code: string; price: number; profiles: number; label: string; telugu: string;
   badge?: string; per_profile?: number; perks?: string[]; perksTe?: string[]; validity_days?: number;
 };
-type Addon = { code: string; price: number; label: string; telugu: string };
-
-const FALLBACK_PLANS: Plan[] = [
-  { code: "FREE", price: 0, profiles: 3, label: "Free", telugu: "మొదటి 3 interest requests ఉచితం", badge: "No payment required", perks: ["3 interest requests", "Profile card generation", "No payment required"], perksTe: ["3 ఉచిత interest requests", "ప్రొఫైల్ కార్డ్", "చెల్లింపు అవసరం లేదు"] },
-  { code: "S_99", price: 99, profiles: 5, label: "Sambandham", telugu: "₹99 → 5 interest requests", per_profile: 20, badge: "Entry", perks: ["5 interest requests", "30-day credit validity", "Contact access in accepted-request account views after owner acceptance", "Refund policy as shown in your account"], perksTe: ["5 interest requests", "30 రోజుల credit validity", "Owner accept చేసిన తర్వాత accepted-request account views లో contact details కనిపిస్తాయి", "Account లో చూపిన refund policy వర్తిస్తుంది"] },
-  { code: "S_199", price: 199, profiles: 12, label: "Family", telugu: "₹199 → 12 interest requests", per_profile: 17, badge: "₹17/request", perks: ["12 interest requests", "45-day credit validity", "Contact access in accepted-request account views after owner acceptance", "Refund policy as shown in your account"], perksTe: ["12 interest requests", "45 రోజుల credit validity", "Owner accept చేసిన తర్వాత accepted-request account views లో contact details కనిపిస్తాయి", "Account లో చూపిన refund policy వర్తిస్తుంది"] },
-  { code: "S_299", price: 299, profiles: 25, label: "Premium", telugu: "₹299 → 25 interest requests", per_profile: 12, badge: "₹12/request", perks: ["25 interest requests", "60-day credit validity", "Who-viewed names while this plan is active", "Contact access in accepted-request account views after owner acceptance", "Refund policy as shown in your account"], perksTe: ["25 interest requests", "60 రోజుల credit validity", "ఈ plan active ఉన్నంతవరకు మీ profile చూసిన వారి పేర్లు", "Owner accept చేసిన తర్వాత accepted-request account views లో contact details కనిపిస్తాయి", "Account లో చూపిన refund policy వర్తిస్తుంది"] },
-  { code: "S_499", price: 499, profiles: 50, label: "VIP", telugu: "₹499 → 50 interest requests", per_profile: 10, badge: "VIP", perks: ["50 interest requests", "90-day credit validity", "Who-viewed names while this plan is active", "Contact access in accepted-request account views after owner acceptance", "Refund policy as shown in your account"], perksTe: ["50 interest requests", "90 రోజుల credit validity", "ఈ plan active ఉన్నంతవరకు మీ profile చూసిన వారి పేర్లు", "Owner accept చేసిన తర్వాత accepted-request account views లో contact details కనిపిస్తాయి", "Account లో చూపిన refund policy వర్తిస్తుంది"] },
-];
-const FALLBACK_ADDONS: Addon[] = [
-  { code: "BOOST_49", price: 49, label: "Profile Boost (1 day)", telugu: "ఒక రోజు boost; placement availability మారవచ్చు" },
-  { code: "WHOVIEWED_49", price: 49, label: "Who viewed me (30 days)", telugu: "30 రోజుల పాటు viewer names చూడండి" },
-  { code: "VERIFY_199", price: 199, label: "Manual photo review request", telugu: "ఫోటో review request; approval లేదా badge హామీ కాదు" },
-];
+export type Addon = { code: string; price: number; label: string; telugu: string };
 
 const FAQ: { qTe: string; qEn: string; aTe: string; aEn: string }[] = [
   { qTe: "ఉచిత సభ్యత్వంలో ఏయే సేవలు అందుతాయి?", qEn: "What is included in the free plan?", aTe: "3 ఉచిత interest requests మరియు profile card లభిస్తాయి. Notification అందుబాటు configured సేవలపై ఆధారపడుతుంది; delivery హామీ లేదు. Payment వివరాలు ఇవ్వాల్సిన అవసరం లేదు.", aEn: "The free plan includes 3 interest requests and a profile card. Notification availability depends on configured services; delivery is not guaranteed. No payment details are required." },
@@ -43,24 +29,21 @@ const FAQ: { qTe: string; qEn: string; aTe: string; aEn: string }[] = [
   { qTe: "ప్లాన్ ఆటో-రెన్యూ అవుతుందా?", qEn: "Does a plan auto-renew?", aTe: "Plan కొనుగోలు మీ స్వంత నిర్ణయంతో జరుగుతుంది; add-ons కు checkout ముందు విడిగా ధర చూపిస్తాం.", aEn: "Plans are purchased by your choice; add-ons have separate prices shown before checkout." },
 ];
 
-export default function PricingPage() {
+export type PricingSnapshot = {
+  plans: Plan[] | null;
+  addons: Addon[];
+  offers: import("@/components/OffersBanner").Offer[];
+  banners: import("@/components/BannerSlot").Banner[];
+  noticesUnavailable: boolean;
+};
+
+export default function PricingPage({ snapshot }: { snapshot: PricingSnapshot }) {
   const { lang } = useLang();
   const te = lang === "te";
-  const [plans, setPlans] = useState<Plan[]>(FALLBACK_PLANS);
-  const [addons, setAddons] = useState<Addon[]>(FALLBACK_ADDONS);
-
-  useEffect(() => {
-    fetch("/api/plans")
-      .then((r) => readApiJson(r))
-      .then((d) => {
-        if (Array.isArray(d.plans) && d.plans.length) setPlans([d.plans[0], ...d.plans.filter((p: Plan) => p.price > 0)]);
-        if (Array.isArray(d.addons) && d.addons.length) setAddons(d.addons);
-      })
-      .catch(() => { });
-  }, []);
-
+  const plans = snapshot.plans || [];
+  const addons = snapshot.addons;
   const paid = plans.filter((p) => p.price > 0);
-  const free = plans.find((p) => p.price === 0) || FALLBACK_PLANS[0];
+  const free = plans.find((p) => p.price === 0);
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8 pb-36">
@@ -74,13 +57,15 @@ export default function PricingPage() {
         </p>
       </div>
 
-      <div className="mt-4"><OffersBanner /></div>
-      <div className="mt-3"><BannerSlot page="pricing" /></div>
+      <div className="mt-4"><OffersBanner initialOffers={snapshot.offers} /></div>
+      <div className="mt-3"><BannerSlot page="pricing" initialBanners={snapshot.banners} /></div>
 
+      {snapshot.noticesUnavailable && <p role="status" className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm">{te ? "ఆఫర్లు లేదా ప్రకటనలు ప్రస్తుతం చూపించలేకపోతున్నాం. తాజా వివరాల కోసం పేజీని మళ్లీ తెరవండి." : "Offers or announcements are temporarily unavailable. Reload for current details."}</p>}
+      {!snapshot.plans && <div role="alert" className="mt-8 rounded-xl border border-amber-200 bg-amber-50 p-4"><p>{te ? "ప్రస్తుత ప్లాన్ కార్డులు అందుబాటులో లేవు. మళ్లీ ప్రయత్నించండి." : "Current plan cards are unavailable. Please try again."}</p><button type="button" className="mt-3 rounded-xl border px-4 py-2" onClick={() => window.location.reload()}>{te ? "మళ్లీ ప్రయత్నించండి" : "Retry"}</button></div>}
       {/* PLAN CARDS — core */}
       <section className="mt-8">
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {[free, ...paid].map((p) => (
+          {[...(free ? [free] : []), ...paid].map((p) => (
               <div key={p.code} className="rounded-2xl border border-gray-200 p-5 bg-white shadow-sm">
                 <div className="flex items-baseline justify-between">
                   <div className="font-bold text-[#7A0C2E] text-lg">{te ? p.label : apiDisplayMessage({ message_en: p.label }, false, "Plan")}</div>
