@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { useLang } from "@/lib/lang";
 
@@ -11,13 +11,18 @@ const playbooks = {
  offline: { name: "QR / offline", tag: "04", en: "Give your link a place", te: "మీ link కోసం QR పెట్టండి", prompt: "Use your downloadable campaign QR at your own counter or an approved event. Keep the code large and leave space around it so people can scan.", promptTe: "మీ counter లేదా అనుమతి ఉన్న event లో campaign QR వాడండి. Scan అయ్యేలా పెద్దగా, చుట్టూ ఖాళీతో ఉంచండి.", tip: "Print the referral disclosure beside the QR. Ask the venue before placing materials. A scan is a recorded click, not a registration or promised reward.", tipTe: "QR పక్కన referral disclosure ముద్రించండి. Venue అనుమతి తీసుకోండి. Scan అంటే click మాత్రమే; నమోదు లేదా reward హామీ కాదు." },
 };
 
+const subscribeHydration = () => () => {};
+const hydratedClient = () => true;
+const hydratedServer = () => false;
+
 export function CreatorClubPlaybook() {
+ const hydrated=useSyncExternalStore(subscribeHydration,hydratedClient,hydratedServer);
  const te=useLang().lang==="te";const [channel,setChannel]=useState<Channel>("youtube");const p=playbooks[channel];
  return <section aria-label="Creator channel playbook" className="min-w-0 rounded-3xl border border-amber-200 bg-white p-5 sm:p-7">
   <p className="text-xs font-bold uppercase tracking-widest text-[#7A0C2E]">{te?"మీ channel · మీ శైలి":"Your channel · your style"}</p>
   <h2 className="mt-2 text-xl font-extrabold text-slate-900">{te?"మొదటి content idea ఎంచుకోండి":"Find your first content idea"}</h2>
   <p className="mt-2 text-sm text-slate-600">{te?"ఇవి సూచనలు మాత్రమే. ఏ post లేదా message automatic గా పంపబడదు.":"A starting point, not a script you must use. Nothing is posted or sent automatically."}</p>
-  <div className="mt-4 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap" role="group" aria-label="Choose a creator channel">{(Object.keys(playbooks) as Channel[]).map(k=><button type="button" key={k} aria-pressed={channel===k} onClick={()=>setChannel(k)} className={`min-h-11 rounded-xl border px-3 py-2 text-sm font-bold ${channel===k?"border-[#7A0C2E] bg-[#7A0C2E] text-white":"border-slate-300 bg-white text-slate-700"}`}>{playbooks[k].name}</button>)}</div>
+  <div className="mt-4 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap" role="group" aria-label="Choose a creator channel">{(Object.keys(playbooks) as Channel[]).map(k=><button type="button" key={k} disabled={!hydrated} aria-pressed={channel===k} onClick={()=>setChannel(k)} className={`min-h-11 rounded-xl border px-3 py-2 text-sm font-bold disabled:cursor-wait disabled:opacity-60 ${channel===k?"border-[#7A0C2E] bg-[#7A0C2E] text-white":"border-slate-300 bg-white text-slate-700"}`}>{playbooks[k].name}</button>)}</div>
   <div className="mt-5 rounded-2xl bg-[#FFF8E7] p-4 sm:p-5" aria-live="polite"><p className="text-xs font-bold text-[#7A0C2E]">{p.name} / {p.tag}</p><h3 className="mt-2 text-lg font-extrabold text-slate-900">{te?p.te:p.en}</h3><p className="mt-2 text-sm leading-relaxed text-slate-700">{te?p.promptTe:p.prompt}</p><p className="mt-4 border-t border-amber-200 pt-4 text-sm leading-relaxed text-slate-700">{te?p.tipTe:p.tip}</p></div>
  </section>;
 }
