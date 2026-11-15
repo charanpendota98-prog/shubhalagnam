@@ -483,10 +483,10 @@ export default function EcosystemAdminQueues() {
         </div>
 
         {/* Phase 9 Advisory-Only Assist + Kill Switch */}
-        <div className="rounded-xl border border-slate-200 p-3 space-y-2" role="region" aria-label="Advisory moderation assist">
+        <div className="rounded-xl border border-slate-200 p-3 space-y-2" role="region" aria-label={te ? "సమీక్ష సహాయకం" : "Advisory moderation assist"}>
           <div className="flex flex-wrap items-center justify-between gap-2">
             <span className="text-xs font-bold text-slate-800">
-              Phase 9 — PII-Redacted Assist Triage (Human Authority Only)
+              {te ? "వ్యక్తిగత వివరాలు తొలగించిన సమీక్ష సహాయకం - తుది నిర్ణయం మనుషులదే" : "Phase 9 - PII-Redacted Assist Triage (Human Authority Only)"}
             </span>
             <div className="flex gap-1.5">
               <button
@@ -494,14 +494,14 @@ export default function EcosystemAdminQueues() {
                 onClick={() => void setAssistEnabled(true)}
                 className="rounded-lg bg-emerald-700 px-2.5 py-1 text-[11px] font-bold text-white"
               >
-                Enable Assist
+                {te ? "సహాయకం ప్రారంభించండి" : "Enable Assist"}
               </button>
               <button
                 type="button"
                 onClick={() => void setAssistEnabled(false)}
                 className="rounded-lg bg-rose-700 px-2.5 py-1 text-[11px] font-bold text-white"
               >
-                Disable Assist
+                {te ? "సహాయకం నిలిపివేయండి" : "Disable Assist"}
               </button>
             </div>
           </div>
@@ -509,8 +509,8 @@ export default function EcosystemAdminQueues() {
             <input
               value={aiInput}
               onChange={(e) => setAiInput(e.target.value)}
-              placeholder="Paste moderation or support note (phones/emails auto-redacted)…"
-              aria-label="Advisory triage input text"
+              placeholder={te ? "సమీక్ష లేదా సహాయ గమనిక ఇవ్వండి (ఫోన్, ఈమెయిల్ వివరాలు తొలగిస్తాం)" : "Paste moderation or support note (phones/emails auto-redacted)…"}
+              aria-label={te ? "సమీక్ష గమనిక" : "Advisory triage input text"}
               className="rounded-lg border px-2.5 py-1.5 text-xs flex-1"
             />
             <button
@@ -528,17 +528,17 @@ export default function EcosystemAdminQueues() {
               }}
               className="rounded-lg bg-[#7A0C2E] px-3 py-1.5 text-xs font-bold text-white"
             >
-              Run Redacted Triage
+              {te ? "వ్యక్తిగత వివరాలు తొలగించి సమీక్షించండి" : "Run Redacted Triage"}
             </button>
           </div>
           {aiResult && (
             <div className="rounded-lg bg-slate-50 p-2.5 text-xs space-y-1">
               <div>
-                <b>Priority:</b> {aiResult.priority} • <b>Authority:</b> {aiResult.authority} •{" "}
-                <b>SOP:</b> {aiResult.recommended_human_sop}
+                <b>{te ? "ప్రాధాన్యత:" : "Priority:"}</b> {aiResult.priority} • <b>{te ? "నిర్ణయ అధికారం:" : "Authority:"}</b> {aiResult.authority} •{" "}
+                <b>{te ? "సమీక్ష విధానం:" : "SOP:"}</b> {aiResult.recommended_human_sop}
               </div>
               <div className="text-slate-600">
-                <b>Redacted Preview:</b> {aiResult.redacted_summary}
+                <b>{te ? "వ్యక్తిగత వివరాలు తొలగించిన ముందస్తు దృశ్యం:" : "Redacted Preview:"}</b> {aiResult.redacted_summary}
               </div>
             </div>
           )}
