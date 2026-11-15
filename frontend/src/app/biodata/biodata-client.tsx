@@ -185,6 +185,7 @@ export default function BiodataPage() {
     return te ? text : apiDisplayMessage({ message_en: text }, false, fallback);
   };
   const displayBiodataField = (value: unknown) => biodataField(value, te ? "" : "Not available in English");
+  const joinedBiodataFields = (...values: string[]) => values.map(value => value.trim()).filter(Boolean).join(" · ") || "-";
   const biodataMaritalStatus = (() => {
     const normalized = data.maritalStatus.trim().toLowerCase();
     if (te) return data.maritalStatus;
@@ -827,23 +828,23 @@ export default function BiodataPage() {
                 </div>
 
                 <div className="flex flex-wrap gap-2 pt-1">
-                  <span className={`px-3 py-1 rounded-full text-xs font-bold ${selectedTheme.pill}`}>
+                  {(religion === "Muslim" || religion === "Christian" || displayBiodataField(data.caste) || displayBiodataField(data.subCaste)) && <span className={`px-3 py-1 rounded-full text-xs font-bold ${selectedTheme.pill}`}>
                     {religion === "Muslim" ? "🕌 Muslim" : religion === "Christian" ? "⛪ Christian" : `💍 ${displayBiodataField(data.caste)} ${displayBiodataField(data.subCaste) ? `(${displayBiodataField(data.subCaste)})` : ""}`}
-                  </span>
-                  <span className={`px-3 py-1 rounded-full text-xs font-bold ${selectedTheme.pill}`}>
-                    🎂 {data.dob} ({displayBiodataField(data.height)})
-                  </span>
-                  <span className={`px-3 py-1 rounded-full text-xs font-bold ${selectedTheme.pill}`}>
+                  </span>}
+                  {(data.dob || displayBiodataField(data.height)) && <span className={`px-3 py-1 rounded-full text-xs font-bold ${selectedTheme.pill}`}>
+                    🎂 {joinedBiodataFields(data.dob, displayBiodataField(data.height))}
+                  </span>}
+                  {displayBiodataField(data.education) && <span className={`px-3 py-1 rounded-full text-xs font-bold ${selectedTheme.pill}`}>
                     🎓 {displayBiodataField(data.education)}
-                  </span>
-                  <span className={`px-3 py-1 rounded-full text-xs font-bold ${selectedTheme.pill}`}>
+                  </span>}
+                  {displayBiodataField(data.job) && <span className={`px-3 py-1 rounded-full text-xs font-bold ${selectedTheme.pill}`}>
                     💼 {displayBiodataField(data.job)}
-                  </span>
+                  </span>}
                 </div>
 
                 <div className="text-xs text-slate-700 font-medium pt-1 flex items-center justify-between">
-                  <span>🏢 <b className="text-slate-900">{displayBiodataField(data.company)}</b> • 📍 {displayBiodataField(data.workLocation)}</span>
-                  <span className="text-emerald-700 font-black">💰 {displayBiodataField(data.salary)}</span>
+                  <span>{displayBiodataField(data.company) && <>🏢 <b className="text-slate-900">{displayBiodataField(data.company)}</b></>}{displayBiodataField(data.company) && displayBiodataField(data.workLocation) ? " · " : ""}{displayBiodataField(data.workLocation) && <>📍 {displayBiodataField(data.workLocation)}</>}</span>
+                  {displayBiodataField(data.salary) && <span className="text-emerald-700 font-black">💰 {displayBiodataField(data.salary)}</span>}
                 </div>
               </div>
             </div>
@@ -936,23 +937,23 @@ export default function BiodataPage() {
               <div className="grid grid-cols-2 gap-y-2.5 gap-x-6 text-xs">
                 <div className="flex justify-between border-b border-slate-100 pb-1">
                   <span className="text-slate-500 font-medium">{te ? "తండ్రి పేరు / వృత్తి" : "Father's name / occupation"}</span>
-                  <span className="font-bold text-slate-900">{data.fatherName} ({displayBiodataField(data.fatherOccupation)})</span>
+                  <span className="font-bold text-slate-900">{joinedBiodataFields(data.fatherName, displayBiodataField(data.fatherOccupation))}</span>
                 </div>
                 <div className="flex justify-between border-b border-slate-100 pb-1">
                   <span className="text-slate-500 font-medium">{te ? "తల్లి పేరు / వృత్తి" : "Mother's name / occupation"}</span>
-                  <span className="font-bold text-slate-900">{data.motherName} ({displayBiodataField(data.motherOccupation)})</span>
+                  <span className="font-bold text-slate-900">{joinedBiodataFields(data.motherName, displayBiodataField(data.motherOccupation))}</span>
                 </div>
                 <div className="flex justify-between border-b border-slate-100 pb-1">
                   <span className="text-slate-500 font-medium">{te ? "తోబుట్టువులు" : "Siblings"}</span>
-                  <span className="font-bold text-slate-900">{displayBiodataField(data.siblings)}</span>
+                  <span className="font-bold text-slate-900">{displayBiodataField(data.siblings) || "-"}</span>
                 </div>
                 <div className="flex justify-between border-b border-slate-100 pb-1">
                   <span className="text-slate-500 font-medium">{te ? "సొంత ఊరు" : "Native place"}</span>
-                  <span className="font-bold text-slate-900">{displayBiodataField(data.nativePlace)}</span>
+                  <span className="font-bold text-slate-900">{displayBiodataField(data.nativePlace) || "-"}</span>
                 </div>
                 <div className="flex justify-between border-b border-slate-100 pb-1 col-span-2">
                   <span className="text-slate-500 font-medium">{te ? "స్థిరాస్తులు / భూములు" : "Property / land"}</span>
-                  <span className="font-bold text-slate-900">{displayBiodataField(data.properties)}</span>
+                  <span className="font-bold text-slate-900">{displayBiodataField(data.properties) || "-"}</span>
                 </div>
               </div>
             </div>
@@ -965,11 +966,11 @@ export default function BiodataPage() {
               <div className="grid grid-cols-2 gap-y-2 gap-x-6 text-xs bg-slate-50 p-3 rounded-2xl border border-slate-200">
                 <div>
                   <span className="text-slate-500 font-medium block">{te ? "సంప్రదించవలసిన వ్యక్తి" : "Contact person"}</span>
-                  <span className="font-bold text-slate-900">{data.contactPerson} ({data.phone})</span>
+                  <span className="font-bold text-slate-900">{joinedBiodataFields(data.contactPerson, data.phone)}</span>
                 </div>
                 <div>
                   <span className="text-slate-500 font-medium block">{te ? "చిరునామా" : "Address"}</span>
-                  <span className="font-bold text-slate-900">{displayBiodataField(data.address)}</span>
+                  <span className="font-bold text-slate-900">{displayBiodataField(data.address) || "-"}</span>
                 </div>
               </div>
             </div>
