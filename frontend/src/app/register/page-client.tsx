@@ -617,7 +617,6 @@ function RequiredProfilePhoto({
           <div className="min-w-0">
             <h3 id={`${privacyId}-title`} className={`text-sm font-black text-slate-900 ${te ? "telugu" : ""}`}>
               {te ? "ప్రొఫైల్ ఫోటో తప్పనిసరి" : "Profile photo required"} <span className="text-rose-700" aria-hidden="true">*</span>
-              <span className="sr-only">{te ? " తప్పనిసరి" : " required"}</span>
             </h3>
             <p className={`mt-1 text-xs leading-relaxed text-slate-600 ${te ? "telugu" : ""}`}>
               {te
@@ -724,7 +723,6 @@ function RequiredProfilePhoto({
           <span className="min-w-0">
             <span className={`block text-xs font-extrabold text-slate-800 ${te ? "telugu" : ""}`}>
               {te ? "ఈ ఫోటోను అప్‌లోడ్ చేయడానికి నాకు అనుమతి ఉంది" : "I have permission to upload this photo"} <span className="text-rose-700" aria-hidden="true">*</span>
-              <span className="sr-only">{te ? " తప్పనిసరి" : " required"}</span>
             </span>
             <span className={`mt-0.5 block text-[11px] leading-relaxed text-slate-600 ${te ? "telugu" : ""}`}>
               {te
@@ -1029,7 +1027,8 @@ function Wizard() {
   };
 
   useEffect(() => {
-    if (result) return;
+    // Do not overwrite an existing draft while its owner decides whether to resume it.
+    if (result || draftFound) return;
     const t = setTimeout(() => {
       try {
         const now = new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
@@ -1041,7 +1040,7 @@ function Wizard() {
       }
     }, 700);
     return () => clearTimeout(t);
-  }, [f, step, result]);
+  }, [f, step, result, draftFound]);
 
   useEffect(() => {
     const age = ageFromDob(f.dob);
@@ -1115,13 +1114,6 @@ function Wizard() {
       if (!photoFile) e.push(T("నమోదుకు ముందు తప్పనిసరిగా స్పష్టమైన ప్రొఫైల్ ఫోటోను జోడించండి", "A clear profile photo is required before registration"));
       if (!f.photo_consent_confirmed) e.push(T("ఈ ఫోటోను అప్‌లోడ్ చేయడానికి అనుమతి ఉన్నట్లు నిర్ధారించండి", "Confirm you have permission to upload this photo"));
       if (photoPreparing) e.push(T("ఫోటో సిద్ధమవుతోంది — పూర్తయ్యే వరకు వేచి ఉండండి", "Your photo is still being prepared; please wait"));
-      const about = String(f.about_myself || "").trim();
-      if (about && about.length < 50) e.push(T("నా గురించి కనీసం 50 అక్షరాలు రాయండి", "If you add an About section, enter at least 50 characters"));
-      if (about && (/(?:\+?91[\s-]?)?[6-9]\d{9}/.test(about) || /[^\s@]+@[^\s@]+\.[^\s@]+/.test(about))) {
-        e.push(T("నా గురించి విభాగంలో ఫోన్ / ఈమెయిల్ ఇవ్వకండి", "Do not include a phone number or email in About"));
-      }
-    }
-    if (s === 5) {
       const about = String(f.about_myself || "").trim();
       if (about && about.length < 50) e.push(T("నా గురించి కనీసం 50 అక్షరాలు రాయండి", "If you add an About section, enter at least 50 characters"));
       if (about && (/(?:\+?91[\s-]?)?[6-9]\d{9}/.test(about) || /[^\s@]+@[^\s@]+\.[^\s@]+/.test(about))) {
@@ -2677,7 +2669,7 @@ function Wizard() {
                       <label className="text-xs font-bold text-slate-800 flex items-center justify-between">
                         <span>{T("నా గురించి", "About myself")}</span>
                         <span className="text-[11px] text-slate-500 font-normal">
-                          {T("కనీసం 50 అక్షరాలు", "Minimum 50 characters")}
+                          {T("ఐచ్ఛికం; రాస్తే కనీసం 50 అక్షరాలు", "Optional; at least 50 characters if added")}
                         </span>
                       </label>
                       <textarea aria-label={te ? "మీ కుటుంబం, వ్యక్తిత్వం మరియు అంచనాల గురించి రాయండి… (ఫోన్ నంబర్లు లేదా ఈమెయిల్ ఇవ్వకండి)" : "Describe your family, personality, and expectations. Do not include phone numbers or email addresses."}
@@ -2688,7 +2680,7 @@ function Wizard() {
                         className="w-full bg-white border border-slate-200 rounded-xl p-3 text-xs text-slate-900 font-medium focus:outline-none focus:border-maroon telugu"
                       />
                       <div className="text-[11px] text-slate-500">
-                        {te ? `${String(f.about_myself || "").length} అక్షరాలు (కనీసం 50 అక్షరాలు ఉండాలి; ఫోన్ నంబర్లు ఇవ్వకండి)` : `${String(f.about_myself || "").length} characters (minimum 50; do not include phone numbers)`}
+                        {te ? `${String(f.about_myself || "").length} అక్షరాలు (ఐచ్ఛికం; రాస్తే కనీసం 50; ఫోన్ / ఈమెయిల్ ఇవ్వకండి)` : `${String(f.about_myself || "").length} characters (optional; at least 50 if added; do not include phone numbers or email)`}
                       </div>
                     </div>
                   </div>
@@ -2697,7 +2689,7 @@ function Wizard() {
                 <ConsentNotice checked={!!f.consent_confirmed} onChange={(checked) => set("consent_confirmed", checked)} />
 
                 {/* Wizard Bottom Buttons */}
-                <div className="border-t border-slate-100 pt-4 flex items-center justify-between gap-3">
+                <div className="border-t border-slate-100 pt-4 flex flex-col items-stretch justify-between gap-3 sm:flex-row sm:items-center">
                   {step > 1 ? (
                     <button
                       type="button"
@@ -2708,7 +2700,7 @@ function Wizard() {
                     </button>
                   ) : <div />}
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex w-full flex-col items-stretch gap-2 sm:w-auto sm:flex-row sm:items-center">
                     <button
                       type="button"
                       onClick={() => executeSubmit(true)}
