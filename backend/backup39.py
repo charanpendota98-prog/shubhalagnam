@@ -129,6 +129,11 @@ def _state_root() -> str:
     return os.path.abspath(os.getenv("MANA_VIVAHA_STATE_DIR") or BASE)
 
 
+def _creator_campaign_file() -> str:
+    import referral
+    return os.path.abspath(referral.STATE_FILE + ".campaigns.json")
+
+
 def state_files() -> list:
     """List runtime JSON stores from the configured state directory only.
 
@@ -145,6 +150,12 @@ def state_files() -> list:
             if bn.endswith(".tmp") or ".tmp" in bn:
                 continue
             out.append(fp)
+    # Creator campaigns follow the explicitly configured referral store, which
+    # may be outside STATE_DIR. Export its actual durable file, not an image copy.
+    campaign = _creator_campaign_file()
+    if os.path.isfile(campaign):
+        out = [fp for fp in out if os.path.basename(fp) != os.path.basename(campaign)]
+        out.append(campaign)
     return sorted(out)
 
 
@@ -363,7 +374,8 @@ def import_zip(data: bytes, *, allow_destructive: bool = False,
         # 🛡️ Core DB ni the configured DB_FILE ki restore cheyyali (BASE ki kaadu)
         # — TSAP_DB_FILE persistent volume ki set chesi unte, BASE/data_db.json
         # lo write cheste running app dani ni chadavadu (restore vyarham).
-        dest = db_file if name == CANONICAL_DB else os.path.join(_state_root(), name)
+        dest = (db_file if name == CANONICAL_DB else _creator_campaign_file()
+                if name == os.path.basename(_creator_campaign_file()) else os.path.join(_state_root(), name))
         dest_dir = os.path.dirname(os.path.abspath(dest))
         os.makedirs(dest_dir, mode=0o700, exist_ok=True)
         fd, tmp = tempfile.mkstemp(

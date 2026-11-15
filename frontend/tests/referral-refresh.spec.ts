@@ -5,6 +5,7 @@ async function setup(page: Page, firstStatus = 200) {
   let status = firstStatus;
   let wallet = 137;
   let calls = 0;
+  await page.route("**/api/referral/REFRESH01/campaigns", route => route.fulfill({ json: {success: true, campaigns: []} }));
   await page.addInitScript(() => localStorage.setItem("tsap_lang", "en"));
   await page.route("**/api/referral/leaderboard?**", (route) => route.fulfill({ json: { leaderboard: [], you: null } }));
   await page.route("**/api/referral/terms", (route) => route.fulfill({ json: { success: true } }));

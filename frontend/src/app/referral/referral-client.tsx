@@ -12,6 +12,7 @@ import { useLang } from "@/lib/lang";
 import { Duo } from "@/lib/duo";
 import { apiDisplayMessage, authHeaders, readApiJson } from "@/lib/api";
 import { WhatsAppIcon, TelegramIcon } from "@/components/BrandIcons";
+import CreatorCampaigns from "@/components/CreatorCampaigns";
 import ReferralPro from "@/components/ReferralPro";
 
 type Dash = any;
@@ -456,6 +457,7 @@ export default function ReferralPage() {
           </div>
         </div>
 
+        <CreatorCampaigns key={tsapId} identity={tsapId} />
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-white px-4 py-3">
           <div className="text-xs text-slate-600" role="status" aria-live="polite">
             {updatedAt ? `${te ? "చివరిగా నవీకరించినది" : "Last updated"}: ${updatedAt.toLocaleTimeString(te ? "te-IN" : "en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}` : (te ? "వివరాలు లోడ్ అవుతున్నాయి" : "Loading your details")}
