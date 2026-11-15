@@ -4,6 +4,7 @@ os.environ.update(APP_ENV='test', ENV='test', TSAP_AUTH_MODE='enforce')
 from test_storage import isolate_test_stores
 isolate_test_stores('owner-command-center')
 import json, unittest
+from datetime import datetime, timezone
 from unittest.mock import patch
 from pathlib import Path
 import main, control_auth as CA, hardening as H, referral
@@ -35,8 +36,15 @@ class OwnerOperations(unittest.TestCase):
   self.auth();d=self.client.get('/api/control/operations').json();self.assertEqual(d['growth']['leads'],0);self.assertEqual(d['referrals']['partners'],0);self.assertEqual(d['content']['pending_spotlights'],0)
   main.DB_USERS.append({'full_name':'PRIVATE-NAME','phone':'9000091111','referred_by':'PRIVATECODE'})
   main.growth.DB_LEADS.extend([{'phone':'9000091111','notes':'PRIVATE-NOTE','status':'new','contact_consent':True},{'status':'old','contact_consent':False}]);main.RP19.PARTNERS.append({'secret':'PRIVATE-KEY'});referral.PAYOUTS.extend([{'status':'requested','amount':999},{'status':'paid'}]);self.path.write_text('[{"status":"pending_review","phone":"9000091111"}]')
-  before=self.path.read_bytes();r=self.client.get('/api/control/operations');d=r.json();self.assertEqual(d['growth']['leads'],2);self.assertEqual(d['growth']['consented_leads'],1);self.assertEqual(d['referrals']['requested_payouts'],1);self.assertEqual(d['content']['pending_spotlights'],1);self.assertEqual(self.path.read_bytes(),before)
-  for private in ['PRIVATE','9000091111','999','csrf','password']:self.assertNotIn(private,r.text)
+  before=self.path.read_bytes()
+  # A valid clock may contain the payout sentinel in its microseconds.
+  with patch('owner_operations.datetime', wraps=datetime) as clock:
+   clock.now.return_value=datetime(2026,11,15,19,31,59,999000,tzinfo=timezone.utc)
+   r=self.client.get('/api/control/operations')
+  d=r.json();self.assertEqual(d['growth']['leads'],2);self.assertEqual(d['growth']['consented_leads'],1);self.assertEqual(d['referrals']['requested_payouts'],1);self.assertEqual(d['content']['pending_spotlights'],1);self.assertEqual(self.path.read_bytes(),before)
+  # Validate the clock as a clock, then inspect every remaining response field.
+  payload=dict(d);stamp=payload.pop('generated_at');self.assertEqual(datetime.fromisoformat(stamp).microsecond,999000)
+  for private in ['PRIVATE','9000091111','999','csrf','password']:self.assertNotIn(private,json.dumps(payload))
  def test_unknown_malformed_and_error_not_zero(self):
   self.auth()
   with patch.object(main.growth,'DB_LEADS',[None]):self.assertIsNone(self.client.get('/api/control/operations').json()['growth']['leads'])
