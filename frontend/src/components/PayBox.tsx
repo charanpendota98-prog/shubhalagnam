@@ -178,7 +178,7 @@ export default function PayBox({ planCode, price, label, purpose = "credits", ts
         setBusy(false);
         const rawWhy = resp?.error?.description || "";
         const why = te ? rawWhy : apiDisplayMessage(rawWhy, false, "");
-        setMsg(te ? `\u274c Payment fail \u0c05\u0c2f\u0c2f\u0c3f\u0c02\u0c26\u0c3f${why ? ` (${why})` : ""} - \u0c21\u0c2c\u0c2c\u0c41 cut \u0c05\u0c35\u0c4d\u0c35\u0c32\u0c47\u0c26\u0c41, \u0c2e\u0c33\u0c4d\u0c32\u0c40 try \u0c1a\u0c46\u0c2f\u0c4d\u0c2f\u0c02\u0c21\u0c3f` : `\u274c Payment failed${why ? ` (${why})` : ""} - no money was debited, please retry`);
+        setMsg(te ? `చెల్లింపు పూర్తి కాలేదు${why ? ` (${why})` : ""}. మళ్లీ ప్రయత్నించే ముందు మీ బ్యాంక్ స్థితి చూడండి. డబ్బు డెబిట్ అయితే payment IDతో support ను సంప్రదించండి.` : `Payment did not complete${why ? ` (${why})` : ""}. Check your bank status before retrying. If money was debited, contact support with the payment ID.`);
       });
     } catch { /* older checkout.js - ignore */ }
     rzp.open();
@@ -198,9 +198,9 @@ export default function PayBox({ planCode, price, label, purpose = "credits", ts
     <div className="rounded-xl border border-[#7A0C2E]/20 bg-rose-50/50 p-3 space-y-2">
       {!order ? (
         <>
-          <div className="flex gap-2">
+          <div className="grid grid-cols-2 gap-2">
             <input value={offer} onChange={(e) => { setOffer(e.target.value); setPromo(""); }} placeholder={te ? "Offer code ఉంటే నమోదు చేయండి" : "Enter an offer code if you have one"}
-              className="flex-1 rounded-lg border px-3 py-2 text-xs font-mono uppercase" aria-label="Offer code" />
+              className="col-span-2 w-full min-w-0 rounded-lg border px-3 py-2 text-xs font-mono uppercase" aria-label="Offer code" />
             <button type="button" onClick={previewPromo} disabled={promoBusy}
               className="rounded-lg border border-green-700 text-green-700 px-3 py-2 text-xs font-bold disabled:opacity-50">
               {promoBusy ? "⏳…" : te ? "🎟️ Check" : "🎟️ Check"}
@@ -256,10 +256,10 @@ export default function PayBox({ planCode, price, label, purpose = "credits", ts
               ) : (
                 <div className="space-y-1">
                   <div className="text-[10px] text-gray-500 font-bold">{te ? "పేమెంట్ తర్వాత 12-అంకెల UTR ఇవ్వండి:" : "Enter 12-digit UTR after payment:"}</div>
-                  <div className="flex gap-2">
+                  <div className="flex flex-col gap-2">
                     <input value={utr} onChange={(e) => setUtr(e.target.value.replace(/\D/g, "").slice(0, 12))}
                       placeholder="12-digit UTR" inputMode="numeric"
-                      className="flex-1 rounded-lg border px-3 py-2 font-mono text-xs" aria-label="12-digit UTR" />
+                      className="w-full min-w-0 rounded-lg border px-3 py-2 font-mono text-xs" aria-label="12-digit UTR" />
                     <button type="button" onClick={submitClaim} disabled={claimBusy || utr.length < 12}
                       className="rounded-lg bg-green-700 hover:bg-green-800 text-white px-3 py-2 font-bold text-xs disabled:opacity-50 transition shadow-xs">
                       {claimBusy ? "⏳…" : te ? "సమర్పించు" : "Submit UTR"}
