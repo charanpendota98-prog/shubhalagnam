@@ -8,12 +8,16 @@
  * Ee screen chusi admin rojuki 10 nimushalalo follow-up cheyyali.
  */
 import { apiDisplayMessage, authHeaders, getAdminKey, setAdminKey, readApiJson } from "@/lib/api";
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { Duo, duo } from "@/lib/duo";
 import { useLang } from "@/lib/lang";
 
 type Stats = Record<string, any>;
+
+function metric(value: unknown, suffix = ""): string {
+  return typeof value === "number" && Number.isFinite(value) ? `${value}${suffix}` : "-";
+}
 
 function KPI({ label, value, sub, tone = "maroon" }: { label: string; value: ReactNode; sub?: string; tone?: "maroon" | "gold" }) {
   return (
@@ -37,6 +41,9 @@ export default function GrowthPage() {
   const [keyInput, setKeyInput] = useState("");
   const [keySaved, setKeySaved] = useState(false);
   const [needsAdminKey, setNeedsAdminKey] = useState(false);
+  const [statsLoading, setStatsLoading] = useState(true);
+  const [statsNetworkError, setStatsNetworkError] = useState(false);
+  const loadSequence = useRef(0);
 
   useEffect(() => { try { setKeyInput(getAdminKey()); setKeySaved(Boolean(getAdminKey())); } catch { /* ignore */ } }, []);
 
@@ -48,18 +55,30 @@ export default function GrowthPage() {
   };
 
   const load = useCallback(async () => {
+    const sequence = ++loadSequence.current;
+    setStatsLoading(true);
+    setStatsNetworkError(false);
+    setStats(null);
+    setLeads([]);
+    setNeedsAdminKey(false);
     try {
       const [s, i, w, l] = await Promise.all([
-        fetch("/api/leads/stats", { headers: authHeaders(true) }).then((r) => readApiJson(r)),
+        fetch("/api/leads/stats", { headers: authHeaders(true) }).then(async (r) => ({ ok: r.ok, status: r.status, data: await readApiJson(r) })),
         fetch("/api/inventory").then((r) => readApiJson(r)),
         fetch("/api/wa/status").then((r) => readApiJson(r)),
-        fetch("/api/leads?limit=30", { headers: authHeaders(true) }).then((r) => readApiJson(r)),
+        fetch("/api/leads?limit=30", { headers: authHeaders(true) }).then(async (r) => ({ ok: r.ok, status: r.status, data: await readApiJson(r) })),
       ]);
-      setStats(s); setInv(i); setWa(w); setLeads(l.items || []);
-      // 🐞 FIX: 403 vaste khali table chupinchadam kaadu — "admin key kavali" clear ga cheppali
-      if ((s as Stats)?.detail || (l as Stats)?.detail) setNeedsAdminKey(true); else setNeedsAdminKey(false);
+      if (sequence !== loadSequence.current) return;
+      const validStats = s.ok && s.data && typeof s.data === "object" && !Array.isArray(s.data) && !s.data.detail && s.data.success !== false;
+      setStats(validStats ? s.data : null);
+      setInv(i); setWa(w);
+      setLeads(l.ok && Array.isArray(l.data?.items) ? l.data.items : []);
+      setNeedsAdminKey([401, 403].includes(s.status) || [401, 403].includes(l.status));
     } catch {
-      setNote(te ? "API reach అవ్వలేదు — backend run అవుతుందో చూసుకోండి" : "API unreachable — check backend is running");
+      if (sequence !== loadSequence.current) return;
+      setStatsNetworkError(true);
+    } finally {
+      if (sequence === loadSequence.current) setStatsLoading(false);
     }
   }, [te]);
 
@@ -93,17 +112,17 @@ export default function GrowthPage() {
           <div className="text-[13px] font-bold text-maroon">🔐 Admin key (leads PII lock)</div>
           <p className="mt-1 text-[12px] text-gray-700">
 {te ? <>Leads list + stats లో customer phone numbers ఉంటాయి — కాబట్టి ఇవి <b>admin key</b> తోనే వస్తాయి.
-            Server లో <code>ADMIN_KEY</code> env పెట్టండి, అదే ఇక్కడ paste చెయ్యండి (browser లోనే save అవుతుంది, server కి పంపము).</> : <>Leads list + stats contain customer phone numbers — so they come only with <b>admin key</b>.
-            Put <code>ADMIN_KEY</code> env on server, paste it here (saved in browser only, never sent to server).</>}
+            Server లో <code>ADMIN_KEY</code> env పెట్టండి, అదే ఇక్కడ paste చెయ్యండి (ఈ browser లో save అవుతుంది; admin API requests తో server కి పంపబడుతుంది).</> : <>Leads list + stats contain customer phone numbers — so they come only with <b>admin key</b>.
+            Put <code>ADMIN_KEY</code> env on server, paste it here (saved in this browser and sent to the server with admin API requests).</>}
           </p>
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <input aria-label="Admin key" type="password" value={keyInput} onChange={(e) => setKeyInput(e.target.value)}
               placeholder="ADMIN_KEY…" className="rounded-xl border border-maroon/25 px-3 py-2 text-[12px] font-mono w-64" />
             <button type="button" onClick={saveKey} className="rounded-xl bg-[#7A0C2E] px-4 py-2 text-[12px] font-bold text-white">💾 Save key</button>
             <button type="button" onClick={() => load()} className="rounded-xl border border-maroon/25 px-4 py-2 text-[12px] font-bold text-maroon">🔄 Reload</button>
-            {keySaved && <span className="text-[11px] text-emerald-700">{te ? <>✅ key save అయ్యింది ({(getAdminKey() || "").slice(0, 4)}••••)</> : <>✅ key saved ({(getAdminKey() || "").slice(0, 4)}••••)</>}</span>}
+            {keySaved && <span className="text-[11px] text-emerald-700">{te ? <>✅ key save అయ్యింది</> : <>✅ key saved</>}</span>}
           </div>
-          {needsAdminKey && <p className="mt-2 text-[12px] font-semibold text-rose-700">{te ? "⚠️ Server 403 ఇచ్చింది — key save చేసి మళ్లీ reload చెయ్యండి." : "⚠️ Server gave 403 — save key and reload."}</p>}
+          {needsAdminKey && <p className="mt-2 text-[12px] font-semibold text-rose-700">{te ? "⚠️ Admin access కావాలి — సరైన key save చేసి మళ్లీ reload చెయ్యండి." : "⚠️ Admin access required. Save a valid key and reload."}</p>}
         </div>
       </div>
       <div className="maroon-gradient text-white">
@@ -126,18 +145,19 @@ export default function GrowthPage() {
       </div>
 
       <div className="max-w-6xl mx-auto px-4 py-6 space-y-5">
+        {statsNetworkError && <div role="alert" className="text-sm text-rose-700">{te ? "API reach అవ్వలేదు — మళ్లీ ప్రయత్నించండి." : "API unreachable. Try again."}</div>}
         {note && <div className="bg-amber-50 border border-amber-200 text-amber-900 rounded-2xl px-4 py-3 text-[13px]">{note}</div>}
 
         {!stats ? (
-          <div className="text-gray-500 text-sm">{te ? "Load అవుతుంది…" : "Loading…"}</div>
+          <div role="status" className="text-gray-500 text-sm">{statsLoading ? (te ? "Load అవుతుంది…" : "Loading…") : (te ? "గణాంకాలు అందుబాటులో లేవు. Admin access తనిఖీ చేసి మళ్లీ ప్రయత్నించండి." : "Statistics unavailable. Check admin access and try again.")}</div>
         ) : (
           <>
             {/* ---- KPI row ---- */}
             <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
-              <KPI label="Visits (total)" value={stats.visits_total} sub={te ? `ఈ రోజు: ${stats.visits_today}` : `today: ${stats.visits_today}`} />
-              <KPI label="Unique visitors" value={stats.visitors_unique} sub="IP+device hash" />
-              <KPI label="Leads" value={stats.leads_total} sub={te ? `కొత్తవి: ${stats.leads_new}` : `new: ${stats.leads_new}`} tone="gold" />
-              <KPI label="Lead conversion" value={`${stats.conversion}%`} sub="unique visitors → leads" tone="gold" />
+              <KPI label="Visits (total)" value={metric(stats.visits_total)} sub={te ? `ఈ రోజు: ${metric(stats.visits_today)}` : `today: ${metric(stats.visits_today)}`} />
+              <KPI label="Unique visitors" value={metric(stats.visitors_unique)} sub="IP+device hash" />
+              <KPI label="Leads" value={metric(stats.leads_total)} sub={te ? `కొత్తవి: ${metric(stats.leads_new)}` : `new: ${metric(stats.leads_new)}`} tone="gold" />
+              <KPI label="Lead conversion" value={metric(stats.conversion, "%")} sub="unique visitors → leads" tone="gold" />
               <KPI label="Member profiles" value={inv?.total_profiles ?? 0} sub={`${inv?.approved_profiles ?? 0} approved · ${inv?.pending_profiles ?? 0} pending`} />
               <KPI label="WhatsApp sent" value={wa?.sent_total ?? 0} sub={wa?.whatsapp_mode === "off" ? "mode: off (offline)" : `mode: ${wa?.whatsapp_mode}`} />
             </div>
