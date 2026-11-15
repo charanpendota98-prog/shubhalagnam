@@ -6,7 +6,7 @@
  */
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Duo, duo } from "@/lib/duo";
+import { Duo, useDuo } from "@/lib/duo";
 import { apiDisplayMessage } from "@/lib/api";
 import { useLang } from "@/lib/lang";
 import { apiGet } from "@/lib/api";
@@ -27,6 +27,7 @@ function firstName(n?: string) {
 }
 
 export function TeaserStrip() {
+  const duo = useDuo();
   const { lang } = useLang();
   const te = lang === "te";
   const displayField = (value?: string) => te
@@ -96,6 +97,7 @@ export function TeaserStrip() {
    section (same /api/stories feed, same review disclaimer). */
 
 export function ReligionsStrip() {
+  const duo = useDuo();
   const items = [
     { icon: "🕉️", en: "Hindu", te: "హిందూ", d: "Selected community labels A–Z; self-description is supported.", href: "/castes" },
     { icon: "☪️", en: "Muslim", te: "ముస్లిం", d: "Selected community groups; self-description is supported.", href: "/castes" },
@@ -128,6 +130,7 @@ export function ReligionsStrip() {
 }
 
 export function FinalCta() {
+  const duo = useDuo();
   return (
     <section className="max-w-7xl mx-auto px-4 py-10">
       <div className="rounded-3xl maroon-gradient text-white p-6 md:p-10 text-center shadow-brand">

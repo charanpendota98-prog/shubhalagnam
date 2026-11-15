@@ -410,7 +410,7 @@ export default function MePage() {
                 </div>
 
                 <p className="text-xs leading-relaxed text-slate-600">
-                  {te ? "ఈ చర్య profile ను public search నుంచి దాచుతుంది; stored/payment/audit/archive records erase కావు. Accepted requests లో ముందే ఇచ్చిన contact access revoke కాదు; బయట copies మిగలవచ్చు. Erasure request కోసం " : "This hides the profile from public search; stored, payment, audit, and archive records are not erased. Contact access already granted through accepted requests is not revoked, and external copies may remain. For an erasure request, see "}
+                  {te ? "ఈ చర్య profile ను public search నుంచి దాచుతుంది; stored/payment/audit/archive records erase కావు. Accepted requests లో contact access రద్దు అవుతుంది; బయట సేవ్ చేసిన copies మిగలవచ్చు. Erasure request కోసం " : "This hides the profile from public search and revokes in-app contact access through accepted requests. Stored, payment, audit, and archive records are not erased, and copies saved outside the app may remain. For an erasure request, see "}
                   <Link href="/privacy" className="font-bold text-maroon underline">{te ? "Privacy & grievance contact" : "Privacy & grievance contact"}</Link>.
                 </p>
 
@@ -424,7 +424,7 @@ export default function MePage() {
                     className="mt-0.5 accent-rose-700 cursor-pointer"
                   />
                   <label htmlFor="confirmDelete" className="cursor-pointer font-medium leading-relaxed">
-                    {te ? "నా ప్రొఫైల్‌ను పబ్లిక్ శోధన నుంచి దాచడానికి అంగీకరిస్తున్నాను. ఇది నిల్వ చేసిన రికార్డులను తొలగించదు లేదా అంగీకరించిన అభ్యర్థనల ద్వారా ఇప్పటికే ఇచ్చిన సంప్రదింపు ప్రాప్యతను రద్దు చేయదు." : "I agree to hide my profile from public search. This does not erase stored records or revoke contact access already granted through accepted requests."}
+                    {te ? "నా ప్రొఫైల్‌ను పబ్లిక్ శోధన నుంచి దాచడానికి అంగీకరిస్తున్నాను. అంగీకరించిన అభ్యర్థనల ద్వారా యాప్‌లో ఇచ్చిన సంప్రదింపు ప్రాప్యత రద్దు అవుతుంది. నిల్వ చేసిన రికార్డులు తొలగించబడవు." : "I agree to hide my profile from public search and revoke in-app contact access through accepted requests. This does not erase stored records."}
                   </label>
                 </div>
 

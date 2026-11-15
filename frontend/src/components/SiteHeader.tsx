@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { SITE_CONFIG } from "@/lib/site-config";
 import { useSession, logout } from "@/lib/auth";
 import { apiGet } from "@/lib/api";
-import { Duo, duo } from "@/lib/duo";
+import { Duo, useDuo } from "@/lib/duo";
 import { LangToggle, useLang } from "@/lib/lang";
 import {
   Home, HeartHandshake, RefreshCw, Star, Megaphone, Users, Wallet, Gift,
@@ -118,6 +118,7 @@ const NAV_DESKTOP_MORE: NavItem[] = [
    (anti-scam) — team opens it by direct URL + X-Admin-Key only. */
 
 export default function SiteHeader() {
+  const duo = useDuo();
   const pathname = usePathname();
   const router = useRouter();
   const { lang } = useLang();
