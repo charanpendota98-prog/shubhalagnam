@@ -144,7 +144,7 @@ export default function VendorShareKitPage() {
   };
 
   return (
-    <main className="min-h-dvh bg-cream px-4 py-8 pb-20">
+    <div className="min-h-dvh bg-cream px-4 py-8 pb-20">
       <div className="mx-auto max-w-4xl space-y-5">
         <Link href="/vendors" className="inline-flex min-h-10 items-center text-sm font-bold text-maroon underline underline-offset-4">
           {te ? "← వెండర్ డైరెక్టరీ" : "← Vendor directory"}
@@ -255,6 +255,6 @@ export default function VendorShareKitPage() {
           </section>
         )}
       </div>
-    </main>
+    </div>
   );
 }

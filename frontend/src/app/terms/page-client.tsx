@@ -14,7 +14,7 @@ export default function TermsPage() {
   const { lang } = useLang();
   const te = lang === "te";
   return (
-    <main className="max-w-3xl mx-auto px-4 py-8 pb-36">
+    <div className="max-w-3xl mx-auto px-4 py-8 pb-36">
       <h1 className="text-2xl md:text-3xl font-extrabold text-[#7A0C2E] telugu">
         {te ? "📄 Terms of Use (సేవా నియమాలు)" : "📄 Terms of Use"}
       </h1>
@@ -252,9 +252,11 @@ export default function TermsPage() {
           <div className="rounded-2xl bg-white/90 border border-emerald-100 p-3 shadow-2xs">
             <div className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Official Email</div>
             <div className="mt-0.5 font-mono font-bold text-gray-900">
-              <a href={`mailto:${SITE_CONFIG.owner.email}`} className="text-emerald-700 hover:underline">
-                {SITE_CONFIG.owner.email}
-              </a>
+              {SITE_CONFIG.owner.email ? (
+                <a href={`mailto:${SITE_CONFIG.owner.email}`} className="text-emerald-700 hover:underline">
+                  {SITE_CONFIG.owner.email}
+                </a>
+              ) : <span>{te ? "ఇమెయిల్ వివరాలు అందుబాటులో లేవు" : "Email contact is not configured"}</span>}
             </div>
           </div>
 
@@ -276,7 +278,7 @@ export default function TermsPage() {
         <Link href="/privacy" className="underline text-[#7A0C2E] font-bold">🔒 {te ? "Privacy" : "Privacy"}</Link>
         <Link href="/safety" className="underline text-[#7A0C2E] font-bold">🛡️ {te ? "Safety" : "Safety"}</Link>
       </div>
-    </main>
+    </div>
   );
 }
 

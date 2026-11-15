@@ -36,7 +36,7 @@ export default function OrgPortalClient() {
   }, [slug]);
 
   return (
-    <main className="max-w-5xl mx-auto px-4 py-8 space-y-6">
+    <div className="max-w-5xl mx-auto px-4 py-8 space-y-6">
       <header className="rounded-3xl bg-gradient-to-br from-[#5c1224] via-[#450e1c] to-[#26070f] text-white p-6 md:p-8 shadow-lg">
         <p className="text-xs uppercase tracking-widest text-amber-200 font-semibold">
           {te ? "ధృవీకరించిన సంఘ పోర్టల్ • White-Label Portal" : "Verified Community Association Portal"}
@@ -117,6 +117,6 @@ export default function OrgPortalClient() {
           </section>
         </>
       )}
-    </main>
+    </div>
   );
 }

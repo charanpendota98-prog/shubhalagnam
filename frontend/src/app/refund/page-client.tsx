@@ -11,7 +11,7 @@ export default function RefundPage() {
   const { lang } = useLang();
   const te = lang === "te";
   return (
-    <main className="max-w-3xl mx-auto px-4 py-8 pb-36">
+    <div className="max-w-3xl mx-auto px-4 py-8 pb-36">
       <h1 className="text-2xl md:text-3xl font-extrabold text-[#7A0C2E] telugu">
         {te ? "💸 Refund & Cancellation Policy (వాపసు విధానం)" : "💸 Refund & Cancellation Policy"}
       </h1>
@@ -174,7 +174,7 @@ export default function RefundPage() {
         <Link href="/privacy" className="underline text-[#7A0C2E] font-bold">🔒 Privacy</Link>
         <Link href="/safety" className="underline text-[#7A0C2E] font-bold">🛡️ Safety</Link>
       </div>
-    </main>
+    </div>
   );
 }
 

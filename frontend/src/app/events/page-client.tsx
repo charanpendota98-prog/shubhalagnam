@@ -155,7 +155,7 @@ export default function EventsPageClient() {
   }
 
   return (
-    <main className="max-w-6xl mx-auto px-4 py-8 space-y-8">
+    <div className="max-w-6xl mx-auto px-4 py-8 space-y-8">
       <header className="rounded-3xl bg-gradient-to-br from-[#5c1224] via-[#450e1c] to-[#26070f] text-white p-6 md:p-8 shadow-lg">
         <p className="text-xs uppercase tracking-widest text-amber-200 font-semibold">
           {te ? "కమ్యూనిటీ వేదికలు • వివాహ బండిల్స్ • సంఘ పోర్టల్స్" : "Community Events • Wedding Bundles • Org Portals"}
@@ -429,6 +429,6 @@ export default function EventsPageClient() {
           </div>
         </form>
       </section>
-    </main>
+    </div>
   );
 }
