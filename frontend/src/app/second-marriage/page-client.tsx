@@ -308,7 +308,7 @@ export default function SecondMarriagePage() {
       {/* ================= MAIN CONTENT CONTAINER ================= */}
       <div className="max-w-7xl mx-auto px-4 py-8 space-y-6">
         {/* Quick Filter Category Tabs */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
+        <div role="group" aria-label={te ? "పునర్వివాహ వడపోతలు" : "Remarriage filters"} className="flex flex-wrap items-center gap-2 pb-2">
           {[
             { id: "all", te: "🌟 అన్ని పునర్వివాహ సంబంధాలు", en: "🌟 All remarriage profiles" },
             { id: "brides", te: "👰 వధువులు", en: "👰 Brides" },
@@ -322,7 +322,7 @@ export default function SecondMarriagePage() {
               key={tab.id}
               onClick={() => handleTabClick(tab.id)}
               aria-pressed={activeTab === tab.id}
-              className={`whitespace-nowrap px-4 py-2.5 rounded-2xl text-xs font-bold transition flex items-center gap-1.5 border ${
+              className={`max-w-full shrink-0 whitespace-normal px-4 py-2.5 rounded-2xl text-xs font-bold transition flex items-center gap-1.5 border ${
                 activeTab === tab.id
                   ? "bg-maroon text-white border-maroon shadow-md"
                   : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
