@@ -136,7 +136,7 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className="antialiased min-h-dvh flex flex-col">
+      <body className="antialiased min-h-dvh flex flex-col wedding-editorial-theme">
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: serializeJsonLd(SITE_JSON_LD) }}

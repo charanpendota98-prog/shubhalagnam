@@ -7,7 +7,8 @@ import { Badge, Button, Card, CardBody } from "@/components/ui";
 import ProfilesOfTheDay from "@/components/ProfilesOfTheDay";
 import HomeStories from "@/components/HomeStories";
 import HomeVendorsShowcase from "@/components/HomeVendorsShowcase";
-import CinematicHero from "@/components/CinematicHero";
+import CinematicHero from "@/components/WeddingPhotoHero";
+import WeddingEditorialNote from "@/components/WeddingEditorialNote";
 import HeroQuickSearch from "@/components/HeroQuickSearch";
 import { SITE_CONFIG } from "@/lib/site-config";
 import { serializeJsonLd } from "@/lib/safe-json-ld";
@@ -255,6 +256,7 @@ export default function Home() {
       {/* 💍 A content-first wedding guide in place of the old AI-photo film:
           hand-drawn SVG art, the real ritual sequence, and links into the
           pages that already cover each step. No video bytes, no stock photos. */}
+      <WeddingEditorialNote />
       <WeddingStorySection />
 
       {/* Approved member stories only — hides itself when there are none. */}
