@@ -2669,7 +2669,7 @@ function Wizard() {
                       <label className="text-xs font-bold text-slate-800 flex items-center justify-between">
                         <span>{T("నా గురించి", "About myself")}</span>
                         <span className="text-[11px] text-slate-500 font-normal">
-                          {T("ఐచ్ఛికం; రాస్తే కనీసం 50 అక్షరాలు", "Optional; at least 50 characters if added")}
+                          {T("ఐచ్ఛికం; రాస్తే కనీసం 50 అక్షరాలు", "Optional. Minimum 50 characters if added")}
                         </span>
                       </label>
                       <textarea aria-label={te ? "మీ కుటుంబం, వ్యక్తిత్వం మరియు అంచనాల గురించి రాయండి… (ఫోన్ నంబర్లు లేదా ఈమెయిల్ ఇవ్వకండి)" : "Describe your family, personality, and expectations. Do not include phone numbers or email addresses."}
@@ -2680,7 +2680,7 @@ function Wizard() {
                         className="w-full bg-white border border-slate-200 rounded-xl p-3 text-xs text-slate-900 font-medium focus:outline-none focus:border-maroon telugu"
                       />
                       <div className="text-[11px] text-slate-500">
-                        {te ? `${String(f.about_myself || "").length} అక్షరాలు (ఐచ్ఛికం; రాస్తే కనీసం 50; ఫోన్ / ఈమెయిల్ ఇవ్వకండి)` : `${String(f.about_myself || "").length} characters (optional; at least 50 if added; do not include phone numbers or email)`}
+                        {te ? `${String(f.about_myself || "").length} అక్షరాలు (ఐచ్ఛికం; రాస్తే కనీసం 50; ఫోన్ నంబర్లు ఇవ్వకండి; ఈమెయిల్ కూడా వద్దు)` : `${String(f.about_myself || "").length} characters (minimum 50 if added; optional; do not include phone numbers or email)`}
                       </div>
                     </div>
                   </div>
