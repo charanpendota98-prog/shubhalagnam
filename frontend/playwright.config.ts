@@ -51,7 +51,8 @@ export default defineConfig({
   ...(startServer
     ? {
         webServer: {
-          command: `npm run dev -- --port ${PORT}`,
+          // Bind to the same loopback host as baseURL so Next.js accepts dev assets.
+          command: `npm run dev -- --hostname 127.0.0.1 --port ${PORT}`,
           url: baseURL,
           reuseExistingServer: true,
           timeout: 180_000,
