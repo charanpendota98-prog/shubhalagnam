@@ -21,6 +21,8 @@ export default function ReferralLandingPage() {
   // into registration is what lets a referrer see "sent → opened → joined"
   // for a named person instead of a single anonymous counter.
   const inv = String(search?.get("inv") || "").trim().toUpperCase().slice(0, 16);
+  const campaign = String(search?.get("campaign") || "").trim();
+  const campaignQuery = /^[A-Za-z0-9_-]{24}$/.test(campaign) ? `&campaign=${encodeURIComponent(campaign)}` : "";
   const [info, setInfo] = useState<any>(null);
   const [checked, setChecked] = useState(false);
 
@@ -29,12 +31,12 @@ export default function ReferralLandingPage() {
     localStorage.setItem("tsap_ref_from_link", code);          // backup (register page kooda chaduvutundi)
     try { sessionStorage.setItem("tsap_click_fired", code); } catch { /* ignore */ }  // 🌊 W20 dedupe
     const inviteQuery = inv ? `&inv=${encodeURIComponent(inv)}` : "";
-    fetch(`/api/referral/click/${code}?source=link${inviteQuery}`, { method: "POST" })
+    fetch(`/api/referral/click/${code}?source=link${inviteQuery}${campaignQuery}`, { method: "POST" })
       .then((r) => readApiJson(r))
       .then((d) => setInfo(d))
       .catch(() => { })
       .finally(() => setChecked(true));
-  }, [code, inv]);
+  }, [code, inv, campaignQuery]);
 
   const valid = info?.valid_code;
   const name = info?.referrer_name;
@@ -44,10 +46,10 @@ export default function ReferralLandingPage() {
     if (!checked) return;
     if (valid !== false) {
       const t = setTimeout(() => router.replace(
-        `/register?ref=${code}${inv ? `&inv=${encodeURIComponent(inv)}` : ""}`), 1600);
+        `/register?ref=${code}${inv ? `&inv=${encodeURIComponent(inv)}` : ""}${campaignQuery}`), 1600);
       return () => clearTimeout(t);
     }
-  }, [checked, valid, code, inv, router]);
+  }, [checked, valid, code, inv, campaignQuery, router]);
 
   return (
     <div className="min-h-dvh bg-[#FFF8E7] flex items-center justify-center p-4">
@@ -73,7 +75,7 @@ export default function ReferralLandingPage() {
               <div>{te ? "✅ Approval తర్వాత configured destination కు post queue కావచ్చు; delivery హామీ కాదు" : "✅ After approval, a post may be queued for a configured destination; delivery is not guaranteed"}</div>
               <div>{te ? "✅ Private-photo setting ను గౌరవించే outputs లో photo దాచబడుతుంది; owner accept చేసిన తర్వాత accepted-request account views లో contact access వస్తుంది. Notification delivery హామీ లేదు." : "✅ The private-photo setting suppresses photos only in outputs that honor it; owner acceptance grants contact access in accepted-request account views. Notification delivery is not guaranteed."}</div>
             </div>
-            <a href={`/register?ref=${code}${inv ? `&inv=${encodeURIComponent(inv)}` : ""}`}
+            <a href={`/register?ref=${code}${inv ? `&inv=${encodeURIComponent(inv)}` : ""}${campaignQuery}`}
               className="mt-5 block w-full py-3 maroon-gradient text-white rounded-full font-bold text-sm">
               {te ? "🚀 Register చెయ్యండి (ref auto-lock)" : "🚀 Register with this referral code"}
             </a>

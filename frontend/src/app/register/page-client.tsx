@@ -1199,6 +1199,10 @@ function Wizard() {
       fd.append("photo_file", photoFile, photoFile.name);
       if (refLocked) fd.set("referral_code", refLocked);
       if (refLocked && refInvite) fd.append("referral_invite", refInvite);
+      // Campaign tags never set or replace the referral owner. Server validates
+      // this token against the referral that successfully attaches.
+      const campaign = (params?.get("campaign") || "").trim();
+      if (refLocked && /^[A-Za-z0-9_-]{24}$/.test(campaign)) fd.append("referral_campaign", campaign);
 
       // Keep one opaque key in session storage while the response is pending.
       // If the radio/network drops after the server commits, the next click

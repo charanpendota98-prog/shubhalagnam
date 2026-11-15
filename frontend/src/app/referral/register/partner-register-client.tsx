@@ -5,6 +5,7 @@
  * published one-time qualifying consumer-plan rule; no payment is guaranteed.
  */
 import { useState } from "react";
+import CreatorCampaigns from "@/components/CreatorCampaigns";
 import Link from "next/link";
 import { Duo, useDuo } from "@/lib/duo";
 import { useLang } from "@/lib/lang";
@@ -421,6 +422,7 @@ export default function PartnerRegisterPage() {
         ) : null}
       </section>
 
+      {privateDash?.success && partnerToken && <CreatorCampaigns key={privateDash.partner_id} identity={privateDash.partner_id} partnerToken={partnerToken} />}
       <p className="mt-4 text-center text-sm text-slate-600">
         <Link href="/referral" className="font-semibold text-maroon underline">← Referral home</Link>
       </p>

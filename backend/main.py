@@ -84,6 +84,7 @@ import publisher as PUBLISHER
 import wa_antiban as WA_ANTIBAN
 import vendors as VENDOR_STORE
 import quality as QUALITY
+import creator_campaigns as CREATOR
 import referral as REFERRAL
 from growth import (namaste_text, admin_new_profile_text, lead_followup_text,
                       track_visit, save_lead, lead_stats, leads_list, share_kit, inventory_status)
@@ -234,6 +235,7 @@ def _production_storage_paths() -> list:
         ("money audit", MAUD.AUDIT_FILE, False),
         ("publisher log", PUBLISHER.LOG_FILE, False),
         ("referrals", REFERRAL.STATE_FILE, False),
+        ("creator campaigns", REFERRAL.STATE_FILE + ".campaigns.json", False),
         ("referral partners", RP19.JSON_FILE, False),
         ("referral partner export", RP19.CSV_FILE, False),
         ("retention log", RETENTION.LOG_FILE, False),
@@ -2977,6 +2979,7 @@ async def register(
     phone: str = Form(...),
     password: str = Form(""),
     referral_code: str = Form(""),
+    referral_campaign: str = Form(""),
     referral_invite: str = Form(""),   # 💎 per-person invite token from /r/<code>?inv=TOKEN
     photo_private: bool = Form(True),
     expectations: str = Form(""),
@@ -3113,6 +3116,9 @@ async def register(
     # Referral inputs are bounded and allow-listed before they reach the referral
     # ledger.  Invalid codes simply fail the optional referral attachment later;
     # they cannot become an unbounded stored/logged string.
+    referral_campaign = str(referral_campaign or "").strip()
+    if referral_campaign and not CREATOR.TOKEN.fullmatch(referral_campaign):
+        raise HTTPException(400, "Campaign link is invalid")
     referral_code = clean(referral_code, 80, "referral_code").upper()
     referral_invite = clean(referral_invite, 64, "referral_invite").upper()
     if referral_code and not re.fullmatch(r"[A-Z0-9_-]{1,80}", referral_code):
@@ -3493,6 +3499,15 @@ async def register(
             if referral_result.get("ok"):
                 user["referred_by_invite"] = user.get("referral_invite_token", "")
             user.pop("referral_invite_token", None)
+    # Campaign attribution is optional and can never choose the referrer or
+    # create an extra reward. Only the newly successful locked attachment counts.
+    if referral_campaign and referral_result.get("ok"):
+        try:
+            campaign_code = str(user.get("referred_by") or "").upper()
+            if _creator_store().resolve(campaign_code, referral_campaign):
+                user["referral_campaign"] = referral_campaign
+        except (OSError, ValueError):
+            referral_result["campaign_tracking_unavailable"] = True
     # ee user ki sontha referral code (share cheyyadaniki)
     my_referral = ensure_referrer_profile(user, DB_USERS)
     user["referred_by_final"] = user.get("referred_by") or (referral_code if referral_result.get("ok") else "")
@@ -4822,6 +4837,69 @@ def referral_terms():
     return {"success": True, **referral_terms_telugu()}
 
 
+def _creator_store():
+    return CREATOR.CampaignStore(REFERRAL.STATE_FILE + ".campaigns.json")
+
+
+def _creator_owner(identity: str, request: Request):
+    # Partner lookup historically permits phone aliases. Never use those for
+    # new private routes: canonical ID plus OTP-derived token is mandatory.
+    partner = next((p for p in RP19.PARTNERS if str(p.get("partner_id", "")).upper() == identity.upper()), None)
+    if partner:
+        _require_partner_token(request, partner["partner_id"])
+        return partner
+    user = _user_or_404(identity)
+    require_owner(request, identity)
+    return user
+
+
+def _creator_code(owner):
+    code = str(owner.get("referral_code") or owner.get("partner_id") or "").upper()
+    if not re.fullmatch(r"[A-Z0-9_-]{1,80}", code):
+        raise HTTPException(409, "Your referral code is not ready")
+    return code
+
+
+@app.get("/api/referral/{identity}/campaigns")
+def creator_campaign_list(identity: str, request: Request):
+    owner = _creator_owner(identity, request)
+    try:
+        code = _creator_code(owner)
+        ledger = REFERRAL.qualifying_commission_entries(owner.get("referral_stats", {}))
+        rows = _creator_store().report(code, DB_USERS, ledger, REFERRAL.SITE_URL)
+        return {"success": True, "campaigns": rows, "updated_at": datetime.utcnow().isoformat(),
+                "notes": "Registration is not a cash reward. Counts are recorded events, not unique people or guaranteed income."}
+    except (OSError, ValueError):
+        raise HTTPException(503, "Campaign records could not be read safely")
+
+
+@app.post("/api/referral/{identity}/campaigns")
+def creator_campaign_create(identity: str, payload: dict, request: Request):
+    owner = _creator_owner(identity, request)
+    try:
+        row = _creator_store().create(_creator_code(owner), payload or {}, datetime.utcnow().isoformat())
+        return {"success": True, "campaign": CREATOR.campaign_view(row, REFERRAL.SITE_URL)}
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+    except OSError:
+        raise HTTPException(503, "Campaign could not be saved safely")
+
+
+@app.post("/api/referral/{identity}/campaigns/{campaign_id}/status")
+def creator_campaign_status(identity: str, campaign_id: str, payload: dict, request: Request):
+    owner = _creator_owner(identity, request)
+    try:
+        row = _creator_store().set_status(_creator_code(owner), campaign_id,
+                str((payload or {}).get("status", "")), datetime.utcnow().isoformat())
+        return {"success": True, "campaign": CREATOR.campaign_view(row, REFERRAL.SITE_URL)}
+    except LookupError:
+        raise HTTPException(404, "Campaign not found")
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+    except OSError:
+        raise HTTPException(503, "Campaign could not be saved safely")
+
+
 @app.get("/api/referral/{tsap_id}")
 def referral_home(tsap_id: str, request: Request = None):
     """
@@ -4964,7 +5042,7 @@ def referral_poster(tsap_id: str, style: str = "square"):
 
 
 @app.post("/api/referral/click/{code}")
-def referral_click(code: str, source: str = "link", inv: str = "", request: Request = None):
+def referral_click(code: str, source: str = "link", inv: str = "", campaign: str = "", request: Request = None):
     """/r/<code> link click — funnel tracking (clicks → registrations → payments).
 
     `inv` is a per-person invite token: when present, that one invite is marked
@@ -5006,6 +5084,14 @@ def referral_click(code: str, source: str = "link", inv: str = "", request: Requ
     identity = client_ip(request) if request is not None else "unknown"
     user_agent = str(request.headers.get("user-agent", ""))[:160] if request is not None else ""
     dedupe_key = "|".join((request_id or f"window:{int(time.time() // 600)}", identity, user_agent, code, inv))
+    campaign_recorded = False
+    if campaign:
+        try:
+            target = referral_find_referrer(code, DB_USERS)
+            canonical_code = referral_code_of(target) if target else ""
+            campaign_recorded = _creator_store().record_click(canonical_code, campaign, dedupe_key, datetime.utcnow().isoformat())
+        except (OSError, ValueError):
+            raise HTTPException(503, "Campaign click could not be recorded safely")
     st = track_click(code, source, dedupe_key=dedupe_key)
     if not st.get("ok"):
         raise HTTPException(503, "Referral click could not be recorded safely. Please try again.")
@@ -5015,7 +5101,7 @@ def referral_click(code: str, source: str = "link", inv: str = "", request: Requ
         if not RP19.record_click(code):
             raise HTTPException(503, "Partner click could not be recorded safely. Please try again.")
         kind = "partner"
-    return {"success": True, **st, "valid_code": known.get("ok", False),
+    return {"success": True, **st, "campaign_recorded": campaign_recorded, "valid_code": known.get("ok", False),
             "referrer_name": known.get("referrer_name", ""),
             "bonus_credits": known.get("bonus_credits", 0), "kind": kind}
 
