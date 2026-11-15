@@ -22,7 +22,11 @@ check('Owner private photo allowed','GET','/photos/'+fn,200,ha)
 r=check('Guest public profile contact safe','GET','/api/search/'+A,200);raw=r.text;rows[-1]['contact_markers_absent']=all(x not in raw for x in [a['phone'],a['email'],'password_hash']);rows[-1]['pass'] &= rows[-1]['contact_markers_absent']
 ok,_,grant=E.request_photo_access(B,A);assert ok;assert E.respond_photo_access(A,grant['id'],'approved')[0]
 check('Approved peer photo allowed','GET','/photos/'+fn,200,hb)
-token=E.create_signed_photo_token(fn,B,A);check('Guest with peer-specific token denied','GET','/photos/'+fn+'?access_token='+token,404)
+token=E.create_signed_photo_token(fn,B,A);check('Expiring signed bearer URL works with active grant','GET','/photos/'+fn+'?access_token='+token,200)
+import safety
+ok,_,_=safety.block_user(A,B,'synthetic block regression',M.DB_BLOCKS);assert ok
+check('Blocked recipient guest signed token denied','GET','/photos/'+fn+'?access_token='+token,404)
+M.DB_BLOCKS.clear()
 a.update(status='deleted',is_active=False,is_approved=False);assert M._persist_core_state()
 check('Hidden profile guest denied','GET','/api/search/'+A,404)
 check('Hidden profile peer photo grant denied','GET','/photos/'+fn,404,hb)
