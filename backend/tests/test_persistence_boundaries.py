@@ -93,7 +93,7 @@ def test_photo_review_rolls_back_moderation_decision_when_core_save_fails(monkey
     response = CLIENT.post(
         "/api/admin/photos/review",
         headers={"x-admin-key": os.environ["ADMIN_KEY"]},
-        json={"tsap_id": user["tsap_id"], "kind": "photo", "decision": "approved"},
+        json={"tsap_id": user["tsap_id"], "kind": "photo", "revision": next(it["revision"] for it in CLIENT.get("/api/admin/photos/pending",headers={"x-admin-key": os.environ["ADMIN_KEY"]}).json()["queue"] if it["tsap_id"] == user["tsap_id"] and it["kind"] == "photo"), "decision": "approved"},
     )
     assert response.status_code == 503
     assert user["photo_status"] == "pending"

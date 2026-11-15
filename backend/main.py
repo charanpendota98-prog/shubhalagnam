@@ -7399,6 +7399,16 @@ def saved_note_set(tsap_id: str, saved_id: str, payload: dict = Body(default={})
 # ===========================================================================
 # 📱 OTP VERIFY (phone) + 🔎 ADVANCED SEARCH FILTERS
 # ===========================================================================
+# Serializes upload/review commits so a displayed revision cannot approve a replacement.
+_PHOTO_REVIEW_LOCK = threading.RLock()
+
+
+def _photo_review_revision(profile: dict, kind: str) -> str:
+    import hashlib
+    media_url = str(profile.get("selfie_url" if kind == "selfie" else "photo_url") or "")
+    return hashlib.sha256((kind + "\0" + media_url).encode("utf-8")).hexdigest()
+
+
 @app.post("/api/photo/upload")
 async def photo_upload(file: UploadFile = File(...), tsap_id: str = Form(""), request: Request = None):
     """
@@ -7447,24 +7457,25 @@ async def photo_upload(file: UploadFile = File(...), tsap_id: str = Form(""), re
     except Exception as e:
         raise HTTPException(500, f"Photo save failed: {str(e)[:80]}")
     if _tid:
-        owner_before = copy.deepcopy(_owner)
-        _owner["photo_url"] = f"/photos/{name}"
-        _owner["photo_urls"] = [f"/photos/{name}"]
-        _owner["photo_status"] = "pending"  # A human review is still required.
-        _owner["photo_checks"] = verdict["checks"]
-        _owner["photo_uploaded_at"] = datetime.utcnow().isoformat()
-        # A replacement upload must not leave the old photo-bearing card live.
-        # The pending card is rebuilt as a monogram until the new photo is reviewed.
-        _regenerate_profile_card(_owner)
-        if not _persist_core_state():
-            _owner.clear()
-            _owner.update(owner_before)
+        with _PHOTO_REVIEW_LOCK:
+            owner_before = copy.deepcopy(_owner)
+            _owner["photo_url"] = f"/photos/{name}"
+            _owner["photo_urls"] = [f"/photos/{name}"]
+            _owner["photo_status"] = "pending"  # A human review is still required.
+            _owner["photo_checks"] = verdict["checks"]
+            _owner["photo_uploaded_at"] = datetime.utcnow().isoformat()
+            # A replacement upload must not leave the old photo-bearing card live.
+            # The pending card is rebuilt as a monogram until the new photo is reviewed.
             _regenerate_profile_card(_owner)
-            try:
-                os.remove(path)
-            except OSError:
-                pass
-            raise HTTPException(503, "Photo could not be saved safely. Please try again.")
+            if not _persist_core_state():
+                _owner.clear()
+                _owner.update(owner_before)
+                _regenerate_profile_card(_owner)
+                try:
+                    os.remove(path)
+                except OSError:
+                    pass
+                raise HTTPException(503, "Photo could not be saved safely. Please try again.")
     return {"success": True, "url": f"/photos/{name}", "bytes": len(data),
             "kb": round(len(data) / 1024, 1),
             "status": "pending", "checks": verdict["checks"],
@@ -7519,21 +7530,22 @@ async def verify_selfie(file: UploadFile = File(...), tsap_id: str = Form(""), r
         atomic_write_bytes(selfie_path, data)
     except Exception as exc:
         raise HTTPException(500, f"Selfie save failed: {str(exc)[:80]}") from exc
-    previous = {key: u.get(key) for key in ("selfie_url", "selfie_status", "selfie_checks")}
-    u["selfie_url"] = f"/photos/{name}"
-    u["selfie_status"] = "pending"
-    u["selfie_checks"] = verdict["checks"]
-    if not _persist_core_state():
-        for key, value in previous.items():
-            if value is None:
-                u.pop(key, None)
-            else:
-                u[key] = value
-        try:
-            os.remove(selfie_path)
-        except OSError:
-            pass
-        raise HTTPException(503, "Selfie could not be saved safely. Please try again.")
+    with _PHOTO_REVIEW_LOCK:
+        previous = {key: u.get(key) for key in ("selfie_url", "selfie_status", "selfie_checks")}
+        u["selfie_url"] = f"/photos/{name}"
+        u["selfie_status"] = "pending"
+        u["selfie_checks"] = verdict["checks"]
+        if not _persist_core_state():
+            for key, value in previous.items():
+                if value is None:
+                    u.pop(key, None)
+                else:
+                    u[key] = value
+            try:
+                os.remove(selfie_path)
+            except OSError:
+                pass
+            raise HTTPException(503, "Selfie could not be saved safely. Please try again.")
     return {"success": True, "url": u["selfie_url"], "status": "pending", "checks": verdict["checks"],
             "message_telugu": "🤳 Selfie upload అయింది — staff review పూర్తయ్యాక status update అవుతుంది. ఇది అన్ని profile వివరాలను verify చేయదు."}
 
@@ -7542,88 +7554,97 @@ async def verify_selfie(file: UploadFile = File(...), tsap_id: str = Form(""), r
 def admin_photos_pending(request: Request):
     """📸 ADMIN — photo + selfie moderation queue (Layer-2 human review)."""
     require_admin(request, staff_ok=True)
-    q = []
-    for u in DB_USERS:
-        _first = str(u.get("full_name", "")).split()[0] if str(u.get("full_name", "")).split() else ""
-        if u.get("photo_status") == "pending":
-            q.append({"kind": "photo", "tsap_id": u.get("tsap_id"), "name": _first,
-                      "url": f"/api/admin/photos/{urllib.parse.quote(str(u.get('tsap_id', '')), safe='')}/content?kind=photo",
-                      "checks": u.get("photo_checks", {}), "at": u.get("photo_uploaded_at", "")})
-        if u.get("selfie_status") == "pending":
-            q.append({"kind": "selfie", "tsap_id": u.get("tsap_id"), "name": _first,
-                      "url": f"/api/admin/photos/{urllib.parse.quote(str(u.get('tsap_id', '')), safe='')}/content?kind=selfie",
-                      "checks": u.get("selfie_checks", {}), "at": ""})
-    return {"success": True, "count": len(q), "queue": q}
+    with _PHOTO_REVIEW_LOCK:
+        q = []
+        for u in DB_USERS:
+            _first = str(u.get("full_name", "")).split()[0] if str(u.get("full_name", "")).split() else ""
+            if u.get("photo_status") == "pending":
+                revision = _photo_review_revision(u, "photo")
+                q.append({"kind": "photo", "tsap_id": u.get("tsap_id"), "name": _first,
+                          "url": f"/api/admin/photos/{urllib.parse.quote(str(u.get('tsap_id', '')), safe='')}/content?kind=photo&revision={revision}",
+                          "revision": _photo_review_revision(u, "photo"), "checks": u.get("photo_checks", {}), "at": u.get("photo_uploaded_at", "")})
+            if u.get("selfie_status") == "pending":
+                revision = _photo_review_revision(u, "selfie")
+                q.append({"kind": "selfie", "tsap_id": u.get("tsap_id"), "name": _first,
+                          "url": f"/api/admin/photos/{urllib.parse.quote(str(u.get('tsap_id', '')), safe='')}/content?kind=selfie&revision={revision}",
+                          "revision": _photo_review_revision(u, "selfie"), "checks": u.get("selfie_checks", {}), "at": ""})
+        return {"success": True, "count": len(q), "queue": q}
 
 
 @app.get("/api/admin/photos/{tsap_id}/content")
-def admin_photo_content(tsap_id: str, request: Request, kind: str = "photo"):
+def admin_photo_content(tsap_id: str, request: Request, kind: str = "photo", revision: str = ""):
     """Admin/staff-only binary access to pending review media; never publish storage URLs."""
     require_admin(request, staff_ok=True)
-    profile = _find_user(str(tsap_id or "").strip().upper())
-    if not profile:
-        raise HTTPException(404, "Photo not found")
-    media_kind = str(kind or "photo").strip().lower()
-    if media_kind == "photo":
-        status, media_url = profile.get("photo_status"), profile.get("photo_url")
-    elif media_kind == "selfie":
-        status, media_url = profile.get("selfie_status"), profile.get("selfie_url")
-    else:
-        raise HTTPException(400, "kind must be photo or selfie")
-    if status != "pending":
-        raise HTTPException(404, "Pending review media not found")
-    filename = _media_filename(media_url, "/photos/")
-    if not filename:
-        raise HTTPException(404, "Pending review media not found")
-    path = _media_file(PHOTO_MEDIA_DIR, filename)
-    if not os.path.isfile(path):
-        raise HTTPException(404, "Pending review media not found")
-    return FileResponse(path, headers={"Cache-Control": "private, no-store",
-                                       "X-Content-Type-Options": "nosniff"})
+    with _PHOTO_REVIEW_LOCK:
+        profile = _find_user(str(tsap_id or "").strip().upper())
+        if not profile:
+            raise HTTPException(404, "Photo not found")
+        media_kind = str(kind or "photo").strip().lower()
+        if media_kind == "photo":
+            status, media_url = profile.get("photo_status"), profile.get("photo_url")
+        elif media_kind == "selfie":
+            status, media_url = profile.get("selfie_status"), profile.get("selfie_url")
+        else:
+            raise HTTPException(400, "kind must be photo or selfie")
+        if not revision or revision != _photo_review_revision(profile, media_kind):
+            raise HTTPException(409, "Review image changed. Refresh the queue before reviewing.")
+        if status != "pending":
+            raise HTTPException(404, "Pending review media not found")
+        filename = _media_filename(media_url, "/photos/")
+        if not filename:
+            raise HTTPException(404, "Pending review media not found")
+        path = _media_file(PHOTO_MEDIA_DIR, filename)
+        if not os.path.isfile(path):
+            raise HTTPException(404, "Pending review media not found")
+        return FileResponse(path, headers={"Cache-Control": "private, no-store",
+                                           "X-Content-Type-Options": "nosniff"})
 
 
 @app.post("/api/admin/photos/review")
 def admin_photos_review(payload: dict, request: Request):
     """📸 ADMIN — approve/reject photo or selfie (wrong-person/group/celebrity → reject)."""
     require_admin(request, staff_ok=True)
-    d = payload or {}
-    u = next((x for x in DB_USERS if x.get("tsap_id") == str(d.get("tsap_id", ""))), None)
-    if not u:
-        raise HTTPException(404, "Profile dorakaledu")
-    kind = str(d.get("kind", "photo"))
-    decision = str(d.get("decision", ""))
-    if kind not in ("photo", "selfie") or decision not in ("approved", "rejected"):
-        raise HTTPException(400, "kind=photo/selfie, decision=approved/rejected ఇవ్వండి")
-    user_before = copy.deepcopy(u)
-    te_reason = str(d.get("reason_te", "") or d.get("reason", "")).strip()
-    if kind == "photo":
-        previous = {key: u.get(key) for key in ("photo_status", "has_photo", "photo_urls", "photo_reason", "photo_reason_te")}
-        u["photo_status"] = decision
-        if decision == "approved":
-            u["has_photo"] = True
-            u["photo_urls"] = [u.get("photo_url", "")] if u.get("photo_url") else []
-            u["photo_reason"] = ""
-            u["photo_reason_te"] = ""
+    with _PHOTO_REVIEW_LOCK:
+        d = payload or {}
+        u = next((x for x in DB_USERS if x.get("tsap_id") == str(d.get("tsap_id", ""))), None)
+        if not u:
+            raise HTTPException(404, "Profile dorakaledu")
+        kind = str(d.get("kind", "photo"))
+        decision = str(d.get("decision", ""))
+        if kind not in ("photo", "selfie") or decision not in ("approved", "rejected"):
+            raise HTTPException(400, "kind=photo/selfie, decision=approved/rejected ఇవ్వండి")
+        if not d.get("revision") or d["revision"] != _photo_review_revision(u, kind) or u.get("photo_status" if kind == "photo" else "selfie_status") != "pending":
+            raise HTTPException(409, "Review image changed or was already reviewed. Refresh the queue.")
+        user_before = copy.deepcopy(u)
+        te_reason = str(d.get("reason_te", "") or d.get("reason", "")).strip()
+        if kind == "photo":
+            previous = {key: u.get(key) for key in ("photo_status", "has_photo", "photo_urls", "photo_reason", "photo_reason_te")}
+            u["photo_status"] = decision
+            if decision == "approved":
+                u["has_photo"] = True
+                u["photo_urls"] = [u.get("photo_url", "")] if u.get("photo_url") else []
+                u["photo_reason"] = ""
+                u["photo_reason_te"] = ""
+            else:
+                u["has_photo"] = False
+                u["photo_reason"] = str(d.get("reason", "Photo not approved") or "Photo not approved")
+                u["photo_reason_te"] = te_reason or "ఈ ఫోటో approve కాలేదు — మీ clear original ఫోటో మళ్లీ పంపండి"
         else:
-            u["has_photo"] = False
-            u["photo_reason"] = str(d.get("reason", "Photo not approved") or "Photo not approved")
-            u["photo_reason_te"] = te_reason or "ఈ ఫోటో approve కాలేదు — మీ clear original ఫోటో మళ్లీ పంపండి"
-    else:
-        previous = {key: u.get(key) for key in ("selfie_status", "selfie_verified")}
-        u["selfie_status"] = decision
-        u["selfie_verified"] = (decision == "approved")
-    if kind == "photo" and not _regenerate_profile_card(u):
-        u.clear()
-        u.update(user_before)
-        _regenerate_profile_card(u)
-        raise HTTPException(503, "Profile card could not be regenerated safely. Please try again.")
-    if not _persist_core_state():
-        u.clear()
-        u.update(user_before)
-        _regenerate_profile_card(u)
-        raise HTTPException(503, "Photo review could not be saved safely. Please try again.")
-    return {"success": True, "tsap_id": u["tsap_id"], "kind": kind, "decision": decision,
-            "message_telugu": ("✅ Approve అయ్యింది" if decision == "approved" else "❌ Reject అయ్యింది — user కి reason వెళ్లింది")}
+            previous = {key: u.get(key) for key in ("selfie_status", "selfie_verified")}
+            u["selfie_status"] = decision
+            u["selfie_verified"] = (decision == "approved")
+        if kind == "photo" and not _regenerate_profile_card(u):
+            u.clear()
+            u.update(user_before)
+            _regenerate_profile_card(u)
+            raise HTTPException(503, "Profile card could not be regenerated safely. Please try again.")
+        if not _persist_core_state():
+            u.clear()
+            u.update(user_before)
+            _regenerate_profile_card(u)
+            raise HTTPException(503, "Photo review could not be saved safely. Please try again.")
+        return {"success": True, "tsap_id": u["tsap_id"], "kind": kind, "decision": decision,
+                "message_telugu": ("✅ Approve అయ్యింది" if decision == "approved" else "❌ Reject అయ్యింది — user కి reason వెళ్లింది")}
 
 
 # ---------------------------------------------------------------------------

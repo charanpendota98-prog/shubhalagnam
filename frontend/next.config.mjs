@@ -77,7 +77,7 @@ const nextConfig = {
       "default-src 'self'",
       "script-src 'self' 'unsafe-inline' https://checkout.razorpay.com",
       "style-src 'self' 'unsafe-inline'",
-      "img-src 'self' data: https:",
+      "img-src 'self' data: blob: https:",
       "font-src 'self' data:",
       "connect-src 'self' https://checkout.razorpay.com https://*.razorpay.com",
       "frame-src https://api.razorpay.com https://checkout.razorpay.com",
