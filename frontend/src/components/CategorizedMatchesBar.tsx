@@ -67,7 +67,7 @@ export default function CategorizedMatchesBar({ myTsapId }: { myTsapId: string }
         </div>
       </div>
 
-      <div className="flex gap-2 overflow-x-auto pb-2">
+      <div className="flex flex-wrap gap-2 pb-2" role="group" aria-label={te ? "సంబంధాల వర్గాలు" : "Match categories"}>
         {BUCKETS.map((b) => {
           const cnt = extractItems(cats[b.key]).length;
           return (
@@ -75,7 +75,8 @@ export default function CategorizedMatchesBar({ myTsapId }: { myTsapId: string }
               key={b.key}
               type="button"
               onClick={() => setActiveKey(b.key)}
-              className={`whitespace-nowrap rounded-full px-3.5 py-1.5 text-xs font-bold border transition ${
+              aria-pressed={activeKey === b.key}
+              className={`min-h-11 max-w-full whitespace-normal break-words text-left rounded-full px-3.5 py-1.5 text-xs font-bold border transition ${
                 activeKey === b.key
                   ? "bg-[#7A0C2E] text-white border-[#7A0C2E]"
                   : "bg-slate-50 text-slate-700 border-slate-200 hover:border-[#7A0C2E]"
