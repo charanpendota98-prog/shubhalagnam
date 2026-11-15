@@ -443,7 +443,7 @@ def control_summary(request: Request):
 
 
 @app.get("/api/control/profile-queue")
-def control_profile_queue(request: Request, status: str = "pending", limit: int = 50):
+def control_profile_queue(request: Request, status: str = "pending", limit: int = 50, q: str = "", page: int = 1, page_size: Optional[int] = None):
     """Safe operations queue. This endpoint deliberately has no phone/email/payment fields."""
     item = CONTROL_AUTH.require(request)
     if status not in {"pending", "approved", "rejected", "all"}:
@@ -451,10 +451,14 @@ def control_profile_queue(request: Request, status: str = "pending", limit: int 
     if item["role"] != "owner" and status != "pending":
         raise HTTPException(403, "Moderation staff can view pending profiles only")
     limit = max(1, min(int(limit), 100))
+    size = max(1, min(int(page_size if page_size is not None else limit), 100))
+    query = str(q or "").strip().casefold()[:120]
     rows = []
     for user in DB_USERS:
         current = str(user.get("status", "pending"))
         if status != "all" and current != status:
+            continue
+        if query and not any(query in str(user.get(k, "")).casefold() for k in ("tsap_id", "full_name", "district")):
             continue
         rows.append({"tsap_id": str(user.get("tsap_id", "")),
                      "full_name": str(user.get("full_name", ""))[:120],
@@ -464,10 +468,14 @@ def control_profile_queue(request: Request, status: str = "pending", limit: int 
                      "status": current,
                      "photo_status": str(user.get("photo_status", "none")),
                      "created_at": user.get("created_at", "")})
-        if len(rows) >= limit:
-            break
+    matched = len(rows)
+    pages = max(1, (matched + size - 1) // size)
+    page = max(1, min(page, pages))
+    rows = rows[(page - 1) * size:page * size]
     CONTROL_AUTH.audit("control_queue_view", item["username"], request, status=status, count=len(rows))
-    return {"success": True, "items": rows, "role": item["role"]}
+    return JSONResponse({"success": True, "items": rows, "role": item["role"],
+                         "matched": matched, "page": page, "pages": pages, "page_size": size},
+                        headers={"Cache-Control": "no-store"})
 
 
 # ---------------------------------------------------------------------------
@@ -500,6 +508,28 @@ def _control_owner_session_guard(request: Request, *, mutating: bool = False) ->
     if mutating and not CONTROL_AUTH.csrf_valid(request, item):
         raise HTTPException(403, "CSRF validation failed")
     return item
+
+
+@app.get("/api/control/operations")
+def control_operations(request: Request):
+    """Owner-session-only aggregate review. Does not disclose records or execute actions."""
+    item = _control_owner_session_guard(request)
+    from owner_operations import snapshot
+    import referral as referral_store
+    try:
+        coverage = CHAN.coverage()
+        # Strict read here: malformed spotlight storage must not masquerade as zero.
+        if os.path.exists(spotlight.SPOTLIGHT_FILE):
+            with open(spotlight.SPOTLIGHT_FILE, encoding="utf-8") as handle:
+                spotlights = json.load(handle)
+        else:
+            spotlights = []
+        result = snapshot(DB_USERS, growth.DB_VISITORS, growth.DB_LEADS, RP19.PARTNERS,
+                          referral_store.PAYOUTS, A11.STORIES, spotlights, coverage)
+    except (OSError, ValueError, TypeError, KeyError):
+        raise HTTPException(503, "Operations snapshot is unavailable. Please retry.")
+    CONTROL_AUTH.audit("control_operations_view", item["username"], request)
+    return JSONResponse(result, headers={"Cache-Control": "no-store"})
 
 
 @app.get("/api/control/bureaus")
