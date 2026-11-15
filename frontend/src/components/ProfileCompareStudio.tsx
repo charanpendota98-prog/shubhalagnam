@@ -216,7 +216,7 @@ export default function ProfileCompareStudio() {
   };
 
   return (
-    <main className="min-h-dvh bg-[#FDFBF7] px-4 py-8 sm:px-6 sm:py-12 lg:px-8">
+    <div className="min-h-dvh bg-[#FDFBF7] px-4 py-8 sm:px-6 sm:py-12 lg:px-8">
       <div className="mx-auto max-w-7xl space-y-7">
         <header className="mx-auto max-w-3xl space-y-3 text-center">
           <p className="inline-flex rounded-full border border-gold/40 bg-gold/15 px-4 py-1.5 text-xs font-bold text-maroon">
@@ -435,6 +435,6 @@ export default function ProfileCompareStudio() {
           </section>
         )}
       </div>
-    </main>
+    </div>
   );
 }
