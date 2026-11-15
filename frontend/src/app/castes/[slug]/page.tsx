@@ -24,7 +24,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const title = `${caste.name} ${role === "bride" ? "Bride" : "Groom"} ${district ? district.name : "TS/AP"} Matrimony`;
   return {
     title,
-    description: `${caste.name} ${role} profiles ${where} — మన వివాహ (Manavivaha). Member-submitted listings, consent-based contact options, ₹99 → 5 profiles; first 3 requests are free. Profile details are not independently verified.`,
+    description: `${caste.name} ${role} profiles ${where} — మన వివాహ (Manavivaha). Member-submitted listings, consent-based contact options, ₹99 → 5 interest requests; first 3 requests are free. Profile details are not independently verified.`,
     keywords: [
       `${caste.name.toLowerCase()} matrimony`, `${caste.name.toLowerCase()} bride ${district?.name || "hyderabad"}`,
       `${caste.name.toLowerCase()} groom`, `${caste.name.toLowerCase()} sambandham`,

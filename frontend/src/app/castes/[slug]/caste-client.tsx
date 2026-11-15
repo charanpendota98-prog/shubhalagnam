@@ -44,20 +44,15 @@ export default function CasteClient({ caste, role, district, chan, otherChan, fa
   const myChanLabel = `${caste.name} ${role === "bride" ? "Brides" : "Grooms"}`;
   const otherChanLabel = `${caste.name} ${role === "bride" ? "Grooms" : "Brides"}`;
   const roleEn = role === "bride" ? "Bride" : "Groom";
-  const where = district ? `${district.name}, ${stateFullName(district.state, te)}` : te ? "Telangana + Andhra Pradesh" : "Telangana + Andhra Pradesh";
+  const where = district ? `${district.name}, ${stateFullName(district.state, te)}` : te ? "తెలంగాణ + ఆంధ్ర ప్రదేశ్" : "Telangana + Andhra Pradesh";
   const sameCasteOtherRole = buildSlug(caste.key, role === "bride" ? "groom" : "bride", district?.slug);
 
   return (
     <div className="min-h-dvh">
       <section className="maroon-gradient text-white">
         <div className="max-w-5xl mx-auto px-4 py-10">
-          <nav className="text-[11px] opacity-90 flex gap-2 flex-wrap">
-            <Link href="/" className="underline">{te ? "Home" : "Home"}</Link><span>/</span>
-            <Link href="/castes" className="underline">{te ? "Castes" : "Castes"}</Link><span>/</span>
-            <span>{caste.name} {role}</span>
-          </nav>
           <h1 className="mt-3 text-2xl md:text-4xl font-bold">
-            {caste.name} {role === "bride" ? "Bride" : "Groom"} Matrimony — {district ? district.name : "TS & AP"}
+            {te ? <>{caste.name} {role === "bride" ? "వధువు" : "వరుడు"} సంబంధాలు - {district ? district.name : "తెలంగాణ & ఆంధ్ర ప్రదేశ్"}</> : <>{caste.name} {roleEn} Matrimony - {district ? district.name : "TS & AP"}</>}
           </h1>
           <p className="mt-2 text-[13px] md:text-sm opacity-90 telugu max-w-3xl">
             {te ? (
@@ -68,24 +63,24 @@ export default function CasteClient({ caste, role, district, chan, otherChan, fa
           </p>
           <div className="mt-5 flex flex-wrap gap-2">
             <Link href="/register" className="gold-gradient text-maroon font-bold text-sm px-5 py-3 rounded-xl hover-lift">
-              {te ? "📝 FREE గా register చెయ్యండి" : "📝 Register FREE"}
+              {te ? "📝 ఉచితంగా నమోదు చేయండి" : "📝 Register FREE"}
             </Link>
             {currentLinks.telegram ? (
               <a href={currentLinks.telegram} target="_blank" rel="noopener noreferrer" className="bg-white/10 border border-white/25 font-bold text-sm px-5 py-3 rounded-xl">
-                📢 {te ? `${myChanLabel} — listed link` : `Open listed ${myChanLabel} link`}
+                📢 {te ? `${myChanLabel} - లిస్టు చేసిన లింక్` : `Open listed ${myChanLabel} link`}
               </a>
             ) : (
               <span className="bg-white/10 border border-white/25 font-bold text-sm px-5 py-3 rounded-xl">📢 {te ? "Channel link అందుబాటులో లేదు" : "Channel link not listed"}</span>
             )}
             <Link href="/requests" className="bg-white/10 border border-white/25 font-bold text-sm px-5 py-3 rounded-xl">
-              {te ? "💌 Requests dashboard" : "💌 Requests dashboard"}
+              {te ? "💌 అభ్యర్థనల డ్యాష్‌బోర్డ్" : "💌 Requests dashboard"}
             </Link>
           </div>
           <div className="mt-4 flex flex-wrap gap-2 text-[11px] font-bold">
             <span className="bg-white/10 border border-white/20 px-3 py-1 rounded-full">{te ? "OTP = ఫోన్ నంబర్ యాక్సెస్ మాత్రమే" : "Phone OTP (if completed) ≠ identity verification"}</span>
             <span className="bg-white/10 border border-white/20 px-3 py-1 rounded-full">{te ? "పుట్టిన తేదీ సభ్యుడు అందించినది" : "DOB supplied by member"}</span>
             <span className="bg-white/10 border border-white/20 px-3 py-1 rounded-full">{te ? "ఫోటో గోప్యతా నియంత్రణలు ఐచ్ఛికం" : "Optional photo privacy controls"}</span>
-            <span className="bg-white/10 border border-white/20 px-3 py-1 rounded-full">{te ? "₹99 → 5 requests" : "₹99 → 5 requests"}</span>
+            <span className="bg-white/10 border border-white/20 px-3 py-1 rounded-full">{te ? "₹99 → 5 ఆసక్తి అభ్యర్థనలు" : "₹99 → 5 requests"}</span>
             <span className="bg-white/10 border border-white/20 px-3 py-1 rounded-full">{te ? "తిరస్కరించిన requests: refund policy" : "Declined requests: credit-refund policy"}</span>
           </div>
         </div>
@@ -95,13 +90,13 @@ export default function CasteClient({ caste, role, district, chan, otherChan, fa
         <div className="md:col-span-2 space-y-6">
           <section className="bg-white rounded-2xl p-5 card-shadow border border-gold/20">
             <h2 className="text-lg font-bold text-maroon">
-              {te ? <>{caste.name} {role === "bride" ? "Brides" : "Grooms"} ని ఎలా చూడాలి?</>
+              {te ? <>{caste.name} {role === "bride" ? "వధువుల" : "వరుల"} వివరాలు ఎలా చూడాలి?</>
                   : <>How to see {caste.name} {role === "bride" ? "Brides" : "Grooms"}?</>}
             </h2>
             <ol className="mt-3 space-y-2 text-[13px] text-gray-700 list-decimal list-inside">
               {te ? (
                 <>
-                  <li><b>FREE register</b> — personal, family, caste/astro, education, location + photo.</li>
+                  <li><b>ఉచితంగా నమోదు చేయండి</b> - వ్యక్తిగత, కుటుంబ, కమ్యూనిటీ / జ్యోతిష, విద్య, ప్రాంతం వివరాలు మరియు ఫోటో.</li>
                   <li><b>Profile post:</b> profile ఆమోదం తర్వాత, publisher settings అనుమతిస్తే <b>{myChanLabel}</b> వంటి సంబంధిత destination కు post queue కావచ్చు; delivery హామీ కాదు.</li>
                   <li><b>💌 Interest పంపండి:</b> notification అందుబాటులో ఉన్న service configuration మీద ఆధారపడి ఉంటుంది.</li>
                   <li><b>✅ Accept అయితే:</b> accepted-request account views లో contact details కనిపిస్తాయి; notification delivery హామీ లేదు. స్వయంగా నిర్ధారించుకోండి.</li>
@@ -117,10 +112,10 @@ export default function CasteClient({ caste, role, district, chan, otherChan, fa
             </ol>
             <div className="mt-4 flex flex-wrap gap-2">
               <Link href="/register" className="maroon-gradient text-white font-bold text-[13px] px-4 py-2.5 rounded-xl">
-                {te ? "Register FREE" : "Register FREE"}
+                {te ? "ఉచితంగా నమోదు చేయండి" : "Register FREE"}
               </Link>
               <Link href={`/castes/${sameCasteOtherRole}`} className="border border-maroon/30 text-maroon font-bold text-[13px] px-4 py-2.5 rounded-xl">
-                {te ? <>{caste.name} {role === "bride" ? "Grooms" : "Brides"} చూడండి →</>
+                {te ? <>{caste.name} {role === "bride" ? "వరులను" : "వధువులను"} చూడండి →</>
                     : <>See {caste.name} {role === "bride" ? "Grooms" : "Brides"} →</>}
               </Link>
             </div>
@@ -134,15 +129,13 @@ export default function CasteClient({ caste, role, district, chan, otherChan, fa
               <div className="mt-2 bg-white border border-gold/30 rounded-2xl p-3 text-[12px] text-gray-700">
                 {te ? (
                   <>⭐ <b>{caste.name} కి bride + groom channels separate గా ఉన్నాయి</b> (caste ప్రకారం) —{" "}
-                    {role === "bride" ? "మీరు ఇప్పుడు చూస్తున్నది" : "bride page"} <b>{myChanLabel}</b>,{" "}
-                    {role === "bride" ? "groom" : "మీ"} page <b>{otherChanLabel}</b>.{" "}
+                    ప్రస్తుతం <b>{myChanLabel}</b> పేజీ చూస్తున్నారు. ఇతర పేజీ: <b>{otherChanLabel}</b>.{" "}
                     <Link className="underline font-bold text-maroon" href={`/castes/${buildSlug(caste.key, otherRole, district?.slug)}`}>
                       {otherRole === "bride" ? "Brides" : "Grooms"} page చూడండి →
                     </Link></>
                 ) : (
                   <>⭐ <b>{caste.name} has separate bride + groom channels</b> (caste-wise) —{" "}
-                    {role === "bride" ? "you are viewing" : "the bride page"} <b>{myChanLabel}</b>,{" "}
-                    {role === "bride" ? "the groom" : "your"} page is <b>{otherChanLabel}</b>.{" "}
+                    you are viewing <b>{myChanLabel}</b>. The other page is <b>{otherChanLabel}</b>.{" "}
                     <Link className="underline font-bold text-maroon" href={`/castes/${buildSlug(caste.key, otherRole, district?.slug)}`}>
                       See {otherRole === "bride" ? "Brides" : "Grooms"} page →
                     </Link></>
@@ -226,8 +219,8 @@ export default function CasteClient({ caste, role, district, chan, otherChan, fa
               <li>₹299 → <b>25 interest requests</b></li>
               <li>₹499 → <b>50 interest requests</b></li>
             </ul>
-            <Link href="/requests" className="mt-3 block text-center maroon-gradient text-white font-bold text-[12px] py-2.5 rounded-xl">
-              {te ? "Plans చూడండి →" : "See plans →"}
+            <Link href="/pricing" className="mt-3 block text-center maroon-gradient text-white font-bold text-[12px] py-2.5 rounded-xl">
+              {te ? "ప్లాన్లు చూడండి →" : "See plans →"}
             </Link>
           </div>
         </aside>
@@ -235,7 +228,7 @@ export default function CasteClient({ caste, role, district, chan, otherChan, fa
 
       <section className="max-w-5xl mx-auto px-4 pb-10">
         <div className="bg-white rounded-2xl p-5 card-shadow border border-gold/20">
-          <h2 className="text-lg font-bold text-maroon">{caste.name} {role} — FAQ</h2>
+          <h2 className="text-lg font-bold text-maroon">{caste.name} {te ? (role === "bride" ? "వధువు" : "వరుడు") : roleEn} - {te ? "తరచుగా అడిగే ప్రశ్నలు" : "FAQ"}</h2>
           {/* Same copy the server emitted as FAQPage JSON-LD, in the reader's language. */}
           <div className="mt-3 divide-y divide-gold/15">
             {(te ? faqTe : faqEn)?.map((item) => (
