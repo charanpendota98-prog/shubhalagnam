@@ -1,0 +1,9 @@
+import{test,expect}from'@playwright/test';import fs from'node:fs';fs.mkdirSync('artifacts/remarriage-filters',{recursive:true});
+for(const lang of['en','te'])for(const width of[320,390,430,1280])test(`complete remarriage filter labels ${lang} ${width}`,async({page})=>{
+ await page.setViewportSize({width,height:1000});await page.addInitScript(l=>localStorage.setItem('tsap_lang',l),lang);await page.route('**/api/**',r=>r.fulfill({json:{success:true,profiles:[],results:[],items:[],total:0}}));await page.goto('/second-marriage');
+ const group=page.getByRole('group',{name:lang==='te'?'పునర్వివాహ వడపోతలు':'Remarriage filters',exact:true});await expect(group.getByRole('button')).toHaveCount(7);await group.scrollIntoViewIfNeeded();
+ const geometry=await group.getByRole('button').evaluateAll(els=>els.map(e=>({label:e.textContent,scroll:e.scrollWidth,client:e.clientWidth,left:e.getBoundingClientRect().left,right:e.getBoundingClientRect().right,spanScroll:e.firstElementChild!.scrollWidth,spanClient:e.firstElementChild!.clientWidth})));for(const g of geometry){expect(g.scroll,g.label||'').toBeLessThanOrEqual(g.client+1);expect(g.spanScroll,g.label||'').toBeLessThanOrEqual(g.spanClient+1);expect(g.left).toBeGreaterThanOrEqual(0);expect(g.right).toBeLessThanOrEqual(width)}
+ for(const button of await group.getByRole('button').all()){await button.click();await expect(button).toHaveAttribute('aria-pressed','true');await expect(group.locator('button[aria-pressed="true"]')).toHaveCount(1)}
+ const first=group.getByRole('button').first();await first.focus();await page.keyboard.press('Tab');await expect(group.getByRole('button').nth(1)).toBeFocused();await page.keyboard.press('Enter');await expect(group.getByRole('button').nth(1)).toHaveAttribute('aria-pressed','true');
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBeTruthy();await group.screenshot({path:`artifacts/remarriage-filters/${lang}-${width}.png`});
+});
