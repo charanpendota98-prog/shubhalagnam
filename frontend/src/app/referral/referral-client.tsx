@@ -13,7 +13,6 @@ import { Duo } from "@/lib/duo";
 import { apiDisplayMessage, authHeaders, readApiJson } from "@/lib/api";
 import { WhatsAppIcon, TelegramIcon } from "@/components/BrandIcons";
 import ReferralPro from "@/components/ReferralPro";
-import LiveMatrimonyTicker from "@/components/LiveMatrimonyTicker";
 
 type Dash = any;
 
@@ -91,6 +90,10 @@ export default function ReferralPage() {
   const [tsapId, setTsapId] = useState("");
   const [phoneSearch, setPhoneSearch] = useState("");
   const [dash, setDash] = useState<Dash | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
+  const requestRef = useRef<AbortController | null>(null);
+  const lastRefreshStart = useRef(0);
   const [board, setBoard] = useState<any[]>([]);
   const [you, setYou] = useState<any>(null);
   const [terms, setTerms] = useState<any>(null);
@@ -137,27 +140,57 @@ export default function ReferralPage() {
     }
   }, []);
 
-  const load = useCallback((id: string) => {
+  const load = useCallback(async (id: string) => {
     if (!id) return;
+    requestRef.current?.abort();
+    const request = new AbortController();
+    requestRef.current = request;
+    lastRefreshStart.current = Date.now();
+    setRefreshing(true);
     setErr("");
-    fetch(`/api/referral/${encodeURIComponent(id)}`, { headers: authHeaders() })
-      .then((r) => readApiJson(r))
-      .then((d) => {
-        if (d.ok) setDash(d);
-        else setErr(apiDisplayMessage(d, te, te ? "డేటా లోడ్ కాలేదు. మీ ID సరిచూసుకోండి." : "Could not load the dashboard. Check your partner ID."));
-      })
-      .catch(() => setErr(te ? "కనెక్షన్ సమస్య — కొద్దిసేపటి తర్వాత మళ్లీ ప్రయత్నించండి" : "Network error — please retry"));
-
-    fetch(`/api/referral/${encodeURIComponent(id)}/payouts`, { headers: authHeaders() })
-      .then((r) => readApiJson(r))
-      .then((d) => {
-        if (d.success) setDash((prev: Dash) => (prev ? { ...prev, payouts_live: d.payouts, payout_meta: d } : prev));
-      })
-      .catch(() => {});
+    try {
+      const replies = await Promise.all([
+        fetch(`/api/referral/${encodeURIComponent(id)}`, { headers: authHeaders(), cache: "no-store", signal: request.signal }),
+        fetch(`/api/referral/${encodeURIComponent(id)}/payouts`, { headers: authHeaders(), cache: "no-store", signal: request.signal }),
+      ]);
+      const [dashboard, payouts] = await Promise.all(replies.map((r) => readApiJson(r)));
+      if (request.signal.aborted) return;
+      if (replies.some((r) => r.status === 401 || r.status === 403)) {
+        setDash(null);
+        setUpdatedAt(null);
+        throw new Error(te ? "మీ వివరాల కోసం మళ్లీ లాగిన్ చేయండి." : "Please sign in again to see your private details.");
+      }
+      if (!replies.every((r) => r.ok) || !dashboard.ok || !payouts.success) {
+        throw new Error(te ? "తాజా వివరాలు రాలేదు. మళ్లీ ప్రయత్నించండి." : "Could not refresh these details. Please retry.");
+      }
+      setDash({ ...dashboard, payouts_live: payouts.payouts, payout_meta: payouts });
+      setUpdatedAt(new Date());
+    } catch (error) {
+      if (!request.signal.aborted) setErr(error instanceof Error ? error.message : (te ? "కనెక్షన్ సమస్య. మళ్లీ ప్రయత్నించండి." : "Network error. Please retry."));
+    } finally {
+      if (!request.signal.aborted) setRefreshing(false);
+    }
   }, [te]);
 
   useEffect(() => {
-    if (tsapId) load(tsapId);
+    setDash(null);
+    setUpdatedAt(null);
+    setPay((previous) => ({ ...previous, open: false, amount: "", upi: "" }));
+    setPayRes(null);
+    if (!tsapId) return;
+    void load(tsapId);
+    const refreshVisible = () => {
+      if (document.visibilityState === "visible" && Date.now() - lastRefreshStart.current >= 10_000) void load(tsapId);
+    };
+    const timer = window.setInterval(refreshVisible, 60_000);
+    window.addEventListener("focus", refreshVisible);
+    document.addEventListener("visibilitychange", refreshVisible);
+    return () => {
+      requestRef.current?.abort();
+      window.clearInterval(timer);
+      window.removeEventListener("focus", refreshVisible);
+      document.removeEventListener("visibilitychange", refreshVisible);
+    };
   }, [tsapId, load]);
 
   useEffect(() => {
@@ -212,6 +245,7 @@ export default function ReferralPage() {
   const minPayout = Number(dash?.commission_rules?.min_payout ?? 50);
 
   const submitPayout = async () => {
+    if (!dash || !dash.wallet_can_withdraw || err || refreshing || payLoading) return;
     const amount = parseInt(pay.amount || "0", 10);
     if (!amount || amount < minPayout) {
       setPayRes({ success: false, reason: te ? `కనీస payout అభ్యర్థన ₹${minPayout}.` : `The minimum payout request is ₹${minPayout}.` });
@@ -318,11 +352,13 @@ export default function ReferralPage() {
                 <Duo en="Referral Partner & Rewards Console" te="రెఫరల్ భాగస్వామ్యం & సంపాదన వేదిక 🤝" />
               </h1>
 
-              <p className="text-xs sm:text-sm text-amber-100 leading-relaxed">
-                {te
+              <p className="text-sm leading-relaxed text-amber-100">{te ? "మీ లింక్ పంచుకోండి. నిజమైన నమోదులు, అర్హమైన rewards ఒకే చోట చూడండి." : "Share your link. Track real registrations and qualifying rewards in one place."}</p>
+              <details className="text-xs sm:text-sm text-amber-100 leading-relaxed">
+                <summary className="min-h-11 cursor-pointer py-2 font-bold">{te ? "Reward ఎలా వస్తుంది? నియమాలు చూడండి" : "How rewards work: read the rules"}</summary>
+                <p>{te
                   ? "Valid referral attach అయినప్పుడు referrer కు +2, కొత్త user కు +1 interest-request credits వస్తాయి; ఇవి cash కావు. Referrer కు ₹50 reward ఒక్కసారి మాత్రమే—referee మొదటి S_99/S_199/S_299/S_499 consumer-plan payment కనీసం ₹99 అయినప్పుడు అర్హత ఉండవచ్చు. మినహాయింపులు వర్తిస్తాయి; payout request admin review లో ఉంటుంది."
-                  : "A valid referral attachment grants +2 interest-request credits to the referrer and +1 to the new user; these are not cash. The referrer may qualify for ₹50 once, only on the referee’s first S_99/S_199/S_299/S_499 consumer-plan payment of at least ₹99. Exclusions apply; payout requests receive manual review."}
-              </p>
+                  : "A valid referral attachment grants +2 interest-request credits to the referrer and +1 to the new user; these are not cash. The referrer may qualify for ₹50 once, only on the referee's first S_99/S_199/S_299/S_499 consumer-plan payment of at least ₹99. Exclusions apply; payout requests receive manual review."}</p>
+              </details>
             </div>
 
             {!tsapId ? (
@@ -376,11 +412,6 @@ export default function ReferralPage() {
         </div>
       </section>
 
-      {/* Plain-language reward terms, visible before anyone starts sharing. */}
-      <div className="max-w-6xl mx-auto px-4 mt-4">
-        <LiveMatrimonyTicker />
-      </div>
-
       {/* ================= MAIN CONTAINER ================= */}
       <div className="max-w-6xl mx-auto px-4 mt-6 space-y-6">
         
@@ -392,6 +423,49 @@ export default function ReferralPage() {
 
         {dash ? (
           <>
+        {/* SHARE LINK BOX */}
+        <div className="bg-white rounded-3xl p-6 border border-gold/40 shadow-sm space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <span className="text-xs text-gray-500 font-bold block">{te ? "మీ వ్యక్తిగత రెఫరల్ కోడ్ & లింక్" : "Your Referral Code & Link"}</span>
+              <div className="text-2xl sm:text-3xl font-black text-maroon tracking-wider mt-0.5">
+                {dash?.code || "REGISTER TO GET CODE"}
+              </div>
+            </div>
+
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => copy(link, "link")}
+                className="px-4 py-2 rounded-xl maroon-gradient text-white font-extrabold text-xs shadow-soft hover:brightness-110 active:scale-95 transition"
+              >
+                🔗 {copied === "link" ? (te ? "కాపీ అయింది! ✅" : "Copied! ✅") : (te ? "లింక్ కాపీ చేయండి" : "Copy Link")}
+              </button>
+              <button
+                type="button"
+                onClick={() => copy(dash?.code || "", "code")}
+                className="px-4 py-2 rounded-xl border border-gold text-maroon font-bold text-xs hover:bg-gold-soft transition"
+              >
+                #️⃣ {copied === "code" ? "✅" : (te ? "కోడ్ కాపీ" : "Copy Code")}
+              </button>
+            </div>
+          </div>
+
+          <div className="p-3 bg-amber-50/70 rounded-2xl border border-amber-200/80 font-mono text-xs text-maroon break-all select-all">
+            {link || (te ? "రెఫరల్ ID లోడ్ అవుతున్నప్పుడు వేచి ఉండండి" : "Loading your referral link…")}
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-white px-4 py-3">
+          <div className="text-xs text-slate-600" role="status" aria-live="polite">
+            {updatedAt ? `${te ? "చివరిగా నవీకరించినది" : "Last updated"}: ${updatedAt.toLocaleTimeString(te ? "te-IN" : "en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}` : (te ? "వివరాలు లోడ్ అవుతున్నాయి" : "Loading your details")}
+            <p className="mt-1 text-[11px]">{te ? "ఈ పేజీ కనిపిస్తున్నప్పుడు ప్రతి నిమిషం నవీకరిస్తుంది. ఇది బ్యాంక్ బదిలీ కాదు." : "Refreshes every minute while visible. Wallet records are not bank transfers."}</p>
+            {err && <p className="mt-1 font-semibold text-rose-700">{te ? "చూపుతున్నవి పాత వివరాలు కావచ్చు." : "Displayed details may be out of date."}</p>}
+          </div>
+          <button type="button" onClick={() => void load(tsapId)} disabled={refreshing} className="min-h-11 rounded-xl border border-[#7A0C2E] px-4 text-xs font-bold text-[#7A0C2E] disabled:opacity-60">
+            {refreshing ? (te ? "నవీకరిస్తున్నాం…" : "Refreshing…") : (te ? "ఇప్పుడే నవీకరించండి" : "Refresh now")}
+          </button>
+        </div>
         {/* TOP SUMMARY METRICS & WALLET BANNER */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           
@@ -400,7 +474,7 @@ export default function ReferralPage() {
             <div>
               <div className="flex items-center justify-between text-xs text-gray-500 font-bold">
                 <span>👛 {te ? "అందుబాటులో ఉన్న వాలెట్" : "Available Wallet"}</span>
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold">Live</span>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 font-bold">{te ? "నమోదైనది" : "Recorded"}</span>
               </div>
               <div className="text-3xl sm:text-4xl font-black text-maroon mt-1">
                 ₹{s.wallet ?? 0}
@@ -410,7 +484,7 @@ export default function ReferralPage() {
             <button
               type="button"
               onClick={() => setPay({ ...pay, open: !pay.open, amount: String(Math.floor(s.wallet || 0)) })}
-              disabled={!dash?.wallet_can_withdraw}
+              disabled={!dash?.wallet_can_withdraw || !!err || refreshing}
               className={`w-full py-2.5 rounded-xl text-xs font-extrabold shadow-sm transition ${
                 dash?.wallet_can_withdraw
                   ? "gold-gradient text-maroon hover:brightness-105 active:scale-95"
@@ -430,7 +504,7 @@ export default function ReferralPage() {
               ₹{s.qualifying_rewards_total ?? 0}
             </div>
             <span className="text-[11px] text-gray-500 mt-1">
-              {te ? `నిజంగా చెల్లించినవి: ₹${s.paid_out ?? 0}` : `Settled payouts recorded: ₹${s.paid_out ?? 0}`}
+              {te ? `అభ్యర్థించిన payout: ₹${s.pending_payout ?? 0} · చెల్లించినవి: ₹${s.paid_out ?? 0}` : `Payout requested: ₹${s.pending_payout ?? 0} · Settled: ₹${s.paid_out ?? 0}`}
             </span>
           </div>
 
@@ -513,7 +587,7 @@ export default function ReferralPage() {
               <button
                 type="button"
                 onClick={submitPayout}
-                disabled={payLoading}
+                disabled={payLoading || !dash?.wallet_can_withdraw || !!err || refreshing}
                 className="px-6 py-2 rounded-xl maroon-gradient text-white text-xs font-bold shadow-md hover:brightness-110 disabled:opacity-50"
               >
                 {payLoading ? (te ? "పంపుతున్నాం…" : "Submitting…") : (te ? "అభ్యర్థన పంపండి" : "Submit Request")}
@@ -528,41 +602,8 @@ export default function ReferralPage() {
           </div>
         )}
 
-        {/* SHARE LINK BOX */}
-        <div className="bg-white rounded-3xl p-6 border border-gold/40 shadow-sm space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div>
-              <span className="text-xs text-gray-500 font-bold block">{te ? "మీ వ్యక్తిగత రెఫరల్ కోడ్ & లింక్" : "Your Referral Code & Link"}</span>
-              <div className="text-2xl sm:text-3xl font-black text-maroon tracking-wider mt-0.5">
-                {dash?.code || "REGISTER TO GET CODE"}
-              </div>
-            </div>
-
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => copy(link, "link")}
-                className="px-4 py-2 rounded-xl maroon-gradient text-white font-extrabold text-xs shadow-soft hover:brightness-110 active:scale-95 transition"
-              >
-                🔗 {copied === "link" ? (te ? "కాపీ అయింది! ✅" : "Copied! ✅") : (te ? "లింక్ కాపీ చేయండి" : "Copy Link")}
-              </button>
-              <button
-                type="button"
-                onClick={() => copy(dash?.code || "", "code")}
-                className="px-4 py-2 rounded-xl border border-gold text-maroon font-bold text-xs hover:bg-gold-soft transition"
-              >
-                #️⃣ {copied === "code" ? "✅" : (te ? "కోడ్ కాపీ" : "Copy Code")}
-              </button>
-            </div>
-          </div>
-
-          <div className="p-3 bg-amber-50/70 rounded-2xl border border-amber-200/80 font-mono text-xs text-maroon break-all select-all">
-            {link || (te ? "రెఫరల్ ID లోడ్ అవుతున్నప్పుడు వేచి ఉండండి" : "Loading your referral link…")}
-          </div>
-        </div>
-
         {/* NAVIGATION TABS */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-hide">
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
           {[
             { id: "overview", label: te ? "📊 అవలోకనం" : "📊 Overview" },
             { id: "shop_poster", label: te ? "🏪 షాప్ స్టిక్కర్ & QR పోస్టర్" : "🏪 Shop Sticker & QR Poster" },
@@ -577,7 +618,8 @@ export default function ReferralPage() {
             <button type="button"
               key={tab.id}
               onClick={() => setActiveTab(tab.id as any)}
-              className={`px-4 py-2.5 rounded-full text-xs font-extrabold whitespace-nowrap transition-all ${
+              aria-pressed={activeTab === tab.id}
+              className={`min-h-11 px-4 py-2.5 rounded-2xl text-xs font-extrabold text-left transition-all ${
                 activeTab === tab.id
                   ? "maroon-gradient text-white shadow-soft"
                   : "bg-white text-gray-700 hover:bg-amber-50 border border-gold/30"
@@ -1196,8 +1238,9 @@ export default function ReferralPage() {
         ) : (
           <div className="rounded-2xl border border-amber-200 bg-white p-5 text-sm leading-relaxed text-slate-700 shadow-sm" role="status">
             {tsapId
-              ? (te ? "మీ referral dashboard లోడ్ అవుతోంది. కొద్దిసేపు వేచి ఉండండి." : "Loading your referral dashboard. Please wait a moment.")
+              ? (err ? (te ? "మీ వివరాలు లోడ్ కాలేదు. క్రింద మళ్లీ ప్రయత్నించండి." : "Your details did not load. Retry below.") : (te ? "మీ referral dashboard లోడ్ అవుతోంది. కొద్దిసేపు వేచి ఉండండి." : "Loading your referral dashboard. Please wait a moment."))
               : (te ? "వ్యక్తిగత referral dashboard చూడటానికి పై భాగంలో మీ TSAP ID లేదా మొబైల్‌తో వెతకండి. Partner ID ఉంటే partner నమోదు పేజీలో dashboard తెరవండి." : "Search above with your TSAP ID or mobile to view your personal referral dashboard. For a partner ID, open the partner registration page and use its dashboard lookup.")}
+            {tsapId && <button type="button" disabled={refreshing} onClick={() => void load(tsapId)} className="mt-3 block min-h-11 rounded-xl border border-[#7A0C2E] px-4 text-xs font-bold text-[#7A0C2E] disabled:opacity-60">{refreshing ? (te ? "నవీకరిస్తున్నాం…" : "Refreshing…") : (te ? "మళ్లీ ప్రయత్నించండి" : "Retry")}</button>}
           </div>
         )}
       </div>
