@@ -161,7 +161,7 @@ check("pending registration has a guarded monogram card", bool(initial_card)
 check("pending card is not public", client.get(f"/cards/{third_id}.png").status_code == 404)
 review = client.post(
     "/api/admin/photos/review",
-    json={"tsap_id": third_id, "kind": "photo", "decision": "approved"},
+    json={"tsap_id": third_id, "kind": "photo", "revision": next(it["revision"] for it in client.get("/api/admin/photos/pending",headers=ADMIN).json()["queue"] if it["tsap_id"] == third_id and it["kind"] == "photo"), "decision": "approved"},
     headers=ADMIN,
 )
 check("photo approval is durable", review.status_code == 200, review.text[:250])

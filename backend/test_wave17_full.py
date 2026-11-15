@@ -155,7 +155,7 @@ q = client.get("/api/admin/photos/pending").json()
 check("C1 admin queue lists her", TID in [x.get("tsap_id") for x in q.get("queue", [])], q.get("count"))
 check("C2 queue name first-only (privacy)", all(" " not in (x.get("name") or "x") for x in q.get("queue", [])))
 r = client.post("/api/admin/photos/review",
-                json={"tsap_id": TID, "kind": "photo", "decision": "approved"})
+                json={"tsap_id": TID, "kind": "photo", "revision": next(it["revision"] for it in client.get("/api/admin/photos/pending").json()["queue"] if it["tsap_id"] == TID and it["kind"] == "photo"), "decision": "approved"})
 check("C3 approve ok", r.json().get("success") is True, r.json())
 u = next(x for x in main.DB_USERS if x.get("tsap_id") == TID)
 check("C4 approved → has_photo+urls", u.get("has_photo") is True and len(u.get("photo_urls", [])) == 1,
@@ -163,7 +163,7 @@ check("C4 approved → has_photo+urls", u.get("has_photo") is True and len(u.get
 T2 = reg("Wave Seventeen Reject", "9963222202").json().get("tsap_id", "")
 up(mkimg(), "ok.jpg", T2)
 r = client.post("/api/admin/photos/review",
-                json={"tsap_id": T2, "kind": "photo", "decision": "rejected",
+                json={"tsap_id": T2, "kind": "photo", "revision": next(it["revision"] for it in client.get("/api/admin/photos/pending").json()["queue"] if it["tsap_id"] == T2 and it["kind"] == "photo"), "decision": "rejected",
                       "reason": "Group photo", "reason_te": "గ్రూప్ ఫోటో వద్దు"})
 st2 = client.get(f"/api/photo/status/{T2}").json()
 check("C5 reject → telugu reason", st2.get("photo_status") == "rejected" and "గ్రూప్" in st2.get("photo_reason_te", ""), st2)
@@ -174,7 +174,7 @@ r = client.post("/api/verify/selfie", files={"file": ("b.jpg", mkimg(dark=True),
                 data={"tsap_id": TID})
 check("C7 dark selfie 422", r.status_code == 422, r.status_code)
 r = client.post("/api/admin/photos/review",
-                json={"tsap_id": TID, "kind": "selfie", "decision": "approved"})
+                json={"tsap_id": TID, "kind": "selfie", "revision": next(it["revision"] for it in client.get("/api/admin/photos/pending").json()["queue"] if it["tsap_id"] == TID and it["kind"] == "selfie"), "decision": "approved"})
 check("C8 selfie approve → badge",
       r.json().get("success") is True and next(x for x in main.DB_USERS if x.get("tsap_id") == TID).get("selfie_verified") is True)
 reviewed_profile = next(x for x in main.DB_USERS if x.get("tsap_id") == TID)
