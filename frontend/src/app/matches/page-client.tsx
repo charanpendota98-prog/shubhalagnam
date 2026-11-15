@@ -35,6 +35,7 @@ import {
   TS_DISTRICTS,
   AP_DISTRICTS,
   WORK_TYPES,
+  WORK_TYPE_TELUGU,
   heightLabel,
   stateFullName,
   isSecondMarriageStatus,
@@ -2111,7 +2112,7 @@ export default function MatchesPage() {
         <div className="fixed inset-0 z-[80] bg-black/60 backdrop-blur-xs flex items-end justify-center lg:hidden animate-fade">
           <div className="bg-white w-full max-h-[85vh] rounded-t-3xl flex flex-col shadow-2xl overflow-hidden animate-slideUp">
             {/* Modal Header */}
-            <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+            <div className="shrink-0 p-4 border-b border-slate-100 flex items-center justify-between">
               <div className="font-black text-sm text-slate-900 flex items-center gap-1.5">
                 <span>🌪️</span>
                 <span>{te ? "అధునాతన ఫిల్టర్లు" : "Advanced filters"}</span>
@@ -2128,7 +2129,7 @@ export default function MatchesPage() {
             </div>
 
             {/* Tabbed Navigation */}
-            <div className="flex border-b border-slate-100 overflow-x-auto no-scrollbar bg-slate-50">
+            <div className="flex shrink-0 flex-wrap border-b border-slate-100 bg-slate-50">
               {[
                 { k: "basic", l: te ? "ప్రాథమిక" : "Basics" },
                 { k: "caste", l: te ? "కులం" : "Community" },
@@ -2149,7 +2150,7 @@ export default function MatchesPage() {
             </div>
 
             {/* Modal Tab Content */}
-            <div className="p-4 overflow-y-auto flex-1 space-y-4">
+            <div className="min-h-0 p-4 overflow-y-auto flex-1 space-y-4">
               {mobileFilterTab === "basic" && (
                 <div className="space-y-4">
                   <div>
@@ -2327,9 +2328,9 @@ export default function MatchesPage() {
                     {(isGroomGender(filters.gender) ? ["Not Working / Student", ...WORK_TYPES] : ["Housewife / Homemaker (గృహిణి)", "Not Working / Student", ...WORK_TYPES]).map((wt) => {
                       const checked = isMultiSelected("job", wt);
                       return (
-                        <label key={wt} className="flex min-h-11 items-center gap-2 p-2 rounded-xl text-xs bg-slate-50 cursor-pointer">
-                          <input type="checkbox" checked={checked} onChange={() => toggleMulti("job", wt)} className="accent-[#7A0C2E] rounded" />
-                          <span className="truncate">{wt === "Housewife / Homemaker (గృహిణి)" ? (te ? "గృహిణి" : "Housewife / homemaker") : wt}</span>
+                        <label key={wt} className="flex min-h-11 min-w-0 items-center gap-2 p-2 rounded-xl text-xs bg-slate-50 cursor-pointer">
+                          <input type="checkbox" checked={checked} onChange={() => toggleMulti("job", wt)} className="h-4 w-4 shrink-0 accent-[#7A0C2E] rounded" />
+                          <span className="min-w-0 whitespace-normal break-words">{wt === "Housewife / Homemaker (గృహిణి)" ? (te ? "గృహిణి" : "Housewife / homemaker") : te ? (WORK_TYPE_TELUGU[wt] || (wt === "Not Working / Student" ? "పని చేయడం లేదు / విద్యార్థి" : wt)) : wt}</span>
                         </label>
                       );
                     })}
@@ -2445,7 +2446,7 @@ export default function MatchesPage() {
                     {NAKSHATRAS.map((st) => {
                       const checked = isMultiSelected("star", st.en);
                       return (
-                        <label key={st.en} className="flex min-h-11 items-center gap-2 p-2 rounded-xl text-xs bg-slate-50 cursor-pointer">
+                        <label key={st.en} className="flex min-h-11 min-w-0 items-center gap-2 p-2 rounded-xl text-xs bg-slate-50 cursor-pointer">
                           <input type="checkbox" checked={checked} onChange={() => toggleMulti("star", st.en)} className="accent-[#7A0C2E] rounded" />
                           <span>
                             ⭐ {te ? `${st.te} (${st.en})` : st.en}
@@ -2459,7 +2460,7 @@ export default function MatchesPage() {
             </div>
 
             {/* Modal Bottom Actions */}
-            <div className="p-4 border-t border-slate-100 flex items-center gap-3 bg-white">
+            <div className="shrink-0 p-4 border-t border-slate-100 flex items-center gap-3 bg-white">
               <button type="button" onClick={clearAllFilters} className="flex-1 py-3 rounded-xl border border-slate-200 text-slate-700 text-xs font-bold">
                 {te ? "రీసెట్ చేయండి" : "Reset"}
               </button>
