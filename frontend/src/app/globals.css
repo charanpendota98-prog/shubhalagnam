@@ -1024,6 +1024,7 @@ label {
   }
   /* …but a segmented control is not a card grid: bride/groom must stay side by
      side or the hero search reads as two stacked full-width buttons. */
+  .home-page .wedding-editorial__search form [role="group"] > .grid,
   .home-page .mv-hero .grid-cols-2,
   .home-page .mv-hero .grid-cols-3 {
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
