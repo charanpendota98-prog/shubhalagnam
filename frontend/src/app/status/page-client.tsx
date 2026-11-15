@@ -35,7 +35,7 @@ export default function StatusPageClient() {
   const dr = data?.last_dr_drill || null;
 
   return (
-    <main className="max-w-5xl mx-auto px-4 py-8 space-y-6">
+    <div className="max-w-5xl mx-auto px-4 py-8 space-y-6">
       <header className="rounded-3xl border border-amber-200/80 bg-gradient-to-br from-[#5c1224] via-[#4a1020] to-[#2c0913] text-white p-6 md:p-8 shadow-lg">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
@@ -196,6 +196,6 @@ export default function StatusPageClient() {
           </Link>
         </div>
       </section>
-    </main>
+    </div>
   );
 }

@@ -238,7 +238,7 @@ export default function PoruthamPageClient() {
         : copy.unavailable;
 
   return (
-    <main className="min-h-dvh bg-[#fffaf0] pb-20">
+    <div className="min-h-dvh bg-[#fffaf0] pb-20">
       <section className="overflow-hidden bg-gradient-to-br from-[#5c0822] via-[#7a0c2e] to-[#0f766e] text-white">
         <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 sm:py-14 lg:px-8">
           <span className="inline-flex rounded-full border border-white/25 bg-white/10 px-3 py-1 text-[11px] font-extrabold uppercase tracking-[.16em] text-amber-100">🪐 {copy.eyebrow}</span>
@@ -333,6 +333,6 @@ export default function PoruthamPageClient() {
         <Link href="/register" className="inline-flex min-h-11 items-center justify-center rounded-xl border border-[#7a0c2e]/25 bg-white px-4 py-2.5 text-sm font-bold text-[#7a0c2e]">{copy.register}</Link>
         <Link href="/safety" className="inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-bold text-slate-700">🔒 {copy.safety}</Link>
       </div>
-    </main>
+    </div>
   );
 }

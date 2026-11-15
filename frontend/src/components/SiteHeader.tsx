@@ -219,10 +219,11 @@ export default function SiteHeader() {
     >
       <div className="max-w-[1440px] mx-auto px-3 sm:px-4 h-16 lg:h-14 flex items-center justify-between gap-2">
         {/* One clean wordmark: the selected language controls every visible label. */}
-        <Link href="/" className="flex items-center gap-2.5 min-w-0 flex-1 focus-brand rounded-xl" aria-label={te ? "మన వివాహ హోమ్" : "Mana Vivaha home"}>
+        <Link href="/" className="flex items-center gap-2.5 min-w-0 flex-1 focus-brand rounded-xl">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={SITE_CONFIG.logoImage} alt="" width={44} height={44}
             className="w-10 h-10 lg:w-8 lg:h-8 rounded-xl lg:rounded-lg object-cover shadow-[0_5px_14px_rgba(122,12,46,.18)] ring-1 ring-maroon/10 shrink-0" />
+          <span className="sr-only">{te ? "హోమ్: " : "Home: "}</span>
           <div className="brand-lockup min-w-0">
             <div className="brand-name">
               <span className="brand-name-primary">Mana</span>{" "}
