@@ -537,7 +537,9 @@ def verify_signed_photo_token(token: str, filename: str, viewer_id: str, owner_i
         if owner_id not in owner_ids:
             return False
         token_viewer = str(payload.get("v", "")).upper()
-        if viewer_id and token_viewer and viewer_id != token_viewer:
+        # A signed private-photo URL is bound to the authenticated recipient,
+        # not a transferable bearer grant that bypasses block checks.
+        if not viewer_id or not token_viewer or viewer_id != token_viewer:
             return False
         # Must still have an active unrevoked grant
         return has_photo_access(token_viewer, owner_id)

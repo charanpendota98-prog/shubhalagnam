@@ -175,7 +175,8 @@ try:
     check("E3 credits = single plan (5)", int(payer2.get("credits", 0)) == 5, payer2.get("credits"))
 
     section("F. webhook")
-    os.environ["RAZORPAY_KEY_SECRET"] = "testsecret25"
+    os.environ["RAZORPAY_KEY_SECRET"] = "api-testsecret25"
+    os.environ["RAZORPAY_WEBHOOK_SECRET"] = "testsecret25"
     ow = PP.create_pay_order("TSAP-M-2025-6", "credits", "S_99")
     oidw = ow["pay_order"]["id"]
     PP.get_pay_order(oidw)["rzp_order_id"] = "order_TEST25"
@@ -192,6 +193,7 @@ try:
     w3 = PP.handle_razorpay_webhook({"event": "refund.created", "payload": {}})
     check("F6 unknown event ignored", w3.get("ok") is True and w3.get("ignored") is True)
     del os.environ["RAZORPAY_KEY_SECRET"]
+    del os.environ["RAZORPAY_WEBHOOK_SECRET"]
 
     section("G. pay route auth")
     from fastapi.testclient import TestClient

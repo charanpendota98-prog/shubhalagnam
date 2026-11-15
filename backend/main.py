@@ -2206,7 +2206,8 @@ def guarded_profile_photo(filename: str, request: Request):
 
     # Allow expiring signed photo-access token or approved private-photo grant when viewer is not blocked.
     has_signed_or_granted_access = False
-    if not selfie_owners and not has_public_photo_reference and not is_owner:
+    if (not selfie_owners and not has_public_photo_reference and not is_owner
+            and owners and all(_is_approved_profile(owner) for owner in owners)):
         access_token = (request.query_params.get("access_token") or "").strip()
         try:
             import ecosystem3 as ECOSYSTEM3
