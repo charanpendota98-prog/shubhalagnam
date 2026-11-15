@@ -143,6 +143,58 @@ def create_bureau_tenant(
         }
 
 
+def bureau_operations_overview(query: str = "", page: int = 1, page_size: int = 20) -> Dict[str, Any]:
+    """Read-only allowlist for platform owner operations, not tenant impersonation.
+
+    Unlike the legacy tenant loader, this reader must not turn corrupt data into
+    a convincing empty dashboard. No tenant writes, credentials, contacts,
+    client identifiers/notes, or tenant audit payloads are returned.
+    """
+    page_size = max(1, min(int(page_size), 50))
+    page = max(1, int(page))
+    query = _clean_text(query, 100).casefold()
+    with _LOCK:
+        path = resolve_phase2_state_file()
+        try:
+            with open(path, "r", encoding="utf-8") as fh:
+                state = json.load(fh)
+        except FileNotFoundError:
+            state = _default_state()
+        if not isinstance(state, dict) or not isinstance(state.get("bureaus"), dict):
+            raise ValueError("Bureau storage unavailable")
+        rows = []
+        for bid, tenant in state["bureaus"].items():
+            if not isinstance(tenant, dict):
+                raise ValueError("Bureau storage unavailable")
+            seats, clients = tenant.get("seats", []), tenant.get("clients", [])
+            if (not isinstance(seats, list) or not isinstance(clients, list)
+                    or any(not isinstance(s, dict) for s in seats)
+                    or any(not isinstance(c, dict) for c in clients)):
+                raise ValueError("Bureau storage unavailable")
+            rows.append({
+                "bureau_id": _clean_text(bid, 32),
+                "business_name": _clean_text(tenant.get("business_name"), 100),
+                "district": _clean_text(tenant.get("district"), 60),
+                "created_at": _clean_text(tenant.get("created_at"), 40),
+                "active_seats": sum(s.get("status") == "active" for s in seats),
+                "revoked_seats": sum(s.get("status") == "revoked" for s in seats),
+                "consented_clients": sum(c.get("consent_confirmed") is True for c in clients),
+            })
+    totals = {"bureaus": len(rows), **{key: sum(r[key] for r in rows)
+              for key in ("active_seats", "revoked_seats", "consented_clients")}}
+    rows.sort(key=lambda r: (r["created_at"], r["bureau_id"]), reverse=True)
+    if query:
+        rows = [r for r in rows if query in " ".join(
+            (r["bureau_id"], r["business_name"], r["district"])).casefold()]
+    matched = len(rows)
+    pages = max(1, (matched + page_size - 1) // page_size)
+    page = min(page, pages)
+    start = (page - 1) * page_size
+    return {"success": True, "items": rows[start:start + page_size], "totals": totals,
+            "matched": matched, "page": page, "pages": pages,
+            "page_size": page_size, "as_of": _utc_iso()}
+
+
 def authenticate_bureau(bureau_id: str, raw_key: str) -> Tuple[bool, str, str]:
     """Returns (authorized, role: 'owner'|'coordinator'|'viewer'|'', actor_label).
     Strictly scoped to the single requested `bureau_id` — cross-tenant keys always fail."""

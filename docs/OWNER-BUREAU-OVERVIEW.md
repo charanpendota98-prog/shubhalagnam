@@ -1,0 +1,9 @@
+# Owner bureau overview
+
+`GET /api/control/bureaus` requires a current platform owner session cookie. Anonymous callers, tenant keys, admin API keys, worker, support, moderator and finance sessions cannot use it. It returns a strict allowlist: bureau ID, business name, district, creation time and counts of active seats, revoked seats and consent-recorded roster entries. It never returns tenant credentials/hashes, contact details, owner/operator names, client IDs, notes or tenant audit events.
+
+The owner-only Bureaus dashboard tab supports search by business name/ID/district, bounded pagination and manual refresh. All-bureau totals stay separate from filtered results. Snapshot time is UTC. These counts are not independently verified consent, member registrations, subscriptions, revenue, or verified bureaus. No tenant activation/approval state exists, so none is invented.
+
+This is a read-only operations view, not tenant impersonation. The separate tenant workspace still requires its own owner or seat key. There is no tenant modification, credential reset, export, posting, pricing or payment control here. The read is audit-logged without the search term. Response caching is disabled. Empty is distinct from unavailable; corrupt or unreadable storage returns 503 without changing it. UI clears rows on refresh/filter changes and on auth/data errors, ignores out-of-order replies, and does not auto-poll.
+
+Tests: `python backend/test_control_bureaus.py` from the repository root requires backend on the import path; use `cd backend && python test_control_bureaus.py`. Browser: production build plus `tests/control-bureaus.spec.ts`, included in `npm run test:visual`. Fixtures are synthetic and isolated. Browser fixture acceptance is not evidence of authenticated production acceptance.

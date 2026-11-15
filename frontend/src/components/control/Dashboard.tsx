@@ -34,6 +34,7 @@ import AdsConsole from "@/components/AdsConsole";
 import AstroConsole from "@/components/AstroConsole";
 import ContentConsole from "@/components/ContentConsole";
 import OffersConsole from "@/components/OffersConsole";
+import BureauOverview from "./BureauOverview";
 import PayConsole from "@/components/PayConsole";
 import MatchSend from "@/components/MatchSend";
 import Showcase from "@/components/Showcase";
@@ -242,6 +243,7 @@ export default function Dashboard() {
     | "addProfile"
     | "tools"
     | "consoles"
+    | "bureaus"
     | "ads"
     | "vendors"
     | "spotlight"
@@ -1319,6 +1321,7 @@ export default function Dashboard() {
     { k: "addProfile" as const, label: L.tabAddProfile },
     { k: "tools" as const, label: tr("🧰 డేటా టూల్స్ & డైలీ మ్యాచ్‌లు", "🧰 Data tools & daily matches") },
     { k: "consoles" as const, label: tr("🎛️ కన్సోల్స్", "🎛️ Consoles") },
+    { k: "bureaus" as const, label: tr("🏢 బ్యూరోలు", "🏢 Bureaus") },
     { k: "ads" as const, label: L.tabAds },
     { k: "vendors" as const, label: L.tabVendors },
     { k: "spotlight" as const, label: L.tabSpotlight },
@@ -2994,6 +2997,8 @@ export default function Dashboard() {
             <AstroConsole />
           </div>
         )}
+
+        {tab === "bureaus" && owner && <BureauOverview />}
 
         {/* Targeted Ads Tab */}
         {tab === "ads" && owner && (
