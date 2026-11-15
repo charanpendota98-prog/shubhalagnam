@@ -502,6 +502,19 @@ def _control_owner_session_guard(request: Request, *, mutating: bool = False) ->
     return item
 
 
+@app.get("/api/control/bureaus")
+def control_bureaus(request: Request, q: str = "", page: int = 1, page_size: int = 20):
+    """Platform owner aggregate inventory only; never grants tenant access."""
+    item = _control_owner_session_guard(request)
+    try:
+        result = PHASE2.bureau_operations_overview(q, page, page_size)
+    except (OSError, ValueError, TypeError):
+        raise HTTPException(503, "Bureau overview is unavailable. Please retry.")
+    CONTROL_AUTH.audit("control_bureau_overview", item["username"], request,
+                       count=len(result["items"]), matched=result["matched"])
+    return JSONResponse(result, headers={"Cache-Control": "no-store"})
+
+
 @app.get("/api/control/analytics")
 def control_analytics(request: Request):
     """Rich, privacy-safe operations analytics for the advanced dashboard."""
