@@ -3,7 +3,7 @@
 /**
  * 💍 THE TELUGU WEDDING, STEP BY STEP
  * ===================================
- * Replaces the old scroll-through AI-photo film (12 MB of promo imagery plus a
+ * Replaces the old scroll-through promotional-photo film (12 MB of promo imagery plus a
  * 696 KB background video) with an honest, content-first section:
  *
  *  • original SVG art drawn here (mandapam, thali, talambralu, garlands),
