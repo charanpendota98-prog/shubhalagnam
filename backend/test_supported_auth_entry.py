@@ -28,7 +28,7 @@ def guarded(self,address):
 socket.socket.connect=guarded
 ''')
  env['PYTHONPATH']=str(hook)
- parity="import backend.main as M,production_gates as G,os; a={x:(os.path.realpath(y),z) for x,y,z in M._production_storage_paths()}; b={x:(os.path.realpath(y),z) for x,y,z in G.configured_paths(os.environ)}; assert len(a)==39 and a==b,(a,b); print('PASS nondefault manifest parity: all39 paths')"
+ parity="import backend.main as M,production_gates as G,os; a={x:(os.path.realpath(y),z) for x,y,z in M._production_storage_paths()}; b={x:(os.path.realpath(y),z) for x,y,z in G.configured_paths(os.environ)}; assert len(a)==40 and a==b,(a,b); print('PASS nondefault manifest parity: all40 paths, including derived creator campaign storage')"
  q=subprocess.run([sys.executable,'-c',parity],cwd=release,env=env,capture_output=True,text=True);print(q.stdout,q.stderr);assert q.returncode==0
  # Prove preflight failure blocks exec, then real allowed startup with same exact interpreter/cwd.
  bad=dict(env,EMAIL_MODE='mock');q=subprocess.run([sys.executable,'backend/serve_production.py'],cwd=release,env=bad,capture_output=True,text=True);assert q.returncode!=0 and 'Uvicorn running' not in q.stderr;print('PASS entry rejected mock config before uvicorn')

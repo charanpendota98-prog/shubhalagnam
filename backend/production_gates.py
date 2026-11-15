@@ -173,6 +173,7 @@ def configured_paths(env):
     for label, key, default, directory in PATH_SPECS:
         entries.append((label, val(key, os.path.join(base, default)), directory))
     entries.extend([
+        ('creator campaigns', val('MANA_VIVAHA_REFERRAL_FILE', os.path.join(base, 'referral_state.json')) + '.campaigns.json', False),
         ('consent ledger', os.path.join(state, 'consent_ledger_state.json'), False),
         ('saved searches', os.path.join(state, 'saved_searches_state.json'), False),
         ('ecosystem 3.0 state', os.path.abspath(env.get('MANA_VIVAHA_ECOSYSTEM_FILE', '').strip() or os.path.join(state if env.get('MANA_VIVAHA_STATE_DIR', '').strip() else base, 'ecosystem3_state.json')), False),
