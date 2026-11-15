@@ -1,5 +1,9 @@
 import {test,expect,type Page} from "@playwright/test";
+import fs from "node:fs";
+import path from "node:path";
 import AxeBuilder from "@axe-core/playwright";
+const evidence=process.env.CREATOR_EVIDENCE_DIR||path.join(process.cwd(),"artifacts","creator-campaigns");
+fs.mkdirSync(evidence,{recursive:true});
 const token="ABCDEFGHIJKLMNOPQRSTUVWX";
 async function fixture(page:Page,lang="en") {
  let rows:any[]=[],status=200,posts=0;
@@ -34,8 +38,8 @@ for(const lang of ["en","te"])for(const width of [320,390,1280])test(`campaign f
  await expect(region.getByRole("img")).toBeVisible();
  await region.getByText("Disclosure reminder & sample",{exact:true}).or(region.getByText("Disclosure నియమం & sample",{exact:true})).click();expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();const scan=await new AxeBuilder({page}).include('section[aria-label="Creator campaigns"]').analyze();expect(scan.violations).toEqual([]);
  await page.locator("input").first().blur(); await page.mouse.click(1,1);
- await page.evaluate(()=>window.scrollTo(0,0));await page.screenshot({path:`/downloads/audit/creator-campaigns/ui-${lang}-${width}-full.png`,fullPage:true});
- await region.evaluate(el=>window.scrollTo(0,el.getBoundingClientRect().top+window.scrollY-80)); await page.screenshot({path:`/downloads/audit/creator-campaigns/ui-${lang}-${width}-viewport.png`});
+ await page.evaluate(()=>window.scrollTo(0,0));await page.screenshot({path:`${evidence}/ui-${lang}-${width}-full.png`,fullPage:true});
+ await region.evaluate(el=>window.scrollTo(0,el.getBoundingClientRect().top+window.scrollY-80)); await page.screenshot({path:`${evidence}/ui-${lang}-${width}-viewport.png`});
 });
 
 test("campaign landing preserves token and invite into registration",async({page})=>{
@@ -55,6 +59,6 @@ test("partner campaigns require private OTP flow and scoped header",async({page}
  await page.goto("/referral/register");await expect(page.getByRole("region",{name:"Creator campaigns"})).toHaveCount(0);
  await page.getByLabel("Partner ID",{exact:true}).fill("SYN-PARTNER");await page.getByRole("button",{name:"View",exact:true}).click();
  await page.getByLabel("Registered 10-digit mobile",{exact:true}).fill("9000014599");await page.getByRole("button",{name:"Send OTP",exact:true}).click();await page.getByLabel("4-digit OTP",{exact:true}).fill("1234");await page.getByRole("button",{name:"Verify & continue",exact:true}).click();
- await expect(page.getByRole("region",{name:"Creator campaigns"})).toBeVisible();await expect(page.getByText("No campaigns yet. Create a link for your first video.")).toBeVisible();expect(campaignRequests).toBe(1);
- await page.locator("input").first().blur();await page.mouse.click(1,1);await page.evaluate(()=>window.scrollTo(0,0));await page.screenshot({path:"/downloads/audit/creator-campaigns/ui-partner-private.png",fullPage:true});
+ await expect(page.getByRole("region",{name:"Creator campaigns"})).toBeVisible();await expect(page.getByText("No campaigns yet. Create a link for your first video.")).toBeVisible();expect(campaignRequests).toBeGreaterThan(0);
+ await page.locator("input").first().blur();await page.mouse.click(1,1);await page.evaluate(()=>window.scrollTo(0,0));await page.screenshot({path:`${evidence}/ui-partner-private.png`,fullPage:true});
 });

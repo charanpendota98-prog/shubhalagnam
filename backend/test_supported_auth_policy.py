@@ -30,10 +30,10 @@ class SupportedAuthTests(unittest.TestCase):
         Path(self.path).write_text(json.dumps(payload))
         return G.validate_core_database(self.path)
 
-    def test_manifest_matches_actual_39_module_paths(self):
+    def test_manifest_matches_actual_40_module_paths(self):
         actual = {label: (os.path.realpath(v), d) for label,v,d in M._production_storage_paths()}
         resolved = {label: (os.path.realpath(v), d) for label,v,d in G.configured_paths(os.environ)}
-        self.assertEqual(len(actual), 39)
+        self.assertEqual(len(actual), 40)
         self.assertEqual(actual, resolved)
 
     def test_shared_authority(self):
