@@ -1374,7 +1374,7 @@ export default function MatchesPage() {
       <div className="max-w-7xl mx-auto px-4 py-4 sm:py-6">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
           {/* ================= DESKTOP FILTER SIDEBAR (4 cols) ================= */}
-          <div className="mv-surface mv-surface__body sticky top-20 hidden max-h-[calc(100vh-100px)] space-y-4 overflow-y-auto scrollbar-thin lg:col-span-4 lg:block">
+          <div style={{ overflowY: "auto" }} className="mv-surface mv-surface__body sticky top-20 hidden max-h-[calc(100vh-100px)] space-y-4 overflow-y-auto scrollbar-thin lg:col-span-4 lg:block">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="font-black text-sm text-slate-900 flex items-center gap-1.5">
                 <span>🌪️</span>
