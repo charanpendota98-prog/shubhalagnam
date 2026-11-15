@@ -431,8 +431,8 @@ matches_page = src_page("frontend/src/app/matches/page-client.tsx")
 quick_unlock = src_page("frontend/src/components/QuickUnlockModal.tsx")
 pricing_page = src_page("frontend/src/app/pricing/page-client.tsx")
 profile_view = src_page("frontend/src/app/search/[id]/ProfileView.tsx")
-check("registration explains FREE vs paid using current policy", "/api/free-plan" in register_page
-      and "clarity" in register_page and "FREE లో ఇచ్చేది" in register_page
+# Registration moved to a client component and renders the policy directly.
+check("registration explains FREE vs paid using current policy", "clarity" in register_page and "FREE లో ఇచ్చేది" in register_page
       and "accepted-request account views" in register_page)
 check("matches UI renders masked contact and a request-credit action",
       "phone_masked" in matches_page and "Contact:" in matches_page
