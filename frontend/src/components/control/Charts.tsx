@@ -77,7 +77,8 @@ export function Donut({
     value: it.count,
     color: PALETTE[idx % PALETTE.length],
   }));
-  const total = Math.max(1, normSegments.reduce((s, x) => s + x.value, 0));
+  const total = normSegments.reduce((s, x) => s + x.value, 0);
+  const divisor = Math.max(1,total);
   const r = size / 2 - 10;
   const c = 2 * Math.PI * r;
   return (
@@ -85,8 +86,8 @@ export function Donut({
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
         <g transform={`rotate(-90 ${size / 2} ${size / 2})`}>
           {normSegments.map((s, index) => {
-            const len = (s.value / total) * c;
-            const offset = normSegments.slice(0, index).reduce((sum, segment) => sum + (segment.value / total) * c, 0);
+            const len = (s.value / divisor) * c;
+            const offset = normSegments.slice(0, index).reduce((sum, segment) => sum + (segment.value / divisor) * c, 0);
             return (
               <circle
                 key={s.label}

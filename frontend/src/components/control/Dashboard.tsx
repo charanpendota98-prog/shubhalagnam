@@ -13,7 +13,7 @@
  * • Overview, Profile Queue, Castes, Add Profile, Ads, Vendors, Spotlight, Referrals, Reports, Revenue, Audit
  */
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -35,6 +35,7 @@ import AstroConsole from "@/components/AstroConsole";
 import ContentConsole from "@/components/ContentConsole";
 import OffersConsole from "@/components/OffersConsole";
 import BureauOverview from "./BureauOverview";
+import OwnerCommandCenter from "./OwnerCommandCenter";
 import PayConsole from "@/components/PayConsole";
 import MatchSend from "@/components/MatchSend";
 import Showcase from "@/components/Showcase";
@@ -256,6 +257,13 @@ export default function Dashboard() {
 
   // Queues & Data
   const [queue, setQueue] = useState<QueueItem[]>([]);
+  const [qQuery,setQQuery]=useState("");
+  const [qSearch,setQSearch]=useState("");
+  const [qPage,setQPage]=useState(1);
+  const [qPages,setQPages]=useState(1);
+  const [qMatched,setQMatched]=useState<number|null>(null);
+  const [queueStates,setQueueStates]=useState<Record<string,string>>({});
+  const queueSequences=useRef<Record<string,number>>({});
   const [qStatus, setQStatus] = useState<"pending" | "approved" | "rejected" | "all">("pending");
   const [spotlights, setSpotlights] = useState<SpotlightItem[]>([]);
   const [spStatus, setSpStatus] = useState<string>("all");
@@ -446,7 +454,7 @@ export default function Dashboard() {
 
   const owner = me?.role === "owner";
   const financeAccess = owner || me?.role === "finance";
-  const gotoLogin = useCallback(() => router.push("/control/login"), [router]);
+  const gotoLogin = useCallback(() => {Object.keys(queueSequences.current).forEach(k=>queueSequences.current[k]++);setMe(null);setAn(null);setQueue([]);setReports([]);setStoryQueue([]);setSpotlights([]);setPayouts([]);router.push("/control/login");}, [router]);
   const resetGrantForm = () => {
     setGrantPlanCode("");
     setGrantCredits(0);
@@ -466,6 +474,7 @@ export default function Dashboard() {
   }, [te]);
 
   const loadCore = useCallback(async () => {
+    setErr("");
     try {
       const u = await jget("/api/control/me");
       setMe(u);
@@ -481,33 +490,18 @@ export default function Dashboard() {
     }
   }, [gotoLogin, te]);
 
-  const loadQueue = useCallback(async (st: string) => {
-    try {
-      const d = await jget(`/api/control/profile-queue?status=${st}`);
-      setQueue(d.items || []);
-    } catch { setQueue([]); }
-  }, []);
-
-  const loadReports = useCallback(async () => {
-    try {
-      const d = await jget("/api/control/reports");
-      setReports(d.items || []);
-    } catch { setReports([]); }
-  }, []);
-
-  const loadSpotlights = useCallback(async (st: string) => {
-    try {
-      const d = await jget(`/api/control/spotlight/queue?status=${st}`);
-      setSpotlights(d.items || []);
-    } catch { setSpotlights([]); }
-  }, []);
-
-  const loadStories = useCallback(async (st: string) => {
-    try {
-      const d = await jget(`/api/control/stories?status=${st}`);
-      setStoryQueue(d.stories || []);
-    } catch { setStoryQueue([]); }
-  }, []);
+  const loadReviewQueue=useCallback(async(key:string,url:string,field:string,setRows:(rows:any[])=>void)=>{
+    const id=(queueSequences.current[key]||0)+1;queueSequences.current[key]=id;
+    setRows([]);if(key==="queue")setQMatched(null);setQueueStates(v=>({...v,[key]:"loading"}));
+    try{const d=await jget(url);if(queueSequences.current[key]!==id)return;
+      if(d.success===false||!Array.isArray(d[field]))throw Error("load");
+      setRows(d[field]);setQueueStates(v=>({...v,[key]:""}));return d;
+    }catch(e){if(queueSequences.current[key]!==id)return;setRows([]);setQueueStates(v=>({...v,[key]:"error"}));if(e instanceof Error&&e.message==="401")gotoLogin();}
+  },[gotoLogin]);
+  const loadQueue=useCallback(async(st:string)=>{const d=await loadReviewQueue("queue",`/api/control/profile-queue?status=${st}&q=${encodeURIComponent(qSearch)}&page=${qPage}&page_size=20`,"items",setQueue);if(d){setQPage(d.page||1);setQPages(d.pages||1);setQMatched(typeof d.matched==="number"?d.matched:null);}},[loadReviewQueue,qSearch,qPage]);
+  const loadReports=useCallback(()=>loadReviewQueue("reports","/api/control/reports","items",setReports),[loadReviewQueue]);
+  const loadSpotlights=useCallback((st:string)=>loadReviewQueue("spotlight",`/api/control/spotlight/queue?status=${st}`,"items",setSpotlights),[loadReviewQueue]);
+  const loadStories=useCallback((st:string)=>loadReviewQueue("stories",`/api/control/stories?status=${st}`,"stories",setStoryQueue),[loadReviewQueue]);
 
   const storyAction = async (story: StoryItem, action: "approve" | "reject") => {
     if (!me) return;
@@ -536,12 +530,7 @@ export default function Dashboard() {
     finally { setBusyId(""); }
   };
 
-  const loadPayouts = useCallback(async (st: string) => {
-    try {
-      const d = await jget(`/api/control/payouts/queue?status=${st}`);
-      setPayouts(d.items || []);
-    } catch { setPayouts([]); }
-  }, []);
+  const loadPayouts=useCallback((st:string)=>loadReviewQueue("referrals",`/api/control/payouts/queue?status=${st}`,"items",setPayouts),[loadReviewQueue]);
 
   const loadCastes = useCallback(async () => {
     try {
@@ -1339,7 +1328,7 @@ export default function Dashboard() {
       {/* =========================================================================
           TOP OPERATIONS HEADER (WITH PROMINENT WHATSAPP & TELEGRAM BUTTONS)
           ========================================================================= */}
-      <header className="sticky top-0 z-30 border-b border-gold/30 bg-white/95 backdrop-blur shadow-sm">
+      <header className="relative sm:sticky sm:top-16 z-30 border-b border-gold/30 bg-white/95 backdrop-blur shadow-sm">
           <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           
           {/* Brand & Auth Badge */}
@@ -1352,7 +1341,7 @@ export default function Dashboard() {
                 <span className="text-base font-extrabold text-[#7A0C2E]">
                   {te ? "మన వివాహ" : "Mana Vivaha"} <span className="text-slate-800">{owner ? tr("అడ్మిన్ పోర్టల్", "Admin Portal") : financeAccess ? tr("ఫైనాన్స్ డెస్క్", "Finance Desk") : tr("మోడరేషన్ వర్క్‌స్పేస్", "Moderation Workspace")}</span>
                 </span>
-                <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider ${
+                <span className={`shrink-0 whitespace-nowrap rounded-full px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider ${
                   owner ? "bg-amber-100 text-amber-900 border border-amber-300" : "bg-slate-100 text-slate-700"
                 }`}>
                   {me.role}
@@ -2552,6 +2541,7 @@ export default function Dashboard() {
 
         {tab === "overview" && (
           <div className="space-y-6">
+            {owner&&<OwnerCommandCenter onOpen={setTab}/>}
             {/* KPI Cards */}
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
               {[
@@ -2594,6 +2584,7 @@ export default function Dashboard() {
           </div>
         )}
 
+        {queueStates[tab]&&<div role={queueStates[tab]==="error"?"alert":"status"} className="mb-4 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950">{queueStates[tab]==="loading"?tr("Review queue లోడ్ అవుతోంది…","Loading review queue…"):tr("Queue లోడ్ కాలేదు. ఇది ఖాళీ అని కాదు. మళ్లీ ప్రయత్నించండి.","Review queue could not be loaded. This is not an empty result. Please retry.")}{queueStates[tab]==="error"&&<button type="button" className="ml-3 min-h-11 underline" onClick={()=>{if(tab==="queue")void loadQueue(qStatus);if(tab==="reports")void loadReports();if(tab==="stories")void loadStories(storyStatus);if(tab==="spotlight")void loadSpotlights(spStatus);if(tab==="referrals")void loadPayouts(pStatus);}}>Retry queue</button>}</div>}
         {/* Profile Approval Queue Tab */}
         {tab === "queue" && (
           <div className="space-y-4">
@@ -2601,7 +2592,7 @@ export default function Dashboard() {
               {(owner ? (["pending", "approved", "rejected", "all"] as const) : (["pending"] as const)).map((s) => (
                 <button type="button"
                   key={s}
-                  onClick={() => setQStatus(s)}
+                  onClick={() => {setQStatus(s);setQPage(1);}}
                   className={`px-4 py-1.5 rounded-full text-xs font-bold capitalize transition ${
                     qStatus === s ? "maroon-gradient text-white shadow-xs" : "bg-white border border-slate-200 text-slate-700"
                   }`}
@@ -2611,10 +2602,12 @@ export default function Dashboard() {
               ))}
             </div>
 
+            <form className="flex flex-wrap gap-2" onSubmit={e=>{e.preventDefault();setQPage(1);setQSearch(qQuery.trim());}}><label className="flex min-w-0 flex-1 flex-col gap-1 text-sm font-bold">{tr("పేరు, ID లేదా జిల్లా","Name, ID or district")}<input value={qQuery} onChange={e=>setQQuery(e.target.value)} maxLength={120} className="min-h-11 rounded-xl border border-slate-300 px-3"/></label><button type="submit" className="min-h-11 self-end rounded-xl bg-[#7A0C2E] px-4 text-sm font-bold text-white">{tr("సభ్యులను వెతకండి","Search members")}</button></form>
+            <div className="flex flex-wrap items-center gap-3 text-sm"><button type="button" disabled={qPage<=1||!!queueStates.queue} onClick={()=>setQPage(v=>v-1)} className="min-h-11 rounded-xl border px-3 disabled:opacity-50">Previous members</button><span>{qPage} / {qPages} · {qMatched===null?"-":qMatched} {tr("ఫలితాలు","results")}</span><button type="button" disabled={qPage>=qPages||!!queueStates.queue} onClick={()=>setQPage(v=>v+1)} className="min-h-11 rounded-xl border px-3 disabled:opacity-50">Next members</button></div>
             <div className="grid md:grid-cols-2 gap-3">
               {queue.length === 0 ? (
                 <div className="col-span-2 bg-white rounded-3xl p-8 text-center text-slate-500 font-bold">
-                  {L.emptyQueue}
+                  {queueStates[tab]?tr("ఇంకా records చూపించడం లేదు.","No records are shown while the queue is unavailable or loading."):L.emptyQueue}
                 </div>
               ) : (
                 queue.map((q) => (
@@ -3229,7 +3222,7 @@ export default function Dashboard() {
           <div className="space-y-4">
             {spotlights.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-gold/40 bg-white p-8 text-center text-sm text-slate-600">
-                {te ? "సమీక్షించాల్సిన స్పాట్‌లైట్ దరఖాస్తులు లేవు." : "No spotlight applications need review."}
+                {queueStates.spotlight?tr("ఇంకా records చూపించడం లేదు.","No records are shown while the queue is unavailable or loading."):(te ? "సమీక్షించాల్సిన స్పాట్‌లైట్ దరఖాస్తులు లేవు." : "No spotlight applications need review.")}
               </div>
             ) : (
               <div className="grid min-w-0 gap-4 xl:grid-cols-2">
@@ -3343,7 +3336,7 @@ export default function Dashboard() {
 
             {storyQueue.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-gold/40 bg-white p-8 text-center text-sm text-slate-600">
-                {te ? "ఈ స్థితిలో ఏ కథలూ లేవు." : "No stories in this state."}
+                {queueStates.stories?tr("ఇంకా records చూపించడం లేదు.","No records are shown while the queue is unavailable or loading."):(te ? "ఈ స్థితిలో ఏ కథలూ లేవు." : "No stories in this state.")}
               </div>
             ) : (
               storyQueue.map((story) => (
@@ -3436,7 +3429,7 @@ export default function Dashboard() {
               {payouts.length === 0 ? (
                 <div className="bg-white rounded-3xl p-12 text-center text-slate-400 font-bold border border-gold/20">
                   <span className="text-3xl block mb-2">🤝</span>
-                  <span>{tr("ప్రస్తుతం చెల్లింపు అభ్యర్థనలు లేవు", "There are no payout requests right now.")}</span>
+                  <span>{queueStates.referrals?tr("ఇంకా records చూపించడం లేదు.","No records are shown while the queue is unavailable or loading."):tr("ప్రస్తుతం చెల్లింపు అభ్యర్థనలు లేవు", "There are no payout requests right now.")}</span>
                 </div>
               ) : (
                 <div className="grid md:grid-cols-2 gap-4">
@@ -3580,7 +3573,7 @@ export default function Dashboard() {
         {tab === "reports" && (
           <div className="space-y-3">
             {reports.length === 0 ? (
-              <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-sm font-semibold text-slate-600">{L.emptyReports}</div>
+              <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-sm font-semibold text-slate-600">{queueStates.reports?tr("ఇంకా records చూపించడం లేదు.","No records are shown while the queue is unavailable or loading."):L.emptyReports}</div>
             ) : reports.map((r) => {
               const reportId = r.report_id || r.id || "";
               return (
