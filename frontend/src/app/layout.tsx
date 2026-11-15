@@ -136,13 +136,14 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className="antialiased min-h-dvh flex flex-col">
+      <body className="antialiased min-h-dvh flex flex-col wedding-preview">
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: serializeJsonLd(SITE_JSON_LD) }}
         />
         <LangProvider>
           <a href="#main-content" className="skip-link">Skip to main content</a>
+          <aside className="wedding-preview-notice">DESIGN PREVIEW · Not the live site · Illustrative photography, not member stories</aside>
           <SiteAmbience />
           <SiteHeader />
           <main id="main-content" className="flex-1" tabIndex={-1}><RouteFrame>{children}</RouteFrame></main>
