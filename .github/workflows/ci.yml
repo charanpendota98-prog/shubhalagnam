@@ -92,6 +92,8 @@ jobs:
       - run: npm ci --no-audit --no-fund
       - name: Install Chromium for strict browser tests
         run: npx playwright install --with-deps chromium
+      - name: Build and verify delayed server pricing snapshots
+        run: npm run build && node scripts/pricing-browser.mjs
       - name: Run responsive viewport checks
         id: visual
         env:

@@ -29,7 +29,8 @@
     "test:pagefaq": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/page-faq.test.mjs",
     "test:memberintel": "node scripts/member-intel.test.mjs",
     "test:api-client": "node --test scripts/api-client.test.mjs",
-    "test:observability": "node --test scripts/observability-proxy.test.mjs"
+    "test:observability": "node --test scripts/observability-proxy.test.mjs",
+    "test:pricing": "node scripts/pricing-browser.mjs"
   },
   "dependencies": {
     "@types/qrcode": "^1.5.6",
