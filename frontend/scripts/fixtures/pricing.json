@@ -1,0 +1,206 @@
+{
+  "currency": "INR",
+  "chatting": false,
+  "model": "Interest requests; contact sharing only after the profile owner accepts (chatting లేదు)",
+  "free_first": 3,
+  "plans": [
+    {
+      "code": "FREE",
+      "price": 0,
+      "profiles": 3,
+      "validity_days": 365,
+      "label": "Synthetic test plan",
+      "telugu": "మొదటి 3 requests FREE",
+      "badge": "Test only",
+      "per_profile": 0,
+      "perks": [
+        "3 interest requests",
+        "Profile card generation",
+        "No payment required"
+      ],
+      "perksTe": [
+        "3 ఉచిత interest requests",
+        "ప్రొఫైల్ కార్డ్",
+        "చెల్లింపు అవసరం లేదు"
+      ]
+    },
+    {
+      "code": "S_99",
+      "price": 99,
+      "profiles": 5,
+      "validity_days": 30,
+      "label": "Synthetic test plan",
+      "telugu": "₹99 → 5 interest requests",
+      "badge": "Test only",
+      "per_profile": 20,
+      "perks": [
+        "5 interest requests",
+        "30-day credit validity",
+        "Contact access in accepted-request account views after owner acceptance",
+        "Refund policy as shown in your account"
+      ],
+      "perksTe": [
+        "5 interest requests",
+        "30 రోజుల credit validity",
+        "Owner accept చేసిన తర్వాత accepted-request account views లో contact details కనిపిస్తాయి",
+        "Account లో చూపిన refund policy వర్తిస్తుంది"
+      ]
+    },
+    {
+      "code": "S_199",
+      "price": 199,
+      "profiles": 12,
+      "validity_days": 45,
+      "label": "Synthetic test plan",
+      "telugu": "₹199 → 12 interest requests",
+      "badge": "Test only",
+      "per_profile": 17,
+      "perks": [
+        "12 interest requests",
+        "45-day credit validity",
+        "Contact access in accepted-request account views after owner acceptance",
+        "Refund policy as shown in your account"
+      ],
+      "perksTe": [
+        "12 interest requests",
+        "45 రోజుల credit validity",
+        "Owner accept చేసిన తర్వాత accepted-request account views లో contact details కనిపిస్తాయి",
+        "Account లో చూపిన refund policy వర్తిస్తుంది"
+      ]
+    },
+    {
+      "code": "S_299",
+      "price": 299,
+      "profiles": 25,
+      "validity_days": 60,
+      "label": "Synthetic test plan",
+      "telugu": "₹299 → 25 interest requests",
+      "badge": "Test only",
+      "per_profile": 12,
+      "perks": [
+        "25 interest requests",
+        "60-day credit validity",
+        "Who-viewed names while this plan is active",
+        "Contact details only after the profile owner accepts",
+        "Refund policy as shown in your account"
+      ],
+      "perksTe": [
+        "25 interest requests",
+        "60 రోజుల credit validity",
+        "ఈ plan active ఉన్నంతవరకు మీ profile చూసిన వారి పేర్లు",
+        "Owner accept చేసిన తర్వాత accepted-request account views లో contact details కనిపిస్తాయి",
+        "Account లో చూపిన refund policy వర్తిస్తుంది"
+      ]
+    },
+    {
+      "code": "S_499",
+      "price": 499,
+      "profiles": 50,
+      "validity_days": 90,
+      "label": "Synthetic test plan",
+      "telugu": "₹499 → 50 interest requests",
+      "badge": "Test only",
+      "per_profile": 10,
+      "perks": [
+        "50 interest requests",
+        "90-day credit validity",
+        "Who-viewed names while this plan is active",
+        "Contact details only after the profile owner accepts",
+        "Refund policy as shown in your account"
+      ],
+      "perksTe": [
+        "50 interest requests",
+        "90 రోజుల credit validity",
+        "ఈ plan active ఉన్నంతవరకు మీ profile చూసిన వారి పేర్లు",
+        "Owner accept చేసిన తర్వాత accepted-request account views లో contact details కనిపిస్తాయి",
+        "Account లో చూపిన refund policy వర్తిస్తుంది"
+      ]
+    }
+  ],
+  "addons": [
+    {
+      "code": "BOOST_49",
+      "price": 49,
+      "label": "Profile Boost (1 day)",
+      "telugu": "ఒక రోజు boost; channel placement availability పై ఆధారపడుతుంది",
+      "kind": "boost",
+      "days": 1,
+      "pack_code": "B_1"
+    },
+    {
+      "code": "WHOVIEWED_49",
+      "price": 49,
+      "label": "Who viewed me (30 days)",
+      "telugu": "30 రోజుల పాటు viewer names చూడండి",
+      "kind": "whoviewed",
+      "days": 30
+    },
+    {
+      "code": "VERIFY_199",
+      "price": 199,
+      "label": "Manual photo review request",
+      "telugu": "📸 ఫోటోను సమీక్ష కోసం పంపుతుంది; approval లేదా badge హామీ కాదు",
+      "kind": "photo_review",
+      "days": 0
+    }
+  ],
+  "renewal": {
+    "code": "RENEW_99",
+    "price": 99,
+    "profiles": 8,
+    "validity_days": 30,
+    "label": "Renewal Bonus",
+    "telugu": "₹99 → 8 profiles (పాత customer special)",
+    "badge": "Renewal • ₹12.4/profile",
+    "per_profile": 12,
+    "perks": [
+      "8 interest requests",
+      "30-day credit validity"
+    ]
+  },
+  "bureau": [
+    {
+      "code": "BUREAU_999",
+      "price": 999,
+      "profiles": 25,
+      "validity_days": 30,
+      "label": "Bureau Starter",
+      "telugu": "₹999 → 25 requests (B2B)",
+      "badge": "Bureau/Agents",
+      "per_profile": 40,
+      "perks": [
+        "25 interest requests",
+        "30-day credit validity"
+      ],
+      "perksTe": [
+        "25 interest requests",
+        "30 రోజుల credit validity"
+      ]
+    },
+    {
+      "code": "BUREAU_2999",
+      "price": 2999,
+      "profiles": 100,
+      "validity_days": 30,
+      "label": "Bureau Pro",
+      "telugu": "₹2999 → 100 requests (B2B)",
+      "badge": "Bureau Pro",
+      "per_profile": 30,
+      "perks": [
+        "100 interest requests",
+        "30-day credit validity"
+      ],
+      "perksTe": [
+        "100 interest requests",
+        "30 రోజుల credit validity"
+      ]
+    }
+  ],
+  "value_ladder": [
+    "₹99 → 5 interest requests (₹20/request)",
+    "₹199 → 12 interest requests (₹17/request)",
+    "₹299 → 25 interest requests (₹12/request)",
+    "₹499 → 50 interest requests (₹10/request)"
+  ],
+  "note_telugu": "ఒక్క interest request కు 1 credit. Public search లో contact details ఉండవు; profile owner accept చేసిన తర్వాత accepted-request account flows లో అందుబాటులోకి వస్తాయి. WhatsApp notification delivery హామీ లేదు. Decline అయితే account లో చూపిన credit policy వర్తిస్తుంది. ₹299, ₹499 plans active ఉన్నప్పుడు Who-viewed names అందుబాటులో ఉంటాయి. Match లేదా response హామీ లేదు."
+}

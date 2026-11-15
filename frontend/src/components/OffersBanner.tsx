@@ -9,17 +9,18 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useLang } from "@/lib/lang";
 
-type Offer = { code: string; title: string; pct_off: number; flat_off: number; valid_to?: string };
+export type Offer = { code: string; title: string; pct_off: number; flat_off: number; valid_to?: string };
 
-export default function OffersBanner() {
+export default function OffersBanner({ initialOffers }: { initialOffers?: Offer[] } = {}) {
   const { lang } = useLang();
   const te = lang === "te";
-  const [offers, setOffers] = useState<Offer[]>([]);
+  const [offers, setOffers] = useState<Offer[]>(initialOffers || []);
   useEffect(() => {
+    if (initialOffers !== undefined) return;
     fetch("/api/offers/active").then((r) => readApiJson(r)).then((d) => {
       if (d?.success && Array.isArray(d.offers)) setOffers(d.offers.slice(0, 3));
     }).catch(() => {});
-  }, []);
+  }, [initialOffers]);
   if (!offers.length) return null;
   return (
     <Link href="/pricing" className="block rounded-2xl bg-gradient-to-r from-[#7A0C2E] via-[#A31633] to-[#E8A020] text-white px-4 py-3 shadow-md hover:shadow-lg transition">
