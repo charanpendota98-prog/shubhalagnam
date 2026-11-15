@@ -1277,23 +1277,23 @@ export default function Dashboard() {
 
   if (err) {
     return (
-      <main className="min-h-dvh bg-cream p-8 text-center">
+      <div className="min-h-dvh bg-cream p-8 text-center">
         <p className="text-rose-700 font-bold">{err}</p>
         <button type="button" onClick={loadCore} className="mt-4 rounded-xl maroon-gradient px-4 py-2 text-white font-bold">{L.refresh}</button>
-      </main>
+      </div>
     );
   }
 
   if (!me || !an) {
     return (
-      <main className="min-h-dvh bg-cream p-8 text-center text-sm font-bold text-slate-600">
+      <div className="min-h-dvh bg-cream p-8 text-center text-sm font-bold text-slate-600">
         {err ? (
           <div role="alert" className="mx-auto max-w-lg rounded-2xl border border-rose-200 bg-white p-6">
             <p>{err === "401" ? "Your control session has expired. Please sign in again." : "Control data could not be loaded. No member records are shown."}</p>
             <button type="button" onClick={() => err === "401" ? gotoLogin() : void loadCore()} className="mt-4 rounded-xl bg-[#7A0C2E] px-4 py-2 text-white">{err === "401" ? "Sign in" : "Retry"}</button>
           </div>
         ) : L.loading}
-      </main>
+      </div>
     );
   }
 
@@ -1334,7 +1334,7 @@ export default function Dashboard() {
   const tabs = owner ? ownerTabs : financeAccess ? financeTabs : safeWorkerTabs;
 
   return (
-    <main className="min-h-dvh bg-[#FAF6F0] pb-44 text-slate-800">
+    <div className="min-h-dvh bg-[#FAF6F0] pb-44 text-slate-800">
       
       {/* =========================================================================
           TOP OPERATIONS HEADER (WITH PROMINENT WHATSAPP & TELEGRAM BUTTONS)
@@ -4593,6 +4593,6 @@ export default function Dashboard() {
         </div>
       )}
 
-    </main>
+    </div>
   );
 }
