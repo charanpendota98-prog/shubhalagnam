@@ -752,7 +752,7 @@ export default function BiodataPage() {
           <div
             ref={canvasRef}
             id="biodata-canvas"
-            className={`w-[800px] min-w-[800px] mx-auto rounded-3xl ${selectedTheme.canvasBg} border-4 ${selectedTheme.border} p-8 shadow-2xl text-slate-900 transition-all space-y-6 relative overflow-hidden`}
+            className={`w-[800px] min-w-[800px] mx-auto rounded-3xl ${selectedTheme.canvasBg} border-4 ${selectedTheme.border} p-8 shadow-2xl text-slate-900 transition-all space-y-6 relative overflow-hidden [overflow-wrap:anywhere]`}
           >
             {/* Contextual Watermark Background Motifs */}
             {religion === "Muslim" ? (
@@ -819,9 +819,9 @@ export default function BiodataPage() {
 
               {/* Name & Quick Badges */}
               <div className="min-w-0 flex-1 space-y-2">
-                <div className="flex items-center justify-between">
-                  <h2 className={`text-2xl font-black ${selectedTheme.accent} tracking-tight truncate`}>{data.fullName}</h2>
-                  <span className="font-mono text-xs font-black bg-amber-50 text-maroon border border-gold/40 px-3 py-1 rounded-xl shadow-xs">
+                <div className="flex items-start justify-between gap-3">
+                  <h2 className={`min-w-0 flex-1 text-2xl font-black ${selectedTheme.accent} tracking-tight whitespace-normal [overflow-wrap:anywhere]`}>{data.fullName}</h2>
+                  <span className="shrink-0 font-mono text-xs font-black bg-amber-50 text-maroon border border-gold/40 px-3 py-1 rounded-xl shadow-xs">
                     ID: {profileId || "—"}
                   </span>
                 </div>
