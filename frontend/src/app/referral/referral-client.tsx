@@ -13,6 +13,7 @@ import { Duo } from "@/lib/duo";
 import { apiDisplayMessage, authHeaders, readApiJson } from "@/lib/api";
 import { WhatsAppIcon, TelegramIcon } from "@/components/BrandIcons";
 import CreatorCampaigns from "@/components/CreatorCampaigns";
+import { CreatorClubWelcome, CreatorClubProgress, CreatorClubPlaybook } from "@/components/CreatorClub";
 import ReferralPro from "@/components/ReferralPro";
 
 type Dash = any;
@@ -350,10 +351,10 @@ export default function ReferralPage() {
               </div>
 
               <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black tracking-tight leading-tight">
-                <Duo en="Referral Partner & Rewards Console" te="రెఫరల్ భాగస్వామ్యం & సంపాదన వేదిక 🤝" />
+                Manavivaha Creator Club
               </h1>
 
-              <p className="text-sm leading-relaxed text-amber-100">{te ? "మీ లింక్ పంచుకోండి. నిజమైన నమోదులు, అర్హమైన rewards ఒకే చోట చూడండి." : "Share your link. Track real registrations and qualifying rewards in one place."}</p>
+              <p className="text-sm leading-relaxed text-amber-100">{te ? "ఉపయోగపడే content చేయండి. బాధ్యతగా పంచుకోండి. నమోదైన ప్రతి అడుగు చూడండి." : "Create with purpose. Share with care. Track every recorded step."}</p>
               <details className="text-xs sm:text-sm text-amber-100 leading-relaxed">
                 <summary className="min-h-11 cursor-pointer py-2 font-bold">{te ? "Reward ఎలా వస్తుంది? నియమాలు చూడండి" : "How rewards work: read the rules"}</summary>
                 <p>{te
@@ -367,12 +368,12 @@ export default function ReferralPage() {
                 <div className="flex items-start gap-3">
                   <span aria-hidden="true" className="text-2xl">🤝</span>
                   <div>
-                    <h2 className="text-sm font-black text-maroon">{te ? "రెఫరల్ భాగస్వామిగా చేరండి" : "Become a referral partner"}</h2>
+                    <h2 className="text-sm font-black text-maroon">{te ? "మీ creator ప్రయాణం ఇక్కడ మొదలు" : "Your creator journey starts here"}</h2>
                     <p className="mt-1 text-xs leading-relaxed text-slate-600">
                       {te ? "అక్షర క్రమంలో ఉన్న రాష్ట్రం/జిల్లా ఎంపికలతో పూర్తి నమోదు పేజీని ఉపయోగించండి. నమోదు ఒక్కటే cash reward ఇవ్వదు." : "Use the dedicated registration form with consistent state and district choices. Registration alone does not earn a cash reward."}
                     </p>
                     <Link href="/referral/register" className="mt-3 inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-[#7A0C2E] px-4 py-2.5 text-center text-xs font-black text-white hover:bg-[#5d0924] focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2">
-                      {te ? "భాగస్వామి నమోదు ప్రారంభించండి" : "Start partner registration"} <span aria-hidden="true" className="ml-1">→</span>
+                      {te ? "Creator Club లో చేరండి" : "Join Creator Club"} <span aria-hidden="true" className="ml-1">→</span>
                     </Link>
                   </div>
                 </div>
@@ -416,6 +417,8 @@ export default function ReferralPage() {
       {/* ================= MAIN CONTAINER ================= */}
       <div className="max-w-6xl mx-auto px-4 mt-6 space-y-6">
         
+        {!dash && !tsapId && <CreatorClubWelcome />}
+
         {err && (
           <div className="bg-red-50 border border-red-300 text-red-700 p-4 rounded-2xl text-xs font-semibold">
             ⚠️ {err}
@@ -457,7 +460,9 @@ export default function ReferralPage() {
           </div>
         </div>
 
-        <CreatorCampaigns key={tsapId} identity={tsapId} />
+        <CreatorClubProgress dashboard={dash} stale={!!err || refreshing} />
+        <div id="creator-campaigns" className="scroll-mt-28"><CreatorCampaigns key={tsapId} identity={tsapId} /></div>
+        <CreatorClubPlaybook />
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-white px-4 py-3">
           <div className="text-xs text-slate-600" role="status" aria-live="polite">
             {updatedAt ? `${te ? "చివరిగా నవీకరించినది" : "Last updated"}: ${updatedAt.toLocaleTimeString(te ? "te-IN" : "en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}` : (te ? "వివరాలు లోడ్ అవుతున్నాయి" : "Loading your details")}

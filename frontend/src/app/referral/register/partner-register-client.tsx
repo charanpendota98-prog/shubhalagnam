@@ -212,7 +212,8 @@ export default function PartnerRegisterPage() {
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-8">
-      <h1 className="text-2xl font-extrabold text-maroon">🤝 <Duo en="Become a Referral Partner" te="రిఫరల్ భాగస్వామి అవండి" /></h1>
+      <h1 className="text-2xl font-extrabold text-maroon">🤝 Manavivaha Creator Club</h1>
+      <p className="mt-2 text-lg font-bold text-slate-900">{te ? "మీ పరిచయం. ఒక కుటుంబానికి కొత్త ఆరంభం." : "Your introduction. A family's new beginning."}</p>
       <p className="mt-1 text-sm text-emerald-800 font-bold telugu">
         {duo("Anyone can request a referral partner ID. Credits and any cash reward follow separate eligibility terms.",
              "ఎవరైనా referral partner ID కోసం నమోదు చేసుకోవచ్చు. Credits మరియు cash reward కు వేర్వేరు అర్హత నియమాలు వర్తిస్తాయి.")}
