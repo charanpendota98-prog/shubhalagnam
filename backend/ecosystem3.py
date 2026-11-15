@@ -539,6 +539,13 @@ def verify_signed_photo_token(token: str, filename: str, viewer_id: str, owner_i
         token_viewer = str(payload.get("v", "")).upper()
         if viewer_id and token_viewer and viewer_id != token_viewer:
             return False
+        # Signed URLs intentionally support image loads without a login header.
+        # Still check the grant's recipient against current block state, even
+        # when the requester is a guest and the ordinary media guard has no ID.
+        import main as MAIN
+        import safety
+        if safety.is_blocked(token_viewer, owner_id, MAIN.DB_BLOCKS):
+            return False
         # Must still have an active unrevoked grant
         return has_photo_access(token_viewer, owner_id)
     except Exception:

@@ -894,7 +894,8 @@ def _verify_payment_locked(pay_order_id: str, rzp_order_id: str, payment_id: str
     if payment_owner and payment_owner != str(po.get("id", "")):
         return {"success": False, "reason": "payment_already_used",
                 "message_telugu": "🚫 ఈ provider payment ఇప్పటికే మరో order కు జత అయింది."}
-    if payment_owner == str(po.get("id", "")) and payment_id:
+    if (payment_owner == str(po.get("id", "")) and payment_id
+                and (payment_id in PAYMENT_INDEX or payment_id in RECEIPTS or isinstance(po.get("receipt"), dict))):
         old = PAYMENT_INDEX.get(payment_id) or RECEIPTS.get(payment_id)
         return {"success": True, "duplicate": True, "receipt": old,
                 "message_telugu": "✅ ఈ payment already use అయ్యింది — మళ్లీ credit ఇవ్వము 🙂"}
@@ -978,7 +979,7 @@ def _verify_payment_locked(pay_order_id: str, rzp_order_id: str, payment_id: str
 def verify_webhook_signature(raw_body: bytes, signature: str) -> bool:
     """🌊 WAVE 25 — Razorpay webhook auth = HMAC-SHA256(raw_body, secret).
     Signature lekunda/tappu ayithe webhook REJECT (fake fulfill ban)."""
-    secret = _secret()
+    secret = os.getenv("RAZORPAY_WEBHOOK_SECRET", "").strip()
     if not secret or not raw_body or not signature:
         return False
     mac = hmac.new(secret.encode(), raw_body, hashlib.sha256).hexdigest()
@@ -1012,8 +1013,9 @@ def handle_razorpay_webhook(event: Dict) -> Dict:
         # A signed webhook proves origin, not that the amount/currency matches
         # this order. Check both when the provider supplies them. Production
         # payloads always contain amount; test-only fixtures may omit it.
+        production = os.getenv("APP_ENV", "").strip().lower() in {"prod", "production", "live"}
         supplied_amount = payment_ent.get("amount", order_ent.get("amount"))
-        if supplied_amount is None and os.getenv("APP_ENV", "").lower() in {"prod", "production"}:
+        if supplied_amount is None and production:
             return {"ok": False, "reason": "amount_missing",
                     "message_telugu": "⚠️ Payment amount లేని webhook ను safe గా accept చేయలేదు"}
         if supplied_amount is not None:
@@ -1033,6 +1035,8 @@ def handle_razorpay_webhook(event: Dict) -> Dict:
             return {"ok": False, "reason": "currency_mismatch",
                     "message_telugu": "🚫 INR కాని payment ను fulfill చేయలేదు"}
         provider_status = str(payment_ent.get("status", order_ent.get("status", "")) or "").lower()
+        if not provider_status and production:
+            return {"ok": False, "reason": "status_missing"}
         if name == "payment.captured" and provider_status and provider_status != "captured":
             return {"ok": False, "reason": "not_captured",
                     "message_telugu": "⏳ Payment captured status లేదు — credits add చేయలేదు"}
@@ -1046,7 +1050,8 @@ def handle_razorpay_webhook(event: Dict) -> Dict:
             if payment_owner and payment_owner != str(po.get("id", "")):
                 return {"ok": False, "reason": "payment_already_used",
                         "message_telugu": "🚫 ఈ provider payment ఇప్పటికే మరో order కు జత అయింది."}
-            if payment_owner == str(po.get("id", "")) and payment_id:
+            if (payment_owner == str(po.get("id", "")) and payment_id
+                and (payment_id in PAYMENT_INDEX or payment_id in RECEIPTS or isinstance(po.get("receipt"), dict))):
                 return {"ok": True, "duplicate": True,
                         "receipt": PAYMENT_INDEX.get(payment_id) or RECEIPTS.get(payment_id)}
             if name == "payment.authorized":
