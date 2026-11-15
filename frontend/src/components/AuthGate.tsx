@@ -30,7 +30,7 @@ export default function AuthGate({ title = "", note = "", admin = false }: { tit
           {te ? "🔑 ఫోన్ + పాస్‌వర్డ్ లాగిన్" : "🔑 Phone + password login"}
         </Link>
         <Link href="/register" className="inline-flex min-h-11 items-center rounded-xl border border-[#7A0C2E] px-4 py-2 text-sm font-semibold text-[#7A0C2E] hover:bg-rose-50">
-          {te ? "🆓 కొత్త registration (FREE 3 profiles)" : "🆓 New registration (FREE 3 profiles)"}
+          {te ? "🆓 ఉచిత నమోదు (మొదటి 3 requests ఉచితం)" : "🆓 Register free (first 3 requests free)"}
         </Link>
       </div>
       <p className={`mt-2 text-xs text-amber-700 ${te ? "telugu" : ""}`}>

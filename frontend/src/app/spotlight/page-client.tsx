@@ -130,7 +130,7 @@ export default function SpotlightPromotionPage() {
             <span>{te ? "హోమ్‌కి వెళ్లండి" : "Back to Home"}</span>
           </Link>
           <span className="text-[11px] font-bold bg-amber-200/60 text-maroon px-3 py-1 rounded-full border border-gold/40">
-            ⭐ {te ? "ஸ்பான్సర్డ్ ప్రొఫైల్ ప్రమోషన్" : "Sponsored profile promotion"}
+            ⭐ {te ? "స్పాన్సర్డ్ ప్రొఫైల్ ప్రమోషన్" : "Sponsored profile promotion"}
           </span>
         </div>
 
