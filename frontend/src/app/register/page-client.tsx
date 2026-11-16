@@ -22,6 +22,7 @@ import { communityHubPath } from "@/lib/community-hub.mjs";
 import { useLang } from "@/lib/lang";
 import { apiDisplayMessage, getCsrfToken, readApiJson } from "@/lib/api";
 import { registerPasskey } from "@/lib/webauthn-client";
+import { fetchAuthCapabilities } from "@/lib/auth";
 
 import { ProfilePhotoError, prepareProfilePhoto, profilePhotoErrorMessage } from "@/lib/photo-upload";
 import { stateFullName, isGroomGender, isHomemakerOccupation, workTypesForGender } from "@/lib/telugu-data";
@@ -770,6 +771,16 @@ function Wizard() {
   const [refLocked, setRefLocked] = useState("");
   const [passkeyPw, setPasskeyPw] = useState("");
   const [passkeyBusy, setPasskeyBusy] = useState(false);
+  const [passkeyStatus, setPasskeyStatus] = useState<"checking" | "available" | "unavailable" | "error">("checking");
+  useEffect(() => {
+    let active = true;
+    fetchAuthCapabilities().then(response => {
+      if (!active) return;
+      const supported = response.ok ? response.data?.passkeys_configured : undefined;
+      setPasskeyStatus(supported === true ? "available" : supported === false ? "unavailable" : "error");
+    }).catch(() => { if (active) setPasskeyStatus("error"); });
+    return () => { active = false; };
+  }, []);
   const [refInvite, setRefInvite] = useState("");
   const [refInfo, setRefInfo] = useState<any>(null);
   const [result, setResult] = useState<any>(null);
@@ -1335,8 +1346,8 @@ function Wizard() {
 
           <div className="p-5 sm:p-6 space-y-5">
 
-            {/* Passkey Setup */}
-            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 my-4">
+            {/* Only offer setup when the server explicitly supports it. */}
+            {passkeyStatus === "available" ? <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 my-4">
               <h3 className="text-sm font-bold text-slate-800 mb-2">🔑 {T("పాస్‌కీ సెటప్ (Passkey Setup)", "Passkey Setup")}</h3>
               <p className="text-xs text-slate-600 mb-3">{T("పాస్‌వర్డ్ లేకుండా సురక్షితంగా మీ ఫోన్ వేలిముద్ర/ఫేస్ లాక్ తో లాగిన్ అవ్వడానికి పాస్‌కీ సెటప్ చేయండి.", "Set up a passkey to sign in securely with your fingerprint or face without a password.")}</p>
               <div className="flex flex-col sm:flex-row gap-2 max-w-sm">
@@ -1351,6 +1362,7 @@ function Wizard() {
                 <button 
                   type="button"
                   onClick={async () => {
+                    if (passkeyStatus !== "available") return;
                     if (!passkeyPw) {
                       alert(T("దయచేసి పాస్‌వర్డ్ ఎంటర్ చేయండి.", "Please enter your password."));
                       return;
@@ -1376,7 +1388,13 @@ function Wizard() {
                   {passkeyBusy ? T("సెటప్ అవుతోంది...", "Setting up...") : T("పాస్‌కీ సెటప్ చేయండి", "Register Passkey")}
                 </button>
               </div>
-            </div>
+            </div> : <p role="status" data-testid="registration-passkey-unavailable" className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-xs text-slate-600">
+              {passkeyStatus === "checking"
+                ? T("Passkey అందుబాటు తనిఖీ చేస్తున్నాం...", "Checking passkey availability...")
+                : passkeyStatus === "error"
+                  ? T("Passkey అందుబాటు తనిఖీ కాలేదు. మీ పాస్‌వర్డ్‌తో లాగిన్ అవ్వండి.", "Passkey availability could not be checked. Sign in with your password.")
+                  : T("Passkey సెటప్ ప్రస్తుతం అందుబాటులో లేదు. మీ పాస్‌వర్డ్‌తో లాగిన్ అవ్వండి.", "Passkey setup is not available right now. Sign in with your password.")}
+            </p>}
 
             {result.email_verify?.required && !result.email_verify?.verified && (
               <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 my-4">
