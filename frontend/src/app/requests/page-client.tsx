@@ -188,9 +188,17 @@ export default function RequestsPage() {
   };
 
   const removeSaved = async (id: string) => {
-    await fetch("/api/save", { method: "POST", headers: authHeaders(),
-      body: JSON.stringify({ tsap_id: myId, saved_id: id }) });
-    refresh(myId);
+    try {
+      const r = await fetch("/api/save", { method: "POST", headers: authHeaders(),
+        body: JSON.stringify({ tsap_id: myId, saved_id: id, saved: false }) });
+      if (!r.ok) {
+        setToast({ kind: "err", text: te ? "Shortlist నుంచి తొలగించలేకపోయాం. మళ్లీ ప్రయత్నించండి." : "Could not remove the shortlisted profile. Please retry." });
+        return;
+      }
+      refresh(myId);
+    } catch {
+      setToast({ kind: "err", text: te ? "తొలగించబడిందో నిర్ధారించలేకపోయాం. మళ్లీ ప్రయత్నించడం సురక్షితం." : "Could not confirm removal. Retrying is safe." });
+    }
   };
 
   const chip = (s: string) => {

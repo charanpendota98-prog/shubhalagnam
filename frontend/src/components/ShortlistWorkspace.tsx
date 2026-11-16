@@ -148,8 +148,12 @@ export default function ShortlistWorkspace() {
   const remove = async (profileId: string) => {
     setRemovingId(profileId);
     setNotice(null);
-    const { ok } = await apiPost<{ saved?: boolean }>("/api/save", { tsap_id: myId, saved_id: profileId });
+    const { ok, status } = await apiPost<{ saved?: boolean }>("/api/save", { tsap_id: myId, saved_id: profileId, saved: false });
     setRemovingId("");
+    if (status === 0) {
+      setNotice({ tone: "error", text: te ? "తొలగించబడిందో నిర్ధారించలేకపోయాం. మళ్లీ ప్రయత్నించడం సురక్షితం." : "Could not confirm removal. Retrying is safe." });
+      return;
+    }
     if (!ok) {
       setNotice({ tone: "error", text: te ? "తీసివేయడం సాధ్యపడలేదు. మళ్లీ ప్రయత్నించండి." : "Could not remove it. Please try again." });
       return;

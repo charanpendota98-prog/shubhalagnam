@@ -7402,6 +7402,9 @@ def toggle_save(payload: dict, request: Request = None):
     if safety.is_blocked(tsap_id, saved_id, DB_BLOCKS):
         raise HTTPException(403, "🚫 Blocked profile ని shortlist cheyyaleeru")
     existing = next((x for x in DB_SAVES if x["tsap_id"] == tsap_id and x["saved_id"] == saved_id), None)
+    desired = req_bool(d.get("saved")) if "saved" in d else existing is None
+    if bool(existing) == desired:
+        return {"success": True, "saved": desired, "total_saved": len([x for x in DB_SAVES if x["tsap_id"] == tsap_id])}
     if existing:
         previous_index = DB_SAVES.index(existing)
         DB_SAVES.remove(existing)
