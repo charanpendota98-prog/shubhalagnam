@@ -8,6 +8,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import TrustBadge from "@/components/TrustBadge";
+import PhotoFlow from "@/components/PhotoFlow";
 import { PillScroller } from "@/components/ui";
 import dynamic from "next/dynamic";
 import Link from "next/link";
@@ -48,6 +49,7 @@ import {
   DISTRICTS_BY_STATE,
   DISTRICT_TELUGU,
   WORK_TYPES,
+  workTypesForGender,
   heightLabel,
   sortUniqueOptions,
 } from "@/lib/telugu-data";
@@ -1319,7 +1321,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
   /** Missing fields that have a control on this page can be focused directly. */
   const FOCUSABLE_FIELDS = new Set([
     "full_name", "dob", "height", "marital_status", "sub_caste", "gothram", "star", "rasi",
-    "education", "job", "company", "salary", "work_location", "district", "father_name",
+    "education", "education_detail", "job", "company", "salary", "work_type", "work_location", "district", "father_name", "father_occupation",
     "mother_name", "native_place", "expectations", "about_myself", "photo_url",
   ]);
 
@@ -1347,7 +1349,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
       if (res.ok) {
         const d = await readApiJson(res);
         setProfile(d.profile || {});
-        setScore(d.completeness_score || 70);
+        setScore(typeof d.completeness_score === "number" && Number.isFinite(d.completeness_score) ? Math.min(100, Math.max(0, d.completeness_score)) : 0);
         setMissing(d.missing_fields || []);
       }
     } catch {
@@ -1379,6 +1381,8 @@ function EditProfilePanel({ myId }: { myId: string }) {
       profilePayload.caste = customCaste;
     }
     delete profilePayload.caste_custom;
+    delete profilePayload.photo_url;
+    delete profilePayload.photo_urls;
     try {
       const res = await fetch("/api/profile/update", {
         method: "POST",
@@ -1387,7 +1391,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
       });
       const d = await readApiJson(res);
       if (res.ok && d.success) {
-        setScore(d.completeness_score || 100);
+        setScore(typeof d.completeness_score === "number" && Number.isFinite(d.completeness_score) ? Math.min(100, Math.max(0, d.completeness_score)) : 0);
         setMissing(d.missing_fields || []);
         setMsg({ ok: true, text: apiDisplayMessage(d, te, te ? "ప్రొఫైల్ వివరాలు అప్‌డేట్ అయ్యాయి. ✅" : "Profile details updated.") });
       } else {
@@ -1699,6 +1703,17 @@ function EditProfilePanel({ myId }: { myId: string }) {
               </select>
             </div>
             <div>
+              <label htmlFor="me-education_detail" className="font-bold text-slate-800 block mb-1">{T("విద్య వివరాలు", "Education details")}:</label>
+              <input id="me-education_detail" type="text" maxLength={120} value={profile.education_detail || ""} onChange={(e) => setField("education_detail", e.target.value)} className="w-full p-2.5 border border-slate-200 rounded-xl focus:outline-none focus:border-maroon" />
+            </div>
+            <div>
+              <label htmlFor="me-work_type" className="font-bold text-slate-800 block mb-1">{T("పని రకం", "Work type")}:</label>
+              <select id="me-work_type" value={profile.work_type || ""} onChange={(e) => setField("work_type", e.target.value)} className="w-full p-2.5 border border-slate-200 rounded-xl bg-white focus:outline-none focus:border-maroon">
+                <option value="">{T("ఎంచుకోండి / తెలియజేయలేదు", "Select / not specified")}</option>
+                {workTypesForGender(profile.gender).map((type) => <option key={type.en} value={type.en}>{te ? type.te : type.en}</option>)}
+              </select>
+            </div>
+            <div>
               <label className="font-bold text-slate-800 block mb-1">{T("ఉద్యోగం / హోదా", "Occupation / job title")}:</label>
               <input id={`me-job`}
                 type="text"
@@ -1771,6 +1786,10 @@ function EditProfilePanel({ myId }: { myId: string }) {
                 placeholder={T("తండ్రి పేరు", "Father’s name")}
                 className="w-full p-2.5 border border-slate-200 rounded-xl focus:outline-none focus:border-maroon"
               />
+            </div>
+            <div>
+              <label htmlFor="me-father_occupation" className="font-bold text-slate-800 block mb-1">{T("తండ్రి వృత్తి", "Father's occupation")}:</label>
+              <input id="me-father_occupation" type="text" maxLength={60} value={profile.father_occupation || ""} onChange={(e) => setField("father_occupation", e.target.value)} className="w-full p-2.5 border border-slate-200 rounded-xl focus:outline-none focus:border-maroon" />
             </div>
             <div>
               <label className="font-bold text-slate-800 block mb-1">{T("తల్లి పేరు & వృత్తి", "Mother’s name and occupation")}:</label>
@@ -1872,14 +1891,17 @@ function EditProfilePanel({ myId }: { myId: string }) {
               />
             </div>
             <div className="sm:col-span-2 lg:col-span-3">
-              <label className="font-bold text-slate-800 block mb-1">{T("ఫోటో లింక్", "Photo link")}:</label>
-              <input id={`me-photo_url`}
-                type="text"
-                value={profile.photo_url || ""}
-                onChange={(e) => setField("photo_url", e.target.value)}
-                placeholder="https://..."
-                className="w-full p-2.5 border border-slate-200 rounded-xl focus:outline-none focus:border-maroon"
-              />
+              <div id="me-photo_url" tabIndex={-1} className="rounded-2xl focus:outline-none focus:ring-2 focus:ring-maroon">
+                <PhotoFlow tsapId={myId} onUploaded={async () => {
+                  // Refresh the saved completion facts without discarding unsaved text edits.
+                  const res = await fetch(`/api/profile/${encodeURIComponent(myId)}`, { headers: authHeaders() });
+                  if (res.ok) {
+                    const data = await readApiJson(res);
+                    setScore(typeof data.completeness_score === "number" && Number.isFinite(data.completeness_score) ? Math.min(100, Math.max(0, data.completeness_score)) : 0);
+                    setMissing(data.missing_fields || []);
+                  }
+                }} />
+              </div>
             </div>
             <div className="sm:col-span-2 lg:col-span-3">
               <label className="font-bold text-slate-800 block mb-1">{T("నా గురించి", "About me")}:</label>
