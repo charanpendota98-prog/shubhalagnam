@@ -140,7 +140,7 @@ const isSecondMarriage = isSecondMarriageStatus;
 export default function MatchesPage() {
   const { lang } = useLang();
   const te = lang === "te";
-  const { tsapId: myTsapId, token: sessionToken, ready: sessionReady } = useSession();
+  const { tsapId: myTsapId, authenticated: sessionAuthenticated, ready: sessionReady } = useSession();
   const displayProfileValue = (value: unknown) => {
     const text = String(value ?? "").trim();
     return te ? text : apiDisplayMessage({ message_en: text }, false, "");
@@ -214,7 +214,7 @@ export default function MatchesPage() {
   useEffect(() => {
     if (!sessionReady) return;
     let active = true;
-    if (!myTsapId || !sessionToken) {
+    if (!myTsapId || !sessionAuthenticated) {
       setSavedIds([]);
       setSaveNotice(null);
       setSavedLoaded(true);
@@ -250,12 +250,12 @@ export default function MatchesPage() {
     });
 
     return () => { active = false; };
-  }, [myTsapId, savedLoadAttempt, sessionReady, sessionToken, te]);
+  }, [myTsapId, savedLoadAttempt, sessionReady, sessionAuthenticated, te]);
 
   useEffect(() => {
     if (!sessionReady) return;
     let active = true;
-    if (!myTsapId || !sessionToken) {
+    if (!myTsapId || !sessionAuthenticated) {
       setSavedSearches([]);
       setSavedSearchesLoaded(true);
       setSavedSearchesLoadError(false);
@@ -296,7 +296,7 @@ export default function MatchesPage() {
       .finally(() => { if (active) setSavedSearchesLoaded(true); });
 
     return () => { active = false; };
-  }, [myTsapId, savedSearchLoadAttempt, sessionReady, sessionToken, te]);
+  }, [myTsapId, savedSearchLoadAttempt, sessionReady, sessionAuthenticated, te]);
 
   const [prefLoading, setPrefLoading] = useState(false);
   const [prefApplied, setPrefApplied] = useState(false);
@@ -304,7 +304,7 @@ export default function MatchesPage() {
   const applySavedPreferences = async () => {
     try {
       const myId = myTsapId;
-      if (!sessionReady || !sessionToken || !myId) {
+      if (!sessionReady || !sessionAuthenticated || !myId) {
         alert(te ? "మీరు సేవ్ చేసిన ప్రాధాన్యతలను లోడ్ చేయడానికి ముందుగా లాగిన్ అవ్వండి లేదా నమోదు చేసుకోండి." : "Sign in or register to load your saved preferences.");
         return;
       }
@@ -779,7 +779,7 @@ export default function MatchesPage() {
   };
 
   const beginSaveSearch = () => {
-    if (!sessionReady || !myTsapId || !sessionToken) return;
+    if (!sessionReady || !myTsapId || !sessionAuthenticated) return;
     setSavedSearchNotice(null);
     setSaveSearchName(`${te ? "నా శోధన" : "My search"} ${savedSearches.length + 1}`);
     setSaveSearchDialogOpen(true);
@@ -795,7 +795,7 @@ export default function MatchesPage() {
       setSavedSearchNotice({ tone: "error", text: te ? "గరిష్ఠంగా 20 saved searches మాత్రమే ఉంచవచ్చు." : "You can keep up to 20 saved searches." });
       return;
     }
-    if (!sessionReady || !myTsapId || !sessionToken) {
+    if (!sessionReady || !myTsapId || !sessionAuthenticated) {
       setSavedSearchNotice({ tone: "error", text: te ? "ఈ search‌ను save చేయడానికి login చేయండి." : "Sign in to save this search." });
       return;
     }
@@ -886,7 +886,7 @@ export default function MatchesPage() {
   }, [savedSearchesLoaded, savedSearches, deepLinkApplied, te, applySavedSearch]);
 
   const turnOffSavedSearchAlerts = async (savedSearch: SavedSearchItem) => {
-    if (!myTsapId || !sessionToken || !savedSearch.search_id) return;
+    if (!myTsapId || !sessionAuthenticated || !savedSearch.search_id) return;
     setTurningOffAlertId(savedSearch.search_id);
     setSavedSearchNotice(null);
     try {
@@ -908,7 +908,7 @@ export default function MatchesPage() {
   };
 
   const deleteSavedSearch = async (savedSearch: SavedSearchItem) => {
-    if (!myTsapId || !sessionToken || !savedSearch.search_id) return;
+    if (!myTsapId || !sessionAuthenticated || !savedSearch.search_id) return;
     if (confirmDeleteSearchId !== savedSearch.search_id) {
       setConfirmDeleteSearchId(savedSearch.search_id);
       return;
@@ -937,7 +937,7 @@ export default function MatchesPage() {
   const toggleSave = async (row: Row) => {
     const id = String(row.tsap_id || "").trim();
     if (!id) return;
-    if (!sessionReady || !myTsapId || !sessionToken) {
+    if (!sessionReady || !myTsapId || !sessionAuthenticated) {
       setSaveNotice({
         tone: "error",
         text: te ? "ప్రొఫైల్‌ను shortlist చేయడానికి ముందుగా login చేయండి." : "Sign in to add profiles to your shortlist.",
@@ -1080,20 +1080,20 @@ export default function MatchesPage() {
                 <button
                   type="button"
                   onClick={() => { void toggleSave(row); }}
-                  disabled={!sessionReady || (!!sessionToken && !savedLoaded) || !!savingId}
+                  disabled={!sessionReady || (!!sessionAuthenticated && !savedLoaded) || !!savingId}
                   aria-label={isSaving
                     ? (te ? "Shortlist నవీకరిస్తున్నాము" : "Updating shortlist")
-                    : !sessionReady || (!!sessionToken && !savedLoaded)
+                    : !sessionReady || (!!sessionAuthenticated && !savedLoaded)
                       ? (te ? "Shortlist స్థితి లోడ్ అవుతోంది" : "Loading shortlist status")
-                      : !sessionToken || !myTsapId
+                      : !sessionAuthenticated || !myTsapId
                         ? (te ? "ప్రొఫైల్‌ను shortlist చేయడానికి login చేయండి" : "Log in to save this profile")
                         : (te ? "ఈ ప్రొఫైల్‌ను shortlist చేయండి" : "Shortlist profile")}
                   aria-pressed={isSaved}
-                  aria-busy={isSaving || (!!sessionToken && !savedLoaded)}
+                  aria-busy={isSaving || (!!sessionAuthenticated && !savedLoaded)}
                   title={isSaved ? (te ? "Shortlist‌లో ఉంది" : "In shortlist") : (te ? "Shortlist‌లో చేర్చండి" : "Add to shortlist")}
                   className={`inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-full text-lg transition disabled:cursor-wait disabled:opacity-60 ${isSaved ? "bg-rose-50 text-rose-600" : "text-slate-400 hover:bg-rose-50 hover:text-rose-500"}`}
                 >
-                  {isSaving || (!!sessionToken && !savedLoaded) ? "…" : isSaved ? "❤️" : "🤍"}
+                  {isSaving || (!!sessionAuthenticated && !savedLoaded) ? "…" : isSaved ? "❤️" : "🤍"}
                 </button>
               </div>
 
@@ -1863,7 +1863,7 @@ export default function MatchesPage() {
                     <button type="button" disabled className="min-h-11 rounded-xl border border-slate-200 px-3 text-xs font-bold text-slate-400">
                       {te ? "ఖాతా లోడ్ అవుతోంది…" : "Loading account…"}
                     </button>
-                  ) : myTsapId && sessionToken ? (
+                  ) : myTsapId && sessionAuthenticated ? (
                     <button
                       type="button"
                       onClick={beginSaveSearch}
@@ -1886,7 +1886,7 @@ export default function MatchesPage() {
                     className="min-h-11 rounded-xl border border-slate-200 bg-slate-50 px-3.5 text-xs font-bold text-slate-800"
                   >
                     {savedSearchPanelOpen ? (te ? "మూసివేయండి" : "Hide") : (te ? "నా searches" : "Manage")}
-                    {sessionReady && myTsapId && sessionToken ? ` (${savedSearches.length}/20)` : ""}
+                    {sessionReady && myTsapId && sessionAuthenticated ? ` (${savedSearches.length}/20)` : ""}
                   </button>
                 </div>
               </div>
@@ -1906,7 +1906,7 @@ export default function MatchesPage() {
                 <div id="saved-search-panel" className="mt-3 space-y-2 border-t border-slate-100 pt-3">
                   {!sessionReady || !savedSearchesLoaded ? (
                     <p role="status" className="text-sm text-slate-500">{te ? "Saved searches లోడ్ అవుతున్నాయి…" : "Loading saved searches…"}</p>
-                  ) : !myTsapId || !sessionToken ? (
+                  ) : !myTsapId || !sessionAuthenticated ? (
                     <div className="rounded-xl bg-slate-50 p-3 text-sm text-slate-700">
                       <p>{te ? "Saved searches మీ ఖాతాలోనే ఉంటాయి. వాటిని చూడటానికి login చేయండి." : "Saved searches are private to your account. Sign in to view them."}</p>
                       <Link href="/login?next=%2Fmatches" className="mt-2 inline-flex min-h-11 items-center font-bold text-maroon underline">{te ? "Login" : "Sign in"}</Link>
@@ -2017,7 +2017,7 @@ export default function MatchesPage() {
             </div>
 
             {/* Signed-in members can pick up where they left off. Private to the account. */}
-            {!!sessionToken && !!myTsapId && !loading && (
+            {!!sessionAuthenticated && !!myTsapId && !loading && (
               <ProfileRail kind="recent" viewerId={myTsapId} />
             )}
 
