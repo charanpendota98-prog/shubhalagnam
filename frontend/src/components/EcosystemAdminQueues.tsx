@@ -30,6 +30,7 @@ export default function EcosystemAdminQueues() {
   const [orgCaste, setOrgCaste] = useState("");
   const [replyText, setReplyText] = useState<Record<string, string>>({});
   const [flash, setFlash] = useState("");
+  const [replyFailed, setReplyFailed] = useState(false);
 
   const setAssistEnabled = async (enabled: boolean) => {
     try {
@@ -118,15 +119,25 @@ export default function EcosystemAdminQueues() {
   const replyTicket = async (ticketId: string) => {
     const msg = (replyText[ticketId] || "").trim();
     if (!msg) return;
-    const r = await fetch(`/api/admin/support/tickets/${encodeURIComponent(ticketId)}/reply`, {
-      method: "POST",
-      headers: { ...authHeaders(true), "Content-Type": "application/json" },
-      credentials: "same-origin",
-      body: JSON.stringify({ reply: msg, status: "resolved" }),
-    });
-    if (r.ok) {
-      setFlash(`✅ Replied & resolved ${ticketId}`);
+    setFlash("");
+    setReplyFailed(false);
+    try {
+      const r = await fetch(`/api/admin/support/tickets/${encodeURIComponent(ticketId)}/reply`, {
+        method: "POST",
+        headers: { ...authHeaders(true), "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ reply: msg, status: "closed" }),
+      });
+      if (!r.ok) {
+        setReplyFailed(true);
+        setFlash(te ? "సమాధానం సేవ్ కాలేదు. మళ్లీ ప్రయత్నించండి." : "Reply was not saved. Please retry.");
+        return;
+      }
+      setFlash(te ? `✅ సమాధానం సేవ్ అయింది, టికెట్ మూసివేయబడింది: ${ticketId}` : `✅ Reply saved and ticket closed: ${ticketId}`);
       void loadAll();
+    } catch {
+      setReplyFailed(true);
+      setFlash(te ? "సమాధానం సేవ్ అయ్యిందో నిర్ధారించలేకపోయాం. మళ్లీ ప్రయత్నించే ముందు టికెట్‌ను రీలోడ్ చేయండి." : "Could not confirm the reply was saved. Reload the ticket before retrying.");
     }
   };
 
@@ -145,7 +156,7 @@ export default function EcosystemAdminQueues() {
 
   return (
     <div className="mt-6 space-y-5 border-t border-slate-200 pt-5">
-      {flash && <div className="rounded-xl bg-emerald-900 px-3 py-2 text-xs font-bold text-white">{flash}</div>}
+      {flash && <div role={replyFailed ? "alert" : "status"} className={`rounded-xl px-3 py-2 text-xs font-bold ${replyFailed ? "border border-rose-200 bg-rose-50 text-rose-900" : "bg-emerald-900 text-white"}`}>{flash}</div>}
 
       {/* Phase 2: Transactional Identity SQL Parity Card (Owner only) */}
       {parity && (
@@ -260,7 +271,7 @@ export default function EcosystemAdminQueues() {
                     className="flex-1 rounded-lg border px-2 py-1 text-xs"
                   />
                   <button type="button" onClick={() => void replyTicket(t.ticket_id)} className="rounded-lg bg-[#7A0C2E] px-3 py-1 font-bold text-white">
-                    Send & Resolve
+                    {te ? "సమాధానం పంపి మూసివేయండి" : "Send & Close"}
                   </button>
                 </div>
               </div>

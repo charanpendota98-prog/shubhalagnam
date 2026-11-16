@@ -17,7 +17,7 @@ export default function MemberEcosystemHub({
   const te = lang === "te";
   const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState("");
-  const [exportFailed, setExportFailed] = useState(false);
+  const [toastError, setToastError] = useState(false);
 
   // Credit ledger & receipts
   const [ledger, setLedger] = useState<any>(null);
@@ -163,7 +163,7 @@ export default function MemberEcosystemHub({
 
   const downloadDataExport = async () => {
     setBusy(true);
-    setExportFailed(false);
+    setToastError(false);
     setToast("");
     try {
       const r = await fetch(`/api/me/${encodeURIComponent(myId)}/data-export`, {
@@ -171,7 +171,7 @@ export default function MemberEcosystemHub({
         credentials: "same-origin",
       });
       if (!r.ok) {
-        setExportFailed(true);
+        setToastError(true);
         setToast(te ? "డేటా డౌన్‌లోడ్ సాధ్యం కాలేదు." : "Could not export account data.");
         return;
       }
@@ -184,7 +184,7 @@ export default function MemberEcosystemHub({
       URL.revokeObjectURL(url);
       setToast(te ? "✅ మీ ఖాతా డేటా JSON డౌన్‌లోడ్ అయింది." : "✅ Your account data export (JSON) has downloaded.");
     } catch {
-      setExportFailed(true);
+      setToastError(true);
       setToast(te ? "డేటా డౌన్‌లోడ్ సాధ్యం కాలేదు. మళ్లీ ప్రయత్నించండి." : "Could not export account data. Please retry.");
     } finally {
       setBusy(false);
@@ -197,6 +197,8 @@ export default function MemberEcosystemHub({
       return;
     }
     setBusy(true);
+    setToast("");
+    setToastError(false);
     try {
       const r = await fetch("/api/support/tickets", {
         method: "POST",
@@ -211,8 +213,12 @@ export default function MemberEcosystemHub({
         setToast(te ? `✅ టికెట్ నమోదైంది: ${d.ticket?.ticket_id}` : `✅ Support ticket created: ${d.ticket?.ticket_id}`);
         await loadSection();
       } else {
-        setToast(d.detail || "Ticket submission failed.");
+        setToastError(true);
+        setToast(te ? "టికెట్ సేవ్ కాలేదు. మళ్లీ ప్రయత్నించండి." : "Ticket was not saved. Please retry.");
       }
+    } catch {
+      setToastError(true);
+      setToast(te ? "టికెట్ సేవ్ అయ్యిందో నిర్ధారించలేకపోయాం. మళ్లీ పంపే ముందు టికెట్లను రీలోడ్ చేయండి." : "Could not confirm the ticket was saved. Reload your tickets before submitting again.");
     } finally {
       setBusy(false);
     }
@@ -222,8 +228,8 @@ export default function MemberEcosystemHub({
     <div className="space-y-4">
       {toast && (
         <div
-          role={exportFailed ? "alert" : "status"}
-          className={`rounded-2xl border px-4 py-2.5 text-xs font-bold ${exportFailed ? "border-rose-200 bg-rose-50 text-rose-900" : "border-emerald-200 bg-emerald-50 text-emerald-900"}`}
+          role={toastError ? "alert" : "status"}
+          className={`rounded-2xl border px-4 py-2.5 text-xs font-bold ${toastError ? "border-rose-200 bg-rose-50 text-rose-900" : "border-emerald-200 bg-emerald-50 text-emerald-900"}`}
         >
           {toast}
         </div>
@@ -532,9 +538,9 @@ export default function MemberEcosystemHub({
             <div className="space-y-2 border-t border-slate-100 pt-3">
               {tickets.map((t) => (
                 <div key={t.ticket_id} className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs space-y-1">
-                  <div className="flex items-center justify-between font-bold">
+                  <div className="flex items-start justify-between gap-2 font-bold">
                     <span className="text-[#7A0C2E]">{t.ticket_id} — {t.subject}</span>
-                    <span className="rounded-full bg-white border px-2 py-0.5 text-[10px] uppercase">{t.status}</span>
+                    <span className="shrink-0 whitespace-nowrap rounded-full bg-white border px-2 py-0.5 text-[10px] uppercase">{t.status}</span>
                   </div>
                   {(t.messages || []).map((m: any, idx: number) => (
                     <div key={idx} className="text-[11px] text-slate-700">

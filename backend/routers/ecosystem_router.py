@@ -321,7 +321,7 @@ def build_ecosystem_router(ctx: Dict[str, Callable[..., Any] | Any]) -> APIRoute
             message=str(d.get("message", "")),
         )
         if not ok:
-            raise HTTPException(400, msg)
+            raise HTTPException(503 if "could not be saved" in msg else 400, msg)
         return {"success": True, "ticket": rec}
 
     @router.get("/api/support/tickets/{tsap_id}")
@@ -348,7 +348,7 @@ def build_ecosystem_router(ctx: Dict[str, Callable[..., Any] | Any]) -> APIRoute
             status=str(d.get("status", "answered")),
         )
         if not ok:
-            raise HTTPException(400, msg)
+            raise HTTPException(503 if "could not be saved" in msg else 400, msg)
         return {"success": True, "ticket": rec}
 
     @router.post("/api/vendors/{vendor_id}/quote")
