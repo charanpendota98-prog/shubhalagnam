@@ -16,6 +16,7 @@ export default function Phase2MemberWorkspace({
   const te = lang === "te";
   const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState("");
+  const [alertSaveFailed, setAlertSaveFailed] = useState(false);
 
   // Alerts & Saved-Search Digest
   const [digestData, setDigestData] = useState<any>(null);
@@ -106,6 +107,7 @@ export default function Phase2MemberWorkspace({
   const saveAlertPrefs = async (nextEnabled: boolean) => {
     setBusy(true);
     setToast("");
+    setAlertSaveFailed(false);
     try {
       const r = await fetch(`/api/me/${encodeURIComponent(myId)}/alert-preferences`, {
         method: "POST",
@@ -126,7 +128,13 @@ export default function Phase2MemberWorkspace({
             : (te ? "✅ అలర్ట్‌లు ఆఫ్ చేయబడ్డాయి." : "✅ Saved-search alerts turned off."),
         );
         await loadData();
+      } else {
+        setAlertSaveFailed(true);
+        setToast(te ? "అలర్ట్ సెట్టింగ్‌లు సేవ్ కాలేదు. మళ్లీ ప్రయత్నించండి." : "Alert settings were not saved. Please retry.");
       }
+    } catch {
+      setAlertSaveFailed(true);
+      setToast(te ? "అలర్ట్ సెట్టింగ్‌లు సేవ్ అయ్యాయో నిర్ధారించలేకపోయాం. మళ్లీ ప్రయత్నించే ముందు రీలోడ్ చేయండి." : "Could not confirm alert settings were saved. Reload before retrying.");
     } finally {
       setBusy(false);
     }
@@ -278,7 +286,7 @@ export default function Phase2MemberWorkspace({
   if (mode === "alerts") {
     return (
       <section className="mv-surface mv-surface__body space-y-4">
-        {toast && <div className="rounded-xl bg-emerald-50 border border-emerald-200 px-3.5 py-2 text-xs font-bold text-emerald-900">{toast}</div>}
+        {toast && <div role={alertSaveFailed ? "alert" : "status"} className={`rounded-xl border px-3.5 py-2 text-xs font-bold ${alertSaveFailed ? "border-rose-200 bg-rose-50 text-rose-900" : "border-emerald-200 bg-emerald-50 text-emerald-900"}`}>{toast}</div>}
 
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
