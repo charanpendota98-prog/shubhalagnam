@@ -180,7 +180,9 @@ RELIGION_CASTES: Dict[str, List[str]] = {
     "Buddhist": _alpha_unique(OTHER_GROUPS),
     "Other": _alpha_unique(OTHER_GROUPS),
 }
-RELIGIONS = ["Hindu", "Muslim", "Christian", "Sikh", "Jain", "Buddhist", "Other"]
+# New registrations and offered website choices only. Legacy stored records are
+# not migrated, relabeled or removed by this supported-service scope.
+RELIGIONS = ["Hindu", "Muslim", "Christian"]
 
 
 def castes_for(religion: str) -> Dict:
@@ -189,6 +191,7 @@ def castes_for(religion: str) -> Dict:
     r = {"Hindhu": "Hindu", "Islam": "Muslim", "Muslims": "Muslim",
          "Christians": "Christian"}.get(r, r)
     if r not in RELIGIONS:
-        r = "Other"
+        return {"religion": r, "castes": [], "supported": False,
+                "note_telugu": "ఈ మతానికి కొత్త నమోదు ప్రస్తుతం అందుబాటులో లేదు."}
     return {"religion": r, "castes": list(RELIGION_CASTES[r]),
             "note_telugu": f"✅ {r} — {len(RELIGION_CASTES[r])} groups (A–Z order)"}

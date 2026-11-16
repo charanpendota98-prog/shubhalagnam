@@ -157,7 +157,7 @@ check("C6 Dubai → NRI", MP.detect_nri("UAE", "Dubai", "")["is_nri"] is True)
 # ═══════════════════════════════════════════════════════════════════════════
 section("D. RELIGION→CASTE PURE")
 # ═══════════════════════════════════════════════════════════════════════════
-check("D1 7 religions", MP.RELIGIONS == ["Hindu", "Muslim", "Christian", "Sikh", "Jain", "Buddhist", "Other"])
+check("D1 exactly three supported religions", MP.RELIGIONS == ["Hindu", "Muslim", "Christian"])
 h = MP.castes_for("Hindu")
 check("D2 Hindu community list includes local and self-described options", len(h["castes"]) >= 50 and "Other / self-described" in h["castes"], len(h["castes"]))
 check("D3 Hindu communities alphabetize case-insensitively",
@@ -167,7 +167,7 @@ check("D4 Muslim groups A–Z", "Syed" in m["castes"] and m["castes"] == sorted(
 c = MP.castes_for("Christian")
 check("D5 Christian groups", "CSI" in c["castes"] and len(c["castes"]) >= 8, c["castes"])
 check("D6 alias Islam→Muslim", MP.castes_for("Islam")["religion"] == "Muslim")
-check("D7 unknown religion safely maps to Other", MP.castes_for("Zoro")["religion"] == "Other" and "Other / self-described" in MP.castes_for("Zoro")["castes"])
+check("D7 unsupported religion is not relabeled and offers no choices", MP.castes_for("Zoro")["religion"] == "Zoro" and MP.castes_for("Zoro")["castes"] == [])
 
 # ═══════════════════════════════════════════════════════════════════════════
 section("E–G. API REGISTERS (age + profession + NRI)")
@@ -457,7 +457,7 @@ check("L6 bogus ID 404", bot404.status_code == 404, bot404.status_code)
 section("M. META ENDPOINTS")
 # ═══════════════════════════════════════════════════════════════════════════
 mr = client.get("/api/meta/religions").json()
-check("M1 religions 7", mr.get("success") and len(mr.get("religions", [])) == 7, mr)
+check("M1 religions exactly three", mr.get("success") and mr.get("religions") == ["Hindu", "Muslim", "Christian"], mr)
 mc = client.get("/api/meta/castes?religion=Muslim").json()
 check("M2 muslim castes API", mc.get("success") and "Syed" in mc.get("castes", []), mc.get("castes", [])[:4])
 mc2 = client.get("/api/meta/castes?religion=Hindu").json()

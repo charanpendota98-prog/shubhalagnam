@@ -47,6 +47,10 @@ SITE = "https://manavivaha.in"
 # the rest, so ST members can find their group from the directory.)
 PUBLIC_DIRECTORY_EXCLUDED_KEYS = frozenset({
     "official", "hindu",
+    # Website listing removal only. Keep private registry links and external
+    # channels intact; no channel/member deletion or recategorization.
+    "sikh_bride", "sikh_groom", "jain_bride", "jain_groom",
+    "buddhist_bride", "buddhist_groom", "other_religion_bride", "other_religion_groom",
     "bureau_network", "differently_abled", "doctors_teachers", "fraud_alerts",
     "govt_jobs", "second_marriage", "software_it", "success_stories",
 })

@@ -430,8 +430,8 @@ try:
          patch.object(main, "_find_user", return_value=_spotlight_profile):
         _deactivated_spotlights = main._current_public_spotlights(6)
     check("Spotlight public feed hides deactivated profiles immediately", _deactivated_spotlights == [])
-    check("GET /api/channels exposes 93 public listings; routing remains disabled",
-          d["stats"]["total"] == 93 and d["stats"]["routing_eligible"] == 0, d["stats"])
+    check("GET /api/channels exposes 85 public listings; routing remains disabled",
+          d["stats"]["total"] == 85 and d["stats"]["routing_eligible"] == 0, d["stats"])
     public_channels = [channel for tier_rows in d["channels_by_tier"].values() for channel in tier_rows]
     check("Public channel API omits excluded categories, malformed targets and external-status claims",
           all("fallbacks" not in channel and "live" not in channel
@@ -467,7 +467,7 @@ try:
 
     sp = c.get("/api/channels/setup-plan").json()
     check("GET /api/channels/setup-plan includes only public listings",
-          len(sp["plan"]) == 93
+          len(sp["plan"]) == 85
           and not (C.PUBLIC_DIRECTORY_EXCLUDED_KEYS & {row["key"] for row in sp["plan"]})
           and all("fallbacks" not in row and "live" not in row
                   and "routing_eligible" in row and row["external_status_checked"] is False
@@ -475,7 +475,7 @@ try:
     check("setup-plan local copy checks pass while destinations remain unconfigured",
           sp["config_problems"] == [] and sp["stats"]["routing_eligible"] == 0)
     check("setup-plan wave filter counts only public listings",
-          len(c.get("/api/channels/setup-plan?wave=1").json()["plan"]) == 22)
+          len(c.get("/api/channels/setup-plan?wave=1").json()["plan"]) == 14)
 
     # Exercise admin/runtime link overrides without persisting or editing the tracked link map.
     import copy
@@ -525,7 +525,7 @@ if FAIL:
     sys.exit(1)
 if SKIP:
     print("SKIPPED:", SKIP)
-print("🏆 CHANNELS SETUP (103 internal entries; 93 public listings; safe destinations) — executed tests pass")
+print("🏆 CHANNELS SETUP (103 internal entries; 85 public listings; safe destinations) — executed tests pass")
 
 # Isolated test data/assets/kits are removed by the registered atexit cleanup,
 # including when the suite exits early after a failure.
