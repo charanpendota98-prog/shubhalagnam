@@ -17,6 +17,7 @@ export default function MemberEcosystemHub({
   const te = lang === "te";
   const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState("");
+  const [exportFailed, setExportFailed] = useState(false);
 
   // Credit ledger & receipts
   const [ledger, setLedger] = useState<any>(null);
@@ -162,6 +163,7 @@ export default function MemberEcosystemHub({
 
   const downloadDataExport = async () => {
     setBusy(true);
+    setExportFailed(false);
     setToast("");
     try {
       const r = await fetch(`/api/me/${encodeURIComponent(myId)}/data-export`, {
@@ -169,6 +171,7 @@ export default function MemberEcosystemHub({
         credentials: "same-origin",
       });
       if (!r.ok) {
+        setExportFailed(true);
         setToast(te ? "డేటా డౌన్‌లోడ్ సాధ్యం కాలేదు." : "Could not export account data.");
         return;
       }
@@ -181,6 +184,7 @@ export default function MemberEcosystemHub({
       URL.revokeObjectURL(url);
       setToast(te ? "✅ మీ ఖాతా డేటా JSON డౌన్‌లోడ్ అయింది." : "✅ Your account data export (JSON) has downloaded.");
     } catch {
+      setExportFailed(true);
       setToast(te ? "డేటా డౌన్‌లోడ్ సాధ్యం కాలేదు. మళ్లీ ప్రయత్నించండి." : "Could not export account data. Please retry.");
     } finally {
       setBusy(false);
@@ -217,7 +221,10 @@ export default function MemberEcosystemHub({
   return (
     <div className="space-y-4">
       {toast && (
-        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-xs font-bold text-emerald-900">
+        <div
+          role={exportFailed ? "alert" : "status"}
+          className={`rounded-2xl border px-4 py-2.5 text-xs font-bold ${exportFailed ? "border-rose-200 bg-rose-50 text-rose-900" : "border-emerald-200 bg-emerald-50 text-emerald-900"}`}
+        >
           {toast}
         </div>
       )}
