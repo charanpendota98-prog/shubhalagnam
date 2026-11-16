@@ -17,7 +17,7 @@ type Status = {
 
 type ApiError = { detail?: unknown; [key: string]: unknown };
 
-export default function PhotoFlow({ tsapId }: { tsapId: string }) {
+export default function PhotoFlow({ tsapId, onUploaded }: { tsapId: string; onUploaded?: () => void | Promise<void> }) {
   const { lang } = useLang();
   const te = lang === "te";
   const [st, setSt] = useState<Status | null>(null);
@@ -77,6 +77,7 @@ export default function PhotoFlow({ tsapId }: { tsapId: string }) {
         photo_reason_te: "",
       }));
       await load();
+      await onUploaded?.();
     } catch (error) {
       if (error instanceof ProfilePhotoError) {
         setErr(profilePhotoErrorMessage(error.code, te));
@@ -90,7 +91,9 @@ export default function PhotoFlow({ tsapId }: { tsapId: string }) {
 
   const status = st?.photo_status || "loading";
   const mayReplace = status === "approved" || status === "rejected" || status === "none";
-  const title = status === "approved"
+  const title = status === "none"
+    ? (te ? "ప్రొఫైల్ ఫోటో జోడించండి" : "Add a profile photo")
+    : status === "approved"
     ? (te ? "ఫోటో సమీక్ష పూర్తయింది" : "Photo review complete")
     : status === "rejected"
       ? (te ? "మరో ఫోటో అవసరం" : "Please choose another photo")
@@ -125,8 +128,8 @@ export default function PhotoFlow({ tsapId }: { tsapId: string }) {
           ) : (
             <p className={`mt-1 text-xs leading-relaxed text-slate-600 ${te ? "telugu" : ""}`}>
               {te
-                ? "ఫోటోతో నమోదు చేయబడింది. స్థితి రాకపోతే, మీ అకౌంట్‌ను మళ్లీ తెరిచి ప్రయత్నించండి లేదా సిబ్బంది సహాయం పొందండి."
-                : "Your registration included a photo. If its status is unavailable, reopen your account and retry or ask staff for help."}
+                ? "స్పష్టమైన అసలు ప్రొఫైల్ ఫోటోను అప్‌లోడ్ చేయండి. సిబ్బంది సమీక్షిస్తారు; మీ privacy ఎంపిక అమల్లో ఉంటుంది."
+                : "Upload a clear, original profile photo for staff review. Your privacy choice remains in effect."}
             </p>
           )}
         </div>
