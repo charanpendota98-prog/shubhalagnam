@@ -475,6 +475,7 @@ function PartnerPreferencesPanel({ myId }: { myId: string }) {
   const { lang } = useLang();
   const te = lang === "te";
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
@@ -503,7 +504,13 @@ function PartnerPreferencesPanel({ myId }: { myId: string }) {
 
   const loadPreferences = useCallback(async () => {
     setLoading(true);
+    setLoadError(false);
     const { ok, data } = await apiGet<Row>(`/api/profile/preferences?tsap_id=${encodeURIComponent(myId)}`);
+    if (!ok || !data?.preferences) {
+      setLoadError(true);
+      setLoading(false);
+      return;
+    }
     if (ok && data?.preferences) {
       const p = data.preferences;
       setAgeMin(p.age_min || 21);
@@ -621,16 +628,30 @@ function PartnerPreferencesPanel({ myId }: { myId: string }) {
       notes,
     };
 
-    const { ok, data } = await apiPost<Row>("/api/profile/preferences", payload);
-    setSaving(false);
-    if (ok && data?.success) {
-      setMsg({ ok: true, text: apiDisplayMessage(data, te, te ? "మీ ప్రాధాన్యతలు భద్రపరచబడ్డాయి. ✅" : "Your preferences have been saved.") });
-      setMatchingCount(data.matching_count || 0);
-      setPreviewMatches(data.preview_matches || []);
-    } else {
-      setMsg({ ok: false, text: te ? "ప్రిఫరెన్సెస్ సేవ్ చేయడంలో లోపం జరిగింది. దయచేసి మళ్లీ ప్రయత్నించండి." : "Could not save preferences. Please try again." });
+    try {
+      const { ok, data, status } = await apiPost<Row>("/api/profile/preferences", payload);
+      if (ok && data?.success) {
+        setMsg({ ok: true, text: apiDisplayMessage(data, te, te ? "మీ ప్రాధాన్యతలు భద్రపరచబడ్డాయి. ✅" : "Your preferences have been saved.") });
+        setMatchingCount(data.matching_count || 0);
+        setPreviewMatches(data.preview_matches || []);
+      } else if (status === 0) {
+        setMsg({ ok: false, text: te ? "ప్రిఫరెన్సెస్ సేవ్ అయ్యాయో నిర్ధారించలేకపోయాం. మళ్లీ ప్రయత్నించే ముందు రీలోడ్ చేయండి." : "Could not confirm preferences were saved. Reload before retrying." });
+      } else {
+        setMsg({ ok: false, text: te ? "ప్రిఫరెన్సెస్ సేవ్ కాలేదు. మళ్లీ ప్రయత్నించండి." : "Preferences were not saved. Please retry." });
+      }
+    } catch {
+      setMsg({ ok: false, text: te ? "ప్రిఫరెన్సెస్ సేవ్ అయ్యాయో నిర్ధారించలేకపోయాం. మళ్లీ ప్రయత్నించే ముందు రీలోడ్ చేయండి." : "Could not confirm preferences were saved. Reload before retrying." });
+    } finally {
+      setSaving(false);
     }
   };
+
+  if (loadError && !loading) {
+    return <div role="alert" className="mv-surface mv-surface__body border-rose-200 bg-rose-50 text-rose-900">
+      <p>{te ? "మీ ప్రిఫరెన్సెస్ లోడ్ కాలేదు. సేవ్ చేయడానికి ముందు మళ్లీ ప్రయత్నించండి." : "Your preferences could not be loaded. Retry before making changes."}</p>
+      <button type="button" className="mt-3 min-h-11 rounded-xl border px-4" onClick={() => { void loadPreferences(); }}>{te ? "మళ్లీ ప్రయత్నించండి" : "Retry loading preferences"}</button>
+    </div>;
+  }
 
   if (loading) {
     return (
@@ -691,7 +712,7 @@ function PartnerPreferencesPanel({ myId }: { myId: string }) {
       </div>
 
       <form onSubmit={handleSave} className="mv-surface mv-surface__body space-y-6">
-        <Msg m={msg} />
+        {msg && <p role={msg.ok ? "status" : "alert"} className={`rounded-xl border p-3 text-sm ${msg.ok ? "border-emerald-300 bg-emerald-50 text-emerald-900" : "border-rose-200 bg-rose-50 text-rose-900"}`}>{msg.text}</p>}
 
         {/* ⚡ SMART 1-CLICK MATCH PRESETS (త్వరిత ఎంపికలు) */}
         <div className="mv-note space-y-2 !p-4">

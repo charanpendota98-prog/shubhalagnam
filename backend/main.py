@@ -4141,6 +4141,8 @@ def save_partner_preferences(payload: dict, request: Request):
         "saved_at": datetime.now().isoformat(),
     }
 
+    missing = object()
+    previous = {key: user.get(key, missing) for key in ("partner_preferences", "exp_filters")}
     user["partner_preferences"] = prefs
     user["exp_filters"] = {
         "ageMin": prefs["age_min"],
@@ -4160,10 +4162,17 @@ def save_partner_preferences(payload: dict, request: Request):
     # seed data. Now uses the same atomic tmp+rename DBSTORE.save() path
     # used everywhere else in this file.
     try:
-        DBSTORE.save(DBSTORE.snapshot(DB_USERS, DB_INTERESTS, DB_PAYMENTS, DB_OTPS,
-                                      VERIFIED_PHONES, DB_VIEWS, DB_SAVES, DB_DIGEST, DB_REPORTS, DB_BLOCKS), force=True)
+        persisted = DBSTORE.save(DBSTORE.snapshot(DB_USERS, DB_INTERESTS, DB_PAYMENTS, DB_OTPS,
+                                                VERIFIED_PHONES, DB_VIEWS, DB_SAVES, DB_DIGEST, DB_REPORTS, DB_BLOCKS), force=True)
     except Exception:
-        pass
+        persisted = False
+    if not persisted:
+        for key, value in previous.items():
+            if value is missing:
+                user.pop(key, None)
+            else:
+                user[key] = value
+        raise HTTPException(503, "Partner preferences could not be saved safely. Please try again.")
 
     # Count candidates passing explicit hard filters; never assign preference points.
     matching_candidates = []
