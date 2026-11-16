@@ -13,7 +13,7 @@ import AxeBuilder from "@axe-core/playwright";
  * findings are printed so they can be triaged without blocking the gate.
  */
 
-const ROUTES = ["/", "/pricing", "/safety", "/register", "/login"];
+const ROUTES = ["/", "/pricing", "/safety", "/register", "/login", "/matches"];
 
 for (const route of ROUTES) {
   test(`${route} has no serious or critical axe violations`, async ({ page }) => {
@@ -21,7 +21,7 @@ for (const route of ROUTES) {
     await page.waitForTimeout(600);
 
     const results = await new AxeBuilder({ page })
-      .withTags(["wcag2a", "wcag2aa"])
+      .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
       .analyze();
 
     const blocking = results.violations.filter(
@@ -83,3 +83,21 @@ test("keyboard focus is visible on the homepage", async ({ page }) => {
 
   expect(checked, "Expected to inspect at least a few focusable elements").toBeGreaterThan(2);
 });
+
+for (const lang of ["en", "te"]) {
+  test(`mobile match share name contains its visible label ${lang}`, async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.addInitScript((language) => localStorage.setItem("tsap_lang", language), lang);
+    await page.route("**/api/search?*", (route) => route.fulfill({ json: {
+      success: true, total: 1, next_offset: null,
+      results: [{ tsap_id: "SYN-A11Y", full_name: "Fictional accessibility profile", gender: "Bride", age: 28, caste: "Kapu", district: "Hyderabad", state: "TS", photo_private: true, photo_url: "" }],
+    } }));
+    await page.goto("/matches");
+    const share = page.getByRole("button", { name: lang === "te" ? "WhatsApp షేర్ - సంబంధం వివరాలు" : "Share on WhatsApp - profile details", exact: true });
+    await expect(share).toBeVisible();
+    const visible = (await share.innerText()).replace("💬", "").trim();
+    expect(await share.getAttribute("aria-label")).toContain(visible);
+    const results = await new AxeBuilder({ page }).withRules(["label-content-name-mismatch"]).analyze();
+    expect(results.violations).toEqual([]);
+  });
+}

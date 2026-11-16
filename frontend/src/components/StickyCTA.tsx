@@ -55,7 +55,7 @@ export default function StickyCTA() {
                   aria-hidden="true"
                 />
               </span>
-              <span className={`text-[10px] tracking-tight truncate transition-colors ${active ? "font-extrabold text-maroon" : "font-bold text-gray-500 group-hover:text-maroon/70"}`}>
+              <span className={`text-[10px] tracking-tight truncate transition-colors ${active ? "font-extrabold text-maroon" : "font-bold text-gray-600 group-hover:text-maroon/70"}`}>
                 {lang === "te" ? item.te : item.en}
               </span>
             </Link>
