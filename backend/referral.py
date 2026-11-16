@@ -1786,9 +1786,9 @@ def wallet_statement(user: Dict, types: Optional[List[str]] = None,
     for entry in (st.get("ledger", []) or []):
         kind = str(entry.get("type", ""))
         signed = float(entry.get("amount", 0) or 0)
+        balance = round(balance + signed, 2)
         if want and kind not in want:
             continue
-        balance = round(balance + signed, 2)
         label_en, label_te = LEDGER_LABELS.get(kind, (kind.title() or "Entry", kind))
         rows.append({
             "id": entry.get("id", ""),
@@ -1811,8 +1811,7 @@ def wallet_statement(user: Dict, types: Optional[List[str]] = None,
 
     ledger = st.get("ledger", []) or []
     earned = round(sum(float(e.get("amount", 0) or 0) for e in ledger
-                       if e.get("type") in ("commission", "milestone")
-                       and not e.get("reversed")), 2)
+                       if e.get("type") in ("commission", "milestone")), 2)
     reversed_total = round(sum(float(e.get("amount", 0) or 0) for e in ledger
                                if e.get("type") == "commission" and e.get("reversed")), 2)
     returned = round(sum(float(e.get("amount", 0) or 0) for e in ledger
@@ -1820,7 +1819,9 @@ def wallet_statement(user: Dict, types: Optional[List[str]] = None,
     pending = round(float(st.get("pending_payout", 0) or 0), 2)
     paid_out = round(float(st.get("paid_out", 0) or 0), 2)
     wallet = round(float(st.get("wallet", 0) or 0), 2)
-    expected = round(earned + returned - reversed_total - pending - paid_out, 2)
+    # A rejected request is already absent from pending/paid totals. Adding
+    # its returned ledger amount again would count the same credit twice.
+    expected = round(earned - reversed_total - pending - paid_out, 2)
 
     return {
         "success": True,
@@ -1832,9 +1833,9 @@ def wallet_statement(user: Dict, types: Optional[List[str]] = None,
             "lifetime_earned": round(float(st.get("lifetime_earned", 0) or 0), 2),
         },
         "identity": {
-            "formula_en": f"₹{_money(earned)} earned − ₹{_money(reversed_total)} reversed + ₹{_money(returned)} returned "
+            "formula_en": f"₹{_money(earned)} earned − ₹{_money(reversed_total)} reversed "
                           f"− ₹{_money(pending)} requested − ₹{_money(paid_out)} paid out = ₹{_money(expected)}",
-            "formula_te": f"₹{_money(earned)} సంపాదన − ₹{_money(reversed_total)} రివర్స్ + ₹{_money(returned)} తిరిగి "
+            "formula_te": f"₹{_money(earned)} సంపాదన − ₹{_money(reversed_total)} రివర్స్ "
                           f"− ₹{_money(pending)} అభ్యర్థన − ₹{_money(paid_out)} చెల్లింపు = ₹{_money(expected)}",
             "expected_wallet": expected,
             "actual_wallet": wallet,
@@ -1941,7 +1942,11 @@ def earnings_explainer(user: Dict, all_users: List[Dict]) -> Dict:
 
     rows.sort(key=lambda r: (r.get("stage") != "waiting", str(r.get("credited_at", ""))), reverse=True)
 
-    gross = len(eligible) * FIRST_PAY_COMMISSION
+    # Gross means credits recorded before refunds, not the remaining eligible
+    # reward count. Reversal totals are displayed separately below.
+    gross = round(sum(float(e.get("amount", 0) or 0)
+                      for e in (st.get("ledger", []) or [])
+                      if e.get("type") in ("commission", "milestone")), 2)
     wallet = round(float(st.get("wallet", 0) or 0), 2)
     pending = round(float(st.get("pending_payout", 0) or 0), 2)
     paid_out = round(float(st.get("paid_out", 0) or 0), 2)
@@ -1965,10 +1970,10 @@ def earnings_explainer(user: Dict, all_users: List[Dict]) -> Dict:
             "paid_out": paid_out,
             "wallet": wallet,
         },
-        "formula_en": (f"{len(eligible)} × ₹{FIRST_PAY_COMMISSION} = ₹{_money(gross)} earned"
+        "formula_en": (f"₹{_money(gross)} recorded earnings"
                        + (f" · −₹{_money(reversed_total)} reversed" if reversed_total else "")
                        + f" · ₹{_money(pending)} payout requested · ₹{_money(paid_out)} paid out · wallet ₹{_money(wallet)}"),
-        "formula_te": (f"{len(eligible)} × ₹{FIRST_PAY_COMMISSION} = ₹{_money(gross)} సంపాదన"
+        "formula_te": (f"₹{_money(gross)} నమోదైన సంపాదన"
                        + (f" · −₹{_money(reversed_total)} రివర్స్" if reversed_total else "")
                        + f" · ₹{_money(pending)} పేఅవుట్ అభ్యర్థన · ₹{_money(paid_out)} చెల్లించారు · వాలెట్ ₹{_money(wallet)}"),
         "note_en": ("Only realised rewards are counted. Registrations alone are never shown as "
