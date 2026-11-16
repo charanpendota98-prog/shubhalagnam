@@ -4122,11 +4122,36 @@ def save_partner_preferences(payload: dict, request: Request):
     # 🛡️ P0 IDOR fix: own preferences matrame overwrite cheyyagalaru.
     require_owner(request, clean_id)
 
+    # Validate before touching member state or attempting a checkpoint. Never
+    # silently swap/clamp a member's requested bounds.
+    import re
+    from quality import _height_cm
+
+    def preference_age(field: str, default: int) -> int:
+        value = payload.get(field)
+        if value is None or value == "":
+            return default
+        if isinstance(value, bool) or not re.fullmatch(r"[0-9]+", str(value).strip()):
+            raise HTTPException(400, f"{field} must be a whole age of at least 18.")
+        number = int(value)
+        if number < 18:
+            raise HTTPException(400, f"{field} must be a whole age of at least 18.")
+        return number
+
+    age_min, age_max = preference_age("age_min", 18), preference_age("age_max", 60)
+    if age_min > age_max:
+        raise HTTPException(400, "Minimum age must not exceed maximum age.")
+    heights = {field: str(payload.get(field) or "").strip() for field in ("height_min", "height_max")}
+    for field, value in heights.items():
+        if value and not re.fullmatch(r"(?:[1-9][.']\s*(?:[0-9]|1[01])\"?|[1-9][0-9]{1,2}\s*cm)", value, re.IGNORECASE):
+            raise HTTPException(400, f"{field} must be feet/inches or centimeters.")
+    if all(heights.values()) and _height_cm(heights["height_min"]) > _height_cm(heights["height_max"]):
+        raise HTTPException(400, "Minimum height must not exceed maximum height.")
+
     prefs = {
-        "age_min": int(payload.get("age_min") or 18),
-        "age_max": int(payload.get("age_max") or 60),
-        "height_min": str(payload.get("height_min") or "").strip(),
-        "height_max": str(payload.get("height_max") or "").strip(),
+        "age_min": age_min,
+        "age_max": age_max,
+        **heights,
         "castes": list(payload.get("castes") or []),
         "sub_castes": list(payload.get("sub_castes") or []),
         "caste_no_bar": bool(payload.get("caste_no_bar")),

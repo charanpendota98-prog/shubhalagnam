@@ -479,6 +479,11 @@ function PartnerPreferencesPanel({ myId }: { myId: string }) {
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
+  const feedbackRef = useRef<HTMLParagraphElement>(null);
+  useEffect(() => {
+    if (msg) feedbackRef.current?.scrollIntoView({ block: "center", behavior: "instant" });
+  }, [msg]);
+
   // Preference State
   const [ageMin, setAgeMin] = useState(21);
   const [ageMax, setAgeMax] = useState(30);
@@ -515,8 +520,8 @@ function PartnerPreferencesPanel({ myId }: { myId: string }) {
       const p = data.preferences;
       setAgeMin(p.age_min || 21);
       setAgeMax(p.age_max || 30);
-      setHeightMin(p.height_min || "5'0\"");
-      setHeightMax(p.height_max || "5'10\"");
+      setHeightMin(p.height_min ?? "5'0\"");
+      setHeightMax(p.height_max ?? "5'10\"");
       setCastes(p.castes || []);
       setSubCastes(p.sub_castes || []);
       setCasteNoBar(Boolean(p.caste_no_bar));
@@ -608,6 +613,21 @@ function PartnerPreferencesPanel({ myId }: { myId: string }) {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (ageMin > ageMax) {
+      setMsg({ ok: false, text: te ? "Min Age, Max Age కంటే ఎక్కువగా ఉండకూడదు." : "Minimum age must not exceed maximum age." });
+      return;
+    }
+    const heightCentimeters = (height: string) => {
+      const feet = height.match(/^(\d)[.']\s*(\d{1,2})/);
+      if (feet) return Math.round((Number(feet[1]) * 12 + Number(feet[2])) * 2.54);
+      const cm = height.match(/^(\d+)\s*cm$/i);
+      return cm ? Number(cm[1]) : null;
+    };
+    const minHeight = heightCentimeters(heightMin), maxHeight = heightCentimeters(heightMax);
+    if (minHeight !== null && maxHeight !== null && minHeight > maxHeight) {
+      setMsg({ ok: false, text: te ? "Min Height, Max Height కంటే ఎక్కువగా ఉండకూడదు." : "Minimum height must not exceed maximum height." });
+      return;
+    }
     setSaving(true);
     setMsg(null);
     const payload = {
@@ -712,7 +732,7 @@ function PartnerPreferencesPanel({ myId }: { myId: string }) {
       </div>
 
       <form onSubmit={handleSave} className="mv-surface mv-surface__body space-y-6">
-        {msg && <p role={msg.ok ? "status" : "alert"} className={`rounded-xl border p-3 text-sm ${msg.ok ? "border-emerald-300 bg-emerald-50 text-emerald-900" : "border-rose-200 bg-rose-50 text-rose-900"}`}>{msg.text}</p>}
+        {msg && <p ref={feedbackRef} role={msg.ok ? "status" : "alert"} className={`rounded-xl border p-3 text-sm ${msg.ok ? "border-emerald-300 bg-emerald-50 text-emerald-900" : "border-rose-200 bg-rose-50 text-rose-900"}`}>{msg.text}</p>}
 
         {/* ⚡ SMART 1-CLICK MATCH PRESETS (త్వరిత ఎంపికలు) */}
         <div className="mv-note space-y-2 !p-4">
@@ -823,7 +843,7 @@ function PartnerPreferencesPanel({ myId }: { myId: string }) {
                 onChange={(e) => setAgeMin(Number(e.target.value))}
                 className="w-full p-2.5 border border-slate-200 rounded-xl bg-white font-bold text-slate-800 focus:outline-none focus:border-maroon"
               >
-                {[18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 32, 35, 40].map((a) => (
+                {[...new Set([...Array.from({ length: 53 }, (_, i) => i + 18), ageMin])].sort((a, b) => a - b).map((a) => (
                   <option key={a} value={a}>
                     {te ? `${a} సంవత్సరాలు` : `${a} years`}
                   </option>
@@ -837,7 +857,7 @@ function PartnerPreferencesPanel({ myId }: { myId: string }) {
                 onChange={(e) => setAgeMax(Number(e.target.value))}
                 className="w-full p-2.5 border border-slate-200 rounded-xl bg-white font-bold text-slate-800 focus:outline-none focus:border-maroon"
               >
-                {[22, 23, 24, 25, 26, 27, 28, 29, 30, 32, 34, 36, 38, 40, 45, 50, 55, 60].map((a) => (
+                {[...new Set([...Array.from({ length: 53 }, (_, i) => i + 18), ageMax])].sort((a, b) => a - b).map((a) => (
                   <option key={a} value={a}>
                     {te ? `${a} సంవత్సరాలు` : `${a} years`}
                   </option>
@@ -851,7 +871,8 @@ function PartnerPreferencesPanel({ myId }: { myId: string }) {
                 onChange={(e) => setHeightMin(e.target.value)}
                 className="w-full p-2.5 border border-slate-200 rounded-xl bg-white font-bold text-slate-800 focus:outline-none focus:border-maroon"
               >
-                {HEIGHTS.map((h) => (
+                <option value="">{te ? "ఏదైనా" : "Any"}</option>
+                {[...new Set([...HEIGHTS, heightMin, heightMax])].filter(Boolean).map((h) => (
                   <option key={h} value={h}>
                     {h}
                   </option>
@@ -865,7 +886,8 @@ function PartnerPreferencesPanel({ myId }: { myId: string }) {
                 onChange={(e) => setHeightMax(e.target.value)}
                 className="w-full p-2.5 border border-slate-200 rounded-xl bg-white font-bold text-slate-800 focus:outline-none focus:border-maroon"
               >
-                {HEIGHTS.map((h) => (
+                <option value="">{te ? "ఏదైనా" : "Any"}</option>
+                {[...new Set([...HEIGHTS, heightMin, heightMax])].filter(Boolean).map((h) => (
                   <option key={h} value={h}>
                     {h}
                   </option>
