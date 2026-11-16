@@ -507,7 +507,7 @@ CASTE_ALIASES = {
     "vadla": "viswabrahmana", "ausula": "viswabrahmana", "silpi": "viswabrahmana", "shilpi": "viswabrahmana",
     "vadrangi": "viswabrahmana", "achari": "viswabrahmana", "vishwakarma": "viswabrahmana",
     "padmashali": "padmashali_weavers", "padmasali": "padmashali_weavers", "sali": "padmashali_weavers",
-    "pattusali": "padmashali_weavers", "thogata": "padmashali_weavers", "thogata sali": "padmashali_weavers",
+    "pattusali": "padmashali_weavers", "togata": "padmashali_weavers", "thogata": "padmashali_weavers", "thogata sali": "padmashali_weavers",
     "devanga": "padmashali_weavers", "devanga chettiar": "padmashali_weavers",
     "mudiraj": "mudiraj", "mudiraju": "mudiraj", "mutrasi": "mudiraj", "tenugollu": "mudiraj",
     "kummari": "kummari", "kummara": "kummari", "kulala": "kummari", "salivahana": "kummari", "kumbhara": "kummari",
@@ -516,7 +516,8 @@ CASTE_ALIASES = {
     "uppara": "others_bc", "sagara": "others_bc", "sagari": "others_bc", "uppari": "others_bc",
     "vaddera": "others_bc", "vaddelu": "others_bc", "odde": "others_bc", "oddilu": "others_bc",
     "vadde": "others_bc",
-    "agnikulakshatriya": "others_bc", "mangali": "others_bc", "mangala": "others_bc", "nayi": "others_bc",
+    "agnikula kshatriya": "others_bc", "agnikulakshatriya": "others_bc",
+    "are katika": "others_bc", "bondili": "others_bc", "meru": "others_bc", "mangali": "others_bc", "mangala": "others_bc", "nayi": "others_bc",
     "nai": "others_bc", "nayi-brahmin": "others_bc", "bhajanthri": "others_bc",
     "boya": "others_bc", "valmiki": "others_bc", "boya bedar": "others_bc", "nishadi": "others_bc",
     "yellapu": "others_bc", "kirataka": "others_bc",
@@ -745,7 +746,12 @@ def resolve_caste_key(raw: str) -> str | None:
     for probe in (text_dash, text):
         if probe in CASTE_ALIASES:
             return CASTE_ALIASES[probe]
-    # partial match — "reddy (pakanati)" etc.
+    # Preserve the five audited canonical mappings ahead of legacy partial
+    # matching. Do not broaden this repair into guessed community equivalences.
+    for alias in ("agnikula kshatriya", "agnikulakshatriya", "are katika", "bondili", "meru", "togata"):
+        if re.search(r"(?<!\w)" + re.escape(alias) + r"(?!\w)", text):
+            return CASTE_ALIASES[alias]
+    # Existing free-text behavior is retained outside this bounded repair.
     for alias, key in CASTE_ALIASES.items():
         if alias and alias in text:
             return key
@@ -1174,7 +1180,11 @@ def caste_channel_links(profile: Dict, limit: int = 5,
     """
     profile = profile or {}
     keys: List[str] = []
-    ck = resolve_caste_key(str(profile.get("caste", "") or "") + " " + str(profile.get("sub_caste", "") or ""))
+    # The selected community is authoritative. A sub-community must not
+    # override it through an earlier/shorter alias in a concatenated string.
+    ck = resolve_caste_key(str(profile.get("caste", "") or ""))
+    if not str(profile.get("caste", "") or "").strip():
+        ck = resolve_caste_key(str(profile.get("sub_caste", "") or ""))
     gw = _gender_word(profile)
     if ck:
         for cand in (f"c_{ck}_{gw}" if gw else "", f"c_{ck}"):
