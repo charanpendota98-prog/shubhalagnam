@@ -11,6 +11,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLang } from "@/lib/lang";
 import { apiGet, apiPost } from "@/lib/api";
+import { validStatement, validEarnings, validInsights, validInvites } from "@/lib/referral-payload";
 
 type Entry = {
   id: string; at: string; type: string;
@@ -128,7 +129,8 @@ export default function ReferralPro({ tsapId }: { tsapId: string }) {
     ]);
     if (version !== requestVersion.current) return;
     const results = [w, e, i, inv];
-    if (results.some(result => !result.ok || !result.data)) {
+    if (results.some(result => !result.ok || !result.data) ||
+        !validStatement(w.data) || !validEarnings(e.data) || !validInsights(i.data) || !validInvites(inv.data)) {
       // Never present a failed private read as a zero wallet or an empty ledger.
       // Clearing the full snapshot also prevents mixed-account or stale panels.
       setStatement(null); setEarnings(null); setInsights(null); setInvites([]);
