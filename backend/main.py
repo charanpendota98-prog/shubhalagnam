@@ -6568,6 +6568,17 @@ async def interest_send(payload: dict, request: Request = None):
     }
 
 
+def _interest_pair_blocked(rec: dict) -> bool:
+    """A safety block overrides prior acceptance in every request account view."""
+    return safety.is_blocked(str(rec.get("from_id", "")), str(rec.get("to_id", "")), DB_BLOCKS)
+
+
+def _visible_interest_records() -> list:
+    # Preserve the durable request history. Blocking hides the pair's account
+    # views without inventing a new permanent consent/unblock policy.
+    return [rec for rec in DB_INTERESTS if not _interest_pair_blocked(rec)]
+
+
 @app.get("/api/interest/inbox/{tsap_id}")
 def interest_inbox(tsap_id: str, request: Request = None):
     require_owner(request, tsap_id)   # 🛡️ WAVE 9: IDOR fix — own data matrame
@@ -6576,7 +6587,7 @@ def interest_inbox(tsap_id: str, request: Request = None):
         raise HTTPException(404, "⚠️ User దొరకలేదు — TSAP ID check చెయ్యండి")
     if expire_old(DB_INTERESTS, DB_USERS):
         _persist_core_state()
-    data = inbox_for(u, DB_USERS, DB_INTERESTS)
+    data = inbox_for(u, DB_USERS, _visible_interest_records())
     data["credits"] = u.get("credits", 0)
     data["model"] = "owner acceptance → contact access in accepted-request account views; notification delivery is not guaranteed"
     return data
@@ -6590,7 +6601,7 @@ def interest_sent(tsap_id: str, request: Request = None):
         raise HTTPException(404, "⚠️ User దొరకలేదు — TSAP ID check చెయ్యండి")
     if expire_old(DB_INTERESTS, DB_USERS):
         _persist_core_state()
-    data = sent_for(u, DB_USERS, DB_INTERESTS)
+    data = sent_for(u, DB_USERS, _visible_interest_records())
     data["credits"] = u.get("credits", 0)
     return data
 
@@ -6619,6 +6630,8 @@ async def interest_respond(payload: dict, request: Request = None):
             raise HTTPException(403, "Ee request meeku కాదు")
         owner = caller
         requester = _find_user(rec["from_id"])
+    if _interest_pair_blocked(rec):
+        raise HTTPException(403, "Contact and request actions are unavailable for this blocked pair")
     rec_before = copy.deepcopy(rec)
     requester_before = copy.deepcopy(requester) if requester is not None else None
     consent_before = copy.deepcopy(CONSENT_LEDGER)
@@ -6723,6 +6736,8 @@ def interest_status(request_id: str, request: Request):
         require_owner(request, rec.get("from_id", ""))
     except HTTPException:
         require_owner(request, rec.get("to_id", ""))
+    if _interest_pair_blocked(rec):
+        raise HTTPException(403, "Request details are unavailable for this blocked pair")
     queue_state = rec.get("notification_queue") if isinstance(rec.get("notification_queue"), dict) else None
     status = str(rec.get("status", "pending"))
     response_done = status in {"accepted", "declined", "expired", "withdrawn"}
@@ -6807,6 +6822,8 @@ def api_interest_timeline(request_id: str, request: Request = None):
         require_owner(request, rec.get("from_id", ""))
     except HTTPException:
         require_owner(request, rec.get("to_id", ""))
+    if _interest_pair_blocked(rec):
+        raise HTTPException(403, "Request details are unavailable for this blocked pair")
     return member_intel.request_timeline(rec)
 
 
