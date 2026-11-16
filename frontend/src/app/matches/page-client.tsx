@@ -1213,7 +1213,7 @@ export default function MatchesPage() {
           <button type="button"
             onClick={() => setProposalTarget(row)}
             className="mv-btn mv-btn--wa min-h-11"
-            aria-label={te ? "WhatsApp లో సంబంధం వివరాలు షేర్ చేయండి" : "Share profile details on WhatsApp"}
+            aria-label={te ? "WhatsApp షేర్ - సంబంధం వివరాలు" : "Share on WhatsApp - profile details"}
             title={te ? "WhatsApp లో సంబంధం వివరాలు షేర్ చేయండి" : "Share profile details on WhatsApp"}
           >
             <span aria-hidden="true">💬</span>
