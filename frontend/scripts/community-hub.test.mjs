@@ -148,6 +148,11 @@ check("every hub is reachable from its own display name", () => {
 
 /** Registration-form spellings that must still reach the right group. */
 const ALIAS_CASES = [
+  ["Agnikula Kshatriya", "others_bc"],
+  ["Are Katika", "others_bc"],
+  ["Bondili", "others_bc"],
+  ["Meru", "others_bc"],
+  ["Togata", "padmashali_weavers"],
   ["Arya Vysya", "vysya"],
   ["Vysya", "vysya"],
   ["Komati", "vysya"],

@@ -42,6 +42,9 @@ export const HUB_ALIASES = Object.freeze({
   jalari: "others_bc",
   jogi: "others_bc",
   vadabalija: "others_bc",
+  // Exact existing backend alias, not equivalence to the Kshatriya hub.
+  agnikula_kshatriya: "others_bc",
+  agnikulakshatriya: "others_bc",
   bhatraju: "others_bc",
   kalinga: "others_bc",
   bondili: "others_bc",
