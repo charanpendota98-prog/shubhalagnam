@@ -181,7 +181,7 @@ check("the rewarded friend has a two-step timeline",
       len(rewarded[0]["timeline"]) == 2 and all(step["label_en"] for step in rewarded[0]["timeline"]),
       rewarded[0]["timeline"])
 check("the explainer states the arithmetic behind the wallet",
-      "1 × ₹50 = ₹50" in ex_after["formula_en"], ex_after["formula_en"])
+      "₹50 recorded earnings" in ex_after["formula_en"], ex_after["formula_en"])
 check("explainer totals agree with the statement",
       ex_after["totals"]["gross_earned"] == statement(ref2["tsap_id"])["totals"]["earned"] == 50,
       ex_after["totals"])
@@ -193,8 +193,13 @@ check("a refund moves the friend to 'reversed'",
       any(r["stage"] == "reversed" for r in ex_rev["rows"]), ex_rev["rows"])
 check("a reversal is subtracted in the formula",
       "reversed" in ex_rev["formula_en"] and ex_rev["totals"]["wallet"] == 0, ex_rev["totals"])
-check("the statement reflects the clawback",
-      statement(ref2["tsap_id"])["totals"]["earned"] == 0, statement(ref2["tsap_id"])["totals"])
+clawed_statement = statement(ref2["tsap_id"])
+check("the statement reflects the clawback once, preserving gross earnings",
+      clawed_statement["totals"]["earned"] == 50
+      and clawed_statement["totals"]["reversed"] == -50
+      and clawed_statement["identity"]["expected_wallet"] == 0
+      and clawed_statement["identity"]["reconciles"] is True,
+      clawed_statement)
 
 print("\n=== 4. PER-POST INVITES (SENDING) ===")
 created = client.post(f"/api/referral/{ref['tsap_id']}/invite",
