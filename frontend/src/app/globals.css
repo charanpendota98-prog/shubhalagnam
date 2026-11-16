@@ -3824,3 +3824,11 @@ html[data-lang="te"] .wedding-editorial-theme .route-frame[data-route="channels"
 .wedding-gallery__nav span{font-size:10px;letter-spacing:.05em;min-width:42px;text-align:center;}
 @media(max-width:1023px){.wedding-gallery__controls{left:60px;right:18px;flex-wrap:wrap;}.wedding-gallery__controls p{font-size:22px;}}
 @media(max-width:767px){.wedding-gallery{height:300px;}.wedding-gallery__slide img{min-height:0;}.wedding-gallery__controls{bottom:22px;left:20px;right:20px;}.wedding-gallery:after{background:linear-gradient(180deg,#24171d10,transparent 30%,#24171def);}.wedding-gallery__controls p{font-size:20px;}.wedding-gallery__nav{gap:7px;}}
+
+/* Keep the compact header menu's actual hit box clear of the shared reset. */
+.brand-header .header-menu-button { min-width: 44px; min-height: 44px; flex-shrink: 0; }
+@media (max-width: 359px) {
+  .brand-header .header-home { gap: 6px; }
+  .brand-header .header-home img { width: 32px; height: 32px; }
+  .brand-header .lang-toggle--compact { width: 96px; flex-basis: 96px; }
+}

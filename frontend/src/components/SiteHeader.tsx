@@ -219,7 +219,7 @@ export default function SiteHeader() {
     >
       <div className="max-w-[1440px] mx-auto px-3 sm:px-4 h-16 lg:h-14 flex items-center justify-between gap-2">
         {/* One clean wordmark: the selected language controls every visible label. */}
-        <Link href="/" className="flex items-center gap-2.5 min-w-0 flex-1 focus-brand rounded-xl">
+        <Link href="/" className="flex items-center gap-2.5 min-w-0 flex-1 focus-brand rounded-xl header-home">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={SITE_CONFIG.logoImage} alt="" width={44} height={44}
             className="w-10 h-10 lg:w-8 lg:h-8 rounded-xl lg:rounded-lg object-cover shadow-[0_5px_14px_rgba(122,12,46,.18)] ring-1 ring-maroon/10 shrink-0" />
@@ -238,7 +238,7 @@ export default function SiteHeader() {
         </Link>
 
         {/* Desktop nav */}
-        <nav className="hidden xl:flex items-center gap-1" aria-label={te ? "ప్రధాన నావిగేషన్" : "Main navigation"}>
+        <nav className="hidden min-[1366px]:flex items-center gap-1" aria-label={te ? "ప్రధాన నావిగేషన్" : "Main navigation"}>
           {NAV_MAIN.filter((n) => ["/matches", "/second-marriage", "/spotlight", "/channels"].includes(n.href)).map((n) => (
             <Link
               key={n.href}
@@ -417,7 +417,7 @@ export default function SiteHeader() {
           )}
           <Link
             href="/register"
-            className="hidden sm:inline-flex px-4 py-2 rounded-full text-[13px] font-black maroon-gradient text-white shadow-soft hover:shadow-brand transition whitespace-nowrap"
+            className="hidden md:inline-flex px-4 py-2 rounded-full text-[13px] font-black maroon-gradient text-white shadow-soft hover:shadow-brand transition whitespace-nowrap"
           >
             <span>{te ? "ఉచిత నమోదు" : "Free Register"}</span>
           </Link>
@@ -427,7 +427,7 @@ export default function SiteHeader() {
             aria-controls="mobile-menu"
             onClick={() => setOpen((v) => !v)}
             ref={mobileMenuButtonRef}
-            className="xl:hidden min-h-11 min-w-11 rounded-xl border border-maroon/20 flex items-center justify-center text-maroon focus-brand"
+            className="header-menu-button min-[1366px]:hidden min-h-11 min-w-11 rounded-xl border border-maroon/20 flex items-center justify-center text-maroon focus-brand"
           >
             <span className="relative block w-5 h-3.5">
               <span
@@ -457,7 +457,7 @@ export default function SiteHeader() {
         aria-hidden={!open}
         inert={!open}
         data-open={open}
-        className="mobile-menu xl:hidden"
+        className="mobile-menu min-[1366px]:hidden"
       >
         <div className="mobile-menu__panel bg-[#fffdf8] shadow-xl border-t border-gold/25 px-4 pt-1 pb-4 overscroll-contain menu-scroll">
           {groupTitle("Explore", "అన్వేషించండి")}
