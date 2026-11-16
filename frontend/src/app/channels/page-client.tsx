@@ -197,7 +197,7 @@ export default function ChannelsPage() {
                         <span className="inline-flex min-h-10 items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-3.5 py-1.5 text-[11px] font-semibold text-slate-500"
                           title={te ? "ఈ channel కోసం WhatsApp invite లేదా support contact configure చేయలేదు" : "No WhatsApp invite or support contact is configured for this channel"}>
                           <WhatsAppIcon className="w-3.5 h-3.5" mono />
-                          <span>{te ? "లింక్ లేదు" : "No WhatsApp link"}</span>
+                          <span>{te ? "WhatsApp లింక్ లేదు" : "No WhatsApp link"}</span>
                         </span>
                       )}
                     </div>
