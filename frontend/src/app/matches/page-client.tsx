@@ -309,6 +309,8 @@ export default function MatchesPage() {
         return;
       }
       setPrefLoading(true);
+      setPrefApplied(false);
+      setSaveNotice(null);
       // 🛡️ P0 security fix: /api/profile/preferences now requires the owner's token.
       const res = await fetch(`/api/profile/preferences?tsap_id=${encodeURIComponent(myId)}`, { headers: authHeaders() });
       const data = await readApiJson(res);
@@ -323,13 +325,17 @@ export default function MatchesPage() {
           district: (p.districts || []).join(","),
           age_min: p.age_min || 18,
           age_max: p.age_max || 60,
+          height_min: p.height_min || "",
+          height_max: p.height_max || "",
           marital_status: (p.marital_statuses || []).join(","),
           children: "",
         }));
         setPrefApplied(true);
+      } else {
+        setSaveNotice({ tone: "error", text: te ? "సేవ్ చేసిన ప్రిఫరెన్సెస్ లోడ్ కాలేదు. మళ్లీ ప్రయత్నించండి." : "Saved preferences could not be loaded. Please retry." });
       }
     } catch {
-      /* ignore */
+      setSaveNotice({ tone: "error", text: te ? "సేవ్ చేసిన ప్రిఫరెన్సెస్ లోడ్ కాలేదు. మళ్లీ ప్రయత్నించండి." : "Saved preferences could not be loaded. Please retry." });
     } finally {
       setPrefLoading(false);
     }
@@ -1254,7 +1260,7 @@ export default function MatchesPage() {
 
             <button type="button"
               onClick={applySavedPreferences}
-              disabled={prefLoading}
+              disabled={!sessionReady || prefLoading}
               className={`pill min-h-11 whitespace-nowrap px-3.5 text-xs font-black transition flex items-center gap-1.5 ${
                 prefApplied
                   ? "bg-emerald-600 text-white shadow-xs"
