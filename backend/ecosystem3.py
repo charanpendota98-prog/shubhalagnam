@@ -1170,8 +1170,13 @@ def create_support_ticket(
             ],
         }
         tickets.append(rec)
-        if not save_state():
-            return False, "Support ticket could not be saved.", {}
+        try:
+            saved = save_state()
+        except Exception:
+            saved = False
+        if not saved:
+            tickets.remove(rec)
+            return False, "Support ticket could not be saved. Please retry.", {}
         return True, "created", dict(rec)
 
 
@@ -1205,6 +1210,7 @@ def reply_support_ticket(ticket_id: str, reply_text: str, responder: str, status
         rec = next((t for t in state["support_tickets"] if t.get("ticket_id") == ticket_id), None)
         if not rec:
             return False, "Support ticket not found.", {}
+        previous = json.loads(json.dumps(rec))
         now = _utc_iso()
         rec["status"] = st
         rec["updated_at"] = now
@@ -1214,7 +1220,14 @@ def reply_support_ticket(ticket_id: str, reply_text: str, responder: str, status
             "text": txt,
             "at": now,
         })
-        save_state()
+        try:
+            saved = save_state()
+        except Exception:
+            saved = False
+        if not saved:
+            rec.clear()
+            rec.update(previous)
+            return False, "Support reply could not be saved. Please retry.", {}
         return True, st, dict(rec)
 
 
