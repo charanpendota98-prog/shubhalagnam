@@ -139,10 +139,6 @@ const RELIGION_LABELS: Record<string, string> = {
   Hindu: "హిందూ (Hindu)",
   Muslim: "ముస్లిం (Muslim)",
   Christian: "క్రైస్తవ (Christian)",
-  Sikh: "సిక్కు (Sikh)",
-  Jain: "జైన (Jain)",
-  Buddhist: "బౌద్ధ (Buddhist)",
-  Other: "ఇతర మతం (Other)",
 };
 
 const STEPS = [

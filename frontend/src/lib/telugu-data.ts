@@ -242,7 +242,6 @@ export const OTHER_LOCATIONS: DistrictDetail[] = sortDirectoryByEnglish([
 export const DISTRICTS_BY_STATE: Record<string, string[]> = {
   TS: TS_DISTRICTS,
   AP: AP_DISTRICTS,
-  Other: sortUniqueOptions(OTHER_LOCATIONS.map((l) => l.en)),
 };
 
 export const DISTRICT_TELUGU: Record<string, string> = (() => {
@@ -867,7 +866,7 @@ export const CASTE_SUBCASTES: Record<string, string[]> = (() => {
   return map;
 })();
 
-export const RELIGIONS = ["Hindu", "Muslim", "Christian", "Sikh", "Jain", "Buddhist", "Other"] as const;
+export const RELIGIONS = ["Hindu", "Muslim", "Christian"] as const;
 
 /** Locally bundled fallback while the community list API is unavailable. */
 export const COMMUNITIES_BY_RELIGION: Record<string, string[]> = {
@@ -875,10 +874,6 @@ export const COMMUNITIES_BY_RELIGION: Record<string, string[]> = {
     "Mangali", "Vadabalija", "Valmiki", "Viswakarma", "Vysya", "Yadav", OTHER_COMMUNITY_OPTION]),
   Muslim: sortUniqueOptions(["Ansari", "Bohra", "Dudekula", "Khoja", "Labab", "Mapila", "Memons", "Mughal", "Pathan", "Qureshi", "Sheikh", "Syed", "Other Muslim", OTHER_COMMUNITY_OPTION]),
   Christian: sortUniqueOptions(["Baptist", "CSI", "Lutheran", "Marthoma", "Methodist", "Orthodox", "Pentecostal", "Roman Catholic", "Seventh-day Adventist", "Other Christian", OTHER_COMMUNITY_OPTION]),
-  Sikh: sortUniqueOptions(["Jat", "Khatri", "Ramgarhia", "Other Sikh", OTHER_COMMUNITY_OPTION]),
-  Jain: sortUniqueOptions(["Digambara", "Shwetambara", "Other Jain", OTHER_COMMUNITY_OPTION]),
-  Buddhist: sortUniqueOptions(["Inter-caste", "No caste", "Other", OTHER_COMMUNITY_OPTION]),
-  Other: sortUniqueOptions(["Inter-caste", "No caste", "Other", OTHER_COMMUNITY_OPTION]),
 };
 
 export const MOTHER_TONGUES = ["Telugu", "Urdu", "Hindi", "Tamil", "Kannada", "English", "Other"];

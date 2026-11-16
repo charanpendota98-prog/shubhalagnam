@@ -68,7 +68,7 @@ class CatalogOrderingTests(unittest.TestCase):
         frontend_hindu = detailed | hindu_extras
         self.assertEqual(frontend_hindu, set(matchpro.castes_for("Hindu")["castes"]))
 
-        for religion in ("Muslim", "Christian", "Sikh", "Jain", "Buddhist", "Other"):
+        for religion in ("Muslim", "Christian"):
             match = re.search(
                 rf"^  {re.escape(religion)}: sortUniqueOptions\(\[(.*?)\]\),$",
                 self.frontend_source,
