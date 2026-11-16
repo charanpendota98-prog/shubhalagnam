@@ -14,6 +14,7 @@ import copy
 import json
 import os
 import re
+import threading
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
@@ -264,13 +265,38 @@ def normalize_filters(raw: Dict[str, Any]) -> Dict[str, Any]:
     return out
 
 
-def save_search(tsap_id: str, name: str, filters: Dict[str, Any], alert: bool = False) -> Dict[str, Any]:
+_SAVED_CREATE_LOCK = threading.RLock()
+
+
+def save_search(tsap_id: str, name: str, filters: Dict[str, Any], alert: bool = False, request_id: str = "") -> Dict[str, Any]:
+    # The deployed service is one process; overlapping retries share this lock.
+    with _SAVED_CREATE_LOCK:
+        return _save_search(tsap_id, name, filters, alert, request_id)
+
+
+def _save_search(tsap_id: str, name: str, filters: Dict[str, Any], alert: bool = False, request_id: str = "") -> Dict[str, Any]:
     norm = normalize_filters(filters)
     if not norm:
         validation_error("filters", "⚠️ కొన్ని filters పెట్టండి — appudu save cheyyagalam")
+    name = req_text(name, "search name", 2, 40, required=False) or "My search"
+    alert_enabled = _filter_bool(alert, "alert")
+    request_id = str(request_id or "")
+    if request_id and not re.fullmatch(r"[a-zA-Z0-9_-]{8,100}", request_id):
+        validation_error("request_id", "Invalid saved-search request identifier.")
+    # The key belongs to this owner and this exact create intent. Persist it
+    # alongside the row so a committed response-loss retry survives restart.
+    import hashlib
+    signature = hashlib.sha256(json.dumps({"name": name, "filters": norm, "alert": alert_enabled},
+                                        sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+    if request_id:
+        prior = next((row for row in saved_for(tsap_id) if row.get("request_id") == request_id), None)
+        if prior is not None:
+            if prior.get("request_signature") != signature:
+                from fastapi import HTTPException
+                raise HTTPException(409, "This saved-search request was already used with different contents.")
+            return prior
     if len(saved_for(tsap_id)) >= 20:
         validation_error("searches", "⚠️ ఒక ఖాతాకు గరిష్ఠంగా 20 saved searches మాత్రమే ఉంచవచ్చు")
-    name = req_text(name, "search name", 2, 40, required=False) or "My search"
     existing_ids = set()
     for saved in SAVED_SEARCHES:
         try:
@@ -278,12 +304,13 @@ def save_search(tsap_id: str, name: str, filters: Dict[str, Any], alert: bool = 
         except (TypeError, ValueError):
             continue
     sid = f"SRCH-{max(existing_ids, default=0) + 1:05d}"
-    alert_enabled = _filter_bool(alert, "alert")
     consent_at = datetime.utcnow().isoformat() if alert_enabled else ""
     rec = {"search_id": sid, "tsap_id": tsap_id, "name": name, "filters": norm, "alert": alert_enabled,
            "alert_consent_at": consent_at, "created_at": datetime.utcnow().isoformat(),
            "last_alert_at": "", "alerts_sent": 0,
            "last_seen_ids": []}
+    if request_id:
+        rec.update(request_id=request_id, request_signature=signature)
     SAVED_SEARCHES.append(rec)
     if not save_saved_searches():
         SAVED_SEARCHES.remove(rec)
