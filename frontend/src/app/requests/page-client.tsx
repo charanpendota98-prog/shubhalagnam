@@ -204,6 +204,8 @@ export default function RequestsPage() {
         ? te ? "ℹ️ తిరస్కరించబడింది" : "ℹ️ Declined"
         : s === "expired"
         ? te ? "⏳ గడువు ముగిసింది" : "⏳ Expired"
+        : s === "withdrawn"
+        ? te ? "↩️ రద్దు చేయబడింది" : "↩️ Withdrawn"
         : s.toUpperCase();
     return <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${cls}`}>{label}</span>;
   };
@@ -398,7 +400,7 @@ export default function RequestsPage() {
                       {te ? "సంప్రదింపు" : "Contact"}
                     </div>
                     <div className={`text-[13px] font-bold ${it.status === "accepted" ? "text-emerald-700" : "text-gray-400"}`}>
-                      {it.contact || (it.status === "accepted" ? "—" : te ? "ఆమోదం తర్వాత" : "After acceptance")}
+                      {it.status === "accepted" ? (it.contact || "—") : te ? "ఆమోదం తర్వాత" : "After acceptance"}
                     </div>
                   </div>
                   <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
