@@ -26,6 +26,7 @@ export default function Phase2MemberWorkspace({
 
   // Devices & Sessions + Elder Review Links + Appointments
   const [sessionInfo, setSessionInfo] = useState<any>(null);
+  const [sessionsRevoked, setSessionsRevoked] = useState(false);
   const [deviceLabel, setDeviceLabel] = useState("My Browser");
   const [links, setLinks] = useState<any[]>([]);
   const [linkLabel, setLinkLabel] = useState("Family Elder Review");
@@ -80,6 +81,27 @@ export default function Phase2MemberWorkspace({
   useEffect(() => {
     void loadData();
   }, [loadData]);
+
+  if (sessionsRevoked) {
+    return (
+      <section className="mv-surface mv-surface__body space-y-3" aria-live="polite">
+        <div>
+          <h2 className="text-base font-extrabold text-[#7A0C2E]">
+            🔐 {te ? "పరికరాలు & సెషన్ భద్రత" : "Active Devices & Session Security"}
+          </h2>
+          <p className="text-xs text-slate-600">
+            {te
+              ? `టోకెన్ వెర్షన్: v${sessionInfo?.token_version ?? 0} • HttpOnly కుకీ: యాక్టివ్ కాదు`
+              : `Token version: v${sessionInfo?.token_version ?? 0} • HttpOnly cookie session: Not active`}
+          </p>
+        </div>
+        <p className="text-sm text-emerald-800">{toast}</p>
+        <Link href="/login" className="inline-flex min-h-11 items-center rounded-xl bg-[#7A0C2E] px-4 py-2 text-sm font-bold text-white">
+          {te ? "మళ్లీ లాగిన్ అవ్వండి" : "Sign in again"}
+        </Link>
+      </section>
+    );
+  }
 
   const saveAlertPrefs = async (nextEnabled: boolean) => {
     setBusy(true);
@@ -155,14 +177,26 @@ export default function Phase2MemberWorkspace({
         headers: authHeaders(),
         credentials: "same-origin",
       });
+      const d = await readApiJson(r);
       if (r.ok) {
+        setSessionInfo((previous: any) => ({
+          ...(previous || {}),
+          token_version: typeof d?.new_token_version === "number" ? d.new_token_version : previous?.token_version,
+          cookie_session_active: false,
+          sessions: (previous?.sessions || []).map((session: any) => ({ ...session, status: "revoked" })),
+        }));
         try {
           localStorage.removeItem("tsap_token");
         } catch {
           /* ignore */
         }
+        setSessionsRevoked(true);
         setToast(te ? "✅ అన్ని పరికరాల సెషన్లు రద్దు చేయబడ్డాయి. మళ్లీ లాగిన్ అవ్వండి." : "✅ All device tokens revoked. Please sign in again.");
+      } else {
+        setToast(te ? "సెషన్లు రద్దు కాలేదు. మళ్లీ ప్రయత్నించండి." : "Sessions were not revoked. Please retry.");
       }
+    } catch {
+      setToast(te ? "సెషన్లు రద్దు అయ్యాయో నిర్ధారించలేకపోయాం. మళ్లీ ప్రయత్నించండి." : "Could not confirm session revocation. Please retry.");
     } finally {
       setBusy(false);
     }
