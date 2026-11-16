@@ -12,7 +12,7 @@ import { apiFetch, apiPost, getAdminKey, setAdminKey } from "@/lib/api";
 import ProtectedImage from "@/components/ProtectedImage";
 
 type Item = {
-  kind: string; tsap_id: string; name: string; url: string;
+  kind: string; revision: string; tsap_id: string; name: string; url: string;
   checks: Record<string, string | number>; at: string;
 };
 
@@ -62,10 +62,11 @@ export default function AdminPhotosPage() {
     setBusy(it.tsap_id + it.kind);
     const r = REJECT_REASONS[reasonIdx[it.tsap_id + it.kind] || 0];
     const { ok, status: code, errorTelugu } = await apiPost("/api/admin/photos/review", {
-      tsap_id: it.tsap_id, kind: it.kind, decision,
+      tsap_id: it.tsap_id, kind: it.kind, revision: it.revision, decision,
       reason: r.en, reason_te: r.te,
     }, true);
     setBusy("");
+    if (!ok && code === 409) { await load(); setMsg(te ? "ఫోటో మారింది లేదా ఇప్పటికే సమీక్షించారు. తాజా ఫోటోను చూసి మళ్లీ నిర్ణయించండి." : "The photo changed or was already reviewed. Check the refreshed image before deciding."); return; }
     if (!ok) { setMsg(errorTelugu); if (code === 401 || code === 403) { sequence.current++; setItems([]); setStatus("auth"); } return; }
     setItems((xs) => xs.filter((x) => !(x.tsap_id === it.tsap_id && x.kind === it.kind)));
   };

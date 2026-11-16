@@ -158,6 +158,8 @@ export default function MatchesPage() {
   };
 
   const [filters, setFilters] = useState<Row>(DEFAULT_FILTERS);
+  const [ageAdjusted, setAgeAdjusted] = useState(false);
+  const [heightAdjusted, setHeightAdjusted] = useState(false);
   const [sort, setSort] = useState<string>("new");
   const [rows, setRows] = useState<Row[]>([]);
   const [total, setTotal] = useState<number>(0);
@@ -357,7 +359,32 @@ export default function MatchesPage() {
     });
   };
 
+  const setAgeRange = (key: "age_min" | "age_max", value: number) => {
+    const min = key === "age_min" ? value : Number(filters.age_min);
+    const max = key === "age_max" ? value : Number(filters.age_max);
+    const adjusted = min > max;
+    setAgeAdjusted(adjusted);
+    setFilters((prev) => ({ ...prev, [key]: value, ...(adjusted ? { [key === "age_min" ? "age_max" : "age_min"]: value } : {}) }));
+  };
+
+  const ageControls = <div className="space-y-2">
+    <div className="grid grid-cols-2 gap-2">
+      {(["age_min", "age_max"] as const).map((key) => <label key={key} className="block min-w-0 space-y-1 text-xs font-bold text-slate-800">
+        <span>{key === "age_min" ? (te ? "కనిష్ఠ వయస్సు" : "Minimum age") : (te ? "గరిష్ఠ వయస్సు" : "Maximum age")}</span>
+        <select value={filters[key]} onChange={(e) => setAgeRange(key, Number(e.target.value))} className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-2 text-sm">
+          {Array.from({ length: 43 }, (_, i) => i + 18).map((age) => <option key={age} value={age}>{age}</option>)}
+        </select>
+      </label>)}
+    </div>
+    {ageAdjusted && <p role="status" className="text-xs leading-relaxed text-amber-900">{te ? "కనిష్ఠ వయస్సు గరిష్ఠ వయస్సును మించకూడదు. రెండు పరిమితులను సమానంగా మార్చాం." : "Minimum age cannot exceed maximum age. Both limits have been set to the selected age."}</p>}
+  </div>;
+
   const setRangeFilter = (key: "salary_min" | "salary_max" | "height_min" | "height_max", value: number | string) => {
+    if (key === "height_min" || key === "height_max") {
+      const minIndex = HEIGHTS.indexOf(String(key === "height_min" ? value : filters.height_min || ""));
+      const maxIndex = HEIGHTS.indexOf(String(key === "height_max" ? value : filters.height_max || ""));
+      setHeightAdjusted(minIndex >= 0 && maxIndex >= 0 && minIndex > maxIndex);
+    }
     setFilters((prev) => {
       const next = { ...prev, [key]: value };
       if (key === "salary_min" || key === "salary_max") {
@@ -740,6 +767,8 @@ export default function MatchesPage() {
   }, [fetchMatches]);
 
   const clearAllFilters = () => {
+    setAgeAdjusted(false);
+    setHeightAdjusted(false);
     setFilters(DEFAULT_FILTERS);
   };
 
@@ -1345,7 +1374,7 @@ export default function MatchesPage() {
       <div className="max-w-7xl mx-auto px-4 py-4 sm:py-6">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
           {/* ================= DESKTOP FILTER SIDEBAR (4 cols) ================= */}
-          <div className="mv-surface mv-surface__body sticky top-20 hidden max-h-[calc(100vh-100px)] space-y-4 overflow-y-auto scrollbar-thin lg:col-span-4 lg:block">
+          <div style={{ overflowY: "auto" }} className="mv-surface mv-surface__body sticky top-20 hidden max-h-[calc(100vh-100px)] space-y-4 overflow-y-auto scrollbar-thin lg:col-span-4 lg:block">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="font-black text-sm text-slate-900 flex items-center gap-1.5">
                 <span>🌪️</span>
@@ -1631,6 +1660,7 @@ export default function MatchesPage() {
                     {HEIGHTS.map((height) => <option key={height} value={height}>{heightLabel(height)}</option>)}
                   </select>
                 </label>
+                {heightAdjusted && <p role="status" className="text-xs leading-relaxed text-amber-900 col-span-2">{te ? "కనిష్ఠ ఎత్తు గరిష్ఠ ఎత్తును మించకూడదు. రెండు పరిమితులను సమానంగా మార్చాం." : "Minimum height cannot exceed maximum height. Both limits have been set to the selected height."}</p>}
               </div>
             </div>
 
@@ -1671,24 +1701,7 @@ export default function MatchesPage() {
                   {filters.age_min} - {filters.age_max} yrs
                 </span>
               </div>
-              <div className="flex items-center gap-2">
-                <input aria-label={te ? "కనిష్ఠ వయస్సు" : "Minimum age"}
-                  type="range"
-                  min="18"
-                  max="60"
-                  value={filters.age_min}
-                  onChange={(e) => setF("age_min", Math.min(Number(e.target.value), filters.age_max))}
-                  className="flex-1 accent-[#7A0C2E]"
-                />
-                <input aria-label={te ? "గరిష్ఠ వయస్సు" : "Maximum age"}
-                  type="range"
-                  min="18"
-                  max="60"
-                  value={filters.age_max}
-                  onChange={(e) => setF("age_max", Math.max(Number(e.target.value), filters.age_min))}
-                  className="flex-1 accent-[#7A0C2E]"
-                />
-              </div>
+              {ageControls}
             </div>
 
             {/* Ecosystem 3.0 Facets: Mother Tongue, Country/NRI, City, Verification Badge */}
@@ -2203,24 +2216,32 @@ export default function MatchesPage() {
                         {filters.age_min} - {filters.age_max} yrs
                       </span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <input aria-label={te ? "కనిష్ఠ వయస్సు" : "Minimum age"}
-                        type="range"
-                        min="18"
-                        max="60"
-                        value={filters.age_min}
-                        onChange={(e) => setF("age_min", Number(e.target.value))}
-                        className="flex-1 accent-[#7A0C2E]"
-                      />
-                      <input aria-label={te ? "గరిష్ఠ వయస్సు" : "Maximum age"}
-                        type="range"
-                        min="18"
-                        max="60"
-                        value={filters.age_max}
-                        onChange={(e) => setF("age_max", Number(e.target.value))}
-                        className="flex-1 accent-[#7A0C2E]"
-                      />
-                    </div>
+                    {ageControls}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 border-t border-slate-100 pt-3">
+                    <label className="block space-y-1 text-xs font-bold text-slate-800">
+                      <span>{te ? "కనీస ఎత్తు" : "Minimum height"}</span>
+                      <select
+                        value={filters.height_min || ""}
+                        onChange={(e) => setRangeFilter("height_min", e.target.value)}
+                        className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium"
+                      >
+                        <option value="">{te ? "పరిమితి లేదు" : "No minimum"}</option>
+                        {HEIGHTS.map((height) => <option key={height} value={height}>{heightLabel(height)}</option>)}
+                      </select>
+                    </label>
+                    <label className="block space-y-1 text-xs font-bold text-slate-800">
+                      <span>{te ? "గరిష్ఠ ఎత్తు" : "Maximum height"}</span>
+                      <select
+                        value={filters.height_max || ""}
+                        onChange={(e) => setRangeFilter("height_max", e.target.value)}
+                        className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium"
+                      >
+                        <option value="">{te ? "పరిమితి లేదు" : "No maximum"}</option>
+                        {HEIGHTS.map((height) => <option key={height} value={height}>{heightLabel(height)}</option>)}
+                      </select>
+                    </label>
+                    {heightAdjusted && <p role="status" className="text-xs leading-relaxed text-amber-900 sm:col-span-2">{te ? "కనిష్ఠ ఎత్తు గరిష్ఠ ఎత్తును మించకూడదు. రెండు పరిమితులను సమానంగా మార్చాం." : "Minimum height cannot exceed maximum height. Both limits have been set to the selected height."}</p>}
+                  </div>
                   </div>
                 </div>
               )}
@@ -2356,6 +2377,7 @@ export default function MatchesPage() {
                       })}
                     </div>
                   </div>
+
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 border-t border-slate-100 pt-3">
                     <label className="block space-y-1 text-xs font-bold text-slate-800">
                       <span>{te ? "కనీస వార్షిక ఆదాయం" : "Minimum annual income"}</span>
@@ -2382,30 +2404,6 @@ export default function MatchesPage() {
                         {SALARY_CEILING_FILTERS.map((option) => (
                           <option key={option.value} value={option.value}>{te ? option.te : option.en}</option>
                         ))}
-                      </select>
-                    </label>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 border-t border-slate-100 pt-3">
-                    <label className="block space-y-1 text-xs font-bold text-slate-800">
-                      <span>{te ? "కనీస ఎత్తు" : "Minimum height"}</span>
-                      <select
-                        value={filters.height_min || ""}
-                        onChange={(e) => setRangeFilter("height_min", e.target.value)}
-                        className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium"
-                      >
-                        <option value="">{te ? "పరిమితి లేదు" : "No minimum"}</option>
-                        {HEIGHTS.map((height) => <option key={height} value={height}>{heightLabel(height)}</option>)}
-                      </select>
-                    </label>
-                    <label className="block space-y-1 text-xs font-bold text-slate-800">
-                      <span>{te ? "గరిష్ఠ ఎత్తు" : "Maximum height"}</span>
-                      <select
-                        value={filters.height_max || ""}
-                        onChange={(e) => setRangeFilter("height_max", e.target.value)}
-                        className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium"
-                      >
-                        <option value="">{te ? "పరిమితి లేదు" : "No maximum"}</option>
-                        {HEIGHTS.map((height) => <option key={height} value={height}>{heightLabel(height)}</option>)}
                       </select>
                     </label>
                   </div>

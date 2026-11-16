@@ -1300,7 +1300,7 @@ export default function Dashboard() {
   ];
   const ownerTabs = [
     { k: "matchmaker" as const, label: tr("⚡ స్మార్ట్ మ్యాచ్ మేకర్", "⚡ Smart Matchmaker") },
-    { k: "directory" as const, label: `📇 డైరెక్టరీ & కాంటాక్ట్స్ (${t.profiles})` },
+    { k: "directory" as const, label: `${tr("📇 డైరెక్టరీ & కాంటాక్ట్స్", "📇 Directory & contacts")} (${t.profiles})` },
     { k: "overview" as const, label: L.tabOverview },
     { k: "workerOps" as const, label: tr("🛠️ వర్కర్ ఆపరేషన్స్", "🛠️ Worker operations") },
     { k: "queue" as const, label: `${L.tabQueue} (${t.pending})` },

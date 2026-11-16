@@ -1,7 +1,7 @@
 import {test,expect,type Page} from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';import fs from 'node:fs';
 const out='artifacts/fresh-user-bugs';fs.mkdirSync(out,{recursive:true});
-const item={kind:'photo',tsap_id:'ISOLATED-ONLY',name:'Synthetic',url:'/api/admin/photos/ISOLATED-ONLY/content?kind=photo',checks:{},at:''};
+const item={revision:'synthetic-A',kind:'photo',tsap_id:'ISOLATED-ONLY',name:'Synthetic',url:'/api/admin/photos/ISOLATED-ONLY/content?kind=photo',checks:{},at:''};
 async function fixture(page:Page,lang='en') {let code=200,queue:any[]=[item],calls=0,writes=0;await page.addInitScript(l=>localStorage.setItem('tsap_lang',l),lang);await page.route('**/api/**',async r=>{const p=new URL(r.request().url()).pathname;if(r.request().method()!=='GET')writes++;
  if(p==='/api/admin/photos/pending'){calls++;return r.fulfill({status:code,json:code===200?{success:true,queue,count:queue?.length}:{detail:'Isolated test unavailable'}});}
  if(p.endsWith('/content'))return r.fulfill({contentType:'image/svg+xml',body:'<svg xmlns="http://www.w3.org/2000/svg" width="100" height="140"><rect width="100" height="140" fill="#d8ccb8"/></svg>'});
