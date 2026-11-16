@@ -8,7 +8,7 @@
  * invites. Numbers that have not been earned are never drawn as money, and
  * every panel says what it can and cannot prove.
  */
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLang } from "@/lib/lang";
 import { apiGet, apiPost } from "@/lib/api";
 
@@ -105,6 +105,8 @@ export default function ReferralPro({ tsapId }: { tsapId: string }) {
   const [insights, setInsights] = useState<Insights | null>(null);
   const [invites, setInvites] = useState<Invite[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<"" | "auth" | "unavailable">("");
+  const requestVersion = useRef(0);
 
   const [filter, setFilter] = useState<"all" | "commission" | "payout" | "reversal">("all");
 
@@ -115,22 +117,33 @@ export default function ReferralPro({ tsapId }: { tsapId: string }) {
 
   const load = useCallback(async () => {
     if (!tsapId) return;
+    const version = ++requestVersion.current;
     setLoading(true);
+    setLoadError("");
     const [w, e, i, inv] = await Promise.all([
       apiGet<Statement>(`/api/referral/${encodeURIComponent(tsapId)}/wallet?limit=200`),
       apiGet<Earnings>(`/api/referral/${encodeURIComponent(tsapId)}/earnings`),
       apiGet<Insights>(`/api/referral/${encodeURIComponent(tsapId)}/insights`),
       apiGet<{ invites?: Invite[] }>(`/api/referral/${encodeURIComponent(tsapId)}/invites?limit=100`),
     ]);
-    if (w.ok && w.data) setStatement(w.data);
-    if (e.ok && e.data) setEarnings(e.data);
-    if (i.ok && i.data) setInsights(i.data);
-    if (inv.ok && inv.data) setInvites(inv.data.invites || []);
+    if (version !== requestVersion.current) return;
+    const results = [w, e, i, inv];
+    if (results.some(result => !result.ok || !result.data)) {
+      // Never present a failed private read as a zero wallet or an empty ledger.
+      // Clearing the full snapshot also prevents mixed-account or stale panels.
+      setStatement(null); setEarnings(null); setInsights(null); setInvites([]);
+      setNotice(null); setForm({ name: "", phone: "", channel: "whatsapp" });
+      setLoadError(results.some(result => result.status === 401 || result.status === 403) ? "auth" : "unavailable");
+    } else {
+      setStatement(w.data!); setEarnings(e.data!); setInsights(i.data!);
+      setInvites(inv.data!.invites || []);
+    }
     setLoading(false);
   }, [tsapId]);
 
   useEffect(() => {
     void load();
+    return () => { requestVersion.current += 1; };
   }, [load]);
 
   const entries = useMemo(() => {
@@ -142,6 +155,7 @@ export default function ReferralPro({ tsapId }: { tsapId: string }) {
   }, [statement, filter]);
 
   async function createInvite() {
+    if (loading || loadError) return;
     if (!form.name.trim()) {
       setNotice({ ok: false, text: te ? "ముందు పేరు ఇవ్వండి" : "Enter the name first" });
       return;
@@ -183,11 +197,22 @@ export default function ReferralPro({ tsapId }: { tsapId: string }) {
 
   if (!tsapId) return null;
 
+  if (loading || loadError) return <div className={CARD} aria-busy={loading}>
+    <p role={loadError ? "alert" : "status"} className="text-sm font-semibold text-[#7A0C2E]">{loading
+      ? (te ? "Referral వివరాలు లోడ్ అవుతున్నాయి…" : "Loading advanced referral details…")
+      : loadError === "auth"
+        ? (te ? "మీ private వివరాల కోసం మళ్లీ login చేయండి." : "Please sign in again to see your advanced referral details.")
+        : (te ? "మీ advanced referral వివరాలు లోడ్ కాలేదు." : "Your advanced referral details did not load.")}</p>
+    {!loading && <button type="button" onClick={() => void load()} className={`${BTN} mt-3 border border-gold/40 text-[#7A0C2E]`} aria-label="Retry advanced details">{te ? "మళ్లీ ప్రయత్నించండి" : "Retry advanced details"}</button>}
+    {!loading && loadError === "auth" && <a className={`${BTN} mt-3 ml-2 text-[#7A0C2E] underline`} href="/login">{te ? "Login" : "Sign in"}</a>}
+  </div>;
+
   const totals = statement?.totals;
   const identity = statement?.identity;
 
   return (
     <div className="space-y-3">
+      <button type="button" onClick={() => void load()} className={`${BTN} border border-gold/40 text-[#7A0C2E]`} aria-label="Refresh advanced details">{te ? "Refresh వివరాలు" : "Refresh advanced details"}</button>
       <div className="flex flex-wrap gap-2 pb-1" role="group" aria-label={te ? "వాలెట్ మరియు పంపే విభాగాలు" : "Wallet and sending sections"}>
         {([
           { id: "wallet", label: te ? "💰 వాలెట్ స్టేట్‌మెంట్" : "💰 Wallet statement" },
