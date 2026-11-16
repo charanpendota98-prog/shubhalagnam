@@ -7403,15 +7403,21 @@ def toggle_save(payload: dict, request: Request = None):
         raise HTTPException(403, "🚫 Blocked profile ని shortlist cheyyaleeru")
     existing = next((x for x in DB_SAVES if x["tsap_id"] == tsap_id and x["saved_id"] == saved_id), None)
     if existing:
+        previous_index = DB_SAVES.index(existing)
         DB_SAVES.remove(existing)
         # 🧊 WAVE 41: the shortlist used to live only in memory, so every entry
         # disappeared on restart. Persist both directions like the payment state.
-        _persist_core_state()
+        if not _persist_core_state():
+            DB_SAVES.insert(previous_index, existing)
+            raise HTTPException(503, "Shortlist could not be updated safely. Please try again.")
         return {"success": True, "saved": False, "message_telugu": "Shortlist నుంచి teesesaaru",
                 "total_saved": len([x for x in DB_SAVES if x["tsap_id"] == tsap_id])}
-    DB_SAVES.append({"tsap_id": tsap_id, "saved_id": saved_id, "at": datetime.utcnow().isoformat(),
-                     "note": "", "note_at": ""})
-    _persist_core_state()
+    record = {"tsap_id": tsap_id, "saved_id": saved_id, "at": datetime.utcnow().isoformat(),
+              "note": "", "note_at": ""}
+    DB_SAVES.append(record)
+    if not _persist_core_state():
+        DB_SAVES.remove(record)
+        raise HTTPException(503, "Shortlist could not be updated safely. Please try again.")
     return {"success": True, "saved": True, "message_telugu": "❤️ Shortlist లో save అయ్యింది",
             "total_saved": len([x for x in DB_SAVES if x["tsap_id"] == tsap_id])}
 
@@ -7453,9 +7459,17 @@ def saved_note_set(tsap_id: str, saved_id: str, payload: dict = Body(default={})
         raise HTTPException(404, "Shortlist లో ఈ profile లేదు")
     raw = payload.get("note") if isinstance(payload, dict) else ""
     note = clean(raw if isinstance(raw, str) else "", SHORTLIST_NOTE_MAX, "note")
+    missing = object()
+    previous = {key: record.get(key, missing) for key in ("note", "note_at")}
     record["note"] = note
     record["note_at"] = datetime.utcnow().isoformat()
-    _persist_core_state()
+    if not _persist_core_state():
+        for key, value in previous.items():
+            if value is missing:
+                record.pop(key, None)
+            else:
+                record[key] = value
+        raise HTTPException(503, "Shortlist note could not be saved safely. Please try again.")
     return {"success": True, "saved_id": saved_id, "note": note, "note_at": record["note_at"],
             "message_telugu": "నోట్ save అయ్యింది" if note else "నోట్ తీసివేశారు"}
 
