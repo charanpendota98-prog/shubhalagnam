@@ -24,7 +24,7 @@ type Gender = "Bride" | "Groom" | "";
 type Region = "" | "TS" | "AP" | "NRI";
 
 const AGE_RANGES = [
-  { value: "all", min: 18, max: 60, en: "Any adult age", te: "అన్ని వయస్సులు" },
+  { value: "all", min: 18, max: 60, en: "Any adult age", te: "వయోజనుల అన్ని వయస్సులు" },
   { value: "18-24", min: 18, max: 24, en: "18–24 years", te: "18–24 సంవత్సరాలు" },
   { value: "25-29", min: 25, max: 29, en: "25–29 years", te: "25–29 సంవత్సరాలు" },
   { value: "30-34", min: 30, max: 34, en: "30–34 years", te: "30–34 సంవత్సరాలు" },
@@ -171,7 +171,7 @@ export default function HomeMatchSearch() {
         <ShieldCheck size={15} className="mt-0.5 shrink-0 text-emerald-700" aria-hidden="true" />
         <p className={`text-[11px] leading-relaxed text-slate-600 ${te ? "telugu" : ""}`}>
           {te
-            ? "Contact వివరాలు profile owner accept చేసిన తర్వాతే మీ account లో కనిపిస్తాయి. సభ్యులు అందించిన వివరాలను స్వయంగా నిర్ధారించుకోండి."
+            ? "ప్రొఫైల్ సభ్యుడు అంగీకరించిన తర్వాతే సంప్రదింపు వివరాలు మీ ఖాతాలో కనిపిస్తాయి. సభ్యులు అందించిన వివరాలను స్వయంగా నిర్ధారించుకోండి."
             : "Contact details appear in your account only after the profile owner accepts. Profile details are member-submitted — verify them yourself."}{" "}
           <Link href="/safety" className="font-semibold text-[#7A0C2E] underline decoration-[#C58A9D] underline-offset-2 hover:text-[#5C0822]">
             {te ? "భద్రత" : "Safety"}

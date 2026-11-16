@@ -3751,3 +3751,23 @@ html[data-lang="te"] .wedding-editorial-theme .route-frame[data-route="channels"
 .wedding-editorial-theme .route-frame[data-route="channels"] .maroon-gradient.rounded-\[1\.5rem\]{padding:22px 18px;}
 .wedding-editorial-theme .wedding-editorial__photo-label{bottom:30px;}
 }
+
+/* Phone composition: lead with usable search, keep decoration after the task. */
+@media(max-width:767px){
+ .wedding-editorial{padding:0 16px 24px;background:#24171d;}
+ .wedding-editorial__intro{order:1;padding:24px 0 18px;}
+ .wedding-editorial__edition,.wedding-editorial__intro>.wedding-eyebrow,.wedding-editorial__lead,.wedding-editorial__principles,.wedding-editorial__terms{display:none;}
+ .wedding-editorial h1{font-size:34px;line-height:1.15;margin:0 0 14px;}
+ html[data-lang="te"] .wedding-editorial h1{font-size:27px;line-height:1.5;margin:0 0 12px;}
+ .wedding-editorial__actions{margin:0;gap:12px;}
+ .wedding-editorial__actions>.wedding-text-link{display:none;}
+ .wedding-editorial .wedding-primary{min-height:44px;padding:10px 14px;font-size:12px;}
+ .wedding-editorial__search{order:2;width:100%;padding:18px 15px;margin:0;gap:5px;}
+ .wedding-editorial__search-number{display:none;}
+ .wedding-editorial__search>div>p{font-size:20px;line-height:1.4;margin-top:2px;}
+ .wedding-editorial__search form{margin-top:9px;gap:11px;}
+ .wedding-editorial__search form>div{margin:0;}
+ .wedding-editorial__photo{order:3;height:260px;margin:20px -16px -24px;}
+ .wedding-editorial__photo:after{background:linear-gradient(180deg,#24171d70,transparent 30%,#24171d80);}
+ .wedding-editorial__photo-label{bottom:24px;}
+}
