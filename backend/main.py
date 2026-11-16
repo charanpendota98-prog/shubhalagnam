@@ -2358,6 +2358,9 @@ async def _startup_publisher():
             db_state["file"]))
         PRODUCTION_GATES.validate_operator_config(os.environ, auth_enforced(), CONTROL_AUTH._accounts())
 
+    # Restore private saved searches before serving member requests.
+    load_saved_searches()
+
     ok = start_worker()
     st = publish_status()
     start_wa_worker()

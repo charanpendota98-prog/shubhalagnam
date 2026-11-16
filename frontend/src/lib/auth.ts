@@ -7,20 +7,28 @@
 import { useCallback, useEffect, useState } from "react";
 import { apiGet, apiPost, clearAuth, getToken, getTsapId, setToken } from "./api";
 
-export type Session = { tsapId: string; token: string; ready: boolean };
+export type Session = { tsapId: string; token: string; authenticated: boolean; ready: boolean };
 
 export function useSession(): Session {
   const [tsapId, setTsapId] = useState("");
   const [token, setTok] = useState("");
+  const [authenticated, setAuthenticated] = useState(false);
   const [ready, setReady] = useState(false);
   useEffect(() => {
-    try {
-      setTsapId(getTsapId());
-      setTok(getToken());
-    } catch { /* ignore */ }
-    setReady(true);
+    let active = true;
+    const legacyToken = getToken();
+    setTok(legacyToken);
+    apiGet<{ valid?: boolean; tsap_id?: string }>("/api/auth/verify").then(({ ok, data }) => {
+      if (!active) return;
+      const verifiedId = ok && data?.valid ? String(data.tsap_id || "") : "";
+      setTsapId(verifiedId);
+      setAuthenticated(Boolean(verifiedId));
+    }).catch(() => {
+      if (active) { setTsapId(""); setAuthenticated(false); }
+    }).finally(() => { if (active) setReady(true); });
+    return () => { active = false; };
   }, []);
-  return { tsapId, token, ready };
+  return { tsapId, token, authenticated, ready };
 }
 
 /** Mee ID ni save cheyyi (register/login tarvata) */
