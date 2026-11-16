@@ -11112,6 +11112,8 @@ def api_meta_religions():
 @app.get("/api/meta/castes")
 def api_meta_castes(religion: str = "Hindu"):
     info = MP.castes_for(religion)
+    if info.get("supported") is False:
+        return {"success": True, **info, "allow_custom": False, "is_exhaustive": False}
     return {"success": True, **info, "allow_custom": True, "is_exhaustive": False,
             "note": "Community labels are optional aids, not an official exhaustive classification. Self-described names are accepted.",
             "message_telugu": f"🙏 {info['religion']} — {len(info['castes'])} supported options (A–Z); custom names accepted"}
@@ -11121,6 +11123,9 @@ def api_meta_castes(religion: str = "Hindu"):
 def api_meta_subcastes(religion: str = "Hindu", caste: str = ""):
     """Parent-dependent subcommunity labels with an explicit self-description path."""
     info = MP.castes_for(religion)
+    if info.get("supported") is False:
+        return {"success": True, "religion": info["religion"], "caste": "", "subcastes": [],
+                "supported": False, "allow_custom": False, "is_exhaustive": False}
     selected = str(caste or "").strip()
     if selected and selected not in info["castes"] and selected != "Other / self-described":
         raise HTTPException(400, "Choose a community from the selected religion first")
