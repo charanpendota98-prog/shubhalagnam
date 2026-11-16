@@ -3832,3 +3832,12 @@ html[data-lang="te"] .wedding-editorial-theme .route-frame[data-route="channels"
   .brand-header .header-home img { width: 32px; height: 32px; }
   .brand-header .lang-toggle--compact { width: 96px; flex-basis: 96px; }
 }
+
+/* Give native sort labels their own row on narrow phones, without squeezing Filters. */
+.match-results-controls { flex-wrap: wrap; max-width: 100%; }
+.match-results-filter { flex-shrink: 0; white-space: nowrap; }
+.match-results-controls select { width: 16rem; max-width: 100%; flex-shrink: 0; }
+@media (max-width: 399px) {
+  .match-results-controls { width: 100%; }
+  .match-results-controls select { width: 100%; flex-basis: 100%; }
+}
