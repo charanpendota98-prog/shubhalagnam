@@ -3771,3 +3771,56 @@ html[data-lang="te"] .wedding-editorial-theme .route-frame[data-route="channels"
  .wedding-editorial__photo:after{background:linear-gradient(180deg,#24171d70,transparent 30%,#24171d80);}
  .wedding-editorial__photo-label{bottom:24px;}
 }
+
+/* Search-card preview: familiar labels, deliberate ranges, one primary action. */
+.wedding-editorial__search{border-radius:22px;border-color:#e0cfb6;padding:26px 30px;box-shadow:0 24px 64px #26121b1a;}
+.wedding-editorial__search-number,.wedding-editorial__search>div:not(.home-search-card__heading){display:none;}
+.wedding-editorial__search>.home-search-card{display:block;width:100%;max-width:none;padding:0;background:transparent;}
+.wedding-editorial__search>.home-search-card>div:first-child{display:flex;}
+.home-search-card__heading{display:flex;gap:12px;align-items:center;}
+.home-search-card__heading>span{display:grid;place-items:center;width:42px;height:42px;border:1px solid #d8c39f;border-radius:14px;background:#f5ecd9;color:#6d1631;flex-shrink:0;}
+.home-search-card__heading p{font-size:11px;color:#87653e;font-weight:600;line-height:1.4;margin:0;}
+.home-search-card__heading h2{font-size:23px;line-height:1.4;color:#482332;font-weight:750;margin:2px 0 0;}
+.wedding-editorial__search .home-search-card form{display:grid;grid-template-columns:1.1fr 1fr 1.2fr 1fr;gap:20px;margin:22px 0 0;align-items:end;}
+.home-search-card label,.home-search-card__label{display:block;min-width:0;font-size:12px;font-weight:650;color:#56434b;}
+.home-search-card select{display:block;width:100%;min-width:0;margin-top:7px;min-height:46px;border:1px solid #e2d7c9;border-radius:11px;background:#fff;color:#332a2d;padding:0 10px;font-size:14px;font-weight:550;}
+.home-search-card :is(select,button,a):focus-visible{outline:3px solid #a56a36;outline-offset:3px;}
+.home-search-card__who>div{display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:4px;background:#f0e7e6;border-radius:13px;margin-top:7px;}
+.home-search-card__who button{min-height:44px;border-radius:10px;color:#6d4e5a;font-size:13px;font-weight:700;}
+.home-search-card__who button[aria-pressed=true]{background:#6d1631;color:#fff;box-shadow:0 3px 7px #6d163124;}
+.home-search-card__range{min-width:0;border:0;padding:0;margin:0;}
+.home-search-card__range legend{font-size:12px;font-weight:700;color:#4c303b;margin-bottom:9px;}
+.home-search-card__range legend span{font-size:10px;font-weight:400;color:#8a737c;margin-left:5px;}
+.home-search-card__range>div{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.home-search-card__place>span{display:flex;align-items:center;gap:5px;}
+.wedding-editorial__search form>.home-search-card__submit{grid-column:1/-1;display:flex;gap:10px;align-items:center;justify-content:center;min-height:48px;margin:0;border-radius:12px;background:#6d1631;color:#fff;font-size:14px;font-weight:700;box-shadow:0 5px 15px #6d16311c;}
+.home-search-card__submit svg:last-child{margin-left:8px;}
+.home-search-card__adjusted{grid-column:1/-1;font-size:11px;color:#854018;line-height:1.5;}
+.home-search-card__safety{display:flex;align-items:flex-start;justify-content:center;gap:7px;margin:13px 0 0;color:#78646b;font-size:11px;line-height:1.6;}
+.home-search-card__safety svg{flex-shrink:0;margin-top:2px;color:#417563;}
+.home-search-card__safety a{text-decoration:underline;text-underline-offset:2px;color:#6d1631;}
+@media(max-width:767px){
+ .wedding-editorial__search{padding:18px 15px;border-radius:18px;}
+ .home-search-card__heading{gap:9px;}.home-search-card__heading h2{font-size:18px;}.home-search-card__heading p{font-size:10px;}
+ .home-search-card__heading>span{width:34px;height:36px;border-radius:10px;}
+ .wedding-editorial__search .home-search-card form{grid-template-columns:1fr;gap:12px;margin-top:14px;}
+ .home-search-card__range legend{display:none;}
+ .home-search-card select{min-height:44px;font-size:16px;padding:0 8px;margin-top:5px;}
+ .home-search-card__who>div{margin-top:5px;}.home-search-card__who button{min-height:44px;}
+ .home-search-card__safety{margin-top:11px;font-size:10px;line-height:1.6;}
+}
+
+/* Manual decorative gallery. No member imagery or autoplay. */
+.wedding-gallery__track{height:100%;width:100%;display:flex;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;scrollbar-width:none;overscroll-behavior-x:contain;}
+.wedding-gallery__track::-webkit-scrollbar{display:none;}
+.wedding-gallery__slide{flex:0 0 100%;height:100%;min-width:0;scroll-snap-align:start;scroll-snap-stop:always;}
+.wedding-gallery__slide img{width:100%;height:100%;min-height:670px;object-fit:cover;object-position:55% 50%;}
+.wedding-gallery__controls{position:absolute;z-index:3;bottom:27px;left:90px;right:28px;display:flex;align-items:end;justify-content:space-between;gap:12px;color:#fff3df;pointer-events:none;}
+.wedding-gallery__eyebrow{font-size:9px;font-weight:650;letter-spacing:.17em;}
+.wedding-gallery__controls p{font-family:Georgia,serif;font-size:25px;margin-top:8px;line-height:1.4;text-shadow:0 1px 5px #0005;}
+.wedding-gallery__nav{display:flex;align-items:center;gap:10px;pointer-events:auto;flex-shrink:0;}
+.wedding-gallery__nav button{display:grid;place-items:center;width:44px;height:44px;border:1px solid #f6e6cb99;background:#24171dcc;color:#fff6e5;border-radius:50%;}
+.wedding-gallery__nav button:disabled{opacity:.4;}
+.wedding-gallery__nav span{font-size:10px;letter-spacing:.05em;min-width:42px;text-align:center;}
+@media(max-width:1023px){.wedding-gallery__controls{left:60px;right:18px;flex-wrap:wrap;}.wedding-gallery__controls p{font-size:22px;}}
+@media(max-width:767px){.wedding-gallery{height:300px;}.wedding-gallery__slide img{min-height:0;}.wedding-gallery__controls{bottom:22px;left:20px;right:20px;}.wedding-gallery:after{background:linear-gradient(180deg,#24171d10,transparent 30%,#24171def);}.wedding-gallery__controls p{font-size:20px;}.wedding-gallery__nav{gap:7px;}}
