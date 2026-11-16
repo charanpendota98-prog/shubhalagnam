@@ -162,6 +162,7 @@ export default function MemberEcosystemHub({
 
   const downloadDataExport = async () => {
     setBusy(true);
+    setToast("");
     try {
       const r = await fetch(`/api/me/${encodeURIComponent(myId)}/data-export`, {
         headers: authHeaders(),
@@ -179,6 +180,8 @@ export default function MemberEcosystemHub({
       a.click();
       URL.revokeObjectURL(url);
       setToast(te ? "✅ మీ ఖాతా డేటా JSON డౌన్‌లోడ్ అయింది." : "✅ Your account data export (JSON) has downloaded.");
+    } catch {
+      setToast(te ? "డేటా డౌన్‌లోడ్ సాధ్యం కాలేదు. మళ్లీ ప్రయత్నించండి." : "Could not export account data. Please retry.");
     } finally {
       setBusy(false);
     }
