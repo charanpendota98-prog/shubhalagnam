@@ -183,6 +183,7 @@ export default function MatchesPage() {
   const [saveSearchDialogOpen, setSaveSearchDialogOpen] = useState(false);
   const [saveSearchName, setSaveSearchName] = useState("");
   const [savingSearch, setSavingSearch] = useState(false);
+  const saveSearchAttempt = useRef<{ signature: string; key: string } | null>(null);
   const [savedSearchNotice, setSavedSearchNotice] = useState<SavedSearchNotice | null>(null);
   const [confirmDeleteSearchId, setConfirmDeleteSearchId] = useState("");
   const [deletingSearchId, setDeletingSearchId] = useState("");
@@ -787,6 +788,7 @@ export default function MatchesPage() {
   const beginSaveSearch = () => {
     if (!sessionReady || !myTsapId || !sessionAuthenticated) return;
     setSavedSearchNotice(null);
+    saveSearchAttempt.current = null;
     setSaveSearchName(`${te ? "నా శోధన" : "My search"} ${savedSearches.length + 1}`);
     setSaveSearchDialogOpen(true);
   };
@@ -806,10 +808,14 @@ export default function MatchesPage() {
       return;
     }
 
+    const signature = JSON.stringify({ name, filters, owner: myTsapId });
+    if (saveSearchAttempt.current?.signature !== signature) {
+      saveSearchAttempt.current = { signature, key: crypto.randomUUID() };
+    }
     setSavingSearch(true);
     setSavedSearchNotice(null);
     try {
-      const { ok, data, needsLogin, errorTelugu } = await apiFetch<{ success?: boolean; search?: SavedSearchItem }>("/api/saved-searches", {
+      const { ok, data, status, needsLogin, errorTelugu } = await apiFetch<{ success?: boolean; search?: SavedSearchItem }>("/api/saved-searches", {
         method: "POST",
         retries: 0,
         body: {
@@ -817,8 +823,13 @@ export default function MatchesPage() {
           name,
           filters,
           alert: false,
+          request_id: saveSearchAttempt.current.key,
         },
       });
+      if (status === 0) {
+        setSavedSearchNotice({ tone: "error", text: te ? "Search సేవ్ అయ్యిందో నిర్ధారించలేకపోయాం. ఇదే పేరుతో, ఇదే filtersతో మళ్లీ ప్రయత్నించడం సురక్షితం." : "Could not confirm the search was saved. Retrying with the same name and filters is safe." });
+        return;
+      }
       if (!ok || !data?.success || !data.search?.search_id) {
         setSavedSearchNotice({
           tone: "error",

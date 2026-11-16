@@ -9485,11 +9485,12 @@ def saved_search_create(payload: dict = Body(default={}), request: Request = Non
     if alert_enabled and not req_bool(d.get("alert_consent_confirmed", False)):
         validation_error("alert_consent_confirmed", "⚠️ WhatsApp alerts కోసం స్పష్టమైన సమ్మతి అవసరం")
     try:
-        rec = save_search(tsap_id, d.get("name", ""), d.get("filters") or {}, alert=alert_enabled)
+        rec = save_search(tsap_id, d.get("name", ""), d.get("filters") or {}, alert=alert_enabled, request_id=d.get("request_id", ""))
     except RuntimeError as exc:
         if str(exc).startswith("persistence_failed"):
             raise HTTPException(503, "Saved search could not be saved safely. Please try again.")
         raise
+    alert_enabled = bool(rec.get("alert"))
     message_telugu = ("🔔 Search save అయ్యింది — మీరు alerts‌కు సమ్మతి ఇచ్చారు"
                       if alert_enabled else "🔒 Search మీ ఖాతాలో మాత్రమే save అయ్యింది; notifications ఆఫ్‌లో ఉన్నాయి")
     message_en = ("Search saved. Alerts were explicitly enabled."
