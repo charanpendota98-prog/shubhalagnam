@@ -103,6 +103,7 @@ def test_owner_can_save_and_read_a_private_note():
 
 def test_another_member_cannot_write_the_note():
     shortlist(VIEWER, TARGET)
+    before = next(entry for entry in saved_rows(VIEWER) if entry["profile"]["tsap_id"] == TARGET)["note"]
     response = client.post(
         f"/api/saved/{VIEWER}/{TARGET}/note",
         json={"note": "I should not be able to write this."},
@@ -111,7 +112,7 @@ def test_another_member_cannot_write_the_note():
     assert response.status_code in (401, 403)
     rows = saved_rows(VIEWER)
     row = next(entry for entry in rows if entry["profile"]["tsap_id"] == TARGET)
-    assert row["note"] == ""
+    assert row["note"] == before
 
 
 def test_a_note_cannot_be_written_without_a_token():
