@@ -59,6 +59,8 @@ EXCLUDED = {
     "official", "hindu", "bureau_network", "differently_abled",
     "doctors_teachers", "fraud_alerts", "govt_jobs", "second_marriage",
     "software_it", "success_stories",
+    "sikh_bride", "sikh_groom", "jain_bride", "jain_groom",
+    "buddhist_bride", "buddhist_groom", "other_religion_bride", "other_religion_groom",
 }
 
 
@@ -82,7 +84,7 @@ def has_telugu(text: str) -> bool:
 
 
 section("A. Public directory exclusions preserve the private operator registry")
-check("A1 exactly the requested 10 categories are excluded",
+check("A1 original private categories and unsupported religion listings are excluded",
       CC.PUBLIC_DIRECTORY_EXCLUDED_KEYS == EXCLUDED, sorted(CC.PUBLIC_DIRECTORY_EXCLUDED_KEYS))
 check("A2 excluded rows remain internal but are not public",
       all(key in CC.CHANNELS and not CC.is_public_channel(key) for key in EXCLUDED))
