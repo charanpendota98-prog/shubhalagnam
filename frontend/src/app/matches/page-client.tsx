@@ -1786,11 +1786,11 @@ export default function MatchesPage() {
                 </p>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="match-results-controls flex items-center gap-2">
                 {/* Mobile Filter Trigger Button */}
                 <button type="button"
                   onClick={() => setSheet(true)}
-                  className="lg:hidden flex min-h-11 items-center gap-1.5 rounded-xl maroon-gradient px-3.5 py-2 text-xs font-bold text-white shadow-sm"
+                  className="match-results-filter lg:hidden flex min-h-11 items-center gap-1.5 rounded-xl maroon-gradient px-3.5 py-2 text-xs font-bold text-white shadow-sm"
                 >
                   <span>🌪️ {te ? "ఫిల్టర్లు" : "Filters"}</span>
                   {activeChips.length > 0 && <span className="bg-gold text-maroon px-1.5 rounded-full text-[10px] font-black">{activeChips.length}</span>}
