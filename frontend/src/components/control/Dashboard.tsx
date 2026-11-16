@@ -2587,12 +2587,12 @@ export default function Dashboard() {
         {/* Profile Approval Queue Tab */}
         {tab === "queue" && (
           <div className="space-y-4">
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               {(owner ? (["pending", "approved", "rejected", "all"] as const) : (["pending"] as const)).map((s) => (
                 <button type="button"
                   key={s}
                   onClick={() => {setQStatus(s);setQPage(1);}}
-                  className={`px-4 py-1.5 rounded-full text-xs font-bold capitalize transition ${
+                  className={`min-h-11 shrink-0 whitespace-nowrap px-4 py-1.5 rounded-full text-xs font-bold capitalize transition ${
                     qStatus === s ? "maroon-gradient text-white shadow-xs" : "bg-white border border-slate-200 text-slate-700"
                   }`}
                 >
@@ -2610,12 +2610,12 @@ export default function Dashboard() {
                 </div>
               ) : (
                 queue.map((q) => (
-                  <div key={q.tsap_id} className="bg-white rounded-2xl p-4 border border-gold/30 shadow-xs flex items-center justify-between gap-3">
-                    <div>
+                  <div key={q.tsap_id} className="bg-white rounded-2xl p-4 border border-gold/30 shadow-xs flex flex-col items-stretch justify-between gap-3 sm:flex-row sm:items-center">
+                    <div className="min-w-0 break-words">
                       <div className="font-extrabold text-sm text-navy">{q.full_name}</div>
                       <div className="text-xs text-slate-500 font-mono">{q.tsap_id} • {q.gender} • {q.district}</div>
                     </div>
-                    <div className="flex gap-1.5">
+                    <div className="flex shrink-0 flex-wrap gap-1.5">
                       {q.status === "pending" ? (
                         <>
                           <button
@@ -2623,7 +2623,7 @@ export default function Dashboard() {
                             onClick={() => profileAction(q.tsap_id, "approve")}
                             disabled={busyId === q.tsap_id}
                             aria-label={`${L.approve} ${q.full_name}`}
-                            className="px-3 py-1.5 rounded-xl bg-emerald-600 text-white font-bold text-xs shadow-xs disabled:opacity-50"
+                            className="min-h-11 whitespace-nowrap px-3 py-1.5 rounded-xl bg-emerald-600 text-white font-bold text-xs shadow-xs disabled:opacity-50"
                           >
                             ✓ {L.approve}
                           </button>
@@ -2632,7 +2632,7 @@ export default function Dashboard() {
                             onClick={() => profileAction(q.tsap_id, "reject")}
                             disabled={busyId === q.tsap_id}
                             aria-label={`${L.reject} ${q.full_name}`}
-                            className="px-3 py-1.5 rounded-xl bg-rose-600 text-white font-bold text-xs shadow-xs disabled:opacity-50"
+                            className="min-h-11 whitespace-nowrap px-3 py-1.5 rounded-xl bg-rose-600 text-white font-bold text-xs shadow-xs disabled:opacity-50"
                           >
                             ✕ {L.reject}
                           </button>
