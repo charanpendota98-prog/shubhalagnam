@@ -1062,17 +1062,29 @@ def control_report_resolve(report_id: str, payload: dict, request: Request):
         raise HTTPException(403, "Only an owner may permanently ban a profile")
     if not note:
         raise HTTPException(400, "A specific moderation note is required")
+    # Resolution can update a target and bulk-close its other reports. Keep
+    # original object identities so member indexes cannot retain a failed edit.
+    selected = next((report for report in DB_REPORTS if isinstance(report, dict)
+                     and str(report.get("id", "")) == str(report_id)), {})
+    target_id = str(selected.get("target_id", ""))
+    users_before = [(user, copy.deepcopy(user)) for user in DB_USERS
+                    if target_id and str(user.get("tsap_id", "")) == target_id]
+    reports_before = [(report, copy.deepcopy(report)) for report in DB_REPORTS
+                      if isinstance(report, dict) and (report is selected or
+                         (target_id and str(report.get("target_id", "")) == target_id
+                          and str(report.get("status", "")) == "open"))]
     ok, msg, rec = safety.resolve_report(report_id, action, note,
                                          reports=DB_REPORTS, users=DB_USERS)
     if not ok:
         raise HTTPException(400, msg)
+    if not _persist_core_state():
+        for current, before in users_before + reports_before:
+            if isinstance(current, dict):
+                current.clear()
+                current.update(before)
+        raise HTTPException(503, "Report resolution could not be saved safely. Please retry.")
     CONTROL_AUTH.audit("control_report_resolve", item["username"], request,
                        report_id=report_id, moderation_action=action, note=note)
-    try:
-        DBSTORE.save(DBSTORE.snapshot(DB_USERS, DB_INTERESTS, DB_PAYMENTS, DB_OTPS,
-                                      VERIFIED_PHONES, DB_VIEWS, DB_SAVES, DB_DIGEST, DB_REPORTS, DB_BLOCKS), force=True)
-    except Exception:
-        pass
     return {"success": True, "action": msg, "report": rec}
 
 
