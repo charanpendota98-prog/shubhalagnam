@@ -1371,7 +1371,6 @@ export default function Dashboard() {
               <Link
                 href="/admin/photos"
                 className="inline-flex min-h-10 items-center gap-1.5 rounded-xl border border-[#7A0C2E]/25 bg-rose-50 px-3 py-2 text-xs font-extrabold text-[#7A0C2E] hover:bg-rose-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7A0C2E] focus-visible:ring-offset-2"
-                aria-label={`${L.photoQueue} ${t.photos_pending} pending`}
               >
                 <span aria-hidden="true">📸</span>
                 <span>{L.photoQueue}</span>
