@@ -1,8 +1,8 @@
-import {test,expect} from '@playwright/test';import fs from 'node:fs';
+import {test,expect,type BrowserContext} from '@playwright/test';import fs from 'node:fs';
 test.use({serviceWorkers:'block'});
 test.skip(process.env.MANA_LOCAL_PACKAGE_ACCEPTANCE!=='1','Requires explicitly booted disposable local package; never run against live state.');
 test('extracted package uses real isolated auth, persistence and acceptance boundaries',async({browser})=>{
- test.setTimeout(90000);const contexts=[];const unexpected:string[]=[];
+ test.setTimeout(90000);const contexts:BrowserContext[]=[];const unexpected:string[]=[];
  async function member(phone:string){const c=await browser.newContext({viewport:{width:390,height:940},serviceWorkers:'block'});contexts.push(c);await c.addInitScript(()=>localStorage.setItem('tsap_lang','en'));await c.route('**/*',r=>new URL(r.request().url()).origin==='http://127.0.0.1:3194'?r.continue():(unexpected.push(new URL(r.request().url()).origin),r.abort()));const p=await c.newPage();await p.goto('/login');await p.locator('#login-phone').fill(phone);await p.locator('#login-pw').fill('fixture-password-only');await p.getByRole('button',{name:'🔑 Login',exact:true}).click();await expect(p).toHaveURL(/\/requests$/);return{c,p}}
  const groom=await member('9000000001');await groom.p.goto('/search/ISOLATED-BRIDE');await expect(groom.p.getByRole('heading',{name:'Isolated',exact:true})).toBeVisible();await expect(groom.p.locator('a[href="tel:9000000002"]')).toHaveCount(0);await groom.p.locator('#interest-note').fill('Isolated backend-connected acceptance');await groom.p.getByRole('button',{name:'💌 Send interest (FREE 3)',exact:true}).click();await expect.poll(async()=>{const r=await groom.c.request.get('http://127.0.0.1:3194/api/interest/sent/ISOLATED-GROOM');return (await r.json()).sent?.length}).toBe(1);
  const sent=await(await groom.c.request.get('http://127.0.0.1:3194/api/interest/sent/ISOLATED-GROOM')).json();expect(sent.sent[0].status).toBe('pending');expect(JSON.stringify(sent)).not.toContain('9000000002');

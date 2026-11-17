@@ -4,12 +4,13 @@ import "@/components/trust-workspace.css";
 /** 📄 TERMS OF USE — neat Telugu / clean English via toggle. */
 import Link from "next/link";
 import { SITE_CONFIG } from "@/lib/site-config";
+import { POLICY_SUPPORT_EMAIL } from "@/lib/policy-facts";
 // Legal copy avoids a hard-coded channel count: CHANNEL_STATS.total is auto-generated
 // with external_status_checked=false (live links unverified), so no number is stated
 // until the channel directory is verified live.
 import { useLang } from "@/lib/lang";
 
-const LAST_UPDATED = "14 Sep 2026";
+const LAST_UPDATED = "17 Nov 2026";
 
 export default function TermsPage() {
   const { lang } = useLang();
@@ -22,6 +23,8 @@ export default function TermsPage() {
       <div className="text-xs text-gray-500 mt-1">
         {te ? "Last updated" : "Last updated"}: {LAST_UPDATED} • {SITE_CONFIG.legalName} ({SITE_CONFIG.domain})
       </div>
+
+      <p data-testid="policy-payment-fact" className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm">{te ? "Paid checkout ప్రస్తుతం అందుబాటులో లేదు. డబ్బు పంపవద్దు. ఇప్పటికే ఉన్న refund/credit హక్కులు, response deadlines ఈ factual update వల్ల మారవు." : "Paid checkout is currently unavailable. Do not send money. Existing refund/credit rights and response deadlines are unchanged by this factual update."}</p>
 
       <Section title={te ? "1. ఈ service ఏంటి" : "1. What this service is"}>
         <ul>
@@ -90,16 +93,16 @@ export default function TermsPage() {
           {te ? (
             <>
               <li><b>అనవసర చాటింగ్ / DM ఫీచర్ ఉండదు</b> — స్పామ్ మరియు మోసాలను అరికట్టడానికి ఇరు కుటుంబాల సమ్మతి ఆధారిత విధానం మాత్రమే అమలులో ఉంటుంది.</li>
-              <li>మీరు పంపిన <b>ఇంట్రెస్ట్ రిక్వెస్ట్</b> — వారి వాట్సాప్‌కు మన అధికారిక సపోర్ట్ నంబర్ ద్వారా గౌరవప్రదంగా పంపబడుతుంది.</li>
-              <li>సంప్రదింపు నంబర్లు <b>ఇరువైపులా పరస్పర అంగీకారం తర్వాత మాత్రమే</b> మార్పిడి చేయబడతాయి. తిరస్కరించిన వారి వివరాలు ఎన్నడూ బహిర్గతం కావు.</li>
+              <li>మీ <b>Interest Request</b> account లో నమోదు అవుతుంది. Configured service ద్వారా external notification queue కావచ్చు; delivery లేదా message చదివారనే నిర్ధారణ కాదు.</li>
+              <li>Profile owner accept చేసిన తర్వాత accepted-request account views లో contact వివరాలు కనిపిస్తాయి. తిరస్కరించిన requests contact వివరాలు బహిర్గతం కావు.</li>
               <li>ఒక రిక్వెస్ట్ = ఒక క్రెడిట్. ఒకవేళ తిరస్కరించబడినా లేదా 7 రోజుల్లో స్పందన లేకపోయినా క్రెడిట్ 100% రీఫండ్ చేయబడుతుంది.</li>
               <li>రోజువారీ పరిమితులు మరియు డూప్లికేట్ ప్రొటెక్షన్ నిబంధనలు ఖచ్చితంగా అమలు చేయబడతాయి.</li>
             </>
           ) : (
             <>
               <li><b>No casual chatting / DM feature</b> — to eliminate spam and protect privacy, communication is strictly consent-driven between families.</li>
-              <li>Your <b>Interest Request</b> is respectfully delivered with your verified biodata card via our official verified WhatsApp channel.</li>
-              <li>Contact phone numbers are securely exchanged only <b>after mutual family acceptance</b>. Contact details of declined interests are never disclosed.</li>
+              <li>Your <b>Interest Request</b> is recorded in your account. An external notification may be queued through a configured service; delivery or reading is not confirmed.</li>
+              <li>Contact details appear in accepted-request account views after the profile owner accepts. Contact details of declined requests are not disclosed.</li>
               <li>One request = one credit. On decline or no-response within 7 days, your credit is 100% refunded to your balance.</li>
               <li>Daily limits and anti-spam duplicate request guards are strictly enforced.</li>
             </>
@@ -135,7 +138,7 @@ export default function TermsPage() {
             <>
               <li>Plans, add-ons, renewal prices — <Link href="/pricing" className="underline font-bold">/pricing</Link> page లో clear గా ఉన్నాయి.</li>
               <li>Free tier: మొదటి 3 requests FREE (card details అవసరం లేదు).</li>
-              <li><b>Auto-renewal లేదు</b>. Payment Razorpay/UPI secure gateway తో.</li>
+              <li><b>Auto-renewal లేదు</b>. Paid checkout ప్రస్తుతం అందుబాటులో లేదు. Verified checkout destination కనిపించే వరకు డబ్బు పంపవద్దు. Paid checkout ప్రారంభించే ముందు payment handling వివరాలను update చేస్తాం.</li>
               <li>Refund rules → <Link href="/refund" className="underline font-bold">/refund</Link> policy లో.</li>
               <li>Prices ఎప్పుడైనా మార్చొచ్చు — కానీ మీరు pay చేసిన plan features ఇవ్వకుండా ఉండం.</li>
             </>
@@ -143,7 +146,7 @@ export default function TermsPage() {
             <>
               <li>Plans, add-ons, renewal prices — clearly listed on the <Link href="/pricing" className="underline font-bold">/pricing</Link> page.</li>
               <li>Free tier: first 3 requests FREE (no card details needed).</li>
-              <li><b>No auto-renewal</b>. Payments via secure Razorpay/UPI gateway.</li>
+              <li><b>No auto-renewal</b>. Paid checkout is currently unavailable. Do not send money until a verified checkout destination is shown. Payment handling details will be updated before paid checkout is enabled.</li>
               <li>Refund rules → in the <Link href="/refund" className="underline font-bold">/refund</Link> policy.</li>
               <li>Prices may change anytime — but we never withhold features of a plan you paid for.</li>
             </>
@@ -197,81 +200,25 @@ export default function TermsPage() {
             <>
               <li>ఈ terms <b>Indian law</b> బట్టి, disputes కి <b>Hyderabad, Telangana</b> courts jurisdiction.</li>
               <li>Terms update అయితే ఈ page లో date మారుస్తాం — కొత్త features కి చిన్న additions జరుగుతాయి.</li>
-              <li>{SITE_CONFIG.supportEmail ? <>Dispute ఉంటే — ముందు <b>{SITE_CONFIG.supportEmail}</b> కి email చెయ్యండి (30 రోజుల్లో resolve చెయ్యడానికి try చేస్తాం).</> : <>Dispute ఉంటే — ముందు support channel ద్వారా చెప్పండి (30 రోజుల్లో resolve చెయ్యడానికి try చేస్తాం).</>}</li>
+              <li>{POLICY_SUPPORT_EMAIL ? <>Dispute ఉంటే — ముందు <b>{POLICY_SUPPORT_EMAIL}</b> కి email చెయ్యండి (30 రోజుల్లో resolve చెయ్యడానికి try చేస్తాం).</> : <>Dispute ఉంటే — ముందు support channel ద్వారా చెప్పండి (30 రోజుల్లో resolve చెయ్యడానికి try చేస్తాం).</>}</li>
             </>
           ) : (
             <>
               <li>These terms follow <b>Indian law</b>; disputes fall under <b>Hyderabad, Telangana</b> courts&apos; jurisdiction.</li>
               <li>When terms update, we change the date on this page — small additions come with new features.</li>
-              <li>{SITE_CONFIG.supportEmail ? <>If you have a dispute — first email <b>{SITE_CONFIG.supportEmail}</b> (we try to resolve within 30 days).</> : <>If you have a dispute — first reach us through the support channel (we try to resolve within 30 days).</>}</li>
+              <li>{POLICY_SUPPORT_EMAIL ? <>If you have a dispute — first email <b>{POLICY_SUPPORT_EMAIL}</b> (we try to resolve within 30 days).</> : <>If you have a dispute — first reach us through the support channel (we try to resolve within 30 days).</>}</li>
             </>
           )}
         </ul>
       </Section>
 
-      {/* Verified Digital Acceptance & Ownership Certificate */}
-      <div className="mt-8 rounded-3xl border-2 border-emerald-500/30 bg-gradient-to-br from-emerald-50/70 via-white to-amber-50/50 p-6 shadow-md">
-        <div className="flex items-center justify-between border-b border-emerald-200 pb-3">
-          <div className="flex items-center gap-2">
-            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-600 text-white text-sm font-bold shadow-xs">✓</span>
-            <div>
-              <div className="text-sm font-extrabold text-emerald-950">
-                {te ? "ధృవీకరించబడిన సేవా ఒప్పందం & అంగీకార వివరాలు" : "Verified Digital Acceptance & Ownership Certificate"}
-              </div>
-              <div className="text-[11px] text-emerald-700 font-medium">
-                {te ? "డిజిటల్ సంతకం మరియు లీగల్ అథెంటికేషన్ సర్టిఫికేట్" : "Digitally Certified & Formally Accepted Service Agreement"}
-              </div>
-            </div>
-          </div>
-          <span className="rounded-full bg-emerald-100 border border-emerald-300 px-3 py-1 text-[11px] font-bold text-emerald-800">
-            ● Active & Verified
-          </span>
-        </div>
-
-        <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-          <div className="rounded-2xl bg-white/90 border border-emerald-100 p-3 shadow-2xs">
-            <div className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Owner ID</div>
-            <div className="mt-0.5 font-mono font-bold text-[#7A0C2E] text-[13px]">{SITE_CONFIG.owner.id}</div>
-          </div>
-
-          <div className="rounded-2xl bg-white/90 border border-emerald-100 p-3 shadow-2xs">
-            <div className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Owner & Signatory Name</div>
-            <div className="mt-0.5 font-bold text-gray-900 text-[13px]">{SITE_CONFIG.owner.name}</div>
-          </div>
-
-          <div className="rounded-2xl bg-white/90 border border-emerald-100 p-3 shadow-2xs">
-            <div className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Contact Number</div>
-            <div className="mt-0.5 font-mono font-bold text-gray-900">
-              {SITE_CONFIG.owner.contactNumber ? (
-                <a href={`tel:${SITE_CONFIG.owner.contactNumber}`} className="text-emerald-700 hover:underline">
-                  {SITE_CONFIG.owner.contactNumber}
-                </a>
-              ) : <span>{te ? "ఫోన్ వివరాలు అందుబాటులో లేవు" : "Phone contact is not configured"}</span>}
-            </div>
-          </div>
-
-          <div className="rounded-2xl bg-white/90 border border-emerald-100 p-3 shadow-2xs">
-            <div className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Official Email</div>
-            <div className="mt-0.5 font-mono font-bold text-gray-900">
-              {SITE_CONFIG.owner.email ? (
-                <a href={`mailto:${SITE_CONFIG.owner.email}`} className="text-emerald-700 hover:underline">
-                  {SITE_CONFIG.owner.email}
-                </a>
-              ) : <span>{te ? "ఇమెయిల్ వివరాలు అందుబాటులో లేవు" : "Email contact is not configured"}</span>}
-            </div>
-          </div>
-
-          <div className="rounded-2xl bg-white/90 border border-emerald-100 p-3 shadow-2xs">
-            <div className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Date Of Acceptance</div>
-            <div className="mt-0.5 font-mono font-semibold text-gray-800">{SITE_CONFIG.owner.dateOfAcceptance}</div>
-          </div>
-
-        </div>
-
-        <div className="mt-3 text-[11px] text-gray-600 bg-emerald-50/50 rounded-xl p-2.5 border border-emerald-100">
-          🔒 {te ? "ఈ వివరాలు భారతీయ ఐటీ చట్టం 2000 ప్రకారం అధికారికంగా డిజిటల్ రికార్డ్ చేయబడ్డాయి." : "These acceptance parameters are digitally signed, timestamped, and stored in compliance with the Information Technology Act, 2000."}
-        </div>
-      </div>
+      <section aria-labelledby="business-contact-heading" className="mt-8 rounded-2xl border border-gray-200 bg-white p-5 text-sm text-gray-700">
+        <h2 id="business-contact-heading" className="font-bold text-[#7A0C2E]">{te ? "Business contact వివరాలు" : "Business contact details"}</h2>
+        <p className="mt-3">Email: <a className="underline break-all" href={`mailto:${POLICY_SUPPORT_EMAIL}`}>{POLICY_SUPPORT_EMAIL}</a></p>
+        {SITE_CONFIG.owner.name ? <p className="mt-2">{te ? "Business contact" : "Business contact"}: {SITE_CONFIG.owner.name}</p> : null}
+        {SITE_CONFIG.owner.contactNumber ? <p className="mt-2"><a className="underline" href={`tel:${SITE_CONFIG.owner.contactNumber}`}>{SITE_CONFIG.owner.contactNumber}</a></p> : null}
+        <p className="mt-3">{te ? "ఇవి సంప్రదింపు వివరాలు మాత్రమే. ఈ page digital signature లేదా service agreement acceptance కి రుజువు కాదు." : "These are contact details only. This page is not proof of a digital signature or acceptance of a service agreement."}</p>
+      </section>
 
       <div className="mt-6 flex flex-wrap gap-3 text-xs">
         <Link href="/pricing" className="underline text-[#7A0C2E] font-bold">💰 {te ? "Pricing" : "Pricing"}</Link>
