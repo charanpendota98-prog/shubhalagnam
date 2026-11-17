@@ -7584,7 +7584,8 @@ def photo_status(tsap_id: str, request: Request):
             "photo_status": u.get("photo_status", "none"),
             "photo_reason": u.get("photo_reason", ""), "photo_reason_te": u.get("photo_reason_te", ""),
             "selfie_status": u.get("selfie_status", "none"),
-            "selfie_verified": bool(u.get("selfie_verified", False))}
+            "selfie_verified": bool(u.get("selfie_verified", False)),
+            "selfie_reason": u.get("selfie_reason", ""), "selfie_reason_te": u.get("selfie_reason_te", "")}
 
 
 @app.post("/api/verify/selfie")
@@ -7620,16 +7621,20 @@ async def verify_selfie(file: UploadFile = File(...), tsap_id: str = Form(""), r
     except Exception as exc:
         raise HTTPException(500, f"Selfie save failed: {str(exc)[:80]}") from exc
     with _PHOTO_REVIEW_LOCK:
-        previous = {key: u.get(key) for key in ("selfie_url", "selfie_status", "selfie_checks")}
+        user_before = copy.deepcopy(u)
         u["selfie_url"] = f"/photos/{name}"
         u["selfie_status"] = "pending"
         u["selfie_checks"] = verdict["checks"]
-        if not _persist_core_state():
-            for key, value in previous.items():
-                if value is None:
-                    u.pop(key, None)
-                else:
-                    u[key] = value
+        u["selfie_verified"] = False
+        u["selfie_reason"] = ""
+        u["selfie_reason_te"] = ""
+        try:
+            saved = _persist_core_state()
+        except Exception:
+            saved = False
+        if not saved:
+            u.clear()
+            u.update(user_before)
             try:
                 os.remove(selfie_path)
             except OSError:
@@ -7722,15 +7727,22 @@ def admin_photos_review(payload: dict, request: Request):
             previous = {key: u.get(key) for key in ("selfie_status", "selfie_verified")}
             u["selfie_status"] = decision
             u["selfie_verified"] = (decision == "approved")
+            u["selfie_reason"] = str(d.get("reason") or "Selfie not approved") if decision == "rejected" else ""
+            u["selfie_reason_te"] = (te_reason or "సెల్ఫీ approve కాలేదు. మరో clear ఫోటో పంపండి.") if decision == "rejected" else ""
         if kind == "photo" and not _regenerate_profile_card(u):
             u.clear()
             u.update(user_before)
             _regenerate_profile_card(u)
             raise HTTPException(503, "Profile card could not be regenerated safely. Please try again.")
-        if not _persist_core_state():
+        try:
+            saved = _persist_core_state()
+        except Exception:
+            saved = False
+        if not saved:
             u.clear()
             u.update(user_before)
-            _regenerate_profile_card(u)
+            if kind == "photo":
+                _regenerate_profile_card(u)
             raise HTTPException(503, "Photo review could not be saved safely. Please try again.")
         return {"success": True, "tsap_id": u["tsap_id"], "kind": kind, "decision": decision,
                 "message_telugu": ("✅ Approve అయ్యింది" if decision == "approved" else "❌ Reject అయ్యింది — user కి reason వెళ్లింది")}
