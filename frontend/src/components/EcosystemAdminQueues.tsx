@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { authHeaders, readApiJson } from "@/lib/api";
 import { useLang } from "@/lib/lang";
 
@@ -31,6 +31,8 @@ export default function EcosystemAdminQueues() {
   const [replyText, setReplyText] = useState<Record<string, string>>({});
   const [flash, setFlash] = useState("");
   const [replyFailed, setReplyFailed] = useState(false);
+  const reviewPending = useRef(false);
+  const [reviewBusy, setReviewBusy] = useState(false);
 
   const setAssistEnabled = async (enabled: boolean) => {
     try {
@@ -91,16 +93,26 @@ export default function EcosystemAdminQueues() {
   };
 
   const reviewBadge = async (recordId: string, decision: "approved" | "rejected") => {
-    const r = await fetch(`/api/admin/verification/${encodeURIComponent(recordId)}/review`, {
-      method: "POST",
-      headers: { ...authHeaders(true), "Content-Type": "application/json" },
-      credentials: "same-origin",
-      body: JSON.stringify({ decision, reason: replyText[recordId] || "" }),
-    });
-    if (r.ok) {
+    if (reviewPending.current) return;
+    reviewPending.current = true;
+    setReviewBusy(true); setFlash(""); setReplyFailed(false);
+    try {
+      const r = await fetch(`/api/admin/verification/${encodeURIComponent(recordId)}/review`, {
+        method: "POST", headers: { ...authHeaders(true), "Content-Type": "application/json" }, credentials: "same-origin",
+        body: JSON.stringify({ decision, reason: replyText[recordId] || "" }),
+      });
+      const data = await readApiJson(r).catch(() => ({}));
+      if (!r.ok || data.success !== true) {
+        setReplyFailed(true);
+        setFlash(typeof data.detail === "string" ? data.detail : (te ? "సమీక్ష సేవ్ కాలేదు. మళ్లీ ప్రయత్నించండి." : "Review was not saved. Please retry."));
+        return;
+      }
       setFlash(`✅ Verification ${recordId} → ${decision}`);
-      void loadAll();
-    }
+      await loadAll();
+    } catch {
+      setReplyFailed(true);
+      setFlash(te ? "సమీక్ష సేవ్ అయ్యిందో నిర్ధారించలేకపోయాం. మళ్లీ ప్రయత్నించే ముందు queue రీలోడ్ చేయండి." : "Could not confirm the review was saved. Reload the queue before retrying.");
+    } finally { reviewPending.current = false; setReviewBusy(false); }
   };
 
   const resolveAppeal = async (appealId: string, decision: "upheld" | "denied") => {
@@ -202,10 +214,10 @@ export default function EcosystemAdminQueues() {
                     aria-label="Verification review note"
                     className="flex-1 rounded-lg border px-2 py-1 text-xs"
                   />
-                  <button type="button" onClick={() => void reviewBadge(v.id, "approved")} className="rounded-lg bg-emerald-700 px-3 py-1 font-bold text-white">
+                  <button type="button" onClick={() => void reviewBadge(v.id, "approved")} disabled={reviewBusy} className="rounded-lg bg-emerald-700 px-3 py-1 font-bold text-white">
                     ✓ Approve Badge
                   </button>
-                  <button type="button" onClick={() => void reviewBadge(v.id, "rejected")} className="rounded-lg bg-rose-100 px-3 py-1 font-bold text-rose-800">
+                  <button type="button" onClick={() => void reviewBadge(v.id, "rejected")} disabled={reviewBusy} className="rounded-lg bg-rose-100 px-3 py-1 font-bold text-rose-800">
                     ✕ Reject
                   </button>
                 </div>
