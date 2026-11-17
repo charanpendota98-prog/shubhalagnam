@@ -4383,9 +4383,17 @@ def update_user_profile(payload: dict, request: Request):
     photo_private_value = None
     if "photo_private" in payload and payload["photo_private"] is not None:
         photo_private_value = req_bool_strict(payload["photo_private"], "photo_private")
+    children_update = None
+    if "children" in payload and payload["children"] is not None:
+        children_update = req_choice(payload["children"], "children", ["None", "1", "2", "3", "4+"], required=False, default="")
     for k in updatable_fields:
         if k in payload and payload[k] is not None and k != "photo_private":
             user[k] = payload[k]
+    _marital_after = payload.get("marital_status") if payload.get("marital_status") is not None else user.get("marital_status")
+    if is_never_married_status(_marital_after):
+        user["children"] = ""   # children is only meaningful after a previous marriage
+    elif children_update is not None:
+        user["children"] = children_update
 
     # Keep the privacy boolean and its legacy mode in sync.  Do not let a JSON
     # string such as "false" become truthy and silently make a photo private.

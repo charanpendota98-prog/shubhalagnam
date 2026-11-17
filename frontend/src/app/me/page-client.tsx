@@ -52,6 +52,8 @@ import {
   workTypesForGender,
   heightLabel,
   sortUniqueOptions,
+  CHILDREN_OPTIONS,
+  isNeverMarriedStatus,
 } from "@/lib/telugu-data";
 
 type Row = Record<string, any>;
@@ -1929,6 +1931,33 @@ function EditProfilePanel({ myId }: { myId: string }) {
                 placeholder={T("మీ మాతృభాష నమోదు చేయండి", "Enter your mother tongue")}
                 className="w-full p-2.5 border border-slate-200 rounded-xl focus:outline-none focus:border-maroon"
               />
+            </div>
+            {profile.marital_status && !isNeverMarriedStatus(profile.marital_status) && (
+              <div>
+                <label htmlFor="me-children" className="font-bold text-slate-800 block mb-1">{T("పిల్లలు", "Children")}:</label>
+                <select id="me-children"
+                  value={profile.children || ""}
+                  onChange={(e) => setField("children", e.target.value)}
+                  className="w-full p-2.5 border border-slate-200 rounded-xl bg-white focus:outline-none focus:border-maroon"
+                >
+                  <option value="">{T("ఎంచుకోండి / తెలియజేయలేదు", "Select / not specified")}</option>
+                  {CHILDREN_OPTIONS.map((count) => (
+                    <option key={count} value={count}>{count === "None" ? T("పిల్లలు లేరు", "No children") : T(`${count} పిల్లలు`, `${count} ${count === "1" ? "child" : "children"}`)}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+            <div>
+              <label htmlFor="me-physical_status" className="font-bold text-slate-800 block mb-1">{T("శారీరక స్థితి (ఐచ్ఛికం)", "Physical status (optional)")}:</label>
+              <select id="me-physical_status"
+                value={profile.physical_status || ""}
+                onChange={(e) => setField("physical_status", e.target.value)}
+                className="w-full p-2.5 border border-slate-200 rounded-xl bg-white focus:outline-none focus:border-maroon"
+              >
+                <option value="">{T("ఎంచుకోండి / తెలియజేయలేదు", "Select / not specified")}</option>
+                <option value="Normal">{T("సాధారణం", "Normal")}</option>
+                <option value="Physically Challenged">{T("దివ్యాంగులు", "Physically challenged")}</option>
+              </select>
             </div>
             <div className="sm:col-span-2 lg:col-span-3">
               <label className="font-bold text-slate-800 block mb-1">{T("భాగస్వామి నుంచి కోరుకునేవి", "Partner expectations")}:</label>

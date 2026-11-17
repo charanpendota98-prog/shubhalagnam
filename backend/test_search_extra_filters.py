@@ -106,5 +106,24 @@ class ExtraFilters(unittest.TestCase):
         self.assertFalse(quality.matches_filters(users["MVXFLT0011"], {"verification_level": "id"}))
 
 
+class ProfileUpdateChildren(unittest.TestCase):
+    def update(self, tsap_id, **body):
+        return client.post("/api/profile/update", json={"tsap_id": tsap_id, **body}, headers=headers(tsap_id))
+
+    def test_children_saved_validated_and_cleared_for_never_married(self):
+        uid = "MVXFLT0020"
+        main.DB_USERS.append(member(uid, "Groom", marital_status="Divorced", children=""))
+        ok = self.update(uid, children="2", physical_status="Normal")
+        self.assertEqual(ok.status_code, 200, ok.text)
+        stored = main._find_user(uid)
+        self.assertEqual((stored["children"], stored["physical_status"]), ("2", "Normal"))
+        bad = self.update(uid, children="lots")
+        self.assertGreaterEqual(bad.status_code, 400)
+        self.assertEqual(main._find_user(uid)["children"], "2")
+        cleared = self.update(uid, marital_status="Pelli Kaledu", children="3")
+        self.assertEqual(cleared.status_code, 200, cleared.text)
+        self.assertEqual(main._find_user(uid)["children"], "")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
