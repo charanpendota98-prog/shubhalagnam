@@ -23,6 +23,7 @@ export default function VerifyPage() {
   const [msg, setMsg] = useState("");
   const [badges, setBadges] = useState<any[]>([]);
   const [submissions, setSubmissions] = useState<any[]>([]);
+  const [selfieReason, setSelfieReason] = useState("");
   const [credType, setCredType] = useState("education");
   const [docType, setDocType] = useState("");
   const [credSummary, setCredSummary] = useState("");
@@ -45,7 +46,8 @@ export default function VerifyPage() {
       ]);
       if (r.ok) {
         const d = await readApiJson(r);
-        setStatus(d.selfie_verified ? "approved" : (d.selfie_status || "none"));
+        setStatus(d.selfie_status || (d.selfie_verified ? "approved" : "none"));
+        setSelfieReason(te ? (d.selfie_reason_te || d.selfie_reason || "") : (d.selfie_reason || ""));
       }
       if (br.ok) {
         const bd = await readApiJson(br);
@@ -53,7 +55,7 @@ export default function VerifyPage() {
         setSubmissions(bd.submissions || []);
       }
     } catch { /* offline */ }
-  }, [tsapId, sessionReady]);
+  }, [tsapId, sessionReady, te]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -109,6 +111,7 @@ export default function VerifyPage() {
     } catch {
       setMsg(te ? "Network లేదు — మళ్లీ try చెయ్యండి" : "No network — retry");
     }
+    if (fileRef.current) fileRef.current.value = "";
     setBusy(false);
   };
 
@@ -127,7 +130,7 @@ export default function VerifyPage() {
         <div className="flex flex-col sm:flex-row items-center gap-6">
           <div className="relative shrink-0">
             <div className="w-28 h-28 rounded-full bg-white border-4 border-maroon/20 flex items-center justify-center text-5xl">🧑</div>
-            <div className="absolute -bottom-1 -right-1 w-10 h-10 rounded-full bg-emerald-500 text-white flex items-center justify-center text-xl border-4 border-white">✓</div>
+            <div aria-hidden="true" className={`absolute -bottom-1 -right-1 w-10 h-10 rounded-full flex items-center justify-center text-xl border-4 border-white ${status === "approved" ? "bg-emerald-500 text-white" : status === "rejected" ? "bg-rose-100 text-rose-800" : "bg-amber-100 text-amber-900"}`}>{status === "approved" ? "✓" : status === "rejected" ? "!" : "⏳"}</div>
           </div>
           <div className="flex-1 text-center sm:text-left">
             <div className="font-bold text-[16px]"><Duo en="Verify the profile using the below option:" te="కింది విధంగా ప్రొఫైల్ ధృవీకరించండి:" /></div>
@@ -142,6 +145,9 @@ export default function VerifyPage() {
               </div>
             ) : (
               <>
+                {status === "rejected" ? <p role="status" className="mt-3 rounded-xl border border-rose-200 bg-rose-50 p-3 text-[13px] text-rose-900">
+                  {te ? "సెల్ఫీ approve కాలేదు. మళ్లీ పంపండి." : "Selfie was not approved. Please submit another image."}{selfieReason ? ` ${selfieReason}` : ""}
+                </p> : null}
                 <input aria-label={te ? "సెల్ఫీ ఎంచుకోండి" : "Choose selfie"} ref={fileRef} type="file" accept="image/*" capture="user" className="hidden"
                   onChange={(e) => void upload(e.target.files?.[0])} />
                 <button disabled={busy || !sessionReady || !tsapId} onClick={() => fileRef.current?.click()}

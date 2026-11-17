@@ -555,7 +555,10 @@ def member_badges(user: Dict[str, Any]) -> Dict[str, Any]:
     by_type = {r.get("badge_type"): r for r in my_records}
     for btype, active in checks:
         rec = by_type.get(btype)
-        if active or (rec and rec.get("status") == "approved"):
+        # Image-review pending/rejected state supersedes any older text-only
+        # credential record. A replacement image has not inherited approval.
+        image_selfie_state = btype == "selfie" and u.get("selfie_status") in ("pending", "rejected")
+        if not image_selfie_state and (active or (rec and rec.get("status") == "approved")):
             meta = BADGE_CATALOG[btype]
             earned.append({
                 "badge_type": btype,
