@@ -428,30 +428,59 @@ def submit_appeal(user: Dict[str, Any], reason: str, context_note: str = "") -> 
     with _LOCK:
         state = _ensure_loaded()
         appeals = state["moderation_appeals"]
+        # The checkpoint can update metadata as well as the appeal. Roll back
+        # the complete ecosystem state in place so existing references survive.
+        original_objects = dict(state)
+        before = {key: list(value) if isinstance(value, list) else dict(value) if isinstance(value, dict) else value for key, value in state.items()}
         open_dup = next((a for a in appeals if a.get("tsap_id") == tid and a.get("status") == "open"), None)
+        original_record = dict(open_dup) if open_dup else None
         if open_dup:
-            open_dup["reason"] = clean_reason
-            open_dup["updated_at"] = _utc_iso()
-            save_state()
-            return True, "updated", dict(open_dup)
-        rec = {
-            "id": f"APL-{datetime.utcnow().strftime('%y%m%d')}-{len(appeals) + 1:04d}",
-            "tsap_id": tid,
-            "full_name": clean((user or {}).get("full_name", ""), 80, "full_name"),
-            "hidden_reason": str((user or {}).get("hidden_reason") or ""),
-            "reason": clean_reason,
-            "context_note": clean(context_note, 240, "context_note"),
-            "status": "open",
-            "created_at": _utc_iso(),
-            "resolved_at": "",
-            "reviewer": "",
-            "resolution": "",
-            "resolution_note": "",
-        }
-        appeals.append(rec)
-        if not save_state():
-            return False, "Appeal could not be saved safely.", {}
-        return True, "created", dict(rec)
+            rec = open_dup
+            rec["reason"] = clean_reason
+            rec["updated_at"] = _utc_iso()
+            kind = "updated"
+        else:
+            rec = {
+                "id": f"APL-{datetime.utcnow().strftime('%y%m%d')}-{len(appeals) + 1:04d}",
+                "tsap_id": tid,
+                "full_name": clean((user or {}).get("full_name", ""), 80, "full_name"),
+                "hidden_reason": str((user or {}).get("hidden_reason") or ""),
+                "reason": clean_reason,
+                "context_note": clean(context_note, 240, "context_note"),
+                "status": "open",
+                "created_at": _utc_iso(),
+                "resolved_at": "",
+                "reviewer": "",
+                "resolution": "",
+                "resolution_note": "",
+            }
+            appeals.append(rec)
+            kind = "created"
+        try:
+            saved = save_state()
+        except Exception:
+            saved = False
+        if not saved:
+            # Restore the prior appeal objects and list identity, too.
+            original_rows = before["moderation_appeals"]
+            appeals[:] = original_rows
+            if original_record is not None:
+                rec.clear()
+                rec.update(original_record)
+            for key, value in before.items():
+                if key != "moderation_appeals":
+                    existing = original_objects.get(key)
+                    if isinstance(existing, list) and isinstance(value, list):
+                        existing[:] = value
+                        state[key] = existing
+                    elif isinstance(existing, dict) and isinstance(value, dict):
+                        existing.clear()
+                        existing.update(value)
+                        state[key] = existing
+                    else:
+                        state[key] = value
+            return False, "Appeal could not be saved safely. Please retry.", {}
+        return True, kind, dict(rec)
 
 
 def list_member_appeals(tsap_id: str) -> List[Dict[str, Any]]:

@@ -105,7 +105,7 @@ def build_ecosystem_router(ctx: Dict[str, Callable[..., Any] | Any]) -> APIRoute
         ctx_note = str(d.get("context_note") or d.get("statement") or "")
         ok, msg, rec = ECOSYSTEM3.submit_appeal(u, reason, ctx_note)
         if not ok:
-            raise HTTPException(400, msg)
+            raise HTTPException(503 if msg.startswith("Appeal could not be saved safely.") else 400, msg)
         return {
             "success": True,
             "kind": msg,
