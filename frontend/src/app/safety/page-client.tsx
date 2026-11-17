@@ -9,7 +9,7 @@
  * 4. ✅ Verification levels (phone → photo → ID) + next step
  * 5. Moderation queue preview (admin) — high severity mundu
  */
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import AuthGate from "@/components/AuthGate";
 import { Duo, duo } from "@/lib/duo";
 import { useLang } from "@/lib/lang";
@@ -30,6 +30,8 @@ export default function SafetyPage() {
   const [myId, setMyId] = useState("");
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [blockBusy, setBlockBusy] = useState(false);
+  const blockPending = useRef(false);
   const [blocks, setBlocks] = useState<any[]>([]);
   const [verify, setVerify] = useState<any>(null);
   const [badges, setBadges] = useState<any[]>([]);
@@ -100,33 +102,29 @@ export default function SafetyPage() {
     setBusy(false);
   };
 
-  const doBlock = async (blocked: string) => {
+  const changeBlock = async (blocked: string, remove: boolean) => {
     if (!myId) { setNeedsLogin(true); return; }
-    const r = await fetch("/api/block", {
-      method: "POST",
-      headers: authHeaders(),
-      credentials: "same-origin",
-      body: JSON.stringify({ owner: myId, blocked, reason: "safety" }),
-    });
-    if (r.status === 401) { setNeedsLogin(true); return; }
-    const d = await r.json();
-    setMsg({ ok: !!d.success, text: d.message_telugu || d.detail || "" });
-    loadMine(myId);
+    if (blockPending.current) return;
+    blockPending.current = true; setBlockBusy(true); setMsg(null);
+    try {
+      const r = await fetch(remove ? "/api/unblock" : "/api/block", {
+        method: "POST", headers: authHeaders(), credentials: "same-origin",
+        body: JSON.stringify({ owner: myId, blocked, ...(remove ? {} : { reason: "safety" }) }),
+      });
+      if (r.status === 401) { setNeedsLogin(true); return; }
+      const d = await r.json();
+      const ok = r.ok && d.success === true;
+      const fallback = remove
+        ? (te ? "Unblock మార్పు సేవ్ కాలేదు. మళ్లీ ప్రయత్నించండి." : "Could not save the unblock. Please retry.")
+        : (te ? "Block మార్పు సేవ్ కాలేదు. మళ్లీ ప్రయత్నించండి." : "Could not save the block. Please retry.");
+      setMsg({ ok, text: ok ? (d.message_telugu || (remove ? "Profile unblocked." : "Profile blocked.")) : (typeof d.detail === "string" ? d.detail : fallback) });
+      if (ok) await loadMine(myId);
+    } catch {
+      setMsg({ ok: false, text: te ? "Block మార్పును నిర్ధారించలేకపోయాం. మళ్లీ ప్రయత్నించండి." : "Could not confirm the block change. Please retry." });
+    } finally { blockPending.current = false; setBlockBusy(false); }
   };
-
-  const doUnblock = async (blocked: string) => {
-    if (!myId) { setNeedsLogin(true); return; }
-    const r = await fetch("/api/unblock", {
-      method: "POST",
-      headers: authHeaders(),
-      credentials: "same-origin",
-      body: JSON.stringify({ owner: myId, blocked }),
-    });
-    if (r.status === 401) { setNeedsLogin(true); return; }
-    const d = await r.json();
-    setMsg({ ok: !!d.success, text: d.message_telugu || "" });
-    loadMine(myId);
-  };
+  const doBlock = (blocked: string) => changeBlock(blocked, false);
+  const doUnblock = (blocked: string) => changeBlock(blocked, true);
 
   const requestVerify = async (kind: string) => {
     if (!myId) { setNeedsLogin(true); return; }
@@ -201,7 +199,7 @@ export default function SafetyPage() {
           <AuthGate note={te ? "Report, Block, మరియు Moderation Appeal కోసం లాగిన్ అవసరం." : "Sign in to report, block, or submit a moderation appeal."} />
         )}
         {msg && (
-          <div className={`rounded-2xl px-4 py-3 text-[13px] border whitespace-pre-line ${msg.ok ? "bg-emerald-50 border-emerald-200 text-emerald-900" : "bg-rose-50 border-rose-200 text-rose-900"}`}>
+          <div role="status" aria-live="polite" className={`rounded-2xl px-4 py-3 text-[13px] border whitespace-pre-line ${msg.ok ? "bg-emerald-50 border-emerald-200 text-emerald-900" : "bg-rose-50 border-rose-200 text-rose-900"}`}>
             {msg.text}
           </div>
         )}
@@ -254,7 +252,7 @@ export default function SafetyPage() {
               className="px-5 py-3 rounded-2xl bg-rose-700 text-white font-bold text-[13px] disabled:opacity-60">
               {busy ? (te ? "పంపిస్తున్నాం…" : "Sending…") : te ? "🚩 Report పంపు" : "🚩 Send report"}
             </button>
-            <button type="button" onClick={() => doBlock(report.target_id)} disabled={!report.target_id || !myId}
+            <button type="button" onClick={() => doBlock(report.target_id)} disabled={!report.target_id || !myId || blockBusy}
               className="px-5 py-3 rounded-2xl border border-rose-300 text-rose-700 font-bold text-[13px] disabled:opacity-50">
               {te ? "🚫 Block చెయ్యి (వెంటనే)" : "🚫 Block now"}
             </button>
@@ -317,7 +315,7 @@ export default function SafetyPage() {
                 <div key={b.blocked} className="flex items-center gap-2 bg-cream rounded-xl px-3 py-2">
                   <span className="font-mono text-[12px] flex-1">{b.blocked}</span>
                   <span className="text-[10px] text-gray-500">{String(b.at).slice(0, 10)}</span>
-                  <button type="button" onClick={() => doUnblock(b.blocked)} className="text-[11px] font-bold text-maroon underline">unblock</button>
+                  <button type="button" onClick={() => doUnblock(b.blocked)} disabled={blockBusy} className="text-[11px] font-bold text-maroon underline">unblock</button>
                 </div>
               ))}
             </div>
