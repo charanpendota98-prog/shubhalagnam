@@ -107,6 +107,14 @@ export function parseMatchFilters(search) {
       continue;
     }
 
+    if (key === "gender") {
+      // Only the two real values are accepted (any casing). Anything else is
+      // ignored so a URL can never be silently labelled as the opposite gender.
+      const g = values[0].trim().toLowerCase();
+      filters.gender = g === "bride" || g === "female" ? "Bride" : g === "groom" || g === "male" ? "Groom" : "";
+      continue;
+    }
+
     filters[key] = values[0].trim();
   }
 
