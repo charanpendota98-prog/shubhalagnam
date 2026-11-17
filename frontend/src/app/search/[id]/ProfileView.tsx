@@ -579,7 +579,7 @@ export default function ProfileView() {
           <PrivatePhotoAccessCard profile={profile} myTsapId={myTsapId} />
 
           {myTsapId && loadedProfileId && myTsapId !== loadedProfileId ? (
-            <RequestCoach fromId={myTsapId} toId={loadedProfileId} onPickNote={(text) => setInterestNote(text)} />
+            <RequestCoach fromId={myTsapId} toId={loadedProfileId} refreshKey={sentRequestId} onPickNote={(text) => setInterestNote(text)} />
           ) : null}
           {/* 🔒 Contact access is gated by profile-owner acceptance */}
           <section className="profile-contact mv-surface mv-surface__body mv-card mt-4 border-rose-200">
@@ -633,11 +633,11 @@ export default function ProfileView() {
           ) : null}
 
             <div className="mt-4 flex flex-wrap gap-2">
-              <button type="button" onClick={() => void sendInterest()} disabled={sending || !shortlistSessionReady || loading}
+              <button type="button" onClick={() => void sendInterest()} disabled={sending || Boolean(sentRequestId) || !shortlistSessionReady || loading}
                 className="mv-sheen min-h-12 rounded-xl bg-[#7A0C2E] px-5 py-2.5 text-sm font-bold text-white shadow-sm transition hover:brightness-110 disabled:opacity-60">
                 {sending ? (te ? "పంపిస్తున్నాం…" : "Sending…") : te ? "💌 Interest పంపండి (FREE 3)" : "💌 Send interest (FREE 3)"}
               </button>
-              <button type="button" onClick={() => void sendInterest("traditional")} disabled={sending || !shortlistSessionReady || loading}
+              <button type="button" onClick={() => void sendInterest("traditional")} disabled={sending || Boolean(sentRequestId) || !shortlistSessionReady || loading}
                 className="min-h-12 rounded-xl border border-[#7A0C2E] px-5 py-2.5 text-sm font-bold text-[#7A0C2E] transition hover:bg-rose-50">
                 {te ? "🙏 Template తో పంపు" : "🙏 Send with template"}
               </button>

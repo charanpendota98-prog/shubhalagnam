@@ -43,10 +43,13 @@ export default function RequestCoach({
   fromId,
   toId,
   onPickNote,
+  refreshKey = "",
 }: {
   fromId: string;
   toId: string;
   onPickNote?: (note: string) => void;
+  /** Changes after a send so credits and the duplicate state are re-read from the server. */
+  refreshKey?: string;
 }) {
   const { lang } = useLang();
   const te = lang === "te";
@@ -62,7 +65,7 @@ export default function RequestCoach({
 
   useEffect(() => {
     void load();
-  }, [load]);
+  }, [load, refreshKey]);
 
   if (!fromId || !toId || fromId === toId || !data) return null;
 

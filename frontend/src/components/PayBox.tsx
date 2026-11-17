@@ -4,7 +4,7 @@
  * Amount SERVER computes — client amount nammamu. Secret eppudu frontend ki radhu.
  * Props: planCode (S_99..S_499), price (display), label.
  */
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { apiDisplayMessage, authHeaders, readApiJson} from "@/lib/api";
 import { useLang } from "@/lib/lang";
 
@@ -22,10 +22,38 @@ function loadRazorpay(): Promise<boolean> {
   });
 }
 
+type PayAvailability = "loading" | "available" | "unavailable" | "error";
+let payAvailabilityCache: PayAvailability | null = null;
+
+/** Reads the server's payment mode. Never guesses: loading and error are their own states. */
+function usePayAvailability(): { state: PayAvailability; retry: () => void } {
+  const [state, setState] = useState<PayAvailability>(payAvailabilityCache || "loading");
+  const [attempt, setAttempt] = useState(0);
+  useEffect(() => {
+    if (payAvailabilityCache) { setState(payAvailabilityCache); return; }
+    let live = true;
+    setState("loading");
+    fetch("/api/pay/config")
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error("bad status"))))
+      .then((d) => {
+        const mode = String(d?.mode || "");
+        if (!mode) throw new Error("no mode");
+        const next: PayAvailability = mode === "unconfigured" ? "unavailable" : "available";
+        payAvailabilityCache = next;
+        if (live) setState(next);
+      })
+      .catch(() => { if (live) setState("error"); });
+    return () => { live = false; };
+  }, [attempt]);
+  const retry = useCallback(() => { payAvailabilityCache = null; setAttempt((n) => n + 1); }, []);
+  return { state, retry };
+}
+
 export default function PayBox({ planCode, price, label, purpose = "credits", tsapId = "" }: { planCode: string; price: number; label: string; purpose?: "credits" | "boost"; tsapId?: string }) {
   const { lang } = useLang();
   const te = lang === "te";
   const displayLabel = te ? label : apiDisplayMessage(label, false, "Payment");
+  const availability = usePayAvailability();
   const [open, setOpen] = useState(false);
   const [offer, setOffer] = useState("");
   const [order, setOrder] = useState<any>(null);
@@ -185,6 +213,28 @@ export default function PayBox({ planCode, price, label, purpose = "credits", ts
   };
 
   if (done) return <div className="rounded-xl bg-green-50 border border-green-200 text-green-800 text-xs font-bold p-3">{done}</div>;
+
+  if (availability.state !== "available" && !order) {
+    if (availability.state === "loading") return (
+      <div role="status" className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-semibold text-slate-600">
+        {te ? "చెల్లింపు అందుబాటును చూస్తున్నాం…" : "Checking whether payment is open…"}
+      </div>
+    );
+    if (availability.state === "error") return (
+      <div role="status" className="w-full rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-900">
+        <div className="font-semibold">{te ? "చెల్లింపు అందుబాటును తనిఖీ చేయలేకపోయాం." : "We could not check whether payment is open."}</div>
+        <button type="button" onClick={availability.retry} className="mt-2 min-h-11 rounded-lg border border-amber-700 bg-white px-4 text-sm font-bold text-amber-900">
+          {te ? "మళ్లీ ప్రయత్నించండి" : "Try again"}
+        </button>
+      </div>
+    );
+    return (
+      <div role="status" className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-700">
+        <div className="font-semibold">{displayLabel} · ₹{price}</div>
+        <div className="mt-1">{te ? "చెల్లింపులు ఇంకా ప్రారంభం కాలేదు. ధర సూచన కోసం మాత్రమే. ఇప్పుడు డబ్బు పంపవద్దు." : "Payments are not open yet. The price is shown for reference only. Please do not send money."}</div>
+      </div>
+    );
+  }
 
   if (!open)
     return (
