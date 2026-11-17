@@ -1,5 +1,7 @@
 "use client";
 
+import "@/components/wedding-tools-workspace.css";
+
 /**
  * 💍 VIVAHA MUHURTHAMS 2026-2027 — మన వివాహ వేద పంచాంగ ముహూర్తాలు
  * ====================================================================
@@ -62,7 +64,7 @@ export default function MuhurthamPage() {
   };
 
   return (
-    <div className="min-h-dvh bg-[#FCFBF8] pb-36">
+    <div className="mv-wedding-workspace min-h-dvh bg-[#FCFBF8] pb-36">
       {/* HERO SECTION */}
       <section className="maroon-gradient text-white border-b-4 border-gold/40">
         <div className="max-w-6xl mx-auto px-4 py-12">
@@ -117,6 +119,7 @@ export default function MuhurthamPage() {
           {MONTHS_FILTER.map((m) => (
             <button type="button"
               key={m.key}
+              aria-pressed={selectedMonth === m.key}
               onClick={() => setSelectedMonth(m.key)}
               className={`px-4 py-2.5 rounded-2xl text-xs font-black transition-all ${
                 selectedMonth === m.key
@@ -141,7 +144,8 @@ export default function MuhurthamPage() {
         </div>
 
         {/* MUHURTHAM CARDS GRID */}
-        <div className="mt-8 grid md:grid-cols-2 lg:grid-cols-3 gap-5">
+        <p role="status" className="mt-5 text-sm font-semibold text-slate-700">{te ? `${filtered.length} సూచిక తేదీలు` : `${filtered.length} reference dates`}</p>
+        <div className="mt-8 grid md:grid-cols-2 lg:grid-cols-3 gap-5" data-testid="muhurtham-dates">
           {filtered.map((m, i) => (
             <Reveal key={m.date} delay={(i % 6) * 35}>
               <div className="bg-white rounded-3xl p-5 border border-gold/30 hover:border-gold shadow-md hover:shadow-xl transition-all duration-300 h-full flex flex-col justify-between">
@@ -240,7 +244,7 @@ export default function MuhurthamPage() {
         </div>
 
         {/* Reference-date teaser — the same published calendar, compact. */}
-        <VivahaMuhurthamTeaser />
+        <div className="mv-muhurtham-teaser"><VivahaMuhurthamTeaser /></div>
 
       </div>
     </div>

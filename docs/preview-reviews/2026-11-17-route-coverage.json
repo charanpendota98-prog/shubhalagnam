@@ -1,8 +1,8 @@
 {
-  "source": "Local source route inventory after trust/plans/policy preview",
+  "source": "Local source route inventory after wedding-tools preview",
   "route_patterns": 54,
-  "previewed_patterns": 18,
-  "remaining_patterns": 36,
+  "previewed_patterns": 23,
+  "remaining_patterns": 31,
   "groups": [
     {
       "group": "Earlier core previews",
@@ -42,7 +42,7 @@
     },
     {
       "group": "Wedding tools and guidance",
-      "status": "Remaining visual/journey review",
+      "status": "Local five-route layout/fixture review; no real submission, astrology validation or launch acceptance",
       "routes": [
         "/biodata",
         "/lagna-patrika",

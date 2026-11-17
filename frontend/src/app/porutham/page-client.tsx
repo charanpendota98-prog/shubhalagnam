@@ -1,5 +1,7 @@
 "use client";
 
+import "@/components/wedding-tools-workspace.css";
+
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useLang } from "@/lib/lang";
@@ -49,6 +51,11 @@ const COPY = {
     recordedLabel: "Review recorded",
     rejectedLabel: "Rejected",
     unavailableLabel: "Not submitted",
+    uncheckedLabel: "Not checked",
+    unchecked: "Enter your own Profile ID to check its document review state. No submission status has been checked yet.",
+    failedLabel: "Review state unavailable",
+    failed: "The current document review state could not be confirmed. This does not mean no document was submitted. Try checking your own Profile ID again.",
+    unknown: "The returned review state is not recognised here. No document or review conclusion can be confirmed.",
     noCalculation: "Automatic horoscope calculations are unavailable here until a qualified review supplies an actual chart. We will never fill missing birth time, place, or planetary data by guessing.",
     pairTitle: "Compare two Jathakams",
     pairCopy: "A compatibility score is intentionally not available from profile stars alone. Both people must provide their own authentic documents and receive an appropriate professional review before any family discussion.",
@@ -90,6 +97,11 @@ const COPY = {
     recordedLabel: "Review నమోదు అయింది",
     rejectedLabel: "తిరస్కరించబడింది",
     unavailableLabel: "సమర్పించలేదు",
+    uncheckedLabel: "ఇంకా తనిఖీ చేయలేదు",
+    unchecked: "పత్రం review స్థితిని చూడటానికి మీ స్వంత Profile ID ఇవ్వండి. సమర్పణ స్థితిని ఇంకా తనిఖీ చేయలేదు.",
+    failedLabel: "Review స్థితి అందుబాటులో లేదు",
+    failed: "ప్రస్తుత పత్రం review స్థితిని నిర్ధారించలేకపోయాం. పత్రం సమర్పించలేదని దీని అర్థం కాదు. మీ స్వంత Profile ID తో మళ్లీ ప్రయత్నించండి.",
+    unknown: "వచ్చిన review స్థితిని ఇక్కడ గుర్తించలేకపోయాం. పత్రం లేదా review నిర్ణయాన్ని నిర్ధారించలేము.",
     noCalculation: "అర్హత ఉన్న review ద్వారా అసలైన chart అందే వరకు automatic horoscope calculations ఇక్కడ అందుబాటులో ఉండవు. జన్మ సమయం, ప్రదేశం లేదా గ్రహ వివరాలు తెలియకపోతే మేము ఊహించి నింపము.",
     pairTitle: "రెండు జాతకాలను పోల్చడం",
     pairCopy: "ప్రొఫైల్ నక్షత్రాల ఆధారంగా compatibility score ఉద్దేశపూర్వకంగా అందుబాటులో లేదు. ఇద్దరూ తమ అసలైన పత్రాలను సమర్పించి, తగిన నిపుణుల review పొందిన తర్వాతే కుటుంబ చర్చ జరగాలి.",
@@ -136,6 +148,7 @@ export default function PoruthamPageClient() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [statusReadFailed, setStatusReadFailed] = useState(false);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -145,6 +158,8 @@ export default function PoruthamPageClient() {
       setStatus(null);
       return;
     }
+    setStatus(null);
+    setStatusReadFailed(false);
     setLoading(true);
     try {
       const response = await fetch(`/api/astro/jathakam/${encodeURIComponent(normalized)}`, { headers: authHeaders() });
@@ -153,10 +168,12 @@ export default function PoruthamPageClient() {
         setStatus(data);
         setMessage(null);
       } else {
+        setStatusReadFailed(true);
         setStatus(null);
         setMessage({ ok: false, text: data.message_en && !te ? data.message_en : data.message_telugu || copy.noId });
       }
     } catch {
+      setStatusReadFailed(true);
       setStatus(null);
       setMessage({ ok: false, text: copy.network });
     } finally {
@@ -228,8 +245,10 @@ export default function PoruthamPageClient() {
     }
   };
 
-  const currentState = status?.state || "unavailable";
-  const explanation = currentState === "pending_review"
+  const currentState = status?.state;
+  const knownState = ["unavailable", "pending_review", "review_recorded", "rejected"].includes(currentState || "");
+  const stateLabel = loading ? copy.loading : !status ? (statusReadFailed ? copy.failedLabel : copy.uncheckedLabel) : !knownState ? copy.failedLabel : statusText(currentState, copy);
+  const explanation = loading ? copy.loading : !status ? (statusReadFailed ? copy.failed : copy.unchecked) : !knownState ? copy.unknown : currentState === "pending_review"
     ? copy.pending
     : currentState === "review_recorded"
       ? copy.recorded
@@ -238,7 +257,7 @@ export default function PoruthamPageClient() {
         : copy.unavailable;
 
   return (
-    <div className="min-h-dvh bg-[#fffaf0] pb-20">
+    <div className="mv-wedding-workspace min-h-dvh bg-[#fffaf0] pb-20">
       <section className="overflow-hidden bg-gradient-to-br from-[#5c0822] via-[#7a0c2e] to-[#0f766e] text-white">
         <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 sm:py-14 lg:px-8">
           <span className="inline-flex rounded-full border border-white/25 bg-white/10 px-3 py-1 text-[11px] font-extrabold uppercase tracking-[.16em] text-amber-100">🪐 {copy.eyebrow}</span>
@@ -286,6 +305,7 @@ export default function PoruthamPageClient() {
                 className="mt-2 block min-h-12 w-full rounded-xl border border-dashed border-[#c58a9d] bg-rose-50/40 px-3 py-3 text-sm text-slate-700 file:mr-3 file:rounded-lg file:border-0 file:bg-[#7a0c2e] file:px-3 file:py-2 file:font-bold file:text-white"
               />
               <p className="mt-2 text-xs text-slate-500">PDF, JPG, PNG or WebP · max 8 MB</p>
+              {selectedFile ? <p className="mt-2 break-all text-sm text-slate-700" role="status">{selectedFile.name}</p> : null}
             </div>
           </div>
 
@@ -295,14 +315,14 @@ export default function PoruthamPageClient() {
           {message ? <p role={message.ok ? "status" : "alert"} className={`mt-4 rounded-xl border p-3 text-sm leading-6 ${message.ok ? "border-emerald-200 bg-emerald-50 text-emerald-900" : "border-rose-200 bg-rose-50 text-rose-900"}`}>{message.text}</p> : null}
         </section>
 
-        <section className={`rounded-[1.75rem] border p-5 shadow-sm sm:p-6 ${statusTone(currentState)}`} aria-labelledby="jathakam-status-title" aria-live="polite">
+        <section className={`rounded-[1.75rem] border p-5 shadow-sm sm:p-6 ${statusTone(currentState)}`} data-testid="jathakam-state" aria-labelledby="jathakam-status-title" aria-live="polite">
           <div className="flex items-center justify-between gap-3">
             <h2 id="jathakam-status-title" className="text-lg font-extrabold">{copy.statusTitle}</h2>
             {loading ? <span className="text-xs font-semibold opacity-70">{copy.loading}</span> : null}
           </div>
           <div className="mt-4 rounded-2xl border border-current/15 bg-white/55 p-4">
             <p className="text-[11px] font-extrabold uppercase tracking-[.14em] opacity-70">{copy.statusLabel}</p>
-            <p className="mt-1 text-xl font-black">{statusText(currentState, copy)}</p>
+            <p className="mt-1 text-xl font-black">{stateLabel}</p>
             {status?.tsap_id ? <p className="mt-1 font-mono text-xs opacity-70">{status.tsap_id}</p> : null}
           </div>
           <p className="mt-4 text-sm leading-6">{explanation}</p>

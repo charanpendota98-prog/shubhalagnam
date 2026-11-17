@@ -1,5 +1,7 @@
 "use client";
 
+import "./wedding-tools-workspace.css";
+
 import { useState, type KeyboardEvent } from "react";
 import Link from "next/link";
 import { useLang } from "@/lib/lang";
@@ -153,7 +155,7 @@ export default function PelliChoopuluGuide() {
   );
 
   return (
-    <div lang={te ? "te-IN" : "en-IN"} className="min-h-dvh bg-[#FDFBF7] px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
+    <div lang={te ? "te-IN" : "en-IN"} className="mv-wedding-workspace min-h-dvh bg-[#FDFBF7] px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
       <div className="mx-auto max-w-5xl space-y-7 sm:space-y-8">
         <header className="space-y-3 text-center">
           <div className="inline-flex items-center gap-2 rounded-full border border-gold/40 bg-gold/15 px-4 py-1.5 text-xs font-bold text-maroon">
