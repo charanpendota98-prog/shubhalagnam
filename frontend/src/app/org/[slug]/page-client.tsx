@@ -1,5 +1,7 @@
 "use client";
 
+import "@/components/editorial-workspace.css";
+
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -13,19 +15,22 @@ export default function OrgPortalClient() {
   const [portal, setPortal] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
+  const [missing, setMissing] = useState(false);
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     if (!slug) return;
     let alive = true;
-    setLoading(true);
+    setLoading(true); setPortal(null); setErr(""); setMissing(false);
     fetch(`/api/orgs/${encodeURIComponent(slug)}`, { cache: "no-store" })
       .then(async (r) => {
         const j = await r.json();
-        if (!r.ok) throw new Error(j?.detail || "Organization portal not found.");
+        if (r.status === 404) { if (alive) setMissing(true); return; }
+        if (!r.ok || j?.success !== true || !j.portal || typeof j.portal !== "object") throw new Error("Unavailable");
         if (alive) setPortal(j.portal);
       })
       .catch((e: any) => {
-        if (alive) setErr(e?.message || "Organization portal not found.");
+        if (alive) setErr("unavailable");
       })
       .finally(() => {
         if (alive) setLoading(false);
@@ -33,10 +38,10 @@ export default function OrgPortalClient() {
     return () => {
       alive = false;
     };
-  }, [slug]);
+  }, [slug, attempt]);
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-8 space-y-6">
+    <div className="mv-editorial-workspace max-w-5xl mx-auto px-4 py-8 space-y-6">
       <header className="rounded-3xl bg-gradient-to-br from-[#5c1224] via-[#450e1c] to-[#26070f] text-white p-6 md:p-8 shadow-lg">
         <p className="text-xs uppercase tracking-widest text-amber-200 font-semibold">
           {te ? "ధృవీకరించిన సంఘ పోర్టల్ • White-Label Portal" : "Verified Community Association Portal"}
@@ -46,7 +51,7 @@ export default function OrgPortalClient() {
             ? te ? "పోర్టల్ లోడ్ అవుతోంది..." : "Loading Organization Portal..."
             : portal
             ? te ? portal.org_name_te || portal.org_name_en : portal.org_name_en
-            : te ? "సంఘ పోర్టల్ కనుగొనబడలేదు" : "Organization Portal Not Found"}
+            : missing ? (te ? "సంఘ పోర్టల్ కనుగొనబడలేదు" : "Organization Portal Not Found") : (te ? "సంఘ పోర్టల్ అందుబాటులో లేదు" : "Organization Portal Unavailable")}
         </h1>
         {portal && (
           <p className="text-sm text-amber-100/90 mt-2 max-w-3xl telugu">
@@ -55,9 +60,10 @@ export default function OrgPortalClient() {
         )}
       </header>
 
-      {err && (
+      {(err || missing) && (
         <div role="alert" className="rounded-2xl border border-stone-200 bg-white p-6 space-y-3">
-          <p className="text-sm text-stone-700">{err}</p>
+          <p className="text-sm text-stone-700">{missing ? (te ? "ఈ పోర్టల్ కనుగొనబడలేదు." : "This portal was not found.") : (te ? "పోర్టల్ వివరాలను నిర్ధారించలేకపోయాం. మళ్లీ ప్రయత్నించండి." : "The portal details could not be confirmed. Try again.")}</p>
+          {!missing && <button type="button" className="font-bold underline" onClick={() => setAttempt(n => n + 1)}>{te ? "మళ్లీ ప్రయత్నించండి" : "Try again"}</button>}
           <Link href="/events" className="inline-block text-xs font-semibold text-[#7a162e] underline">
             {te ? "← అన్ని సంఘ పోర్టల్స్ & వేదికలకు తిరిగి వెళ్ళండి" : "← Back to Community Events & Portals"}
           </Link>
@@ -74,7 +80,7 @@ export default function OrgPortalClient() {
           </div>
 
           <section className="rounded-2xl border border-stone-200 bg-white p-6 shadow-sm space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="mv-editorial-actions flex items-center justify-between">
               <h2 className="text-lg font-bold text-stone-900 telugu">
                 {te ? "ఆమోదించబడిన ప్రొఫైల్ సారాంశాలు" : "Approved Public Profile Summaries"} ({portal.approved_profile_count ?? 0})
               </h2>
@@ -92,7 +98,7 @@ export default function OrgPortalClient() {
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {portal.sample_profiles.map((p: any) => (
-                  <div key={p.tsap_id} className="rounded-xl border border-stone-200 p-4 flex items-center justify-between">
+                  <div key={p.tsap_id} className="mv-editorial-actions rounded-xl border border-stone-200 p-4 flex items-center justify-between">
                     <div className="space-y-0.5">
                       <div className="font-bold text-sm text-stone-900">
                         {p.tsap_id} • {p.gender} ({p.age || "—"} yrs)

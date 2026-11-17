@@ -1,8 +1,8 @@
 {
-  "source": "Local source route inventory after community-discovery preview",
+  "source": "Local source route inventory after editorial-community preview",
   "route_patterns": 54,
-  "previewed_patterns": 29,
-  "remaining_patterns": 25,
+  "previewed_patterns": 35,
+  "remaining_patterns": 19,
   "groups": [
     {
       "group": "Earlier core previews",
@@ -65,7 +65,7 @@
     },
     {
       "group": "Editorial and community",
-      "status": "Remaining visual/journey review",
+      "status": "Local six-pattern bilingual layout/fixture review; RSVP count/consent corrected locally, no real submissions or launch acceptance",
       "routes": [
         "/stories",
         "/events",

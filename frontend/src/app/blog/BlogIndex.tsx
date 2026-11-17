@@ -1,5 +1,7 @@
 "use client";
 
+import "@/components/editorial-workspace.css";
+
 import Link from "next/link";
 import { BookOpen, ShieldCheck } from "lucide-react";
 import { useLang } from "@/lib/lang";
@@ -10,14 +12,14 @@ export default function BlogIndex() {
   const te = lang === "te";
 
   return (
-    <div lang={te ? "te-IN" : "en-IN"} className="mx-auto max-w-6xl px-4 py-8 sm:py-12">
+    <div lang={te ? "te-IN" : "en-IN"} className="mv-editorial-workspace mx-auto max-w-6xl px-4 py-8 sm:py-12">
       <header className="overflow-hidden rounded-[2rem] bg-gradient-to-br from-maroon to-[#4d071d] p-6 text-white sm:p-10">
         <p className={`text-xs font-bold uppercase tracking-[.2em] text-gold ${te ? "telugu" : ""}`}>
           {te ? "మన వివాహ మార్గదర్శి" : "Mana Vivaha Guides"}
         </p>
-        <h2 className={`mt-2 max-w-3xl text-3xl font-extrabold leading-tight sm:text-5xl ${te ? "telugu" : ""}`}>
+        <h1 className={`mt-2 max-w-3xl text-3xl font-extrabold leading-tight sm:text-5xl ${te ? "telugu" : ""}`}>
           {te ? "తెలుగు వివాహ సలహాలు" : "Matrimony & Marriage Guides"}
-        </h2>
+        </h1>
         <p className={`mt-3 max-w-2xl text-sm leading-7 text-white/80 ${te ? "telugu" : ""}`}>
           {te
             ? "సరైన profile నుంచి safe meeting వరకు — కుటుంబాలకు సులభంగా అర్థమయ్యే, ఉపయోగకరమైన guides."

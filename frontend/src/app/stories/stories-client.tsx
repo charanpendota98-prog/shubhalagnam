@@ -1,4 +1,6 @@
 "use client";
+
+import "@/components/editorial-workspace.css";
 import StoryNudge from "@/components/StoryNudge";
 
 /**
@@ -31,6 +33,7 @@ export default function StoriesClient() {
   const te = lang === "te";
   const [stories, setStories] = useState<Story[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [form, setForm] = useState({ text: "", couple_names: "", partner_id: "", district: "" });
   const [msg, setMsg] = useState("");
   const [sending, setSending] = useState(false);
@@ -38,9 +41,14 @@ export default function StoriesClient() {
 
   async function load() {
     setLoading(true);
-    const r = await apiGet<{ stories?: Story[] }>("/api/stories?limit=20");
-    setLoading(false);
-    if (r.ok && r.data) setStories(r.data.stories || []);
+    setLoadFailed(false);
+    setStories([]);
+    try {
+      const r = await apiGet<{ stories?: Story[] }>("/api/stories?limit=20");
+      if (!r.ok || !Array.isArray(r.data?.stories)) throw new Error("Unavailable");
+      setStories(r.data.stories);
+    } catch { setLoadFailed(true); }
+    finally { setLoading(false); }
   }
   useEffect(() => { load(); }, []);
 
@@ -67,7 +75,7 @@ export default function StoriesClient() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-8 pb-36">
+    <div className="mv-editorial-workspace mx-auto max-w-3xl px-4 py-8 pb-36">
       {/* Cinematic but content-first: the page header is a soft paper stage with
           original SVG art, no stock imagery and no invented stories. */}
       <header className="relative overflow-hidden rounded-3xl border border-gold/40 bg-gradient-to-br from-[#fffdf8] via-[#fff8e7] to-[#fdf0dd] p-5 sm:p-7">
@@ -90,8 +98,12 @@ export default function StoriesClient() {
         {te ? "సభ్యులు పంపిన కథలు పరిశీలన తర్వాత, అందుబాటులో ఉన్నప్పుడు ఇక్కడ కనిపిస్తాయి. నమోదు తర్వాత మొదటి 3 interest requests FREE." : "Member-submitted stories appear here after review, when available. The first 3 interest requests are free after registration."}
       </p>
 
-      {loading && <p className="mt-6 text-gray-500">⏳ Stories loading…</p>}
-      {!loading && stories.length === 0 && (
+      {loading && <p role="status" className="mt-6 text-gray-500">{te ? "కథలు లోడ్ అవుతున్నాయి…" : "Stories loading…"}</p>}
+      {loadFailed && <div role="alert" className="mt-6 rounded-2xl border border-amber-300 bg-amber-50 p-4">
+        <p>{te ? "కథల జాబితాను నిర్ధారించలేకపోయాం. ఇది కథలు లేవని అర్థం కాదు." : "The story list could not be confirmed. This does not mean no stories are published."}</p>
+        <button type="button" className="mt-2 font-bold underline" onClick={() => void load()}>{te ? "మళ్లీ ప్రయత్నించండి" : "Try again"}</button>
+      </div>}
+      {!loading && !loadFailed && stories.length === 0 && (
         <div className="mv-empty mt-6" role="status">
           {/* Honest empty state — designed artwork, zero placeholder stories. */}
           <svg className="mv-empty__art" width="86" height="86" viewBox="0 0 96 96" fill="none" aria-hidden="true">
@@ -141,24 +153,28 @@ export default function StoriesClient() {
         <h2 className="text-xl font-bold text-emerald-900">{te ? "📝 మీ story పంపండి" : "📝 Send your story"}</h2>
         <p className="text-sm leading-relaxed text-gray-600">{te ? "మీరు పంచుకోవాలనుకునే వివరాలనే ఇవ్వండి. ప్రచురణకు ముందు moderation ఉంటుంది; సమయం హామీ కాదు. Moderation గుర్తింపు, సంబంధం లేదా పెళ్లి వివరాలను స్వతంత్రంగా నిర్ధారించదు." : "Share only details you are comfortable publishing. Stories are moderated before possible publication; no review time is guaranteed. Moderation does not independently verify identity, relationship, or wedding details."}</p>
         <div className="mt-3 grid gap-2 sm:grid-cols-2">
+          <label className="block text-sm font-semibold text-gray-700"><span>{te ? "ప్రచురించడానికి పేర్లు (ఐచ్ఛికం; సమ్మతితో)" : "Names to publish (optional; with consent)"}</span>
           <input value={form.couple_names} onChange={(e) => setForm({ ...form, couple_names: e.target.value })}
             placeholder={te ? "ప్రచురించడానికి జంట పేర్లు (ఐచ్ఛికం; సమ్మతితో)" : "Names to publish (optional; with consent)"} aria-label={te ? "ప్రచురించడానికి జంట పేర్లు" : "Names to publish"}
-            className="rounded-xl border px-3 py-2 text-sm outline-none focus:border-emerald-500" />
+            className="w-full font-normal rounded-xl border px-3 py-2 text-sm outline-none focus:border-emerald-500" /></label>
+          <label className="block text-sm font-semibold text-gray-700"><span>{te ? "జిల్లా" : "District"}</span>
           <input value={form.district} onChange={(e) => setForm({ ...form, district: e.target.value })}
             placeholder={te ? "జిల్లా" : "District"} aria-label={te ? "జిల్లా" : "District"}
-            className="rounded-xl border px-3 py-2 text-sm outline-none focus:border-emerald-500" />
+            className="w-full font-normal rounded-xl border px-3 py-2 text-sm outline-none focus:border-emerald-500" /></label>
         </div>
-        <textarea value={form.text} onChange={(e) => setForm({ ...form, text: e.target.value })}
+        <label className="block text-sm font-semibold text-gray-700"><span>{te ? "మీ కథనం" : "Your story"}</span>
+          <textarea value={form.text} onChange={(e) => setForm({ ...form, text: e.target.value })}
           placeholder={te ? "మీరు పంచుకోవడానికి అంగీకరించే వివరాలను రాయండి" : "Write the details you consent to share"} aria-label={te ? "మీ కథనం" : "Your story"}
-          rows={3} className="mt-2 w-full rounded-xl border px-3 py-2 text-sm outline-none focus:border-emerald-500" />
-        <input value={form.partner_id} onChange={(e) => setForm({ ...form, partner_id: e.target.value })}
+          rows={3} className="w-full font-normal mt-2 w-full rounded-xl border px-3 py-2 text-sm outline-none focus:border-emerald-500" /></label>
+        <label className="block text-sm font-semibold text-gray-700"><span>{te ? "Partner Profile ID (ఐచ్ఛికం)" : "Partner Profile ID (optional)"}</span>
+          <input value={form.partner_id} onChange={(e) => setForm({ ...form, partner_id: e.target.value })}
           placeholder="Partner Profile ID (optional)" aria-label="Partner Profile ID"
-          className="mt-2 w-full rounded-xl border px-3 py-2 text-sm outline-none focus:border-emerald-500" />
+          className="w-full font-normal mt-2 w-full rounded-xl border px-3 py-2 text-sm outline-none focus:border-emerald-500" /></label>
         <button type="button" onClick={submit} disabled={sending}
           className="mt-3 rounded-xl bg-emerald-700 px-5 py-2 font-bold text-white hover:bg-emerald-800 disabled:opacity-60">
           {sending ? (te ? "⏳ పంపిస్తున్నా…" : "⏳ Sending…") : te ? "💑 Story పంపు" : "💑 Send story"}
         </button>
-        {msg && <p className="mt-2 text-sm font-semibold text-gray-700">{msg}</p>}
+        {msg && <p role="status" className="mt-2 text-sm font-semibold text-gray-700">{msg}</p>}
       </div>
     </div>
   );
