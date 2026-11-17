@@ -245,10 +245,13 @@ check("C10 the gender rule is explained as a rule, not a judgement",
 blocked_pair = MI.interest_coach(GROOM, BRIDE, [], blocked=True)
 check("C11 a blocked pair is told so before spending",
       blocked_pair["can_send"] is False and "blocked" in blocked_pair["blockers"])
+# These records mean today's calendar usage, not "the last three hours".
+# Hours-ago fixtures silently become yesterday near UTC midnight.
+utc_day = datetime.now(timezone.utc).date().isoformat()
 today = [{"from_id": GROOM["tsap_id"], "to_id": BRIDE["tsap_id"], "status": "pending",
-          "created_at": iso(1)},
+          "created_at": utc_day + "T00:00:00+00:00"},
          {"from_id": GROOM["tsap_id"], "to_id": OTHER["tsap_id"], "status": "pending",
-          "created_at": iso(3)},
+          "created_at": utc_day + "T00:00:00+00:00"},
          {"from_id": GROOM["tsap_id"], "to_id": OTHER["tsap_id"], "status": "pending",
           "created_at": iso(48 * 30)}]
 usage = MI.interest_coach(GROOM, OTHER, today, daily_limit=20)
