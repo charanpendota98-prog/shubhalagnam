@@ -1,5 +1,7 @@
 "use client";
 
+import "@/components/community-workspace.css";
+
 import { useState, useMemo } from "react";
 import Link from "next/link";
 import { useLang } from "@/lib/lang";
@@ -91,7 +93,7 @@ export default function DistrictsPage() {
   }, [allDistricts, activeTab, searchQuery]);
 
   return (
-    <div className="min-h-dvh bg-[#FFFDF9] pb-24">
+    <div className="mv-community-workspace min-h-dvh bg-[#FFFDF9] pb-24">
       {/* ================= HERO HEADER ================= */}
       <section className="relative overflow-hidden bg-gradient-to-br from-[#4A0518] via-[#6B0C27] to-[#8C1438] text-white py-12 px-4 border-b-4 border-gold">
         <div className="max-w-6xl mx-auto text-center space-y-4 relative z-10">
@@ -122,6 +124,7 @@ export default function DistrictsPage() {
             ].map((tab) => (
               <button type="button"
                 key={tab.id}
+                aria-pressed={activeTab === tab.id}
                 onClick={() => setActiveTab(tab.id as any)}
                 className={`px-4 py-2 rounded-2xl text-xs sm:text-sm font-bold transition shadow-sm ${
                   activeTab === tab.id
@@ -152,7 +155,7 @@ export default function DistrictsPage() {
             />
           </div>
 
-          <div className="text-xs font-bold text-slate-600 flex items-center gap-2">
+          <div role="status" className="text-xs font-bold text-slate-600 flex items-center gap-2">
             <span>{te ? "ఫలితాలు:" : "Results:"}</span>
             <span className="bg-amber-100 text-maroon px-3 py-1 rounded-full font-black text-xs border border-gold/40">
               {filteredDistricts.length} {te ? (activeTab === "TS" || activeTab === "AP" ? "జిల్లాలు" : "ప్రాంతాలు") : (activeTab === "TS" || activeTab === "AP" ? "districts" : "locations")}
@@ -227,6 +230,12 @@ export default function DistrictsPage() {
             </h2>
           </div>
 
+          {filteredDistricts.length === 0 ? (
+            <div className="rounded-2xl border border-amber-200 bg-white p-5 text-slate-700">
+              <p>{te ? "ఈ వడపోతలకు ప్రాంతాలు కనిపించలేదు." : "No locations match these filters."}</p>
+              <button type="button" onClick={() => { setSearchQuery(""); setActiveTab("all"); }} className="mt-3 rounded-xl bg-maroon px-4 py-2 font-bold text-white">{te ? "వడపోతలను తొలగించండి" : "Clear filters"}</button>
+            </div>
+          ) : null}
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3.5">
             {filteredDistricts.map((d) => (
               <div
@@ -253,7 +262,7 @@ export default function DistrictsPage() {
                   {te && <p className="text-xs font-semibold text-slate-500">{d.en}</p>}
                 </div>
 
-                <div className="pt-2 border-t border-slate-100 flex items-center gap-2">
+                <div className="mv-district-actions pt-2 border-t border-slate-100 flex items-center gap-2">
                   <Link
                     href={`/matches?district=${encodeURIComponent(d.en)}`}
                     className="flex-1 text-center py-2 px-3 rounded-xl bg-amber-50 hover:bg-amber-100 text-maroon font-bold text-xs border border-gold/40 transition shadow-xs"

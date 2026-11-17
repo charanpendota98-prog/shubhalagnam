@@ -1,5 +1,7 @@
 "use client";
 
+import "@/components/community-workspace.css";
+
 /**
  * 👑 CASTES DIRECTORY — మన వివాహ 2.0 (Ultra-Neat & Best-in-Class UI)
  * ====================================================================
@@ -192,7 +194,7 @@ export default function CastesClient() {
   };
 
   return (
-    <div className="min-h-dvh pb-36 bg-[#FCFBF8]">
+    <div className="mv-community-workspace min-h-dvh pb-36 bg-[#FCFBF8]">
       {/* HERO SECTION */}
       <section className="maroon-gradient text-white border-b-4 border-gold/40">
         <div className="max-w-6xl mx-auto px-4 py-12">

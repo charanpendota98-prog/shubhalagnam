@@ -1,4 +1,6 @@
 "use client";
+
+import "@/components/community-workspace.css";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { ALL_CHANNELS, CHANNEL_STATS, CHANNEL_TIERS, Channel } from "@/lib/channels";
@@ -80,7 +82,7 @@ export default function ChannelsPage() {
   const listedChannels = list;
 
   return (
-    <div className="min-h-dvh bg-[#FFF8E7] p-4 pb-36">
+    <div className="mv-community-workspace min-h-dvh bg-[#FFF8E7] p-4 pb-36">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-4 gap-2">
@@ -170,11 +172,11 @@ export default function ChannelsPage() {
                   <div key={c.key} className="border border-green-300/60 bg-green-50/30 rounded-2xl p-3.5 shadow-sm hover:shadow-md transition">
                     <div className="flex justify-between items-start gap-2">
                       <div className="min-w-0 flex-1">
-                        <div className="font-bold text-[14px] text-[#7A0C2E] truncate">{channelDisplayName(c, te)}</div>
+                        <div className="mv-channel-name font-bold text-[14px] text-[#7A0C2E]">{channelDisplayName(c, te)}</div>
                       </div>
                       <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-slate-100 text-slate-600 whitespace-nowrap">{te ? "లిస్టులో ఉంది" : "LISTED"}</span>
                     </div>
-                    <div className="text-[11px] text-gray-600 mt-1 line-clamp-2">{channelDisplayDescription(c, te)}</div>
+                    <div className="mv-channel-description text-[11px] text-gray-600 mt-1">{channelDisplayDescription(c, te)}</div>
                     <div className="flex flex-wrap items-center gap-2 mt-3 pt-2 border-t border-green-200/40">
                       {lnk.telegram && (
                         <a href={lnk.telegram} target="_blank" rel="noopener noreferrer"

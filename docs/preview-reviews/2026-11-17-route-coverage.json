@@ -1,8 +1,8 @@
 {
-  "source": "Local source route inventory after wedding-tools preview",
+  "source": "Local source route inventory after community-discovery preview",
   "route_patterns": 54,
-  "previewed_patterns": 23,
-  "remaining_patterns": 31,
+  "previewed_patterns": 29,
+  "remaining_patterns": 25,
   "groups": [
     {
       "group": "Earlier core previews",
@@ -53,7 +53,7 @@
     },
     {
       "group": "Community discovery",
-      "status": "Remaining visual/journey review",
+      "status": "Local six-pattern bilingual layout/fixture review; dynamic bride/groom sample only, no live writes, payments or external-channel acceptance",
       "routes": [
         "/second-marriage",
         "/spotlight",

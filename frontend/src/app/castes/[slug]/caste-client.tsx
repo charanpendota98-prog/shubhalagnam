@@ -1,5 +1,7 @@
 "use client";
 
+import "@/components/community-workspace.css";
+
 /** /castes/[slug] body — neat Telugu / clean English via toggle (SEO shell stays server). */
 import Link from "next/link";
 import { CASTES, DISTRICTS, buildSlug } from "@/lib/seo-pages";
@@ -48,7 +50,7 @@ export default function CasteClient({ caste, role, district, chan, otherChan, fa
   const sameCasteOtherRole = buildSlug(caste.key, role === "bride" ? "groom" : "bride", district?.slug);
 
   return (
-    <div className="min-h-dvh">
+    <div className="mv-community-workspace min-h-dvh">
       <section className="maroon-gradient text-white">
         <div className="max-w-5xl mx-auto px-4 py-10">
           <h1 className="mt-3 text-2xl md:text-4xl font-bold">
