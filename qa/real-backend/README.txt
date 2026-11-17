@@ -1,0 +1,1 @@
+Isolated real-backend checks. Start e2e_server.py (isolated stores, synthetic members), then next start with BACKEND_URL=http://127.0.0.1:8000, then run the e2e*.mjs scripts from frontend/. Preview only.

@@ -6551,6 +6551,7 @@ async def interest_send(payload: dict, request: Request = None):
                     "success": False, "reason": "credits_ledu", "credits": frm.get("credits", 0),
                     "plans": plan_list(), "pay_url": "/requests#plans",
                     "message_telugu": "⚠️ Credits అయిపోయాయి — ₹99 తో 5, ₹199 తో 12, ₹299 తో 25 interest requests పొందండి",
+                    "message_en": "No request credits remain. Choose a plan to continue.",
                 })
             return JSONResponse(status_code=400, content={"success": False, "reason": reason,
                                                           "message_telugu": reason})
