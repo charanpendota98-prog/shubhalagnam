@@ -9243,11 +9243,21 @@ def api_report(payload: dict, request: Request = None):
     if dup:
         return {"success": True, "kind": "already_reported", "report": dup,
                 "message_telugu": "ℹ️ ఈ profile‌ను మీరు ముందు report చేశారు — review కొనసాగుతుంది; చర్య సమయం మారవచ్చు."}
+    # Auto-flagging may also change the target's approval and add fields.
+    # Restore that exact object and remove only this attempt's appended row
+    # if the durable checkpoint fails. Unrelated records keep their identity.
+    targets_before = [(user, copy.deepcopy(user)) for user in DB_USERS
+                      if str(user.get("tsap_id", "")) == _target]
     ok, kind, rec = safety.submit_report(_reporter, _target, _cat, _detail,
                                          reports=DB_REPORTS, users=DB_USERS)
     if not ok:
         raise HTTPException(400, kind)
-    _persist_core_state()
+    if not _persist_core_state():
+        DB_REPORTS[:] = [report for report in DB_REPORTS if report is not rec]
+        for current, before in targets_before:
+            current.clear()
+            current.update(before)
+        raise HTTPException(503, "Report could not be saved safely. Please retry.")
     return {"success": True, "kind": kind, "report": rec,
             "auto_hidden": bool(rec.get("auto_flagged")),
             "ack_telugu": safety.report_ack_text(),
