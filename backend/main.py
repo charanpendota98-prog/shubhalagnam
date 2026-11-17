@@ -9306,7 +9306,9 @@ def api_block(payload: dict, request: Request = None):
     if not ok:
         raise HTTPException(400, kind)
     rec.setdefault("block_id", you)                 # safety module 'blocked' key vadachu — rendu unchey
-    _persist_core_state()
+    if not _persist_core_state():
+        DB_BLOCKS[:] = [block for block in DB_BLOCKS if block is not rec]
+        raise HTTPException(503, "Block could not be saved safely. Please retry.")
     return {"success": True, "kind": kind, "block": rec,
             "total_blocks": len(safety.block_list(me, DB_BLOCKS)),
             "message_telugu": "🚫 Block చేశారు — వాళ్లు మీ profile chudalenu, interest కూడా pampalenru"}
@@ -9318,9 +9320,14 @@ def api_unblock(payload: dict, request: Request = None):
     me = clean(d.get("tsap_id") or d.get("owner"), 30, "tsap_id")
     you = clean(d.get("block_id") or d.get("blocked") or d.get("target_id"), 30, "block_id")  # WAVE 29: target_id alias (block tho consistency, silent no-op ban)
     require_owner(request, me)                     # 🛡️ WAVE 9: IDOR fix
+    removed = [(index, block) for index, block in enumerate(DB_BLOCKS)
+               if block.get("owner") == me and block.get("blocked") == you]
     ok, msg = safety.unblock_user(me, you, DB_BLOCKS)
-    if ok:
-        _persist_core_state()
+    if ok and not _persist_core_state():
+        # Restore original records and order, without replacing unrelated rows.
+        for index, block in removed:
+            DB_BLOCKS.insert(min(index, len(DB_BLOCKS)), block)
+        raise HTTPException(503, "Unblock could not be saved safely. Please retry.")
     return {"success": ok, "kind": msg, "total_blocks": len(safety.block_list(me, DB_BLOCKS)),
             "message_telugu": "✅ Unblock అయ్యింది — ఇప్పుడు interest కూడా పంపొచ్చు" if ok else "ఈ user block list లో లేదు"}
 
