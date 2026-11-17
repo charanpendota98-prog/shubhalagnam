@@ -30,6 +30,8 @@ import ProfileInsights from "@/components/ProfileInsights";
 import RequestTimeline from "@/components/RequestTimeline";
 import PrivatePhotoAccessCard from "@/components/PrivatePhotoAccessCard";
 
+import "./workspace.css";
+
 type Row = Record<string, any>;
 
 // 🛡️ P0 FIX: printBiodata() builds a raw HTML string from user-submitted
@@ -437,8 +439,8 @@ export default function ProfileView() {
   const unlockedWhatsAppUrl = whatsappPhoneLink(unlocked);
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-6">
-      <div className="flex items-center gap-2">
+    <div className="mv-profile-workspace mx-auto max-w-5xl px-4 py-6">
+      <div className="profile-lookup flex items-center gap-2">
         <Link href="/matches" className="inline-flex min-h-11 items-center text-[12px] font-bold text-[#7A0C2E]">← Matches</Link>
         <div className="flex flex-1 items-center gap-2 rounded-2xl border border-rose-200 bg-white px-3 py-2">
           <span>🔍</span>
@@ -465,7 +467,7 @@ export default function ProfileView() {
 
       {!loading && !err && data ? (
         <>
-          <section className="mv-surface mv-surface__body mv-card mt-4">
+          <section className="profile-details mv-surface mv-surface__body mv-card mt-4">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <h1 className="text-2xl font-extrabold text-[#7A0C2E]">{myTsapId && profile.tsap_id === myTsapId ? (profile.full_name || (te ? "ప్రొఫైల్" : "Profile")) : firstName(profile.full_name)}</h1>
@@ -509,7 +511,8 @@ export default function ProfileView() {
               </div>
             ) : null}
 
-            <PrivatePhotoAccessCard profile={profile} myTsapId={myTsapId} />
+            <p className="profile-boundary">{te ? "సభ్యులు అందించిన వివరాలు. Badge లేదా profile completion మొత్తం వివరాలకు ధృవీకరణ కాదు. స్వతంత్రంగా నిర్ధారించండి." : "Member-submitted details. Badges and profile completion do not verify every claim. Check details independently."}</p>
+
 
             <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-2 text-[13px] text-slate-700 sm:grid-cols-3">
               {[
@@ -573,29 +576,13 @@ export default function ProfileView() {
             ) : null}
           </section>
 
-          <section className="mv-surface mv-surface--quiet mv-surface__body mt-4" aria-labelledby="profile-jathakam-note-title">
-            <h2 id="profile-jathakam-note-title" className="text-base font-extrabold text-[#7A0C2E]">
-              {te ? "🪐 జాతక సమాచారం" : "🪐 Jathakam information"}
-            </h2>
-            <p className="mt-2 text-[12px] leading-6 text-slate-700">
-              {te
-                ? "సభ్యులు నమోదు చేసిన star/rasi వివరాలను పూర్తి లేదా verify అయిన జాతకంగా చూపించము. నిజమైన పత్రం owner account లో review కోసం మాత్రమే అప్‌లోడ్ చేయాలి."
-                : "Member-entered star/rasi fields are not shown as a complete or verified horoscope. A real document can be submitted for review only from its owner account."}
-            </p>
-            <Link href="/porutham" className="mt-3 inline-flex min-h-10 items-center rounded-xl border border-[#7A0C2E]/25 px-3 py-2 text-xs font-bold text-[#7A0C2E]">
-              {te ? "జాతక review గురించి తెలుసుకోండి" : "Learn about Jathakam review"} →
-            </Link>
-          </section>
+          <PrivatePhotoAccessCard profile={profile} myTsapId={myTsapId} />
 
           {myTsapId && loadedProfileId && myTsapId !== loadedProfileId ? (
             <RequestCoach fromId={myTsapId} toId={loadedProfileId} onPickNote={(text) => setInterestNote(text)} />
           ) : null}
-          {myTsapId && loadedProfileId && myTsapId !== loadedProfileId ? (
-            <ProfileInsights viewerId={myTsapId} profileId={loadedProfileId} />
-          ) : null}
-
           {/* 🔒 Contact access is gated by profile-owner acceptance */}
-          <section className="mv-surface mv-surface__body mv-card mt-4 border-rose-200">
+          <section className="profile-contact mv-surface mv-surface__body mv-card mt-4 border-rose-200">
             <h2 className="text-lg font-extrabold text-[#7A0C2E]">
               🔒 {te ? "ఫోన్ నంబర్ — •••••••••• (గోప్యతా రక్షణలో ఉంది)" : "Phone Number — •••••••••• (Protected & Locked)"}
             </h2>
@@ -628,6 +615,23 @@ export default function ProfileView() {
                 </div>
               </div>
             ) : null}
+          {myTsapId && myTsapId !== loadedProfileId ? (
+            <section className="mx-auto mt-4 max-w-3xl px-4" aria-label={te ? "పంపే సందేశం" : "Message to send"}>
+              <label className="block text-[11px] font-bold text-slate-700" htmlFor="interest-note">
+                {te ? "✍️ పంపే సందేశం (optional — మీరు నమోదు చేసిన వివరాల ఆధారంగానే సూచనలు)" : "✍️ Message to send (optional — suggestions come only from entered details)"}
+              </label>
+              <textarea
+                id="interest-note"
+                value={interestNote}
+                onChange={(event) => setInterestNote(event.target.value.slice(0, 280))}
+                rows={3}
+                maxLength={280}
+                placeholder={te ? "ఉదా: మీ profile చూశాను — వివరాలు నాకు సరిపోయాయి." : "e.g. I read your profile and the details suit what I am looking for."}
+                className="mt-1.5 w-full rounded-2xl border border-slate-300 bg-white p-3 text-[13px] text-slate-800 focus:border-[#7A0C2E] focus:outline-none"
+              />
+            </section>
+          ) : null}
+
             <div className="mt-4 flex flex-wrap gap-2">
               <button type="button" onClick={() => void sendInterest()} disabled={sending || !shortlistSessionReady || loading}
                 className="mv-sheen min-h-12 rounded-xl bg-[#7A0C2E] px-5 py-2.5 text-sm font-bold text-white shadow-sm transition hover:brightness-110 disabled:opacity-60">
@@ -653,29 +657,18 @@ export default function ProfileView() {
                 💳 {te ? "పెయిడ్ ప్లాన్‌లు (₹99 → 5 interest requests)" : "Paid plans (₹99 → 5 interest requests)"}
               </Link>
             </div>
-          </section>
-
-          {myTsapId && myTsapId !== loadedProfileId ? (
-            <section className="mx-auto mt-4 max-w-3xl px-4" aria-label={te ? "పంపే సందేశం" : "Message to send"}>
-              <label className="block text-[11px] font-bold text-slate-700" htmlFor="interest-note">
-                {te ? "✍️ పంపే సందేశం (optional — మీరు నమోదు చేసిన వివరాల ఆధారంగానే సూచనలు)" : "✍️ Message to send (optional — suggestions come only from entered details)"}
-              </label>
-              <textarea
-                id="interest-note"
-                value={interestNote}
-                onChange={(event) => setInterestNote(event.target.value.slice(0, 280))}
-                rows={3}
-                maxLength={280}
-                placeholder={te ? "ఉదా: మీ profile చూశాను — వివరాలు నాకు సరిపోయాయి." : "e.g. I read your profile and the details suit what I am looking for."}
-                className="mt-1.5 w-full rounded-2xl border border-slate-300 bg-white p-3 text-[13px] text-slate-800 focus:border-[#7A0C2E] focus:outline-none"
-              />
-            </section>
+          {msg ? (
+            <p aria-live="polite" className={`mt-4 rounded-2xl border p-3 text-sm font-semibold ${msg.ok ? "border-emerald-300 bg-emerald-50 text-emerald-900" : "border-amber-300 bg-amber-50 text-amber-900"}`}>
+              {msg.text}
+            </p>
           ) : null}
+
+          </section>
 
           {sentRequestId ? <RequestTimeline requestId={sentRequestId} /> : null}
 
           {/* actions */}
-          <section className="mt-4 flex flex-wrap gap-2">
+          <section className="profile-tools mt-4 flex flex-wrap gap-2" aria-label={te ? "ప్రొఫైల్ tools మరియు భద్రత" : "Profile tools and safety"}>
             <Link
               href={`/biodata?id=${profile.tsap_id}`}
               className="rounded-xl gold-gradient px-4 py-2 text-sm font-black text-maroon hover:brightness-105 transition shadow-xs flex items-center gap-1.5"
@@ -707,10 +700,22 @@ export default function ProfileView() {
             <Link href="/safety" className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-bold text-slate-700">🛡️ {te ? "భద్రతా సూచనలు" : "Safety tips"}</Link>
           </section>
 
-          {msg ? (
-            <p aria-live="polite" className={`mt-4 rounded-2xl border p-3 text-sm font-semibold ${msg.ok ? "border-emerald-300 bg-emerald-50 text-emerald-900" : "border-amber-300 bg-amber-50 text-amber-900"}`}>
-              {msg.text}
+          <section className="mv-surface mv-surface--quiet mv-surface__body mt-4" aria-labelledby="profile-jathakam-note-title">
+            <h2 id="profile-jathakam-note-title" className="text-base font-extrabold text-[#7A0C2E]">
+              {te ? "🪐 జాతక సమాచారం" : "🪐 Jathakam information"}
+            </h2>
+            <p className="mt-2 text-[12px] leading-6 text-slate-700">
+              {te
+                ? "సభ్యులు నమోదు చేసిన star/rasi వివరాలను పూర్తి లేదా verify అయిన జాతకంగా చూపించము. నిజమైన పత్రం owner account లో review కోసం మాత్రమే అప్‌లోడ్ చేయాలి."
+                : "Member-entered star/rasi fields are not shown as a complete or verified horoscope. A real document can be submitted for review only from its owner account."}
             </p>
+            <Link href="/porutham" className="mt-3 inline-flex min-h-10 items-center rounded-xl border border-[#7A0C2E]/25 px-3 py-2 text-xs font-bold text-[#7A0C2E]">
+              {te ? "జాతక review గురించి తెలుసుకోండి" : "Learn about Jathakam review"} →
+            </Link>
+          </section>
+
+          {myTsapId && loadedProfileId && myTsapId !== loadedProfileId ? (
+            <ProfileInsights viewerId={myTsapId} profileId={loadedProfileId} />
           ) : null}
 
           {myTsapId && profile.tsap_id === myTsapId && Object.keys(quality?.sections || {}).length ? (

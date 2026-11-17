@@ -1,0 +1,23 @@
+/* Profile layout only. Consent, photo access, safety and action logic are unchanged. */
+.mv-profile-workspace { overflow-wrap:anywhere; }
+.mv-profile-workspace .profile-lookup { flex-wrap:wrap; }
+.mv-profile-workspace .profile-lookup>div { min-width:0;flex-basis:240px; }
+.mv-profile-workspace input { min-width:0; }
+.mv-profile-workspace :is(input,textarea,select,button,a) { font-size:16px;line-height:1.7; }
+.mv-profile-workspace :is(button,input,textarea,select,a) { min-height:44px; }
+.mv-profile-workspace :is(button,a):focus-visible { outline:3px solid #a97632;outline-offset:3px; }
+.mv-profile-workspace .profile-details>div:first-child { flex-wrap:wrap; }
+.mv-profile-workspace .profile-details>div:first-child>div:first-child { min-width:0;flex:1 1 150px; }
+.mv-profile-workspace h1 { font-size:30px;line-height:1.5; }
+.mv-profile-workspace .profile-boundary { margin-top:16px;padding:12px 14px;background:#fff6df;border-left:3px solid #a97632;font-size:16px;line-height:1.7;color:#554435; }
+.mv-profile-workspace :is(p,dd,li,label,[class*="text-["]) { font-size:16px;line-height:1.7; }
+.mv-profile-workspace dt { font-size:14px;line-height:1.7; }
+.mv-profile-workspace dl { gap:12px;margin-top:20px; }
+.mv-profile-workspace dl>div { min-width:0;border-top:1px solid #e8dbd3;padding-top:10px; }
+.mv-profile-workspace .profile-contact { border-top:3px solid #65132e; }
+.mv-profile-workspace .profile-contact>section { padding:0;margin:20px 0;max-width:none; }
+.mv-profile-workspace .profile-tools { padding:16px;background:#fffdfa;border:1px solid #e8dbd3;border-radius:16px; }
+@media(max-width:389px) { .mv-profile-workspace dl {grid-template-columns:1fr;} .mv-profile-workspace .profile-contact .mv-flow {grid-template-columns:1fr;} }
+
+.mv-profile-workspace h1 {font-size:30px;line-height:1.5;}
+.mv-profile-workspace .profile-details h1 {font-size:30px;line-height:1.5;}
