@@ -65,21 +65,25 @@ export default function ProfileView() {
   const [data, setData] = useState<Row | null>(null);
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(true);
-  const [myTsapId, setMyTsapId] = useState("");
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [sending, setSending] = useState(false);
+  const interestBusy = useRef(false);
+  const safetyBusy = useRef(false);
+  const [safetyPending, setSafetyPending] = useState(false);
+  const profileGeneration = useRef(0);
   const [savedNow, setSavedNow] = useState(false);
   const { tsapId: shortlistOwner, authenticated: shortlistAuthenticated, ready: shortlistSessionReady } = useSession();
+  const myTsapId = shortlistAuthenticated ? shortlistOwner : "";
   const [shortlistLoaded, setShortlistLoaded] = useState(false);
   const [shortlistError, setShortlistError] = useState(false);
   const [shortlistAttempt, setShortlistAttempt] = useState(0);
   const [shortlistSaving, setShortlistSaving] = useState(false);
-  const shortlistTarget = String(data?.profile?.tsap_id || "").trim().toUpperCase();
-  const shortlistKey = `${shortlistOwner}:${shortlistTarget}`;
+  const loadedProfileId = String(data?.profile?.tsap_id || "").trim().toUpperCase();
+  const shortlistKey = `${shortlistOwner}:${loadedProfileId}`;
   const shortlistCurrentKey = useRef(shortlistKey);
   useEffect(() => { shortlistCurrentKey.current = shortlistKey; }, [shortlistKey]);
   const [shortlistLoadedFor, setShortlistLoadedFor] = useState("");
-  const shortlistCanAct = shortlistSessionReady && shortlistLoaded && shortlistLoadedFor === shortlistKey && Boolean(shortlistTarget);
+  const shortlistCanAct = shortlistSessionReady && shortlistLoaded && shortlistLoadedFor === shortlistKey && Boolean(loadedProfileId);
 
   useEffect(() => {
     if (!shortlistSessionReady) return;
@@ -87,7 +91,7 @@ export default function ProfileView() {
     setSavedNow(false);
     setShortlistLoaded(false);
     setShortlistError(false);
-    if (!shortlistTarget) return;
+    if (!loadedProfileId) return;
     if (!shortlistOwner || !shortlistAuthenticated) {
       setShortlistLoadedFor(shortlistKey);
       setShortlistLoaded(true);
@@ -97,12 +101,12 @@ export default function ProfileView() {
       .then(({ ok, data }) => {
         if (!active) return;
         if (!ok || !Array.isArray(data?.saved)) { setShortlistError(true); return; }
-        setSavedNow(data.saved.some(item => String(item.profile?.tsap_id || "").toUpperCase() === shortlistTarget));
+        setSavedNow(data.saved.some(item => String(item.profile?.tsap_id || "").toUpperCase() === loadedProfileId));
         setShortlistLoadedFor(shortlistKey);
         setShortlistLoaded(true);
       }).catch(() => { if (active) setShortlistError(true); });
     return () => { active = false; };
-  }, [shortlistOwner, shortlistAuthenticated, shortlistSessionReady, shortlistTarget, shortlistKey, shortlistAttempt]);
+  }, [shortlistOwner, shortlistAuthenticated, shortlistSessionReady, loadedProfileId, shortlistKey, shortlistAttempt]);
   const [needsLogin, setNeedsLogin] = useState(false);
   const [blocked, setBlocked] = useState(false);
   const [reported, setReported] = useState(false);
@@ -115,13 +119,13 @@ export default function ProfileView() {
   const [sentRequestId, setSentRequestId] = useState("");
 
   useEffect(() => {
-    const id = (searchId || idFromUrl || "").trim();
+    const id = loadedProfileId;
     if (!id) return;
     setVoiceUrl("");
     void apiGet<Row>(`/api/voice/${encodeURIComponent(id)}`).then(({ ok, data }) => {
       if (ok && data?.has_voice) setVoiceUrl(String(data.voice_url || ""));
     });
-  }, [searchId, idFromUrl]);
+  }, [loadedProfileId]);
 
   const profile: Row = useMemo(() => data?.profile || {}, [data?.profile]);
   const rawChildren = String(profile.children ?? "").trim();
@@ -147,7 +151,7 @@ export default function ProfileView() {
       te ? profile.district : englishTerm(profile.district),
     ].filter(Boolean);
     const brand = te ? "మన వివాహ (Mana Vivaha)" : "Mana Vivaha (మన వివాహ)";
-    const title = `${name} (${searchId})${facts.length ? ` — ${facts.join(" • ")}` : ""} | ${brand}`;
+    const title = `${name} (${loadedProfileId})${facts.length ? ` — ${facts.join(" • ")}` : ""} | ${brand}`;
     const description = te
       ? "సభ్యులు అందించిన వివాహ ప్రొఫైల్. వివరాలు స్వతంత్రంగా ధృవీకరించబడవు; ప్రొఫైల్ యజమాని అంగీకరించిన తర్వాతే ఖాతా పేజీల్లో సంప్రదింపు వివరాలు అందుబాటులో ఉంటాయి."
       : `${facts.length ? `${facts.join(" • ")}. ` : ""}Member-submitted profile. Details are not independently verified; contact details are available in account views only after profile-owner acceptance.`;
@@ -167,15 +171,19 @@ export default function ProfileView() {
     setMeta("property", "og:locale", te ? "te_IN" : "en_IN");
     setMeta("name", "twitter:title", title);
     setMeta("name", "twitter:description", description);
-  }, [data, profile, searchId, te, profileText]);
+  }, [data, profile, loadedProfileId, te, profileText]);
 
   const quality = (data?.quality as Row) || null;
   const importantNotes = te ? quality?.important_telugu : quality?.important_en;
 
   const load = useCallback(async (id: string) => {
     if (!id) return;
+    const generation = ++profileGeneration.current;
     setLoading(true); setErr(""); setMsg(null);
+    setUnlocked(""); setBlocked(false); setReported(false); setSentRequestId("");
+    setInterestNote(""); setNeedsLogin(false); setShowUnlockModal(false); setShowProposalModal(false);
     const { ok, status, data: d, errorTelugu } = await apiGet<Row>(`/api/search/${encodeURIComponent(id)}`);
+    if (generation !== profileGeneration.current) return;
     setLoading(false);
     if (!ok || !d) {
       setData(null);
@@ -188,31 +196,32 @@ export default function ProfileView() {
   }, [te]);
 
   useEffect(() => {
-    try {
-      setMyTsapId(localStorage.getItem("tsap_id") || "");
-    } catch { /* ignore */ }
     void load(idFromUrl);
   }, [idFromUrl, load]);
 
   useEffect(() => {
-    if (!idFromUrl) return;
-    const my = (() => { try { return localStorage.getItem("tsap_id") || ""; } catch { return ""; } })();
+    if (!loadedProfileId || !shortlistSessionReady) return;
     void fetch("/api/view", {
       method: "POST", headers: authHeaders(),
-      body: JSON.stringify({ tsap_id: idFromUrl, viewer_id: my }),
+      body: JSON.stringify({ tsap_id: loadedProfileId, viewer_id: myTsapId }),
     });
-  }, [idFromUrl]);
+  }, [loadedProfileId, myTsapId, shortlistSessionReady]);
 
   const sendInterest = async (templateId?: string, noteOverride?: string) => {
+    if (!shortlistSessionReady || loading || !loadedProfileId || interestBusy.current) return;
+    if (!myTsapId) { setNeedsLogin(true); return; }
+    const generation = profileGeneration.current;
+    interestBusy.current = true;
     setSending(true); setMsg(null);
+    try {
     const noteToSend = (noteOverride ?? (interestNote || "")).trim();
     const { ok, data: d, status, errorTelugu: eTel, needsLogin: nl } = await apiPost<Row>("/api/interest/send",
-      { from_id: myTsapId, to_id: searchId, channel: "search_page",
+      { from_id: myTsapId, to_id: loadedProfileId, channel: "search_page",
         ...(noteToSend ? { note: noteToSend } : {}),
         ...(templateId ? { template_id: templateId } : {}) });
-    setSending(false);
+    if (generation !== profileGeneration.current) return;
     if (nl) { setNeedsLogin(true); return; }
-    if (ok) {
+    if (ok && d?.success) {
       const rid = String((d as Row | null)?.request_id || "");
       if (rid) setSentRequestId(rid);
       setInterestNote("");
@@ -220,18 +229,24 @@ export default function ProfileView() {
         }
     else if (status === 402) setMsg({ ok: false, text: te ? "⚠️ Credits అయిపోయాయి — ₹99 → 5 interest requests. Contact sharing acceptance తర్వాతే." : "⚠️ Credits are depleted — ₹99 → 5 interest requests. Contact sharing follows acceptance." });
     else if (status === 404) setMsg({ ok: false, text: te ? "మీ Profile ID register చెయ్యలేదు — ముందు FREE register చెయ్యండి." : "Your Profile ID is not registered — FREE register first." });
-    else setMsg({ ok: false, text: eTel });
+    else setMsg({ ok: false, text: status === 0
+      ? (te ? "Interest నమోదైందో నిర్ధారించలేకపోయాం. మళ్లీ పంపే ముందు Requests చూడండి." : "Could not confirm the interest. Check Requests before sending again.")
+      : eTel || (te ? "Interest పంపలేకపోయాం." : "Could not send the interest.") });
+    } finally { interestBusy.current = false; setSending(false); }
   };
 
   const doUnlock = async () => {
+    if (!shortlistSessionReady || loading || !loadedProfileId || unlocking) return;
     if (!myTsapId) {
       setShowUnlockModal(true);
       return;
     }
+    const generation = profileGeneration.current;
     setUnlocking(true); setMsg(null);
     const { ok, data: d, needsLogin: nl, errorTelugu: eTel } = await apiPost<Row>("/api/unlock",
-      { viewer_id: myTsapId, target_id: searchId });
+      { viewer_id: myTsapId, target_id: loadedProfileId });
     setUnlocking(false);
+    if (generation !== profileGeneration.current) return;
     if (nl) {
       setShowUnlockModal(true);
       return;
@@ -251,7 +266,7 @@ export default function ProfileView() {
     const actionKey = shortlistKey;
     setShortlistSaving(true);
     try {
-      const { ok, data: d, status, needsLogin: nl, errorTelugu: eTel } = await apiPost<Row>("/api/save", { tsap_id: shortlistOwner, target_id: shortlistTarget, saved: !savedNow });
+      const { ok, data: d, status, needsLogin: nl, errorTelugu: eTel } = await apiPost<Row>("/api/save", { tsap_id: shortlistOwner, target_id: loadedProfileId, saved: !savedNow });
       if (shortlistCurrentKey.current !== actionKey) return;
       if (status === 0) { setMsg({ ok: false, text: te ? "Shortlist మారిందో నిర్ధారించలేకపోయాం. ఇదే చర్యను మళ్లీ ప్రయత్నించడం సురక్షితం." : "Could not confirm the shortlist update. Retrying the same action is safe." }); return; }
       if (nl) { setNeedsLogin(true); return; }
@@ -263,18 +278,26 @@ export default function ProfileView() {
     }
   };
 
-  const doBlock = async () => {
-    const { ok, data: d, needsLogin: nl, errorTelugu: eTel } = await apiPost<Row>("/api/block", { tsap_id: myTsapId, block_id: searchId, reason: "profile page నుంచి" });
-    if (nl) { setNeedsLogin(true); return; }
-    if (ok) { setBlocked(true); setMsg({ ok: true, text: localizedApiMessage(d, "ప్రొఫైల్ బ్లాక్ చేయబడింది.", "Profile blocked.") }); }
-    else setMsg({ ok: false, text: eTel });
-  };
-
-  const doReport = async () => {
-    const { ok, data: d, needsLogin: nl, errorTelugu: eTel } = await apiPost<Row>("/api/report", { reporter_id: myTsapId, target_id: searchId, category: "fake_profile", detail: "Profile page నుంచి report" });
-    if (nl) { setNeedsLogin(true); return; }
-    if (ok) { setReported(true); setMsg({ ok: true, text: localizedApiMessage(d, "రిపోర్ట్ సమర్పించబడింది. సమీక్షకు పట్టే సమయం మారవచ్చు.", "Report submitted. Review timing may vary.") }); }
-    else setMsg({ ok: false, text: eTel });
+  const safetyAction = async (action: "block" | "report") => {
+    if (!shortlistSessionReady || loading || !loadedProfileId || safetyBusy.current) return;
+    if (!myTsapId) { setNeedsLogin(true); return; }
+    const generation = profileGeneration.current;
+    safetyBusy.current = true; setSafetyPending(true); setMsg(null);
+    try {
+      const payload = action === "block"
+        ? { tsap_id: myTsapId, block_id: loadedProfileId, reason: "profile page నుంచి" }
+        : { reporter_id: myTsapId, target_id: loadedProfileId, category: "fake_profile", detail: "Profile page నుంచి report" };
+      const { ok, data: d, needsLogin: nl, errorTelugu: eTel } = await apiPost<Row>(`/api/${action}`, payload);
+      if (generation !== profileGeneration.current) return;
+      if (nl) { setNeedsLogin(true); return; }
+      if (ok && d?.success) {
+        if (action === "block") { setBlocked(true); setUnlocked(""); }
+        else setReported(true);
+        setMsg({ ok: true, text: action === "block"
+          ? localizedApiMessage(d, "ప్రొఫైల్ బ్లాక్ చేయబడింది.", "Profile blocked.")
+          : localizedApiMessage(d, "రిపోర్ట్ సమర్పించబడింది. సమీక్షకు పట్టే సమయం మారవచ్చు.", "Report submitted. Review timing may vary.") });
+      } else setMsg({ ok: false, text: eTel || (te ? "చర్యను నిర్ధారించలేకపోయాం. మళ్లీ చూడండి." : "Could not confirm the action. Please check again.") });
+    } finally { safetyBusy.current = false; setSafetyPending(false); }
   };
 
   const shareWhatsApp = () => {
@@ -564,11 +587,11 @@ export default function ProfileView() {
             </Link>
           </section>
 
-          {myTsapId && searchId && myTsapId !== searchId ? (
-            <RequestCoach fromId={myTsapId} toId={searchId} onPickNote={(text) => setInterestNote(text)} />
+          {myTsapId && loadedProfileId && myTsapId !== loadedProfileId ? (
+            <RequestCoach fromId={myTsapId} toId={loadedProfileId} onPickNote={(text) => setInterestNote(text)} />
           ) : null}
-          {myTsapId && searchId && myTsapId !== searchId ? (
-            <ProfileInsights viewerId={myTsapId} profileId={searchId} />
+          {myTsapId && loadedProfileId && myTsapId !== loadedProfileId ? (
+            <ProfileInsights viewerId={myTsapId} profileId={loadedProfileId} />
           ) : null}
 
           {/* 🔒 Contact access is gated by profile-owner acceptance */}
@@ -606,11 +629,11 @@ export default function ProfileView() {
               </div>
             ) : null}
             <div className="mt-4 flex flex-wrap gap-2">
-              <button type="button" onClick={() => void sendInterest()} disabled={sending}
+              <button type="button" onClick={() => void sendInterest()} disabled={sending || !shortlistSessionReady || loading}
                 className="mv-sheen min-h-12 rounded-xl bg-[#7A0C2E] px-5 py-2.5 text-sm font-bold text-white shadow-sm transition hover:brightness-110 disabled:opacity-60">
                 {sending ? (te ? "పంపిస్తున్నాం…" : "Sending…") : te ? "💌 Interest పంపండి (FREE 3)" : "💌 Send interest (FREE 3)"}
               </button>
-              <button type="button" onClick={() => void sendInterest("traditional")} disabled={sending}
+              <button type="button" onClick={() => void sendInterest("traditional")} disabled={sending || !shortlistSessionReady || loading}
                 className="min-h-12 rounded-xl border border-[#7A0C2E] px-5 py-2.5 text-sm font-bold text-[#7A0C2E] transition hover:bg-rose-50">
                 {te ? "🙏 Template తో పంపు" : "🙏 Send with template"}
               </button>
@@ -620,7 +643,7 @@ export default function ProfileView() {
                 </a>
               ) : (
                 <>
-                <button type="button" onClick={() => void doUnlock()} disabled={unlocking}
+                <button type="button" onClick={() => void doUnlock()} disabled={unlocking || !shortlistSessionReady || loading}
                   className="rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-60">
                   {unlocking ? (te ? "చెక్ చేస్తున్నాం…" : "Checking access…") : (te ? "📞 అంగీకారం తర్వాత contact చూడండి" : "📞 Contact after acceptance")}
                 </button>
@@ -632,7 +655,7 @@ export default function ProfileView() {
             </div>
           </section>
 
-          {myTsapId && myTsapId !== searchId ? (
+          {myTsapId && myTsapId !== loadedProfileId ? (
             <section className="mx-auto mt-4 max-w-3xl px-4" aria-label={te ? "పంపే సందేశం" : "Message to send"}>
               <label className="block text-[11px] font-bold text-slate-700" htmlFor="interest-note">
                 {te ? "✍️ పంపే సందేశం (optional — మీరు నమోదు చేసిన వివరాల ఆధారంగానే సూచనలు)" : "✍️ Message to send (optional — suggestions come only from entered details)"}
@@ -675,10 +698,10 @@ export default function ProfileView() {
               <span>💬</span>
               <span>{te ? "వాట్సాప్ ప్రపోజల్ షేర్" : "WhatsApp Proposal Share"}</span>
             </button>
-            <button type="button" onClick={() => void doBlock()} disabled={blocked} className="rounded-xl border border-rose-300 px-4 py-2 text-sm font-bold text-rose-700 disabled:opacity-50">
+            <button type="button" onClick={() => void safetyAction("block")} disabled={blocked || safetyPending || !shortlistSessionReady || loading} className="rounded-xl border border-rose-300 px-4 py-2 text-sm font-bold text-rose-700 disabled:opacity-50">
               🚫 {te ? "బ్లాక్ చేయండి" : "Block"}
             </button>
-            <button type="button" onClick={() => void doReport()} disabled={reported} className="rounded-xl border border-amber-300 px-4 py-2 text-sm font-bold text-amber-800 disabled:opacity-50">
+            <button type="button" onClick={() => void safetyAction("report")} disabled={reported || safetyPending || !shortlistSessionReady || loading} className="rounded-xl border border-amber-300 px-4 py-2 text-sm font-bold text-amber-800 disabled:opacity-50">
               🚩 {te ? "రిపోర్ట్ చేయండి" : "Report"}
             </button>
             <Link href="/safety" className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-bold text-slate-700">🛡️ {te ? "భద్రతా సూచనలు" : "Safety tips"}</Link>
