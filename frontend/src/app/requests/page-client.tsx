@@ -15,7 +15,7 @@ import { authHeaders, apiPost, apiGet, apiDisplayMessage, getToken, readApiJson}
 import Link from "next/link";
 import Reveal from "@/components/Reveal";
 import SectionHeading from "@/components/SectionHeading";
-import { PillScroller } from "@/components/ui";
+import "./workspace.css";
 import PayBox from "@/components/PayBox";
 import { Duo, duo } from "@/lib/duo";
 import { useLang } from "@/lib/lang";
@@ -221,12 +221,11 @@ export default function RequestsPage() {
   const visibleTemplates = te ? templates : templates.filter((template) => Boolean(template.text_en));
 
   return (
-    <div className="min-h-dvh pb-36">
-      {/* The page <h1> and lead come from the shared RouteIntro band; this
-          block states the rules plainly and holds the dashboard key. */}
+    <div className="mv-requests-workspace min-h-dvh pb-36">
       <div className="mx-auto max-w-6xl px-4 pt-5">
-        <section className="mv-surface mv-surface__body" aria-label={te ? "ఎలా పని చేస్తుంది" : "How this works"}>
-          <Reveal>
+        <header className="requests-intro"><p>{te ? "మన వివాహ · పరిచయాలు" : "MANA VIVAHA · CONNECTIONS"}</p><h1>{te ? "మీ ఆసక్తి అభ్యర్థనలు." : "Your interest requests."}</h1><p>{te ? "ఇది in-app chat కాదు. Owner ఆమోదం తర్వాతే contact వివరాలు." : "No in-app chat. Contact details follow the profile owner's acceptance."}</p></header>
+        <section className="requests-identity" aria-label={te ? "ఎలా పని చేస్తుంది" : "How this works"}>
+          <details className="requests-rules"><summary>{te ? "Consent, credits, delivery గురించి" : "Consent, credits and delivery rules"}</summary>
             <div className="flex flex-wrap items-center gap-2">
               <span className="mv-chip">{te ? "🚫 Chatting లేదు" : "🚫 No in-app chat"}</span>
               <span className="mv-chip">{te ? "💌 Interest request" : "💌 Interest request"}</span>
@@ -242,7 +241,7 @@ export default function RequestsPage() {
                 If the profile owner <b>accepts</b>, contact details appear in accepted-request account views. Declined requests follow the credit policy shown in your account.
                 Paid credits cannot bypass consent; verify details independently.</>}
             </p>
-          </Reveal>
+          </details>
 
           <div className="mt-4 flex flex-wrap items-end gap-3">
             <div className="min-w-0">
@@ -282,7 +281,7 @@ export default function RequestsPage() {
         )}
 
         {/* TABS */}
-        <PillScroller label={te ? "రిక్వెస్ట్ విభాగాలు" : "Request sections"} className="mb-4" as="nav">
+        <nav aria-label={te ? "రిక్వెస్ట్ విభాగాలు" : "Request sections"} className="requests-nav mb-4">
           {[
             { k: "inbox", l: te ? `📥 వచ్చిన requests${inbox.pending ? ` (${inbox.pending})` : ""}` : `📥 Received${inbox.pending ? ` (${inbox.pending})` : ""}` },
             { k: "sent", l: te ? `📤 పంపిన requests${sent.sent?.length ? ` (${sent.sent.length})` : ""}` : `📤 Sent${sent.sent?.length ? ` (${sent.sent.length})` : ""}` },
@@ -295,15 +294,16 @@ export default function RequestsPage() {
               key={t.k}
               onClick={() => setTab(t.k as any)}
               aria-current={tab === t.k ? "page" : undefined}
-              className={`pill whitespace-nowrap ${tab === t.k ? "pill--on" : "pill--quiet"}`}
+              aria-controls="requests-task-panel"
+              className={`requests-section ${tab === t.k ? "is-active" : ""}`}
             >
               {t.l}
             </button>
           ))}
-        </PillScroller>
+        </nav>
 
         {/* Panel transition on the shared motion token. */}
-        <div className="mv-panel" key={tab}>
+        <div id="requests-task-panel" className="mv-panel" key={tab}>
 
         {/* INBOX */}
         {tab === "inbox" && (
@@ -571,17 +571,6 @@ export default function RequestsPage() {
           </div>
         )}
 
-        {/* JATHAKAM REVIEW */}
-        <section className="mb-4 rounded-2xl border border-amber-200 bg-amber-50/70 p-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <div className="font-bold text-[#5c0822]">🪐 {te ? "నిజమైన జాతక పత్రం review" : "Real Jathakam document review"}</div>
-              <p className="mt-1 max-w-2xl text-xs leading-relaxed text-slate-700">{te ? "Star-only score లేదా ఊహించిన chart చూపించము. మీ స్వంత పత్రాన్ని upload చేసి review స్థితిని మాత్రమే చూడండి." : "No star-only score or invented chart is shown. Upload your own document and see only its review state."}</p>
-            </div>
-            <Link href="/porutham" className="inline-flex min-h-11 items-center rounded-xl bg-[#7a0c2e] px-4 py-2.5 text-xs font-bold text-white">{te ? "జాతక review" : "Open Jathakam review"} →</Link>
-          </div>
-        </section>
-
         {/* SAVED / SHORTLIST */}
         {tab === "saved" && (
           <div className="space-y-3">
@@ -707,6 +696,17 @@ export default function RequestsPage() {
           </div>
         )}
         </div>
+        {/* JATHAKAM REVIEW */}
+        <section className="mb-4 rounded-2xl border border-amber-200 bg-amber-50/70 p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <div className="font-bold text-[#5c0822]">🪐 {te ? "నిజమైన జాతక పత్రం review" : "Real Jathakam document review"}</div>
+              <p className="mt-1 max-w-2xl text-xs leading-relaxed text-slate-700">{te ? "Star-only score లేదా ఊహించిన chart చూపించము. మీ స్వంత పత్రాన్ని upload చేసి review స్థితిని మాత్రమే చూడండి." : "No star-only score or invented chart is shown. Upload your own document and see only its review state."}</p>
+            </div>
+            <Link href="/porutham" className="inline-flex min-h-11 items-center rounded-xl bg-[#7a0c2e] px-4 py-2.5 text-xs font-bold text-white">{te ? "జాతక review" : "Open Jathakam review"} →</Link>
+          </div>
+        </section>
+
       </div>
       {needsLogin ? (
         <div className="mt-6">
