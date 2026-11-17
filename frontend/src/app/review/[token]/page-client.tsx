@@ -1,5 +1,7 @@
 "use client";
 
+import "@/components/private-fallback.css";
+
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -14,6 +16,8 @@ export default function ElderReviewClient() {
   const [data, setData] = useState<any>(null);
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(true);
+  const [attempt, setAttempt] = useState(0);
+  const [feedbackError, setFeedbackError] = useState(false);
 
   const [reviewerName, setReviewerName] = useState("");
   const [relation, setRelation] = useState("Family Elder");
@@ -23,20 +27,24 @@ export default function ElderReviewClient() {
 
   useEffect(() => {
     if (!token) return;
-    setLoading(true);
-    fetch(`/api/review-links/${encodeURIComponent(token)}`)
+    let active = true;
+    setLoading(true); setData(null); setErr(""); setFbSent("");
+    setReviewerName(""); setRelation("Family Elder"); setNote("");
+    fetch(`/api/review-links/${encodeURIComponent(token)}`, { cache: "no-store" })
       .then(async (r) => {
         const d = await readApiJson(r);
-        if (r.ok && d?.success) setData(d);
-        else setErr(d?.detail || (te ? "ఈ రివ్యూ లింక్ గడువు ముగిసింది లేదా రద్దు చేయబడింది." : "This review link has expired or was revoked by the profile owner."));
+        if (!active) return;
+        if (r.ok && d?.success === true && d.profile && typeof d.profile === "object") setData(d);
+        else setErr(r.status === 404 ? "unavailable" : "network");
       })
-      .catch(() => setErr(te ? "లింక్ తెరవలేకపోయాము." : "Could not open review link."))
-      .finally(() => setLoading(false));
-  }, [token, te]);
+      .catch(() => { if (active) setErr("network"); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [token, attempt]);
 
   const sendFeedback = async () => {
-    if (reviewerName.trim().length < 2 || note.trim().length < 3) return;
-    setBusy(true);
+    if (busy || !data?.profile || reviewerName.trim().length < 2 || note.trim().length < 3) return;
+    setBusy(true); setFbSent(""); setFeedbackError(false);
     try {
       const r = await fetch(`/api/review-links/${encodeURIComponent(token)}/feedback`, {
         method: "POST",
@@ -44,12 +52,16 @@ export default function ElderReviewClient() {
         body: JSON.stringify({ reviewer_name: reviewerName, relation, note }),
       });
       const d = await readApiJson(r);
-      if (r.ok && d.success) {
+      if (r.ok && d.success === true) {
         setNote("");
-        setFbSent(te ? "✅ మీ అభిప్రాయం / ఆశీస్సులు ప్రొఫైల్ యజమానికి చేరాయి." : "✅ Your note has been shared privately with the profile owner.");
+        setFbSent(te ? "✅ మీ note ప్రొఫైల్ యజమాని పరిశీలన కోసం సేవ్ అయింది." : "✅ Your note was saved for the profile owner to review.");
       } else {
-        setFbSent(d?.detail || "Could not send note.");
+        setFeedbackError(true);
+        setFbSent(d?.detail || (te ? "Note సేవ్ కాలేదు. మీ వివరాలు ఇక్కడే ఉన్నాయి." : "The note was not saved. Your entries are still here."));
       }
+    } catch {
+      setFeedbackError(true);
+      setFbSent(te ? "Note సేవ్ అయిందో నిర్ధారించలేకపోయాం. మళ్లీ పంపే ముందు ప్రొఫైల్ యజమానితో చెక్ చేయండి." : "Could not confirm whether the note was saved. Check with the profile owner before sending it again.");
     } finally {
       setBusy(false);
     }
@@ -58,9 +70,9 @@ export default function ElderReviewClient() {
   const p = data?.profile;
 
   return (
-    <div className="min-h-dvh bg-[#FFF8E7] px-4 py-8">
+    <div className="mv-private-fallback min-h-dvh bg-[#FFF8E7] px-4 py-8 pb-24">
       <div className="mx-auto max-w-2xl space-y-5">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <Link href="/" className="text-xs font-bold text-[#7A0C2E]">
             ← {te ? "మన వివాహ హోమ్" : "Mana Vivaha Home"}
           </Link>
@@ -71,7 +83,7 @@ export default function ElderReviewClient() {
 
         {loading && (
           <div className="rounded-3xl bg-white p-8 text-center text-sm font-bold text-[#7A0C2E]">
-            ⏳ {te ? "బయోడేటా వివరాలు లోడ్ అవుతున్నాయి…" : "Loading biodata summary…"}
+            <h1>⏳ {te ? "బయోడేటా వివరాలు లోడ్ అవుతున్నాయి…" : "Loading biodata summary…"}</h1>
           </div>
         )}
 
@@ -81,7 +93,13 @@ export default function ElderReviewClient() {
             <h1 className="text-lg font-extrabold text-[#7A0C2E]">
               {te ? "రివ్యూ లింక్ అందుబాటులో లేదు" : "Review Link Unavailable"}
             </h1>
-            <p className="text-xs text-slate-600">{err}</p>
+            <p role="alert" className="text-xs text-slate-600">{err === "unavailable"
+              ? (te ? "ఈ లింక్ దొరకలేదు, గడువు ముగిసింది, రద్దయింది లేదా view limit చేరింది. ప్రొఫైల్ యజమానిని సంప్రదించండి." : "The link was not found, expired, revoked or reached its view limit. Ask the profile owner for help.")
+              : (te ? "ప్రస్తుతం లింక్ వివరాలను నిర్ధారించలేకపోయాం. ఇది లింక్ గడువు ముగిసిందని కాదు." : "The link could not be checked right now. This does not confirm it has expired.")}</p>
+            {err === "network" && <>
+              <p className="text-xs text-slate-600">{te ? "మళ్లీ తెరిస్తే మిగిలిన views లో ఒకటి తగ్గవచ్చు." : "Opening it again may use another remaining view."}</p>
+              <button type="button" onClick={() => setAttempt(x => x + 1)} className="rounded-xl bg-maroon px-4 py-2 text-white font-bold">{te ? "మళ్లీ ప్రయత్నించండి" : "Try again"}</button>
+            </>}
           </div>
         )}
 
@@ -144,22 +162,25 @@ export default function ElderReviewClient() {
                 🙏 {te ? "కుటుంబ అభిప్రాయం / ఆశీస్సులు పంపండి" : "Share Family Note with Profile Owner"}
               </h2>
               <div className="grid gap-2 sm:grid-cols-2">
-                <input
+                <label className="text-xs font-bold">{te ? "మీ పేరు" : "Your name"}<input
+                  maxLength={60}
                   value={reviewerName}
                   onChange={(e) => setReviewerName(e.target.value)}
                   placeholder={te ? "మీ పేరు (ఉదా: లక్ష్మి పెద్దమ్మ)" : "Your name (e.g. Lakshmi Aunt)"}
                   aria-label="Reviewer name"
-                  className="rounded-xl border border-slate-200 px-3 py-2 text-xs"
+                  className="mt-1 block w-full rounded-xl border border-slate-200 px-3 py-2 text-xs"
                 />
-                <input
+                </label><label className="text-xs font-bold">{te ? "బంధుత్వం" : "Relation"}<input
+                  maxLength={40}
                   value={relation}
                   onChange={(e) => setRelation(e.target.value)}
                   placeholder={te ? "బంధుత్వం (ఉదా: మామయ్య / పెద్దమ్మ)" : "Relation (e.g. Uncle / Aunt)"}
                   aria-label="Reviewer relation"
-                  className="rounded-xl border border-slate-200 px-3 py-2 text-xs"
+                  className="mt-1 block w-full rounded-xl border border-slate-200 px-3 py-2 text-xs"
                 />
-              </div>
-              <textarea
+              </label></div>
+              <label className="block text-xs font-bold">{te ? "మీ private note" : "Your private note"}<textarea
+                maxLength={300}
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
                 rows={2}
@@ -167,7 +188,7 @@ export default function ElderReviewClient() {
                 aria-label="Elder review note"
                 className="w-full rounded-xl border border-slate-200 p-3 text-xs"
               />
-              <button
+              </label><button
                 type="button"
                 disabled={busy || reviewerName.trim().length < 2 || note.trim().length < 3}
                 onClick={() => void sendFeedback()}
@@ -175,7 +196,7 @@ export default function ElderReviewClient() {
               >
                 {te ? "అభిప్రాయం పంపండి" : "Send Private Note"}
               </button>
-              {fbSent && <p className="text-xs font-bold text-emerald-800">{fbSent}</p>}
+              {fbSent && <p role={feedbackError ? "alert" : "status"} className={`text-xs font-bold ${feedbackError ? "text-rose-800" : "text-emerald-800"}`}>{fbSent}</p>}
             </section>
           </>
         )}

@@ -1,8 +1,8 @@
 {
-  "source": "Local source route inventory after partner-referral preview",
+  "source": "Local source route inventory after private-offline preview",
   "route_patterns": 54,
-  "previewed_patterns": 44,
-  "remaining_patterns": 10,
+  "previewed_patterns": 46,
+  "remaining_patterns": 8,
   "groups": [
     {
       "group": "Earlier core previews",
@@ -92,7 +92,7 @@
     },
     {
       "group": "Private-link and fallback",
-      "status": "Remaining bounded review",
+      "status": "Local two-pattern bilingual fixture review plus warmed-cache offline test; no real token, feedback or launch acceptance",
       "routes": [
         "/review/[token]",
         "/offline"

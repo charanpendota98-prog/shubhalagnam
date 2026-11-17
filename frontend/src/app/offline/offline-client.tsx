@@ -1,6 +1,8 @@
 "use client";
 
 /** 📡 Offline fallback — neat Telugu / clean English via toggle. */
+import "@/components/private-fallback.css";
+
 import Link from "next/link";
 import { useLang } from "@/lib/lang";
 import { SITE_CONFIG } from "@/lib/site-config";
@@ -9,7 +11,7 @@ export default function OfflinePage() {
   const { lang } = useLang();
   const te = lang === "te";
   return (
-    <div className="min-h-dvh bg-cream flex items-center justify-center px-4">
+    <div className="mv-private-fallback min-h-dvh bg-cream flex items-center justify-center px-4 py-10 pb-24">
       <div className="bg-white rounded-[2rem] border border-gold/30 p-7 max-w-md w-full text-center card-shadow">
         <div className="text-5xl">📡</div>
         <h1 className="mt-3 text-xl font-bold text-maroon">
