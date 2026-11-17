@@ -169,7 +169,7 @@ export default function HeroQuickSearch() {
   };
 
   return (
-    <div className="w-full max-w-6xl mx-auto bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-6 border border-gold/50 shadow-[0_18px_55px_rgba(78,12,35,0.14)]">
+    <div className="mv-advanced-search w-full max-w-6xl mx-auto bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-6 border border-gold/50 shadow-[0_18px_55px_rgba(78,12,35,0.14)]">
       <form onSubmit={handleSearch} className="space-y-4">
         
         {/* Top Control Bar: Looking for Gender + State Switcher */}
@@ -183,6 +183,7 @@ export default function HeroQuickSearch() {
             <div className="inline-flex p-1 bg-amber-50/80 rounded-2xl border border-gold/50 shadow-inner">
               <button
                 type="button"
+                aria-pressed={gender === "Bride"}
                 onClick={() => setGender("Bride")}
                 className={`px-4 py-1.5 sm:py-2 rounded-xl text-xs font-black transition cursor-pointer ${
                   gender === "Bride"
@@ -194,6 +195,7 @@ export default function HeroQuickSearch() {
               </button>
               <button
                 type="button"
+                aria-pressed={gender === "Groom"}
                 onClick={() => setGender("Groom")}
                 className={`px-4 py-1.5 sm:py-2 rounded-xl text-xs font-black transition cursor-pointer ${
                   gender === "Groom"
@@ -210,6 +212,7 @@ export default function HeroQuickSearch() {
           <div className="flex max-w-full items-center gap-1 overflow-x-auto scrollbar-hide p-1 bg-slate-100 rounded-xl border border-gray-200" role="group" aria-label={te ? "ప్రాంతం" : "Region"}>
             <button
               type="button"
+              aria-pressed={stateFilter === "ALL"}
               onClick={() => { setStateFilter("ALL"); setDistrict("All Districts"); }}
               className={`px-2.5 py-1 rounded-xl text-[11px] font-black transition cursor-pointer ${
                 stateFilter === "ALL" ? "bg-white text-maroon shadow-xs" : "text-gray-600 hover:text-black"
@@ -219,6 +222,7 @@ export default function HeroQuickSearch() {
             </button>
             <button
               type="button"
+              aria-pressed={stateFilter === "TS"}
               onClick={() => { setStateFilter("TS"); setDistrict("All Districts"); }}
               className={`px-2.5 py-1 rounded-xl text-[11px] font-black transition cursor-pointer ${
                 stateFilter === "TS" ? "bg-[#7A0C2E] text-white shadow-xs" : "text-gray-600 hover:text-black"
@@ -228,6 +232,7 @@ export default function HeroQuickSearch() {
             </button>
             <button
               type="button"
+              aria-pressed={stateFilter === "AP"}
               onClick={() => { setStateFilter("AP"); setDistrict("All Districts"); }}
               className={`px-2.5 py-1 rounded-xl text-[11px] font-black transition cursor-pointer ${
                 stateFilter === "AP" ? "bg-[#7A0C2E] text-white shadow-xs" : "text-gray-600 hover:text-black"
@@ -237,6 +242,7 @@ export default function HeroQuickSearch() {
             </button>
             <button
               type="button"
+              aria-pressed={stateFilter === "NRI"}
               onClick={() => { setStateFilter("NRI"); setDistrict("All Districts"); }}
               className={`px-2.5 py-1 rounded-xl text-[11px] font-black transition cursor-pointer ${
                 stateFilter === "NRI" ? "bg-amber-500 text-maroon shadow-xs" : "text-gray-600 hover:text-black"

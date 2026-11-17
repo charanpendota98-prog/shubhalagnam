@@ -1,5 +1,7 @@
 "use client";
 
+import "./home-workspace.css";
+
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import Reveal from "@/components/Reveal";
@@ -204,7 +206,7 @@ export default function Home() {
   const tg = te ? "telugu" : "";
 
   return (
-    <div className="home-page bg-cream">
+    <div className="home-page mv-home-workspace bg-cream">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd(jsonLd) }} />
 
       {/* 🎬 Search-first cinematic hero. The profile search card is the brightest
@@ -341,6 +343,7 @@ export default function Home() {
                       type="button"
                       onClick={() => setOpenFaq(openFaq === index ? null : index)}
                       aria-expanded={openFaq === index}
+                      aria-controls={`home-faq-answer-${index}`}
                       className="hp-faq__q"
                     >
                       <span>{item.q}</span>
@@ -348,7 +351,7 @@ export default function Home() {
                     </button>
                   </h3>
                   {openFaq === index && (
-                    <p className="hp-faq__a">{item.a}</p>
+                    <p id={`home-faq-answer-${index}`} className="hp-faq__a">{item.a}</p>
                   )}
                 </article>
               </Reveal>
