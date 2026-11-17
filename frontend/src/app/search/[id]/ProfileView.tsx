@@ -210,7 +210,7 @@ export default function ProfileView() {
   }, [loadedProfileId, myTsapId, shortlistSessionReady]);
 
   const sendInterest = async (templateId?: string, noteOverride?: string) => {
-    if (!shortlistSessionReady || loading || !loadedProfileId || interestBusy.current) return;
+    if (!shortlistSessionReady || loading || !loadedProfileId || interestBusy.current || sentRequestId) return;
     if (!myTsapId) { setNeedsLogin(true); return; }
     const generation = profileGeneration.current;
     interestBusy.current = true;
@@ -635,10 +635,10 @@ export default function ProfileView() {
             <div className="mt-4 flex flex-wrap gap-2">
               <button type="button" onClick={() => void sendInterest()} disabled={sending || Boolean(sentRequestId) || !shortlistSessionReady || loading}
                 className="mv-sheen min-h-12 rounded-xl bg-[#7A0C2E] px-5 py-2.5 text-sm font-bold text-white shadow-sm transition hover:brightness-110 disabled:opacity-60">
-                {sending ? (te ? "పంపిస్తున్నాం…" : "Sending…") : te ? "💌 Interest పంపండి (FREE 3)" : "💌 Send interest (FREE 3)"}
+                {sending ? (te ? "పంపిస్తున్నాం…" : "Sending…") : sentRequestId ? (te ? "✅ Interest పంపబడింది" : "✅ Interest sent") : te ? "💌 Interest పంపండి (FREE 3)" : "💌 Send interest (FREE 3)"}
               </button>
               <button type="button" onClick={() => void sendInterest("traditional")} disabled={sending || Boolean(sentRequestId) || !shortlistSessionReady || loading}
-                className="min-h-12 rounded-xl border border-[#7A0C2E] px-5 py-2.5 text-sm font-bold text-[#7A0C2E] transition hover:bg-rose-50">
+                className="min-h-12 rounded-xl border border-[#7A0C2E] px-5 py-2.5 text-sm font-bold text-[#7A0C2E] transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60">
                 {te ? "🙏 Template తో పంపు" : "🙏 Send with template"}
               </button>
               {unlocked ? (
