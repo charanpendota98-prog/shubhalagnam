@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import "./discovery-workspace.css";
 import { WhatsAppIcon } from "@/components/BrandIcons";
 import { useLang } from "@/lib/lang";
 import { apiDisplayMessage, apiPost } from "@/lib/api";
@@ -216,7 +217,7 @@ export default function ProfileCompareStudio() {
   };
 
   return (
-    <div className="min-h-dvh bg-[#FDFBF7] px-4 py-8 sm:px-6 sm:py-12 lg:px-8">
+    <div className="mv-discovery-workspace min-h-dvh bg-[#FDFBF7] px-4 py-8 sm:px-6 sm:py-12 lg:px-8">
       <div className="mx-auto max-w-7xl space-y-7">
         <header className="mx-auto max-w-3xl space-y-3 text-center">
           <p className="inline-flex rounded-full border border-gold/40 bg-gold/15 px-4 py-1.5 text-xs font-bold text-maroon">
@@ -287,7 +288,7 @@ export default function ProfileCompareStudio() {
               {loading ? (te ? "పోలుస్తోంది…" : "Loading profiles…") : (te ? "పోల్చండి" : "Compare profiles")}
             </button>
             <Link href="/search" className="text-sm font-semibold text-maroon underline-offset-4 hover:underline">
-              {te ? "Profile ID కనుగొనడానికి Search తెరవండి" : "Open search to find a profile ID"}
+              {te ? "Share చేసిన Profile ID తెరవండి" : "Open a shared Profile ID"}
             </Link>
           </div>
           {error && (
@@ -330,7 +331,7 @@ export default function ProfileCompareStudio() {
                     className="min-h-11 rounded-xl border border-gray-300 bg-white px-3 text-sm text-gray-900 outline-none focus:border-maroon focus:ring-2 focus:ring-maroon/20"
                   >
                     <option value="entered">{te ? "మీరు నమోదు చేసిన క్రమం" : "Order you entered"}</option>
-                    <option value="preferences">{te ? "ఎక్కువ expectations సరిపోయినవి ముందు" : "Most expectations met first"}</option>
+                    <option value="preferences">{te ? "Expectations క్రమం" : "Expectations met first"}</option>
                   </select>
                 </label>
               )}

@@ -18,6 +18,7 @@
  */
 
 import Link from "next/link";
+import "./discovery-workspace.css";
 import { useCallback, useEffect, useState } from "react";
 import { apiFetch, apiPost, authHeaders, readApiJson } from "@/lib/api";
 import { useLang } from "@/lib/lang";
@@ -202,13 +203,15 @@ export default function SavedSearchWorkspace() {
   };
 
   if (unauthorized || (!loading && !myId)) {
-    return <AuthGate note={te ? "మీ saved searches, alerts చూడటానికి లాగిన్ అవ్వండి." : "Log in to manage your saved searches and alerts."} />;
+    return <section className="mv-discovery-workspace mx-auto w-full max-w-4xl px-4 py-6 sm:px-6 sm:py-8"><header className="mv-discovery-heading"><h1>{te ? "Saved searches మరియు alerts" : "Saved searches and alerts"}</h1></header><AuthGate note={te ? "మీ saved searches, alerts చూడటానికి లాగిన్ అవ్వండి." : "Log in to manage your saved searches and alerts."} /></section>;
   }
 
   return (
-    <section className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6 sm:py-8" aria-label={te ? "నా saved searches" : "My saved searches"}>
-      {/* The <h1>, lead and badge come from the shared intro band; the
-          workspace only carries its own action. */}
+    <section className="mv-discovery-workspace mx-auto w-full max-w-4xl px-4 py-6 sm:px-6 sm:py-8" aria-label={te ? "నా saved searches" : "My saved searches"}>
+      <header className="mv-discovery-heading">
+        <h1>{te ? "Saved searches మరియు alerts" : "Saved searches and alerts"}</h1>
+        <p>{te ? "Save చేసిన filters తెరవండి. Alerts కావాలో మీరు ఎంచుకోండి." : "Open your saved filters and choose whether to receive alerts."}</p>
+      </header>
       <div className="mb-4 flex justify-end sm:mb-6">
         <Link
           href="/matches"

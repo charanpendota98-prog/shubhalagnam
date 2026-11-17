@@ -15,6 +15,7 @@
  */
 
 import Link from "next/link";
+import "./discovery-workspace.css";
 import { useCallback, useEffect, useState } from "react";
 import { apiPost, authHeaders, readApiJson } from "@/lib/api";
 import { useLang } from "@/lib/lang";
@@ -162,13 +163,15 @@ export default function ShortlistWorkspace() {
   };
 
   if (unauthorized || (!loading && !myId)) {
-    return <AuthGate note={te ? "మీ shortlist, నోట్స్ చూడటానికి లాగిన్ అవ్వండి." : "Log in to see your shortlist and notes."} />;
+    return <section className="mv-discovery-workspace mx-auto w-full max-w-4xl px-4 py-6 sm:px-6 sm:py-8"><header className="mv-discovery-heading"><h1>{te ? "మీ షార్ట్‌లిస్ట్" : "Your shortlist"}</h1></header><AuthGate note={te ? "మీ shortlist, నోట్స్ చూడటానికి లాగిన్ అవ్వండి." : "Log in to see your shortlist and notes."} /></section>;
   }
 
   return (
-    <section className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6 sm:py-8" aria-label={te ? "మీ షార్ట్‌లిస్ట్" : "Your shortlist"}>
-      {/* The <h1>, lead and badge come from the shared intro band; the
-          workspace only carries its own action. */}
+    <section className="mv-discovery-workspace mx-auto w-full max-w-4xl px-4 py-6 sm:px-6 sm:py-8" aria-label={te ? "మీ షార్ట్‌లిస్ట్" : "Your shortlist"}>
+      <header className="mv-discovery-heading">
+        <h1>{te ? "మీ షార్ట్‌లిస్ట్" : "Your shortlist"}</h1>
+        <p>{te ? "మీరు save చేసిన ప్రొఫైళ్లు, మీకు మాత్రమే కనిపించే ప్రైవేట్ నోట్స్." : "Profiles you saved, with private notes only you can see."}</p>
+      </header>
       <div className="mb-4 flex justify-end sm:mb-6">
         <Link
           href="/matches"

@@ -2,6 +2,7 @@
 
 /** Direct profile lookup — only the real ID shared by a member can open it. */
 import { useState } from "react";
+import "@/components/discovery-workspace.css";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Duo } from "@/lib/duo";
@@ -20,7 +21,7 @@ export default function SearchIndexPage() {
   };
 
   return (
-    <div className="search-landing min-h-[calc(100svh-10rem)] px-4 py-8 sm:px-6 lg:py-14">
+    <div className="mv-discovery-workspace search-landing min-h-[calc(100svh-10rem)] px-4 py-8 sm:px-6 lg:py-14">
       <div className="mx-auto grid w-full max-w-5xl items-stretch gap-5 lg:grid-cols-[1.05fr_.95fr]">
         <section className="search-landing__intro rounded-[2rem] p-6 text-white shadow-[0_26px_60px_-28px_rgba(92,8,34,.8)] sm:p-9">
           <span className="ds-badge ds-badge--light">{te ? "సురక్షిత profile lookup" : "Secure profile lookup"}</span>
@@ -37,7 +38,7 @@ export default function SearchIndexPage() {
           <div className="mt-8 grid gap-2.5 sm:grid-cols-3">
             {[
               ["01", te ? "నిజమైన ID" : "Real ID"],
-              ["02", te ? "Owner-controlled" : "Owner controlled"],
+              ["02", te ? "Owner control" : "Owner control"],
               ["03", te ? "Privacy first" : "Privacy first"],
             ].map(([number, label]) => (
               <div key={number} className="rounded-2xl border border-white/15 bg-white/[.08] p-3">

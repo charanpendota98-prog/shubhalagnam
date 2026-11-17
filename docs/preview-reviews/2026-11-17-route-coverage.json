@@ -1,0 +1,116 @@
+{
+  "source": "Local application page files on the discovery preview branch",
+  "route_patterns": 54,
+  "previewed_patterns": 11,
+  "remaining_patterns": 43,
+  "groups": [
+    {
+      "group": "Earlier core previews",
+      "status": "Previewed earlier",
+      "routes": [
+        "/",
+        "/matches",
+        "/search/[id]",
+        "/requests",
+        "/me",
+        "/register",
+        "/login"
+      ]
+    },
+    {
+      "group": "This connected-utilities slice",
+      "status": "Local fixture review",
+      "routes": [
+        "/shortlist",
+        "/saved-searches",
+        "/compare",
+        "/search"
+      ]
+    },
+    {
+      "group": "Trust, plans and policy",
+      "status": "Remaining visual/journey review",
+      "routes": [
+        "/pricing",
+        "/verify",
+        "/safety",
+        "/privacy",
+        "/terms",
+        "/refund",
+        "/status"
+      ]
+    },
+    {
+      "group": "Wedding tools and guidance",
+      "status": "Remaining visual/journey review",
+      "routes": [
+        "/biodata",
+        "/lagna-patrika",
+        "/muhurtham",
+        "/pelli-choopulu",
+        "/porutham"
+      ]
+    },
+    {
+      "group": "Community discovery",
+      "status": "Remaining visual/journey review",
+      "routes": [
+        "/second-marriage",
+        "/spotlight",
+        "/districts",
+        "/castes",
+        "/castes/[slug]",
+        "/channels"
+      ]
+    },
+    {
+      "group": "Editorial and community",
+      "status": "Remaining visual/journey review",
+      "routes": [
+        "/stories",
+        "/events",
+        "/org/[slug]",
+        "/p/[slug]",
+        "/blog",
+        "/blog/[slug]"
+      ]
+    },
+    {
+      "group": "Partner and referral",
+      "status": "Remaining visual/journey review",
+      "routes": [
+        "/referral",
+        "/referral/register",
+        "/r/[code]",
+        "/bureau",
+        "/vendors",
+        "/vendors/[id]",
+        "/vendors/campaign",
+        "/vendors/kit",
+        "/vendors/register"
+      ]
+    },
+    {
+      "group": "Private-link and fallback",
+      "status": "Remaining bounded review",
+      "routes": [
+        "/review/[token]",
+        "/offline"
+      ]
+    },
+    {
+      "group": "Restricted operations",
+      "status": "Separate restricted review, no real actions",
+      "routes": [
+        "/admin",
+        "/admin/photos",
+        "/control",
+        "/control/login",
+        "/control/workspace",
+        "/control/legacy",
+        "/owner",
+        "/growth"
+      ]
+    }
+  ]
+}
