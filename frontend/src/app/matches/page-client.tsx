@@ -160,6 +160,7 @@ export default function MatchesPage() {
 
   const [filters, setFilters] = useState<Row>(DEFAULT_FILTERS);
   const [ageAdjusted, setAgeAdjusted] = useState(false);
+  const [personalFilterNote, setPersonalFilterNote] = useState("");
   const [heightAdjusted, setHeightAdjusted] = useState(false);
   const [sort, setSort] = useState<string>("new");
   const [rows, setRows] = useState<Row[]>([]);
@@ -653,6 +654,25 @@ export default function MatchesPage() {
         clear: () => { setF("height_min", ""); setF("height_max", ""); },
       });
     }
+    const extraChips: [string, boolean, string][] = [
+      ["mother_tongue", Boolean(filters.mother_tongue), `🗣️ ${filters.mother_tongue}`],
+      ["family_type", Boolean(filters.family_type), `🏠 ${filters.family_type}`],
+      ["city", Boolean(filters.city), `📍 ${filters.city}`],
+      ["country", Boolean(filters.country), `🌍 ${filters.country}`],
+      ["verification_level", Boolean(filters.verification_level), te ? "ధృవీకరణ రికార్డు ఎంపిక" : "Verification record chosen"],
+      ["min_completeness", Number(filters.min_completeness) > 0, te ? `ప్రొఫైల్ ${filters.min_completeness}%+` : `Profile ${filters.min_completeness}%+`],
+      ["exclude_viewed", Boolean(filters.exclude_viewed), te ? "చూసినవి దాచబడ్డాయి" : "Viewed hidden"],
+      ["exclude_interested", Boolean(filters.exclude_interested), te ? "రిక్వెస్ట్ ఉన్నవి దాచబడ్డాయి" : "Requests hidden"],
+      ["skip_same_gothram", Boolean(filters.skip_same_gothram), te ? "ఒకే గోత్రం తప్పించు" : "Same gothram skipped"],
+    ];
+    extraChips.forEach(([key, active, label]) => {
+      if (!active) return;
+      chips.push({
+        key,
+        label,
+        clear: () => setF(key, typeof DEFAULT_FILTERS[key] === "boolean" ? false : DEFAULT_FILTERS[key]),
+      });
+    });
     if (filters.rasi) {
       const rasiNames = String(filters.rasi).split(",").map((value) => RASIS.find((item) => item.en.toLowerCase() === value.trim().toLowerCase())?.display || value.trim());
       chips.push({
@@ -732,6 +752,12 @@ export default function MatchesPage() {
           : [];
       const resultTotal = typeof data.total === "number" ? data.total : offset + results.length;
       if (curId === reqId.current) {
+        if (!append) {
+          const gothram = data.gothram_exclusion;
+          setPersonalFilterNote(gothram && gothram.requested && !gothram.applied
+            ? (gothram.reason === "sign_in_required" ? "sign_in" : "own_gothram_missing")
+            : "");
+        }
         setRows((previous) => append ? mergeMatchPages(previous, results) : results);
         setTotal(resultTotal);
         setNextOffset(results.length === 0 ? resultTotal : offset + results.length);
@@ -1636,14 +1662,41 @@ export default function MatchesPage() {
                   className="w-full rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-1.5 font-bold"
                 >
                   <option value="">{te ? "అన్ని ప్రొఫైల్‌లు" : "All profiles"}</option>
-                  <option value="phone">{te ? "📱 ఫోన్ OTP నమోదైనవి" : "📱 Phone OTP recorded"}</option>
-                  <option value="photo">{te ? "📷 ఫోటో సమీక్షించినవి" : "📷 Photo reviewed"}</option>
-                  <option value="selfie">{te ? "🤳 లైవ్ సెల్ఫీ సమీక్షించినవి" : "🤳 Live selfie reviewed"}</option>
-                  <option value="id">{te ? "🪪 ప్రభుత్వ ID సమీక్షించినవి" : "🪪 Govt ID reviewed"}</option>
-                  <option value="education">{te ? "🎓 విద్య ధృవీకరించినవి" : "🎓 Education verified"}</option>
-                  <option value="employment">{te ? "💼 ఉద్యోగం ధృవీకరించినవి" : "💼 Employment verified"}</option>
+                  <option value="phone,photo,id">{te ? "📱 ఫోన్ OTP లేదా అంతకంటే ఎక్కువ నమోదైనవి" : "📱 Phone OTP or more recorded"}</option>
+                  <option value="photo,id">{te ? "📷 ఫోటో సమీక్ష లేదా ID సమీక్ష" : "📷 Photo review or ID review"}</option>
+                  <option value="id">{te ? "🪪 ID సమీక్ష నమోదైనవి" : "🪪 ID review recorded"}</option>
+                </select>
+                <p className="mt-1 text-[11px] font-normal leading-snug text-slate-600">{te ? "ఇది మేము నమోదు చేసిన సమీక్ష మాత్రమే. వ్యక్తి గుర్తింపు లేదా భద్రతకు హామీ కాదు." : "This shows only the review we recorded. It is not a guarantee of identity or safety."}</p>
+              </div>
+              <div>
+                <label className="block font-black text-slate-800 mb-1">🏠 {te ? "కుటుంబ రకం" : "Family type"}:</label>
+                <select aria-label={te ? "కుటుంబ రకం" : "Family type"} value={filters.family_type || ""} onChange={(e) => setF("family_type", e.target.value)} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-1.5 font-bold">
+                  <option value="">{te ? "ఏదైనా" : "Any"}</option>
+                  <option value="Nuclear">{te ? "చిన్న కుటుంబం" : "Nuclear"}</option>
+                  <option value="Joint">{te ? "ఉమ్మడి కుటుంబం" : "Joint"}</option>
                 </select>
               </div>
+              <div>
+                <label className="block font-black text-slate-800 mb-1">📋 {te ? "ప్రొఫైల్ పూర్తి శాతం" : "Profile completeness"}:</label>
+                <select aria-label={te ? "ప్రొఫైల్ పూర్తి శాతం" : "Profile completeness"} value={String(filters.min_completeness || 0)} onChange={(e) => setF("min_completeness", Number(e.target.value))} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-1.5 font-bold">
+                  <option value="0">{te ? "ఏదైనా" : "Any"}</option>
+                  <option value="50">50%+</option>
+                  <option value="70">70%+</option>
+                  <option value="90">90%+</option>
+                </select>
+              </div>
+              <label className="flex items-start gap-2 rounded-xl bg-slate-50 p-2.5 font-bold text-slate-800">
+                <input type="checkbox" checked={Boolean(filters.exclude_viewed)} onChange={(e) => setF("exclude_viewed", e.target.checked)} className="mt-0.5 h-4 w-4 shrink-0 accent-[#7A0C2E]" />
+                <span className="min-w-0">{te ? "నేను ఇప్పటికే చూసిన ప్రొఫైల్‌లను దాచండి" : "Hide profiles I have already viewed"}<span className="block text-[11px] font-normal leading-snug text-slate-600">{te ? "సైన్ ఇన్ అయినప్పుడు పనిచేస్తుంది." : "Works when you are signed in."}</span></span>
+              </label>
+              <label className="flex items-start gap-2 rounded-xl bg-slate-50 p-2.5 font-bold text-slate-800">
+                <input type="checkbox" checked={Boolean(filters.exclude_interested)} onChange={(e) => setF("exclude_interested", e.target.checked)} className="mt-0.5 h-4 w-4 shrink-0 accent-[#7A0C2E]" />
+                <span className="min-w-0">{te ? "నాతో రిక్వెస్ట్ ఉన్న ప్రొఫైల్‌లను దాచండి" : "Hide profiles I have a request with"}<span className="block text-[11px] font-normal leading-snug text-slate-600">{te ? "సైన్ ఇన్ అయినప్పుడు పనిచేస్తుంది." : "Works when you are signed in."}</span></span>
+              </label>
+              <label className="flex items-start gap-2 rounded-xl bg-slate-50 p-2.5 font-bold text-slate-800">
+                <input type="checkbox" checked={Boolean(filters.skip_same_gothram)} onChange={(e) => setF("skip_same_gothram", e.target.checked)} className="mt-0.5 h-4 w-4 shrink-0 accent-[#7A0C2E]" />
+                <span className="min-w-0">{te ? "నా గోత్రంతో సమానమైన ప్రొఫైల్‌లను తప్పించండి" : "Skip profiles with the same gothram as mine"}<span className="block text-[11px] font-normal leading-snug text-slate-600">{te ? "ఐచ్ఛికం. మీ ప్రొఫైల్‌లోని గోత్రం ఆధారంగా. గోత్రం చూపని ప్రొఫైల్‌లు ఫలితాల్లోనే ఉంటాయి; మీది నమోదు కాకపోతే ఏదీ దాచబడదు." : "Optional. Uses the gothram in your own profile. Profiles with no gothram shown stay in the results; if yours is not filled in, nothing is hidden."}</span></span>
+              </label>
             </div>
           </div>
 
@@ -1733,6 +1786,13 @@ export default function MatchesPage() {
             )}
 
             {/* Active Filter Chips Bar */}
+            {personalFilterNote && (
+              <p role="status" className="rounded-xl bg-amber-50 p-3 text-xs leading-relaxed text-amber-900">
+                {personalFilterNote === "sign_in"
+                  ? (te ? "గోత్ర ఎంపిక పనిచేయడానికి సైన్ ఇన్ కావాలి. ప్రస్తుతం ఏ ప్రొఫైల్ దాచబడలేదు." : "Sign in to use the same-gothram option. No profile is hidden right now.")
+                  : (te ? "మీ ప్రొఫైల్‌లో గోత్రం నమోదు కాలేదు, అందుకే ఏ ప్రొఫైల్ దాచబడలేదు." : "Your profile has no gothram filled in, so no profile is hidden.")}
+              </p>
+            )}
             {activeChips.length > 0 && (
               <div className="flex flex-wrap items-center gap-1.5">
                 {activeChips.map((chip) => (
@@ -2276,6 +2336,56 @@ export default function MatchesPage() {
                     {heightAdjusted && <p role="status" className="text-xs leading-relaxed text-amber-900 sm:col-span-2">{te ? "కనిష్ఠ ఎత్తు గరిష్ఠ ఎత్తును మించకూడదు. రెండు పరిమితులను సమానంగా మార్చాం." : "Minimum height cannot exceed maximum height. Both limits have been set to the selected height."}</p>}
                   </div>
                   </div>
+
+                  <div className="space-y-3 border-t border-slate-100 pt-3">
+                    <p className="text-xs font-black text-slate-900">{te ? "మరిన్ని ఎంపికలు" : "More options"}</p>
+                    <label className="block space-y-1 text-xs font-bold text-slate-800">
+                      <span>{te ? "మాతృభాష" : "Mother tongue"}</span>
+                      <select aria-label={te ? "మాతృభాష" : "Mother tongue"} value={filters.mother_tongue || ""} onChange={(e) => setF("mother_tongue", e.target.value)} className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium">
+                        <option value="">{te ? "ఏదైనా" : "Any"}</option>
+                        {["Telugu", "Hindi", "Urdu", "Tamil", "Kannada", "Malayalam", "English"].map((language) => <option key={language} value={language}>{language}</option>)}
+                      </select>
+                    </label>
+                    <label className="block space-y-1 text-xs font-bold text-slate-800">
+                      <span>{te ? "కుటుంబ రకం" : "Family type"}</span>
+                      <select aria-label={te ? "కుటుంబ రకం" : "Family type"} value={filters.family_type || ""} onChange={(e) => setF("family_type", e.target.value)} className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium">
+                        <option value="">{te ? "ఏదైనా" : "Any"}</option>
+                        <option value="Nuclear">{te ? "చిన్న కుటుంబం" : "Nuclear"}</option>
+                        <option value="Joint">{te ? "ఉమ్మడి కుటుంబం" : "Joint"}</option>
+                      </select>
+                    </label>
+                    <label className="block space-y-1 text-xs font-bold text-slate-800">
+                      <span>{te ? "ప్రొఫైల్ పూర్తి శాతం" : "Profile completeness"}</span>
+                      <select aria-label={te ? "ప్రొఫైల్ పూర్తి శాతం" : "Profile completeness"} value={String(filters.min_completeness || 0)} onChange={(e) => setF("min_completeness", Number(e.target.value))} className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium">
+                        <option value="0">{te ? "ఏదైనా" : "Any"}</option>
+                        <option value="50">50%+</option>
+                        <option value="70">70%+</option>
+                        <option value="90">90%+</option>
+                      </select>
+                    </label>
+                    <label className="block space-y-1 text-xs font-bold text-slate-800">
+                      <span>{te ? "నమోదైన ధృవీకరణ రికార్డు" : "Verification record on file"}</span>
+                      <select aria-label={te ? "నమోదైన ధృవీకరణ రికార్డు" : "Verification record on file"} value={filters.verification_level || ""} onChange={(e) => setF("verification_level", e.target.value)} className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium">
+                        <option value="">{te ? "ఏదైనా" : "Any"}</option>
+                        <option value="phone,photo,id">{te ? "ఫోన్ OTP లేదా అంతకంటే ఎక్కువ" : "Phone OTP or more"}</option>
+                        <option value="photo,id">{te ? "ఫోటో సమీక్ష లేదా ID సమీక్ష" : "Photo review or ID review"}</option>
+                        <option value="id">{te ? "ID సమీక్ష నమోదు" : "ID review recorded"}</option>
+                      </select>
+                      <span className="block text-[11px] font-normal leading-snug text-slate-600">{te ? "ఇది మేము నమోదు చేసిన సమీక్ష మాత్రమే. వ్యక్తి గుర్తింపు లేదా భద్రతకు హామీ కాదు; వివరాలను మీరే నిర్ధారించుకోండి." : "This shows only the review we recorded. It is not a guarantee of identity or safety; confirm details yourself."}</span>
+                    </label>
+                    <label className="flex min-h-11 items-start gap-3 rounded-xl bg-slate-50 p-3 text-xs font-bold text-slate-800">
+                      <input type="checkbox" checked={Boolean(filters.exclude_viewed)} onChange={(e) => setF("exclude_viewed", e.target.checked)} className="mt-0.5 h-5 w-5 shrink-0 accent-[#7A0C2E]" />
+                      <span className="min-w-0">{te ? "నేను ఇప్పటికే చూసిన ప్రొఫైల్‌లను దాచండి" : "Hide profiles I have already viewed"}
+                        <span className="block text-[11px] font-normal leading-snug text-slate-600">{te ? "సైన్ ఇన్ అయినప్పుడు పనిచేస్తుంది." : "Works when you are signed in."}</span>
+                      </span>
+                    </label>
+                    <label className="flex min-h-11 items-start gap-3 rounded-xl bg-slate-50 p-3 text-xs font-bold text-slate-800">
+                      <input type="checkbox" checked={Boolean(filters.exclude_interested)} onChange={(e) => setF("exclude_interested", e.target.checked)} className="mt-0.5 h-5 w-5 shrink-0 accent-[#7A0C2E]" />
+                      <span className="min-w-0">{te ? "నాతో రిక్వెస్ట్ ఉన్న ప్రొఫైల్‌లను దాచండి" : "Hide profiles I have a request with"}
+                        <span className="block text-[11px] font-normal leading-snug text-slate-600">{te ? "సైన్ ఇన్ అయినప్పుడు పనిచేస్తుంది." : "Works when you are signed in."}</span>
+                      </span>
+                    </label>
+                  </div>
                 </div>
               )}
 
@@ -2371,6 +2481,17 @@ export default function MatchesPage() {
                         </label>
                       );
                     })}
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-3 border-t border-slate-100 pt-3 sm:grid-cols-2">
+                    <label className="block space-y-1 text-xs font-bold text-slate-800">
+                      <span>{te ? "నగరం / ఊరు" : "City or town"}</span>
+                      <input type="text" maxLength={60} value={filters.city || ""} onChange={(e) => setF("city", e.target.value)} placeholder={te ? "ఉదా: హైదరాబాద్" : "e.g. Hyderabad"} className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium" />
+                    </label>
+                    <label className="block space-y-1 text-xs font-bold text-slate-800">
+                      <span>{te ? "దేశం" : "Country"}</span>
+                      <input type="text" maxLength={60} value={filters.country || ""} onChange={(e) => setF("country", e.target.value)} placeholder={te ? "ఉదా: USA" : "e.g. USA"} className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium" />
+                    </label>
                   </div>
                 </div>
               )}
@@ -2486,6 +2607,14 @@ export default function MatchesPage() {
                       );
                     })}
                   </div>
+                  <div className="space-y-2 border-t border-slate-100 pt-3">
+                    <label className="flex min-h-11 items-start gap-3 rounded-xl bg-slate-50 p-3 text-xs font-bold text-slate-800">
+                      <input type="checkbox" checked={Boolean(filters.skip_same_gothram)} onChange={(e) => setF("skip_same_gothram", e.target.checked)} className="mt-0.5 h-5 w-5 shrink-0 accent-[#7A0C2E]" />
+                      <span className="min-w-0">{te ? "నా గోత్రంతో సమానమైన ప్రొఫైల్‌లను తప్పించండి" : "Skip profiles with the same gothram as mine"}
+                        <span className="block text-[11px] font-normal leading-snug text-slate-600">{te ? "ఐచ్ఛికం. మీ ప్రొఫైల్‌లోని గోత్రం ఆధారంగా. గోత్రం చూపని ప్రొఫైల్‌లు ఫలితాల్లోనే ఉంటాయి; మీది నమోదు కాకపోతే ఏదీ దాచబడదు." : "Optional. Uses the gothram in your own profile. Profiles with no gothram shown stay in the results; if yours is not filled in, nothing is hidden."}</span>
+                      </span>
+                    </label>
+                  </div>
                 </div>
               )}
             </div>
@@ -2536,6 +2665,13 @@ export default function MatchesPage() {
                   ? "ఈ saved search మీ ఖాతాలో మాత్రమే ఉంటుంది. Notifications, WhatsApp సందేశాలు లేదా ఇతర alerts పంపబడవు."
                   : "This saved search stays in your account. It will not enable notifications, WhatsApp messages, or other alerts."}
               </div>
+              {(filters.exclude_viewed || filters.exclude_interested || filters.skip_same_gothram || Number(filters.min_completeness) > 0) && (
+                <p className="rounded-xl bg-amber-50 p-3 text-xs leading-relaxed text-amber-900">
+                  {te
+                    ? "చూసినవి/రిక్వెస్ట్ ఉన్నవి దాచడం, గోత్రం తప్పించడం, ప్రొఫైల్ శాతం ఎంపికలు saved searchలో నిల్వ కావు. మిగతా ఫిల్టర్లు నిల్వ అవుతాయి."
+                    : "Hide-viewed, hide-requests, same-gothram and profile-completeness options are not stored in saved searches. The other filters are."}
+                </p>
+              )}
               {savedSearchNotice?.tone === "error" && (
                 <p role="alert" className="text-sm font-semibold text-rose-700">{savedSearchNotice.text}</p>
               )}

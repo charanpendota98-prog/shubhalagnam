@@ -8456,6 +8456,7 @@ def advanced_search(
     salary_max: int = 0, height_min: str = "", height_max: str = "", dosham: Optional[str] = None,
     star: Optional[str] = None, rasi: Optional[str] = None, min_completeness: int = 0, exclude_viewed: bool = False,
     exclude_interested: bool = False, with_facets: bool = False,
+    family_type: Optional[str] = None, skip_same_gothram: bool = False,
     request: Request = None,
 ):
     """
@@ -8478,7 +8479,7 @@ def advanced_search(
     if sort not in ("new", "age", "boosted"):
         validation_error("sort", "⚠️ sort కి valid values: new | age | boosted")
     q = clean(q, 60, "q") if q else None
-    for _f in (gender, caste, sub_caste, district, state, job, education, marital_status, children, religion, dosham, star, rasi):
+    for _f in (gender, caste, sub_caste, district, state, job, education, marital_status, children, religion, dosham, star, rasi, family_type, mother_tongue, country, city, verification_level):
         if _f and len(str(_f)) > 500:
             validation_error("filter", "⚠️ Filter value చాలా పెద్దది (500 chars max)")
     if min_completeness:
@@ -8613,6 +8614,23 @@ def advanced_search(
                 or t in str(u.get("district", "")).strip().casefold()
                 for t in city_terms
             )]
+    if family_type:
+        ft_terms = [term.strip().casefold() for term in str(family_type).split(",") if term.strip()]
+        if ft_terms:
+            items = [u for u in items if str(u.get("family_type", "")).strip().casefold() in ft_terms]
+    gothram_exclusion = {"requested": bool(skip_same_gothram), "applied": False, "reason": ""}
+    if skip_same_gothram:
+        # Explicit opt-in only. Uses the signed-in member's own stored gothram; profiles whose
+        # gothram is unknown stay visible (no guessing), and nothing hidden is revealed.
+        _viewer_rec = _find_user(viewer_id) if viewer_id else None
+        _own_gothram = str((_viewer_rec or {}).get("gothram", "")).strip().casefold()
+        if not viewer_id:
+            gothram_exclusion["reason"] = "sign_in_required"
+        elif not _own_gothram or _own_gothram in ("-", "—", "unknown", "don't know", "dont know"):
+            gothram_exclusion["reason"] = "own_gothram_missing"
+        else:
+            items = [u for u in items if str(u.get("gothram", "")).strip().casefold() != _own_gothram]
+            gothram_exclusion["applied"] = True
     if verification_level:
         vl_terms = {term.strip().lower() for term in str(verification_level).split(",") if term.strip()}
         if vl_terms:
@@ -8738,7 +8756,9 @@ def advanced_search(
                     "education": education, "age": [age_min, age_max], "salary_min": salary_min,
                     "marital_status": marital_status, "verified_only": verified_only, "photo_only": photo_only,
                     "religion": religion, "mother_tongue": mother_tongue, "country": country,
-                    "city": city, "verification_level": verification_level, "q": q},
+                    "city": city, "verification_level": verification_level, "q": q,
+                    "family_type": family_type, "skip_same_gothram": skip_same_gothram},
+        "gothram_exclusion": gothram_exclusion,
         "results": results_page,
         "facets": facets_payload,
         "message_telugu": f"🔎 {total_matched} profiles dorikayi (filters: caste={caste or 'Any'}, district={district or 'Any'}, age={age_min}-{age_max})",

@@ -107,6 +107,11 @@ export function savedSearchParts(filters, te) {
   if (f.photo_only === true || f.photo_only === "true") {
     parts.push(te ? "ఫోటో ఉన్నవే" : "With photo");
   }
+  if (f.mother_tongue) parts.push(`${te ? "మాతృభాష" : "Mother tongue"}: ${joinValues(f.mother_tongue)}`);
+  if (f.country) parts.push(`${te ? "దేశం" : "Country"}: ${f.country}`);
+  if (f.city) parts.push(`${te ? "నగరం" : "City"}: ${f.city}`);
+  if (f.family_type) parts.push(`${te ? "కుటుంబ రకం" : "Family type"}: ${joinValues(f.family_type)}`);
+  if (f.verification_level) parts.push(te ? "ధృవీకరణ రికార్డు ఎంపిక" : "Verification record chosen");
   if (f.q) parts.push(`${te ? "కీవర్డ్" : "Keyword"}: ${String(f.q).trim()}`);
   return parts;
 }

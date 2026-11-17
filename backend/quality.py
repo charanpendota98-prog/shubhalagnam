@@ -209,10 +209,12 @@ FILTER_KEYS = [
     "marital_status", "children", "religion", "age_min", "age_max", "salary_min",
     "salary_max", "height_min", "height_max", "verified_only", "photo_only", "nri_only",
     "dosham", "star", "rasi", "q",
+    "mother_tongue", "country", "city", "verification_level", "family_type",
 ]
 MULTI_FILTER_KEYS = {
     "caste", "sub_caste", "district", "state", "job", "education", "marital_status",
-    "religion", "star", "rasi", "dosham",
+    "religion", "star", "rasi", "dosham", "mother_tongue", "country", "city",
+    "verification_level", "family_type",
 }
 BOOLEAN_FILTER_KEYS = {"verified_only", "photo_only", "nri_only"}
 
@@ -544,6 +546,24 @@ def matches_filters(user: Dict[str, Any], filters: Dict[str, Any]) -> bool:
                 f.get("height_max") and cm > _height_cm(f["height_max"])):
             return False
 
+    for key, fields in (
+        ("mother_tongue", ("mother_tongue",)),
+        ("country", ("country", "work_location")),
+        ("city", ("current_city", "work_location", "district")),
+    ):
+        terms = _filter_terms(f.get(key))
+        if terms and not any(term in str(u.get(field) or "").strip().casefold() for term in terms for field in fields):
+            return False
+    family_terms = _filter_terms(f.get("family_type"))
+    if family_terms and str(u.get("family_type") or "").strip().casefold() not in family_terms:
+        return False
+    level_terms = {term.strip().lower() for term in str(f.get("verification_level") or "").split(",") if term.strip()}
+    if level_terms:
+        level = "id" if u.get("id_verified") else (
+            "photo" if (u.get("selfie_verified") or u.get("photo_status") == "approved") else (
+                "phone" if u.get("phone_verified") else "none"))
+        if level not in level_terms:
+            return False
     if f.get("q"):
         query = str(f["q"]).strip().casefold()
         blob = " ".join(str(u.get(key) or "").casefold() for key in (
