@@ -4,6 +4,9 @@ to keep main.py lean while preserving 100% route & payload compatibility).
 """
 from __future__ import annotations
 
+import os
+import threading
+
 from typing import Any, Callable, Dict
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse
@@ -23,6 +26,14 @@ def build_ecosystem_router(ctx: Dict[str, Callable[..., Any] | Any]) -> APIRoute
     is_admin = ctx["is_admin"]
     token_from_request = ctx["token_from_request"]
     persist_core_state = ctx["persist_core_state"]
+    core_save_lock = ctx.get("core_save_lock", threading.RLock())
+
+    def verification_recovery():
+        if not os.path.exists(ECOSYSTEM3._review_journal_path()):
+            return
+        with core_save_lock:
+            if not ECOSYSTEM3.recover_verification_review(get_state()["users"], persist_core_state):
+                raise HTTPException(503, "Verification review recovery is pending. Reload before retrying.")
     log_consent = ctx["log_consent"]
     media_filename = ctx["media_filename"]
     is_approved_profile = ctx["is_approved_profile"]
@@ -36,6 +47,7 @@ def build_ecosystem_router(ctx: Dict[str, Callable[..., Any] | Any]) -> APIRoute
         u = find_user(tid)
         if not u:
             raise HTTPException(404, "Profile not found")
+        verification_recovery()
         data = ECOSYSTEM3.member_badges(u)
         ident = token_from_request(request)
         is_self = bool(ident and str(ident.get("tsap_id", "")).upper() == tid)
@@ -53,6 +65,7 @@ def build_ecosystem_router(ctx: Dict[str, Callable[..., Any] | Any]) -> APIRoute
         d = payload or {}
         summary = str(d.get("summary") or d.get("evidence_note") or "")
         doc_type = str(d.get("document_type") or d.get("badge_type") or "")
+        verification_recovery()
         ok, msg, rec = ECOSYSTEM3.submit_verification_evidence(
             u,
             badge_type=str(d.get("badge_type", "")),
@@ -72,6 +85,7 @@ def build_ecosystem_router(ctx: Dict[str, Callable[..., Any] | Any]) -> APIRoute
     @router.get("/api/admin/verification/queue")
     def api_admin_verification_queue(status: str = "pending", request: Request = None):
         require_admin(request, staff_ok=True)
+        verification_recovery()
         norm = "pending" if status in ("pending", "pending_review") else status
         items = ECOSYSTEM3.list_verification_queue(norm)
         return {"success": True, "count": len(items), "items": items}
@@ -81,16 +95,13 @@ def build_ecosystem_router(ctx: Dict[str, Callable[..., Any] | Any]) -> APIRoute
         role = require_admin(request, staff_ok=True)
         d = payload or {}
         st = get_state()
-        ok, msg, rec = ECOSYSTEM3.review_verification_evidence(
-            record_id,
-            decision=str(d.get("decision", "")),
-            reviewer=str(d.get("reviewer") or role),
-            rejection_reason=str(d.get("rejection_reason") or d.get("reason") or ""),
-            users=st["users"],
-        )
+        with core_save_lock:
+            ok, msg, rec = ECOSYSTEM3.review_verification_durable(
+                record_id, str(d.get("decision", "")), str(d.get("reviewer") or role),
+                str(d.get("rejection_reason") or d.get("reason") or ""), st["users"], persist_core_state,
+            )
         if not ok:
-            raise HTTPException(503 if msg.startswith("Verification review could not be saved safely.") else 400, msg)
-        persist_core_state()
+            raise HTTPException(503 if msg.startswith(("Verification review could not", "Verification review recovery")) else 400, msg)
         return {"success": True, "decision": msg, "record": rec}
 
     @router.post("/api/safety/appeal")
