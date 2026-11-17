@@ -34,7 +34,11 @@ export default function SafetyPage() {
   const [busy, setBusy] = useState(false);
   const [blockBusy, setBlockBusy] = useState(false);
   const blockPending = useRef(false);
-  const [blocks, setBlocks] = useState<any[]>([]);
+  const [blockList, setBlockList] = useState<{ owner: string; state: "loading" | "ready" | "error"; items: { blocked: string; at?: string }[] }>({ owner: "", state: "loading", items: [] });
+  const blockReadSequence = useRef(0);
+  const accountRef = useRef(myId);
+  const blocks = blockList.owner === myId ? blockList.items : [];
+  const blockReadState = blockList.owner === myId ? blockList.state : "loading";
   const [verify, setVerify] = useState<any>(null);
   const [badges, setBadges] = useState<any[]>([]);
   const [appeals, setAppeals] = useState<any[]>([]);
@@ -53,26 +57,45 @@ export default function SafetyPage() {
     if (t) setReport((r) => ({ ...r, target_id: t.toUpperCase() }));
   }, [load]);
 
+  const loadBlocks = useCallback(async (id: string) => {
+    const sequence = ++blockReadSequence.current;
+    setBlockList((previous) => ({ owner: id, state: "loading", items: previous.owner === id ? previous.items : [] }));
+    const current = () => sequence === blockReadSequence.current && accountRef.current === id;
+    try {
+      const response = await fetch(`/api/blocks/${encodeURIComponent(id)}`, { headers: authHeaders(), credentials: "same-origin", cache: "no-store" });
+      if (response.status === 401 && current()) setNeedsLogin(true);
+      if (!response.ok) throw new Error("Block list unavailable");
+      const data = await response.json();
+      if (!data || !Array.isArray(data.items) || !data.items.every((item: unknown) => typeof item === "object" && item !== null && "blocked" in item && typeof item.blocked === "string" && item.blocked.trim().length > 0)) throw new Error("Invalid block list");
+      if (current()) { setNeedsLogin(false); setBlockList({ owner: id, state: "ready", items: data.items }); }
+    } catch {
+      if (current()) setBlockList((previous) => ({ owner: id, state: "error", items: previous.owner === id ? previous.items : [] }));
+    }
+  }, []);
+
   const loadMine = useCallback(async (id: string) => {
     if (!id) return;
+    const blockRequest = loadBlocks(id);
     try {
-      const [b, v, bg, ap]: any[] = await Promise.all([
-        fetch(`/api/blocks/${encodeURIComponent(id)}`, { headers: authHeaders(), credentials: "same-origin" }).then((r) => {
-          if (r.status === 401) setNeedsLogin(true);
-          return r.ok ? r.json() : {};
-        }),
+      const [v, bg, ap]: any[] = await Promise.all([
         fetch(`/api/verification/${encodeURIComponent(id)}`, { headers: authHeaders(), credentials: "same-origin" }).then((r) => r.ok ? r.json() : {}),
         fetch(`/api/verification/${encodeURIComponent(id)}/badges`, { headers: authHeaders(), credentials: "same-origin" }).then((r) => r.ok ? r.json() : {}),
         fetch(`/api/safety/appeals/${encodeURIComponent(id)}`, { headers: authHeaders(), credentials: "same-origin" }).then((r) => r.ok ? r.json() : {}),
       ]);
-      setBlocks(b.items || []);
+      if (accountRef.current !== id) return;
       setVerify(v.level ? v : null);
       setBadges(bg.badges || []);
       setAppeals(ap.appeals || ap.items || []);
-    } catch { /* ignore */ }
-  }, []);
+    } catch { /* Other panels must not hide the independent block-list result. */ }
+    finally { await blockRequest; }
+  }, [loadBlocks]);
 
-  useEffect(() => { if (myId) loadMine(myId); }, [myId, loadMine]);
+  useEffect(() => {
+    accountRef.current = myId;
+    if (myId) { setNeedsLogin(false); void loadMine(myId); }
+    else { ++blockReadSequence.current; setBlockList({ owner: "", state: "loading", items: [] }); }
+    return () => { accountRef.current = ""; ++blockReadSequence.current; };
+  }, [myId, loadMine]);
 
   const submitReport = async () => {
     if (!sessionReady) return;
@@ -312,16 +335,23 @@ export default function SafetyPage() {
           </div>
 
           <div className="bg-white rounded-[1.5rem] border border-gold/25 p-5">
-            <div className="font-bold text-maroon text-[15px]">{te ? <>🚫 మీ block list ({blocks.length})</> : <>🚫 Your block list ({blocks.length})</>}</div>
-            {blocks.length === 0 && <div className="text-[12px] text-gray-500 mt-2">{te ? "ఎవరూ block చెయ్యలేదు 👍" : "Nobody blocked 👍"}</div>}
+            <div data-testid="safety-block-list">
+            <div className="font-bold text-maroon text-[15px]">{te ? "🚫 మీ block list" : "🚫 Your block list"}{myId && blockReadState === "ready" ? ` (${blocks.length})` : ""}</div>
+            {!myId ? <div className="text-[12px] text-gray-500 mt-2">{te ? "మీ block list చూడటానికి login అవ్వండి." : "Sign in to view your block list."}</div> : <>
+              {blockReadState === "loading" && <div role="status" className="text-[12px] text-gray-600 mt-2">{te ? "Block list లోడ్ అవుతోంది…" : "Loading your block list…"}</div>}
+              {blockReadState === "error" && <div role="alert" className="text-[12px] text-rose-800 mt-2">{te ? "మీ block list లోడ్ కాలేదు. మళ్లీ ప్రయత్నించండి." : "Your block list could not be loaded. Please retry."}{blocks.length > 0 && <div>{te ? "ఇది ఇంతకు ముందు లోడ్ అయిన list. ప్రస్తుత స్థితి కోసం మళ్లీ ప్రయత్నించండి." : "Showing the last loaded list. Retry to confirm its current state."}</div>}</div>}
+              {blockReadState === "ready" && blocks.length === 0 && <div className="text-[12px] text-gray-500 mt-2">{te ? "ఎవరూ block చెయ్యలేదు 👍" : "Nobody blocked 👍"}</div>}
+              <button type="button" onClick={() => void loadBlocks(myId)} disabled={blockReadState === "loading" || blockBusy} className="mt-2 px-3 py-2 rounded-xl border border-gold/40 text-maroon font-bold text-[12px] disabled:opacity-50">{blockReadState === "error" ? (te ? "Block list మళ్లీ ప్రయత్నించండి" : "Retry block list") : (te ? "Block list మళ్లీ లోడ్ చెయ్యి" : "Refresh block list")}</button>
+            </>}
             <div className="mt-2 space-y-2">
               {blocks.map((b) => (
                 <div key={b.blocked} className="flex items-center gap-2 bg-cream rounded-xl px-3 py-2">
                   <span className="font-mono text-[12px] flex-1">{b.blocked}</span>
                   <span className="text-[10px] text-gray-500">{String(b.at).slice(0, 10)}</span>
-                  <button type="button" onClick={() => doUnblock(b.blocked)} disabled={blockBusy} className="text-[11px] font-bold text-maroon underline">unblock</button>
+                  <button type="button" onClick={() => doUnblock(b.blocked)} disabled={blockBusy || blockReadState !== "ready" || !myId} className="text-[11px] font-bold text-maroon underline disabled:opacity-50 disabled:no-underline">unblock</button>
                 </div>
               ))}
+            </div>
             </div>
           </div>
         </div>
