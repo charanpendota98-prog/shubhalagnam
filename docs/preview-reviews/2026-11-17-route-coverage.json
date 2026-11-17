@@ -1,8 +1,8 @@
 {
-  "source": "Local application page files on the discovery preview branch",
+  "source": "Local source route inventory after trust/plans/policy preview",
   "route_patterns": 54,
-  "previewed_patterns": 11,
-  "remaining_patterns": 43,
+  "previewed_patterns": 18,
+  "remaining_patterns": 36,
   "groups": [
     {
       "group": "Earlier core previews",
@@ -29,7 +29,7 @@
     },
     {
       "group": "Trust, plans and policy",
-      "status": "Remaining visual/journey review",
+      "status": "Local seven-route layout/fixture review; policy conflicts remain OPEN, not launch acceptance",
       "routes": [
         "/pricing",
         "/verify",

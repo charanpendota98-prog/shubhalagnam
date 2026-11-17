@@ -1,4 +1,5 @@
 "use client";
+import "@/components/trust-workspace.css";
 
 /**
  * /safety — TRUST & SAFETY CENTER (Telugu)
@@ -200,7 +201,7 @@ export default function SafetyPage() {
     : s === "medium" ? "bg-amber-100 text-amber-800 border-amber-300" : "bg-gray-100 text-gray-700 border-gray-300";
 
   return (
-    <div className="min-h-dvh bg-cream pb-36">
+    <div className="mv-trust-workspace min-h-dvh bg-cream pb-36">
       <section className="maroon-gradient text-white">
         <div className="max-w-5xl mx-auto px-4 py-9">
           <div className="text-[11px] font-bold bg-white/10 border border-white/20 rounded-full px-3 py-1 inline-block">
@@ -253,9 +254,9 @@ export default function SafetyPage() {
           </div>
           <div className="mt-4 grid md:grid-cols-3 gap-3">
             <div className="md:col-span-1">
-              <label className="text-[12px] font-bold">{te ? "ఎవరిని report? (Profile ID)" : "Whom to report? (Profile ID)"}</label>
-              <input value={report.target_id} onChange={(e) => setReport({ ...report, target_id: e.target.value.toUpperCase() })}
-                placeholder="RED001" className="input-mobile font-mono" aria-label="KAM001" />
+              <label htmlFor="safety-target-id" className="text-[12px] font-bold">{te ? "ఎవరిని report? (Profile ID)" : "Whom to report? (Profile ID)"}</label>
+              <input id="safety-target-id" value={report.target_id} onChange={(e) => setReport({ ...report, target_id: e.target.value.toUpperCase() })}
+                placeholder="RED001" className="input-mobile font-mono" aria-label={te ? "ఎవరిని report? (Profile ID)" : "Whom to report? (Profile ID)"} />
             </div>
             <div className="md:col-span-1">
               <label htmlFor="safety-account-id" className="text-[12px] font-bold">{te ? "మీ ఖాతా Profile ID" : "Your account Profile ID"}</label>
@@ -263,8 +264,8 @@ export default function SafetyPage() {
                 placeholder={sessionReady ? (te ? "ముందు login అవ్వండి" : "Sign in first") : (te ? "ఖాతా తనిఖీ అవుతోంది…" : "Checking account…")} className="input-mobile font-mono" />
             </div>
             <div className="md:col-span-1">
-              <label className="text-[12px] font-bold">Category</label>
-              <select value={report.category} onChange={(e) => setReport({ ...report, category: e.target.value })} className="input-mobile" aria-label="Select option">
+              <label htmlFor="safety-category" className="text-[12px] font-bold">Category</label>
+              <select id="safety-category" value={report.category} onChange={(e) => setReport({ ...report, category: e.target.value })} className="input-mobile" aria-label="Category">
                 {cats.map((c) => <option key={c.key} value={c.key}>{c.te} — {c.desc.slice(0, 40)}</option>)}
               </select>
             </div>

@@ -1,4 +1,5 @@
 "use client";
+import "@/components/trust-workspace.css";
 
 /**
  * 🤳 WAVE 17 — Verify Profile (live selfie → separately recorded review status).
@@ -116,7 +117,7 @@ export default function VerifyPage() {
   };
 
   return (
-    <div className="mx-auto max-w-2xl px-4 py-8 pb-36">
+    <div className="mv-trust-workspace mx-auto max-w-2xl px-4 py-8 pb-36">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-xl sm:text-2xl font-extrabold text-maroon min-w-0">🤳 <Duo en="Verify Profile" te="ప్రొఫైల్ ధృవీకరణ" /></h1>
         <Link href="/matches" className="text-[13px] font-bold text-maroon shrink-0"><Duo en="Skip for now ›" te="ప్రస్తుతానికి దాటవేయి ›" /></Link>

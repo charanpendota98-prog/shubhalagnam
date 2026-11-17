@@ -1,0 +1,21 @@
+/* Scoped legibility and form targets. Policy promises and action handlers are unchanged. */
+.mv-trust-workspace :is(.text-\[10px\],.text-\[11px\],.text-\[12px\],.text-\[13px\],.text-xs){font-size:.875rem;line-height:1.75}
+.mv-trust-workspace :is(p,li,label,button,a,span){overflow-wrap:anywhere}
+.mv-trust-workspace :is(input:not([type=file]),select,textarea){font-size:1rem;max-width:100%;min-width:0;min-height:48px}
+.mv-trust-workspace textarea{min-height:120px}
+.mv-trust-workspace button,.mv-trust-workspace a{min-height:44px;white-space:normal}
+.mv-trust-workspace a{display:inline-flex;align-items:center}
+.mv-trust-workspace :is(button,a,input,select,textarea,summary):focus-visible{outline:3px solid #a66b13;outline-offset:3px}
+.mv-trust-workspace details summary{min-height:44px;align-content:center}
+.mv-trust-workspace [data-testid=status-availability]{font-size:1.5rem}
+@media(max-width:639px){
+ .mv-trust-workspace header{padding:1.25rem}
+ .mv-trust-workspace header h1{line-height:1.4}
+ .mv-trust-workspace header .tracking-widest{letter-spacing:.06em}
+ .mv-trust-workspace .flex.items-center.justify-between.rounded-xl{flex-wrap:wrap;gap:.5rem}
+ .mv-trust-workspace .flex.items-center.justify-between.border-b{flex-wrap:wrap;gap:.75rem}
+}
+
+.mv-trust-workspace .truncate{white-space:normal;overflow:visible;text-overflow:clip}
+.mv-trust-workspace .flex.items-center.justify-between.rounded-xl{flex-wrap:wrap;gap:.5rem}
+.mv-trust-workspace .flex.items-center.justify-between.rounded-xl>span:last-child{flex-shrink:0;max-width:100%}

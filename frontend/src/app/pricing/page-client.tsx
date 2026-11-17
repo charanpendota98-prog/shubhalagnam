@@ -1,4 +1,5 @@
 "use client";
+import "@/components/trust-workspace.css";
 
 import { apiDisplayMessage } from "@/lib/api";
 /**
@@ -30,6 +31,7 @@ const FAQ: { qTe: string; qEn: string; aTe: string; aEn: string }[] = [
 ];
 
 export type PricingSnapshot = {
+  paymentMode?: "unconfigured" | "manual_upi" | "razorpay" | "unknown";
   plans: Plan[] | null;
   addons: Addon[];
   offers: import("@/components/OffersBanner").Offer[];
@@ -46,7 +48,7 @@ export default function PricingPage({ snapshot }: { snapshot: PricingSnapshot })
   const free = plans.find((p) => p.price === 0);
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-8 pb-36">
+    <div className="mv-trust-workspace max-w-6xl mx-auto px-4 py-8 pb-36">
       {/* HERO — okka line (R13 minimal) */}
       <div className="text-center">
         <h1 className="text-3xl md:text-4xl font-extrabold text-[#7A0C2E] telugu">
@@ -55,6 +57,13 @@ export default function PricingPage({ snapshot }: { snapshot: PricingSnapshot })
         <p className="mt-2 text-sm text-gray-600 telugu">
           {te ? <>మొదటి <b>3 requests FREE</b> • తర్వాత ₹99 నుంచి • optional add-ons ధరలు విడిగా చూపిస్తాం</> : <>First <b>3 requests FREE</b> • paid plans from ₹99 • optional add-ons priced separately</>}
         </p>
+      </div>
+
+      <div role="status" className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
+        <p className="font-bold">{snapshot.paymentMode === "unconfigured" ? (te ? "Paid checkout ప్రస్తుతం అందుబాటులో లేదు" : "Paid checkout is currently unavailable") : (te ? "చెల్లింపు ముందు ప్రస్తుత స్థితి తనిఖీ చేయండి" : "Check current payment availability before paying")}</p>
+        <p className="mt-1">{snapshot.paymentMode === "unconfigured"
+          ? (te ? "FREE registration, మొదటి 3 requests తో start చేయండి. దిగువ paid plans ధరల జాబితా మాత్రమే; verified checkout లేకుండా డబ్బు పంపవద్దు." : "Start with free registration and the first 3 requests. Paid plans below are a price catalogue, not an available checkout. Do not send money without a verified checkout destination.")
+          : (te ? "Configuration ఉండటం provider approval లేదా live payment హామీ కాదు. Payment వివరాలు నిర్ధారించలేకపోతే డబ్బు పంపవద్దు." : "Configuration alone does not confirm provider approval or live payments. Do not send money when checkout details cannot be verified.")}</p>
       </div>
 
       <div className="mt-4"><OffersBanner initialOffers={snapshot.offers} /></div>
