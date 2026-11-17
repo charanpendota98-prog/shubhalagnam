@@ -1,0 +1,15 @@
+/* Login presentation only. Auth, recovery and capability logic is unchanged. */
+.mv-login-workspace{font-size:16px;line-height:1.65;}
+.mv-login-workspace [class*="text-xs"],.mv-login-workspace [class*="text-sm"],.mv-login-workspace [class*="text-[11px]"]{font-size:14px;line-height:1.65;}
+.mv-login-workspace h1{font-size:28px;line-height:1.4;}
+.mv-login-workspace input:not([type=checkbox]){font-size:16px;line-height:1.6;min-width:0;max-width:100%;}
+.mv-login-workspace button{min-height:44px;font-size:16px;line-height:1.5;overflow-wrap:anywhere;white-space:normal;}
+.mv-login-workspace button.absolute{min-width:44px;right:4px;}
+.mv-login-workspace button:focus-visible,.mv-login-workspace input:focus-visible,.mv-login-workspace a:focus-visible{outline:3px solid #7a0c2e;outline-offset:3px;}
+.mv-login-workspace a{min-height:44px;align-items:center;}
+.mv-login-workspace .mv-login-field-heading,.mv-login-workspace .mv-login-recovery-heading{flex-wrap:wrap;}
+.mv-login-workspace label{overflow-wrap:anywhere;}
+.mv-login-workspace label:has(input[type=checkbox]){min-height:44px;align-items:flex-start;}
+.mv-login-workspace input[type=checkbox]{flex-shrink:0;margin-top:5px;}
+@media(max-width:359px){.mv-login-workspace .card-shadow{padding:20px 16px;}.mv-login-workspace h1{font-size:26px;}.mv-login-workspace .mv-login-field-heading>button{flex-basis:100%;text-align:left;}}
+.mv-login-workspace input::placeholder{letter-spacing:normal;}

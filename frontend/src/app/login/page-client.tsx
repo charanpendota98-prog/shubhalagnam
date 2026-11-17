@@ -6,6 +6,7 @@
  * • Forgot Password with instant OTP Reset flow
  * • Resend OTP countdown timer & crisp error messages
  */
+import "./workspace.css";
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Duo } from "@/lib/duo";
@@ -205,18 +206,18 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-dvh bg-gradient-to-b from-[#FFFDF9] via-[#FAF5EE] to-[#F5ECE0] py-10 px-4 flex flex-col justify-center items-center">
-      <div className="w-full max-w-md">
+    <div className="mv-login-workspace min-h-dvh bg-gradient-to-b from-[#FFFDF9] via-[#FAF5EE] to-[#F5ECE0] py-6 sm:py-10 px-4 flex flex-col items-center">
+      <div className="w-full max-w-xl">
         
         {/* Brand Header */}
-        <div className="text-center mb-6">
+        <div className="text-left mb-5">
           <Link href="/" className="inline-flex items-center gap-2 mb-2">
             <span className="text-3xl">💍</span>
             <span className="font-extrabold text-2xl tracking-tight text-[#7A0C2E]">
               మన వివాహ <span className="text-gold">Mana Vivaha</span>
             </span>
           </Link>
-          <h1 className="text-xl font-extrabold text-slate-800 flex items-center justify-center gap-2">
+          <h1 className="text-xl font-extrabold text-slate-800 flex items-center gap-2">
             <span>🔑</span>
             <Duo en="Member Login" te="సభ్యుల లాగిన్" />
           </h1>
@@ -232,18 +233,6 @@ export default function LoginPage() {
           
           {/* Top Gold Accent Bar */}
           <div className="absolute top-0 left-0 right-0 h-1.5 maroon-gradient" />
-
-          <div className="mb-5 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700" role="status">
-            <p className="font-bold text-maroon">{te ? "మొబైల్ నంబర్ + పాస్‌వర్డ్" : "Phone number + password"}</p>
-            <p className="mt-1">{capabilitiesError
-              ? (te ? "అదనపు లాగిన్ పద్ధతుల స్థితి తెలియడం లేదు. పాస్‌వర్డ్‌తో లాగిన్ ప్రయత్నించండి." : "We could not check other sign-in methods. You can still try your password.")
-              : !capabilities ? (te ? "లాగిన్ పద్ధతులు తనిఖీ చేస్తున్నాం..." : "Checking sign-in methods...")
-              : capabilities.phone_otp ? (te ? "ఫోన్ OTP అందుబాటులో ఉంది." : "Phone OTP is available.")
-              : (te ? "ఫోన్ OTP ప్రస్తుతం అందుబాటులో లేదు. ఫోన్ ధృవీకరించబడిందని భావించవద్దు." : "Phone OTP is currently unavailable. A phone number alone is not proof of verified ownership.")}</p>
-            {capabilities && <p className="mt-2 text-xs leading-relaxed">{capabilities.email_recovery_configured
-              ? (te ? "ముందే ధృవీకరించిన ఈమెయిల్‌తో పాస్‌వర్డ్ రికవరీ చేయవచ్చు. ఈమెయిల్ లేని ఖాతాకు పాస్‌వర్డ్ మర్చిపోతే ఆటోమేటిక్ రికవరీ లేదు." : "Password recovery uses a previously verified email. Without one, a forgotten password has no automatic recovery while phone OTP is unavailable.")
-              : (te ? "ఈమెయిల్ రికవరీ కూడా ప్రస్తుతం అందుబాటులో లేదు. మీ పాస్‌వర్డ్‌ను భద్రంగా ఉంచండి." : "Email recovery is not available right now. Keep your password safe; phone-only accounts have no automatic password recovery.")}</p>}
-          </div>
 
           {/* Mode Switcher */}
           <div className="flex bg-slate-100 p-1 rounded-2xl mb-5">
@@ -274,7 +263,7 @@ export default function LoginPage() {
           {/* FORGOT PASSWORD VIEW */}
           {forgot ? (
             <div className="space-y-4">
-              <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+              <div className="mv-login-recovery-heading flex items-center justify-between gap-3 pb-2 border-b border-slate-100">
                 <span className="text-xs font-bold text-maroon flex items-center gap-1.5">
                   <span>🔄</span>
                   {te ? "ధృవీకరించిన ఈమెయిల్‌తో రికవరీ" : "Recover with verified email"}
@@ -346,6 +335,7 @@ export default function LoginPage() {
                       <button
                         type="button"
                         onClick={() => setShowPw(!showPw)}
+                        aria-label="Toggle recovery password visibility"
                         className="absolute right-3.5 top-1/2 -translate-y-1/2 text-sm opacity-60 hover:opacity-100"
                       >
                         {showPw ? "🙈" : "👁️"}
@@ -372,6 +362,7 @@ export default function LoginPage() {
               {/* Feedback Message */}
               {msg && (
                 <div
+                  role="status" aria-live="polite"
                   className={`p-3 rounded-xl text-xs font-semibold ${
                     msgType === "err"
                       ? "bg-red-50 text-red-700 border border-red-200"
@@ -456,7 +447,7 @@ export default function LoginPage() {
               {/* Password Field */}
               {tab === "password" && (
                 <div>
-                  <div className="flex justify-between items-center mb-1">
+                  <div className="mv-login-field-heading flex justify-between items-center gap-2 mb-1">
                     <label htmlFor="login-pw" className="block text-xs font-bold text-slate-700">
                       🔑 {te ? "పాస్‌వర్డ్" : "Password"}
                     </label>
@@ -502,7 +493,7 @@ export default function LoginPage() {
               {/* OTP Field (when in OTP Mode & Stage 2) */}
               {tab === "otp" && stage === "otp" && (
                 <div>
-                  <div className="flex justify-between items-center mb-1">
+                  <div className="mv-login-field-heading flex justify-between items-center gap-2 mb-1">
                     <label htmlFor="login-otp" className="block text-xs font-bold text-slate-700">
                       🔢 {te ? (phone.includes("@") ? "8 అంకెల OTP కోడ్" : "4 అంకెల OTP కోడ్") : (phone.includes("@") ? "8-digit OTP Code" : "4-digit OTP Code")}
                     </label>
@@ -555,6 +546,7 @@ export default function LoginPage() {
               {/* Status Message */}
               {msg && (
                 <div
+                  role="status" aria-live="polite"
                   className={`p-3 rounded-xl text-xs font-semibold ${
                     msgType === "err"
                       ? "bg-red-50 text-red-700 border border-red-200"
@@ -597,6 +589,18 @@ export default function LoginPage() {
               </div>
             </div>
           )}
+
+          <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700" role="status">
+            <p className="font-bold text-maroon">{te ? "మొబైల్ నంబర్ + పాస్‌వర్డ్" : "Phone number + password"}</p>
+            <p className="mt-1">{capabilitiesError
+              ? (te ? "అదనపు లాగిన్ పద్ధతుల స్థితి తెలియడం లేదు. పాస్‌వర్డ్‌తో లాగిన్ ప్రయత్నించండి." : "We could not check other sign-in methods. You can still try your password.")
+              : !capabilities ? (te ? "లాగిన్ పద్ధతులు తనిఖీ చేస్తున్నాం..." : "Checking sign-in methods...")
+              : capabilities.phone_otp ? (te ? "ఫోన్ OTP అందుబాటులో ఉంది." : "Phone OTP is available.")
+              : (te ? "ఫోన్ OTP ప్రస్తుతం అందుబాటులో లేదు. ఫోన్ ధృవీకరించబడిందని భావించవద్దు." : "Phone OTP is currently unavailable. A phone number alone is not proof of verified ownership.")}</p>
+            {capabilities && <p className="mt-2 text-xs leading-relaxed">{capabilities.email_recovery_configured
+              ? (te ? "ముందే ధృవీకరించిన ఈమెయిల్‌తో పాస్‌వర్డ్ రికవరీ చేయవచ్చు. ఈమెయిల్ లేని ఖాతాకు పాస్‌వర్డ్ మర్చిపోతే ఆటోమేటిక్ రికవరీ లేదు." : "Password recovery uses a previously verified email. Without one, a forgotten password has no automatic recovery while phone OTP is unavailable.")
+              : (te ? "ఈమెయిల్ రికవరీ కూడా ప్రస్తుతం అందుబాటులో లేదు. మీ పాస్‌వర్డ్‌ను భద్రంగా ఉంచండి." : "Email recovery is not available right now. Keep your password safe; phone-only accounts have no automatic password recovery.")}</p>}
+          </div>
 
         </div>
 
