@@ -7,7 +7,7 @@ Model (in-site chat లేదు):
      కానీ queue status external delivery proof కాదు.
   3. Owner accept చేసినప్పుడు accepted-request account views లో contact access grant అవుతుంది;
      optional WhatsApp notifications delivery హామీ కాదు.
-  4. Decline credit return is controlled by INTEREST_REFUND_ON_DECLINE; expiry policy is separate.
+  4. Decline returns one credit; unanswered seven-day expiry is a separate path.
 
 Enduku chatting ledu (mee decision — correct):
   • Chat = time waste + fake accounts + harassment risk + moderation cost (24/7 team kavali)
@@ -29,7 +29,7 @@ Rules (anti-spam + trust):
   • Oka roju max 20 requests (spam/fraud block)
   • Request 7 days valid → auto expire (interest fresh ga untundi)
   • Same-gender / own profile / fake ID → block
-  • Decline aithe credit refund (INTEREST_REFUND_ON_DECLINE=true default)
+  • Decline aithe one request credit refund (published-policy invariant)
 """
 from __future__ import annotations
 
@@ -138,8 +138,10 @@ RENEWALS: Dict[str, Dict] = {
 }
 
 MAX_PER_DAY = int(os.getenv("INTEREST_MAX_PER_DAY", "20"))
-EXPIRY_DAYS = int(os.getenv("INTEREST_EXPIRY_DAYS", "7"))
-REFUND_ON_DECLINE = str(os.getenv("INTEREST_REFUND_ON_DECLINE", "true")).lower() in ("1", "true", "yes", "on")
+from request_credit_policy import validate_request_credit_policy
+validate_request_credit_policy(os.environ)
+EXPIRY_DAYS = 7
+REFUND_ON_DECLINE = True
 AUTO_EXPIRE_CHECK = True
 _EXPIRY_LOCK = threading.RLock()
 

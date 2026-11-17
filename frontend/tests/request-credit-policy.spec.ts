@@ -1,0 +1,20 @@
+import {test,expect} from '@playwright/test';
+import fs from 'node:fs';
+const out='/downloads/mv-credit-review';fs.mkdirSync(out,{recursive:true});
+for(const lang of ['en','te'])for(const width of [320,390,1280])test(`request credit promise ${lang} ${width}`,async({page})=>{
+ await page.setViewportSize({width,height:1000});
+ await page.addInitScript(l=>{localStorage.setItem('tsap_lang',l);localStorage.setItem('tsap_id','UI_ONLY');localStorage.setItem('tsap_token','synthetic-only')},lang);
+ const writes:string[]=[],outside:string[]=[],errors:string[]=[];
+ page.on('pageerror',e=>errors.push(e.message));
+ await page.route('**/*',r=>{const u=new URL(r.request().url());if(u.origin!=='http://127.0.0.1:3196'){outside.push(u.origin);return r.abort()};if(u.pathname.startsWith('/api/')){if(r.request().method()!=='GET')writes.push(u.pathname);if(u.pathname==='/api/auth/verify')return r.fulfill({json:{valid:true,tsap_id:'UI_ONLY'}});return r.fulfill({json:{success:true,mode:'unconfigured',credits:3,received:[],sent:[],saved:[],templates:[],plans:[]}})}return r.continue()});
+ await page.goto('/pricing');await page.getByText(lang==='en'?'What happens to a credit after a decline or no response?':'Decline లేదా స్పందన లేకపోతే క్రెడిట్ ఏమవుతుంది?',{exact:true}).click();
+ await expect(page.locator('main')).toContainText(lang==='en'?'A declined request returns the spent request credit once.':'Decline అయితే ఖర్చయిన 1 request credit ఒకసారి తిరిగి వస్తుంది.');
+ await expect(page.locator('main')).not.toContainText(/follow.*account policy|return.*account policy/);
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBeTruthy();await page.evaluate(()=>document.fonts.ready);await page.screenshot({path:`${out}/${lang}-${width}-pricing.png`,fullPage:true});await page.locator('details[open]').screenshot({path:`${out}/${lang}-${width}-pricing-faq.png`});
+ await page.goto('/requests');await page.locator('.requests-rules summary').click();await expect(page.locator('.requests-rules')).toContainText(lang==='en'?'A declined request returns the spent request credit once':'Decline అయితే ఖర్చయిన 1 request credit ఒకసారి తిరిగి వస్తుంది');
+ await page.screenshot({path:`${out}/${lang}-${width}-requests-rules.png`});
+ await page.getByRole('button',{name:lang==='en'?/Plans & Credits/:/Plans & Credits/}).click();
+ await expect(page.locator('main')).toContainText(lang==='en'?'Decline or seven-day no-response expiry returns one request credit once':'Decline లేదా 7-day no-response expiry పై 1 request credit ఒకసారి తిరిగి వస్తుంది');
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBeTruthy();await page.screenshot({path:`${out}/${lang}-${width}-requests-plans.png`,fullPage:true});
+ expect(writes).toEqual([]);expect(outside).toEqual([]);expect(errors).toEqual([]);
+});

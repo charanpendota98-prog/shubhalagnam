@@ -192,6 +192,7 @@ import member_intel
 from interest import (
     PLANS as INTEREST_PLANS, plan_list, get_plan, plan_by_amount, apply_payment,
     can_send_interest, create_interest, respond_interest, expire_old,
+    _EXPIRY_LOCK as INTEREST_RETURN_LOCK,
     interest_to_owner_text, interest_accepted_text, interest_accepted_owner_text, interest_declined_text,
     interest_notify_text, inbox_for, sent_for, safe_user, sanitize_public_text, sanitize_public_payload,
     MAX_PER_DAY as INTEREST_MAX_PER_DAY, EXPIRY_DAYS as INTEREST_EXPIRY_DAYS,
@@ -3797,11 +3798,7 @@ def free_plan_clarity():
     🆓 FREE vs PAID — crystal clear (Telugu).
     "3 profiles ఇస్తాం కానీ numbers ఇవ్వము — వాళ్లు pay chesaka numbers/contact"
     """
-    decline_credit_note = (
-        "🔁 Owner decline చేస్తే ఒక request credit తిరిగి account లో జమ అవుతుంది; ఇది cash refund కాదు."
-        if INTEREST_REFUND_ON_DECLINE else
-        "🔁 Owner decline చేస్తే request credit తిరిగి రాదు; no-response expiry పై ఒక credit తిరిగి వస్తుంది."
-    )
+    decline_credit_note = "🔁 Owner decline చేస్తే ఒక request credit ఒకసారి తిరిగి account లో జమ అవుతుంది; ఇది cash refund కాదు."
     return {
         "success": True,
         "headline_telugu": "Register 100% FREE — 3 interest requests పంపొచ్చు. Contact details public search లో చూపించము; profile owner accept చేసిన తర్వాత account flows లో అందుబాటులోకి వస్తాయి.",
@@ -6426,7 +6423,7 @@ def plans_endpoint():
         "renewal": renewal_offer(),
         "bureau": bureau_list(),  # WAVE 29: pricing B2B single-source (page fallback tho match)
         "value_ladder": [f"₹{p['price']} → {p['profiles']} interest requests (₹{p['per_profile']}/request)" for p in plan_list()],
-        "note_telugu": "ఒక్క interest request కు 1 credit. Public search లో contact details ఉండవు; profile owner accept చేసిన తర్వాత accepted-request account flows లో అందుబాటులోకి వస్తాయి. WhatsApp notification delivery హామీ లేదు. Decline అయితే account లో చూపిన credit policy వర్తిస్తుంది. "
+        "note_telugu": "ఒక్క interest request కు 1 credit. Public search లో contact details ఉండవు; profile owner accept చేసిన తర్వాత accepted-request account flows లో అందుబాటులోకి వస్తాయి. WhatsApp notification delivery హామీ లేదు. Decline అయితే ఒక request credit ఒకసారి తిరిగి వస్తుంది; ఇది cash refund కాదు. "
                        "₹299, ₹499 plans active ఉన్నప్పుడు Who-viewed names అందుబాటులో ఉంటాయి. Match లేదా response హామీ లేదు.",
     }
 
@@ -6532,8 +6529,7 @@ async def interest_send(payload: dict, request: Request = None):
     if to.get("is_banned"):
         raise HTTPException(400, "ఈ profile moderation లో teesesaru — interest pampaleeru")
 
-    if expire_old(DB_INTERESTS, DB_USERS):
-        _persist_core_state()
+    _expire_interest_state()
     # 💬 ready-made Telugu template (optional)
     _tpl = str(d.get("template_id", "")).strip()
     if _tpl and not note:
@@ -6636,14 +6632,29 @@ def _visible_interest_records() -> list:
     return [rec for rec in DB_INTERESTS if not _interest_pair_blocked(rec)]
 
 
+def _expire_interest_state():
+    """Do not present an expiry/refund as saved when the core write failed.
+
+    Credit buckets reconcile from the canonical user balance on ledger access.
+    No separate bucket mutation is needed for this existing expiry path.
+    """
+    with INTEREST_RETURN_LOCK:
+        records = [(rec, copy.deepcopy(rec)) for rec in DB_INTERESTS]
+        users = [(user, copy.deepcopy(user)) for user in DB_USERS]
+        if expire_old(DB_INTERESTS, DB_USERS) and not _persist_core_state():
+            for ref, before in records + users:
+                ref.clear()
+                ref.update(before)
+            raise HTTPException(503, "Request expiry and credit return could not be saved safely. Please try again.")
+
+
 @app.get("/api/interest/inbox/{tsap_id}")
 def interest_inbox(tsap_id: str, request: Request = None):
     require_owner(request, tsap_id)   # 🛡️ WAVE 9: IDOR fix — own data matrame
     u = _find_user(tsap_id)
     if not u:
         raise HTTPException(404, "⚠️ User దొరకలేదు — TSAP ID check చెయ్యండి")
-    if expire_old(DB_INTERESTS, DB_USERS):
-        _persist_core_state()
+    _expire_interest_state()
     data = inbox_for(u, DB_USERS, _visible_interest_records())
     data["credits"] = u.get("credits", 0)
     data["model"] = "owner acceptance → contact access in accepted-request account views; notification delivery is not guaranteed"
@@ -6656,8 +6667,7 @@ def interest_sent(tsap_id: str, request: Request = None):
     u = _find_user(tsap_id)
     if not u:
         raise HTTPException(404, "⚠️ User దొరకలేదు — TSAP ID check చెయ్యండి")
-    if expire_old(DB_INTERESTS, DB_USERS):
-        _persist_core_state()
+    _expire_interest_state()
     data = sent_for(u, DB_USERS, _visible_interest_records())
     data["credits"] = u.get("credits", 0)
     return data
@@ -6666,6 +6676,11 @@ def interest_sent(tsap_id: str, request: Request = None):
 @app.post("/api/interest/respond")
 async def interest_respond(payload: dict, request: Request = None):
     """Record the owner's decision (accept/decline) or sender's withdrawal (MV-004)."""
+    with INTEREST_RETURN_LOCK:
+        return _interest_respond_locked(payload, request)
+
+
+def _interest_respond_locked(payload: dict, request: Request = None):
     d = payload or {}
     tsap_id = str(d.get("tsap_id", "")).strip().upper()
     request_id = d.get("request_id", "")

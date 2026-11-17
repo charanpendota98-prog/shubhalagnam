@@ -398,8 +398,8 @@ with TestClient(main.app, raise_server_exceptions=False) as client:
     })
     declined = declined_response.json()
     refunded = bool((declined.get("request") or {}).get("credit_refunded"))
-    expected_refund = bool(main.INTEREST_REFUND_ON_DECLINE)
-    check("decline credit return matches configured account policy",
+    expected_refund = True
+    check("decline returns one request credit under the published policy",
           refunded is expected_refund
           and int(BRIDE.get("credits", 0)) == bride_credits_before - 1 + int(expected_refund),
           {"policy": expected_refund, "refunded": refunded, "credits": BRIDE.get("credits")})

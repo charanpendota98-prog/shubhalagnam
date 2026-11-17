@@ -24,8 +24,8 @@ export const FAQ_FACTS = Object.freeze({
     te: "కాదు. ఇది పరిచయ వేదిక: సభ్యులు అందించిన వివరాలు చూసి మీరు interest పంపుతారు. వివాహాలు కుటుంబాలు నిర్ణయిస్తాయి, సైట్ కాదు; ఏ match, score లేదా listing ఫలితానికి హామీ కాదు.",
   },
   noChat: {
-    en: "There is no in-site chat. Interest notification delivery is not guaranteed. Owner acceptance grants contact access in accepted-request account views; decline credit returns follow account policy.",
-    te: "ఈ సైట్‌లో chatting లేదు. Interest notification delivery హామీ లేదు. Owner accept చేసిన తర్వాత accepted-request account views లో contact details కనిపిస్తాయి; decline అయితే credit return account policy ప్రకారం ఉంటుంది.",
+    en: "There is no in-site chat. Interest notification delivery is not guaranteed. Owner acceptance grants contact access in accepted-request account views; a decline returns one request credit once, not a cash refund.",
+    te: "ఈ సైట్‌లో chatting లేదు. Interest notification delivery హామీ లేదు. Owner accept చేసిన తర్వాత accepted-request account views లో contact details కనిపిస్తాయి; decline అయితే 1 request credit ఒకసారి తిరిగి వస్తుంది, cash refund కాదు.",
   },
   report: {
     en: "Use the Report button on the profile. Reports are reviewed, but there is no fixed action time and no 100% safety guarantee — profiles that cross a report threshold can be temporarily auto-flagged or hidden while they are checked.",

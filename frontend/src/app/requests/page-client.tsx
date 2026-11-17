@@ -4,7 +4,7 @@
  * MANA VIVAHA — REQUESTS DASHBOARD (💌 Interest model — chatting LEDU)
  * ====================================================================
  * • Interest pampu (1 credit; modati 3 FREE); notification queue/delivery separate states
- * • Inbox: vachina requests → ✅ Accept / ❌ Decline (decline credit policy is account-specific)
+ * • Inbox: vachina requests → ✅ Accept / ❌ Decline (decline returns one request credit once)
  * • Sent: pampina requests + status + accepted-request account contact access
  * • Plans: ₹99 → 5 requests | ₹199 → 12 | ₹299 → 25 | ₹499 → 50 (VIP)  — add-ons + renewal tho
  * • Anti-ban WhatsApp status (queue + random gap) chupisthundi
@@ -236,9 +236,9 @@ export default function RequestsPage() {
             </h2>
             <p className="mt-1.5 max-w-3xl text-[13px] leading-relaxed text-slate-600">
               {te ? <>నచ్చిన profile కు <b>Interest పంపండి</b>. Notification అందుబాటు configured services పై ఆధారపడుతుంది; delivery హామీ లేదు.
-                Profile owner <b>accept చేసిన తర్వాత</b> accepted-request account views లో contact details కనిపిస్తాయి. Declined requests account లో చూపిన credit policy ను అనుసరిస్తాయి.
+                Profile owner <b>accept చేసిన తర్వాత</b> accepted-request account views లో contact details కనిపిస్తాయి. Decline అయితే ఖర్చయిన 1 request credit ఒకసారి తిరిగి వస్తుంది; ఇది cash refund కాదు.
                 Paid credits consent ను bypass చేయవు; online పరిచయాల వివరాలను స్వతంత్రంగా నిర్ధారించండి.</> : <>Send <b>Interest</b> to a profile you like. Notification availability depends on configured services; delivery is not guaranteed.
-                If the profile owner <b>accepts</b>, contact details appear in accepted-request account views. Declined requests follow the credit policy shown in your account.
+                If the profile owner <b>accepts</b>, contact details appear in accepted-request account views. A declined request returns the spent request credit once; this is not a cash refund.
                 Paid credits cannot bypass consent; verify details independently.</>}
             </p>
           </details>
@@ -479,7 +479,7 @@ export default function RequestsPage() {
                   {busy ? (te ? "పంపిస్తున్నాం…" : "Sending…") : te ? "💌 Interest పంపు" : "💌 Send interest"}
                 </button>
                 <div className="text-[11px] text-gray-500">
-                  Credits: <b>{credits === null ? "—" : credits}</b> • {te ? "మొదటి 3 requests FREE • Decline పై account credit policy వర్తిస్తుంది" : "First 3 requests FREE • Declines follow account credit policy"}
+                  Credits: <b>{credits === null ? "—" : credits}</b> • {te ? "మొదటి 3 requests FREE • Decline అయితే 1 request credit ఒకసారి తిరిగి వస్తుంది" : "First 3 requests FREE • Declines return one request credit once"}
                 </div>
               </div>
             </div>
@@ -511,7 +511,7 @@ export default function RequestsPage() {
                     <li>{te ? "మీ ID + వాళ్ల ID ఇవ్వండి → request పంపిస్తాం (1 credit)" : "Enter your ID + their ID → we send request (1 credit)"}</li>
                     <li>{te ? "Notification availability configured service పై ఆధారపడుతుంది" : "Notification availability depends on configured services"}</li>
                     <li>{te ? "Owner accept చేసిన తర్వాత accepted-request account views లో contact details కనిపిస్తాయి; notification delivery హామీ లేదు" : "After owner acceptance, contact details appear in accepted-request account views; notification delivery is not guaranteed"}</li>
-                    <li>{te ? "Decline credit return account policy ప్రకారం; expiry పై credit ఒకసారి తిరిగి వస్తుంది (cash refund కాదు)" : "Decline credit returns follow the account policy; expiry returns one credit once (not a cash refund)"}</li>
+                    <li>{te ? "Decline లేదా 7-day no-response expiry పై 1 request credit ఒకసారి తిరిగి వస్తుంది (cash refund కాదు)" : "Decline or seven-day no-response expiry returns one request credit once (not a cash refund)"}</li>
                   </ol>
                   <div className="mt-3 text-[11px] text-gray-600">{te ? "🚫 In-site chat లేదు. Unwanted behavior కోసం report/block controls వాడండి; external calls/messages ను service నియంత్రించదు." : "🚫 No in-site chat. Use report/block controls for unwanted behavior; the service cannot control external calls/messages."}</div>
                 </div>
@@ -640,7 +640,7 @@ export default function RequestsPage() {
         {/* PLANS */}
         {tab === "plans" && (
           <div>
-            <SectionHeading eyebrow={duo("Credits", "క్రెడిట్లు")} title={duo("Plans — 1 credit = 1 interest request", "ప్లాన్లు — 1 క్రెడిట్ = 1 interest request")} subtitle={te ? "₹/request ప్రతి tier లో తగ్గుతుంది (₹20 → ₹10). Decline credit return account policy ప్రకారం; 7-day expiry పై ఒక credit తిరిగి వస్తుంది (cash refund కాదు)." : "₹/request drops by tier (about ₹20 → ₹10). Decline credit returns follow account policy; 7-day expiry returns one credit (not a cash refund)."} telugu align="left" />
+            <SectionHeading eyebrow={duo("Credits", "క్రెడిట్లు")} title={duo("Plans — 1 credit = 1 interest request", "ప్లాన్లు — 1 క్రెడిట్ = 1 interest request")} subtitle={te ? "₹/request ప్రతి tier లో తగ్గుతుంది (₹20 → ₹10). Decline లేదా 7-day no-response expiry పై 1 request credit ఒకసారి తిరిగి వస్తుంది (cash refund కాదు)." : "₹/request drops by tier (about ₹20 → ₹10). Decline or seven-day no-response expiry returns one request credit once (not a cash refund)."} telugu align="left" />
             {renewal && (
               <div className="mt-3 rounded-2xl bg-cream border border-gold/30 p-3 text-[12px] text-gray-700">
                 {te ? <>🔁 <b>Renewal offer (పాత customers):</b> ₹{renewal.price} → <b>{renewal.profiles} interest requests</b> — first-time ₹99 → 5 requests.</> : <>🔁 <b>Renewal offer (old customers):</b> ₹{renewal.price} → <b>{renewal.profiles} interest requests</b> — first-time ₹99 → 5 requests.</>}

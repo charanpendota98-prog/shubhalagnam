@@ -216,6 +216,8 @@ PATH_SPECS = [
 
 
 def validate_operator_config(env, auth_enabled, control_accounts):
+    from request_credit_policy import validate_request_credit_policy
+    validate_request_credit_policy(env)
     if str(env.get('APP_ENV', '')).strip().lower() not in {'production','prod','live'}:
         raise RuntimeError('APP_ENV must explicitly select production')
     if not auth_enabled:
