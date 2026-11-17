@@ -9,7 +9,7 @@
  *   • ✅ Real /api/search/{id} data, honest 404s, consent-based contact access,
  *     and working block/report actions.
  */
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { ProfileSkeleton } from "@/components/Skeletons";
@@ -18,6 +18,7 @@ import { apiDisplayMessage, apiGet, apiPost, authHeaders } from "@/lib/api";
 import { normalizeWhatsAppPhone, whatsappPhoneLink } from "@/lib/wa";
 import { firstName } from "@/lib/names";
 import { useLang } from "@/lib/lang";
+import { useSession } from "@/lib/auth";
 import { SITE_CONFIG } from "@/lib/site-config";
 import { isNeverMarriedStatus, stateFullName } from "@/lib/telugu-data";
 import ProfileRail from "@/components/ProfileRail";
@@ -68,6 +69,40 @@ export default function ProfileView() {
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [sending, setSending] = useState(false);
   const [savedNow, setSavedNow] = useState(false);
+  const { tsapId: shortlistOwner, authenticated: shortlistAuthenticated, ready: shortlistSessionReady } = useSession();
+  const [shortlistLoaded, setShortlistLoaded] = useState(false);
+  const [shortlistError, setShortlistError] = useState(false);
+  const [shortlistAttempt, setShortlistAttempt] = useState(0);
+  const [shortlistSaving, setShortlistSaving] = useState(false);
+  const shortlistTarget = String(data?.profile?.tsap_id || "").trim().toUpperCase();
+  const shortlistKey = `${shortlistOwner}:${shortlistTarget}`;
+  const shortlistCurrentKey = useRef(shortlistKey);
+  useEffect(() => { shortlistCurrentKey.current = shortlistKey; }, [shortlistKey]);
+  const [shortlistLoadedFor, setShortlistLoadedFor] = useState("");
+  const shortlistCanAct = shortlistSessionReady && shortlistLoaded && shortlistLoadedFor === shortlistKey && Boolean(shortlistTarget);
+
+  useEffect(() => {
+    if (!shortlistSessionReady) return;
+    let active = true;
+    setSavedNow(false);
+    setShortlistLoaded(false);
+    setShortlistError(false);
+    if (!shortlistTarget) return;
+    if (!shortlistOwner || !shortlistAuthenticated) {
+      setShortlistLoadedFor(shortlistKey);
+      setShortlistLoaded(true);
+      return;
+    }
+    void apiGet<{ saved?: { profile?: { tsap_id?: string } }[] }>(`/api/saved/${encodeURIComponent(shortlistOwner)}`)
+      .then(({ ok, data }) => {
+        if (!active) return;
+        if (!ok || !Array.isArray(data?.saved)) { setShortlistError(true); return; }
+        setSavedNow(data.saved.some(item => String(item.profile?.tsap_id || "").toUpperCase() === shortlistTarget));
+        setShortlistLoadedFor(shortlistKey);
+        setShortlistLoaded(true);
+      }).catch(() => { if (active) setShortlistError(true); });
+    return () => { active = false; };
+  }, [shortlistOwner, shortlistAuthenticated, shortlistSessionReady, shortlistTarget, shortlistKey, shortlistAttempt]);
   const [needsLogin, setNeedsLogin] = useState(false);
   const [blocked, setBlocked] = useState(false);
   const [reported, setReported] = useState(false);
@@ -211,12 +246,21 @@ export default function ProfileView() {
   };
 
   const toggleSave = async () => {
-    const { ok, data: d, status, needsLogin: nl, errorTelugu: eTel } = await apiPost<Row>("/api/save", { tsap_id: myTsapId, target_id: searchId, saved: !savedNow });
-    if (status === 0) { setMsg({ ok: false, text: te ? "Shortlist మారిందో నిర్ధారించలేకపోయాం. ఇదే చర్యను మళ్లీ ప్రయత్నించడం సురక్షితం." : "Could not confirm the shortlist update. Retrying the same action is safe." }); return; }
-    if (nl) { setNeedsLogin(true); return; }
-    if (!ok) { setMsg({ ok: false, text: eTel }); return; }
-    setSavedNow(!!d?.saved);
-    setMsg({ ok: true, text: localizedApiMessage(d, "షార్ట్‌లిస్ట్ నవీకరించబడింది.", "Shortlist updated.") });
+    if (!shortlistCanAct || shortlistSaving) return;
+    if (!shortlistOwner || !shortlistAuthenticated) { setNeedsLogin(true); return; }
+    const actionKey = shortlistKey;
+    setShortlistSaving(true);
+    try {
+      const { ok, data: d, status, needsLogin: nl, errorTelugu: eTel } = await apiPost<Row>("/api/save", { tsap_id: shortlistOwner, target_id: shortlistTarget, saved: !savedNow });
+      if (shortlistCurrentKey.current !== actionKey) return;
+      if (status === 0) { setMsg({ ok: false, text: te ? "Shortlist మారిందో నిర్ధారించలేకపోయాం. ఇదే చర్యను మళ్లీ ప్రయత్నించడం సురక్షితం." : "Could not confirm the shortlist update. Retrying the same action is safe." }); return; }
+      if (nl) { setNeedsLogin(true); return; }
+      if (!ok || !d?.success || typeof d.saved !== "boolean") { setMsg({ ok: false, text: eTel || (te ? "Shortlist నవీకరించలేకపోయాం." : "Could not update your shortlist.") }); return; }
+      setSavedNow(d.saved);
+      setMsg({ ok: true, text: localizedApiMessage(d, "షార్ట్‌లిస్ట్ నవీకరించబడింది.", "Shortlist updated.") });
+    } finally {
+      setShortlistSaving(false);
+    }
   };
 
   const doBlock = async () => {
@@ -619,10 +663,14 @@ export default function ProfileView() {
             <button type="button" onClick={printBiodata} className="rounded-xl border border-amber-400 bg-amber-50 hover:bg-amber-100 px-4 py-2 text-sm font-bold text-[#7A0C2E] transition shadow-xs">
               📄 {te ? "ప్రింట్ బయోడేటా" : "Print Biodata"}
             </button>
-            <button type="button" onClick={() => void toggleSave()}
+            <button type="button" onClick={() => void toggleSave()} disabled={!shortlistCanAct || shortlistSaving}
               className={`rounded-xl px-4 py-2 text-sm font-bold ${savedNow ? "bg-rose-100 text-rose-700" : "border border-slate-300 text-slate-700"}`}>
-              {savedNow ? (te ? "❤️ షార్ట్‌లిస్ట్‌లో ఉంది" : "❤️ In shortlist") : (te ? "🤍 షార్ట్‌లిస్ట్" : "🤍 Shortlist")}
+              {!shortlistSessionReady || ((!shortlistCanAct) && !shortlistError) ? (te ? "Shortlist లోడ్ అవుతోంది…" : "Loading shortlist…") : shortlistSaving ? (te ? "Shortlist సేవ్ అవుతోంది…" : "Updating shortlist…") : savedNow ? (te ? "❤️ షార్ట్‌లిస్ట్‌లో ఉంది" : "❤️ In shortlist") : (te ? "🤍 షార్ట్‌లిస్ట్" : "🤍 Shortlist")}
             </button>
+            {shortlistError && <div role="alert" className="rounded-xl border border-rose-300 bg-rose-50 p-3 text-sm text-rose-900">
+              <p>{te ? "Shortlist లోడ్ కాలేదు. మార్చే ముందు మళ్లీ ప్రయత్నించండి." : "Could not load your shortlist. Retry before making changes."}</p>
+              <button type="button" className="min-h-11 underline" onClick={() => setShortlistAttempt(value => value + 1)}>{te ? "Shortlist మళ్లీ లోడ్ చేయండి" : "Retry loading shortlist"}</button>
+            </div>}
             <button type="button" onClick={() => setShowProposalModal(true)} className="rounded-xl bg-green-600 hover:bg-green-700 px-4 py-2 text-sm font-bold text-white transition flex items-center gap-1.5 shadow-xs">
               <span>💬</span>
               <span>{te ? "వాట్సాప్ ప్రపోజల్ షేర్" : "WhatsApp Proposal Share"}</span>
