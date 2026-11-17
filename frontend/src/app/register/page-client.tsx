@@ -11,6 +11,7 @@
  * • No prefilled profile data; users enter and select their own details
  * • Real-time Draft Auto-Save & server-confirmed registration status
  */
+import "./workspace.css";
 import { Suspense, useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
@@ -1324,7 +1325,7 @@ function Wizard() {
     // proof that the code was valid or that a credit was attached.
     const joined_with = result.referral?.joined_with;
     return (
-      <div className="min-h-dvh py-8 px-4 bg-[#FAF7F2]">
+      <div className="mv-register-workspace min-h-dvh py-8 px-4 bg-[#FAF7F2]">
         <div className="max-w-2xl mx-auto bg-white rounded-3xl border border-gold/40 shadow-2xl overflow-hidden animate-fade">
           {/* Header Banner */}
           <div className="maroon-gradient p-6 text-white text-center space-y-2">
@@ -1592,11 +1593,23 @@ function Wizard() {
   const stepMeta = STEPS[step - 1];
 
   return (
-    <div className="min-h-dvh pb-28 sm:pb-36 bg-[#FAF7F2]" ref={topRef}>
+    <div className="mv-register-workspace min-h-dvh pb-28 sm:pb-36 bg-[#FAF7F2]" ref={topRef}>
+      <div className="max-w-6xl mx-auto px-4 pt-5 pb-4">
+        {/* Page heading (the single h1 of the form view) */}
+        <header className="space-y-1">
+          <h1 className="text-xl sm:text-2xl font-black text-navy">
+            {T("మీ ఉచిత ప్రొఫైల్ సృష్టించండి", "Create your free profile")}
+          </h1>
+          <p className="text-xs sm:text-sm text-slate-600">
+            {T("మీ వివరాలు మీ నియంత్రణలోనే ఉంటాయి; review చేసే వరకు ఏదీ publish కాదు. మొదటి 3 interest requests ఉచితం.", "Your details stay in your hands; nothing is published until you review it. The first 3 interest requests are free.")}
+          </p>
+        </header>
+
+      </div>
       {/* ---------- Top Header Bar ----------
-          Brand/home context comes from the shared RouteFrame strip above;
-          this sticky bar keeps only the functional controls (mode + steps). */}
-      <div className="sticky top-16 z-30 bg-white/95 backdrop-blur-md border-b border-gold/25 shadow-xs">
+          The page heading comes first; mode and step controls stay in normal
+          document flow so they do not cover fields while scrolling. */}
+      <div className="mv-register-navigation bg-white border-y border-gold/25">
         {/* Mode Selector Tabs (Quick vs Detailed) */}
         <div className="max-w-6xl mx-auto px-4 pb-2 pt-1">
           <div className="grid grid-cols-2 gap-2 bg-slate-100 p-1 rounded-2xl border border-slate-200">
@@ -1637,6 +1650,8 @@ function Wizard() {
                 return (
                   <button
                     key={s.n}
+                    aria-label={T(`దశ ${s.n}: ${s.labelTe}`, `Step ${s.n}: ${s.label}`)}
+                    aria-current={active ? "step" : undefined}
                     type="button"
                     onClick={() => {
                       if (s.n < step) setStep(s.n);
@@ -1674,16 +1689,6 @@ function Wizard() {
 
       {/* ---------- Main Layout ---------- */}
       <div className="max-w-6xl mx-auto px-4 py-4 sm:py-6 space-y-4">
-
-        {/* Page heading (the single h1 of the form view) */}
-        <header className="space-y-1">
-          <h1 className="text-xl sm:text-2xl font-black text-navy">
-            {T("మీ ఉచిత ప్రొఫైల్ సృష్టించండి", "Create your free profile")}
-          </h1>
-          <p className="text-xs sm:text-sm text-slate-600">
-            {T("మీ వివరాలు మీ నియంత్రణలోనే ఉంటాయి; review చేసే వరకు ఏదీ publish కాదు. మొదటి 3 interest requests ఉచితం.", "Your details stay in your hands; nothing is published until you review it. The first 3 interest requests are free.")}
-          </p>
-        </header>
 
         {/* Referral Welcome Banner */}
         {refLocked && (
@@ -2198,7 +2203,7 @@ function Wizard() {
             <div className="lg:col-span-8 space-y-5">
               <div className="bg-white rounded-3xl border border-gold/30 shadow-md p-4 sm:p-6 space-y-5">
                 {/* Step Header */}
-                <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
+                <div className="mv-register-step-header border-b border-slate-100 pb-3 flex items-center justify-between gap-3">
                   <div>
                     <h2 className="text-base sm:text-lg font-black text-slate-900 flex items-center gap-2">
                       <span>{stepMeta.icon}</span>
