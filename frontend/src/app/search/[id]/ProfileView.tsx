@@ -52,6 +52,16 @@ function escapeHtml(value: unknown): string {
     .replace(/'/g, "&#39;");
 }
 
+const REPORT_REASONS = [
+  { v: "fake_profile", en: "Fake profile", te: "నకిలీ ప్రొఫైల్" },
+  { v: "advance_money", en: "Asked for advance money", te: "ముందు డబ్బు అడిగారు" },
+  { v: "harassment", en: "Harassment or abusive language", te: "వేధింపు / అసభ్య మాటలు" },
+  { v: "wrong_photo", en: "Incorrect photo", te: "ఫోటో సరికాదు" },
+  { v: "already_married", en: "Marital status not disclosed", te: "వైవాహిక స్థితి చెప్పలేదు" },
+  { v: "spam", en: "Spam or advertising", te: "స్పామ్ / ప్రకటనలు" },
+  { v: "other", en: "Other", te: "ఇతర" },
+];
+
 export default function ProfileView() {
   const { lang } = useLang();
   const te = lang === "te";
@@ -72,6 +82,10 @@ export default function ProfileView() {
   const interestBusy = useRef(false);
   const safetyBusy = useRef(false);
   const [safetyPending, setSafetyPending] = useState(false);
+  const [safetyPrompt, setSafetyPrompt] = useState<"" | "block" | "report">("");
+  const [reportCategory, setReportCategory] = useState("");
+  const [reportDetail, setReportDetail] = useState("");
+  const [duplicateRequest, setDuplicateRequest] = useState(false);
   const profileGeneration = useRef(0);
   const [savedNow, setSavedNow] = useState(false);
   const { tsapId: shortlistOwner, authenticated: shortlistAuthenticated, ready: shortlistSessionReady } = useSession();
@@ -182,7 +196,7 @@ export default function ProfileView() {
     if (!id) return;
     const generation = ++profileGeneration.current;
     setLoading(true); setErr(""); setMsg(null);
-    setUnlocked(""); setBlocked(false); setReported(false); setSentRequestId("");
+    setUnlocked(""); setBlocked(false); setReported(false); setSentRequestId(""); setSafetyPrompt(""); setReportCategory(""); setReportDetail(""); setDuplicateRequest(false);
     setInterestNote(""); setNeedsLogin(false); setShowUnlockModal(false); setShowProposalModal(false);
     const { ok, status, data: d, errorTelugu } = await apiGet<Row>(`/api/search/${encodeURIComponent(id)}`);
     if (generation !== profileGeneration.current) return;
@@ -210,7 +224,7 @@ export default function ProfileView() {
   }, [loadedProfileId, myTsapId, shortlistSessionReady]);
 
   const sendInterest = async (templateId?: string, noteOverride?: string) => {
-    if (!shortlistSessionReady || loading || !loadedProfileId || interestBusy.current || sentRequestId) return;
+    if (!shortlistSessionReady || loading || !loadedProfileId || interestBusy.current || sentRequestId || duplicateRequest) return;
     if (!myTsapId) { setNeedsLogin(true); return; }
     const generation = profileGeneration.current;
     interestBusy.current = true;
@@ -283,18 +297,20 @@ export default function ProfileView() {
   const safetyAction = async (action: "block" | "report") => {
     if (!shortlistSessionReady || loading || !loadedProfileId || safetyBusy.current) return;
     if (!myTsapId) { setNeedsLogin(true); return; }
+    if (action === "report" && !reportCategory) return;
     const generation = profileGeneration.current;
     safetyBusy.current = true; setSafetyPending(true); setMsg(null);
     try {
       const payload = action === "block"
         ? { tsap_id: myTsapId, block_id: loadedProfileId, reason: "profile page నుంచి" }
-        : { reporter_id: myTsapId, target_id: loadedProfileId, category: "fake_profile", detail: "Profile page నుంచి report" };
+        : { reporter_id: myTsapId, target_id: loadedProfileId, category: reportCategory, detail: reportDetail.trim().slice(0, 300) };
       const { ok, data: d, needsLogin: nl, errorTelugu: eTel } = await apiPost<Row>(`/api/${action}`, payload);
       if (generation !== profileGeneration.current) return;
       if (nl) { setNeedsLogin(true); return; }
       if (ok && d?.success) {
         if (action === "block") { setBlocked(true); setUnlocked(""); }
         else setReported(true);
+        setSafetyPrompt("");
         setMsg({ ok: true, text: action === "block"
           ? localizedApiMessage(d, "ప్రొఫైల్ బ్లాక్ చేయబడింది.", "Profile blocked.")
           : localizedApiMessage(d, "రిపోర్ట్ సమర్పించబడింది. సమీక్షకు పట్టే సమయం మారవచ్చు.", "Report submitted. Review timing may vary.") });
@@ -579,7 +595,7 @@ export default function ProfileView() {
           <PrivatePhotoAccessCard profile={profile} myTsapId={myTsapId} />
 
           {myTsapId && loadedProfileId && myTsapId !== loadedProfileId ? (
-            <RequestCoach fromId={myTsapId} toId={loadedProfileId} refreshKey={sentRequestId} onPickNote={(text) => setInterestNote(text)} />
+            <RequestCoach fromId={myTsapId} toId={loadedProfileId} refreshKey={sentRequestId} onDuplicate={setDuplicateRequest} onPickNote={(text) => setInterestNote(text)} />
           ) : null}
           {/* 🔒 Contact access is gated by profile-owner acceptance */}
           <section className="profile-contact mv-surface mv-surface__body mv-card mt-4 border-rose-200">
@@ -633,11 +649,11 @@ export default function ProfileView() {
           ) : null}
 
             <div className="mt-4 flex flex-wrap gap-2">
-              <button type="button" onClick={() => void sendInterest()} disabled={sending || Boolean(sentRequestId) || !shortlistSessionReady || loading}
+              <button type="button" onClick={() => void sendInterest()} disabled={sending || Boolean(sentRequestId) || duplicateRequest || !shortlistSessionReady || loading}
                 className="mv-sheen min-h-12 rounded-xl bg-[#7A0C2E] px-5 py-2.5 text-sm font-bold text-white shadow-sm transition hover:brightness-110 disabled:opacity-60">
-                {sending ? (te ? "పంపిస్తున్నాం…" : "Sending…") : sentRequestId ? (te ? "✅ Interest పంపబడింది" : "✅ Interest sent") : te ? "💌 Interest పంపండి (FREE 3)" : "💌 Send interest (FREE 3)"}
+                {sending ? (te ? "పంపిస్తున్నాం…" : "Sending…") : (sentRequestId || duplicateRequest) ? (te ? "✅ Interest పంపబడింది" : "✅ Interest sent") : te ? "💌 Interest పంపండి (FREE 3)" : "💌 Send interest (FREE 3)"}
               </button>
-              <button type="button" onClick={() => void sendInterest("traditional")} disabled={sending || Boolean(sentRequestId) || !shortlistSessionReady || loading}
+              <button type="button" onClick={() => void sendInterest("traditional")} disabled={sending || Boolean(sentRequestId) || duplicateRequest || !shortlistSessionReady || loading}
                 className="min-h-12 rounded-xl border border-[#7A0C2E] px-5 py-2.5 text-sm font-bold text-[#7A0C2E] transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60">
                 {te ? "🙏 Template తో పంపు" : "🙏 Send with template"}
               </button>
@@ -691,14 +707,39 @@ export default function ProfileView() {
               <span>💬</span>
               <span>{te ? "వాట్సాప్ ప్రపోజల్ షేర్" : "WhatsApp Proposal Share"}</span>
             </button>
-            <button type="button" onClick={() => void safetyAction("block")} disabled={blocked || safetyPending || !shortlistSessionReady || loading} className="rounded-xl border border-rose-300 px-4 py-2 text-sm font-bold text-rose-700 disabled:opacity-50">
+            <button type="button" onClick={() => setSafetyPrompt(safetyPrompt === "block" ? "" : "block")} disabled={blocked || safetyPending || !shortlistSessionReady || loading} className="rounded-xl border border-rose-300 px-4 py-2 text-sm font-bold text-rose-700 disabled:opacity-50">
               🚫 {te ? "బ్లాక్ చేయండి" : "Block"}
             </button>
-            <button type="button" onClick={() => void safetyAction("report")} disabled={reported || safetyPending || !shortlistSessionReady || loading} className="rounded-xl border border-amber-300 px-4 py-2 text-sm font-bold text-amber-800 disabled:opacity-50">
+            <button type="button" onClick={() => setSafetyPrompt(safetyPrompt === "report" ? "" : "report")} disabled={reported || safetyPending || !shortlistSessionReady || loading} className="rounded-xl border border-amber-300 px-4 py-2 text-sm font-bold text-amber-800 disabled:opacity-50">
               🚩 {te ? "రిపోర్ట్ చేయండి" : "Report"}
             </button>
             <Link href="/safety" className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-bold text-slate-700">🛡️ {te ? "భద్రతా సూచనలు" : "Safety tips"}</Link>
           </section>
+          {safetyPrompt ? (
+            <section role="group" aria-label={safetyPrompt === "block" ? (te ? "బ్లాక్ నిర్ధారణ" : "Confirm block") : (te ? "రిపోర్ట్ వివరాలు" : "Report details")} className="mt-3 rounded-2xl border border-slate-300 bg-white p-4 text-sm text-slate-800">
+              {safetyPrompt === "block" ? (
+                <p className="font-semibold">{te ? "ఈ ప్రొఫైల్‌ను బ్లాక్ చేయాలా? ఇద్దరి మధ్య contact ఆగిపోతుంది." : "Block this profile? Contact between you two will stop."}</p>
+              ) : (
+                <>
+                  <label htmlFor="report-category" className="block font-semibold">{te ? "కారణం ఎంచుకోండి (తప్పనిసరి)" : "Choose a reason (required)"}</label>
+                  <select id="report-category" value={reportCategory} onChange={(e) => setReportCategory(e.target.value)} className="mt-1 w-full rounded-xl border border-slate-300 bg-white p-2.5">
+                    <option value="">{te ? "ఎంచుకోండి" : "Select"}</option>
+                    {REPORT_REASONS.map((r) => <option key={r.v} value={r.v}>{te ? r.te : r.en}</option>)}
+                  </select>
+                  <label htmlFor="report-detail" className="mt-3 block font-semibold">{te ? "వివరాలు (ఐచ్ఛికం)" : "Details (optional)"}</label>
+                  <textarea id="report-detail" value={reportDetail} onChange={(e) => setReportDetail(e.target.value.slice(0, 300))} rows={3} className="mt-1 w-full rounded-xl border border-slate-300 p-2.5" />
+                  <p className="mt-1 text-xs text-slate-600">{te ? "రిపోర్ట్ సమీక్ష కోసం మాత్రమే. ఇది నిర్ధారణ కాదు." : "Reports go to review. A report is not a finding."}</p>
+                </>
+              )}
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button type="button" onClick={() => void safetyAction(safetyPrompt)} disabled={safetyPending || (safetyPrompt === "report" && !reportCategory)} className="min-h-11 rounded-xl bg-[#7A0C2E] px-4 text-sm font-bold text-white disabled:opacity-50">
+                  {safetyPrompt === "block" ? (te ? "అవును, బ్లాక్ చేయండి" : "Yes, block") : (te ? "రిపోర్ట్ పంపండి" : "Send report")}
+                </button>
+                <button type="button" onClick={() => setSafetyPrompt("")} className="min-h-11 rounded-xl border border-slate-300 px-4 text-sm font-bold text-slate-700">{te ? "రద్దు" : "Cancel"}</button>
+              </div>
+            </section>
+          ) : null}
+
 
           <section className="mv-surface mv-surface--quiet mv-surface__body mt-4" aria-labelledby="profile-jathakam-note-title">
             <h2 id="profile-jathakam-note-title" className="text-base font-extrabold text-[#7A0C2E]">

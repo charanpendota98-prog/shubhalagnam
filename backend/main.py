@@ -6553,8 +6553,16 @@ async def interest_send(payload: dict, request: Request = None):
                     "message_telugu": "⚠️ Credits అయిపోయాయి — ₹99 తో 5, ₹199 తో 12, ₹299 తో 25 interest requests పొందండి",
                     "message_en": "No request credits remain. Choose a plan to continue.",
                 })
-            return JSONResponse(status_code=400, content={"success": False, "reason": reason,
-                                                          "message_telugu": reason})
+            _en = ("You already sent a request to this profile. Please wait for their reply." if "already" in reason
+                   else "Interest requests are only for the opposite gender." if "opposite gender" in reason
+                   else "You cannot send a request to your own profile." if "mee profile" in reason.lower() or "మీ profile కి మీరు" in reason
+                   else "Daily request limit reached. Please try again tomorrow." if "Rojuki" in reason
+                   else "Please enter a valid Profile ID." if "TSAP ID" in reason
+                   else "")
+            _body = {"success": False, "reason": reason, "message_telugu": reason}
+            if _en:
+                _body["message_en"] = _en
+            return JSONResponse(status_code=400, content=_body)
 
         sender_before = copy.deepcopy(frm)
         comparison = {}
