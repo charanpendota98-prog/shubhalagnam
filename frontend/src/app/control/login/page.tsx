@@ -29,6 +29,7 @@ export default function ControlLogin() {
 
   async function submit(event: FormEvent) {
     event.preventDefault();
+    if (busy) return;
     setBusy(true);
     setError("");
     try {
@@ -45,6 +46,9 @@ export default function ControlLogin() {
           ? "చెల్లని యూజర్‌నేమ్ లేదా పాస్‌వర్డ్. మీకు కేటాయించిన వివరాలను తనిఖీ చేయండి."
           : "Sign-in failed. Check your assigned username and password.";
         throw new Error(detail && (te || !containsTelugu(detail)) ? detail : fallback);
+      }
+      if (data?.success === false || !["owner", "worker", "moderator", "support", "finance"].includes(data?.role)) {
+        throw new Error(te ? "Sign-in నిర్ధారణ కాలేదు. మళ్లీ ప్రయత్నించండి." : "Sign-in could not be confirmed. Please try again.");
       }
       router.replace(data.role === "owner" ? "/control" : "/control/workspace");
     } catch (e) {
@@ -75,6 +79,7 @@ export default function ControlLogin() {
           <div className="grid grid-cols-2 gap-1 rounded-2xl bg-slate-100 p-1" role="group" aria-label={te ? "ఖాతా పాత్రను ఎంచుకోండి" : "Choose account role"}>
             <button
               type="button"
+              disabled={busy}
               onClick={() => switchTab("admin")}
               aria-pressed={roleTab === "admin"}
               className={`flex min-h-11 items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-black transition-all ${roleTab === "admin" ? "bg-white text-[#7A0C2E] shadow-sm" : "text-slate-600 hover:text-slate-900"}`}
@@ -84,6 +89,7 @@ export default function ControlLogin() {
             </button>
             <button
               type="button"
+              disabled={busy}
               onClick={() => switchTab("worker")}
               aria-pressed={roleTab === "worker"}
               className={`flex min-h-11 items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-black transition-all ${roleTab === "worker" ? "bg-white text-slate-800 shadow-sm" : "text-slate-600 hover:text-slate-900"}`}
@@ -126,7 +132,7 @@ export default function ControlLogin() {
                 type="button"
                 onClick={() => setShowPassword((shown) => !shown)}
                 aria-label={showPassword ? (te ? "పాస్‌వర్డ్ దాచు" : "Hide password") : (te ? "పాస్‌వర్డ్ చూపించు" : "Show password")}
-                className="min-h-9 rounded px-2 text-[11px] font-bold text-[#7A0C2E] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7A0C2E]"
+                className="min-h-11 rounded px-2 text-[11px] font-bold text-[#7A0C2E] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7A0C2E]"
               >
                 {showPassword ? (te ? "దాచు" : "Hide") : (te ? "చూపించు" : "Show")}
               </button>

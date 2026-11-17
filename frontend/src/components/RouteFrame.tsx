@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import { useLang } from "@/lib/lang";
 import RouteIntro from "@/components/RouteIntro";
+import "./restricted-operations.css";
 
 /**
  * A quiet, shared workspace chrome for every route.
@@ -107,7 +108,7 @@ export default function RouteFrame({ children }: { children: ReactNode }) {
           size={meta.intro === "compact" ? "compact" : "hero"}
         />
       )}
-      {!isHome && !["/matches", "/me", "/requests", "/register", "/login", "/shortlist", "/saved-searches", "/compare", "/search", "/pricing", "/verify", "/safety", "/privacy", "/terms", "/refund", "/status", "/biodata", "/lagna-patrika", "/muhurtham", "/pelli-choopulu", "/porutham", "/second-marriage", "/spotlight", "/districts", "/castes", "/channels", "/stories", "/events", "/org", "/p", "/blog", "/referral", "/r", "/bureau", "/vendors", "/review", "/offline"].includes(key) && !(key === "/search" && pathname !== "/search") && (meta.intro === "none" || !meta.headline) && (
+      {!isHome && !isPrivate && !["/matches", "/me", "/requests", "/register", "/login", "/shortlist", "/saved-searches", "/compare", "/search", "/pricing", "/verify", "/safety", "/privacy", "/terms", "/refund", "/status", "/biodata", "/lagna-patrika", "/muhurtham", "/pelli-choopulu", "/porutham", "/second-marriage", "/spotlight", "/districts", "/castes", "/channels", "/stories", "/events", "/org", "/p", "/blog", "/referral", "/r", "/bureau", "/vendors", "/review", "/offline"].includes(key) && !(key === "/search" && pathname !== "/search") && (meta.intro === "none" || !meta.headline) && (
         <aside className="route-context" aria-label={te ? "పేజీ context" : "Page context"}>
           <div className="route-context__inner">
             <span className="route-context__icon" aria-hidden="true">{meta.icon}</span>

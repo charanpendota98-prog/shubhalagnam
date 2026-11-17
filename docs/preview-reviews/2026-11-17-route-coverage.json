@@ -1,8 +1,8 @@
 {
-  "source": "Local source route inventory after private-offline preview",
+  "source": "Local source route inventory after restricted-operations preview",
   "route_patterns": 54,
-  "previewed_patterns": 46,
-  "remaining_patterns": 8,
+  "previewed_patterns": 54,
+  "remaining_patterns": 0,
   "groups": [
     {
       "group": "Earlier core previews",
@@ -100,7 +100,7 @@
     },
     {
       "group": "Restricted operations",
-      "status": "Separate restricted review, no real actions",
+      "status": "Local eight-pattern bilingual route-state fixtures; not every tab, real role/action, security audit or launch acceptance",
       "routes": [
         "/admin",
         "/admin/photos",

@@ -485,8 +485,8 @@ export default function Dashboard() {
     } catch (e: any) {
       if (e?.message === "401") gotoLogin();
       else setErr(te
-        ? (e?.message || "కంట్రోల్ డేటా లోడ్ కాలేదు")
-        : apiDisplayMessage(e?.message || "", false, "Unable to load control data. Please try again."));
+        ? "Private operations డేటా లోడ్ కాలేదు. సభ్యుల రికార్డులు చూపించడం లేదు. మళ్లీ ప్రయత్నించండి."
+        : "Private operations data could not be loaded. No member records are shown. Retry.");
     }
   }, [gotoLogin, te]);
 
@@ -1267,7 +1267,8 @@ export default function Dashboard() {
   if (err) {
     return (
       <div className="min-h-dvh bg-cream p-8 text-center">
-        <p className="text-rose-700 font-bold">{err}</p>
+        <h1 className="text-xl font-bold">{te ? "Private operations" : "Private operations"}</h1>
+        <p role="alert" className="mt-3 text-rose-700 font-bold">{err}</p>
         <button type="button" onClick={loadCore} className="mt-4 rounded-xl maroon-gradient px-4 py-2 text-white font-bold">{L.refresh}</button>
       </div>
     );
@@ -1281,7 +1282,7 @@ export default function Dashboard() {
             <p>{err === "401" ? "Your control session has expired. Please sign in again." : "Control data could not be loaded. No member records are shown."}</p>
             <button type="button" onClick={() => err === "401" ? gotoLogin() : void loadCore()} className="mt-4 rounded-xl bg-[#7A0C2E] px-4 py-2 text-white">{err === "401" ? "Sign in" : "Retry"}</button>
           </div>
-        ) : L.loading}
+        ) : <><h1 className="text-xl">{te ? "Private operations" : "Private operations"}</h1><p role="status" className="mt-3">{L.loading}</p></>}
       </div>
     );
   }
