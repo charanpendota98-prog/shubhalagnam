@@ -13,7 +13,7 @@ def endpoint():
     for n in nodes:n.decorator_list=[]
     rows=[];mode={'fail':True};calls=[]
     def persist():calls.append(1);return not mode['fail']
-    scope={'datetime':datetime,'Request':object,'Body':lambda **k:None,'HTTPException':HTTPException,'clean':lambda value,*a:str(value or '').strip(),'require_owner':lambda *a:None,'_find_user':lambda *a:True,'safety':SimpleNamespace(is_blocked=lambda *a:False),'DB_SAVES':rows,'DB_BLOCKS':[],'_persist_core_state':persist,'SHORTLIST_NOTE_MAX':280}
+    scope={'datetime':datetime,'Request':object,'Body':lambda **k:None,'HTTPException':HTTPException,'clean':lambda value,*a:str(value or '').strip(),'require_owner':lambda *a:None,'_find_user':lambda *a:True,'safety':SimpleNamespace(is_blocked=lambda *a:False),'DB_SAVES':rows,'DB_BLOCKS':[],'_persist_core_state':persist,'SHORTLIST_NOTE_MAX':280,'req_bool':lambda v:bool(v)}
     exec(compile(ast.Module(body=nodes,type_ignores=[]),str(source),'exec'),scope)
     return scope,rows,mode,calls
 
@@ -45,3 +45,21 @@ def test_denied_owner_does_not_mutate_or_checkpoint(endpoint):
         with pytest.raises(HTTPException) as exc:s[name](*args)
         assert exc.value.status_code==401
     assert rows==[] and calls==[]
+
+@pytest.mark.parametrize('desired',[False,True])
+def test_explicit_intent_repeat_does_not_toggle_or_lose_notes(endpoint,desired):
+    s,rows,mode,calls=endpoint;mode['fail']=False
+    if desired:
+        row={'tsap_id':'OWNER','saved_id':'TARGET','note':'keep','note_at':'before'};rows.append(row)
+    first=s['toggle_save']({'tsap_id':'OWNER','target_id':'TARGET','saved':desired})
+    second=s['toggle_save']({'tsap_id':'OWNER','target_id':'TARGET','saved':desired})
+    assert first['saved'] is desired and second['saved'] is desired and calls==[]
+    assert len(rows)==int(desired)
+    if desired:assert rows[0] is row and row['note']=='keep'
+
+@pytest.mark.parametrize('desired',[False,True])
+def test_explicit_state_changes_once_then_noop(endpoint,desired):
+    s,rows,mode,calls=endpoint;mode['fail']=False
+    if not desired:rows.append({'tsap_id':'OWNER','saved_id':'TARGET'})
+    for _ in range(3):assert s['toggle_save']({'tsap_id':'OWNER','target_id':'TARGET','saved':desired})['saved'] is desired
+    assert len(calls)==1 and len(rows)==int(desired)

@@ -318,7 +318,9 @@ def run_e2e_stress_test():
     # PART 3: ADMIN DIRECTORY & DATE FILTERING WITH 100+ PROFILES
     # -------------------------------------------------------------------------
     print("\n🔹 STEP 3: TESTING ADMIN DIRECTORY & DATE FILTERING WITH 100 PROFILES...")
+    directory_day_before = datetime.now(timezone.utc).date().isoformat()
     res_dir = client.get("/api/control/directory", headers={"X-Admin-Key": admin_key})
+    directory_day_after = datetime.now(timezone.utc).date().isoformat()
     assert res_dir.status_code == 200
     summary = res_dir.json().get("summary", {})
     total_in_db = summary.get("total_all", 0)
@@ -332,7 +334,14 @@ def run_e2e_stress_test():
     print(f"  ✓ Paid orders (expected zero without a provider): {paid_count}")
     print(f"  ✓ Free test profiles: {unpaid_count}")
     print(f"  ✓ Uploaded test photos (expected one per fixture): {photo_count}")
-    assert today_count >= 100
+    # Registration can cross UTC midnight. The directory defines "today" by
+    # stored creation-date prefix, not "all profiles created during this run".
+    expected_today_counts = {
+        sum(str(row.get("created_at", ""))[:10] == day for row in main.DB_USERS)
+        for day in {directory_day_before, directory_day_after}
+    }
+    assert total_in_db == len(main.DB_USERS) == len(registered_users) == 100
+    assert today_count in expected_today_counts, (today_count, expected_today_counts)
     assert paid_count == 0
     assert unpaid_count >= 100
     # 👇 Truthful count: one auto-attached synthetic photo per registered fixture —

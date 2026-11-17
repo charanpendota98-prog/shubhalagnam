@@ -211,7 +211,8 @@ export default function ProfileView() {
   };
 
   const toggleSave = async () => {
-    const { ok, data: d, needsLogin: nl, errorTelugu: eTel } = await apiPost<Row>("/api/save", { tsap_id: myTsapId, target_id: searchId });
+    const { ok, data: d, status, needsLogin: nl, errorTelugu: eTel } = await apiPost<Row>("/api/save", { tsap_id: myTsapId, target_id: searchId, saved: !savedNow });
+    if (status === 0) { setMsg({ ok: false, text: te ? "Shortlist మారిందో నిర్ధారించలేకపోయాం. ఇదే చర్యను మళ్లీ ప్రయత్నించడం సురక్షితం." : "Could not confirm the shortlist update. Retrying the same action is safe." }); return; }
     if (nl) { setNeedsLogin(true); return; }
     if (!ok) { setMsg({ ok: false, text: eTel }); return; }
     setSavedNow(!!d?.saved);

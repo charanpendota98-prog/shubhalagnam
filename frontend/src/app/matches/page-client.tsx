@@ -974,10 +974,15 @@ export default function MatchesPage() {
     setSavingId(id);
     setSaveNotice(null);
     try {
-      const { ok, data, needsLogin, errorTelugu } = await apiPost<Row>("/api/save", {
+      const { ok, data, status, needsLogin, errorTelugu } = await apiPost<Row>("/api/save", {
         tsap_id: myTsapId,
         target_id: id,
+        saved: !savedIds.includes(id),
       });
+      if (status === 0) {
+        setSaveNotice({ tone: "error", text: te ? "Shortlist మారిందో నిర్ధారించలేకపోయాం. ఇదే చర్యను మళ్లీ ప్రయత్నించడం సురక్షితం." : "Could not confirm the shortlist update. Retrying the same action is safe." });
+        return;
+      }
       if (needsLogin) {
         setSaveNotice({
           tone: "error",
