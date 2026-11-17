@@ -31,7 +31,7 @@ export default function PWA() {
 
   // Auth screen ki navigate ayite visible bar ni kuda hide cheyi.
   useEffect(() => {
-    if (isAuthRoute(pathname)) setShow(false);
+    if (isAuthRoute(pathname) || pathname === "/matches") setShow(false);
   }, [pathname]);
 
   useEffect(() => {
@@ -51,7 +51,7 @@ export default function PWA() {
       // phone/password fields on mobile login (manual install events
       // from explicit controls still work elsewhere).
       setTimeout(() => {
-        if (!localStorage.getItem("tsap_pwa_dismissed") && !isAuthRoute(pathRef.current)) {
+        if (!localStorage.getItem("tsap_pwa_dismissed") && !isAuthRoute(pathRef.current) && pathRef.current !== "/matches") {
           setShow(true);
         }
       }, 6000);

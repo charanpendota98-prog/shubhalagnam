@@ -1,0 +1,24 @@
+/* Matches workspace only. Existing data, consent and action handlers are unchanged. */
+.mv-matches-workspace .matches-intro { padding-bottom: 0; }
+.mv-matches-workspace .matches-intro p:first-child { font-size: 13px; letter-spacing: .05em; }
+.mv-matches-workspace .matches-intro h1 { margin: 4px 0; line-height: 1.6; }
+.mv-matches-workspace .matches-intro p:last-child { font-size: 16px; line-height: 1.7; }
+.mv-matches-workspace :is(.text-xs,.text-\[11px\],.text-\[11\.5px\],.text-\[10px\],.text-\[10\.5px\]) { font-size: 14px; line-height: 1.65; }
+.mv-matches-workspace :is(label,button,select,input,.mv-btn) { font-size: 16px; line-height: 1.6; }
+.mv-matches-workspace .matches-profile-card p { font-size: 16px; line-height: 1.7; color: #48403f; }
+.mv-matches-workspace .matches-profile-card a[href^="/search/"] { font-size: 20px; line-height: 1.5; }
+.mv-matches-workspace .matches-profile-badges span { font-size: 13px; line-height: 1.6; }
+.mv-matches-workspace .matches-profile-card .mv-btn { padding: 10px 8px; }
+.mv-matches-workspace .matches-profile-card .mv-btn--secondary { background: #65132e; color: white; border-color: #65132e; }
+.mv-matches-workspace .matches-profile-card .mv-btn--contact { background: #fff; color: #65132e; border: 1px solid #b98a96; }
+.mv-matches-workspace .matches-profile-card .mv-btn--wa { background: #f6f0e8; color: #473c35; }
+.mv-matches-workspace .matches-privacy { font-size: 14px; line-height: 1.7; margin: 0; }
+.mv-matches-workspace .matches-secondary { border-top: 1px solid #d9c8b5; padding-top: 24px; margin-top: 24px; }
+.mv-matches-workspace .matches-quick-tools summary::marker { color: #65132e; }
+.mv-matches-workspace .matches-quick-tools .pill { white-space: normal; }
+@media(max-width:639px) {
+ .mv-matches-workspace .matches-intro { padding-top: 16px; }
+ .mv-matches-workspace .matches-profile-card .mv-btn { white-space: normal; }
+ .mv-matches-workspace .matches-profile-card .mv-btn--secondary { grid-column: 1 / -1; }
+ .mv-matches-workspace .matches-profile-card .mv-btn--wa { grid-column: 1 / -1; }
+}
