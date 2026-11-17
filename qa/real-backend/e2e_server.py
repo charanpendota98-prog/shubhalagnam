@@ -19,6 +19,7 @@ main.DB_USERS.extend([
     m("MVE2E00005", "Bride", "Sample IdReviewed", id_verified=True, gothram="Vasishta"),
     m("MVE2E00006", "Bride", "Sample PlainOne", gothram="Atreya"),
 ])
+main.DB_USERS.append(m("MVE2E00008","Bride","Sample NoPhotoReview",photo_status="none",gothram="Atreya"))
 main.DB_USERS.append(m("MVE2E00007","Bride","Editor Divorcee",marital_status="Divorced",children="",password_hash=""))
 import json as _j
 _j.dump({i:hardening.sign_token(i) for i in ["MVE2E00001","MVE2E00002","MVE2E00007"]},open("/tmp/e2e_tokens.json","w"))
