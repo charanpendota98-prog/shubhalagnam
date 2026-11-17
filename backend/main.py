@@ -2488,6 +2488,12 @@ async def _startup_publisher():
             raise RuntimeError(
                 "Production core database restore failed; startup is blocked and the source file was not intentionally replaced"
             ) from e
+    # A review interrupted between its ecosystem and core checkpoints must not
+    # advertise readiness with split decision/history/badge state.
+    with DBSTORE._SAVE_LOCK:
+        if not ECOSYSTEM3.recover_verification_review(DB_USERS, _persist_core_state):
+            raise RuntimeError("Verification review recovery failed; startup remains unavailable")
+
     # 🗑️ WAVE 40 — 3-year retention: restore tarvata ventane okasari + roju oosari
     # (money-safe: wallet/plan/boost active unna profiles skip; archive mundu — data poyedam ledu)
     try:
@@ -12895,6 +12901,7 @@ _MODULAR_ROUTER_CTX = {
     "is_admin": is_admin,
     "token_from_request": token_from_request,
     "persist_core_state": _persist_core_state,
+    "core_save_lock": DBSTORE._SAVE_LOCK,
     "log_consent": log_consent,
     "media_filename": _media_filename,
     "is_approved_profile": _is_approved_profile,

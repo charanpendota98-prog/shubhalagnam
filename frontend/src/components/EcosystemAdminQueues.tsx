@@ -4,6 +4,12 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { authHeaders, readApiJson } from "@/lib/api";
 import { useLang } from "@/lib/lang";
 
+function validParity(value: any) {
+  return value?.success !== false && typeof value?.parity_ok === "boolean" &&
+    ["json_count", "sql_count", "active_sessions", "missing_in_sql_count"].every(key =>
+      Number.isInteger(value[key]) && value[key] >= 0);
+}
+
 export default function EcosystemAdminQueues() {
   const { lang } = useLang();
   const te = lang === "te";
@@ -12,6 +18,7 @@ export default function EcosystemAdminQueues() {
   const [tickets, setTickets] = useState<any[]>([]);
   const [appointments, setAppointments] = useState<any[]>([]);
   const [parity, setParity] = useState<any>(null);
+  const [parityUnavailable, setParityUnavailable] = useState(false);
   const [quarantine, setQuarantine] = useState<any[]>([]);
   const [refunds, setRefunds] = useState<any[]>([]);
   const [holds, setHolds] = useState<any[]>([]);
@@ -65,13 +72,15 @@ export default function EcosystemAdminQueues() {
       if (ar.ok) setAppeals((await readApiJson(ar)).appeals || []);
       if (tr.ok) setTickets((await readApiJson(tr)).tickets || []);
       if (apr.ok) setAppointments((await readApiJson(apr)).appointments || []);
-      if (pr.ok) setParity(await readApiJson(pr));
+      const parityData = pr.ok ? await readApiJson(pr).catch(() => null) : null;
+      setParity(validParity(parityData) ? parityData : null);
+      setParityUnavailable(pr.status !== 403 && !validParity(parityData));
       if (qr.ok) setQuarantine((await readApiJson(qr)).items || []);
       if (rfr.ok) setRefunds((await readApiJson(rfr)).refunds || []);
       if (hlr.ok) setHolds((await readApiJson(hlr)).holds || []);
       if (flr.ok) setFlags((await readApiJson(flr)).flags || {});
     } catch {
-      /* ignore */
+      setParity(null); setParityUnavailable(true);
     }
   }, []);
 
@@ -87,7 +96,8 @@ export default function EcosystemAdminQueues() {
     });
     if (r.ok) {
       const d = await readApiJson(r);
-      setParity(d.reconcile || null);
+      setParity(validParity(d.reconcile) ? d.reconcile : null);
+      setParityUnavailable(!validParity(d.reconcile));
       setFlash(`✅ SQL Identity Sync complete (${d.sync?.synced ?? 0} synced)`);
     }
   };
@@ -186,6 +196,15 @@ export default function EcosystemAdminQueues() {
             className="rounded-lg border border-[#7A0C2E] px-2.5 py-1 font-bold text-[#7A0C2E] bg-white"
           >
             ↻ Re-sync SQL Shadow Store
+          </button>
+        </div>
+      )}
+
+      {parityUnavailable && (
+        <div role="status" className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+          <p>{te ? "SQL parity వివరాలు అందుబాటులో లేవు. Sync స్థితి నిర్ధారణ కాలేదు." : "SQL parity details are unavailable. Sync status is not confirmed."}</p>
+          <button type="button" onClick={() => void loadAll()} className="mt-2 rounded-lg border border-amber-800 bg-white px-3 py-2 font-bold">
+            {te ? "Parity మళ్లీ చూడండి" : "Retry parity check"}
           </button>
         </div>
       )}

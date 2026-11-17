@@ -19,6 +19,7 @@ Persistence:
 from __future__ import annotations
 
 import base64
+import copy
 import hashlib
 import hmac
 import json
@@ -405,6 +406,133 @@ def review_verification_evidence(
                     state[key] = value
             return False, "Verification review could not be saved safely. Please retry.", {}
         return True, dec, dict(rec)
+
+
+# A private undo journal is durable before either store changes. Its removal is
+# the commit point. An interrupted review is undone before startup is ready.
+def _review_journal_path() -> str:
+    return _resolve_state_file() + ".review-undo.json"
+
+
+def _clear_review_journal() -> None:
+    from atomic_store import _sync_directory
+    os.unlink(_review_journal_path())
+    _sync_directory(os.path.dirname(_review_journal_path()))
+
+
+def recover_verification_review(users: List[Dict[str, Any]], persist_core_state) -> bool:
+    """Undo an uncommitted review; retain the journal until BOTH stores agree."""
+    with _LOCK:
+        path = _review_journal_path()
+        if not os.path.exists(path):
+            return True
+        try:
+            with open(path, encoding="utf-8") as handle:
+                undo = json.load(handle)
+            if undo.get("version") != 1 or not isinstance(undo.get("record"), dict) or not isinstance(undo.get("fields"), dict):
+                return False
+            allowed = {"id_verified", "education_verified", "employment_verified", "selfie_verified", "selfie_status"}
+            if (not undo["record"].get("id") or not undo["record"].get("tsap_id") or not undo["fields"]
+                    or any(key not in allowed or not isinstance(field, dict) or type(field.get("present")) is not bool or "value" not in field
+                           for key, field in undo["fields"].items())):
+                return False
+            previous = undo["record"]
+            state = _ensure_loaded()
+            rec = next((r for r in state["verification_records"] if r.get("id") == previous.get("id")), None)
+            user = next((u for u in users if str(u.get("tsap_id", "")).upper() == previous.get("tsap_id")), None)
+            if rec is None or user is None:
+                return False
+            old_history = rec.get("history")
+            restored = copy.deepcopy(previous)
+            if isinstance(old_history, list) and isinstance(restored.get("history"), list):
+                old_history[:] = restored["history"]
+                restored["history"] = old_history
+            rec.clear()
+            rec.update(restored)
+            for key, field in undo["fields"].items():
+                if key not in {"id_verified", "education_verified", "employment_verified", "selfie_verified", "selfie_status"}:
+                    return False
+                if field["present"]:
+                    user[key] = field["value"]
+                else:
+                    user.pop(key, None)
+            # Attempt both even if one refuses; in-memory state remains the prior
+            # decision and the retained journal makes another recovery safe.
+            try:
+                eco_saved = bool(save_state())
+            except Exception:
+                eco_saved = False
+            try:
+                core_saved = bool(persist_core_state())
+            except Exception:
+                core_saved = False
+            if not (eco_saved and core_saved):
+                return False
+            _clear_review_journal()
+            return True
+        except Exception:
+            return False
+
+
+def review_verification_durable(record_id: str, decision: str, reviewer: str, reason: str,
+                                users: List[Dict[str, Any]], persist_core_state) -> Tuple[bool, str, Dict[str, Any]]:
+    """Checked two-store review, with durable undo on failure or interruption.
+
+    Caller holds the core save lock before this module's lock. This is specific
+    to verification reviews, not a general transaction layer for other stores.
+    """
+    failure = "Verification review could not be saved safely. Please retry."
+    recovery = "Verification review recovery is pending. No new review was accepted; reload before retrying."
+    with _LOCK:
+        if not recover_verification_review(users, persist_core_state):
+            return False, recovery, {}
+        dec = str(decision or "").strip().lower()
+        if dec not in ("approved", "rejected"):
+            return False, "decision must be approved | rejected", {}
+        state = _ensure_loaded()
+        rec = next((r for r in state["verification_records"] if r.get("id") == record_id), None)
+        if rec is None:
+            return False, "Verification record not found", {}
+        user = next((u for u in users if str(u.get("tsap_id", "")).upper() == rec.get("tsap_id")), None)
+        if user is None:
+            return False, "Verification profile not found", {}
+        reviewer = clean(reviewer or "staff", 60, "reviewer")
+        reason = clean(reason, 240, "rejection_reason") if dec == "rejected" else ""
+        flag = {"government_id": "id_verified", "education": "education_verified", "employment": "employment_verified", "selfie": "selfie_verified"}.get(rec.get("badge_type"))
+        if not flag:
+            return False, "Verification badge type not supported", {}
+        # A response lost after the durable commit can be retried without adding
+        # a second history entry. A mismatched flag must still be repaired.
+        if (rec.get("status") == dec and rec.get("reviewer") == reviewer and rec.get("rejection_reason", "") == reason
+                and user.get(flag) == (dec == "approved")
+                and (flag != "selfie_verified" or user.get("selfie_status") == dec)):
+            return True, dec, copy.deepcopy(rec)
+        keys = [flag] + (["selfie_status"] if flag == "selfie_verified" else [])
+        undo = {"version": 1, "record": copy.deepcopy(rec), "fields": {
+            key: {"present": key in user, "value": user.get(key)} for key in keys}}
+        try:
+            atomic_json_dump(_review_journal_path(), undo, indent=2)
+        except Exception:
+            return False, failure, {}
+        ok, msg, result = review_verification_evidence(record_id, dec, reviewer, reason, users)
+        if not ok:
+            try:
+                _clear_review_journal()
+            except Exception:
+                pass
+            return False, msg, {}
+        try:
+            core_saved = bool(persist_core_state())
+        except Exception:
+            core_saved = False
+        if core_saved:
+            try:
+                _clear_review_journal()
+                return True, dec, result
+            except Exception:
+                pass
+        restored = recover_verification_review(users, persist_core_state)
+        return False, failure if restored else recovery, {}
 
 
 def member_badges(user: Dict[str, Any]) -> Dict[str, Any]:
