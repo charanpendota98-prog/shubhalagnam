@@ -277,6 +277,10 @@ def submit_verification_evidence(
             (r for r in records if r.get("tsap_id") == tid and r.get("badge_type") == btype),
             None,
         )
+        original_objects = dict(state)
+        before = {key: list(value) if isinstance(value, list) else dict(value) if isinstance(value, dict) else value for key, value in state.items()}
+        original_record = dict(existing) if existing else None
+        original_history = list(existing.get("history", [])) if existing else None
         now = _utc_iso()
         if existing:
             existing.setdefault("history", []).append({
@@ -306,8 +310,31 @@ def submit_verification_evidence(
                 "history": [],
             }
             records.append(rec)
-        if not save_state():
-            return False, "Verification submission could not be saved safely.", {}
+        try:
+            saved = save_state()
+        except Exception:
+            saved = False
+        if not saved:
+            records[:] = before["verification_records"]
+            if original_record is not None:
+                if isinstance(original_record.get("history"), list):
+                    original_record["history"][:] = original_history
+                existing.clear()
+                existing.update(original_record)
+            for key, value in before.items():
+                if key == "verification_records":
+                    continue
+                original = original_objects.get(key)
+                if isinstance(original, list) and isinstance(value, list):
+                    original[:] = value
+                    state[key] = original
+                elif isinstance(original, dict) and isinstance(value, dict):
+                    original.clear()
+                    original.update(value)
+                    state[key] = original
+                else:
+                    state[key] = value
+            return False, "Verification submission could not be saved safely. Please retry.", {}
         return True, "submitted", dict(rec)
 
 

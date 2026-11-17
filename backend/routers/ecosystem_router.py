@@ -60,7 +60,7 @@ def build_ecosystem_router(ctx: Dict[str, Callable[..., Any] | Any]) -> APIRoute
             document_type=doc_type,
         )
         if not ok:
-            raise HTTPException(400, msg)
+            raise HTTPException(503 if msg.startswith("Verification submission could not be saved safely.") else 400, msg)
         return {
             "success": True,
             "status": msg,
