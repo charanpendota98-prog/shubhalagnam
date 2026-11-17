@@ -42,7 +42,7 @@ const DEFAULT_META: RouteMeta = {
 };
 
 const ROUTES: Record<string, Partial<RouteMeta>> = {
-  "/me": { zone: "Account", zoneTe: "ఖాతా", label: "My account", labelTe: "నా ఖాతా", icon: "🙋", note: "Your own profile, preferences and privacy in one place.", noteTe: "మీ ప్రొఫైల్, ప్రిఫరెన్సెస్, privacy ఒకే చోట.", headline: "Your account, in your hands", headlineTe: 'మీ ఖాతా — మీ నియంత్రణలో', lead: 'Edit your profile, set partner preferences, and control exactly what other members can see. Nothing becomes public until you choose it.', leadTe: 'మీ ప్రొఫైల్ సవరించుకోండి, ప్రిఫెరెన్సెస్ పెట్టుకోండి, ఇతరులకు ఏం కనిపిస్తుందో మీరే నిర్ణయించండి. మీరు ఎంచుకునే వరకు ఏదీ public కాదు.', intro: "hero" },
+  "/me": { zone: "Account", zoneTe: "ఖాతా", label: "My account", labelTe: "నా ఖాతా", icon: "🙋", note: "Your own profile, preferences and privacy in one place.", noteTe: "మీ ప్రొఫైల్, ప్రిఫరెన్సెస్, privacy ఒకే చోట.", headline: "Your account, in your hands", headlineTe: 'మీ ఖాతా — మీ నియంత్రణలో', lead: 'Edit your profile, set partner preferences, and control exactly what other members can see. Nothing becomes public until you choose it.', leadTe: 'మీ ప్రొఫైల్ సవరించుకోండి, ప్రిఫెరెన్సెస్ పెట్టుకోండి, ఇతరులకు ఏం కనిపిస్తుందో మీరే నిర్ణయించండి. మీరు ఎంచుకునే వరకు ఏదీ public కాదు.', intro: "none" },
   "/blog": { zone: "Reading", zoneTe: "చదవండి", label: "Notes", labelTe: "నోట్స్", icon: "✎", note: "Practical writing for Telugu families.", noteTe: "తెలుగు కుటుంబాలకు ఉపయోగకరమైన రచనలు.", headline: "Notes for Telugu families", headlineTe: 'తెలుగు కుటుంబాలకు నోట్స్', lead: 'Practical writing on matrimony, privacy and family conversations — no promises, no fake success stories.', leadTe: 'వివాహం, privacy, కుటుంబ సంభాషణలపై ఉపయోగకరమైన రచనలు — హామీలు లేవు, నకిలీ కథలు లేవు.', intro: "hero" },
   "/offline": { zone: "Offline", zoneTe: "Offline", label: "You are offline", labelTe: "మీరు offline లో ఉన్నారు", icon: "⚡", note: "The network is unreachable.", noteTe: "నెట్‌వర్క్ అందుబాటులో లేదు.", intro: "none" },
   "/register": { zone: "Join", zoneTe: "చేరండి", label: "Create your profile", labelTe: "మీ ప్రొఫైల్ సృష్టించండి", icon: "✍️", note: "Your details stay in your hands; review before you publish.", noteTe: "మీ వివరాలు మీ నియంత్రణలోనే ఉంటాయి; publish చేసే ముందు review చేయండి.", headline: "Create your profile", headlineTe: 'మీ ప్రొఫైల్ సృష్టించండి', lead: 'Your details stay in your hands. Nothing is published until you review it, and the first 3 interest requests are free.', leadTe: 'మీ వివరాలు మీ నియంత్రణలోనే. Review చేసే వరకు ఏదీ publish కాదు; మొదటి 3 interest requests ఉచితం.', intro: "none" },
@@ -107,7 +107,7 @@ export default function RouteFrame({ children }: { children: ReactNode }) {
           size={meta.intro === "compact" ? "compact" : "hero"}
         />
       )}
-      {!isHome && key !== "/matches" && (meta.intro === "none" || !meta.headline) && (
+      {!isHome && !["/matches", "/me"].includes(key) && (meta.intro === "none" || !meta.headline) && (
         <aside className="route-context" aria-label={te ? "పేజీ context" : "Page context"}>
           <div className="route-context__inner">
             <span className="route-context__icon" aria-hidden="true">{meta.icon}</span>

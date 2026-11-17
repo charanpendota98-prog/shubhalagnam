@@ -6,10 +6,10 @@
  * • Streak + Unlocks + Boost + Voice + Jathakam + Share + Alerts
  * • Real-time DB sync and instant match ranking upgrade
  */
+import "./workspace.css";
 import { useCallback, useEffect, useRef, useState } from "react";
 import TrustBadge from "@/components/TrustBadge";
 import PhotoFlow from "@/components/PhotoFlow";
-import { PillScroller } from "@/components/ui";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import Image from "next/image";
@@ -59,7 +59,7 @@ type Tab = "preferences" | "edit" | "family" | "ledger" | "privacy" | "devices" 
 
 const TABS: [Tab, string, string][] = [
   ["preferences", "🎯 Partner Preferences", "🎯 కోరుకునే సంబంధం (ప్రిఫరెన్సెస్)"],
-  ["edit", "✏️ Edit Profile", "✏️ నా ప్రొఫైల్ సవరణ (100%)"],
+  ["edit", "✏️ Edit Profile", "✏️ నా ప్రొఫైల్ సవరణ"],
   ["family", "👨‍👩‍👧 Family Hub", "👨‍👩‍👧 కుటుంబ సహకారం"],
   ["ledger", "💳 Credits & Receipts", "💳 క్రెడిట్ లెడ్జర్ & రసీదులు"],
   ["privacy", "🔒 Privacy & Export", "🔒 గోప్యత & డేటా ఎక్స్‌పోర్ట్"],
@@ -137,10 +137,13 @@ export default function MePage() {
   };
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-5">
-      {/* The page's <h1> is the shared RouteIntro band; this row is the account
-          toolbar. Actions wrap to their own line on phones so every pill keeps
-          its natural width instead of being crushed into a circle. */}
+    <div className="mv-account-workspace mx-auto max-w-5xl px-4 py-5">
+      <header className="account-intro">
+        <p>{te ? "మన వివాహ · నా ఖాతా" : "MANA VIVAHA · MY ACCOUNT"}</p>
+        <h1>{te ? "మీ ఖాతా, మీ నిర్ణయాలు." : "Your account, your choices."}</h1>
+        <p>{te ? "ప్రొఫైల్, అభిరుచులు, గోప్యత ఒకేచోట." : "Profile, preferences and privacy, in one place."}</p>
+      </header>
+      {/* Account identity and existing account actions. */}
       <div className="mv-toolbar flex flex-col gap-2 border-b border-gold/30 pb-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
           {/* The section name already lives in the intro band above, so the
@@ -174,6 +177,44 @@ export default function MePage() {
 
       {myId ? (
         <>
+          <section className="account-sections" aria-label={te ? "ఖాతా విభాగాలు" : "Account sections"}>
+            <nav className="account-primary-nav" aria-label={te ? "ముఖ్యమైన ఖాతా ఎంపికలు" : "Main account controls"}>
+              {TABS.filter(([v]) => ["preferences", "edit", "family", "ledger", "privacy", "devices", "support"].includes(v)).map(([v, en, t]) => (
+                <button type="button" key={v} onClick={() => setTab(v)} aria-current={tab === v ? "page" : undefined} aria-controls="account-task-panel" className={tab === v ? "account-section is-active" : "account-section"}>
+                  {te ? t : en}
+                </button>
+              ))}
+            </nav>
+            <details className="account-secondary-nav">
+              <summary>{te ? "మరిన్ని ఖాతా సాధనాలు" : "More account tools"}</summary>
+              <nav aria-label={te ? "ఇతర ఖాతా ఎంపికలు" : "Other account controls"}>
+                {TABS.filter(([v]) => !["preferences", "edit", "family", "ledger", "privacy", "devices", "support"].includes(v)).map(([v, en, t]) => (
+                  <button type="button" key={v} onClick={() => setTab(v)} aria-current={tab === v ? "page" : undefined} aria-controls="account-task-panel" className={tab === v ? "account-section is-active" : "account-section"}>
+                    {te ? t : en}
+                  </button>
+                ))}
+              </nav>
+            </details>
+          </section>
+
+          <div id="account-task-panel" className="mt-5 mv-panel" key={tab}>
+            {tab === "preferences" && <PartnerPreferencesPanel myId={myId} />}
+            {tab === "edit" && <EditProfilePanel myId={myId} />}
+            {(tab === "family" || tab === "ledger" || tab === "privacy" || tab === "support") && (
+              <MemberEcosystemHub myId={myId} section={tab} />
+            )}
+            {tab === "devices" && <Phase2MemberWorkspace myId={myId} mode="security_links" />}
+            {tab === "streak" && <StreakPanel myId={myId} />}
+            {tab === "unlocks" && <UnlocksPanel myId={myId} />}
+            {tab === "boost" && <BoostPanel myId={myId} />}
+            {tab === "voice" && <VoicePanel myId={myId} />}
+            {tab === "jathakam" && <JathakamPanel myId={myId} />}
+            {tab === "share" && <SharePanel />}
+            {tab === "alerts" && <Phase2MemberWorkspace myId={myId} mode="alerts" />}
+          </div>
+
+          <details className="account-activity">
+            <summary>{te ? "మీ ఖాతా activity, సూచనలు" : "Your account activity and suggestions"}</summary>
           {/* 🧠 Smart Match Assistant — daily personalized briefing (top of dashboard) */}
           <div className="mt-4">
             <MatchAssistant />
@@ -189,41 +230,7 @@ export default function MePage() {
             <MemberActivity tsapId={myId} />
           </div>
 
-          {/* Account tab rail: every tab label stays on ONE line and the row
-              scrolls sideways. `PillScroller` handles natural pill widths,
-              edge fades, and arrow-key movement between tabs. */}
-          <PillScroller
-            label={te ? "అకౌంట్ విభాగాలు" : "Account sections"}
-            className="mt-4"
-            as="nav"
-          >
-            {TABS.map(([v, en, t]) => (
-              <button type="button"
-                key={v}
-                onClick={() => setTab(v)}
-                aria-current={tab === v ? "page" : undefined}
-                className={`pill whitespace-nowrap ${tab === v ? "pill--on" : "pill--quiet"}`}
-              >
-                {te ? t : en}
-              </button>
-            ))}
-          </PillScroller>
-
-          <div className="mt-5 mv-panel" key={tab}>
-            {tab === "preferences" && <PartnerPreferencesPanel myId={myId} />}
-            {tab === "edit" && <EditProfilePanel myId={myId} />}
-            {(tab === "family" || tab === "ledger" || tab === "privacy" || tab === "support") && (
-              <MemberEcosystemHub myId={myId} section={tab} />
-            )}
-            {tab === "devices" && <Phase2MemberWorkspace myId={myId} mode="security_links" />}
-            {tab === "streak" && <StreakPanel myId={myId} />}
-            {tab === "unlocks" && <UnlocksPanel myId={myId} />}
-            {tab === "boost" && <BoostPanel myId={myId} />}
-            {tab === "voice" && <VoicePanel myId={myId} />}
-            {tab === "jathakam" && <JathakamPanel myId={myId} />}
-            {tab === "share" && <SharePanel />}
-            {tab === "alerts" && <Phase2MemberWorkspace myId={myId} mode="alerts" />}
-          </div>
+          </details>
 
           {/* Account Deletion Footer Trigger */}
           <div className="mt-12 pt-6 border-t border-slate-200 text-center space-y-2">
