@@ -14,6 +14,7 @@ import AuthGate from "@/components/AuthGate";
 import { Duo, duo } from "@/lib/duo";
 import { useLang } from "@/lib/lang";
 import { authHeaders } from "@/lib/api";
+import { useSession } from "@/lib/auth";
 import Link from "next/link";
 
 type Tip = { icon: string; title: string; telugu: string };
@@ -27,7 +28,8 @@ export default function SafetyPage() {
   const [cats, setCats] = useState<Cat[]>([]);
   const [levels, setLevels] = useState<{ level: string; telugu: string }[]>([]);
   const [report, setReport] = useState({ target_id: "", category: "fake_profile", detail: "" });
-  const [myId, setMyId] = useState("");
+  const { tsapId, authenticated, ready: sessionReady } = useSession();
+  const myId = authenticated ? tsapId : "";
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [blockBusy, setBlockBusy] = useState(false);
@@ -47,8 +49,6 @@ export default function SafetyPage() {
 
   useEffect(() => {
     load();
-    const id = (localStorage.getItem("tsap_id") || "").toUpperCase();
-    if (id) setMyId(id);
     const t = new URLSearchParams(window.location.search).get("target");
     if (t) setReport((r) => ({ ...r, target_id: t.toUpperCase() }));
   }, [load]);
@@ -75,6 +75,7 @@ export default function SafetyPage() {
   useEffect(() => { if (myId) loadMine(myId); }, [myId, loadMine]);
 
   const submitReport = async () => {
+    if (!sessionReady) return;
     if (!myId) {
       setNeedsLogin(true);
       setMsg({ ok: false, text: te ? "Report పంపడానికి ముందు మీ ఖాతాలో లాగిన్ అవ్వండి." : "Please sign in to your account before submitting a report." });
@@ -103,6 +104,7 @@ export default function SafetyPage() {
   };
 
   const changeBlock = async (blocked: string, remove: boolean) => {
+    if (!sessionReady) return;
     if (!myId) { setNeedsLogin(true); return; }
     if (blockPending.current) return;
     blockPending.current = true; setBlockBusy(true); setMsg(null);
@@ -127,6 +129,7 @@ export default function SafetyPage() {
   const doUnblock = (blocked: string) => changeBlock(blocked, true);
 
   const requestVerify = async (kind: string) => {
+    if (!sessionReady) return;
     if (!myId) { setNeedsLogin(true); return; }
     const r = await fetch("/api/verify/request", {
       method: "POST",
@@ -141,6 +144,7 @@ export default function SafetyPage() {
   };
 
   const submitAppeal = async () => {
+    if (!sessionReady) return;
     if (!myId) { setNeedsLogin(true); return; }
     if (appealReason.trim().length < 10) {
       setMsg({ ok: false, text: te ? "కనీసం 10 అక్షరాలలో వివరాలు రాయండి." : "Please describe your appeal in at least 10 characters." });
@@ -231,9 +235,9 @@ export default function SafetyPage() {
                 placeholder="RED001" className="input-mobile font-mono" aria-label="KAM001" />
             </div>
             <div className="md:col-span-1">
-              <label className="text-[12px] font-bold">{te ? "మీ Profile ID (optional)" : "Your Profile ID (optional)"}</label>
-              <input value={myId} onChange={(e) => { setMyId(e.target.value.toUpperCase()); localStorage.setItem("tsap_id", e.target.value.toUpperCase()); }}
-                placeholder="RED001" className="input-mobile font-mono" aria-label="RED001" />
+              <label htmlFor="safety-account-id" className="text-[12px] font-bold">{te ? "మీ ఖాతా Profile ID" : "Your account Profile ID"}</label>
+              <input id="safety-account-id" value={myId} readOnly
+                placeholder={sessionReady ? (te ? "ముందు login అవ్వండి" : "Sign in first") : (te ? "ఖాతా తనిఖీ అవుతోంది…" : "Checking account…")} className="input-mobile font-mono" />
             </div>
             <div className="md:col-span-1">
               <label className="text-[12px] font-bold">Category</label>
@@ -248,11 +252,11 @@ export default function SafetyPage() {
               rows={3} placeholder={te ? "ఉదా: advance ₹5,000 అడిగారు, registration fee అని చెప్పారు…" : "E.g. asked ₹5,000 advance as registration fee…"} className="input-mobile telugu" aria-label={te ? "ఏం జరిగింది" : "What happened"} />
           </div>
           <div className="mt-3 flex flex-wrap gap-2">
-            <button type="button" onClick={submitReport} disabled={busy}
+            <button type="button" onClick={submitReport} disabled={busy || !sessionReady}
               className="px-5 py-3 rounded-2xl bg-rose-700 text-white font-bold text-[13px] disabled:opacity-60">
               {busy ? (te ? "పంపిస్తున్నాం…" : "Sending…") : te ? "🚩 Report పంపు" : "🚩 Send report"}
             </button>
-            <button type="button" onClick={() => doBlock(report.target_id)} disabled={!report.target_id || !myId || blockBusy}
+            <button type="button" onClick={() => doBlock(report.target_id)} disabled={!report.target_id || !myId || blockBusy || !sessionReady}
               className="px-5 py-3 rounded-2xl border border-rose-300 text-rose-700 font-bold text-[13px] disabled:opacity-50">
               {te ? "🚫 Block చెయ్యి (వెంటనే)" : "🚫 Block now"}
             </button>
@@ -296,7 +300,7 @@ export default function SafetyPage() {
                 {te ? "🤳 సెల్ఫీ / విద్య / ఉద్యోగ ధృవీకరణ →" : "🤳 Submit Selfie / Education / Employment →"}
               </Link>
               {levels.filter((l) => l.level !== "none" && l.level !== "phone").map((l) => (
-                <button key={l.level} type="button" onClick={() => requestVerify(l.level)} disabled={!myId}
+                <button key={l.level} type="button" onClick={() => requestVerify(l.level)} disabled={!myId || !sessionReady}
                   className="px-3 py-2 rounded-xl border border-gold/40 text-maroon font-bold text-[12px] disabled:opacity-50">
                   {l.telugu}
                 </button>
@@ -340,7 +344,7 @@ export default function SafetyPage() {
               aria-label={te ? "మాడరేషన్ అప్పీల్ వివరణ" : "Moderation appeal reason"}
               className="input-mobile flex-1"
             />
-            <button type="button" onClick={submitAppeal} disabled={busy || !myId}
+            <button type="button" onClick={submitAppeal} disabled={busy || !myId || !sessionReady}
               className="px-4 py-2.5 rounded-xl bg-maroon text-white font-bold text-[12px] disabled:opacity-50 shrink-0">
               {te ? "అప్పీల్ పంపండి" : "Submit Appeal"}
             </button>
