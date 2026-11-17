@@ -6,17 +6,17 @@
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
 import { Duo, duo } from "@/lib/duo";
 import { useLang } from "@/lib/lang";
-import { apiDisplayMessage, authHeaders, TSAP_KEY, readApiJson } from "@/lib/api";
+import { apiDisplayMessage, authHeaders, readApiJson } from "@/lib/api";
+import { useSession } from "@/lib/auth";
 import VerificationProgress from "@/components/VerificationProgress";
 
 export default function VerifyPage() {
   const { lang } = useLang();
   const te = lang === "te";
-  const qp = useSearchParams();
-  const [tsapId, setTsapId] = useState("");
+  const { tsapId: verifiedId, authenticated, ready: sessionReady } = useSession();
+  const tsapId = authenticated ? verifiedId : "";
   const [status, setStatus] = useState("none");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
@@ -27,14 +27,8 @@ export default function VerifyPage() {
   const [credSummary, setCredSummary] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    try {
-      setTsapId(qp.get("id") || localStorage.getItem(TSAP_KEY) || "");
-    } catch { /* ignore */ }
-  }, [qp]);
-
   const load = useCallback(async () => {
-    if (!tsapId) return;
+    if (!sessionReady || !tsapId) return;
     try {
       const [r, br] = await Promise.all([
         fetch(`/api/photo/status/${encodeURIComponent(tsapId)}`, {
@@ -58,12 +52,12 @@ export default function VerifyPage() {
         setSubmissions(bd.submissions || []);
       }
     } catch { /* offline */ }
-  }, [tsapId]);
+  }, [tsapId, sessionReady]);
 
   useEffect(() => { void load(); }, [load]);
 
   const submitCredential = async () => {
-    if (!tsapId) return;
+    if (!sessionReady || !tsapId) return;
     if (credSummary.trim().length < 4) {
       setMsg(te ? "వివరాలు నమోదు చేయండి (ID పూర్తి నంబర్ ఇవ్వవద్దు)." : "Enter credential details (do not type full government ID numbers).");
       return;
@@ -92,7 +86,7 @@ export default function VerifyPage() {
   };
 
   const upload = async (f: File | undefined) => {
-    if (!f || !tsapId) return;
+    if (!sessionReady || !f || !tsapId) return;
     setBusy(true); setMsg("");
     try {
       const fd = new FormData();
@@ -124,6 +118,10 @@ export default function VerifyPage() {
         <Link href="/matches" className="text-[13px] font-bold text-maroon shrink-0"><Duo en="Skip for now ›" te="ప్రస్తుతానికి దాటవేయి ›" /></Link>
       </div>
 
+      <div className="mt-4 rounded-xl border border-gold/30 bg-white p-3 text-[12px]" role="status">
+        {!sessionReady ? (te ? "ఖాతా తనిఖీ అవుతోంది…" : "Checking your account…") : tsapId ? <>{te ? "మీ ఖాతా Profile ID:" : "Your account Profile ID:"} <span className="font-mono font-bold">{tsapId}</span></> : (te ? "మీ ప్రొఫైల్ ధృవీకరించడానికి login అవ్వండి." : "Sign in to verify your own profile.")}
+      </div>
+
       <section className="mt-4 rounded-2xl border border-gold/30 card-shadow bg-gradient-to-br from-emerald-50 to-white p-6">
         <div className="flex flex-col sm:flex-row items-center gap-6">
           <div className="relative shrink-0">
@@ -145,7 +143,7 @@ export default function VerifyPage() {
               <>
                 <input aria-label={te ? "సెల్ఫీ ఎంచుకోండి" : "Choose selfie"} ref={fileRef} type="file" accept="image/*" capture="user" className="hidden"
                   onChange={(e) => void upload(e.target.files?.[0])} />
-                <button disabled={busy || !tsapId} onClick={() => fileRef.current?.click()}
+                <button disabled={busy || !sessionReady || !tsapId} onClick={() => fileRef.current?.click()}
                   className="mt-3 w-full rounded-xl border-2 border-maroon/40 bg-white p-3 flex items-center gap-3 hover:border-maroon disabled:opacity-50 text-left">
                   <span className="text-2xl">🤳</span>
                   <span className="flex-1">
@@ -200,7 +198,7 @@ export default function VerifyPage() {
           ))}
         </div>
 
-        {tsapId ? (
+        {sessionReady && tsapId ? (
           <div className="border-t border-gold/25 pt-4 space-y-3">
             <div className="font-bold text-[13px] text-maroon">
               {te ? "పత్రాల సమీక్ష అభ్యర్థన పంపండి" : "Submit Education / Employment / Masked ID for Staff Review"}
