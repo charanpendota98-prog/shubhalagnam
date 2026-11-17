@@ -6,7 +6,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Duo, duo } from "@/lib/duo";
+import { Duo, useDuo } from "@/lib/duo";
 import { useLang } from "@/lib/lang";
 import { apiDisplayMessage, authHeaders, readApiJson } from "@/lib/api";
 import { useSession } from "@/lib/auth";
@@ -15,6 +15,7 @@ import VerificationProgress from "@/components/VerificationProgress";
 export default function VerifyPage() {
   const { lang } = useLang();
   const te = lang === "te";
+  const duo = useDuo();
   const { tsapId: verifiedId, authenticated, ready: sessionReady } = useSession();
   const tsapId = authenticated ? verifiedId : "";
   const [status, setStatus] = useState("none");
