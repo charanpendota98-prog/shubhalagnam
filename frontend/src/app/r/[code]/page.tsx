@@ -1,5 +1,7 @@
 "use client";
 
+import "@/components/partner-workspace.css";
+
 import { readApiJson } from "@/lib/api";
 /**
  * 🔗 /r/<code> — Referral landing (smart tracking)
@@ -25,18 +27,21 @@ export default function ReferralLandingPage() {
   const campaignQuery = /^[A-Za-z0-9_-]{24}$/.test(campaign) ? `&campaign=${encodeURIComponent(campaign)}` : "";
   const [info, setInfo] = useState<any>(null);
   const [checked, setChecked] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     if (!code) return;
-    localStorage.setItem("tsap_ref_from_link", code);          // backup (register page kooda chaduvutundi)
+    let active = true; setChecked(false); setFailed(false); setInfo(null);
     try { sessionStorage.setItem("tsap_click_fired", code); } catch { /* ignore */ }  // 🌊 W20 dedupe
     const inviteQuery = inv ? `&inv=${encodeURIComponent(inv)}` : "";
     fetch(`/api/referral/click/${code}?source=link${inviteQuery}${campaignQuery}`, { method: "POST" })
-      .then((r) => readApiJson(r))
-      .then((d) => setInfo(d))
-      .catch(() => { })
-      .finally(() => setChecked(true));
-  }, [code, inv, campaignQuery]);
+      .then(async r => { const d = await readApiJson(r); if (!r.ok || typeof d?.valid_code !== "boolean") throw new Error("Unavailable"); return d; })
+      .then(d => { if (active) { setInfo(d); try { if (d.valid_code) localStorage.setItem("tsap_ref_from_link", code); else if (localStorage.getItem("tsap_ref_from_link") === code) localStorage.removeItem("tsap_ref_from_link"); } catch {} } })
+      .catch(() => { if (active) setFailed(true); })
+      .finally(() => { if (active) setChecked(true); });
+    return () => { active = false; };
+  }, [code, inv, campaignQuery, attempt]);
 
   const valid = info?.valid_code;
   const name = info?.referrer_name;
@@ -44,7 +49,7 @@ export default function ReferralLandingPage() {
   // valid code ayithe 1.2 sec lo register ki auto-redirect (user experience smooth)
   useEffect(() => {
     if (!checked) return;
-    if (valid !== false) {
+    if (valid === true) {
       const t = setTimeout(() => router.replace(
         `/register?ref=${code}${inv ? `&inv=${encodeURIComponent(inv)}` : ""}${campaignQuery}`), 1600);
       return () => clearTimeout(t);
@@ -52,13 +57,15 @@ export default function ReferralLandingPage() {
   }, [checked, valid, code, inv, campaignQuery, router]);
 
   return (
-    <div className="min-h-dvh bg-[#FFF8E7] flex items-center justify-center p-4">
+    <div className="mv-partner-workspace min-h-dvh bg-[#FFF8E7] flex items-center justify-center p-4">
       <div className="w-full max-w-md bg-white rounded-[1.5rem] shadow-lg p-6 text-center">
         <div className="w-16 h-16 maroon-gradient rounded-full flex items-center justify-center text-white text-3xl mx-auto">
           {valid === false ? "⚠️" : "🎁"}
         </div>
 
-        {!checked && <div className="mt-4 text-sm text-gray-500">{te ? "Code check చేస్తున్నాం…" : "Checking code…"}</div>}
+        {(!checked || failed) && <h1 className="mt-4 text-xl font-bold text-maroon">{te ? "Referral code" : "Referral code"}</h1>}
+        {failed && <div role="alert" className="mt-3 space-y-3"><p>{te ? "Code నిర్ధారించలేకపోయాం. Registration కు మళ్లించలేదు." : "The code could not be confirmed. You have not been redirected."}</p><button type="button" onClick={() => setAttempt(n => n + 1)} className="font-bold underline">{te ? "మళ్లీ ప్రయత్నించండి" : "Try again"}</button><a href="/register" className="block underline">{te ? "Code లేకుండా నమోదు" : "Register without a code"}</a></div>}
+        {!checked && <div role="status" className="mt-4 text-sm text-gray-500">{te ? "Code check చేస్తున్నాం…" : "Checking code…"}</div>}
 
         {checked && valid && (
           <>

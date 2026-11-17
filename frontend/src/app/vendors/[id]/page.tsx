@@ -1,4 +1,6 @@
 "use client";
+
+import "@/components/partner-workspace.css";
 /**
  * 🏪 VENDOR DETAIL — poster, promo post, enquiry form, dashboard, similar vendors
  * ==============================================================================
@@ -32,11 +34,16 @@ export default function VendorDetailPage() {
   const [ownerBusy, setOwnerBusy] = useState(false);
   const [leadConsent, setLeadConsent] = useState(false);
 
+  const [attempt, setAttempt] = useState(0);
   const load = useCallback(() => {
-    fetch(`/api/vendors/${id}`).then((r) => readApiJson(r)).then((d) => d.success
-      ? setData(d)
-      : setErr(apiDisplayMessage(d, te, te ? "Vendor దొరకలేదు" : "Vendor not found")))
-      .catch(() => setErr(te ? "Server నుంచి data రాలేదు" : "No data from server"));
+    let active = true; setData(null); setDash(null); setPromo(null); setErr(""); setOwnerError(""); setLeadRes(null); setLeadConsent(false);
+    fetch(`/api/vendors/${encodeURIComponent(id)}`).then(async r => {
+      const d = await readApiJson(r);
+      if (!active) return;
+      if (r.status === 404) { setErr(te ? "Vendor కనుగొనబడలేదు" : "Vendor not found"); return; }
+      if (!r.ok || !d?.success || !d.vendor) throw new Error("Unavailable");
+      setData(d);
+    }).catch(() => { if (active) setErr(te ? "Vendor వివరాలు నిర్ధారించలేకపోయాం" : "Vendor details could not be confirmed"); });
     // 🐞 FIX: vendor dashboard (impressions/clicks/leads) public ga chupinchakoodadu — vendor token kavali
     let vtok = "";
     try { vtok = localStorage.getItem("tsap_vendor_token") || ""; } catch { /* ignore */ }
@@ -45,15 +52,17 @@ export default function VendorDetailPage() {
       fetch(`/api/vendors/${id}/dashboard`, { headers: { "X-Vendor-Token": vtok } })
         .then((r) => readApiJson(r))
         .then((d) => {
+          if (!active) return;
           if (d.success) { setDash(d); setOwnerError(""); }
           else { setDash(null); setOwnerError(apiDisplayMessage(d, te, te ? "Access code సరిపోలలేదు" : "Access code was not accepted")); }
         })
-        .catch(() => setOwnerError(te ? "Dashboard data లోడ్ కాలేదు" : "Could not load the private dashboard"));
+        .catch(() => { if (active) setOwnerError(te ? "Dashboard data లోడ్ కాలేదు" : "Could not load the private dashboard"); });
     }
-    fetch(`/api/vendors/${id}/promo`).then((r) => readApiJson(r)).then((d) => d.success && setPromo(d)).catch(() => { });
-  }, [id, te]);
+    fetch(`/api/vendors/${id}/promo`).then((r) => readApiJson(r)).then((d) => active && d.success && setPromo(d)).catch(() => { });
+    return () => { active = false; };
+  }, [id, te, attempt]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => load(), [load]);
 
   const copy = (t: string, k: string) => { navigator.clipboard?.writeText(t); setCopied(k); setTimeout(() => setCopied(""), 1500); };
   const v = data?.vendor;
@@ -155,10 +164,10 @@ export default function VendorDetailPage() {
 
   if (err) {
     return (
-      <div className="min-h-dvh bg-cream flex items-center justify-center px-4">
+      <div className="mv-partner-workspace min-h-dvh bg-cream flex items-center justify-center px-4">
         <div className="bg-white rounded-3xl border border-gold/30 p-6 text-center max-w-md">
           <div className="text-4xl">🔍</div>
-          <div className="mt-2 font-bold text-maroon">⚠️ {err}</div>
+          <h1 className="mt-2 text-xl font-bold text-maroon">{te ? "Vendor వివరాలు" : "Vendor details"}</h1><p role="alert" className="mt-2 font-bold text-maroon">⚠️ {err}</p><button type="button" onClick={() => setAttempt(n => n + 1)} className="mt-3 block font-bold underline">{te ? "మళ్లీ ప్రయత్నించండి" : "Try again"}</button>
           <Link href="/vendors" className="mt-3 inline-block gold-gradient text-maroon font-bold text-[12px] px-4 py-2.5 rounded-xl">
             {te ? "🏪 Vendors list చూడండి" : "🏪 See vendors list"}
           </Link>
@@ -167,10 +176,10 @@ export default function VendorDetailPage() {
     );
   }
 
-  if (!v) return <div className="min-h-dvh bg-cream grid place-items-center"><span className="text-maroon font-bold">⏳ Loading…</span></div>;
+  if (!v) return <div className="mv-partner-workspace min-h-dvh bg-cream p-6"><h1 className="text-xl font-bold text-maroon">{te ? "Vendor వివరాలు" : "Vendor details"}</h1><p role="status">{te ? "లోడ్ అవుతోంది…" : "Loading…"}</p></div>;
 
   return (
-    <div className="min-h-dvh bg-cream pb-20">
+    <div className="mv-partner-workspace min-h-dvh bg-cream pb-20">
       <section className="maroon-gradient text-white">
         <div className="max-w-5xl mx-auto px-4 py-8">
           <div className="text-[12px] opacity-90 mb-1"><Link href="/vendors" className="underline">← Vendors</Link></div>
@@ -262,7 +271,7 @@ export default function VendorDetailPage() {
                       <input className="input-mobile" placeholder={te ? "బడ్జెట్ పరిధి (ఐచ్ఛికం)" : "Budget range (optional)"} value={lead.budget} onChange={(e) => setLead({ ...lead, budget: e.target.value })} aria-label={te ? "బడ్జెట్ పరిధి" : "Budget range"} />
                       <input className="input-mobile" placeholder={te ? "మీ అవసరాన్ని వివరించండి" : "Describe what you need"} value={lead.message} onChange={(e) => setLead({ ...lead, message: e.target.value })} aria-label={te ? "మీ అవసరం" : "Your requirements"} />
                     </div>
-                    {leadRes?.success === false && <div className="mt-2 text-[12px] text-rose-700">⚠️ {leadRes.message_display}</div>}
+                    {leadRes?.success === false && <div role="alert" className="mt-2 text-[12px] text-rose-700">⚠️ {leadRes.message_display}</div>}
                     <button type="button" onClick={sendLead} disabled={busy}
                       className="mt-3 w-full maroon-gradient text-white font-bold text-[13px] py-3 rounded-2xl disabled:opacity-60">
                       {busy ? (te ? "⏳ పంపిస్తున్నాం…" : "⏳ Sending…") : te ? "📩 Enquiry పంపండి" : "📩 Send enquiry"}

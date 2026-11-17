@@ -1,5 +1,7 @@
 "use client";
 
+import "@/components/partner-workspace.css";
+
 import { apiDisplayMessage, readApiJson } from "@/lib/api";
 /**
  * 🏪 VENDOR REGISTER — mee business ni మన వివాహ lo promote cheyyandi
@@ -53,7 +55,7 @@ export default function VendorRegisterPage() {
     if (!f.category) e.push(te ? "మీ category select చెయ్యండి" : "Select your category");
     if (!/^\d{10}$/.test((f.phone || "").replace(/\D/g, ""))) e.push(te ? "10 digit mobile number ఇవ్వండి" : "Enter a 10-digit mobile number");
     if (!f.city.trim()) e.push(te ? "City/town ఇవ్వండి" : "Enter city/town");
-    if (!f.package) e.push(te ? "Package select చెయ్యండి" : "Select a package");
+    if (!pkgs.some(p => p.code === f.package)) e.push(te ? "Package select చెయ్యండి" : "Select a package");
     return e;
   };
 
@@ -95,8 +97,8 @@ export default function VendorRegisterPage() {
   const supportWhatsappLink = whatsappPhoneLink(supportWhatsapp);
   const promoKit = pkgs.find((p) => p.code === "V_SINGLE_POST");
   const listingPrices = pkgs.filter((p) => !["V_SINGLE_POST", "V_STATUS_BLAST"].includes(p.code)).map((p) => p.price);
-  const promoKitPrice = promoKit?.price ?? 149;
-  const listingStart = listingPrices.length ? Math.min(...listingPrices) : 499;
+  const promoKitPrice = promoKit?.price ?? (te ? "నిర్ధారణ కాలేదు" : "unconfirmed");
+  const listingStart = listingPrices.length ? Math.min(...listingPrices) : (te ? "నిర్ధారణ కాలేదు" : "unconfirmed");
   const copy = (t: string, k: string) => { navigator.clipboard?.writeText(t); setCopied(k); setTimeout(() => setCopied(""), 1500); };
 
   /* ---------------- SUCCESS ---------------- */
@@ -111,7 +113,7 @@ export default function VendorRegisterPage() {
       ? (res.steps_telugu || [])
       : (res.steps_en || []).map((step: string) => englishText(step)).filter(Boolean);
     return (
-      <div className="min-h-dvh bg-cream pb-20">
+      <div className="mv-partner-workspace min-h-dvh bg-cream pb-20">
         <section className="maroon-gradient text-white">
           <div className="max-w-3xl mx-auto px-4 py-9 text-center">
             <div className="text-5xl">🎉</div>
@@ -200,17 +202,17 @@ export default function VendorRegisterPage() {
 
   /* ---------------- FORM ---------------- */
   return (
-    <div className="min-h-dvh bg-cream pb-24">
+    <div className="mv-partner-workspace min-h-dvh bg-cream pb-24">
       <section className="maroon-gradient text-white">
         <div className="max-w-3xl mx-auto px-4 py-8">
           <div className="text-[12px] opacity-90 mb-1">
             <Link href="/vendors" className="underline">← Vendors</Link>
           </div>
           <h1 className="text-2xl font-extrabold">{te ? "🏪 మీ business ని మన వివాహ లో add చెయ్యండి" : "🏪 Add your business to మన వివాహ"}</h1>
-          <p className="text-[13px] opacity-90 mt-2 telugu">
+          <p className="text-[13px] opacity-90 mt-2 telugu">{typeof promoKitPrice === "number" && typeof listingStart === "number" ? <>
             Catering, photography, decorations, hall, tent, pandit, jewellery, makeup, DJ, invitations, cars, planner —
-            {te ? <>Package బట్టి deliverables, duration మారతాయి: ₹{promoKitPrice} one-day private share-ready kit (approval తర్వాత 1 రోజు access; directory listing కాదు); directory-listing packages ₹{listingStart} నుంచి. Enquiries dashboard లో నమోదు అవుతాయి; WhatsApp notification మీ explicit WhatsApp number మరియు delivery setup మీద ఆధారపడి ఉంటుంది.</> : <>Deliverables and terms depend on the package: the ₹{promoKitPrice} one-day private share-ready kit includes access for one day after approval and is not a directory listing; directory-listing packages start at ₹{listingStart}. Enquiries are recorded in your dashboard; WhatsApp notifications require your explicitly supplied number and configured delivery.</>}
-          </p>
+            {te ? <>Package బట్టి deliverables, duration మారతాయి: {typeof promoKitPrice === "number" ? `₹${promoKitPrice}` : promoKitPrice} one-day private share-ready kit (approval తర్వాత 1 రోజు access; directory listing కాదు); directory-listing packages {typeof listingStart === "number" ? `₹${listingStart}` : listingStart} నుంచి. Enquiries dashboard లో నమోదు అవుతాయి; WhatsApp notification మీ explicit WhatsApp number మరియు delivery setup మీద ఆధారపడి ఉంటుంది.</> : <>Deliverables and terms depend on the package: the {typeof promoKitPrice === "number" ? `₹${promoKitPrice}` : promoKitPrice} one-day private share-ready kit includes access for one day after approval and is not a directory listing; directory-listing packages start at {typeof listingStart === "number" ? `₹${listingStart}` : listingStart}. Enquiries are recorded in your dashboard; WhatsApp notifications require your explicitly supplied number and configured delivery.</>}
+          </> : <>{te ? "Package ధరలు నిర్ధారించలేకపోయాం. తాజా ధరలు, terms వచ్చిన తర్వాతే ఎంపిక చేసుకోండి. External posting లేదా reach హామీ లేదు." : "Package prices could not be confirmed. Wait for current prices and terms before choosing. External posting and reach are not guaranteed."}</>}</p>
           <div className="mt-3 flex flex-wrap gap-2 text-[11px]">
             <span className="px-3 py-1 rounded-full bg-white/10">{te ? "✅ రెండు నిమిషాల ఫారం" : "✅ Two-minute form"}</span>
             <span className="px-3 py-1 rounded-full bg-white/10">{te ? "Promo material share-ready" : "Share-ready promo material"}</span>
@@ -221,7 +223,7 @@ export default function VendorRegisterPage() {
 
       <div className="max-w-3xl mx-auto px-4 py-5 space-y-4">
         {errs.length > 0 && (
-          <div className="bg-rose-50 border border-rose-200 rounded-2xl px-4 py-3">
+          <div role="alert" className="bg-rose-50 border border-rose-200 rounded-2xl px-4 py-3">
             <div className="font-bold text-rose-800 text-[13px]">{te ? "ఇవి సరిచెయ్యాలి:" : "Please fix these:"}</div>
             <ul className="mt-1 text-[12px] text-rose-700 list-disc list-inside">
               {errs.slice(0, 6).map((e) => <li key={e}>{e}</li>)}
@@ -229,12 +231,13 @@ export default function VendorRegisterPage() {
           </div>
         )}
 
+        {(cats.length === 0 || pkgs.length === 0) && <div role="status" className="rounded-xl border border-amber-300 bg-white p-4"><p>{te ? "Category మరియు package వివరాలు ఇంకా నిర్ధారణ కాలేదు. అభ్యర్థన పంపలేరు." : "Category and package details are not yet confirmed. Submission is unavailable."}</p><button type="button" onClick={() => window.location.reload()} className="font-bold underline">{te ? "మళ్లీ ప్రయత్నించండి" : "Try again"}</button></div>}
         {/* CATEGORY */}
         <div className="bg-white rounded-3xl border border-gold/30 p-4">
           <label className="text-[13px] font-bold text-ink">1. {te ? "మీ category" : "Your category"} <span className="text-maroon">*</span></label>
           <div className="mt-2 grid grid-cols-2 sm:grid-cols-3 gap-2">
             {cats.map((c) => (
-              <button key={c.key} type="button" onClick={() => set("category", c.key)}
+              <button key={c.key} type="button" aria-pressed={f.category === c.key} onClick={() => set("category", c.key)}
                 className={`rounded-2xl border-2 p-2.5 text-left text-[12px] font-semibold ${f.category === c.key ? "border-maroon bg-maroon-soft" : "border-gold/30 bg-white"}`}>
                 <div className="text-lg">{c.icon}</div>
                 <div className="text-maroon">{c.en}</div>
@@ -247,21 +250,21 @@ export default function VendorRegisterPage() {
         {/* BUSINESS */}
         <div className="bg-white rounded-3xl border border-gold/30 p-4 space-y-3">
           <div className="text-[13px] font-bold text-ink">2. Business details</div>
-          <input className="input-mobile" placeholder={te ? "నమోదు చేసిన వ్యాపార పేరు *" : "Registered business name *"}
-            value={f.business_name} onChange={(e) => set("business_name", e.target.value)} aria-label="Business name" />
+          <label className="block text-sm font-semibold text-gray-700"><span>Business name</span><input className="input-mobile" placeholder={te ? "నమోదు చేసిన వ్యాపార పేరు *" : "Registered business name *"}
+            value={f.business_name} onChange={(e) => set("business_name", e.target.value)} aria-label="Business name" /></label>
           <div className="grid sm:grid-cols-2 gap-3">
             <input className="input-mobile" placeholder={te ? "Owner పేరు" : "Owner name"} value={f.owner_name} onChange={(e) => set("owner_name", e.target.value)} aria-label={te ? "Owner పేరు" : "Owner name"} />
-            <input className="input-mobile" placeholder="Experience (years)" value={f.experience_years} onChange={(e) => set("experience_years", e.target.value.replace(/\D/g, "").slice(0, 2))} inputMode="numeric" aria-label="Experience (years)" />
+            <label className="block text-sm font-semibold text-gray-700"><span>Experience (years)</span><input className="input-mobile" placeholder="Experience (years)" value={f.experience_years} onChange={(e) => set("experience_years", e.target.value.replace(/\D/g, "").slice(0, 2))} inputMode="numeric" aria-label="Experience (years)" /></label>
           </div>
           <div className="grid sm:grid-cols-2 gap-3">
-            <input className="input-mobile" placeholder="Mobile number * (10 digits)" value={f.phone}
-              onChange={(e) => set("phone", e.target.value.replace(/\D/g, "").slice(0, 10))} inputMode="numeric" aria-label="Mobile number * (10 digits)" />
-            <input className="input-mobile" placeholder={te ? "WhatsApp number (optional; ఖాళీగా ఉంటే button చూపదు)" : "WhatsApp number (optional; leave blank to hide WhatsApp button)"} value={f.whatsapp}
-              onChange={(e) => set("whatsapp", e.target.value.replace(/\D/g, "").slice(0, 10))} inputMode="numeric" aria-label="WhatsApp number" />
+            <label className="block text-sm font-semibold text-gray-700"><span>Mobile number * (10 digits)</span><input className="input-mobile" placeholder="Mobile number * (10 digits)" value={f.phone}
+              onChange={(e) => set("phone", e.target.value.replace(/\D/g, "").slice(0, 10))} inputMode="numeric" aria-label="Mobile number * (10 digits)" /></label>
+            <label className="block text-sm font-semibold text-gray-700"><span>WhatsApp number</span><input className="input-mobile" placeholder={te ? "WhatsApp number (optional; ఖాళీగా ఉంటే button చూపదు)" : "WhatsApp number (optional; leave blank to hide WhatsApp button)"} value={f.whatsapp}
+              onChange={(e) => set("whatsapp", e.target.value.replace(/\D/g, "").slice(0, 10))} inputMode="numeric" aria-label="WhatsApp number" /></label>
           </div>
           <div className="grid sm:grid-cols-3 gap-3">
-            <input className="input-mobile" placeholder="City / town *" value={f.city} onChange={(e) => set("city", e.target.value)} aria-label="City / town *" />
-            <input className="input-mobile" placeholder="District" value={f.district} onChange={(e) => set("district", e.target.value)} aria-label="District" />
+            <label className="block text-sm font-semibold text-gray-700"><span>City / town *</span><input className="input-mobile" placeholder="City / town *" value={f.city} onChange={(e) => set("city", e.target.value)} aria-label="City / town *" /></label>
+            <label className="block text-sm font-semibold text-gray-700"><span>District</span><input className="input-mobile" placeholder="District" value={f.district} onChange={(e) => set("district", e.target.value)} aria-label="District" /></label>
             <select className="input-mobile" value={f.state} onChange={(e) => set("state", e.target.value)} aria-label="Select option">
               <option value="TS">Telangana</option>
               <option value="AP">Andhra Pradesh</option>
@@ -269,14 +272,14 @@ export default function VendorRegisterPage() {
               <option value="OTHER">Other</option>
             </select>
           </div>
-          <input className="input-mobile" placeholder={te ? "సేవలు అందించే నగరాలు, జిల్లాలు నమోదు చేయండి" : "List the cities and districts you serve"}
-            value={f.service_areas} onChange={(e) => set("service_areas", e.target.value)} aria-label="Service areas" />
-          <input className="input-mobile" placeholder={te ? "ధరల పరిధి మరియు ధర నిర్ణయించే విధానం" : "Describe your price range and pricing basis"}
-            value={f.price_range} onChange={(e) => set("price_range", e.target.value)} aria-label="Rate range" />
-          <textarea className="input-mobile min-h-[90px]" placeholder={te ? "మీ సేవలు, అనుభవం గురించి సంక్షిప్తంగా రాయండి" : "Describe your services and experience"}
-            value={f.about} onChange={(e) => set("about", e.target.value)} aria-label="Text area" />
-          <input className="input-mobile" placeholder={te ? "Photo/logo URL (optional)" : "Photo/logo URL (optional)"}
-            value={f.photo_url} onChange={(e) => set("photo_url", e.target.value)} aria-label="Photo/logo URL" />
+          <label className="block text-sm font-semibold text-gray-700"><span>Service areas</span><input className="input-mobile" placeholder={te ? "సేవలు అందించే నగరాలు, జిల్లాలు నమోదు చేయండి" : "List the cities and districts you serve"}
+            value={f.service_areas} onChange={(e) => set("service_areas", e.target.value)} aria-label="Service areas" /></label>
+          <label className="block text-sm font-semibold text-gray-700"><span>Rate range</span><input className="input-mobile" placeholder={te ? "ధరల పరిధి మరియు ధర నిర్ణయించే విధానం" : "Describe your price range and pricing basis"}
+            value={f.price_range} onChange={(e) => set("price_range", e.target.value)} aria-label="Rate range" /></label>
+          <label className="block text-sm font-semibold text-gray-700"><span>Text area</span><textarea className="input-mobile min-h-[90px]" placeholder={te ? "మీ సేవలు, అనుభవం గురించి సంక్షిప్తంగా రాయండి" : "Describe your services and experience"}
+            value={f.about} onChange={(e) => set("about", e.target.value)} aria-label="Text area" /></label>
+          <label className="block text-sm font-semibold text-gray-700"><span>Photo/logo URL</span><input className="input-mobile" placeholder={te ? "Photo/logo URL (optional)" : "Photo/logo URL (optional)"}
+            value={f.photo_url} onChange={(e) => set("photo_url", e.target.value)} aria-label="Photo/logo URL" /></label>
         </div>
 
         {/* PACKAGE */}
@@ -284,7 +287,7 @@ export default function VendorRegisterPage() {
           <label className="text-[13px] font-bold text-ink">3. Ad package <span className="text-maroon">*</span></label>
           <div className="mt-2 space-y-2">
             {pkgs.map((p) => (
-              <button key={p.code} type="button" onClick={() => set("package", p.code)}
+              <button key={p.code} type="button" aria-pressed={f.package === p.code} onClick={() => set("package", p.code)}
                 className={`w-full text-left rounded-2xl border-2 p-3 ${f.package === p.code ? "border-maroon bg-maroon-soft" : "border-gold/30 bg-white"}`}>
                 <div className="flex items-center justify-between">
                   <div className="font-bold text-maroon text-[13px]">{te ? p.name : englishText((p as any).name_en || p.name, p.code)}</div>
@@ -308,7 +311,7 @@ export default function VendorRegisterPage() {
 {te ? <>🔒 మీరు ఇచ్చిన business phone listing లో Call contact గా కనిపించవచ్చు. WhatsApp button కోసం వేరే WhatsApp number ఇవ్వండి; అది ఖాళీగా ఉంటే button ఉండదు. Customer enquiry లోని contact details ఎంపిక చేసిన vendor కి మరియు అవసరమైన site operations కోసం పంపబడవచ్చు. Terms: manavivaha.in/terms</> : <>🔒 The supplied business phone may appear as a call contact. Provide a separate WhatsApp number for a WhatsApp button; if blank, no button is shown. Contact details from an enquiry are sent to the selected vendor and may be processed for site operations. Terms: manavivaha.in/terms</>}
         </div>
 
-        <button type="button" onClick={submit} disabled={busy}
+        <button type="button" onClick={submit} disabled={busy || !selectedPkg || cats.length === 0}
           className="w-full maroon-gradient text-white font-bold text-[15px] py-4 rounded-2xl disabled:opacity-60">
           {busy ? (te ? "⏳ Submit అవుతుంది…" : "⏳ Submitting…") : te ? "🏪 Vendor request పంపండి (free signup)" : "🏪 Send vendor request (free signup)"}
         </button>

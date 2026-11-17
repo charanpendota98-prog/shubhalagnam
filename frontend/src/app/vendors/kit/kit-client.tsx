@@ -1,8 +1,10 @@
 "use client";
 
+import "@/components/partner-workspace.css";
+
 
 import { readApiJson } from "@/lib/api";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import { useLang } from "@/lib/lang";
 
@@ -32,8 +34,10 @@ export default function VendorShareKitPage() {
   const [downloading, setDownloading] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const requestVersion = useRef(0);
 
   const loadKit = async (id = vendorId, accessCode = token) => {
+    const version = ++requestVersion.current; setKit(null);
     const cleanId = id.trim();
     const cleanToken = accessCode.trim();
     if (!cleanId || !cleanToken) {
@@ -49,6 +53,7 @@ export default function VendorShareKitPage() {
         cache: "no-store",
       });
       const data = await readApiJson(response);
+      if (version !== requestVersion.current) return;
       if (!response.ok || !data.success) {
         setKit(null);
         setError(response.status === 410
@@ -144,7 +149,7 @@ export default function VendorShareKitPage() {
   };
 
   return (
-    <div className="min-h-dvh bg-cream px-4 py-8 pb-20">
+    <div className="mv-partner-workspace min-h-dvh bg-cream px-4 py-8 pb-20">
       <div className="mx-auto max-w-4xl space-y-5">
         <Link href="/vendors" className="inline-flex min-h-10 items-center text-sm font-bold text-maroon underline underline-offset-4">
           {te ? "← వెండర్ డైరెక్టరీ" : "← Vendor directory"}
@@ -164,13 +169,13 @@ export default function VendorShareKitPage() {
           <form className="grid gap-3 p-5 sm:grid-cols-[1fr_1fr_auto] sm:items-end sm:p-6" onSubmit={(event) => { event.preventDefault(); void loadKit(); }}>
             <label className="block text-xs font-bold text-gray-700">
               {te ? "Vendor ID" : "Vendor ID"}
-              <input value={vendorId} onChange={(event) => setVendorId(event.target.value)} autoComplete="off" maxLength={40}
+              <input value={vendorId} onChange={(event) => { requestVersion.current++; setVendorId(event.target.value); setKit(null); setNotice(""); }} autoComplete="off" maxLength={40}
                 placeholder={te ? "Registration ID" : "Your registration ID"}
                 className="mt-1.5 min-h-11 w-full rounded-xl border border-gray-300 bg-white px-3 font-mono text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-maroon" />
             </label>
             <label className="block text-xs font-bold text-gray-700">
               {te ? "Owner access code" : "Owner access code"}
-              <input type="password" value={token} onChange={(event) => setToken(event.target.value)} autoComplete="off" maxLength={1000}
+              <input type="password" value={token} onChange={(event) => { requestVersion.current++; setToken(event.target.value); setKit(null); setNotice(""); }} autoComplete="off" maxLength={1000}
                 placeholder={te ? "Registration సమయంలో వచ్చిన code" : "Code returned at registration"}
                 className="mt-1.5 min-h-11 w-full rounded-xl border border-gray-300 bg-white px-3 font-mono text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-maroon" />
             </label>

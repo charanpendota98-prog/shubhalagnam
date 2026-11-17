@@ -1,8 +1,8 @@
 {
-  "source": "Local source route inventory after editorial-community preview",
+  "source": "Local source route inventory after partner-referral preview",
   "route_patterns": 54,
-  "previewed_patterns": 35,
-  "remaining_patterns": 19,
+  "previewed_patterns": 44,
+  "remaining_patterns": 10,
   "groups": [
     {
       "group": "Earlier core previews",
@@ -77,7 +77,7 @@
     },
     {
       "group": "Partner and referral",
-      "status": "Remaining visual/journey review",
+      "status": "Local nine-pattern bilingual layout/fixture review; no real submissions, authenticated operations, payment or launch acceptance",
       "routes": [
         "/referral",
         "/referral/register",

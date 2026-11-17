@@ -1,0 +1,11 @@
+/* Partner pages: presentation rules do not change consent or payment authority. */
+.mv-partner-workspace :is(.text-\[10px\],.text-\[11px\],.text-\[12px\],.text-\[13px\],.text-xs){font-size:.875rem;line-height:1.75}
+.mv-partner-workspace :is(p,li,label,button,a,span,h1,h2,h3){overflow-wrap:anywhere}
+.mv-partner-workspace :is(input:not([type=checkbox]):not([type=radio]):not([type=hidden]),select,textarea){font-size:1rem;max-width:100%;min-width:0;min-height:48px}
+.mv-partner-workspace :is(button,a,summary){min-height:44px;white-space:normal}
+.mv-partner-workspace a:not(.block){display:inline-flex;align-items:center}
+.mv-partner-workspace :is(button,a,input,select,textarea,summary):focus-visible{outline:3px solid #a66b13;outline-offset:3px}
+.mv-partner-workspace h1{white-space:normal;overflow:visible;text-overflow:clip}
+@media(max-width:639px){.mv-partner-workspace .grid-cols-2{grid-template-columns:minmax(0,1fr)}.mv-partner-workspace h1.flex{flex-wrap:wrap}.mv-partner-workspace .justify-between{gap:12px;flex-wrap:wrap}}
+
+.mv-partner-workspace .truncate{white-space:normal;overflow:visible;text-overflow:clip}

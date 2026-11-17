@@ -1,5 +1,7 @@
 "use client";
 
+import "@/components/partner-workspace.css";
+
 import { readApiJson } from "@/lib/api";
 /**
  * 🏢 BUREAU (B2B) — live plans from backend, zero dummy.
@@ -16,22 +18,21 @@ type BureauPlan = {
   label: string; telugu: string; badge: string; per_profile: number; perks?: string[]; perksTe?: string[];
 };
 
-const FALLBACK: BureauPlan[] = [
-  { code: "BUREAU_999", price: 999, profiles: 25, validity_days: 30, label: "Bureau Starter", telugu: "₹999 → 25 interest requests (B2B)", badge: "Bureau/Agents", per_profile: 40, perks: ["25 interest requests", "30-day credit validity"], perksTe: ["25 interest requests", "30 రోజుల credit validity"] },
-  { code: "BUREAU_2999", price: 2999, profiles: 100, validity_days: 30, label: "Bureau Pro", telugu: "₹2999 → 100 interest requests (B2B)", badge: "Bureau Pro", per_profile: 30, perks: ["100 interest requests", "30-day credit validity"], perksTe: ["100 interest requests", "30 రోజుల credit validity"] },
-];
-
 export default function BureauPage() {
   const { lang } = useLang();
   const te = lang === "te";
-  const [plans, setPlans] = useState<BureauPlan[]>(FALLBACK);
+  const [plans, setPlans] = useState<BureauPlan[]>([]);
 
+  const [planState, setPlanState] = useState("loading");
+  const [attempt, setAttempt] = useState(0);
   useEffect(() => {
+    let active = true; setPlans([]); setPlanState("loading");
     fetch("/api/meta/home-stats")
       .then((r) => readApiJson(r))
-      .then((d) => { if (Array.isArray(d?.bureau) && d.bureau.length) setPlans(d.bureau); })
-      .catch(() => {});
-  }, []);
+      .then(d => { if (!d?.success || !Array.isArray(d.bureau)) throw new Error("Unavailable"); if (active) { setPlans(d.bureau); setPlanState("ready"); } })
+      .catch(() => { if (active) setPlanState("failed"); });
+    return () => { active = false; };
+  }, [attempt]);
 
   const T = {
     title: te ? "బ్యూరో / ఏజెంట్ ప్లాన్లు" : "Bureau / Agent plans",
@@ -61,18 +62,20 @@ export default function BureauPage() {
   };
 
   return (
-    <div className="min-h-dvh bg-[#FFF8E7] p-4 pb-36">
+    <div className="mv-partner-workspace min-h-dvh bg-[#FFF8E7] p-4 pb-36">
       <div className="max-w-6xl mx-auto">
         <div className="flex flex-wrap items-center justify-between gap-2 mb-6">
           <Link href="/" className="text-sm font-bold text-[#7A0C2E] shrink-0">← {te ? "హోమ్" : "Home"}</Link>
           <h1 className="font-bold text-[#7A0C2E] text-sm sm:text-base truncate min-w-0">🏢 {T.title}</h1>
-          <Link href="/referral/register" className="hidden min-[380px]:inline-flex min-h-10 items-center text-xs bg-[#7A0C2E] text-white px-3 py-1.5 rounded-full shrink-0 whitespace-nowrap">
+          <Link href="/referral/register" className="inline-flex min-h-10 items-center text-xs bg-[#7A0C2E] text-white px-3 py-1.5 rounded-full shrink-0 whitespace-nowrap">
             {te ? "బ్యూరో నమోదు" : "Bureau Register"} →
           </Link>
         </div>
 
         <p className="text-center text-[13px] text-gray-600 max-w-2xl mx-auto -mt-3 mb-6">{T.sub}</p>
 
+        {planState !== "ready" && <div role={planState === "failed" ? "alert" : "status"} className="mb-5 rounded-2xl border border-amber-300 bg-white p-4"><p>{planState === "loading" ? (te ? "Plans లోడ్ అవుతున్నాయి…" : "Loading plans…") : (te ? "ధరలను నిర్ధారించలేకపోయాం. Payment ఎంపికలు చూపలేదు." : "Prices could not be confirmed. Payment options have not been shown.")}</p>{planState === "failed" && <button type="button" onClick={() => setAttempt(n => n + 1)} className="font-bold underline">{te ? "మళ్లీ ప్రయత్నించండి" : "Try again"}</button>}</div>}
+        {planState === "ready" && plans.length === 0 && <p role="status">{te ? "ప్రస్తుతం B2B plans లేవు." : "No B2B plans are currently available."}</p>}
         <div className={`grid gap-4 ${plans.length > 1 ? "md:grid-cols-2" : ""} max-w-4xl mx-auto`}>
           {plans.map((p) => (
             <div key={p.code} className="bg-white rounded-[1.5rem] border border-gray-100 p-6 card-shadow relative">

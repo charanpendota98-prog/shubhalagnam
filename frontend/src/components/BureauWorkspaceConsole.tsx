@@ -49,6 +49,8 @@ export default function BureauWorkspaceConsole() {
       } else {
         setToast(d?.detail || "Could not update v2 settings.");
       }
+    } catch {
+      setToast(te ? "అభ్యర్థన నిర్ధారించలేకపోయాం. మళ్లీ ప్రయత్నించే ముందు తాజా workspace వివరాలు చూడండి." : "The request could not be confirmed. Check the latest workspace details before retrying.");
     } finally {
       setBusy(false);
     }
@@ -68,6 +70,8 @@ export default function BureauWorkspaceConsole() {
       } else {
         setToast(d?.detail || "Could not export tenant bundle.");
       }
+    } catch {
+      setToast(te ? "అభ్యర్థన నిర్ధారించలేకపోయాం. మళ్లీ ప్రయత్నించే ముందు తాజా workspace వివరాలు చూడండి." : "The request could not be confirmed. Check the latest workspace details before retrying.");
     } finally {
       setBusy(false);
     }
@@ -91,6 +95,8 @@ export default function BureauWorkspaceConsole() {
       } else {
         setToast(d?.detail || "Could not create bureau workspace.");
       }
+    } catch {
+      setToast(te ? "అభ్యర్థన నిర్ధారించలేకపోయాం. మళ్లీ ప్రయత్నించే ముందు తాజా workspace వివరాలు చూడండి." : "The request could not be confirmed. Check the latest workspace details before retrying.");
     } finally {
       setBusy(false);
     }
@@ -100,6 +106,7 @@ export default function BureauWorkspaceConsole() {
     const bid = (idOverride ?? bureauId).trim().toUpperCase();
     const bkey = (keyOverride ?? bureauKey).trim();
     if (!bid || !bkey) return;
+    setWs(null);
     setBusy(true);
     setToast("");
     try {
@@ -113,6 +120,8 @@ export default function BureauWorkspaceConsole() {
         setWs(null);
         setToast(d?.detail || "Invalid bureau ID or access key.");
       }
+    } catch {
+      setToast(te ? "అభ్యర్థన నిర్ధారించలేకపోయాం. మళ్లీ ప్రయత్నించే ముందు తాజా workspace వివరాలు చూడండి." : "The request could not be confirmed. Check the latest workspace details before retrying.");
     } finally {
       setBusy(false);
     }
@@ -135,6 +144,8 @@ export default function BureauWorkspaceConsole() {
       } else {
         setToast(d?.detail || "Could not add seat.");
       }
+    } catch {
+      setToast(te ? "అభ్యర్థన నిర్ధారించలేకపోయాం. మళ్లీ ప్రయత్నించే ముందు తాజా workspace వివరాలు చూడండి." : "The request could not be confirmed. Check the latest workspace details before retrying.");
     } finally {
       setBusy(false);
     }
@@ -151,6 +162,8 @@ export default function BureauWorkspaceConsole() {
       if (r.ok) {
         await openWorkspace(ws.bureau_id, bureauKey);
       }
+    } catch {
+      setToast(te ? "అభ్యర్థన నిర్ధారించలేకపోయాం. మళ్లీ ప్రయత్నించే ముందు తాజా workspace వివరాలు చూడండి." : "The request could not be confirmed. Check the latest workspace details before retrying.");
     } finally {
       setBusy(false);
     }
@@ -181,6 +194,8 @@ export default function BureauWorkspaceConsole() {
       } else {
         setToast(d?.detail || "Could not record client.");
       }
+    } catch {
+      setToast(te ? "అభ్యర్థన నిర్ధారించలేకపోయాం. మళ్లీ ప్రయత్నించే ముందు తాజా workspace వివరాలు చూడండి." : "The request could not be confirmed. Check the latest workspace details before retrying.");
     } finally {
       setBusy(false);
     }
