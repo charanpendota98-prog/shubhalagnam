@@ -89,7 +89,7 @@ def build_ecosystem_router(ctx: Dict[str, Callable[..., Any] | Any]) -> APIRoute
             users=st["users"],
         )
         if not ok:
-            raise HTTPException(400, msg)
+            raise HTTPException(503 if msg.startswith("Verification review could not be saved safely.") else 400, msg)
         persist_core_state()
         return {"success": True, "decision": msg, "record": rec}
 

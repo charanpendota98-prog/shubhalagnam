@@ -350,6 +350,12 @@ def review_verification_evidence(
         rec = next((r for r in state["verification_records"] if r.get("id") == record_id), None)
         if not rec:
             return False, "Verification record not found", {}
+        original_objects = dict(state)
+        before = {key: list(value) if isinstance(value, list) else dict(value) if isinstance(value, dict) else value for key, value in state.items()}
+        original_record = dict(rec)
+        original_history = list(rec.get("history", []))
+        user = next((u for u in (users or []) if str(u.get("tsap_id", "")).upper() == rec.get("tsap_id")), None)
+        original_user = dict(user) if user is not None else None
         rec["status"] = dec
         rec["reviewed_at"] = _utc_iso()
         rec["reviewer"] = clean(reviewer or "staff", 60, "reviewer")
@@ -374,8 +380,30 @@ def review_verification_evidence(
                     user["education_verified"] = approved
                 elif btype == "employment":
                     user["employment_verified"] = approved
-        if not save_state():
-            return False, "Verification review could not be saved safely.", {}
+        try:
+            saved = save_state()
+        except Exception:
+            saved = False
+        if not saved:
+            if isinstance(original_record.get("history"), list):
+                original_record["history"][:] = original_history
+            rec.clear()
+            rec.update(original_record)
+            if user is not None:
+                user.clear()
+                user.update(original_user)
+            for key, value in before.items():
+                original = original_objects.get(key)
+                if isinstance(original, list) and isinstance(value, list):
+                    original[:] = value
+                    state[key] = original
+                elif isinstance(original, dict) and isinstance(value, dict):
+                    original.clear()
+                    original.update(value)
+                    state[key] = original
+                else:
+                    state[key] = value
+            return False, "Verification review could not be saved safely. Please retry.", {}
         return True, dec, dict(rec)
 
 
