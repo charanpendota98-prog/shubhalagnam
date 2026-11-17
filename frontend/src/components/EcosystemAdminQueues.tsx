@@ -38,6 +38,8 @@ export default function EcosystemAdminQueues() {
   const [replyText, setReplyText] = useState<Record<string, string>>({});
   const [flash, setFlash] = useState("");
   const [replyFailed, setReplyFailed] = useState(false);
+  const appealPending = useRef(false);
+  const [appealBusy, setAppealBusy] = useState(false);
   const reviewPending = useRef(false);
   const [reviewBusy, setReviewBusy] = useState(false);
 
@@ -125,17 +127,26 @@ export default function EcosystemAdminQueues() {
     } finally { reviewPending.current = false; setReviewBusy(false); }
   };
 
-  const resolveAppeal = async (appealId: string, decision: "upheld" | "denied") => {
-    const r = await fetch(`/api/admin/appeals/${encodeURIComponent(appealId)}/resolve`, {
-      method: "POST",
-      headers: { ...authHeaders(true), "Content-Type": "application/json" },
-      credentials: "same-origin",
-      body: JSON.stringify({ outcome: decision, note: replyText[appealId] || "" }),
-    });
-    if (r.ok) {
-      setFlash(`✅ Appeal ${appealId} → ${decision}`);
-      void loadAll();
-    }
+  const resolveAppeal = async (appealId: string, outcome: "reinstated" | "upheld") => {
+    if (appealPending.current) return;
+    appealPending.current = true; setAppealBusy(true); setFlash(""); setReplyFailed(false);
+    try {
+      const r = await fetch(`/api/admin/appeals/${encodeURIComponent(appealId)}/resolve`, {
+        method: "POST", headers: { ...authHeaders(true), "Content-Type": "application/json" },
+        credentials: "same-origin", body: JSON.stringify({ outcome, note: replyText[appealId] || "" }),
+      });
+      const data = await readApiJson(r).catch(() => ({}));
+      if (!r.ok || data.success !== true) {
+        setReplyFailed(true);
+        setFlash(typeof data.detail === "string" ? data.detail : (te ? "అప్పీల్ నిర్ణయం సేవ్ కాలేదు. మళ్లీ ప్రయత్నించండి." : "Appeal decision was not saved. Please retry."));
+        return;
+      }
+      setFlash(outcome === "reinstated" ? (te ? "ప్రొఫైల్ పునరుద్ధరించబడింది." : "Profile restored.") : (te ? "అప్పీల్ తిరస్కరించబడింది. ప్రస్తుత పరిమితి అలాగే ఉంది." : "Appeal denied. Existing restriction retained."));
+      await loadAll();
+    } catch {
+      setReplyFailed(true);
+      setFlash(te ? "అప్పీల్ నిర్ణయం సేవ్ అయ్యిందో నిర్ధారణ లేదు. మళ్లీ ప్రయత్నించే ముందు queue రీలోడ్ చేయండి." : "Could not confirm the appeal decision was saved. Reload the queue before retrying.");
+    } finally { appealPending.current = false; setAppealBusy(false); }
   };
 
   const replyTicket = async (ticketId: string) => {
@@ -267,10 +278,10 @@ export default function EcosystemAdminQueues() {
                     aria-label="Appeal resolution note"
                     className="flex-1 rounded-lg border px-2 py-1 text-xs"
                   />
-                  <button type="button" onClick={() => void resolveAppeal(a.id, "upheld")} className="rounded-lg bg-emerald-700 px-3 py-1 font-bold text-white">
+                  <button type="button" disabled={appealBusy} onClick={() => void resolveAppeal(a.id, "reinstated")} className="rounded-lg bg-emerald-700 px-3 py-1 font-bold text-white">
                     Restore Profile
                   </button>
-                  <button type="button" onClick={() => void resolveAppeal(a.id, "denied")} className="rounded-lg bg-gray-200 px-3 py-1 font-bold text-gray-800">
+                  <button type="button" disabled={appealBusy} onClick={() => void resolveAppeal(a.id, "upheld")} className="rounded-lg bg-gray-200 px-3 py-1 font-bold text-gray-800">
                     Deny Appeal
                   </button>
                 </div>

@@ -685,6 +685,17 @@ def list_admin_appeals(status_filter: str = "open") -> List[Dict[str, Any]]:
         return [dict(a) for a in sorted(rows, key=lambda x: str(x.get("created_at", "")), reverse=True)]
 
 
+def _appeal_restore_blocked(user: Optional[Dict[str, Any]]) -> bool:
+    # An appeal may lift the moderation approval flag, not an owner deactivation,
+    # deletion, permanent ban, or a separate registration rejection.
+    if user is None or user.get("is_banned"):
+        return True
+    if str(user.get("status") or "").strip().lower() in {"pending", "rejected", "deleted", "married_fixed", "banned", "inactive", "hidden"}:
+        return True
+    active = user.get("is_active")
+    return active is not None and str(active).strip().lower() not in {"1", "true", "yes", "on", "active", "approved"}
+
+
 def resolve_appeal(
     appeal_id: str, outcome: str, reviewer: str, note: str = "",
     users: Optional[List[Dict[str, Any]]] = None,
@@ -697,20 +708,148 @@ def resolve_appeal(
         rec = next((a for a in state["moderation_appeals"] if a.get("id") == appeal_id), None)
         if not rec:
             return False, "Appeal not found", {}
-        rec["status"] = "resolved"
-        rec["resolution"] = out
-        rec["reviewer"] = clean(reviewer or "admin", 60, "reviewer")
-        rec["resolution_note"] = clean(note, 300, "resolution_note")
-        rec["resolved_at"] = _utc_iso()
-        if out == "reinstated" and users is not None:
-            user = next((u for u in users if str(u.get("tsap_id", "")).upper() == rec.get("tsap_id")), None)
-            if user is not None and not user.get("is_banned"):
-                user["is_approved"] = True
-                user.pop("hidden_reason", None)
-                user["reinstated_at"] = rec["resolved_at"]
-        if not save_state():
-            return False, "Appeal resolution could not be saved safely.", {}
-        return True, out, dict(rec)
+        user = next((u for u in (users or []) if str(u.get("tsap_id", "")).upper() == rec.get("tsap_id")), None)
+        if out == "reinstated" and _appeal_restore_blocked(user):
+            return False, "This profile cannot be restored through an appeal.", {}
+        reviewer = clean(reviewer or "admin", 60, "reviewer")
+        note = clean(note, 300, "resolution_note")
+        if rec.get("status") == "resolved":
+            if (rec.get("resolution") == out and rec.get("reviewer") == reviewer
+                    and rec.get("resolution_note", "") == note):
+                return True, out, copy.deepcopy(rec)
+            return False, "Appeal was already resolved. Refresh the queue.", {}
+        previous = copy.deepcopy(rec)
+        user_before = copy.deepcopy(user) if user is not None else None
+        rec.update(status="resolved", resolution=out, reviewer=reviewer,
+                   resolution_note=note, resolved_at=_utc_iso())
+        if out == "reinstated":
+            user["is_approved"] = True
+            user.pop("hidden_reason", None)
+            user["reinstated_at"] = rec["resolved_at"]
+        try:
+            saved = bool(save_state())
+        except Exception:
+            saved = False
+        if not saved:
+            rec.clear()
+            rec.update(previous)
+            if user is not None:
+                user.clear()
+                user.update(user_before)
+            return False, "Appeal resolution could not be saved safely. Please retry.", {}
+        return True, out, copy.deepcopy(rec)
+
+
+def _appeal_journal_path() -> str:
+    return _resolve_state_file() + ".appeal-undo.json"
+
+
+def _clear_appeal_journal() -> None:
+    from atomic_store import _sync_directory
+    os.unlink(_appeal_journal_path())
+    _sync_directory(os.path.dirname(_appeal_journal_path()))
+
+
+def recover_appeal_resolution(users: List[Dict[str, Any]], persist_core_state) -> bool:
+    """Recover only the appeal row and reinstatement fields in its undo record."""
+    with _LOCK:
+        if not os.path.exists(_appeal_journal_path()):
+            return True
+        try:
+            with open(_appeal_journal_path(), encoding="utf-8") as handle:
+                undo = json.load(handle)
+            allowed = {"is_approved", "hidden_reason", "reinstated_at"}
+            if (undo.get("version") != 1 or not isinstance(undo.get("record"), dict)
+                    or not undo["record"].get("id") or not undo["record"].get("tsap_id")
+                    or not isinstance(undo.get("fields"), dict) or set(undo["fields"]) != allowed
+                    or any(not isinstance(field, dict) or type(field.get("present")) is not bool or "value" not in field
+                           for field in undo["fields"].values())):
+                return False
+            previous = undo["record"]
+            state = _ensure_loaded()
+            rec = next((a for a in state["moderation_appeals"] if a.get("id") == previous["id"]), None)
+            user = next((u for u in users if str(u.get("tsap_id", "")).upper() == previous["tsap_id"]), None)
+            if rec is None or user is None:
+                return False
+            rec.clear()
+            rec.update(copy.deepcopy(previous))
+            for key, field in undo["fields"].items():
+                if field["present"]:
+                    user[key] = field["value"]
+                else:
+                    user.pop(key, None)
+            try:
+                eco_saved = bool(save_state())
+            except Exception:
+                eco_saved = False
+            try:
+                core_saved = bool(persist_core_state())
+            except Exception:
+                core_saved = False
+            if not (eco_saved and core_saved):
+                return False
+            _clear_appeal_journal()
+            return True
+        except Exception:
+            return False
+
+
+def resolve_appeal_durable(appeal_id: str, outcome: str, reviewer: str, note: str,
+                          users: List[Dict[str, Any]], persist_core_state) -> Tuple[bool, str, Dict[str, Any]]:
+    """Appeal-specific checked checkpoints, with durable undo on interruption.
+
+    Caller holds the core save lock before this module lock. Journal removal is
+    the commit point; this does not replace a general database transaction.
+    """
+    failure = "Appeal resolution could not be saved safely. Please retry."
+    recovery = "Appeal resolution recovery is pending. No new decision was accepted; reload before retrying."
+    with _LOCK:
+        if not recover_appeal_resolution(users, persist_core_state):
+            return False, recovery, {}
+        out = str(outcome or "").strip().lower()
+        if out not in ("reinstated", "upheld"):
+            return False, "outcome must be reinstated | upheld", {}
+        rec = next((a for a in _ensure_loaded()["moderation_appeals"] if a.get("id") == appeal_id), None)
+        if rec is None:
+            return False, "Appeal not found", {}
+        user = next((u for u in users if str(u.get("tsap_id", "")).upper() == rec.get("tsap_id")), None)
+        if user is None:
+            return False, "Appeal profile not found", {}
+        if out == "reinstated" and _appeal_restore_blocked(user):
+            return False, "This profile cannot be restored through an appeal.", {}
+        reviewer = clean(reviewer or "admin", 60, "reviewer")
+        note = clean(note, 300, "resolution_note")
+        if rec.get("status") == "resolved":
+            if (rec.get("resolution") == out and rec.get("reviewer") == reviewer
+                    and rec.get("resolution_note", "") == note):
+                return True, out, copy.deepcopy(rec)
+            return False, "Appeal was already resolved. Refresh the queue.", {}
+        undo = {"version": 1, "record": copy.deepcopy(rec), "fields": {
+            key: {"present": key in user, "value": user.get(key)}
+            for key in ("is_approved", "hidden_reason", "reinstated_at")}}
+        try:
+            atomic_json_dump(_appeal_journal_path(), undo, indent=2)
+        except Exception:
+            return False, failure, {}
+        ok, msg, result = resolve_appeal(appeal_id, out, reviewer, note, users)
+        if not ok:
+            try:
+                _clear_appeal_journal()
+            except Exception:
+                pass
+            return False, msg, {}
+        try:
+            saved = bool(persist_core_state())
+        except Exception:
+            saved = False
+        if saved:
+            try:
+                _clear_appeal_journal()
+                return True, out, result
+            except Exception:
+                pass
+        restored = recover_appeal_resolution(users, persist_core_state)
+        return False, failure if restored else recovery, {}
 
 
 # ============================================================================
