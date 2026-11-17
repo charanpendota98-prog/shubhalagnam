@@ -41,6 +41,13 @@ def build_ecosystem_router(ctx: Dict[str, Callable[..., Any] | Any]) -> APIRoute
     vendor_is_active_listing = ctx["vendor_is_active_listing"]
     get_state = ctx["get_state"]
 
+    def appeal_recovery():
+        if not os.path.exists(ECOSYSTEM3._appeal_journal_path()):
+            return
+        with core_save_lock:
+            if not ECOSYSTEM3.recover_appeal_resolution(get_state()["users"], persist_core_state):
+                raise HTTPException(503, "Appeal resolution recovery is pending. Reload before retrying.")
+
     @router.get("/api/verification/{tsap_id}/badges")
     def api_member_badges(tsap_id: str, request: Request = None):
         tid = clean(tsap_id, 40, "tsap_id").upper()
@@ -114,6 +121,7 @@ def build_ecosystem_router(ctx: Dict[str, Callable[..., Any] | Any]) -> APIRoute
             raise HTTPException(404, "Profile not found")
         reason = str(d.get("reason") or d.get("statement") or "")
         ctx_note = str(d.get("context_note") or d.get("statement") or "")
+        appeal_recovery()
         ok, msg, rec = ECOSYSTEM3.submit_appeal(u, reason, ctx_note)
         if not ok:
             raise HTTPException(503 if msg.startswith("Appeal could not be saved safely.") else 400, msg)
@@ -129,12 +137,14 @@ def build_ecosystem_router(ctx: Dict[str, Callable[..., Any] | Any]) -> APIRoute
     def api_member_appeals(tsap_id: str, request: Request = None):
         tid = clean(tsap_id, 40, "tsap_id").upper()
         require_owner(request, tid)
+        appeal_recovery()
         items = ECOSYSTEM3.list_member_appeals(tid)
         return {"success": True, "count": len(items), "items": items, "appeals": items}
 
     @router.get("/api/admin/appeals")
     def api_admin_appeals(status: str = "open", request: Request = None):
         require_admin(request, staff_ok=True)
+        appeal_recovery()
         norm = "open" if status in ("open", "pending") else status
         items = ECOSYSTEM3.list_admin_appeals(norm)
         return {"success": True, "count": len(items), "items": items, "appeals": items}
@@ -145,16 +155,14 @@ def build_ecosystem_router(ctx: Dict[str, Callable[..., Any] | Any]) -> APIRoute
         d = payload or {}
         st = get_state()
         outcome = str(d.get("outcome") or d.get("decision") or "")
-        ok, msg, rec = ECOSYSTEM3.resolve_appeal(
-            appeal_id,
-            outcome=outcome,
-            reviewer=str(d.get("reviewer") or role),
-            note=str(d.get("note", "")),
-            users=st["users"],
-        )
+        with core_save_lock:
+            ok, msg, rec = ECOSYSTEM3.resolve_appeal_durable(
+                appeal_id, outcome, str(d.get("reviewer") or role), str(d.get("note", "")),
+                st["users"], persist_core_state,
+            )
         if not ok:
-            raise HTTPException(400, msg)
-        persist_core_state()
+            code = 503 if msg.startswith(("Appeal resolution could not", "Appeal resolution recovery")) else 409 if msg.startswith(("Appeal was already", "This profile cannot")) else 400
+            raise HTTPException(code, msg)
         return {"success": True, "outcome": msg, "appeal": rec}
 
     @router.post("/api/photo/access/request")

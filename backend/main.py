@@ -2493,6 +2493,8 @@ async def _startup_publisher():
     with DBSTORE._SAVE_LOCK:
         if not ECOSYSTEM3.recover_verification_review(DB_USERS, _persist_core_state):
             raise RuntimeError("Verification review recovery failed; startup remains unavailable")
+        if not ECOSYSTEM3.recover_appeal_resolution(DB_USERS, _persist_core_state):
+            raise RuntimeError("Appeal resolution recovery failed; startup remains unavailable")
 
     # 🗑️ WAVE 40 — 3-year retention: restore tarvata ventane okasari + roju oosari
     # (money-safe: wallet/plan/boost active unna profiles skip; archive mundu — data poyedam ledu)
