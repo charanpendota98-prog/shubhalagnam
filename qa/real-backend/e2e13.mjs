@@ -7,6 +7,7 @@ import fs from "node:fs";
 const T = JSON.parse(fs.readFileSync("/tmp/e2e_tokens.json"));
 const O = "/downloads/mv-missing-options/real/";
 const B = "http://127.0.0.1:3197";
+const REG_PHONE = process.env.E2E_REG_PHONE || "9000000103";
 const b = await chromium.launch({ executablePath: "/usr/bin/google-chrome", args: ["--no-sandbox"] });
 const log = (...a) => console.log(...a);
 let failures = 0;
@@ -105,7 +106,7 @@ for (const lang of ["en", "te"]) {
   await p.getByLabel(/రాష్ట్రం|State/).first().selectOption("TS");
   await p.getByRole("button", { name: /జిల్లా ఎంచుకోండి|Select a district/ }).click();
   await p.getByRole("button", { name: /Hyderabad|హైదరాబాద్/ }).first().click();
-  await p.getByLabel(/10 అంకెల|Mobile number/).first().fill("9000000103");
+  await p.getByLabel(/10 అంకెల|Mobile number/).first().fill(REG_PHONE);
   await p.locator("input[type=password]").first().fill("fixture-pass-123");
   await p.getByLabel(/గ్యాలరీ|gallery/).setInputFiles("tests/fixtures/synthetic-profile.jpg");
   await p.getByRole("checkbox", { name: /ఫోటోను అప్‌లోడ్|upload this photo/ }).check();
