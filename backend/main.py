@@ -3080,6 +3080,9 @@ async def register(
     blood_group: str = Form(""),
     mother_tongue: str = Form(""),
     physical_status: str = Form(""),
+    # Optional self-declared facts; empty stays unknown (never inferred or backfilled).
+    profile_for: str = Form(""),
+    diet: str = Form(""),
     body_type: str = Form(""),
     complexion: str = Form(""),
     family_values: str = Form(""),
@@ -3299,6 +3302,10 @@ async def register(
     company = req_text(company, "company", 0, 100, required=False)
     mother_tongue = req_text(mother_tongue, "mother_tongue", 0, 60, required=False)
     physical_status = req_text(physical_status, "physical_status", 0, 60, required=False)
+    # profile_for values preserve the original registration semantics: who the
+    # profile is registered for (the member themselves, or by their parents).
+    profile_for = req_choice(profile_for, "profile_for", ["Self", "Parents"], required=False, default="")
+    diet = req_choice(diet, "diet", ["Vegetarian", "Non-Vegetarian"], required=False, default="")
     body_type = req_text(body_type, "body_type", 0, 60, required=False)
     complexion = req_text(complexion, "complexion", 0, 60, required=False)
     family_values = req_text(family_values, "family_values", 0, 100, required=False)
@@ -3451,6 +3458,8 @@ async def register(
             "blood_group": blood_group,
             "mother_tongue": mother_tongue,
             "physical_status": physical_status,
+            "profile_for": profile_for,
+            "diet": diet,
             "body_type": body_type,
             "complexion": complexion,
             "family_values": family_values,
@@ -4061,6 +4070,14 @@ def _evaluate_partner_preferences_match(user: dict, prefs: dict, candidate: dict
         add_check("marital_status", "Marital status", True,
                   f"Candidate lists {cand_marital}, within the selected marital-status options.")
 
+    # Diet is a factual check against the candidate's own self-declared diet;
+    # an unset candidate diet stays unknown (never inferred) and earns no check.
+    pref_diet = str(prefs.get("diet") or "").strip()
+    cand_diet = str(candidate.get("diet") or "").strip()
+    if pref_diet and pref_diet.casefold() not in {"any", "all", "ఏదైనా"} and cand_diet:
+        add_check("diet", "Diet", pref_diet.casefold() == cand_diet.casefold(),
+                  f"Candidate lists {cand_diet}; compare it with the selected diet preference ({pref_diet}).")
+
     # These are informational checks, not weighted or hidden ranking points.
     for key, label, profile_key in (
         ("educations", "Education", "education"),
@@ -4180,6 +4197,7 @@ def save_partner_preferences(payload: dict, request: Request):
         "job": ", ".join(prefs["jobs"][:2]),
         "location": ", ".join(prefs["districts"][:2]),
         "caste": "no bar" if prefs["caste_no_bar"] else ", ".join(prefs["castes"][:2]),
+        "diet": prefs["diet"],
     }
 
     # Save to disk — P0 FIX (full-audit pass): this used to do a raw
@@ -4372,6 +4390,7 @@ def update_user_profile(payload: dict, request: Request):
         "native_place", "state", "district", "mandal", "current_city", "about_myself", "expectations",
         "exp_age_min", "exp_age_max", "exp_caste", "exp_education", "exp_job", "exp_location", "exp_salary",
         "family_type", "family_status", "family_values", "mother_tongue", "physical_status",
+        "profile_for", "diet",
         "country", "citizenship", "visa_status", "is_nri",
         # Photo bytes and media paths are changed only through the authenticated
         # /api/photo/upload flow.  Accepting photo_url/photo_urls here would let
@@ -4386,6 +4405,12 @@ def update_user_profile(payload: dict, request: Request):
     children_update = None
     if "children" in payload and payload["children"] is not None:
         children_update = req_choice(payload["children"], "children", ["None", "1", "2", "3", "4+"], required=False, default="")
+    profile_for_update = None
+    if "profile_for" in payload and payload["profile_for"] is not None:
+        profile_for_update = req_choice(payload["profile_for"], "profile_for", ["Self", "Parents"], required=False, default="")
+    diet_update = None
+    if "diet" in payload and payload["diet"] is not None:
+        diet_update = req_choice(payload["diet"], "diet", ["Vegetarian", "Non-Vegetarian"], required=False, default="")
     for k in updatable_fields:
         if k in payload and payload[k] is not None and k != "photo_private":
             user[k] = payload[k]
@@ -4426,13 +4451,18 @@ def update_user_profile(payload: dict, request: Request):
         "native_place": 60, "district": 40, "mandal": 40, "current_city": 40,
         "about_myself": 600, "expectations": 400, "exp_caste": 40, "exp_education": 60,
         "exp_job": 60, "exp_location": 60, "exp_salary": 24, "family_type": 30, "family_status": 40,
-        "family_values": 40, "mother_tongue": 30, "physical_status": 40, "country": 60,
+        "family_values": 40, "mother_tongue": 30, "physical_status": 40, "profile_for": 20, "diet": 20,
+        "country": 60,
         "citizenship": 40, "visa_status": 40, "blood_group": 8, "complexion": 30, "body_type": 30,
     }
     for _k, _n in _free_text_max.items():
         if _k in payload and payload[_k] is not None and _k in user:
             user[_k] = clean(user.get(_k), _n, "profile_update:" + _k)
 
+    if profile_for_update is not None:
+        user["profile_for"] = profile_for_update
+    if diet_update is not None:
+        user["diet"] = diet_update
     if birth_update is not None:
         user["dob"], user["age"] = birth_update
     if location_update is not None:

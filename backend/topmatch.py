@@ -113,6 +113,16 @@ def _preference_comparisons(user: Dict[str, Any], candidate: Dict[str, Any]) -> 
             "note": "Candidate's listed location matches the saved preference." if met
                     else "Candidate's listed location differs from the saved preference.",
         })
+
+    requested_diet = _key(prefs.get("diet"))
+    candidate_diet = _key(candidate.get("diet"))
+    if requested_diet and requested_diet not in {"any"} and candidate_diet:
+        met = requested_diet == candidate_diet
+        rows.append({
+            "key": "diet", "label": "Diet preference", "status": "met" if met else "not_met",
+            "note": "Candidate's listed diet matches the saved preference." if met
+                    else "Candidate's listed diet differs from the saved preference.",
+        })
     return rows
 
 

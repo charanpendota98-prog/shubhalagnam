@@ -1959,6 +1959,32 @@ function EditProfilePanel({ myId }: { myId: string }) {
                 <option value="Physically Challenged">{T("దివ్యాంగులు", "Physically challenged")}</option>
               </select>
             </div>
+            <div>
+              <label htmlFor="me-profile_for" className="font-bold text-slate-800 block mb-1">{T("ఈ ప్రొఫైల్ ఎవరి కోసం (ఐచ్ఛికం)", "This profile is for (optional)")}:</label>
+              <select id="me-profile_for"
+                value={profile.profile_for || ""}
+                onChange={(e) => setField("profile_for", e.target.value)}
+                className="w-full p-2.5 border border-slate-200 rounded-xl bg-white focus:outline-none focus:border-maroon"
+              >
+                <option value="">{T("ఎంచుకోండి / తెలియజేయలేదు", "Select / not specified")}</option>
+                <option value="Self">{T("నా కోసం నేనే", "Myself")}</option>
+                <option value="Parents">{T("తల్లిదండ్రులు నమోదు చేస్తున్నారు", "Registered by parents")}</option>
+              </select>
+              <p className="mt-1 text-[11px] text-slate-500">{T("ఎంచుకుంటే ఇది మీ పబ్లిక్ ప్రొఫైల్‌లో కనిపిస్తుంది.", "If selected, this is shown on your public profile.")}</p>
+            </div>
+            <div>
+              <label htmlFor="me-diet" className="font-bold text-slate-800 block mb-1">{T("ఆహారపు అలవాటు (ఐచ్ఛికం)", "Diet (optional)")}:</label>
+              <select id="me-diet"
+                value={profile.diet || ""}
+                onChange={(e) => setField("diet", e.target.value)}
+                className="w-full p-2.5 border border-slate-200 rounded-xl bg-white focus:outline-none focus:border-maroon"
+              >
+                <option value="">{T("ఎంచుకోండి / తెలియజేయలేదు", "Select / not specified")}</option>
+                <option value="Vegetarian">{T("శాఖాహారం", "Vegetarian")}</option>
+                <option value="Non-Vegetarian">{T("మాంసాహారం", "Non-vegetarian")}</option>
+              </select>
+              <p className="mt-1 text-[11px] text-slate-500">{T("ఎంచుకుంటే ఇది మీ పబ్లిక్ ప్రొఫైల్‌లో కనిపిస్తుంది; భాగస్వామి ప్రాధాన్యతలతో పోల్చడానికి వాడబడుతుంది.", "If selected, this is shown on your public profile and used to compare against partner preferences.")}</p>
+            </div>
             <div className="sm:col-span-2 lg:col-span-3">
               <label className="font-bold text-slate-800 block mb-1">{T("భాగస్వామి నుంచి కోరుకునేవి", "Partner expectations")}:</label>
               <textarea id={`me-expectations`}

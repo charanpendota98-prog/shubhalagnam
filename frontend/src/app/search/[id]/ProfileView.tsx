@@ -52,6 +52,21 @@ function escapeHtml(value: unknown): string {
     .replace(/'/g, "&#39;");
 }
 
+// Optional self-declared facts: translated display labels; unknown values stay hidden.
+function dietLabel(value: unknown, te: boolean): string {
+  const v = String(value ?? "").trim().toLowerCase();
+  if (v === "vegetarian") return te ? "శాఖాహారం" : "Vegetarian";
+  if (v === "non-vegetarian") return te ? "మాంసాహారం" : "Non-vegetarian";
+  return String(value ?? "");
+}
+
+function profileForLabel(value: unknown, te: boolean): string {
+  const v = String(value ?? "").trim().toLowerCase();
+  if (v === "self") return te ? "నా కోసం నేనే" : "Myself";
+  if (v === "parents") return te ? "తల్లిదండ్రులు నమోదు చేసారు" : "Registered by parents";
+  return String(value ?? "");
+}
+
 const REPORT_REASONS = [
   { v: "fake_profile", en: "Fake profile", te: "నకిలీ ప్రొఫైల్" },
   { v: "advance_money", en: "Asked for advance money", te: "ముందు డబ్బు అడిగారు" },
@@ -369,6 +384,8 @@ export default function ProfileView() {
       maritalStatus: "వైవాహిక స్థితి",
       family: "కుటుంబ నేపథ్యం",
       dosham: "కుజ దోషం",
+      diet: "ఆహారపు అలవాటు",
+      listedBy: "ప్రొఫైల్ నమోదు",
       about: "సభ్యుడు అందించిన పరిచయం:",
       footer: "సభ్యులు అందించిన వివరాలు. స్వతంత్రంగా నిర్ధారించండి.",
       years: "సం.",
@@ -388,6 +405,8 @@ export default function ProfileView() {
       maritalStatus: "Marital status",
       family: "Family background",
       dosham: "Manglik status",
+      diet: "Diet",
+      listedBy: "Profile listed by",
       about: "Member-provided introduction:",
       footer: "Member-submitted details; verify independently.",
       years: "years",
@@ -438,6 +457,8 @@ export default function ProfileView() {
       <div class="item"><div class="label">${e(copy.maritalStatus)}</div><div class="val">${field(profile.marital_status)}</div></div>
       <div class="item"><div class="label">${e(copy.family)}</div><div class="val">${field(profile.family_type)} · ${field(profile.family_status)}</div></div>
       <div class="item"><div class="label">${e(copy.dosham)}</div><div class="val">${field(profile.dosham)}</div></div>
+      ${profileText(profile.diet, "") ? `<div class="item"><div class="label">${e(copy.diet)}</div><div class="val">${e(dietLabel(profile.diet, te))}</div></div>` : ""}
+      ${profileText(profile.profile_for, "") ? `<div class="item"><div class="label">${e(copy.listedBy)}</div><div class="val">${e(profileForLabel(profile.profile_for, te))}</div></div>` : ""}
     </div>
     ${profile.about_myself ? `<div class="about"><b>${e(copy.about)}</b> ${field(profile.about_myself, te ? "" : "English version not available.")}</div>` : ""}
     <div class="footer">
@@ -542,6 +563,8 @@ export default function ProfileView() {
                 [te ? "⭐ నక్షత్రం / రాశి (సూచన)" : "⭐ Nakshatra / moon sign (reference)", `${profileText(profile.star)} / ${profileText(profile.rasi)}`],
                 [te ? "💍 వైవాహిక స్థితి" : "💍 Marital status", profileText(profile.marital_status)],
                 ...(showChildrenDetail ? [[te ? "👶 పిల్లలు" : "👶 Children", displayChildren]] : []),
+                ...(profileText(profile.diet, "") ? [[te ? "🥗 ఆహారపు అలవాటు" : "🥗 Diet", dietLabel(profile.diet, te)]] : []),
+                ...(profileText(profile.profile_for, "") ? [[te ? "🙋 ప్రొఫైల్ నమోదు" : "🙋 Profile listed by", profileForLabel(profile.profile_for, te)]] : []),
                 [te ? "🕉️ గోత్రం (సూచన)" : "🕉️ Gothram (reference)", profileText(profile.gothram)],
                 [te ? "👨‍👩‍👧 కుటుంబం" : "👨‍👩‍👧 Family", `${profileText(profile.family_type)} · ${profileText(profile.family_status)}`],
                 [te ? "🧿 కుజ దోషం (సభ్యుడు నమోదు చేసిన reference)" : "🧿 Manglik status (member-entered reference)", profileText(profile.dosham)],

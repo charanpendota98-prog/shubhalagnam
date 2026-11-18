@@ -327,6 +327,9 @@ def safe_user(u: Optional[Dict]) -> Dict:
         "marital_status": u.get("marital_status", "—"),
         "children": "" if is_never_married_status(u.get("marital_status")) else u.get("children", ""),
         "physical_status": u.get("physical_status", ""),
+        # Optional self-declared facts; empty means the member never set them.
+        "profile_for": u.get("profile_for", ""),
+        "diet": u.get("diet", ""),
         "district": u.get("district", "—"),
         "state": u.get("state", ""),
         "work_location": u.get("work_location", ""),
