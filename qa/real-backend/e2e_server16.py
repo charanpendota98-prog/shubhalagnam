@@ -19,6 +19,8 @@ main.DB_USERS.extend([
     m("MVE2E00011", "Bride", "RangeMiss Sample", height="6'1\"", salary="₹2 - 3 Lakhs / year"),
     # Candidate with neither fact listed (rows stay absent; unknown stays unknown).
     m("MVE2E00012", "Bride", "RangeUnknown Sample", height="", salary=""),
+    # Candidate whose listed income range crosses the selected minimum.
+    m("MVE2E00013", "Bride", "RangeCross Sample", salary="₹4 - 6 Lakhs / year"),
 ])
 import json as _j
 _j.dump({"MVE2E00001": hardening.sign_token("MVE2E00001")}, open("/tmp/e2e_tokens16.json", "w"))

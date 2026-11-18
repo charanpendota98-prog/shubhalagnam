@@ -48,10 +48,11 @@ async function savePrefs(p) {
   await savePrefs(p);
   await p.goto(B + "/search/MVE2E00010", { waitUntil: "networkidle" }); await p.waitForTimeout(2500);
   const text = await bodyText(p);
-  expect(text.includes("listed height matches the saved preference"), "profile EN: height met note");
-  expect(text.includes("listed income matches the saved preference"), "profile EN: income met note");
+  expect(text.includes("within the saved range"), "profile EN: height met note with listed value + saved range");
+  expect(text.includes("the listed range meets the selected minimum income"), "profile EN: income met note with listed range + selected minimum");
   expect(!text.includes("listed state"), "profile EN: no state row for never-selected default states");
-  const card = p.locator("text=listed height matches").first();
+  expect(text.includes("Both profiles list Reddy for community."), "profile EN: shared-detail bullets stay English");
+  const card = p.locator("text=within the saved range").first();
   await card.scrollIntoViewIfNeeded(); await p.waitForTimeout(400);
   await p.screenshot({ path: O + "en-1280-profile-height-income-met.png" });
   await c.close();
@@ -65,11 +66,29 @@ async function savePrefs(p) {
   await savePrefs(p);
   await p.goto(B + "/search/MVE2E00011", { waitUntil: "networkidle" }); await p.waitForTimeout(2500);
   const text = await bodyText(p);
-  expect(text.includes("listed height differs from the saved preference"), "profile TE mobile: height differs note");
-  expect(text.includes("listed income differs from the saved preference"), "profile TE mobile: income differs note");
-  const card = p.locator("text=listed height differs").first();
+  expect(text.includes("వెలుపల ఉంది"), "profile TE mobile: Telugu height differs note");
+  expect(text.includes("కంటే తక్కువ"), "profile TE mobile: Telugu income-below note");
+  expect(!text.includes("differs from the saved preference"), "profile TE mobile: no English-only comparison sentences");
+  expect(text.includes("రెండు ప్రొఫైళ్లు"), "profile TE mobile: Telugu shared-detail bullets");
+  expect(!text.includes("Both profiles list"), "profile TE mobile: no English shared-detail bullets");
+  const card = p.locator("text=వెలుపల ఉంది").first();
   await card.scrollIntoViewIfNeeded(); await p.waitForTimeout(400);
   await p.screenshot({ path: O + "te-390-profile-height-income-differs.png" });
+  await c.close();
+}
+
+// ---------- 3b. Candidate whose listed range crosses the minimum: cannot determine ----------
+{
+  const c = await ctx("MVE2E00001", "en", 1280);
+  const p = await c.newPage();
+  await p.goto(B + "/matches", { waitUntil: "networkidle" }); await p.waitForTimeout(1500);
+  await savePrefs(p);
+  await p.goto(B + "/search/MVE2E00013", { waitUntil: "networkidle" }); await p.waitForTimeout(2500);
+  const text = await bodyText(p);
+  expect(text.includes("cannot be determined from the listed range"), "profile crossing: income marked cannot-determine, not differs");
+  expect(text.includes("₹4 - 6 Lakhs / year") && text.includes("₹5 - 7 Lakhs / year"), "profile crossing: listed range and selected minimum both shown");
+  await p.locator("text=cannot be determined").first().scrollIntoViewIfNeeded(); await p.waitForTimeout(400);
+  await p.screenshot({ path: O + "en-1280-profile-income-crossing.png" });
   await c.close();
 }
 

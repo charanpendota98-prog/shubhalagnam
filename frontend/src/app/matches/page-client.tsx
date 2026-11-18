@@ -1220,7 +1220,7 @@ export default function MatchesPage() {
               <div className="mt-2">
                 <p className="text-[10px] font-bold text-slate-500">{te ? "రెండు profiles లో నమోదు చేసిన వివరాలు (స్వతంత్రంగా నిర్ధారించండి)" : "Details listed by both profiles (verify independently)"}</p>
                 <ul className="mt-1 space-y-1 text-[11px] leading-5 text-slate-600">
-                  {row.observations.slice(0, 3).map((item: string, i: number) => <li key={i}>• {te ? item : apiDisplayMessage({ message_en: item }, false, "This detail is not available in English.")}</li>)}
+                  {row.observations.slice(0, 3).map((item: string, i: number) => <li key={i}>• {te ? ((Array.isArray(row.observations_te) && row.observations_te[i]) || item) : apiDisplayMessage({ message_en: item }, false, "This detail is not available in English.")}</li>)}
                 </ul>
               </div>
             ) : null}

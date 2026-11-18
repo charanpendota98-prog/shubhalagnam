@@ -3878,11 +3878,13 @@ def search_profile(tsap_id: str, viewer_id: Optional[str] = None, request: Reque
         raise HTTPException(404, "Approved active profile not found")
 
     # Compare only facts supplied by an authenticated member; never calculate a compatibility score.
-    observations, differences, preference_checks = [], [], []
+    observations, observations_te, differences, differences_te, preference_checks = [], [], [], [], []
     if viewer and str(viewer.get("tsap_id", "")) != str(user.get("tsap_id", "")):
         comparison = topmatch.score_match_v2(viewer, user)
         observations = comparison.get("observations", [])
+        observations_te = comparison.get("observations_te", [])
         differences = comparison.get("differences", [])
+        differences_te = comparison.get("differences_te", [])
         preference_checks = comparison.get("preferences", [])
 
     # Public profile response uses the explicit safe_user serializer; raw contact fields stay out.
@@ -3924,7 +3926,9 @@ def search_profile(tsap_id: str, viewer_id: Optional[str] = None, request: Reque
         "consent_note_telugu": "🔒 Contact details are not public. They become available in accepted-request account views after profile-owner acceptance; notification delivery is not guaranteed. Independently verify member-provided details.",
         "is_photo_blur": bool(private_photo and not is_owner),
         "observations": observations,
+        "observations_te": observations_te,
         "differences": differences,
+        "differences_te": differences_te,
         "preference_checks": preference_checks,
         "credits_needed": 1,
         "viewer_credits": viewer.get("credits") if viewer else None
@@ -4032,8 +4036,9 @@ def _evaluate_partner_preferences_match(user: dict, prefs: dict, candidate: dict
             raw = [raw] if raw else []
         return [str(value).strip() for value in raw if str(value).strip()]
 
-    def add_check(key: str, label: str, matches: bool, note: str) -> None:
-        checks.append({"key": key, "label": label, "status": "met" if matches else "not_met", "note": note})
+    def add_check(key: str, label: str, matches, note: str, note_te: str = "") -> None:
+        status = matches if isinstance(matches, str) else ("met" if matches else "not_met")
+        checks.append({"key": key, "label": label, "status": status, "note": note, "note_te": note_te or note})
 
     # Explicit age and community selections are hard filters; missing candidate data stays unknown.
     try:
@@ -4046,20 +4051,23 @@ def _evaluate_partner_preferences_match(user: dict, prefs: dict, candidate: dict
         age_ok = age_min <= cand_age <= age_max
         if not age_ok:
             return False, []
-        add_check("age", "Age range", True, f"Member-entered age {cand_age} is within the selected range ({age_min}–{age_max}).")
+        add_check("age", "Age range", True, f"Member-entered age {cand_age} is within the selected range ({age_min}–{age_max}).",
+                  f"సభ్యుడు నమోదు చేసిన వయస్సు {cand_age} ఎంచుకున్న పరిధిలో ({age_min}–{age_max}) ఉంది.")
 
     pref_castes = values("castes")
     cand_caste = str(candidate.get("caste") or "").strip()
     if pref_castes and not bool(prefs.get("caste_no_bar")) and cand_caste:
         if not _has_overlap(cand_caste, pref_castes):
             return False, []
-        add_check("caste", "Community", True, f"Candidate lists {cand_caste}, which is in the selected community options.")
+        add_check("caste", "Community", True, f"Candidate lists {cand_caste}, which is in the selected community options.",
+                  f"అభ్యర్థి వివరం {cand_caste}, ఎంచుకున్న కులం ఎంపికల్లో ఉంది.")
 
     pref_subcastes = values("sub_castes")
     cand_subcaste = str(candidate.get("sub_caste") or "").strip()
     if pref_subcastes and cand_subcaste:
         add_check("sub_caste", "Sub-community", _has_overlap(cand_subcaste, pref_subcastes),
-                  f"Candidate lists {cand_subcaste}; compare it with the selected sub-community options.")
+                  f"Candidate lists {cand_subcaste}; compare it with the selected sub-community options.",
+                  f"అభ్యర్థి వివరం {cand_subcaste}; దానిని ఎంచుకున్న ఉపకులం ఎంపికలతో పోల్చండి.")
 
     pref_marital = values("marital_statuses")
     cand_marital = str(candidate.get("marital_status") or "").strip()
@@ -4068,7 +4076,8 @@ def _evaluate_partner_preferences_match(user: dict, prefs: dict, candidate: dict
         if not any_status and not _has_overlap(cand_marital, pref_marital):
             return False, []
         add_check("marital_status", "Marital status", True,
-                  f"Candidate lists {cand_marital}, within the selected marital-status options.")
+                  f"Candidate lists {cand_marital}, within the selected marital-status options.",
+                  f"అభ్యర్థి వివరం {cand_marital}, ఎంచుకున్న వైవాహిక స్థితి ఎంపికల్లో ఉంది.")
 
     # Diet is a factual check against the candidate's own self-declared diet;
     # an unset candidate diet stays unknown (never inferred) and earns no check.
@@ -4076,7 +4085,8 @@ def _evaluate_partner_preferences_match(user: dict, prefs: dict, candidate: dict
     cand_diet = str(candidate.get("diet") or "").strip()
     if pref_diet and pref_diet.casefold() not in {"any", "all", "ఏదైనా"} and cand_diet:
         add_check("diet", "Diet", pref_diet.casefold() == cand_diet.casefold(),
-                  f"Candidate lists {cand_diet}; compare it with the selected diet preference ({pref_diet}).")
+                  f"Candidate lists {cand_diet}; compare it with the selected diet preference ({pref_diet}).",
+                  f"అభ్యర్థి ఆహారపు అలవాటు {cand_diet}; దానిని ఎంచుకున్న ఆహారపు అలవాటు ప్రాధాన్యతతో ({pref_diet}) పోల్చండి.")
 
     # Height range: informational check against the candidate's own listed
     # height; an unset candidate height stays unknown and earns no check.
@@ -4089,16 +4099,28 @@ def _evaluate_partner_preferences_match(user: dict, prefs: dict, candidate: dict
         height_met = (not lo_cm or cand_height_cm >= lo_cm) and (not hi_cm or cand_height_cm <= hi_cm)
         bound = f"{pref_hmin or 'any'}–{pref_hmax or 'any'}"
         add_check("height", "Height range", height_met,
-                  f"Candidate lists {candidate.get('height')}; compare it with the selected height range ({bound}).")
+                  f"Candidate lists height {candidate.get('height')}; it is {'within' if height_met else 'outside'} the selected range ({bound}).",
+                  f"అభ్యర్థి ఎత్తు {candidate.get('height')}; ఎంచుకున్న పరిధి ({bound}) {'లోపల' if height_met else 'వెలుపల'} ఉంది.")
 
-    # Minimum income: the candidate's listed range lower bound against the
-    # selected minimum. Unset or unreadable salary stays unknown (no check).
+    # Minimum income: intervals compared conservatively — definitely meets only
+    # when the entire listed range meets the minimum, definitely below only when
+    # the entire range is below it; a crossing range cannot be determined from
+    # the listed range. Unknown/Any/not-disclosed earns no check.
     pref_salary = str(prefs.get("min_salary") or "").strip()
-    salary_threshold = QUALITY.salary_label_min_rupees(pref_salary)
-    cand_salary_min = QUALITY.salary_label_min_rupees(candidate.get("salary"))
-    if salary_threshold and cand_salary_min:
-        add_check("min_salary", "Minimum income", cand_salary_min >= salary_threshold,
-                  f"Candidate lists {candidate.get('salary')}; compare it with the selected minimum income ({pref_salary}).")
+    cand_salary = str(candidate.get("salary") or "").strip()
+    income_verdict = QUALITY.income_range_comparison(cand_salary, pref_salary)
+    if income_verdict == "met":
+        add_check("min_salary", "Minimum income", True,
+                  f"Candidate lists {cand_salary}; the listed range meets the selected minimum income ({pref_salary}).",
+                  f"అభ్యర్థి ఆదాయ వివరం {cand_salary}; జాబితా పరిధి ఎంచుకున్న కనిష్ఠ ఆదాయానికి ({pref_salary}) సరిపోతుంది.")
+    elif income_verdict == "below":
+        add_check("min_salary", "Minimum income", False,
+                  f"Candidate lists {cand_salary}; the entire listed range is below the selected minimum income ({pref_salary}).",
+                  f"అభ్యర్థి ఆదాయ వివరం {cand_salary}; జాబితా పరిధి మొత్తం ఎంచుకున్న కనిష్ఠ ఆదాయం ({pref_salary}) కంటే తక్కువ.")
+    elif income_verdict == "unclear":
+        add_check("min_salary", "Minimum income", "unknown",
+                  f"Candidate lists {cand_salary}; the listed range crosses the selected minimum income ({pref_salary}), so it cannot be determined from the listed range.",
+                  f"అభ్యర్థి ఆదాయ వివరం {cand_salary}; జాబితా పరిధి ఎంచుకున్న కనిష్ఠ ఆదాయం ({pref_salary}) వద్ద దాటుతుంది, కాబట్టి జాబితా పరిధి నుండి నిర్ణయించలేము.")
 
     # States evaluate only when the member explicitly selected them; the stored
     # default (TS/AP) is not a member choice and earns no check.
@@ -4107,19 +4129,21 @@ def _evaluate_partner_preferences_match(user: dict, prefs: dict, candidate: dict
     if prefs.get("states_explicit") and pref_states and cand_state:
         state_met = any(cand_state.casefold() == str(s).casefold() for s in pref_states)
         add_check("states", "State", state_met,
-                  f"Candidate lists {cand_state}; compare it with the selected state options ({', '.join(pref_states)}).")
+                  f"Candidate lists {cand_state}; compare it with the selected state options ({', '.join(pref_states)}).",
+                  f"అభ్యర్థి రాష్ట్రం {cand_state}; దానిని ఎంచుకున్న రాష్ట్ర ఎంపికలతో ({', '.join(pref_states)}) పోల్చండి.")
 
     # These are informational checks, not weighted or hidden ranking points.
-    for key, label, profile_key in (
-        ("educations", "Education", "education"),
-        ("jobs", "Profession", "job"),
-        ("districts", "District", "district"),
+    for key, label, profile_key, label_te in (
+        ("educations", "Education", "education", "విద్య"),
+        ("jobs", "Profession", "job", "వృత్తి"),
+        ("districts", "District", "district", "జిల్లా"),
     ):
         requested, listed = values(key), str(candidate.get(profile_key) or "").strip()
         if requested and listed:
             matched = _has_overlap(listed, requested)
             add_check(key, label, matched,
-                      f"Candidate lists {listed}; {'it is included in' if matched else 'it is not included in'} the selected {label.lower()} options.")
+                      f"Candidate lists {listed}; {'it is included in' if matched else 'it is not included in'} the selected {label.lower()} options.",
+                      f"అభ్యర్థి వివరం {listed}; ఇది ఎంచుకున్న {label_te} ఎంపికల్లో {'ఉంది' if matched else 'లేదు'}.")
 
     return True, checks
 
@@ -4792,7 +4816,9 @@ def get_matches(tsap_id: str, min_score: int = 70, limit: int = 20, caste_filter
             if profile.get("photo_status") == "approved" and not private_photo else []
         row.update({
             "observations": match.get("observations", []),
+            "observations_te": match.get("observations_te", []),
             "differences": match.get("differences", []),
+            "differences_te": match.get("differences_te", []),
             "preference_checks": match.get("preferences", []),
             "has_photo": bool(public_photo_values),
             "photo_urls": public_photo_values,

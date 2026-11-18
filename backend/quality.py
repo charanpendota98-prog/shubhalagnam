@@ -370,29 +370,78 @@ def _height_cm(value: Any) -> int:
     return int(m.group(1)) * 30 if m else 0
 
 
-def salary_label_min_rupees(label: Any) -> int:
-    """Lower bound of a listed salary range label, in rupees (unknown = 0).
+def _salary_label_amounts(text: str) -> List[float]:
+    """Every amount in a salary label, in rupees, in order.
 
-    Handles the catalog labels members choose ("₹5 - 7 Lakhs / year",
-    "₹1 Crore - ₹1.5 Crore / year", "₹50+ Lakhs (NRI / High Networth)")
-    and legacy free-text values ("10 LPA", "60k"). "Under ₹1 Lakh /
-    Not Disclosed" parses as 1 lakh; it is never a selectable threshold.
+    A unit stated once at the end of a range applies to the whole range
+    ("₹5 - 7 Lakhs" = 5L-7L); per-number units win ("₹75 Lakhs - ₹1 Crore").
+    """
+    text = text.casefold()
+    matches = list(re.finditer(r"(\d+(?:\.\d+)?)", text))
+    tokens: List[List[Any]] = []
+    for i, m in enumerate(matches):
+        end = matches[i + 1].start() if i + 1 < len(matches) else len(text)
+        seg = text[m.end():end][:14]
+        if "crore" in seg or "కోట" in seg:
+            unit = "crore"
+        elif re.match(r"\s*k\b", seg):
+            unit = "k"
+        elif re.search(r"lakhs?|lpa|లక్ష", seg):
+            unit = "lakh"
+        else:
+            unit = ""
+        tokens.append([float(m.group(1)), unit])
+    resolved: List[float] = []
+    next_unit = "lakh"  # catalog labels and "LPA" are lakh-denominated
+    for amount, unit in reversed(tokens):
+        next_unit = unit or next_unit
+        factor = {"crore": 10_000_000, "k": 1_000, "lakh": 100_000}[next_unit]
+        resolved.append(amount * factor)
+    resolved.reverse()
+    return resolved
+
+
+def salary_label_range_rupees(label: Any) -> tuple:
+    """(min_rupees, max_rupees) for a listed salary label.
+
+    max is None for open-ended labels ("₹50+ Lakhs"). (0, None) when the
+    label is unknown, "Any" or not-disclosed — never fabricate a figure.
     """
     text = str(label or "").strip().casefold()
-    if not text or text in {"any", "all", "ఏదైనా"}:
-        return 0
-    m = re.search(r"(\d+(?:\.\d+)?)", text)
-    if not m:
-        return 0
-    amount = float(m.group(1))
-    tail = text[m.end():m.end() + 12]
-    if "crore" in tail or "కోట" in tail:
-        rupees = amount * 10_000_000
-    elif re.match(r"\s*k\b", tail):
-        rupees = amount * 1_000
-    else:
-        rupees = amount * 100_000  # catalog labels and "LPA" are lakh-denominated
-    return int(rupees)
+    if not text or text in {"any", "all", "ఏదైనా"} or "not disclosed" in text or "వర్తించదు" in text:
+        return 0, None
+    amounts = _salary_label_amounts(text)
+    if not amounts:
+        return 0, None
+    hi = None if "+" in text else int(amounts[-1])
+    return int(amounts[0]), hi
+
+
+def salary_label_min_rupees(label: Any) -> int:
+    """Lower bound of a listed salary range label, in rupees (unknown = 0)."""
+    lo, _hi = salary_label_range_rupees(label)
+    return lo
+
+
+def income_range_comparison(candidate_label: Any, preference_label: Any) -> Optional[str]:
+    """Compare a candidate's listed income range with a selected minimum.
+
+    Returns "met" when the entire listed range meets the minimum, "below"
+    when the entire listed range is below it, "unclear" when the range
+    crosses the minimum (cannot be determined from the listed range), or
+    None when either side is unknown/Any/not-disclosed (no comparison).
+    """
+    threshold = salary_label_min_rupees(preference_label)
+    if not threshold:
+        return None
+    cmin, cmax = salary_label_range_rupees(candidate_label)
+    if not cmin:
+        return None
+    if cmin >= threshold:
+        return "met"
+    if cmax is not None and cmax < threshold:
+        return "below"
+    return "unclear"
 
 
 def _filter_terms(value: Any) -> List[str]:

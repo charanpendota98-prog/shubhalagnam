@@ -83,6 +83,8 @@ main.DB_USERS.extend([
     member("MVPRC00010"),                                            # within range / above minimum
     member("MVPRC00011", height="6'1\"", salary="₹2 - 3 Lakhs / year", state="AP"),
     member("MVPRC00012", height="", salary=""),                      # unknown stays unknown
+    member("MVPRC00013", salary="₹4 - 6 Lakhs / year"),              # listed range crosses the minimum
+    member("MVPRC00014", salary="Under ₹1 Lakh / Not Disclosed"),    # not-disclosed earns no check
 ])
 
 
@@ -117,6 +119,23 @@ class MinSalaryCheck(unittest.TestCase):
     def test_unset_candidate_salary_no_check(self):
         self.assertNotIn("min_salary", checks_for("MVPRC00001", "MVPRC00012"))
 
+    def test_crossing_range_cannot_be_determined(self):
+        # A listed range crossing the minimum is neither met nor below.
+        check = checks_for("MVPRC00001", "MVPRC00013")["min_salary"]
+        self.assertEqual(check["status"], "unknown")
+        self.assertIn("cannot be determined from the listed range", check["note"])
+        self.assertIn("₹4 - 6 Lakhs / year", check["note"])
+        self.assertIn("₹5 - 7 Lakhs / year", check["note"])
+
+    def test_not_disclosed_salary_no_check(self):
+        self.assertNotIn("min_salary", checks_for("MVPRC00001", "MVPRC00014"))
+
+    def test_checks_carry_telugu_notes(self):
+        checks = checks_for("MVPRC00001", "MVPRC00011")
+        self.assertIn("వెలుపల", checks["height"]["note_te"])
+        self.assertIn("కంటే తక్కువ", checks["min_salary"]["note_te"])
+        self.assertIn("ఎంచుకున్న", checks["age"]["note_te"])
+
     def test_any_salary_no_check(self):
         assert save_prefs("MVPRC00001", min_salary="Any").status_code == 200
         self.assertNotIn("min_salary", checks_for("MVPRC00001", "MVPRC00010"))
@@ -150,6 +169,23 @@ class SalaryLabelParser(unittest.TestCase):
         self.assertEqual(quality.salary_label_min_rupees("Any"), 0)
         self.assertEqual(quality.salary_label_min_rupees(""), 0)
 
+    def test_ranges_and_unknowns(self):
+        self.assertEqual(quality.salary_label_range_rupees("₹5 - 7 Lakhs / year"), (500000, 700000))
+        self.assertEqual(quality.salary_label_range_rupees("₹50+ Lakhs (NRI / High Networth)"), (5000000, None))
+        self.assertEqual(quality.salary_label_range_rupees("₹75 Lakhs - ₹1 Crore / year"), (7500000, 10000000))
+        self.assertEqual(quality.salary_label_range_rupees("10 LPA"), (1000000, 1000000))
+        self.assertEqual(quality.salary_label_range_rupees("Under ₹1 Lakh / Not Disclosed"), (0, None))
+
+    def test_comparison_verdicts(self):
+        pref = "₹5 - 7 Lakhs / year"
+        self.assertEqual(quality.income_range_comparison("₹10 - 12 Lakhs / year", pref), "met")
+        self.assertEqual(quality.income_range_comparison("₹2 - 3 Lakhs / year", pref), "below")
+        self.assertEqual(quality.income_range_comparison("₹4 - 6 Lakhs / year", pref), "unclear")
+        self.assertEqual(quality.income_range_comparison("₹50+ Lakhs (NRI / High Networth)", "₹50+ Lakhs (NRI / High Networth)"), "met")
+        self.assertIsNone(quality.income_range_comparison("", pref))
+        self.assertIsNone(quality.income_range_comparison("₹10 - 12 Lakhs / year", "Any"))
+        self.assertIsNone(quality.income_range_comparison("Under ₹1 Lakh / Not Disclosed", pref))
+
 
 class ExpFiltersHandoff(unittest.TestCase):
     def test_handoff_carries_height_and_salary(self):
@@ -172,6 +208,13 @@ class ExpFiltersHandoff(unittest.TestCase):
         unknown = {r["key"] for r in topmatch.score_match_v2(viewer, member("MVPRC00022", height="", salary=""))["preferences"]}
         self.assertNotIn("height", unknown)
         self.assertNotIn("min_salary", unknown)
+
+    def test_topmatch_crossing_range_unknown_and_telugu(self):
+        viewer = main._find_user("MVPRC00001")
+        rows = {r["key"]: r for r in topmatch.score_match_v2(viewer, member("MVPRC00025", salary="₹4 - 6 Lakhs / year"))["preferences"]}
+        self.assertEqual(rows["min_salary"]["status"], "unknown")
+        self.assertIn("నిర్ణయించలేము", rows["min_salary"]["note_te"])
+        self.assertIn("లోపల", rows["height"]["note_te"])
 
     def test_topmatch_explicit_states_row(self):
         assert save_prefs("MVPRC00001", states=["AP"]).status_code == 200

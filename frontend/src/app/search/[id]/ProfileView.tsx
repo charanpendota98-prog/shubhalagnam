@@ -595,12 +595,12 @@ export default function ProfileView() {
                 </p>
                 {Array.isArray(data.observations) && data.observations.length > 0 && (
                   <ul className="mt-2 list-disc space-y-1 pl-5 text-[12px] text-slate-700">
-                    {data.observations.slice(0, 4).map((item: string, i: number) => <li key={`observation-${i}`}>{te ? item : apiDisplayMessage(item, false, "This detail is not available in English.")}</li>)}
+                    {data.observations.slice(0, 4).map((item: string, i: number) => <li key={`observation-${i}`}>{te ? ((Array.isArray(data.observations_te) && data.observations_te[i]) || item) : apiDisplayMessage(item, false, "This detail is not available in English.")}</li>)}
                   </ul>
                 )}
                 {Array.isArray(data.differences) && data.differences.length > 0 && (
                   <ul className="mt-2 list-disc space-y-1 pl-5 text-[12px] text-slate-700">
-                    {data.differences.slice(0, 4).map((item: string, i: number) => <li key={`difference-${i}`}>{te ? item : apiDisplayMessage(item, false, "This detail is not available in English.")}</li>)}
+                    {data.differences.slice(0, 4).map((item: string, i: number) => <li key={`difference-${i}`}>{te ? ((Array.isArray(data.differences_te) && data.differences_te[i]) || item) : apiDisplayMessage(item, false, "This detail is not available in English.")}</li>)}
                   </ul>
                 )}
                 {Array.isArray(data.preference_checks) && data.preference_checks.length > 0 && (
