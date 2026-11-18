@@ -410,6 +410,14 @@ def salary_label_range_rupees(label: Any) -> tuple:
     text = str(label or "").strip().casefold()
     if not text or text in {"any", "all", "ఏదైనా"} or "not disclosed" in text or "వర్తించదు" in text:
         return 0, None
+    # The member field offers only annual lakh/crore catalog labels ("వార్షిక
+    # వేతనం", "/ year"). A "k" label (e.g. "60k") states no period and is a
+    # common monthly shorthand — never assume monthly or annual; stay unknown.
+    if re.search(r"\d\s*k\b", text):
+        return 0, None
+    # A label with no unit anywhere has no grounded scale either.
+    if not re.search(r"lakhs?|lpa|crore|లక్ష|కోట", text):
+        return 0, None
     amounts = _salary_label_amounts(text)
     if not amounts:
         return 0, None

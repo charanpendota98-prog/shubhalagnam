@@ -85,6 +85,7 @@ main.DB_USERS.extend([
     member("MVPRC00012", height="", salary=""),                      # unknown stays unknown
     member("MVPRC00013", salary="₹4 - 6 Lakhs / year"),              # listed range crosses the minimum
     member("MVPRC00014", salary="Under ₹1 Lakh / Not Disclosed"),    # not-disclosed earns no check
+    member("MVPRC00015", salary="60k"),                              # period not stated, stays unknown
 ])
 
 
@@ -130,6 +131,9 @@ class MinSalaryCheck(unittest.TestCase):
     def test_not_disclosed_salary_no_check(self):
         self.assertNotIn("min_salary", checks_for("MVPRC00001", "MVPRC00014"))
 
+    def test_ambiguous_period_salary_no_check(self):
+        self.assertNotIn("min_salary", checks_for("MVPRC00001", "MVPRC00015"))
+
     def test_checks_carry_telugu_notes(self):
         checks = checks_for("MVPRC00001", "MVPRC00011")
         self.assertIn("వెలుపల", checks["height"]["note_te"])
@@ -165,9 +169,14 @@ class SalaryLabelParser(unittest.TestCase):
         self.assertEqual(quality.salary_label_min_rupees("₹1 Crore - ₹1.5 Crore / year"), 10000000)
         self.assertEqual(quality.salary_label_min_rupees("₹75 Lakhs - ₹1 Crore / year"), 7500000)
         self.assertEqual(quality.salary_label_min_rupees("10 LPA"), 1000000)
-        self.assertEqual(quality.salary_label_min_rupees("60k"), 60000)
         self.assertEqual(quality.salary_label_min_rupees("Any"), 0)
         self.assertEqual(quality.salary_label_min_rupees(""), 0)
+
+    def test_ambiguous_period_or_unit_stays_unknown(self):
+        # "60k" states no period (monthly or annual) — never assume either.
+        self.assertEqual(quality.salary_label_range_rupees("60k"), (0, None))
+        # A label with no unit anywhere has no grounded scale.
+        self.assertEqual(quality.salary_label_range_rupees("5 - 7"), (0, None))
 
     def test_ranges_and_unknowns(self):
         self.assertEqual(quality.salary_label_range_rupees("₹5 - 7 Lakhs / year"), (500000, 700000))
