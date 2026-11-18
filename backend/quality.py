@@ -366,7 +366,13 @@ def _height_cm(value: Any) -> int:
     m = re.match(r"^(\d)[.](\d)$", s)          # 5.6 feet.inches (matrimony style)
     if m:
         return int(round((int(m.group(1)) * 12 + int(m.group(2))) * 2.54))
-    m = re.search(r"(\d)", s)
+    m = re.match(r"^(\d)\s*(?:ft|feet)\s*(\d{1,2})?\s*(?:in(?:ch(?:es)?)?)?\s*$", s)  # "5 ft 6 in" / "5ft 6in" / "5 ft"
+    if m:
+        inches = int(m.group(2)) if m.group(2) else 0
+        return int(round((int(m.group(1)) * 12 + inches) * 2.54))
+    # Last resort: a single bare digit is a feet value ("6" = 6 ft). Anything
+    # longer without a unit ("170") is ambiguous - unknown, never a guess.
+    m = re.fullmatch(r"(\d)", s)
     return int(m.group(1)) * 30 if m else 0
 
 
