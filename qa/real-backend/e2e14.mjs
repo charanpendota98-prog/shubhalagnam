@@ -71,10 +71,11 @@ for (const lang of ["en", "te"]) {
   const text = await bodyText(p);
   if (lang === "en") {
     expect(text.includes("Diet") && text.includes("Vegetarian"), "profile EN: diet row shown");
-    expect(text.includes("Profile listed by") && text.includes("Registered by parents"), "profile EN: listed-by row shown");
+    expect(text.includes("Listed by (self-reported)") && text.includes("Parents"), "profile EN: self-reported listed-by row shown");
+    expect(!text.includes("Registered by parents"), "profile EN: no verified-actor wording");
   } else {
     expect(text.includes("ఆహారపు అలవాటు") && text.includes("శాఖాహారం"), "profile TE: diet row shown in Telugu");
-    expect(text.includes("తల్లిదండ్రులు నమోదు చేసారు"), "profile TE: listed-by row shown in Telugu");
+    expect(text.includes("ప్రొఫైల్ చేర్చినది (స్వయం ప్రకటిత)") && text.includes("తల్లిదండ్రులు"), "profile TE: self-reported listed-by row shown in Telugu");
   }
   await p.screenshot({ path: O + `${lang}-1280-profile-selfdeclared.png` });
   await c.close();
@@ -86,7 +87,7 @@ for (const lang of ["en", "te"]) {
   const p = await c.newPage();
   await p.goto(B + "/search/MVE2E00006", { waitUntil: "networkidle" }); await p.waitForTimeout(2500);
   const text = await bodyText(p);
-  expect(!text.includes("Diet") && !text.includes("Profile listed by"), "profile unset: no diet/listed-by rows (unknown stays unknown)");
+  expect(!text.includes("Diet") && !text.includes("Listed by (self-reported)"), "profile unset: no diet/listed-by rows (unknown stays unknown)");
   await c.close();
 }
 
@@ -125,7 +126,7 @@ for (const lang of ["en", "te"]) {
   await popup.waitForLoadState("domcontentloaded"); await popup.waitForTimeout(800);
   const html = await popup.content();
   expect(html.includes("Diet") && html.includes("Vegetarian"), "biodata: diet row printed when set");
-  expect(html.includes("Profile listed by") && html.includes("Registered by parents"), "biodata: listed-by row printed when set");
+  expect(html.includes("Listed by (self-reported)") && html.includes("Parents"), "biodata: self-reported listed-by row printed when set");
   expect((await popup.evaluate(() => window.__prints || 0)) >= 1, "biodata: print invoked");
   await popup.close();
   await p.goto(B + "/search/MVE2E00006", { waitUntil: "networkidle" }); await p.waitForTimeout(2500);
@@ -135,7 +136,7 @@ for (const lang of ["en", "te"]) {
   ]);
   await popup2.waitForLoadState("domcontentloaded"); await popup2.waitForTimeout(800);
   const html2 = await popup2.content();
-  expect(!html2.includes(">Diet<") && !html2.includes("Profile listed by"), "biodata: rows omitted when unset");
+  expect(!html2.includes(">Diet<") && !html2.includes("Listed by (self-reported)"), "biodata: rows omitted when unset");
   await popup2.close();
   await c.close();
 }

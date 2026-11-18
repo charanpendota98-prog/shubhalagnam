@@ -63,7 +63,7 @@ function dietLabel(value: unknown, te: boolean): string {
 function profileForLabel(value: unknown, te: boolean): string {
   const v = String(value ?? "").trim().toLowerCase();
   if (v === "self") return te ? "నా కోసం నేనే" : "Myself";
-  if (v === "parents") return te ? "తల్లిదండ్రులు నమోదు చేసారు" : "Registered by parents";
+  if (v === "parents") return te ? "తల్లిదండ్రులు" : "Parents";
   return String(value ?? "");
 }
 
@@ -385,7 +385,7 @@ export default function ProfileView() {
       family: "కుటుంబ నేపథ్యం",
       dosham: "కుజ దోషం",
       diet: "ఆహారపు అలవాటు",
-      listedBy: "ప్రొఫైల్ నమోదు",
+      listedBy: "ప్రొఫైల్ చేర్చినది (స్వయం ప్రకటిత)",
       about: "సభ్యుడు అందించిన పరిచయం:",
       footer: "సభ్యులు అందించిన వివరాలు. స్వతంత్రంగా నిర్ధారించండి.",
       years: "సం.",
@@ -406,7 +406,7 @@ export default function ProfileView() {
       family: "Family background",
       dosham: "Manglik status",
       diet: "Diet",
-      listedBy: "Profile listed by",
+      listedBy: "Listed by (self-reported)",
       about: "Member-provided introduction:",
       footer: "Member-submitted details; verify independently.",
       years: "years",
@@ -564,7 +564,7 @@ export default function ProfileView() {
                 [te ? "💍 వైవాహిక స్థితి" : "💍 Marital status", profileText(profile.marital_status)],
                 ...(showChildrenDetail ? [[te ? "👶 పిల్లలు" : "👶 Children", displayChildren]] : []),
                 ...(profileText(profile.diet, "") ? [[te ? "🥗 ఆహారపు అలవాటు" : "🥗 Diet", dietLabel(profile.diet, te)]] : []),
-                ...(profileText(profile.profile_for, "") ? [[te ? "🙋 ప్రొఫైల్ నమోదు" : "🙋 Profile listed by", profileForLabel(profile.profile_for, te)]] : []),
+                ...(profileText(profile.profile_for, "") ? [[te ? "🙋 ప్రొఫైల్ చేర్చినది (స్వయం ప్రకటిత)" : "🙋 Listed by (self-reported)", profileForLabel(profile.profile_for, te)]] : []),
                 [te ? "🕉️ గోత్రం (సూచన)" : "🕉️ Gothram (reference)", profileText(profile.gothram)],
                 [te ? "👨‍👩‍👧 కుటుంబం" : "👨‍👩‍👧 Family", `${profileText(profile.family_type)} · ${profileText(profile.family_status)}`],
                 [te ? "🧿 కుజ దోషం (సభ్యుడు నమోదు చేసిన reference)" : "🧿 Manglik status (member-entered reference)", profileText(profile.dosham)],

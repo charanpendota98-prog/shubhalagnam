@@ -1960,7 +1960,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
               </select>
             </div>
             <div>
-              <label htmlFor="me-profile_for" className="font-bold text-slate-800 block mb-1">{T("ఈ ప్రొఫైల్ ఎవరి కోసం (ఐచ్ఛికం)", "This profile is for (optional)")}:</label>
+              <label htmlFor="me-profile_for" className="font-bold text-slate-800 block mb-1">{T("ఈ ప్రొఫైల్ ఎవరు చేర్చారు (ఐచ్ఛికం)", "This profile is listed by (optional)")}:</label>
               <select id="me-profile_for"
                 value={profile.profile_for || ""}
                 onChange={(e) => setField("profile_for", e.target.value)}
@@ -1968,7 +1968,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
               >
                 <option value="">{T("ఎంచుకోండి / తెలియజేయలేదు", "Select / not specified")}</option>
                 <option value="Self">{T("నా కోసం నేనే", "Myself")}</option>
-                <option value="Parents">{T("తల్లిదండ్రులు నమోదు చేస్తున్నారు", "Registered by parents")}</option>
+                <option value="Parents">{T("తల్లిదండ్రులు", "Parents")}</option>
               </select>
               <p className="mt-1 text-[11px] text-slate-500">{T("ఎంచుకుంటే ఇది మీ పబ్లిక్ ప్రొఫైల్‌లో కనిపిస్తుంది.", "If selected, this is shown on your public profile.")}</p>
             </div>

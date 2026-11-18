@@ -209,12 +209,12 @@ FILTER_KEYS = [
     "marital_status", "children", "religion", "age_min", "age_max", "salary_min",
     "salary_max", "height_min", "height_max", "verified_only", "photo_only", "nri_only",
     "dosham", "star", "rasi", "q",
-    "mother_tongue", "country", "city", "verification_level", "family_type",
+    "mother_tongue", "country", "city", "verification_level", "family_type", "diet",
 ]
 MULTI_FILTER_KEYS = {
     "caste", "sub_caste", "district", "state", "job", "education", "marital_status",
     "religion", "star", "rasi", "dosham", "mother_tongue", "country", "city",
-    "verification_level", "family_type",
+    "verification_level", "family_type", "diet",
 }
 BOOLEAN_FILTER_KEYS = {"verified_only", "photo_only", "nri_only"}
 
@@ -556,6 +556,10 @@ def matches_filters(user: Dict[str, Any], filters: Dict[str, Any]) -> bool:
             return False
     family_terms = _filter_terms(f.get("family_type"))
     if family_terms and str(u.get("family_type") or "").strip().casefold() not in family_terms:
+        return False
+    diet_terms = _filter_terms(f.get("diet"))
+    # Members who never set a diet stay unknown and never match a diet selection.
+    if diet_terms and str(u.get("diet") or "").strip().casefold() not in diet_terms:
         return False
     level_terms = {term.strip().lower() for term in str(f.get("verification_level") or "").split(",") if term.strip()}
     if level_terms:

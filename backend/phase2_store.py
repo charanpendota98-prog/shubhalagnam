@@ -688,6 +688,10 @@ def compute_saved_search_digest(
                     continue
             if flt.get("state") and str(u.get("state") or "").strip().upper() != str(flt["state"]).strip().upper():
                 continue
+            if flt.get("diet"):
+                wanted_diet = {x.strip().lower() for x in str(flt["diet"]).split(",") if x.strip()}
+                if wanted_diet and str(u.get("diet") or "").strip().lower() not in wanted_diet:
+                    continue
             matched.append(
                 {
                     "tsap_id": u.get("tsap_id"),

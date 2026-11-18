@@ -2374,7 +2374,7 @@ function Wizard() {
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div className="space-y-1.5">
-                        <label htmlFor="full-profile_for" className="text-xs font-bold text-slate-800">{T("ఈ ప్రొఫైల్ ఎవరి కోసం (ఐచ్ఛికం)", "This profile is for (optional)")}</label>
+                        <label htmlFor="full-profile_for" className="text-xs font-bold text-slate-800">{T("ఈ ప్రొఫైల్ ఎవరు చేర్చారు (ఐచ్ఛికం)", "This profile is listed by (optional)")}</label>
                         <select
                           id="full-profile_for"
                           value={f.profile_for}
@@ -2383,7 +2383,7 @@ function Wizard() {
                         >
                           <option value="">{T("ఎంచుకోండి / తెలియజేయలేదు", "Select / not specified")}</option>
                           <option value="Self">{T("నా కోసం నేనే", "Myself")}</option>
-                          <option value="Parents">{T("తల్లిదండ్రులు నమోదు చేస్తున్నారు", "Registered by parents")}</option>
+                          <option value="Parents">{T("తల్లిదండ్రులు", "Parents")}</option>
                         </select>
                         <p className="text-[11px] text-slate-500">{T("ఎంచుకుంటే ఇది మీ పబ్లిక్ ప్రొఫైల్‌లో కనిపిస్తుంది.", "If selected, this is shown on your public profile.")}</p>
                       </div>

@@ -33,6 +33,7 @@ export const DEFAULT_MATCH_FILTERS = {
   city: "",
   verification_level: "",
   family_type: "",
+  diet: "",
   min_completeness: 0,
   exclude_viewed: false,
   exclude_interested: false,
@@ -55,6 +56,7 @@ const MULTI_VALUE_FIELDS = new Set([
   "dosham",
   "verification_level",
   "family_type",
+  "diet",
   "mother_tongue",
 ]);
 const FILTER_KEYS = new Set(Object.keys(DEFAULT_MATCH_FILTERS));

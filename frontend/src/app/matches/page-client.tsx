@@ -48,7 +48,7 @@ import {
 import { SITE_CONFIG } from "@/lib/site-config";
 import { DEFAULT_MATCH_FILTERS, parseMatchFilters } from "@/lib/match-filter-query.mjs";
 import { REASON_DISCLAIMER, matchReasons, relaxSuggestions, widenedAgeLabel } from "@/lib/match-reasons.mjs";
-import { summarizeSavedSearch } from "@/lib/saved-search-summary.mjs";
+import { dietSummary, summarizeSavedSearch } from "@/lib/saved-search-summary.mjs";
 import ProfileRail from "@/components/ProfileRail";
 import { mergeMatchPages } from "@/lib/match-results.mjs";
 import QuickLead from "@/components/QuickLead";
@@ -657,6 +657,7 @@ export default function MatchesPage() {
     const extraChips: [string, boolean, string][] = [
       ["mother_tongue", Boolean(filters.mother_tongue), `🗣️ ${filters.mother_tongue}`],
       ["family_type", Boolean(filters.family_type), `🏠 ${filters.family_type}`],
+      ["diet", Boolean(filters.diet), `🥗 ${dietSummary(filters.diet, te)}`],
       ["city", Boolean(filters.city), `📍 ${filters.city}`],
       ["country", Boolean(filters.country), `🌍 ${filters.country}`],
       ["verification_level", Boolean(filters.verification_level), te ? "ధృవీకరణ రికార్డు ఎంపిక" : "Verification record chosen"],
@@ -1677,6 +1678,15 @@ export default function MatchesPage() {
                 </select>
               </div>
               <div>
+                <label className="block font-black text-slate-800 mb-1">🥗 {te ? "ఆహారపు అలవాటు" : "Diet"}:</label>
+                <select aria-label={te ? "ఆహారపు అలవాటు" : "Diet"} value={filters.diet || ""} onChange={(e) => setF("diet", e.target.value)} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-1.5 font-bold">
+                  <option value="">{te ? "ఏదైనా" : "Any"}</option>
+                  <option value="Vegetarian">{te ? "శాఖాహారం" : "Vegetarian"}</option>
+                  <option value="Non-Vegetarian">{te ? "మాంసాహారం" : "Non-vegetarian"}</option>
+                </select>
+                <p className="mt-1 text-[11px] font-normal leading-snug text-slate-600">{te ? "సభ్యులు నమోదు చేసిన వివరం మాత్రమే; తెలియజేయని ప్రొఫైల్‌లు ఎంపికలోకి రావు." : "Member-entered only; profiles that have not shared a diet are not included in a selection."}</p>
+              </div>
+              <div>
                 <label className="block font-black text-slate-800 mb-1">📋 {te ? "ప్రొఫైల్ పూర్తి శాతం" : "Profile completeness"}:</label>
                 <select aria-label={te ? "ప్రొఫైల్ పూర్తి శాతం" : "Profile completeness"} value={String(filters.min_completeness || 0)} onChange={(e) => setF("min_completeness", Number(e.target.value))} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-1.5 font-bold">
                   <option value="0">{te ? "ఏదైనా" : "Any"}</option>
@@ -2353,6 +2363,15 @@ export default function MatchesPage() {
                         <option value="Nuclear">{te ? "చిన్న కుటుంబం" : "Nuclear"}</option>
                         <option value="Joint">{te ? "ఉమ్మడి కుటుంబం" : "Joint"}</option>
                       </select>
+                    </label>
+                    <label className="block space-y-1 text-xs font-bold text-slate-800">
+                      <span>{te ? "ఆహారపు అలవాటు" : "Diet"}</span>
+                      <select aria-label={te ? "ఆహారపు అలవాటు" : "Diet"} value={filters.diet || ""} onChange={(e) => setF("diet", e.target.value)} className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium">
+                        <option value="">{te ? "ఏదైనా" : "Any"}</option>
+                        <option value="Vegetarian">{te ? "శాఖాహారం" : "Vegetarian"}</option>
+                        <option value="Non-Vegetarian">{te ? "మాంసాహారం" : "Non-vegetarian"}</option>
+                      </select>
+                      <span className="block text-[11px] font-normal leading-snug text-slate-600">{te ? "సభ్యులు నమోదు చేసిన వివరం మాత్రమే; తెలియజేయని ప్రొఫైల్‌లు ఎంపికలోకి రావు." : "Member-entered only; profiles that have not shared a diet are not included in a selection."}</span>
                     </label>
                     <label className="block space-y-1 text-xs font-bold text-slate-800">
                       <span>{te ? "ప్రొఫైల్ పూర్తి శాతం" : "Profile completeness"}</span>

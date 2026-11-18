@@ -56,6 +56,23 @@ export function joinValues(value, limit = SUMMARY_VALUE_LIMIT) {
 }
 
 /**
+ * Render the stored diet value(s) in the current language.
+ * @param {unknown} value
+ * @param {boolean} te
+ * @returns {string}
+ */
+export function dietSummary(value, te) {
+  return splitValues(value)
+    .map((entry) => {
+      const key = entry.toLowerCase();
+      if (key === "vegetarian") return te ? "శాఖాహారం" : "Vegetarian";
+      if (key === "non-vegetarian") return te ? "మాంసాహారం" : "Non-vegetarian";
+      return entry;
+    })
+    .join(", ");
+}
+
+/**
  * Normalize an age bound to a number inside the supported range.
  * @param {unknown} value
  * @param {number} fallback
@@ -111,6 +128,7 @@ export function savedSearchParts(filters, te) {
   if (f.country) parts.push(`${te ? "దేశం" : "Country"}: ${f.country}`);
   if (f.city) parts.push(`${te ? "నగరం" : "City"}: ${f.city}`);
   if (f.family_type) parts.push(`${te ? "కుటుంబ రకం" : "Family type"}: ${joinValues(f.family_type)}`);
+  if (f.diet) parts.push(`${te ? "ఆహారపు అలవాటు" : "Diet"}: ${dietSummary(f.diet, te)}`);
   if (f.verification_level) parts.push(te ? "ధృవీకరణ రికార్డు ఎంపిక" : "Verification record chosen");
   if (f.q) parts.push(`${te ? "కీవర్డ్" : "Keyword"}: ${String(f.q).trim()}`);
   return parts;

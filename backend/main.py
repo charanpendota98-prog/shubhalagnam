@@ -8503,7 +8503,7 @@ def advanced_search(
     salary_max: int = 0, height_min: str = "", height_max: str = "", dosham: Optional[str] = None,
     star: Optional[str] = None, rasi: Optional[str] = None, min_completeness: int = 0, exclude_viewed: bool = False,
     exclude_interested: bool = False, with_facets: bool = False,
-    family_type: Optional[str] = None, skip_same_gothram: bool = False,
+    family_type: Optional[str] = None, diet: Optional[str] = None, skip_same_gothram: bool = False,
     request: Request = None,
 ):
     """
@@ -8526,7 +8526,7 @@ def advanced_search(
     if sort not in ("new", "age", "boosted"):
         validation_error("sort", "⚠️ sort కి valid values: new | age | boosted")
     q = clean(q, 60, "q") if q else None
-    for _f in (gender, caste, sub_caste, district, state, job, education, marital_status, children, religion, dosham, star, rasi, family_type, mother_tongue, country, city, verification_level):
+    for _f in (gender, caste, sub_caste, district, state, job, education, marital_status, children, religion, dosham, star, rasi, family_type, diet, mother_tongue, country, city, verification_level):
         if _f and len(str(_f)) > 500:
             validation_error("filter", "⚠️ Filter value చాలా పెద్దది (500 chars max)")
     if min_completeness:
@@ -8665,6 +8665,11 @@ def advanced_search(
         ft_terms = [term.strip().casefold() for term in str(family_type).split(",") if term.strip()]
         if ft_terms:
             items = [u for u in items if str(u.get("family_type", "")).strip().casefold() in ft_terms]
+    if diet:
+        # Members who never set a diet stay unknown and never match a diet selection.
+        diet_terms = [term.strip().casefold() for term in str(diet).split(",") if term.strip()]
+        if diet_terms:
+            items = [u for u in items if str(u.get("diet", "")).strip().casefold() in diet_terms]
     gothram_exclusion = {"requested": bool(skip_same_gothram), "applied": False, "reason": ""}
     if skip_same_gothram:
         # Explicit opt-in only. Uses the signed-in member's own stored gothram; profiles whose
