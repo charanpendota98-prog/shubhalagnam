@@ -10,7 +10,7 @@ from __future__ import annotations
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 from interest import sanitize_public_payload
-from quality import _height_cm, income_range_comparison
+from quality import _height_cm, diet_preference_match, income_range_comparison
 
 
 # Values shown as profile facts only. Similarity is not a compatibility claim.
@@ -119,13 +119,21 @@ def _preference_comparisons(user: Dict[str, Any], candidate: Dict[str, Any]) -> 
         })
 
     requested_diet = _key(prefs.get("diet"))
-    candidate_diet = _key(candidate.get("diet"))
-    if requested_diet and requested_diet not in {"any"} and candidate_diet:
-        met = requested_diet == candidate_diet
+    candidate_diet_raw = _text(candidate.get("diet"))
+    if requested_diet and requested_diet not in {"any"} and candidate_diet_raw:
+        verdict = diet_preference_match(prefs.get("diet"), candidate_diet_raw)
+        met = verdict == "met"
         rows.append({
-            "key": "diet", "label": "Diet preference", "status": "met" if met else "not_met",
-            "note": "Candidate's listed diet matches the saved preference." if met
-                    else "Candidate's listed diet differs from the saved preference.",
+            "key": "diet", "label": "Diet preference",
+            "status": "unknown" if verdict == "unknown" else ("met" if met else "not_met"),
+            "note": ("Candidate's listed diet matches the saved preference." if met
+                     else "Candidate's listed diet differs from the saved preference.")
+                    if verdict != "unknown"
+                    else f"Candidate lists {candidate_diet_raw}; it cannot be compared definitely with the saved preference.",
+            "note_te": ("అభ్యర్థి ఆహారపు అలవాటు సేవ్ చేసిన ప్రాధాన్యతకు సరిపోతుంది." if met
+                        else "అభ్యర్థి ఆహారపు అలవాటు సేవ్ చేసిన ప్రాధాన్యత నుండి భిన్నంగా ఉంది.")
+                    if verdict != "unknown"
+                    else f"అభ్యర్థి ఆహారపు అలవాటు {candidate_diet_raw}; దానిని సేవ్ చేసిన ప్రాధాన్యతతో ఖచ్చితంగా పోల్చలేము.",
         })
 
     # Height range: informational comparison against the candidate's own listed

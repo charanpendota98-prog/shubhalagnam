@@ -376,6 +376,30 @@ def _height_cm(value: Any) -> int:
     return int(m.group(1)) * 30 if m else 0
 
 
+_KNOWN_DIET_VALUES = {"vegetarian", "non-vegetarian"}
+
+
+def diet_preference_match(requested: Any, candidate: Any) -> str:
+    """"met" / "not_met" / "unknown" for a diet preference vs a listed diet.
+
+    The site collects exactly Vegetarian / Non-Vegetarian, but legacy records
+    may hold comma-separated combinations ("Vegetarian,Non-Vegetarian") or
+    other values ("Vegan"). A combination containing the requested value is
+    factually met; one known catalog value different from the request is
+    factually not_met; anything unrecognized stays unknown.
+    """
+    req = str(requested or "").strip().casefold()
+    cand = str(candidate or "").strip()
+    if not req or req in {"any", "all", "ఏదైనా"} or not cand:
+        return "unknown"
+    tokens = [t.strip().casefold() for t in cand.split(",") if t.strip()]
+    if req in tokens:
+        return "met"
+    if len(tokens) == 1 and tokens[0] in _KNOWN_DIET_VALUES:
+        return "not_met"
+    return "unknown"
+
+
 def _salary_label_amounts(text: str) -> List[float]:
     """Every amount in a salary label, in rupees, in order.
 

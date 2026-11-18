@@ -4084,9 +4084,20 @@ def _evaluate_partner_preferences_match(user: dict, prefs: dict, candidate: dict
     pref_diet = str(prefs.get("diet") or "").strip()
     cand_diet = str(candidate.get("diet") or "").strip()
     if pref_diet and pref_diet.casefold() not in {"any", "all", "ఏదైనా"} and cand_diet:
-        add_check("diet", "Diet", pref_diet.casefold() == cand_diet.casefold(),
-                  f"Candidate lists {cand_diet}; compare it with the selected diet preference ({pref_diet}).",
-                  f"అభ్యర్థి ఆహారపు అలవాటు {cand_diet}; దానిని ఎంచుకున్న ఆహారపు అలవాటు ప్రాధాన్యతతో ({pref_diet}) పోల్చండి.")
+        # Legacy records may store a comma-separated combination. A combination
+        # containing the requested value is a factual met (the member lists it
+        # among their own values); a single known catalog value different from
+        # the request is a factual differs; anything else ("Vegan", an
+        # unrecognized combination) stays unknown - never a definite claim.
+        diet_met = QUALITY.diet_preference_match(pref_diet, cand_diet)
+        if diet_met == "unknown":
+            add_check("diet", "Diet", "unknown",
+                      f"Candidate lists {cand_diet}; it cannot be compared definitely with the selected diet preference ({pref_diet}).",
+                      f"అభ్యర్థి ఆహారపు అలవాటు {cand_diet}; దానిని ఎంచుకున్న ప్రాధాన్యతతో ({pref_diet}) ఖచ్చితంగా పోల్చలేము.")
+        else:
+            add_check("diet", "Diet", diet_met == "met",
+                      f"Candidate lists {cand_diet}; compare it with the selected diet preference ({pref_diet}).",
+                      f"అభ్యర్థి ఆహారపు అలవాటు {cand_diet}; దానిని ఎంచుకున్న ఆహారపు అలవాటు ప్రాధాన్యతతో ({pref_diet}) పోల్చండి.")
 
     # Height range: informational check against the candidate's own listed
     # height; an unset candidate height stays unknown and earns no check.

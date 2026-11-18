@@ -51,5 +51,24 @@ class LegacyHeightShapes(unittest.TestCase):
         self.assertEqual(quality._height_cm("6"), 180)   # single digit = feet, long-standing intent
 
 
+class LegacyDietShapes(unittest.TestCase):
+    def test_combination_containing_requested_value_is_met(self):
+        # A member who lists Vegetarian among their own values must not be
+        # called a definite mismatch for a Vegetarian preference.
+        self.assertEqual(quality.diet_preference_match("Vegetarian", "Vegetarian,Non-Vegetarian"), "met")
+        self.assertEqual(quality.diet_preference_match("Non-Vegetarian", "Vegetarian,Non-Vegetarian"), "met")
+        self.assertEqual(quality.diet_preference_match("Vegetarian", "Vegetarian"), "met")
+
+    def test_single_known_value_difference_is_not_met(self):
+        self.assertEqual(quality.diet_preference_match("Vegetarian", "Non-Vegetarian"), "not_met")
+        self.assertEqual(quality.diet_preference_match("Non-Vegetarian", "Vegetarian"), "not_met")
+
+    def test_unrecognized_values_stay_unknown(self):
+        # "Vegan" and unrecognized combinations earn no definite comparison.
+        self.assertEqual(quality.diet_preference_match("Vegetarian", "Vegan"), "unknown")
+        self.assertEqual(quality.diet_preference_match("Vegetarian", ""), "unknown")
+        self.assertEqual(quality.diet_preference_match("Any", "Vegan"), "unknown")
+
+
 if __name__ == "__main__":
     unittest.main()
