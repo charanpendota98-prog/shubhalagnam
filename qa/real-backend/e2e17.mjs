@@ -88,6 +88,11 @@ const bodyText = await p.innerText("body");
 const idMatch = bodyText.match(/Profile ID:\s*([A-Z0-9]+)/);
 const newId = idMatch ? idMatch[1] : "";
 expect(Boolean(newId), "wizard: server-issued profile id shown on success screen", newId);
+await p.evaluate(() => window.scrollTo(0, 0));
+await p.waitForTimeout(400);
+await p.screenshot({ path: O + "en-1280-wizard-success-banner.png" });
+await p.getByText("Your WhatsApp status biodata card:").scrollIntoViewIfNeeded().catch(() => {});
+await p.waitForTimeout(600);
 await p.screenshot({ path: O + "en-1280-wizard-success.png", fullPage: false });
 
 // ---------- Post-verification of what the server stored ----------
