@@ -10,6 +10,7 @@ from __future__ import annotations
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 from interest import sanitize_public_payload
+from quality import _height_cm, salary_label_min_rupees
 
 
 # Values shown as profile facts only. Similarity is not a compatibility claim.
@@ -123,6 +124,46 @@ def _preference_comparisons(user: Dict[str, Any], candidate: Dict[str, Any]) -> 
             "note": "Candidate's listed diet matches the saved preference." if met
                     else "Candidate's listed diet differs from the saved preference.",
         })
+
+    # Height range: informational comparison against the candidate's own listed
+    # height; an unset candidate height stays unknown and earns no row.
+    height_lo_raw = _text(prefs.get("heightMin"))
+    height_hi_raw = _text(prefs.get("heightMax"))
+    candidate_height_cm = _height_cm(candidate.get("height"))
+    if (height_lo_raw or height_hi_raw) and candidate_height_cm:
+        lo_cm = _height_cm(height_lo_raw) if height_lo_raw else 0
+        hi_cm = _height_cm(height_hi_raw) if height_hi_raw else 0
+        met = (not lo_cm or candidate_height_cm >= lo_cm) and (not hi_cm or candidate_height_cm <= hi_cm)
+        rows.append({
+            "key": "height", "label": "Height preference", "status": "met" if met else "not_met",
+            "note": "Candidate's listed height matches the saved preference." if met
+                    else "Candidate's listed height differs from the saved preference.",
+        })
+
+    # Minimum income: candidate's listed range lower bound vs the saved minimum.
+    salary_threshold = salary_label_min_rupees(prefs.get("minSalary"))
+    candidate_salary_min = salary_label_min_rupees(candidate.get("salary"))
+    if salary_threshold and candidate_salary_min:
+        met = candidate_salary_min >= salary_threshold
+        rows.append({
+            "key": "min_salary", "label": "Income preference", "status": "met" if met else "not_met",
+            "note": "Candidate's listed income matches the saved preference." if met
+                    else "Candidate's listed income differs from the saved preference.",
+        })
+
+    # States compare only when the member explicitly selected them; a stored
+    # default is not a member choice and earns no row.
+    requested_states = prefs.get("states")
+    if isinstance(requested_states, (list, tuple)):
+        state_terms = [_key(s) for s in requested_states if _key(s)]
+        candidate_state = _key(candidate.get("state"))
+        if state_terms and candidate_state:
+            met = candidate_state in state_terms
+            rows.append({
+                "key": "states", "label": "State preference", "status": "met" if met else "not_met",
+                "note": "Candidate's listed state matches the saved preference." if met
+                        else "Candidate's listed state differs from the saved preference.",
+            })
     return rows
 
 

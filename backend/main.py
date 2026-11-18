@@ -4078,6 +4078,37 @@ def _evaluate_partner_preferences_match(user: dict, prefs: dict, candidate: dict
         add_check("diet", "Diet", pref_diet.casefold() == cand_diet.casefold(),
                   f"Candidate lists {cand_diet}; compare it with the selected diet preference ({pref_diet}).")
 
+    # Height range: informational check against the candidate's own listed
+    # height; an unset candidate height stays unknown and earns no check.
+    pref_hmin = str(prefs.get("height_min") or "").strip()
+    pref_hmax = str(prefs.get("height_max") or "").strip()
+    cand_height_cm = QUALITY._height_cm(candidate.get("height"))
+    if (pref_hmin or pref_hmax) and cand_height_cm:
+        lo_cm = QUALITY._height_cm(pref_hmin) if pref_hmin else 0
+        hi_cm = QUALITY._height_cm(pref_hmax) if pref_hmax else 0
+        height_met = (not lo_cm or cand_height_cm >= lo_cm) and (not hi_cm or cand_height_cm <= hi_cm)
+        bound = f"{pref_hmin or 'any'}–{pref_hmax or 'any'}"
+        add_check("height", "Height range", height_met,
+                  f"Candidate lists {candidate.get('height')}; compare it with the selected height range ({bound}).")
+
+    # Minimum income: the candidate's listed range lower bound against the
+    # selected minimum. Unset or unreadable salary stays unknown (no check).
+    pref_salary = str(prefs.get("min_salary") or "").strip()
+    salary_threshold = QUALITY.salary_label_min_rupees(pref_salary)
+    cand_salary_min = QUALITY.salary_label_min_rupees(candidate.get("salary"))
+    if salary_threshold and cand_salary_min:
+        add_check("min_salary", "Minimum income", cand_salary_min >= salary_threshold,
+                  f"Candidate lists {candidate.get('salary')}; compare it with the selected minimum income ({pref_salary}).")
+
+    # States evaluate only when the member explicitly selected them; the stored
+    # default (TS/AP) is not a member choice and earns no check.
+    pref_states = values("states")
+    cand_state = str(candidate.get("state") or "").strip()
+    if prefs.get("states_explicit") and pref_states and cand_state:
+        state_met = any(cand_state.casefold() == str(s).casefold() for s in pref_states)
+        add_check("states", "State", state_met,
+                  f"Candidate lists {cand_state}; compare it with the selected state options ({', '.join(pref_states)}).")
+
     # These are informational checks, not weighted or hidden ranking points.
     for key, label, profile_key in (
         ("educations", "Education", "education"),
@@ -4181,7 +4212,10 @@ def save_partner_preferences(payload: dict, request: Request):
         "jobs": list(payload.get("jobs") or []),
         "min_salary": str(payload.get("min_salary") or "Any").strip(),
         "districts": list(payload.get("districts") or []),
+        # states is only evaluated when the member explicitly selected it; the
+        # stored default is not a member choice.
         "states": list(payload.get("states") or ["TS", "AP"]),
+        "states_explicit": bool(payload.get("states")),
         "marital_statuses": list(payload.get("marital_statuses") or ["Never Married"]),
         "diet": str(payload.get("diet") or "Any").strip(),
         "notes": str(payload.get("notes") or "").strip(),
@@ -4198,6 +4232,10 @@ def save_partner_preferences(payload: dict, request: Request):
         "location": ", ".join(prefs["districts"][:2]),
         "caste": "no bar" if prefs["caste_no_bar"] else ", ".join(prefs["castes"][:2]),
         "diet": prefs["diet"],
+        "heightMin": prefs["height_min"],
+        "heightMax": prefs["height_max"],
+        "minSalary": prefs["min_salary"],
+        "states": prefs["states"] if prefs["states_explicit"] else [],
     }
 
     # Save to disk — P0 FIX (full-audit pass): this used to do a raw

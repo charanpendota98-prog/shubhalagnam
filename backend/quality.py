@@ -370,6 +370,31 @@ def _height_cm(value: Any) -> int:
     return int(m.group(1)) * 30 if m else 0
 
 
+def salary_label_min_rupees(label: Any) -> int:
+    """Lower bound of a listed salary range label, in rupees (unknown = 0).
+
+    Handles the catalog labels members choose ("₹5 - 7 Lakhs / year",
+    "₹1 Crore - ₹1.5 Crore / year", "₹50+ Lakhs (NRI / High Networth)")
+    and legacy free-text values ("10 LPA", "60k"). "Under ₹1 Lakh /
+    Not Disclosed" parses as 1 lakh; it is never a selectable threshold.
+    """
+    text = str(label or "").strip().casefold()
+    if not text or text in {"any", "all", "ఏదైనా"}:
+        return 0
+    m = re.search(r"(\d+(?:\.\d+)?)", text)
+    if not m:
+        return 0
+    amount = float(m.group(1))
+    tail = text[m.end():m.end() + 12]
+    if "crore" in tail or "కోట" in tail:
+        rupees = amount * 10_000_000
+    elif re.match(r"\s*k\b", tail):
+        rupees = amount * 1_000
+    else:
+        rupees = amount * 100_000  # catalog labels and "LPA" are lakh-denominated
+    return int(rupees)
+
+
 def _filter_terms(value: Any) -> List[str]:
     if isinstance(value, (list, tuple, set)):
         raw = [str(item or "") for item in value]
