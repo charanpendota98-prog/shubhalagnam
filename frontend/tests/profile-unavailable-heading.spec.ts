@@ -1,6 +1,6 @@
 import {test,expect} from '@playwright/test';
 import fs from 'node:fs';
-const out='/downloads/mv-profile-unavailable-heading';fs.mkdirSync(out,{recursive:true});
+const out=process.env.MV_QA_OUTPUT_DIR||'artifacts/profile-unavailable-heading';fs.mkdirSync(out,{recursive:true});
 for(const lang of ['en','te'])for(const width of [320,390,1280])test(`unavailable profile heading ${lang} ${width}`,async({page})=>{
  await page.setViewportSize({width,height:920});await page.addInitScript(l=>localStorage.setItem('tsap_lang',l),lang);
  let status=404;let writes=0;

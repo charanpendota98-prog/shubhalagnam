@@ -1,6 +1,6 @@
 import {test,expect} from '@playwright/test';
 import fs from 'node:fs';
-const out='/downloads/mv-current-hero';fs.mkdirSync(out,{recursive:true});
+const out=process.env.MV_QA_OUTPUT_DIR||'artifacts/current-wedding-hero';fs.mkdirSync(out,{recursive:true});
 for(const lang of ['en','te'])for(const width of [320,390,1280])test(`current wedding hero ${lang} ${width}`,async({page})=>{
  await page.setViewportSize({width,height:960});await page.addInitScript(l=>localStorage.setItem('tsap_lang',l),lang);
  await page.route('**/api/**',r=>r.fulfill({json:{success:true,items:[],rows:[],stories:[],banners:[],ads:[],free_first:3}}));
