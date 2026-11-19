@@ -212,7 +212,7 @@ export default function MePage() {
             {tab === "voice" && <VoicePanel myId={myId} />}
             {tab === "jathakam" && <JathakamPanel myId={myId} />}
             {tab === "share" && <SharePanel />}
-            {tab === "alerts" && <Phase2MemberWorkspace myId={myId} mode="alerts" />}
+            {tab === "alerts" && <Phase2MemberWorkspace key={`${myId}:alerts`} myId={myId} mode="alerts" />}
           </div>
 
           <details className="account-activity">

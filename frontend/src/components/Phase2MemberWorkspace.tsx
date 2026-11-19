@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { authHeaders, readApiJson } from "@/lib/api";
 import { useLang } from "@/lib/lang";
@@ -17,6 +17,8 @@ export default function Phase2MemberWorkspace({
   const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState("");
   const [alertSaveFailed, setAlertSaveFailed] = useState(false);
+  const [alertReadState, setAlertReadState] = useState<"loading" | "ready" | "error">("loading");
+  const alertReadEpoch = useRef(0);
 
   // Alerts & Saved-Search Digest
   const [digestData, setDigestData] = useState<any>(null);
@@ -46,22 +48,30 @@ export default function Phase2MemberWorkspace({
   const loadData = useCallback(async () => {
     if (!myId) return;
     const h = authHeaders();
+    const epoch = ++alertReadEpoch.current;
+    if (mode === "alerts") setAlertReadState("loading");
     try {
       if (mode === "alerts") {
         const r = await fetch(`/api/me/${encodeURIComponent(myId)}/saved-search-digest`, {
           headers: h,
           credentials: "same-origin",
         });
-        if (r.ok) {
-          const d = await readApiJson(r);
-          setDigestData(d);
-          if (d?.preferences) {
-            setAlertEnabled(Boolean(d.preferences.enabled));
-            setAlertFreq(d.preferences.frequency === "daily" ? "daily" : "weekly");
-            setQuietStart(d.preferences.quiet_hours_start || "21:00");
-            setQuietEnd(d.preferences.quiet_hours_end || "08:00");
-          }
+        const d = await readApiJson(r);
+        if (epoch !== alertReadEpoch.current) return;
+        const prefs = d?.preferences;
+        const clock = (value: unknown) => typeof value === "string" && /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(value);
+        if (!r.ok || (d.tsap_id !== undefined && d.tsap_id !== myId) || !prefs || typeof prefs.enabled !== "boolean" ||
+            !["daily", "weekly", "off"].includes(prefs.frequency) ||
+            prefs.enabled !== (prefs.frequency !== "off") || !clock(prefs.quiet_hours_start) || !clock(prefs.quiet_hours_end) ||
+            !Array.isArray(d.digests) || !d.digests.every((dg: any) => dg && typeof dg.name === "string" &&
+              Number.isInteger(dg.match_count) && dg.match_count >= 0 && Array.isArray(dg.sample_profiles) && dg.sample_profiles.every((sp: any) =>
+                sp && typeof sp.tsap_id === "string" && typeof sp.first_name === "string" && typeof sp.district === "string"))) {
+          throw new Error("Alert preferences unavailable");
         }
+        setDigestData(d); setAlertEnabled(prefs.enabled);
+        setAlertFreq(prefs.frequency === "daily" ? "daily" : "weekly");
+        setQuietStart(prefs.quiet_hours_start); setQuietEnd(prefs.quiet_hours_end);
+        setAlertReadState("ready");
       } else {
         const [sr, lr, ar, rr] = await Promise.all([
           fetch(`/api/me/${encodeURIComponent(myId)}/sessions`, { headers: h, credentials: "same-origin" }),
@@ -75,12 +85,13 @@ export default function Phase2MemberWorkspace({
         if (rr.ok) setRefunds((await readApiJson(rr)).refunds || []);
       }
     } catch {
-      /* ignore */
+      if (mode === "alerts" && epoch === alertReadEpoch.current) setAlertReadState("error");
     }
   }, [myId, mode]);
 
   useEffect(() => {
     void loadData();
+    return () => { alertReadEpoch.current++; };
   }, [loadData]);
 
   if (sessionsRevoked) {
@@ -105,6 +116,7 @@ export default function Phase2MemberWorkspace({
   }
 
   const saveAlertPrefs = async (nextEnabled: boolean) => {
+    if (alertReadState !== "ready") return;
     setBusy(true);
     setToast("");
     setAlertSaveFailed(false);
@@ -282,6 +294,15 @@ export default function Phase2MemberWorkspace({
       setBusy(false);
     }
   };
+
+  if (mode === "alerts" && alertReadState !== "ready") return (
+    <section className="mv-surface mv-surface__body space-y-3" aria-label={te ? "అలర్ట్ సెట్టింగ్‌లు" : "Alert settings"}>
+      <p role={alertReadState === "error" ? "alert" : "status"}>{alertReadState === "error"
+        ? (te ? "మీ అలర్ట్ సెట్టింగ్‌లు లోడ్ కాలేదు. మార్చే ముందు మళ్లీ ప్రయత్నించండి." : "Your alert settings could not be loaded. Retry before making changes.")
+        : (te ? "మీ అలర్ట్ సెట్టింగ్‌లు లోడ్ అవుతున్నాయి…" : "Loading your alert settings…")}</p>
+      {alertReadState === "error" && <button type="button" className="min-h-11 rounded-xl border border-maroon px-4 py-2 font-bold text-maroon" onClick={() => void loadData()}>{te ? "మళ్లీ ప్రయత్నించండి" : "Retry alert settings"}</button>}
+    </section>
+  );
 
   if (mode === "alerts") {
     return (
