@@ -35,7 +35,7 @@ for (const role of ['member', 'owner']) for (const lang of ['en', 'te']) for (co
     });
     const open = async () => {
       await page.goto(role === 'member' ? '/me' : '/control', { waitUntil: 'domcontentloaded' });
-      await page.getByRole('button', { name: role === 'member' ? (lang === 'en' ? '🎫 Support' : '🎫 సపోర్ట్ టికెట్లు') : (lang === 'en' ? '🧰 Data tools & daily matches' : '🧰 డేటా టూల్స్ & డైలీ మ్యాచ్‌లు'), exact: true }).click();
+      await page.getByRole('button', { name: role === 'member' ? (lang === 'en' ? 'Support' : 'సపోర్ట్ టికెట్లు') : (lang === 'en' ? '🧰 Data tools & daily matches' : '🧰 డేటా టూల్స్ & డైలీ మ్యాచ్‌లు'), exact: true }).click();
     };
     const errorText = role === 'member'
       ? (lang === 'en' ? 'Your tickets could not be loaded. This is not an empty result. Reload before submitting again.' : 'మీ టికెట్లు లోడ్ కాలేదు. ఇది ఖాళీ ఫలితం కాదు. మళ్లీ పంపే ముందు రీలోడ్ చేయండి.')
