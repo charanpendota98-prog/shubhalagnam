@@ -492,7 +492,7 @@ export default function ProfileView() {
       {loading ? <ProfileSkeleton /> : null}
       {!loading && err ? (
         <div className="mv-note mt-6 text-center">
-          <p className="font-bold text-amber-900">{err}</p>
+          <h1 className="profile-error-heading font-bold text-amber-900">{err}</h1>
           <div className="mt-3 flex flex-wrap justify-center gap-2">
             <Link href="/matches" className="mv-btn mv-btn--primary min-h-11">{te ? "💞 Matches చూడు" : "💞 See matches"}</Link>
             <Link href="/register" className="rounded-xl border border-[#7A0C2E] px-4 py-2 text-sm font-bold text-[#7A0C2E]">🆓 Register FREE</Link>

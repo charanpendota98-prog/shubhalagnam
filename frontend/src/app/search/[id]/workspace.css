@@ -21,3 +21,6 @@
 
 .mv-profile-workspace h1 {font-size:30px;line-height:1.5;}
 .mv-profile-workspace .profile-details h1 {font-size:30px;line-height:1.5;}
+
+/* Keep unavailable-profile headings at the original notice scale. */
+.mv-profile-workspace .profile-error-heading { font-size: 16px; line-height: 1.6; }
