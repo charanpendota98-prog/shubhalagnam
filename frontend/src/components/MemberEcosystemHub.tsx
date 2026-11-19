@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { authHeaders, readApiJson } from "@/lib/api";
 import { useLang } from "@/lib/lang";
+import { supportTicketsFrom } from "@/lib/support-tickets";
 
 export type EcosystemSection = "family" | "ledger" | "privacy" | "support";
 
@@ -35,6 +36,8 @@ export default function MemberEcosystemHub({
 
   // Support tickets
   const [tickets, setTickets] = useState<any[]>([]);
+  const ticketReadEpoch = useRef(0);
+  const [ticketRead, setTicketRead] = useState<"loading" | "ready" | "error">("loading");
   const [tktCategory, setTktCategory] = useState("general");
   const [tktSubject, setTktSubject] = useState("");
   const [tktMessage, setTktMessage] = useState("");
@@ -60,10 +63,20 @@ export default function MemberEcosystemHub({
         const pr = await fetch(`/api/photo/access/${encodeURIComponent(myId)}`, { headers: authHeaders(), credentials: "same-origin" });
         if (pr.ok) setPhotoAccess(await readApiJson(pr));
       } else if (section === "support") {
-        const sr = await fetch(`/api/support/tickets/${encodeURIComponent(myId)}`, { headers: authHeaders(), credentials: "same-origin" });
-        if (sr.ok) {
-          const sj = await readApiJson(sr);
-          setTickets(sj.tickets || []);
+        const epoch = ++ticketReadEpoch.current;
+        setTicketRead("loading");
+        setTickets([]);
+        try {
+          const sr = await fetch(`/api/support/tickets/${encodeURIComponent(myId)}`, { headers: authHeaders(), credentials: "same-origin" });
+          const rows = sr.ok ? supportTicketsFrom(await readApiJson(sr)) : null;
+          if (epoch !== ticketReadEpoch.current) return;
+          if (rows === null) throw new Error("Support tickets unavailable");
+          setTickets(rows);
+          setTicketRead("ready");
+        } catch {
+          if (epoch !== ticketReadEpoch.current) return;
+          setTickets([]);
+          setTicketRead("error");
         }
       }
     } catch {
@@ -73,6 +86,7 @@ export default function MemberEcosystemHub({
 
   useEffect(() => {
     void loadSection();
+    return () => { ticketReadEpoch.current++; };
   }, [loadSection]);
 
   const inviteFamily = async () => {
@@ -192,6 +206,7 @@ export default function MemberEcosystemHub({
   };
 
   const submitTicket = async () => {
+    if (ticketRead !== "ready") return;
     if (tktSubject.trim().length < 4 || tktMessage.trim().length < 10) {
       setToast(te ? "విషయం మరియు పూర్తి వివరాలు రాయండి." : "Please enter both a subject and detailed message.");
       return;
@@ -527,14 +542,22 @@ export default function MemberEcosystemHub({
           />
           <button
             type="button"
-            disabled={busy}
+            disabled={busy || ticketRead !== "ready"}
             onClick={() => void submitTicket()}
             className="rounded-xl bg-[#7A0C2E] px-5 py-2.5 text-xs font-bold text-white disabled:opacity-50"
           >
             {te ? "టికెట్ పంపండి" : "Submit Support Ticket"}
           </button>
 
-          {tickets.length > 0 && (
+          {ticketRead === "loading" && <p role="status" className="text-xs text-slate-600">{te ? "మీ టికెట్లు లోడ్ అవుతున్నాయి…" : "Loading your tickets…"}</p>}
+          {ticketRead === "error" && (
+            <div role="alert" className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-xs text-amber-950">
+              <p>{te ? "మీ టికెట్లు లోడ్ కాలేదు. ఇది ఖాళీ ఫలితం కాదు. మళ్లీ పంపే ముందు రీలోడ్ చేయండి." : "Your tickets could not be loaded. This is not an empty result. Reload before submitting again."}</p>
+              <button type="button" onClick={() => void loadSection()} className="mt-2 min-h-11 rounded-lg border border-amber-500 px-3 font-bold">{te ? "టికెట్లు మళ్లీ లోడ్ చేయండి" : "Retry tickets"}</button>
+            </div>
+          )}
+          {ticketRead === "ready" && tickets.length === 0 && <p className="text-xs text-slate-500">{te ? "మీ ఖాతాలో సపోర్ట్ టికెట్లు లేవు." : "No support tickets in your account."}</p>}
+          {ticketRead === "ready" && tickets.length > 0 && (
             <div className="space-y-2 border-t border-slate-100 pt-3">
               {tickets.map((t) => (
                 <div key={t.ticket_id} className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs space-y-1">

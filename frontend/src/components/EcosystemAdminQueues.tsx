@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { authHeaders, readApiJson } from "@/lib/api";
 import { useLang } from "@/lib/lang";
+import { supportTicketsFrom } from "@/lib/support-tickets";
 
 function validParity(value: any) {
   return value?.success !== false && typeof value?.parity_ok === "boolean" &&
@@ -16,6 +17,8 @@ export default function EcosystemAdminQueues() {
   const [verifs, setVerifs] = useState<any[]>([]);
   const [appeals, setAppeals] = useState<any[]>([]);
   const [tickets, setTickets] = useState<any[]>([]);
+  const ticketReadEpoch = useRef(0);
+  const [ticketRead, setTicketRead] = useState<"loading" | "ready" | "error">("loading");
   const [appointments, setAppointments] = useState<any[]>([]);
   const [parity, setParity] = useState<any>(null);
   const [parityUnavailable, setParityUnavailable] = useState(false);
@@ -56,13 +59,30 @@ export default function EcosystemAdminQueues() {
     } catch { setFlash(te ? "నెట్‌వర్క్ సమస్య. సహాయక స్థితి మారిందని నిర్ధారణ లేదు." : "Network problem. Assist state change is not confirmed."); }
   };
 
+  const loadTickets = useCallback(async () => {
+    const epoch = ++ticketReadEpoch.current;
+    setTicketRead("loading");
+    setTickets([]);
+    try {
+      const response = await fetch("/api/admin/support/tickets?status=open", { headers: authHeaders(true), credentials: "same-origin" });
+      const rows = response.ok ? supportTicketsFrom(await readApiJson(response)) : null;
+      if (epoch !== ticketReadEpoch.current) return;
+      setTickets(rows || []);
+      setTicketRead(rows === null ? "error" : "ready");
+    } catch {
+      if (epoch !== ticketReadEpoch.current) return;
+      setTickets([]);
+      setTicketRead("error");
+    }
+  }, []);
+
   const loadAll = useCallback(async () => {
     const h = authHeaders(true);
+    void loadTickets();
     try {
-      const [vr, ar, tr, apr, pr, qr, rfr, hlr, flr] = await Promise.all([
+      const [vr, ar, apr, pr, qr, rfr, hlr, flr] = await Promise.all([
         fetch("/api/admin/verification/queue?status=pending_review", { headers: h, credentials: "same-origin" }),
         fetch("/api/admin/appeals?status=pending", { headers: h, credentials: "same-origin" }),
-        fetch("/api/admin/support/tickets?status=open", { headers: h, credentials: "same-origin" }),
         fetch("/api/admin/appointments?status=requested", { headers: h, credentials: "same-origin" }),
         fetch("/api/admin/identity/reconcile", { headers: h, credentials: "same-origin" }),
         fetch("/api/admin/media/quarantine?status=quarantined", { headers: h, credentials: "same-origin" }),
@@ -72,7 +92,6 @@ export default function EcosystemAdminQueues() {
       ]);
       if (vr.ok) setVerifs((await readApiJson(vr)).items || []);
       if (ar.ok) setAppeals((await readApiJson(ar)).appeals || []);
-      if (tr.ok) setTickets((await readApiJson(tr)).tickets || []);
       if (apr.ok) setAppointments((await readApiJson(apr)).appointments || []);
       const parityData = pr.ok ? await readApiJson(pr).catch(() => null) : null;
       setParity(validParity(parityData) ? parityData : null);
@@ -84,10 +103,11 @@ export default function EcosystemAdminQueues() {
     } catch {
       setParity(null); setParityUnavailable(true);
     }
-  }, []);
+  }, [loadTickets]);
 
   useEffect(() => {
     void loadAll();
+    return () => { ticketReadEpoch.current++; };
   }, [loadAll]);
 
   const syncIdentitySql = async () => {
@@ -294,9 +314,16 @@ export default function EcosystemAdminQueues() {
       {/* 3. Support Tickets Queue */}
       <div>
         <h3 className="text-xs font-extrabold uppercase tracking-wide text-[#7A0C2E]">
-          🎫 {te ? "సభ్యుల సపోర్ట్ టికెట్లు" : "Open Member Support Tickets"} ({tickets.length})
+          🎫 {te ? "సభ్యుల సపోర్ట్ టికెట్లు" : "Open Member Support Tickets"} ({ticketRead === "ready" ? tickets.length : "—"})
         </h3>
-        {tickets.length === 0 ? (
+        {ticketRead === "loading" ? (
+          <p role="status" className="mt-1 text-xs text-gray-500">{te ? "సపోర్ట్ టికెట్లు లోడ్ అవుతున్నాయి…" : "Loading support tickets…"}</p>
+        ) : ticketRead === "error" ? (
+          <div role="alert" className="mt-2 rounded-xl border border-amber-300 bg-amber-50 p-3 text-xs text-amber-950">
+            <p>{te ? "సపోర్ట్ టికెట్లు లోడ్ కాలేదు. ఇది ఖాళీ క్యూ కాదు. మళ్లీ ప్రయత్నించండి." : "Support tickets could not be loaded. This is not an empty queue. Please retry."}</p>
+            <button type="button" onClick={() => void loadTickets()} className="mt-2 min-h-11 rounded-lg border border-amber-500 px-3 font-bold">{te ? "టికెట్లు మళ్లీ లోడ్ చేయండి" : "Retry tickets"}</button>
+          </div>
+        ) : tickets.length === 0 ? (
           <p className="mt-1 text-xs text-gray-400">{te ? "ఓపెన్ సపోర్ట్ టికెట్లు లేవు ✅" : "No open support tickets ✅"}</p>
         ) : (
           <div className="mt-2 space-y-2">
