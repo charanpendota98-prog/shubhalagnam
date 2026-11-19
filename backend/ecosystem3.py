@@ -930,10 +930,17 @@ def request_photo_access(viewer_id: str, owner_id: str, note: str = "") -> Tuple
     with _LOCK:
         state = _ensure_loaded()
         grants = state["photo_access_grants"]
-        existing = next(
-            (g for g in grants if g.get("viewer_id") == vid and g.get("owner_id") == oid and g.get("status") in ("pending", "approved")),
-            None,
-        )
+        now = datetime.utcnow()
+        def reusable(g: Dict[str, Any]) -> bool:
+            if g.get("viewer_id") != vid or g.get("owner_id") != oid:
+                return False
+            if g.get("status") == "pending":
+                return True
+            if g.get("status") != "approved":
+                return False
+            expires = _parse_iso(g.get("expires_at"))
+            return expires is None or expires > now
+        existing = next((g for g in grants if reusable(g)), None)
         if existing:
             return True, str(existing.get("status")), dict(existing)
         rec = {
