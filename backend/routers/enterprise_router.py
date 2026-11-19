@@ -15,6 +15,16 @@ import identity_repo as IDENTITY_REPO
 import phase2_store as PHASE2
 
 
+def _consented_count(payload: dict, field: str, minimum: int, maximum: int, default: int | None = None) -> int:
+    """Only an explicit JSON true records consent; never coerce text or counts."""
+    if payload.get("consent_confirmed") is not True:
+        raise HTTPException(400, "Explicit consent is required.")
+    value = payload.get(field, default)
+    if type(value) is not int or not minimum <= value <= maximum:
+        raise HTTPException(400, f"{field} must be an integer from {minimum} to {maximum}.")
+    return value
+
+
 def build_enterprise_router(ctx: Dict[str, Callable[..., Any] | Any]) -> APIRouter:
     router = APIRouter(tags=["phases3_to_12"])
 
@@ -63,13 +73,14 @@ def build_enterprise_router(ctx: Dict[str, Callable[..., Any] | Any]) -> APIRout
         require_owner(request, tid)
         if not find_user(tid):
             raise HTTPException(404, "Member profile not found")
+        guest_count = _consented_count(d, "guest_count", 10, 5000, default=100)
         ok, msg, rec = EOPS.submit_bundle_enquiry(
             tsap_id=tid,
             bundle_id=str(d.get("bundle_id", "")),
             city=str(d.get("city", "")),
             event_date=str(d.get("event_date", "")),
-            guest_count=int(d.get("guest_count", 100) or 100),
-            consent_confirmed=bool(d.get("consent_confirmed", False)),
+            guest_count=guest_count,
+            consent_confirmed=True,
             notes=str(d.get("notes", "")),
         )
         if not ok:
@@ -107,11 +118,12 @@ def build_enterprise_router(ctx: Dict[str, Callable[..., Any] | Any]) -> APIRout
         require_owner(request, tid)
         if not find_user(tid):
             raise HTTPException(404, "Profile not found")
+        attendee_count = _consented_count(d, "attendee_count", 1, 6)
         ok, msg, ev = EOPS.rsvp_community_event(
             event_id,
             tsap_id=tid,
-            attendee_count=int(d.get("attendee_count", 2) or 2),
-            consent_confirmed=bool(d.get("consent_confirmed", False)),
+            attendee_count=attendee_count,
+            consent_confirmed=True,
         )
         if not ok:
             raise HTTPException(400, msg)
