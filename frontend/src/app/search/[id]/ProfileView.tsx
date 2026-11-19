@@ -11,6 +11,7 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { CalendarDays, Ruler, Landmark, GraduationCap, BriefcaseBusiness, Wallet, MapPin, Star, Heart, Baby, Salad, UserRound, UsersRound, Orbit, LockKeyhole, type LucideIcon } from "lucide-react";
 import { useParams } from "next/navigation";
 import { ProfileSkeleton } from "@/components/Skeletons";
 import AuthGate from "@/components/AuthGate";
@@ -552,26 +553,26 @@ export default function ProfileView() {
 
 
             <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-2 text-[13px] text-slate-700 sm:grid-cols-3">
-              {[
-                [te ? "🎂 వయస్సు" : "🎂 Age", profile.age != null && String(profile.age).trim() ? `${profile.age} ${te ? "సం." : "years"}` : "—"],
-                [te ? "📏 ఎత్తు" : "📏 Height", profileText(profile.height)],
-                [te ? "🕉️ కులం / ఉపకులం" : "🕉️ Community / sub-community", `${profileText(profile.caste)}${profileText(profile.sub_caste, "") ? ` (${profileText(profile.sub_caste, "")})` : ""}`],
-                [te ? "🎓 చదువు" : "🎓 Education", `${profileText(profile.education)}${profileText(profile.education_detail, "") ? ` ${profileText(profile.education_detail, "")}` : ""}`],
-                [te ? "💼 ఉద్యోగం" : "💼 Occupation", `${profileText(profile.job)}${profileText(profile.company, "") ? ` @ ${profileText(profile.company, "")}` : ""}`],
-                [te ? "💰 ఆదాయం" : "💰 Income", profileText(profile.salary)],
-                [te ? "📍 ప్రాంతం" : "📍 Location", `${profileText(profile.district)}, ${profile.state ? stateFullName(profile.state, te) : "—"}`],
-                [te ? "⭐ నక్షత్రం / రాశి (సూచన)" : "⭐ Nakshatra / moon sign (reference)", `${profileText(profile.star)} / ${profileText(profile.rasi)}`],
-                [te ? "💍 వైవాహిక స్థితి" : "💍 Marital status", profileText(profile.marital_status)],
-                ...(showChildrenDetail ? [[te ? "👶 పిల్లలు" : "👶 Children", displayChildren]] : []),
-                ...(profileText(profile.diet, "") ? [[te ? "🥗 ఆహారపు అలవాటు" : "🥗 Diet", dietLabel(profile.diet, te)]] : []),
-                ...(profileText(profile.profile_for, "") ? [[te ? "🙋 ప్రొఫైల్ చేర్చినది (స్వయం ప్రకటిత)" : "🙋 Listed by (self-reported)", profileForLabel(profile.profile_for, te)]] : []),
-                [te ? "🕉️ గోత్రం (సూచన)" : "🕉️ Gothram (reference)", profileText(profile.gothram)],
-                [te ? "👨‍👩‍👧 కుటుంబం" : "👨‍👩‍👧 Family", `${profileText(profile.family_type)} · ${profileText(profile.family_status)}`],
-                [te ? "🧿 కుజ దోషం (సభ్యుడు నమోదు చేసిన reference)" : "🧿 Manglik status (member-entered reference)", profileText(profile.dosham)],
-              ].map(([k, v]) => (
+              {([
+                [te ? "వయస్సు" : "Age", profile.age != null && String(profile.age).trim() ? `${profile.age} ${te ? "సం." : "years"}` : "—", CalendarDays],
+                [te ? "ఎత్తు" : "Height", profileText(profile.height), Ruler],
+                [te ? "కులం / ఉపకులం" : "Community / sub-community", `${profileText(profile.caste)}${profileText(profile.sub_caste, "") ? ` (${profileText(profile.sub_caste, "")})` : ""}`, Landmark],
+                [te ? "చదువు" : "Education", `${profileText(profile.education)}${profileText(profile.education_detail, "") ? ` ${profileText(profile.education_detail, "")}` : ""}`, GraduationCap],
+                [te ? "ఉద్యోగం" : "Occupation", `${profileText(profile.job)}${profileText(profile.company, "") ? ` @ ${profileText(profile.company, "")}` : ""}`, BriefcaseBusiness],
+                [te ? "ఆదాయం" : "Income", profileText(profile.salary), Wallet],
+                [te ? "ప్రాంతం" : "Location", `${profileText(profile.district)}, ${profile.state ? stateFullName(profile.state, te) : "—"}`, MapPin],
+                [te ? "నక్షత్రం / రాశి (సూచన)" : "Nakshatra / moon sign (reference)", `${profileText(profile.star)} / ${profileText(profile.rasi)}`, Star],
+                [te ? "వైవాహిక స్థితి" : "Marital status", profileText(profile.marital_status), Heart],
+                ...(showChildrenDetail ? [[te ? "పిల్లలు" : "Children", displayChildren, Baby]] : []),
+                ...(profileText(profile.diet, "") ? [[te ? "ఆహారపు అలవాటు" : "Diet", dietLabel(profile.diet, te), Salad]] : []),
+                ...(profileText(profile.profile_for, "") ? [[te ? "ప్రొఫైల్ చేర్చినది (స్వయం ప్రకటిత)" : "Listed by (self-reported)", profileForLabel(profile.profile_for, te), UserRound]] : []),
+                [te ? "గోత్రం (సూచన)" : "Gothram (reference)", profileText(profile.gothram), Landmark],
+                [te ? "కుటుంబం" : "Family", `${profileText(profile.family_type)} · ${profileText(profile.family_status)}`, UsersRound],
+                [te ? "కుజ దోషం (సభ్యుడు నమోదు చేసిన reference)" : "Manglik status (member-entered reference)", profileText(profile.dosham), Orbit],
+              ] as [string, string, LucideIcon][]).map(([k, v, Icon]) => (
                 <div key={String(k)}>
-                  <dt className="text-[11px] text-slate-500">{k}</dt>
-                  <dd className="font-semibold">{v}</dd>
+                  <dt className="text-[11px] text-slate-500"><span className="mr-1 inline-block align-middle"><Icon aria-hidden="true" className="h-3.5 w-3.5" /></span>{String(k)}</dt>
+                  <dd className="font-semibold">{String(v)}</dd>
                 </div>
               ))}
             </dl>
@@ -618,12 +619,12 @@ export default function ProfileView() {
           <PrivatePhotoAccessCard key={`${myTsapId}:${loadedProfileId}`} profile={profile} myTsapId={myTsapId} isPrivatePhoto={data.is_photo_blur === true} />
 
           {myTsapId && loadedProfileId && myTsapId !== loadedProfileId ? (
-            <RequestCoach fromId={myTsapId} toId={loadedProfileId} refreshKey={sentRequestId} onDuplicate={setDuplicateRequest} onPickNote={(text) => setInterestNote(text)} />
+            <RequestCoach key={`${myTsapId}:${loadedProfileId}`} fromId={myTsapId} toId={loadedProfileId} refreshKey={sentRequestId} onDuplicate={setDuplicateRequest} onPickNote={(text) => setInterestNote(text)} />
           ) : null}
           {/* 🔒 Contact access is gated by profile-owner acceptance */}
           <section className="profile-contact mv-surface mv-surface__body mv-card mt-4 border-rose-200">
             <h2 className="text-lg font-extrabold text-[#7A0C2E]">
-              🔒 {te ? "ఫోన్ నంబర్ — •••••••••• (గోప్యతా రక్షణలో ఉంది)" : "Phone Number — •••••••••• (Protected & Locked)"}
+              <LockKeyhole aria-hidden="true" className="mr-1 inline-block h-5 w-5" />{te ? "ఫోన్ నంబర్ — •••••••••• (గోప్యతా రక్షణలో ఉంది)" : "Phone Number — •••••••••• (Protected & Locked)"}
             </h2>
             <p className="mt-1 text-[13px] text-rose-900 leading-relaxed">
               {te

@@ -6,6 +6,7 @@ for(const lang of ['en','te'])for(const width of [320,390,1280])test(`private ph
  await page.route('**/api/**',async r=>{const path=new URL(r.request().url()).pathname;
   if(path==='/api/auth/verify')return r.fulfill({json:{valid:true,tsap_id:'COOKIE_OWNER'}});
   if(path.startsWith('/api/search/'))return r.fulfill({json:{profile:{tsap_id:path.split('/').pop(),full_name:'Fictional photo owner',age:29,gender:'Bride',photo_url:''},is_photo_blur:true,quality:{}}});
+  if(path==='/api/interest/coach')return r.fulfill({json:{can_send:true,blockers:[],credits:3,what_owner_receives:[{en:'Fictional published profile card.',te:'కల్పిత ప్రొఫైల్ కార్డ్.'}],next_steps:[{step:'owner_decision',en:'Owner decides whether to accept.',te:'యజమాని నిర్ణయం తీసుకుంటారు.'}],suggested_notes:[],delivery_note_en:'Delivery is not guaranteed.',delivery_note_te:'డెలివరీ హామీ లేదు.'}});
   if(path.startsWith('/api/saved/'))return r.fulfill({json:{saved:[]}});
   if(path==='/api/photo/access/request'){posts.push({path,body:r.request().postDataJSON()});if(failRequest){failRequest=false;return r.abort()}return r.fulfill({json:{success:true,status:'pending'}})}
   if(path==='/api/photo/access/signed-url'){posts.push({path,body:r.request().postDataJSON()});return r.fulfill({json:{success:true,signed_url:'/photos/fictional-approved.png?access_token=isolated',expires_in_seconds:900}})}
