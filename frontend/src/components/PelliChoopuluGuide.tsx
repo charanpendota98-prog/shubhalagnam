@@ -176,7 +176,7 @@ export default function PelliChoopuluGuide() {
             href={shareUrl}
             target="_blank"
             rel="noopener noreferrer"
-            aria-label={te ? "ఈ గైడ్‌ను WhatsApp ద్వారా పంచుకోండి" : "Share this guide using WhatsApp"}
+            aria-label={te ? "ఈ గైడ్‌ను WhatsApp లో పంచుకోండి" : "Share this guide on WhatsApp"}
             className="inline-flex min-h-11 items-center gap-2 rounded-full bg-[#25D366] px-5 py-2.5 text-xs font-bold text-white shadow transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2"
           >
             <WhatsAppIcon className="h-4 w-4" mono />

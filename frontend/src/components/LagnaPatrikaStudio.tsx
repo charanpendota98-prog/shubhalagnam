@@ -10,6 +10,7 @@ import { useState } from "react";
 import { SITE_CONFIG } from "@/lib/site-config";
 import { useLang } from "@/lib/lang";
 import { WhatsAppIcon } from "@/components/BrandIcons";
+import { wrapCanvasText } from "@/lib/canvas-text";
 
 type LagnaTheme = "gold" | "maroon" | "emerald" | "silk";
 type DetailKey =
@@ -152,58 +153,76 @@ export default function LagnaPatrikaStudio() {
       const ctx = canvas.getContext("2d");
       if (!ctx) throw new Error("Canvas is unavailable");
       canvas.width = 1080;
-      canvas.height = 1620;
 
+      type ExportRow = { text: string; size: number; weight?: string; color?: string; gap?: number; width?: number };
+      const rows: ExportRow[] = [];
+      const add = (text: string, size: number, weight = "", color = "#222222", gap = 12, width = 920) => rows.push({ text, size, weight, color, gap, width });
+      const parentNames = (mother: string, father: string) => [mother, father].map((value) => value.trim()).filter(Boolean).join(" & ") || "—";
+      const person = (role: string, name: string, gotra: string, mother: string, father: string, home: string) => {
+        add(role, 28, "bold", currentTheme.accent);
+        add(displayValue(name), 36, "bold");
+        add(`${te ? "గోత్రం" : "Gotra"}: ${displayValue(gotra)}`, 25, "", "#555555");
+        add(`${te ? "తల్లిదండ్రులు" : "Parents"}: ${parentNames(mother, father)}`, 23, "", "#555555");
+        add(`${te ? "స్వస్థలం" : "Hometown"}: ${displayValue(home)}`, 23, "", "#555555", 34);
+      };
+      add(te ? "॥ శ్రీరస్తు • శుభమస్తు • అవిఘ్నమస్తు ॥" : "Sri Rastu • Shubhamastu • Avighnamastu", 32, "bold", currentTheme.accent);
+      add(slokaText, 22, "italic", "#555555", 30);
+      add(te ? "🪔 శుభ లగ్న పత్రిక 🪔" : "🪔 Auspicious Wedding Invitation 🪔", 42, "bold", currentTheme.accent, 34);
+      person(te ? "👰 వధువు" : "👰 Bride", details.brideName, details.brideGothram, details.brideMother, details.brideFather, details.brideNative);
+      person(te ? "🤵 వరుడు" : "🤵 Groom", details.groomName, details.groomGothram, details.groomMother, details.groomFather, details.groomNative);
+      const panelFirst = rows.length;
+      add(te ? "🗓️ శుభ ముహూర్త వివరాలు" : "🗓️ Wedding Ceremony Details", 30, "bold", currentTheme.accent, 20, 800);
+      add(`${te ? "తేదీ" : "Date"}: ${displayValue(details.date)}`, 26, "", "#222222", 12, 800);
+      add(`${te ? "సమయం" : "Time"}: ${displayValue(details.time)}`, 26, "", "#222222", 12, 800);
+      add(`${te ? "లగ్నం" : "Lagnam"}: ${displayValue(details.lagnam)}`, 26, "", "#222222", 12, 800);
+      add(`${te ? "నక్షత్రం" : "Nakshatra"}: ${displayValue(details.star)}`, 26, "", "#222222", 12, 800);
+      add(`${te ? "వేదిక" : "Venue"}: ${displayValue(details.venue)}`, 24, "", "#222222", 65, 800);
+      const panelLast = rows.length - 1;
+      add(`${te ? "ఆహ్వానించేవారు" : "Invited by"}: ${displayValue(details.inviter)}`, 23, "bold", "#444444", 60);
+
+      let y = 80;
+      const layout = rows.map((row) => {
+        const font = `${row.weight || ""} ${row.size}px sans-serif`.trim();
+        ctx.font = font;
+        const lines = wrapCanvasText(ctx, row.text, row.width || 920);
+        const lineHeight = row.size * 1.65;
+        const entry = { ...row, font, lines, lineHeight, y, bottom: y + lines.length * lineHeight };
+        y = entry.bottom + (row.gap || 0);
+        return entry;
+      });
+      canvas.height = Math.max(1620, Math.ceil(y + 150));
+      // Avoid a blank/failed browser canvas for an exceptionally large pasted value.
+      if (canvas.height > 16384) throw new Error("Invitation is too long to export safely");
       const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
       gradient.addColorStop(0, currentTheme.canvasStart);
       gradient.addColorStop(0.5, currentTheme.canvasMiddle);
       gradient.addColorStop(1, currentTheme.canvasEnd);
       ctx.fillStyle = gradient;
       ctx.fillRect(0, 0, canvas.width, canvas.height);
-
       ctx.strokeStyle = currentTheme.accent;
       ctx.lineWidth = 16;
       ctx.strokeRect(30, 30, canvas.width - 60, canvas.height - 60);
       ctx.lineWidth = 4;
       ctx.strokeRect(50, 50, canvas.width - 100, canvas.height - 100);
-
-      const drawCentered = (text: string, y: number, font: string, color = "#222222") => {
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-        ctx.font = font;
-        ctx.fillStyle = color;
-        ctx.fillText(text || "—", canvas.width / 2, y, 920);
-      };
-      const parentNames = (mother: string, father: string) => [mother, father].map((value) => value.trim()).filter(Boolean).join(" & ") || "—";
-      const person = (role: string, name: string, gotra: string, mother: string, father: string, home: string, startY: number) => {
-        drawCentered(role, startY, "bold 28px sans-serif", currentTheme.accent);
-        drawCentered(displayValue(name), startY + 52, "bold 36px sans-serif");
-        drawCentered(`${te ? "గోత్రం" : "Gotra"}: ${displayValue(gotra)}`, startY + 98, "25px sans-serif", "#555555");
-        drawCentered(`${te ? "తల్లిదండ్రులు" : "Parents"}: ${parentNames(mother, father)}`, startY + 138, "23px sans-serif", "#555555");
-        drawCentered(`${te ? "స్వస్థలం" : "Hometown"}: ${displayValue(home)}`, startY + 178, "23px sans-serif", "#555555");
-      };
-
-      drawCentered(te ? "॥ శ్రీరస్తు • శుభమస్తు • అవిఘ్నమస్తు ॥" : "Sri Rastu • Shubhamastu • Avighnamastu", 100, "bold 32px sans-serif", currentTheme.accent);
-      drawCentered(slokaText, 160, "italic 22px sans-serif", "#555555");
-      drawCentered(te ? "🪔 శుభ లగ్న పత్రిక 🪔" : "🪔 Auspicious Wedding Invitation 🪔", 245, "bold 42px sans-serif", currentTheme.accent);
-
-      person(te ? "👰 వధువు" : "👰 Bride", details.brideName, details.brideGothram, details.brideMother, details.brideFather, details.brideNative, 325);
-      person(te ? "🤵 వరుడు" : "🤵 Groom", details.groomName, details.groomGothram, details.groomMother, details.groomFather, details.groomNative, 565);
-
+      const panelTop = layout[panelFirst].y - 20;
+      const panelHeight = layout[panelLast].bottom + 25 - panelTop;
       ctx.fillStyle = "rgba(255, 255, 255, 0.72)";
-      ctx.fillRect(100, 790, canvas.width - 200, 500);
-      ctx.strokeStyle = currentTheme.accent;
+      ctx.fillRect(100, panelTop, canvas.width - 200, panelHeight);
       ctx.lineWidth = 2;
-      ctx.strokeRect(100, 790, canvas.width - 200, 500);
-      drawCentered(te ? "🗓️ శుభ ముహూర్త వివరాలు" : "🗓️ Wedding Ceremony Details", 845, "bold 30px sans-serif", currentTheme.accent);
-      drawCentered(`${te ? "తేదీ" : "Date"}: ${displayValue(details.date)}`, 910, "26px sans-serif");
-      drawCentered(`${te ? "సమయం" : "Time"}: ${displayValue(details.time)}`, 970, "26px sans-serif");
-      drawCentered(`${te ? "లగ్నం" : "Lagnam"}: ${displayValue(details.lagnam)}`, 1030, "26px sans-serif");
-      drawCentered(`${te ? "నక్షత్రం" : "Nakshatra"}: ${displayValue(details.star)}`, 1090, "26px sans-serif");
-      drawCentered(`${te ? "వేదిక" : "Venue"}: ${displayValue(details.venue)}`, 1160, "24px sans-serif");
-      drawCentered(`${te ? "ఆహ్వానించేవారు" : "Invited by"}: ${displayValue(details.inviter)}`, 1370, "bold 23px sans-serif", "#444444");
-      drawCentered(te ? "మన వివాహ • Mana Vivaha • తెలుగు మ్యాట్రిమోనీ" : "Mana Vivaha (మన వివాహ) • Telugu Matrimony", 1515, "bold 22px sans-serif", currentTheme.accent);
-      drawCentered(SITE_CONFIG.domain, 1555, "20px sans-serif", "#555555");
+      ctx.strokeRect(100, panelTop, canvas.width - 200, panelHeight);
+      ctx.textAlign = "center";
+      ctx.textBaseline = "top";
+      for (const row of layout) {
+        ctx.font = row.font;
+        ctx.fillStyle = row.color || "#222222";
+        row.lines.forEach((line, index) => ctx.fillText(line, canvas.width / 2, row.y + index * row.lineHeight));
+      }
+      ctx.fillStyle = currentTheme.accent;
+      ctx.font = "bold 22px sans-serif";
+      ctx.fillText(te ? "మన వివాహ • Mana Vivaha • తెలుగు మ్యాట్రిమోనీ" : "Mana Vivaha (మన వివాహ) • Telugu Matrimony", canvas.width / 2, canvas.height - 110);
+      ctx.font = "20px sans-serif";
+      ctx.fillStyle = "#555555";
+      ctx.fillText(SITE_CONFIG.domain, canvas.width / 2, canvas.height - 70);
 
       const slug = `${details.groomName}-${details.brideName}`
         .trim()
@@ -330,7 +349,7 @@ export default function LagnaPatrikaStudio() {
                   href={waShareUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  aria-label={te ? "WhatsAppలో ఆహ్వానాన్ని పంచుకోండి" : "Share invitation on WhatsApp"}
+                  aria-label={te ? "WhatsApp ఆహ్వానం" : "WhatsApp invitation"}
                   className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-[#25D366] px-4 py-2 text-sm font-bold text-white shadow-md transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-700 focus-visible:ring-offset-2 active:scale-[.98]"
                 >
                   <WhatsAppIcon className="h-4 w-4" mono />
