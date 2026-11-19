@@ -43,10 +43,15 @@ export default function RequestCoach({
   fromId,
   toId,
   onPickNote,
+  refreshKey = "",
+  onDuplicate,
 }: {
   fromId: string;
   toId: string;
   onPickNote?: (note: string) => void;
+  /** Changes after a send so credits and the duplicate state are re-read from the server. */
+  refreshKey?: string;
+  onDuplicate?: (duplicate: boolean) => void;
 }) {
   const { lang } = useLang();
   const te = lang === "te";
@@ -57,12 +62,12 @@ export default function RequestCoach({
     const { ok, data: d } = await apiGet<Coach>(
       `/api/interest/coach?from_id=${encodeURIComponent(fromId)}&to_id=${encodeURIComponent(toId)}`,
     );
-    if (ok && d) setData(d);
-  }, [fromId, toId]);
+    if (ok && d) { setData(d); onDuplicate?.(Boolean(d.duplicate_request)); }
+  }, [fromId, toId, onDuplicate]);
 
   useEffect(() => {
     void load();
-  }, [load]);
+  }, [load, refreshKey]);
 
   if (!fromId || !toId || fromId === toId || !data) return null;
 

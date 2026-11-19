@@ -1,17 +1,19 @@
 "use client";
+import "@/components/trust-workspace.css";
 
 /** 💸 REFUND & CANCELLATION POLICY — neat Telugu / clean English via toggle. */
 import Link from "next/link";
 import { SITE_CONFIG } from "@/lib/site-config";
+import { POLICY_SUPPORT_EMAIL } from "@/lib/policy-facts";
 import { useLang } from "@/lib/lang";
 
-const LAST_UPDATED = "14 Sep 2026";
+const LAST_UPDATED = "17 Nov 2026";
 
 export default function RefundPage() {
   const { lang } = useLang();
   const te = lang === "te";
   return (
-    <div className="max-w-3xl mx-auto px-4 py-8 pb-36">
+    <div className="mv-trust-workspace max-w-3xl mx-auto px-4 py-8 pb-36">
       <h1 className="text-2xl md:text-3xl font-extrabold text-[#7A0C2E] telugu">
         {te ? "💸 Refund & Cancellation Policy (వాపసు విధానం)" : "💸 Refund & Cancellation Policy"}
       </h1>
@@ -28,6 +30,8 @@ export default function RefundPage() {
             (but a declined request&apos;s credit comes back). No auto-renewal, no hidden charges.</>
         )}
       </div>
+
+      <p data-testid="policy-payment-fact" className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm">{te ? "Paid checkout ప్రస్తుతం అందుబాటులో లేదు. డబ్బు పంపవద్దు. ఇప్పటికే ఉన్న refund/credit హక్కులు, response deadlines ఈ factual update వల్ల మారవు." : "Paid checkout is currently unavailable. Do not send money. Existing refund/credit rights and response deadlines are unchanged by this factual update."}</p>
 
       <Section title={te ? "1. ఏమి refund అవుతుంది ✅" : "1. What gets refunded ✅"}>
         <ul>
@@ -83,16 +87,16 @@ export default function RefundPage() {
         <ol>
           {te ? (
             <>
-              <li>WhatsApp/Phone: <b>{SITE_CONFIG.supportPhoneDisplay}</b> లేదా email: <b>{SITE_CONFIG.supportEmail}</b></li>
-              <li>పంపాల్సినవి: Profile ID • payment date • amount • Razorpay payment ID • reason (1 line)</li>
+              <li>Email: <b>{POLICY_SUPPORT_EMAIL}</b>{SITE_CONFIG.supportPhoneDisplay ? <> • WhatsApp/Phone: <b>{SITE_CONFIG.supportPhoneDisplay}</b></> : null}</li>
+              <li>పంపాల్సినవి: Profile ID • payment date • amount • payment reference / transaction ID • reason (1 line)</li>
               <li>Verify చేసి <b>2 working days</b> లో approve/decline తెలియజేస్తాం.</li>
               <li>Approve అయితే <b>5–7 working days</b> లో మీ bank/UPI కి credited అవుతుంది (bank timing బట్టి).</li>
               <li>Refund confirmation email మీకు పంపిస్తాం.</li>
             </>
           ) : (
             <>
-              <li>WhatsApp/Phone: <b>{SITE_CONFIG.supportPhoneDisplay}</b> or email: <b>{SITE_CONFIG.supportEmail}</b></li>
-              <li>Send: Profile ID • payment date • amount • Razorpay payment ID • reason (1 line)</li>
+              <li>Email: <b>{POLICY_SUPPORT_EMAIL}</b>{SITE_CONFIG.supportPhoneDisplay ? <> • WhatsApp/Phone: <b>{SITE_CONFIG.supportPhoneDisplay}</b></> : null}</li>
+              <li>Send: Profile ID • payment date • amount • payment reference / transaction ID • reason (1 line)</li>
               <li>We verify and inform approve/decline within <b>2 working days</b>.</li>
               <li>On approval, credited to your bank/UPI in <b>5–7 working days</b> (depends on bank timing).</li>
               <li>Refund confirmation email is sent to you.</li>
@@ -141,13 +145,13 @@ export default function RefundPage() {
         <ul>
           {te ? (
             <>
-              <li>ముందు మన support కి చెప్పండి — 90% cases 48h లో resolve అవుతాయి.</li>
+              <li>ముందు మన support కి చెప్పండి. మీ complaint కి వర్తించే response మరియు refund సమయాలు ఈ policy లో ఉన్నాయి.</li>
               <li>Bank chargeback initiate చేస్తే, మన records (payment ID + service usage) పంపిస్తాం.</li>
               <li>Fraudulent chargebacks అయితే account temporary suspend అవ్వచ్చు.</li>
             </>
           ) : (
             <>
-              <li>Tell our support first — 90% of cases resolve in 48h.</li>
+              <li>Contact our support first. The response and refund timelines in this policy apply to your complaint.</li>
               <li>If you initiate a bank chargeback, we submit our records (payment ID + service usage).</li>
               <li>Fraudulent chargebacks may lead to temporary account suspension.</li>
             </>
@@ -158,13 +162,12 @@ export default function RefundPage() {
       <div className="mt-8 rounded-2xl border border-gray-200 bg-white p-5 text-xs text-gray-700">
         <div className="font-bold text-[#7A0C2E]">📞 {te ? "Contact (refunds & payments)" : "Contact (refunds & payments)"}</div>
         <div className="mt-2 space-y-1">
-          <div>Authorized Signatory: <b>{SITE_CONFIG.owner.name}</b> (Owner ID: <span className="font-mono text-[#7A0C2E] font-bold">{SITE_CONFIG.owner.id}</span>)</div>
           {SITE_CONFIG.owner.contactNumber ? <div>WhatsApp / Phone: <a href={`tel:${SITE_CONFIG.owner.contactNumber}`} className="font-bold text-emerald-700 hover:underline">{SITE_CONFIG.owner.contactNumber}</a></div> : <div>{te ? "ఫోన్ వివరాలు అందుబాటులో లేవు" : "Phone contact is not configured"}</div>}
-          {SITE_CONFIG.owner.email ? <div>Email: <a href={`mailto:${SITE_CONFIG.owner.email}`} className="font-bold text-emerald-700 hover:underline">{SITE_CONFIG.owner.email}</a></div> : null}
+          {POLICY_SUPPORT_EMAIL ? <div>Email: <a href={`mailto:${POLICY_SUPPORT_EMAIL}`} className="font-bold text-emerald-700 hover:underline">{POLICY_SUPPORT_EMAIL}</a></div> : null}
           <div>Website: <b>https://{SITE_CONFIG.domain}</b> • Telegram: {SITE_CONFIG.officialChannel}</div>
           {SITE_CONFIG.owner.location ? <div>Business: {SITE_CONFIG.legalName}, {SITE_CONFIG.owner.location}</div> : null}
           <div>{te ? "Working hours: Mon–Sat, 9 AM – 8 PM IST (response 24h లోపు)" : "Working hours: Mon–Sat, 9 AM – 8 PM IST (response within 24h)"}</div>
-          {!SITE_CONFIG.supportConfigured ? <div role="status">{te ? "ఈ deployment లో verified support contact configure కాలేదు; sensitive payment వివరాలను guessed address కు పంపకండి." : "No support contact is configured for this deployment; do not send sensitive payment details to guessed addresses."}</div> : null}
+          {!POLICY_SUPPORT_EMAIL ? <div role="status">{te ? "ఈ deployment లో verified support contact configure కాలేదు; sensitive payment వివరాలను guessed address కు పంపకండి." : "No support contact is configured for this deployment; do not send sensitive payment details to guessed addresses."}</div> : null}
         </div>
       </div>
 

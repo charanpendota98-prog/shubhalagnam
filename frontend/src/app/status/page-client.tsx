@@ -1,4 +1,5 @@
 "use client";
+import "@/components/trust-workspace.css";
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
@@ -20,6 +21,7 @@ export default function StatusPageClient() {
       if (!res.ok) throw new Error(json?.detail || "Unable to load live status.");
       setData(json);
     } catch (e: any) {
+      setData(null);
       setErr(e?.message || "Unable to load live status.");
     } finally {
       setLoading(false);
@@ -33,9 +35,12 @@ export default function StatusPageClient() {
   const slo = data?.slo || {};
   const providers = data?.providers_honest_state || {};
   const dr = data?.last_dr_drill || null;
+  const unavailable = te ? "సమాచారం లేదు" : "Unavailable";
+  const hasSamples = typeof slo.sample_size === "number" && slo.sample_size > 0;
+  const measuredAvailability = hasSamples && typeof slo.observed_availability_pct === "number";
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-8 space-y-6">
+    <div className="mv-trust-workspace max-w-5xl mx-auto px-4 py-8 space-y-6">
       <header className="rounded-3xl border border-amber-200/80 bg-gradient-to-br from-[#5c1224] via-[#4a1020] to-[#2c0913] text-white p-6 md:p-8 shadow-lg">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
@@ -68,6 +73,8 @@ export default function StatusPageClient() {
         </div>
       )}
 
+      <p role="status" className="text-sm text-stone-600">{te ? "ఇది ప్రస్తుతం సేకరించిన request నమూనా మాత్రమే; lifetime uptime లేదా message delivery హామీ కాదు." : "This is a rolling sample of observed requests, not lifetime uptime or a message-delivery guarantee."}{data?.checked_at ? <> {te ? "తనిఖీ సమయం:" : "Checked:"} <time>{data.checked_at}</time></> : null}</p>
+
       <section className="grid grid-cols-1 md:grid-cols-3 gap-4" aria-label={te ? "ప్రధాన కొలమానాలు" : "Core SLO Metrics"}>
         <div className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
           <div className="text-xs font-semibold uppercase tracking-wide text-stone-500">
@@ -85,7 +92,7 @@ export default function StatusPageClient() {
           </div>
           <p className="text-xs text-stone-600 mt-2">
             {te ? "SQL సమానత్వం:" : "SQL Identity Parity:"}{" "}
-            <strong>{data?.components?.transactional_sql_plane === "operational" ? "Verified" : "Pending"}</strong>
+            <strong>{data?.components?.transactional_sql_plane === "operational" ? "Verified" : data?.components?.transactional_sql_plane || unavailable}</strong>
           </p>
         </div>
 
@@ -93,12 +100,12 @@ export default function StatusPageClient() {
           <div className="text-xs font-semibold uppercase tracking-wide text-stone-500">
             {te ? "లభ్యత SLO (Target 99.5%)" : "Rolling Availability SLO (Target 99.5%)"}
           </div>
-          <div className="mt-2 text-2xl font-bold text-stone-900">
-            {loading ? "…" : `${slo.observed_availability_pct ?? 100}%`}
+          <div data-testid="status-availability" className="mt-2 text-2xl font-bold text-stone-900">
+            {loading ? "…" : measuredAvailability ? `${slo.observed_availability_pct}%` : slo.sample_size === 0 ? (te ? "నమూనా లేదు" : "No samples") : unavailable}
           </div>
           <p className="text-xs text-stone-600 mt-2">
-            {te ? "నమూనా అభ్యర్థనలు:" : "Observed requests in window:"} <strong>{slo.sample_size ?? 0}</strong> • p95:{" "}
-            <strong>{slo.p95_latency_ms ?? 0} ms</strong>
+            {te ? "నమూనా అభ్యర్థనలు:" : "Observed requests in window:"} <strong>{slo.sample_size ?? "—"}</strong> • p95:{" "}
+            <strong>{hasSamples && typeof slo.p95_latency_ms === "number" ? `${slo.p95_latency_ms} ms` : "—"}</strong>
           </p>
         </div>
 
@@ -106,11 +113,11 @@ export default function StatusPageClient() {
           <div className="text-xs font-semibold uppercase tracking-wide text-stone-500">
             {te ? "ఇండెక్స్ చేసిన శోధన v2" : "Indexed Search Projection v2"}
           </div>
-          <div className="mt-2 text-base font-bold text-stone-900">
-            {loading ? "…" : data?.components?.search_v2_projection || "operational"}
+          <div data-testid="status-search" className="mt-2 text-base font-bold text-stone-900">
+            {loading ? "…" : data?.components?.search_v2_projection || unavailable}
           </div>
           <p className="text-xs text-stone-600 mt-2">
-            {te ? "ఆమోదించబడిన ప్రొఫైల్స్ SQL ఇండెక్స్‌లో ఉన్నాయి" : "Approved profiles indexed with cursor & ETag caching"}
+            {te ? "ప్రస్తుత తనిఖీ ఇచ్చిన search projection స్థితి" : "Search projection state returned by the current check"}
           </p>
         </div>
       </section>
@@ -123,7 +130,7 @@ export default function StatusPageClient() {
           {[
             {
               key: "online_payment_gateway",
-              labelEn: "Online Payment Gateway (Razorpay)",
+              labelEn: "Online Payment Gateway",
               labelTe: "ఆన్‌లైన్ పేమెంట్ గేట్‌వే",
               val: providers.online_payment_gateway,
             },
@@ -155,7 +162,7 @@ export default function StatusPageClient() {
                     : "bg-stone-100 text-stone-700"
                 }`}
               >
-                {item.val || "checking"}
+                {item.val || (loading ? "checking" : unavailable)}
               </span>
             </div>
           ))}
@@ -170,7 +177,7 @@ export default function StatusPageClient() {
         <h2 className="text-lg font-bold text-stone-900 telugu">
           {te ? "డిజాస్టర్ రికవరీ (DR) ధృవీకరణ రుజువు" : "Disaster-Recovery (DR) Rehearsal Proof"}
         </h2>
-        {dr ? (
+        {!data ? <p className="text-sm text-stone-600">{loading ? (te ? "తనిఖీ అవుతోంది…" : "Checking…") : unavailable}</p> : dr ? (
           <div className="rounded-xl bg-emerald-50/70 border border-emerald-200 p-4 text-sm space-y-1 text-stone-800">
             <div>
               <strong>Drill ID:</strong> {dr.drill_id} • <strong>Executed:</strong> {dr.at}

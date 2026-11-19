@@ -1,5 +1,7 @@
 "use client";
 
+import "@/components/wedding-tools-workspace.css";
+
 
 import { apiDisplayMessage, readApiJson } from "@/lib/api";
 /**
@@ -390,7 +392,7 @@ export default function BiodataPage() {
   };
 
   return (
-    <div className="min-h-dvh bg-[#FAF7F2] py-6 sm:py-10 px-3 sm:px-6 font-sans">
+    <div className="mv-wedding-workspace min-h-dvh bg-[#FAF7F2] py-6 sm:py-10 px-3 sm:px-6 font-sans">
       <div className="max-w-6xl mx-auto space-y-6">
         
         {/* ================= TOP STUDIO CONTROLS (NO PRINT) ================= */}
@@ -749,9 +751,11 @@ export default function BiodataPage() {
         )}
 
         {/* ================= BIODATA CANVAS (PIXEL-PERFECT HD JPG TARGET) ================= */}
-        <div className="overflow-x-auto pb-4">
+        <p id="biodata-preview-help" className="text-sm leading-6 text-slate-600">{te ? "పూర్తి సైజు document ప్రివ్యూ. చిన్న స్క్రీన్‌లో పక్కకు స్క్రోల్ చేసి మొత్తం చూడండి; వివరాలు చదవడానికి లేదా మార్చడానికి Edit details తెరవండి. డౌన్‌లోడ్‌లో పూర్తి పత్రం ఉంటుంది." : "Full-size document preview. On small screens, scroll sideways to see the whole document, or open Edit details to read and change fields. The download contains the full document."}</p>
+        <div className="overflow-x-auto pb-4" role="region" aria-label={te ? "బయోడేటా పత్రం ప్రివ్యూ" : "Biodata document preview"} aria-describedby="biodata-preview-help" tabIndex={0}>
           <div
             ref={canvasRef}
+            data-biodata-canvas="true"
             id="biodata-canvas"
             className={`w-[800px] min-w-[800px] mx-auto rounded-3xl ${selectedTheme.canvasBg} border-4 ${selectedTheme.border} p-8 shadow-2xl text-slate-900 transition-all space-y-6 relative overflow-hidden [overflow-wrap:anywhere]`}
           >

@@ -1,5 +1,7 @@
 "use client";
 
+import "@/components/partner-workspace.css";
+
 import { apiDisplayMessage, readApiJson } from "@/lib/api";
 /**
  * 🏪 VENDOR DIRECTORY — మన వివాహ
@@ -34,30 +36,34 @@ export default function VendorsPage() {
   const [q, setQ] = useState("");
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState("");
+  const [listError, setListError] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+  const [packageState, setPackageState] = useState("loading");
 
   useEffect(() => {
     fetch("/api/vendors/categories").then((r) => readApiJson(r)).then((d) => setCats(d.categories || [])).catch(() => { });
-    fetch("/api/vendors/packages").then((r) => readApiJson(r)).then(setPkgs).catch(() => { });
+    fetch("/api/vendors/packages").then((r) => readApiJson(r)).then(d => { if (!d?.success || !Array.isArray(d.packages)) throw new Error("Unavailable"); setPkgs(d); setPackageState("ready"); }).catch(() => { setPkgs(null); setPackageState("failed"); });
   }, []);
 
   useEffect(() => {
-    setLoading(true);
+    let active = true; setLoading(true); setListError(false); setData(null);
     const params = new URLSearchParams();
     if (cat) params.set("category", cat);
     if (district) params.set("district", district);
     if (q) params.set("q", q);
     fetch(`/api/vendors?${params.toString()}`)
       .then((r) => readApiJson(r))
-      .then(setData)
-      .catch(() => { })
-      .finally(() => setLoading(false));
-  }, [cat, district, q]);
+      .then(d => { if (!d?.success || !Array.isArray(d.vendors)) throw new Error("Unavailable"); if (active) setData(d); })
+      .catch(() => { if (active) setListError(true); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [cat, district, q, attempt]);
 
   const vendors: Vendor[] = data?.vendors ?? EMPTY_VENDOR_LIST;
   const promoKit = (pkgs?.packages || []).find((p: any) => p.code === "V_SINGLE_POST");
   const listingPrices = (pkgs?.packages || []).filter((p: any) => !["V_SINGLE_POST", "V_STATUS_BLAST"].includes(p.code)).map((p: any) => Number(p.price)).filter((price: number) => Number.isFinite(price));
-  const promoKitPrice = Number(promoKit?.price) || 149;
-  const listingStart = listingPrices.length ? Math.min(...listingPrices) : 499;
+  const promoKitPrice = Number.isFinite(Number(promoKit?.price)) ? promoKit.price : (te ? "నిర్ధారణ కాలేదు" : "unconfirmed");
+  const listingStart = listingPrices.length ? Math.min(...listingPrices) : (te ? "నిర్ధారణ కాలేదు" : "unconfirmed");
   const districts = useMemo(() => {
     const set = new Set<string>();
     vendors.forEach((v) => v.district && set.add(v.district));
@@ -75,7 +81,7 @@ export default function VendorsPage() {
   };
 
   return (
-    <div className="min-h-dvh bg-cream pb-36">
+    <div className="mv-partner-workspace min-h-dvh bg-cream pb-36">
       {/* HERO */}
       <section className="maroon-gradient text-white">
         <div className="max-w-7xl mx-auto px-4 py-9">
@@ -84,12 +90,12 @@ export default function VendorsPage() {
               <h1 className="text-2xl md:text-3xl font-extrabold">
                 🏪 <Duo en="Wedding Vendors" te="పెళ్లి వెండర్లు" /> — <span className="text-gold">{duo("everything for your wedding, one place", "పెళ్లికి కావాల్సినవన్నీ ఒకేచోట")}</span>
               </h1>
-              <p className="text-[13px] opacity-90 mt-2 telugu max-w-3xl">
+              <p className="text-[13px] opacity-90 mt-2 telugu max-w-3xl">{typeof promoKitPrice === "number" && typeof listingStart === "number" ? <>
                 Catering • Photography • Decorations • Function Hall • Tent House • Pandit • Jewellery • Makeup •
                 Mehendi • DJ/Band • Invitations • Cars • Planners • Cake • Gifts • Honeymoon — 18 categories.
                 <br />
-                {te ? <><b>Promo kit మరియు listing packages వేర్వేరు.</b> ₹{promoKitPrice} one-day private share-ready kit (approval తర్వాత 1 రోజు access; listing కాదు); directory-listing package ₹{listingStart} నుంచి. External posting లేదా reach హామీ లేదు.</> : <><b>Promotion kits and listing packages are different.</b> The ₹{promoKitPrice} one-day private share-ready kit includes access for one day after approval and is not a directory listing; directory-listing packages start at ₹{listingStart}. External posting or reach is not guaranteed.</>}
-              </p>
+                {te ? <><b>Promo kit మరియు listing packages వేర్వేరు.</b> {typeof promoKitPrice === "number" ? `₹${promoKitPrice}` : promoKitPrice} one-day private share-ready kit (approval తర్వాత 1 రోజు access; listing కాదు); directory-listing package {typeof listingStart === "number" ? `₹${listingStart}` : listingStart} నుంచి. External posting లేదా reach హామీ లేదు.</> : <><b>Promotion kits and listing packages are different.</b> The {typeof promoKitPrice === "number" ? `₹${promoKitPrice}` : promoKitPrice} one-day private share-ready kit includes access for one day after approval and is not a directory listing; directory-listing packages start at {typeof listingStart === "number" ? `₹${listingStart}` : listingStart}. External posting or reach is not guaranteed.</>}
+              </> : <>{te ? "Package ధరలు నిర్ధారించలేకపోయాం. తాజా ధరలు, terms వచ్చిన తర్వాతే ఎంపిక చేసుకోండి. External posting లేదా reach హామీ లేదు." : "Package prices could not be confirmed. Wait for current prices and terms before choosing. External posting and reach are not guaranteed."}</>}</p>
             </div>
             <div className="flex flex-wrap gap-2">
               <Link href="/vendors/register" className="rounded-full gold-gradient text-maroon px-4 py-2 text-xs font-bold">
@@ -101,7 +107,7 @@ export default function VendorsPage() {
             </div>
           </div>
           <div className="mt-4 flex flex-wrap gap-2 text-[11px]">
-            <span className="px-3 py-1 rounded-full bg-white/10">{cats.length || 18} categories</span>
+            <span className="px-3 py-1 rounded-full bg-white/10">{cats.length || (te ? "నిర్ధారణ కాలేదు" : "Unconfirmed")} categories</span>
             <span className="px-3 py-1 rounded-full bg-white/10">{data?.total ?? "…"} vendors listed</span>
             <span className="px-3 py-1 rounded-full bg-white/10">{te ? "చెల్లింపు listing review ≠ identity verification" : "Payment/listing review is not identity verification"}</span>
             <span className="px-3 py-1 rounded-full bg-white/10">{te ? "Enquiries dashboard లో నమోదు అవుతాయి" : "Enquiries are recorded in the dashboard"}</span>
@@ -113,12 +119,12 @@ export default function VendorsPage() {
         {/* FILTERS */}
         <section className="mt-6 bg-white rounded-3xl border border-gold/30 card-shadow p-4">
           <div className="flex flex-wrap gap-2">
-            <button type="button" onClick={() => setCat("")}
+            <button type="button" aria-pressed={!cat} onClick={() => setCat("")}
               className={`px-3 py-1.5 rounded-full text-[12px] font-bold border ${!cat ? "maroon-gradient text-white border-transparent" : "border-maroon/20 text-maroon"}`}>
-              {te ? "అన్నీ" : "All"} ({data?.total ?? 0})
+              {te ? "అన్నీ" : "All"} ({data?.total ?? "…"})
             </button>
             {cats.map((c) => (
-              <button type="button" key={c.key} onClick={() => setCat(cat === c.key ? "" : c.key)}
+              <button type="button" key={c.key} aria-pressed={cat === c.key} onClick={() => setCat(cat === c.key ? "" : c.key)}
                 className={`px-3 py-1.5 rounded-full text-[12px] font-bold border ${cat === c.key ? "maroon-gradient text-white border-transparent" : "border-maroon/20 text-maroon"}`}>
                 {c.icon} {categoryName(c)}{c.count ? ` · ${c.count}` : ""}
               </button>
@@ -142,16 +148,18 @@ export default function VendorsPage() {
           )}
         </section>
 
+        {packageState !== "ready" && <p role={packageState === "failed" ? "alert" : "status"} className="mt-4 rounded-xl border border-amber-300 bg-white p-4">{te ? "Package ధరలు ఇంకా నిర్ధారణ కాలేదు. పాత ధరగా భావించవద్దు." : "Package prices are not yet confirmed. Do not rely on a previous price."}</p>}
+        {listError && <div role="alert" className="mt-4 rounded-xl border border-amber-300 bg-white p-4"><p>{te ? "Vendors నిర్ధారించలేకపోయాం. ఇది ఖాళీ జాబితా కాదు." : "Vendors could not be confirmed. This is not an empty result."}</p><button type="button" onClick={() => setAttempt(n => n + 1)} className="font-bold underline">{te ? "మళ్లీ ప్రయత్నించండి" : "Try again"}</button></div>}
         {/* DIRECTORY */}
         <section className="mt-6">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h2 className="font-bold text-maroon text-lg min-w-0">
-              {cat ? `${cats.find((c) => c.key === cat)?.icon || ""} ${cats.find((c) => c.key === cat) ? categoryName(cats.find((c) => c.key === cat)!) : cat.replace(/_/g, " ")}` : te ? "అన్ని vendors" : "All vendors"} — {vendors.length}
+              {cat ? `${cats.find((c) => c.key === cat)?.icon || ""} ${cats.find((c) => c.key === cat) ? categoryName(cats.find((c) => c.key === cat)!) : cat.replace(/_/g, " ")}` : te ? "అన్ని vendors" : "All vendors"} — {loading ? "…" : listError ? (te ? "నిర్ధారణ కాలేదు" : "Unconfirmed") : vendors.length}
             </h2>
             {loading && <span className="text-[11px] text-gray-500 shrink-0">⏳ {duo("loading…", "లోడ్ అవుతోంది…")}</span>}
           </div>
 
-          {!loading && vendors.length === 0 && (
+          {!loading && !listError && vendors.length === 0 && (
             <div className="mt-4 bg-white rounded-3xl border border-gold/30 p-6 text-center">
               <div className="text-4xl">🔍</div>
               <div className="mt-2 font-bold text-maroon">{te ? "ఈ filter కి vendors దొరకలేదు" : "No vendors for this filter"}</div>

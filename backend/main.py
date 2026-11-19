@@ -192,6 +192,7 @@ import member_intel
 from interest import (
     PLANS as INTEREST_PLANS, plan_list, get_plan, plan_by_amount, apply_payment,
     can_send_interest, create_interest, respond_interest, expire_old,
+    _EXPIRY_LOCK as INTEREST_RETURN_LOCK,
     interest_to_owner_text, interest_accepted_text, interest_accepted_owner_text, interest_declined_text,
     interest_notify_text, inbox_for, sent_for, safe_user, sanitize_public_text, sanitize_public_payload,
     MAX_PER_DAY as INTEREST_MAX_PER_DAY, EXPIRY_DAYS as INTEREST_EXPIRY_DAYS,
@@ -3079,6 +3080,9 @@ async def register(
     blood_group: str = Form(""),
     mother_tongue: str = Form(""),
     physical_status: str = Form(""),
+    # Optional self-declared facts; empty stays unknown (never inferred or backfilled).
+    profile_for: str = Form(""),
+    diet: str = Form(""),
     body_type: str = Form(""),
     complexion: str = Form(""),
     family_values: str = Form(""),
@@ -3298,6 +3302,10 @@ async def register(
     company = req_text(company, "company", 0, 100, required=False)
     mother_tongue = req_text(mother_tongue, "mother_tongue", 0, 60, required=False)
     physical_status = req_text(physical_status, "physical_status", 0, 60, required=False)
+    # profile_for values preserve the original registration semantics: who the
+    # profile is registered for (the member themselves, or by their parents).
+    profile_for = req_choice(profile_for, "profile_for", ["Self", "Parents"], required=False, default="")
+    diet = req_choice(diet, "diet", ["Vegetarian", "Non-Vegetarian"], required=False, default="")
     body_type = req_text(body_type, "body_type", 0, 60, required=False)
     complexion = req_text(complexion, "complexion", 0, 60, required=False)
     family_values = req_text(family_values, "family_values", 0, 100, required=False)
@@ -3450,6 +3458,8 @@ async def register(
             "blood_group": blood_group,
             "mother_tongue": mother_tongue,
             "physical_status": physical_status,
+            "profile_for": profile_for,
+            "diet": diet,
             "body_type": body_type,
             "complexion": complexion,
             "family_values": family_values,
@@ -3797,11 +3807,7 @@ def free_plan_clarity():
     🆓 FREE vs PAID — crystal clear (Telugu).
     "3 profiles ఇస్తాం కానీ numbers ఇవ్వము — వాళ్లు pay chesaka numbers/contact"
     """
-    decline_credit_note = (
-        "🔁 Owner decline చేస్తే ఒక request credit తిరిగి account లో జమ అవుతుంది; ఇది cash refund కాదు."
-        if INTEREST_REFUND_ON_DECLINE else
-        "🔁 Owner decline చేస్తే request credit తిరిగి రాదు; no-response expiry పై ఒక credit తిరిగి వస్తుంది."
-    )
+    decline_credit_note = "🔁 Owner decline చేస్తే ఒక request credit ఒకసారి తిరిగి account లో జమ అవుతుంది; ఇది cash refund కాదు."
     return {
         "success": True,
         "headline_telugu": "Register 100% FREE — 3 interest requests పంపొచ్చు. Contact details public search లో చూపించము; profile owner accept చేసిన తర్వాత account flows లో అందుబాటులోకి వస్తాయి.",
@@ -3872,11 +3878,13 @@ def search_profile(tsap_id: str, viewer_id: Optional[str] = None, request: Reque
         raise HTTPException(404, "Approved active profile not found")
 
     # Compare only facts supplied by an authenticated member; never calculate a compatibility score.
-    observations, differences, preference_checks = [], [], []
+    observations, observations_te, differences, differences_te, preference_checks = [], [], [], [], []
     if viewer and str(viewer.get("tsap_id", "")) != str(user.get("tsap_id", "")):
         comparison = topmatch.score_match_v2(viewer, user)
         observations = comparison.get("observations", [])
+        observations_te = comparison.get("observations_te", [])
         differences = comparison.get("differences", [])
+        differences_te = comparison.get("differences_te", [])
         preference_checks = comparison.get("preferences", [])
 
     # Public profile response uses the explicit safe_user serializer; raw contact fields stay out.
@@ -3918,7 +3926,9 @@ def search_profile(tsap_id: str, viewer_id: Optional[str] = None, request: Reque
         "consent_note_telugu": "🔒 Contact details are not public. They become available in accepted-request account views after profile-owner acceptance; notification delivery is not guaranteed. Independently verify member-provided details.",
         "is_photo_blur": bool(private_photo and not is_owner),
         "observations": observations,
+        "observations_te": observations_te,
         "differences": differences,
+        "differences_te": differences_te,
         "preference_checks": preference_checks,
         "credits_needed": 1,
         "viewer_credits": viewer.get("credits") if viewer else None
@@ -4026,8 +4036,9 @@ def _evaluate_partner_preferences_match(user: dict, prefs: dict, candidate: dict
             raw = [raw] if raw else []
         return [str(value).strip() for value in raw if str(value).strip()]
 
-    def add_check(key: str, label: str, matches: bool, note: str) -> None:
-        checks.append({"key": key, "label": label, "status": "met" if matches else "not_met", "note": note})
+    def add_check(key: str, label: str, matches, note: str, note_te: str = "") -> None:
+        status = matches if isinstance(matches, str) else ("met" if matches else "not_met")
+        checks.append({"key": key, "label": label, "status": status, "note": note, "note_te": note_te or note})
 
     # Explicit age and community selections are hard filters; missing candidate data stays unknown.
     try:
@@ -4040,20 +4051,23 @@ def _evaluate_partner_preferences_match(user: dict, prefs: dict, candidate: dict
         age_ok = age_min <= cand_age <= age_max
         if not age_ok:
             return False, []
-        add_check("age", "Age range", True, f"Member-entered age {cand_age} is within the selected range ({age_min}–{age_max}).")
+        add_check("age", "Age range", True, f"Member-entered age {cand_age} is within the selected range ({age_min}–{age_max}).",
+                  f"సభ్యుడు నమోదు చేసిన వయస్సు {cand_age} ఎంచుకున్న పరిధిలో ({age_min}–{age_max}) ఉంది.")
 
     pref_castes = values("castes")
     cand_caste = str(candidate.get("caste") or "").strip()
     if pref_castes and not bool(prefs.get("caste_no_bar")) and cand_caste:
         if not _has_overlap(cand_caste, pref_castes):
             return False, []
-        add_check("caste", "Community", True, f"Candidate lists {cand_caste}, which is in the selected community options.")
+        add_check("caste", "Community", True, f"Candidate lists {cand_caste}, which is in the selected community options.",
+                  f"అభ్యర్థి వివరం {cand_caste}, ఎంచుకున్న కులం ఎంపికల్లో ఉంది.")
 
     pref_subcastes = values("sub_castes")
     cand_subcaste = str(candidate.get("sub_caste") or "").strip()
     if pref_subcastes and cand_subcaste:
         add_check("sub_caste", "Sub-community", _has_overlap(cand_subcaste, pref_subcastes),
-                  f"Candidate lists {cand_subcaste}; compare it with the selected sub-community options.")
+                  f"Candidate lists {cand_subcaste}; compare it with the selected sub-community options.",
+                  f"అభ్యర్థి వివరం {cand_subcaste}; దానిని ఎంచుకున్న ఉపకులం ఎంపికలతో పోల్చండి.")
 
     pref_marital = values("marital_statuses")
     cand_marital = str(candidate.get("marital_status") or "").strip()
@@ -4062,19 +4076,85 @@ def _evaluate_partner_preferences_match(user: dict, prefs: dict, candidate: dict
         if not any_status and not _has_overlap(cand_marital, pref_marital):
             return False, []
         add_check("marital_status", "Marital status", True,
-                  f"Candidate lists {cand_marital}, within the selected marital-status options.")
+                  f"Candidate lists {cand_marital}, within the selected marital-status options.",
+                  f"అభ్యర్థి వివరం {cand_marital}, ఎంచుకున్న వైవాహిక స్థితి ఎంపికల్లో ఉంది.")
+
+    # Diet is a factual check against the candidate's own self-declared diet;
+    # an unset candidate diet stays unknown (never inferred) and earns no check.
+    pref_diet = str(prefs.get("diet") or "").strip()
+    cand_diet = str(candidate.get("diet") or "").strip()
+    if pref_diet and pref_diet.casefold() not in {"any", "all", "ఏదైనా"} and cand_diet:
+        # Legacy records may store a comma-separated combination. A combination
+        # containing the requested value is a factual met (the member lists it
+        # among their own values); a single known catalog value different from
+        # the request is a factual differs; anything else ("Vegan", an
+        # unrecognized combination) stays unknown - never a definite claim.
+        diet_met = QUALITY.diet_preference_match(pref_diet, cand_diet)
+        if diet_met == "unknown":
+            add_check("diet", "Diet", "unknown",
+                      f"Candidate lists {cand_diet}; it cannot be compared definitely with the selected diet preference ({pref_diet}).",
+                      f"అభ్యర్థి ఆహారపు అలవాటు {cand_diet}; దానిని ఎంచుకున్న ప్రాధాన్యతతో ({pref_diet}) ఖచ్చితంగా పోల్చలేము.")
+        else:
+            add_check("diet", "Diet", diet_met == "met",
+                      f"Candidate lists {cand_diet}; compare it with the selected diet preference ({pref_diet}).",
+                      f"అభ్యర్థి ఆహారపు అలవాటు {cand_diet}; దానిని ఎంచుకున్న ఆహారపు అలవాటు ప్రాధాన్యతతో ({pref_diet}) పోల్చండి.")
+
+    # Height range: informational check against the candidate's own listed
+    # height; an unset candidate height stays unknown and earns no check.
+    pref_hmin = str(prefs.get("height_min") or "").strip()
+    pref_hmax = str(prefs.get("height_max") or "").strip()
+    cand_height_cm = QUALITY._height_cm(candidate.get("height"))
+    if (pref_hmin or pref_hmax) and cand_height_cm:
+        lo_cm = QUALITY._height_cm(pref_hmin) if pref_hmin else 0
+        hi_cm = QUALITY._height_cm(pref_hmax) if pref_hmax else 0
+        height_met = (not lo_cm or cand_height_cm >= lo_cm) and (not hi_cm or cand_height_cm <= hi_cm)
+        bound = f"{pref_hmin or 'any'}–{pref_hmax or 'any'}"
+        add_check("height", "Height range", height_met,
+                  f"Candidate lists height {candidate.get('height')}; it is {'within' if height_met else 'outside'} the selected range ({bound}).",
+                  f"అభ్యర్థి ఎత్తు {candidate.get('height')}; ఎంచుకున్న పరిధి ({bound}) {'లోపల' if height_met else 'వెలుపల'} ఉంది.")
+
+    # Minimum income: intervals compared conservatively — definitely meets only
+    # when the entire listed range meets the minimum, definitely below only when
+    # the entire range is below it; a crossing range cannot be determined from
+    # the listed range. Unknown/Any/not-disclosed earns no check.
+    pref_salary = str(prefs.get("min_salary") or "").strip()
+    cand_salary = str(candidate.get("salary") or "").strip()
+    income_verdict = QUALITY.income_range_comparison(cand_salary, pref_salary)
+    if income_verdict == "met":
+        add_check("min_salary", "Minimum income", True,
+                  f"Candidate lists {cand_salary}; the listed range meets the selected minimum income ({pref_salary}).",
+                  f"అభ్యర్థి ఆదాయ వివరం {cand_salary}; జాబితా పరిధి ఎంచుకున్న కనిష్ఠ ఆదాయానికి ({pref_salary}) సరిపోతుంది.")
+    elif income_verdict == "below":
+        add_check("min_salary", "Minimum income", False,
+                  f"Candidate lists {cand_salary}; the entire listed range is below the selected minimum income ({pref_salary}).",
+                  f"అభ్యర్థి ఆదాయ వివరం {cand_salary}; జాబితా పరిధి మొత్తం ఎంచుకున్న కనిష్ఠ ఆదాయం ({pref_salary}) కంటే తక్కువ.")
+    elif income_verdict == "unclear":
+        add_check("min_salary", "Minimum income", "unknown",
+                  f"Candidate lists {cand_salary}; the listed range crosses the selected minimum income ({pref_salary}), so it cannot be determined from the listed range.",
+                  f"అభ్యర్థి ఆదాయ వివరం {cand_salary}; జాబితా పరిధి ఎంచుకున్న కనిష్ఠ ఆదాయం ({pref_salary}) వద్ద దాటుతుంది, కాబట్టి జాబితా పరిధి నుండి నిర్ణయించలేము.")
+
+    # States evaluate only when the member explicitly selected them; the stored
+    # default (TS/AP) is not a member choice and earns no check.
+    pref_states = values("states")
+    cand_state = str(candidate.get("state") or "").strip()
+    if prefs.get("states_explicit") and pref_states and cand_state:
+        state_met = any(cand_state.casefold() == str(s).casefold() for s in pref_states)
+        add_check("states", "State", state_met,
+                  f"Candidate lists {cand_state}; compare it with the selected state options ({', '.join(pref_states)}).",
+                  f"అభ్యర్థి రాష్ట్రం {cand_state}; దానిని ఎంచుకున్న రాష్ట్ర ఎంపికలతో ({', '.join(pref_states)}) పోల్చండి.")
 
     # These are informational checks, not weighted or hidden ranking points.
-    for key, label, profile_key in (
-        ("educations", "Education", "education"),
-        ("jobs", "Profession", "job"),
-        ("districts", "District", "district"),
+    for key, label, profile_key, label_te in (
+        ("educations", "Education", "education", "విద్య"),
+        ("jobs", "Profession", "job", "వృత్తి"),
+        ("districts", "District", "district", "జిల్లా"),
     ):
         requested, listed = values(key), str(candidate.get(profile_key) or "").strip()
         if requested and listed:
             matched = _has_overlap(listed, requested)
             add_check(key, label, matched,
-                      f"Candidate lists {listed}; {'it is included in' if matched else 'it is not included in'} the selected {label.lower()} options.")
+                      f"Candidate lists {listed}; {'it is included in' if matched else 'it is not included in'} the selected {label.lower()} options.",
+                      f"అభ్యర్థి వివరం {listed}; ఇది ఎంచుకున్న {label_te} ఎంపికల్లో {'ఉంది' if matched else 'లేదు'}.")
 
     return True, checks
 
@@ -4167,7 +4247,10 @@ def save_partner_preferences(payload: dict, request: Request):
         "jobs": list(payload.get("jobs") or []),
         "min_salary": str(payload.get("min_salary") or "Any").strip(),
         "districts": list(payload.get("districts") or []),
+        # states is only evaluated when the member explicitly selected it; the
+        # stored default is not a member choice.
         "states": list(payload.get("states") or ["TS", "AP"]),
+        "states_explicit": bool(payload.get("states")),
         "marital_statuses": list(payload.get("marital_statuses") or ["Never Married"]),
         "diet": str(payload.get("diet") or "Any").strip(),
         "notes": str(payload.get("notes") or "").strip(),
@@ -4183,6 +4266,11 @@ def save_partner_preferences(payload: dict, request: Request):
         "job": ", ".join(prefs["jobs"][:2]),
         "location": ", ".join(prefs["districts"][:2]),
         "caste": "no bar" if prefs["caste_no_bar"] else ", ".join(prefs["castes"][:2]),
+        "diet": prefs["diet"],
+        "heightMin": prefs["height_min"],
+        "heightMax": prefs["height_max"],
+        "minSalary": prefs["min_salary"],
+        "states": prefs["states"] if prefs["states_explicit"] else [],
     }
 
     # Save to disk — P0 FIX (full-audit pass): this used to do a raw
@@ -4375,6 +4463,7 @@ def update_user_profile(payload: dict, request: Request):
         "native_place", "state", "district", "mandal", "current_city", "about_myself", "expectations",
         "exp_age_min", "exp_age_max", "exp_caste", "exp_education", "exp_job", "exp_location", "exp_salary",
         "family_type", "family_status", "family_values", "mother_tongue", "physical_status",
+        "profile_for", "diet",
         "country", "citizenship", "visa_status", "is_nri",
         # Photo bytes and media paths are changed only through the authenticated
         # /api/photo/upload flow.  Accepting photo_url/photo_urls here would let
@@ -4386,9 +4475,23 @@ def update_user_profile(payload: dict, request: Request):
     photo_private_value = None
     if "photo_private" in payload and payload["photo_private"] is not None:
         photo_private_value = req_bool_strict(payload["photo_private"], "photo_private")
+    children_update = None
+    if "children" in payload and payload["children"] is not None:
+        children_update = req_choice(payload["children"], "children", ["None", "1", "2", "3", "4+"], required=False, default="")
+    profile_for_update = None
+    if "profile_for" in payload and payload["profile_for"] is not None:
+        profile_for_update = req_choice(payload["profile_for"], "profile_for", ["Self", "Parents"], required=False, default="")
+    diet_update = None
+    if "diet" in payload and payload["diet"] is not None:
+        diet_update = req_choice(payload["diet"], "diet", ["Vegetarian", "Non-Vegetarian"], required=False, default="")
     for k in updatable_fields:
         if k in payload and payload[k] is not None and k != "photo_private":
             user[k] = payload[k]
+    _marital_after = payload.get("marital_status") if payload.get("marital_status") is not None else user.get("marital_status")
+    if is_never_married_status(_marital_after):
+        user["children"] = ""   # children is only meaningful after a previous marriage
+    elif children_update is not None:
+        user["children"] = children_update
 
     # Keep the privacy boolean and its legacy mode in sync.  Do not let a JSON
     # string such as "false" become truthy and silently make a photo private.
@@ -4421,13 +4524,18 @@ def update_user_profile(payload: dict, request: Request):
         "native_place": 60, "district": 40, "mandal": 40, "current_city": 40,
         "about_myself": 600, "expectations": 400, "exp_caste": 40, "exp_education": 60,
         "exp_job": 60, "exp_location": 60, "exp_salary": 24, "family_type": 30, "family_status": 40,
-        "family_values": 40, "mother_tongue": 30, "physical_status": 40, "country": 60,
+        "family_values": 40, "mother_tongue": 30, "physical_status": 40, "profile_for": 20, "diet": 20,
+        "country": 60,
         "citizenship": 40, "visa_status": 40, "blood_group": 8, "complexion": 30, "body_type": 30,
     }
     for _k, _n in _free_text_max.items():
         if _k in payload and payload[_k] is not None and _k in user:
             user[_k] = clean(user.get(_k), _n, "profile_update:" + _k)
 
+    if profile_for_update is not None:
+        user["profile_for"] = profile_for_update
+    if diet_update is not None:
+        user["diet"] = diet_update
     if birth_update is not None:
         user["dob"], user["age"] = birth_update
     if location_update is not None:
@@ -4719,7 +4827,9 @@ def get_matches(tsap_id: str, min_score: int = 70, limit: int = 20, caste_filter
             if profile.get("photo_status") == "approved" and not private_photo else []
         row.update({
             "observations": match.get("observations", []),
+            "observations_te": match.get("observations_te", []),
             "differences": match.get("differences", []),
+            "differences_te": match.get("differences_te", []),
             "preference_checks": match.get("preferences", []),
             "has_photo": bool(public_photo_values),
             "photo_urls": public_photo_values,
@@ -6426,7 +6536,7 @@ def plans_endpoint():
         "renewal": renewal_offer(),
         "bureau": bureau_list(),  # WAVE 29: pricing B2B single-source (page fallback tho match)
         "value_ladder": [f"₹{p['price']} → {p['profiles']} interest requests (₹{p['per_profile']}/request)" for p in plan_list()],
-        "note_telugu": "ఒక్క interest request కు 1 credit. Public search లో contact details ఉండవు; profile owner accept చేసిన తర్వాత accepted-request account flows లో అందుబాటులోకి వస్తాయి. WhatsApp notification delivery హామీ లేదు. Decline అయితే account లో చూపిన credit policy వర్తిస్తుంది. "
+        "note_telugu": "ఒక్క interest request కు 1 credit. Public search లో contact details ఉండవు; profile owner accept చేసిన తర్వాత accepted-request account flows లో అందుబాటులోకి వస్తాయి. WhatsApp notification delivery హామీ లేదు. Decline అయితే ఒక request credit ఒకసారి తిరిగి వస్తుంది; ఇది cash refund కాదు. "
                        "₹299, ₹499 plans active ఉన్నప్పుడు Who-viewed names అందుబాటులో ఉంటాయి. Match లేదా response హామీ లేదు.",
     }
 
@@ -6532,8 +6642,7 @@ async def interest_send(payload: dict, request: Request = None):
     if to.get("is_banned"):
         raise HTTPException(400, "ఈ profile moderation లో teesesaru — interest pampaleeru")
 
-    if expire_old(DB_INTERESTS, DB_USERS):
-        _persist_core_state()
+    _expire_interest_state()
     # 💬 ready-made Telugu template (optional)
     _tpl = str(d.get("template_id", "")).strip()
     if _tpl and not note:
@@ -6547,9 +6656,18 @@ async def interest_send(payload: dict, request: Request = None):
                     "success": False, "reason": "credits_ledu", "credits": frm.get("credits", 0),
                     "plans": plan_list(), "pay_url": "/requests#plans",
                     "message_telugu": "⚠️ Credits అయిపోయాయి — ₹99 తో 5, ₹199 తో 12, ₹299 తో 25 interest requests పొందండి",
+                    "message_en": "No request credits remain. Choose a plan to continue.",
                 })
-            return JSONResponse(status_code=400, content={"success": False, "reason": reason,
-                                                          "message_telugu": reason})
+            _en = ("You already sent a request to this profile. Please wait for their reply." if "already" in reason
+                   else "Interest requests are only for the opposite gender." if "opposite gender" in reason
+                   else "You cannot send a request to your own profile." if "mee profile" in reason.lower() or "మీ profile కి మీరు" in reason
+                   else "Daily request limit reached. Please try again tomorrow." if "Rojuki" in reason
+                   else "Please enter a valid Profile ID." if "TSAP ID" in reason
+                   else "")
+            _body = {"success": False, "reason": reason, "message_telugu": reason}
+            if _en:
+                _body["message_en"] = _en
+            return JSONResponse(status_code=400, content=_body)
 
         sender_before = copy.deepcopy(frm)
         comparison = {}
@@ -6636,14 +6754,29 @@ def _visible_interest_records() -> list:
     return [rec for rec in DB_INTERESTS if not _interest_pair_blocked(rec)]
 
 
+def _expire_interest_state():
+    """Do not present an expiry/refund as saved when the core write failed.
+
+    Credit buckets reconcile from the canonical user balance on ledger access.
+    No separate bucket mutation is needed for this existing expiry path.
+    """
+    with INTEREST_RETURN_LOCK:
+        records = [(rec, copy.deepcopy(rec)) for rec in DB_INTERESTS]
+        users = [(user, copy.deepcopy(user)) for user in DB_USERS]
+        if expire_old(DB_INTERESTS, DB_USERS) and not _persist_core_state():
+            for ref, before in records + users:
+                ref.clear()
+                ref.update(before)
+            raise HTTPException(503, "Request expiry and credit return could not be saved safely. Please try again.")
+
+
 @app.get("/api/interest/inbox/{tsap_id}")
 def interest_inbox(tsap_id: str, request: Request = None):
     require_owner(request, tsap_id)   # 🛡️ WAVE 9: IDOR fix — own data matrame
     u = _find_user(tsap_id)
     if not u:
         raise HTTPException(404, "⚠️ User దొరకలేదు — TSAP ID check చెయ్యండి")
-    if expire_old(DB_INTERESTS, DB_USERS):
-        _persist_core_state()
+    _expire_interest_state()
     data = inbox_for(u, DB_USERS, _visible_interest_records())
     data["credits"] = u.get("credits", 0)
     data["model"] = "owner acceptance → contact access in accepted-request account views; notification delivery is not guaranteed"
@@ -6656,8 +6789,7 @@ def interest_sent(tsap_id: str, request: Request = None):
     u = _find_user(tsap_id)
     if not u:
         raise HTTPException(404, "⚠️ User దొరకలేదు — TSAP ID check చెయ్యండి")
-    if expire_old(DB_INTERESTS, DB_USERS):
-        _persist_core_state()
+    _expire_interest_state()
     data = sent_for(u, DB_USERS, _visible_interest_records())
     data["credits"] = u.get("credits", 0)
     return data
@@ -6666,6 +6798,11 @@ def interest_sent(tsap_id: str, request: Request = None):
 @app.post("/api/interest/respond")
 async def interest_respond(payload: dict, request: Request = None):
     """Record the owner's decision (accept/decline) or sender's withdrawal (MV-004)."""
+    with INTEREST_RETURN_LOCK:
+        return _interest_respond_locked(payload, request)
+
+
+def _interest_respond_locked(payload: dict, request: Request = None):
     d = payload or {}
     tsap_id = str(d.get("tsap_id", "")).strip().upper()
     request_id = d.get("request_id", "")
@@ -8441,6 +8578,7 @@ def advanced_search(
     salary_max: int = 0, height_min: str = "", height_max: str = "", dosham: Optional[str] = None,
     star: Optional[str] = None, rasi: Optional[str] = None, min_completeness: int = 0, exclude_viewed: bool = False,
     exclude_interested: bool = False, with_facets: bool = False,
+    family_type: Optional[str] = None, diet: Optional[str] = None, skip_same_gothram: bool = False,
     request: Request = None,
 ):
     """
@@ -8463,7 +8601,7 @@ def advanced_search(
     if sort not in ("new", "age", "boosted"):
         validation_error("sort", "⚠️ sort కి valid values: new | age | boosted")
     q = clean(q, 60, "q") if q else None
-    for _f in (gender, caste, sub_caste, district, state, job, education, marital_status, children, religion, dosham, star, rasi):
+    for _f in (gender, caste, sub_caste, district, state, job, education, marital_status, children, religion, dosham, star, rasi, family_type, diet, mother_tongue, country, city, verification_level):
         if _f and len(str(_f)) > 500:
             validation_error("filter", "⚠️ Filter value చాలా పెద్దది (500 chars max)")
     if min_completeness:
@@ -8598,6 +8736,28 @@ def advanced_search(
                 or t in str(u.get("district", "")).strip().casefold()
                 for t in city_terms
             )]
+    if family_type:
+        ft_terms = [term.strip().casefold() for term in str(family_type).split(",") if term.strip()]
+        if ft_terms:
+            items = [u for u in items if str(u.get("family_type", "")).strip().casefold() in ft_terms]
+    if diet:
+        # Members who never set a diet stay unknown and never match a diet selection.
+        diet_terms = [term.strip().casefold() for term in str(diet).split(",") if term.strip()]
+        if diet_terms:
+            items = [u for u in items if str(u.get("diet", "")).strip().casefold() in diet_terms]
+    gothram_exclusion = {"requested": bool(skip_same_gothram), "applied": False, "reason": ""}
+    if skip_same_gothram:
+        # Explicit opt-in only. Uses the signed-in member's own stored gothram; profiles whose
+        # gothram is unknown stay visible (no guessing), and nothing hidden is revealed.
+        _viewer_rec = _find_user(viewer_id) if viewer_id else None
+        _own_gothram = str((_viewer_rec or {}).get("gothram", "")).strip().casefold()
+        if not viewer_id:
+            gothram_exclusion["reason"] = "sign_in_required"
+        elif not _own_gothram or _own_gothram in ("-", "—", "unknown", "don't know", "dont know"):
+            gothram_exclusion["reason"] = "own_gothram_missing"
+        else:
+            items = [u for u in items if str(u.get("gothram", "")).strip().casefold() != _own_gothram]
+            gothram_exclusion["applied"] = True
     if verification_level:
         vl_terms = {term.strip().lower() for term in str(verification_level).split(",") if term.strip()}
         if vl_terms:
@@ -8723,7 +8883,9 @@ def advanced_search(
                     "education": education, "age": [age_min, age_max], "salary_min": salary_min,
                     "marital_status": marital_status, "verified_only": verified_only, "photo_only": photo_only,
                     "religion": religion, "mother_tongue": mother_tongue, "country": country,
-                    "city": city, "verification_level": verification_level, "q": q},
+                    "city": city, "verification_level": verification_level, "q": q,
+                    "family_type": family_type, "skip_same_gothram": skip_same_gothram},
+        "gothram_exclusion": gothram_exclusion,
         "results": results_page,
         "facets": facets_payload,
         "message_telugu": f"🔎 {total_matched} profiles dorikayi (filters: caste={caste or 'Any'}, district={district or 'Any'}, age={age_min}-{age_max})",

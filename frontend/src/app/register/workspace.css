@@ -1,0 +1,23 @@
+/* Preview-only registration presentation. Submission and draft state are unchanged. */
+.mv-register-workspace { font-size:16px; line-height:1.65; }
+.mv-register-workspace [class*="text-xs"],
+.mv-register-workspace [class*="text-sm"],
+.mv-register-workspace [class*="text-[10px]"],
+.mv-register-workspace [class*="text-[11px]"],
+.mv-register-workspace [class*="text-[13px]"] {font-size:14px;line-height:1.65;}
+.mv-register-workspace input:not([type=checkbox]):not([type=radio]),
+.mv-register-workspace select,.mv-register-workspace textarea {font-size:16px;line-height:1.6;min-width:0;max-width:100%;}
+.mv-register-workspace button {min-height:44px;white-space:normal;overflow-wrap:anywhere;font-size:16px;line-height:1.5;}
+.mv-register-workspace button:focus-visible,.mv-register-workspace input:focus-visible,.mv-register-workspace select:focus-visible,.mv-register-workspace textarea:focus-visible,.mv-register-workspace a:focus-visible {outline:3px solid #7a0c2e;outline-offset:3px;}
+.mv-register-workspace h1 {font-size:28px;line-height:1.45;}
+.mv-register-workspace h2 {font-size:22px;line-height:1.5;}
+.mv-register-workspace h3 {font-size:18px!important;line-height:1.5!important;}
+.mv-register-workspace label {overflow-wrap:anywhere;}
+.mv-register-workspace label.flex {flex-wrap:wrap;gap:4px 12px;}
+.mv-register-workspace .mv-register-step-header {align-items:flex-start;flex-wrap:wrap;}
+.mv-register-workspace .mv-register-step-header>div {min-width:0;flex:1 1 240px;}
+.mv-register-workspace .mv-register-navigation button[aria-current=step] {outline:2px solid #7a0c2e;outline-offset:2px;}
+.mv-register-workspace .mv-register-navigation button[aria-label^="Step"],
+.mv-register-workspace .mv-register-navigation button[aria-label^="దశ"] {font-size:14px;}
+.mv-register-workspace .truncate {white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere;}
+@media(max-width:359px){.mv-register-workspace .mv-register-navigation .grid-cols-2 {grid-template-columns:1fr;}.mv-register-workspace h1{font-size:26px;}}

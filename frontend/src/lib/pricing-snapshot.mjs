@@ -1,4 +1,4 @@
-/** Read only the three existing public pricing sources. No auth or user data. */
+/** Read only the public pricing sources and checkout-configuration state. No auth or user data. */
 export async function loadPricingSnapshot(base, fetcher = fetch) {
   async function read(path) {
     try {
@@ -6,8 +6,8 @@ export async function loadPricingSnapshot(base, fetcher = fetch) {
       return response.ok ? await response.json() : null;
     } catch { return null; }
   }
-  const [catalogue, promotions, announcements] = await Promise.all([
-    read('/api/plans'), read('/api/offers/active'), read('/api/cms/banners?page=pricing'),
+  const [catalogue, promotions, announcements, payment] = await Promise.all([
+    read('/api/plans'), read('/api/offers/active'), read('/api/cms/banners?page=pricing'), read('/api/pay/config'),
   ]);
   const plansReady = Array.isArray(catalogue?.plans) && catalogue.plans.length > 0 && catalogue.plans.some(p => p.price === 0);
   const offersReady = promotions?.success === true && Array.isArray(promotions.offers);
@@ -17,6 +17,7 @@ export async function loadPricingSnapshot(base, fetcher = fetch) {
     addons: plansReady && Array.isArray(catalogue.addons) ? catalogue.addons : [],
     offers: offersReady ? promotions.offers.slice(0, 3) : [],
     banners: bannersReady ? announcements.banners : [],
+    paymentMode: payment?.success === true && ['unconfigured', 'manual_upi', 'razorpay'].includes(payment.mode) ? payment.mode : 'unknown',
     noticesUnavailable: !offersReady || !bannersReady,
   };
 }

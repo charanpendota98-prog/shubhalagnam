@@ -1,5 +1,7 @@
 "use client";
 
+import "@/components/editorial-workspace.css";
+
 import Link from "next/link";
 import { useLang } from "@/lib/lang";
 import type { BlogArticle } from "@/lib/blog";
@@ -10,7 +12,7 @@ export default function ArticleContent({ article }: { article: BlogArticle }) {
   const sections = te ? article.sections : article.sectionsEn;
 
   return (
-    <div lang={te ? "te-IN" : "en-IN"} className="mx-auto max-w-3xl px-4 py-8 sm:py-12">
+    <div lang={te ? "te-IN" : "en-IN"} className="mv-editorial-workspace mx-auto max-w-3xl px-4 py-8 sm:py-12">
       <nav className="text-xs text-slate-500" aria-label={te ? "నావిగేషన్ మార్గం" : "Breadcrumb"}>
         <Link href="/" className="rounded-sm hover:text-maroon focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-maroon">
           {te ? "హోమ్" : "Home"}

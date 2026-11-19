@@ -12,6 +12,7 @@
  * • Member-entered profile details with no synthetic compatibility percentage
  * • Consent-gated contact flow; support destinations appear only when configured
  */
+import "./workspace.css";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
@@ -47,7 +48,7 @@ import {
 import { SITE_CONFIG } from "@/lib/site-config";
 import { DEFAULT_MATCH_FILTERS, parseMatchFilters } from "@/lib/match-filter-query.mjs";
 import { REASON_DISCLAIMER, matchReasons, relaxSuggestions, widenedAgeLabel } from "@/lib/match-reasons.mjs";
-import { summarizeSavedSearch } from "@/lib/saved-search-summary.mjs";
+import { dietSummary, summarizeSavedSearch } from "@/lib/saved-search-summary.mjs";
 import ProfileRail from "@/components/ProfileRail";
 import { mergeMatchPages } from "@/lib/match-results.mjs";
 import QuickLead from "@/components/QuickLead";
@@ -159,6 +160,7 @@ export default function MatchesPage() {
 
   const [filters, setFilters] = useState<Row>(DEFAULT_FILTERS);
   const [ageAdjusted, setAgeAdjusted] = useState(false);
+  const [personalFilterNote, setPersonalFilterNote] = useState("");
   const [heightAdjusted, setHeightAdjusted] = useState(false);
   const [sort, setSort] = useState<string>("new");
   const [rows, setRows] = useState<Row[]>([]);
@@ -652,6 +654,26 @@ export default function MatchesPage() {
         clear: () => { setF("height_min", ""); setF("height_max", ""); },
       });
     }
+    const extraChips: [string, boolean, string][] = [
+      ["mother_tongue", Boolean(filters.mother_tongue), `🗣️ ${filters.mother_tongue}`],
+      ["family_type", Boolean(filters.family_type), `🏠 ${filters.family_type}`],
+      ["diet", Boolean(filters.diet), `🥗 ${dietSummary(filters.diet, te)}`],
+      ["city", Boolean(filters.city), `📍 ${filters.city}`],
+      ["country", Boolean(filters.country), `🌍 ${filters.country}`],
+      ["verification_level", Boolean(filters.verification_level), te ? "ధృవీకరణ రికార్డు ఎంపిక" : "Verification record chosen"],
+      ["min_completeness", Number(filters.min_completeness) > 0, te ? `ప్రొఫైల్ ${filters.min_completeness}%+` : `Profile ${filters.min_completeness}%+`],
+      ["exclude_viewed", Boolean(filters.exclude_viewed), te ? "చూసినవి దాచబడ్డాయి" : "Viewed hidden"],
+      ["exclude_interested", Boolean(filters.exclude_interested), te ? "రిక్వెస్ట్ ఉన్నవి దాచబడ్డాయి" : "Requests hidden"],
+      ["skip_same_gothram", Boolean(filters.skip_same_gothram), te ? "ఒకే గోత్రం తప్పించు" : "Same gothram skipped"],
+    ];
+    extraChips.forEach(([key, active, label]) => {
+      if (!active) return;
+      chips.push({
+        key,
+        label,
+        clear: () => setF(key, typeof DEFAULT_FILTERS[key] === "boolean" ? false : DEFAULT_FILTERS[key]),
+      });
+    });
     if (filters.rasi) {
       const rasiNames = String(filters.rasi).split(",").map((value) => RASIS.find((item) => item.en.toLowerCase() === value.trim().toLowerCase())?.display || value.trim());
       chips.push({
@@ -731,6 +753,12 @@ export default function MatchesPage() {
           : [];
       const resultTotal = typeof data.total === "number" ? data.total : offset + results.length;
       if (curId === reqId.current) {
+        if (!append) {
+          const gothram = data.gothram_exclusion;
+          setPersonalFilterNote(gothram && gothram.requested && !gothram.applied
+            ? (gothram.reason === "sign_in_required" ? "sign_in" : "own_gothram_missing")
+            : "");
+        }
         setRows((previous) => append ? mergeMatchPages(previous, results) : results);
         setTotal(resultTotal);
         setNextOffset(results.length === 0 ? resultTotal : offset + results.length);
@@ -1056,9 +1084,9 @@ export default function MatchesPage() {
     const rasi = displayProfileValue(row.rasi);
 
     return (
-      <div className="mv-surface mv-surface__body mv-card relative flex flex-col justify-between overflow-hidden !p-0">
+      <div className="matches-profile-card mv-surface mv-surface__body mv-card relative flex flex-col justify-between overflow-hidden !p-0">
         {/* 🏛️ TOP-RIGHT BADGES: state (Telangana/Andhra Pradesh) neatga + 2nd Marriage (only if applicable) */}
-        <div className="absolute top-2.5 right-2.5 z-10 flex flex-col items-end gap-1">
+        <div className="matches-profile-badges flex flex-wrap items-center gap-2 px-4 pt-4">
           <span className="text-[9.5px] font-black px-2 py-0.5 rounded-full bg-navy/90 text-white shadow-sm backdrop-blur-sm whitespace-nowrap">
             🏛️ {stateLabel(row.state, te)}
           </span>
@@ -1093,10 +1121,10 @@ export default function MatchesPage() {
                 phone lo ID/heart button push ayyi peru kanipinchakunda potundi). Ippudu peru eppudu
                 neatga (…) tho truncate avuthundi, ID + heart eppudu kanipistayi (shrink-0). */}
             <div className="min-w-0 flex-1 space-y-1">
-              <div className="flex items-center justify-between gap-1 pr-16 sm:pr-20">
+              <div className="flex items-center justify-between gap-1">
                 <Link href={`/search/${row.tsap_id}`} className="min-w-0 flex-1 break-words font-extrabold text-sm sm:text-base text-navy hover:text-maroon flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
                   <span className="break-words">{firstName(row.full_name) || row.tsap_id}</span>
-                  <span className="break-all font-mono text-[10px] font-semibold text-slate-400">({row.tsap_id})</span>
+                  <span className="break-all font-mono text-[10px] font-semibold text-slate-600">({row.tsap_id})</span>
                 </Link>
 
                 <button
@@ -1192,7 +1220,7 @@ export default function MatchesPage() {
               <div className="mt-2">
                 <p className="text-[10px] font-bold text-slate-500">{te ? "రెండు profiles లో నమోదు చేసిన వివరాలు (స్వతంత్రంగా నిర్ధారించండి)" : "Details listed by both profiles (verify independently)"}</p>
                 <ul className="mt-1 space-y-1 text-[11px] leading-5 text-slate-600">
-                  {row.observations.slice(0, 3).map((item: string, i: number) => <li key={i}>• {te ? item : apiDisplayMessage({ message_en: item }, false, "This detail is not available in English.")}</li>)}
+                  {row.observations.slice(0, 3).map((item: string, i: number) => <li key={i}>• {te ? ((Array.isArray(row.observations_te) && row.observations_te[i]) || item) : apiDisplayMessage({ message_en: item }, false, "This detail is not available in English.")}</li>)}
                 </ul>
               </div>
             ) : null}
@@ -1209,7 +1237,7 @@ export default function MatchesPage() {
 
         {/* Action Buttons — a 2×2 grid on phones so every target is ≥44px and
             the Telugu labels never have to wrap inside a squeezed button. */}
-        <div className="grid grid-cols-2 gap-2 border-t border-slate-100 bg-slate-50 p-3 sm:grid-cols-4">
+        <div className="grid grid-cols-2 gap-2 border-t border-slate-100 bg-slate-50 p-3">
           <Link
             href={`/search/${row.tsap_id}`}
             className="mv-btn mv-btn--secondary min-h-11"
@@ -1247,152 +1275,12 @@ export default function MatchesPage() {
   };
 
   return (
-    <div className="min-h-dvh bg-[#FAF7F2] pb-24 sm:pb-28">
-      {/* ---------- Sticky Top Quick-Pill Bar ---------- */}
-      <div className="sticky top-16 z-30 bg-white/95 backdrop-blur-md border-b border-gold/25 shadow-xs">
-        <div className="max-w-7xl mx-auto px-4 py-2">
-          {/* Quick preset rail — one line of pills, scrolls sideways. */}
-          <PillScroller label={te ? "త్వరిత ఫిల్టర్లు" : "Quick filters"} fadeFrom="var(--ds-surface)">
-            {/* Quick Presets */}
-            <button type="button"
-              onClick={() => setF("verified_only", !filters.verified_only)}
-              className={`pill min-h-11 whitespace-nowrap px-3.5 text-xs font-bold transition flex items-center gap-1.5 border ${
-                filters.verified_only ? "bg-emerald-600 text-white border-emerald-600 shadow-xs" : "bg-white text-slate-700 border-slate-200 hover:border-emerald-600"
-              }`}
-            >
-              <span>👑</span>
-              <span>{te ? "ఫోన్ OTP / ఫోటో / ID సమీక్ష" : "Phone, photo or government ID check"}</span>
-            </button>
-
-            <button type="button"
-              onClick={() => setF("photo_only", !filters.photo_only)}
-              className={`pill min-h-11 whitespace-nowrap px-3.5 text-xs font-bold transition flex items-center gap-1.5 border ${
-                filters.photo_only ? "bg-amber-500 text-white border-amber-500 shadow-xs" : "bg-white text-slate-700 border-slate-200 hover:border-amber-500"
-              }`}
-            >
-              <span>📸</span>
-              <span>{te ? "ఫోటో ఉన్నవి" : "With photo"}</span>
-            </button>
-
-            <button type="button"
-              onClick={applySavedPreferences}
-              disabled={!sessionReady || prefLoading}
-              className={`pill min-h-11 whitespace-nowrap px-3.5 text-xs font-black transition flex items-center gap-1.5 ${
-                prefApplied
-                  ? "bg-emerald-600 text-white shadow-xs"
-                  : "bg-gradient-to-r from-amber-500 to-rose-600 text-white shadow-xs hover:brightness-105"
-              }`}
-            >
-              <span>🎯</span>
-              <span>{prefLoading ? (te ? "లోడ్ అవుతోంది…" : "Loading…") : prefApplied ? (te ? "✓ నా ప్రిఫరెన్సెస్ అప్లై అయ్యాయి" : "✓ Preferences applied") : (te ? "🎯 నా సేవ్ చేసిన ప్రిఫరెన్సెస్" : "🎯 Apply saved preferences")}</span>
-            </button>
-
-            <button type="button"
-              onClick={() => setF("gender", filters.gender === "Bride" ? "" : "Bride")}
-              className={`pill min-h-11 whitespace-nowrap px-3.5 text-xs font-bold transition flex items-center gap-1.5 border ${
-                filters.gender === "Bride" ? "bg-rose-700 text-white border-rose-700 shadow-xs" : "bg-white text-slate-700 border-slate-200 hover:border-rose-700"
-              }`}
-            >
-              <span>👰</span>
-              <span>{te ? "వధువులు" : "Brides"}</span>
-            </button>
-
-            <button type="button"
-              onClick={() => setF("gender", filters.gender === "Groom" ? "" : "Groom")}
-              className={`pill min-h-11 whitespace-nowrap px-3.5 text-xs font-bold transition flex items-center gap-1.5 border ${
-                filters.gender === "Groom" ? "bg-indigo-700 text-white border-indigo-700 shadow-xs" : "bg-white text-slate-700 border-slate-200 hover:border-indigo-700"
-              }`}
-            >
-              <span>🤵</span>
-              <span>{te ? "వరులు" : "Grooms"}</span>
-            </button>
-
-            <button type="button"
-              onClick={() => setF("marital_status", isMaritalFilterOptionSelected(filters.marital_status, "Pelli Kaledu") ? "" : "Pelli Kaledu")}
-              className={`pill min-h-11 whitespace-nowrap px-3.5 text-xs font-bold transition border ${
-                isMaritalFilterOptionSelected(filters.marital_status, "Pelli Kaledu") ? "bg-maroon text-white border-maroon shadow-xs" : "bg-white text-slate-700 border-slate-200 hover:border-maroon"
-              }`}
-            >
-              {te ? "💍 పెళ్లి కాలేదు" : "💍 Never married"}
-            </button>
-
-            <button type="button"
-              onClick={() => setF("marital_status", filters.marital_status === "Divorced" ? "" : "Divorced")}
-              className={`pill min-h-11 whitespace-nowrap px-3.5 text-xs font-bold transition border ${
-                filters.marital_status === "Divorced" ? "bg-rose-700 text-white border-rose-700 shadow-xs" : "bg-white text-slate-700 border-slate-200 hover:border-rose-700"
-              }`}
-            >
-              {te ? "❤️ రెండో వివాహం" : "❤️ Second marriage"}
-            </button>
-
-            {!isGroomGender(filters.gender) && (
-              <button type="button"
-                onClick={() => toggleMulti("job", "Housewife / Homemaker (గృహిణి)")}
-                className={`pill min-h-11 whitespace-nowrap px-3.5 text-xs font-bold transition flex items-center gap-1.5 border ${
-                  isMultiSelected("job", "Housewife / Homemaker (గృహిణి)")
-                    ? "bg-rose-700 text-white border-rose-700 shadow-xs"
-                    : "bg-white text-slate-700 border-slate-200 hover:border-rose-700"
-                }`}
-              >
-                <span>🏡</span>
-                <span>{te ? "గృహిణి" : "Homemaker"}</span>
-              </button>
-            )}
-
-            <button type="button"
-              onClick={() => toggleMulti("job", "Software / IT / Tech")}
-              className={`pill min-h-11 whitespace-nowrap px-3.5 text-xs font-bold transition border ${
-                isMultiSelected("job", "Software / IT / Tech") ? "bg-navy text-white border-navy shadow-xs" : "bg-white text-slate-700 border-slate-200 hover:border-navy"
-              }`}
-            >
-              💻 Software / IT
-            </button>
-
-            <button type="button"
-              onClick={() => toggleMulti("job", "Govt / PSU")}
-              className={`pill min-h-11 whitespace-nowrap px-3.5 text-xs font-bold transition border ${
-                isMultiSelected("job", "Govt / PSU") ? "bg-maroon text-white border-maroon shadow-xs" : "bg-white text-slate-700 border-slate-200 hover:border-maroon"
-              }`}
-            >
-              🏛️ Govt Jobs
-            </button>
-
-            <button type="button"
-              onClick={() => setF("state", filters.state === "TS" ? "" : "TS")}
-              className={`pill min-h-11 whitespace-nowrap px-3.5 text-xs font-bold transition border ${
-                filters.state === "TS" ? "bg-maroon text-white border-maroon shadow-xs" : "bg-white text-slate-700 border-slate-200"
-              }`}
-            >
-              📍 Telangana ({TS_DISTRICTS.length})
-            </button>
-
-            <button type="button"
-              onClick={() => setF("state", filters.state === "AP" ? "" : "AP")}
-              className={`pill min-h-11 whitespace-nowrap px-3.5 text-xs font-bold transition border ${
-                filters.state === "AP" ? "bg-maroon text-white border-maroon shadow-xs" : "bg-white text-slate-700 border-slate-200"
-              }`}
-            >
-              🌊 Andhra Pradesh ({AP_DISTRICTS.length})
-            </button>
-
-            <button type="button"
-              onClick={() => setF("nri_only", !filters.nri_only)}
-              className={`pill min-h-11 whitespace-nowrap px-3.5 text-xs font-bold transition border ${
-                filters.nri_only ? "bg-indigo-700 text-white border-indigo-700 shadow-xs" : "bg-white text-slate-700 border-slate-200"
-              }`}
-            >
-              🌍 NRI Profiles
-            </button>
-
-            {activeChips.length > 0 && (
-              <button type="button" onClick={clearAllFilters} className="pill min-h-11 whitespace-nowrap border border-rose-200 bg-rose-50 px-3.5 text-xs font-bold text-rose-600 transition hover:bg-rose-100">
-                ✕ {te ? "అన్నీ తీసేయండి" : "Clear all"}
-              </button>
-            )}
-          </PillScroller>
-        </div>
-      </div>
-
+    <div className="mv-matches-workspace min-h-dvh bg-[#FAF7F2] pb-24 sm:pb-28">
+      <header className="matches-intro max-w-7xl mx-auto px-4 pt-5">
+        <p className="font-bold text-maroon">{te ? "మన వివాహ · సంబంధాలు" : "MANA VIVAHA · MATCHES"}</p>
+        <h1 className="text-2xl font-bold text-maroon">{te ? "మీకు నచ్చే పరిచయం." : "A thoughtful introduction."}</h1>
+        <p className="text-slate-700">{te ? "వివరాలు చూడండి. మీకు ముఖ్యమైన వాటితో వెతకండి." : "Explore profiles. Filter by what matters to you."}</p>
+      </header>
       <div className="max-w-7xl mx-auto px-4 py-4 sm:py-6">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
           {/* ================= DESKTOP FILTER SIDEBAR (4 cols) ================= */}
@@ -1775,20 +1663,55 @@ export default function MatchesPage() {
                   className="w-full rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-1.5 font-bold"
                 >
                   <option value="">{te ? "అన్ని ప్రొఫైల్‌లు" : "All profiles"}</option>
-                  <option value="phone">{te ? "📱 ఫోన్ OTP నమోదైనవి" : "📱 Phone OTP recorded"}</option>
-                  <option value="photo">{te ? "📷 ఫోటో సమీక్షించినవి" : "📷 Photo reviewed"}</option>
-                  <option value="selfie">{te ? "🤳 లైవ్ సెల్ఫీ సమీక్షించినవి" : "🤳 Live selfie reviewed"}</option>
-                  <option value="id">{te ? "🪪 ప్రభుత్వ ID సమీక్షించినవి" : "🪪 Govt ID reviewed"}</option>
-                  <option value="education">{te ? "🎓 విద్య ధృవీకరించినవి" : "🎓 Education verified"}</option>
-                  <option value="employment">{te ? "💼 ఉద్యోగం ధృవీకరించినవి" : "💼 Employment verified"}</option>
+                  <option value="phone,photo,id">{te ? "📱 ఫోన్ OTP లేదా అంతకంటే ఎక్కువ నమోదైనవి" : "📱 Phone OTP or more recorded"}</option>
+                  <option value="photo,id">{te ? "📷 ఫోటో సమీక్ష లేదా ID సమీక్ష" : "📷 Photo review or ID review"}</option>
+                  <option value="id">{te ? "🪪 ID సమీక్ష నమోదైనవి" : "🪪 ID review recorded"}</option>
+                </select>
+                <p className="mt-1 text-[11px] font-normal leading-snug text-slate-600">{te ? "ఇది మేము నమోదు చేసిన సమీక్ష మాత్రమే. వ్యక్తి గుర్తింపు లేదా భద్రతకు హామీ కాదు." : "This shows only the review we recorded. It is not a guarantee of identity or safety."}</p>
+              </div>
+              <div>
+                <label className="block font-black text-slate-800 mb-1">🏠 {te ? "కుటుంబ రకం" : "Family type"}:</label>
+                <select aria-label={te ? "కుటుంబ రకం" : "Family type"} value={filters.family_type || ""} onChange={(e) => setF("family_type", e.target.value)} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-1.5 font-bold">
+                  <option value="">{te ? "ఏదైనా" : "Any"}</option>
+                  <option value="Nuclear">{te ? "చిన్న కుటుంబం" : "Nuclear"}</option>
+                  <option value="Joint">{te ? "ఉమ్మడి కుటుంబం" : "Joint"}</option>
                 </select>
               </div>
+              <div>
+                <label className="block font-black text-slate-800 mb-1">🥗 {te ? "ఆహారపు అలవాటు" : "Diet"}:</label>
+                <select aria-label={te ? "ఆహారపు అలవాటు" : "Diet"} value={filters.diet || ""} onChange={(e) => setF("diet", e.target.value)} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-1.5 font-bold">
+                  <option value="">{te ? "ఏదైనా" : "Any"}</option>
+                  <option value="Vegetarian">{te ? "శాఖాహారం" : "Vegetarian"}</option>
+                  <option value="Non-Vegetarian">{te ? "మాంసాహారం" : "Non-vegetarian"}</option>
+                </select>
+                <p className="mt-1 text-[11px] font-normal leading-snug text-slate-600">{te ? "సభ్యులు నమోదు చేసిన వివరం మాత్రమే; తెలియజేయని ప్రొఫైల్‌లు ఎంపికలోకి రావు." : "Member-entered only; profiles that have not shared a diet are not included in a selection."}</p>
+              </div>
+              <div>
+                <label className="block font-black text-slate-800 mb-1">📋 {te ? "ప్రొఫైల్ పూర్తి శాతం" : "Profile completeness"}:</label>
+                <select aria-label={te ? "ప్రొఫైల్ పూర్తి శాతం" : "Profile completeness"} value={String(filters.min_completeness || 0)} onChange={(e) => setF("min_completeness", Number(e.target.value))} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-1.5 font-bold">
+                  <option value="0">{te ? "ఏదైనా" : "Any"}</option>
+                  <option value="50">50%+</option>
+                  <option value="70">70%+</option>
+                  <option value="90">90%+</option>
+                </select>
+              </div>
+              <label className="flex items-start gap-2 rounded-xl bg-slate-50 p-2.5 font-bold text-slate-800">
+                <input type="checkbox" checked={Boolean(filters.exclude_viewed)} onChange={(e) => setF("exclude_viewed", e.target.checked)} className="mt-0.5 h-4 w-4 shrink-0 accent-[#7A0C2E]" />
+                <span className="min-w-0">{te ? "నేను ఇప్పటికే చూసిన ప్రొఫైల్‌లను దాచండి" : "Hide profiles I have already viewed"}<span className="block text-[11px] font-normal leading-snug text-slate-600">{te ? "సైన్ ఇన్ అయినప్పుడు పనిచేస్తుంది." : "Works when you are signed in."}</span></span>
+              </label>
+              <label className="flex items-start gap-2 rounded-xl bg-slate-50 p-2.5 font-bold text-slate-800">
+                <input type="checkbox" checked={Boolean(filters.exclude_interested)} onChange={(e) => setF("exclude_interested", e.target.checked)} className="mt-0.5 h-4 w-4 shrink-0 accent-[#7A0C2E]" />
+                <span className="min-w-0">{te ? "నాతో రిక్వెస్ట్ ఉన్న ప్రొఫైల్‌లను దాచండి" : "Hide profiles I have a request with"}<span className="block text-[11px] font-normal leading-snug text-slate-600">{te ? "సైన్ ఇన్ అయినప్పుడు పనిచేస్తుంది." : "Works when you are signed in."}</span></span>
+              </label>
+              <label className="flex items-start gap-2 rounded-xl bg-slate-50 p-2.5 font-bold text-slate-800">
+                <input type="checkbox" checked={Boolean(filters.skip_same_gothram)} onChange={(e) => setF("skip_same_gothram", e.target.checked)} className="mt-0.5 h-4 w-4 shrink-0 accent-[#7A0C2E]" />
+                <span className="min-w-0">{te ? "నా గోత్రంతో సమానమైన ప్రొఫైల్‌లను తప్పించండి" : "Skip profiles with the same gothram as mine"}<span className="block text-[11px] font-normal leading-snug text-slate-600">{te ? "ఐచ్ఛికం. మీ ప్రొఫైల్‌లోని గోత్రం ఆధారంగా. గోత్రం చూపని ప్రొఫైల్‌లు ఫలితాల్లోనే ఉంటాయి; మీది నమోదు కాకపోతే ఏదీ దాచబడదు." : "Optional. Uses the gothram in your own profile. Profiles with no gothram shown stay in the results; if yours is not filled in, nothing is hidden."}</span></span>
+              </label>
             </div>
           </div>
 
           {/* ================= RIGHT COLUMN: MATCHES LIST (8 cols) ================= */}
           <div className="lg:col-span-8 space-y-4">
-            <CategorizedMatchesBar myTsapId={myTsapId} />
             {/* Header / Summary Bar */}
             <div className="mv-surface mv-surface__body mv-card flex flex-wrap items-center justify-between gap-3 !p-3.5 sm:!p-4">
               <div>
@@ -1872,6 +1795,283 @@ export default function MatchesPage() {
               </div>
             )}
 
+            {/* Active Filter Chips Bar */}
+            {personalFilterNote && (
+              <p role="status" className="rounded-xl bg-amber-50 p-3 text-xs leading-relaxed text-amber-900">
+                {personalFilterNote === "sign_in"
+                  ? (te ? "గోత్ర ఎంపిక పనిచేయడానికి సైన్ ఇన్ కావాలి. ప్రస్తుతం ఏ ప్రొఫైల్ దాచబడలేదు." : "Sign in to use the same-gothram option. No profile is hidden right now.")
+                  : (te ? "మీ ప్రొఫైల్‌లో గోత్రం నమోదు కాలేదు, అందుకే ఏ ప్రొఫైల్ దాచబడలేదు." : "Your profile has no gothram filled in, so no profile is hidden.")}
+              </p>
+            )}
+            {activeChips.length > 0 && (
+              <div className="flex flex-wrap items-center gap-1.5">
+                {activeChips.map((chip) => (
+                  <span
+                    key={chip.key}
+                    className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-amber-50 text-maroon border border-gold/40 shadow-xs"
+                  >
+                    <span>{chip.label}</span>
+                    <button
+                      type="button"
+                      onClick={chip.clear}
+                      aria-label={te ? `${chip.label} ఫిల్టర్ తొలగించండి` : `Remove ${chip.label} filter`}
+                      className="ml-1 inline-flex min-h-11 min-w-11 items-center justify-center rounded-full font-bold hover:text-rose-600"
+                    >
+                      ✕
+                    </button>
+                  </span>
+                ))}
+                <button type="button" onClick={clearAllFilters} className="text-xs font-bold text-rose-600 underline ml-2">
+                  {te ? "అన్నీ తొలగించు" : "Clear all"}
+                </button>
+              </div>
+            )}
+
+            <p className="matches-privacy text-slate-700">🔒 {te ? "Contact వివరాలు సమ్మతి, ప్లాన్ నియమాల ప్రకారమే కనిపిస్తాయి." : "Contact details are shared only under consent and plan rules."}</p>
+
+            {/* Matches Cards Grid */}
+            {!loading && !searchPending && !requestError && rows.length > 0 && (
+              <details className="matches-explanation text-slate-700"><summary className="cursor-pointer min-h-11 py-2 font-semibold">{te ? "సభ్యులు ఇచ్చిన వివరాలు · స్వయంగా నిర్ధారించుకోండి" : "Member-submitted details · verify independently"}</summary><p className="rounded-2xl border border-gold/30 bg-white/70 px-3.5 py-2 text-[11px] leading-relaxed text-slate-600">
+                <span className="font-bold text-maroon">{te ? "ఎందుకు ఇవి: " : "Why these: "}</span>
+                <span className="telugu">{te ? REASON_DISCLAIMER.te : REASON_DISCLAIMER.en}</span>
+              </p></details>
+            )}
+            {loading || searchPending ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {[1, 2, 3, 4].map((i) => (
+                  <div key={i} className="bg-white rounded-3xl border border-gold/20 p-5 space-y-4 animate-pulse">
+                    <div className="flex gap-4">
+                      <div className="w-20 h-24 bg-slate-200 rounded-2xl" />
+                      <div className="flex-1 space-y-2">
+                        <div className="h-4 bg-slate-200 rounded w-3/4" />
+                        <div className="h-3 bg-slate-200 rounded w-1/2" />
+                        <div className="h-3 bg-slate-200 rounded w-5/6" />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : requestError ? (
+              <div role="alert" className="mv-surface mv-surface__body space-y-3 text-center">
+                <div className="text-4xl">📡</div>
+                <h3 className="text-base font-black text-slate-900">{te ? "సంబంధాలను లోడ్ చేయడంలో సమస్య" : "We couldn't load profiles"}</h3>
+                <p className="text-xs text-slate-600">{te ? "మీ కనెక్షన్‌ను తనిఖీ చేసి మళ్లీ ప్రయత్నించండి." : "Check your connection and try again."}</p>
+                <button type="button" onClick={() => void fetchMatches()} className="px-5 py-2.5 rounded-xl maroon-gradient text-white text-xs font-bold shadow-md">
+                  {te ? "మళ్లీ ప్రయత్నించండి" : "Try again"}
+                </button>
+              </div>
+            ) : rows.length === 0 ? (
+              <div className="mv-surface mv-surface__body space-y-4 text-center sm:!p-8">
+                <div className="text-4xl">🔍 💍</div>
+                <h3 className="text-base font-black text-slate-900">{te ? "మీ ఫిల్టర్లకు సరిపోయే ప్రొఫైల్స్ ప్రస్తుతం లేవు" : "No profiles match your filters yet"}</h3>
+                <p className="text-xs text-slate-600">
+                  {te ? "కింది వాటిలో ఒక ఫిల్టర్‌ను సడలించి మళ్లీ ప్రయత్నించండి." : "Relax one filter below and try again."}
+                </p>
+                {(() => {
+                  const suggestions = relaxSuggestions(filters, { limit: 3 });
+                  if (suggestions.length === 0) return null;
+                  return (
+                    <div className="space-y-2">
+                      <p className="text-[11px] font-bold text-maroon">{te ? "ఒక్క నొక్కుతో సడలించండి" : "One tap to widen"}</p>
+                      <div className="flex flex-wrap justify-center gap-2">
+                        {suggestions.map((suggestion) => (
+                          <button
+                            key={suggestion.id}
+                            type="button"
+                            onClick={() => applyFilterPatch(suggestion.patch)}
+                            className="inline-flex min-h-11 items-center gap-1.5 rounded-full border border-gold/50 bg-amber-50 px-3.5 py-2 text-xs font-bold text-maroon transition hover:bg-amber-100"
+                          >
+                            <span aria-hidden="true">{suggestion.icon}</span>
+                            <span>{te ? suggestion.te : suggestion.en}</span>
+                            {suggestion.id === "age" && <span className="font-mono">({widenedAgeLabel(filters)})</span>}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
+                <button type="button" onClick={clearAllFilters} className="px-5 py-2.5 rounded-xl maroon-gradient text-white text-xs font-bold shadow-md">
+                  {te ? "అన్ని ఫిల్టర్లను రీసెట్ చేయండి" : "Reset all filters"}
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {rows.map((row) => (
+                  <Card key={row.tsap_id || row.id} row={row} />
+                ))}
+              </div>
+            )}
+
+            {!loading && !searchPending && !requestError && rows.length > 0 && nextOffset < total && (
+              <div className="flex flex-col items-center gap-2 py-2 text-center">
+                {loadMoreError && (
+                  <p role="alert" className="text-sm text-rose-700">
+                    {te ? "మరిన్ని ప్రొఫైల్స్ లోడ్ కాలేదు." : "More profiles could not be loaded."}
+                  </p>
+                )}
+                <button
+                  type="button"
+                  onClick={() => { void fetchMatches(nextOffset, true); }}
+                  disabled={loadingMore}
+                  aria-busy={loadingMore}
+                  className="min-h-12 min-w-48 rounded-xl border border-maroon/25 bg-white px-5 py-3 text-sm font-bold text-maroon shadow-sm transition hover:bg-rose-50 disabled:cursor-wait disabled:opacity-60"
+                >
+                  {loadingMore
+                    ? (te ? "లోడ్ అవుతోంది…" : "Loading more…")
+                    : loadMoreError
+                      ? (te ? "మళ్లీ ప్రయత్నించండి" : "Retry loading more")
+                      : (te ? `మరిన్ని ${Math.min(MATCH_PAGE_SIZE, total - nextOffset)} ప్రొఫైల్స్` : `Load ${Math.min(MATCH_PAGE_SIZE, total - nextOffset)} more profiles`)}
+                </button>
+              </div>
+            )}
+            <section aria-label={te ? "శోధన సాధనాలు" : "Search tools"} className="matches-secondary space-y-4">
+      {/* ---------- Sticky Top Quick-Pill Bar ---------- */}
+      <details className="matches-quick-tools mv-surface">
+          <summary className="min-h-11 cursor-pointer px-4 py-3 font-bold text-maroon">{te ? "త్వరిత ఫిల్టర్లు" : "Quick filters"}</summary>
+        <div className="max-w-7xl mx-auto px-4 py-2">
+          {/* Quick preset rail — one line of pills, scrolls sideways. */}
+          <PillScroller label={te ? "త్వరిత ఫిల్టర్లు" : "Quick filters"} fadeFrom="var(--ds-surface)">
+            {/* Quick Presets */}
+            <button type="button"
+              onClick={() => setF("verified_only", !filters.verified_only)}
+              className={`pill min-h-11 whitespace-nowrap px-3.5 text-xs font-bold transition flex items-center gap-1.5 border ${
+                filters.verified_only ? "bg-emerald-600 text-white border-emerald-600 shadow-xs" : "bg-white text-slate-700 border-slate-200 hover:border-emerald-600"
+              }`}
+            >
+              <span>👑</span>
+              <span>{te ? "ఫోన్ OTP / ఫోటో / ID సమీక్ష" : "Phone, photo or government ID check"}</span>
+            </button>
+
+            <button type="button"
+              onClick={() => setF("photo_only", !filters.photo_only)}
+              className={`pill min-h-11 whitespace-nowrap px-3.5 text-xs font-bold transition flex items-center gap-1.5 border ${
+                filters.photo_only ? "bg-amber-500 text-white border-amber-500 shadow-xs" : "bg-white text-slate-700 border-slate-200 hover:border-amber-500"
+              }`}
+            >
+              <span>📸</span>
+              <span>{te ? "ఫోటో ఉన్నవి" : "With photo"}</span>
+            </button>
+
+            <button type="button"
+              onClick={applySavedPreferences}
+              disabled={!sessionReady || prefLoading}
+              className={`pill min-h-11 whitespace-nowrap px-3.5 text-xs font-black transition flex items-center gap-1.5 ${
+                prefApplied
+                  ? "bg-emerald-600 text-white shadow-xs"
+                  : "bg-gradient-to-r from-amber-500 to-rose-600 text-white shadow-xs hover:brightness-105"
+              }`}
+            >
+              <span>🎯</span>
+              <span>{prefLoading ? (te ? "లోడ్ అవుతోంది…" : "Loading…") : prefApplied ? (te ? "✓ నా ప్రిఫరెన్సెస్ అప్లై అయ్యాయి" : "✓ Preferences applied") : (te ? "🎯 నా సేవ్ చేసిన ప్రిఫరెన్సెస్" : "🎯 Apply saved preferences")}</span>
+            </button>
+
+            <button type="button"
+              onClick={() => setF("gender", filters.gender === "Bride" ? "" : "Bride")}
+              className={`pill min-h-11 whitespace-nowrap px-3.5 text-xs font-bold transition flex items-center gap-1.5 border ${
+                filters.gender === "Bride" ? "bg-rose-700 text-white border-rose-700 shadow-xs" : "bg-white text-slate-700 border-slate-200 hover:border-rose-700"
+              }`}
+            >
+              <span>👰</span>
+              <span>{te ? "వధువులు" : "Brides"}</span>
+            </button>
+
+            <button type="button"
+              onClick={() => setF("gender", filters.gender === "Groom" ? "" : "Groom")}
+              className={`pill min-h-11 whitespace-nowrap px-3.5 text-xs font-bold transition flex items-center gap-1.5 border ${
+                filters.gender === "Groom" ? "bg-indigo-700 text-white border-indigo-700 shadow-xs" : "bg-white text-slate-700 border-slate-200 hover:border-indigo-700"
+              }`}
+            >
+              <span>🤵</span>
+              <span>{te ? "వరులు" : "Grooms"}</span>
+            </button>
+
+            <button type="button"
+              onClick={() => setF("marital_status", isMaritalFilterOptionSelected(filters.marital_status, "Pelli Kaledu") ? "" : "Pelli Kaledu")}
+              className={`pill min-h-11 whitespace-nowrap px-3.5 text-xs font-bold transition border ${
+                isMaritalFilterOptionSelected(filters.marital_status, "Pelli Kaledu") ? "bg-maroon text-white border-maroon shadow-xs" : "bg-white text-slate-700 border-slate-200 hover:border-maroon"
+              }`}
+            >
+              {te ? "💍 పెళ్లి కాలేదు" : "💍 Never married"}
+            </button>
+
+            <button type="button"
+              onClick={() => setF("marital_status", filters.marital_status === "Divorced" ? "" : "Divorced")}
+              className={`pill min-h-11 whitespace-nowrap px-3.5 text-xs font-bold transition border ${
+                filters.marital_status === "Divorced" ? "bg-rose-700 text-white border-rose-700 shadow-xs" : "bg-white text-slate-700 border-slate-200 hover:border-rose-700"
+              }`}
+            >
+              {te ? "❤️ రెండో వివాహం" : "❤️ Second marriage"}
+            </button>
+
+            {!isGroomGender(filters.gender) && (
+              <button type="button"
+                onClick={() => toggleMulti("job", "Housewife / Homemaker (గృహిణి)")}
+                className={`pill min-h-11 whitespace-nowrap px-3.5 text-xs font-bold transition flex items-center gap-1.5 border ${
+                  isMultiSelected("job", "Housewife / Homemaker (గృహిణి)")
+                    ? "bg-rose-700 text-white border-rose-700 shadow-xs"
+                    : "bg-white text-slate-700 border-slate-200 hover:border-rose-700"
+                }`}
+              >
+                <span>🏡</span>
+                <span>{te ? "గృహిణి" : "Homemaker"}</span>
+              </button>
+            )}
+
+            <button type="button"
+              onClick={() => toggleMulti("job", "Software / IT / Tech")}
+              className={`pill min-h-11 whitespace-nowrap px-3.5 text-xs font-bold transition border ${
+                isMultiSelected("job", "Software / IT / Tech") ? "bg-navy text-white border-navy shadow-xs" : "bg-white text-slate-700 border-slate-200 hover:border-navy"
+              }`}
+            >
+              💻 Software / IT
+            </button>
+
+            <button type="button"
+              onClick={() => toggleMulti("job", "Govt / PSU")}
+              className={`pill min-h-11 whitespace-nowrap px-3.5 text-xs font-bold transition border ${
+                isMultiSelected("job", "Govt / PSU") ? "bg-maroon text-white border-maroon shadow-xs" : "bg-white text-slate-700 border-slate-200 hover:border-maroon"
+              }`}
+            >
+              🏛️ Govt Jobs
+            </button>
+
+            <button type="button"
+              onClick={() => setF("state", filters.state === "TS" ? "" : "TS")}
+              className={`pill min-h-11 whitespace-nowrap px-3.5 text-xs font-bold transition border ${
+                filters.state === "TS" ? "bg-maroon text-white border-maroon shadow-xs" : "bg-white text-slate-700 border-slate-200"
+              }`}
+            >
+              📍 Telangana ({TS_DISTRICTS.length})
+            </button>
+
+            <button type="button"
+              onClick={() => setF("state", filters.state === "AP" ? "" : "AP")}
+              className={`pill min-h-11 whitespace-nowrap px-3.5 text-xs font-bold transition border ${
+                filters.state === "AP" ? "bg-maroon text-white border-maroon shadow-xs" : "bg-white text-slate-700 border-slate-200"
+              }`}
+            >
+              🌊 Andhra Pradesh ({AP_DISTRICTS.length})
+            </button>
+
+            <button type="button"
+              onClick={() => setF("nri_only", !filters.nri_only)}
+              className={`pill min-h-11 whitespace-nowrap px-3.5 text-xs font-bold transition border ${
+                filters.nri_only ? "bg-indigo-700 text-white border-indigo-700 shadow-xs" : "bg-white text-slate-700 border-slate-200"
+              }`}
+            >
+              🌍 NRI Profiles
+            </button>
+
+            {activeChips.length > 0 && (
+              <button type="button" onClick={clearAllFilters} className="pill min-h-11 whitespace-nowrap border border-rose-200 bg-rose-50 px-3.5 text-xs font-bold text-rose-600 transition hover:bg-rose-100">
+                ✕ {te ? "అన్నీ తీసేయండి" : "Clear all"}
+              </button>
+            )}
+          </PillScroller>
+        </div>
+      </details>
+
+            <CategorizedMatchesBar myTsapId={myTsapId} />
             <section aria-labelledby="saved-searches-heading" className="mv-surface mv-surface__body sm:!p-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="min-w-0 flex-1 basis-52">
@@ -1999,31 +2199,6 @@ export default function MatchesPage() {
               )}
             </section>
 
-            {/* Active Filter Chips Bar */}
-            {activeChips.length > 0 && (
-              <div className="flex flex-wrap items-center gap-1.5">
-                {activeChips.map((chip) => (
-                  <span
-                    key={chip.key}
-                    className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-amber-50 text-maroon border border-gold/40 shadow-xs"
-                  >
-                    <span>{chip.label}</span>
-                    <button
-                      type="button"
-                      onClick={chip.clear}
-                      aria-label={te ? `${chip.label} ఫిల్టర్ తొలగించండి` : `Remove ${chip.label} filter`}
-                      className="ml-1 inline-flex min-h-11 min-w-11 items-center justify-center rounded-full font-bold hover:text-rose-600"
-                    >
-                      ✕
-                    </button>
-                  </span>
-                ))}
-                <button type="button" onClick={clearAllFilters} className="text-xs font-bold text-rose-600 underline ml-2">
-                  {te ? "అన్నీ తొలగించు" : "Clear all"}
-                </button>
-              </div>
-            )}
-
             {/* Clarity Banner - Numbers ivvamu */}
             <div className="mv-note flex flex-col gap-3 text-xs sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-center gap-2.5">
@@ -2043,101 +2218,7 @@ export default function MatchesPage() {
               <ProfileRail kind="recent" viewerId={myTsapId} />
             )}
 
-            {/* Matches Cards Grid */}
-            {!loading && !searchPending && !requestError && rows.length > 0 && (
-              <p className="rounded-2xl border border-gold/30 bg-white/70 px-3.5 py-2 text-[11px] leading-relaxed text-slate-600">
-                <span className="font-bold text-maroon">{te ? "ఎందుకు ఇవి: " : "Why these: "}</span>
-                <span className="telugu">{te ? REASON_DISCLAIMER.te : REASON_DISCLAIMER.en}</span>
-              </p>
-            )}
-            {loading || searchPending ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {[1, 2, 3, 4].map((i) => (
-                  <div key={i} className="bg-white rounded-3xl border border-gold/20 p-5 space-y-4 animate-pulse">
-                    <div className="flex gap-4">
-                      <div className="w-20 h-24 bg-slate-200 rounded-2xl" />
-                      <div className="flex-1 space-y-2">
-                        <div className="h-4 bg-slate-200 rounded w-3/4" />
-                        <div className="h-3 bg-slate-200 rounded w-1/2" />
-                        <div className="h-3 bg-slate-200 rounded w-5/6" />
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : requestError ? (
-              <div role="alert" className="mv-surface mv-surface__body space-y-3 text-center">
-                <div className="text-4xl">📡</div>
-                <h3 className="text-base font-black text-slate-900">{te ? "సంబంధాలను లోడ్ చేయడంలో సమస్య" : "We couldn't load profiles"}</h3>
-                <p className="text-xs text-slate-600">{te ? "మీ కనెక్షన్‌ను తనిఖీ చేసి మళ్లీ ప్రయత్నించండి." : "Check your connection and try again."}</p>
-                <button type="button" onClick={() => void fetchMatches()} className="px-5 py-2.5 rounded-xl maroon-gradient text-white text-xs font-bold shadow-md">
-                  {te ? "మళ్లీ ప్రయత్నించండి" : "Try again"}
-                </button>
-              </div>
-            ) : rows.length === 0 ? (
-              <div className="mv-surface mv-surface__body space-y-4 text-center sm:!p-8">
-                <div className="text-4xl">🔍 💍</div>
-                <h3 className="text-base font-black text-slate-900">{te ? "మీ ఫిల్టర్లకు సరిపోయే ప్రొఫైల్స్ ప్రస్తుతం లేవు" : "No profiles match your filters yet"}</h3>
-                <p className="text-xs text-slate-600">
-                  {te ? "కింది వాటిలో ఒక ఫిల్టర్‌ను సడలించి మళ్లీ ప్రయత్నించండి." : "Relax one filter below and try again."}
-                </p>
-                {(() => {
-                  const suggestions = relaxSuggestions(filters, { limit: 3 });
-                  if (suggestions.length === 0) return null;
-                  return (
-                    <div className="space-y-2">
-                      <p className="text-[11px] font-bold text-maroon">{te ? "ఒక్క నొక్కుతో సడలించండి" : "One tap to widen"}</p>
-                      <div className="flex flex-wrap justify-center gap-2">
-                        {suggestions.map((suggestion) => (
-                          <button
-                            key={suggestion.id}
-                            type="button"
-                            onClick={() => applyFilterPatch(suggestion.patch)}
-                            className="inline-flex min-h-11 items-center gap-1.5 rounded-full border border-gold/50 bg-amber-50 px-3.5 py-2 text-xs font-bold text-maroon transition hover:bg-amber-100"
-                          >
-                            <span aria-hidden="true">{suggestion.icon}</span>
-                            <span>{te ? suggestion.te : suggestion.en}</span>
-                            {suggestion.id === "age" && <span className="font-mono">({widenedAgeLabel(filters)})</span>}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                })()}
-                <button type="button" onClick={clearAllFilters} className="px-5 py-2.5 rounded-xl maroon-gradient text-white text-xs font-bold shadow-md">
-                  {te ? "అన్ని ఫిల్టర్లను రీసెట్ చేయండి" : "Reset all filters"}
-                </button>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {rows.map((row) => (
-                  <Card key={row.tsap_id || row.id} row={row} />
-                ))}
-              </div>
-            )}
-
-            {!loading && !searchPending && !requestError && rows.length > 0 && nextOffset < total && (
-              <div className="flex flex-col items-center gap-2 py-2 text-center">
-                {loadMoreError && (
-                  <p role="alert" className="text-sm text-rose-700">
-                    {te ? "మరిన్ని ప్రొఫైల్స్ లోడ్ కాలేదు." : "More profiles could not be loaded."}
-                  </p>
-                )}
-                <button
-                  type="button"
-                  onClick={() => { void fetchMatches(nextOffset, true); }}
-                  disabled={loadingMore}
-                  aria-busy={loadingMore}
-                  className="min-h-12 min-w-48 rounded-xl border border-maroon/25 bg-white px-5 py-3 text-sm font-bold text-maroon shadow-sm transition hover:bg-rose-50 disabled:cursor-wait disabled:opacity-60"
-                >
-                  {loadingMore
-                    ? (te ? "లోడ్ అవుతోంది…" : "Loading more…")
-                    : loadMoreError
-                      ? (te ? "మళ్లీ ప్రయత్నించండి" : "Retry loading more")
-                      : (te ? `మరిన్ని ${Math.min(MATCH_PAGE_SIZE, total - nextOffset)} ప్రొఫైల్స్` : `Load ${Math.min(MATCH_PAGE_SIZE, total - nextOffset)} more profiles`)}
-                </button>
-              </div>
-            )}
+            </section>
           </div>
         </div>
       </div>
@@ -2265,6 +2346,65 @@ export default function MatchesPage() {
                     {heightAdjusted && <p role="status" className="text-xs leading-relaxed text-amber-900 sm:col-span-2">{te ? "కనిష్ఠ ఎత్తు గరిష్ఠ ఎత్తును మించకూడదు. రెండు పరిమితులను సమానంగా మార్చాం." : "Minimum height cannot exceed maximum height. Both limits have been set to the selected height."}</p>}
                   </div>
                   </div>
+
+                  <div className="space-y-3 border-t border-slate-100 pt-3">
+                    <p className="text-xs font-black text-slate-900">{te ? "మరిన్ని ఎంపికలు" : "More options"}</p>
+                    <label className="block space-y-1 text-xs font-bold text-slate-800">
+                      <span>{te ? "మాతృభాష" : "Mother tongue"}</span>
+                      <select aria-label={te ? "మాతృభాష" : "Mother tongue"} value={filters.mother_tongue || ""} onChange={(e) => setF("mother_tongue", e.target.value)} className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium">
+                        <option value="">{te ? "ఏదైనా" : "Any"}</option>
+                        {["Telugu", "Hindi", "Urdu", "Tamil", "Kannada", "Malayalam", "English"].map((language) => <option key={language} value={language}>{language}</option>)}
+                      </select>
+                    </label>
+                    <label className="block space-y-1 text-xs font-bold text-slate-800">
+                      <span>{te ? "కుటుంబ రకం" : "Family type"}</span>
+                      <select aria-label={te ? "కుటుంబ రకం" : "Family type"} value={filters.family_type || ""} onChange={(e) => setF("family_type", e.target.value)} className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium">
+                        <option value="">{te ? "ఏదైనా" : "Any"}</option>
+                        <option value="Nuclear">{te ? "చిన్న కుటుంబం" : "Nuclear"}</option>
+                        <option value="Joint">{te ? "ఉమ్మడి కుటుంబం" : "Joint"}</option>
+                      </select>
+                    </label>
+                    <label className="block space-y-1 text-xs font-bold text-slate-800">
+                      <span>{te ? "ఆహారపు అలవాటు" : "Diet"}</span>
+                      <select aria-label={te ? "ఆహారపు అలవాటు" : "Diet"} value={filters.diet || ""} onChange={(e) => setF("diet", e.target.value)} className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium">
+                        <option value="">{te ? "ఏదైనా" : "Any"}</option>
+                        <option value="Vegetarian">{te ? "శాఖాహారం" : "Vegetarian"}</option>
+                        <option value="Non-Vegetarian">{te ? "మాంసాహారం" : "Non-vegetarian"}</option>
+                      </select>
+                      <span className="block text-[11px] font-normal leading-snug text-slate-600">{te ? "సభ్యులు నమోదు చేసిన వివరం మాత్రమే; తెలియజేయని ప్రొఫైల్‌లు ఎంపికలోకి రావు." : "Member-entered only; profiles that have not shared a diet are not included in a selection."}</span>
+                    </label>
+                    <label className="block space-y-1 text-xs font-bold text-slate-800">
+                      <span>{te ? "ప్రొఫైల్ పూర్తి శాతం" : "Profile completeness"}</span>
+                      <select aria-label={te ? "ప్రొఫైల్ పూర్తి శాతం" : "Profile completeness"} value={String(filters.min_completeness || 0)} onChange={(e) => setF("min_completeness", Number(e.target.value))} className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium">
+                        <option value="0">{te ? "ఏదైనా" : "Any"}</option>
+                        <option value="50">50%+</option>
+                        <option value="70">70%+</option>
+                        <option value="90">90%+</option>
+                      </select>
+                    </label>
+                    <label className="block space-y-1 text-xs font-bold text-slate-800">
+                      <span>{te ? "నమోదైన ధృవీకరణ రికార్డు" : "Verification record on file"}</span>
+                      <select aria-label={te ? "నమోదైన ధృవీకరణ రికార్డు" : "Verification record on file"} value={filters.verification_level || ""} onChange={(e) => setF("verification_level", e.target.value)} className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium">
+                        <option value="">{te ? "ఏదైనా" : "Any"}</option>
+                        <option value="phone,photo,id">{te ? "ఫోన్ OTP లేదా అంతకంటే ఎక్కువ" : "Phone OTP or more"}</option>
+                        <option value="photo,id">{te ? "ఫోటో సమీక్ష లేదా ID సమీక్ష" : "Photo review or ID review"}</option>
+                        <option value="id">{te ? "ID సమీక్ష నమోదు" : "ID review recorded"}</option>
+                      </select>
+                      <span className="block text-[11px] font-normal leading-snug text-slate-600">{te ? "ఇది మేము నమోదు చేసిన సమీక్ష మాత్రమే. వ్యక్తి గుర్తింపు లేదా భద్రతకు హామీ కాదు; వివరాలను మీరే నిర్ధారించుకోండి." : "This shows only the review we recorded. It is not a guarantee of identity or safety; confirm details yourself."}</span>
+                    </label>
+                    <label className="flex min-h-11 items-start gap-3 rounded-xl bg-slate-50 p-3 text-xs font-bold text-slate-800">
+                      <input type="checkbox" checked={Boolean(filters.exclude_viewed)} onChange={(e) => setF("exclude_viewed", e.target.checked)} className="mt-0.5 h-5 w-5 shrink-0 accent-[#7A0C2E]" />
+                      <span className="min-w-0">{te ? "నేను ఇప్పటికే చూసిన ప్రొఫైల్‌లను దాచండి" : "Hide profiles I have already viewed"}
+                        <span className="block text-[11px] font-normal leading-snug text-slate-600">{te ? "సైన్ ఇన్ అయినప్పుడు పనిచేస్తుంది." : "Works when you are signed in."}</span>
+                      </span>
+                    </label>
+                    <label className="flex min-h-11 items-start gap-3 rounded-xl bg-slate-50 p-3 text-xs font-bold text-slate-800">
+                      <input type="checkbox" checked={Boolean(filters.exclude_interested)} onChange={(e) => setF("exclude_interested", e.target.checked)} className="mt-0.5 h-5 w-5 shrink-0 accent-[#7A0C2E]" />
+                      <span className="min-w-0">{te ? "నాతో రిక్వెస్ట్ ఉన్న ప్రొఫైల్‌లను దాచండి" : "Hide profiles I have a request with"}
+                        <span className="block text-[11px] font-normal leading-snug text-slate-600">{te ? "సైన్ ఇన్ అయినప్పుడు పనిచేస్తుంది." : "Works when you are signed in."}</span>
+                      </span>
+                    </label>
+                  </div>
                 </div>
               )}
 
@@ -2360,6 +2500,17 @@ export default function MatchesPage() {
                         </label>
                       );
                     })}
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-3 border-t border-slate-100 pt-3 sm:grid-cols-2">
+                    <label className="block space-y-1 text-xs font-bold text-slate-800">
+                      <span>{te ? "నగరం / ఊరు" : "City or town"}</span>
+                      <input type="text" maxLength={60} value={filters.city || ""} onChange={(e) => setF("city", e.target.value)} placeholder={te ? "ఉదా: హైదరాబాద్" : "e.g. Hyderabad"} className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium" />
+                    </label>
+                    <label className="block space-y-1 text-xs font-bold text-slate-800">
+                      <span>{te ? "దేశం" : "Country"}</span>
+                      <input type="text" maxLength={60} value={filters.country || ""} onChange={(e) => setF("country", e.target.value)} placeholder={te ? "ఉదా: USA" : "e.g. USA"} className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium" />
+                    </label>
                   </div>
                 </div>
               )}
@@ -2475,6 +2626,14 @@ export default function MatchesPage() {
                       );
                     })}
                   </div>
+                  <div className="space-y-2 border-t border-slate-100 pt-3">
+                    <label className="flex min-h-11 items-start gap-3 rounded-xl bg-slate-50 p-3 text-xs font-bold text-slate-800">
+                      <input type="checkbox" checked={Boolean(filters.skip_same_gothram)} onChange={(e) => setF("skip_same_gothram", e.target.checked)} className="mt-0.5 h-5 w-5 shrink-0 accent-[#7A0C2E]" />
+                      <span className="min-w-0">{te ? "నా గోత్రంతో సమానమైన ప్రొఫైల్‌లను తప్పించండి" : "Skip profiles with the same gothram as mine"}
+                        <span className="block text-[11px] font-normal leading-snug text-slate-600">{te ? "ఐచ్ఛికం. మీ ప్రొఫైల్‌లోని గోత్రం ఆధారంగా. గోత్రం చూపని ప్రొఫైల్‌లు ఫలితాల్లోనే ఉంటాయి; మీది నమోదు కాకపోతే ఏదీ దాచబడదు." : "Optional. Uses the gothram in your own profile. Profiles with no gothram shown stay in the results; if yours is not filled in, nothing is hidden."}</span>
+                      </span>
+                    </label>
+                  </div>
                 </div>
               )}
             </div>
@@ -2525,6 +2684,13 @@ export default function MatchesPage() {
                   ? "ఈ saved search మీ ఖాతాలో మాత్రమే ఉంటుంది. Notifications, WhatsApp సందేశాలు లేదా ఇతర alerts పంపబడవు."
                   : "This saved search stays in your account. It will not enable notifications, WhatsApp messages, or other alerts."}
               </div>
+              {(filters.exclude_viewed || filters.exclude_interested || filters.skip_same_gothram || Number(filters.min_completeness) > 0) && (
+                <p className="rounded-xl bg-amber-50 p-3 text-xs leading-relaxed text-amber-900">
+                  {te
+                    ? "చూసినవి/రిక్వెస్ట్ ఉన్నవి దాచడం, గోత్రం తప్పించడం, ప్రొఫైల్ శాతం ఎంపికలు saved searchలో నిల్వ కావు. మిగతా ఫిల్టర్లు నిల్వ అవుతాయి."
+                    : "Hide-viewed, hide-requests, same-gothram and profile-completeness options are not stored in saved searches. The other filters are."}
+                </p>
+              )}
               {savedSearchNotice?.tone === "error" && (
                 <p role="alert" className="text-sm font-semibold text-rose-700">{savedSearchNotice.text}</p>
               )}

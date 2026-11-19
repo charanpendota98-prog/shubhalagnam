@@ -1,0 +1,12 @@
+/* Editorial/community presentation only. Publication and consent rules stay with their owners. */
+.mv-editorial-workspace :is(.text-\[10px\],.text-\[11px\],.text-\[12px\],.text-\[12\.5px\],.text-xs){font-size:.875rem;line-height:1.75}
+.mv-editorial-workspace :is(p,li,label,button,a,span,h1,h2,h3){overflow-wrap:anywhere}
+.mv-editorial-workspace :is(input:not([type=checkbox]):not([type=hidden]),select,textarea){font-size:1rem;max-width:100%;min-width:0;min-height:48px}
+.mv-editorial-workspace :is(button,a,summary){min-height:44px;white-space:normal}
+.mv-editorial-workspace a{display:inline-flex;align-items:center}
+.mv-editorial-workspace :is(button,a,input,select,textarea,summary):focus-visible{outline:3px solid #a66b13;outline-offset:3px}
+.mv-editorial-actions{gap:12px}
+@media(max-width:639px){
+ .mv-editorial-actions{flex-wrap:wrap;align-items:flex-start}
+ .mv-editorial-actions>a,.mv-editorial-actions>button{justify-content:center;flex:0 0 auto;max-width:100%}
+}

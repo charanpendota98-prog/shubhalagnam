@@ -1,0 +1,116 @@
+{
+  "source": "Local source route inventory after restricted-operations preview",
+  "route_patterns": 54,
+  "previewed_patterns": 54,
+  "remaining_patterns": 0,
+  "groups": [
+    {
+      "group": "Earlier core previews",
+      "status": "Previewed earlier",
+      "routes": [
+        "/",
+        "/matches",
+        "/search/[id]",
+        "/requests",
+        "/me",
+        "/register",
+        "/login"
+      ]
+    },
+    {
+      "group": "This connected-utilities slice",
+      "status": "Local fixture review",
+      "routes": [
+        "/shortlist",
+        "/saved-searches",
+        "/compare",
+        "/search"
+      ]
+    },
+    {
+      "group": "Trust, plans and policy",
+      "status": "Local seven-route layout/fixture review; policy conflicts remain OPEN, not launch acceptance",
+      "routes": [
+        "/pricing",
+        "/verify",
+        "/safety",
+        "/privacy",
+        "/terms",
+        "/refund",
+        "/status"
+      ]
+    },
+    {
+      "group": "Wedding tools and guidance",
+      "status": "Local five-route layout/fixture review; no real submission, astrology validation or launch acceptance",
+      "routes": [
+        "/biodata",
+        "/lagna-patrika",
+        "/muhurtham",
+        "/pelli-choopulu",
+        "/porutham"
+      ]
+    },
+    {
+      "group": "Community discovery",
+      "status": "Local six-pattern bilingual layout/fixture review; dynamic bride/groom sample only, no live writes, payments or external-channel acceptance",
+      "routes": [
+        "/second-marriage",
+        "/spotlight",
+        "/districts",
+        "/castes",
+        "/castes/[slug]",
+        "/channels"
+      ]
+    },
+    {
+      "group": "Editorial and community",
+      "status": "Local six-pattern bilingual layout/fixture review; RSVP count/consent corrected locally, no real submissions or launch acceptance",
+      "routes": [
+        "/stories",
+        "/events",
+        "/org/[slug]",
+        "/p/[slug]",
+        "/blog",
+        "/blog/[slug]"
+      ]
+    },
+    {
+      "group": "Partner and referral",
+      "status": "Local nine-pattern bilingual layout/fixture review; no real submissions, authenticated operations, payment or launch acceptance",
+      "routes": [
+        "/referral",
+        "/referral/register",
+        "/r/[code]",
+        "/bureau",
+        "/vendors",
+        "/vendors/[id]",
+        "/vendors/campaign",
+        "/vendors/kit",
+        "/vendors/register"
+      ]
+    },
+    {
+      "group": "Private-link and fallback",
+      "status": "Local two-pattern bilingual fixture review plus warmed-cache offline test; no real token, feedback or launch acceptance",
+      "routes": [
+        "/review/[token]",
+        "/offline"
+      ]
+    },
+    {
+      "group": "Restricted operations",
+      "status": "Local eight-pattern bilingual route-state fixtures; not every tab, real role/action, security audit or launch acceptance",
+      "routes": [
+        "/admin",
+        "/admin/photos",
+        "/control",
+        "/control/login",
+        "/control/workspace",
+        "/control/legacy",
+        "/owner",
+        "/growth"
+      ]
+    }
+  ]
+}

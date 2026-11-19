@@ -1,0 +1,33 @@
+/* Homepage-only legibility pass. Keep the existing wedding composition and art. */
+.mv-home-workspace .home-search-card :is(label,legend,.home-search-card__label,.home-search-card__heading p,.home-search-card__adjusted,.home-search-card__safety) { font-size: 14px; line-height: 1.65; }
+.mv-home-workspace .home-search-card__range legend span { font-size: 14px; }
+.mv-home-workspace .home-search-card select { font-size: 16px; }
+.mv-home-workspace .home-search-card__who button { font-size: 14px; }
+.mv-home-workspace .wedding-editorial__search form > .home-search-card__submit { font-size: 16px; }
+.mv-home-workspace .home-search-card__safety { color: #655159; }
+.mv-home-workspace .home-search-card__safety a { display: inline-flex; align-items: center; min-height: 44px; }
+.mv-home-workspace :is(.wedding-editorial__terms,.wedding-editorial__principles) { font-size: 14px; line-height: 1.7; }
+.mv-home-workspace .wedding-gallery__nav span { font-size: 14px; min-width: 56px; }
+.mv-home-workspace .wedding-gallery__eyebrow { font-size: 12px; }
+.mv-home-workspace .mv-advanced-search :is(label,span) { font-size: 14px; }
+.mv-home-workspace .mv-advanced-search :is(button,input,select) { font-size: 14px; min-height: 44px; }
+.mv-home-workspace .mv-advanced-search :is(input,select) { font-size: 16px; }
+.mv-home-workspace .mv-advanced-search button { white-space: normal; overflow-wrap: normal; }
+.mv-home-workspace .mv-advanced-search [role="group"] { flex-wrap: wrap; overflow: visible; }
+.mv-home-workspace .mv-advanced-search [role="group"] button { flex: 1 1 auto; }
+.mv-home-workspace .mv-advanced-search :is(button,input,select):focus-visible,
+.mv-home-workspace .wedding-gallery :is(button,[tabindex]):focus-visible,
+.mv-home-workspace :is(.wedding-primary,.wedding-text-link,.hp-faq__q):focus-visible { outline: 3px solid #a56a36; outline-offset: 3px; }
+.mv-home-workspace :is(.hp-trust__text,.hp-faq__q,.hp-faq__a,.hp-step__text,.hp-safety__text,.hp-price__credits,.hp-price__unit,.hp-cta__sub) { font-size: max(14px, .875rem); line-height: 1.75; }
+.mv-home-workspace .hp-faq__q { min-height: 52px; }
+@media (max-width: 767px) {
+  .mv-home-workspace .wedding-editorial .wedding-primary { font-size: 14px; }
+  .mv-home-workspace .wedding-editorial__search { padding-inline: 15px; }
+}
+@media (max-width: 480px) {
+  .mv-home-workspace .mv-advanced-search [role="group"] { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); width: 100%; gap: 6px; }
+  .mv-home-workspace .mv-advanced-search [role="group"] button { min-width: 0; }
+}
+@media (max-width: 480px) {
+  .mv-home-workspace .home-search-card__range:has(select[aria-label="Min Height"]) > div { grid-template-columns: 1fr; }
+}

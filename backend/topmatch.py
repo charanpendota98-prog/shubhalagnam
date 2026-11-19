@@ -10,6 +10,7 @@ from __future__ import annotations
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 from interest import sanitize_public_payload
+from quality import _height_cm, diet_preference_match, income_range_comparison
 
 
 # Values shown as profile facts only. Similarity is not a compatibility claim.
@@ -71,6 +72,7 @@ def _preference_comparisons(user: Dict[str, Any], candidate: Dict[str, Any]) -> 
         rows.append({
             "key": "age", "label": "Age range", "status": "met" if met else "not_met",
             "note": f"Candidate age {age} is {'within' if met else 'outside'} the saved range ({bound}).",
+            "note_te": f"అభ్యర్థి వయస్సు {age} సేవ్ చేసిన పరిధి ({bound}) {'లోపల' if met else 'వెలుపల'} ఉంది.",
         })
 
     requested_caste = _text(prefs.get("caste", user.get("exp_caste")))
@@ -84,6 +86,8 @@ def _preference_comparisons(user: Dict[str, Any], candidate: Dict[str, Any]) -> 
                 "key": "caste", "label": "Community preference", "status": "met" if met else "not_met",
                 "note": "Candidate community matches the saved same-community preference." if met
                         else "Candidate community differs from the saved same-community preference.",
+                "note_te": "అభ్యర్థి కులం సేవ్ చేసిన అదే-కులం ప్రాధాన్యతకు సరిపోతుంది." if met
+                        else "అభ్యర్థి కులం సేవ్ చేసిన అదే-కులం ప్రాధాన్యత నుండి భిన్నంగా ఉంది.",
             })
     elif norm_caste and norm_caste not in {"any", "no bar", "no preference"} and candidate_caste:
         met = candidate_caste == norm_caste
@@ -113,6 +117,83 @@ def _preference_comparisons(user: Dict[str, Any], candidate: Dict[str, Any]) -> 
             "note": "Candidate's listed location matches the saved preference." if met
                     else "Candidate's listed location differs from the saved preference.",
         })
+
+    requested_diet = _key(prefs.get("diet"))
+    candidate_diet_raw = _text(candidate.get("diet"))
+    if requested_diet and requested_diet not in {"any"} and candidate_diet_raw:
+        verdict = diet_preference_match(prefs.get("diet"), candidate_diet_raw)
+        met = verdict == "met"
+        rows.append({
+            "key": "diet", "label": "Diet preference",
+            "status": "unknown" if verdict == "unknown" else ("met" if met else "not_met"),
+            "note": ("Candidate's listed diet matches the saved preference." if met
+                     else "Candidate's listed diet differs from the saved preference.")
+                    if verdict != "unknown"
+                    else f"Candidate lists {candidate_diet_raw}; it cannot be compared definitely with the saved preference.",
+            "note_te": ("అభ్యర్థి ఆహారపు అలవాటు సేవ్ చేసిన ప్రాధాన్యతకు సరిపోతుంది." if met
+                        else "అభ్యర్థి ఆహారపు అలవాటు సేవ్ చేసిన ప్రాధాన్యత నుండి భిన్నంగా ఉంది.")
+                    if verdict != "unknown"
+                    else f"అభ్యర్థి ఆహారపు అలవాటు {candidate_diet_raw}; దానిని సేవ్ చేసిన ప్రాధాన్యతతో ఖచ్చితంగా పోల్చలేము.",
+        })
+
+    # Height range: informational comparison against the candidate's own listed
+    # height; an unset candidate height stays unknown and earns no row.
+    height_lo_raw = _text(prefs.get("heightMin"))
+    height_hi_raw = _text(prefs.get("heightMax"))
+    candidate_height_cm = _height_cm(candidate.get("height"))
+    if (height_lo_raw or height_hi_raw) and candidate_height_cm:
+        lo_cm = _height_cm(height_lo_raw) if height_lo_raw else 0
+        hi_cm = _height_cm(height_hi_raw) if height_hi_raw else 0
+        met = (not lo_cm or candidate_height_cm >= lo_cm) and (not hi_cm or candidate_height_cm <= hi_cm)
+        listed = _text(candidate.get("height"))
+        bound = f"{height_lo_raw or 'any'}–{height_hi_raw or 'any'}"
+        rows.append({
+            "key": "height", "label": "Height preference", "status": "met" if met else "not_met",
+            "note": f"Candidate lists height {listed}; it is {'within' if met else 'outside'} the saved range ({bound}).",
+            "note_te": f"అభ్యర్థి ఎత్తు {listed}; సేవ్ చేసిన పరిధి ({bound}) {'లోపల' if met else 'వెలుపల'} ఉంది.",
+        })
+
+    # Minimum income: intervals compared conservatively — definitely meets only
+    # when the entire listed range meets the minimum, definitely below only when
+    # the entire range is below it; a crossing range cannot be determined from
+    # the listed range. Unknown/Any/not-disclosed earns no row.
+    salary_pref = _text(prefs.get("minSalary"))
+    candidate_salary = _text(candidate.get("salary"))
+    verdict = income_range_comparison(candidate_salary, salary_pref)
+    if verdict == "met":
+        rows.append({
+            "key": "min_salary", "label": "Income preference", "status": "met",
+            "note": f"Candidate lists {candidate_salary}; the listed range meets the selected minimum income ({salary_pref}).",
+            "note_te": f"అభ్యర్థి ఆదాయ వివరం {candidate_salary}; జాబితా పరిధి ఎంచుకున్న కనిష్ఠ ఆదాయానికి ({salary_pref}) సరిపోతుంది.",
+        })
+    elif verdict == "below":
+        rows.append({
+            "key": "min_salary", "label": "Income preference", "status": "not_met",
+            "note": f"Candidate lists {candidate_salary}; the entire listed range is below the selected minimum income ({salary_pref}).",
+            "note_te": f"అభ్యర్థి ఆదాయ వివరం {candidate_salary}; జాబితా పరిధి మొత్తం ఎంచుకున్న కనిష్ఠ ఆదాయం ({salary_pref}) కంటే తక్కువ.",
+        })
+    elif verdict == "unclear":
+        rows.append({
+            "key": "min_salary", "label": "Income preference", "status": "unknown",
+            "note": f"Candidate lists {candidate_salary}; the listed range crosses the selected minimum income ({salary_pref}), so it cannot be determined from the listed range.",
+            "note_te": f"అభ్యర్థి ఆదాయ వివరం {candidate_salary}; జాబితా పరిధి ఎంచుకున్న కనిష్ఠ ఆదాయం ({salary_pref}) వద్ద దాటుతుంది, కాబట్టి జాబితా పరిధి నుండి నిర్ణయించలేము.",
+        })
+
+    # States compare only when the member explicitly selected them; a stored
+    # default is not a member choice and earns no row.
+    requested_states = prefs.get("states")
+    if isinstance(requested_states, (list, tuple)):
+        state_terms = [_key(s) for s in requested_states if _key(s)]
+        candidate_state = _key(candidate.get("state"))
+        if state_terms and candidate_state:
+            met = candidate_state in state_terms
+            rows.append({
+                "key": "states", "label": "State preference", "status": "met" if met else "not_met",
+                "note": "Candidate's listed state matches the saved preference." if met
+                        else "Candidate's listed state differs from the saved preference.",
+                "note_te": "అభ్యర్థి రాష్ట్రం సేవ్ చేసిన ప్రాధాన్యతకు సరిపోతుంది." if met
+                        else "అభ్యర్థి రాష్ట్రం సేవ్ చేసిన ప్రాధాన్యత నుండి భిన్నంగా ఉంది.",
+            })
     return rows
 
 
@@ -125,7 +206,9 @@ def score_match_v2(user: Dict[str, Any], match: Dict[str, Any], include_mutual: 
     user = user if isinstance(user, dict) else {}
     match = match if isinstance(match, dict) else {}
     observations: List[str] = []
+    observations_te: List[str] = []
     differences: List[str] = []
+    differences_te: List[str] = []
     breakdown: List[Dict[str, str]] = []
 
     for key, label, te_label in PROFILE_FIELDS:
@@ -135,21 +218,27 @@ def score_match_v2(user: Dict[str, Any], match: Dict[str, Any], include_mutual: 
         same = _key(a) == _key(b)
         if same:
             note = f"Both profiles list {a} for {label.lower()}."
+            note_te = f"రెండు ప్రొఫైళ్లు {te_label} విషయంలో {a} అని పేర్కొన్నాయి."
             observations.append(note)
+            observations_te.append(note_te)
         else:
             note = f"Profiles list different {label.lower()} values: {a} and {b}."
+            note_te = f"ప్రొఫైళ్లు వేర్వేరు {te_label} విలువలు పేర్కొన్నాయి: {a} మరియు {b}."
             differences.append(note)
+            differences_te.append(note_te)
         breakdown.append({
             "key": key, "label": label, "telugu": te_label,
-            "status": "same" if same else "different", "note": note,
+            "status": "same" if same else "different", "note": note, "note_te": note_te,
         })
 
     age_a, age_b = _age(user.get("age")), _age(match.get("age"))
     if age_a is not None and age_b is not None:
         gap = abs(age_a - age_b)
         note = f"Member-entered ages are {age_a} and {age_b}; the difference is {gap} year(s). Verify dates independently."
+        note_te = f"సభ్యులు నమోదు చేసిన వయస్సులు {age_a} మరియు {age_b}; తేడా {gap} సంవత్సరం(లు). తేదీలను స్వతంత్రంగా ధృవీకరించండి."
         observations.append(note)
-        breakdown.append({"key": "age", "label": "Age", "telugu": "వయస్సు", "status": "listed", "note": note})
+        observations_te.append(note_te)
+        breakdown.append({"key": "age", "label": "Age", "telugu": "వయస్సు", "status": "listed", "note": note, "note_te": note_te})
 
     preferences = _preference_comparisons(user, match)
     preference_notes = [row["note"] for row in preferences]
@@ -158,7 +247,9 @@ def score_match_v2(user: Dict[str, Any], match: Dict[str, Any], include_mutual: 
         "notice_telugu": "సభ్యులు నమోదు చేసిన వివరాలు, మీరు స్పష్టంగా సేవ్ చేసిన preferences పోలిక మాత్రమే; compatibility లేదా identity verdict కాదు.",
         "breakdown": breakdown,
         "observations": observations,
+        "observations_te": observations_te,
         "differences": differences,
+        "differences_te": differences_te,
         "preferences": preferences,
         "preference_notes": preference_notes,
         "mutual": {},
@@ -203,7 +294,9 @@ def find_top_matches_v2(
         ranked.append((created, profile_id, {
             "profile": profile,
             "observations": comparison["observations"],
+            "observations_te": comparison["observations_te"],
             "differences": comparison["differences"],
+            "differences_te": comparison["differences_te"],
             "preferences": comparison["preferences"],
         }))
     # No preference tally or compatibility proxy influences ordering.

@@ -32,10 +32,16 @@ export const DEFAULT_MATCH_FILTERS = {
   country: "",
   city: "",
   verification_level: "",
+  family_type: "",
+  diet: "",
+  min_completeness: 0,
+  exclude_viewed: false,
+  exclude_interested: false,
+  skip_same_gothram: false,
 };
 
-const NUMERIC_FIELDS = new Set(["age_min", "age_max", "salary_min", "salary_max"]);
-const BOOLEAN_FIELDS = new Set(["verified_only", "photo_only", "nri_only"]);
+const NUMERIC_FIELDS = new Set(["age_min", "age_max", "salary_min", "salary_max", "min_completeness"]);
+const BOOLEAN_FIELDS = new Set(["verified_only", "photo_only", "nri_only", "exclude_viewed", "exclude_interested", "skip_same_gothram"]);
 const MULTI_VALUE_FIELDS = new Set([
   "caste",
   "sub_caste",
@@ -48,6 +54,10 @@ const MULTI_VALUE_FIELDS = new Set([
   "star",
   "rasi",
   "dosham",
+  "verification_level",
+  "family_type",
+  "diet",
+  "mother_tongue",
 ]);
 const FILTER_KEYS = new Set(Object.keys(DEFAULT_MATCH_FILTERS));
 
@@ -73,6 +83,7 @@ export function parseMatchFilters(search) {
       const value = Number(values[values.length - 1]);
       if (!Number.isInteger(value) || value < 0) continue;
       if ((key === "age_min" || key === "age_max") && (value < 18 || value > 60)) continue;
+      if (key === "min_completeness" && value > 100) continue;
       filters[key] = value;
       continue;
     }
@@ -95,6 +106,14 @@ export function parseMatchFilters(search) {
           return true;
         });
       filters[key] = selected.join(",");
+      continue;
+    }
+
+    if (key === "gender") {
+      // Only the two real values are accepted (any casing). Anything else is
+      // ignored so a URL can never be silently labelled as the opposite gender.
+      const g = values[0].trim().toLowerCase();
+      filters.gender = g === "bride" || g === "female" ? "Bride" : g === "groom" || g === "male" ? "Groom" : "";
       continue;
     }
 

@@ -59,19 +59,20 @@ export default function GrowthPage() {
     setStatsLoading(true);
     setStatsNetworkError(false);
     setStats(null);
+    setInv(null); setWa(null);
     setLeads([]);
     setNeedsAdminKey(false);
     try {
       const [s, i, w, l] = await Promise.all([
         fetch("/api/leads/stats", { headers: authHeaders(true) }).then(async (r) => ({ ok: r.ok, status: r.status, data: await readApiJson(r) })),
-        fetch("/api/inventory").then((r) => readApiJson(r)),
-        fetch("/api/wa/status").then((r) => readApiJson(r)),
+        fetch("/api/inventory").then(async r => ({ok:r.ok,data:await readApiJson(r)})),
+        fetch("/api/wa/status").then(async r => ({ok:r.ok,data:await readApiJson(r)})),
         fetch("/api/leads?limit=30", { headers: authHeaders(true) }).then(async (r) => ({ ok: r.ok, status: r.status, data: await readApiJson(r) })),
       ]);
       if (sequence !== loadSequence.current) return;
       const validStats = s.ok && s.data && typeof s.data === "object" && !Array.isArray(s.data) && !s.data.detail && s.data.success !== false;
       setStats(validStats ? s.data : null);
-      setInv(i); setWa(w);
+      setInv(i.ok && i.data?.success !== false && !i.data?.detail ? i.data : null); setWa(w.ok && w.data?.success !== false && !w.data?.detail ? w.data : null);
       setLeads(l.ok && Array.isArray(l.data?.items) ? l.data.items : []);
       setNeedsAdminKey([401, 403].includes(s.status) || [401, 403].includes(l.status));
     } catch {
@@ -158,8 +159,8 @@ export default function GrowthPage() {
               <KPI label="Unique visitors" value={metric(stats.visitors_unique)} sub="IP+device hash" />
               <KPI label="Leads" value={metric(stats.leads_total)} sub={te ? `కొత్తవి: ${metric(stats.leads_new)}` : `new: ${metric(stats.leads_new)}`} tone="gold" />
               <KPI label="Lead conversion" value={metric(stats.conversion, "%")} sub="unique visitors → leads" tone="gold" />
-              <KPI label="Member profiles" value={inv?.total_profiles ?? 0} sub={`${inv?.approved_profiles ?? 0} approved · ${inv?.pending_profiles ?? 0} pending`} />
-              <KPI label="WhatsApp sent" value={wa?.sent_total ?? 0} sub={wa?.whatsapp_mode === "off" ? "mode: off (offline)" : `mode: ${wa?.whatsapp_mode}`} />
+              <KPI label="Member profiles" value={metric(inv?.total_profiles)} sub={`${metric(inv?.approved_profiles)} approved · ${metric(inv?.pending_profiles)} pending`} />
+              <KPI label="WhatsApp sent" value={metric(wa?.sent_total)} sub={wa?.whatsapp_mode === "off" ? "mode: off (offline)" : `mode: ${wa?.whatsapp_mode || "unknown"}`} />
             </div>
 
             {/* Factual member coverage; no synthetic launch target. */}
@@ -174,7 +175,7 @@ export default function GrowthPage() {
                     ["Approved photos", inv.photos], ["Castes", inv.castes_covered], ["Districts", inv.districts_covered],
                   ].map(([label, value]) => (
                     <span key={String(label)} className="rounded-full border border-gold/30 bg-cream px-3 py-1 text-slate-700">
-                      {label}: <b>{Number(value ?? 0)}</b>
+                      {label}: <b>{metric(value)}</b>
                     </span>
                   ))}
                 </div>

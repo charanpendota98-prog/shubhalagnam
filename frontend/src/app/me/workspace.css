@@ -1,0 +1,21 @@
+/* Account layout only. Panels retain their existing data and action handlers. */
+.mv-account-workspace .account-intro { margin-bottom: 20px; }
+.mv-account-workspace .account-intro p:first-child { font-size: 13px; font-weight: 700; letter-spacing: .05em; color: #65132e; }
+.mv-account-workspace .account-intro h1 { color: #65132e; font-size: 28px; line-height: 1.6; font-weight: 700; margin: 4px 0; }
+.mv-account-workspace .account-intro p:last-child { font-size: 16px; line-height: 1.7; color: #48403f; }
+.mv-account-workspace .account-sections { margin-top: 20px; }
+.mv-account-workspace .account-primary-nav,
+.mv-account-workspace .account-secondary-nav nav { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; }
+.mv-account-workspace .account-section { min-height: 58px; padding: 12px; border-radius: 12px; border: 1px solid #d8c6be; text-align: left; background: #fffdfa; color: #54333e; font-size: 16px; font-weight: 600; line-height: 1.6; overflow-wrap: anywhere; }
+.mv-account-workspace .account-section.is-active { color: white; background: #65132e; border-color: #65132e; }
+.mv-account-workspace .account-section:focus-visible { outline: 3px solid #a97632; outline-offset: 3px; }
+.mv-account-workspace .account-secondary-nav { margin-top: 14px; }
+.mv-account-workspace :is(.account-secondary-nav,.account-activity)>summary { min-height: 48px; padding: 12px 0; font-size: 16px; font-weight: 600; color: #65132e; cursor: pointer; }
+.mv-account-workspace .account-activity { border-top: 1px solid #d8c6be; padding-top: 12px; margin-top: 28px; }
+.mv-account-workspace #account-task-panel :is(p,label,input,select,textarea,button,.text-xs) { font-size: 16px; line-height: 1.7; }
+.mv-account-workspace #account-task-panel :is(input:not([type=checkbox]):not([type=radio]),select,textarea) { max-width: 100%; }
+.mv-account-workspace #account-task-panel :is(button,input:not([type=checkbox]):not([type=radio]),select) { min-height: 44px; }
+@media(min-width:768px) {
+ .mv-account-workspace .account-primary-nav,.mv-account-workspace .account-secondary-nav nav { grid-template-columns: repeat(3,minmax(0,1fr)); }
+}
+@media(max-width:359px) { .mv-account-workspace .account-section { font-size: 16px; padding: 10px; } }

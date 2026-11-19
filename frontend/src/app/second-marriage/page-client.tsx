@@ -1,5 +1,7 @@
 "use client";
 
+import "@/components/community-workspace.css";
+
 import { useEffect, useMemo, useState } from "react";
 import HomeSecondMarriageSection from "@/components/HomeSecondMarriageSection";
 import Link from "next/link";
@@ -90,22 +92,30 @@ export default function SecondMarriagePage() {
   const [profiles, setProfiles] = useState<ProfileRow[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [savedIds, setSavedIds] = useState<string[]>([]);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [loadAttempt, setLoadAttempt] = useState(0);
 
   // Load profiles from API with second_marriage flag
   useEffect(() => {
     let isMounted = true;
     setLoading(true);
+    setLoadFailed(false);
 
     apiGet<{ results?: ProfileRow[]; total?: number }>("/api/search?second_marriage=true&limit=60")
       .then(({ ok, data }) => {
         if (!isMounted) return;
-        const rows = ok && Array.isArray(data?.results) ? data.results : [];
+        if (!ok || !Array.isArray(data?.results)) {
+          setProfiles([]);
+          setLoadFailed(true);
+          return;
+        }
+        const rows = data.results;
         // Never-married rows are excluded; API failures/empty results stay empty, not fabricated.
         const filtered = rows.filter((p) => isSecondMarriageStatus(p.marital_status));
         setProfiles(filtered);
       })
       .catch(() => {
-        if (isMounted) setProfiles([]);
+        if (isMounted) { setProfiles([]); setLoadFailed(true); }
       })
       .finally(() => {
         if (isMounted) setLoading(false);
@@ -114,7 +124,7 @@ export default function SecondMarriagePage() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [loadAttempt]);
 
   // Quick preset tab change handler
   const handleTabClick = (tab: string) => {
@@ -218,7 +228,7 @@ export default function SecondMarriagePage() {
   };
 
   return (
-    <div className="min-h-dvh bg-[#FFFDF9] pb-20">
+    <div className="mv-community-workspace min-h-dvh bg-[#FFFDF9] pb-20">
 
       {/* Community guidance section for second-marriage introductions. */}
       <HomeSecondMarriageSection />
@@ -245,7 +255,7 @@ export default function SecondMarriagePage() {
           </p>
 
           {/* Recorded profile information and privacy notes */}
-          <div className="pt-4 grid grid-cols-2 md:grid-cols-4 gap-2.5 max-w-4xl mx-auto text-left">
+          <div className="mv-remarriage-notes pt-4 grid grid-cols-2 md:grid-cols-4 gap-2.5 max-w-4xl mx-auto text-left">
             <div className="bg-white/10 backdrop-blur-md rounded-2xl p-3 border border-white/15 flex items-center gap-2.5">
               <span className="text-2xl">🔒</span>
               <div>
@@ -413,12 +423,12 @@ export default function SecondMarriagePage() {
 
           {/* Active Filter Summary and Clear Button */}
           <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100 text-xs">
-            <div className="text-slate-600 font-bold">
+            <div role="status" className="text-slate-600 font-bold">
               <span>{te ? "సరిపోలిన పునర్వివాహ సంబంధాలు:" : "Matching Remarriage Profiles:"} </span>
-              <span className="text-maroon font-black text-sm">{filteredProfiles.length}</span>
+              <span className="text-maroon font-black text-sm">{loading || loadFailed ? "-" : filteredProfiles.length}</span>
             </div>
 
-            {(gender || maritalFilter || childrenFilter || selectedCaste || selectedDistrict || ageMax < 55 || searchQuery) && (
+            {(gender || maritalFilter || childrenFilter || selectedCaste || selectedDistrict || ageMax !== 55 || searchQuery) && (
               <button type="button"
                 onClick={resetAllFilters}
                 className="text-[11px] text-rose-600 hover:text-rose-800 font-bold flex items-center gap-1"
@@ -445,6 +455,12 @@ export default function SecondMarriagePage() {
                 </div>
               </div>
             ))}
+          </div>
+        ) : loadFailed ? (
+          <div role="alert" className="rounded-3xl border border-amber-300 bg-white p-6 text-slate-700">
+            <h2 className="text-lg font-bold text-maroon">{te ? "ప్రొఫైళ్లను లోడ్ చేయలేకపోయాం" : "Profiles could not be loaded"}</h2>
+            <p className="mt-2 text-sm">{te ? "ప్రస్తుత ప్రొఫైల్ లభ్యతను నిర్ధారించలేకపోయాం. ప్రొఫైళ్లు లేవని దీని అర్థం కాదు. మీ వడపోతలు అలాగే ఉన్నాయి." : "Current profile availability could not be confirmed. This does not mean there are no profiles. Your filters have been kept."}</p>
+            <button type="button" onClick={() => setLoadAttempt((attempt) => attempt + 1)} className="mt-4 rounded-xl bg-maroon px-4 py-2 font-bold text-white">{te ? "మళ్లీ ప్రయత్నించండి" : "Try again"}</button>
           </div>
         ) : filteredProfiles.length === 0 ? (
           <div className="bg-white rounded-3xl p-10 text-center border border-gold/30 card-shadow space-y-4">
@@ -519,7 +535,7 @@ export default function SecondMarriagePage() {
                     {/* Profile Avatar & Details */}
                     <div className="flex items-start gap-4">
                       {/* Photo Container */}
-                      <div className="relative shrink-0">
+                      <div className="mv-remarriage-avatar relative shrink-0">
                         {photo ? (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img
@@ -559,7 +575,9 @@ export default function SecondMarriagePage() {
                             className={`shrink-0 p-1.5 rounded-full transition ${
                               isSaved ? "text-rose-600 bg-rose-50" : "text-slate-400 hover:text-rose-500"
                             }`}
-                            title={isSaved ? (te ? "సేవ్ చేయబడింది" : "Saved") : (te ? "ఎంపికల జాబితా" : "Shortlist")}
+                            aria-pressed={isSaved}
+                            aria-label={isSaved ? (te ? `${row.full_name || row.tsap_id}: ఈ visit ఎంపిక తొలగించండి` : `Remove ${row.full_name || row.tsap_id} from this visit's selection`) : (te ? `${row.full_name || row.tsap_id}: ఈ visit కోసం ఎంచుకోండి` : `Select ${row.full_name || row.tsap_id} for this visit`)}
+                            title={isSaved ? (te ? "ఈ visit కోసం ఎంచుకున్నారు" : "Selected for this visit") : (te ? "ఈ visit కోసం ఎంచుకోండి" : "Select for this visit")}
                           >
                             {isSaved ? "❤️" : "🤍"}
                           </button>
@@ -617,7 +635,7 @@ export default function SecondMarriagePage() {
                   </div>
 
                   {/* Action Buttons Footer */}
-                  <div className="bg-slate-50 p-3 px-4 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
+                  <div className="mv-remarriage-actions bg-slate-50 p-3 px-4 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
                     <Link
                       href={`/search/${row.tsap_id}`}
                       className="flex-1 min-w-[90px] text-center py-2.5 px-3 rounded-xl border border-maroon/30 text-maroon bg-white hover:bg-cream text-xs font-bold transition shadow-xs"

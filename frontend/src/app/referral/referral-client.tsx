@@ -1,4 +1,6 @@
 "use client";
+
+import "@/components/partner-workspace.css";
 /**
  * Referral dashboard for genuine referral links, confirmed eligible rewards,
  * payout requests, and accurate share materials.
@@ -336,7 +338,7 @@ export default function ReferralPage() {
   };
 
   return (
-    <div className="min-h-dvh bg-[#FFF8E7] pb-36">
+    <div className="mv-partner-workspace min-h-dvh bg-[#FFF8E7] pb-36">
       
       {/* ================= HERO SECTION ================= */}
       <section className="maroon-gradient text-white relative overflow-hidden">

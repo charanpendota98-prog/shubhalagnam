@@ -1,5 +1,7 @@
 "use client";
 
+import "./wedding-tools-workspace.css";
+
 /**
  * Vedic Lagna Patrika Studio — a bilingual, local-only invitation editor.
  * The visitor's own details are never prefilled with sample people or dates.
@@ -245,7 +247,7 @@ export default function LagnaPatrikaStudio() {
   );
 
   return (
-    <div className="min-h-dvh bg-[#FDFBF7] px-4 py-8 sm:px-6 lg:px-8">
+    <div className="mv-wedding-workspace min-h-dvh bg-[#FDFBF7] px-4 py-8 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-6xl">
         <header className="mb-8 text-center">
           <div className="mb-3 inline-flex max-w-full items-center gap-2 rounded-full border border-gold/40 bg-gold/15 px-4 py-2 text-xs font-bold text-maroon">

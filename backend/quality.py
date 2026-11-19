@@ -209,10 +209,12 @@ FILTER_KEYS = [
     "marital_status", "children", "religion", "age_min", "age_max", "salary_min",
     "salary_max", "height_min", "height_max", "verified_only", "photo_only", "nri_only",
     "dosham", "star", "rasi", "q",
+    "mother_tongue", "country", "city", "verification_level", "family_type", "diet",
 ]
 MULTI_FILTER_KEYS = {
     "caste", "sub_caste", "district", "state", "job", "education", "marital_status",
-    "religion", "star", "rasi", "dosham",
+    "religion", "star", "rasi", "dosham", "mother_tongue", "country", "city",
+    "verification_level", "family_type", "diet",
 }
 BOOLEAN_FILTER_KEYS = {"verified_only", "photo_only", "nri_only"}
 
@@ -364,8 +366,120 @@ def _height_cm(value: Any) -> int:
     m = re.match(r"^(\d)[.](\d)$", s)          # 5.6 feet.inches (matrimony style)
     if m:
         return int(round((int(m.group(1)) * 12 + int(m.group(2))) * 2.54))
-    m = re.search(r"(\d)", s)
+    m = re.match(r"^(\d)\s*(?:ft|feet)\s*(\d{1,2})?\s*(?:in(?:ch(?:es)?)?)?\s*$", s)  # "5 ft 6 in" / "5ft 6in" / "5 ft"
+    if m:
+        inches = int(m.group(2)) if m.group(2) else 0
+        return int(round((int(m.group(1)) * 12 + inches) * 2.54))
+    # Last resort: a single bare digit is a feet value ("6" = 6 ft). Anything
+    # longer without a unit ("170") is ambiguous - unknown, never a guess.
+    m = re.fullmatch(r"(\d)", s)
     return int(m.group(1)) * 30 if m else 0
+
+
+_KNOWN_DIET_VALUES = {"vegetarian", "non-vegetarian"}
+
+
+def diet_preference_match(requested: Any, candidate: Any) -> str:
+    """"met" / "not_met" / "unknown" for a diet preference vs a listed diet.
+
+    The site collects exactly Vegetarian / Non-Vegetarian, but legacy records
+    may hold comma-separated combinations ("Vegetarian,Non-Vegetarian") or
+    other values ("Vegan"). A combination containing the requested value is
+    factually met; one known catalog value different from the request is
+    factually not_met; anything unrecognized stays unknown.
+    """
+    req = str(requested or "").strip().casefold()
+    cand = str(candidate or "").strip()
+    if not req or req in {"any", "all", "ఏదైనా"} or not cand:
+        return "unknown"
+    tokens = [t.strip().casefold() for t in cand.split(",") if t.strip()]
+    if req in tokens:
+        return "met"
+    if len(tokens) == 1 and tokens[0] in _KNOWN_DIET_VALUES:
+        return "not_met"
+    return "unknown"
+
+
+def _salary_label_amounts(text: str) -> List[float]:
+    """Every amount in a salary label, in rupees, in order.
+
+    A unit stated once at the end of a range applies to the whole range
+    ("₹5 - 7 Lakhs" = 5L-7L); per-number units win ("₹75 Lakhs - ₹1 Crore").
+    """
+    text = text.casefold()
+    matches = list(re.finditer(r"(\d+(?:\.\d+)?)", text))
+    tokens: List[List[Any]] = []
+    for i, m in enumerate(matches):
+        end = matches[i + 1].start() if i + 1 < len(matches) else len(text)
+        seg = text[m.end():end][:14]
+        if "crore" in seg or "కోట" in seg:
+            unit = "crore"
+        elif re.match(r"\s*k\b", seg):
+            unit = "k"
+        elif re.search(r"lakhs?|lpa|లక్ష", seg):
+            unit = "lakh"
+        else:
+            unit = ""
+        tokens.append([float(m.group(1)), unit])
+    resolved: List[float] = []
+    next_unit = "lakh"  # catalog labels and "LPA" are lakh-denominated
+    for amount, unit in reversed(tokens):
+        next_unit = unit or next_unit
+        factor = {"crore": 10_000_000, "k": 1_000, "lakh": 100_000}[next_unit]
+        resolved.append(amount * factor)
+    resolved.reverse()
+    return resolved
+
+
+def salary_label_range_rupees(label: Any) -> tuple:
+    """(min_rupees, max_rupees) for a listed salary label.
+
+    max is None for open-ended labels ("₹50+ Lakhs"). (0, None) when the
+    label is unknown, "Any" or not-disclosed — never fabricate a figure.
+    """
+    text = str(label or "").strip().casefold()
+    if not text or text in {"any", "all", "ఏదైనా"} or "not disclosed" in text or "వర్తించదు" in text:
+        return 0, None
+    # The member field offers only annual lakh/crore catalog labels ("వార్షిక
+    # వేతనం", "/ year"). A "k" label (e.g. "60k") states no period and is a
+    # common monthly shorthand — never assume monthly or annual; stay unknown.
+    if re.search(r"\d\s*k\b", text):
+        return 0, None
+    # A label with no unit anywhere has no grounded scale either.
+    if not re.search(r"lakhs?|lpa|crore|లక్ష|కోట", text):
+        return 0, None
+    amounts = _salary_label_amounts(text)
+    if not amounts:
+        return 0, None
+    hi = None if "+" in text else int(amounts[-1])
+    return int(amounts[0]), hi
+
+
+def salary_label_min_rupees(label: Any) -> int:
+    """Lower bound of a listed salary range label, in rupees (unknown = 0)."""
+    lo, _hi = salary_label_range_rupees(label)
+    return lo
+
+
+def income_range_comparison(candidate_label: Any, preference_label: Any) -> Optional[str]:
+    """Compare a candidate's listed income range with a selected minimum.
+
+    Returns "met" when the entire listed range meets the minimum, "below"
+    when the entire listed range is below it, "unclear" when the range
+    crosses the minimum (cannot be determined from the listed range), or
+    None when either side is unknown/Any/not-disclosed (no comparison).
+    """
+    threshold = salary_label_min_rupees(preference_label)
+    if not threshold:
+        return None
+    cmin, cmax = salary_label_range_rupees(candidate_label)
+    if not cmin:
+        return None
+    if cmin >= threshold:
+        return "met"
+    if cmax is not None and cmax < threshold:
+        return "below"
+    return "unclear"
 
 
 def _filter_terms(value: Any) -> List[str]:
@@ -544,6 +658,28 @@ def matches_filters(user: Dict[str, Any], filters: Dict[str, Any]) -> bool:
                 f.get("height_max") and cm > _height_cm(f["height_max"])):
             return False
 
+    for key, fields in (
+        ("mother_tongue", ("mother_tongue",)),
+        ("country", ("country", "work_location")),
+        ("city", ("current_city", "work_location", "district")),
+    ):
+        terms = _filter_terms(f.get(key))
+        if terms and not any(term in str(u.get(field) or "").strip().casefold() for term in terms for field in fields):
+            return False
+    family_terms = _filter_terms(f.get("family_type"))
+    if family_terms and str(u.get("family_type") or "").strip().casefold() not in family_terms:
+        return False
+    diet_terms = _filter_terms(f.get("diet"))
+    # Members who never set a diet stay unknown and never match a diet selection.
+    if diet_terms and str(u.get("diet") or "").strip().casefold() not in diet_terms:
+        return False
+    level_terms = {term.strip().lower() for term in str(f.get("verification_level") or "").split(",") if term.strip()}
+    if level_terms:
+        level = "id" if u.get("id_verified") else (
+            "photo" if (u.get("selfie_verified") or u.get("photo_status") == "approved") else (
+                "phone" if u.get("phone_verified") else "none"))
+        if level not in level_terms:
+            return False
     if f.get("q"):
         query = str(f["q"]).strip().casefold()
         blob = " ".join(str(u.get(key) or "").casefold() for key in (

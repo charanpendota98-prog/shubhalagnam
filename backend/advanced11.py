@@ -227,7 +227,7 @@ def story_share_text(story: Dict[str, Any]) -> str:
 # ---------------------------------------------------------------------------
 SUPPORT_FAQS: List[Dict[str, Any]] = [
     {"id": "price", "q": "₹99 ఎందుకు? Free లో ఏం వస్తుంది?",
-     "a": "Free లో 3 interest requests + profile card వస్తాయి. ₹99 → 5 interest requests (30 రోజులు). ఒక్క request‌కు ఒక credit; owner accept చేసిన తర్వాత accepted-request account views లో contact details కనిపిస్తాయి. Notification delivery హామీ లేదు. Declined request credit return account policy ప్రకారం; 7-day expiry పై ఒక request credit మాత్రమే తిరిగి వస్తుంది, cash refund కాదు.",
+     "a": "Free లో 3 interest requests + profile card వస్తాయి. ₹99 → 5 interest requests (30 రోజులు). ఒక్క request‌కు ఒక credit; owner accept చేసిన తర్వాత accepted-request account views లో contact details కనిపిస్తాయి. Notification delivery హామీ లేదు. Decline లేదా 7-day no-response expiry పై ఒక request credit ఒకసారి తిరిగి వస్తుంది, cash refund కాదు.",
      "keys": ["price", "99", "free", "cost", "dabbulu", "rate", "plan"]},
     {"id": "numbers", "q": "Phone numbers ఎప్పుడు vastayi?",
      "a": "Public profile/search లో numbers కనిపించవు. మీరు interest పంపి profile owner accept చేసిన తర్వాత accepted-request account views లో contact details అందుబాటులోకి వస్తాయి. Configured notification/WhatsApp delivery హామీ లేదు.",
@@ -245,7 +245,7 @@ SUPPORT_FAQS: List[Dict[str, Any]] = [
      "a": "/porutham లో owner-upload చేసిన నిజమైన జాతక పత్రం యొక్క evidence-review స్థితి మాత్రమే చూపిస్తాము. కేవలం నక్షత్రం/రాశి వివరాల నుంచి calculation, score, పూర్తి chart లేదా వివాహ తీర్పు తయారు చేయము; అసలైన పత్రాన్ని qualified astrologer తో స్వతంత్రంగా పరిశీలించండి.",
      "keys": ["porutham", "jathakam", "jatakam", "star", "rasi", "nakshatra", "horoscope", "gunamelanam", "ponthana"]},
     {"id": "refund", "q": "Refund policy ఏంటి?",
-     "a": "ప్రస్తుత eligibility, timing మరియు credit-return నియమాలు /refund పేజీ, మీ account లో చూపిన terms లో చూడండి. Declined/expired request కు credit తిరిగి వస్తుందా అనేది అక్కడ చూపిన policy ప్రకారం ఉంటుంది; credit return అనేది cash refund కాదు.",
+     "a": "ప్రస్తుత eligibility, timing మరియు credit-return నియమాలు /refund పేజీ, మీ account లో చూపిన terms లో చూడండి. Decline లేదా 7-day no-response expiry పై ఒక request credit ఒకసారి తిరిగి వస్తుంది; credit return అనేది cash refund కాదు.",
      "keys": ["refund", "return", "money back", "cancel"]},
     {"id": "fake", "q": "Fake profiles untaya? Report ఎలా?",
      "a": "Profile లోని Report button ద్వారా వివరాలు పంపండి. కొన్ని report thresholds చేరితే profile తాత్కాలికంగా auto-flag/hide కావచ్చు; ప్రతి report‌ను review చేస్తాం కానీ fixed action time లేదా 100% safety guarantee లేదు.",

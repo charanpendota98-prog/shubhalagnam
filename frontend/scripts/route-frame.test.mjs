@@ -53,14 +53,24 @@ test("a route never gets two <h1>s: the band stands down where the page has its 
   // "none"`; the band is only a hero for pages that have no hero of their own.
   const none = (frame.match(/intro: "none"/g) || []).length;
   assert.ok(none >= 12, `expected the owning pages to opt out, got ${none}`);
-  // The member workspaces moved onto the shared band with Group 2, so they
-  // must now supply their opening from RouteFrame, not a local <h1>.
-  for (const banded of ["/me", "/matches", "/requests", "/shortlist", "/saved-searches"]) {
-    const index = frame.indexOf(`"${banded}":`);
-    assert.ok(index > 0, `${banded} missing`);
+  // These workspaces now own their headings. Test both sides of the contract:
+  // the frame must stand down AND the route's content must supply an h1.
+  const workspaceOwners = {
+    "/me": "src/app/me/page-client.tsx",
+    "/matches": "src/app/matches/page-client.tsx",
+    "/requests": "src/app/requests/page-client.tsx",
+    "/shortlist": "src/components/ShortlistWorkspace.tsx",
+    "/saved-searches": "src/components/SavedSearchWorkspace.tsx",
+  };
+  for (const [route, source] of Object.entries(workspaceOwners)) {
+    const index = frame.indexOf(`"${route}":`);
+    assert.ok(index > 0, `${route} missing`);
     const entry = frame.slice(index, frame.indexOf("},", index));
-    assert.doesNotMatch(entry, /intro: "none"/, `${banded} now takes its <h1> from the shared band`);
-    assert.match(entry, /headlineTe: /, `${banded} needs Telugu headline copy`);
+    assert.match(entry, /intro: "none"/, `${route} owns its h1; the shared band must not duplicate it`);
+    assert.match(entry, /headlineTe: /, `${route} retains bilingual fallback metadata`);
+    const owner = fs.readFileSync(path.join(ROOT, source), "utf8");
+    assert.match(owner, /<h1[ >]/, `${route} must supply its own h1`);
+    assert.match(owner, /te \?/, `${route} must retain localized content`);
   }
   for (const owned of ["/register", "/search", "/vendors", "/safety", "/porutham"]) {
     const index = frame.indexOf(`"${owned}": {`);

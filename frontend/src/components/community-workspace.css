@@ -1,0 +1,23 @@
+/* Discovery controls only. No catalog, destination, price or account semantics. */
+.mv-community-workspace :is(.text-\[8px\],.text-\[9px\],.text-\[9\.5px\],.text-\[10px\],.text-\[10\.5px\],.text-\[11px\],.text-\[11\.5px\],.text-\[12px\],.text-\[13px\],.text-xs){font-size:.875rem;line-height:1.75}
+.mv-community-workspace :is(p,li,label,legend,button,a,dd,span,code){overflow-wrap:anywhere}
+.mv-community-workspace :is(input:not([type=checkbox]):not([type=hidden]):not([type=range]),select,textarea){font-size:1rem;max-width:100%;min-width:0;min-height:48px}
+.mv-community-workspace input[type=range]{min-height:44px}
+.mv-community-workspace :is(button,a,summary){min-height:44px;white-space:normal}
+.mv-community-workspace a{display:inline-flex;align-items:center}
+.mv-community-workspace :is(button,a,input,select,textarea,summary):focus-visible{outline:3px solid #a66b13;outline-offset:3px}
+.mv-community-workspace .mv-channel-name{white-space:normal;overflow:visible;text-overflow:clip}
+.mv-community-workspace .mv-channel-description{-webkit-line-clamp:unset;display:block;overflow:visible}
+@media(max-width:639px){
+ .mv-community-workspace .mv-remarriage-actions{flex-direction:column;align-items:stretch}
+ .mv-community-workspace .mv-remarriage-actions a{width:100%;min-width:0;flex:none;justify-content:center}
+ .mv-community-workspace .mv-remarriage-notes{grid-template-columns:1fr}
+ .mv-community-workspace .mv-spotlight-breadcrumb{flex-wrap:wrap;gap:12px}
+ .mv-community-workspace .mv-district-actions{flex-wrap:wrap}
+ .mv-community-workspace .mv-district-actions a{justify-content:center;flex:1 1 130px}
+ .mv-community-workspace .mv-remarriage-avatar{width:64px}
+ .mv-community-workspace .mv-remarriage-avatar>img{width:64px;height:80px}
+ .mv-community-workspace .mv-remarriage-avatar>div:first-child{width:64px;min-height:104px;height:auto;padding:8px 4px}
+ .mv-community-workspace .mv-remarriage-avatar>div:last-child:not(:first-child){position:static;max-width:100%;margin-top:4px;justify-content:flex-start}
+ .mv-community-workspace .mv-remarriage-avatar>div:last-child span{font-size:.75rem;line-height:1.5}
+}

@@ -1,4 +1,5 @@
 "use client";
+import "@/components/trust-workspace.css";
 
 import { apiDisplayMessage } from "@/lib/api";
 /**
@@ -24,12 +25,13 @@ export type Addon = { code: string; price: number; label: string; telugu: string
 const FAQ: { qTe: string; qEn: string; aTe: string; aEn: string }[] = [
   { qTe: "ఉచిత సభ్యత్వంలో ఏయే సేవలు అందుతాయి?", qEn: "What is included in the free plan?", aTe: "3 ఉచిత interest requests మరియు profile card లభిస్తాయి. Notification అందుబాటు configured సేవలపై ఆధారపడుతుంది; delivery హామీ లేదు. Payment వివరాలు ఇవ్వాల్సిన అవసరం లేదు.", aEn: "The free plan includes 3 interest requests and a profile card. Notification availability depends on configured services; delivery is not guaranteed. No payment details are required." },
   { qTe: "సంప్రదింపు వివరాలు ఎప్పుడు లభిస్తాయి?", qEn: "When are contact details shared?", aTe: "Profile owner accept చేసిన తర్వాత accepted-request account views లో contact details కనిపిస్తాయి; configured WhatsApp notification లో ఉండవచ్చు, delivery/read నిర్ధారణ కాదు. Credits consent ను bypass చేయవు.", aEn: "After the profile owner accepts, contact details appear in accepted-request account views and may be included in a configured WhatsApp notification; delivery/read status is not confirmed. Credits do not bypass consent." },
-  { qTe: "Decline లేదా స్పందన లేకపోతే క్రెడిట్ ఏమవుతుంది?", qEn: "What happens to a credit after a decline or no response?", aTe: "Decline పై credit return మీ account policy ప్రకారం ఉంటుంది. 7 రోజులకు స్పందన లేక request expire అయితే ఖర్చయిన 1 request credit ఒకసారి తిరిగి వస్తుంది. ఇది cash refund కాదు.", aEn: "Credit returns on decline follow your account policy. If a request expires after 7 days without a response, one request credit is returned once. Neither is a cash refund." },
+  { qTe: "Decline లేదా స్పందన లేకపోతే క్రెడిట్ ఏమవుతుంది?", qEn: "What happens to a credit after a decline or no response?", aTe: "Decline అయితే ఖర్చయిన 1 request credit ఒకసారి తిరిగి వస్తుంది. 7 రోజులకు స్పందన లేక request expire అయితే ఖర్చయిన 1 request credit ఒకసారి తిరిగి వస్తుంది. ఇది cash refund కాదు.", aEn: "A declined request returns the spent request credit once. If a request expires after 7 days without a response, one request credit is returned once. Neither is a cash refund." },
   { qTe: "ప్లాన్ validity ఎంత?", qEn: "How long are plan credits valid?", aTe: "₹99 ప్లాన్ → 30 రోజులు · ₹199 → 45 రోజులు · ₹299 → 60 రోజులు · ₹499 VIP → 90 రోజులు.", aEn: "₹99 plan: 30 days · ₹199: 45 days · ₹299: 60 days · ₹499 VIP: 90 days." },
   { qTe: "ప్లాన్ ఆటో-రెన్యూ అవుతుందా?", qEn: "Does a plan auto-renew?", aTe: "Plan కొనుగోలు మీ స్వంత నిర్ణయంతో జరుగుతుంది; add-ons కు checkout ముందు విడిగా ధర చూపిస్తాం.", aEn: "Plans are purchased by your choice; add-ons have separate prices shown before checkout." },
 ];
 
 export type PricingSnapshot = {
+  paymentMode?: "unconfigured" | "manual_upi" | "razorpay" | "unknown";
   plans: Plan[] | null;
   addons: Addon[];
   offers: import("@/components/OffersBanner").Offer[];
@@ -46,7 +48,7 @@ export default function PricingPage({ snapshot }: { snapshot: PricingSnapshot })
   const free = plans.find((p) => p.price === 0);
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-8 pb-36">
+    <div className="mv-trust-workspace max-w-6xl mx-auto px-4 py-8 pb-36">
       {/* HERO — okka line (R13 minimal) */}
       <div className="text-center">
         <h1 className="text-3xl md:text-4xl font-extrabold text-[#7A0C2E] telugu">
@@ -55,6 +57,13 @@ export default function PricingPage({ snapshot }: { snapshot: PricingSnapshot })
         <p className="mt-2 text-sm text-gray-600 telugu">
           {te ? <>మొదటి <b>3 requests FREE</b> • తర్వాత ₹99 నుంచి • optional add-ons ధరలు విడిగా చూపిస్తాం</> : <>First <b>3 requests FREE</b> • paid plans from ₹99 • optional add-ons priced separately</>}
         </p>
+      </div>
+
+      <div role="status" className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
+        <p className="font-bold">{snapshot.paymentMode === "unconfigured" ? (te ? "Paid checkout ప్రస్తుతం అందుబాటులో లేదు" : "Paid checkout is currently unavailable") : (te ? "చెల్లింపు ముందు ప్రస్తుత స్థితి తనిఖీ చేయండి" : "Check current payment availability before paying")}</p>
+        <p className="mt-1">{snapshot.paymentMode === "unconfigured"
+          ? (te ? "FREE registration, మొదటి 3 requests తో start చేయండి. దిగువ paid plans ధరల జాబితా మాత్రమే; verified checkout లేకుండా డబ్బు పంపవద్దు." : "Start with free registration and the first 3 requests. Paid plans below are a price catalogue, not an available checkout. Do not send money without a verified checkout destination.")
+          : (te ? "Configuration ఉండటం provider approval లేదా live payment హామీ కాదు. Payment వివరాలు నిర్ధారించలేకపోతే డబ్బు పంపవద్దు." : "Configuration alone does not confirm provider approval or live payments. Do not send money when checkout details cannot be verified.")}</p>
       </div>
 
       <div className="mt-4"><OffersBanner initialOffers={snapshot.offers} /></div>
@@ -96,7 +105,7 @@ export default function PricingPage({ snapshot }: { snapshot: PricingSnapshot })
         </div>
         {/* okka clarity line — numbers policy */}
         <div className="mt-5 text-center text-xs text-gray-500 telugu">
-          {te ? "🔒 Owner accept తర్వాత accepted-request account views లో contact details కనిపిస్తాయి; notification delivery హామీ లేదు • decline credit return account policy ప్రకారం" : "🔒 Owner acceptance grants contact access in accepted-request account views; notification delivery is not guaranteed • decline credit returns follow account policy"}
+          {te ? "🔒 Owner accept తర్వాత accepted-request account views లో contact details కనిపిస్తాయి; notification delivery హామీ లేదు • decline అయితే 1 request credit ఒకసారి తిరిగి వస్తుంది" : "🔒 Owner acceptance grants contact access in accepted-request account views; notification delivery is not guaranteed • a decline returns one request credit once"}
         </div>
       </section>
 

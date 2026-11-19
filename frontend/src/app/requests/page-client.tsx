@@ -4,7 +4,7 @@
  * MANA VIVAHA — REQUESTS DASHBOARD (💌 Interest model — chatting LEDU)
  * ====================================================================
  * • Interest pampu (1 credit; modati 3 FREE); notification queue/delivery separate states
- * • Inbox: vachina requests → ✅ Accept / ❌ Decline (decline credit policy is account-specific)
+ * • Inbox: vachina requests → ✅ Accept / ❌ Decline (decline returns one request credit once)
  * • Sent: pampina requests + status + accepted-request account contact access
  * • Plans: ₹99 → 5 requests | ₹199 → 12 | ₹299 → 25 | ₹499 → 50 (VIP)  — add-ons + renewal tho
  * • Anti-ban WhatsApp status (queue + random gap) chupisthundi
@@ -15,7 +15,7 @@ import { authHeaders, apiPost, apiGet, apiDisplayMessage, getToken, readApiJson}
 import Link from "next/link";
 import Reveal from "@/components/Reveal";
 import SectionHeading from "@/components/SectionHeading";
-import { PillScroller } from "@/components/ui";
+import "./workspace.css";
 import PayBox from "@/components/PayBox";
 import { Duo, duo } from "@/lib/duo";
 import { useLang } from "@/lib/lang";
@@ -221,12 +221,11 @@ export default function RequestsPage() {
   const visibleTemplates = te ? templates : templates.filter((template) => Boolean(template.text_en));
 
   return (
-    <div className="min-h-dvh pb-36">
-      {/* The page <h1> and lead come from the shared RouteIntro band; this
-          block states the rules plainly and holds the dashboard key. */}
+    <div className="mv-requests-workspace min-h-dvh pb-36">
       <div className="mx-auto max-w-6xl px-4 pt-5">
-        <section className="mv-surface mv-surface__body" aria-label={te ? "ఎలా పని చేస్తుంది" : "How this works"}>
-          <Reveal>
+        <header className="requests-intro"><p>{te ? "మన వివాహ · పరిచయాలు" : "MANA VIVAHA · CONNECTIONS"}</p><h1>{te ? "మీ ఆసక్తి అభ్యర్థనలు." : "Your interest requests."}</h1><p>{te ? "ఇది in-app chat కాదు. Owner ఆమోదం తర్వాతే contact వివరాలు." : "No in-app chat. Contact details follow the profile owner's acceptance."}</p></header>
+        <section className="requests-identity" aria-label={te ? "ఎలా పని చేస్తుంది" : "How this works"}>
+          <details className="requests-rules"><summary>{te ? "Consent, credits, delivery గురించి" : "Consent, credits and delivery rules"}</summary>
             <div className="flex flex-wrap items-center gap-2">
               <span className="mv-chip">{te ? "🚫 Chatting లేదు" : "🚫 No in-app chat"}</span>
               <span className="mv-chip">{te ? "💌 Interest request" : "💌 Interest request"}</span>
@@ -237,12 +236,12 @@ export default function RequestsPage() {
             </h2>
             <p className="mt-1.5 max-w-3xl text-[13px] leading-relaxed text-slate-600">
               {te ? <>నచ్చిన profile కు <b>Interest పంపండి</b>. Notification అందుబాటు configured services పై ఆధారపడుతుంది; delivery హామీ లేదు.
-                Profile owner <b>accept చేసిన తర్వాత</b> accepted-request account views లో contact details కనిపిస్తాయి. Declined requests account లో చూపిన credit policy ను అనుసరిస్తాయి.
+                Profile owner <b>accept చేసిన తర్వాత</b> accepted-request account views లో contact details కనిపిస్తాయి. Decline అయితే ఖర్చయిన 1 request credit ఒకసారి తిరిగి వస్తుంది; ఇది cash refund కాదు.
                 Paid credits consent ను bypass చేయవు; online పరిచయాల వివరాలను స్వతంత్రంగా నిర్ధారించండి.</> : <>Send <b>Interest</b> to a profile you like. Notification availability depends on configured services; delivery is not guaranteed.
-                If the profile owner <b>accepts</b>, contact details appear in accepted-request account views. Declined requests follow the credit policy shown in your account.
+                If the profile owner <b>accepts</b>, contact details appear in accepted-request account views. A declined request returns the spent request credit once; this is not a cash refund.
                 Paid credits cannot bypass consent; verify details independently.</>}
             </p>
-          </Reveal>
+          </details>
 
           <div className="mt-4 flex flex-wrap items-end gap-3">
             <div className="min-w-0">
@@ -282,7 +281,7 @@ export default function RequestsPage() {
         )}
 
         {/* TABS */}
-        <PillScroller label={te ? "రిక్వెస్ట్ విభాగాలు" : "Request sections"} className="mb-4" as="nav">
+        <nav aria-label={te ? "రిక్వెస్ట్ విభాగాలు" : "Request sections"} className="requests-nav mb-4">
           {[
             { k: "inbox", l: te ? `📥 వచ్చిన requests${inbox.pending ? ` (${inbox.pending})` : ""}` : `📥 Received${inbox.pending ? ` (${inbox.pending})` : ""}` },
             { k: "sent", l: te ? `📤 పంపిన requests${sent.sent?.length ? ` (${sent.sent.length})` : ""}` : `📤 Sent${sent.sent?.length ? ` (${sent.sent.length})` : ""}` },
@@ -295,15 +294,16 @@ export default function RequestsPage() {
               key={t.k}
               onClick={() => setTab(t.k as any)}
               aria-current={tab === t.k ? "page" : undefined}
-              className={`pill whitespace-nowrap ${tab === t.k ? "pill--on" : "pill--quiet"}`}
+              aria-controls="requests-task-panel"
+              className={`requests-section ${tab === t.k ? "is-active" : ""}`}
             >
               {t.l}
             </button>
           ))}
-        </PillScroller>
+        </nav>
 
         {/* Panel transition on the shared motion token. */}
-        <div className="mv-panel" key={tab}>
+        <div id="requests-task-panel" className="mv-panel" key={tab}>
 
         {/* INBOX */}
         {tab === "inbox" && (
@@ -479,7 +479,7 @@ export default function RequestsPage() {
                   {busy ? (te ? "పంపిస్తున్నాం…" : "Sending…") : te ? "💌 Interest పంపు" : "💌 Send interest"}
                 </button>
                 <div className="text-[11px] text-gray-500">
-                  Credits: <b>{credits === null ? "—" : credits}</b> • {te ? "మొదటి 3 requests FREE • Decline పై account credit policy వర్తిస్తుంది" : "First 3 requests FREE • Declines follow account credit policy"}
+                  Credits: <b>{credits === null ? "—" : credits}</b> • {te ? "మొదటి 3 requests FREE • Decline అయితే 1 request credit ఒకసారి తిరిగి వస్తుంది" : "First 3 requests FREE • Declines return one request credit once"}
                 </div>
               </div>
             </div>
@@ -511,7 +511,7 @@ export default function RequestsPage() {
                     <li>{te ? "మీ ID + వాళ్ల ID ఇవ్వండి → request పంపిస్తాం (1 credit)" : "Enter your ID + their ID → we send request (1 credit)"}</li>
                     <li>{te ? "Notification availability configured service పై ఆధారపడుతుంది" : "Notification availability depends on configured services"}</li>
                     <li>{te ? "Owner accept చేసిన తర్వాత accepted-request account views లో contact details కనిపిస్తాయి; notification delivery హామీ లేదు" : "After owner acceptance, contact details appear in accepted-request account views; notification delivery is not guaranteed"}</li>
-                    <li>{te ? "Decline credit return account policy ప్రకారం; expiry పై credit ఒకసారి తిరిగి వస్తుంది (cash refund కాదు)" : "Decline credit returns follow the account policy; expiry returns one credit once (not a cash refund)"}</li>
+                    <li>{te ? "Decline లేదా 7-day no-response expiry పై 1 request credit ఒకసారి తిరిగి వస్తుంది (cash refund కాదు)" : "Decline or seven-day no-response expiry returns one request credit once (not a cash refund)"}</li>
                   </ol>
                   <div className="mt-3 text-[11px] text-gray-600">{te ? "🚫 In-site chat లేదు. Unwanted behavior కోసం report/block controls వాడండి; external calls/messages ను service నియంత్రించదు." : "🚫 No in-site chat. Use report/block controls for unwanted behavior; the service cannot control external calls/messages."}</div>
                 </div>
@@ -570,17 +570,6 @@ export default function RequestsPage() {
             </div>
           </div>
         )}
-
-        {/* JATHAKAM REVIEW */}
-        <section className="mb-4 rounded-2xl border border-amber-200 bg-amber-50/70 p-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <div className="font-bold text-[#5c0822]">🪐 {te ? "నిజమైన జాతక పత్రం review" : "Real Jathakam document review"}</div>
-              <p className="mt-1 max-w-2xl text-xs leading-relaxed text-slate-700">{te ? "Star-only score లేదా ఊహించిన chart చూపించము. మీ స్వంత పత్రాన్ని upload చేసి review స్థితిని మాత్రమే చూడండి." : "No star-only score or invented chart is shown. Upload your own document and see only its review state."}</p>
-            </div>
-            <Link href="/porutham" className="inline-flex min-h-11 items-center rounded-xl bg-[#7a0c2e] px-4 py-2.5 text-xs font-bold text-white">{te ? "జాతక review" : "Open Jathakam review"} →</Link>
-          </div>
-        </section>
 
         {/* SAVED / SHORTLIST */}
         {tab === "saved" && (
@@ -651,7 +640,7 @@ export default function RequestsPage() {
         {/* PLANS */}
         {tab === "plans" && (
           <div>
-            <SectionHeading eyebrow={duo("Credits", "క్రెడిట్లు")} title={duo("Plans — 1 credit = 1 interest request", "ప్లాన్లు — 1 క్రెడిట్ = 1 interest request")} subtitle={te ? "₹/request ప్రతి tier లో తగ్గుతుంది (₹20 → ₹10). Decline credit return account policy ప్రకారం; 7-day expiry పై ఒక credit తిరిగి వస్తుంది (cash refund కాదు)." : "₹/request drops by tier (about ₹20 → ₹10). Decline credit returns follow account policy; 7-day expiry returns one credit (not a cash refund)."} telugu align="left" />
+            <SectionHeading eyebrow={duo("Credits", "క్రెడిట్లు")} title={duo("Plans — 1 credit = 1 interest request", "ప్లాన్లు — 1 క్రెడిట్ = 1 interest request")} subtitle={te ? "₹/request ప్రతి tier లో తగ్గుతుంది (₹20 → ₹10). Decline లేదా 7-day no-response expiry పై 1 request credit ఒకసారి తిరిగి వస్తుంది (cash refund కాదు)." : "₹/request drops by tier (about ₹20 → ₹10). Decline or seven-day no-response expiry returns one request credit once (not a cash refund)."} telugu align="left" />
             {renewal && (
               <div className="mt-3 rounded-2xl bg-cream border border-gold/30 p-3 text-[12px] text-gray-700">
                 {te ? <>🔁 <b>Renewal offer (పాత customers):</b> ₹{renewal.price} → <b>{renewal.profiles} interest requests</b> — first-time ₹99 → 5 requests.</> : <>🔁 <b>Renewal offer (old customers):</b> ₹{renewal.price} → <b>{renewal.profiles} interest requests</b> — first-time ₹99 → 5 requests.</>}
@@ -707,6 +696,17 @@ export default function RequestsPage() {
           </div>
         )}
         </div>
+        {/* JATHAKAM REVIEW */}
+        <section className="mb-4 rounded-2xl border border-amber-200 bg-amber-50/70 p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <div className="font-bold text-[#5c0822]">🪐 {te ? "నిజమైన జాతక పత్రం review" : "Real Jathakam document review"}</div>
+              <p className="mt-1 max-w-2xl text-xs leading-relaxed text-slate-700">{te ? "Star-only score లేదా ఊహించిన chart చూపించము. మీ స్వంత పత్రాన్ని upload చేసి review స్థితిని మాత్రమే చూడండి." : "No star-only score or invented chart is shown. Upload your own document and see only its review state."}</p>
+            </div>
+            <Link href="/porutham" className="inline-flex min-h-11 items-center rounded-xl bg-[#7a0c2e] px-4 py-2.5 text-xs font-bold text-white">{te ? "జాతక review" : "Open Jathakam review"} →</Link>
+          </div>
+        </section>
+
       </div>
       {needsLogin ? (
         <div className="mt-6">

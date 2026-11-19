@@ -126,7 +126,7 @@ export const SITE_CONFIG = {
 
   // ---------- Legal / compliance copy ----------
   legal: {
-    refundPolicy: "Unused-plan cash refunds follow the Refund & Cancellation policy. Declined/expired request-credit returns follow the policy shown in your account; credits are not cash refunds.",
+    refundPolicy: "Unused-plan cash refunds follow the Refund & Cancellation policy. Decline or seven-day no-response expiry returns one request credit once; credits are not cash refunds.",
     privacyNote: "Data location depends on the hosting deployment and configured service providers; see the Privacy Policy.",
     grievanceOfficer: GRIEVANCE_OFFICER,
     contactNumber: SUPPORT_CONTACT_NUMBER,

@@ -106,6 +106,49 @@ def F(size: int, bold: bool = False):
     return _font(FONT_PATHS_BOLD if bold else FONT_PATHS_REG, size)
 
 
+def FT(size: int, text: str, bold: bool = False):
+    """Font for a drawn string: Telugu font when the text has Telugu chars.
+
+    The Latin DejaVu/Liberation paths have no Telugu glyphs, so Telugu text
+    drawn with F() renders as boxes even on hosts with Noto Sans Telugu
+    installed. NOTE: the Noto Sans Telugu build on common hosts covers only
+    the Telugu block - mixed-script strings must use _draw_mixed instead.
+    """
+    if any("\u0c00" <= ch <= "\u0c7f" for ch in str(text)):
+        telugu = _font(FONT_PATHS_TELUGU, size)
+        if telugu is not None:
+            return telugu
+    return F(size, bold)
+
+
+def _script_runs(text: str) -> List[Tuple[bool, str]]:
+    """Split text into (is_telugu, run) segments on script boundaries."""
+    runs: List[Tuple[bool, str]] = []
+    for ch in str(text):
+        is_te = "\u0c00" <= ch <= "\u0c7f"
+        if runs and runs[-1][0] == is_te:
+            runs[-1] = (is_te, runs[-1][1] + ch)
+        else:
+            runs.append((is_te, ch))
+    return runs
+
+
+def draw_mixed(draw, xy, text: str, fill, size: int, bold: bool = False) -> float:
+    """Draw a mixed Telugu/Latin string, one font per script run.
+
+    DejaVu/Liberation have no Telugu glyphs and Noto Sans Telugu (as shipped
+    on common hosts) has no Latin glyphs, so neither single font renders a
+    brand line like "మన వివాహ  •  MANA VIVAHA". Drawing per script run keeps
+    every glyph readable. Returns the x position after the drawn text.
+    """
+    x, y = xy
+    for is_te, run in _script_runs(text):
+        font = _font(FONT_PATHS_TELUGU, size) if is_te else F(size, bold)
+        draw.text((x, y), run, fill=fill, font=font)
+        x += draw.textlength(run, font=font)
+    return x
+
+
 def has_telugu_font() -> bool:
     return any(os.path.exists(p) for p in FONT_PATHS_TELUGU)
 
@@ -204,13 +247,13 @@ class CardBuilder:
                 self.img.paste(_lg, (26, 21), _m)
             except Exception:
                 d.rounded_rectangle([24, 20, 84, 80], 14, fill=GOLD)
-                d.text((38, 32), "మన", fill=self.accent, font=F(24, True))
+                d.text((38, 32), "మన", fill=self.accent, font=FT(24, "మన", True))
         else:
             d.rounded_rectangle([24, 20, 84, 80], 14, fill=GOLD)
-            d.text((38, 32), "మన", fill=self.accent, font=F(24, True))
-        d.text((100, 22), f"మన వివాహ  •  {BRAND}", fill=WHITE, font=F(22, True))
-        d.text((100, 52), "TS-AP Telugu Matrimony  •  \u20b999 సంబంధం",
-               fill=GOLD_LIGHT, font=F(14))
+            d.text((38, 32), "మన", fill=self.accent, font=FT(24, "మన", True))
+        draw_mixed(d, (100, 22), f"మన వివాహ  •  {BRAND}", WHITE, 22, bold=True)
+        draw_mixed(d, (100, 52), "TS-AP Telugu Matrimony  •  \u20b999 సంబంధం",
+                   GOLD_LIGHT, 14)
 
         # Show the strongest specific check recorded; payment or approval is not verification.
         reviewed_id = bool(self.u.get("id_verified"))
@@ -292,7 +335,7 @@ class CardBuilder:
 
         line2 = f"{_s(self.u.get('age'),'—')} yrs  •  {_s(self.u.get('height'),'—')}  •  {_s(self.u.get('caste'),'—')}"
         d.text((x, self.y + 42), line2, fill=BLACK, font=F(17))
-        line3 = f"{'BRIDE' if self.is_bride else 'GROOM'}  {ICON['dot']}  {_s(self.u.get('marital_status'),'Pelli Kaledu')}  {ICON['dot']}  {_s(self.u.get('physical_status'),'Normal')}"
+        line3 = f"{'BRIDE' if self.is_bride else 'GROOM'}  {ICON['dot']}  {_s(self.u.get('marital_status'),'Pelli Kaledu')}  {ICON['dot']}  {_s(self.u.get('physical_status'),'-')}"
         d.text((x, self.y + 68), line3, fill=GREY, font=F(15))
         # 🏛️ FIX: raw "TS"/"AP" kaakunda full state name "Telangana"/"Andhra Pradesh" neatga
         line4 = f"Location: {_s(self.u.get('district'),'-')}, {state_full_name(self.u.get('state'))}"

@@ -101,13 +101,13 @@ class FrontendContactConfigurationTests(unittest.TestCase):
         # Site-wide Organization/WebSite structured data lives in the root layout now;
         # the homepage emits only its own FAQ graph.
         layout = self.read("frontend/src/app/layout.tsx")
-        self.assertIn("SITE_CONFIG.owner.email ?", privacy)
+        self.assertIn("POLICY_SUPPORT_EMAIL ?", privacy)
         self.assertIn("SITE_CONFIG.owner.location ?", privacy)
-        self.assertIn("SITE_CONFIG.supportConfigured", privacy)
-        self.assertIn("SITE_CONFIG.owner.email ?", refund)
+        self.assertIn("!POLICY_SUPPORT_EMAIL ?", privacy)
+        self.assertIn("POLICY_SUPPORT_EMAIL ?", refund)
         self.assertIn("SITE_CONFIG.owner.location ?", refund)
-        self.assertIn("SITE_CONFIG.supportConfigured", refund)
-        self.assertIn("SITE_CONFIG.supportEmail ?", terms)
+        self.assertIn("!POLICY_SUPPORT_EMAIL ?", refund)
+        self.assertIn("POLICY_SUPPORT_EMAIL ?", terms)
         self.assertIn("SITE_CONFIG.supportEmail ?", footer)
         self.assertIn("...(SUPPORT_EMAIL ? { email: SUPPORT_EMAIL } : {})", layout)
         self.assertIn("...(CONTACT_POINT ? { contactPoint: CONTACT_POINT } : {})", layout)
@@ -117,12 +117,13 @@ class FrontendContactConfigurationTests(unittest.TestCase):
         for source in (terms, privacy, refund):
             self.assertNotIn("Hyderabad, Telangana, India", source)
             self.assertNotIn("areaServed", source)
-        # Owner-approved wording dates (11 Nov 2026 decision): terms/refund keep the
-        # live 14 Sep 2026 wording unchanged; the privacy page carries the corrected
-        # disclosure wording approved on 11 Nov 2026.
-        self.assertIn('const LAST_UPDATED = "14 Sep 2026";', terms)
-        self.assertIn('const LAST_UPDATED = "14 Sep 2026";', refund)
-        self.assertIn('const LAST_UPDATED = "11 Nov 2026";', privacy)
+        # The Nov17 factual update uses the verified policy contact and accurately
+        # records that checkout is unavailable, without changing service deadlines.
+        for source in (terms, privacy, refund):
+            self.assertIn('const LAST_UPDATED = "17 Nov 2026";', source)
+            self.assertIn('import { POLICY_SUPPORT_EMAIL }', source)
+        policy_facts = self.read("frontend/src/lib/policy-facts.ts")
+        self.assertIn('POLICY_SUPPORT_EMAIL = "manavivaha@gmail.com"', policy_facts)
 
     def test_visitor_analytics_are_pseudonymous_bounded_and_disclosed(self):
         growth = self.read("backend/growth.py")

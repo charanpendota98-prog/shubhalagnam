@@ -6,7 +6,7 @@ import { readApiJson } from "@/lib/api";
  * HIDDEN route (public links levu — direct URL + admin key only, like /admin).
  */
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useLang } from "@/lib/lang";
 
 type Row = Record<string, any>;
@@ -39,6 +39,7 @@ export default function OwnerPage() {
   const [d, setD] = useState<Row | null>(null);
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
+  const summarySequence = useRef(0);
 
   const authRequestHeaders = useCallback((overrideKey?: string): Record<string, string> => {
     const k = (overrideKey ?? key).trim();
@@ -51,26 +52,29 @@ export default function OwnerPage() {
   const load = useCallback(async (overrideKey?: string, hasCookieSession = false) => {
     const k = (overrideKey ?? key).trim();
     if (!k && !hasCookieSession && !sessionUser) return;
-    setBusy(true); setErr("");
+    const request = ++summarySequence.current;
+    setBusy(true); setErr(""); setD(null);
     try {
       const r = await fetch("/api/owner/summary", {
         credentials: "same-origin",
+        cache: "no-store",
         headers: k ? { "x-admin-key": k } : {},
       });
       const j = await readApiJson(r);
+      if (request !== summarySequence.current) return;
       if (r.status === 403 || r.status === 401) {
         setErr(te
           ? "🔒 Owner session లేదా సరైన admin key అవసరం — /control/login లో sign in అవ్వండి"
           : "🔒 Owner session or valid admin key required — sign in via /control/login");
         setD(null);
-      } else if (j.success) {
+      } else if (r.ok && j.success === true && j.revenue && typeof j.revenue === "object" && !Array.isArray(j.revenue)) {
         setD(j);
       } else {
-        setErr(j.detail || "Load fail");
+        setErr(te ? "Owner summary లోడ్ కాలేదు. ఇది సున్నా గణాంకాలు అని కాదు. మళ్లీ ప్రయత్నించండి." : "Owner summary could not be loaded. This does not mean zero activity. Retry.");
         setD(null);
       }
-    } catch { setErr(te ? "Network problem" : "Network problem"); }
-    setBusy(false);
+    } catch { if (request === summarySequence.current) { setD(null); setErr(te ? "Network సమస్య. పాత గణాంకాలు చూపించడం లేదు. మళ్లీ ప్రయత్నించండి." : "Network problem. Previous totals are not shown. Retry."); } }
+    finally { if (request === summarySequence.current) setBusy(false); }
   }, [key, sessionUser, te]);
 
   useEffect(() => {
@@ -92,8 +96,10 @@ export default function OwnerPage() {
         /* unauthenticated — wait for /control/login or one-time memory key */
       }
     })();
-    return () => { cancelled = true; };
-  }, [load]);
+    return () => { cancelled = true; summarySequence.current++; };
+    // Probe the cookie session once, not on key edits or language changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const [bmsg, setBmsg] = useState("");
   const [bbusy, setBbusy] = useState(false);
@@ -208,10 +214,10 @@ export default function OwnerPage() {
       </div>
 
       {!sessionUser && (
-        <div className="mt-4 flex gap-2">
+        <div className="mt-4 flex flex-wrap gap-2">
           <input value={key} onChange={(e) => setKey(e.target.value)} type="password" autoComplete="off"
             placeholder={te ? "One-time emergency admin key (memory only)" : "One-time emergency admin key (memory only)"} aria-label="Admin key"
-            className="flex-1 rounded-2xl border px-3 py-2 font-mono text-sm" />
+            className="min-w-0 flex-1 rounded-2xl border px-3 py-2 font-mono text-sm" />
           <button type="button" onClick={() => void load(key)} disabled={busy || !key}
             className="rounded-2xl bg-[#7A0C2E] px-5 py-2 text-sm font-bold text-white disabled:opacity-50">
             {busy ? "…" : te ? "చూడు" : "View"}
@@ -219,24 +225,25 @@ export default function OwnerPage() {
           {d && <button type="button" aria-label={te ? "మళ్లీ లోడ్ చేయండి" : "Refresh"} onClick={() => void load(key, Boolean(sessionUser))} className="rounded-2xl border px-4 py-2 text-sm">↻</button>}
         </div>
       )}
-      {sessionUser && d && (
+      {sessionUser && (
         <div className="mt-3 flex justify-end">
-          <button type="button" aria-label={te ? "మళ్లీ లోడ్ చేయండి" : "Refresh"} onClick={() => void load("", true)} className="rounded-2xl border bg-white px-4 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50">
+          <button type="button" aria-label={te ? "మళ్లీ లోడ్ చేయండి" : "Refresh"} disabled={busy} onClick={() => void load("", true)} className="rounded-2xl border bg-white px-4 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50">
             ↻ {te ? "రిఫ్రెష్" : "Refresh summary"}
           </button>
         </div>
       )}
-      {err && <p className="mt-2 rounded-2xl border border-amber-300 bg-amber-50 p-2 text-[13px] font-bold text-amber-900">{err}</p>}
+      {busy && <p role="status" className="mt-3 text-sm">{te ? "Owner summary లోడ్ అవుతోంది…" : "Loading owner summary…"}</p>}
+      {err && <p role="alert" className="mt-2 rounded-2xl border border-amber-300 bg-amber-50 p-2 text-[13px] font-bold text-amber-900">{err}</p>}
       {d && <p className="mt-1 font-mono text-[10px] text-slate-400">at {String(d.at || "").slice(0, 19).replace("T", " ")}</p>}
 
       {d && (
         <div className="mt-4 space-y-4">
-          <Card title={`💰 Revenue — ₹${rev.collected ?? 0} collected (${rev.pay_mode || ""})`}>
+          <Card title={`💰 Revenue — ₹${rev.collected ?? "-"} collected (${rev.pay_mode || ""})`}>
             <div className="grid grid-cols-4 gap-2">
-              <Stat v={rev.orders ?? 0} l={te ? "orders" : "orders"} />
-              <Stat v={rev.paid ?? 0} l={te ? "paid" : "paid"} />
-              <Stat v={rev.pending ?? 0} l={te ? "pending" : "pending"} />
-              <Stat v={rev.refunded ?? 0} l={te ? "refunded" : "refunded"} />
+              <Stat v={rev.orders ?? "-"} l={te ? "orders" : "orders"} />
+              <Stat v={rev.paid ?? "-"} l={te ? "paid" : "paid"} />
+              <Stat v={rev.pending ?? "-"} l={te ? "pending" : "pending"} />
+              <Stat v={rev.refunded ?? "-"} l={te ? "refunded" : "refunded"} />
             </div>
             {Object.keys(rev.by_mode || {}).length > 0 && (
               <p className="mt-2 text-[12px] text-slate-600">
@@ -256,46 +263,46 @@ export default function OwnerPage() {
             )}
           </Card>
 
-          <Card title={`👥 Users — ${users.total ?? 0}`}>
+          <Card title={`👥 Users — ${users.total ?? "-"}`}>
             <div className="grid grid-cols-4 gap-2">
-              <Stat v={users.approved ?? 0} l={te ? "approved" : "approved"} />
-              <Stat v={users.pending ?? 0} l={te ? "pending" : "pending"} />
-              <Stat v={users.banned ?? 0} l={te ? "banned" : "banned"} />
-              <Stat v={users.recorded_checks ?? 0} l={te ? "నమోదైన చెక్‌లు" : "Recorded checks"} />
-              <Stat v={users.brides ?? 0} l="brides" />
-              <Stat v={users.grooms ?? 0} l="grooms" />
-              <Stat v={users.nri ?? 0} l="NRI" />
-              <Stat v={users.boosted ?? 0} l={te ? "boosted" : "boosted"} />
+              <Stat v={users.approved ?? "-"} l={te ? "approved" : "approved"} />
+              <Stat v={users.pending ?? "-"} l={te ? "pending" : "pending"} />
+              <Stat v={users.banned ?? "-"} l={te ? "banned" : "banned"} />
+              <Stat v={users.recorded_checks ?? "-"} l={te ? "నమోదైన చెక్‌లు" : "Recorded checks"} />
+              <Stat v={users.brides ?? "-"} l="brides" />
+              <Stat v={users.grooms ?? "-"} l="grooms" />
+              <Stat v={users.nri ?? "-"} l="NRI" />
+              <Stat v={users.boosted ?? "-"} l={te ? "boosted" : "boosted"} />
             </div>
             <p className="mt-2 text-[12px] text-slate-600">
-              📸 {users.with_photo ?? 0} • 🎙️ {users.with_voice ?? 0} • 💳 {users.credits_out ?? 0} credits out • 👛 ₹{users.wallet_out ?? 0} wallet out
+              📸 {users.with_photo ?? "-"} • 🎙️ {users.with_voice ?? "-"} • 💳 {users.credits_out ?? "-"} credits out • 👛 ₹{users.wallet_out ?? "-"} wallet out
             </p>
             <p className="mt-1 text-[10px] text-slate-500">{te ? "Recorded checks‌లో Phone OTP, photo review, లేదా manual ID review ఉండవచ్చు; ఇవి identity guarantee కావు." : "Recorded checks may include phone OTP, photo review, or manual ID review; they are not an identity guarantee."}</p>
           </Card>
 
-          <Card title={`💌 Funnel — ${funnel.interests ?? 0} interests`}>
+          <Card title={`💌 Funnel — ${funnel.interests ?? "-"} interests`}>
             <div className="grid grid-cols-4 gap-2">
               {["pending", "accepted", "declined", "expired"].map((s) => (
-                <Stat key={s} v={funnel.by_status?.[s] ?? 0} l={s} />
+                <Stat key={s} v={funnel.by_status?.[s] ?? "-"} l={s} />
               ))}
             </div>
             <p className="mt-2 text-[12px] font-bold text-emerald-700">
-              ✅ Accept rate: {funnel.accept_rate ?? 0}% • 📋 Unlocks: {funnel.unlocks ?? 0}
+              ✅ Accept rate: {funnel.accept_rate ?? "-"}% • 📋 Unlocks: {funnel.unlocks ?? "-"}
             </p>
           </Card>
 
           <div className="grid gap-4 md:grid-cols-2">
             <Card title="🔥 Engagement">
               <div className="grid grid-cols-3 gap-2">
-                <Stat v={eng.push_subs ?? 0} l="push subs" />
-                <Stat v={eng.streak_users ?? 0} l="streak" />
-                <Stat v={eng.jathakam_pending ?? 0} l="jathakam Q" />
+                <Stat v={eng.push_subs ?? "-"} l="push subs" />
+                <Stat v={eng.streak_users ?? "-"} l="streak" />
+                <Stat v={eng.jathakam_pending ?? "-"} l="jathakam Q" />
               </div>
             </Card>
             <Card title="🤝 Referral">
               <div className="grid grid-cols-2 gap-2">
-                <Stat v={ref.paid_referrals ?? 0} l={te ? "paid refs" : "paid refs"} />
-                <Stat v={ref.referrers ?? 0} l={te ? "referrers" : "referrers"} />
+                <Stat v={ref.paid_referrals ?? "-"} l={te ? "paid refs" : "paid refs"} />
+                <Stat v={ref.referrers ?? "-"} l={te ? "referrers" : "referrers"} />
               </div>
             </Card>
           </div>
@@ -331,10 +338,10 @@ export default function OwnerPage() {
 
           <Card title="⚙️ System">
             <div className="grid grid-cols-3 gap-2 text-[12px]">
-              <Stat v={sys.wa_queue ?? 0} l="WA queue" />
-              <Stat v={sys.dead_letters ?? 0} l="dead letters" />
+              <Stat v={sys.wa_queue ?? "-"} l="WA queue" />
+              <Stat v={sys.dead_letters ?? "-"} l="dead letters" />
               <Stat v={sys.worker ? "▶️" : "⏸️"} l="worker" />
-              <Stat v={sys.telegram_routing_eligible ?? 0} l="TG routing eligible (not checked)" />
+              <Stat v={sys.telegram_routing_eligible ?? "-"} l="TG routing eligible (not checked)" />
               <Stat v={sys.vapid_ready ? "✅" : "—"} l="VAPID" />
               <Stat v={sys.pay_mode || "—"} l="pay mode" />
             </div>

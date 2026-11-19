@@ -1,4 +1,6 @@
 "use client";
+
+import "@/components/community-workspace.css";
 /**
  * 🌟 /spotlight — paid sponsored profile placement
  * ==============================================================
@@ -120,11 +122,11 @@ export default function SpotlightPromotionPage() {
   const paymentReady = paymentConfig?.mode === "manual_upi" && Boolean(paymentConfig.upi_id);
 
   return (
-    <div className="min-h-dvh bg-[#FFF8E7] py-8 px-4 sm:px-6 lg:px-8 pb-36">
+    <div className="mv-community-workspace min-h-dvh bg-[#FFF8E7] py-8 px-4 sm:px-6 lg:px-8 pb-36">
       <div className="max-w-4xl mx-auto space-y-8">
         
         {/* Navigation Breadcrumb */}
-        <div className="flex items-center justify-between">
+        <div className="mv-spotlight-breadcrumb flex items-center justify-between">
           <Link href="/" className="inline-flex items-center gap-1.5 text-xs font-bold text-maroon hover:underline">
             <span>←</span>
             <span>{te ? "హోమ్‌కి వెళ్లండి" : "Back to Home"}</span>
@@ -183,7 +185,7 @@ export default function SpotlightPromotionPage() {
             <form onSubmit={handleSubmit} className="lg:col-span-2 bg-white rounded-3xl p-6 sm:p-8 border border-gold/30 shadow-md space-y-6">
               
               {error && (
-                <div className="bg-red-50 border border-red-300 text-red-700 p-3.5 rounded-2xl text-xs font-semibold">
+                <div role="alert" className="bg-red-50 border border-red-300 text-red-700 p-3.5 rounded-2xl text-xs font-semibold">
                   {error}
                 </div>
               )}
@@ -337,7 +339,7 @@ export default function SpotlightPromotionPage() {
               </div>
 
               <div className="overflow-hidden rounded-3xl border border-amber-300 bg-white shadow-lg">
-                <div className="relative flex h-48 items-center justify-center overflow-hidden bg-gradient-to-br from-rose-100 via-amber-50 to-slate-100">
+                <div className="relative flex min-h-80 items-center justify-center overflow-hidden bg-gradient-to-br from-rose-100 via-amber-50 to-slate-100">
                   <div className="max-w-xs px-4 text-center text-maroon">
                     <div className="text-4xl" aria-hidden="true">💍</div>
                     <div className="mt-1 text-xs font-semibold">{te ? "అనుమతించిన profile photo ఉంటే review తర్వాత ఉపయోగిస్తాం" : "An approved public profile photo may be used after review"}</div>

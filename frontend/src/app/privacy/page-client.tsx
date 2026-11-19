@@ -1,17 +1,19 @@
 "use client";
+import "@/components/trust-workspace.css";
 
 /** 🔒 PRIVACY POLICY — neat Telugu / clean English via toggle. DPDP Act 2023 (India). */
 import Link from "next/link";
 import { SITE_CONFIG } from "@/lib/site-config";
+import { POLICY_SUPPORT_EMAIL } from "@/lib/policy-facts";
 import { useLang } from "@/lib/lang";
 
-const LAST_UPDATED = "11 Nov 2026";
+const LAST_UPDATED = "17 Nov 2026";
 
 export default function PrivacyPage() {
   const { lang } = useLang();
   const te = lang === "te";
   return (
-    <div className="max-w-3xl mx-auto px-4 py-8 pb-36">
+    <div className="mv-trust-workspace max-w-3xl mx-auto px-4 py-8 pb-36">
       <h1 className="text-2xl md:text-3xl font-extrabold text-[#7A0C2E] telugu">
         {te ? "🔒 Privacy Policy (గోప్యతా విధానం)" : "🔒 Privacy Policy"}
       </h1>
@@ -29,6 +31,8 @@ export default function PrivacyPage() {
         )}
       </div>
 
+      <p data-testid="policy-payment-fact" className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm">{te ? "Paid checkout ప్రస్తుతం అందుబాటులో లేదు. డబ్బు పంపవద్దు. ఇప్పటికే ఉన్న refund/credit హక్కులు, response deadlines ఈ factual update వల్ల మారవు." : "Paid checkout is currently unavailable. Do not send money. Existing refund/credit rights and response deadlines are unchanged by this factual update."}</p>
+
       <Section title={te ? "1. ఏమి data collect చేస్తాం" : "1. What data we collect"}>
         <ul>
           {te ? (
@@ -36,7 +40,7 @@ export default function PrivacyPage() {
               <li><b>Profile:</b> పేరు, gender, DOB/age, height, marital status, caste, religion, district/state, education, job, salary range, gothram, nakshatram/rasi (మీ ఇష్టంతో), about, photo(s).</li>
               <li><b>Contact:</b> mobile number, optional WhatsApp number, guardian contact (optional). Login is by phone number plus the password you set; phone OTP is not used.</li>
               <li><b>Activity:</b> profile views, requests, saves, channel posts, login times, device/browser (basic), IP (security కోసం).</li>
-              <li><b>Payments:</b> payment ID, amount, plan — <b>card/UPI details మన దగ్గర store అవ్వవు</b> (Razorpay handle చేస్తుంది).</li>
+              <li><b>Payments:</b> payment ID, amount, plan వంటి records. Card/UPI payment credentials మన దగ్గర store చేయము. Paid checkout ప్రస్తుతం అందుబాటులో లేదు. Verified checkout destination కనిపించే వరకు డబ్బు పంపవద్దు. Payment handling వివరాలను paid checkout ప్రారంభించే ముందు update చేస్తాం.</li>
               <li><b>Support:</b> మీరు పంపిన messages/screenshots (complaints resolve చెయ్యడానికి).</li>
             </>
           ) : (
@@ -44,7 +48,7 @@ export default function PrivacyPage() {
               <li><b>Profile:</b> name, gender, DOB/age, height, marital status, caste, religion, district/state, education, job, salary range, gothram, nakshatram/rasi (with your consent), about, photo(s).</li>
               <li><b>Contact:</b> mobile number, optional WhatsApp number, guardian contact (optional). Login is by phone number plus your password; phone OTP is not used.</li>
               <li><b>Activity:</b> profile views, requests, saves, channel posts, login times, device/browser (basic), IP (for security).</li>
-              <li><b>Payments:</b> payment ID, amount, plan — <b>card/UPI details are never stored by us</b> (handled by Razorpay).</li>
+              <li><b>Payments:</b> records such as payment ID, amount and plan. We do not store card/UPI payment credentials. Paid checkout is currently unavailable. Do not send money until a verified checkout destination is shown. Payment handling details will be updated before paid checkout is enabled.</li>
               <li><b>Support:</b> messages/screenshots you send (to resolve complaints).</li>
             </>
           )}
@@ -56,7 +60,7 @@ export default function PrivacyPage() {
           {te ? (
             <>
               <li>మీ profile ని channels/WhatsApp లో post చెయ్యడం + matching profiles చూపించడం.</li>
-              <li>Requests deliver చెయ్యడం (మీ profile target కి, వాళ్ల profile మీకు).</li>
+              <li>Requests ను account views లో నమోదు చేసి చూపించడం; external notification delivery నిర్ధారించబడదు.</li>
               <li>Fraud detection, moderation, block/report handling, safety alerts.</li>
               <li>Payments, receipts, GST invoices, referral payouts.</li>
               <li>Service updates (plan expiry reminder, కొత్త matches) — marketing messages కి <b>opt-out</b> option ఉంది.</li>
@@ -64,7 +68,7 @@ export default function PrivacyPage() {
           ) : (
             <>
               <li>Posting your profile in channels/WhatsApp + showing matching profiles.</li>
-              <li>Delivering requests (your profile to the target, their profile to you).</li>
+              <li>Recording and showing requests in account views; external notification delivery is not confirmed.</li>
               <li>Fraud detection, moderation, block/report handling, safety alerts.</li>
               <li>Payments, receipts, GST invoices, referral payouts.</li>
               <li>Service updates (plan expiry reminders, new matches) — marketing messages have an <b>opt-out</b> option.</li>
@@ -79,8 +83,8 @@ export default function PrivacyPage() {
             <>
               <li><b>Other members:</b> మీరు request accept చేసిన తర్వాతే — number/WhatsApp share.</li>
               <li><b>Channels (public):</b> profile card లో పేరు, age, caste, job, district కనిపిస్తుంది — <b>phone number ఎప్పుడూ public గా పెట్టము</b>. Photo మీ privacy setting బట్టి (private mode అయితే channels లో కూడా చూపించము లేదా blur చేసి పెడతాం).</li>
-              <li><b>Payment gateway:</b> Razorpay (amount + order details మాత్రమే).</li>
-              <li><b>WhatsApp:</b> మన official number నుంచి మీ profile/card share చెయ్యడానికి — message delivery కి అంతే.</li>
+              <li><b>Payment gateway:</b> ప్రస్తుతం live payment gateway అందుబాటులో లేదు. Paid checkout ప్రారంభించే ముందు provider మరియు data sharing వివరాలను ఇక్కడ update చేస్తాం.</li>
+              <li><b>WhatsApp:</b> configured service ద్వారా notification queue కావచ్చు. Queue స్థితి delivery లేదా message చదివారనే నిర్ధారణ కాదు.</li>
               <li><b>Legal:</b> court/police order ఉంటేనే — required minimum data.</li>
               <li>❌ మనం మీ data ని <b>third-party advertisers కి అమ్మము లేదా rent కి ఇవ్వము</b>.</li>
             </>
@@ -88,8 +92,8 @@ export default function PrivacyPage() {
             <>
               <li><b>Other members:</b> only after you accept a request — number/WhatsApp share.</li>
               <li><b>Channels (public):</b> profile card shows name, age, caste, job, district — <b>phone numbers are never posted publicly</b>. Photos follow your privacy setting (in private mode we don&apos;t show them in channels either, or blur them).</li>
-              <li><b>Payment gateway:</b> Razorpay (amount + order details only).</li>
-              <li><b>WhatsApp:</b> from our official number to share your profile/card — message delivery only.</li>
+              <li><b>Payment gateway:</b> no live payment gateway is currently available. Provider and data-sharing details will be updated here before paid checkout is enabled.</li>
+              <li><b>WhatsApp:</b> a notification may be queued through a configured service. Queue status does not confirm delivery or reading.</li>
               <li><b>Legal:</b> only on court/police order — minimum required data.</li>
               <li>❌ We <b>never sell or rent</b> your data to <b>third-party advertisers</b>.</li>
             </>
@@ -102,15 +106,15 @@ export default function PrivacyPage() {
           {te ? (
             <>
               <li><b>Photo private mode:</b> channel/WhatsApp posts లో photo చూపించం (మీ request బట్టి) — profile లోనే కనిపిస్తుంది.</li>
-              <li><b>Watermark:</b> photos మీద మన watermark ఉంటుంది — misuse ఆపుతుంది.</li>
-              <li><b>Numbers:</b> రెండు వైపులా ఒప్పుక తర్వాతే — మన team WhatsApp లో confirm చేసి ఇస్తుంది. Declined profiles numbers ఎప్పుడూ ఇవ్వము.</li>
+              <li><b>Watermark:</b> photo మీద watermark ఉండవచ్చు; watermark ఉన్నా copying లేదా misuse జరగవచ్చు.</li>
+              <li><b>Numbers:</b> profile owner accept చేసిన తర్వాత accepted-request account views లో contact వివరాలు కనిపిస్తాయి. Configured external notification queue కావచ్చు; delivery లేదా reading నిర్ధారించబడదు. Declined profiles numbers ఇవ్వము.</li>
               <li>Screenshot/share చెయ్యడం బయట వాళ్లకి — <b>term violation</b> (report చేసిన వాళ్ల account ban అవుతుంది).</li>
             </>
           ) : (
             <>
               <li><b>Photo private mode:</b> photos don&apos;t show in channel/WhatsApp posts (per your request) — visible in profile only.</li>
-              <li><b>Watermark:</b> our watermark stays on photos — stops misuse.</li>
-              <li><b>Numbers:</b> only after mutual accept — our team confirms on WhatsApp and shares. We never give numbers of declined profiles.</li>
+              <li><b>Watermark:</b> a watermark may be applied; it cannot prevent copying or misuse.</li>
+              <li><b>Numbers:</b> contact details appear in accepted-request account views after the profile owner accepts. A configured external notification may be queued; delivery or reading is not confirmed. Contact details of declined profiles are not disclosed.</li>
               <li>Screenshotting/sharing outside — a <b>term violation</b> (reported accounts get banned).</li>
             </>
           )}
@@ -212,14 +216,13 @@ export default function PrivacyPage() {
       </Section>
 
       <div className="mt-8 rounded-2xl border border-gray-200 bg-white p-5 text-xs text-gray-700">
-        <div className="font-bold text-[#7A0C2E]">🧑‍⚖️ {te ? "Grievance Officer (DPDP Act 2023)" : "Grievance Officer (DPDP Act 2023)"}</div>
+        <div className="font-bold text-[#7A0C2E]">{te ? "Privacy / grievance contact" : "Privacy / grievance contact"}</div>
         <div className="mt-2 space-y-1">
-          {SITE_CONFIG.owner.name ? <div>Name: <b>{SITE_CONFIG.owner.name}</b> (Grievance Officer & Signatory)</div> : null}
-          {SITE_CONFIG.owner.id ? <div>Owner ID: <span className="font-mono font-bold text-[#7A0C2E]">{SITE_CONFIG.owner.id}</span></div> : null}
-          {SITE_CONFIG.owner.email ? <div>Email: <b>{SITE_CONFIG.owner.email}</b> • WhatsApp/Phone: <b>{SITE_CONFIG.owner.contactNumber}</b></div> : null}
+          {POLICY_SUPPORT_EMAIL ? <div>Email: <a className="underline break-all" href={`mailto:${POLICY_SUPPORT_EMAIL}`}>{POLICY_SUPPORT_EMAIL}</a></div> : null}
+          {SITE_CONFIG.owner.contactNumber ? <div>WhatsApp/Phone: {SITE_CONFIG.owner.contactNumber}</div> : null}
           {SITE_CONFIG.owner.location ? <div>Address: {SITE_CONFIG.owner.location}</div> : null}
           <div>{te ? "Response: 15 రోజుల్లో (complaint acknowledge 48h లోపు)" : "Response: within 15 days (complaint acknowledged within 48h)"}</div>
-          {!SITE_CONFIG.supportConfigured ? <div role="status">{te ? "ఈ deployment లో privacy/grievance contact configure కాలేదు. Public launch కు ముందు operator నిజమైన contact configure చేసి తనిఖీ చేయాలి." : "No privacy or grievance contact is configured for this deployment. The operator must configure and verify a real contact before public launch."}</div> : null}
+          {!POLICY_SUPPORT_EMAIL ? <div role="status">{te ? "ఈ deployment లో privacy/grievance contact configure కాలేదు. Public launch కు ముందు operator నిజమైన contact configure చేసి తనిఖీ చేయాలి." : "No privacy or grievance contact is configured for this deployment. The operator must configure and verify a real contact before public launch."}</div> : null}
         </div>
       </div>
 

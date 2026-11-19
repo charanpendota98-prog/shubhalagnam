@@ -1,0 +1,11 @@
+/* Restricted workspaces: readable on phones without changing permissions/actions. */
+.route-frame[data-private="true"] .route-frame__content { overflow-wrap:anywhere; }
+.route-frame[data-private="true"] :is(input:not([type="checkbox"]):not([type="radio"]),select,textarea) { min-height:48px; max-width:100%; font-size:16px; }
+.route-frame[data-private="true"] :is(button,summary) { min-height:44px; }
+.route-frame[data-private="true"] :is(button,a,input,select,textarea,summary):focus-visible { outline:3px solid #7a0c2e; outline-offset:3px; }
+.route-frame[data-private="true"] :is(p,label,summary,[class*="text-[10px]"],[class*="text-[11px]"],[class*="text-[12px]"],.text-xs) { font-size:14px; line-height:1.6; }
+.route-frame[data-private="true"] :is(h1,h2,h3) { overflow-wrap:normal; }
+@media(max-width:639px) {
+ .route-frame[data-route="owner"] .grid-cols-4 { grid-template-columns:repeat(2,minmax(0,1fr)); }
+ .route-frame[data-private="true"] :is(input,select,textarea) { min-width:0; }
+}

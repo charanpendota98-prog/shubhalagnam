@@ -11,6 +11,7 @@
  * • No prefilled profile data; users enter and select their own details
  * • Real-time Draft Auto-Save & server-confirmed registration status
  */
+import "./workspace.css";
 import { Suspense, useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
@@ -210,6 +211,7 @@ const DEFAULT_FORM: Record<string, any> = {
   exp_location: "",
   exp_caste: "",
   physical_status: "",
+  diet: "",
   body_type: "",
   complexion: "",
   blood_group: "",
@@ -1195,7 +1197,7 @@ function Wizard() {
         "brothers_married", "sisters", "sisters_married", "family_type", "family_status", "family_values",
         "native_place", "state", "district", "nri_country", "mandal", "current_city", "country", "pincode",
         "phone", "email", "password", "about_myself", "expectations", "exp_age_min", "exp_age_max", "exp_job",
-        "exp_location", "exp_caste", "physical_status", "body_type", "complexion", "blood_group", "referral_code",
+        "exp_location", "exp_caste", "physical_status", "diet", "body_type", "complexion", "blood_group", "referral_code",
       ];
       const payload: Record<string, any> = { ...f };
       strings.forEach((k) => fd.append(k, String(payload[k] ?? "")));
@@ -1324,7 +1326,7 @@ function Wizard() {
     // proof that the code was valid or that a credit was attached.
     const joined_with = result.referral?.joined_with;
     return (
-      <div className="min-h-dvh py-8 px-4 bg-[#FAF7F2]">
+      <div className="mv-register-workspace min-h-dvh py-8 px-4 bg-[#FAF7F2]">
         <div className="max-w-2xl mx-auto bg-white rounded-3xl border border-gold/40 shadow-2xl overflow-hidden animate-fade">
           {/* Header Banner */}
           <div className="maroon-gradient p-6 text-white text-center space-y-2">
@@ -1592,11 +1594,23 @@ function Wizard() {
   const stepMeta = STEPS[step - 1];
 
   return (
-    <div className="min-h-dvh pb-28 sm:pb-36 bg-[#FAF7F2]" ref={topRef}>
+    <div className="mv-register-workspace min-h-dvh pb-28 sm:pb-36 bg-[#FAF7F2]" ref={topRef}>
+      <div className="max-w-6xl mx-auto px-4 pt-5 pb-4">
+        {/* Page heading (the single h1 of the form view) */}
+        <header className="space-y-1">
+          <h1 className="text-xl sm:text-2xl font-black text-navy">
+            {T("మీ ఉచిత ప్రొఫైల్ సృష్టించండి", "Create your free profile")}
+          </h1>
+          <p className="text-xs sm:text-sm text-slate-600">
+            {T("మీ వివరాలు మీ నియంత్రణలోనే ఉంటాయి; review చేసే వరకు ఏదీ publish కాదు. మొదటి 3 interest requests ఉచితం.", "Your details stay in your hands; nothing is published until you review it. The first 3 interest requests are free.")}
+          </p>
+        </header>
+
+      </div>
       {/* ---------- Top Header Bar ----------
-          Brand/home context comes from the shared RouteFrame strip above;
-          this sticky bar keeps only the functional controls (mode + steps). */}
-      <div className="sticky top-16 z-30 bg-white/95 backdrop-blur-md border-b border-gold/25 shadow-xs">
+          The page heading comes first; mode and step controls stay in normal
+          document flow so they do not cover fields while scrolling. */}
+      <div className="mv-register-navigation bg-white border-y border-gold/25">
         {/* Mode Selector Tabs (Quick vs Detailed) */}
         <div className="max-w-6xl mx-auto px-4 pb-2 pt-1">
           <div className="grid grid-cols-2 gap-2 bg-slate-100 p-1 rounded-2xl border border-slate-200">
@@ -1637,6 +1651,8 @@ function Wizard() {
                 return (
                   <button
                     key={s.n}
+                    aria-label={T(`దశ ${s.n}: ${s.labelTe}`, `Step ${s.n}: ${s.label}`)}
+                    aria-current={active ? "step" : undefined}
                     type="button"
                     onClick={() => {
                       if (s.n < step) setStep(s.n);
@@ -1674,16 +1690,6 @@ function Wizard() {
 
       {/* ---------- Main Layout ---------- */}
       <div className="max-w-6xl mx-auto px-4 py-4 sm:py-6 space-y-4">
-
-        {/* Page heading (the single h1 of the form view) */}
-        <header className="space-y-1">
-          <h1 className="text-xl sm:text-2xl font-black text-navy">
-            {T("మీ ఉచిత ప్రొఫైల్ సృష్టించండి", "Create your free profile")}
-          </h1>
-          <p className="text-xs sm:text-sm text-slate-600">
-            {T("మీ వివరాలు మీ నియంత్రణలోనే ఉంటాయి; review చేసే వరకు ఏదీ publish కాదు. మొదటి 3 interest requests ఉచితం.", "Your details stay in your hands; nothing is published until you review it. The first 3 interest requests are free.")}
-          </p>
-        </header>
 
         {/* Referral Welcome Banner */}
         {refLocked && (
@@ -2198,7 +2204,7 @@ function Wizard() {
             <div className="lg:col-span-8 space-y-5">
               <div className="bg-white rounded-3xl border border-gold/30 shadow-md p-4 sm:p-6 space-y-5">
                 {/* Step Header */}
-                <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
+                <div className="mv-register-step-header border-b border-slate-100 pb-3 flex items-center justify-between gap-3">
                   <div>
                     <h2 className="text-base sm:text-lg font-black text-slate-900 flex items-center gap-2">
                       <span>{stepMeta.icon}</span>
@@ -2363,6 +2369,37 @@ function Wizard() {
                             {p.l}
                           </button>
                         ))}
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="space-y-1.5">
+                        <label htmlFor="full-profile_for" className="text-xs font-bold text-slate-800">{T("ఈ ప్రొఫైల్ ఎవరు చేర్చారు (ఐచ్ఛికం)", "This profile is listed by (optional)")}</label>
+                        <select
+                          id="full-profile_for"
+                          value={f.profile_for}
+                          onChange={(e) => set("profile_for", e.target.value)}
+                          className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-medium"
+                        >
+                          <option value="">{T("ఎంచుకోండి / తెలియజేయలేదు", "Select / not specified")}</option>
+                          <option value="Self">{T("నా కోసం నేనే", "Myself")}</option>
+                          <option value="Parents">{T("తల్లిదండ్రులు", "Parents")}</option>
+                        </select>
+                        <p className="text-[11px] text-slate-500">{T("ఎంచుకుంటే ఇది మీ పబ్లిక్ ప్రొఫైల్‌లో కనిపిస్తుంది.", "If selected, this is shown on your public profile.")}</p>
+                      </div>
+                      <div className="space-y-1.5">
+                        <label htmlFor="full-diet" className="text-xs font-bold text-slate-800">{T("ఆహారపు అలవాటు (ఐచ్ఛికం)", "Diet (optional)")}</label>
+                        <select
+                          id="full-diet"
+                          value={f.diet}
+                          onChange={(e) => set("diet", e.target.value)}
+                          className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-medium"
+                        >
+                          <option value="">{T("ఎంచుకోండి / తెలియజేయలేదు", "Select / not specified")}</option>
+                          <option value="Vegetarian">{T("శాఖాహారం", "Vegetarian")}</option>
+                          <option value="Non-Vegetarian">{T("మాంసాహారం", "Non-vegetarian")}</option>
+                        </select>
+                        <p className="text-[11px] text-slate-500">{T("ఎంచుకుంటే ఇది మీ పబ్లిక్ ప్రొఫైల్‌లో కనిపిస్తుంది.", "If selected, this is shown on your public profile.")}</p>
                       </div>
                     </div>
                   </div>

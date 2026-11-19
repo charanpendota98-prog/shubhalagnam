@@ -1,0 +1,20 @@
+/* Local readability rules. No global design tokens or account behavior change. */
+.mv-discovery-workspace .mv-discovery-heading{margin-bottom:1.25rem}
+.mv-discovery-workspace .mv-discovery-heading h1{font-size:clamp(1.65rem,4vw,2rem);font-weight:800;line-height:1.4;color:#7a0c2e}
+.mv-discovery-workspace .mv-discovery-heading p{margin-top:.5rem;font-size:1rem;line-height:1.75;color:#475569}
+.mv-discovery-workspace :is(.text-\[10px\],.text-\[11px\],.text-xs,.ds-field__hint,.ds-field__label,.ds-btn){font-size:.875rem;line-height:1.7}
+.mv-discovery-workspace :is(input:not([type=checkbox]),select,textarea){font-size:1rem;line-height:1.6;max-width:100%;min-height:48px}
+.mv-discovery-workspace textarea{min-height:120px}
+.mv-discovery-workspace :is(button,a:not([href^='mailto:'])){min-height:44px}
+.mv-discovery-workspace a{display:inline-flex;align-items:center}
+.mv-discovery-workspace :is(button,a,input,select,textarea):focus-visible{outline:3px solid #a66b13;outline-offset:3px}
+.mv-discovery-workspace :is(p,li,label,button,a,dd,dt){overflow-wrap:anywhere}
+.mv-discovery-workspace :is(button,a){white-space:normal;text-align:center}
+@media(max-width:480px){.mv-discovery-workspace select{width:100%;min-width:0}.mv-discovery-workspace label:has(select){width:100%;min-width:0}.mv-discovery-workspace.search-landing{padding-top:1.5rem}}
+@media(max-width:639px){
+ .mv-discovery-workspace .search-landing__intro{padding:1.25rem}
+ .mv-discovery-workspace .search-landing__intro>div[aria-hidden=true]{display:none}
+ .mv-discovery-workspace .search-landing__intro h1{margin-top:1rem;font-size:1.75rem;line-height:1.4}
+ .mv-discovery-workspace .search-landing__intro>.grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:.5rem;margin-top:1rem}
+ .mv-discovery-workspace .search-landing__intro>.grid>div{padding:.5rem}
+}

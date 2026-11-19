@@ -1,5 +1,7 @@
 "use client";
 
+import "@/components/editorial-workspace.css";
+
 import { apiDisplayMessage, readApiJson } from "@/lib/api";
 /**
  * 📄 WAVE 15 — CMS custom page (/p/{slug}) — admin creates, site renders.
@@ -20,15 +22,23 @@ export default function CmsPage() {
   const [p, setP] = useState<Page | null>(null);
   const [missing, setMissing] = useState(false);
   const [all, setAll] = useState<Page[]>([]);
+  const [loadState, setLoadState] = useState<"loading" | "ready" | "failed">("loading");
+  const [attempt, setAttempt] = useState(0);
   useEffect(() => {
-    fetch(`/api/cms/pages/${encodeURIComponent(slug)}`).then((r) => readApiJson(r)).then((d) => {
-      if (d?.success) setP(d.page);
-      else setMissing(true);
-    }).catch(() => setMissing(true));
-    fetch("/api/cms/pages").then((r) => readApiJson(r)).then((d) => {
-      if (d?.success) setAll((d.pages || []).filter((x: Page) => x.slug !== slug));
+    let active = true;
+    setP(null); setAll([]); setMissing(false); setLoadState("loading");
+    fetch(`/api/cms/pages/${encodeURIComponent(slug)}`).then(async response => {
+      const data = await readApiJson(response);
+      if (!active) return;
+      if (response.status === 404) { setMissing(true); setLoadState("ready"); return; }
+      if (!response.ok || data?.success !== true || !data.page || typeof data.page !== "object") throw new Error("Unavailable");
+      setP(data.page); setLoadState("ready");
+    }).catch(() => { if (active) setLoadState("failed"); });
+    fetch("/api/cms/pages").then(r => readApiJson(r)).then(data => {
+      if (active && data?.success && Array.isArray(data.pages)) setAll(data.pages.filter((x: Page) => x.slug !== slug));
     }).catch(() => {});
-  }, [slug]);
+    return () => { active = false; };
+  }, [slug, attempt]);
   const paras = (t: string) => (t || "").split(/\n+/).map((x) => x.trim()).filter(Boolean);
   const englishTitle = apiDisplayMessage({ message_en: p?.title_en }, false, "");
   const englishBody = apiDisplayMessage({ message_en: p?.body_en }, false, "");
@@ -71,9 +81,15 @@ export default function CmsPage() {
     setMeta("name", "twitter:description", description);
   }, [displayTitle, localizedBody, p, te]);
   return (
-    <div className="max-w-3xl mx-auto px-4 py-8">
+    <div className="mv-editorial-workspace max-w-3xl mx-auto px-4 py-8">
       <Link href="/" className="text-xs font-bold text-[#7A0C2E]">← {te ? "హోమ్" : "Home"}</Link>
-      {missing && <p className="mt-6 text-center text-gray-500">{te ? "⚠️ Page దొరకలేదు — admin publish చెయ్యలేదు." : "⚠️ Page not found — admin hasn\u2019t published it."}</p>}
+      {!p && <h1 className="mt-4 text-2xl font-bold text-maroon">{te ? "సమాచార పేజీ" : "Information Page"}</h1>}
+      {loadState === "loading" && <p role="status">{te ? "లోడ్ అవుతోంది…" : "Loading…"}</p>}
+      {missing && <p role="status" className="mt-6 text-gray-600">{te ? "ఈ పేజీ కనుగొనబడలేదు." : "This page was not found."}</p>}
+      {loadState === "failed" && <div role="alert" className="mt-6 rounded-2xl border border-amber-300 bg-amber-50 p-4">
+        <p>{te ? "పేజీని నిర్ధారించలేకపోయాం. ఇది పేజీ ప్రచురించలేదని అర్థం కాదు." : "The page could not be confirmed. This does not mean it is unpublished."}</p>
+        <button type="button" className="mt-2 font-bold underline" onClick={() => setAttempt(n => n + 1)}>{te ? "మళ్లీ ప్రయత్నించండి" : "Try again"}</button>
+      </div>}
       {p && (
         <>
           <h1 className={`mt-3 text-3xl font-extrabold text-[#7A0C2E] ${te ? "telugu" : ""}`} lang={te ? "te-IN" : "en-IN"}>{displayTitle}</h1>
