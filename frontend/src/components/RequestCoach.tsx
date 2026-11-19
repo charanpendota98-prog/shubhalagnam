@@ -6,8 +6,9 @@
  * happens next, and opening lines built only from facts the members entered.
  * No promise of a reply, no guaranteed delivery.
  */
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { apiGet } from "@/lib/api";
+import { Mail } from "lucide-react";
 import { useLang } from "@/lib/lang";
 
 type Note = { id: string; en: string; te: string };
@@ -56,20 +57,44 @@ export default function RequestCoach({
   const { lang } = useLang();
   const te = lang === "te";
   const [data, setData] = useState<Coach | null>(null);
+  const [readState, setReadState] = useState<"loading" | "ready" | "error">("loading");
+  const epoch = useRef(0);
 
   const load = useCallback(async () => {
     if (!fromId || !toId || fromId === toId) return;
-    const { ok, data: d } = await apiGet<Coach>(
-      `/api/interest/coach?from_id=${encodeURIComponent(fromId)}&to_id=${encodeURIComponent(toId)}`,
-    );
-    if (ok && d) { setData(d); onDuplicate?.(Boolean(d.duplicate_request)); }
+    const current = ++epoch.current;
+    setReadState("loading"); setData(null);
+    try {
+      const { ok, data: d } = await apiGet<Coach>(
+        `/api/interest/coach?from_id=${encodeURIComponent(fromId)}&to_id=${encodeURIComponent(toId)}`,
+      );
+      if (current !== epoch.current) return;
+      const bilingual = (row: unknown) => Boolean(row && typeof row === "object" &&
+        typeof (row as Record<string, unknown>).en === "string" && String((row as Record<string, unknown>).en).trim() &&
+        typeof (row as Record<string, unknown>).te === "string" && String((row as Record<string, unknown>).te).trim());
+      if (!ok || !d || typeof d.can_send !== "boolean" || !Array.isArray(d.blockers) ||
+          !d.blockers.every(x => typeof x === "string") || d.can_send !== (d.blockers.length === 0) ||
+          (d.suggested_notes !== undefined && (!Array.isArray(d.suggested_notes) || !d.suggested_notes.every(n => bilingual(n) && typeof n.id === "string"))) ||
+          !Number.isInteger(d.credits) || Number(d.credits) < 0 ||
+          !Array.isArray(d.what_owner_receives) || !d.what_owner_receives.length || !d.what_owner_receives.every(bilingual) ||
+          !Array.isArray(d.next_steps) || !d.next_steps.length || !d.next_steps.every(bilingual)) throw new Error("Guidance unavailable");
+      setData(d); setReadState("ready"); onDuplicate?.(Boolean(d.duplicate_request));
+    } catch {
+      if (current !== epoch.current) return;
+      setData(null); setReadState("error");
+    }
   }, [fromId, toId, onDuplicate]);
 
   useEffect(() => {
     void load();
+    return () => { epoch.current++; };
   }, [load, refreshKey]);
 
-  if (!fromId || !toId || fromId === toId || !data) return null;
+  if (!fromId || !toId || fromId === toId) return null;
+  if (!data || readState !== "ready") return <section className="mv-surface mv-surface__body mt-4" aria-label={te ? "Request గైడెన్స్" : "Request guidance"}>
+    <p role={readState === "error" ? "alert" : "status"}>{readState === "error" ? (te ? "Request వివరాలు లోడ్ కాలేదు. మళ్లీ ప్రయత్నించండి." : "Request guidance could not be loaded. Please retry.") : (te ? "Request వివరాలు లోడ్ అవుతున్నాయి…" : "Loading request guidance…")}</p>
+    {readState === "error" && <button type="button" onClick={() => void load()} className="mt-2 min-h-11 rounded-xl border px-4 font-bold">{te ? "మళ్లీ ప్రయత్నించండి" : "Retry guidance"}</button>}
+  </section>;
 
   const blockers = data.blockers || [];
 
@@ -81,7 +106,7 @@ export default function RequestCoach({
       <div className="mv-surface mv-surface__body sm:!p-5">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="mv-surface__title mv-surface__title--ink">
-            {te ? "💌 Request పంపే ముందు" : "💌 Before you send"}
+            <Mail aria-hidden="true" className="mr-1 inline-block h-4 w-4" />{te ? "Request పంపే ముందు" : "Before you send"}
           </h2>
           <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-bold text-slate-700">
             {te ? "Credits: " : "Credits: "}
