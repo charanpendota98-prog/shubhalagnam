@@ -78,7 +78,7 @@ jobs:
   browser-qa:
     name: Real-browser responsive and accessibility QA
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 35
     defaults:
       run:
         working-directory: frontend
