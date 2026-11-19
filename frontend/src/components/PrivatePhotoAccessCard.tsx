@@ -7,9 +7,11 @@ import { useLang } from "@/lib/lang";
 export default function PrivatePhotoAccessCard({
   profile,
   myTsapId,
+  isPrivatePhoto = false,
 }: {
   profile: Record<string, any>;
   myTsapId: string;
+  isPrivatePhoto?: boolean;
 }) {
   const { lang } = useLang();
   const te = lang === "te";
@@ -20,7 +22,7 @@ export default function PrivatePhotoAccessCard({
 
   const ownerId = String(profile?.tsap_id || "").trim().toUpperCase();
   const isOwner = Boolean(myTsapId && myTsapId.toUpperCase() === ownerId);
-  if (!ownerId || isOwner || !profile?.photo_private) return null;
+  if (!ownerId || isOwner || !(isPrivatePhoto || profile?.photo_private)) return null;
 
   const requestAccess = async () => {
     setBusy(true);
@@ -42,6 +44,8 @@ export default function PrivatePhotoAccessCard({
       } else {
         setStatusMsg(d.detail || "Could not request photo access.");
       }
+    } catch {
+      setStatusMsg(te ? "ఫోటో అభ్యర్థన పంపడం సాధ్యం కాలేదు. మళ్లీ ప్రయత్నించండి." : "Could not request photo access. Please try again.");
     } finally {
       setBusy(false);
     }
@@ -67,6 +71,8 @@ export default function PrivatePhotoAccessCard({
             : d.detail || "Photo permission is pending owner approval or has expired.",
         );
       }
+    } catch {
+      setStatusMsg(te ? "ఫోటో లోడ్ కాలేదు. మళ్లీ ప్రయత్నించండి." : "Could not load the approved photo. Please try again.");
     } finally {
       setBusy(false);
     }
@@ -117,6 +123,7 @@ export default function PrivatePhotoAccessCard({
               <img
                 src={signedUrl}
                 alt={`${ownerId} approved photo`}
+                onError={() => { setSignedUrl(""); setStatusMsg(te ? "ఫోటో లోడ్ కాలేదు. మళ్లీ ప్రయత్నించండి." : "Could not load the approved photo. Please try again."); }}
                 className="max-h-80 rounded-2xl border border-gold/40 object-cover shadow-sm"
               />
               <p className="text-[11px] text-slate-600">
@@ -126,7 +133,7 @@ export default function PrivatePhotoAccessCard({
               </p>
             </div>
           )}
-          {statusMsg && <p className="font-bold text-amber-900">{statusMsg}</p>}
+          {statusMsg && <p role="status" className="font-bold text-amber-900">{statusMsg}</p>}
         </>
       ) : (
         <p className="text-slate-600">
