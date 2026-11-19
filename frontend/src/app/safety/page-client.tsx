@@ -209,9 +209,7 @@ export default function SafetyPage() {
           </div>
           <h1 className="mt-3 text-2xl md:text-4xl font-bold"><Duo en="Your safety is our responsibility" te="మీ భద్రత మా బాధ్యత" /></h1>
           <p className="mt-2 text-[13px] md:text-sm opacity-90 telugu max-w-3xl">
-{te ? <>Matrimony లో అందరూ మంచి వాళ్లు కారు — కాబట్టి మనం ముందు జాగ్రత్త. Report/block 2 clicks లో,
-            verification badge తో నిజమైన profiles మాత్రమే ముందు కనిపిస్తాయి. 🚫 Chatting లేదు — spam కి చోటు లేదు.</> : <>Not everyone in matrimony is genuine — so we stay careful first. Report/block in 2 clicks,
-            verified-badge profiles show first. 🚫 No chatting — no room for spam.</>}
+{te ? <>సందేహాస్పద ప్రొఫైల్‌ను report చేయండి లేదా block చేయండి. Badges నమోదైన review వివరాలను మాత్రమే చూపిస్తాయి; వ్యక్తి నిజమైనవారని హామీ ఇవ్వవు. In-app chat లేదు; spam లేదా మోసం జరగవని హామీ ఇవ్వలేం.</> : <>Report or block a profile if something seems wrong. Badges show recorded review evidence, not a guarantee that a person is genuine. There is no in-app chat; spam or fraud can still occur.</>}
           </p>
           <div className="mt-3 flex flex-wrap gap-2 text-[12px]">
             <span className="bg-white/10 border border-white/20 rounded-full px-3 py-1.5">🔒 Confidential reports</span>
@@ -248,9 +246,9 @@ export default function SafetyPage() {
 
         {/* ---- report form ---- */}
         <div className="bg-white rounded-[1.5rem] border border-rose-200 p-5">
-          <div className="font-bold text-rose-800 text-[16px]">{te ? "🚩 Report చెయ్యండి (100% anonymous)" : "🚩 Report (100% anonymous)"}</div>
+          <div className="font-bold text-rose-800 text-[16px]">{te ? "🚩 గోప్యంగా రిపోర్ట్ చేయండి" : "🚩 Submit a confidential report"}</div>
           <div className="text-[12px] text-gray-600 mt-1">
-            {te ? "Fake profile / advance money / harassment / photo misuse — మీ ఖాతాలో లాగిన్ అయి report చెయ్యండి. మా బృందం పరిశీలించి చర్య తీసుకుంటుంది." : "Fake profile / advance money / harassment / photo misuse — sign in to submit a confidential report for human moderation review."}
+            {te ? "Fake profile / advance money / harassment / photo misuse — మీ ఖాతాలో లాగిన్ అయి report చేయండి. సమీక్ష కోసం report మీ ఖాతా Profile ID తో నమోదవుతుంది; ఇది anonymous submission కాదు." : "Fake profile / advance money / harassment / photo misuse — sign in to report. Your account Profile ID is recorded with the report for moderation review; this is not an anonymous submission."}
           </div>
           <div className="mt-4 grid md:grid-cols-3 gap-3">
             <div className="md:col-span-1">
