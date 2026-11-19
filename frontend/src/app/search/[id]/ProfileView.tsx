@@ -615,7 +615,7 @@ export default function ProfileView() {
             ) : null}
           </section>
 
-          <PrivatePhotoAccessCard profile={profile} myTsapId={myTsapId} />
+          <PrivatePhotoAccessCard key={`${myTsapId}:${loadedProfileId}`} profile={profile} myTsapId={myTsapId} isPrivatePhoto={data.is_photo_blur === true} />
 
           {myTsapId && loadedProfileId && myTsapId !== loadedProfileId ? (
             <RequestCoach fromId={myTsapId} toId={loadedProfileId} refreshKey={sentRequestId} onDuplicate={setDuplicateRequest} onPickNote={(text) => setInterestNote(text)} />
