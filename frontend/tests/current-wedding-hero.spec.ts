@@ -7,7 +7,8 @@ for(const lang of ['en','te'])for(const width of [320,390,1280])test(`current we
  const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
  for(const reduced of [false,true]){
   await page.emulateMedia({reducedMotion:reduced?'reduce':'no-preference'});await page.goto('/');
-  const hero=page.locator('.wedding-editorial'),title=hero.locator('h1');await expect(title).toBeVisible();await page.evaluate(()=>document.fonts.ready);
+  await page.getByRole('button',{name:lang==='en'?'Show in English':'తెలుగులో చూపించండి',exact:true}).first().click();
+  const hero=page.locator('.wedding-editorial'),title=hero.locator('h1');await expect(hero).toHaveCount(1);await expect(title).toHaveCount(1);await expect(title).toHaveText(lang==='en'?'Two hearts.One beautiful beginning.':'రెండు మనసులు.ఒక అందమైన ఆరంభం.');await expect(title).toBeVisible();await page.evaluate(()=>document.fonts.ready);
   for(const time of [0,200,600,1000]){
    await hero.evaluate((el,t)=>{for(const a of el.getAnimations({subtree:true})){a.pause();a.currentTime=t}},time);
    const geometry=await hero.evaluate(el=>{const title=el.querySelector('h1')!.getBoundingClientRect(),photo=el.querySelector('.wedding-gallery__controls')!.getBoundingClientRect();return {overlap:Math.max(0,Math.min(title.right,photo.right)-Math.max(title.left,photo.left))*Math.max(0,Math.min(title.bottom,photo.bottom)-Math.max(title.top,photo.top)),overflow:document.documentElement.scrollWidth>innerWidth+1}});
