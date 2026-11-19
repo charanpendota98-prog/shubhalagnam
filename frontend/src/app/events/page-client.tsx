@@ -326,7 +326,7 @@ export default function EventsPageClient() {
             <input
               type="number"
               min={10}
-              max={10000}
+              max={5000}
               value={bundleGuests}
               onChange={(e) => setBundleGuests(Number(e.target.value))}
               className="w-full rounded-xl border border-stone-300 bg-white px-3 py-2 text-sm"

@@ -198,8 +198,10 @@ def submit_bundle_enquiry(
     consent_confirmed: bool,
     notes: str = "",
 ) -> Tuple[bool, str, Dict[str, Any]]:
-    if not consent_confirmed:
+    if consent_confirmed is not True:
         return False, "Explicit consent is required before sharing bundle enquiry details.", {}
+    if type(guest_count) is not int or not 10 <= guest_count <= 5000:
+        return False, "Guest count must be an integer from 10 to 5000.", {}
     bundle = next((b for b in DEFAULT_VENDOR_BUNDLES if b["bundle_id"] == bundle_id), None)
     if not bundle:
         return False, "Selected bundle was not found.", {}
@@ -214,7 +216,7 @@ def submit_bundle_enquiry(
         "bundle_title_en": bundle["title_en"],
         "city": ccity,
         "event_date": edate,
-        "guest_count": max(10, min(5000, int(guest_count or 100))),
+        "guest_count": guest_count,
         "notes": _clean(notes, 300),
         "consent_confirmed": True,
         "status": "received",
@@ -300,8 +302,10 @@ def rsvp_community_event(
     attendee_count: int = 2,
     consent_confirmed: bool = False,
 ) -> Tuple[bool, str, Dict[str, Any]]:
-    if not consent_confirmed:
+    if consent_confirmed is not True:
         return False, "Explicit RSVP consent is required.", {}
+    if type(attendee_count) is not int or not 1 <= attendee_count <= 6:
+        return False, "Attendee count must be an integer from 1 to 6.", {}
     eid = _clean(event_id, 32).upper()
     tid = _clean(tsap_id, 40).upper()
     with _LOCK:
@@ -318,7 +322,7 @@ def rsvp_community_event(
             {
                 "rsvp_id": f"RSVP-{secrets.token_hex(3).upper()}",
                 "tsap_id": tid,
-                "attendee_count": max(1, min(6, int(attendee_count or 2))),
+                "attendee_count": attendee_count,
                 "consent_confirmed": True,
                 "at": _utc_iso(),
             }
