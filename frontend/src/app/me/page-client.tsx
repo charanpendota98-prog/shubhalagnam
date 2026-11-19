@@ -201,7 +201,7 @@ export default function MePage() {
 
           <div id="account-task-panel" className="mt-5 mv-panel" key={tab}>
             {tab === "preferences" && <PartnerPreferencesPanel myId={myId} />}
-            {tab === "edit" && <EditProfilePanel myId={myId} />}
+            {tab === "edit" && <EditProfilePanel key={myId} myId={myId} />}
             {(tab === "family" || tab === "ledger" || tab === "privacy" || tab === "support") && (
               <MemberEcosystemHub key={`${myId}:${tab}`} myId={myId} section={tab} />
             )}
@@ -212,7 +212,7 @@ export default function MePage() {
             {tab === "voice" && <VoicePanel myId={myId} />}
             {tab === "jathakam" && <JathakamPanel myId={myId} />}
             {tab === "share" && <SharePanel />}
-            {tab === "alerts" && <Phase2MemberWorkspace myId={myId} mode="alerts" />}
+            {tab === "alerts" && <Phase2MemberWorkspace key={`${myId}:alerts`} myId={myId} mode="alerts" />}
           </div>
 
           <details className="account-activity">
@@ -1345,9 +1345,11 @@ function EditProfilePanel({ myId }: { myId: string }) {
   const te = lang === "te";
   const T = (telugu: string, english: string) => (te ? telugu : english);
   const [profile, setProfile] = useState<Row>({});
-  const [score, setScore] = useState<number>(65);
+  const [score, setScore] = useState<number>(0);
   const [missing, setMissing] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+  const [readError, setReadError] = useState(false);
+  const readEpoch = useRef(0);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const selectedCaste = String(profile.caste || "");
@@ -1395,23 +1397,30 @@ function EditProfilePanel({ myId }: { myId: string }) {
   };
 
   const loadProfile = useCallback(async () => {
-    setLoading(true);
+    const epoch = ++readEpoch.current;
+    setLoading(true); setReadError(false);
     try {
       const res = await fetch(`/api/profile/${encodeURIComponent(myId)}`, { headers: authHeaders() });
-      if (res.ok) {
-        const d = await readApiJson(res);
-        setProfile(d.profile || {});
-        setScore(typeof d.completeness_score === "number" && Number.isFinite(d.completeness_score) ? Math.min(100, Math.max(0, d.completeness_score)) : 0);
-        setMissing(d.missing_fields || []);
+      const d = await readApiJson(res);
+      if (epoch !== readEpoch.current) return;
+      if (!res.ok || !d || d.success !== true || !d.profile || typeof d.profile !== "object" || Array.isArray(d.profile) ||
+          String(d.profile.tsap_id || "").toUpperCase() !== myId.toUpperCase() ||
+          typeof d.completeness_score !== "number" || !Number.isFinite(d.completeness_score) ||
+          d.completeness_score < 0 || d.completeness_score > 100 ||
+          !Array.isArray(d.missing_fields) || !d.missing_fields.every((field: unknown) => typeof field === "string")) {
+        throw new Error("Profile read unavailable");
       }
+      setProfile(d.profile); setScore(d.completeness_score); setMissing(d.missing_fields);
     } catch {
-      /* ignore */
+      if (epoch === readEpoch.current) setReadError(true);
+    } finally {
+      if (epoch === readEpoch.current) setLoading(false);
     }
-    setLoading(false);
   }, [myId]);
 
   useEffect(() => {
-    loadProfile();
+    void loadProfile();
+    return () => { readEpoch.current++; };
   }, [loadProfile]);
 
   const setField = (k: string, v: any) => {
@@ -1420,6 +1429,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading || readError || !profile.tsap_id) return;
     setSaving(true);
     setMsg(null);
     const profilePayload = { ...profile };
@@ -1463,6 +1473,13 @@ function EditProfilePanel({ myId }: { myId: string }) {
       </div>
     );
   }
+
+  if (readError) return (
+    <section className="mv-surface mv-surface__body space-y-3" aria-label={T("ప్రొఫైల్ వివరాలు", "Profile details")}>
+      <p role="alert">{T("మీ ప్రొఫైల్ వివరాలు లోడ్ కాలేదు. వివరాలను సవరించే ముందు మళ్లీ ప్రయత్నించండి.", "Your profile details could not be loaded. Retry before editing.")}</p>
+      <button type="button" className="min-h-11 rounded-xl border border-maroon px-4 py-2 font-bold text-maroon" onClick={() => void loadProfile()}>{T("మళ్లీ ప్రయత్నించండి", "Retry profile")}</button>
+    </section>
+  );
 
   return (
     <div className="space-y-6">
