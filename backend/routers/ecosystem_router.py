@@ -290,7 +290,16 @@ def build_ecosystem_router(ctx: Dict[str, Callable[..., Any] | Any]) -> APIRoute
             require_owner(request, tid)
         if not find_user(tid):
             raise HTTPException(404, "Profile not found")
-        return {"success": True, **ECOSYSTEM3.family_hub_snapshot(tid)}
+        snapshot = ECOSYSTEM3.family_hub_snapshot(tid)
+        if is_family_collab:
+            collaborator_id = str(ident.get("tsap_id", "")).removeprefix(f"family:{tid}:")
+            active = next((row for row in snapshot["collaborators"]
+                           if row.get("collaborator_id") == collaborator_id and row.get("status") == "active"), None)
+            if not active:
+                raise HTTPException(403, "Collaborator access is not active.")
+            # Invite credentials belong to the profile owner, never collaborators.
+            snapshot = {**snapshot, "pending_invites": []}
+        return {"success": True, **snapshot}
 
     @router.post("/api/family/{tsap_id}/revoke/{collaborator_id}")
     def api_family_revoke(tsap_id: str, collaborator_id: str, request: Request = None):
