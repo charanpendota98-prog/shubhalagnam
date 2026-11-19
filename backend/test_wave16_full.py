@@ -189,7 +189,7 @@ check("E10 matches children filter+card", 'setF("children"' in mp
       and "hasChildrenRelevantMaritalFilter(filters.marital_status)" in mp
       and "👶 {children}" in mp)
 pv = src_page("frontend/src/app/search/[id]/ProfileView.tsx")
-check("E11 profile children row", "👶 Children" in pv and "👶 పిల్లలు" in pv
+check("E11 profile children row", '"Children", displayChildren, Baby' in pv and '"పిల్లలు"' in pv and "aria-hidden" in pv
       and "!isNeverMarriedStatus(profile.marital_status)" in pv)
 m = re.search(r"export function heightLabel\(h: string\): string \{(.*?)\n\}", td, re.S)
 node_src = "function heightLabel(h){" + m.group(1).replace(": string", "") + "\n}" if m else ""
