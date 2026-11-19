@@ -47,7 +47,7 @@ email_channel.EMAIL_MODE = "mock"
 
 # 1. Register with email
 payload = {
-    "gender": "Groom", "religion": "Hindu", "state": "TS", "district": "Hyderabad", "marital_status": "Never Married", "full_name": "Test User", "profile_for": "Myself",
+    "gender": "Groom", "religion": "Hindu", "state": "TS", "district": "Hyderabad", "marital_status": "Never Married", "full_name": "Test User", "profile_for": "Self",
     "dob": "1995-01-01", "height": "5ft 6in", "caste": "Reddy",
     "phone": "9876543210", "password": "password123", "email": "test@manavivaha.com",
     "photo_private": "true", "consent_confirmed": "true", "photo_consent_confirmed": "true"
