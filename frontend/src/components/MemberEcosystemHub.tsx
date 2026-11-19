@@ -34,6 +34,9 @@ export default function MemberEcosystemHub({
   // Private photo access grants
   const [photoAccess, setPhotoAccess] = useState<any>({ incoming: [], outgoing: [] });
 
+  const photoReadEpoch = useRef(0);
+  const [photoRead, setPhotoRead] = useState<"loading" | "ready" | "error">("loading");
+
   // Support tickets
   const [tickets, setTickets] = useState<any[]>([]);
   const ticketReadEpoch = useRef(0);
@@ -60,8 +63,24 @@ export default function MemberEcosystemHub({
         const fr = await fetch(`/api/family/${encodeURIComponent(myId)}`, { headers: authHeaders(), credentials: "same-origin" });
         if (fr.ok) setFamily(await readApiJson(fr));
       } else if (section === "privacy") {
-        const pr = await fetch(`/api/photo/access/${encodeURIComponent(myId)}`, { headers: authHeaders(), credentials: "same-origin" });
-        if (pr.ok) setPhotoAccess(await readApiJson(pr));
+        const epoch = ++photoReadEpoch.current;
+        setPhotoRead("loading");
+        try {
+          const pr = await fetch(`/api/photo/access/${encodeURIComponent(myId)}`, { headers: authHeaders(), credentials: "same-origin" });
+          const data = await readApiJson(pr);
+          if (epoch !== photoReadEpoch.current) return;
+          const rows = (value: unknown) => Array.isArray(value) && value.every(g => g && typeof g === "object" &&
+            typeof g.id === "string" && !!g.id.trim() && typeof g.viewer_id === "string" && !!g.viewer_id.trim() && typeof g.owner_id === "string" && !!g.owner_id.trim() &&
+            ["pending", "approved", "declined", "revoked", "expired"].includes(g.status) &&
+            (g.note === undefined || typeof g.note === "string"));
+          if (!pr.ok || !data || (data.tsap_id !== undefined && data.tsap_id !== myId) || !rows(data.incoming) || !rows(data.outgoing) ||
+              !data.incoming.every((g: any) => g.owner_id === myId) || !data.outgoing.every((g: any) => g.viewer_id === myId)) {
+            throw new Error("Photo permissions unavailable");
+          }
+          setPhotoAccess(data); setPhotoRead("ready");
+        } catch {
+          if (epoch === photoReadEpoch.current) setPhotoRead("error");
+        }
       } else if (section === "support") {
         const epoch = ++ticketReadEpoch.current;
         setTicketRead("loading");
@@ -86,7 +105,7 @@ export default function MemberEcosystemHub({
 
   useEffect(() => {
     void loadSection();
-    return () => { ticketReadEpoch.current++; };
+    return () => { ticketReadEpoch.current++; photoReadEpoch.current++; };
   }, [loadSection]);
 
   const inviteFamily = async () => {
@@ -158,6 +177,7 @@ export default function MemberEcosystemHub({
   };
 
   const respondPhotoGrant = async (grantId: string, decision: "approved" | "declined" | "revoked") => {
+    if (photoRead !== "ready") return;
     setBusy(true);
     try {
       const r = await fetch("/api/photo/access/respond", {
@@ -461,7 +481,12 @@ export default function MemberEcosystemHub({
             <h3 className="text-xs font-extrabold uppercase text-slate-500">
               {te ? "ప్రైవేట్ ఫోటో యాక్సెస్ అభ్యర్థనలు" : "Incoming Private Photo Access Requests"}
             </h3>
-            {(photoAccess?.incoming || []).length === 0 ? (
+            {photoRead !== "ready" ? <div className="space-y-2">
+              <p role={photoRead === "error" ? "alert" : "status"} className="text-xs text-slate-700">{photoRead === "error"
+                ? (te ? "ఫోటో అనుమతుల వివరాలు లోడ్ కాలేదు. ఇది ఖాళీ ఫలితం కాదు. మళ్లీ ప్రయత్నించండి." : "Photo permissions could not be loaded. This is not an empty result. Please retry.")
+                : (te ? "ఫోటో అనుమతుల వివరాలు లోడ్ అవుతున్నాయి…" : "Loading photo permissions…")}</p>
+              {photoRead === "error" && <button type="button" className="min-h-11 rounded-xl border border-maroon px-4 py-2 font-bold text-maroon" onClick={() => void loadSection()}>{te ? "మళ్లీ ప్రయత్నించండి" : "Retry photo permissions"}</button>}
+            </div> : (photoAccess?.incoming || []).length === 0 ? (
               <p className="text-xs text-slate-500">
                 {te ? "ప్రస్తుతం ఫోటో యాక్సెస్ అభ్యర్థనలు లేవు." : "No incoming private photo access requests right now."}
               </p>
