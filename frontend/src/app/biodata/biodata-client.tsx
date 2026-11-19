@@ -328,6 +328,10 @@ export default function BiodataPage() {
         quality: 0.96,
         pixelRatio: 2.5, // Ultra-sharp 2.5x HD resolution for print & WhatsApp
         backgroundColor: "#FFFFFF",
+        // Computed mx-auto margins belong to the page layout, not the exported
+        // document. html-to-image otherwise preserves the desktop left offset
+        // inside its fixed-width SVG and clips the right edge of the JPG.
+        style: { margin: "0", transform: "none" },
       });
       const link = document.createElement("a");
       link.download = `${data.fullName.replace(/\s+/g, "_")}_ManaVivaha_Biodata.jpg`;
