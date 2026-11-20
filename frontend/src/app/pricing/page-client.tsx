@@ -10,11 +10,14 @@ import { apiDisplayMessage } from "@/lib/api";
  * Data: GET /api/plans (backend interest.py PLANS — single source of truth)
  */
 import Link from "next/link";
+import { AlertTriangle, BadgeHelp, Check, CreditCard, FileText, Gift, Handshake, LockKeyhole, RefreshCw, ScrollText, ShieldCheck, Sparkles, Undo2 } from "lucide-react";
 import { SITE_CONFIG } from "@/lib/site-config";
 import PayBox from "@/components/PayBox";
 import OffersBanner from "@/components/OffersBanner";
 import BannerSlot from "@/components/BannerSlot";
 import { useLang } from "@/lib/lang";
+
+const withoutLeadingEmoji = (text: string) => text.replace(/^[\p{Extended_Pictographic}\uFE0F\u200D\s]+/u, "").trim();
 
 export type Plan = {
   code: string; price: number; profiles: number; label: string; telugu: string;
@@ -90,7 +93,8 @@ export default function PricingPage({ snapshot }: { snapshot: PricingSnapshot })
                 )}
                 <ul className="mt-3 space-y-1.5 text-xs text-gray-700">
                   {(te ? p.perksTe || [] : (p.perks || []).map((perk) => apiDisplayMessage({ message_en: perk }, false, "")).filter(Boolean))
-                    .slice(0, 4).map((perk) => <li key={perk} className={te ? "telugu" : ""}>✅ {perk}</li>)}
+                    .map((perk) => withoutLeadingEmoji(perk)).filter(Boolean)
+                    .slice(0, 4).map((perk) => <li key={perk} className={`flex items-start gap-1.5 ${te ? "telugu" : ""}`}><Check aria-hidden="true" className="mt-0.5 h-3.5 w-3.5 shrink-0" /><span>{perk}</span></li>)}
                   {te && !p.perksTe?.length ? <li className="text-gray-500">ప్లాన్ వివరాలు అందుబాటులో లేవు</li> : null}
                 </ul>
                 {p.price === 0 ? (
@@ -104,38 +108,39 @@ export default function PricingPage({ snapshot }: { snapshot: PricingSnapshot })
           ))}
         </div>
         {/* okka clarity line — numbers policy */}
-        <div className="mt-5 text-center text-xs text-gray-500 telugu">
-          {te ? "🔒 Owner accept తర్వాత accepted-request account views లో contact details కనిపిస్తాయి; notification delivery హామీ లేదు • decline అయితే 1 request credit ఒకసారి తిరిగి వస్తుంది" : "🔒 Owner acceptance grants contact access in accepted-request account views; notification delivery is not guaranteed • a decline returns one request credit once"}
+        <div className="mt-5 flex items-start justify-center gap-1.5 text-center text-xs text-gray-500 telugu">
+          <LockKeyhole aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0" /><span>
+          {te ? "Owner accept తర్వాత accepted-request account views లో contact details కనిపిస్తాయి; notification delivery హామీ లేదు • decline అయితే 1 request credit ఒకసారి తిరిగి వస్తుంది" : "Owner acceptance grants contact access in accepted-request account views; notification delivery is not guaranteed • a decline returns one request credit once"}</span>
         </div>
       </section>
 
       {/* ADD-ONS + RENEWAL + REFERRAL + SPOTLIGHT — compact row */}
       <section className="mt-10 grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="rounded-2xl border border-gray-200 bg-white p-5">
-          <div className="font-bold text-[#7A0C2E] telugu">{te ? "🎁 Add-ons" : "🎁 Add-ons"}</div>
+          <div className="font-bold text-[#7A0C2E] telugu"><Gift aria-hidden="true" className="inline-block h-4 w-4 shrink-0 align-middle" /> {te ? "అదనపు సేవలు" : "Add-ons"}</div>
           <ul className="mt-3 space-y-2 text-xs">
             {addons.map((a) => (
               <li key={a.code} className="flex items-start justify-between gap-2">
-                <span className={te ? "telugu" : ""} lang={te ? "te-IN" : "en-IN"}>{te ? a.telugu || a.label : apiDisplayMessage({ message_en: a.label }, false, "Add-on")}</span>
+                <span className={te ? "telugu" : ""} lang={te ? "te-IN" : "en-IN"}>{withoutLeadingEmoji(te ? a.telugu || a.label : apiDisplayMessage({ message_en: a.label }, false, "Add-on"))}</span>
                 <span className="font-bold text-[#7A0C2E] whitespace-nowrap">₹{a.price}</span>
               </li>
             ))}
           </ul>
         </div>
         <div className="rounded-2xl border border-[#B8860B]/40 bg-[#FFF8E1] p-5">
-          <div className="font-bold text-[#7A0C2E] telugu">{te ? "🔁 Renewal (పాత customers)" : "🔁 Renewal"}</div>
+          <div className="font-bold text-[#7A0C2E] telugu"><RefreshCw aria-hidden="true" className="inline-block h-4 w-4 shrink-0 align-middle" /> {te ? "పునరుద్ధరణ (పాత సభ్యులకు)" : "Renewal"}</div>
           <div className="mt-3 text-sm telugu">₹{SITE_CONFIG.pricing.renewal.price} → <b>{SITE_CONFIG.pricing.renewal.profiles} requests</b></div>
           <Link href="/requests#renew" className="mt-3 inline-block text-xs font-bold text-[#7A0C2E] underline">{te ? "Renewal తీసుకోండి →" : "Get renewal →"}</Link>
         </div>
         <div className="rounded-2xl border border-gold/40 bg-white p-5">
-          <div className="font-bold text-[#7A0C2E] telugu">🌟 {te ? "స్పాట్‌లైట్ ప్రమోషన్" : "Spotlight Boost"}</div>
+          <div className="font-bold text-[#7A0C2E] telugu"><Sparkles aria-hidden="true" className="inline-block h-4 w-4 shrink-0 align-middle" /> {te ? "స్పాట్‌లైట్ ప్రమోషన్" : "Spotlight Boost"}</div>
           <div className="mt-3 text-xs telugu text-gray-700">
             {te ? <>హోమ్‌పేజీ టాప్‌లో ఫోటో & వీడియోతో మీ ప్రొఫైల్ ప్రమోట్ చేసుకోండి — <b>₹99 నుండి</b>.</> : <>Promote your profile with photo & video at top of home — <b>from ₹99</b>.</>}
           </div>
           <Link href="/spotlight" className="mt-3 inline-block text-xs font-bold text-[#7A0C2E] underline">{te ? "ప్రమోట్ చేసుకోండి →" : "Promote profile →"}</Link>
         </div>
         <div className="rounded-2xl border border-gray-200 bg-white p-5">
-          <div className="font-bold text-[#7A0C2E] telugu">🤝 Referral — ₹{SITE_CONFIG.pricing.referralPerPay}</div>
+          <div className="font-bold text-[#7A0C2E] telugu"><Handshake aria-hidden="true" className="inline-block h-4 w-4 shrink-0 align-middle" /> Referral — ₹{SITE_CONFIG.pricing.referralPerPay}</div>
           <div className="mt-3 text-xs telugu leading-relaxed text-gray-700">
             {te
               ? <>Referrer కు ఒక్కసారి ₹{SITE_CONFIG.pricing.referralPerPay} reward అర్హత ఉండవచ్చు—referred user మొదటి qualifying S_99/S_199/S_299/S_499 consumer-plan payment కనీసం ₹99 అయినప్పుడు మాత్రమే. Add-ons, renewals, B2B plans తదితర మినహాయింపులు వర్తిస్తాయి; payout manual review లో ఉంటుంది.</>
@@ -148,7 +153,7 @@ export default function PricingPage({ snapshot }: { snapshot: PricingSnapshot })
       {/* PAYMENT + POLICIES — compact */}
       <section className="mt-10 grid md:grid-cols-2 gap-4">
         <div className="rounded-2xl bg-[#7A0C2E] text-white p-5">
-          <div className="font-bold text-sm">💳 {te ? "చెల్లింపు" : "Payments"}</div>
+          <div className="font-bold text-sm"><CreditCard aria-hidden="true" className="inline-block h-4 w-4 shrink-0 align-middle" /> {te ? "చెల్లింపు" : "Payments"}</div>
           <div className="mt-2 text-xs opacity-90">{te ? "చెల్లింపు మార్గాలు checkout వద్ద చూపిస్తాం; అందుబాటు ప్రస్తుత payment configuration పై ఆధారపడి ఉంటుంది." : "Available payment methods are shown at checkout; options depend on current payment configuration."}</div>
           <div className="mt-2 text-[11px] opacity-75">{te ? "స్వయంచాలక పునరుద్ధరణ ప్రారంభించలేదు." : "Auto-renewal is not enabled."}</div>
           {SITE_CONFIG.supportConfigured ? (
@@ -161,22 +166,22 @@ export default function PricingPage({ snapshot }: { snapshot: PricingSnapshot })
           ) : null}
         </div>
         <div className="rounded-2xl border border-gray-200 bg-white p-5">
-          <div className="font-bold text-[#7A0C2E] text-sm">{te ? "📜 విధానాలు" : "📜 Policies"}</div>
+          <div className="font-bold text-[#7A0C2E] text-sm"><ScrollText aria-hidden="true" className="inline-block h-4 w-4 shrink-0 align-middle" /> {te ? "విధానాలు" : "Policies"}</div>
           <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
-            <Link href="/refund" className="rounded-xl border border-gray-200 p-2.5 hover:border-[#7A0C2E]">💸 {te ? "వాపసు" : "Refund"}</Link>
-            <Link href="/terms" className="rounded-xl border border-gray-200 p-2.5 hover:border-[#7A0C2E]">📄 {te ? "నిబంధనలు" : "Terms"}</Link>
-            <Link href="/privacy" className="rounded-xl border border-gray-200 p-2.5 hover:border-[#7A0C2E]">🔒 {te ? "గోప్యత" : "Privacy"}</Link>
-            <Link href="/safety" className="rounded-xl border border-gray-200 p-2.5 hover:border-[#7A0C2E]">🛡️ {te ? "భద్రత" : "Safety"}</Link>
+            <Link href="/refund" className="rounded-xl border border-gray-200 p-2.5 hover:border-[#7A0C2E]"><Undo2 aria-hidden="true" className="inline-block h-4 w-4 shrink-0 align-middle" /> {te ? "వాపసు" : "Refund"}</Link>
+            <Link href="/terms" className="rounded-xl border border-gray-200 p-2.5 hover:border-[#7A0C2E]"><FileText aria-hidden="true" className="inline-block h-4 w-4 shrink-0 align-middle" /> {te ? "నిబంధనలు" : "Terms"}</Link>
+            <Link href="/privacy" className="rounded-xl border border-gray-200 p-2.5 hover:border-[#7A0C2E]"><LockKeyhole aria-hidden="true" className="inline-block h-4 w-4 shrink-0 align-middle" /> {te ? "గోప్యత" : "Privacy"}</Link>
+            <Link href="/safety" className="rounded-xl border border-gray-200 p-2.5 hover:border-[#7A0C2E]"><ShieldCheck aria-hidden="true" className="inline-block h-4 w-4 shrink-0 align-middle" /> {te ? "భద్రత" : "Safety"}</Link>
           </div>
           <div className="mt-3 text-[11px] text-gray-500 telugu">
-            {te ? "⚠️ Advance money అడిగితే అది మోసం — report చెయ్యండి." : "⚠️ Anyone asking advance money is fraud — report it."}
+            <AlertTriangle aria-hidden="true" className="inline-block h-4 w-4 shrink-0 align-middle" /> {te ? "ముందుగా డబ్బు అడిగితే జాగ్రత్త. వివరాలను స్వతంత్రంగా నిర్ధారించండి. అనుమానంగా ఉంటే ఫిర్యాదు చేయండి." : "Be cautious about requests for advance money. Verify details independently and report suspicious requests."}
           </div>
         </div>
       </section>
 
       {/* FAQ — 5 short */}
       <section className="mt-10">
-        <h2 className="text-xl font-bold text-[#7A0C2E] telugu">{te ? "❓ ప్రశ్నలు" : "❓ FAQ"}</h2>
+        <h2 className="text-xl font-bold text-[#7A0C2E] telugu"><BadgeHelp aria-hidden="true" className="inline-block h-5 w-5 shrink-0 align-middle" /> {te ? "ప్రశ్నలు" : "FAQ"}</h2>
         <div className="mt-3 space-y-2">
           {FAQ.map((f) => (
             <details key={f.qEn} className="rounded-xl border border-gray-200 bg-white p-4 open:shadow-sm">
