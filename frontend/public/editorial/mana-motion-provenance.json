@@ -1,0 +1,13 @@
+{
+  "commissioned_for": "Mana Vivaha",
+  "created": "2026-11-20",
+  "source": "Original newly created wedding-hands artwork for this project, no downloaded or reference imagery",
+  "source_filename": "manavivaha-original-wedding-hands.png",
+  "derivatives": {
+    "mana-motion-hands.webp": "Full wedding-hands scene, resized",
+    "mana-motion-lamps.webp": "Lamp detail cropped from the same original scene",
+    "mana-motion-hands.mp4": "Six-second silent gentle camera-motion loop made from the original scene",
+    "mana-motion-lamps.mp4": "Six-second silent gentle camera-motion loop made from the lamp crop"
+  },
+  "people": "No member profiles, testimonial or specific real wedding is depicted"
+}

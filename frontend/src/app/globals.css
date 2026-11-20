@@ -3841,3 +3841,22 @@ html[data-lang="te"] .wedding-editorial-theme .route-frame[data-route="channels"
   .match-results-controls { width: 100%; }
   .match-results-controls select { width: 100%; flex-basis: 100%; }
 }
+
+/* Original silent wedding motion has its own column, never behind copy. */
+.wedding-motion{position:relative;isolation:isolate;min-width:0;min-height:610px;overflow:hidden;background:#24171d;align-self:stretch;}
+.wedding-motion__halo{position:absolute;inset:5% -20% 3% -10%;background:radial-gradient(ellipse,#9b653737,transparent 68%);pointer-events:none;}
+.wedding-motion__scene{position:absolute;overflow:hidden;border:1px solid #d9b77b55;box-shadow:0 24px 65px #0004;background:#3b2426;}
+.wedding-motion__scene--1{width:87%;aspect-ratio:4/3;right:3%;top:17%;border-radius:110px 110px 5px 5px;transform:rotate(2deg);}
+.wedding-motion__scene--2{width:39%;aspect-ratio:4/3;left:1%;bottom:22%;border-radius:5px;transform:rotate(-5deg);border:5px solid #efd9b4;}
+.wedding-motion__scene :is(img,video){position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:50% 50%;}
+.wedding-motion__scene video{pointer-events:none;}
+.wedding-motion__caption{position:absolute;bottom:22px;right:5%;left:5%;color:#f9e6c9;}
+.wedding-motion__caption>span{font-size:9px;letter-spacing:.2em;color:#ddbf92;}
+.wedding-motion__caption p{font-family:Georgia,serif;font-style:italic;font-size:21px;line-height:1.4;max-width:270px;margin-top:9px;}
+.wedding-motion__toggle{position:absolute;z-index:2;right:6%;bottom:113px;display:flex;align-items:center;gap:7px;min-height:44px;padding:10px 13px;border:1px solid #e7cfa5aa;border-radius:30px;background:#24171ded;color:#fff4e1;font-size:11px;}
+html[data-lang="te"] .wedding-motion__caption p{font-family:inherit;font-size:18px;line-height:1.7;font-style:normal;}
+.wedding-editorial__intro>h1,.wedding-editorial__lead,.wedding-editorial__actions{animation:none;opacity:1;transform:none;}
+@media(min-width:768px){.wedding-editorial__intro{padding-top:30px;padding-bottom:32px;min-height:610px;}.wedding-editorial__edition{margin-bottom:26px;}.wedding-editorial h1{margin-bottom:15px;}.wedding-editorial__actions{margin-top:18px;}}
+@media(min-width:768px) and (max-width:1023px){.wedding-motion__scene--1{width:85%;right:0;top:17%;}.wedding-motion__scene--2{width:59%;bottom:22%;}.wedding-motion__caption{bottom:35px;}.wedding-motion__toggle{bottom:137px;}}
+@media(max-width:767px){.wedding-editorial>.wedding-editorial__intro{order:0;}.wedding-editorial>.wedding-motion{order:1;}.wedding-editorial>.wedding-editorial__search{order:2;}.wedding-motion{min-height:0;height:320px;margin:0 -1px 20px;}.wedding-motion__scene--1{width:85%;right:0;top:0;border-radius:75px 75px 4px 4px;}.wedding-motion__scene--2{width:37%;left:1%;bottom:21%;}.wedding-motion__caption{left:4%;right:4%;bottom:0;}.wedding-motion__caption p{font-size:15px;max-width:none;margin-top:4px;}.wedding-motion__caption>span{font-size:8px;}.wedding-motion__toggle{right:3%;bottom:53px;padding:9px 12px;}html[data-lang="te"] .wedding-motion__caption p{font-size:14px;}}
+@media(prefers-reduced-motion:reduce){.wedding-motion video{display:none;}}
