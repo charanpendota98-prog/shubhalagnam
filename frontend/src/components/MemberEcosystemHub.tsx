@@ -1,5 +1,7 @@
 "use client";
 
+import { CreditCard, Download, LockKeyhole, Printer, Ticket, Users } from "lucide-react";
+
 import { useCallback, useEffect, useRef, useState } from "react";
 import { authHeaders, readApiJson } from "@/lib/api";
 import { useLang } from "@/lib/lang";
@@ -123,8 +125,8 @@ export default function MemberEcosystemHub({
         setCollabName("");
         setToast(
           te
-            ? `✅ ఆహ్వాన కోడ్ సిద్ధం: ${d.invite?.invite_code}`
-            : `✅ Family invite code created: ${d.invite?.invite_code}`,
+            ? `ఆహ్వాన కోడ్ సిద్ధం: ${d.invite?.invite_code}`
+            : `Family invite code created: ${d.invite?.invite_code}`,
         );
         await loadSection();
       } else {
@@ -144,7 +146,7 @@ export default function MemberEcosystemHub({
         credentials: "same-origin",
       });
       if (r.ok) {
-        setToast(te ? "✅ కుటుంబ యాక్సెస్ రద్దు చేయబడింది." : "✅ Collaborator access revoked.");
+        setToast(te ? "కుటుంబ యాక్సెస్ రద్దు చేయబడింది." : "Collaborator access revoked.");
         await loadSection();
       }
     } finally {
@@ -166,7 +168,7 @@ export default function MemberEcosystemHub({
       if (r.ok && d.success) {
         setSuggestId("");
         setSuggestNote("");
-        setToast(te ? "✅ సంబంధం సూచన నమోదైంది." : "✅ Match suggestion recorded.");
+        setToast(te ? "సంబంధం సూచన నమోదైంది." : "Match suggestion recorded.");
         await loadSection();
       } else {
         setToast(d.detail || "Could not record suggestion.");
@@ -187,7 +189,7 @@ export default function MemberEcosystemHub({
         body: JSON.stringify({ owner_id: myId, grant_id: grantId, decision, days: 7 }),
       });
       if (r.ok) {
-        setToast(te ? `✅ ఫోటో అనుమతి స్థితి: ${decision}` : `✅ Photo access updated: ${decision}`);
+        setToast(te ? `ఫోటో అనుమతి స్థితి: ${decision}` : `Photo access updated: ${decision}`);
         await loadSection();
       }
     } finally {
@@ -216,7 +218,7 @@ export default function MemberEcosystemHub({
       a.download = `mana-vivaha-data-${myId}.json`;
       a.click();
       URL.revokeObjectURL(url);
-      setToast(te ? "✅ మీ ఖాతా డేటా JSON డౌన్‌లోడ్ అయింది." : "✅ Your account data export (JSON) has downloaded.");
+      setToast(te ? "మీ ఖాతా డేటా JSON డౌన్‌లోడ్ అయింది." : "Your account data export (JSON) has downloaded.");
     } catch {
       setToastError(true);
       setToast(te ? "డేటా డౌన్‌లోడ్ సాధ్యం కాలేదు. మళ్లీ ప్రయత్నించండి." : "Could not export account data. Please retry.");
@@ -245,7 +247,7 @@ export default function MemberEcosystemHub({
       if (r.ok && d.success) {
         setTktSubject("");
         setTktMessage("");
-        setToast(te ? `✅ టికెట్ నమోదైంది: ${d.ticket?.ticket_id}` : `✅ Support ticket created: ${d.ticket?.ticket_id}`);
+        setToast(te ? `టికెట్ నమోదైంది: ${d.ticket?.ticket_id}` : `Support ticket created: ${d.ticket?.ticket_id}`);
         await loadSection();
       } else {
         setToastError(true);
@@ -275,7 +277,7 @@ export default function MemberEcosystemHub({
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
               <h2 className="text-base font-extrabold text-[#7A0C2E]">
-                💳 {te ? "క్రెడిట్ లెడ్జర్ & చెల్లింపు రసీదులు" : "FIFO Credit Ledger & Payment Receipts"}
+                <CreditCard aria-hidden="true" className="inline-block h-[1em] w-[1em] shrink-0 align-middle" /> {te ? "క్రెడిట్ లెడ్జర్ & చెల్లింపు రసీదులు" : "FIFO Credit Ledger & Payment Receipts"}
               </h2>
               <p className="text-xs text-slate-600 mt-0.5">
                 {te ? ledger?.policy_te || "ప్లాన్ గడువు ప్రకారం క్రెడిట్స్ FIFO క్రమంలో వాడబడతాయి." : ledger?.policy_en || "Paid plan credits follow 30/45/60/90-day FIFO validity; registration free credits never expire."}
@@ -331,7 +333,7 @@ export default function MemberEcosystemHub({
                       onClick={() => window.print()}
                       className="rounded-xl border border-[#7A0C2E] px-3 py-1.5 font-bold text-[#7A0C2E] hover:bg-rose-50"
                     >
-                      🖨️ {te ? "ప్రింట్" : "Print"}
+                      <Printer aria-hidden="true" className="inline-block h-[1em] w-[1em] shrink-0 align-middle" /> {te ? "ప్రింట్" : "Print"}
                     </button>
                   </div>
                 ))}
@@ -345,7 +347,7 @@ export default function MemberEcosystemHub({
         <section className="mv-surface mv-surface__body space-y-4">
           <div>
             <h2 className="text-base font-extrabold text-[#7A0C2E]">
-              👨‍👩‍👧 {te ? "కుటుంబ సహకార కేంద్రం (Family Collaboration)" : "Family Collaboration Hub"}
+              <Users aria-hidden="true" className="inline-block h-[1em] w-[1em] shrink-0 align-middle" /> {te ? "కుటుంబ సహకార కేంద్రం (Family Collaboration)" : "Family Collaboration Hub"}
             </h2>
             <p className="text-xs text-slate-600 mt-1">
               {te
@@ -459,7 +461,7 @@ export default function MemberEcosystemHub({
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h2 className="text-base font-extrabold text-[#7A0C2E]">
-                🔒 {te ? "ప్రైవసీ సెంటర్ & DPDP డేటా ఎక్స్‌పోర్ట్" : "Privacy Center, Photo Permissions & DPDP Data Export"}
+                <LockKeyhole aria-hidden="true" className="inline-block h-[1em] w-[1em] shrink-0 align-middle" /> {te ? "ప్రైవసీ సెంటర్ & DPDP డేటా ఎక్స్‌పోర్ట్" : "Privacy Center, Photo Permissions & DPDP Data Export"}
               </h2>
               <p className="text-xs text-slate-600 mt-1">
                 {te
@@ -473,7 +475,7 @@ export default function MemberEcosystemHub({
               onClick={() => void downloadDataExport()}
               className="rounded-2xl bg-[#7A0C2E] px-4 py-2.5 text-xs font-bold text-white shadow-sm disabled:opacity-50"
             >
-              📥 {te ? "నా ఖాతా డేటా డౌన్‌లోడ్ (JSON)" : "Download My Data (JSON)"}
+              <Download aria-hidden="true" className="inline-block h-[1em] w-[1em] shrink-0 align-middle" /> {te ? "నా ఖాతా డేటా డౌన్‌లోడ్ (JSON)" : "Download My Data (JSON)"}
             </button>
           </div>
 
@@ -527,7 +529,7 @@ export default function MemberEcosystemHub({
         <section className="mv-surface mv-surface__body space-y-4">
           <div>
             <h2 className="text-base font-extrabold text-[#7A0C2E]">
-              🎫 {te ? "సభ్యుల సహాయ కేంద్రం (Support Tickets)" : "Member Support & Grievance Desk"}
+              <Ticket aria-hidden="true" className="inline-block h-[1em] w-[1em] shrink-0 align-middle" /> {te ? "సభ్యుల సహాయ కేంద్రం (Support Tickets)" : "Member Support & Grievance Desk"}
             </h2>
             <p className="text-xs text-slate-600 mt-1">
               {te

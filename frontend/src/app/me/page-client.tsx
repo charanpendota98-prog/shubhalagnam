@@ -1,19 +1,20 @@
 "use client";
 /**
- * 🙋 MANA VIVAHA — MY ACCOUNT & PROFILE DASHBOARD
+ *  MANA VIVAHA — MY ACCOUNT & PROFILE DASHBOARD
  * =====================================================
  * • 100% Profile Completion & In-Place Profile Editor
  * • Streak + Unlocks + Boost + Voice + Jathakam + Share + Alerts
  * • Real-time DB sync and instant match ranking upgrade
  */
 import "./workspace.css";
+import { createPortal } from "react-dom";
 import { useCallback, useEffect, useRef, useState } from "react";
 import TrustBadge from "@/components/TrustBadge";
 import PhotoFlow from "@/components/PhotoFlow";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import Image from "next/image";
-import { Target, Pencil, Users, CreditCard, LockKeyhole, KeyRound, Ticket, Flame, ClipboardList, Zap, Mic, Orbit, Share2, Bell, Heart, Handshake, EyeOff } from "lucide-react";
+import { Bell, BriefcaseBusiness, Cake, ChartNoAxesColumn, ClipboardList, CreditCard, EyeOff, Flame, Flower2, Globe, GraduationCap, Handshake, Heart, House, KeyRound, Landmark, Laptop, LockKeyhole, MapPin, Mic, Orbit, Pencil, Share2, Target, Ticket, UserRound, Users, Zap } from "lucide-react";
 
 const MemberEcosystemHub = dynamic(() => import("@/components/MemberEcosystemHub"), { ssr: false });
 const Phase2MemberWorkspace = dynamic(() => import("@/components/Phase2MemberWorkspace"), { ssr: false });
@@ -24,7 +25,7 @@ import MatchAssistant from "@/components/MatchAssistant";
 import StoryNudge from "@/components/StoryNudge";
 import MemberActivity from "@/components/MemberActivity";
 import { apiDisplayMessage, apiGet, apiPost, authHeaders, readApiJson} from "@/lib/api";
-// 🛡️ P0 security fix: /api/profile/{id} (GET+update) and /api/user/delete-account
+//  P0 security fix: /api/profile/{id} (GET+update) and /api/user/delete-account
 // now require the owner's X-Tsap-Token server-side (was a zero-auth IDOR that
 // leaked raw phone/password_hash/auth_token and allowed anyone to edit/delete
 // any profile by guessing a tsap_id). authHeaders() attaches that token.
@@ -221,17 +222,17 @@ export default function MePage() {
 
           <details className="account-activity">
             <summary>{te ? "మీ ఖాతా activity, సూచనలు" : "Your account activity and suggestions"}</summary>
-          {/* 🧠 Smart Match Assistant — daily personalized briefing (top of dashboard) */}
+          {/*  Smart Match Assistant — daily personalized briefing (top of dashboard) */}
           <div className="mt-4">
             <MatchAssistant />
           </div>
 
-          {/* 💑 Story nudge — only when the member's own record justifies it */}
+          {/*  Story nudge — only when the member's own record justifies it */}
           <div className="mt-4">
             <StoryNudge />
           </div>
 
-          {/* 📊 WAVE 43 — this account's own activity (never a forecast) */}
+          {/*  WAVE 43 — this account's own activity (never a forecast) */}
           <div className="mt-4">
             <MemberActivity tsapId={myId} />
           </div>
@@ -256,7 +257,7 @@ export default function MePage() {
       ) : (
         <div className="mt-6">
           <AuthGate
-            title={te ? "🔒 మీ ప్రొఫైల్ చూడటానికి లాగిన్ అవ్వండి" : "🔒 Login to view your profile"}
+            title={te ? "మీ ప్రొఫైల్ చూడటానికి లాగిన్ అవ్వండి" : "Login to view your profile"}
             note={te
               ? "మీ ప్రొఫైల్ వివరాలు చూడటానికి లేదా ఎడిట్ చేయడానికి ఫోన్ నంబర్ మరియు పాస్‌వర్డ్‌తో లాగిన్ అవ్వండి — ఈ లాగిన్‌కు SMS/WhatsApp OTP ఉపయోగించబడదు."
               : "Sign in with your phone number and password to view or edit your profile — no SMS/WhatsApp OTP is required."}
@@ -264,16 +265,16 @@ export default function MePage() {
         </div>
       )}
 
-      {/* 💍 ACCOUNT DELETION & MARRIAGE FIXED MODAL */}
-      {showDeleteModal && (
-        <div className="fixed inset-0 z-50 bg-black/65 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border-2 border-gold/40 space-y-4 animate-in fade-in zoom-in duration-200 my-8">
+      {/*  ACCOUNT DELETION & MARRIAGE FIXED MODAL */}
+      {showDeleteModal && typeof document !== "undefined" && createPortal(
+        <div className="fixed inset-0 z-[110] bg-black/65 backdrop-blur-xs flex items-center justify-center p-4">
+          <div role="dialog" aria-modal="true" aria-labelledby="profile-visibility-title" className="max-h-[90dvh] overflow-y-auto bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border-2 border-gold/40 space-y-4 animate-in fade-in zoom-in duration-200">
             {deleteSuccessResult ? (
               <div className="text-center py-6 space-y-4">
                 <div className="text-5xl animate-bounce">
-                  {deleteSuccessResult.congratulations ? "💐 🎉" : "✅"}
+                  <Heart aria-hidden="true" className="mx-auto h-12 w-12" />
                 </div>
-                <h3 className="text-xl font-black text-[#7A0C2E]">
+                <h3 id="profile-visibility-title" className="text-xl font-black text-[#7A0C2E]">
                   {deleteSuccessResult.congratulations ? (te ? "హృదయపూర్వక శుభాకాంక్షలు!" : "Congratulations on your wedding!") : (te ? "ప్రొఫైల్ పబ్లిక్ శోధన నుంచి దాచబడింది" : "Profile hidden from public search")}
                 </h3>
                 <p className="text-xs text-slate-700 leading-relaxed max-w-md mx-auto">
@@ -292,9 +293,9 @@ export default function MePage() {
               <>
                 <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                   <div className="flex items-center gap-2">
-                    <span className="text-2xl">💍</span>
+                    <span className="text-2xl"><Heart aria-hidden="true" className="inline-block h-[1em] w-[1em] shrink-0 align-middle" /></span>
                     <div>
-                      <h3 className="font-black text-navy text-base">{te ? "ప్రొఫైల్ దృశ్యమానత / వివాహ స్థితి" : "Profile visibility / marriage status"}</h3>
+                      <h3 id="profile-visibility-title" className="font-black text-navy text-base">{te ? "ప్రొఫైల్ దృశ్యమానత / వివాహ స్థితి" : "Profile visibility / marriage status"}</h3>
                       <p className="text-xs text-slate-500 font-mono">ID: {myId}</p>
                     </div>
                   </div>
@@ -316,30 +317,30 @@ export default function MePage() {
                     {[
                       {
                         id: "married_via_manavivaha",
-                        label: "🎉 మన వివాహ (Mana Vivaha) ద్వారా సంబంధం కుదిరింది!",
-                        labelEn: "🎉 I found my match through Mana Vivaha",
+                        label: "మన వివాహ (Mana Vivaha) ద్వారా సంబంధం కుదిరింది!",
+                        labelEn: "I found my match through Mana Vivaha",
                         desc: "మాకు వివాహం నిశ్చయమైంది • శుభాకాంక్షలు & సంతోషం",
                         descEn: "We are getting married • Best wishes and happiness",
                         badge: "Success Story",
                       },
                       {
                         id: "married_elsewhere",
-                        label: "🤝 బయట ఇతర మార్గాల్లో వివాహం కుదిరింది",
-                        labelEn: "🤝 I found a match elsewhere",
+                        label: "బయట ఇతర మార్గాల్లో వివాహం కుదిరింది",
+                        labelEn: "I found a match elsewhere",
                         desc: "కుటుంబ సభ్యులు లేదా ఇతర మార్గాల ద్వారా సంబంధం ఖాయమైంది",
                         descEn: "The match was arranged by family or another source",
                       },
                       {
                         id: "pausing_search",
-                        label: "⏸️ ప్రస్తుతానికి సంబంధాల అన్వేషణ తాత్కాలికంగా ఆపాము",
-                        labelEn: "⏸️ I am pausing my search for now",
+                        label: "ప్రస్తుతానికి సంబంధాల అన్వేషణ తాత్కాలికంగా ఆపాము",
+                        labelEn: "I am pausing my search for now",
                         desc: "తరువాత ఎప్పుడైనా మళ్లీ వెతుకుతాము",
                         descEn: "I may resume my search later",
                       },
                       {
                         id: "privacy_other",
-                        label: "🔒 వ్యక్తిగత గోప్యత లేదా ఇతర కారణాలు",
-                        labelEn: "🔒 Privacy or another reason",
+                        label: "వ్యక్తిగత గోప్యత లేదా ఇతర కారణాలు",
+                        labelEn: "Privacy or another reason",
                         desc: "ప్రస్తుతం ప్రొఫైల్ తొలగించాలనుకుంటున్నాం",
                         descEn: "I want to hide my profile for now",
                       },
@@ -382,7 +383,7 @@ export default function MePage() {
                 {deleteReason === "married_via_manavivaha" && (
                   <div className="bg-emerald-50 rounded-2xl p-3.5 border border-emerald-200 space-y-2 text-xs">
                     <div className="font-black text-emerald-900 flex items-center gap-1.5">
-                      <span>💐</span>
+                      <span><Flower2 aria-hidden="true" className="inline-block h-[1em] w-[1em] shrink-0 align-middle" /></span>
                       <span>{te ? "మన వివాహ కుటుంబం తరఫున హృదయపూర్వక శుభాకాంక్షలు!" : "Warm congratulations from the Mana Vivaha community!"}</span>
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
@@ -458,13 +459,13 @@ export default function MePage() {
                     onClick={handleDeleteAccount}
                     className="flex-1 py-2.5 rounded-2xl bg-rose-700 hover:bg-rose-800 text-white font-extrabold text-xs shadow-md transition disabled:opacity-50"
                   >
-                    {deleting ? (te ? "ప్రొఫైల్ దాచబడుతోంది…" : "Hiding profile…") : te ? "👁️ ప్రొఫైల్‌ను పబ్లిక్ శోధన నుంచి దాచండి" : "👁️ Hide profile from public search"}
+                    {deleting ? (te ? "ప్రొఫైల్ దాచబడుతోంది…" : "Hiding profile…") : te ? "ప్రొఫైల్‌ను పబ్లిక్ శోధన నుంచి దాచండి" : "Hide profile from public search"}
                   </button>
                 </div>
               </>
             )}
           </div>
-        </div>
+        </div>, document.body
       )}
     </div>
   );
@@ -483,7 +484,7 @@ function Msg({ m }: { m: { ok: boolean; text: string } | null }) {
   );
 }
 
-/* ---------------- 🎯 PARTNER PREFERENCES (కోరుకునే సంబంధం) ---------------- */
+/* ----------------  PARTNER PREFERENCES (కోరుకునే సంబంధం) ---------------- */
 function PartnerPreferencesPanel({ myId }: { myId: string }) {
   const { lang } = useLang();
   const te = lang === "te";
@@ -664,7 +665,7 @@ function PartnerPreferencesPanel({ myId }: { myId: string }) {
     try {
       const { ok, data, status } = await apiPost<Row>("/api/profile/preferences", payload);
       if (ok && data?.success) {
-        setMsg({ ok: true, text: apiDisplayMessage(data, te, te ? "మీ ప్రాధాన్యతలు భద్రపరచబడ్డాయి. ✅" : "Your preferences have been saved.") });
+        setMsg({ ok: true, text: apiDisplayMessage(data, te, te ? "మీ ప్రాధాన్యతలు భద్రపరచబడ్డాయి." : "Your preferences have been saved.") });
         setMatchingCount(data.matching_count || 0);
         setPreviewMatches(data.preview_matches || []);
       } else if (status === 0) {
@@ -703,7 +704,7 @@ function PartnerPreferencesPanel({ myId }: { myId: string }) {
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="text-center sm:text-left">
             <span className="mb-2 inline-block rounded-full border border-white/25 bg-white/15 px-3 py-1 text-[10px] font-black uppercase tracking-wider">
-              {te ? "🎯 స్మార్ట్ మ్యాచింగ్ ఫిల్టర్లు" : "🎯 Smart matching filters"}
+              {te ? "స్మార్ట్ మ్యాచింగ్ ఫిల్టర్లు" : "Smart matching filters"}
             </span>
             <h2 className="text-xl font-black sm:text-2xl">
               {te ? "మీకు ఎలాంటి సంబంధం కావాలి?" : "What are you looking for in a match?"}
@@ -729,7 +730,7 @@ function PartnerPreferencesPanel({ myId }: { myId: string }) {
                   {pm.photo_url ? (
                     <Image src={pm.photo_url} alt="" width={32} height={32} unoptimized className="w-full h-full object-cover" />
                   ) : (
-                    <span>{pm.gender === "Bride" ? "👰" : "🤵"}</span>
+                    <span>{pm.gender === "Bride" ? (te ? "వధువు" : "Bride") : (te ? "వరుడు" : "Groom")}</span>
                   )}
                 </div>
               ))}
@@ -738,7 +739,7 @@ function PartnerPreferencesPanel({ myId }: { myId: string }) {
               href="/matches"
               className="mv-btn min-h-11 bg-white px-4 text-xs font-black text-[#7A0C2E] hover:bg-[#fff1ee]"
             >
-              {te ? `👉 ${matchingCount} సరిపోలిన ప్రొఫైల్‌లను చూడండి` : `👉 View ${matchingCount} matching profiles`}
+              {te ? ` ${matchingCount} సరిపోలిన ప్రొఫైల్‌లను చూడండి` : ` View ${matchingCount} matching profiles`}
             </Link>
           </div>
         )}
@@ -747,11 +748,11 @@ function PartnerPreferencesPanel({ myId }: { myId: string }) {
       <form onSubmit={handleSave} className="mv-surface mv-surface__body space-y-6">
         {msg && <p ref={feedbackRef} role={msg.ok ? "status" : "alert"} className={`rounded-xl border p-3 text-sm ${msg.ok ? "border-emerald-300 bg-emerald-50 text-emerald-900" : "border-rose-200 bg-rose-50 text-rose-900"}`}>{msg.text}</p>}
 
-        {/* ⚡ SMART 1-CLICK MATCH PRESETS (త్వరిత ఎంపికలు) */}
+        {/*  SMART 1-CLICK MATCH PRESETS (త్వరిత ఎంపికలు) */}
         <div className="mv-note space-y-2 !p-4">
           <div className="flex items-center justify-between">
             <span className="text-xs font-black text-maroon flex items-center gap-1.5 uppercase tracking-wide">
-              <span>⚡</span> <span>{te ? "స్మార్ట్ 1-క్లిక్ ఎంపికలు" : "Quick preference presets"}</span>
+              <span><Zap aria-hidden="true" className="inline-block h-[1em] w-[1em] shrink-0 align-middle" /></span> <span>{te ? "స్మార్ట్ 1-క్లిక్ ఎంపికలు" : "Quick preference presets"}</span>
             </span>
             <span className="text-[10px] text-slate-500 font-bold">{te ? "ఒక్క క్లిక్‌తో ప్రాధాన్యతలు సెట్ చేయండి" : "Set preferences in one click"}</span>
           </div>
@@ -767,7 +768,7 @@ function PartnerPreferencesPanel({ myId }: { myId: string }) {
                 }}
                 className="px-3 py-1.5 rounded-xl text-xs font-black bg-white border border-amber-300 text-maroon shadow-xs hover:bg-amber-100 transition flex items-center gap-1 min-h-11"
               >
-                <span>💍</span>
+                <span><Heart aria-hidden="true" className="inline-block h-[1em] w-[1em] shrink-0 align-middle" /></span>
                 <span>{te ? `నా కమ్యూనిటీ (${myProfile.caste}) + హైదరాబాద్` : `My community (${myProfile.caste}) + Hyderabad`}</span>
               </button>
             )}
@@ -781,7 +782,7 @@ function PartnerPreferencesPanel({ myId }: { myId: string }) {
                 }}
                 className="px-3 py-1.5 rounded-xl text-xs font-black bg-white border border-rose-300 text-rose-800 shadow-xs hover:bg-rose-50 transition flex items-center gap-1 min-h-11"
               >
-                <span>🏡</span>
+                <span><House aria-hidden="true" className="inline-block h-[1em] w-[1em] shrink-0 align-middle" /></span>
                 <span>{te ? "గృహిణి ప్రొఫైల్‌లు మాత్రమే" : "Housewife / homemaker profiles"}</span>
               </button>
             )}
@@ -795,7 +796,7 @@ function PartnerPreferencesPanel({ myId }: { myId: string }) {
               }}
               className="px-3 py-1.5 rounded-xl text-xs font-black bg-white border border-blue-300 text-blue-800 shadow-xs hover:bg-blue-50 transition flex items-center gap-1 min-h-11"
             >
-              <span>💻</span>
+              <span><Laptop aria-hidden="true" className="inline-block h-[1em] w-[1em] shrink-0 align-middle" /></span>
               <span>{te ? "సాఫ్ట్‌వేర్ / IT నిపుణులు" : "Software / IT professionals"}</span>
             </button>
 
@@ -806,7 +807,7 @@ function PartnerPreferencesPanel({ myId }: { myId: string }) {
               }}
               className="px-3 py-1.5 rounded-xl text-xs font-black bg-white border border-emerald-300 text-emerald-800 shadow-xs hover:bg-emerald-50 transition flex items-center gap-1 min-h-11"
             >
-              <span>🏛️</span>
+              <span><Landmark aria-hidden="true" className="inline-block h-[1em] w-[1em] shrink-0 align-middle" /></span>
               <span>{te ? "ప్రభుత్వ ఉద్యోగులు" : "Government employees"}</span>
             </button>
 
@@ -819,7 +820,7 @@ function PartnerPreferencesPanel({ myId }: { myId: string }) {
               }}
               className="px-3 py-1.5 rounded-xl text-xs font-black bg-white border border-indigo-300 text-indigo-800 shadow-xs hover:bg-indigo-50 transition flex items-center gap-1 min-h-11"
             >
-              <span>🌍</span>
+              <span><Globe aria-hidden="true" className="inline-block h-[1em] w-[1em] shrink-0 align-middle" /></span>
               <span>{te ? "NRI సంబంధాలు (USA / విదేశాలు)" : "NRI matches (USA / abroad)"}</span>
             </button>
 
@@ -831,7 +832,7 @@ function PartnerPreferencesPanel({ myId }: { myId: string }) {
               }}
               className="px-3 py-1.5 rounded-xl text-xs font-black bg-white border border-purple-300 text-purple-800 shadow-xs hover:bg-purple-50 transition flex items-center gap-1 min-h-11"
             >
-              <span>💖</span>
+              <span><Heart aria-hidden="true" className="inline-block h-[1em] w-[1em] shrink-0 align-middle" /></span>
               <span>{te ? "కుల పరిమితి లేదు" : "Any community"}</span>
             </button>
           </div>
@@ -841,7 +842,7 @@ function PartnerPreferencesPanel({ myId }: { myId: string }) {
         <div className="space-y-3">
           <div className="flex items-center justify-between border-b border-slate-100 pb-2">
             <h3 className="text-sm font-black text-maroon uppercase tracking-wider flex items-center gap-2">
-              <span>🎂</span> <span>{te ? "వయస్సు & ఎత్తు పరిధి" : "Age and height range"}</span>
+              <span><Cake aria-hidden="true" className="inline-block h-[1em] w-[1em] shrink-0 align-middle" /></span> <span>{te ? "వయస్సు & ఎత్తు పరిధి" : "Age and height range"}</span>
             </h3>
             <span className="text-xs font-bold text-[#7A0C2E] bg-amber-50 px-3 py-1 rounded-full border border-amber-200">
               {te ? `${ageMin} నుండి ${ageMax} సం. • ${heightMin} నుండి ${heightMax}` : `${ageMin}–${ageMax} years • ${heightMin}–${heightMax}`}
@@ -914,7 +915,7 @@ function PartnerPreferencesPanel({ myId }: { myId: string }) {
         <div className="space-y-3 border-t border-slate-100 pt-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-2">
             <h3 className="text-sm font-black text-maroon uppercase tracking-wider flex items-center gap-2">
-              <span>🏛️</span> <span>{te ? "కోరుకునే కమ్యూనిటీలు (అనేకం ఎంచుకోవచ్చు)" : "Preferred communities (select any)"}</span>
+              <span><Landmark aria-hidden="true" className="inline-block h-[1em] w-[1em] shrink-0 align-middle" /></span> <span>{te ? "కోరుకునే కమ్యూనిటీలు (అనేకం ఎంచుకోవచ్చు)" : "Preferred communities (select any)"}</span>
             </h3>
             <div className="flex items-center gap-2">
               <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700 bg-amber-50 px-3 py-1 rounded-full border border-amber-200 cursor-pointer">
@@ -948,11 +949,11 @@ function PartnerPreferencesPanel({ myId }: { myId: string }) {
           {!casteNoBar && (
             <div className="space-y-2">
               <div className="flex items-center gap-2">
-                <input aria-label={te ? "🔍 సంఘం లేదా ఉపసంఘం పేరుతో వెతకండి" : "🔍 Search communities or sub-communities"}
+                <input aria-label={te ? "సంఘం లేదా ఉపసంఘం పేరుతో వెతకండి" : "Search communities or sub-communities"}
                   type="text"
                   value={casteSearch}
                   onChange={(e) => setCasteSearch(e.target.value)}
-                  placeholder={te ? "🔍 సంఘం లేదా ఉపసంఘం పేరుతో వెతకండి" : "🔍 Search communities or sub-communities"}
+                  placeholder={te ? "సంఘం లేదా ఉపసంఘం పేరుతో వెతకండి" : "Search communities or sub-communities"}
                   className="w-full p-2.5 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-maroon"
                 />
                 {castes.length > 0 && (
@@ -1024,7 +1025,7 @@ function PartnerPreferencesPanel({ myId }: { myId: string }) {
         <div className="space-y-3 border-t border-slate-100 pt-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-2">
             <h3 className="text-sm font-black text-maroon uppercase tracking-wider flex items-center gap-2">
-              <span>🎓</span> <span>{te ? "కోరుకునే విద్యార్హతలు" : "Preferred education"}</span>
+              <span><GraduationCap aria-hidden="true" className="inline-block h-[1em] w-[1em] shrink-0 align-middle" /></span> <span>{te ? "కోరుకునే విద్యార్హతలు" : "Preferred education"}</span>
             </h3>
             <div className="flex items-center gap-2">
               <button
@@ -1095,7 +1096,7 @@ function PartnerPreferencesPanel({ myId }: { myId: string }) {
         <div className="space-y-3 border-t border-slate-100 pt-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-2">
             <h3 className="text-sm font-black text-maroon uppercase tracking-wider flex items-center gap-2">
-              <span>💼</span> <span>{te ? "కోరుకునే ఉద్యోగాలు / వృత్తులు" : "Preferred jobs and occupations"}</span>
+              <span><BriefcaseBusiness aria-hidden="true" className="inline-block h-[1em] w-[1em] shrink-0 align-middle" /></span> <span>{te ? "కోరుకునే ఉద్యోగాలు / వృత్తులు" : "Preferred jobs and occupations"}</span>
             </h3>
             <div className="flex items-center gap-2 flex-wrap">
               {isGroom ? (
@@ -1105,7 +1106,7 @@ function PartnerPreferencesPanel({ myId }: { myId: string }) {
                     onClick={() => setJobs(["Housewife / Homemaker (గృహిణి)", "Not Working / Looking for Job"])}
                     className="text-[11px] font-black text-rose-800 bg-rose-50 px-2.5 py-1 rounded-full border border-rose-200 hover:bg-rose-100 min-h-11"
                   >
-                    {te ? "🏡 గృహిణి మాత్రమే" : "🏡 Housewife / homemaker only"}
+                    {te ? "గృహిణి మాత్రమే" : "Housewife / homemaker only"}
                   </button>
                   <button
                     type="button"
@@ -1119,7 +1120,7 @@ function PartnerPreferencesPanel({ myId }: { myId: string }) {
                     }
                     className="text-[11px] font-black text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200 hover:bg-emerald-100 min-h-11"
                   >
-                    {te ? "💼 ఉద్యోగం చేసే వధువులు" : "💼 Working brides"}
+                    {te ? "ఉద్యోగం చేసే వధువులు" : "Working brides"}
                   </button>
                 </>
               ) : (
@@ -1203,7 +1204,7 @@ function PartnerPreferencesPanel({ myId }: { myId: string }) {
         <div className="space-y-3 border-t border-slate-100 pt-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-2">
             <h3 className="text-sm font-black text-maroon uppercase tracking-wider flex items-center gap-2">
-              <span>📍</span> <span>{te ? "కోరుకునే జిల్లాలు & ప్రాంతాలు" : "Preferred districts and locations"}</span>
+              <span><MapPin aria-hidden="true" className="inline-block h-[1em] w-[1em] shrink-0 align-middle" /></span> <span>{te ? "కోరుకునే జిల్లాలు & ప్రాంతాలు" : "Preferred districts and locations"}</span>
             </h3>
             <div className="flex flex-wrap items-center gap-1.5">
               <button
@@ -1242,11 +1243,11 @@ function PartnerPreferencesPanel({ myId }: { myId: string }) {
           </div>
 
           <div className="space-y-2">
-            <input aria-label={te ? "🔍 జిల్లాను వెతకండి (ఉదా: Hyderabad, Warangal, Guntur)…" : "🔍 Search districts (e.g. Hyderabad, Warangal, Guntur)…"}
+            <input aria-label={te ? "జిల్లాను వెతకండి (ఉదా: Hyderabad, Warangal, Guntur)…" : "Search districts (e.g. Hyderabad, Warangal, Guntur)…"}
               type="text"
               value={districtSearch}
               onChange={(e) => setDistrictSearch(e.target.value)}
-              placeholder={te ? "🔍 జిల్లాను వెతకండి (ఉదా: Hyderabad, Warangal, Guntur)…" : "🔍 Search districts (e.g. Hyderabad, Warangal, Guntur)…"}
+              placeholder={te ? "జిల్లాను వెతకండి (ఉదా: Hyderabad, Warangal, Guntur)…" : "Search districts (e.g. Hyderabad, Warangal, Guntur)…"}
               className="w-full p-2.5 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-maroon"
             />
 
@@ -1277,7 +1278,7 @@ function PartnerPreferencesPanel({ myId }: { myId: string }) {
         {/* 6. Marital Status & Diet */}
         <div className="space-y-3 border-t border-slate-100 pt-4">
           <h3 className="text-sm font-black text-maroon uppercase tracking-wider flex items-center gap-2 border-b border-slate-100 pb-2">
-            <span>💍</span> <span>{te ? "వైవాహిక స్థితి & ఇతర అలవాట్లు" : "Marital status and lifestyle"}</span>
+            <span><Heart aria-hidden="true" className="inline-block h-[1em] w-[1em] shrink-0 align-middle" /></span> <span>{te ? "వైవాహిక స్థితి & ఇతర అలవాట్లు" : "Marital status and lifestyle"}</span>
           </h3>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
@@ -1327,7 +1328,7 @@ function PartnerPreferencesPanel({ myId }: { myId: string }) {
         {/* 7. Save Action Bar */}
         <div className="pt-4 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="text-xs text-slate-600 font-medium text-center sm:text-left">
-            {te ? "💾 సేవ్ చేసిన తర్వాత మీ ప్రాధాన్యతలకు సరిపోయే ప్రొఫైల్‌ల సంఖ్య నవీకరించబడుతుంది." : "💾 Saving updates the count of profiles matching your preferences."}
+            {te ? "సేవ్ చేసిన తర్వాత మీ ప్రాధాన్యతలకు సరిపోయే ప్రొఫైల్‌ల సంఖ్య నవీకరించబడుతుంది." : "Saving updates the count of profiles matching your preferences."}
           </div>
 
           <button
@@ -1335,7 +1336,7 @@ function PartnerPreferencesPanel({ myId }: { myId: string }) {
             disabled={saving}
             className="w-full sm:w-auto px-8 py-3.5 rounded-2xl gold-gradient text-maroon text-sm font-black shadow-md hover:brightness-105 transition flex items-center justify-center gap-2 disabled:opacity-50"
           >
-            {saving ? (te ? "సేవ్ అవుతోంది…" : "Saving…") : te ? "💾 నా ప్రాధాన్యతలను సేవ్ చేయండి" : "💾 Save preferences"}
+            {saving ? (te ? "సేవ్ అవుతోంది…" : "Saving…") : te ? "నా ప్రాధాన్యతలను సేవ్ చేయండి" : "Save preferences"}
           </button>
         </div>
       </form>
@@ -1343,7 +1344,7 @@ function PartnerPreferencesPanel({ myId }: { myId: string }) {
   );
 }
 
-/* ================= ✏️ PROFILE COMPLETION & EDIT PANEL ================= */
+/* =================  PROFILE COMPLETION & EDIT PANEL ================= */
 function EditProfilePanel({ myId }: { myId: string }) {
   const { lang } = useLang();
   const te = lang === "te";
@@ -1388,7 +1389,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
     .slice(0, 6)
     .map((field) => ({
       field,
-      label: fieldLabels[field] || String(field).replaceAll("_", " "),
+      label: fieldLabels[field] || String(field).replaceAll("_", ""),
       focusable: FOCUSABLE_FIELDS.has(field),
     }));
 
@@ -1459,7 +1460,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
       if (res.ok && d.success) {
         setScore(typeof d.completeness_score === "number" && Number.isFinite(d.completeness_score) ? Math.min(100, Math.max(0, d.completeness_score)) : 0);
         setMissing(d.missing_fields || []);
-        setMsg({ ok: true, text: apiDisplayMessage(d, te, te ? "ప్రొఫైల్ వివరాలు అప్‌డేట్ అయ్యాయి. ✅" : "Profile details updated.") });
+        setMsg({ ok: true, text: apiDisplayMessage(d, te, te ? "ప్రొఫైల్ వివరాలు అప్‌డేట్ అయ్యాయి." : "Profile details updated.") });
       } else {
         setMsg({ ok: false, text: apiDisplayMessage(d, te, te ? "అప్‌డేట్ విఫలమైంది. మళ్లీ ప్రయత్నించండి." : "Update failed. Please try again.") });
       }
@@ -1492,7 +1493,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-xl">📊</span>
+              <span className="text-xl"><ChartNoAxesColumn aria-hidden="true" className="inline-block h-[1em] w-[1em] shrink-0 align-middle" /></span>
               <h2 className="text-base font-black text-slate-900">
                 {T("ప్రొఫైల్ పూర్తి స్థితి", "Profile completion")} <span className="text-maroon">{score}%</span>
               </h2>
@@ -1515,7 +1516,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
                 score >= 90 ? "bg-emerald-100 text-emerald-800 border border-emerald-300" : "bg-amber-100 text-amber-900 border border-amber-300"
               }`}
             >
-              {score >= 90 ? T("🌟 ఎక్కువ వివరాలు జోడించారు", "🌟 Profile details added") : T("⚡ పూర్తి చేయాల్సినవి ఉన్నాయి", "⚡ More details to add")}
+              {score >= 90 ? T("ఎక్కువ వివరాలు జోడించారు", "Profile details added") : T("పూర్తి చేయాల్సినవి ఉన్నాయి", "More details to add")}
             </span>
           </div>
         </div>
@@ -1532,7 +1533,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
           <div className="bg-white/80 rounded-xl p-3 border border-gold/20 space-y-2">
             <div className="flex items-center justify-between gap-2">
               <p className="text-xs font-bold text-maroon">
-                💡 {T("తదుపరి చర్యలు", "Suggested next steps")}
+                 {T("తదుపరి చర్యలు", "Suggested next steps")}
               </p>
               <span className="text-[10px] font-bold text-slate-500">
                 {T(`${nextSteps.length} మిగిలాయి`, `${nextSteps.length} remaining`)}
@@ -1547,12 +1548,12 @@ function EditProfilePanel({ myId }: { myId: string }) {
                       onClick={() => focusField(step.field)}
                       className="inline-flex min-h-11 items-center gap-1 rounded-full border border-gold/50 bg-amber-50 px-3 py-1.5 text-[11px] font-bold text-maroon transition hover:bg-amber-100"
                     >
-                      <span aria-hidden="true">✏️</span>
+                      <span aria-hidden="true"><Pencil aria-hidden="true" className="inline-block h-[1em] w-[1em] shrink-0 align-middle" /></span>
                       <span>{step.label}</span>
                     </button>
                   ) : (
                     <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-600">
-                      <span aria-hidden="true">ℹ️</span>
+                      <span aria-hidden="true"></span>
                       <span>{step.label}</span>
                     </span>
                   )}
@@ -1573,10 +1574,10 @@ function EditProfilePanel({ myId }: { myId: string }) {
             {T("సంబంధాలను వెతకండి →", "Browse matches →")}
           </Link>
           <Link href="/shortlist" className="inline-flex min-h-11 items-center rounded-full border border-maroon/30 px-4 py-2 text-xs font-bold text-maroon">
-            {T("❤️ నా షార్ట్‌లిస్ట్", "❤️ My shortlist")}
+            {T("నా షార్ట్‌లిస్ట్", "My shortlist")}
           </Link>
           <Link href="/saved-searches" className="inline-flex min-h-11 items-center rounded-full border border-maroon/30 px-4 py-2 text-xs font-bold text-maroon">
-            {T("🔔 నా saved searches", "🔔 My saved searches")}
+            {T("నా saved searches", "My saved searches")}
           </Link>
           <Link href="/safety" className="inline-flex min-h-11 items-center rounded-full border border-maroon/30 px-4 py-2 text-xs font-bold text-maroon">
             {T("భద్రతా మార్గదర్శిని", "Safety guide")}
@@ -1591,7 +1592,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
         {/* 1. Basic Info */}
         <div className="space-y-4">
           <h3 className="text-sm font-black text-maroon uppercase tracking-wider border-b border-slate-100 pb-2 flex items-center gap-2">
-            <span>👤</span> <span>{T("ప్రాథమిక వివరాలు", "Basic information")}</span>
+            <span><UserRound aria-hidden="true" className="inline-block h-[1em] w-[1em] shrink-0 align-middle" /></span> <span>{T("ప్రాథమిక వివరాలు", "Basic information")}</span>
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
             <div>
@@ -1647,7 +1648,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
         {/* 2. Caste & Horoscope */}
         <div className="space-y-4">
           <h3 className="text-sm font-black text-maroon uppercase tracking-wider border-b border-slate-100 pb-2 flex items-center gap-2">
-            <span>⭐</span> <span>{T("కులం & జ్యోతిషం", "Community and astrology")}</span>
+            <span></span> <span>{T("కులం & జ్యోతిషం", "Community and astrology")}</span>
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
             <div>
@@ -1718,7 +1719,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
                 <option value="">{T("నక్షత్రం ఎంచుకోండి", "Select nakshatram")}</option>
                 {NAKSHATRAS.map((st) => (
                   <option key={st.en} value={st.en}>
-                    {te ? `⭐ ${st.te} (${st.en})` : `⭐ ${st.en}`}
+                    {te ? ` ${st.te} (${st.en})` : ` ${st.en}`}
                   </option>
                 ))}
               </select>
@@ -1757,7 +1758,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
         {/* 3. Education & Career */}
         <div className="space-y-4">
           <h3 className="text-sm font-black text-maroon uppercase tracking-wider border-b border-slate-100 pb-2 flex items-center gap-2">
-            <span>💼</span> <span>{T("చదువు & ఉద్యోగం", "Education and career")}</span>
+            <span><BriefcaseBusiness aria-hidden="true" className="inline-block h-[1em] w-[1em] shrink-0 align-middle" /></span> <span>{T("చదువు & ఉద్యోగం", "Education and career")}</span>
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
             <div>
@@ -1847,7 +1848,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
         {/* 4. Family & Physical Details */}
         <div className="space-y-4">
           <h3 className="text-sm font-black text-maroon uppercase tracking-wider border-b border-slate-100 pb-2 flex items-center gap-2">
-            <span>👨‍👩‍👧</span> <span>{T("కుటుంబ వివరాలు & శారీరక లక్షణాలు", "Family and physical details")}</span>
+            <span><Users aria-hidden="true" className="inline-block h-[1em] w-[1em] shrink-0 align-middle" /></span> <span>{T("కుటుంబ వివరాలు & శారీరక లక్షణాలు", "Family and physical details")}</span>
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 text-xs">
             <div>
@@ -2050,7 +2051,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
             disabled={saving}
             className="px-8 py-3 rounded-2xl gold-gradient text-maroon text-xs sm:text-sm font-black shadow-md hover:brightness-105 transition flex items-center gap-2 disabled:opacity-50"
           >
-            {saving ? (te ? "సేవ్ అవుతోంది…" : "Saving…") : te ? "💾 మార్పులను సేవ్ చేయండి" : "💾 Save changes"}
+            {saving ? (te ? "సేవ్ అవుతోంది…" : "Saving…") : te ? "మార్పులను సేవ్ చేయండి" : "Save changes"}
           </button>
         </div>
       </form>
@@ -2058,7 +2059,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
   );
 }
 
-/* ---------------- 🔥 STREAK ---------------- */
+/* ----------------  STREAK ---------------- */
 function StreakPanel({ myId }: { myId: string }) {
   const { lang } = useLang();
   const te = lang === "te";
@@ -2083,26 +2084,26 @@ function StreakPanel({ myId }: { myId: string }) {
   };
   return (
     <section className="mv-surface mv-surface__body text-center">
-      <p className="text-5xl">🔥</p>
+      <p className="text-5xl"><Flame aria-hidden="true" className="inline-block h-[1em] w-[1em] shrink-0 align-middle" /></p>
       <p className="mt-2 text-4xl font-extrabold text-[#7A0C2E]">{st?.count ?? "—"}</p>
       <p className="text-[12px] text-slate-500">{te ? "రోజుల స్ట్రీక్" : "day streak"}</p>
       <div className="mt-3 flex flex-wrap justify-center gap-3 text-[12px]">
-        <span className="rounded-full bg-amber-50 border border-amber-300 px-3 py-1">🏆 {te ? "గరిష్ఠం" : "Best"}: {st?.best ?? "—"}</span>
-        <span className="rounded-full bg-emerald-50 border border-emerald-300 px-3 py-1">🎁 {te ? "తదుపరి" : "Next"}: +{st?.next_bonus ?? "?"} {te ? "క్రెడిట్‌లు" : "credits"}</span>
+        <span className="rounded-full bg-amber-50 border border-amber-300 px-3 py-1"> {te ? "గరిష్ఠం" : "Best"}: {st?.best ?? "—"}</span>
+        <span className="rounded-full bg-emerald-50 border border-emerald-300 px-3 py-1"> {te ? "తదుపరి" : "Next"}: +{st?.next_bonus ?? "?"} {te ? "క్రెడిట్‌లు" : "credits"}</span>
       </div>
       <button type="button"
         onClick={() => void claim()}
         disabled={busy || !!st?.claimed_today}
         className="mt-4 rounded-2xl bg-[#7A0C2E] px-6 py-3 text-sm font-bold text-white disabled:opacity-50"
       >
-        {st?.claimed_today ? (te ? "✅ ఈరోజు క్లెయిమ్ చేశారు" : "✅ Claimed today") : busy ? (te ? "లోడ్ అవుతోంది…" : "Working…") : te ? "🎁 రోజువారీ బోనస్ పొందండి" : "🎁 Claim daily bonus"}
+        {st?.claimed_today ? (te ? "ఈరోజు క్లెయిమ్ చేశారు" : "Claimed today") : busy ? (te ? "లోడ్ అవుతోంది…" : "Working…") : te ? "రోజువారీ బోనస్ పొందండి" : "Claim daily bonus"}
       </button>
       <Msg m={msg} />
     </section>
   );
 }
 
-/* ---------------- 📋 UNLOCKS ---------------- */
+/* ----------------  UNLOCKS ---------------- */
 function UnlocksPanel({ myId }: { myId: string }) {
   const { lang } = useLang();
   const te = lang === "te";
@@ -2136,7 +2137,7 @@ function UnlocksPanel({ myId }: { myId: string }) {
   );
 }
 
-/* ---------------- ⚡ BOOST ---------------- */
+/* ----------------  BOOST ---------------- */
 function BoostPanel({ myId }: { myId: string }) {
   const { lang } = useLang();
   const te = lang === "te";
@@ -2154,7 +2155,7 @@ function BoostPanel({ myId }: { myId: string }) {
 
   return (
     <section className="mv-surface mv-surface__body min-w-0 space-y-4 text-center sm:!p-5">
-      <div className="text-4xl" aria-hidden="true">⚡</div>
+      <div className="text-4xl" aria-hidden="true"><Zap aria-hidden="true" className="inline-block h-[1em] w-[1em] shrink-0 align-middle" /></div>
       <h2 className="text-base font-extrabold text-[#7A0C2E]">{te ? "ప్రొఫైల్ ప్రమోషన్" : "Profile promotion"}</h2>
       <p className="mx-auto max-w-xl text-xs leading-relaxed text-slate-600">
         {te ? "ఎంచుకున్న కాలానికి బూస్ట్ కొనండి. చెల్లింపు ధృవీకరించిన తర్వాత మాత్రమే అమలవుతుంది." : "Choose a promotion duration. The boost is activated only after payment is verified."}
@@ -2179,7 +2180,7 @@ function BoostPanel({ myId }: { myId: string }) {
   );
 }
 
-/* ---------------- 🎙️ VOICE ---------------- */
+/* ----------------  VOICE ---------------- */
 function VoicePanel({ myId }: { myId: string }) {
   const { lang } = useLang();
   const te = lang === "te";
@@ -2201,7 +2202,7 @@ function VoicePanel({ myId }: { myId: string }) {
         body: fd,
       });
       const d = await readApiJson(res);
-      if (res.ok && d.success) setMsg({ ok: true, text: te ? "వాయిస్ బయోడేటా అప్‌లోడ్ అయింది! ✅" : "Voice bio uploaded successfully." });
+      if (res.ok && d.success) setMsg({ ok: true, text: te ? "వాయిస్ బయోడేటా అప్‌లోడ్ అయింది!" : "Voice bio uploaded successfully." });
       else setMsg({ ok: false, text: apiDisplayMessage(d, te, te ? "అప్‌లోడ్ విఫలమైంది. మళ్లీ ప్రయత్నించండి." : "Upload failed. Please try again.") });
     } catch {
       setMsg({ ok: false, text: te ? "నెట్‌వర్క్ సమస్య. మళ్లీ ప్రయత్నించండి." : "A network error occurred. Please try again." });
@@ -2211,7 +2212,7 @@ function VoicePanel({ myId }: { myId: string }) {
 
   return (
     <section className="mv-surface mv-surface__body space-y-3 text-center">
-      <div className="text-4xl">🎙️</div>
+      <div className="text-4xl"><Mic aria-hidden="true" className="inline-block h-[1em] w-[1em] shrink-0 align-middle" /></div>
       <h2 className="text-base font-extrabold text-[#7A0C2E]">{te ? "వాయిస్ బయోడేటా" : "Voice bio"}</h2>
       <p className="text-xs text-slate-600">{te ? "ఆడియో బయోడేటాను అప్‌లోడ్ చేసి మీ ప్రొఫైల్‌కు జోడించండి." : "Upload an audio bio to add it to your profile."}</p>
       <label className="mx-auto block max-w-full text-xs text-slate-700">
@@ -2224,7 +2225,7 @@ function VoicePanel({ myId }: { myId: string }) {
   );
 }
 
-/* ---------------- 🪐 JATHAKAM ---------------- */
+/* ----------------  JATHAKAM ---------------- */
 function JathakamPanel({ myId }: { myId: string }) {
   const { lang } = useLang();
   const te = lang === "te";
@@ -2289,7 +2290,7 @@ function JathakamPanel({ myId }: { myId: string }) {
 
   return (
     <section className="mv-surface mv-surface__body text-center space-y-3">
-      <div className="text-4xl" aria-hidden="true">🪐</div>
+      <div className="text-4xl" aria-hidden="true"><Orbit aria-hidden="true" className="inline-block h-[1em] w-[1em] shrink-0 align-middle" /></div>
       <h2 className="text-base font-extrabold text-[#7A0C2E]">{te ? "నిజమైన జాతక పత్రం review" : "Real Jathakam document review"}</h2>
       <p className="text-xs leading-relaxed text-slate-600">{te ? "Star-only లెక్కలు లేదా ఊహించిన chart చూపించము. మీ స్వంత జాతక పత్రాన్ని అప్‌లోడ్ చేసి review స్థితిని మాత్రమే చూడండి." : "We do not show star-only calculations or an invented chart. Upload your own horoscope document and see only its review state."}</p>
       <div className="mv-note text-left">
@@ -2310,34 +2311,34 @@ function JathakamPanel({ myId }: { myId: string }) {
   );
 }
 
-/* ---------------- 📤 SHARE ---------------- */
+/* ----------------  SHARE ---------------- */
 function SharePanel() {
   const { lang } = useLang();
   const te = lang === "te";
 
   return (
     <section className="mv-surface mv-surface__body space-y-3 text-center">
-      <div className="text-4xl">📤</div>
+      <div className="text-4xl"><Share2 aria-hidden="true" className="inline-block h-[1em] w-[1em] shrink-0 align-middle" /></div>
       <h2 className="text-base font-extrabold text-[#7A0C2E]">{te ? "ప్రొఫైల్ షేరింగ్ & బయోడేటా" : "Profile sharing and biodata"}</h2>
       <div className="flex flex-wrap justify-center gap-3">
         <Link href={`/biodata`} className="px-5 py-2.5 rounded-2xl gold-gradient text-maroon font-bold text-xs shadow-md">
-          {te ? "🎴 HD బయోడేటా JPG డౌన్‌లోడ్" : "🎴 Download high-resolution biodata JPG"}
+          {te ? "HD బయోడేటా JPG డౌన్‌లోడ్" : "Download high-resolution biodata JPG"}
         </Link>
         <Link href="/referral" className="px-5 py-2.5 rounded-2xl maroon-gradient text-white font-bold text-xs shadow-md">
-          {te ? "🤝 రెఫరల్ QR కోడ్" : "🤝 Referral QR code"}
+          {te ? "రెఫరల్ QR కోడ్" : "Referral QR code"}
         </Link>
       </div>
     </section>
   );
 }
 
-/* ---------------- 🔔 ALERTS ---------------- */
+/* ----------------  ALERTS ---------------- */
 function AlertsPanel() {
   const { lang } = useLang();
   const te = lang === "te";
   return (
     <section className="mv-surface mv-surface__body space-y-3 text-center">
-      <div className="text-4xl" aria-hidden="true">🔔</div>
+      <div className="text-4xl" aria-hidden="true"><Bell aria-hidden="true" className="inline-block h-[1em] w-[1em] shrink-0 align-middle" /></div>
       <h2 className="text-base font-extrabold text-[#7A0C2E]">{te ? "మ్యాచ్ అలర్ట్స్" : "Match alerts"}</h2>
       <p className="mx-auto max-w-lg text-xs leading-relaxed text-slate-600">
         {te ? "ఈ ఖాతాలో మ్యాచ్ అలర్ట్‌లను ఇంకా సెటప్ చేయలేదు. కొత్త ప్రొఫైల్‌లను మ్యాచెస్ పేజీలో చూడండి." : "Match alerts are not configured for this account yet. Browse available profiles on the Matches page."}
