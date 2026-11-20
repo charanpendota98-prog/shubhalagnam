@@ -3,6 +3,8 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { apiDisplayMessage } from "@/lib/api";
 import { useLang } from "@/lib/lang";
+import { Check, Clipboard, Handshake, UserRound, UsersRound, X } from "lucide-react";
+import { WhatsAppIcon } from "@/components/BrandIcons";
 
 export interface ProposalProfileData {
   tsap_id: string;
@@ -223,10 +225,10 @@ export default function WhatsAppProposalModal({ isOpen, onClose, profile }: Prop
         <div className="mv-proposal-header maroon-gradient px-6 py-4 text-white shrink-0">
           <div className="min-w-0 flex-1">
               <h3 id={titleId} className="font-extrabold text-base md:text-lg">
-                {te ? "వాట్సాప్ సంబంధం ప్రతిపాదన (Proposal Share)" : "Share WhatsApp Proposal"}
+                {te ? "వాట్సాప్‌లో పంచుకోండి" : "Share WhatsApp Proposal"}
               </h3>
               <p id={descriptionId} className="text-[11px] text-amber-200 font-medium">
-                {te ? "సంపూర్ణ వివరాలు + HD బయోడేటా లింక్‌తో క్షణాల్లో వాట్సాప్‌లో పంపండి" : "Send beautiful personalized biodata proposal via WhatsApp"}
+                {te ? "సందేశాన్ని పరిశీలించి కాపీ చేయండి లేదా వాట్సాప్‌లో తెరవండి." : "Review the message, then copy it or open it in WhatsApp."}
               </p>
           </div>
           <button type="button"
@@ -235,7 +237,7 @@ export default function WhatsAppProposalModal({ isOpen, onClose, profile }: Prop
             aria-label={te ? "మూసివేయండి" : "Close"}
             className="mv-proposal-close min-w-11 min-h-11 shrink-0 rounded-full bg-white/20 text-white hover:bg-white/30 flex items-center justify-center font-bold text-sm transition"
           >
-            ✕
+            <X aria-hidden="true" className="h-4 w-4" />
           </button>
         </div>
 
@@ -244,41 +246,44 @@ export default function WhatsAppProposalModal({ isOpen, onClose, profile }: Prop
           {/* Tone Selector */}
           <div>
             <label className="text-xs font-bold text-slate-700 block mb-1.5">
-              {te ? "ఎవరి తరఫున పంపుతున్నారు? (Proposal Tone):" : "Sending On Behalf Of:"}
+              {te ? "ఎవరి తరఫున పంపుతున్నారు?" : "Sending On Behalf Of:"}
             </label>
             <div className="mv-proposal-tones grid gap-2">
               <button
                 type="button"
                 onClick={() => setTone("parent")}
-                className={`py-2 px-3 rounded-xl text-xs font-bold transition text-center border ${
+                aria-pressed={tone === "parent"}
+                className={`min-h-11 flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-bold transition text-center border ${
                   tone === "parent"
                     ? "bg-[#7A0C2E] text-white border-[#7A0C2E] shadow-xs"
                     : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
                 }`}
               >
-                👨‍👩‍👦 {te ? "తల్లిదండ్రులు" : "Parents"}
+                <UsersRound aria-hidden="true" className="h-4 w-4 shrink-0" />{te ? "తల్లిదండ్రులు" : "Parents"}
               </button>
               <button
                 type="button"
                 onClick={() => setTone("self")}
-                className={`py-2 px-3 rounded-xl text-xs font-bold transition text-center border ${
+                aria-pressed={tone === "self"}
+                className={`min-h-11 flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-bold transition text-center border ${
                   tone === "self"
                     ? "bg-[#7A0C2E] text-white border-[#7A0C2E] shadow-xs"
                     : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
                 }`}
               >
-                💍 {te ? "స్వయంగా" : "Candidate"}
+                <UserRound aria-hidden="true" className="h-4 w-4 shrink-0" />{te ? "స్వయంగా" : "Candidate"}
               </button>
               <button
                 type="button"
                 onClick={() => setTone("relative")}
-                className={`py-2 px-3 rounded-xl text-xs font-bold transition text-center border ${
+                aria-pressed={tone === "relative"}
+                className={`min-h-11 flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-bold transition text-center border ${
                   tone === "relative"
                     ? "bg-[#7A0C2E] text-white border-[#7A0C2E] shadow-xs"
                     : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
                 }`}
               >
-                🤝 {te ? "బంధువులు / Mediator" : "Relative"}
+                <Handshake aria-hidden="true" className="h-4 w-4 shrink-0" />{te ? "బంధువులు" : "Relative"}
               </button>
             </div>
           </div>
@@ -292,7 +297,7 @@ export default function WhatsAppProposalModal({ isOpen, onClose, profile }: Prop
                 onChange={(e) => setIncludeSalary(e.target.checked)}
                 className="rounded accent-[#7A0C2E]"
               />
-              <span>💰 {te ? "ఆదాయం (Salary) చేర్చు" : "Include Salary"}</span>
+              <span>{te ? "ఆదాయం చేర్చు" : "Include Salary"}</span>
             </label>
             <label className="flex items-center gap-1.5 cursor-pointer">
               <input
@@ -301,7 +306,7 @@ export default function WhatsAppProposalModal({ isOpen, onClose, profile }: Prop
                 onChange={(e) => setIncludeAstro(e.target.checked)}
                 className="rounded accent-[#7A0C2E]"
               />
-              <span>🌟 {te ? "గోత్రం/నక్షత్రం చేర్చు (member-entered)" : "Include member-entered Gothram/Star"}</span>
+              <span>{te ? "సభ్యుడు ఇచ్చిన గోత్రం/నక్షత్రం చేర్చు" : "Include member-entered Gothram/Star"}</span>
             </label>
             <label className="flex items-center gap-1.5 cursor-pointer">
               <input
@@ -310,7 +315,7 @@ export default function WhatsAppProposalModal({ isOpen, onClose, profile }: Prop
                 onChange={(e) => setIncludeBiodataLink(e.target.checked)}
                 className="rounded accent-[#7A0C2E]"
               />
-              <span>🎴 {te ? "HD బయోడేటా లింక్ చేర్చు" : "Include Biodata Link"}</span>
+              <span>{te ? "బయోడేటా రూపొందించే లింక్ చేర్చు" : "Include Biodata Link"}</span>
             </label>
           </div>
 
@@ -318,10 +323,10 @@ export default function WhatsAppProposalModal({ isOpen, onClose, profile }: Prop
           <div>
             <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
               <label className="text-xs font-bold text-slate-700">
-                {te ? "వాట్సాప్ సందేశం ప్రివ్యూ (WhatsApp Message Preview):" : "Live WhatsApp Message Preview:"}
+                {te ? "వాట్సాప్ సందేశం ముందస్తు వీక్షణ:" : "Live WhatsApp Message Preview:"}
               </label>
               <span className="shrink-0 whitespace-nowrap text-[10px] text-emerald-700 font-bold bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
-                ✓ Ready to send
+                {te ? "పంపే ముందు పరిశీలించండి" : "Review before sending"}
               </span>
             </div>
             <pre tabIndex={0} aria-label={te ? "సందేశం ముందస్తు వీక్షణ" : "Message preview"} className="w-full bg-[#E5DDD5]/40 border border-[#25D366]/30 rounded-2xl p-3.5 text-xs text-slate-800 font-sans whitespace-pre-wrap leading-relaxed max-h-56 overflow-y-auto">
@@ -349,7 +354,7 @@ export default function WhatsAppProposalModal({ isOpen, onClose, profile }: Prop
                 : "bg-white text-slate-700 border-slate-300 hover:bg-slate-100"
             }`}
           >
-            <span>{copied ? "✓" : "📋"}</span>
+            {copied ? <Check aria-hidden="true" className="h-4 w-4 shrink-0" /> : <Clipboard aria-hidden="true" className="h-4 w-4 shrink-0" />}
             <span>{copied ? (te ? "కాపీ చేయబడింది!" : "Copied!") : te ? "టెక్స్ట్ కాపీ చేయి" : "Copy Text"}</span>
           </button>
 
@@ -358,8 +363,8 @@ export default function WhatsAppProposalModal({ isOpen, onClose, profile }: Prop
             onClick={handleWhatsAppSend}
             className="min-w-0 py-2.5 px-4 rounded-xl font-bold text-xs bg-[#25D366] hover:bg-[#1EBE5D] text-white shadow-md hover:shadow-lg transition flex items-center justify-center gap-2"
           >
-            <span className="text-base">💬</span>
-            <span>{te ? "వాట్సాప్‌లో నేరుగా పంపు" : "Send Directly on WhatsApp"}</span>
+            <WhatsAppIcon className="h-4 w-4 shrink-0" mono />
+            <span>{te ? "వాట్సాప్‌లో తెరవండి" : "Open in WhatsApp"}</span>
           </button>
           </div>
         </div>
