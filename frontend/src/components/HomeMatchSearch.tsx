@@ -42,7 +42,7 @@ export default function HomeMatchSearch() {
   }
   const ages = Array.from({ length: 43 }, (_, i) => i + 18);
   return <section className="home-search-card" aria-label="Profile search">
-    <div className="home-search-card__heading"><span><SlidersHorizontal size={18} aria-hidden="true"/></span><div><p>{te ? "మీ ఎంపికతో మొదలు పెట్టండి" : "A good place to start"}</p><h2>{te ? "మీకు నచ్చే Profile వెతకండి" : "Find your kind of person"}</h2></div></div>
+    <div className="home-search-card__heading"><span><SlidersHorizontal size={18} aria-hidden="true"/></span><div><p>{te ? "మీ ఎంపికతో మొదలు పెట్టండి" : "A good place to start"}</p><h2>{te ? "మీకు నచ్చే సంబంధాన్ని వెతకండి" : "Find your kind of person"}</h2></div></div>
     <form onSubmit={submit} role="search" aria-label="Profile search">
       <div className="home-search-card__who" role="group" aria-label="Bride or Groom">
         <span className="home-search-card__label">{te ? "మీరు వెతికేది" : "Looking for"}</span>
@@ -57,9 +57,9 @@ export default function HomeMatchSearch() {
         <label>Max Height<select aria-label="Max Height" value={maxHeight} onChange={e=>height("max",e.target.value)}><option value="">Any</option>{HEIGHTS.map(v=><option key={v} value={v}>{heightLabel(v)}</option>)}</select></label>
       </div></fieldset>
       <label className="home-search-card__place"><span className="home-search-card__label"><MapPin size={13} aria-hidden="true"/>Place</span><select aria-label="Place" value={place} onChange={e=>setPlace(e.target.value)}><option value="">Any place</option><option value="TS">Telangana</option><option value="AP">Andhra Pradesh</option><option value="NRI">NRI / Abroad</option></select></label>
-      {adjusted && <p className="home-search-card__adjusted" role="status">{te ? "Min, Max కంటే ఎక్కువ ఉండకూడదు. రెండూ ఒకేలా మార్చాం." : "Min cannot be higher than Max. Both now use the selected value."}</p>}
-      <button className="home-search-card__submit" type="submit"><Search size={17} aria-hidden="true"/>{te ? "Profiles చూడండి" : "Find profiles"}<ArrowRight size={17} aria-hidden="true"/></button>
+      {adjusted && <p className="home-search-card__adjusted" role="status">{te ? "కనిష్ఠ పరిమితి గరిష్ఠ పరిమితి కంటే ఎక్కువగా ఉండకూడదు. రెండింటినీ మీరు ఎంచుకున్న విలువకు మార్చాం." : "Min cannot be higher than Max. Both now use the selected value."}</p>}
+      <button className="home-search-card__submit" type="submit"><Search size={17} aria-hidden="true"/>{te ? "సంబంధాలు చూడండి" : "Find profiles"}<ArrowRight size={17} aria-hidden="true"/></button>
     </form>
-    <p className="home-search-card__safety"><ShieldCheck size={15} aria-hidden="true"/><span>{te ? "వారు accept చేశాకే Contact వివరాలు కనిపిస్తాయి. Profile వివరాలు మీరూ చెక్ చేసుకోండి." : "Contact details appear after they accept. Check profile details yourself."} <Link href="/safety">{te?"Safety వివరాలు":"Safety tips"}</Link></span></p>
+    <p className="home-search-card__safety"><ShieldCheck size={15} aria-hidden="true"/><span>{te ? "వారు అంగీకరించిన తర్వాతే సంప్రదింపు వివరాలు కనిపిస్తాయి. సభ్యుని వివరాలను మీరూ సరిచూసుకోండి." : "Contact details appear after they accept. Check profile details yourself."} <Link href="/safety">{te?"భద్రతా సూచనలు":"Safety tips"}</Link></span></p>
   </section>;
 }
