@@ -61,6 +61,18 @@ export default function WhatsAppProposalModal({ isOpen, onClose, profile }: Prop
   const [includeAstro, setIncludeAstro] = useState(true);
   const [includeBiodataLink, setIncludeBiodataLink] = useState(true);
   const [copied, setCopied] = useState(false);
+  const [actionError, setActionError] = useState<"copy" | "whatsapp" | null>(null);
+  const actionEpoch = useRef(0);
+  const copiedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    actionEpoch.current += 1;
+    setCopied(false);
+    setActionError(null);
+    return () => {
+      actionEpoch.current += 1;
+      if (copiedTimer.current) clearTimeout(copiedTimer.current);
+    };
+  }, [isOpen, profile?.tsap_id]);
 
   if (!isOpen || !profile) return null;
 
@@ -158,18 +170,30 @@ export default function WhatsAppProposalModal({ isOpen, onClose, profile }: Prop
   const text = buildProposalText();
 
   const handleCopy = async () => {
+    const epoch = ++actionEpoch.current;
+    setActionError(null);
+    setCopied(false);
+    if (copiedTimer.current) clearTimeout(copiedTimer.current);
     try {
       await navigator.clipboard.writeText(text);
+      if (actionEpoch.current !== epoch) return;
       setCopied(true);
-      setTimeout(() => setCopied(false), 2500);
+      copiedTimer.current = setTimeout(() => {
+        if (actionEpoch.current === epoch) setCopied(false);
+      }, 2500);
     } catch {
-      // Fallback
+      if (actionEpoch.current === epoch) setActionError("copy");
     }
   };
 
   const handleWhatsAppSend = () => {
+    setActionError(null);
     const waUrl = `https://wa.me/?text=${encodeURIComponent(text)}`;
-    window.open(waUrl, "_blank");
+    try {
+      if (!window.open(waUrl, "_blank")) setActionError("whatsapp");
+    } catch {
+      setActionError("whatsapp");
+    }
   };
 
   return (
@@ -309,7 +333,15 @@ export default function WhatsAppProposalModal({ isOpen, onClose, profile }: Prop
         </div>
 
         {/* Footer Actions */}
-        <div className="mv-proposal-actions bg-slate-50 border-t border-slate-200 p-4 shrink-0">
+        <div className="bg-slate-50 border-t border-slate-200 p-4 shrink-0">
+          {actionError && (
+            <p role="alert" className="mb-3 text-xs font-semibold text-red-800">
+              {actionError === "copy"
+                ? te ? "కాపీ కాలేదు. మళ్లీ ప్రయత్నించండి లేదా ప్రివ్యూలోని సందేశాన్ని ఎంచుకుని కాపీ చేయండి." : "Could not copy. Try again or select and copy the message in the preview."
+                : te ? "వాట్సాప్ తెరుచుకోలేదు. పాప్-అప్‌లను అనుమతించి మళ్లీ ప్రయత్నించండి లేదా సందేశాన్ని కాపీ చేయండి." : "WhatsApp did not open. Allow pop-ups and try again, or copy the message."}
+            </p>
+          )}
+          <div className="mv-proposal-actions">
           <button
             type="button"
             onClick={handleCopy}
@@ -331,6 +363,7 @@ export default function WhatsAppProposalModal({ isOpen, onClose, profile }: Prop
             <span className="text-base">💬</span>
             <span>{te ? "వాట్సాప్‌లో నేరుగా పంపు" : "Send Directly on WhatsApp"}</span>
           </button>
+          </div>
         </div>
       </div>
     </dialog>
