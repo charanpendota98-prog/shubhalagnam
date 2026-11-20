@@ -151,36 +151,36 @@ export default function ShortlistWorkspace() {
     const note = String(explicit ?? drafts[profileId] ?? "").slice(0, NOTE_MAX);
     setSavingId(profileId);
     setNotice(null);
-    const { ok } = await apiPost<{ note?: string; note_at?: string }>(
+    const { ok, data } = await apiPost<{ success?: boolean; saved_id?: string; note?: string; note_at?: string }>(
       `/api/saved/${encodeURIComponent(myId)}/${encodeURIComponent(profileId)}/note`,
       { note },
     );
     setSavingId("");
-    if (!ok) {
+    if (!ok || data?.success !== true || data.saved_id !== profileId || typeof data.note !== "string" || typeof data.note_at !== "string") {
       setNotice({ tone: "error", text: te ? "నోట్ సేవ్ కాలేదు. మళ్లీ ప్రయత్నించండి." : "The note could not be saved. Please try again." });
       return;
     }
     setItems((previous) =>
       previous.map((item) =>
         String(item.profile?.tsap_id) === profileId
-          ? { ...item, note, note_at: new Date().toISOString() }
+          ? { ...item, note: data.note, note_at: data.note_at }
           : item,
       ),
     );
-    setDrafts((previous) => ({ ...previous, [profileId]: note }));
+    setDrafts((previous) => previous[profileId] === note ? { ...previous, [profileId]: data.note! } : previous);
     setNotice({ tone: "ok", text: te ? "నోట్ సేవ్ అయింది. ఇది మీకు మాత్రమే కనిపిస్తుంది." : "Note saved — only you can see it." });
   };
 
   const remove = async (profileId: string) => {
     setRemovingId(profileId);
     setNotice(null);
-    const { ok, status } = await apiPost<{ saved?: boolean }>("/api/save", { tsap_id: myId, saved_id: profileId, saved: false });
+    const { ok, status, data } = await apiPost<{ success?: boolean; saved?: boolean }>("/api/save", { tsap_id: myId, saved_id: profileId, saved: false });
     setRemovingId("");
     if (status === 0) {
       setNotice({ tone: "error", text: te ? "తొలగించబడిందో నిర్ధారించలేకపోయాం. మళ్లీ ప్రయత్నించడం సురక్షితం." : "Could not confirm removal. Retrying is safe." });
       return;
     }
-    if (!ok) {
+    if (!ok || data?.success !== true || data.saved !== false) {
       setNotice({ tone: "error", text: te ? "తీసివేయడం సాధ్యపడలేదు. మళ్లీ ప్రయత్నించండి." : "Could not remove it. Please try again." });
       return;
     }
@@ -331,6 +331,7 @@ export default function ShortlistWorkspace() {
                               {te ? "నోట్ తొలగించు" : "Clear note"}
                             </Button>
                           )}
+                          {draft !== (item.note || "") && <span className="text-[10px] font-semibold text-amber-800">{te ? "మార్పులు ఇంకా సేవ్ కాలేదు" : "Unsaved changes"}</span>}
                           <span className="ml-auto text-[10px] text-slate-500">
                             {draft.length}/{NOTE_MAX}
                           </span>
