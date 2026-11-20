@@ -14,7 +14,7 @@ import PhotoFlow from "@/components/PhotoFlow";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import Image from "next/image";
-import { Bell, BriefcaseBusiness, Cake, ChartNoAxesColumn, ClipboardList, CreditCard, EyeOff, Flame, Flower2, Globe, GraduationCap, Handshake, Heart, House, KeyRound, Landmark, Laptop, LockKeyhole, MapPin, Mic, Orbit, Pencil, Share2, Target, Ticket, UserRound, Users, Zap } from "lucide-react";
+import { Bell, BriefcaseBusiness, Cake, ChartNoAxesColumn, ClipboardList, CreditCard, EyeOff, Flame, Globe, GraduationCap, Handshake, Heart, House, KeyRound, Landmark, Laptop, LockKeyhole, MapPin, Mic, Orbit, Pencil, Share2, Target, Ticket, UserRound, Users, Zap } from "lucide-react";
 
 const MemberEcosystemHub = dynamic(() => import("@/components/MemberEcosystemHub"), { ssr: false });
 const Phase2MemberWorkspace = dynamic(() => import("@/components/Phase2MemberWorkspace"), { ssr: false });
@@ -211,11 +211,11 @@ export default function MePage() {
               <MemberEcosystemHub key={`${myId}:${tab}`} myId={myId} section={tab} />
             )}
             {tab === "devices" && <Phase2MemberWorkspace key={`${myId}:devices`} myId={myId} mode="security_links" />}
-            {tab === "streak" && <StreakPanel myId={myId} />}
-            {tab === "unlocks" && <UnlocksPanel myId={myId} />}
+            {tab === "streak" && <StreakPanel key={myId} myId={myId} />}
+            {tab === "unlocks" && <UnlocksPanel key={myId} myId={myId} />}
             {tab === "boost" && <BoostPanel myId={myId} />}
             {tab === "voice" && <VoicePanel myId={myId} />}
-            {tab === "jathakam" && <JathakamPanel myId={myId} />}
+            {tab === "jathakam" && <JathakamPanel key={myId} myId={myId} />}
             {tab === "share" && <SharePanel />}
             {tab === "alerts" && <Phase2MemberWorkspace key={`${myId}:alerts`} myId={myId} mode="alerts" />}
           </div>
@@ -383,7 +383,7 @@ export default function MePage() {
                 {deleteReason === "married_via_manavivaha" && (
                   <div className="bg-emerald-50 rounded-2xl p-3.5 border border-emerald-200 space-y-2 text-xs">
                     <div className="font-black text-emerald-900 flex items-center gap-1.5">
-                      <span><Flower2 aria-hidden="true" className="inline-block h-[1em] w-[1em] shrink-0 align-middle" /></span>
+                      <Heart aria-hidden="true" className="h-5 w-5 shrink-0" />
                       <span>{te ? "మన వివాహ కుటుంబం తరఫున హృదయపూర్వక శుభాకాంక్షలు!" : "Warm congratulations from the Mana Vivaha community!"}</span>
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
@@ -426,8 +426,8 @@ export default function MePage() {
                 </div>
 
                 <p className="text-xs leading-relaxed text-slate-600">
-                  {te ? "ఈ చర్య profile ను public search నుంచి దాచుతుంది; stored/payment/audit/archive records erase కావు. Accepted requests లో contact access రద్దు అవుతుంది; బయట సేవ్ చేసిన copies మిగలవచ్చు. Erasure request కోసం " : "This hides the profile from public search and revokes in-app contact access through accepted requests. Stored, payment, audit, and archive records are not erased, and copies saved outside the app may remain. For an erasure request, see "}
-                  <Link href="/privacy" className="font-bold text-maroon underline">{te ? "Privacy & grievance contact" : "Privacy & grievance contact"}</Link>.
+                  {te ? "మీ వివరాలు ఇతరులకు శోధనలో కనిపించవు. అంగీకరించిన అభ్యర్థనల ద్వారా యాప్‌లో ఇచ్చిన సంప్రదింపు అనుమతి రద్దు అవుతుంది. నిల్వ చేసిన వివరాలు, చెల్లింపుల వివరాలు, తనిఖీ రికార్డులు, పాత రికార్డులు తొలగించబడవు. యాప్ వెలుపల భద్రపరిచిన నకళ్లు మిగలవచ్చు. వివరాలను తొలగించమని కోరడానికి " : "This hides the profile from public search and revokes in-app contact access through accepted requests. Stored, payment, audit, and archive records are not erased, and copies saved outside the app may remain. For an erasure request, see "}
+                  <Link href="/privacy" className="font-bold text-maroon underline">{te ? "గోప్యత, ఫిర్యాదుల సంప్రదింపు వివరాలు" : "Privacy & grievance contact"}</Link>.
                 </p>
 
                 {/* Confirmation Checkbox */}
@@ -437,7 +437,7 @@ export default function MePage() {
                     id="confirmDelete"
                     checked={confirmDeleteCheck}
                     onChange={(e) => setConfirmDeleteCheck(e.target.checked)}
-                    className="mt-0.5 accent-rose-700 cursor-pointer"
+                    className="mt-0.5 h-5 w-5 shrink-0 accent-rose-700 cursor-pointer"
                   />
                   <label htmlFor="confirmDelete" className="cursor-pointer font-medium leading-relaxed">
                     {te ? "నా ప్రొఫైల్‌ను పబ్లిక్ శోధన నుంచి దాచడానికి అంగీకరిస్తున్నాను. అంగీకరించిన అభ్యర్థనల ద్వారా యాప్‌లో ఇచ్చిన సంప్రదింపు ప్రాప్యత రద్దు అవుతుంది. నిల్వ చేసిన రికార్డులు తొలగించబడవు." : "I agree to hide my profile from public search and revoke in-app contact access through accepted requests. This does not erase stored records."}
@@ -2066,14 +2066,21 @@ function StreakPanel({ myId }: { myId: string }) {
   const [st, setSt] = useState<Row | null>(null);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [read, setRead] = useState<"loading" | "ready" | "error">("loading");
+  const epoch = useRef(0);
   const load = useCallback(async () => {
+    const current = ++epoch.current; setRead("loading");
     const { ok, data } = await apiGet<Row>(`/api/streak/${encodeURIComponent(myId)}`);
-    if (ok && data) setSt(data);
+    if (current !== epoch.current) return;
+    if (!ok || !data || data.tsap_id !== myId || data.success !== true || ![data.count, data.best, data.next_bonus].every(n => Number.isSafeInteger(n) && n >= 0) || typeof data.claimed_today !== "boolean") { setSt(null); setRead("error"); return; }
+    setSt(data); setRead("ready");
   }, [myId]);
   useEffect(() => {
     void load();
+    return () => { epoch.current++; };
   }, [load]);
   const claim = async () => {
+    if (read !== "ready") return;
     setBusy(true);
     const { ok, data, errorTelugu } = await apiPost<Row>("/api/streak/claim", { tsap_id: myId });
     setBusy(false);
@@ -2091,9 +2098,10 @@ function StreakPanel({ myId }: { myId: string }) {
         <span className="rounded-full bg-amber-50 border border-amber-300 px-3 py-1"> {te ? "గరిష్ఠం" : "Best"}: {st?.best ?? "—"}</span>
         <span className="rounded-full bg-emerald-50 border border-emerald-300 px-3 py-1"> {te ? "తదుపరి" : "Next"}: +{st?.next_bonus ?? "?"} {te ? "క్రెడిట్‌లు" : "credits"}</span>
       </div>
+      {read !== "ready" && <div className="mt-3 space-y-2"><p role={read === "error" ? "alert" : "status"} className="text-sm text-slate-600">{read === "error" ? (te ? "స్ట్రీక్ వివరాలు లోడ్ కాలేదు. మళ్లీ ప్రయత్నించండి." : "Streak status could not be loaded. Please retry.") : (te ? "స్ట్రీక్ వివరాలు లోడ్ అవుతున్నాయి…" : "Loading streak status…")}</p>{read === "error" && <button type="button" className="min-h-11 rounded-xl border border-maroon px-4 py-2 font-bold text-maroon" onClick={() => void load()}>{te ? "స్ట్రీక్ వివరాలు మళ్లీ లోడ్ చేయండి" : "Retry streak status"}</button>}</div>}
       <button type="button"
         onClick={() => void claim()}
-        disabled={busy || !!st?.claimed_today}
+        disabled={read !== "ready" || busy || !!st?.claimed_today}
         className="mt-4 rounded-2xl bg-[#7A0C2E] px-6 py-3 text-sm font-bold text-white disabled:opacity-50"
       >
         {st?.claimed_today ? (te ? "ఈరోజు క్లెయిమ్ చేశారు" : "Claimed today") : busy ? (te ? "లోడ్ అవుతోంది…" : "Working…") : te ? "రోజువారీ బోనస్ పొందండి" : "Claim daily bonus"}
@@ -2105,36 +2113,26 @@ function StreakPanel({ myId }: { myId: string }) {
 
 /* ----------------  UNLOCKS ---------------- */
 function UnlocksPanel({ myId }: { myId: string }) {
-  const { lang } = useLang();
-  const te = lang === "te";
+  const { lang } = useLang(); const te = lang === "te";
   const [list, setList] = useState<Row[]>([]);
-  useEffect(() => {
-    apiGet<Row[] | { items?: Row[] }>(`/api/unlocks/${encodeURIComponent(myId)}`).then((r) => {
-      // The panel renders a list of unlocks; anything that is not a list is
-      // treated as "nothing unlocked yet" rather than crashing the account page.
-      const data: Row[] | { items?: Row[] } | null = r.ok ? r.data : null;
-      if (Array.isArray(data)) setList(data);
-      else if (data && Array.isArray((data as { items?: Row[] }).items)) setList((data as { items?: Row[] }).items as Row[]);
-      else setList([]);
-    });
+  const [read, setRead] = useState<"loading" | "ready" | "error">("loading");
+  const epoch = useRef(0);
+  const load = useCallback(async () => {
+    const current = ++epoch.current; setRead("loading");
+    const result = await apiGet<Row>(`/api/unlocks/${encodeURIComponent(myId)}`);
+    if (current !== epoch.current) return;
+    const data = result.data;
+    if (!result.ok || !data || data.viewer_id !== myId || !Array.isArray(data.profiles) || !Number.isSafeInteger(data.count) || data.count !== data.profiles.length ||
+        !data.profiles.every((row: Row) => row && typeof row.tsap_id === "string" && !!row.tsap_id.trim() && row.via === "mutual_consent" && typeof row.unlocked_at === "string")) { setList([]); setRead("error"); return; }
+    setList(data.profiles); setRead("ready");
   }, [myId]);
-  return (
-    <section className="mv-surface mv-surface__body">
-      <h2 className="text-base font-extrabold text-[#7A0C2E]">{te ? "మీరు అన్‌లాక్ చేసిన profiles" : "Your unlocked profiles"}</h2>
-      {list.length === 0 ? (
-        <p className="mt-3 text-sm text-slate-500">{te ? "ఇంకా ఏ profile ని unlock చేయలేదు." : "No unlocked profiles yet."}</p>
-      ) : (
-        <div className="mt-3 divide-y divide-slate-100">
-          {list.map((u, i) => (
-            <div key={i} className="flex items-center justify-between py-2 text-sm">
-              <span className="font-bold text-slate-800">{u.target_id || u.tsap_id}</span>
-              <span className="text-xs text-slate-500">{u.at || u.time || (te ? "ఇటీవల" : "Recently")}</span>
-            </div>
-          ))}
-        </div>
-      )}
-    </section>
-  );
+  useEffect(() => { void load(); return () => { epoch.current++; }; }, [load]);
+  return <section className="mv-surface mv-surface__body">
+    <h2 className="text-base font-extrabold text-[#7A0C2E]">{te ? "మీరు అన్‌లాక్ చేసిన profiles" : "Your unlocked profiles"}</h2>
+    {read !== "ready" ? <div className="mt-3 space-y-2"><p role={read === "error" ? "alert" : "status"} className="text-sm text-slate-600">{read === "error" ? (te ? "అన్‌లాక్ వివరాలు లోడ్ కాలేదు. ఇది ఖాళీ ఫలితం కాదు." : "Unlock history could not be loaded. This is not an empty result.") : (te ? "అన్‌లాక్ వివరాలు లోడ్ అవుతున్నాయి…" : "Loading unlock history…")}</p>{read === "error" && <button type="button" className="min-h-11 rounded-xl border border-maroon px-4 py-2 font-bold text-maroon" onClick={() => void load()}>{te ? "అన్‌లాక్ వివరాలు మళ్లీ లోడ్ చేయండి" : "Retry unlock history"}</button>}</div>
+    : list.length === 0 ? <p className="mt-3 text-sm text-slate-500">{te ? "ఇంకా ఏ profile ని unlock చేయలేదు." : "No unlocked profiles yet."}</p>
+    : <div className="mt-3 divide-y divide-slate-100">{list.map(u => <div key={u.tsap_id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm"><span className="font-bold text-slate-800">{u.tsap_id}</span><span className="text-xs text-slate-500">{u.unlocked_at || (te ? "ఇటీవల" : "Recently")}</span></div>)}</div>}
+  </section>;
 }
 
 /* ----------------  BOOST ---------------- */
@@ -2233,15 +2231,22 @@ function JathakamPanel({ myId }: { myId: string }) {
   const [status, setStatus] = useState<Row | null>(null);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
+  const [read, setRead] = useState<"loading" | "ready" | "error">("loading");
+  const epoch = useRef(0);
   const loadStatus = useCallback(async () => {
+    const current = ++epoch.current; setRead("loading");
     if (!myId) return;
     const result = await apiGet<Row>(`/api/astro/jathakam/${encodeURIComponent(myId)}`);
-    if (result.ok && result.data) setStatus(result.data);
+    if (current !== epoch.current) return;
+    const data = result.data;
+    if (!result.ok || !data || data.success !== true || data.tsap_id !== myId || !["unavailable", "pending_review", "review_recorded", "rejected"].includes(data.state) || data.calculation_available !== false || !Array.isArray(data.records) || (data.state === "unavailable" ? data.records.length !== 0 : data.records.length === 0)) { setStatus(null); setRead("error"); return; }
+    setStatus(data); setRead("ready");
   }, [myId]);
 
-  useEffect(() => { void loadStatus(); }, [loadStatus]);
+  useEffect(() => { void loadStatus(); return () => { epoch.current++; }; }, [loadStatus]);
 
   const handleJathakamUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (read !== "ready") return;
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.size > 8 * 1024 * 1024) {
@@ -2293,14 +2298,14 @@ function JathakamPanel({ myId }: { myId: string }) {
       <div className="text-4xl" aria-hidden="true"><Orbit aria-hidden="true" className="inline-block h-[1em] w-[1em] shrink-0 align-middle" /></div>
       <h2 className="text-base font-extrabold text-[#7A0C2E]">{te ? "నిజమైన జాతక పత్రం review" : "Real Jathakam document review"}</h2>
       <p className="text-xs leading-relaxed text-slate-600">{te ? "Star-only లెక్కలు లేదా ఊహించిన chart చూపించము. మీ స్వంత జాతక పత్రాన్ని అప్‌లోడ్ చేసి review స్థితిని మాత్రమే చూడండి." : "We do not show star-only calculations or an invented chart. Upload your own horoscope document and see only its review state."}</p>
-      <div className="mv-note text-left">
+      {read !== "ready" ? <div className="space-y-2"><p role={read === "error" ? "alert" : "status"} className="text-sm text-slate-600">{read === "error" ? (te ? "జాతక పత్రం స్థితి లోడ్ కాలేదు. ఇది పత్రం లేనట్లు కాదు." : "Horoscope document status could not be loaded. This does not mean no document was submitted.") : (te ? "జాతక పత్రం స్థితి లోడ్ అవుతోంది…" : "Loading horoscope document status…")}</p>{read === "error" && <button type="button" className="min-h-11 rounded-xl border border-maroon px-4 py-2 font-bold text-maroon" onClick={() => void loadStatus()}>{te ? "పత్రం స్థితి మళ్లీ లోడ్ చేయండి" : "Retry document status"}</button>}</div> : <div className="mv-note text-left">
         <div className="text-[10px] font-extrabold uppercase tracking-wide text-amber-800">{te ? "ఆధార స్థితి" : "Evidence status"}</div>
         <div className="mt-1 text-sm font-extrabold text-slate-900">{stateText}</div>
         <p className="mt-1 text-xs leading-relaxed text-slate-700">{explanation}</p>
-      </div>
+      </div>}
       <div className="pt-2">
         <label className="mb-1 block text-xs font-bold text-slate-700">{te ? "జాతక PDF / ఫోటో అప్‌లోడ్" : "Upload horoscope PDF / photo"}:</label>
-        <input type="file" aria-label={te ? "జాతకం ఫైల్ ఎంచుకోండి" : "Choose horoscope file"} accept="image/jpeg,image/png,image/webp,application/pdf" onChange={handleJathakamUpload} className="mx-auto block max-w-full text-xs" />
+        <input type="file" disabled={read !== "ready" || uploading} aria-label={te ? "జాతకం ఫైల్ ఎంచుకోండి" : "Choose horoscope file"} accept="image/jpeg,image/png,image/webp,application/pdf" onChange={handleJathakamUpload} className="mx-auto block max-w-full text-xs" />
         {uploading && <div className="mt-1 text-xs text-slate-500" role="status">{te ? "అప్‌లోడ్ అవుతోంది…" : "Uploading…"}</div>}
         <Msg m={msg} />
       </div>
