@@ -203,7 +203,7 @@ export default function MePage() {
             {tab === "preferences" && <PartnerPreferencesPanel myId={myId} />}
             {tab === "edit" && <EditProfilePanel key={myId} myId={myId} />}
             {(tab === "family" || tab === "ledger" || tab === "privacy" || tab === "support") && (
-              <MemberEcosystemHub myId={myId} section={tab} />
+              <MemberEcosystemHub key={`${myId}:${tab}`} myId={myId} section={tab} />
             )}
             {tab === "devices" && <Phase2MemberWorkspace myId={myId} mode="security_links" />}
             {tab === "streak" && <StreakPanel myId={myId} />}
