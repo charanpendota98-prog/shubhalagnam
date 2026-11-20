@@ -10553,8 +10553,8 @@ async def voice_upload(request: Request, file: UploadFile = File(...), tsap_id: 
     inspected = await run_in_threadpool(inspect_voice, data, chk["ext"])
     if not inspected.get("ok"):
         if inspected.get("unavailable"):
-            raise HTTPException(503, "Voice validation is temporarily unavailable. Please retry later.")
-        raise HTTPException(400, "This file is not a readable audio recording in the selected format. Please choose a valid audio file.")
+            raise HTTPException(503, {"en": "Voice validation is temporarily unavailable. Please retry later.", "te": "ఆడియో ఫైల్‌ను ఇప్పుడు తనిఖీ చేయలేకపోతున్నాం. కాసేపటి తర్వాత మళ్లీ ప్రయత్నించండి."})
+        raise HTTPException(400, {"en": "This file is not a readable audio recording in the selected format. Please choose a valid audio file.", "te": "ఈ ఫైల్‌లో వినగలిగే ఆడియో లేదు లేదా ఫైల్ సరిగా లేదు. సరైన ఆడియో ఫైల్‌ను ఎంచుకోండి."})
     os.makedirs(VOICE_MEDIA_DIR, exist_ok=True)
     # 🛡️ P2 hardening (consistency w/ WAVE 23 fix on /api/photo/upload): tid is
     # always server-generated at registration so this isn't reachable today,
