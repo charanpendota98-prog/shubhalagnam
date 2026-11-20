@@ -43,7 +43,7 @@ for(const lang of ["en","te"])for(const width of [320,390,1280])test(`campaign f
 });
 
 test("campaign landing preserves token and invite into registration",async({page})=>{
- let click="";await page.route("**/api/**",async route=>{const u=new URL(route.request().url());if(u.pathname.includes("/referral/click/")){click=u.search;return route.fulfill({json:{success:true,valid_code:true,bonus_credits:1}});}return route.fulfill({json:{success:true}});});
+ let click="";await page.route("**/api/**",async route=>{const u=new URL(route.request().url());if(u.pathname.includes("/referral/click/")){click=u.search;return route.fulfill({json:{success:true,valid_code:true,referrer_name:"Fictional Referrer",bonus_credits:1}});}return route.fulfill({json:{success:true}});});
  await page.goto(`/r/CREATOR?campaign=${token}&inv=INVITE01`);await page.waitForURL(`**/register?ref=CREATOR&inv=INVITE01&campaign=${token}`);expect(click).toContain(`campaign=${token}`);expect(click).toContain("inv=INVITE01");
 });
 test("partner campaigns require private OTP flow and scoped header",async({page})=>{
