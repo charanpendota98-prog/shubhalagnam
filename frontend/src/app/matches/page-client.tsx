@@ -17,6 +17,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import Image from "next/image";
+import { Eye, FileText, Heart, LoaderCircle, Phone, UserRound } from "lucide-react";
+import { WhatsAppIcon } from "@/components/BrandIcons";
 import {
   CASTES,
   CASTE_SUBCASTES,
@@ -1095,8 +1097,8 @@ export default function MatchesPage() {
                 <Image src={photo} alt={firstName(row.full_name)} width={96} height={112} unoptimized className="w-20 h-24 sm:w-24 sm:h-28 rounded-2xl object-cover border border-gold/40 shadow-xs" />
               ) : (
                 <div className="w-20 h-24 sm:w-24 sm:h-28 rounded-2xl bg-amber-50/80 border border-gold/40 flex flex-col items-center justify-center text-3xl shadow-inner text-maroon">
-                  <span>{row.gender === "Groom" || row.gender === "Male" ? "🤵" : row.gender === "Bride" || row.gender === "Female" ? "👰" : "💍"}</span>
-                  <span className="text-[10px] font-bold mt-1 text-slate-500">🔒 Photo Lock</span>
+                  <UserRound aria-hidden="true" className="h-7 w-7" />
+                  <span className="mt-1 px-1 text-center text-[10px] font-bold text-slate-500">{te ? "ఫోటో కనిపించదు" : "Photo not shown"}</span>
                 </div>
               )}
               {row.is_verified && (() => { const check = recordedCheckBadge(row, te); return check ? (
@@ -1123,18 +1125,20 @@ export default function MatchesPage() {
                   onClick={() => { void toggleSave(row); }}
                   disabled={!sessionReady || (!!sessionAuthenticated && !savedLoaded) || !!savingId}
                   aria-label={isSaving
-                    ? (te ? "Shortlist నవీకరిస్తున్నాము" : "Updating shortlist")
+                    ? (te ? "ఎంపికల జాబితాను మారుస్తున్నాము" : "Updating shortlist")
                     : !sessionReady || (!!sessionAuthenticated && !savedLoaded)
-                      ? (te ? "Shortlist స్థితి లోడ్ అవుతోంది" : "Loading shortlist status")
+                      ? (te ? "ఎంపికల జాబితా స్థితి లోడ్ అవుతోంది" : "Loading shortlist status")
                       : !sessionAuthenticated || !myTsapId
-                        ? (te ? "ప్రొఫైల్‌ను shortlist చేయడానికి login చేయండి" : "Log in to save this profile")
-                        : (te ? "ఈ ప్రొఫైల్‌ను shortlist చేయండి" : "Shortlist profile")}
+                        ? (te ? "ఎంపికల జాబితాలో చేర్చడానికి ప్రవేశించండి" : "Log in to save this profile")
+                        : isSaved
+                          ? (te ? "ఎంపికల జాబితా నుండి తొలగించండి" : "Remove from shortlist")
+                          : (te ? "ఎంపికల జాబితాలో చేర్చండి" : "Shortlist profile")}
                   aria-pressed={isSaved}
                   aria-busy={isSaving || (!!sessionAuthenticated && !savedLoaded)}
-                  title={isSaved ? (te ? "Shortlist‌లో ఉంది" : "In shortlist") : (te ? "Shortlist‌లో చేర్చండి" : "Add to shortlist")}
+                  title={isSaved ? (te ? "ఎంపికల జాబితా నుండి తొలగించండి" : "Remove from shortlist") : (te ? "ఎంపికల జాబితాలో చేర్చండి" : "Add to shortlist")}
                   className={`inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-full text-lg transition disabled:cursor-wait disabled:opacity-60 ${isSaved ? "bg-rose-50 text-rose-600" : "text-slate-400 hover:bg-rose-50 hover:text-rose-500"}`}
                 >
-                  {isSaving || (!!sessionAuthenticated && !savedLoaded) ? "…" : isSaved ? "❤️" : "🤍"}
+                  {isSaving || (!!sessionAuthenticated && !savedLoaded) ? <LoaderCircle aria-hidden="true" className="h-5 w-5 animate-spin" /> : <Heart aria-hidden="true" className="h-5 w-5" fill={isSaved ? "currentColor" : "none"} />}
                 </button>
               </div>
 
@@ -1233,7 +1237,7 @@ export default function MatchesPage() {
             href={`/search/${row.tsap_id}`}
             className="mv-btn mv-btn--secondary min-h-11"
           >
-            {te ? "👁️ వివరాలు" : "👁️ View profile"}
+            <Eye aria-hidden="true" className="h-4 w-4 shrink-0" /><span>{te ? "వివరాలు" : "View profile"}</span>
           </Link>
 
           <Link
@@ -1241,24 +1245,24 @@ export default function MatchesPage() {
             className="mv-btn min-h-11 border-amber-300 bg-amber-50 text-maroon hover:bg-amber-100"
             title={te ? "HD కలర్ బయోడేటా డౌన్‌లోడ్" : "Download a high-resolution biodata card"}
           >
-            {te ? "🎴 బయోడేటా" : "🎴 Biodata"}
+            <FileText aria-hidden="true" className="h-4 w-4 shrink-0" /><span>{te ? "బయోడేటా" : "Biodata"}</span>
           </Link>
 
           <button type="button"
             onClick={() => setUnlockTarget(row)}
             className="mv-btn mv-btn--contact min-h-11"
           >
-            {te ? "📞 సంప్రదించండి" : "📞 Contact"}
+            <Phone aria-hidden="true" className="h-4 w-4 shrink-0" /><span>{te ? "సంప్రదించండి" : "Contact"}</span>
           </button>
 
           <button type="button"
             onClick={() => setProposalTarget(row)}
             className="mv-btn mv-btn--wa min-h-11"
-            aria-label={te ? "WhatsApp షేర్ - సంబంధం వివరాలు" : "Share on WhatsApp - profile details"}
+            aria-label={te ? "వాట్సాప్‌లో పంచుకోండి, సంబంధం వివరాలు" : "Share on WhatsApp, profile details"}
             title={te ? "WhatsApp లో సంబంధం వివరాలు షేర్ చేయండి" : "Share profile details on WhatsApp"}
           >
-            <span aria-hidden="true">💬</span>
-            <span className="sm:sr-only">{te ? "WhatsApp షేర్" : "Share on WhatsApp"}</span>
+            <WhatsAppIcon className="h-4 w-4 shrink-0" mono />
+            <span>{te ? "వాట్సాప్‌లో పంచుకోండి" : "Share on WhatsApp"}</span>
           </button>
         </div>
       </div>
