@@ -8,7 +8,7 @@ const cases:any[]=[
 ];
 async function setup(page:any,lang:string,width:number,reply:(url:URL)=>any){
  await page.setViewportSize({width,height:900});await page.addInitScript((l:string)=>localStorage.setItem('tsap_lang',l),lang);
- await page.route('**/api/**',(r:any)=>r.fulfill({json:r.request().url().includes('/api/search?')?reply(new URL(r.request().url())):{success:true}}));
+ await page.route('**/api/**',async(r:any)=>r.fulfill({json:r.request().url().includes('/api/search?')?await reply(new URL(r.request().url())):{success:true}}));
  await page.goto('/matches');
 }
 for(const [name,data] of cases)test(`reject ${name}`,async({page})=>{
@@ -18,10 +18,20 @@ for(const [name,data] of cases)test(`reject ${name}`,async({page})=>{
  await expect(page.locator('h2[aria-live]')).not.toContainText('matching profiles found');
 });
 for(const lang of ['en','te'])for(const width of [320,390,1280])test(`retry valid empty and populated ${lang} ${width}`,async({page})=>{
- let mode='invalid';await setup(page,lang,width,()=>mode==='invalid'?{success:true}:mode==='empty'?valid():valid([profile()]));
+ let mode='invalid';
+ // Search hydration/debounce may issue another read while an error screenshot is
+ // being captured. Keep those reads invalid until a real Retry click occurs.
+ // A mutable fixture switched before click could remove the button by itself.
+ await page.addInitScript(()=>{
+  (window as any).__matchRetryClicks=0;
+  document.addEventListener('click',e=>{
+   if((e.target as Element).closest('[role="alert"] button'))(window as any).__matchRetryClicks++;
+  },true);
+ });
+ await setup(page,lang,width,async()=>mode==='empty'?valid():await page.evaluate(()=>(window as any).__matchRetryClicks)>0?valid([profile()]):{success:true});
  const retry=()=>page.getByRole('button',{name:lang==='te'?'మళ్లీ ప్రయత్నించండి':'Try again',exact:true});
  await expect(retry()).toBeVisible();await page.screenshot({path:`artifacts/match-read-integrity/error-${lang}-${width}.png`});
- mode='populated';await retry().click();await expect(page.getByRole('link',{name:/Fictional.*TEST-SEARCH-ONE/})).toBeVisible();
+ await retry().click();expect(await page.evaluate(()=>(window as any).__matchRetryClicks)).toBe(1);await expect(page.getByRole('link',{name:/Fictional.*TEST-SEARCH-ONE/})).toBeVisible();
  await expect(page.locator('h2[aria-live]')).toContainText('1');await page.screenshot({path:`artifacts/match-read-integrity/valid-${lang}-${width}.png`});
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBeTruthy();
  // A reload with a real empty result must still be distinct from failure.

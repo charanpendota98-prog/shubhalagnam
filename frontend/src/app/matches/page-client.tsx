@@ -1060,7 +1060,7 @@ export default function MatchesPage() {
   const shareWhatsApp = (row: Row) => window.open(`https://wa.me/?text=${encodeURIComponent(shareText(row))}`, "_blank");
 
   /* ---------- Profile Card Component ---------- */
-  const Card = ({ row }: { row: Row }) => {
+  const renderCard = (row: Row) => {
     const profileId = String(row.tsap_id || "");
     const isSaved = savedIds.includes(profileId);
     const isSaving = savingId === profileId;
@@ -1077,7 +1077,7 @@ export default function MatchesPage() {
     const rasi = displayProfileValue(row.rasi);
 
     return (
-      <div className="matches-profile-card mv-surface mv-surface__body mv-card relative flex flex-col justify-between overflow-hidden !p-0">
+      <div key={row.tsap_id || row.id} className="matches-profile-card mv-surface mv-surface__body mv-card relative flex flex-col justify-between overflow-hidden !p-0">
         {/* 🏛️ TOP-RIGHT BADGES: state (Telangana/Andhra Pradesh) neatga + 2nd Marriage (only if applicable) */}
         <div className="matches-profile-badges flex flex-wrap items-center gap-2 px-4 pt-4">
           {row.state && <span className="text-[9.5px] font-black px-2 py-0.5 rounded-full bg-navy/90 text-white shadow-sm backdrop-blur-sm whitespace-nowrap">
@@ -1891,9 +1891,7 @@ export default function MatchesPage() {
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {rows.map((row) => (
-                  <Card key={row.tsap_id || row.id} row={row} />
-                ))}
+                {rows.map(renderCard)}
               </div>
             )}
 

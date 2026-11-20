@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { apiDisplayMessage } from "@/lib/api";
 import { useLang } from "@/lib/lang";
 
@@ -33,6 +33,27 @@ interface Props {
 }
 
 export default function WhatsAppProposalModal({ isOpen, onClose, profile }: Props) {
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const closeRef = useRef<HTMLButtonElement>(null);
+  const titleId = useId();
+  const descriptionId = useId();
+  const hasProfile = profile !== null;
+  useEffect(() => {
+    if (!isOpen || !hasProfile) return;
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    if (!dialog.open) dialog.showModal();
+    closeRef.current?.focus({ preventScroll: true });
+    return () => {
+      dialog.close();
+      document.body.style.overflow = previousOverflow;
+      if (opener?.isConnected) opener.focus({ preventScroll: true });
+    };
+  }, [isOpen, hasProfile]);
+
   const { lang } = useLang();
   const te = lang === "te";
   const [tone, setTone] = useState<"parent" | "self" | "relative">("parent");
@@ -152,25 +173,45 @@ export default function WhatsAppProposalModal({ isOpen, onClose, profile }: Prop
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-3 overflow-y-auto animate-fadeIn">
+    <dialog
+      ref={dialogRef}
+      aria-labelledby={titleId}
+      aria-describedby={descriptionId}
+      onCancel={(event) => { event.preventDefault(); onClose(); }}
+      onKeyDown={(event) => {
+        if (event.key !== "Tab") return;
+        const controls = Array.from(event.currentTarget.querySelectorAll<HTMLElement>(
+          'button:not(:disabled), a[href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])'
+        )).filter((element) => element.getClientRects().length > 0 && element.tabIndex >= 0);
+        const first = controls[0];
+        const last = controls[controls.length - 1];
+        if (!first || !last) return;
+        if (event.shiftKey && (document.activeElement === first || !controls.includes(document.activeElement as HTMLElement))) {
+          event.preventDefault();
+          last.focus();
+        } else if (!event.shiftKey && (document.activeElement === last || !controls.includes(document.activeElement as HTMLElement))) {
+          event.preventDefault();
+          first.focus();
+        }
+      }}
+      className="fixed inset-0 m-0 h-dvh max-h-none w-screen max-w-none border-0 bg-black/60 p-3 text-left backdrop-blur-xs open:flex open:items-center open:justify-center overflow-y-auto"
+    >
       <div className="relative w-full max-w-xl rounded-3xl bg-white shadow-2xl border border-amber-200 overflow-hidden my-auto max-h-[92vh] flex flex-col">
         {/* Header */}
-        <div className="maroon-gradient px-6 py-4 text-white shrink-0 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <span className="text-2xl">💌</span>
-            <div>
-              <h3 className="font-extrabold text-base md:text-lg">
+        <div className="mv-proposal-header maroon-gradient px-6 py-4 text-white shrink-0">
+          <div className="min-w-0 flex-1">
+              <h3 id={titleId} className="font-extrabold text-base md:text-lg">
                 {te ? "వాట్సాప్ సంబంధం ప్రతిపాదన (Proposal Share)" : "Share WhatsApp Proposal"}
               </h3>
-              <p className="text-[11px] text-amber-200 font-medium">
+              <p id={descriptionId} className="text-[11px] text-amber-200 font-medium">
                 {te ? "సంపూర్ణ వివరాలు + HD బయోడేటా లింక్‌తో క్షణాల్లో వాట్సాప్‌లో పంపండి" : "Send beautiful personalized biodata proposal via WhatsApp"}
               </p>
-            </div>
           </div>
           <button type="button"
+            ref={closeRef}
             onClick={onClose}
-            aria-label="Close"
-            className="w-8 h-8 rounded-full bg-white/20 text-white hover:bg-white/30 flex items-center justify-center font-bold text-sm transition"
+            aria-label={te ? "మూసివేయండి" : "Close"}
+            className="mv-proposal-close min-w-11 min-h-11 shrink-0 rounded-full bg-white/20 text-white hover:bg-white/30 flex items-center justify-center font-bold text-sm transition"
           >
             ✕
           </button>
@@ -183,7 +224,7 @@ export default function WhatsAppProposalModal({ isOpen, onClose, profile }: Prop
             <label className="text-xs font-bold text-slate-700 block mb-1.5">
               {te ? "ఎవరి తరఫున పంపుతున్నారు? (Proposal Tone):" : "Sending On Behalf Of:"}
             </label>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="mv-proposal-tones grid gap-2">
               <button
                 type="button"
                 onClick={() => setTone("parent")}
@@ -253,22 +294,22 @@ export default function WhatsAppProposalModal({ isOpen, onClose, profile }: Prop
 
           {/* Live Message Preview */}
           <div>
-            <div className="flex items-center justify-between mb-1">
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
               <label className="text-xs font-bold text-slate-700">
                 {te ? "వాట్సాప్ సందేశం ప్రివ్యూ (WhatsApp Message Preview):" : "Live WhatsApp Message Preview:"}
               </label>
-              <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+              <span className="shrink-0 whitespace-nowrap text-[10px] text-emerald-700 font-bold bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
                 ✓ Ready to send
               </span>
             </div>
-            <pre className="w-full bg-[#E5DDD5]/40 border border-[#25D366]/30 rounded-2xl p-3.5 text-xs text-slate-800 font-sans whitespace-pre-wrap leading-relaxed max-h-56 overflow-y-auto">
+            <pre tabIndex={0} aria-label={te ? "సందేశం ముందస్తు వీక్షణ" : "Message preview"} className="w-full bg-[#E5DDD5]/40 border border-[#25D366]/30 rounded-2xl p-3.5 text-xs text-slate-800 font-sans whitespace-pre-wrap leading-relaxed max-h-56 overflow-y-auto">
               {text}
             </pre>
           </div>
         </div>
 
         {/* Footer Actions */}
-        <div className="bg-slate-50 border-t border-slate-200 p-4 shrink-0 flex flex-wrap gap-2.5 items-center justify-between">
+        <div className="mv-proposal-actions bg-slate-50 border-t border-slate-200 p-4 shrink-0">
           <button
             type="button"
             onClick={handleCopy}
@@ -285,13 +326,13 @@ export default function WhatsAppProposalModal({ isOpen, onClose, profile }: Prop
           <button
             type="button"
             onClick={handleWhatsAppSend}
-            className="flex-1 min-w-[200px] py-2.5 px-4 rounded-xl font-bold text-xs bg-[#25D366] hover:bg-[#1EBE5D] text-white shadow-md hover:shadow-lg transition flex items-center justify-center gap-2"
+            className="min-w-0 py-2.5 px-4 rounded-xl font-bold text-xs bg-[#25D366] hover:bg-[#1EBE5D] text-white shadow-md hover:shadow-lg transition flex items-center justify-center gap-2"
           >
             <span className="text-base">💬</span>
             <span>{te ? "వాట్సాప్‌లో నేరుగా పంపు" : "Send Directly on WhatsApp"}</span>
           </button>
         </div>
       </div>
-    </div>
+    </dialog>
   );
 }
