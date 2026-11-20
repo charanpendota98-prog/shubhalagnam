@@ -22,3 +22,7 @@
  .mv-matches-workspace .matches-profile-card .mv-btn--secondary { grid-column: 1 / -1; }
  .mv-matches-workspace .matches-profile-card .mv-btn--wa { grid-column: 1 / -1; }
 }
+/* Keep the Telugu contact action whole on the narrowest supported phones. */
+@media(max-width:359px) {
+ .mv-matches-workspace .matches-profile-card .mv-btn { grid-column: 1 / -1; }
+}
