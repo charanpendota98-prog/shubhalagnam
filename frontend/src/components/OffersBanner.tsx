@@ -7,6 +7,7 @@ import { readApiJson } from "@/lib/api";
  */
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { PartyPopper } from "lucide-react";
 import { useLang } from "@/lib/lang";
 
 export type Offer = { code: string; title: string; pct_off: number; flat_off: number; valid_to?: string };
@@ -25,7 +26,7 @@ export default function OffersBanner({ initialOffers }: { initialOffers?: Offer[
   return (
     <Link href="/pricing" className="block rounded-2xl bg-gradient-to-r from-[#7A0C2E] via-[#A31633] to-[#E8A020] text-white px-4 py-3 shadow-md hover:shadow-lg transition">
       <div className="flex items-center gap-2 flex-wrap">
-        <span className="text-lg">🎉</span>
+        <PartyPopper aria-hidden="true" className="h-5 w-5 shrink-0" />
         <span className="text-sm font-extrabold">Festival Offers LIVE!</span>
         {offers.map((o) => (
           <span key={o.code} className="text-[11px] font-bold bg-white/20 rounded-full px-2 py-0.5">

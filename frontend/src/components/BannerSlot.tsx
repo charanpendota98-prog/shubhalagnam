@@ -7,6 +7,7 @@ import { apiDisplayMessage, readApiJson } from "@/lib/api";
  */
 import { useEffect, useState } from "react";
 import { useLang } from "@/lib/lang";
+import { Megaphone } from "lucide-react";
 
 export type Banner = { id: string; text_en: string; text_te: string; link: string };
 
@@ -29,7 +30,7 @@ export default function BannerSlot({ page, initialBanners }: { page: string; ini
           ? (b.text_te || b.text_en)
           : apiDisplayMessage({ message_en: b.text_en }, false, "This announcement is available in Telugu only.");
         const body = (
-          <span className="text-xs font-bold">📣 {text}</span>
+          <span className="inline-flex items-start gap-1.5 text-xs font-bold"><Megaphone aria-hidden="true" className="mt-0.5 h-3.5 w-3.5 shrink-0" /><span>{text}</span></span>
         );
         const cls = "block rounded-xl bg-gradient-to-r from-amber-100 to-rose-100 border border-amber-200 text-amber-900 px-4 py-2.5";
         return b.link ? (
