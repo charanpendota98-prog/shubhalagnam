@@ -77,62 +77,62 @@ def sanitize_public_payload(value):
 PLANS: Dict[str, Dict] = {
     "FREE": {
         "code": "FREE", "price": 0, "profiles": 3, "validity_days": 365,
-        "label": "Free Start", "telugu": "మొదటి 3 requests FREE", "badge": "No payment required",
+        "label": "Free Start", "telugu": "మొదటి 3 అభ్యర్థనలు ఉచితం", "badge": "No payment required",
         "per_profile": 0, "perks": ["3 interest requests", "Profile card generation", "No payment required"],
-        "perksTe": ["3 ఉచిత interest requests", "ప్రొఫైల్ కార్డ్", "చెల్లింపు అవసరం లేదు"],
+        "perksTe": ["3 ఉచిత అభ్యర్థనలు", "ప్రొఫైల్ కార్డ్", "చెల్లింపు అవసరం లేదు"],
     },
     "S_99": {
         "code": "S_99", "price": 99, "profiles": 5, "validity_days": 30,
-        "label": "Sambandham", "telugu": "₹99 → 5 interest requests", "badge": "Entry",
+        "label": "Sambandham", "telugu": "₹99కు 5 అభ్యర్థనలు", "badge": "Entry",
         "per_profile": 20, "perks": ["5 interest requests", "30-day credit validity", "Contact access in accepted-request account views after owner acceptance", "Refund policy as shown in your account"],
-        "perksTe": ["5 interest requests", "30 రోజుల credit validity", "Owner accept చేసిన తర్వాత accepted-request account views లో contact details కనిపిస్తాయి", "Account లో చూపిన refund policy వర్తిస్తుంది"],
+        "perksTe": ["5 అభ్యర్థనలు", "క్రెడిట్ల గడువు 30 రోజులు", "ఎదుటి వ్యక్తి అంగీకరించాక, మీ ఖాతాలో అంగీకరించిన అభ్యర్థన వద్ద సంప్రదింపు వివరాలు కనిపిస్తాయి", "మీ ఖాతాలో చూపిన వాపసు నిబంధనలు వర్తిస్తాయి"],
     },
     "S_199": {
         "code": "S_199", "price": 199, "profiles": 12, "validity_days": 45,
-        "label": "Family", "telugu": "₹199 → 12 interest requests", "badge": "₹17/request",
+        "label": "Family", "telugu": "₹199కు 12 అభ్యర్థనలు", "badge": "₹17/request",
         "per_profile": 17, "perks": ["12 interest requests", "45-day credit validity", "Contact access in accepted-request account views after owner acceptance", "Refund policy as shown in your account"],
-        "perksTe": ["12 interest requests", "45 రోజుల credit validity", "Owner accept చేసిన తర్వాత accepted-request account views లో contact details కనిపిస్తాయి", "Account లో చూపిన refund policy వర్తిస్తుంది"],
+        "perksTe": ["12 అభ్యర్థనలు", "క్రెడిట్ల గడువు 45 రోజులు", "ఎదుటి వ్యక్తి అంగీకరించాక, మీ ఖాతాలో అంగీకరించిన అభ్యర్థన వద్ద సంప్రదింపు వివరాలు కనిపిస్తాయి", "మీ ఖాతాలో చూపిన వాపసు నిబంధనలు వర్తిస్తాయి"],
     },
     "S_299": {
         "code": "S_299", "price": 299, "profiles": 25, "validity_days": 60,
-        "label": "Premium", "telugu": "₹299 → 25 interest requests", "badge": "₹12/request",
+        "label": "Premium", "telugu": "₹299కు 25 అభ్యర్థనలు", "badge": "₹12/request",
         "per_profile": 12, "perks": ["25 interest requests", "60-day credit validity", "Who-viewed names while this plan is active", "Contact details only after the profile owner accepts", "Refund policy as shown in your account"],
-        "perksTe": ["25 interest requests", "60 రోజుల credit validity", "ఈ plan active ఉన్నంతవరకు మీ profile చూసిన వారి పేర్లు", "Owner accept చేసిన తర్వాత accepted-request account views లో contact details కనిపిస్తాయి", "Account లో చూపిన refund policy వర్తిస్తుంది"],
+        "perksTe": ["25 అభ్యర్థనలు", "క్రెడిట్ల గడువు 60 రోజులు", "ప్లాన్ గడువు ముగిసేవరకు మీ ప్రొఫైల్ చూసిన వారి పేర్లు", "ఎదుటి వ్యక్తి అంగీకరించాక, మీ ఖాతాలో అంగీకరించిన అభ్యర్థన వద్ద సంప్రదింపు వివరాలు కనిపిస్తాయి", "మీ ఖాతాలో చూపిన వాపసు నిబంధనలు వర్తిస్తాయి"],
     },
     "S_499": {
         "code": "S_499", "price": 499, "profiles": 50, "validity_days": 90,
-        "label": "VIP", "telugu": "₹499 → 50 interest requests", "badge": "VIP",
+        "label": "VIP", "telugu": "₹499కు 50 అభ్యర్థనలు", "badge": "VIP",
         "per_profile": 10, "perks": ["50 interest requests", "90-day credit validity", "Who-viewed names while this plan is active", "Contact details only after the profile owner accepts", "Refund policy as shown in your account"],
-        "perksTe": ["50 interest requests", "90 రోజుల credit validity", "ఈ plan active ఉన్నంతవరకు మీ profile చూసిన వారి పేర్లు", "Owner accept చేసిన తర్వాత accepted-request account views లో contact details కనిపిస్తాయి", "Account లో చూపిన refund policy వర్తిస్తుంది"],
+        "perksTe": ["50 అభ్యర్థనలు", "క్రెడిట్ల గడువు 90 రోజులు", "ప్లాన్ గడువు ముగిసేవరకు మీ ప్రొఫైల్ చూసిన వారి పేర్లు", "ఎదుటి వ్యక్తి అంగీకరించాక, మీ ఖాతాలో అంగీకరించిన అభ్యర్థన వద్ద సంప్రదింపు వివరాలు కనిపిస్తాయి", "మీ ఖాతాలో చూపిన వాపసు నిబంధనలు వర్తిస్తాయి"],
     },
     "BUREAU_999": {
         "code": "BUREAU_999", "price": 999, "profiles": 25, "validity_days": 30,
-        "label": "Bureau Starter", "telugu": "₹999 → 25 requests (B2B)", "badge": "Bureau/Agents",
+        "label": "Bureau Starter", "telugu": "బ్యూరోల కోసం: ₹999కు 25 అభ్యర్థనలు", "badge": "Bureau/Agents",
         "per_profile": 40, "perks": ["25 interest requests", "30-day credit validity"],
-        "perksTe": ["25 interest requests", "30 రోజుల credit validity"],
+        "perksTe": ["25 అభ్యర్థనలు", "క్రెడిట్ల గడువు 30 రోజులు"],
     },
     "BUREAU_2999": {
         "code": "BUREAU_2999", "price": 2999, "profiles": 100, "validity_days": 30,
-        "label": "Bureau Pro", "telugu": "₹2999 → 100 requests (B2B)", "badge": "Bureau Pro",
+        "label": "Bureau Pro", "telugu": "బ్యూరోల కోసం: ₹2999కు 100 అభ్యర్థనలు", "badge": "Bureau Pro",
         "per_profile": 30, "perks": ["100 interest requests", "30-day credit validity"],
-        "perksTe": ["100 interest requests", "30 రోజుల credit validity"],
+        "perksTe": ["100 అభ్యర్థనలు", "క్రెడిట్ల గడువు 30 రోజులు"],
     },
 }
 
 # 🎁 IMPLEMENTED OPTIONAL ADD-ONS (separate from request-credit plans).
 ADDONS: Dict[str, Dict] = {
     "BOOST_49": {"code": "BOOST_49", "price": 49, "label": "Profile Boost (1 day)",
-                 "telugu": "ఒక రోజు boost; channel placement availability పై ఆధారపడుతుంది", "kind": "boost", "days": 1, "pack_code": "B_1"},
+                 "telugu": "ఒక రోజు మీ ప్రొఫైల్‌కు ప్రచారం; చూపించే చోటు అందుబాటుపై ఆధారపడుతుంది", "kind": "boost", "days": 1, "pack_code": "B_1"},
     "WHOVIEWED_49": {"code": "WHOVIEWED_49", "price": 49, "label": "Who viewed me (30 days)",
-                     "telugu": "30 రోజుల పాటు viewer names చూడండి", "kind": "whoviewed", "days": 30},
+                     "telugu": "30 రోజుల పాటు మీ ప్రొఫైల్ చూసిన వారి పేర్లు చూడండి", "kind": "whoviewed", "days": 30},
     "VERIFY_199": {"code": "VERIFY_199", "price": 199, "label": "Manual photo review request",
-                   "telugu": "📸 ఫోటోను సమీక్ష కోసం పంపుతుంది; approval లేదా badge హామీ కాదు", "kind": "photo_review", "days": 0},
+                   "telugu": "ఫోటోను పరిశీలనకు పంపుతుంది; ఆమోదం లేదా గుర్తింపు చిహ్నం వస్తుందని హామీ లేదు", "kind": "photo_review", "days": 0},
 }
 
 # 🔁 RENEWAL OFFER — pata customer ki ekkuva value (loyalty + repeat revenue)
 RENEWALS: Dict[str, Dict] = {
     "RENEW_99": {"code": "RENEW_99", "price": 99, "profiles": 8, "validity_days": 30,
-                 "label": "Renewal Bonus", "telugu": "₹99 → 8 profiles (పాత customer special)",
+                 "label": "Renewal Bonus", "telugu": "పాత సభ్యులకు: ₹99కు 8 అభ్యర్థనలు",
                  "badge": "Renewal • ₹12.4/profile", "per_profile": 12,
                  "perks": ["8 interest requests", "30-day credit validity"]},
 }
