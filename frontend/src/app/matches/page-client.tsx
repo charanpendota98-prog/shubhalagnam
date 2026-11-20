@@ -2651,9 +2651,9 @@ export default function MatchesPage() {
         </div>, document.body
       )}
 
-      {saveSearchDialogOpen && (
+      {saveSearchDialogOpen && typeof document !== "undefined" && createPortal(
         <div className="fixed inset-0 z-[100] flex items-end justify-center bg-slate-950/55 p-0 sm:items-center sm:p-4">
-          <div role="dialog" aria-modal="true" aria-labelledby="save-search-dialog-title" className="w-full max-w-md rounded-t-3xl bg-white p-5 shadow-2xl sm:rounded-3xl">
+          <div role="dialog" aria-modal="true" aria-labelledby="save-search-dialog-title" className="max-h-[90dvh] w-full max-w-md overflow-y-auto rounded-t-3xl bg-white p-5 shadow-2xl sm:rounded-3xl">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <h2 id="save-search-dialog-title" className="text-lg font-black text-slate-900">{te ? "ఈ శోధనను సేవ్ చేయండి" : "Save this search"}</h2>
@@ -2704,7 +2704,7 @@ export default function MatchesPage() {
               </div>
             </form>
           </div>
-        </div>
+        </div>, document.body
       )}
 
       {/* Instant Contact Unlock Modal */}
