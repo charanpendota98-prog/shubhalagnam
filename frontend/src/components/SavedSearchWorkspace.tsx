@@ -19,7 +19,7 @@
 
 import Link from "next/link";
 import "./discovery-workspace.css";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { apiFetch, apiPost, authHeaders, readApiJson } from "@/lib/api";
 import { useLang } from "@/lib/lang";
 import AuthGate from "@/components/AuthGate";
@@ -39,6 +39,31 @@ type SavedSearch = {
   sample?: Row[];
   created_at?: string;
 };
+
+const searchObject = (v: unknown): v is Record<string, any> => !!v && typeof v === "object" && !Array.isArray(v);
+function validSearchList(data: unknown, owner: string): data is { searches: SavedSearch[] } {
+  if (!searchObject(data) || data.success === false || data.tsap_id !== owner || !Array.isArray(data.searches) ||
+      !Number.isSafeInteger(data.count) || data.count !== data.searches.length) return false;
+  const ids = new Set<string>();
+  return data.searches.every((row: unknown) => {
+    if (!searchObject(row) || row.tsap_id !== owner || typeof row.search_id !== "string" ||
+        !/^[A-Za-z0-9_-]+$/.test(row.search_id) || ids.has(row.search_id) || !searchObject(row.filters)) return false;
+    ids.add(row.search_id);
+    if (!Object.entries(row.filters).every(([k, v]) => {
+      if (v == null) return true;
+      if (["verified_only", "photo_only", "nri_only"].includes(k)) return typeof v === "boolean";
+      if (["age_min", "age_max", "salary_min", "salary_max"].includes(k)) return typeof v === "number" && Number.isSafeInteger(v) && v >= 0;
+      return typeof v === "string";
+    })) return false;
+    for (const k of ["name", "alert_consent_at", "created_at"]) if (row[k] != null && typeof row[k] !== "string") return false;
+    if (typeof row.alert !== "boolean" || !Number.isSafeInteger(row.new_matches) || row.new_matches < 0 || row.new_matches > 5 || !Array.isArray(row.sample) || row.sample.length > 3 || row.sample.length > row.new_matches) return false;
+    const sampleIds = new Set<string>();
+    return row.sample.every((profile: unknown) => {
+      if (!searchObject(profile) || typeof profile.tsap_id !== "string" || !profile.tsap_id || profile.tsap_id === owner || sampleIds.has(profile.tsap_id) || (profile.full_name != null && typeof profile.full_name !== "string")) return false;
+      sampleIds.add(profile.tsap_id); return true;
+    });
+  });
+}
 
 type Notice = { tone: "ok" | "error" | "info"; text: string };
 
@@ -80,6 +105,7 @@ export default function SavedSearchWorkspace() {
   const [loadError, setLoadError] = useState(false);
   const [unauthorized, setUnauthorized] = useState(false);
   const [attempt, setAttempt] = useState(0);
+  const loadEpoch = useRef(0);
 
   const [pendingId, setPendingId] = useState("");
   const [sendingId, setSendingId] = useState("");
@@ -100,11 +126,14 @@ export default function SavedSearchWorkspace() {
       setLoading(false);
       return;
     }
+    const epoch = ++loadEpoch.current;
     setLoading(true);
+    setSearches([]);
     setLoadError(false);
     setUnauthorized(false);
     try {
       const response = await fetch(`/api/saved-searches/${encodeURIComponent(myId)}`, { headers: authHeaders() });
+      if (epoch !== loadEpoch.current) return;
       if (response.status === 401 || response.status === 403) {
         setUnauthorized(true);
         setSearches([]);
@@ -115,17 +144,19 @@ export default function SavedSearchWorkspace() {
         return;
       }
       const data = await readApiJson(response);
-      const rows = Array.isArray(data?.searches) ? data.searches : [];
-      setSearches(rows.filter((row: SavedSearch) => row?.search_id));
+      if (epoch !== loadEpoch.current) return;
+      if (!validSearchList(data, myId)) throw new Error("Saved searches unavailable");
+      setSearches(data.searches);
     } catch {
-      setLoadError(true);
+      if (epoch === loadEpoch.current) setLoadError(true);
     } finally {
-      setLoading(false);
+      if (epoch === loadEpoch.current) setLoading(false);
     }
   }, [myId]);
 
   useEffect(() => {
     void load();
+    return () => { loadEpoch.current++; };
   }, [load, attempt]);
 
   const setAlert = async (search: SavedSearch, enable: boolean) => {
@@ -142,14 +173,14 @@ export default function SavedSearchWorkspace() {
     if (!ok) {
       setNotice({
         tone: "error",
-        text: te ? "Alert సెట్టింగ్ మార్చలేకపోయాం. మళ్లీ ప్రయత్నించండి." : "We could not change the alert setting. Please try again.",
+        text: te ? "సూచనల ఎంపికను మార్చలేకపోయాం. మళ్లీ ప్రయత్నించండి." : "We could not change the alert setting. Please try again.",
       });
       return;
     }
     setNotice({
       tone: enable ? "ok" : "info",
       text: te
-        ? String(data?.message_telugu || (enable ? "ఈ search‌కు alerts ఆన్ చేశారు." : "ఈ search‌కు notifications ఆఫ్ చేశారు."))
+        ? String(data?.message_telugu || (enable ? "ఈ శోధనకు సూచనలు ప్రారంభించారు." : "ఈ శోధనకు సూచనలు ఆపివేశారు."))
         : String(data?.message_en || (enable ? "Alerts are on for this search." : "Notifications are off for this search.")),
     });
     void load();
@@ -165,7 +196,7 @@ export default function SavedSearchWorkspace() {
     if (!ok) {
       setNotice({
         tone: "error",
-        text: te ? "Alerts పంపలేకపోయాం. మళ్లీ ప్రయత్నించండి." : "We could not send alerts right now. Please try again.",
+        text: te ? "సూచనలు పంపలేకపోయాం. మళ్లీ ప్రయత్నించండి." : "We could not send alerts right now. Please try again.",
       });
       return;
     }
@@ -178,7 +209,7 @@ export default function SavedSearchWorkspace() {
       text:
         message ||
         (te
-          ? "కొత్త matches ఇప్పుడు లేవు — filters మార్చి మళ్లీ చూడండి."
+          ? "ఇప్పుడు సరిపోయే కొత్త ప్రొఫైళ్లు లేవు. శోధన ఎంపికలను మార్చి మళ్లీ చూడండి."
           : "There are no new matches for your saved searches right now."),
     });
   };
@@ -194,23 +225,23 @@ export default function SavedSearchWorkspace() {
     if (!ok) {
       setNotice({
         tone: "error",
-        text: te ? "Search తొలగించలేకపోయాం. మళ్లీ ప్రయత్నించండి." : "We could not delete this search. Please try again.",
+        text: te ? "శోధనను తొలగించలేకపోయాం. మళ్లీ ప్రయత్నించండి." : "We could not delete this search. Please try again.",
       });
       return;
     }
-    setNotice({ tone: "info", text: te ? "Saved search తొలగించాం." : "Saved search deleted." });
+    setNotice({ tone: "info", text: te ? "దాచుకున్న శోధనను తొలగించాం." : "Saved search deleted." });
     void load();
   };
 
   if (unauthorized || (!loading && !myId)) {
-    return <section className="mv-discovery-workspace mx-auto w-full max-w-4xl px-4 py-6 sm:px-6 sm:py-8"><header className="mv-discovery-heading"><h1>{te ? "Saved searches మరియు alerts" : "Saved searches and alerts"}</h1></header><AuthGate note={te ? "మీ saved searches, alerts చూడటానికి లాగిన్ అవ్వండి." : "Log in to manage your saved searches and alerts."} /></section>;
+    return <section className="mv-discovery-workspace mx-auto w-full max-w-4xl px-4 py-6 sm:px-6 sm:py-8"><header className="mv-discovery-heading"><h1>{te ? "దాచుకున్న శోధనలు, సూచనలు" : "Saved searches and alerts"}</h1></header><AuthGate note={te ? "మీరు దాచుకున్న శోధనలు, సూచనల ఎంపికలను చూడటానికి లాగిన్ చేయండి." : "Log in to manage your saved searches and alerts."} /></section>;
   }
 
   return (
-    <section className="mv-discovery-workspace mx-auto w-full max-w-4xl px-4 py-6 sm:px-6 sm:py-8" aria-label={te ? "నా saved searches" : "My saved searches"}>
+    <section className="mv-discovery-workspace mx-auto w-full max-w-4xl px-4 py-6 sm:px-6 sm:py-8" aria-label={te ? "నా శోధనలు" : "My saved searches"}>
       <header className="mv-discovery-heading">
-        <h1>{te ? "Saved searches మరియు alerts" : "Saved searches and alerts"}</h1>
-        <p>{te ? "Save చేసిన filters తెరవండి. Alerts కావాలో మీరు ఎంచుకోండి." : "Open your saved filters and choose whether to receive alerts."}</p>
+        <h1>{te ? "దాచుకున్న శోధనలు, సూచనలు" : "Saved searches and alerts"}</h1>
+        <p>{te ? "మీరు దాచుకున్న శోధనలను తెరవండి. కొత్త ప్రొఫైళ్ల గురించి సూచనలు కావాలో ఎంచుకోండి." : "Open your saved filters and choose whether to receive alerts."}</p>
       </header>
       <div className="mb-4 flex justify-end sm:mb-6">
         <Link
@@ -243,7 +274,7 @@ export default function SavedSearchWorkspace() {
         <Card tone="brand" interactive className="mv-card">
           <CardBody>
             <p role="alert" className="text-sm text-amber-950">
-              {te ? "Saved searches లోడ్ కాలేదు." : "Your saved searches could not be loaded."}
+              {te ? "దాచుకున్న శోధనలు రాలేదు." : "Your saved searches could not be loaded. This does not mean no searches were saved."}
             </p>
             <div className="mt-3">
               <Button type="button" onClick={() => setAttempt((value) => value + 1)}>
@@ -256,7 +287,7 @@ export default function SavedSearchWorkspace() {
         <Card tone="brand" interactive className="mv-card">
           <CardBody>
             <EmptyState
-              title={te ? "ఇంకా saved searches లేవు" : "No saved searches yet"}
+              title={te ? "దాచుకున్న శోధనలు ఇంకా లేవు" : "No saved searches yet"}
               description={
                 te
                   ? "మీకు నచ్చిన ఫిల్టర్లతో శోధించి, ఆ శోధనను సేవ్ చేసుకోండి — తర్వాత ఒకే క్లిక్‌లో తిరిగి చూడవచ్చు."
@@ -276,7 +307,7 @@ export default function SavedSearchWorkspace() {
             const id = String(search.search_id || "");
             const alertsOn = search.alert === true && Boolean(search.alert_consent_at);
             const legacyNeedsConsent = search.alert === true && !search.alert_consent_at;
-            const count = Math.max(0, Number(search.new_matches) || 0);
+            const count = search.new_matches!;
             const names = sampleNames(search.sample);
             const broad = isBroadSavedSearch(search.filters || {});
             const busy = pendingId === id || sendingId === id;
@@ -316,17 +347,17 @@ export default function SavedSearchWorkspace() {
                         >
                           {alertsOn
                             ? te
-                              ? "Alerts ఆన్"
+                              ? "సూచనలు ప్రారంభమయ్యాయి"
                               : "Alerts on"
                             : legacyNeedsConsent
                               ? te
-                                ? "సమ్మతి నమోదు వరకు alerts నిలిపివేశారు"
+                                ? "సమ్మతి నమోదు చేసే వరకు సూచనలు నిలిపివేశారు"
                                 : "Alerts paused until consent is recorded"
                               : te
-                                ? "Alerts ఆఫ్"
+                                ? "సూచనలు ఆపివేశారు"
                                 : "Alerts off"}
                         </span>
-                        {search.created_at && (
+                        {search.created_at && formatDate(search.created_at, te) && (
                           <span className="text-slate-500">{formatDate(search.created_at, te)}</span>
                         )}
                       </div>
@@ -362,7 +393,7 @@ export default function SavedSearchWorkspace() {
                         disabled={busy}
                         onClick={() => void setAlert(search, false)}
                       >
-                        {te ? "Alerts ఆఫ్ చేయండి" : "Turn off alerts"}
+                        {te ? "సూచనలు ఆపండి" : "Turn off alerts"}
                       </Button>
                     ) : consentFor === id ? (
                       <span className="sr-only" />
@@ -379,7 +410,7 @@ export default function SavedSearchWorkspace() {
                             ? "సమ్మతిని నమోదు చేయండి"
                             : "Record consent"
                           : te
-                            ? "Alerts ఆన్ చేయండి"
+                            ? "సూచనలు ప్రారంభించండి"
                             : "Turn on alerts"}
                       </Button>
                     )}
@@ -428,7 +459,7 @@ export default function SavedSearchWorkspace() {
                         />
                         <span>
                           {te
-                            ? "నాకు ఈ saved search కోసం WhatsApp alerts కావాలి — నేను సమ్మతిస్తున్నాను."
+                            ? "ఈ శోధనకు WhatsApp సూచనలు కావాలని నేను సమ్మతిస్తున్నాను."
                             : "I want WhatsApp alerts for this saved search — I consent."}
                         </span>
                       </label>
@@ -444,10 +475,10 @@ export default function SavedSearchWorkspace() {
                     <p className="mt-2 text-[11px] leading-relaxed text-slate-600">
                       {alertsOn
                         ? te
-                          ? "తొలగిస్తే ఈ saved search‌కు వచ్చే alerts కూడా ఆగుతాయి."
+                          ? "ఈ శోధనను తొలగిస్తే దీనికి వచ్చే సూచనలు కూడా ఆగుతాయి."
                           : "Deleting also stops future alerts for this saved search."
                         : te
-                          ? "ఈ saved search మాత్రమే తొలగించబడుతుంది."
+                          ? "దాచుకున్న ఈ శోధన మాత్రమే తొలగించబడుతుంది."
                           : "Only this saved search will be deleted."}
                     </p>
                   )}
@@ -460,7 +491,7 @@ export default function SavedSearchWorkspace() {
 
       <p className="mt-5 text-[11px] leading-relaxed text-slate-500">
         {te
-          ? "Counts ఇప్పుడు ఉన్న ప్రొఫైళ్ల ఆధారంగా ఉంటాయి; అవి విజయం లేదా అనుకూలతకు సంకేతం కాదు. Alerts WhatsApp ద్వారా పంపబడతాయి మరియు పంపిణీకి హామీ ఇవ్వము."
+          ? "సంఖ్యలు ప్రస్తుతం ఉన్న ప్రొఫైళ్ల ఆధారంగా ఉంటాయి. అవి విజయం లేదా అనుకూలతకు సంకేతం కాదు. సూచనలు WhatsApp ద్వారా పంపుతాము. అవి చేరుతాయని హామీ ఇవ్వము."
           : "Counts reflect the profiles available right now; they are not a signal of compatibility or outcome. Alerts are sent over WhatsApp, and delivery is not guaranteed."}
       </p>
     </section>
