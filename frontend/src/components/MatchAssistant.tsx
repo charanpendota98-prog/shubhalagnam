@@ -9,13 +9,41 @@
  * Privacy-safe: server returns safe_user payloads only (no raw phone).
  * Owner-guarded: apiGet attaches X-Tsap-Token; endpoint enforces require_owner.
  */
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ChartNoAxesCombined, Check, Compass, Eye, Flame, RefreshCw, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { apiDisplayMessage, apiGet, getTsapId } from "@/lib/api";
 import { useLang } from "@/lib/lang";
 
 type Row = Record<string, any>;
+
+function validBriefing(value: unknown, owner: string): value is Row {
+  const object = (v: unknown): v is Row => !!v && typeof v === "object" && !Array.isArray(v);
+  const text = (v: unknown): v is string => typeof v === "string" && !!v.trim();
+  const count = (v: unknown): v is number => typeof v === "number" && Number.isSafeInteger(v) && v >= 0;
+  if (!object(value) || value.success !== true || value.tsap_id !== owner ||
+      !text(value.summary_en) || !text(value.summary_telugu) ||
+      !Array.isArray(value.matches) || value.matches.length > 6 || !object(value.mutual) ||
+      !count(value.mutual.interests_received) || !count(value.mutual.profile_views) ||
+      !object(value.nudge) || !count(value.nudge.percent) || value.nudge.percent > 100 ||
+      !Array.isArray(value.tips)) return false;
+  const ids = new Set<string>();
+  for (const m of value.matches) {
+    if (!object(m) || !text(m.tsap_id) || !/^[A-Za-z0-9_-]+$/.test(m.tsap_id) ||
+        m.tsap_id === owner || ids.has(m.tsap_id) || !object(m.profile) ||
+        typeof m.is_new !== "boolean" || !Array.isArray(m.observations) ||
+        !m.observations.every((v: unknown) => typeof v === "string")) return false;
+    if (m.profile.tsap_id != null && m.profile.tsap_id !== m.tsap_id) return false;
+    for (const key of ["full_name", "photo_url", "caste", "district", "height", "education", "age"])
+      if (m.profile[key] != null && typeof m.profile[key] !== "string" &&
+          !(typeof m.profile[key] === "number" && Number.isFinite(m.profile[key]))) return false;
+    ids.add(m.tsap_id);
+  }
+  for (const key of ["verdict_telugu", "verdict_en"])
+    if (value.nudge[key] != null && typeof value.nudge[key] !== "string") return false;
+  return value.tips.every((t: unknown) => object(t) && count(t.priority) && t.priority >= 1 && t.priority <= 4 &&
+    text(t.telugu) && text(t.en) && ["/me", "/requests", "/matches", "/login"].includes(t.cta));
+}
 
 const priorityColor = (p: number) => (p <= 1 ? "bg-rose-600" : p === 2 ? "bg-orange-500" : p === 3 ? "bg-amber-500" : "bg-emerald-600");
 
@@ -46,23 +74,26 @@ export default function MatchAssistant() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
 
+  const epoch = useRef(0);
   const load = useCallback(async () => {
+    const current = ++epoch.current;
     const id = getTsapId();
-    if (!id) {
-      setLoading(false);
-      setErr(te ? "ముందుగా లాగిన్ అవ్వండి" : "Please login first");
-      return;
-    }
-    setLoading(true);
-    setErr("");
-    const r = await apiGet<Row>(`/api/assistant/briefing/${encodeURIComponent(id)}?limit=3`);
-    if (r.ok && r.data) setData(r.data as Row);
-    else setErr(r.error || (te ? "వివరాలు రాలేదు. మళ్లీ ప్రయత్నించండి." : "Could not load"));
-    setLoading(false);
+    setData(null); setLoading(true); setErr("");
+    try {
+      if (!id) throw new Error("Missing account");
+      const r = await apiGet<unknown>(`/api/assistant/briefing/${encodeURIComponent(id)}?limit=3`);
+      if (current !== epoch.current || getTsapId() !== id) return;
+      if (!r.ok || !validBriefing(r.data, id)) throw new Error("Briefing unavailable");
+      setData(r.data);
+    } catch {
+      if (current === epoch.current) setErr(te ? "మీ సంబంధ సూచనలు రాలేదు. కొత్త ప్రొఫైళ్లు లేవని దీని అర్థం కాదు. మళ్లీ ప్రయత్నించండి." : "Your match briefing could not be loaded. This does not mean no profiles are available. Please retry.");
+    } finally { if (current === epoch.current) setLoading(false); }
   }, [te]);
 
   useEffect(() => {
+    const readEpoch = epoch;
     void load();
+    return () => { readEpoch.current++; };
   }, [load]);
 
   const matches: Row[] = (data?.matches as Row[]) || [];
@@ -97,7 +128,7 @@ export default function MatchAssistant() {
 
       <div className="mv-surface__body space-y-4">
         {loading && (
-          <div className="space-y-3">
+          <div role="status" aria-label={te ? "సంబంధ సూచనలు తెస్తున్నాం" : "Loading match briefing"} className="space-y-3">
             {[0, 1, 2].map((i) => (
               <div key={i} className="h-16 animate-pulse rounded-xl bg-slate-100" />
             ))}
@@ -105,7 +136,7 @@ export default function MatchAssistant() {
         )}
 
         {!loading && err && (
-          <p className="rounded-xl bg-rose-50 border border-rose-200 px-3 py-2 text-sm font-bold text-rose-700">{err}</p>
+          <p role="alert" className="rounded-xl bg-rose-50 border border-rose-200 px-3 py-2 text-sm font-bold text-rose-700">{err}</p>
         )}
 
         {!loading && !err && data && (
