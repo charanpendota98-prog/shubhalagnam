@@ -221,7 +221,7 @@ export default function MePage() {
           </div>
 
           <details className="account-activity">
-            <summary>{te ? "మీ ఖాతా activity, సూచనలు" : "Your account activity and suggestions"}</summary>
+            <summary>{te ? "మీ ఖాతా కార్యకలాపాలు, సూచనలు" : "Your account activity and suggestions"}</summary>
           {/*  Smart Match Assistant — daily personalized briefing (top of dashboard) */}
           <div className="mt-4">
             <MatchAssistant />

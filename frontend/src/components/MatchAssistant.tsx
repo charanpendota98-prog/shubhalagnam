@@ -10,13 +10,14 @@
  * Owner-guarded: apiGet attaches X-Tsap-Token; endpoint enforces require_owner.
  */
 import { useCallback, useEffect, useState } from "react";
+import { ChartNoAxesCombined, Check, Compass, Eye, Flame, RefreshCw, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { apiDisplayMessage, apiGet, getTsapId } from "@/lib/api";
 import { useLang } from "@/lib/lang";
 
 type Row = Record<string, any>;
 
-const priorityIcon = (p: number) => (p <= 1 ? "🔴" : p === 2 ? "🟠" : p === 3 ? "🟡" : "🟢");
+const priorityColor = (p: number) => (p <= 1 ? "bg-rose-600" : p === 2 ? "bg-orange-500" : p === 3 ? "bg-amber-500" : "bg-emerald-600");
 
 function Avatar({ p }: { p: Row }) {
   const photo = p?.photo_url;
@@ -49,14 +50,14 @@ export default function MatchAssistant() {
     const id = getTsapId();
     if (!id) {
       setLoading(false);
-      setErr(te ? "🔒 ముందుగా login అవ్వండి" : "🔒 Please login first");
+      setErr(te ? "ముందుగా లాగిన్ అవ్వండి" : "Please login first");
       return;
     }
     setLoading(true);
     setErr("");
     const r = await apiGet<Row>(`/api/assistant/briefing/${encodeURIComponent(id)}?limit=3`);
     if (r.ok && r.data) setData(r.data as Row);
-    else setErr(r.error || (te ? "⚠️ లోడ్ చేయలేకపోయాము" : "⚠️ Could not load"));
+    else setErr(r.error || (te ? "వివరాలు రాలేదు. మళ్లీ ప్రయత్నించండి." : "Could not load"));
     setLoading(false);
   }, [te]);
 
@@ -78,10 +79,10 @@ export default function MatchAssistant() {
       <div className="mv-surface__head">
         <div className="min-w-0">
           <h2 className="mv-surface__title">
-            <span aria-hidden="true">🧭</span> {te ? "పరిశీలించడానికి ప్రొఫైళ్లు" : "Profiles to review"}
+            <Compass aria-hidden="true" className="inline-block h-[1em] w-[1em] shrink-0 align-middle" /> {te ? "పరిశీలించడానికి ప్రొఫైళ్లు" : "Profiles to review"}
           </h2>
           <p className="mv-surface__sub">
-            {te ? "ఇటీవల ఆమోదించిన profiles · నిజమైన interestలు, profile views" : "Recently approved profiles · actual interests and profile views"}
+            {te ? "ఇటీవల ఆమోదించిన ప్రొఫైళ్లు · అందిన అభ్యర్థనలు, ప్రొఫైల్‌ను చూసినవారి సంఖ్య" : "Recently approved profiles · actual interests and profile views"}
           </p>
         </div>
         <button type="button"
@@ -90,7 +91,7 @@ export default function MatchAssistant() {
           className="mv-surface__chip focus-brand"
           aria-label={te ? "రిఫ్రెష్ చేయండి" : "Refresh match briefing"}
         >
-          {loading ? "…" : "↻"}
+          {loading ? "…" : <RefreshCw aria-hidden="true" className="h-4 w-4" />}
         </button>
       </div>
 
@@ -117,12 +118,12 @@ export default function MatchAssistant() {
               <div className="mv-note flex flex-wrap items-center gap-x-3 gap-y-1">
                 {recv > 0 && (
                   <span className="mv-note__hot text-xs font-bold">
-                    🔥 {recv} {te ? "మంది interest పంపారు" : "sent you interest"}
+                    <Flame aria-hidden="true" className="inline-block h-[1em] w-[1em]" /> {recv} {te ? "మంది ఆసక్తి తెలిపారు" : "sent you interest"}
                   </span>
                 )}
                 {views > 0 && (
                   <span className="mv-note__cool text-xs font-bold">
-                    👀 {views} {te ? "ప్రొఫైల్ వ్యూస్" : "profile views"}
+                    <Eye aria-hidden="true" className="inline-block h-[1em] w-[1em]" /> {views} {te ? "సార్లు మీ ప్రొఫైల్‌ను చూశారు" : "profile views"}
                   </span>
                 )}
                 <Link href="/requests" className="ml-auto text-xs font-black text-[#7A0C2E] underline hover:no-underline">
@@ -155,7 +156,7 @@ export default function MatchAssistant() {
 
                         <div className="mt-1.5 flex flex-wrap gap-1">
                           {m.is_new && (
-                            <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700">✨ {te ? "ఇటీవల జోడించారు" : "Recently added"}</span>
+                            <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700"><Sparkles aria-hidden="true" className="inline-block h-[1em] w-[1em]" /> {te ? "ఇటీవల జోడించారు" : "Recently added"}</span>
                           )}
                         </div>
 
@@ -167,7 +168,7 @@ export default function MatchAssistant() {
                         )}
 
                         <div className="mt-2 flex items-center justify-between gap-2">
-                          <span className="truncate text-[11px] font-medium text-slate-500">{displayValue(te ? (m.action_telugu || m.action) : m.action_en, te ? "సంబంధ వివరాలను పరిశీలించండి." : "Review the profile details.")}</span>
+                          <span className="truncate text-[11px] font-medium text-slate-500">{displayValue(te ? m.action_telugu : m.action_en, te ? "సంబంధ వివరాలను పరిశీలించండి." : "Review the profile details.")}</span>
                           <Link
                             href={`/search/${encodeURIComponent(m.tsap_id)}`}
                             className="shrink-0 rounded-full gold-gradient px-3 py-1 text-[11px] font-black text-maroon hover:brightness-105 transition"
@@ -182,7 +183,7 @@ export default function MatchAssistant() {
               </div>
             ) : (
               <p className="mv-empty-inline">
-                {te ? "ఇటీవల జోడించిన profiles లేవు. తర్వాత మళ్లీ చూడండి; profile పూర్తి చేయడం వల్ల results హామీ కాదు." : "No recently added profiles are available. Please check again later; profile completeness does not guarantee results."}
+                {te ? "ఇటీవల జోడించిన ప్రొఫైళ్లు లేవు. తర్వాత మళ్లీ చూడండి. ప్రొఫైల్ వివరాలు పూర్తి చేసినంత మాత్రాన సంబంధం కుదురుతుందని హామీ లేదు." : "No recently added profiles are available. Please check again later; profile completeness does not guarantee results."}
               </p>
             )}
 
@@ -190,7 +191,7 @@ export default function MatchAssistant() {
             {pct < 100 && (
               <div className="mv-rowblock">
                 <div className="flex items-center justify-between text-xs font-bold text-slate-700">
-                  <span>{te ? "📈 ప్రొఫైల్ పూర్తి" : "📈 Profile completeness"}</span>
+                  <span><ChartNoAxesCombined aria-hidden="true" className="inline-block h-[1em] w-[1em]" /> {te ? "ప్రొఫైల్‌లో నింపిన వివరాలు" : "Profile completeness"}</span>
                   <span className="text-[#7A0C2E]">{pct}%</span>
                 </div>
                 <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-slate-100">
@@ -208,12 +209,12 @@ export default function MatchAssistant() {
             {tips.length > 0 && (
               <div className="rounded-xl bg-slate-50 border border-slate-200 p-3">
                 <p className="mb-2 text-xs font-black text-slate-700">
-                  {te ? "✅ మీ తదుపరి అడుగులు" : "✅ Your next steps"}
+                  <Check aria-hidden="true" className="inline-block h-[1em] w-[1em]" /> {te ? "మీ తదుపరి అడుగులు" : "Your next steps"}
                 </p>
                 <ul className="space-y-1.5">
                   {tips.map((t, i) => (
                     <li key={i} className="flex items-start gap-2">
-                      <span className="mt-0.5 text-xs">{priorityIcon(Number(t.priority || 3))}</span>
+                      <span aria-hidden="true" className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${priorityColor(Number(t.priority || 3))}`} />
                       <div className="min-w-0 flex-1">
                         <p className="text-[12px] font-medium leading-snug text-slate-700">{displayValue(te ? t.telugu : t.en, te ? "మీ ప్రొఫైల్ వివరాలను సమీక్షించండి." : "Review your profile details.")}</p>
                       </div>
