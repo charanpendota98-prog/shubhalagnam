@@ -76,8 +76,6 @@ export default function WhatsAppProposalModal({ isOpen, onClose, profile }: Prop
 
   if (!isOpen || !profile) return null;
 
-  const isBride = (profile.gender || "").toLowerCase().includes("bride") || (profile.gender || "").includes("ఆడ") || (profile.gender || "").includes("వధువు");
-  const genderTitleTe = isBride ? "వధువు (అమ్మాయి)" : "వరుడు (అబ్బాయి)";
   const originUrl = typeof window !== "undefined" ? window.location.origin : "https://manavivaha.in";
   const profileUrl = `${originUrl}/search/${profile.tsap_id}`;
   const biodataUrl = `${originUrl}/biodata?id=${profile.tsap_id}`;
@@ -98,7 +96,7 @@ export default function WhatsAppProposalModal({ isOpen, onClose, profile }: Prop
     let greeting = "";
     if (tone === "parent") {
       greeting = te
-        ? `🙏 నమస్కారం అండి!\nమేము మన వివాహ (Mana Vivaha) లో మీ కోసం సరితూగే ${genderTitleTe} సంబంధం ప్రొఫైల్ వివరాలను పంపుతున్నాము:`
+        ? `🙏 నమస్కారం అండి!\nమేము మన వివాహలోని ఒక సంబంధం వివరాలను మీ పరిశీలన కోసం పంపుతున్నాము:`
         : `🙏 Hello!\nWe are sharing a Telugu matrimony profile from Mana Vivaha for your consideration:`;
     } else if (tone === "self") {
       greeting = te
@@ -152,13 +150,13 @@ export default function WhatsAppProposalModal({ isOpen, onClose, profile }: Prop
     }
 
     lines.push(te
-      ? `\n🔗 పూర్తి ప్రొఫైల్ వివరాలు & ఫోటో చూడటానికి లింక్:\n👉 ${profileUrl}`
-      : `\n🔗 View the full profile and photo:\n👉 ${profileUrl}`);
+      ? `\n🔗 పూర్తి ప్రొఫైల్ వివరాల లింక్:\n👉 ${profileUrl}`
+      : `\n🔗 View the full profile:\n👉 ${profileUrl}`);
 
     if (includeBiodataLink) {
       lines.push(te
-        ? `\n🎴 HD కలర్ బయోడేటా డౌన్‌లోడ్ చేయడానికి లింక్:\n👉 ${biodataUrl}`
-        : `\n🎴 Download the shareable biodata:\n👉 ${biodataUrl}`);
+        ? `\n🎴 బయోడేటా రూపొందించడానికి లింక్:\n👉 ${biodataUrl}`
+        : `\n🎴 Create a shareable biodata:\n👉 ${biodataUrl}`);
     }
 
     lines.push(te ? "\n✨ మన వివాహ (Mana Vivaha) — Telugu matrimony profile service" : "\n✨ Mana Vivaha — Telugu matrimony profile service");
