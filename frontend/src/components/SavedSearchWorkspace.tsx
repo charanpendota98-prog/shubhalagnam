@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * 🔔 Saved-search workspace
+ * Saved-search workspace
  * -------------------------
  * One place to manage every saved search: see what is new, open the results,
  * control WhatsApp alerts, and delete searches you no longer need.
@@ -68,12 +68,27 @@ function validSearchList(data: unknown, owner: string): data is { searches: Save
 type Notice = { tone: "ok" | "error" | "info"; text: string };
 
 type AlertsResult = {
+  success?: boolean;
+  details?: { search_id: string; new_matches: number; queued: boolean }[];
+  alerts_sent?: number;
   alerts_queued?: number;
   alerts_skipped?: number;
   new_matches_total?: number;
   message_en?: string;
   message_telugu?: string;
 };
+
+function validAlertsResult(data: unknown, searches: SavedSearch[]): data is AlertsResult {
+  if (!searchObject(data) || data.success !== true || !Array.isArray(data.details)) return false;
+  for (const key of ["alerts_queued", "alerts_skipped", "new_matches_total"]) if (!Number.isSafeInteger(data[key]) || data[key] < 0) return false;
+  const ids = new Set<string>();
+  let total = 0, queued = 0;
+  for (const row of data.details) {
+    if (!searchObject(row) || typeof row.search_id !== "string" || !row.search_id || ids.has(row.search_id) || !searches.some((search) => search.search_id === row.search_id && search.alert === true && Boolean(search.alert_consent_at)) || !Number.isSafeInteger(row.new_matches) || row.new_matches < 1 || row.new_matches > 5 || typeof row.queued !== "boolean") return false;
+    ids.add(row.search_id); total += row.new_matches; queued += row.queued ? 1 : 0;
+  }
+  return data.details.length + data.alerts_skipped <= searches.length && data.new_matches_total === total && data.alerts_queued === queued && (data.alerts_sent == null || data.alerts_sent === queued);
+}
 
 function formatDate(value: string | undefined, te: boolean): string {
   if (!value) return "";
@@ -106,6 +121,8 @@ export default function SavedSearchWorkspace() {
   const [unauthorized, setUnauthorized] = useState(false);
   const [attempt, setAttempt] = useState(0);
   const loadEpoch = useRef(0);
+  const actionEpoch = useRef(0);
+  useEffect(() => () => { actionEpoch.current++; }, [myId]);
 
   const [pendingId, setPendingId] = useState("");
   const [sendingId, setSendingId] = useState("");
@@ -147,6 +164,7 @@ export default function SavedSearchWorkspace() {
       if (epoch !== loadEpoch.current) return;
       if (!validSearchList(data, myId)) throw new Error("Saved searches unavailable");
       setSearches(data.searches);
+      return data.searches;
     } catch {
       if (epoch === loadEpoch.current) setLoadError(true);
     } finally {
@@ -162,75 +180,86 @@ export default function SavedSearchWorkspace() {
   const setAlert = async (search: SavedSearch, enable: boolean) => {
     const id = String(search.search_id || "");
     if (!id) return;
+    const epoch = ++actionEpoch.current;
     setPendingId(id);
     setNotice(null);
-    const { ok, data } = await apiFetch<{ alert_enabled?: boolean; message_en?: string; message_telugu?: string }>(
+    const { ok, data } = await apiFetch<{ success?: boolean; search_id?: string; alert_enabled?: boolean }>(
       `/api/saved-searches/${encodeURIComponent(myId)}/${encodeURIComponent(id)}`,
       { method: "PUT", body: { alert: enable, alert_consent_confirmed: true } },
     );
+    if (epoch !== actionEpoch.current) return;
     setPendingId("");
     setConsentFor("");
-    if (!ok) {
+    if (!ok || data?.success !== true || data.search_id !== id || data.alert_enabled !== enable) {
       setNotice({
         tone: "error",
-        text: te ? "సూచనల ఎంపికను మార్చలేకపోయాం. మళ్లీ ప్రయత్నించండి." : "We could not change the alert setting. Please try again.",
+        text: te ? "సూచనల మార్పు నిర్ధారణ కాలేదు. మళ్లీ తెరిచి ఎంపికను చూడండి." : "The alert update was not confirmed. Reload and check the setting before trying again.",
       });
       return;
     }
-    setNotice({
-      tone: enable ? "ok" : "info",
-      text: te
-        ? String(data?.message_telugu || (enable ? "ఈ శోధనకు సూచనలు ప్రారంభించారు." : "ఈ శోధనకు సూచనలు ఆపివేశారు."))
-        : String(data?.message_en || (enable ? "Alerts are on for this search." : "Notifications are off for this search.")),
-    });
-    void load();
+    const current = await load();
+    if (epoch !== actionEpoch.current) return;
+    const updated = current?.find((row) => row.search_id === id);
+    if (!updated || updated.alert !== enable || (enable && !updated.alert_consent_at)) {
+      setNotice({ tone: "error", text: te ? "సూచనల ఎంపికను నిర్ధారించలేకపోయాం. మళ్లీ తెరిచి చూడండి." : "We could not confirm the alert setting. Reload and check before trying again." });
+      return;
+    }
+    setNotice({ tone: enable ? "ok" : "info", text: te ? (enable ? "ఈ శోధనకు సూచనలు ప్రారంభించారు." : "ఈ శోధనకు సూచనలు ఆపివేశారు.") : (enable ? "Alerts are on for this search." : "Notifications are off for this search.") });
   };
 
   const sendNow = async (search: SavedSearch) => {
     const id = String(search.search_id || "");
     if (!id) return;
+    const epoch = ++actionEpoch.current;
     setSendingId(id);
     setNotice(null);
     const { ok, data } = await apiPost<AlertsResult>(`/api/saved-searches/${encodeURIComponent(myId)}/alerts`, {});
+    if (epoch !== actionEpoch.current) return;
     setSendingId("");
-    if (!ok) {
+    if (!ok || !validAlertsResult(data, searches)) {
       setNotice({
         tone: "error",
-        text: te ? "సూచనలు పంపలేకపోయాం. మళ్లీ ప్రయత్నించండి." : "We could not send alerts right now. Please try again.",
+        text: te ? "సూచనల ఫలితం నిర్ధారణ కాలేదు. మళ్లీ పంపే ముందు వాట్సాప్ చూడండి." : "The alert result could not be confirmed. Check WhatsApp before sending again.",
       });
       return;
     }
-    const queued = Number((data as AlertsResult | null)?.alerts_queued ?? 0);
-    const message = te
-      ? String((data as AlertsResult | null)?.message_telugu || "")
-      : String((data as AlertsResult | null)?.message_en || "");
-    setNotice({
-      tone: queued > 0 ? "ok" : "info",
-      text:
-        message ||
-        (te
-          ? "ఇప్పుడు సరిపోయే కొత్త ప్రొఫైళ్లు లేవు. శోధన ఎంపికలను మార్చి మళ్లీ చూడండి."
-          : "There are no new matches for your saved searches right now."),
-    });
+    const queued = data!.alerts_queued!;
+    const skipped = data!.alerts_skipped!;
+    const total = data!.new_matches_total!;
+    const text = queued > 0
+      ? (te ? `${queued} శోధన సూచనలు వాట్సాప్ క్యూలో పెట్టాం. చేరినట్లు నిర్ధారణ లేదు.` : `${queued} saved-search alert(s) queued for WhatsApp. Delivery is not confirmed.`)
+      : total > 0
+      ? (te ? "సరిపోయే ప్రొఫైళ్లు ఉన్నాయి, కానీ సూచనలు క్యూలో పెట్టలేదు." : "Matching profiles are available, but no alerts were queued.")
+      : skipped > 0
+      ? (te ? `సూచనలు క్యూలో పెట్టలేదు. ${skipped} శోధనలను దాటవేశాం.` : `No alerts were queued. ${skipped} saved search(es) were skipped.`)
+      : (te ? "ఇప్పుడు దాచుకున్న శోధనలకు కొత్త ప్రొఫైళ్లు లేవు." : "There are no new saved-search matches right now.");
+    setNotice({ tone: queued > 0 ? "ok" : "info", text });
   };
 
   const remove = async (search: SavedSearch) => {
     const id = String(search.search_id || "");
     if (!id) return;
+    const epoch = ++actionEpoch.current;
     setPendingId(id);
     setNotice(null);
-    const { ok } = await apiFetch(`/api/saved-searches/${encodeURIComponent(myId)}/${encodeURIComponent(id)}`, { method: "DELETE" });
+    const { ok, data } = await apiFetch<{ success?: boolean }>(`/api/saved-searches/${encodeURIComponent(myId)}/${encodeURIComponent(id)}`, { method: "DELETE" });
+    if (epoch !== actionEpoch.current) return;
     setPendingId("");
     setConfirmDeleteId("");
-    if (!ok) {
+    if (!ok || data?.success !== true) {
       setNotice({
         tone: "error",
-        text: te ? "శోధనను తొలగించలేకపోయాం. మళ్లీ ప్రయత్నించండి." : "We could not delete this search. Please try again.",
+        text: te ? "తొలగింపు నిర్ధారణ కాలేదు. మళ్లీ తెరిచి చూడండి." : "Deletion was not confirmed. Reload and check before trying again.",
       });
       return;
     }
+    const current = await load();
+    if (epoch !== actionEpoch.current) return;
+    if (!current || current.some((row) => row.search_id === id)) {
+      setNotice({ tone: "error", text: te ? "తొలగింపు నిర్ధారణ కాలేదు. మళ్లీ తెరిచి చూడండి." : "Deletion could not be confirmed. Reload and check before trying again." });
+      return;
+    }
     setNotice({ tone: "info", text: te ? "దాచుకున్న శోధనను తొలగించాం." : "Saved search deleted." });
-    void load();
   };
 
   if (unauthorized || (!loading && !myId)) {
@@ -310,7 +339,7 @@ export default function SavedSearchWorkspace() {
             const count = search.new_matches!;
             const names = sampleNames(search.sample);
             const broad = isBroadSavedSearch(search.filters || {});
-            const busy = pendingId === id || sendingId === id;
+            const busy = Boolean(pendingId || sendingId);
             return (
               <Card key={id}>
                 <CardBody>
@@ -370,7 +399,7 @@ export default function SavedSearchWorkspace() {
                       {broad && (
                         <p className="mt-2 text-[11px] leading-relaxed text-slate-500">
                           {te
-                            ? "ఈ శోధనలో ఫిల్టర్లు లేవు — దాదాపు అన్ని ప్రొఫైళ్లు సరిపోతాయి."
+                            ? "ఈ శోధనలో ఫిల్టర్లు లేవు. దాదాపు అన్ని ప్రొఫైళ్లు సరిపోతాయి."
                             : "This search has no filters, so almost every profile matches it."}
                         </p>
                       )}
@@ -422,7 +451,7 @@ export default function SavedSearchWorkspace() {
                       disabled={busy}
                       onClick={() => void sendNow(search)}
                     >
-                      {te ? "ఇప్పుడే పంపండి" : "Send me the new ones now"}
+                      {te ? "అన్ని శోధనల సూచనలు పంపండి" : "Send alerts for all enabled searches"}
                     </Button>
 
                     {confirmDeleteId === id ? (
@@ -453,6 +482,7 @@ export default function SavedSearchWorkspace() {
                           type="checkbox"
                           className="mt-0.5 h-5 w-5 shrink-0 accent-maroon"
                           checked={false}
+                          disabled={busy}
                           onChange={(event) => {
                             if (event.target.checked) void setAlert(search, true);
                           }}
@@ -460,7 +490,7 @@ export default function SavedSearchWorkspace() {
                         <span>
                           {te
                             ? "ఈ శోధనకు WhatsApp సూచనలు కావాలని నేను సమ్మతిస్తున్నాను."
-                            : "I want WhatsApp alerts for this saved search — I consent."}
+                            : "I want WhatsApp alerts for this saved search. I consent."}
                         </span>
                       </label>
                       <div className="flex flex-wrap gap-2">
