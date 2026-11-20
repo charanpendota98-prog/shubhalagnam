@@ -16,6 +16,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         fonts-noto-core \
         fonts-noto-ui-core \
         libpq5 \
+        ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

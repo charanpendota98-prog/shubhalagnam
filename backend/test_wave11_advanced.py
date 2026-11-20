@@ -297,7 +297,8 @@ check("G1 validate mp3 ok", A11.voice_validate("a.mp3", 50000)["ok"] is True)
 check("G2 validate exe reject", A11.voice_validate("a.exe", 50000)["ok"] is False)
 check("G3 validate 5MB reject", A11.voice_validate("a.mp3", 5 * 1024 * 1024)["ok"] is False)
 check("G4 validate 10 bytes reject", A11.voice_validate("a.mp3", 10)["ok"] is False)
-FAKE_MP3 = b"ID3" + b"\x00" * 8000
+from voice_fixture import tone_file
+FAKE_MP3 = tone_file("mp3")
 r = client.post("/api/voice/upload", files={"file": ("intro.exe", FAKE_MP3, "application/octet-stream")},
                 data={"tsap_id": BID})
 check("G5 upload .exe → 400 telugu", r.status_code == 400, r.status_code)

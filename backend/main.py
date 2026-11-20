@@ -10547,6 +10547,14 @@ async def voice_upload(request: Request, file: UploadFile = File(...), tsap_id: 
     chk = A11.voice_validate(file.filename or "", len(data))
     if not chk.get("ok"):
         raise HTTPException(400, chk["error_telugu"])
+    # Decode off the event loop so a slow or malformed clip cannot block reads.
+    from starlette.concurrency import run_in_threadpool
+    from voice_media import inspect_voice
+    inspected = await run_in_threadpool(inspect_voice, data, chk["ext"])
+    if not inspected.get("ok"):
+        if inspected.get("unavailable"):
+            raise HTTPException(503, "Voice validation is temporarily unavailable. Please retry later.")
+        raise HTTPException(400, "This file is not a readable audio recording in the selected format. Please choose a valid audio file.")
     os.makedirs(VOICE_MEDIA_DIR, exist_ok=True)
     # 🛡️ P2 hardening (consistency w/ WAVE 23 fix on /api/photo/upload): tid is
     # always server-generated at registration so this isn't reachable today,
