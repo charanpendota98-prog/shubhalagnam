@@ -209,7 +209,7 @@ export default function MePage() {
             {(tab === "family" || tab === "ledger" || tab === "privacy" || tab === "support") && (
               <MemberEcosystemHub key={`${myId}:${tab}`} myId={myId} section={tab} />
             )}
-            {tab === "devices" && <Phase2MemberWorkspace myId={myId} mode="security_links" />}
+            {tab === "devices" && <Phase2MemberWorkspace key={`${myId}:devices`} myId={myId} mode="security_links" />}
             {tab === "streak" && <StreakPanel myId={myId} />}
             {tab === "unlocks" && <UnlocksPanel myId={myId} />}
             {tab === "boost" && <BoostPanel myId={myId} />}
