@@ -6536,8 +6536,8 @@ def plans_endpoint():
         "renewal": renewal_offer(),
         "bureau": bureau_list(),  # WAVE 29: pricing B2B single-source (page fallback tho match)
         "value_ladder": [f"₹{p['price']} → {p['profiles']} interest requests (₹{p['per_profile']}/request)" for p in plan_list()],
-        "note_telugu": "ఒక్క interest request కు 1 credit. Public search లో contact details ఉండవు; profile owner accept చేసిన తర్వాత accepted-request account flows లో అందుబాటులోకి వస్తాయి. WhatsApp notification delivery హామీ లేదు. Decline అయితే ఒక request credit ఒకసారి తిరిగి వస్తుంది; ఇది cash refund కాదు. "
-                       "₹299, ₹499 plans active ఉన్నప్పుడు Who-viewed names అందుబాటులో ఉంటాయి. Match లేదా response హామీ లేదు.",
+        "note_telugu": "ఒక్క అభ్యర్థన పంపేందుకు 1 క్రెడిట్ ఖర్చవుతుంది. బహిరంగ శోధనలో సంప్రదింపు వివరాలు కనిపించవు. ఎదుటి వ్యక్తి అంగీకరించాక మీ ఖాతాలో ఆ అభ్యర్థన వద్ద కనిపిస్తాయి. WhatsApp సందేశం తప్పక చేరుతుందని హామీ లేదు. అభ్యర్థనను తిరస్కరిస్తే ఖర్చయిన 1 క్రెడిట్ ఒక్కసారి తిరిగి వస్తుంది; ఇది డబ్బు వాపసు కాదు. "
+                       "₹299, ₹499 ప్లాన్ల గడువు ముగిసేవరకు మీ ప్రొఫైల్ చూసిన వారి పేర్లు చూడవచ్చు. సంబంధం కుదురుతుందని లేదా స్పందన వస్తుందని హామీ లేదు.",
     }
 
 

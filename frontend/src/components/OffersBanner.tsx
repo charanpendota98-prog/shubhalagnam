@@ -27,13 +27,13 @@ export default function OffersBanner({ initialOffers }: { initialOffers?: Offer[
     <Link href="/pricing" className="block rounded-2xl bg-gradient-to-r from-[#7A0C2E] via-[#A31633] to-[#E8A020] text-white px-4 py-3 shadow-md hover:shadow-lg transition">
       <div className="flex items-center gap-2 flex-wrap">
         <PartyPopper aria-hidden="true" className="h-5 w-5 shrink-0" />
-        <span className="text-sm font-extrabold">Festival Offers LIVE!</span>
+        <span className="text-sm font-extrabold">{te ? "పండుగ ఆఫర్లు" : "Festival Offers LIVE!"}</span>
         {offers.map((o) => (
           <span key={o.code} className="text-[11px] font-bold bg-white/20 rounded-full px-2 py-0.5">
             {o.title} • <span className="font-mono">{o.code}</span>
           </span>
         ))}
-        <span className="ml-auto basis-full pt-1 text-right text-xs font-bold underline sm:basis-auto sm:pt-0">{te ? "Plans చూడండి →" : "See plans →"}</span>
+        <span className="ml-auto basis-full pt-1 text-right text-xs font-bold underline sm:basis-auto sm:pt-0">{te ? "ప్లాన్లు చూడండి →" : "See plans →"}</span>
       </div>
     </Link>
   );
