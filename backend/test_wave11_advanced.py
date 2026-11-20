@@ -395,7 +395,9 @@ check("K2 FAQ lo numbers ledu", not PHONE_RE.findall(r.text))
 r = client.get("/api/boost/packs")
 check("K3 boost packs lo numbers ledu", not PHONE_RE.findall(r.text))
 r = client.get(f"/api/voice/{BID}")
-check("K4 voice meta lo numbers ledu", not PHONE_RE.findall(r.text), r.text[:150])
+from voice_test_helpers import voice_metadata_is_private
+check("K4 voice metadata has no contact fields or phone text outside its generated media path",
+      r.status_code == 200 and voice_metadata_is_private(r.json(), BID), r.text[:150])
 
 print(f"\n{'=' * 76}\nRESULT: {PASS} pass / {FAIL} fail")
 if FAILED:
