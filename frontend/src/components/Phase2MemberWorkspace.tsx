@@ -1,5 +1,7 @@
 "use client";
 
+import { Bell, Bookmark, CalendarDays, KeyRound, Link2, LogOut, MessageCircle, ShieldCheck } from "lucide-react";
+
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { authHeaders, readApiJson } from "@/lib/api";
@@ -112,7 +114,7 @@ export default function Phase2MemberWorkspace({
       <section className="mv-surface mv-surface__body space-y-3" aria-live="polite">
         <div>
           <h2 className="text-base font-extrabold text-[#7A0C2E]">
-            🔐 {te ? "పరికరాలు & సెషన్ భద్రత" : "Active Devices & Session Security"}
+            <KeyRound aria-hidden="true" className="inline-block h-[1em] w-[1em] shrink-0 align-middle" /> {te ? "పరికరాలు & సెషన్ భద్రత" : "Active Devices & Session Security"}
           </h2>
           <p className="text-xs text-slate-600">
             {te
@@ -149,8 +151,8 @@ export default function Phase2MemberWorkspace({
         setAlertEnabled(nextEnabled);
         setToast(
           nextEnabled
-            ? (te ? "✅ సేవ్ చేసిన శోధన అలర్ట్‌లు ఆన్ అయ్యాయి." : "✅ Opt-in saved-search digest alerts enabled.")
-            : (te ? "✅ అలర్ట్‌లు ఆఫ్ చేయబడ్డాయి." : "✅ Saved-search alerts turned off."),
+            ? (te ? "సేవ్ చేసిన శోధన అలర్ట్‌లు ఆన్ అయ్యాయి." : "Opt-in saved-search digest alerts enabled.")
+            : (te ? "అలర్ట్‌లు ఆఫ్ చేయబడ్డాయి." : "Saved-search alerts turned off."),
         );
         await loadData();
       } else {
@@ -176,7 +178,7 @@ export default function Phase2MemberWorkspace({
         body: JSON.stringify({ device_label: deviceLabel, enable_cookie: true }),
       });
       if (r.ok) {
-        setToast(te ? "✅ ఈ బ్రౌజర్ HttpOnly కుకీ సెషన్‌తో నమోదైంది." : "✅ Registered current device with HttpOnly session cookie protection.");
+        setToast(te ? "ఈ బ్రౌజర్ HttpOnly కుకీ సెషన్‌తో నమోదైంది." : "Registered current device with HttpOnly session cookie protection.");
         await loadData();
       }
     } finally {
@@ -193,7 +195,7 @@ export default function Phase2MemberWorkspace({
         credentials: "same-origin",
       });
       if (r.ok) {
-        setToast(te ? `✅ సెషన్ ${sessionId} రద్దు చేయబడింది.` : `✅ Session ${sessionId} revoked.`);
+        setToast(te ? `సెషన్ ${sessionId} రద్దు చేయబడింది.` : `Session ${sessionId} revoked.`);
         await loadData();
       }
     } finally {
@@ -224,7 +226,7 @@ export default function Phase2MemberWorkspace({
           /* ignore */
         }
         setSessionsRevoked(true);
-        setToast(te ? "✅ అన్ని పరికరాల సెషన్లు రద్దు చేయబడ్డాయి. మళ్లీ లాగిన్ అవ్వండి." : "✅ All device tokens revoked. Please sign in again.");
+        setToast(te ? "అన్ని పరికరాల సెషన్లు రద్దు చేయబడ్డాయి. మళ్లీ లాగిన్ అవ్వండి." : "All device tokens revoked. Please sign in again.");
       } else {
         setToast(te ? "సెషన్లు రద్దు కాలేదు. మళ్లీ ప్రయత్నించండి." : "Sessions were not revoked. Please retry.");
       }
@@ -250,7 +252,7 @@ export default function Phase2MemberWorkspace({
         const fullUrl = `${window.location.origin}${d.review_link.share_path}`;
         setLatestSharePath(fullUrl);
         navigator.clipboard?.writeText(fullUrl).catch(() => {});
-        setToast(te ? "✅ ప్రైవేట్ రివ్యూ లింక్ సిద్ధమై కాపీ చేయబడింది." : "✅ Private elder review link created & copied to clipboard.");
+        setToast(te ? "ప్రైవేట్ రివ్యూ లింక్ సిద్ధమై కాపీ చేయబడింది." : "Private elder review link created & copied to clipboard.");
         await loadData();
       }
     } finally {
@@ -267,7 +269,7 @@ export default function Phase2MemberWorkspace({
         credentials: "same-origin",
       });
       if (r.ok) {
-        setToast(te ? "✅ రివ్యూ లింక్ వెంటనే రద్దు చేయబడింది." : "✅ Review link revoked immediately.");
+        setToast(te ? "రివ్యూ లింక్ వెంటనే రద్దు చేయబడింది." : "Review link revoked immediately.");
         await loadData();
       }
     } finally {
@@ -298,7 +300,7 @@ export default function Phase2MemberWorkspace({
       const d = await readApiJson(r);
       if (r.ok && d.success) {
         setAptNotes("");
-        setToast(te ? `✅ కన్సల్టేషన్ స్లాట్ అభ్యర్థన నమోదైంది (${d.appointment?.appointment_id}).` : `✅ Assisted consultation request booked (${d.appointment?.appointment_id}).`);
+        setToast(te ? `కన్సల్టేషన్ స్లాట్ అభ్యర్థన నమోదైంది (${d.appointment?.appointment_id}).` : `Assisted consultation request booked (${d.appointment?.appointment_id}).`);
         await loadData();
       } else {
         setToast(d?.detail || "Could not book consultation.");
@@ -325,7 +327,7 @@ export default function Phase2MemberWorkspace({
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h2 className="text-base font-extrabold text-[#7A0C2E]">
-              🔔 {te ? "సేవ్ చేసిన శోధన అలర్ట్స్ & డైజెస్ట్" : "Saved-Search Opt-In Digest & Quiet Hours"}
+              <Bell aria-hidden="true" className="inline-block h-[1em] w-[1em] shrink-0 align-middle" /> {te ? "సేవ్ చేసిన శోధన అలర్ట్స్ & డైజెస్ట్" : "Saved-Search Opt-In Digest & Quiet Hours"}
             </h2>
             <p className="text-xs text-slate-600 mt-1">
               {te
@@ -410,7 +412,7 @@ export default function Phase2MemberWorkspace({
               {digestData.digests.map((dg: any, idx: number) => (
                 <div key={dg.search_id || idx} className="rounded-2xl border border-slate-200 p-3 text-xs space-y-2">
                   <div className="flex items-center justify-between font-bold text-[#7A0C2E]">
-                    <span>🔖 {dg.name}</span>
+                    <span><Bookmark aria-hidden="true" className="inline-block h-[1em] w-[1em] shrink-0 align-middle" /> {dg.name}</span>
                     <span>{dg.match_count} {te ? "సరిపోలే ప్రొఫైల్స్" : "matching profiles"}</span>
                   </div>
                   {(dg.sample_profiles || []).length > 0 && (
@@ -448,7 +450,7 @@ export default function Phase2MemberWorkspace({
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
             <h2 className="text-base font-extrabold text-[#7A0C2E]">
-              🔐 {te ? "పరికరాలు & సెషన్ భద్రత" : "Active Devices & Session Security"}
+              <KeyRound aria-hidden="true" className="inline-block h-[1em] w-[1em] shrink-0 align-middle" /> {te ? "పరికరాలు & సెషన్ భద్రత" : "Active Devices & Session Security"}
             </h2>
             {sessionRead === "ready" && <p className="text-xs text-slate-600">
               {te
@@ -462,7 +464,7 @@ export default function Phase2MemberWorkspace({
             onClick={() => void revokeEverywhere()}
             className="rounded-xl border border-rose-300 bg-rose-50 px-3.5 py-2 text-xs font-bold text-rose-800"
           >
-            🚪 {te ? "అన్ని పరికరాల నుండి లాగౌట్ చేయి" : "Log Out All Devices"}
+            <LogOut aria-hidden="true" className="inline-block h-[1em] w-[1em] shrink-0 align-middle" /> {te ? "అన్ని పరికరాల నుండి లాగౌట్ చేయి" : "Log Out All Devices"}
           </button>
         </div>
 
@@ -484,7 +486,7 @@ export default function Phase2MemberWorkspace({
             onClick={() => void registerCookieSession()}
             className="rounded-xl bg-[#7A0C2E] px-4 py-2 text-xs font-bold text-white"
           >
-            🛡️ {te ? "HttpOnly కుకీ రక్షణ ఆన్ చేయి" : "Register Device + HttpOnly Cookie"}
+            <ShieldCheck aria-hidden="true" className="inline-block h-[1em] w-[1em] shrink-0 align-middle" /> {te ? "HttpOnly కుకీ రక్షణ ఆన్ చేయి" : "Register Device + HttpOnly Cookie"}
           </button>
         </div>
 
@@ -512,7 +514,7 @@ export default function Phase2MemberWorkspace({
       <section className="mv-surface mv-surface__body space-y-3">
         <div>
           <h2 className="text-base font-extrabold text-[#7A0C2E]">
-            🔗 {te ? "పెద్దల పరిశీలన కోసం ప్రైవేట్ బయోడేటా లింక్" : "Private Shareable Elder Review Links"}
+            <Link2 aria-hidden="true" className="inline-block h-[1em] w-[1em] shrink-0 align-middle" /> {te ? "పెద్దల పరిశీలన కోసం ప్రైవేట్ బయోడేటా లింక్" : "Private Shareable Elder Review Links"}
           </h2>
           <p className="text-xs text-slate-600 mt-0.5">
             {te
@@ -571,7 +573,7 @@ export default function Phase2MemberWorkspace({
                 </div>
                 {(lk.feedback || []).map((fb: any) => (
                   <div key={fb.id} className="rounded-lg bg-amber-50/70 px-2.5 py-1.5 text-[11px] text-slate-800">
-                    🙏 <b>{fb.reviewer_name} ({fb.relation}):</b> {fb.note}
+                    <MessageCircle aria-hidden="true" className="inline-block h-[1em] w-[1em] shrink-0 align-middle" /> <b>{fb.reviewer_name} ({fb.relation}):</b> {fb.note}
                   </div>
                 ))}
               </div>
@@ -584,7 +586,7 @@ export default function Phase2MemberWorkspace({
       <section className="mv-surface mv-surface__body space-y-3">
         <div>
           <h2 className="text-base font-extrabold text-[#7A0C2E]">
-            📅 {te ? "సహాయక మ్యాచ్ మేకర్ కన్సల్టేషన్" : "Assisted Matchmaker Family Consultation"}
+            <CalendarDays aria-hidden="true" className="inline-block h-[1em] w-[1em] shrink-0 align-middle" /> {te ? "సహాయక మ్యాచ్ మేకర్ కన్సల్టేషన్" : "Assisted Matchmaker Family Consultation"}
           </h2>
           <p className="text-xs text-slate-600 mt-0.5">
             {te
@@ -713,7 +715,7 @@ export default function Phase2MemberWorkspace({
               const d = await readApiJson(r);
               if (r.ok && d.success) {
                 setRefundReason("");
-                setToast(te ? `✅ రీఫండ్ కేస్ (${d.refund?.refund_id}) నమోదైంది.` : `✅ Refund review case (${d.refund?.refund_id}) opened.`);
+                setToast(te ? `రీఫండ్ కేస్ (${d.refund?.refund_id}) నమోదైంది.` : `Refund review case (${d.refund?.refund_id}) opened.`);
                 await loadData();
               } else {
                 setToast(d?.detail || "Could not open refund case.");
