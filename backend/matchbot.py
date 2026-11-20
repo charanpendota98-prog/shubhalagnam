@@ -235,9 +235,9 @@ def daily_briefing(user: Dict, profiles: List[Dict], interests: Optional[List[Di
             for i in received[-5:]
         ],
         "viewer_peeks": viewer_peeks,
-        "note_telugu": (f"ఇప్పటివరకు {len(received)} pending interest requests, {len(my_views)} profile views నమోదయ్యాయి."
+        "note_telugu": (f"ఇప్పటివరకు {len(received)} అభ్యర్థనలు సమాధానం కోసం వేచి ఉన్నాయి. మీ ప్రొఫైల్‌ను {len(my_views)} సార్లు చూశారు."
                         if (received or my_views) else
-                        "ఇంకా interest request లేదా profile view నమోదు కాలేదు."),
+                        "ఇంకా అభ్యర్థనలు రాలేదు. మీ ప్రొఫైల్‌ను చూసినవారు కూడా నమోదు కాలేదు."),
     }
 
     # ---- profile nudge (completeness) ----
@@ -248,19 +248,24 @@ def daily_briefing(user: Dict, profiles: List[Dict], interests: Optional[List[Di
     nudge = {
         "percent": comp.get("percent", 0),
         "level": comp.get("level", "low"),
-        "verdict_telugu": comp.get("verdict_telugu", ""),
+        "verdict_telugu": {
+            "excellent": "ప్రొఫైల్‌లో చాలా వివరాలు నింపారు. సభ్యుడు ఇచ్చిన వివరాలను స్వయంగా నిర్ధారించుకోండి.",
+            "good": "మీ ప్రొఫైల్‌లో ఇంకా నింపాల్సిన వివరాలను పరిశీలించండి.",
+            "average": "మీ ప్రొఫైల్‌లో మరిన్ని వివరాలు జోడించవచ్చు. సంబంధం కుదరడం లేదా సమాధానం రావడం గురించి హామీ లేదు.",
+            "low": "ప్రొఫైల్‌లో ఇంకా నింపాల్సిన వివరాలను పరిశీలించండి.",
+        }.get(comp.get("level"), ""),
         "important_telugu": (comp.get("important_telugu") or [])[:3],
     }
 
     n_new = sum(1 for m in matches if m["is_new"])
     summary_telugu = (
-        f"🧠 పరిశీలించడానికి {len(matches)} profiles"
-        + (f", {n_new} ఇటీవల జోడించినవి ✨" if n_new else "")
-        + (f" • {mutual_block['interests_received']} మంది interest పంపారు"
+        f"పరిశీలించడానికి {len(matches)} ప్రొఫైళ్లు"
+        + (f", {n_new} ఇటీవల జోడించినవి" if n_new else "")
+        + (f" • {mutual_block['interests_received']} మంది ఆసక్తి తెలిపారు"
            if mutual_block["interests_received"] else "")
     )
     summary_en = (
-        f"🧠 {len(matches)} profiles to review"
+        f"{len(matches)} profiles to review"
         + (f", {n_new} recently added" if n_new else "")
         + (f" • {mutual_block['interests_received']} sent you an interest"
            if mutual_block["interests_received"] else "")
@@ -298,25 +303,25 @@ def assistant_tips(user: Dict, briefing: Dict) -> List[Dict[str, Any]]:
     # P1 — profile incomplete → biggest lever
     if int(nudge.get("percent", 0)) < 70:
         tips.append({"priority": 1, "kind": "complete_profile",
-                     "telugu": nudge.get("verdict_telugu") or "ప్రొఫైల్‌లో చూపించిన ఖాళీ fields‌ను పరిశీలించండి.",
+                     "telugu": nudge.get("verdict_telugu") or "ప్రొఫైల్‌లో ఇంకా నింపాల్సిన వివరాలను పరిశీలించండి.",
                      "en": "Review the missing fields in your profile. Filling them does not guarantee matches or replies.",
                      "cta": "/me", "detail": (nudge.get("important_telugu") or [])[:3]})
     # P2 — no photo
     if not user.get("photo_url") and not user.get("has_photo"):
         tips.append({"priority": 1, "kind": "add_photo",
-                     "telugu": "📸 ఫోటో జోడించడం ఐచ్ఛికం; visibility మీ privacy settings ప్రకారం ఉంటుంది.",
+                     "telugu": "ఫోటో జోడించాలా వద్దా అనేది మీ ఇష్టం. ఎవరికి కనిపించాలో మీ గోప్యత ఎంపికలు నిర్ణయిస్తాయి.",
                      "en": "Adding a photo is optional; visibility follows your privacy settings.", "cta": "/me"})
     # P4 — interests received → respond
     if int(mutual.get("interests_received", 0)) > 0:
         tips.append({"priority": 2, "kind": "respond_interests",
-                     "telugu": f"🔥 {mutual['interests_received']} మంది మీకు interest పంపారు — స్పందించండి",
+                     "telugu": f"{mutual['interests_received']} మంది మీకు ఆసక్తి తెలిపారు. స్పందించండి",
                      "en": f"{mutual['interests_received']} sent you interest — respond",
                      "cta": "/requests"})
     # P5 — recently added profiles to review
     new_matches = [m for m in matches if m.get("is_new")]
     if new_matches:
         tips.append({"priority": 3, "kind": "explore_new",
-                     "telugu": f"✨ {len(new_matches)} profiles ఇటీవల జోడించబడ్డాయి — పరిశీలించండి",
+                     "telugu": f"ఇటీవల {len(new_matches)} ప్రొఫైళ్లు జోడించారు. పరిశీలించండి",
                      "en": f"{len(new_matches)} profiles were recently added — review them",
                      "cta": "/matches", "ids": [m.get("tsap_id") for m in new_matches[:3]]})
     # P6 — recorded phone-verification state, shown only when this deployment can
@@ -324,12 +329,12 @@ def assistant_tips(user: Dict, briefing: Dict) -> List[Dict[str, Any]]:
     # to issue codes, so a member is never given a next step they cannot finish.
     if not user.get("phone_verified") and _phone_otp_available():
         tips.append({"priority": 3, "kind": "verify",
-                     "telugu": "🛡️ OTP తో phone ధృవీకరించండి; ఇది identity verification కాదు",
+                     "telugu": "OTP తో మీ ఫోన్‌ను ధృవీకరించండి. ఇది వ్యక్తి గుర్తింపు ధృవీకరణ కాదు",
                      "en": "Verify your phone with OTP; this does not verify identity", "cta": "/login"})
     # fallback — everything good
     if not tips:
         tips.append({"priority": 4, "kind": "all_good",
-                     "telugu": "🌟 అన్నీ సిద్ధం — కొత్త మ్యాచ్‌ల కోసం రోజూ చూడండి",
+                     "telugu": "అన్నీ సిద్ధం. కొత్త సంబంధాల కోసం రోజూ చూడండి",
                      "en": "All set — check back daily for new matches", "cta": "/matches"})
 
     tips.sort(key=lambda t: t["priority"])
