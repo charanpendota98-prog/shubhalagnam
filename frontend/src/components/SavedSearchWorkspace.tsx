@@ -331,14 +331,14 @@ export default function SavedSearchWorkspace() {
                                 : "5+ new profiles"
                               : te
                                 ? `${count} కొత్త ప్రొఫైళ్లు`
-                                : `${count} new profiles`
+                                : `${count} new ${count === 1 ? "profile" : "profiles"}`
                             : count >= 5
                               ? te
                                 ? "5+ ప్రొఫైళ్లు సరిపోతున్నాయి"
                                 : "5+ profiles match"
                               : te
                                 ? `${count} ప్రొఫైళ్లు సరిపోతున్నాయి`
-                                : `${count} profiles match`}
+                                : `${count} ${count === 1 ? "profile matches" : "profiles match"}`}
                         </span>
                         <span
                           className={`rounded-full px-2.5 py-1 font-bold ${
@@ -451,7 +451,7 @@ export default function SavedSearchWorkspace() {
                       <label className="flex min-h-11 items-start gap-2 text-xs font-semibold text-amber-950">
                         <input
                           type="checkbox"
-                          className="mt-0.5 h-4 w-4"
+                          className="mt-0.5 h-5 w-5 shrink-0 accent-maroon"
                           checked={false}
                           onChange={(event) => {
                             if (event.target.checked) void setAlert(search, true);
