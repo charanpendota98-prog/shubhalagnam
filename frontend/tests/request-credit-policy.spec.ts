@@ -11,10 +11,10 @@ for(const lang of ['en','te'])for(const width of [320,390,1280])test(`request cr
  await expect(page.locator('main')).toContainText(lang==='en'?'A declined request returns the spent request credit once.':'Decline అయితే ఖర్చయిన 1 request credit ఒకసారి తిరిగి వస్తుంది.');
  await expect(page.locator('main')).not.toContainText(/follow.*account policy|return.*account policy/);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBeTruthy();await page.evaluate(()=>document.fonts.ready);await page.screenshot({path:`${out}/${lang}-${width}-pricing.png`,fullPage:true});await page.locator('details[open]').screenshot({path:`${out}/${lang}-${width}-pricing-faq.png`});
- await page.goto('/requests');await page.locator('.requests-rules summary').click();await expect(page.locator('.requests-rules')).toContainText(lang==='en'?'A declined request returns the spent request credit once':'Decline అయితే ఖర్చయిన 1 request credit ఒకసారి తిరిగి వస్తుంది');
+ await page.goto('/requests');await page.locator('.requests-rules summary').click();await expect(page.locator('.requests-rules')).toContainText(lang==='en'?'A declined request returns the spent request credit once':'తిరస్కరిస్తే ఖర్చయిన 1 అభ్యర్థన క్రెడిట్ ఒకసారి తిరిగి వస్తుంది');
  await page.screenshot({path:`${out}/${lang}-${width}-requests-rules.png`});
- await page.getByRole('button',{name:lang==='en'?/Plans & Credits/:/Plans & Credits/}).click();
- await expect(page.locator('main')).toContainText(lang==='en'?'Decline or seven-day no-response expiry returns one request credit once':'Decline లేదా 7-day no-response expiry పై 1 request credit ఒకసారి తిరిగి వస్తుంది');
+ await page.getByRole('button',{name:lang==='en'?/Plans & Credits/:/ప్లాన్లు, క్రెడిట్లు/}).click();
+ await expect(page.locator('main')).toContainText(lang==='en'?'Decline or seven-day no-response expiry returns one request credit once':'తిరస్కరిస్తే లేదా ఏడు రోజుల పాటు స్పందన లేక గడువు ముగిస్తే 1 అభ్యర్థన క్రెడిట్ ఒకసారి తిరిగి వస్తుంది');
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBeTruthy();await page.screenshot({path:`${out}/${lang}-${width}-requests-plans.png`,fullPage:true});
  expect(writes).toEqual([]);expect(outside).toEqual([]);expect(errors).toEqual([]);
 });
