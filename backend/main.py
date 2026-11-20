@@ -9454,13 +9454,38 @@ def api_moderation_queue(limit: int = 50, request: Request = None):
 
 @app.post("/api/moderation/resolve/{report_id}")
 def api_moderation_resolve(report_id: str, payload: dict = None, request: Request = None):
-    require_admin(request, staff_ok=True)
+    role = require_admin(request, staff_ok=True)
+    # Cookie-authenticated callers must meet the same CSRF boundary as the
+    # control panel. Explicit legacy API credentials remain supported.
+    session = CONTROL_AUTH.session(request)
+    if session and session.get("sid") != "api_key_session":
+        if not CONTROL_AUTH.csrf_valid(request, session):
+            raise HTTPException(403, "CSRF validation failed")
     d = payload or {}
-    ok, msg, rec = safety.resolve_report(report_id, str(d.get("action", "")), str(d.get("note", "")),
+    action = str(d.get("action", "")).strip().lower()
+    note = str(d.get("note", ""))[:300]
+    if action == "ban" and role != "owner":
+        raise HTTPException(403, "Only an owner may permanently ban a profile")
+    selected = next((report for report in DB_REPORTS if isinstance(report, dict)
+                     and str(report.get("id", "")) == str(report_id)), {})
+    target_id = str(selected.get("target_id", ""))
+    users_before = [(user, copy.deepcopy(user)) for user in DB_USERS
+                    if target_id and str(user.get("tsap_id", "")) == target_id]
+    reports_before = [(report, copy.deepcopy(report)) for report in DB_REPORTS
+                      if isinstance(report, dict) and (report is selected or
+                         (target_id and str(report.get("target_id", "")) == target_id
+                          and str(report.get("status", "")) == "open"))]
+    ok, msg, rec = safety.resolve_report(report_id, action, note,
                                          reports=DB_REPORTS, users=DB_USERS)
     if not ok:
         raise HTTPException(400, msg)
-    _persist_core_state()
+    if not _persist_core_state():
+        for current, before in users_before + reports_before:
+            current.clear()
+            current.update(before)
+        raise HTTPException(503, "Report resolution could not be saved safely. Please retry.")
+    CONTROL_AUTH.audit("legacy_report_resolve", session.get("username", role) if session else role,
+                       request, report_id=report_id, moderation_action=action, note=note)
     return {"success": True, "action": msg, "report": rec, "queue": safety.report_stats(DB_REPORTS)}
 
 
