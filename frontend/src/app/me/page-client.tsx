@@ -13,6 +13,7 @@ import PhotoFlow from "@/components/PhotoFlow";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import Image from "next/image";
+import { Target, Pencil, Users, CreditCard, LockKeyhole, KeyRound, Ticket, Flame, ClipboardList, Zap, Mic, Orbit, Share2, Bell, Heart, Handshake, EyeOff } from "lucide-react";
 
 const MemberEcosystemHub = dynamic(() => import("@/components/MemberEcosystemHub"), { ssr: false });
 const Phase2MemberWorkspace = dynamic(() => import("@/components/Phase2MemberWorkspace"), { ssr: false });
@@ -60,21 +61,24 @@ type Row = Record<string, any>;
 type Tab = "preferences" | "edit" | "family" | "ledger" | "privacy" | "devices" | "support" | "streak" | "unlocks" | "boost" | "voice" | "jathakam" | "share" | "alerts";
 
 const TABS: [Tab, string, string][] = [
-  ["preferences", "🎯 Partner Preferences", "🎯 కోరుకునే సంబంధం (ప్రిఫరెన్సెస్)"],
-  ["edit", "✏️ Edit Profile", "✏️ నా ప్రొఫైల్ సవరణ"],
-  ["family", "👨‍👩‍👧 Family Hub", "👨‍👩‍👧 కుటుంబ సహకారం"],
-  ["ledger", "💳 Credits & Receipts", "💳 క్రెడిట్ లెడ్జర్ & రసీదులు"],
-  ["privacy", "🔒 Privacy & Export", "🔒 గోప్యత & డేటా ఎక్స్‌పోర్ట్"],
-  ["devices", "🔐 Devices & Elder Links", "🔐 పరికరాలు & పెద్దల లింక్‌లు"],
-  ["support", "🎫 Support", "🎫 సపోర్ట్ టికెట్లు"],
-  ["streak", "🔥 Streak", "🔥 స్ట్రీక్"],
-  ["unlocks", "📋 Unlocks", "📋 అన్‌లాక్‌లు"],
-  ["boost", "⚡ Boost", "⚡ బూస్ట్"],
-  ["voice", "🎙️ Voice", "🎙️ వాయిస్"],
-  ["jathakam", "🪐 Jathakam", "🪐 జాతకం"],
-  ["share", "📤 Share", "📤 షేర్"],
-  ["alerts", "🔔 Alerts", "🔔 అలర్ట్స్"],
+  ["preferences", "Partner Preferences", "కోరుకునే సంబంధం (ప్రిఫరెన్సెస్)"],
+  ["edit", "Edit Profile", "నా ప్రొఫైల్ సవరణ"],
+  ["family", "Family Hub", "కుటుంబ సహకారం"],
+  ["ledger", "Credits & Receipts", "క్రెడిట్ లెడ్జర్ & రసీదులు"],
+  ["privacy", "Privacy & Export", "గోప్యత & డేటా ఎక్స్‌పోర్ట్"],
+  ["devices", "Devices & Elder Links", "పరికరాలు & పెద్దల లింక్‌లు"],
+  ["support", "Support", "సపోర్ట్ టికెట్లు"],
+  ["streak", "Streak", "స్ట్రీక్"],
+  ["unlocks", "Unlocks", "అన్‌లాక్‌లు"],
+  ["boost", "Boost", "బూస్ట్"],
+  ["voice", "Voice", "వాయిస్"],
+  ["jathakam", "Jathakam", "జాతకం"],
+  ["share", "Share", "షేర్"],
+  ["alerts", "Alerts", "అలర్ట్స్"],
 ];
+
+const TAB_ICONS = { preferences: Target, edit: Pencil, family: Users, ledger: CreditCard, privacy: LockKeyhole, devices: KeyRound, support: Ticket, streak: Flame, unlocks: ClipboardList, boost: Zap, voice: Mic, jathakam: Orbit, share: Share2, alerts: Bell };
+function AccountTabLabel({ tab, children }: { tab: Tab; children: React.ReactNode }) { const Icon = TAB_ICONS[tab]; return <span className="flex items-center gap-2"><Icon aria-hidden="true" className="h-4 w-4 shrink-0" /><span>{children}</span></span>; }
 
 export default function MePage() {
   const { lang } = useLang();
@@ -167,11 +171,11 @@ export default function MePage() {
             className="pill pill--quiet min-h-11 whitespace-nowrap px-3.5 text-xs"
             title={te ? "వివాహం కుదిరింది / ప్రొఫైల్‌ను పబ్లిక్ శోధన నుంచి దాచండి" : "Mark as married or hide the profile from public search"}
           >
-            <span aria-hidden="true">💍</span>
+            <Heart aria-hidden="true" className="h-4 w-4 shrink-0" />
             <span>{te ? "ప్రొఫైల్ దాచు" : "Hide profile"}</span>
           </button>
           <Link href="/referral" className="pill pill--on-gold min-h-11 whitespace-nowrap px-3.5 text-xs font-black">
-            <span aria-hidden="true">🤝</span>
+            <Handshake aria-hidden="true" className="h-4 w-4 shrink-0" />
             <span>{te ? "రెఫరల్ & ₹50" : "Referrals & ₹50"}</span>
           </Link>
         </div>
@@ -183,7 +187,7 @@ export default function MePage() {
             <nav className="account-primary-nav" aria-label={te ? "ముఖ్యమైన ఖాతా ఎంపికలు" : "Main account controls"}>
               {TABS.filter(([v]) => ["preferences", "edit", "family", "ledger", "privacy", "devices", "support"].includes(v)).map(([v, en, t]) => (
                 <button type="button" key={v} onClick={() => setTab(v)} aria-current={tab === v ? "page" : undefined} aria-controls="account-task-panel" className={tab === v ? "account-section is-active" : "account-section"}>
-                  {te ? t : en}
+                  <AccountTabLabel tab={v}>{te ? t : en}</AccountTabLabel>
                 </button>
               ))}
             </nav>
@@ -192,7 +196,7 @@ export default function MePage() {
               <nav aria-label={te ? "ఇతర ఖాతా ఎంపికలు" : "Other account controls"}>
                 {TABS.filter(([v]) => !["preferences", "edit", "family", "ledger", "privacy", "devices", "support"].includes(v)).map(([v, en, t]) => (
                   <button type="button" key={v} onClick={() => setTab(v)} aria-current={tab === v ? "page" : undefined} aria-controls="account-task-panel" className={tab === v ? "account-section is-active" : "account-section"}>
-                    {te ? t : en}
+                    <AccountTabLabel tab={v}>{te ? t : en}</AccountTabLabel>
                   </button>
                 ))}
               </nav>
@@ -243,9 +247,9 @@ export default function MePage() {
               onClick={() => setShowDeleteModal(true)}
               className="px-4 py-2 rounded-xl text-xs font-bold text-slate-500 hover:text-rose-700 hover:bg-rose-50 border border-slate-200 hover:border-rose-200 transition inline-flex items-center gap-1.5"
             >
-              <span>{te ? "💍 వివాహం నిశ్చయమైంది" : "💍 I am getting married"}</span>
+              <span className="inline-flex items-center gap-1"><Heart aria-hidden="true" className="h-4 w-4 shrink-0" />{te ? "వివాహం నిశ్చయమైంది" : "I am getting married"}</span>
               <span>•</span>
-              <span>{te ? "👁️ ప్రొఫైల్‌ను పబ్లిక్ శోధన నుంచి దాచండి" : "👁️ Hide profile from public search"}</span>
+              <span className="inline-flex items-center gap-1"><EyeOff aria-hidden="true" className="h-4 w-4 shrink-0" />{te ? "ప్రొఫైల్‌ను పబ్లిక్ శోధన నుంచి దాచండి" : "Hide profile from public search"}</span>
             </button>
           </div>
         </>
