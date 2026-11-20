@@ -30,6 +30,7 @@ export default function Phase2MemberWorkspace({
   const [quietEnd, setQuietEnd] = useState("08:00");
 
   // Devices & Sessions + Elder Review Links + Appointments
+  const [sessionRead, setSessionRead] = useState<"loading" | "ready" | "error">("loading");
   const [sessionInfo, setSessionInfo] = useState<any>(null);
   const [sessionsRevoked, setSessionsRevoked] = useState(false);
   const [deviceLabel, setDeviceLabel] = useState("My Browser");
@@ -75,16 +76,27 @@ export default function Phase2MemberWorkspace({
         setQuietStart(prefs.quiet_hours_start); setQuietEnd(prefs.quiet_hours_end);
         setAlertReadState("ready");
       } else {
-        const [sr, lr, ar, rr] = await Promise.all([
-          fetch(`/api/me/${encodeURIComponent(myId)}/sessions`, { headers: h, credentials: "same-origin" }),
+        setSessionRead("loading");
+        const sessionTask = (async () => { try {
+          const sr = await fetch(`/api/me/${encodeURIComponent(myId)}/sessions`, { headers: h, credentials: "same-origin" });
+          const d = await readApiJson(sr);
+          if (epoch !== alertReadEpoch.current) return;
+          if (!sr.ok || !d || (d.tsap_id !== undefined && d.tsap_id !== myId) ||
+              !Number.isSafeInteger(d.token_version) || d.token_version < 0 || typeof d.cookie_session_active !== "boolean" ||
+              !Array.isArray(d.sessions) || !d.sessions.every((row: any) => row && typeof row.session_id === "string" && !!row.session_id.trim() &&
+                typeof row.device_label === "string" && ["active", "revoked", "expired"].includes(row.status) && typeof row.cookie_mode === "boolean")) throw new Error("Session history unavailable");
+          setSessionInfo(d); setSessionRead("ready");
+        } catch { if (epoch === alertReadEpoch.current) setSessionRead("error"); } })();
+        const [lr, ar, rr] = await Promise.allSettled([
           fetch(`/api/me/${encodeURIComponent(myId)}/review-links`, { headers: h, credentials: "same-origin" }),
           fetch(`/api/appointments/${encodeURIComponent(myId)}`, { headers: h, credentials: "same-origin" }),
           fetch(`/api/refunds/${encodeURIComponent(myId)}`, { headers: h, credentials: "same-origin" }),
         ]);
-        if (sr.ok) setSessionInfo(await readApiJson(sr));
-        if (lr.ok) setLinks((await readApiJson(lr)).links || []);
-        if (ar.ok) setAppointments((await readApiJson(ar)).appointments || []);
-        if (rr.ok) setRefunds((await readApiJson(rr)).refunds || []);
+        if (epoch !== alertReadEpoch.current) return;
+        if (lr.status === "fulfilled" && lr.value.ok) setLinks((await readApiJson(lr.value)).links || []);
+        if (ar.status === "fulfilled" && ar.value.ok) setAppointments((await readApiJson(ar.value)).appointments || []);
+        if (rr.status === "fulfilled" && rr.value.ok) setRefunds((await readApiJson(rr.value)).refunds || []);
+        await sessionTask;
       }
     } catch {
       if (mode === "alerts" && epoch === alertReadEpoch.current) setAlertReadState("error");
@@ -92,8 +104,9 @@ export default function Phase2MemberWorkspace({
   }, [myId, mode]);
 
   useEffect(() => {
+    const readEpoch = alertReadEpoch;
     void loadData();
-    return () => { alertReadEpoch.current++; };
+    return () => { readEpoch.current++; };
   }, [loadData]);
 
   if (sessionsRevoked) {
@@ -439,11 +452,11 @@ export default function Phase2MemberWorkspace({
             <h2 className="text-base font-extrabold text-[#7A0C2E]">
               <KeyRound aria-hidden="true" className="inline-block h-[1em] w-[1em] shrink-0 align-middle" /> {te ? "పరికరాలు & సెషన్ భద్రత" : "Active Devices & Session Security"}
             </h2>
-            <p className="text-xs text-slate-600">
+            {sessionRead === "ready" && <p className="text-xs text-slate-600">
               {te
                 ? `టోకెన్ వెర్షన్: v${sessionInfo?.token_version ?? 0} • HttpOnly కుకీ: ${sessionInfo?.cookie_session_active ? "ఆన్‌లో ఉంది" : "అందుబాటులో ఉంది"}`
                 : `Token version: v${sessionInfo?.token_version ?? 0} • HttpOnly cookie session: ${sessionInfo?.cookie_session_active ? "Active" : "Available"}`}
-            </p>
+            </p>}
           </div>
           <button
             type="button"
@@ -455,6 +468,10 @@ export default function Phase2MemberWorkspace({
           </button>
         </div>
 
+        {sessionRead !== "ready" ? <div className="space-y-2">
+          <p role={sessionRead === "error" ? "alert" : "status"} className="text-xs text-slate-700">{sessionRead === "error" ? (te ? "పరికరాల సెషన్ వివరాలు లోడ్ కాలేదు. మళ్లీ ప్రయత్నించండి." : "Device sessions could not be loaded. Please retry.") : (te ? "పరికరాల సెషన్ వివరాలు లోడ్ అవుతున్నాయి…" : "Loading device sessions…")}</p>
+          {sessionRead === "error" && <button type="button" className="min-h-11 rounded-xl border border-maroon px-4 py-2 font-bold text-maroon" onClick={() => void loadData()}>{te ? "సెషన్ వివరాలు మళ్లీ లోడ్ చేయండి" : "Retry device sessions"}</button>}
+        </div> : <>
         <div className="flex flex-col sm:flex-row gap-2">
           <input
             value={deviceLabel}
@@ -490,6 +507,7 @@ export default function Phase2MemberWorkspace({
             ))}
           </div>
         )}
+        </>}
       </section>
 
       {/* 2. Private Shareable Elder Profile Review Links */}
