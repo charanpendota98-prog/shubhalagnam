@@ -3860,3 +3860,17 @@ html[data-lang="te"] .wedding-motion__caption p{font-family:inherit;font-size:18
 @media(min-width:768px) and (max-width:1023px){.wedding-motion__scene--1{width:85%;right:0;top:17%;}.wedding-motion__scene--2{width:59%;bottom:22%;}.wedding-motion__caption{bottom:35px;}.wedding-motion__toggle{bottom:137px;}}
 @media(max-width:767px){.wedding-editorial>.wedding-editorial__intro{order:0;}.wedding-editorial>.wedding-motion{order:1;}.wedding-editorial>.wedding-editorial__search{order:2;}.wedding-motion{min-height:0;height:320px;margin:0 -1px 20px;}.wedding-motion__scene--1{width:85%;right:0;top:0;border-radius:75px 75px 4px 4px;}.wedding-motion__scene--2{width:37%;left:1%;bottom:21%;}.wedding-motion__caption{left:4%;right:4%;bottom:0;}.wedding-motion__caption p{font-size:15px;max-width:none;margin-top:4px;}.wedding-motion__caption>span{font-size:8px;}.wedding-motion__toggle{right:3%;bottom:53px;padding:9px 12px;}html[data-lang="te"] .wedding-motion__caption p{font-size:14px;}}
 @media(prefers-reduced-motion:reduce){.wedding-motion video{display:none;}}
+
+/* Proposal modal controls stay readable at narrow phone widths. */
+.mv-proposal-close { flex: 0 0 44px; width: 44px; min-width: 44px; height: 44px; }
+.mv-proposal-tones { grid-template-columns: 1fr; }
+.mv-proposal-tones button { min-width: 0; }
+.mv-proposal-actions { display: grid; grid-template-columns: 1fr; gap: 10px; }
+.mv-proposal-actions button { width: 100%; min-width: 0; }
+@media (min-width: 480px) {
+  .mv-proposal-tones { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .mv-proposal-actions { grid-template-columns: auto minmax(0, 1fr); }
+}
+
+.mv-proposal-header { display: grid; grid-template-columns: minmax(0, 1fr) 44px; align-items: center; gap: 12px; }
+.mv-proposal-header h3, .mv-proposal-header p { overflow-wrap: anywhere; }
