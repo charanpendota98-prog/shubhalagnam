@@ -15,8 +15,9 @@
  */
 
 import Link from "next/link";
+import { Heart, Radio, UserRound } from "lucide-react";
 import "./discovery-workspace.css";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { apiPost, authHeaders, readApiJson } from "@/lib/api";
 import { useLang } from "@/lib/lang";
 import AuthGate from "@/components/AuthGate";
@@ -43,6 +44,23 @@ type SavedItem = {
 };
 
 const NOTE_MAX = 280;
+const savedObject = (v: unknown): v is Record<string, any> => !!v && typeof v === "object" && !Array.isArray(v);
+function validSavedList(data: unknown, owner: string): data is { tsap_id: string; saved: SavedItem[]; count: number } {
+  if (!savedObject(data) || data.success === false || data.tsap_id !== owner || !Array.isArray(data.saved) ||
+      typeof data.count !== "number" || !Number.isSafeInteger(data.count) || data.count !== data.saved.length) return false;
+  const ids = new Set<string>();
+  return data.saved.every((item: unknown) => {
+    if (!savedObject(item) || !savedObject(item.profile)) return false;
+    const p = item.profile;
+    if (typeof p.tsap_id !== "string" || !/^[A-Za-z0-9_-]+$/.test(p.tsap_id) || p.tsap_id === owner || ids.has(p.tsap_id)) return false;
+    ids.add(p.tsap_id);
+    for (const k of ["full_name", "caste", "district", "education", "job", "photo_url", "gender"])
+      if (p[k] != null && typeof p[k] !== "string") return false;
+    if (p.age != null && typeof p.age !== "string" && !(typeof p.age === "number" && Number.isFinite(p.age))) return false;
+    for (const k of ["saved_at", "note", "note_at"]) if (item[k] != null && typeof item[k] !== "string") return false;
+    return true;
+  });
+}
 
 function formatDate(value: string, te: boolean): string {
   const date = new Date(value);
@@ -68,6 +86,7 @@ export default function ShortlistWorkspace() {
   const [loadError, setLoadError] = useState(false);
   const [unauthorized, setUnauthorized] = useState(false);
   const [attempt, setAttempt] = useState(0);
+  const loadEpoch = useRef(0);
 
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [savingId, setSavingId] = useState("");
@@ -87,11 +106,14 @@ export default function ShortlistWorkspace() {
       setLoading(false);
       return;
     }
+    const epoch = ++loadEpoch.current;
     setLoading(true);
+    setItems([]);
     setLoadError(false);
     setUnauthorized(false);
     try {
       const response = await fetch(`/api/saved/${encodeURIComponent(myId)}`, { headers: authHeaders() });
+      if (epoch !== loadEpoch.current) return;
       if (response.status === 401 || response.status === 403) {
         setUnauthorized(true);
         setItems([]);
@@ -102,8 +124,10 @@ export default function ShortlistWorkspace() {
         return;
       }
       const data = await readApiJson(response);
-      const saved = Array.isArray(data?.saved) ? data.saved : [];
-      setItems(saved.filter((item: SavedItem) => item?.profile?.tsap_id));
+      if (epoch !== loadEpoch.current) return;
+      if (!validSavedList(data, myId)) throw new Error("Shortlist unavailable");
+      const saved = data.saved;
+      setItems(saved);
       const nextDrafts: Record<string, string> = {};
       for (const item of saved) {
         const id = String(item?.profile?.tsap_id || "");
@@ -111,14 +135,15 @@ export default function ShortlistWorkspace() {
       }
       setDrafts(nextDrafts);
     } catch {
-      setLoadError(true);
+      if (epoch === loadEpoch.current) setLoadError(true);
     } finally {
-      setLoading(false);
+      if (epoch === loadEpoch.current) setLoading(false);
     }
   }, [myId]);
 
   useEffect(() => {
     void load();
+    return () => { loadEpoch.current++; };
   }, [load, attempt]);
 
   // `explicit` lets the clear action save "" without racing the draft state.
@@ -126,36 +151,36 @@ export default function ShortlistWorkspace() {
     const note = String(explicit ?? drafts[profileId] ?? "").slice(0, NOTE_MAX);
     setSavingId(profileId);
     setNotice(null);
-    const { ok } = await apiPost<{ note?: string; note_at?: string }>(
+    const { ok, data } = await apiPost<{ success?: boolean; saved_id?: string; note?: string; note_at?: string }>(
       `/api/saved/${encodeURIComponent(myId)}/${encodeURIComponent(profileId)}/note`,
       { note },
     );
     setSavingId("");
-    if (!ok) {
-      setNotice({ tone: "error", text: te ? "నోట్ save కాలేదు. మళ్లీ ప్రయత్నించండి." : "The note could not be saved. Please try again." });
+    if (!ok || data?.success !== true || data.saved_id !== profileId || typeof data.note !== "string" || typeof data.note_at !== "string") {
+      setNotice({ tone: "error", text: te ? "నోట్ సేవ్ కాలేదు. మళ్లీ ప్రయత్నించండి." : "The note could not be saved. Please try again." });
       return;
     }
     setItems((previous) =>
       previous.map((item) =>
         String(item.profile?.tsap_id) === profileId
-          ? { ...item, note, note_at: new Date().toISOString() }
+          ? { ...item, note: data.note, note_at: data.note_at }
           : item,
       ),
     );
-    setDrafts((previous) => ({ ...previous, [profileId]: note }));
-    setNotice({ tone: "ok", text: te ? "నోట్ save అయ్యింది — ఇది మీకు మాత్రమే కనిపిస్తుంది." : "Note saved — only you can see it." });
+    setDrafts((previous) => previous[profileId] === note ? { ...previous, [profileId]: data.note! } : previous);
+    setNotice({ tone: "ok", text: te ? "నోట్ సేవ్ అయింది. ఇది మీకు మాత్రమే కనిపిస్తుంది." : "Note saved — only you can see it." });
   };
 
   const remove = async (profileId: string) => {
     setRemovingId(profileId);
     setNotice(null);
-    const { ok, status } = await apiPost<{ saved?: boolean }>("/api/save", { tsap_id: myId, saved_id: profileId, saved: false });
+    const { ok, status, data } = await apiPost<{ success?: boolean; saved?: boolean }>("/api/save", { tsap_id: myId, saved_id: profileId, saved: false });
     setRemovingId("");
     if (status === 0) {
       setNotice({ tone: "error", text: te ? "తొలగించబడిందో నిర్ధారించలేకపోయాం. మళ్లీ ప్రయత్నించడం సురక్షితం." : "Could not confirm removal. Retrying is safe." });
       return;
     }
-    if (!ok) {
+    if (!ok || data?.success !== true || data.saved !== false) {
       setNotice({ tone: "error", text: te ? "తీసివేయడం సాధ్యపడలేదు. మళ్లీ ప్రయత్నించండి." : "Could not remove it. Please try again." });
       return;
     }
@@ -163,14 +188,14 @@ export default function ShortlistWorkspace() {
   };
 
   if (unauthorized || (!loading && !myId)) {
-    return <section className="mv-discovery-workspace mx-auto w-full max-w-4xl px-4 py-6 sm:px-6 sm:py-8"><header className="mv-discovery-heading"><h1>{te ? "మీ షార్ట్‌లిస్ట్" : "Your shortlist"}</h1></header><AuthGate note={te ? "మీ shortlist, నోట్స్ చూడటానికి లాగిన్ అవ్వండి." : "Log in to see your shortlist and notes."} /></section>;
+    return <section className="mv-discovery-workspace mx-auto w-full max-w-4xl px-4 py-6 sm:px-6 sm:py-8"><header className="mv-discovery-heading"><h1>{te ? "మీ షార్ట్‌లిస్ట్" : "Your shortlist"}</h1></header><AuthGate note={te ? "మీరు దాచుకున్న ప్రొఫైళ్లు, నోట్స్ చూడటానికి లాగిన్ చేయండి." : "Log in to see your shortlist and notes."} /></section>;
   }
 
   return (
     <section className="mv-discovery-workspace mx-auto w-full max-w-4xl px-4 py-6 sm:px-6 sm:py-8" aria-label={te ? "మీ షార్ట్‌లిస్ట్" : "Your shortlist"}>
       <header className="mv-discovery-heading">
         <h1>{te ? "మీ షార్ట్‌లిస్ట్" : "Your shortlist"}</h1>
-        <p>{te ? "మీరు save చేసిన ప్రొఫైళ్లు, మీకు మాత్రమే కనిపించే ప్రైవేట్ నోట్స్." : "Profiles you saved, with private notes only you can see."}</p>
+        <p>{te ? "మీరు దాచుకున్న ప్రొఫైళ్లు, మీకు మాత్రమే కనిపించే నోట్స్." : "Profiles you saved, with private notes only you can see."}</p>
       </header>
       <div className="mb-4 flex justify-end sm:mb-6">
         <Link
@@ -198,9 +223,9 @@ export default function ShortlistWorkspace() {
         <CardSkeletonList n={3} />
       ) : loadError ? (
         <EmptyState
-          icon="📡"
+          icon={<Radio aria-hidden="true" className="h-6 w-6" />}
           title={te ? "షార్ట్‌లిస్ట్ లోడ్ కాలేదు" : "We couldn't load your shortlist"}
-          description={te ? "కనెక్షన్ తనిఖీ చేసి మళ్లీ ప్రయత్నించండి." : "Check your connection and try again."}
+          description={te ? "జాబితా రాలేదు. దాచుకున్న ప్రొఫైళ్లు లేవని దీని అర్థం కాదు. మళ్లీ ప్రయత్నించండి." : "The list is unavailable. This does not mean there are no saved profiles. Please retry."}
           action={
             <Button variant="outline" onClick={() => setAttempt((value) => value + 1)}>
               {te ? "మళ్లీ ప్రయత్నించండి" : "Retry"}
@@ -209,11 +234,11 @@ export default function ShortlistWorkspace() {
         />
       ) : items.length === 0 ? (
         <EmptyState
-          icon="💍"
+          icon={<Heart aria-hidden="true" className="h-6 w-6" />}
           title={te ? "షార్ట్‌లిస్ట్ ఖాళీగా ఉంది" : "Your shortlist is empty"}
           description={
             te
-              ? "సంబంధాలు వెతుకుతున్నప్పుడు ❤️ నొక్కి ప్రొఫైళ్లను ఇక్కడ దాచుకోండి."
+              ? "సంబంధాలు వెతికేటప్పుడు దాచుకోండి అనే గుర్తును నొక్కితే ప్రొఫైళ్లు ఇక్కడ కనిపిస్తాయి."
               : "Tap the heart while browsing to keep profiles here."
           }
           action={
@@ -244,7 +269,7 @@ export default function ShortlistWorkspace() {
                             // eslint-disable-next-line @next/next/no-img-element
                             <img src={profile.photo_url} alt="" className="h-full w-full object-cover" loading="lazy" />
                           ) : (
-                            <span aria-hidden="true">💍</span>
+                            <UserRound aria-hidden="true" className="h-7 w-7" />
                           )}
                         </div>
                         <div className="min-w-0">
@@ -253,7 +278,7 @@ export default function ShortlistWorkspace() {
                           </Link>
                           <p className="break-all font-mono text-[10px] text-slate-500">{id}</p>
                           {meta && <p className="mt-0.5 break-words text-[11px] font-semibold text-slate-600">{meta}</p>}
-                          {item.saved_at && (
+                          {item.saved_at && formatDate(item.saved_at, te) && (
                             <p className="mt-0.5 text-[10px] text-slate-500">
                               {te ? "జత చేసిన తేదీ" : "Saved"}: {formatDate(item.saved_at, te)}
                             </p>
@@ -306,6 +331,7 @@ export default function ShortlistWorkspace() {
                               {te ? "నోట్ తొలగించు" : "Clear note"}
                             </Button>
                           )}
+                          {draft !== (item.note || "") && <span className="text-[10px] font-semibold text-amber-800">{te ? "మార్పులు ఇంకా సేవ్ కాలేదు" : "Unsaved changes"}</span>}
                           <span className="ml-auto text-[10px] text-slate-500">
                             {draft.length}/{NOTE_MAX}
                           </span>
