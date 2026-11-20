@@ -93,7 +93,7 @@ for (const lang of ["en", "te"]) {
       results: [{ tsap_id: "SYN-A11Y", full_name: "Fictional accessibility profile", gender: "Bride", age: 28, caste: "Kapu", district: "Hyderabad", state: "TS", photo_private: true, photo_url: "" }],
     } }));
     await page.goto("/matches");
-    const share = page.getByRole("button", { name: lang === "te" ? "WhatsApp షేర్ - సంబంధం వివరాలు" : "Share on WhatsApp - profile details", exact: true });
+    const share = page.getByRole("button", { name: lang === "te" ? "వాట్సాప్‌లో పంచుకోండి, సంబంధం వివరాలు" : "Share on WhatsApp, profile details", exact: true });
     await expect(share).toBeVisible();
     const visible = (await share.innerText()).replace("💬", "").trim();
     expect(await share.getAttribute("aria-label")).toContain(visible);
