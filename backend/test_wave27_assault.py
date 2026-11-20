@@ -101,11 +101,15 @@ try:
                 "height": "5'8\"", "marital_status": "Pelli Kaledu", "religion": "Hindu",
                 "caste": "Reddy", "education": "BTech", "job": "Software", "salary": "10L",
                 "state": "TS", "district": "Hyderabad", "phone": ph, "full_name": full_name}
-    import random as _random27
-    _r27 = _random27.randint(10, 99)  # R10: per-run unique phone space (persisted phones = correct 409 dup-phone)
+    # This script owns a fresh disposable store. Reserve deterministic numbers
+    # disjoint from its earlier 9271100001..4 fictional users. Random prefix 10
+    # used to collide with those users and correctly trigger duplicate-phone 409.
+    registration_phones = [str(9271270000 + i) for i in range(6)]
+    assert len(set(registration_phones)) == 6
+    assert set(registration_phones).isdisjoint(str(u.get("phone", "")) for u in M.DB_USERS)
     regs = []
     ts = [threading.Thread(target=lambda i=i: regs.append(
-        c.post("/api/register", data=_form(f"9271{_r27}{i:04d}", full_name=f"Race Reg Candidate {chr(65 + i)}")))) for i in range(6)]  # 10 digits total
+        c.post("/api/register", data=_form(registration_phones[i], full_name=f"Race Reg Candidate {chr(65 + i)}")))) for i in range(6)]  # 10 digits total
     [t.start() for t in ts]
     [t.join() for t in ts]
     rids = [r.json().get("tsap_id") for r in regs if r.status_code == 200]
