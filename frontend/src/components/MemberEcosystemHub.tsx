@@ -24,6 +24,10 @@ export default function MemberEcosystemHub({
   const [ledger, setLedger] = useState<any>(null);
   const [receipts, setReceipts] = useState<any[]>([]);
 
+  const financeReadEpoch = useRef(0);
+  const [ledgerRead, setLedgerRead] = useState<"loading" | "ready" | "error">("loading");
+  const [receiptRead, setReceiptRead] = useState<"loading" | "ready" | "error">("loading");
+
   // Family collaboration
   const [family, setFamily] = useState<any>(null);
   const [collabName, setCollabName] = useState("");
@@ -50,15 +54,29 @@ export default function MemberEcosystemHub({
     setToast("");
     try {
       if (section === "ledger") {
-        const [lr, rr] = await Promise.all([
-          fetch(`/api/credits/${encodeURIComponent(myId)}/ledger`, { headers: authHeaders(), credentials: "same-origin" }),
-          fetch(`/api/payments/${encodeURIComponent(myId)}/receipts`, { headers: authHeaders(), credentials: "same-origin" }),
+        const epoch = ++financeReadEpoch.current;
+        setLedgerRead("loading"); setReceiptRead("loading");
+        const count = (n: unknown) => typeof n === "number" && Number.isSafeInteger(n) && n >= 0;
+        const text = (t: unknown) => typeof t === "string";
+        await Promise.all([
+          (async () => { try {
+            const r = await fetch(`/api/credits/${encodeURIComponent(myId)}/ledger`, { headers: authHeaders(), credentials: "same-origin" });
+            const d = await readApiJson(r);
+            if (epoch !== financeReadEpoch.current) return;
+            if (!r.ok || !d || d.tsap_id !== myId || !count(d.available_credits) || !Array.isArray(d.buckets) ||
+                !d.buckets.every((b: any) => b && text(b.bucket_id) && text(b.plan_code) && text(b.kind) && count(b.remaining) && count(b.granted) && text(b.status) && (b.expires_at == null || text(b.expires_at))) ||
+                (d.policy_en !== undefined && !text(d.policy_en)) || (d.policy_te !== undefined && !text(d.policy_te))) throw new Error("Invalid credits read");
+            setLedger(d); setLedgerRead("ready");
+          } catch { if (epoch === financeReadEpoch.current) setLedgerRead("error"); } })(),
+          (async () => { try {
+            const r = await fetch(`/api/payments/${encodeURIComponent(myId)}/receipts`, { headers: authHeaders(), credentials: "same-origin" });
+            const d = await readApiJson(r);
+            if (epoch !== financeReadEpoch.current) return;
+            if (!r.ok || !d || d.tsap_id !== myId || !Array.isArray(d.receipts) ||
+                !d.receipts.every((rc: any) => rc && rc.tsap_id === myId && text(rc.receipt_no) && count(rc.amount_inr) && text(rc.plan) && text(rc.payment_ref) && text(rc.paid_at))) throw new Error("Invalid receipts read");
+            setReceipts(d.receipts); setReceiptRead("ready");
+          } catch { if (epoch === financeReadEpoch.current) setReceiptRead("error"); } })(),
         ]);
-        if (lr.ok) setLedger(await readApiJson(lr));
-        if (rr.ok) {
-          const rj = await readApiJson(rr);
-          setReceipts(rj.receipts || []);
-        }
       } else if (section === "family") {
         const fr = await fetch(`/api/family/${encodeURIComponent(myId)}`, { headers: authHeaders(), credentials: "same-origin" });
         if (fr.ok) setFamily(await readApiJson(fr));
@@ -105,7 +123,7 @@ export default function MemberEcosystemHub({
 
   useEffect(() => {
     void loadSection();
-    return () => { ticketReadEpoch.current++; photoReadEpoch.current++; };
+    return () => { ticketReadEpoch.current++; photoReadEpoch.current++; financeReadEpoch.current++; };
   }, [loadSection]);
 
   const inviteFamily = async () => {
@@ -282,11 +300,15 @@ export default function MemberEcosystemHub({
               </p>
             </div>
             <div className="rounded-2xl bg-rose-50 border border-rose-200 px-4 py-2 text-center">
-              <div className="text-xl font-black text-[#7A0C2E]">{ledger?.available_credits ?? "—"}</div>
+              <div className="text-xl font-black text-[#7A0C2E]">{ledgerRead === "ready" ? ledger?.available_credits : "—"}</div>
               <div className="text-[10px] font-bold text-slate-600">{te ? "అందుబాటులో ఉన్న క్రెడిట్స్" : "Available Credits"}</div>
             </div>
           </div>
 
+          {ledgerRead !== "ready" ? <div className="space-y-2">
+            <p role={ledgerRead === "error" ? "alert" : "status"} className="text-xs text-slate-700">{ledgerRead === "error" ? (te ? "క్రెడిట్ వివరాలు లోడ్ కాలేదు. మళ్లీ ప్రయత్నించండి." : "Credit history could not be loaded. Please retry.") : (te ? "క్రెడిట్ వివరాలు లోడ్ అవుతున్నాయి…" : "Loading credit history…")}</p>
+            {ledgerRead === "error" && <button type="button" className="min-h-11 rounded-xl border border-maroon px-4 py-2 font-bold text-maroon" onClick={() => void loadSection()}>{te ? "క్రెడిట్ వివరాలు మళ్లీ లోడ్ చేయండి" : "Retry credit history"}</button>}
+          </div> : <>
           <div className="space-y-2">
             <h3 className="text-xs font-extrabold uppercase tracking-wide text-slate-500">
               {te ? "యాక్టివ్ క్రెడిట్ బకెట్లు" : "Credit Buckets"}
@@ -312,6 +334,11 @@ export default function MemberEcosystemHub({
             </div>
           </div>
 
+          </>}
+          {receiptRead !== "ready" ? <div className="space-y-2 border-t border-slate-100 pt-3">
+            <p role={receiptRead === "error" ? "alert" : "status"} className="text-xs text-slate-700">{receiptRead === "error" ? (te ? "చెల్లింపు రసీదులు లోడ్ కాలేదు. మళ్లీ ప్రయత్నించండి." : "Payment receipts could not be loaded. Please retry.") : (te ? "చెల్లింపు రసీదులు లోడ్ అవుతున్నాయి…" : "Loading payment receipts…")}</p>
+            {receiptRead === "error" && <button type="button" className="min-h-11 rounded-xl border border-maroon px-4 py-2 font-bold text-maroon" onClick={() => void loadSection()}>{te ? "రసీదులు మళ్లీ లోడ్ చేయండి" : "Retry payment receipts"}</button>}
+          </div> :
           <div className="space-y-2 border-t border-slate-100 pt-3">
             <h3 className="text-xs font-extrabold uppercase tracking-wide text-slate-500">
               {te ? "చెల్లింపు రసీదులు" : "Verified Payment Receipts"}
@@ -338,6 +365,7 @@ export default function MemberEcosystemHub({
               </div>
             )}
           </div>
+          }
         </section>
       )}
 
