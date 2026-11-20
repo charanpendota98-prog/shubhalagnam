@@ -51,6 +51,7 @@ import { REASON_DISCLAIMER, matchReasons, relaxSuggestions, widenedAgeLabel } fr
 import { dietSummary, summarizeSavedSearch } from "@/lib/saved-search-summary.mjs";
 import ProfileRail from "@/components/ProfileRail";
 import { mergeMatchPages } from "@/lib/match-results.mjs";
+import { readMatchPage } from "@/lib/match-response";
 import QuickLead from "@/components/QuickLead";
 import { useSession } from "@/lib/auth";
 import { apiDisplayMessage, apiFetch, apiGet, apiPost, authHeaders, readApiJson } from "@/lib/api";
@@ -727,6 +728,7 @@ export default function MatchesPage() {
       setLoadingMore(false);
       setLoadMoreError(false);
       setRequestError(false);
+      setPersonalFilterNote("");
       setRows([]);
       setTotal(0);
       setNextOffset(0);
@@ -745,23 +747,12 @@ export default function MatchesPage() {
 
       const r = await fetch(`/api/search?${q.toString()}`, { headers: authHeaders(), signal: controller.signal });
       if (!r.ok) throw new Error("Failed to fetch matches");
-      const data = await readApiJson(r);
-      const results = Array.isArray(data.results)
-        ? data.results
-        : Array.isArray(data.profiles)
-          ? data.profiles
-          : [];
-      const resultTotal = typeof data.total === "number" ? data.total : offset + results.length;
+      const data = readMatchPage(await readApiJson(r), offset, MATCH_PAGE_SIZE);
       if (curId === reqId.current) {
-        if (!append) {
-          const gothram = data.gothram_exclusion;
-          setPersonalFilterNote(gothram && gothram.requested && !gothram.applied
-            ? (gothram.reason === "sign_in_required" ? "sign_in" : "own_gothram_missing")
-            : "");
-        }
-        setRows((previous) => append ? mergeMatchPages(previous, results) : results);
-        setTotal(resultTotal);
-        setNextOffset(results.length === 0 ? resultTotal : offset + results.length);
+        if (!append) setPersonalFilterNote(data.personalFilterNote);
+        setRows((previous) => append ? mergeMatchPages(previous, data.rows) : data.rows);
+        setTotal(data.total);
+        setNextOffset(data.nextOffset);
       }
     } catch {
       if (curId === reqId.current) {
@@ -1087,9 +1078,9 @@ export default function MatchesPage() {
       <div className="matches-profile-card mv-surface mv-surface__body mv-card relative flex flex-col justify-between overflow-hidden !p-0">
         {/* 🏛️ TOP-RIGHT BADGES: state (Telangana/Andhra Pradesh) neatga + 2nd Marriage (only if applicable) */}
         <div className="matches-profile-badges flex flex-wrap items-center gap-2 px-4 pt-4">
-          <span className="text-[9.5px] font-black px-2 py-0.5 rounded-full bg-navy/90 text-white shadow-sm backdrop-blur-sm whitespace-nowrap">
+          {row.state && <span className="text-[9.5px] font-black px-2 py-0.5 rounded-full bg-navy/90 text-white shadow-sm backdrop-blur-sm whitespace-nowrap">
             🏛️ {stateLabel(row.state, te)}
-          </span>
+          </span>}
           {isSecondMarriage(row.marital_status) && (
             <span className="text-[9px] font-black px-2 py-0.5 rounded-full bg-rose-600 text-white shadow-sm whitespace-nowrap">
               {te ? "💍 2వ వివాహం" : "💍 2nd Marriage"}
