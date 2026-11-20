@@ -17,6 +17,7 @@ import { Check, Clock3, CreditCard, Eye, Heart, Inbox, Mail, RefreshCw, Send } f
 import Reveal from "@/components/Reveal";
 import SectionHeading from "@/components/SectionHeading";
 import "./workspace.css";
+import { validRequestSecondary, type SecondaryPanel } from "@/lib/requests-secondary";
 import PayBox from "@/components/PayBox";
 import { Duo, duo } from "@/lib/duo";
 import { useLang } from "@/lib/lang";
@@ -84,6 +85,7 @@ export default function RequestsPage() {
   const te = lang === "te";
   const profileField = (value: unknown) => {
     const text = String(value ?? "").trim();
+    if (!text || text === "—" || text === "-" || text.toLowerCase() === "not stated") return "";
     return te ? text : apiDisplayMessage({ message_en: text }, false, "");
   };
   const [needsLogin, setNeedsLogin] = useState(false);
@@ -106,10 +108,13 @@ export default function RequestsPage() {
   const [showOwnerMsg, setShowOwnerMsg] = useState(false);
   const [addons, setAddons] = useState<Addon[]>([]);
   const [renewal, setRenewal] = useState<any>(null);
-  const [saved, setSaved] = useState<{ count: number; saved: Saved[] }>({ count: 0, saved: [] });
+  const [saved, setSaved] = useState<any>(null);
+  const [secondaryOwner, setSecondaryOwner] = useState("");
+  const [secondaryReads, setSecondaryReads] = useState<Record<SecondaryPanel, RequestRead>>({ credits: "loading", saved: "loading", views: "loading", consent: "loading", quality: "loading" });
+  const secondaryReady = (key: SecondaryPanel) => secondaryOwner === myId && secondaryReads[key] === "ready";
   //  WAVE 9 ADVANCED — Telugu interest templates + consent ledger + profile strength
   const [templates, setTemplates] = useState<{ id: string; text: string; text_en?: string; tag?: string; tag_en?: string }[]>([]);
-  const [consent, setConsent] = useState<{ events?: any[]; total?: number } | null>(null);
+  const [consent, setConsent] = useState<{ consents: any[]; count: number } | null>(null);
   const [quality, setQuality] = useState<any>(null);
   const [views, setViews] = useState<any>(null);
 
@@ -156,26 +161,30 @@ export default function RequestsPage() {
         }
       };
       void readRequests("inbox"); void readRequests("sent");
-      try {
-        const [c, sv, vw, tpl, cst, ql] = await Promise.all([
-          fetch(`/api/credits/${id}`, { headers: authHeaders() }).then((r) => { if (r.status === 401) setNeedsLogin(true); return readApiJson(r); }),
-          fetch(`/api/saved/${id}`, { headers: authHeaders() }).then((r) => { if (r.status === 401) setNeedsLogin(true); return readApiJson(r); }),
-          fetch(`/api/views/${id}`, { headers: authHeaders() }).then((r) => { if (r.status === 401) setNeedsLogin(true); return readApiJson(r); }),
-          fetch("/api/templates/interest").then((r) => readApiJson(r)).catch(() => ({})),
-          fetch(`/api/consent/log/${id}`, { headers: authHeaders() }).then((r) => { if (r.status === 401) setNeedsLogin(true); return readApiJson(r); }).catch(() => ({})),
-          fetch(`/api/profile/${id}/quality`, { headers: authHeaders() }).then((r) => { if (r.status === 401) setNeedsLogin(true); return readApiJson(r); }).catch(() => ({})),
-        ]);
-        if (epoch !== readEpoch.current) return;
-        if (typeof c?.credits === "number") setCredits(c.credits);
-        if (sv?.saved) setSaved({ count: sv.count, saved: sv.saved });
-        if (vw?.tsap_id) setViews(vw);
-        if (Array.isArray(tpl?.templates)) setTemplates(tpl.templates);
-        if (cst?.tsap_id) setConsent(cst);
-        if (ql?.tsap_id || ql?.completeness) setQuality(ql);
-      } catch {
-        if (epoch !== readEpoch.current) return;
-        setToast({ kind: "err", text: te ? "సమాచారం తెచ్చుకోలేకపోయాం. మళ్లీ ప్రయత్నించండి." : "Could not connect to server — retry" });
-      }
+      setSecondaryOwner(id);
+      setSecondaryReads({ credits: "loading", saved: "loading", views: "loading", consent: "loading", quality: "loading" });
+      setCredits(null); setSaved(null); setViews(null); setConsent(null); setQuality(null); setTemplates([]);
+      const paths: Record<SecondaryPanel, string> = { credits: `/api/credits/${encodeURIComponent(id)}`, saved: `/api/saved/${encodeURIComponent(id)}`, views: `/api/views/${encodeURIComponent(id)}`, consent: `/api/consent/log/${encodeURIComponent(id)}`, quality: `/api/profile/${encodeURIComponent(id)}/quality` };
+      const setters: Record<SecondaryPanel, (value: any) => void> = { credits: value => setCredits(value.credits), saved: setSaved, views: setViews, consent: setConsent, quality: setQuality };
+      const readSecondary = async (key: SecondaryPanel) => {
+        try {
+          const response = await fetch(paths[key], { headers: authHeaders() });
+          if (epoch !== readEpoch.current) return;
+          if (response.status === 401) setNeedsLogin(true);
+          const data = await readApiJson(response);
+          if (epoch !== readEpoch.current) return;
+          if (!response.ok || !validRequestSecondary(key, data, id)) throw new Error("Secondary panel unavailable");
+          setters[key](data);
+          setSecondaryReads(old => ({ ...old, [key]: "ready" }));
+        } catch {
+          if (epoch === readEpoch.current) setSecondaryReads(old => ({ ...old, [key]: "error" }));
+        }
+      };
+      for (const key of Object.keys(paths) as SecondaryPanel[]) void readSecondary(key);
+      void fetch("/api/templates/interest").then(readApiJson).then(data => {
+        if (epoch !== readEpoch.current || !Array.isArray(data?.templates)) return;
+        setTemplates(data.templates.filter((v: any) => record(v) && typeof v.id === "string" && typeof v.text === "string" && ["text_en", "tag", "tag_en"].every(k => v[k] == null || typeof v[k] === "string")));
+      }).catch(() => {});
     },
     [te]
   );
@@ -315,7 +324,8 @@ export default function RequestsPage() {
             </button>
             <div className="ml-auto rounded-xl border border-gold/40 bg-[#fffaf3] px-4 py-2">
               <div className="text-[10px] font-bold uppercase tracking-wide text-slate-500">{te ? "క్రెడిట్లు" : "Credits"}</div>
-              <div className="text-lg font-bold leading-none text-maroon">{credits === null ? "—" : credits}</div>
+              <div className="text-lg font-bold leading-none text-maroon">{secondaryReady("credits") && credits !== null ? credits : "—"}</div>
+              {myId && secondaryReads.credits === "error" && <button type="button" onClick={() => void refresh(myId)} className="text-xs underline">{te ? "క్రెడిట్లు మళ్లీ చూడండి" : "Retry credit balance"}</button>}
             </div>
           </div>
         </section>
@@ -342,8 +352,8 @@ export default function RequestsPage() {
             { k: "inbox", l: te ? `వచ్చిన అభ్యర్థనలు${inboxReady && inbox.pending ? ` (${inbox.pending})` : ""}` : `Received${inboxReady && inbox.pending ? ` (${inbox.pending})` : ""}` },
             { k: "sent", l: te ? `పంపిన అభ్యర్థనలు${sentReady && sent.sent?.length ? ` (${sent.sent.length})` : ""}` : `Sent${sentReady && sent.sent?.length ? ` (${sent.sent.length})` : ""}` },
             { k: "send", l: te ? "ఆసక్తి తెలపండి" : "Send interest" },
-            { k: "saved", l: `${te ? "దాచుకున్న ప్రొఫైళ్లు" : "Saved"}${saved.count ? ` (${saved.count})` : ""}` },
-            { k: "viewers", l: `${te ? "మీ ప్రొఫైల్‌ను చూసినవారు" : "Viewers"}${views?.total_views ? ` (${views.total_views})` : ""}` },
+            { k: "saved", l: `${te ? "దాచుకున్న ప్రొఫైళ్లు" : "Saved"}${secondaryReady("saved") && saved?.count ? ` (${saved.count})` : ""}` },
+            { k: "viewers", l: `${te ? "మీ ప్రొఫైల్‌ను చూసినవారు" : "Viewers"}${secondaryReady("views") && views?.total_views ? ` (${views.total_views})` : ""}` },
             { k: "plans", l: te ? "ప్లాన్లు, క్రెడిట్లు" : "Plans & Credits" },
           ].map((t) => (
             <button type="button"
@@ -531,7 +541,7 @@ export default function RequestsPage() {
                   {busy ? (te ? "పంపిస్తున్నాం…" : "Sending…") : te ? "ఆసక్తి తెలపండి" : "Send interest"}
                 </button>
                 <div className="text-[11px] text-gray-500">
-                  {te ? "క్రెడిట్లు:" : "Credits:"} <b>{credits === null ? "—" : credits}</b> • {te ? "మొదటి 3 అభ్యర్థనలు ఉచితం. తిరస్కరిస్తే 1 అభ్యర్థన క్రెడిట్ ఒకసారి తిరిగి వస్తుంది." : "First 3 requests FREE • Declines return one request credit once"}
+                  {te ? "క్రెడిట్లు:" : "Credits:"} <b>{secondaryReady("credits") && credits !== null ? credits : "—"}</b> • {te ? "మొదటి 3 అభ్యర్థనలు ఉచితం. తిరస్కరిస్తే 1 అభ్యర్థన క్రెడిట్ ఒకసారి తిరిగి వస్తుంది." : "First 3 requests FREE • Declines return one request credit once"}
                 </div>
               </div>
             </div>
@@ -569,7 +579,8 @@ export default function RequestsPage() {
                 </div>
               )}
 
-              {quality && (
+              {myId && !secondaryReady("quality") && <SecondaryReadState state={secondaryReads.quality} te={te} label={te ? "ప్రొఫైల్ వివరాల శాతం" : "Profile completeness"} retry={() => void refresh(myId)} />}
+              {secondaryReady("quality") && quality && (
                 <div className="bg-white border border-gold/30 rounded-2xl p-4">
                   <div className="font-bold text-maroon text-[13px]">{te ? "మీరు నింపిన ప్రొఫైల్ వివరాలు:" : "Your profile fields:"} {quality.completeness?.percent ?? "—"}%</div>
                   <div className="mt-1 text-[11px] text-gray-600">{te ? "ఇది నింపిన వివరాల శాతం మాత్రమే. గుర్తింపు నిర్ధారణ లేదా సంబంధం సరిపోతుందనే కొలమానం కాదు." : "Filled fields only; not an identity or match score."}</div>
@@ -581,29 +592,30 @@ export default function RequestsPage() {
                     <ul className="mt-2 text-[11px] text-gray-700 list-disc list-inside space-y-0.5">
                       {(te ? quality.completeness.important_telugu : quality.completeness.important_en)
                         .slice(0, 3)
-                        .map((item: string) => te ? item : apiDisplayMessage({ message_en: item }, false, ""))
+                        .map((item: string) => (te ? item : apiDisplayMessage({ message_en: item }, false, "")).replace(/\p{Extended_Pictographic}|[\uFE0F\u200D]/gu, "").trim())
                         .filter(Boolean)
                         .map((item: string, i: number) => <li key={i}>{item}</li>)}
                     </ul>
                   )}
 
-                  {(te ? quality.photo_tip_telugu : apiDisplayMessage({ message_en: quality.photo_tip_en }, false, "")) && (
-                    <div className="mt-1 text-[11px] text-gray-600"> {te ? quality.photo_tip_telugu : apiDisplayMessage({ message_en: quality.photo_tip_en }, false, "")}</div>
+                  {(quality.photo_tip_telugu || quality.photo_tip_en) && (
+                    <div className="mt-1 text-[11px] text-gray-600"> {te ? "ఫోటో కనిపించడం మీ గోప్యతా ఎంపికలపై ఆధారపడి ఉంటుంది. ఫలితాలకు హామీ లేదు." : "Photo visibility depends on your privacy choices. Results are not guaranteed."}</div>
                   )}
                 </div>
               )}
 
-              {consent && (
+              {myId && !secondaryReady("consent") && <SecondaryReadState state={secondaryReads.consent} te={te} label={te ? "సంప్రదింపు అనుమతుల చరిత్ర" : "Contact-access history"} retry={() => void refresh(myId)} />}
+              {secondaryReady("consent") && consent && (
                 <div className="bg-white border border-emerald-200 rounded-2xl p-4">
-                  <div className="font-bold text-emerald-900 text-[13px]"> {te ? "మీ నంబర్ ఎవరితో పంచుకున్నారు" : "Who your number was shared with"}</div>
+                  <div className="font-bold text-emerald-900 text-[13px]"> {te ? "సంప్రదింపు అనుమతుల చరిత్ర" : "Contact-access history"}</div>
                   <div className="mt-1 text-[11px] text-emerald-800">
-                    {te ? <>మీ నంబర్ ఎప్పుడు ఎవరితో పంచుకున్నారో ఇక్కడ కనిపిస్తుంది — {consent.total ?? 0} సార్లు.</> : <>See when your number was shared — {consent.total ?? 0} times.</>}
+                    {te ? <>సంప్రదింపు అనుమతి ఇచ్చిన లేదా నిరాకరించిన నమోదులు: {consent.count}. సమాచారం అందిందనడానికి ఇవి ఆధారం కావు.</> : <>Contact-access grants and declines recorded: {consent.count}. This is not proof of notification delivery.</>}
                   </div>
-                  {Array.isArray(consent.events) && consent.events.length > 0 ? (
+                  {Array.isArray(consent.consents) && consent.consents.length > 0 ? (
                     <ul className="mt-2 space-y-1">
-                      {consent.events.slice(0, 5).map((e: any, i: number) => (
+                      {consent.consents.slice(0, 5).map((e: any, i: number) => (
                         <li key={i} className="text-[11px] text-gray-700 border-l-2 border-emerald-300 pl-2">
-                          {String(e.with || e.other_id || "").slice(0, 18)} • {String(e.at || "").slice(0, 16)}
+                          {e.with || (te ? "ప్రొఫైల్ వివరాలు లేవు" : "Profile not supplied")} · {e.contact_access_granted ? (te ? "అనుమతి ఇచ్చారు" : "Access granted") : (te ? "అనుమతి ఇవ్వలేదు" : "Access not granted")}{e.at && Number.isFinite(Date.parse(e.at)) ? ` · ${e.at.slice(0, 16)}` : ""}
                         </li>
                       ))}
                     </ul>
@@ -626,14 +638,16 @@ export default function RequestsPage() {
         {/* SAVED / SHORTLIST */}
         {tab === "saved" && (
           <div className="space-y-3">
-            {saved.count === 0 && <Empty text={te ? "ఇంకా ప్రొఫైళ్లను దాచుకోలేదు. సంబంధాల పేజీలో దాచుకోవచ్చు." : "Nothing saved yet — press the  button in /matches."} />}
-            {saved.saved.map((x: Saved) => (
+            {!myId && <Empty text={te ? "దాచుకున్న ప్రొఫైళ్ల కోసం మీ ప్రొఫైల్ ID ఇవ్వండి." : "Enter your Profile ID to see saved profiles."} />}
+            {myId && !secondaryReady("saved") && <SecondaryReadState state={secondaryReads.saved} te={te} label={te ? "దాచుకున్న ప్రొఫైళ్లు" : "Saved profiles"} retry={() => void refresh(myId)} />}
+            {secondaryReady("saved") && saved.count === 0 && <Empty text={te ? "ఇంకా ప్రొఫైళ్లను దాచుకోలేదు. సంబంధాల పేజీలో దాచుకోవచ్చు." : "No saved profiles yet. You can save profiles from Matches."} />}
+            {secondaryReady("saved") && saved.saved.map((x: Saved) => (
               <Reveal key={x.profile.tsap_id}>
                 <div className="mv-surface mv-surface__body mv-card flex flex-wrap items-center gap-3">
-                  <div className="min-w-0 flex-1">
-                    <div className="font-bold text-[14px] text-maroon">
-                       {x.profile.full_name} ({x.profile.age}y)
-                      <span className="ml-2 text-[11px] text-gray-500 font-mono">{x.profile.tsap_id}</span>
+                  <div className="min-w-0 basis-full sm:flex-1 sm:basis-auto">
+                    <div className="font-bold text-[14px] text-maroon break-words">
+                       {x.profile.full_name || (te ? "పేరు ఇవ్వలేదు" : "Name not supplied")}{x.profile.age ? ` (${x.profile.age}${te ? " సం." : "y"})` : ""}
+                      <span className="ml-2 text-[11px] text-gray-500 font-mono break-all">{x.profile.tsap_id}</span>
                     </div>
                     <div className="text-[12px] text-gray-600 mt-1">
                       {[profileField(x.profile.education), profileField(x.profile.job), profileField(x.profile.district) ? ` ${profileField(x.profile.district)}` : "", x.profile.state ? stateFullName(x.profile.state, te) : "", profileField(x.profile.caste) ? ` ${profileField(x.profile.caste)}` : ""].filter(Boolean).join(" • ")}
@@ -653,7 +667,9 @@ export default function RequestsPage() {
         {/* VIEWERS */}
         {tab === "viewers" && (
           <div className="space-y-3">
-            {!views ? <Empty text={te ? "మీ ప్రొఫైల్‌ను చూసినవారి కోసం మీ ప్రొఫైల్ ID ఇవ్వండి." : "Load your Profile ID — to see viewers."} /> : (
+            {!myId && <Empty text={te ? "మీ ప్రొఫైల్‌ను చూసినవారి కోసం మీ ప్రొఫైల్ ID ఇవ్వండి." : "Load your Profile ID to see viewers."} />}
+            {myId && !secondaryReady("views") && <SecondaryReadState state={secondaryReads.views} te={te} label={te ? "మీ ప్రొఫైల్‌ను చూసినవారు" : "Profile viewers"} retry={() => void refresh(myId)} />}
+            {secondaryReady("views") && views && (
               <>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   {[[te ? "చూసిన మొత్తం సార్లు" : "Total views", views.total_views], [te ? "చూసినవారి సంఖ్య" : "Unique viewers", views.unique_viewers],
@@ -673,7 +689,7 @@ export default function RequestsPage() {
                   </div>
                 )}
                 <div className="mv-surface mv-surface__body mv-card">
-                  {(views.viewers?.length ? views.viewers : views.viewers_masked || []).map((v: any, i: number) => (
+                  {(views.whoviewed_unlocked ? views.viewers : views.viewers_masked).map((v: any, i: number) => (
                     <div key={i} className="text-[12px] py-1.5 border-b last:border-0 border-gray-100 flex flex-wrap gap-3">
                       <span className="font-bold text-maroon">{v.full_name || (te ? "పేరు కనిపించదు" : "Hidden member")}</span>
                       <span className="text-gray-600">{[profileField(v.caste), profileField(v.district), v.age ? `${v.age} ${te ? "సం." : "years"}` : ""].filter(Boolean).join(" • ")}</span>
@@ -681,7 +697,7 @@ export default function RequestsPage() {
                     </div>
                   ))}
                   {!(views.viewers?.length || views.viewers_masked?.length) && (
-                    <div className="text-[12px] text-gray-500">{te ? "ఇంకా వీక్షకులు నమోదు కాలేదు." : "No viewers yet — boost your profile in a channel (₹49)."}</div>
+                    <div className="text-[12px] text-gray-500">{te ? "ఇంకా వీక్షకులు నమోదు కాలేదు." : "No viewers have been recorded yet."}</div>
                   )}
                 </div>
               </>
@@ -838,4 +854,8 @@ function RequestProfileFacts({ profile, te }: { profile: Record<string, any> | n
   ].map(values => values.map(field).filter(Boolean).join(" · ")).filter(Boolean);
   const verification = ({ phone: te ? "ఫోన్ OTP: ఈ నంబర్ వినియోగాన్ని మాత్రమే నిర్ధారిస్తుంది." : "Phone OTP: confirms access to this number only.", photo: te ? "సమర్పించిన ఫోటో పరిశీలన మాత్రమే. గుర్తింపు నిర్ధారణ కాదు." : "Submitted photo review only. Not an identity check.", id: te ? "ప్రభుత్వ ID పరిశీలన స్థితి మాత్రమే. ఇతర వివరాలు నిర్ధారించబడవు." : "Government ID review status only. Other details are not verified." } as Record<string, string>)[p.verification_level];
   return <div className="mt-1 text-[12px] leading-relaxed text-gray-600">{verification && <p className="text-[11px] text-emerald-800">{verification}</p>}{groups.length ? groups.map((line, i) => <p key={i}>{line}</p>) : <p>{te ? "ఈ ప్రొఫైల్‌లో ఇతర వివరాలు ఇవ్వలేదు." : "No other profile details were supplied."}</p>}</div>;
+}
+
+function SecondaryReadState({ state, te, label, retry }: { state: RequestRead; te: boolean; label: string; retry: () => void }) {
+  return <div className="mv-surface mv-surface__body" aria-label={label}>{state === "error" ? <><p role="alert" className="text-sm text-rose-800">{te ? `${label}: సమాచారం తెచ్చుకోలేకపోయాం. నమోదులు లేవని దీని అర్థం కాదు.` : `${label} could not be loaded. This does not mean there are no records.`}</p><button type="button" onClick={retry} className="mv-btn mv-btn--secondary mt-3"><RefreshCw aria-hidden="true" className="h-4 w-4" />{te ? "మళ్లీ ప్రయత్నించండి" : "Retry"}</button></> : <p role="status">{te ? `${label}: సమాచారం తెస్తున్నాం…` : `Loading ${label.toLowerCase()}…`}</p>}</div>;
 }
