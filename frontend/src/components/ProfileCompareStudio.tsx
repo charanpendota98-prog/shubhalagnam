@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import "./discovery-workspace.css";
 import { WhatsAppIcon } from "@/components/BrandIcons";
@@ -36,22 +36,54 @@ type ProfileCard = {
   photo_url?: string;
 };
 
-type PreferenceCheck = { key: string; label?: string; status: string; note?: string };
+type PreferenceCheck = { key: string; label?: string; status: string; note?: string; note_te?: string };
 type Comparison = { preference_checks?: PreferenceCheck[]; field_checks?: unknown[]; observations?: string[] };
 
 type CompareResponse = {
+  count?: number;
   success?: boolean;
   profiles?: ProfileCard[];
   comparisons?: Record<string, Comparison>;
   has_saved_expectations?: boolean;
 };
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function validCompareResponse(value: unknown, requested: string[]): value is CompareResponse {
+  if (!isRecord(value) || value.success !== true || value.count !== requested.length ||
+      !Array.isArray(value.profiles) || value.profiles.length !== requested.length ||
+      !isRecord(value.comparisons) || typeof value.has_saved_expectations !== "boolean") return false;
+  const ids = new Set<string>();
+  const textFields = ["full_name", "gender", "height", "caste", "sub_caste", "gothram", "star", "rasi", "education", "job", "salary", "district", "state", "marital_status", "photo_url"];
+  for (const profile of value.profiles) {
+    if (!isRecord(profile) || typeof profile.tsap_id !== "string" || !requested.includes(profile.tsap_id) || ids.has(profile.tsap_id)) return false;
+    ids.add(profile.tsap_id);
+    if (textFields.some((key) => profile[key] != null && typeof profile[key] !== "string")) return false;
+    if (profile.age != null && !(typeof profile.age === "string" || (typeof profile.age === "number" && Number.isFinite(profile.age) && profile.age >= 0))) return false;
+  }
+  let hasChecks = false;
+  for (const [id, block] of Object.entries(value.comparisons)) {
+    if (!ids.has(id) || !isRecord(block) || !Array.isArray(block.preference_checks) || !Array.isArray(block.field_checks) || !Array.isArray(block.observations)) return false;
+    const keys = new Set<string>();
+    for (const check of block.preference_checks) {
+      if (!isRecord(check) || typeof check.key !== "string" || !check.key.trim() || keys.has(check.key) || (typeof check.status !== "string" || !["met", "not_met", "unknown"].includes(check.status)) || typeof check.label !== "string" || typeof check.note !== "string" || (check.note_te != null && typeof check.note_te !== "string")) return false;
+      keys.add(check.key);
+    }
+    if (block.field_checks.some((row: unknown) => !isRecord(row) || typeof row.key !== "string" || typeof row.label !== "string" || typeof row.note !== "string" || (typeof row.status !== "string" || !["same", "different", "listed"].includes(row.status)))) return false;
+    if (block.observations.some((row: unknown) => typeof row !== "string")) return false;
+    hasChecks ||= block.preference_checks.length > 0;
+  }
+  return value.has_saved_expectations === hasChecks;
+}
+
 const EMPTY_IDS = ["", "", ""] as const;
 const ID_PATTERN = /^[A-Z0-9-]{3,32}$/;
 
 function valueOrLabel(value: unknown, missing: string): string {
   const valueText = String(value ?? "").trim();
-  return valueText && valueText !== "—" && valueText.toLowerCase() !== "none" ? valueText : missing;
+  return !isMissingValue(valueText) ? valueText : missing;
 }
 
 function initials(name: string): string {
@@ -62,15 +94,38 @@ function initials(name: string): string {
 /** Value used for comparison only: placeholders collapse to "" so they never
  *  count as a difference. */
 function compareValue(profile: ProfileCard, key: string): string {
-  if (key === "caste") return [profile.caste, profile.sub_caste].filter(Boolean).join(" · ");
-  if (key === "district") return [profile.district, profile.state].filter(Boolean).join(", ");
+  if (key === "caste") return [profile.caste, profile.sub_caste].filter((value) => !isMissingValue(value)).join(" · ");
+  if (key === "district") return [profile.district, profile.state].filter((value) => !isMissingValue(value)).join(", ");
   const text = String((profile as Record<string, unknown>)[key] ?? "").trim();
   return isMissingValue(text) ? "" : text;
+}
+
+function CompareAvatar({ name, photo }: { name: string; photo?: string }) {
+  const [failed, setFailed] = useState(false);
+  useEffect(() => setFailed(false), [photo]);
+  if (photo && !failed) {
+    // eslint-disable-next-line @next/next/no-img-element
+    return <img src={photo} alt="" onError={() => setFailed(true)} className="h-14 w-14 shrink-0 rounded-2xl border border-gray-200 object-cover" />;
+  }
+  return <div aria-hidden="true" className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-maroon/5 text-lg font-bold text-maroon">{initials(name)}</div>;
 }
 
 export default function ProfileCompareStudio() {
   const { lang } = useLang();
   const te = lang === "te";
+  const requestEpoch = useRef(0);
+  useEffect(() => () => { requestEpoch.current += 1; }, []);
+  const invalidate = () => {
+    requestEpoch.current += 1;
+    setLoading(false);
+    setProfiles([]);
+    setComparisons({});
+    setCopyMessage("");
+    setError("");
+    setNeedsLogin(false);
+    setOrder("entered");
+    setOnlyDifferences(false);
+  };
   const [ids, setIds] = useState<string[]>([...EMPTY_IDS]);
   const [showThird, setShowThird] = useState(false);
   const [profiles, setProfiles] = useState<ProfileCard[]>([]);
@@ -129,15 +184,15 @@ export default function ProfileCompareStudio() {
     };
     const lines = [label("Mana Vivaha — profile comparison", "మన వివాహ — ప్రొఫైల్ పోలిక"), ""];
     activeProfiles.forEach((profile, index) => {
-      lines.push(`${index + 1}. ${valueOrLabel(profile.full_name, "Member profile")} (${profile.tsap_id})`);
+      lines.push(`${index + 1}. ${valueOrLabel(profile.full_name, te ? "సభ్యుల వివరాలు" : "Member profile")} (${profile.tsap_id})`);
       const details = [
         [label("Age", "వయస్సు"), safeValue(profile.age)],
-        [label("Community / sub-community", "కమ్యూనిటీ / ఉప-కమ్యూనిటీ"), [profile.caste, profile.sub_caste].filter(Boolean).map(safeValue).filter(Boolean).join(" · ")],
+        [label("Community / sub-community", "కమ్యూనిటీ / ఉప-కమ్యూనిటీ"), [profile.caste, profile.sub_caste].filter(Boolean).map(safeValue).filter((value) => !isMissingValue(value)).join(" · ")],
         [label("Gothram", "గోత్రం"), safeValue(profile.gothram)],
         [label("Star / Rasi", "నక్షత్రం / రాశి"), [profile.star, profile.rasi].filter(Boolean).map(safeValue).filter(Boolean).join(" / ")],
         [label("Education", "విద్య"), safeValue(profile.education)],
         [label("Profession", "వృత్తి"), safeValue(profile.job)],
-        [label("Location", "ప్రాంతం"), [profile.district, profile.state].filter(Boolean).map(safeValue).filter(Boolean).join(", ")],
+        [label("Location", "ప్రాంతం"), [profile.district, profile.state].filter(Boolean).map(safeValue).filter((value) => !isMissingValue(value)).join(", ")],
       ] as const;
       details.forEach(([detailLabel, value]) => {
         const shown = value || label("Not provided", "వివరాలు ఇవ్వలేదు");
@@ -150,6 +205,7 @@ export default function ProfileCompareStudio() {
   }, [activeProfiles, te]);
 
   const setIdAt = (index: number, value: string) => {
+    invalidate();
     setIds((current) => {
       const next = [...current];
       next[index] = value.toUpperCase().replace(/\s+/g, "");
@@ -160,21 +216,22 @@ export default function ProfileCompareStudio() {
   const handleCompare = async () => {
     const requested = activeIds.map((value) => value.trim().toUpperCase());
     if (requested.some((value) => !value)) {
-      setError(te ? "పోల్చడానికి చూపించిన ప్రతి ID నమోదు చేయండి." : "Enter an ID in each visible field.");
+      setError(te ? "పోల్చడానికి చూపించిన ప్రతి సభ్యత్వ సంఖ్య నమోదు చేయండి." : "Enter an ID in each visible field.");
       setNeedsLogin(false);
       return;
     }
     if (requested.some((value) => !ID_PATTERN.test(value))) {
-      setError(te ? "Profile ID లో అక్షరాలు, సంఖ్యలు లేదా హైఫన్ మాత్రమే వాడండి." : "Use only letters, numbers, and hyphens in profile IDs.");
+      setError(te ? "సభ్యత్వ సంఖ్యలో ఆంగ్ల అక్షరాలు, అంకెలు లేదా హైఫన్ మాత్రమే వాడండి." : "Use only letters, numbers, and hyphens in profile IDs.");
       setNeedsLogin(false);
       return;
     }
     if (new Set(requested).size !== requested.length) {
-      setError(te ? "ప్రతి profile ID వేర్వేరుగా ఉండాలి." : "Enter a different profile ID in each field.");
+      setError(te ? "ప్రతి సభ్యత్వ సంఖ్య వేర్వేరుగా ఉండాలి." : "Enter a different profile ID in each field.");
       setNeedsLogin(false);
       return;
     }
 
+    const epoch = ++requestEpoch.current;
     setLoading(true);
     setError("");
     setNeedsLogin(false);
@@ -183,20 +240,20 @@ export default function ProfileCompareStudio() {
     setComparisons({});
     setOrder("entered");
     const result = await apiPost<CompareResponse>("/api/matches/compare-profiles", { profile_ids: requested });
+    if (requestEpoch.current !== epoch) return;
     setLoading(false);
 
     if (!result.ok) {
-      setError(result.errorTelugu || result.error || (te ? "Profiles పోల్చలేకపోయాం. మళ్లీ ప్రయత్నించండి." : "Unable to compare these profiles. Please try again."));
+      setError((te ? result.errorTelugu || result.error : result.error) || (te ? "సభ్యుల వివరాలను పోల్చలేకపోయాం. మళ్లీ ప్రయత్నించండి." : "Unable to compare these profiles. Please try again."));
       setNeedsLogin(result.needsLogin || result.status === 401);
       return;
     }
 
-    const returned = result.data?.profiles;
-    if (!Array.isArray(returned) || returned.length !== requested.length) {
-      setError(te ? "అన్ని approved profiles అందుబాటులో లేవు." : "One or more approved profiles are unavailable.");
+    if (!validCompareResponse(result.data, requested)) {
+      setError(te ? "పోలిక వివరాలను నిర్ధారించలేకపోయాం. మళ్లీ ప్రయత్నించండి." : "We could not verify the comparison details. Please try again.");
       return;
     }
-    setProfiles(returned);
+    setProfiles(requested.map((id) => result.data!.profiles!.find((profile) => profile.tsap_id === id)!));
     setComparisons(result.data?.comparisons && typeof result.data.comparisons === "object" ? result.data.comparisons : {});
   };
 
@@ -206,7 +263,7 @@ export default function ProfileCompareStudio() {
       await navigator.clipboard.writeText(shareText);
       setCopyMessage(te ? "సారాంశం కాపీ అయ్యింది." : "Comparison summary copied.");
     } catch {
-      setCopyMessage(te ? "Clipboard అనుమతి లేదు. WhatsApp share ఉపయోగించండి." : "Clipboard access is unavailable. Use WhatsApp share instead.");
+      setCopyMessage(te ? "కాపీ చేయడానికి అనుమతి లేదు. వాట్సాప్ ద్వారా పంచుకోండి." : "Clipboard access is unavailable. Use WhatsApp share instead.");
     }
   };
 
@@ -228,7 +285,7 @@ export default function ProfileCompareStudio() {
           </h1>
           <p className="text-sm leading-6 text-gray-700 sm:text-base">
             {te
-              ? "నిజమైన, అందుబాటులో ఉన్న profile IDs తో పోలిక ప్రారంభించండి. కల్పిత profiles లేదా ఊహించిన compatibility scores చూపించము."
+              ? "అందుబాటులో ఉన్న నిజమైన సభ్యత్వ సంఖ్యలతో పోల్చండి. కల్పిత సభ్యులను లేదా ఊహించిన అనుకూలత శాతాలను చూపించము."
               : "Compare approved member profiles using their available information. No example members or invented compatibility scores are shown."}
           </p>
         </header>
@@ -237,15 +294,16 @@ export default function ProfileCompareStudio() {
           <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
             <div>
               <h2 id="compare-input-heading" className="font-bold text-gray-900">
-                {te ? "Profile IDs నమోదు చేయండి" : "Enter profile IDs"}
+                {te ? "సభ్యత్వ సంఖ్యలను నమోదు చేయండి" : "Enter profile IDs"}
               </h2>
               <p className="mt-1 text-sm text-gray-600">
-                {te ? "పోలికకు sign in కావాలి; 2 లేదా 3 approved profiles ఎంచుకోండి." : "Sign in to compare 2 or 3 approved profiles."}
+                {te ? "పోల్చడానికి ప్రవేశించాలి; ఆమోదించిన రెండు లేదా మూడు సభ్యుల వివరాలను ఎంచుకోండి." : "Sign in to compare 2 or 3 approved profiles."}
               </p>
             </div>
             <button
               type="button"
               onClick={() => {
+                invalidate();
                 setShowThird((visible) => !visible);
                 setProfiles([]);
                 setComparisons({});
@@ -254,7 +312,7 @@ export default function ProfileCompareStudio() {
               className="min-h-10 rounded-xl border border-maroon/20 bg-maroon/5 px-3 py-2 text-sm font-semibold text-maroon hover:bg-maroon/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-maroon"
               aria-expanded={showThird}
             >
-              {showThird ? (te ? "− తీసివేయి" : "− Remove third profile") : (te ? "+ మూడో profile" : "+ Add a third profile")}
+              {showThird ? (te ? "− మూడో సభ్యత్వ సంఖ్యను తీసివేయండి" : "− Remove third profile") : (te ? "+ మూడో సభ్యత్వ సంఖ్య" : "+ Add a third profile")}
             </button>
           </div>
 
@@ -262,7 +320,7 @@ export default function ProfileCompareStudio() {
             {activeIds.map((value, index) => (
               <div key={index}>
                 <label htmlFor={`compare-id-${index + 1}`} className="mb-1.5 block text-sm font-semibold text-gray-700">
-                  {te ? `Profile ID ${index + 1}` : `Profile ID ${index + 1}`}
+                  {te ? `సభ్యత్వ సంఖ్య ${index + 1}` : `Profile ID ${index + 1}`}
                 </label>
                 <input
                   id={`compare-id-${index + 1}`}
@@ -271,7 +329,7 @@ export default function ProfileCompareStudio() {
                   autoComplete="off"
                   spellCheck={false}
                   maxLength={32}
-                  placeholder={te ? "ID నమోదు చేయండి" : "Enter member ID"}
+                  placeholder={te ? "సభ్యత్వ సంఖ్య నమోదు చేయండి" : "Enter member ID"}
                   className="min-h-12 w-full rounded-xl border border-gray-300 bg-gray-50 px-3 font-mono text-sm uppercase tracking-wide text-gray-900 outline-none transition focus:border-maroon focus:ring-2 focus:ring-maroon/20"
                 />
               </div>
@@ -288,13 +346,13 @@ export default function ProfileCompareStudio() {
               {loading ? (te ? "పోలుస్తోంది…" : "Loading profiles…") : (te ? "పోల్చండి" : "Compare profiles")}
             </button>
             <Link href="/search" className="text-sm font-semibold text-maroon underline-offset-4 hover:underline">
-              {te ? "Share చేసిన Profile ID తెరవండి" : "Open a shared Profile ID"}
+              {te ? "పంచుకున్న సభ్యత్వ సంఖ్యతో వెతకండి" : "Open a shared Profile ID"}
             </Link>
           </div>
           {error && (
             <div role="alert" className="mt-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800">
               <p>{error}</p>
-              {needsLogin && <Link href="/login" className="mt-2 inline-flex min-h-10 items-center font-bold underline">{te ? "Login చేయండి" : "Sign in"}</Link>}
+              {needsLogin && <Link href="/login" className="mt-2 inline-flex min-h-10 items-center font-bold underline">{te ? "ప్రవేశించండి" : "Sign in"}</Link>}
             </div>
           )}
           <p className="sr-only" aria-live="polite">{loading ? (te ? "లోడ్ అవుతోంది" : "Loading") : ""}</p>
@@ -302,21 +360,21 @@ export default function ProfileCompareStudio() {
 
         {activeProfiles.length === 0 && !loading && !error && (
           <div className="rounded-3xl border border-dashed border-gray-300 bg-white/70 px-5 py-12 text-center">
-            <div aria-hidden="true" className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-maroon/5 text-2xl text-maroon">⚖</div>
+            <div aria-hidden="true" className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-maroon/5 text-2xl text-maroon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" className="h-7 w-7"><path d="M12 3v17M5 20h14M4 7h16M5 7l-3 6h6L5 7Zm14 0-3 6h6l-3-6Z" /></svg></div>
             <h2 className="mt-4 text-lg font-bold text-gray-900">{te ? "పోలిక ఇంకా ప్రారంభం కాలేదు" : "No profiles selected yet"}</h2>
             <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-gray-600">
-              {te ? "రెండు లేదా మూడు నిజమైన member IDs నమోదు చేసి పోల్చండి. వివరాలు అందుబాటులో లేకపోతే అవి ఖాళీగా చూపబడతాయి." : "Enter two or three real member IDs to begin. Missing profile details will be labeled as not provided."}
+              {te ? "రెండు లేదా మూడు నిజమైన సభ్యత్వ సంఖ్యలను నమోదు చేసి పోల్చండి. అందుబాటులో లేని వివరాలను ఇవ్వలేదని చూపిస్తాము." : "Enter two or three real member IDs to begin. Missing profile details will be labeled as not provided."}
             </p>
           </div>
         )}
 
         {activeProfiles.length > 0 && (
-          <section aria-label={te ? "పోల్చిన profiles" : "Compared profiles"}>
+          <section aria-label={te ? "పోల్చిన సభ్యుల వివరాలు" : "Compared profiles"}>
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-gray-200 bg-white p-3">
               <label className="flex min-h-11 items-center gap-2 text-sm font-semibold text-gray-800">
                 <input
                   type="checkbox"
-                  className="h-4 w-4"
+                  className="h-5 w-5 shrink-0"
                   checked={onlyDifferences}
                   onChange={(event) => setOnlyDifferences(event.target.checked)}
                 />
@@ -331,7 +389,7 @@ export default function ProfileCompareStudio() {
                     className="min-h-11 rounded-xl border border-gray-300 bg-white px-3 text-sm text-gray-900 outline-none focus:border-maroon focus:ring-2 focus:ring-maroon/20"
                   >
                     <option value="entered">{te ? "మీరు నమోదు చేసిన క్రమం" : "Order you entered"}</option>
-                    <option value="preferences">{te ? "Expectations క్రమం" : "Expectations met first"}</option>
+                    <option value="preferences">{te ? "ఆశించిన వివరాలు సరిపోలిన క్రమం" : "Expectations met first"}</option>
                   </select>
                 </label>
               )}
@@ -339,7 +397,7 @@ export default function ProfileCompareStudio() {
 
             {onlyDifferences && differences.length === 0 && (
               <p role="status" className="mb-4 rounded-2xl bg-slate-50 px-4 py-3 text-sm text-gray-700">
-                {te ? "ఈ profiles మధ్య తేడా ఉన్న వివరాలు లేవు — అన్ని అడిగిన వివరాలు ఒకేలా ఉన్నాయి లేదా ఇవ్వలేదు." : "These profiles state the same values everywhere — nothing differs among the details shown."}
+                {te ? "ఈ సభ్యుల మధ్య తేడా ఉన్న వివరాలు లేవు. చూపిన వివరాలు ఒకేలా ఉన్నాయి లేదా ఇవ్వలేదు." : "These profiles state the same values everywhere — nothing differs among the details shown."}
               </p>
             )}
 
@@ -347,18 +405,17 @@ export default function ProfileCompareStudio() {
               {activeProfiles.map((profile, index) => {
                 const checks = comparisons[String(profile.tsap_id)]?.preference_checks || [];
                 const tally = tallyPreferences(checks);
-                const notes = preferenceNotes(checks);
+                const labels: Record<string, string> = { age: "వయస్సు పరిధి", caste: "కుల అభిరుచి", job: "వృత్తి అభిరుచి", location: "ప్రాంత అభిరుచి", diet: "ఆహారపు అలవాటు", height: "ఎత్తు పరిధి", min_salary: "కనిష్ఠ ఆదాయం", states: "రాష్ట్ర అభిరుచి" };
+                const unknown = checks.filter((check) => check.status === "unknown").map((check) => ({ key: check.key, label: check.label || "", note: check.note || "", met: null }));
+                const notes = [...preferenceNotes(checks), ...unknown].map((note) => {
+                  if (!te) return note;
+                  const source = checks.find((check) => check.key === note.key);
+                  return { ...note, label: labels[note.key] || "దాచుకున్న అభిరుచి", note: source?.note_te || (note.met === null ? "ఇచ్చిన వివరాలతో ఖచ్చితంగా పోల్చలేము." : note.met ? "మీరు దాచుకున్న అభిరుచికి సరిపోతుంది." : "మీరు దాచుకున్న అభిరుచికి భిన్నంగా ఉంది.") };
+                });
                 return (
                   <article key={profile.tsap_id} className="min-w-0 overflow-hidden rounded-3xl border border-gold/30 bg-white shadow-sm">
                     <div className="flex items-center gap-3 border-b border-gray-100 p-4 sm:p-5">
-                      {profile.photo_url ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={profile.photo_url} alt="" className="h-14 w-14 shrink-0 rounded-2xl border border-gray-200 object-cover" />
-                      ) : (
-                        <div aria-hidden="true" className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-maroon/5 text-lg font-bold text-maroon">
-                          {initials(valueOrLabel(profile.full_name, "Member"))}
-                        </div>
-                      )}
+                      <CompareAvatar name={valueOrLabel(profile.full_name, te ? "సభ్యులు" : "Member")} photo={profile.photo_url} />
                       <div className="min-w-0 flex-1">
                         <p className="text-xs font-bold uppercase tracking-wide text-maroon">{te ? `సంబంధం ${index + 1}` : `Profile ${index + 1}`}</p>
                         <h2 className="mt-0.5 break-words text-lg font-bold text-gray-900">{valueOrLabel(profile.full_name, te ? "సభ్యుల ప్రొఫైల్" : "Member profile")}</h2>
@@ -368,8 +425,8 @@ export default function ProfileCompareStudio() {
                     <dl className="divide-y divide-gray-100 px-4 sm:px-5">
                       {visibleRows.map((row) => {
                         let value: unknown = (profile as Record<string, unknown>)[row.key];
-                        if (row.key === "caste") value = [profile.caste, profile.sub_caste].filter(Boolean).join(" · ");
-                        if (row.key === "district") value = [profile.district, profile.state].filter(Boolean).join(", ");
+                        if (row.key === "caste") value = [profile.caste, profile.sub_caste].filter((value) => !isMissingValue(value)).join(" · ");
+                        if (row.key === "district") value = [profile.district, profile.state].filter((value) => !isMissingValue(value)).join(", ");
                         return (
                           <div key={row.key} className="grid grid-cols-[minmax(6.5rem,0.7fr)_minmax(0,1.3fr)] gap-3 py-3 text-sm">
                             <dt className="text-gray-500">
@@ -385,14 +442,14 @@ export default function ProfileCompareStudio() {
                         );
                       })}
                     </dl>
-                    {tally.total > 0 && (
+                    {notes.length > 0 && (
                       <div className="border-t border-gray-100 bg-amber-50/60 px-4 py-3 sm:px-5">
-                        <p className="text-xs font-bold text-amber-900">{tallyLabel(tally, te)}</p>
+                        <p className="text-xs font-bold text-amber-900">{tally.total > 0 ? tallyLabel(tally, te) : (te ? "ఇచ్చిన వివరాలతో ఖచ్చితంగా పోల్చలేము" : "Saved expectations could not be determined from the listed details")}</p>
                         <ul className="mt-2 space-y-1.5">
                           {notes.map((note) => (
                             <li key={note.key} className="flex gap-2 text-[11px] leading-relaxed text-gray-700">
                               <span aria-hidden="true" className={note.met ? "text-emerald-700" : "text-gray-500"}>
-                                {note.met ? "✔" : "✖"}
+                                {note.met === null ? <span>?</span> : note.met ? <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" className="mt-0.5 h-3.5 w-3.5 shrink-0"><path d="m4 10 4 4 8-8" /></svg> : <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" className="mt-0.5 h-3.5 w-3.5 shrink-0"><path d="m5 5 10 10M15 5 5 15" /></svg>}
                               </span>
                               <span>
                                 <span className="font-semibold">{note.label}: </span>
@@ -408,12 +465,12 @@ export default function ProfileCompareStudio() {
               })}
             </div>
             <p className="mt-4 rounded-2xl bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-900">
-              {te ? "ఇక్కడ compatibility లేదా జాతక స్కోర్లు లెక్కించము. వివరాలు profile యజమాని అందించిన సమాచారం మాత్రమే; నిర్ణయానికి ముందు నేరుగా నిర్ధారించండి." : "This page does not calculate compatibility or horoscope scores. Details are member-provided; verify important information directly before making decisions."}
+              {te ? "ఇక్కడ అనుకూలత లేదా జాతక శాతాలు లెక్కించము. సభ్యులు ఇచ్చిన వివరాలు మాత్రమే చూపిస్తాము; నిర్ణయానికి ముందు నేరుగా నిర్ధారించండి." : "This page does not calculate compatibility or horoscope scores. Details are member-provided; verify important information directly before making decisions."}
             </p>
             {order === "preferences" && hasExpectations && (
               <p className="mt-2 rounded-2xl bg-slate-50 px-4 py-3 text-xs leading-5 text-gray-700">
                 {te
-                  ? "ఈ క్రమం మీరు సేవ్ చేసిన expectations లో ఎన్ని సరిపోతున్నాయో లెక్క మాత్రమే — అది స్కోర్ కాదు, శాతం కాదు, ఫలితానికి హామీ కాదు."
+                  ? "ఈ క్రమం మీరు దాచుకున్న అభిరుచులలో ఎన్ని సరిపోతున్నాయో లెక్క మాత్రమే. ఇది శాతం కాదు, ఫలితానికి హామీ కాదు."
                   : "This order is only a count of how many of your saved expectations each profile meets. It is not a score, a percentage, or a prediction."}
               </p>
             )}
@@ -423,13 +480,13 @@ export default function ProfileCompareStudio() {
               </button>
               <a href={`https://wa.me/?text=${encodeURIComponent(shareText)}`} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-10 items-center gap-2 rounded-full bg-[#128C7E] px-4 py-2 text-sm font-bold text-white hover:bg-[#0f766e] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2">
                 <WhatsAppIcon className="h-4 w-4" mono />
-                {te ? "WhatsApp ద్వారా పంపండి" : "Share with WhatsApp"}
+                {te ? "వాట్సాప్ ద్వారా పంపండి" : "Share with WhatsApp"}
               </a>
               <button type="button" onClick={() => window.print()} className="min-h-10 rounded-full bg-maroon px-4 py-2 text-sm font-bold text-white hover:bg-maroon-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-maroon focus-visible:ring-offset-2 print:hidden">
                 {te ? "ప్రింట్" : "Print"}
               </button>
-              <button type="button" onClick={() => { setProfiles([]); setComparisons({}); setIds([...EMPTY_IDS]); setError(""); }} className="min-h-10 rounded-full border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-maroon">
-                {te ? "Clear" : "Clear comparison"}
+              <button type="button" onClick={() => { invalidate(); setIds([...EMPTY_IDS]); }} className="min-h-10 rounded-full border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-maroon">
+                {te ? "పోలికను తొలగించండి" : "Clear comparison"}
               </button>
             </div>
             <p role="status" aria-live="polite" className="mt-2 text-sm text-gray-600">{copyMessage}</p>
