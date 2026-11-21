@@ -2,33 +2,36 @@
 
 /** 404 — neat Telugu / clean English via toggle. No fake counts. */
 import Link from "next/link";
+import { FileQuestion, Heart, Home, Megaphone, UserPlus } from "lucide-react";
+import "@/components/private-fallback.css";
+import "./resilience.css";
 import { useLang } from "@/lib/lang";
 
 export default function NotFound() {
   const { lang } = useLang();
   const te = lang === "te";
   return (
-    <div className="mx-auto max-w-xl px-4 py-16 text-center">
-      <p className="text-5xl">🔍</p>
+    <div className="mv-private-fallback mv-missing-page mx-auto max-w-xl px-4 py-16 pb-24 text-center">
+      <FileQuestion aria-hidden="true" className="mx-auto h-12 w-12 text-maroon" />
       <h1 className="mt-3 text-2xl font-extrabold text-[#7A0C2E]">
-        {te ? "ఈ page దొరకలేదు (404)" : "This page was not found (404)"}
+        {te ? "ఈ పేజీ దొరకలేదు (404)" : "This page was not found (404)"}
       </h1>
       <p className="mt-2 text-slate-600">
-        {te ? "Link తప్పు ఉండొచ్చు (లేదా profile తీసేశారు). కింద options try చెయ్యండి — రోజూ కొత్త profiles వస్తున్నాయి."
-            : "The link may be wrong (or the profile was removed). Try the options below — new profiles arrive daily."}
+        {te ? "ఈ చిరునామాలో పేజీ అందుబాటులో లేదు. లింక్‌ను పరిశీలించండి లేదా కింది ఎంపికలను ఉపయోగించండి."
+            : "No page is available at this address. Check the link or use the options below."}
       </p>
       <div className="mt-6 flex flex-wrap justify-center gap-2">
         <Link href="/" className="rounded-xl bg-[#7A0C2E] px-4 py-2 font-semibold text-white">
-          {te ? "🏠 Home" : "🏠 Home"}
+          <Home aria-hidden="true" className="mr-2 h-4 w-4 shrink-0" />{te ? "హోమ్" : "Home"}
         </Link>
         <Link href="/matches" className="rounded-xl border border-[#7A0C2E] px-4 py-2 font-semibold text-[#7A0C2E]">
-          {te ? "💞 Matches" : "💞 Matches"}
+          <Heart aria-hidden="true" className="mr-2 h-4 w-4 shrink-0" />{te ? "సంబంధాలు" : "Matches"}
         </Link>
         <Link href="/register" className="rounded-xl border border-[#7A0C2E] px-4 py-2 font-semibold text-[#7A0C2E]">
-          {te ? "🆓 Register FREE" : "🆓 Register FREE"}
+          <UserPlus aria-hidden="true" className="mr-2 h-4 w-4 shrink-0" />{te ? "ఉచితంగా నమోదు చేయండి" : "Register FREE"}
         </Link>
         <Link href="/channels" className="rounded-xl border border-slate-300 px-4 py-2 font-semibold text-slate-700">
-          {te ? "📢 Channels" : "📢 Channels"}
+          <Megaphone aria-hidden="true" className="mr-2 h-4 w-4 shrink-0" />{te ? "ఛానళ్లు" : "Channels"}
         </Link>
       </div>
     </div>
