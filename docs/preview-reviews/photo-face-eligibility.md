@@ -16,3 +16,5 @@ The110-check developer suite initially reported109/110 because the harness expli
 Enforced-auth retest passed all110 checks, including nonportrait rejection and eligible portrait upload pending staff review.
 
 Final-head CI1a913f8 stopped at the wave23 owner-upload success test because its fixture was still nonportrait random noise. The detector correctly rejected it withNO_FACE. The owner-authorization success fixture now uses the same documented eligible portrait, preserving every auth assertion;20/20 isolated wave23 checks passed. No production or detector code changed for this correction.
+
+CI faaf509 reached the six-way registration ID race and correctly returned FACE_CHECK_UNAVAILABLE/503 for concurrent detector work. The race test now stubs only eligibility within that six-thread block so it continues testing atomic ID allocation, not competing with the separately tested single-worker resource gate. All20 race-suite checks passed. Production concurrency and fail-closed behavior are unchanged. No blocked family-chain test was run.
