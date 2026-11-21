@@ -45,14 +45,9 @@ def check(name, cond, extra=None):
 
 
 def make_photo():
-    from PIL import Image
-    rnd = random.Random(23)
-    img = Image.new("RGB", (500, 500))
-    img.putdata([(rnd.randint(40, 215), rnd.randint(40, 215), rnd.randint(40, 215))
-                 for _ in range(500 * 500)])
-    buf = io.BytesIO()
-    img.save(buf, "JPEG", quality=90)
-    return buf.getvalue()
+    # Eligible one-face fixture for owner-authorization success, never live data.
+    from testutil_photos import TEST_PROFILE_PHOTO
+    return TEST_PROFILE_PHOTO
 
 
 BASE = {"gender": "Bride", "age": "25", "dob": "2001-01-01", "password": "Test-only-profile-password-2026!",

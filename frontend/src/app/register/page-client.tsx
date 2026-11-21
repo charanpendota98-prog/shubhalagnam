@@ -738,7 +738,7 @@ function RequiredProfilePhoto({
       <p className={`px-4 pb-4 text-[11px] leading-relaxed text-slate-500 sm:px-5 ${te ? "telugu" : ""}`}>
         {te
           ? "JPEG, PNG లేదా WebP · HEIC‌ను browser చదవగలిగితే ఉపయోగించవచ్చు · గరిష్ఠం 25 MB original · అప్‌లోడ్‌కు ముందు compress అవుతుంది. Server format, resolution, brightness, sharpness‌ను తనిఖీ చేస్తుంది; suitability‌ను సిబ్బంది సమీక్షిస్తారు."
-          : "JPEG, PNG, or WebP; HEIC works only if your browser can read it · up to 25 MB original · compressed before upload. The server checks file integrity, dimensions, brightness, and sharpness; staff review photo suitability."}
+          : "JPEG, PNG, or WebP; HEIC works only if your browser can read it · up to 25 MB original · compressed before upload. The server checks file integrity, dimensions, brightness, sharpness and one detectable face. This is not identity or liveness verification. Detection can be wrong; staff still review suitability."}
       </p>
     </section>
   );
@@ -887,8 +887,8 @@ function Wizard() {
       const prepared = await prepareProfilePhoto(file);
       setPhotoFile(prepared);
       setPhotoInfo(T(
-        "అప్‌లోడ్‌కు సిద్ధంగా ఉంది. Serverలో ఫైల్, resolution, clarity తనిఖీ చేసిన తర్వాత సిబ్బంది సమీక్షిస్తారు.",
-        "Ready to submit. The server checks the file, dimensions, and clarity before staff review.",
+        "ఫోటో ఎంపికైంది; ఇంకా ఆమోదించబడలేదు. పంపినప్పుడు నాణ్యతతో పాటు ఒక ముఖం కనిపిస్తుందో తనిఖీ చేస్తాం. సరైన ముఖాన్ని కూడా గుర్తించకపోవచ్చు; సిబ్బంది సమీక్ష ఇంకా అవసరం.",
+        "Selected, not approved. On submission, the server checks image quality and requires one detectable face. Detection can miss a valid portrait; staff review is still required.",
       ));
       setErrs((current) => current.filter((message) => !/(add a clear profile photo|profile photo is required|photo is still being prepared|ప్రొఫైల్ ఫోటోను జోడించండి|ఫోటో సిద్ధమవుతోంది)/i.test(message)));
     } catch (error) {
