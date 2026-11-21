@@ -35,19 +35,9 @@ CLIENT = TestClient(M.app)
 
 
 def _photo_bytes() -> bytes:
-    image = Image.new("RGB", (500, 500))
-    pixels = image.load()
-    # A deterministic high-frequency texture keeps the encoded file above the
-    # upload validator's minimum while remaining entirely synthetic.
-    for y in range(500):
-        for x in range(500):
-            value = (x * 37 + y * 61 + (x * y) % 251) % 256
-            pixels[x, y] = (value, (value * 3 + x) % 256, (value * 7 + y) % 256)
-    from io import BytesIO
-
-    stream = BytesIO()
-    image.save(stream, format="PNG")
-    return stream.getvalue()
+    # Reach the persistence checkpoint with an eligible face fixture.
+    from testutil_photos import TEST_PROFILE_PHOTO
+    return TEST_PROFILE_PHOTO
 
 
 def test_voice_upload_without_owner_or_admin_is_rejected() -> None:
