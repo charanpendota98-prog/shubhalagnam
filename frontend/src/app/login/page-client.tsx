@@ -1,7 +1,7 @@
 "use client";
 /** Member sign-in and recovery, with availability supplied by auth capabilities. */
 import "./workspace.css";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { KeyRound, Eye, EyeOff, Heart, RotateCcw } from "lucide-react";
 import { useLang } from "@/lib/lang";
@@ -57,6 +57,34 @@ export default function LoginPage() {
     return () => clearTimeout(timer);
   }, [countdown]);
 
+  const attempt = useRef(0);
+  const activeRequest = useRef(false);
+  const redirectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const abandon = () => {
+    attempt.current += 1;
+    activeRequest.current = false;
+    if (redirectTimer.current) clearTimeout(redirectTimer.current);
+    redirectTimer.current = null;
+    setMsg("");
+    setBusy(false);
+  };
+  useEffect(() => () => {
+    attempt.current += 1;
+    if (redirectTimer.current) clearTimeout(redirectTimer.current);
+  }, []);
+  const begin = () => {
+    if (activeRequest.current) return null;
+    activeRequest.current = true;
+    setBusy(true);
+    showFeedback("");
+    return ++attempt.current;
+  };
+  const finish = (id: number) => {
+    if (attempt.current !== id) return false;
+    activeRequest.current = false;
+    setBusy(false);
+    return true;
+  };
   const digits = () => phone.replace(/\D/g, "");
 
   const showFeedback = (text: string, type: "err" | "ok" | "info" = "info") => {
@@ -66,7 +94,9 @@ export default function LoginPage() {
 
   const go = (tsapId: string, token: string, hasAccount: boolean) => {
     rememberSession(tsapId, token, keep);
-    setTimeout(() => {
+    const owner = attempt.current;
+    redirectTimer.current = setTimeout(() => {
+      if (attempt.current !== owner) return;
       router.push(hasAccount ? "/requests" : "/register?phone=" + digits());
     }, 600);
   };
@@ -81,12 +111,12 @@ export default function LoginPage() {
       showFeedback(te ? "దయచేసి మీ పాస్‌వర్డ్ ఎంటర్ చేయండి" : "Please enter your password", "err");
       return;
     }
-    setBusy(true);
-    showFeedback("");
+    const requestId = begin();
+    if (requestId === null) return;
     const { ok, data, error, status } = await apiPost<{ auth_token?: string; tsap_id?: string; message_telugu?: string; message_en?: string; message?: string }>(
       "/api/auth/login-password", { phone: p, password }
     );
-    setBusy(false);
+    if (!finish(requestId)) return;
     if (!ok) {
       showFeedback(error || (te ? "లాగిన్ విఫలమైంది. పాస్‌వర్డ్ సరిచూసుకోండి." : "Login failed. Check your credentials."), "err");
       return;
@@ -106,10 +136,10 @@ export default function LoginPage() {
       showFeedback(te ? "10 అంకెల మొబైల్ నంబర్ ఇవ్వండి (6/7/8/9 తో ప్రారంభం)" : "Enter 10-digit mobile number (starts 6/7/8/9)", "err");
       return;
     }
-    setBusy(true);
-    showFeedback("");
+    const requestId = begin();
+    if (requestId === null) return;
     const { ok, data, error, status } = await sendOtp(p);
-    setBusy(false);
+    if (!finish(requestId)) return;
     if (!ok) {
       showFeedback(error || (te ? "OTP పంపడంలో సమస్య ఏర్పడింది." : "Could not send the OTP. Please try again."), "err");
       return;
@@ -131,10 +161,10 @@ export default function LoginPage() {
       showFeedback(te ? "దయచేసి OTP కోడ్ నమోదు చేయండి" : "Please enter the OTP code", "err");
       return;
     }
-    setBusy(true);
-    showFeedback("");
+    const requestId = begin();
+    if (requestId === null) return;
     const { ok, data, error, status } = await verifyOtp(digits(), c);
-    setBusy(false);
+    if (!finish(requestId)) return;
     if (!ok) {
       showFeedback(error || (te ? "తప్పుడు OTP. మళ్లీ ప్రయత్నించండి." : "Invalid OTP. Please try again."), "err");
       return;
@@ -164,15 +194,15 @@ export default function LoginPage() {
       showFeedback(te ? "సరైన మొబైల్ నంబర్ లేదా ఈమెయిల్ ఇవ్వండి" : "Enter a valid mobile number or email", "err");
       return;
     }
-    setBusy(true);
-    showFeedback("");
+    const requestId = begin();
+    if (requestId === null) return;
     const endpoint = isEmail ? "/api/auth/forgot-email" : "/api/auth/forgot";
     const payload = isEmail ? { email: p } : { phone: p };
     
     const { ok, data, error, status } = await apiPost<{ message_telugu?: string; message_en?: string; message?: string }>(
       endpoint, payload
     );
-    setBusy(false);
+    if (!finish(requestId)) return;
     if (!ok) {
       showFeedback(error || (te ? "ఈమెయిల్ ధృవీకరణ కోడ్ పంపడంలో సమస్య ఏర్పడింది. పాస్‌వర్డ్ రీసెట్ ఈమెయిల్ కోడ్‌తో మాత్రమే జరుగుతుంది; ఫోన్ OTP అందుబాటులో లేదు." : "Could not send the email verification code. Password reset uses an emailed code only; phone OTP is unavailable."), "err");
       return;
@@ -200,8 +230,8 @@ export default function LoginPage() {
       showFeedback(te ? "పాస్‌వర్డ్‌లు సరిపోలడం లేదు" : "Passwords do not match", "err");
       return;
     }
-    setBusy(true);
-    showFeedback("");
+    const requestId = begin();
+    if (requestId === null) return;
     const isEmail = phone.includes("@");
     const p = isEmail ? phone.trim().toLowerCase() : digits();
     const endpoint = isEmail ? "/api/auth/reset-email" : "/api/auth/reset";
@@ -212,7 +242,7 @@ export default function LoginPage() {
     const { ok, data, error, status } = await apiPost<{ auth_token?: string; tsap_id?: string; message_telugu?: string; message_en?: string; message?: string }>(
       endpoint, payload
     );
-    setBusy(false);
+    if (!finish(requestId)) return;
     if (!ok) {
       showFeedback(error || (te ? "పాస్‌వర్డ్ రీసెట్ విఫలమైంది." : "Password reset failed. Please try again."), "err");
       return;
@@ -226,7 +256,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="mv-login-workspace min-h-dvh bg-gradient-to-b from-[#FFFDF9] via-[#FAF5EE] to-[#F5ECE0] py-6 sm:py-10 px-4 flex flex-col items-center">
+    <div onChangeCapture={abandon} className="mv-login-workspace min-h-dvh bg-gradient-to-b from-[#FFFDF9] via-[#FAF5EE] to-[#F5ECE0] py-6 sm:py-10 px-4 flex flex-col items-center">
       <div className="w-full max-w-xl">
         
         {/* Brand Header */}
@@ -257,7 +287,7 @@ export default function LoginPage() {
           {/* Mode Switcher */}
           <div className="flex bg-slate-100 p-1 rounded-2xl mb-5">
             <button type="button"
-              onClick={() => { setTab("password"); showFeedback(""); setForgot(false); }}
+              onClick={() => { abandon(); setTab("password"); showFeedback(""); setForgot(false); }}
               className={`flex-1 py-2.5 text-xs sm:text-sm font-bold rounded-xl transition-all ${
                 tab === "password" && !forgot
                   ? "bg-white text-maroon shadow-md border border-gold/30"
@@ -268,7 +298,7 @@ export default function LoginPage() {
             </button>
             {capabilities?.phone_otp && (
             <button type="button"
-              onClick={() => { setTab("otp"); showFeedback(""); setForgot(false); }}
+              onClick={() => { abandon(); setTab("otp"); showFeedback(""); setForgot(false); }}
               className={`flex-1 py-2.5 text-xs sm:text-sm font-bold rounded-xl transition-all ${
                 tab === "otp" && !forgot
                   ? "bg-white text-maroon shadow-md border border-gold/30"
@@ -415,7 +445,7 @@ export default function LoginPage() {
                   </button>
                   <div className="flex justify-between items-center text-xs text-slate-500 pt-1">
                     <button type="button"
-                      onClick={() => setFStage("phone")}
+                      onClick={() => { abandon(); setFStage("phone"); }}
                       className="text-slate-600 hover:text-maroon underline"
                     >
                       {te ? "ఈమెయిల్ మార్చండి" : "Change email"}
@@ -474,6 +504,7 @@ export default function LoginPage() {
                     <button
                       type="button"
                       onClick={() => {
+                        abandon();
                         setForgot(true);
                         if (!capabilities?.phone_otp) setPhone("");
                         setFStage("phone");
@@ -518,7 +549,7 @@ export default function LoginPage() {
                       {te ? (phone.includes("@") ? "8 అంకెల OTP కోడ్" : "4 అంకెల OTP కోడ్") : (phone.includes("@") ? "8-digit OTP Code" : "4-digit OTP Code")}
                     </label>
                     <button type="button"
-                      onClick={() => { setStage("phone"); setCode(""); }}
+                      onClick={() => { abandon(); setStage("phone"); setCode(""); }}
                       className="text-[11px] text-maroon hover:underline font-bold"
                     >
                       {te ? "నెంబర్ మార్చు" : "Change Number"}
@@ -629,11 +660,11 @@ export default function LoginPage() {
             <p className="text-xs text-slate-500 mb-3">{te ? "ముందే సెటప్ చేసిన Passkey ఉన్నవారికి" : "For members who already set up a passkey"}</p>
             <button type="button"
               onClick={async () => {
-                setBusy(true);
-                showFeedback("");
+                const requestId = begin();
+                if (requestId === null) return;
                 const res = await loginPasskey();
-                setBusy(false);
-                if (res.success) {
+                if (!finish(requestId)) return;
+                if (confirmedAuthSession(res)) {
                   showFeedback(res.message || (te ? "లాగిన్ విజయవంతమైంది." : "Sign-in succeeded."), "ok");
                   go(String(res.tsap_id || ""), String(res.auth_token || ""), true);
                 } else {
