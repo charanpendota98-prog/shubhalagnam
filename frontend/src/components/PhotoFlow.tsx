@@ -111,13 +111,13 @@ export default function PhotoFlow({ tsapId, onUploaded }: { tsapId: string; onUp
           {status === "pending" ? (
             <p className={`mt-1 text-xs leading-relaxed text-slate-600 ${te ? "telugu" : ""}`}>
               {te
-                ? "ఫైల్ మరియు స్పష్టత తనిఖీలు పూర్తయ్యాయి. ఫోటో suitability‌ను సిబ్బంది సమీక్షిస్తున్నారు. సమీక్ష identity verification కాదు; మీ privacy ఎంపిక అమల్లో ఉంటుంది."
+                ? "ఫైల్, స్పష్టత తనిఖీలు పూర్తయ్యాయి. ప్రొఫైల్‌కు ఈ ఫోటో సరిపోతుందో సిబ్బంది సమీక్షిస్తున్నారు. ఈ సమీక్ష వ్యక్తి గుర్తింపును ధృవీకరించదు. మీ గోప్యత ఎంపిక అమల్లో ఉంటుంది."
                 : "File and clarity checks passed. Staff are reviewing photo suitability. This is not identity verification; your privacy choice remains in effect."}
             </p>
           ) : status === "approved" ? (
             <p className={`mt-1 text-xs leading-relaxed text-slate-600 ${te ? "telugu" : ""}`}>
               {te
-                ? "సిబ్బంది ఫోటోను ఆమోదించారు. ఇది identity లేదా ఇతర profile వివరాలను నిర్ధారించదు; చూపింపు మీ privacy ఎంపిక మరియు profile approval‌పై ఆధారపడి ఉంటుంది."
+                ? "సిబ్బంది ఫోటోను ఆమోదించారు. ఇది వ్యక్తి గుర్తింపును లేదా ప్రొఫైల్‌లోని ఇతర వివరాలను ధృవీకరించదు. ఫోటో ఎవరికి కనిపించాలనేది మీ గోప్యత ఎంపిక, ప్రొఫైల్ ఆమోదంపై ఆధారపడి ఉంటుంది."
                 : "Staff approved the photo. This does not verify identity or other profile details; visibility depends on your privacy choice and profile approval."}
             </p>
           ) : status === "rejected" ? (
@@ -129,13 +129,13 @@ export default function PhotoFlow({ tsapId, onUploaded }: { tsapId: string; onUp
           ) : (
             <p className={`mt-1 text-xs leading-relaxed text-slate-600 ${te ? "telugu" : ""}`}>
               {te
-                ? "స్పష్టమైన అసలు ప్రొఫైల్ ఫోటోను అప్‌లోడ్ చేయండి. సిబ్బంది సమీక్షిస్తారు; మీ privacy ఎంపిక అమల్లో ఉంటుంది."
+                ? "స్పష్టమైన అసలు ప్రొఫైల్ ఫోటోను అప్‌లోడ్ చేయండి. సిబ్బంది సమీక్షిస్తారు. మీ గోప్యత ఎంపిక అమల్లో ఉంటుంది."
                 : "Upload a clear, original profile photo for staff review. Your privacy choice remains in effect."}
             </p>
           )}
         </div>
         {st?.photo_url ? (
-          <ProtectedImage src={st.photo_url} alt={te ? "ప్రైవేట్ ఫోటో preview" : "Private photo preview"} className="h-20 w-16 shrink-0 rounded-xl border border-slate-200 object-cover" />
+          <ProtectedImage src={st.photo_url} alt={te ? "ప్రైవేట్ ఫోటో ముందస్తు చూపు" : "Private photo preview"} className="h-20 w-16 shrink-0 rounded-xl border border-slate-200 object-cover" />
         ) : null}
       </div>
 

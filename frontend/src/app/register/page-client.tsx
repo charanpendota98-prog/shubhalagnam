@@ -1511,7 +1511,7 @@ function Wizard() {
 
             {/* What you got card */}
             <div className="bg-amber-50/60 border border-gold/30 rounded-2xl p-3.5 text-xs text-slate-700 space-y-1">
-              <div className="font-bold text-maroon"><Gift aria-hidden="true" className="mv-registration-result-icon" /> {T("మీ అకౌంట్ వివరాలు & కాంటాక్ట్ స్టేటస్:", "Your account and contact status:")}</div>
+              <div className="font-bold text-maroon"><Gift aria-hidden="true" className="mv-registration-result-icon" /> {T("మీ ఖాతా, సంప్రదింపు వివరాల స్థితి:", "Your account and contact status:")}</div>
               <div>{T(<><b>{result.credits} పరిచయ అభ్యర్థనలు</b> అందుబాటులో ఉన్నాయి • గోప్యత కోసం ఫోన్ నంబర్లు <b>లాక్‌లో ఉంటాయి</b>.</>, <><b>{result.credits} interest requests</b> are available • phone numbers are <b>locked</b> for privacy.</>)}</div>
             </div>
 
@@ -1522,7 +1522,7 @@ function Wizard() {
                 <div>
                   <span className="font-bold">{T("రిఫరల్ బోనస్ యాక్టివేట్ అయ్యింది! ", "Referral bonus activated! ")}</span>
                   <span>{T(
-                    `మీకు +${joined_with.bonus_credits} interest-request credit జోడించబడింది. ఇది cash కాదు, contact unlock కూడా కాదు; referrer కు వచ్చే షరతులతో కూడిన ₹50 reward వేరు.`,
+                    `మీకు +${joined_with.bonus_credits} పరిచయ అభ్యర్థన క్రెడిట్ జోడించబడింది. ఇది నగదు కాదు; ఫోన్ నంబర్లు చూసే అనుమతి కూడా కాదు. మిమ్మల్ని పరిచయం చేసిన వారికి వచ్చే ₹50 బహుమతికి వేరు షరతులు వర్తిస్తాయి.`,
                     `You received +${joined_with.bonus_credits} interest-request credit. It is not cash or a contact unlock; the referrer's separate ₹50 reward is conditional.`,
                   )}</span>
                 </div>
@@ -1534,14 +1534,14 @@ function Wizard() {
               <div className="bg-amber-50 border border-gold/40 rounded-2xl p-3.5 text-xs space-y-1">
                 <div className="font-bold text-maroon"><Gift aria-hidden="true" className="mv-registration-result-icon" /> {T("మీ రిఫరల్ కోడ్:", "Your referral code:")} {result.referral?.my_code || result.my_referral_code}</div>
                 <div className="text-slate-600">{T(
-                  "Valid referral attach పై referrer కు +2, కొత్త user కు +1 interest-request credits వస్తాయి; ఇవి cash కావు. Referrer కు ₹50 ఒక్కసారి మాత్రమే అర్హత ఉండవచ్చు—referee మొదటి S_99/S_199/S_299/S_499 consumer-plan payment కనీసం ₹99 అయితే; exclusions మరియు payout manual review వర్తిస్తాయి.",
+                  "చెల్లుబాటయ్యే రిఫరల్‌తో చేరితే పరిచయం చేసిన వారికి +2, కొత్త సభ్యునికి +1 పరిచయ అభ్యర్థన క్రెడిట్లు వస్తాయి. ఇవి నగదు కావు. కొత్త సభ్యుడు మొదటిసారి అర్హత ఉన్న S_99/S_199/S_299/S_499 వ్యక్తిగత ప్లాన్‌కు కనీసం ₹99 చెల్లిస్తే మాత్రమే, పరిచయం చేసిన వారికి ఒక్కసారి ₹50 బహుమతి వచ్చే అర్హత ఉండవచ్చు. మినహాయింపులు వర్తిస్తాయి; చెల్లింపును సిబ్బంది సమీక్షించి నిర్ణయిస్తారు.",
                   "A valid referral adds +2 interest-request credits for the referrer and +1 for the new member; credits are not cash. The referrer may qualify for a one-time ₹50 reward only if the new member's first eligible consumer-plan payment is at least ₹99. Exclusions and manual payout review apply.",
                 )}</div>
                 <Link href={`/referral?id=${tsap}`} className="text-maroon font-bold underline inline-block pt-1">
-                  {T("Referral dashboard కి వెళ్లండి →", "Open referral dashboard →")}
+                  {T("రిఫరల్ వివరాలకు వెళ్లండి →", "Open referral dashboard →")}
                 </Link>
                 <a href={result.referral?.poster_url || `/api/referral/${tsap}/poster.png`} target="_blank" rel="noreferrer"
-                  className="ml-3 text-maroon font-bold underline inline-block pt-1">{T("Referral QR poster →", "Referral QR poster →")}</a>
+                  className="ml-3 text-maroon font-bold underline inline-block pt-1">{T("రిఫరల్ QR పోస్టర్ →", "Referral QR poster →")}</a>
               </div>
             )}
 
@@ -1549,7 +1549,7 @@ function Wizard() {
             <div className="bg-gradient-to-r from-amber-500 to-rose-600 rounded-2xl p-4 text-white space-y-2 shadow-md">
               <div className="flex items-center gap-2">
                 <Target aria-hidden="true" className="mv-registration-result-icon" />
-                <span className="font-black text-sm">{T("మీకు ఎలాంటి సంబంధం కావాలి? (Partner Preferences)", "Set your partner preferences")}</span>
+                <span className="font-black text-sm">{T("మీకు ఎలాంటి సంబంధం కావాలి?", "Set your partner preferences")}</span>
               </div>
               <p className="text-[11px] text-amber-100">
                 {T(
@@ -1562,7 +1562,7 @@ function Wizard() {
                 className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white text-[#7A0C2E] font-black text-xs hover:bg-amber-100 transition shadow"
               >
                 <Target aria-hidden="true" className="mv-registration-result-icon" />
-                <span>{T("నా ప్రిఫరెన్సెస్ సెట్ చేయండి →", "Set my preferences →")}</span>
+                <span>{T("నా ప్రాధాన్యతలు ఎంచుకోండి →", "Set my preferences →")}</span>
               </Link>
             </div>
 
@@ -1616,7 +1616,7 @@ function Wizard() {
             <div className="rounded-2xl border border-gold/40 bg-gradient-to-r from-amber-50 via-rose-50 to-amber-50 p-4">
               <div className="font-bold text-slate-900"><ChartNoAxesCombined aria-hidden="true" className="mv-registration-result-icon" /> {T("ప్రొఫైల్ వివరాలు తర్వాత కూడా పూర్తి చేయవచ్చు", "You can complete profile details later")}</div>
               <p className="mt-1 text-[11px] leading-relaxed text-slate-600">
-                {T("నమోదు తర్వాత My Profile లో మీ వివరాలు ఎప్పుడైనా సవరించండి. ఎక్కువ వివరాలు ఇవ్వడం వల్ల search స్థానం లేదా స్పందనలకు హామీ ఉండదు.", "After registration, update your details any time in My Profile. Adding details does not guarantee search placement or responses.")}
+                {T("నమోదు తర్వాత మీ ప్రొఫైల్‌లో వివరాలను ఎప్పుడైనా సవరించవచ్చు. ఎక్కువ వివరాలు ఇచ్చినంత మాత్రాన శోధనలో స్థానం లేదా స్పందనలు వస్తాయని హామీ లేదు.", "After registration, update your details any time in My Profile. Adding details does not guarantee search placement or responses.")}
               </p>
             </div>
 
