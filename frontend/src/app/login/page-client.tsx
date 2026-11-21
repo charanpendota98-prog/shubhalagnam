@@ -7,6 +7,7 @@ import { KeyRound, Eye, EyeOff, Heart, RotateCcw } from "lucide-react";
 import { useLang } from "@/lib/lang";
 import { useRouter } from "next/navigation";
 import { rememberSession, sendOtp, verifyOtp, fetchAuthCapabilities, type AuthCapabilities } from "@/lib/auth";
+import { confirmedAuthAck, confirmedAuthSession, confirmedPhoneVerification } from "@/lib/auth-confirmation";
 import { loginPasskey } from "@/lib/webauthn-client";
 
 import { apiDisplayMessage, apiPost } from "@/lib/api";
@@ -90,6 +91,10 @@ export default function LoginPage() {
       showFeedback(error || (te ? "లాగిన్ విఫలమైంది. పాస్‌వర్డ్ సరిచూసుకోండి." : "Login failed. Check your credentials."), "err");
       return;
     }
+    if (!confirmedAuthSession(data)) {
+      showFeedback(te ? "సర్వర్ నిర్ధారణ రాలేదు. మళ్లీ ప్రయత్నించే ముందు వివరాలు సరిచూసుకోండి." : "The server did not confirm this action. Review your details before trying again.", "err");
+      return;
+    }
     showFeedback(apiDisplayMessage(data, te, te ? "లాగిన్ విజయవంతమైంది! మీ ఖాతాలోకి వెళ్తున్నారు..." : "Login successful. Redirecting…"), "ok");
     go(String(data?.tsap_id || ""), String(data?.auth_token || ""), true);
   }
@@ -107,6 +112,10 @@ export default function LoginPage() {
     setBusy(false);
     if (!ok) {
       showFeedback(error || (te ? "OTP పంపడంలో సమస్య ఏర్పడింది." : "Could not send the OTP. Please try again."), "err");
+      return;
+    }
+    if (!confirmedAuthAck(data)) {
+      showFeedback(te ? "సర్వర్ నిర్ధారణ రాలేదు. మళ్లీ ప్రయత్నించే ముందు వివరాలు సరిచూసుకోండి." : "The server did not confirm this action. Review your details before trying again.", "err");
       return;
     }
     const d = data || {};
@@ -130,9 +139,18 @@ export default function LoginPage() {
       showFeedback(error || (te ? "తప్పుడు OTP. మళ్లీ ప్రయత్నించండి." : "Invalid OTP. Please try again."), "err");
       return;
     }
+    if (!confirmedPhoneVerification(data)) {
+      showFeedback(te ? "సర్వర్ నిర్ధారణ రాలేదు. మళ్లీ ప్రయత్నించే ముందు వివరాలు సరిచూసుకోండి." : "The server did not confirm this action. Review your details before trying again.", "err");
+      return;
+    }
     const d = (data || {}) as { auth_token?: string; tsap_id?: string; has_account?: boolean; message_telugu?: string; message_en?: string; message?: string };
-    showFeedback(apiDisplayMessage(d, te, te ? "లాగిన్ విజయవంతమైంది!" : "Login successful."), "ok");
-    go(String(d.tsap_id || ""), String(d.auth_token || ""), !!d.has_account);
+    if (d.has_account) {
+      showFeedback(apiDisplayMessage(d, te, te ? "లాగిన్ విజయవంతమైంది!" : "Login successful."), "ok");
+      go(String(d.tsap_id), String(d.auth_token), true);
+    } else {
+      showFeedback(te ? "మొబైల్ నంబర్ ధృవీకరణ పూర్తయింది. ఇప్పుడు నమోదు చేయండి." : "Phone verified. Continue registration.", "ok");
+      router.push("/register?phone=" + digits());
+    }
   }
 
   async function onForgotSend() {
@@ -157,6 +175,10 @@ export default function LoginPage() {
     setBusy(false);
     if (!ok) {
       showFeedback(error || (te ? "ఈమెయిల్ ధృవీకరణ కోడ్ పంపడంలో సమస్య ఏర్పడింది. పాస్‌వర్డ్ రీసెట్ ఈమెయిల్ కోడ్‌తో మాత్రమే జరుగుతుంది; ఫోన్ OTP అందుబాటులో లేదు." : "Could not send the email verification code. Password reset uses an emailed code only; phone OTP is unavailable."), "err");
+      return;
+    }
+    if (!confirmedAuthAck(data)) {
+      showFeedback(te ? "సర్వర్ నిర్ధారణ రాలేదు. మళ్లీ ప్రయత్నించే ముందు వివరాలు సరిచూసుకోండి." : "The server did not confirm this action. Review your details before trying again.", "err");
       return;
     }
     setFStage("reset");
@@ -193,6 +215,10 @@ export default function LoginPage() {
     setBusy(false);
     if (!ok) {
       showFeedback(error || (te ? "పాస్‌వర్డ్ రీసెట్ విఫలమైంది." : "Password reset failed. Please try again."), "err");
+      return;
+    }
+    if (!confirmedAuthSession(data)) {
+      showFeedback(te ? "సర్వర్ నిర్ధారణ రాలేదు. మళ్లీ ప్రయత్నించే ముందు వివరాలు సరిచూసుకోండి." : "The server did not confirm this action. Review your details before trying again.", "err");
       return;
     }
     showFeedback(apiDisplayMessage(data, te, te ? "పాస్‌వర్డ్ విజయవంతంగా మార్చబడింది! లాగిన్ అవుతున్నారు..." : "Password changed successfully. Signing in…"), "ok");
