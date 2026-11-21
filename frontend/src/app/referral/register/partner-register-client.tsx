@@ -50,8 +50,18 @@ export default function PartnerRegisterPage() {
   const active=useRef(true);
   const registerLock=useRef(false);
   const publicVersion=useRef(0);
+  const privateVersion=useRef(0);
+  const authLock=useRef(false);
+  const payoutLock=useRef(false);
+  const invalidatePrivate=()=>{
+    privateVersion.current++;authLock.current=false;payoutLock.current=false;
+    setPrivateDash(null);setPartnerToken("");setOtpSent(false);setOtpCode("");
+    setAuthMsg("");setPayoutMsg("");setPayoutAmount("");setPayoutUpi("");
+    setAuthBusy(false);setPayoutBusy(false);
+  };
+  const currentPrivate=(version:number)=>active.current&&privateVersion.current===version;
   const controllers=useRef(new Set<AbortController>());
-  useEffect(()=>{active.current=true;return ()=>{active.current=false;publicVersion.current++;controllers.current.forEach(c=>c.abort());};},[]);
+  useEffect(()=>{active.current=true;return ()=>{active.current=false;publicVersion.current++;privateVersion.current++;controllers.current.forEach(c=>c.abort());};},[]);
   const boundedJson=async(url:string,init?:RequestInit)=>{
     const controller=new AbortController();controllers.current.add(controller);
     let timer:ReturnType<typeof setTimeout>|undefined;
@@ -81,7 +91,7 @@ export default function PartnerRegisterPage() {
       setMsg(te ? "పేరు, మొబైల్, రాష్ట్రం మరియు జిల్లా ఇవ్వండి." : "Enter your name, mobile, state and district.");
       return;
     }
-    registerLock.current=true;setBusy(true);setMsg("");setDone(null);setDashError("");setDash(null);
+    invalidatePrivate();registerLock.current=true;setBusy(true);setMsg("");setDone(null);setDashError("");setDash(null);
     let confirmed:PartnerRegistration|null=null;
     try {
       const {status,data}=await boundedJson("/api/referral/partner/register",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(f)});
@@ -107,126 +117,74 @@ export default function PartnerRegisterPage() {
     if(registerLock.current||dashBusy)return;
     const id=lookup.trim();
     if(!id)return;
-    setPrivateDash(null);setPartnerToken("");setOtpSent(false);setOtpCode("");setPayoutMsg("");
+    invalidatePrivate();
     await readPublicDashboard(id);
   };
 
-  const loadPrivateDash = async (id: string, token: string) => {
+  const loadPrivateDash = async (id: string, token: string, version: number) => {
+    if(!currentPrivate(version))return false;
+    setPrivateDash(null);
     try {
-      const r = await fetch(`/api/referral/partner/${encodeURIComponent(id)}/private`, {
-        headers: { "X-Partner-Token": token },
-      });
-      const d = await readApiJson(r);
-      if (!r.ok || !d.success) {
-        setPrivateDash(null); setPartnerToken("");
-        setAuthMsg(apiDisplayMessage(d, te, te ? "Wallet వివరాలు లోడ్ కాలేదు; OTP మళ్లీ verify చేయండి." : "Could not load wallet details. Please verify the OTP again."));
-        return false;
+      const {status,data:d}=await boundedJson(`/api/referral/partner/${encodeURIComponent(id)}/private`,{headers:{"X-Partner-Token":token}});
+      if(!currentPrivate(version))return false;
+      if(status!==200||d?.success!==true||d?.partner_id!==id){
+        setPrivateDash(null);setPartnerToken("");
+        setAuthMsg(te?"వ్యక్తిగత వివరాలు నిర్ధారణ కాలేదు. మొబైల్‌ను మళ్లీ ధృవీకరించండి.":"Private details could not be confirmed. Verify the registered mobile again.");return false;
       }
-      setPrivateDash(d);
-      setAuthMsg("");
-      return true;
-    } catch {
-      setAuthMsg(te ? "Network లేదు — wallet వివరాలు లోడ్ కాలేదు." : "Network error while loading wallet details.");
+      setPrivateDash(d);setAuthMsg("");return true;
+    }catch{
+      if(currentPrivate(version)){setPrivateDash(null);setPartnerToken("");setAuthMsg(te?"వ్యక్తిగత వివరాలు నిర్ధారణ కాలేదు. మొబైల్‌ను మళ్లీ ధృవీకరించండి.":"Private details could not be confirmed. Verify the registered mobile again.");}
       return false;
     }
   };
 
-  const sendPartnerOtp = async () => {
-    const phone = phoneForAccess.replace(/\D/g, "");
-    if (!/^[6-9]\d{9}$/.test(phone)) {
-      setAuthMsg(te ? "భాగస్వామి నమోదులో ఉన్న 10 అంకెల మొబైల్ ఇవ్వండి." : "Enter the 10-digit mobile number registered to this partner ID.");
-      return;
-    }
-    setAuthBusy(true); setAuthMsg("");
-    try {
-      const r = await fetch("/api/otp/send", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone, purpose: "login" }),
-      });
-      const d = await readApiJson(r);
-      if (!r.ok || !d.success) { setAuthMsg(apiDisplayMessage(d, te, te ? "OTP పంపలేకపోయాం." : "Could not send the one-time code.")); return; }
-      setOtpSent(true);
-      setAuthMsg(apiDisplayMessage(d, te, te ? "OTP పంపించాం. 10 నిమిషాల్లో నమోదు చేయండి." : "One-time code sent. Enter it within 10 minutes."));
-    } catch {
-      setAuthMsg(te ? "Network లేదు — OTP పంపలేకపోయాం." : "Network error while sending OTP.");
-    } finally {
-      setAuthBusy(false);
-    }
+  const sendPartnerOtp=async()=>{
+    if(authLock.current)return;
+    const phone=phoneForAccess.replace(/\D/g,"");
+    if(!/^[6-9]\d{9}$/.test(phone)){setAuthMsg(te?"భాగస్వామి నమోదులో ఉన్న 10 అంకెల మొబైల్ ఇవ్వండి.":"Enter the 10-digit mobile number registered to this partner ID.");return;}
+    const version=privateVersion.current;authLock.current=true;setAuthBusy(true);setAuthMsg("");setOtpSent(false);setOtpCode("");
+    try{
+      const {status,data:d}=await boundedJson("/api/otp/send",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({phone,purpose:"login"})});
+      if(!currentPrivate(version))return;
+      if(status!==200||d?.success!==true){setAuthMsg(apiDisplayMessage(d,te,te?"OTP పంపలేకపోయాం.":"Could not send the one-time code."));return;}
+      setOtpSent(true);setAuthMsg(apiDisplayMessage(d,te,te?"OTP పంపించాం. 10 నిమిషాల్లో నమోదు చేయండి.":"One-time code sent. Enter it within 10 minutes."));
+    }catch{if(currentPrivate(version))setAuthMsg(te?"OTP పంపినట్లు నిర్ధారణ కాలేదు. కొత్త కోడ్ కోరే ముందు వచ్చిన సందేశాలు చూడండి.":"The code request could not be confirmed. Check received messages before requesting another code.");}
+    finally{if(currentPrivate(version)){authLock.current=false;setAuthBusy(false);}}
   };
 
-  const verifyPartnerOtp = async () => {
-    const id = String(dash?.partner_id || lookup.trim());
-    const phone = phoneForAccess.replace(/\D/g, "");
-    const code = otpCode.trim();
-    if (!id || !/^[6-9]\d{9}$/.test(phone) || !/^\d{4}$/.test(code)) {
-      setAuthMsg(te ? "భాగస్వామి ID, నమోదు చేసిన మొబైల్ మరియు 4 అంకెల OTP ఇవ్వండి." : "Enter the partner ID, registered mobile and 4-digit OTP.");
-      return;
-    }
-    setAuthBusy(true); setAuthMsg("");
-    try {
-      const verifyResponse = await fetch("/api/otp/verify", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone, code }),
-      });
-      const verifyData = await readApiJson(verifyResponse);
-      if (!verifyResponse.ok || !verifyData.success) {
-        setAuthMsg(apiDisplayMessage(verifyData, te, te ? "OTP సరిపోలలేదు." : "One-time code verification failed."));
-        return;
-      }
-      const authResponse = await fetch(`/api/referral/partner/${encodeURIComponent(id)}/auth`, {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone }),
-      });
-      const authData = await readApiJson(authResponse);
-      if (!authResponse.ok || !authData.success || !authData.partner_token) {
-        setAuthMsg(apiDisplayMessage(authData, te, te ? "ఈ మొబైల్ ఈ partner ID కి సరిపోలలేదు." : "That mobile number does not match this partner ID."));
-        return;
-      }
-      setPartnerToken(authData.partner_token);
-      await loadPrivateDash(id, authData.partner_token);
-    } catch {
-      setAuthMsg(te ? "Network సమస్య — మళ్లీ ప్రయత్నించండి." : "Network error — please retry.");
-    } finally {
-      setAuthBusy(false);
-    }
+  const verifyPartnerOtp=async()=>{
+    if(authLock.current)return;
+    const id=String(dash?.partner_id||"");const phone=phoneForAccess.replace(/\D/g,"");const code=otpCode.trim();
+    if(!id||id!==lookup.trim()||!/^[6-9]\d{9}$/.test(phone)||!/^\d{4}$/.test(code)){setAuthMsg(te?"భాగస్వామి ID, నమోదు చేసిన మొబైల్ మరియు 4 అంకెల OTP ఇవ్వండి.":"Enter the partner ID, registered mobile and 4-digit OTP.");return;}
+    const version=privateVersion.current;authLock.current=true;setAuthBusy(true);setAuthMsg("");setPrivateDash(null);setPartnerToken("");
+    try{
+      const {status:verifyStatus,data:verifyData}=await boundedJson("/api/otp/verify",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({phone,code})});
+      if(!currentPrivate(version))return;
+      if(verifyStatus!==200||verifyData?.success!==true){setAuthMsg(apiDisplayMessage(verifyData,te,te?"OTP సరిపోలలేదు.":"One-time code verification failed."));return;}
+      const {status,data}=await boundedJson(`/api/referral/partner/${encodeURIComponent(id)}/auth`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({phone})});
+      if(!currentPrivate(version))return;
+      if(status!==200||data?.success!==true||typeof data?.partner_token!=="string"||!data.partner_token.trim()){setAuthMsg(apiDisplayMessage(data,te,te?"ఈ మొబైల్ ఈ భాగస్వామి ID కి సరిపోలలేదు.":"That mobile number does not match this partner ID."));return;}
+      setPartnerToken(data.partner_token);await loadPrivateDash(id,data.partner_token,version);
+    }catch{if(currentPrivate(version))setAuthMsg(te?"ధృవీకరణ ఫలితం నిర్ధారణ కాలేదు. మళ్లీ ప్రయత్నించండి.":"Verification could not be confirmed. Please retry.");}
+    finally{if(currentPrivate(version)){authLock.current=false;setAuthBusy(false);}}
   };
 
-  const requestPartnerPayout = async () => {
-    const id = String(privateDash?.partner_id || dash?.partner_id || "");
-    const amount = Number(payoutAmount);
-    if (!partnerToken || !id) {
-      setPayoutMsg(te ? "ముందుగా OTP verify చేయండి." : "Verify the registered mobile first.");
-      return;
-    }
-    if (!Number.isInteger(amount) || amount < 50 || amount > Number(privateDash?.wallet || 0)) {
-      setPayoutMsg(te ? "మొత్తం ₹50 కనీస పరిమితి మరియు wallet balance మధ్యలో ఉండాలి." : "Enter a whole-rupee amount from ₹50 up to your available wallet balance.");
-      return;
-    }
-    if (!payoutUpi.trim()) {
-      setPayoutMsg(te ? "మీ UPI ID ఇవ్వండి." : "Enter your UPI ID.");
-      return;
-    }
-    setPayoutBusy(true); setPayoutMsg("");
-    try {
-      const r = await fetch("/api/referral/partner/payout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Partner-Token": partnerToken },
-        body: JSON.stringify({ partner_id: id, amount, method: "upi", upi_id: payoutUpi.trim() }),
-      });
-      const d = await readApiJson(r);
-      if (!r.ok || !d.success) {
-        setPayoutMsg(apiDisplayMessage(d, te, te ? "Payout అభ్యర్థన విఫలమైంది." : "Payout request failed."));
-        return;
-      }
-      setPayoutAmount("");
-      setPayoutMsg(apiDisplayMessage(d, te, te ? "అభ్యర్థన సమీక్ష కోసం పంపబడింది." : "Request submitted for review."));
-      await loadPrivateDash(id, partnerToken);
-    } catch {
-      setPayoutMsg(te ? "Network సమస్య — మళ్లీ ప్రయత్నించండి." : "Network error — please retry.");
-    } finally {
-      setPayoutBusy(false);
-    }
+  const requestPartnerPayout=async()=>{
+    if(payoutLock.current)return;
+    const id=String(privateDash?.partner_id||"");const amount=Number(payoutAmount);
+    if(!partnerToken||!id||id!==lookup.trim()||id!==dash?.partner_id){setPayoutMsg(te?"ముందుగా నమోదైన మొబైల్‌ను ధృవీకరించండి.":"Verify the registered mobile first.");return;}
+    if(!Number.isInteger(amount)||amount<50||amount>Number(privateDash?.wallet||0)){setPayoutMsg(te?"మొత్తం కనీసం ₹50 ఉండాలి. అందుబాటులో ఉన్న నిల్వకు మించకూడదు.":"Enter a whole-rupee amount from ₹50 up to your available wallet balance.");return;}
+    if(!payoutUpi.trim()){setPayoutMsg(te?"మీ UPI ID ఇవ్వండి.":"Enter your UPI ID.");return;}
+    const version=privateVersion.current;const token=partnerToken;payoutLock.current=true;setPayoutBusy(true);setPayoutMsg("");
+    try{
+      const {status,data}=await boundedJson("/api/referral/partner/payout",{method:"POST",headers:{"Content-Type":"application/json","X-Partner-Token":token},body:JSON.stringify({partner_id:id,amount,method:"upi",upi_id:payoutUpi.trim()})});
+      if(!currentPrivate(version))return;
+      if(status!==200||data?.success!==true){setPayoutMsg(apiDisplayMessage(data,te,te?"అభ్యర్థన ఫలితం నిర్ధారణ కాలేదు. మళ్లీ పంపే ముందు అభ్యర్థనల వివరాలు చూడండి.":"Request could not be confirmed. Check your requests before submitting again."));return;}
+      setPayoutAmount("");setPayoutMsg(apiDisplayMessage(data,te,te?"అభ్యర్థన సమీక్ష కోసం పంపబడింది.":"Request submitted for review."));await loadPrivateDash(id,token,version);
+    }catch{if(currentPrivate(version))setPayoutMsg(te?"అభ్యర్థన ఫలితం నిర్ధారణ కాలేదు. మళ్లీ పంపే ముందు అభ్యర్థనల వివరాలు చూడండి.":"Request could not be confirmed. Check your requests before submitting again.");}
+    finally{if(currentPrivate(version)){payoutLock.current=false;setPayoutBusy(false);}}
   };
+  const privateReady=privateDash?.success===true&&privateDash.partner_id===dash?.partner_id&&privateDash.partner_id===lookup.trim()&&!!partnerToken;
 
   return (
     <div className="mv-partner-workspace mx-auto max-w-2xl px-4 py-8">
@@ -319,7 +277,7 @@ export default function PartnerRegisterPage() {
               className="rounded-full bg-[#7A0C2E] text-white px-5 py-2.5 text-sm font-bold">
               {copied ? "copied ✓" : (te ? "🔗 Link copy" : "🔗 Copy link")}
             </button>}
-            <button type="button" disabled={dashBusy} onClick={() => { publicVersion.current++;setDone(null);setMsg("");setDash(null);setDashError(""); }}
+            <button type="button" disabled={dashBusy} onClick={() => { invalidatePrivate();publicVersion.current++;setDone(null);setMsg("");setDash(null);setDashError(""); }}
               className="rounded-full border border-emerald-400 px-5 py-2.5 text-sm font-bold text-emerald-800">
               + {duo("New partner", "కొత్త భాగస్వామి")}
             </button>
@@ -334,7 +292,7 @@ export default function PartnerRegisterPage() {
       <section className="mt-5 rounded-2xl border border-slate-200 bg-white p-4">
         <h2 className="text-sm font-bold">📊 <Duo en="My partner dashboard" te="నా భాగస్వామి డాష్‌బోర్డ్" /></h2>
         <div className="mt-2 flex gap-2">
-          <input aria-label={te ? "Partner ID" : "Partner ID"} value={lookup} disabled={busy||dashBusy} onChange={(e) => {setLookup(e.target.value.toUpperCase());publicVersion.current++;setDash(null);setDashError("");setPrivateDash(null);setPartnerToken("");setAuthMsg("");}} placeholder={te ? "Partner ID" : "Partner ID"}
+          <input aria-label={te ? "Partner ID" : "Partner ID"} value={lookup} disabled={busy||dashBusy} onChange={(e) => {setLookup(e.target.value.toUpperCase());publicVersion.current++;setDash(null);setDashError("");invalidatePrivate();}} placeholder={te ? "Partner ID" : "Partner ID"}
             className="flex-1 rounded-xl border border-slate-300 px-3 py-2 text-sm" />
           <button type="button" onClick={loadDash} disabled={busy||dashBusy} className="rounded-xl border border-[#7A0C2E] px-4 py-2 text-sm font-bold text-maroon">
             {te ? "చూడు" : "View"}
@@ -380,12 +338,12 @@ export default function PartnerRegisterPage() {
                 ))}
               </div>
             ) : null}
-            {!privateDash?.success ? (
+            {!privateReady ? (
               <div className="rounded-2xl border border-amber-200 bg-amber-50/70 p-4 space-y-3">
                 <h3 className="text-sm font-bold text-maroon">🔐 {duo("Verify partner mobile to view wallet", "Wallet చూడటానికి partner మొబైల్ verify చేయండి")}</h3>
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_auto]">
                   <input aria-label={te ? "నమోదైన 10 అంకెల మొబైల్" : "Registered 10-digit mobile"} type="tel" inputMode="numeric" autoComplete="tel" value={phoneForAccess}
-                    onChange={(e) => setPhoneForAccess(e.target.value.replace(/\D/g, "").slice(0, 10))}
+                    onChange={(e) => {invalidatePrivate();setPhoneForAccess(e.target.value.replace(/\D/g, "").slice(0, 10));}}
                     placeholder={te ? "నమోదైన 10 అంకెల మొబైల్" : "Registered 10-digit mobile"}
                     className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" />
                   <button type="button" onClick={sendPartnerOtp} disabled={authBusy}
@@ -443,7 +401,7 @@ export default function PartnerRegisterPage() {
         ) : null}
       </section>
 
-      {privateDash?.success && partnerToken && <CreatorCampaigns key={privateDash.partner_id} identity={privateDash.partner_id} partnerToken={partnerToken} />}
+      {privateReady && <CreatorCampaigns key={privateDash.partner_id} identity={privateDash.partner_id} partnerToken={partnerToken} />}
       <p className="mt-4 text-center text-sm text-slate-600">
         <Link href="/referral" className="font-semibold text-maroon underline">← Referral home</Link>
       </p>
