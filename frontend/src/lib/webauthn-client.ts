@@ -12,9 +12,22 @@ export function bufferEncode(value: ArrayBuffer): string {
     .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
 }
 
-export async function registerPasskey(tsapId: string, token: string, password: string): Promise<{ success: boolean; message?: string }> {
+export async function registerPasskey(tsapId: string, token: string, password: string, signal?: AbortSignal): Promise<{ success: boolean; message?: string }> {
   try {
-    const resBegin = await fetch("/api/auth/passkey/register/begin", {
+    const setupFetch = async (url: string, init: RequestInit) => {
+      const controller = new AbortController();
+      const abort = () => controller.abort();
+      if (signal?.aborted) controller.abort();
+      signal?.addEventListener("abort", abort, {once: true});
+      const timer = window.setTimeout(abort, 20_000);
+      try {
+        const response = await fetch(url, {...init, signal: controller.signal});
+        const data: unknown = await response.json();
+        return {status: response.status, json: async () => data};
+      }
+      finally { window.clearTimeout(timer); signal?.removeEventListener("abort", abort); }
+    };
+    const resBegin = await setupFetch("/api/auth/passkey/register/begin", {
       method: "POST",
       headers: { "Content-Type": "application/json", "X-Tsap-Token": token },
       body: JSON.stringify({ tsap_id: tsapId, password })
@@ -42,8 +55,8 @@ export async function registerPasskey(tsapId: string, token: string, password: s
       excludeCredentials: options.excludeCredentials?.map(c => ({...c, id: bufferDecode(c.id)})),
     };
     /* decoded options are kept separate from the response object. */
-    const credential = await navigator.credentials.create({ publicKey }) as PublicKeyCredential | null;
-    if (!credential || credential.type !== "public-key") return unconfirmed;
+    const credential = await navigator.credentials.create({ publicKey, signal }) as PublicKeyCredential | null;
+    if (signal?.aborted || !credential || credential.type !== "public-key") return unconfirmed;
     const attestation = credential.response as AuthenticatorAttestationResponse;
 
     const response = {
@@ -57,7 +70,7 @@ export async function registerPasskey(tsapId: string, token: string, password: s
       }
     };
     
-    const resFinish = await fetch("/api/auth/passkey/register/finish", {
+    const resFinish = await setupFetch("/api/auth/passkey/register/finish", {
       method: "POST",
       headers: { "Content-Type": "application/json", "X-Tsap-Token": token },
       body: JSON.stringify({ tsap_id: tsapId, password, challenge_id, response })

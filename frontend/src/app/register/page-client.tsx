@@ -774,7 +774,8 @@ function Wizard() {
   const [passkeyFeedback, setPasskeyFeedback] = useState<"" | "unconfirmed" | "confirmed">("");
   const passkeyLock = useRef(false);
   const passkeyActive = useRef(true);
-  useEffect(() => { passkeyActive.current = true; return () => { passkeyActive.current = false; }; }, []);
+  const passkeyController = useRef<AbortController | null>(null);
+  useEffect(() => { passkeyActive.current = true; return () => { passkeyActive.current = false; passkeyController.current?.abort(); }; }, []);
   const [passkeyStatus, setPasskeyStatus] = useState<"checking" | "available" | "unavailable" | "error">("checking");
   useEffect(() => {
     let active = true;
@@ -1434,12 +1435,15 @@ function Wizard() {
                     passkeyLock.current = true;
                     setPasskeyBusy(true);
                     setPasskeyFeedback("");
+                    const controller = new AbortController();
+                    passkeyController.current = controller;
                     try {
-                      const res = await registerPasskey(tsap, token, passkeyPw);
+                      const res = await registerPasskey(tsap, token, passkeyPw, controller.signal);
                       if (!passkeyActive.current) return;
                       setPasskeyFeedback(res.success === true ? "confirmed" : "unconfirmed");
                       if (res.success === true) setPasskeyPw("");
                     } finally {
+                      if (passkeyController.current === controller) passkeyController.current = null;
                       passkeyLock.current = false;
                       if (passkeyActive.current) setPasskeyBusy(false);
                     }
