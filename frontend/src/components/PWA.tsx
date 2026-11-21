@@ -96,16 +96,16 @@ export default function PWA() {
     <div data-testid="pwa-install-bar" className="fixed bottom-36 left-3 right-3 md:bottom-4 md:left-auto md:right-4 md:w-[360px] z-40 no-print">
       <div className="bg-white rounded-2xl border border-gold/40 shadow-brand p-3 flex items-center gap-3 step-slide">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/icons/icon-192.png" alt="మన వివాహ app" className="w-11 h-11 rounded-xl border border-gold/30" />
+        <img src="/icons/icon-192.png" alt={te ? "మన వివాహ" : "Mana Vivaha"} className="w-11 h-11 rounded-xl border border-gold/30" />
         <div className="flex-1 min-w-0">
           <div className="text-[12px] font-bold text-maroon">
-            {te ? "📲 మన వివాహ app లాగా install చేసుకోండి" : "📲 Install మన వివాహ as app"}
+            {te ? "మన వివాహను హోమ్ స్క్రీన్‌కు జోడించండి" : "Add Mana Vivaha to your home screen"}
           </div>
           {iosMode ? (
             <div className="text-[11px] text-gray-600 telugu">
               {te
-                ? "iPhone: Share ⬆️ → “Add to Home Screen” నొక్కండి — Home screen లో icon వస్తుంది."
-                : "iPhone: tap Share ⬆️ → “Add to Home Screen” — icon comes on home screen."}
+                ? 'iPhoneలో Share నొక్కి, "Add to Home Screen" ఎంచుకోండి. హోమ్ స్క్రీన్‌పై గుర్తు కనిపిస్తుంది.'
+                : 'On iPhone, tap Share, then "Add to Home Screen". A shortcut appears on your home screen.'}
             </div>
           ) : (
             <div className="text-[11px] text-gray-600 telugu">
@@ -117,9 +117,9 @@ export default function PWA() {
         </div>
         <div className="flex flex-col gap-1">
           {!iosMode && (
-            <button type="button" onClick={install} className="px-3 py-2 rounded-xl maroon-gradient text-white text-[11px] font-bold">Install</button>
+            <button type="button" onClick={install} className="px-3 py-2 rounded-xl maroon-gradient text-white text-[11px] font-bold">{te ? "జోడించండి" : "Install"}</button>
           )}
-          <button type="button" onClick={close} className="px-3 py-1 text-[10px] text-gray-500">{te ? "తర్వాత" : "later"}</button>
+          <button type="button" onClick={close} className="px-3 py-1 text-[10px] text-gray-500">{te ? "తర్వాత" : "Later"}</button>
         </div>
       </div>
     </div>

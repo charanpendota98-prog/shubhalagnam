@@ -73,8 +73,8 @@ check("P1 sw register", 'register("/sw.js")' in pwa)
 home = src_page("frontend/src/app/page.tsx")
 layout_src = src_page("frontend/src/app/layout.tsx")
 check("P1 install prompt component is mounted globally", "<PWA />" in layout_src)
-check("P1 bilingual install guidance stays in the prompt", "మన వివాహ app లాగా install చేసుకోండి" in pwa
-      and "Install మన వివాహ as app" in pwa)
+check("P1 bilingual install guidance stays in the prompt", "మన వివాహను హోమ్ స్క్రీన్‌కు జోడించండి" in pwa
+      and "Add Mana Vivaha to your home screen" in pwa)
 check("P1 homepage stays focused; no install prompt panel is embedded in the hero", "tsap:install-show" not in home)
 mf = json.load(open(os.path.join(ROOT, "frontend", "public", "manifest.webmanifest"),
                     encoding="utf-8"))
