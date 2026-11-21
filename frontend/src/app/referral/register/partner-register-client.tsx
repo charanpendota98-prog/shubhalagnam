@@ -6,7 +6,8 @@ import "@/components/partner-workspace.css";
  * Referral partner registration and dashboard. Reward eligibility follows the
  * published one-time qualifying consumer-plan rule; no payment is guaranteed.
  */
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import {partnerRegistrationResult,partnerDashboardResult,type PartnerRegistration} from "@/lib/partner-registration-result";
 import CreatorCampaigns from "@/components/CreatorCampaigns";
 import Link from "next/link";
 import { Duo, useDuo } from "@/lib/duo";
@@ -29,7 +30,7 @@ export default function PartnerRegisterPage() {
   const [f, setF] = useState({ name: "", phone: "", address: "", state: "", district: "" });
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
-  const [done, setDone] = useState<{ partner_id?: string; link?: string } | null>(null);
+  const [done, setDone] = useState<PartnerRegistration | null>(null);
   const [copied, setCopied] = useState(false);
   const [lookup, setLookup] = useState("");
   const [dash, setDash] = useState<any>(null);
@@ -44,38 +45,57 @@ export default function PartnerRegisterPage() {
   const [payoutBusy, setPayoutBusy] = useState(false);
   const [payoutMsg, setPayoutMsg] = useState("");
   const [authMsg, setAuthMsg] = useState("");
+  const [dashBusy,setDashBusy]=useState(false);
+  const [dashError,setDashError]=useState("");
+  const active=useRef(true);
+  const registerLock=useRef(false);
+  const publicVersion=useRef(0);
+  const controllers=useRef(new Set<AbortController>());
+  useEffect(()=>{active.current=true;return ()=>{active.current=false;publicVersion.current++;controllers.current.forEach(c=>c.abort());};},[]);
+  const boundedJson=async(url:string,init?:RequestInit)=>{
+    const controller=new AbortController();controllers.current.add(controller);
+    let timer:ReturnType<typeof setTimeout>|undefined;
+    try {return await Promise.race([
+      (async()=>{const response=await fetch(url,{...init,signal:controller.signal});const data=await readApiJson(response);return {status:response.status,data};})(),
+      new Promise<never>((_,reject)=>{timer=setTimeout(()=>{controller.abort();reject(new Error("Request unconfirmed"));},20_000);controller.signal.addEventListener('abort',()=>reject(new Error("Request cancelled")),{once:true});})
+    ]);}finally{clearTimeout(timer);controllers.current.delete(controller);}
+  };
+  const readPublicDashboard=async(id:string)=>{
+    const version=++publicVersion.current;setDashBusy(true);setDashError("");setDash(null);
+    try {
+      const {status,data}=await boundedJson(`/api/referral/partner/${encodeURIComponent(id)}`);
+      if(!active.current||version!==publicVersion.current)return;
+      if(!partnerDashboardResult(status,data,id))throw new Error("Dashboard unconfirmed");
+      setDash(data);
+    }catch{
+      if(active.current&&version===publicVersion.current)setDashError(te?"గణాంకాలు నిర్ధారించలేకపోయాం. భాగస్వామి ID ఉంటే అలాగే ఉంటుంది. మళ్లీ చూడటం గణాంకాలను మాత్రమే చదువుతుంది.":"Dashboard counts could not be confirmed. Any confirmed partner ID is unchanged. View again to retry the read only.");
+    }finally{if(active.current&&version===publicVersion.current)setDashBusy(false);}
+  };
 
   const set = (k: string, v: string) => setF((p) => ({ ...p, [k]: v }));
   const dists: string[] = f.state === "Other" ? [] : ((DISTRICTS_BY_STATE as Record<string, string[]>)[f.state] || []);
 
   const submit = async () => {
+    if(registerLock.current||dashBusy)return;
     if (!f.name.trim() || !f.phone.trim() || !f.state || !f.district.trim()) {
       setMsg(te ? "పేరు, మొబైల్, రాష్ట్రం మరియు జిల్లా ఇవ్వండి." : "Enter your name, mobile, state and district.");
       return;
     }
-    setBusy(true); setMsg(""); setDone(null);
+    registerLock.current=true;setBusy(true);setMsg("");setDone(null);setDashError("");setDash(null);
+    let confirmed:PartnerRegistration|null=null;
     try {
-      const r = await fetch("/api/referral/partner/register", {
-        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(f),
-      });
-      const d = await readApiJson(r);
-      if (!r.ok) { setMsg(apiDisplayMessage(d, te, te ? "నమోదు విఫలమైంది. మళ్లీ ప్రయత్నించండి." : "Registration failed. Please try again.")); return; }
-      setDone(d);
-      setLookup(d.partner_id || "");
-      setPhoneForAccess(f.phone);
-      setPrivateDash(null);
-      setPartnerToken("");
-      setMsg(apiDisplayMessage(d, te, te ? "నమోదు పూర్తయింది." : "Registration complete."));
-      if (d.partner_id) {
-        const dashboardResponse = await fetch(`/api/referral/partner/${encodeURIComponent(d.partner_id)}`);
-        const dashboardData = await readApiJson(dashboardResponse);
-        if (dashboardResponse.ok && dashboardData.success) setDash(dashboardData);
+      const {status,data}=await boundedJson("/api/referral/partner/register",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(f)});
+      if(!active.current)return;
+      confirmed=partnerRegistrationResult(status,data,window.location.origin);
+      if(!confirmed){
+        setMsg(te?"నమోదు ఫలితం నిర్ధారణ కాలేదు. మీ వివరాలు అలాగే ఉన్నాయి. మళ్లీ సృష్టించే ముందు మీకు ID వచ్చిందో చూడండి.":"Registration could not be confirmed. Your details are preserved. Check whether you received an ID before creating another request.");return;
       }
-    } catch {
-      setMsg(te ? "Network లేదు — మళ్లీ try చెయ్యండి" : "Network error — please retry");
-    } finally {
-      setBusy(false);
-    }
+      setDone(confirmed);setLookup(confirmed.partner_id);setPhoneForAccess(f.phone);setPrivateDash(null);setPartnerToken("");
+      setMsg(confirmed.already?(te?"ఈ మొబైల్‌కు ఇప్పటికే భాగస్వామి ID ఉంది. అదే ID చూపిస్తున్నాం.":"This mobile already has a partner ID. Your existing ID is shown."):(te?"భాగస్వామి ID సృష్టించబడింది.":"Partner ID created."));
+    }catch{
+      if(active.current)setMsg(te?"నమోదు ఫలితం నిర్ధారణ కాలేదు. మీ వివరాలు అలాగే ఉన్నాయి. మళ్లీ సృష్టించే ముందు మీకు ID వచ్చిందో చూడండి.":"Registration could not be confirmed. Your details are preserved. Check whether you received an ID before creating another request.");
+    }finally{registerLock.current=false;if(active.current)setBusy(false);}
+    if(confirmed&&active.current)await readPublicDashboard(confirmed.partner_id);
   };
 
   const copy = async (t: string) => {
@@ -84,15 +104,11 @@ export default function PartnerRegisterPage() {
   };
 
   const loadDash = async () => {
-    const id = lookup.trim();
-    if (!id) return;
-    setDash(null); setMsg(""); setPrivateDash(null); setPartnerToken(""); setOtpSent(false); setOtpCode(""); setPayoutMsg("");
-    try {
-      const r = await fetch(`/api/referral/partner/${encodeURIComponent(id)}`);
-      const d = await readApiJson(r);
-      if (!r.ok) { setMsg(apiDisplayMessage(d, te, te ? "భాగస్వామి ID దొరకలేదు." : "Partner ID was not found.")); return; }
-      setDash(d);
-    } catch { setMsg(te ? "Network లేదు" : "No network"); }
+    if(registerLock.current||dashBusy)return;
+    const id=lookup.trim();
+    if(!id)return;
+    setPrivateDash(null);setPartnerToken("");setOtpSent(false);setOtpCode("");setPayoutMsg("");
+    await readPublicDashboard(id);
   };
 
   const loadPrivateDash = async (id: string, token: string) => {
@@ -288,7 +304,7 @@ export default function PartnerRegisterPage() {
             </div>
           </div>
           {msg ? <p className="text-[13px] font-medium text-maroon">{msg}</p> : null}
-          <button type="button" onClick={submit} disabled={busy}
+          <button type="button" onClick={submit} disabled={busy||dashBusy}
             className="w-full rounded-2xl maroon-gradient text-white font-bold py-3 disabled:opacity-50">
             {busy ? "…" : <>🚀 <Duo en="Create my Partner ID" te="నా భాగస్వామి ID సృష్టించండి" /></>}
           </button>
@@ -297,13 +313,13 @@ export default function PartnerRegisterPage() {
         <section className="mt-4 rounded-2xl border border-emerald-300 bg-emerald-50 p-5 text-center">
           <div className="text-4xl">🎉</div>
           <div className="font-bold text-emerald-900 text-lg mt-1">ID: <span className="font-mono">{done.partner_id}</span></div>
-          <div className="mt-2 rounded-xl bg-white border border-emerald-200 p-3 text-[12px] font-mono break-all">{done.link}</div>
+          {done.link?<div className="mt-2 rounded-xl bg-white border border-emerald-200 p-3 text-[12px] font-mono break-all">{done.link}</div>:<p className="mt-2 text-sm">{te?"నమోదు ID నిర్ధారించబడింది. సిఫార్సు లింక్ మాత్రం నిర్ధారణ కాలేదు.":"Your partner ID is confirmed. The referral link could not be confirmed."}</p>}
           <div className="mt-3 flex gap-2 justify-center">
-            <button type="button" onClick={() => void copy(String(done.link || ""))}
+            {done.link&&<button type="button" onClick={() => void copy(done.link!)}
               className="rounded-full bg-[#7A0C2E] text-white px-5 py-2.5 text-sm font-bold">
               {copied ? "copied ✓" : (te ? "🔗 Link copy" : "🔗 Copy link")}
-            </button>
-            <button type="button" onClick={() => { setDone(null); setMsg(""); }}
+            </button>}
+            <button type="button" disabled={dashBusy} onClick={() => { publicVersion.current++;setDone(null);setMsg("");setDash(null);setDashError(""); }}
               className="rounded-full border border-emerald-400 px-5 py-2.5 text-sm font-bold text-emerald-800">
               + {duo("New partner", "కొత్త భాగస్వామి")}
             </button>
@@ -318,13 +334,15 @@ export default function PartnerRegisterPage() {
       <section className="mt-5 rounded-2xl border border-slate-200 bg-white p-4">
         <h2 className="text-sm font-bold">📊 <Duo en="My partner dashboard" te="నా భాగస్వామి డాష్‌బోర్డ్" /></h2>
         <div className="mt-2 flex gap-2">
-          <input aria-label={te ? "Partner ID" : "Partner ID"} value={lookup} onChange={(e) => setLookup(e.target.value.toUpperCase())} placeholder={te ? "Partner ID" : "Partner ID"}
+          <input aria-label={te ? "Partner ID" : "Partner ID"} value={lookup} disabled={busy||dashBusy} onChange={(e) => {setLookup(e.target.value.toUpperCase());publicVersion.current++;setDash(null);setDashError("");setPrivateDash(null);setPartnerToken("");setAuthMsg("");}} placeholder={te ? "Partner ID" : "Partner ID"}
             className="flex-1 rounded-xl border border-slate-300 px-3 py-2 text-sm" />
-          <button type="button" onClick={loadDash} className="rounded-xl border border-[#7A0C2E] px-4 py-2 text-sm font-bold text-maroon">
+          <button type="button" onClick={loadDash} disabled={busy||dashBusy} className="rounded-xl border border-[#7A0C2E] px-4 py-2 text-sm font-bold text-maroon">
             {te ? "చూడు" : "View"}
           </button>
         </div>
         {msg ? <p className="mt-2 text-sm font-medium text-maroon" role="status">{msg}</p> : null}
+        {dashBusy?<p role="status" className="mt-2 text-sm">{te?"గణాంకాలు తనిఖీ చేస్తున్నాం…":"Checking dashboard counts…"}</p>:null}
+        {dashError?<p role="alert" className="mt-2 text-sm text-maroon">{dashError}</p>:null}
         {dash?.success ? (
           <div className="mt-3 space-y-3">
             <div className="grid grid-cols-1 gap-2 text-center text-[12px] sm:grid-cols-3">
