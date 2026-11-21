@@ -110,8 +110,8 @@ export default function PWA() {
           ) : (
             <div className="text-[11px] text-gray-600 telugu">
               {te
-                ? "Home screen లో icon వస్తుంది — matches + requests వెంటనే చూడొచ్చు (offline లో కూడా open అవుతుంది)."
-                : "Icon on home screen — matches + requests instantly (opens offline too)."}
+                ? "హోమ్ స్క్రీన్‌పై షార్ట్‌కట్‌ను జోడించండి. తాజా సంబంధాలు, అభ్యర్థనల కోసం ఇంటర్నెట్ అవసరం."
+                : "Add a home screen shortcut. Live matches and requests need internet."}
             </div>
           )}
         </div>
