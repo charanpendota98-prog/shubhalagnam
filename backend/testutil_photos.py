@@ -1,4 +1,4 @@
-"""Synthetic image bytes for isolated API tests only; never used in live profile fixtures."""
+"""Isolated API photo fixtures; public-domain portrait provenance recorded alongside it."""
 from __future__ import annotations
 
 import io

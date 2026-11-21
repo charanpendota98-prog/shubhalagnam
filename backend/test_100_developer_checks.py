@@ -347,7 +347,9 @@ hd_img.save(hd_buf, format="JPEG")
 hd_bytes = hd_buf.getvalue()
 
 r_photo_hd = client.post("/api/photo/upload", files={"file": ("hd.jpg", hd_bytes, "image/jpeg")}, data={"tsap_id": bride_id}, headers=bride_headers)
-check(42, "High-Resolution Varied Image (>600px) Accepted Successfully", r_photo_hd.status_code in [200, 201])
+from testutil_photos import TEST_PROFILE_PHOTO
+r_photo_portrait = client.post("/api/photo/upload", files={"file": ("portrait.jpg", TEST_PROFILE_PHOTO, "image/jpeg")}, data={"tsap_id": bride_id}, headers=bride_headers)
+check(42, "Nonportrait rejected and one-face portrait accepted pending review", r_photo_hd.status_code == 422 and r_photo_hd.json().get("detail", {}).get("reason") == "NO_FACE" and r_photo_portrait.status_code in [200, 201])
 
 # Non-image file upload rejection
 r_photo_txt = client.post("/api/photo/upload", files={"file": ("hack.txt", b"plain text content", "text/plain")}, data={"tsap_id": bride_id}, headers=bride_headers)
