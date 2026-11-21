@@ -86,9 +86,21 @@ export async function registerPasskey(tsapId: string, token: string, password: s
   }
 }
 
-export async function loginPasskey(): Promise<{ success: boolean; tsap_id?: string; auth_token?: string; message?: string; unconfirmed?: boolean }> {
+export async function loginPasskey(signal?: AbortSignal): Promise<{ success: boolean; tsap_id?: string; auth_token?: string; message?: string; unconfirmed?: boolean }> {
   try {
-    const resBegin = await fetch("/api/auth/passkey/login/begin", {
+    const loginFetch = async (url: string, init: RequestInit) => {
+      const controller = new AbortController();
+      const abort = () => controller.abort();
+      if (signal?.aborted) controller.abort();
+      signal?.addEventListener("abort", abort, {once: true});
+      const timer = window.setTimeout(abort, 20_000);
+      try {
+        const response = await fetch(url, {...init, signal: controller.signal});
+        const data: unknown = await response.json();
+        return {status: response.status, json: async () => data};
+      } finally { window.clearTimeout(timer); signal?.removeEventListener("abort", abort); }
+    };
+    const resBegin = await loginFetch("/api/auth/passkey/login/begin", {
       method: "POST"
     });
     if (resBegin.status !== 200) return { success: false, unconfirmed: true };
@@ -111,21 +123,23 @@ export async function loginPasskey(): Promise<{ success: boolean; tsap_id?: stri
       allowCredentials: encoded.allowCredentials?.map(c => ({ ...c, id: bufferDecode(c.id) })),
     };
     
-    const credential = await navigator.credentials.get({ publicKey: options }) as any;
+    const credential = await navigator.credentials.get({ publicKey: options, signal }) as PublicKeyCredential | null;
+    if (signal?.aborted || !credential || credential.type !== "public-key") return {success: false, unconfirmed: true};
+    const assertion = credential.response as AuthenticatorAssertionResponse;
     
     const response = {
       id: credential.id,
       rawId: bufferEncode(credential.rawId),
       type: credential.type,
       response: {
-        authenticatorData: bufferEncode(credential.response.authenticatorData),
-        clientDataJSON: bufferEncode(credential.response.clientDataJSON),
-        signature: bufferEncode(credential.response.signature),
-        userHandle: credential.response.userHandle ? bufferEncode(credential.response.userHandle) : undefined,
+        authenticatorData: bufferEncode(assertion.authenticatorData),
+        clientDataJSON: bufferEncode(assertion.clientDataJSON),
+        signature: bufferEncode(assertion.signature),
+        userHandle: assertion.userHandle ? bufferEncode(assertion.userHandle) : undefined,
       }
     };
     
-    const resFinish = await fetch("/api/auth/passkey/login/finish", {
+    const resFinish = await loginFetch("/api/auth/passkey/login/finish", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ challenge_id, response })
@@ -142,6 +156,6 @@ export async function loginPasskey(): Promise<{ success: boolean; tsap_id?: stri
     };
   } catch (e: any) {
     console.error("Passkey login error:", e);
-    return { success: false, message: e.message || "Passkey login failed" };
+    return { success: false, unconfirmed: true };
   }
 }

@@ -41,3 +41,13 @@ test('superseded mocked passkey response cannot store a session or redirect',asy
  await page.route('**/api/auth/passkey/login/finish',async r=>{started=true;await pending;await r.fulfill({json:{success:true,tsap_id:'FICTIONAL-STALE',auth_token:''}})});
  await page.getByRole('button',{name:/^Sign in with Passkey/}).click();await expect.poll(()=>started).toBe(true);await page.locator('#login-phone').fill('9876501234');release();await page.waitForTimeout(800);await expect(page).toHaveURL(/\/login$/);expect(await page.evaluate(()=>localStorage.getItem('tsap_id'))).toBeNull();
 });
+
+for(const lang of ['en','te'])for(const width of [320,390,1280])test(`bounded passkey network retry ${lang} ${width}`,async({page})=>{
+ await page.setViewportSize({width,height:850});await fixture(page,lang,200);let calls=0;let stall=true;
+ await page.route('**/api/auth/passkey/login/begin',async r=>{calls++;if(stall)return;await r.fulfill({json:{success:true,options:{challenge:'YQ'},challenge_id:'fictional-challenge'}})});
+ const button=page.getByRole('button',{name:/^(Sign in with Passkey|Passkey తో లాగిన్)/}),feedback=page.locator('[role=status][aria-live=polite]');
+ await page.clock.install();await button.click();await expect.poll(()=>calls).toBe(1);await page.clock.fastForward(20_001);
+ await expect(feedback).toContainText(lang==='te'?'నిర్ధారించలేదు':'did not confirm');await expect(button).toBeEnabled();expect(await page.evaluate(()=>localStorage.getItem('tsap_id'))).toBeNull();
+ await page.clock.resume();await page.locator('h1').click();await page.evaluate(()=>window.scrollTo(0,0));await page.screenshot({path:`artifacts/passkey-contract/timeout-${lang}-${width}.png`,fullPage:true});
+ stall=false;await page.clock.resume();await button.click();await expect(page).toHaveURL(/\/requests$/);expect(await page.evaluate(()=>localStorage.getItem('tsap_id'))).toBe('FICTIONAL-PASSKEY');
+});

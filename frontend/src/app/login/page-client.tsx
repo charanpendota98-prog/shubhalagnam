@@ -59,8 +59,11 @@ export default function LoginPage() {
 
   const attempt = useRef(0);
   const activeRequest = useRef(false);
+  const passkeyController = useRef<AbortController | null>(null);
   const redirectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const abandon = () => {
+    passkeyController.current?.abort();
+    passkeyController.current = null;
     attempt.current += 1;
     activeRequest.current = false;
     if (redirectTimer.current) clearTimeout(redirectTimer.current);
@@ -69,6 +72,8 @@ export default function LoginPage() {
     setBusy(false);
   };
   useEffect(() => () => {
+    passkeyController.current?.abort();
+    passkeyController.current = null;
     attempt.current += 1;
     if (redirectTimer.current) clearTimeout(redirectTimer.current);
   }, []);
@@ -662,7 +667,10 @@ export default function LoginPage() {
               onClick={async () => {
                 const requestId = begin();
                 if (requestId === null) return;
-                const res = await loginPasskey();
+                const controller = new AbortController();
+                passkeyController.current = controller;
+                const res = await loginPasskey(controller.signal);
+                if (passkeyController.current === controller) passkeyController.current = null;
                 if (!finish(requestId)) return;
                 if (confirmedAuthSession(res)) {
                   showFeedback(res.message || (te ? "లాగిన్ విజయవంతమైంది." : "Sign-in succeeded."), "ok");

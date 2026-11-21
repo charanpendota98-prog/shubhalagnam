@@ -12,8 +12,8 @@ async function run(beginStatus=200,finishStatus=200,body={success:true,tsap_id:'
  const module={exports:{}};
  const queue=[{status:beginStatus,body:beginBody},{status:finishStatus,body}];
  const bytes=new Uint8Array([97]).buffer;
- const context={exports:module.exports,module,require:()=>confirmation.exports,console:{error(){}},Uint8Array,
-  window:{atob:x=>Buffer.from(x,'base64').toString('binary'),btoa:x=>Buffer.from(x,'binary').toString('base64')},
+ const context={exports:module.exports,module,require:()=>confirmation.exports,console:{error(){}},Uint8Array,AbortController,
+  window:{setTimeout,clearTimeout,atob:x=>Buffer.from(x,'base64').toString('binary'),btoa:x=>Buffer.from(x,'binary').toString('base64')},
   navigator:{credentials:{get:async()=>{credentials++;return {id:'fictional-credential',rawId:bytes,type:'public-key',response:{authenticatorData:bytes,clientDataJSON:bytes,signature:bytes,userHandle:null}};}}},
   fetch:async()=>{const x=queue[calls++];return {ok:x.status>=200&&x.status<300,status:x.status,json:async()=>x.body};}};
  vm.runInNewContext(compile('webauthn-client'),context);
