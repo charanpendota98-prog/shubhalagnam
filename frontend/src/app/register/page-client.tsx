@@ -25,6 +25,7 @@ import { useLang } from "@/lib/lang";
 import { apiDisplayMessage, getCsrfToken, readApiJson } from "@/lib/api";
 import { registerPasskey } from "@/lib/webauthn-client";
 import { fetchAuthCapabilities } from "@/lib/auth";
+import { registrationReferralCheck, type RegistrationReferral } from "@/lib/registration-referral-confirmation";
 import { registrationConfirmation } from "@/lib/registration-response";
 import { confirmedEmailResend, confirmedEmailVerification } from "@/lib/email-verification-confirmation";
 
@@ -788,7 +789,44 @@ function Wizard() {
     return () => { active = false; };
   }, []);
   const [refInvite, setRefInvite] = useState("");
-  const [refInfo, setRefInfo] = useState<any>(null);
+  const [refInfo, setRefInfo] = useState<RegistrationReferral | null>(null);
+  const [referralState, setReferralState] = useState<"checking" | "valid" | "invalid" | "unconfirmed">("checking");
+  const referralController = useRef<AbortController | null>(null);
+  const referralEpoch = useRef(0);
+  const referralActive = useRef(true);
+  useEffect(() => {
+    referralActive.current = true;
+    return () => { referralActive.current = false; referralEpoch.current += 1; referralController.current?.abort(); };
+  }, []);
+  const checkRegistrationReferral = useCallback(async (code: string, kind: "click" | "validate", invite = "") => {
+    const epoch = ++referralEpoch.current;
+    referralController.current?.abort();
+    setRefInfo(null);
+    if (!/^[A-Z0-9_-]{1,80}$/.test(code)) { setReferralState("unconfirmed"); return; }
+    setReferralState("checking");
+    const controller = new AbortController();
+    referralController.current = controller;
+    const timeout = window.setTimeout(() => {
+      controller.abort();
+      if (referralActive.current && epoch === referralEpoch.current) setReferralState("unconfirmed");
+    }, 20_000);
+    try {
+      const path = kind === "click"
+        ? `/api/referral/click/${encodeURIComponent(code)}?source=register_direct${invite ? `&inv=${encodeURIComponent(invite)}` : ""}`
+        : `/api/referral/validate/${encodeURIComponent(code)}`;
+      const response = await fetch(path, { method: kind === "click" ? "POST" : "GET", signal: controller.signal });
+      const data: unknown = await readApiJson(response);
+      if (!referralActive.current || epoch !== referralEpoch.current || controller.signal.aborted) return;
+      const checked = registrationReferralCheck(response.status, data, code, kind);
+      setRefInfo(checked.state === "valid" ? checked.info : null);
+      setReferralState(checked.state);
+    } catch {
+      if (referralActive.current && epoch === referralEpoch.current) setReferralState("unconfirmed");
+    } finally {
+      window.clearTimeout(timeout);
+      if (referralController.current === controller) referralController.current = null;
+    }
+  }, []);
   const [result, setResult] = useState<any>(null);
   const [emailCode, setEmailCode] = useState("");
   const [emailVerifyBusy, setEmailVerifyBusy] = useState(false);
@@ -1076,16 +1114,13 @@ function Wizard() {
     if (!ref) return;
     setRefLocked(ref);
     setF((prev) => ({ ...prev, referral_code: ref }));
-    if (!sessionStorage.getItem("tsap_click_fired")) {
-      sessionStorage.setItem("tsap_click_fired", "1");
-      fetch(`/api/referral/click/${encodeURIComponent(ref)}?source=register_direct${inv ? `&inv=${encodeURIComponent(inv)}` : ""}`, { method: "POST" })
-        .then((r) => readApiJson(r))
-        .then((d) => {
-          if (d?.valid_code && d?.referrer_name) setRefInfo({ ok: true, referrer_name: d.referrer_name, bonus_credits: d.bonus_credits });
-        })
-        .catch(() => {});
-    }
-  }, [params]);
+    let recordClick = false;
+    try {
+      recordClick = !sessionStorage.getItem("tsap_click_fired");
+      if (recordClick) sessionStorage.setItem("tsap_click_fired", "1");
+    } catch { /* Storage is optional. Read-only validation avoids duplicate analytics. */ }
+    void checkRegistrationReferral(ref, recordClick ? "click" : "validate", inv);
+  }, [params, checkRegistrationReferral]);
 
   useEffect(() => {
     try {
@@ -1827,23 +1862,28 @@ function Wizard() {
 
         {/* Referral Welcome Banner */}
         {refLocked && (
-          <div className="bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-400 text-[#5C0822] rounded-2xl p-3.5 sm:p-4 shadow-md border-2 border-white flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div data-testid="registration-referral-banner" className="bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-400 text-[#5C0822] rounded-2xl p-3.5 sm:p-4 shadow-md border-2 border-white flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <span className="text-2xl sm:text-3xl">🎁</span>
               <div>
                 <div className="font-black text-xs sm:text-sm uppercase tracking-wide">
                   {te ? (refInfo?.ok && refInfo?.referrer_name ? `${refInfo.referrer_name} గారి సిఫార్సు` : "రిఫరల్ కోడ్ అందింది") : (refInfo?.ok && refInfo?.referrer_name ? `Referred by ${refInfo.referrer_name}` : "Referral code received")}
                 </div>
-                <div className="text-[11px] sm:text-xs font-bold mt-0.5 opacity-90">
+                <div role="status" aria-live="polite" className="text-[11px] sm:text-xs font-bold mt-0.5 opacity-90">
                   {refInfo?.ok
-                    ? te ? `సర్వర్ referral code ను ధృవీకరించింది${refInfo?.referrer_name ? `: ${refInfo.referrer_name}` : ""}. Valid attachment పై మీకు +${Number(refInfo?.bonus_credits ?? 1)} interest-request credit వస్తుంది; ఇది cash లేదా contact unlock కాదు.` : `The server verified this referral code. You will receive +${Number(refInfo?.bonus_credits ?? 1)} interest-request credit when the referral is attached. Credits are not cash and do not unlock contact details.`
-                    : te ? "Referral eligibility is checked by the server when you register." : "The server checks referral-code and request-credit eligibility when you register."}
+                    ? te ? `సర్వర్ referral code ను ధృవీకరించింది${refInfo?.referrer_name ? `: ${refInfo.referrer_name}` : ""}. Valid attachment పై మీకు +${refInfo?.bonus_credits ?? 0} interest-request credit వస్తుంది; ఇది cash లేదా contact unlock కాదు.` : `The server verified this referral code. You will receive +${refInfo?.bonus_credits ?? 0} interest-request credit when the referral is attached. Credits are not cash and do not unlock contact details.`
+                    : referralState === "checking"
+                      ? T("సిఫార్సు కోడ్‌ను తనిఖీ చేస్తున్నాం.", "Checking the referral code.")
+                      : referralState === "invalid"
+                        ? T("ఈ సిఫార్సు కోడ్‌ను నిర్ధారించలేదు. సిఫార్సు లేకుండానే నమోదు చేసుకోవచ్చు.", "This referral code was not validated. You can register without a referral.")
+                        : T("సిఫార్సు కోడ్‌ను తనిఖీ చేయలేకపోయాం. అదనపు పరిచయాల అర్హత ఇంకా నిర్ధారణ కాలేదు.", "We could not check the referral code. Bonus request-credit eligibility is not confirmed.")}
                 </div>
               </div>
             </div>
             <span className="px-3 py-1 bg-[#5C0822] text-white text-[11px] font-black rounded-full self-start sm:self-auto shrink-0 shadow-xs">
-              {refInfo?.ok ? (te ? `✓ +${Number(refInfo?.bonus_credits ?? 1)} request credit అర్హత` : `✓ Eligible for +${Number(refInfo?.bonus_credits ?? 1)} request credit`) : te ? "పరిశీలనలో" : "Pending review"}
+              {refInfo?.ok ? (te ? `✓ +${refInfo?.bonus_credits ?? 0} request credit అర్హత` : `✓ Eligible for +${refInfo?.bonus_credits ?? 0} request credit`) : referralState === "checking" ? T("తనిఖీ చేస్తున్నాం", "Checking") : T("నిర్ధారణ కాలేదు", "Not confirmed")}
             </span>
+            {!refInfo && referralState !== "checking" && <button type="button" className="min-h-11 rounded-xl border border-[#5C0822]/30 px-3 py-2 text-xs font-bold" onClick={() => { void checkRegistrationReferral(refLocked, "validate"); }}>{T("కోడ్‌ను మళ్లీ తనిఖీ చేయండి", "Check the code again")}</button>}
           </div>
         )}
 
@@ -2192,14 +2232,7 @@ function Wizard() {
                   onChange={(e) => {
                     const code = e.target.value.toUpperCase();
                     set("referral_code", code);
-                    if (code.length >= 3) {
-                      fetch(`/api/referral/validate/${encodeURIComponent(code)}`)
-                        .then((r) => readApiJson(r))
-                        .then((d) => {
-                          if (d?.ok && d?.referrer_name) setRefInfo({ ok: true, referrer_name: d.referrer_name, bonus_credits: d.bonus_credits });
-                        })
-                        .catch(() => {});
-                    }
+                    void checkRegistrationReferral(code, "validate");
                   }}
                   placeholder={T("Referral code (ఐచ్ఛికం)", "Referral code (optional)")}
                   disabled={!!refLocked}
