@@ -11,19 +11,9 @@ from PIL import Image
 
 
 def _real_jpg():
-    import random
-    img = Image.new("RGB", (600, 600))
-    px = img.load()
-    rnd = random.Random(28)
-    for x in range(0, 600, 4):
-        for y in range(0, 600, 4):
-            r, g, b = rnd.randrange(256), rnd.randrange(256), rnd.randrange(256)
-            for dx in range(4):
-                for dy in range(4):
-                    px[x + dx, y + dy] = (r, g, b)
-    buf = io.BytesIO()
-    img.save(buf, "JPEG", quality=92)
-    return buf.getvalue()
+    # A public-domain one-face test portrait, never a production member photo.
+    from testutil_photos import TEST_PROFILE_PHOTO
+    return TEST_PROFILE_PHOTO
 
 os.environ.setdefault("WA_TEST_FAST", "1")
 os.environ.setdefault("OTP_DEV_MODE", "true")
