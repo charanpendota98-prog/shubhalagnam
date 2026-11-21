@@ -5,7 +5,7 @@ for(const lang of ['en','te'])for(const width of [320,390,1280])test(`recovery p
  await page.route('**/api/**',r=>{
   const u=new URL(r.request().url());if(r.request().method()!=='GET')writes.push(u.pathname);
   if(u.pathname==='/api/auth/capabilities')return r.fulfill({json:{password_login:true,login_identifier:'phone',phone_otp:false,email_recovery_configured:true,passkeys_configured:false,email_optional_at_registration:true}});
-  if(u.pathname==='/api/auth/forgot-email')return r.fulfill({json:{message_en:'Fictional recovery requested.',message_telugu:'కల్పిత రికవరీ అభ్యర్థన.'}});
+  if(u.pathname==='/api/auth/forgot-email')return r.fulfill({json:{success:true,message_en:'Fictional recovery requested.',message_telugu:'కల్పిత రికవరీ అభ్యర్థన.'}});
   if(u.pathname==='/api/auth/reset-email')return r.fulfill({status:400,json:{detail:'Fictional reset rejected. No account was changed.'}});
   return r.fulfill({json:{}});
  });
