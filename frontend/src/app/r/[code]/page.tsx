@@ -25,7 +25,7 @@ export default function ReferralLandingPage() {
   const inv = String(search?.get("inv") || "").trim().toUpperCase().slice(0, 16);
   const campaign = String(search?.get("campaign") || "").trim();
   const campaignQuery = /^[A-Za-z0-9_-]{24}$/.test(campaign) ? `&campaign=${encodeURIComponent(campaign)}` : "";
-  const [info, setInfo] = useState<any>(null);
+  const [info, setInfo] = useState<{valid_code:boolean;referrer_name:string;bonus_credits:number}|null>(null);
   const [checked, setChecked] = useState(false);
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
@@ -36,7 +36,7 @@ export default function ReferralLandingPage() {
     try { sessionStorage.setItem("tsap_click_fired", code); } catch { /* ignore */ }  // 🌊 W20 dedupe
     const inviteQuery = inv ? `&inv=${encodeURIComponent(inv)}` : "";
     fetch(`/api/referral/click/${code}?source=link${inviteQuery}${campaignQuery}`, { method: "POST" })
-      .then(async r => { const d = await readApiJson(r); if (!r.ok || typeof d?.valid_code !== "boolean") throw new Error("Unavailable"); return d; })
+      .then(async r => { const d = await readApiJson(r); if (!r.ok || d?.success !== true || typeof d.valid_code !== "boolean" || (d.valid_code && (typeof d.referrer_name !== "string" || !Number.isSafeInteger(d.bonus_credits) || d.bonus_credits < 0))) throw new Error("Unavailable"); return d; })
       .then(d => { if (active) { setInfo(d); try { if (d.valid_code) localStorage.setItem("tsap_ref_from_link", code); else if (localStorage.getItem("tsap_ref_from_link") === code) localStorage.removeItem("tsap_ref_from_link"); } catch {} } })
       .catch(() => { if (active) setFailed(true); })
       .finally(() => { if (active) setChecked(true); });
@@ -45,6 +45,7 @@ export default function ReferralLandingPage() {
 
   const valid = info?.valid_code;
   const name = info?.referrer_name;
+  const bonus = info?.bonus_credits ?? 0;
 
   // valid code ayithe 1.2 sec lo register ki auto-redirect (user experience smooth)
   useEffect(() => {
@@ -74,10 +75,10 @@ export default function ReferralLandingPage() {
             </h1>
             <p className={`mt-2 text-sm text-gray-600 ${te ? "telugu" : ""}`} lang={te ? "te-IN" : "en-IN"}>
               {te ? <>Code: <b className="text-[#7A0C2E]">{code}</b> — register చేస్తే మీ account కి{" "}</> : <>Code: <b className="text-[#7A0C2E]">{code}</b> — when you register, your account receives{" "}</>}
-              <b className="text-green-700">+{info?.bonus_credits || 1} credit FREE</b> 🎁
+              <b className="text-green-700">+{bonus} credit FREE</b> 🎁
             </p>
             <div className="mt-4 rounded-2xl bg-[#FFF8E7] border border-[#D4AF37]/40 p-3 text-left text-[11px] text-[#7A0C2E] space-y-1">
-              <div>{te ? <>✅ మొదటి <b>3 requests FREE</b> (+1 bonus credit మీ friend నుంచి)</> : <>✅ First <b>3 requests FREE</b> (+1 bonus credit from your friend)</>}</div>
+              <div>{te ? <>✅ మొదటి <b>3 requests FREE</b> ({bonus} అదనపు పరిచయాలు)</> : <>✅ First <b>3 requests FREE</b> ({bonus} bonus {bonus === 1 ? "credit" : "credits"} from your friend)</>}</div>
               <div>{te ? "✅ ₹99 → 5 requests · ₹199 → 12 · ₹299 → 25 · ₹499 → 50" : "✅ ₹99 → 5 requests · ₹199 → 12 · ₹299 → 25 · ₹499 → 50"}</div>
               <div>{te ? "✅ Approval తర్వాత configured destination కు post queue కావచ్చు; delivery హామీ కాదు" : "✅ After approval, a post may be queued for a configured destination; delivery is not guaranteed"}</div>
               <div>{te ? "✅ Private-photo setting ను గౌరవించే outputs లో photo దాచబడుతుంది; owner accept చేసిన తర్వాత accepted-request account views లో contact access వస్తుంది. Notification delivery హామీ లేదు." : "✅ The private-photo setting suppresses photos only in outputs that honor it; owner acceptance grants contact access in accepted-request account views. Notification delivery is not guaranteed."}</div>
