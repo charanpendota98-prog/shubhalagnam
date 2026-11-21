@@ -1,4 +1,4 @@
-"""Synthetic image bytes for isolated API tests only; never used in live profile fixtures."""
+"""Isolated API photo fixtures; public-domain portrait provenance recorded alongside it."""
 from __future__ import annotations
 
 import io
@@ -28,4 +28,7 @@ def make_test_photo() -> bytes:
     return output.getvalue()
 
 
-TEST_PROFILE_PHOTO = make_test_photo()
+# Public-domain NASA sample used only in isolated face-eligibility tests.
+# Source and rights: tests/fixtures/README.md. Never a production member image.
+from pathlib import Path
+TEST_PROFILE_PHOTO = (Path(__file__).parent / "tests/fixtures/nasa-astronaut.jpg").read_bytes()

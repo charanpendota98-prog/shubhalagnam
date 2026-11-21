@@ -19,6 +19,8 @@ if _backend_dir not in sys.path:
     sys.path.insert(0, _backend_dir)
 
 from fastapi import FastAPI, HTTPException, Request, UploadFile, File, Form, Body
+from starlette.concurrency import run_in_threadpool
+from photo_face import check_photo_face
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, Response
 from atomic_store import atomic_json_dump, atomic_write_bytes
@@ -3163,6 +3165,13 @@ async def register(
             "te": photo_verdict["te"],
             "checks": photo_verdict["checks"],
         })
+    face_verdict = await run_in_threadpool(check_photo_face, photo_data)
+    if not face_verdict["ok"]:
+        raise HTTPException(503 if face_verdict["reason"] == "FACE_CHECK_UNAVAILABLE" else 422, {
+            "reason": face_verdict["reason"], "message_en": face_verdict["en"],
+            "message_telugu": face_verdict["te"], "en": face_verdict["en"], "te": face_verdict["te"],
+        })
+    photo_verdict["checks"].update(face_verdict["checks"])
     try:
         photo_data = sanitize_photo(photo_data, photo_verdict["checks"]["format"])
         photo_verdict["checks"]["sanitized_bytes"] = len(photo_data)
@@ -7662,6 +7671,14 @@ async def photo_upload(file: UploadFile = File(...), tsap_id: str = Form(""), re
                                   "te": verdict["te"],
                                   "message_telugu": f"📸 {verdict['te']}",
                                   "checks": verdict["checks"]})
+    if _tid:
+        face_verdict = await run_in_threadpool(check_photo_face, data)
+        if not face_verdict["ok"]:
+            raise HTTPException(503 if face_verdict["reason"] == "FACE_CHECK_UNAVAILABLE" else 422, {
+                "reason": face_verdict["reason"], "en": face_verdict["en"], "te": face_verdict["te"],
+                "message_en": face_verdict["en"], "message_telugu": face_verdict["te"],
+            })
+        verdict["checks"].update(face_verdict["checks"])
     try:
         data = sanitize_photo(data, verdict["checks"]["format"])
         verdict["checks"]["sanitized_bytes"] = len(data)
