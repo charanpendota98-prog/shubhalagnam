@@ -15,21 +15,30 @@ export default function CreatorCampaigns({identity,partnerToken}:{identity:strin
  const [rows,setRows]=useState<Campaign[]>([]),[name,setName]=useState(""),[channel,setChannel]=useState("youtube"),[video,setVideo]=useState("");
  const [busy,setBusy]=useState(false),[error,setError]=useState(""),[notice,setNotice]=useState(""),[updated,setUpdated]=useState("");
  const epoch=useRef(0),lock=useRef(false);
+ const controllers=useRef(new Set<AbortController>());
+ const boundedJson=useCallback(async(url:string,init?:RequestInit)=>{
+  const controller=new AbortController();controllers.current.add(controller);
+  let timer:ReturnType<typeof setTimeout>|undefined;
+  try{return await Promise.race([
+   (async()=>{const response=await fetch(url,{...init,signal:controller.signal});return{ok:response.ok,status:response.status,data:await readApiJson(response)};})(),
+   new Promise<never>((_,reject)=>{timer=setTimeout(()=>{controller.abort();reject(new Error("Request unconfirmed"));},20_000);controller.signal.addEventListener("abort",()=>reject(new Error("Request cancelled")),{once:true});})
+  ]);}finally{clearTimeout(timer);controllers.current.delete(controller);}
+ },[]);
  const endpoint=`/api/referral/${encodeURIComponent(identity)}/campaigns`;
  const headers=useCallback(():Record<string,string>=>partnerToken?{"X-Partner-Token":partnerToken}:authHeaders(),[partnerToken]);
  const load=useCallback(async()=>{
   const current=epoch.current;setBusy(true);setError("");
-  try{const r=await fetch(endpoint,{headers:headers(),cache:"no-store"});const d=await readApiJson(r);if(current!==epoch.current)return;
-   if(!r.ok||!d.success){if(r.status===401||r.status===403){setRows([]);setUpdated("");}throw new Error("refresh");}
+  try{const {ok,status,data:d}=await boundedJson(endpoint,{headers:headers(),cache:"no-store"});if(current!==epoch.current)return;
+   if(!ok||!d.success){if(status===401||status===403){setRows([]);setUpdated("");}throw new Error("refresh");}
    setRows(d.campaigns||[]);setUpdated(new Date().toLocaleTimeString(te?"te-IN":"en-IN"));
   }catch{if(current===epoch.current)setError(te?"తాజా campaign వివరాలు రాలేదు. మళ్లీ ప్రయత్నించండి.":"Campaign details could not be refreshed. Please retry.");}
   finally{if(current===epoch.current)setBusy(false);}
- },[endpoint,headers,te]);
- useEffect(()=>{epoch.current+=1;setRows([]);setUpdated("");setName("");setVideo("");setNotice("");lock.current=false;void load();return()=>{epoch.current+=1;};},[load]);
+ },[endpoint,headers,te,boundedJson]);
+ useEffect(()=>{epoch.current+=1;setRows([]);setUpdated("");setName("");setVideo("");setNotice("");lock.current=false;void load();return()=>{epoch.current+=1;controllers.current.forEach(c=>c.abort());};},[load]);
  const mutate=async(path:string,body:object)=>{
   if(lock.current||busy||error)return;lock.current=true;const current=epoch.current;setBusy(true);setNotice("");
-  try{const r=await fetch(path,{method:"POST",headers:{...headers(),"Content-Type":"application/json"},body:JSON.stringify(body)});const d=await readApiJson(r);if(current!==epoch.current)return;
-   if(!r.ok||!d.success){if(r.status===401||r.status===403){setRows([]);setUpdated("");}throw new Error("unconfirmed");}setName("");setVideo("");await load();
+  try{const {ok,status,data:d}=await boundedJson(path,{method:"POST",headers:{...headers(),"Content-Type":"application/json"},body:JSON.stringify(body)});if(current!==epoch.current)return;
+   if(!ok||!d.success){if(status===401||status===403){setRows([]);setUpdated("");}throw new Error("unconfirmed");}setName("");setVideo("");await load();
   }catch{if(current===epoch.current){setError(te?"మార్పు నిర్ధారణ కాలేదు. మళ్లీ చేసే ముందు Refresh చేయండి.":"Change not confirmed. Refresh and check before trying again.");}}
   finally{if(current===epoch.current){lock.current=false;setBusy(false);}}
  };
