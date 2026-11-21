@@ -771,6 +771,10 @@ function Wizard() {
   const [refLocked, setRefLocked] = useState("");
   const [passkeyPw, setPasskeyPw] = useState("");
   const [passkeyBusy, setPasskeyBusy] = useState(false);
+  const [passkeyFeedback, setPasskeyFeedback] = useState<"" | "unconfirmed" | "confirmed">("");
+  const passkeyLock = useRef(false);
+  const passkeyActive = useRef(true);
+  useEffect(() => { passkeyActive.current = true; return () => { passkeyActive.current = false; }; }, []);
   const [passkeyStatus, setPasskeyStatus] = useState<"checking" | "available" | "unavailable" | "error">("checking");
   useEffect(() => {
     let active = true;
@@ -1409,9 +1413,12 @@ function Wizard() {
               <p className="text-xs text-slate-600 mb-3">{T("పాస్‌వర్డ్ లేకుండా సురక్షితంగా మీ ఫోన్ వేలిముద్ర/ఫేస్ లాక్ తో లాగిన్ అవ్వడానికి పాస్‌కీ సెటప్ చేయండి.", "Set up a passkey to sign in securely with your fingerprint or face without a password.")}</p>
               <div className="flex flex-col sm:flex-row gap-2 max-w-sm">
                 <input 
-                  type="password" 
+                  type="password"
+                  aria-label={T("మీ పాస్‌వర్డ్", "Your password")}
+                  autoComplete="current-password"
+                  aria-describedby="registration-passkey-feedback"
                   value={passkeyPw} 
-                  onChange={(e) => setPasskeyPw(e.target.value)}
+                  onChange={(e) => { setPasskeyPw(e.target.value); setPasskeyFeedback(""); }}
                   placeholder={T("మీ పాస్‌వర్డ్ (Your Password)", "Your Password")}
                   className="flex-1 bg-white border border-slate-200 rounded-xl px-3.5 py-2 text-sm focus:border-slate-800 outline-none"
                   disabled={passkeyBusy}
@@ -1419,32 +1426,34 @@ function Wizard() {
                 <button 
                   type="button"
                   onClick={async () => {
-                    if (passkeyStatus !== "available") return;
-                    if (!passkeyPw) {
-                      alert(T("దయచేసి పాస్‌వర్డ్ ఎంటర్ చేయండి.", "Please enter your password."));
-                      return;
-                    }
-                    const token = sessionStorage.getItem("tsap_token");
-                    if (!token) {
-                      alert(T("సెషన్ గడువు ముగిసింది. దయచేసి మళ్లీ లాగిన్ చేయండి.", "Session expired. Please sign in again."));
-                      return;
-                    }
+                    if (passkeyStatus !== "available" || passkeyLock.current || !passkeyPw || passkeyFeedback === "confirmed") return;
+                    // A confirmed registration may use a same-origin HttpOnly
+                    // session with no bearer token. The server checks ownership.
+                    let token = "";
+                    try { token = sessionStorage.getItem("tsap_token") || ""; } catch { /* Cookie sessions do not need storage. */ }
+                    passkeyLock.current = true;
                     setPasskeyBusy(true);
-                    const res = await registerPasskey(tsap, token, passkeyPw);
-                    setPasskeyBusy(false);
-                    if (res.success) {
-                      setPasskeyPw("");
-                      alert(T("✅ పాస్‌కీ విజయవంతంగా సెటప్ చేయబడింది!", "✅ Passkey setup successful!"));
-                    } else {
-                      alert(res.message);
+                    setPasskeyFeedback("");
+                    try {
+                      const res = await registerPasskey(tsap, token, passkeyPw);
+                      if (!passkeyActive.current) return;
+                      setPasskeyFeedback(res.success === true ? "confirmed" : "unconfirmed");
+                      if (res.success === true) setPasskeyPw("");
+                    } finally {
+                      passkeyLock.current = false;
+                      if (passkeyActive.current) setPasskeyBusy(false);
                     }
                   }}
-                  disabled={passkeyBusy || !passkeyPw}
+                  disabled={passkeyBusy || !passkeyPw || passkeyFeedback === "confirmed"}
                   className="bg-slate-800 text-white px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap disabled:opacity-50"
                 >
                   {passkeyBusy ? T("సెటప్ అవుతోంది...", "Setting up...") : T("పాస్‌కీ సెటప్ చేయండి", "Register Passkey")}
                 </button>
               </div>
+              <p id="registration-passkey-feedback" role={passkeyFeedback === "unconfirmed" ? "alert" : "status"} aria-live="polite" className="mt-3 text-xs leading-relaxed text-slate-700">
+                {passkeyFeedback === "confirmed" ? T("పాస్‌కీ సెటప్ పూర్తయింది. దీన్ని ఉపయోగించి లాగిన్ అవ్వవచ్చు.", "Passkey setup is confirmed. You can use it to sign in.")
+                  : passkeyFeedback === "unconfirmed" ? T("పాస్‌కీ సెటప్ పూర్తయిందని నిర్ధారించలేకపోయాం. మళ్లీ ప్రయత్నించండి.", "We could not confirm passkey setup. Try again.") : ""}
+              </p>
             </div> : <p role="status" data-testid="registration-passkey-unavailable" className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-xs text-slate-600">
               {passkeyStatus === "checking"
                 ? T("Passkey అందుబాటు తనిఖీ చేస్తున్నాం...", "Checking passkey availability...")

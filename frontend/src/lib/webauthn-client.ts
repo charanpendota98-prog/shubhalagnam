@@ -19,25 +19,41 @@ export async function registerPasskey(tsapId: string, token: string, password: s
       headers: { "Content-Type": "application/json", "X-Tsap-Token": token },
       body: JSON.stringify({ tsap_id: tsapId, password })
     });
-    if (!resBegin.ok) return { success: false, message: "Failed to begin registration" };
-    const { options, challenge_id } = await resBegin.json();
-    
-    options.challenge = bufferDecode(options.challenge);
-    options.user.id = bufferDecode(options.user.id);
-    if (options.excludeCredentials) {
-      options.excludeCredentials.forEach((c: any) => c.id = bufferDecode(c.id));
-    }
-    
-    const credential = await navigator.credentials.create({ publicKey: options }) as any;
-    
+    const unconfirmed = { success: false, message: "Passkey setup could not be confirmed. Try again." };
+    if (resBegin.status !== 200) return unconfirmed;
+    const begin: unknown = await resBegin.json();
+    if (!confirmedAuthAck(begin) || begin.error || begin.detail ||
+        typeof begin.challenge_id !== "string" || !begin.challenge_id.trim() ||
+        !begin.options || typeof begin.options !== "object" || Array.isArray(begin.options)) return unconfirmed;
+    const { options, challenge_id } = begin as {
+      challenge_id: string;
+      options: Omit<PublicKeyCredentialCreationOptions, "challenge" | "user" | "excludeCredentials"> & {
+        challenge: string;
+        user: Omit<PublicKeyCredentialUserEntity, "id"> & {id: string};
+        excludeCredentials?: (Omit<PublicKeyCredentialDescriptor, "id"> & {id: string})[];
+      };
+    };
+    if (typeof options.challenge !== "string" || !options.challenge || !options.user ||
+        typeof options.user.id !== "string" || !options.user.id ||
+        (options.excludeCredentials !== undefined && !Array.isArray(options.excludeCredentials))) return unconfirmed;
+    const publicKey: PublicKeyCredentialCreationOptions = {
+      ...options, challenge: bufferDecode(options.challenge),
+      user: {...options.user, id: bufferDecode(options.user.id)},
+      excludeCredentials: options.excludeCredentials?.map(c => ({...c, id: bufferDecode(c.id)})),
+    };
+    /* decoded options are kept separate from the response object. */
+    const credential = await navigator.credentials.create({ publicKey }) as PublicKeyCredential | null;
+    if (!credential || credential.type !== "public-key") return unconfirmed;
+    const attestation = credential.response as AuthenticatorAttestationResponse;
+
     const response = {
       id: credential.id,
       rawId: bufferEncode(credential.rawId),
       type: credential.type,
       response: {
-        attestationObject: bufferEncode(credential.response.attestationObject),
-        clientDataJSON: bufferEncode(credential.response.clientDataJSON),
-        transports: credential.response.getTransports ? credential.response.getTransports() : []
+        attestationObject: bufferEncode(attestation.attestationObject),
+        clientDataJSON: bufferEncode(attestation.clientDataJSON),
+        transports: attestation.getTransports ? attestation.getTransports() : []
       }
     };
     
@@ -47,8 +63,10 @@ export async function registerPasskey(tsapId: string, token: string, password: s
       body: JSON.stringify({ tsap_id: tsapId, password, challenge_id, response })
     });
     
-    const data = await resFinish.json();
-    return { success: data.success, message: data.message_telugu || data.detail };
+    if (resFinish.status !== 200) return unconfirmed;
+    const data: unknown = await resFinish.json();
+    if (!confirmedAuthAck(data) || data.error || data.detail) return unconfirmed;
+    return { success: true, message: typeof data.message_telugu === "string" ? data.message_telugu : undefined };
   } catch (e: any) {
     console.error("Passkey reg error:", e);
     return { success: false, message: e.message || "Passkey registration failed" };
