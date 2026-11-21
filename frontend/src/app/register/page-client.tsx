@@ -1865,15 +1865,21 @@ function Wizard() {
         {/* Referral Welcome Banner */}
         {refLocked && (
           <div data-testid="registration-referral-banner" className="bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-400 text-[#5C0822] rounded-2xl p-3.5 sm:p-4 shadow-md border-2 border-white flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <span className="text-2xl sm:text-3xl">🎁</span>
-              <div>
+            <div className="flex min-w-0 items-center gap-3">
+              <Gift aria-hidden="true" className="h-7 w-7 shrink-0 sm:h-8 sm:w-8" />
+              <div className="min-w-0 break-words">
                 <div className="font-black text-xs sm:text-sm uppercase tracking-wide">
-                  {te ? (refInfo?.ok && refInfo?.referrer_name ? `${refInfo.referrer_name} గారి సిఫార్సు` : "రిఫరల్ కోడ్ అందింది") : (refInfo?.ok && refInfo?.referrer_name ? `Referred by ${refInfo.referrer_name}` : "Referral code received")}
+                  {te ? (refInfo?.ok && refInfo?.referrer_name ? `${refInfo.referrer_name} గారి సిఫార్సు` : "సిఫార్సు కోడ్ అందింది") : (refInfo?.ok && refInfo?.referrer_name ? `Referred by ${refInfo.referrer_name}` : "Referral code received")}
                 </div>
                 <div role="status" aria-live="polite" className="text-[11px] sm:text-xs font-bold mt-0.5 opacity-90">
                   {refInfo?.ok
-                    ? te ? `సర్వర్ referral code ను ధృవీకరించింది${refInfo?.referrer_name ? `: ${refInfo.referrer_name}` : ""}. Valid attachment పై మీకు +${refInfo?.bonus_credits ?? 0} interest-request credit వస్తుంది; ఇది cash లేదా contact unlock కాదు.` : `The server verified this referral code. You will receive +${refInfo?.bonus_credits ?? 0} interest-request credit when the referral is attached. Credits are not cash and do not unlock contact details.`
+                    ? te
+                      ? refInfo.bonus_credits === 0
+                        ? "సిఫార్సు కోడ్ నిర్ధారణ అయింది. అదనపు పరిచయ అభ్యర్థనలు: 0. ఈ కోడ్‌కు అదనపు ప్రయోజనం లేదు."
+                        : `సిఫార్సు కోడ్ నిర్ధారణ అయింది. నమోదు సమయంలో ఈ కోడ్ చెల్లుబాటుగా జతైతే +${refInfo.bonus_credits} అదనపు పరిచయ అభ్యర్థనలు పొందవచ్చు. ఇవి నగదు కావు; సంప్రదింపు వివరాలను చూపించవు.`
+                      : refInfo.bonus_credits === 0
+                        ? "The server verified this referral code. Bonus request credits: 0. This code has no bonus benefit."
+                        : `The server verified this referral code. You are eligible for +${refInfo.bonus_credits} bonus interest-request credits when a valid referral is attached during registration. Credits are not cash and do not unlock contact details.`
                     : referralState === "checking"
                       ? T("సిఫార్సు కోడ్‌ను తనిఖీ చేస్తున్నాం.", "Checking the referral code.")
                       : referralState === "invalid"
@@ -1882,8 +1888,10 @@ function Wizard() {
                 </div>
               </div>
             </div>
-            <span className="px-3 py-1 bg-[#5C0822] text-white text-[11px] font-black rounded-full self-start sm:self-auto shrink-0 shadow-xs">
-              {refInfo?.ok ? (te ? `✓ +${refInfo?.bonus_credits ?? 0} request credit అర్హత` : `✓ Eligible for +${refInfo?.bonus_credits ?? 0} request credit`) : referralState === "checking" ? T("తనిఖీ చేస్తున్నాం", "Checking") : T("నిర్ధారణ కాలేదు", "Not confirmed")}
+            <span className="px-3 py-1 bg-[#5C0822] text-white text-[11px] font-black rounded-full self-start sm:self-auto max-w-full break-words shadow-xs">
+              {refInfo?.ok ? (te
+                ? refInfo.bonus_credits === 0 ? "అదనపు పరిచయ అభ్యర్థనలు: 0" : `+${refInfo.bonus_credits} అదనపు పరిచయ అభ్యర్థనలకు అర్హత`
+                : refInfo.bonus_credits === 0 ? "Bonus request credits: 0" : `Eligible for +${refInfo.bonus_credits} bonus request credits`) : referralState === "checking" ? T("తనిఖీ చేస్తున్నాం", "Checking") : T("నిర్ధారణ కాలేదు", "Not confirmed")}
             </span>
             {!refInfo && referralState !== "checking" && <button type="button" className="min-h-11 rounded-xl border border-[#5C0822]/30 px-3 py-2 text-xs font-bold" onClick={() => { void checkRegistrationReferral(refLocked, "validate"); }}>{T("కోడ్‌ను మళ్లీ తనిఖీ చేయండి", "Check the code again")}</button>}
           </div>
