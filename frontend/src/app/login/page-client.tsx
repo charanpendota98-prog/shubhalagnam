@@ -668,7 +668,9 @@ export default function LoginPage() {
                   showFeedback(res.message || (te ? "లాగిన్ విజయవంతమైంది." : "Sign-in succeeded."), "ok");
                   go(String(res.tsap_id || ""), String(res.auth_token || ""), true);
                 } else {
-                  showFeedback(res.message || (te ? "లాగిన్ విఫలమైంది." : "Sign-in failed."), "err");
+                  showFeedback(res.unconfirmed
+                    ? (te ? "సర్వర్ లాగిన్‌ను నిర్ధారించలేదు. మళ్లీ ప్రయత్నించండి." : "The server did not confirm sign-in. Please try again.")
+                    : res.message || (te ? "లాగిన్ విఫలమైంది." : "Sign-in failed."), "err");
                 }
               }}
               disabled={busy || !capabilities?.passkeys_configured}
