@@ -1,4 +1,5 @@
 "use client";
+import { registrationNameError, registrationFailureMessage } from "@/lib/registration-validation";
 
 /**
  * 👑 MANA VIVAHA — MATRIMONY REGISTRATION & PROFILE ONBOARDING
@@ -1121,7 +1122,8 @@ function Wizard() {
   const validateQuick = (): string[] => {
     const e: string[] = [];
     if (!f.gender) e.push(T("వధువు / వరుడు ఎంచుకోండి (Select Bride / Groom)", "Select Bride / Groom"));
-    if (!String(f.full_name).trim()) e.push(T("పూర్తి పేరు నమోదు చేయండి (Enter full name)", "Enter full name"));
+    const nameError = registrationNameError(f.full_name, te);
+    if (nameError) e.push(nameError);
     if (!f.dob) e.push(T("పుట్టిన తేదీ ఎంచుకోండి (Select date of birth)", "Select date of birth"));
     else if ((ageFromDob(f.dob) ?? 0) < (f.gender === "Groom" ? 21 : 18)) e.push(T("చట్టబద్ధమైన కనీస వయసు నెరవేరే సరైన DOB ఇవ్వండి", "Enter a DOB meeting the minimum legal age (21 for Groom, 18 for Bride)"));
     if (!f.religion) e.push(T("మతం ఎంచుకోండి (Select religion)", "Select religion"));
@@ -1142,7 +1144,8 @@ function Wizard() {
     const e: string[] = [];
     if (s === 1) {
       if (!f.gender) e.push(T("వధువు / వరుడు ఎంచుకోండి (Select Bride / Groom)", "Select Bride / Groom"));
-      if (!String(f.full_name).trim()) e.push(T("పూర్తి పేరు నమోదు చేయండి (Enter full name)", "Enter full name"));
+      const nameError = registrationNameError(f.full_name, te);
+    if (nameError) e.push(nameError);
       if (!f.dob) e.push(T("పుట్టిన తేదీ ఎంచుకోండి (Select date of birth)", "Select date of birth"));
       else if ((ageFromDob(f.dob) ?? 0) < (f.gender === "Groom" ? 21 : 18)) e.push(T("చట్టబద్ధమైన కనీస వయసు నెరవేరే సరైన DOB ఇవ్వండి", "Enter a DOB meeting the minimum legal age (21 for Groom, 18 for Bride)"));
       if (!f.height) e.push(T("ఎత్తు ఎంచుకోండి (Select your height)", "Select your height"));
@@ -1234,6 +1237,7 @@ function Wizard() {
           : validateStep(step);
       if (!f.consent_confirmed) errsList.push(T("దయచేసి సమ్మతి ఇచ్చినట్లు నిర్ధారించండి", "Please confirm consent before creating the profile"));
       if (errsList.length) {
+        if (!isQuick && registrationNameError(f.full_name, te)) setStep(1);
         setErrs(errsList);
         setShake(true);
         setTimeout(() => setShake(false), 400);
@@ -1289,9 +1293,7 @@ function Wizard() {
 
       const { status, data: d } = await sendRegistration(fd, setSubmitProgress);
       if (status < 200 || status >= 300) {
-        const msg = apiDisplayMessage(d, te, te
-          ? "నమోదులో సమస్య ఏర్పడింది — దయచేసి మళ్లీ ప్రయత్నించండి"
-          : "Registration could not be completed. Review your entries and try again.");
+        const msg = registrationFailureMessage(d, te);
         throw new Error(msg);
       }
 
@@ -1901,6 +1903,7 @@ function Wizard() {
                 label="పూర్తి పేరు (Full Name)"
                 value={f.full_name}
                 onChange={(v) => set("full_name", v)}
+                hint={T("2 నుంచి 60 అక్షరాలు. ఆంగ్లం లేదా తెలుగు అక్షరాలు, ఖాళీలు, చుక్క, అపోస్ట్రఫీ లేదా హైఫన్ మాత్రమే.", "2–60 characters. English or Telugu letters, spaces, periods, apostrophes or hyphens only.")}
                 required
                 placeholder="మీ పూర్తి పేరు నమోదు చేయండి"
               />
@@ -2332,6 +2335,7 @@ function Wizard() {
                       label="పూర్తి పేరు (Full Name)"
                       value={f.full_name}
                       onChange={(v) => set("full_name", v)}
+                hint={T("2 నుంచి 60 అక్షరాలు. ఆంగ్లం లేదా తెలుగు అక్షరాలు, ఖాళీలు, చుక్క, అపోస్ట్రఫీ లేదా హైఫన్ మాత్రమే.", "2–60 characters. English or Telugu letters, spaces, periods, apostrophes or hyphens only.")}
                       required
                       placeholder="మీ పూర్తి పేరు నమోదు చేయండి"
                     />
