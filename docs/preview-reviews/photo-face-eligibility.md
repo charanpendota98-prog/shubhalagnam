@@ -11,3 +11,6 @@ Actual zero/one/two-face fixtures passed.12 isolated backend tests cover errors,
 Public-domain NASA portrait fixture provenance and license are recorded in backend/tests/fixtures/README.md. It is never a production member photo. Initial native library import under a256MiB address cap failed cleanly;384MiB passed while resident memory stayed low. Two unrelated PR160 combined test commands hit outer time limits; complete separate31+25 runs passed afterward.
 
 Additional isolated checks:46 wave17 quality/upload/review checks and17 persistence-boundary tests passed. Historical successful-upload fixtures now use the public-domain eligible portrait instead of nonportrait textures. The developer-check case is strengthened to require both nonportrait rejection and portrait acceptance. No blocked family-chain test was rerun. Exact proposed worker repeated on Oracle:2.07seconds cold,0.62seconds two-face,0.52seconds noise;62,524KiB peak child RSS.
+
+The110-check developer suite initially reported109/110 because the harness explicitly disabled authentication, conflicting with its enforced public-health assertion; the face eligibility case passed. Retest with enforced auth follows; do not count the initial run as green.
+Enforced-auth retest passed all110 checks, including nonportrait rejection and eligible portrait upload pending staff review.
