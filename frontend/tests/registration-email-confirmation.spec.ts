@@ -47,3 +47,17 @@ test('email verification ignores edited-code response and prevents duplicate req
  });
  await fill(page);await page.getByRole('button',{name:'Create my profile in 1 minute',exact:false}).click();const input=page.locator('#email-verify-code'),feedback=page.locator('#email-verification-feedback');await expect(input).toBeVisible();await input.fill('12345678');await input.press('Enter');await expect(page.getByRole('button',{name:'Checking…',exact:true})).toBeDisabled();await input.press('Enter');expect(count).toBe(1);await input.fill('87654321');release();await expect(page.getByRole('button',{name:'Verify',exact:true})).toBeEnabled();await expect(input).toHaveValue('87654321');await expect(feedback).toBeEmpty();await input.press('Enter');await expect(feedback).toContainText('Your email is verified');expect(count).toBe(2);
 });
+
+test('email verification timeout preserves code and allows retry',async({page})=>{
+ await page.addInitScript(()=>localStorage.setItem('tsap_lang','en'));
+ let count=0;
+ await page.route('**/api/**',async r=>{const p=new URL(r.request().url()).pathname;
+ if(p==='/api/register')return r.fulfill({status:201,json:registration});
+ if(p==='/api/auth/verify-email'){count++;if(count===2)return r.fulfill({json:{success:true,email_verified:true}});return;}
+ if(p==='/api/auth/capabilities')return r.fulfill({json:{password_login:true,login_identifier:'phone',phone_otp:false,email_recovery_configured:true,passkeys_configured:false,email_optional_at_registration:true}});
+ return r.fulfill({json:{success:true,castes:['Kapu'],districts:['Hyderabad'],items:[]}});
+ });
+ await fill(page);await page.getByRole('button',{name:'Create my profile in 1 minute',exact:false}).click();
+ const input=page.locator('#email-verify-code'),feedback=page.locator('#email-verification-feedback');
+ await expect(input).toBeVisible();await page.clock.install();await input.fill('12345678');await input.press('Enter');await expect.poll(()=>count).toBe(1);await page.clock.fastForward(20_001);await expect(feedback).toContainText('could not confirm');await expect(input).toHaveValue('12345678');await expect(page.getByRole('button',{name:'Verify',exact:true})).toBeEnabled();await input.press('Enter');await expect(feedback).toContainText('Your email is verified');expect(count).toBe(2);
+});

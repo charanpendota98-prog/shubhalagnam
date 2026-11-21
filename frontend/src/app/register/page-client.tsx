@@ -790,7 +790,12 @@ function Wizard() {
   const [emailVerified, setEmailVerified] = useState(false);
   const emailVerifyLock = useRef(false);
   const emailVerifyEpoch = useRef(0);
-  useEffect(() => () => { emailVerifyEpoch.current += 1; }, []);
+  const emailVerifyActive = useRef(true);
+  const emailVerifyController = useRef<AbortController | null>(null);
+  useEffect(() => {
+    emailVerifyActive.current = true;
+    return () => { emailVerifyActive.current = false; emailVerifyEpoch.current += 1; emailVerifyController.current?.abort(); };
+  }, []);
   const verifyRegistrationEmail = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (emailVerifyLock.current || emailVerified || !result) return;
@@ -800,10 +805,13 @@ function Wizard() {
     emailVerifyLock.current = true;
     setEmailVerifyBusy(true);
     setEmailVerifyFeedback("");
+    const controller = new AbortController();
+    emailVerifyController.current = controller;
+    const timeout = window.setTimeout(() => controller.abort(), 20_000);
     try {
       const response = await fetch("/api/auth/verify-email", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tsap_id: result.tsap_id || result.user_id, code }),
+        body: JSON.stringify({ tsap_id: result.tsap_id || result.user_id, code }), signal: controller.signal,
       });
       const reply = await readApiJson(response);
       if (emailVerifyEpoch.current !== epoch) return;
@@ -816,8 +824,10 @@ function Wizard() {
     } catch {
       if (emailVerifyEpoch.current === epoch) setEmailVerifyFeedback("unconfirmed");
     } finally {
+      window.clearTimeout(timeout);
+      if (emailVerifyController.current === controller) emailVerifyController.current = null;
       emailVerifyLock.current = false;
-      setEmailVerifyBusy(false);
+      if (emailVerifyActive.current) setEmailVerifyBusy(false);
     }
   };
   const registrationCompleteRef = useRef(false);
