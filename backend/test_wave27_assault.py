@@ -110,8 +110,13 @@ try:
     regs = []
     ts = [threading.Thread(target=lambda i=i: regs.append(
         c.post("/api/register", data=_form(registration_phones[i], full_name=f"Race Reg Candidate {chr(65 + i)}")))) for i in range(6)]  # 10 digits total
-    [t.start() for t in ts]
-    [t.join() for t in ts]
+    # This test isolates concurrent ID allocation after photo eligibility.
+    # The real single-worker busy/503 policy is exercised in photo-face tests;
+    # do not turn it off in application code to satisfy an ID race fixture.
+    from unittest.mock import patch
+    with patch.object(M, "check_photo_face", return_value={"ok": True, "checks": {"face_count": 1}}):
+        [t.start() for t in ts]
+        [t.join() for t in ts]
     rids = [r.json().get("tsap_id") for r in regs if r.status_code == 200]
     check("A7 all registered", len(rids) == 6,
           [(r.status_code, r.text[:120]) for r in regs])
