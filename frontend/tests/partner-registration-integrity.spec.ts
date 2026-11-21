@@ -28,7 +28,7 @@ for(const mode of ['existing','wrong-dashboard','read-timeout','unsafe-link'])te
  if(mode==='read-timeout')await page.clock.install();await page.goto('/referral/register');await fields(page);await page.getByRole('button',{name:/Create my Partner ID/}).click();await expect(page.getByRole('button',{name:/New partner/})).toBeVisible();
  if(mode==='read-timeout'){await expect.poll(()=>gets).toBe(1);await page.clock.fastForward(20_001);}
  if(['wrong-dashboard','read-timeout'].includes(mode)){await expect(page.locator('.mv-partner-workspace [role=alert]')).toContainText('counts could not be confirmed');await page.getByRole('button',{name:'View',exact:true}).click();await expect(page.locator('.mv-partner-workspace [role=alert]')).toHaveCount(0);}
- if(mode==='existing')await expect(page.getByRole('status')).toContainText('existing ID is shown');
+ if(mode==='existing')await expect(page.getByRole('status').filter({hasText:'existing ID is shown'})).toBeVisible();
  if(mode==='unsafe-link'){await expect(page.getByRole('button',{name:'🔗 Copy link',exact:true})).toHaveCount(0);await expect(page.locator('.mv-partner-workspace')).toContainText('referral link could not be confirmed');}
  await expect(page.locator('.mv-partner-workspace')).toContainText('FIX0001');expect(posts).toBe(1);
 });
