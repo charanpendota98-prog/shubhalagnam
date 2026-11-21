@@ -14,3 +14,5 @@ Additional isolated checks:46 wave17 quality/upload/review checks and17 persiste
 
 The110-check developer suite initially reported109/110 because the harness explicitly disabled authentication, conflicting with its enforced public-health assertion; the face eligibility case passed. Retest with enforced auth follows; do not count the initial run as green.
 Enforced-auth retest passed all110 checks, including nonportrait rejection and eligible portrait upload pending staff review.
+
+Final-head CI1a913f8 stopped at the wave23 owner-upload success test because its fixture was still nonportrait random noise. The detector correctly rejected it withNO_FACE. The owner-authorization success fixture now uses the same documented eligible portrait, preserving every auth assertion;20/20 isolated wave23 checks passed. No production or detector code changed for this correction.
