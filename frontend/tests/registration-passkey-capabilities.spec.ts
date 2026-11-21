@@ -7,7 +7,7 @@ async function register(page:Page,mode:'off'|'on'|'error'|'malformed'){
  await page.route('**/api/**',r=>{const path=new URL(r.request().url()).pathname;
   if(path==='/api/auth/capabilities')return r.fulfill({status:mode==='error'?503:200,json:mode==='malformed'?{success:true}:{password_login:true,login_identifier:'phone',phone_otp:false,email_recovery_configured:false,passkeys_configured:mode==='on',email_optional_at_registration:true}});
   if(path.includes('passkey')||path.includes('webauthn'))passkeyWrites++;
-  if(path==='/api/register')return r.fulfill({json:{success:true,tsap_id:'SYN-GATE',phone_verified:false,is_approved:false,plan:'FREE',credits:3,email_verify:{required:false}}});
+  if(path==='/api/register')return r.fulfill({json:{success:true,tsap_id:'SYN-GATE',card_url:'',phone_verified:false,is_approved:false,plan:'FREE',credits:3,email_verify:{required:false}}});
   return r.fulfill({json:{success:true,castes:['Kapu'],districts:['Hyderabad'],items:[]}});
  });
  await page.goto('/register');await page.getByRole('button',{name:/Bride/}).click();await page.getByLabel('Full Name',{exact:false}).fill('Synthetic Capability Test');await page.locator('input[type=date]').fill('1998-01-01');await page.locator('#quick-religion').selectOption('Hindu');
