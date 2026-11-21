@@ -67,7 +67,7 @@ check("M1 manifest shortcuts+maskable", '"shortcuts"' in mf and '"maskable"' in 
 sw = src_page("frontend/public/sw.js")
 check("M1 sw push+click handlers", 'addEventListener("push"' in sw
       and 'addEventListener("notificationclick"' in sw, sw[:80])
-check("M1 sw version bumped (v7 — R9)", "mv-v7" in sw)
+check("M1 sw private-cache version bumped (v8)", 'mv-v8-2026-11-private-cache' in sw)
 pb = src_page("frontend/src/components/PushBell.tsx")
 check("M1 PushBell wires 3 APIs", "/api/push/subscribe" in pb and "/api/push/unsubscribe" in pb
       and "/api/push/notify/" in pb and "pushManager" in pb)

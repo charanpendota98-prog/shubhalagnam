@@ -1,51 +1,62 @@
-/* MANA VIVAHA — service worker (PWA offline + fast repeat loads)
-   • App shell cache (pages: network-first, assets: cache-first)
-   • /api/* — NEVER cache (matrimony data fresh ga undali, privacy)
-   • Offline aithe /offline page chupistham
-*/
-const VERSION = "mv-v7-2026-09-round9";
+/* Public app shell only. Member data and guarded media stay network-only. */
+const VERSION = "mv-v8-2026-11-private-cache";
 const SHELL = ["/", "/matches", "/register", "/porutham", "/safety", "/offline", "/manifest.webmanifest", "/icons/icon-192.png"];
-
-self.addEventListener("install", (e) => {
-  e.waitUntil(
-    caches.open(VERSION).then((c) => c.addAll(SHELL).catch(() => undefined)).then(() => self.skipWaiting())
-  );
+const PUBLIC_ROOT_ASSETS = new Set(["/manifest.webmanifest", "/favicon.png", "/logo.png", "/og-image.png", "/dp-tsbride.png", "/dp-tsgroom1.png", "/next.svg", "/vercel.svg"]);
+const PUBLIC_ASSET_PREFIXES = ["/_next/static/", "/icons/", "/editorial/", "/promo/"];
+const isAsset = (url) => PUBLIC_ROOT_ASSETS.has(url.pathname) || PUBLIC_ASSET_PREFIXES.some((prefix) => url.pathname.startsWith(prefix));
+const isShell = (url) => !url.search && SHELL.includes(url.pathname);
+const mayStore = (request, response) => {
+  const url = new URL(request.url);
+  return request.method === "GET" && url.origin === self.location.origin &&
+    (isAsset(url) || isShell(url)) && response.ok && !response.redirected &&
+    !/(?:^|[,\s])(?:private|no-store)(?:$|[,\s=])/i.test(response.headers.get("Cache-Control") || "");
+};
+async function store(request, response) {
+  if (mayStore(request, response)) {
+    try { await (await caches.open(VERSION)).put(request, response.clone()); } catch { /* Cache quota must not break online use. */ }
+  }
+  return response;
+}
+async function cached(request) {
+  return (await caches.open(VERSION)).match(request);
+}
+self.addEventListener("install", (event) => {
+  event.waitUntil(Promise.all(SHELL.map(async (path) => {
+    const request = new Request(new URL(path, self.location.origin), { cache: "reload" });
+    try { await store(request, await fetch(request)); } catch { /* Available public shell entries can still be installed. */ }
+  })).then(() => self.skipWaiting()));
 });
-
-self.addEventListener("activate", (e) => {
-  e.waitUntil(
-    caches.keys().then((keys) => Promise.all(keys.filter((k) => k !== VERSION).map((k) => caches.delete(k))))
-      .then(() => self.clients.claim())
-  );
+self.addEventListener("activate", (event) => {
+  event.waitUntil((async () => {
+    // Remove legacy app caches, including any guarded media stored by old workers.
+    // Leave caches belonging to other applications on this origin untouched.
+    await Promise.all((await caches.keys()).filter((name) => /^mv-v\d+-/.test(name) && name !== VERSION).map((name) => caches.delete(name)));
+    const cache = await caches.open(VERSION);
+    for (const request of await cache.keys()) {
+      const response = await cache.match(request);
+      if (!response || !mayStore(request, response)) await cache.delete(request);
+    }
+    await self.clients.claim();
+  })());
 });
-
 self.addEventListener("fetch", (event) => {
-  const req = event.request;
-  if (req.method !== "GET") return;
-  const url = new URL(req.url);
-  if (url.origin !== self.location.origin) return;
-  if (url.pathname.startsWith("/api/") || url.pathname.startsWith("/cards/") || url.pathname.startsWith("/photos/")) return; // live data
-
-  if (url.pathname.startsWith("/_next/static") || /\.(png|jpg|jpeg|webp|svg|woff2?|css|js)$/.test(url.pathname)) {
-    event.respondWith(
-      caches.match(req).then((hit) => hit || fetch(req).then((res) => {
-        const copy = res.clone();
-        caches.open(VERSION).then((c) => c.put(req, copy)).catch(() => undefined);
-        return res;
-      }).catch(() => caches.match("/offline")))
-    );
+  const request = event.request;
+  const url = new URL(request.url);
+  if (request.method !== "GET" || url.origin !== self.location.origin) return;
+  if (isAsset(url)) {
+    event.respondWith((async () => (await cached(request)) || store(request, await fetch(request)))());
     return;
   }
-
-  event.respondWith(
-    fetch(req)
-      .then((res) => {
-        const copy = res.clone();
-        caches.open(VERSION).then((c) => c.put(req, copy)).catch(() => undefined);
-        return res;
-      })
-      .catch(() => caches.match(req).then((hit) => hit || caches.match("/offline")))
-  );
+  // API, voice, photos, cards, review links, RSC and every other nonnavigation
+  // request use the network directly. Never replace protected bytes with HTML.
+  if (request.mode !== "navigate") return;
+  event.respondWith((async () => {
+    try { return await store(request, await fetch(request)); }
+    catch {
+      const hit = isShell(url) ? await cached(request) : undefined;
+      return hit || await cached(new URL("/offline", self.location.origin).href) || Response.error();
+    }
+  })());
 });
 
 self.addEventListener("message", (e) => { if (e.data === "skipWaiting") self.skipWaiting(); });
