@@ -19,3 +19,7 @@ prometheus-client==0.26.0
 # AES-GCM protects bridge tokens when the local pool state is persisted.
 cryptography==50.0.2
 webauthn>=3.0.0
+
+# Bounded local face eligibility only; not identity or liveness verification.
+numpy==2.2.6
+opencv-python-headless==4.14.0.94
