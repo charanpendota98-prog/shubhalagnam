@@ -11,6 +11,7 @@ import { readApiJson } from "@/lib/api";
 import { useEffect, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useLang } from "@/lib/lang";
+import { Gift, TriangleAlert, Check } from "lucide-react";
 
 export default function ReferralLandingPage() {
   const { lang } = useLang();
@@ -58,49 +59,51 @@ export default function ReferralLandingPage() {
   }, [checked, valid, code, inv, campaignQuery, router]);
 
   return (
-    <div className="mv-partner-workspace min-h-dvh bg-[#FFF8E7] flex items-center justify-center p-4">
+    <div className="mv-partner-workspace min-h-dvh bg-[#FFF8E7] flex items-center justify-center p-4 pb-24 sm:pb-8">
       <div className="w-full max-w-md bg-white rounded-[1.5rem] shadow-lg p-6 text-center">
         <div className="w-16 h-16 maroon-gradient rounded-full flex items-center justify-center text-white text-3xl mx-auto">
-          {valid === false ? "⚠️" : "🎁"}
+          {valid === false || failed ? <TriangleAlert className="w-7 h-7" aria-hidden="true" /> : <Gift className="w-7 h-7" aria-hidden="true" />}
         </div>
 
-        {(!checked || failed) && <h1 className="mt-4 text-xl font-bold text-maroon">{te ? "Referral code" : "Referral code"}</h1>}
-        {failed && <div role="alert" className="mt-3 space-y-3"><p>{te ? "Code నిర్ధారించలేకపోయాం. Registration కు మళ్లించలేదు." : "The code could not be confirmed. You have not been redirected."}</p><button type="button" onClick={() => setAttempt(n => n + 1)} className="font-bold underline">{te ? "మళ్లీ ప్రయత్నించండి" : "Try again"}</button><a href="/register" className="block underline">{te ? "Code లేకుండా నమోదు" : "Register without a code"}</a></div>}
-        {!checked && <div role="status" className="mt-4 text-sm text-gray-500">{te ? "Code check చేస్తున్నాం…" : "Checking code…"}</div>}
+        {(!checked || failed) && <h1 className="mt-4 text-xl font-bold text-maroon">{te ? "ఆహ్వాన సంకేతం" : "Referral code"}</h1>}
+        {failed && <div role="alert" className="mt-3 space-y-3"><p>{te ? "ఆహ్వాన సంకేతాన్ని నిర్ధారించలేకపోయాం. నమోదు పేజీకి మళ్లించలేదు." : "The code could not be confirmed. You have not been redirected."}</p><button type="button" onClick={() => setAttempt(n => n + 1)} className="font-bold underline">{te ? "మళ్లీ ప్రయత్నించండి" : "Try again"}</button><a href="/register" className="block underline">{te ? "సంకేతం లేకుండా నమోదు" : "Register without a code"}</a></div>}
+        {!checked && <div role="status" className="mt-4 text-sm text-gray-500">{te ? "ఆహ్వాన సంకేతాన్ని తనిఖీ చేస్తున్నాం…" : "Checking code…"}</div>}
 
         {checked && valid && (
           <>
             <h1 className={`mt-4 font-extrabold text-xl text-[#7A0C2E] ${te ? "telugu" : ""}`} lang={te ? "te-IN" : "en-IN"}>
-              {te ? <>{name ? `${name} గారు` : "మీ friend"} ద్వారా వచ్చారు! 🙏</> : <>You came through {name || "your friend"}! 🙏</>}
+              {te ? <>{name ? `${name} గారు` : "మీ స్నేహితులు"} ద్వారా వచ్చారు!</> : <>You came through {name || "your friend"}!</>}
             </h1>
             <p className={`mt-2 text-sm text-gray-600 ${te ? "telugu" : ""}`} lang={te ? "te-IN" : "en-IN"}>
-              {te ? <>Code: <b className="text-[#7A0C2E]">{code}</b> — register చేస్తే మీ account కి{" "}</> : <>Code: <b className="text-[#7A0C2E]">{code}</b> — when you register, your account receives{" "}</>}
-              <b className="text-green-700">+{bonus} credit FREE</b> 🎁
+              {te ? <>సంకేతం: <b className="text-[#7A0C2E]">{code}</b>. నమోదు చేసుకుంటే మీ ఖాతాకు{" "}</> : <>Code: <b className="text-[#7A0C2E]">{code}</b>. When you register, your account receives{" "}</>}
+              <b className="text-green-700">{te ? `${bonus} అదనపు పరిచయాలు ఉచితం` : `+${bonus} ${bonus === 1 ? "credit" : "credits"} FREE`}</b>
             </p>
-            <div className="mt-4 rounded-2xl bg-[#FFF8E7] border border-[#D4AF37]/40 p-3 text-left text-[11px] text-[#7A0C2E] space-y-1">
-              <div>{te ? <>✅ మొదటి <b>3 requests FREE</b> ({bonus} అదనపు పరిచయాలు)</> : <>✅ First <b>3 requests FREE</b> ({bonus} bonus {bonus === 1 ? "credit" : "credits"} from your friend)</>}</div>
-              <div>{te ? "✅ ₹99 → 5 requests · ₹199 → 12 · ₹299 → 25 · ₹499 → 50" : "✅ ₹99 → 5 requests · ₹199 → 12 · ₹299 → 25 · ₹499 → 50"}</div>
-              <div>{te ? "✅ Approval తర్వాత configured destination కు post queue కావచ్చు; delivery హామీ కాదు" : "✅ After approval, a post may be queued for a configured destination; delivery is not guaranteed"}</div>
-              <div>{te ? "✅ Private-photo setting ను గౌరవించే outputs లో photo దాచబడుతుంది; owner accept చేసిన తర్వాత accepted-request account views లో contact access వస్తుంది. Notification delivery హామీ లేదు." : "✅ The private-photo setting suppresses photos only in outputs that honor it; owner acceptance grants contact access in accepted-request account views. Notification delivery is not guaranteed."}</div>
-            </div>
+            <ul className="mt-4 rounded-2xl bg-[#FFF8E7] border border-[#D4AF37]/40 p-3 text-left text-xs text-[#7A0C2E] space-y-2">
+              {[
+                te ? <>మొదటి <b>3 పరిచయ అభ్యర్థనలు ఉచితం</b> ({bonus} అదనపు పరిచయాలు)</> : <>First <b>3 requests FREE</b> ({bonus} bonus {bonus === 1 ? "credit" : "credits"} from your friend)</>,
+                te ? "₹99 కు 5 అభ్యర్థనలు · ₹199 కు 12 · ₹299 కు 25 · ₹499 కు 50" : "₹99 → 5 requests · ₹199 → 12 · ₹299 → 25 · ₹499 → 50",
+                te ? "ఆమోదం తర్వాత, ముందుగా ఎంచుకున్న గమ్యస్థానానికి ప్రచురణ కోసం అభ్యర్థన వేచి ఉండవచ్చు. చేరుతుందని హామీ లేదు." : "After approval, a post may be queued for a configured destination; delivery is not guaranteed",
+                te ? "వ్యక్తిగత ఫోటో గోప్యతను పాటించే ఫలితాల్లో మాత్రమే ఫోటో దాచబడుతుంది. ప్రొఫైల్ యజమాని ఆమోదించిన తర్వాత, అంగీకరించిన అభ్యర్థనల విభాగంలో సంప్రదింపు వివరాలు చూడవచ్చు. నోటిఫికేషన్ చేరుతుందని హామీ లేదు." : "The private-photo setting suppresses photos only in outputs that honor it; owner acceptance grants contact access in accepted-request account views. Notification delivery is not guaranteed."
+              ].map((text, index) => <li key={index} className="flex items-start gap-2"><Check className="w-4 h-4 shrink-0 mt-0.5" aria-hidden="true" /><span>{text}</span></li>)}
+            </ul>
             <a href={`/register?ref=${code}${inv ? `&inv=${encodeURIComponent(inv)}` : ""}${campaignQuery}`}
               className="mt-5 block w-full py-3 maroon-gradient text-white rounded-full font-bold text-sm">
-              {te ? "🚀 Register చెయ్యండి (ref auto-lock)" : "🚀 Register with this referral code"}
+              {te ? "ఈ ఆహ్వాన సంకేతంతో నమోదు చేసుకోండి" : "Register with this referral code"}
             </a>
-            <div className="text-[11px] text-gray-400 mt-2">{te ? "2 sec లో automatic గా register page కి వెళ్తుంది…" : "You will be redirected to registration in 2 seconds…"}</div>
+            <div className="text-[11px] text-gray-400 mt-2">{te ? "2 సెకన్లలో నమోదు పేజీకి మళ్లిస్తాం…" : "You will be redirected to registration in 2 seconds…"}</div>
           </>
         )}
 
         {checked && valid === false && (
           <>
-            <h1 className="mt-4 font-extrabold text-lg text-[#7A0C2E]">{te ? "ఈ referral code దొరకలేదు" : "Referral code not found"}</h1>
+            <h1 className="mt-4 font-extrabold text-lg text-[#7A0C2E]">{te ? "ఈ ఆహ్వాన సంకేతం దొరకలేదు" : "Referral code not found"}</h1>
             <p className={`mt-2 text-sm text-gray-600 ${te ? "telugu" : ""}`} lang={te ? "te-IN" : "en-IN"}>
-{te ? <>Code <b>{code}</b> valid కాదు (లేదా పెద్ద/చిన్న letters తప్పు). పర్వాలేదు — మీరు normal గా register అవ్వచ్చు,
-              మీ సొంత referral link కూడా automatic గా వస్తుంది.</> : <>Code <b>{code}</b> is not valid (or letter case is wrong). No problem — you can register normally,
-              your own referral link comes automatically.</>}
+{te ? <>ఆహ్వాన సంకేతం <b>{code}</b> చెల్లదు. మీరు సంకేతం లేకుండా నమోదు చేసుకోవచ్చు.
+              మీ సొంత ఆహ్వాన లింకు కూడా అందుతుంది.</> : <>Code <b>{code}</b> is not valid. You can register without a code.
+              Your own referral link comes automatically.</>}
             </p>
             <a href="/register" className="mt-5 block w-full py-3 maroon-gradient text-white rounded-full font-bold text-sm">
-              {te ? "Register చెయ్యండి →" : "Register →"}
+              {te ? "నమోదు చేసుకోండి →" : "Register →"}
             </a>
           </>
         )}
