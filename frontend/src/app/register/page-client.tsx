@@ -25,6 +25,7 @@ import { apiDisplayMessage, getCsrfToken, readApiJson } from "@/lib/api";
 import { registerPasskey } from "@/lib/webauthn-client";
 import { fetchAuthCapabilities } from "@/lib/auth";
 import { registrationConfirmation } from "@/lib/registration-response";
+import { confirmedEmailVerification } from "@/lib/email-verification-confirmation";
 
 import { ProfilePhotoError, prepareProfilePhoto, profilePhotoErrorMessage } from "@/lib/photo-upload";
 import { stateFullName, isGroomGender, isHomemakerOccupation, workTypesForGender } from "@/lib/telugu-data";
@@ -783,6 +784,42 @@ function Wizard() {
   const [refInvite, setRefInvite] = useState("");
   const [refInfo, setRefInfo] = useState<any>(null);
   const [result, setResult] = useState<any>(null);
+  const [emailCode, setEmailCode] = useState("");
+  const [emailVerifyBusy, setEmailVerifyBusy] = useState(false);
+  const [emailVerifyFeedback, setEmailVerifyFeedback] = useState<"" | "invalid" | "unconfirmed" | "verified">("");
+  const [emailVerified, setEmailVerified] = useState(false);
+  const emailVerifyLock = useRef(false);
+  const emailVerifyEpoch = useRef(0);
+  useEffect(() => () => { emailVerifyEpoch.current += 1; }, []);
+  const verifyRegistrationEmail = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (emailVerifyLock.current || emailVerified || !result) return;
+    const code = emailCode.trim();
+    if (!/^\d{8}$/.test(code)) { setEmailVerifyFeedback("invalid"); return; }
+    const epoch = ++emailVerifyEpoch.current;
+    emailVerifyLock.current = true;
+    setEmailVerifyBusy(true);
+    setEmailVerifyFeedback("");
+    try {
+      const response = await fetch("/api/auth/verify-email", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tsap_id: result.tsap_id || result.user_id, code }),
+      });
+      const reply = await readApiJson(response);
+      if (emailVerifyEpoch.current !== epoch) return;
+      if (!confirmedEmailVerification(response.status, reply)) {
+        setEmailVerifyFeedback("unconfirmed"); return;
+      }
+      setEmailVerified(true);
+      setEmailCode("");
+      setEmailVerifyFeedback("verified");
+    } catch {
+      if (emailVerifyEpoch.current === epoch) setEmailVerifyFeedback("unconfirmed");
+    } finally {
+      emailVerifyLock.current = false;
+      setEmailVerifyBusy(false);
+    }
+  };
   const registrationCompleteRef = useRef(false);
   const topRef = useRef<HTMLDivElement>(null);
 
@@ -1409,23 +1446,26 @@ function Wizard() {
             {result.email_verify?.required && !result.email_verify?.verified && (
               <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 my-4">
                 <h3 className="text-sm font-bold text-blue-900 mb-2">📧 {te ? "ఈమెయిల్ వెరిఫికేషన్" : "Email Verification"}</h3>
-                <p className="text-xs text-blue-800 mb-3">{result.email_verify?.sent
+                <p className="text-xs text-blue-800 mb-3">{emailVerified ? T("ఈ ఈమెయిల్ పాస్‌వర్డ్ రికవరీకి సిద్ధంగా ఉంది.", "This email is ready for password recovery.") : result.email_verify?.sent
                   ? (te ? "రికవరీ కోసం మీ ఈమెయిల్‌కు 8 అంకెల కోడ్ పంపబడింది." : "An 8-digit code has been sent to your email.")
                   : (te ? "కోడ్ పంపడం సాధ్యపడలేదు. మీ ఈమెయిల్ ఇంకా ధృవీకరించబడలేదు; పాస్‌వర్డ్‌ను భద్రంగా ఉంచండి." : "The code could not be sent. Your email is not verified yet; keep your password safe.")}</p>
-                <div className="flex gap-2">
-                  <input type="text" id="email-verify-code" placeholder="8-digit code" className="flex-1 bg-white border border-blue-200 rounded-xl px-3 py-2 text-sm focus:border-blue-500 outline-none" />
-                  <button type="button" onClick={async () => {
-                    const code = (document.getElementById("email-verify-code") as HTMLInputElement).value;
-                    const res = await fetch("/api/auth/verify-email", {
-                      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ tsap_id: tsap, code })
-                    });
-                    const data = await res.json();
-                    if(data.success) { alert(data.message_telugu || "Verified!"); (document.getElementById("email-verify-code") as HTMLInputElement).value = ""; }
-                    else alert(data.detail || "Verification failed");
-                  }} className="bg-blue-600 text-white px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap">
-                    {te ? "వెరిఫై చేయండి" : "Verify"}
-                  </button>
-                </div>
+                {!emailVerified && <form onSubmit={verifyRegistrationEmail} className="space-y-2">
+                  <label htmlFor="email-verify-code" className="block text-xs font-semibold text-blue-900">{T("ఈమెయిల్‌లో వచ్చిన 8 అంకెల కోడ్", "Eight-digit email code")}</label>
+                  <div className="flex flex-wrap gap-2">
+                    <input type="text" id="email-verify-code" inputMode="numeric" autoComplete="one-time-code" maxLength={8}
+                      value={emailCode} onChange={event => { emailVerifyEpoch.current += 1; setEmailCode(event.target.value); setEmailVerifyFeedback(""); }}
+                      aria-describedby="email-verification-feedback" aria-invalid={emailVerifyFeedback === "invalid" || undefined}
+                      className="min-w-0 flex-1 basis-40 bg-white border border-blue-200 rounded-xl px-3 py-2 text-sm focus:border-blue-500 outline-none" />
+                    <button type="submit" disabled={emailVerifyBusy} className="bg-blue-600 text-white px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap disabled:opacity-50">
+                      {emailVerifyBusy ? T("తనిఖీ చేస్తున్నాం…", "Checking…") : T("ధృవీకరించండి", "Verify")}
+                    </button>
+                  </div>
+                </form>}
+                <p id="email-verification-feedback" role={emailVerifyFeedback === "invalid" || emailVerifyFeedback === "unconfirmed" ? "alert" : "status"} aria-live="polite" className="mt-2 text-xs leading-relaxed text-blue-900">
+                  {emailVerifyFeedback === "verified" ? T("మీ ఈమెయిల్ ధృవీకరించబడింది. పాస్‌వర్డ్ రికవరీకి దీన్ని ఉపయోగించవచ్చు.", "Your email is verified. You can use it for password recovery.")
+                    : emailVerifyFeedback === "invalid" ? T("ఈమెయిల్‌లో వచ్చిన 8 అంకెల కోడ్ నమోదు చేయండి.", "Enter the eight-digit code from your email.")
+                      : emailVerifyFeedback === "unconfirmed" ? T("ఈమెయిల్ ధృవీకరణ పూర్తయిందని నిర్ధారించలేకపోయాం. కోడ్‌ను తనిఖీ చేసి మళ్లీ ప్రయత్నించండి.", "We could not confirm email verification. Check the code and try again.") : ""}
+                </p>
               </div>
             )}
 
