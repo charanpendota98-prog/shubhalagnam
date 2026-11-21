@@ -1,4 +1,6 @@
-export function bufferDecode(value: string): Uint8Array {
+import { confirmedAuthAck, confirmedAuthSession } from "./auth-confirmation";
+
+export function bufferDecode(value: string): Uint8Array<ArrayBuffer> {
   const padding = '='.repeat((4 - value.length % 4) % 4);
   const base64 = (value + padding).replace(/-/g, '+').replace(/_/g, '/');
   const raw = window.atob(base64);
@@ -53,18 +55,30 @@ export async function registerPasskey(tsapId: string, token: string, password: s
   }
 }
 
-export async function loginPasskey(): Promise<{ success: boolean; tsap_id?: string; auth_token?: string; message?: string }> {
+export async function loginPasskey(): Promise<{ success: boolean; tsap_id?: string; auth_token?: string; message?: string; unconfirmed?: boolean }> {
   try {
     const resBegin = await fetch("/api/auth/passkey/login/begin", {
       method: "POST"
     });
-    if (!resBegin.ok) return { success: false, message: "Failed to begin login" };
-    const { options, challenge_id } = await resBegin.json();
-    
-    options.challenge = bufferDecode(options.challenge);
-    if (options.allowCredentials) {
-      options.allowCredentials.forEach((c: any) => c.id = bufferDecode(c.id));
+    if (resBegin.status !== 200) return { success: false, unconfirmed: true };
+    const begin: unknown = await resBegin.json();
+    if (!confirmedAuthAck(begin) || typeof begin.challenge_id !== "string" || !begin.challenge_id.trim() ||
+        !begin.options || typeof begin.options !== "object" || Array.isArray(begin.options)) {
+      return { success: false, unconfirmed: true };
     }
+    const { options: encoded, challenge_id } = begin as {
+      options: Omit<PublicKeyCredentialRequestOptions, "challenge" | "allowCredentials"> & {
+        challenge: string;
+        allowCredentials?: (Omit<PublicKeyCredentialDescriptor, "id"> & { id: string })[];
+      };
+      challenge_id: string;
+    };
+    if (typeof encoded.challenge !== "string" || !encoded.challenge) return { success: false, unconfirmed: true };
+    const options: PublicKeyCredentialRequestOptions = {
+      ...encoded,
+      challenge: bufferDecode(encoded.challenge),
+      allowCredentials: encoded.allowCredentials?.map(c => ({ ...c, id: bufferDecode(c.id) })),
+    };
     
     const credential = await navigator.credentials.get({ publicKey: options }) as any;
     
@@ -86,12 +100,14 @@ export async function loginPasskey(): Promise<{ success: boolean; tsap_id?: stri
       body: JSON.stringify({ challenge_id, response })
     });
     
-    const data = await resFinish.json();
-    return { 
-      success: data.success, 
-      tsap_id: data.tsap_id, 
-      auth_token: data.auth_token, 
-      message: data.message_telugu || data.detail 
+    if (resFinish.status !== 200) return { success: false, unconfirmed: true };
+    const data: unknown = await resFinish.json();
+    if (!confirmedAuthSession(data)) return { success: false, unconfirmed: true };
+    return {
+      success: true,
+      tsap_id: data.tsap_id,
+      auth_token: data.auth_token,
+      message: typeof data.message_telugu === "string" ? data.message_telugu : typeof data.detail === "string" ? data.detail : undefined
     };
   } catch (e: any) {
     console.error("Passkey login error:", e);
