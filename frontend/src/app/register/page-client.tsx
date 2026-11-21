@@ -24,6 +24,7 @@ import { useLang } from "@/lib/lang";
 import { apiDisplayMessage, getCsrfToken, readApiJson } from "@/lib/api";
 import { registerPasskey } from "@/lib/webauthn-client";
 import { fetchAuthCapabilities } from "@/lib/auth";
+import { registrationConfirmation } from "@/lib/registration-response";
 
 import { ProfilePhotoError, prepareProfilePhoto, profilePhotoErrorMessage } from "@/lib/photo-upload";
 import { stateFullName, isGroomGender, isHomemakerOccupation, workTypesForGender } from "@/lib/telugu-data";
@@ -782,6 +783,7 @@ function Wizard() {
   const [refInvite, setRefInvite] = useState("");
   const [refInfo, setRefInfo] = useState<any>(null);
   const [result, setResult] = useState<any>(null);
+  const registrationCompleteRef = useRef(false);
   const topRef = useRef<HTMLDivElement>(null);
 
   const [casteOpts, setCasteOpts] = useState<string[]>([]);
@@ -1039,6 +1041,7 @@ function Wizard() {
     // Do not overwrite an existing draft while its owner decides whether to resume it.
     if (result || draftFound) return;
     const t = setTimeout(() => {
+      if (registrationCompleteRef.current) return;
       try {
         const now = new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
         const draftData = { ...f, password: "", consent_confirmed: false, photo_consent_confirmed: false };
@@ -1240,7 +1243,16 @@ function Wizard() {
         throw new Error(msg);
       }
 
-      setResult(d);
+      const confirmation = (status === 200 || status === 201) ? registrationConfirmation(d) : null;
+      if (!confirmation) {
+        throw new Error(T(
+          "నమోదు పూర్తయిందని నిర్ధారించలేకపోయాం. మీ వివరాలు ఇక్కడే ఉన్నాయి. అదే ఫారమ్‌తో మళ్లీ ప్రయత్నించండి; నమోదు ఇప్పటికే భద్రపడి ఉంటే అదే ప్రొఫైల్‌ను తెరుస్తాం.",
+          "We could not confirm registration. Your form is still here. Retry the same form; if registration was already saved, the same profile will be recovered.",
+        ));
+      }
+
+      registrationCompleteRef.current = true;
+      setResult(confirmation);
       try {
         localStorage.removeItem(DRAFT_KEY);
         sessionStorage.removeItem("shubhalagnam_registration_request_v1");
@@ -1436,18 +1448,18 @@ function Wizard() {
             {/* What you got card */}
             <div className="bg-amber-50/60 border border-gold/30 rounded-2xl p-3.5 text-xs text-slate-700 space-y-1">
               <div className="font-bold text-maroon">🎁 {T("మీ అకౌంట్ వివరాలు & కాంటాక్ట్ స్టేటస్:", "Your account and contact status:")}</div>
-              <div>{T(<><b>3 requests</b> సిద్ధంగా ఉన్నాయి • phone numbers <b>🔒 locked</b> (గోప్యతా రక్షణతో).</>, <><b>3 requests</b> are ready • phone numbers are <b>🔒 locked</b> for privacy.</>)}</div>
+              <div>{T(<><b>{result.credits} పరిచయ అభ్యర్థనలు</b> అందుబాటులో ఉన్నాయి • phone numbers <b>🔒 locked</b> (గోప్యతా రక్షణతో).</>, <><b>{result.credits} interest requests</b> are available • phone numbers are <b>🔒 locked</b> for privacy.</>)}</div>
             </div>
 
             {/* Referral confirmation if attached */}
-            {joined_with?.ok && (
+            {joined_with?.ok === true && Number.isSafeInteger(joined_with.bonus_credits) && (
               <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-3.5 flex items-center gap-3 text-xs text-emerald-900">
                 <span className="text-xl">🎁</span>
                 <div>
                   <span className="font-bold">{T("రిఫరల్ బోనస్ యాక్టివేట్ అయ్యింది! ", "Referral bonus activated! ")}</span>
                   <span>{T(
-                    `మీకు +${joined_with?.bonus_credits ?? 1} interest-request credit జోడించబడింది. ఇది cash కాదు, contact unlock కూడా కాదు; referrer కు వచ్చే షరతులతో కూడిన ₹50 reward వేరు.`,
-                    `You received +${joined_with?.bonus_credits ?? 1} interest-request credit. It is not cash or a contact unlock; the referrer's separate ₹50 reward is conditional.`,
+                    `మీకు +${joined_with.bonus_credits} interest-request credit జోడించబడింది. ఇది cash కాదు, contact unlock కూడా కాదు; referrer కు వచ్చే షరతులతో కూడిన ₹50 reward వేరు.`,
+                    `You received +${joined_with.bonus_credits} interest-request credit. It is not cash or a contact unlock; the referrer's separate ₹50 reward is conditional.`,
                   )}</span>
                 </div>
               </div>

@@ -26,6 +26,23 @@ test("registration retries use an opaque key and XHR progress without fabricatin
 
 test("referral success copy requires the server's nested attachment result", () => {
   assert.match(source, /const joined_with = result\.referral\?\.joined_with/);
-  assert.match(source, /\{joined_with\?\.ok && \(/);
+  assert.match(source, /\{joined_with\?\.ok === true && Number\.isSafeInteger\(joined_with\.bonus_credits\) && \(/);
   assert.doesNotMatch(source, /result\.joined_with\?\.ok \|\| refLocked/);
+});
+
+
+test("only a confirmed response can clear the draft or retry key", () => {
+  const gate = source.indexOf("const confirmation = (status === 200 || status === 201) ? registrationConfirmation(d) : null");
+  const error = source.indexOf("if (!confirmation)", gate);
+  const result = source.indexOf("setResult(confirmation)", error);
+  const clear = source.indexOf("localStorage.removeItem(DRAFT_KEY)", result);
+  assert.ok(gate > 0 && error > gate && result > error && clear > result);
+  assert.match(source, /result\.credits/);
+  assert.doesNotMatch(source, /joined_with\?\.bonus_credits \?\? 1/);
+});
+
+
+test("queued autosave cannot recreate a completed registration draft", () => {
+ assert.match(source,/if \(registrationCompleteRef\.current\) return/);
+ assert.ok(source.indexOf("registrationCompleteRef.current = true") < source.indexOf("setResult(confirmation)"));
 });
