@@ -489,7 +489,9 @@ check("Public partner UI does not display unverified wallet data",
       "Public dashboard shows aggregate counts only" in code_pg and "privateDash.wallet" in code_pg)
 check("Register page ?ref auto-lock intact", "refLocked" in reg_pg and "referral_code" in reg_pg)
 check("Register success lo referral card (code+link+poster+dashboard)",
-      "result.referral?.my_code" in reg_pg and "poster_url" in reg_pg and "Referral dashboard" in reg_pg)
+      "result.referral?.my_code" in reg_pg and "poster_url" in reg_pg
+      and 'href={`/referral?id=${tsap}`}' in reg_pg
+      and 'T("రిఫరల్ వివరాలకు వెళ్లండి →", "Open referral dashboard →")' in reg_pg)
 check("Referral dashboard ?id= ni respect chestundi (register nunchi vachina user)",
       "URLSearchParams(window.location.search)" in dash_pg and "tsap_last_id" in dash_pg)
 check("Register page localStorage lo ID save chestundi (demo ID kaadu chupinchadaniki)",
