@@ -98,40 +98,40 @@ export default function WhatsAppProposalModal({ isOpen, onClose, profile }: Prop
     let greeting = "";
     if (tone === "parent") {
       greeting = te
-        ? `🙏 నమస్కారం అండి!\nమేము మన వివాహలోని ఒక సంబంధం వివరాలను మీ పరిశీలన కోసం పంపుతున్నాము:`
-        : `🙏 Hello!\nWe are sharing a Telugu matrimony profile from Mana Vivaha for your consideration:`;
+        ? `నమస్కారం అండి!\nమేము మన వివాహలోని ఒక సంబంధం వివరాలను మీ పరిశీలన కోసం పంపుతున్నాము:`
+        : `Hello!\nWe are sharing a Telugu matrimony profile from Mana Vivaha for your consideration:`;
     } else if (tone === "self") {
       greeting = te
-        ? `🙏 నమస్కారం అండి!\nనేను మన వివాహ (Mana Vivaha) లో నా పెళ్లి సంబంధం కోసం వివరాలను పంపుతున్నాను. దయచేసి పరిశీలించండి:`
-        : `🙏 Hello!\nI am sharing my matrimony profile from Mana Vivaha for your consideration:`;
+        ? `నమస్కారం అండి!\nనేను మన వివాహ (Mana Vivaha) లో నా పెళ్లి సంబంధం కోసం వివరాలను పంపుతున్నాను. దయచేసి పరిశీలించండి:`
+        : `Hello!\nI am sharing my matrimony profile from Mana Vivaha for your consideration:`;
     } else {
       greeting = te
-        ? `💐 శుభోదయం / నమస్కారం అండి!\nమన బంధువులలో/పరిచయస్తులలో మీకు సరితూగే మంచి సంబంధం (Match Profile) వివరాలు ఇక్కడ ఉన్నాయి:`
-        : `💐 Greetings!\nHere are the details of a prospective matrimony profile for your consideration:`;
+        ? `శుభోదయం / నమస్కారం అండి!\nమన బంధువులు లేదా పరిచయస్తులలో ఒకరి వివాహ ప్రొఫైల్ వివరాలను మీ పరిశీలన కోసం పంపుతున్నాము:`
+        : `Greetings!\nHere are the details of a prospective matrimony profile for your consideration:`;
     }
 
     const lines = [
       greeting,
-      `\n🆔 Profile ID: ${profile.tsap_id}`,
-      `${te ? "👤 పేరు" : "👤 Name"}: ${profile.full_name || (te ? "పేరు ఇవ్వలేదు" : "Name not provided")}`,
+      `${te ? "\nప్రొఫైల్ గుర్తింపు" : "\nProfile ID"}: ${profile.tsap_id}`,
+      `${te ? "పేరు" : "Name"}: ${profile.full_name || (te ? "పేరు ఇవ్వలేదు" : "Name not provided")}`,
     ];
     const height = displayField(profile.height);
     if (profile.age || height) {
       const ageText = profile.age ? `${profile.age}${te ? " సం." : " years"}` : "";
-      lines.push(`${te ? "🎂 వయస్సు & ఎత్తు" : "🎂 Age / height"}: ${[ageText, height].filter(Boolean).join(" · ")}`);
+      lines.push(`${te ? "వయస్సు & ఎత్తు" : "Age / height"}: ${[ageText, height].filter(Boolean).join(" · ")}`);
     }
     const education = displayField(profile.education);
-    if (education) lines.push(`${te ? "🎓 చదువు" : "🎓 Education"}: ${education}`);
+    if (education) lines.push(`${te ? "చదువు" : "Education"}: ${education}`);
     const work = [profile.job, profile.company].map(displayField).filter(Boolean).join(" · ");
-    if (work) lines.push(`${te ? "💼 ఉద్యోగం" : "💼 Occupation"}: ${work}`);
+    if (work) lines.push(`${te ? "ఉద్యోగం" : "Occupation"}: ${work}`);
 
     const salary = displayField(profile.salary);
-    if (includeSalary && salary) lines.push(`${te ? "💰 వార్షిక ఆదాయం" : "💰 Annual income"}: ${salary}`);
+    if (includeSalary && salary) lines.push(`${te ? "వార్షిక ఆదాయం" : "Annual income"}: ${salary}`);
 
     const location = [profile.district, profile.state].map(displayField).filter(Boolean).join(", ");
-    if (location) lines.push(`${te ? "📍 ఊరు / జిల్లా" : "📍 Location"}: ${location}`);
+    if (location) lines.push(`${te ? "ఊరు / జిల్లా" : "Location"}: ${location}`);
     const community = [profile.caste, profile.sub_caste].map(displayField).filter(Boolean).join(" / ");
-    if (community) lines.push(`${te ? "🏛️ కులం / ఉపకులం" : "🏛️ Community / sub-community"}: ${community}`);
+    if (community) lines.push(`${te ? "కులం / ఉపకులం" : "Community / sub-community"}: ${community}`);
 
     if (includeAstro) {
       const astroLabels = te
@@ -143,25 +143,25 @@ export default function WhatsAppProposalModal({ isOpen, onClose, profile }: Prop
           return shown ? `${label}: ${shown}` : "";
         })
         .filter(Boolean);
-      if (astroParts.length) lines.push(`${te ? "🌟 జాతక సూచనలు (సభ్యుడు నమోదు చేసినవి; verify కాదు)" : "🌟 Horoscope references (member-entered; not verified)"}: ${astroParts.join(" • ")}`);
+      if (astroParts.length) lines.push(`${te ? "జాతక సూచనలు (సభ్యుడు నమోదు చేసినవి; ధృవీకరించలేదు)" : "Horoscope references (member-entered; not verified)"}: ${astroParts.join(" • ")}`);
     }
 
     const maritalStatus = te ? displayField(profile.marital_status) : englishMaritalStatus(profile.marital_status);
     if (maritalStatus && !["pelli kaledu", "never married", "single"].includes(maritalStatus.toLowerCase())) {
-      lines.push(`${te ? "💍 వైవాహిక స్థితి" : "💍 Marital status"}: ${maritalStatus}`);
+      lines.push(`${te ? "వైవాహిక స్థితి" : "Marital status"}: ${maritalStatus}`);
     }
 
     lines.push(te
-      ? `\n🔗 పూర్తి ప్రొఫైల్ వివరాల లింక్:\n👉 ${profileUrl}`
-      : `\n🔗 View the full profile:\n👉 ${profileUrl}`);
+      ? `\nపూర్తి ప్రొఫైల్ వివరాల లింక్:\n${profileUrl}`
+      : `\nView the full profile:\n${profileUrl}`);
 
     if (includeBiodataLink) {
       lines.push(te
-        ? `\n🎴 బయోడేటా రూపొందించడానికి లింక్:\n👉 ${biodataUrl}`
-        : `\n🎴 Create a shareable biodata:\n👉 ${biodataUrl}`);
+        ? `\nబయోడేటా రూపొందించడానికి లింక్:\n${biodataUrl}`
+        : `\nCreate a shareable biodata:\n${biodataUrl}`);
     }
 
-    lines.push(te ? "\n✨ మన వివాహ (Mana Vivaha) — Telugu matrimony profile service" : "\n✨ Mana Vivaha — Telugu matrimony profile service");
+    lines.push(te ? "\nమన వివాహ. తెలుగు వివాహ ప్రొఫైల్ సేవ" : "\nMana Vivaha. Telugu matrimony profile service");
     lines.push(te ? "వివరాలను కుటుంబ సభ్యులతో కలిసి పరిశీలించి స్వతంత్రంగా ధృవీకరించండి." : "Review the details with your family and verify them independently.");
 
     return lines.join("\n");
