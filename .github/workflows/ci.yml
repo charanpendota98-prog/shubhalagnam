@@ -80,7 +80,9 @@ jobs:
   browser-qa:
     name: Real-browser responsive and accessibility QA
     runs-on: ubuntu-latest
-    timeout-minutes: 50
+    # The full serial suite can exceed 50 minutes before accessibility starts.
+    # Keep every test and its per-test limit; give the complete gate room to finish.
+    timeout-minutes: 90
     defaults:
       run:
         working-directory: frontend
