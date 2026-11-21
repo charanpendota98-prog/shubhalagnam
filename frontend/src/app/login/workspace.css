@@ -13,3 +13,6 @@
 .mv-login-workspace input[type=checkbox]{flex-shrink:0;margin-top:5px;}
 @media(max-width:359px){.mv-login-workspace .card-shadow{padding:20px 16px;}.mv-login-workspace h1{font-size:26px;}.mv-login-workspace .mv-login-field-heading>button{flex-basis:100%;text-align:left;}}
 .mv-login-workspace input::placeholder{letter-spacing:normal;}
+
+.mv-login-workspace .mv-login-icon{width:20px;height:20px;flex-shrink:0;display:inline-block;vertical-align:middle;}
+.mv-login-workspace .mv-login-brand-icon{width:30px;height:30px;flex-shrink:0;color:#7a0c2e;}
