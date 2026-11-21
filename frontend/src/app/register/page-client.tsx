@@ -26,7 +26,7 @@ import { apiDisplayMessage, getCsrfToken, readApiJson } from "@/lib/api";
 import { registerPasskey } from "@/lib/webauthn-client";
 import { fetchAuthCapabilities } from "@/lib/auth";
 import { registrationConfirmation } from "@/lib/registration-response";
-import { confirmedEmailVerification } from "@/lib/email-verification-confirmation";
+import { confirmedEmailResend, confirmedEmailVerification } from "@/lib/email-verification-confirmation";
 
 import { ProfilePhotoError, prepareProfilePhoto, profilePhotoErrorMessage } from "@/lib/photo-upload";
 import { stateFullName, isGroomGender, isHomemakerOccupation, workTypesForGender } from "@/lib/telugu-data";
@@ -804,7 +804,7 @@ function Wizard() {
   }, []);
   const verifyRegistrationEmail = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (emailVerifyLock.current || emailVerified || !result) return;
+    if (emailVerifyLock.current || emailResendLock.current || emailVerified || !result) return;
     const code = emailCode.trim();
     if (!/^\d{8}$/.test(code)) { setEmailVerifyFeedback("invalid"); return; }
     const epoch = ++emailVerifyEpoch.current;
@@ -834,6 +834,49 @@ function Wizard() {
       if (emailVerifyController.current === controller) emailVerifyController.current = null;
       emailVerifyLock.current = false;
       if (emailVerifyActive.current) setEmailVerifyBusy(false);
+    }
+  };
+  const [emailResendPassword, setEmailResendPassword] = useState("");
+  const [emailResendBusy, setEmailResendBusy] = useState(false);
+  const [emailResendFeedback, setEmailResendFeedback] = useState<"" | "password" | "unconfirmed" | "sent">("");
+  const emailResendLock = useRef(false);
+  const emailResendActive = useRef(true);
+  const emailResendController = useRef<AbortController | null>(null);
+  useEffect(() => {
+    emailResendActive.current = true;
+    return () => { emailResendActive.current = false; emailResendController.current?.abort(); };
+  }, []);
+  const resendRegistrationEmail = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (emailResendLock.current || emailVerifyLock.current || emailVerified || !result) return;
+    if (!emailResendPassword) { setEmailResendFeedback("password"); return; }
+    emailResendLock.current = true;
+    setEmailResendBusy(true);
+    setEmailResendFeedback("");
+    const controller = new AbortController();
+    emailResendController.current = controller;
+    const timeout = window.setTimeout(() => controller.abort(), 20_000);
+    try {
+      const response = await fetch("/api/auth/send-verify-email", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tsap_id: result.tsap_id || result.user_id, password: emailResendPassword }), signal: controller.signal,
+      });
+      const reply = await readApiJson(response);
+      if (!emailResendActive.current || controller.signal.aborted) return;
+      const confirmed = confirmedEmailResend(response.status, reply);
+      if (!confirmed) { setEmailResendFeedback("unconfirmed"); return; }
+      emailVerifyEpoch.current += 1;
+      setEmailCode("");
+      setEmailVerifyFeedback(confirmed === "verified" ? "verified" : "");
+      if (confirmed === "verified") setEmailVerified(true);
+      else setEmailResendFeedback("sent");
+    } catch {
+      if (emailResendActive.current) setEmailResendFeedback("unconfirmed");
+    } finally {
+      window.clearTimeout(timeout);
+      if (emailResendController.current === controller) emailResendController.current = null;
+      emailResendLock.current = false;
+      if (emailResendActive.current) { setEmailResendBusy(false); setEmailResendPassword(""); }
     }
   };
   const registrationCompleteRef = useRef(false);
@@ -1470,20 +1513,35 @@ function Wizard() {
             {result.email_verify?.required && !result.email_verify?.verified && (
               <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 my-4">
                 <h3 className="text-sm font-bold text-blue-900 mb-2"><Mail aria-hidden="true" className="mv-registration-result-icon" /> {te ? "ఈమెయిల్ వెరిఫికేషన్" : "Email Verification"}</h3>
-                <p className="text-xs text-blue-800 mb-3">{emailVerified ? T("ఈ ఈమెయిల్ పాస్‌వర్డ్ రికవరీకి సిద్ధంగా ఉంది.", "This email is ready for password recovery.") : result.email_verify?.sent
+                <p className="text-xs text-blue-800 mb-3">{emailVerified ? T("ఈ ఈమెయిల్ పాస్‌వర్డ్ రికవరీకి సిద్ధంగా ఉంది.", "This email is ready for password recovery.") : emailResendFeedback === "sent" ? T("కొత్త కోడ్ పంపే అభ్యర్థన అంగీకరించబడింది. మీ ఈమెయిల్ చూడండి; ఇంకా ధృవీకరణ అవసరం.", "A new code request was accepted. Check your email; verification is still required.") : result.email_verify?.sent
                   ? (te ? "రికవరీ కోసం మీ ఈమెయిల్‌కు 8 అంకెల కోడ్ పంపబడింది." : "An 8-digit code has been sent to your email.")
                   : (te ? "కోడ్ పంపడం సాధ్యపడలేదు. మీ ఈమెయిల్ ఇంకా ధృవీకరించబడలేదు; పాస్‌వర్డ్‌ను భద్రంగా ఉంచండి." : "The code could not be sent. Your email is not verified yet; keep your password safe.")}</p>
                 {!emailVerified && <form onSubmit={verifyRegistrationEmail} className="space-y-2">
                   <label htmlFor="email-verify-code" className="block text-xs font-semibold text-blue-900">{T("ఈమెయిల్‌లో వచ్చిన 8 అంకెల కోడ్", "Eight-digit email code")}</label>
                   <div className="flex flex-wrap gap-2">
                     <input type="text" id="email-verify-code" inputMode="numeric" autoComplete="one-time-code" maxLength={8}
-                      value={emailCode} onChange={event => { emailVerifyEpoch.current += 1; setEmailCode(event.target.value); setEmailVerifyFeedback(""); }}
+                      value={emailCode} disabled={emailResendBusy} onChange={event => { emailVerifyEpoch.current += 1; setEmailCode(event.target.value); setEmailVerifyFeedback(""); }}
                       aria-describedby="email-verification-feedback" aria-invalid={emailVerifyFeedback === "invalid" || undefined}
                       className="min-w-0 flex-1 basis-40 bg-white border border-blue-200 rounded-xl px-3 py-2 text-sm focus:border-blue-500 outline-none" />
-                    <button type="submit" disabled={emailVerifyBusy} className="bg-blue-600 text-white px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap disabled:opacity-50">
+                    <button type="submit" disabled={emailVerifyBusy || emailResendBusy} className="bg-blue-600 text-white px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap disabled:opacity-50">
                       {emailVerifyBusy ? T("తనిఖీ చేస్తున్నాం…", "Checking…") : T("ధృవీకరించండి", "Verify")}
                     </button>
                   </div>
+                </form>}
+                {!emailVerified && <form onSubmit={resendRegistrationEmail} className="mt-4 border-t border-blue-200 pt-3 space-y-2">
+                  <p className="text-xs text-blue-900">{T("కోడ్ రాలేదా లేదా గడువు ముగిసిందా? కొత్త కోడ్ కోరడానికి మీ ఖాతా పాస్‌వర్డ్ నమోదు చేయండి.", "Code missing or expired? Enter your account password to request a new code.")}</p>
+                  <label htmlFor="email-resend-password" className="block text-xs font-semibold text-blue-900">{T("కొత్త ఈమెయిల్ కోడ్ కోసం పాస్‌వర్డ్", "Password for a new email code")}</label>
+                  <input id="email-resend-password" type="password" autoComplete="current-password" value={emailResendPassword}
+                    onChange={event => { setEmailResendPassword(event.target.value); setEmailResendFeedback(""); }} disabled={emailResendBusy}
+                    aria-describedby="email-resend-feedback" className="w-full min-w-0 bg-white border border-blue-200 rounded-xl px-3 py-2 text-sm focus:border-blue-500 outline-none" />
+                  <button type="submit" disabled={emailResendBusy || emailVerifyBusy} className="min-h-11 bg-white border border-blue-300 text-blue-900 px-4 py-2 rounded-xl text-xs font-bold disabled:opacity-50">
+                    {emailResendBusy ? T("కోడ్ కోరుతున్నాం…", "Requesting code…") : T("కొత్త ఈమెయిల్ కోడ్ కోరండి", "Request a new email code")}
+                  </button>
+                  <p id="email-resend-feedback" role={emailResendFeedback === "password" || emailResendFeedback === "unconfirmed" ? "alert" : "status"} aria-live="polite" className="text-xs leading-relaxed text-blue-900">
+                    {emailResendFeedback === "password" ? T("మీ ఖాతా పాస్‌వర్డ్ నమోదు చేయండి.", "Enter your account password.")
+                      : emailResendFeedback === "sent" ? T("కొత్త కోడ్ పంపే అభ్యర్థన అంగీకరించబడింది. మీ ఈమెయిల్, స్పామ్ ఫోల్డర్ చూడండి. మళ్లీ కోరడానికి కనీసం ఒక నిమిషం ఆగండి. ఈమెయిల్ ఇంకా ధృవీకరించబడలేదు.", "A new code request was accepted. Check your email and spam folder. Wait at least one minute before requesting again. Your email is not verified yet.")
+                      : emailResendFeedback === "unconfirmed" ? T("కొత్త కోడ్ అభ్యర్థనను నిర్ధారించలేకపోయాం. పాస్‌వర్డ్ తనిఖీ చేసి, కొద్దిసేపటి తర్వాత మళ్లీ ప్రయత్నించండి. పాత కోడ్ మారలేదు; ఈమెయిల్ ఇంకా ధృవీకరించబడలేదు.", "We could not confirm a new code request. Check your password and try again later. Your entered code is unchanged; your email is not verified yet.") : ""}
+                  </p>
                 </form>}
                 <p id="email-verification-feedback" role={emailVerifyFeedback === "invalid" || emailVerifyFeedback === "unconfirmed" ? "alert" : "status"} aria-live="polite" className="mt-2 text-xs leading-relaxed text-blue-900">
                   {emailVerifyFeedback === "verified" ? T("మీ ఈమెయిల్ ధృవీకరించబడింది. పాస్‌వర్డ్ రికవరీకి దీన్ని ఉపయోగించవచ్చు.", "Your email is verified. You can use it for password recovery.")
