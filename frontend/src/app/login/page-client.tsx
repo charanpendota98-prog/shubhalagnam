@@ -177,7 +177,7 @@ export default function LoginPage() {
       return;
     }
     if (newPw.length < 8 || newPw.length > 72) {
-      showFeedback(te ? "⚠️ కొత్త పాస్‌వర్డ్ 8-72 అక్షరాలు ఉండాలి" : "⚠️ New password must be at least 6 characters", "err");
+      showFeedback(te ? "⚠️ కొత్త పాస్‌వర్డ్ 8-72 అక్షరాలు ఉండాలి" : "⚠️ New password must be 8-72 characters", "err");
       return;
     }
     if (newPw !== confirmPw) {
