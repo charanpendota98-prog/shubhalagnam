@@ -15,6 +15,7 @@ import { registrationNameError, registrationFailureMessage } from "@/lib/registr
 import "./workspace.css";
 import { Suspense, useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { CircleCheck, KeyRound, Mail, Gift, Target, Users, Radio, ChartNoAxesCombined, Image as ImageIcon, Pencil, Search, Store, IdCard } from "lucide-react";
 import Image from "next/image";
 import { useSearchParams } from "next/navigation";
 import Reveal from "@/components/Reveal";
@@ -1396,7 +1397,7 @@ function Wizard() {
         <div className="max-w-2xl mx-auto bg-white rounded-3xl border border-gold/40 shadow-2xl overflow-hidden animate-fade">
           {/* Header Banner */}
           <div className="maroon-gradient p-6 text-white text-center space-y-2">
-            <div className="text-4xl">🎉 💍 🌸</div>
+            <CircleCheck aria-hidden="true" className="mx-auto h-10 w-10" />
             <h1 className="text-xl sm:text-2xl font-black">
               {T("నమోదు విజయవంతంగా పూర్తయింది!", "Registration Successful!")}
             </h1>
@@ -1412,7 +1413,7 @@ function Wizard() {
 
             {/* Only offer setup when the server explicitly supports it. */}
             {passkeyStatus === "available" ? <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 my-4">
-              <h3 className="text-sm font-bold text-slate-800 mb-2">🔑 {T("పాస్‌కీ సెటప్ (Passkey Setup)", "Passkey Setup")}</h3>
+              <h3 className="text-sm font-bold text-slate-800 mb-2"><KeyRound aria-hidden="true" className="mv-registration-result-icon" /> {T("పాస్‌కీ సెటప్", "Passkey Setup")}</h3>
               <p className="text-xs text-slate-600 mb-3">{T("పాస్‌వర్డ్ లేకుండా సురక్షితంగా మీ ఫోన్ వేలిముద్ర/ఫేస్ లాక్ తో లాగిన్ అవ్వడానికి పాస్‌కీ సెటప్ చేయండి.", "Set up a passkey to sign in securely with your fingerprint or face without a password.")}</p>
               <div className="flex flex-col sm:flex-row gap-2 max-w-sm">
                 <input 
@@ -1422,7 +1423,7 @@ function Wizard() {
                   aria-describedby="registration-passkey-feedback"
                   value={passkeyPw} 
                   onChange={(e) => { setPasskeyPw(e.target.value); setPasskeyFeedback(""); }}
-                  placeholder={T("మీ పాస్‌వర్డ్ (Your Password)", "Your Password")}
+                  placeholder={T("మీ పాస్‌వర్డ్", "Your Password")}
                   className="flex-1 bg-white border border-slate-200 rounded-xl px-3.5 py-2 text-sm focus:border-slate-800 outline-none"
                   disabled={passkeyBusy}
                 />
@@ -1462,15 +1463,15 @@ function Wizard() {
               </p>
             </div> : <p role="status" data-testid="registration-passkey-unavailable" className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-xs text-slate-600">
               {passkeyStatus === "checking"
-                ? T("Passkey అందుబాటు తనిఖీ చేస్తున్నాం...", "Checking passkey availability...")
+                ? T("పాస్‌కీ అందుబాటు తనిఖీ చేస్తున్నాం...", "Checking passkey availability...")
                 : passkeyStatus === "error"
-                  ? T("Passkey అందుబాటు తనిఖీ కాలేదు. మీ పాస్‌వర్డ్‌తో లాగిన్ అవ్వండి.", "Passkey availability could not be checked. Sign in with your password.")
-                  : T("Passkey సెటప్ ప్రస్తుతం అందుబాటులో లేదు. మీ పాస్‌వర్డ్‌తో లాగిన్ అవ్వండి.", "Passkey setup is not available right now. Sign in with your password.")}
+                  ? T("పాస్‌కీ అందుబాటు తనిఖీ కాలేదు. మీ పాస్‌వర్డ్‌తో లాగిన్ అవ్వండి.", "Passkey availability could not be checked. Sign in with your password.")
+                  : T("పాస్‌కీ సెటప్ ప్రస్తుతం అందుబాటులో లేదు. మీ పాస్‌వర్డ్‌తో లాగిన్ అవ్వండి.", "Passkey setup is not available right now. Sign in with your password.")}
             </p>}
 
             {result.email_verify?.required && !result.email_verify?.verified && (
               <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 my-4">
-                <h3 className="text-sm font-bold text-blue-900 mb-2">📧 {te ? "ఈమెయిల్ వెరిఫికేషన్" : "Email Verification"}</h3>
+                <h3 className="text-sm font-bold text-blue-900 mb-2"><Mail aria-hidden="true" className="mv-registration-result-icon" /> {te ? "ఈమెయిల్ వెరిఫికేషన్" : "Email Verification"}</h3>
                 <p className="text-xs text-blue-800 mb-3">{emailVerified ? T("ఈ ఈమెయిల్ పాస్‌వర్డ్ రికవరీకి సిద్ధంగా ఉంది.", "This email is ready for password recovery.") : result.email_verify?.sent
                   ? (te ? "రికవరీ కోసం మీ ఈమెయిల్‌కు 8 అంకెల కోడ్ పంపబడింది." : "An 8-digit code has been sent to your email.")
                   : (te ? "కోడ్ పంపడం సాధ్యపడలేదు. మీ ఈమెయిల్ ఇంకా ధృవీకరించబడలేదు; పాస్‌వర్డ్‌ను భద్రంగా ఉంచండి." : "The code could not be sent. Your email is not verified yet; keep your password safe.")}</p>
@@ -1502,24 +1503,24 @@ function Wizard() {
               </div>
               <div className="flex flex-col items-start sm:items-end gap-1.5">
                 <span className={`px-3 py-1.5 text-xs font-black rounded-full border ${profileApproved ? "bg-emerald-100 text-emerald-800 border-emerald-300" : "bg-amber-100 text-amber-900 border-amber-300"}`}>
-                  {profileApproved ? T("✓ ప్రొఫైల్ ఆమోదించబడింది", "✓ Profile approved") : T("సమీక్ష కోసం వేచి ఉంది", "Review pending")}
+                  {profileApproved ? T("ప్రొఫైల్ ఆమోదించబడింది", "Profile approved") : T("సమీక్ష కోసం వేచి ఉంది", "Review pending")}
                 </span>
                 <span className={`px-3 py-1.5 text-xs font-bold rounded-full border ${phoneVerified ? "bg-emerald-50 text-emerald-800 border-emerald-200" : "bg-slate-100 text-slate-700 border-slate-200"}`}>
-                  {phoneVerified ? T("✓ ఫోన్ OTP ధృవీకరించబడింది", "✓ Phone OTP verified") : T("ఫోన్ OTP ధృవీకరించబడలేదు", "Phone not OTP verified")}
+                  {phoneVerified ? T("ఫోన్ OTP ధృవీకరించబడింది", "Phone OTP verified") : T("ఫోన్ OTP ధృవీకరించబడలేదు", "Phone not OTP verified")}
                 </span>
               </div>
             </div>
 
             {/* What you got card */}
             <div className="bg-amber-50/60 border border-gold/30 rounded-2xl p-3.5 text-xs text-slate-700 space-y-1">
-              <div className="font-bold text-maroon">🎁 {T("మీ అకౌంట్ వివరాలు & కాంటాక్ట్ స్టేటస్:", "Your account and contact status:")}</div>
-              <div>{T(<><b>{result.credits} పరిచయ అభ్యర్థనలు</b> అందుబాటులో ఉన్నాయి • phone numbers <b>🔒 locked</b> (గోప్యతా రక్షణతో).</>, <><b>{result.credits} interest requests</b> are available • phone numbers are <b>🔒 locked</b> for privacy.</>)}</div>
+              <div className="font-bold text-maroon"><Gift aria-hidden="true" className="mv-registration-result-icon" /> {T("మీ అకౌంట్ వివరాలు & కాంటాక్ట్ స్టేటస్:", "Your account and contact status:")}</div>
+              <div>{T(<><b>{result.credits} పరిచయ అభ్యర్థనలు</b> అందుబాటులో ఉన్నాయి • గోప్యత కోసం ఫోన్ నంబర్లు <b>లాక్‌లో ఉంటాయి</b>.</>, <><b>{result.credits} interest requests</b> are available • phone numbers are <b>locked</b> for privacy.</>)}</div>
             </div>
 
             {/* Referral confirmation if attached */}
             {joined_with?.ok === true && Number.isSafeInteger(joined_with.bonus_credits) && (
               <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-3.5 flex items-center gap-3 text-xs text-emerald-900">
-                <span className="text-xl">🎁</span>
+                <Gift aria-hidden="true" className="mv-registration-result-icon" />
                 <div>
                   <span className="font-bold">{T("రిఫరల్ బోనస్ యాక్టివేట్ అయ్యింది! ", "Referral bonus activated! ")}</span>
                   <span>{T(
@@ -1533,7 +1534,7 @@ function Wizard() {
             {/* Referral Dashboard & Poster Card */}
             {(result.referral?.my_code || result.my_referral_code) && (
               <div className="bg-amber-50 border border-gold/40 rounded-2xl p-3.5 text-xs space-y-1">
-                <div className="font-bold text-maroon">🎁 {T("మీ రిఫరల్ కోడ్:", "Your referral code:")} {result.referral?.my_code || result.my_referral_code}</div>
+                <div className="font-bold text-maroon"><Gift aria-hidden="true" className="mv-registration-result-icon" /> {T("మీ రిఫరల్ కోడ్:", "Your referral code:")} {result.referral?.my_code || result.my_referral_code}</div>
                 <div className="text-slate-600">{T(
                   "Valid referral attach పై referrer కు +2, కొత్త user కు +1 interest-request credits వస్తాయి; ఇవి cash కావు. Referrer కు ₹50 ఒక్కసారి మాత్రమే అర్హత ఉండవచ్చు—referee మొదటి S_99/S_199/S_299/S_499 consumer-plan payment కనీసం ₹99 అయితే; exclusions మరియు payout manual review వర్తిస్తాయి.",
                   "A valid referral adds +2 interest-request credits for the referrer and +1 for the new member; credits are not cash. The referrer may qualify for a one-time ₹50 reward only if the new member's first eligible consumer-plan payment is at least ₹99. Exclusions and manual payout review apply.",
@@ -1549,7 +1550,7 @@ function Wizard() {
             {/* Set Partner Preferences Now Card */}
             <div className="bg-gradient-to-r from-amber-500 to-rose-600 rounded-2xl p-4 text-white space-y-2 shadow-md">
               <div className="flex items-center gap-2">
-                <span className="text-xl">🎯</span>
+                <Target aria-hidden="true" className="mv-registration-result-icon" />
                 <span className="font-black text-sm">{T("మీకు ఎలాంటి సంబంధం కావాలి? (Partner Preferences)", "Set your partner preferences")}</span>
               </div>
               <p className="text-[11px] text-amber-100">
@@ -1562,7 +1563,7 @@ function Wizard() {
                 href="/me"
                 className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white text-[#7A0C2E] font-black text-xs hover:bg-amber-100 transition shadow"
               >
-                <span>🎯</span>
+                <Target aria-hidden="true" className="mv-registration-result-icon" />
                 <span>{T("నా ప్రిఫరెన్సెస్ సెట్ చేయండి →", "Set my preferences →")}</span>
               </Link>
             </div>
@@ -1570,7 +1571,7 @@ function Wizard() {
             {/* Community hub: the groups belong to the community they just joined. */}
             <div className="rounded-2xl border border-gold/40 bg-gradient-to-r from-rose-50 via-amber-50 to-rose-50 p-4 space-y-2">
               <div className="flex items-center gap-2">
-                <span className="text-xl" aria-hidden="true">🤝</span>
+                <Users aria-hidden="true" className="mv-registration-result-icon" />
                 <span className="font-black text-sm text-maroon">
                   {hub.matched && communityName
                     ? T(`${communityName} కమ్యూనిటీ గ్రూపులు`, `${communityName} community groups`)
@@ -1593,7 +1594,7 @@ function Wizard() {
                   href={hub.href}
                   className="inline-flex min-h-11 items-center gap-1.5 rounded-xl bg-[#7A0C2E] px-4 py-2 text-xs font-black text-white shadow-sm"
                 >
-                  <span aria-hidden="true">🤝</span>
+                  <Users aria-hidden="true" className="mv-registration-result-icon" />
                   <span>{hub.matched
                     ? T("నా కమ్యూనిటీ గ్రూపుకు వెళ్లండి →", "Open my community group →")
                     : T("కమ్యూనిటీ గ్రూపులు చూడండి →", "Browse community groups →")}</span>
@@ -1602,7 +1603,7 @@ function Wizard() {
                   href="/channels"
                   className="inline-flex min-h-11 items-center gap-1.5 rounded-xl border border-maroon/30 bg-white px-4 py-2 text-xs font-bold text-maroon"
                 >
-                  <span aria-hidden="true">📡</span>
+                  <Radio aria-hidden="true" className="mv-registration-result-icon" />
                   <span>{T("అన్ని ఛానెళ్లు", "All channels")}</span>
                 </Link>
               </div>
@@ -1615,7 +1616,7 @@ function Wizard() {
 
             {/* Profile details can be completed later; no sample progress or response promise. */}
             <div className="rounded-2xl border border-gold/40 bg-gradient-to-r from-amber-50 via-rose-50 to-amber-50 p-4">
-              <div className="font-bold text-slate-900">📊 {T("ప్రొఫైల్ వివరాలు తర్వాత కూడా పూర్తి చేయవచ్చు", "You can complete profile details later")}</div>
+              <div className="font-bold text-slate-900"><ChartNoAxesCombined aria-hidden="true" className="mv-registration-result-icon" /> {T("ప్రొఫైల్ వివరాలు తర్వాత కూడా పూర్తి చేయవచ్చు", "You can complete profile details later")}</div>
               <p className="mt-1 text-[11px] leading-relaxed text-slate-600">
                 {T("నమోదు తర్వాత My Profile లో మీ వివరాలు ఎప్పుడైనా సవరించండి. ఎక్కువ వివరాలు ఇవ్వడం వల్ల search స్థానం లేదా స్పందనలకు హామీ ఉండదు.", "After registration, update your details any time in My Profile. Adding details does not guarantee search placement or responses.")}
               </p>
@@ -1623,7 +1624,7 @@ function Wizard() {
 
             {cardUrl && (
               <div className="space-y-1.5">
-                <span className="text-xs font-bold text-slate-700 block">🖼️ {T("మీ వాట్సాప్ స్టేటస్ బయోడేటా కార్డ్:", "Your WhatsApp status biodata card:")}</span>
+                <span className="text-xs font-bold text-slate-700 block"><ImageIcon aria-hidden="true" className="mv-registration-result-icon" /> {T("మీ వాట్సాప్ స్టేటస్ బయోడేటా కార్డ్:", "Your WhatsApp status biodata card:")}</span>
                 <ProtectedImage src={cardUrl} alt="Matrimony card preview unavailable" className="w-full rounded-2xl border border-gold/30 shadow-sm" />
               </div>
             )}
@@ -1634,7 +1635,7 @@ function Wizard() {
                 href="/me"
                 className="py-3.5 px-4 rounded-xl gold-gradient text-maroon font-black text-xs sm:text-sm flex items-center justify-center gap-2 shadow-gold hover:brightness-105 transition"
               >
-                <span>✏️</span>
+                <Pencil aria-hidden="true" className="mv-registration-result-icon" />
                 <span>{T("ప్రొఫైల్ వివరాలను పూర్తి చేయండి", "Complete your profile")}</span>
               </Link>
 
@@ -1642,7 +1643,7 @@ function Wizard() {
                 href="/matches"
                 className="py-3.5 px-4 rounded-xl maroon-gradient text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-md hover:brightness-105 transition"
               >
-                <span>🔍</span>
+                <Search aria-hidden="true" className="mv-registration-result-icon" />
                 <span>{T("అందుబాటులో ఉన్న ప్రొఫైళ్లను చూడండి", "Browse available profiles")}</span>
               </Link>
 
@@ -1650,7 +1651,7 @@ function Wizard() {
                 href="/referral"
                 className="py-3 px-4 rounded-xl bg-white border-2 border-gold/60 text-maroon font-bold text-xs flex items-center justify-center gap-1.5 hover:bg-amber-50 transition"
               >
-                <span>🏪</span>
+                <Store aria-hidden="true" className="mv-registration-result-icon" />
                 <span>{T("నా షాప్ QR & పోస్టర్ పొందండి", "Get Referral Shop QR")}</span>
               </Link>
 
@@ -1658,7 +1659,7 @@ function Wizard() {
                 href="/biodata"
                 className="py-3 px-4 rounded-xl bg-white border-2 border-slate-200 text-slate-800 font-bold text-xs flex items-center justify-center gap-1.5 hover:bg-slate-50 transition"
               >
-                <span>🎴</span>
+                <IdCard aria-hidden="true" className="mv-registration-result-icon" />
                 <span>{T("ఉచిత బయోడేటా HD JPG స్టూడియో", "Biodata JPG Studio")}</span>
               </Link>
             </div>

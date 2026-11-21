@@ -21,3 +21,5 @@
 .mv-register-workspace .mv-register-navigation button[aria-label^="దశ"] {font-size:14px;}
 .mv-register-workspace .truncate {white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere;}
 @media(max-width:359px){.mv-register-workspace .mv-register-navigation .grid-cols-2 {grid-template-columns:1fr;}.mv-register-workspace h1{font-size:26px;}}
+
+.mv-register-workspace .mv-registration-result-icon {display:inline-block;width:1.15em;height:1.15em;flex-shrink:0;vertical-align:-0.15em;}

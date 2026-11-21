@@ -1,4 +1,5 @@
 "use client";
+import { Camera } from "lucide-react";
 
 /** Registration photo review state and retry UI. Registration itself requires a photo. */
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -104,7 +105,7 @@ export default function PhotoFlow({ tsapId, onUploaded }: { tsapId: string; onUp
   return (
     <section className="rounded-2xl border border-gold/35 bg-white p-4 shadow-sm" aria-live="polite">
       <div className="flex items-start gap-3">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-xl" aria-hidden="true">📸</div>
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-50" aria-hidden="true"><Camera className="h-5 w-5" /></div>
         <div className="min-w-0 flex-1">
           <h3 className={`text-sm font-black text-slate-900 ${te ? "telugu" : ""}`}>{title}</h3>
           {status === "pending" ? (
