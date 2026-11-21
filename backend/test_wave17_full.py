@@ -48,6 +48,7 @@ from PIL import Image, ImageDraw, ImageFilter  # noqa: E402
 from testutil_client import TestClient  # noqa: E402
 import main  # noqa: E402
 from interest import safe_user  # noqa: E402
+from testutil_photos import TEST_PROFILE_PHOTO
 from photo_validate import validate_photo  # noqa: E402
 from testutil_paths import src_page  # noqa: E402  # App Router page.tsx + page-client.tsx aware
 
@@ -139,7 +140,7 @@ def up(data, fname="p.jpg", tid=None):
                        data={"tsap_id": tid or TID})
 
 
-r = up(mkimg())
+r = up(TEST_PROFILE_PHOTO)
 check("B2 sharp → 200 pending", r.status_code == 200 and r.json().get("status") == "pending",
       (r.status_code, str(r.json())[:100]))
 for i, (name, kw) in enumerate([("blur", {"blur": 6}), ("dark", {"dark": True}),
@@ -161,7 +162,7 @@ u = next(x for x in main.DB_USERS if x.get("tsap_id") == TID)
 check("C4 approved → has_photo+urls", u.get("has_photo") is True and len(u.get("photo_urls", [])) == 1,
       (u.get("has_photo"), u.get("photo_urls")))
 T2 = reg("Wave Seventeen Reject", "9963222202").json().get("tsap_id", "")
-up(mkimg(), "ok.jpg", T2)
+up(TEST_PROFILE_PHOTO, "ok.jpg", T2)
 r = client.post("/api/admin/photos/review",
                 json={"tsap_id": T2, "kind": "photo", "revision": next(it["revision"] for it in client.get("/api/admin/photos/pending").json()["queue"] if it["tsap_id"] == T2 and it["kind"] == "photo"), "decision": "rejected",
                       "reason": "Group photo", "reason_te": "గ్రూప్ ఫోటో వద్దు"})
