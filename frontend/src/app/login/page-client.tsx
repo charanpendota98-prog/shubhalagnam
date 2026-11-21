@@ -83,7 +83,7 @@ export default function LoginPage() {
     }
     setBusy(true);
     showFeedback("");
-    const { ok, data, error } = await apiPost<{ auth_token?: string; tsap_id?: string; message_telugu?: string; message_en?: string; message?: string }>(
+    const { ok, data, error, status } = await apiPost<{ auth_token?: string; tsap_id?: string; message_telugu?: string; message_en?: string; message?: string }>(
       "/api/auth/login-password", { phone: p, password }
     );
     setBusy(false);
@@ -91,7 +91,7 @@ export default function LoginPage() {
       showFeedback(error || (te ? "లాగిన్ విఫలమైంది. పాస్‌వర్డ్ సరిచూసుకోండి." : "Login failed. Check your credentials."), "err");
       return;
     }
-    if (!confirmedAuthSession(data)) {
+    if (status !== 200 || !confirmedAuthSession(data)) {
       showFeedback(te ? "సర్వర్ నిర్ధారణ రాలేదు. మళ్లీ ప్రయత్నించే ముందు వివరాలు సరిచూసుకోండి." : "The server did not confirm this action. Review your details before trying again.", "err");
       return;
     }
@@ -108,13 +108,13 @@ export default function LoginPage() {
     }
     setBusy(true);
     showFeedback("");
-    const { ok, data, error } = await sendOtp(p);
+    const { ok, data, error, status } = await sendOtp(p);
     setBusy(false);
     if (!ok) {
       showFeedback(error || (te ? "OTP పంపడంలో సమస్య ఏర్పడింది." : "Could not send the OTP. Please try again."), "err");
       return;
     }
-    if (!confirmedAuthAck(data)) {
+    if (status !== 200 || !confirmedAuthAck(data)) {
       showFeedback(te ? "సర్వర్ నిర్ధారణ రాలేదు. మళ్లీ ప్రయత్నించే ముందు వివరాలు సరిచూసుకోండి." : "The server did not confirm this action. Review your details before trying again.", "err");
       return;
     }
@@ -133,13 +133,13 @@ export default function LoginPage() {
     }
     setBusy(true);
     showFeedback("");
-    const { ok, data, error } = await verifyOtp(digits(), c);
+    const { ok, data, error, status } = await verifyOtp(digits(), c);
     setBusy(false);
     if (!ok) {
       showFeedback(error || (te ? "తప్పుడు OTP. మళ్లీ ప్రయత్నించండి." : "Invalid OTP. Please try again."), "err");
       return;
     }
-    if (!confirmedPhoneVerification(data)) {
+    if (status !== 200 || !confirmedPhoneVerification(data)) {
       showFeedback(te ? "సర్వర్ నిర్ధారణ రాలేదు. మళ్లీ ప్రయత్నించే ముందు వివరాలు సరిచూసుకోండి." : "The server did not confirm this action. Review your details before trying again.", "err");
       return;
     }
@@ -169,7 +169,7 @@ export default function LoginPage() {
     const endpoint = isEmail ? "/api/auth/forgot-email" : "/api/auth/forgot";
     const payload = isEmail ? { email: p } : { phone: p };
     
-    const { ok, data, error } = await apiPost<{ message_telugu?: string; message_en?: string; message?: string }>(
+    const { ok, data, error, status } = await apiPost<{ message_telugu?: string; message_en?: string; message?: string }>(
       endpoint, payload
     );
     setBusy(false);
@@ -177,7 +177,7 @@ export default function LoginPage() {
       showFeedback(error || (te ? "ఈమెయిల్ ధృవీకరణ కోడ్ పంపడంలో సమస్య ఏర్పడింది. పాస్‌వర్డ్ రీసెట్ ఈమెయిల్ కోడ్‌తో మాత్రమే జరుగుతుంది; ఫోన్ OTP అందుబాటులో లేదు." : "Could not send the email verification code. Password reset uses an emailed code only; phone OTP is unavailable."), "err");
       return;
     }
-    if (!confirmedAuthAck(data)) {
+    if (status !== 200 || !confirmedAuthAck(data)) {
       showFeedback(te ? "సర్వర్ నిర్ధారణ రాలేదు. మళ్లీ ప్రయత్నించే ముందు వివరాలు సరిచూసుకోండి." : "The server did not confirm this action. Review your details before trying again.", "err");
       return;
     }
@@ -209,7 +209,7 @@ export default function LoginPage() {
       ? { email: p, code: code.trim(), new_password: newPw }
       : { phone: p, code: code.trim(), new_password: newPw };
       
-    const { ok, data, error } = await apiPost<{ auth_token?: string; tsap_id?: string; message_telugu?: string; message_en?: string; message?: string }>(
+    const { ok, data, error, status } = await apiPost<{ auth_token?: string; tsap_id?: string; message_telugu?: string; message_en?: string; message?: string }>(
       endpoint, payload
     );
     setBusy(false);
@@ -217,7 +217,7 @@ export default function LoginPage() {
       showFeedback(error || (te ? "పాస్‌వర్డ్ రీసెట్ విఫలమైంది." : "Password reset failed. Please try again."), "err");
       return;
     }
-    if (!confirmedAuthSession(data)) {
+    if (status !== 200 || !confirmedAuthSession(data)) {
       showFeedback(te ? "సర్వర్ నిర్ధారణ రాలేదు. మళ్లీ ప్రయత్నించే ముందు వివరాలు సరిచూసుకోండి." : "The server did not confirm this action. Review your details before trying again.", "err");
       return;
     }
