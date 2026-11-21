@@ -4,7 +4,23 @@ import QRCode from "qrcode";
 import Image from "next/image";
 import { authHeaders, readApiJson } from "@/lib/api";
 import { useLang } from "@/lib/lang";
+import { SITE_CONFIG } from "@/lib/site-config";
 type Campaign = {id:string;name:string;channel:string;status:string;link:string;clicks:number;registrations:number;eligible_rewards:number;recorded_earnings_inr:number;disclosure_en:string;disclosure_te:string};
+const campaignObject=(value:unknown):value is Record<string,unknown>=>!!value&&typeof value==="object"&&!Array.isArray(value);
+function validCampaign(value:unknown):value is Campaign {
+ if(!campaignObject(value)||typeof value.id!=="string"||!/^[A-Za-z0-9_-]{24}$/.test(value.id)||typeof value.name!=="string"||Array.from(value.name.trim()).length<2||Array.from(value.name).length>60||/[\x00-\x1f<>{}]/.test(value.name)||!["youtube","instagram","whatsapp","telegram","website","other"].includes(String(value.channel))||!["active","paused","archived"].includes(String(value.status)))return false;
+ if(typeof value.link!=="string"||value.link.trim()!==value.link||/[\x00-\x20\x7f\\]/.test(value.link))return false;
+ try{const link=new URL(value.link),site=new URL(SITE_CONFIG.siteUrl);if(link.protocol!=="https:"||link.origin!==site.origin||link.username||link.password||link.hash||!/^\/r\/[A-Z0-9_-]{1,80}$/.test(link.pathname)||link.searchParams.get("campaign")!==value.id||[...link.searchParams].length!==1)return false;}catch{return false;}
+ return ["disclosure_en","disclosure_te"].every(k=>typeof value[k]==="string"&&String(value[k]).trim().length>0);
+}
+function validCampaignList(data:unknown):data is {success:true;campaigns:Campaign[]} {
+ if(!campaignObject(data)||data.success!==true||!Array.isArray(data.campaigns)||data.campaigns.length>100)return false;
+ const ids=new Set<string>();return data.campaigns.every((row:unknown)=>{
+  if(!validCampaign(row)||ids.has(row.id))return false;ids.add(row.id);
+  if(![row.clicks,row.registrations,row.eligible_rewards].every(n=>Number.isSafeInteger(n)&&n>=0)||typeof row.recorded_earnings_inr!=="number"||!Number.isFinite(row.recorded_earnings_inr)||row.recorded_earnings_inr<0)return false;
+  return true;
+ });
+}
 function CampaignQR({link,te}:{link:string;te:boolean}) {
  const [url,setUrl]=useState("");
  useEffect(()=>{let active=true;QRCode.toDataURL(link,{width:224,margin:4,errorCorrectionLevel:"M"}).then(x=>{if(active)setUrl(x);}).catch(()=>{});return()=>{active=false;};},[link]);
@@ -29,8 +45,8 @@ export default function CreatorCampaigns({identity,partnerToken}:{identity:strin
  const load=useCallback(async()=>{
   const current=epoch.current;setBusy(true);setError("");
   try{const {ok,status,data:d}=await boundedJson(endpoint,{headers:headers(),cache:"no-store"});if(current!==epoch.current)return;
-   if(!ok||!d.success){if(status===401||status===403){setRows([]);setUpdated("");}throw new Error("refresh");}
-   setRows(d.campaigns||[]);setUpdated(new Date().toLocaleTimeString(te?"te-IN":"en-IN"));
+   if(!ok||!validCampaignList(d)){if(status===401||status===403){setRows([]);setUpdated("");}throw new Error("refresh");}
+   setRows(d.campaigns);setUpdated(new Date().toLocaleTimeString(te?"te-IN":"en-IN"));
   }catch{if(current===epoch.current)setError(te?"తాజా campaign వివరాలు రాలేదు. మళ్లీ ప్రయత్నించండి.":"Campaign details could not be refreshed. Please retry.");}
   finally{if(current===epoch.current)setBusy(false);}
  },[endpoint,headers,te,boundedJson]);
@@ -38,7 +54,9 @@ export default function CreatorCampaigns({identity,partnerToken}:{identity:strin
  const mutate=async(path:string,body:object)=>{
   if(lock.current||busy||error)return;lock.current=true;const current=epoch.current;setBusy(true);setNotice("");
   try{const {ok,status,data:d}=await boundedJson(path,{method:"POST",headers:{...headers(),"Content-Type":"application/json"},body:JSON.stringify(body)});if(current!==epoch.current)return;
-   if(!ok||!d.success){if(status===401||status===403){setRows([]);setUpdated("");}throw new Error("unconfirmed");}setName("");setVideo("");await load();
+   if(!ok||!campaignObject(d)||d.success!==true||!validCampaign(d.campaign)){if(status===401||status===403){setRows([]);setUpdated("");}throw new Error("unconfirmed");}
+   const expected=body as {name?:string;channel?:string;status?:string};
+   if(path===endpoint?(d.campaign.name!==expected.name?.trim().replace(/\s+/g," ")||d.campaign.channel!==expected.channel||d.campaign.status!=="active"):(d.campaign.id!==path.split("/").at(-2)||d.campaign.status!==expected.status))throw new Error("unconfirmed");setName("");setVideo("");await load();
   }catch{if(current===epoch.current){setError(te?"మార్పు నిర్ధారణ కాలేదు. మళ్లీ చేసే ముందు Refresh చేయండి.":"Change not confirmed. Refresh and check before trying again.");}}
   finally{if(current===epoch.current){lock.current=false;setBusy(false);}}
  };

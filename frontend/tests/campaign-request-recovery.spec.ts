@@ -6,7 +6,7 @@ async function fixture(page:Page,lang='en',mode='read-network'){
  await page.route('**/api/**',async r=>{const p=new URL(r.request().url()).pathname,post=r.request().method()==='POST';if(p==='/api/referral/UI164/campaigns'){
  if(post)posts++;else reads++;
  if(stall&&((mode==='read-network'&&!post)||(mode==='post-network'&&post))){started=true;await pending;}
- try{return await r.fulfill({json:{success:true,campaigns:[]}})}catch{return;}
+ try{return await r.fulfill({json:post?{success:true,campaign:{id:"ABCDEFGHIJKLMNOPQRSTUVWX",name:"Fictional campaign",channel:"youtube",status:"active",link:"https://manavivaha.in/r/FICTION164?campaign=ABCDEFGHIJKLMNOPQRSTUVWX",disclosure_en:"Ad / referral link.",disclosure_te:"ప్రకటన / referral link."}}:{success:true,campaigns:[]}})}catch{return;}
  }if(p==='/api/referral/UI164')return r.fulfill({json:{ok:true,code:'FICTION164',link:'https://manavivaha.in/r/FICTION164',stats:{wallet:0},tier:{key:'BRONZE'},commission_rules:{min_payout:50}}});return r.fulfill({json:{success:true,payouts:[],leaderboard:[]}});});
  return{started:()=>started,posts:()=>posts,reads:()=>reads,recover:async()=>{stall=false;await page.evaluate(()=>(window as any).__bodyRecovered=true);release();}};
 }
