@@ -6,6 +6,7 @@ import "@/components/partner-workspace.css";
  * payout requests, and accurate share materials.
  */
 import { useEffect, useLayoutEffect, useState, useCallback, useRef } from "react";
+import { Wallet, Coins, BadgeCheck, Clock3, Send, X } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { toJpeg } from "html-to-image";
@@ -490,14 +491,14 @@ export default function ReferralPage() {
           </button>
         </div>
         {/* TOP SUMMARY METRICS & WALLET BANNER */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div role="group" aria-label={te ? "చెల్లింపు వివరాలు" : "Payout overview"} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           
           {/* Wallet Card */}
           <div className="bg-white rounded-3xl p-5 border-2 border-amber-300/80 shadow-md flex flex-col justify-between space-y-3">
             <div>
-              <div className="flex items-center justify-between text-xs text-gray-500 font-bold">
-                <span>👛 {te ? "అందుబాటులో ఉన్న వాలెట్" : "Available Wallet"}</span>
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 font-bold">{te ? "నమోదైనది" : "Recorded"}</span>
+              <div className="flex flex-col items-start gap-2 text-xs text-gray-500 font-bold">
+                <span className="inline-flex items-start gap-1.5"><Wallet aria-hidden="true" className="h-4 w-4 shrink-0" />{te ? "అందుబాటులో ఉన్న వాలెట్" : "Available Wallet"}</span>
+                <span className="whitespace-nowrap text-[10px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 font-bold">{te ? "నమోదైనది" : "Recorded"}</span>
               </div>
               <div className="text-3xl sm:text-4xl font-black text-maroon mt-1">
                 ₹{s.wallet ?? 0}
@@ -508,48 +509,49 @@ export default function ReferralPage() {
               type="button"
               onClick={() => setPay({ ...pay, open: !pay.open, amount: pay.amount || String(Math.floor(s.wallet || 0)) })}
               disabled={!dash?.wallet_can_withdraw || !!err || refreshing || payLoading || Number(s.pending_payout)>0}
-              className={`w-full py-2.5 rounded-xl text-xs font-extrabold shadow-sm transition ${
+              className={`flex min-h-11 w-full items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-extrabold shadow-sm transition ${
                 dash?.wallet_can_withdraw
                   ? "gold-gradient text-maroon hover:brightness-105 active:scale-95"
                   : "bg-gray-100 text-gray-400 cursor-not-allowed"
               }`}
             >
+              <Send aria-hidden="true" className="h-4 w-4 shrink-0" />
               {dash?.wallet_can_withdraw
-                ? (te ? "💸 Payout అభ్యర్థన (UPI)" : "💸 Request payout (UPI)")
-                : (te ? `Payout request కోసం ఇంకా ₹${Math.max(0, minPayout - (s.wallet || 0))} కావాలి` : `₹${Math.max(0, minPayout - (s.wallet || 0))} more needed for the minimum payout request`)}
+                ? (te ? "చెల్లింపు అభ్యర్థన (UPI)" : "Request payout (UPI)")
+                : (te ? `కనీస చెల్లింపు అభ్యర్థనకు ఇంకా ₹${Math.max(0, minPayout - (s.wallet || 0))} కావాలి` : `₹${Math.max(0, minPayout - (s.wallet || 0))} more needed for the minimum payout request`)}
             </button>
           </div>
 
           {/* Confirmed eligible rewards */}
           <div className="bg-white rounded-3xl p-5 border border-gold/30 shadow-sm flex flex-col justify-between">
-            <span className="text-xs text-gray-500 font-bold">💰 {te ? "నమోదైన అర్హమైన referral rewards" : "Recorded qualifying referral rewards"}</span>
+            <span className="inline-flex items-start gap-1.5 text-xs text-gray-500 font-bold"><Coins aria-hidden="true" className="h-4 w-4 shrink-0" />{te ? "నమోదైన అర్హమైన పరిచయ బహుమతులు" : "Recorded qualifying referral rewards"}</span>
             <div className="text-2xl sm:text-3xl font-black text-emerald-700 mt-2">
               ₹{s.qualifying_rewards_total ?? 0}
             </div>
             <span className="text-[11px] text-gray-500 mt-1">
-              {te ? `అభ్యర్థించిన payout: ₹${s.pending_payout ?? 0} · చెల్లించినవి: ₹${s.paid_out ?? 0}` : `Payout requested: ₹${s.pending_payout ?? 0} · Settled: ₹${s.paid_out ?? 0}`}
+              {te ? `అభ్యర్థించిన చెల్లింపు: ₹${s.pending_payout ?? 0} · చెల్లించినది: ₹${s.paid_out ?? 0}` : `Payout requested: ₹${s.pending_payout ?? 0} · Settled: ₹${s.paid_out ?? 0}`}
             </span>
           </div>
 
           {/* Eligible first-plan rewards */}
           <div className="bg-white rounded-3xl p-5 border border-gold/30 shadow-sm flex flex-col justify-between">
-            <span className="text-xs text-gray-500 font-bold">🎉 {te ? "అర్హమైన first-plan rewards" : "Qualifying first-plan rewards"}</span>
+            <span className="inline-flex items-start gap-1.5 text-xs text-gray-500 font-bold"><BadgeCheck aria-hidden="true" className="h-4 w-4 shrink-0" />{te ? "అర్హమైన తొలి ప్లాన్ బహుమతులు" : "Qualifying first-plan rewards"}</span>
             <div className="text-2xl sm:text-3xl font-black text-navy mt-2">
               {s.paid_count ?? 0}
             </div>
             <span className="text-[11px] text-gray-500 mt-1">
-              {te ? `మొత్తం referral registrations: ${s.registrations ?? 0}` : `Total referral registrations: ${s.registrations ?? 0}`}
+              {te ? `మీ లింక్ ద్వారా మొత్తం నమోదులు: ${s.registrations ?? 0}` : `Total referral registrations: ${s.registrations ?? 0}`}
             </span>
           </div>
 
           {/* Referral registrations without a recorded eligible reward — no money projection. */}
           <div className="bg-white rounded-3xl p-5 border border-gold/30 shadow-sm flex flex-col justify-between">
-            <span className="text-xs text-gray-500 font-bold">⏳ {te ? "అర్హమైన reward నమోదు కాని referrals" : "Referrals without a recorded eligible reward"}</span>
+            <span className="inline-flex items-start gap-1.5 text-xs text-gray-500 font-bold"><Clock3 aria-hidden="true" className="h-4 w-4 shrink-0" />{te ? "అర్హమైన బహుమతి నమోదు కాని పరిచయాలు" : "Referrals without a recorded eligible reward"}</span>
             <div className="text-2xl sm:text-3xl font-black text-amber-600 mt-2">
               {s.pending_friends ?? 0}
             </div>
             <span className="text-[11px] text-gray-500 mt-1">
-              {te ? "ఇది భవిష్యత్ ఆదాయం కాదు; qualifying payment నమోదైనప్పుడే reward లెక్కించబడుతుంది." : "This is not projected income; a reward is counted only when a qualifying payment is recorded."}
+              {te ? "ఇది భవిష్యత్ ఆదాయ అంచనా కాదు. అర్హమైన చెల్లింపు నమోదైతేనే బహుమతి లెక్కించబడుతుంది." : "This is not projected income; a reward is counted only when a qualifying payment is recorded."}
             </span>
           </div>
 
@@ -557,25 +559,26 @@ export default function ReferralPage() {
 
         {/* Payout Form Drawer */}
         {pay.open && (
-          <div className="bg-white rounded-3xl p-6 border-2 border-maroon/40 shadow-xl space-y-4 animate-in fade-in">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-extrabold text-maroon">
-                💸 {te ? "UPI / బ్యాంక్ విత్‌డ్రా అభ్యర్థన" : "Request Payout via UPI"}
+          <div role="region" aria-labelledby="referral-payout-title" className="bg-white rounded-3xl p-6 border-2 border-maroon/40 shadow-xl space-y-4 animate-in fade-in">
+            <div className="grid grid-cols-[minmax(0,1fr)_44px] items-start gap-2">
+              <h3 id="referral-payout-title" className="inline-flex items-center gap-2 text-sm font-extrabold text-maroon">
+                <Send aria-hidden="true" className="h-4 w-4 shrink-0" />{te ? "UPI ద్వారా చెల్లింపు అభ్యర్థన" : "Request Payout via UPI"}
               </h3>
               <button
                 type="button"
                 aria-label={te ? "మూసివేయండి" : "Close"}
                 onClick={() => setPay({ ...pay, open: false })}
-                className="text-gray-400 hover:text-gray-700 text-sm font-bold min-h-11 min-w-11"
+                className="inline-flex items-center justify-center text-gray-400 hover:text-gray-700 text-sm font-bold"
+                style={{ width: 44, minWidth: 44, height: 44, flexShrink: 0 }}
               >
-                ✕
+                <X aria-hidden="true" className="h-4 w-4 mx-auto" />
               </button>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="block text-[11px] font-bold text-gray-700 mb-1">
-                  {te ? `విత్‌డ్రా మొత్తం (కనీసం ₹${minPayout})` : `Withdrawal amount (minimum ₹${minPayout})`}
+                  {te ? `అభ్యర్థన మొత్తం (కనీసం ₹${minPayout})` : `Request amount (minimum ₹${minPayout})`}
                 </label>
                 <input aria-label={te ? "మొత్తం (₹)" : "Amount (₹)"}
                   type="number"
@@ -604,16 +607,16 @@ export default function ReferralPage() {
               </div>
             </div>
 
-            <div className="flex items-center justify-between pt-2">
-              <span className="text-[11px] text-gray-500">
-                {te ? "ఈ అభ్యర్థన admin review లో ఉంటుంది; processing time కు హామీ లేదు." : "This request receives manual admin review; no processing time is guaranteed."}
+            <div className="flex flex-col items-stretch gap-3 pt-2 sm:flex-row sm:items-center sm:justify-between">
+              <span className="flex-1 text-[11px] leading-relaxed text-gray-500">
+                {te ? "అభ్యర్థన పంపడం డబ్బు బదిలీ కాదు. నిర్వాహకుల సమీక్ష అవసరం. పూర్తి చేయడానికి పట్టే సమయానికి హామీ లేదు." : "Submitting a request is not a transfer. Staff review is required; no processing time is guaranteed."}
               </span>
 
               <button
                 type="button"
                 onClick={submitPayout}
                 disabled={payLoading || payNeedsCheck || Number(s.pending_payout)>0 || !dash?.wallet_can_withdraw || !!err || refreshing}
-                className="px-6 py-2 rounded-xl maroon-gradient text-white text-xs font-bold shadow-md hover:brightness-110 disabled:opacity-50"
+                className="min-h-11 shrink-0 px-6 py-2 rounded-xl maroon-gradient text-white text-xs font-bold shadow-md hover:brightness-110 disabled:opacity-50"
               >
                 {payLoading ? (te ? "పంపుతున్నాం…" : "Submitting…") : (te ? "అభ్యర్థన పంపండి" : "Submit Request")}
               </button>
@@ -622,7 +625,7 @@ export default function ReferralPage() {
             {Number(s.pending_payout)>0?<p role="status" className="text-xs text-slate-700">{te?"ఒక అభ్యర్థన మొత్తం సమీక్షలో ఉంది. మరో అభ్యర్థన పంపే ముందు దాని సమీక్ష పూర్తయ్యే వరకు వేచి ఉండండి.":"A request amount is under review. Wait for its review before submitting another request."}</p>:null}
             {payRes && (
               <div role="status" className={`p-3 rounded-xl text-xs font-semibold ${payRes.info ? "bg-slate-50 text-slate-700" : payRes.success ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"}`}>
-                {apiDisplayMessage(payRes, te, te ? "Payout అభ్యర్థనను పూర్తి చేయలేకపోయాం." : "The payout request could not be completed.")}
+                {apiDisplayMessage(payRes, te, te ? "చెల్లింపు అభ్యర్థనను పూర్తి చేయలేకపోయాం." : "The payout request could not be completed.")}
               </div>
             )}
           </div>

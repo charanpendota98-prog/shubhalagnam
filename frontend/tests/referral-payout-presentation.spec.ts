@@ -1,0 +1,36 @@
+import {test,expect} from '@playwright/test';
+import fs from 'node:fs';
+import AxeBuilder from '@axe-core/playwright';
+fs.mkdirSync('artifacts/referral-payout-presentation',{recursive:true});
+for(const lang of ['en','te'])for(const width of [320,390,1280])test(`payout controls use factual portable copy ${lang} ${width}`,async({page})=>{
+ await page.setViewportSize({width,height:1800});let writes=0;
+ await page.addInitScript(lang=>localStorage.setItem('tsap_lang',lang),lang);
+ await page.route('**/api/**',async route=>{
+  if(!['GET','HEAD'].includes(route.request().method()))writes++;
+  const p=new URL(route.request().url()).pathname;
+  if(p==='/api/referral/REVIEW170')return route.fulfill({json:{ok:true,code:'FICTIONAL170',link:'https://manavivaha.in/r/FICTIONAL170',stats:{wallet:150,pending_payout:0,paid_out:0,qualifying_rewards_total:150,paid_count:0,registrations:0,pending_friends:0},tier:{key:'BRONZE',icon:''},wallet_can_withdraw:true,commission_rules:{min_payout:50},recent_registrations:[],ledger:[],payouts:[]}});
+  if(p.endsWith('/payouts'))return route.fulfill({json:{success:true,wallet:150,pending:0,paid_out:0,payouts:[]}});
+  return route.fulfill({json:{success:true,campaigns:[],leaderboard:[],you:null}});
+ });
+ await page.goto('/referral?id=REVIEW170');
+ const group=page.getByRole('group',{name:lang==='en'?'Payout overview':'చెల్లింపు వివరాలు',exact:true});
+ await expect(group).toBeVisible();expect(await group.innerText()).not.toMatch(/\p{Extended_Pictographic}/u);
+ await expect(group.locator('svg[aria-hidden="true"]')).toHaveCount(5);
+ const badge=group.getByText(lang==='en'?'Recorded':'నమోదైనది',{exact:true});expect((await badge.boundingBox())!.height).toBeLessThan(36);
+ await group.evaluate(e=>e.scrollIntoView({block:'center',behavior:'instant'}));await group.screenshot({path:`artifacts/referral-payout-presentation/cards-${lang}-${width}.png`});
+ const toggle=page.getByRole('button',{name:lang==='en'?'Request payout (UPI)':'చెల్లింపు అభ్యర్థన (UPI)',exact:true});
+ await toggle.click();
+ const form=page.getByRole('region',{name:lang==='en'?'Request Payout via UPI':'UPI ద్వారా చెల్లింపు అభ్యర్థన',exact:true});
+ await expect(form).toBeVisible();expect(await form.innerText()).not.toMatch(/\p{Extended_Pictographic}|బ్యాంక్|admin review|processing time కు/u);
+ await expect(form.getByText(lang==='en'?'Submitting a request is not a transfer. Staff review is required; no processing time is guaranteed.':'అభ్యర్థన పంపడం డబ్బు బదిలీ కాదు. నిర్వాహకుల సమీక్ష అవసరం. పూర్తి చేయడానికి పట్టే సమయానికి హామీ లేదు.',{exact:true})).toBeVisible();
+ const amount=form.getByLabel(lang==='en'?'Amount (₹)':'మొత్తం (₹)',{exact:true});await expect(amount).toHaveAttribute('min','50');await expect(amount).toHaveAttribute('max','150');
+ await amount.fill('50');const upi=form.getByLabel(lang==='en'?'Enter your UPI ID':'UPI ID నమోదు చేయండి',{exact:true});await upi.fill('fictional@invalid');
+ const submit=form.getByRole('button',{name:lang==='en'?'Submit Request':'అభ్యర్థన పంపండి',exact:true});
+ expect((await submit.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+ const close=form.getByRole('button',{name:lang==='en'?'Close':'మూసివేయండి',exact:true});expect((await close.boundingBox())!.width).toBeGreaterThanOrEqual(44);
+ const titleBox=(await form.getByRole('heading').boundingBox())!,closeBox=(await close.boundingBox())!;expect(closeBox.x).toBeGreaterThanOrEqual(titleBox.x+titleBox.width);expect(closeBox.y).toBeLessThanOrEqual(titleBox.y+2);
+ const scan=await new AxeBuilder({page}).include('[role=group]').include('[aria-labelledby=referral-payout-title]').analyze();expect(scan.violations).toEqual([]);
+ await form.evaluate(e=>e.scrollIntoView({block:'center',behavior:'instant'}));await form.screenshot({path:`artifacts/referral-payout-presentation/form-${lang}-${width}.png`});
+ await close.click();await expect(form).toHaveCount(0);await toggle.click();await expect(amount).toHaveValue('50');await expect(upi).toHaveValue('fictional@invalid');
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);expect(writes).toBe(0);
+});
