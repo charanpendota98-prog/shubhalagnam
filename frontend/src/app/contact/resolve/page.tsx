@@ -55,7 +55,7 @@ function ResolveInner() {
   }, [token, te]);
 
   return (
-    <main className="mx-auto flex min-h-[60vh] max-w-md flex-col items-center justify-center px-6 py-16 text-center">
+    <div className="mx-auto flex min-h-[60vh] max-w-md flex-col items-center justify-center px-6 py-16 text-center">
       {state.phase === "working" ? (
         <p className="text-sm text-slate-600">{te ? "⏳ QR నిర్ధారిస్తున్నాం…" : "⏳ Verifying the QR…"}</p>
       ) : null}
@@ -83,13 +83,13 @@ function ResolveInner() {
           <p className="mt-3 text-[12px] text-slate-500">{te ? "నంబర్ ఈ పేజీలో చూపించము — WhatsApp లోనే సంభాషణ కొనసాగుతుంది." : "The number is not shown on this page — the conversation continues in WhatsApp."}</p>
         </div>
       ) : null}
-    </main>
+    </div>
   );
 }
 
 export default function ContactResolvePage() {
   return (
-    <Suspense fallback={<main className="mx-auto max-w-md px-6 py-16 text-center text-sm text-slate-600">⏳</main>}>
+    <Suspense fallback={<div className="mx-auto max-w-md px-6 py-16 text-center text-sm text-slate-600">⏳</div>}>
       <ResolveInner />
     </Suspense>
   );
