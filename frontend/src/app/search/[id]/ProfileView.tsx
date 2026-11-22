@@ -11,7 +11,7 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { CalendarDays, Ruler, Landmark, GraduationCap, BriefcaseBusiness, Wallet, MapPin, Star, Heart, Baby, Salad, UserRound, UsersRound, Orbit, LockKeyhole, type LucideIcon } from "lucide-react";
+import { CalendarDays, Ruler, Landmark, GraduationCap, BriefcaseBusiness, Wallet, MapPin, Star, Heart, Baby, Salad, UserRound, UsersRound, Orbit, LockKeyhole, Ban, Flag, ShieldCheck, LoaderCircle, IdCard, FileText, MessageCircle, type LucideIcon } from "lucide-react";
 import { useParams } from "next/navigation";
 import { ProfileSkeleton } from "@/components/Skeletons";
 import AuthGate from "@/components/AuthGate";
@@ -713,31 +713,32 @@ export default function ProfileView() {
               href={`/biodata?id=${profile.tsap_id}`}
               className="rounded-xl gold-gradient px-4 py-2 text-sm font-black text-maroon hover:brightness-105 transition shadow-xs flex items-center gap-1.5"
             >
-              <span>🎴</span>
+              <IdCard aria-hidden="true" className="h-4 w-4 shrink-0" />
               <span>{te ? "HD కలర్ బయోడేటా JPG" : "HD Color Biodata JPG"}</span>
             </Link>
             <button type="button" onClick={printBiodata} className="rounded-xl border border-amber-400 bg-amber-50 hover:bg-amber-100 px-4 py-2 text-sm font-bold text-[#7A0C2E] transition shadow-xs">
-              📄 {te ? "ప్రింట్ బయోడేటా" : "Print Biodata"}
+              <FileText aria-hidden="true" className="mr-1.5 inline-block h-4 w-4 align-middle" />{te ? "ప్రింట్ బయోడేటా" : "Print Biodata"}
             </button>
             <button type="button" onClick={() => void toggleSave()} disabled={!shortlistCanAct || shortlistSaving}
               className={`rounded-xl px-4 py-2 text-sm font-bold ${savedNow ? "bg-rose-100 text-rose-700" : "border border-slate-300 text-slate-700"}`}>
-              {!shortlistSessionReady || ((!shortlistCanAct) && !shortlistError) ? (te ? "Shortlist లోడ్ అవుతోంది…" : "Loading shortlist…") : shortlistSaving ? (te ? "Shortlist సేవ్ అవుతోంది…" : "Updating shortlist…") : savedNow ? (te ? "❤️ షార్ట్‌లిస్ట్‌లో ఉంది" : "❤️ In shortlist") : (te ? "🤍 షార్ట్‌లిస్ట్" : "🤍 Shortlist")}
+              <span className="mr-1.5 inline-flex align-middle" aria-hidden="true">{!shortlistSessionReady || ((!shortlistCanAct) && !shortlistError) || shortlistSaving ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Heart className="h-4 w-4" fill={savedNow ? "currentColor" : "none"} />}</span>
+              {!shortlistSessionReady || ((!shortlistCanAct) && !shortlistError) ? (te ? "Shortlist లోడ్ అవుతోంది…" : "Loading shortlist…") : shortlistSaving ? (te ? "Shortlist సేవ్ అవుతోంది…" : "Updating shortlist…") : savedNow ? (te ? "షార్ట్‌లిస్ట్‌లో ఉంది" : "In shortlist") : (te ? "షార్ట్‌లిస్ట్" : "Shortlist")}
             </button>
             {shortlistError && <div role="alert" className="rounded-xl border border-rose-300 bg-rose-50 p-3 text-sm text-rose-900">
               <p>{te ? "Shortlist లోడ్ కాలేదు. మార్చే ముందు మళ్లీ ప్రయత్నించండి." : "Could not load your shortlist. Retry before making changes."}</p>
               <button type="button" className="min-h-11 underline" onClick={() => setShortlistAttempt(value => value + 1)}>{te ? "Shortlist మళ్లీ లోడ్ చేయండి" : "Retry loading shortlist"}</button>
             </div>}
             <button type="button" onClick={() => setShowProposalModal(true)} className="rounded-xl bg-green-600 hover:bg-green-700 px-4 py-2 text-sm font-bold text-white transition flex items-center gap-1.5 shadow-xs">
-              <span>💬</span>
+              <MessageCircle aria-hidden="true" className="h-4 w-4 shrink-0" />
               <span>{te ? "వాట్సాప్ ప్రపోజల్ షేర్" : "WhatsApp Proposal Share"}</span>
             </button>
             <button type="button" onClick={() => setSafetyPrompt(safetyPrompt === "block" ? "" : "block")} disabled={blocked || safetyPending || !shortlistSessionReady || loading} className="rounded-xl border border-rose-300 px-4 py-2 text-sm font-bold text-rose-700 disabled:opacity-50">
-              🚫 {te ? "బ్లాక్ చేయండి" : "Block"}
+              <Ban aria-hidden="true" className="mr-1.5 inline-block h-4 w-4 align-middle" />{te ? "బ్లాక్ చేయండి" : "Block"}
             </button>
             <button type="button" onClick={() => setSafetyPrompt(safetyPrompt === "report" ? "" : "report")} disabled={reported || safetyPending || !shortlistSessionReady || loading} className="rounded-xl border border-amber-300 px-4 py-2 text-sm font-bold text-amber-800 disabled:opacity-50">
-              🚩 {te ? "రిపోర్ట్ చేయండి" : "Report"}
+              <Flag aria-hidden="true" className="mr-1.5 inline-block h-4 w-4 align-middle" />{te ? "రిపోర్ట్ చేయండి" : "Report"}
             </button>
-            <Link href="/safety" className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-bold text-slate-700">🛡️ {te ? "భద్రతా సూచనలు" : "Safety tips"}</Link>
+            <Link href="/safety" className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-bold text-slate-700"><ShieldCheck aria-hidden="true" className="mr-1.5 inline-block h-4 w-4 align-middle" />{te ? "భద్రతా సూచనలు" : "Safety tips"}</Link>
           </section>
           {safetyPrompt ? (
             <section role="group" aria-label={safetyPrompt === "block" ? (te ? "బ్లాక్ నిర్ధారణ" : "Confirm block") : (te ? "రిపోర్ట్ వివరాలు" : "Report details")} className="mt-3 rounded-2xl border border-slate-300 bg-white p-4 text-sm text-slate-800">
