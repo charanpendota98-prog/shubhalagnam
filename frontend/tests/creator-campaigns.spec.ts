@@ -11,10 +11,10 @@ async function fixture(page:Page,lang="en") {
  await page.route("**/api/**",async route=>{
   const url=new URL(route.request().url());
   if(url.pathname==="/api/referral/UI01/campaigns") {
-   if(route.request().method()==="POST"){posts++;const d=route.request().postDataJSON();rows.push({id:token,name:d.name,channel:d.channel,status:"active",link:`https://manavivaha.in/r/CREATOR?campaign=${token}`,clicks:12,registrations:3,eligible_rewards:0,disclosure_en:"Ad / referral link. I may receive a reward.",disclosure_te:"ప్రకటన / referral link. నాకు reward రావచ్చు."});}
-   return route.fulfill({status,json:status===200?{success:true,campaigns:rows}:{success:false}});
+   if(route.request().method()==="POST"){posts++;const d=route.request().postDataJSON();rows.push({id:token,name:d.name,channel:d.channel,status:"active",link:`https://manavivaha.in/r/CREATOR?campaign=${token}`,clicks:12,registrations:3,eligible_rewards:0,recorded_earnings_inr:0,disclosure_en:"Ad / referral link. I may receive a reward.",disclosure_te:"ప్రకటన / referral link. నాకు reward రావచ్చు."});}
+   return route.fulfill({status,json:status===200?(route.request().method()==="POST"?{success:true,campaign:rows.at(-1)}:{success:true,campaigns:rows}):{success:false}});
   }
-  if(url.pathname.endsWith("/status")){rows=rows.map(x=>({...x,status:route.request().postDataJSON().status}));return route.fulfill({json:{success:true}});}
+  if(url.pathname.endsWith("/status")){rows=rows.map(x=>({...x,status:route.request().postDataJSON().status}));return route.fulfill({json:{success:true,campaign:rows.find(x=>url.pathname.includes(x.id))}});}
   if(url.pathname==="/api/referral/UI01")return route.fulfill({json:{ok:true,code:"CREATOR",link:"https://manavivaha.in/r/CREATOR",stats:{wallet:0},tier:{key:"BRONZE"},commission_rules:{min_payout:50}}});
   return route.fulfill({json:{success:true,payouts:[],leaderboard:[]}});
  });
