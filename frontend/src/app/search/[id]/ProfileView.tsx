@@ -16,7 +16,7 @@ import { useParams } from "next/navigation";
 import { ProfileSkeleton } from "@/components/Skeletons";
 import AuthGate from "@/components/AuthGate";
 import { apiDisplayMessage, apiGet, apiPost, authHeaders } from "@/lib/api";
-import { normalizeWhatsAppPhone, whatsappPhoneLink } from "@/lib/wa";
+import { contactQrSvg } from "@/lib/qr";
 import { firstName } from "@/lib/names";
 import { useLang } from "@/lib/lang";
 import { useSession } from "@/lib/auth";
@@ -143,6 +143,15 @@ export default function ProfileView() {
   const [blocked, setBlocked] = useState(false);
   const [reported, setReported] = useState(false);
   const [unlocked, setUnlocked] = useState("");
+  // 🔒 Contact QR dialog state — token-only, never the raw number.
+  const [showContactQr, setShowContactQr] = useState(false);
+  const [contactSvg, setContactSvg] = useState("");
+  const [contactToken, setContactToken] = useState("");
+  const [contactSecondsLeft, setContactSecondsLeft] = useState(0);
+  const [contactBusy, setContactBusy] = useState(false);
+  const [contactRedeeming, setContactRedeeming] = useState(false);
+  const [contactUsed, setContactUsed] = useState(false);
+  const [contactError, setContactError] = useState("");
   const [unlocking, setUnlocking] = useState(false);
   const [showUnlockModal, setShowUnlockModal] = useState(false);
   const [showProposalModal, setShowProposalModal] = useState(false);
@@ -283,8 +292,8 @@ export default function ProfileView() {
       setShowUnlockModal(true);
       return;
     }
-    if (ok && d?.success && d?.phone) {
-      setUnlocked(String(d.phone || ""));
+    if (ok && d?.success) {
+      setUnlocked("yes");   // access flag only — the number never reaches this page
       setMsg({ ok: true, text: localizedApiMessage(d, "✅ అంగీకారం తర్వాత contact details అందుబాటులో ఉన్నాయి.", "✅ Contact details are available after acceptance.") });
     } else {
       setShowUnlockModal(true);
@@ -473,8 +482,53 @@ export default function ProfileView() {
     printWindow.document.close();
   };
 
-  const normalizedUnlocked = normalizeWhatsAppPhone(unlocked);
-  const unlockedWhatsAppUrl = whatsappPhoneLink(unlocked);
+  // 🔒 The backend no longer returns the raw number here: `unlocked` is only
+  // an access flag. Contact happens through a short-lived single-use QR token
+  // (dialog below) so the digits never render on this page.
+  const openContactQr = async () => {
+    if (!myTsapId || !loadedProfileId || contactBusy) return;
+    setContactBusy(true); setContactError(""); setContactUsed(false);
+    const { ok, data, errorTelugu } = await apiPost<{ ok?: boolean; token?: string; expires_in?: number }>(
+      "/api/contact/token", { viewer_id: myTsapId, target_id: loadedProfileId });
+    if (!ok || !data?.token) {
+      setContactBusy(false);
+      setContactError(errorTelugu || (te ? "QR ఇప్పుడు ఇవ్వలేకపోయాం — కొద్దిసేపటి తర్వాత ప్రయత్నించండి." : "Could not create the QR now — please try again shortly."));
+      return;
+    }
+    const token = String(data.token);
+    const url = `${window.location.origin}/contact/resolve?token=${encodeURIComponent(token)}`;
+    try {
+      const svg = await contactQrSvg(url);
+      setContactToken(token);
+      setContactSecondsLeft(Math.max(1, Number(data.expires_in) || 300));
+      setContactSvg(svg);
+      setShowContactQr(true);
+    } catch {
+      setContactError(te ? "QR రెండర్ చేయలేకపోయాం — మళ్లీ ప్రయత్నించండి." : "Could not render the QR — please try again.");
+    }
+    setContactBusy(false);
+  };
+
+  const redeemContactQr = async () => {
+    if (!contactToken || contactRedeeming) return;
+    setContactRedeeming(true);
+    const { ok, data, errorTelugu } = await apiGet<{ ok?: boolean; wa_link?: string }>(
+      `/api/contact/resolve/${encodeURIComponent(contactToken)}`);
+    setContactRedeeming(false);
+    if (ok && data?.ok && data.wa_link) {
+      setContactUsed(true);
+      window.open(String(data.wa_link), "_blank", "noopener,noreferrer");
+    } else {
+      setContactUsed(true);
+      setContactError(errorTelugu || (te ? "ఈ QR ఇక చెల్లదు — కొత్త QR తీయండి." : "This QR is no longer valid — create a fresh one."));
+    }
+  };
+
+  useEffect(() => {
+    if (!showContactQr) return;
+    const timer = window.setInterval(() => setContactSecondsLeft(s => Math.max(0, s - 1)), 1000);
+    return () => window.clearInterval(timer);
+  }, [showContactQr]);
 
   return (
     <div className="mv-profile-workspace mx-auto max-w-5xl px-4 py-6">
@@ -647,12 +701,11 @@ export default function ProfileView() {
             </ol>
             {unlocked ? (
               <div className="mt-4 rounded-2xl bg-emerald-600 p-4 text-center text-white">
-                <p className="text-[12px] opacity-90">{te ? "✅ Owner acceptance తర్వాత contact access అందుబాటులో ఉంది. Calls/messages మీ ఎంపిక; external delivery హామీ లేదు." : "✅ Contact access is available after owner acceptance. Calls/messages are your choice; external delivery is not guaranteed."}</p>
-                <p className="mt-1 text-2xl font-extrabold tracking-wider">{unlocked}</p>
-                <div className="mt-2 flex justify-center gap-2">
-                  <a href={normalizedUnlocked ? `tel:+${normalizedUnlocked}` : undefined} aria-disabled={!normalizedUnlocked} className="rounded-xl bg-white px-4 py-2 text-sm font-bold text-emerald-700 aria-disabled:pointer-events-none aria-disabled:opacity-50">📞 {te ? "కాల్ చేయండి" : "Call"}</a>
-                  <a href={unlockedWhatsAppUrl || undefined} target="_blank" rel="noopener noreferrer" aria-disabled={!unlockedWhatsAppUrl} className="rounded-xl bg-emerald-900 px-4 py-2 text-sm font-bold text-white aria-disabled:pointer-events-none aria-disabled:opacity-50">💬 WhatsApp</a>
-                </div>
+                <p className="text-[12px] opacity-90">{te ? "✅ Owner acceptance తర్వాత contact access అందుబాటులో ఉంది. నంబర్ ఈ పేజీలో కనిపించదు — QR ద్వారా WhatsApp లో కొనసాగండి." : "✅ Contact access is available after owner acceptance. The number never appears on this page — continue on WhatsApp via the QR."}</p>
+                <button type="button" onClick={() => void openContactQr()} disabled={contactBusy}
+                  className="mt-2 rounded-xl bg-white px-5 py-2.5 text-sm font-bold text-emerald-700 disabled:opacity-60">
+                  {contactBusy ? (te ? "QR తయారవుతోంది…" : "Creating the QR…") : (te ? "📇 Contact QR చూడండి" : "📇 View contact QR")}
+                </button>
               </div>
             ) : null}
           {myTsapId && myTsapId !== loadedProfileId ? (
@@ -682,9 +735,10 @@ export default function ProfileView() {
                 {te ? "🙏 Template తో పంపు" : "🙏 Send with template"}
               </button>
               {unlocked ? (
-                <a href={normalizedUnlocked ? `tel:+${normalizedUnlocked}` : undefined} aria-disabled={!normalizedUnlocked} className="rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white">
-                  📞 {unlocked} — {te ? "కాల్" : "Call"}
-                </a>
+                <button type="button" onClick={() => void openContactQr()} disabled={contactBusy}
+                  className="rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-60">
+                  {contactBusy ? (te ? "QR తయారవుతోంది…" : "Creating the QR…") : (te ? "📇 Contact QR" : "📇 Contact QR")}
+                </button>
               ) : (
                 <>
                 <button type="button" onClick={() => void doUnlock()} disabled={unlocking || !shortlistSessionReady || loading}
@@ -853,6 +907,57 @@ export default function ProfileView() {
               photo_url: profile.photo_url,
             } : null}
           />
+          {/* 🔒 Contact QR dialog — token-only. The QR encodes a resolve URL on
+              this site (never the number), stays valid 5 minutes, works once. */}
+          {showContactQr ? (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" role="dialog" aria-modal="true"
+              aria-label={te ? "Contact QR" : "Contact QR"}
+              onClick={() => setShowContactQr(false)}>
+              <div className="w-full max-w-sm rounded-3xl bg-white p-6 text-center shadow-2xl" onClick={(event) => event.stopPropagation()}>
+                <p className="text-base font-extrabold text-slate-800">{te ? "📇 Contact QR" : "📇 Contact QR"}</p>
+                <p className="mt-1 text-[12px] text-slate-600">
+                  {te
+                    ? "ఈ QR లో ఫోన్ నంబర్ లేదు — ఈ సైట్ యొక్క సురక్షిత లింక్ మాత్రమే. ఇది 5 నిమిషాలు చెల్లుంది, ఒక్కసారే పని చేస్తుంది. మీరు WhatsApp లో సంభాషణ కొనసాగిస్తారని ఇది మీ సమ్మతి."
+                    : "This QR holds no phone number — only a secure link on this site. It stays valid for 5 minutes and works once. Continuing the conversation on WhatsApp is your consent."}
+                </p>
+                {contactSvg && contactSecondsLeft > 0 && !contactUsed ? (
+                  <div className="mx-auto mt-4 w-fit rounded-2xl border border-slate-200 bg-white p-3"
+                    // SVG is generated locally by the bundled qrcode package from a
+                    // resolve URL we built above — not user content.
+                    dangerouslySetInnerHTML={{ __html: contactSvg }} />
+                ) : (
+                  <div className="mx-auto mt-4 flex h-56 w-56 items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 text-[12px] text-slate-500">
+                    {contactUsed
+                      ? (te ? "ఈ QR వాడేశారు — కొత్తది తీయండి." : "This QR was used — create a fresh one.")
+                      : (te ? "గడువు ముగిసింది — కొత్త QR తీయండి." : "Expired — create a fresh QR.")}
+                  </div>
+                )}
+                <p className="mt-3 text-[13px] font-bold text-slate-700" aria-live="polite">
+                  {contactSecondsLeft > 0 && !contactUsed
+                    ? (te ? `⏳ మిగిలిన సమయం: ${Math.floor(contactSecondsLeft / 60)}:${String(contactSecondsLeft % 60).padStart(2, "0")}` : `⏳ Time left: ${Math.floor(contactSecondsLeft / 60)}:${String(contactSecondsLeft % 60).padStart(2, "0")}`)
+                    : null}
+                </p>
+                {contactError ? <p className="mt-2 text-[12px] font-semibold text-red-600">{contactError}</p> : null}
+                <div className="mt-4 flex flex-col gap-2">
+                  {contactSecondsLeft > 0 && !contactUsed ? (
+                    <button type="button" onClick={() => void redeemContactQr()} disabled={contactRedeeming}
+                      className="rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-60">
+                      {contactRedeeming ? (te ? "ఓపెన్ అవుతోంది…" : "Opening…") : (te ? "💬 WhatsApp ఓపెన్ చేయండి" : "💬 Open WhatsApp")}
+                    </button>
+                  ) : (
+                    <button type="button" onClick={() => { setShowContactQr(false); void openContactQr(); }} disabled={contactBusy}
+                      className="rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-60">
+                      {te ? "🔄 కొత్త QR తీయండి" : "🔄 Create a fresh QR"}
+                    </button>
+                  )}
+                  <button type="button" onClick={() => setShowContactQr(false)}
+                    className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-bold text-slate-700">
+                    {te ? "మూసివేయండి" : "Close"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : null}
         </>
       ) : null}
     </div>

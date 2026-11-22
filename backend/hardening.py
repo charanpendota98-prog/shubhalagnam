@@ -453,6 +453,10 @@ RL_RULES: Dict[str, Tuple[int, int]] = {          # route-prefix → (max hits, 
     "GET /api/referral/lookup": (20, 60),
     "GET /api/referral/": (60, 60),
     "GET /api/og/profile/": (30, 60),
+    # Contact reveal: token issue is consent-gated member work; resolve is the
+    # single-use phone-adjacent read, so both stay tight.
+    "POST /api/contact/token": (10, 3600),
+    "GET /api/contact/resolve/": (20, 600),
 }
 RL_DEFAULT = (120, 60)
 RL_DISABLED = _flag("TSAP_RATE_LIMIT") in ("0", "false", "no", "off")
