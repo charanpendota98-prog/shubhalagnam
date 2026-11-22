@@ -3740,9 +3740,15 @@ async def register(
             _ev = _email_otp_issue(email, "email_verify")
             email_verify["sent"] = bool(_ev.get("ok"))
         except HTTPException as _e:
+            # Server-crafted messages only (cooldown/429/503): safe to echo.
             email_verify["detail"] = str(_e.detail)[:100]
         except Exception as _e:
-            email_verify["detail"] = str(_e)[:100]
+            # Never echo an unexpected exception to the client: it can carry
+            # internals (paths, provider errors, config). Log server-side,
+            # return a fixed bilingual retry hint instead.
+            print("[REGISTER email_verify] unexpected send failure:", repr(_e)[:200])
+            email_verify["detail"] = ("Verification email పంపడం సాధ్యం కాలేదు — "
+                                      "send-verify-email తో మళ్లీ ప్రయత్నించండి.")
     auth_token = sign_token(tsap_id)
     user.pop("auth_token", None)
     user["quality"] = profile_completeness(user)
