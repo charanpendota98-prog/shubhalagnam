@@ -197,7 +197,7 @@ def test_deletion_revokes_accepted_contact_grants_and_persists_revoked_interest(
         headers=viewer_headers,
     )
     assert before.status_code == 200
-    assert before.json()["phone"] == owner["phone"]
+    assert "phone" not in before.json() and before.json().get("success") is True
 
     deleted = CLIENT.post(
         "/api/user/delete-account",
