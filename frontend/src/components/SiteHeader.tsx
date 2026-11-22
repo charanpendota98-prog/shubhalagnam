@@ -57,15 +57,15 @@ const NavIcon = ({ href, className = "w-4 h-4" }: { href: string; className?: st
 
 /* Desktop pills — neat & clean single labels */
 const NAV_MAIN: NavItem[] = [
-  { href: "/", en: "Home", te: "హోమ్", icon: "🏠" },
-  { href: "/matches", en: "Matches", te: "సంబంధాలు", icon: "💘" },
+  { href: "/", en: "Home", te: "Home", icon: "🏠" },
+  { href: "/matches", en: "Matches", te: "Matches", icon: "💘" },
   { href: "/second-marriage", en: "Second Marriage", te: "పునర్వివాహం", icon: "💍" },
-  { href: "/spotlight", en: "Spotlight", te: "ప్రత్యేక ప్రొఫైళ్లు", icon: "🌟" },
-  { href: "/channels", en: "Channels", te: "ఛానళ్లు", icon: "📢" },
+  { href: "/spotlight", en: "Spotlight", te: "Spotlight", icon: "🌟" },
+  { href: "/channels", en: "Channels", te: "Channels", icon: "📢" },
   // Keep common laptop widths uncluttered; these remain one tap away in the menu.
   { href: "/castes", en: "Communities", te: "కులాలు", icon: "🪔", xl: true },
-  { href: "/pricing", en: "Pricing", te: "ధరలు", icon: "💰", xl: true },
-  { href: "/referral", en: "Referral", te: "రెఫరల్", icon: "🤝", xl: true },
+  { href: "/pricing", en: "Payments", te: "Payments", icon: "💰", xl: true },
+  { href: "/referral", en: "Referral", te: "Referral", icon: "🤝", xl: true },
 ];
 
 const NAV_EARN: NavItem[] = [
@@ -78,10 +78,10 @@ const NAV_EARN: NavItem[] = [
 
 const NAV_MORE: NavItem[] = [
   { href: "/second-marriage", en: "Second Marriage (Remarriage)", te: "పునర్వివాహం (Second Marriage)", icon: "💍" },
-  { href: "/districts", en: "TS & AP Districts", te: "జిల్లా సమగ్ర సంబంధాలు", icon: "🏛️" },
-  { href: "/compare", en: "Compare Profiles", te: "సంబంధాల పోలిక స్టూడియో", icon: "⚖️" },
+  { href: "/districts", en: "TS & AP Districts", te: "TS & AP Districts", icon: "🏛️" },
+  { href: "/compare", en: "Compare Profiles", te: "Compare Profiles", icon: "⚖️" },
   { href: "/pelli-choopulu", en: "Pelli Choopulu Guide", te: "పెళ్లి చూపుల గైడ్", icon: "☕" },
-  { href: "/me", en: "My Account", te: "నా అకౌంట్", icon: "🙋" },
+  { href: "/me", en: "Account", te: "Account", icon: "🙋" },
   { href: "/lagna-patrika", en: "Lagna Patrika Studio", te: "శుభ లగ్న పత్రిక స్టూడియో", icon: "📜" },
   { href: "/biodata", en: "Biodata Maker", te: "బయోడేటా మేకర్", icon: "🎴" },
   { href: "/muhurtham", en: "Muhurthams", te: "ముహూర్తాలు 2026-27", icon: "🗓️" },
@@ -91,13 +91,14 @@ const NAV_MORE: NavItem[] = [
   { href: "/verify", en: "Verify profile", te: "Profile verify", icon: "✅" },
 ];
 
-// The mobile bottom bar already owns Home, Matches, Pricing, Referral and
-// Account. Keep the drawer for secondary journeys, and show each destination
-// only once so the compact navigation stays quick to scan.
-const NAV_MOBILE_MAIN = [
-  ...NAV_MAIN.filter((item) =>
-    ["/second-marriage", "/spotlight", "/channels", "/castes"].includes(item.href),
-  ),
+// Core destinations must remain available even when the bottom bar is absent
+// (registration) or hidden between 1024px and the 1366px desktop breakpoint.
+const NAV_MOBILE_MAIN: NavItem[] = [
+  ...NAV_MAIN.filter((item) => ["/", "/matches", "/pricing", "/referral"].includes(item.href)),
+  ...NAV_MORE.filter((item) => item.href === "/me"),
+];
+const NAV_MOBILE_EXPLORE: NavItem[] = [
+  ...NAV_MAIN.filter((item) => ["/second-marriage", "/spotlight", "/channels", "/castes"].includes(item.href)),
   ...NAV_MORE.filter((item) => item.href === "/safety"),
 ];
 const NAV_MOBILE_PARTNERS = NAV_EARN.filter((item) =>
@@ -108,10 +109,9 @@ const NAV_MOBILE_MORE = NAV_MORE.filter((item) => !["/second-marriage", "/me", "
 // Keep the wide desktop header focused on the primary journeys. The remaining
 // destinations stay available in this compact, keyboard-operable disclosure.
 const NAV_DESKTOP_MORE: NavItem[] = [
+  ...NAV_MOBILE_MAIN,
   { href: "/castes", en: "Communities", te: "కులాలు", icon: "🪔" },
-  { href: "/pricing", en: "Pricing & plans", te: "ధరలు", icon: "💰" },
-  { href: "/referral", en: "Referral programme", te: "రెఫరల్", icon: "🤝" },
-  ...NAV_MORE.filter((item) => !["/castes", "/pricing", "/referral"].includes(item.href)),
+  ...NAV_MORE.filter((item) => item.href !== "/me"),
 ];
 
 /* 🔒 Admin (/admin, /growth, /admin/photos) is DELIBERATELY not linked anywhere in public UI
@@ -207,7 +207,7 @@ export default function SiteHeader() {
         <NavIcon href={n.href} className="w-[18px] h-[18px]" />
       </span>
       <Duo en={n.en} te={n.te} />
-      {isActive(n.href) && <span className="ml-auto text-[10px] opacity-80">●</span>}
+      {isActive(n.href) && <span aria-hidden="true" className="ml-auto text-[10px] opacity-80">●</span>}
     </Link>
   );
 
@@ -223,7 +223,7 @@ export default function SiteHeader() {
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={SITE_CONFIG.logoImage} alt="" width={44} height={44}
             className="w-10 h-10 lg:w-8 lg:h-8 rounded-xl lg:rounded-lg object-cover shadow-[0_5px_14px_rgba(122,12,46,.18)] ring-1 ring-maroon/10 shrink-0" />
-          <span className="sr-only">{te ? "హోమ్: " : "Home: "}</span>
+          <span className="sr-only">Home: </span>
           <div className="brand-lockup min-w-0">
             <div className="brand-name">
               <span className="brand-name-primary">Mana</span>{" "}
@@ -273,7 +273,7 @@ export default function SiteHeader() {
               aria-controls="desktop-studios-menu"
             >
               <Sparkles className="w-[15px] h-[15px] text-gold-deep" strokeWidth={2.25} aria-hidden="true" />
-              <span>{te ? "స్టూడియోలు" : "Studios"}</span>
+              <span>Studios</span>
               <ChevronDown className={`w-3.5 h-3.5 text-gray-400 transition-transform duration-200 ${studiosOpen ? "rotate-180" : ""}`} strokeWidth={2.5} aria-hidden="true" />
             </button>
 
@@ -299,7 +299,7 @@ export default function SiteHeader() {
               >
                 <Scale className="w-[18px] h-[18px] text-maroon/70 shrink-0" strokeWidth={2} aria-hidden="true" />
                 <div>
-                  <div>{te ? "సంబంధాల పోలిక స్టూడియో" : "Profile Compare Matrix"}</div>
+                  <div>Compare Profiles</div>
                   <div className="text-[10px] font-normal text-gray-500">{te ? "Side-by-Side 3 Profiles" : "Compare Astro & Income"}</div>
                 </div>
               </Link>
@@ -329,7 +329,7 @@ export default function SiteHeader() {
               >
                 <MapPin className="w-[18px] h-[18px] text-maroon/70 shrink-0" strokeWidth={2} aria-hidden="true" />
                 <div>
-                  <div>{te ? "TS & AP జిల్లాలు" : "TS & AP Districts Hub"}</div>
+                  <div>TS & AP Districts</div>
                   <div className="text-[10px] font-normal text-gray-500">{te ? "స్థానిక ప్రాంతాల సంబంధాలు" : "District-wise Matching"}</div>
                 </div>
               </Link>
@@ -361,7 +361,7 @@ export default function SiteHeader() {
               aria-expanded={moreOpen}
               aria-controls="desktop-more-menu"
             >
-              <span>{te ? "మరిన్ని" : "More"}</span>
+              <span>More</span>
               <ChevronDown className={`w-3.5 h-3.5 text-gray-400 transition-transform duration-200 ${moreOpen ? "rotate-180" : ""}`} strokeWidth={2.5} aria-hidden="true" />
             </button>
             <div
@@ -412,7 +412,7 @@ export default function SiteHeader() {
               href="/login"
               className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-2 text-[13px] font-bold border border-maroon/30 text-maroon rounded-full hover:bg-maroon-soft transition"
             >
-              <Smartphone className="w-[15px] h-[15px]" strokeWidth={2.25} aria-hidden="true" /> {te ? "లాగిన్" : "Login"}
+              <Smartphone className="w-[15px] h-[15px]" strokeWidth={2.25} aria-hidden="true" /> Login
             </Link>
           )}
           <Link
@@ -422,7 +422,7 @@ export default function SiteHeader() {
             <span>{te ? "ఉచిత నమోదు" : "Free Register"}</span>
           </Link>
           <button type="button"
-            aria-label={te ? "మెనూ" : "Menu"}
+            aria-label="Menu"
             aria-expanded={open}
             aria-controls="mobile-menu"
             onClick={() => setOpen((v) => !v)}
@@ -460,17 +460,21 @@ export default function SiteHeader() {
         className="mobile-menu min-[1366px]:hidden"
       >
         <div className="mobile-menu__panel bg-[#fffdf8] shadow-xl border-t border-gold/25 px-4 pt-1 pb-4 overscroll-contain menu-scroll">
-          {groupTitle("Explore", "అన్వేషించండి")}
+          {groupTitle("Menu", "Menu")}
           <div className="space-y-1">
             {NAV_MOBILE_MAIN.map(menuLink)}
           </div>
-          {groupTitle("For partners", "భాగస్వాముల కోసం")}
+          {groupTitle("Explore", "Explore")}
+          <div className="space-y-1">
+            {NAV_MOBILE_EXPLORE.map(menuLink)}
+          </div>
+          {groupTitle("Partners", "Partners")}
           <div className="space-y-1">
             {NAV_MOBILE_PARTNERS.map(menuLink)}
           </div>
           <details className="group mt-2 rounded-2xl border border-gold/25 bg-white/60">
             <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 rounded-2xl px-4 py-3 text-sm font-bold text-ink/80 focus-brand [&::-webkit-details-marker]:hidden">
-              <Duo en="Tools & resources" te="సాధనాలు మరియు సమాచారం" />
+              <Duo en="Tools & resources" te="Tools & resources" />
               <ChevronDown className="h-4 w-4 shrink-0 text-gray-500 transition-transform group-open:rotate-180" aria-hidden="true" />
             </summary>
             <div className="space-y-1 px-1 pb-1">
@@ -483,7 +487,7 @@ export default function SiteHeader() {
               className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-xl border border-maroon/25 bg-white px-3 py-2.5 text-sm font-bold text-maroon"
             >
               {sessionOk ? <UserCircle2 className="h-4 w-4" aria-hidden="true" /> : <Smartphone className="h-4 w-4" aria-hidden="true" />}
-              {sessionOk ? (te ? "నా అకౌంట్" : "My account") : (te ? "లాగిన్" : "Log in")}
+              {sessionOk ? "My account" : "Login"}
             </Link>
             <Link
               href="/register"
