@@ -7,7 +7,7 @@ import "@/components/partner-workspace.css";
  * published one-time qualifying consumer-plan rule; no payment is guaranteed.
  */
 import { useEffect, useRef, useState } from "react";
-import {partnerRegistrationResult,partnerDashboardResult,partnerPrivateDashboardResult,type PartnerRegistration} from "@/lib/partner-registration-result";
+import {partnerRegistrationResult,partnerDashboardResult,partnerPrivateDashboardResult,partnerPayoutResult,type PartnerRegistration} from "@/lib/partner-registration-result";
 import CreatorCampaigns from "@/components/CreatorCampaigns";
 import Link from "next/link";
 import { Duo, useDuo } from "@/lib/duo";
@@ -43,6 +43,7 @@ export default function PartnerRegisterPage() {
   const [payoutAmount, setPayoutAmount] = useState("");
   const [payoutUpi, setPayoutUpi] = useState("");
   const [payoutBusy, setPayoutBusy] = useState(false);
+  const [payoutNeedsCheck,setPayoutNeedsCheck]=useState(false);
   const [payoutMsg, setPayoutMsg] = useState("");
   const [authMsg, setAuthMsg] = useState("");
   const [dashBusy,setDashBusy]=useState(false);
@@ -56,7 +57,7 @@ export default function PartnerRegisterPage() {
   const invalidatePrivate=()=>{
     privateVersion.current++;authLock.current=false;payoutLock.current=false;
     setPrivateDash(null);setPartnerToken("");setOtpSent(false);setOtpCode("");
-    setAuthMsg("");setPayoutMsg("");setPayoutAmount("");setPayoutUpi("");
+    setAuthMsg("");setPayoutMsg("");setPayoutAmount("");setPayoutUpi("");setPayoutNeedsCheck(false);
     setAuthBusy(false);setPayoutBusy(false);
   };
   const currentPrivate=(version:number)=>active.current&&privateVersion.current===version;
@@ -170,19 +171,28 @@ export default function PartnerRegisterPage() {
   };
 
   const requestPartnerPayout=async()=>{
-    if(payoutLock.current)return;
+    if(payoutLock.current||payoutNeedsCheck||Number(privateDash?.pending_payout)>0)return;
     const id=String(privateDash?.partner_id||"");const amount=Number(payoutAmount);
     if(!partnerToken||!id||id!==lookup.trim()||id!==dash?.partner_id){setPayoutMsg(te?"ముందుగా నమోదైన మొబైల్‌ను ధృవీకరించండి.":"Verify the registered mobile first.");return;}
     if(!Number.isInteger(amount)||amount<50||amount>Number(privateDash?.wallet||0)){setPayoutMsg(te?"మొత్తం కనీసం ₹50 ఉండాలి. అందుబాటులో ఉన్న నిల్వకు మించకూడదు.":"Enter a whole-rupee amount from ₹50 up to your available wallet balance.");return;}
     if(!payoutUpi.trim()){setPayoutMsg(te?"మీ UPI ID ఇవ్వండి.":"Enter your UPI ID.");return;}
-    const version=privateVersion.current;const token=partnerToken;payoutLock.current=true;setPayoutBusy(true);setPayoutMsg("");
+    const version=privateVersion.current;const token=partnerToken;const upi=payoutUpi.trim();payoutLock.current=true;authLock.current=true;setAuthBusy(true);setPayoutBusy(true);setPayoutMsg("");
     try{
-      const {status,data}=await boundedJson("/api/referral/partner/payout",{method:"POST",headers:{"Content-Type":"application/json","X-Partner-Token":token},body:JSON.stringify({partner_id:id,amount,method:"upi",upi_id:payoutUpi.trim()})});
+      const {status,data}=await boundedJson("/api/referral/partner/payout",{method:"POST",headers:{"Content-Type":"application/json","X-Partner-Token":token},body:JSON.stringify({partner_id:id,amount,method:"upi",upi_id:upi})});
       if(!currentPrivate(version))return;
-      if(status!==200||data?.success!==true){setPayoutMsg(apiDisplayMessage(data,te,te?"అభ్యర్థన ఫలితం నిర్ధారణ కాలేదు. మళ్లీ పంపే ముందు అభ్యర్థనల వివరాలు చూడండి.":"Request could not be confirmed. Check your requests before submitting again."));return;}
-      setPayoutAmount("");setPayoutMsg(apiDisplayMessage(data,te,te?"అభ్యర్థన సమీక్ష కోసం పంపబడింది.":"Request submitted for review."));await loadPrivateDash(id,token,version);
-    }catch{if(currentPrivate(version))setPayoutMsg(te?"అభ్యర్థన ఫలితం నిర్ధారణ కాలేదు. మళ్లీ పంపే ముందు అభ్యర్థనల వివరాలు చూడండి.":"Request could not be confirmed. Check your requests before submitting again.");}
-    finally{if(currentPrivate(version)){payoutLock.current=false;setPayoutBusy(false);}}
+      const requestId=partnerPayoutResult(status,data,id,amount,upi);
+      setPayoutNeedsCheck(true);
+      if(!requestId){setPayoutMsg(te?"అభ్యర్థన ఫలితం నిర్ధారణ కాలేదు. వివరాలు అలాగే ఉన్నాయి. మళ్లీ పంపే ముందు నిల్వను తాజాకరించి, సమీక్షలో ఉన్న మొత్తాన్ని చూడండి.":"Request not confirmed. Your details are preserved. Refresh the wallet and check the amount under review before trying again.");return;}
+      setPayoutAmount("");setPayoutMsg(te?`అభ్యర్థన ${requestId} (₹${amount}) సమీక్ష కోసం నమోదైంది. ఇది నగదు బదిలీ కాదు.`:`Request ${requestId} for ₹${amount} is queued for review. This is not a transfer.`);await loadPrivateDash(id,token,version);
+    }catch{if(currentPrivate(version)){setPayoutNeedsCheck(true);setPayoutMsg(te?"అభ్యర్థన ఫలితం నిర్ధారణ కాలేదు. వివరాలు అలాగే ఉన్నాయి. మళ్లీ పంపే ముందు నిల్వను తాజాకరించి, సమీక్షలో ఉన్న మొత్తాన్ని చూడండి.":"Request not confirmed. Your details are preserved. Refresh the wallet and check the amount under review before trying again.");}}
+    finally{if(currentPrivate(version)){payoutLock.current=false;authLock.current=false;setAuthBusy(false);setPayoutBusy(false);}}
+  };
+  const refreshPartnerWallet=async()=>{
+    if(payoutLock.current||!partnerToken||!privateDash)return;
+    const version=privateVersion.current,id=String(privateDash.partner_id),token=partnerToken;
+    payoutLock.current=true;authLock.current=true;setAuthBusy(true);setPayoutBusy(true);
+    try{if(await loadPrivateDash(id,token,version)){setPayoutNeedsCheck(false);setPayoutMsg(te?"నిల్వ తాజాకరించబడింది. కొత్త అభ్యర్థనకు ముందు సమీక్షలో ఉన్న మొత్తాన్ని చూడండి.":"Wallet refreshed. Check the amount under review before a new request.");}}
+    finally{if(currentPrivate(version)){payoutLock.current=false;authLock.current=false;setAuthBusy(false);setPayoutBusy(false);}}
   };
   const privateReady=privateDash?.success===true&&privateDash.partner_id===dash?.partner_id&&privateDash.partner_id===lookup.trim()&&!!partnerToken;
 
@@ -389,10 +399,12 @@ export default function PartnerRegisterPage() {
                       className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" />
                   </label>
                 </div>
-                <button type="button" onClick={requestPartnerPayout} disabled={payoutBusy || Number(privateDash.wallet || 0) < 50}
+                <button type="button" onClick={requestPartnerPayout} disabled={payoutBusy || payoutNeedsCheck || Number(privateDash.pending_payout)>0 || Number(privateDash.wallet || 0) < 50}
                   className="min-h-11 w-full rounded-xl bg-[#7A0C2E] px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50">
                   {payoutBusy ? "…" : duo("Submit payout request", "Payout అభ్యర్థన పంపండి")}
                 </button>
+                <button type="button" onClick={refreshPartnerWallet} disabled={payoutBusy} className="min-h-11 w-full rounded-xl border border-emerald-700 px-4 py-2 text-sm font-bold text-emerald-900 disabled:opacity-50">{duo("Refresh wallet", "నిల్వను తాజాకరించండి")}</button>
+                {Number(privateDash.pending_payout)>0?<p className="text-xs text-emerald-900" role="status">{duo("A request amount is under review. Wait for its review before submitting another request.","ఒక అభ్యర్థన మొత్తం సమీక్షలో ఉంది. మరో అభ్యర్థన పంపే ముందు దాని సమీక్ష పూర్తయ్యే వరకు వేచి ఉండండి.")}</p>:null}
                 {payoutMsg ? <p className="text-xs font-medium text-emerald-900" role="status">{payoutMsg}</p> : null}
                 {authMsg ? <p className="text-xs font-medium text-emerald-900" role="status">{authMsg}</p> : null}
               </div>

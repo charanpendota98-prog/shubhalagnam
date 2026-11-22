@@ -31,3 +31,14 @@ export function partnerPrivateDashboardResult(status:number,value:unknown,id:str
  const d=value as Record<string,unknown>;
  return d.success===true&&!d.error&&!d.detail&&d.partner_id===id&&['wallet','pending_payout','qualifying_rewards_total'].every(k=>typeof d[k]==='number'&&Number.isFinite(d[k])&&(d[k] as number)>=0&&(d[k] as number)<=Number.MAX_SAFE_INTEGER);
 }
+
+// The endpoint returns a queued request record, not merely a success flag.
+export function partnerPayoutResult(status:number,value:unknown,id:string,amount:number,upi:string):string|null {
+ if(status!==200||!value||typeof value!=='object'||Array.isArray(value))return null;
+ const d=value as Record<string,unknown>;
+ if(d.success!==true||d.ok!==true||d.error||d.detail||!d.request||typeof d.request!=='object'||Array.isArray(d.request))return null;
+ const row=d.request as Record<string,unknown>;
+ if(typeof row.id!=='string'||!/^PAY-[A-Za-z0-9-]{1,80}$/.test(row.id)||row.partner_id!==id||row.amount!==amount||row.method!=='upi'||row.upi_id!==upi||row.status!=='requested')return null;
+ if(typeof d.wallet!=='number'||!Number.isFinite(d.wallet)||d.wallet<0||d.wallet>Number.MAX_SAFE_INTEGER)return null;
+ return row.id;
+}
