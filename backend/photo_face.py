@@ -8,6 +8,8 @@ import subprocess
 import sys
 import threading
 
+import photo_gate
+
 _MODEL = Path(__file__).parent / 'models/face_detection_yunet/face_detection_yunet_2023mar.onnx'
 _MODEL_SHA = '8f2383e4dd3cfbb4553ea8718107fc0423210dc964f9f4280604804ed2552fa4'
 _GATE = threading.Lock()
@@ -25,6 +27,10 @@ def check_photo_face(data: bytes) -> dict:
  """One child at a time, no queue, five-second wall limit, no silent bypass."""
  if not data or len(data)>5*1024*1024 or not _GATE.acquire(blocking=False):
   return _failure('FACE_CHECK_UNAVAILABLE')
+ _fd=photo_gate.acquire_photo_gate()
+ if _fd is None:
+  _GATE.release()
+  return _failure('FACE_CHECK_UNAVAILABLE')
  try:
   if not _MODEL.is_file() or hashlib.sha256(_MODEL.read_bytes()).hexdigest()!=_MODEL_SHA:
    return _failure('FACE_CHECK_UNAVAILABLE')
@@ -37,7 +43,9 @@ def check_photo_face(data: bytes) -> dict:
   return {'ok':True,'reason':'FACE_ELIGIBLE','en':'One face detected; staff review is still required.','te':'ఒక ముఖం గుర్తించబడింది; సిబ్బంది సమీక్ష ఇంకా అవసరం.','checks':{'face_eligibility':'one_face_detected','face_count':1,'face_model':'yunet-2023mar'}}
  except (OSError,ValueError,TypeError,subprocess.TimeoutExpired):
   return _failure('FACE_CHECK_UNAVAILABLE')
- finally:_GATE.release()
+ finally:
+  photo_gate.release_photo_gate(_fd)
+  _GATE.release()
 
 def _worker():
  # Limits apply before loading native libraries. Never load them in the web process.
