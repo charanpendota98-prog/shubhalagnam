@@ -1,7 +1,7 @@
 import {test,expect} from '@playwright/test';
 import fs from 'node:fs';
 import {registrationReligionPayload} from '../src/lib/registration-religion';
-const out=process.env.REGISTER_RELIGION_OUT||'/downloads/mv-register-religion-local';fs.mkdirSync(out,{recursive:true});
+const out=process.env.REGISTER_RELIGION_OUT||'artifacts/register-religion';fs.mkdirSync(out,{recursive:true});
 const markers={birth_time:'12:34',gothram:'HINDU_DRAFT_REFERENCE',star:'Ashwini',rasi:'Mesha',moola_nakshatram:'Yes',dosham:'Draft reference'};
 const draft=(religion:string)=>({full_name:'Fictional Review',gender:'Groom',dob:'1995-05-12',height:'5 ft 6 in (168 cm)',marital_status:'Pelli Kaledu',religion,caste:religion==='Hindu'?'Kapu':religion==='Muslim'?'Sunni':'Catholic',work_type:'Software / IT / Tech',education:'B.Tech / B.E.',job:'Software Engineer',salary:'Not applicable',state:'TS',district:'Hyderabad',phone:'9000000001',...markers});
 async function intercept(page:any){await page.route('**/api/**',(r:any)=>r.request().method()==='GET'?r.fulfill({json:{success:true,items:[],castes:[],subcastes:[],districts:['Hyderabad'],password_login:true,phone_otp:false,passkeys_configured:false}}):r.abort());}
