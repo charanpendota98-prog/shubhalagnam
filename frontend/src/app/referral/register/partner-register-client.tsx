@@ -7,7 +7,7 @@ import "@/components/partner-workspace.css";
  * published one-time qualifying consumer-plan rule; no payment is guaranteed.
  */
 import { useEffect, useRef, useState } from "react";
-import {partnerRegistrationResult,partnerDashboardResult,type PartnerRegistration} from "@/lib/partner-registration-result";
+import {partnerRegistrationResult,partnerDashboardResult,partnerPrivateDashboardResult,type PartnerRegistration} from "@/lib/partner-registration-result";
 import CreatorCampaigns from "@/components/CreatorCampaigns";
 import Link from "next/link";
 import { Duo, useDuo } from "@/lib/duo";
@@ -76,7 +76,7 @@ export default function PartnerRegisterPage() {
       const {status,data}=await boundedJson(`/api/referral/partner/${encodeURIComponent(id)}`);
       if(!active.current||version!==publicVersion.current)return;
       if(!partnerDashboardResult(status,data,id))throw new Error("Dashboard unconfirmed");
-      setDash(data);
+      setDash({...data,link:partnerRegistrationResult(status,data,window.location.origin)?.link});
     }catch{
       if(active.current&&version===publicVersion.current)setDashError(te?"గణాంకాలు నిర్ధారించలేకపోయాం. భాగస్వామి ID ఉంటే అలాగే ఉంటుంది. మళ్లీ చూడటం గణాంకాలను మాత్రమే చదువుతుంది.":"Dashboard counts could not be confirmed. Any confirmed partner ID is unchanged. View again to retry the read only.");
     }finally{if(active.current&&version===publicVersion.current)setDashBusy(false);}
@@ -127,7 +127,7 @@ export default function PartnerRegisterPage() {
     try {
       const {status,data:d}=await boundedJson(`/api/referral/partner/${encodeURIComponent(id)}/private`,{headers:{"X-Partner-Token":token}});
       if(!currentPrivate(version))return false;
-      if(status!==200||d?.success!==true||d?.partner_id!==id){
+      if(!partnerPrivateDashboardResult(status,d,id)){
         setPrivateDash(null);setPartnerToken("");
         setAuthMsg(te?"వ్యక్తిగత వివరాలు నిర్ధారణ కాలేదు. మొబైల్‌ను మళ్లీ ధృవీకరించండి.":"Private details could not be confirmed. Verify the registered mobile again.");return false;
       }
