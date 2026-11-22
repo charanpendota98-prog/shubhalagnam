@@ -52,7 +52,7 @@ test("partner campaigns require private OTP flow and scoped header",async({page}
   const u=new URL(route.request().url());let d:any={success:true};
   if(u.pathname==="/api/referral/partner/SYN-PARTNER")d={success:true,partner_id:"SYN-PARTNER",clicks:0,registrations:0,paid_count:0};
   if(u.pathname.endsWith("/auth"))d={success:true,partner_token:"synthetic-scoped-token"};
-  if(u.pathname.endsWith("/private"))d={success:true,partner_id:"SYN-PARTNER",wallet:0};
+  if(u.pathname.endsWith("/private"))d={success:true,partner_id:"SYN-PARTNER",wallet:0,pending_payout:0,qualifying_rewards_total:0};
   if(u.pathname==="/api/referral/SYN-PARTNER/campaigns"){campaignRequests++;expect(route.request().headers()["x-partner-token"]).toBe("synthetic-scoped-token");d={success:true,campaigns:[]};}
   return route.fulfill({json:d});
  });
