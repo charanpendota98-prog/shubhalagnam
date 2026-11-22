@@ -1,13 +1,13 @@
-import{test,expect}from'@playwright/test';import fs from'node:fs';const out='/downloads/mv-menu-common-local';fs.mkdirSync(out,{recursive:true});
-for(const lang of['en','te'])for(const width of[320,390,1280,1440])for(const route of['/register','/pricing'])test(`core navigation ${lang} ${width} ${route}`,async({page})=>{
+import { test, expect } from '@playwright/test';
+for(const lang of['en','te'])for(const width of[320,390,1280,1440])for(const route of['/register','/pricing'])test(`core navigation ${lang} ${width} ${route}`,async({page},testInfo)=>{
  await page.setViewportSize({width,height:900});await page.addInitScript(l=>localStorage.setItem('tsap_lang',l),lang);await page.route('**/api/**',r=>r.abort());await page.goto(route,{waitUntil:'networkidle'});
  const header=page.locator('header.brand-header'),button=header.getByRole('button',{name:width<1366?'Menu':'More',exact:true});await button.click();await expect(button).toHaveAttribute('aria-expanded','true');const menu=header.locator(width<1366?'#mobile-menu':'#desktop-more-menu');
  if(width<1366)await expect(menu).toHaveCSS('max-height',`${900-(width<1024?64:56)}px`);else await expect(menu).toHaveCSS('opacity','1');
  for(const[href,label]of[['/','Home'],['/matches','Matches'],['/pricing','Payments'],['/referral','Referral'],['/me','Account']]){const link=menu.getByRole('link',{name:label,exact:true});await expect(link).toHaveCount(1);await expect(link).toBeVisible();await expect(link).toHaveAttribute('href',href);}
- await page.screenshot({animations:'disabled',path:`${out}/${lang}-${width}-${route.slice(1)}-primary.png`});
+ await page.screenshot({animations:'disabled',path:testInfo.outputPath(`${lang}-${width}-${route.slice(1)}-primary.png`)});
  if(width<1366){await menu.locator('summary').click();await expect(menu.locator('a[href="/compare"]')).toBeVisible();for(const href of['/second-marriage','/spotlight','/channels','/castes','/safety','/referral/register','/bureau','/vendors/register','/districts','/compare','/pelli-choopulu','/lagna-patrika','/biodata','/muhurtham','/stories','/vendors','/verify'])await expect(menu.locator(`a[href="${href}"]`)).toHaveCount(1);}
  const bottom=page.locator('nav.mobile-bottom-nav');if(route==='/register')await expect(bottom).toHaveCount(0);else{await expect(bottom).toBeVisible({visible:width<1024});if(width<1024)for(const label of['Home','Matches','Payments','Referral','Account'])await expect(bottom.getByRole('link',{name:label,exact:true})).toBeVisible();}
- expect(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1)).toBe(false);await page.screenshot({animations:'disabled',path:`${out}/${lang}-${width}-${route.slice(1)}.png`});await page.keyboard.press('Escape');await expect(button).toHaveAttribute('aria-expanded','false');await expect(button).toBeFocused();
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1)).toBe(false);await page.screenshot({animations:'disabled',path:testInfo.outputPath(`${lang}-${width}-${route.slice(1)}.png`)});await page.keyboard.press('Escape');await expect(button).toHaveAttribute('aria-expanded','false');await expect(button).toBeFocused();
 });
 
 for(const lang of['en','te'])for(const member of[false,true])for(const width of[320,1280,1440])test(`menu session ${lang} ${member?'member':'guest'} ${width}`,async({page})=>{
