@@ -27,6 +27,7 @@ import { apiDisplayMessage, getCsrfToken, readApiJson } from "@/lib/api";
 import { registerPasskey } from "@/lib/webauthn-client";
 import { fetchAuthCapabilities } from "@/lib/auth";
 import { registrationReferralCheck, type RegistrationReferral } from "@/lib/registration-referral-confirmation";
+import { registrationReligionPayload } from "@/lib/registration-religion";
 import { registrationConfirmation } from "@/lib/registration-response";
 import { confirmedEmailResend, confirmedEmailVerification } from "@/lib/email-verification-confirmation";
 
@@ -1145,6 +1146,7 @@ function Wizard() {
       setF({
         ...DEFAULT_FORM,
         ...draftData,
+        religion: RELIGIONS.includes(draftData.religion) ? draftData.religion : "",
         marital_status: draftNeverMarried ? "Pelli Kaledu" : draftData.marital_status || "",
         children: draftNeverMarried ? "" : draftData.children || "",
         password: "",
@@ -1193,8 +1195,8 @@ function Wizard() {
   }, [f.dob]);
 
   useEffect(() => {
-    if (f.star && !f.rasi && NAK_TO_RASI[f.star]) setF((prev) => ({ ...prev, rasi: NAK_TO_RASI[f.star] }));
-  }, [f.star, f.rasi]);
+    if (f.religion === "Hindu" && f.star && !f.rasi && NAK_TO_RASI[f.star]) setF((prev) => ({ ...prev, rasi: NAK_TO_RASI[f.star] }));
+  }, [f.religion, f.star, f.rasi]);
 
   const scrollTop = () => topRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
 
@@ -1337,11 +1339,11 @@ function Wizard() {
         "phone", "email", "password", "about_myself", "expectations", "exp_age_min", "exp_age_max", "exp_job",
         "exp_location", "exp_caste", "physical_status", "diet", "body_type", "complexion", "blood_group", "referral_code",
       ];
-      const payload: Record<string, any> = { ...f };
+      const payload = registrationReligionPayload(f);
       strings.forEach((k) => fd.append(k, String(payload[k] ?? "")));
       fd.append("caste_custom", String(payload.caste_custom ?? ""));
       fd.append("sub_caste_custom", String(payload.sub_caste_custom ?? ""));
-      fd.append("age", String(ageFromDob(payload.dob) ?? ""));
+      fd.append("age", String(ageFromDob(String(payload.dob ?? "")) ?? ""));
       fd.append("photo_private", String(!!payload.photo_private));
       fd.append("photo_consent_confirmed", String(!!payload.photo_consent_confirmed));
       fd.append("consent_confirmed", String(!!payload.consent_confirmed));
@@ -1494,18 +1496,18 @@ function Wizard() {
               <h3 className="text-sm font-bold text-slate-800 mb-2"><KeyRound aria-hidden="true" className="mv-registration-result-icon" /> {T("పాస్‌కీ సెటప్", "Passkey Setup")}</h3>
               <p className="text-xs text-slate-600 mb-3">{T("పాస్‌వర్డ్ లేకుండా సురక్షితంగా మీ ఫోన్ వేలిముద్ర/ఫేస్ లాక్ తో లాగిన్ అవ్వడానికి పాస్‌కీ సెటప్ చేయండి.", "Set up a passkey to sign in securely with your fingerprint or face without a password.")}</p>
               <div className="flex flex-col sm:flex-row gap-2 max-w-sm">
-                <input 
+                <input
                   type="password"
                   aria-label={T("మీ పాస్‌వర్డ్", "Your password")}
                   autoComplete="current-password"
                   aria-describedby="registration-passkey-feedback"
-                  value={passkeyPw} 
+                  value={passkeyPw}
                   onChange={(e) => { setPasskeyPw(e.target.value); setPasskeyFeedback(""); }}
                   placeholder={T("మీ పాస్‌వర్డ్", "Your Password")}
                   className="flex-1 bg-white border border-slate-200 rounded-xl px-3.5 py-2 text-sm focus:border-slate-800 outline-none"
                   disabled={passkeyBusy}
                 />
-                <button 
+                <button
                   type="button"
                   onClick={async () => {
                     if (passkeyStatus !== "available" || passkeyLock.current || !passkeyPw || passkeyFeedback === "confirmed") return;
@@ -1762,7 +1764,10 @@ function Wizard() {
     );
   }
 
-  const stepMeta = STEPS[step - 1];
+  const registrationSteps = STEPS.map((item) => item.n === 2 && f.religion !== "Hindu"
+    ? { ...item, label: "Community", labelTe: "సంఘం", hint: "మీరు ఎంచుకున్న మతానికి సంబంధించిన సంఘం వివరాలు", hintEn: "Community details for your selected religion" }
+    : item);
+  const stepMeta = registrationSteps[step - 1];
 
   return (
     <div className="mv-register-workspace min-h-dvh pb-28 sm:pb-36 bg-[#FAF7F2]" ref={topRef}>
@@ -1816,7 +1821,7 @@ function Wizard() {
         {regMode === "full" && (
           <div className="max-w-6xl mx-auto px-4 pb-2 pt-1">
             <div className="flex items-center justify-between gap-1 sm:gap-2">
-              {STEPS.map((s) => {
+              {registrationSteps.map((s) => {
                 const active = s.n === step;
                 const done = s.n < step;
                 return (
@@ -1977,6 +1982,20 @@ function Wizard() {
 
               </div>
 
+              <div className="space-y-1.5">
+                  <label htmlFor="quick-religion" className="text-xs font-bold text-slate-800">{T("మతం", "Religion")} *</label>
+                  <select
+                    id="quick-religion"
+                    required
+                    value={f.religion}
+                    onChange={(e) => setReligion(e.target.value)}
+                    className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-medium"
+                  >
+                    <option value="">{T("మతం ఎంచుకోండి", "Select a religion")}</option>
+                    {RELIGIONS.map((religion) => <option key={religion} value={religion}>{te ? RELIGION_LABELS[religion] : religion}</option>)}
+                  </select>
+                </div>
+
               {/* 1. Gender */}
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-slate-800">
@@ -2036,23 +2055,11 @@ function Wizard() {
                 />
               </div>
 
-              {/* 4. Religion, community & sub-community */}
+              {/* Community & sub-community follow the selected religion. */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <label htmlFor="quick-religion" className="text-xs font-bold text-slate-800">{T("మతం", "Religion")} *</label>
-                  <select
-                    id="quick-religion"
-                    required
-                    value={f.religion}
-                    onChange={(e) => setReligion(e.target.value)}
-                    className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-medium"
-                  >
-                    <option value="">{T("మతం ఎంచుకోండి", "Select a religion")}</option>
-                    {RELIGIONS.map((religion) => <option key={religion} value={religion}>{te ? RELIGION_LABELS[religion] : religion}</option>)}
-                  </select>
-                </div>
+
                 <SearchSelect
-                  label="కులం / సంఘం (Caste / Community)"
+                  label={f.religion === "Hindu" ? "కులం / సంఘం (Caste / Community)" : "సంఘం (Community)"}
                   options={casteOpts}
                   value={f.caste}
                   onChange={setCaste}
@@ -2065,7 +2072,7 @@ function Wizard() {
               </div>
               {f.caste === "Other / self-described" && (
                 <TextField
-                  label="మీ కులం / సంఘం పేరు (Enter community name)"
+                  label={f.religion === "Hindu" ? "మీ కులం / సంఘం పేరు (Enter community name)" : "మీ సంఘం పేరు (Enter community name)"}
                   value={f.caste_custom}
                   onChange={(v) => set("caste_custom", v)}
                   required
@@ -2076,7 +2083,7 @@ function Wizard() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {subcasteOpts.length ? (
                   <SearchSelect
-                    label="ఉపకులం (Sub-caste - Optional)"
+                    label={f.religion === "Hindu" ? "ఉపకులం (Sub-caste - Optional)" : "ఉపసంఘం (Sub-community)"}
                     options={subcasteOpts}
                     value={f.sub_caste}
                     onChange={setSubcaste}
@@ -2085,7 +2092,7 @@ function Wizard() {
                   />
                 ) : (
                   <TextField
-                    label="ఉపకులం / ఉపసంఘం (Optional)"
+                    label={f.religion === "Hindu" ? "ఉపకులం / ఉపసంఘం (Optional)" : "ఉపసంఘం (Sub-community)"}
                     value={f.sub_caste}
                     onChange={(v) => set("sub_caste", v)}
                     maxLength={100}
@@ -2095,7 +2102,7 @@ function Wizard() {
                 )}
                 {f.sub_caste === "Other / self-described" && (
                   <TextField
-                    label="ఉపకులం / ఉపసంఘం పేరు (Enter subgroup name)"
+                    label={f.religion === "Hindu" ? "ఉపకులం / ఉపసంఘం పేరు (Enter subgroup name)" : "ఉపసంఘం పేరు (Enter subgroup name)"}
                     value={f.sub_caste_custom}
                     onChange={(v) => set("sub_caste_custom", v)}
                     required
@@ -2181,7 +2188,7 @@ function Wizard() {
 
               {/* 6. Phone & Password */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                
+
                 <TextField
                   label={te ? "ఈమెయిల్" : "Email"}
                   value={f.email || ""}
@@ -2269,7 +2276,7 @@ function Wizard() {
                 <span>{T("ప్రొఫైల్ వివరాలు ఎప్పుడు పూర్తి చేయాలి?", "When can I complete my profile details?")}</span>
               </div>
               <p className="text-slate-600 leading-relaxed">
-                {T(<>ఇప్పుడే ప్రాథమిక నమోదు పూర్తి చేయండి. తర్వాత మీ అకౌంట్‌లో <strong className="text-maroon">&ldquo;My Profile&rdquo;</strong> ద్వారా చదువు, ఉద్యోగం, జాతకం, కుటుంబ వివరాలు పూర్తి చేయవచ్చు. మీ ఫోటో ఇప్పుడు సమర్పించబడుతుంది; చూపించే ముందు సమీక్షిస్తారు.</>, <>Complete the basic registration now. Later, use <strong className="text-maroon">&ldquo;My Profile&rdquo;</strong> to add education, work, horoscope, and family details. Your photo is submitted now and reviewed before it may be shown.</>)}
+                {T(<>ఇప్పుడే ప్రాథమిక నమోదు పూర్తి చేయండి. తర్వాత మీ అకౌంట్‌లో <strong className="text-maroon">&ldquo;My Profile&rdquo;</strong> ద్వారా చదువు, ఉద్యోగం, కుటుంబ వివరాలు పూర్తి చేయవచ్చు. మీ ఫోటో ఇప్పుడు సమర్పించబడుతుంది; చూపించే ముందు సమీక్షిస్తారు.</>, <>Complete the basic registration now. Later, use <strong className="text-maroon">&ldquo;My Profile&rdquo;</strong> to add education, work, and family details. Your photo is submitted now and reviewed before it may be shown.</>)}
               </p>
             </div>
 
@@ -2406,6 +2413,20 @@ function Wizard() {
                 {step === 1 && (
                   <div className="space-y-4">
                     <div className="space-y-1.5">
+                      <label htmlFor="full-religion" className="text-xs font-bold text-slate-800">{T("మతం", "Religion")} *</label>
+                      <select
+                        id="full-religion"
+                        required
+                        value={f.religion}
+                        onChange={(e) => setReligion(e.target.value)}
+                        className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-medium"
+                      >
+                        <option value="">{T("మతం ఎంచుకోండి", "Select a religion")}</option>
+                        {RELIGIONS.map((religion) => <option key={religion} value={religion}>{te ? RELIGION_LABELS[religion] : religion}</option>)}
+                      </select>
+                    </div>
+
+                    <div className="space-y-1.5">
                       <label className="text-[13px] font-bold text-slate-800">
                         {T("ఎవరి కోసం ప్రొఫైల్ నమోదు చేస్తున్నారు?", "Who is this profile for?")} <span className="text-rose-600 font-black">*</span>
                       </label>
@@ -2516,19 +2537,7 @@ function Wizard() {
                       </div>
                     )}
 
-                    <div className="space-y-1.5">
-                      <label htmlFor="full-religion" className="text-xs font-bold text-slate-800">{T("మతం", "Religion")} *</label>
-                      <select
-                        id="full-religion"
-                        required
-                        value={f.religion}
-                        onChange={(e) => setReligion(e.target.value)}
-                        className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-medium"
-                      >
-                        <option value="">{T("మతం ఎంచుకోండి", "Select a religion")}</option>
-                        {RELIGIONS.map((religion) => <option key={religion} value={religion}>{te ? RELIGION_LABELS[religion] : religion}</option>)}
-                      </select>
-                    </div>
+
 
                     <div className="space-y-1.5">
                       <label className="text-xs font-bold text-slate-800">{T("శారీరక స్థితి", "Physical status")}</label>
@@ -2587,11 +2596,11 @@ function Wizard() {
                 {/* ---------------- STEP 2: CASTE & ASTROLOGY ---------------- */}
                 {step === 2 && (
                   <div className="space-y-4">
-                    <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] leading-5 text-amber-950">
+                    {f.religion === "Hindu" && (<p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] leading-5 text-amber-950">
                       {T("ఇక్కడి నక్షత్రం, రాశి, గోత్రం మరియు దోషం వివరాలు మీరు నమోదు చేసే optional profile references మాత్రమే; ఇవి verify అయిన జాతకం లేదా compatibility result కాదు. అసలైన జాతక పత్రం కోసం My Profile లో document review ఉపయోగించండి.", "Nakshatram, rasi, gothram, and dosham here are optional member-entered profile references only; they are not a verified horoscope or compatibility result. Use document review from My Profile for a real horoscope document.")}
-                    </p>
+                    </p>)}
                     <SearchSelect
-                      label="కులం / సంఘం (Caste / Community)"
+                      label={f.religion === "Hindu" ? "కులం / సంఘం (Caste / Community)" : "సంఘం (Community)"}
                       options={casteOpts}
                       value={f.caste}
                       onChange={setCaste}
@@ -2603,7 +2612,7 @@ function Wizard() {
                     />
                     {f.caste === "Other / self-described" && (
                       <TextField
-                        label="మీ కులం / సంఘం పేరు (Enter community name)"
+                        label={f.religion === "Hindu" ? "మీ కులం / సంఘం పేరు (Enter community name)" : "మీ సంఘం పేరు (Enter community name)"}
                         value={f.caste_custom}
                         onChange={(v) => set("caste_custom", v)}
                         required
@@ -2614,7 +2623,7 @@ function Wizard() {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       {subcasteOpts.length ? (
                         <SearchSelect
-                          label="ఉపకులం (Sub-caste - Optional)"
+                          label={f.religion === "Hindu" ? "ఉపకులం (Sub-caste - Optional)" : "ఉపసంఘం (Sub-community)"}
                           options={subcasteOpts}
                           value={f.sub_caste}
                           onChange={setSubcaste}
@@ -2623,7 +2632,7 @@ function Wizard() {
                         />
                       ) : (
                         <TextField
-                          label="ఉపకులం / ఉపసంఘం (Optional)"
+                          label={f.religion === "Hindu" ? "ఉపకులం / ఉపసంఘం (Optional)" : "ఉపసంఘం (Sub-community)"}
                           value={f.sub_caste}
                           onChange={(v) => set("sub_caste", v)}
                           maxLength={100}
@@ -2633,7 +2642,7 @@ function Wizard() {
                       )}
                       {f.sub_caste === "Other / self-described" && (
                         <TextField
-                          label="ఉపకులం / ఉపసంఘం పేరు (Enter subgroup name)"
+                          label={f.religion === "Hindu" ? "ఉపకులం / ఉపసంఘం పేరు (Enter subgroup name)" : "ఉపసంఘం పేరు (Enter subgroup name)"}
                           value={f.sub_caste_custom}
                           onChange={(v) => set("sub_caste_custom", v)}
                           required
@@ -2641,14 +2650,14 @@ function Wizard() {
                           placeholder="మీరు ఉపయోగించే పేరు నమోదు చేయండి"
                         />
                       )}
-                      <TextField
+                      {f.religion === "Hindu" && (<TextField
                         label="గోత్రం (Gothram)"
                         value={f.gothram}
                         onChange={(v) => set("gothram", v)}
                         placeholder="గోత్రం"
-                      />
+                      />)}
                     </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {f.religion === "Hindu" && (<div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div className="space-y-1.5">
                         <label className="text-xs font-bold text-slate-800">{T("నక్షత్రం", "Nakshatram")}</label>
                         <select aria-label={T("నక్షత్రం", "Nakshatram")}
@@ -2680,7 +2689,7 @@ function Wizard() {
                           ))}
                         </select>
                       </div>
-                    </div>
+                    </div>)}
                   </div>
                 )}
 
@@ -2827,7 +2836,7 @@ function Wizard() {
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      
+
                       <TextField
                         label={te ? "ఈమెయిల్" : "Email"}
                         value={f.email || ""}
