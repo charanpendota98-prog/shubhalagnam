@@ -9489,6 +9489,8 @@ def api_report(payload: dict, request: Request = None):
             current.clear()
             current.update(before)
         raise HTTPException(503, "Report could not be saved safely. Please retry.")
+    # Contact goes on hold pending moderation: outstanding QR tokens die on report.
+    contact_reveal.invalidate_pair(_reporter, _target)
     return {"success": True, "kind": kind, "report": rec,
             "auto_hidden": bool(rec.get("auto_flagged")),
             "ack_telugu": safety.report_ack_text(),
@@ -10812,7 +10814,9 @@ def api_unlock(payload: dict, request: Request = None):
         # Existing consent does not survive account deletion/withdrawal.
         raise HTTPException(410, "Contact access is no longer available for this profile")
     if str(viewer.get("status") or "").strip().lower() in {"deleted", "married_fixed", "banned", "inactive", "hidden"}:
-        raise HTTPException(410, "Your account is no longer active")
+        raise HTTPException(410, {"reason": "viewer_inactive",
+                                  "en": "Your account is no longer active",
+                                  "te": "మీ ఖాతా ఇప్పుడు యాక్టివ్‌గా లేదు"})
     blocked_pair = any(
         {str(b.get("tsap_id") or b.get("owner", "")).upper(),
          str(b.get("block_id") or b.get("blocked", "")).upper()} == {viewer_id, target_id}
@@ -10888,7 +10892,9 @@ def api_contact_token(payload: dict, request: Request = None):
         err = contact_reveal.message("target_unavailable")
         raise HTTPException(410, err)
     if str(viewer.get("status") or "").strip().lower() in _INACTIVE_STATUSES:
-        raise HTTPException(410, "Your account is no longer active")
+        raise HTTPException(410, {"reason": "viewer_inactive",
+                                  "en": "Your account is no longer active",
+                                  "te": "మీ ఖాతా ఇప్పుడు యాక్టివ్‌గా లేదు"})
     if safety.is_blocked(viewer_id, target_id, DB_BLOCKS) or safety.is_blocked(target_id, viewer_id, DB_BLOCKS):
         err = contact_reveal.message("blocked")
         raise HTTPException(403, err)
@@ -10896,6 +10902,8 @@ def api_contact_token(payload: dict, request: Request = None):
         err = contact_reveal.message("not_mutual")
         raise HTTPException(403, err)
     issued = contact_reveal.issue_token(viewer_id, target_id)
+    if not issued.get("ok"):
+        raise HTTPException(429, issued)
     return {**issued,
             "message_en": "QR is valid for 5 minutes and works once. It contains a link, not the phone number.",
             "message_telugu": "ఈ QR 5 నిమిషాలు మాత్రమే చెల్లుంది, ఒక్కసారే పని చేస్తుంది. ఇందులో ఫోన్ నంబర్ కాదు, లింక్ మాత్రమే ఉంటుంది."}
@@ -10907,21 +10915,14 @@ def api_contact_resolve(token: str, request: Request = None):
     member's session only. Raw digits still never render on the profile page."""
     parsed = contact_reveal._decode(str(token)[:256])
     if parsed:
+        # Owner session is the binding; resolve_token re-checks it internally
+        # as pure defence in depth. No dev-bypass branch lives here.
         require_owner(request, parsed["viewer"])
+        caller = parsed["viewer"]
     else:
         # Force the same auth bar even for malformed tokens: no oracle.
-        ident = token_from_request(request)
-        if not ident:
-            require_owner(request, "")
-    ident = token_from_request(request)
-    if parsed and ident and str(ident.get("tsap_id", "")).upper() == parsed["viewer"]:
-        caller = parsed["viewer"]
-    elif not auth_enforced():
-        # Dev/test bypass: no session tokens exist; the require_owner gate
-        # above already passed, so resolve as the token's owning viewer.
-        caller = parsed["viewer"] if parsed else ""
-    else:
-        caller = str((ident or {}).get("tsap_id", "")).upper()
+        require_owner(request, "")
+        caller = ""
     res = contact_reveal.resolve_token(str(token)[:256], caller, DB_INTERESTS,
                                        lambda a, b: safety.is_blocked(a, b, DB_BLOCKS))
     if not res.get("ok"):

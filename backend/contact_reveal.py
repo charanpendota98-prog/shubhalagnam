@@ -23,6 +23,18 @@ from smart12 import mask_phone
 
 TTL_SECONDS = int(os.environ.get("CONTACT_TOKEN_TTL_SEC", "300"))
 _MAX_TOKENS = 5000
+# One member scans one QR at a time; more outstanding tokens per viewer only
+# feeds burst abuse and mid-scan eviction (Arena P1-4).
+_MAX_PER_VIEWER = 3
+
+# ⚠️ SINGLE-WORKER ONLY: this store is process-local. serve_production.py runs
+# exactly one uvicorn worker (file-backed persistence demands it); if a second
+# worker is ever added, single-use and revocation become per-worker and this
+# store MUST move to the shared durable store first.
+if int(os.environ.get("WEB_CONCURRENCY", os.environ.get("UVICORN_WORKERS", "1")) or "1") > 1:
+    # Fail loudly at import: a multi-worker boot with this module is a security
+    # regression, not a performance choice.
+    raise RuntimeError("contact_reveal requires exactly one backend worker")
 
 _CONTACT_TOKENS: Dict[str, Dict] = {}
 _LOCK = threading.RLock()
@@ -42,6 +54,8 @@ _MESSAGES = {
                   "ఈ కాంటాక్ట్ లింక్ చెల్లదు."),
     "target_unavailable": ("Contact access is no longer available for this profile.",
                            "ఈ ప్రొఫైల్ కోసం కాంటాక్ట్ యాక్సెస్ ఇక అందుబాటులో లేదు."),
+    "too_many": ("You already have active contact QRs. Use or expire one before creating another.",
+                 "మీ దగ్గర ఇప్పటికే యాక్టివ్ కాంటాక్ట్ QR లు ఉన్నాయి. మరొకటి తీయడానికి ముందు ఒకటి వాడండి లేదా గడువు ముగియనివ్వండి."),
 }
 
 
@@ -106,6 +120,11 @@ def issue_token(viewer: str, target: str) -> Dict:
     token = _encode(viewer, target, exp, nonce)
     with _LOCK:
         _prune(now)
+        outstanding = sum(1 for row in _CONTACT_TOKENS.values()
+                          if row["viewer"] == viewer and not row["used"]
+                          and not row.get("revoked") and row["exp"] > now)
+        if outstanding >= _MAX_PER_VIEWER:
+            return {"ok": False, **message("too_many")}
         _CONTACT_TOKENS[token] = {"viewer": viewer, "target": target, "exp": exp,
                                   "used": False, "revoked": False, "created": now}
     return {"ok": True, "token": token, "expires_in": TTL_SECONDS,

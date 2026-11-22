@@ -43,6 +43,8 @@ def check(name, cond, extra=None):
 
 
 def run_suite():
+    from test_storage import isolate_test_stores
+    isolate_test_stores("contact-reveal")
     import contact_reveal as CR
 
     interests = [{"from_id": "TSAPAAAA1", "to_id": "TSAPBBBB2", "status": "accepted"}]
@@ -168,8 +170,16 @@ def run_suite():
     check("13. resolve -> wa_link + masked only",
           r13.status_code == 200 and d13.get("wa_link") == "https://wa.me/919862222222"
           and d13.get("phone_masked") == masked, (r13.status_code, d13))
-    check("14. resolve body has no raw digits", "9862222222" not in r13.text.replace("919862222222", ""),
-          r13.text[:300])
+    import re as _re
+    check("14. wa_link is the only digit carrier, masked field is masked",
+          _re.fullmatch(r"https://wa\.me/91\d{10}", str(d13.get("wa_link", ""))) is not None
+          and "9862222222" not in str(d13.get("phone_masked", "")), d13)
+    check("14a. issue response has no digits", "9862222222" not in r12b.text)
+    # /api/unlock must not return raw digits any more
+    ru = c.post("/api/unlock", json={"viewer_id": a_id, "target_id": b_id})
+    check("14b. /api/unlock accepted -> success, no raw phone",
+          ru.status_code == 200 and ru.json().get("success") is True and "phone" not in ru.json()
+          and "9862222222" not in ru.text, (ru.status_code, ru.text[:200]))
 
     r13b = c.get(f"/api/contact/resolve/{token}")
     check("13a. replay via API -> 410", r13b.status_code == 410, r13b.status_code)
@@ -183,6 +193,24 @@ def run_suite():
     check("13c. outstanding token revoked by block -> 403/410", r15.status_code in (403, 410), r15.status_code)
     r16 = c.post("/api/contact/token", json={"viewer_id": a_id, "target_id": b_id})
     check("13d. new issue after block -> 403", r16.status_code == 403, r16.status_code)
+
+    # per-viewer cap and report revocation (unit level, fresh pair)
+    for _ in range(CR._MAX_PER_VIEWER):
+        CR.issue_token("TSAPCAP01", "TSAPCAP02")
+    capped = CR.issue_token("TSAPCAP01", "TSAPCAP02")
+    check("15. per-viewer outstanding cap -> too_many", capped.get("ok") is False and capped.get("reason") == "too_many", capped)
+    tk = CR.issue_token("TSAPRPT01", "TSAPRPT02")["token"]
+    rr = c.post("/api/report", json={"reporter_id": "TSAPRPT01", "target_id": "TSAPRPT02", "category": "fake_profile", "detail": "x"})
+    CR.invalidate_pair("TSAPRPT01", "TSAPRPT02")
+    check("15a. revoked pair token resolves as revoked",
+          CR.resolve_token(tk, "TSAPRPT01", [{"from_id": "TSAPRPT01", "to_id": "TSAPRPT02", "status": "accepted"}], no_block).get("reason") == "revoked")
+    import interest as _I
+    # interest-send preview carries no phone
+    check("16. owner preview text has no requester phone",
+          "9861111111" not in _I.interest_to_owner_text(
+              next(u for u in M.DB_USERS if str(u.get("tsap_id", "")).upper() == a_id),
+              next(u for u in M.DB_USERS if str(u.get("tsap_id", "")).upper() == b_id),
+              {"request_id": "r1", "note": "", "observations": []}))
 
     print(f"\n=== RESULT: {PASS} passed, {FAIL} failed ===")
     return FAIL

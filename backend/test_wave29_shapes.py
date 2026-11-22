@@ -361,7 +361,7 @@ try:
     check("S4.5 accepted request enables zero-charge contact access",
           accepted_unlock.status_code == 200 and accepted_unlock.json().get("success") is True
           and accepted_unlock.json().get("charged") == 0
-          and accepted_unlock.json().get("phone") == user_of(B).get("phone"),
+          and "phone" not in accepted_unlock.json(),
           (accepted_unlock.status_code, accepted_unlock.text[:180]))
     wa = c.get("/api/wa/status", headers=HD)
     check("S4.6 wa status (auth)", wa.status_code in (200, 403), wa.status_code)

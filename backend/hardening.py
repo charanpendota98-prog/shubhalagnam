@@ -455,6 +455,7 @@ RL_RULES: Dict[str, Tuple[int, int]] = {          # route-prefix → (max hits, 
     "GET /api/og/profile/": (30, 60),
     # Contact reveal: token issue is consent-gated member work; resolve is the
     # single-use phone-adjacent read, so both stay tight.
+    "POST /api/unlock": (30, 3600),
     "POST /api/contact/token": (10, 3600),
     "GET /api/contact/resolve/": (20, 600),
 }
