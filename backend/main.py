@@ -3746,7 +3746,7 @@ async def register(
             # Never echo an unexpected exception to the client: it can carry
             # internals (paths, provider errors, config). Log server-side,
             # return a fixed bilingual retry hint instead.
-            print("[REGISTER email_verify] unexpected send failure:", repr(_e)[:200])
+            print("[REGISTER email_verify] unexpected send failure:", type(_e).__name__, str(_e)[:160])
             email_verify["detail"] = ("Verification email పంపడం సాధ్యం కాలేదు — "
                                       "send-verify-email తో మళ్లీ ప్రయత్నించండి.")
     auth_token = sign_token(tsap_id)
