@@ -32,11 +32,11 @@ test("create, pause, resume, archive and failed refresh guard",async({page})=>{
  state.status(401);await region.getByRole("button",{name:"Refresh campaigns",exact:true}).click();await expect(region.getByRole("heading",{name:"My first creator video"})).toHaveCount(0);
 });
 for(const lang of ["en","te"])for(const width of [320,390,1280])test(`campaign form ${lang} ${width} layout and axe`,async({page})=>{
- await page.setViewportSize({width,height:900});await fixture(page,lang);await page.goto("/referral?id=UI01");const region=page.getByRole("region",{name:"Creator campaigns"});await expect(region.getByRole("button",{name:lang==="en"?"Create campaign link":"Campaign link సృష్టించండి",exact:true})).toBeEnabled();
+ await page.setViewportSize({width,height:900});await fixture(page,lang);await page.goto("/referral?id=UI01");const region=page.getByRole("region",{name:"Creator campaigns"});await expect(region.getByRole("button",{name:lang==="en"?"Create campaign link":"ప్రచార లింక్ సృష్టించండి",exact:true})).toBeEnabled();
  await region.locator("input").first().fill(lang==="en"?"A long creator video campaign about family registration":"కుటుంబ నమోదు గురించి నా మొదటి వీడియో campaign");await region.locator('button[type=submit]').click();await expect(region.locator("article")).toHaveCount(1);
- await region.getByText("Show campaign QR",{exact:true}).or(region.getByText("Campaign QR చూడండి",{exact:true})).click();
+ await region.getByText("Show campaign QR",{exact:true}).or(region.getByText("ప్రచార లింక్ క్యూఆర్ చూడండి",{exact:true})).click();
  await expect(region.getByRole("img")).toBeVisible();
- await region.getByText("Disclosure reminder & sample",{exact:true}).or(region.getByText("Disclosure నియమం & sample",{exact:true})).click();expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();const scan=await new AxeBuilder({page}).include('section[aria-label="Creator campaigns"]').analyze();expect(scan.violations).toEqual([]);
+ await region.getByText("Disclosure reminder & sample",{exact:true}).or(region.getByText("ప్రకటన గుర్తింపు సూచన మరియు నమూనా",{exact:true})).click();expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();const scan=await new AxeBuilder({page}).include('section[aria-label="Creator campaigns"]').analyze();expect(scan.violations).toEqual([]);
  await page.locator("input").first().blur(); await page.mouse.click(1,1);
  await page.evaluate(()=>window.scrollTo(0,0));await page.screenshot({path:`${evidence}/ui-${lang}-${width}-full.png`,fullPage:true});
  await region.evaluate(el=>window.scrollTo(0,el.getBoundingClientRect().top+window.scrollY-80)); await page.screenshot({path:`${evidence}/ui-${lang}-${width}-viewport.png`});
