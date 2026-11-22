@@ -21,6 +21,7 @@ if _backend_dir not in sys.path:
 from fastapi import FastAPI, HTTPException, Request, UploadFile, File, Form, Body
 from starlette.concurrency import run_in_threadpool
 from photo_face import check_photo_face
+from photo_text import check_photo_text
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, Response
 from atomic_store import atomic_json_dump, atomic_write_bytes
@@ -3165,6 +3166,17 @@ async def register(
             "te": photo_verdict["te"],
             "checks": photo_verdict["checks"],
         })
+    text_verdict = await run_in_threadpool(check_photo_text, photo_data)
+    if not text_verdict["ok"]:
+        raise HTTPException(422, {
+            "reason": text_verdict["reason"],
+            "message_en": text_verdict["en"],
+            "message_telugu": text_verdict["te"],
+            "en": text_verdict["en"],
+            "te": text_verdict["te"],
+            "checks": {**photo_verdict["checks"], **text_verdict["checks"]},
+        })
+    photo_verdict["checks"].update(text_verdict["checks"])
     face_verdict = await run_in_threadpool(check_photo_face, photo_data)
     if not face_verdict["ok"]:
         raise HTTPException(503 if face_verdict["reason"] == "FACE_CHECK_UNAVAILABLE" else 422, {
@@ -7678,6 +7690,15 @@ async def photo_upload(file: UploadFile = File(...), tsap_id: str = Form(""), re
                                   "message_telugu": f"📸 {verdict['te']}",
                                   "checks": verdict["checks"]})
     if _tid:
+        text_verdict = await run_in_threadpool(check_photo_text, data)
+        if not text_verdict["ok"]:
+            raise HTTPException(422, {
+                "reason": text_verdict["reason"], "en": text_verdict["en"], "te": text_verdict["te"],
+                "message_en": text_verdict["en"],
+                "message_telugu": f"📸 {text_verdict['te']}",
+                "checks": {**verdict["checks"], **text_verdict["checks"]},
+            })
+        verdict["checks"].update(text_verdict["checks"])
         face_verdict = await run_in_threadpool(check_photo_face, data)
         if not face_verdict["ok"]:
             raise HTTPException(503 if face_verdict["reason"] == "FACE_CHECK_UNAVAILABLE" else 422, {
