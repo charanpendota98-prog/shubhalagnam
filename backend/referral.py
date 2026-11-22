@@ -479,7 +479,7 @@ def process_referral_payment(referred_user: Dict, referrer_code: str, plan_amoun
     keys = sorted({
         "commission:user:" + _ref_lock_key(referred_user),
         "commission:ref:" + (_code_of(ref) if ref else "invalid:" + str(referrer_code or "").strip().upper()),
-    })
+    } | ({_wallet_lock_key(_ref_lock_key(ref))} if ref else set()))
     locks = [_REF_LOCKS[key] for key in keys]
     for lock in locks:
         lock.acquire()
@@ -635,6 +635,14 @@ def reverse_referral_payment(referred_user: Dict, plan_amount: int, all_users: L
     ref = find_referrer(code or "", all_users)
     if not ref:
         return {"success": False, "reason": "referrer_not_found"}
+    # The clawback debits the referrer wallet, so it serializes with payouts,
+    # approve/reject and commission credits on the shared wallet lock.
+    with _wallet_lock_for(ref):
+        return _reverse_referral_payment_locked(referred_user, plan_amount, reason, ref)
+
+
+def _reverse_referral_payment_locked(referred_user: Dict, plan_amount: int,
+                                     reason: str, ref: Dict) -> Dict:
     ref_before = copy.deepcopy(ref)
     referred_before = copy.deepcopy(referred_user)
     st = stats_of(ref)
@@ -688,9 +696,27 @@ UPI_RE = re.compile(r"^[a-zA-Z0-9._-]{2,64}@[a-zA-Z]{2,32}$")
 IFSC_RE = re.compile(r"^[A-Z]{4}0[A-Z0-9]{6}$")
 # 🌊 WAVE 25 — payout UTR/reference: UPI 12-digit ref / bank UTR (audit must be traceable)
 PAYOUT_UTR_RE = re.compile(r"^[A-Za-z0-9_-]{6,30}$")
-_PAYOUT_LOCKS: Dict[str, threading.Lock] = defaultdict(threading.Lock)
 # 🌊 WAVE 27 — race locks: concurrent request/commission/attach → double-money ban
 _REF_LOCKS: Dict[str, threading.Lock] = defaultdict(threading.Lock)
+
+
+def _wallet_lock_key(identity: str) -> str:
+    """Single per-referrer lock domain for EVERY wallet/pending/paid_out move.
+
+    A member payout request, an admin approve/reject, an admin full-wallet
+    payout, a commission credit and a refund clawback all read-then-write the
+    same wallet fields.  When each path took its own lock (request id, referral
+    code, ``payreq:`` key) two paths for the SAME referrer could interleave:
+    a full-wallet payout read wallet=100 and zeroed it while a concurrent
+    payout request had already passed its balance check, ending with
+    paid_out=100 + pending=50 + wallet=-50 — ₹150 claimed from a ₹100 wallet.
+    Every money-moving entry point below acquires this one lock instead.
+    """
+    return "wallet:" + str(identity or "anon")
+
+
+def _wallet_lock_for(user: Dict) -> threading.Lock:
+    return _REF_LOCKS[_wallet_lock_key(_ref_lock_key(user))]
 
 
 def _ref_lock_key(user: Dict) -> str:
@@ -710,7 +736,7 @@ def valid_payout_utr(utr: str) -> bool:
 def payout_request(user: Dict, amount: int, method: str = "upi", upi_id: str = "",
                    bank: Optional[Dict] = None, note: str = "") -> Dict:
     """Create a manual-review payout request from the referral wallet (₹50 minimum)."""
-    with _REF_LOCKS["payreq:" + _ref_lock_key(user)]:
+    with _wallet_lock_for(user):
         return _payout_request_locked(user, amount, method, upi_id, bank, note)
 
 
@@ -782,8 +808,13 @@ def _payout_request_locked(user: Dict, amount: int, method: str = "upi", upi_id:
 def payout_action(request_id: str, action: str, all_users: List[Dict], utr: str = "",
                   reason: str = "") -> Dict:
     """Admin: payout approve (UTR తో) / reject (wallet కి మళ్లీ credit)."""
-    # 🌊 WAVE 25 — per-request lock: double-click approve double-pay avvakudadu
-    with _PAYOUT_LOCKS[str(request_id or "")]:
+    # Approve/reject moves wallet/pending/paid_out, so it shares the
+    # per-referrer wallet lock with payout_request and pay_wallet_full; a
+    # double-click on the same request is the same referrer, still serialized.
+    req = next((p for p in PAYOUTS if p.get("id") == request_id), None)
+    if not req:
+        return {"ok": False, "reason": "not_found", "message_telugu": "⚠️ ఈ payout request దొరకలేదు"}
+    with _REF_LOCKS[_wallet_lock_key(req.get("tsap_id") or req.get("partner_id") or "")]:
         return _payout_action_locked(request_id, action, all_users, utr=utr, reason=reason)
 
 
@@ -853,8 +884,14 @@ def pay_wallet_full(code: str, all_users: List[Dict], utr: str = "",
                     method: str = "upi", note: str = "") -> Dict:
     """🌊 WAVE 21 — ADMIN manual pay: PhonePe/bank lo amount pampaka → wallet 0.
     Full wallet ni paid_out ki move + ledger + payout record (UTR audit). User + partner."""
-    # 🌊 WAVE 25 — lock + strict UTR (double admin-click double-zero avvakudadu)
-    with _PAYOUT_LOCKS["full:" + str(code or "").strip().upper()]:
+    # The read-check-zero sequence must not interleave with a member payout
+    # request, an approve/reject, a commission credit or a clawback for the
+    # same referrer: all take the shared per-referrer wallet lock.
+    ref = find_referrer(code, all_users or [])
+    if not ref:
+        return {"ok": False, "reason": "referrer_not_found",
+                "message_telugu": "⚠️ Referrer దొరకలేదు"}
+    with _wallet_lock_for(ref):
         return _pay_wallet_full_locked(code, all_users, utr=utr, method=method, note=note)
 
 
