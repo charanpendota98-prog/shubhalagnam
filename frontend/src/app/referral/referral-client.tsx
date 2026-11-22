@@ -5,7 +5,7 @@ import "@/components/partner-workspace.css";
  * Referral dashboard for genuine referral links, confirmed eligible rewards,
  * payout requests, and accurate share materials.
  */
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useLayoutEffect, useState, useCallback, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { toJpeg } from "html-to-image";
@@ -17,6 +17,8 @@ import { WhatsAppIcon, TelegramIcon } from "@/components/BrandIcons";
 import CreatorCampaigns from "@/components/CreatorCampaigns";
 import { CreatorClubWelcome, CreatorClubProgress, CreatorClubPlaybook } from "@/components/CreatorClub";
 import ReferralPro from "@/components/ReferralPro";
+
+import { referralPayoutResult, referralPayoutRecheck } from "@/lib/referral-payout-result";
 
 type Dash = any;
 
@@ -121,6 +123,12 @@ export default function ReferralPage() {
   const [pay, setPay] = useState({ open: false, amount: "", upi: "", method: "upi" });
   const [payRes, setPayRes] = useState<any>(null);
   const [payLoading, setPayLoading] = useState(false);
+  const [payNeedsCheck,rawSetPayNeedsCheck]=useState(false);
+  const payCheckRef=useRef(false);
+  const setPayNeedsCheck=useCallback((value:boolean)=>{payCheckRef.current=value;rawSetPayNeedsCheck(value);},[]);
+  const payLock=useRef(false),payVersion=useRef(0);
+  const payRequest=useRef<AbortController|null>(null);
+  const payIdentity=useRef(tsapId);useLayoutEffect(()=>{payIdentity.current=tsapId;},[tsapId]);
   const [copied, setCopied] = useState("");
   const [lbPeriod, setLbPeriod] = useState("all");
 
@@ -144,8 +152,8 @@ export default function ReferralPage() {
     }
   }, []);
 
-  const load = useCallback(async (id: string) => {
-    if (!id) return;
+  const load = useCallback(async (id: string, recheckPayout=false) => {
+    if (!id || payLock.current) return false;
     requestRef.current?.abort();
     const request = new AbortController();
     requestRef.current = request;
@@ -160,6 +168,7 @@ export default function ReferralPage() {
       const [dashboard, payouts] = await Promise.all(replies.map((r) => readApiJson(r)));
       if (request.signal.aborted) return;
       if (replies.some((r) => r.status === 401 || r.status === 403)) {
+        payVersion.current++;payRequest.current?.abort();payLock.current=false;setPayLoading(false);setPayNeedsCheck(true);setPayRes(null);
         setDash(null);
         setUpdatedAt(null);
         throw new Error(te ? "మీ వివరాల కోసం మళ్లీ లాగిన్ చేయండి." : "Please sign in again to see your private details.");
@@ -167,16 +176,20 @@ export default function ReferralPage() {
       if (!replies.every((r) => r.ok) || !dashboard.ok || !payouts.success) {
         throw new Error(te ? "తాజా వివరాలు రాలేదు. మళ్లీ ప్రయత్నించండి." : "Could not refresh these details. Please retry.");
       }
+      if(recheckPayout&&payCheckRef.current&&!referralPayoutRecheck(dashboard,payouts,id))throw new Error(te?"నిల్వ మరియు సమీక్షలో ఉన్న మొత్తం నిర్ధారణ కాలేదు. మళ్లీ ప్రయత్నించండి.":"Wallet and pending requests could not be confirmed. Please retry.");
       setDash({ ...dashboard, payouts_live: payouts.payouts, payout_meta: payouts });
       setUpdatedAt(new Date());
+      if(recheckPayout&&payCheckRef.current){setPayNeedsCheck(false);setPayRes({success:false,info:true,message_en:"Wallet refreshed. Check the amount under review before a new request.",message_telugu:"నిల్వ తాజాకరించబడింది. కొత్త అభ్యర్థనకు ముందు సమీక్షలో ఉన్న మొత్తాన్ని చూడండి."});}
+      return true;
     } catch (error) {
       if (!request.signal.aborted) setErr(error instanceof Error ? error.message : (te ? "కనెక్షన్ సమస్య. మళ్లీ ప్రయత్నించండి." : "Network error. Please retry."));
     } finally {
       if (!request.signal.aborted) setRefreshing(false);
     }
-  }, [te]);
+  }, [te,setPayNeedsCheck]);
 
   useEffect(() => {
+    payVersion.current++;payRequest.current?.abort();payLock.current=false;setPayLoading(false);setPayNeedsCheck(false);
     setDash(null);
     setUpdatedAt(null);
     setPay((previous) => ({ ...previous, open: false, amount: "", upi: "" }));
@@ -190,12 +203,13 @@ export default function ReferralPage() {
     window.addEventListener("focus", refreshVisible);
     document.addEventListener("visibilitychange", refreshVisible);
     return () => {
+      payVersion.current++;payRequest.current?.abort();
       requestRef.current?.abort();
       window.clearInterval(timer);
       window.removeEventListener("focus", refreshVisible);
       document.removeEventListener("visibilitychange", refreshVisible);
     };
-  }, [tsapId, load]);
+  }, [tsapId, load,setPayNeedsCheck]);
 
   useEffect(() => {
     fetch("/api/referral/terms")
@@ -249,32 +263,32 @@ export default function ReferralPage() {
   const minPayout = Number(dash?.commission_rules?.min_payout ?? 50);
 
   const submitPayout = async () => {
-    if (!dash || !dash.wallet_can_withdraw || err || refreshing || payLoading) return;
-    const amount = parseInt(pay.amount || "0", 10);
-    if (!amount || amount < minPayout) {
-      setPayRes({ success: false, reason: te ? `కనీస payout అభ్యర్థన ₹${minPayout}.` : `The minimum payout request is ₹${minPayout}.` });
-      return;
+    if (!dash || !dash.wallet_can_withdraw || err || refreshing || payLock.current || payNeedsCheck || Number(dash.stats?.pending_payout)>0) return;
+    const amount=Number(pay.amount),upi=pay.upi.trim(),id=tsapId;
+    if(!Number.isSafeInteger(amount)||amount<Math.max(50,minPayout)||amount>Number(dash.stats?.wallet)){
+      setPayRes({success:false,message_en:"Enter a whole-rupee amount from the minimum payout up to your available wallet balance.",message_telugu:"కనీస అభ్యర్థన మొత్తం నుంచి అందుబాటులో ఉన్న నిల్వ వరకు పూర్తి రూపాయల్లో మొత్తం ఇవ్వండి."});return;
     }
-    if (!pay.upi.trim()) {
-      setPayRes({ success: false, reason: te ? "దయచేసి సరైన UPI ID ని ఇవ్వండి" : "Please enter a valid UPI ID" });
-      return;
-    }
-
-    setPayLoading(true);
-    try {
-      const url = `/api/referral/payout?tsap_id=${encodeURIComponent(tsapId)}&amount=${amount}&method=${pay.method}&upi_id=${encodeURIComponent(pay.upi)}`;
-      const r = await fetch(url, { method: "POST", headers: authHeaders() });
-      const d = await readApiJson(r);
-      setPayRes(d);
-      if (d.success) {
-        setPay({ ...pay, open: false, amount: "", upi: "" });
-        load(tsapId);
-      }
-    } catch {
-      setPayRes({ success: false, reason: te ? "విత్‌డ్రా అభ్యర్థన విఫలమైంది" : "Payout request failed" });
-    } finally {
-      setPayLoading(false);
-    }
+    if(!upi){setPayRes({success:false,message_en:"Enter your UPI ID.",message_telugu:"మీ UPI ID ఇవ్వండి."});return;}
+    const version=payVersion.current,controller=new AbortController();payRequest.current=controller;
+    const current=()=>payVersion.current===version&&payIdentity.current===id;
+    const uncertain=()=>({success:false,message_en:"Request not confirmed. Your details are preserved. Use Refresh now and check the amount under review before trying again.",message_telugu:"అభ్యర్థన ఫలితం నిర్ధారణ కాలేదు. వివరాలు అలాగే ఉన్నాయి. మళ్లీ పంపే ముందు ఇప్పుడే నవీకరించండి నొక్కి, సమీక్షలో ఉన్న మొత్తాన్ని చూడండి."});
+    payLock.current=true;requestRef.current?.abort();setRefreshing(false);setPayLoading(true);setPayRes(null);
+    let timer:ReturnType<typeof setTimeout>|undefined;
+    try{
+      const url=`/api/referral/payout?tsap_id=${encodeURIComponent(id)}&amount=${amount}&method=upi&upi_id=${encodeURIComponent(upi)}`;
+      const {status,data}=await Promise.race([
+        (async()=>{const response=await fetch(url,{method:"POST",headers:authHeaders(),signal:controller.signal});return {status:response.status,data:await readApiJson(response)};})(),
+        new Promise<never>((_,reject)=>{timer=setTimeout(()=>{controller.abort();reject(new Error("Unconfirmed request"));},20_000);controller.signal.addEventListener("abort",()=>reject(new Error("Cancelled request")),{once:true});})
+      ]);
+      if(!current())return;
+      setPayNeedsCheck(true);
+      const requestId=referralPayoutResult(status,data,id,amount,upi);
+      if(!requestId){setPayRes(uncertain());return;}
+      setPay(previous=>({...previous,amount:"",upi:""}));
+      setPayRes({success:true,message_en:`Request ${requestId} for ₹${amount} is queued for review. This is not a transfer.`,message_telugu:`అభ్యర్థన ${requestId} (₹${amount}) సమీక్ష కోసం నమోదైంది. ఇది నగదు బదిలీ కాదు.`});
+      payLock.current=false;await load(id);
+    }catch{if(current()){setPayNeedsCheck(true);setPayRes(uncertain());}}
+    finally{clearTimeout(timer);if(payRequest.current===controller)payRequest.current=null;if(current()){payLock.current=false;setPayLoading(false);}}
   };
 
   const s = dash?.stats || {};
@@ -471,7 +485,7 @@ export default function ReferralPage() {
             <p className="mt-1 text-[11px]">{te ? "ఈ పేజీ కనిపిస్తున్నప్పుడు ప్రతి నిమిషం నవీకరిస్తుంది. ఇది బ్యాంక్ బదిలీ కాదు." : "Refreshes every minute while visible. Wallet records are not bank transfers."}</p>
             {err && <p className="mt-1 font-semibold text-rose-700">{te ? "చూపుతున్నవి పాత వివరాలు కావచ్చు." : "Displayed details may be out of date."}</p>}
           </div>
-          <button type="button" onClick={() => void load(tsapId)} disabled={refreshing} className="min-h-11 rounded-xl border border-[#7A0C2E] px-4 text-xs font-bold text-[#7A0C2E] disabled:opacity-60">
+          <button type="button" onClick={() => void load(tsapId,true)} disabled={refreshing || payLoading} className="min-h-11 rounded-xl border border-[#7A0C2E] px-4 text-xs font-bold text-[#7A0C2E] disabled:opacity-60">
             {refreshing ? (te ? "నవీకరిస్తున్నాం…" : "Refreshing…") : (te ? "ఇప్పుడే నవీకరించండి" : "Refresh now")}
           </button>
         </div>
@@ -492,8 +506,8 @@ export default function ReferralPage() {
 
             <button
               type="button"
-              onClick={() => setPay({ ...pay, open: !pay.open, amount: String(Math.floor(s.wallet || 0)) })}
-              disabled={!dash?.wallet_can_withdraw || !!err || refreshing}
+              onClick={() => setPay({ ...pay, open: !pay.open, amount: pay.amount || String(Math.floor(s.wallet || 0)) })}
+              disabled={!dash?.wallet_can_withdraw || !!err || refreshing || payLoading || Number(s.pending_payout)>0}
               className={`w-full py-2.5 rounded-xl text-xs font-extrabold shadow-sm transition ${
                 dash?.wallet_can_withdraw
                   ? "gold-gradient text-maroon hover:brightness-105 active:scale-95"
@@ -569,6 +583,7 @@ export default function ReferralPage() {
                   max={s.wallet || minPayout}
                   value={pay.amount}
                   onChange={(e) => setPay({ ...pay, amount: e.target.value })}
+                  disabled={payLoading}
                   className="w-full px-4 py-2 rounded-xl border border-gray-300 text-xs focus:border-maroon outline-none"
                   placeholder={te ? "మొత్తం (₹)" : "Amount (₹)"}
                 />
@@ -582,6 +597,7 @@ export default function ReferralPage() {
                   type="text"
                   value={pay.upi}
                   onChange={(e) => setPay({ ...pay, upi: e.target.value })}
+                  disabled={payLoading}
                   className="w-full px-4 py-2 rounded-xl border border-gray-300 text-xs focus:border-maroon outline-none"
                   placeholder={te ? "UPI ID నమోదు చేయండి" : "Enter your UPI ID"}
                 />
@@ -596,20 +612,23 @@ export default function ReferralPage() {
               <button
                 type="button"
                 onClick={submitPayout}
-                disabled={payLoading || !dash?.wallet_can_withdraw || !!err || refreshing}
+                disabled={payLoading || payNeedsCheck || Number(s.pending_payout)>0 || !dash?.wallet_can_withdraw || !!err || refreshing}
                 className="px-6 py-2 rounded-xl maroon-gradient text-white text-xs font-bold shadow-md hover:brightness-110 disabled:opacity-50"
               >
                 {payLoading ? (te ? "పంపుతున్నాం…" : "Submitting…") : (te ? "అభ్యర్థన పంపండి" : "Submit Request")}
               </button>
             </div>
 
+            {Number(s.pending_payout)>0?<p role="status" className="text-xs text-slate-700">{te?"ఒక అభ్యర్థన మొత్తం సమీక్షలో ఉంది. మరో అభ్యర్థన పంపే ముందు దాని సమీక్ష పూర్తయ్యే వరకు వేచి ఉండండి.":"A request amount is under review. Wait for its review before submitting another request."}</p>:null}
             {payRes && (
-              <div className={`p-3 rounded-xl text-xs font-semibold ${payRes.success ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"}`}>
+              <div role="status" className={`p-3 rounded-xl text-xs font-semibold ${payRes.info ? "bg-slate-50 text-slate-700" : payRes.success ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"}`}>
                 {apiDisplayMessage(payRes, te, te ? "Payout అభ్యర్థనను పూర్తి చేయలేకపోయాం." : "The payout request could not be completed.")}
               </div>
             )}
           </div>
         )}
+
+        {!pay.open&&Number(s.pending_payout)>0?<p role="status" className="text-xs text-slate-700">{te?"ఒక అభ్యర్థన మొత్తం సమీక్షలో ఉంది. మరో అభ్యర్థన పంపే ముందు దాని సమీక్ష పూర్తయ్యే వరకు వేచి ఉండండి.":"A request amount is under review. Wait for its review before submitting another request."}</p>:null}
 
         {/* NAVIGATION TABS */}
         <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
@@ -1249,7 +1268,7 @@ export default function ReferralPage() {
             {tsapId
               ? (err ? (te ? "మీ వివరాలు లోడ్ కాలేదు. క్రింద మళ్లీ ప్రయత్నించండి." : "Your details did not load. Retry below.") : (te ? "మీ referral dashboard లోడ్ అవుతోంది. కొద్దిసేపు వేచి ఉండండి." : "Loading your referral dashboard. Please wait a moment."))
               : (te ? "వ్యక్తిగత referral dashboard చూడటానికి పై భాగంలో మీ TSAP ID లేదా మొబైల్‌తో వెతకండి. Partner ID ఉంటే partner నమోదు పేజీలో dashboard తెరవండి." : "Search above with your TSAP ID or mobile to view your personal referral dashboard. For a partner ID, open the partner registration page and use its dashboard lookup.")}
-            {tsapId && <button type="button" disabled={refreshing} onClick={() => void load(tsapId)} className="mt-3 block min-h-11 rounded-xl border border-[#7A0C2E] px-4 text-xs font-bold text-[#7A0C2E] disabled:opacity-60">{refreshing ? (te ? "నవీకరిస్తున్నాం…" : "Refreshing…") : (te ? "మళ్లీ ప్రయత్నించండి" : "Retry")}</button>}
+            {tsapId && <button type="button" disabled={refreshing || payLoading} onClick={() => void load(tsapId,true)} className="mt-3 block min-h-11 rounded-xl border border-[#7A0C2E] px-4 text-xs font-bold text-[#7A0C2E] disabled:opacity-60">{refreshing ? (te ? "నవీకరిస్తున్నాం…" : "Refreshing…") : (te ? "మళ్లీ ప్రయత్నించండి" : "Retry")}</button>}
           </div>
         )}
       </div>

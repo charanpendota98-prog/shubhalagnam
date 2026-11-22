@@ -13,12 +13,12 @@ async function setup(page: Page, firstStatus = 200) {
     calls += 1;
     await route.fulfill({ status, json: status === 200 ? {
       ok: true, code: "TESTCODE", link: "https://manavivaha.in/r/TESTCODE",
-      stats: { wallet, pending_payout: 20, paid_out: 0, qualifying_rewards_total: 100, paid_count: 2, registrations: 3 },
+      stats: { wallet, pending_payout: 0, paid_out: 0, qualifying_rewards_total: 100, paid_count: 2, registrations: 3 },
       tier: { key: "BRONZE", icon: "" }, wallet_can_withdraw: true,
       commission_rules: { min_payout: 50 }, recent_registrations: [], ledger: [], payouts: [],
     } : { success: false, detail: "UI fixture unavailable" } });
   });
-  await page.route("**/api/referral/REFRESH01/payouts", (route) => route.fulfill({ json: { success: true, payouts: [] } }));
+  await page.route("**/api/referral/REFRESH01/payouts", (route) => route.fulfill({ json: { success: true, payouts: [], wallet, pending: 0, paid_out: 0 } }));
   return { fail: (code: number) => { status = code; }, recover: () => { status = 200; wallet = 150; }, calls: () => calls };
 }
 
