@@ -25,9 +25,68 @@ import { useLang } from "@/lib/lang";
 import { stateFullName } from "@/lib/telugu-data";
 import { SITE_CONFIG } from "@/lib/site-config";
 import { WhatsAppIcon } from "@/components/BrandIcons";
+import { Image as ImageIcon, CalendarDays, GraduationCap, BriefcaseBusiness, Building2, MapPin, Wallet, UsersRound, Phone, Link as LinkIcon, IdCard, Eye, PencilLine, Download, Zap, Palette, Upload, FileText } from "lucide-react";
 
 type Religion = "Hindu" | "Muslim" | "Christian" | "Other";
+type ReligionChoice = Religion | "";
 type LanguageCopy = { te: string[]; en: string[] };
+
+const religionFromProfile = (value: unknown): ReligionChoice => {
+  if (typeof value !== "string") return "";
+  return (["Hindu", "Muslim", "Christian", "Other"] as const).find(
+    choice => choice.toLowerCase() === value.trim().toLowerCase(),
+  ) || "";
+};
+
+const createEmptyBiodata = () => ({
+  fullName: "",
+  gender: "Bride",
+  maritalStatus: "",
+  isSecondMarriage: false,
+  dob: "",
+  tob: "",
+  height: "",
+  complexion: "",
+  motherTongue: "",
+  caste: "",
+  subCaste: "",
+  // Hindu Astrological fields
+  gothram: "",
+  star: "",
+  rasi: "",
+  lagnam: "",
+  dosham: "",
+  // Muslim specific fields
+  islamicSect: "",
+  islamicJamath: "",
+  namazStatus: "",
+  // Christian specific fields
+  christianDenomination: "",
+  churchName: "",
+  baptismStatus: "",
+  // Career & Education
+  education: "",
+  educationDetail: "",
+  job: "",
+  company: "",
+  salary: "",
+  workLocation: "",
+  // Family Lineage & Assets
+  fatherName: "",
+  fatherOccupation: "",
+  motherName: "",
+  motherOccupation: "",
+  siblings: "",
+  nativePlace: "",
+  properties: "",
+  familyValues: "",
+  // Contact
+  contactPerson: "",
+  phone: "",
+  email: "",
+  address: "",
+  photoUrl: "",
+});
 
 const RELIGION_HEADERS: Record<Religion, LanguageCopy> = {
   Hindu: {
@@ -35,16 +94,16 @@ const RELIGION_HEADERS: Record<Religion, LanguageCopy> = {
     en: ["|| Shrirastu · Shubhamastu · Avighnamastu ||", "|| Om Sri Lakshmi Venkateswara Namah ||", "|| Sri Sita Ramabhyam Namah ||", "|| Sri Vighneshwaraya Namah ||"],
   },
   Muslim: {
-    te: ["🌙 بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ (Bismillahir Rahmanir Raheem) 🌙", "🌙 In the Name of Allah, Most Gracious, Most Merciful 🌙", "🌙 Nikah Mubarak — Blessed Muslim Matrimony 🌙"],
-    en: ["🌙 In the name of Allah, the Most Gracious, the Most Merciful 🌙", "🌙 Nikah Mubarak · A blessed union 🌙", "🌙 With gratitude and prayer 🌙"],
+    te: ["بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ (Bismillahir Rahmanir Raheem)", "In the Name of Allah, Most Gracious, Most Merciful", "Nikah Mubarak — Blessed Muslim Matrimony"],
+    en: ["In the name of Allah, the Most Gracious, the Most Merciful", "Nikah Mubarak · A blessed union", "With gratitude and prayer"],
   },
   Christian: {
-    te: ["✝️ యేసుక్రీస్తు నామమున ✝️", '✝️ "And the two shall become one flesh" — Mark 10:8 ✝️', "✝️ Grace, Peace & Love in Christ Jesus ✝️"],
-    en: ["✝️ In the name of Jesus Christ ✝️", '✝️ "And the two shall become one flesh" — Mark 10:8 ✝️', "✝️ Grace, peace, and love in Christ Jesus ✝️"],
+    te: ["యేసుక్రీస్తు నామమున", ' "And the two shall become one flesh" — Mark 10:8 ', " Grace, Peace & Love in Christ Jesus"],
+    en: ["In the name of Jesus Christ", ' "And the two shall become one flesh" — Mark 10:8 ', " Grace, peace, and love in Christ Jesus"],
   },
   Other: {
-    te: ["💍 శుభ వివాహ బంధం 💍", "💍 మంగళకరమైన జీవిత భాగస్వామ్యం 💍"],
-    en: ["💍 A blessed marriage union 💍", "💍 A lifelong partnership 💍"],
+    te: ["శుభ వివాహ బంధం", "మంగళకరమైన జీవిత భాగస్వామ్యం"],
+    en: ["A blessed marriage union", "A lifelong partnership"],
   },
 };
 
@@ -115,71 +174,25 @@ export default function BiodataPage() {
   const { lang } = useLang();
   const te = lang === "te";
 
-  const [religion, setReligion] = useState<Religion>("Hindu");
+  const [religion, setReligion] = useState<ReligionChoice>("");
   const [selectedTheme, setSelectedTheme] = useState(THEMES[0]);
-  const headerText = (te ? RELIGION_HEADERS[religion].te : RELIGION_HEADERS[religion].en)[0];
+  const headerText = religion ? (te ? RELIGION_HEADERS[religion].te : RELIGION_HEADERS[religion].en)[0] : "";
   const [profileId, setProfileId] = useState("");
+  const [documentProfileId, setDocumentProfileId] = useState("");
+  const lookupVersion = useRef(0);
   const [lookupMessage, setLookupMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const [loading, setLoading] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [qrData, setQrData] = useState<{ profileId: string; dataUrl: string } | null>(null);
-  const qrDataUrl = qrData?.profileId === profileId.trim() ? qrData.dataUrl : "";
+  const qrDataUrl = qrData?.profileId === documentProfileId ? qrData.dataUrl : "";
 
   const canvasRef = useRef<HTMLDivElement>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
   const queryAutofillHandled = useRef(false);
 
   // Form Data
-  const [data, setData] = useState({
-    fullName: "",
-    gender: "Bride",
-    maritalStatus: "",
-    isSecondMarriage: false,
-    dob: "",
-    tob: "",
-    height: "",
-    complexion: "",
-    motherTongue: "",
-    caste: "",
-    subCaste: "",
-    // Hindu Astrological fields
-    gothram: "",
-    star: "",
-    rasi: "",
-    lagnam: "",
-    dosham: "",
-    // Muslim specific fields
-    islamicSect: "",
-    islamicJamath: "",
-    namazStatus: "",
-    // Christian specific fields
-    christianDenomination: "",
-    churchName: "",
-    baptismStatus: "",
-    // Career & Education
-    education: "",
-    educationDetail: "",
-    job: "",
-    company: "",
-    salary: "",
-    workLocation: "",
-    // Family Lineage & Assets
-    fatherName: "",
-    fatherOccupation: "",
-    motherName: "",
-    motherOccupation: "",
-    siblings: "",
-    nativePlace: "",
-    properties: "",
-    familyValues: "",
-    // Contact
-    contactPerson: "",
-    phone: "",
-    email: "",
-    address: "",
-    photoUrl: "",
-  });
+  const [data, setData] = useState(createEmptyBiodata);
 
   const biodataField = (value: unknown, fallback = "") => {
     const text = String(value ?? "").trim();
@@ -207,7 +220,7 @@ export default function BiodataPage() {
 
   // Generate a profile QR only when a profile ID has been supplied.
   useEffect(() => {
-    const cleanId = profileId.trim();
+    const cleanId = documentProfileId;
     if (!cleanId) return;
     let cancelled = false;
     const targetUrl = `${SITE_CONFIG.siteUrl.replace(/\/+$/, "")}/search/${encodeURIComponent(cleanId)}`;
@@ -222,12 +235,13 @@ export default function BiodataPage() {
       .then((url) => { if (!cancelled) setQrData({ profileId: cleanId, dataUrl: url }); })
       .catch(() => {});
     return () => { cancelled = true; };
-  }, [profileId]);
+  }, [documentProfileId]);
 
   // Handle Religion Change
-  const handleReligionChange = (r: Religion) => {
+  const handleReligionChange = (r: ReligionChoice) => {
     setReligion(r);
-    setData((prev) => ({ ...prev, caste: "", subCaste: "" }));
+    // Keep entered values when changing the view. Only the selected branch is exported.
+    // Loading a different profile resets the entire document separately.
   };
 
   // Pre-fill from a member's Profile ID. Returned member values are kept as supplied.
@@ -237,11 +251,13 @@ export default function BiodataPage() {
       setLookupMessage({ ok: false, text: te ? "ప్రొఫైల్ ID నమోదు చేయండి." : "Enter a profile ID." });
       return;
     }
+    const version = ++lookupVersion.current;
     setLoading(true);
     setLookupMessage(null);
     try {
       const res = await fetch(`/api/search/${encodeURIComponent(cleanId)}`);
       const json = await readApiJson(res);
+      if (version !== lookupVersion.current) return;
       if (!res.ok) {
         setLookupMessage({
           ok: false,
@@ -258,42 +274,40 @@ export default function BiodataPage() {
       const mStatus = p.marital_status || "";
       const normalizedStatus = String(mStatus).toLowerCase();
       const isRemarriage = ["divorced", "widow", "remarriage", "second"].some((term) => normalizedStatus.includes(term));
-      const pRel: Religion = p.religion === "Muslim"
-        ? "Muslim"
-        : p.religion === "Christian"
-        ? "Christian"
-        : p.religion === "Other"
-        ? "Other"
-        : "Hindu";
+      const pRel = religionFromProfile(p.religion);
       setReligion(pRel);
+      setDocumentProfileId(cleanId);
 
-      setData((prev) => ({
-        ...prev,
-        fullName: p.full_name || prev.fullName,
-        gender: p.gender || prev.gender,
+      // Each successful import starts a new document, never a blend of people.
+      setData({
+        ...createEmptyBiodata(),
+        fullName: p.full_name || "",
+        gender: p.gender || "Bride",
         maritalStatus: mStatus,
         isSecondMarriage: isRemarriage,
-        dob: p.dob || prev.dob,
-        height: p.height || prev.height,
-        caste: p.caste || prev.caste,
-        subCaste: p.sub_caste || prev.subCaste,
-        gothram: p.gothram || prev.gothram,
-        star: p.star || prev.star,
-        rasi: p.rasi || prev.rasi,
-        education: p.education || prev.education,
-        educationDetail: p.education_detail || prev.educationDetail,
-        job: p.job || prev.job,
-        company: p.company || prev.company,
-        salary: p.salary || prev.salary,
+        dob: p.dob || "",
+        height: p.height || "",
+        caste: p.caste || "",
+        subCaste: p.sub_caste || "",
+        gothram: p.gothram || "",
+        star: p.star || "",
+        rasi: p.rasi || "",
+        education: p.education || "",
+        educationDetail: p.education_detail || "",
+        job: p.job || "",
+        company: p.company || "",
+        salary: p.salary || "",
         workLocation: p.work_location || [p.district, p.state ? stateFullName(p.state, te) : ""].filter(Boolean).join(", "),
         nativePlace: [p.district, p.state ? stateFullName(p.state, te) : ""].filter(Boolean).join(", "),
         photoUrl: p.photo_url || "",
-      }));
-      setLookupMessage({ ok: true, text: te ? "✅ ప్రొఫైల్ వివరాలు నింపబడ్డాయి." : "✅ Profile details loaded." });
+      });
+      setLookupMessage({ ok: true, text: pRel
+        ? (te ? "ప్రొఫైల్ వివరాలు నింపబడ్డాయి. మతం ఎంపికను ఒకసారి చూసుకోండి." : "Profile details loaded. Review the religion choice.")
+        : (te ? "ప్రొఫైల్ వివరాలు నింపబడ్డాయి. మతం తెలియదు; పైన ఎంచుకోండి." : "Profile details loaded. Religion was not supplied; choose it above.") });
     } catch {
-      setLookupMessage({ ok: false, text: te ? "నెట్‌వర్క్ సమస్య. మళ్లీ ప్రయత్నించండి." : "A network error occurred. Please try again." });
+      if (version === lookupVersion.current) setLookupMessage({ ok: false, text: te ? "నెట్‌వర్క్ సమస్య. మళ్లీ ప్రయత్నించండి." : "A network error occurred. Please try again." });
     } finally {
-      setLoading(false);
+      if (version === lookupVersion.current) setLoading(false);
     }
   }, [te]);
 
@@ -321,7 +335,7 @@ export default function BiodataPage() {
 
   // 1-Click High Definition JPG Generator
   const downloadHDJpg = async () => {
-    if (!canvasRef.current) return;
+    if (!canvasRef.current || !religion || loading) return;
     setDownloading(true);
     try {
       const dataUrl = await toJpeg(canvasRef.current, {
@@ -347,6 +361,7 @@ export default function BiodataPage() {
   // Share a language-matched biodata summary. Member-entered names remain proper names;
   // other English-mode fields are hidden when an English value is unavailable.
   const shareOnWhatsApp = () => {
+    if (!religion || loading) return;
     const brand = te ? "మన వివాహ (Mana Vivaha)" : "Mana Vivaha (మన వివాహ)";
     const field = (value: unknown) => biodataField(value, te ? "" : "Not available in English");
     const headerPrefix = `👑 *${brand} — ${biodataTitle}*\n${headerText}`;
@@ -365,7 +380,9 @@ export default function BiodataPage() {
         field(data.churchName) ? `⛪ *${te ? "చర్చి / పారిష్" : "Church / parish"}:* ${field(data.churchName)}` : "",
         field(data.baptismStatus) ? `⛪ *${te ? "బాప్టిజం స్థితి" : "Baptism status"}:* ${field(data.baptismStatus)}` : "",
       ].filter(Boolean).join("\n") : "",
-      religion === "Hindu" || religion === "Other" ? [
+      religion === "Other" && [field(data.caste), field(data.subCaste)].some(Boolean)
+        ? `*${te ? "కమ్యూనిటీ" : "Community"}:* ${[field(data.caste), field(data.subCaste)].filter(Boolean).join(" · ")}` : "",
+      religion === "Hindu" ? [
         [field(data.caste), field(data.subCaste), field(data.gothram)].some(Boolean)
           ? `💍 *${te ? "కులం / ఉపకులం / గోత్రం" : "Community / sub-community / gothram"}:* ${[field(data.caste), field(data.subCaste), field(data.gothram)].filter(Boolean).join(" · ")}` : "",
         [field(data.star), field(data.rasi), field(data.lagnam)].some(Boolean)
@@ -389,7 +406,7 @@ export default function BiodataPage() {
       field(data.address) ? `📍 *${te ? "చిరునామా" : "Address"}:* ${field(data.address)}` : "",
       "━━━━━━━━━━━━━━━━━━━━━━━━━━",
       `ℹ️ *${te ? "ఈ బయోడేటాలోని వివరాలను సభ్యుడు అందించారు; అవి స్వతంత్రంగా ధృవీకరించబడలేదు." : "Biodata details were supplied by the member and have not been independently verified."}*`,
-      profileId.trim() ? `👉 ${SITE_CONFIG.siteUrl.replace(/\/+$/, "")}/search/${encodeURIComponent(profileId.trim())}` : "",
+      documentProfileId ? `👉 ${SITE_CONFIG.siteUrl.replace(/\/+$/, "")}/search/${encodeURIComponent(documentProfileId)}` : "",
     ].filter(Boolean);
 
     window.open(`https://wa.me/?text=${encodeURIComponent(lines.join("\n"))}`, "_blank", "noopener,noreferrer");
@@ -404,7 +421,7 @@ export default function BiodataPage() {
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-5">
             <div>
               <div className="inline-flex items-center gap-2 bg-amber-50 border border-gold/40 rounded-full px-3 py-1 text-xs font-bold text-maroon mb-1.5">
-                <span>🎴</span> <span>{te ? "మన వివాహ రాయల్ బయోడేటా స్టూడియో" : "Mana Vivaha Marriage Biodata Studio"}</span>
+                <IdCard aria-hidden="true" className="h-4 w-4 shrink-0" /> <span>{te ? "మన వివాహ రాయల్ బయోడేటా స్టూడియో" : "Mana Vivaha Marriage Biodata Studio"}</span>
               </div>
               <h1 className="text-xl sm:text-2xl font-black text-navy">
                 {te ? "తెలుగు వివాహ బయోడేటా రూపొందించండి" : "Create a Marriage Biodata"}
@@ -422,17 +439,19 @@ export default function BiodataPage() {
               <button
                 type="button"
                 onClick={() => setIsEditing(!isEditing)}
-                className={`px-4 py-2.5 rounded-2xl text-xs sm:text-sm font-bold transition border ${
+                className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs sm:text-sm font-bold transition border ${
                   isEditing ? "bg-amber-100 border-amber-300 text-amber-900 shadow-xs" : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
                 }`}
               >
-                {isEditing ? (te ? "👁️ ప్రివ్యూ చూపించండి" : "👁️ Preview") : (te ? "✏️ వివరాలను సవరించండి" : "✏️ Edit details")}
+                {isEditing ? <Eye aria-hidden="true" className="h-4 w-4 shrink-0" /> : <PencilLine aria-hidden="true" className="h-4 w-4 shrink-0" />}
+                {isEditing ? (te ? "ప్రివ్యూ చూపించండి" : "Preview") : (te ? "వివరాలను సవరించండి" : "Edit details")}
               </button>
 
               <button
                 type="button"
                 onClick={downloadHDJpg}
-                disabled={downloading}
+                disabled={downloading || loading || !religion}
+                aria-describedby={!religion ? "biodata-religion-help" : undefined}
                 className="px-5 py-2.5 rounded-2xl gold-gradient text-maroon font-black text-xs sm:text-sm shadow-md hover:brightness-105 transition flex items-center gap-2 disabled:opacity-50"
               >
                 {downloading ? (
@@ -442,7 +461,7 @@ export default function BiodataPage() {
                   </>
                 ) : (
                   <>
-                    <span>📸</span>
+                    <Download aria-hidden="true" className="h-4 w-4 shrink-0" />
                     <span>{te ? "HD JPG డౌన్‌లోడ్ చేయండి" : "Download HD JPG"}</span>
                   </>
                 )}
@@ -451,7 +470,9 @@ export default function BiodataPage() {
               <button
                 type="button"
                 onClick={shareOnWhatsApp}
-                className="px-5 py-2.5 rounded-2xl bg-[#25D366] text-white font-black text-xs sm:text-sm hover:brightness-105 transition shadow-md flex items-center gap-2"
+                disabled={loading || !religion}
+                aria-describedby={!religion ? "biodata-religion-help" : undefined}
+                className="px-5 py-2.5 rounded-2xl bg-[#25D366] text-white font-black text-xs sm:text-sm hover:brightness-105 transition shadow-md flex items-center gap-2 disabled:opacity-50"
               >
                 <WhatsAppIcon className="w-4 h-4 fill-white" />
                 <span>{te ? "WhatsAppలో పంచుకోండి" : "Share on WhatsApp"}</span>
@@ -459,43 +480,25 @@ export default function BiodataPage() {
             </div>
           </div>
 
+          <p id="biodata-religion-help" className="text-xs leading-5 text-slate-600">
+            {te ? "ముందుగా మతం ఎంచుకోండి; సాధారణ బయోడేటా కోసం Other ఎంచుకోండి. ప్రొఫైల్ నుంచి మతాన్ని ఊహించము. ప్రొఫైల్ లోడ్ చేస్తే ప్రస్తుత వివరాల స్థానంలో ఆ ప్రొఫైల్ వివరాలు వస్తాయి." : "Choose religion first, or Other for a general biodata. We do not guess religion. Loading a profile replaces the current details; its link is added only after a successful load."}
+          </p>
+
           {/* Quick Toolbar */}
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1" htmlFor="biodata-profile-id">
-                ⚡ {te ? "ప్రొఫైల్ IDతో వివరాలు నింపండి" : "Fill from profile ID"}
-              </label>
-              <div className="flex gap-2">
-                <input
-                  id="biodata-profile-id"
-                  type="text"
-                  placeholder={te ? "ప్రొఫైల్ ID" : "Profile ID"}
-                  value={profileId}
-                  onChange={(e) => { setProfileId(e.target.value.toUpperCase()); setLookupMessage(null); }}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-mono font-bold focus:border-maroon outline-none uppercase"
-                />
-                <button
-                  type="button"
-                  onClick={() => fetchProfile(profileId)}
-                  disabled={loading}
-                  className="px-3.5 py-2 rounded-xl maroon-gradient text-white font-bold text-xs hover:brightness-105 transition shrink-0"
-                >
-                  {loading ? "…" : te ? "వివరాలు నింపండి" : "Load details"}
-                </button>
-              </div>
-              {lookupMessage && <p role="status" aria-live="polite" className={`mt-1 text-[11px] font-semibold ${lookupMessage.ok ? "text-emerald-700" : "text-rose-700"}`}>{lookupMessage.text}</p>}
-            </div>
-
-            <div>
               <label className="block text-xs font-bold text-slate-700 mb-1" htmlFor="biodata-religion">
-                🕌 / ⛪ / 🪔 {te ? "సంప్రదాయం / మతం" : "Tradition / religion"}
+                {te ? "సంప్రదాయం / మతం" : "Tradition / religion"}
               </label>
               <select
                 id="biodata-religion"
                 value={religion}
-                onChange={(e) => handleReligionChange(e.target.value as any)}
+                onChange={(e) => handleReligionChange(religionFromProfile(e.target.value))}
+                disabled={loading || downloading}
+                aria-describedby="biodata-religion-help"
                 className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-800 focus:border-maroon outline-none bg-white"
               >
+                <option value="">{te ? "ముందుగా మతం ఎంచుకోండి" : "Choose religion first"}</option>
                 <option value="Hindu">{te ? "హిందూ — జాతకం, గోత్రం" : "Hindu — horoscope and gothram"}</option>
                 <option value="Muslim">{te ? "ముస్లిం — నికాహ్, శాఖ, నమాజ్" : "Muslim — nikah, sect, and prayer practice"}</option>
                 <option value="Christian">{te ? "క్రైస్తవ — తెగ, చర్చి" : "Christian — denomination and church"}</option>
@@ -504,8 +507,34 @@ export default function BiodataPage() {
             </div>
 
             <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1" htmlFor="biodata-profile-id">
+                <Zap aria-hidden="true" className="mr-1 inline-block h-3.5 w-3.5 align-text-bottom" /> {te ? "ప్రొఫైల్ IDతో వివరాలు నింపండి" : "Fill from profile ID"}
+              </label>
+              <div className="flex gap-2">
+                <input
+                  id="biodata-profile-id"
+                  type="text"
+                  placeholder={te ? "ప్రొఫైల్ ID" : "Profile ID"}
+                  value={profileId}
+                  onChange={(e) => { lookupVersion.current++; setLoading(false); setProfileId(e.target.value.toUpperCase()); setLookupMessage(null); }}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-mono font-bold focus:border-maroon outline-none uppercase"
+                />
+                <button
+                  type="button"
+                  onClick={() => fetchProfile(profileId)}
+                  disabled={loading || downloading}
+                  className="px-3.5 py-2 rounded-xl maroon-gradient text-white font-bold text-xs hover:brightness-105 transition shrink-0"
+                >
+                  {loading ? "…" : te ? "వివరాలు నింపండి" : "Load details"}
+                </button>
+              </div>
+              {lookupMessage && <p role="status" aria-live="polite" className={`mt-1 text-[11px] font-semibold ${lookupMessage.ok ? "text-emerald-700" : "text-rose-700"}`}>{lookupMessage.text}</p>}
+            </div>
+
+
+            <div>
               <label className="block text-xs font-bold text-slate-700 mb-1" htmlFor="biodata-theme">
-                🎨 {te ? "డిజైన్ థీమ్" : "Design theme"}
+                <Palette aria-hidden="true" className="mr-1 inline-block h-3.5 w-3.5 align-text-bottom" /> {te ? "డిజైన్ థీమ్" : "Design theme"}
               </label>
               <select
                 id="biodata-theme"
@@ -523,14 +552,15 @@ export default function BiodataPage() {
 
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1">
-                📷 {te ? "ఐచ్ఛిక ఫోటో" : "Optional photo"}
+                <ImageIcon aria-hidden="true" className="mr-1 inline-block h-3.5 w-3.5 align-text-bottom" /> {te ? "ఐచ్ఛిక ఫోటో" : "Optional photo"}
               </label>
               <button
                 type="button"
                 onClick={() => photoInputRef.current?.click()}
                 className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100 text-xs font-bold text-center"
               >
-                {te ? "📁 ఫోటో అప్‌లోడ్ చేయండి" : "📁 Upload photo"}
+                <Upload aria-hidden="true" className="mr-1 inline-block h-3.5 w-3.5 align-text-bottom" />
+                {te ? "ఫోటో అప్‌లోడ్ చేయండి" : "Upload photo"}
               </button>
               <input aria-label={te ? "ఫోటో ఎంచుకోండి" : "Choose photo"} ref={photoInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} />
             </div>
@@ -541,7 +571,7 @@ export default function BiodataPage() {
         {isEditing && (
           <div className="bg-white rounded-3xl p-5 sm:p-7 shadow-md border border-gold/40 space-y-4 animate-fade">
             <h2 className="text-base font-black text-maroon border-b border-slate-100 pb-2">
-              📝 {te ? "బయోడేటా వివరాలను సవరించండి" : "Edit biodata details"}
+              <FileText aria-hidden="true" className="mr-1 inline-block h-3.5 w-3.5 align-text-bottom" /> {te ? "బయోడేటా వివరాలను సవరించండి" : "Edit biodata details"}
             </h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 text-xs">
               <div>
@@ -763,41 +793,12 @@ export default function BiodataPage() {
             id="biodata-canvas"
             className={`w-[800px] min-w-[800px] mx-auto rounded-3xl ${selectedTheme.canvasBg} border-4 ${selectedTheme.border} p-8 shadow-2xl text-slate-900 transition-all space-y-6 relative overflow-hidden [overflow-wrap:anywhere]`}
           >
-            {/* Contextual Watermark Background Motifs */}
-            {religion === "Muslim" ? (
-              <>
-                <div className="absolute top-0 left-0 w-32 h-32 opacity-10 pointer-events-none text-8xl">🌙</div>
-                <div className="absolute top-0 right-0 w-32 h-32 opacity-10 pointer-events-none text-8xl">⭐️</div>
-                <div className="absolute bottom-16 left-0 w-32 h-32 opacity-10 pointer-events-none text-8xl">🕌</div>
-                <div className="absolute bottom-16 right-0 w-32 h-32 opacity-10 pointer-events-none text-8xl">🤲</div>
-              </>
-            ) : religion === "Christian" ? (
-              <>
-                <div className="absolute top-0 left-0 w-32 h-32 opacity-10 pointer-events-none text-8xl">✝️</div>
-                <div className="absolute top-0 right-0 w-32 h-32 opacity-10 pointer-events-none text-8xl">🕊️</div>
-                <div className="absolute bottom-16 left-0 w-32 h-32 opacity-10 pointer-events-none text-8xl">⛪</div>
-                <div className="absolute bottom-16 right-0 w-32 h-32 opacity-10 pointer-events-none text-8xl">📖</div>
-              </>
-            ) : (
-              <>
-                <div className="absolute top-0 left-0 w-32 h-32 opacity-10 pointer-events-none text-8xl">🪔</div>
-                <div className="absolute top-0 right-0 w-32 h-32 opacity-10 pointer-events-none text-8xl">🌸</div>
-                <div className="absolute bottom-16 left-0 w-32 h-32 opacity-10 pointer-events-none text-8xl">⚜️</div>
-                <div className="absolute bottom-16 right-0 w-32 h-32 opacity-10 pointer-events-none text-8xl">🦚</div>
-              </>
-            )}
-
+            {/* Faith copy is explicit; decorative font glyphs are not required for export. */}
             {/* 1. Auspicious Top Header Banner */}
             <div className="text-center pb-4 border-b-2 border-dashed border-amber-300/80">
               <div className="flex items-center justify-center gap-2 mb-1">
-                  <span className="text-xl">
-                  {religion === "Muslim" ? "🌙" : religion === "Christian" ? "✝️" : "🙏"}
-                </span>
                 <span lang={te ? "te-IN" : "en-IN"} className="text-xs sm:text-sm font-bold tracking-widest text-amber-950 font-mono">
                   {headerText}
-                </span>
-                <span className="text-xl">
-                  {religion === "Muslim" ? "🌙" : religion === "Christian" ? "✝️" : "🙏"}
                 </span>
               </div>
 
@@ -816,7 +817,7 @@ export default function BiodataPage() {
                     <Image src={data.photoUrl} alt={data.fullName ? (te ? `${data.fullName} ప్రొఫైల్ ఫోటో` : `${data.fullName} profile photo`) : (te ? "ప్రొఫైల్ ఫోటో" : "Profile photo")} width={128} height={160} unoptimized className="w-full h-full object-cover rounded-xl" />
                   ) : (
                     <div className="w-full h-full rounded-xl bg-slate-100 text-slate-500 flex flex-col items-center justify-center gap-2 text-center text-xs font-semibold" aria-label={te ? "ప్రొఫైల్ ఫోటో జోడించలేదు" : "No profile photo added"}>
-                      <span aria-hidden="true" className="text-3xl">📷</span>
+                      <ImageIcon aria-hidden="true" className="h-8 w-8" />
                       <span>{te ? "ఫోటో జోడించలేదు" : "Photo not added"}</span>
                     </div>
                   )}
@@ -831,28 +832,28 @@ export default function BiodataPage() {
                 <div className="flex items-start justify-between gap-3">
                   <h2 className={`min-w-0 flex-1 text-2xl font-black ${selectedTheme.accent} tracking-tight whitespace-normal [overflow-wrap:anywhere]`}>{data.fullName}</h2>
                   <span className="shrink-0 font-mono text-xs font-black bg-amber-50 text-maroon border border-gold/40 px-3 py-1 rounded-xl shadow-xs">
-                    ID: {profileId || "—"}
+                    ID: {documentProfileId || "—"}
                   </span>
                 </div>
 
                 <div className="flex flex-wrap gap-2 pt-1">
                   {(religion === "Muslim" || religion === "Christian" || displayBiodataField(data.caste) || displayBiodataField(data.subCaste)) && <span className={`px-3 py-1 rounded-full text-xs font-bold ${selectedTheme.pill}`}>
-                    {religion === "Muslim" ? "🕌 Muslim" : religion === "Christian" ? "⛪ Christian" : `💍 ${displayBiodataField(data.caste)} ${displayBiodataField(data.subCaste) ? `(${displayBiodataField(data.subCaste)})` : ""}`}
+                    {religion === "Muslim" ? "Muslim" : religion === "Christian" ? "Christian" : `${displayBiodataField(data.caste)} ${displayBiodataField(data.subCaste) ? `(${displayBiodataField(data.subCaste)})` : ""}`}
                   </span>}
                   {(data.dob || displayBiodataField(data.height)) && <span className={`px-3 py-1 rounded-full text-xs font-bold ${selectedTheme.pill}`}>
-                    🎂 {joinedBiodataFields(data.dob, displayBiodataField(data.height))}
+                    <CalendarDays aria-hidden="true" className="mr-1 inline-block h-3 w-3" /> {joinedBiodataFields(data.dob, displayBiodataField(data.height))}
                   </span>}
                   {displayBiodataField(data.education) && <span className={`px-3 py-1 rounded-full text-xs font-bold ${selectedTheme.pill}`}>
-                    🎓 {displayBiodataField(data.education)}
+                    <GraduationCap aria-hidden="true" className="mr-1 inline-block h-3 w-3" /> {displayBiodataField(data.education)}
                   </span>}
                   {displayBiodataField(data.job) && <span className={`px-3 py-1 rounded-full text-xs font-bold ${selectedTheme.pill}`}>
-                    💼 {displayBiodataField(data.job)}
+                    <BriefcaseBusiness aria-hidden="true" className="mr-1 inline-block h-3 w-3" /> {displayBiodataField(data.job)}
                   </span>}
                 </div>
 
                 <div className="text-xs text-slate-700 font-medium pt-1 flex items-center justify-between">
-                  <span>{displayBiodataField(data.company) && <>🏢 <b className="text-slate-900">{displayBiodataField(data.company)}</b></>}{displayBiodataField(data.company) && displayBiodataField(data.workLocation) ? " · " : ""}{displayBiodataField(data.workLocation) && <>📍 {displayBiodataField(data.workLocation)}</>}</span>
-                  {displayBiodataField(data.salary) && <span className="text-emerald-700 font-black">💰 {displayBiodataField(data.salary)}</span>}
+                  <span>{displayBiodataField(data.company) && <><Building2 aria-hidden="true" className="mr-1 inline-block h-3 w-3" /> <b className="text-slate-900">{displayBiodataField(data.company)}</b></>}{displayBiodataField(data.company) && displayBiodataField(data.workLocation) ? " · " : ""}{displayBiodataField(data.workLocation) && <><MapPin aria-hidden="true" className="mr-1 inline-block h-3 w-3" /> {displayBiodataField(data.workLocation)}</>}</span>
+                  {displayBiodataField(data.salary) && <span className="text-emerald-700 font-black"><Wallet aria-hidden="true" className="mr-1 inline-block h-3 w-3" /> {displayBiodataField(data.salary)}</span>}
                 </div>
               </div>
             </div>
@@ -862,7 +863,7 @@ export default function BiodataPage() {
               {religion === "Muslim" ? (
                 <>
                   <h3 className={`text-xs font-black ${selectedTheme.accent} uppercase tracking-wider flex items-center gap-1.5`}>
-                    <span>🕌</span> <span>{te ? "ఇస్లామిక్ మరియు కమ్యూనిటీ వివరాలు" : "Islamic and community details"}</span>
+                    <span>{te ? "ఇస్లామిక్ మరియు కమ్యూనిటీ వివరాలు" : "Islamic and community details"}</span>
                   </h3>
                   <div className="grid grid-cols-3 gap-y-2 gap-x-4 text-xs bg-emerald-50/50 p-3 rounded-2xl border border-emerald-200">
                     <div>
@@ -882,7 +883,7 @@ export default function BiodataPage() {
               ) : religion === "Christian" ? (
                 <>
                   <h3 className={`text-xs font-black ${selectedTheme.accent} uppercase tracking-wider flex items-center gap-1.5`}>
-                    <span>⛪</span> <span>{te ? "క్రైస్తవ తెగ మరియు చర్చి వివరాలు" : "Christian denomination and church"}</span>
+                    <span>{te ? "క్రైస్తవ తెగ మరియు చర్చి వివరాలు" : "Christian denomination and church"}</span>
                   </h3>
                   <div className="grid grid-cols-3 gap-y-2 gap-x-4 text-xs bg-indigo-50/50 p-3 rounded-2xl border border-indigo-200">
                     <div>
@@ -899,10 +900,10 @@ export default function BiodataPage() {
                     </div>
                   </div>
                 </>
-              ) : (
+              ) : religion === "Hindu" ? (
                 <>
                   <h3 className={`text-xs font-black ${selectedTheme.accent} uppercase tracking-wider flex items-center gap-1.5`}>
-                    <span>⭐</span> <span>{te ? "కమ్యూనిటీ మరియు జ్యోతిష వివరాలు" : "Community and horoscope details"}</span>
+                    <span>{te ? "కమ్యూనిటీ మరియు జ్యోతిష వివరాలు" : "Community and horoscope details"}</span>
                   </h3>
                   <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[10px] leading-5 text-amber-950">
                     {te ? "క్రింది వివరాలు profile owner నమోదు చేసిన references మాత్రమే; పూర్తి లేదా verify అయిన జాతకం కాదు. అసలైన పత్రాన్ని స్వతంత్రంగా పరిశీలించండి." : "These are profile-owner-entered references only, not a complete or verified horoscope. Review any original document independently."}
@@ -918,7 +919,7 @@ export default function BiodataPage() {
                     </div>
                     <div>
                       <span className="text-slate-500 font-medium block">{te ? "నక్షత్రం" : "Nakshatra"}</span>
-                      <span className="font-bold text-maroon">⭐ {displayBiodataField(data.star) || "—"}</span>
+                      <span className="font-bold text-maroon">{displayBiodataField(data.star) || "—"}</span>
                     </div>
                     <div>
                       <span className="text-slate-500 font-medium block">{te ? "రాశి" : "Moon sign"}</span>
@@ -934,13 +935,18 @@ export default function BiodataPage() {
                     </div>
                   </div>
                 </>
-              )}
+              ) : religion === "Other" ? (
+                <div className="text-xs">
+                  <h3 className={`font-bold ${selectedTheme.accent}`}>{te ? "కమ్యూనిటీ" : "Community"}</h3>
+                  <p>{joinedBiodataFields(displayBiodataField(data.caste), displayBiodataField(data.subCaste))}</p>
+                </div>
+              ) : null}
             </div>
 
             {/* 4. Section 2: విద్య, ఉద్యోగం & కుటుంబ వివరాలు (Career & Family Details) */}
             <div className="space-y-3 pb-4 border-b border-slate-200">
               <h3 className={`text-xs font-black ${selectedTheme.accent} uppercase tracking-wider flex items-center gap-1.5`}>
-                <span>👨‍👩‍👧</span> <span>{te ? "కుటుంబ నేపథ్యం మరియు ఆస్తులు" : "Family background and assets"}</span>
+                <UsersRound aria-hidden="true" className="h-4 w-4" /> <span>{te ? "కుటుంబ నేపథ్యం మరియు ఆస్తులు" : "Family background and assets"}</span>
               </h3>
               <div className="grid grid-cols-2 gap-y-2.5 gap-x-6 text-xs">
                 <div className="flex justify-between border-b border-slate-100 pb-1">
@@ -969,7 +975,7 @@ export default function BiodataPage() {
             {/* 5. Section 3: సంప్రదించవలసిన వివరాలు (Contact Details) */}
             <div className="space-y-2 pb-4 border-b border-slate-200">
               <h3 className={`text-xs font-black ${selectedTheme.accent} uppercase tracking-wider flex items-center gap-1.5`}>
-                <span>📞</span> <span>{te ? "సంప్రదింపు వివరాలు" : "Contact information"}</span>
+                <Phone aria-hidden="true" className="h-4 w-4" /> <span>{te ? "సంప్రదింపు వివరాలు" : "Contact information"}</span>
               </h3>
               <div className="grid grid-cols-2 gap-y-2 gap-x-6 text-xs bg-slate-50 p-3 rounded-2xl border border-slate-200">
                 <div>
@@ -987,19 +993,19 @@ export default function BiodataPage() {
             <div className="bg-gradient-to-r from-amber-100/90 via-amber-50 to-amber-100/90 border-2 border-gold/60 rounded-2xl p-4 flex items-center justify-between gap-4 shadow-sm">
               <div className="space-y-1 min-w-0 flex-1">
                 <div className="flex items-center gap-2">
-                  <span className="text-base">👑</span>
+                  <LinkIcon aria-hidden="true" className="h-4 w-4" />
                   <span className="font-black text-xs text-maroon uppercase tracking-wide">
                     {te ? "మన వివాహ (Mana Vivaha) — ప్రొఫైల్ లింక్" : "Mana Vivaha (మన వివాహ) — Profile link"}
                   </span>
                 </div>
                 <p className="text-[11px] text-slate-700 font-medium leading-relaxed telugu">
-                  {profileId.trim()
+                  {documentProfileId
                     ? (te
-                      ? <>ప్రొఫైల్ వివరాల కోసం <b>QR కోడ్ స్కాన్ చేయండి</b> లేదా <b>{SITE_CONFIG.domain}/search/{profileId}</b> చూడండి. వివరాలు సభ్యులు అందించినవి; స్వతంత్రంగా ధృవీకరించబడలేదు.</>
-                      : <>Scan the <b>QR code</b> or visit <b>{SITE_CONFIG.domain}/search/{profileId}</b> to view the profile. Details are member-submitted and not independently verified.</>)
+                      ? <>ప్రొఫైల్ వివరాల కోసం <b>QR కోడ్ స్కాన్ చేయండి</b> లేదా <b>{SITE_CONFIG.domain}/search/{documentProfileId}</b> చూడండి. వివరాలు సభ్యులు అందించినవి; స్వతంత్రంగా ధృవీకరించబడలేదు.</>
+                      : <>Scan the <b>QR code</b> or visit <b>{SITE_CONFIG.domain}/search/{documentProfileId}</b> to view the profile. Details are member-submitted and not independently verified.</>)
                     : (te
-                      ? <>QR కోడ్ కోసం Profile ID నమోదు చేయండి. బయోడేటా వివరాలు స్వతంత్రంగా ధృవీకరించబడలేదు.</>
-                      : <>Enter a profile ID to generate a QR code. Biodata details are not independently verified.</>)}
+                      ? <>QR కోడ్ కోసం Profile IDతో వివరాలు లోడ్ చేయండి. బయోడేటా వివరాలు స్వతంత్రంగా ధృవీకరించబడలేదు.</>
+                      : <>Load profile details to add its QR code. Biodata details are not independently verified.</>)}
                 </p>
                 <div className="text-[10px] text-slate-500 font-bold pt-0.5">
                   {te ? "పరిచయం ముందుగా సభ్యులు అందించిన వివరాలను స్వతంత్రంగా నిర్ధారించుకోండి." : "Verify member-submitted details independently before making contact."}

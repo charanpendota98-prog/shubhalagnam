@@ -4,11 +4,11 @@ for (const width of [390,1280]) test(`biodata JPG frame starts at document origi
  await page.setViewportSize({width,height:900});
  await page.addInitScript(()=>localStorage.setItem('tsap_lang','te'));
  await page.route('**/api/**',r=>r.request().method()==='GET'?r.fulfill({json:{success:true,items:[]}}):r.abort());
- await page.goto('/biodata');
- await page.getByRole('button',{name:'✏️ వివరాలను సవరించండి',exact:true}).click();
+ await page.goto('/biodata');await page.locator('#biodata-religion').selectOption('Hindu');
+ await page.getByRole('button',{name:'వివరాలను సవరించండి',exact:true}).click();
  await page.getByLabel('పూర్తి పేరు',{exact:true}).fill('నమూనా మాత్రమే');
- await page.getByRole('button',{name:'👁️ ప్రివ్యూ చూపించండి',exact:true}).click();
- const [download]=await Promise.all([page.waitForEvent('download'),page.getByRole('button',{name:'📸 HD JPG డౌన్‌లోడ్ చేయండి',exact:true}).click()]);
+ await page.getByRole('button',{name:'ప్రివ్యూ చూపించండి',exact:true}).click();
+ const [download]=await Promise.all([page.waitForEvent('download'),page.getByRole('button',{name:'HD JPG డౌన్‌లోడ్ చేయండి',exact:true}).click()]);
  const path=await download.path();expect(path).toBeTruthy();
  const url='data:image/jpeg;base64,'+fs.readFileSync(path!).toString('base64');
  const frame=await page.evaluate(async src=>{
