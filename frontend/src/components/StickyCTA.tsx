@@ -15,11 +15,11 @@ import { Home, HeartHandshake, Wallet, Gift, UserCircle2, type LucideIcon } from
  * active tab కి ఒక soft "pill" highlight + లేచినట్టు కనిపించే scale +
  * underline dot — ఇది Instagram/top-tier app స్థాయి bottom-nav feel ఇస్తుంది. */
 const ITEMS: { href: string; icon: LucideIcon; te: string; en: string }[] = [
-  { href: "/", icon: Home, te: "హోమ్", en: "Home" },
-  { href: "/matches", icon: HeartHandshake, te: "సంబంధాలు", en: "Matches" },
-  { href: "/pricing", icon: Wallet, te: "ధరలు", en: "Pricing" },
-  { href: "/referral", icon: Gift, te: "రెఫరల్", en: "Referral" },
-  { href: "/me", icon: UserCircle2, te: "నా అకౌంట్", en: "Account" },
+  { href: "/", icon: Home, te: "Home", en: "Home" },
+  { href: "/matches", icon: HeartHandshake, te: "Matches", en: "Matches" },
+  { href: "/pricing", icon: Wallet, te: "Payments", en: "Payments" },
+  { href: "/referral", icon: Gift, te: "Referral", en: "Referral" },
+  { href: "/me", icon: UserCircle2, te: "Account", en: "Account" },
 ];
 
 export default function StickyCTA() {
