@@ -19,6 +19,7 @@ import SectionHeading from "@/components/SectionHeading";
 import "./workspace.css";
 import { validRequestSecondary, type SecondaryPanel } from "@/lib/requests-secondary";
 import PayBox from "@/components/PayBox";
+import AcceptedNextSteps from "@/components/AcceptedNextSteps";
 import { Duo, duo } from "@/lib/duo";
 import { useLang } from "@/lib/lang";
 import { stateFullName } from "@/lib/telugu-data";
@@ -377,6 +378,7 @@ export default function RequestsPage() {
             {!myId && <Empty text={te ? "వచ్చిన అభ్యర్థనలను చూడటానికి మీ ప్రొఫైల్ ID ఇవ్వండి." : "Enter your Profile ID — to see inbox."} />}
             {myId && !inboxReady && <RequestReadState state={requestReads.inbox} te={te} retry={() => void refresh(myId)} />}
             {myId && inboxReady && inbox.received?.length === 0 && <Empty text={te ? "ఇంకా అభ్యర్థనలు రాలేదు." : "No requests yet. Post your profile to 1 channel — reach grows."} />}
+            {inboxReady && inbox.received?.some((it: Req) => it.status === "accepted") ? <AcceptedNextSteps /> : null}
             {inboxReady && inbox.received?.map((it: Req) => (
               <Reveal key={it.request_id}>
                 <div className="mv-surface mv-surface__body mv-card">
@@ -452,6 +454,7 @@ export default function RequestsPage() {
             {!myId && <Empty text={te ? "పంపిన అభ్యర్థనలను చూడటానికి మీ ప్రొఫైల్ ID ఇవ్వండి." : "Enter your Profile ID to see sent requests."} />}
             {myId && !sentReady && <RequestReadState state={requestReads.sent} te={te} retry={() => void refresh(myId)} />}
             {myId && sentReady && sent.sent?.length === 0 && <Empty text={te ? "ఇంకా ఎవరికీ ఆసక్తి తెలపలేదు. ఆసక్తి తెలపండి అనే విభాగంలో పంపవచ్చు." : "No interest sent yet — start in the  'Send interest' tab."} />}
+            {sentReady && sent.sent?.some((it: Req) => it.status === "accepted") ? <AcceptedNextSteps /> : null}
             {sentReady && sent.sent?.map((it: Req) => (
               <Reveal key={it.request_id}>
                 <div className="mv-surface mv-surface__body mv-card flex flex-wrap items-center gap-3">
