@@ -384,7 +384,10 @@ def _review_safe(value):
     """Review-only numeral normalization before the existing contact scrubber."""
     if isinstance(value, str):
         normalized = "".join(str(unicodedata.decimal(c)) if c.isdecimal() else c for c in value)
-        return sanitize_public_payload(normalized)
+        # The leading-zero variant is intentionally local to review sharing.
+        matched = re.sub(r"(?<!\d)0[\s().-]*[6-9](?:[\s().-]*\d){9}(?!\d)", "[contact hidden]", normalized)
+        scrubbed = sanitize_public_payload(matched)
+        return value if scrubbed == normalized else scrubbed
     if isinstance(value, dict):
         return {k: _review_safe(v) for k, v in value.items()}
     if isinstance(value, list):

@@ -256,13 +256,16 @@ def build_phase2_router(ctx: Dict[str, Callable[..., Any] | Any]) -> APIRouter:
         d = payload or {}
         if not PHASE2._review_eligible(u, is_approved_profile):
             raise HTTPException(404, "Profile is no longer available for review.")
-        rec = PHASE2.create_review_link(
-            u,
-            is_approved_profile=is_approved_profile,
-            label=str(d.get("label", "Family Elder Review")),
-            ttl_hours=int(d.get("ttl_hours", 72) or 72),
-            max_views=int(d.get("max_views", 15) or 15),
-        )
+        try:
+            rec = PHASE2.create_review_link(
+                u,
+                is_approved_profile=is_approved_profile,
+                label=str(d.get("label", "Family Elder Review")),
+                ttl_hours=int(d.get("ttl_hours", 72) or 72),
+                max_views=int(d.get("max_views", 15) or 15),
+            )
+        except ValueError:
+            raise HTTPException(404, "Profile is no longer available for review.")
         log_consent("elder_review_link_created", tid, tid, note=f"Created private review link {rec['link_id']}.")
         return {"success": True, "review_link": rec}
 

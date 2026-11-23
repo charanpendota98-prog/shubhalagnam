@@ -79,6 +79,13 @@ for text in ['౯౮౭౬౫౪౩౨౧౦','９８７６５４３２１０']:
     check('local digit variant scrubbed '+text,text not in c.get(fresh_url).text and '9876543210' not in c.get(fresh_url).text)
 from interest import sanitize_public_text
 check('shared sanitizer unchanged',sanitize_public_text('౯౮౭౬౫౪౩౨౧౦')=='౯౮౭౬౫౪౩౨౧౦')
+check('unmatched Telugu numeral preserved',P._review_safe('వయసు ౨౮')=='వయసు ౨౮')
+check('unmatched fullwidth numeral preserved',P._review_safe('Age ２８')=='Age ２８')
+check('leading zero contact hidden','09876543210' not in P._review_safe('Call 09876543210'))
+check('leading zero Telugu contact hidden','౦౯౮౭౬౫౪౩౨౧౦' not in P._review_safe('Call ౦౯౮౭౬౫౪౩౨౧౦'))
+from unittest.mock import patch
+with patch.object(P,'create_review_link',side_effect=ValueError('isolated eligibility changed')):
+    check('create state race returns HTTP 404',c.post('/api/me/'+base['tsap_id']+'/review-links',headers=hdr,json={}).status_code==404)
 failed=[name for name,ok in checks if not ok]
 print({'checks':len(checks),'passed':len(checks)-len(failed),'failed':failed})
 assert not failed
