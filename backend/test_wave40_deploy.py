@@ -248,3 +248,6 @@ if FAILED:
     print("FAILED:", FAILED)
     sys.exit(1)
 print("WAVE40 ALL GREEN")
+
+assert "--log-config" in backend_command and backend_command[backend_command.index("--log-config")+1] == "/app/logging_privacy.json"
+assert '"--log-config", "/app/logging_privacy.json"' in src_page("backend/Dockerfile")

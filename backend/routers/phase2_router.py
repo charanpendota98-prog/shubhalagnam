@@ -256,13 +256,21 @@ def build_phase2_router(ctx: Dict[str, Callable[..., Any] | Any]) -> APIRouter:
         d = payload or {}
         if not PHASE2._review_eligible(u, is_approved_profile):
             raise HTTPException(404, "Profile is no longer available for review.")
+        label = d.get("label", "Family Elder Review")
+        if not isinstance(label, str) or len(label) > 80:
+            raise HTTPException(400, "label must be text up to 80 characters.")
+        try:
+            ttl_hours = int(d.get("ttl_hours", 72) or 72)
+            max_views = int(d.get("max_views", 15) or 15)
+        except (ValueError, TypeError, OverflowError):
+            raise HTTPException(400, "ttl_hours and max_views must be integers.")
         try:
             rec = PHASE2.create_review_link(
                 u,
                 is_approved_profile=is_approved_profile,
-                label=str(d.get("label", "Family Elder Review")),
-                ttl_hours=int(d.get("ttl_hours", 72) or 72),
-                max_views=int(d.get("max_views", 15) or 15),
+                label=label,
+                ttl_hours=ttl_hours,
+                max_views=max_views,
             )
         except ValueError:
             raise HTTPException(404, "Profile is no longer available for review.")
