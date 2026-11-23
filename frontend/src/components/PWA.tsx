@@ -15,6 +15,41 @@ const AUTH_ROUTE_PREFIXES = ["/login", "/register", "/verify"];
 const isAuthRoute = (p: string) =>
   AUTH_ROUTE_PREFIXES.some((x) => p === x || p.startsWith(x + "/"));
 
+// "Later" is a cooldown, not a permanent no. The legacy boolean key
+// (tsap_pwa_dismissed) hid the bar forever; it is migrated to a timestamp so
+// the prompt can come back once, politely, after the cooldown.
+const DISMISSED_AT_KEY = "tsap_pwa_dismissed_at";
+const LEGACY_DISMISSED_KEY = "tsap_pwa_dismissed";
+const COOLDOWN_DAYS = (() => {
+  const n = Number(process.env.NEXT_PUBLIC_PWA_COOLDOWN_DAYS);
+  return Number.isFinite(n) && n >= 1 && n <= 90 ? n : 14;
+})();
+export const PWA_COOLDOWN_MS = COOLDOWN_DAYS * 24 * 60 * 60 * 1000;
+
+/** True while the member's last "Later" is still inside the cooldown. Blocked
+ *  or broken storage counts as in-cooldown: never nag when we cannot remember. */
+export function pwaInCooldown(now = Date.now()): boolean {
+  try {
+    if (localStorage.getItem(LEGACY_DISMISSED_KEY)) {
+      // Migrate once: the old dismissal starts a fresh cooldown today.
+      if (!localStorage.getItem(DISMISSED_AT_KEY)) localStorage.setItem(DISMISSED_AT_KEY, new Date(now).toISOString());
+      localStorage.removeItem(LEGACY_DISMISSED_KEY);
+    }
+    const raw = localStorage.getItem(DISMISSED_AT_KEY);
+    if (!raw) return false;
+    const at = Date.parse(raw);
+    if (!Number.isFinite(at)) return false;          // corrupt value: treat as never dismissed
+    if (at > now) return true;                        // clock moved back: stay quiet rather than nag
+    return now - at < PWA_COOLDOWN_MS;
+  } catch {
+    return true;
+  }
+}
+
+function rememberDismissal(): void {
+  try { localStorage.setItem(DISMISSED_AT_KEY, new Date().toISOString()); } catch { /* storage blocked */ }
+}
+
 export default function PWA() {
   const { lang } = useLang();
   const te = lang === "te";
@@ -51,13 +86,16 @@ export default function PWA() {
       // phone/password fields on mobile login (manual install events
       // from explicit controls still work elsewhere).
       setTimeout(() => {
-        if (!localStorage.getItem("tsap_pwa_dismissed") && !isAuthRoute(pathRef.current) && !(["/matches", "/me", "/requests"].includes(pathRef.current) || pathRef.current.startsWith("/search/"))) {
+        if (!pwaInCooldown() && !isAuthRoute(pathRef.current) && !(["/matches", "/me", "/requests"].includes(pathRef.current) || pathRef.current.startsWith("/search/"))) {
           setShow(true);
         }
       }, 6000);
     };
     const onManual = () => setShow(true);
     const onInstalled = () => { setInstalled(true); setShow(false); };
+    // Another tab dismissed the bar: hide it here too.
+    const onStorage = (e: StorageEvent) => { if (e.key === DISMISSED_AT_KEY && e.newValue) setShow(false); };
+    window.addEventListener("storage", onStorage);
     window.addEventListener("beforeinstallprompt", onPrompt);
     window.addEventListener("tsap:install-show", onManual);
     window.addEventListener("appinstalled", onInstalled);
@@ -65,6 +103,7 @@ export default function PWA() {
       window.removeEventListener("beforeinstallprompt", onPrompt);
       window.removeEventListener("tsap:install-show", onManual);
       window.removeEventListener("appinstalled", onInstalled);
+      window.removeEventListener("storage", onStorage);
     };
   }, []);
 
@@ -72,7 +111,9 @@ export default function PWA() {
     try {
       if (promptEvent) {
         await promptEvent.prompt();
-        localStorage.removeItem("tsap_pwa_dismissed");
+        const choice = await promptEvent.userChoice;
+        if (choice && choice.outcome === "dismissed") rememberDismissal();   // declined the native sheet: same cooldown
+        else { try { localStorage.removeItem(DISMISSED_AT_KEY); } catch { /* storage blocked */ } }
       }
       setShow(false);
     } catch { setShow(false); }
@@ -80,7 +121,7 @@ export default function PWA() {
 
   const close = () => {
     setShow(false);
-    localStorage.setItem("tsap_pwa_dismissed", "1");
+    rememberDismissal();
   };
 
   // 🛡️ R10 — StickyCTA tho bottom overlap vaddhu: ee bar visible ayite CTA bar hide
