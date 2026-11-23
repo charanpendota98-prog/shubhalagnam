@@ -28,7 +28,11 @@ def redact_review_tokens(value):
 
 def safe_request_path(request):
     path = request.url.path if request is not None else "?"
-    return re.sub(r"\{token:[a-f0-9]{12}\}", "{token}", redact_review_tokens(path)).split("?", 1)[0].split("#", 1)[0]
+    return redact_review_tokens(path).split("?", 1)[0].split("#", 1)[0]
+
+
+def route_template(path):
+    return re.sub(r"\{token:[a-f0-9]{12}\}", "{token}", redact_review_tokens(path))
 
 
 class ReviewTokenFilter(logging.Filter):
