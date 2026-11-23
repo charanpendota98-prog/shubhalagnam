@@ -17,6 +17,7 @@ import { useLang } from "@/lib/lang";
 import { authHeaders } from "@/lib/api";
 import { useSession } from "@/lib/auth";
 import Link from "next/link";
+import ScamGuide from "@/components/ScamGuide";
 
 type Tip = { icon: string; title: string; telugu: string };
 type Cat = { key: string; te: string; severity: string; desc: string };
@@ -243,6 +244,8 @@ export default function SafetyPage() {
             {!tips.length && <div className="text-[12px] text-gray-500">{te ? "Load అవుతుంది…" : "Loading…"}</div>}
           </div>
         </div>
+
+        <ScamGuide />
 
         {/* ---- report form ---- */}
         <div className="bg-white rounded-[1.5rem] border border-rose-200 p-5">
