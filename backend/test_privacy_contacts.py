@@ -43,7 +43,9 @@ def check(name: str, condition: bool, detail: object = "") -> None:
 
 PHONE_RE = re.compile(r"(?<!\d)(?:\+?91[\s().-]*)?[6-9](?:[\s().-]*\d){9}(?!\d)")
 EMAIL_RE = re.compile(r"(?<![\w.+-])[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}(?![\w-])", re.IGNORECASE)
-CONTACT_KEYS = {"phone", "phone_encrypted", "phone_last4", "email", "contact_phone", "mobile"}
+# Religion is used internally for matching and registration only; no payload another
+# member can read may carry it (internal-only keys are flagged like contact keys).
+CONTACT_KEYS = {"religion", "phone", "phone_encrypted", "phone_last4", "email", "contact_phone", "mobile"}
 
 
 def leaks(payload: object) -> list[str]:
@@ -98,6 +100,7 @@ def profile(tsap_id: str, full_name: str, gender: str, phone: str, *, district: 
         "plan": "FREE",
         "wallet": 0,
         "caste": caste,
+        "religion": "Muslim",   # internal-only: must never reach another member
         "sub_caste": "",
         "district": district,
         "state": "TS",
@@ -235,6 +238,10 @@ with TestClient(main.app, raise_server_exceptions=False) as client:
           {"about": groom_profile.get("about_myself"), "family": groom_profile.get("family_details")})
     check("direct-ID profile never exposes moderation state", "photo_status" not in groom_profile)
     check("direct-ID public payload has no raw contact fields", not leaks(groom_data), leaks(groom_data)[:4])
+    check("leak detector flags an internal-only religion key (guard is live)",
+          bool(leaks({"a": {"religion": "Muslim"}})), leaks({"a": {"religion": "Muslim"}}))
+    check("stored fixture really carries religion (so the public checks are meaningful)",
+          any(str(u.get("religion")) == "Muslim" for u in main.DB_USERS))
 
     hidden_search = client.get(f"/api/search/{HIDDEN_ID}")
     synthetic_search = client.get(f"/api/search/{SYNTH_ID}")
