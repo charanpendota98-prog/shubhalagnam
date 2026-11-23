@@ -91,6 +91,9 @@ for field in ['ttl_hours','max_views']:
         check('malformed '+field+' returns HTTP 400 '+str(value),c.post('/api/me/'+base['tsap_id']+'/review-links',headers=hdr,json={field:value}).status_code==400)
 for label in [[],{},123,'x'*81]:
     check('malformed label400 '+str(label),c.post('/api/me/'+base['tsap_id']+'/review-links',headers=hdr,json={'label':label}).status_code==400)
+for label in ['x'*60,'x'*80,'పెద్దల రివ్యూ లింక్']:
+    response=c.post('/api/me/'+base['tsap_id']+'/review-links',headers=hdr,json={'label':label})
+    check('valid label roundtrip '+str(len(label)),response.status_code==200 and response.json()['review_link']['label']==label)
 failed=[name for name,ok in checks if not ok]
 print({'checks':len(checks),'passed':len(checks)-len(failed),'failed':failed})
 assert not failed

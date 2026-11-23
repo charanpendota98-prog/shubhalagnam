@@ -16,7 +16,7 @@ unna appudu enforcement skip avutundi (documented, single place).
 """
 from __future__ import annotations
 
-from request_privacy import redact_review_tokens, safe_request_path, rate_limit_identity, redact_log_data
+from request_privacy import redact_review_tokens, safe_request_path, rate_limit_identity, redact_log_data, route_template
 import base64
 import hashlib
 import hmac
@@ -514,7 +514,7 @@ def rate_limit_hit(request: Request, extra_key: str = "") -> Optional[Dict[str, 
             return None
     except Exception:
         pass
-    rule_key = f"{request.method} {safe_request_path(request)}"
+    rule_key = f"{request.method} {route_template(safe_request_path(request))}"
     rule = RL_RULES.get(rule_key)
     if rule is None:
         # Dynamic routes (for example /api/referral/click/{code}) share an
@@ -539,7 +539,7 @@ def rate_limit_hit(request: Request, extra_key: str = "") -> Optional[Dict[str, 
             retry = int(window - (now - bucket[0])) + 1
             ABUSE["rate_limited"] += 1
             ABUSE["rate_limit_by_route"][rule_key] = ABUSE["rate_limit_by_route"].get(rule_key, 0) + 1
-            abuse_log("rate_limit", rule_key, {"ip": identity, "retry_after": retry})
+            abuse_log("rate_limit", f"{request.method} {safe_request_path(request)}", {"ip": identity, "retry_after": retry})
             return {"limit": max_hits, "window_seconds": window, "retry_after": retry,
                     "message_telugu": f"⚠️ చాలా fast గా try chestunnaru — {retry} sec తర్వాత మళ్లీ try చెయ్యండి"}
         bucket.append(now)

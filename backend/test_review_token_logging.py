@@ -37,7 +37,7 @@ for path in [PATH, PATH+'/feedback', '/other/'+TOKEN, '/other/'+TOKEN+'?copy='+T
     assert TOKEN not in safe and 'IsolatedBearer' not in safe and 'not-a-token' not in safe, safe
 assert redact_review_tokens('/api/search')=='/api/search'
 assert redact_review_tokens('/other/a%20b')=='/other/a%20b'
-assert safe_request_path(request())=='/api/review-links/{token}'
+assert safe_request_path(request())==redact_review_tokens(PATH)
 assert G._safe_path(PATH+'/feedback')==redact_review_tokens(PATH+'/feedback')
 assert G._safe_path('/other/'+TOKEN)==redact_review_tokens('/other/'+TOKEN)
 assert G._safe_path('/api/search?token='+TOKEN)=='/api/search'
@@ -59,12 +59,16 @@ with patch.object(H,'RL_DISABLED',False), patch.object(H,'dev_mode',return_value
     assert TOKEN not in str(H._RL_BUCKETS) and 'rv_AnotherBearer' not in str(H._RL_BUCKETS)
     assert TOKEN not in str(H.abuse_snapshot())
     assert 'POST /api/review-links/{token}' in H.ABUSE['rate_limit_by_route']
+    event=H.abuse_snapshot()['recent'][-1]
+    assert event['where']=='POST '+redact_review_tokens(PATH)
 H._RL_BUCKETS.clear()
 
 out=io.StringIO()
 with contextlib.redirect_stdout(out):
     result=asyncio.run(M._telugu_500_handler(request(),RuntimeError(PATH)))
 assert result.status_code==500 and TOKEN not in out.getvalue()
+assert redact_review_tokens(PATH) in out.getvalue()
+assert H.abuse_snapshot()['recent'][-1]['where']==redact_review_tokens(PATH)
 assert TOKEN not in str(H.abuse_snapshot())
 
 # Exercise the exact production handler/filter setup, including ASGI errors.
