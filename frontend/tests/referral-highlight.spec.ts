@@ -35,6 +35,27 @@ for (const lang of ["en", "te"] as const) {
   });
 }
 
+test("390px mobile: strip fits without horizontal overflow", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await openMe(page, "te", { json: withMoney });
+  const strip = page.getByTestId("referral-highlight");
+  await expect(strip).toBeVisible();
+  const fits = await strip.evaluate((el) => {
+    const r = el.getBoundingClientRect();
+    return r.left >= 0 && r.right <= innerWidth + 1 && document.documentElement.scrollWidth <= innerWidth + 1;
+  });
+  expect(fits).toBe(true);
+  const link = await strip.getByRole("link").boundingBox();
+  expect(link && link.height >= 40).toBe(true);
+});
+
+test("English branch does not use the Telugu typeface; labels match /referral", async ({ page }) => {
+  await openMe(page, "en", { json: withMoney });
+  const strip = page.getByTestId("referral-highlight");
+  await expect(strip).toContainText("Paid out ₹400");
+  await expect(strip.locator(".telugu")).toHaveCount(0);
+});
+
 test("zero state is plain and makes no promise", async ({ page }) => {
   await openMe(page, "en", { json: { ...base, min_payout: 200 } });
   const strip = page.getByTestId("referral-highlight");

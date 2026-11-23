@@ -16,7 +16,11 @@ import { useLang } from "@/lib/lang";
 type Row = Record<string, unknown>;
 type Summary = { wallet: number; pending: number; paid: number; minPayout: number };
 
-const rupees = (n: number) => `₹${Math.round(n).toLocaleString("en-IN")}`;
+// Same rounding as the /referral page (ReferralPro): 2 decimals, none for whole rupees.
+const rupees = (n: number) => {
+  const v = Math.round(Number(n || 0) * 100) / 100;
+  return Number.isInteger(v) ? `₹${v}` : `₹${v.toFixed(2)}`;
+};
 
 export default function ReferralHighlightStrip({ myId }: { myId: string }) {
   const { lang } = useLang();
@@ -48,16 +52,16 @@ export default function ReferralHighlightStrip({ myId }: { myId: string }) {
       <div className="min-w-0 text-[12px] text-gray-700">
         <div className="font-bold text-maroon">{te ? "రెఫరల్ బ్యాలెన్స్" : "Referral balance"}</div>
         {empty ? (
-          <div className="telugu">
+          <div className={te ? "telugu" : undefined}>
             {te
               ? `ఇంకా రెఫరల్ రివార్డులు లేవు. రిక్వెస్ట్‌కు కనీసం ${rupees(summary.minPayout)} కావాలి.`
               : `No referral rewards yet. ${rupees(summary.minPayout)} is the minimum to request a payout.`}
           </div>
         ) : (
-          <div className="telugu">
+          <div className={te ? "telugu" : undefined}>
             {te
-              ? `అందుబాటులో ${rupees(summary.wallet)} • సమీక్షలో ${rupees(summary.pending)} • చెల్లింపు అయినది ${rupees(summary.paid)} • రిక్వెస్ట్‌కు కనీసం ${rupees(summary.minPayout)}`
-              : `Available ${rupees(summary.wallet)} • In review ${rupees(summary.pending)} • Paid ${rupees(summary.paid)} • ${rupees(summary.minPayout)} minimum to request`}
+              ? `అందుబాటులో ${rupees(summary.wallet)} • సమీక్షలో ${rupees(summary.pending)} • చెల్లించినవి ${rupees(summary.paid)} • రిక్వెస్ట్‌కు కనీసం ${rupees(summary.minPayout)}`
+              : `Available ${rupees(summary.wallet)} • In review ${rupees(summary.pending)} • Paid out ${rupees(summary.paid)} • ${rupees(summary.minPayout)} minimum to request`}
           </div>
         )}
       </div>
