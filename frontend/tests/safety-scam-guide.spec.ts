@@ -13,8 +13,7 @@ for(const lang of ['en','te'])for(const width of [320,390,1280])test(`safety sca
  await expect(g.getByRole('heading',{level:2})).toHaveText(lang==='en'?'Common scams and what to do':'సాధారణ మోసాలు మరియు ఏం చేయాలి');
  await expect(g.getByRole('heading',{level:3})).toHaveCount(4);
  await expect(g.getByRole('listitem')).toHaveCount(4);
- await expect(g.getByRole('link')).toHaveAttribute('href','/verify');
- await expect(g).toContainText(lang==='en'?"this site's own verification form":'ఈ సైట్‌లోని వెరిఫికేషన్ ఫారమ్‌లో మాత్రమే');
+ await expect(g).toContainText(lang==='en'?'does not ask for a full ID number':'పూర్తి ID నంబర్ అడగదు');await expect(g).not.toContainText(/own verification form|వెరిఫికేషన్|ఈ సైట్‌లోని ఫారమ్/);
  if(lang==='te')await expect(g).not.toContainText(/Never share|Do not send/);
  await expect(g.getByText(/\d{6,}/)).toHaveCount(0);
  const ax=await new AxeBuilder({page}).include('[data-testid="scam-guide"]').withTags(['wcag2a','wcag2aa','wcag21a','wcag21aa']).analyze();

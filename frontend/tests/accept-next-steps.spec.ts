@@ -25,7 +25,7 @@ for(const lang of ['en','te'])for(const width of [320,390,1280])for(const withAc
    if(lang==='te')await expect(card).not.toContainText(/Never send|Report anyone/);
    const ax=await new AxeBuilder({page}).include('[data-testid="accepted-next-steps"]').withTags(['wcag2a','wcag2aa','wcag21a','wcag21aa']).analyze();
    expect(ax.violations.filter(v=>v.impact==='serious'||v.impact==='critical').map(v=>v.id)).toEqual([]);
-   if(lang==='te')await expect(card).toContainText('ఈ సైట్‌లోని ఫారమ్‌లో');else await expect(card).toContainText('verification form');
+   await expect(card).toContainText(lang==='te'?'పూర్తి ID నంబర్ అడగదు':'does not ask for a full ID number');await expect(card).not.toContainText(/own verification form|ఈ సైట్‌లోని ఫారమ్/);
    const box=await card.boundingBox();expect(box!.width).toBeLessThanOrEqual(width);
   }else await expect(card).toHaveCount(0);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBeTruthy();
