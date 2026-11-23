@@ -422,8 +422,9 @@ export default function RequestsPage() {
                         ) : it.status === "accepted" ? (
                           <div className="mv-note mv-note--cool flex flex-wrap items-baseline gap-x-2 gap-y-1 text-[12px] font-semibold">
 
-                            <span>{te ? "ఆమోదించబడింది. వారి ఫోన్:" : "Accepted — their phone:"}</span>
+                            <span>{te ? "ఆమోదించబడింది. వారి ఫోన్ (మాస్క్ చేసినది):" : "Accepted — their phone (masked):"}</span>
                             <b className="font-mono text-[13px] tracking-tight text-[#0b4f4a]">{it.requester_phone || "—"}</b>
+                            <Link href={`/search/${encodeURIComponent(it.from_id || "")}?contact=qr`} className="font-bold text-maroon underline">{te ? "📇 Contact QR చూడండి" : "📇 View contact QR"}</Link>
                             <span className="text-[11px] font-medium text-slate-600">
                               {te ? "(WhatsApp ద్వారా సమాచారం అందుతుందని హామీ లేదు)" : "(external WhatsApp delivery is not guaranteed)"}
                             </span>
@@ -470,7 +471,7 @@ export default function RequestsPage() {
                       {te ? "సంప్రదింపు" : "Contact"}
                     </div>
                     <div className={`text-[13px] font-bold ${it.status === "accepted" ? "text-emerald-700" : "text-gray-400"}`}>
-                      {it.status === "accepted" ? (it.contact || "—") : te ? "ఆమోదం తర్వాత" : "After acceptance"}
+                      {it.status === "accepted" ? (<>{it.contact || "—"} <Link href={`/search/${encodeURIComponent(it.to_id || "")}?contact=qr`} className="ml-1 text-[11px] font-bold text-maroon underline">{te ? "📇 Contact QR చూడండి" : "📇 View contact QR"}</Link></>) : te ? "ఆమోదం తర్వాత" : "After acceptance"}
                     </div>
                   </div>
                   <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">

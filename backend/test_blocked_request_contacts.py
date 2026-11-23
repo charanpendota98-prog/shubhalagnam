@@ -15,7 +15,7 @@ rec=create_interest(users[0],users[1]);rec.update(status='accepted',contact_shar
 other=copy.deepcopy(rec);other.update(request_id='UNRELATED',from_id='BLOCK-C',to_id='BLOCK-D')
 with TestClient(M.app,raise_server_exceptions=False) as c,patch.object(M,'DB_USERS',users),patch.object(M,'DB_INTERESTS',[rec,other]),patch.object(M,'DB_BLOCKS',[]),patch.object(M,'_persist_core_state',return_value=True):
  for path,key,phone in [('/api/interest/sent/BLOCK-A','sent',users[1]['phone']),('/api/interest/inbox/BLOCK-B','received',users[0]['phone'])]:
-  r=c.get(path);assert r.status_code==200 and phone in str(r.json()),r.text
+  r=c.get(path);assert r.status_code==200 and phone not in str(r.json()) and phone[:2]+'•' in str(r.json()),r.text
  before=copy.deepcopy(rec)
  for blocker,blocked in [('BLOCK-A','BLOCK-B'),('BLOCK-B','BLOCK-A')]:
   M.DB_BLOCKS[:]=[]
@@ -33,5 +33,5 @@ with TestClient(M.app,raise_server_exceptions=False) as c,patch.object(M,'DB_USE
   r=c.post('/api/unblock',json={'tsap_id':blocker,'block_id':blocked});assert r.status_code==200 and r.json()['success']
   # Preserve existing unblock semantics and request history, no permanent revoke.
   assert c.get('/api/interest/status/'+rec['request_id']).status_code==200
-  assert c.get('/api/interest/sent/BLOCK-A').json()['sent'][0]['contact']==users[1]['phone']
+  assert c.get('/api/interest/sent/BLOCK-A').json()['sent'][0]['contact']!=users[1]['phone'] and users[1]['phone'] not in c.get('/api/interest/sent/BLOCK-A').text
 print('PASS blocked request sent/inbox/status/timeline/respond/unlock both directions; unrelated history and unblock semantics retained')

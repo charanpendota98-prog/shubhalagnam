@@ -184,7 +184,7 @@ def test_interest():
         check("Accept success", acc.get("success") is True)
         check("Accept → requester phone share", bool(acc["result"].get("contact", {}).get("phone")))
         sent = c.get(f"/api/interest/sent/{groom}", headers=g_headers).json()
-        check("Requester ki owner contact kanipisthundi", sent["sent"][0]["contact"].replace("+", "").isdigit(),
+        check("Requester ki owner contact kanipisthundi", "•" in sent["sent"][0]["contact"] and not __import__("re").search(r"\d{6,}", str(sent["sent"][0]["contact"])),
               str(sent["sent"][0]["contact"]))
 
         # decline + refund

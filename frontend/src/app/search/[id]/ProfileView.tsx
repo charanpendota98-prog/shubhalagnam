@@ -524,6 +524,18 @@ export default function ProfileView() {
     }
   };
 
+  // Arrive from /requests "View contact QR": open the QR directly. This only
+  // calls /api/contact/token (403 not_mutual just shows the error); it never
+  // calls /api/unlock.
+  const autoQrTried = useRef(false);
+  useEffect(() => {
+    if (autoQrTried.current || !myTsapId || !loadedProfileId) return;
+    if (new URLSearchParams(window.location.search).get("contact") !== "qr") return;
+    autoQrTried.current = true;
+    void openContactQr();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [myTsapId, loadedProfileId]);
+
   useEffect(() => {
     if (!showContactQr) return;
     const timer = window.setInterval(() => setContactSecondsLeft(s => Math.max(0, s - 1)), 1000);
