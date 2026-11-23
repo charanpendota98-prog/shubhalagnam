@@ -1,4 +1,5 @@
 import {test,expect} from '@playwright/test';
+import AxeBuilder from '@axe-core/playwright';
 import fs from 'node:fs';
 fs.mkdirSync('artifacts/accept-next-steps',{recursive:true});
 const row=(status:string,own:'to'|'from')=>({request_id:'UI_'+status,from_id:own==='from'?'UI_ONLY':'UI_OTHER',to_id:own==='to'?'UI_ONLY':'UI_OTHER',status,credit_refunded:false});
@@ -22,6 +23,9 @@ for(const lang of ['en','te'])for(const width of [320,390,1280])for(const withAc
    await expect(card.getByRole('link')).toHaveAttribute('href','/safety');
    await expect(card.getByText(/\d{6,}/)).toHaveCount(0);
    if(lang==='te')await expect(card).not.toContainText(/Never send|Report anyone/);
+   const ax=await new AxeBuilder({page}).include('[data-testid="accepted-next-steps"]').withTags(['wcag2a','wcag2aa','wcag21a','wcag21aa']).analyze();
+   expect(ax.violations.filter(v=>v.impact==='serious'||v.impact==='critical').map(v=>v.id)).toEqual([]);
+   if(lang==='te')await expect(card).toContainText('ఈ సైట్‌లోని ఫారమ్‌లో');else await expect(card).toContainText('verification form');
    const box=await card.boundingBox();expect(box!.width).toBeLessThanOrEqual(width);
   }else await expect(card).toHaveCount(0);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBeTruthy();

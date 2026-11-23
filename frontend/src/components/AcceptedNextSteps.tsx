@@ -15,12 +15,12 @@ export default function AcceptedNextSteps() {
     ? [
         "మొదట మిమ్మల్ని, మీ కుటుంబాన్ని పరిచయం చేసుకోండి. ఎవరితో మాట్లాడుతున్నారో మీ తల్లిదండ్రులకు లేదా పెద్దలకు చెప్పండి.",
         "కలవాలంటే అందరికీ తెలిసిన బహిరంగ ప్రదేశంలో కలవండి. సమయం, చోటు కుటుంబానికి చెప్పండి.",
-        "డబ్బు, బహుమతులు, ఆధార్, పాన్, బ్యాంకు వివరాలు ఎవరికీ ఇవ్వకండి. అడిగితే రిపోర్ట్ చేయండి.",
+        "డబ్బు, బహుమతులు, ఆధార్, PAN, బ్యాంక్ వివరాలు సభ్యులెవరికీ ఇవ్వకండి. వెరిఫికేషన్ కోసం ఈ సైట్‌లోని ఫారమ్‌లో మాత్రమే ఇవ్వండి. ఎవరైనా అడిగితే రిపోర్ట్ చేయండి.",
       ]
     : [
         "Start by introducing yourself and your family. Tell your parents or elders who you are talking to.",
         "If you decide to meet, choose a public place and let your family know the time and the place.",
-        "Never send money, gifts, or Aadhaar, PAN or bank details to anyone. Report anyone who asks.",
+        "Never send money, gifts, or Aadhaar, PAN or bank details to another member. Share ID details only in this site's own verification form. Report anyone who asks.",
       ];
   return (
     <section data-testid="accepted-next-steps" aria-label={te ? "అంగీకారం తర్వాత తదుపరి దశలు" : "Next steps after acceptance"}
