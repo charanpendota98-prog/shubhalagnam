@@ -9,5 +9,5 @@ from preflight import run
 if __name__ == '__main__':
     run()
     os.execv(sys.executable, [sys.executable, '-m', 'uvicorn', 'backend.main:app',
-                            '--host', '127.0.0.1', '--port', '8000',
+                            '--app-dir', os.path.dirname(__file__), '--host', '127.0.0.1', '--port', '8000',
                             '--log-config', os.path.join(os.path.dirname(__file__), 'logging_privacy.json')])

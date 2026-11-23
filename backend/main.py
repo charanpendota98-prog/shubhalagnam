@@ -24,7 +24,8 @@ from photo_face import check_photo_face
 from photo_text import check_photo_text
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, Response
-from request_privacy import redact_review_tokens, safe_request_path
+from request_privacy import redact_review_tokens, safe_request_path, install_review_log_filters
+install_review_log_filters()
 from atomic_store import atomic_json_dump, atomic_write_bytes
 from typing import Any, Dict, List, Optional
 from contextlib import asynccontextmanager
@@ -391,6 +392,7 @@ import advanced11 as A11
 @asynccontextmanager
 async def _app_lifespan(_application):
     """Run startup gates before advertising readiness, then flush on shutdown."""
+    install_review_log_filters()
     _application.state.ready = False
     OBS.set_ready(False)
     await _startup_publisher()

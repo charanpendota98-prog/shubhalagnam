@@ -1,4 +1,5 @@
 """Keep bearer review tokens out of operational paths and log messages."""
+import hashlib
 import logging
 import re
 from urllib.parse import unquote
@@ -17,13 +18,17 @@ def redact_review_tokens(value):
         text = decoded
     if not (_REVIEW_PATH.search(text) or _REVIEW_TOKEN.search(text)):
         return original
-    text = _REVIEW_PATH.sub(r"\1{token}", text)
-    return _REVIEW_TOKEN.sub("{token}", text)
+    def marker(token):
+        if re.fullmatch(r"\{token:[a-f0-9]{12}\}", token):
+            return token
+        return "{token:" + hashlib.sha256(token.encode("utf-8")).hexdigest()[:12] + "}"
+    text = _REVIEW_PATH.sub(lambda match: match[1] + marker(match[0][len(match[1]):]), text)
+    return _REVIEW_TOKEN.sub(lambda match: marker(match[0]), text)
 
 
 def safe_request_path(request):
     path = request.url.path if request is not None else "?"
-    return redact_review_tokens(path).split("?", 1)[0].split("#", 1)[0]
+    return re.sub(r"\{token:[a-f0-9]{12}\}", "{token}", redact_review_tokens(path)).split("?", 1)[0].split("#", 1)[0]
 
 
 class ReviewTokenFilter(logging.Filter):
@@ -39,3 +44,30 @@ class ReviewTokenFilter(logging.Filter):
         if record.stack_info:
             record.stack_info = redact_review_tokens(record.stack_info)
         return True
+
+
+def rate_limit_identity(value):
+    """Keep distinct bearer buckets without retaining the bearer in memory keys."""
+    value = str(value)
+    return hashlib.sha256(value.encode("utf-8")).hexdigest()
+
+
+def redact_log_data(value):
+    if isinstance(value, str):
+        return redact_review_tokens(value)
+    if isinstance(value, dict):
+        return {redact_review_tokens(k): redact_log_data(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [redact_log_data(v) for v in value]
+    return value
+
+
+def install_review_log_filters():
+    """Cover direct uvicorn, containers and PM2 without replacing handler style."""
+    privacy_filter = ReviewTokenFilter()
+    loggers = [logging.getLogger(), logging.getLogger('uvicorn'),
+               logging.getLogger('uvicorn.access'), logging.getLogger('uvicorn.error')]
+    for logger in loggers:
+        for target in [logger, *logger.handlers]:
+            if not any(isinstance(item, ReviewTokenFilter) for item in target.filters):
+                target.addFilter(privacy_filter)

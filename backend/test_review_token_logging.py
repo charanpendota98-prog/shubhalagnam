@@ -38,8 +38,8 @@ for path in [PATH, PATH+'/feedback', '/other/'+TOKEN, '/other/'+TOKEN+'?copy='+T
 assert redact_review_tokens('/api/search')=='/api/search'
 assert redact_review_tokens('/other/a%20b')=='/other/a%20b'
 assert safe_request_path(request())=='/api/review-links/{token}'
-assert G._safe_path(PATH+'/feedback')=='/api/review-links/{token}/feedback'
-assert G._safe_path('/other/'+TOKEN)=='/other/{token}'
+assert G._safe_path(PATH+'/feedback')==redact_review_tokens(PATH+'/feedback')
+assert G._safe_path('/other/'+TOKEN)==redact_review_tokens('/other/'+TOKEN)
 assert G._safe_path('/api/search?token='+TOKEN)=='/api/search'
 
 c=TestClient(M.app,raise_server_exceptions=False)
@@ -53,7 +53,9 @@ with patch.object(M,'track_visit') as visit:
 with patch.object(H,'RL_DISABLED',False), patch.object(H,'dev_mode',return_value=False), patch.object(H,'is_admin',return_value=False), patch.object(H,'is_automation',return_value=False), patch.object(H,'RL_DEFAULT',(1,60)):
     H._RL_BUCKETS.clear()
     assert H.rate_limit_hit(request(),extra_key=TOKEN) is None
-    assert H.rate_limit_hit(request('/api/review-links/rv_AnotherBearer'),extra_key=TOKEN)
+    assert H.rate_limit_hit(request('/api/review-links/rv_AnotherBearer'),extra_key=TOKEN) is None
+    assert len(H._RL_BUCKETS)==2
+    assert H.rate_limit_hit(request(),extra_key=TOKEN)
     assert TOKEN not in str(H._RL_BUCKETS) and 'rv_AnotherBearer' not in str(H._RL_BUCKETS)
     assert TOKEN not in str(H.abuse_snapshot())
     assert 'POST /api/review-links/{token}' in H.ABUSE['rate_limit_by_route']
@@ -75,5 +77,14 @@ with contextlib.redirect_stdout(out), contextlib.redirect_stderr(out):
         raise RuntimeError(PATH)
     except RuntimeError:
         logging.getLogger('uvicorn.error').exception('ASGI failure at %s',PATH)
-assert TOKEN not in out.getvalue() and '{token}' in out.getvalue() and 'Traceback' in out.getvalue()
+assert TOKEN not in out.getvalue() and '{token:' in out.getvalue() and 'Traceback' in out.getvalue()
+H.abuse_log('test',PATH,{'nested':[{'path':PATH,'error':TOKEN}]})
+assert TOKEN not in str(H.abuse_snapshot())
+assert redact_review_tokens(redact_review_tokens(PATH))==redact_review_tokens(PATH)
+assert redact_review_tokens(PATH)!=redact_review_tokens('/api/review-links/rv_OtherBearer')
+import subprocess
+for cwd in [Path(__file__).resolve().parent.parent,Path(__file__).resolve().parent]:
+    # Uvicorn CLI adds app-dir before configuring logs. Check both filesystem layouts.
+    code="import sys,json,logging.config;sys.path.insert(0,'backend');logging.config.dictConfig(json.load(open(sys.argv[1])))"
+    subprocess.run([sys.executable,'-c',code,str(Path(__file__).parent/'logging_privacy.json')],cwd=cwd,check=True)
 print('PASS review token paths: templates, encoded paths, analytics skip/defense, rate buckets/events, 500 output, uvicorn access/traceback')

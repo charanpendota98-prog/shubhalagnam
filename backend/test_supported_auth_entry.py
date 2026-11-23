@@ -1,6 +1,11 @@
 """Isolated real production-entry regression. All state is disposable; external sockets blocked."""
 import os,sys,shutil,tempfile,subprocess,json,time,urllib.request,signal,socket
 from pathlib import Path
+if not os.environ.get('MANA_ENTRY_TEST_MODE'):
+ for mode in ['pm2','direct-root','direct-backend']:
+  env=dict(os.environ,MANA_ENTRY_TEST_MODE=mode)
+  subprocess.run([sys.executable,str(Path(__file__).resolve())],env=env,check=True)
+ sys.exit(0)
 source=Path(__file__).resolve().parent.parent
 root=Path(tempfile.mkdtemp(prefix='mv-serving-check-',dir='/var/tmp'))
 try:
@@ -32,9 +37,12 @@ socket.socket.connect=guarded
  q=subprocess.run([sys.executable,'-c',parity],cwd=release,env=env,capture_output=True,text=True);print(q.stdout,q.stderr);assert q.returncode==0
  # Prove preflight failure blocks exec, then real allowed startup with same exact interpreter/cwd.
  bad=dict(env,EMAIL_MODE='mock');q=subprocess.run([sys.executable,'backend/serve_production.py'],cwd=release,env=bad,capture_output=True,text=True);assert q.returncode!=0 and 'Uvicorn running' not in q.stderr;print('PASS entry rejected mock config before uvicorn')
- with socket.socket() as probe: probe.bind(('127.0.0.1',8000))
+ with socket.socket() as probe:
+  probe.setsockopt(socket.SOL_SOCKET,socket.SO_REUSEADDR,1);probe.bind(('127.0.0.1',8000))
  log=open(root/'entry-process.log','w+')
- p=subprocess.Popen([sys.executable,'backend/serve_production.py'],cwd=release,env=env,stdout=log,stderr=log,start_new_session=True)
+ mode=os.environ['MANA_ENTRY_TEST_MODE']
+ command=[sys.executable,'backend/serve_production.py'] if mode=='pm2' else [sys.executable,'-m','uvicorn','backend.main:app' if mode=='direct-root' else 'main:app','--host','127.0.0.1','--port','8000']
+ p=subprocess.Popen(command,cwd=release/'backend' if mode=='direct-backend' else release,env=env,stdout=log,stderr=log,start_new_session=True)
  try:
   for _ in range(80):
    if p.poll() is not None:raise RuntimeError('serve entry exited '+str(p.returncode))
@@ -53,5 +61,5 @@ socket.socket.connect=guarded
   os.killpg(p.pid,signal.SIGTERM)
   try:p.wait(timeout=8)
   except subprocess.TimeoutExpired:os.killpg(p.pid,signal.SIGKILL);p.wait()
-  log.flush();log.seek(0);rendered=log.read();assert 'rv_IsolatedAccessLogToken' not in rendered and '/api/review-links/{token}' in rendered;print(rendered);log.close()
+  log.flush();log.seek(0);rendered=log.read();assert 'rv_IsolatedAccessLogToken' not in rendered and '/api/review-links/{token:' in rendered;print(rendered);log.close()
 finally:shutil.rmtree(root)
