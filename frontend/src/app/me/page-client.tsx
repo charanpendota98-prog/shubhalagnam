@@ -16,6 +16,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { Bell, BriefcaseBusiness, Cake, ChartNoAxesColumn, ClipboardList, CreditCard, EyeOff, Flame, Globe, GraduationCap, Handshake, Heart, House, KeyRound, Landmark, Laptop, LockKeyhole, MapPin, Mic, Orbit, Pencil, Share2, Target, Ticket, UserRound, Users, Zap } from "lucide-react";
 
+import ReferralHighlightStrip from "@/components/ReferralHighlightStrip";
 const MemberEcosystemHub = dynamic(() => import("@/components/MemberEcosystemHub"), { ssr: false });
 const Phase2MemberWorkspace = dynamic(() => import("@/components/Phase2MemberWorkspace"), { ssr: false });
 import AuthGate from "@/components/AuthGate";
@@ -184,6 +185,7 @@ export default function MePage() {
 
       {myId ? (
         <>
+          <ReferralHighlightStrip myId={myId} />
           <section className="account-sections" aria-label={te ? "ఖాతా విభాగాలు" : "Account sections"}>
             <nav className="account-primary-nav" aria-label={te ? "ముఖ్యమైన ఖాతా ఎంపికలు" : "Main account controls"}>
               {TABS.filter(([v]) => ["preferences", "edit", "family", "ledger", "privacy", "devices", "support"].includes(v)).map(([v, en, t]) => (
