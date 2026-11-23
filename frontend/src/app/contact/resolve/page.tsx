@@ -9,7 +9,7 @@
  */
 import { Suspense, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { apiGet } from "@/lib/api";
+import { apiPost } from "@/lib/api";
 
 type ResolveOk = { ok: true; wa_link: string; phone_masked: string };
 type State =
@@ -53,7 +53,7 @@ function ResolveInner() {
       setState({ phase: "error", message: te ? "QR లింక్ పూర్తిగా లేదు — మళ్లీ QR సృష్టించండి." : "The QR link is incomplete — please create a fresh QR." });
       return;
     }
-    void apiGet<ResolveOk>(`/api/contact/resolve/${encodeURIComponent(token)}`).then(({ ok, data, needsLogin, errorTelugu }) => {
+    void apiPost<ResolveOk>("/api/contact/resolve", { token }).then(({ ok, data, needsLogin, errorTelugu }) => {
       if (ok && data?.ok && data.wa_link) {
         setState({ phase: "ready", waLink: String(data.wa_link), masked: String(data.phone_masked || "") });
       } else if (needsLogin) {

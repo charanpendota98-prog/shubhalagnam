@@ -785,7 +785,7 @@ metadata = { robots: { index: false, follow: false } }`.
 | Method | Path | Handler | Auth | Notes |
 |---|---|---|---|---|
 | POST | `/api/contact/token` | `api_contact_token` | owner | Needs an accepted interest, no block, active target. Opaque random token, 5 min, single use, max 3 outstanding per member, 10 per hour per member. |
-| GET | `/api/contact/resolve/{token}` | `api_contact_resolve` | owner (token's member) | Single use. Returns wa.me link + masked number. 20 per 10 min per member. |
+| POST | `/api/contact/resolve` (token in JSON body) | `api_contact_resolve` | owner (token's member) | Single use. Returns wa.me link + masked number. 20 per 10 min per member. |
 
 ## `/api/unlocks` — Unlocks listing (1)
 

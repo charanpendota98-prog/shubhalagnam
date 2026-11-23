@@ -20,20 +20,20 @@ for(const width of [390,1280])test(`contact QR dialog issues a token for the ver
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBeTruthy();
 });
 for(const lang of ['en','te'])test(`contact resolve page redeems the fragment token once and shows no number ${lang}`,async({page})=>{
- await page.addInitScript(l=>localStorage.setItem('tsap_lang',l),lang);const urls:string[]=[];
+ await page.addInitScript(l=>localStorage.setItem('tsap_lang',l),lang);const urls:string[]=[];const bodies:string[]=[];
  await page.route('**/api/**',r=>{const u=new URL(r.request().url());if(u.pathname==='/api/auth/verify')return r.fulfill({json:{valid:true,tsap_id:'COOKIE_OWNER'}});
-  if(u.pathname.startsWith('/api/contact/resolve/')){urls.push(r.request().url());return r.fulfill({json:{ok:true,wa_link:'https://wa.me/919000000099',phone_masked:'91••••••99'}})}
+  if(u.pathname==='/api/contact/resolve'&&r.request().method()==='POST'){urls.push(r.request().url());bodies.push(r.request().postData()||'');return r.fulfill({json:{ok:true,wa_link:'https://wa.me/919000000099',phone_masked:'91••••••99'}})}
   return r.fulfill({json:{success:true}})});
  await page.goto('/contact/resolve#t='+TOKEN);
  const wa=page.getByRole('link',{name:lang==='en'?/Open WhatsApp/:/WhatsApp/});await expect(wa).toBeVisible();await expect(wa).toHaveAttribute('href','https://wa.me/919000000099');
  await expect(page.getByText('91••••••99')).toBeVisible();await expect(page.getByText('9000000099')).toHaveCount(0);
- expect(urls.length).toBe(1);expect(new URL(urls[0]).pathname).toBe('/api/contact/resolve/'+TOKEN);expect(new URL(urls[0]).search).toBe('');
+ expect(urls.length).toBe(1);expect(urls[0]).not.toContain(TOKEN);expect(new URL(urls[0]).pathname).toBe('/api/contact/resolve');expect(new URL(urls[0]).search).toBe('');expect(JSON.parse(bodies[0]).token).toBe(TOKEN);
  expect(page.url()).not.toContain(TOKEN);
 });
 test('contact resolve page with an invalid token shows a refusal and no link',async({page})=>{
  await page.addInitScript(()=>localStorage.setItem('tsap_lang','en'));
  await page.route('**/api/**',r=>{const u=new URL(r.request().url());if(u.pathname==='/api/auth/verify')return r.fulfill({json:{valid:true,tsap_id:'COOKIE_OWNER'}});
-  if(u.pathname.startsWith('/api/contact/resolve/'))return r.fulfill({status:410,json:{detail:{reason:'already_used',en:'This contact QR was already used. Create a fresh one from the profile.',te:'ఈ కాంటాక్ట్ QR ఇప్పటికే వాడబడింది.'}}});
+  if(u.pathname==='/api/contact/resolve')return r.fulfill({status:410,json:{detail:{reason:'already_used',en:'This contact QR was already used. Create a fresh one from the profile.',te:'ఈ కాంటాక్ట్ QR ఇప్పటికే వాడబడింది.'}}});
   return r.fulfill({json:{success:true}})});
  await page.goto('/contact/resolve#t=USED_TOKEN');
  await expect(page.getByText(/already used|no longer valid/i).first()).toBeVisible();await expect(page.getByRole('link',{name:/WhatsApp/})).toHaveCount(0);

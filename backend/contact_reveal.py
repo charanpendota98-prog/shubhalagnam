@@ -110,7 +110,7 @@ def issue_token(viewer: str, target: str) -> Dict:
         _CONTACT_TOKENS[token] = {"viewer": viewer, "target": target, "exp": exp,
                                   "used": False, "revoked": False, "created": now}
     return {"ok": True, "token": token, "expires_in": TTL_SECONDS,
-            "resolve_path": f"/api/contact/resolve/{token}"}
+            "resolve_path": "/api/contact/resolve"}
 
 
 def invalidate_pair(a: str, b: str) -> int:

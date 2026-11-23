@@ -512,8 +512,8 @@ export default function ProfileView() {
   const redeemContactQr = async () => {
     if (!contactToken || contactRedeeming) return;
     setContactRedeeming(true);
-    const { ok, data, errorTelugu } = await apiGet<{ ok?: boolean; wa_link?: string }>(
-      `/api/contact/resolve/${encodeURIComponent(contactToken)}`);
+    const { ok, data, errorTelugu } = await apiPost<{ ok?: boolean; wa_link?: string }>(
+      "/api/contact/resolve", { token: contactToken });
     setContactRedeeming(false);
     if (ok && data?.ok && data.wa_link) {
       setContactUsed(true);

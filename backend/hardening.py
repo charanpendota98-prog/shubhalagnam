@@ -459,7 +459,7 @@ RL_RULES: Dict[str, Tuple[int, int]] = {          # route-prefix → (max hits, 
     # Per-IP ceilings are loose (families share a NAT); the tight cap is per
     # signed-in viewer, via viewer_rate_limit_hit().
     "POST /api/contact/token": (60, 3600),
-    "GET /api/contact/resolve/": (120, 600),
+    "POST /api/contact/resolve": (120, 600),
 }
 RL_DEFAULT = (120, 60)
 RL_DISABLED = _flag("TSAP_RATE_LIMIT") in ("0", "false", "no", "off")
@@ -549,6 +549,10 @@ def viewer_rate_limit_hit(request: Request, viewer_id: str, max_hits: int, windo
     """Sliding window keyed by the authenticated member, not the shared IP.
     Same dict-or-None contract as rate_limit_hit()."""
     if RL_DISABLED or dev_mode() or not viewer_id:
+        return None
+    # An admin/automation key can act for any viewer_id; it must never burn a
+    # member's personal quota.
+    if is_admin(request) or is_automation(request):
         return None
     ident = f"viewer:{str(viewer_id).upper()}|{request.method} {request.url.path.split('/api/contact/')[0]}/api/contact/"
     now = time.time()
