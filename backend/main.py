@@ -2293,7 +2293,7 @@ def guarded_profile_photo(filename: str, request: Request):
             raise HTTPException(404, "Photo not found")
 
     path = _media_file(PHOTO_MEDIA_DIR, filename)
-    cache = "public, max-age=3600" if has_public_photo_reference else "private, no-store"
+    cache = "public, max-age=300" if has_public_photo_reference else "private, no-store"
     return FileResponse(path, headers={"Cache-Control": cache, "X-Content-Type-Options": "nosniff"})
 
 

@@ -11,6 +11,7 @@ import os
 import re
 import secrets
 import threading
+import unicodedata
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -374,12 +375,29 @@ def get_bureau_workspace(bureau_id: str, viewer_role: str = "owner") -> Optional
 # ============================================================================
 # 2. PRIVATE SHAREABLE ELDER PROFILE REVIEW LINKS (#21)
 # ============================================================================
+def _review_eligible(user, is_approved_profile) -> bool:
+    return bool(user and is_approved_profile(user)
+                and str(user.get("account_status") or "active") not in {"deleted", "deactivated", "married"})
+
+
+def _review_safe(value):
+    """Review-only numeral normalization before the existing contact scrubber."""
+    if isinstance(value, str):
+        normalized = "".join(str(unicodedata.decimal(c)) if c.isdecimal() else c for c in value)
+        return sanitize_public_payload(normalized)
+    if isinstance(value, dict):
+        return {k: _review_safe(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_review_safe(v) for v in value]
+    return value
+
+
 def _elder_safe_projection(user: Dict[str, Any]) -> Dict[str, Any]:
     """Strict allowlist projection for private family/elder review links.
     NEVER includes phone, email, address, tokens, password_hash, or private photos."""
     photo_private = bool(user.get("photo_private") or user.get("privacy_mode") == "private")
     photo_ok = user.get("photo_status") == "approved" and not photo_private
-    return sanitize_public_payload({
+    return _review_safe({
         "tsap_id": user.get("tsap_id"),
         "first_name": str(user.get("full_name") or "").strip().split(" ")[0] if user.get("full_name") else "Member",
         "gender": user.get("gender", ""),
@@ -414,10 +432,13 @@ def _elder_safe_projection(user: Dict[str, Any]) -> Dict[str, Any]:
 def create_review_link(
     owner_user: Dict[str, Any],
     *,
+    is_approved_profile,
     label: str = "Family Elder Review",
     ttl_hours: int = 72,
     max_views: int = 15,
 ) -> Dict[str, Any]:
+    if not _review_eligible(owner_user, is_approved_profile):
+        raise ValueError("Profile is no longer available for review.")
     tid = str(owner_user.get("tsap_id") or "").strip().upper()
     clabel = _clean_text(label, 80) or "Family Elder Review"
     hours = max(1, min(336, int(ttl_hours or 72)))
@@ -477,7 +498,7 @@ def list_review_links(tsap_id: str) -> List[Dict[str, Any]]:
                     "view_count": int(r.get("view_count") or 0),
                     "max_views": int(r.get("max_views") or 15),
                     "status": eff_status,
-                    "feedback": list(r.get("feedback") or []),
+                    "feedback": _review_safe(list(r.get("feedback") or [])),
                 }
             )
         return out
@@ -526,8 +547,7 @@ def resolve_review_link(
             return False, "This review link has reached its view limit.", {}
 
         owner = find_user_fn(target.get("tsap_id")) if find_user_fn else None
-        if (not owner or not is_approved_profile(owner)
-                or str(owner.get("account_status") or "active") in {"deleted", "deactivated", "married"}):
+        if not _review_eligible(owner, is_approved_profile):
             return False, "Profile is no longer available for review.", {}
 
         if increment_view:
@@ -553,9 +573,9 @@ def submit_elder_feedback(
     note: str = "",
 ) -> Tuple[bool, str]:
     tok = str(raw_token or "").strip()
-    rname = _clean_text(reviewer_name, 60)
-    rel = _clean_text(relation, 40) or "Family Elder"
-    rnote = _clean_text(note, 300)
+    rname = _review_safe(_clean_text(reviewer_name, 60))
+    rel = _review_safe(_clean_text(relation, 40)) or "Family Elder"
+    rnote = _review_safe(_clean_text(note, 300))
     if not tok or len(rname) < 2 or len(rnote) < 3:
         return False, "Please enter your name and a brief note."
     tok_hash = _sha256(tok)
@@ -570,8 +590,7 @@ def submit_elder_feedback(
         if not target or target.get("status") == "revoked" or str(target.get("expires_at") or "") <= now_iso:
             return False, "Review link is no longer active."
         owner = find_user_fn(target.get("tsap_id"))
-        if (not owner or not is_approved_profile(owner)
-                or str(owner.get("account_status") or "active") in {"deleted", "deactivated", "married"}):
+        if not _review_eligible(owner, is_approved_profile):
             return False, "Profile is no longer available for review."
         fb_list = target.setdefault("feedback", [])
         if len(fb_list) >= 25:
