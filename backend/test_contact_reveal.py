@@ -61,7 +61,9 @@ def run_suite():
     check("2. replay -> already_used", r2.get("reason") == "already_used", r2)
 
     # 3. expired
-    expired = CR._encode("TSAPAAAA1", "TSAPBBBB2", int(time.time()) - 5, "nonce0001")
+    expired_t = CR.issue_token("TSAPAAAA1", "TSAPBBBB2")
+    expired = expired_t["token"]
+    CR._CONTACT_TOKENS[expired]["exp"] = int(time.time()) - 5
     r3 = CR.resolve_token(expired, "TSAPAAAA1", interests, no_block)
     check("3. expired token -> expired", r3.get("reason") == "expired", r3)
 
@@ -99,9 +101,51 @@ def run_suite():
     check("8a. invalidate_member revokes", n2 >= 1 and r8b.get("reason") == "revoked", (n2, r8b))
 
     # 9. restart posture: well-formed but unknown token (fresh module state) never resolves
-    ghost = CR._encode("TSAPAAAA1", "TSAPBBBB2", int(time.time()) + 100, "ghost0001")
+    ghost = "ghost-" + "x" * 30
     r9 = CR.resolve_token(ghost, "TSAPAAAA1", interests, no_block)
     check("9. unknown token -> bad_token (fail-closed)", r9.get("reason") == "bad_token", r9)
+
+    # 9b. opaque token: random, carries no member IDs, expiry or signature
+    to = CR.issue_token("TSAPAAAA1", "TSAPBBBB2")["token"]
+    import base64 as _b64
+    try:
+        decoded = _b64.urlsafe_b64decode(to + "=" * (-len(to) % 4)).decode("latin-1")
+    except Exception:
+        decoded = ""
+    check("9b. token carries no member IDs", "TSAPAAAA1" not in to and "TSAPBBBB2" not in to
+          and "TSAPAAAA1" not in decoded and "TSAPBBBB2" not in decoded and len(to) >= 32, to)
+    check("9c. viewer_of is a server-side lookup (unknown -> None)",
+          CR.viewer_of(to) == "TSAPAAAA1" and CR.viewer_of("nope") is None)
+
+    # 9d. per-viewer rate limit is keyed by member, not by IP
+    import hardening as _H
+    class _Req:
+        method = "POST"
+        cookies = {}
+        headers = {}
+        class url:
+            path = "/api/contact/token"
+    _old = (_H.RL_DISABLED, _H.dev_mode)
+    _H.RL_DISABLED = False
+    _H.dev_mode = lambda: False
+    try:
+        hits = [_H.viewer_rate_limit_hit(_Req, "RLVIEW01", 3, 60) for _ in range(4)]
+        other = _H.viewer_rate_limit_hit(_Req, "RLVIEW02", 3, 60)
+    finally:
+        _H.RL_DISABLED, _H.dev_mode = _old
+    class _AdminReq(_Req):
+        headers = {"x-admin-key": _H.ADMIN_KEY}
+    _H.RL_DISABLED = False
+    _H.dev_mode = lambda: False
+    try:
+        admin_hits = [_H.viewer_rate_limit_hit(_AdminReq, "RLVIEW03", 3, 60) for _ in range(6)]
+        member_after = [_H.viewer_rate_limit_hit(_Req, "RLVIEW03", 3, 60) for _ in range(3)]
+    finally:
+        _H.RL_DISABLED, _H.dev_mode = _old
+    check("9e. admin-key calls never burn a member's quota",
+          admin_hits == [None] * 6 and member_after == [None] * 3, (admin_hits, member_after))
+    check("9d. viewer limit trips on the 4th call, other member unaffected",
+          hits[:3] == [None] * 3 and hits[3] and hits[3]["limit"] == 3 and other is None, (hits, other))
 
     # 10. wa_link_for
     check("10. wa_link digits only", CR.wa_link_for("+91 98480 12345") == "https://wa.me/919848012345",
@@ -164,7 +208,7 @@ def run_suite():
     check("12b. bilingual issue copy", bool(d12.get("message_telugu")) and bool(d12.get("message_en")))
 
     token = d12.get("token", "")
-    r13 = c.get(f"/api/contact/resolve/{token}")
+    r13 = c.post("/api/contact/resolve", json={"token": token})
     d13 = r13.json() if r13.headers.get("content-type", "").startswith("application/json") else {}
     masked = S12.mask_phone("9862222222")
     check("13. resolve -> wa_link + masked only",
@@ -181,7 +225,7 @@ def run_suite():
           ru.status_code == 200 and ru.json().get("success") is True and "phone" not in ru.json()
           and "9862222222" not in ru.text, (ru.status_code, ru.text[:200]))
 
-    r13b = c.get(f"/api/contact/resolve/{token}")
+    r13b = c.post("/api/contact/resolve", json={"token": token})
     check("13a. replay via API -> 410", r13b.status_code == 410, r13b.status_code)
 
     # 13b. block revokes outstanding token and blocks new issue
@@ -189,7 +233,7 @@ def run_suite():
     token2 = r14.json().get("token", "") if r14.status_code == 200 else ""
     rb = c.post("/api/block", json={"tsap_id": a_id, "block_id": b_id})
     check("13b. block succeeds", rb.status_code == 200, (rb.status_code, rb.text[:200]))
-    r15 = c.get(f"/api/contact/resolve/{token2}")
+    r15 = c.post("/api/contact/resolve", json={"token": token2})
     check("13c. outstanding token revoked by block -> 403/410", r15.status_code in (403, 410), r15.status_code)
     r16 = c.post("/api/contact/token", json={"viewer_id": a_id, "target_id": b_id})
     check("13d. new issue after block -> 403", r16.status_code == 403, r16.status_code)

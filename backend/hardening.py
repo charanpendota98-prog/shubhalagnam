@@ -456,8 +456,10 @@ RL_RULES: Dict[str, Tuple[int, int]] = {          # route-prefix → (max hits, 
     # Contact reveal: token issue is consent-gated member work; resolve is the
     # single-use phone-adjacent read, so both stay tight.
     "POST /api/unlock": (30, 3600),
-    "POST /api/contact/token": (10, 3600),
-    "GET /api/contact/resolve/": (20, 600),
+    # Per-IP ceilings are loose (families share a NAT); the tight cap is per
+    # signed-in viewer, via viewer_rate_limit_hit().
+    "POST /api/contact/token": (60, 3600),
+    "POST /api/contact/resolve": (120, 600),
 }
 RL_DEFAULT = (120, 60)
 RL_DISABLED = _flag("TSAP_RATE_LIMIT") in ("0", "false", "no", "off")
@@ -537,6 +539,30 @@ def rate_limit_hit(request: Request, extra_key: str = "") -> Optional[Dict[str, 
             ABUSE["rate_limited"] += 1
             ABUSE["rate_limit_by_route"][rule_key] = ABUSE["rate_limit_by_route"].get(rule_key, 0) + 1
             abuse_log("rate_limit", rule_key, {"ip": identity, "retry_after": retry})
+            return {"limit": max_hits, "window_seconds": window, "retry_after": retry,
+                    "message_telugu": f"⚠️ చాలా fast గా try chestunnaru — {retry} sec తర్వాత మళ్లీ try చెయ్యండి"}
+        bucket.append(now)
+    return None
+
+
+def viewer_rate_limit_hit(request: Request, viewer_id: str, max_hits: int, window: int) -> Optional[Dict[str, Any]]:
+    """Sliding window keyed by the authenticated member, not the shared IP.
+    Same dict-or-None contract as rate_limit_hit()."""
+    if RL_DISABLED or dev_mode() or not viewer_id:
+        return None
+    # An admin/automation key can act for any viewer_id; it must never burn a
+    # member's personal quota.
+    if is_admin(request) or is_automation(request):
+        return None
+    ident = f"viewer:{str(viewer_id).upper()}|{request.method} {request.url.path.split('/api/contact/')[0]}/api/contact/"
+    now = time.time()
+    with _RL_LOCK:
+        bucket = _RL_BUCKETS.setdefault(ident, deque())
+        while bucket and bucket[0] < now - window:
+            bucket.popleft()
+        if len(bucket) >= max_hits:
+            retry = int(window - (now - bucket[0])) + 1
+            ABUSE["rate_limited"] += 1
             return {"limit": max_hits, "window_seconds": window, "retry_after": retry,
                     "message_telugu": f"⚠️ చాలా fast గా try chestunnaru — {retry} sec తర్వాత మళ్లీ try చెయ్యండి"}
         bucket.append(now)
