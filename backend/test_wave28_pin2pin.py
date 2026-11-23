@@ -225,7 +225,7 @@ try:
     check("6.2 accepted request grants consent-backed, zero-charge contact access",
           un.status_code == 200 and un.json().get("success") is True
           and un.json().get("charged") == 0
-          and un.json().get("phone") == user_of(BRIDE).get("phone")
+          and "phone" not in un.json()
           and un.json().get("credits_left") == iu.get("credits"),
           (un.status_code, un.text[:200]))
     iu["credits"] = 3

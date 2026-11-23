@@ -123,7 +123,7 @@ check("C2 explicit owner acceptance creates consent entitlement",
       granted["success"] and S12.is_entitled("V1", "T1"), granted)
 r = S12.unlock_number(viewer, target, consent_granted=True)
 check("C3 accepted interest reveals number without spending credits",
-      r["success"] and r["phone"] == "9848011111" and r["charged"] == 0
+      r["success"] and "phone" not in r and r["charged"] == 0
       and viewer["credits"] == 3, r)
 r2 = S12.unlock_number(viewer, target, consent_granted=True)
 check("C4 repeat reveal remains free after acceptance",
@@ -135,7 +135,7 @@ check("C5 zero credits do not bypass missing consent",
       not r3["success"] and r3["reason"] == "consent_required" and "phone" not in r3, r3)
 r4 = S12.unlock_number(poor, poor_target, consent_granted=True)
 check("C6 accepted contact is not gated on request-credit balance",
-      r4["success"] and r4["phone"] == "9848022222" and r4["charged"] == 0
+      r4["success"] and "phone" not in r4 and r4["charged"] == 0
       and poor["credits"] == 0, r4)
 me = {"tsap_id": "V3", "credits": 0, "phone": "9848033333"}
 r5 = S12.unlock_number(me, dict(me))
@@ -252,7 +252,7 @@ with patch.object(main, "enqueue_whatsapp", return_value={"queued": False}), \
 
 unlocked = client.post("/api/unlock", json={"viewer_id": BUY, "target_id": B1}).json()
 check("E6 accepted interest reveals the target contact with no additional credit charge",
-      unlocked.get("success") is True and unlocked.get("phone") == _B1PH
+      unlocked.get("success") is True and "phone" not in unlocked and _B1PH not in str(unlocked)
       and unlocked.get("charged") == 0 and unlocked.get("credits_left") == 2, unlocked)
 repeat_unlock = client.post("/api/unlock", json={"viewer_id": BUY, "target_id": B1}).json()
 check("E7 repeat accepted reveal remains free", repeat_unlock.get("success") is True
@@ -339,7 +339,7 @@ check("F3 bot search card masks surname/number and directs to the website",
 t_ok = TB.unlock_result_text({"success": True, "phone": "9848012345", "charged": 0,
                               "via": "mutual_consent", "message_telugu": "Accepted"})
 check("F4 accepted-contact text formats the returned number",
-      "9848012345" in t_ok and "అంగీకారం తర్వాత" in t_ok, t_ok[:150])
+      "అంగీకారం తర్వాత" in t_ok and "9848012345" not in t_ok, t_ok[:150])
 t_consent = TB.unlock_result_text({"success": False, "reason": "consent_required",
                                     "message_telugu": "Owner acceptance required"})
 check("F5 consent-required text does not offer a payment bypass", "acceptance" in t_consent.lower()

@@ -324,7 +324,9 @@ def unlock_number(viewer: Dict, target: Dict, *, consent_granted: bool = False) 
             return {"success": False, "reason": "persistence_failed",
                     "phone_masked": mask_phone(target.get("phone", "")),
                     "message_telugu": "⚠️ Contact access could not be saved safely. Please try again."}
-        return {"success": True, "phone": phone, "phone_masked": mask_phone(phone),
+        # 🔒 Raw digits never leave this payload: accepted members reveal contact
+        # through the single-use QR flow (/api/contact/*), not /api/unlock.
+        return {"success": True, "phone_masked": mask_phone(phone),
                 "charged": 0, "credits_left": int(viewer.get("credits", 0) or 0),
                 "via": "mutual_consent",
                 "message_telugu": "✅ Profile owner accept చేశారు. Accepted-request account view లో contact details అందుబాటులో ఉన్నాయి."}

@@ -205,6 +205,7 @@ import topmatch, safety, preview, bot_pool, wa_pool
 import matchbot  # 🧠 Smart Match Assistant — personalized daily briefing + tips
 import digest_engine  # 📬 personalized daily digest engine (generate queue, gated send)
 import smart12 as S12  # 🔒 WAVE 12: masked captions + unlock/entitlement + ₹500 assisted
+import contact_reveal  # 🔒 short-lived single-use contact QR tokens
 import astro as AST      # 🪐 WAVE 13: astrology evidence + Jathakam review
 import ads as ADS        # 📢 WAVE 13: vendor ad campaigns
 import matchpro as MP      # factual age/location helpers; no compatibility ranking
@@ -4648,6 +4649,7 @@ def delete_user_account(payload: dict, request: Request, tsap_id: Optional[str] 
     user["deletion_reason"] = reason
     user["deletion_feedback"] = feedback
     user["partner_name"] = partner_name
+    contact_reveal.invalidate_member(clean_id)   # deletion kills outstanding contact QR tokens
 
     # Voice intro access ends with deactivation: the guarded /voice route fails
     # closed for inactive profiles, and /api/voice metadata 404s. The recording
@@ -6859,6 +6861,9 @@ def _interest_respond_locked(payload: dict, request: Request = None):
     res = respond_interest(rec, owner, requester or {}, action)
     if not res.get("success"):
         return JSONResponse(status_code=400, content=res)
+    if action in ("decline", "withdraw"):
+        # Outstanding contact QR tokens for the pair die with the interest.
+        contact_reveal.invalidate_pair(rec.get("from_id", ""), rec.get("to_id", ""))
 
     wa = {"queued": False, "delivery_confirmed": False}
     if action == "accept" and requester:
@@ -9484,6 +9489,8 @@ def api_report(payload: dict, request: Request = None):
             current.clear()
             current.update(before)
         raise HTTPException(503, "Report could not be saved safely. Please retry.")
+    # Contact goes on hold pending moderation: outstanding QR tokens die on report.
+    contact_reveal.invalidate_pair(_reporter, _target)
     return {"success": True, "kind": kind, "report": rec,
             "auto_hidden": bool(rec.get("auto_flagged")),
             "ack_telugu": safety.report_ack_text(),
@@ -9560,6 +9567,7 @@ def api_block(payload: dict, request: Request = None):
     if not _persist_core_state():
         DB_BLOCKS[:] = [block for block in DB_BLOCKS if block is not rec]
         raise HTTPException(503, "Block could not be saved safely. Please retry.")
+    contact_reveal.invalidate_pair(me, you)   # block kills outstanding contact QR tokens
     return {"success": True, "kind": kind, "block": rec,
             "total_blocks": len(safety.block_list(me, DB_BLOCKS)),
             "message_telugu": "🚫 Block చేశారు — వాళ్లు మీ profile chudalenu, interest కూడా pampalenru"}
@@ -10806,7 +10814,9 @@ def api_unlock(payload: dict, request: Request = None):
         # Existing consent does not survive account deletion/withdrawal.
         raise HTTPException(410, "Contact access is no longer available for this profile")
     if str(viewer.get("status") or "").strip().lower() in {"deleted", "married_fixed", "banned", "inactive", "hidden"}:
-        raise HTTPException(410, "Your account is no longer active")
+        raise HTTPException(410, {"reason": "viewer_inactive",
+                                  "en": "Your account is no longer active",
+                                  "te": "మీ ఖాతా ఇప్పుడు యాక్టివ్‌గా లేదు"})
     blocked_pair = any(
         {str(b.get("tsap_id") or b.get("owner", "")).upper(),
          str(b.get("block_id") or b.get("blocked", "")).upper()} == {viewer_id, target_id}
@@ -10857,6 +10867,79 @@ def api_my_unlocks(viewer_id: str, request: Request = None):
     out = S12.my_unlocks(me["tsap_id"], DB_USERS, accepted_targets=accepted_targets)
     out["credits"] = me.get("credits", 0)
     return out
+
+
+# --- 🔒 Contact reveal via short-lived single-use QR token (full profile page) ---
+_INACTIVE_STATUSES = {"deleted", "married_fixed", "banned", "inactive", "hidden", "rejected"}
+
+
+@app.post("/api/contact/token")
+def api_contact_token(payload: dict, request: Request = None):
+    """Issue a 5-minute single-use contact token after an accepted interest.
+    The token never carries the number; the QR on the profile page encodes only
+    its resolve URL. Owner-gated, mutual-gated, block-aware, rate-limited."""
+    d = payload or {}
+    viewer_id = str(d.get("viewer_id", "")).strip().upper()
+    target_id = str(d.get("target_id", "")).strip().upper()
+    require_owner(request, viewer_id)
+    if not viewer_id or not target_id or viewer_id == target_id:
+        validation_error("target_id", "⚠️ viewer_id + మరో member target_id పంపండి")
+    viewer = _find_user(viewer_id)
+    target = _find_user(target_id)
+    if not viewer or not target or _is_synthetic_profile(target):
+        raise HTTPException(404, "Profile దొరకలేదు — TSAP ID check చెయ్యండి")
+    if str(target.get("status") or "").strip().lower() in _INACTIVE_STATUSES or target.get("is_active") is False:
+        err = contact_reveal.message("target_unavailable")
+        raise HTTPException(410, err)
+    if str(viewer.get("status") or "").strip().lower() in _INACTIVE_STATUSES:
+        raise HTTPException(410, {"reason": "viewer_inactive",
+                                  "en": "Your account is no longer active",
+                                  "te": "మీ ఖాతా ఇప్పుడు యాక్టివ్‌గా లేదు"})
+    if safety.is_blocked(viewer_id, target_id, DB_BLOCKS) or safety.is_blocked(target_id, viewer_id, DB_BLOCKS):
+        err = contact_reveal.message("blocked")
+        raise HTTPException(403, err)
+    if not contact_reveal.is_mutual_accepted(DB_INTERESTS, viewer_id, target_id):
+        err = contact_reveal.message("not_mutual")
+        raise HTTPException(403, err)
+    issued = contact_reveal.issue_token(viewer_id, target_id)
+    if not issued.get("ok"):
+        raise HTTPException(429, issued)
+    return {**issued,
+            "message_en": "QR is valid for 5 minutes and works once. It contains a link, not the phone number.",
+            "message_telugu": "ఈ QR 5 నిమిషాలు మాత్రమే చెల్లుంది, ఒక్కసారే పని చేస్తుంది. ఇందులో ఫోన్ నంబర్ కాదు, లింక్ మాత్రమే ఉంటుంది."}
+
+
+@app.get("/api/contact/resolve/{token}")
+def api_contact_resolve(token: str, request: Request = None):
+    """Single-use resolve: returns a wa.me link + masked number to the owning
+    member's session only. Raw digits still never render on the profile page."""
+    parsed = contact_reveal._decode(str(token)[:256])
+    if parsed:
+        # Owner session is the binding; resolve_token re-checks it internally
+        # as pure defence in depth. No dev-bypass branch lives here.
+        require_owner(request, parsed["viewer"])
+        caller = parsed["viewer"]
+    else:
+        # Force the same auth bar even for malformed tokens: no oracle.
+        require_owner(request, "")
+        caller = ""
+    res = contact_reveal.resolve_token(str(token)[:256], caller, DB_INTERESTS,
+                                       lambda a, b: safety.is_blocked(a, b, DB_BLOCKS))
+    if not res.get("ok"):
+        status = {"already_used": 410, "expired": 410, "revoked": 403, "blocked": 403,
+                  "not_mutual": 403}.get(res["reason"], 404)
+        raise HTTPException(status, res)
+    target = _find_user(res["target"])
+    if not target or str(target.get("status") or "").strip().lower() in _INACTIVE_STATUSES or target.get("is_active") is False:
+        err = contact_reveal.message("target_unavailable")
+        raise HTTPException(410, err)
+    phone = str(target.get("phone", ""))
+    link = contact_reveal.wa_link_for(phone)
+    if not link:
+        raise HTTPException(410, contact_reveal.message("target_unavailable"))
+    return {"ok": True, "wa_link": link, "phone_masked": S12.mask_phone(phone),
+            "message_en": "Opening WhatsApp starts the conversation; the number stays off this page.",
+            "message_telugu": "WhatsApp ఓపెన్ చేస్తే సంభాషణ మొదలవుతుంది; నంబర్ ఈ పేజీలో కనిపించదు."}
 
 
 # --- ₹500 assisted orders (admin) --------------------------------------------

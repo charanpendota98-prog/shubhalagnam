@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
 import { useLang } from "@/lib/lang";
 import { apiDisplayMessage, authHeaders, readApiJson} from "@/lib/api";
-import { normalizeWhatsAppPhone, whatsappPhoneLink } from "@/lib/wa";
+import { whatsappPhoneLink } from "@/lib/wa";
 import { SITE_CONFIG } from "@/lib/site-config";
 
 declare global { interface Window { Razorpay?: any } }
@@ -67,12 +67,6 @@ export default function QuickUnlockModal({
   const [paymentComplete, setPaymentComplete] = useState(false);
   const [utr, setUtr] = useState("");
   const [utrBusy, setUtrBusy] = useState(false);
-  const normalizedUnlockedPhone = normalizeWhatsAppPhone(unlockedPhone);
-  const unlockedWhatsAppUrl = target
-    ? whatsappPhoneLink(unlockedPhone, te
-      ? `నమస్కారం, మన వివాహ (Mana Vivaha) మ్యాట్రిమోనీలో మీ ప్రొఫైల్ (${target.tsap_id}) చూసి సంప్రదిస్తున్నాను.`
-      : `Hello, I found your profile (${target.tsap_id}) on Mana Vivaha and would like to connect.`)
-    : null;
   const paymentHelpUrl = target
     ? whatsappPhoneLink(SITE_CONFIG.supportWhatsapp, te
       ? `నమస్కారం మన వివాహ హెల్ప్‌లైన్! నా ప్రొఫైల్ కోసం ప్లాన్ చెల్లింపులో సహాయం కావాలి. లక్ష్య ప్రొఫైల్ ID: ${target.tsap_id}.`
@@ -151,10 +145,12 @@ export default function QuickUnlockModal({
         }),
       });
       const data = await readApiJson(res);
-      if (res.ok && data.success && data.phone) {
-        setUnlockedPhone(data.phone);
+      if (res.ok && data.success) {
+        // 🔒 /api/unlock no longer returns raw digits — masked only. The actual
+        // reveal happens through the single-use contact QR on the profile page.
+        setUnlockedPhone(String(data.phone_masked || "yes"));
         setSuccessMsg(apiDisplayMessage(data, te, te ? "✅ అంగీకారం తర్వాత contact details అందుబాటులో ఉన్నాయి." : "✅ Contact details are available after acceptance."));
-        if (onUnlocked) onUnlocked(data.phone);
+        if (onUnlocked) onUnlocked(String(data.phone_masked || "yes"));
       } else if (data.reason === "consent_required" || data.reason === "no_credits") {
         // Keep the request-credit options visible; paid credits cannot bypass consent.
       } else if (!res.ok) {
@@ -439,27 +435,18 @@ export default function QuickUnlockModal({
                 {unlockedPhone}
               </div>
               <p className="text-xs text-emerald-700 font-medium">
-                {te ? "గౌరవంగా మాట్లాడండి; వివరాలను స్వతంత్రంగా నిర్ధారించండి 🙏" : "Speak respectfully and verify details independently 🙏"}
+                {te ? "గౌరవంగా మాట్లాడండి; వివరాలను స్వతంత్రంగా నిర్ధారించండి 🙏 పూర్తి నంబర్ కోసం profile page లోని Contact QR వాడండి — అది 5 నిమిషాలు మాత్రమే చెల్లుతుంది." : "Speak respectfully and verify details independently 🙏 For the full number, use the Contact QR on the profile page — it stays valid for 5 minutes."}
               </p>
               <div className="flex gap-2.5 pt-1">
-                <a
-                  href={normalizedUnlockedPhone ? `tel:+${normalizedUnlockedPhone}` : undefined}
-                  aria-disabled={!normalizedUnlockedPhone}
-                  className="flex-1 py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs flex items-center justify-center gap-1.5 shadow-md transition aria-disabled:pointer-events-none aria-disabled:opacity-50"
-                >
-                  <span>📞</span>
-                  <span>{te ? "డైరెక్ట్ కాల్" : "Call Now"}</span>
-                </a>
-                <a
-                  href={unlockedWhatsAppUrl || undefined}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-disabled={!unlockedWhatsAppUrl}
-                  className="flex-1 py-2.5 px-4 rounded-xl bg-[#25D366] hover:brightness-105 text-white font-black text-xs flex items-center justify-center gap-1.5 shadow-md transition aria-disabled:pointer-events-none aria-disabled:opacity-50"
-                >
-                  <span>💬</span>
-                  <span>{te ? "వాట్సాప్ మెసేజ్" : "WhatsApp"}</span>
-                </a>
+                {target?.tsap_id ? (
+                  <a
+                    href={`/search/${encodeURIComponent(target.tsap_id)}`}
+                    className="flex-1 py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs flex items-center justify-center gap-1.5 shadow-md transition"
+                  >
+                    <span>📇</span>
+                    <span>{te ? "Profile లో Contact QR చూడండి" : "View Contact QR on profile"}</span>
+                  </a>
+                ) : null}
               </div>
             </div>
           ) : payOrder ? (

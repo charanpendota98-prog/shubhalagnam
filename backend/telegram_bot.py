@@ -127,7 +127,7 @@ def unlock_result_text(data: dict) -> str:
     """POST /api/unlock response → user message."""
     d = data or {}
     if d.get("success"):
-        return (f"✅ అంగీకారం తర్వాత contact details అందుబాటులో ఉన్నాయి\n📞 `{d.get('phone','—')}`\n"
+        return (f"✅ అంగీకారం తర్వాత contact details అందుబాటులో ఉన్నాయి\n📇 పూర్తి నంబర్ కోసం website profile లోని Contact QR వాడండి\n"
                 f"📝 గౌరవంగా మాట్లాడండి — all the best! 💍")
     if d.get("reason") == "consent_required":
         return "🔒 " + str(d.get("message_telugu", "Interest పంపి profile owner acceptance కోసం వేచి ఉండండి."))
