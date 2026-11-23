@@ -400,8 +400,8 @@ def _review_safe(value):
             phone_shape = digits[1] in "23456789"
             is_contact = phone_shape and (
                 digits[1] in "6789" or grouped or _REVIEW_PHONE_CUE.search(before))
-            # Ungrouped landlines without a phone cue remain outside this
-            # added rule; always retain the base sanitizer on unmatched text.
+            # Bare ungrouped 02-05 landlines without a phone cue remain
+            # unchanged. The shared sanitizer is also a no-op on those forms.
             pieces.append("[contact hidden]" if is_contact else sanitize_public_payload(match[0]))
             cursor = match.end()
         pieces.append(sanitize_public_payload(normalized[cursor:]))
