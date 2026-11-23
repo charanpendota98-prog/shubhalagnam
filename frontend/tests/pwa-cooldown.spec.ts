@@ -65,3 +65,26 @@ test("an explicit install control still opens the bar during the cooldown", asyn
   await page.evaluate(() => window.dispatchEvent(new Event("tsap:install-show")));
   await expect(bar(page)).toBeVisible();
 });
+
+test("a corrupt stored value stays quiet (same policy as unreadable storage)", async ({ page }) => {
+  await open(page, (k) => localStorage.setItem(k as string, "not-a-date"), KEY);
+  await page.evaluate(() => window.dispatchEvent(new Event("beforeinstallprompt")));
+  await page.waitForTimeout(7500);
+  await expect(bar(page)).toHaveCount(0);
+});
+
+test("an installed marker keeps the bar away for good", async ({ page }) => {
+  await open(page, () => localStorage.setItem("tsap_pwa_installed", "1"));
+  await page.evaluate(() => window.dispatchEvent(new Event("beforeinstallprompt")));
+  await page.waitForTimeout(7500);
+  await expect(bar(page)).toHaveCount(0);
+});
+
+test("Escape closes the bar and starts the cooldown", async ({ page }) => {
+  await open(page);
+  expect(await firePrompt(page)).toBe(true);
+  await expect(bar(page)).toHaveAttribute("role", "dialog");
+  await page.keyboard.press("Escape");
+  await expect(bar(page)).toHaveCount(0);
+  expect(await page.evaluate((k) => localStorage.getItem(k), KEY)).toMatch(/^\d{4}-\d\d-\d\dT/);
+});
