@@ -18,6 +18,7 @@ import { authHeaders } from "@/lib/api";
 import { useSession } from "@/lib/auth";
 import Link from "next/link";
 import ScamGuide from "@/components/ScamGuide";
+import { Flag } from "lucide-react";
 
 type Tip = { icon: string; title: string; telugu: string };
 type Cat = { key: string; te: string; severity: string; desc: string };
@@ -249,7 +250,7 @@ export default function SafetyPage() {
 
         {/* ---- report form ---- */}
         <div className="bg-white rounded-[1.5rem] border border-rose-200 p-5">
-          <div className="font-bold text-rose-800 text-[16px]">{te ? "🚩 గోప్యంగా రిపోర్ట్ చేయండి" : "🚩 Submit a confidential report"}</div>
+          <div className="font-bold text-rose-800 text-[16px] flex items-center gap-2" data-testid="safety-report-title"><Flag className="h-4 w-4 shrink-0" aria-hidden="true" />{te ? "గోప్యంగా రిపోర్ట్ చేయండి" : "Submit a confidential report"}</div>
           <div className="text-[12px] text-gray-600 mt-1">
             {te ? "Fake profile / advance money / harassment / photo misuse — మీ ఖాతాలో లాగిన్ అయి report చేయండి. సమీక్ష కోసం report మీ ఖాతా Profile ID తో నమోదవుతుంది; ఇది anonymous submission కాదు." : "Fake profile / advance money / harassment / photo misuse — sign in to report. Your account Profile ID is recorded with the report for moderation review; this is not an anonymous submission."}
           </div>
@@ -278,8 +279,8 @@ export default function SafetyPage() {
           </div>
           <div className="mt-3 flex flex-wrap gap-2">
             <button type="button" onClick={submitReport} disabled={busy || !sessionReady}
-              className="px-5 py-3 rounded-2xl bg-rose-700 text-white font-bold text-[13px] disabled:opacity-60">
-              {busy ? (te ? "పంపిస్తున్నాం…" : "Sending…") : te ? "🚩 Report పంపు" : "🚩 Send report"}
+              className="px-5 py-3 rounded-2xl inline-flex items-center gap-2 bg-rose-700 text-white font-bold text-[13px] disabled:opacity-60">
+              {!busy && <Flag className="h-4 w-4 shrink-0" aria-hidden="true" />}{busy ? (te ? "పంపిస్తున్నాం…" : "Sending…") : te ? "Report పంపు" : "Send report"}
             </button>
             <button type="button" onClick={() => doBlock(report.target_id)} disabled={!report.target_id || !myId || blockBusy || !sessionReady}
               className="px-5 py-3 rounded-2xl border border-rose-300 text-rose-700 font-bold text-[13px] disabled:opacity-50">
