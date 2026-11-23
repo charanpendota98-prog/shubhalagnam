@@ -469,8 +469,10 @@ def respond_interest(rec: Dict, owner: Dict, requester: Dict, action: str) -> Di
     if action == "accept":
         rec["status"] = "accepted"
         rec["contact_shared"] = True
-        out["owner_phone"] = owner.get("phone", "")
-        out["requester_phone"] = requester.get("phone", "")
+        # Masked only: the full number is reached through the single-use contact QR
+        # on the other member's profile page (contact_reveal), never in a JSON list.
+        out["owner_phone"] = mask_phone(owner.get("phone", ""))
+        out["requester_phone"] = mask_phone(requester.get("phone", ""))
         out["contact_access_granted"] = True
         out["message"] = "✅ Accept అయ్యింది — accepted-request account views లో contact access అందుబాటులో ఉంది; notification delivery నిర్ధారించబడలేదు."
     elif action == "decline":
@@ -612,7 +614,7 @@ def inbox_for(user: Dict, users: List[Dict], interests: List[Dict]) -> Dict:
         for key in ("score", "match_score", "compatibility_score", "trust_score", "grade", "reasons"):
             item.pop(key, None)
         item["requester"] = safe_user(req_user)
-        item["requester_phone"] = (req_user or {}).get("phone", "") if i.get("contact_shared") else "🔒 accept చెయ్యండి"
+        item["requester_phone"] = mask_phone((req_user or {}).get("phone", "")) if i.get("contact_shared") else "🔒 accept చెయ్యండి"
         item["actions"] = ["accept", "decline"] if i.get("status") == "pending" else []
         out.append(item)
     return {
@@ -638,7 +640,7 @@ def sent_for(user: Dict, users: List[Dict], interests: List[Dict]) -> Dict:
         for key in ("score", "match_score", "compatibility_score", "trust_score", "grade", "reasons"):
             item.pop(key, None)
         item["profile"] = safe_user(to_user)
-        item["contact"] = (to_user or {}).get("phone", "") if i.get("status") == "accepted" else "🔒 accept అయ్యాక"
+        item["contact"] = mask_phone((to_user or {}).get("phone", "")) if i.get("status") == "accepted" else "🔒 accept అయ్యాక"
         out.append(item)
     return {
         "tsap_id": me,

@@ -6880,7 +6880,7 @@ def _interest_respond_locked(payload: dict, request: Request = None):
             "delivery_confirmed": False,
             "note": "Queue state only; external WhatsApp delivery was not checked.",
         }
-        res["contact"] = {"name": requester.get("full_name"), "phone": requester.get("phone", "")}
+        res["contact"] = {"name": requester.get("full_name"), "phone": mask_phone(requester.get("phone", ""))}
         # This records the access grant from owner acceptance, not message delivery.
         try:
             log_consent("interest_accepted", owner.get("tsap_id", ""), requester.get("tsap_id", ""),

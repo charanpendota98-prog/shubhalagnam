@@ -8,6 +8,7 @@ protection remains enabled and is tested rather than bypassed.
 """
 from __future__ import annotations
 
+import json
 import os
 import re
 import sys
@@ -352,9 +353,10 @@ with TestClient(main.app, raise_server_exceptions=False) as client:
     accepted = accepted_response.json()
     result = accepted.get("result") or {}
     contact = result.get("contact") or {}
-    check("accept grants contact access to the owner-side response",
+    check("accept grants contact access (masked only) to the owner-side response",
           accepted_response.status_code == 200 and accepted.get("success") is True
-          and contact.get("phone") == GROOM_PHONE and result.get("owner_phone") == BRIDE_PHONE)
+          and contact.get("phone") == mask_phone(GROOM_PHONE) and result.get("owner_phone") == mask_phone(BRIDE_PHONE)
+          and GROOM_PHONE not in json.dumps(accepted) and BRIDE_PHONE not in json.dumps(accepted))
     check("accept notification queue is not represented as delivery proof",
           (accepted.get("whatsapp") or {}).get("delivery_confirmed") is False)
 
@@ -364,10 +366,10 @@ with TestClient(main.app, raise_server_exceptions=False) as client:
     accepted_sent = client.get(f"/api/interest/sent/{GROOM_ID}").json()
     accepted_out = next((row for row in accepted_sent.get("sent", [])
                          if row.get("request_id") == request_id), {})
-    check("accepted recipient inbox shows the consented requester contact",
-          accepted_row.get("status") == "accepted" and accepted_row.get("requester_phone") == GROOM_PHONE)
-    check("accepted requester view shows the consented owner contact",
-          accepted_out.get("status") == "accepted" and accepted_out.get("contact") == BRIDE_PHONE)
+    check("accepted recipient inbox shows only the masked requester contact",
+          accepted_row.get("status") == "accepted" and accepted_row.get("requester_phone") == mask_phone(GROOM_PHONE) and GROOM_PHONE not in json.dumps(accepted_inbox))
+    check("accepted requester view shows only the masked owner contact",
+          accepted_out.get("status") == "accepted" and accepted_out.get("contact") == mask_phone(BRIDE_PHONE) and BRIDE_PHONE not in json.dumps(accepted_sent))
 
     consent = client.get(f"/api/consent/log/{BRIDE_ID}").json()
     check("consent ledger records acceptance, not notification delivery",
