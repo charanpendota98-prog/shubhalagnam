@@ -86,6 +86,9 @@ check('leading zero Telugu contact hidden','౦౯౮౭౬౫౪౩౨౧౦' n
 from unittest.mock import patch
 with patch.object(P,'create_review_link',side_effect=ValueError('isolated eligibility changed')):
     check('create state race returns HTTP 404',c.post('/api/me/'+base['tsap_id']+'/review-links',headers=hdr,json={}).status_code==404)
+for field in ['ttl_hours','max_views']:
+    for value in ['abc',['bad'],{'bad':1}]:
+        check('malformed '+field+' returns HTTP 400 '+str(value),c.post('/api/me/'+base['tsap_id']+'/review-links',headers=hdr,json={field:value}).status_code==400)
 failed=[name for name,ok in checks if not ok]
 print({'checks':len(checks),'passed':len(checks)-len(failed),'failed':failed})
 assert not failed

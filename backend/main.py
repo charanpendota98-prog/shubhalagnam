@@ -24,6 +24,7 @@ from photo_face import check_photo_face
 from photo_text import check_photo_text
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, Response
+from request_privacy import redact_review_tokens, safe_request_path
 from atomic_store import atomic_json_dump, atomic_write_bytes
 from typing import Any, Dict, List, Optional
 from contextlib import asynccontextmanager
@@ -2062,11 +2063,11 @@ async def _telugu_500_handler(request: Request, exc: Exception):
         import traceback as _tb
         ref = "ERR-%s" % datetime.utcnow().strftime("%d%H%M%S")
         try:
-            abuse_log("unhandled_500", request.url.path if request else "?", {"ref": ref, "err": str(exc)[:160]})
+            abuse_log("unhandled_500", safe_request_path(request), {"ref": ref, "err": redact_review_tokens(str(exc))[:160]})
         except Exception:
             pass
-        print(f"[500 {ref}] {request.url.path if request else '?'}: {exc!r}")
-        print(_tb.format_exc()[-1500:])
+        print(redact_review_tokens(f"[500 {ref}] {safe_request_path(request)}: {exc!r}"))
+        print(redact_review_tokens(_tb.format_exc())[-1500:])
     except Exception:
         ref = "ERR-?"
     return JSONResponse(status_code=500, content={
@@ -2570,7 +2571,7 @@ async def _startup_publisher():
 #    (page + API calls anni anonymous ga log: path, referrer, device, channel)
 # ---------------------------------------------------------------------------
 _SKIP_TRACK = (
-    "/_next", "/static", "/favicon", "/cards/", "/photos/",
+    "/_next", "/static", "/favicon", "/cards/", "/photos/", "/api/review-links/",
     "/api/health", "/api/ready", "/metrics", "/health", "/robots", "/sitemap",
 )
 _REQUEST_ID_RE = re.compile(r"^[A-Za-z0-9._-]{8,80}$")
@@ -2625,7 +2626,7 @@ async def _track_visits_middleware(request: Request, call_next):
             ua = request.headers.get("user-agent", "")
             ref = request.headers.get("referer", "")
             utm = request.url.query if "utm_" in str(request.url.query) else ""
-            track_visit(ip, ua, path, ref, utm)
+            track_visit(ip, ua, redact_review_tokens(path), ref, utm)
     except Exception:
         pass  # tracking eppudu main request ni aapakudadu
     return await call_next(request)

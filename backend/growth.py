@@ -21,6 +21,7 @@ import os
 import random
 import re
 import threading
+from request_privacy import redact_review_tokens
 
 SITE = os.getenv("PUBLIC_SITE_URL", "https://manavivaha.in").rstrip("/")
 BOT_USERNAME = os.getenv("BOT_USERNAME", "").strip()
@@ -112,7 +113,7 @@ def _vid(ip: str, ua: str) -> str:
 
 
 def _safe_path(raw: str) -> str:
-    path = str(raw or "/").split("?", 1)[0].split("#", 1)[0][:160]
+    path = redact_review_tokens(raw or "/").split("?", 1)[0].split("#", 1)[0][:160]
     if (not path.startswith("/") or path.startswith("//") or chr(92) in path
             or "@" in path or re.search(r"\d{8,}", path)):
         return "/"

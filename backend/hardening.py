@@ -16,6 +16,7 @@ unna appudu enforcement skip avutundi (documented, single place).
 """
 from __future__ import annotations
 
+from request_privacy import redact_review_tokens, safe_request_path
 import base64
 import hashlib
 import hmac
@@ -513,7 +514,7 @@ def rate_limit_hit(request: Request, extra_key: str = "") -> Optional[Dict[str, 
             return None
     except Exception:
         pass
-    rule_key = f"{request.method} {request.url.path}"
+    rule_key = f"{request.method} {safe_request_path(request)}"
     rule = RL_RULES.get(rule_key)
     if rule is None:
         # Dynamic routes (for example /api/referral/click/{code}) share an
@@ -525,7 +526,7 @@ def rate_limit_hit(request: Request, extra_key: str = "") -> Optional[Dict[str, 
                 break
     max_hits, window = rule or RL_DEFAULT
     identity = client_ip(request)
-    ident = f"{identity}|{rule_key}|{extra_key}"
+    ident = f"{identity}|{rule_key}|{redact_review_tokens(extra_key)}"
     now = time.time()
     # The middleware runs concurrently under ASGI.  Protect the check-and-append
     # pair, otherwise two requests can both observe the same bucket length and
@@ -554,7 +555,7 @@ def viewer_rate_limit_hit(request: Request, viewer_id: str, max_hits: int, windo
     # member's personal quota.
     if is_admin(request) or is_automation(request):
         return None
-    ident = f"viewer:{str(viewer_id).upper()}|{request.method} {request.url.path.split('/api/contact/')[0]}/api/contact/"
+    ident = f"viewer:{str(viewer_id).upper()}|{request.method} {safe_request_path(request).split('/api/contact/')[0]}/api/contact/"
     now = time.time()
     with _RL_LOCK:
         bucket = _RL_BUCKETS.setdefault(ident, deque())
@@ -570,7 +571,7 @@ def viewer_rate_limit_hit(request: Request, viewer_id: str, max_hits: int, windo
 
 
 def abuse_log(kind: str, where: str, data: Optional[Dict[str, Any]] = None) -> None:
-    ABUSE["events"].append({"at": datetime.utcnow().isoformat(), "kind": kind, "where": where,
+    ABUSE["events"].append({"at": datetime.utcnow().isoformat(), "kind": kind, "where": redact_review_tokens(where),
                             "data": {k: v for k, v in (data or {}).items() if k not in ("phone", "otp")}})
 
 

@@ -43,6 +43,9 @@ socket.socket.connect=guarded
    try:
     with urllib.request.urlopen('http://127.0.0.1:8000/api/auth/capabilities',timeout=1) as r:data=json.load(r)
     assert data=={'password_login':True,'login_identifier':'phone','phone_otp':False,'email_recovery_configured':True,'passkeys_configured':False,'email_optional_at_registration':True}
+    try:
+     urllib.request.urlopen('http://127.0.0.1:8000/api/review-links/rv_IsolatedAccessLogToken',timeout=2)
+    except urllib.error.HTTPError as e:assert e.code==404
     print('PASS actual serve_production preflight -> exec uvicorn backend.main:app -> HTTP200 capabilities; isolated fixture, exact cwd/interpreter; no external network');break
    except (OSError,urllib.error.URLError):time.sleep(.2)
   else:raise RuntimeError('startup deadline')
@@ -50,5 +53,5 @@ socket.socket.connect=guarded
   os.killpg(p.pid,signal.SIGTERM)
   try:p.wait(timeout=8)
   except subprocess.TimeoutExpired:os.killpg(p.pid,signal.SIGKILL);p.wait()
-  log.flush();log.seek(0);print(log.read());log.close()
+  log.flush();log.seek(0);rendered=log.read();assert 'rv_IsolatedAccessLogToken' not in rendered and '/api/review-links/{token}' in rendered;print(rendered);log.close()
 finally:shutil.rmtree(root)
