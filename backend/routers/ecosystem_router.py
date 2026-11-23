@@ -213,7 +213,8 @@ def build_ecosystem_router(ctx: Dict[str, Callable[..., Any] | Any]) -> APIRoute
         owner = find_user(oid)
         st = get_state()
         if (not owner or safety.is_blocked(vid, oid, st["blocks"])
-                or (vid != oid and not is_approved_profile(owner))):
+                or (vid != oid and (not is_approved_profile(owner)
+                                    or owner.get("photo_status") != "approved"))):
             raise HTTPException(404, "Photo not found")
         if vid != oid and not ECOSYSTEM3.has_photo_access(vid, oid):
             raise HTTPException(403, "Photo access has not been granted by the profile owner.")
