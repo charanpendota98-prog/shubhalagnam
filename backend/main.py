@@ -2253,10 +2253,14 @@ def guarded_profile_photo(filename: str, request: Request):
         cms_public_reference = False
 
     is_private = any(bool(u.get("photo_private") or u.get("privacy_mode") == "private") for u in owners)
-    has_public_photo_reference = cms_public_reference or (
-        not selfie_owners and not is_private
-        and any(_is_approved_profile(u) and u.get("photo_status") == "approved" for u in photo_owners)
+    # CMS can publish standalone media, but cannot promote member-owned photos
+    # past privacy, approval, activity or selfie restrictions.
+    member_photo_public = (
+        bool(photo_owners) and not selfie_owners and not is_private
+        and all(_is_approved_profile(u) and u.get("photo_status") == "approved"
+                for u in photo_owners)
     )
+    has_public_photo_reference = member_photo_public or (cms_public_reference and not owners)
     identity = token_from_request(request)
     owner_ids = {str(u.get("tsap_id", "")).strip().upper() for u in owners}
     viewer_id = str(identity.get("tsap_id", "")).strip().upper() if identity else ""
@@ -2269,7 +2273,8 @@ def guarded_profile_photo(filename: str, request: Request):
     # Allow expiring signed photo-access token or approved private-photo grant when viewer is not blocked.
     has_signed_or_granted_access = False
     if (not selfie_owners and not has_public_photo_reference and not is_owner
-            and owners and all(_is_approved_profile(owner) for owner in owners)):
+            and owners and all(_is_approved_profile(owner) and owner.get("photo_status") == "approved"
+                               for owner in owners)):
         access_token = (request.query_params.get("access_token") or "").strip()
         try:
             import ecosystem3 as ECOSYSTEM3
