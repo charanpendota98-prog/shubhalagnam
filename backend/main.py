@@ -2226,6 +2226,9 @@ def _regenerate_profile_card_locked(profile: Dict[str, Any]) -> bool:
         return False
 
 
+PUBLIC_PHOTO_CACHE_CONTROL = "public, max-age=300"
+
+
 @app.get("/photos/{filename}")
 def guarded_profile_photo(filename: str, request: Request):
     """Serve approved public profile photos; keep private, pending, and selfie media gated."""
@@ -2293,7 +2296,7 @@ def guarded_profile_photo(filename: str, request: Request):
             raise HTTPException(404, "Photo not found")
 
     path = _media_file(PHOTO_MEDIA_DIR, filename)
-    cache = "public, max-age=3600" if has_public_photo_reference else "private, no-store"
+    cache = PUBLIC_PHOTO_CACHE_CONTROL if has_public_photo_reference else "private, no-store"
     return FileResponse(path, headers={"Cache-Control": cache, "X-Content-Type-Options": "nosniff"})
 
 

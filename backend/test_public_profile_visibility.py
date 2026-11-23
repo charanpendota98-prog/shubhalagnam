@@ -187,7 +187,7 @@ class PublicProfileVisibilityTests(unittest.TestCase):
         main.CMS.upsert_story(story_id, "Test Groom", "Test Bride", photo_url, published=True)
         published_photo = self.client.get(photo_url)
         self.assertEqual(published_photo.status_code, 200)
-        self.assertEqual(published_photo.headers.get("cache-control"), "public, max-age=3600")
+        self.assertEqual(published_photo.headers.get("cache-control"), main.PUBLIC_PHOTO_CACHE_CONTROL)
 
     def test_external_photo_urls_are_not_returned_or_used_for_photo_only_search(self) -> None:
         self.profile["photo_url"] = "https://images.invalid/member.jpg"

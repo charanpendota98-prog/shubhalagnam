@@ -96,6 +96,16 @@ owner['is_active'] = True
 owner['selfie_url'] = '/photos/replacement.png'
 check('CMS selfie stays private', get('replacement.png').status_code, 404)
 check('standalone CMS image remains public', get('cms-only.png').status_code, 200)
+# One filename referenced by two owners must satisfy BOTH owners.
+owner.pop('selfie_url',None)
+owner.update(photo_private=False,privacy_mode='public',photo_status='approved')
+peer.update(photo_url='/photos/replacement.png',photo_private=False,privacy_mode='public',photo_status='pending')
+check('mixed-owner pending blocks public',get('replacement.png').status_code,404)
+peer['photo_status']='approved';peer['photo_private']=True
+check('mixed-owner private blocks public',get('replacement.png').status_code,404)
+peer['photo_private']=False
+check('both owners approved public',get('replacement.png').status_code,200)
+check('public photo cache five minutes',get('replacement.png').headers.get('cache-control'),'public, max-age=300')
 failures = [x for x in checks if not x[1]]
 print({'checks': len(checks), 'passed': len(checks) - len(failures), 'failures': failures})
 assert not failures

@@ -18,7 +18,7 @@ base = dict(tsap_id='SYNELDER1', full_name='Isolated Owner', status='approved', 
 owner = dict(base)
 M.DB_USERS[:] = [owner]
 M._reindex_users()
-rec = P.create_review_link(owner, ttl_hours=48, max_views=100)
+rec = P.create_review_link(owner,is_approved_profile=M._is_approved_profile, ttl_hours=48, max_views=100)
 url = '/api/review-links/' + rec['token']
 checks = []
 def check(label, value):checks.append((label, bool(value)))
@@ -48,11 +48,11 @@ check('active feedback works',c.post(url+'/feedback',json={'reviewer_name':'Test
 assert P.revoke_review_link(base['tsap_id'],rec['link_id'])
 check('revoked resolution denied',c.get(url).status_code==404)
 check('revoked feedback denied',c.post(url+'/feedback',json={'reviewer_name':'Test Elder','note':'An isolated note'}).status_code in [400,404])
-limited=P.create_review_link(owner,max_views=1)
+limited=P.create_review_link(owner,is_approved_profile=M._is_approved_profile,max_views=1)
 limited_url='/api/review-links/'+limited['token']
 check('view cap permits first view',c.get(limited_url).status_code==200)
 check('view cap denies second view',c.get(limited_url).status_code==404)
-expired=P.create_review_link(owner)
+expired=P.create_review_link(owner,is_approved_profile=M._is_approved_profile)
 with P._LOCK:
     st=P._load_state()
     next(x for x in st['review_links'] if x['link_id']==expired['link_id'])['expires_at']='2000-01-01T00:00:00+00:00'
@@ -60,6 +60,32 @@ with P._LOCK:
 expired_url='/api/review-links/'+expired['token']
 check('expired resolution denied',c.get(expired_url).status_code==404)
 check('expired feedback denied',c.post(expired_url+'/feedback',json={'reviewer_name':'Test Elder','note':'An isolated note'}).status_code in [400,404])
+# Explicit separate-request state flip and create-time denial.
+owner.clear();owner.update(base)
+fresh=P.create_review_link(owner,is_approved_profile=M._is_approved_profile)
+fresh_url='/api/review-links/'+fresh['token']
+check('resolve before state flip',c.get(fresh_url).status_code==200)
+owner['is_active']=False
+check('feedback after state flip denied',c.post(fresh_url+'/feedback',json={'reviewer_name':'Elder','note':'Contact 9876543210'}).status_code in [400,404])
+hdr={'X-TSAP-Token':M.sign_token(base['tsap_id'])}
+check('inactive create denied',c.post('/api/me/'+base['tsap_id']+'/review-links',headers=hdr,json={}).status_code==404)
+owner['is_active']=True
+check('eligible create allowed',c.post('/api/me/'+base['tsap_id']+'/review-links',headers=hdr,json={}).status_code==200)
+check('feedback sanitized',c.post(fresh_url+'/feedback',json={'reviewer_name':'Elder','note':'Contact ౯౮౭౬౫౪౩౨౧౦ or elder@example.invalid'}).status_code==200)
+notes=str(P.list_review_links(base['tsap_id']))
+check('feedback contact removed','9876543210' not in notes and '౯౮౭౬౫౪౩౨౧౦' not in notes and 'elder@example.invalid' not in notes)
+for text in ['౯౮౭౬౫౪౩౨౧౦','９８７６５４３２１０']:
+    owner['about_myself']='Call '+text
+    check('local digit variant scrubbed '+text,text not in c.get(fresh_url).text and '9876543210' not in c.get(fresh_url).text)
+from interest import sanitize_public_text
+check('shared sanitizer unchanged',sanitize_public_text('౯౮౭౬౫౪౩౨౧౦')=='౯౮౭౬౫౪౩౨౧౦')
+check('unmatched Telugu numeral preserved',P._review_safe('వయసు ౨౮')=='వయసు ౨౮')
+check('unmatched fullwidth numeral preserved',P._review_safe('Age ２８')=='Age ２８')
+check('leading zero contact hidden','09876543210' not in P._review_safe('Call 09876543210'))
+check('leading zero Telugu contact hidden','౦౯౮౭౬౫౪౩౨౧౦' not in P._review_safe('Call ౦౯౮౭౬౫౪౩౨౧౦'))
+from unittest.mock import patch
+with patch.object(P,'create_review_link',side_effect=ValueError('isolated eligibility changed')):
+    check('create state race returns HTTP 404',c.post('/api/me/'+base['tsap_id']+'/review-links',headers=hdr,json={}).status_code==404)
 failed=[name for name,ok in checks if not ok]
 print({'checks':len(checks),'passed':len(checks)-len(failed),'failed':failed})
 assert not failed
