@@ -381,9 +381,8 @@ def _review_eligible(user, is_approved_profile) -> bool:
 
 
 # Leading-zero phone and landline matching is intentionally review-local.
-_REVIEW_ZERO_NUMBER = re.compile(r"(?<![\w])0(?:[\s().-]*\d){10}(?![\w])")
-_REVIEW_PHONE_CUE = re.compile(r"(?<!\w)(?:call|phone|mobile|contact|tel(?:ephone)?|landline|whatsapp|ఫోన్|మొబైల్|సంప్రదించండి)\s*[:=.-]?\s*$", re.I)
-_REVIEW_ID_CUE = re.compile(r"(?<!\w)(?:application|reference|registration|receipt|account|order|member|ticket|tracking|id|అప్లికేషన్|సంఖ్య)(?:\s+(?:id|number|no\.?))?\s*[:=#.-]?\s*$", re.I)
+_REVIEW_ZERO_NUMBER = re.compile(r"(?<!\d)0(?:[\s().-]*\d){10}(?!\d)")
+_REVIEW_PHONE_CUE = re.compile(r"(?:call|phone|mobile|contact|tel(?:ephone)?|landline|whatsapp|ఫోన్|మొబైల్|సంప్రదించండి|కాల్)(?:\s+(?:number|no\.?|నంబర్|సంఖ్య))?\s*[:=.-]?\s*$", re.I)
 
 
 def _review_safe(value):
@@ -399,11 +398,11 @@ def _review_safe(value):
             digits = re.sub(r"\D", "", match[0])
             grouped = bool(re.search(r"[\s().-]", match[0]))
             phone_shape = digits[1] in "23456789"
-            is_contact = phone_shape and not _REVIEW_ID_CUE.search(before) and (
+            is_contact = phone_shape and (
                 digits[1] in "6789" or grouped or _REVIEW_PHONE_CUE.search(before))
-            # Preserve explicit identifiers without passing a separated mobile
-            # suffix through the broader shared sanitizer.
-            pieces.append("[contact hidden]" if is_contact else match[0])
+            # Ungrouped landlines without a phone cue remain outside this
+            # added rule; always retain the base sanitizer on unmatched text.
+            pieces.append("[contact hidden]" if is_contact else sanitize_public_payload(match[0]))
             cursor = match.end()
         pieces.append(sanitize_public_payload(normalized[cursor:]))
         scrubbed = "".join(pieces)
