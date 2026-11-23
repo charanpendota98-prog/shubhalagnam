@@ -37,12 +37,20 @@ function ResolveInner() {
   const started = useRef(false);
   const te = teluguUi();
 
+  const fragmentToken = useRef<string | null>(null);
+
   useEffect(() => {
-    const m = /(?:^#|&)t=([^&]+)/.exec(window.location.hash || "");
-    let t = "";
-    try { t = m ? decodeURIComponent(m[1]).slice(0, 256) : ""; } catch { t = ""; }
-    if (window.location.hash) window.history.replaceState(null, "", window.location.pathname);
-    setToken(t);
+    // Read the fragment once and keep it in a ref. React Strict Mode (dev) runs
+    // effects twice; the second run would see the already-cleared address bar
+    // and overwrite the token with an empty one.
+    if (fragmentToken.current === null) {
+      const m = /(?:^#|&)t=([^&]+)/.exec(window.location.hash || "");
+      let t = "";
+      try { t = m ? decodeURIComponent(m[1]).slice(0, 256) : ""; } catch { t = ""; }
+      if (window.location.hash) window.history.replaceState(null, "", window.location.pathname);
+      fragmentToken.current = t;
+    }
+    setToken(fragmentToken.current);
   }, []);
 
   useEffect(() => {
