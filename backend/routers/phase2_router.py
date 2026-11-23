@@ -21,6 +21,7 @@ def build_phase2_router(ctx: Dict[str, Callable[..., Any] | Any]) -> APIRouter:
 
     clean = ctx["clean"]
     find_user = ctx["find_user"]
+    is_approved_profile = ctx["is_approved_profile"]
     require_owner = ctx["require_owner"]
     require_admin = ctx["require_admin"]
     log_consent = ctx["log_consent"]
@@ -281,7 +282,7 @@ def build_phase2_router(ctx: Dict[str, Callable[..., Any] | Any]) -> APIRouter:
 
     @router.get("/api/review-links/{token}")
     def api_resolve_public_review_link(token: str):
-        ok, msg, data = PHASE2.resolve_review_link(token, find_user, increment_view=True)
+        ok, msg, data = PHASE2.resolve_review_link(token, find_user, is_approved_profile=is_approved_profile, increment_view=True)
         if not ok:
             raise HTTPException(404, msg)
         return {"success": True, **data}
@@ -291,6 +292,8 @@ def build_phase2_router(ctx: Dict[str, Callable[..., Any] | Any]) -> APIRouter:
         d = payload or {}
         ok, msg = PHASE2.submit_elder_feedback(
             token,
+            find_user_fn=find_user,
+            is_approved_profile=is_approved_profile,
             reviewer_name=str(d.get("reviewer_name", "")),
             relation=str(d.get("relation", "Family Elder")),
             note=str(d.get("note", "")),
