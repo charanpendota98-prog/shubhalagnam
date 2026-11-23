@@ -8,9 +8,8 @@
  * form and a wa.me link leave this page.
  */
 import { Suspense, useEffect, useRef, useState } from "react";
-import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { apiGet } from "@/lib/api";
+import { apiPost } from "@/lib/api";
 
 type ResolveOk = { ok: true; wa_link: string; phone_masked: string };
 type State =
@@ -30,20 +29,39 @@ function teluguUi(): boolean {
 }
 
 function ResolveInner() {
-  const params = useSearchParams();
-  const token = (params.get("token") || "").slice(0, 256);
+  // The token rides in the URL fragment: browsers never send it to the server,
+  // proxies or Referer headers, so it stays out of access logs. It is read once
+  // and removed from the address bar.
+  const [token, setToken] = useState<string | null>(null);
   const [state, setState] = useState<State>({ phase: "working" });
   const started = useRef(false);
   const te = teluguUi();
 
+  const fragmentToken = useRef<string | null>(null);
+
   useEffect(() => {
+    // Read the fragment once and keep it in a ref. React Strict Mode (dev) runs
+    // effects twice; the second run would see the already-cleared address bar
+    // and overwrite the token with an empty one.
+    if (fragmentToken.current === null) {
+      const m = /(?:^#|&)t=([^&]+)/.exec(window.location.hash || "");
+      let t = "";
+      try { t = m ? decodeURIComponent(m[1]).slice(0, 256) : ""; } catch { t = ""; }
+      if (window.location.hash) window.history.replaceState(null, "", window.location.pathname);
+      fragmentToken.current = t;
+    }
+    setToken(fragmentToken.current);
+  }, []);
+
+  useEffect(() => {
+    if (token === null) return;    // fragment not read yet
     if (started.current) return;   // redeem exactly once: the token is single-use
     started.current = true;
     if (!token) {
       setState({ phase: "error", message: te ? "QR లింక్ పూర్తిగా లేదు — మళ్లీ QR సృష్టించండి." : "The QR link is incomplete — please create a fresh QR." });
       return;
     }
-    void apiGet<ResolveOk>(`/api/contact/resolve/${encodeURIComponent(token)}`).then(({ ok, data, needsLogin, errorTelugu }) => {
+    void apiPost<ResolveOk>("/api/contact/resolve", { token }).then(({ ok, data, needsLogin, errorTelugu }) => {
       if (ok && data?.ok && data.wa_link) {
         setState({ phase: "ready", waLink: String(data.wa_link), masked: String(data.phone_masked || "") });
       } else if (needsLogin) {

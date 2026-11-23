@@ -9,16 +9,12 @@ interest withdraw/decline, account deletion) kills outstanding tokens.
 """
 from __future__ import annotations
 
-import base64
-import hashlib
-import hmac
 import os
 import secrets
 import threading
 import time
 from typing import Dict, List, Optional
 
-from hardening import SECRET
 from smart12 import mask_phone
 
 TTL_SECONDS = int(os.environ.get("CONTACT_TOKEN_TTL_SEC", "300"))
@@ -26,6 +22,7 @@ _MAX_TOKENS = 5000
 # One member scans one QR at a time; more outstanding tokens per viewer only
 # feeds burst abuse and mid-scan eviction (Arena P1-4).
 _MAX_PER_VIEWER = 3
+_EXPIRED_GRACE = 600   # seconds an expired row stays so the answer is "expired", not "invalid"
 
 # ⚠️ SINGLE-WORKER ONLY: this store is process-local. serve_production.py runs
 # exactly one uvicorn worker (file-backed persistence demands it); if a second
@@ -75,33 +72,19 @@ def is_mutual_accepted(interests: List[Dict], a: str, b: str) -> bool:
     )
 
 
-def _sign(payload: str) -> str:
-    return hmac.new(SECRET.encode(), payload.encode(), hashlib.sha256).hexdigest()[:32]
-
-
-def _encode(viewer: str, target: str, exp: int, nonce: str) -> str:
-    payload = f"{viewer}|{target}|{exp}|{nonce}"
-    raw = f"{payload}|{_sign(payload)}"
-    return base64.urlsafe_b64encode(raw.encode()).decode().rstrip("=")
-
-
-def _decode(token: str) -> Optional[Dict]:
-    try:
-        raw = base64.urlsafe_b64decode(token + "=" * (-len(token) % 4)).decode()
-        viewer, target, exp, nonce, sig = raw.rsplit("|", 4)
-        payload = f"{viewer}|{target}|{exp}|{nonce}"
-        if not hmac.compare_digest(sig, _sign(payload)):
-            return None
-        exp_i = int(exp)
-        return {"viewer": viewer.upper(), "target": target.upper(), "exp": exp_i, "nonce": nonce}
-    except (ValueError, TypeError, base64.binascii.Error, UnicodeDecodeError):
-        return None
+def viewer_of(token: str) -> Optional[str]:
+    """Member the token was issued to, or None. The token itself is random and
+    carries nothing: no member IDs, no expiry, no signature to inspect."""
+    with _LOCK:
+        row = _CONTACT_TOKENS.get(str(token))
+        return row["viewer"] if row else None
 
 
 def _prune(now: float) -> None:
     # Drop only expired rows: a revoked-but-unexpired row must survive so
     # resolve can answer "withdrawn" precisely instead of a bare bad_token.
-    stale = [t for t, row in _CONTACT_TOKENS.items() if row["exp"] <= now]
+    # Expired rows linger briefly so resolve can say "expired" precisely.
+    stale = [t for t, row in _CONTACT_TOKENS.items() if row["exp"] + _EXPIRED_GRACE <= now]
     for t in stale:
         _CONTACT_TOKENS.pop(t, None)
     if len(_CONTACT_TOKENS) > _MAX_TOKENS:
@@ -116,8 +99,7 @@ def issue_token(viewer: str, target: str) -> Dict:
     viewer, target = viewer.upper(), target.upper()
     now = time.time()
     exp = int(now + TTL_SECONDS)
-    nonce = secrets.token_urlsafe(9)
-    token = _encode(viewer, target, exp, nonce)
+    token = secrets.token_urlsafe(24)   # 192-bit random; all state is server-side
     with _LOCK:
         _prune(now)
         outstanding = sum(1 for row in _CONTACT_TOKENS.values()
@@ -128,7 +110,7 @@ def issue_token(viewer: str, target: str) -> Dict:
         _CONTACT_TOKENS[token] = {"viewer": viewer, "target": target, "exp": exp,
                                   "used": False, "revoked": False, "created": now}
     return {"ok": True, "token": token, "expires_in": TTL_SECONDS,
-            "resolve_path": f"/api/contact/resolve/{token}"}
+            "resolve_path": "/api/contact/resolve"}
 
 
 def invalidate_pair(a: str, b: str) -> int:
@@ -159,20 +141,13 @@ def invalidate_member(tsap_id: str) -> int:
 def resolve_token(token: str, caller_id: str, interests: List[Dict], is_blocked) -> Dict:
     """Single-use resolve. is_blocked(a, b) checks one direction; both are checked.
     Returns {'ok': True, 'wa_link', 'phone_masked'} or {'ok': False, **message(reason)}."""
-    parsed = _decode(token)
-    if not parsed:
-        return {"ok": False, **message("bad_token")}
-    if parsed["viewer"] != str(caller_id).upper():
-        # Owner-gated endpoint also enforces this; keep the defence in depth.
-        return {"ok": False, **message("bad_token")}
+    token = str(token)[:256]
     now = time.time()
     with _LOCK:
         _prune(now)
         row = _CONTACT_TOKENS.get(token)
-        if row is None:
-            # Unknown to memory (restart, pruned or forged): never re-issue access.
-            if parsed["exp"] <= now:
-                return {"ok": False, **message("expired")}
+        if row is None or row["viewer"] != str(caller_id).upper():
+            # Unknown (restart, pruned, forged) or someone else's: same answer, no oracle.
             return {"ok": False, **message("bad_token")}
         if row.get("revoked"):
             return {"ok": False, **message("revoked")}
@@ -198,5 +173,5 @@ def wa_link_for(phone: str) -> str:
     return f"https://wa.me/{digits}" if len(digits) >= 12 else ""
 
 
-__all__ = ["TTL_SECONDS", "issue_token", "resolve_token", "invalidate_pair",
+__all__ = ["TTL_SECONDS", "issue_token", "viewer_of", "resolve_token", "invalidate_pair",
            "invalidate_member", "is_mutual_accepted", "wa_link_for", "message", "mask_phone"]

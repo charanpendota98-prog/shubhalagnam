@@ -103,7 +103,7 @@ import control_auth as CONTROL_AUTH  # private operations portal sessions
 import money_audit as MAUD  # noqa: E402  # 🌊 WAVE 26 — money audit trail
 import retention as RETENTION  # 🗑️ WAVE 40: 3-year profile auto-delete (archive first)
 from hardening import (
-    auth_enforced, require_owner, require_admin, rate_limit_hit, too_many, client_ip,
+    auth_enforced, require_owner, require_admin, rate_limit_hit, viewer_rate_limit_hit, too_many, client_ip,
     apply_security_headers, posture as security_posture, abuse_snapshot, abuse_log,
     sign_token, verify_token, token_from_request, is_admin, is_automation, clean, req_text,
     require_vendor, vendor_token, admin_role, revoke_all_tokens, token_version,
@@ -10901,6 +10901,11 @@ def api_contact_token(payload: dict, request: Request = None):
     if not contact_reveal.is_mutual_accepted(DB_INTERESTS, viewer_id, target_id):
         err = contact_reveal.message("not_mutual")
         raise HTTPException(403, err)
+    # Quota is spent only for a request that passed every gate, so probing
+    # blocked/non-mutual targets cannot exhaust a member's issue quota.
+    limited = viewer_rate_limit_hit(request, viewer_id, 10, 3600)   # per member, not per shared IP
+    if limited:
+        raise HTTPException(429, {**limited, "message_en": "Too many QR requests. Please try again shortly."})
     issued = contact_reveal.issue_token(viewer_id, target_id)
     if not issued.get("ok"):
         raise HTTPException(429, issued)
@@ -10909,16 +10914,22 @@ def api_contact_token(payload: dict, request: Request = None):
             "message_telugu": "ఈ QR 5 నిమిషాలు మాత్రమే చెల్లుంది, ఒక్కసారే పని చేస్తుంది. ఇందులో ఫోన్ నంబర్ కాదు, లింక్ మాత్రమే ఉంటుంది."}
 
 
-@app.get("/api/contact/resolve/{token}")
-def api_contact_resolve(token: str, request: Request = None):
+@app.post("/api/contact/resolve")
+def api_contact_resolve(payload: dict, request: Request = None):
     """Single-use resolve: returns a wa.me link + masked number to the owning
-    member's session only. Raw digits still never render on the profile page."""
-    parsed = contact_reveal._decode(str(token)[:256])
-    if parsed:
+    member's session only. Raw digits still never render on the profile page.
+    The token travels in the POST body, never in the URL path, so access logs,
+    the abuse log and per-route counters cannot capture it."""
+    token = str((payload or {}).get("token", ""))
+    owner_of = contact_reveal.viewer_of(str(token)[:256])
+    if owner_of:
         # Owner session is the binding; resolve_token re-checks it internally
         # as pure defence in depth. No dev-bypass branch lives here.
-        require_owner(request, parsed["viewer"])
-        caller = parsed["viewer"]
+        require_owner(request, owner_of)
+        caller = owner_of
+        limited = viewer_rate_limit_hit(request, owner_of, 20, 600)
+        if limited:
+            raise HTTPException(429, {**limited, "message_en": "Too many QR requests. Please try again shortly."})
     else:
         # Force the same auth bar even for malformed tokens: no oracle.
         require_owner(request, "")
