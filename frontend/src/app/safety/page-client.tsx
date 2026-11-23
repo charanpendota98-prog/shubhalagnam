@@ -18,7 +18,7 @@ import { authHeaders } from "@/lib/api";
 import { useSession } from "@/lib/auth";
 import Link from "next/link";
 import ScamGuide from "@/components/ScamGuide";
-import { Flag } from "lucide-react";
+import { Flag, Ban, ShieldCheck, LockKeyhole, UserRoundCheck, Lightbulb, CircleCheck, Camera, Scale, ThumbsUp } from "lucide-react";
 
 type Tip = { icon: string; title: string; telugu: string };
 type Cat = { key: string; te: string; severity: string; desc: string };
@@ -207,16 +207,16 @@ export default function SafetyPage() {
       <section className="maroon-gradient text-white">
         <div className="max-w-5xl mx-auto px-4 py-9">
           <div className="text-[11px] font-bold bg-white/10 border border-white/20 rounded-full px-3 py-1 inline-block">
-            🛡️ Trust & Safety • మన వివాహ
+            <ShieldCheck className="inline-block h-3 w-3 align-text-bottom mr-1" aria-hidden="true" />Trust & Safety • మన వివాహ
           </div>
           <h1 className="mt-3 text-2xl md:text-4xl font-bold"><Duo en="Your safety is our responsibility" te="మీ భద్రత మా బాధ్యత" /></h1>
           <p className="mt-2 text-[13px] md:text-sm opacity-90 telugu max-w-3xl">
 {te ? <>సందేహాస్పద ప్రొఫైల్‌ను report చేయండి లేదా block చేయండి. Badges నమోదైన review వివరాలను మాత్రమే చూపిస్తాయి; వ్యక్తి నిజమైనవారని హామీ ఇవ్వవు. In-app chat లేదు; spam లేదా మోసం జరగవని హామీ ఇవ్వలేం.</> : <>Report or block a profile if something seems wrong. Badges show recorded review evidence, not a guarantee that a person is genuine. There is no in-app chat; spam or fraud can still occur.</>}
           </p>
           <div className="mt-3 flex flex-wrap gap-2 text-[12px]">
-            <span className="bg-white/10 border border-white/20 rounded-full px-3 py-1.5">🔒 Confidential reports</span>
-            <span className="bg-white/10 border border-white/20 rounded-full px-3 py-1.5">{te ? "👮 మాన్యువల్ సమీక్ష" : "👮 Human moderation review"}</span>
-            <span className="bg-white/10 border border-white/20 rounded-full px-3 py-1.5">{te ? "🛡️ Multi-reporter భద్రత" : "🛡️ Multi-reporter anti-abuse"}</span>
+            <span className="bg-white/10 border border-white/20 rounded-full px-3 py-1.5"><LockKeyhole className="inline-block h-3 w-3 align-text-bottom mr-1" aria-hidden="true" />Confidential reports</span>
+            <span className="bg-white/10 border border-white/20 rounded-full px-3 py-1.5"><UserRoundCheck className="inline-block h-4 w-4 shrink-0 align-text-bottom mr-1" aria-hidden="true" />{te ? "మాన్యువల్ సమీక్ష" : "Human moderation review"}</span>
+            <span className="bg-white/10 border border-white/20 rounded-full px-3 py-1.5"><ShieldCheck className="inline-block h-4 w-4 shrink-0 align-text-bottom mr-1" aria-hidden="true" />{te ? "Multi-reporter భద్రత" : "Multi-reporter anti-abuse"}</span>
             <Link href="/verify" className="gold-gradient text-maroon font-bold rounded-full px-3 py-1.5">{te ? "ప్రొఫైల్ ధృవీకరణ →" : "Verify Profile →"}</Link>
           </div>
         </div>
@@ -234,11 +234,11 @@ export default function SafetyPage() {
 
         {/* ---- tips ---- */}
         <div className="bg-white rounded-[1.5rem] border border-gold/25 p-5">
-          <div className="font-bold text-maroon text-[16px]">{te ? "💡 Safety tips (Telugu లో చదవండి — 2 నిమిషాలు)" : "💡 Safety tips (read in Telugu — 2 minutes)"}</div>
+          <div className="font-bold text-maroon text-[16px]"><Lightbulb className="inline-block h-4 w-4 shrink-0 align-text-bottom mr-1" aria-hidden="true" />{te ? "Safety tips (Telugu లో చదవండి — 2 నిమిషాలు)" : "Safety tips (read in Telugu — 2 minutes)"}</div>
           <div className="mt-3 grid md:grid-cols-2 gap-3">
             {tips.map((t) => (
               <div key={t.title} className="bg-cream rounded-2xl p-3 border border-gold/25">
-                <div className="font-bold text-[13px] text-ink">{t.icon} {t.title}</div>
+                <div className="font-bold text-[13px] text-ink"><Lightbulb className="inline-block h-4 w-4 align-text-bottom mr-1" aria-hidden="true" />{t.title}</div>
                 <div className="text-[12px] text-gray-700 mt-1 telugu">{t.telugu}</div>
               </div>
             ))}
@@ -284,7 +284,7 @@ export default function SafetyPage() {
             </button>
             <button type="button" onClick={() => doBlock(report.target_id)} disabled={!report.target_id || !myId || blockBusy || !sessionReady}
               className="px-5 py-3 rounded-2xl border border-rose-300 text-rose-700 font-bold text-[13px] disabled:opacity-50">
-              {te ? "🚫 Block చెయ్యి (వెంటనే)" : "🚫 Block now"}
+              <Ban className="inline-block h-4 w-4 shrink-0 align-text-bottom mr-1" aria-hidden="true" />{te ? "Block చెయ్యి (వెంటనే)" : "Block now"}
             </button>
           </div>
           {cats.length > 0 && (
@@ -301,7 +301,7 @@ export default function SafetyPage() {
         {/* ---- verification + blocks ---- */}
         <div className="grid md:grid-cols-2 gap-4">
           <div className="bg-white rounded-[1.5rem] border border-gold/25 p-5">
-            <div className="font-bold text-maroon text-[15px]">{te ? "✅ మీ ధృవీకరణ బ్యాడ్జ్‌లు" : "✅ Your verification badges"}</div>
+            <div className="font-bold text-maroon text-[15px]"><CircleCheck className="inline-block h-4 w-4 shrink-0 align-text-bottom mr-1" aria-hidden="true" />{te ? "మీ ధృవీకరణ బ్యాడ్జ్‌లు" : "Your verification badges"}</div>
             {verify ? (
               <>
                 <div className="mt-2 text-[13px] text-gray-700">
@@ -323,7 +323,7 @@ export default function SafetyPage() {
             ) : <div className="text-[12px] text-gray-500 mt-2">{te ? "మీ ఖాతాలో లాగిన్ అయితే నమోదైన ధృవీకరణ బ్యాడ్జ్‌లు ఇక్కడ కనిపిస్తాయి." : "Sign in to view recorded verification badges on your profile."}</div>}
             <div className="mt-3 flex flex-wrap gap-2">
               <Link href="/verify" className="px-4 py-2 rounded-xl bg-maroon text-white font-bold text-[12px]">
-                {te ? "🤳 సెల్ఫీ / విద్య / ఉద్యోగ ధృవీకరణ →" : "🤳 Submit Selfie / Education / Employment →"}
+                <Camera className="inline-block h-4 w-4 shrink-0 align-text-bottom mr-1" aria-hidden="true" />{te ? "సెల్ఫీ / విద్య / ఉద్యోగ ధృవీకరణ →" : "Submit Selfie / Education / Employment →"}
               </Link>
               {levels.filter((l) => l.level !== "none" && l.level !== "phone").map((l) => (
                 <button key={l.level} type="button" onClick={() => requestVerify(l.level)} disabled={!myId || !sessionReady}
@@ -339,11 +339,11 @@ export default function SafetyPage() {
 
           <div className="bg-white rounded-[1.5rem] border border-gold/25 p-5">
             <div data-testid="safety-block-list">
-            <div className="font-bold text-maroon text-[15px]">{te ? "🚫 మీ block list" : "🚫 Your block list"}{myId && blockReadState === "ready" ? ` (${blocks.length})` : ""}</div>
+            <div className="font-bold text-maroon text-[15px]"><Ban className="inline-block h-4 w-4 shrink-0 align-text-bottom mr-1" aria-hidden="true" />{te ? "మీ block list" : "Your block list"}{myId && blockReadState === "ready" ? ` (${blocks.length})` : ""}</div>
             {!myId ? <div className="text-[12px] text-gray-500 mt-2">{te ? "మీ block list చూడటానికి login అవ్వండి." : "Sign in to view your block list."}</div> : <>
               {blockReadState === "loading" && <div role="status" className="text-[12px] text-gray-600 mt-2">{te ? "Block list లోడ్ అవుతోంది…" : "Loading your block list…"}</div>}
               {blockReadState === "error" && <div role="alert" className="text-[12px] text-rose-800 mt-2">{te ? "మీ block list లోడ్ కాలేదు. మళ్లీ ప్రయత్నించండి." : "Your block list could not be loaded. Please retry."}{blocks.length > 0 && <div>{te ? "ఇది ఇంతకు ముందు లోడ్ అయిన list. ప్రస్తుత స్థితి కోసం మళ్లీ ప్రయత్నించండి." : "Showing the last loaded list. Retry to confirm its current state."}</div>}</div>}
-              {blockReadState === "ready" && blocks.length === 0 && <div className="text-[12px] text-gray-500 mt-2">{te ? "ఎవరూ block చెయ్యలేదు 👍" : "Nobody blocked 👍"}</div>}
+              {blockReadState === "ready" && blocks.length === 0 && <div className="text-[12px] text-gray-500 mt-2">{te ? "ఎవరూ block చెయ్యలేదు" : "Nobody blocked"} <ThumbsUp className="inline-block h-3 w-3 align-text-bottom" aria-hidden="true" /></div>}
               <button type="button" onClick={() => void loadBlocks(myId)} disabled={blockReadState === "loading" || blockBusy} className="mt-2 px-3 py-2 rounded-xl border border-gold/40 text-maroon font-bold text-[12px] disabled:opacity-50">{blockReadState === "error" ? (te ? "Block list మళ్లీ ప్రయత్నించండి" : "Retry block list") : (te ? "Block list మళ్లీ లోడ్ చెయ్యి" : "Refresh block list")}</button>
             </>}
             <div className="mt-2 space-y-2">
@@ -362,7 +362,7 @@ export default function SafetyPage() {
         {/* ---- Member Moderation Appeal ---- */}
         <div className="bg-white rounded-[1.5rem] border border-gold/25 p-5">
           <div className="font-bold text-maroon text-[15px]">
-            ⚖️ {te ? "మాడరేషన్ అప్పీల్ (ప్రొఫైల్ తాత్కాలికంగా దాచబడితే)" : "Moderation Appeal (if your profile was paused for review)"}
+            <Scale className="inline-block h-4 w-4 align-text-bottom mr-1" aria-hidden="true" />{te ? "మాడరేషన్ అప్పీల్ (ప్రొఫైల్ తాత్కాలికంగా దాచబడితే)" : "Moderation Appeal (if your profile was paused for review)"}
           </div>
           <p className="mt-1 text-[12px] text-gray-600">
             {te
@@ -399,8 +399,8 @@ export default function SafetyPage() {
 
         <div className="text-[11px] text-gray-500 text-center">
 {te ? <>Emergency / police case అయితే వెంటనే 100 కి call చెయ్యండి • మన support: మన WhatsApp (profile లో) •
-          🚫 Chatting లేదు — అందుకే మనం middle లో ఉండం, direct మీరు మాట్లాడుకోవచ్చు (consent తో).</> : <>In emergency / police case call 100 immediately • Our support: our WhatsApp (in profile) •
-          🚫 No chatting — so we stay out of the middle, you talk directly (with consent).</>}
+          <Ban className="inline-block h-3 w-3 align-text-bottom mr-1" aria-hidden="true" />Chatting లేదు — అందుకే మనం middle లో ఉండం, direct మీరు మాట్లాడుకోవచ్చు (consent తో).</> : <>In emergency / police case call 100 immediately • Our support: our WhatsApp (in profile) •
+          <Ban className="inline-block h-3 w-3 align-text-bottom mr-1" aria-hidden="true" />No chatting — so we stay out of the middle, you talk directly (with consent).</>}
         </div>
       </div>
     </div>
