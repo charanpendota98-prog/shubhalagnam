@@ -496,7 +496,7 @@ export default function ProfileView() {
       return;
     }
     const token = String(data.token);
-    const url = `${window.location.origin}/contact/resolve?token=${encodeURIComponent(token)}`;
+    const url = `${window.location.origin}/contact/resolve#t=${encodeURIComponent(token)}`;
     try {
       const svg = await contactQrSvg(url);
       setContactToken(token);

@@ -61,7 +61,9 @@ def run_suite():
     check("2. replay -> already_used", r2.get("reason") == "already_used", r2)
 
     # 3. expired
-    expired = CR._encode("TSAPAAAA1", "TSAPBBBB2", int(time.time()) - 5, "nonce0001")
+    expired_t = CR.issue_token("TSAPAAAA1", "TSAPBBBB2")
+    expired = expired_t["token"]
+    CR._CONTACT_TOKENS[expired]["exp"] = int(time.time()) - 5
     r3 = CR.resolve_token(expired, "TSAPAAAA1", interests, no_block)
     check("3. expired token -> expired", r3.get("reason") == "expired", r3)
 
@@ -99,9 +101,38 @@ def run_suite():
     check("8a. invalidate_member revokes", n2 >= 1 and r8b.get("reason") == "revoked", (n2, r8b))
 
     # 9. restart posture: well-formed but unknown token (fresh module state) never resolves
-    ghost = CR._encode("TSAPAAAA1", "TSAPBBBB2", int(time.time()) + 100, "ghost0001")
+    ghost = "ghost-" + "x" * 30
     r9 = CR.resolve_token(ghost, "TSAPAAAA1", interests, no_block)
     check("9. unknown token -> bad_token (fail-closed)", r9.get("reason") == "bad_token", r9)
+
+    # 9b. opaque token: random, carries no member IDs, expiry or signature
+    to = CR.issue_token("TSAPAAAA1", "TSAPBBBB2")["token"]
+    import base64 as _b64
+    try:
+        decoded = _b64.urlsafe_b64decode(to + "=" * (-len(to) % 4)).decode("latin-1")
+    except Exception:
+        decoded = ""
+    check("9b. token carries no member IDs", "TSAPAAAA1" not in to and "TSAPBBBB2" not in to
+          and "TSAPAAAA1" not in decoded and "TSAPBBBB2" not in decoded and len(to) >= 32, to)
+    check("9c. viewer_of is a server-side lookup (unknown -> None)",
+          CR.viewer_of(to) == "TSAPAAAA1" and CR.viewer_of("nope") is None)
+
+    # 9d. per-viewer rate limit is keyed by member, not by IP
+    import hardening as _H
+    class _Req:
+        method = "POST"
+        class url:
+            path = "/api/contact/token"
+    _old = (_H.RL_DISABLED, _H.dev_mode)
+    _H.RL_DISABLED = False
+    _H.dev_mode = lambda: False
+    try:
+        hits = [_H.viewer_rate_limit_hit(_Req, "RLVIEW01", 3, 60) for _ in range(4)]
+        other = _H.viewer_rate_limit_hit(_Req, "RLVIEW02", 3, 60)
+    finally:
+        _H.RL_DISABLED, _H.dev_mode = _old
+    check("9d. viewer limit trips on the 4th call, other member unaffected",
+          hits[:3] == [None] * 3 and hits[3] and hits[3]["limit"] == 3 and other is None, (hits, other))
 
     # 10. wa_link_for
     check("10. wa_link digits only", CR.wa_link_for("+91 98480 12345") == "https://wa.me/919848012345",

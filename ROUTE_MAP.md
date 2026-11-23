@@ -61,6 +61,7 @@ metadata = { robots: { index: false, follow: false } }`.
 | `/safety` | Login-required for actions (AuthGate) | Index | Trust & safety center (report/block) |
 | `/search` | Public | Index | Search/browse profiles |
 | `/search/[id]` | Public | Disallow (robots.txt — PII protection) | Individual profile detail page |
+| `/contact/resolve` | Login-required (token in URL fragment `#t=`) | noindex | Redeems a single-use contact QR token for the signed-in member; shows a WhatsApp link and masked number, never the raw number |
 | `/second-marriage` | Public | Index | Second-marriage section |
 | `/spotlight` | Public | Index | Spotlight/premium-placement profiles |
 | `/stories` | Public | Index | Success stories |
@@ -777,7 +778,14 @@ metadata = { robots: { index: false, follow: false } }`.
 
 | Method | Path | Function | Auth | Purpose |
 |---|---|---|---|---|
-| POST | `/api/unlock` | `api_unlock` | admin, owner |  |
+| POST | `/api/unlock` | `api_unlock` | admin, owner | Returns `phone_masked` only (self-unlock excepted). Raw numbers go through the contact QR flow. |
+
+## `/api/contact` — Single-use contact QR (2)
+
+| Method | Path | Handler | Auth | Notes |
+|---|---|---|---|---|
+| POST | `/api/contact/token` | `api_contact_token` | owner | Needs an accepted interest, no block, active target. Opaque random token, 5 min, single use, max 3 outstanding per member, 10 per hour per member. |
+| GET | `/api/contact/resolve/{token}` | `api_contact_resolve` | owner (token's member) | Single use. Returns wa.me link + masked number. 20 per 10 min per member. |
 
 ## `/api/unlocks` — Unlocks listing (1)
 

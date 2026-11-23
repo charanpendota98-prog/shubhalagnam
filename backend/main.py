@@ -103,7 +103,7 @@ import control_auth as CONTROL_AUTH  # private operations portal sessions
 import money_audit as MAUD  # noqa: E402  # 🌊 WAVE 26 — money audit trail
 import retention as RETENTION  # 🗑️ WAVE 40: 3-year profile auto-delete (archive first)
 from hardening import (
-    auth_enforced, require_owner, require_admin, rate_limit_hit, too_many, client_ip,
+    auth_enforced, require_owner, require_admin, rate_limit_hit, viewer_rate_limit_hit, too_many, client_ip,
     apply_security_headers, posture as security_posture, abuse_snapshot, abuse_log,
     sign_token, verify_token, token_from_request, is_admin, is_automation, clean, req_text,
     require_vendor, vendor_token, admin_role, revoke_all_tokens, token_version,
@@ -10882,6 +10882,9 @@ def api_contact_token(payload: dict, request: Request = None):
     viewer_id = str(d.get("viewer_id", "")).strip().upper()
     target_id = str(d.get("target_id", "")).strip().upper()
     require_owner(request, viewer_id)
+    limited = viewer_rate_limit_hit(request, viewer_id, 10, 3600)   # per member, not per shared IP
+    if limited:
+        raise HTTPException(429, limited)
     if not viewer_id or not target_id or viewer_id == target_id:
         validation_error("target_id", "⚠️ viewer_id + మరో member target_id పంపండి")
     viewer = _find_user(viewer_id)
@@ -10913,12 +10916,15 @@ def api_contact_token(payload: dict, request: Request = None):
 def api_contact_resolve(token: str, request: Request = None):
     """Single-use resolve: returns a wa.me link + masked number to the owning
     member's session only. Raw digits still never render on the profile page."""
-    parsed = contact_reveal._decode(str(token)[:256])
-    if parsed:
+    owner_of = contact_reveal.viewer_of(str(token)[:256])
+    if owner_of:
         # Owner session is the binding; resolve_token re-checks it internally
         # as pure defence in depth. No dev-bypass branch lives here.
-        require_owner(request, parsed["viewer"])
-        caller = parsed["viewer"]
+        require_owner(request, owner_of)
+        caller = owner_of
+        limited = viewer_rate_limit_hit(request, owner_of, 20, 600)
+        if limited:
+            raise HTTPException(429, limited)
     else:
         # Force the same auth bar even for malformed tokens: no oracle.
         require_owner(request, "")
