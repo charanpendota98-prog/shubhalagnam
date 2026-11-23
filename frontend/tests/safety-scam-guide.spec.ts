@@ -1,0 +1,27 @@
+import {test,expect} from '@playwright/test';
+import AxeBuilder from '@axe-core/playwright';
+import fs from 'node:fs';
+fs.mkdirSync('artifacts/safety-scam-guide',{recursive:true});
+for(const lang of ['en','te'])for(const width of [320,390,1280])test(`safety scam guide ${lang} ${width}`,async({page})=>{
+ await page.setViewportSize({width,height:900});
+ await page.addInitScript(l=>localStorage.setItem('tsap_lang',l),lang);
+ const writes:string[]=[];const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
+ await page.route('**/api/**',r=>{if(r.request().method()!=='GET')writes.push(r.request().url());const path=new URL(r.request().url()).pathname;return r.fulfill({json:path==='/api/auth/verify'?{valid:false}:path==='/api/safety/tips'?{tips:[],report_categories:[],verify_levels:[]}:{items:[],badges:[],appeals:[]}})});
+ await page.goto('/safety');
+ const g=page.getByTestId('scam-guide');await expect(g).toBeVisible();
+ await expect(page.locator('h1')).toHaveCount(1);
+ await expect(g.getByRole('heading',{level:2})).toHaveText(lang==='en'?'Common scams and what to do':'సాధారణ మోసాలు మరియు ఏం చేయాలి');
+ await expect(g.getByRole('heading',{level:3})).toHaveCount(4);
+ await expect(g.getByRole('listitem')).toHaveCount(4);
+ await expect(g.getByRole('link')).toHaveAttribute('href','/verify');
+ await expect(g).toContainText(lang==='en'?"this site's own verification form":'ఈ సైట్‌లోని వెరిఫికేషన్ ఫారమ్‌లో మాత్రమే');
+ if(lang==='te')await expect(g).not.toContainText(/Never share|Do not send/);
+ await expect(g.getByText(/\d{6,}/)).toHaveCount(0);
+ const ax=await new AxeBuilder({page}).include('[data-testid="scam-guide"]').withTags(['wcag2a','wcag2aa','wcag21a','wcag21aa']).analyze();
+ expect(ax.violations.filter(v=>v.impact==='serious'||v.impact==='critical').map(v=>v.id)).toEqual([]);
+ const box=await g.boundingBox();expect(box!.width).toBeLessThanOrEqual(width);
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBeTruthy();
+ await g.scrollIntoViewIfNeeded();await page.waitForTimeout(200);
+ await g.screenshot({path:`artifacts/safety-scam-guide/${lang}-${width}.png`});
+ expect(writes).toEqual([]);expect(errors).toEqual([]);
+});
