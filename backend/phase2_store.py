@@ -380,18 +380,39 @@ def _review_eligible(user, is_approved_profile) -> bool:
                 and str(user.get("account_status") or "active") not in {"deleted", "deactivated", "married"})
 
 
+# Leading-zero phone and landline matching is intentionally review-local.
+_REVIEW_ZERO_NUMBER = re.compile(r"(?<!\d)0(?:[\s().-]*\d){10}(?!\d)")
+_REVIEW_PHONE_CUE = re.compile(r"(?:call|phone|mobile|contact|tel(?:ephone)?|landline|whatsapp|ఫోన్|మొబైల్|సంప్రదించండి|కాల్)(?:\s+(?:number|no\.?|నంబర్|సంఖ్య))?\s*[:=.-]?\s*$", re.I)
+
+
 def _review_safe(value):
     """Review-only numeral normalization before the existing contact scrubber."""
     if isinstance(value, str):
         normalized = "".join(str(unicodedata.decimal(c)) if c.isdecimal() else c for c in value)
         # The leading-zero variant is intentionally local to review sharing.
-        matched = re.sub(r"(?<!\d)0[\s().-]*[6-9](?:[\s().-]*\d){9}(?!\d)", "[contact hidden]", normalized)
-        scrubbed = sanitize_public_payload(matched)
+        pieces = []
+        cursor = 0
+        for match in _REVIEW_ZERO_NUMBER.finditer(normalized):
+            pieces.append(sanitize_public_payload(normalized[cursor:match.start()]))
+            before = normalized[max(0, match.start()-64):match.start()]
+            digits = re.sub(r"\D", "", match[0])
+            grouped = bool(re.search(r"[\s().-]", match[0]))
+            phone_shape = digits[1] in "23456789"
+            is_contact = phone_shape and (
+                digits[1] in "6789" or grouped or _REVIEW_PHONE_CUE.search(before))
+            # Ungrouped landlines without a phone cue remain outside this
+            # added rule; always retain the base sanitizer on unmatched text.
+            pieces.append("[contact hidden]" if is_contact else sanitize_public_payload(match[0]))
+            cursor = match.end()
+        pieces.append(sanitize_public_payload(normalized[cursor:]))
+        scrubbed = "".join(pieces)
         return value if scrubbed == normalized else scrubbed
     if isinstance(value, dict):
         return {k: _review_safe(v) for k, v in value.items()}
     if isinstance(value, list):
         return [_review_safe(v) for v in value]
+    if isinstance(value, tuple):
+        return tuple(_review_safe(v) for v in value)
     return value
 
 

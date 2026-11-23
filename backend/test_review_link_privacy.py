@@ -94,6 +94,18 @@ for label in [[],{},123,'x'*81]:
 for label in ['x'*60,'x'*80,'పెద్దల రివ్యూ లింక్']:
     response=c.post('/api/me/'+base['tsap_id']+'/review-links',headers=hdr,json={'label':label})
     check('valid label roundtrip '+str(len(label)),response.status_code==200 and response.json()['review_link']['label']==label)
+for text in ['09876543210','Call 09876543210','040 2700 1234','040-2700-1234','(040) 2700 1234','Landline: 04027001234','౦౪౦ ౨౭౦౦ ౧౨౩౪','Phone ౦౯౮౭౬౫౪౩౨౧౦']:
+    check('review phone hidden '+text,'[contact hidden]' in P._review_safe(text))
+for prefix in ['Application ID:', 'Reference:', 'ID:', 'Member ID', 'Order no.', 'Account:', 'సంఖ్య:', 'అప్లికేషన్:', 'ఫోన్ సంఖ్య:', 'మొబైల్ సంఖ్య', 'నా ఫోన్ నంబర్', 'x', 'tel', '_']:
+    for number in ['09876543210','౦౯౮౭౬౫౪౩౨౧౦']:
+        text=prefix+number
+        check('base masking retained '+text,'[contact hidden]' in P._review_safe(text))
+for text in ['09876543210x','Application ID: 09876543211','Reference: 09876543211','application number 0 98765 43211','ID: 040 2700 1234','Order no. 09876543211','ఫోన్ సంఖ్య: 04027001234','మొబైల్ నంబర్ 04027001234']:
+    check('privacy default '+text,'[contact hidden]' in P._review_safe(text))
+for text in ['012345678901','Age ౨౮']:
+    check('noncontact preserved '+text,P._review_safe(text)==text)
+check('nested tuple values scrubbed',P._review_safe(('09876543210',{'nested':('040 2700 1234','Application ID: 09876543211')}))==('[contact hidden]',{'nested':('[contact hidden]','Application ID: [contact hidden]')}))
+check('tuple type preserved',isinstance(P._review_safe(('safe',)),tuple))
 failed=[name for name,ok in checks if not ok]
 print({'checks':len(checks),'passed':len(checks)-len(failed),'failed':failed})
 assert not failed
