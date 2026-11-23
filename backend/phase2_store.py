@@ -16,6 +16,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from atomic_store import atomic_json_dump
 import safety
+from interest import sanitize_public_payload
 
 _LOCK = threading.RLock()
 _HERE = os.path.dirname(os.path.abspath(__file__))
@@ -378,7 +379,7 @@ def _elder_safe_projection(user: Dict[str, Any]) -> Dict[str, Any]:
     NEVER includes phone, email, address, tokens, password_hash, or private photos."""
     photo_private = bool(user.get("photo_private") or user.get("privacy_mode") == "private")
     photo_ok = user.get("photo_status") == "approved" and not photo_private
-    return {
+    return sanitize_public_payload({
         "tsap_id": user.get("tsap_id"),
         "first_name": str(user.get("full_name") or "").strip().split(" ")[0] if user.get("full_name") else "Member",
         "gender": user.get("gender", ""),
@@ -407,7 +408,7 @@ def _elder_safe_projection(user: Dict[str, Any]) -> Dict[str, Any]:
         "photo_private": photo_private,
         "disclaimer_en": "Member-submitted biodata shared privately by the profile owner for family review. Contact details are withheld.",
         "disclaimer_te": "కుటుంబ పెద్దల పరిశీలన కోసం ప్రొఫైల్ యజమాని షేర్ చేసిన బయోడేటా. ఫోన్ నంబర్లు దాచబడ్డాయి.",
-    }
+    })
 
 
 def create_review_link(
@@ -500,6 +501,7 @@ def resolve_review_link(
     raw_token: str,
     find_user_fn,
     *,
+    is_approved_profile,
     increment_view: bool = True,
 ) -> Tuple[bool, str, Dict[str, Any]]:
     tok = str(raw_token or "").strip()
@@ -524,7 +526,8 @@ def resolve_review_link(
             return False, "This review link has reached its view limit.", {}
 
         owner = find_user_fn(target.get("tsap_id")) if find_user_fn else None
-        if not owner or str(owner.get("account_status") or "active") in {"deleted", "deactivated", "married"}:
+        if (not owner or not is_approved_profile(owner)
+                or str(owner.get("account_status") or "active") in {"deleted", "deactivated", "married"}):
             return False, "Profile is no longer available for review.", {}
 
         if increment_view:
@@ -543,6 +546,8 @@ def resolve_review_link(
 def submit_elder_feedback(
     raw_token: str,
     *,
+    find_user_fn,
+    is_approved_profile,
     reviewer_name: str,
     relation: str = "Family Elder",
     note: str = "",
@@ -564,6 +569,10 @@ def submit_elder_feedback(
         )
         if not target or target.get("status") == "revoked" or str(target.get("expires_at") or "") <= now_iso:
             return False, "Review link is no longer active."
+        owner = find_user_fn(target.get("tsap_id"))
+        if (not owner or not is_approved_profile(owner)
+                or str(owner.get("account_status") or "active") in {"deleted", "deactivated", "married"}):
+            return False, "Profile is no longer available for review."
         fb_list = target.setdefault("feedback", [])
         if len(fb_list) >= 25:
             return False, "Feedback limit reached for this link."
