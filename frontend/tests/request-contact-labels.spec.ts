@@ -13,7 +13,7 @@ for(const lang of ['en','te'])for(const width of [320,390,1280])test(`request co
  await page.goto('/requests');await page.getByRole('button',{name:lang==='en'?/Sent/:/పంపిన/}).click();
  await expect(page.getByText('SHOULD_NOT_RENDER',{exact:true})).toHaveCount(0);
  await expect(page.getByText(lang==='en'?'After acceptance':'ఆమోదం తర్వాత',{exact:true})).toHaveCount(4);
- await expect(page.getByText('90••••••01').first()).toBeVisible();await expect(page.getByRole('link',{name:lang==='en'?/View contact QR/:/Contact QR/})).toHaveCount(1);
+ await expect(page.getByText('90••••••01').first()).toBeVisible();await expect(page.getByRole('link',{name:lang==='en'?/View contact QR/:/Contact QR/})).toHaveCount(1);await expect(page.getByRole('link',{name:lang==='en'?/View contact QR/:/Contact QR/})).toHaveAttribute('href',/\?contact=qr$/);
  await expect(page.getByText(lang==='en'?'Withdrawn':'రద్దు చేయబడింది',{exact:true})).toBeVisible();
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBeTruthy();
  await page.evaluate(()=>{(document.activeElement as HTMLElement)?.blur();window.scrollTo({top:0,behavior:'instant'})});await page.waitForTimeout(250);await page.screenshot({path:`artifacts/request-labels/${lang}-${width}.png`,fullPage:true});
