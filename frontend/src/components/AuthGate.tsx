@@ -9,15 +9,16 @@
  * instead of promising a reset link that will not come.
  */
 import Link from "next/link";
+import { LockKeyhole, KeyRound, UserPlus } from "lucide-react";
 import { useLang } from "@/lib/lang";
 
 export default function AuthGate({ title = "", note = "", admin = false }: { title?: string; note?: string; admin?: boolean }) {
   const { lang } = useLang();
   const te = lang === "te";
-  const titleText = title || (te ? "🔒 మీ account కి login చెయ్యండి" : "🔒 Login to your account");
+  const titleText = title || (te ? "మీ account కి login చెయ్యండి" : "Login to your account");
   return (
     <div className="rounded-2xl border-2 border-amber-300 bg-amber-50 p-5 text-center">
-      <p className="text-lg font-bold text-amber-900">{titleText}</p>
+      <p className="text-lg font-bold text-amber-900">{!title && <LockKeyhole className="mr-1 inline-block h-4 w-4 align-text-bottom" aria-hidden="true" focusable="false" />}{titleText}</p>
       <p className={`mt-1 text-sm text-amber-800 ${te ? "telugu" : ""}`}>
         {note || (admin
           ? (te ? "Admin console కి X-Admin-Key కావాలి — /admin లో key పెట్టండి (team నుంచి తీసుకోండి)." : "Admin console needs X-Admin-Key — put the key in /admin (get it from team).")
@@ -27,16 +28,16 @@ export default function AuthGate({ title = "", note = "", admin = false }: { tit
       </p>
       <div className="mt-3 flex flex-wrap justify-center gap-2">
         <Link href="/login" className="inline-flex min-h-11 items-center rounded-xl bg-[#7A0C2E] px-4 py-2 text-sm font-semibold text-white hover:bg-[#5c0821]">
-          {te ? "🔑 ఫోన్ + పాస్‌వర్డ్ లాగిన్" : "🔑 Phone + password login"}
+          <KeyRound className="mr-1 h-4 w-4 shrink-0" aria-hidden="true" focusable="false" />{te ? "ఫోన్ + పాస్‌వర్డ్ లాగిన్" : "Phone + password login"}
         </Link>
         <Link href="/register" className="inline-flex min-h-11 items-center rounded-xl border border-[#7A0C2E] px-4 py-2 text-sm font-semibold text-[#7A0C2E] hover:bg-rose-50">
-          {te ? "🆓 ఉచిత నమోదు (మొదటి 3 requests ఉచితం)" : "🆓 Register free (first 3 requests free)"}
+          <UserPlus className="mr-1 h-4 w-4 shrink-0" aria-hidden="true" focusable="false" />{te ? "ఉచిత నమోదు (మొదటి 3 requests ఉచితం)" : "Register free (first 3 requests free)"}
         </Link>
       </div>
       <p className={`mt-2 text-xs text-amber-700 ${te ? "telugu" : ""}`}>
-        {te
-          ? "🔒 Public profile/search లో phone numbers కనిపించవు. Owner accept చేసిన తర్వాత accepted-request account views లో contact access వస్తుంది; notification delivery హామీ లేదు."
-          : "🔒 Phone numbers are not shown in public profile/search. Owner acceptance grants contact access in accepted-request account views; notification delivery is not guaranteed."}
+        <LockKeyhole className="mr-1 inline-block h-3 w-3 align-text-bottom" aria-hidden="true" focusable="false" />{te
+          ? "Public profile/search లో phone numbers కనిపించవు. Owner accept చేసిన తర్వాత accepted-request account views లో contact access వస్తుంది; notification delivery హామీ లేదు."
+          : "Phone numbers are not shown in public profile/search. Owner acceptance grants contact access in accepted-request account views; notification delivery is not guaranteed."}
       </p>
       <p className={`mt-1.5 text-xs leading-relaxed text-amber-700 ${te ? "telugu" : ""}`}>
         {te

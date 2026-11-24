@@ -18,6 +18,7 @@ import { authHeaders } from "@/lib/api";
 import { useSession } from "@/lib/auth";
 import Link from "next/link";
 import ScamGuide from "@/components/ScamGuide";
+import { VerificationIcon, verificationLabel } from "@/components/VerificationIcon";
 import { Flag, Ban, ShieldCheck, LockKeyhole, UserRoundCheck, Lightbulb, CircleCheck, Camera, Scale, ThumbsUp, Banknote, House, Smartphone, FileText } from "lucide-react";
 
 const TIP_ICONS = { "💰": Banknote, "📸": Camera, "🏠": House, "📱": Smartphone, "📄": FileText, "🚫": Ban };
@@ -320,7 +321,7 @@ export default function SafetyPage() {
                   <div className="mt-3 flex flex-wrap gap-1.5">
                     {badges.map((b: any) => (
                       <span key={b.badge_type} className="rounded-full bg-emerald-50 border border-emerald-200 px-2.5 py-1 text-[11px] font-bold text-emerald-900">
-                        ✓ {te ? b.label_te : b.label_en}
+                        <VerificationIcon name={b.badge_type} />{verificationLabel(te ? b.label_te : b.label_en)}
                       </span>
                     ))}
                   </div>
@@ -334,7 +335,7 @@ export default function SafetyPage() {
               {levels.filter((l) => l.level !== "none" && l.level !== "phone").map((l) => (
                 <button key={l.level} type="button" onClick={() => requestVerify(l.level)} disabled={!myId || !sessionReady}
                   className="px-3 py-2 rounded-xl border border-gold/40 text-maroon font-bold text-[12px] disabled:opacity-50">
-                  {l.telugu}
+                  <VerificationIcon name={l.level} />{verificationLabel(l.telugu)}
                 </button>
               ))}
             </div>
