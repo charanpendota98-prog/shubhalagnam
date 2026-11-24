@@ -4,6 +4,7 @@ import "@/components/private-fallback.css";
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { LockKeyhole, LoaderCircle, MessageSquare, CircleCheck } from "lucide-react";
 import { useParams } from "next/navigation";
 import { readApiJson } from "@/lib/api";
 import { useLang } from "@/lib/lang";
@@ -54,7 +55,7 @@ export default function ElderReviewClient() {
       const d = await readApiJson(r);
       if (r.ok && d.success === true) {
         setNote("");
-        setFbSent(te ? "✅ మీ note ప్రొఫైల్ యజమాని పరిశీలన కోసం సేవ్ అయింది." : "✅ Your note was saved for the profile owner to review.");
+        setFbSent(te ? "మీ note ప్రొఫైల్ యజమాని పరిశీలన కోసం సేవ్ అయింది." : "Your note was saved for the profile owner to review.");
       } else {
         setFeedbackError(true);
         setFbSent(d?.detail || (te ? "Note సేవ్ కాలేదు. మీ వివరాలు ఇక్కడే ఉన్నాయి." : "The note was not saved. Your entries are still here."));
@@ -77,19 +78,19 @@ export default function ElderReviewClient() {
             ← {te ? "మన వివాహ హోమ్" : "Mana Vivaha Home"}
           </Link>
           <span className="rounded-full bg-amber-100 px-3 py-1 text-[11px] font-bold text-amber-900">
-            🔒 {te ? "ప్రైవేట్ కుటుంబ పరిశీలన లింక్" : "Private Family Review Link"}
+            <LockKeyhole aria-hidden="true" focusable="false" className="mr-1 inline-block h-3 w-3 align-text-bottom" />{te ? "ప్రైవేట్ కుటుంబ పరిశీలన లింక్" : "Private Family Review Link"}
           </span>
         </div>
 
         {loading && (
           <div className="rounded-3xl bg-white p-8 text-center text-sm font-bold text-[#7A0C2E]">
-            <h1>⏳ {te ? "బయోడేటా వివరాలు లోడ్ అవుతున్నాయి…" : "Loading biodata summary…"}</h1>
+            <h1><LoaderCircle aria-hidden="true" focusable="false" className="mr-1 inline-block h-4 w-4 align-text-bottom motion-safe:animate-spin" />{te ? "బయోడేటా వివరాలు లోడ్ అవుతున్నాయి…" : "Loading biodata summary…"}</h1>
           </div>
         )}
 
         {!loading && err && (
           <div className="rounded-3xl border border-rose-200 bg-white p-8 text-center space-y-3">
-            <div className="text-3xl">🔒</div>
+            <LockKeyhole aria-hidden="true" focusable="false" className="mx-auto h-8 w-8 text-maroon" />
             <h1 className="text-lg font-extrabold text-[#7A0C2E]">
               {te ? "రివ్యూ లింక్ అందుబాటులో లేదు" : "Review Link Unavailable"}
             </h1>
@@ -123,7 +124,7 @@ export default function ElderReviewClient() {
 
               {p.photo_private ? (
                 <div className="rounded-2xl bg-amber-50 border border-amber-200 px-4 py-2.5 text-xs text-amber-900">
-                  🔒 {te ? "ప్రొఫైల్ యజమాని ఫోటో ప్రైవసీ ఆన్ చేశారు (ఈ లింక్‌లో ఫోటో దాచబడింది)." : "Photo privacy is enabled by the profile owner (photo withheld on review links)."}
+                  <LockKeyhole aria-hidden="true" focusable="false" className="mr-1 inline-block h-3 w-3 align-text-bottom" />{te ? "ప్రొఫైల్ యజమాని ఫోటో ప్రైవసీ ఆన్ చేశారు (ఈ లింక్‌లో ఫోటో దాచబడింది)." : "Photo privacy is enabled by the profile owner (photo withheld on review links)."}
                 </div>
               ) : null}
 
@@ -159,7 +160,7 @@ export default function ElderReviewClient() {
 
             <section className="rounded-3xl border border-gold/30 bg-white p-5 space-y-3">
               <h2 className="text-sm font-extrabold text-[#7A0C2E]">
-                🙏 {te ? "కుటుంబ అభిప్రాయం / ఆశీస్సులు పంపండి" : "Share Family Note with Profile Owner"}
+                <MessageSquare aria-hidden="true" focusable="false" className="mr-1 inline-block h-4 w-4 align-text-bottom" />{te ? "కుటుంబ అభిప్రాయం / ఆశీస్సులు పంపండి" : "Share Family Note with Profile Owner"}
               </h2>
               <p id="elder-feedback-privacy" className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-950">
                 {te
@@ -204,7 +205,7 @@ export default function ElderReviewClient() {
               >
                 {te ? "అభిప్రాయం పంపండి" : "Send Private Note"}
               </button>
-              {fbSent && <p role={feedbackError ? "alert" : "status"} className={`text-xs font-bold ${feedbackError ? "text-rose-800" : "text-emerald-800"}`}>{fbSent}</p>}
+              {fbSent && <p role={feedbackError ? "alert" : "status"} className={`text-xs font-bold ${feedbackError ? "text-rose-800" : "text-emerald-800"}`}>{!feedbackError && <CircleCheck aria-hidden="true" focusable="false" className="mr-1 inline-block h-4 w-4 align-text-bottom" />}{fbSent}</p>}
             </section>
           </>
         )}
