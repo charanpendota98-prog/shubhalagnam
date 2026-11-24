@@ -35,6 +35,7 @@ from __future__ import annotations
 
 import os
 import random
+import uuid
 import re
 import threading
 from datetime import datetime, timedelta
@@ -267,7 +268,7 @@ def _now() -> datetime:
 
 
 def _id(prefix: str = "REQ") -> str:
-    return f"{prefix}-{datetime.utcnow().strftime('%y%m%d')}-{random.randint(1000, 9999)}"
+    return f"{prefix}-{datetime.utcnow().strftime('%y%m%d')}-{uuid.uuid4().hex}"
 
 
 def mask_phone(phone: str) -> str:
