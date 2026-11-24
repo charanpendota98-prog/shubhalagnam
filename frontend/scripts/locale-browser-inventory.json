@@ -1296,5 +1296,29 @@
   {
     "file": "tests/discovery-navigation-preview.spec.ts",
     "decision": "Home fallback link and final URL assertion follow explicit locale."
+  },
+  {
+    "file": "tests/discovery-utilities-preview.spec.ts",
+    "decision": "Updated fictional response contracts to existing ownership/count/ack schemas; kept privacy and mutation assertions; all six locale/viewport flows pass."
+  },
+  {
+    "file": "tests/factual-policy-preview.spec.ts",
+    "decision": "Preserve customer rights sections against exact PR202 source; current reads follow moved path, network origin uses test baseURL."
+  },
+  {
+    "file": "tests/final-connected-review.spec.ts",
+    "decision": "Network allowlist uses test baseURL, current Telugu search label; three isolated candidate journeys pass."
+  },
+  {
+    "file": "tests/header-fit.spec.ts",
+    "decision": "Brand geometry targets stable header-home class instead of Telugu-root href; width geometry assertions unchanged."
+  },
+  {
+    "file": "tests/home-biodata-empty.spec.ts",
+    "decision": "Wait for hydrated page before segmented-control click; existing pressed-state assertion unchanged."
+  },
+  {
+    "file": "tests/home-workspace-preview.spec.ts",
+    "decision": "Old wedding-gallery carousel replaced by current motion images; active motion has dedicated full suite. English advanced-search accessible-label fixture remains unresolved."
   }
 ]
