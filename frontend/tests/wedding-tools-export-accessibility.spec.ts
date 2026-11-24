@@ -12,8 +12,12 @@ for (const lang of ["en", "te"] as const) for (const width of [390, 1280]) {
       await page.goto(route);
       const share = page.locator('main a[href^="https://wa.me/"]').first();
       await expect(share).toBeVisible();
-      const visible = (await share.innerText()).trim();
-      expect(await share.getAttribute("aria-label")).toContain(visible);
+      const expectedLabel = route === "/pelli-choopulu"
+        ? (lang === "en" ? "Share this guide on WhatsApp" : "ఈ గైడ్‌ను WhatsApp లో పంచుకోండి")
+        : (lang === "en" ? "WhatsApp invitation" : "WhatsApp ఆహ్వానం");
+      // Wait for the requested language, not two snapshots across hydration.
+      await expect(share).toHaveText(expectedLabel);
+      await expect(share).toHaveAttribute("aria-label", expectedLabel);
       const axe = await new AxeBuilder({ page }).withRules(["label-content-name-mismatch"]).analyze();
       expect(axe.violations).toEqual([]);
     }
