@@ -312,7 +312,7 @@ export default function SafetyPage() {
             {verify ? (
               <>
                 <div className="mt-2 text-[13px] text-gray-700">
-                  {te ? "ప్రస్తుత స్థితి:" : "Recorded status:"} <b>{te ? verify.telugu : (verify.english || verify.telugu)}</b>
+                  {te ? "ప్రస్తుత స్థితి:" : "Recorded status:"} <b><VerificationIcon name={verify.level} />{verificationLabel(te ? verify.telugu : (verify.english || verify.telugu))}</b>
                 </div>
                 <div className="mt-1 text-[12px] text-gray-600 telugu">
                   {te ? `తదుపరి అడుగు: ${verify.next_step_telugu}` : `Next step: ${verify.next_step_en || verify.next_step_telugu}`}

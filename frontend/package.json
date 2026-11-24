@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "check:links": "node scripts/check-links.mjs",
-    "test:security": "node --test scripts/safe-media-path.test.mjs scripts/match-filter-query.test.mjs scripts/match-results.test.mjs scripts/referral-payload.test.mjs scripts/service-worker-cache.test.mjs && node --test scripts/passkey-login-confirmation.test.mjs scripts/passkey-login-bounds.test.mjs && node --test scripts/passkey-registration-confirmation.test.mjs",
+    "test:security": "node --test scripts/safe-media-path.test.mjs scripts/match-filter-query.test.mjs scripts/match-results.test.mjs scripts/referral-payload.test.mjs scripts/service-worker-cache.test.mjs && node --test scripts/passkey-login-confirmation.test.mjs scripts/passkey-login-bounds.test.mjs && node --test scripts/passkey-registration-confirmation.test.mjs && node --test scripts/verification-label.test.mjs",
     "test:design": "node --test scripts/design-system.test.mjs",
     "test:a11y": "node --test scripts/a11y-static.test.mjs",
     "test:route-frame": "node --test scripts/route-frame.test.mjs",
