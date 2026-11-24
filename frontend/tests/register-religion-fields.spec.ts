@@ -12,7 +12,7 @@ for(const lang of ['en','te'])for(const width of [320,390,1280]){
   await page.setViewportSize({width,height:1000});await page.addInitScript(l=>localStorage.setItem('tsap_lang',l),lang);await intercept(page);await page.goto(localeHref('/register',lang));
   for(const mode of ['quick','full']){
    if(mode==='full')await page.getByRole('button',{name:/5-step full registration|5-దశల పూర్తి నమోదు/}).click();
-   const choice=page.locator('#'+mode+'-religion');await expect(choice).toHaveValue('');
+   const choice=page.locator('#'+mode+'-religion');await expect(choice).toBeVisible();await expect(choice).toHaveValue('');
    const order=await choice.evaluate(el=>{const root=el.closest('.mv-register-workspace')!;return [...root.querySelectorAll('input,select,button[aria-pressed]')].filter(e=>e.getClientRects().length).indexOf(el)});expect(order).toBe(0);
    await choice.scrollIntoViewIfNeeded();expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);await page.screenshot({animations:'disabled',path:`${out}/${lang}-${width}-${mode}-choice.png`});
   }

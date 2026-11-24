@@ -20,6 +20,7 @@ import { defineConfig, devices } from "@playwright/test";
 const PORT = Number(process.env.VISUAL_PORT || 3100);
 const baseURL = process.env.VISUAL_BASE_URL || `http://127.0.0.1:${PORT}`;
 const startServer = process.env.VISUAL_NO_SERVER !== "1";
+const productionServer = process.env.VISUAL_PRODUCTION === "1";
 
 export default defineConfig({
   testDir: "./tests",
@@ -52,7 +53,9 @@ export default defineConfig({
     ? {
         webServer: {
           // Bind to the same loopback host as baseURL so Next.js accepts dev assets.
-          command: `npm run dev -- --hostname 127.0.0.1 --port ${PORT}`,
+          command: productionServer
+            ? `npm run start -- --hostname 127.0.0.1 --port ${PORT}`
+            : `npm run dev -- --hostname 127.0.0.1 --port ${PORT}`,
           url: baseURL,
           reuseExistingServer: true,
           timeout: 180_000,
