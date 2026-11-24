@@ -129,7 +129,7 @@ export default function SiteShell({
   children: React.ReactNode; initialLang?: "te" | "en";
 }>) {
   return (
-    <html lang={initialLang === "en" ? "en-IN" : "te-IN"}>
+    <html lang={initialLang === "en" ? "en-IN" : "te-IN"} data-lang={initialLang}>
       <body className="antialiased min-h-dvh flex flex-col wedding-editorial-theme">
         <script
           type="application/ld+json"
