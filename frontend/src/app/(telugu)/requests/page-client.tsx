@@ -13,7 +13,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import AuthGate from "@/components/AuthGate";
 import { authHeaders, apiPost, apiGet, apiDisplayMessage, getToken, readApiJson} from "@/lib/api";
 import Link from "@/components/LocaleLink";
-import { Check, Clock3, CreditCard, Eye, Heart, Inbox, Mail, RefreshCw, Send } from "lucide-react";
+import { Check, Clock3, CreditCard, Eye, Heart, Inbox, Mail, QrCode, RefreshCw, Send } from "lucide-react";
 import Reveal from "@/components/Reveal";
 import SectionHeading from "@/components/SectionHeading";
 import "./workspace.css";
@@ -385,7 +385,7 @@ export default function RequestsPage() {
                   <div className="flex flex-wrap items-center gap-2">
                     {chip(it.status)}
                     {it.credit_refunded && <span className="text-[10px] font-bold text-emerald-700">↩ {te ? "1 క్రెడిట్ తిరిగి" : "1 credit returned"}</span>}
-                    <span className="text-[11px] text-gray-500 font-mono">{it.request_id}</span>
+                    <span className="min-w-0 break-all text-[11px] text-gray-500 font-mono">{it.request_id}</span>
                     {/* A phone number is only ever shown once the owner has
                         accepted; on a pending request the column stays empty
                         rather than hinting at data that does not exist yet. */}
@@ -426,7 +426,7 @@ export default function RequestsPage() {
 
                             <span>{te ? "ఆమోదించబడింది. వారి ఫోన్ (మాస్క్ చేసినది):" : "Accepted — their phone (masked):"}</span>
                             <b className="font-mono text-[13px] tracking-tight text-[#0b4f4a]">{it.requester_phone || "—"}</b>
-                            <Link href={`/search/${encodeURIComponent(it.from_id || "")}?contact=qr`} className="font-bold text-maroon underline">{te ? "📇 Contact QR చూడండి" : "📇 View contact QR"}</Link>
+                            <Link href={`/search/${encodeURIComponent(it.from_id || "")}?contact=qr`} className="font-bold text-maroon underline"><QrCode focusable="false" aria-hidden="true" className="inline h-3.5 w-3.5 align-text-bottom" />{te ? " Contact QR చూడండి" : " View contact QR"}</Link>
                             <span className="text-[11px] font-medium text-slate-600">
                               {te ? "(WhatsApp ద్వారా సమాచారం అందుతుందని హామీ లేదు)" : "(external WhatsApp delivery is not guaranteed)"}
                             </span>
@@ -457,8 +457,8 @@ export default function RequestsPage() {
             {sentReady && sent.sent?.some((it: Req) => it.status === "accepted") ? <AcceptedNextSteps /> : null}
             {sentReady && sent.sent?.map((it: Req) => (
               <Reveal key={it.request_id}>
-                <div className="mv-surface mv-surface__body mv-card flex flex-wrap items-center gap-3">
-                  <div className="min-w-0 flex-1">
+                <div className="mv-surface mv-surface__body mv-card flex flex-col items-stretch gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+                  <div className="min-w-0 w-full sm:w-auto sm:flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
                       {chip(it.status)}
                       <span className="font-bold text-[14px] text-maroon">{it.profile?.full_name || (te ? "ప్రొఫైల్ పేరు ఇవ్వలేదు" : "Profile name not supplied")}{it.profile?.age ? ` (${it.profile.age}y)` : ""}</span>
@@ -469,12 +469,12 @@ export default function RequestsPage() {
                       {[profileField(it.profile?.education), profileField(it.profile?.job), profileField(it.profile?.district) ? ` ${profileField(it.profile?.district)}` : "", it.profile?.state ? stateFullName(it.profile.state, te) : "", profileField(it.profile?.caste) ? ` ${profileField(it.profile?.caste)}` : ""].filter(Boolean).join(" • ")}
                     </div>
                   </div>
-                  <div className="text-left sm:text-right">
+                  <div className="min-w-0 text-left sm:text-right">
                     <div className="text-[10px] font-bold uppercase tracking-wide text-gray-500">
                       {te ? "సంప్రదింపు" : "Contact"}
                     </div>
                     <div className={`text-[13px] font-bold ${it.status === "accepted" ? "text-emerald-700" : "text-gray-400"}`}>
-                      {it.status === "accepted" ? (<>{it.contact || "—"} <Link href={`/search/${encodeURIComponent(it.to_id || "")}?contact=qr`} className="ml-1 text-[11px] font-bold text-maroon underline">{te ? "📇 Contact QR చూడండి" : "📇 View contact QR"}</Link></>) : te ? "ఆమోదం తర్వాత" : "After acceptance"}
+                      {it.status === "accepted" ? (<>{it.contact || "—"} <Link href={`/search/${encodeURIComponent(it.to_id || "")}?contact=qr`} className="ml-1 text-[11px] font-bold text-maroon underline"><QrCode focusable="false" aria-hidden="true" className="inline h-3.5 w-3.5 align-text-bottom" />{te ? " Contact QR చూడండి" : " View contact QR"}</Link></>) : te ? "ఆమోదం తర్వాత" : "After acceptance"}
                     </div>
                   </div>
                   <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
@@ -553,7 +553,7 @@ export default function RequestsPage() {
             <div className="space-y-4">
               {lastSend ? (
                 <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4">
-                  <div className="font-bold text-emerald-900">{te ? <> {lastSend.request_id} పంపించారు</> : <> {lastSend.request_id} sent</>}</div>
+                  <div className="min-w-0 break-all font-bold text-emerald-900">{te ? <> {lastSend.request_id} పంపించారు</> : <> {lastSend.request_id} sent</>}</div>
                   <div className="text-[12px] text-emerald-900 mt-1">
                      {lastSend.expires_in_days} {te ? "రోజులు చెల్లుతుంది. మిగిలిన క్రెడిట్లు:" : "days valid • credits left"} <b>{lastSend.credits_left}</b>
                   </div>
@@ -647,7 +647,7 @@ export default function RequestsPage() {
             {secondaryReady("saved") && saved.count === 0 && <Empty text={te ? "ఇంకా ప్రొఫైళ్లను దాచుకోలేదు. సంబంధాల పేజీలో దాచుకోవచ్చు." : "No saved profiles yet. You can save profiles from Matches."} />}
             {secondaryReady("saved") && saved.saved.map((x: Saved) => (
               <Reveal key={x.profile.tsap_id}>
-                <div className="mv-surface mv-surface__body mv-card flex flex-wrap items-center gap-3">
+                <div className="mv-surface mv-surface__body mv-card flex flex-col items-stretch gap-3 sm:flex-row sm:flex-wrap sm:items-center">
                   <div className="min-w-0 basis-full sm:flex-1 sm:basis-auto">
                     <div className="font-bold text-[14px] text-maroon break-words">
                        {x.profile.full_name || (te ? "పేరు ఇవ్వలేదు" : "Name not supplied")}{x.profile.age ? ` (${x.profile.age}${te ? " సం." : "y"})` : ""}

@@ -1,6 +1,6 @@
 import {localeHref} from "./locale-href";
 import {test,expect} from '@playwright/test';import fs from 'node:fs';
-const out='/downloads/mv-account-working-review';fs.mkdirSync(out,{recursive:true});
+const out='artifacts/mv-account-working-review';fs.mkdirSync(out,{recursive:true});
 const before=process.env.ACCOUNT_BASELINE==='1';
 for(const lang of ['te','en'])for(const width of [320,390,1280])test(`account workspace ${lang} ${width}`,async({page})=>{
  await page.setViewportSize({width,height:920});const errors:string[]=[];page.on('pageerror',e=>errors.push(String(e)));await page.addInitScript(l=>{localStorage.setItem('tsap_lang',l);localStorage.setItem('tsap_id','UI_ONLY')},lang);let writes=0;

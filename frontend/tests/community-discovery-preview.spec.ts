@@ -1,7 +1,7 @@
 import {localeHref} from "./locale-href";
 import {test,expect} from '@playwright/test';
 import fs from 'node:fs';
-const out='/downloads/mv-community-discovery-review';fs.mkdirSync(out,{recursive:true});
+const out='artifacts/mv-community-discovery-review';fs.mkdirSync(out,{recursive:true});
 const profiles=[
  {tsap_id:'FICTIONAL-A',full_name:'FICTIONAL PREVIEW A NOT A REAL MEMBER',gender:'Bride',age:34,marital_status:'Divorced',children:'None',caste:'Reddy',district:'Hyderabad',state:'TS',education:'Fictional degree',job:'Fictional occupation',phone_verified:true,photo_verified:true,id_verified:true,about_myself:'Fictional browser fixture only. Not a real member.'},
  {tsap_id:'FICTIONAL-B',full_name:'FICTIONAL PREVIEW B NOT A REAL MEMBER',gender:'Groom',age:42,marital_status:'Widower',children:'2',caste:'Brahmin',district:'Guntur',state:'AP'},

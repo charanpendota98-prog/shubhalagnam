@@ -1,6 +1,6 @@
 import {localeHref} from "./locale-href";
 import {test,expect} from '@playwright/test';import fs from 'node:fs';
-const out='/downloads/mv-trust-review',before=process.env.TRUST_BASELINE==='1';fs.mkdirSync(out,{recursive:true});
+const out='artifacts/mv-trust-review',before=process.env.TRUST_BASELINE==='1';fs.mkdirSync(out,{recursive:true});
 for(const lang of ['te','en'])for(const width of [320,390,1280])test(`trust pages ${lang} ${width}`,async({page})=>{
  await page.setViewportSize({width,height:950});await page.emulateMedia({reducedMotion:'reduce'});await page.addInitScript(l=>{localStorage.setItem('tsap_lang',l);localStorage.setItem('tsap_id','UI_ONLY')},lang);const errors:string[]=[],writes:string[]=[];page.on('pageerror',e=>errors.push(e.message));let statusMode='ok',signed=true;
  const status={overall_status:'operational',components:{transactional_sql_plane:'operational',search_v2_projection:'operational (0 indexed public profiles)'},providers_honest_state:{online_payment_gateway:'manual_or_sandbox_only',sms_otp:'not_configured_optional',transactional_email:'configured',whatsapp_bridge:'not_configured_queue_only'},slo:{sample_size:64,observed_availability_pct:100,p95_latency_ms:1600,target_availability_pct:99.5},last_dr_drill:null,checked_at:'2026-11-17T10:30:00Z'};

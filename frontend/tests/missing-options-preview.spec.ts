@@ -1,7 +1,7 @@
 import {localeHref} from "./locale-href";
 import { test, expect } from '@playwright/test';
 import fs from 'node:fs';
-const out = '/downloads/mv-missing-options';
+const out = 'artifacts/mv-missing-options';
 fs.mkdirSync(out, { recursive: true });
 const profile = { tsap_id: 'DEMO-OPT-A', full_name: 'Sample member', age: 28, height: "5'4\"", gender: 'Bride', religion: 'Hindu', caste: 'Reddy', education: 'B.Tech', job: 'Software', district: 'Hyderabad', state: 'TS', marital_status: 'Pelli Kaledu', salary: '10 LPA', has_photo: false };
 for (const lang of ['en', 'te'])

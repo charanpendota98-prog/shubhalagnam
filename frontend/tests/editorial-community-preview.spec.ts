@@ -1,7 +1,7 @@
 import {localeHref} from "./locale-href";
 import {test,expect} from '@playwright/test';
 import fs from 'node:fs';
-const out='/downloads/mv-editorial-community-review';fs.mkdirSync(out,{recursive:true});
+const out='artifacts/mv-editorial-community-review';fs.mkdirSync(out,{recursive:true});
 const article='telugu-matrimony-profile-ela-create-cheyali';
 const org={slug:'fictional-preview',org_name_en:'FICTIONAL ORGANIZATION FOR LOCAL PREVIEW ONLY',org_name_te:'పరీక్ష సంఘం మాత్రమే FICTIONAL',about_en:'Fictional layout fixture, not a real organization or endorsement.',about_te:'పరీక్ష కోసం మాత్రమే. నిజమైన సంఘం కాదు.',approved_profile_count:1,consent_notice:'FICTIONAL layout fixture. Contact details are not supplied.',sample_profiles:[{tsap_id:'FICTIONAL-MEMBER',gender:'Bride',age:30,caste:'Fictional community',district:'Hyderabad',education:'Fictional degree',job:'Fictional occupation'}]};
 const cms={slug:'fictional-preview',title_en:'FICTIONAL EDITORIAL PREVIEW ONLY',title_te:'పరీక్ష సమాచార పేజీ మాత్రమే',body_en:'This is a fictional local layout fixture. It is not a published offer or a real community announcement.\nA second paragraph checks reading space and longwordwrappingwithoutanypersonaldetails12345678901234567890.',body_te:'ఇది పరీక్ష కోసం మాత్రమే. నిజమైన ప్రకటన లేదా ఆఫర్ కాదు.\nరెండో పేరా చదవడానికి స్థలం మరియు తెలుగు వాక్యాల అమరికను పరీక్షిస్తుంది.',tags:['FICTIONAL'],photos:[]};

@@ -1,6 +1,6 @@
 import {localeHref} from "./locale-href";
 import {test,expect} from '@playwright/test';import fs from 'node:fs';import {execFileSync} from 'node:child_process';
-const out='/downloads/mv-factual-policy-review';fs.mkdirSync(out,{recursive:true});
+const out='artifacts/mv-factual-policy-review';fs.mkdirSync(out,{recursive:true});
 // Sections containing existing customer rights/deadlines must be byte-for-byte unchanged.
 test('existing refund credit and deadline sections remain identical',()=>{
  for(const [route,sections]of [['privacy',[7,8]],['terms',[7,8,9]],['refund',[1,2,4,5]]]as const){const file=`src/app/${route}/page-client.tsx`,old=execFileSync('git',['show',`03ef096be0f621c8229677a19dea7b7a4bdbf210:frontend/${file}`],{encoding:'utf8'}),current=fs.readFileSync(file.replace('src/app/','src/app/(telugu)/'),'utf8');for(const n of sections){const section=(s:string)=>{const a=s.indexOf(`<Section title={te ? "${n}.`),b=s.indexOf('</Section>',a);expect(a).toBeGreaterThan(-1);return s.slice(a,b+10)};if(route==='terms'&&n===9)continue;expect(section(current)).toBe(section(old))}}

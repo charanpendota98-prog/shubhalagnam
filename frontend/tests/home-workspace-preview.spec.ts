@@ -1,7 +1,7 @@
 import {localeHref} from "./locale-href";
 import {test,expect} from '@playwright/test';
 import fs from 'node:fs';
-const out='/downloads/mv-home-working-review';fs.mkdirSync(out,{recursive:true});const before=process.env.HOME_BASELINE==='1';
+const out='artifacts/mv-home-working-review';fs.mkdirSync(out,{recursive:true});const before=process.env.HOME_BASELINE==='1';
 for(const lang of ['te','en'])for(const width of [320,390,1280])test(`homepage ${lang} ${width}`,async({page})=>{
 await page.setViewportSize({width,height:1000});await page.emulateMedia({reducedMotion:'reduce'});await page.addInitScript(l=>localStorage.setItem('tsap_lang',l),lang);const errors:string[]=[],writes:string[]=[];page.on('pageerror',e=>errors.push(e.message));await page.route('**/api/**',r=>{const path=new URL(r.request().url()).pathname;if(r.request().method()!=='GET'){writes.push(path);return r.fulfill({json:{success:true}})}if(path==='/api/meta/home-stats')return r.fulfill({json:{free_first:3,plans:[{code:'S_99',price:99,profiles:5},{code:'S_199',price:199,profiles:12},{code:'S_299',price:299,profiles:25},{code:'S_499',price:499,profiles:50}]}});return r.fulfill({json:{success:true,items:[],stories:[],vendors:[],teasers:[],rows:[],ads:[]}})});
 await page.goto(localeHref('/',lang));await expect(page.locator('.wedding-editorial h1')).toBeVisible();await page.evaluate(()=>document.fonts.ready);await expect(page.locator('.wedding-motion img')).toHaveCount(2);

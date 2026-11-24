@@ -1,7 +1,7 @@
 import {localeHref} from "./locale-href";
 import {test,expect} from '@playwright/test';
 import fs from 'node:fs';
-const out='/downloads/mv-wedding-tools-review';fs.mkdirSync(out,{recursive:true});
+const out='artifacts/mv-wedding-tools-review';fs.mkdirSync(out,{recursive:true});
 for(const lang of ['te','en'])for(const width of [320,390,1280])test(`wedding tools ${lang} ${width}`,async({page})=>{
  await page.setViewportSize({width,height:950});await page.emulateMedia({reducedMotion:'reduce'});await page.addInitScript(l=>{localStorage.setItem('tsap_lang',l);window.print=()=>{(window as any).fixturePrints=((window as any).fixturePrints||0)+1}},lang);
  const errors:string[]=[],writes:string[]=[];page.on('pageerror',e=>errors.push(e.message));let astroMode='pending_review';
