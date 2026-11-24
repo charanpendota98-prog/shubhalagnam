@@ -385,7 +385,7 @@ export default function RequestsPage() {
                   <div className="flex flex-wrap items-center gap-2">
                     {chip(it.status)}
                     {it.credit_refunded && <span className="text-[10px] font-bold text-emerald-700">↩ {te ? "1 క్రెడిట్ తిరిగి" : "1 credit returned"}</span>}
-                    <span className="text-[11px] text-gray-500 font-mono">{it.request_id}</span>
+                    <span className="min-w-0 break-all text-[11px] text-gray-500 font-mono">{it.request_id}</span>
                     {/* A phone number is only ever shown once the owner has
                         accepted; on a pending request the column stays empty
                         rather than hinting at data that does not exist yet. */}
@@ -553,7 +553,7 @@ export default function RequestsPage() {
             <div className="space-y-4">
               {lastSend ? (
                 <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4">
-                  <div className="font-bold text-emerald-900">{te ? <> {lastSend.request_id} పంపించారు</> : <> {lastSend.request_id} sent</>}</div>
+                  <div className="min-w-0 break-all font-bold text-emerald-900">{te ? <> {lastSend.request_id} పంపించారు</> : <> {lastSend.request_id} sent</>}</div>
                   <div className="text-[12px] text-emerald-900 mt-1">
                      {lastSend.expires_in_days} {te ? "రోజులు చెల్లుతుంది. మిగిలిన క్రెడిట్లు:" : "days valid • credits left"} <b>{lastSend.credits_left}</b>
                   </div>
