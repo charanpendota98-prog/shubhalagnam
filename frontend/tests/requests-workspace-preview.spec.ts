@@ -1,5 +1,5 @@
 import {test,expect} from '@playwright/test';import fs from 'node:fs';
-const out='/downloads/mv-requests-working-review';fs.mkdirSync(out,{recursive:true});const before=process.env.REQUESTS_BASELINE==='1';
+const out='artifacts/mv-requests-working-review';fs.mkdirSync(out,{recursive:true});const before=process.env.REQUESTS_BASELINE==='1';
 for(const lang of ['te','en'])for(const width of [320,390,1280])test(`requests workspace ${lang} ${width}`,async({page})=>{
  await page.setViewportSize({width,height:920});await page.addInitScript(l=>{localStorage.setItem('tsap_lang',l);localStorage.setItem('tsap_id','UI_ONLY');localStorage.setItem('tsap_token','synthetic-only')},lang);const errors:string[]=[];page.on('pageerror',e=>errors.push(String(e)));let responses=0,sendMode='http';const sendBodies:any[]=[];
  const profile={full_name:'Fictional Review',age:28,education:'B.Tech',job:'Engineer',district:'Hyderabad',state:'TS',height:'5 ft 8 in',caste:'Self-described',salary:'Not stated'};

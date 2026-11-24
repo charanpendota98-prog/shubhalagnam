@@ -1,6 +1,6 @@
 import {test,expect} from '@playwright/test';
 import fs from 'node:fs';
-const out='/downloads/mv-credit-review';fs.mkdirSync(out,{recursive:true});
+const out='artifacts/mv-credit-review';fs.mkdirSync(out,{recursive:true});
 for(const lang of ['en','te'])for(const width of [320,390,1280])test(`request credit promise ${lang} ${width}`,async({page})=>{
  await page.setViewportSize({width,height:1000});
  await page.addInitScript(l=>{localStorage.setItem('tsap_lang',l);localStorage.setItem('tsap_id','UI_ONLY');localStorage.setItem('tsap_token','synthetic-only')},lang);

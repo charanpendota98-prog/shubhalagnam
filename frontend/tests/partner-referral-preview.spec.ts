@@ -1,6 +1,6 @@
 import {test,expect} from '@playwright/test';
 import fs from 'node:fs';
-const out='/downloads/mv-partner-referral-review';fs.mkdirSync(out,{recursive:true});
+const out='artifacts/mv-partner-referral-review';fs.mkdirSync(out,{recursive:true});
 const vendor={id:'FICTIONAL-VENDOR',business_name:'FICTIONAL BUSINESS FOR LOCAL PREVIEW ONLY',category:'photography',category_en:'Photography',category_te:'ఫోటోగ్రఫీ',city:'Hyderabad',district:'Hyderabad',about:'Fictional layout fixture, not an endorsement or a real service.',service_areas:'Fictional preview area',price_range:'Fictional range, not an offer',icon:'📷',package:'V_BASIC',listing_details_reviewed:false};
 const packages=[{code:'V_SINGLE_POST',name:'FICTIONAL PROMO KIT',name_en:'FICTIONAL PROMO KIT',price:149,days:1,perks:['Fictional layout only'],description_en:'Fictional fixture, no purchase or price offer.',telugu:'పరీక్ష కోసం మాత్రమే. నిజమైన ఆఫర్ కాదు.'},{code:'V_STANDARD',name:'FICTIONAL LISTING',name_en:'FICTIONAL LISTING',price:499,days:30,perks:['Fictional layout only'],description_en:'Fictional fixture, not a price offer.',telugu:'పరీక్ష కోసం మాత్రమే.'}];
 for(const lang of ['te','en'])for(const width of [320,390,1280])test(`partner journeys ${lang} ${width}`,async({page})=>{
