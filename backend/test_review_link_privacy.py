@@ -106,6 +106,10 @@ for text in ['012345678901','Age ౨౮']:
     check('noncontact preserved '+text,P._review_safe(text)==text)
 check('nested tuple values scrubbed',P._review_safe(('09876543210',{'nested':('040 2700 1234','Application ID: 09876543211')}))==('[contact hidden]',{'nested':('[contact hidden]','Application ID: [contact hidden]')}))
 check('tuple type preserved',isinstance(P._review_safe(('safe',)),tuple))
+# Accepted limitation: no general phone recognition for uncued, ungrouped
+# 02-05 landlines. A phone cue or STD grouping is needed for the added rule.
+for text in ['04027001234','నంబర్ 04027001234']:
+    check('bare ungrouped landline limitation '+text,P._review_safe(text)==text)
 failed=[name for name,ok in checks if not ok]
 print({'checks':len(checks),'passed':len(checks)-len(failed),'failed':failed})
 assert not failed
