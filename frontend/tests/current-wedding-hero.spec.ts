@@ -15,7 +15,7 @@ for(const lang of ['en','te'])for(const width of [320,390,1280])test(`current we
    const geometry=await hero.evaluate(el=>{const title=el.querySelector('h1')!.getBoundingClientRect(),photo=el.querySelector('.wedding-motion__caption')!.getBoundingClientRect();return {overlap:Math.max(0,Math.min(title.right,photo.right)-Math.max(title.left,photo.left))*Math.max(0,Math.min(title.bottom,photo.bottom)-Math.max(title.top,photo.top)),overflow:document.documentElement.scrollWidth>innerWidth+1}});
    expect(geometry.overflow).toBe(false);if(geometry.overlap)await page.screenshot({path:`${out}/${lang}-${width}-overlap-${time}.png`,animations:'disabled'});expect(geometry.overlap).toBe(0);
   }
-  await expect(hero.locator('a[href="/register"]')).toBeVisible();if(width>=768)await expect(hero.locator('a[href="/matches"]')).toBeVisible();else await expect(hero.locator('.home-search-card__submit')).toBeVisible();
+  await expect(hero.locator(`a[href="${localeHref("/register",lang)}"]`)).toBeVisible();if(width>=768)await expect(hero.locator(`a[href="${localeHref("/matches",lang)}"]`)).toBeVisible();else await expect(hero.locator('.home-search-card__submit')).toBeVisible();
   const scenes=hero.locator('.wedding-motion');await expect(scenes.locator('img')).toHaveCount(2);
   for(const img of await scenes.locator('img').all())expect(await img.getAttribute('alt')).toBeTruthy();
   if(reduced)await expect(scenes.locator('video')).toHaveCount(0);

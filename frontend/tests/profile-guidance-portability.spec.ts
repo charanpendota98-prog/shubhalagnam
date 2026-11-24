@@ -13,7 +13,7 @@ for(const mode of ['network','http503','blocked','inconsistent','late'])test(`gu
  if(mode==='network')return r.abort('failed');if(mode==='http503')return r.fulfill({status:503,json:{detail:'Test outage'}});if(mode==='late'&&url.searchParams.get('to_id')==='FIRST'){held=true;await gate;return r.fulfill({json:valid});}
  return r.fulfill({json:{...valid,can_send:mode==='inconsistent',blockers:['blocked'],credits:1}});
  }if(path.startsWith('/api/saved/'))return r.fulfill({json:{saved:[]}});return r.fulfill({json:{success:true,items:[]}})});
- await page.goto('/search/FIRST');const guide=page.getByRole('region',{name:'Request guidance',exact:true});
+ await page.goto(localeHref('/search/FIRST',"en"));const guide=page.getByRole('region',{name:'Request guidance',exact:true});
  if(['network','http503','inconsistent'].includes(mode)){await expect(guide.getByRole('alert')).toBeVisible();await expect(guide.getByText(/You can send this request/)).toHaveCount(0);return;}
  if(mode==='late'){await expect.poll(()=>held).toBe(true);await page.getByRole('textbox',{name:'Profile ID search',exact:true}).fill('SECOND');await page.getByRole('button',{name:'View',exact:true}).click();await expect(guide.getByText('Contact is blocked between these profiles.',{exact:true})).toBeVisible();release();await page.waitForTimeout(400);}
  await expect(guide.getByText('Contact is blocked between these profiles.',{exact:true})).toBeVisible();await expect(guide.getByText(/You can send this request/)).toHaveCount(0);await expect(guide.getByRole('alert')).toHaveCount(0);

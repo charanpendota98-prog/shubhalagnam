@@ -1,3 +1,4 @@
+import {localeHref} from "./locale-href";
 import { test, expect, type Page } from "@playwright/test";
 import fs from "node:fs";
 import os from "node:os";
@@ -48,7 +49,7 @@ async function openHome(page: Page, lang: string) {
       /* private mode — the default language is fine */
     }
   }, lang);
-  await page.goto("/", { waitUntil: "domcontentloaded" });
+  await page.goto(localeHref("/",lang), { waitUntil: "domcontentloaded" });
   await page.waitForSelector(".mv-hero__title");
   await page.waitForTimeout(500);
 }

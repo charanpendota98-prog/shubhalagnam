@@ -51,7 +51,7 @@ for(const lang of ['en','te'])for(const width of [320,390,1280]){
   const retry=page.getByRole('button',{name:lang==='en'?'Retry':'మళ్లీ ప్రయత్నించండి',exact:true});
   const home=page.getByRole('link',{name:lang==='en'?'Home':'హోమ్',exact:true});
   await expect(retry.locator('svg')).toHaveCount(1);await expect(home.locator('svg')).toHaveCount(1);
-  await expect(home).toHaveAttribute('href','/');
+  await expect(home).toHaveAttribute('href',localeHref("/",lang));
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
   fs.mkdirSync('artifacts/requests-error-portability',{recursive:true});
   await page.screenshot({path:`artifacts/requests-error-portability/${lang}-${width}.png`});

@@ -22,7 +22,7 @@ async function fixture(page:Page,lang="en") {
  return{status:(n:number)=>{status=n;},posts:()=>posts};
 }
 test("create, pause, resume, archive and failed refresh guard",async({page})=>{
- const state=await fixture(page);await page.goto("/referral?id=UI01");const region=page.getByRole("region",{name:"Creator campaigns"});
+ const state=await fixture(page);await page.goto(localeHref("/referral?id=UI01","en"));const region=page.getByRole("region",{name:"Creator campaigns"});
  await expect(region.getByText("No campaigns yet. Create a link for your first video.")).toBeVisible();
  await region.getByLabel("Campaign name",{exact:true}).fill("My first creator video");await region.getByRole("button",{name:"Create campaign link",exact:true}).click();
  await expect(region.getByRole("heading",{name:"My first creator video"})).toBeVisible();expect(state.posts()).toBe(1);
@@ -45,7 +45,7 @@ for(const lang of ["en","te"])for(const width of [320,390,1280])test(`campaign f
 
 test("campaign landing preserves token and invite into registration",async({page})=>{
  let click="";await page.route("**/api/**",async route=>{const u=new URL(route.request().url());if(u.pathname.includes("/referral/click/")){click=u.search;return route.fulfill({json:{success:true,valid_code:true,referrer_name:"Fictional Referrer",bonus_credits:1}});}return route.fulfill({json:{success:true}});});
- await page.goto(`/r/CREATOR?campaign=${token}&inv=INVITE01`);await page.waitForURL(`**/register?ref=CREATOR&inv=INVITE01&campaign=${token}`);expect(click).toContain(`campaign=${token}`);expect(click).toContain("inv=INVITE01");
+ await page.goto(localeHref(`/r/CREATOR?campaign=${token}&inv=INVITE01`,"en"));await page.waitForURL(`**/register?ref=CREATOR&inv=INVITE01&campaign=${token}`);expect(click).toContain(`campaign=${token}`);expect(click).toContain("inv=INVITE01");
 });
 test("partner campaigns require private OTP flow and scoped header",async({page})=>{
  await page.addInitScript(()=>localStorage.setItem("tsap_lang","en"));let campaignRequests=0;
@@ -57,7 +57,7 @@ test("partner campaigns require private OTP flow and scoped header",async({page}
   if(u.pathname==="/api/referral/SYN-PARTNER/campaigns"){campaignRequests++;expect(route.request().headers()["x-partner-token"]).toBe("synthetic-scoped-token");d={success:true,campaigns:[]};}
   return route.fulfill({json:d});
  });
- await page.goto("/referral/register");await expect(page.getByRole("region",{name:"Creator campaigns"})).toHaveCount(0);
+ await page.goto(localeHref("/referral/register","en"));await expect(page.getByRole("region",{name:"Creator campaigns"})).toHaveCount(0);
  await page.getByLabel("Partner ID",{exact:true}).fill("SYN-PARTNER");await page.getByRole("button",{name:"View",exact:true}).click();
  await page.getByLabel("Registered 10-digit mobile",{exact:true}).fill("9000014599");await page.getByRole("button",{name:"Send OTP",exact:true}).click();await page.getByLabel("4-digit OTP",{exact:true}).fill("1234");await page.getByRole("button",{name:"Verify & continue",exact:true}).click();
  await expect(page.getByRole("region",{name:"Creator campaigns"})).toBeVisible();await expect(page.getByText("No campaigns yet. Create a link for your first video.")).toBeVisible();expect(campaignRequests).toBeGreaterThan(0);

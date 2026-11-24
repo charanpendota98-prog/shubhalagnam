@@ -44,5 +44,14 @@
   "/vendors/kit",
   "/vendors",
   "/vendors/register",
-  "/verify"
+  "/verify",
+  "/admin",
+  "/admin/photos",
+  "/control",
+  "/control/workspace",
+  "/control/legacy",
+  "/control/login",
+  "/owner",
+  "/growth",
+  "/review/[token]"
 ]

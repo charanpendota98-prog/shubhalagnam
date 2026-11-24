@@ -13,7 +13,7 @@ for(const lang of ['en','te'])for(const width of [320,390,1280])for(const popula
  expect(await panel.innerText()).not.toMatch(/\p{Extended_Pictographic}/u);
  if(lang==='te')expect((await panel.innerText()).replaceAll('Fictional profile','').replaceAll('Hyderabad','')).not.toMatch(/\b(activity|profiles|interests|profile|views|results|interest)\b/i);
  expect(await heading.locator('svg[aria-hidden=true]').count()).toBe(1);
- if(populated){await expect(panel.locator('a[href="/search/TEST-CANDIDATE"]')).toBeVisible();await expect(panel.locator('a[href="/requests"]')).toBeVisible();}
+ if(populated){await expect(panel.locator(`a[href="${localeHref("/search/TEST-CANDIDATE",lang)}"]`)).toBeVisible();await expect(panel.locator(`a[href="${localeHref("/requests",lang)}"]`)).toBeVisible();}
  const beforeRefresh=reads;const refresh=panel.getByRole('button',{name:lang==='en'?'Refresh match briefing':'రిఫ్రెష్ చేయండి',exact:true});await refresh.focus();await page.keyboard.press('Enter');await expect.poll(()=>reads).toBeGreaterThan(beforeRefresh);expect(writes).toBe(0);
  await heading.scrollIntoViewIfNeeded();fs.mkdirSync('artifacts/briefing-portable-copy',{recursive:true});await page.setViewportSize({width,height:1600});await panel.screenshot({path:`artifacts/briefing-portable-copy/${lang}-${width}-${populated?'populated':'empty'}.png`});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
 });

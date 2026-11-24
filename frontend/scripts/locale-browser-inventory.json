@@ -586,5 +586,703 @@
   {
     "file": "tests/shortlist-write-integrity.spec.ts",
     "calls": 1
+  },
+  {
+    "file": "a11y.spec.ts",
+    "goto": "route",
+    "unresolved": true
+  },
+  {
+    "file": "a11y.spec.ts",
+    "goto": "\"/\"",
+    "unresolved": true
+  },
+  {
+    "file": "alert-preference-read.spec.ts",
+    "goto": "'/me'",
+    "locale": "\"en\""
+  },
+  {
+    "file": "biodata-export-origin.spec.ts",
+    "goto": "'/biodata'",
+    "locale": "\"te\""
+  },
+  {
+    "file": "biodata-religion-contract.spec.ts",
+    "goto": "'/biodata'",
+    "locale": "\"en\""
+  },
+  {
+    "file": "campaign-request-recovery.spec.ts",
+    "goto": "'/referral?id=UI164'",
+    "unresolved": true
+  },
+  {
+    "file": "campaign-request-recovery.spec.ts",
+    "goto": "'/referral?id=UI164'",
+    "unresolved": true
+  },
+  {
+    "file": "campaign-request-recovery.spec.ts",
+    "goto": "'/referral?id=UI164'",
+    "unresolved": true
+  },
+  {
+    "file": "campaign-request-recovery.spec.ts",
+    "goto": "'/referral/register'",
+    "unresolved": true
+  },
+  {
+    "file": "campaign-response-integrity.spec.ts",
+    "goto": "'/referral?id=UI165'",
+    "unresolved": true
+  },
+  {
+    "file": "campaign-response-integrity.spec.ts",
+    "goto": "'/referral?id=UI165'",
+    "unresolved": true
+  },
+  {
+    "file": "campaign-response-integrity.spec.ts",
+    "goto": "'/referral?id=UI165'",
+    "unresolved": true
+  },
+  {
+    "file": "campaign-telugu-clarity.spec.ts",
+    "goto": "'/referral?id=UI166'",
+    "locale": "\"te\""
+  },
+  {
+    "file": "control-bureaus.spec.ts",
+    "goto": "'/control'",
+    "locale": "lang"
+  },
+  {
+    "file": "control-bureaus.spec.ts",
+    "goto": "'/control'",
+    "unresolved": true
+  },
+  {
+    "file": "creator-campaigns.spec.ts",
+    "goto": "\"/referral?id=UI01\"",
+    "unresolved": true
+  },
+  {
+    "file": "creator-campaigns.spec.ts",
+    "goto": "`/r/CREATOR?campaign=${token}&inv=INVITE01`",
+    "unresolved": true
+  },
+  {
+    "file": "creator-campaigns.spec.ts",
+    "goto": "\"/referral/register\"",
+    "locale": "\"en\""
+  },
+  {
+    "file": "credit-receipt-read.spec.ts",
+    "goto": "'/me'",
+    "locale": "\"en\""
+  },
+  {
+    "file": "device-session-read.spec.ts",
+    "goto": "'/me'",
+    "locale": "\"en\""
+  },
+  {
+    "file": "final-package-acceptance.spec.ts",
+    "goto": "'/login'",
+    "locale": "\"en\""
+  },
+  {
+    "file": "final-package-acceptance.spec.ts",
+    "goto": "'/search/ISOLATED-BRIDE'",
+    "locale": "\"en\""
+  },
+  {
+    "file": "final-package-acceptance.spec.ts",
+    "goto": "'/requests'",
+    "locale": "\"en\""
+  },
+  {
+    "file": "fresh-user-bugs.spec.ts",
+    "goto": "'/admin/photos'",
+    "unresolved": true
+  },
+  {
+    "file": "fresh-user-bugs.spec.ts",
+    "goto": "'/admin/photos'",
+    "unresolved": true
+  },
+  {
+    "file": "fresh-user-bugs.spec.ts",
+    "goto": "'/admin/photos'",
+    "unresolved": true
+  },
+  {
+    "file": "fresh-user-bugs.spec.ts",
+    "goto": "'/spotlight'",
+    "unresolved": true
+  },
+  {
+    "file": "growth-error-state.spec.ts",
+    "goto": "'/growth'",
+    "unresolved": true
+  },
+  {
+    "file": "growth-error-state.spec.ts",
+    "goto": "'/growth'",
+    "unresolved": true
+  },
+  {
+    "file": "growth-error-state.spec.ts",
+    "goto": "'/growth'",
+    "unresolved": true
+  },
+  {
+    "file": "growth-error-state.spec.ts",
+    "goto": "'/growth'",
+    "unresolved": true
+  },
+  {
+    "file": "growth-error-state.spec.ts",
+    "goto": "'/growth'",
+    "unresolved": true
+  },
+  {
+    "file": "growth-error-state.spec.ts",
+    "goto": "'/growth'",
+    "locale": "\"te\""
+  },
+  {
+    "file": "growth-error-state.spec.ts",
+    "goto": "'/growth'",
+    "unresolved": true
+  },
+  {
+    "file": "growth-error-state.spec.ts",
+    "goto": "'/growth'",
+    "unresolved": true
+  },
+  {
+    "file": "growth-error-state.spec.ts",
+    "goto": "'/growth'",
+    "unresolved": true
+  },
+  {
+    "file": "hero-artwork.spec.ts",
+    "goto": "\"/\"",
+    "locale": "lang"
+  },
+  {
+    "file": "hero-wedding-motion.spec.ts",
+    "goto": "'/'",
+    "unresolved": true
+  },
+  {
+    "file": "hero-wedding-motion.spec.ts",
+    "goto": "'/'",
+    "locale": "\"en\""
+  },
+  {
+    "file": "hero-wedding-motion.spec.ts",
+    "goto": "'/'",
+    "locale": "\"en\""
+  },
+  {
+    "file": "login-response-ownership.spec.ts",
+    "goto": "'/login'",
+    "locale": "\"en\""
+  },
+  {
+    "file": "login-workspace-preview.spec.ts",
+    "goto": "'/login'",
+    "locale": "\"en\""
+  },
+  {
+    "file": "match-card-actions.spec.ts",
+    "goto": "'/matches'",
+    "locale": "\"en\""
+  },
+  {
+    "file": "owner-command-center.spec.ts",
+    "goto": "'/control'",
+    "unresolved": true
+  },
+  {
+    "file": "owner-command-center.spec.ts",
+    "goto": "'/control'",
+    "unresolved": true
+  },
+  {
+    "file": "owner-command-center.spec.ts",
+    "goto": "'/control'",
+    "unresolved": true
+  },
+  {
+    "file": "owner-command-center.spec.ts",
+    "goto": "'/control'",
+    "unresolved": true
+  },
+  {
+    "file": "owner-command-center.spec.ts",
+    "goto": "'/control'",
+    "unresolved": true
+  },
+  {
+    "file": "owner-command-center.spec.ts",
+    "goto": "'/control'",
+    "unresolved": true
+  },
+  {
+    "file": "partner-registration-integrity.spec.ts",
+    "goto": "'/referral/register'",
+    "locale": "\"en\""
+  },
+  {
+    "file": "partner-registration-integrity.spec.ts",
+    "goto": "'/referral/register'",
+    "locale": "\"en\""
+  },
+  {
+    "file": "partner-registration-integrity.spec.ts",
+    "goto": "'/referral/register'",
+    "locale": "\"en\""
+  },
+  {
+    "file": "photo-permission-read.spec.ts",
+    "goto": "'/me'",
+    "locale": "\"en\""
+  },
+  {
+    "file": "private-offline-preview.spec.ts",
+    "goto": "'/offline'",
+    "unresolved": true
+  },
+  {
+    "file": "private-offline-preview.spec.ts",
+    "goto": "'/preview-never-cached-page'",
+    "unresolved": true
+  },
+  {
+    "file": "profile-action-targets.spec.ts",
+    "goto": "'/search/FIRST'",
+    "locale": "\"en\""
+  },
+  {
+    "file": "profile-editor-read.spec.ts",
+    "goto": "'/me'",
+    "locale": "\"en\""
+  },
+  {
+    "file": "profile-guidance-portability.spec.ts",
+    "goto": "'/search/FIRST'",
+    "locale": "\"en\""
+  },
+  {
+    "file": "profile-shortlist-state.spec.ts",
+    "goto": "'/search/FICTIONAL'",
+    "locale": "\"en\""
+  },
+  {
+    "file": "profile-workspace-preview.spec.ts",
+    "goto": "'/search/DEMO_REVIEW'",
+    "locale": "\"en\""
+  },
+  {
+    "file": "proposal-modal-keyboard.spec.ts",
+    "goto": "'/matches'",
+    "locale": "\"en\""
+  },
+  {
+    "file": "referral-landing-integrity.spec.ts",
+    "goto": "`/r/TESTCODE?inv=INVITE01&campaign=${campaign}`",
+    "locale": "\"en\""
+  },
+  {
+    "file": "register-religion-fields.spec.ts",
+    "goto": "'/register'",
+    "locale": "\"en\""
+  },
+  {
+    "file": "register-religion-fields.spec.ts",
+    "goto": "'/register'",
+    "locale": "\"en\""
+  },
+  {
+    "file": "register-religion-fields.spec.ts",
+    "goto": "'/register'",
+    "locale": "\"en\""
+  },
+  {
+    "file": "registration-referral-confirmation.spec.ts",
+    "goto": "'/register?ref=MVREFTEST'",
+    "locale": "\"en\""
+  },
+  {
+    "file": "registration-referral-confirmation.spec.ts",
+    "goto": "'/register?ref=MVREFTEST'",
+    "locale": "\"en\""
+  },
+  {
+    "file": "registration-referral-confirmation.spec.ts",
+    "goto": "'/register?ref=MVREFTEST'",
+    "locale": "\"en\""
+  },
+  {
+    "file": "registration-referral-confirmation.spec.ts",
+    "goto": "'/register?ref=MVREFTEST'",
+    "locale": "\"en\""
+  },
+  {
+    "file": "religion-scope.spec.ts",
+    "goto": "'/channels'",
+    "locale": "\"te\""
+  },
+  {
+    "file": "requests-workspace-preview.spec.ts",
+    "goto": "'/requests'",
+    "locale": "\"en\""
+  },
+  {
+    "file": "restricted-operations-preview.spec.ts",
+    "goto": "'/owner'",
+    "locale": "\"en\""
+  },
+  {
+    "file": "safety-block-list-read.spec.ts",
+    "goto": "'/safety'",
+    "unresolved": true
+  },
+  {
+    "file": "safety-block-list-read.spec.ts",
+    "goto": "'/safety'",
+    "unresolved": true
+  },
+  {
+    "file": "safety-block-list-read.spec.ts",
+    "goto": "'/safety'",
+    "unresolved": true
+  },
+  {
+    "file": "safety-block-list-read.spec.ts",
+    "goto": "'/safety'",
+    "unresolved": true
+  },
+  {
+    "file": "safety-block-list-read.spec.ts",
+    "goto": "'/safety'",
+    "unresolved": true
+  },
+  {
+    "file": "safety-block-list-read.spec.ts",
+    "goto": "'/safety'",
+    "unresolved": true
+  },
+  {
+    "file": "safety-session-owner.spec.ts",
+    "goto": "'/safety'",
+    "locale": "\"en\""
+  },
+  {
+    "file": "saved-search-read-integrity.spec.ts",
+    "goto": "'/saved-searches'",
+    "unresolved": true
+  },
+  {
+    "file": "saved-search-write-integrity.spec.ts",
+    "goto": "'/saved-searches'",
+    "unresolved": true
+  },
+  {
+    "file": "saved-search-write-integrity.spec.ts",
+    "goto": "'/saved-searches'",
+    "unresolved": true
+  },
+  {
+    "file": "secondary-account-reads.spec.ts",
+    "goto": "'/me'",
+    "locale": "\"en\""
+  },
+  {
+    "file": "shortlist-read-integrity.spec.ts",
+    "goto": "'/shortlist'",
+    "unresolved": true
+  },
+  {
+    "file": "static-main-content.spec.ts",
+    "goto": "baseURL+route",
+    "unresolved": true
+  },
+  {
+    "file": "verification-session-owner.spec.ts",
+    "goto": "'/verify?id=URL_WRONG'",
+    "locale": "\"en\""
+  },
+  {
+    "file": "wedding-preview.spec.ts",
+    "goto": "'/'",
+    "unresolved": true
+  },
+  {
+    "file": "wedding-preview.spec.ts",
+    "goto": "'/'",
+    "unresolved": true
+  },
+  {
+    "file": "wedding-preview.spec.ts",
+    "goto": "'/'",
+    "unresolved": true
+  },
+  {
+    "file": "wedding-preview.spec.ts",
+    "goto": "'/'",
+    "unresolved": true
+  },
+  {
+    "file": "accept-next-steps.spec.ts",
+    "line": 24,
+    "old": "/safety",
+    "replacement": "localeHref(\"/safety\",lang)"
+  },
+  {
+    "file": "briefing-portable-copy.spec.ts",
+    "line": 16,
+    "old": "a[href=\"/search/TEST-CANDIDATE\"]",
+    "replacement": "`a[href=\"${localeHref(\"/search/TEST-CANDIDATE\",lang)}\"]`"
+  },
+  {
+    "file": "briefing-portable-copy.spec.ts",
+    "line": 16,
+    "old": "a[href=\"/requests\"]",
+    "replacement": "`a[href=\"${localeHref(\"/requests\",lang)}\"]`"
+  },
+  {
+    "file": "community-discovery-preview.spec.ts",
+    "line": 22,
+    "old": "a[href=\"/search/FICTIONAL-A\"]",
+    "replacement": "`a[href=\"${localeHref(\"/search/FICTIONAL-A\",lang)}\"]`"
+  },
+  {
+    "file": "community-discovery-preview.spec.ts",
+    "line": 22,
+    "old": "a[href=\"/search/FICTIONAL-C\"]",
+    "replacement": "`a[href=\"${localeHref(\"/search/FICTIONAL-C\",lang)}\"]`"
+  },
+  {
+    "file": "community-discovery-preview.spec.ts",
+    "line": 23,
+    "old": "a[href=\"/search/FICTIONAL-A\"]",
+    "replacement": "`a[href=\"${localeHref(\"/search/FICTIONAL-A\",lang)}\"]`"
+  },
+  {
+    "file": "community-discovery-preview.spec.ts",
+    "line": 23,
+    "old": "a[href=\"/search/FICTIONAL-B\"]",
+    "replacement": "`a[href=\"${localeHref(\"/search/FICTIONAL-B\",lang)}\"]`"
+  },
+  {
+    "file": "community-discovery-preview.spec.ts",
+    "line": 24,
+    "old": "a[href=\"/search/FICTIONAL-C\"]",
+    "replacement": "`a[href=\"${localeHref(\"/search/FICTIONAL-C\",lang)}\"]`"
+  },
+  {
+    "file": "community-discovery-preview.spec.ts",
+    "line": 26,
+    "old": "a[href=\"/search/FICTIONAL-A\"]",
+    "replacement": "`a[href=\"${localeHref(\"/search/FICTIONAL-A\",lang)}\"]`"
+  },
+  {
+    "file": "community-discovery-preview.spec.ts",
+    "line": 28,
+    "old": "a[href=\"/matches?district=Hyderabad\"]",
+    "replacement": "`a[href=\"${localeHref(\"/matches?district=Hyderabad\",lang)}\"]`"
+  },
+  {
+    "file": "community-discovery-preview.spec.ts",
+    "line": 30,
+    "old": "a[href=\"/castes/brahmin-groom-hyderabad\"]",
+    "replacement": "`a[href=\"${localeHref(\"/castes/brahmin-groom-hyderabad\",lang)}\"]`"
+  },
+  {
+    "file": "community-discovery-preview.spec.ts",
+    "line": 30,
+    "old": "a[href=\"/castes/brahmin-groom-hyderabad\"]",
+    "replacement": "`a[href=\"${localeHref(\"/castes/brahmin-groom-hyderabad\",lang)}\"]`"
+  },
+  {
+    "file": "community-landing-copy.spec.ts",
+    "line": 4,
+    "old": "/pricing",
+    "replacement": "localeHref(\"/pricing\",lang)"
+  },
+  {
+    "file": "current-wedding-hero.spec.ts",
+    "line": 18,
+    "old": "a[href=\"/register\"]",
+    "replacement": "`a[href=\"${localeHref(\"/register\",lang)}\"]`"
+  },
+  {
+    "file": "current-wedding-hero.spec.ts",
+    "line": 18,
+    "old": "a[href=\"/matches\"]",
+    "replacement": "`a[href=\"${localeHref(\"/matches\",lang)}\"]`"
+  },
+  {
+    "file": "discovery-navigation-preview.spec.ts",
+    "line": 5,
+    "old": "#mobile-menu a[href=\"/compare\"]",
+    "replacement": "`#mobile-menu a[href=\"${localeHref(\"/compare\",lang)}\"]`"
+  },
+  {
+    "file": "discovery-navigation-preview.spec.ts",
+    "line": 5,
+    "old": "#desktop-more-menu a[href=\"/compare\"]",
+    "replacement": "`#desktop-more-menu a[href=\"${localeHref(\"/compare\",lang)}\"]`"
+  },
+  {
+    "file": "discovery-navigation-preview.spec.ts",
+    "line": 6,
+    "old": "footer a[href=\"/matches\"]",
+    "replacement": "`footer a[href=\"${localeHref(\"/matches\",lang)}\"]`"
+  },
+  {
+    "file": "discovery-navigation-preview.spec.ts",
+    "line": 6,
+    "old": ".mobile-bottom-nav a[href=\"/matches\"]",
+    "replacement": "`.mobile-bottom-nav a[href=\"${localeHref(\"/matches\",lang)}\"]`"
+  },
+  {
+    "file": "discovery-utilities-preview.spec.ts",
+    "line": 21,
+    "old": "/login",
+    "replacement": "localeHref(\"/login\",lang)"
+  },
+  {
+    "file": "editorial-community-preview.spec.ts",
+    "line": 31,
+    "old": "a[href=\"/p/fictional-related\"]",
+    "replacement": "`a[href=\"${localeHref(\"/p/fictional-related\",lang)}\"]`"
+  },
+  {
+    "file": "final-connected-review.spec.ts",
+    "line": 20,
+    "old": "a[href=\"/search/FICTIONAL-CANDIDATE\"]",
+    "replacement": "`a[href=\"${localeHref(\"/search/FICTIONAL-CANDIDATE\",lang)}\"]`"
+  },
+  {
+    "file": "fresh-user-bugs.spec.ts",
+    "line": 12,
+    "old": "/en/control/login",
+    "replacement": "localeHref(\"/en/control/login\",\"en\")"
+  },
+  {
+    "file": "login-presentation-portability.spec.ts",
+    "line": 13,
+    "old": "/safety",
+    "replacement": "localeHref(\"/safety\",lang)"
+  },
+  {
+    "file": "logout-device-status.spec.ts",
+    "line": 13,
+    "old": "/login",
+    "replacement": "localeHref(\"/login\",lang)"
+  },
+  {
+    "file": "match-card-actions.spec.ts",
+    "line": 11,
+    "old": "a[href=\"/search/TEST-CARD\"]",
+    "replacement": "`a[href=\"${localeHref(\"/search/TEST-CARD\",lang)}\"]`"
+  },
+  {
+    "file": "match-card-actions.spec.ts",
+    "line": 11,
+    "old": "a[href=\"/biodata?id=TEST-CARD\"]",
+    "replacement": "`a[href=\"${localeHref(\"/biodata?id=TEST-CARD\",lang)}\"]`"
+  },
+  {
+    "file": "matches-workspace-preview.spec.ts",
+    "line": 12,
+    "old": "/search/DEMO-REVIEW-A",
+    "replacement": "localeHref(\"/search/DEMO-REVIEW-A\",lang)"
+  },
+  {
+    "file": "menu-core-destinations.spec.ts",
+    "line": 9,
+    "old": "a[href=\"/compare\"]",
+    "replacement": "`a[href=\"${localeHref(\"/compare\",lang)}\"]`"
+  },
+  {
+    "file": "menu-core-destinations.spec.ts",
+    "line": 16,
+    "old": "/me",
+    "replacement": "localeHref(\"/me\",lang)"
+  },
+  {
+    "file": "original-home-editorial.spec.ts",
+    "line": 3,
+    "old": "/pelli-choopulu",
+    "replacement": "localeHref(\"/pelli-choopulu\",lang)"
+  },
+  {
+    "file": "private-offline-preview.spec.ts",
+    "line": 16,
+    "old": "/",
+    "replacement": "localeHref(\"/\",lang)"
+  },
+  {
+    "file": "private-offline-preview.spec.ts",
+    "line": 16,
+    "old": "/matches",
+    "replacement": "localeHref(\"/matches\",lang)"
+  },
+  {
+    "file": "profile-unavailable-heading.spec.ts",
+    "line": 9,
+    "old": ".mv-profile-workspace a[href=\"/matches\"]",
+    "replacement": "`.mv-profile-workspace a[href=\"${localeHref(\"/matches\",lang)}\"]`"
+  },
+  {
+    "file": "referral-landing-presentation.spec.ts",
+    "line": 11,
+    "old": "/register",
+    "replacement": "localeHref(\"/register\",lang)"
+  },
+  {
+    "file": "referral-landing-presentation.spec.ts",
+    "line": 13,
+    "old": "/register",
+    "replacement": "localeHref(\"/register\",lang)"
+  },
+  {
+    "file": "referral-landing-presentation.spec.ts",
+    "line": 15,
+    "old": "/register?ref=TESTCODE&inv=INVITE01&campaign=AAAAAAAAAAAAAAAAAAAAAAAA",
+    "replacement": "localeHref(\"/register?ref=TESTCODE&inv=INVITE01&campaign=AAAAAAAAAAAAAAAAAAAAAAAA\",lang)"
+  },
+  {
+    "file": "requests-error-portability.spec.ts",
+    "line": 54,
+    "old": "/",
+    "replacement": "localeHref(\"/\",lang)"
+  },
+  {
+    "file": "trust-pages-preview.spec.ts",
+    "line": 23,
+    "old": ".mv-trust-workspace a[href=\"/safety\"]",
+    "replacement": "`.mv-trust-workspace a[href=\"${localeHref(\"/safety\",lang)}\"]`"
+  },
+  {
+    "file": "trust-pages-preview.spec.ts",
+    "line": 24,
+    "old": ".mv-trust-workspace a[href=\"/verify\"]",
+    "replacement": "`.mv-trust-workspace a[href=\"${localeHref(\"/verify\",lang)}\"]`"
+  },
+  {
+    "file": "tests/fresh-user-bugs.spec.ts",
+    "decision": "Fixed-English photos cases navigate /en; explicit Telugu spotlight fixture keeps unprefixed URL. Empty successful queue includes count=0 per response contract."
+  },
+  {
+    "file": "tests/owner-command-center.spec.ts",
+    "decision": "Photo review link expectation follows explicit locale; fixed-English fixture opens /en/control."
   }
 ]

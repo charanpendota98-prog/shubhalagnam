@@ -9,7 +9,7 @@ test('biodata does not guess religion or carry a prior profile',async({page},inf
     const b=route.request().url().includes('/search/PROFILE_B');
     return route.fulfill({json:a?{profile:{full_name:'ISOLATED PROFILE A',religion:'Hindu',gothram:'ISOLATED_A_GOTHRAM',caste:'ISOLATED_A_COMMUNITY'}}:b?{profile:{full_name:'ISOLATED PROFILE B'}}:{success:true,items:[]}});
   });
-  await page.goto('/biodata');
+  await page.goto(localeHref('/biodata',"en"));
   const religion=page.locator('#biodata-religion'),canvas=page.locator('#biodata-canvas');
   const initial=await religion.inputValue();
   await religion.selectOption('Other');

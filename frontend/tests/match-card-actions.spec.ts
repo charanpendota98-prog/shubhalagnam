@@ -8,7 +8,7 @@ for(const lang of ['en','te'])for(const width of [320,390,1280])test(`visible po
  await page.goto(localeHref('/matches',lang));const card=page.locator('.matches-profile-card');await expect(card).toBeVisible();await expect(card).toContainText(lang==='en'?'Photo not shown':'ఫోటో కనిపించదు');await expect(card).not.toContainText('Photo Lock');
  const actions=card.locator('.mv-btn');await expect(actions).toHaveCount(4);
  for(const a of await actions.all()){await expect(a.locator('svg')).toHaveCount(1);const text=a.locator('span').last();await expect(text).toBeVisible();expect((await text.innerText()).trim().length).toBeGreaterThan(1);expect(await text.evaluate(e=>getComputedStyle(e).clip==='auto'&&e.getBoundingClientRect().width>10)).toBeTruthy()}
- await expect(card.locator('a[href="/search/TEST-CARD"]')).toHaveCount(2);await expect(card.locator('a[href="/biodata?id=TEST-CARD"]')).toHaveCount(1);
+ await expect(card.locator(`a[href="${localeHref("/search/TEST-CARD",lang)}"]`)).toHaveCount(2);await expect(card.locator(`a[href="${localeHref("/biodata?id=TEST-CARD",lang)}"]`)).toHaveCount(1);
  const save=card.getByRole('button',{name:lang==='en'?'Log in to save this profile':'ఎంపికల జాబితాలో చేర్చడానికి ప్రవేశించండి',exact:true});await expect(save.locator('svg')).toHaveCount(1);await expect(save).toHaveAttribute('aria-pressed','false');
  const share=card.getByRole('button',{name:lang==='en'?'Share on WhatsApp, profile details':'వాట్సాప్‌లో పంచుకోండి, సంబంధం వివరాలు',exact:true});expect(await share.getAttribute('aria-label')).toContain((await share.innerText()).trim());await page.addStyleTag({content:'html,body{scroll-behavior:auto!important}'});await card.evaluate(e=>e.scrollIntoView({block:'start',behavior:'instant'}));await card.screenshot({path:`artifacts/match-card-actions/actions-${lang}-${width}.png`});await share.click();await expect(page.getByRole('dialog',{name:lang==='en'?'Share WhatsApp Proposal':'వాట్సాప్‌లో పంచుకోండి',exact:true})).toBeVisible();expect(posts).toEqual([]);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBeTruthy();
 });
@@ -21,5 +21,5 @@ for(const lang of ['en','te'])test(`shortlist icon and action track confirmed st
 test('keyboard opens share without sending',async({page})=>{
  await page.addInitScript(()=>localStorage.setItem('tsap_lang','en'));
  await page.route('**/api/**',r=>r.fulfill({json:r.request().url().includes('/api/search?')?search:{success:true}}));
- await page.goto('/matches');const share=page.locator('.matches-profile-card').getByRole('button',{name:'Share on WhatsApp, profile details',exact:true});await share.focus();await expect(share).toBeFocused();await page.keyboard.press('Enter');await expect(page.getByText('Share WhatsApp Proposal',{exact:true})).toBeVisible();
+ await page.goto(localeHref('/matches',"en"));const share=page.locator('.matches-profile-card').getByRole('button',{name:'Share on WhatsApp, profile details',exact:true});await share.focus();await expect(share).toBeFocused();await page.keyboard.press('Enter');await expect(page.getByText('Share WhatsApp Proposal',{exact:true})).toBeVisible();
 });

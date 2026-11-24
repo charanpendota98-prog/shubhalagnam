@@ -21,7 +21,7 @@ for(const lang of ['en','te'])for(const width of [320,390,1280])for(const withAc
   if(withAccepted){
    await expect(card).toBeVisible();await expect(card.getByRole('heading')).toHaveText(lang==='en'?'Next steps after acceptance':'అంగీకారం తర్వాత తదుపరి దశలు');
    await expect(card.getByRole('listitem')).toHaveCount(3);
-   await expect(card.getByRole('link')).toHaveAttribute('href','/safety');
+   await expect(card.getByRole('link')).toHaveAttribute('href',localeHref("/safety",lang));
    await expect(card.getByText(/\d{6,}/)).toHaveCount(0);
    if(lang==='te')await expect(card).not.toContainText(/Never send|Report anyone/);
    const ax=await new AxeBuilder({page}).include('[data-testid="accepted-next-steps"]').withTags(['wcag2a','wcag2aa','wcag21a','wcag21aa']).analyze();

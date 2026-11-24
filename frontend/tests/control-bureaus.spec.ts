@@ -1,3 +1,4 @@
+import {localeHref} from "./locale-href";
 import { test, expect, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 import fs from "node:fs";
@@ -18,7 +19,7 @@ async function fixture(page:Page, role="owner",lang="en",empty=false) {
   return route.fulfill({json});
  });return {status:(s:number)=>{status=s;},requests:()=>requests,seen};
 }
-async function open(page:Page,lang='en') {await page.goto('/control');await page.getByRole('button',{name:lang==='en'?'🏢 Bureaus':'🏢 బ్యూరోలు',exact:true}).click();return page.getByRole('region',{name:'Bureau operations'});}
+async function open(page:Page,lang='en') {await page.goto(localeHref('/control',lang));await page.getByRole('button',{name:lang==='en'?'🏢 Bureaus':'🏢 బ్యూరోలు',exact:true}).click();return page.getByRole('region',{name:'Bureau operations'});}
 for(const lang of ['en','te'])for(const width of [320,390,1280])test(`bureau owner ${lang} ${width} layout and axe`,async({page})=>{
  await page.setViewportSize({width,height:900});await fixture(page,'owner',lang);const region=await open(page,lang);await expect(region.locator('article')).toHaveCount(1);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();const scan=await new AxeBuilder({page}).include('section[aria-label="Bureau operations"]').analyze();expect(scan.violations).toEqual([]);
@@ -31,5 +32,5 @@ test('search, pagination, unavailable, auth-clear and retry',async({page})=>{
  f.status(200);await region.getByRole('button',{name:'Refresh bureaus'}).click();await expect(region.getByText('No bureaus match this search.')).toBeVisible();
  f.status(401);await region.getByRole('button',{name:'Refresh bureaus'}).click();await expect(region.getByRole('link',{name:'Sign in',exact:true})).toBeVisible();await expect(region.locator('dl')).toHaveCount(0);
 });
-for(const role of ['worker','moderator','support','finance'])test(`${role} has no bureau tab and sends no bureau request`,async({page})=>{const f=await fixture(page,role);await page.goto('/control');await expect(page.getByRole('button',{name:/Overview/})).toBeVisible();await expect(page.getByRole('button',{name:'🏢 Bureaus',exact:true})).toHaveCount(0);expect(f.requests()).toBe(0);});
+for(const role of ['worker','moderator','support','finance'])test(`${role} has no bureau tab and sends no bureau request`,async({page})=>{const f=await fixture(page,role);await page.goto(localeHref('/control',"en"));await expect(page.getByRole('button',{name:/Overview/})).toBeVisible();await expect(page.getByRole('button',{name:'🏢 Bureaus',exact:true})).toHaveCount(0);expect(f.requests()).toBe(0);});
 test('true empty state is not an error',async({page})=>{await fixture(page,'owner','en',true);const region=await open(page);await expect(region.getByText('No bureau workspaces have been created yet.')).toBeVisible();await expect(region.getByRole('alert')).toHaveCount(0);});
