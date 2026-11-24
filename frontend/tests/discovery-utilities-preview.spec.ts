@@ -1,5 +1,5 @@
 import {test,expect} from '@playwright/test';import fs from 'node:fs';
-const out='/downloads/mv-discovery-review';fs.mkdirSync(out,{recursive:true});const before=process.env.DISCOVERY_BASELINE==='1';
+const out='artifacts/mv-discovery-review';fs.mkdirSync(out,{recursive:true});const before=process.env.DISCOVERY_BASELINE==='1';
 for(const lang of ['te','en'])for(const width of [320,390,1280])test(`discovery utilities ${lang} ${width}`,async({page})=>{
  await page.setViewportSize({width,height:1000});await page.emulateMedia({reducedMotion:'reduce'});await page.addInitScript(l=>{localStorage.setItem('tsap_lang',l);localStorage.setItem('tsap_id','UI_ONLY')},lang);const errors:string[]=[],writes:{path:string;body:any;method:string}[]=[];page.on('pageerror',e=>errors.push(e.message));let listMode='populated',savedMode='populated',noteFail=true,removeFail=true,alertOn=false,searchPresent=true,compareMode='ok';
  await page.route('**/api/**',r=>{const path=new URL(r.request().url()).pathname,method=r.request().method();const body=method==='GET'?null:r.request().postDataJSON();if(method!=='GET')writes.push({path,method,body});

@@ -1,5 +1,5 @@
 import {test,expect,type Page} from '@playwright/test';import fs from 'node:fs';
-const out='/downloads/mv-restricted-operations-review';fs.mkdirSync(out,{recursive:true});
+const out='artifacts/mv-restricted-operations-review';fs.mkdirSync(out,{recursive:true});
 const analytics={role:'owner',totals:{profiles:0,pending:0,approved:0,rejected:0,with_photo:0,recorded_checks:0,males:0,females:0,open_reports:0,photos_pending:0,interests:0,posts:0},signups:{today:0,last_7d:0,series:[]},top_castes:[],top_states:[],top_districts:[]};
 async function fixture(page:Page,lang:string){let role='owner',summary='ok',core='ok',photo='empty',login='denied';let probes=0;const writes:string[]=[],errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));await page.addInitScript(l=>localStorage.setItem('tsap_lang',l),lang);await page.route('**/api/**',async r=>{const p=new URL(r.request().url()).pathname;const reply=(json:any,status=200)=>r.fulfill({json,status});if(r.request().method()!=='GET'){writes.push(p);if(p==='/api/control/login')return login==='malformed'?reply({success:true}):login==='worker'?reply({role:'worker'}):reply({detail:'FICTIONAL SIGN-IN REJECTED'},401);return reply({success:false},503)}
 if(p==='/api/control/me'){probes++;return reply({role,username:'FICTIONAL-OPS-ONLY',csrf:'fixture-only'})}

@@ -1,5 +1,5 @@
 import {test,expect} from '@playwright/test';import fs from 'node:fs';
-const out='/downloads/mv-matches-working-review';fs.mkdirSync(out,{recursive:true});
+const out='artifacts/mv-matches-working-review';fs.mkdirSync(out,{recursive:true});
 const profiles=[{tsap_id:'DEMO-REVIEW-A',full_name:'అనన్య నమూనా',age:28,height:'5 ft 4 in',gender:'Bride',religion:'Hindu',caste:'Reddy',education:'B.Tech',job:'Software / IT / Tech',district:'Hyderabad',state:'TS',salary:'₹5 - 10 Lakhs',marital_status:'Never Married',phone_masked:'Hidden for privacy'},{tsap_id:'DEMO-REVIEW-B',full_name:'Sana Example',age:29,height:'5 ft 5 in',gender:'Bride',religion:'Muslim',education:'B.Arch',job:'Architect',district:'Vijayawada',state:'AP',marital_status:'Never Married',phone_masked:'Hidden for privacy'}];
 for(const lang of ['te','en'])for(const width of [320,390,1280])test(`workspace layout ${lang} ${width}`,async({page})=>{
  const errors:string[]=[];page.on('pageerror',e=>errors.push(String(e)));await page.setViewportSize({width,height:920});await page.addInitScript(l=>localStorage.setItem('tsap_lang',l),lang);let writes=0;const queries:string[]=[];let mode='populated';

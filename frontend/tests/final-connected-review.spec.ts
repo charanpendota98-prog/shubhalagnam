@@ -1,6 +1,6 @@
 import {test,expect} from '@playwright/test';
 import fs from 'node:fs';
-const out='/downloads/mv-final-working-review';fs.mkdirSync(out,{recursive:true});
+const out='artifacts/mv-final-working-review';fs.mkdirSync(out,{recursive:true});
 test.use({serviceWorkers:'block'});
 for(const [lang,width] of [['en',390],['te',390],['en',1280]] as const)test(`connected candidate journey ${lang} ${width}`,async({page})=>{
  test.setTimeout(60000);await page.setViewportSize({width,height:940});await page.addInitScript(l=>{localStorage.setItem('tsap_lang',l);localStorage.setItem('tsap_id','UI_ONLY')},lang);const errors:string[]=[],outbound:string[]=[],writes:any[]=[];let saved=false,fail=true;
