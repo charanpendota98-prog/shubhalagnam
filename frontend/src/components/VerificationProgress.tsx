@@ -7,6 +7,7 @@
  */
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { VerificationIcon } from "@/components/VerificationIcon";
 import { apiGet } from "@/lib/api";
 import { useLang } from "@/lib/lang";
 
@@ -84,7 +85,7 @@ export default function VerificationProgress({ tsapId }: { tsapId: string }) {
     >
       <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
         <h2 className="text-base font-black text-[#7A0C2E]">
-          {te ? "🧾 రికార్డ్ చేసిన తనిఖీలు" : "🧾 Recorded checks"}
+          <VerificationIcon name="basic" />{te ? "రికార్డ్ చేసిన తనిఖీలు" : "Recorded checks"}
         </h2>
         <p className="mt-1 text-[11px] leading-relaxed text-slate-600">
           {te
@@ -100,7 +101,7 @@ export default function VerificationProgress({ tsapId }: { tsapId: string }) {
             >
               <div className="flex items-start justify-between gap-2">
                 <p className="text-sm font-extrabold text-slate-900">
-                  <span aria-hidden="true">{check.icon}</span> {te ? check.label_te : check.label_en}
+                  <VerificationIcon name={check.key || check.icon} /> {te ? check.label_te : check.label_en}
                 </p>
                 <span
                   className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-black ${
@@ -142,7 +143,7 @@ export default function VerificationProgress({ tsapId }: { tsapId: string }) {
                 key={section.key}
                 className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-700"
               >
-                <span aria-hidden="true">{section.icon}</span> {te ? section.label_te : section.label_en}{" "}
+                <VerificationIcon name={section.key || section.icon} /> {te ? section.label_te : section.label_en}{" "}
                 <span className="font-black text-[#7A0C2E]">
                   {section.provided}/{section.total}
                 </span>

@@ -7,6 +7,8 @@ import "@/components/trust-workspace.css";
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { Camera, UserRound, CircleCheck, Clock3, CircleAlert, ShieldCheck, RefreshCw } from "lucide-react";
+import { VerificationIcon, verificationLabel } from "@/components/VerificationIcon";
 import { Duo, useDuo } from "@/lib/duo";
 import { useLang } from "@/lib/lang";
 import { apiDisplayMessage, authHeaders, readApiJson } from "@/lib/api";
@@ -106,7 +108,7 @@ export default function VerifyPage() {
       if (!r.ok) {
         setMsg(apiDisplayMessage(d, te, te ? "Selfie fail — మళ్లీ try చెయ్యండి" : "Selfie upload failed. Please try again."));
       } else {
-        setMsg(apiDisplayMessage(d, te, te ? "Selfie వెళ్లింది ✅" : "Selfie submitted for review."));
+        setMsg(apiDisplayMessage(d, te, te ? "Selfie వెళ్లింది" : "Selfie submitted for review."));
         await load();
       }
     } catch {
@@ -119,7 +121,7 @@ export default function VerifyPage() {
   return (
     <div className="mv-trust-workspace mx-auto max-w-2xl px-4 py-8 pb-36">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-xl sm:text-2xl font-extrabold text-maroon min-w-0">🤳 <Duo en="Verify Profile" te="ప్రొఫైల్ ధృవీకరణ" /></h1>
+        <h1 className="text-xl sm:text-2xl font-extrabold text-maroon min-w-0"><Camera className="mr-1 inline-block h-6 w-6 align-text-bottom" aria-hidden="true" focusable="false" /><Duo en="Verify Profile" te="ప్రొఫైల్ ధృవీకరణ" /></h1>
         <Link href="/matches" className="text-[13px] font-bold text-maroon shrink-0"><Duo en="Skip for now ›" te="ప్రస్తుతానికి దాటవేయి ›" /></Link>
       </div>
 
@@ -130,19 +132,19 @@ export default function VerifyPage() {
       <section className="mt-4 rounded-2xl border border-gold/30 card-shadow bg-gradient-to-br from-emerald-50 to-white p-6">
         <div className="flex flex-col sm:flex-row items-center gap-6">
           <div className="relative shrink-0">
-            <div className="w-28 h-28 rounded-full bg-white border-4 border-maroon/20 flex items-center justify-center text-5xl">🧑</div>
-            <div aria-hidden="true" className={`absolute -bottom-1 -right-1 w-10 h-10 rounded-full flex items-center justify-center text-xl border-4 border-white ${status === "approved" ? "bg-emerald-500 text-white" : status === "rejected" ? "bg-rose-100 text-rose-800" : "bg-amber-100 text-amber-900"}`}>{status === "approved" ? "✓" : status === "rejected" ? "!" : "⏳"}</div>
+            <div className="w-28 h-28 rounded-full bg-white border-4 border-maroon/20 flex items-center justify-center text-5xl"><UserRound className="h-14 w-14 text-maroon" aria-hidden="true" focusable="false" /></div>
+            <div aria-hidden="true" className={`absolute -bottom-1 -right-1 w-10 h-10 rounded-full flex items-center justify-center text-xl border-4 border-white ${status === "approved" ? "bg-emerald-500 text-white" : status === "rejected" ? "bg-rose-100 text-rose-800" : "bg-amber-100 text-amber-900"}`}>{status === "approved" ? <CircleCheck className="h-5 w-5" aria-hidden="true" focusable="false" /> : status === "rejected" ? <CircleAlert className="h-5 w-5" aria-hidden="true" focusable="false" /> : <Clock3 className="h-5 w-5" aria-hidden="true" focusable="false" />}</div>
           </div>
           <div className="flex-1 text-center sm:text-left">
             <div className="font-bold text-[16px]"><Duo en="Verify the profile using the below option:" te="కింది విధంగా ప్రొఫైల్ ధృవీకరించండి:" /></div>
             {status === "approved" ? (
               <div className="mt-3 rounded-xl bg-emerald-100 border border-emerald-300 p-3 font-bold text-emerald-900 text-[13px]">
-                ✅ <Duo en="Selfie review status recorded on your profile." te="సెల్ఫీ సమీక్ష స్థితి మీ ప్రొఫైల్‌లో నమోదు చేయబడింది." />
+                <CircleCheck className="mr-1 inline-block h-4 w-4 align-text-bottom" aria-hidden="true" focusable="false" /><Duo en="Selfie review status recorded on your profile." te="సెల్ఫీ సమీక్ష స్థితి మీ ప్రొఫైల్‌లో నమోదు చేయబడింది." />
               </div>
             ) : status === "pending" ? (
               <div className="mt-3 rounded-xl bg-amber-50 border border-amber-300 p-3 text-[13px] telugu">
-                ⏳ <b>{duo("Selfie under review", "సెల్ఫీ పరిశీలనలో ఉంది")}</b> — {duo("you get the badge once admin approves", "అడ్మిన్ ఆమోదించగానే బ్యాడ్జ్ వస్తుంది")}
-                <button type="button" aria-label={te ? "సమీక్ష స్థితిని మళ్లీ తనిఖీ చేయండి" : "Refresh review status"} onClick={() => void load()} className="ml-2 font-bold text-maroon underline">↻</button>
+                <Clock3 className="mr-1 inline-block h-4 w-4 align-text-bottom" aria-hidden="true" focusable="false" /><b>{duo("Selfie under review", "సెల్ఫీ పరిశీలనలో ఉంది")}</b> — {duo("you get the badge once admin approves", "అడ్మిన్ ఆమోదించగానే బ్యాడ్జ్ వస్తుంది")}
+                <button type="button" aria-label={te ? "సమీక్ష స్థితిని మళ్లీ తనిఖీ చేయండి" : "Refresh review status"} onClick={() => void load()} className="ml-2 font-bold text-maroon underline"><RefreshCw className="h-4 w-4" aria-hidden="true" focusable="false" /></button>
               </div>
             ) : (
               <>
@@ -153,7 +155,7 @@ export default function VerifyPage() {
                   onChange={(e) => void upload(e.target.files?.[0])} />
                 <button disabled={busy || !sessionReady || !tsapId} onClick={() => fileRef.current?.click()}
                   className="mt-3 w-full rounded-xl border-2 border-maroon/40 bg-white p-3 flex items-center gap-3 hover:border-maroon disabled:opacity-50 text-left">
-                  <span className="text-2xl">🤳</span>
+                  <Camera className="h-6 w-6 shrink-0" aria-hidden="true" focusable="false" />
                   <span className="flex-1">
                     <span className="block font-bold text-[14px]"><Duo en="Verify with a live selfie" te="లైవ్ సెల్ఫీతో ధృవీకరించండి" /></span>
                     <span className="block text-[12px] text-gray-600 telugu">
@@ -165,7 +167,7 @@ export default function VerifyPage() {
               </>
             )}
             {!tsapId ? (
-              <p className="mt-2 text-[12px] text-amber-700">⚠️ {duo("verify after login/register", "లాగిన్/రిజిస్టర్ అయ్యాక ధృవీకరించండి")}</p>
+              <p className="mt-2 text-[12px] text-amber-700"><CircleAlert className="mr-1 inline-block h-3 w-3 align-text-bottom" aria-hidden="true" focusable="false" />{duo("verify after login/register", "లాగిన్/రిజిస్టర్ అయ్యాక ధృవీకరించండి")}</p>
             ) : null}
             {msg ? <p className="mt-2 text-[13px] font-medium text-maroon telugu">{msg}</p> : null}
           </div>
@@ -183,7 +185,7 @@ export default function VerifyPage() {
       <section className="mt-6 rounded-2xl border border-gold/30 bg-white p-5 space-y-4">
         <div>
           <h2 className="text-[16px] font-extrabold text-maroon">
-            🛡️ <Duo en="Independent Verification Badges (No Phone OTP Required)" te="స్వతంత్ర ధృవీకరణ బ్యాడ్జ్‌లు (ఫోన్ OTP అవసరం లేదు)" />
+            <ShieldCheck className="mr-1 inline-block h-4 w-4 align-text-bottom" aria-hidden="true" focusable="false" /><Duo en="Independent Verification Badges (No Phone OTP Required)" te="స్వతంత్ర ధృవీకరణ బ్యాడ్జ్‌లు (ఫోన్ OTP అవసరం లేదు)" />
           </h2>
           <p className="mt-1 text-[12px] text-gray-600 telugu">
             {te
@@ -200,7 +202,7 @@ export default function VerifyPage() {
             { icon: "💼", en: "Employment / Profession", te: "ఉద్యోగ / వృత్తి బ్యాడ్జ్", descEn: "Employer or business proof reviewed by staff.", descTe: "ఉద్యోగ లేదా వ్యాపార వివరాల పరిశీలన." },
           ].map((item) => (
             <div key={item.en} className="rounded-xl border border-gold/25 bg-cream p-3">
-              <div className="font-bold text-ink">{item.icon} {te ? item.te : item.en}</div>
+              <div className="font-bold text-ink"><VerificationIcon name={item.icon} />{te ? item.te : item.en}</div>
               <div className="mt-0.5 text-[11px] text-gray-600">{te ? item.descTe : item.descEn}</div>
             </div>
           ))}
@@ -215,7 +217,7 @@ export default function VerifyPage() {
               <div className="flex flex-wrap gap-1.5">
                 {badges.map((b: any) => (
                   <span key={b.badge_type} className="rounded-full bg-emerald-50 border border-emerald-300 px-2.5 py-1 text-[11px] font-bold text-emerald-900">
-                    ✓ {te ? b.label_te : b.label_en}
+                    <VerificationIcon name={b.badge_type} />{verificationLabel(te ? b.label_te : b.label_en)}
                   </span>
                 ))}
               </div>
@@ -227,9 +229,9 @@ export default function VerifyPage() {
                 aria-label={te ? "బ్యాడ్జ్ రకం" : "Badge type"}
                 className="input-mobile text-[13px]"
               >
-                <option value="education">{te ? "🎓 విద్య (Education)" : "🎓 Education Credential"}</option>
-                <option value="employment">{te ? "💼 ఉద్యోగం (Employment)" : "💼 Employment / Profession"}</option>
-                <option value="government_id">{te ? "🪪 ప్రభుత్వ ID (చివరి 4 అంకెలు మాత్రమే)" : "🪪 Government ID (last 4 digits only)"}</option>
+                <option value="education">{te ? "విద్య (Education)" : "Education Credential"}</option>
+                <option value="employment">{te ? "ఉద్యోగం (Employment)" : "Employment / Profession"}</option>
+                <option value="government_id">{te ? "ప్రభుత్వ ID (చివరి 4 అంకెలు మాత్రమే)" : "Government ID (last 4 digits only)"}</option>
               </select>
               <input
                 value={docType}
