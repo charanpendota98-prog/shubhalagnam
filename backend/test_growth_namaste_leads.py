@@ -380,7 +380,7 @@ def test_pricing_consistency():
 
     # UI (requests page fallback) — API tho match avvali
     ui = {}
-    txt = pathlib_read(os.path.join(root, "frontend", "src", "app", "requests", "page-client.tsx"))
+    txt = pathlib_read(os.path.join(root, "frontend", "src", "app", "(telugu)", "requests", "page-client.tsx"))
     for m in re.finditer(r'code: "(S_\d+)", price: (\d+), profiles: (\d+)', txt):
         ui[m.group(1)] = (int(m.group(2)), int(m.group(3)))
     check("UI requests page: 4 plans rendered", len(ui) >= 4, ui)
@@ -388,7 +388,7 @@ def test_pricing_consistency():
           all(api.get(k) == v for k, v in ui.items()), "ui=%s api=%s" % (ui, {k: api.get(k) for k in ui}))
 
     # Homepage uses the live home-stats response for its compact paid-plan cards.
-    hp = pathlib_read(os.path.join(root, "frontend", "src", "app", "page.tsx"))
+    hp = pathlib_read(os.path.join(root, "frontend", "src", "app", "(telugu)", "home-client.tsx"))
     check("Homepage maps the four paid plans from live pricing data",
           all(code in hp for code in ("S_99", "S_199", "S_299", "S_499"))
           and 'apiGet<{ free_first?: unknown; plans?: unknown }>("/api/meta/home-stats")' in hp
@@ -473,9 +473,9 @@ def test_pricing_pages_and_payments():
     check("payment order validation rejects S_29", not _expected_amount("credits", "S_29")["ok"])
 
     # ---- /pricing + legal pages (Razorpay approval + trust) ----
-    pages = {name: pathlib_read(os.path.join(root, "frontend", "src", "app", name, "page.tsx"))
+    pages = {name: pathlib_read(os.path.join(root, "frontend", "src", "app", "(telugu)", name, "page.tsx"))
              for name in ("pricing", "terms", "privacy", "refund")}
-    pricing_client = pathlib_read(os.path.join(root, "frontend", "src", "app", "pricing", "page-client.tsx"))
+    pricing_client = pathlib_read(os.path.join(root, "frontend", "src", "app", "(telugu)", "pricing", "page-client.tsx"))
     check("/pricing page metadata and client fetch are wired", "PricingPageClient" in pages["pricing"] and "/api/plans" in pricing_client)
     # 💍 R13: pricing minimal redesign — sodi remove (user order). Tier cards + addons +
     # renewal + FAQ inka unnayi; pata "Compare" table / "Vivaha VIP" label / "Single Request" text kaadu
@@ -494,7 +494,7 @@ def test_pricing_pages_and_payments():
           all(x in _terms for x in ("21+", "Prohibited", "Indian law"))
           and ("casual chat" in _terms_lower or "chatting" in _terms_lower),
           [t for t in ("21+", "Prohibited", "Indian law", "casual chat") if t.lower() not in _terms_lower])
-    privacy_client = pathlib_read(os.path.join(root, "frontend", "src", "app", "privacy", "page-client.tsx"))
+    privacy_client = pathlib_read(os.path.join(root, "frontend", "src", "app", "(telugu)", "privacy", "page-client.tsx"))
     check("/privacy explains the real hide/erasure process, grievance contact and bilingual data-use summary",
           all(x in privacy_client for x in ("grievance contact", "privacy contact", "erasure request", "అమ్మము")))
     check("/privacy avoids unsupported breach, deletion, inactivity, analytics and retention promises",
