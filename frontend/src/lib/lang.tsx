@@ -4,7 +4,7 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useS
 import { usePathname } from "next/navigation";
 import { getLocalizedPageMetadata } from "@/lib/metadata-i18n";
 
-import {baseLocalePath,localeHref,hasEnglishRoute} from "@/lib/locale-path";
+import {baseLocalePath,localeHref,hasEnglishRoute,usesInPlaceLanguage} from "@/lib/locale-path";
 export type Lang = "te" | "en";
 const STORE_KEY = "tsap_lang";
 const EVENT_NAME = "manavivaha:language";
@@ -70,6 +70,7 @@ export function LangProvider({ children, initialLang = "te" }: { children: React
   const setLang = useCallback((next: Lang) => {
     if(next === "en" && !hasEnglishRoute(window.location.pathname)) return;
     try {localStorage.setItem(STORE_KEY,next);} catch { /* storage can be disabled */ }
+    if(usesInPlaceLanguage(window.location.pathname)){update(next,true);window.dispatchEvent(new CustomEvent(EVENT_NAME,{detail:{lang:next}}));return;}
     const target=localeHref(window.location.pathname,next)+window.location.search+window.location.hash;
     if (target!==window.location.pathname+window.location.search+window.location.hash) {window.location.assign(target);return;}
     update(next, true);

@@ -30,6 +30,7 @@ for(const lang of ['en','te'])test(`contact resolve page redeems the fragment to
  await expect(page.getByText('91••••••99')).toBeVisible();await expect(page.getByText('9000000099')).toHaveCount(0);
  expect(urls.length).toBe(1);expect(urls[0]).not.toContain(TOKEN);expect(new URL(urls[0]).pathname).toBe('/api/contact/resolve');expect(new URL(urls[0]).search).toBe('');expect(JSON.parse(bodies[0]).token).toBe(TOKEN);
  expect(page.url()).not.toContain(TOKEN);
+ const sameUrl=page.url();await page.evaluate(()=>{(window as any).__sameContactDocument=true});await page.getByRole('button',{name:lang==='en'?'తెలుగులో చూపించండి':'Show in English',exact:true}).click();await expect(page.locator('html')).toHaveAttribute('lang',lang==='en'?'te-IN':'en-IN');expect(page.url()).toBe(sameUrl);expect(await page.evaluate(()=>(window as any).__sameContactDocument)).toBe(true);expect(urls).toHaveLength(1);await expect(page.getByText('91••••••99')).toBeVisible();
 });
 test('contact resolve page with an invalid token shows a refusal and no link',async({page})=>{
  await page.addInitScript(()=>localStorage.setItem('tsap_lang','en'));

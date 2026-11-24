@@ -1336,5 +1336,21 @@
   {
     "file": "tests/motion.spec.ts",
     "decision": "Scroll sweep uses instant 200px max steps to avoid CSS smooth-scroll skipping sections; visibility assertion now polls final transition. Desktop still has one unresolved low-opacity visible element; not passed."
+  },
+  {
+    "file": "tests/motion.spec.ts",
+    "decision": "Visit each unrevealed block directly after instant sweep; verifies observer without assuming image-reflow sweep reached every block. All three viewport motion visibility checks pass; no application reveal changes."
+  },
+  {
+    "file": "tests/photo-face-eligibility.spec.ts",
+    "decision": "Fill form directly in each URL locale instead of changing roots after selecting a photo. Exact translated labels, full rejection/draft/photo-retention assertions unchanged; all6 pass."
+  },
+  {
+    "file": "tests/private-offline-preview.spec.ts",
+    "decision": "Preserve original no-extra-review-GET assertion via in-place token route language exception. Updated offline SVG labels and Telugu fallback text; all6 private flows and SW fallback pass."
+  },
+  {
+    "file": "tests/contact-qr.spec.ts",
+    "decision": "Added no-reload/no-extra-redemption assertion for in-place language changes in both languages."
   }
 ]

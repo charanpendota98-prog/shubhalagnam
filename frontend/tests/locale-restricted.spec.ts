@@ -33,3 +33,12 @@ for(const role of ['owner','worker','moderator','support','finance'])test(`restr
  }
  expect(results[1]).toEqual(results[0]);expect(results[0].writes).toBe(0);expect(results[0].ownerRegion).toBe(role==='owner'?1:0);
 });
+
+for(const lang of ['te','en'])test(`review language keeps document and counted read ${lang}`,async({page})=>{
+ let reads=0;await page.route('**/api/**',r=>{if(new URL(r.request().url()).pathname.startsWith('/api/review-links/')){reads++;return r.fulfill({json:{success:true,profile:{first_name:'FICTIONAL LOCALE REVIEW'},views_remaining:3}})}return r.fulfill({json:{valid:false,items:[]}})});
+ await page.goto(localeHref('/review/FICTIONAL-LOCALE',lang));await expect(page.locator('h1')).toContainText('FICTIONAL');const url=page.url();await page.evaluate(()=>{(window as any).__sameReviewDocument=true});
+ await page.getByRole('button',{name:lang==='te'?'Show in English':'తెలుగులో చూపించండి',exact:true}).click();await expect(page.locator('html')).toHaveAttribute('lang',lang==='te'?'en-IN':'te-IN');await expect(page.locator('h1')).toContainText('FICTIONAL');expect(page.url()).toBe(url);expect(await page.evaluate(()=>(window as any).__sameReviewDocument)).toBe(true);expect(reads).toBe(1);
+});
+for(const lang of ['te','en'])test(`referral language does not repeat attributed click ${lang}`,async({page})=>{
+ let posts=0;await page.route('**/api/**',r=>{if(new URL(r.request().url()).pathname.startsWith('/api/referral/click/')){posts++;return r.fulfill({json:{success:true,valid_code:false}})}return r.fulfill({json:{valid:false,items:[]}})});await page.goto(localeHref('/r/FICTIONAL-LOCALE',lang));await expect.poll(()=>posts).toBe(1);const url=page.url();await page.getByRole('button',{name:lang==='te'?'Show in English':'తెలుగులో చూపించండి',exact:true}).click();await expect(page.locator('html')).toHaveAttribute('lang',lang==='te'?'en-IN':'te-IN');expect(page.url()).toBe(url);expect(posts).toBe(1);
+});

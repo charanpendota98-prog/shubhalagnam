@@ -100,12 +100,19 @@ for (const viewport of VIEWPORTS) {
         await page.goto(route, { waitUntil: "domcontentloaded" });
         await settle(page);
         await scrollThrough(page);
+        // Streaming sections and image reflow can move a short block between sweep steps.
+        // Visit every remaining block directly before checking final visibility.
+        for(const node of await page.locator('.reveal:not(.is-visible)').all()){
+          await node.evaluate(e=>e.scrollIntoView({block:'center',behavior:'instant'}));
+          await page.waitForTimeout(150);
+        }
+        await page.waitForTimeout(1500);
 
         const stuck = () => page.evaluate(() =>
           [...document.querySelectorAll<HTMLElement>(".reveal")]
             .filter((element) => Number(getComputedStyle(element).opacity) < 0.95)
             .map((element) => ({
-              cls: element.className.slice(0, 48),
+              cls: element.className.slice(0, 48),text:element.textContent?.slice(0,90),height:element.getBoundingClientRect().height,
               top: Math.round(element.getBoundingClientRect().top),
             })),
         );
