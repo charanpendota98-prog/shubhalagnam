@@ -268,7 +268,10 @@ def _now() -> datetime:
 
 
 def _id(prefix: str = "REQ") -> str:
-    return f"{prefix}-{datetime.utcnow().strftime('%y%m%d')}-{uuid.uuid4().hex}"
+    # Map the UUID hex alphabet to letters so an opaque token cannot resemble
+    # a phone number in privacy scans or member-visible notification previews.
+    suffix = uuid.uuid4().hex.translate(str.maketrans("0123456789abcdef", "abcdefghijklmnop"))
+    return f"{prefix}-{datetime.utcnow().strftime('%y%m%d')}-{suffix}"
 
 
 def mask_phone(phone: str) -> str:

@@ -15,7 +15,7 @@ class RequestIdentifiers(unittest.TestCase):
             second = interest.create_interest(sender, owners[1])
         self.assertNotEqual(first["request_id"], second["request_id"])
         for record in [first, second]:
-            self.assertRegex(record["request_id"], r"^REQ-\d{6}-[0-9a-f]{32}$")
+            self.assertRegex(record["request_id"], r"^REQ-\d{6}-[a-p]{32}$")
             self.assertIsInstance(record["request_id"], str)
         first["status"] = "accepted"
         second["created_at"] = (datetime.utcnow() - timedelta(days=8)).isoformat()
