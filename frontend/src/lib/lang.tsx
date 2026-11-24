@@ -1,6 +1,6 @@
 "use client";
 /** Global Telugu ⇄ English preference shared by every client page. */
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
 import { getLocalizedPageMetadata } from "@/lib/metadata-i18n";
 
@@ -61,15 +61,16 @@ export function LangProvider({ children }: { children: React.ReactNode }) {
   const update = useCallback((next: Lang, persist: boolean) => {
     applyDocumentLanguage(next);
     setLangState(next);
+    try { document.cookie = `${STORE_KEY}=${next}; Path=/; Max-Age=31536000; SameSite=Lax${location.protocol === "https:" ? "; Secure" : ""}`; } catch { /* cookies may be disabled */ }
     if (persist) {
       try { localStorage.setItem(STORE_KEY, next); } catch { /* storage may be disabled */ }
     }
   }, []);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     let initial: Lang = "te";
     try {
-      const saved = localStorage.getItem(STORE_KEY);
+      const saved = document.documentElement.dataset.lang || localStorage.getItem(STORE_KEY);
       if (validLang(saved)) initial = saved;
     } catch { /* use Telugu default */ }
     update(initial, false);
@@ -82,7 +83,12 @@ export function LangProvider({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener("storage", onStorage);
   }, [update]);
 
+  useLayoutEffect(() => {
+    if (document.documentElement.dataset.langPending === lang) delete document.documentElement.dataset.langPending;
+  }, [lang]);
+
   const setLang = useCallback((next: Lang) => {
+    if (!validLang(next)) return;
     update(next, true);
     window.dispatchEvent(new CustomEvent(EVENT_NAME, { detail: { lang: next } }));
   }, [update]);
