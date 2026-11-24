@@ -161,6 +161,11 @@ export default function ElderReviewClient() {
               <h2 className="text-sm font-extrabold text-[#7A0C2E]">
                 🙏 {te ? "కుటుంబ అభిప్రాయం / ఆశీస్సులు పంపండి" : "Share Family Note with Profile Owner"}
               </h2>
+              <p id="elder-feedback-privacy" className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-950">
+                {te
+                  ? "గోప్యత కోసం, మీ పేరు, బంధుత్వం లేదా note లోని ఫోన్ నంబర్లు, ఇమెయిల్ చిరునామాలు సేవ్ చేసే ముందు దాచబడవచ్చు. సంప్రదింపు వివరాలు రాయవద్దు."
+                  : "For privacy, phone numbers and email addresses in your name, relation or note may be hidden before saving. Do not include contact details."}
+              </p>
               <div className="grid gap-2 sm:grid-cols-2">
                 <label className="text-xs font-bold">{te ? "మీ పేరు" : "Your name"}<input
                   maxLength={60}
@@ -168,6 +173,7 @@ export default function ElderReviewClient() {
                   onChange={(e) => setReviewerName(e.target.value)}
                   placeholder={te ? "మీ పేరు (ఉదా: లక్ష్మి పెద్దమ్మ)" : "Your name (e.g. Lakshmi Aunt)"}
                   aria-label="Reviewer name"
+                aria-describedby="elder-feedback-privacy"
                   className="mt-1 block w-full rounded-xl border border-slate-200 px-3 py-2 text-xs"
                 />
                 </label><label className="text-xs font-bold">{te ? "బంధుత్వం" : "Relation"}<input
@@ -176,6 +182,7 @@ export default function ElderReviewClient() {
                   onChange={(e) => setRelation(e.target.value)}
                   placeholder={te ? "బంధుత్వం (ఉదా: మామయ్య / పెద్దమ్మ)" : "Relation (e.g. Uncle / Aunt)"}
                   aria-label="Reviewer relation"
+                aria-describedby="elder-feedback-privacy"
                   className="mt-1 block w-full rounded-xl border border-slate-200 px-3 py-2 text-xs"
                 />
               </label></div>
@@ -186,6 +193,7 @@ export default function ElderReviewClient() {
                 rows={2}
                 placeholder={te ? "మీ సూచనను ఇక్కడ రాయండి…" : "Write your private review note for the profile owner…"}
                 aria-label="Elder review note"
+                aria-describedby="elder-feedback-privacy"
                 className="w-full rounded-xl border border-slate-200 p-3 text-xs"
               />
               </label><button
