@@ -150,7 +150,7 @@ PAGES = [
     "app/admin/page.tsx", "app/admin/photos/page.tsx",
     "app/terms/page.tsx", "app/privacy/page.tsx", "app/refund/page.tsx",
     "app/offline/page.tsx", "app/p/[slug]/page.tsx",
-    "app/error.tsx", "app/not-found.tsx", "app/loading.tsx",
+    "app/error.tsx", "app/not-found.tsx",
     "components/FeaturedStories.tsx", "components/TrustBadge.tsx", "components/BannerSlot.tsx",
 ]
 missing = []
