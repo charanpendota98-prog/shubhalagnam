@@ -89,3 +89,10 @@ Read-only production measurement: 1,552,621,568 bytes and 5,022,243 inodes avail
 - restricted-operations en320 failed remaining unprefixed login assertion. Corrected exact assertion to localeHref, NOT YET RUN. Need all6 restricted suites.
 - Uncommitted four fixture files pending checkpoint. Typecheck PASS after these. No app changes since bbe8af8.
 - Remaining8 legacy hero and1package skip unresolved. Remaining full route/profile photo/Arena/CI/final artifact disk/backup/rollback/live gates unchanged. No push/PR/deploy; PR202live, PR201held.
+
+## Continuation at21:58 IST
+- English404 implemented via both locale catch-all page bodies plus English not-found wrapper. Throwing framework notFound() produced an empty pre-hydration error shell under multiple roots; replaced with rendered localized body and narrowly scoped proxy status404. Known locale patterns, service/media directories and exact static files bypass. Both locale raw404/noindex + no-JS visible body/link tests PASS. Dotted unknowns404, real routes/resources200 and oldremarriage308 PASS. 6responsive missing/offline checksPASS. Raw404 metadata noindex and canonical cleared.
+- Build/typecheck PASS; full lint/static/security passed before final proxy static-file allowlist tightening and catchall metadata update, repeat exact current.
+- Inspected bilingual404 pixels and sent parent21:41. Files /downloads/locale-404-proof.jpg; logs /tmp/locale-404-final.log.
+- Regression now1742/1865 (incl1skip), no active failures beyond8heldout obsoletehero and unrun remainder. Restricted operations all6width/languages + emergency key test PASS. Safety/account/shortlist/staticSSR/support checks passed. Current inventory1865 adds3real404 checks.
+- No production changes, no push/PR. PR202live PR201held. Remaining complete regression, legacyhero retirement/replacement, package disposable test, route/profilephoto/Arena/CI/finaldisk/backup/rollback/live.

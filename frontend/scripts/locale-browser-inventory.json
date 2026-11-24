@@ -1356,5 +1356,9 @@
   {
     "file": "tests/locale-state-preservation.spec.ts",
     "reason": "Parent correction: language switches must preserve form, selected File, result and payment state. Both directions; no duplicate order or consent check."
+  },
+  {
+    "file": "tests/locale-not-found.spec.ts",
+    "reason": "Localized real HTTP 404 with visible server HTML and JavaScript disabled, known/service route status parity."
   }
 ]
