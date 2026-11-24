@@ -9,6 +9,7 @@ import BackToTop from "@/components/BackToTop";
 import RouteFrame from "@/components/RouteFrame";
 import SiteAmbience from "@/components/SiteAmbience";
 import { LangProvider } from "@/lib/lang";
+import { LANGUAGE_BOOTSTRAP, LANGUAGE_GATE_CSS } from "@/lib/language-bootstrap";
 import { serializeJsonLd } from "@/lib/safe-json-ld";
 
 const SITE = process.env.SITE_URL || "https://manavivaha.in";
@@ -130,9 +131,10 @@ export default function RootLayout({
   return (
     <html lang="te-IN" suppressHydrationWarning>
       <head>
+        <style dangerouslySetInnerHTML={{ __html: LANGUAGE_GATE_CSS }} />
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var l=localStorage.getItem('tsap_lang');if(l!=='en'&&l!=='te')l='te';var r=document.documentElement;r.lang=l==='en'?'en-IN':'te-IN';r.dataset.lang=l;}catch(e){}})();`,
+            __html: LANGUAGE_BOOTSTRAP,
           }}
         />
       </head>

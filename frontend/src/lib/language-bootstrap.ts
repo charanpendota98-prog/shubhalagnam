@@ -1,0 +1,2 @@
+export const LANGUAGE_BOOTSTRAP = `(function(){try{var c=document.cookie.match(/(?:^|;\\s*)tsap_lang=(en|te)(?:;|$)/);var l=c?c[1]:null;if(!l){try{l=localStorage.getItem('tsap_lang')}catch(e){}}if(l!=='en'&&l!=='te')l='te';var r=document.documentElement;r.lang=l==='en'?'en-IN':'te-IN';r.dataset.lang=l;if(l==='en'){r.dataset.langPending='en';setTimeout(function(){delete r.dataset.langPending},400)}}catch(e){}})();`;
+export const LANGUAGE_GATE_CSS = 'html[data-lang-pending="en"] body{visibility:hidden}';
