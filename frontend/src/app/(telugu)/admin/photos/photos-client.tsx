@@ -7,7 +7,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Duo } from "@/lib/duo";
 import { useLang } from "@/lib/lang";
-import Link from "next/link";
+import Link from "@/components/LocaleLink";
 import { apiFetch, apiPost, getAdminKey, setAdminKey } from "@/lib/api";
 import ProtectedImage from "@/components/ProtectedImage";
 

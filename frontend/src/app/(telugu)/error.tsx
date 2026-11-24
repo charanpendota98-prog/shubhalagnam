@@ -1,7 +1,7 @@
 "use client";
 /** ⚠️ Error boundary — crash aithe friendly Telugu message + retry (white screen ledu) */
 import { useEffect } from "react";
-import Link from "next/link";
+import Link from "@/components/LocaleLink";
 import { Home, RefreshCw, Wrench } from "lucide-react";
 import { useLang } from "@/lib/lang";
 import { SITE_CONFIG } from "@/lib/site-config";
@@ -22,9 +22,11 @@ export default function Error({ error, reset }: { error: Error & { digest?: stri
       <div className="mt-6 flex flex-wrap justify-center gap-2">
         <button type="button" onClick={reset} className="rounded-xl bg-[#7A0C2E] px-4 py-2 font-semibold text-white"><RefreshCw aria-hidden="true" className="mr-2 inline-block h-4 w-4" />{te ? "మళ్లీ ప్రయత్నించండి" : "Retry"}</button>
         <Link href="/" className="rounded-xl border border-[#7A0C2E] px-4 py-2 font-semibold text-[#7A0C2E]"><Home aria-hidden="true" className="mr-2 inline-block h-4 w-4" />{te ? "హోమ్" : "Home"}</Link>
-        {SITE_CONFIG.supportLink ? <a href={SITE_CONFIG.supportLink} target="_blank" rel="noopener noreferrer" className="rounded-xl border border-emerald-700 px-4 py-2 font-semibold text-emerald-800">{te ? "WhatsApp support" : "WhatsApp support"}</a> : null}
+        {SITE_CONFIG.supportLink ? <LocaleAnchor href={SITE_CONFIG.supportLink} target="_blank" rel="noopener noreferrer" className="rounded-xl border border-emerald-700 px-4 py-2 font-semibold text-emerald-800">{te ? "WhatsApp support" : "WhatsApp support"}</LocaleAnchor> : null}
       </div>
       {error?.digest && <p className="mt-4 text-xs text-slate-400">ref: {error.digest}</p>}
     </div>
   );
 }
+
+import LocaleAnchor from "@/components/LocaleAnchor";

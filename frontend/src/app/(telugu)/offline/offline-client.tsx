@@ -4,7 +4,7 @@
 import "@/components/private-fallback.css";
 import "../resilience.css";
 
-import Link from "next/link";
+import Link from "@/components/LocaleLink";
 import { FileCheck, Heart, Home, WifiOff } from "lucide-react";
 import { useLang } from "@/lib/lang";
 import { SITE_CONFIG } from "@/lib/site-config";
@@ -38,9 +38,9 @@ export default function OfflinePage() {
           </Link>
         </div>
         {SITE_CONFIG.supportLink ? (
-          <a href={SITE_CONFIG.supportLink} target="_blank" rel="noopener noreferrer" className="mt-4 inline-flex min-h-11 items-center justify-center rounded-xl bg-emerald-700 px-4 py-2 text-xs font-bold text-white focus-brand">
+          <LocaleAnchor href={SITE_CONFIG.supportLink} target="_blank" rel="noopener noreferrer" className="mt-4 inline-flex min-h-11 items-center justify-center rounded-xl bg-emerald-700 px-4 py-2 text-xs font-bold text-white focus-brand">
             {te ? "వాట్సాప్ సహాయం తెరవండి" : "Open WhatsApp support (configured contact)"}
-          </a>
+          </LocaleAnchor>
         ) : (
           <p className="mt-4 text-[11px] text-gray-500">
             {te ? "ఈ వెబ్‌సైట్‌లో వాట్సాప్ సహాయ సంప్రదింపు వివరాలు అందుబాటులో లేవు." : "WhatsApp support is not configured for this deployment."}
@@ -50,3 +50,5 @@ export default function OfflinePage() {
     </div>
   );
 }
+
+import LocaleAnchor from "@/components/LocaleAnchor";

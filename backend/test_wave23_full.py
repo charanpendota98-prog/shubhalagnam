@@ -146,7 +146,7 @@ ln = _msrc[:i].count("\n")
 check("C4 top-matches owner-guarded (personal ranking)", "require_owner" in "\n".join(_lines[ln:ln + 12]))
 
 section("D. XSS + misc")
-_psrc = src_page("frontend/src/app/search/[id]/page.tsx")
+_psrc = src_page("frontend/src/app/(telugu)/search/[id]/page.tsx")
 check("D1 JSON-LD id sanitized (<>\" stripped)", 'replace(/[<>"\']/g' in _psrc and "safeId" in _psrc)
 _tsx_files = [os.path.join(dp, f) for dp, _, fs in os.walk(os.path.join(ROOT, "frontend", "src"))
               for f in fs if f.endswith(".tsx")]
@@ -167,7 +167,7 @@ for _f in _tsx_files:
         _static_literal = "${" not in _window and "application/ld+json" not in _window
         if not (_escaped_jsonld or _static_literal):
             _bad_sinks.append("%s:%d" % (os.path.relpath(_f, ROOT), _i + 1))
-_home_page = src_page("frontend/src/app/page.tsx")
+_home_page = src_page("frontend/src/app/(telugu)/home-client.tsx")
 _safe_jsonld_path = os.path.join(ROOT, "frontend", "src", "lib", "safe-json-ld.ts")
 with open(_safe_jsonld_path, encoding="utf-8") as _safe_jsonld_file:
     _safe_jsonld_source = _safe_jsonld_file.read()

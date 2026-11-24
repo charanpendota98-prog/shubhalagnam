@@ -12,7 +12,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import AuthGate from "@/components/AuthGate";
 import { authHeaders, apiPost, apiGet, apiDisplayMessage, getToken, readApiJson} from "@/lib/api";
-import Link from "next/link";
+import Link from "@/components/LocaleLink";
 import { Check, Clock3, CreditCard, Eye, Heart, Inbox, Mail, RefreshCw, Send } from "lucide-react";
 import Reveal from "@/components/Reveal";
 import SectionHeading from "@/components/SectionHeading";

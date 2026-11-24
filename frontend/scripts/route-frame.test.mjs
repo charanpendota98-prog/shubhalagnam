@@ -6,14 +6,14 @@ import { fileURLToPath } from "node:url";
 
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
 const frame = fs.readFileSync(path.join(ROOT, "src/components/RouteFrame.tsx"), "utf8");
-const layout = fs.readFileSync(path.join(ROOT, "src/app/layout.tsx"), "utf8");
-const search = fs.readFileSync(path.join(ROOT, "src/app/search/page-client.tsx"), "utf8");
+const layout = fs.readFileSync(path.join(ROOT, "src/components/StaticLocaleShell.tsx"), "utf8");
+const search = fs.readFileSync(path.join(ROOT, "src/app/(telugu)/search/page-client.tsx"), "utf8");
 const css = fs.readFileSync(path.join(ROOT, "src/app/globals.css"), "utf8");
 
 test("every route receives the shared route frame from the root layout", () => {
   assert.match(layout, /import RouteFrame from "@\/components\/RouteFrame"/);
   assert.match(layout, /<RouteFrame>\{children\}<\/RouteFrame>/);
-  assert.match(frame, /usePathname\(\)/);
+  assert.match(frame, /useBasePathname\(\)/);
   assert.match(frame, /data-route=/);
 });
 
@@ -56,9 +56,9 @@ test("a route never gets two <h1>s: the band stands down where the page has its 
   // These workspaces now own their headings. Test both sides of the contract:
   // the frame must stand down AND the route's content must supply an h1.
   const workspaceOwners = {
-    "/me": "src/app/me/page-client.tsx",
-    "/matches": "src/app/matches/page-client.tsx",
-    "/requests": "src/app/requests/page-client.tsx",
+    "/me": "src/app/(telugu)/me/page-client.tsx",
+    "/matches": "src/app/(telugu)/matches/page-client.tsx",
+    "/requests": "src/app/(telugu)/requests/page-client.tsx",
     "/shortlist": "src/components/ShortlistWorkspace.tsx",
     "/saved-searches": "src/components/SavedSearchWorkspace.tsx",
   };

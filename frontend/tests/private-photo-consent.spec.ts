@@ -1,3 +1,4 @@
+import {localeHref} from "./locale-href";
 import {test,expect} from '@playwright/test';
 import fs from 'node:fs';
 for(const lang of ['en','te'])for(const width of [320,390,1280])test(`private photo consent uses API privacy signal ${lang} ${width}`,async({page})=>{
@@ -13,7 +14,7 @@ for(const lang of ['en','te'])for(const width of [320,390,1280])test(`private ph
   return r.fulfill({json:{success:true,rows:[],items:[],total:0}});
  });
  await page.route('**/photos/fictional-approved.png?*',r=>r.fulfill({contentType:'image/png',body:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=','base64')}));
- await page.goto('/search/FICTIONAL');await page.getByRole('button',{name:lang==='en'?'Show in English':'తెలుగులో చూపించండి',exact:true}).first().click();
+ await page.goto(localeHref('/search/FICTIONAL',lang));await page.getByRole('button',{name:lang==='en'?'Show in English':'తెలుగులో చూపించండి',exact:true}).first().click();
  const request=page.getByRole('button',{name:lang==='en'?'Request Photo Access':'ఫోటో అనుమతి అడగండి',exact:true});await expect(request).toBeVisible();await page.getByLabel('Private photo request note',{exact:true}).fill('Fictional consent note');await request.click();await expect(page.getByRole('status').filter({hasText:lang==='en'?'Could not request photo access':'ఫోటో అభ్యర్థన పంపడం సాధ్యం కాలేదు'})).toBeVisible();await expect(request).toBeEnabled();await request.click();await expect(page.getByRole('status').filter({hasText:lang==='en'?'Private photo request sent':'ప్రైవేట్ ఫోటో అభ్యర్థన పంపబడింది'})).toBeVisible();
  expect(posts.slice(0,2).map(x=>x.body)).toEqual(Array(2).fill({viewer_id:'COOKIE_OWNER',owner_id:'FICTIONAL',note:'Fictional consent note'}));
  await page.getByRole('button',{name:lang==='en'?'View Approved Photo':'ఆమోదించిన ఫోటో చూడు',exact:true}).click();const img=page.getByRole('img',{name:'FICTIONAL approved photo',exact:true});await expect(img).toBeVisible();await expect.poll(()=>img.evaluate((el:HTMLImageElement)=>el.naturalWidth)).toBe(1);expect(posts[2].body).toEqual({viewer_id:'COOKIE_OWNER',owner_id:'FICTIONAL',ttl_seconds:900});await img.scrollIntoViewIfNeeded();fs.mkdirSync('artifacts/private-photo-consent',{recursive:true});await page.screenshot({path:`artifacts/private-photo-consent/${lang}-${width}.png`});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);

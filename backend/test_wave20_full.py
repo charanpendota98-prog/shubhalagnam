@@ -132,17 +132,17 @@ def read(rel):
     return src_page(os.path.join("frontend", rel))
 
 
-reg = read("src/app/register/page.tsx")
+reg = read("src/app/(telugu)/register/page.tsx")
 check("D1 register fires click (register_direct)", "register_direct" in reg and "/api/referral/click/" in reg)
 check("D2 sessionStorage dedupe", 'tsap_click_fired' in reg)
 check("D3 localStorage restore", 'tsap_ref_from_link' in reg)
 check("D4 referrer banner with name", "referrer_name" in reg and "Referred by" in reg)
 check("D5 manual code input + live validate", 'aria-label="Referral code"' in reg and "/api/referral/validate/" in reg)
 
-rp = read("src/app/r/[code]/page.tsx")
+rp = read("src/app/(telugu)/r/[code]/page.tsx")
 check("D6 /r/ sets dedupe flag", "tsap_click_fired" in rp)
 
-pr = read("src/app/referral/register/page.tsx")
+pr = read("src/app/(telugu)/referral/register/page.tsx")
 check("D7 partner dashboard clicks + share", "dash.clicks" in pr and "WhatsApp share" in pr and "wa.me" in pr)
 
 import inspect as _insp

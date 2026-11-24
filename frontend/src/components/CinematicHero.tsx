@@ -237,10 +237,10 @@ export default function CinematicHero() {
                 (asserted by tests/visual.spec.ts). On wide screens it sits in
                 the support rail, under the facts. */}
             <div className="mv-hero__actions mt-3 flex flex-wrap items-center gap-2.5 anim-hero-3 lg:hidden">
-              <a href="/register" className="pill pill--on-gold mv-sheen min-h-11 px-5 text-sm">
+              <LocaleAnchor href="/register" className="pill pill--on-gold mv-sheen min-h-11 px-5 text-sm">
                 {L.register}
                 <ArrowRight size={16} aria-hidden="true" />
-              </a>
+              </LocaleAnchor>
             </div>
           </div>
 
@@ -252,14 +252,14 @@ export default function CinematicHero() {
           {/* ---------- supporting column: secondary actions + honest facts ---------- */}
           <div className="mv-hero__support min-w-0 lg:col-start-1 lg:row-start-2">
             <div className="hidden flex-wrap items-center gap-2.5 lg:flex">
-              <a href="/register" className="pill pill--on-gold mv-sheen min-h-11 px-5 text-sm">
+              <LocaleAnchor href="/register" className="pill pill--on-gold mv-sheen min-h-11 px-5 text-sm">
                 {L.register}
                 <ArrowRight size={16} aria-hidden="true" />
-              </a>
-              <a href="/matches" className="pill min-h-11 px-5 text-sm text-white/90" style={{ border: "1px solid rgba(255,255,255,.34)" }}>
+              </LocaleAnchor>
+              <LocaleAnchor href="/matches" className="pill min-h-11 px-5 text-sm text-white/90" style={{ border: "1px solid rgba(255,255,255,.34)" }}>
                 <Search size={15} aria-hidden="true" />
                 {L.viewAll}
-              </a>
+              </LocaleAnchor>
             </div>
             <ul className="mv-hero__facts">
               {L.facts.map((fact, index) => {
@@ -283,3 +283,5 @@ export default function CinematicHero() {
     </section>
   );
 }
+
+import LocaleAnchor from "@/components/LocaleAnchor";

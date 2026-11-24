@@ -195,7 +195,7 @@ section("E. frontend static")
 def read(rel):
     return src_page(os.path.join("frontend", rel))
 
-preg = read("src/app/referral/register/page.tsx")
+preg = read("src/app/(telugu)/referral/register/page.tsx")
 # 🔒 R13: payout identifiers are collected only through the partner's authenticated
 #    payout request, so the public form must not ask for a PhonePe number at all.
 check("E1 partner form (name/phone/address/state/district — no payout identifier)",
@@ -214,7 +214,7 @@ ms = read("src/components/MatchSend.tsx")
 check("E7 MatchSend server qs (religion/state/nri)", all(k in ms for k in ["religion", "nri_only", "nri_exclude"]))
 check("E8 MatchSend job/salary + apply", "Min salary" in ms and "Filters apply" in ms)
 
-adminp = read("src/app/admin/page.tsx")
+adminp = read("src/app/(telugu)/admin/page.tsx")
 # The /admin route is a thin server wrapper; the real control UI is this component.
 adminc = read("src/components/control/Dashboard.tsx")
 check("E9 admin wires WA console", "WANumbersConsole" in adminc)

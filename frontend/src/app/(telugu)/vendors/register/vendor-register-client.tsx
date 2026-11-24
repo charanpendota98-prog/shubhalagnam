@@ -10,7 +10,7 @@ import { apiDisplayMessage, readApiJson } from "@/lib/api";
  * Registration requests a paid listing. External channel distribution is not included unless separately confirmed.
  */
 import { useEffect, useState } from "react";
-import Link from "next/link";
+import Link from "@/components/LocaleLink";
 import { useLang } from "@/lib/lang";
 import { whatsappPhoneLink } from "@/lib/wa";
 
@@ -145,9 +145,9 @@ export default function VendorRegisterPage() {
             </ol>
             <div className="mt-3 flex flex-wrap gap-2">
               {res.phonepe_link && (
-                <a href={res.phonepe_link} className="gold-gradient text-maroon font-bold text-[12px] px-4 py-2.5 rounded-xl">
+                <LocaleAnchor href={res.phonepe_link} className="gold-gradient text-maroon font-bold text-[12px] px-4 py-2.5 rounded-xl">
                   {te ? "📱 PhonePe / UPI తో pay చెయ్యండి" : "📱 Pay with PhonePe / UPI"}
-                </a>
+                </LocaleAnchor>
               )}
               {res.checkout_available && <button type="button" onClick={() => copy(String(res.vendor_id), "ref")}
                 className="border border-maroon/25 text-maroon font-bold text-[12px] px-4 py-2.5 rounded-xl">
@@ -191,9 +191,9 @@ export default function VendorRegisterPage() {
             </button>
           </div>}
           {supportWhatsappLink && <div className="text-[11px] text-gray-500 text-center">
-            <a href={supportWhatsappLink} target="_blank" rel="noopener noreferrer" className="underline">
+            <LocaleAnchor href={supportWhatsappLink} target="_blank" rel="noopener noreferrer" className="underline">
               {te ? "Vendor support కి WhatsApp చేయండి" : "Message vendor support on WhatsApp"}
-            </a>
+            </LocaleAnchor>
           </div>}
         </div>
       </div>
@@ -319,3 +319,5 @@ export default function VendorRegisterPage() {
     </div>
   );
 }
+
+import LocaleAnchor from "@/components/LocaleAnchor";

@@ -1,3 +1,4 @@
+import {localeHref} from "./locale-href";
 import {test,expect} from '@playwright/test';
 import fs from 'node:fs';
 const owner='TEST-BRIEFING';
@@ -6,7 +7,7 @@ for(const lang of ['en','te'])for(const width of [320,390,1280])for(const popula
  await page.route('**/api/**',r=>{const p=new URL(r.request().url()).pathname;if(!['GET','HEAD'].includes(r.request().method()))writes++;
  if(p==='/api/auth/verify')return r.fulfill({json:{valid:true,tsap_id:owner}});
  if(p.includes('/assistant/briefing/')){reads++;return r.fulfill({json:{success:true,tsap_id:owner,summary_telugu:`పరిశీలించడానికి ${populated?1:0} ప్రొఫైళ్లు`,summary_en:`${populated?1:0} profiles to review`,mutual:{interests_received:populated?2:0,profile_views:populated?3:0},nudge:{percent:65,verdict_telugu:'ప్రొఫైల్‌లో ఇంకా నింపాల్సిన వివరాలను పరిశీలించండి.',verdict_en:'Review the suggested fields.'},matches:populated?[{tsap_id:'TEST-CANDIDATE',profile:{full_name:'Fictional profile',age:26,district:'Hyderabad'},is_new:true,observations:[]}]:[],tips:[{priority:1,telugu:'ఫోటో జోడించాలా వద్దా అనేది మీ ఇష్టం.',en:'Adding a photo is optional.',cta:'/me'}]}})}return r.fulfill({json:{success:true,items:[]}})});
- await page.goto('/me');await page.locator('.account-activity summary').click();
+ await page.goto(localeHref('/me',lang));await page.locator('.account-activity summary').click();
  const heading=page.getByRole('heading',{name:lang==='en'?'Profiles to review':'పరిశీలించడానికి ప్రొఫైళ్లు',exact:true});await expect(heading).toBeVisible();const panel=heading.locator('xpath=ancestor::section[1]');
  await expect(panel.getByText(lang==='en'?`${populated?1:0} profiles to review`:`పరిశీలించడానికి ${populated?1:0} ప్రొఫైళ్లు`,{exact:true})).toBeVisible();
  expect(await panel.innerText()).not.toMatch(/\p{Extended_Pictographic}/u);

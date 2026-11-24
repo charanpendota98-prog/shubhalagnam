@@ -2,7 +2,7 @@
 import "@/components/trust-workspace.css";
 
 /** 💸 REFUND & CANCELLATION POLICY — neat Telugu / clean English via toggle. */
-import Link from "next/link";
+import Link from "@/components/LocaleLink";
 import { SITE_CONFIG } from "@/lib/site-config";
 import { POLICY_SUPPORT_EMAIL } from "@/lib/policy-facts";
 import { useLang } from "@/lib/lang";
@@ -162,8 +162,8 @@ export default function RefundPage() {
       <div className="mt-8 rounded-2xl border border-gray-200 bg-white p-5 text-xs text-gray-700">
         <div className="font-bold text-[#7A0C2E]">📞 {te ? "Contact (refunds & payments)" : "Contact (refunds & payments)"}</div>
         <div className="mt-2 space-y-1">
-          {SITE_CONFIG.owner.contactNumber ? <div>WhatsApp / Phone: <a href={`tel:${SITE_CONFIG.owner.contactNumber}`} className="font-bold text-emerald-700 hover:underline">{SITE_CONFIG.owner.contactNumber}</a></div> : <div>{te ? "ఫోన్ వివరాలు అందుబాటులో లేవు" : "Phone contact is not configured"}</div>}
-          {POLICY_SUPPORT_EMAIL ? <div>Email: <a href={`mailto:${POLICY_SUPPORT_EMAIL}`} className="font-bold text-emerald-700 hover:underline">{POLICY_SUPPORT_EMAIL}</a></div> : null}
+          {SITE_CONFIG.owner.contactNumber ? <div>WhatsApp / Phone: <LocaleAnchor href={`tel:${SITE_CONFIG.owner.contactNumber}`} className="font-bold text-emerald-700 hover:underline">{SITE_CONFIG.owner.contactNumber}</LocaleAnchor></div> : <div>{te ? "ఫోన్ వివరాలు అందుబాటులో లేవు" : "Phone contact is not configured"}</div>}
+          {POLICY_SUPPORT_EMAIL ? <div>Email: <LocaleAnchor href={`mailto:${POLICY_SUPPORT_EMAIL}`} className="font-bold text-emerald-700 hover:underline">{POLICY_SUPPORT_EMAIL}</LocaleAnchor></div> : null}
           <div>Website: <b>https://{SITE_CONFIG.domain}</b> • Telegram: {SITE_CONFIG.officialChannel}</div>
           {SITE_CONFIG.owner.location ? <div>Business: {SITE_CONFIG.legalName}, {SITE_CONFIG.owner.location}</div> : null}
           <div>{te ? "Working hours: Mon–Sat, 9 AM – 8 PM IST (response 24h లోపు)" : "Working hours: Mon–Sat, 9 AM – 8 PM IST (response within 24h)"}</div>
@@ -191,3 +191,5 @@ function Section({ title, children }: { title: string; children: React.ReactNode
     </section>
   );
 }
+
+import LocaleAnchor from "@/components/LocaleAnchor";

@@ -8,7 +8,7 @@ import "@/components/partner-workspace.css";
  * Owner: private dashboard requires the registration access code; APIs still authorize every request.
  */
 import { useCallback, useEffect, useState } from "react";
-import Link from "next/link";
+import Link from "@/components/LocaleLink";
 import { useParams } from "next/navigation";
 import { useLang } from "@/lib/lang";
 import { apiDisplayMessage, readApiJson} from "@/lib/api";
@@ -199,11 +199,11 @@ export default function VendorDetailPage() {
             </div>
             <div className="flex flex-wrap gap-2">
               {vendorWhatsApp && (
-                <a href={vendorWhatsApp} target="_blank" rel="noreferrer"
+                <LocaleAnchor href={vendorWhatsApp} target="_blank" rel="noreferrer"
                   onClick={() => fetch(`/api/vendors/${id}/click?source=detail_hero`, { method: "POST" }).catch(() => { })}
-                  className="bg-green-600 text-white font-bold text-[12px] px-4 py-2.5 rounded-xl">{te ? "💬 WhatsApp చెయ్యండి" : "💬 WhatsApp"}</a>
+                  className="bg-green-600 text-white font-bold text-[12px] px-4 py-2.5 rounded-xl">{te ? "💬 WhatsApp చెయ్యండి" : "💬 WhatsApp"}</LocaleAnchor>
               )}
-              {v.call_link && <a href={v.call_link} className="bg-white/10 border border-white/25 font-bold text-[12px] px-4 py-2.5 rounded-xl">📞 Call</a>}
+              {v.call_link && <LocaleAnchor href={v.call_link} className="bg-white/10 border border-white/25 font-bold text-[12px] px-4 py-2.5 rounded-xl">📞 Call</LocaleAnchor>}
             </div>
           </div>
           <div className="mt-4 flex gap-2 text-[12px]">
@@ -229,10 +229,10 @@ export default function VendorDetailPage() {
                 <div className="mt-3 rounded-xl bg-[#FFF8E7] border border-gold/40 p-3 text-[11px] text-maroon">
                   {te ? "🖼️ Promo poster (QR తో) — మీ friends/relatives తో share చెయ్యండి" : "🖼️ Promo poster (with QR) — share with friends/relatives"}
                   <div className="mt-2 flex flex-wrap gap-2">
-                    <a href={`/api/vendors/${id}/poster.png?style=square`} download={`${id}-poster.png`}
-                      className="gold-gradient text-maroon font-bold text-[11px] px-3 py-2 rounded-xl">⬇️ Poster (square)</a>
-                    <a href={`/api/vendors/${id}/poster.png?style=status`} target="_blank" rel="noreferrer"
-                      className="border border-maroon/25 text-maroon font-bold text-[11px] px-3 py-2 rounded-xl">📱 Status poster</a>
+                    <LocaleAnchor href={`/api/vendors/${id}/poster.png?style=square`} download={`${id}-poster.png`}
+                      className="gold-gradient text-maroon font-bold text-[11px] px-3 py-2 rounded-xl">⬇️ Poster (square)</LocaleAnchor>
+                    <LocaleAnchor href={`/api/vendors/${id}/poster.png?style=status`} target="_blank" rel="noreferrer"
+                      className="border border-maroon/25 text-maroon font-bold text-[11px] px-3 py-2 rounded-xl">📱 Status poster</LocaleAnchor>
                   </div>
                 </div>
               </div>
@@ -308,11 +308,11 @@ export default function VendorDetailPage() {
                 <div className="bg-green-600 text-white rounded-3xl p-5 text-center">
                   <div className="text-3xl">💬</div>
                   <div className="font-bold mt-1">{v.business_name}</div>
-                  <a href={vendorWhatsApp} target="_blank" rel="noreferrer"
+                  <LocaleAnchor href={vendorWhatsApp} target="_blank" rel="noreferrer"
                     className="mt-3 block bg-white text-green-700 font-bold text-[13px] px-4 py-3 rounded-2xl">
                     {te ? "WhatsApp లో మాట్లాడండి" : "Chat on WhatsApp"}
-                  </a>
-                  {v.call_link && <a href={v.call_link} className="mt-2 block bg-green-700/60 border border-white/30 font-bold text-[12px] px-4 py-2.5 rounded-2xl">📞 Call now</a>}
+                  </LocaleAnchor>
+                  {v.call_link && <LocaleAnchor href={v.call_link} className="mt-2 block bg-green-700/60 border border-white/30 font-bold text-[12px] px-4 py-2.5 rounded-2xl">📞 Call now</LocaleAnchor>}
                 </div>
               )}
               <div className="bg-white rounded-3xl border border-gold/30 p-5 text-[12px]">
@@ -381,8 +381,8 @@ export default function VendorDetailPage() {
                     <button type="button" onClick={() => copy(promoDraft, "tg")} className="gold-gradient text-maroon font-bold text-[11px] px-3 py-2 rounded-xl">
                       {copied === "tg" ? "copied ✓" : "📋 Post copy"}
                     </button>
-                    <a href={`/api/vendors/${id}/poster.png?style=square`} download={`${id}-poster.png`}
-                      className="border border-maroon/25 text-maroon font-bold text-[11px] px-3 py-2 rounded-xl">⬇️ Poster</a>
+                    <LocaleAnchor href={`/api/vendors/${id}/poster.png?style=square`} download={`${id}-poster.png`}
+                      className="border border-maroon/25 text-maroon font-bold text-[11px] px-3 py-2 rounded-xl">⬇️ Poster</LocaleAnchor>
                     <Link href="/vendors/register" className="border border-maroon/25 text-maroon font-bold text-[11px] px-3 py-2 rounded-xl">⬆️ Upgrade / renew</Link>
                   </div>
                 </div>
@@ -398,9 +398,9 @@ export default function VendorDetailPage() {
                   return (
                   <div key={l.id} className="bg-cream rounded-xl px-3 py-2 text-[12px] flex flex-wrap items-center justify-between gap-2">
                     <span>{l.name}{district ? ` · ${district}` : ""} {l.event_date ? `· 📅 ${l.event_date}` : ""} {budget ? `· 💰 ${budget}` : ""}</span>
-                    {whatsappPhoneLink(l.phone) ? <a href={whatsappPhoneLink(l.phone) || undefined} target="_blank" rel="noopener noreferrer" className="text-green-700 font-bold underline text-[11px]">
+                    {whatsappPhoneLink(l.phone) ? <LocaleAnchor href={whatsappPhoneLink(l.phone) || undefined} target="_blank" rel="noopener noreferrer" className="text-green-700 font-bold underline text-[11px]">
                       WhatsApp {l.phone}
-                    </a> : null}
+                    </LocaleAnchor> : null}
                   </div>
                   );
                 })}
@@ -415,3 +415,5 @@ export default function VendorDetailPage() {
     </div>
   );
 }
+
+import LocaleAnchor from "@/components/LocaleAnchor";

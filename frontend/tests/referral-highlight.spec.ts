@@ -1,3 +1,4 @@
+import {localeHref} from "./locale-href";
 import { test, expect, type Page } from "@playwright/test";
 import fs from "node:fs";
 
@@ -17,7 +18,7 @@ async function openMe(page: Page, lang: "en" | "te", wallet: { status?: number; 
     if (u.pathname === "/api/referral/UI_ONLY/wallet") { walletCalls++; return r.fulfill({ status: wallet.status || 200, json: wallet.json as object }); }
     return r.fulfill({ json: { success: true } });
   });
-  await page.goto("/me");
+  await page.goto(localeHref("/me",lang));
   return () => walletCalls;
 }
 

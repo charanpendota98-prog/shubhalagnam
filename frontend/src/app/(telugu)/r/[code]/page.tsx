@@ -9,7 +9,7 @@ import { readApiJson } from "@/lib/api";
  * tarvata /register?ref=CODE ki redirect (auto-lock + referee bonus credit).
  */
 import { useEffect, useState } from "react";
-import { useParams, useRouter, useSearchParams } from "next/navigation";
+import {useParams,useSearchParams} from "next/navigation";
 import { useLang } from "@/lib/lang";
 import { Gift, TriangleAlert, Check } from "lucide-react";
 
@@ -18,7 +18,7 @@ export default function ReferralLandingPage() {
   const te = lang === "te";
   const params = useParams();
   const search = useSearchParams();
-  const router = useRouter();
+  const router = useLocaleRouter();
   const code = String(params?.code || "").toUpperCase();
   // 💎 `inv` is one person's invite token. Carrying it through the click and
   // into registration is what lets a referrer see "sent → opened → joined"
@@ -66,7 +66,7 @@ export default function ReferralLandingPage() {
         </div>
 
         {(!checked || failed) && <h1 className="mt-4 text-xl font-bold text-maroon">{te ? "ఆహ్వాన సంకేతం" : "Referral code"}</h1>}
-        {failed && <div role="alert" className="mt-3 space-y-3"><p>{te ? "ఆహ్వాన సంకేతాన్ని నిర్ధారించలేకపోయాం. నమోదు పేజీకి మళ్లించలేదు." : "The code could not be confirmed. You have not been redirected."}</p><button type="button" onClick={() => setAttempt(n => n + 1)} className="font-bold underline">{te ? "మళ్లీ ప్రయత్నించండి" : "Try again"}</button><a href="/register" className="block underline">{te ? "సంకేతం లేకుండా నమోదు" : "Register without a code"}</a></div>}
+        {failed && <div role="alert" className="mt-3 space-y-3"><p>{te ? "ఆహ్వాన సంకేతాన్ని నిర్ధారించలేకపోయాం. నమోదు పేజీకి మళ్లించలేదు." : "The code could not be confirmed. You have not been redirected."}</p><button type="button" onClick={() => setAttempt(n => n + 1)} className="font-bold underline">{te ? "మళ్లీ ప్రయత్నించండి" : "Try again"}</button><LocaleAnchor href="/register" className="block underline">{te ? "సంకేతం లేకుండా నమోదు" : "Register without a code"}</LocaleAnchor></div>}
         {!checked && <div role="status" className="mt-4 text-sm text-gray-500">{te ? "ఆహ్వాన సంకేతాన్ని తనిఖీ చేస్తున్నాం…" : "Checking code…"}</div>}
 
         {checked && valid && (
@@ -86,10 +86,10 @@ export default function ReferralLandingPage() {
                 te ? "వ్యక్తిగత ఫోటో గోప్యతను పాటించే ఫలితాల్లో మాత్రమే ఫోటో దాచబడుతుంది. ప్రొఫైల్ యజమాని ఆమోదించిన తర్వాత, అంగీకరించిన అభ్యర్థనల విభాగంలో సంప్రదింపు వివరాలు చూడవచ్చు. నోటిఫికేషన్ చేరుతుందని హామీ లేదు." : "The private-photo setting suppresses photos only in outputs that honor it; owner acceptance grants contact access in accepted-request account views. Notification delivery is not guaranteed."
               ].map((text, index) => <li key={index} className="flex items-start gap-2"><Check className="w-4 h-4 shrink-0 mt-0.5" aria-hidden="true" /><span>{text}</span></li>)}
             </ul>
-            <a href={`/register?ref=${code}${inv ? `&inv=${encodeURIComponent(inv)}` : ""}${campaignQuery}`}
+            <LocaleAnchor href={`/register?ref=${code}${inv ? `&inv=${encodeURIComponent(inv)}` : ""}${campaignQuery}`}
               className="mt-5 block w-full py-3 maroon-gradient text-white rounded-full font-bold text-sm">
               {te ? "ఈ ఆహ్వాన సంకేతంతో నమోదు చేసుకోండి" : "Register with this referral code"}
-            </a>
+            </LocaleAnchor>
             <div className="text-[11px] text-gray-400 mt-2">{te ? "2 సెకన్లలో నమోదు పేజీకి మళ్లిస్తాం…" : "You will be redirected to registration in 2 seconds…"}</div>
           </>
         )}
@@ -102,9 +102,9 @@ export default function ReferralLandingPage() {
               మీ సొంత ఆహ్వాన లింకు కూడా అందుతుంది.</> : <>Code <b>{code}</b> is not valid. You can register without a code.
               Your own referral link comes automatically.</>}
             </p>
-            <a href="/register" className="mt-5 block w-full py-3 maroon-gradient text-white rounded-full font-bold text-sm">
+            <LocaleAnchor href="/register" className="mt-5 block w-full py-3 maroon-gradient text-white rounded-full font-bold text-sm">
               {te ? "నమోదు చేసుకోండి →" : "Register →"}
-            </a>
+            </LocaleAnchor>
           </>
         )}
 
@@ -115,3 +115,7 @@ export default function ReferralLandingPage() {
     </div>
   );
 }
+
+import {useLocaleRouter} from "@/lib/locale-navigation";
+
+import LocaleAnchor from "@/components/LocaleAnchor";

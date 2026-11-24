@@ -1,3 +1,4 @@
+import {localeHref} from "./locale-href";
 import {test,expect,type Page} from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import fs from 'node:fs';import path from 'node:path';
@@ -10,7 +11,7 @@ async function setup(page:Page,lang='en',privateView=false,paid=2,tiersMissing=f
  if(u.pathname.includes('/leaderboard'))json={leaderboard:[],you:null};
  if(u.pathname.endsWith('/payouts'))json={success:true,payouts:[]};
  return route.fulfill({json});});
- await page.goto(privateView?'/referral?id=CLUB01':'/referral');return{status:(s:number)=>{status=s;}};
+ await page.goto(localeHref(privateView?'/referral?id=CLUB01':'/referral',lang));return{status:(s:number)=>{status=s;}};
 }
 for(const lang of ['en','te'])for(const width of [320,390,1280])for(const mode of ['public','private'])test(`${mode} club ${lang} ${width}`,async({page})=>{
  await page.setViewportSize({width,height:900});await setup(page,lang,mode==='private');await expect(page.getByRole('heading',{name:'Manavivaha Creator Club',exact:true})).toBeVisible();

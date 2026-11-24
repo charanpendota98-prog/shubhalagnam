@@ -2,7 +2,7 @@
 
 import "@/components/community-workspace.css";
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
+import Link from "@/components/LocaleLink";
 import { ALL_CHANNELS, CHANNEL_STATS, CHANNEL_TIERS, Channel } from "@/lib/channels";
 import { Duo } from "@/lib/duo";
 import { useLang } from "@/lib/lang";
@@ -179,22 +179,22 @@ export default function ChannelsPage() {
                     <div className="mv-channel-description text-[11px] text-gray-600 mt-1">{channelDisplayDescription(c, te)}</div>
                     <div className="flex flex-wrap items-center gap-2 mt-3 pt-2 border-t border-green-200/40">
                       {lnk.telegram && (
-                        <a href={lnk.telegram} target="_blank" rel="noopener noreferrer"
+                        <LocaleAnchor href={lnk.telegram} target="_blank" rel="noopener noreferrer"
                           aria-label={te ? `${channelDisplayName(c, te)} Telegram listing తెరవండి` : `Open Telegram listing for ${channelDisplayName(c, te)}`}
                           className="inline-flex min-h-10 items-center gap-1.5 rounded-full bg-[#229ED9] px-3.5 py-1.5 text-[11px] font-bold text-white shadow-soft transition hover:brightness-110 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7A0C2E]">
                           <TelegramIcon className="w-3.5 h-3.5" mono />
                           <span>{te ? "Telegram link" : "Open Telegram"}</span>
-                        </a>
+                        </LocaleAnchor>
                       )}
                       {lnk.whatsapp ? (
-                        <a href={lnk.whatsapp} target="_blank" rel="noopener noreferrer"
+                        <LocaleAnchor href={lnk.whatsapp} target="_blank" rel="noopener noreferrer"
                           aria-label={lnk.whatsappIsDirect
                             ? (te ? `${channelDisplayName(c, te)} WhatsApp channel తెరవండి` : `Open WhatsApp channel for ${channelDisplayName(c, te)}`)
                             : (te ? `${channelDisplayName(c, te)} గురించి WhatsApp support ని అడగండి` : `Ask WhatsApp support about ${channelDisplayName(c, te)}`)}
                           className="inline-flex min-h-10 items-center gap-1.5 rounded-full bg-[#0b7d46] px-3.5 py-1.5 text-[11px] font-bold text-white shadow-soft transition hover:brightness-110 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7A0C2E]">
                           <WhatsAppIcon className="w-3.5 h-3.5" mono />
                           <span>{lnk.whatsappIsDirect ? (te ? "WhatsApp ఛానల్" : "WhatsApp Channel") : (te ? "WhatsApp support" : "WhatsApp Support")}</span>
-                        </a>
+                        </LocaleAnchor>
                       ) : (
                         <span className="inline-flex min-h-10 items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-3.5 py-1.5 text-[11px] font-semibold text-slate-500"
                           title={te ? "ఈ channel కోసం WhatsApp invite లేదా support contact configure చేయలేదు" : "No WhatsApp invite or support contact is configured for this channel"}>
@@ -229,3 +229,5 @@ export default function ChannelsPage() {
     </div>
   );
 }
+
+import LocaleAnchor from "@/components/LocaleAnchor";

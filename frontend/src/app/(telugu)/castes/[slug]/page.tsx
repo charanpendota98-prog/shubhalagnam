@@ -30,7 +30,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
       `${caste.name.toLowerCase()} groom`, `${caste.name.toLowerCase()} sambandham`,
       `telugu matrimony ${district?.name || "telangana"}`, "Telugu matrimony", "manavivaha",
     ],
-    alternates: { canonical: `${SITE_CONFIG.siteUrl}/castes/${slug}` },
+    alternates: { canonical: `${SITE_CONFIG.siteUrl}/castes/${slug}`,languages:{"te-IN":`/castes/${slug}`,"en-IN":`/en/castes/${slug}`,"x-default":`/castes/${slug}`} },
     openGraph: {
       type: "website",
       url: `${SITE_CONFIG.siteUrl}/castes/${slug}`,

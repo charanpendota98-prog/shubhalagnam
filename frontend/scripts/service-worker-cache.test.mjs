@@ -75,3 +75,6 @@ test('missing static asset does not receive an HTML offline page', async () => {
   f.listeners.fetch({ request: req('/_next/static/missing.js'), respondWith: p => { response = p; } });
   await assert.rejects(response, /Fictional network unavailable/);
 });
+for (const path of ['/en/me','/en/requests','/en/search/FICTIONAL','/en/matches?_rsc=fixture'])test(`English private/RSC route stays network-only ${path}`,()=>assert.equal(fixture().mayStore(req(path),new Response('fixture')),false));
+for (const path of ['/en','/en/matches','/en/register','/en/offline'])test(`English public shell can be cached ${path}`,()=>assert.equal(fixture().mayStore(req(path),new Response('fixture')),true));
+test('English offline navigation uses English offline shell, never Telugu or private data',async()=>{const f=fixture();const c=await f.caches.open(f.VERSION);await c.put(req('/offline'),new Response('Telugu shell'));await c.put(req('/en/offline'),new Response('English shell'));let response;f.listeners.fetch({request:req('/en/me',{mode:'navigate'}),respondWith:p=>response=p});assert.equal(await(await response).text(),'English shell')});

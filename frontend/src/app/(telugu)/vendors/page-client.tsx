@@ -12,7 +12,7 @@ import { apiDisplayMessage, readApiJson } from "@/lib/api";
  *  • External channel posting and WhatsApp delivery are not implied by a listing
  */
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
+import Link from "@/components/LocaleLink";
 import { Duo, useDuo } from "@/lib/duo";
 import { useLang } from "@/lib/lang";
 import { safeWhatsAppPhoneLink } from "@/lib/wa";
@@ -101,9 +101,9 @@ export default function VendorsPage() {
               <Link href="/vendors/register" className="rounded-full gold-gradient text-maroon px-4 py-2 text-xs font-bold">
                 {te ? "🏪 మీ business ని add చెయ్యండి" : "🏪 Add your business"}
               </Link>
-              <a href="#packages" className="rounded-full bg-white/10 border border-white/25 px-4 py-2 text-xs font-bold">
+              <LocaleAnchor href="#packages" className="rounded-full bg-white/10 border border-white/25 px-4 py-2 text-xs font-bold">
                 Ad packages 💰
-              </a>
+              </LocaleAnchor>
             </div>
           </div>
           <div className="mt-4 flex flex-wrap gap-2 text-[11px]">
@@ -203,11 +203,11 @@ export default function VendorsPage() {
                 </div>
                 <div className="mt-auto px-4 py-3 flex flex-wrap gap-2">
                   {safeWhatsAppPhoneLink(te ? (v.whatsapp_link_te || v.whatsapp_link) : v.whatsapp_link_en) && (
-                    <a href={safeWhatsAppPhoneLink(te ? (v.whatsapp_link_te || v.whatsapp_link) : v.whatsapp_link_en)} target="_blank" rel="noopener noreferrer"
+                    <LocaleAnchor href={safeWhatsAppPhoneLink(te ? (v.whatsapp_link_te || v.whatsapp_link) : v.whatsapp_link_en)} target="_blank" rel="noopener noreferrer"
                       onClick={() => fetch(`/api/vendors/${v.id}/click?source=directory`, { method: "POST" }).catch(() => { })}
                       className="flex-1 text-center bg-green-600 text-white font-bold text-[12px] px-3 py-2.5 rounded-xl">
                       💬 WhatsApp
-                    </a>
+                    </LocaleAnchor>
                   )}
                   <Link href={`/vendors/${v.id}`} className="flex-1 text-center border border-maroon/25 text-maroon font-bold text-[12px] px-3 py-2.5 rounded-xl">
                     Details / Enquiry
@@ -306,3 +306,5 @@ export default function VendorsPage() {
     </div>
   );
 }
+
+import LocaleAnchor from "@/components/LocaleAnchor";

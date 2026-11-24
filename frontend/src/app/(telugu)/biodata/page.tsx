@@ -1,15 +1,16 @@
+import {translateMetadata} from "@/lib/locale-metadata";
 import type { Metadata } from "next";
 import BiodataStudio from "./biodata-client";
 import Breadcrumbs, { type Crumb } from "@/components/Breadcrumbs";
 import FaqBlock from "@/components/FaqBlock";
 import { buildPageSeo } from "@/lib/page-seo";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = translateMetadata({
   title: "Free Telugu marriage biodata maker",
   description:
     "Create a printable Telugu marriage biodata from the details you enter. Nothing is stored or published, and no profile is created or matched by using this tool.",
   alternates: { canonical: "https://manavivaha.in/biodata" },
-};
+},"/biodata","te");
 
 const TRAIL: Crumb[] = [
   { en: "Home", te: "హోమ్", href: "/" },

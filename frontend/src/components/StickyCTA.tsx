@@ -1,6 +1,6 @@
 "use client";
 import Link from "@/components/LocaleLink";
-import { usePathname } from "next/navigation";
+
 import { useLang } from "@/lib/lang";
 import { Home, HeartHandshake, Wallet, Gift, UserCircle2, type LucideIcon } from "lucide-react";
 
@@ -23,7 +23,7 @@ const ITEMS: { href: string; icon: LucideIcon; te: string; en: string }[] = [
 ];
 
 export default function StickyCTA() {
-  const pathname = usePathname();
+  const pathname = useBasePathname();
   const { lang } = useLang();
   if (pathname?.startsWith("/register")) return null;
 
@@ -65,3 +65,5 @@ export default function StickyCTA() {
     </nav>
   );
 }
+
+import {useBasePathname} from "@/lib/locale-navigation";

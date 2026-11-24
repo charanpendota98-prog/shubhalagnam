@@ -1,3 +1,4 @@
+import {localeHref} from "./locale-href";
 import {test,expect} from '@playwright/test';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -29,7 +30,7 @@ for(const lang of ['en','te'])for(const width of [320,390,1280]){
    if(p.includes('/saved/'))return r.fulfill({json:{tsap_id:'TEST-ERROR',count:1,saved:[{profile:{tsap_id:'TEST-CANDIDATE',full_name:{invalid:true}}}]}});
    return r.fulfill({json:{success:true,credits:3,plans:[],templates:[]}});
   });
-  await page.goto('/requests');
+  await page.goto(localeHref('/requests',lang));
   await page.locator('.requests-nav').getByRole('button',{name:lang==='te'?/^దాచుకున్న/:/^Saved/}).click();
   const panel=page.locator('#requests-task-panel');
   await expect(panel.getByRole('alert')).toBeVisible();
@@ -40,7 +41,7 @@ for(const lang of ['en','te'])for(const width of [320,390,1280]){
  });
  test(`isolated shared error rendered controls ${lang} ${width}`,async({page})=>{
   await page.setViewportSize({width,height:920});
-  await page.goto('/login');
+  await page.goto(localeHref('/login',lang));
   // Keep the real app styles, replace only the test document body with the
   // server-rendered real boundary. This does not test React reset/hydration.
   const html=boundaryMarkup(lang);

@@ -5,7 +5,7 @@
  * Real lifestyle image + animated feature list. Bilingual (te/en), reveal-on-scroll.
  */
 
-import Link from "next/link";
+import Link from "@/components/LocaleLink";
 import Reveal from "@/components/Reveal";
 import { useLang, type Lang } from "@/lib/lang";
 

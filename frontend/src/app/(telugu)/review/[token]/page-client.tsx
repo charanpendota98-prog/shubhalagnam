@@ -3,7 +3,7 @@
 import "@/components/private-fallback.css";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
+import Link from "@/components/LocaleLink";
 import { LockKeyhole, LoaderCircle, MessageSquare, CircleCheck } from "lucide-react";
 import { useParams } from "next/navigation";
 import { readApiJson } from "@/lib/api";

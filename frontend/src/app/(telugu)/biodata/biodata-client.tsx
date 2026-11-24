@@ -17,7 +17,7 @@ import { apiDisplayMessage, readApiJson } from "@/lib/api";
  */
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import Link from "next/link";
+import Link from "@/components/LocaleLink";
 import Image from "next/image";
 import { toJpeg } from "html-to-image";
 import QRCode from "qrcode";

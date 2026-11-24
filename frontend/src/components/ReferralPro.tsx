@@ -206,7 +206,7 @@ export default function ReferralPro({ tsapId }: { tsapId: string }) {
         ? (te ? "మీ private వివరాల కోసం మళ్లీ login చేయండి." : "Please sign in again to see your advanced referral details.")
         : (te ? "మీ advanced referral వివరాలు లోడ్ కాలేదు." : "Your advanced referral details did not load.")}</p>
     {!loading && <button type="button" onClick={() => void load()} className={`${BTN} mt-3 border border-gold/40 text-[#7A0C2E]`} aria-label="Retry advanced details">{te ? "మళ్లీ ప్రయత్నించండి" : "Retry advanced details"}</button>}
-    {!loading && loadError === "auth" && <a className={`${BTN} mt-3 ml-2 text-[#7A0C2E] underline`} href="/login">{te ? "Login" : "Sign in"}</a>}
+    {!loading && loadError === "auth" && <LocaleAnchor className={`${BTN} mt-3 ml-2 text-[#7A0C2E] underline`} href="/login">{te ? "Login" : "Sign in"}</LocaleAnchor>}
   </div>;
 
   const totals = statement?.totals;
@@ -351,12 +351,12 @@ export default function ReferralPro({ tsapId }: { tsapId: string }) {
             )}
 
             <div className="mt-3 flex flex-wrap items-center gap-2">
-              <a
+              <LocaleAnchor
                 href={`/api/referral/${encodeURIComponent(tsapId)}/wallet.csv`}
                 className={`${BTN} border border-gold/40 bg-white text-[#7A0C2E] hover:bg-amber-50`}
               >
                 {te ? "⬇️ CSV డౌన్‌లోడ్" : "⬇️ Download CSV"}
-              </a>
+              </LocaleAnchor>
               <span className="text-[10.5px] text-[#8A6A1F]">
                 {te ? "స్క్రీన్ లోని అదే లెక్కలు, అదే తనిఖీతో" : "Same numbers as this screen, with the same check"}
               </span>
@@ -547,7 +547,7 @@ export default function ReferralPro({ tsapId }: { tsapId: string }) {
                   </p>
 
                   <div className="mt-3 flex flex-wrap gap-2">
-                    <a
+                    <LocaleAnchor
                       href={waHref}
                       target="_blank"
                       rel="noopener noreferrer"
@@ -555,8 +555,8 @@ export default function ReferralPro({ tsapId }: { tsapId: string }) {
                       aria-label={te ? `${inv.name} కి WhatsApp లో పంపు` : `Send to ${inv.name} on WhatsApp`}
                     >
                       WhatsApp
-                    </a>
-                    <a
+                    </LocaleAnchor>
+                    <LocaleAnchor
                       href={tgHref}
                       target="_blank"
                       rel="noopener noreferrer"
@@ -564,7 +564,7 @@ export default function ReferralPro({ tsapId }: { tsapId: string }) {
                       aria-label={te ? `${inv.name} కి Telegram లో పంపు` : `Send to ${inv.name} on Telegram`}
                     >
                       Telegram
-                    </a>
+                    </LocaleAnchor>
                     <button
                       type="button"
                       onClick={() => void copy(inv.link, shareKey)}
@@ -637,12 +637,12 @@ export default function ReferralPro({ tsapId }: { tsapId: string }) {
                       <p className="text-[12.5px] font-bold text-[#4A3B2A]">{f.name}</p>
                       <p className="text-[11px] text-[#6B5A46]">{te ? f.reason_te : f.reason_en}</p>
                     </div>
-                    <a
+                    <LocaleAnchor
                       href={te ? f.share.whatsapp_te : f.share.whatsapp_en}
                       className={`${BTN} bg-emerald-600 text-white hover:bg-emerald-700`}
                     >
                       {te ? "మళ్లీ పంపు" : "Re-send"}
-                    </a>
+                    </LocaleAnchor>
                   </li>
                 ))}
               </ul>
@@ -671,3 +671,5 @@ export default function ReferralPro({ tsapId }: { tsapId: string }) {
     </div>
   );
 }
+
+import LocaleAnchor from "@/components/LocaleAnchor";

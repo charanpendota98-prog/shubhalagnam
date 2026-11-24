@@ -2,10 +2,10 @@
 /** Member sign-in and recovery, with availability supplied by auth capabilities. */
 import "./workspace.css";
 import { useState, useEffect, useRef } from "react";
-import Link from "next/link";
+import Link from "@/components/LocaleLink";
 import { KeyRound, Eye, EyeOff, Heart, RotateCcw } from "lucide-react";
 import { useLang } from "@/lib/lang";
-import { useRouter } from "next/navigation";
+
 import { rememberSession, sendOtp, verifyOtp, fetchAuthCapabilities, type AuthCapabilities } from "@/lib/auth";
 import { confirmedAuthAck, confirmedAuthSession, confirmedPhoneVerification } from "@/lib/auth-confirmation";
 import { loginPasskey } from "@/lib/webauthn-client";
@@ -13,7 +13,7 @@ import { loginPasskey } from "@/lib/webauthn-client";
 import { apiDisplayMessage, apiPost } from "@/lib/api";
 
 export default function LoginPage() {
-  const router = useRouter();
+  const router = useLocaleRouter();
   const { lang } = useLang();
   const te = lang === "te";
 
@@ -712,3 +712,5 @@ export default function LoginPage() {
     </div>
   );
 }
+
+import {useLocaleRouter} from "@/lib/locale-navigation";

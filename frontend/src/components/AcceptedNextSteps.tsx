@@ -5,7 +5,7 @@
  * accepted. It reads nothing, stores nothing and adds no access: it only tells
  * families what a sensible next step looks like and links to the safety page.
  */
-import Link from "next/link";
+import Link from "@/components/LocaleLink";
 import { useLang } from "@/lib/lang";
 
 export default function AcceptedNextSteps() {

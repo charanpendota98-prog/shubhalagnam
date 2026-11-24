@@ -1,7 +1,7 @@
 "use client";
 
 /** 404 — neat Telugu / clean English via toggle. No fake counts. */
-import Link from "next/link";
+import Link from "@/components/LocaleLink";
 import { FileQuestion, Heart, Home, Megaphone, UserPlus } from "lucide-react";
 import "@/components/private-fallback.css";
 import "./resilience.css";

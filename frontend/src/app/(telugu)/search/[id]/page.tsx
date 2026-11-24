@@ -66,7 +66,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   return {
     title: { absolute: title },
     description,
-    alternates: { canonical: `${base}/search/${encodeURIComponent(id)}` },
+    alternates: { canonical: `${base}/search/${encodeURIComponent(id)}`,languages:{"te-IN":`/search/${encodeURIComponent(id)}`,"en-IN":`/en/search/${encodeURIComponent(id)}`,"x-default":`/search/${encodeURIComponent(id)}`} },
     openGraph: {
       title,
       description,

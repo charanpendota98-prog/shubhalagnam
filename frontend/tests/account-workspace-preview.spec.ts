@@ -1,3 +1,4 @@
+import {localeHref} from "./locale-href";
 import {test,expect} from '@playwright/test';import fs from 'node:fs';
 const out='/downloads/mv-account-working-review';fs.mkdirSync(out,{recursive:true});
 const before=process.env.ACCOUNT_BASELINE==='1';
@@ -9,7 +10,7 @@ for(const lang of ['te','en'])for(const width of [320,390,1280])test(`account wo
  if(p==='/api/profile/preferences')return r.fulfill({json:{preferences:{age_min:24,age_max:32,height_min:'',height_max:'',castes:[],districts:[],jobs:[],educations:[],marital_statuses:[],caste_no_bar:true},preview_matches:[],matching_count:0}});
  return r.fulfill({json:{success:true,total:0,rows:[],items:[],sessions:[],links:[],saved:[],searches:[],incoming:[],outgoing:[],received:[],sent:[],totals:{},counts:{},sections:{},preferences:{},appointments:[],refunds:[]}})
  });
- await page.goto('/me');await expect(page.getByRole('button',{name:lang==='te'?'నా ప్రాధాన్యతలను సేవ్ చేయండి':'Save preferences',exact:true})).toBeVisible();await page.screenshot({path:`${out}/${lang}-${width}-${before?'before':'after'}.png`});
+ await page.goto(localeHref('/me',lang));await expect(page.getByRole('button',{name:lang==='te'?'నా ప్రాధాన్యతలను సేవ్ చేయండి':'Save preferences',exact:true})).toBeVisible();await page.screenshot({path:`${out}/${lang}-${width}-${before?'before':'after'}.png`});
  if(before)return;
  const nav=page.locator('.account-primary-nav');await expect(nav.getByRole('button')).toHaveCount(7);await expect(page.locator('h1')).toHaveCount(1);
  for(const btn of await nav.getByRole('button').all()){const b=await btn.boundingBox();expect(b!.width).toBeGreaterThanOrEqual(44);expect(b!.height).toBeGreaterThanOrEqual(44);expect(await btn.evaluate(e=>e.scrollWidth<=e.clientWidth+1)).toBeTruthy()}

@@ -3,7 +3,7 @@
 import "@/components/editorial-workspace.css";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
+import Link from "@/components/LocaleLink";
 import { useParams } from "next/navigation";
 import { useLang } from "@/lib/lang";
 

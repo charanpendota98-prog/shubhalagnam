@@ -2,7 +2,7 @@
 
 import "@/components/editorial-workspace.css";
 
-import Link from "next/link";
+import Link from "@/components/LocaleLink";
 import { useLang } from "@/lib/lang";
 import type { BlogArticle } from "@/lib/blog";
 

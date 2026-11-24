@@ -20,7 +20,7 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import Link from "next/link";
+import Link from "@/components/LocaleLink";
 import { ArrowRight } from "lucide-react";
 import { useLang } from "@/lib/lang";
 

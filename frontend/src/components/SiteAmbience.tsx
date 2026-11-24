@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { usePathname } from "next/navigation";
+
 
 /**
  * SITE-WIDE AMBIENCE — the "film grain" every route shares.
@@ -29,7 +29,7 @@ import { usePathname } from "next/navigation";
 const PLAIN_ROUTES = ["/admin", "/control", "/owner", "/growth", "/bureau"];
 
 export default function SiteAmbience() {
-  const pathname = usePathname() || "/";
+  const pathname = useBasePathname() || "/";
   const barRef = useRef<HTMLSpanElement | null>(null);
   const [ready, setReady] = useState(false);
 
@@ -95,3 +95,5 @@ export default function SiteAmbience() {
     </div>
   );
 }
+
+import {useBasePathname} from "@/lib/locale-navigation";

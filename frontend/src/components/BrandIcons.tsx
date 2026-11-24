@@ -24,20 +24,22 @@ export function WhatsAppIcon({ className = "w-4 h-4", mono = false }: { classNam
 /** Small labelled chip — "✈️ Telegram" / "🟢 WhatsApp" neat ga, icons tho */
 export function TelegramButton({ href, label, className = "" }: { href?: string; label: string; className?: string }) {
   return (
-    <a href={href || "#"} target="_blank" rel="noreferrer"
+    <LocaleAnchor href={href || "#"} target="_blank" rel="noreferrer"
       className={`inline-flex items-center gap-1.5 rounded-xl bg-[#229ED9] text-white font-bold px-3.5 py-2.5 text-[12px] shadow-soft hover:brightness-110 active:scale-[0.97] transition ${className}`}>
       <TelegramIcon className="w-4 h-4" mono />
       {label}
-    </a>
+    </LocaleAnchor>
   );
 }
 
 export function WhatsAppButton({ href, label, className = "" }: { href?: string; label: string; className?: string }) {
   return (
-    <a href={href || "#"} target="_blank" rel="noreferrer"
+    <LocaleAnchor href={href || "#"} target="_blank" rel="noreferrer"
       className={`inline-flex items-center gap-1.5 rounded-xl bg-[#25D366] text-white font-bold px-3.5 py-2.5 text-[12px] shadow-soft hover:brightness-110 active:scale-[0.97] transition ${className}`}>
       <WhatsAppIcon className="w-4 h-4" mono />
       {label}
-    </a>
+    </LocaleAnchor>
   );
 }
+
+import LocaleAnchor from "@/components/LocaleAnchor";

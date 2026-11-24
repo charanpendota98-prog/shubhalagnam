@@ -5,7 +5,7 @@ import { readApiJson } from "@/lib/api";
  * 👑 WAVE 38 — /owner BUSINESS DASHBOARD (revenue + funnel + system).
  * HIDDEN route (public links levu — direct URL + admin key only, like /admin).
  */
-import Link from "next/link";
+import Link from "@/components/LocaleLink";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useLang } from "@/lib/lang";
 

@@ -15,7 +15,7 @@
 import "./workspace.css";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import Link from "next/link";
+import Link from "@/components/LocaleLink";
 import Image from "next/image";
 import { Eye, FileText, Heart, LoaderCircle, Phone, UserRound } from "lucide-react";
 import { WhatsAppIcon } from "@/components/BrandIcons";

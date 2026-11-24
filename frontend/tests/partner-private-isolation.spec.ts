@@ -1,3 +1,4 @@
+import {localeHref} from "./locale-href";
 import {test,expect,type Page} from '@playwright/test';
 import fs from 'node:fs';fs.mkdirSync('artifacts/partner-private-isolation',{recursive:true});
 async function fixture(page:Page,delayed='',privateMode='valid'){
@@ -11,7 +12,7 @@ async function fixture(page:Page,delayed='',privateMode='valid'){
  return r.fulfill({json:{success:true,campaigns:[],items:[]}});});
  return {calls,release:()=>release(),started:()=>started,mode:(m:string)=>mode=m};
 }
-async function open(page:Page){await page.goto('/referral/register');await page.getByLabel('Partner ID',{exact:true}).fill('OLD163');await page.getByRole('button',{name:'View',exact:true}).click();await page.getByLabel('Registered 10-digit mobile',{exact:true}).fill('9000000000');}
+async function open(page:Page){await page.goto(localeHref('/referral/register','en'));await page.getByLabel('Partner ID',{exact:true}).fill('OLD163');await page.getByRole('button',{name:'View',exact:true}).click();await page.getByLabel('Registered 10-digit mobile',{exact:true}).fill('9000000000');}
 async function code(page:Page){await page.getByRole('button',{name:'Send OTP',exact:true}).click();await page.getByLabel('4-digit OTP',{exact:true}).fill('1234');}
 async function switchPartner(page:Page){await page.getByLabel('Partner ID',{exact:true}).fill('NEW163');await page.getByRole('button',{name:'View',exact:true}).click();await expect(page.getByLabel('Registered 10-digit mobile',{exact:true})).toBeVisible();}
 for(const width of [320,390,1280])test(`late private response stays hidden after partner change ${width}`,async({page})=>{

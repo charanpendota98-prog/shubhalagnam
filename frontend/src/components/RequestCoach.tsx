@@ -131,12 +131,12 @@ export default function RequestCoach({
                 <li key={reason} className="mv-note">
                   <p className="text-[12px] font-semibold text-amber-900">{te ? copy.te : copy.en}</p>
                   {copy.href && (
-                    <a
+                    <LocaleAnchor
                       href={copy.href}
                       className="mt-1 inline-flex min-h-11 items-center text-[11px] font-bold text-[#7A0C2E] underline underline-offset-2"
                     >
                       {te ? "ఇక్కడ కొనసాగించండి" : "Continue here"} →
-                    </a>
+                    </LocaleAnchor>
                   )}
                 </li>
               );
@@ -210,3 +210,5 @@ export default function RequestCoach({
     </section>
   );
 }
+
+import LocaleAnchor from "@/components/LocaleAnchor";

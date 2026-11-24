@@ -1,14 +1,15 @@
+import {translateMetadata} from "@/lib/locale-metadata";
 import type { Metadata } from "next";
 import SecondMarriagePageClient from "./page-client";
 import Breadcrumbs, { type Crumb } from "@/components/Breadcrumbs";
 import FaqBlock from "@/components/FaqBlock";
 import { buildPageSeo } from "@/lib/page-seo";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = translateMetadata({
   title: "Second Marriage & Remarriage Profiles",
   description: "Browse member-submitted profiles for adults considering remarriage. Availability varies, profile details are not independently verified, and outcomes are not guaranteed.",
   alternates: { canonical: "https://manavivaha.in/second-marriage" },
-};
+},"/second-marriage","te");
 
 const TRAIL: Crumb[] = [
   { en: "Home", te: "హోమ్", href: "/" },

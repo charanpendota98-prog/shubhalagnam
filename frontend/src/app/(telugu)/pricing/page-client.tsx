@@ -9,7 +9,7 @@ import { apiDisplayMessage } from "@/lib/api";
  *   FREE start → paid credits start at ₹99; contact sharing follows acceptance.
  * Data: GET /api/plans (backend interest.py PLANS — single source of truth)
  */
-import Link from "next/link";
+import Link from "@/components/LocaleLink";
 import { AlertTriangle, BadgeHelp, Check, CreditCard, FileText, Gift, Handshake, LockKeyhole, RefreshCw, ScrollText, ShieldCheck, Sparkles, Undo2 } from "lucide-react";
 import { SITE_CONFIG } from "@/lib/site-config";
 import PayBox from "@/components/PayBox";
@@ -161,9 +161,9 @@ export default function PricingPage({ snapshot }: { snapshot: PricingSnapshot })
           {SITE_CONFIG.supportConfigured ? (
             <div className="mt-3 flex flex-wrap gap-x-2 text-[11px] opacity-75">
               <span>{te ? "సహాయం:" : "Support:"}</span>
-              {SITE_CONFIG.supportLink ? <a href={SITE_CONFIG.supportLink} target="_blank" rel="noopener noreferrer" className="underline">{te ? "సహాయం కోసం WhatsApp" : "Configured WhatsApp"}</a> : null}
-              {SITE_CONFIG.supportPhoneDisplay ? <a href={`tel:${SITE_CONFIG.supportPhoneDisplay.replace(/[^\d+]/g, "")}`} className="underline">{SITE_CONFIG.supportPhoneDisplay}</a> : null}
-              {SITE_CONFIG.supportEmail ? <a href={`mailto:${SITE_CONFIG.supportEmail}`} className="underline">{SITE_CONFIG.supportEmail}</a> : null}
+              {SITE_CONFIG.supportLink ? <LocaleAnchor href={SITE_CONFIG.supportLink} target="_blank" rel="noopener noreferrer" className="underline">{te ? "సహాయం కోసం WhatsApp" : "Configured WhatsApp"}</LocaleAnchor> : null}
+              {SITE_CONFIG.supportPhoneDisplay ? <LocaleAnchor href={`tel:${SITE_CONFIG.supportPhoneDisplay.replace(/[^\d+]/g, "")}`} className="underline">{SITE_CONFIG.supportPhoneDisplay}</LocaleAnchor> : null}
+              {SITE_CONFIG.supportEmail ? <LocaleAnchor href={`mailto:${SITE_CONFIG.supportEmail}`} className="underline">{SITE_CONFIG.supportEmail}</LocaleAnchor> : null}
             </div>
           ) : null}
         </div>
@@ -202,10 +202,12 @@ export default function PricingPage({ snapshot }: { snapshot: PricingSnapshot })
         <div className="mt-4 flex flex-wrap gap-3 justify-center">
           <Link href="/register" className="rounded-xl bg-[#7A0C2E] text-white px-5 py-2.5 font-bold text-sm">{te ? "ఉచితంగా నమోదు చేసుకోండి →" : "Register FREE →"}</Link>
           {SITE_CONFIG.supportLink ? (
-            <a href={SITE_CONFIG.supportLink} target="_blank" rel="noopener noreferrer" className="rounded-xl bg-white/70 text-[#7A0C2E] px-5 py-2.5 font-bold text-sm border border-[#7A0C2E]/20">{te ? "WhatsApp లో అడగండి" : "Ask on WhatsApp"}</a>
+            <LocaleAnchor href={SITE_CONFIG.supportLink} target="_blank" rel="noopener noreferrer" className="rounded-xl bg-white/70 text-[#7A0C2E] px-5 py-2.5 font-bold text-sm border border-[#7A0C2E]/20">{te ? "WhatsApp లో అడగండి" : "Ask on WhatsApp"}</LocaleAnchor>
           ) : null}
         </div>
       </section>
     </div>
   );
 }
+
+import LocaleAnchor from "@/components/LocaleAnchor";

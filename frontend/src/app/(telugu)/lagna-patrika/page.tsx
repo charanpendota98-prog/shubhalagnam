@@ -1,13 +1,14 @@
+import {translateMetadata} from "@/lib/locale-metadata";
 import LagnaPatrikaStudio from "@/components/LagnaPatrikaStudio";
 import Breadcrumbs, { type Crumb } from "@/components/Breadcrumbs";
 import FaqBlock from "@/components/FaqBlock";
 import { buildPageSeo } from "@/lib/page-seo";
 
-export const metadata = {
+export const metadata = translateMetadata({
   title: "Lagna Patrika Studio — Telugu Wedding Invitation Maker",
   description: "Create a traditional Telugu Lagna Patrika wedding invitation using the details you provide, then download it to share with family and friends.",
   alternates: { canonical: "https://manavivaha.in/lagna-patrika" },
-};
+},"/lagna-patrika","te");
 
 const TRAIL: Crumb[] = [
   { en: "Home", te: "హోమ్", href: "/" },

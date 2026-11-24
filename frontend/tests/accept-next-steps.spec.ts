@@ -1,3 +1,4 @@
+import {localeHref} from "./locale-href";
 import {test,expect} from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import fs from 'node:fs';
@@ -13,7 +14,7 @@ for(const lang of ['en','te'])for(const width of [320,390,1280])for(const withAc
   if(path==='/api/interest/sent/UI_ONLY')return r.fulfill({json:{tsap_id:'UI_ONLY',pending:withAccepted?0:1,accepted:withAccepted?1:0,sent:[{...row(status,'from'),contact:withAccepted?'90••••••01':undefined}]}});
   return r.fulfill({json:{success:true,credits:3,received:[],sent:[],saved:[],templates:[],plans:[]}})
  });
- await page.goto('/requests');
+ await page.goto(localeHref('/requests',lang));
  const card=page.getByTestId('accepted-next-steps');
  for(const tab of [lang==='en'?/Received|Inbox/:/వచ్చిన/,lang==='en'?/Sent/:/పంపిన/]){
   await page.getByRole('button',{name:tab}).first().click();

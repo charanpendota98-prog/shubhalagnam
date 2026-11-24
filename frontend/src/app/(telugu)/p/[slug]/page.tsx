@@ -7,7 +7,7 @@ import { apiDisplayMessage, readApiJson } from "@/lib/api";
  * 📄 WAVE 15 — CMS custom page (/p/{slug}) — admin creates, site renders.
  */
 import { useEffect, useState } from "react";
-import Link from "next/link";
+import Link from "@/components/LocaleLink";
 import Image from "next/image";
 import { useParams } from "next/navigation";
 import { useLang } from "@/lib/lang";

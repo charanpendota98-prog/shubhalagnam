@@ -1,3 +1,4 @@
+import {localeHref} from "./locale-href";
 import {test,expect} from '@playwright/test';
 import fs from 'node:fs';
 for(const lang of ['en','te'])for(const width of [320,390,1280])test(`cookie-only saved search ${lang} ${width}`,async({page})=>{
@@ -11,7 +12,7 @@ for(const lang of ['en','te'])for(const width of [320,390,1280])test(`cookie-onl
   if(path==='/api/search')return r.fulfill({json:{rows:[],total:0,profiles:[]}});
   return r.fulfill({json:{success:true,items:[],profiles:[],rows:[],total:0}});
  });
- await page.goto('/matches?district=Hyderabad');
+ await page.goto(localeHref('/matches?district=Hyderabad',lang));
  const save=page.getByRole('button',{name:lang==='en'?'Save current search':'ప్రస్తుత శోధనను సేవ్ చేయండి',exact:true});
  // The owner comes from the server, never from the saved profile-id hint.
  await expect.poll(()=>owners.length).toBeGreaterThan(0);

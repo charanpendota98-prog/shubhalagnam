@@ -9,7 +9,7 @@
  */
 import { apiDisplayMessage, authHeaders, getAdminKey, setAdminKey, readApiJson } from "@/lib/api";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import Link from "next/link";
+import Link from "@/components/LocaleLink";
 import { Duo, duo } from "@/lib/duo";
 import { useLang } from "@/lib/lang";
 

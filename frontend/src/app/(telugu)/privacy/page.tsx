@@ -1,11 +1,12 @@
+import {translateMetadata} from "@/lib/locale-metadata";
 import type { Metadata } from "next";
 import PrivacyPageClient from "./page-client";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = translateMetadata({
   title: "గోప్యతా విధానం (Privacy Policy)",
   description: "మన వివాహ గోప్యతా విధానం — DPDP Act 2023 ప్రకారం మీ డేటా ఎలా సురక్షితంగా ఉంచుతామో వివరంగా చదవండి.",
   alternates: { canonical: "https://manavivaha.in/privacy" },
-};
+},"/privacy","te");
 
 export default function PrivacyPage() {
   return <PrivacyPageClient />;

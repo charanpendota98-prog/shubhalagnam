@@ -2,7 +2,7 @@
 import "@/components/trust-workspace.css";
 
 /** 📄 TERMS OF USE — neat Telugu / clean English via toggle. */
-import Link from "next/link";
+import Link from "@/components/LocaleLink";
 import { SITE_CONFIG } from "@/lib/site-config";
 import { POLICY_SUPPORT_EMAIL } from "@/lib/policy-facts";
 // Legal copy avoids a hard-coded channel count: CHANNEL_STATS.total is auto-generated
@@ -214,9 +214,9 @@ export default function TermsPage() {
 
       <section aria-labelledby="business-contact-heading" className="mt-8 rounded-2xl border border-gray-200 bg-white p-5 text-sm text-gray-700">
         <h2 id="business-contact-heading" className="font-bold text-[#7A0C2E]">{te ? "Business contact వివరాలు" : "Business contact details"}</h2>
-        {POLICY_SUPPORT_EMAIL ? <p className="mt-3">Email: <a className="underline break-all" href={`mailto:${POLICY_SUPPORT_EMAIL}`}>{POLICY_SUPPORT_EMAIL}</a></p> : null}
+        {POLICY_SUPPORT_EMAIL ? <p className="mt-3">Email: <LocaleAnchor className="underline break-all" href={`mailto:${POLICY_SUPPORT_EMAIL}`}>{POLICY_SUPPORT_EMAIL}</LocaleAnchor></p> : null}
         {SITE_CONFIG.owner.name ? <p className="mt-2">{te ? "Business contact" : "Business contact"}: {SITE_CONFIG.owner.name}</p> : null}
-        {SITE_CONFIG.owner.contactNumber ? <p className="mt-2"><a className="underline" href={`tel:${SITE_CONFIG.owner.contactNumber}`}>{SITE_CONFIG.owner.contactNumber}</a></p> : null}
+        {SITE_CONFIG.owner.contactNumber ? <p className="mt-2"><LocaleAnchor className="underline" href={`tel:${SITE_CONFIG.owner.contactNumber}`}>{SITE_CONFIG.owner.contactNumber}</LocaleAnchor></p> : null}
         <p className="mt-3">{te ? "ఇవి సంప్రదింపు వివరాలు మాత్రమే. ఈ page digital signature లేదా service agreement acceptance కి రుజువు కాదు." : "These are contact details only. This page is not proof of a digital signature or acceptance of a service agreement."}</p>
       </section>
 
@@ -240,3 +240,5 @@ function Section({ title, children }: { title: string; children: React.ReactNode
     </section>
   );
 }
+
+import LocaleAnchor from "@/components/LocaleAnchor";

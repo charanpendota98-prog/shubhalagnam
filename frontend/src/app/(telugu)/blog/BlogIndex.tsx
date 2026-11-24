@@ -2,7 +2,7 @@
 
 import "@/components/editorial-workspace.css";
 
-import Link from "next/link";
+import Link from "@/components/LocaleLink";
 import { BookOpen, ShieldCheck } from "lucide-react";
 import { useLang } from "@/lib/lang";
 import { BLOG_ARTICLES } from "@/lib/blog";

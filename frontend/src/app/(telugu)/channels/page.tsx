@@ -1,11 +1,12 @@
+import {translateMetadata} from "@/lib/locale-metadata";
 import type { Metadata } from "next";
 import ChannelsPageClient from "./page-client";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = translateMetadata({
   title: "Channel Directory — Telegram & WhatsApp | Mana Vivaha",
   description: "Explore Mana Vivaha directory listings across regional, religion, community and special categories. Telegram and configured WhatsApp links are shown where available; external availability and post delivery are not guaranteed.",
   alternates: { canonical: "/channels" },
-};
+},"/channels","te");
 
 export default function ChannelsPage() {
   return <ChannelsPageClient />;

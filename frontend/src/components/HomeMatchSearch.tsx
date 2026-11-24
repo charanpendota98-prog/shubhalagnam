@@ -1,14 +1,14 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { useRouter } from "next/navigation";
-import Link from "next/link";
+
+import Link from "@/components/LocaleLink";
 import { ArrowRight, MapPin, Search, ShieldCheck, SlidersHorizontal } from "lucide-react";
 import { useLang } from "@/lib/lang";
 import { HEIGHTS, heightLabel } from "@/lib/telugu-data";
 
 export default function HomeMatchSearch() {
-  const router = useRouter();
+  const router = useLocaleRouter();
   const te = useLang().lang === "te";
   const [gender, setGender] = useState("");
   const [minAge, setMinAge] = useState(18);
@@ -63,3 +63,5 @@ export default function HomeMatchSearch() {
     <p className="home-search-card__safety"><ShieldCheck size={15} aria-hidden="true"/><span>{te ? "వారు అంగీకరించిన తర్వాతే సంప్రదింపు వివరాలు కనిపిస్తాయి. సభ్యుని వివరాలను మీరూ సరిచూసుకోండి." : "Contact details appear after they accept. Check profile details yourself."} <Link href="/safety">{te?"భద్రతా సూచనలు":"Safety tips"}</Link></span></p>
   </section>;
 }
+
+import {useLocaleRouter} from "@/lib/locale-navigation";

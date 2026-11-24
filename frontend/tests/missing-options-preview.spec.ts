@@ -1,3 +1,4 @@
+import {localeHref} from "./locale-href";
 import { test, expect } from '@playwright/test';
 import fs from 'node:fs';
 const out = '/downloads/mv-missing-options';
@@ -25,7 +26,7 @@ for (const lang of ['en', 'te'])
         }
         return r.fulfill({ json: { success: true, items: [], profiles: [], total: 0 } });
       });
-      await page.goto('/matches');
+      await page.goto(localeHref('/matches',lang));
       await expect(page.locator('.matches-profile-card')).toHaveCount(1);
       const mobile = width < 1024;
       if (mobile) await page.getByRole('button', { name: lang === 'te' ? /🌪️ ఫిల్టర్లు/ : /🌪️ Filters/ }).click();

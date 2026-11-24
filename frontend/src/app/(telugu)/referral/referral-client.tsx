@@ -7,7 +7,7 @@ import "@/components/partner-workspace.css";
  */
 import { useEffect, useLayoutEffect, useState, useCallback, useRef } from "react";
 import { Wallet, Coins, BadgeCheck, Clock3, Send, X } from "lucide-react";
-import Link from "next/link";
+import Link from "@/components/LocaleLink";
 import Image from "next/image";
 import { toJpeg } from "html-to-image";
 import QRCode from "qrcode";
@@ -694,7 +694,7 @@ export default function ReferralPage() {
                   <span>🖨️</span>
                   <span>{te ? "ప్రింట్" : "Print"}</span>
                 </button>
-                <a
+                <LocaleAnchor
                   href={`https://wa.me/?text=${encodeURIComponent(te
                     ? `🙏 మన వివాహ (Mana Vivaha)\nఉచిత నమోదు • 3 ఆసక్తి అభ్యర్థనలు • వినియోగదారు ప్లాన్‌లు ₹99 నుంచి.\nనా referral link: ${refRegistrationUrl}\nబహుమతి అర్హత మరియు మినహాయింపులు: https://manavivaha.in/referral`
                     : `🙏 Mana Vivaha (మన వివాహ)\nFree registration • 3 interest requests • consumer plans from ₹99.\nMy referral link: ${refRegistrationUrl}\nReward eligibility and exclusions: https://manavivaha.in/referral`
@@ -705,7 +705,7 @@ export default function ReferralPage() {
                 >
                   <WhatsAppIcon className="w-4 h-4 fill-white" />
                   <span>{te ? "WhatsApp ద్వారా పంచుకోండి" : "Share on WhatsApp"}</span>
-                </a>
+                </LocaleAnchor>
               </div>
             </div>
 
@@ -887,10 +887,10 @@ export default function ReferralPage() {
               <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
                 <Image src={`/api/referral/${encodeURIComponent(tsapId)}/poster.png?style=status`}
                   alt="Mana Vivaha referral QR poster" width={512} height={768} unoptimized className="mx-auto max-h-[70vh] w-auto max-w-full rounded-2xl border border-amber-200 object-contain" />
-                <a href={`/api/referral/${encodeURIComponent(tsapId)}/poster.png?style=status`} download
+                <LocaleAnchor href={`/api/referral/${encodeURIComponent(tsapId)}/poster.png?style=status`} download
                   className="inline-flex min-h-11 items-center justify-center rounded-xl bg-[#7A0C2E] px-5 py-3 text-sm font-bold text-white hover:bg-[#5e0824]">
                   {te ? "📥 Referral పోస్టర్ డౌన్‌లోడ్" : "📥 Download referral poster"}
-                </a>
+                </LocaleAnchor>
               </div>
             ) : (
               <p className="rounded-xl bg-amber-50 p-4 text-sm text-amber-900">{te ? "ముందుగా మీ referral ID లోడ్ చేయండి." : "Load your referral ID to view its poster."}</p>
@@ -1048,22 +1048,22 @@ export default function ReferralPage() {
 
               {tsapId && (
                 <div className="flex gap-2 text-xs">
-                  <a
+                  <LocaleAnchor
                     href={`/api/referral/${tsapId}/poster.png?style=square`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="px-3 py-1.5 rounded-xl border border-gold text-maroon font-bold hover:bg-gold-soft"
                   >
                     🖼️ {te ? "QR పోస్టర్" : "QR Poster"}
-                  </a>
-                  <a
+                  </LocaleAnchor>
+                  <LocaleAnchor
                     href={`/api/referral/${tsapId}/poster.png?style=status`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="px-3 py-1.5 rounded-xl bg-navy text-white font-bold hover:bg-navy/90"
                   >
                     📱 {te ? "స్టేటస్ పోస్టర్" : "Status Poster"}
-                  </a>
+                  </LocaleAnchor>
                 </div>
               )}
             </div>
@@ -1091,7 +1091,7 @@ export default function ReferralPage() {
 
             {/* 1-Tap Action Buttons */}
             <div className="flex flex-wrap gap-3">
-              <a
+              <LocaleAnchor
                 href={(te ? kit.whatsapp_share_variants_te : kit.whatsapp_share_variants_en)?.[msgIdx] || `https://wa.me/?text=${encodeURIComponent(localizedMessages[msgIdx] || "")}`}
                 target="_blank"
                 rel="noopener noreferrer"
@@ -1099,9 +1099,9 @@ export default function ReferralPage() {
               >
                 <WhatsAppIcon className="w-4 h-4" mono />
                 <span>{te ? "వాట్సాప్‌లో షేర్ చేయండి" : "Share on WhatsApp"}</span>
-              </a>
+              </LocaleAnchor>
 
-              <a
+              <LocaleAnchor
                 href={(te ? kit.telegram_share_te : kit.telegram_share_en) || `https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(localizedMessages[msgIdx] || "")}`}
                 target="_blank"
                 rel="noopener noreferrer"
@@ -1109,7 +1109,7 @@ export default function ReferralPage() {
               >
                 <TelegramIcon className="w-4 h-4" mono />
                 <span>Telegram</span>
-              </a>
+              </LocaleAnchor>
 
               <button
                 type="button"
@@ -1278,3 +1278,5 @@ export default function ReferralPage() {
     </div>
   );
 }
+
+import LocaleAnchor from "@/components/LocaleAnchor";

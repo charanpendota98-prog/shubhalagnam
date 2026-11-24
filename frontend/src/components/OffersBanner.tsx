@@ -6,7 +6,7 @@ import { readApiJson } from "@/lib/api";
  * Live festival offers → pricing ki link.
  */
 import { useEffect, useState } from "react";
-import Link from "next/link";
+import Link from "@/components/LocaleLink";
 import { PartyPopper } from "lucide-react";
 import { useLang } from "@/lib/lang";
 

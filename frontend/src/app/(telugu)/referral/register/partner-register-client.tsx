@@ -9,7 +9,7 @@ import "@/components/partner-workspace.css";
 import { useEffect, useRef, useState } from "react";
 import {partnerRegistrationResult,partnerDashboardResult,partnerPrivateDashboardResult,partnerPayoutResult,type PartnerRegistration} from "@/lib/partner-registration-result";
 import CreatorCampaigns from "@/components/CreatorCampaigns";
-import Link from "next/link";
+import Link from "@/components/LocaleLink";
 import { Duo, useDuo } from "@/lib/duo";
 import { useLang } from "@/lib/lang";
 import { apiDisplayMessage, readApiJson} from "@/lib/api";
@@ -323,11 +323,11 @@ export default function PartnerRegisterPage() {
                     className="min-h-10 rounded-full bg-[#7A0C2E] text-white px-4 py-2 text-[12px] font-bold">
                     {copied ? "copied ✓" : (te ? "🔗 Link copy" : "🔗 Copy link")}
                   </button>
-                  <a href={`https://wa.me/?text=${encodeURIComponent(te ? `Mana Vivaha • మన వివాహ లో నమోదు చేసుకోండి. Valid referral attach పై కొత్త user కు +1, referrer కు +2 interest-request credits (cash కాదు). ₹50 reward కు first qualifying S_99/S_199/S_299/S_499 consumer-plan payment కనీసం ₹99 కావాలి; exclusions వర్తిస్తాయి. నియమాలు: https://manavivaha.in/referral ${dash.link}` : `Register on Mana Vivaha • మన వివాహ. A valid referral attachment gives +1 request credit to the new user and +2 to the referrer (not cash). A one-time ₹50 reward may qualify only on the first eligible S_99/S_199/S_299/S_499 consumer-plan payment of at least ₹99; exclusions apply. Terms: https://manavivaha.in/referral ${dash.link}`)}`}
+                  <LocaleAnchor href={`https://wa.me/?text=${encodeURIComponent(te ? `Mana Vivaha • మన వివాహ లో నమోదు చేసుకోండి. Valid referral attach పై కొత్త user కు +1, referrer కు +2 interest-request credits (cash కాదు). ₹50 reward కు first qualifying S_99/S_199/S_299/S_499 consumer-plan payment కనీసం ₹99 కావాలి; exclusions వర్తిస్తాయి. నియమాలు: https://manavivaha.in/referral ${dash.link}` : `Register on Mana Vivaha • మన వివాహ. A valid referral attachment gives +1 request credit to the new user and +2 to the referrer (not cash). A one-time ₹50 reward may qualify only on the first eligible S_99/S_199/S_299/S_499 consumer-plan payment of at least ₹99; exclusions apply. Terms: https://manavivaha.in/referral ${dash.link}`)}`}
                     target="_blank" rel="noreferrer"
                     className="min-h-10 rounded-full bg-[#25D366] text-white px-4 py-2 text-[12px] font-bold">
                     📲 WhatsApp share
-                  </a>
+                  </LocaleAnchor>
                 </div>
               ) : null}
             </div>
@@ -420,3 +420,5 @@ export default function PartnerRegisterPage() {
     </div>
   );
 }
+
+import LocaleAnchor from "@/components/LocaleAnchor";

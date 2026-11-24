@@ -14,7 +14,7 @@ import { registrationNameError, registrationFailureMessage } from "@/lib/registr
  */
 import "./workspace.css";
 import { Suspense, useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
-import Link from "next/link";
+import Link from "@/components/LocaleLink";
 import { Zap, Sparkles, Save, TriangleAlert, Camera, UserRound, Heart, BriefcaseBusiness, MapPin, Smartphone, GraduationCap, Wallet, Lightbulb, Rocket, Check, CircleCheck, KeyRound, Mail, Gift, Target, Users, Radio, ChartNoAxesCombined, Image as ImageIcon, Pencil, Search, Store, IdCard } from "lucide-react";
 import Image from "next/image";
 import { useSearchParams } from "next/navigation";
@@ -1642,8 +1642,8 @@ function Wizard() {
                 <Link href={`/referral?id=${tsap}`} className="text-maroon font-bold underline inline-block pt-1">
                   {T("రిఫరల్ వివరాలకు వెళ్లండి →", "Open referral dashboard →")}
                 </Link>
-                <a href={result.referral?.poster_url || `/api/referral/${tsap}/poster.png`} target="_blank" rel="noreferrer"
-                  className="ml-3 text-maroon font-bold underline inline-block pt-1">{T("రిఫరల్ QR పోస్టర్ →", "Referral QR poster →")}</a>
+                <LocaleAnchor href={result.referral?.poster_url || `/api/referral/${tsap}/poster.png`} target="_blank" rel="noreferrer"
+                  className="ml-3 text-maroon font-bold underline inline-block pt-1">{T("రిఫరల్ QR పోస్టర్ →", "Referral QR poster →")}</LocaleAnchor>
               </div>
             )}
 
@@ -3083,9 +3083,9 @@ function RegisterFallback() {
         <p className="mt-4 text-xs text-slate-500">{lang === "te" ? "ఫారమ్ కనిపించకపోతే పేజీని మళ్లీ లోడ్ చేయండి." : "If the form does not appear, reload the page."}</p>
         {SITE_CONFIG.supportLink ? (
           <p className="mt-2 text-xs text-slate-500">
-            <a href={SITE_CONFIG.supportLink} target="_blank" rel="noopener noreferrer" className="font-bold text-maroon underline">
+            <LocaleAnchor href={SITE_CONFIG.supportLink} target="_blank" rel="noopener noreferrer" className="font-bold text-maroon underline">
               {lang === "te" ? "WhatsApp సహాయం" : "WhatsApp support link"}
-            </a>
+            </LocaleAnchor>
             <span>{lang === "te" ? " — బాహ్య సేవ లభ్యతను ఈ పేజీ నిర్ధారించదు." : " — External service availability is not checked by this page."}</span>
           </p>
         ) : null}
@@ -3101,3 +3101,5 @@ export default function RegisterPage() {
     </Suspense>
   );
 }
+
+import LocaleAnchor from "@/components/LocaleAnchor";

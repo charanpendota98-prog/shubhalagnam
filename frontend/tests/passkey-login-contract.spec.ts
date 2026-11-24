@@ -1,3 +1,4 @@
+import {localeHref} from "./locale-href";
 import {test,expect} from '@playwright/test';
 async function fixture(page:any,lang='en',status=503,body:any={success:true,tsap_id:'FICTIONAL-PASSKEY',auth_token:''}) {
  await page.addInitScript((l:string)=>{
@@ -14,7 +15,7 @@ async function fixture(page:any,lang='en',status=503,body:any={success:true,tsap
   if(path==='/api/auth/passkey/login/finish')return r.fulfill({status,json:body});
   return r.fulfill({status:503,json:{detail:'Isolated fixture only'}});
  });
- await page.goto('/login');return writes;
+ await page.goto(localeHref('/login',lang));return writes;
 }
 for(const lang of ['en','te'])for(const width of [320,390,1280])test(`reject mocked passkey HTTP503 ${lang} ${width}`,async({page})=>{
  await page.setViewportSize({width,height:850});const writes=await fixture(page,lang);

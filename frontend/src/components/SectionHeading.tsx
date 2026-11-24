@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/LocaleLink";
 
 type Props = {
   eyebrow?: string;      // small uppercase label

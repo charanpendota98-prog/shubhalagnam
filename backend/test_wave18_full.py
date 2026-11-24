@@ -158,18 +158,18 @@ check("D2 old refs intact", parse_start_ref("/start ch_reddy")["kind"] == "chann
 section("E. FRONTEND STATIC")
 # ═══════════════════════════════════════════════════════════════════════════
 F = os.path.join(ROOT, "frontend")
-reg_src = src_page("frontend/src/app/register/page.tsx")
+reg_src = src_page("frontend/src/app/(telugu)/register/page.tsx")
 check("E1 register password field+show/hide", "Minimum 6 characters" in reg_src and "Show" in reg_src)
 check("E2 registration validates password length and submits it",
       "Password must contain at least 6 characters" in reg_src
       and '"password"' in reg_src)
 check("E3 99 nudge → pricing", "₹99 Sambandham" in reg_src and 'href="/pricing"' in reg_src)
-lg_src = src_page("frontend/src/app/login/page.tsx")
+lg_src = src_page("frontend/src/app/(telugu)/login/page.tsx")
 check("E4 login tabs", '"password"' in lg_src and '"otp"' in lg_src and "Member Login" in lg_src)
 check("E5 forgot+reset wired", "/api/auth/forgot" in lg_src and "/api/auth/reset" in lg_src
       and "Forgot password" in lg_src)
 check("E6 password login wired", "/api/auth/login-password" in lg_src)
-pg_src = src_page("frontend/src/app/page.tsx")
+pg_src = src_page("frontend/src/app/(telugu)/home-client.tsx")
 spotlight_src = src_page("frontend/src/components/ProfilesOfTheDay.tsx")
 check("E7 homepage keeps the selected hero and real spotlight module",
       "CinematicHero" in pg_src and "ProfilesOfTheDay" in pg_src
@@ -179,7 +179,7 @@ check("E8 spotlight is live-data-only and hidden when no reviewed placement exis
       and "if (loading || loadError || profiles.length === 0) return null;" in spotlight_src)
 check("E9 homepage does not seed sample spotlight profiles",
       "setProfiles(items.filter" in spotlight_src and "demo" not in spotlight_src.lower())
-pv_src = src_page("frontend/src/app/search/[id]/ProfileView.tsx")
+pv_src = src_page("frontend/src/app/(telugu)/search/[id]/ProfileView.tsx")
 check("E10 contact access remains owner-consent-gated; legacy bot unlock links stay absent",
       'apiPost<Row>("/api/interest/send"' in pv_src and "Owner acceptance" in pv_src
       and "unlock_" not in pv_src)

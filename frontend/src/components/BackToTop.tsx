@@ -5,13 +5,13 @@
  * SupportWidget (bottom-right) tho clash avvakunda left side.
  */
 import { useEffect, useState } from "react";
-import { usePathname } from "next/navigation";
+
 import { useLang } from "@/lib/lang";
 
 export default function BackToTop() {
   const { lang } = useLang();
   const te = lang === "te";
-  const pathname = usePathname();
+  const pathname = useBasePathname();
   const [show, setShow] = useState(false);
 
   useEffect(() => {
@@ -35,3 +35,5 @@ export default function BackToTop() {
     </button>
   );
 }
+
+import {useBasePathname} from "@/lib/locale-navigation";

@@ -3,7 +3,7 @@
 import { Bell, Bookmark, CalendarDays, KeyRound, Link2, LogOut, MessageCircle, ShieldCheck } from "lucide-react";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import Link from "next/link";
+import Link from "@/components/LocaleLink";
 import { authHeaders, readApiJson } from "@/lib/api";
 import { useLang } from "@/lib/lang";
 

@@ -1,3 +1,4 @@
+import {localeHref} from "./locale-href";
 import { test, expect, type Page } from "@playwright/test";
 
 // UI-only response fixtures. These numbers are not real earnings/payment evidence.
@@ -24,7 +25,7 @@ async function setup(page: Page, firstStatus = 200) {
 
 test("refresh failure is visibly stale, recovery works and expired auth clears private details", async ({ page }) => {
   const state = await setup(page);
-  await page.goto("/referral?id=REFRESH01");
+  await page.goto(localeHref("/referral?id=REFRESH01",'en'));
   await expect(page.getByText("₹137", { exact: true })).toBeVisible();
   const timestamp = (await page.getByText(/Last updated:/).innerText()).split("\n")[0];
   await page.getByRole("button", { name: /Request payout/ }).click();
@@ -48,7 +49,7 @@ test("refresh failure is visibly stale, recovery works and expired auth clears p
 
 test("initial load failure offers a working retry", async ({ page }) => {
   const state = await setup(page, 503);
-  await page.goto("/referral?id=REFRESH01");
+  await page.goto(localeHref("/referral?id=REFRESH01",'en'));
   const retry = page.getByRole("button", { name: "Retry", exact: true });
   await expect(retry).toBeEnabled();
   await expect(page.getByText(/Your details did not load/)).toBeVisible();
@@ -60,7 +61,7 @@ test("initial load failure offers a working retry", async ({ page }) => {
 test("only visible tabs refresh each minute, and returning to a visible tab refreshes old data", async ({ page }) => {
   await page.clock.install();
   const state = await setup(page);
-  await page.goto("/referral?id=REFRESH01");
+  await page.goto(localeHref("/referral?id=REFRESH01",'en'));
   await expect(page.getByText("₹137", { exact: true })).toBeVisible();
   const initial = state.calls();
   await page.clock.fastForward(60_001);

@@ -24,7 +24,7 @@ function validCampaignList(data:unknown):data is {success:true;campaigns:Campaig
 function CampaignQR({link,te}:{link:string;te:boolean}) {
  const [url,setUrl]=useState("");
  useEffect(()=>{let active=true;QRCode.toDataURL(link,{width:224,margin:4,errorCorrectionLevel:"M"}).then(x=>{if(active)setUrl(x);}).catch(()=>{});return()=>{active=false;};},[link]);
- return <details><summary className="min-h-11 cursor-pointer py-3 text-sm font-semibold">{te?"ప్రచార లింక్ క్యూఆర్ చూడండి":"Show campaign QR"}</summary>{url?<div className="space-y-2"><Image src={url} alt={te?"ఈ ప్రచార నమోదు లింక్ కోసం క్యూఆర్":"QR for this campaign registration link"} width={224} height={224} unoptimized/><a href={url} download="manavivaha-campaign-qr.png" className="inline-block min-h-11 rounded-xl border px-3 py-2 text-sm font-semibold">{te?"క్యూఆర్ డౌన్‌లోడ్":"Download QR"}</a><p className="text-xs text-slate-600">{te?"పంచుకునేటప్పుడు ప్రకటన గుర్తింపును కూడా చూపండి.":"Include the disclosure when sharing."}</p></div>:<p className="text-xs">{te?"క్యూఆర్ కనిపించకపోతే పైన ఉన్న లింక్ కాపీ చేయండి.":"If the QR does not load, copy the link above."}</p>}</details>;
+ return <details><summary className="min-h-11 cursor-pointer py-3 text-sm font-semibold">{te?"ప్రచార లింక్ క్యూఆర్ చూడండి":"Show campaign QR"}</summary>{url?<div className="space-y-2"><Image src={url} alt={te?"ఈ ప్రచార నమోదు లింక్ కోసం క్యూఆర్":"QR for this campaign registration link"} width={224} height={224} unoptimized/><LocaleAnchor href={url} download="manavivaha-campaign-qr.png" className="inline-block min-h-11 rounded-xl border px-3 py-2 text-sm font-semibold">{te?"క్యూఆర్ డౌన్‌లోడ్":"Download QR"}</LocaleAnchor><p className="text-xs text-slate-600">{te?"పంచుకునేటప్పుడు ప్రకటన గుర్తింపును కూడా చూపండి.":"Include the disclosure when sharing."}</p></div>:<p className="text-xs">{te?"క్యూఆర్ కనిపించకపోతే పైన ఉన్న లింక్ కాపీ చేయండి.":"If the QR does not load, copy the link above."}</p>}</details>;
 }
 export default function CreatorCampaigns({identity,partnerToken}:{identity:string;partnerToken?:string}) {
  const te=useLang().lang==="te";
@@ -83,3 +83,5 @@ export default function CreatorCampaigns({identity,partnerToken}:{identity:strin
  <CampaignQR link={row.link} te={te}/><details><summary className="min-h-11 cursor-pointer py-3 text-sm font-semibold">{te?"ప్రకటన గుర్తింపు సూచన మరియు నమూనా":"Disclosure reminder & sample"}</summary><p className="text-sm">{te?row.disclosure_te:row.disclosure_en}</p><p className="mt-2 text-xs text-slate-600">{te?"ప్రకటన గుర్తింపును మొదట స్పష్టంగా చూపండి. వీడియో, ఆడియోలో వాటికి తగిన చోట చూపాలి. వివరణలో మాత్రమే ఉంచడం సరిపోకపోవచ్చు.":"Show disclosure clearly upfront. Video and audio need format-appropriate placement; a caption alone may not be enough."}</p></details></article>)}</div>
  </section>;
 }
+
+import LocaleAnchor from "@/components/LocaleAnchor";

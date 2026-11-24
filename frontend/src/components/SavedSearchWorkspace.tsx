@@ -17,7 +17,7 @@
  *   compatibility, success or outcome signals.
  */
 
-import Link from "next/link";
+import Link from "@/components/LocaleLink";
 import "./discovery-workspace.css";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { apiFetch, apiPost, authHeaders, readApiJson } from "@/lib/api";

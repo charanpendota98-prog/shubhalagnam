@@ -1,14 +1,15 @@
+import {translateMetadata} from "@/lib/locale-metadata";
 import type { Metadata } from "next";
 import SpotlightPromotionPageClient from "./page-client";
 import Breadcrumbs, { type Crumb } from "@/components/Breadcrumbs";
 import FaqBlock from "@/components/FaqBlock";
 import { buildPageSeo } from "@/lib/page-seo";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = translateMetadata({
   title: "Sponsored Profile Placement",
   description: "Apply for a time-limited sponsored profile placement. Payment and profile/media review are required; identity verification, reach, responses, and matches are not guaranteed.",
   alternates: { canonical: "https://manavivaha.in/spotlight" },
-};
+},"/spotlight","te");
 
 const TRAIL: Crumb[] = [
   { en: "Home", te: "హోమ్", href: "/" },

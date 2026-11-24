@@ -41,7 +41,7 @@ export default function ShowcaseStrip() {
             const district = te ? x.district : apiDisplayMessage({ message_en: x.district }, false, "");
             const work = te ? (x.job || x.education || "") : apiDisplayMessage({ message_en: x.job || x.education }, false, "");
             return (
-            <a key={x.tsap_id} href={`/search/${x.tsap_id}`}
+            <LocaleAnchor key={x.tsap_id} href={`/search/${x.tsap_id}`}
               className="group rounded-2xl border border-[#7A0C2E]/10 bg-gradient-to-br from-white to-[#FFF8E7] p-3 text-center shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
               <div className="mx-auto flex h-[70px] w-[70px] items-center justify-center rounded-full bg-gradient-to-br from-[#7A0C2E]/12 to-[#B8860B]/15 text-3xl">
                 {x.gender === "Bride" ? "👰" : "🤵"}
@@ -49,7 +49,7 @@ export default function ShowcaseStrip() {
               <div className="mt-2 truncate text-[13px] font-bold text-[#7A0C2E]">{x.full_name}</div>
               <div className={`truncate text-[11px] text-gray-600 ${te ? "telugu" : ""}`}>{x.age}y · {district}</div>
               <div className={`truncate text-[11px] text-gray-500 ${te ? "telugu" : ""}`}>{work}</div>
-            </a>
+            </LocaleAnchor>
             );
           })}
         </div>
@@ -57,3 +57,5 @@ export default function ShowcaseStrip() {
     </section>
   );
 }
+
+import LocaleAnchor from "@/components/LocaleAnchor";

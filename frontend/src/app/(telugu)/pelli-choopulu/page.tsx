@@ -1,15 +1,16 @@
+import {translateMetadata} from "@/lib/locale-metadata";
 import { Metadata } from "next";
 import PelliChoopuluGuide from "@/components/PelliChoopuluGuide";
 import Breadcrumbs, { type Crumb } from "@/components/Breadcrumbs";
 import FaqBlock from "@/components/FaqBlock";
 import { buildPageSeo } from "@/lib/page-seo";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = translateMetadata({
   title: "Pelli Choopulu: A Family Introduction Guide",
   description:
     "A practical guide to Telugu Pelli Choopulu customs, family etiquette, questions, and safety considerations.",
   alternates: { canonical: "https://manavivaha.in/pelli-choopulu" },
-};
+},"/pelli-choopulu","te");
 
 const TRAIL: Crumb[] = [
   { en: "Home", te: "హోమ్", href: "/" },

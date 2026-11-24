@@ -66,7 +66,7 @@ export default function QuickLead({ source = "site", compact = false }: { source
         <div className="font-bold text-emerald-900 text-[14px]">{te ? "✅ అభ్యర్థన నమోదు అయింది" : "✅ Request recorded"}</div>
         <div className="text-[12px] text-emerald-800 mt-1 telugu">{msg?.text}</div>
         <div className="text-[11px] text-emerald-700 mt-2">
-          {te ? <>మీకు అనుకూలమైనప్పుడు <a href="/register" className="underline font-bold">ఉచిత నమోదు</a> ప్రారంభించండి.</> : <>Register for free whenever you are ready: <a href="/register" className="underline font-bold">Create a profile</a>.</>}
+          {te ? <>మీకు అనుకూలమైనప్పుడు <LocaleAnchor href="/register" className="underline font-bold">ఉచిత నమోదు</LocaleAnchor> ప్రారంభించండి.</> : <>Register for free whenever you are ready: <LocaleAnchor href="/register" className="underline font-bold">Create a profile</LocaleAnchor>.</>}
         </div>
       </div>
     );
@@ -134,3 +134,5 @@ export default function QuickLead({ source = "site", compact = false }: { source
     </div>
   );
 }
+
+import LocaleAnchor from "@/components/LocaleAnchor";

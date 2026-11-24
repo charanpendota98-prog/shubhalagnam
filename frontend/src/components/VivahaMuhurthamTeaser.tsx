@@ -6,7 +6,7 @@
  * Reference calendar entries for 2026-2027; date/time accuracy is not
  * independently validated here. Encourage local confirmation before use.
  */
-import Link from "next/link";
+import Link from "@/components/LocaleLink";
 import { useEffect, useState } from "react";
 import { useLang } from "@/lib/lang";
 import { VIVAHA_MUHURTHAMS_2026_2027, MuhurthamDate, formatMuhurthamDate, formatMuhurthamMonth, formatMuhurthamTime } from "@/lib/muhurtham-data";
@@ -25,8 +25,8 @@ export default function VivahaMuhurthamTeaser() {
 
   const shareWa = (m: MuhurthamDate) => {
     const text = te
-      ? `💍 మన వివాహ — ముహూర్త తేదీ సూచిక 📅\n🗓️ తేదీ: ${formatMuhurthamDate(m, true)}\n🌙 మాసం: ${formatMuhurthamMonth(m, true)}\n⭐ నక్షత్రం: ${m.nakshatram}\n👑 లగ్నం: ${m.lagnam}\n⏰ సమయం: ${formatMuhurthamTime(m, true)}\n⚠️ ఇది reference సమాచారం మాత్రమే; booking ముందు స్థానికంగా నిర్ధారించండి.\n\nప్రొఫైళ్లు: ${window.location.origin}/matches`
-      : `💍 Mana Vivaha — Muhurtham date reference 📅\nDate: ${formatMuhurthamDate(m, false)}\nMonth: ${formatMuhurthamMonth(m, false)}\nNakshatra: ${m.nakshatram}\nLagnam: ${m.lagnam}\nTime: ${formatMuhurthamTime(m, false)}\n⚠️ Reference information only; confirm locally before booking.\n\nProfiles: ${window.location.origin}/matches`;
+      ? `💍 మన వివాహ — ముహూర్త తేదీ సూచిక 📅\n🗓️ తేదీ: ${formatMuhurthamDate(m, true)}\n🌙 మాసం: ${formatMuhurthamMonth(m, true)}\n⭐ నక్షత్రం: ${m.nakshatram}\n👑 లగ్నం: ${m.lagnam}\n⏰ సమయం: ${formatMuhurthamTime(m, true)}\n⚠️ ఇది reference సమాచారం మాత్రమే; booking ముందు స్థానికంగా నిర్ధారించండి.\n\nప్రొఫైళ్లు: ${window.location.origin}${te ? "/matches" : "/en/matches"}`
+      : `💍 Mana Vivaha — Muhurtham date reference 📅\nDate: ${formatMuhurthamDate(m, false)}\nMonth: ${formatMuhurthamMonth(m, false)}\nNakshatra: ${m.nakshatram}\nLagnam: ${m.lagnam}\nTime: ${formatMuhurthamTime(m, false)}\n⚠️ Reference information only; confirm locally before booking.\n\nProfiles: ${window.location.origin}${te ? "/matches" : "/en/matches"}`;
     window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank", "noopener,noreferrer");
   };
 

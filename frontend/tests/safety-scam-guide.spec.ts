@@ -1,3 +1,4 @@
+import {localeHref} from "./locale-href";
 import {test,expect} from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import fs from 'node:fs';
@@ -7,7 +8,7 @@ for(const lang of ['en','te'])for(const width of [320,390,1280])test(`safety sca
  await page.addInitScript(l=>localStorage.setItem('tsap_lang',l),lang);
  const writes:string[]=[];const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
  await page.route('**/api/**',r=>{if(r.request().method()!=='GET')writes.push(r.request().url());const path=new URL(r.request().url()).pathname;return r.fulfill({json:path==='/api/auth/verify'?{valid:false}:path==='/api/safety/tips'?{tips:[],report_categories:[],verify_levels:[]}:{items:[],badges:[],appeals:[]}})});
- await page.goto('/safety');
+ await page.goto(localeHref('/safety',lang));
  const g=page.getByTestId('scam-guide');await expect(g).toBeVisible();
  await expect(page.locator('h1')).toHaveCount(1);
  await expect(g.getByRole('heading',{level:2})).toHaveText(lang==='en'?'Common scams and what to do':'సాధారణ మోసాలు మరియు ఏం చేయాలి');

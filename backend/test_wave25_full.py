@@ -237,7 +237,7 @@ check("H2 PayBox rzp order_id checkout", "order_id: order.rzp_order_id" in pb)
 check("H3 PayBox 12-digit UTR check", "d{12}" in pb)
 # App Router split: referral UI lives in page.tsx + referral-client.tsx — read both.
 from testutil_paths import src_page  # noqa: E402
-rp = src_page("frontend/src/app/referral/page.tsx")
+rp = src_page("frontend/src/app/(telugu)/referral/page.tsx")
 check("H4 no 10% copy", "10%" not in rp)
 # 💎 R13: copy is "one-time ₹50" now (flat, never a percentage, never per repeat payment).
 check("H5 flat one-time ₹50 copy (no percentage, no repeat)",

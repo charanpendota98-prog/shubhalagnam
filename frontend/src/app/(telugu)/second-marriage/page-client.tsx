@@ -4,7 +4,7 @@ import "@/components/community-workspace.css";
 
 import { useEffect, useMemo, useState } from "react";
 import HomeSecondMarriageSection from "@/components/HomeSecondMarriageSection";
-import Link from "next/link";
+import Link from "@/components/LocaleLink";
 import { apiDisplayMessage, apiGet } from "@/lib/api";
 import { SITE_CONFIG } from "@/lib/site-config";
 import { whatsappPhoneLink } from "@/lib/wa";
@@ -300,7 +300,7 @@ export default function SecondMarriagePage() {
             </Link>
 
             {SITE_CONFIG.supportWhatsapp ? (
-              <a
+              <LocaleAnchor
                 href={whatsappPhoneLink(SITE_CONFIG.supportWhatsapp, te ? "నమస్కారం, పునర్వివాహ సంబంధాల జాబితా గురించి నాకు ప్రశ్న ఉంది." : "Hello, I have a question about the remarriage listings.") || undefined}
                 target="_blank"
                 rel="noopener noreferrer"
@@ -309,7 +309,7 @@ export default function SecondMarriagePage() {
               >
                 <span>💬</span>
                 <span>{te ? "WhatsApp సహాయం" : "WhatsApp support"}</span>
-              </a>
+              </LocaleAnchor>
             ) : null}
           </div>
         </div>
@@ -644,7 +644,7 @@ export default function SecondMarriagePage() {
                     </Link>
 
                     {SITE_CONFIG.supportWhatsapp ? (
-                      <a
+                      <LocaleAnchor
                         href={whatsappPhoneLink(SITE_CONFIG.supportWhatsapp, te ? `నమస్కారం, ${row.tsap_id} జాబితా గురించి నాకు ప్రశ్న ఉంది.` : `Hello, I have a question about listing ${row.tsap_id}.`) || undefined}
                         target="_blank"
                         rel="noopener noreferrer"
@@ -653,7 +653,7 @@ export default function SecondMarriagePage() {
                       >
                         <span>💬</span>
                         <span>{te ? "జాబితా గురించి అడగండి" : "Ask about listing"}</span>
-                      </a>
+                      </LocaleAnchor>
                     ) : null}
 
                     <Link
@@ -693,14 +693,14 @@ export default function SecondMarriagePage() {
                 : "Choose whether to continue the conversation. Owner acceptance grants contact access in account views; a configured WhatsApp notification may include the details, but delivery/read status is not confirmed."}
             </p>
             {SITE_CONFIG.supportWhatsapp ? (
-              <a
+              <LocaleAnchor
                 href={whatsappPhoneLink(SITE_CONFIG.supportWhatsapp, te ? "నమస్కారం, పునర్వివాహ సంబంధాల జాబితా గురించి నాకు ప్రశ్న ఉంది." : "Hello, I have a question about the remarriage listings.") || undefined}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-gradient-to-r from-[#128C4A] to-[#20bd5a] px-4 py-2 text-xs font-bold text-white shadow-sm transition hover:brightness-105"
               >
                 💬 {te ? "WhatsApp సహాయాన్ని తెరవండి" : "Open WhatsApp support"}
-              </a>
+              </LocaleAnchor>
             ) : (
               <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900" role="status">
                 {te ? "ఈ సేవకు WhatsApp సహాయ సంప్రదింపు ఇంకా అమర్చబడలేదు." : "A WhatsApp support contact is not configured for this deployment."}
@@ -739,3 +739,5 @@ export default function SecondMarriagePage() {
     </div>
   );
 }
+
+import LocaleAnchor from "@/components/LocaleAnchor";

@@ -1,3 +1,4 @@
+import {localeHref} from "./locale-href";
 import { test, expect, type Page } from '@playwright/test';
 import fs from 'node:fs';
 const ids=['CHECK-ONE','CHECK-TWO'];
@@ -5,7 +6,7 @@ const payload=()=>({success:true,count:2,profiles:[{tsap_id:ids[0],full_name:'Fi
 async function setup(page:Page, lang='en', respond:(r:any)=>Promise<any>=r=>r.fulfill({json:payload()})){
  await page.addInitScript(l=>localStorage.setItem('tsap_lang',l),lang);
  await page.route('**/api/**',r=>new URL(r.request().url()).pathname==='/api/matches/compare-profiles'?respond(r):r.fulfill({json:{valid:false}}));
- await page.goto('/compare',{waitUntil:'networkidle'});
+ await page.goto(localeHref('/compare',lang),{waitUntil:'networkidle'});
  await page.locator('#compare-id-1').fill(ids[0]);await page.locator('#compare-id-2').fill(ids[1]);
 }
 const submit=(page:Page)=>page.getByRole('button',{name:/^(Compare profiles|పోల్చండి)$/}).click();

@@ -13,7 +13,7 @@ import "@/components/community-workspace.css";
  *   • Zero Awkward Wrapping or Layout Cuts
  */
 import { useState, useMemo } from "react";
-import Link from "next/link";
+import Link from "@/components/LocaleLink";
 import Reveal from "@/components/Reveal";
 import SectionHeading from "@/components/SectionHeading";
 import { ALL_CHANNELS, CHANNEL_STATS } from "@/lib/channels";
@@ -435,8 +435,8 @@ export default function CastesClient() {
                   </div>
 
                   <div className={`mt-3 grid grid-cols-2 gap-2 ${layout === "COMPACT" ? "lg:mt-0 lg:w-56 lg:shrink-0" : ""}`}>
-                    {brideTelegram ? <a href={brideTelegram} target="_blank" rel="noopener noreferrer" aria-label={te ? `${c.englishName} వధువుల Telegram destination తెరవండి` : `Open the listed Telegram destination for ${c.englishName} brides`} title={te ? "బాహ్య Telegram లింక్; అందుబాటు తనిఖీ చేయబడదు" : "External Telegram link; availability is not checked"} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-[#229ED9] px-3 py-2 text-[11px] font-bold text-white transition hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#229ED9] focus-visible:ring-offset-2"><TelegramIcon className="h-4 w-4" mono /> Telegram</a> : <span className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-slate-100 px-3 py-2 text-[11px] font-semibold text-slate-500"><TelegramIcon className="h-4 w-4" mono /> {te ? "Telegram లింక్ లేదు" : "No Telegram link"}</span>}
-                    {brideWhatsApp ? <a href={brideWhatsApp} target="_blank" rel="noopener noreferrer" aria-label={te ? `${c.englishName} వధువుల WhatsApp channel తెరవండి` : `Open the listed WhatsApp channel for ${c.englishName} brides`} title={te ? "బాహ్య WhatsApp channel; అందుబాటు తనిఖీ చేయబడదు" : "External WhatsApp channel; availability is not checked"} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-[#128C4A] px-3 py-2 text-[11px] font-bold text-white transition hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#128C4A] focus-visible:ring-offset-2"><WhatsAppIcon className="h-4 w-4" mono /> WhatsApp</a> : <span className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-slate-100 px-3 py-2 text-[11px] font-semibold text-slate-500"><WhatsAppIcon className="h-4 w-4" mono /> {te ? "WhatsApp లింక్ లేదు" : "No WhatsApp link"}</span>}
+                    {brideTelegram ? <LocaleAnchor href={brideTelegram} target="_blank" rel="noopener noreferrer" aria-label={te ? `${c.englishName} వధువుల Telegram destination తెరవండి` : `Open the listed Telegram destination for ${c.englishName} brides`} title={te ? "బాహ్య Telegram లింక్; అందుబాటు తనిఖీ చేయబడదు" : "External Telegram link; availability is not checked"} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-[#229ED9] px-3 py-2 text-[11px] font-bold text-white transition hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#229ED9] focus-visible:ring-offset-2"><TelegramIcon className="h-4 w-4" mono /> Telegram</LocaleAnchor> : <span className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-slate-100 px-3 py-2 text-[11px] font-semibold text-slate-500"><TelegramIcon className="h-4 w-4" mono /> {te ? "Telegram లింక్ లేదు" : "No Telegram link"}</span>}
+                    {brideWhatsApp ? <LocaleAnchor href={brideWhatsApp} target="_blank" rel="noopener noreferrer" aria-label={te ? `${c.englishName} వధువుల WhatsApp channel తెరవండి` : `Open the listed WhatsApp channel for ${c.englishName} brides`} title={te ? "బాహ్య WhatsApp channel; అందుబాటు తనిఖీ చేయబడదు" : "External WhatsApp channel; availability is not checked"} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-[#128C4A] px-3 py-2 text-[11px] font-bold text-white transition hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#128C4A] focus-visible:ring-offset-2"><WhatsAppIcon className="h-4 w-4" mono /> WhatsApp</LocaleAnchor> : <span className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-slate-100 px-3 py-2 text-[11px] font-semibold text-slate-500"><WhatsAppIcon className="h-4 w-4" mono /> {te ? "WhatsApp లింక్ లేదు" : "No WhatsApp link"}</span>}
                   </div>
 
                   <div className={`mt-auto pt-4 ${layout === "COMPACT" ? "lg:mt-0 lg:w-48 lg:shrink-0 lg:pt-0" : ""}`}>
@@ -573,3 +573,5 @@ export default function CastesClient() {
     </div>
   );
 }
+
+import LocaleAnchor from "@/components/LocaleAnchor";

@@ -215,7 +215,7 @@ check("E3 profile shows photo evidence but keeps review state private",
 section("F. FRONTEND STATIC + PWA")
 # ═══════════════════════════════════════════════════════════════════════════
 F = os.path.join(ROOT, "frontend")
-reg_src = src_page("frontend/src/app/register/page.tsx")
+reg_src = src_page("frontend/src/app/(telugu)/register/page.tsx")
 check("F1 family pills canonical", "Upper Middle Class" in reg_src and "Rich / Affluent (Elite)" in reg_src)
 check("F2 about guidance+counter", "Minimum 50 characters" in reg_src and "characters (minimum 50" in reg_src)
 check("F3 about contact guard", "[6-9]" in reg_src and "ఫోన్ నంబర్లు ఇవ్వకండి" in reg_src)
@@ -224,14 +224,14 @@ pf_src = src_page("frontend/src/components/PhotoFlow.tsx")
 check("F5 PhotoFlow states and truthful privacy copy", all(x in pf_src for x in
       ("Photo is waiting for staff review", "Refresh review status", "Replace photo",
        "Upload another photo", "This is not identity verification", "Photo review complete")))
-vf_src = src_page("frontend/src/app/verify/page.tsx")
+vf_src = src_page("frontend/src/app/(telugu)/verify/page.tsx")
 check("F6 verify selfie page", "Verify with a live selfie" in vf_src and "/api/verify/selfie" in vf_src)
 # The route keeps a server shell for metadata; the moderation UI lives beside it.
-ap_src = src_page("frontend/src/app/admin/photos/photos-client.tsx")
+ap_src = src_page("frontend/src/app/(telugu)/admin/photos/photos-client.tsx")
 admin_dashboard_src = src_page("frontend/src/components/control/Dashboard.tsx")
 check("F7 admin review UI+dashboard link", "/api/admin/photos/review" in ap_src
       and 'href="/admin/photos"' in admin_dashboard_src and "photos_pending" in admin_dashboard_src)
-lg_src = src_page("frontend/src/app/login/page.tsx")
+lg_src = src_page("frontend/src/app/(telugu)/login/page.tsx")
 check("F8 keep-logged-in checkbox", "Keep me logged in" in lg_src and "sessionStorage" in
       src_page("frontend/src/lib/api.ts"))
 man = src_page("frontend/public/manifest.webmanifest")

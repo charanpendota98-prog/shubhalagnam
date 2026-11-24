@@ -2,7 +2,7 @@
 
 import "@/components/wedding-tools-workspace.css";
 
-import Link from "next/link";
+import Link from "@/components/LocaleLink";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useLang } from "@/lib/lang";
 import { authHeaders, readApiJson } from "@/lib/api";

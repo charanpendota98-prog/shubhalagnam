@@ -1,13 +1,14 @@
+import {translateMetadata} from "@/lib/locale-metadata";
 import type { Metadata } from "next";
 import VerifyPageClient from "./page-client";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = translateMetadata({
   title: "Profile Verification — Selfie, Photo, ID, Education & Employment | Mana Vivaha",
   description:
     "How Mana Vivaha records independent profile checks (Live Selfie, Profile Photo moderation, Government ID review, Education, and Employment) without synthetic trust scores.",
   alternates: { canonical: "https://manavivaha.in/verify" },
   robots: { index: true, follow: true },
-};
+},"/verify","te");
 
 export default function VerifyPage() {
   return (

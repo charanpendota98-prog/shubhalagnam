@@ -1,14 +1,15 @@
+import {translateMetadata} from "@/lib/locale-metadata";
 import type { Metadata } from "next";
 import PoruthamPageClient from "./page-client";
 import Breadcrumbs, { type Crumb } from "@/components/Breadcrumbs";
 import FaqBlock from "@/components/FaqBlock";
 import { buildPageSeo } from "@/lib/page-seo";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = translateMetadata({
   title: "Jathakam Evidence Review",
   description: "Upload an authentic horoscope document and see its review state. No star-only score, fabricated chart, or marriage verdict is generated.",
   alternates: { canonical: "https://manavivaha.in/porutham" },
-};
+},"/porutham","te");
 
 const TRAIL: Crumb[] = [
   { en: "Home", te: "హోమ్", href: "/" },

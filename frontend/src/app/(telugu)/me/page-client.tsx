@@ -12,7 +12,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import TrustBadge from "@/components/TrustBadge";
 import PhotoFlow from "@/components/PhotoFlow";
 import dynamic from "next/dynamic";
-import Link from "next/link";
+import Link from "@/components/LocaleLink";
 import Image from "next/image";
 import { Bell, BriefcaseBusiness, Cake, ChartNoAxesColumn, ClipboardList, CreditCard, EyeOff, Flame, Globe, GraduationCap, Handshake, Heart, House, KeyRound, Landmark, Laptop, LockKeyhole, MapPin, Mic, Orbit, Pencil, Share2, Target, Ticket, UserRound, Users, Zap } from "lucide-react";
 

@@ -1,3 +1,4 @@
+import {translateMetadata} from "@/lib/locale-metadata";
 import type { Metadata } from "next";
 import DistrictsPageClient from "./page-client";
 import Breadcrumbs, { type Crumb } from "@/components/Breadcrumbs";
@@ -5,11 +6,11 @@ import FaqBlock from "@/components/FaqBlock";
 import { buildPageSeo } from "@/lib/page-seo";
 import { AP_DISTRICTS, TS_DISTRICTS } from "@/lib/telugu-data";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = translateMetadata({
   title: "District-wise Matrimony Directory",
   description: "Browse member-submitted matrimony profiles by district across Telangana and Andhra Pradesh.",
   alternates: { canonical: "https://manavivaha.in/districts" },
-};
+},"/districts","te");
 
 const TRAIL: Crumb[] = [
   { en: "Home", te: "హోమ్", href: "/" },

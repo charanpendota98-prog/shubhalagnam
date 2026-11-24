@@ -136,7 +136,7 @@ export default function SiteShell({
           dangerouslySetInnerHTML={{ __html: serializeJsonLd(SITE_JSON_LD) }}
         />
         <LangProvider initialLang={initialLang}>
-          <a href="#main-content" className="skip-link">Skip to main content</a>
+          <LocaleAnchor href="#main-content" className="skip-link">Skip to main content</LocaleAnchor>
           <SiteAmbience />
           <SiteHeader />
           <LegacyLanguageHint />
@@ -151,3 +151,5 @@ export default function SiteShell({
     </html>
   );
 }
+
+import LocaleAnchor from "@/components/LocaleAnchor";

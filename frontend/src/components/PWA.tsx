@@ -9,7 +9,7 @@
  * event (never auto-shown); the cooldown still applies to the auto prompt only.
  */
 import { useEffect, useRef, useState } from "react";
-import { usePathname } from "next/navigation";
+
 import { useLang } from "@/lib/lang";
 
 // 🔐 Auth screens lo install bar vaddhu — form fields ni cover chestundi.
@@ -63,7 +63,7 @@ function rememberDismissal(): void {
 export default function PWA() {
   const { lang } = useLang();
   const te = lang === "te";
-  const pathname = usePathname() || "";
+  const pathname = useBasePathname() || "";
   const pathRef = useRef(pathname);
   const [show, setShow] = useState(false);
   const [promptEvent, setPromptEvent] = useState<any>(null);
@@ -185,3 +185,5 @@ export default function PWA() {
     </div>
   );
 }
+
+import {useBasePathname} from "@/lib/locale-navigation";

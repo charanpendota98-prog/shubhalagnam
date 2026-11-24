@@ -3,7 +3,7 @@
 import "@/components/community-workspace.css";
 
 import { useState, useMemo } from "react";
-import Link from "next/link";
+import Link from "@/components/LocaleLink";
 import { useLang } from "@/lib/lang";
 import {
   TS_DISTRICTS_DETAILED,

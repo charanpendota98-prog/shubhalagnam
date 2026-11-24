@@ -3,14 +3,14 @@
 
 import { readApiJson } from "@/lib/api";
 import { FormEvent, useState } from "react";
-import { useRouter } from "next/navigation";
-import Link from "next/link";
+
+import Link from "@/components/LocaleLink";
 import { useLang } from "@/lib/lang";
 
 const containsTelugu = (value: string) => /[\u0c00-\u0c7f]/.test(value);
 
 export default function ControlLogin() {
-  const router = useRouter();
+  const router = useLocaleRouter();
   const { lang } = useLang();
   const te = lang === "te";
   const [roleTab, setRoleTab] = useState<"admin" | "worker">("admin");
@@ -173,3 +173,5 @@ export default function ControlLogin() {
     </div>
   );
 }
+
+import {useLocaleRouter} from "@/lib/locale-navigation";

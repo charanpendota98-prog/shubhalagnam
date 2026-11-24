@@ -3,7 +3,7 @@
 import "./wedding-tools-workspace.css";
 
 import { useState, type KeyboardEvent } from "react";
-import Link from "next/link";
+import Link from "@/components/LocaleLink";
 import { useLang } from "@/lib/lang";
 import { WhatsAppIcon } from "@/components/BrandIcons";
 import { SITE_CONFIG } from "@/lib/site-config";
@@ -172,7 +172,7 @@ export default function PelliChoopuluGuide() {
         </header>
 
         <div className="flex justify-center">
-          <a
+          <LocaleAnchor
             href={shareUrl}
             target="_blank"
             rel="noopener noreferrer"
@@ -181,7 +181,7 @@ export default function PelliChoopuluGuide() {
           >
             <WhatsAppIcon className="h-4 w-4" mono />
             <span>{te ? "ఈ గైడ్‌ను WhatsApp లో పంచుకోండి" : "Share this guide on WhatsApp"}</span>
-          </a>
+          </LocaleAnchor>
         </div>
 
         <div role="tablist" aria-label={te ? "గైడ్ విభాగాలు" : "Guide sections"} className="grid grid-cols-2 gap-2 border-b border-gold/30 pb-3 sm:grid-cols-4 sm:gap-3">
@@ -300,3 +300,5 @@ export default function PelliChoopuluGuide() {
     </div>
   );
 }
+
+import LocaleAnchor from "@/components/LocaleAnchor";

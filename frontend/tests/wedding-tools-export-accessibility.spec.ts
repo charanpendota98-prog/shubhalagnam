@@ -1,3 +1,4 @@
+import {localeHref} from "./locale-href";
 import { test, expect } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 import fs from "node:fs";
@@ -9,7 +10,7 @@ for (const lang of ["en", "te"] as const) for (const width of [390, 1280]) {
     await page.addInitScript((language) => localStorage.setItem("tsap_lang", language), lang);
     await page.route("**/api/**", (route) => route.fulfill({ json: { success: true, items: [] } }));
     for (const route of ["/pelli-choopulu", "/lagna-patrika"]) {
-      await page.goto(route);
+      await page.goto(localeHref(route,lang));
       const share = page.locator('main a[href^="https://wa.me/"]').first();
       await expect(share).toBeVisible();
       const expectedLabel = route === "/pelli-choopulu"

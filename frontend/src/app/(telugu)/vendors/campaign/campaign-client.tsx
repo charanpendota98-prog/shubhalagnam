@@ -8,7 +8,7 @@ import { apiDisplayMessage, readApiJson } from "@/lib/api";
  * Vendor ID + token tho campaign request → UTR pay → admin approve → LIVE.
  */
 import { useEffect, useState, useRef } from "react";
-import Link from "next/link";
+import Link from "@/components/LocaleLink";
 import { useLang } from "@/lib/lang";
 
 const DISTRICTS = ["Hyderabad", "Rangareddy", "Medchal", "Warangal", "Nizamabad", "Karimnagar", "Khammam",

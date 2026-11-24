@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
+import Link from "@/components/LocaleLink";
 import "./discovery-workspace.css";
 import { WhatsAppIcon } from "@/components/BrandIcons";
 import { useLang } from "@/lib/lang";
@@ -478,10 +478,10 @@ export default function ProfileCompareStudio() {
               <button type="button" onClick={() => void copySummary()} className="min-h-10 rounded-full border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-800 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-maroon">
                 {te ? "సారాంశం కాపీ చేయండి" : "Copy summary"}
               </button>
-              <a href={`https://wa.me/?text=${encodeURIComponent(shareText)}`} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-10 items-center gap-2 rounded-full bg-[#128C7E] px-4 py-2 text-sm font-bold text-white hover:bg-[#0f766e] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2">
+              <LocaleAnchor href={`https://wa.me/?text=${encodeURIComponent(shareText)}`} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-10 items-center gap-2 rounded-full bg-[#128C7E] px-4 py-2 text-sm font-bold text-white hover:bg-[#0f766e] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2">
                 <WhatsAppIcon className="h-4 w-4" mono />
                 {te ? "వాట్సాప్ ద్వారా పంపండి" : "Share with WhatsApp"}
-              </a>
+              </LocaleAnchor>
               <button type="button" onClick={() => window.print()} className="min-h-10 rounded-full bg-maroon px-4 py-2 text-sm font-bold text-white hover:bg-maroon-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-maroon focus-visible:ring-offset-2 print:hidden">
                 {te ? "ప్రింట్" : "Print"}
               </button>
@@ -496,3 +496,5 @@ export default function ProfileCompareStudio() {
     </div>
   );
 }
+
+import LocaleAnchor from "@/components/LocaleAnchor";

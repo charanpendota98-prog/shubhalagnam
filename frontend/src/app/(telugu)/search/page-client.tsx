@@ -3,8 +3,8 @@
 /** Direct profile lookup — only the real ID shared by a member can open it. */
 import { useState } from "react";
 import "@/components/discovery-workspace.css";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
+import Link from "@/components/LocaleLink";
+
 import { Duo } from "@/lib/duo";
 import { useLang } from "@/lib/lang";
 import { Button, Card, CardBody, Field } from "@/components/ui";
@@ -12,7 +12,7 @@ import { Button, Card, CardBody, Field } from "@/components/ui";
 export default function SearchIndexPage() {
   const { lang } = useLang();
   const te = lang === "te";
-  const router = useRouter();
+  const router = useLocaleRouter();
   const [id, setId] = useState("");
 
   const go = () => {
@@ -106,3 +106,5 @@ export default function SearchIndexPage() {
     </div>
   );
 }
+
+import {useLocaleRouter} from "@/lib/locale-navigation";

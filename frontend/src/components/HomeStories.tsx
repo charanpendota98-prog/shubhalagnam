@@ -8,7 +8,7 @@
  * section disappears completely rather than showing invented testimonials.
  */
 
-import Link from "next/link";
+import Link from "@/components/LocaleLink";
 import { useEffect, useState } from "react";
 import { Heart, Quote, Sparkles } from "lucide-react";
 

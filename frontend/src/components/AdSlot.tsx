@@ -6,7 +6,7 @@ import { apiDisplayMessage, readApiJson } from "@/lib/api";
  * No ad → house promo (khaali vaddu, revenue + UX).
  */
 import { useEffect, useState } from "react";
-import Link from "next/link";
+import Link from "@/components/LocaleLink";
 import { useLang } from "@/lib/lang";
 
 type Ad = {

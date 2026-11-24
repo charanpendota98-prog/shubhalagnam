@@ -1,9 +1,10 @@
+import {localeHref} from "./locale-href";
 import {test,expect} from '@playwright/test';
 for(const lang of ['en','te'])for(const width of [320,390,1280])test(`login presentation portable ${lang} ${width}`,async({page})=>{
  await page.setViewportSize({width,height:850});await page.addInitScript(l=>localStorage.setItem('tsap_lang',l),lang);
  const writes:string[]=[];
  await page.route('**/api/**',r=>{const u=new URL(r.request().url());if(r.request().method()!=='GET')writes.push(u.pathname);if(u.pathname==='/api/auth/capabilities')return r.fulfill({json:{password_login:true,phone_otp:false,email_recovery_configured:true,passkeys_configured:false}});if(u.pathname==='/api/auth/forgot-email')return r.fulfill({json:{success:true,message_en:'Fictional recovery requested.',message_telugu:'కల్పిత రికవరీ అభ్యర్థన.'}});return r.fulfill({status:400,json:{detail:'Fictional rejection. No account was changed.'}})});
- await page.goto('/login');const root=page.locator('.mv-login-workspace');await expect(root.locator('#login-phone')).toBeVisible();
+ await page.goto(localeHref('/login',lang));const root=page.locator('.mv-login-workspace');await expect(root.locator('#login-phone')).toBeVisible();
  if(process.env.PROOF_STAGE==='before'){expect(await root.innerText()).toMatch(/\p{Extended_Pictographic}/u);await page.screenshot({path:`artifacts/login-presentation/before-${lang}-${width}.png`});expect(writes).toEqual([]);return;}
  expect(await root.innerText()).not.toMatch(/\p{Extended_Pictographic}/u);await expect(root.locator('h1 svg[aria-hidden=true]')).toHaveCount(1);
  const toggle=root.getByRole('button',{name:lang==='en'?'Show password':'పాస్‌వర్డ్ చూపించండి',exact:true});await expect(toggle.locator('svg[aria-hidden=true]')).toHaveCount(1);await toggle.click();await expect(root.locator('#login-pw')).toHaveAttribute('type','text');await expect(root.getByRole('button',{name:lang==='en'?'Hide password':'పాస్‌వర్డ్ దాచండి',exact:true})).toHaveAttribute('aria-pressed','true');await root.getByRole('button',{name:lang==='en'?'Hide password':'పాస్‌వర్డ్ దాచండి',exact:true}).click();await expect(root.locator('#login-pw')).toHaveAttribute('type','password');

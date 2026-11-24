@@ -43,11 +43,11 @@ const COMPONENTS = {
 };
 
 const MOUNTS = {
-  VerificationProgress: "src/app/verify/page-client.tsx",
-  ProfileInsights: "src/app/search/[id]/ProfileView.tsx",
-  RequestCoach: "src/app/search/[id]/ProfileView.tsx",
-  RequestTimeline: "src/app/search/[id]/ProfileView.tsx",
-  MemberActivity: "src/app/me/page-client.tsx",
+  VerificationProgress: "src/app/(telugu)/verify/page-client.tsx",
+  ProfileInsights: "src/app/(telugu)/search/[id]/ProfileView.tsx",
+  RequestCoach: "src/app/(telugu)/search/[id]/ProfileView.tsx",
+  RequestTimeline: "src/app/(telugu)/search/[id]/ProfileView.tsx",
+  MemberActivity: "src/app/(telugu)/me/page-client.tsx",
 };
 
 const MOUNT_PAGES = [...new Set(Object.values(MOUNTS))].map((relative) =>

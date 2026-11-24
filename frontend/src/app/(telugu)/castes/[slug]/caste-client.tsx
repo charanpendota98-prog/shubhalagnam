@@ -3,7 +3,7 @@
 import "@/components/community-workspace.css";
 
 /** /castes/[slug] body — neat Telugu / clean English via toggle (SEO shell stays server). */
-import Link from "next/link";
+import Link from "@/components/LocaleLink";
 import { CASTES, DISTRICTS, buildSlug } from "@/lib/seo-pages";
 import { ALL_CHANNELS, CHANNEL_STATS } from "@/lib/channels";
 import { TelegramIcon, WhatsAppIcon } from "@/components/BrandIcons";
@@ -68,9 +68,9 @@ export default function CasteClient({ caste, role, district, chan, otherChan, fa
               {te ? "📝 ఉచితంగా నమోదు చేయండి" : "📝 Register FREE"}
             </Link>
             {currentLinks.telegram ? (
-              <a href={currentLinks.telegram} target="_blank" rel="noopener noreferrer" className="bg-white/10 border border-white/25 font-bold text-sm px-5 py-3 rounded-xl">
+              <LocaleAnchor href={currentLinks.telegram} target="_blank" rel="noopener noreferrer" className="bg-white/10 border border-white/25 font-bold text-sm px-5 py-3 rounded-xl">
                 📢 {te ? `${myChanLabel} - లిస్టు చేసిన లింక్` : `Open listed ${myChanLabel} link`}
-              </a>
+              </LocaleAnchor>
             ) : (
               <span className="bg-white/10 border border-white/25 font-bold text-sm px-5 py-3 rounded-xl">📢 {te ? "Channel link అందుబాటులో లేదు" : "Channel link not listed"}</span>
             )}
@@ -172,32 +172,32 @@ export default function CasteClient({ caste, role, district, chan, otherChan, fa
             </div>
             <div className="mt-3 space-y-2">
               {currentLinks.telegram ? (
-                <a href={currentLinks.telegram} target="_blank" rel="noopener noreferrer"
+                <LocaleAnchor href={currentLinks.telegram} target="_blank" rel="noopener noreferrer"
                   className="flex items-center justify-center gap-2 w-full bg-[#229ED9] text-white font-bold text-[13px] py-2.5 rounded-xl shadow-soft hover:brightness-110 active:scale-[0.97] transition">
                   <TelegramIcon className="w-4 h-4" mono />
                   {te ? "లిస్టు చేసిన Telegram link తెరవండి" : "Open listed Telegram link"}
-                </a>
+                </LocaleAnchor>
               ) : null}
               {currentLinks.whatsapp ? (
-                <a href={currentLinks.whatsapp} target="_blank" rel="noopener noreferrer"
+                <LocaleAnchor href={currentLinks.whatsapp} target="_blank" rel="noopener noreferrer"
                   className="flex items-center justify-center gap-2 w-full bg-gradient-to-r from-[#128C4A] to-[#20bd5a] text-white font-bold text-[13px] py-2.5 rounded-xl shadow-soft hover:brightness-105 active:scale-[0.97] transition"
                   title={te ? "బాహ్య WhatsApp లింక్; availability తనిఖీ చేయబడదు" : "External WhatsApp link; availability is not checked"}>
                   <WhatsAppIcon className="w-4 h-4" mono />
                   {currentLinks.whatsappIsDirect
                     ? (te ? "లిస్టు చేసిన WhatsApp channel తెరవండి" : "Open listed WhatsApp channel")
                     : (te ? "Configured WhatsApp support తెరవండి" : "Open configured WhatsApp support")}
-                </a>
+                </LocaleAnchor>
               ) : (
                 <div className="rounded-xl border border-white/20 px-3 py-2 text-center text-[11px] text-white/75">
                   {te ? "WhatsApp destination లిస్టులో లేదు" : "No WhatsApp destination listed"}
                 </div>
               )}
               {otherLinks.telegram ? (
-                <a href={otherLinks.telegram} target="_blank" rel="noopener noreferrer"
+                <LocaleAnchor href={otherLinks.telegram} target="_blank" rel="noopener noreferrer"
                   className="flex items-center justify-center gap-2 w-full border border-white/25 text-white font-bold text-[12px] py-2 rounded-xl hover:bg-white/10 transition">
                   <TelegramIcon className="w-3.5 h-3.5" mono />
                   {te ? `${otherChanLabel} — listed Telegram link` : `${otherChanLabel} — listed Telegram link`}
-                </a>
+                </LocaleAnchor>
               ) : null}
             </div>
             <p className="mt-2 text-[10px] leading-relaxed opacity-70">{te ? "లింకులు directory లో ఉన్నవి మాత్రమే; external availability తనిఖీ చేయబడదు." : "Links are directory listings; external availability is not checked."}</p>
@@ -309,3 +309,5 @@ function RelatedCastes({ te, casteKey, role, districtSlug }: {
     </div>
   );
 }
+
+import LocaleAnchor from "@/components/LocaleAnchor";

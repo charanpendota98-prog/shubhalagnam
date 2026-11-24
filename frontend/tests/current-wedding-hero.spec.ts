@@ -1,3 +1,4 @@
+import {localeHref} from "./locale-href";
 import {test,expect} from '@playwright/test';
 import fs from 'node:fs';
 const out=process.env.MV_QA_OUTPUT_DIR||'artifacts/current-wedding-hero';fs.mkdirSync(out,{recursive:true});
@@ -6,7 +7,7 @@ for(const lang of ['en','te'])for(const width of [320,390,1280])test(`current we
  await page.route('**/api/**',r=>r.fulfill({json:{success:true,items:[],rows:[],stories:[],banners:[],ads:[],free_first:3}}));
  const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
  for(const reduced of [false,true]){
-  await page.emulateMedia({reducedMotion:reduced?'reduce':'no-preference'});await page.goto('/');
+  await page.emulateMedia({reducedMotion:reduced?'reduce':'no-preference'});await page.goto(localeHref('/',lang));
   await page.getByRole('button',{name:lang==='en'?'Show in English':'తెలుగులో చూపించండి',exact:true}).first().click();
   const hero=page.locator('.wedding-editorial'),title=hero.locator('h1');await expect(hero).toHaveCount(1);await expect(title).toHaveCount(1);await expect(title).toHaveText(lang==='en'?'Two hearts.One beautiful beginning.':'రెండు మనసులు.ఒక అందమైన ఆరంభం.');await expect(title).toBeVisible();await page.evaluate(()=>document.fonts.ready);
   for(const time of [0,200,600,1000]){

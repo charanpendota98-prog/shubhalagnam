@@ -1,3 +1,4 @@
+import {localeHref} from "./locale-href";
 import {test,expect} from '@playwright/test';
 import fs from 'node:fs';
 import {registrationReligionPayload} from '../src/lib/registration-religion';
@@ -8,7 +9,7 @@ async function intercept(page:any){await page.route('**/api/**',(r:any)=>r.reque
 for(const religion of ['Hindu','Muslim','Christian',''])test(`outgoing religion payload ${religion||'neutral'} excludes only irrelevant draft references`,()=>{const source=draft(religion);const copy={...source};const payload=registrationReligionPayload(source);expect(source).toEqual(copy);expect(payload.full_name).toBe(source.full_name);expect(payload.caste).toBe(source.caste);for(const [key,value]of Object.entries(markers))expect(payload[key]).toBe(religion==='Hindu'?value:'');});
 for(const lang of ['en','te'])for(const width of [320,390,1280]){
  test(`religion is first in quick and full registration ${lang} ${width}`,async({page})=>{
-  await page.setViewportSize({width,height:1000});await page.addInitScript(l=>localStorage.setItem('tsap_lang',l),lang);await intercept(page);await page.goto('/register');
+  await page.setViewportSize({width,height:1000});await page.addInitScript(l=>localStorage.setItem('tsap_lang',l),lang);await intercept(page);await page.goto(localeHref('/register',lang));
   for(const mode of ['quick','full']){
    if(mode==='full')await page.getByRole('button',{name:/5-step full registration|5-దశల పూర్తి నమోదు/}).click();
    const choice=page.locator('#'+mode+'-religion');await expect(choice).toHaveValue('');
@@ -17,7 +18,7 @@ for(const lang of ['en','te'])for(const width of [320,390,1280]){
   }
  });
  for(const faith of ['Hindu','Muslim','Christian'])test(`full community and astrology branch ${faith} ${lang} ${width}`,async({page})=>{
-  await page.setViewportSize({width,height:1000});await page.addInitScript(({l,data})=>{localStorage.setItem('tsap_lang',l);localStorage.setItem('shubhalagnam_reg_draft_v6',JSON.stringify({step:2,data}));},{l:lang,data:draft(faith)});await intercept(page);await page.goto('/register');await page.getByRole('button',{name:lang==='en'?'Resume':'కొనసాగించండి',exact:true}).click();await page.getByRole('button',{name:/5-step full registration|5-దశల పూర్తి నమోదు/}).click();
+  await page.setViewportSize({width,height:1000});await page.addInitScript(({l,data})=>{localStorage.setItem('tsap_lang',l);localStorage.setItem('shubhalagnam_reg_draft_v6',JSON.stringify({step:2,data}));},{l:lang,data:draft(faith)});await intercept(page);await page.goto(localeHref('/register',lang));await page.getByRole('button',{name:lang==='en'?'Resume':'కొనసాగించండి',exact:true}).click();await page.getByRole('button',{name:/5-step full registration|5-దశల పూర్తి నమోదు/}).click();
   const heading=page.locator('.mv-register-step-header h2');await expect(heading).toContainText(faith==='Hindu'?(lang==='en'?'Caste & Astrology':'కులం & జ్యోతిషం'):(lang==='en'?'Community':'సంఘం'));
   await expect(page.getByLabel('Gothram',{exact:false})).toHaveCount(faith==='Hindu'?1:0);await expect(page.getByLabel(lang==='en'?'Nakshatram':'నక్షత్రం',{exact:true})).toHaveCount(faith==='Hindu'?1:0);await expect(page.getByLabel(lang==='en'?'Rasi':'రాశి',{exact:true})).toHaveCount(faith==='Hindu'?1:0);
   await heading.scrollIntoViewIfNeeded();expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);await page.screenshot({animations:'disabled',path:`${out}/${lang}-${width}-${faith}.png`});const panel=page.locator('.mv-register-step-header').locator('..');const box=await panel.boundingBox();await page.setViewportSize({width,height:Math.ceil(box!.height)+240});await panel.screenshot({animations:'disabled',path:`${out}/${lang}-${width}-${faith}-panel.png`});

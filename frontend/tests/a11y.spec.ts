@@ -1,3 +1,4 @@
+import {localeHref} from "./locale-href";
 import { test, expect } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 
@@ -92,7 +93,7 @@ for (const lang of ["en", "te"]) {
       success: true, total: 1, next_offset: null,
       results: [{ tsap_id: "SYN-A11Y", full_name: "Fictional accessibility profile", gender: "Bride", age: 28, caste: "Kapu", district: "Hyderabad", state: "TS", photo_private: true, photo_url: "" }],
     } }));
-    await page.goto("/matches");
+    await page.goto(localeHref("/matches",lang));
     const share = page.getByRole("button", { name: lang === "te" ? "వాట్సాప్‌లో పంచుకోండి, సంబంధం వివరాలు" : "Share on WhatsApp, profile details", exact: true });
     await expect(share).toBeVisible();
     const visible = (await share.innerText()).replace("💬", "").trim();

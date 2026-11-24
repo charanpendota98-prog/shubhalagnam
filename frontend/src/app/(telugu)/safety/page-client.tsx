@@ -16,7 +16,7 @@ import { Duo, duo } from "@/lib/duo";
 import { useLang } from "@/lib/lang";
 import { authHeaders } from "@/lib/api";
 import { useSession } from "@/lib/auth";
-import Link from "next/link";
+import Link from "@/components/LocaleLink";
 import ScamGuide from "@/components/ScamGuide";
 import { VerificationIcon, verificationLabel } from "@/components/VerificationIcon";
 import { Flag, Ban, ShieldCheck, LockKeyhole, UserRoundCheck, Lightbulb, CircleCheck, Camera, Scale, ThumbsUp, Banknote, House, Smartphone, FileText } from "lucide-react";

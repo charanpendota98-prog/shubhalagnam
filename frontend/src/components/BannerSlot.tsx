@@ -34,7 +34,7 @@ export default function BannerSlot({ page, initialBanners }: { page: string; ini
         );
         const cls = "block rounded-xl bg-gradient-to-r from-amber-100 to-rose-100 border border-amber-200 text-amber-900 px-4 py-2.5";
         return b.link ? (
-          <a key={b.id} href={b.link} className={`${cls} hover:shadow`}>{body} <span className="underline">→</span></a>
+          <LocaleAnchor key={b.id} href={b.link} className={`${cls} hover:shadow`}>{body} <span className="underline">→</span></LocaleAnchor>
         ) : (
           <div key={b.id} className={cls}>{body}</div>
         );
@@ -42,3 +42,5 @@ export default function BannerSlot({ page, initialBanners }: { page: string; ini
     </div>
   );
 }
+
+import LocaleAnchor from "@/components/LocaleAnchor";

@@ -10,7 +10,7 @@
  *     and working block/report actions.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
+import Link from "@/components/LocaleLink";
 import { CalendarDays, Ruler, Landmark, GraduationCap, BriefcaseBusiness, Wallet, MapPin, Star, Heart, Baby, Salad, UserRound, UsersRound, Orbit, LockKeyhole, Ban, Flag, ShieldCheck, LoaderCircle, IdCard, FileText, MessageCircle, type LucideIcon } from "lucide-react";
 import { useParams } from "next/navigation";
 import { ProfileSkeleton } from "@/components/Skeletons";

@@ -94,7 +94,7 @@ eq("bare breadcrumb is just home", communityBreadcrumb().itemListElement.length,
 
 // ---------------------------------------------------------------- wiring
 
-const page = readFileSync(new URL("../src/app/castes/[slug]/page.tsx", import.meta.url), "utf8");
+const page = readFileSync(new URL("../src/app/(telugu)/castes/[slug]/page.tsx", import.meta.url), "utf8");
 check("landing page builds the FAQ", /communityFaq\(/.test(page));
 check("landing page emits FAQ schema", /communityFaqSchema\(/.test(page));
 check("landing page emits breadcrumbs", /communityBreadcrumb\(/.test(page));

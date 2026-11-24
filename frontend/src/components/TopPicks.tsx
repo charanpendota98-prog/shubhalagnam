@@ -1,7 +1,7 @@
 "use client";
 /** Owner-only profile list; no compatibility score or preference-count ranking is shown. */
 import { useEffect, useState } from "react";
-import Link from "next/link";
+import Link from "@/components/LocaleLink";
 import { apiDisplayMessage, apiGet } from "@/lib/api";
 import { firstName } from "@/lib/names";
 import { useLang } from "@/lib/lang";

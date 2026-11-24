@@ -70,8 +70,8 @@ check("P1 manual event listener", "tsap:install-show" in pwa)
 check("P1 iOS steps", "Add to Home Screen" in pwa)
 check("P1 installed detect", "appinstalled" in pwa and "display-mode: standalone" in pwa)
 check("P1 sw register", 'register("/sw.js")' in pwa)
-home = src_page("frontend/src/app/page.tsx")
-layout_src = src_page("frontend/src/app/layout.tsx")
+home = src_page("frontend/src/app/(telugu)/home-client.tsx")
+layout_src = src_page("frontend/src/components/StaticLocaleShell.tsx")
 check("P1 install prompt component is mounted globally", "<PWA />" in layout_src)
 check("P1 bilingual install guidance stays in the prompt", "మన వివాహను హోమ్ స్క్రీన్‌కు జోడించండి" in pwa
       and "Add Mana Vivaha to your home screen" in pwa)
@@ -317,8 +317,8 @@ check("B3 guide truthfully excludes media/secrets and requires off-host restore 
       and "off-host" in backup_guide
       and "NO-GO" in backup_guide)
 check("B3 gitignore backups", "backend/backups/" in src_page(".gitignore"))
-own = src_page("frontend/src/app/owner/page.tsx")
-owner_client = src_page("frontend/src/app/owner/page-client.tsx")
+own = src_page("frontend/src/app/(telugu)/owner/page.tsx")
+owner_client = src_page("frontend/src/app/(telugu)/owner/page-client.tsx")
 check("B3 owner backup card", "/api/admin/backup/export" in owner_client
       and "/api/admin/backup/import" in owner_client)
 check("B3 owner backup copy does not claim the ZIP restores the whole site",

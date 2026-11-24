@@ -4,7 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 const source = fs.readFileSync(
-  path.join(process.cwd(), "src/app/register/page-client.tsx"),
+  path.join(process.cwd(), "src/app/(telugu)/register/page-client.tsx"),
   "utf8",
 );
 

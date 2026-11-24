@@ -2,7 +2,7 @@
 import "@/components/trust-workspace.css";
 
 /** 🔒 PRIVACY POLICY — neat Telugu / clean English via toggle. DPDP Act 2023 (India). */
-import Link from "next/link";
+import Link from "@/components/LocaleLink";
 import { SITE_CONFIG } from "@/lib/site-config";
 import { POLICY_SUPPORT_EMAIL } from "@/lib/policy-facts";
 import { useLang } from "@/lib/lang";
@@ -218,7 +218,7 @@ export default function PrivacyPage() {
       <div className="mt-8 rounded-2xl border border-gray-200 bg-white p-5 text-xs text-gray-700">
         <div className="font-bold text-[#7A0C2E]">{te ? "Privacy / grievance contact" : "Privacy / grievance contact"}</div>
         <div className="mt-2 space-y-1">
-          {POLICY_SUPPORT_EMAIL ? <div>Email: <a className="underline break-all" href={`mailto:${POLICY_SUPPORT_EMAIL}`}>{POLICY_SUPPORT_EMAIL}</a></div> : null}
+          {POLICY_SUPPORT_EMAIL ? <div>Email: <LocaleAnchor className="underline break-all" href={`mailto:${POLICY_SUPPORT_EMAIL}`}>{POLICY_SUPPORT_EMAIL}</LocaleAnchor></div> : null}
           {SITE_CONFIG.owner.contactNumber ? <div>WhatsApp/Phone: {SITE_CONFIG.owner.contactNumber}</div> : null}
           {SITE_CONFIG.owner.location ? <div>Address: {SITE_CONFIG.owner.location}</div> : null}
           <div>{te ? "Response: 15 రోజుల్లో (complaint acknowledge 48h లోపు)" : "Response: within 15 days (complaint acknowledged within 48h)"}</div>
@@ -246,3 +246,5 @@ function Section({ title, children }: { title: string; children: React.ReactNode
     </section>
   );
 }
+
+import LocaleAnchor from "@/components/LocaleAnchor";

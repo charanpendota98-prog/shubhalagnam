@@ -8,7 +8,7 @@ import { readApiJson } from "@/lib/api";
  * Wave 31: mock stats + fake clients deleted; tiers = /api/meta/home-stats bureau truth.
  */
 import { useEffect, useState } from "react";
-import Link from "next/link";
+import Link from "@/components/LocaleLink";
 import { useLang } from "@/lib/lang";
 import PayBox from "@/components/PayBox";
 import BureauWorkspaceConsole from "@/components/BureauWorkspaceConsole";

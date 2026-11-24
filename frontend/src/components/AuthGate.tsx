@@ -8,7 +8,7 @@
  * account with no verified email has no automatic recovery, and we say so
  * instead of promising a reset link that will not come.
  */
-import Link from "next/link";
+import Link from "@/components/LocaleLink";
 import { LockKeyhole, KeyRound, UserPlus } from "lucide-react";
 import { useLang } from "@/lib/lang";
 

@@ -1,14 +1,15 @@
+import {translateMetadata} from "@/lib/locale-metadata";
 import type { Metadata } from "next";
 import MuhurthamPageClient from "./page-client";
 import Breadcrumbs, { type Crumb } from "@/components/Breadcrumbs";
 import FaqBlock from "@/components/FaqBlock";
 import { buildPageSeo } from "@/lib/page-seo";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = translateMetadata({
   title: "Wedding Muhurtham Dates & Times",
   description: "Browse indicative wedding muhurtham dates and times. Confirm the details with a local practitioner before making arrangements.",
   alternates: { canonical: "https://manavivaha.in/muhurtham" },
-};
+},"/muhurtham","te");
 
 const TRAIL: Crumb[] = [
   { en: "Home", te: "హోమ్", href: "/" },

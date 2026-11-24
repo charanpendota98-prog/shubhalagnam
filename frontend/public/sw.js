@@ -1,6 +1,6 @@
 /* Public app shell only. Member data and guarded media stay network-only. */
-const VERSION = "mv-v8-2026-11-private-cache";
-const SHELL = ["/", "/matches", "/register", "/porutham", "/safety", "/offline", "/manifest.webmanifest", "/icons/icon-192.png"];
+const VERSION = "mv-v9-2026-11-locale-shell";
+const SHELL = ["/en", "/en/matches", "/en/register", "/en/porutham", "/en/safety", "/en/offline", "/", "/matches", "/register", "/porutham", "/safety", "/offline", "/manifest.webmanifest", "/icons/icon-192.png"];
 const PUBLIC_ROOT_ASSETS = new Set(["/manifest.webmanifest", "/favicon.png", "/logo.png", "/og-image.png", "/dp-tsbride.png", "/dp-tsgroom1.png", "/next.svg", "/vercel.svg"]);
 const PUBLIC_ASSET_PREFIXES = ["/_next/static/", "/icons/", "/editorial/", "/promo/"];
 const isAsset = (url) => PUBLIC_ROOT_ASSETS.has(url.pathname) || PUBLIC_ASSET_PREFIXES.some((prefix) => url.pathname.startsWith(prefix));
@@ -54,7 +54,7 @@ self.addEventListener("fetch", (event) => {
     try { return await store(request, await fetch(request)); }
     catch {
       const hit = isShell(url) ? await cached(request) : undefined;
-      return hit || await cached(new URL("/offline", self.location.origin).href) || Response.error();
+      return hit || await cached(new URL(url.pathname === "/en" || url.pathname.startsWith("/en/") ? "/en/offline" : "/offline", self.location.origin).href) || Response.error();
     }
   })());
 });

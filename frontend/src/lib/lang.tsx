@@ -4,7 +4,7 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useS
 import { usePathname } from "next/navigation";
 import { getLocalizedPageMetadata } from "@/lib/metadata-i18n";
 
-import {baseLocalePath,localeHref} from "@/lib/locale-path";
+import {baseLocalePath,localeHref,hasEnglishRoute} from "@/lib/locale-path";
 export type Lang = "te" | "en";
 const STORE_KEY = "tsap_lang";
 const EVENT_NAME = "manavivaha:language";
@@ -68,6 +68,7 @@ export function LangProvider({ children, initialLang = "te" }: { children: React
   }, [initialLang, update]);
 
   const setLang = useCallback((next: Lang) => {
+    if(next === "en" && !hasEnglishRoute(window.location.pathname)) return;
     try {localStorage.setItem(STORE_KEY,next);} catch { /* storage can be disabled */ }
     const target=localeHref(window.location.pathname,next)+window.location.search+window.location.hash;
     if (target!==window.location.pathname+window.location.search+window.location.hash) {window.location.assign(target);return;}
@@ -102,6 +103,8 @@ export function T({ te, en, className = "" }: { te: string; en: string; classNam
 
 export function LangToggle({ compact = false }: { compact?: boolean }) {
   const { lang, setLang } = useLang();
+  const path=usePathname() || "/";
+  if(!hasEnglishRoute(path)) return null;
   return (
     <div
       className={`lang-toggle ${compact ? "lang-toggle--compact" : ""}`}

@@ -11,7 +11,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ChartNoAxesCombined, Check, Compass, Eye, Flame, RefreshCw, Sparkles } from "lucide-react";
-import Link from "next/link";
+import Link from "@/components/LocaleLink";
 import { apiDisplayMessage, apiGet, getTsapId } from "@/lib/api";
 import { useLang } from "@/lib/lang";
 

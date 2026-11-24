@@ -9,7 +9,7 @@ import "@/components/wedding-tools-workspace.css";
  * validated; users are asked to confirm locally before relying on it.
  */
 import { useState, useMemo } from "react";
-import Link from "next/link";
+import Link from "@/components/LocaleLink";
 import Reveal from "@/components/Reveal";
 import VivahaMuhurthamTeaser from "@/components/VivahaMuhurthamTeaser";
 import SectionHeading from "@/components/SectionHeading";
@@ -54,8 +54,8 @@ export default function MuhurthamPage() {
 
   const shareWa = (m: MuhurthamDate) => {
     const text = te
-      ? `💍 మన వివాహ — ముహూర్త తేదీ సూచిక 📅\n🗓️ తేదీ: ${formatMuhurthamDate(m, true)}\n🌙 మాసం: ${formatMuhurthamMonth(m, true)}\n⭐ నక్షత్రం: ${m.nakshatram}\n👑 లగ్నం: ${m.lagnam}\n⏰ సమయం: ${formatMuhurthamTime(m, true)}\n⚠️ ఇది reference సమాచారం మాత్రమే; booking ముందు స్థానికంగా నిర్ధారించండి.\n\nప్రొఫైళ్లు: ${window.location.origin}/matches`
-      : `💍 Mana Vivaha (మన వివాహ) — Muhurtham date reference 📅\nDate: ${formatMuhurthamDate(m, false)}\nMonth: ${formatMuhurthamMonth(m, false)}\nNakshatra: ${formatMuhurthamNakshatra(m, false)}\nAscendant: ${formatMuhurthamLagnam(m, false)}\nThithi: ${formatMuhurthamThithi(m, false)}\nTime: ${formatMuhurthamTime(m, false)}\n⚠️ Reference information only; confirm locally before booking.\n\nProfiles: ${window.location.origin}/matches`;
+      ? `💍 మన వివాహ — ముహూర్త తేదీ సూచిక 📅\n🗓️ తేదీ: ${formatMuhurthamDate(m, true)}\n🌙 మాసం: ${formatMuhurthamMonth(m, true)}\n⭐ నక్షత్రం: ${m.nakshatram}\n👑 లగ్నం: ${m.lagnam}\n⏰ సమయం: ${formatMuhurthamTime(m, true)}\n⚠️ ఇది reference సమాచారం మాత్రమే; booking ముందు స్థానికంగా నిర్ధారించండి.\n\nప్రొఫైళ్లు: ${window.location.origin}${te ? "/matches" : "/en/matches"}`
+      : `💍 Mana Vivaha (మన వివాహ) — Muhurtham date reference 📅\nDate: ${formatMuhurthamDate(m, false)}\nMonth: ${formatMuhurthamMonth(m, false)}\nNakshatra: ${formatMuhurthamNakshatra(m, false)}\nAscendant: ${formatMuhurthamLagnam(m, false)}\nThithi: ${formatMuhurthamThithi(m, false)}\nTime: ${formatMuhurthamTime(m, false)}\n⚠️ Reference information only; confirm locally before booking.\n\nProfiles: ${window.location.origin}${te ? "/matches" : "/en/matches"}`;
     window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank", "noopener,noreferrer");
   };
 

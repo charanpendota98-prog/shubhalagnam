@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 const SITE = process.env.SITE_URL || "https://manavivaha.in";
 const BACKEND = process.env.BACKEND_URL || "http://127.0.0.1:8000";
 
-export async function generateMetadata({
+async function originalMetadata({
   params,
 }: {
   params: Promise<{ slug: string }>;
@@ -44,3 +44,6 @@ export async function generateMetadata({
 export default function CmsSlugLayout({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
+
+import {translateMetadata} from "@/lib/locale-metadata";
+export async function generateMetadata({params}:{params:Promise<{slug:string}>}){const p=await params;return translateMetadata(await originalMetadata({params:Promise.resolve(p)}),"/p/"+encodeURIComponent(p.slug),"te");}

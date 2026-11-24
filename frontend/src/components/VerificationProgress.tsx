@@ -6,7 +6,7 @@
  * step. Verification is described as recorded checks — never as trust.
  */
 import { useCallback, useEffect, useState } from "react";
-import Link from "next/link";
+import Link from "@/components/LocaleLink";
 import { VerificationIcon } from "@/components/VerificationIcon";
 import { apiGet } from "@/lib/api";
 import { useLang } from "@/lib/lang";

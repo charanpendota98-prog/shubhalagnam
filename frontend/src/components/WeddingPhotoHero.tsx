@@ -1,6 +1,6 @@
 "use client";
 import WeddingHeroMotion from "@/components/WeddingHeroMotion";
-import Link from 'next/link';
+import Link from "@/components/LocaleLink";
 import {useLang} from '@/lib/lang';
 import HomeMatchSearch from '@/components/HomeMatchSearch';
 export default function WeddingPhotoHero(){const te=useLang().lang==='te';return <section className="wedding-editorial" aria-label={te?'మన వివాహ పరిచయ వేదిక':'Mana Vivaha matrimony introductions'}>

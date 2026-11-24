@@ -151,7 +151,7 @@ export function StoriesQueue() {
               <span className="ml-auto text-gray-400">{String(s.created_at || "").slice(0, 10)}</span>
             </div>
             <div className="mt-1 text-gray-700">{s.text}</div>
-            {s.photo_url && <a href={s.photo_url} target="_blank" rel="noopener noreferrer" className="mt-1 inline-block font-bold text-[#7A0C2E] underline">🖼️ {te ? "ఫోటో చూడండి" : "View photo"} →</a>}
+            {s.photo_url && <LocaleAnchor href={s.photo_url} target="_blank" rel="noopener noreferrer" className="mt-1 inline-block font-bold text-[#7A0C2E] underline">🖼️ {te ? "ఫోటో చూడండి" : "View photo"} →</LocaleAnchor>}
             {st === "pending" && (
               <div className="mt-2 flex flex-wrap gap-1.5">
                 <input value={note[s.story_id] || ""} onChange={(e) => setNote({ ...note, [s.story_id]: e.target.value })}
@@ -209,7 +209,7 @@ export function LeadsPanel() {
           <div key={l.id} className="rounded-xl border p-3 text-xs">
             <div className="flex flex-wrap items-center gap-2">
               <span className="font-bold">{l.name || (te ? "పేరు ఇవ్వలేదు" : "Name not provided")}</span>
-              {l.phone && whatsappPhoneLink(l.phone) && <a href={whatsappPhoneLink(l.phone) || undefined} target="_blank" rel="noopener noreferrer" className="font-mono font-bold text-green-700 underline">📞 {l.phone}</a>}
+              {l.phone && whatsappPhoneLink(l.phone) && <LocaleAnchor href={whatsappPhoneLink(l.phone) || undefined} target="_blank" rel="noopener noreferrer" className="font-mono font-bold text-green-700 underline">📞 {l.phone}</LocaleAnchor>}
               <span className={`px-2 py-0.5 rounded-full font-bold ${l.status === "converted" ? "bg-green-100 text-green-700" : l.status === "contacted" ? "bg-blue-100 text-blue-700" : "bg-orange-100 text-orange-700"}`}>{te ? ({ new: "కొత్తది", contacted: "సంప్రదించారు", converted: "మార్చబడింది" } as Record<string, string>)[l.status] || l.status : ({ new: "New", contacted: "Contacted", converted: "Converted" } as Record<string, string>)[l.status] || localizedCode(l.status, false, "Unknown")}</span>
               <span className="text-gray-500">{l.gender} {l.age} • {l.district} {l.caste} • {l.source}</span>
               <span className="ml-auto text-gray-400">{te ? "ఫాలో-అప్‌లు:" : "Follow-ups:"} {l.touches ?? 1} • {String(l.at || "").slice(0, 16).replace("T", " ")}</span>
@@ -399,3 +399,5 @@ export function PersonalizedDigestPanel() {
     </div>
   );
 }
+
+import LocaleAnchor from "@/components/LocaleAnchor";

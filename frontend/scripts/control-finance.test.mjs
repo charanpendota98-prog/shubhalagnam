@@ -7,7 +7,7 @@ const root = path.resolve(new URL("..", import.meta.url).pathname);
 const dashboard = fs.readFileSync(path.join(root, "src/components/control/Dashboard.tsx"), "utf8");
 const payBox = fs.readFileSync(path.join(root, "src/components/PayBox.tsx"), "utf8");
 const quickUnlock = fs.readFileSync(path.join(root, "src/components/QuickUnlockModal.tsx"), "utf8");
-const blogPage = fs.readFileSync(path.join(root, "src/app/blog/[slug]/page.tsx"), "utf8");
+const blogPage = fs.readFileSync(path.join(root, "src/app/(telugu)/blog/[slug]/page.tsx"), "utf8");
 const backendMain = fs.readFileSync(path.join(root, "..", "backend/main.py"), "utf8");
 
 

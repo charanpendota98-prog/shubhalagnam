@@ -1,6 +1,6 @@
 "use client";
 import Link from "@/components/LocaleLink";
-import { usePathname, useRouter } from "next/navigation";
+
 import { useEffect, useRef, useState } from "react";
 import { SITE_CONFIG } from "@/lib/site-config";
 import { useSession, logout } from "@/lib/auth";
@@ -120,8 +120,8 @@ const NAV_DESKTOP_MORE: NavItem[] = [
 
 export default function SiteHeader() {
   const duo = useDuo();
-  const pathname = baseLocalePath(usePathname() || "/");
-  const router = useRouter();
+  const pathname = baseLocalePath(useBasePathname() || "/");
+  const router = useLocaleRouter();
   const { lang } = useLang();
   const te = lang === "te";
   const [open, setOpen] = useState(false);
@@ -505,3 +505,5 @@ export default function SiteHeader() {
     </header>
   );
 }
+
+import {useLocaleRouter,useBasePathname} from "@/lib/locale-navigation";

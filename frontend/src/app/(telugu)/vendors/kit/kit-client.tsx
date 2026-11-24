@@ -5,7 +5,7 @@ import "@/components/partner-workspace.css";
 
 import { readApiJson } from "@/lib/api";
 import { useEffect, useState, useRef } from "react";
-import Link from "next/link";
+import Link from "@/components/LocaleLink";
 import { useLang } from "@/lib/lang";
 
 type ShareKit = {

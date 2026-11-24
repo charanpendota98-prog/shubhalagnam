@@ -8,7 +8,8 @@
  * form and a wa.me link leave this page.
  */
 import { Suspense, useEffect, useRef, useState } from "react";
-import Link from "next/link";
+import Link from "@/components/LocaleLink";
+import {useLang} from "@/lib/lang";
 import { apiPost } from "@/lib/api";
 
 type ResolveOk = { ok: true; wa_link: string; phone_masked: string };
@@ -18,16 +19,6 @@ type State =
   | { phase: "error"; message: string }
   | { phase: "login" };
 
-function teluguUi(): boolean {
-  if (typeof window === "undefined") return true;
-  try {
-    const saved = localStorage.getItem("tsap_lang");
-    if (saved === "en") return false;
-    if (saved === "te") return true;
-  } catch { /* default below */ }
-  return document.documentElement.dataset.lang !== "en";
-}
-
 function ResolveInner() {
   // The token rides in the URL fragment: browsers never send it to the server,
   // proxies or Referer headers, so it stays out of access logs. It is read once
@@ -35,7 +26,8 @@ function ResolveInner() {
   const [token, setToken] = useState<string | null>(null);
   const [state, setState] = useState<State>({ phase: "working" });
   const started = useRef(false);
-  const te = teluguUi();
+  const {lang}=useLang();
+  const te = lang === "te";
 
   const fragmentToken = useRef<string | null>(null);
 
@@ -94,10 +86,10 @@ function ResolveInner() {
         <div>
           <p className="text-base font-bold text-emerald-700">{te ? "✅ Contact అందుబాటులో ఉంది" : "✅ Contact is available"}</p>
           {state.masked ? <p className="mt-1 text-sm text-slate-600">{state.masked}</p> : null}
-          <a href={state.waLink} target="_blank" rel="noopener noreferrer"
+          <LocaleAnchor href={state.waLink} target="_blank" rel="noopener noreferrer"
             className="mt-4 inline-block rounded-xl bg-emerald-600 px-6 py-3 text-sm font-bold text-white">
             💬 {te ? "WhatsApp ఓపెన్ చేయండి" : "Open WhatsApp"}
-          </a>
+          </LocaleAnchor>
           <p className="mt-3 text-[12px] text-slate-500">{te ? "నంబర్ ఈ పేజీలో చూపించము — WhatsApp లోనే సంభాషణ కొనసాగుతుంది." : "The number is not shown on this page — the conversation continues in WhatsApp."}</p>
         </div>
       ) : null}
@@ -112,3 +104,5 @@ export default function ContactResolvePage() {
     </Suspense>
   );
 }
+
+import LocaleAnchor from "@/components/LocaleAnchor";

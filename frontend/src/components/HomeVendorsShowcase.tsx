@@ -7,7 +7,7 @@ import { apiDisplayMessage, readApiJson } from "@/lib/api";
  * Shows only vendors returned by the directory API; never substitutes fabricated businesses.
  */
 import { useEffect, useState } from "react";
-import Link from "next/link";
+import Link from "@/components/LocaleLink";
 import { useLang } from "@/lib/lang";
 import { WhatsAppIcon } from "@/components/BrandIcons";
 import { safeWhatsAppPhoneLink } from "@/lib/wa";
@@ -230,12 +230,12 @@ export default function HomeVendorsShowcase() {
               {/* Action Buttons */}
               <div className="grid grid-cols-2 gap-2 mt-3 pt-2">
                 {safeWhatsAppPhoneLink(String(te ? (v.whatsapp_link_te || v.whatsapp_link || "") : (v.whatsapp_link_en || ""))) ? (
-                  <a href={safeWhatsAppPhoneLink(String(te ? (v.whatsapp_link_te || v.whatsapp_link || "") : (v.whatsapp_link_en || ""))) || ""} target="_blank" rel="noopener noreferrer"
+                  <LocaleAnchor href={safeWhatsAppPhoneLink(String(te ? (v.whatsapp_link_te || v.whatsapp_link || "") : (v.whatsapp_link_en || ""))) || ""} target="_blank" rel="noopener noreferrer"
                     aria-label={te ? `${v.business_name} కు WhatsApp enquiry పంపండి` : `Send a WhatsApp enquiry to ${v.business_name}`}
                     className="min-h-10 py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition text-center">
                     <WhatsAppIcon className="w-3.5 h-3.5 fill-current" aria-hidden="true" />
                     <span>{te ? "వాట్సాప్ విచారణ" : "WhatsApp enquiry"}</span>
-                  </a>
+                  </LocaleAnchor>
                 ) : <span className="min-h-10 py-2 px-3 rounded-xl bg-gray-100 text-gray-500 text-xs text-center flex items-center justify-center">{te ? "సంప్రదింపు అందుబాటులో లేదు" : "Contact unavailable"}</span>}
                 <Link
                   href={`/vendors/${v.id}`}
@@ -270,3 +270,5 @@ export default function HomeVendorsShowcase() {
     </section>
   );
 }
+
+import LocaleAnchor from "@/components/LocaleAnchor";

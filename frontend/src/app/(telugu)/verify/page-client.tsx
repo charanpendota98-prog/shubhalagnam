@@ -6,7 +6,7 @@ import "@/components/trust-workspace.css";
  * Screenshot 6 standard: Verify Profile + Skip + "Verify with a live selfie" card.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
-import Link from "next/link";
+import Link from "@/components/LocaleLink";
 import { Camera, UserRound, CircleCheck, Clock3, CircleAlert, ShieldCheck, RefreshCw } from "lucide-react";
 import { VerificationIcon, verificationLabel } from "@/components/VerificationIcon";
 import { Duo, useDuo } from "@/lib/duo";

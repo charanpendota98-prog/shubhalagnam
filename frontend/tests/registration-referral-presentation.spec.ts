@@ -1,3 +1,4 @@
+import {localeHref} from "./locale-href";
 import {test,expect} from '@playwright/test';
 import fs from 'node:fs';
 fs.mkdirSync('artifacts/registration-referral-presentation',{recursive:true});
@@ -7,7 +8,7 @@ for(const lang of ['en','te'])for(const width of [320,390,1280])test(`referral p
  await page.route('**/api/**',r=>{if(r.request().method()!=='GET')writes++;
  if(r.request().url().includes('/api/referral/validate/'))return r.fulfill({json:{success:true,ok:true,valid_code:true,code:'MVREFTEST',referrer_name:long?'F'.repeat(200):'Fixture Referrer',bonus_credits:credits}});
  return r.fulfill({json:{success:true,castes:['Kapu'],items:[]}});});
- await page.goto('/register?ref=MVREFTEST');const banner=page.getByTestId('registration-referral-banner');await expect(banner).toContainText('Fixture Referrer');
+ await page.goto(localeHref('/register?ref=MVREFTEST',lang));const banner=page.getByTestId('registration-referral-banner');await expect(banner).toContainText('Fixture Referrer');
  await expect(banner).toContainText(lang==='en'?'Eligible for +2':'అదనపు పరిచయ అభ్యర్థనలకు అర్హత');
  await expect(banner).toContainText(lang==='en'?'not cash':'నగదు కావు');await expect(banner.locator('svg')).toHaveCount(1);await expect(banner.locator('svg')).toHaveAttribute('aria-hidden','true');await expect(banner).not.toContainText('🎁');
  if(lang==='te')expect(await banner.innerText()).not.toMatch(/referral|attachment|interest|request|credit|cash|contact|unlock|valid/i);

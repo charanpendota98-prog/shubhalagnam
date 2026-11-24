@@ -1,0 +1,590 @@
+[
+  {
+    "file": "tests/a11y.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/accept-next-steps.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/account-content-icons.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/account-icon-portability.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/account-workspace-preview.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/alert-preference-feedback.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/alert-preference-read.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/appeal-resolution-feedback.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/assist-feedback.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/biodata-long-name.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/biodata-religion-contract.spec.ts",
+    "gotos": 3
+  },
+  {
+    "file": "tests/biodata-religion-output.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/block-checkpoint-feedback.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/briefing-portable-copy.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/campaign-request-recovery.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/campaign-response-integrity.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/community-discovery-preview.spec.ts",
+    "gotos": 2
+  },
+  {
+    "file": "tests/community-landing-copy.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/contact-qr.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/cookie-session-saved-search.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/creator-campaigns.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/credit-receipt-read.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/current-wedding-hero.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/device-session-read.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/discovery-navigation-preview.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/discovery-utilities-preview.spec.ts",
+    "gotos": 4
+  },
+  {
+    "file": "tests/editorial-community-preview.spec.ts",
+    "gotos": 4
+  },
+  {
+    "file": "tests/elder-note-privacy-warning.spec.ts",
+    "gotos": 2
+  },
+  {
+    "file": "tests/events-rsvp-review.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/export-download-feedback.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/factual-policy-preview.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/final-connected-review.spec.ts",
+    "gotos": 2
+  },
+  {
+    "file": "tests/fresh-user-bugs.spec.ts",
+    "gotos": 2
+  },
+  {
+    "file": "tests/header-fit.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/hero-wedding-motion.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/home-biodata-empty.spec.ts",
+    "gotos": 2
+  },
+  {
+    "file": "tests/home-search-telugu.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/home-workspace-preview.spec.ts",
+    "gotos": 4
+  },
+  {
+    "file": "tests/login-confirmation-integrity.spec.ts",
+    "gotos": 3
+  },
+  {
+    "file": "tests/login-presentation-portability.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/login-response-ownership.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/login-workspace-preview.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/logout-device-status.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/match-card-actions.spec.ts",
+    "gotos": 2
+  },
+  {
+    "file": "tests/match-filter-career.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/match-range-controls.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/matches-toolbar-fit.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/matches-workspace-preview.spec.ts",
+    "gotos": 4
+  },
+  {
+    "file": "tests/member-tab-labels.spec.ts",
+    "gotos": 2
+  },
+  {
+    "file": "tests/menu-core-destinations.spec.ts",
+    "gotos": 2
+  },
+  {
+    "file": "tests/missing-options-preview.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/mobile-filter-registration.spec.ts",
+    "gotos": 2
+  },
+  {
+    "file": "tests/original-home-editorial.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/owner-command-center.spec.ts",
+    "gotos": 2
+  },
+  {
+    "file": "tests/partner-preferences-lifecycle.spec.ts",
+    "gotos": 2
+  },
+  {
+    "file": "tests/partner-preferences-ranges.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/partner-referral-preview.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/partner-registration-integrity.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/photo-permission-read.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/photo-review-revision.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/private-offline-preview.spec.ts",
+    "gotos": 2
+  },
+  {
+    "file": "tests/private-photo-consent.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/profile-action-targets.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/profile-editor-read.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/profile-guidance-portability.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/profile-safety-portability.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/profile-shortlist-state.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/profile-unavailable-heading.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/profile-workspace-preview.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/proposal-factual-wording.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/proposal-modal-keyboard.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/proposal-preview-portability.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/proposal-ui-clarity.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/pwa-cache-copy.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/pwa-guidance-presentation.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/recovery-password-length.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/referral-landing-integrity.spec.ts",
+    "gotos": 2
+  },
+  {
+    "file": "tests/referral-landing-presentation.spec.ts",
+    "gotos": 2
+  },
+  {
+    "file": "tests/referral-payout-presentation.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/referral-pro-acceptance.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/register-religion-fields.spec.ts",
+    "gotos": 2
+  },
+  {
+    "file": "tests/register-workspace-preview.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/registration-feedback.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/registration-form-portability.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/registration-name-feedback.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/registration-referral-confirmation.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/registration-referral-presentation.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/religion-scope.spec.ts",
+    "gotos": 2
+  },
+  {
+    "file": "tests/remarriage-filters.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/request-contact-labels.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/request-credit-policy.spec.ts",
+    "gotos": 2
+  },
+  {
+    "file": "tests/requests-error-portability.spec.ts",
+    "gotos": 2
+  },
+  {
+    "file": "tests/requests-workspace-preview.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/resilience-presentation.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/restricted-operations-preview.spec.ts",
+    "gotos": 7
+  },
+  {
+    "file": "tests/safety-block-list-read.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/safety-factual-copy.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/safety-scam-guide.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/safety-session-owner.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/saved-search-layer.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/saved-search-read-integrity.spec.ts",
+    "gotos": 2
+  },
+  {
+    "file": "tests/saved-search-retry.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/saved-search-write-integrity.spec.ts",
+    "gotos": 2
+  },
+  {
+    "file": "tests/secondary-account-reads.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/selfie-review-state.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/shared-landmarks.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/shortlist-intent.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/shortlist-read-integrity.spec.ts",
+    "gotos": 4
+  },
+  {
+    "file": "tests/static-main-content.spec.ts",
+    "gotos": 2
+  },
+  {
+    "file": "tests/support-ticket-feedback.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/support-ticket-read.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/trust-pages-preview.spec.ts",
+    "gotos": 3
+  },
+  {
+    "file": "tests/verification-auth-svg.spec.ts",
+    "gotos": 3
+  },
+  {
+    "file": "tests/verification-parity-fallback.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/verification-review-feedback.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/verification-session-owner.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/wedding-preview.spec.ts",
+    "gotos": 2
+  },
+  {
+    "file": "tests/wedding-tools-export-accessibility.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/wedding-tools-preview.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/workspace-heading-ownership.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/briefing-read-integrity.spec.ts",
+    "calls": 2
+  },
+  {
+    "file": "tests/compare-read-integrity.spec.ts",
+    "calls": 1
+  },
+  {
+    "file": "tests/creator-club.spec.ts",
+    "calls": 1
+  },
+  {
+    "file": "tests/login-confirmation-status.spec.ts",
+    "calls": 1
+  },
+  {
+    "file": "tests/match-read-integrity.spec.ts",
+    "calls": 2
+  },
+  {
+    "file": "tests/member-activity-read.spec.ts",
+    "calls": 1
+  },
+  {
+    "file": "tests/partner-dashboard-response-integrity.spec.ts",
+    "calls": 3
+  },
+  {
+    "file": "tests/partner-payout-acknowledgement.spec.ts",
+    "calls": 1
+  },
+  {
+    "file": "tests/partner-private-isolation.spec.ts",
+    "calls": 1
+  },
+  {
+    "file": "tests/passkey-login-contract.spec.ts",
+    "calls": 1
+  },
+  {
+    "file": "tests/payment-panel.spec.ts",
+    "calls": 2
+  },
+  {
+    "file": "tests/photo-face-eligibility.spec.ts",
+    "calls": 1
+  },
+  {
+    "file": "tests/profile-editor-completion.spec.ts",
+    "calls": 1
+  },
+  {
+    "file": "tests/proposal-action-feedback.spec.ts",
+    "calls": 1
+  },
+  {
+    "file": "tests/referral-highlight.spec.ts",
+    "calls": 1
+  },
+  {
+    "file": "tests/referral-payout-acknowledgement.spec.ts",
+    "calls": 2
+  },
+  {
+    "file": "tests/referral-refresh.spec.ts",
+    "calls": 3
+  },
+  {
+    "file": "tests/register-submit-preview.spec.ts",
+    "calls": 1
+  },
+  {
+    "file": "tests/registration-confirmation-integrity.spec.ts",
+    "calls": 1
+  },
+  {
+    "file": "tests/registration-email-confirmation.spec.ts",
+    "calls": 1
+  },
+  {
+    "file": "tests/registration-email-resend.spec.ts",
+    "calls": 1
+  },
+  {
+    "file": "tests/registration-passkey-capabilities.spec.ts",
+    "calls": 1
+  },
+  {
+    "file": "tests/registration-passkey-confirmation.spec.ts",
+    "calls": 1
+  },
+  {
+    "file": "tests/registration-result-portability.spec.ts",
+    "calls": 1
+  },
+  {
+    "file": "tests/requests-read-integrity.spec.ts",
+    "calls": 2
+  },
+  {
+    "file": "tests/requests-secondary-integrity.spec.ts",
+    "calls": 2
+  },
+  {
+    "file": "tests/shortlist-write-integrity.spec.ts",
+    "calls": 1
+  }
+]

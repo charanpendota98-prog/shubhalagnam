@@ -71,5 +71,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     priority: 0.78,
   }));
 
-  return [...base.map(r=>[`${SITE}/`,`${SITE}/safety`].includes(r.url)?{...r,alternates:{languages:{"te-IN":r.url,"en-IN":r.url===`${SITE}/`?`${SITE}/en`:`${SITE}/en/safety`,"x-default":r.url}}}:r), ...base.filter(r=>[`${SITE}/`,`${SITE}/safety`].includes(r.url)).map(r=>({...r,url:r.url===`${SITE}/`?`${SITE}/en`:`${SITE}/en/safety`,alternates:{languages:{"te-IN":r.url,"en-IN":r.url===`${SITE}/`?`${SITE}/en`:`${SITE}/en/safety`,"x-default":r.url}}})), ...seo, ...districtSeo, ...blog];
+  const all=[...base,...seo,...districtSeo,...blog];
+  const languages=(url:string)=>({"te-IN":url,"en-IN":url===`${SITE}/`?`${SITE}/en`:url.replace(SITE,`${SITE}/en`),"x-default":url});
+  return all.flatMap(row=>[{...row,alternates:{languages:languages(row.url)}},{...row,url:languages(row.url)["en-IN"],alternates:{languages:languages(row.url)}}]);
 }

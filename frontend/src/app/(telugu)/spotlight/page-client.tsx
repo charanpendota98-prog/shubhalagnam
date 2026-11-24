@@ -8,7 +8,7 @@ import "@/components/community-workspace.css";
  * Payment and media are reviewed; this is not an identity check or reach guarantee.
  */
 import { useEffect, useState } from "react";
-import Link from "next/link";
+import Link from "@/components/LocaleLink";
 import { useLang } from "@/lib/lang";
 import { Duo } from "@/lib/duo";
 import { apiDisplayMessage, authHeaders, readApiJson } from "@/lib/api";
@@ -300,10 +300,10 @@ export default function SpotlightPromotionPage() {
                         <p>{te ? "చెల్లింపు కోసం ప్రస్తుత merchant UPI ID:" : "Configured merchant UPI ID for payment:"}</p>
                         <div className="flex min-w-0 flex-col gap-2 rounded-xl border border-amber-200 bg-white p-3 sm:flex-row sm:items-center sm:justify-between">
                           <code className="min-w-0 break-all font-bold text-maroon">{paymentConfig?.upi_id}</code>
-                          <a className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-lg bg-maroon px-3 py-2 text-center font-bold text-white"
+                          <LocaleAnchor className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-lg bg-maroon px-3 py-2 text-center font-bold text-white"
                             href={`upi://pay?pa=${encodeURIComponent(paymentConfig?.upi_id || "")}&pn=${encodeURIComponent("Mana Vivaha")}&am=${planPrice}&cu=INR&tn=${encodeURIComponent(`Spotlight ${selectedPlan}`)}`}>
                             {te ? `UPI యాప్ తెరవండి · ₹${planPrice}` : `Open UPI app · ₹${planPrice}`}
-                          </a>
+                          </LocaleAnchor>
                         </div>
                         <p className="leading-relaxed text-slate-600">
                           {te ? "చెల్లింపు పూర్తయ్యాక UPI statement లోని నిజమైన 12-అంకెల UTR నమోదు చేయండి. UTR సమర్పణ మాత్రమే payment confirmation కాదు; admin బ్యాంక్ స్టేట్‌మెంట్‌తో సరిపోల్చాలి." : "After paying, enter the actual 12-digit UTR from your UPI statement. Submitting a UTR is not payment confirmation; an administrator must match it against the bank statement."}
@@ -387,3 +387,5 @@ export default function SpotlightPromotionPage() {
     </div>
   );
 }
+
+import LocaleAnchor from "@/components/LocaleAnchor";

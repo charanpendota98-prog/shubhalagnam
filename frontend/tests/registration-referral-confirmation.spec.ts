@@ -1,3 +1,4 @@
+import {localeHref} from "./locale-href";
 import {test,expect} from '@playwright/test';
 import {registrationReferralCheck} from '../src/lib/registration-referral-confirmation';
 import fs from 'node:fs';
@@ -14,7 +15,7 @@ for(const lang of ['en','te'])for(const width of [320,390,1280])test(`registrati
  if(path==='/api/referral/validate/MVREFTEST'){reads++;return r.fulfill({json:reads===1?{success:true,ok:false,valid_code:false,code:'MVREFTEST'}:{...valid,bonus_credits:0}});}
  if(path==='/api/auth/capabilities')return r.fulfill({json:{password_login:true,login_identifier:'phone',phone_otp:false,email_recovery_configured:true,passkeys_configured:false,email_optional_at_registration:true}});
  return r.fulfill({json:{success:true,castes:['Kapu'],items:[]}});});
- await page.goto('/register?ref=MVREFTEST');const banner=page.getByTestId('registration-referral-banner');await expect(banner).toContainText(lang==='en'?'Bonus request-credit eligibility is not confirmed.':'అర్హత ఇంకా నిర్ధారణ కాలేదు.');await expect(banner).not.toContainText('999');await expect(banner).not.toContainText('Fixture Referrer');await banner.screenshot({path:`artifacts/registration-referral-confirmation/error-${lang}-${width}.png`});
+ await page.goto(localeHref('/register?ref=MVREFTEST',lang));const banner=page.getByTestId('registration-referral-banner');await expect(banner).toContainText(lang==='en'?'Bonus request-credit eligibility is not confirmed.':'అర్హత ఇంకా నిర్ధారణ కాలేదు.');await expect(banner).not.toContainText('999');await expect(banner).not.toContainText('Fixture Referrer');await banner.screenshot({path:`artifacts/registration-referral-confirmation/error-${lang}-${width}.png`});
  const retry=banner.getByRole('button',{name:lang==='en'?'Check the code again':'కోడ్‌ను మళ్లీ తనిఖీ చేయండి',exact:true});await retry.click();await expect(banner).toContainText(lang==='en'?'You can register without a referral.':'సిఫార్సు లేకుండానే నమోదు చేసుకోవచ్చు.');await retry.click();await expect(banner).toContainText('Fixture Referrer');await expect(banner).toContainText(lang==='en'?'Bonus request credits: 0':'అదనపు పరిచయ అభ్యర్థనలు: 0');await expect(banner).not.toContainText('+1');await expect(retry).toHaveCount(0);await banner.screenshot({path:`artifacts/registration-referral-confirmation/confirmed-${lang}-${width}.png`});
  await page.reload();await expect(banner).toContainText('Fixture Referrer');expect(reads).toBe(3);expect(writes).toEqual(['/api/referral/click/MVREFTEST']);expect(errors).toEqual([]);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
 });

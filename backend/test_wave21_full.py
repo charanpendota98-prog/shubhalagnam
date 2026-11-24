@@ -133,11 +133,11 @@ def read(rel):
     return src_page(os.path.join("frontend", rel))
 
 
-rp = read("src/app/referral/page.tsx")
+rp = read("src/app/(telugu)/referral/page.tsx")
 # 🧾 R13: own-referral rows show first name + reward *status* (no per-referral cash column).
 check("E1 joins show name + reward status (no invented commission)",
       "r.name" in rp and "r.paid" in rp and "No qualifying payment recorded" in rp)
-pp = read("src/app/referral/register/page.tsx")
+pp = read("src/app/(telugu)/referral/register/page.tsx")
 # 🔒 R13: the public partner feed is anonymous — join number + reward state only.
 check("E2 partner joins anonymous (join_no + reward state)",
       "j.join_no" in pp and "j.paid" in pp and "Anonymous referral activity" in pp)
@@ -146,7 +146,7 @@ check("E3 admin pay-full button + endpoint", "Pay ₹" in ar and "zero" in ar an
 wc = read("src/components/WANumbersConsole.tsx")
 check("E4 WA queue strip (worker/queue/sent/gaps)",
       all(k in wc for k in ("worker_running", "sent_total", "failed_total", "min_gap_otp")))
-reg = read("src/app/register/page.tsx")
+reg = read("src/app/(telugu)/register/page.tsx")
 check("E5 autofill chain intact", all(k in reg for k in ("register_direct", "tsap_ref_from_link", "tsap_click_fired")))
 import inspect as _insp
 import main as M

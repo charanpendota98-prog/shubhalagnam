@@ -1,3 +1,4 @@
+import {localeHref} from "./locale-href";
 import {test,expect} from '@playwright/test';
 import fs from 'node:fs';
 
@@ -7,7 +8,7 @@ for(const lang of ['en','te'])for(const width of [320,390,1280])for(const religi
     await page.setViewportSize({width,height:1000});
     await page.addInitScript(l=>{localStorage.setItem('tsap_lang',l);(window as any).__shares=[];window.open=(url)=>{(window as any).__shares.push(String(url));return null;};},lang);
     await page.route('**/api/**',route=>{if(route.request().method()!=='GET'){writes++;return route.abort();}return route.fulfill({json:{success:true,items:[]}});});
-    await page.goto('/biodata');
+    await page.goto(localeHref('/biodata',lang));
     const choice=page.locator('#biodata-religion'),canvas=page.locator('#biodata-canvas');
     const jpg=page.getByRole('button',{name:te?'HD JPG డౌన్‌లోడ్ చేయండి':'Download HD JPG',exact:true});
     const share=page.getByRole('button',{name:te?'WhatsAppలో పంచుకోండి':'Share on WhatsApp',exact:true});
