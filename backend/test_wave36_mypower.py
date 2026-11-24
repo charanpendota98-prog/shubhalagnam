@@ -107,7 +107,7 @@ try:
     _msrc = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "main.py"), encoding="utf-8").read()
     gone = [route for route in LEGACY_ROUTES if route.rstrip("/") not in _msrc]
     check("R1d retired routes still exist server-side for API compatibility", not gone, gone)
-    check("R1b /me page exists", os.path.exists(os.path.join(FRONT, "app", "me", "page.tsx")))
+    check("R1b /me page exists", os.path.exists(os.path.join(FRONT, "app", "(telugu)", "me", "page.tsx")))
     check("R1c TopPicks + RasiChart exist",
           os.path.exists(os.path.join(FRONT, "components", "TopPicks.tsx"))
           and os.path.exists(os.path.join(FRONT, "components", "RasiChart.tsx")))
