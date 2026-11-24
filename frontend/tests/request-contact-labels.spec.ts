@@ -14,7 +14,7 @@ for(const lang of ['en','te'])for(const width of [320,390,1280])test(`request co
  await expect(page.getByText('SHOULD_NOT_RENDER',{exact:true})).toHaveCount(0);
  await expect(page.getByText(lang==='en'?'After acceptance':'ఆమోదం తర్వాత',{exact:true})).toHaveCount(4);
  await expect(page.getByText('90••••••01').first()).toBeVisible();await expect(page.getByRole('link',{name:lang==='en'?/View contact QR/:/Contact QR/})).toHaveCount(1);await expect(page.getByRole('link',{name:lang==='en'?/View contact QR/:/Contact QR/})).toHaveAttribute('href',/\?contact=qr$/);
- // A 150px minimum leaves the profile summary readable at320px, guarding the old narrow name column.
+ // A 150px minimum leaves the profile summary readable at 320px, guarding the old narrow name column.
  const accepted=page.locator('.mv-card').filter({has:page.getByText('Isolated Bride (28y)',{exact:true})});const name=accepted.getByText('Isolated Bride (28y)',{exact:true});expect(await name.evaluate(e=>e.getBoundingClientRect().width)).toBeGreaterThan(150);await expect(accepted.getByRole('link',{name:/Contact QR|contact QR/}).locator('svg')).toHaveCount(1);await expect(accepted.getByRole('link',{name:/Contact QR|contact QR/}).locator('svg')).toHaveAttribute('focusable','false');expect(await accepted.innerText()).not.toContain('📇');
  await expect(page.getByText(lang==='en'?'Withdrawn':'రద్దు చేయబడింది',{exact:true})).toBeVisible();
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBeTruthy();
