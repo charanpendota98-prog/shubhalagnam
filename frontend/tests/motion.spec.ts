@@ -44,15 +44,15 @@ async function scrollThrough(page: Page) {
   await page.evaluate(async () => {
     let height = 0;
     for (let pass = 0; pass < 4; pass += 1) {
-      for (let y = 0; y < document.body.scrollHeight; y += 400) {
-        window.scrollTo(0, y);
+      for (let y = 0; y < document.body.scrollHeight; y += Math.min(200, Math.floor(innerHeight/4))) {
+        window.scrollTo({top:y,behavior:"instant"});
         await new Promise((resolve) => setTimeout(resolve, 55));
       }
       await new Promise((resolve) => setTimeout(resolve, 300));
       if (document.body.scrollHeight === height) break;
       height = document.body.scrollHeight;
     }
-    window.scrollTo(0, document.body.scrollHeight);
+    window.scrollTo({top:document.body.scrollHeight,behavior:"instant"});
   });
   await page.waitForTimeout(1200);
 }
@@ -101,7 +101,7 @@ for (const viewport of VIEWPORTS) {
         await settle(page);
         await scrollThrough(page);
 
-        const stuck = await page.evaluate(() =>
+        const stuck = () => page.evaluate(() =>
           [...document.querySelectorAll<HTMLElement>(".reveal")]
             .filter((element) => Number(getComputedStyle(element).opacity) < 0.95)
             .map((element) => ({
@@ -109,7 +109,7 @@ for (const viewport of VIEWPORTS) {
               top: Math.round(element.getBoundingClientRect().top),
             })),
         );
-        expect(stuck, `${route} at ${viewport.name}px left ${stuck.length} sections invisible`).toEqual([]);
+        await expect.poll(stuck, {message:`${route} at ${viewport.name}px must reveal every section`,timeout:5000}).toEqual([]);
       }
     });
 

@@ -43,3 +43,11 @@ Read-only production measurement: 1,552,621,568 bytes and 5,022,243 inodes avail
 - Typecheck passes; full lint rerun pending these test-only edits. Nothing pushed or deployed.
 - Visual contact sheet /downloads/locale-regression-contact.jpg inspected, English private note card and Telugu pending-contact/home layouts readable, no overflow. Parent to receive pixels.
 - Run batches separately in one command, do not concatenate two ~100-second runners into one 120-second call. An interrupted runner once left a local server/process group; terminated. Current helper cleans up within bounded runs.
+
+## Continuation at 19:53 IST
+- About 825/1845 checked. /tmp/locale-batch.py now matches full describe/file/title to avoid repeating duplicate titled motion tests. Unique-ID progress still authoritative; older count includes imported logs and one skipped dedicated-package case.
+- English home-workspace exact search label corrected (leading search icon), all six homepage variants pass. Matches preview view/contact accessible names updated after bundled SVG replacement, all six pass. All core menu and menu-session variants pass with explicit locale href loops.
+- Full frontend lint/static/security rerun green before the last test-only motion/fixture changes. Production build unchanged since caste metadata fix, typecheck rerun needed after latest tests.
+- Motion sweep initially failed because CSS smooth scroll skipped sections; test now uses instant max200px sweep and polls final visibility. Mobile320/390 pass. Desktop1280 remains UNRESOLVED: one reveal near document bottom (top -142 at final position) stays hidden in some runs. Single isolated desktop run passed once, later integrated runs failed. Do not weaken assertions or mark passed. Inspect actual bottom-of-page reveal and whether scrolling skips its short intersection window or app observer has a defect. /tmp/reveal-inspect.cjs and /tmp/reveal-run.py assist, latest failed error recorded in progress JSONL. Parent should be told unresolved, no production claim.
+- Old8 hero-artwork cases still excluded only in local runner, not removed or passed. Need review of replacement coverage.
+- Nothing pushed/deployed, no production writes. PR202 live, PR201 held.

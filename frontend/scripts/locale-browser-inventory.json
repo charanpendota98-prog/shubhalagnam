@@ -1320,5 +1320,21 @@
   {
     "file": "tests/home-workspace-preview.spec.ts",
     "decision": "Old wedding-gallery carousel replaced by current motion images; active motion has dedicated full suite. English advanced-search accessible-label fixture remains unresolved."
+  },
+  {
+    "file": "tests/home-workspace-preview.spec.ts",
+    "decision": "English accessible name includes search icon, exact-label fixture corrected; all six cases pass."
+  },
+  {
+    "file": "tests/matches-workspace-preview.spec.ts",
+    "decision": "View/contact accessible names now use bundled SVG instead of text emoji; exact labels updated, all six cases pass."
+  },
+  {
+    "file": "tests/menu-core-destinations.spec.ts",
+    "decision": "Menu href loop and home URL explicitly use current locale; all core and session variants pass."
+  },
+  {
+    "file": "tests/motion.spec.ts",
+    "decision": "Scroll sweep uses instant 200px max steps to avoid CSS smooth-scroll skipping sections; visibility assertion now polls final transition. Desktop still has one unresolved low-opacity visible element; not passed."
   }
 ]
