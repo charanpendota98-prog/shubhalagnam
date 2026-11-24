@@ -2,8 +2,8 @@ import {localeHref} from "./locale-href";
 import {test,expect,type Page} from '@playwright/test';
 import fs from 'node:fs';
 fs.mkdirSync('artifacts/registration-passkey',{recursive:true});
-async function register(page:Page,mode:'off'|'on'|'error'|'malformed',lang:string='en'){
- await page.addInitScript(l=>localStorage.setItem('tsap_lang',l),lang);
+async function register(page:Page,mode:'off'|'on'|'error'|'malformed'){
+ await page.addInitScript(()=>localStorage.setItem('tsap_lang','en'));
  let passkeyWrites=0;
  await page.route('**/api/**',r=>{const path=new URL(r.request().url()).pathname;
   if(path==='/api/auth/capabilities')return r.fulfill({status:mode==='error'?503:200,json:mode==='malformed'?{success:true}:{password_login:true,login_identifier:'phone',phone_otp:false,email_recovery_configured:false,passkeys_configured:mode==='on',email_optional_at_registration:true}});
@@ -11,11 +11,11 @@ async function register(page:Page,mode:'off'|'on'|'error'|'malformed',lang:strin
   if(path==='/api/register')return r.fulfill({json:{success:true,tsap_id:'SYN-GATE',card_url:'',phone_verified:false,is_approved:false,plan:'FREE',credits:3,email_verify:{required:false}}});
   return r.fulfill({json:{success:true,castes:['Kapu'],districts:['Hyderabad'],items:[]}});
  });
- await page.goto(localeHref('/register',lang));await page.getByRole('button',{name:/Bride|వధువు/}).click();await page.getByLabel(lang==='en'?'Full Name':'పూర్తి పేరు (Full Name)',{exact:false}).fill('Synthetic Capability Test');await page.locator('input[type=date]').fill('1998-01-01');await page.locator('#quick-religion').selectOption('Hindu');
- await page.getByRole('button',{name:/Select a community|కులం \/ సంఘం ఎంచుకోండి/}).click();await page.getByRole('button',{name:lang==='en'?'Kapu':'కాపు (Kapu)',exact:true}).click();await page.getByLabel(lang==='en'?'State':'రాష్ట్రం',{exact:true}).selectOption('TS');await page.getByRole('button',{name:/Select a district|జిల్లా ఎంచుకోండి/}).click();await page.getByRole('button',{name:/Hyderabad|హైదరాబాద్/}).click();
- await page.getByLabel(lang==='en'?'Mobile number (10 digits)':'10 అంకెల మొబైల్ (WhatsApp Number)',{exact:false}).fill('9000000001');await page.getByLabel(lang==='en'?'Password (minimum 6 characters)':'పాస్‌వర్డ్ (కనీసం 6 అక్షరాలు)',{exact:true}).fill('synthetic-test-only');
- await page.getByLabel(lang==='en'?'Choose a photo from your gallery':'గ్యాలరీ నుంచి ఫోటో ఎంచుకోండి',{exact:true}).setInputFiles('tests/fixtures/synthetic-profile.jpg');await page.getByRole('checkbox',{name:/I have permission to upload this photo|ఈ ఫోటోను అప్‌లోడ్ చేయడానికి నాకు అనుమతి ఉంది/}).check();await page.locator('#registration-consent').check();
- await page.getByRole('button',{name:lang==='en'?'Create my profile in 1 minute':'1 నిమిషంలో నా ప్రొఫైల్ సృష్టించండి',exact:false}).click();await expect(page.getByRole('heading',{name:lang==='en'?'Registration Successful!':'నమోదు విజయవంతంగా పూర్తయింది!',exact:true})).toBeVisible();return()=>passkeyWrites;
+ await page.goto(localeHref('/register','en'));await page.getByRole('button',{name:/Bride/}).click();await page.getByLabel('Full Name',{exact:false}).fill('Synthetic Capability Test');await page.locator('input[type=date]').fill('1998-01-01');await page.locator('#quick-religion').selectOption('Hindu');
+ await page.getByRole('button',{name:/Select a community/}).click();await page.getByRole('button',{name:'Kapu',exact:true}).click();await page.getByLabel('State',{exact:true}).selectOption('TS');await page.getByRole('button',{name:/Select a district/}).click();await page.getByRole('button',{name:'Hyderabad',exact:true}).click();
+ await page.getByLabel('Mobile number (10 digits)',{exact:false}).fill('9000000001');await page.getByLabel('Password (minimum 6 characters)',{exact:true}).fill('synthetic-test-only');
+ await page.getByLabel('Choose a photo from your gallery',{exact:true}).setInputFiles('tests/fixtures/synthetic-profile.jpg');await page.getByRole('checkbox',{name:/I have permission to upload this photo/}).check();await page.locator('#registration-consent').check();
+ await page.getByRole('button',{name:'Create my profile in 1 minute',exact:false}).click();await expect(page.getByRole('heading',{name:'Registration Successful!',exact:true})).toBeVisible();return()=>passkeyWrites;
 }
 
 
@@ -23,7 +23,7 @@ for(const lang of ['en','te'])for(const width of [320,390,1280])test(`registrati
  await page.setViewportSize({width,height:900});
  await page.addInitScript(()=>{const bytes=new Uint8Array([97]).buffer;Object.defineProperty(navigator.credentials,'create',{configurable:true,value:async()=>({id:'fictional',rawId:bytes,type:'public-key',response:{attestationObject:bytes,clientDataJSON:bytes,getTransports:()=>[]}})});});
  const dialogs:string[]=[];page.on('dialog',async d=>{dialogs.push(d.message());await d.dismiss()});
- await register(page,'on',lang);
+ await register(page,'on');if(lang==='te')await page.getByRole('button',{name:'తెలుగులో చూపించండి',exact:true}).click();
  let status=500,body:any={success:true},calls=0;let release:()=>void=()=>{};let pending:Promise<void>|null=null;let stall=false;
  await page.route('**/api/auth/passkey/register/*',async r=>{const p=new URL(r.request().url()).pathname;calls++;if(stall)return;
  if(p.endsWith('/begin'))return r.fulfill({json:{success:true,challenge_id:'fictional',options:{challenge:'YQ',user:{id:'YQ'},rp:{name:'Fixture',id:'localhost'},pubKeyCredParams:[{type:'public-key',alg:-7}]}}});

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Image from "next/image";
 import { useLang } from "@/lib/lang";
 import { apiDisplayMessage, authHeaders, readApiJson} from "@/lib/api";
@@ -129,8 +129,14 @@ export default function QuickUnlockModal({
     }
   };
 
+  // Language and parent callback changes must not restart a consent/payment workflow.
+  const workflowContext = useRef({ target, te, onUnlocked });
+  useEffect(() => { workflowContext.current = { target, te, onUnlocked }; }, [target, te, onUnlocked]);
+  const targetId = target?.tsap_id;
+
   // A full contact reveal is possible only when an accepted interest grants consent.
   const attemptDirectUnlock = useCallback(async () => {
+    const { target, te, onUnlocked } = workflowContext.current;
     const vid = getViewerId();
     if (!vid || !target) return;
     setBusy(true);
@@ -161,10 +167,10 @@ export default function QuickUnlockModal({
     } finally {
       setBusy(false);
     }
-  }, [target, te, onUnlocked]);
+  }, []);
 
   useEffect(() => {
-    if (isOpen && target) {
+    if (isOpen && targetId) {
       setUnlockedPhone("");
       setSuccessMsg("");
       setErrorMsg("");
@@ -172,7 +178,7 @@ export default function QuickUnlockModal({
       setPaymentComplete(false);
       attemptDirectUnlock();
     }
-  }, [isOpen, target, attemptDirectUnlock]);
+  }, [isOpen, targetId, attemptDirectUnlock]);
 
   if (!isOpen || !target) return null;
 

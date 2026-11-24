@@ -773,8 +773,13 @@ function Wizard() {
   const [savedAt, setSavedAt] = useState<string>("");
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState("");
-  const [photoInfo, setPhotoInfo] = useState("");
-  const [photoError, setPhotoError] = useState("");
+  const [photoSelected, setPhotoSelected] = useState(false);
+  const [photoErrorCode, setPhotoErrorCode] = useState<ProfilePhotoError["code"] | null>(null);
+  const photoInfo = photoSelected ? T(
+    "ఫోటో ఎంపికైంది; ఇంకా ఆమోదించబడలేదు. పంపినప్పుడు నాణ్యతతో పాటు ఒక ముఖం కనిపిస్తుందో తనిఖీ చేస్తాం. సరైన ముఖాన్ని కూడా గుర్తించకపోవచ్చు; సిబ్బంది సమీక్ష ఇంకా అవసరం.",
+    "Selected, not approved. On submission, the server checks image quality and requires one detectable face. Detection can miss a valid portrait; staff review is still required.",
+  ) : "";
+  const photoError = photoErrorCode ? profilePhotoErrorMessage(photoErrorCode, te) : "";
   const [photoPreparing, setPhotoPreparing] = useState(false);
   const [showPw, setShowPw] = useState(false);
   const [refLocked, setRefLocked] = useState("");
@@ -968,20 +973,17 @@ function Wizard() {
   const selectProfilePhoto = async (file?: File) => {
     if (!file) return;
     setPhotoPreparing(true);
-    setPhotoError("");
-    setPhotoInfo("");
+    setPhotoErrorCode(null);
+    setPhotoSelected(false);
     setPhotoFile(null);
     try {
       const prepared = await prepareProfilePhoto(file);
       setPhotoFile(prepared);
-      setPhotoInfo(T(
-        "ఫోటో ఎంపికైంది; ఇంకా ఆమోదించబడలేదు. పంపినప్పుడు నాణ్యతతో పాటు ఒక ముఖం కనిపిస్తుందో తనిఖీ చేస్తాం. సరైన ముఖాన్ని కూడా గుర్తించకపోవచ్చు; సిబ్బంది సమీక్ష ఇంకా అవసరం.",
-        "Selected, not approved. On submission, the server checks image quality and requires one detectable face. Detection can miss a valid portrait; staff review is still required.",
-      ));
+      setPhotoSelected(true);
       setErrs((current) => current.filter((message) => !/(add a clear profile photo|profile photo is required|photo is still being prepared|ప్రొఫైల్ ఫోటోను జోడించండి|ఫోటో సిద్ధమవుతోంది)/i.test(message)));
     } catch (error) {
       const code = error instanceof ProfilePhotoError ? error.code : "encode";
-      setPhotoError(profilePhotoErrorMessage(code, te));
+      setPhotoErrorCode(code);
     } finally {
       setPhotoPreparing(false);
     }
@@ -1172,8 +1174,8 @@ function Wizard() {
     setDraftFound(false);
     setF({ ...DEFAULT_FORM, referral_code: refLocked });
     setPhotoFile(null);
-    setPhotoInfo("");
-    setPhotoError("");
+    setPhotoSelected(false);
+    setPhotoErrorCode(null);
   };
 
   useEffect(() => {

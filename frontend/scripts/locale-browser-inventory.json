@@ -1352,5 +1352,9 @@
   {
     "file": "tests/contact-qr.spec.ts",
     "decision": "Added no-reload/no-extra-redemption assertion for in-place language changes in both languages."
+  },
+  {
+    "file": "tests/locale-state-preservation.spec.ts",
+    "reason": "Parent correction: language switches must preserve form, selected File, result and payment state. Both directions; no duplicate order or consent check."
   }
 ]
