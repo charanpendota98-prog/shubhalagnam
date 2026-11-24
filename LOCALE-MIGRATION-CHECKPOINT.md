@@ -96,3 +96,11 @@ Read-only production measurement: 1,552,621,568 bytes and 5,022,243 inodes avail
 - Inspected bilingual404 pixels and sent parent21:41. Files /downloads/locale-404-proof.jpg; logs /tmp/locale-404-final.log.
 - Regression now1742/1865 (incl1skip), no active failures beyond8heldout obsoletehero and unrun remainder. Restricted operations all6width/languages + emergency key test PASS. Safety/account/shortlist/staticSSR/support checks passed. Current inventory1865 adds3real404 checks.
 - No production changes, no push/PR. PR202live PR201held. Remaining complete regression, legacyhero retirement/replacement, package disposable test, route/profilephoto/Arena/CI/finaldisk/backup/rollback/live.
+
+## Review checkpoint at22:21 IST
+- Full 1865-case discovery inventory has passing evidence across bounded runs. No cases remain held out. This is distributed evidence from several local commits, NOT a single fresh exact-head full-suite run. The prior dedicated-package skip was actually executed separately and passed with real extracted backend auth/cookie sessions, fixture stores and no outside requests.
+- All8 hero cases now target current WeddingPhotoHero with real text-box count assertions, 4.5:1 pixel contrast,6animation stops and reduced motion; no silent retirement. Focused final15 hero/name tests pass.
+- English54route raw inventory passes with lang/canonical/hreflang/main/link checks. Slow4G +4xCPU final sample FCP en2916ms/te2992ms, wrong saved preference supplied, filmstrips retained locally. No universal performance claim. Cross-root privacy toggle3samples978/834/909ms; document replaces. Same-root safety-to-home2162/1707/1787ms; document retained.
+- Full lint/static/security, build and tsc passed after404; test-only final changes typechecked. Fresh CI and final merged artifact gates still required.
+- Package screenshots inspected: blocked view correctly has no contact; accepted view has masked number/QR but capture catches a reveal animation mid-flight. It is not evidence of final card readability. Need settled recapture and broader route/profile-photo visual audit.
+- Production remains PR202; PR201 held. No locale deployment yet.

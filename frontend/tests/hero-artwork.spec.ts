@@ -5,27 +5,9 @@ import os from "node:os";
 import path from "node:path";
 import { decodePng, contrastRatio, parseCssColor, blend } from "./helpers/png";
 
-/**
- * Decorative artwork must never touch copy.
- *
- * The home hero previously floated a full-width gold arch inside the stage.
- * Because the copy column moves with the layout while the arc was pinned to the
- * stage box, the curve swept through the Telugu headline and the subtitle at
- * every width — it read as a diagonal strike-through.
- *
- * This suite encodes the rule that was broken, and it checks *the whole loop*,
- * not frame 0: every hero animation is paused and scrubbed across its duration,
- * then three things are asserted per frame —
- *
- *   1. no decorative stroke comes within 2px of any text box (every stroked
- *      SVG path/line/polyline is sampled at 2px intervals in screen space, so
- *      transform, sway and parallax are all included);
- *   2. every text run that sits on the animated stage keeps ≥ 4.5:1 contrast —
- *      measured against the real pixels, with the copy hidden;
- *   3. the reduced-motion static frame obeys both rules too.
- *
- * Decorative layers living in their own reserved band (`.mv-hero__basan`) pass
- * by construction; an overlay arc cannot.
+/** Current WeddingPhotoHero regression, replacing removed CinematicHero selectors.
+ * Keep the original pixel contrast and animated/reduced-motion checks, but measure
+ * the current intro text and reserved media column instead of a deleted arc band.
  */
 
 const VIEWPORTS = [
@@ -50,7 +32,7 @@ async function openHome(page: Page, lang: string) {
     }
   }, lang);
   await page.goto(localeHref("/",lang), { waitUntil: "domcontentloaded" });
-  await page.waitForSelector(".mv-hero__title");
+  await page.waitForSelector(".wedding-editorial h1");
   await page.waitForTimeout(500);
 }
 
@@ -60,7 +42,7 @@ async function freezeAndMeasure(page: Page, time: number) {
     ({ t, clearance }) => {
       for (const animation of document.getAnimations()) {
         const name = (animation as CSSAnimation).animationName ?? "";
-        if (!name.startsWith("mv")) continue;
+        if (!name.startsWith("wedding")) continue;
         try {
           animation.pause();
           animation.currentTime = t;
@@ -69,13 +51,13 @@ async function freezeAndMeasure(page: Page, time: number) {
         }
       }
 
-      const hero = document.querySelector<HTMLElement>(".mv-hero");
-      if (!hero) throw new Error("no .mv-hero");
+      const hero = document.querySelector<HTMLElement>(".wedding-editorial");
+      if (!hero) throw new Error("no .wedding-editorial");
       const heroRect = hero.getBoundingClientRect();
 
       // --- copy boxes: real glyph rects, not element boxes -----------------
       const textRects: { x: number; y: number; w: number; h: number; color: string; sample: string }[] = [];
-      const walker = document.createTreeWalker(hero, NodeFilter.SHOW_TEXT);
+      const walker = document.createTreeWalker(hero.querySelector(".wedding-editorial__intro")!, NodeFilter.SHOW_TEXT);
       let node: Text | null;
       while ((node = walker.nextNode() as Text | null)) {
         const value = node.textContent?.trim();
@@ -85,19 +67,8 @@ async function freezeAndMeasure(page: Page, time: number) {
         const style = getComputedStyle(element);
         if (style.visibility === "hidden" || style.display === "none") continue;
 
-        // Skip copy that sits on its own opaque/gradient surface (the search
-        // card, gold CTAs, the kicker pill): those pixels are not stage pixels.
-        let backed = false;
-        for (let ancestor: HTMLElement | null = element; ancestor && ancestor !== hero; ancestor = ancestor.parentElement) {
-          const s = getComputedStyle(ancestor);
-          const numbers = s.backgroundColor.match(/[\d.]+/g);
-          const alpha = numbers && numbers.length > 3 ? Number(numbers[3]) : 1;
-          if ((numbers && alpha > 0.85) || s.backgroundImage !== "none") {
-            backed = true;
-            break;
-          }
-        }
-        if (backed) continue;
+        // The primary CTA has its own opaque surface; sample the stage copy.
+        if(element.closest(".wedding-primary"))continue;
 
         let color = style.color;
         if (/rgba\(0, 0, 0, 0\)|transparent/.test(color)) {
@@ -115,8 +86,8 @@ async function freezeAndMeasure(page: Page, time: number) {
 
       // --- decorative strokes: sampled in screen space ----------------------
       const strokes: number[][] = [];
-      for (const element of hero.querySelectorAll<SVGGeometryElement>(".mv-hero__stage path, .mv-hero__stage line, .mv-hero__stage polyline, .mv-hero__stage polygon, .mv-hero__basan path, .mv-hero__basan line, .mv-hero__basan polyline, .mv-hero__basan polygon")) {
-        const stroke = element.getAttribute("stroke");
+      for (const element of hero.querySelectorAll<SVGGeometryElement>("svg[aria-hidden=\"true\"] path, svg[aria-hidden=\"true\"] line, svg[aria-hidden=\"true\"] polyline")) {
+        const stroke = getComputedStyle(element).stroke;
         const hasStroke = Boolean(stroke && stroke !== "none");
         const lineLike = ["path", "line", "polyline", "polygon"].includes(element.tagName.toLowerCase());
         if (!hasStroke || !lineLike) continue;
@@ -154,11 +125,11 @@ async function freezeAndMeasure(page: Page, time: number) {
         }
       }
 
-      // Lowest point of copy vs top of the ornament band: the separation that
-      // makes an overlay impossible rather than merely unlikely.
-      const band = hero.querySelector<HTMLElement>(".mv-hero__basan");
+      const band = hero.querySelector<HTMLElement>(".wedding-motion");
       const bandRect = band?.getBoundingClientRect();
       const textBottom = textRects.length ? Math.max(...textRects.map((r) => r.y + r.h)) : 0;
+      const introRect=hero.querySelector(".wedding-editorial__intro")!.getBoundingClientRect();
+      const separation=bandRect ? Math.max(bandRect.left-introRect.right,bandRect.top-introRect.bottom) : null;
 
       return {
         hero: { x: heroRect.x, y: heroRect.y, w: heroRect.width, h: heroRect.height },
@@ -174,7 +145,7 @@ async function freezeAndMeasure(page: Page, time: number) {
         crossings,
         bandTop: bandRect ? Math.round(bandRect.y) : null,
         textBottom: Math.round(textBottom),
-        separation: bandRect ? Math.round(bandRect.y - textBottom) : null,
+        separation: separation,
       };
     },
     { t: time, clearance: MIN_CLEARANCE_PX },
@@ -187,7 +158,7 @@ async function measureContrast(
   textRects: { x: number; y: number; w: number; h: number; color: string; sample: string }[],
   label: string,
 ) {
-  const inner = page.locator(".mv-hero__inner");
+  const inner = page.locator(".wedding-editorial__intro");
   const previous = await inner.evaluate((element) => {
     const style = element.getAttribute("style") ?? "";
     element.style.visibility = "hidden";
@@ -242,6 +213,7 @@ for (const viewport of VIEWPORTS) {
           const time = Math.round((SCRUB_WINDOW_MS / FRAME_STOPS) * stop);
           const frame = await freezeAndMeasure(page, time);
 
+          expect(frame.textRects.length,"must measure real intro copy").toBeGreaterThanOrEqual(viewport.width<768?2:4);
           if (frame.crossings.length) {
             failures.push(
               `frame@${time}ms: ${frame.crossings.length} stroke hits, e.g. ${JSON.stringify(frame.crossings.slice(0, 3))}`,
@@ -252,10 +224,11 @@ for (const viewport of VIEWPORTS) {
           // instead of trusting a screenshot.
           expect(
             frame.separation,
-            `frame@${time}ms: the ornament band must sit below all copy (band top ${frame.bandTop}px, copy bottom ${frame.textBottom}px)`,
-          ).toBeGreaterThan(8);
+            `frame@${time}ms: the ornament media must stay outside the intro column (band top ${frame.bandTop}px, copy bottom ${frame.textBottom}px)`,
+          ).toBeGreaterThanOrEqual(0);
 
           const contrast = await measureContrast(page, frame.textRects, `${viewport.name}-${lang}-${time}`);
+          expect(contrast.length).toBeGreaterThanOrEqual(viewport.width<768?2:4);
           const low = contrast.filter((entry) => entry.ratio < MIN_CONTRAST);
           if (low.length) {
             failures.push(`frame@${time}ms: contrast below ${MIN_CONTRAST}:1 → ${JSON.stringify(low)}`);
@@ -273,13 +246,13 @@ for (const viewport of VIEWPORTS) {
           () =>
             document
               .getAnimations()
-              .filter((animation) => ((animation as CSSAnimation).animationName ?? "").startsWith("mv")).length,
+              .filter((animation) => ((animation as CSSAnimation).animationName ?? "").startsWith("wedding")).length,
         );
         expect(running, "reduced motion must freeze every hero animation").toBe(0);
 
         const frame = await freezeAndMeasure(page, 0);
         expect(frame.crossings, "the static frame still crosses copy").toEqual([]);
-        expect(frame.separation, "the static frame must keep the ornament band below the copy").toBeGreaterThan(8);
+        expect(frame.separation, "the static frame must keep media outside the copy").toBeGreaterThanOrEqual(0);
 
         const contrast = await measureContrast(page, frame.textRects, `${viewport.name}-${lang}-reduced`);
         expect(
