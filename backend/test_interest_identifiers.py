@@ -1,6 +1,6 @@
 """Request IDs must not collide when the old four-digit RNG repeats."""
-import re
 import unittest
+from types import SimpleNamespace
 from datetime import datetime, timedelta
 from unittest.mock import patch
 import interest
@@ -10,7 +10,7 @@ class RequestIdentifiers(unittest.TestCase):
     def test_repeated_legacy_random_draws_do_not_alias_requests(self):
         sender = {"tsap_id": "ID-TEST-SENDER", "credits": 1}
         owners = [{"tsap_id": "ID-TEST-OWNER-A"}, {"tsap_id": "ID-TEST-OWNER-B"}]
-        with patch.object(interest.random, "randint", return_value=1000):
+        with patch("random.randint", return_value=1000):
             first = interest.create_interest(sender, owners[0])
             second = interest.create_interest(sender, owners[1])
         self.assertNotEqual(first["request_id"], second["request_id"])
@@ -26,6 +26,14 @@ class RequestIdentifiers(unittest.TestCase):
         self.assertEqual(sender["credits"], 2)
         self.assertEqual(interest.expire_old([first, second], [sender]), 0)
         self.assertEqual(sender["credits"], 2)
+
+    def test_encoder_preserves_all_sixteen_symbols(self):
+        symbols = "0123456789abcdef"
+        with patch.object(interest.uuid, "uuid4", return_value=SimpleNamespace(hex=symbols * 2)):
+            suffix = interest._id("REQ").rsplit("-", 1)[1]
+        self.assertEqual(suffix, "abcdefghijklmnop" * 2)
+        self.assertEqual(len(set(suffix)), 16)
+        self.assertTrue(suffix.isalpha())
 
     def test_legacy_ids_remain_valid_for_expiry(self):
         sender = {"tsap_id": "LEGACY-SENDER", "credits": 0}

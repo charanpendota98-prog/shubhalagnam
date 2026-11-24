@@ -34,7 +34,6 @@ Rules (anti-spam + trust):
 from __future__ import annotations
 
 import os
-import random
 import uuid
 import re
 import threading
