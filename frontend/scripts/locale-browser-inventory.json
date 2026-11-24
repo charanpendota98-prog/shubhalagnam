@@ -1284,5 +1284,17 @@
   {
     "file": "tests/owner-command-center.spec.ts",
     "decision": "Photo review link expectation follows explicit locale; fixed-English fixture opens /en/control."
+  },
+  {
+    "file": "tests/briefing-read-integrity.spec.ts",
+    "decision": "Reopen collapsed account activity after cross-root language navigation; keep stale-response assertion."
+  },
+  {
+    "file": "tests/community-discovery-preview.spec.ts",
+    "decision": "Screenshot selector follows explicit locale route."
+  },
+  {
+    "file": "tests/discovery-navigation-preview.spec.ts",
+    "decision": "Home fallback link and final URL assertion follow explicit locale."
   }
 ]

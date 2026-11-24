@@ -24,3 +24,13 @@ Not ready to merge or deploy. Production remains PR202. PR201 is paused.
 
 ## Disk preflight, preliminary local candidate
 Read-only production measurement: 1,552,621,568 bytes and 5,022,243 inodes available. Candidate runtime 108,613,937 bytes / 3363 files; gzip 42,303,067 bytes. PR202 runtime measurement 106,353,193 bytes. Candidate extra runtime about 2.26 MB. Conservative three allocated runtimes + two archives + 128 MiB reserve = 571,576,320 bytes, leaving about 981 MB. These are not final merged-artifact numbers. No production files created or pruned.
+
+## Continuation at 18:45 IST
+- Exact-ID browser progress is in /tmp/locale-regression-progress.jsonl; /tmp/locale-batch.py imports prior successful logs too. Roughly 450/1845 distinct cases checked. This is not full regression. Completed IDs survive bounded runs; 4 workers was slower, keep 2.
+- Real migration defect fixed: English community metadata was replaced by generic directory metadata. English concrete caste wrapper now preserves specific original title/description/caveats/OG/twitter, with English canonical URLs. All 8 community copy cases pass.
+- Briefing test reopens collapsed activity after cross-root document replacement. Stale response remains absent.
+- Community discovery passes all 6 locale/viewport cases after fixing locale screenshot selector.
+- Discovery navigation English cases pass after root URL assertion fix.
+- Discovery utilities preview fixture currently FAILS in both locales before first note assertion. It lacks the response ownership/count fields that newer integrity tests require. Update its fictional payloads to current response contracts, preserving assertions. It was an outdated preview fixture, not evidence to relax application validation. No fixture edit made yet.
+- Full build/typecheck pass after community metadata fix. Full lint was last green immediately before this change; rerun after further changes.
+- Runner helpers: /tmp/locale-batch.py /tmp/locale-progress-reporter.cjs /tmp/local-pw.py. Latest output /tmp/locale-batch-latest.log. Prior completed logs imported in locale-batch.py list. Add /tmp/locale-discovery-nav-fixed.log to that import list, or rerun those 3 checks.
