@@ -34,7 +34,7 @@ Rules (anti-spam + trust):
 from __future__ import annotations
 
 import os
-import random
+import uuid
 import re
 import threading
 from datetime import datetime, timedelta
@@ -267,7 +267,10 @@ def _now() -> datetime:
 
 
 def _id(prefix: str = "REQ") -> str:
-    return f"{prefix}-{datetime.utcnow().strftime('%y%m%d')}-{random.randint(1000, 9999)}"
+    # Map the UUID hex alphabet to letters so an opaque token cannot resemble
+    # a phone number in privacy scans or member-visible notification previews.
+    suffix = uuid.uuid4().hex.translate(str.maketrans("0123456789abcdef", "abcdefghijklmnop"))
+    return f"{prefix}-{datetime.utcnow().strftime('%y%m%d')}-{suffix}"
 
 
 def mask_phone(phone: str) -> str:
