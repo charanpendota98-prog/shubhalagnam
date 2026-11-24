@@ -30,7 +30,7 @@ for (const lang of ["en", "te"] as const) {
     await expect(strip).toContainText("₹150");
     await expect(strip).toContainText("₹400");
     await expect(strip).toContainText("₹200");
-    await expect(strip.getByRole("link")).toHaveAttribute("href", "/referral");
+    await expect(strip.getByRole("link")).toHaveAttribute("href", localeHref("/referral", lang));
     await expect(strip.getByRole("button")).toHaveCount(0);
     await expect(strip).not.toContainText(/earn|guarantee|instant|సంపాదించండి/i);
   });

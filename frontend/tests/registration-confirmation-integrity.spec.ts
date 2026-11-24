@@ -3,13 +3,14 @@ import {test,expect,type Page} from '@playwright/test';
 import fs from 'node:fs';
 import {registrationConfirmation} from '../src/lib/registration-response';
 fs.mkdirSync('artifacts/registration-confirmation',{recursive:true});
-async function fill(page:Page){
- await page.goto(localeHref('/register','en'));await page.getByRole('button',{name:/Bride/}).click();await page.getByLabel('Full Name',{exact:false}).fill('Synthetic Capability Test');await page.locator('input[type=date]').fill('1998-01-01');await page.locator('#quick-religion').selectOption('Hindu');
- await page.getByRole('button',{name:/Select a community/}).click();await page.getByRole('button',{name:'Kapu',exact:true}).click();await page.getByLabel('State',{exact:true}).selectOption('TS');await page.getByRole('button',{name:/Select a district/}).click();await page.getByRole('button',{name:'Hyderabad',exact:true}).click();
- await page.getByLabel('Mobile number (10 digits)',{exact:false}).fill('9000000001');await page.getByLabel('Password (minimum 6 characters)',{exact:true}).fill('synthetic-test-only');
- await page.getByLabel('Choose a photo from your gallery',{exact:true}).setInputFiles('tests/fixtures/synthetic-profile.jpg');await page.getByRole('checkbox',{name:/I have permission to upload this photo/}).check();await page.locator('#registration-consent').check();
+async function fill(page:Page,lang:string){
+ await page.goto(localeHref('/register',lang));await page.getByRole('button',{name:/Bride|వధువు/}).click();await page.getByLabel(lang==='en'?'Full Name':'పూర్తి పేరు (Full Name)',{exact:false}).fill('Synthetic Capability Test');await page.locator('input[type=date]').fill('1998-01-01');await page.locator('#quick-religion').selectOption('Hindu');
+ await page.getByRole('button',{name:/Select a community|కులం \/ సంఘం ఎంచుకోండి/}).click();await page.getByRole('button',{name:lang==='en'?'Kapu':'కాపు (Kapu)',exact:true}).click();await page.getByLabel(lang==='en'?'State':'రాష్ట్రం',{exact:true}).selectOption('TS');await page.getByRole('button',{name:/Select a district|జిల్లా ఎంచుకోండి/}).click();await page.getByRole('button',{name:/Hyderabad|హైదరాబాద్/}).click();
+ await page.getByLabel(lang==='en'?'Mobile number (10 digits)':'10 అంకెల మొబైల్ (WhatsApp Number)',{exact:false}).fill('9000000001');await page.getByLabel(lang==='en'?'Password (minimum 6 characters)':'పాస్‌వర్డ్ (కనీసం 6 అక్షరాలు)',{exact:true}).fill('synthetic-test-only');
+ await page.getByLabel(lang==='en'?'Choose a photo from your gallery':'గ్యాలరీ నుంచి ఫోటో ఎంచుకోండి',{exact:true}).setInputFiles('tests/fixtures/synthetic-profile.jpg');await page.getByRole('checkbox',{name:/I have permission to upload this photo|ఈ ఫోటోను అప్‌లోడ్ చేయడానికి నాకు అనుమతి ఉంది/}).check();await page.locator('#registration-consent').check();
  
 }
+
 const confirmed={tsap_id:'MV1001',card_url:'',credits:4,phone_verified:false,is_approved:false,email_verify:{required:false}};
 
 const invalid = [
@@ -24,7 +25,7 @@ const invalid = [
  {...confirmed,success:false}, {...confirmed,detail:'Contradictory error'},
 ];
 for(const lang of ['en','te'])for(const width of [320,390,1280])test(`unconfirmed registration preserves form and retry key ${lang} ${width}`,async({page})=>{
- await page.setViewportSize({width,height:1000});await page.addInitScript(()=>localStorage.setItem('tsap_lang','en'));
+ await page.setViewportSize({width,height:1000});await page.addInitScript(l=>localStorage.setItem('tsap_lang',l),lang);
  let response:any=invalid[0],status=200;const keys:string[]=[];let otherWrites=0;
  await page.route('**/api/**',async r=>{const p=new URL(r.request().url()).pathname;
   if(p==='/api/register'){const raw=r.request().postDataBuffer()?.toString()||'';keys.push(raw.match(/name="registration_key"\r\n\r\n([^\r]+)/)?.[1]||'');return status===204?r.fulfill({status:204,body:''}):r.fulfill({status,json:response});}
@@ -32,8 +33,7 @@ for(const lang of ['en','te'])for(const width of [320,390,1280])test(`unconfirme
   if(p==='/api/auth/capabilities')return r.fulfill({json:{password_login:true,login_identifier:'phone',phone_otp:false,email_recovery_configured:false,passkeys_configured:false,email_optional_at_registration:true}});
   return r.fulfill({json:{success:true,castes:['Kapu'],districts:['Hyderabad'],items:[]}});
  });
- await fill(page);await expect.poll(()=>page.evaluate(()=>!!localStorage.getItem('shubhalagnam_reg_draft_v6'))).toBe(true);
- if(lang==='te')await page.getByRole('button',{name:'తెలుగులో చూపించండి',exact:true}).click();
+ await fill(page,lang);await expect.poll(()=>page.evaluate(()=>!!localStorage.getItem('shubhalagnam_reg_draft_v6'))).toBe(true);
  const submit=page.getByRole('button',{name:lang==='en'?'Create my profile in 1 minute':'1 నిమిషంలో నా ప్రొఫైల్ సృష్టించండి',exact:false});
  // One full rejection matrix on laptop, plus both language/phone layouts and safe retry in every case.
  const responses=lang==='en'&&width===1280?invalid:invalid.slice(0,2);

@@ -59,3 +59,12 @@ Read-only production measurement: 1,552,621,568 bytes and 5,022,243 inodes avail
 - Motion visibility sweep passes all3 viewports after explicitly scrolling each remaining unrevealed block into view; original coarse sweep could skip short sections during reflow. No app visibility code modified.
 - About 974/1849 checked including one dedicated-package skip, exact IDs/log imports in runner. Old8 CinematicHero cases still excluded locally only, review needed. Full regression still unfinished.
 - Current checkpoints were local only, no push/PR/deploy. Production remains PR202, PR201 held. All prior remaining route/profile-photo/Arena/CI/disk/backup/rollback/live gates still apply.
+
+## Continuation at 20:57 IST
+- Roughly1364/1849 checked including prior skip. Exact ledger remains /tmp/locale-regression-progress.jsonl. No application changes during this run.
+- Scoped assertion corrections: referral-highlight English href and positive-referral redirect both use localeHref; affected tests pass.
+- Registration confirmation/email-confirmation/resend/passkey fixtures now fill each target locale directly. Previously toggling after selecting a photo or successful registration reloaded the public route and correctly cleared volatile state. Both-language flows now pass; no app state persistence semantics changed.
+- Email-confirmation screenshot captures result root rather than racing scrollY anchoring; safety/retry assertions retained. TypeScript passed before newest result-portability fixture edit.
+- Last batch result-portability en320 failed old unprefixed href assertion. Updated that exact href and direct locale fill using same proven helper, NOT YET RUN. Need run next.
+- Eight old hero-artwork cases still held out. Inspected replacement current-wedding-hero and hero-wedding-motion coverage: reduced motion, layouts/caption overlap, assets and video controls covered, old geometric stroke/pixel contrast assertions target removed CinematicHero. Need explicit retirement/replacement review, not silent skip.
+- No push/PR/deploy; PR202 remains live, PR201 held. All remaining gates from20:22 apply.
