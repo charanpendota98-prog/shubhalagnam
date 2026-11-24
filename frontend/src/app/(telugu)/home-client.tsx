@@ -3,7 +3,7 @@
 import "./home-workspace.css";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
+import Link from "@/components/LocaleLink";
 import Reveal from "@/components/Reveal";
 import { Badge, Button, Card, CardBody } from "@/components/ui";
 import ProfilesOfTheDay from "@/components/ProfilesOfTheDay";

@@ -1,0 +1,2 @@
+import type {Metadata} from "next";import {getLocalizedPageMetadata} from "@/lib/metadata-i18n";import {localeHref,type RouteLocale} from "@/lib/locale-path";
+export function localeMetadata(path:string,lang:RouteLocale):Metadata {const c=getLocalizedPageMetadata(path,lang);return {title:c?.title,description:c?.description,alternates:{canonical:localeHref(path,lang),languages:{"te-IN":path,"en-IN":localeHref(path,"en"),"x-default":path}}};}

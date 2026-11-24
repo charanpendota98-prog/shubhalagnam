@@ -1,5 +1,5 @@
 "use client";
-import Link from "next/link";
+import Link from "@/components/LocaleLink";
 import { usePathname } from "next/navigation";
 import { useLang } from "@/lib/lang";
 import { Home, HeartHandshake, Wallet, Gift, UserCircle2, type LucideIcon } from "lucide-react";

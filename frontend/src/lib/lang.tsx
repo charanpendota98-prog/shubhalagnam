@@ -4,16 +4,13 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useS
 import { usePathname } from "next/navigation";
 import { getLocalizedPageMetadata } from "@/lib/metadata-i18n";
 
+import {baseLocalePath,localeHref} from "@/lib/locale-path";
 export type Lang = "te" | "en";
 const STORE_KEY = "tsap_lang";
 const EVENT_NAME = "manavivaha:language";
 
 let currentLang: Lang = "te";
 export function getLang(): Lang { return currentLang; }
-
-function validLang(value: unknown): value is Lang {
-  return value === "te" || value === "en";
-}
 
 function applyDocumentLanguage(lang: Lang) {
   currentLang = lang;
@@ -31,7 +28,7 @@ function LocalizedHeadMetadata({ lang }: { lang: Lang }) {
 
   useEffect(() => {
     if (!pathname) return;
-    const copy = getLocalizedPageMetadata(pathname, lang);
+    const copy = getLocalizedPageMetadata(baseLocalePath(pathname), lang);
     if (!copy) return; // Preserve profile-specific and other server-generated metadata.
 
     document.title = copy.title;
@@ -55,8 +52,8 @@ function LocalizedHeadMetadata({ lang }: { lang: Lang }) {
   return null;
 }
 
-export function LangProvider({ children }: { children: React.ReactNode }) {
-  const [lang, setLangState] = useState<Lang>("te");
+export function LangProvider({ children, initialLang = "te" }: { children: React.ReactNode; initialLang?: Lang }) {
+  const [lang, setLangState] = useState<Lang>(initialLang);
 
   const update = useCallback((next: Lang, persist: boolean) => {
     applyDocumentLanguage(next);
@@ -67,22 +64,13 @@ export function LangProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    let initial: Lang = "te";
-    try {
-      const saved = localStorage.getItem(STORE_KEY);
-      if (validLang(saved)) initial = saved;
-    } catch { /* use Telugu default */ }
-    update(initial, false);
-
-    // Keep multiple open tabs/windows in the same selected language.
-    const onStorage = (event: StorageEvent) => {
-      if (event.key === STORE_KEY && validLang(event.newValue)) update(event.newValue, false);
-    };
-    window.addEventListener("storage", onStorage);
-    return () => window.removeEventListener("storage", onStorage);
-  }, [update]);
+    update(initialLang, false);
+  }, [initialLang, update]);
 
   const setLang = useCallback((next: Lang) => {
+    try {localStorage.setItem(STORE_KEY,next);} catch { /* storage can be disabled */ }
+    const target=localeHref(window.location.pathname,next)+window.location.search+window.location.hash;
+    if (target!==window.location.pathname+window.location.search+window.location.hash) {window.location.assign(target);return;}
     update(next, true);
     window.dispatchEvent(new CustomEvent(EVENT_NAME, { detail: { lang: next } }));
   }, [update]);

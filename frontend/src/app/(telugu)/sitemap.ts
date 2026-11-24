@@ -71,5 +71,5 @@ export default function sitemap(): MetadataRoute.Sitemap {
     priority: 0.78,
   }));
 
-  return [...base, ...seo, ...districtSeo, ...blog];
+  return [...base.map(r=>[`${SITE}/`,`${SITE}/safety`].includes(r.url)?{...r,alternates:{languages:{"te-IN":r.url,"en-IN":r.url===`${SITE}/`?`${SITE}/en`:`${SITE}/en/safety`,"x-default":r.url}}}:r), ...base.filter(r=>[`${SITE}/`,`${SITE}/safety`].includes(r.url)).map(r=>({...r,url:r.url===`${SITE}/`?`${SITE}/en`:`${SITE}/en/safety`,alternates:{languages:{"te-IN":r.url,"en-IN":r.url===`${SITE}/`?`${SITE}/en`:`${SITE}/en/safety`,"x-default":r.url}}})), ...seo, ...districtSeo, ...blog];
 }

@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
-import "./globals.css";
+import "@/app/globals.css";
+import LegacyLanguageHint from "@/components/LegacyLanguageHint";
 import SiteHeader from "@/components/SiteHeader";
 import SiteFooter from "@/components/SiteFooter";
 import StickyCTA from "@/components/StickyCTA";
@@ -122,29 +123,23 @@ export const viewport: Viewport = {
   themeColor: "#7A0C2E",
 };
 
-export default function RootLayout({
-  children,
+export default function SiteShell({
+  children, initialLang = "te",
 }: Readonly<{
-  children: React.ReactNode;
+  children: React.ReactNode; initialLang?: "te" | "en";
 }>) {
   return (
-    <html lang="te-IN" suppressHydrationWarning>
-      <head>
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `(function(){try{var l=localStorage.getItem('tsap_lang');if(l!=='en'&&l!=='te')l='te';var r=document.documentElement;r.lang=l==='en'?'en-IN':'te-IN';r.dataset.lang=l;}catch(e){}})();`,
-          }}
-        />
-      </head>
+    <html lang={initialLang === "en" ? "en-IN" : "te-IN"}>
       <body className="antialiased min-h-dvh flex flex-col wedding-editorial-theme">
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: serializeJsonLd(SITE_JSON_LD) }}
         />
-        <LangProvider>
+        <LangProvider initialLang={initialLang}>
           <a href="#main-content" className="skip-link">Skip to main content</a>
           <SiteAmbience />
           <SiteHeader />
+          <LegacyLanguageHint />
           <main id="main-content" className="flex-1" tabIndex={-1}><RouteFrame>{children}</RouteFrame></main>
           <SupportWidget />
           <SiteFooter />

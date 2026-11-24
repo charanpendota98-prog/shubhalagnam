@@ -1,5 +1,5 @@
 "use client";
-import Link from "next/link";
+import Link from "@/components/LocaleLink";
 import { useLang } from "@/lib/lang";
 import { CHANNEL_STATS } from "@/lib/channels";
 import { SITE_CONFIG } from "@/lib/site-config";
