@@ -80,3 +80,12 @@ Read-only production measurement: 1,552,621,568 bytes and 5,022,243 inodes avail
 - New inventory1862 (1849+13), exact list refreshed before final screenshot-line insertion only. Existing progress ~1364 plus dedicated checks, final count must recompute. New tests added visual script and explicit inventory.
 - Logs /tmp/locale-state-all.log, /tmp/locale-restored-midflow-a.log and -b.log, /tmp/locale-state-token-routing.log (8URL/token cases PASS). Photo evidence /downloads/locale-selected-photo-proof.jpg delivered to parent separately.
 - No push/PR/deploy. Regression still unfinished, eight legacy hero tests and dedicated package skip unresolved. Re-run final gates after app correction, not assume earlier results all current.
+
+## Continuation at21:31 IST
+- bbe8af8 latest committed app fix. Full lint/static/security now PASS after final photo-status localization; production build/typecheck PASS. Parent received detailed correction and inspected photo proof at21:17.
+- Full regression approx1527/1862 including skip; exact ledger and imported logs. New13 state tests pass. Original12 Telugu mid-flow toggle tests pass (restored). Need final exact-head broader regression, not pretend earlier batches all on latest app.
+- Scoped later fixture fixes: request-credit-policy hardcoded3196 origin corrected to VISUAL_BASE_URL and stale Telugu labels matched existing source (all6 PASS); requests-error boundary moved source path + localized link stub/URL (all6 PASS); requests-secondary saved href locale mapping (all3 en PASS).
+- Latest pending: resilience-presentation assumes an English toggle exists for unknown English page. localeHref deliberately leaves unknown route unprefixed, no English 404 wrapper exists (only telugu/not-found.tsx). Need investigate and provide proper /en missing-page rendering/links rather than waive language defect. Its3en cases fail no toggle. Do not blindly alter expectation.
+- restricted-operations en320 failed remaining unprefixed login assertion. Corrected exact assertion to localeHref, NOT YET RUN. Need all6 restricted suites.
+- Uncommitted four fixture files pending checkpoint. Typecheck PASS after these. No app changes since bbe8af8.
+- Remaining8 legacy hero and1package skip unresolved. Remaining full route/profile photo/Arena/CI/final artifact disk/backup/rollback/live gates unchanged. No push/PR/deploy; PR202live, PR201held.

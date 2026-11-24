@@ -10,12 +10,13 @@ import {renderToStaticMarkup} from 'react-dom/server';
 // Render the real shared boundary in isolation. Invalid API data must now stay
 // inside its own panel, so it is no longer a legitimate way to crash this page.
 function boundaryMarkup(lang:string){
- const source=fs.readFileSync(path.resolve('src/app/error.tsx'),'utf8');
+ const source=fs.readFileSync(path.resolve('src/app/(telugu)/error.tsx'),'utf8');
  const code=ts.transpileModule(source,{compilerOptions:{jsx:ts.JsxEmit.ReactJSX,module:ts.ModuleKind.CommonJS,esModuleInterop:true}}).outputText;
  const mod={exports:{} as any};
  vm.runInNewContext(code,{module:mod,exports:mod.exports,require:(id:string)=>{
   if(id==='@/lib/lang')return {useLang:()=>({lang})};
   if(id==='@/lib/site-config')return {SITE_CONFIG:{supportLink:''}};
+  if(id==='@/components/LocaleLink')return {__esModule:true,default:({children,href,...props}:any)=>React.createElement('a',{...props,href:localeHref(href,lang)},children)};
   if(id==='next/link')return {__esModule:true,default:({children,...props}:any)=>React.createElement('a',props,children)};
   return require(id);
  }});
@@ -55,6 +56,6 @@ for(const lang of ['en','te'])for(const width of [320,390,1280]){
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
   fs.mkdirSync('artifacts/requests-error-portability',{recursive:true});
   await page.screenshot({path:`artifacts/requests-error-portability/${lang}-${width}.png`});
-  await home.click();await expect(page).toHaveURL(/\/$/);
+  await home.click();await expect(page).toHaveURL(new RegExp(lang==='en'?'/en$':'/$'));
  });
 }
